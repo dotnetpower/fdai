@@ -290,6 +290,8 @@ class DirectApiShadowExecutor:
                 )
 
             request = _build_direct_api_request(action)
+            if action.mode is Mode.ENFORCE:
+                await self._write_audit_intent(action=action)
             try:
                 receipt = await self._executor.execute(request)
             except DirectApiPromotionError as exc:
@@ -461,6 +463,7 @@ class DirectApiShadowExecutor:
             "idempotency_key": action.idempotency_key,
             "actor": "fdai.core.executor.direct_api",
             "action_kind": f"executor.direct_api.{result.outcome.value}",
+            "audit_phase": "terminal",
             "mode": action.mode.value,
             "execution_path": "direct_api",
             "citing_rule_ids": list(action.citing_rules),
@@ -484,6 +487,39 @@ class DirectApiShadowExecutor:
             "recorded_at": datetime.now(tz=UTC).isoformat(),
         }
         await self._audit_store.append_audit_entry(entry)
+
+    async def _write_audit_intent(self, *, action: Action) -> None:
+        """Persist enforce intent before the provider can observe a request."""
+
+        await self._audit_store.append_audit_entry(
+            {
+                "event_id": str(action.event_id),
+                "action_id": str(action.action_id),
+                "idempotency_key": action.idempotency_key,
+                "actor": "fdai.core.executor.direct_api",
+                "action_kind": action.action_type,
+                "audit_phase": "intent",
+                "mode": action.mode.value,
+                "execution_path": "direct_api",
+                "citing_rule_ids": list(action.citing_rules),
+                "outcome": "intent_persisted",
+                "resource_ref": action.target_resource_ref,
+                "operation": action.operation.value,
+                "executor_identity_ref": action.executor_identity_ref,
+                "rollback_kind": action.rollback_ref.kind.value,
+                "rollback_reference": action.rollback_ref.reference,
+                "stop_condition": action.stop_condition,
+                "stop_conditions": [
+                    condition.model_dump(mode="json") for condition in action.stop_conditions
+                ],
+                "blast_radius": {
+                    "scope": action.blast_radius.scope.value,
+                    "count": action.blast_radius.count,
+                    "rate_per_minute": action.blast_radius.rate_per_minute,
+                },
+                "recorded_at": datetime.now(tz=UTC).isoformat(),
+            }
+        )
 
 
 def _build_direct_api_request(action: Action) -> DirectApiRequest:

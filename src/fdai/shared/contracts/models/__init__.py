@@ -110,6 +110,8 @@ from .enums import (
 from .event import Event
 from .executor_transport import (
     ExecutorCommand,
+    ExecutorEffectReceipt,
+    ExecutorEffectReceiptStatus,
     ExecutorShadowReceipt,
     ExecutorShadowReceiptStatus,
 )
@@ -217,6 +219,8 @@ __all__ = [
     "CheckLogic",
     "Event",
     "ExecutorCommand",
+    "ExecutorEffectReceipt",
+    "ExecutorEffectReceiptStatus",
     "ExecutorShadowReceipt",
     "ExecutorShadowReceiptStatus",
     "ForecastOutcome",

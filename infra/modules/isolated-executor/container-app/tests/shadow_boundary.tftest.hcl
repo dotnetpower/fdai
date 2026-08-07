@@ -76,3 +76,50 @@ run "shadow_only_internal_app" {
     error_message = "the internal app must expose independent liveness and readiness probes"
   }
 }
+
+run "cutover_attaches_action_scoped_identities" {
+  command = plan
+
+  variables {
+    name                         = "ca-fdai-example-executor"
+    container_app_environment_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.App/managedEnvironments/cae-example"
+    resource_group_name          = "rg-example"
+    image                        = "example.azurecr.io/fdai@sha256:example"
+    identity_id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-example-executor"
+    identity_client_id           = "executor-client-id"
+    extra_identity_ids = [
+      "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-example-change",
+      "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-example-resilience",
+      "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-example-finops",
+    ]
+    change_identity_client_id     = "change-client-id"
+    resilience_identity_client_id = "resilience-client-id"
+    finops_identity_client_id     = "finops-client-id"
+    state_store_dsn_secret_id     = "https://example.vault.azure.net/secrets/state-store"
+    kafka_bootstrap_servers       = "example.servicebus.windows.net:9093"
+    runtime_env                   = "dev"
+    acr_login_server              = "example.azurecr.io"
+  }
+
+  assert {
+    condition = azurerm_container_app.shadow.identity[0].identity_ids == toset(concat(
+      [var.identity_id],
+      var.extra_identity_ids,
+    ))
+    error_message = "cutover must attach the transport and three action-scoped identities"
+  }
+
+  assert {
+    condition = alltrue([
+      for name in [
+        "FDAI_CHANGE_MI_CLIENT_ID",
+        "FDAI_RESILIENCE_MI_CLIENT_ID",
+        "FDAI_FINOPS_MI_CLIENT_ID",
+        ] : contains(
+        toset([for env in azurerm_container_app.shadow.template[0].container[0].env : env.name]),
+        name,
+      )
+    ])
+    error_message = "cutover must expose every attached action identity client id"
+  }
+}

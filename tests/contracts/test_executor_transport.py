@@ -88,7 +88,11 @@ def test_command_and_shadow_receipt_round_trip_without_effect_authority() -> Non
     assert ExecutorCommand.model_validate_json(command.model_dump_json()) == command
     assert ExecutorShadowReceipt.model_validate_json(receipt.model_dump_json()) == receipt
     validator.validate("executor-command", command.model_dump(mode="json"))
-    validator.validate("executor-receipt", receipt.model_dump(mode="json"))
+    validator.validate(
+        "executor-receipt",
+        receipt.model_dump(mode="json"),
+        version=receipt.schema_version,
+    )
     assert receipt.effect_applied is False
 
 

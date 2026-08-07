@@ -337,9 +337,22 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert 'echo "AZURE_CONFIG_DIR=$azure_config_dir" >> "$GITHUB_ENV"' in workflow
     assert "resume_verification:" in workflow
     assert "deploy_isolated_executor:" in workflow
+    assert "cutover_isolated_executor_authority:" in workflow
+    assert "verify_executor_effect:" in workflow
     assert "runtime_image_revision:" in workflow
     assert "promote_runtime_image:" in workflow
     assert "TF_VAR_enable_isolated_executor: ${{ inputs.deploy_isolated_executor }}" in workflow
+    assert (
+        "TF_VAR_enable_isolated_executor_authority_cutover: "
+        "${{ inputs.cutover_isolated_executor_authority }}" in workflow
+    )
+    assert "authority cutover requires deploy_isolated_executor" in workflow
+    assert "if: ${{ inputs.apply && inputs.verify_executor_effect }}" in workflow
+    assert '"duplicate_effect_count": int(os.environ["WRITE_COUNT"])' in workflow
+    assert '"command_offsets": json.loads(os.environ["OFFSETS_JSON"])' in workflow
+    assert '"effect_verified": True' in workflow
+    assert '"rollback_verified": True' in workflow
+    assert "authority-effect-receipt.json" in workflow
     assert "DEPLOY_ISOLATED_EXECUTOR: ${{ inputs.deploy_isolated_executor }}" in workflow
     assert '|| "$DEPLOY_ISOLATED_EXECUTOR" == "true"' in workflow
     assert "ref: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}" in workflow
@@ -586,7 +599,7 @@ def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:
         r'AzureWebJobsStorage__credential\s*=\s*"managedidentity"',
         gateway_app_settings,
     )
-    assert "allowed_applications = [module.identity.client_id]" in gateway_resource
+    assert "allowed_applications = [local.effect_executor_client_id]" in gateway_resource
     assert "APPLICATIONINSIGHTS_CONNECTION_STRING" not in gateway_app_settings
     assert workflow.index("Restore and verify exact protected plan") < workflow.index(
         "Terraform apply"

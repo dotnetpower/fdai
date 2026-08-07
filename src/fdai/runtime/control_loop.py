@@ -29,7 +29,7 @@ from fdai.core.chaos.symptom_index import SymptomIndex, build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.core.event_ingest import EventCorrelator, EventIngest
 from fdai.core.executor import (
-    DirectApiShadowExecutor,
+    DirectApiExecutionPort,
     InProcessThorExecutionPort,
     MutationDependencyReadiness,
     ShadowExecutor,
@@ -147,13 +147,13 @@ def _legacy_executor_bindings(
     port: ThorExecutionPort,
 ) -> tuple[
     ShadowExecutor,
-    DirectApiShadowExecutor | None,
+    DirectApiExecutionPort | None,
     ToolCallShadowExecutor | None,
 ]:
     """Adapt the injected Thor port to the unchanged Core and HIL APIs."""
     return (
         cast(ShadowExecutor, port.pr_native),
-        cast(DirectApiShadowExecutor | None, port.direct_api),
+        cast(DirectApiExecutionPort | None, port.direct_api),
         cast(ToolCallShadowExecutor | None, port.tool_call),
     )
 
@@ -317,6 +317,7 @@ def _build_control_loop(
     graph_dynamic_runtime_coordinator: GraphDynamicRuntimeCoordinator | None = None,
     human_access_enabled: bool = True,
     execution_identities: Mapping[str, WorkloadIdentity] | None = None,
+    direct_api_execution_port: DirectApiExecutionPort | None = None,
     thor_execution_port: ThorExecutionPort | None = None,
     mutation_dependency_readiness: MutationDependencyReadiness,
 ) -> ControlLoop:
@@ -498,7 +499,7 @@ def _build_control_loop(
             resource_lock=resource_lock,
             idempotency=idempotency_store,
         )
-        direct_api_executor = _build_direct_api_executor(
+        direct_api_executor = direct_api_execution_port or _build_direct_api_executor(
             audit_store=audit_store,
             resource_lock=resource_lock,
             idempotency=idempotency_store,

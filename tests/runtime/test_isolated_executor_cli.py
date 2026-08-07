@@ -104,11 +104,28 @@ def test_composition_uses_earliest_transport_and_locked_shadow_handler(
     assert supervisor.ready is False
 
 
-def test_entrypoint_imports_no_effect_or_core_executor_adapter() -> None:
+def test_entrypoint_keeps_effect_adapter_behind_explicit_cutover() -> None:
     source_path = Path(cli.__file__)
     tree = ast.parse(source_path.read_text(encoding="utf-8"))
     imports = {node.module or "" for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
 
-    assert "fdai.runtime.delivery" not in imports
+    assert "fdai.runtime.delivery" in imports
     assert "fdai.core.executor" not in imports
     assert "fdai.delivery.remediation" not in imports
+    assert IsolatedExecutorRuntimeConfig.from_env(_environment()).authority_cutover is False
+
+
+def test_authority_cutover_requires_gateway_binding() -> None:
+    with pytest.raises(RuntimeError, match="FDAI_DEV_OPERATIONS_GATEWAY_URL"):
+        IsolatedExecutorRuntimeConfig.from_env(
+            _environment(FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER="1")
+        )
+
+    config = IsolatedExecutorRuntimeConfig.from_env(
+        _environment(
+            FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER="1",
+            FDAI_DEV_OPERATIONS_GATEWAY_URL="https://gateway.example.com",
+            FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE="api://example",
+        )
+    )
+    assert config.authority_cutover is True

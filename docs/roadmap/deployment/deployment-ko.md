@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 3eb7fdd6d3f0bf3562b9fbd61abb93389e2f3219
-translation_revised: 2026-08-07
+translation_source_sha: 6cbf7b3637df710da1bcc4738c1caa8a08932979
+translation_revised: 2026-08-08
 ---
 
 # 배포(Deployment)
@@ -62,8 +62,9 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
     + `audit-writer`, 런타임이 이식 가능하도록 **OCI 이미지 + Knative 호환 매니페스트 서브셋**
     에서 배포 ([csp-neutrality-ko.md § 런타임 계약](../architecture/csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트)).
     Core에는 sidecar/ingress가 없습니다. Opt-in Operator API, public ingestion API, ClamAV
-    sidecar를 가진 internal ingestion worker 및 shadow-only Isolated Executor는 별도 Container
-    App입니다. Executor app은 ingress가 없으며 SD-08 전에는 effect role을 받지 않습니다.
+    sidecar를 가진 internal ingestion worker 및 Isolated Executor는 별도 Container App입니다.
+    Executor app은 ingress가 없고 기본 deployment는 shadow-only를 유지합니다. 명시적 SD-08
+    cutover가 gateway caller authority와 action identity를 Core에서 이동합니다.
   - **Container Apps Jobs** (같은 environment) 로 스케줄 프로브와 경량 트리거를 실행하며 runtime
     scheduling에서 Azure Functions를 대체합니다. Opt-in 개발 전용 FC1 Function App은 예외이며,
     private resource에 registered operation을 relay할 뿐 scheduler나 control-loop runtime이 아닙니다.

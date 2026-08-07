@@ -7,7 +7,7 @@ resource "azurerm_container_app" "shadow" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [var.identity_id]
+    identity_ids = concat([var.identity_id], var.extra_identity_ids)
   }
 
   dynamic "registry" {
@@ -46,6 +46,40 @@ resource "azurerm_container_app" "shadow" {
       env {
         name  = "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID"
         value = var.identity_client_id
+      }
+      dynamic "env" {
+        for_each = var.authority_cutover ? toset(["1"]) : toset([])
+        content {
+          name  = "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER"
+          value = "1"
+        }
+      }
+      dynamic "env" {
+        for_each = var.authority_cutover ? toset(["1"]) : toset([])
+        content {
+          name  = "FDAI_DEV_OPERATIONS_GATEWAY_URL"
+          value = var.dev_operations_gateway_url
+        }
+      }
+      dynamic "env" {
+        for_each = var.authority_cutover ? toset(["1"]) : toset([])
+        content {
+          name  = "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE"
+          value = var.dev_operations_gateway_audience
+        }
+      }
+      dynamic "env" {
+        for_each = {
+          for name, client_id in {
+            FDAI_CHANGE_MI_CLIENT_ID     = var.change_identity_client_id
+            FDAI_RESILIENCE_MI_CLIENT_ID = var.resilience_identity_client_id
+            FDAI_FINOPS_MI_CLIENT_ID     = var.finops_identity_client_id
+          } : name => client_id if client_id != ""
+        }
+        content {
+          name  = env.key
+          value = env.value
+        }
       }
       env {
         name  = "KAFKA_BOOTSTRAP_SERVERS"

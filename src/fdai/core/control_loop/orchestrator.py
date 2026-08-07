@@ -22,12 +22,12 @@ from fdai.core.control_loop._rca import ControlLoopRcaMixin
 from fdai.core.control_loop.models import ControlLoopResult
 from fdai.core.event_ingest import EventCorrelator, EventIngest
 from fdai.core.executor import (
+    DirectApiExecutionPort,
     MutationDependencyReadiness,
     ShadowExecutor,
     ThorExecutionPort,
 )
 from fdai.core.executor.action_builder import ActionBuilder
-from fdai.core.executor.direct_api import DirectApiShadowExecutor
 from fdai.core.executor.tool_call import ToolCallShadowExecutor
 from fdai.core.hil_resume import HilResumeCoordinator
 from fdai.core.mscp_profile import ExpectedEffectProvider, IndependentEffectObserver
@@ -92,7 +92,7 @@ class ControlLoop(
         action_types_by_name: Mapping[str, OntologyActionType] | None = None,
         risk_gate: RiskGate | None = None,
         cost_estimator: CostEstimator | None = None,
-        direct_api_executor: DirectApiShadowExecutor | None = None,
+        direct_api_executor: DirectApiExecutionPort | None = None,
         tool_executor: ToolCallShadowExecutor | None = None,
         t1_engine: T1Tier | None = None,
         dynamic_runtime_coordinator: DynamicRuntimeCoordinator | None = None,
@@ -138,10 +138,7 @@ class ControlLoop(
             )
         if thor_execution_port is not None:
             port_executor = cast(ShadowExecutor, thor_execution_port.pr_native)
-            port_direct_api = cast(
-                DirectApiShadowExecutor | None,
-                thor_execution_port.direct_api,
-            )
+            port_direct_api = thor_execution_port.direct_api
             port_tool = cast(
                 ToolCallShadowExecutor | None,
                 thor_execution_port.tool_call,

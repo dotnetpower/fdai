@@ -774,6 +774,42 @@ module "identity_finops" {
   tags                = merge(local.tags, { "fdai:vertical" = "cost-governance" })
 }
 
+locals {
+  vertical_identity_ids = [
+    module.identity_change.resource_id,
+    module.identity_resilience.resource_id,
+    module.identity_finops.resource_id,
+  ]
+  core_vertical_identity_ids = (
+    var.enable_isolated_executor_authority_cutover ? [] : local.vertical_identity_ids
+  )
+  isolated_executor_vertical_identity_ids = (
+    var.enable_isolated_executor_authority_cutover ? local.vertical_identity_ids : []
+  )
+  effect_executor_principal_id = (
+    var.enable_isolated_executor_authority_cutover
+    ? try(module.isolated_executor_identity[0].principal_id, "")
+    : module.identity.principal_id
+  )
+  effect_executor_client_id = (
+    var.enable_isolated_executor_authority_cutover
+    ? try(module.isolated_executor_identity[0].client_id, "")
+    : module.identity.client_id
+  )
+}
+
+resource "terraform_data" "isolated_executor_authority_cutover_contract" {
+  lifecycle {
+    precondition {
+      condition = (
+        !var.enable_isolated_executor_authority_cutover ||
+        (var.enable_isolated_executor && var.enable_dev_operations_gateway)
+      )
+      error_message = "enable_isolated_executor_authority_cutover requires the isolated Executor and dev operations gateway."
+    }
+  }
+}
+
 # -----------------------------------------------------------------------
 # Key Vault - secret store. Executor MI has 'Secrets User' via role assignment.
 # -----------------------------------------------------------------------
@@ -1118,7 +1154,7 @@ resource "azurerm_function_app_flex_consumption" "dev_gateway" {
     FDAI_DEV_GATEWAY_SUBSCRIPTION_ID           = data.azurerm_client_config.current.subscription_id
     FDAI_DEV_GATEWAY_RESOURCE_GROUPS           = module.resource_group.name
     FDAI_DEV_GATEWAY_CONTRIBUTOR_GROUP_ID      = var.rbac_contributors_group_id
-    FDAI_DEV_GATEWAY_EXECUTOR_PRINCIPAL_ID     = module.identity.principal_id
+    FDAI_DEV_GATEWAY_EXECUTOR_PRINCIPAL_ID     = local.effect_executor_principal_id
     FDAI_DEV_GATEWAY_READER_MI_CLIENT_ID       = module.dev_gateway_reader_identity[0].client_id
     FDAI_DEV_GATEWAY_EXECUTOR_MI_CLIENT_ID     = module.dev_gateway_executor_identity[0].client_id
     FDAI_DEV_GATEWAY_IDEMPOTENCY_CONTAINER_URL = "${azurerm_storage_account.dev_gateway[0].primary_blob_endpoint}${azurerm_storage_container.dev_gateway_idempotency[0].name}"
@@ -1140,7 +1176,7 @@ resource "azurerm_function_app_flex_consumption" "dev_gateway" {
       client_id            = trimprefix(var.operator_api_audience, "api://")
       tenant_auth_endpoint = "https://login.microsoftonline.com/${var.tenant_id}/v2.0"
       allowed_audiences    = [var.operator_api_audience]
-      allowed_applications = [module.identity.client_id]
+      allowed_applications = [local.effect_executor_client_id]
     }
   }
 
@@ -1517,41 +1553,44 @@ resource "azurerm_key_vault_secret" "pattern_library_dsn" {
 # Compute - Container Apps env + core app + out-of-band job.
 # -----------------------------------------------------------------------
 module "compute" {
-  source                            = "./modules/compute/container-apps"
-  env_name                          = "cae-${var.workload}${local.full_suffix}"
-  core_app_name                     = "ca-${var.workload}${local.full_suffix}-core"
-  oob_job_name                      = "caj-${var.workload}${local.full_suffix}-oob"
-  rule_watcher_job_name             = "caj-${var.workload}${local.full_suffix}-watcher"
-  location                          = var.region
-  resource_group_name               = module.resource_group.name
-  log_workspace_id                  = module.log_analytics.workspace_id
-  executor_identity_id              = module.identity.resource_id
-  executor_identity_client_id       = module.identity.client_id
-  change_identity_client_id         = module.identity_change.client_id
-  resilience_identity_client_id     = module.identity_resilience.client_id
-  finops_identity_client_id         = module.identity_finops.client_id
-  t1_similarity_threshold           = var.t1_similarity_threshold
-  t1_min_success_rate               = var.t1_min_success_rate
-  quality_gate_confidence_threshold = var.quality_gate_confidence_threshold
-  quality_gate_quorum               = var.quality_gate_quorum
-  startup_kafka_settle_seconds      = var.startup_kafka_settle_seconds
-  startup_probe_timeout_seconds     = var.startup_probe_timeout_seconds
-  startup_phase_timeout_seconds     = var.startup_phase_timeout_seconds
-  inventory_identity_id             = module.inventory_identity.resource_id
-  inventory_identity_client_id      = module.inventory_identity.client_id
-  inventory_raw_topic               = local.inventory_raw_topic
-  canary_identity_id                = module.canary_identity.resource_id
-  canary_identity_client_id         = module.canary_identity.client_id
-  canary_topic                      = local.canary_topic
-  canary_cron_expression            = var.canary_cron_expression
-  image                             = var.core_image
-  max_replicas                      = var.max_replicas
+  source                      = "./modules/compute/container-apps"
+  env_name                    = "cae-${var.workload}${local.full_suffix}"
+  core_app_name               = "ca-${var.workload}${local.full_suffix}-core"
+  oob_job_name                = "caj-${var.workload}${local.full_suffix}-oob"
+  rule_watcher_job_name       = "caj-${var.workload}${local.full_suffix}-watcher"
+  location                    = var.region
+  resource_group_name         = module.resource_group.name
+  log_workspace_id            = module.log_analytics.workspace_id
+  executor_identity_id        = module.identity.resource_id
+  executor_identity_client_id = module.identity.client_id
+  change_identity_client_id = (
+    var.enable_isolated_executor_authority_cutover ? "" : module.identity_change.client_id
+  )
+  resilience_identity_client_id = (
+    var.enable_isolated_executor_authority_cutover ? "" : module.identity_resilience.client_id
+  )
+  finops_identity_client_id = (
+    var.enable_isolated_executor_authority_cutover ? "" : module.identity_finops.client_id
+  )
+  isolated_executor_authority_cutover = var.enable_isolated_executor_authority_cutover
+  t1_similarity_threshold             = var.t1_similarity_threshold
+  t1_min_success_rate                 = var.t1_min_success_rate
+  quality_gate_confidence_threshold   = var.quality_gate_confidence_threshold
+  quality_gate_quorum                 = var.quality_gate_quorum
+  startup_kafka_settle_seconds        = var.startup_kafka_settle_seconds
+  startup_probe_timeout_seconds       = var.startup_probe_timeout_seconds
+  startup_phase_timeout_seconds       = var.startup_phase_timeout_seconds
+  inventory_identity_id               = module.inventory_identity.resource_id
+  inventory_identity_client_id        = module.inventory_identity.client_id
+  inventory_raw_topic                 = local.inventory_raw_topic
+  canary_identity_id                  = module.canary_identity.resource_id
+  canary_identity_client_id           = module.canary_identity.client_id
+  canary_topic                        = local.canary_topic
+  canary_cron_expression              = var.canary_cron_expression
+  image                               = var.core_image
+  max_replicas                        = var.max_replicas
   extra_identity_ids = concat(
-    [
-      module.identity_change.resource_id,
-      module.identity_resilience.resource_id,
-      module.identity_finops.resource_id,
-    ],
+    local.core_vertical_identity_ids,
     var.enable_email_notifications ? [module.notification_identity[0].resource_id] : [],
     var.enable_case_history ? [module.case_history_identity[0].resource_id] : [],
   )
@@ -1581,12 +1620,14 @@ module "compute" {
   runtime_env                         = var.env == "" ? "dev" : var.env
   autonomy_mode_default               = "shadow"
   dev_operations_gateway_url = (
-    var.enable_dev_operations_gateway
+    var.enable_dev_operations_gateway && !var.enable_isolated_executor_authority_cutover
     ? "https://${azurerm_function_app_flex_consumption.dev_gateway[0].default_hostname}"
     : ""
   )
   dev_operations_gateway_audience = (
-    var.enable_dev_operations_gateway ? var.operator_api_audience : ""
+    var.enable_dev_operations_gateway && !var.enable_isolated_executor_authority_cutover
+    ? var.operator_api_audience
+    : ""
   )
 
   # Auto-bind the Azure Monitor Logs metric adapter at composition time.
@@ -1904,13 +1945,32 @@ module "isolated_executor" {
   image                        = var.core_image
   identity_id                  = module.isolated_executor_identity[0].resource_id
   identity_client_id           = module.isolated_executor_identity[0].client_id
-  state_store_dsn_secret_id    = azurerm_key_vault_secret.state_store_dsn.id
-  kafka_bootstrap_servers      = module.event_bus_auxiliary.kafka_bootstrap
-  command_topic                = local.executor_command_topic
-  receipt_topic                = local.executor_receipt_topic
-  runtime_env                  = local.env_label
-  acr_login_server             = module.container_registry.login_server
-  tags                         = merge(local.tags, { "fdai:component" = "isolated-executor-shadow" })
+  extra_identity_ids           = local.isolated_executor_vertical_identity_ids
+  change_identity_client_id = (
+    var.enable_isolated_executor_authority_cutover ? module.identity_change.client_id : ""
+  )
+  resilience_identity_client_id = (
+    var.enable_isolated_executor_authority_cutover ? module.identity_resilience.client_id : ""
+  )
+  finops_identity_client_id = (
+    var.enable_isolated_executor_authority_cutover ? module.identity_finops.client_id : ""
+  )
+  authority_cutover = var.enable_isolated_executor_authority_cutover
+  dev_operations_gateway_url = (
+    var.enable_isolated_executor_authority_cutover
+    ? "https://${azurerm_function_app_flex_consumption.dev_gateway[0].default_hostname}"
+    : ""
+  )
+  dev_operations_gateway_audience = (
+    var.enable_isolated_executor_authority_cutover ? var.operator_api_audience : ""
+  )
+  state_store_dsn_secret_id = azurerm_key_vault_secret.state_store_dsn.id
+  kafka_bootstrap_servers   = module.event_bus_auxiliary.kafka_bootstrap
+  command_topic             = local.executor_command_topic
+  receipt_topic             = local.executor_receipt_topic
+  runtime_env               = local.env_label
+  acr_login_server          = module.container_registry.login_server
+  tags                      = merge(local.tags, { "fdai:component" = "isolated-executor-shadow" })
 
   depends_on = [
     azurerm_role_assignment.isolated_executor_acr_pull,

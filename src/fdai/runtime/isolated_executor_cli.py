@@ -1,11 +1,11 @@
 """Production composition and entry point for the isolated Executor.
 
-Responsibility: compose one internal shadow-only Executor process.
+Responsibility: compose one internal shadow or authority-cutover Executor process.
 Boundary: consume and publish versioned EventBus records without HTTP ingress.
-Authority and state: durable no-effect receipts only; no provider effect adapter
-or mutation-capable identity is accepted before SD-08.
-Dependencies: dedicated shadow workload identity, Event Hubs, PostgreSQL state,
-the shared ResourceLock seam, and the contract registry.
+Authority and state: cutover is explicit and composes the existing guarded
+direct-API executor; receipts never claim independent effect verification.
+Dependencies: dedicated workload identity, Event Hubs, PostgreSQL state, the
+shared ResourceLock and idempotency seams, and the contract registry.
 Deployment: independently runnable internal Container App process.
 """
 
@@ -22,21 +22,34 @@ from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusCo
 from fdai.runtime.bootstrap_bindings import build_runtime_workload_identity
 from fdai.runtime.bootstrap_lifecycle import install_shutdown_signals, run_main
 from fdai.runtime.configuration import _new_http_client
-from fdai.runtime.isolated_executor import IsolatedExecutorShadowService
-from fdai.runtime.isolated_executor_lock import LockedIsolatedExecutorShadowService
+from fdai.runtime.delivery import _build_direct_api_executor
+from fdai.runtime.isolated_executor import (
+    IsolatedExecutorEffectService,
+    IsolatedExecutorShadowService,
+)
+from fdai.runtime.isolated_executor_lock import (
+    ExecutorShadowCommandHandler,
+    LockedIsolatedExecutorShadowService,
+)
 from fdai.runtime.isolated_executor_runtime import (
     EXECUTOR_COMMAND_TOPIC,
     EXECUTOR_CONSUMER_GROUP,
     EXECUTOR_RECEIPT_TOPIC,
+    ExecutorCommandHandler,
     IsolatedExecutorCommandConsumer,
     IsolatedExecutorSupervisor,
 )
-from fdai.runtime.providers import _build_audit_store, _build_resource_lock
+from fdai.runtime.providers import (
+    _build_audit_store,
+    _build_idempotency_store,
+    _build_resource_lock,
+)
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.contracts.validation import JsonSchemaContractValidator
 
 _SHADOW_IDENTITY_ENV = "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID"
 _DEPLOYED_MARKER_ENV = "FDAI_ISOLATED_EXECUTOR_DEPLOYED"
+_AUTHORITY_CUTOVER_ENV = "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER"
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +62,7 @@ class IsolatedExecutorRuntimeConfig:
     dlq_suffix: str
     health_port: int
     executor_instance_id: str
+    authority_cutover: bool
 
     @classmethod
     def from_env(
@@ -66,6 +80,10 @@ class IsolatedExecutorRuntimeConfig:
         bootstrap_servers = _required(values, "KAFKA_BOOTSTRAP_SERVERS")
         _required(values, "FDAI_STATE_STORE_DSN")
         _required(values, _SHADOW_IDENTITY_ENV)
+        authority_cutover = values.get(_AUTHORITY_CUTOVER_ENV, "").strip() == "1"
+        if authority_cutover:
+            _required(values, "FDAI_DEV_OPERATIONS_GATEWAY_URL")
+            _required(values, "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE")
         command_topic = values.get(
             "FDAI_EXECUTOR_COMMAND_TOPIC",
             EXECUTOR_COMMAND_TOPIC,
@@ -98,6 +116,7 @@ class IsolatedExecutorRuntimeConfig:
             dlq_suffix=dlq_suffix,
             health_port=health_port,
             executor_instance_id=instance_id,
+            authority_cutover=authority_cutover,
         )
 
 
@@ -106,7 +125,7 @@ def build_isolated_executor_supervisor(
     config: IsolatedExecutorRuntimeConfig,
     http_client: httpx.AsyncClient,
 ) -> IsolatedExecutorSupervisor:
-    """Compose the shadow service without any provider effect binding."""
+    """Compose the shadow service or the explicitly gated SD-08 effect service."""
 
     identity = build_runtime_workload_identity(
         http_client,
@@ -122,18 +141,38 @@ def build_isolated_executor_supervisor(
             auto_offset_reset="earliest",
         ),
     )
-    durable_service = IsolatedExecutorShadowService(
-        state_store=_build_audit_store(),
-        contract_validator=JsonSchemaContractValidator(PackageResourceSchemaRegistry()),
-        executor_instance_id=config.executor_instance_id,
-    )
-    locked_service = LockedIsolatedExecutorShadowService(
-        delegate=durable_service,
-        resource_lock=_build_resource_lock(),
-    )
+    validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())
+    audit_store = _build_audit_store()
+    service: ExecutorCommandHandler | ExecutorShadowCommandHandler
+    if config.authority_cutover:
+        direct_api_executor = _build_direct_api_executor(
+            audit_store=audit_store,
+            resource_lock=_build_resource_lock(),
+            idempotency=_build_idempotency_store(),
+            http_client=http_client,
+            identity=identity,
+            human_access_enabled=False,
+        )
+        if direct_api_executor is None:
+            raise RuntimeError("authority cutover requires a direct-API executor binding")
+        service = IsolatedExecutorEffectService(
+            direct_api_executor=direct_api_executor,
+            contract_validator=validator,
+            executor_instance_id=config.executor_instance_id,
+        )
+    else:
+        durable_service = IsolatedExecutorShadowService(
+            state_store=audit_store,
+            contract_validator=validator,
+            executor_instance_id=config.executor_instance_id,
+        )
+        service = LockedIsolatedExecutorShadowService(
+            delegate=durable_service,
+            resource_lock=_build_resource_lock(),
+        )
     consumer = IsolatedExecutorCommandConsumer(
         event_bus=event_bus,
-        service=locked_service,
+        service=service,
         command_topic=config.command_topic,
         receipt_topic=config.receipt_topic,
         group_id=EXECUTOR_CONSUMER_GROUP,
@@ -160,7 +199,7 @@ async def _run() -> int:
 
 
 def main() -> int:
-    """Run the isolated shadow Executor until SIGTERM or SIGINT."""
+    """Run the isolated Executor until SIGTERM or SIGINT."""
 
     return run_main(_run)
 

@@ -82,6 +82,14 @@ on:
         description: "Provision the internal shadow-only isolated Executor Container App."
         type: boolean
         default: false
+      cutover_isolated_executor_authority:
+        description: "Move direct-API authority from Core to the isolated Executor."
+        type: boolean
+        default: false
+      verify_executor_effect:
+        description: "Run the reversible SD-08 NSG effect and independent-observer verification."
+        type: boolean
+        default: false
       runtime_image_revision:
         description: "Optional source commit for the verified runtime image; defaults to the checkout commit."
         type: string
@@ -147,8 +155,9 @@ jobs:
       TF_VAR_enable_design_mocks: ${{ inputs.deploy_design_mocks }}
       TF_VAR_enable_operator_api: ${{ inputs.deploy_operator_api }}
       TF_VAR_enable_isolated_executor: ${{ inputs.deploy_isolated_executor }}
+      TF_VAR_enable_isolated_executor_authority_cutover: ${{ inputs.cutover_isolated_executor_authority }}
       TF_VAR_enable_dev_operations_gateway: ${{ inputs.environment == 'dev' && inputs.deploy_dev_operations_gateway }}
-      TF_CLI_ARGS_plan: ${{ inputs.deploy_design_mocks && '-target=module.design_mocks' || inputs.deploy_dev_operations_gateway && '-target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=module.compute.azurerm_container_app.core -target=module.compute.azurerm_container_app_job.canary[0] -target=module.compute.azurerm_container_app_job.inventory[0] -target=module.operator_api[0] -target=module.ingestion_gateway[0] -target=module.isolated_executor[0] -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0] -target=azurerm_role_assignment.operator_api_acr_pull -target=azurerm_role_assignment.operator_api_kv_secrets_user -target=azurerm_role_assignment.operator_api_reader -target=azurerm_role_assignment.read_api_acr_pull -target=azurerm_role_assignment.read_api_kv_secrets_user -target=azurerm_role_assignment.read_api_reader -target=module.operator_api_identity[0].azurerm_user_assigned_identity.primary -target=module.read_api[0].azurerm_container_app.read_api -target=module.read_api[0].azurerm_container_app_job.migrate -target=module.read_api_identity[0].azurerm_user_assigned_identity.primary -target=module.llm_azure_openai[0].azurerm_cognitive_account.primary -target=module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user -target=azurerm_role_assignment.runtime_startup_probe_eventhubs_owner' || '' }}
+      TF_CLI_ARGS_plan: ${{ inputs.deploy_design_mocks && '-target=module.design_mocks' || inputs.deploy_dev_operations_gateway && '-target=terraform_data.isolated_executor_authority_cutover_contract -target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=module.compute.azurerm_container_app.core -target=module.compute.azurerm_container_app_job.canary[0] -target=module.compute.azurerm_container_app_job.inventory[0] -target=module.operator_api[0] -target=module.ingestion_gateway[0] -target=module.isolated_executor[0] -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0] -target=azurerm_role_assignment.operator_api_acr_pull -target=azurerm_role_assignment.operator_api_kv_secrets_user -target=azurerm_role_assignment.operator_api_reader -target=azurerm_role_assignment.read_api_acr_pull -target=azurerm_role_assignment.read_api_kv_secrets_user -target=azurerm_role_assignment.read_api_reader -target=module.operator_api_identity[0].azurerm_user_assigned_identity.primary -target=module.read_api[0].azurerm_container_app.read_api -target=module.read_api[0].azurerm_container_app_job.migrate -target=module.read_api_identity[0].azurerm_user_assigned_identity.primary -target=module.llm_azure_openai[0].azurerm_cognitive_account.primary -target=module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user -target=azurerm_role_assignment.runtime_startup_probe_eventhubs_owner' || '' }}
       TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
       TF_VAR_enable_document_ingestion: ${{ inputs.deploy_document_ingestion }}
       TF_VAR_enable_llm: ${{ inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' || vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
@@ -214,7 +223,10 @@ jobs:
       - name: Validate runtime image request
         env:
           APPLY: ${{ inputs.apply }}
+          CUTOVER_ISOLATED_EXECUTOR_AUTHORITY: ${{ inputs.cutover_isolated_executor_authority }}
+          DEPLOY_DEV_OPERATIONS_GATEWAY: ${{ inputs.deploy_dev_operations_gateway }}
           DEPLOY_ISOLATED_EXECUTOR: ${{ inputs.deploy_isolated_executor }}
+          VERIFY_EXECUTOR_EFFECT: ${{ inputs.verify_executor_effect }}
           PLAN_REQUEST_ID: ${{ inputs.request_id }}
           PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
           RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
@@ -222,6 +234,17 @@ jobs:
           set -euo pipefail
           if [[ "$PROMOTE_RUNTIME_IMAGE" == "true" && "$DEPLOY_ISOLATED_EXECUTOR" != "true" ]]; then
             echo "promote_runtime_image requires deploy_isolated_executor." >&2
+            exit 1
+          fi
+          if [[ "$CUTOVER_ISOLATED_EXECUTOR_AUTHORITY" == "true" \
+            && ( "$DEPLOY_ISOLATED_EXECUTOR" != "true" \
+              || "$DEPLOY_DEV_OPERATIONS_GATEWAY" != "true" ) ]]; then
+            echo "authority cutover requires deploy_isolated_executor and deploy_dev_operations_gateway." >&2
+            exit 1
+          fi
+          if [[ "$VERIFY_EXECUTOR_EFFECT" == "true" \
+            && ( "$APPLY" != "true" || "$DEPLOY_DEV_OPERATIONS_GATEWAY" != "true" ) ]]; then
+            echo "executor effect verification requires apply and deploy_dev_operations_gateway." >&2
             exit 1
           fi
           if [[ -n "$RUNTIME_IMAGE_REVISION" && "$DEPLOY_ISOLATED_EXECUTOR" != "true" ]]; then
@@ -1204,7 +1227,11 @@ jobs:
 
       - name: Terraform apply
         if: ${{ inputs.apply && !inputs.resume_verification }}
-        run: terraform apply -input=false -lock-timeout=300s dev.plan
+        run: |
+          if [[ "${{ inputs.verify_executor_effect }}" == "true" ]]; then
+            echo "FDAI_AUTHORITY_TRANSITION_STARTED_EPOCH=$(date -u +%s)" >> "$GITHUB_ENV"
+          fi
+          terraform apply -input=false -lock-timeout=300s dev.plan
 
       - name: Verify Terraform convergence
         if: ${{ inputs.apply }}
@@ -1500,6 +1527,175 @@ jobs:
             printf '%s' "$payload" | python3 -c \
               'import json, sys; value=json.load(sys.stdin); assert value == {"status": "ok"}'
           done
+
+      - name: Verify independent Executor effect and rollback
+        if: ${{ inputs.apply && inputs.verify_executor_effect }}
+        env:
+          AUTHORITY_CUTOVER: ${{ inputs.cutover_isolated_executor_authority }}
+        run: |
+          set -euo pipefail
+          rg="$(terraform output -raw resource_group_name)"
+          core_app="$(terraform output -raw core_app_name)"
+          executor_app="$(terraform output -json isolated_executor_shadow | python3 -c \
+            'import json, sys; value=json.load(sys.stdin); print((value or {}).get("app_name", ""))')"
+          nsg="$(az network nsg list --resource-group "$rg" --query '[0].name' -o tsv)"
+          rule="fdai-sd08-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          transition_started="${FDAI_AUTHORITY_TRANSITION_STARTED_EPOCH:-$(date -u +%s)}"
+          observed_started_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          transport="local"
+          [[ "$AUTHORITY_CUTOVER" == "true" ]] && transport="isolated"
+          cleanup_direct() {
+            az network nsg rule delete --resource-group "$rg" --nsg-name "$nsg" \
+              --name "$rule" --only-show-errors >/dev/null 2>&1 || true
+          }
+          trap cleanup_direct EXIT
+
+          run_probe() {
+            local operation="$1"
+            local key="$2"
+            az containerapp exec --name "$core_app" --resource-group "$rg" \
+              --command "fdai-executor-authority-probe --transport $transport --operation $operation --resource-group $rg --nsg-name $nsg --rule-name $rule --idempotency-key $key"
+          }
+          json_line() {
+            grep -E '\{.*"action_id".*\}' | tail -1 | sed 's/^[^{]*//'
+          }
+          wait_present() {
+            for _ in $(seq 1 30); do
+              access="$(az network nsg rule show --resource-group "$rg" --nsg-name "$nsg" \
+                --name "$rule" --query access -o tsv 2>/dev/null || true)"
+              [[ "$access" == "Deny" ]] && return 0
+              sleep 2
+            done
+            return 1
+          }
+          wait_absent() {
+            for _ in $(seq 1 30); do
+              if ! az network nsg rule show --resource-group "$rg" --nsg-name "$nsg" \
+                --name "$rule" --only-show-errors >/dev/null 2>&1; then
+                return 0
+              fi
+              sleep 2
+            done
+            return 1
+          }
+          receipt_offsets() {
+            local command_id="$1"
+            az containerapp logs show --name "$executor_app" --resource-group "$rg" \
+              --type console --tail 300 --format json 2>/dev/null \
+              | sed 's/\\"/"/g' \
+              | grep -F "$command_id" \
+              | grep -F 'isolated_executor_receipt_published' \
+              | sed -n 's/.*"command_offset":\([0-9][0-9]*\).*/\1/p' \
+              | sort -n -u
+          }
+
+          upsert_key="sd08-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-upsert"
+          upsert_output="$(run_probe upsert "$upsert_key")"
+          upsert_json="$(printf '%s\n' "$upsert_output" | json_line | tail -1)"
+          [[ -n "$upsert_json" ]] || { echo "authority probe returned no receipt" >&2; exit 1; }
+          wait_present || { echo "independent ARM observer did not see the probe rule" >&2; exit 1; }
+
+          duplicate_output="$(run_probe upsert "$upsert_key")"
+          duplicate_json="$(printf '%s\n' "$duplicate_output" | json_line | tail -1)"
+          [[ -n "$duplicate_json" ]] || { echo "duplicate authority probe returned no receipt" >&2; exit 1; }
+
+          command_id=""
+          offsets=""
+          if [[ "$transport" == "isolated" ]]; then
+            command_id="$(printf '%s' "$upsert_json" | python3 -c \
+              'import json, sys; print(json.load(sys.stdin)["command_id"])')"
+            for _ in $(seq 1 30); do
+              offsets="$(receipt_offsets "$command_id")"
+              [[ "$(printf '%s\n' "$offsets" | sed '/^$/d' | wc -l)" -ge 2 ]] && break
+              sleep 2
+            done
+            mapfile -t offset_rows < <(printf '%s\n' "$offsets" | sed '/^$/d')
+            [[ "${#offset_rows[@]}" -ge 2 ]] || {
+              echo "terminal isolated Executor receipts were not observed" >&2
+              exit 1
+            }
+            [[ "${offset_rows[1]}" -gt "${offset_rows[0]}" ]] || {
+              echo "Executor command offsets did not advance" >&2
+              exit 1
+            }
+          else
+            outcome="$(printf '%s' "$upsert_json" | python3 -c \
+              'import json, sys; print(json.load(sys.stdin)["outcome"])')"
+            [[ "$outcome" == "dispatched" || "$outcome" == "already_applied" ]] || {
+              echo "in-process rollback topology did not execute the probe" >&2
+              exit 1
+            }
+          fi
+
+          rule_id="$(az network nsg show --resource-group "$rg" --name "$nsg" --query id -o tsv)/securityRules/$rule"
+          write_count=""
+          for _ in $(seq 1 30); do
+            write_count="$(az monitor activity-log list --resource-id "$rule_id" \
+              --start-time "$observed_started_at" --offset 1h --status Succeeded \
+              --query "[?operationName.value=='Microsoft.Network/networkSecurityGroups/securityRules/write'] | length(@)" \
+              -o tsv 2>/dev/null || true)"
+            [[ "$write_count" == "1" ]] && break
+            sleep 5
+          done
+          [[ "$write_count" == "1" ]] || {
+            echo "duplicate probe produced an unexpected successful write count: ${write_count:-unknown}" >&2
+            exit 1
+          }
+
+          delete_key="sd08-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-delete"
+          delete_output="$(run_probe delete "$delete_key")"
+          delete_json="$(printf '%s\n' "$delete_output" | json_line | tail -1)"
+          [[ -n "$delete_json" ]] || { echo "cleanup probe returned no receipt" >&2; exit 1; }
+          wait_absent || { echo "independent ARM observer still sees the probe rule" >&2; exit 1; }
+          trap - EXIT
+
+          transition_completed="$(date -u +%s)"
+          elapsed="$((transition_completed - transition_started))"
+          [[ "$elapsed" -lt 900 ]] || {
+            echo "authority topology transition exceeded the 900-second rollback budget" >&2
+            exit 1
+          }
+          export AUTHORITY_CUTOVER="$AUTHORITY_CUTOVER" COMMAND_ID="$command_id" ELAPSED="$elapsed"
+          export OBSERVED_STARTED_AT="$observed_started_at" TRANSPORT="$transport" WRITE_COUNT="$write_count"
+          export OFFSETS_JSON="$(printf '%s\n' "$offsets" | sed '/^$/d' | python3 -c \
+            'import json, sys; print(json.dumps([int(line) for line in sys.stdin if line.strip()]))')"
+          python3 - <<'PY'
+          import json
+          import os
+
+          receipt = {
+              "schema_version": "fdai.executor-authority-effect-receipt.v1",
+              "authority_cutover": os.environ["AUTHORITY_CUTOVER"] == "true",
+              "command_id": os.environ["COMMAND_ID"] or None,
+              "command_offsets": json.loads(os.environ["OFFSETS_JSON"]),
+              "duplicate_effect_count": int(os.environ["WRITE_COUNT"]),
+              "effect_observer": "azure-resource-manager",
+              "effect_verified": True,
+              "elapsed_seconds": int(os.environ["ELAPSED"]),
+              "max_elapsed_seconds": 900,
+              "observed_started_at": os.environ["OBSERVED_STARTED_AT"],
+              "rollback_verified": True,
+              "transport": os.environ["TRANSPORT"],
+          }
+          with open("authority-effect-receipt.json", "w", encoding="utf-8") as stream:
+              json.dump(receipt, stream, sort_keys=True, separators=(",", ":"))
+              stream.write("\n")
+          PY
+          az storage blob upload --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
+            --container-name deployment-plans \
+            --name "${TF_VAR_env}/${{ inputs.plan_id }}/authority-effect-receipt.json" \
+            --file authority-effect-receipt.json --auth-mode login --overwrite false \
+            --only-show-errors --content-type application/json --output none
+          echo "Executor authority effect verified in ${elapsed}s via ${transport}." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish Executor authority effect receipt
+        if: ${{ inputs.apply && inputs.verify_executor_effect && success() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: executor-authority-effect-receipt-${{ inputs.plan_id }}
+          path: infra/authority-effect-receipt.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Run canary publisher smoke
         if: ${{ inputs.apply && !inputs.deploy_design_mocks }}

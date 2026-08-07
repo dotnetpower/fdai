@@ -28,6 +28,48 @@ variable "identity_client_id" {
   type        = string
 }
 
+variable "extra_identity_ids" {
+  description = "Additional action-scoped identities attached only after authority cutover."
+  type        = list(string)
+  default     = []
+}
+
+variable "change_identity_client_id" {
+  description = "Change Safety identity client id attached after authority cutover."
+  type        = string
+  default     = ""
+}
+
+variable "resilience_identity_client_id" {
+  description = "Resilience identity client id attached after authority cutover."
+  type        = string
+  default     = ""
+}
+
+variable "finops_identity_client_id" {
+  description = "Cost Governance identity client id attached after authority cutover."
+  type        = string
+  default     = ""
+}
+
+variable "authority_cutover" {
+  description = "Enable guarded direct-API effects in the isolated Executor."
+  type        = bool
+  default     = false
+}
+
+variable "dev_operations_gateway_url" {
+  description = "HTTPS origin for the governed development operations gateway."
+  type        = string
+  default     = ""
+}
+
+variable "dev_operations_gateway_audience" {
+  description = "Entra audience for the governed development operations gateway."
+  type        = string
+  default     = ""
+}
+
 variable "state_store_dsn_secret_id" {
   description = "Key Vault secret id for the durable PostgreSQL state DSN."
   type        = string

@@ -17,12 +17,14 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol
 from uuid import NAMESPACE_URL, uuid5
 
 from fdai.shared.contracts import (
     ContractValidator,
     ExecutorCommand,
+    ExecutorEffectReceipt,
+    ExecutorEffectReceiptStatus,
     ExecutorShadowReceipt,
     ExecutorShadowReceiptStatus,
     Mode,
@@ -35,6 +37,127 @@ _DELIVERY_PREFIX = "isolated_executor_delivery:"
 
 class ExecutorCommandConflictError(RuntimeError):
     """A command identity was rebound to a different immutable envelope."""
+
+
+class DirectApiCommandExecutor(Protocol):
+    """Direct-API surface already enforcing the seven action safeguards."""
+
+    async def execute(self, *, action: Any) -> Any: ...
+
+
+class IsolatedExecutorEffectService:
+    """Validate a command and dispatch it through the governed direct-API executor."""
+
+    def __init__(
+        self,
+        *,
+        direct_api_executor: DirectApiCommandExecutor,
+        contract_validator: ContractValidator,
+        executor_instance_id: str,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
+        if not executor_instance_id or len(executor_instance_id) > 512:
+            raise ValueError("executor instance id MUST be bounded and non-empty")
+        self._direct_api_executor = direct_api_executor
+        self._contract_validator = contract_validator
+        self._executor_instance_id = executor_instance_id
+        self._clock = clock or (lambda: datetime.now(UTC))
+
+    async def handle(self, command: ExecutorCommand) -> ExecutorEffectReceipt:
+        """Dispatch one command without claiming independent effect verification."""
+
+        from fdai.core.executor.direct_api import DirectApiExecutionOutcome
+        from fdai.shared.contracts.models import Action, ExecutionPath
+
+        self._contract_validator.validate(
+            "executor-command",
+            command.model_dump(mode="json"),
+            version=command.schema_version,
+        )
+        self._contract_validator.validate(
+            "action",
+            command.action_payload,
+            version=command.action_schema_version,
+        )
+        received_at = self._clock()
+        if received_at.tzinfo is None:
+            raise ValueError("isolated Executor clock MUST be timezone-aware")
+        if received_at > command.deadline_at:
+            return self._effect_receipt(
+                command,
+                status=ExecutorEffectReceiptStatus.EXPIRED,
+                reason="command deadline expired before dispatch",
+                received_at=received_at,
+                completed_at=received_at,
+            )
+        if command.execution_path is not ExecutionPath.DIRECT_API:
+            return self._effect_receipt(
+                command,
+                status=ExecutorEffectReceiptStatus.REJECTED_INVARIANT,
+                reason="isolated effect authority supports direct_api commands only",
+                received_at=received_at,
+                completed_at=received_at,
+            )
+
+        action = Action.model_validate(command.action_payload)
+        result = await self._direct_api_executor.execute(action=action)
+        completed_at = self._clock()
+        status = ExecutorEffectReceiptStatus(result.outcome.value)
+        effect_applied = result.outcome in {
+            DirectApiExecutionOutcome.DISPATCHED,
+            DirectApiExecutionOutcome.ALREADY_APPLIED,
+        }
+        return self._effect_receipt(
+            command,
+            status=status,
+            reason=result.reason,
+            received_at=received_at,
+            completed_at=completed_at,
+            effect_applied=effect_applied,
+            rollback_succeeded=result.rollback_succeeded,
+            provider_receipt_ref=result.receipt_ref,
+        )
+
+    def _effect_receipt(
+        self,
+        command: ExecutorCommand,
+        *,
+        status: ExecutorEffectReceiptStatus,
+        reason: str | None,
+        received_at: datetime,
+        completed_at: datetime,
+        effect_applied: bool = False,
+        rollback_succeeded: bool | None = None,
+        provider_receipt_ref: str | None = None,
+    ) -> ExecutorEffectReceipt:
+        receipt_id = uuid5(
+            NAMESPACE_URL,
+            f"fdai:isolated-executor-effect:{command.command_id}:{status.value}",
+        )
+        receipt = ExecutorEffectReceipt(
+            receipt_id=receipt_id,
+            command_id=command.command_id,
+            action_id=command.action_id,
+            idempotency_key=command.idempotency_key,
+            attempt=command.attempt,
+            action_payload_digest=command.action_payload_digest,
+            requested_mode=command.requested_mode,
+            status=status,
+            reason=_bounded_optional(reason),
+            executor_instance_id=self._executor_instance_id,
+            received_at=received_at,
+            completed_at=completed_at,
+            effect_applied=effect_applied,
+            rollback_succeeded=rollback_succeeded,
+            provider_receipt_ref=_bounded_optional(provider_receipt_ref),
+            audit_ref=f"action:{command.action_id}",
+        )
+        self._contract_validator.validate(
+            "executor-receipt",
+            receipt.model_dump(mode="json"),
+            version=receipt.schema_version,
+        )
+        return receipt
 
 
 class IsolatedExecutorShadowService:
@@ -252,4 +375,15 @@ def _delivery_key(idempotency_key: str, command_id: str) -> str:
     return _DELIVERY_PREFIX + hashlib.sha256(identity).hexdigest()
 
 
-__all__ = ["ExecutorCommandConflictError", "IsolatedExecutorShadowService"]
+def _bounded_optional(value: object) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized[:512] or None
+
+
+__all__ = [
+    "ExecutorCommandConflictError",
+    "IsolatedExecutorEffectService",
+    "IsolatedExecutorShadowService",
+]

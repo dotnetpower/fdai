@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 41bc75a0c6dbef92d5cd7bf6c2383868482145df
-translation_revised: 2026-08-07
+translation_source_sha: 551e324e42bc0876d8ab811c2bbb0854a452bf83
+translation_revised: 2026-08-08
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -27,8 +27,8 @@ Candidate는 scaling, privilege isolation, failure isolation trigger 중 하나 
 contract, durability, observability, cost, rollback gate를 통과해야 **승인**됩니다. Trigger가 측정되지
 않았거나 evidence가 불완전하면 **보류**됩니다. Direct agent call, shared mutable coordination,
 multiple writer, executor identity 확산, unversioned wire contract 또는 테스트된 rollback 부재를
-만들면 **거절**됩니다. 현재 deployment에는 4개 runtime service가 있습니다. 추적되는 목표는
-Isolated Executor를 다섯 번째 service로 추가하고 authority cutover에서 Core의 mutation role을
+만들면 **거절**됩니다. 현재 deployment에는 shadow mode Isolated Executor를 포함한 5개 runtime
+service가 있습니다. 추적되는 cutover는 exact live evidence를 닫은 후에만 Core의 mutation role을
 제거합니다.
 
 ## 승격 scorecard
@@ -110,6 +110,7 @@ row, 이름이 없는 migration path는 승격을 차단합니다.
 | Document lifecycle activity | [Document activity contract](../../../src/fdai/delivery/ingestion_gateway/activity.py) | Owned transition의 ingestion API 또는 worker | Audit/progress consumer와 Huginn ingress bridge | `document_id` | Content-free additive event envelope | Stable action/version idempotency, reconciliation이 persisted fact 재발행, event 1일/DLQ 7일 |
 | Operator command/proposal event | [Event](../../../src/fdai/shared/contracts/event/schema.json)와 [Action](../../../src/fdai/shared/contracts/action/schema.json) contract | Operator API command identity | Huginn/Forseti typed pipeline | normalized `resource_id` | Registry semver와 additive compatibility | At-least-once, catalog idempotency key, normal event/DLQ retention 1일/7일 |
 | Agent introspection request/reply | [Agent-introspection transport](../../../src/fdai/delivery/agent_introspection_bus.py) | Bragi/Operator API bridge | Addressed agent와 bounded reply consumer | correlation id | Process split 전 versioned request/reply envelope | Bounded timeout/retry, authority 없음, content-redacted failure, broker retention 1일 |
+| Executor command `1.0.0` 및 receipt `1.0.0` / `1.1.0` | [Executor transport](../../../src/fdai/shared/contracts/models/executor_transport.py) | Core Thor execution port | Isolated Executor와 Core receipt client | exact target resource ref | `1.0.0` receipt는 effect가 없고 additive `1.1.0`은 dispatch를 보고하지만 independent verification을 주장할 수 없음 | At-least-once, poison DLQ, stable Core consumer group, provider와 executor idempotency, normal/DLQ retention 1일/7일 |
 
 Contract retention은 audit retention이 아닙니다. Event Hubs는 현재 normal entity를 1일, sibling
 DLQ를 [Event Hubs module](../../../infra/modules/event-bus/event-hubs-kafka/main.tf)에서 7일 보존합니다. Durable state와 audit는 각각의 governed retention policy를 따릅니다.

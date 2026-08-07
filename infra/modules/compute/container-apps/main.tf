@@ -98,6 +98,9 @@ locals {
     var.operational_kafka_bootstrap_servers == "" ? {} : {
       FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS = var.operational_kafka_bootstrap_servers
     },
+    var.isolated_executor_authority_cutover ? {
+      FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER = "1"
+    } : {},
   )
 }
 

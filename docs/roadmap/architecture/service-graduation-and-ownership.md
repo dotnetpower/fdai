@@ -25,9 +25,9 @@ A candidate is **approved** only when at least one scaling, privilege-isolation,
 trigger is met and every contract, durability, observability, cost, and rollback gate passes. It is
 **deferred** when no trigger is measured or evidence is incomplete. It is **rejected** when the split
 would create direct agent calls, shared mutable coordination, multiple writers, executor-identity
-spread, an unversioned wire contract, or no tested rollback. The current deployment has four runtime
-services; the tracked target adds an Isolated Executor as the fifth service and removes mutation
-roles from Core at the authority cutover.
+spread, an unversioned wire contract, or no tested rollback. The current deployment has five runtime
+services with the Isolated Executor in shadow mode. The tracked cutover removes mutation roles from
+Core only after the exact live evidence closes.
 
 ## Graduation scorecard
 
@@ -108,6 +108,7 @@ A new candidate must add its data rows before implementation. A row with two ove
 | Document lifecycle activity | [Document activity contract](../../../src/fdai/delivery/ingestion_gateway/activity.py) | Ingestion API or worker for its owned transition | Audit/progress consumers and Huginn ingress bridge | `document_id` | Content-free additive event envelope | Stable action/version idempotency; reconciliation republishes persisted facts; event 1 day, DLQ 7 days |
 | Operator command/proposal event | [Event](../../../src/fdai/shared/contracts/event/schema.json) and [Action](../../../src/fdai/shared/contracts/action/schema.json) contracts | Operator API command identity | Huginn/Forseti typed pipeline | normalized `resource_id` | Registry semver and additive compatibility | At-least-once; catalog idempotency key; normal event/DLQ retention 1/7 days |
 | Agent introspection request/reply | [Agent-introspection transport](../../../src/fdai/delivery/agent_introspection_bus.py) | Bragi/Operator API bridge | Addressed agent and bounded reply consumer | correlation id | Versioned request/reply envelope before process split | Bounded timeout/retry, no authority, content-redacted failure, broker retention 1 day |
+| Executor command `1.0.0` and receipt `1.0.0` / `1.1.0` | [Executor transport](../../../src/fdai/shared/contracts/models/executor_transport.py) | Core Thor execution port | Isolated Executor and Core receipt client | exact target resource ref | `1.0.0` receipts remain no-effect; additive `1.1.0` reports dispatch but cannot claim independent verification | At-least-once, poison DLQ, stable Core consumer group, provider plus executor idempotency, normal/DLQ retention 1/7 days |
 
 Contract retention is not audit retention. Event Hubs currently retains normal entities for 1 day
 and sibling DLQs for 7 days in the [Event Hubs module](../../../infra/modules/event-bus/event-hubs-kafka/main.tf); durable state and audit follow their own governed retention policies.

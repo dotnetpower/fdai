@@ -60,8 +60,9 @@ prod topology so shadow evaluation is representative.
     `audit-writer`, deployed from an **OCI image + Knative-compatible manifest subset** so
     the runtime is portable ([csp-neutrality.md § Runtime contract](../architecture/csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest)).
     The core has no sidecar or ingress. The opt-in Operator API, public ingestion API, internal
-    ingestion worker with its ClamAV sidecar, and shadow-only Isolated Executor are separate
-    Container Apps. The Executor app has no ingress and receives no effect role before SD-08.
+    ingestion worker with its ClamAV sidecar, and Isolated Executor are separate Container Apps.
+    The Executor has no ingress; default deployment remains shadow-only, and the explicit SD-08
+    cutover moves gateway caller authority and action identities away from Core.
   - **Container Apps Jobs** in the same environment for scheduled probes and light triggers
     (replaces Azure Functions for runtime scheduling). An opt-in development-only FC1 Function
     App is the narrow exception: it relays registered operations to private resources and is not a

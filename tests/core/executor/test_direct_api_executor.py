@@ -224,8 +224,31 @@ class TestHappyPath:
             "rollback_ref": "scripted:rb-99",
             "max_resources": "1",
         }
-        entry = _unwrap(list(audit.audit_entries)[0])
-        assert entry["mode"] == "enforce"
+        intent, terminal = [_unwrap(entry) for entry in audit.audit_entries]
+        assert intent["audit_phase"] == "intent"
+        assert intent["outcome"] == "intent_persisted"
+        assert terminal["audit_phase"] == "terminal"
+        assert terminal["mode"] == "enforce"
+
+    @pytest.mark.asyncio
+    async def test_enforce_audit_failure_blocks_provider_dispatch(self) -> None:
+        adapter = RecordingDirectApiExecutor()
+
+        class _FailingAuditStore(InMemoryStateStore):
+            async def append_audit_entry(self, entry: dict[str, Any]) -> None:
+                raise RuntimeError("audit unavailable")
+
+        executor = DirectApiShadowExecutor(
+            executor=adapter,
+            audit_store=_FailingAuditStore(),
+            resource_lock=ResourceLockManager(),
+            allow_enforce=True,
+        )
+
+        with pytest.raises(RuntimeError, match="audit unavailable"):
+            await executor.execute(action=_action(mode=Mode.ENFORCE))
+
+        assert adapter.records == ()
 
 
 # ---------------------------------------------------------------------------

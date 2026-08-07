@@ -70,6 +70,12 @@ variable "finops_identity_client_id" {
   type        = string
 }
 
+variable "isolated_executor_authority_cutover" {
+  description = "Route Core direct-API execution over the isolated Executor command transport."
+  type        = bool
+  default     = false
+}
+
 variable "t1_similarity_threshold" {
   description = "Cosine-similarity floor for T1 reuse."
   type        = number

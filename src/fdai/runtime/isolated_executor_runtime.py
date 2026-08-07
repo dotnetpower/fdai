@@ -8,6 +8,7 @@ adapter, workload identity, or authority promotion path.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Protocol
@@ -17,7 +18,11 @@ from pydantic import ValidationError
 from fdai.runtime.health import RuntimeHealthServer
 from fdai.runtime.isolated_executor import ExecutorCommandConflictError
 from fdai.runtime.isolated_executor_lock import ExecutorShadowCommandHandler
-from fdai.shared.contracts import ExecutorCommand, ExecutorShadowReceipt
+from fdai.shared.contracts import (
+    ExecutorCommand,
+    ExecutorEffectReceipt,
+    ExecutorShadowReceipt,
+)
 from fdai.shared.contracts.validation import ContractValidationError
 from fdai.shared.providers.event_bus import EventBus, EventEnvelope
 
@@ -26,6 +31,13 @@ EXECUTOR_RECEIPT_TOPIC = "object.executor-receipt"
 EXECUTOR_CONSUMER_GROUP = "fdai-isolated-executor-shadow"
 
 _LOGGER = logging.getLogger("fdai.isolated_executor")
+type ExecutorReceipt = ExecutorShadowReceipt | ExecutorEffectReceipt
+
+
+class ExecutorCommandHandler(Protocol):
+    """Handle one validated Executor command under its owned safeguards."""
+
+    async def handle(self, command: ExecutorCommand) -> ExecutorReceipt: ...
 
 
 class IsolatedExecutorCommandConsumer:
@@ -35,7 +47,7 @@ class IsolatedExecutorCommandConsumer:
         self,
         *,
         event_bus: EventBus,
-        service: ExecutorShadowCommandHandler,
+        service: ExecutorCommandHandler | ExecutorShadowCommandHandler,
         command_topic: str = EXECUTOR_COMMAND_TOPIC,
         receipt_topic: str = EXECUTOR_RECEIPT_TOPIC,
         group_id: str = EXECUTOR_CONSUMER_GROUP,
@@ -75,7 +87,7 @@ class IsolatedExecutorCommandConsumer:
     async def handle_envelope(
         self,
         envelope: EventEnvelope,
-    ) -> ExecutorShadowReceipt | None:
+    ) -> ExecutorReceipt | None:
         """Validate one broker envelope and publish its terminal receipt.
 
         Invalid immutable records are dead-lettered. State or receipt transport
@@ -105,13 +117,27 @@ class IsolatedExecutorCommandConsumer:
             receipt.model_dump(mode="json"),
         )
         _LOGGER.info(
-            "isolated_executor_shadow_receipt_published",
+            json.dumps(
+                {
+                    "event": "isolated_executor_receipt_published",
+                    "command_id": str(command.command_id),
+                    "action_id": str(command.action_id),
+                    "status": receipt.status.value,
+                    "attempt": command.attempt,
+                    "effect_applied": receipt.effect_applied,
+                    "effect_verified": getattr(receipt, "effect_verified", False),
+                    "command_offset": envelope.offset,
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
             extra={
                 "command_id": str(command.command_id),
                 "action_id": str(command.action_id),
                 "status": receipt.status.value,
                 "attempt": command.attempt,
-                "effect_applied": False,
+                "effect_applied": receipt.effect_applied,
+                "command_offset": envelope.offset,
             },
         )
         return receipt
@@ -220,6 +246,7 @@ __all__ = [
     "EXECUTOR_COMMAND_TOPIC",
     "EXECUTOR_CONSUMER_GROUP",
     "EXECUTOR_RECEIPT_TOPIC",
+    "ExecutorCommandHandler",
     "IsolatedExecutorCommandConsumer",
     "IsolatedExecutorConsumerLoop",
     "IsolatedExecutorSupervisor",

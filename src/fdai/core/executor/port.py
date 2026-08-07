@@ -36,7 +36,10 @@ class _PrNativeExecutionPort(Protocol):
     async def execute(self, *, action: Action, rule: Rule) -> ExecutionResult: ...
 
 
-class _DirectApiExecutionPort(Protocol):
+@runtime_checkable
+class DirectApiExecutionPort(Protocol):
+    """Execute a governed direct-API Action in-process or over typed transport."""
+
     async def execute(self, *, action: Action) -> DirectApiExecutionResult: ...
 
 
@@ -89,7 +92,7 @@ class ThorExecutionPort(Protocol):
         ...
 
     @property
-    def direct_api(self) -> _DirectApiExecutionPort | None:
+    def direct_api(self) -> DirectApiExecutionPort | None:
         """Return the optional direct-API execution surface."""
         ...
 
@@ -112,6 +115,7 @@ ThorSafetyDependencyReadiness = MutationDependencyReadiness
 
 
 __all__ = [
+    "DirectApiExecutionPort",
     "InProcessThorExecutionPort",
     "MutationDependencyReadiness",
     "ThorExecutionPort",

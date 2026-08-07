@@ -41,11 +41,11 @@ subscribers inside their owning runtime service.
 | State | Count | Meaning |
 |-------|-------|---------|
 | Completed | 8 | SD-00 through SD-07 have recorded exit evidence and focused validation. |
-| In progress | 1 | SD-08 identity-boundary design and topology tests are active in one serial worktree. |
+| In progress | 1 | SD-08 cutover implementation is focused-green; protected live plan, effect proof, and rollback remain. |
 | Planned | 1 | SD-09 has not started. |
 | Blocked | 0 | No work package is currently blocked. |
 
-Last updated: 2026-08-07.
+Last updated: 2026-08-08.
 
 ## Execution checklist
 
@@ -104,7 +104,7 @@ sessions use different branches.
 | SD-03 completed effective access and rollback | Integration owner on `main`; prior worker retained read-only at `/home/moonchoi/dev/fdai-worktrees/sd03-effective-access` | No source paths reserved | Live effective-access proof and the 2-second rollback rehearsal were accepted and the implementation reservation was released |
 | SD-06 completed lineage | Integration owner on `main`; prior core, projection, and hardening workers retained read-only | All SD-06 implementation paths released after `d4e430d60` | Canonical lineage, provider compatibility, decision/resilience traces, candidate-only learning, bounded Operator projection, and 14 critique rounds pass focused validation with no Medium-or-higher residual; execution and promotion authority remain zero |
 | SD-07 completed shadow Executor | Integration owner on `main`; prior shadow and health-recovery workers retained read-only | All SD-07 implementation and image-admission paths released after `aa89b0bf1` | Exact protected apply, healthy shadow revision, canary, immutable receipt, digest-bound image admission, 11 critique rounds, and focused validation pass with effect authority remaining zero |
-| SD-08 authority cutover design | Persistent serial worker at `/home/moonchoi/dev/fdai-worktrees/sd08-authority-cutover` | Core transport-versus-effect identity design in the architecture/deployment doc pairs, `infra/main.tf`, `infra/variables.tf`, the compute Container App identity inputs, and matching isolated-executor/topology tests only | A tested opt-in topology removes every mutation-capable identity from Core without removing required transport/read access; default remains the SD-07 shadow topology and no live authority moves before exact plan, smoke, and timed rollback evidence |
+| SD-08 authority cutover | Persistent serial worker at `/home/moonchoi/dev/fdai-worktrees/sd08-authority-cutover` | Versioned Executor command/receipt contracts, Core execution port, isolated Executor runtime/client/probe, deployment workflow, `infra/main.tf`, `infra/variables.tf`, compute and isolated Container App identity inputs, this plan pair, machine manifest, and matching focused tests | A tested opt-in topology removes gateway and vertical effect access from Core without removing transport/read access; default remains SD-07 shadow, and live authority moves only through an exact protected plan followed by independent effect and timed rollback evidence |
 | Serial integration | Integration owner | This plan pair, machine status manifest, cross-package contracts, production composition, pantheon roles, and executor identity cutover | Focused package handoff accepted and dependency status updated |
 
 ## Progress update contract
@@ -164,6 +164,7 @@ state. For each transition:
 | 2026-08-07 | SD-07 | In progress | Plan `31179749690`; apply `31180087754` | The exact protected plan was `0 add / 9 in-place change / 0 destroy` and the apply completed exact-plan verification, convergence, both migrations, five healthy runtime revisions, API health, canary, and immutable receipt. The isolated identity has only ACR pull, command receive, receipt/DLQ send, and state-secret read roles; effect authority remains zero. The prior in-process Core path remains the SD-08 rollback artifact. Image-admission critique handoff and the SD-08 timed authority-cutover rollback remain open. |
 | 2026-08-07 | SD-07 | Completed | `c8a32ae77` through `aa89b0bf1`; rounds 1-11 | The final image verifies the isolated entry point under uid 65532. Protected plans accept only an attested GHCR subject whose ACR digest matches, require explicit authorized promotion, preserve strict runtime-image metadata, and bound every external image operation. The exact main union passed 72 verifier, workflow, image, transport, and CLI tests plus Ruff, strict mypy, YAML, translation, punctuation, and whitespace checks. Independent review found no reproducible Medium-or-higher residual; malformed registry responses and unavailable pre-promoted images fail closed. Live run `31180087754` completed health, canary, and immutable apply receipt with effect authority at zero. SD-08 is dependency-ready and remains serial. |
 | 2026-08-07 | SD-08 | In progress | Identity-boundary discovery start | The first hypothesis that one Event Hubs role could simply move was falsified: the current aggregate identity also owns Core transport and startup dependencies, while Core directly attaches the aggregate and three vertical identities. The serial worker first separates required Core transport/read identity from mutation-capable executor identities in design and topology tests. Effect authority remains zero until a later exact cutover plan and rollback receipt. |
+| 2026-08-08 | SD-08 | In progress | Implementation-ready focused receipt | Additive Executor receipt `1.1.0`, remote direct-API command/receipt correlation, pre-effect audit intent, stable Core receipt consumer group, duplicate-safe isolated dispatch, explicit default-off Terraform cutover, gateway principal transfer, reversible NSG probe, and protected workflow verification passed 126 focused tests, strict mypy, Ruff, Terraform validate, six root topology cases, and two module cases. Live effect authority remains unchanged until the protected plan is accepted and applied. |
 
 ## Related documents
 

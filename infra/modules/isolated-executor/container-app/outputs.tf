@@ -9,6 +9,6 @@ output "name" {
 }
 
 output "identity_ids" {
-  description = "The sole UAMI attached to the shadow Container App."
+  description = "The transport UAMI and any cutover-only action identities attached to the Container App."
   value       = azurerm_container_app.shadow.identity[0].identity_ids
 }

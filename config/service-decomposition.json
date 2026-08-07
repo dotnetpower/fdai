@@ -160,6 +160,12 @@
       "healthy_runtime_services": 5,
       "effect_authority": false,
       "timed_authority_cutover_rollback": "pending-sd08"
+    },
+    "sd08": {
+      "implementation": "focused-green",
+      "live_effect_authority": "unchanged-pending-protected-plan",
+      "independent_effect_verification": "pending-live-apply",
+      "timed_rollback_rehearsal": "pending-live-apply"
     }
   },
   "completion_constraints": [

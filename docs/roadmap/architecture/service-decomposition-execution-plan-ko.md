@@ -1,7 +1,7 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 08fb6401f20fe385273e2326c23410e1d696a69e
-translation_revised: 2026-08-07
+translation_source_sha: 32ec374ed71b6a5ef59be6c4cb62d2bf42cb041e
+translation_revised: 2026-08-08
 ---
 # 서비스 분해 실행 계획
 
@@ -39,11 +39,11 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 | 상태 | 개수 | 의미 |
 |------|------|------|
 | 완료 | 8 | SD-00부터 SD-07까지 exit evidence와 focused validation을 기록했습니다. |
-| 진행 중 | 1 | SD-08 identity-boundary design 및 topology test를 하나의 serial worktree에서 진행합니다. |
+| 진행 중 | 1 | SD-08 cutover 구현은 focused gate를 통과했고 protected live plan, effect proof, rollback이 남았습니다. |
 | 계획됨 | 1 | SD-09는 시작하지 않았습니다. |
 | 차단됨 | 0 | 현재 차단된 work package가 없습니다. |
 
-마지막 업데이트: 2026-08-07.
+마지막 업데이트: 2026-08-08.
 
 ## 실행 checklist
 
@@ -101,7 +101,7 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 | SD-03 completed effective access와 rollback | `main`의 integration owner가 관리하며 이전 worker는 `/home/moonchoi/dev/fdai-worktrees/sd03-effective-access`에 read-only로 유지합니다. | 예약된 source path가 없습니다. | Live effective-access proof와 2초 rollback rehearsal을 수락하고 구현 예약을 해제했습니다. |
 | SD-06 completed lineage | `main`의 integration owner. 이전 core, projection, hardening worker는 read-only로 유지합니다. | `d4e430d60` 후 모든 SD-06 구현 path를 해제했습니다. | Canonical lineage, provider compatibility, decision/resilience trace, candidate-only learning, bounded Operator projection 및 critique round 14회가 focused validation을 통과하고 Medium 이상 residual이 없음을 증명합니다. Execution 및 promotion authority는 0을 유지합니다. |
 | SD-07 completed shadow Executor | `main`의 integration owner가 관리하며 이전 shadow 및 health-recovery worker는 read-only로 유지합니다. | `aa89b0bf1` 후 모든 SD-07 구현 및 image-admission path를 해제했습니다. | Exact protected apply, healthy shadow revision, canary, immutable receipt, digest-bound image admission, critique round 11회 및 focused validation이 통과했고 effect authority는 0을 유지합니다. |
-| SD-08 authority cutover design | `/home/moonchoi/dev/fdai-worktrees/sd08-authority-cutover`의 persistent serial worker | Architecture/deployment doc pair의 Core transport-versus-effect identity design, `infra/main.tf`, `infra/variables.tf`, compute Container App identity input 및 해당 isolated-executor/topology test만 소유합니다. | Tested opt-in topology가 필요한 transport/read access를 제거하지 않으면서 Core에서 모든 mutation-capable identity를 제거합니다. 기본값은 SD-07 shadow topology를 유지하며 exact plan, smoke 및 timed rollback evidence 전에는 live authority를 이동하지 않습니다. |
+| SD-08 authority cutover | `/home/moonchoi/dev/fdai-worktrees/sd08-authority-cutover`의 persistent serial worker | Versioned Executor command/receipt contract, Core execution port, isolated Executor runtime/client/probe, deployment workflow, `infra/main.tf`, `infra/variables.tf`, compute와 isolated Container App identity input, 이 계획 문서 쌍, machine manifest 및 해당 focused test를 소유합니다. | Tested opt-in topology가 transport/read access를 유지하면서 Core의 gateway 및 vertical effect access를 제거합니다. 기본값은 SD-07 shadow이며 exact protected plan 후 independent effect와 timed rollback evidence를 확보할 때만 live authority를 이동합니다. |
 | Serial integration | Integration owner | 이 계획 문서 쌍, machine status manifest, package 간 contract, production composition, pantheon role, executor identity cutover | Focused package handoff를 수락하고 dependency 상태를 업데이트 |
 
 ## 진행 상태 업데이트 contract
@@ -160,6 +160,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-07 | SD-07 | 진행 중 | Plan `31179749690`, apply `31180087754` | Exact protected plan은 `0 add / 9 in-place change / 0 destroy`였고 apply는 exact-plan verification, convergence, migration 2개, healthy runtime revision 5개, API health, canary 및 immutable receipt를 완료했습니다. Isolated identity는 ACR pull, command receive, receipt/DLQ send 및 state-secret read role만 가지며 effect authority는 0입니다. 기존 in-process Core path는 SD-08 rollback artifact로 유지합니다. Image-admission critique handoff와 SD-08 timed authority-cutover rollback은 계속 열려 있습니다. |
 | 2026-08-07 | SD-07 | 완료 | `c8a32ae77`부터 `aa89b0bf1`, round 1-11 | Final image는 uid 65532에서 isolated entry point를 검증합니다. Protected plan은 ACR digest가 일치하는 attested GHCR subject만 수락하고 explicit authorized promotion을 요구하며 strict runtime-image metadata를 보존하고 모든 external image operation에 bound를 적용합니다. Exact main union에서 verifier, workflow, image, transport 및 CLI test 72개와 Ruff, strict mypy, YAML, translation, punctuation, whitespace check가 통과했습니다. 독립 review에서 재현 가능한 Medium 이상 residual은 없었고 malformed registry response와 unavailable pre-promoted image는 fail closed합니다. Live run `31180087754`는 effect authority 0을 유지하며 health, canary 및 immutable apply receipt를 완료했습니다. SD-08은 dependency-ready이며 serial 상태를 유지합니다. |
 | 2026-08-07 | SD-08 | 진행 중 | Identity-boundary discovery 시작 | 하나의 Event Hubs role만 단순히 이동할 수 있다는 첫 가설은 반증됐습니다. Current aggregate identity는 Core transport와 startup dependency도 소유하며 Core는 aggregate identity와 vertical identity 3개를 직접 attach합니다. Serial worker는 먼저 design 및 topology test에서 필요한 Core transport/read identity를 mutation-capable executor identity와 분리합니다. 이후 exact cutover plan과 rollback receipt 전까지 effect authority는 0을 유지합니다. |
+| 2026-08-08 | SD-08 | 진행 중 | Implementation-ready focused receipt | Additive Executor receipt `1.1.0`, remote direct-API command/receipt correlation, pre-effect audit intent, stable Core receipt consumer group, duplicate-safe isolated dispatch, explicit default-off Terraform cutover, gateway principal transfer, reversible NSG probe 및 protected workflow verification을 구현했습니다. Focused test 126개, strict mypy, Ruff, Terraform validate, root topology case 6개, module case 2개가 통과했습니다. Protected plan을 수락하고 apply하기 전까지 live effect authority는 변경되지 않습니다. |
 
 ## 관련 문서
 

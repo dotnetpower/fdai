@@ -86,3 +86,40 @@ run "a_dev_plan_with_private_networking_is_accepted" {
     error_message = "dev with private networking is the supported combination and MUST plan the gateway"
   }
 }
+
+run "authority_cutover_requires_both_runtime_boundaries" {
+  command = plan
+
+  variables {
+    enable_isolated_executor_authority_cutover = true
+  }
+
+  expect_failures = [terraform_data.isolated_executor_authority_cutover_contract]
+}
+
+run "authority_cutover_moves_the_gateway_caller_and_vertical_identities" {
+  command = plan
+
+  variables {
+    env                                        = "dev"
+    enable_private_networking                  = true
+    enable_dev_operations_gateway              = true
+    enable_isolated_executor                   = true
+    enable_isolated_executor_authority_cutover = true
+  }
+
+  assert {
+    condition     = length(local.core_vertical_identity_ids) == 0
+    error_message = "Core must not retain any vertical execution identity after cutover"
+  }
+
+  assert {
+    condition     = length(local.isolated_executor_vertical_identity_ids) == 3
+    error_message = "the isolated Executor must receive all three vertical execution identities"
+  }
+
+  assert {
+    condition     = length(module.compute.vertical_identity_client_ids) == 3
+    error_message = "Core must retain the three env keys as empty non-authoritative compatibility values"
+  }
+}

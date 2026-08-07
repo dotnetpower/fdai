@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 1a7f4c094adaa8fc5eaa3312e95574ac2611afa8
-translation_revised: 2026-08-07
+translation_source_sha: a939cd1abd38bb6c5c5213176086ba983b3d75c3
+translation_revised: 2026-08-08
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -421,12 +421,13 @@ Identity를 사용하며 connection string 또는 Storage account key를 만들�
 
 현재 control-loop Core는 서명된 이미지와 Python process 하나로 배포됩니다. 5개 service 목표는 internal Isolated Executor를 추가하고 cutover에서 Core의 executor role을 제거합니다. Operator, ingestion API, ingestion worker는 별도이며 이전 topology는 rollback artifact입니다. 모든 gate는 [실행 계획](../architecture/service-decomposition-execution-plan-ko.md)에서 추적합니다.
 
-- **Runtime**: `python -m fdai`가 Kafka consumer를 시작하고 routing, quality, risk, execution, audit stage를 하나의 프로세스에서 구성합니다. Isolated shadow process는 `fdai-isolated-executor`를 사용합니다. 명시적인 deployed-process marker, durable state DSN, effect 권한이 없는 전용 identity를 요구하고 earliest retained offset부터 command를 consume하며 provider effect adapter를 import하지 않습니다. Deployment venue와 `RUNTIME_ENV`는 독립적으로 유지합니다.
+- **Runtime**: `python -m fdai`가 Kafka consumer를 시작하고 routing, quality, risk, audit stage를 구성합니다. `fdai-isolated-executor`는 기본적으로 shadow-only입니다. 명시적 cutover는 stable Core receipt consumer group, versioned command/receipt transport, 기존 guarded direct-API executor 및 전용 gateway caller identity를 사용합니다. Deployment venue와 `RUNTIME_ENV`는 독립적으로 유지합니다.
 - **Health**: Core는 내부 `/live`와 `/ready`, ingestion API는 `/healthz`, internal worker는 `/live`와 `/ready`를 사용합니다. Isolated Executor도 `FDAI_ISOLATED_EXECUTOR_HEALTH_PORT`에서 내부 `/live`와 `/ready` contract를 사용합니다.
 - **Replica floor**: 기본값은 replica 하나입니다. 검증된 Kafka scaler 없이 0으로 설정하면 Event Hubs 데이터로 깨어나지 않으므로 Terraform은 scale-to-zero를 주장하지 않습니다.
 - **분리 기준**: 목표는 Core, Operator, Ingestion API, Processing Worker, Isolated Executor이며 authority cutover는 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)의 모든 gate를 따릅니다.
 - **Identity 분리**: Operator API read/command와 ingestion API/worker/migration principal을 분리합니다. Worker는 `aw.pantheon.objects`에서 Saga/Muninn object만 receive하고 `aw.pipeline.stages`로 stage fact를 send합니다. `ingestion_cohost_worker=true`는 두 scope를 API identity로 돌립니다.
 - **Executor shadow 배포**: `enable_isolated_executor=true`는 internal app과 ACR pull, command receive, receipt/DLQ send, state-secret read만 가진 전용 UAMI를 프로비저닝합니다. 기본값은 `false`이며 SD-07에서는 action-specific effect role을 부여하지 않습니다. Private-runner workflow는 이를 `deploy_isolated_executor`로 노출하고 기본 plan-only를 유지하며 apply 후 app의 latest revision을 health verification에 포함합니다. Executor plan은 `runtime_image_revision`을 resolve하고, 지정하지 않으면 checkout commit을 사용하며, GHCR attestation을 검증한 뒤 ACR에 이미 존재하는 동일 digest를 binding합니다. `promote_runtime_image=true`는 rebuild 없이 해당 verified digest를 명시적으로 import합니다. Exact apply는 image promotion을 거부하고 protected plan artifact만 사용합니다.
+- **Executor authority cutover**: `enable_isolated_executor_authority_cutover=true`는 isolated app과 development operations gateway를 함께 요구합니다. Core의 gateway 및 vertical effect access를 제거하고 isolated identity를 승인하며 Core에는 transport/read identity만 유지합니다. `verify_executor_effect=true`는 reversible NSG rule probe를 실행하고 Azure Resource Manager에서 effect를 확인하며 duplicate write를 차단하고 command offset과 terminal receipt를 기록한 뒤 rule을 정리합니다. 전환이 900초를 넘으면 실패합니다.
 
 ## 부트스트랩 순서
 
@@ -509,8 +510,8 @@ promotion 및 test-only key는 editable surface에 포함되지 않습니다.
 | `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_BUDGET_SECONDS` | env | deployment / upstream | 선택적 analyzer target 및 bound. target이 비어 있으면 analyzer Job이 `FDAI_INVENTORY_DSN`을 통해 active inventory에서 지원 resource kind를 탐색합니다. |
 | `KAFKA_TOPIC_EVENTS` | env | deployment | 주 이벤트 ingest 토픽 |
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | deployment | dead-letter suffix (기본 `.dlq`) |
-| `FDAI_EXECUTOR_COMMAND_TOPIC` / `FDAI_EXECUTOR_RECEIPT_TOPIC` | env | upstream / deployment | Isolated Executor command 및 terminal shadow-receipt topic입니다. 기본값은 `object.executor-command`, `object.executor-receipt`이며 서로 달라야 합니다. |
-| `FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID` | env | deployment | Isolated Executor에만 attach하는 전용 shadow transport identity입니다. SD-07에서는 Event Hubs, state-secret reference 및 PostgreSQL connectivity만 부여하며 action-specific effect role은 부여하지 않습니다. |
+| `FDAI_EXECUTOR_COMMAND_TOPIC` / `FDAI_EXECUTOR_RECEIPT_TOPIC` | env | upstream / deployment | Isolated Executor command 및 versioned terminal receipt topic입니다. 기본값은 `object.executor-command`, `object.executor-receipt`이며 서로 달라야 합니다. |
+| `FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID` / `FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER` | env | deployment | 전용 isolated identity와 정확한 default-off cutover marker입니다. Shadow에서는 transport/state access만 가지며 cutover 후에는 유일한 development-gateway caller가 되고 Core는 transport/read access만 유지합니다. |
 | `FDAI_ISOLATED_EXECUTOR_DEPLOYED` | env | upstream / deployment | 독립 배포 process의 exact opt-in marker입니다. `1`일 때만 이 entrypoint를 시작하며 environment 이름은 deployment venue 또는 authority를 의미하지 않습니다. |
 | `FDAI_ISOLATED_EXECUTOR_HEALTH_PORT` / `FDAI_ISOLATED_EXECUTOR_INSTANCE_ID` | env | upstream / deployment | 내부 health port(기본 `8000`)와 receipt attribution용 bounded instance id입니다. Explicit instance id가 없으면 Container Apps의 `HOSTNAME`을 사용합니다. |
 | `LLM_MODE` | env | deployment | 명시적 test/mock용 `local-fake` 또는 authoritative profile용 `azure`. Environment는 binding을 선택하지 않습니다. [dev-and-deploy-parity-ko.md § Parity 컨트랙트](dev-and-deploy-parity-ko.md#parity-컨트랙트-must) 참조. |

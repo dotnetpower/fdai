@@ -39,6 +39,7 @@ from fdai.core.executor.path_selection import (
     strictest_execution_path,
 )
 from fdai.core.executor.port import (
+    DirectApiExecutionPort,
     InProcessThorExecutionPort,
     MutationDependencyReadiness,
     ThorExecutionPort,
@@ -57,6 +58,7 @@ from fdai.core.executor.tool_call import (
 
 __all__ = [
     "DirectApiExecutionOutcome",
+    "DirectApiExecutionPort",
     "DirectApiExecutionResult",
     "DirectApiShadowExecutor",
     "ExecutionPathSelectionError",

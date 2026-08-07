@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/executor-receipt/1.1.0",
+  "title": "ExecutorEffectReceipt",
+  "description": "Terminal isolated-Executor dispatch receipt. Independent effect verification remains open.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "receipt_id", "command_id", "action_id", "idempotency_key",
+    "attempt", "action_payload_digest", "requested_mode", "status",
+    "executor_instance_id", "received_at", "completed_at", "effect_applied",
+    "effect_verified", "audit_ref"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.1.0"},
+    "receipt_id": {"type": "string", "format": "uuid"},
+    "command_id": {"type": "string", "format": "uuid"},
+    "action_id": {"type": "string", "format": "uuid"},
+    "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 512},
+    "attempt": {"type": "integer", "minimum": 1, "maximum": 100},
+    "action_payload_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "requested_mode": {"type": "string", "enum": ["shadow", "enforce"]},
+    "status": {
+      "type": "string",
+      "enum": [
+        "dispatched", "already_applied", "abstained_blast_radius",
+        "abstained_precondition", "stopped", "failed", "authentication_failed",
+        "permission_denied", "policy_denied", "network_denied", "rejected_mode",
+        "rejected_invariant", "rejected_idempotency_conflict", "expired"
+      ]
+    },
+    "reason": {"type": ["string", "null"], "minLength": 1, "maxLength": 512},
+    "executor_instance_id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "received_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "effect_applied": {"type": "boolean"},
+    "effect_verified": {"const": false},
+    "rollback_succeeded": {"type": ["boolean", "null"]},
+    "provider_receipt_ref": {"type": ["string", "null"], "minLength": 1, "maxLength": 512},
+    "audit_ref": {"type": "string", "minLength": 1, "maxLength": 512}
+  }
+}

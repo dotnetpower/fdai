@@ -12,10 +12,8 @@ from fdai.core.control_loop._helpers import (
     evaluate_unified,
 )
 from fdai.core.executor import ExecutionResult, ExecutorOutcome, ShadowExecutor
-from fdai.core.executor.direct_api import (
-    DirectApiExecutionResult,
-    DirectApiShadowExecutor,
-)
+from fdai.core.executor.direct_api import DirectApiExecutionResult
+from fdai.core.executor.port import DirectApiExecutionPort
 from fdai.core.executor.tool_call import (
     ToolCallExecutionResult,
     ToolCallShadowExecutor,
@@ -81,7 +79,7 @@ class ControlLoopExecutionMixin:
     _audit_store: StateStore
     _cost_estimator: CostEstimator | None
     _degradation: DegradationController | None
-    _direct_api_executor: DirectApiShadowExecutor | None
+    _direct_api_executor: DirectApiExecutionPort | None
     _executor: ShadowExecutor
     _execution_authorization_evaluator: ExecutionAuthorizationEvaluator | None
     _execution_access_grant_sink: ExecutionAccessGrantSink | None

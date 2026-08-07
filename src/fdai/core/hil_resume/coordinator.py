@@ -54,6 +54,7 @@ from typing import Any, cast
 from uuid import uuid4
 
 from fdai.core.executor import (
+    DirectApiExecutionPort,
     ExecutionResult,
     MutationDependencyReadiness,
     ShadowExecutor,
@@ -61,7 +62,6 @@ from fdai.core.executor import (
 )
 from fdai.core.executor.direct_api import (
     DirectApiExecutionResult,
-    DirectApiShadowExecutor,
 )
 from fdai.core.executor.tool_call import (
     ToolCallExecutionResult,
@@ -228,7 +228,7 @@ class HilResumeCoordinator:
         executor: ShadowExecutor,
         hil_channel: HilChannel | None,
         rules_by_id: Mapping[str, Rule],
-        direct_api_executor: DirectApiShadowExecutor | None = None,
+        direct_api_executor: DirectApiExecutionPort | None = None,
         tool_executor: ToolCallShadowExecutor | None = None,
         action_types_by_name: Mapping[str, OntologyActionType] | None = None,
         actor: str = "fdai.core.hil_resume",
@@ -248,10 +248,7 @@ class HilResumeCoordinator:
             )
         if thor_execution_port is not None:
             port_executor = cast(ShadowExecutor, thor_execution_port.pr_native)
-            port_direct_api = cast(
-                DirectApiShadowExecutor | None,
-                thor_execution_port.direct_api,
-            )
+            port_direct_api = thor_execution_port.direct_api
             port_tool = cast(
                 ToolCallShadowExecutor | None,
                 thor_execution_port.tool_call,

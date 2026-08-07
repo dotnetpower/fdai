@@ -184,6 +184,7 @@ async def _run() -> int:
     identity: WorkloadIdentity | None = None
     bus: EventBus | None = None
     auxiliary_bus: EventBus | None = None
+    isolated_executor_client: Any = None
     pantheon_runtime: PantheonRuntime | None = None
     agent_introspection_server: Any = None
     runtime_state_publisher: AgentRuntimeStatePublisher | None = None
@@ -315,6 +316,21 @@ async def _run() -> int:
             )
 
             incident_audit_store = _build_audit_store()
+            if os.environ.get("FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER", "").strip() == "1":
+                if auxiliary_bus is None:
+                    raise RuntimeError(
+                        "isolated Executor authority cutover requires the auxiliary EventBus"
+                    )
+                from fdai.runtime.isolated_executor_client import (
+                    EventBusDirectApiExecutionClient,
+                )
+
+                isolated_executor_client = EventBusDirectApiExecutionClient(
+                    event_bus=auxiliary_bus,
+                    audit_store=incident_audit_store,
+                    instance_id=os.environ.get("HOSTNAME", "fdai-core"),
+                )
+                await isolated_executor_client.start()
             from fdai.delivery.runtime_settings import RuntimeSettingsService
 
             runtime_settings = RuntimeSettingsService(
@@ -420,6 +436,7 @@ async def _run() -> int:
                 execution_identities=_build_vertical_execution_identities(
                     http_client=http_client,
                 ),
+                direct_api_execution_port=isolated_executor_client,
                 response_outcome_sink=_relay_response_outcome,
                 human_access_enabled=runtime_values["human_access.enabled"] is True,
                 mutation_dependency_readiness=core_mutation_readiness,
@@ -1026,6 +1043,8 @@ async def _run() -> int:
         _LOGGER.info("shutdown_complete")
         return 0
     finally:
+        if isolated_executor_client is not None:
+            await isolated_executor_client.stop()
         await _close_runtime_resources(
             health_server=health_server,
             pantheon_runtime=pantheon_runtime,

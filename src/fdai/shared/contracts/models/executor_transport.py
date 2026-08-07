@@ -1,8 +1,9 @@
 """Versioned transport records for the isolated Executor boundary.
 
 The command carries one already-gated Action payload across a process boundary.
-The receipt records only shadow observation during SD-07 and cannot claim that
-an effect was applied. These records grant no execution authority.
+The v1.0 receipt preserves SD-07 no-effect compatibility. The additive v1.1
+receipt reports dispatch only and cannot claim independent effect verification.
+These records grant no execution authority.
 """
 
 from __future__ import annotations
@@ -32,6 +33,25 @@ class ExecutorShadowReceiptStatus(StrEnum):
     SHADOWED = "shadowed"
     DUPLICATE = "duplicate"
     REJECTED = "rejected"
+    EXPIRED = "expired"
+
+
+class ExecutorEffectReceiptStatus(StrEnum):
+    """Terminal direct-API dispatch outcomes after authority cutover."""
+
+    DISPATCHED = "dispatched"
+    ALREADY_APPLIED = "already_applied"
+    ABSTAINED_BLAST_RADIUS = "abstained_blast_radius"
+    ABSTAINED_PRECONDITION = "abstained_precondition"
+    STOPPED = "stopped"
+    FAILED = "failed"
+    AUTHENTICATION_FAILED = "authentication_failed"
+    PERMISSION_DENIED = "permission_denied"
+    POLICY_DENIED = "policy_denied"
+    NETWORK_DENIED = "network_denied"
+    REJECTED_MODE = "rejected_mode"
+    REJECTED_INVARIANT = "rejected_invariant"
+    REJECTED_IDEMPOTENCY_CONFLICT = "rejected_idempotency_conflict"
     EXPIRED = "expired"
 
 
@@ -159,8 +179,49 @@ class ExecutorShadowReceipt(_Base):
         return self
 
 
+class ExecutorEffectReceipt(_Base):
+    """Terminal SD-08 dispatch receipt that leaves effect verification open."""
+
+    schema_version: SemVer = "1.1.0"
+    receipt_id: UUID
+    command_id: UUID
+    action_id: UUID
+    idempotency_key: IdempotencyKey
+    attempt: Annotated[int, Field(ge=1, le=100)]
+    action_payload_digest: Digest
+    requested_mode: Mode
+    status: ExecutorEffectReceiptStatus
+    reason: NonEmpty | None = None
+    executor_instance_id: NonEmpty
+    received_at: datetime
+    completed_at: datetime
+    effect_applied: bool
+    effect_verified: Literal[False] = False
+    rollback_succeeded: bool | None = None
+    provider_receipt_ref: NonEmpty | None = None
+    audit_ref: NonEmpty
+
+    @model_validator(mode="after")
+    def _validate_effect_receipt(self) -> ExecutorEffectReceipt:
+        if self.received_at.tzinfo is None or self.completed_at.tzinfo is None:
+            raise ValueError("executor receipt timestamps MUST be timezone-aware")
+        if self.completed_at < self.received_at:
+            raise ValueError("executor receipt completion MUST NOT precede receipt time")
+        effect_statuses = {
+            ExecutorEffectReceiptStatus.DISPATCHED,
+            ExecutorEffectReceiptStatus.ALREADY_APPLIED,
+        }
+        if self.effect_applied != (self.status in effect_statuses):
+            raise ValueError("executor effect_applied MUST match the dispatch outcome")
+        if self.effect_applied and self.requested_mode is not Mode.ENFORCE:
+            raise ValueError("shadow commands cannot report an applied effect")
+        return self
+
+
 __all__ = [
     "ExecutorCommand",
+    "ExecutorEffectReceipt",
+    "ExecutorEffectReceiptStatus",
     "ExecutorShadowReceipt",
     "ExecutorShadowReceiptStatus",
 ]

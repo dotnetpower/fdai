@@ -88,3 +88,36 @@ def test_shadow_deployment_is_opt_in_and_topics_fit_operational_shard() -> None:
     block = operational.group("body")
     assert "local.executor_command_topic" in block
     assert "local.executor_receipt_topic" in block
+
+
+def test_authority_cutover_moves_gateway_and_vertical_identities_from_core() -> None:
+    cutover = re.search(
+        r'variable "enable_isolated_executor_authority_cutover" \{(?P<body>.*?)\n\}',
+        VARIABLES,
+        re.DOTALL,
+    )
+    assert cutover is not None
+    assert "default     = false" in cutover.group("body")
+
+    gateway = re.search(
+        r'resource "azurerm_function_app_flex_consumption" "dev_gateway" '
+        r"\{(?P<body>.*?)\n\}",
+        MAIN,
+        re.DOTALL,
+    )
+    assert gateway is not None
+    gateway_body = gateway.group("body")
+    assert "local.effect_executor_principal_id" in gateway_body
+    assert "local.effect_executor_client_id" in gateway_body
+
+    compute = re.search(r'module "compute" \{(?P<body>.*?)\n\}', MAIN, re.DOTALL)
+    assert compute is not None
+    assert "local.core_vertical_identity_ids" in compute.group("body")
+
+    isolated = re.search(
+        r'module "isolated_executor" \{(?P<body>.*?)\n\}',
+        MAIN,
+        re.DOTALL,
+    )
+    assert isolated is not None
+    assert "local.isolated_executor_vertical_identity_ids" in isolated.group("body")
