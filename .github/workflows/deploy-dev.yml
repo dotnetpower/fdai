@@ -1586,8 +1586,11 @@ jobs:
           run_probe() {
             local operation="$1"
             local key="$2"
-            az containerapp exec --name "$core_app" --resource-group "$rg" \
+            local exec_command
+            printf -v exec_command '%q ' az containerapp exec \
+              --name "$core_app" --resource-group "$rg" \
               --command "fdai-executor-authority-probe --transport $transport --operation $operation --resource-group $rg --nsg-name $nsg --rule-name $rule --idempotency-key $key"
+            script --quiet --return --command "$exec_command" /dev/null
           }
           json_line() {
             grep -E '\{.*"action_id".*\}' | tail -1 | sed 's/^[^{]*//'
