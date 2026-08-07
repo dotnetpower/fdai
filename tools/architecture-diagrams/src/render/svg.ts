@@ -59,6 +59,11 @@ const edgeStyles: Record<EdgeKind, { color: string; dash: string; width: number 
   read: { color: "#008272", dash: "5 4", width: 2.2 },
   write: { color: "#5c2d91", dash: "none", width: 2.6 },
   feedback: { color: "#6b4eff", dash: "8 4", width: 2.6 },
+  sequence: { color: "#0f6cbd", dash: "none", width: 2.4 },
+  transition: { color: "#6b46c1", dash: "none", width: 2.4 },
+  association: { color: "#44546a", dash: "none", width: 2.2 },
+  dependency: { color: "#7a8699", dash: "5 4", width: 2.2 },
+  timeline: { color: "#b77900", dash: "none", width: 3 },
 };
 
 const toneStyles = {
@@ -83,6 +88,11 @@ const edgeKindLabels: Record<EdgeKind, Record<Locale, string>> = {
   read: { en: "Read projection", ko: "읽기 projection" },
   write: { en: "Write", ko: "쓰기" },
   feedback: { en: "Feedback loop", ko: "피드백 루프" },
+  sequence: { en: "Interaction", ko: "상호작용" },
+  transition: { en: "State transition", ko: "상태 전이" },
+  association: { en: "Association", ko: "연관 관계" },
+  dependency: { en: "Dependency", ko: "의존 관계" },
+  timeline: { en: "Timeline", ko: "타임라인" },
 };
 
 interface IconEntry {

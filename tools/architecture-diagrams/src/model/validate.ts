@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
 
+import { diagramDefinition } from "./definitions.js";
 import type { DiagramSpec } from "./types.js";
 
 const schemaPath = fileURLToPath(
@@ -43,6 +44,25 @@ export function validateDiagram(value: unknown): DiagramSpec {
   }
 
   const spec = value as DiagramSpec;
+  const definition = diagramDefinition(spec.kind);
+  if (
+    definition.requiredEdgeKind &&
+    !spec.edges.some((edge) => edge.kind === definition.requiredEdgeKind)
+  ) {
+    throw new Error(
+      `Diagram kind '${spec.kind}' requires an edge of kind '${definition.requiredEdgeKind}'`,
+    );
+  }
+  if (
+    definition.requiredGroupPresentation &&
+    !spec.groups.some(
+      (group) => group.presentation === definition.requiredGroupPresentation,
+    )
+  ) {
+    throw new Error(
+      `Diagram kind '${spec.kind}' requires a '${definition.requiredGroupPresentation}' group`,
+    );
+  }
   const elementIds = [...spec.groups.map((group) => group.id), ...spec.nodes.map((node) => node.id)];
   const duplicateElement = findDuplicate(elementIds);
   if (duplicateElement) {

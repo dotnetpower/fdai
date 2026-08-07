@@ -8,7 +8,14 @@ export type DiagramKind =
   | "deployment"
   | "data-flow"
   | "network"
-  | "conceptual-flow";
+  | "conceptual-flow"
+  | "sequence"
+  | "swimlane"
+  | "state"
+  | "decision-tree"
+  | "domain"
+  | "entity-relationship"
+  | "timeline";
 
 export type DiagramNodeShape =
   | "card"
@@ -83,7 +90,12 @@ export type EdgeKind =
   | "rollback"
   | "read"
   | "write"
-  | "feedback";
+  | "feedback"
+  | "sequence"
+  | "transition"
+  | "association"
+  | "dependency"
+  | "timeline";
 
 export interface DiagramEdge {
   id: string;

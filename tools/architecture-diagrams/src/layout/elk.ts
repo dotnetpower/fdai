@@ -225,19 +225,25 @@ function groupToElk(
 ): ElkNode {
   const edges = containedEdges.get(group.id);
   const compact = spec.canvas.profile === "azure-reference";
+  const definition = diagramDefinition(spec.kind);
   return {
     id: group.id,
     children: childrenForGroup(spec, group, containedEdges),
     ...(edges?.length ? { edges } : {}),
     layoutOptions: {
       "elk.algorithm": "layered",
-      "elk.direction": group.direction ?? spec.canvas.direction,
-      "elk.edgeRouting": "ORTHOGONAL",
+      "elk.direction":
+        group.direction ?? definition.groupDirection ?? definition.direction ?? spec.canvas.direction,
+      "elk.edgeRouting": definition.edgeRouting ?? "ORTHOGONAL",
       "elk.padding": compact
         ? "[top=44,left=18,bottom=18,right=18]"
         : "[top=52,left=28,bottom=28,right=28]",
-      "elk.spacing.nodeNode": compact ? "16" : "22",
-      "elk.layered.spacing.nodeNodeBetweenLayers": compact ? "28" : "36",
+      "elk.spacing.nodeNode": String(
+        definition.nodeSpacing ?? (compact ? 16 : 22),
+      ),
+      "elk.layered.spacing.nodeNodeBetweenLayers": String(
+        definition.layerSpacing ?? (compact ? 28 : 36),
+      ),
     },
   };
 }
@@ -626,12 +632,11 @@ function applyRootGroupFlow(
   groups: Map<string, PositionedShape>,
   nodes: Map<string, PositionedShape>,
 ): { width: number; bottom: number } | undefined {
-  if (
-    spec.canvas.profile !== "azure-reference" ||
-    (!spec.canvas.rootLayout && spec.canvas.direction !== "DOWN")
-  ) {
-    return undefined;
-  }
+  const definition = diagramDefinition(spec.kind);
+  const configuredRootLayout = spec.canvas.rootLayout ?? definition.rootLayout;
+  const implicitCompactColumn =
+    spec.canvas.profile === "azure-reference" && spec.canvas.direction === "DOWN";
+  if (!configuredRootLayout && !implicitCompactColumn) return undefined;
   const rootGroups = spec.groups
     .filter((group) => !group.parent)
     .map((group) => groups.get(group.id))
@@ -639,7 +644,7 @@ function applyRootGroupFlow(
   if (!rootGroups.length) return undefined;
   const padding = spec.canvas.padding ?? 24;
   const gap = 38;
-  const rootLayout = spec.canvas.rootLayout ??
+  const rootLayout = configuredRootLayout ??
     (spec.canvas.direction === "DOWN" ? "column" : "row");
   if (rootLayout === "row") {
     const contentHeight = Math.max(...rootGroups.map((group) => group.height));
@@ -1385,12 +1390,16 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
     edges: containedEdges.get("root") ?? [],
     layoutOptions: {
       "elk.algorithm": "layered",
-      "elk.direction": spec.canvas.direction,
-      "elk.edgeRouting": "ORTHOGONAL",
+      "elk.direction": definition.direction ?? spec.canvas.direction,
+      "elk.edgeRouting": definition.edgeRouting ?? "ORTHOGONAL",
       "elk.hierarchyHandling": definition.hierarchyHandling,
       "elk.padding": `[top=${spec.canvas.padding ?? (compact ? 24 : 40)},left=${spec.canvas.padding ?? (compact ? 24 : 40)},bottom=${spec.canvas.padding ?? (compact ? 24 : 40)},right=${spec.canvas.padding ?? (compact ? 24 : 40)}]`,
-      "elk.spacing.nodeNode": compact ? "18" : "28",
-      "elk.layered.spacing.nodeNodeBetweenLayers": compact ? "38" : "52",
+      "elk.spacing.nodeNode": String(
+        definition.nodeSpacing ?? (compact ? 18 : 28),
+      ),
+      "elk.layered.spacing.nodeNodeBetweenLayers": String(
+        definition.layerSpacing ?? (compact ? 38 : 52),
+      ),
       "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
     },
   };

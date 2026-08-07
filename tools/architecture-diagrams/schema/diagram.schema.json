@@ -15,7 +15,7 @@
       "uniqueItems": true
     },
     "kind": {
-      "enum": ["context", "container", "component", "deployment", "data-flow", "network", "conceptual-flow"]
+      "enum": ["context", "container", "component", "deployment", "data-flow", "network", "conceptual-flow", "sequence", "swimlane", "state", "decision-tree", "domain", "entity-relationship", "timeline"]
     },
     "updated": { "type": "string", "format": "date" },
     "locales": {
@@ -165,7 +165,7 @@
         "id": { "$ref": "#/definitions/id" },
         "from": { "$ref": "#/definitions/endpoint" },
         "to": { "$ref": "#/definitions/endpoint" },
-        "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write", "feedback"] },
+        "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write", "feedback", "sequence", "transition", "association", "dependency", "timeline"] },
         "label": { "$ref": "#/definitions/localizedText" },
         "protocol": { "type": "string", "minLength": 1 },
         "route": { "enum": ["diagonal", "curve", "orthogonal", "orthogonal-shortest", "orthogonal-horizontal", "orthogonal-trunk", "orthogonal-top", "orthogonal-above", "orthogonal-right"] },
@@ -178,7 +178,7 @@
       "additionalProperties": false,
       "required": ["label"],
       "properties": {
-        "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write", "feedback"] },
+        "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write", "feedback", "sequence", "transition", "association", "dependency", "timeline"] },
         "tone": { "enum": ["input", "interpretation", "model", "policy", "decision", "execution", "feedback", "store", "neutral"] },
         "label": { "$ref": "#/definitions/localizedText" }
       },

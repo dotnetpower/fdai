@@ -15,7 +15,23 @@ test("registers every supported diagram kind", () => {
     "data-flow",
     "network",
     "conceptual-flow",
+    "sequence",
+    "swimlane",
+    "state",
+    "decision-tree",
+    "domain",
+    "entity-relationship",
+    "timeline",
   ]);
+});
+
+test("assigns specialized layout strategies to non-topology diagrams", () => {
+  assert.equal(diagramDefinition("sequence").direction, "DOWN");
+  assert.equal(diagramDefinition("swimlane").rootLayout, "row");
+  assert.equal(diagramDefinition("state").edgeRouting, "POLYLINE");
+  assert.equal(diagramDefinition("decision-tree").layoutStrategy, "tree");
+  assert.equal(diagramDefinition("domain").requiredEdgeKind, "association");
+  assert.equal(diagramDefinition("timeline").direction, "RIGHT");
 });
 
 test("keeps deployment compound-edge handling isolated", () => {

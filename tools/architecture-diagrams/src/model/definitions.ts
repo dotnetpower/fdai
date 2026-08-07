@@ -1,11 +1,31 @@
-import type { DiagramKind } from "./types.js";
+import type {
+  DiagramGroup,
+  DiagramKind,
+  Direction,
+  EdgeKind,
+} from "./types.js";
 
-export type DiagramLayoutStrategy = "layered";
+export type DiagramLayoutStrategy =
+  | "layered"
+  | "sequence"
+  | "swimlane"
+  | "state"
+  | "tree"
+  | "domain"
+  | "timeline";
 
 export interface DiagramDefinition {
   kind: DiagramKind;
   layoutStrategy: DiagramLayoutStrategy;
   hierarchyHandling: "INCLUDE_CHILDREN" | "SEPARATE_CHILDREN";
+  direction?: Direction;
+  groupDirection?: Direction;
+  edgeRouting?: "ORTHOGONAL" | "POLYLINE";
+  nodeSpacing?: number;
+  layerSpacing?: number;
+  rootLayout?: "row" | "column";
+  requiredEdgeKind?: EdgeKind;
+  requiredGroupPresentation?: DiagramGroup["presentation"];
 }
 
 const diagramDefinitions: Record<DiagramKind, DiagramDefinition> = {
@@ -43,6 +63,77 @@ const diagramDefinitions: Record<DiagramKind, DiagramDefinition> = {
     kind: "conceptual-flow",
     layoutStrategy: "layered",
     hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  sequence: {
+    kind: "sequence",
+    layoutStrategy: "sequence",
+    hierarchyHandling: "SEPARATE_CHILDREN",
+    direction: "DOWN",
+    edgeRouting: "ORTHOGONAL",
+    nodeSpacing: 42,
+    layerSpacing: 64,
+    requiredEdgeKind: "sequence",
+  },
+  swimlane: {
+    kind: "swimlane",
+    layoutStrategy: "swimlane",
+    hierarchyHandling: "SEPARATE_CHILDREN",
+    direction: "RIGHT",
+    groupDirection: "DOWN",
+    edgeRouting: "ORTHOGONAL",
+    nodeSpacing: 34,
+    layerSpacing: 54,
+    rootLayout: "row",
+    requiredGroupPresentation: "lane",
+  },
+  state: {
+    kind: "state",
+    layoutStrategy: "state",
+    hierarchyHandling: "SEPARATE_CHILDREN",
+    direction: "RIGHT",
+    edgeRouting: "POLYLINE",
+    nodeSpacing: 44,
+    layerSpacing: 58,
+    requiredEdgeKind: "transition",
+  },
+  "decision-tree": {
+    kind: "decision-tree",
+    layoutStrategy: "tree",
+    hierarchyHandling: "SEPARATE_CHILDREN",
+    direction: "DOWN",
+    edgeRouting: "ORTHOGONAL",
+    nodeSpacing: 48,
+    layerSpacing: 70,
+  },
+  domain: {
+    kind: "domain",
+    layoutStrategy: "domain",
+    hierarchyHandling: "SEPARATE_CHILDREN",
+    direction: "RIGHT",
+    edgeRouting: "POLYLINE",
+    nodeSpacing: 52,
+    layerSpacing: 64,
+    requiredEdgeKind: "association",
+  },
+  "entity-relationship": {
+    kind: "entity-relationship",
+    layoutStrategy: "domain",
+    hierarchyHandling: "SEPARATE_CHILDREN",
+    direction: "RIGHT",
+    edgeRouting: "POLYLINE",
+    nodeSpacing: 52,
+    layerSpacing: 64,
+    requiredEdgeKind: "association",
+  },
+  timeline: {
+    kind: "timeline",
+    layoutStrategy: "timeline",
+    hierarchyHandling: "SEPARATE_CHILDREN",
+    direction: "RIGHT",
+    edgeRouting: "ORTHOGONAL",
+    nodeSpacing: 38,
+    layerSpacing: 72,
+    requiredEdgeKind: "timeline",
   },
 };
 
