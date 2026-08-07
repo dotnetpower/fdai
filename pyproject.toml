@@ -173,6 +173,12 @@ build-backend = "hatchling.build"
 fdai-evaluation-sdk = { workspace = true }
 fdai-benchmark-cybergym = { workspace = true }
 fdai-benchmark-sregym = { workspace = true }
+fdai-service-contracts = { workspace = true }
+fdai-core-control-plane = { workspace = true }
+fdai-operator-service = { workspace = true }
+fdai-document-ingestion-api = { workspace = true }
+fdai-document-processing-worker = { workspace = true }
+fdai-isolated-executor-service = { workspace = true }
 
 [tool.uv.workspace]
 members = [
@@ -180,6 +186,12 @@ members = [
     "benchmarks/sregym",
     "benchmarks/cybergym",
     "extensions/code-assurance",
+    "service-contracts",
+    "services/core-control-plane",
+    "services/operator-service",
+    "services/document-ingestion-api",
+    "services/document-processing-worker",
+    "services/isolated-executor",
 ]
 
 [tool.hatch.build.targets.wheel]

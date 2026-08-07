@@ -1,0 +1,24 @@
+[project]
+name = "fdai-service-contracts"
+version = "0.1.0"
+description = "Implementation-free contracts for independently released FDAI services"
+requires-python = ">=3.12"
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fdai_service_contracts"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/fdai_service_contracts", "pyproject.toml"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/fdai_service_contracts"]

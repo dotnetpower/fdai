@@ -14,7 +14,13 @@ members = [
     "fdai-benchmark-cybergym",
     "fdai-benchmark-sregym",
     "fdai-code-assurance",
+    "fdai-core-control-plane",
+    "fdai-document-ingestion-api",
+    "fdai-document-processing-worker",
     "fdai-evaluation-sdk",
+    "fdai-isolated-executor-service",
+    "fdai-operator-service",
+    "fdai-service-contracts",
 ]
 
 [[package]]
@@ -844,6 +850,51 @@ requires-dist = [
 ]
 
 [[package]]
+name = "fdai-core-control-plane"
+version = "0.1.0"
+source = { editable = "services/core-control-plane" }
+dependencies = [
+    { name = "fdai" },
+    { name = "fdai-service-contracts" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fdai", editable = "." },
+    { name = "fdai-service-contracts", editable = "service-contracts" },
+]
+
+[[package]]
+name = "fdai-document-ingestion-api"
+version = "0.1.0"
+source = { editable = "services/document-ingestion-api" }
+dependencies = [
+    { name = "fdai", extra = ["serve"] },
+    { name = "fdai-service-contracts" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fdai", extras = ["serve"], editable = "." },
+    { name = "fdai-service-contracts", editable = "service-contracts" },
+]
+
+[[package]]
+name = "fdai-document-processing-worker"
+version = "0.1.0"
+source = { editable = "services/document-processing-worker" }
+dependencies = [
+    { name = "fdai" },
+    { name = "fdai-service-contracts" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fdai", editable = "." },
+    { name = "fdai-service-contracts", editable = "service-contracts" },
+]
+
+[[package]]
 name = "fdai-evaluation-sdk"
 version = "0.1.0"
 source = { editable = "evaluation-sdk" }
@@ -872,6 +923,41 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.7,<1" },
 ]
 provides-extras = ["dev"]
+
+[[package]]
+name = "fdai-isolated-executor-service"
+version = "0.1.0"
+source = { editable = "services/isolated-executor" }
+dependencies = [
+    { name = "fdai" },
+    { name = "fdai-service-contracts" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fdai", editable = "." },
+    { name = "fdai-service-contracts", editable = "service-contracts" },
+]
+
+[[package]]
+name = "fdai-operator-service"
+version = "0.1.0"
+source = { editable = "services/operator-service" }
+dependencies = [
+    { name = "fdai", extra = ["serve"] },
+    { name = "fdai-service-contracts" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fdai", extras = ["serve"], editable = "." },
+    { name = "fdai-service-contracts", editable = "service-contracts" },
+]
+
+[[package]]
+name = "fdai-service-contracts"
+version = "0.1.0"
+source = { editable = "service-contracts" }
 
 [[package]]
 name = "filelock"

@@ -1,0 +1,20 @@
+[project]
+name = "fdai-isolated-executor-service"
+version = "0.1.0"
+description = "FDAI Isolated Executor service"
+requires-python = ">=3.12"
+dependencies = ["fdai==0.1.180", "fdai-service-contracts==0.1.0"]
+
+[project.scripts]
+fdai-isolated-executor-service = "fdai_executor_service.main:main"
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+fdai = { workspace = true }
+fdai-service-contracts = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fdai_executor_service"]

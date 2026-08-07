@@ -74,8 +74,8 @@ not supported.
 | Done | ID | Work package | Dependencies | Exit evidence |
 |------|----|--------------|--------------|---------------|
 | [x] | IS-00 | Freeze current implementation-import debt and exact package, image, state, migration, and rollback targets. | None | Machine manifest and non-growth gate |
-| [ ] | IS-01 | Extract the versioned shared contract SDK without service implementations. | IS-00 | Five consumers install and validate the same SDK |
-| [ ] | IS-02 | Add five independently executable service distributions and composition roots. | IS-01 | Five isolated wheel and cold-start receipts |
+| [x] | IS-01 | Extract the versioned shared contract SDK without service implementations. | IS-00 | Five consumers install and validate the same SDK |
+| [x] | IS-02 | Add five independently executable service distributions and composition roots. | IS-01 | Five isolated wheel and cold-start receipts |
 | [ ] | IS-03 | Remove every cross-service implementation import. | IS-01, IS-02 | Import count zero and enforced boundary gate |
 | [ ] | IS-04 | Split durable writer grants and migration branches by service. | IS-02 | Five migration heads and zero writer overlap |
 | [ ] | IS-05 | Build, scan, attest, and publish five minimal service images. | IS-02, IS-03 | Five immutable image, SBOM, and startup receipts |
@@ -92,6 +92,11 @@ schemas, migration history, deployment state, and rollback are service-specific.
 The accepted IS-00 AST baseline is 140 Operator files, 5 ingestion files, and 2 isolated Executor
 files importing `fdai.core`. These are migration debts, not permitted target dependencies. The
 non-growth gate blocks an increase while later work packages reduce every count to zero.
+
+IS-01/02 produced one implementation-free contract wheel and five service wheels with unique
+console entry points. Their first composition roots deliberately lazy-import the existing FDAI
+implementation so behavior stays unchanged. The five wrapper imports are an explicit IS-03 debt;
+they are not evidence of final source independence.
 
 ## Parallel execution rules
 

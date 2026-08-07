@@ -35,6 +35,14 @@ def _count_files_importing(root: Path, prefix: str, pattern: str = "*.py") -> in
     return sum(1 for path in root.rglob(pattern) if _imports_prefix(path, prefix))
 
 
+def _count_service_wrapper_imports() -> int:
+    return sum(
+        1
+        for path in (REPO_ROOT / "services").glob("*/src/*/main.py")
+        if _imports_prefix(path, "fdai.")
+    )
+
+
 def _validate_graph(work_packages: list[dict[str, Any]]) -> None:
     by_id = {str(item["id"]): item for item in work_packages}
     if len(by_id) != len(work_packages):
@@ -73,6 +81,9 @@ def validate() -> None:
         for source_root in service["current_source_roots"]:
             if not (REPO_ROOT / source_root).exists():
                 raise ValueError(f"missing current source root: {source_root}")
+        target_package = REPO_ROOT / service["target_package"]
+        if not (target_package / "pyproject.toml").is_file():
+            raise ValueError(f"missing service distribution: {service['target_package']}")
 
     _validate_graph(manifest["work_packages"])
     baseline = manifest["current_baseline"]
@@ -92,6 +103,12 @@ def validate() -> None:
     for key, value in measured.items():
         if value > int(baseline[key]):
             raise ValueError(f"{key} grew from {baseline[key]} to {value}")
+    wrapper_imports = _count_service_wrapper_imports()
+    if wrapper_imports > int(baseline["service_wrapper_implementation_imports"]):
+        raise ValueError(
+            "service_wrapper_implementation_imports grew from "
+            f"{baseline['service_wrapper_implementation_imports']} to {wrapper_imports}"
+        )
     targets = manifest["independence_targets"]
     if targets["cross_service_implementation_imports"] != 0:
         raise ValueError("cross-service implementation import target must be zero")
@@ -104,11 +121,14 @@ def validate() -> None:
     ):
         if targets[key] != 5:
             raise ValueError(f"{key} target must be five")
+    if baseline["service_python_distributions"] != 5:
+        raise ValueError("all five service distributions must be present")
     print(
         "check-independent-services: OK "
         f"(services=5 operator_core={measured['operator_files_importing_core']} "
         f"ingestion_core={measured['ingestion_files_importing_core']} "
-        f"executor_core={measured['executor_files_importing_core']})"
+        f"executor_core={measured['executor_files_importing_core']} "
+        f"wrapper_impl={wrapper_imports})"
     )
 
 

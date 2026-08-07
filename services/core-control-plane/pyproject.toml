@@ -1,0 +1,20 @@
+[project]
+name = "fdai-core-control-plane"
+version = "0.1.0"
+description = "FDAI Core Control Plane service"
+requires-python = ">=3.12"
+dependencies = ["fdai==0.1.180", "fdai-service-contracts==0.1.0"]
+
+[project.scripts]
+fdai-core-control-plane = "fdai_core_service.main:main"
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+fdai = { workspace = true }
+fdai-service-contracts = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fdai_core_service"]

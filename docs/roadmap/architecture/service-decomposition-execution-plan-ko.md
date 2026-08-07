@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: afa96043aa323a9325aaca06115b1f7239712a20
+translation_source_sha: 0f6fa71299350dfd73a0affb0dbbf4147bf3d641
 translation_revised: 2026-08-08
 ---
 # 서비스 분해 실행 계획
@@ -71,8 +71,8 @@ primitive만 import할 수 있으며 다른 service implementation import는 지
 | 완료 | ID | Work package | Dependency | Exit evidence |
 |------|----|--------------|------------|---------------|
 | [x] | IS-00 | 현재 implementation-import debt와 정확한 package, image, state, migration, rollback 목표를 고정합니다. | 없음 | Machine manifest와 non-growth gate |
-| [ ] | IS-01 | Service implementation이 없는 versioned shared contract SDK를 추출합니다. | IS-00 | Consumer 5개가 같은 SDK를 install하고 validate한 receipt |
-| [ ] | IS-02 | 독립 실행 가능한 service distribution과 composition root 5개를 추가합니다. | IS-01 | 독립 wheel 및 cold-start receipt 5개 |
+| [x] | IS-01 | Service implementation이 없는 versioned shared contract SDK를 추출합니다. | IS-00 | Consumer 5개가 같은 SDK를 install하고 validate한 receipt |
+| [x] | IS-02 | 독립 실행 가능한 service distribution과 composition root 5개를 추가합니다. | IS-01 | 독립 wheel 및 cold-start receipt 5개 |
 | [ ] | IS-03 | Cross-service implementation import를 모두 제거합니다. | IS-01, IS-02 | Import count 0과 enforced boundary gate |
 | [ ] | IS-04 | Durable writer grant와 migration branch를 service별로 분리합니다. | IS-02 | Migration head 5개와 writer overlap 0 |
 | [ ] | IS-05 | 최소 service image 5개를 build, scan, attest, publish합니다. | IS-02, IS-03 | Immutable image, SBOM, startup receipt 5개 |
@@ -89,6 +89,11 @@ migration history, deployment state 및 rollback은 service별로 분리합니�
 승인된 IS-00 AST baseline은 `fdai.core`를 import하는 Operator file 140개, ingestion file 5개,
 isolated Executor file 2개입니다. 이 값은 허용된 target dependency가 아니라 migration debt입니다.
 Non-growth gate는 증가를 차단하고 이후 work package는 모든 count를 0으로 줄입니다.
+
+IS-01/02는 implementation이 없는 contract wheel 1개와 고유 console entry point를 가진 service wheel
+5개를 생성했습니다. 첫 composition root는 behavior를 변경하지 않기 위해 기존 FDAI implementation을
+의도적으로 lazy import합니다. Wrapper import 5개는 명시적인 IS-03 debt이며 최종 source independence
+evidence가 아닙니다.
 
 ## 병렬 실행 규칙
 
