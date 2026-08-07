@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 1b1bdd24543d7ebfb9c03ff3b5574fe3132aba1d
+translation_source_sha: 94de3323bf554d89253dd96e5da71f7b78d43762
 translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
@@ -346,7 +346,9 @@ compatibility import를 유지합니다.
 `chat_stream.py`는 이제 authentication과 bounded request transport delegation, stream 시작 전
 application error-to-status mapping, `StreamingResponse` construction, SSE encoding, heartbeat byte,
 sequence와 revision field, async iterator teardown을 통한 connection-close cancellation만 유지합니다.
-`chat_registration.py`는 registration, `chat_stream_protocol.py`는 SSE protocol,
+Application event가 canonical answer `revision`을 소유하고 route는 wire-frame order용 별도 monotonic
+`seq`를 추가하며 revision을 변경하지 않고 보존합니다. `chat_registration.py`는 registration,
+`chat_stream_protocol.py`는 SSE protocol,
 `chat_stream_request.py`는 request transport를 소유하고 `chat_verification.py`는 implementation이 없는
 compatibility facade입니다. Chat family는 SSE frame order, replay, interruption, cancellation, history
 및 terminal payload를 보존하면서 structural transport-only 상태가 되었습니다.
@@ -524,9 +526,9 @@ frame을 거부합니다.
 - 여섯 file의 `chat*.py` structural inventory에는 `chat.py`, `chat_registration.py`,
   `chat_stream.py`, `chat_stream_protocol.py`, `chat_stream_request.py` 및 implementation이 없는
   `chat_verification.py` source-path facade가 포함됩니다. `chat.py`는 이제 JSON HTTP transport와
-  compatibility binding만 소유합니다. `chat_stream.py`는 typed application coordination이 planning,
-  evidence, persistence 및 metering lifecycle 작업을 소유할 때까지 transitional 상태입니다. 나머지 네
-  file은 각각 registration, SSE protocol, request transport 및 compatibility-facade owner로 유지됩니다.
+  compatibility binding만 소유합니다. `chat_stream.py`는 SSE transport만 소유하고 application
+  revision을 transport sequence가 있는 frame으로 매핑합니다. 나머지 네 file은 각각 registration,
+  SSE protocol, request transport 및 compatibility-facade owner로 유지됩니다.
 - `application/conversation/capabilities/knowledge_context.py`는 state write 없이 exact prior-turn
   runbook, source freshness, consented
   memory 및 materialized learning을 읽습니다.

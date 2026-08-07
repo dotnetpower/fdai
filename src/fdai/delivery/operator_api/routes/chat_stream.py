@@ -154,6 +154,8 @@ def make_chat_stream_route(
             ) from exc
 
         async def event_source() -> AsyncIterator[bytes]:
+            """Encode semantic revisions under a transport-owned frame sequence."""
+
             sequence = 0
             async for event in execution.events:
                 if event.event is None:

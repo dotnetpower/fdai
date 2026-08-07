@@ -2,8 +2,8 @@
 
 The JSON route owns authentication, bounded HTTP body parsing, application
 error-to-status mapping, and ``JSONResponse`` delivery. One-shot lifecycle
-coordination lives in ``application.conversation.turn_execution``. SSE remains
-owned by ``chat_stream`` until its reserved extraction slice.
+coordination lives in ``application.conversation.turn_execution``. The SSE route
+uses the same application boundary and owns only stream transport concerns.
 """
 
 # ruff: noqa: F401 - this module intentionally re-exports reviewed compatibility symbols

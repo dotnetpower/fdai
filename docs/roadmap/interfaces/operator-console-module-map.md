@@ -351,7 +351,9 @@ compatibility imports.
 `chat_stream.py` now retains only authentication and bounded request transport delegation,
 pre-stream application error-to-status mapping, `StreamingResponse` construction, SSE encoding,
 heartbeat bytes, sequence and revision fields, and connection-close cancellation through async
-iterator teardown. `chat_registration.py` owns registration, `chat_stream_protocol.py` owns the
+iterator teardown. The application event owns the canonical answer `revision`; the route adds a
+separate monotonic `seq` for wire-frame order and preserves the revision unchanged.
+`chat_registration.py` owns registration, `chat_stream_protocol.py` owns the
 SSE protocol, `chat_stream_request.py` owns request transport, and `chat_verification.py` is the
 implementation-free compatibility facade. The chat family is structurally transport-only while
 preserving SSE frame order, replay, interruption, cancellation, history, and terminal payloads.
@@ -529,10 +531,9 @@ a separately reviewed boundary.
 - The six-file `chat*.py` structural inventory contains `chat.py`, `chat_registration.py`,
   `chat_stream.py`, `chat_stream_protocol.py`, `chat_stream_request.py`, and the
   implementation-free `chat_verification.py` source-path facade. `chat.py` now owns only JSON HTTP
-  transport and compatibility binding. `chat_stream.py` remains transitional until typed
-  application coordination owns its planning, evidence, persistence, and metering lifecycle work.
-  The other four files remain registration, SSE protocol, request transport, and
-  compatibility-facade owners respectively.
+  transport and compatibility binding. `chat_stream.py` owns only SSE transport and maps
+  application revisions into transport-sequenced frames. The other four files remain registration,
+  SSE protocol, request transport, and compatibility-facade owners respectively.
 - `application/conversation/capabilities/knowledge_context.py` reads exact prior-turn runbooks,
   source freshness, consented memory,
   and materialized learning without writing state.

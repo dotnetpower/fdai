@@ -27,7 +27,12 @@ class JsonTurnExecutionResult:
 
 @dataclass(frozen=True, slots=True)
 class StreamTurnEvent:
-    """One transport-neutral semantic event from streaming turn execution."""
+    """One semantic event with its application-owned canonical answer revision.
+
+    The HTTP adapter adds a separate monotonic ``seq`` for wire-frame order. It
+    preserves ``revision`` unchanged so retries and confirmed corrections cannot
+    be reinterpreted as transport sequence changes.
+    """
 
     event: str | None
     payload: dict[str, Any] | None = None

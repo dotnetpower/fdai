@@ -777,6 +777,50 @@ def test_chat_stream_handler_has_no_lifecycle_orchestration_calls() -> None:
     )
 
 
+def test_chat_json_handler_has_no_lifecycle_orchestration_calls() -> None:
+    path = _OPERATOR_API_DIR / "routes" / "chat.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    handler = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.AsyncFunctionDef)
+        and node.name == "handler"
+        and any(
+            isinstance(call.func, ast.Attribute) and call.func.attr == "execute"
+            for call in ast.walk(node)
+            if isinstance(call, ast.Call)
+        )
+    )
+    forbidden = {
+        "append_assistant_turn",
+        "append_content_policy_receipt",
+        "finalize_post_generation",
+        "metering_correlation_id",
+        "persist_operator_turn_with_images",
+        "plan_semantic_turn",
+        "resolve_parallel_chat_evidence",
+        "start_shadow_answer_planning",
+        "verify_answer",
+        "with_assurance_policy",
+        "with_compiled_user_policy",
+        "with_invocation_scope",
+    }
+    called = {
+        call.func.id
+        if isinstance(call.func, ast.Name)
+        else call.func.attr
+        if isinstance(call.func, ast.Attribute)
+        else ""
+        for call in ast.walk(handler)
+        if isinstance(call, ast.Call)
+    }
+
+    assert called.isdisjoint(forbidden), (
+        "chat.handler must remain a transport adapter; direct lifecycle calls: "
+        f"{sorted(called & forbidden)}"
+    )
+
+
 def test_external_streaming_imports_match_declared_transitional_debt() -> None:
     inventory = json.loads(_MODULE_INVENTORY_PATH.read_text(encoding="utf-8"))
     rules = [
