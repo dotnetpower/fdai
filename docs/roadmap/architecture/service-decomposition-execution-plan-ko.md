@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: f56986f57781aaf7429323d945f4b33e8f139863
+translation_source_sha: 9ecb21e2b390b0b0cb1aea8b7f43fa1304f513b8
 translation_revised: 2026-08-07
 ---
 # 서비스 분해 실행 계획
@@ -101,7 +101,7 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 | SD-03 effective access와 rollback | `/home/moonchoi/dev/fdai-worktrees/sd03-effective-access`의 기존 SD-03 isolated session | Ingestion runtime, ingestion 전용 Terraform, access probe와 해당 test | Effective-access proof와 rollback evidence를 integration owner에게 handoff |
 | SD-06 completed lineage | `main`의 integration owner. 이전 core, projection, hardening worker는 read-only로 유지합니다. | `d4e430d60` 후 모든 SD-06 구현 path를 해제했습니다. | Canonical lineage, provider compatibility, decision/resilience trace, candidate-only learning, bounded Operator projection 및 critique round 14회가 focused validation을 통과하고 Medium 이상 residual이 없음을 증명합니다. Execution 및 promotion authority는 0을 유지합니다. |
 | SD-07 serial finish | `main`의 integration owner. 이전 worker는 `/home/moonchoi/dev/fdai-worktrees/sd07-shadow-executor`에 유지합니다. | `infra/modules/isolated-executor/**`, `infra/main.tf`/`infra/variables.tf`/`infra/outputs.tf`의 SD-07 전용 block, `.github/workflows/deploy-dev.yml`의 `deploy_isolated_executor` block, 해당 Terraform/workflow test, production composition 및 paired docs | Effect authority 없이 shadow deployment evidence를 기록하고 ingestion module과 모든 SD-03 소유 Terraform hunk를 피하며 handoff 후 해제된 worker는 read-only로 유지합니다. |
-| SD-07 image health recovery | `/home/moonchoi/dev/fdai-worktrees/sd07-health-recovery`의 persistent worker | `.github/workflows/deploy-dev.yml`의 runtime-image admission check, `scripts/deployment/azure/` 아래의 focused generic check, 해당 workflow/script test 및 executable fallback이 필요할 때 isolated-Executor container command/test만 소유합니다. | Terraform 전에 exact current image가 isolated Executor startup contract를 증명하고 배포 revision이 effect authority 없이 healthy에 도달하며 critique round 10회 이상에서 Medium 이상 residual이 없음을 확인합니다. Terraform apply와 rollback은 SD-03과 계속 직렬로 실행합니다. |
+| SD-07 image health recovery | `/home/moonchoi/dev/fdai-worktrees/sd07-health-recovery`의 persistent worker | `Dockerfile`, `.github/workflows/deploy-dev.yml`, paired deployment docs, `scripts/deployment/azure/` 아래의 protected plan verification, `src/fdai/deployment_cli/remote.py`와 `src/fdai/delivery/github/deployment_workflow.py`의 typed plan evidence, 해당 focused test 및 executable fallback이 필요할 때 isolated-Executor container command/test만 소유합니다. | Terraform 전에 exact current image가 isolated Executor startup contract를 증명하고 배포 revision이 effect authority 없이 healthy에 도달하며 critique round 10회 이상에서 Medium 이상 residual이 없음을 확인합니다. Terraform apply와 rollback은 SD-03과 계속 직렬로 실행합니다. |
 | Serial integration | Integration owner | 이 계획 문서 쌍, machine status manifest, package 간 contract, production composition, pantheon role, executor identity cutover | Focused package handoff를 수락하고 dependency 상태를 업데이트 |
 
 ## 진행 상태 업데이트 contract
