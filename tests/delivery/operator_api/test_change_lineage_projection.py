@@ -211,6 +211,19 @@ def test_detail_preserves_separate_constraint_counts_when_truncated() -> None:
     assert detail.constraints_truncated is True
 
 
+def test_detail_projection_rejects_inconsistent_serialization_metadata() -> None:
+    detail = project_change_lineage_detail(_lineage())
+
+    with pytest.raises(ValueError, match="evidence count"):
+        replace(detail, evidence_ref_count=0)
+    with pytest.raises(ValueError, match="reason truncation"):
+        replace(detail, decision_reason_truncated=True)
+    with pytest.raises(ValueError, match="objective count"):
+        replace(detail, objective_count=0)
+    with pytest.raises(ValueError, match="constraint count"):
+        replace(detail, active_constraint_count=0)
+
+
 def test_projection_package_has_no_http_route_or_persistence_dependencies() -> None:
     package = _ROOT / "src/fdai/delivery/operator_api/projections/change_lineage"
     forbidden = (

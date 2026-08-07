@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from math import isfinite
 from typing import Any
 
 from fdai.core.change_lineage import ChangeLineageRecord, extract_learning_candidate
@@ -120,6 +121,66 @@ class ChangeLineageDetailProjection:
     evidence_refs: tuple[str, ...]
     evidence_ref_count: int
     evidence_truncated: bool
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("correlation_id", self.correlation_id),
+            ("assessment_digest", self.assessment_digest),
+            ("decision_case_id", self.decision_case_id),
+            ("selected_option_id", self.selected_option_id),
+            ("action_id", self.action_id),
+            ("event_id", self.event_id),
+            ("target_digest", self.target_digest),
+            ("outcome_id", self.outcome_id),
+        ):
+            _identity(name, value)
+        _bounded_text(self.decision_reason, _MAX_REASON_CHARS)
+        if self.decision_reason_truncated and len(self.decision_reason) != _MAX_REASON_CHARS:
+            raise ValueError("change lineage detail reason truncation metadata is inconsistent")
+        if not isfinite(self.margin):
+            raise ValueError("change lineage detail margin MUST be finite")
+        _validate_collection_metadata(
+            "objective",
+            self.selected_objective_ids,
+            count=self.objective_count,
+            truncated=self.objectives_truncated,
+            limit=_MAX_OBJECTIVES,
+        )
+        _validate_collection_metadata(
+            "active constraint",
+            self.active_constraint_ids,
+            count=self.active_constraint_count,
+            truncated=self.active_constraint_count > len(self.active_constraint_ids),
+            limit=_MAX_CONSTRAINTS,
+        )
+        _validate_collection_metadata(
+            "violated constraint",
+            self.violated_constraint_ids,
+            count=self.violated_constraint_count,
+            truncated=self.violated_constraint_count > len(self.violated_constraint_ids),
+            limit=_MAX_CONSTRAINTS,
+        )
+        expected_constraints_truncated = self.active_constraint_count > len(
+            self.active_constraint_ids
+        ) or self.violated_constraint_count > len(self.violated_constraint_ids)
+        if self.constraints_truncated is not expected_constraints_truncated:
+            raise ValueError("change lineage detail constraint truncation metadata is inconsistent")
+        _identity("blast_radius_scope", self.blast_radius_scope, limit=_MAX_SOURCE_CHARS)
+        _identity("rollback_kind", self.rollback_kind, limit=_MAX_SOURCE_CHARS)
+        if self.blast_radius_count is not None and self.blast_radius_count < 1:
+            raise ValueError("change lineage detail blast radius count MUST be positive")
+        if any(
+            value is not None and value.tzinfo is None
+            for value in (self.predicted_at, self.observation_deadline, self.observed_at)
+        ):
+            raise ValueError("change lineage detail timestamps MUST be timezone-aware")
+        _validate_collection_metadata(
+            "evidence",
+            self.evidence_refs,
+            count=self.evidence_ref_count,
+            truncated=self.evidence_truncated,
+            limit=_MAX_EVIDENCE_REFS,
+        )
 
     def to_mapping(self) -> dict[str, Any]:
         """Return the stable bounded detail mapping."""
@@ -298,6 +359,22 @@ def _bounded_text(value: str, limit: int) -> tuple[str, bool]:
     if not value:
         raise ValueError("change lineage projection decision reason MUST be non-empty")
     return value[:limit], len(value) > limit
+
+
+def _validate_collection_metadata(
+    name: str,
+    values: tuple[str, ...],
+    *,
+    count: int,
+    truncated: bool,
+    limit: int,
+) -> None:
+    _bounded_identities(name, values, limit=limit)
+    expected_truncated = count > len(values)
+    if count < len(values) or truncated is not expected_truncated:
+        raise ValueError(f"change lineage detail {name} count metadata is inconsistent")
+    if expected_truncated and len(values) != limit:
+        raise ValueError(f"change lineage detail {name} truncation metadata is inconsistent")
 
 
 def _timestamp(value: datetime | None) -> str | None:
