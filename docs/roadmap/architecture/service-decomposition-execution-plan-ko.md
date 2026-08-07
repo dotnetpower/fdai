@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 2db8307e4fbd05fd7e1f4ca0c9636d7bd7cab8fc
+translation_source_sha: 94f5aa5bb6601a4a710a474cfad86d7affcdda8c
 translation_revised: 2026-08-07
 ---
 # 서비스 분해 실행 계획
@@ -97,7 +97,7 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 
 | 예약 | 현재 owner | 예약 path | 해제 조건 |
 |------|------------|-----------|-----------|
-| SD-01 terminal projection | `/home/moonchoi/dev/fdai-worktrees/sd01-terminal-projections`의 persistent worker | `chat_trajectory_detail.py`, `chat_screen_data.py`, `chat_model_trace.py`, `chat_resource_context.py`의 response 영역, destination conversation projection, 해당 test와 module-map 업데이트 | Pure projection handoff가 focused JSON/SSE 및 boundary check를 통과하고 application/projection-to-route import가 0임을 증명합니다. |
+| SD-01 conversation lifecycle | `/home/moonchoi/dev/fdai-worktrees/sd01-conversation-lifecycle`의 persistent worker | `chat_answer_planning.py`, `chat_answer_quality.py`, `chat_content_policy.py`, `chat_busy_input.py`, destination application package, 해당 test와 module-map 업데이트 | Application handoff가 bounded planning, review, policy recovery, steer/interrupt behavior를 보존하고 application-to-route import가 0임을 증명합니다. |
 | SD-03 effective access와 rollback | `/home/moonchoi/dev/fdai-worktrees/sd03-effective-access`의 기존 SD-03 isolated session | Ingestion runtime, ingestion 전용 Terraform, access probe와 해당 test | Effective-access proof와 rollback evidence를 integration owner에게 handoff |
 | SD-07 serial finish | `main`의 integration owner. 이전 worker는 `/home/moonchoi/dev/fdai-worktrees/sd07-shadow-executor`에 유지합니다. | `infra/modules/isolated-executor/**`, `infra/main.tf`/`infra/variables.tf`/`infra/outputs.tf`의 SD-07 전용 block, `.github/workflows/deploy-dev.yml`의 `deploy_isolated_executor` block, 해당 Terraform/workflow test, production composition 및 paired docs | Effect authority 없이 shadow deployment evidence를 기록하고 ingestion module과 모든 SD-03 소유 Terraform hunk를 피하며 handoff 후 해제된 worker는 read-only로 유지합니다. |
 | Serial integration | Integration owner | 이 계획 문서 쌍, machine status manifest, package 간 contract, production composition, pantheon role, executor identity cutover | Focused package handoff를 수락하고 dependency 상태를 업데이트 |
@@ -126,6 +126,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-07 | SD-04 | 완료 | `f5cf51e3a`, `91c88f2a3`, `a5350296e`, `b24c2d90d`, `07161a96c` | Exact release ref, additive N/N-1 compatibility, revision-fenced projection writer, provider I/O 전 mismatch rejection, replay-stable atomic generation rollback이 focused union test 142개를 통과했습니다. `FDAI_DATABASE_URL`이 설정되지 않아 PostgreSQL live case 8개는 skip 상태이며, baseline은 이 live generation receipt를 SD-05에 할당합니다. |
 | 2026-08-07 | SD-05 | 완료 | `1c9ce4e94`부터 `d211570c6`, `b24c2d90d`, `4f01a02e8` | Canonical AST manifest, promoted surface, held-out evaluation, concept-first exact Rule ref, atomic generation, rollback 및 governed feedback을 완료했습니다. Focused route test 105개와 lifecycle test 43개가 통과했고 PostgreSQL generation 및 parity test 12개가 skip 없이 실행됐습니다. Retrieval은 `execution_authority: false`를 유지하며 SD-06 dependency를 시작할 수 있습니다. |
 | 2026-08-07 | SD-01 | 진행 중 | `f220eb06f`, `2739e2be6`, `7c18ed513`, `0ab723835`, `64955ba87` | Stream metric, terminal projection, post-generation orchestration, application capability ownership, authenticated request preparation을 explicit application 또는 projection package 뒤로 이동했습니다. 최신 request-preparation union test 192개가 통과했고 application/projection reverse import count는 0이며 scoped boundary gate는 green입니다. JSON, SSE, authentication, cancellation, history wire behavior는 route가 계속 소유합니다. Remaining route family와 최종 compatibility 분류가 남아 있어 SD-01은 계속 진행 중입니다. |
+| 2026-08-07 | SD-01 | 진행 중 | `2111617b8` | Trajectory detail, deterministic screen answer, redacted model tracing, response resource context를 compatibility shim 없이 pure conversation projection으로 이동했습니다. Main integration union test 258개가 통과했고 application/projection-to-route import는 0을 유지했으며 scoped boundary와 translation gate가 통과했습니다. |
 | 2026-08-07 | 병렬 session | 진행 중 | Persistent worktree migration | Active SD-03과 retained SD-07 worker를 `/home/moonchoi/dev/fdai-worktrees/`로 이동했습니다. 모든 새 worker는 이 persistent root를 사용하며 temporary worktree path는 더 이상 유효한 예약이 아닙니다. |
 | 2026-08-07 | SD-07 | 진행 중 | `work/sd07-shadow-executor`의 Start `03f6ef265` | `/tmp/fdai-sd07`에서 command/receipt transport와 durable shadow-attempt mechanics를 시작했습니다. Effect authority, production composition, pantheon role, identity cutover는 serial integration 예약으로 유지합니다. |
 | 2026-08-07 | SD-07 | 진행 중 | `3b84ee15a`, `800eee04b` | Versioned command/receipt schema, durable duplicate/reorder/restart/deadline closure, poison-record DLQ, at-least-once receipt publish, supervised health 및 effect 없는 telemetry가 `main`의 focused union test 55개를 통과했습니다. Logical-target lock evidence, production composition, workload identity, Container App 배포는 남아 있으며 effect authority는 SD-08 전까지 사용할 수 없습니다. |
