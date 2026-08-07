@@ -15,10 +15,8 @@ from typing import Protocol
 from pydantic import ValidationError
 
 from fdai.runtime.health import RuntimeHealthServer
-from fdai.runtime.isolated_executor import (
-    ExecutorCommandConflictError,
-    IsolatedExecutorShadowService,
-)
+from fdai.runtime.isolated_executor import ExecutorCommandConflictError
+from fdai.runtime.isolated_executor_lock import ExecutorShadowCommandHandler
 from fdai.shared.contracts import ExecutorCommand, ExecutorShadowReceipt
 from fdai.shared.contracts.validation import ContractValidationError
 from fdai.shared.providers.event_bus import EventBus, EventEnvelope
@@ -37,7 +35,7 @@ class IsolatedExecutorCommandConsumer:
         self,
         *,
         event_bus: EventBus,
-        service: IsolatedExecutorShadowService,
+        service: ExecutorShadowCommandHandler,
         command_topic: str = EXECUTOR_COMMAND_TOPIC,
         receipt_topic: str = EXECUTOR_RECEIPT_TOPIC,
         group_id: str = EXECUTOR_CONSUMER_GROUP,

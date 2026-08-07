@@ -424,9 +424,14 @@ ingestion API, and ingestion worker remain separate. The prior topology is the r
 and the [execution plan](../architecture/service-decomposition-execution-plan.md) tracks every gate.
 
 - **Runtime**: `python -m fdai` starts the Kafka consumer and composes routing, quality, risk,
-  execution, and audit stages in one process.
+  execution, and audit stages in one process. The isolated shadow process uses
+  `fdai-isolated-executor`; it accepts only `RUNTIME_ENV=staging|prod`, a durable state DSN, and a
+  dedicated non-effect identity, consumes commands from the earliest retained offset, and imports
+  no provider effect adapter.
 - **Health**: internal `/live` and `/ready` probes open only after the authoritative control loop
-  is assembled. The ingestion API uses `/healthz`; its internal worker uses `/live` and `/ready`.
+  is assembled. The isolated Executor uses the same internal `/live` and `/ready` contract on
+  `FDAI_ISOLATED_EXECUTOR_HEALTH_PORT`. The ingestion API uses `/healthz`; its internal worker uses
+  `/live` and `/ready`.
 - **Replica floor**: the default is one replica. A zero floor without a verified Kafka scaler
   would never wake on Event Hubs data, so Terraform does not claim scale-to-zero.
 - **Graduation rule**: the target is Core, Operator, Ingestion API, Processing Worker, and Isolated
@@ -515,6 +520,9 @@ secret, promotion, and test-only keys remain outside the editable surface.
 | `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_BUDGET_SECONDS` | env | deployment / upstream | Optional explicit analyzer targets and bounds. When targets are empty, the analyzer Job discovers supported resource kinds from the active inventory through `FDAI_INVENTORY_DSN`. |
 | `KAFKA_TOPIC_EVENTS` | env | deployment | primary event ingest topic |
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | deployment | dead-letter suffix (default `.dlq`) |
+| `FDAI_EXECUTOR_COMMAND_TOPIC` / `FDAI_EXECUTOR_RECEIPT_TOPIC` | env | upstream / deployment | Isolated Executor command and terminal shadow-receipt topics. Defaults are `object.executor-command` and `object.executor-receipt`; they must remain distinct. |
+| `FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID` | env | deployment | Dedicated shadow transport identity attached only to the isolated Executor. SD-07 grants Event Hubs, state-secret reference, and PostgreSQL connectivity only; it does not receive action-specific effect roles. |
+| `FDAI_ISOLATED_EXECUTOR_HEALTH_PORT` / `FDAI_ISOLATED_EXECUTOR_INSTANCE_ID` | env | upstream / deployment | Internal health port (default `8000`) and bounded receipt-attribution instance id. Container Apps supplies `HOSTNAME` when the explicit instance id is unset. |
 | `LLM_MODE` | env | deployment | `local-fake` for explicit tests/mocks or `azure` for authoritative profiles. Environment does not select the binding; see [dev-and-deploy-parity.md § Parity Contract](dev-and-deploy-parity.md#parity-contract-must). |
 | `LLM_RESOLVED_MODELS_PATH` | KV ref | deployment | required when `LLM_MODE=azure`; points at the `resolved-models.json` written by the bootstrap resolver |
 | `T1_SIMILARITY_THRESHOLD` / `T1_MIN_SUCCESS_RATE` | env | deployment | Validated `[0,1]` floors for similarity and historical success before learned-action reuse. Defaults are `0.8` and `0.9`. |

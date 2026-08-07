@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 51348b76d32aef72fc9ea483cd20366f32f78f96
+translation_source_sha: b214b2a5ddbb2e038834da1c0e4b84d26762853a
 translation_revised: 2026-08-07
 ---
 
@@ -425,9 +425,13 @@ ingestion API, ingestion worker는 별도이며 이전 topology는 rollback arti
 [실행 계획](../architecture/service-decomposition-execution-plan-ko.md)에서 추적합니다.
 
 - **Runtime**: `python -m fdai`가 Kafka consumer를 시작하고 routing, quality, risk, execution,
-  audit stage를 하나의 프로세스에서 구성합니다.
+  audit stage를 하나의 프로세스에서 구성합니다. Isolated shadow process는
+  `fdai-isolated-executor`를 사용합니다. `RUNTIME_ENV=staging|prod`, durable state DSN, effect
+  권한이 없는 전용 identity만 수락하고 earliest retained offset부터 command를 consume하며
+  provider effect adapter를 import하지 않습니다.
 - **Health**: Core는 내부 `/live`와 `/ready`, ingestion API는 `/healthz`, internal worker는
-  `/live`와 `/ready`를 사용합니다.
+  `/live`와 `/ready`를 사용합니다. Isolated Executor도
+  `FDAI_ISOLATED_EXECUTOR_HEALTH_PORT`에서 내부 `/live`와 `/ready` contract를 사용합니다.
 - **Replica floor**: 기본값은 replica 하나입니다. 검증된 Kafka scaler 없이 0으로 설정하면 Event
   Hubs 데이터로 깨어나지 않으므로 Terraform은 scale-to-zero를 주장하지 않습니다.
 - **분리 기준**: 목표는 Core, Operator, Ingestion API, Processing Worker, Isolated Executor이며
@@ -516,6 +520,9 @@ promotion 및 test-only key는 editable surface에 포함되지 않습니다.
 | `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_BUDGET_SECONDS` | env | deployment / upstream | 선택적 analyzer target 및 bound. target이 비어 있으면 analyzer Job이 `FDAI_INVENTORY_DSN`을 통해 active inventory에서 지원 resource kind를 탐색합니다. |
 | `KAFKA_TOPIC_EVENTS` | env | deployment | 주 이벤트 ingest 토픽 |
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | deployment | dead-letter suffix (기본 `.dlq`) |
+| `FDAI_EXECUTOR_COMMAND_TOPIC` / `FDAI_EXECUTOR_RECEIPT_TOPIC` | env | upstream / deployment | Isolated Executor command 및 terminal shadow-receipt topic입니다. 기본값은 `object.executor-command`, `object.executor-receipt`이며 서로 달라야 합니다. |
+| `FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID` | env | deployment | Isolated Executor에만 attach하는 전용 shadow transport identity입니다. SD-07에서는 Event Hubs, state-secret reference 및 PostgreSQL connectivity만 부여하며 action-specific effect role은 부여하지 않습니다. |
+| `FDAI_ISOLATED_EXECUTOR_HEALTH_PORT` / `FDAI_ISOLATED_EXECUTOR_INSTANCE_ID` | env | upstream / deployment | 내부 health port(기본 `8000`)와 receipt attribution용 bounded instance id입니다. Explicit instance id가 없으면 Container Apps의 `HOSTNAME`을 사용합니다. |
 | `LLM_MODE` | env | deployment | 명시적 test/mock용 `local-fake` 또는 authoritative profile용 `azure`. Environment는 binding을 선택하지 않습니다. [dev-and-deploy-parity-ko.md § Parity 컨트랙트](dev-and-deploy-parity-ko.md#parity-컨트랙트-must) 참조. |
 | `LLM_RESOLVED_MODELS_PATH` | KV ref | deployment | `LLM_MODE=azure` 시 필수; 부트스트랩 resolver가 쓴 `resolved-models.json`을 가리킴 |
 | `T1_SIMILARITY_THRESHOLD` / `T1_MIN_SUCCESS_RATE` | env | deployment | Learned-action reuse 전 similarity와 historical success에 적용하는 검증된 `[0,1]` 하한입니다. 기본값은 `0.8`, `0.9`입니다. |

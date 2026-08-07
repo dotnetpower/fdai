@@ -161,6 +161,7 @@ Documentation = "https://github.com/dotnetpower/fdai/blob/main/docs/roadmap/READ
 fdaictl = "fdai.deployment_cli.cli:main"
 fdai-catalog-generation = "fdai.delivery.catalog_search.generation_cli:main"
 fdai-evaluation-runner = "fdai.runtime.evaluation_runner_cli:main"
+fdai-isolated-executor = "fdai.runtime.isolated_executor_cli:main"
 fdai-model-endpoint-discovery = "fdai.delivery.azure.llm.endpoint_discovery_cli:main"
 
 [build-system]
