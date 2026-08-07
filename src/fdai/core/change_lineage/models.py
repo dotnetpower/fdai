@@ -15,6 +15,8 @@ from fdai.shared.providers.change_feed import ChangeRecord
 
 from .traces import ChangeDecisionTrace, ChangeObjectiveTrace, ChangeResilienceTrace
 
+_LINEAGE_PREFIX = "change-lineage:"
+
 
 @dataclass(frozen=True, slots=True)
 class ChangeLineageRecord:
@@ -63,6 +65,13 @@ class ChangeLineageRecord:
         )
         if any(not value.strip() for value in text_values):
             raise ValueError("change lineage identities MUST be non-empty")
+        lineage_digest = self.lineage_id.removeprefix(_LINEAGE_PREFIX)
+        if (
+            not self.lineage_id.startswith(_LINEAGE_PREFIX)
+            or len(lineage_digest) != 64
+            or any(character not in "0123456789abcdef" for character in lineage_digest)
+        ):
+            raise ValueError("change lineage lineage_id MUST contain a lowercase SHA-256 digest")
         if any(
             value.tzinfo is None
             for value in (self.change_at, self.decision_at, self.action_at, self.outcome_at)

@@ -360,3 +360,27 @@ def test_record_cannot_be_constructed_with_authority() -> None:
 
     with pytest.raises(ValueError, match="MUST NOT grant"):
         replace(lineage, execution_authority=True)
+
+
+@pytest.mark.parametrize(
+    "lineage_id",
+    [
+        "lineage:invalid",
+        f"change-lineage:{'g' * 64}",
+        f"change-lineage:{'A' * 64}",
+        f"change-lineage:{'a' * 63}",
+    ],
+)
+def test_record_rejects_noncanonical_lineage_id(lineage_id: str) -> None:
+    change, assessment, decision_case, selection, action, outcome = _fixtures()
+    lineage = build_change_lineage(
+        change=change,
+        assessment=assessment,
+        decision_case=decision_case,
+        selection=selection,
+        action=action,
+        outcome=outcome,
+    )
+
+    with pytest.raises(ValueError, match="lineage_id"):
+        replace(lineage, lineage_id=lineage_id)
