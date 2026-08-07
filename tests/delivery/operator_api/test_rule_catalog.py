@@ -138,6 +138,8 @@ def _client(*, active: bool = True, collected: bool = True) -> TestClient:
 
 
 class _SemanticIndex:
+    ontology_release_digest = "sha256:" + "c" * 64
+
     async def upsert(self, documents):  # type: ignore[no-untyped-def]
         return len(documents)
 
@@ -152,7 +154,7 @@ class _SemanticIndex:
             corpus=corpus,
             catalog_digest=rule_reference_catalog_digest(rules),
             semantic_schema_digest="sha256:" + "b" * 64,
-            ontology_release_digest="sha256:" + "c" * 64,
+            ontology_release_digest=self.ontology_release_digest,
             embedding_space_id="catalog-search-384",
             embedding_model_version="test:1",
             embedding_dimension=384,
@@ -246,15 +248,18 @@ def _semantic_client(index: object, *, concept_search: bool = False) -> TestClie
     query_registry = None
     if concept_search:
         declaration = catalog_query_function_type()
+        release = build_ontology_release(function_types=(declaration,))
+        if isinstance(index, _SemanticIndex):
+            index.ontology_release_digest = release.ref().digest
         query_registry = build_catalog_query_function_registry(
             retriever=ConceptFirstCatalogRetriever(
                 index=index,  # type: ignore[arg-type]
                 catalog_digest=rule_reference_catalog_digest(_active()),
-                ontology_release_digest="sha256:" + "c" * 64,
+                ontology_release_digest=release.ref().digest,
                 concepts=build_rule_concept_bindings(_active()),
                 facets=build_rule_search_facets(_active()),
             ),
-            release=build_ontology_release(function_types=(declaration,)),
+            release=release,
         )
     app = build_app(
         authenticator=auth,
