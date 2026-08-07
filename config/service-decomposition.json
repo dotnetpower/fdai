@@ -67,7 +67,7 @@
     },
     {
       "id": "SD-06",
-      "status": "planned",
+      "status": "in_progress",
       "dependencies": ["SD-02", "SD-04", "SD-05"],
       "parallel_lane": "C"
     },
