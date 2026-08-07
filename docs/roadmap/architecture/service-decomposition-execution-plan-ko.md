@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 60cec7364c94d566ed9633ddc49a5c48d2cb7840
+translation_source_sha: 3d6976bbee5dff6df6b11b983b2d4a9e3156fd4e
 translation_revised: 2026-08-07
 ---
 # 서비스 분해 실행 계획
@@ -96,7 +96,7 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 |------|------------|-----------|-----------|
 | SD-01 application route debt | 기존 SD-01 isolated session | `src/fdai/delivery/operator_api/**`, 해당 Operator API test와 module-map 업데이트 | Route boundary focused commit과 receipt를 integration owner에게 handoff |
 | SD-03 effective access와 rollback | 기존 SD-03 isolated session | Ingestion runtime, ingestion 전용 Terraform, access probe와 해당 test | Effective-access proof와 rollback evidence를 integration owner에게 handoff |
-| SD-07 shadow Executor | `/tmp/fdai-sd07`의 `work/sd07-shadow-executor` | 남은 logical-target lock evidence와 해당 focused test. 통합된 command/receipt, durable attempt, EventBus, health, telemetry path는 이 worker에서 read-only | Lock receipt를 integration owner에게 handoff하며 effect authority, production composition, pantheon role, identity, Container App 변경은 포함하지 않음 |
+| SD-07 serial finish | Integration owner | Production adapter composition, workload identity, internal Container App, exact-topology shadow smoke 및 rollback evidence | Effect authority 없이 shadow deployment evidence를 기록하며 해제된 `/tmp/fdai-sd07` worker는 read-only |
 | Serial integration | Integration owner | 이 계획 문서 쌍, machine status manifest, package 간 contract, production composition, pantheon role, executor identity cutover | Focused package handoff를 수락하고 dependency 상태를 업데이트 |
 
 ## 진행 상태 업데이트 contract
@@ -123,6 +123,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-07 | SD-04 | 완료 | `f5cf51e3a`, `91c88f2a3`, `a5350296e`, `b24c2d90d`, `07161a96c` | Exact release ref, additive N/N-1 compatibility, revision-fenced projection writer, provider I/O 전 mismatch rejection, replay-stable atomic generation rollback이 focused union test 142개를 통과했습니다. `FDAI_DATABASE_URL`이 설정되지 않아 PostgreSQL live case 8개는 skip 상태이며, baseline은 이 live generation receipt를 SD-05에 할당합니다. |
 | 2026-08-07 | SD-07 | 진행 중 | `work/sd07-shadow-executor`의 Start `03f6ef265` | `/tmp/fdai-sd07`에서 command/receipt transport와 durable shadow-attempt mechanics를 시작했습니다. Effect authority, production composition, pantheon role, identity cutover는 serial integration 예약으로 유지합니다. |
 | 2026-08-07 | SD-07 | 진행 중 | `3b84ee15a`, `800eee04b` | Versioned command/receipt schema, durable duplicate/reorder/restart/deadline closure, poison-record DLQ, at-least-once receipt publish, supervised health 및 effect 없는 telemetry가 `main`의 focused union test 55개를 통과했습니다. Logical-target lock evidence, production composition, workload identity, Container App 배포는 남아 있으며 effect authority는 SD-08 전까지 사용할 수 없습니다. |
+| 2026-08-07 | SD-07 | 진행 중 | `9ff088aec` | 기존 `ResourceLock` seam이 같은 target의 shadow command를 직렬화하고 다른 target은 겹쳐 처리하며 exact target identity를 사용하고 handler 실패 후 lock을 해제합니다. Worker에서 focused union test 59개가 통과했고 lock handoff를 통합했습니다. Production composition, workload identity, Container App 배포 및 live shadow smoke는 남아 있습니다. |
 
 ## 관련 문서
 
