@@ -580,7 +580,7 @@ def test_health_stream_uses_parallel_structured_presentation_without_model_answe
 def test_health_stream_cancels_slow_presentation_and_returns_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import fdai.delivery.operator_api.routes.chat_stream as stream_module
+    from fdai.delivery.operator_api.application.conversation.turn_execution import stream_service
 
     class SlowStructuredBackend(_Backend):
         def __init__(self) -> None:
@@ -594,7 +594,7 @@ def test_health_stream_cancels_slow_presentation_and_returns_default(
                 self.cancelled = True
                 raise
 
-    monkeypatch.setattr(stream_module, "_PRESENTATION_JOIN_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(stream_service, "_PRESENTATION_JOIN_TIMEOUT_SECONDS", 0.01)
     backend = SlowStructuredBackend()
     app = Starlette(
         routes=[
