@@ -2,6 +2,8 @@
 
 from fdai_service_contracts import ServiceDescriptor, ServiceKind
 
+from fdai_document_worker_service.application import run_worker
+
 SERVICE = ServiceDescriptor(
     service_id="document-processing-worker",
     distribution="fdai-document-processing-worker",
@@ -13,6 +15,4 @@ SERVICE = ServiceDescriptor(
 
 def main() -> int:
     """Start the document worker through the service-owned entry point."""
-    from fdai.delivery.ingestion_gateway.worker import main as run
-
-    return run()
+    return run_worker()
