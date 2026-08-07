@@ -9,9 +9,11 @@ from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from fdai.agents import PantheonRuntime
+from fdai.delivery.operator_api.projections.conversation.screen_data import (
+    render_screen_data_answer,
+)
 from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
 from fdai.delivery.operator_api.routes.chat_agent_delegate import PantheonChatDelegate
-from fdai.delivery.operator_api.routes.chat_screen_data import render_screen_data_answer
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 _SCOPE = {"authority": "current_screen", "route_id": "live"}

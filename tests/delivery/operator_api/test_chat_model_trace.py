@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fdai.delivery.operator_api.routes.chat_model_trace import (
+from fdai.delivery.operator_api.projections.conversation.tracing import (
     activate_model_trace,
     begin_model_call,
     complete_model_call,

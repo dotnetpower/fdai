@@ -1,4 +1,11 @@
-"""Bounded terminal projection of observed chat trajectory detail."""
+"""Bounded terminal projection of observed chat trajectory detail.
+
+Responsibility: Reduce observed progress records into one bounded replay value.
+Boundary: Accept request-local event mappings and return JSON-serializable data.
+Authority and state: Read-only, request-local, and free of durable writes.
+Dependencies: Python collection and serialization primitives only.
+Deployment: Runs in-process within the Operator API without a network boundary.
+"""
 
 from __future__ import annotations
 

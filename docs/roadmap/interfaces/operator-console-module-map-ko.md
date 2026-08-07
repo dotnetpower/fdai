@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: d8355410780778a524f196d1d58b3b6c8ce0da86
+translation_source_sha: 35ffbbd83fefb3e5bc75c4172fb2e3ecbf7651ea
 translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
@@ -250,6 +250,22 @@ Rollback은 history와 preparation helper를 `routes/` 아래에 복원하고 `c
 복원한 뒤 JSON과 SSE import를 되돌립니다. Authentication, status code, body bound,
 content-policy replay, history, document access, answer plan 및 두 wire contract는 변경하지 않습니다.
 
+### Conversation terminal support projection 경계
+
+SD-01 terminal support slice는 bounded trajectory-detail replay, deterministic current-screen T0
+answer, opt-in redacted model-call trace, verified resource-follow-up response context를
+`fdai.delivery.operator_api.projections.conversation` 아래에서 소유합니다. 이 projection은 read-only이고
+request-local입니다. `operator_api.routes` module을 import하지 않고 durable write, model call 또는 provider
+call을 수행하지 않습니다.
+
+Request resource parsing 및 follow-up contextualization은
+`application.conversation.request_preparation.resource_context`에 유지됩니다. Azure 및 OpenAI-compatible
+adapter는 이미 수행된 model request와 response를 tracing projection에 기록하고 provider call은 계속
+adapter가 소유합니다. JSON 및 SSE route는 authentication, body parsing, status mapping, frame sequence와
+revision, cancellation, terminal delivery, conversation history를 유지합니다. 이전 route consumer는 모두
+internal이므로 compatibility shim은 남기지 않습니다. Rollback은 네 route implementation을 복원하고
+internal consumer를 redirect하며 wire contract는 변경하지 않습니다.
+
 ### Immutable app composition
 
 Issue 72는 `OperatorApiConfig(**kwargs)`를 bounded compatibility constructor로 유지하고 route를 등록하기
@@ -291,7 +307,7 @@ signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migrati
 | `persistence/` | Operator API read-model implementation 및 projection | 소유된 read contract 뒤에 유지합니다. |
 | `projections/` | HTTP route 밖의 read-only projection ownership | Migrated family의 owner로 유지합니다. |
 | `projections/audit/` | Audit query 및 autonomy/FinOps measurement projection | Explicit facade를 통해 import하고 기존 route module은 shim으로 유지합니다. |
-| `projections/conversation/` | HTTP transport 밖의 request-local conversation read projection 및 queue에 수락된 progress metric reduction | Service-graduation evidence가 준비될 때까지 process 안에 유지합니다. |
+| `projections/conversation/` | Screen data, model trace, trajectory detail, resource response context 및 queue에 수락된 progress metric reduction을 포함하는 request-local conversation read projection | Service-graduation evidence가 준비될 때까지 process 안에 유지합니다. |
 | `projections/conversation/presentation/` | Value-free layout selection 및 검증된 evidence artifact compilation | Explicit facade로 import하고 JSON 및 SSE behavior는 route에 유지합니다. |
 | `projections/conversation/inventory/` | Inventory evidence sanitization, result projection 및 deterministic rendering | Explicit facade로 import하고 query compilation과 provider coordination은 application package에 유지합니다. |
 | `projections/conversation/terminal/` | Terminal payload, LLM usage, resource-result 및 source-failure projection | Explicit facade로 import하고 JSON, SSE, authentication, cancellation 및 history는 route에 유지합니다. |
@@ -398,11 +414,11 @@ frame을 거부합니다.
   소유합니다. Frame sequencing, queue admission, cancellation, transport 또는 durable state는
   소유하지 않습니다.
 - `projections/conversation/`은 incident-dossier와 RCA rendering, bounded execution-output
-  projection, provider-receipt projection 및 tool-progress reduction을 소유합니다. 이동된 internal
-  helper에는 compatibility shim이 없습니다.
+  projection, provider-receipt projection, tool-progress reduction, current-screen T0 rendering,
+  redacted model trace, trajectory-detail replay 및 resource-follow-up response projection을 소유합니다.
+  이동된 internal helper에는 compatibility shim이 없습니다.
 - `routes/chat_stream_request.py`는 authorization, Content-Length와 raw-body bound, JSON-object
   parsing, application error의 HTTP mapping 및 SSE preparation adapter를 소유합니다.
-- `chat_trajectory_detail.py`는 durable trajectory replay용 bounded final progress projection을 소유합니다.
 - `application/conversation/capabilities/knowledge_context.py`는 state write 없이 exact prior-turn
   runbook, source freshness, consented
   memory 및 materialized learning을 읽습니다.

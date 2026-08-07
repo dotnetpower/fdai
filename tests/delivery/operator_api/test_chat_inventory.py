@@ -50,11 +50,11 @@ from fdai.delivery.operator_api.projections.conversation.inventory import (
     inventory_execution_query,
     render_inventory_answer,
 )
-from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
-from fdai.delivery.operator_api.routes.chat_resource_context import (
+from fdai.delivery.operator_api.projections.conversation.resource_context import (
     resource_followup_answer,
     resource_followup_verification,
 )
+from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 

@@ -1,4 +1,11 @@
-"""Opt-in, request-local redacted model request and response traces."""
+"""Opt-in, request-local redacted model request and response traces.
+
+Responsibility: Collect and project bounded redacted model-call evidence.
+Boundary: Accept in-process request and response values without invoking a model.
+Authority and state: Read-only, request-local, and free of durable writes.
+Dependencies: Python context, hashing, matching, and serialization primitives.
+Deployment: Runs in-process within the Operator API without a network boundary.
+"""
 
 from __future__ import annotations
 

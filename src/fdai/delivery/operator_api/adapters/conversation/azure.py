@@ -29,7 +29,7 @@ from fdai.delivery.operator_api.adapters.conversation.transport import (
     _usage_summary,
 )
 from fdai.delivery.operator_api.application.conversation.prompt import _build_messages
-from fdai.delivery.operator_api.routes.chat_model_trace import (
+from fdai.delivery.operator_api.projections.conversation.tracing import (
     begin_model_call,
     complete_model_call,
 )

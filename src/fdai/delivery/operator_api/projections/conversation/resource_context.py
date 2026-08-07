@@ -1,4 +1,11 @@
-"""Bounded resource selection context for verified chat follow-ups."""
+"""Bounded resource response projections for verified chat follow-ups.
+
+Responsibility: Project selected resource context and matching Heimdall answers.
+Boundary: Accept request-local verified evidence and return bounded response values.
+Authority and state: Read-only, request-local, and free of durable writes.
+Dependencies: Request-context validation and terminal verification contracts only.
+Deployment: Runs in-process within the Operator API without a network boundary.
+"""
 
 from __future__ import annotations
 

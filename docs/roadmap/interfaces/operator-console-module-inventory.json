@@ -114,7 +114,7 @@
     },
     {
       "path": "projections/conversation",
-      "responsibility": "Read-only incident, RCA, execution, tool-progress, and request-local conversation projections outside HTTP transport",
+      "responsibility": "Read-only incident, RCA, execution, tool-progress, screen-data, model-trace, trajectory-detail, resource-response, and request-local conversation projections outside HTTP transport",
       "classification": "read-projection",
       "candidate_destination": "retain in-process until conversation service-graduation evidence exists"
     },
@@ -299,6 +299,20 @@
       ],
       "rationale": "cohesive request-local terminal payload and replay-context projection family after verification and presentation ownership were established",
       "rollback": "restore route implementations and redirect the terminal facade without changing JSON, SSE, authentication, cancellation, or history contracts"
+    },
+    {
+      "tracking_issue": 71,
+      "family": "chat terminal support projections",
+      "destination": "fdai.delivery.operator_api.projections.conversation",
+      "observed_window_days": 90,
+      "modules": [
+        {"module": "chat_trajectory_detail.py", "direct_python_consumers": 2, "fdai_imports": 0, "changes": 1},
+        {"module": "chat_screen_data.py", "direct_python_consumers": 3, "fdai_imports": 0, "changes": 1},
+        {"module": "chat_model_trace.py", "direct_python_consumers": 5, "fdai_imports": 0, "changes": 1},
+        {"module": "chat_resource_context.py", "direct_python_consumers": 4, "fdai_imports": 2, "changes": 8}
+      ],
+      "rationale": "pure request-local terminal support projections after request preparation and terminal verification ownership were established",
+      "rollback": "restore route implementations and redirect internal consumers without changing JSON, SSE, authentication, cancellation, or history contracts"
     }
   ],
   "reviewed_fallback_modules": [
@@ -426,7 +440,7 @@
         {
           "module": "fdai.delivery.operator_api.projections.conversation.*",
           "classification": "internal-implementation",
-          "migration": "owned read-only operational and execution evidence projections; no route compatibility shim retained"
+          "migration": "owned read-only operational, execution, screen-data, model-trace, trajectory-detail, and resource-response projections; no route compatibility shim retained"
         },
     {
       "module": "fdai.delivery.operator_api.routes.chat_verification",

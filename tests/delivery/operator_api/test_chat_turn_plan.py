@@ -39,13 +39,13 @@ from fdai.delivery.operator_api.application.conversation.turn_plan import (
     default_read_turn_tools,
     parse_turn_plan,
 )
-from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
-from fdai.delivery.operator_api.routes.chat import make_chat_route
-from fdai.delivery.operator_api.routes.chat_model_trace import (
+from fdai.delivery.operator_api.projections.conversation.tracing import (
     activate_model_trace,
     deactivate_model_trace,
     snapshot_model_trace,
 )
+from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes.chat import make_chat_route
 from fdai.delivery.operator_api.routes.chat_stream import make_chat_stream_route
 from fdai.shared.providers.workload_identity import IdentityToken
 

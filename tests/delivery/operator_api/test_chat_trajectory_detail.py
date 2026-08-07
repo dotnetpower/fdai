@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from fdai.delivery.operator_api.routes.chat_trajectory_detail import (
+from fdai.delivery.operator_api.projections.conversation.trajectory import (
     TrajectoryDetailCollector,
     trajectory_detail_budget,
 )

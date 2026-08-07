@@ -136,12 +136,28 @@ from fdai.delivery.operator_api.projections.conversation.presentation import (
     PresentationDecision,
     select_answer_presentation,
 )
+from fdai.delivery.operator_api.projections.conversation.resource_context import (
+    resource_followup_verification,
+    response_resource_context,
+)
+from fdai.delivery.operator_api.projections.conversation.screen_data import (
+    render_screen_data_answer,
+)
 from fdai.delivery.operator_api.projections.conversation.stream_metrics import (
     record_enqueued_progress_metrics,
 )
 from fdai.delivery.operator_api.projections.conversation.terminal import (
     TurnTimingRecorder,
     completed_replay_payload,
+)
+from fdai.delivery.operator_api.projections.conversation.tracing import (
+    activate_model_trace,
+    deactivate_model_trace,
+    snapshot_model_trace,
+)
+from fdai.delivery.operator_api.projections.conversation.trajectory import (
+    TrajectoryDetailCollector,
+    trajectory_detail_budget,
 )
 from fdai.delivery.operator_api.routes.chat_answer_planning import (
     AnswerPlanningDelegate,
@@ -177,15 +193,6 @@ from fdai.delivery.operator_api.routes.chat_image_history import (
     image_turn_metadata,
     persist_operator_turn_with_images,
 )
-from fdai.delivery.operator_api.routes.chat_model_trace import (
-    activate_model_trace,
-    deactivate_model_trace,
-    snapshot_model_trace,
-)
-from fdai.delivery.operator_api.routes.chat_resource_context import (
-    resource_followup_verification,
-    response_resource_context,
-)
 from fdai.delivery.operator_api.routes.chat_route_common import (
     DEFAULT_MAX_CHAT_BODY_BYTES,
     AuthorizeFn,
@@ -195,7 +202,6 @@ from fdai.delivery.operator_api.routes.chat_route_common import (
     _with_assurance_policy,
     _with_compiled_user_policy,
 )
-from fdai.delivery.operator_api.routes.chat_screen_data import render_screen_data_answer
 from fdai.delivery.operator_api.routes.chat_stream_protocol import (
     DEFAULT_STREAM_HEARTBEAT_S,
     _chunk_answer_for_stream,
@@ -206,10 +212,6 @@ from fdai.delivery.operator_api.routes.chat_stream_protocol import (
 from fdai.delivery.operator_api.routes.chat_stream_request import (
     ContentPolicyReplayRequest,
     prepare_chat_stream_request,
-)
-from fdai.delivery.operator_api.routes.chat_trajectory_detail import (
-    TrajectoryDetailCollector,
-    trajectory_detail_budget,
 )
 from fdai.delivery.operator_api.routes.post_turn_review import (
     PostTurnReviewSubmission,

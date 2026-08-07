@@ -11,7 +11,7 @@ from fdai.delivery.operator_api.application.conversation.request_preparation imp
     contextualize_resource_followup,
     parse_resource_context,
 )
-from fdai.delivery.operator_api.routes.chat_resource_context import (
+from fdai.delivery.operator_api.projections.conversation.resource_context import (
     response_resource_context,
 )
 

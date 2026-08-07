@@ -205,6 +205,13 @@ from fdai.delivery.operator_api.projections.conversation.presentation import (
 from fdai.delivery.operator_api.projections.conversation.provenance import (
     web_search_summary as _web_search_summary,
 )
+from fdai.delivery.operator_api.projections.conversation.resource_context import (
+    resource_followup_verification,
+    response_resource_context,
+)
+from fdai.delivery.operator_api.projections.conversation.screen_data import (
+    render_screen_data_answer,
+)
 from fdai.delivery.operator_api.projections.conversation.terminal import (
     assurance_policy_summary,
     completed_replay_payload,
@@ -246,10 +253,6 @@ from fdai.delivery.operator_api.routes.chat_image_history import (
     image_turn_metadata,
     persist_operator_turn_with_images,
 )
-from fdai.delivery.operator_api.routes.chat_resource_context import (
-    resource_followup_verification,
-    response_resource_context,
-)
 from fdai.delivery.operator_api.routes.chat_response_tail import (
     ChatResponseTailContext,
     ChatResponseTailDependencies,
@@ -264,7 +267,6 @@ from fdai.delivery.operator_api.routes.chat_route_common import (
     _with_assurance_policy,
     _with_compiled_user_policy,
 )
-from fdai.delivery.operator_api.routes.chat_screen_data import render_screen_data_answer
 from fdai.delivery.operator_api.routes.chat_stream import (
     DEFAULT_STREAM_PATH,
     make_chat_stream_route,

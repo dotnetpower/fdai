@@ -1,4 +1,11 @@
-"""Deterministic Bragi T0 answers for current-screen data questions."""
+"""Deterministic Bragi T0 answers for current-screen data questions.
+
+Responsibility: Render bounded answers from verified current-screen values.
+Boundary: Accept request-local prompt and view mappings without HTTP concerns.
+Authority and state: Read-only, request-local, and free of durable writes.
+Dependencies: Python matching and collection primitives only.
+Deployment: Runs in-process within the Operator API without a network boundary.
+"""
 
 from __future__ import annotations
 

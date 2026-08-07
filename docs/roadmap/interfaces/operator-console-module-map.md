@@ -251,6 +251,23 @@ Rollback restores the history and preparation helpers under `routes/`, restores
 codes, body bounds, content-policy replay, history, document access, answer plans, or either wire
 contract.
 
+### Conversation terminal support projection boundary
+
+The SD-01 terminal support slice owns bounded trajectory-detail replay, deterministic current-screen
+T0 answers, opt-in redacted model-call traces, and verified resource-follow-up response context under
+`fdai.delivery.operator_api.projections.conversation`. These projections are read-only and
+request-local. They import no `operator_api.routes` module and perform no durable write or model or
+provider call.
+
+Request resource parsing and follow-up contextualization remain in
+`application.conversation.request_preparation.resource_context`. Azure and OpenAI-compatible
+adapters record already-issued model requests and responses through the tracing projection, while
+the provider calls remain adapter-owned. JSON and SSE routes retain authentication, body parsing,
+status mapping, frame sequence and revision, cancellation, terminal delivery, and conversation
+history. Every former route consumer was internal, so no compatibility shim remains. Rollback
+restores the four route implementations and redirects internal consumers without changing either
+wire contract.
+
 ### Immutable app composition
 
 Issue 72 keeps `OperatorApiConfig(**kwargs)` as the bounded compatibility constructor and projects
@@ -294,7 +311,7 @@ reverses physical ownership without a wire or caller migration.
 | `persistence/` | Operator API read-model implementations and projections | Retain behind owned read contracts. |
 | `projections/` | Read-only projection ownership outside HTTP routes | Retain as the owner of migrated families. |
 | `projections/audit/` | Audit query and autonomy/FinOps measurement projections | Import through its explicit facade; keep old route modules as shims. |
-| `projections/conversation/` | Request-local conversation read projections and queue-accepted progress metric reduction outside HTTP transport | Retain in-process until service-graduation evidence exists. |
+| `projections/conversation/` | Request-local conversation read projections, including screen data, model traces, trajectory detail, resource response context, and queue-accepted progress metric reduction | Retain in-process until service-graduation evidence exists. |
 | `projections/conversation/presentation/` | Value-free layout selection and verified evidence artifact compilation | Import through its explicit facade; keep JSON and SSE behavior in routes. |
 | `projections/conversation/inventory/` | Inventory evidence sanitization, result projection, and deterministic rendering | Import through its explicit facade; keep query compilation and provider coordination in the application package. |
 | `projections/conversation/terminal/` | Terminal payload, LLM usage, resource-result, and source-failure projections | Import through its explicit facade; keep JSON, SSE, authentication, cancellation, and history in routes. |
@@ -399,11 +416,11 @@ a separately reviewed boundary.
 - `projections/conversation/stream_metrics.py` owns queue-accepted aggregate progress reduction.
   It does not own frame sequencing, queue admission, cancellation, transport, or durable state.
 - `projections/conversation/` owns incident-dossier and RCA rendering, bounded execution-output
-  projection, provider-receipt projection, and tool-progress reduction. These moved internal
-  helpers have no compatibility shims.
+  projection, provider-receipt projection, tool-progress reduction, current-screen T0 rendering,
+  redacted model traces, trajectory-detail replay, and resource-follow-up response projection.
+  These moved internal helpers have no compatibility shims.
 - `routes/chat_stream_request.py` owns authorization, Content-Length and raw-body bounds, JSON-object
   parsing, application-error to HTTP mapping, and the SSE preparation adapter.
-- `chat_trajectory_detail.py` owns bounded final progress projection for durable trajectory replay.
 - `application/conversation/capabilities/knowledge_context.py` reads exact prior-turn runbooks,
   source freshness, consented memory,
   and materialized learning without writing state.
