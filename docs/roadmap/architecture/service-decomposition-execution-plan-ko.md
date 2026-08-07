@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 24c50a0af99018ab4b0e1c4960d4361be4abbfc1
+translation_source_sha: 8c9b4bb5f1496f6e9c19233ce38707f9a41a1997
 translation_revised: 2026-08-07
 ---
 # 서비스 분해 실행 계획
@@ -71,6 +71,33 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
   겹쳐 실행할 수 있습니다.
 - **Serial join:** Shared contract, writer cutover, production composition, identity cutover,
   rollback rehearsal, stable-batch validation은 경쟁 session에서 실행하지 않습니다.
+
+## 병렬 session 충돌 방지
+
+각 session은 편집 전에 work package, branch 또는 worktree, owned path, 해제 조건을
+예약합니다. 두 번째 session은 현재 예약과 대상 worktree의 dirty 및 미병합 path를 먼저
+확인합니다. 서로 다른 branch를 사용하더라도 owned path가 하나라도 겹치면 handoff를
+기다립니다.
+
+- **독점 path:** Session은 예약한 path만 편집합니다. 다른 session 예약에 포함된 dirty,
+  untracked, renamed 또는 미병합 파일은 정리, format, conflict resolution 또는 부수적인
+  refactoring 대상으로 사용하지 않습니다.
+- **Integration owner:** 한 명의 serial integration owner가 이 계획 문서 쌍,
+  `config/service-decomposition.json`, package 간 shared contract, pantheon role 파일,
+  production composition, identity cutover를 관리합니다. Package 전용 infrastructure는
+  handoff 전까지 해당 package owner가 관리합니다.
+- **Handoff:** Owner는 focused commit, validation receipt, residual work를 기록한 후에만 path
+  예약을 해제합니다. Integration owner가 cherry-pick, merge, 상태 변경, dependency 해제를
+  수행하며 worker session은 이 join과 경쟁하지 않습니다.
+- **Validation 격리:** Worker는 자신이 commit한 diff 또는 예약한 worktree만 검증합니다.
+  다른 session의 dirty tree에서 changed-file selector를 실행하지 않습니다.
+
+| 예약 | 현재 owner | 예약 path | 해제 조건 |
+|------|------------|-----------|-----------|
+| SD-01 application route debt | 기존 SD-01 isolated session | `src/fdai/delivery/operator_api/**`, 해당 Operator API test와 module-map 업데이트 | Route boundary focused commit과 receipt를 integration owner에게 handoff |
+| SD-03 effective access와 rollback | 기존 SD-03 isolated session | Ingestion runtime, ingestion 전용 Terraform, access probe와 해당 test | Effective-access proof와 rollback evidence를 integration owner에게 handoff |
+| SD-04 completion audit | SD-04 closeout session | Ontology release, catalog-search generation, compatibility test와 담당 ontology 문서 | SD-04 exit evidence를 수락하거나 이름이 지정된 blocker를 기록 |
+| Serial integration | Integration owner | 이 계획 문서 쌍, machine status manifest, package 간 contract, production composition, pantheon role, executor identity cutover | Focused package handoff를 수락하고 dependency 상태를 업데이트 |
 
 ## 진행 상태 업데이트 contract
 

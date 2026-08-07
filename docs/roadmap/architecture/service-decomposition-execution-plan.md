@@ -75,6 +75,33 @@ Last updated: 2026-08-07.
   identity cutover, rollback rehearsal, and stable-batch validation never run in
   competing sessions.
 
+## Parallel session collision guard
+
+Every session reserves its work package, branch or worktree, owned paths, and release condition
+before editing. A second session must inspect the active reservations and the target worktree's
+dirty and unmerged paths. It waits for a handoff when any owned path overlaps, even when the two
+sessions use different branches.
+
+- **Exclusive paths:** A session edits only its reserved paths. Dirty, untracked, renamed, or
+  unmerged files in another session's reservation are not available for cleanup, formatting,
+  conflict resolution, or opportunistic refactoring.
+- **Integration owner:** One serial integration owner manages this plan pair,
+  `config/service-decomposition.json`, cross-package shared contracts, pantheon role files,
+  production composition, and identity cutover. Package-specific infrastructure remains with the
+  package owner until handoff.
+- **Handoff:** The owner releases paths only after a focused commit, its validation receipt, and
+  residual work are recorded. The integration owner performs cherry-pick, merge, status changes,
+  and dependency release; worker sessions do not race those joins.
+- **Validation isolation:** A worker validates only its committed diff or reserved worktree. It
+  does not run a changed-file selector over another session's dirty tree.
+
+| Reservation | Current owner | Reserved paths | Release condition |
+|-------------|---------------|----------------|-------------------|
+| SD-01 application route debt | Existing SD-01 isolated session | `src/fdai/delivery/operator_api/**`, matching Operator API tests and module-map updates | Route-boundary focused commit and receipt handed to the integration owner |
+| SD-03 effective access and rollback | Existing SD-03 isolated session | Ingestion runtime, ingestion-specific Terraform, access probe, and matching tests | Effective-access proof and rollback evidence handed to the integration owner |
+| SD-04 completion audit | SD-04 closeout session | Ontology release, catalog-search generation, compatibility tests, and owning ontology docs | SD-04 exit evidence accepted or a named blocker recorded |
+| Serial integration | Integration owner | This plan pair, machine status manifest, cross-package contracts, production composition, pantheon roles, and executor identity cutover | Focused package handoff accepted and dependency status updated |
+
 ## Progress update contract
 
 Update this document in the same focused commit that changes a work package's
