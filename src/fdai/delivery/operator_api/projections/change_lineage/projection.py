@@ -106,7 +106,9 @@ class ChangeLineageDetailProjection:
     objective_count: int
     objectives_truncated: bool
     active_constraint_ids: tuple[str, ...]
+    active_constraint_count: int
     violated_constraint_ids: tuple[str, ...]
+    violated_constraint_count: int
     constraints_truncated: bool
     blast_radius_scope: str
     blast_radius_count: int | None
@@ -142,7 +144,9 @@ class ChangeLineageDetailProjection:
                 "objective_count": self.objective_count,
                 "objectives_truncated": self.objectives_truncated,
                 "active_constraint_ids": list(self.active_constraint_ids),
+                "active_constraint_count": self.active_constraint_count,
                 "violated_constraint_ids": list(self.violated_constraint_ids),
+                "violated_constraint_count": self.violated_constraint_count,
                 "constraints_truncated": self.constraints_truncated,
             },
             "resilience": {
@@ -248,7 +252,9 @@ def project_change_lineage_detail(
         objective_count=len(objective_ids),
         objectives_truncated=objectives_truncated,
         active_constraint_ids=active_constraints,
+        active_constraint_count=len(lineage.decision.active_constraint_ids),
         violated_constraint_ids=violated_constraints,
+        violated_constraint_count=len(lineage.decision.violated_constraint_ids),
         constraints_truncated=active_truncated or violated_truncated,
         blast_radius_scope=_identity(
             "blast_radius_scope",

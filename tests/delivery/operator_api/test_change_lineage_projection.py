@@ -30,6 +30,8 @@ def _lineage(
     *,
     reason: str = "selected",
     evidence_refs: tuple[str, ...] = ("evidence:one", "evidence:two"),
+    active_constraint_ids: tuple[str, ...] = ("constraint:one",),
+    violated_constraint_ids: tuple[str, ...] = (),
 ) -> ChangeLineageRecord:
     effect = ChangeObjectiveTrace(
         objective_id="objective:availability",
@@ -48,9 +50,9 @@ def _lineage(
         requires_human_approval=True,
         reason=reason,
         protected_objective_ids=(effect.objective_id,),
-        active_constraint_ids=("constraint:one",),
+        active_constraint_ids=active_constraint_ids,
         selected_effects=(effect,),
-        violated_constraint_ids=(),
+        violated_constraint_ids=violated_constraint_ids,
         proposing_agents=("forseti",),
         logic_receipt_refs=("logic:one",),
         simulation_receipt_refs=("simulation:one",),
@@ -187,6 +189,24 @@ def test_summary_projection_rejects_direct_identity_bound_bypass() -> None:
         replace(summary, change_ref="x" * 513)
     with pytest.raises(ValueError, match="action_type_id"):
         replace(summary, action_type_id="x" * 129)
+
+
+def test_detail_preserves_separate_constraint_counts_when_truncated() -> None:
+    active = tuple(f"constraint:active-{index:02d}" for index in range(40))
+    violated = tuple(f"constraint:violated-{index:02d}" for index in range(35))
+
+    detail = project_change_lineage_detail(
+        _lineage(active_constraint_ids=active, violated_constraint_ids=violated)
+    )
+    decision = detail.to_mapping()["decision"]
+
+    assert len(detail.active_constraint_ids) == 32
+    assert len(detail.violated_constraint_ids) == 32
+    assert detail.active_constraint_count == 40
+    assert detail.violated_constraint_count == 35
+    assert decision["active_constraint_count"] == 40
+    assert decision["violated_constraint_count"] == 35
+    assert detail.constraints_truncated is True
 
 
 def test_projection_package_has_no_http_route_or_persistence_dependencies() -> None:
