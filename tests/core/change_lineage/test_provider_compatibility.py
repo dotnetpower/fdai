@@ -195,6 +195,38 @@ async def test_github_change_feed_builds_canonical_lineage_candidate() -> None:
 
 
 @pytest.mark.asyncio
+async def test_github_change_feed_normalizes_naive_window_bounds() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 41,
+                    "sha": "abcdef1234567890",
+                    "environment": "production",
+                    "created_at": NOW.isoformat(),
+                }
+            ],
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    feed = GitHubChangeFeed(
+        config=GitHubChangeFeedConfig(repository="acme/app"),
+        http_client=client,
+        token_provider=_token,
+    )
+    try:
+        records = await feed.recent(
+            since=(NOW - timedelta(minutes=1)).replace(tzinfo=None),
+            until=(NOW + timedelta(minutes=1)).replace(tzinfo=None),
+        )
+    finally:
+        await client.aclose()
+
+    assert [record.change_id for record in records] == ["gh-deploy-41"]
+
+
+@pytest.mark.asyncio
 async def test_azure_devops_change_feed_builds_canonical_lineage_candidate() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

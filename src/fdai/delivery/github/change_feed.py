@@ -70,6 +70,10 @@ def _parse_ts(raw: Any) -> datetime | None:
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
+def _as_utc(value: datetime) -> datetime:
+    return value.astimezone(UTC) if value.tzinfo is not None else value.replace(tzinfo=UTC)
+
+
 class GitHubChangeFeed:
     """Fetch and normalize recent GitHub deployments into change records."""
 
@@ -91,6 +95,8 @@ class GitHubChangeFeed:
         until: datetime,
         resource_hint: str | None = None,
     ) -> list[ChangeRecord]:
+        since = _as_utc(since)
+        until = _as_utc(until)
         token = await self._token_provider()
         url = f"{self._config.api_base.rstrip('/')}/repos/{self._config.repository}/deployments"
         params: dict[str, str] = {"per_page": str(min(self._config.max_records, 100))}
