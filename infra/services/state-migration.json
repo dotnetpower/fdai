@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0.0",
+  "method": "terraform-state-mv-between-state-files",
+  "services": {
+    "core-control-plane": {
+      "backend_key": "services/core-control-plane/<environment>.tfstate",
+      "moves": [
+        {
+          "from": "module.compute.azurerm_container_app.core",
+          "to": "module.core_control_plane.module.container_app.azurerm_container_app.service"
+        }
+      ]
+    },
+    "operator-service": {
+      "backend_key": "services/operator-service/<environment>.tfstate",
+      "moves": [
+        {
+          "from": "module.operator_api[0].azurerm_container_app.operator_api",
+          "to": "module.operator_service.module.container_app.azurerm_container_app.service"
+        }
+      ]
+    },
+    "document-ingestion-api": {
+      "backend_key": "services/document-ingestion-api/<environment>.tfstate",
+      "moves": [
+        {
+          "from": "module.ingestion_gateway[0].azurerm_container_app.ingestion",
+          "to": "module.document_ingestion_api.module.container_app.azurerm_container_app.service"
+        }
+      ]
+    },
+    "document-processing-worker": {
+      "backend_key": "services/document-processing-worker/<environment>.tfstate",
+      "moves": [
+        {
+          "from": "module.ingestion_gateway[0].azurerm_container_app.worker[0]",
+          "to": "module.document_processing_worker.module.container_app.azurerm_container_app.service"
+        }
+      ]
+    },
+    "isolated-executor": {
+      "backend_key": "services/isolated-executor/<environment>.tfstate",
+      "moves": [
+        {
+          "from": "module.isolated_executor[0].azurerm_container_app.shadow",
+          "to": "module.isolated_executor.module.container_app.azurerm_container_app.service"
+        }
+      ]
+    }
+  },
+  "safety": {
+    "apply_before_source_removal": false,
+    "require_backup": true,
+    "require_source_and_destination_plan_review": true
+  }
+}
