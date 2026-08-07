@@ -25,7 +25,6 @@ from fdai.shared.providers.direct_api import (
 )
 from fdai.shared.providers.idempotency import IdempotencyStore
 from fdai.shared.providers.resource_lock import ResourceLock
-from fdai.shared.providers.state_store import StateStore
 from fdai_executor_service.effect_safety import (
     action_fingerprint,
     blast_radius_refusal,
@@ -35,6 +34,7 @@ from fdai_executor_service.effect_safety import (
     missing_safety_invariant,
     resource_lock_key,
 )
+from fdai_executor_service.ports import ExecutorStateStore
 
 _LOGGER = logging.getLogger("fdai.isolated_executor.effect")
 
@@ -91,7 +91,7 @@ class ServiceDirectApiEffectExecutor:
         self,
         *,
         executor: DirectApiExecutor,
-        audit_store: StateStore,
+        audit_store: ExecutorStateStore,
         resource_lock: ResourceLock,
         idempotency: IdempotencyStore | None,
         allow_enforce: bool,

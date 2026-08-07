@@ -27,7 +27,7 @@ def _imports(path: Path) -> set[str]:
 
 def test_service_imports_no_core_agent_or_runtime_implementation() -> None:
     forbidden: dict[Path, set[str]] = {}
-    for path in SERVICE_SOURCE.glob("*.py"):
+    for path in SERVICE_SOURCE.rglob("*.py"):
         imports = {
             name
             for name in _imports(path)
@@ -40,14 +40,13 @@ def test_service_imports_no_core_agent_or_runtime_implementation() -> None:
     assert forbidden == {}
 
 
-def test_service_fdai_dependencies_are_delivery_or_shared_only() -> None:
+def test_service_fdai_dependencies_are_shared_only() -> None:
     invalid: dict[Path, set[str]] = {}
-    for path in SERVICE_SOURCE.glob("*.py"):
+    for path in SERVICE_SOURCE.rglob("*.py"):
         imports = {
             name
             for name in _imports(path)
-            if (name == "fdai" or name.startswith("fdai."))
-            and not name.startswith(("fdai.delivery.", "fdai.shared."))
+            if (name == "fdai" or name.startswith("fdai.")) and not name.startswith("fdai.shared.")
         }
         if imports:
             invalid[path.relative_to(REPO_ROOT)] = imports

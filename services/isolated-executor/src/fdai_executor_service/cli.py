@@ -18,9 +18,12 @@ from dataclasses import dataclass
 
 import httpx
 
-from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.contracts.validation import JsonSchemaContractValidator
+from fdai_executor_service.adapters.event_hubs_kafka import (
+    EventHubsKafkaBus,
+    EventHubsKafkaBusConfig,
+)
 from fdai_executor_service.composition import (
     build_audit_store as _build_audit_store,
 )

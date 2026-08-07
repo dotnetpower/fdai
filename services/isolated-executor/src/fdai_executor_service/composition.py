@@ -6,24 +6,28 @@ import os
 
 import httpx
 
-from fdai.delivery.azure.gateway_direct_api import (
+from fdai.shared.providers.idempotency import IdempotencyStore
+from fdai.shared.providers.resource_lock import ResourceLock
+from fdai.shared.providers.workload_identity import WorkloadIdentity
+from fdai_executor_service.adapters.gateway_direct_api import (
     AzureGatewayDirectApiConfig,
     AzureGatewayDirectApiExecutor,
 )
-from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
-from fdai.delivery.persistence import (
-    PostgresAdvisoryResourceLock,
-    PostgresAdvisoryResourceLockConfig,
+from fdai_executor_service.adapters.postgres_idempotency import (
     PostgresIdempotencyStore,
     PostgresIdempotencyStoreConfig,
+)
+from fdai_executor_service.adapters.postgres_lock import (
+    PostgresAdvisoryResourceLock,
+    PostgresAdvisoryResourceLockConfig,
+)
+from fdai_executor_service.adapters.postgres_state import (
     PostgresStateStore,
     PostgresStateStoreConfig,
 )
-from fdai.shared.providers.idempotency import IdempotencyStore
-from fdai.shared.providers.resource_lock import ResourceLock
-from fdai.shared.providers.state_store import StateStore
-from fdai.shared.providers.workload_identity import WorkloadIdentity
+from fdai_executor_service.adapters.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai_executor_service.effect_executor import ServiceDirectApiEffectExecutor
+from fdai_executor_service.ports import ExecutorStateStore
 
 
 def new_http_client() -> httpx.AsyncClient:
@@ -51,7 +55,7 @@ def build_workload_identity(
     )
 
 
-def build_audit_store() -> StateStore:
+def build_audit_store() -> ExecutorStateStore:
     """Bind the durable Executor state and audit store."""
 
     dsn = _required("FDAI_STATE_STORE_DSN")
@@ -86,7 +90,7 @@ def build_idempotency_store() -> IdempotencyStore:
 
 def build_direct_api_effect_executor(
     *,
-    audit_store: StateStore,
+    audit_store: ExecutorStateStore,
     resource_lock: ResourceLock,
     idempotency: IdempotencyStore,
     http_client: httpx.AsyncClient,

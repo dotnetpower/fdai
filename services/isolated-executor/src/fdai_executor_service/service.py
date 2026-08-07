@@ -32,7 +32,7 @@ from fdai.shared.contracts import (
     Mode,
 )
 from fdai.shared.contracts.models import Action, ExecutionPath
-from fdai.shared.providers.state_store import StateStore
+from fdai_executor_service.ports import ExecutorStateStore
 
 _ATTEMPT_PREFIX = "isolated_executor_attempt:"
 _DELIVERY_PREFIX = "isolated_executor_delivery:"
@@ -163,7 +163,7 @@ class IsolatedExecutorShadowService:
     def __init__(
         self,
         *,
-        state_store: StateStore,
+        state_store: ExecutorStateStore,
         contract_validator: ContractValidator,
         executor_instance_id: str,
         clock: Callable[[], datetime] | None = None,
