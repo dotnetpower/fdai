@@ -333,6 +333,13 @@ former route modules were internal source or test imports, so no compatibility s
 Rollback restores those implementations under `routes/` and redirects internal imports without
 changing authority classification, provider scope, intent precedence, or either wire contract.
 
+### Change lineage projection boundary
+
+The SD-06 Operator projection owns bounded summary and detail views over canonical immutable
+Change lineage under `fdai.delivery.operator_api.projections.change_lineage`. It is read-only and
+request-local, preserves candidate-only learning and zero execution or promotion authority, and
+performs no provider I/O or persistence.
+
 ### Immutable app composition
 
 Issue 72 keeps `OperatorApiConfig(**kwargs)` as the bounded compatibility constructor and projects
@@ -377,6 +384,7 @@ reverses physical ownership without a wire or caller migration.
 | `persistence/conversation/` | Principal-scoped transcript, policy-receipt, replay-metadata, and conversation-image lifecycle persistence | Import through the explicit facade and keep HTTP, SSE, authentication, status mapping, and transport in routes. |
 | `projections/` | Read-only projection ownership outside HTTP routes | Retain as the owner of migrated families. |
 | `projections/audit/` | Audit query and autonomy/FinOps measurement projections | Import through its explicit facade; keep old route modules as shims. |
+| `projections/change_lineage/` | Bounded canonical Change-lineage summary and detail views | Import through its explicit facade; keep HTTP, provider I/O, persistence, execution, and promotion outside the package. |
 | `projections/conversation/` | Request-local conversation read projections, including screen data, exact document evidence, model traces, trajectory detail, resource response context, and queue-accepted progress metric reduction | Retain in-process until service-graduation evidence exists. |
 | `projections/conversation/presentation/` | Value-free layout selection and verified evidence artifact compilation | Import through its explicit facade; keep JSON and SSE behavior in routes. |
 | `projections/conversation/inventory/` | Inventory evidence sanitization, result projection, and deterministic rendering | Import through its explicit facade; keep query compilation and provider coordination in the application package. |

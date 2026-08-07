@@ -149,6 +149,12 @@
       "candidate_destination": "retain behind the explicit package facade"
     },
     {
+      "path": "projections/change_lineage",
+      "responsibility": "Bounded read-only summaries and details over canonical immutable Change lineage",
+      "classification": "read-projection",
+      "candidate_destination": "retain behind the explicit Change-lineage projection facade"
+    },
+    {
       "path": "production",
       "responsibility": "Production provider construction and Operator API bindings",
       "classification": "composition",

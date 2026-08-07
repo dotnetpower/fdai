@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 78338a426318dad34e68a32525ce56ffbc02cd15
+translation_source_sha: 116fd8019f43747451f36e62f14e0c8f79db3125
 translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
@@ -329,6 +329,13 @@ cancellation, terminal delivery 및 conversation history를 유지합니다. 이
 implementation을 `routes/` 아래에 복원하고 internal import를 되돌리며 authority classification, provider
 scope, intent precedence 또는 wire contract는 변경하지 않습니다.
 
+### Change lineage projection 경계
+
+SD-06 Operator projection은 `fdai.delivery.operator_api.projections.change_lineage` 아래에서
+canonical immutable Change lineage의 bounded summary 및 detail view를 소유합니다. Read-only이고
+request-local이며 candidate-only learning과 execution/promotion authority 0을 보존하고 provider I/O나
+persistence를 수행하지 않습니다.
+
 ### Immutable app composition
 
 Issue 72는 `OperatorApiConfig(**kwargs)`를 bounded compatibility constructor로 유지하고 route를 등록하기
@@ -371,6 +378,7 @@ signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migrati
 | `persistence/conversation/` | Principal 범위 transcript, policy receipt, replay metadata 및 conversation-image lifecycle persistence | Explicit facade로 import하고 HTTP, SSE, authentication, status mapping 및 transport는 route에 유지합니다. |
 | `projections/` | HTTP route 밖의 read-only projection ownership | Migrated family의 owner로 유지합니다. |
 | `projections/audit/` | Audit query 및 autonomy/FinOps measurement projection | Explicit facade를 통해 import하고 기존 route module은 shim으로 유지합니다. |
+| `projections/change_lineage/` | Bounded canonical Change-lineage summary 및 detail view | Explicit facade로 import하고 HTTP, provider I/O, persistence, execution 및 promotion은 package 밖에 유지합니다. |
 | `projections/conversation/` | Screen data, exact document evidence, model trace, trajectory detail, resource response context 및 queue에 수락된 progress metric reduction을 포함하는 request-local conversation read projection | Service-graduation evidence가 준비될 때까지 process 안에 유지합니다. |
 | `projections/conversation/presentation/` | Value-free layout selection 및 검증된 evidence artifact compilation | Explicit facade로 import하고 JSON 및 SSE behavior는 route에 유지합니다. |
 | `projections/conversation/inventory/` | Inventory evidence sanitization, result projection 및 deterministic rendering | Explicit facade로 import하고 query compilation과 provider coordination은 application package에 유지합니다. |
