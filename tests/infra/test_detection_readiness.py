@@ -28,6 +28,9 @@ def test_startup_probe_uses_dedicated_operational_topic_and_identity() -> None:
     assert 'resource "azurerm_role_assignment" "runtime_startup_probe_eventhubs_owner"' in source
     assert "module.event_bus_auxiliary.topic_ids[local.startup_probe_topic]" in source
     assert 'role_definition_name = "Azure Event Hubs Data Owner"' in source
-    assert "startup_kafka_settle_seconds      = var.startup_kafka_settle_seconds" in source
-    assert "startup_probe_timeout_seconds     = var.startup_probe_timeout_seconds" in source
-    assert "startup_phase_timeout_seconds     = var.startup_phase_timeout_seconds" in source
+    for name in (
+        "startup_kafka_settle_seconds",
+        "startup_probe_timeout_seconds",
+        "startup_phase_timeout_seconds",
+    ):
+        assert re.search(rf"^\s*{name}\s*=\s*var\.{name}$", source, re.M)
