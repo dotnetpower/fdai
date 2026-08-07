@@ -18,15 +18,25 @@ import httpx
 import psycopg
 import pypdf
 from azure.identity.aio import ManagedIdentityCredential
-from defusedxml import ElementTree  # type: ignore[import-untyped]
 from fdai_service_contracts import (
+    AdapterReadiness,
     DocumentEnvelope,
+    DocumentExtractionUnavailableError,
     DocumentVersion,
+    ExtractionUnavailableReason,
+    ImageOcrProvider,
     MalwareVerdict,
     ProtectionInspection,
     ProtectionState,
+    ProviderUnavailableError,
     StructuralUnit,
+    configured_readiness,
+    live_readiness,
+    live_unavailable_readiness,
+    unavailable_readiness,
 )
+
+from fdai_document_worker_service.adapters.ooxml import OoxmlParserBudget, extract_ooxml
 
 _TEXT_EXTENSIONS = frozenset(
     {".txt", ".md", ".rst", ".json", ".yaml", ".yml", ".xml", ".csv", ".tf", ".rego"}
@@ -159,13 +169,15 @@ class BoundedDocumentExtractor:
     def __init__(
         self,
         *,
-        image_ocr: AzureDocumentIntelligenceOcr | None,
+        image_ocr: ImageOcrProvider,
         max_input_bytes: int,
         max_characters: int,
+        ooxml_budget: OoxmlParserBudget | None = None,
     ) -> None:
         self._image_ocr = image_ocr
         self._max_input_bytes = max_input_bytes
         self._max_characters = max_characters
+        self._ooxml_budget = ooxml_budget or OoxmlParserBudget(max_input_bytes=max_input_bytes)
 
     async def extract(
         self, *, version: DocumentVersion, chunks: AsyncIterator[bytes]
@@ -175,23 +187,17 @@ class BoundedDocumentExtractor:
         if observed == "text":
             units = _text_units(content.decode("utf-8-sig"))
         elif observed == "ooxml":
-            units = _ooxml_units(content)
+            units = extract_ooxml(content, budget=self._ooxml_budget)
         elif observed == "pdf":
             units = _pdf_units(content)
             if not units:
-                if self._image_ocr is None:
-                    raise ValueError("scanned PDF extraction requires an OCR provider")
                 units = await self._image_ocr.extract(version=version, content=content)
         elif observed == "image":
-            units = (
-                await self._image_ocr.extract(version=version, content=content)
-                if self._image_ocr is not None
-                else ()
-            )
+            units = await self._image_ocr.extract(version=version, content=content)
         else:
-            raise ValueError("no safe extractor is available for this format")
+            raise DocumentExtractionUnavailableError(ExtractionUnavailableReason.UNSUPPORTED_FORMAT)
         if sum(len(unit.text) for unit in units) > self._max_characters:
-            raise ValueError("extracted content exceeds the character budget")
+            raise DocumentExtractionUnavailableError(ExtractionUnavailableReason.TEXT_BUDGET)
         return DocumentEnvelope(
             document_id=version.document_id,
             version_id=version.version_id,
@@ -238,6 +244,30 @@ class AzureDocumentIntelligenceOcr:
         self._credential = credential
         self._client = client
 
+    def readiness(self) -> AdapterReadiness:
+        """Report validated OCR composition without requesting an Azure token."""
+        return configured_readiness("document-intelligence-ocr")
+
+    async def probe_readiness(self) -> AdapterReadiness:
+        """Authenticate and list at most one OCR model without analyzing content."""
+        adapter = "document-intelligence-ocr"
+        try:
+            async with asyncio.timeout(5.0):
+                token = await self._credential.get_token(_COGNITIVE_SCOPE)
+                response = await self._client.get(
+                    f"{self._config.endpoint.rstrip('/')}/documentintelligence/documentModels",
+                    params={"api-version": self._config.api_version, "top": "1"},
+                    headers={"Authorization": f"Bearer {token.token}"},
+                )
+                response.raise_for_status()
+                if len(response.content) > self._config.max_response_bytes:
+                    return live_unavailable_readiness(adapter, "probe_response_too_large")
+        except TimeoutError:
+            return live_unavailable_readiness(adapter, "probe_timeout")
+        except Exception as exc:  # noqa: BLE001 - return only the safe exception type
+            return live_unavailable_readiness(adapter, f"probe_failed:{type(exc).__name__}")
+        return live_readiness(adapter)
+
     async def extract(
         self, *, version: DocumentVersion, content: bytes
     ) -> tuple[StructuralUnit, ...]:
@@ -280,6 +310,25 @@ class AzureDocumentIntelligenceOcr:
                 await asyncio.sleep(0.5)
 
 
+class UnavailableImageOcr:
+    """Fail closed when no OCR endpoint was configured for scanned content."""
+
+    _REASON = "FDAI_OCR_ENDPOINT is not configured"
+
+    def readiness(self) -> AdapterReadiness:
+        return unavailable_readiness("document-intelligence-ocr", self._REASON)
+
+    async def probe_readiness(self) -> AdapterReadiness:
+        """Return the same explicit unavailability without external I/O."""
+        return self.readiness()
+
+    async def extract(
+        self, *, version: DocumentVersion, content: bytes
+    ) -> tuple[StructuralUnit, ...]:
+        del version, content
+        raise ProviderUnavailableError(self._REASON)
+
+
 @dataclass(frozen=True, slots=True)
 class AzureEmbeddingConfig:
     endpoint: str
@@ -301,6 +350,22 @@ class AzureEmbeddingModel:
         self._config = config
         self._credential = credential
         self._client = client
+
+    def readiness(self) -> AdapterReadiness:
+        """Report validated embedding composition without requesting a token."""
+        return configured_readiness("azure-openai-embedding")
+
+    async def probe_readiness(self) -> AdapterReadiness:
+        """Generate one fixed minimal vector within a short timeout."""
+        adapter = "azure-openai-embedding"
+        try:
+            async with asyncio.timeout(5.0):
+                await self.embed("readiness")
+        except TimeoutError:
+            return live_unavailable_readiness(adapter, "probe_timeout")
+        except Exception as exc:  # noqa: BLE001 - return only the safe exception type
+            return live_unavailable_readiness(adapter, f"probe_failed:{type(exc).__name__}")
+        return live_readiness(adapter)
 
     async def embed(self, text: str) -> Sequence[float]:
         token = await self._credential.get_token(_COGNITIVE_SCOPE)
@@ -415,34 +480,6 @@ def _pdf_units(content: bytes) -> tuple[StructuralUnit, ...]:
         for index, page in enumerate(reader.pages, start=1)
         if (text := (page.extract_text() or "").strip())
     )
-
-
-def _ooxml_units(content: bytes) -> tuple[StructuralUnit, ...]:
-    units: list[StructuralUnit] = []
-    with zipfile.ZipFile(io.BytesIO(content)) as archive:
-        members = sorted(
-            name
-            for name in archive.namelist()
-            if name.endswith(".xml") and name.startswith(("word/", "ppt/slides/", "xl/"))
-        )
-        if len(members) > 10_000:
-            raise ValueError("OOXML member count exceeded configured bounds")
-        for index, name in enumerate(members, start=1):
-            raw = archive.read(name)
-            if len(raw) > 16 * 1024 * 1024:
-                raise ValueError("OOXML member exceeded configured bounds")
-            root = ElementTree.fromstring(raw)
-            text = " ".join(value.strip() for value in root.itertext() if value.strip())
-            if text:
-                units.append(
-                    StructuralUnit(
-                        unit_id=f"ooxml-{index}",
-                        kind="paragraph",
-                        locator=name,
-                        text=text,
-                    )
-                )
-    return tuple(units)
 
 
 def _ocr_units(

@@ -11,6 +11,12 @@ from typing import Any
 from aiokafka import AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
 from azure.identity.aio import ManagedIdentityCredential
+from fdai_service_contracts import (
+    AdapterReadiness,
+    configured_readiness,
+    live_readiness,
+    live_unavailable_readiness,
+)
 
 
 class _ManagedIdentityTokenProvider(AbstractTokenProvider):  # type: ignore[misc]
@@ -44,6 +50,21 @@ class EventHubsKafkaPublisher:
         self._scope = f"https://{host}/.default"
         self._producer: AIOKafkaProducer | None = None
         self._lock = asyncio.Lock()
+
+    def readiness(self) -> AdapterReadiness:
+        """Report validated Kafka composition without requesting an Azure token."""
+        return configured_readiness("event-hubs-kafka-publisher")
+
+    async def probe_readiness(self) -> AdapterReadiness:
+        """Start the authenticated producer without publishing an event."""
+        adapter = "event-hubs-kafka-publisher"
+        try:
+            await asyncio.wait_for(self._get_producer(), timeout=5.0)
+        except TimeoutError:
+            return live_unavailable_readiness(adapter, "probe_timeout")
+        except Exception as exc:  # noqa: BLE001 - return only the safe exception type
+            return live_unavailable_readiness(adapter, f"probe_failed:{type(exc).__name__}")
+        return live_readiness(adapter)
 
     async def publish(self, topic: str, key: str, payload: Mapping[str, object]) -> object:
         producer = await self._get_producer()

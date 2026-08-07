@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import re
 from collections.abc import AsyncIterator
@@ -11,9 +12,13 @@ from uuid import UUID
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.storage.filedatalake.aio import DataLakeServiceClient
 from fdai_service_contracts import (
+    AdapterReadiness,
     DocumentEnvelope,
     DocumentNotFoundError,
     UploadSession,
+    configured_readiness,
+    live_readiness,
+    live_unavailable_readiness,
 )
 
 _FILESYSTEM_RE = re.compile(r"[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?")
@@ -60,6 +65,14 @@ class AzureDataLakeObjectStore:
                 yield chunk
         except ResourceNotFoundError as exc:
             raise DocumentNotFoundError("source object was not found") from exc
+
+    def readiness(self) -> AdapterReadiness:
+        """Report validated composition without performing an ADLS request."""
+        return configured_readiness("adls-source")
+
+    async def probe_readiness(self) -> AdapterReadiness:
+        """Read source file-system properties within a short timeout."""
+        return await _probe_file_system(self._files, "adls-source", self._config)
 
     async def delete(self, object_key: str) -> None:
         try:
@@ -138,6 +151,14 @@ class AzureDataLakeArtifactStore:
         )
         return f"{self._config.account_url}/{self._config.derived_file_system}/{path}"
 
+    def readiness(self) -> AdapterReadiness:
+        """Report validated composition without performing an ADLS request."""
+        return configured_readiness("adls-artifact")
+
+    async def probe_readiness(self) -> AdapterReadiness:
+        """Read derived file-system properties within a short timeout."""
+        return await _probe_file_system(self._files, "adls-artifact", self._config)
+
     async def delete(self, document_id: UUID, version_id: UUID) -> None:
         try:
             await self._files.get_file_client(self._path(document_id, version_id)).delete_file(
@@ -152,3 +173,20 @@ class AzureDataLakeArtifactStore:
     @staticmethod
     def _path(document_id: UUID, version_id: UUID) -> str:
         return f"documents/{document_id.hex}/versions/{version_id.hex}/envelope.json"
+
+
+async def _probe_file_system(
+    file_system: object,
+    adapter: str,
+    config: AzureDataLakeConfig,
+) -> AdapterReadiness:
+    try:
+        async with asyncio.timeout(min(float(config.operation_timeout_seconds), 5.0)):
+            await file_system.get_file_system_properties(  # type: ignore[attr-defined]
+                timeout=min(config.operation_timeout_seconds, 5)
+            )
+    except TimeoutError:
+        return live_unavailable_readiness(adapter, "probe_timeout")
+    except Exception as exc:  # noqa: BLE001 - return only the safe exception type
+        return live_unavailable_readiness(adapter, f"probe_failed:{type(exc).__name__}")
+    return live_readiness(adapter)

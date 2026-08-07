@@ -14,7 +14,13 @@ from typing import Any
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
 from azure.identity.aio import ManagedIdentityCredential
-from fdai_service_contracts import EventEnvelope
+from fdai_service_contracts import (
+    AdapterReadiness,
+    EventEnvelope,
+    configured_readiness,
+    live_readiness,
+    live_unavailable_readiness,
+)
 
 _LOGICAL_TOPIC_FIELD = "_fdai_logical_topic"
 
@@ -71,6 +77,21 @@ class EventHubsKafkaBus:
             value=_encode(payload),
         )
 
+    def readiness(self) -> AdapterReadiness:
+        """Report validated Kafka composition without requesting an Azure token."""
+        return configured_readiness("event-hubs-kafka")
+
+    async def probe_readiness(self) -> AdapterReadiness:
+        """Start the authenticated producer without publishing an event."""
+        adapter = "event-hubs-kafka"
+        try:
+            await asyncio.wait_for(self._get_producer(), timeout=5.0)
+        except TimeoutError:
+            return live_unavailable_readiness(adapter, "probe_timeout")
+        except Exception as exc:  # noqa: BLE001 - return only the safe exception type
+            return live_unavailable_readiness(adapter, f"probe_failed:{type(exc).__name__}")
+        return live_readiness(adapter)
+
     def subscribe(self, topic: str, group_id: str) -> AsyncIterator[EventEnvelope]:
         return self._iter_consumer(topic, group_id)
 
@@ -116,7 +137,11 @@ class EventHubsKafkaBus:
                     retry_backoff_ms=1_000,
                     max_request_size=1_000_000,
                 )
-                await producer.start()
+                try:
+                    await producer.start()
+                except BaseException:
+                    await producer.stop()
+                    raise
                 self._producer = producer
             return self._producer
 

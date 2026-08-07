@@ -15,10 +15,17 @@ from fdai_service_contracts.document import (
     DocumentWorkerClaim,
     DocumentWorkerStage,
     EventEnvelope,
+    ExtractionUnavailableReason,
     MalwareVerdict,
     ProtectionState,
     StructuralUnit,
     UploadSession,
+)
+from fdai_service_contracts.handover import (
+    HandoverDraftArtifact,
+    RepositoryHandoverDraft,
+    ResolvedStewardIdentity,
+    StewardshipMergeRecord,
 )
 
 
@@ -40,6 +47,14 @@ class DocumentWorkerClaimConflictError(DocumentIngestionError):
 
 class ProviderUnavailableError(DocumentIngestionError):
     """A mandatory provider cannot currently decide."""
+
+
+class DocumentExtractionUnavailableError(ValueError):
+    """Sanitized bounded-parser outcome safe to persist as a failure code."""
+
+    def __init__(self, reason: ExtractionUnavailableReason) -> None:
+        self.reason = reason
+        super().__init__(reason.value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -248,6 +263,34 @@ class DocumentReadyConsumer(Protocol):
     async def consume(
         self, *, session: UploadSession, envelope: DocumentEnvelope
     ) -> tuple[str, ...]: ...
+
+
+@runtime_checkable
+class StewardPersonDirectory(Protocol):
+    """Resolve one exact display name, returning None for unknown or ambiguous names."""
+
+    async def resolve(self, display_name: str) -> ResolvedStewardIdentity | None: ...
+
+
+@runtime_checkable
+class HandoverDraftStore(Protocol):
+    """Persist review-only drafts produced by the document worker."""
+
+    async def put(self, artifact: HandoverDraftArtifact) -> None: ...
+
+
+@runtime_checkable
+class StewardshipMergeRecorder(Protocol):
+    """Record one verified merge exactly once by delivery id."""
+
+    async def record(self, merge: StewardshipMergeRecord) -> bool: ...
+
+
+@runtime_checkable
+class RepositoryHandoverDraftRecorder(Protocol):
+    """Persist one authenticated inert repository draft by delivery id."""
+
+    async def record(self, draft: RepositoryHandoverDraft) -> bool: ...
 
 
 @runtime_checkable

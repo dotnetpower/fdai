@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import re
 from collections.abc import AsyncIterator
@@ -11,11 +12,15 @@ from uuid import UUID
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.filedatalake.aio import DataLakeServiceClient
 from fdai_service_contracts import (
+    AdapterReadiness,
     DocumentNotFoundError,
     ProviderUnavailableError,
     StoredObjectInfo,
     UploadGrant,
     UploadSession,
+    configured_readiness,
+    live_readiness,
+    live_unavailable_readiness,
 )
 
 _FILESYSTEM_RE = re.compile(r"[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?")
@@ -53,6 +58,27 @@ class AzureDataLakeObjectStore:
         self._service = service_client
         self._files = service_client.get_file_system_client(config.source_file_system)
         self._derived = service_client.get_file_system_client(config.derived_file_system)
+
+    def readiness(self) -> AdapterReadiness:
+        """Report validated composition without performing an ADLS request."""
+        return configured_readiness("adls-source")
+
+    async def probe_readiness(self) -> AdapterReadiness:
+        """Read source and derived file-system properties within a short timeout."""
+        adapter = "adls-source"
+        try:
+            async with asyncio.timeout(min(float(self._config.operation_timeout_seconds), 5.0)):
+                await self._files.get_file_system_properties(
+                    timeout=min(self._config.operation_timeout_seconds, 5)
+                )
+                await self._derived.get_file_system_properties(
+                    timeout=min(self._config.operation_timeout_seconds, 5)
+                )
+        except TimeoutError:
+            return live_unavailable_readiness(adapter, "probe_timeout")
+        except Exception as exc:  # noqa: BLE001 - return only the safe exception type
+            return live_unavailable_readiness(adapter, f"probe_failed:{type(exc).__name__}")
+        return live_readiness(adapter)
 
     async def issue_upload(self, session: UploadSession) -> UploadGrant:
         return UploadGrant(

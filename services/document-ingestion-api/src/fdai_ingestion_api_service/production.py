@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 
 import httpx
@@ -23,6 +24,14 @@ from fdai_ingestion_api_service.adapters.postgres import (
     PostgresDocumentActivitySink,
     PostgresDocumentMetadataStore,
     PostgresDocumentSearch,
+)
+from fdai_ingestion_api_service.adapters.stewardship import (
+    GitHubRepositoryHandoverIntake,
+    GitHubRepositoryHandoverIntakeConfig,
+    GitHubStewardshipWebhook,
+    GitHubStewardshipWebhookConfig,
+    PostgresRepositoryHandoverDraftRecorder,
+    PostgresStewardshipMergeRecorder,
 )
 from fdai_ingestion_api_service.adapters.storage import (
     AzureDataLakeConfig,
@@ -130,6 +139,39 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
         ),
     )
     dimension = _positive_int(env, "FDAI_EMBEDDING_DIM", 384)
+    embedding = AzureEmbeddingModel(
+        config=AzureEmbeddingConfig(
+            endpoint=env["FDAI_EMBEDDING_ENDPOINT"].strip(),
+            deployment=env["FDAI_EMBEDDING_DEPLOYMENT"].strip(),
+            dimension=dimension,
+        ),
+        credential=credential,
+        client=http_client,
+    )
+
+    async def verify_adapters() -> None:
+        results = await asyncio.gather(
+            metadata.probe_readiness(),
+            storage.probe_readiness(),
+            publisher.probe_readiness(),
+            embedding.probe_readiness(),
+        )
+        failures = tuple(
+            f"{result.adapter}:{result.reason or 'unavailable'}"
+            for result in results
+            if not result.live_verified
+        )
+        if failures:
+            raise ProductionConfigurationError(
+                "ingestion API adapter readiness failed: " + ", ".join(failures)
+            )
+
+    stewardship_webhook = _build_stewardship_webhook(
+        env=env,
+        dsn=dsn,
+        http_client=http_client,
+    )
+    repository_handover_intake = _build_repository_handover_intake(env=env, dsn=dsn)
     return build_app(
         authenticator=authenticator,
         service=service,
@@ -142,21 +184,15 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
         ),
         search_index=PostgresDocumentSearch(
             config=database,
-            embedder=AzureEmbeddingModel(
-                config=AzureEmbeddingConfig(
-                    endpoint=env["FDAI_EMBEDDING_ENDPOINT"].strip(),
-                    deployment=env["FDAI_EMBEDDING_DEPLOYMENT"].strip(),
-                    dimension=dimension,
-                ),
-                credential=credential,
-                client=http_client,
-            ),
+            embedder=embedding,
             dimension=dimension,
         ),
         handover_drafts=PostgresHandoverDraftReader(dsn=dsn),
+        stewardship_webhook=stewardship_webhook,
+        repository_handover_intake=repository_handover_intake,
         config=IngestionGatewayConfig(
             proxy_upload=True,
-            startup_checks=(verify_database_role,),
+            startup_checks=(verify_database_role, verify_adapters),
             cors_allow_origins=_origins(env["FDAI_INGESTION_CORS_ALLOW_ORIGINS"]),
             default_reader_groups=(env["FDAI_RBAC_READERS_GROUP_ID"].strip(),),
             allowed_collections=_collections(
@@ -186,3 +222,54 @@ def _collections(raw: str) -> tuple[str, ...]:
     if not values:
         raise ProductionConfigurationError("at least one document collection is required")
     return values
+
+
+def _build_stewardship_webhook(
+    *, env: Mapping[str, str], dsn: str, http_client: httpx.AsyncClient
+) -> GitHubStewardshipWebhook | None:
+    enabled = env.get("FDAI_STEWARDSHIP_GITHUB_WEBHOOK_ENABLED", "").strip().casefold()
+    if enabled not in {"1", "true", "yes", "on"}:
+        return None
+    required = (
+        "FDAI_GITOPS_OWNER",
+        "FDAI_GITOPS_REPO",
+        "FDAI_GITOPS_TOKEN",
+        "FDAI_GITHUB_WEBHOOK_SECRET",
+    )
+    missing = [key for key in required if not env.get(key, "").strip()]
+    if missing:
+        raise ProductionConfigurationError(
+            "stewardship webhook environment is missing: " + ", ".join(missing)
+        )
+    return GitHubStewardshipWebhook(
+        config=GitHubStewardshipWebhookConfig(
+            repository=f"{env['FDAI_GITOPS_OWNER'].strip()}/{env['FDAI_GITOPS_REPO'].strip()}",
+            webhook_secret=env["FDAI_GITHUB_WEBHOOK_SECRET"].strip(),
+            token=env["FDAI_GITOPS_TOKEN"].strip(),
+            api_base=env.get("FDAI_GITOPS_API_BASE", "https://api.github.com").strip(),
+            timeout_seconds=float(env.get("FDAI_GITOPS_TIMEOUT_SECONDS", "15")),
+        ),
+        http_client=http_client,
+        recorder=PostgresStewardshipMergeRecorder(dsn=dsn),
+    )
+
+
+def _build_repository_handover_intake(
+    *, env: Mapping[str, str], dsn: str
+) -> GitHubRepositoryHandoverIntake | None:
+    enabled = env.get("FDAI_STEWARDSHIP_REPOSITORY_INTAKE_ENABLED", "").strip().casefold()
+    if enabled not in {"1", "true", "yes", "on"}:
+        return None
+    required = ("FDAI_GITOPS_OWNER", "FDAI_GITOPS_REPO", "FDAI_GITHUB_WEBHOOK_SECRET")
+    missing = [key for key in required if not env.get(key, "").strip()]
+    if missing:
+        raise ProductionConfigurationError(
+            "repository handover intake environment is missing: " + ", ".join(missing)
+        )
+    return GitHubRepositoryHandoverIntake(
+        config=GitHubRepositoryHandoverIntakeConfig(
+            repository=f"{env['FDAI_GITOPS_OWNER'].strip()}/{env['FDAI_GITOPS_REPO'].strip()}",
+            webhook_secret=env["FDAI_GITHUB_WEBHOOK_SECRET"].strip(),
+        ),
+        recorder=PostgresRepositoryHandoverDraftRecorder(dsn=dsn),
+    )

@@ -56,6 +56,20 @@ class MalwareVerdict(StrEnum):
     UNAVAILABLE = "unavailable"
 
 
+class ExtractionUnavailableReason(StrEnum):
+    INPUT_BUDGET = "extraction_input_budget_exceeded"
+    PACKAGE_MEMBER_BUDGET = "extraction_package_member_budget_exceeded"
+    PACKAGE_EXPANSION_BUDGET = "extraction_package_expansion_budget_exceeded"
+    XML_MEMBER_BUDGET = "extraction_xml_member_budget_exceeded"
+    XML_DEPTH_BUDGET = "extraction_xml_depth_budget_exceeded"
+    XML_NODE_BUDGET = "extraction_xml_node_budget_exceeded"
+    TEXT_BUDGET = "extraction_text_budget_exceeded"
+    UNIT_BUDGET = "extraction_unit_budget_exceeded"
+    UNSAFE_PACKAGE = "extraction_unsafe_package"
+    MALFORMED_PACKAGE = "extraction_malformed_package"
+    UNSUPPORTED_FORMAT = "extraction_unsupported_format"
+
+
 class DocumentPurpose(StrEnum):
     KNOWLEDGE_BASE = "knowledge_base"
     MANUAL_DISTILLATION = "manual_distillation"
@@ -194,6 +208,9 @@ class StructuralUnit(DocumentContract):
     locator: Annotated[str, Field(min_length=1, max_length=256)]
     text: str
     table_cell_role: Literal["header", "body"] | None = None
+    heading_level: Annotated[int, Field(ge=1, le=9)] | None = None
+    parent_locator: Annotated[str, Field(min_length=1, max_length=256)] | None = None
+    section_name: Annotated[str, Field(min_length=1, max_length=256)] | None = None
 
 
 class DocumentEnvelope(DocumentContract):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
 
@@ -36,10 +37,13 @@ class HandoverDraftReader(Protocol):
     async def get(self, upload_id: UUID) -> HandoverArtifact: ...
 
 
-class StewardshipWebhookResult(Protocol):
+@dataclass(frozen=True, slots=True)
+class StewardshipWebhookResult:
+    """HTTP-safe result of one signed stewardship webhook delivery."""
+
     accepted: bool
     reason: str
-    changed: bool
+    changed: bool = False
 
 
 class StewardshipWebhook(Protocol):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -12,11 +13,15 @@ import psycopg
 from fdai_service_contracts import (
     AUDIT_APPEND_LOCK_KEY,
     AUDIT_GENESIS_HASH,
+    AdapterReadiness,
     DocumentNotFoundError,
     DocumentVersion,
     KnowledgeChunk,
     UploadSession,
     canonical_audit_entry,
+    configured_readiness,
+    live_readiness,
+    live_unavailable_readiness,
     next_audit_hash,
 )
 from psycopg.rows import dict_row
@@ -40,6 +45,23 @@ class PostgresDocumentMetadataStore:
 
     def __init__(self, *, config: PostgresApiConfig) -> None:
         self._config: Final = config
+
+    def readiness(self) -> AdapterReadiness:
+        """Report validated DSN/timeouts without opening a database connection."""
+        return configured_readiness("postgres-document-metadata")
+
+    async def probe_readiness(self) -> AdapterReadiness:
+        """Run one bounded read-only database statement."""
+        adapter = "postgres-document-metadata"
+        try:
+            async with asyncio.timeout(min(float(self._config.connect_timeout_s), 5.0)):
+                async with await self._connect() as connection:
+                    await connection.execute("SELECT 1")
+        except TimeoutError:
+            return live_unavailable_readiness(adapter, "probe_timeout")
+        except Exception as exc:  # noqa: BLE001 - return only the safe exception type
+            return live_unavailable_readiness(adapter, f"probe_failed:{type(exc).__name__}")
+        return live_readiness(adapter)
 
     async def create(self, session: UploadSession, version: DocumentVersion) -> None:
         async with await self._connect() as connection, connection.transaction():

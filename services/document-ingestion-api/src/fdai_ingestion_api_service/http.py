@@ -70,6 +70,7 @@ def build_app(
     search_index: DocumentSearch | None = None,
     handover_drafts: HandoverDraftReader | None = None,
     stewardship_webhook: StewardshipWebhook | None = None,
+    repository_handover_intake: StewardshipWebhook | None = None,
     config: IngestionGatewayConfig | None = None,
 ) -> Starlette:
     """Build the public ingestion application without worker implementation imports."""
@@ -300,6 +301,24 @@ def build_app(
             status_code=202 if result.changed else 200,
         )
 
+    async def repository_handover_webhook(request: Request) -> Response:
+        if repository_handover_intake is None:
+            return _error(404, "not_found", "repository handover intake is unavailable")
+        result = await repository_handover_intake.handle(
+            headers={key.casefold(): value for key, value in request.headers.items()},
+            body=await _bounded_body(request, _GITHUB_WEBHOOK_MAX_BYTES),
+        )
+        if not result.accepted:
+            return _error(
+                401 if result.reason == "invalid signature" else 400,
+                "webhook_rejected",
+                result.reason,
+            )
+        return JSONResponse(
+            {"accepted": True, "reason": result.reason, "changed": result.changed},
+            status_code=202 if result.changed else 200,
+        )
+
     routes = [
         Route("/healthz", healthz, methods=["GET"]),
         Route("/ingestion/capabilities", capabilities, methods=["GET"]),
@@ -319,6 +338,14 @@ def build_app(
             Route(
                 "/ingestion/webhooks/github/stewardship",
                 stewardship_merge_webhook,
+                methods=["POST"],
+            )
+        )
+    if repository_handover_intake is not None:
+        routes.append(
+            Route(
+                "/ingestion/webhooks/github/handover",
+                repository_handover_webhook,
                 methods=["POST"],
             )
         )

@@ -11,7 +11,7 @@ import httpx
 import psycopg
 from azure.identity.aio import ManagedIdentityCredential
 from azure.storage.filedatalake.aio import DataLakeServiceClient
-from fdai_service_contracts import DocumentAccessDeniedError
+from fdai_service_contracts import AdapterLiveReadinessProvider, DocumentAccessDeniedError
 
 from fdai_document_worker_service.adapters.activity import PostgresDocumentActivitySink
 from fdai_document_worker_service.adapters.event_bus import (
@@ -19,6 +19,9 @@ from fdai_document_worker_service.adapters.event_bus import (
     EventHubsKafkaConfig,
     MultiplexedEventBus,
 )
+from fdai_document_worker_service.adapters.graph import GraphPersonDirectory
+from fdai_document_worker_service.adapters.handover import PostgresHandoverDraftStore
+from fdai_document_worker_service.adapters.ooxml import OoxmlParserBudget
 from fdai_document_worker_service.adapters.postgres import (
     PostgresDocumentMetadataStore,
     PostgresWorkerConfig,
@@ -33,6 +36,7 @@ from fdai_document_worker_service.adapters.processing import (
     ClamAvScannerConfig,
     PgvectorDocumentIndex,
     SignatureProtectionInspector,
+    UnavailableImageOcr,
 )
 from fdai_document_worker_service.adapters.storage import (
     AzureDataLakeArtifactStore,
@@ -40,6 +44,11 @@ from fdai_document_worker_service.adapters.storage import (
     AzureDataLakeObjectStore,
 )
 from fdai_document_worker_service.consumer import DocumentIngestionEventConsumer
+from fdai_document_worker_service.handover import (
+    HandoverBootstrapConsumer,
+    NullStewardPersonDirectory,
+    stewardship_input_from_environment,
+)
 from fdai_document_worker_service.processing import DocumentIngestionWorker
 from fdai_document_worker_service.supervisor import IngestionWorkerSupervisor
 
@@ -134,20 +143,21 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             client=http_client,
         )
         if ocr_endpoint
-        else None
+        else UnavailableImageOcr()
     )
     dimension = _positive_int(env, "FDAI_EMBEDDING_DIM", 384)
+    embedding = AzureEmbeddingModel(
+        config=AzureEmbeddingConfig(
+            endpoint=env["FDAI_EMBEDDING_ENDPOINT"].strip(),
+            deployment=env["FDAI_EMBEDDING_DEPLOYMENT"].strip(),
+            dimension=dimension,
+        ),
+        credential=credential,
+        client=http_client,
+    )
     document_index = PgvectorDocumentIndex(
         dsn=dsn,
-        embedder=AzureEmbeddingModel(
-            config=AzureEmbeddingConfig(
-                endpoint=env["FDAI_EMBEDDING_ENDPOINT"].strip(),
-                deployment=env["FDAI_EMBEDDING_DEPLOYMENT"].strip(),
-                dimension=dimension,
-            ),
-            credential=credential,
-            client=http_client,
-        ),
+        embedder=embedding,
         dimension=dimension,
         max_chars=_positive_int(env, "FDAI_DOCUMENT_CHUNK_MAX_CHARS", 1200),
         overlap=_nonnegative_int(env, "FDAI_DOCUMENT_CHUNK_OVERLAP", 150),
@@ -177,10 +187,51 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             image_ocr=ocr,
             max_input_bytes=_positive_int(env, "FDAI_DOCUMENT_MAX_FILE_SIZE", 25 * 1024 * 1024),
             max_characters=_positive_int(env, "FDAI_DOCUMENT_MAX_EXTRACTED_CHARACTERS", 1_000_000),
+            ooxml_budget=OoxmlParserBudget(
+                max_input_bytes=_positive_int(env, "FDAI_DOCUMENT_MAX_FILE_SIZE", 25 * 1024 * 1024),
+                max_members=_positive_int(env, "FDAI_OOXML_MAX_MEMBERS", 10_000),
+                max_expanded_bytes=_positive_int(
+                    env, "FDAI_OOXML_MAX_EXPANDED_BYTES", 128 * 1024 * 1024
+                ),
+                max_compression_ratio=_bounded_float(
+                    env,
+                    "FDAI_OOXML_MAX_COMPRESSION_RATIO",
+                    100.0,
+                    minimum=1.0,
+                    maximum=10_000.0,
+                ),
+                max_xml_member_bytes=_positive_int(
+                    env, "FDAI_OOXML_MAX_XML_MEMBER_BYTES", 16 * 1024 * 1024
+                ),
+                max_xml_depth=_positive_int(env, "FDAI_OOXML_MAX_XML_DEPTH", 128),
+                max_xml_nodes=_positive_int(env, "FDAI_OOXML_MAX_XML_NODES", 1_000_000),
+                max_text_characters=_positive_int(env, "FDAI_OOXML_MAX_TEXT_CHARACTERS", 4_000_000),
+                max_units=_positive_int(env, "FDAI_OOXML_MAX_UNITS", 100_000),
+            ),
         ),
         artifacts=artifact_store,
         index=document_index,
         activity=activity,
+        consumers=(
+            HandoverBootstrapConsumer(
+                directory=(
+                    GraphPersonDirectory(
+                        credential=credential,
+                        client=http_client,
+                        base_url=env.get(
+                            "FDAI_GRAPH_BASE_URL", "https://graph.microsoft.com/v1.0"
+                        ).strip(),
+                    )
+                    if _truthy(env.get("FDAI_GRAPH_STEWARDSHIP_ENABLED", ""))
+                    else NullStewardPersonDirectory()
+                ),
+                store=PostgresHandoverDraftStore(dsn=dsn),
+                stewardship=stewardship_input_from_environment(env),
+                confidence_floor=_bounded_float(
+                    env, "FDAI_HANDOVER_CONFIDENCE_FLOOR", 0.6, minimum=0.0, maximum=1.0
+                ),
+            ),
+        ),
         indexing_stage_timeout_seconds=_positive_int(
             env, "FDAI_DOCUMENT_INDEXING_STAGE_TIMEOUT_SECONDS", 90
         ),
@@ -192,6 +243,27 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
         if row is None or str(row[0]) != "fdai_ingestion_worker":
             raise ProductionConfigurationError("database session role is not fdai_ingestion_worker")
 
+    async def verify_adapters() -> None:
+        configured: list[AdapterLiveReadinessProvider] = [
+            metadata,
+            source_store,
+            artifact_store,
+            raw_bus,
+            embedding,
+        ]
+        if ocr_endpoint:
+            configured.append(ocr)
+        results = await asyncio.gather(*(adapter.probe_readiness() for adapter in configured))
+        failures = tuple(
+            f"{result.adapter}:{result.reason or 'unavailable'}"
+            for result in results
+            if not result.live_verified
+        )
+        if failures:
+            raise ProductionConfigurationError(
+                "ingestion worker adapter readiness failed: " + ", ".join(failures)
+            )
+
     return ProductionWorkerRuntime(
         worker_service=DocumentIngestionEventConsumer(
             event_bus=event_bus,
@@ -201,7 +273,7 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             worker_owner=env.get("FDAI_INGESTION_WORKER_OWNER", "").strip() or None,
             lease_seconds=_positive_int(env, "FDAI_INGESTION_WORKER_LEASE_SECONDS", 120),
         ),
-        startup_checks=(verify_database_role,),
+        startup_checks=(verify_database_role, verify_adapters),
         shutdown_callbacks=(
             event_bus.close,
             source_store.close,
@@ -240,3 +312,16 @@ def _nonnegative_int(env: Mapping[str, str], key: str, default: int) -> int:
     if value < 0:
         raise ProductionConfigurationError(f"{key} MUST be nonnegative")
     return value
+
+
+def _bounded_float(
+    env: Mapping[str, str], key: str, default: float, *, minimum: float, maximum: float
+) -> float:
+    value = float(env.get(key, str(default)))
+    if not minimum <= value <= maximum:
+        raise ProductionConfigurationError(f"{key} MUST be in [{minimum}, {maximum}]")
+    return value
+
+
+def _truthy(value: str) -> bool:
+    return value.strip().casefold() in {"1", "true", "yes", "on"}

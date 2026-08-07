@@ -14,6 +14,7 @@ from fdai_service_contracts import (
     DocumentActivitySink,
     DocumentArtifactStore,
     DocumentEnvelope,
+    DocumentExtractionUnavailableError,
     DocumentExtractor,
     DocumentIndex,
     DocumentMetadataStore,
@@ -166,6 +167,8 @@ class DocumentIngestionWorker:
                 version=version,
                 chunks=self._objects.read(session.object_key),
             )
+        except DocumentExtractionUnavailableError as exc:
+            return await self._fail(session, version, exc.reason.value)
         except Exception:  # noqa: BLE001 - parser details must not leak
             return await self._fail(session, version, "extraction_failed")
         if version.state is DocumentState.EXTRACTING:
