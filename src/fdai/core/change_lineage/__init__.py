@@ -7,6 +7,7 @@ from .models import (
     ChangeObjectiveTrace,
     ChangeResilienceTrace,
     build_change_lineage,
+    compute_change_lineage_id,
 )
 
 __all__ = [
@@ -16,5 +17,6 @@ __all__ = [
     "ChangeObjectiveTrace",
     "ChangeResilienceTrace",
     "build_change_lineage",
+    "compute_change_lineage_id",
     "extract_learning_candidate",
 ]

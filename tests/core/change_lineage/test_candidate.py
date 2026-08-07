@@ -12,6 +12,7 @@ from fdai.core.change_lineage import (
     ChangeLineageRecord,
     ChangeObjectiveTrace,
     ChangeResilienceTrace,
+    compute_change_lineage_id,
     extract_learning_candidate,
 )
 
@@ -59,8 +60,27 @@ def _lineage() -> ChangeLineageRecord:
         observed_at=None,
         rollback_succeeded=None,
     )
+    evidence_refs = ("evidence:one", "evidence:two")
+    lineage_id = compute_change_lineage_id(
+        change_id="change:one",
+        change_source="github",
+        change_ref="commit:abc",
+        correlation_id="correlation:one",
+        assessment_digest="c" * 64,
+        decision_case_id="decision:one",
+        selected_option_id=decision.selected_option_id,
+        action_id="action:one",
+        event_id="event:one",
+        action_type_id="ops.scale-out",
+        target_digest="d" * 64,
+        outcome_id="outcome:one",
+        outcome_label="unscorable",
+        decision=decision,
+        resilience=resilience,
+        evidence_refs=evidence_refs,
+    )
     return ChangeLineageRecord(
-        lineage_id=f"change-lineage:{'a' * 64}",
+        lineage_id=lineage_id,
         change_id="change:one",
         change_source="github",
         change_ref="commit:abc",
@@ -80,7 +100,7 @@ def _lineage() -> ChangeLineageRecord:
         outcome_at=NOW + timedelta(seconds=3),
         decision=decision,
         resilience=resilience,
-        evidence_refs=("evidence:one", "evidence:two"),
+        evidence_refs=evidence_refs,
     )
 
 
@@ -108,17 +128,11 @@ def test_extracts_deterministic_sealed_case_gated_candidate() -> None:
 
 def test_candidate_identity_binds_lineage_and_evidence() -> None:
     lineage = _lineage()
-    baseline = extract_learning_candidate(lineage)
 
-    changed_lineage = extract_learning_candidate(
+    with pytest.raises(ValueError, match="identity material"):
         replace(lineage, lineage_id=f"change-lineage:{'f' * 64}")
-    )
-    changed_evidence = extract_learning_candidate(
+    with pytest.raises(ValueError, match="identity material"):
         replace(lineage, evidence_refs=("evidence:one", "evidence:three"))
-    )
-
-    assert changed_lineage.candidate_id != baseline.candidate_id
-    assert changed_evidence.candidate_id != baseline.candidate_id
 
 
 def test_candidate_cannot_bypass_learning_or_authority_gates() -> None:

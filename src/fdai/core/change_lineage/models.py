@@ -72,6 +72,26 @@ class ChangeLineageRecord:
             or any(character not in "0123456789abcdef" for character in lineage_digest)
         ):
             raise ValueError("change lineage lineage_id MUST contain a lowercase SHA-256 digest")
+        expected_lineage_id = compute_change_lineage_id(
+            change_id=self.change_id,
+            change_source=self.change_source,
+            change_ref=self.change_ref,
+            correlation_id=self.correlation_id,
+            assessment_digest=self.assessment_digest,
+            decision_case_id=self.decision_case_id,
+            selected_option_id=self.selected_option_id,
+            action_id=self.action_id,
+            event_id=self.event_id,
+            action_type_id=self.action_type_id,
+            target_digest=self.target_digest,
+            outcome_id=self.outcome_id,
+            outcome_label=self.outcome_label,
+            decision=self.decision,
+            resilience=self.resilience,
+            evidence_refs=self.evidence_refs,
+        )
+        if self.lineage_id != expected_lineage_id:
+            raise ValueError("change lineage lineage_id does not match its identity material")
         if any(
             value.tzinfo is None
             for value in (self.change_at, self.decision_at, self.action_at, self.outcome_at)
@@ -202,29 +222,26 @@ def build_change_lineage(
         observed_at=outcome.observed_at,
         rollback_succeeded=outcome.rollback_succeeded,
     )
-    identity_material = {
-        "change_id": change.change_id,
-        "change_source": change.source,
-        "change_ref": change.ref,
-        "correlation_id": assessment.correlation_id,
-        "assessment_digest": assessment.evidence_digest,
-        "decision_case_id": decision_case.case_id,
-        "selected_option_id": selected.option_id,
-        "action_id": str(action.action_id),
-        "event_id": str(action.event_id),
-        "action_type_id": action.action_type,
-        "target_digest": expected_target_digest,
-        "outcome_id": str(outcome.outcome_id),
-        "outcome_label": outcome.label.value,
-        "decision": decision.to_mapping(),
-        "resilience": resilience.to_mapping(),
-        "evidence_refs": evidence_refs,
-    }
-    digest = hashlib.sha256(
-        json.dumps(identity_material, separators=(",", ":"), sort_keys=True).encode()
-    ).hexdigest()
+    lineage_id = compute_change_lineage_id(
+        change_id=change.change_id,
+        change_source=change.source,
+        change_ref=change.ref,
+        correlation_id=assessment.correlation_id,
+        assessment_digest=assessment.evidence_digest,
+        decision_case_id=decision_case.case_id,
+        selected_option_id=selected.option_id,
+        action_id=str(action.action_id),
+        event_id=str(action.event_id),
+        action_type_id=action.action_type,
+        target_digest=expected_target_digest,
+        outcome_id=str(outcome.outcome_id),
+        outcome_label=outcome.label.value,
+        decision=decision,
+        resilience=resilience,
+        evidence_refs=evidence_refs,
+    )
     return ChangeLineageRecord(
-        lineage_id=f"change-lineage:{digest}",
+        lineage_id=lineage_id,
         change_id=change.change_id,
         change_source=change.source,
         change_ref=change.ref,
@@ -260,10 +277,56 @@ def _objective_trace(effect: ObjectiveEffect) -> ChangeObjectiveTrace:
     )
 
 
+def compute_change_lineage_id(
+    *,
+    change_id: str,
+    change_source: str,
+    change_ref: str,
+    correlation_id: str,
+    assessment_digest: str,
+    decision_case_id: str,
+    selected_option_id: str,
+    action_id: str,
+    event_id: str,
+    action_type_id: str,
+    target_digest: str,
+    outcome_id: str,
+    outcome_label: str,
+    decision: ChangeDecisionTrace,
+    resilience: ChangeResilienceTrace,
+    evidence_refs: tuple[str, ...],
+) -> str:
+    """Return the canonical content-bound identity for one lineage record."""
+
+    identity_material = {
+        "change_id": change_id,
+        "change_source": change_source,
+        "change_ref": change_ref,
+        "correlation_id": correlation_id,
+        "assessment_digest": assessment_digest,
+        "decision_case_id": decision_case_id,
+        "selected_option_id": selected_option_id,
+        "action_id": action_id,
+        "event_id": event_id,
+        "action_type_id": action_type_id,
+        "target_digest": target_digest,
+        "outcome_id": outcome_id,
+        "outcome_label": outcome_label,
+        "decision": decision.to_mapping(),
+        "resilience": resilience.to_mapping(),
+        "evidence_refs": evidence_refs,
+    }
+    digest = hashlib.sha256(
+        json.dumps(identity_material, separators=(",", ":"), sort_keys=True).encode()
+    ).hexdigest()
+    return f"{_LINEAGE_PREFIX}{digest}"
+
+
 __all__ = [
     "ChangeDecisionTrace",
     "ChangeLineageRecord",
     "ChangeObjectiveTrace",
     "ChangeResilienceTrace",
     "build_change_lineage",
+    "compute_change_lineage_id",
 ]

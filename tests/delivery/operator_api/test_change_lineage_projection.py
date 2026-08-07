@@ -15,6 +15,7 @@ from fdai.core.change_lineage import (
     ChangeLineageRecord,
     ChangeObjectiveTrace,
     ChangeResilienceTrace,
+    compute_change_lineage_id,
 )
 from fdai.delivery.operator_api.projections.change_lineage import (
     project_change_lineage_detail,
@@ -70,8 +71,26 @@ def _lineage(
         observed_at=None,
         rollback_succeeded=None,
     )
+    lineage_id = compute_change_lineage_id(
+        change_id="change:one",
+        change_source="github",
+        change_ref="commit:abc",
+        correlation_id="correlation:one",
+        assessment_digest="c" * 64,
+        decision_case_id="decision:one",
+        selected_option_id=decision.selected_option_id,
+        action_id="action:one",
+        event_id="event:one",
+        action_type_id="ops.scale-out",
+        target_digest="d" * 64,
+        outcome_id="outcome:one",
+        outcome_label="unscorable",
+        decision=decision,
+        resilience=resilience,
+        evidence_refs=evidence_refs,
+    )
     return ChangeLineageRecord(
-        lineage_id=f"change-lineage:{'a' * 64}",
+        lineage_id=lineage_id,
         change_id="change:one",
         change_source="github",
         change_ref="commit:abc",
@@ -125,8 +144,30 @@ def test_detail_is_bounded_and_omits_raw_provider_content() -> None:
 
 
 def test_projection_rejects_oversized_identity_instead_of_truncating_it() -> None:
+    lineage = _lineage()
+    change_ref = "x" * 513
+    lineage_id = compute_change_lineage_id(
+        change_id=lineage.change_id,
+        change_source=lineage.change_source,
+        change_ref=change_ref,
+        correlation_id=lineage.correlation_id,
+        assessment_digest=lineage.assessment_digest,
+        decision_case_id=lineage.decision_case_id,
+        selected_option_id=lineage.selected_option_id,
+        action_id=lineage.action_id,
+        event_id=lineage.event_id,
+        action_type_id=lineage.action_type_id,
+        target_digest=lineage.target_digest,
+        outcome_id=lineage.outcome_id,
+        outcome_label=lineage.outcome_label,
+        decision=lineage.decision,
+        resilience=lineage.resilience,
+        evidence_refs=lineage.evidence_refs,
+    )
     with pytest.raises(ValueError, match="change_ref"):
-        project_change_lineage_summary(replace(_lineage(), change_ref="x" * 513))
+        project_change_lineage_summary(
+            replace(lineage, lineage_id=lineage_id, change_ref=change_ref)
+        )
 
 
 def test_projection_package_has_no_http_route_or_persistence_dependencies() -> None:
