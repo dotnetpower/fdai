@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 2f9269e3d6910be39faf86add34c79b086dbbb4f
+translation_source_sha: b89ace01c8e09c1c83adda6246a12641e6ce23cd
 translation_revised: 2026-08-07
 ---
 
@@ -441,7 +441,9 @@ ingestion API, ingestion worker는 별도이며 이전 topology는 rollback arti
   분리합니다. Worker는 `aw.pantheon.objects`에서 Saga/Muninn object만 receive하고 `aw.pipeline.stages`로 stage fact를 send합니다. `ingestion_cohost_worker=true`는 두 scope를 API identity로 돌립니다.
 - **Executor shadow 배포**: `enable_isolated_executor=true`는 internal app과 ACR pull, command
   receive, receipt/DLQ send, state-secret read만 가진 전용 UAMI를 프로비저닝합니다. 기본값은
-  `false`이며 SD-07에서는 action-specific effect role을 부여하지 않습니다.
+  `false`이며 SD-07에서는 action-specific effect role을 부여하지 않습니다. Private-runner
+  workflow는 이를 `deploy_isolated_executor`로 노출하고 기본 plan-only를 유지하며 apply 후
+  app의 latest revision을 health verification에 포함합니다.
 
 ## 부트스트랩 순서
 

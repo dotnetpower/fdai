@@ -329,6 +329,10 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert 'azure_config_dir="$RUNNER_TEMP/azure-cli"' in workflow
     assert 'echo "AZURE_CONFIG_DIR=$azure_config_dir" >> "$GITHUB_ENV"' in workflow
     assert "resume_verification:" in workflow
+    assert "deploy_isolated_executor:" in workflow
+    assert "TF_VAR_enable_isolated_executor: ${{ inputs.deploy_isolated_executor }}" in workflow
+    assert "DEPLOY_ISOLATED_EXECUTOR: ${{ inputs.deploy_isolated_executor }}" in workflow
+    assert '|| "$DEPLOY_ISOLATED_EXECUTOR" == "true"' in workflow
     assert "ref: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}" in workflow
     assert '"$PLAN_COMMIT_SHA" != "$(git rev-parse HEAD)"' in workflow
     assert '"$APPLY_COMMIT_SHA" != "$(git rev-parse HEAD)"' in workflow
@@ -400,6 +404,8 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "if: ${{ inputs.apply && !inputs.deploy_design_mocks }}" in health_step
     assert 'apps=("$(terraform output -raw core_app_name)")' in health_step
     assert 'apps+=("$(terraform output -raw operator_api_name)")' in health_step
+    assert "terraform output -json isolated_executor_shadow" in health_step
+    assert 'apps+=("$executor_app")' in health_step
     assert 'apps+=("$(terraform output -raw ingestion_gateway_name)")' in health_step
     assert "Reject destructive protected plan" in workflow
     assert 'if "delete" in change.get("change", {}).get("actions", [])' in workflow
@@ -489,10 +495,15 @@ def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:
     )
     assert 'value     = "VECTOR,PG_TRGM"' in postgres
     assert re.search(
-        r"topics\s*=\s*\[local\.canary_topic, local\.startup_probe_topic\]",
+        r"topics\s*=\s*\[local\.canary_topic, local\.startup_probe_topic, "
+        r"local\.executor_command_topic\]",
         terraform,
     )
-    assert re.search(r"auxiliary_topics\s*=\s*\[local\.inventory_raw_topic\]", terraform)
+    assert re.search(
+        r"auxiliary_topics\s*=\s*\[local\.inventory_raw_topic, "
+        r"local\.executor_receipt_topic\]",
+        terraform,
+    )
     assert "module.event_bus_auxiliary.kafka_bootstrap" in terraform
     assert 'resource "azurerm_eventgrid_system_topic" "inventory_resource_changes"' in terraform
     assert re.search(r'topic_type\s*=\s*"microsoft.resources.subscriptions"', terraform)

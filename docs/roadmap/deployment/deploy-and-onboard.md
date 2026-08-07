@@ -440,7 +440,9 @@ and the [execution plan](../architecture/service-decomposition-execution-plan.md
   distinct. The worker receives Saga/Muninn objects only from `aw.pantheon.objects` and sends stage facts to `aw.pipeline.stages`; `ingestion_cohost_worker=true` returns both scopes to the API identity.
 - **Executor shadow deployment**: `enable_isolated_executor=true` provisions the internal app and
   a dedicated UAMI with ACR pull, command receive, receipt/DLQ send, and state-secret read only.
-  The default is `false`; no action-specific effect role is assigned in SD-07.
+  The default is `false`; no action-specific effect role is assigned in SD-07. The private-runner
+  workflow exposes this as `deploy_isolated_executor`, remains plan-only by default, and includes
+  the app's latest revision in post-apply health verification.
 
 ## Bootstrap Sequence
 
