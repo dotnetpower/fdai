@@ -76,9 +76,9 @@ not supported.
 | [x] | IS-00 | Freeze current implementation-import debt and exact package, image, state, migration, and rollback targets. | None | Machine manifest and non-growth gate |
 | [x] | IS-01 | Extract the versioned shared contract SDK without service implementations. | IS-00 | Five consumers install and validate the same SDK |
 | [x] | IS-02 | Add five independently executable service distributions and composition roots. | IS-01 | Five isolated wheel and cold-start receipts |
-| [ ] | IS-03 | Remove every cross-service implementation import. | IS-01, IS-02 | Import count zero and enforced boundary gate |
+| [x] | IS-03 | Remove every cross-service implementation import. | IS-01, IS-02 | Import count zero and enforced boundary gate |
 | [ ] | IS-04 | Split durable writer grants and migration branches by service. | IS-02 | Five migration heads and zero writer overlap |
-| [ ] | IS-05 | Build, scan, attest, and publish five minimal service images. | IS-02, IS-03 | Five immutable image, SBOM, and startup receipts |
+| [x] | IS-05 | Build, scan, attest, and publish five minimal service images. | IS-02, IS-03 | Five immutable image, SBOM, and startup receipts |
 | [ ] | IS-06 | Split service Terraform roots, state, and deployment workflows from the shared platform. | IS-04, IS-05 | Each service plans/applies without changing peers |
 | [ ] | IS-07 | Prove N/N-1 contracts and independent upgrade/rollback for each service. | IS-03, IS-06 | Five peer-stable rolling receipts |
 | [ ] | IS-08 | Remove co-host, in-process authority, shared-image, and shared-migration compatibility paths. | IS-07 | No topology compatibility path remains |
@@ -97,6 +97,13 @@ IS-01/02 produced one implementation-free contract wheel and five service wheels
 console entry points. Their first composition roots deliberately lazy-import the existing FDAI
 implementation so behavior stays unchanged. The five wrapper imports are an explicit IS-03 debt;
 they are not evidence of final source independence.
+
+IS-03 removed those wrappers and every cross-service implementation import from the five service
+distributions. Core packages its exact owned source allowlist without installing the monolithic
+FDAI distribution; the other four services contain only service-local implementation and the
+contract SDK. IS-05 builds all five nonroot images from tracked inputs. The supply-chain matrix
+keeps per-service scan, SBOM, provenance, and attestation. Legacy monolith imports remain only in
+the old compatibility tree and are removed by IS-08 after live rolling proof.
 
 ## Parallel execution rules
 

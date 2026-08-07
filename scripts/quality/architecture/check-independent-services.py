@@ -36,12 +36,29 @@ def _count_files_importing(root: Path, prefix: str, pattern: str = "*.py") -> in
 
 
 def _count_service_forbidden_imports() -> int:
-    forbidden = ("fdai.core", "fdai.agents", "fdai.runtime", "fdai.delivery")
-    return sum(
-        1
-        for path in set((REPO_ROOT / "services").glob("*/src/**/*.py"))
-        if any(_imports_prefix(path, prefix) for prefix in forbidden)
-    )
+    forbidden_by_service = {
+        "core-control-plane": (
+            "fdai.delivery.operator_api",
+            "fdai.delivery.ingestion_gateway",
+            "fdai_executor_service",
+            "fdai_operator_service",
+            "fdai_ingestion_api_service",
+            "fdai_document_worker_service",
+        ),
+        "operator-service": ("fdai.",),
+        "document-ingestion-api": ("fdai.", "fdai_document_worker_service"),
+        "document-processing-worker": ("fdai.", "fdai_ingestion_api_service"),
+        "isolated-executor": ("fdai.",),
+    }
+    count = 0
+    for service_id, prefixes in forbidden_by_service.items():
+        source = REPO_ROOT / "services" / service_id / "src"
+        count += sum(
+            1
+            for path in set(source.rglob("*.py"))
+            if any(_imports_prefix(path, prefix) for prefix in prefixes)
+        )
+    return count
 
 
 def _validate_graph(work_packages: list[dict[str, Any]]) -> None:

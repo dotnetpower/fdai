@@ -92,7 +92,7 @@ COPY --chown=65532:65532 rule-catalog/ /app/rule-catalog/
 COPY --chown=65532:65532 policies/ /app/policies/
 COPY --chown=65532:65532 config/ /app/config/
 COPY --chown=65532:65532 docs/internals/sregym-absorption-ledger.json /app/docs/internals/sregym-absorption-ledger.json
-COPY --chown=65532:65532 resolved-models.json /app/resolved-models.json
+COPY --chown=65532:65532 services/assets/resolved-models.json /app/resolved-models.json
 COPY --chown=65532:65532 tests/scenarios/ /app/tests/scenarios/
 COPY --chown=65532:65532 alembic/ /app/alembic/
 COPY --chown=65532:65532 alembic.ini /app/alembic.ini
@@ -105,7 +105,7 @@ COPY --from=operator-service-builder --chown=65532:65532 /app/.venv /app/.venv
 COPY --chown=65532:65532 rule-catalog/ /app/rule-catalog/
 COPY --chown=65532:65532 policies/ /app/policies/
 COPY --chown=65532:65532 config/ /app/config/
-COPY --chown=65532:65532 resolved-models.json /app/resolved-models.json
+COPY --chown=65532:65532 services/assets/resolved-models.json /app/resolved-models.json
 USER 65532
 RUN test -x /app/.venv/bin/fdai-operator-service
 ENTRYPOINT ["fdai-operator-service"]

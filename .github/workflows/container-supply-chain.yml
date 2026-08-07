@@ -95,7 +95,7 @@ jobs:
               capabilities = payload.get("capabilities")
               if not isinstance(capabilities, list):
                   raise SystemExit("RESOLVED_MODELS_JSON.capabilities must be an array")
-          Path("resolved-models.json").write_text(
+          Path("services/assets/resolved-models.json").write_text(
             json.dumps(payload, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
           )

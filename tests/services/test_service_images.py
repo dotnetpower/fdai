@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any, cast
@@ -90,6 +91,18 @@ def test_runtime_assets_follow_service_ownership() -> None:
         assert "opa-builder" not in stage
     for asset in ("config/", "rule-catalog/", "policies/", "resolved-models.json", "opa-builder"):
         assert asset not in executor
+
+
+def test_service_images_use_tracked_fail_closed_model_manifest() -> None:
+    manifest_path = REPO_ROOT / "services" / "assets" / "resolved-models.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest == {
+        "capabilities": [],
+        "mixed_model_mode": "hil-only",
+        "schema_version": "1.0.0",
+    }
+    dockerfile = DOCKERFILE.read_text(encoding="utf-8")
+    assert dockerfile.count("services/assets/resolved-models.json") == 2
 
 
 def test_supply_chain_matrix_builds_and_attests_all_service_targets() -> None:

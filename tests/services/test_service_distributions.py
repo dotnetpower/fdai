@@ -25,7 +25,11 @@ EXPECTED = {
 
 
 def test_five_service_distributions_have_owned_entrypoints() -> None:
-    assert {path.name for path in SERVICE_ROOT.iterdir() if path.is_dir()} == set(EXPECTED)
+    assert {
+        path.name
+        for path in SERVICE_ROOT.iterdir()
+        if path.is_dir() and (path / "pyproject.toml").is_file()
+    } == set(EXPECTED)
     distributions: set[str] = set()
     scripts: set[str] = set()
     for service_id, (distribution, script) in EXPECTED.items():

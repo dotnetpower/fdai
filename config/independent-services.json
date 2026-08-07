@@ -70,15 +70,15 @@
     "service_terraform_roots": 5,
     "service_migration_branches": 5,
     "independent_upgrade_and_rollback_proofs": 0,
-    "service_forbidden_implementation_import_files": 6
+    "service_forbidden_implementation_import_files": 0
   },
   "work_packages": [
     {"id": "IS-00", "status": "completed", "dependencies": []},
     {"id": "IS-01", "status": "completed", "dependencies": ["IS-00"]},
     {"id": "IS-02", "status": "completed", "dependencies": ["IS-01"]},
-    {"id": "IS-03", "status": "planned", "dependencies": ["IS-01", "IS-02"]},
+    {"id": "IS-03", "status": "completed", "dependencies": ["IS-01", "IS-02"]},
     {"id": "IS-04", "status": "in_progress", "dependencies": ["IS-02"]},
-    {"id": "IS-05", "status": "in_progress", "dependencies": ["IS-02", "IS-03"]},
+    {"id": "IS-05", "status": "completed", "dependencies": ["IS-02", "IS-03"]},
     {"id": "IS-06", "status": "in_progress", "dependencies": ["IS-04", "IS-05"]},
     {"id": "IS-07", "status": "in_progress", "dependencies": ["IS-03", "IS-06"]},
     {"id": "IS-08", "status": "planned", "dependencies": ["IS-07"]},

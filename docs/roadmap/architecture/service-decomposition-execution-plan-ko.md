@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 0f6fa71299350dfd73a0affb0dbbf4147bf3d641
+translation_source_sha: 72296f7c775cbd48aef149b602452d25544207af
 translation_revised: 2026-08-08
 ---
 # 서비스 분해 실행 계획
@@ -73,9 +73,9 @@ primitive만 import할 수 있으며 다른 service implementation import는 지
 | [x] | IS-00 | 현재 implementation-import debt와 정확한 package, image, state, migration, rollback 목표를 고정합니다. | 없음 | Machine manifest와 non-growth gate |
 | [x] | IS-01 | Service implementation이 없는 versioned shared contract SDK를 추출합니다. | IS-00 | Consumer 5개가 같은 SDK를 install하고 validate한 receipt |
 | [x] | IS-02 | 독립 실행 가능한 service distribution과 composition root 5개를 추가합니다. | IS-01 | 독립 wheel 및 cold-start receipt 5개 |
-| [ ] | IS-03 | Cross-service implementation import를 모두 제거합니다. | IS-01, IS-02 | Import count 0과 enforced boundary gate |
+| [x] | IS-03 | Cross-service implementation import를 모두 제거합니다. | IS-01, IS-02 | Import count 0과 enforced boundary gate |
 | [ ] | IS-04 | Durable writer grant와 migration branch를 service별로 분리합니다. | IS-02 | Migration head 5개와 writer overlap 0 |
-| [ ] | IS-05 | 최소 service image 5개를 build, scan, attest, publish합니다. | IS-02, IS-03 | Immutable image, SBOM, startup receipt 5개 |
+| [x] | IS-05 | 최소 service image 5개를 build, scan, attest, publish합니다. | IS-02, IS-03 | Immutable image, SBOM, startup receipt 5개 |
 | [ ] | IS-06 | Shared platform에서 service Terraform root, state 및 deployment workflow를 분리합니다. | IS-04, IS-05 | 각 service가 peer 변경 없이 plan/apply한 receipt |
 | [ ] | IS-07 | 각 service의 N/N-1 contract와 독립 upgrade/rollback을 증명합니다. | IS-03, IS-06 | Peer를 유지한 rolling receipt 5개 |
 | [ ] | IS-08 | Co-host, in-process authority, shared-image 및 shared-migration compatibility path를 제거합니다. | IS-07 | Topology compatibility path 0 |
@@ -94,6 +94,13 @@ IS-01/02는 implementation이 없는 contract wheel 1개와 고유 console entry
 5개를 생성했습니다. 첫 composition root는 behavior를 변경하지 않기 위해 기존 FDAI implementation을
 의도적으로 lazy import합니다. Wrapper import 5개는 명시적인 IS-03 debt이며 최종 source independence
 evidence가 아닙니다.
+
+IS-03은 wrapper와 5개 service distribution의 모든 cross-service implementation import를 제거했습니다.
+Core는 monolithic FDAI distribution을 설치하지 않고 정확한 owned source allowlist를 package하며, 다른
+4개 service는 service-local implementation과 contract SDK만 포함합니다. IS-05는 tracked input만으로
+nonroot image 5개를 build합니다. Supply-chain matrix는 service별 scan, SBOM, provenance 및 attestation을
+유지합니다. Legacy monolith import는 이전 compatibility tree에만 남으며 live rolling proof 후 IS-08에서
+제거합니다.
 
 ## 병렬 실행 규칙
 
