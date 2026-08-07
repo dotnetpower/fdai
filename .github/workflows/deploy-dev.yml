@@ -1589,7 +1589,7 @@ jobs:
             local exec_command
             printf -v exec_command '%q ' az containerapp exec \
               --name "$core_app" --resource-group "$rg" \
-              --command "fdai-executor-authority-probe --transport $transport --operation $operation --resource-group $rg --nsg-name $nsg --rule-name $rule --idempotency-key $key"
+              --command "fdai-executor-authority-probe --transport $transport --operation $operation --resource-group $rg --nsg-name $nsg --rule-name $rule --idempotency-key $key --issued-at $observed_started_at"
             script --quiet --return --command "$exec_command" /dev/null
           }
           json_line() {

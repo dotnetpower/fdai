@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from uuid import NAMESPACE_URL, uuid5
 
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
@@ -107,7 +107,9 @@ async def run_probe(
     """Publish remotely or execute locally, emitting one secret-free receipt."""
 
     values = environment or os.environ
-    now = datetime.now(UTC)
+    now = datetime.fromisoformat(args.issued_at.replace("Z", "+00:00"))
+    if now.tzinfo is None:
+        raise ValueError("probe issued-at MUST include a timezone")
     action = build_probe_action(
         operation=args.operation,
         resource_group=args.resource_group,
@@ -199,6 +201,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--nsg-name", required=True)
     parser.add_argument("--rule-name", required=True)
     parser.add_argument("--idempotency-key", required=True)
+    parser.add_argument("--issued-at", required=True)
     return parser
 
 
