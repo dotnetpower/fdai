@@ -222,6 +222,12 @@ def test_detail_projection_rejects_inconsistent_serialization_metadata() -> None
         replace(detail, objective_count=0)
     with pytest.raises(ValueError, match="constraint count"):
         replace(detail, active_constraint_count=0)
+    with pytest.raises(ValueError, match="reason bound"):
+        replace(
+            detail,
+            decision_reason="x" * 513,
+            decision_reason_truncated=False,
+        )
 
 
 def test_projection_package_has_no_http_route_or_persistence_dependencies() -> None:

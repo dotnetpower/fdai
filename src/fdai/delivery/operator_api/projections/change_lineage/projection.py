@@ -135,6 +135,8 @@ class ChangeLineageDetailProjection:
         ):
             _identity(name, value)
         _bounded_text(self.decision_reason, _MAX_REASON_CHARS)
+        if len(self.decision_reason) > _MAX_REASON_CHARS:
+            raise ValueError("change lineage detail decision reason exceeds its reason bound")
         if self.decision_reason_truncated and len(self.decision_reason) != _MAX_REASON_CHARS:
             raise ValueError("change lineage detail reason truncation metadata is inconsistent")
         if not isfinite(self.margin):
