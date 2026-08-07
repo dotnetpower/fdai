@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: b8efaf352187558f86d716f2e92a4956af5d0bf7
+translation_source_sha: 07c326a8f3dab200a459a7a115e5c045fb6126ba
 translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
@@ -186,6 +186,19 @@ terminal assembly 및 conversation history를 계속 소유합니다. 기존 `ro
 않습니다. Rollback은 다섯 route implementation을 복원하고 JSON, SSE, authentication, evidence
 authority 또는 history를 변경하지 않은 채 evidence facade가 복원된 owner를 가리키게 합니다.
 
+### Conversation progress metric projection boundary
+
+SD-01 streaming metric slice는
+`fdai.delivery.operator_api.projections.conversation.stream_metrics` 아래에서 queue에 수락된
+progress의 pure reduction을 소유합니다. First-progress latency, terminal branch outcome과 duration,
+output truncation의 aggregate만 기록합니다. Prompt, answer, branch id, channel id, principal id 또는
+resource identifier는 보관하지 않습니다.
+
+SSE route는 frame sequencing, queue admission, cancellation 및 transport delivery를 계속 소유합니다.
+기존 `routes.chat_stream_metrics` module에는 external compatibility consumer가 없었으므로 shim을
+남기지 않습니다. Rollback은 reducer를 `routes/` 아래에 복원하고 metric name, SSE frame 또는
+cancellation behavior를 변경하지 않은 채 stream route import를 되돌립니다.
+
 ### Immutable app composition
 
 Issue 72는 `OperatorApiConfig(**kwargs)`를 bounded compatibility constructor로 유지하고 route를 등록하기
@@ -225,7 +238,7 @@ signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migrati
 | `persistence/` | Operator API read-model implementation 및 projection | 소유된 read contract 뒤에 유지합니다. |
 | `projections/` | HTTP route 밖의 read-only projection ownership | Migrated family의 owner로 유지합니다. |
 | `projections/audit/` | Audit query 및 autonomy/FinOps measurement projection | Explicit facade를 통해 import하고 기존 route module은 shim으로 유지합니다. |
-| `projections/conversation/` | HTTP transport 밖의 request-local conversation read projection | Service-graduation evidence가 준비될 때까지 process 안에 유지합니다. |
+| `projections/conversation/` | HTTP transport 밖의 request-local conversation read projection 및 queue에 수락된 progress metric reduction | Service-graduation evidence가 준비될 때까지 process 안에 유지합니다. |
 | `projections/conversation/presentation/` | Value-free layout selection 및 검증된 evidence artifact compilation | Explicit facade로 import하고 JSON 및 SSE behavior는 route에 유지합니다. |
 | `projections/conversation/inventory/` | Inventory evidence sanitization, result projection 및 deterministic rendering | Explicit facade로 import하고 query compilation과 provider coordination은 application package에 유지합니다. |
 | `production/` | Production provider construction 및 binding | Wire behavior를 변경하지 않고 fanout을 점진적으로 줄입니다. |
@@ -311,6 +324,9 @@ frame을 거부합니다.
 - `projections/conversation/inventory/`는 inventory evidence sanitization, result projection 및
   deterministic rendering을 소유합니다. Provider selection, query compilation, HTTP, SSE,
   authentication, history 또는 durable state는 소유하지 않습니다.
+- `projections/conversation/stream_metrics.py`는 queue에 수락된 aggregate progress reduction을
+  소유합니다. Frame sequencing, queue admission, cancellation, transport 또는 durable state는
+  소유하지 않습니다.
 - `chat_stream_setup.py`는 authenticated request, evidence, history 및 answer-plan validation을 소유합니다.
 - `chat_stream_terminal.py`는 pure terminal verification-frame 및 replay-payload assembly를 소유합니다.
 - `chat_trajectory_detail.py`는 durable trajectory replay용 bounded final progress projection을 소유합니다.

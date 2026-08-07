@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fdai.delivery.operator_api.routes.chat_stream_metrics import record_enqueued_progress_metrics
+from fdai.delivery.operator_api.projections.conversation.stream_metrics import (
+    record_enqueued_progress_metrics,
+)
 from fdai.shared.telemetry import ConversationProgressMetrics
 
 

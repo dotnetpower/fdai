@@ -66,6 +66,9 @@ from fdai.delivery.operator_api.projections.conversation.presentation import (
     PresentationDecision,
     select_answer_presentation,
 )
+from fdai.delivery.operator_api.projections.conversation.stream_metrics import (
+    record_enqueued_progress_metrics,
+)
 from fdai.delivery.operator_api.routes.chat_action_context import (
     is_explicit_action_draft_request,
     needs_action_context,
@@ -154,7 +157,6 @@ from fdai.delivery.operator_api.routes.chat_route_common import (
     _with_compiled_user_policy,
 )
 from fdai.delivery.operator_api.routes.chat_screen_data import render_screen_data_answer
-from fdai.delivery.operator_api.routes.chat_stream_metrics import record_enqueued_progress_metrics
 from fdai.delivery.operator_api.routes.chat_stream_post_generation import (
     PostGenerationContext,
     evidence_timing_status,

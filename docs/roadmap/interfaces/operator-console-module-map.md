@@ -187,6 +187,18 @@ sequence and revision, cancellation, terminal assembly, and conversation history
 no compatibility shim remains. Rollback restores the five route implementations and redirects the
 evidence facade without changing JSON, SSE, authentication, evidence authority, or history.
 
+### Conversation progress metric projection boundary
+
+The SD-01 streaming metric slice owns pure queue-accepted progress reduction under
+`fdai.delivery.operator_api.projections.conversation.stream_metrics`. It records only aggregate
+first-progress latency, terminal branch outcome and duration, and output truncation. It retains no
+prompt, answer, branch id, channel id, principal id, or resource identifier.
+
+The SSE route continues to own frame sequencing, queue admission, cancellation, and transport
+delivery. The former `routes.chat_stream_metrics` module had no external compatibility consumer, so
+no shim remains. Rollback restores the reducer under `routes/` and changes the stream route import
+without changing metric names, SSE frames, or cancellation behavior.
+
 ### Immutable app composition
 
 Issue 72 keeps `OperatorApiConfig(**kwargs)` as the bounded compatibility constructor and projects
@@ -228,7 +240,7 @@ reverses physical ownership without a wire or caller migration.
 | `persistence/` | Operator API read-model implementations and projections | Retain behind owned read contracts. |
 | `projections/` | Read-only projection ownership outside HTTP routes | Retain as the owner of migrated families. |
 | `projections/audit/` | Audit query and autonomy/FinOps measurement projections | Import through its explicit facade; keep old route modules as shims. |
-| `projections/conversation/` | Request-local conversation read projections outside HTTP transport | Retain in-process until service-graduation evidence exists. |
+| `projections/conversation/` | Request-local conversation read projections and queue-accepted progress metric reduction outside HTTP transport | Retain in-process until service-graduation evidence exists. |
 | `projections/conversation/presentation/` | Value-free layout selection and verified evidence artifact compilation | Import through its explicit facade; keep JSON and SSE behavior in routes. |
 | `projections/conversation/inventory/` | Inventory evidence sanitization, result projection, and deterministic rendering | Import through its explicit facade; keep query compilation and provider coordination in the application package. |
 | `production/` | Production provider construction and bindings | Reduce fanout incrementally without changing wire behavior. |
@@ -314,6 +326,8 @@ a separately reviewed boundary.
 - `projections/conversation/inventory/` owns inventory evidence sanitization, result projection,
   and deterministic rendering. It does not own provider selection, query compilation, HTTP, SSE,
   authentication, history, or durable state.
+- `projections/conversation/stream_metrics.py` owns queue-accepted aggregate progress reduction.
+  It does not own frame sequencing, queue admission, cancellation, transport, or durable state.
 - `chat_stream_setup.py` owns authenticated request, evidence, history, and answer-plan validation.
 - `chat_stream_terminal.py` owns pure terminal verification-frame and replay-payload assembly.
 - `chat_trajectory_detail.py` owns bounded final progress projection for durable trajectory replay.

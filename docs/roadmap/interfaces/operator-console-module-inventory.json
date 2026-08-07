@@ -102,7 +102,7 @@
     },
     {
       "path": "projections/conversation",
-      "responsibility": "Read-only request-local conversation projections outside HTTP transport",
+      "responsibility": "Read-only request-local conversation projections and queue-accepted progress metric reduction outside HTTP transport",
       "classification": "read-projection",
       "candidate_destination": "retain in-process until conversation service-graduation evidence exists"
     },
