@@ -82,6 +82,14 @@ on:
         description: "Provision the internal shadow-only isolated Executor Container App."
         type: boolean
         default: false
+      runtime_image_revision:
+        description: "Optional source commit for the verified runtime image; defaults to the checkout commit."
+        type: string
+        required: false
+      promote_runtime_image:
+        description: "Explicitly import the verified runtime image from GHCR to ACR during plan."
+        type: boolean
+        default: false
       deploy_dev_operations_gateway:
         description: "Provision the dev-only private-resource operations Function gateway."
         type: boolean
@@ -108,7 +116,9 @@ on:
         required: false
 
 permissions:
+  attestations: read
   contents: read
+  packages: read
 
 concurrency:
   group: deploy-${{ inputs.environment }}
@@ -199,6 +209,28 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Validate runtime image request
+        env:
+          APPLY: ${{ inputs.apply }}
+          DEPLOY_ISOLATED_EXECUTOR: ${{ inputs.deploy_isolated_executor }}
+          PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
+          RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
+        run: |
+          set -euo pipefail
+          if [[ "$PROMOTE_RUNTIME_IMAGE" == "true" && "$DEPLOY_ISOLATED_EXECUTOR" != "true" ]]; then
+            echo "promote_runtime_image requires deploy_isolated_executor." >&2
+            exit 1
+          fi
+          if [[ -n "$RUNTIME_IMAGE_REVISION" && "$DEPLOY_ISOLATED_EXECUTOR" != "true" ]]; then
+            echo "runtime_image_revision requires deploy_isolated_executor." >&2
+            exit 1
+          fi
+          if [[ "$APPLY" == "true" && "$PROMOTE_RUNTIME_IMAGE" == "true" ]]; then
+            echo "runtime image promotion is not allowed during exact apply." >&2
+            exit 1
+          fi
 
       - name: Validate design-mocks-only request
         if: ${{ inputs.deploy_design_mocks }}
@@ -371,6 +403,77 @@ jobs:
             -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
+
+      - name: Bind exact isolated Executor runtime image
+        if: ${{ !inputs.apply && inputs.deploy_isolated_executor }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ github.token }}
+          PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
+          RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
+        run: |
+          set -euo pipefail
+          checkout_revision="$(git rev-parse HEAD)"
+          revision="${RUNTIME_IMAGE_REVISION:-$checkout_revision}"
+          if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "runtime_image_revision must be a lowercase git SHA." >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$revision" "$checkout_revision"; then
+            echo "runtime image revision must be an ancestor of the workflow checkout." >&2
+            exit 1
+          fi
+
+          source_repository="${GITHUB_REPOSITORY,,}"
+          registry_token="$(
+            curl --fail --silent --show-error \
+              --user "$GITHUB_ACTOR:$GHCR_TOKEN" \
+              "https://ghcr.io/token?scope=repository:${source_repository}:pull" \
+              | python3 -c 'import json, sys; print(json.load(sys.stdin)["token"])'
+          )"
+          source_digest="$(
+            curl --fail --silent --show-error --head \
+              -H "Authorization: Bearer $registry_token" \
+              -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+              "https://ghcr.io/v2/${source_repository}/manifests/sha-${revision}" \
+              | tr -d '\r' \
+              | awk -F': ' 'tolower($1) == "docker-content-digest" {print $2}'
+          )"
+          if [[ ! "$source_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "verified runtime image tag did not resolve to one manifest digest." >&2
+            exit 1
+          fi
+          gh attestation verify \
+            "oci://ghcr.io/${source_repository}@${source_digest}" \
+            --repo "$GITHUB_REPOSITORY" >/dev/null
+
+          login_server="$(terraform output -raw container_registry_login_server)"
+          registry_name="${login_server%%.*}"
+          if [[ ! "$registry_name" =~ ^[a-z0-9]+$ ]]; then
+            echo "Terraform returned an invalid ACR login server." >&2
+            exit 1
+          fi
+          if [[ "$PROMOTE_RUNTIME_IMAGE" == "true" ]]; then
+            az acr import \
+              --name "$registry_name" \
+              --source "ghcr.io/${source_repository}@${source_digest}" \
+              --image "fdai:sha-${revision}" \
+              --username "$GITHUB_ACTOR" \
+              --password "$GHCR_TOKEN" \
+              --force --only-show-errors --output none
+          fi
+          target_digest="$(
+            az acr manifest list-metadata \
+              --registry "$registry_name" \
+              --name fdai \
+              --query "[?tags != null && contains(tags, 'sha-${revision}')].digest | [0]" \
+              --output tsv --only-show-errors
+          )"
+          if [[ "$target_digest" != "$source_digest" ]]; then
+            echo "ACR runtime image digest does not match the verified GHCR subject." >&2
+            exit 1
+          fi
+          echo "TF_VAR_core_image=${login_server}/fdai@${target_digest}" >> "$GITHUB_ENV"
 
       - name: Adopt existing Azure resources
         if: ${{ !inputs.deploy_design_mocks }}

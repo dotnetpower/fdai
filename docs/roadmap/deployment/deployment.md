@@ -134,7 +134,10 @@ flowchart TD
   ACR copies the verified image without rebuilding so the digest stays stable, creates or
   copies the target-registry attestations, and binds that ACR digest as
   `signed-image-provenance` in the ARB evidence manifest. Building a second image for ACR is
-  not accepted because it produces a different subject.
+  not accepted because it produces a different subject. The private-runner Executor plan resolves
+  one source revision to its attested GHCR digest, optionally imports that exact subject only under
+  an explicit promotion input, verifies the ACR digest is identical, and then binds the digest to
+  Terraform. Exact apply cannot promote or replace the image recorded in the protected plan.
 - **Promotion gate checklist** (all must pass): T0-engine and risk-gate unit tests green at the
   coverage bar; IaC + dependency + secret scans clean; shadow evaluation shows **zero
   policy-violation escapes** and the regression suite passes; staging SLOs healthy.

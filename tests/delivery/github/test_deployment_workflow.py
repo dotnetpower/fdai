@@ -330,10 +330,13 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert 'echo "AZURE_CONFIG_DIR=$azure_config_dir" >> "$GITHUB_ENV"' in workflow
     assert "resume_verification:" in workflow
     assert "deploy_isolated_executor:" in workflow
+    assert "runtime_image_revision:" in workflow
+    assert "promote_runtime_image:" in workflow
     assert "TF_VAR_enable_isolated_executor: ${{ inputs.deploy_isolated_executor }}" in workflow
     assert "DEPLOY_ISOLATED_EXECUTOR: ${{ inputs.deploy_isolated_executor }}" in workflow
     assert '|| "$DEPLOY_ISOLATED_EXECUTOR" == "true"' in workflow
     assert "ref: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}" in workflow
+    assert "fetch-depth: 0" in workflow
     assert '"$PLAN_COMMIT_SHA" != "$(git rev-parse HEAD)"' in workflow
     assert '"$APPLY_COMMIT_SHA" != "$(git rev-parse HEAD)"' in workflow
     assert "--name deployment-plans" in workflow
@@ -443,6 +446,33 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "path: infra/apply-claim.json" in workflow
     assert "path: infra/apply-receipt.json" in workflow
     assert workflow.count("--overwrite false") >= 4
+
+
+def test_runner_promotes_only_an_exact_attested_executor_image_before_plan() -> None:
+    workflow = (
+        Path(__file__).resolve().parents[3] / ".github" / "workflows" / "deploy-dev.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "attestations: read" in workflow
+    assert "packages: read" in workflow
+    assert "runtime image promotion is not allowed during exact apply" in workflow
+    step = workflow[workflow.index("- name: Bind exact isolated Executor runtime image") :]
+    step = step[: step.index("- name: Adopt existing Azure resources")]
+    assert "if: ${{ !inputs.apply && inputs.deploy_isolated_executor }}" in step
+    assert 'git merge-base --is-ancestor "$revision" "$checkout_revision"' in step
+    assert "https://ghcr.io/token?scope=repository:${source_repository}:pull" in step
+    assert "docker-content-digest" in step
+    assert "gh attestation verify" in step
+    assert "az acr import \\" in step
+    assert '--source "ghcr.io/${source_repository}@${source_digest}"' in step
+    assert '--image "fdai:sha-${revision}"' in step
+    assert 'if [[ "$target_digest" != "$source_digest" ]]' in step
+    assert 'echo "TF_VAR_core_image=${login_server}/fdai@${target_digest}"' in step
+    assert (
+        workflow.index("- name: Terraform init")
+        < workflow.index("- name: Bind exact isolated Executor runtime image")
+        < workflow.index("- name: Terraform plan")
+    )
     assert "environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}" in workflow
     assert "if: ${{ !inputs.apply }}\n        run: terraform plan" in workflow
     assert "Verify Terraform convergence" in workflow

@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: b922e07e2df7b80d531d06144180899f30ab8332
+translation_source_sha: 3eb7fdd6d3f0bf3562b9fbd61abb93389e2f3219
 translation_revised: 2026-08-07
 ---
 
@@ -135,7 +135,10 @@ flowchart TD
   rebuild 없이 verified image를 copy하여 digest를 유지하고 target-registry attestation을
   생성하거나 복사한 뒤 해당 ACR digest를 ARB evidence manifest의
   `signed-image-provenance`로 binding합니다. ACR용 두 번째 build는 다른 subject를 만들기 때문에
-  수락하지 않습니다.
+  수락하지 않습니다. Private-runner Executor plan은 하나의 source revision을 attested GHCR
+  digest로 resolve하고 explicit promotion input이 있을 때만 해당 exact subject를 import하며 ACR
+  digest가 동일한지 검증한 뒤 Terraform에 binding합니다. Exact apply는 protected plan에 기록된
+  image를 promote하거나 교체할 수 없습니다.
 - **승격 게이트 체크리스트** (모두 통과 필수): T0-engine과 risk-gate 단위 테스트가 커버리지
   바에서 green; IaC + dependency + secret 스캔 클린; shadow 평가에서 **정책 위반 escape 0**
   + 회귀 스위트 통과; staging SLO 건강.
