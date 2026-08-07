@@ -722,6 +722,24 @@ def test_owned_conversation_layers_do_not_import_routes() -> None:
     )
 
 
+def test_json_turn_execution_imports_no_transport_or_provider_adapters() -> None:
+    package = _OPERATOR_API_DIR / "application" / "conversation" / "turn_execution"
+    forbidden = (
+        "starlette",
+        "fdai.delivery.operator_api.routes",
+        "fdai.delivery.operator_api.adapters",
+    )
+    offenders = [
+        (path.relative_to(_REPO_ROOT).as_posix(), module)
+        for path in package.rglob("*.py")
+        for module in _imported_modules(path)
+        if module == forbidden[0] or module.startswith(forbidden)
+    ]
+    assert not offenders, (
+        f"JSON turn execution must stay transport-neutral and provider-neutral: {offenders}"
+    )
+
+
 def test_external_streaming_imports_match_declared_transitional_debt() -> None:
     inventory = json.loads(_MODULE_INVENTORY_PATH.read_text(encoding="utf-8"))
     rules = [

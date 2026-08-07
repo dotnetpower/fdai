@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 1b6fd89e8854c5d1f1c0a35d187fbad8851453cf
+translation_source_sha: 8768e24d5d9ab448a37e2a16a24ff85e69268a2c
 translation_revised: 2026-08-07
 ---
 # 코드 맵
@@ -182,6 +182,13 @@ narrator interruption은 [`planning.py`](../../../src/fdai/delivery/operator_api
 [`busy_input.py`](../../../src/fdai/delivery/operator_api/application/conversation/busy_input.py)에 있습니다.
 Core는 `BusyInputCoordinator` authority를 유지하고 JSON 및 SSE route는 status mapping, frame sequencing,
 authentication, connection cancellation, history transport 및 delivery를 유지합니다.
+
+One-shot JSON turn lifecycle coordination은
+[`turn_execution/`](../../../src/fdai/delivery/operator_api/application/conversation/turn_execution/)에 있습니다.
+Typed service는 request preparation, planning, evidence, generation, verification, persistence,
+metering 및 completion을 소유합니다. `chat.py`는 authentication, bounded JSON parsing, HTTP status
+mapping, response delivery 및 factory binding을 유지합니다. SSE lifecycle extraction은 다음
+`chat_stream.py` slice로 남아 있습니다.
 
 ## 룰 카탈로그, 배포, 플랫폼
 

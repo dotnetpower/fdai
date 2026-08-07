@@ -36,9 +36,15 @@
     },
     {
       "path": "application/conversation",
-      "responsibility": "Process-local shadow answer planning, capability visibility, intent classification, busy-input steering and interruption, prompt, vision, and application capabilities outside HTTP transport",
+      "responsibility": "Process-local JSON turn execution, shadow answer planning, capability visibility, intent classification, busy-input steering and interruption, prompt, vision, and application capabilities outside HTTP transport",
       "classification": "application-coordination",
       "candidate_destination": "retain in-process until conversation service-graduation evidence exists"
+    },
+    {
+      "path": "application/conversation/turn_execution",
+      "responsibility": "Typed one-shot JSON request preparation, planning, evidence, generation, verification, persistence, metering, and completion coordination",
+      "classification": "application-coordination",
+      "candidate_destination": "retain as the Starlette-free JSON turn lifecycle owner"
     },
     {
       "path": "application/conversation/capabilities",

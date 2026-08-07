@@ -1,19 +1,17 @@
-"""Read-only, screen-aware conversational route for the operator console.
+"""HTTP transport and compatibility facade for Operator API conversations.
 
-Prompt, evidence, backend, and stream responsibilities live in sibling modules.
-This module owns the JSON chat route and remains the compatibility import surface.
+The JSON route owns authentication, bounded HTTP body parsing, application
+error-to-status mapping, and ``JSONResponse`` delivery. One-shot lifecycle
+coordination lives in ``application.conversation.turn_execution``. SSE remains
+owned by ``chat_stream`` until its reserved extraction slice.
 """
 
-# ruff: noqa: F401 - the original module intentionally re-exports extracted symbols
+# ruff: noqa: F401 - this module intentionally re-exports reviewed compatibility symbols
 
 from __future__ import annotations
 
-import asyncio
 import json
-import logging
-import time
-from collections.abc import Callable, Mapping
-from datetime import UTC, datetime
+from collections.abc import Callable
 from typing import Any, Final
 
 from starlette.exceptions import HTTPException
@@ -21,69 +19,15 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from fdai.core.conversation.answer_plan import build_answer_plan
 from fdai.core.conversation.busy_input_coordinator import BusyInputCoordinator
 from fdai.core.conversation_assurance import ConversationPolicyRuntime
-from fdai.core.metering import InvocationScope, with_invocation_scope
-from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.core.user_context_projection import UserContextOntologyProjector
-from fdai.delivery.conversation_images import (
-    ConversationImageConflictError,
-    ConversationImageQuotaError,
-    ConversationImageStore,
-)
+from fdai.delivery.conversation_images import ConversationImageStore
 from fdai.delivery.handover_events import HandoverAvailabilityPublisher
-from fdai.delivery.operator_api.application import (
-    ConversationTurnApplicationService,
-    ConversationTurnInput,
-    ConversationTurnTerminalStatus,
-)
+from fdai.delivery.operator_api.application import ConversationTurnApplicationService
 from fdai.delivery.operator_api.application.conversation.backend import (
     ChatBackend,
-    ChatBackendUnavailableError,
-    ChatContentPolicyError,
-    LatencyRoutedChatBackend,
     describe_backend,
-    reject_direct_override,
-)
-from fdai.delivery.operator_api.application.conversation.busy_input import (
-    ChatTurnInterruptedError,
-    answer_with_busy_input,
-    await_with_interrupt,
-)
-from fdai.delivery.operator_api.application.conversation.capabilities.action_context import (
-    is_explicit_action_draft_request,
-    needs_action_context,
-)
-from fdai.delivery.operator_api.application.conversation.capabilities.conversation_context import (
-    load_verified_prior_context,
-    needs_conversation_context,
-)
-from fdai.delivery.operator_api.application.conversation.capabilities.current_time import (
-    needs_current_time,
-)
-from fdai.delivery.operator_api.application.conversation.capabilities.inventory.compiler import (
-    compile_inventory_query,
-    inventory_query_requires_semantic_completion,
-)
-from fdai.delivery.operator_api.application.conversation.capabilities.inventory.followup import (
-    contextualize_inventory_scope_followup,
-    contextualize_inventory_screen_scope,
-)
-from fdai.delivery.operator_api.application.conversation.capabilities.llm_usage import (
-    is_llm_usage_followup,
-    needs_llm_usage,
-)
-from fdai.delivery.operator_api.application.conversation.capabilities.log_query import (
-    needs_log_query,
-    needs_log_query_context,
-)
-from fdai.delivery.operator_api.application.conversation.capabilities.subscription_health import (
-    needs_subscription_health,
-    needs_subscription_health_context,
-)
-from fdai.delivery.operator_api.application.conversation.capabilities.system_health import (
-    render_system_health_answer,
 )
 from fdai.delivery.operator_api.application.conversation.evidence import (
     AgentChatDelegate,
@@ -92,55 +36,9 @@ from fdai.delivery.operator_api.application.conversation.evidence import (
     ChatWebSearchEvidenceResolver,
     OperationalEvidenceResolverProtocol,
     PlannedChatToolResolver,
-    has_bound_incident_analysis_context,
-    has_screen_incident_analysis_context,
-    needs_operational_evidence,
-    resolve_parallel_chat_evidence,
 )
-from fdai.delivery.operator_api.application.conversation.evidence.enrichment import (
-    _delegation_summary,
-    _explicit_agent_requested,
-    _retrieval_source_previews,
-    _screen_incident_context,
-    _tool_matches_current_route,
-    _with_agent_evidence,
-    _with_behavior_evidence,
-    _with_operational_evidence,
-    _with_screen_scope,
-    _with_tool_evidence,
-    _with_web_evidence,
-)
-from fdai.delivery.operator_api.application.conversation.freshness_context import (
-    freshness_evidence_refs,
-    missing_evidence_freshness_context_evidence,
-    needs_evidence_freshness_context,
-    parse_evidence_freshness_context,
-    render_evidence_freshness_answer,
-    response_evidence_freshness_context,
-)
-from fdai.delivery.operator_api.application.conversation.intent_graph import (
-    IntentGraph,
-    IntentGraphPlanner,
-    apply_intent_graph_to_answer_plan,
-    draft_capability_available,
-    plan_semantic_turn,
-    planner_context_envelope,
-)
-from fdai.delivery.operator_api.application.conversation.intents import is_topology_question
-from fdai.delivery.operator_api.application.conversation.planning import (
-    AnswerPlanningDelegate,
-    cancel_planning,
-    planning_metadata,
-    start_shadow_answer_planning,
-)
-from fdai.delivery.operator_api.application.conversation.policy import (
-    with_assurance_policy,
-    with_compiled_user_policy,
-)
-from fdai.delivery.operator_api.application.conversation.post_generation import (
-    review_korean_narrator_answer,
-    verify_quality_result,
-)
+from fdai.delivery.operator_api.application.conversation.intent_graph import IntentGraphPlanner
+from fdai.delivery.operator_api.application.conversation.planning import AnswerPlanningDelegate
 from fdai.delivery.operator_api.application.conversation.prompt import (
     _AGENT_EVIDENCE_DIRECTIVE,
     _AGENT_NAME_TOKEN,
@@ -183,84 +81,19 @@ from fdai.delivery.operator_api.application.conversation.prompt import (
     _trim_view_context,
     _with_concept_evidence,
 )
-from fdai.delivery.operator_api.application.conversation.prompt_ontology import (
-    _with_ontology_storage_contract,
-)
 from fdai.delivery.operator_api.application.conversation.request_preparation import (
     DEFAULT_CHAT_HISTORY_POLICY,
-    DEFAULT_MAX_SESSION_ID_CHARS,
     AnswerPreferenceResolver,
-    BackendChatHistoryCompressor,
     ChatDocumentEvidenceResolver,
     ChatHistoryPolicy,
     ModelPreferenceResolver,
-    answer_with_content_policy_recovery,
-    content_policy_replay_stage,
-    contextualize_resource_followup,
-    missing_read_investigation_context_evidence,
-    parse_conversation_context,
-    parse_resource_context,
-    resolve_chat_history_result,
-    resolve_document_refs,
-    resolve_request_id,
-    resolve_session_id,
-    resolve_target_agent,
 )
-from fdai.delivery.operator_api.application.conversation.response_completion import (
-    ResponseCompletionContext,
-    ResponseCompletionDependencies,
-    complete_chat_response,
-    metering_correlation_id,
-    turn_metadata,
-    uses_evidence_fast_path,
+from fdai.delivery.operator_api.application.conversation.turn_execution import (
+    JsonTurnExecutionError,
+    JsonTurnExecutionService,
+    JsonTurnOutcome,
 )
-from fdai.delivery.operator_api.application.conversation.turn_plan import (
-    TurnPlanner,
-    TurnTool,
-    apply_turn_plan_to_answer_plan,
-)
-from fdai.delivery.operator_api.application.conversation.verification import (
-    AnswerVerification,
-    verify_answer,
-)
-from fdai.delivery.operator_api.application.conversation.vision_evidence import (
-    parse_vision_attachments,
-)
-from fdai.delivery.operator_api.persistence.conversation import (
-    append_assistant_turn,
-    append_content_policy_receipt,
-    image_turn_metadata,
-    persist_operator_turn_with_images,
-    replay_metadata,
-)
-from fdai.delivery.operator_api.projections.conversation.document_evidence import (
-    merge_document_verification,
-    with_document_evidence,
-)
-from fdai.delivery.operator_api.projections.conversation.presentation import (
-    response_presentation_artifact,
-    select_answer_presentation,
-)
-from fdai.delivery.operator_api.projections.conversation.provenance import (
-    web_search_summary as _web_search_summary,
-)
-from fdai.delivery.operator_api.projections.conversation.resource_context import (
-    resource_followup_verification,
-    response_resource_context,
-)
-from fdai.delivery.operator_api.projections.conversation.screen_data import (
-    render_screen_data_answer,
-)
-from fdai.delivery.operator_api.projections.conversation.terminal import (
-    assurance_policy_summary,
-    completed_replay_payload,
-    public_intent_graph_evidence,
-    response_incident_candidates,
-    response_llm_usage_analysis_context,
-    response_llm_usage_chart_artifact,
-    response_resource_result_context,
-    response_source_failure_context,
-)
+from fdai.delivery.operator_api.application.conversation.turn_plan import TurnPlanner, TurnTool
 from fdai.delivery.operator_api.routes.chat_stream import (
     DEFAULT_STREAM_PATH,
     make_chat_stream_route,
@@ -277,20 +110,31 @@ from fdai.delivery.operator_api.routes.chat_stream_request import (
     DEFAULT_MAX_CHAT_BODY_BYTES,
     AuthorizeFn,
 )
-from fdai.delivery.operator_api.routes.post_turn_review import (
-    PostTurnReviewSubmission,
-    PostTurnReviewSubmitter,
-    explicit_corrections,
-)
+from fdai.delivery.operator_api.routes.post_turn_review import PostTurnReviewSubmitter
 from fdai.shared.providers.briefing import ConversationPolicyStore
-from fdai.shared.providers.document_ingestion import DocumentAccessDeniedError
-from fdai.shared.providers.user_context import ConversationHistoryStore, UserContextConflictError
-from fdai.shared.telemetry.correlation import with_correlation
-
-_LOG = logging.getLogger(__name__)
-
+from fdai.shared.providers.user_context import ConversationHistoryStore
 
 DEFAULT_ROUTE_PATH: Final[str] = "/chat"
+
+_APPLICATION_ERROR_STATUSES: Final[dict[str, int]] = {
+    "backend_unavailable": 501,
+    "content_policy_block": 422,
+    "content_policy_receipt_unavailable": 503,
+    "document_access_denied": 403,
+    "document_evidence_unavailable": 501,
+    "image_conflict": 409,
+    "image_quota_exceeded": 429,
+    "image_storage_unavailable": 503,
+    "invalid_request": 400,
+    "request_conflict": 409,
+    "session_busy": 409,
+}
+_OUTCOME_STATUSES: Final[dict[JsonTurnOutcome, int]] = {
+    JsonTurnOutcome.COMPLETED: 200,
+    JsonTurnOutcome.INTERRUPTED: 409,
+    JsonTurnOutcome.CONFLICT: 409,
+    JsonTurnOutcome.UNAVAILABLE: 503,
+}
 
 
 def make_chat_health_route(
@@ -300,21 +144,15 @@ def make_chat_health_route(
     web_search_resolver: ChatWebSearchEvidenceResolver | None = None,
     path: str = "/chat/health",
 ) -> Route:
-    """Return a ``GET`` health-check route describing the chat backend.
-
-    The FE polls this once at deck-open time so the header can render
-    ``LLM ready · gpt-4o-mini`` (or the disabled/fallback equivalent)
-    without having to speculatively hit ``/chat`` first.
-    """
+    """Return the authenticated chat backend health route."""
 
     async def handler(request: Request) -> JSONResponse:
         await authorize(request)
         descriptor = describe_backend(backend)
         web_descriptor = getattr(web_search_resolver, "descriptor", None)
-        if web_descriptor is not None:
-            descriptor["web_search"] = web_descriptor()
-        else:
-            descriptor["web_search"] = {"available": False}
+        descriptor["web_search"] = (
+            web_descriptor() if web_descriptor is not None else {"available": False}
+        )
         return JSONResponse(descriptor)
 
     return Route(path, handler, methods=["GET"])
@@ -349,869 +187,67 @@ def make_chat_route(
     path: str = DEFAULT_ROUTE_PATH,
     max_body_bytes: int = DEFAULT_MAX_CHAT_BODY_BYTES,
 ) -> Route:
-    """Build the ``POST /chat`` route.
+    """Build the authenticated ``POST /chat`` transport adapter."""
 
-    The route is POST because the browser sends a body. It can persist
-    conversation history and review records, but has no privileged execution
-    or approval authority. Reader role is required through ``authorize``.
-    """
-
-    history_compressor = BackendChatHistoryCompressor(
+    executor = JsonTurnExecutionService(
         backend=backend,
-        max_summary_chars=history_policy.max_summary_chars,
-    )
-    resolved_turn_service = (
-        turn_service if turn_service is not None else ConversationTurnApplicationService()
+        behavior_resolver=behavior_resolver,
+        evidence_resolver=evidence_resolver,
+        tool_resolver=tool_resolver,
+        planned_tool_resolver=planned_tool_resolver,
+        web_search_resolver=web_search_resolver,
+        agent_delegate=agent_delegate,
+        answer_planning_delegate=answer_planning_delegate,
+        conversation_policy_store=conversation_policy_store,
+        conversation_assurance_runtime=conversation_assurance_runtime,
+        conversation_history_store=conversation_history_store,
+        conversation_image_store=conversation_image_store,
+        user_context_ontology_projector=user_context_ontology_projector,
+        model_preference_resolver=model_preference_resolver,
+        answer_preference_resolver=answer_preference_resolver,
+        post_turn_review_submitter=post_turn_review_submitter,
+        busy_input_coordinator=busy_input_coordinator,
+        document_evidence_resolver=document_evidence_resolver,
+        turn_planner=turn_planner,
+        turn_tools=turn_tools,
+        handover_availability_publisher=handover_availability_publisher,
+        history_policy=history_policy,
+        turn_service=turn_service,
     )
 
     async def handler(request: Request) -> JSONResponse:
-        user_id = await authorize(request)
-
-        # Bound the body up-front so a malicious page cannot inflate cost.
-        # Preflight Content-Length so an attacker cannot force us to
-        # buffer megabytes just to reject on `len(body_bytes)`.
-        declared_len = request.headers.get("content-length")
-        if declared_len is not None:
-            try:
-                if int(declared_len) > max_body_bytes:
-                    raise HTTPException(status_code=413, detail="chat body too large")
-            except ValueError:
-                pass
-        body_bytes = await request.body()
-        if len(body_bytes) > max_body_bytes:
-            raise HTTPException(status_code=413, detail="chat body too large")
+        principal_id = await authorize(request)
+        body = await _read_json_body(request, max_body_bytes=max_body_bytes)
         try:
-            body = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise HTTPException(status_code=400, detail="chat body MUST be JSON") from exc
-        if not isinstance(body, dict):
-            raise HTTPException(status_code=400, detail="chat body MUST be a JSON object")
-        try:
-            document_evidence_refs = await resolve_document_refs(
-                body=body,
-                principal_id=user_id,
-                resolver=document_evidence_resolver,
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        except DocumentAccessDeniedError as exc:
-            raise HTTPException(status_code=403, detail="document reference access denied") from exc
-        except RuntimeError as exc:
-            raise HTTPException(status_code=501, detail=str(exc)) from exc
-
-        prompt = body.get("prompt")
-        if not isinstance(prompt, str) or not prompt.strip():
-            raise HTTPException(status_code=400, detail="prompt MUST be a non-empty string")
-        try:
-            session_id = resolve_session_id(body)
-            request_id = resolve_request_id(body)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        view_context = body.get("view_context")
-        if view_context is None:
-            view_context = {}
-        if not isinstance(view_context, dict):
-            raise HTTPException(status_code=400, detail="view_context MUST be an object")
-        view_context.pop("_answer_plan", None)
-        view_context.pop("_turn_plan", None)
-        view_context.pop("_inventory_screen_scope", None)
-        view_context.pop("_resource_followup", None)
-        view_context.pop("_verified_prior_context", None)
-        # `_attachments` is a server-owned, validated field: never trust a
-        # client-supplied one, then set it from the parsed inline images.
-        view_context.pop("_attachments", None)
-        try:
-            vision_attachments = parse_vision_attachments(body, request_id=request_id)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        if vision_attachments:
-            view_context["_attachments"] = [a.to_view_dict() for a in vision_attachments]
-        try:
-            conversation_context = parse_conversation_context(body)
-            target_agent = resolve_target_agent(body, conversation_context)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        history_raw = body.get("history", [])
-        if not isinstance(history_raw, list):
-            raise HTTPException(status_code=400, detail="history MUST be a list")
-        history: list[dict[str, str]] = []
-        for turn in history_raw:
-            if isinstance(turn, dict):
-                role = turn.get("role")
-                content = turn.get("content")
-                if isinstance(role, str) and isinstance(content, str):
-                    history.append({"role": role, "content": content})
-
-        clean_prompt = prompt.strip()
-        turn_input = ConversationTurnInput(
-            principal_id=user_id,
-            conversation_id=session_id,
-            request_id=request_id,
-            correlation_id=metering_correlation_id(user_id, session_id),
-            prompt=clean_prompt,
-            response_locale=_response_locale(clean_prompt, view_context),
-            target_agent=target_agent,
-            evidence_refs=document_evidence_refs,
-            history_turn_count=len(history),
-            streaming=False,
-        )
-        turn_service = resolved_turn_service
-        try:
-            reject_direct_override(clean_prompt)
-        except ChatContentPolicyError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        if conversation_history_store is not None:
-            try:
-                replay_stage = await content_policy_replay_stage(
-                    store=conversation_history_store,
-                    principal_id=user_id,
-                    conversation_id=session_id,
-                    request_id=request_id,
-                    content=clean_prompt,
-                )
-            except UserContextConflictError as exc:
-                raise HTTPException(
-                    status_code=409,
-                    detail="chat request id conflicts with an existing turn",
-                ) from exc
-            if replay_stage is not None:
-                raise HTTPException(
-                    status_code=422,
-                    detail="chat request blocked by content policy",
-                )
-        preferred_model = (
-            await model_preference_resolver(user_id)
-            if model_preference_resolver is not None
-            else None
-        )
-        answer_preferences = (
-            await answer_preference_resolver(user_id)
-            if answer_preference_resolver is not None
-            else None
-        )
-        with (
-            with_correlation(metering_correlation_id(user_id, session_id)),
-            with_invocation_scope(InvocationScope.OPERATOR_CHAT),
-        ):
-            history_result = await resolve_chat_history_result(
-                store=conversation_history_store,
-                principal_id=user_id,
-                conversation_id=session_id,
-                client_history=history,
-                compressor=history_compressor,
-                policy=history_policy,
-            )
-            history = list(history_result.messages)
-            history_metadata = history_result.metadata()
-        prior_context = None
-        if (
-            needs_conversation_context(clean_prompt)
-            or is_llm_usage_followup(clean_prompt)
-            or needs_subscription_health_context(clean_prompt)
-            or needs_log_query_context(clean_prompt)
-            or needs_evidence_freshness_context(clean_prompt)
-        ):
-            prior_context = await load_verified_prior_context(
-                store=conversation_history_store,
-                principal_id=user_id,
-                conversation_id=session_id,
-            )
-            if prior_context is not None:
-                view_context["_verified_prior_context"] = prior_context.to_dict()
-        try:
-            resource_context = parse_resource_context(body.get("resource_context"))
-            freshness_context = parse_evidence_freshness_context(
-                prior_context.evidence_freshness_context if prior_context is not None else None
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        selector_hold = (
-            None
-            if needs_action_context(clean_prompt)
-            or needs_conversation_context(clean_prompt)
-            or needs_subscription_health_context(clean_prompt)
-            else missing_read_investigation_context_evidence(clean_prompt, resource_context)
-        )
-        if selector_hold is None:
-            selector_hold = missing_evidence_freshness_context_evidence(
-                clean_prompt,
-                freshness_context,
-            )
-        if selector_hold is not None:
-            view_context["_read_investigation_context_hold"] = selector_hold
-        freshness_answer = render_evidence_freshness_answer(
-            clean_prompt,
-            freshness_context,
-            locale=_response_locale(clean_prompt, view_context),
-        )
-        evidence_prompt, resource_followup = contextualize_resource_followup(
-            clean_prompt,
-            resource_context,
-        )
-        if resource_followup:
-            view_context["_resource_followup"] = {"authority": "selector_hint"}
-        evidence_prompt, inventory_scope_followup = contextualize_inventory_scope_followup(
-            evidence_prompt,
-            history,
-        )
-        evidence_prompt, inventory_screen_scope_resolution = contextualize_inventory_screen_scope(
-            evidence_prompt,
-            view_context,
-        )
-        if inventory_screen_scope_resolution is not None:
-            view_context["_inventory_screen_scope"] = inventory_screen_scope_resolution.to_context()
-        compiled_inventory = (
-            compile_inventory_query(evidence_prompt) if tool_resolver is not None else None
-        )
-        semantic_inventory_completion = compiled_inventory is not None and (
-            inventory_query_requires_semantic_completion(compiled_inventory, prompt=evidence_prompt)
-        )
-        deterministic_followup = (
-            resource_followup
-            or (
-                has_bound_incident_analysis_context(
-                    clean_prompt, view_context, conversation_context
-                )
-                or has_screen_incident_analysis_context(clean_prompt, view_context)
-            )
-            or inventory_screen_scope_resolution is not None
-            or inventory_scope_followup
-            or selector_hold is not None
-            or is_topology_question(evidence_prompt)
-            or (
-                compiled_inventory is not None
-                and not inventory_query_requires_semantic_completion(
-                    compiled_inventory, prompt=evidence_prompt
-                )
-            )
-            or needs_subscription_health(evidence_prompt)
-            or needs_log_query(evidence_prompt)
-            or needs_action_context(evidence_prompt)
-            or needs_conversation_context(evidence_prompt)
-            or needs_llm_usage(evidence_prompt)
-            or is_llm_usage_followup(evidence_prompt)
-            or needs_operational_evidence(evidence_prompt, view_context)
-            or needs_current_time(evidence_prompt)
-            or freshness_answer is not None
-        )
-        answer_plan = build_answer_plan(
-            evidence_prompt,
-            route_id=str(view_context.get("routeId") or "") or None,
-            preferences=answer_preferences,
-        )
-        view_context["_answer_plan"] = answer_plan.to_dict()
-        if handover_availability_publisher is not None:
-            task = asyncio.create_task(
-                handover_availability_publisher.publish(
-                    subject_ref=user_id,
-                    session_id=session_id,
-                )
-            )
-            task.add_done_callback(_log_handover_availability_failure)
-        turn_execution = resolved_turn_service.start_turn(turn_input)
-        active_turn = None
-        if busy_input_coordinator is not None:
-            try:
-                active_turn = await busy_input_coordinator.begin_turn(
-                    session_id=session_id,
-                    turn_id=request_id,
-                    principal_id=user_id,
-                )
-            except RuntimeError as exc:
-                failed_detail = "conversation session already has an active turn"
-                resolved_turn_service.terminate_turn(
-                    turn_execution,
-                    terminal_status=ConversationTurnTerminalStatus.FAILED,
-                    code="chat_session_busy",
-                    detail=failed_detail,
-                    wire_payload={"detail": failed_detail},
-                )
-                raise HTTPException(
-                    status_code=409,
-                    detail=failed_detail,
-                ) from exc
-        try:
-            operator_turn = None
-            semantic_plan = None
-            if (
-                turn_planner is not None
-                and not vision_attachments
-                and not _is_grounded_concept_query(clean_prompt)
-                and (
-                    not deterministic_followup
-                    or semantic_inventory_completion
-                    or is_explicit_action_draft_request(clean_prompt)
-                )
-            ):
-                try:
-                    semantic_plan = await plan_semantic_turn(
-                        turn_planner,
-                        prompt=clean_prompt,
-                        tools=turn_tools() if callable(turn_tools) else turn_tools,
-                        history=history,
-                        attachments=view_context.get("_attachments"),
-                        context=planner_context_envelope(
-                            view_context,
-                            resource_context=resource_context,
-                            conversation_context=conversation_context,
-                            document_refs=document_evidence_refs,
-                        ),
-                    )
-                except Exception as exc:  # noqa: BLE001 - shadow plan degrades closed
-                    _LOG.warning(
-                        "chat turn planning unavailable: %s",
-                        type(exc).__name__,
-                        extra={"request_id": request_id},
-                    )
-                else:
-                    answer_plan = (
-                        apply_intent_graph_to_answer_plan(answer_plan, semantic_plan)
-                        if isinstance(semantic_plan, IntentGraph)
-                        else apply_turn_plan_to_answer_plan(answer_plan, semantic_plan)
-                    )
-                    view_context["_answer_plan"] = answer_plan.to_dict()
-                    view_context[
-                        "_intent_graph" if isinstance(semantic_plan, IntentGraph) else "_turn_plan"
-                    ] = semantic_plan.to_dict()
-            if conversation_history_store is not None:
-                if vision_attachments and conversation_image_store is None:
-                    raise HTTPException(
-                        status_code=503,
-                        detail="conversation image storage is unavailable",
-                    )
-                operator_recorded_at = datetime.now(tz=UTC)
-                try:
-                    operator_turn = await persist_operator_turn_with_images(
-                        history_store=conversation_history_store,
-                        image_store=conversation_image_store,
-                        attachments=vision_attachments,
-                        principal_id=user_id,
-                        conversation_id=session_id,
-                        request_id=request_id,
-                        content=clean_prompt,
-                        recorded_at=operator_recorded_at,
-                        metadata={
-                            "document_refs": list(document_evidence_refs),
-                            **image_turn_metadata(vision_attachments),
-                            **history_metadata,
-                        },
-                        ontology_projector=user_context_ontology_projector,
-                    )
-                except ConversationImageConflictError as exc:
-                    raise HTTPException(
-                        status_code=409,
-                        detail="chat image id conflicts with existing content",
-                    ) from exc
-                except ConversationImageQuotaError as exc:
-                    raise HTTPException(
-                        status_code=429,
-                        detail="conversation image storage quota exceeded",
-                    ) from exc
-                except UserContextConflictError as exc:
-                    raise HTTPException(
-                        status_code=409,
-                        detail="chat request id conflicts with an existing turn",
-                    ) from exc
-                completed_turn = await conversation_history_store.get_turn_by_idempotency(
-                    principal_id=user_id,
-                    idempotency_key=f"{request_id}:assistant",
-                )
-                if completed_turn is not None:
-                    if busy_input_coordinator is not None and active_turn is not None:
-                        await busy_input_coordinator.finish_turn(
-                            session_id=session_id,
-                            turn_id=request_id,
-                            principal_id=user_id,
-                        )
-                    replay = resolved_turn_service.complete_turn(
-                        turn_execution,
-                        completed_replay_payload(completed_turn),
-                    )
-                    return JSONResponse(replay.to_wire_payload())
-            if semantic_plan is not None and semantic_plan.requires_confirmation:
-                if isinstance(semantic_plan, IntentGraph) and not draft_capability_available(
-                    semantic_plan,
-                    turn_tools() if callable(turn_tools) else turn_tools,
-                ):
-                    if busy_input_coordinator is not None and active_turn is not None:
-                        await busy_input_coordinator.finish_turn(
-                            session_id=session_id,
-                            turn_id=request_id,
-                            principal_id=user_id,
-                        )
-                    unavailable_payload = {"detail": "draft capability is no longer available"}
-                    unavailable = resolved_turn_service.terminate_turn(
-                        turn_execution,
-                        terminal_status=ConversationTurnTerminalStatus.UNAVAILABLE,
-                        code="draft_capability_unavailable",
-                        detail=unavailable_payload["detail"],
-                        wire_payload=unavailable_payload,
-                    )
-                    return JSONResponse(unavailable.to_wire_payload(), status_code=409)
-                if busy_input_coordinator is not None and active_turn is not None:
-                    await busy_input_coordinator.finish_turn(
-                        session_id=session_id,
-                        turn_id=request_id,
-                        principal_id=user_id,
-                    )
-                draft_payload = {
-                    "answer": "Review this action draft before submitting it.",
-                    "model": "semantic-turn-planner",
-                    "source": "action-draft",
-                    "action_draft": semantic_plan.confirmation_payload(
-                        request_id=request_id,
-                        session_id=session_id,
-                    ),
-                }
-                draft = resolved_turn_service.complete_turn(
-                    turn_execution,
-                    draft_payload,
-                    terminal_status=ConversationTurnTerminalStatus.UNVERIFIED,
-                )
-                return JSONResponse(draft.to_wire_payload())
-            view_context = await with_compiled_user_policy(
-                view_context,
-                user_id=user_id,
-                store=conversation_policy_store,
-            )
-            view_context = await with_assurance_policy(
-                view_context,
-                user_id=user_id,
-                request_id=request_id,
-                runtime=conversation_assurance_runtime,
-            )
-            view_context = with_document_evidence(view_context, document_evidence_refs)
-            view_context = _with_screen_scope(
-                evidence_prompt,
-                view_context,
-                agent_delegate,
-                conversation_context=conversation_context,
-                target_agent=target_agent,
-            )
-            view_context = await _with_behavior_evidence(
-                evidence_prompt,
-                view_context,
-                behavior_resolver,
-            )
-
-            async def ignore_evidence_progress(_event: Mapping[str, Any]) -> None:
-                return None
-
-            view_context = await resolve_parallel_chat_evidence(
-                request_id=request_id,
-                prompt=evidence_prompt,
-                view_context=view_context,
-                user_id=user_id,
-                session_id=session_id,
-                conversation_context=conversation_context,
-                target_agent=target_agent,
-                tool_resolver=tool_resolver,
-                planned_tool_resolver=planned_tool_resolver,
-                evidence_resolver=evidence_resolver,
-                agent_delegate=agent_delegate,
-                web_search_resolver=web_search_resolver,
-                progress_observer=ignore_evidence_progress,
-                intent_graph=(semantic_plan if isinstance(semantic_plan, IntentGraph) else None),
-            )
-            view_context = _with_concept_evidence(evidence_prompt, view_context)
-            view_context = _with_ontology_storage_contract(evidence_prompt, view_context)
-            answer_plan, planning_task = start_shadow_answer_planning(
-                prompt=evidence_prompt,
-                plan=answer_plan,
-                delegate=(
-                    None
-                    if "_screen_scope" in view_context
-                    or "_ontology_storage_contract" in view_context
-                    or deterministic_followup
-                    or uses_evidence_fast_path(view_context)
-                    else answer_planning_delegate
-                ),
-            )
-            view_context["_answer_plan"] = answer_plan.to_dict()
-        except Exception:
-            if busy_input_coordinator is not None and active_turn is not None:
-                await busy_input_coordinator.finish_turn(
-                    session_id=session_id,
-                    turn_id=request_id,
-                    principal_id=user_id,
-                )
-            raise
-
-        # Wall-clock latency around the backend call - surfaced to the FE
-        # so the deck can render a "gpt-4o-mini · 830ms" badge next to
-        # each turn. Kept out of the backend Protocol so any implementer
-        # (real, disabled, or a future latency-routed wrapper) benefits
-        # without opting in.
-        started = time.monotonic()
-        try:
-            response_locale = _response_locale(clean_prompt, view_context)
-            health_answer = render_system_health_answer(
-                view_context,
-                locale=response_locale,
-            )
-            screen_answer = render_screen_data_answer(
-                clean_prompt,
-                view_context,
-                locale=response_locale,
-            )
-            concept_answer = (
-                _concept_answer(view_context, answer_plan) if response_locale is None else None
-            )
-            ontology_answer = _ontology_browse_answer(
-                clean_prompt,
-                view_context,
-                locale=response_locale,
-            )
-            contextual_verification = (
-                resource_followup_verification(view_context, resource_context)
-                if resource_followup
-                else None
-            )
-            freshness_verification = (
-                AnswerVerification(
-                    status="verified",
-                    answer=freshness_answer,
-                    authority="server_evidence_freshness",
-                    checks_completed=1,
-                    checks_total=1,
-                    evidence_refs=freshness_evidence_refs(freshness_context),
-                    reason_code="evidence_freshness_grounded",
-                )
-                if freshness_answer is not None and freshness_context is not None
-                else None
-            )
-            if uses_evidence_fast_path(view_context):
-                with (
-                    with_correlation(metering_correlation_id(user_id, session_id)),
-                    with_invocation_scope(InvocationScope.OPERATOR_CHAT),
-                ):
-                    presentation_decision = await await_with_interrupt(
-                        select_answer_presentation(
-                            backend=object(),
-                            prompt=clean_prompt,
-                            plan=answer_plan,
-                            view_context=view_context,
-                        ),
-                        active_turn=active_turn,
-                    )
-                    answer_plan = presentation_decision.answer_plan
-                    if presentation_decision.presentation_plan is not None:
-                        view_context["_presentation_plan"] = (
-                            presentation_decision.presentation_plan.to_dict()
-                        )
-                view_context["_answer_plan"] = answer_plan.to_dict()
-            reply: dict[str, Any]
-            if freshness_verification is not None:
-                verification = freshness_verification
-                reply = {
-                    "answer": verification.answer,
-                    "model": "evidence-freshness",
-                    "source": "evidence:freshness",
-                    "verification": verification.to_dict(),
-                }
-            elif contextual_verification is not None:
-                verification = contextual_verification
-                reply = {
-                    "answer": verification.answer,
-                    "model": "heimdall-read-investigation",
-                    "source": "evidence:read-investigation",
-                    "verification": verification.to_dict(),
-                }
-            elif uses_evidence_fast_path(view_context):
-                canonical = verify_answer(
-                    "",
-                    view_context,
-                    locale=_response_locale(clean_prompt, view_context),
-                )
-                verification = verify_answer(
-                    canonical.answer,
-                    view_context,
-                    locale=_response_locale(clean_prompt, view_context),
-                )
-                reply = {
-                    "answer": verification.answer,
-                    "model": "evidence-verifier",
-                    "source": f"evidence:{verification.status}",
-                    "verification": verification.to_dict(),
-                }
-            elif ontology_answer is not None:
-                verification = verify_answer(
-                    ontology_answer,
-                    view_context,
-                    locale=response_locale,
-                )
-                reply = {
-                    "answer": verification.answer,
-                    "model": "ontology-snapshot",
-                    "source": "evidence:ontology-snapshot",
-                    "verification": verification.to_dict(),
-                }
-            elif health_answer is not None:
-                verification = verify_answer(
-                    health_answer,
-                    view_context,
-                    locale=response_locale,
-                )
-                reply = {
-                    "answer": verification.answer,
-                    "model": "read-model-health",
-                    "source": "evidence:system-health",
-                    "verification": verification.to_dict(),
-                }
-            elif screen_answer is not None:
-                verification = verify_answer(
-                    screen_answer,
-                    view_context,
-                    locale=response_locale,
-                )
-                reply = {
-                    "answer": verification.answer,
-                    "model": "bragi-screen-t0",
-                    "source": "evidence:current-screen",
-                    "verification": verification.to_dict(),
-                }
-            elif concept_answer is not None:
-                verification = verify_answer(
-                    concept_answer,
-                    view_context,
-                    locale=None,
-                )
-                reply = {
-                    "answer": verification.answer,
-                    "model": "concept-glossary",
-                    "source": "evidence:fdai-glossary",
-                    "verification": verification.to_dict(),
-                }
-            else:
-
-                async def invoke_backend(
-                    active_history: list[dict[str, str]],
-                ) -> dict[str, Any]:
-                    nonlocal history_metadata
-
-                    async def invoke_raw(candidate_history: list[dict[str, str]]) -> dict[str, Any]:
-                        if isinstance(backend, LatencyRoutedChatBackend):
-                            return await backend.answer(
-                                prompt=clean_prompt,
-                                view_context=view_context,
-                                history=candidate_history,
-                                preferred_model=preferred_model,
-                            )
-                        return await backend.answer(
-                            prompt=clean_prompt,
-                            view_context=view_context,
-                            history=candidate_history,
-                        )
-
-                    backend_reply, recovery = await answer_with_content_policy_recovery(
-                        invoke=invoke_raw,
-                        history=active_history,
-                        compressor=history_compressor,
-                        policy=history_policy,
-                    )
-                    if recovery is not None:
-                        history_metadata = recovery.metadata()
-                    return backend_reply
-
-                with (
-                    with_correlation(metering_correlation_id(user_id, session_id)),
-                    with_invocation_scope(InvocationScope.OPERATOR_CHAT),
-                ):
-                    draft_reply = await answer_with_busy_input(
-                        invoke=invoke_backend,
-                        history=history,
-                        coordinator=busy_input_coordinator,
-                        active_turn=active_turn,
-                    )
-                provisional_answer = str(draft_reply.get("answer", ""))
-
-                async def invoke_quality(
-                    quality_prompt: str,
-                    quality_context: dict[str, Any],
-                ) -> dict[str, Any]:
-                    if isinstance(backend, LatencyRoutedChatBackend):
-                        return await backend.answer(
-                            prompt=quality_prompt,
-                            view_context=quality_context,
-                            history=[],
-                            preferred_model=str(draft_reply.get("model") or preferred_model or "")
-                            or None,
-                        )
-                    return await backend.answer(
-                        prompt=quality_prompt,
-                        view_context=quality_context,
-                        history=[],
-                    )
-
-                with (
-                    with_correlation(metering_correlation_id(user_id, session_id)),
-                    with_invocation_scope(InvocationScope.OPERATOR_CHAT),
-                ):
-                    quality = await await_with_interrupt(
-                        review_korean_narrator_answer(
-                            answer=provisional_answer,
-                            view_context=view_context,
-                            locale=response_locale,
-                            invoke=invoke_quality,
-                        ),
-                        active_turn=active_turn,
-                    )
-                verification = verify_quality_result(
-                    quality,
-                    view_context,
-                    locale=_response_locale(clean_prompt, view_context),
-                )
-                reply = {
-                    **draft_reply,
-                    "answer": verification.answer,
-                    "answer_quality": quality.to_dict(),
-                }
-            verification = merge_document_verification(
-                verification,
-                document_evidence_refs,
-            )
-            reply = {
-                **reply,
-                "answer": verification.answer,
-                "verification": verification.to_dict(),
-            }
-        except ChatTurnInterruptedError:
-            await cancel_planning(planning_task)
-            interrupted_payload = {
-                "detail": "chat turn interrupted",
-                "session_id": session_id,
-                "request_id": request_id,
-            }
-            interrupted = resolved_turn_service.terminate_turn(
-                turn_execution,
-                terminal_status=ConversationTurnTerminalStatus.CANCELLED,
-                code="chat_turn_interrupted",
-                detail=interrupted_payload["detail"],
-                wire_payload=interrupted_payload,
-            )
-            return JSONResponse(interrupted.to_wire_payload(), status_code=409)
-        except ChatBackendUnavailableError:
-            await cancel_planning(planning_task)
-            unavailable_payload = {"detail": "chat backend not configured on this deployment"}
-            resolved_turn_service.terminate_turn(
-                turn_execution,
-                terminal_status=ConversationTurnTerminalStatus.UNAVAILABLE,
-                code="chat_backend_unavailable",
-                detail=unavailable_payload["detail"],
-                wire_payload=unavailable_payload,
-            )
-            raise HTTPException(status_code=501, detail=unavailable_payload["detail"]) from None
-        except ChatContentPolicyError as exc:
-            await cancel_planning(planning_task)
-            if conversation_history_store is not None and operator_turn is not None:
-                try:
-                    await append_content_policy_receipt(
-                        store=conversation_history_store,
-                        principal_id=user_id,
-                        conversation_id=session_id,
-                        request_id=request_id,
-                        stage=exc.stage,
-                        recorded_at=datetime.now(tz=UTC),
-                        history_metadata=history_metadata,
-                    )
-                except Exception as receipt_error:  # noqa: BLE001 - preserve policy response
-                    _LOG.error(
-                        "chat content-policy receipt failed: %s",
-                        type(receipt_error).__name__,
-                        extra={"request_id": request_id},
-                    )
-                    failed_detail = "content policy receipt unavailable"
-                    resolved_turn_service.terminate_turn(
-                        turn_execution,
-                        terminal_status=ConversationTurnTerminalStatus.FAILED,
-                        code="content_policy_receipt_unavailable",
-                        detail=failed_detail,
-                        wire_payload={"detail": failed_detail},
-                    )
-                    raise HTTPException(
-                        status_code=503,
-                        detail=failed_detail,
-                    ) from receipt_error
-            policy_payload = {"detail": str(exc)}
-            resolved_turn_service.terminate_turn(
-                turn_execution,
-                terminal_status=ConversationTurnTerminalStatus.ABSTAINED,
-                code="content_policy_block",
-                detail=policy_payload["detail"],
-                wire_payload=policy_payload,
-            )
-            raise HTTPException(status_code=422, detail=policy_payload["detail"]) from exc
-        except asyncio.CancelledError:
-            await cancel_planning(planning_task)
-            cancelled_detail = "chat turn cancelled"
-            if not turn_execution.closed:
-                resolved_turn_service.terminate_turn(
-                    turn_execution,
-                    terminal_status=ConversationTurnTerminalStatus.CANCELLED,
-                    code="chat_turn_cancelled",
-                    detail=cancelled_detail,
-                    wire_payload={"detail": cancelled_detail},
-                )
-            raise
-        except Exception:
-            await cancel_planning(planning_task)
-            failed_detail = "chat turn failed"
-            if not turn_execution.closed:
-                resolved_turn_service.terminate_turn(
-                    turn_execution,
-                    terminal_status=ConversationTurnTerminalStatus.FAILED,
-                    code="chat_turn_failed",
-                    detail=failed_detail,
-                    wire_payload={"detail": failed_detail},
-                )
-            raise
-        finally:
-            if busy_input_coordinator is not None and active_turn is not None:
-                await busy_input_coordinator.finish_turn(
-                    session_id=session_id,
-                    turn_id=request_id,
-                    principal_id=user_id,
-                )
-        try:
-            terminal_payload = await complete_chat_response(
-                ResponseCompletionContext.from_handler_locals(
-                    locals(),
-                    post_turn_review_submitter=post_turn_review_submitter,
-                ),
-                ResponseCompletionDependencies.from_namespace(globals()),
-            )
-            return JSONResponse(terminal_payload)
-        except asyncio.CancelledError:
-            cancelled_detail = "chat turn cancelled"
-            if not turn_execution.closed:
-                resolved_turn_service.terminate_turn(
-                    turn_execution,
-                    terminal_status=ConversationTurnTerminalStatus.CANCELLED,
-                    code="chat_turn_cancelled",
-                    detail=cancelled_detail,
-                    wire_payload={"detail": cancelled_detail},
-                )
-            raise
-        except Exception:
-            failed_detail = "chat turn failed"
-            if not turn_execution.closed:
-                resolved_turn_service.terminate_turn(
-                    turn_execution,
-                    terminal_status=ConversationTurnTerminalStatus.FAILED,
-                    code="chat_turn_failed",
-                    detail=failed_detail,
-                    wire_payload={"detail": failed_detail},
-                )
-            raise
+            result = await executor.execute(principal_id=principal_id, body=body)
+        except JsonTurnExecutionError as exc:
+            status_code = _APPLICATION_ERROR_STATUSES.get(exc.code)
+            if status_code is None:
+                raise RuntimeError(f"unmapped JSON turn error code: {exc.code}") from exc
+            raise HTTPException(status_code=status_code, detail=exc.detail) from exc
+        return JSONResponse(result.payload, status_code=_OUTCOME_STATUSES[result.outcome])
 
     return Route(path, handler, methods=["POST"])
 
 
-def _log_handover_availability_failure(task: asyncio.Task[object]) -> None:
+async def _read_json_body(request: Request, *, max_body_bytes: int) -> dict[str, Any]:
+    declared_len = request.headers.get("content-length")
+    if declared_len is not None:
+        try:
+            if int(declared_len) > max_body_bytes:
+                raise HTTPException(status_code=413, detail="chat body too large")
+        except ValueError:
+            pass
+    body_bytes = await request.body()
+    if len(body_bytes) > max_body_bytes:
+        raise HTTPException(status_code=413, detail="chat body too large")
     try:
-        task.result()
-    except Exception as exc:  # noqa: BLE001 - availability never blocks chat
-        _LOG.warning("handover availability publish failed: %s", type(exc).__name__)
+        body = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail="chat body MUST be JSON") from exc
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="chat body MUST be a JSON object")
+    return body
 
 
 __all__ = [

@@ -4,42 +4,21 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Protocol
 
 from fdai.core.conversation.learner_access import project_turn_for_learner
 from fdai.core.learning import PostTurnReviewInput
-from fdai.core.operator_memory import ScopeKind
+from fdai.delivery.operator_api.application.conversation.review_submission import (
+    PostTurnReviewSubmission,
+    PostTurnReviewSubmitter,
+    explicit_corrections,
+)
 from fdai.shared.providers.user_context import (
     ConversationTurnRecord,
     UserPreferenceStore,
 )
-
-_CORRECTION_MARKERS = (
-    re.compile(r"\b(?:no|instead|next time|do not|don't|should have)\b", re.IGNORECASE),
-    re.compile(r"(?:아니|대신|다음부터|하지 마|해야 했)"),
-)
-
-
-@dataclass(frozen=True, slots=True)
-class PostTurnReviewSubmission:
-    validation_outcomes: tuple[str, ...]
-    evidence_refs: tuple[str, ...]
-    explicit_corrections: tuple[str, ...] = ()
-    memory_scope_kind: ScopeKind | None = None
-    memory_scope_ref: str | None = None
-
-
-class PostTurnReviewSubmitter(Protocol):
-    def submit_nowait(
-        self,
-        *,
-        operator_turn: ConversationTurnRecord,
-        assistant_turn: ConversationTurnRecord,
-        submission: PostTurnReviewSubmission,
-    ) -> bool: ...
 
 
 class PostTurnReviewIntake(Protocol):
@@ -151,11 +130,6 @@ class PostTurnReviewQueue:
                     return
                 delay = self._config.retry_backoff_seconds * (2**attempt)
                 await self._sleep(delay)
-
-
-def explicit_corrections(prompt: str) -> tuple[str, ...]:
-    """Return the bounded prompt only when it carries a correction marker."""
-    return (prompt,) if any(pattern.search(prompt) for pattern in _CORRECTION_MARKERS) else ()
 
 
 def _review_id(assistant_turn_id: str) -> str:

@@ -340,16 +340,20 @@ assurance-policy, and one-shot response completion behind explicit application o
 terminal summaries and payload values remain under `projections.conversation.terminal`, and
 conversation application, projection, and persistence packages import no route module.
 
-This was partial structural closure, not final SD-01 completion. `chat.py` and `chat_stream.py`
-remain transitional because their route bodies still coordinate planning, evidence, persistence,
-and metering lifecycle work alongside JSON/SSE transport. The remaining four files have explicit
-structural roles: `chat_registration.py` owns registration, `chat_stream_protocol.py` owns the SSE
-protocol, `chat_stream_request.py` owns request transport, and `chat_verification.py` is the
-implementation-free compatibility facade. The family becomes transport-only only after typed
-application coordination, preferably under `application/conversation/turn_execution` or
-`application/conversation/turn_runtime`, removes lifecycle orchestration from both main route
-bodies without changing JSON, SSE, authentication, status, frame, cancellation, or history
-behavior.
+The one-shot JSON lifecycle now lives under
+`application/conversation/turn_execution`. Its typed service coordinates request preparation,
+planning, evidence, generation, busy input, verification, response completion, persistence,
+metering, and user-context projection without importing Starlette, provider adapters, or route
+modules. `chat.py` retains authentication, bounded JSON parsing, application error-to-status
+mapping, `JSONResponse` delivery, route binding, and reviewed compatibility imports.
+
+SD-01 remains open because `chat_stream.py` still coordinates the SSE planning, evidence,
+persistence, metering, and terminal lifecycle. The remaining four files keep explicit structural
+roles: `chat_registration.py` owns registration, `chat_stream_protocol.py` owns the SSE protocol,
+`chat_stream_request.py` owns request transport, and `chat_verification.py` is the
+implementation-free compatibility facade. The family becomes transport-only after the next SSE
+slice moves that remaining lifecycle coordination without changing SSE authentication, status,
+frame ordering, cancellation, replay, or history behavior.
 
 ### Change lineage projection boundary
 
@@ -387,7 +391,8 @@ reverses physical ownership without a wire or caller migration.
 | `adapters/conversation/` | Azure and OpenAI-compatible narrator transports plus web-search startup construction | Import through explicit modules; keep credentials, endpoints, deployment selection, and transport outside application and routes. |
 | `app/` | Shared ASGI assembly, middleware, registration, and lifespan | Retain as the HTTP composition boundary. |
 | `application/` | Typed process-local, non-authoritative application coordination | Retain until service-graduation evidence justifies a process boundary. |
-| `application/conversation/` | Process-local conversation planning, server policy resolution, one-shot response completion, capability visibility, strict intent classification, busy-input steering and interruption, and capabilities outside HTTP transport; typed turn execution/runtime coordination remains the SD-01 destination for lifecycle work still in `chat.py` and `chat_stream.py` | Retain in-process until service-graduation evidence exists; extract planning, evidence, persistence, and metering lifecycle orchestration from both main route bodies while keeping response construction, connection cancellation, and wire delivery in routes. |
+| `application/conversation/` | Process-local conversation planning, server policy resolution, one-shot JSON execution, response completion, capability visibility, strict intent classification, busy-input steering and interruption, and capabilities outside HTTP transport | Retain in-process until service-graduation evidence exists; keep HTTP and SSE transport responsibilities in routes. |
+| `application/conversation/turn_execution/` | Typed, Starlette-free one-shot JSON request preparation, planning, evidence, generation, verification, persistence, metering, and completion coordination | Import through its explicit facade; keep authentication, body parsing, status mapping, and `JSONResponse` delivery in `chat.py`. |
 | `application/conversation/capabilities/` | Typed process-local agent delegation, runtime-skill, configuration-drift, web-search, and read-model capabilities grouped by domain | Retain as the non-authoritative capability owner; use injected read-only runtime and provider contracts. |
 | `application/conversation/capabilities/inventory/` | Typed inventory queries, deterministic compilation, semantic grounding, and provider-read coordination | Import through its explicit package facade; keep JSON, SSE, authentication, and history in routes. |
 | `application/conversation/backend/` | Provider-neutral backend contracts and request-local latency routing | Import through its explicit facade; keep provider implementations in adapters. |
@@ -408,7 +413,7 @@ reverses physical ownership without a wire or caller migration.
 | `projections/conversation/inventory/` | Inventory evidence sanitization, result projection, and deterministic rendering | Import through its explicit facade; keep query compilation and provider coordination in the application package. |
 | `projections/conversation/terminal/` | Terminal payload, LLM usage, resource-result, and source-failure projections | Import through its explicit facade; keep JSON, SSE, authentication, cancellation, and history in routes. |
 | `production/` | Production provider construction and bindings | Reduce fanout incrementally without changing wire behavior. |
-| `routes/` | HTTP and SSE transport, route registration, domain request adapters, classified compatibility facades, and transitional lifecycle coordination still present in `chat.py` and `chat_stream.py` | Retain as the transport and reviewed facade boundary; remove the remaining planning, evidence, persistence, and metering lifecycle orchestration before claiming transport-only route ownership. |
+| `routes/` | HTTP and SSE transport, route registration, domain request adapters, classified compatibility facades, and transitional SSE lifecycle coordination still present in `chat_stream.py` | Retain as the transport and reviewed facade boundary; remove the remaining SSE planning, evidence, persistence, and metering lifecycle orchestration before claiming transport-only route-family ownership. |
 | `streaming/` | Read-only SSE transport, redaction, fanout, and runtime projection | Retain until versioned relay and replay contracts exist. |
 
 `fdai.delivery.operator_api.main` is the public app facade. `read_model` remains a public delivery
@@ -517,12 +522,16 @@ a separately reviewed boundary.
   These moved internal helpers have no compatibility shims.
 - `routes/chat_stream_request.py` owns authorization, Content-Length and raw-body bounds, JSON-object
   parsing, application-error to HTTP mapping, and the SSE preparation adapter.
+- `application/conversation/turn_execution/` owns one-shot JSON request preparation, planning,
+  evidence, generation, verification, persistence, metering, and terminal completion through typed
+  dependencies and results. It imports no Starlette, route, or provider-adapter module.
 - The six-file `chat*.py` structural inventory contains `chat.py`, `chat_registration.py`,
   `chat_stream.py`, `chat_stream_protocol.py`, `chat_stream_request.py`, and the
-  implementation-free `chat_verification.py` source-path facade. `chat.py` and `chat_stream.py`
-  remain transitional until typed application coordination owns their planning, evidence,
-  persistence, and metering lifecycle work. The other four files remain registration, SSE
-  protocol, request transport, and compatibility-facade owners respectively.
+  implementation-free `chat_verification.py` source-path facade. `chat.py` now owns only JSON HTTP
+  transport and compatibility binding. `chat_stream.py` remains transitional until typed
+  application coordination owns its planning, evidence, persistence, and metering lifecycle work.
+  The other four files remain registration, SSE protocol, request transport, and
+  compatibility-facade owners respectively.
 - `application/conversation/capabilities/knowledge_context.py` reads exact prior-turn runbooks,
   source freshness, consented memory,
   and materialized learning without writing state.
