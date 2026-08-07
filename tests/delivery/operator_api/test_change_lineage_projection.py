@@ -147,6 +147,7 @@ def test_detail_is_bounded_and_omits_raw_provider_content() -> None:
     assert detail.evidence_ref_count == 40
     assert len(detail.evidence_refs) == 32
     assert detail.evidence_truncated is True
+    assert f"change-assessment:{detail.assessment_digest}" in detail.evidence_refs
     assert mapping["summary"]["execution_authority"] is False
     assert {"author", "metadata", "change_summary"}.isdisjoint(_mapping_keys(mapping))
 
@@ -241,6 +242,23 @@ def test_detail_projection_rejects_inconsistent_serialization_metadata() -> None
             decision_reason="x" * 513,
             decision_reason_truncated=False,
         )
+    with pytest.raises(ValueError, match="assessment evidence"):
+        replace(
+            detail,
+            evidence_refs=("evidence:one", "evidence:two"),
+            evidence_ref_count=2,
+        )
+
+
+def test_detail_retains_assessment_evidence_when_it_sorts_after_bound() -> None:
+    evidence = tuple(f"a-evidence:{index:02d}" for index in range(40))
+
+    detail = project_change_lineage_detail(_lineage(evidence_refs=evidence))
+
+    assert len(detail.evidence_refs) == 32
+    assert detail.evidence_ref_count == 41
+    assert detail.evidence_truncated is True
+    assert f"change-assessment:{detail.assessment_digest}" in detail.evidence_refs
 
 
 def test_projection_package_has_no_http_route_or_persistence_dependencies() -> None:

@@ -185,6 +185,11 @@ class ChangeLineageDetailProjection:
             truncated=self.evidence_truncated,
             limit=_MAX_EVIDENCE_REFS,
         )
+        assessment_evidence_ref = f"change-assessment:{self.assessment_digest}"
+        if assessment_evidence_ref not in self.evidence_refs:
+            raise ValueError(
+                "change lineage detail MUST retain its canonical assessment evidence ref"
+            )
 
     def to_mapping(self) -> dict[str, Any]:
         """Return the stable bounded detail mapping."""
@@ -295,10 +300,10 @@ def project_change_lineage_detail(
         lineage.decision.violated_constraint_ids,
         limit=_MAX_CONSTRAINTS,
     )
-    evidence_refs, evidence_truncated = _bounded_identities(
-        "evidence_refs",
+    assessment_evidence_ref = f"change-assessment:{lineage.assessment_digest}"
+    evidence_refs, evidence_truncated = _bounded_evidence_refs(
         lineage.evidence_refs,
-        limit=_MAX_EVIDENCE_REFS,
+        required_ref=assessment_evidence_ref,
     )
     return ChangeLineageDetailProjection(
         summary=summary,
@@ -370,6 +375,24 @@ def _bounded_identities(
     for value in values:
         _identity(name, value)
     return values[:limit], len(values) > limit
+
+
+def _bounded_evidence_refs(
+    values: tuple[str, ...],
+    *,
+    required_ref: str,
+) -> tuple[tuple[str, ...], bool]:
+    bounded, truncated = _bounded_identities(
+        "evidence_refs",
+        values,
+        limit=_MAX_EVIDENCE_REFS,
+    )
+    if required_ref not in values:
+        raise ValueError("change lineage projection requires canonical assessment evidence")
+    if required_ref in bounded:
+        return bounded, truncated
+    retained = tuple(sorted((*bounded[:-1], required_ref)))
+    return retained, truncated
 
 
 def _bounded_text(value: str, limit: int) -> tuple[str, bool]:
