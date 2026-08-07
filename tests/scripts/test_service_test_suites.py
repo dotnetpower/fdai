@@ -12,6 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SERVICE_PLAN_PATH = REPO_ROOT / "config" / "service-decomposition.json"
 SUITE_PATH = REPO_ROOT / "tests" / "service-suites.json"
 RUNNER_PATH = REPO_ROOT / "scripts" / "automation" / "run-service-tests.py"
+MAKEFILE_PATH = REPO_ROOT / "Makefile"
 GROUPS = ("unit", "contract", "integration", "smoke")
 
 
@@ -78,6 +79,12 @@ def test_every_runtime_service_has_one_test_suite() -> None:
 
     assert suite_plan["schema_version"] == 1
     assert actual == expected
+
+
+def test_service_test_make_targets_do_not_expand_freeform_pytest_args() -> None:
+    makefile = MAKEFILE_PATH.read_text(encoding="utf-8")
+
+    assert "$(PYTEST_ARGS)" not in makefile
 
 
 def test_service_suite_paths_exist_and_have_one_owner() -> None:
@@ -207,6 +214,72 @@ def test_service_test_runner_lists_only_owned_paths(
     listed = capsys.readouterr().out.splitlines()
     assert "tests/contracts/test_executor_transport.py" in listed
     assert all("operator_api" not in path for path in listed)
+
+
+def test_service_test_runner_lists_all_services_in_canonical_order(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    namespace = _runner_namespace()
+    suite_plan = _load(SUITE_PATH)
+    expected = [
+        path
+        for service in suite_plan["services"]
+        for group in GROUPS
+        for path in service["test_groups"][group]
+    ]
+
+    assert namespace["main"](["--all", "--list"]) == 0
+
+    assert capsys.readouterr().out.splitlines() == expected
+
+
+def test_service_test_runner_executes_canonical_all_service_union(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    namespace = _runner_namespace()
+    suite_plan = _load(SUITE_PATH)
+    expected = [
+        path
+        for service in suite_plan["services"]
+        for group in GROUPS
+        for path in service["test_groups"][group]
+    ]
+    observed: list[str] = []
+
+    def completed(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        del kwargs
+        observed.extend(command)
+        return subprocess.CompletedProcess(args=command, returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", completed)
+
+    assert namespace["main"](["--all", "-q"]) == 0
+    assert observed[:4] == [namespace["sys"].executable, "-m", "pytest", "-q"]
+    assert observed[4:] == expected
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    (
+        [],
+        ["isolated-executor", "--all"],
+    ),
+)
+def test_service_test_runner_requires_exactly_one_service_selection(
+    arguments: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    namespace = _runner_namespace()
+
+    def fail_if_called(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        del args, kwargs
+        raise AssertionError("pytest MUST NOT run with an ambiguous service selection")
+
+    monkeypatch.setattr(subprocess, "run", fail_if_called)
+
+    assert namespace["main"](arguments) == 2
+    assert "exactly one service or --all" in capsys.readouterr().err
 
 
 def test_service_test_runner_rejects_foreign_pytest_path(

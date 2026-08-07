@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the pytest suite owned by one deployable FDAI service."""
+"""Run the pytest suites owned by one or all deployable FDAI services."""
 
 from __future__ import annotations
 
@@ -300,7 +300,13 @@ def _test_paths(service: dict[str, Any]) -> tuple[str, ...]:
 
 def _parser(service_ids: Sequence[str]) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("service", choices=service_ids)
+    parser.add_argument("service", nargs="?", choices=service_ids)
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="all_services",
+        help="select every service in canonical topology order",
+    )
     parser.add_argument("--list", action="store_true", help="print owned test paths and exit")
     return parser
 
@@ -329,7 +335,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         services = _load_services()
         args, pytest_args = _parser(tuple(services)).parse_known_args(argv)
-        paths = _test_paths(services[args.service])
+        selection_count = int(args.service is not None) + int(args.all_services)
+        if selection_count != 1:
+            raise ValueError("select exactly one service or --all")
+        if args.all_services:
+            paths = tuple(path for service in services.values() for path in _test_paths(service))
+        else:
+            paths = _test_paths(services[args.service])
         pytest_args = _validated_pytest_args(pytest_args)
         if args.list:
             if pytest_args:

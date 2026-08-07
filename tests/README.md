@@ -14,19 +14,35 @@ their current subsystem while each service gets an independently runnable verifi
 Run one service suite with:
 
 ```bash
-make service-test SERVICE=isolated-executor PYTEST_ARGS="-q"
+make service-test SERVICE=isolated-executor
 ```
 
-`PYTEST_ARGS` accepts bounded reporting, filtering, failure-control, and parallelism options such
-as `-q`, `-v`, `-k`, `-m`, `-x`, `--no-cov`, `--tb`, `--maxfail`, `-n`, and `--dist`. It doesn't
-accept additional test paths, response files, root overrides, or plugin-specific collection
-options. The runner always supplies the paths owned by the selected service.
+Run all five service suites in canonical topology order with:
+
+```bash
+make service-test-all
+```
+
+For bounded reporting, filtering, failure-control, or parallelism options, invoke the runner
+directly so its allowlist validates each argument:
+
+```bash
+uv run --extra dev python scripts/automation/run-service-tests.py isolated-executor -- -q -x
+```
+
+The runner accepts options such as `-q`, `-v`, `-k`, `-m`, `-x`, `--no-cov`, `--tb`,
+`--maxfail`, `-n`, and `--dist`. It doesn't accept additional test paths, response files, root
+overrides, or plugin-specific collection options. The runner always supplies the paths owned by
+the selected service. Make targets intentionally don't interpolate free-form arguments through a
+shell.
 
 List the selected paths without running pytest with:
 
 ```bash
 uv run python scripts/automation/run-service-tests.py isolated-executor --list
 ```
+
+Use `--all --list` to inspect the complete canonical path union without running pytest.
 
 `--list` can't be combined with pytest arguments. A malformed manifest, an empty service suite,
 an out-of-repository path, or a path that overlaps another service fails before pytest starts.
