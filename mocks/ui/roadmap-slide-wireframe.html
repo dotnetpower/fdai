@@ -111,40 +111,40 @@
     <article class="slide" aria-labelledby="overview-title">
       <div class="header-rule" aria-hidden="true"></div>
       <p class="eyebrow">FDAI | Operating Model</p>
-      <h1 id="overview-title">하나의 운영 모델로<br />세 가지 거버넌스 결과를 만든다</h1>
-      <p class="lead">FDAI는 SRE를 공통 운영 모델로 삼아, 복원력, 변경 안전, 비용 거버넌스를 같은 증거 기반 제어 루프로 운영합니다.</p>
+      <h1 id="overview-title">운영을 자동화해도<br />통제의 기준은 낮추지 않는다</h1>
+      <p class="lead">FDAI는 SRE 운영 모델 위에서 복원력, 변경 안전, 비용 거버넌스를 같은 증거 기반 제어 루프로 운영합니다.</p>
 
       <div class="model-line" aria-label="SRE operating model relationship">
         <span class="model-label">SRE 운영 모델</span>
         <span class="model-arrow" aria-hidden="true"></span>
-        <span class="model-copy">관찰 - 판단 - 승인 - 실행 - 검증 - 학습</span>
+        <span class="model-copy">관찰 - 증거 수집 - 판단 - 승인 - 실행 - 독립 검증 - 학습</span>
       </div>
 
       <div class="capability-grid">
         <article class="capability is-resilience">
           <p class="cap-kicker">Resilience</p>
           <h2>Chaos / DR</h2>
-          <p>장애를 가정한 실험과 복구 훈련으로, 실제 복구 가능성과 RTO/RPO를 지속해서 검증합니다.</p>
-          <ul><li>Chaos Engineering</li><li>Failover</li><li>Recovery drill</li></ul>
+          <p>사람이 승인한 실험을 정해진 영향 범위 안에서 실행하고, 한계를 넘으면 즉시 복구 경로로 전환합니다.</p>
+          <ul><li>Impact envelope</li><li>Recovery plan</li><li>RTO/RPO</li></ul>
         </article>
         <article class="capability is-change">
           <p class="cap-kicker">Change Safety</p>
           <h2>ARB + Change Management</h2>
-          <p>변경 전에는 위험과 근거를 검토하고, 변경 후에는 효과와 롤백 가능성을 독립적으로 확인합니다.</p>
-          <ul><li>ARB evidence</li><li>Policy gate</li><li>Rollback</li></ul>
+          <p>설계 검토, 정책 조건, 변경 후 독립 검증을 연결해 '승인'과 '성공'을 분명히 구분합니다.</p>
+          <ul><li>Design evidence</li><li>Policy gate</li><li>Effect verification</li></ul>
         </article>
         <article class="capability is-finops">
           <p class="cap-kicker">Cost Governance</p>
           <h2>FinOps</h2>
-          <p>비용 이상을 탐지하고, 신뢰성 제약을 지키는 범위에서 검증 가능한 최적화 후보를 관리합니다.</p>
-          <ul><li>Cost visibility</li><li>Forecast</li><li>Verified savings</li></ul>
+          <p>신뢰성 제약을 먼저 지키고, 그 안에서 측정되고 확인된 절감 기회를 관리합니다.</p>
+          <ul><li>Forecast</li><li>Protected reliability</li><li>Realized savings</li></ul>
         </article>
       </div>
 
       <div class="outcome-strip" aria-label="Outcome proof">
-        <div class="outcome"><strong>복원력</strong><span>독립적으로 검증된 복구와 재발 방지</span></div>
-        <div class="outcome"><strong>변경 안전</strong><span>승인 조건과 변경 후 효과 검증</span></div>
-        <div class="outcome"><strong>비용 거버넌스</strong><span>신뢰성을 훼손하지 않는 실현 절감</span></div>
+        <div class="outcome"><strong>복원력</strong><span>측정된 RTO/RPO와 데이터 무결성</span></div>
+        <div class="outcome"><strong>변경 안전</strong><span>승인 조건과 독립 효과 검증</span></div>
+        <div class="outcome"><strong>비용 거버넌스</strong><span>신뢰성을 지키는 실현 절감</span></div>
       </div>
       <span class="slide-number">01</span>
     </article>
@@ -155,42 +155,42 @@
       <div class="header-rule" aria-hidden="true"></div>
       <p class="eyebrow">FDAI | Roadmap</p>
       <div class="roadmap-head">
-        <h1 id="roadmap-title">증거를 쌓아 통제된 자율성으로 확장한다</h1>
+        <h1 id="roadmap-title">근거를 쌓고, 자율성은 증명하며 확장한다</h1>
         <div class="roadmap-key" aria-label="Roadmap state legend">
-          <span><i style="background:#96a3a8;"></i>관찰</span>
-          <span><i style="background:var(--orange);"></i>통제된 적용</span>
-          <span><i style="background:var(--teal);"></i>확장</span>
+          <span><i style="background:#96a3a8;"></i>관찰 모드</span>
+          <span><i style="background:var(--orange);"></i>안전성 검토</span>
+          <span><i style="background:var(--teal);"></i>근거 기반 승격</span>
         </div>
       </div>
 
       <div class="roadmap" role="table" aria-label="FDAI capability roadmap">
         <div class="roadmap-corner" role="columnheader">운영 역량</div>
-        <div class="horizon" role="columnheader"><span class="stage">HORIZON 1</span><strong>기반과 가시성</strong><span>측정 가능한 기준선</span></div>
-        <div class="horizon" role="columnheader"><span class="stage">HORIZON 2</span><strong>통제된 적용</strong><span>정책과 검증이 있는 자동화</span></div>
-        <div class="horizon" role="columnheader"><span class="stage">HORIZON 3</span><strong>확장과 학습</strong><span>재사용 가능한 운영 패턴</span></div>
+        <div class="horizon" role="columnheader"><span class="stage">HORIZON 1</span><strong>근거의 기반</strong><span>관찰 모드와 측정 기준선</span></div>
+        <div class="horizon" role="columnheader"><span class="stage">HORIZON 2</span><strong>검증된 적용</strong><span>정책, 승인, 독립 검증</span></div>
+        <div class="horizon" role="columnheader"><span class="stage">HORIZON 3</span><strong>근거 기반 승격</strong><span>재사용 가능한 운영 패턴</span></div>
 
         <div class="lane" role="rowheader"><i class="lane-dot" style="background:var(--blue);"></i><div><strong>SRE</strong><span>공통 운영 모델</span></div></div>
-        <div class="roadmap-cell"><span class="state observe">OBSERVE</span><p>이벤트, SLO, 감사 증거를 하나의 운영 흐름으로 연결</p></div>
-        <div class="roadmap-cell"><span class="state govern">GOVERN</span><p>반복 대응을 T0 규칙으로 표준화하고, 예외는 승인 경로로 분리</p></div>
-        <div class="roadmap-cell"><span class="state scale">SCALE</span><p>검증된 운영 패턴을 재사용하고 결과를 지속 측정</p></div>
+        <div class="roadmap-cell"><span class="state observe">SHADOW</span><p>이벤트, SLO, 감사 증거를 하나의 흐름으로 연결</p></div>
+        <div class="roadmap-cell"><span class="state govern">GATED</span><p>반복 대응은 규칙으로, 예외는 승인 경로로 분리</p></div>
+        <div class="roadmap-cell"><span class="state scale">PROMOTED</span><p>검증된 운영 패턴을 재사용하고 결과를 지속 측정</p></div>
 
         <div class="lane" role="rowheader"><i class="lane-dot" style="background:var(--red);"></i><div><strong>Chaos / DR</strong><span>복원력 검증</span></div></div>
-        <div class="roadmap-cell"><span class="state observe">OBSERVE</span><p>RTO/RPO 기준선과 복구 증거를 수집</p></div>
-        <div class="roadmap-cell"><span class="state govern">GOVERN</span><p>복구 드릴과 중단 조건을 갖춘 Chaos 실험을 운영</p></div>
-        <div class="roadmap-cell"><span class="state scale">SCALE</span><p>시나리오별 회복 패턴과 검증 기준을 확대</p></div>
+        <div class="roadmap-cell"><span class="state observe">SHADOW</span><p>RTO/RPO와 복구 증거를 기준선으로 확보</p></div>
+        <div class="roadmap-cell"><span class="state govern">GATED</span><p>승인, 중단 조건, 복구 계획을 갖춘 실험 운영</p></div>
+        <div class="roadmap-cell"><span class="state scale">PROMOTED</span><p>훈련 결과로 회복 패턴과 검증 기준을 확대</p></div>
 
         <div class="lane" role="rowheader"><i class="lane-dot" style="background:var(--plum);"></i><div><strong>ARB + Change</strong><span>변경 안전</span></div></div>
-        <div class="roadmap-cell"><span class="state observe">OBSERVE</span><p>변경 영향, 의존성, 감사 기록을 표준화</p></div>
-        <div class="roadmap-cell"><span class="state govern">GOVERN</span><p>정책 기반 ARB 패킷과 롤백 계약을 적용</p></div>
-        <div class="roadmap-cell"><span class="state scale">SCALE</span><p>승격 조건과 변경 결과를 조직 단위로 비교</p></div>
+        <div class="roadmap-cell"><span class="state observe">SHADOW</span><p>변경 영향, 의존성, 감사 기록을 표준화</p></div>
+        <div class="roadmap-cell"><span class="state govern">GATED</span><p>ARB 근거, 정책 조건, 롤백 계약을 적용</p></div>
+        <div class="roadmap-cell"><span class="state scale">PROMOTED</span><p>승격 조건과 독립 검증 결과를 범위별로 비교</p></div>
 
         <div class="lane" role="rowheader"><i class="lane-dot" style="background:var(--teal);"></i><div><strong>FinOps</strong><span>비용 거버넌스</span></div></div>
-        <div class="roadmap-cell"><span class="state observe">OBSERVE</span><p>비용 이벤트, 예산, 사용량의 기준선을 확보</p></div>
-        <div class="roadmap-cell"><span class="state govern">GOVERN</span><p>정책 안에서 절감 후보를 검토하고 효과를 확인</p></div>
-        <div class="roadmap-cell"><span class="state scale">SCALE</span><p>검증된 절감 패턴과 보호 제약을 범위별로 확장</p></div>
+        <div class="roadmap-cell"><span class="state observe">SHADOW</span><p>비용, 예산, 사용량과 신뢰성 기준선을 연결</p></div>
+        <div class="roadmap-cell"><span class="state govern">GATED</span><p>신뢰성 제약 안에서 절감 후보와 효과를 검토</p></div>
+        <div class="roadmap-cell"><span class="state scale">PROMOTED</span><p>실현 절감과 보호 제약을 범위별로 확장</p></div>
       </div>
 
-      <div class="roadmap-note"><span><strong>원칙:</strong> 모든 상태 변경은 Shadow에서 시작하고, 승인된 프로모션 근거가 있을 때만 적용 범위를 넓힙니다.</span><span>02</span></div>
+      <div class="roadmap-note"><span><strong>원칙:</strong> 모든 상태 변경은 관찰 모드에서 시작하며, 검증 가능한 프로모션 근거가 있을 때만 적용 범위를 넓힙니다.</span><span>02</span></div>
     </article>
   </section>
 </body>
