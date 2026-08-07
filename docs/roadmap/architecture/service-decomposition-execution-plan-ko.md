@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 8c9b4bb5f1496f6e9c19233ce38707f9a41a1997
+translation_source_sha: 09728ba11dc5e64da479f3fd69e67aeb49a1608e
 translation_revised: 2026-08-07
 ---
 # 서비스 분해 실행 계획
@@ -38,8 +38,8 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 
 | 상태 | 개수 | 의미 |
 |------|------|------|
-| 완료 | 2 | Exit evidence와 focused validation을 기록했습니다. |
-| 진행 중 | 3 | SD-01, SD-03, SD-04를 isolated worktree에서 실행 중입니다. |
+| 완료 | 3 | Exit evidence와 focused validation을 기록했습니다. |
+| 진행 중 | 2 | SD-01과 SD-03을 isolated worktree에서 실행 중입니다. |
 | 계획됨 | 5 | Dependency 또는 ownership handoff가 완료되지 않았습니다. |
 | 차단됨 | 0 | 이름이 지정된 gate가 현재 진행을 막고 있습니다. |
 
@@ -53,7 +53,7 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 | [ ] | SD-01 | JSON, SSE, authentication, history behavior를 변경하지 않고 Operator route family를 transport, application, projection, adapter, streaming, persistence package로 분해합니다. | SD-00 | A | 고정된 route contract와 package-boundary check |
 | [x] | SD-02 | Core composition, Thor execution, Saga audit intent와 closure, Vidar recovery를 명시적으로 주입된 port 뒤로 분리합니다. | SD-00 | A | Authority regression과 import-boundary receipt |
 | [ ] | SD-03 | Ingestion API와 Worker identity, database grant, claim, duplicate/reorder behavior, restart recovery, probe, co-host rollback을 강화합니다. | SD-00 | A | Role test와 15분 이내 rollback rehearsal |
-| [ ] | SD-04 | Canonical ontology release 배포, exact reference pinning, N/N-1 compatibility, projection-writer ownership, mismatch rejection, replay, rollback을 추가합니다. | SD-00 | B | Cross-service ontology compatibility와 semantic regression receipt |
+| [x] | SD-04 | Canonical ontology release 배포, exact reference pinning, N/N-1 compatibility, projection-writer ownership, mismatch rejection, replay, rollback을 추가합니다. | SD-00 | B | Cross-service ontology compatibility와 semantic regression receipt |
 | [ ] | SD-05 | Canonical AST analysis부터 catalog build, semantic validation, ontology/vector generation, incremental parity, exact applicability, evaluation, governed feedback까지 Rego knowledge path를 구축합니다. | SD-04 | B | Query-to-exact-Rego contract test와 generation rollback receipt |
 | [ ] | SD-06 | Canonical Change lineage, provider adapter, decision trace, delivery/outcome join, resilience coverage, candidate-only learning, read-only Operator projection을 추가합니다. | SD-02, SD-04, SD-05 | C | Replay 가능한 lineage와 authority non-escalation receipt |
 | [ ] | SD-07 | Effect authority 없이 Isolated Executor command와 receipt contract, durable attempt mechanics, shadow consumer, health, telemetry, identity, Container App을 구현합니다. | SD-02, SD-04 | C | Duplicate, reorder, restart, deadline, lock, shadow receipt |
@@ -96,7 +96,7 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 |------|------------|-----------|-----------|
 | SD-01 application route debt | 기존 SD-01 isolated session | `src/fdai/delivery/operator_api/**`, 해당 Operator API test와 module-map 업데이트 | Route boundary focused commit과 receipt를 integration owner에게 handoff |
 | SD-03 effective access와 rollback | 기존 SD-03 isolated session | Ingestion runtime, ingestion 전용 Terraform, access probe와 해당 test | Effective-access proof와 rollback evidence를 integration owner에게 handoff |
-| SD-04 completion audit | SD-04 closeout session | Ontology release, catalog-search generation, compatibility test와 담당 ontology 문서 | SD-04 exit evidence를 수락하거나 이름이 지정된 blocker를 기록 |
+| SD-04 완료 path | Downstream handoff 전까지 integration owner | Ontology release, catalog-search generation, compatibility test와 담당 ontology 문서 | SD-05 또는 SD-07 owner가 겹치지 않는 예약을 기록 |
 | Serial integration | Integration owner | 이 계획 문서 쌍, machine status manifest, package 간 contract, production composition, pantheon role, executor identity cutover | Focused package handoff를 수락하고 dependency 상태를 업데이트 |
 
 ## 진행 상태 업데이트 contract
@@ -120,6 +120,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-07 | SD-03 | 진행 중 | Start `ccfa3c3dd` | Ingestion identity와 storage-role 검증을 시작했습니다. |
 | 2026-08-07 | SD-04 | 진행 중 | Start `ccfa3c3dd` | Cross-service ontology release compatibility gate를 시작했습니다. |
 | 2026-08-07 | SD-02 | 완료 | `2a82507cb`, `7e15ba084`, `7a48288cb` | Shared execution instance, durable Saga audit readiness, Vidar recovery readiness, normal dispatch, HIL resume를 명시적 composition evidence로 고정했고 union test 122개가 통과했습니다. |
+| 2026-08-07 | SD-04 | 완료 | `f5cf51e3a`, `91c88f2a3`, `a5350296e`, `b24c2d90d`, `07161a96c` | Exact release ref, additive N/N-1 compatibility, revision-fenced projection writer, provider I/O 전 mismatch rejection, replay-stable atomic generation rollback이 focused union test 142개를 통과했습니다. `FDAI_DATABASE_URL`이 설정되지 않아 PostgreSQL live case 8개는 skip 상태이며, baseline은 이 live generation receipt를 SD-05에 할당합니다. |
 
 ## 관련 문서
 

@@ -40,8 +40,8 @@ subscribers inside their owning runtime service.
 
 | State | Count | Meaning |
 |-------|-------|---------|
-| Completed | 2 | Exit evidence and focused validation are recorded. |
-| In progress | 3 | SD-01, SD-03, and SD-04 are running in isolated worktrees. |
+| Completed | 3 | Exit evidence and focused validation are recorded. |
+| In progress | 2 | SD-01 and SD-03 are running in isolated worktrees. |
 | Planned | 5 | Dependencies or ownership handoff have not completed. |
 | Blocked | 0 | A named gate currently prevents progress. |
 
@@ -55,7 +55,7 @@ Last updated: 2026-08-07.
 | [ ] | SD-01 | Decompose Operator route families into transport, application, projection, adapter, streaming, and persistence packages without changing JSON, SSE, authentication, or history behavior. | SD-00 | A | Frozen route contracts and package-boundary checks |
 | [x] | SD-02 | Isolate Core composition, Thor execution, Saga audit intent and closure, and Vidar recovery behind explicit injected ports. | SD-00 | A | Authority regression and import-boundary receipts |
 | [ ] | SD-03 | Harden the Ingestion API and Worker identities, database grants, claims, duplicate/reorder behavior, restart recovery, probes, and co-host rollback. | SD-00 | A | Role tests and a rollback rehearsal within 15 minutes |
-| [ ] | SD-04 | Add canonical ontology release distribution, exact reference pinning, N/N-1 compatibility, projection-writer ownership, mismatch rejection, replay, and rollback. | SD-00 | B | Cross-service ontology compatibility and semantic regression receipts |
+| [x] | SD-04 | Add canonical ontology release distribution, exact reference pinning, N/N-1 compatibility, projection-writer ownership, mismatch rejection, replay, and rollback. | SD-00 | B | Cross-service ontology compatibility and semantic regression receipts |
 | [ ] | SD-05 | Build the Rego knowledge path from canonical AST analysis through catalog build, semantic validation, ontology/vector generations, incremental parity, exact applicability, evaluation, and governed feedback. | SD-04 | B | Query-to-exact-Rego contract tests and generation rollback receipt |
 | [ ] | SD-06 | Add canonical Change lineage, provider adapters, decision trace, delivery/outcome joins, resilience coverage, candidate-only learning, and the read-only Operator projection. | SD-02, SD-04, SD-05 | C | Replayable lineage and authority non-escalation receipts |
 | [ ] | SD-07 | Implement the Isolated Executor command and receipt contracts, durable attempt mechanics, shadow consumer, health, telemetry, identity, and Container App without effect authority. | SD-02, SD-04 | C | Duplicate, reorder, restart, deadline, lock, and shadow receipts |
@@ -99,7 +99,7 @@ sessions use different branches.
 |-------------|---------------|----------------|-------------------|
 | SD-01 application route debt | Existing SD-01 isolated session | `src/fdai/delivery/operator_api/**`, matching Operator API tests and module-map updates | Route-boundary focused commit and receipt handed to the integration owner |
 | SD-03 effective access and rollback | Existing SD-03 isolated session | Ingestion runtime, ingestion-specific Terraform, access probe, and matching tests | Effective-access proof and rollback evidence handed to the integration owner |
-| SD-04 completion audit | SD-04 closeout session | Ontology release, catalog-search generation, compatibility tests, and owning ontology docs | SD-04 exit evidence accepted or a named blocker recorded |
+| SD-04 completed paths | Integration owner until downstream handoff | Ontology release, catalog-search generation, compatibility tests, and owning ontology docs | SD-05 or SD-07 owner records a non-overlapping reservation |
 | Serial integration | Integration owner | This plan pair, machine status manifest, cross-package contracts, production composition, pantheon roles, and executor identity cutover | Focused package handoff accepted and dependency status updated |
 
 ## Progress update contract
@@ -124,6 +124,7 @@ state. For each transition:
 | 2026-08-07 | SD-03 | In progress | Start `ccfa3c3dd` | Ingestion identity and storage-role verification started. |
 | 2026-08-07 | SD-04 | In progress | Start `ccfa3c3dd` | Cross-service ontology release compatibility gate started. |
 | 2026-08-07 | SD-02 | Completed | `2a82507cb`, `7e15ba084`, `7a48288cb` | Shared execution instances, durable Saga audit readiness, Vidar recovery readiness, normal dispatch, and HIL resume are explicit composition evidence; 122 union tests passed. |
+| 2026-08-07 | SD-04 | Completed | `f5cf51e3a`, `91c88f2a3`, `a5350296e`, `b24c2d90d`, `07161a96c` | Exact release refs, additive N/N-1 compatibility, revision-fenced projection writers, mismatch rejection before provider I/O, and replay-stable atomic generation rollback passed a 142-test focused union. Eight PostgreSQL live cases remained skipped because `FDAI_DATABASE_URL` was unset; the baseline assigns that live generation receipt to SD-05. |
 
 ## Related documents
 
