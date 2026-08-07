@@ -1,9 +1,8 @@
 # Five independently releasable FDAI service images.
 #
 # Each final target installs its owned service distribution as a wheel and
-# starts only that distribution's console entry point. The temporary /app/src
-# compatibility path remains until IS-03 removes the service wrappers' imports
-# of the existing fdai implementation package.
+# starts only that distribution's console entry point. Runtime images do not
+# carry the repository source tree or a PYTHONPATH compatibility path.
 
 ARG BASE_IMAGE_REGISTRY=docker.io
 
@@ -47,7 +46,7 @@ COPY src/ ./src/
 
 FROM service-build-base AS core-control-plane-builder
 RUN uv build --wheel --package fdai-core-control-plane --out-dir /wheels \
-    && uv sync --frozen --package fdai-core-control-plane --no-dev --no-editable \
+    && uv sync --frozen --package fdai-core-control-plane --no-dev --no-editable --no-install-package fdai \
     && uv pip install --python /app/.venv/bin/python --reinstall --no-deps /wheels/fdai_core_control_plane-*.whl \
     && test -x /app/.venv/bin/fdai-core-control-plane
 
@@ -82,11 +81,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     AZURE_MCP_COLLECT_TELEMETRY=false \
     HOME=/tmp/fdai \
     PATH="/app/.venv/bin:${PATH}" \
-    PYTHONPATH="/app/src" \
     XDG_CACHE_HOME=/tmp/fdai/.cache
 
 WORKDIR /app
-COPY --chown=65532:65532 src/ /app/src/
 
 FROM runtime-base AS core-control-plane
 COPY --from=core-control-plane-builder --chown=65532:65532 /app/.venv /app/.venv
