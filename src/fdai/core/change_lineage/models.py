@@ -110,6 +110,31 @@ class ChangeLineageRecord:
         assessment_evidence_ref = f"change-assessment:{self.assessment_digest}"
         if assessment_evidence_ref not in self.evidence_refs:
             raise ValueError("change lineage MUST retain its canonical assessment evidence ref")
+        if (
+            self.resilience.predicted_at is not None
+            and self.resilience.observation_deadline is not None
+        ):
+            observation_window_seconds = int(
+                (
+                    self.resilience.observation_deadline - self.resilience.predicted_at
+                ).total_seconds()
+            )
+            if not any(
+                effect.observation_window_seconds == observation_window_seconds
+                for effect in self.decision.selected_effects
+            ):
+                raise ValueError(
+                    "change lineage resilience timing MUST match a selected effect window"
+                )
+            if self.resilience.predicted_at > self.outcome_at:
+                raise ValueError(
+                    "change lineage resilience prediction MUST NOT start after outcome"
+                )
+        if (
+            self.resilience.observed_at is not None
+            and self.resilience.observed_at > self.outcome_at
+        ):
+            raise ValueError("change lineage resilience observation MUST NOT follow outcome")
         if self.execution_authority or self.promotion_authority:
             raise ValueError("change lineage MUST NOT grant execution or promotion authority")
 
