@@ -9,18 +9,21 @@ def test_strict_mypy_runs_in_ci_fast_verify_and_central_queue() -> None:
     ci = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     verify = (_ROOT / "scripts" / "verify.sh").read_text(encoding="utf-8")
     pre_commit = (_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
-    validation_queue = (_ROOT / "scripts" / "automation" / "validation_queue.py").read_text(
-        encoding="utf-8"
+    validation_queue = "\n".join(
+        (_ROOT / "scripts" / "automation" / path).read_text(encoding="utf-8")
+        for path in ("validation_queue.py", "validation_queue_runner.py")
     )
     pyproject = (_ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
     assert "- name: mypy --strict\n        run: uv run mypy" in ci
-    assert 'run_gate "mypy (strict)" uv run mypy' in verify
-    assert verify.index('run_gate "mypy (strict)" uv run mypy') < verify.index(
+    assert 'run_gate_scoped "mypy (strict)"' in verify
+    assert verify.index('run_gate_scoped "mypy (strict)"') < verify.index(
         'if [[ "$MODE" == "full" ]]'
     )
     assert "- id: mypy-strict" not in pre_commit
-    assert '["bash", "scripts/verify.sh", "--fast"]' in validation_queue
+    assert '"scripts/verify.sh",' in validation_queue
+    assert '"--fast",' in validation_queue
+    assert '"--diff",' in validation_queue
     assert '"scripts/**" = ["N999", "S603", "S607"]' in pyproject
 
 

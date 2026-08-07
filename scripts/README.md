@@ -62,6 +62,16 @@ a merge or release boundary.
 Non-Python fixtures under `tests/` and package resources under `src/` also
 select the full suite because their consumers can't be inferred from imports.
 
+Known repository inputs can declare a narrower owner before that fail-safe. For
+example, `config/service-decomposition.json` maps to `tests/scripts`. When the
+static import graph selects at least 250 test paths and every changed Python
+source has exactly one owner in `tests/service-suites.json`, the runner uses the
+union of those service-owned suites and every impacted consumer outside them.
+This collapses redundant in-service test files to their owner directory without
+dropping cross-service consumers. Missing or overlapping ownership keeps the
+original import-impact selection. Set `FDAI_TEST_IMPACT_SERVICE_THRESHOLD` to
+a positive integer to tune the crossover without changing the fail-safe.
+
 The runner executes non-integration tests first in a sanitized environment. It
 executes selected `integration` tests only when
 `FDAI_CHANGED_TEST_INTEGRATION=1` and `FDAI_DATABASE_URL` points to a disposable
@@ -89,13 +99,33 @@ make validation-status
 make validation-run
 ```
 
-The runner takes a non-blocking repository-wide lock, creates an isolated detached
-worktree at the current integration `HEAD`, reuses local Python caches and the
-installed Console and CLI dependency trees from any available linked worktree,
-caps changed-test workers at two by default, and runs changed tests plus the fast
-gates once for the entire reachable pending batch. A failed gate leaves the
-commits pending. A successful run writes per-commit receipts, and the pre-push
-hook blocks outgoing commits without those receipts.
+The runner takes a non-blocking repository-wide lock and resets one persistent,
+isolated detached worktree to the current integration `HEAD`. It reuses local
+Python caches and the installed Console and CLI dependency trees from any
+available linked worktree. Dependency synchronization is skipped when the
+locked dependency files and selected Python interpreter have the same digest.
+
+Changed-test workers adapt from one to four based on CPU load and available
+memory. Set `FDAI_PYTEST_MAX_WORKERS` to override that decision. Fast gates use
+the commit diff to skip checks with unrelated declared inputs. Repository-wide
+text checks and the design-impact check still run on every batch, and running
+`verify.sh --fast` without `--diff` preserves the complete fast-gate suite.
+
+Each stage records its duration and cache status in the run record and commit
+receipts under `.git/fdai-validation-queue/`. If a late gate fails, a retry at
+the same base, `HEAD`, mode, integration settings, database identity, and local
+resolved-model digest reuses successful changed tests and individual gates.
+Changing any of those inputs invalidates the matching cache. A failed gate
+leaves the commits pending. A successful run writes per-commit receipts, and
+the pre-push hook blocks outgoing commits without those receipts.
+
+`make validation-status` lists only pending commits reachable from the current
+`HEAD` and summarizes pending work on other branches or worktrees. Show every
+pending id only when diagnosing queue history:
+
+```bash
+python3 scripts/automation/validation_queue.py status --all
+```
 
 Run the whole repository suite only at an explicit merge or release boundary:
 

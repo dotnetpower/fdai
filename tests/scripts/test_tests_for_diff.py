@@ -215,6 +215,17 @@ def test_root_config_change_falls_back_to_full_suite(git_repo: Path) -> None:
     assert result.stdout.splitlines() == ["tests"]
 
 
+def test_service_decomposition_change_selects_owned_tests(git_repo: Path) -> None:
+    config = git_repo / "config" / "service-decomposition.json"
+    config.parent.mkdir(parents=True)
+    config.write_text('{"schema_version": 1}\n', encoding="utf-8")
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["tests/scripts"]
+
+
 def test_policy_change_falls_back_to_full_suite(git_repo: Path) -> None:
     policy = git_repo / "policies" / "compute" / "deny.rego"
     policy.parent.mkdir(parents=True)
@@ -323,6 +334,40 @@ def test_impact_resolver_failure_aborts_selection(git_repo: Path) -> None:
 
     assert result.returncode == 7
     assert "impact resolver failed" in result.stderr
+
+
+def test_broad_import_impact_uses_service_owned_suite(git_repo: Path, tmp_path: Path) -> None:
+    owned_test = git_repo / "tests" / "core" / "risk_gate" / "test_one.py"
+    owned_test.parent.mkdir(parents=True, exist_ok=True)
+    owned_test.write_text("def test_one(): pass\n", encoding="utf-8")
+    external_test = git_repo / "tests" / "verticals" / "test_two.py"
+    external_test.write_text("def test_two(): pass\n", encoding="utf-8")
+    impact_resolver = tmp_path / "impact.py"
+    impact_resolver.write_text(
+        "print('tests/core/risk_gate/test_one.py')\nprint('tests/verticals/test_two.py')\n",
+        encoding="utf-8",
+    )
+    ownership_resolver = tmp_path / "ownership.py"
+    ownership_resolver.write_text("print('tests/core/risk_gate')\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", "impact.py", "ownership.py").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "add resolvers").returncode == 0
+    source = git_repo / "src" / "fdai" / "core" / "risk_gate" / "new_rule.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    env = {
+        **os.environ,
+        "FDAI_TEST_IMPACT_RESOLVER": str(impact_resolver),
+        "FDAI_TEST_OWNERSHIP_RESOLVER": str(ownership_resolver),
+        "FDAI_TEST_IMPACT_SERVICE_THRESHOLD": "2",
+    }
+
+    result = _run(git_repo, "bash", str(_SELECTOR), env=env)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "tests/core/risk_gate",
+        "tests/verticals/test_two.py",
+    ]
+    assert "compressed with service-owned suites" in result.stderr
 
 
 def test_run_uses_uv_managed_pytest(git_repo: Path) -> None:
