@@ -152,3 +152,14 @@ def test_candidate_cannot_bypass_learning_or_authority_gates() -> None:
         replace(candidate, execution_authority=True)
     with pytest.raises(ValueError, match="candidate-only"):
         replace(candidate, promotion_authority=True)
+
+
+def test_candidate_rejects_noncanonical_or_mismatched_identity() -> None:
+    candidate = extract_learning_candidate(_lineage())
+
+    with pytest.raises(ValueError, match="candidate_id"):
+        replace(candidate, candidate_id="candidate:invalid")
+    with pytest.raises(ValueError, match="identity material"):
+        replace(candidate, candidate_id=f"change-learning-candidate:{'f' * 64}")
+    with pytest.raises(ValueError, match="identity material"):
+        replace(candidate, action_type_id="ops.restart")
