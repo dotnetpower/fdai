@@ -473,7 +473,11 @@ jobs:
             echo "ACR runtime image digest does not match the verified GHCR subject." >&2
             exit 1
           fi
-          echo "TF_VAR_core_image=${login_server}/fdai@${target_digest}" >> "$GITHUB_ENV"
+          {
+            echo "TF_VAR_core_image=${login_server}/fdai@${target_digest}"
+            echo "FDAI_RUNTIME_IMAGE_REVISION=${revision}"
+            echo "FDAI_RUNTIME_IMAGE_DIGEST=${target_digest}"
+          } >> "$GITHUB_ENV"
 
       - name: Adopt existing Azure resources
         if: ${{ !inputs.deploy_design_mocks }}
@@ -955,6 +959,10 @@ jobs:
           import json
           import os
 
+            runtime_image_revision = os.environ.get("FDAI_RUNTIME_IMAGE_REVISION", "")
+            runtime_image_digest = os.environ.get("FDAI_RUNTIME_IMAGE_DIGEST", "")
+            if bool(runtime_image_revision) != bool(runtime_image_digest):
+              raise SystemExit("runtime image plan evidence is incomplete")
           metadata = {
               "schema_version": "fdai.deployment-plan.v1",
               "plan_id": os.environ["PLAN_ID"],
@@ -973,6 +981,11 @@ jobs:
               "status": "ready",
               "workflow_run_id": os.environ["GITHUB_RUN_ID"],
           }
+              if runtime_image_revision:
+                metadata["runtime_image"] = {
+                  "source_revision": runtime_image_revision,
+                  "digest": runtime_image_digest,
+                }
           with open("plan-metadata.json", "w", encoding="utf-8") as stream:
               json.dump(metadata, stream, sort_keys=True, separators=(",", ":"))
               stream.write("\n")

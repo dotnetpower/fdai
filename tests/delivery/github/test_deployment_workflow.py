@@ -468,6 +468,11 @@ def test_runner_promotes_only_an_exact_attested_executor_image_before_plan() -> 
     assert '--image "fdai:sha-${revision}"' in step
     assert 'if [[ "$target_digest" != "$source_digest" ]]' in step
     assert 'echo "TF_VAR_core_image=${login_server}/fdai@${target_digest}"' in step
+    assert 'echo "FDAI_RUNTIME_IMAGE_REVISION=${revision}"' in step
+    assert 'echo "FDAI_RUNTIME_IMAGE_DIGEST=${target_digest}"' in step
+    assert 'metadata["runtime_image"]' in workflow
+    assert '"source_revision": runtime_image_revision' in workflow
+    assert '"digest": runtime_image_digest' in workflow
     assert (
         workflow.index("- name: Terraform init")
         < workflow.index("- name: Bind exact isolated Executor runtime image")
