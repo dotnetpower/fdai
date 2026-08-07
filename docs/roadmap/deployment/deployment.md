@@ -59,8 +59,9 @@ prod topology so shadow evaluation is representative.
     App** for `event-ingest` + `trust-router` + `executor` +
     `audit-writer`, deployed from an **OCI image + Knative-compatible manifest subset** so
     the runtime is portable ([csp-neutrality.md § Runtime contract](../architecture/csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest)).
-    The core has no sidecar or ingress. The opt-in Operator API, public ingestion API, and internal
-    ingestion worker with its ClamAV sidecar are separate Container Apps.
+    The core has no sidecar or ingress. The opt-in Operator API, public ingestion API, internal
+    ingestion worker with its ClamAV sidecar, and shadow-only Isolated Executor are separate
+    Container Apps. The Executor app has no ingress and receives no effect role before SD-08.
   - **Container Apps Jobs** in the same environment for scheduled probes and light triggers
     (replaces Azure Functions for runtime scheduling). An opt-in development-only FC1 Function
     App is the narrow exception: it relays registered operations to private resources and is not a
@@ -69,8 +70,8 @@ prod topology so shadow evaluation is representative.
     Kafka endpoints on `:9093`** - the CSP-neutral event bus contract
     ([csp-neutrality.md § Event bus contract](../architecture/csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol)).
     The primary shard owns governed ingress, its DLQs, HIL, and pipeline stages. The operational
-    shard owns `aw.control.canary`, its DLQ, and `aw.inventory.raw`. This stays within the Standard
-    tier's ten-entity namespace limit without mixing parser-specific payloads on one topic.
+    shard owns canary + DLQ, startup round-trip, raw inventory, Executor command + DLQ, and
+    Executor receipt entities. This stays within the Standard tier's ten-entity namespace limit.
     Subscription resource writes/deletes are forwarded to `aw.inventory.raw` by a managed-identity
     Event Grid subscription. No Service Bus or custom Event Grid topic exists.
   - **PostgreSQL Flexible Server** (Burstable B1ms, 1 zone, 7-day backup) as the single store
@@ -86,7 +87,8 @@ prod topology so shadow evaluation is representative.
     [security-and-identity.md](../architecture/security-and-identity.md) and
     [csp-neutrality.md § Workload identity contract](../architecture/csp-neutrality.md#4-workload-identity-contract--oidc-token).
     Executor, inventory, canary, and three vertical identities ship by default; read, command,
-    ingestion API, ingestion worker, ingestion migration, and notification identities are opt-ins.
+    isolated-Executor shadow transport, ingestion API, ingestion worker, ingestion migration, and
+    notification identities are opt-ins. The shadow transport identity has no effect roles.
   - **Log Analytics workspace + workspace-based Application Insights** (30-day default).
   - **Azure Container Registry** (Basic) for signed images.
   - Free-tier / non-billable elements: opt-in Static Web Apps (console), workload identity

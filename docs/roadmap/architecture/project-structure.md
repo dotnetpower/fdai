@@ -162,6 +162,7 @@ fdai/
 │   │   ├── identity/                # user-assigned Managed Identity for the executor
 │   │   ├── compute/                 # runtime seam - alternates in siblings
 │   │   │   └── container-apps/      # default (Consumption + KEDA)
+│   │   ├── isolated-executor/       # opt-in internal shadow Container App; dedicated transport identity, no effect roles
 │   │   ├── container-registry/      # ACR for the compute image
 │   │   ├── state-store/             # audit + KPI + pgvector
 │   │   │   └── postgres-flex/       # default

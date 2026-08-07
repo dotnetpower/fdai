@@ -16,6 +16,16 @@ output "executor_identity_principal_id" {
   value       = module.identity.principal_id
 }
 
+output "isolated_executor_shadow" {
+  description = "Shadow-only isolated Executor deployment handles. Null while disabled."
+  value = var.enable_isolated_executor ? {
+    app_id                = module.isolated_executor[0].id
+    app_name              = module.isolated_executor[0].name
+    identity_resource_id  = module.isolated_executor_identity[0].resource_id
+    identity_principal_id = module.isolated_executor_identity[0].principal_id
+  } : null
+}
+
 output "log_workspace_id" {
   description = "Log Analytics workspace id (App Insights binds here)."
   value       = module.log_analytics.workspace_id

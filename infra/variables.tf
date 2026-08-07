@@ -682,6 +682,12 @@ variable "enable_operator_api" {
   default     = false
 }
 
+variable "enable_isolated_executor" {
+  description = "Provision the internal SD-07 isolated Executor in shadow-only mode. Effect authority remains disabled until SD-08."
+  type        = bool
+  default     = false
+}
+
 variable "operator_api_image" {
   description = "Container image for the Operator API (the fdai runtime image built with the `serve` extra, e.g. `<acr>/fdai:dev`). Empty falls back to core_image, which is only valid if that image carries uvicorn + alembic."
   type        = string

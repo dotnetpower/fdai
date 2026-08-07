@@ -87,9 +87,11 @@ locals {
   tags = merge(local.base_tags, var.additional_tags)
 
   # Kafka topics served by Event Hubs (see docs/roadmap/deployment/deploy-and-onboard.md § Event Source Subscription).
-  canary_topic        = "aw.control.canary"
-  inventory_raw_topic = "aw.inventory.raw"
-  startup_probe_topic = "runtime.startup.probe"
+  canary_topic           = "aw.control.canary"
+  inventory_raw_topic    = "aw.inventory.raw"
+  startup_probe_topic    = "runtime.startup.probe"
+  executor_command_topic = "object.executor-command"
+  executor_receipt_topic = "object.executor-receipt"
   event_topics = [
     "aw.change.events",
     "aw.dr.events",
@@ -302,6 +304,22 @@ module "command_api_identity" {
   tags                = merge(local.tags, { "fdai:component" = "command-transport" })
 }
 
+module "isolated_executor_identity" {
+  count               = var.enable_isolated_executor ? 1 : 0
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-executor-shadow"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { "fdai:component" = "isolated-executor-shadow" })
+}
+
+resource "azurerm_role_assignment" "isolated_executor_acr_pull" {
+  count                = var.enable_isolated_executor ? 1 : 0
+  scope                = module.container_registry.id
+  role_definition_name = "AcrPull"
+  principal_id         = module.isolated_executor_identity[0].principal_id
+}
+
 module "dev_gateway_reader_identity" {
   count               = var.enable_dev_operations_gateway ? 1 : 0
   source              = "./modules/identity/user-assigned-mi"
@@ -479,6 +497,23 @@ resource "azurerm_role_assignment" "command_api_eventhubs_receiver" {
   scope                = each.value
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.command_api_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "isolated_executor_command_receiver" {
+  count                = var.enable_isolated_executor ? 1 : 0
+  scope                = module.event_bus_auxiliary.topic_ids[local.executor_command_topic]
+  role_definition_name = "Azure Event Hubs Data Receiver"
+  principal_id         = module.isolated_executor_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "isolated_executor_receipt_sender" {
+  for_each = var.enable_isolated_executor ? {
+    receipt = module.event_bus_auxiliary.auxiliary_topic_ids[local.executor_receipt_topic]
+    dlq     = module.event_bus_auxiliary.dlq_topic_ids["${local.executor_command_topic}.dlq"]
+  } : {}
+  scope                = each.value
+  role_definition_name = "Azure Event Hubs Data Sender"
+  principal_id         = module.isolated_executor_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "operator_api_reader" {
@@ -774,6 +809,13 @@ resource "azurerm_role_assignment" "operator_api_kv_secrets_user" {
   scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.operator_api_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "isolated_executor_kv_secrets_user" {
+  count                = var.enable_isolated_executor ? 1 : 0
+  scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.isolated_executor_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "ingestion_kv_secrets_user" {
@@ -1237,8 +1279,8 @@ module "event_bus_auxiliary" {
   name                          = "evhns-${var.workload}${local.full_suffix}-ops"
   location                      = var.region
   resource_group_name           = module.resource_group.name
-  topics                        = [local.canary_topic, local.startup_probe_topic]
-  auxiliary_topics              = [local.inventory_raw_topic]
+  topics                        = [local.canary_topic, local.startup_probe_topic, local.executor_command_topic]
+  auxiliary_topics              = [local.inventory_raw_topic, local.executor_receipt_topic]
   public_network_access_enabled = !var.enable_private_networking
   tags                          = merge(local.tags, { "fdai:component" = "operational-signals" })
 }
@@ -1839,6 +1881,37 @@ module "measurement_runners" {
     FDAI_LLM_ENDPOINT        = module.llm_azure_openai[0].endpoint
   } : {})
   tags = local.tags
+}
+
+# -----------------------------------------------------------------------
+# SD-07 Isolated Executor - independently deployed shadow consumer only.
+# Effect roles and the privileged executor identity remain unavailable until
+# the separate SD-08 authority cutover.
+# -----------------------------------------------------------------------
+module "isolated_executor" {
+  count  = var.enable_isolated_executor ? 1 : 0
+  source = "./modules/isolated-executor/container-app"
+
+  name                         = "ca-${var.workload}${local.full_suffix}-executor"
+  container_app_environment_id = module.compute.environment_id
+  resource_group_name          = module.resource_group.name
+  image                        = var.core_image
+  identity_id                  = module.isolated_executor_identity[0].resource_id
+  identity_client_id           = module.isolated_executor_identity[0].client_id
+  state_store_dsn_secret_id    = azurerm_key_vault_secret.state_store_dsn.id
+  kafka_bootstrap_servers      = module.event_bus_auxiliary.kafka_bootstrap
+  command_topic                = local.executor_command_topic
+  receipt_topic                = local.executor_receipt_topic
+  runtime_env                  = local.env_label
+  acr_login_server             = module.container_registry.login_server
+  tags                         = merge(local.tags, { "fdai:component" = "isolated-executor-shadow" })
+
+  depends_on = [
+    azurerm_role_assignment.isolated_executor_acr_pull,
+    azurerm_role_assignment.isolated_executor_command_receiver,
+    azurerm_role_assignment.isolated_executor_receipt_sender,
+    azurerm_role_assignment.isolated_executor_kv_secrets_user,
+  ]
 }
 
 # -----------------------------------------------------------------------

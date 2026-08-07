@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: cdbc02c25a2922887da629c16431914ce82434df
-translation_revised: 2026-08-06
+translation_source_sha: b922e07e2df7b80d531d06144180899f30ab8332
+translation_revised: 2026-08-07
 ---
 
 # 배포(Deployment)
@@ -62,7 +62,8 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
     + `audit-writer`, 런타임이 이식 가능하도록 **OCI 이미지 + Knative 호환 매니페스트 서브셋**
     에서 배포 ([csp-neutrality-ko.md § 런타임 계약](../architecture/csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트)).
     Core에는 sidecar/ingress가 없습니다. Opt-in Operator API, public ingestion API, ClamAV
-    sidecar를 가진 internal ingestion worker는 별도 Container App입니다.
+    sidecar를 가진 internal ingestion worker 및 shadow-only Isolated Executor는 별도 Container
+    App입니다. Executor app은 ingress가 없으며 SD-08 전에는 effect role을 받지 않습니다.
   - **Container Apps Jobs** (같은 environment) 로 스케줄 프로브와 경량 트리거를 실행하며 runtime
     scheduling에서 Azure Functions를 대체합니다. Opt-in 개발 전용 FC1 Function App은 예외이며,
     private resource에 registered operation을 relay할 뿐 scheduler나 control-loop runtime이 아닙니다.
@@ -70,8 +71,8 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
     Kafka endpoint 로만** 소비 - CSP-중립 이벤트 버스 계약
     ([csp-neutrality-ko.md § 이벤트버스 계약](../architecture/csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜)).
     Primary shard는 governed ingress, 해당 DLQ, HIL, pipeline stage를 소유합니다. Operational
-    shard는 `aw.control.canary`, 해당 DLQ, `aw.inventory.raw`를 소유합니다. 이 분리는 parser별
-    payload를 한 topic에 섞지 않고 Standard tier의 namespace당 entity 10개 제한을 지킵니다.
+    shard는 canary + DLQ, startup round-trip, raw inventory, Executor command + DLQ 및 Executor
+    receipt entity를 소유하며 Standard tier의 namespace당 entity 10개 제한을 지킵니다.
     Subscription resource write/delete는 managed-identity Event Grid subscription이
     `aw.inventory.raw`로 forward합니다. 독립 Service Bus와 custom Event Grid topic은 없습니다.
   - **PostgreSQL Flexible Server** (Burstable B1ms, 1 zone, 7일 백업) 을 audit + KPI +
@@ -86,8 +87,9 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   - **여러 User-assigned Managed Identity** + 범위된 롤 할당, `WorkloadIdentity` 인터페이스
     (OIDC 토큰) 로 코어에 노출 - [security-and-identity-ko.md](../architecture/security-and-identity-ko.md)
     및 [csp-neutrality-ko.md § 워크로드 아이덴티티 계약](../architecture/csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰) 참조.
-    Executor, inventory, canary, 세 vertical identity가 기본 배포되고 read/command/ingestion API/
-    ingestion worker/ingestion migration/notification identity는 기능별 opt-in입니다.
+    Executor, inventory, canary, 세 vertical identity가 기본 배포되고 read/command/isolated-
+    Executor shadow transport/ingestion API/ingestion worker/ingestion migration/notification
+    identity는 기능별 opt-in입니다. Shadow transport identity에는 effect role이 없습니다.
   - **Log Analytics workspace + workspace-based Application Insights** (기본 30일 보존).
   - **Azure Container Registry** (Basic) 로 서명된 이미지.
   - 무료 티어 / 비-과금 요소: opt-in Static Web Apps (콘솔), workload identity federation

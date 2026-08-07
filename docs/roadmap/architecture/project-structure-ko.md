@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 600cb804eb0f0641c77878e6896dd963508a5026
+translation_source_sha: 28f34e5e66c64aeca9215908d3c953c34b1eb0da
 translation_revised: 2026-08-07
 ---
 
@@ -167,6 +167,7 @@ fdai/
 │   │   ├── identity/                # executor 를 위한 user-assigned Managed Identity
 │   │   ├── compute/                 # runtime seam - 대안은 형제 폴더에
 │   │   │   └── container-apps/      # 기본 (Consumption + KEDA)
+│   │   ├── isolated-executor/       # opt-in internal shadow Container App; 전용 transport identity, effect role 없음
 │   │   ├── container-registry/      # compute 이미지용 ACR
 │   │   ├── state-store/             # audit + KPI + pgvector
 │   │   │   └── postgres-flex/       # 기본
