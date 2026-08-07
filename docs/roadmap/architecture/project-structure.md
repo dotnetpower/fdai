@@ -43,6 +43,7 @@ fdai/
 │   │   ├── working_context/    # bounded per-turn prompt assembly: immutable selection policy + mandatory validator + shadow evidence/replay + planner/orchestrator folds + summarizer/retriever seams
 │   │   ├── operational_context/ # atomic owned-subgraph replacement and time-consistent snapshots with typed evidence paths, effective-time/provenance projection, source-freshness receipts, and fail-closed truncation
 │   │   ├── decision_case/      # protected-objective options, deterministic selection, and response closure
+│   │   ├── change_lineage/     # immutable replay-stable Change -> assessment -> decision -> action -> outcome join; no execution or promotion authority
 │   │   ├── operational_planning/ # hard-constraint eligibility, Pareto pruning, Process planning phases, and replay-stable plan identity; no execution authority
 │   │   ├── operational_learning/ # sealed-case classification, fingerprint/action cohort gates, immutable citations, and inert candidate mappings
 │   │   ├── quality_gate/       # mixed-model cross-check, verifier, grounding; failed fan-out cancels and drains siblings (guards T2)
