@@ -69,7 +69,7 @@ Presentation wireframes (offline, not part of the console shell):
 
 | File | Purpose |
 |------|---------|
-| [roadmap-slide-wireframe.html](roadmap-slide-wireframe.html) | Low-fidelity 16:9 PPT roadmap draft: an overview slide with five function cards (SRE, ARB, Change Management, FinOps, Chaos/DR) and a phase-by-function swimlane timeline slide, both numbered-annotated for hand-off into an actual deck. All milestones and status colors are synthetic placeholders. |
+| [roadmap-slide-wireframe.html](roadmap-slide-wireframe.html) | 16:9 PPT roadmap draft: a concise operating-model slide that connects SRE to Resilience (Chaos/DR), Change Safety (ARB + Change Management), and Cost Governance (FinOps), followed by a three-horizon capability roadmap. Timelines and maturity states are proposals, not completion claims. |
 
 Report and kit:
 

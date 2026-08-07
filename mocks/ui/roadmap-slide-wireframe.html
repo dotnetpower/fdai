@@ -3,286 +3,195 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>FDAI 로드맵 와이어프레임 (PPT 초안)</title>
+<title>FDAI 운영 로드맵 - PPT 와이어프레임</title>
 <style>
-  /* Low-fidelity wireframe for a PPT roadmap deck. Static, self-contained, synthetic
-     placeholder content only - no customer data (generic-scope.instructions.md).
-     Print each .slide at 16:9 (1280x720) to export into PowerPoint / take screenshots. */
   :root {
-    --wf-bg: #f4f3f2;
-    --wf-ink: #26241f;
-    --wf-muted: #6b675f;
-    --wf-line: #b9b5ac;
-    --wf-line-strong: #8a8579;
-    --wf-card: #ffffff;
-    --wf-shadow-fill: #eceae6;
-    --wf-shadow-ink: #8a8579;
-    --wf-pilot-fill: #f6e9cf;
-    --wf-pilot-ink: #9a6b1e;
-    --wf-enforce-fill: #e2ecdf;
-    --wf-enforce-ink: #4c7042;
-    --f-sre: #4468a8;
-    --f-arb: #7a5aa8;
-    --f-chg: #b8722f;
-    --f-fin: #2f8f7a;
-    --f-dr: #b3402f;
+    --canvas: #e8e6e0;
+    --paper: #fdfcf9;
+    --ink: #1f2a30;
+    --muted: #66747b;
+    --line: #d6d8d3;
+    --line-dark: #aeb6b2;
+    --navy: #243d4d;
+    --blue: #3979a5;
+    --teal: #238173;
+    --orange: #bd7040;
+    --plum: #765c88;
+    --red: #ae5049;
+    --soft-blue: #e8f0f6;
+    --soft-teal: #e4f2ee;
+    --soft-orange: #f8eee4;
+    --soft-plum: #f0ebf3;
   }
+
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: #dedcd7; color: var(--wf-ink);
-    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
-  .page-toolbar { text-align: center; padding: 14px; font-size: 12.5px; color: var(--wf-muted); }
-  .page-toolbar strong { color: var(--wf-ink); }
+  html, body { margin: 0; background: var(--canvas); color: var(--ink); }
+  body { font-family: "Segoe UI", "Noto Sans KR", sans-serif; }
+  .page-note { max-width: 1280px; margin: 0 auto; padding: 16px 0; color: var(--muted); font-size: 12px; }
+  .page-note strong { color: var(--ink); }
 
-  /* ---- slide canvas: fixed 16:9 (1280x720), simulates a PPT slide ---- */
-  .slide-wrap { display: flex; justify-content: center; margin-bottom: 28px; }
-  .slide { width: 1280px; height: 720px; background: var(--wf-bg); position: relative;
-    border: 1px solid var(--wf-line-strong); box-shadow: 0 4px 18px rgba(0,0,0,0.18);
-    padding: 40px 56px; overflow: hidden; }
-  .slide-kicker { font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--wf-muted); font-weight: 700; margin: 0 0 4px; }
-  .slide-title { font-size: 30px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.01em; }
-  .slide-sub { font-size: 14px; color: var(--wf-muted); margin: 0 0 22px; max-width: 900px; line-height: 1.5; }
-  .slide-page { position: absolute; right: 56px; bottom: 26px; font-size: 11.5px; color: var(--wf-muted); }
-  .placeholder-tag { position: absolute; top: 40px; right: 56px; font-size: 10.5px; font-weight: 700;
-    letter-spacing: .06em; text-transform: uppercase; color: var(--wf-line-strong);
-    border: 1px dashed var(--wf-line-strong); padding: 3px 8px; border-radius: 999px; }
+  .slide-wrap { display: flex; justify-content: center; margin: 0 20px 32px; }
+  .slide {
+    position: relative;
+    width: 1280px;
+    height: 720px;
+    overflow: hidden;
+    padding: 44px 64px 36px;
+    background: var(--paper);
+    box-shadow: 0 12px 30px rgba(35, 46, 44, .18);
+  }
+  .slide::before { position: absolute; top: 0; left: 0; width: 100%; height: 7px; content: ""; background: var(--navy); }
+  .slide-number { position: absolute; right: 64px; bottom: 24px; color: var(--muted); font-size: 12px; }
+  .eyebrow { margin: 0 0 13px; color: var(--teal); font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; }
+  h1, h2, h3, p { margin-top: 0; }
+  h1 { max-width: 850px; margin-bottom: 12px; color: var(--navy); font-size: 39px; line-height: 1.17; letter-spacing: 0; }
+  .lead { max-width: 760px; margin-bottom: 0; color: var(--muted); font-size: 17px; line-height: 1.6; }
+  .header-rule { position: absolute; top: 44px; right: 64px; width: 142px; height: 6px; background: var(--teal); }
 
-  /* numbered wireframe annotation markers */
-  .wf-tag { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
-    border-radius: 50%; background: var(--wf-ink); color: #fff; font-size: 10.5px; font-weight: 700;
-    position: absolute; transform: translate(-50%, -50%); z-index: 5; }
+  /* Slide 1 - capability map */
+  .model-line { display: flex; align-items: center; gap: 18px; margin: 25px 0 18px; }
+  .model-label { display: inline-flex; align-items: center; min-width: 160px; height: 42px; padding: 0 16px; border-radius: 6px; background: var(--navy); color: #fff; font-size: 14px; font-weight: 700; }
+  .model-arrow { width: 54px; height: 1px; background: var(--line-dark); position: relative; }
+  .model-arrow::after { position: absolute; right: -1px; top: -3px; width: 7px; height: 7px; content: ""; border-top: 1px solid var(--line-dark); border-right: 1px solid var(--line-dark); transform: rotate(45deg); }
+  .model-copy { font-size: 15px; font-weight: 600; color: var(--ink); }
 
-  /* ================= SLIDE 1: executive overview (5 function cards) ================= */
-  .fn-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-top: 4px; position: relative; }
-  .fn-grid > .wf-tag, .tl-phase-axis > .wf-tag, .tl-rows > .wf-tag, .tl-legend > .wf-tag { top: -14px; left: -14px; }
-  .fn-card { border: 1.5px dashed var(--wf-line-strong); border-radius: 10px; background: var(--wf-card);
-    padding: 16px 14px; display: flex; flex-direction: column; gap: 8px; min-height: 300px; position: relative; }
-  .fn-card .fn-swatch { width: 34px; height: 34px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); }
-  .fn-card h3 { margin: 4px 0 0; font-size: 15.5px; }
-  .fn-card .fn-en { font-size: 10.5px; color: var(--wf-muted); text-transform: uppercase; letter-spacing: .04em; margin: 0; }
-  .fn-card p.fn-mission { font-size: 12px; color: var(--wf-muted); line-height: 1.5; margin: 2px 0 6px; flex: 0 0 auto; }
-  .fn-kpi-box { border: 1px dashed var(--wf-line); border-radius: 6px; padding: 8px 10px; background: var(--wf-shadow-fill); }
-  .fn-kpi-box .k-label { font-size: 10px; color: var(--wf-muted); text-transform: uppercase; letter-spacing: .04em; }
-  .fn-kpi-box .k-value { font-size: 18px; font-weight: 700; }
-  .fn-list { list-style: none; margin: 0; padding: 0; font-size: 11.5px; color: var(--wf-ink); display: flex;
-    flex-direction: column; gap: 4px; flex: 1; }
-  .fn-list li { padding-left: 12px; position: relative; }
-  .fn-list li::before { content: "-"; position: absolute; left: 0; color: var(--wf-line-strong); }
-  .fn-anchor { margin-top: auto; font-size: 10.5px; color: var(--wf-muted); border-top: 1px dashed var(--wf-line); padding-top: 6px; }
+  .capability-grid { display: grid; grid-template-columns: 1.07fr 1fr 1fr; gap: 16px; }
+  .capability { min-height: 194px; padding: 19px 20px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  .capability.is-resilience { background: var(--soft-blue); border-top: 5px solid var(--blue); }
+  .capability.is-change { background: var(--soft-plum); border-top: 5px solid var(--plum); }
+  .capability.is-finops { background: var(--soft-teal); border-top: 5px solid var(--teal); }
+  .capability .cap-kicker { margin-bottom: 7px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .capability h2 { margin-bottom: 9px; color: var(--navy); font-size: 21px; line-height: 1.2; }
+  .capability p { margin-bottom: 13px; color: #425158; font-size: 13px; line-height: 1.5; }
+  .capability ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .capability li { padding: 5px 8px; border: 1px solid rgba(31, 42, 48, .13); border-radius: 4px; background: rgba(255, 255, 255, .62); color: #405058; font-size: 11.5px; }
+  .outcome-strip { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; margin-top: 17px; overflow: hidden; border: 1px solid var(--line); border-radius: 7px; background: var(--line); }
+  .outcome { min-height: 63px; padding: 12px 18px; background: #fff; }
+  .outcome strong { display: block; margin-bottom: 3px; color: var(--navy); font-size: 13px; }
+  .outcome span { color: var(--muted); font-size: 12px; line-height: 1.35; }
 
-  /* ================= SLIDE 2: roadmap timeline (5 swimlanes x 5 phases) ================= */
-  .tl-wrap { position: relative; }
-  .tl-phase-axis { display: grid; grid-template-columns: 168px repeat(5, 1fr); gap: 8px; margin-bottom: 6px; position: relative; }
-  .tl-phase-axis .tl-corner { }
-  .tl-phase-head { border-bottom: 3px solid var(--wf-line-strong); padding: 4px 8px 8px; }
-  .tl-phase-head .p-id { font-size: 11px; font-weight: 700; color: var(--wf-muted); letter-spacing: .04em; }
-  .tl-phase-head .p-name { font-size: 13px; font-weight: 700; margin-top: 2px; }
-  .tl-lane-label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px;
-    border: 1px dashed var(--wf-line); background: var(--wf-card); }
-  .tl-lane-label .dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
-  .tl-lane-label strong { font-size: 12.5px; display: block; line-height: 1.2; }
-  .tl-lane-label span { font-size: 9.5px; color: var(--wf-muted); }
-  .tl-cell { border: 1px dashed var(--wf-line); border-radius: 6px; padding: 7px 8px; background: var(--wf-shadow-fill);
-    font-size: 10.8px; line-height: 1.35; color: var(--wf-ink); min-height: 46px; display: flex; align-items: center; }
-  .tl-cell.is-pilot { background: var(--wf-pilot-fill); }
-  .tl-cell.is-enforce { background: var(--wf-enforce-fill); }
-  .tl-row { display: grid; grid-template-columns: 168px repeat(5, 1fr); gap: 8px; }
-  .tl-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; position: relative; }
-  .tl-legend { position: relative; margin-top: 12px; display: flex; justify-content: flex-end; gap: 14px; font-size: 10.5px; color: var(--wf-muted); }
-  .tl-legend .sw { display: inline-flex; align-items: center; gap: 5px; }
-  .tl-legend .chip { width: 12px; height: 12px; border-radius: 3px; border: 1px dashed var(--wf-line-strong); }
+  /* Slide 2 - roadmap */
+  .roadmap-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; }
+  .roadmap-head h1 { max-width: 760px; margin-bottom: 0; }
+  .roadmap-key { display: flex; flex: 0 0 auto; gap: 14px; padding-bottom: 4px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .roadmap-key span { display: inline-flex; align-items: center; gap: 6px; }
+  .roadmap-key i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .roadmap { display: grid; grid-template-columns: 218px repeat(3, 1fr); grid-template-rows: 80px repeat(4, 82px); gap: 0; border-top: 1px solid var(--line-dark); border-left: 1px solid var(--line); }
+  .roadmap > * { min-width: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .roadmap-corner { padding: 19px 18px; background: #f2f4f2; color: var(--muted); font-size: 12px; font-weight: 700; }
+  .horizon { padding: 14px 20px; background: #fff; }
+  .horizon .stage { display: block; margin-bottom: 6px; color: var(--teal); font-size: 10px; font-weight: 700; letter-spacing: .09em; }
+  .horizon strong { display: block; color: var(--navy); font-size: 17px; }
+  .horizon span { color: var(--muted); font-size: 12px; }
+  .lane { display: flex; align-items: center; gap: 10px; padding: 14px 18px; background: #fff; }
+  .lane-dot { width: 10px; height: 10px; flex: 0 0 auto; border-radius: 50%; }
+  .lane strong { display: block; font-size: 14px; }
+  .lane span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+  .roadmap-cell { position: relative; padding: 10px 14px; background: #fff; }
+  .roadmap-cell .state { display: inline-block; margin-bottom: 5px; padding: 3px 6px; border-radius: 3px; font-size: 9.5px; font-weight: 700; letter-spacing: .04em; }
+  .state.observe { background: #edf0f1; color: #52636b; }
+  .state.govern { background: var(--soft-orange); color: #95511e; }
+  .state.scale { background: var(--soft-teal); color: #226a5d; }
+  .roadmap-cell p { margin: 0; color: #3e4c53; font-size: 11.5px; line-height: 1.34; }
+  .roadmap-note { display: flex; justify-content: space-between; margin-top: 14px; color: var(--muted); font-size: 11px; }
+  .roadmap-note strong { color: var(--ink); }
 
-  /* ================= annotation legend block under each slide ================= */
-  .anno-list { width: 1280px; margin: -4px auto 0; padding: 14px 20px 4px; font-size: 12px; color: var(--wf-muted); }
-  .anno-list ol { margin: 6px 0 0; padding-left: 20px; }
-  .anno-list li { margin-bottom: 3px; }
-  .anno-list li strong { color: var(--wf-ink); }
+  @media print {
+    html, body { background: #fff; }
+    .page-note { display: none; }
+    .slide-wrap { margin: 0; page-break-after: always; }
+    .slide { box-shadow: none; }
+  }
 </style>
 </head>
 <body>
-  <div class="page-toolbar">
-    <strong>FDAI 로드맵 와이어프레임</strong> - 저해상도 스켈레톤, PPT 슬라이드로 옮기기 전 구조 검토용.
-    모든 수치/일정은 예시(synthetic) 값이며 실제 커밋 아님.
-  </div>
+  <p class="page-note"><strong>FDAI 운영 로드맵</strong> - PPT 제작 전 정보 구조와 문장 검토를 위한 16:9 와이어프레임. 일정과 성숙도는 제안이며, 실제 완료 상태를 의미하지 않습니다.</p>
 
-  <!-- ============================================================ -->
-  <!-- SLIDE 1 - Executive overview: 5 core functions                -->
-  <!-- ============================================================ -->
-  <div class="slide-wrap">
-    <div class="slide">
-      <span class="placeholder-tag">wireframe · slide 1 / 2</span>
-      <span class="wf-tag" style="left:20px; top:20px;">1</span>
-      <p class="slide-kicker">FDAI Roadmap - Overview</p>
-      <h1 class="slide-title">핵심 기능 5종 한눈에 보기</h1>
-      <p class="slide-sub">SRE · ARB(아키텍처 리뷰보드) · Change Management · FinOps · Chaos/DR -
-        결정론적 규칙(T0)이 반복 이벤트를 먼저 처리하고, 애매한 잔여 사례만 유사사례 재사용(T1)과
-        승인 게이트를 거친 판단(T2)으로 넘어가는 동일한 안전 루프를 공유한다.</p>
+  <section class="slide-wrap">
+    <article class="slide" aria-labelledby="overview-title">
+      <div class="header-rule" aria-hidden="true"></div>
+      <p class="eyebrow">FDAI | Operating Model</p>
+      <h1 id="overview-title">하나의 운영 모델로<br />세 가지 거버넌스 결과를 만든다</h1>
+      <p class="lead">FDAI는 SRE를 공통 운영 모델로 삼아, 복원력, 변경 안전, 비용 거버넌스를 같은 증거 기반 제어 루프로 운영합니다.</p>
 
-      <div class="fn-grid">
-        <span class="wf-tag">2</span>
-        <article class="fn-card">
-          <div class="fn-swatch" style="background:var(--f-sre);"></div>
-          <p class="fn-en">Reliability</p>
-          <h3>SRE</h3>
-          <p class="fn-mission">장애 탐지 → 근본원인 → 표준 대응까지 자동화해 신뢰성을 지킨다.</p>
-          <div class="fn-kpi-box"><div class="k-label">핵심 지표(예시)</div><div class="k-value">MTTR</div></div>
-          <ul class="fn-list">
-            <li>이벤트 상관/근본원인 추론</li>
-            <li>자동 대응 실행계획</li>
-            <li>사후 검증 + 재발방지</li>
-          </ul>
-          <div class="fn-anchor">근거: 감사 로그 + 복구 드릴</div>
+      <div class="model-line" aria-label="SRE operating model relationship">
+        <span class="model-label">SRE 운영 모델</span>
+        <span class="model-arrow" aria-hidden="true"></span>
+        <span class="model-copy">관찰 - 판단 - 승인 - 실행 - 검증 - 학습</span>
+      </div>
+
+      <div class="capability-grid">
+        <article class="capability is-resilience">
+          <p class="cap-kicker">Resilience</p>
+          <h2>Chaos / DR</h2>
+          <p>장애를 가정한 실험과 복구 훈련으로, 실제 복구 가능성과 RTO/RPO를 지속해서 검증합니다.</p>
+          <ul><li>Chaos Engineering</li><li>Failover</li><li>Recovery drill</li></ul>
         </article>
-        <article class="fn-card">
-          <div class="fn-swatch" style="background:var(--f-arb);"></div>
-          <p class="fn-en">Architecture Review</p>
-          <h3>ARB</h3>
-          <p class="fn-mission">변경 리스크를 사전 심사하고 근거 패킷을 자동 생성한다.</p>
-          <div class="fn-kpi-box"><div class="k-label">핵심 지표(예시)</div><div class="k-value">심사 대기시간</div></div>
-          <ul class="fn-list">
-            <li>리스크 분류 + 정책 매칭</li>
-            <li>근거/의존성 자동 첨부</li>
-            <li>승인 이력 추적</li>
-          </ul>
-          <div class="fn-anchor">근거: 변경 감사 + 정책 카탈로그</div>
+        <article class="capability is-change">
+          <p class="cap-kicker">Change Safety</p>
+          <h2>ARB + Change Management</h2>
+          <p>변경 전에는 위험과 근거를 검토하고, 변경 후에는 효과와 롤백 가능성을 독립적으로 확인합니다.</p>
+          <ul><li>ARB evidence</li><li>Policy gate</li><li>Rollback</li></ul>
         </article>
-        <article class="fn-card">
-          <div class="fn-swatch" style="background:var(--f-chg);"></div>
-          <p class="fn-en">Safe Delivery</p>
-          <h3>Change<br/>Management</h3>
-          <p class="fn-mission">배포·롤백 계약을 표준화해 변경 실패율을 낮춘다.</p>
-          <div class="fn-kpi-box"><div class="k-label">핵심 지표(예시)</div><div class="k-value">변경 실패율</div></div>
-          <ul class="fn-list">
-            <li>승격 레지스트리 게이트</li>
-            <li>검증된 롤백 경로</li>
-            <li>리드타임 단축</li>
-          </ul>
-          <div class="fn-anchor">근거: 배포 이벤트 + 롤백 검증</div>
-        </article>
-        <article class="fn-card">
-          <div class="fn-swatch" style="background:var(--f-fin);"></div>
-          <p class="fn-en">Cost Governance</p>
-          <h3>FinOps</h3>
-          <p class="fn-mission">낭비 패턴을 재사용 가능한 절감 조치로 전환한다.</p>
-          <div class="fn-kpi-box"><div class="k-label">핵심 지표(예시)</div><div class="k-value">검증된 절감액</div></div>
-          <ul class="fn-list">
-            <li>이상 지출 탐지</li>
-            <li>표준가 기준 절감 추정</li>
-            <li>예산 가드레일</li>
-          </ul>
-          <div class="fn-anchor">근거: 비용 이벤트 + 가격 카탈로그</div>
-        </article>
-        <article class="fn-card">
-          <div class="fn-swatch" style="background:var(--f-dr);"></div>
-          <p class="fn-en">Resilience</p>
-          <h3>Chaos / DR</h3>
-          <p class="fn-mission">주기적 카오스·DR 훈련으로 복구 능력을 계속 검증한다.</p>
-          <div class="fn-kpi-box"><div class="k-label">핵심 지표(예시)</div><div class="k-value">RTO / RPO</div></div>
-          <ul class="fn-list">
-            <li>스케줄된 복구 드릴</li>
-            <li>페일오버 자동 검증</li>
-            <li>리전 장애 대비</li>
-          </ul>
-          <div class="fn-anchor">근거: 드릴 결과 + 복구 로그</div>
+        <article class="capability is-finops">
+          <p class="cap-kicker">Cost Governance</p>
+          <h2>FinOps</h2>
+          <p>비용 이상을 탐지하고, 신뢰성 제약을 지키는 범위에서 검증 가능한 최적화 후보를 관리합니다.</p>
+          <ul><li>Cost visibility</li><li>Forecast</li><li>Verified savings</li></ul>
         </article>
       </div>
-      <div class="slide-page">1 / 2</div>
-    </div>
-  </div>
-  <div class="anno-list">
-    <strong>주석</strong>
-    <ol>
-      <li><strong>①</strong> 슬라이드 헤더 영역 - kicker(상단 라벨) + 타이틀 + 1~2줄 요약. PPT 전환 시 상단 20% 고정.</li>
-      <li><strong>②</strong> 5열 카드 그리드 - 기능별 색상 스와치로 뒤 슬라이드(타임라인)와 색상 매핑을 통일. 카드 하단 "근거" 라인은 실제 데이터 출처를 밝혀 슬라이드가 근거 없는 주장으로 읽히지 않게 함.</li>
-    </ol>
-  </div>
 
-  <!-- ============================================================ -->
-  <!-- SLIDE 2 - Roadmap timeline: 5 swimlanes x phases               -->
-  <!-- ============================================================ -->
-  <div class="slide-wrap">
-    <div class="slide">
-      <span class="placeholder-tag">wireframe · slide 2 / 2</span>
-      <span class="wf-tag" style="left:20px; top:20px;">3</span>
-      <p class="slide-kicker">FDAI Roadmap - Timeline</p>
-      <h1 class="slide-title">단계별 로드맵 (Phase x 기능 스윔레인)</h1>
-      <p class="slide-sub">가로축은 계측 → 규칙 카탈로그 → 품질/T1 재사용 → 통합 루프 → 스케일 순으로
-        진행하는 구축 단계, 세로축은 5개 핵심 기능. 각 칸은 해당 단계에서 그 기능이 도달하는 자율성
-        수준(관찰 → 제한 실행 → 전면 자동화)을 나타낸다.</p>
+      <div class="outcome-strip" aria-label="Outcome proof">
+        <div class="outcome"><strong>복원력</strong><span>독립적으로 검증된 복구와 재발 방지</span></div>
+        <div class="outcome"><strong>변경 안전</strong><span>승인 조건과 변경 후 효과 검증</span></div>
+        <div class="outcome"><strong>비용 거버넌스</strong><span>신뢰성을 훼손하지 않는 실현 절감</span></div>
+      </div>
+      <span class="slide-number">01</span>
+    </article>
+  </section>
 
-      <div class="tl-wrap">
-        <div class="tl-phase-axis">
-          <span class="wf-tag">4</span>
-          <div class="tl-corner"></div>
-          <div class="tl-phase-head"><div class="p-id">PHASE 0</div><div class="p-name">계측 · 언블록</div></div>
-          <div class="tl-phase-head"><div class="p-id">PHASE 1</div><div class="p-name">규칙 카탈로그 (T0)</div></div>
-          <div class="tl-phase-head"><div class="p-id">PHASE 2</div><div class="p-name">품질 게이트 (T1)</div></div>
-          <div class="tl-phase-head"><div class="p-id">PHASE 3</div><div class="p-name">통합 루프</div></div>
-          <div class="tl-phase-head"><div class="p-id">PHASE 4</div><div class="p-name">스케일 (TBD)</div></div>
-        </div>
-
-        <div class="tl-rows">
-          <span class="wf-tag">5</span>
-          <div class="tl-row">
-            <div class="tl-lane-label"><span class="dot" style="background:var(--f-sre);"></span><div><strong>SRE</strong><span>신뢰성</span></div></div>
-            <div class="tl-cell">이벤트/감사 텔레메트리 배선</div>
-            <div class="tl-cell">반복 장애 T0 규칙 대응</div>
-            <div class="tl-cell is-pilot">유사사례(T1) 대응 확대</div>
-            <div class="tl-cell is-pilot">RCA 루프 + 표준 실행계획</div>
-            <div class="tl-cell is-enforce">다중 구독 셀 확장</div>
-          </div>
-          <div class="tl-row">
-            <div class="tl-lane-label"><span class="dot" style="background:var(--f-arb);"></span><div><strong>ARB</strong><span>아키텍처 리뷰보드</span></div></div>
-            <div class="tl-cell">변경 감사 로그 표준화</div>
-            <div class="tl-cell">정책 기반 리스크 분류</div>
-            <div class="tl-cell is-pilot">유사 변경사례 자동 매칭</div>
-            <div class="tl-cell is-pilot">ARB 패킷 자동 생성</div>
-            <div class="tl-cell is-enforce">구독 간 거버넌스 롤업</div>
-          </div>
-          <div class="tl-row">
-            <div class="tl-lane-label"><span class="dot" style="background:var(--f-chg);"></span><div><strong>Change<br/>Management</strong><span>변경 안전</span></div></div>
-            <div class="tl-cell">배포/롤백 계약 정의</div>
-            <div class="tl-cell">표준 변경 규칙 카탈로그</div>
-            <div class="tl-cell is-pilot">변경실패율/리드타임 게이트</div>
-            <div class="tl-cell is-pilot">승격 레지스트리 자동 롤백</div>
-            <div class="tl-cell is-enforce">조직 전체 변경 표준화</div>
-          </div>
-          <div class="tl-row">
-            <div class="tl-lane-label"><span class="dot" style="background:var(--f-fin);"></span><div><strong>FinOps</strong><span>비용 거버넌스</span></div></div>
-            <div class="tl-cell">비용 이벤트 계측</div>
-            <div class="tl-cell">규칙 기반 이상 지출 탐지</div>
-            <div class="tl-cell is-pilot">유사 낭비패턴 재사용 절감</div>
-            <div class="tl-cell is-pilot">예산 가드레일 통합 실행</div>
-            <div class="tl-cell is-enforce">다중 구독 비용 롤업</div>
-          </div>
-          <div class="tl-row">
-            <div class="tl-lane-label"><span class="dot" style="background:var(--f-dr);"></span><div><strong>Chaos / DR</strong><span>복원력</span></div></div>
-            <div class="tl-cell">RTO/RPO 기준선 측정</div>
-            <div class="tl-cell">규칙 기반 복구 드릴 스케줄</div>
-            <div class="tl-cell is-pilot">유사 장애 시나리오 재사용</div>
-            <div class="tl-cell is-pilot">주기적 DR/Chaos 통합 테스트</div>
-            <div class="tl-cell is-enforce">리전 페일오버 자동 검증</div>
-          </div>
-        </div>
-
-        <div class="tl-legend">
-          <span class="wf-tag">6</span>
-          <span class="sw"><span class="chip" style="background:var(--wf-shadow-fill);"></span>Shadow(관찰)</span>
-          <span class="sw"><span class="chip" style="background:var(--wf-pilot-fill);"></span>Pilot(제한 실행)</span>
-          <span class="sw"><span class="chip" style="background:var(--wf-enforce-fill);"></span>Enforce(전면 자동화)</span>
+  <section class="slide-wrap">
+    <article class="slide" aria-labelledby="roadmap-title">
+      <div class="header-rule" aria-hidden="true"></div>
+      <p class="eyebrow">FDAI | Roadmap</p>
+      <div class="roadmap-head">
+        <h1 id="roadmap-title">증거를 쌓아 통제된 자율성으로 확장한다</h1>
+        <div class="roadmap-key" aria-label="Roadmap state legend">
+          <span><i style="background:#96a3a8;"></i>관찰</span>
+          <span><i style="background:var(--orange);"></i>통제된 적용</span>
+          <span><i style="background:var(--teal);"></i>확장</span>
         </div>
       </div>
-      <div class="slide-page">2 / 2</div>
-    </div>
-  </div>
-  <div class="anno-list">
-    <strong>주석</strong>
-    <ol>
-      <li><strong>③</strong> 헤더는 슬라이드 1과 동일 톤 유지 - 두 슬라이드가 한 덱임을 알려줌.</li>
-      <li><strong>④</strong> Phase 축 5칸 - 실제 로드맵 문서(docs/roadmap/phases/phase-0..4)의 단계명과 1:1 매핑. 날짜/분기 라벨은 PPT 제작 시 실제 일정으로 교체.</li>
-      <li><strong>⑤</strong> 스윔레인 5행 - 좌측 라벨은 슬라이드 1의 색상 스와치와 동일 색으로 연결. 각 칸 텍스트는 예시 마일스톤이며 실제 커밋 아님(추정치로 표기 필요).</li>
-      <li><strong>⑥</strong> Shadow/Pilot/Enforce 범례 - 배경색으로 자율성 단계를 표시. 이 셀 색은 실제 프로모션 레지스트리 상태를 반영해야 하며, 로드맵 문서의 "shadow-first rollout" 원칙을 슬라이드에서도 지킨다.</li>
-    </ol>
-  </div>
+
+      <div class="roadmap" role="table" aria-label="FDAI capability roadmap">
+        <div class="roadmap-corner" role="columnheader">운영 역량</div>
+        <div class="horizon" role="columnheader"><span class="stage">HORIZON 1</span><strong>기반과 가시성</strong><span>측정 가능한 기준선</span></div>
+        <div class="horizon" role="columnheader"><span class="stage">HORIZON 2</span><strong>통제된 적용</strong><span>정책과 검증이 있는 자동화</span></div>
+        <div class="horizon" role="columnheader"><span class="stage">HORIZON 3</span><strong>확장과 학습</strong><span>재사용 가능한 운영 패턴</span></div>
+
+        <div class="lane" role="rowheader"><i class="lane-dot" style="background:var(--blue);"></i><div><strong>SRE</strong><span>공통 운영 모델</span></div></div>
+        <div class="roadmap-cell"><span class="state observe">OBSERVE</span><p>이벤트, SLO, 감사 증거를 하나의 운영 흐름으로 연결</p></div>
+        <div class="roadmap-cell"><span class="state govern">GOVERN</span><p>반복 대응을 T0 규칙으로 표준화하고, 예외는 승인 경로로 분리</p></div>
+        <div class="roadmap-cell"><span class="state scale">SCALE</span><p>검증된 운영 패턴을 재사용하고 결과를 지속 측정</p></div>
+
+        <div class="lane" role="rowheader"><i class="lane-dot" style="background:var(--red);"></i><div><strong>Chaos / DR</strong><span>복원력 검증</span></div></div>
+        <div class="roadmap-cell"><span class="state observe">OBSERVE</span><p>RTO/RPO 기준선과 복구 증거를 수집</p></div>
+        <div class="roadmap-cell"><span class="state govern">GOVERN</span><p>복구 드릴과 중단 조건을 갖춘 Chaos 실험을 운영</p></div>
+        <div class="roadmap-cell"><span class="state scale">SCALE</span><p>시나리오별 회복 패턴과 검증 기준을 확대</p></div>
+
+        <div class="lane" role="rowheader"><i class="lane-dot" style="background:var(--plum);"></i><div><strong>ARB + Change</strong><span>변경 안전</span></div></div>
+        <div class="roadmap-cell"><span class="state observe">OBSERVE</span><p>변경 영향, 의존성, 감사 기록을 표준화</p></div>
+        <div class="roadmap-cell"><span class="state govern">GOVERN</span><p>정책 기반 ARB 패킷과 롤백 계약을 적용</p></div>
+        <div class="roadmap-cell"><span class="state scale">SCALE</span><p>승격 조건과 변경 결과를 조직 단위로 비교</p></div>
+
+        <div class="lane" role="rowheader"><i class="lane-dot" style="background:var(--teal);"></i><div><strong>FinOps</strong><span>비용 거버넌스</span></div></div>
+        <div class="roadmap-cell"><span class="state observe">OBSERVE</span><p>비용 이벤트, 예산, 사용량의 기준선을 확보</p></div>
+        <div class="roadmap-cell"><span class="state govern">GOVERN</span><p>정책 안에서 절감 후보를 검토하고 효과를 확인</p></div>
+        <div class="roadmap-cell"><span class="state scale">SCALE</span><p>검증된 절감 패턴과 보호 제약을 범위별로 확장</p></div>
+      </div>
+
+      <div class="roadmap-note"><span><strong>원칙:</strong> 모든 상태 변경은 Shadow에서 시작하고, 승인된 프로모션 근거가 있을 때만 적용 범위를 넓힙니다.</span><span>02</span></div>
+    </article>
+  </section>
 </body>
 </html>
