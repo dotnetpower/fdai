@@ -246,16 +246,3 @@ async def _with_assurance_policy(
         "text": policy.policy_text,
     }
     return enriched
-
-
-def assurance_policy_summary(view_context: Mapping[str, Any]) -> dict[str, str] | None:
-    raw = view_context.get(_ASSURANCE_POLICY_KEY)
-    if not isinstance(raw, Mapping):
-        return None
-    summary: dict[str, str] = {}
-    for key in ("candidate_id", "policy_digest", "stage", "target"):
-        value = raw.get(key)
-        if not isinstance(value, str) or not value:
-            return None
-        summary[key] = value
-    return summary

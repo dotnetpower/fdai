@@ -33,9 +33,6 @@ from fdai.delivery.operator_api.application.conversation.evidence.provenance imp
 from fdai.delivery.operator_api.application.conversation.evidence.provenance import (
     _tool_matches_current_route as _tool_matches_current_route,
 )
-from fdai.delivery.operator_api.application.conversation.evidence.provenance import (
-    _web_search_summary as _web_search_summary,
-)
 from fdai.delivery.operator_api.projections.conversation.inventory import (
     inventory_screen_scope_unavailable_evidence,
     needs_inventory_evidence,

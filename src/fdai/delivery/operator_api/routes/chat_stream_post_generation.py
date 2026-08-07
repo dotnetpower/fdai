@@ -29,6 +29,13 @@ from fdai.delivery.operator_api.application.conversation.verification import (
     verify_answer,
 )
 from fdai.delivery.operator_api.projections.conversation.presentation import PresentationDecision
+from fdai.delivery.operator_api.projections.conversation.terminal import (
+    TurnTimingRecorder,
+    TurnTimingStatus,
+    TurnTimingToken,
+    build_done_payload,
+    verification_events,
+)
 from fdai.delivery.operator_api.routes.chat_answer_planning import planning_metadata
 from fdai.delivery.operator_api.routes.chat_answer_quality import (
     AnswerQualityInvoke,
@@ -53,13 +60,6 @@ from fdai.delivery.operator_api.routes.chat_stream_protocol import (
     DEFAULT_STREAM_HEARTBEAT_S,
     _sse,
     _with_sse_heartbeats,
-)
-from fdai.delivery.operator_api.routes.chat_stream_terminal import (
-    TurnTimingRecorder,
-    TurnTimingStatus,
-    TurnTimingToken,
-    build_done_payload,
-    verification_events,
 )
 from fdai.delivery.operator_api.routes.chat_trajectory_detail import (
     TrajectoryDetailCollector,

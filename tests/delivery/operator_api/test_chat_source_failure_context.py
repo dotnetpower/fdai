@@ -1,11 +1,11 @@
-from fdai.delivery.operator_api.routes.chat_data_sources import (
-    needs_read_source_evidence,
-    render_read_source_answer,
-)
-from fdai.delivery.operator_api.routes.chat_source_failure_context import (
+from fdai.delivery.operator_api.projections.conversation.terminal import (
     parse_source_failure_context,
     response_source_failure_context,
     source_failure_evidence_refs,
+)
+from fdai.delivery.operator_api.routes.chat_data_sources import (
+    needs_read_source_evidence,
+    render_read_source_answer,
 )
 
 

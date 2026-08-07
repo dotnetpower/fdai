@@ -69,6 +69,7 @@ from fdai.delivery.operator_api.projections.conversation.presentation import (
 from fdai.delivery.operator_api.projections.conversation.stream_metrics import (
     record_enqueued_progress_metrics,
 )
+from fdai.delivery.operator_api.projections.conversation.terminal import TurnTimingRecorder
 from fdai.delivery.operator_api.routes.chat_action_context import (
     is_explicit_action_draft_request,
     needs_action_context,
@@ -173,7 +174,6 @@ from fdai.delivery.operator_api.routes.chat_stream_setup import (
     ContentPolicyReplayRequest,
     prepare_chat_stream_request,
 )
-from fdai.delivery.operator_api.routes.chat_stream_terminal import TurnTimingRecorder
 from fdai.delivery.operator_api.routes.chat_subscription_health import needs_subscription_health
 from fdai.delivery.operator_api.routes.chat_system_health import render_system_health_answer
 from fdai.delivery.operator_api.routes.chat_topology_intent import is_topology_question

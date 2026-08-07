@@ -6,7 +6,9 @@ import unicodedata
 
 from fdai.delivery.operator_api.application.conversation.verification import verify_answer
 from fdai.delivery.operator_api.application.conversation.verification.verifier import _changed
-from fdai.delivery.operator_api.routes.chat_stream_terminal import response_incident_candidates
+from fdai.delivery.operator_api.projections.conversation.terminal import (
+    response_incident_candidates,
+)
 
 
 def _context(evidence: dict[str, object]) -> dict[str, object]:

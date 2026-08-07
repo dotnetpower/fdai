@@ -33,7 +33,6 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
 
 _MAX_CONCURRENCY: Final = 4
 _GOAL_TIMEOUT_SECONDS: Final = 20.0
-_MAX_PUBLIC_EVIDENCE_REFS: Final = 12
 
 
 async def resolve_intent_graph_evidence(
@@ -408,68 +407,4 @@ def _progress(
     }
 
 
-def public_intent_graph_evidence(raw: Mapping[str, Any]) -> dict[str, Any]:
-    """Remove provider payloads from the browser-persisted execution ledger."""
-    public_goals: list[dict[str, Any]] = []
-    goals = raw.get("goals")
-    if isinstance(goals, list):
-        for item in goals[:8]:
-            if not isinstance(item, Mapping):
-                continue
-            receipt = {
-                key: item[key]
-                for key in (
-                    "goal_id",
-                    "task_id",
-                    "intent",
-                    "capability",
-                    "evidence_mode",
-                    "status",
-                    "duration_ms",
-                    "depends_on",
-                    "reason",
-                    "blocked_by",
-                    "started_at",
-                    "completed_at",
-                )
-                if key in item
-            }
-            refs = _collect_evidence_refs(item.get("evidence"))
-            if refs:
-                receipt["evidence_refs"] = refs
-            public_goals.append(receipt)
-    return {
-        "schema_version": 1,
-        "status": str(raw.get("status") or "unavailable"),
-        "evidence_mode": str(raw.get("evidence_mode") or "held_for_review"),
-        "goals": public_goals,
-    }
-
-
-def _collect_evidence_refs(value: object) -> list[str]:
-    refs: list[str] = []
-
-    def visit(candidate: object, depth: int) -> None:
-        if depth > 3 or len(refs) >= _MAX_PUBLIC_EVIDENCE_REFS:
-            return
-        if isinstance(candidate, Mapping):
-            for key, nested in list(candidate.items())[:32]:
-                if key in {"evidence_ref", "trace_ref"} and isinstance(nested, str):
-                    refs.append(nested[:512])
-                elif key in {"evidence_refs", "source_refs"} and isinstance(nested, list):
-                    refs.extend(
-                        item[:512]
-                        for item in nested[: _MAX_PUBLIC_EVIDENCE_REFS - len(refs)]
-                        if isinstance(item, str)
-                    )
-                else:
-                    visit(nested, depth + 1)
-        elif isinstance(candidate, list):
-            for nested in candidate[:32]:
-                visit(nested, depth + 1)
-
-    visit(value, 0)
-    return list(dict.fromkeys(ref for ref in refs if ref))[:_MAX_PUBLIC_EVIDENCE_REFS]
-
-
-__all__ = ["public_intent_graph_evidence", "resolve_intent_graph_evidence"]
+__all__ = ["resolve_intent_graph_evidence"]

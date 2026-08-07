@@ -14,6 +14,10 @@ from fdai.delivery.operator_api.projections.conversation.inventory import (
     partial_inventory_findings_are_grounded,
     render_inventory_answer,
 )
+from fdai.delivery.operator_api.projections.conversation.terminal import (
+    llm_usage_evidence_refs,
+    render_llm_usage_answer,
+)
 from fdai.delivery.operator_api.routes.chat_action_context import (
     action_context_evidence_refs,
     render_action_context_answer,
@@ -37,10 +41,6 @@ from fdai.delivery.operator_api.routes.chat_detection_readiness import (
 from fdai.delivery.operator_api.routes.chat_knowledge_context import (
     knowledge_context_evidence_refs,
     render_knowledge_context_answer,
-)
-from fdai.delivery.operator_api.routes.chat_llm_usage_rendering import (
-    llm_usage_evidence_refs,
-    render_llm_usage_answer,
 )
 from fdai.delivery.operator_api.routes.chat_log_query import (
     log_query_evidence_refs,

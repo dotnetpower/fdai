@@ -1,4 +1,4 @@
-from fdai.delivery.operator_api.routes.chat_resource_result_context import (
+from fdai.delivery.operator_api.projections.conversation.terminal import (
     ambiguous_resource_candidates,
     ordinal_inventory_arguments,
     parse_resource_result_context,

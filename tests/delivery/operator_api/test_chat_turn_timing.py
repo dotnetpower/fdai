@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from fdai.delivery.operator_api.routes.chat_stream_terminal import TurnTimingRecorder
+from fdai.delivery.operator_api.projections.conversation.terminal import TurnTimingRecorder
 
 
 def test_turn_timing_uses_one_wall_anchor_and_monotonic_offsets() -> None:
@@ -14,7 +14,7 @@ def test_turn_timing_uses_one_wall_anchor_and_monotonic_offsets() -> None:
         started_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
     with patch(
-        "fdai.delivery.operator_api.routes.chat_stream_terminal.time.monotonic",
+        "fdai.delivery.operator_api.projections.conversation.terminal.payload.time.monotonic",
         side_effect=[101.0, 103.5, 104.0],
     ):
         token = recorder.begin("evidence")

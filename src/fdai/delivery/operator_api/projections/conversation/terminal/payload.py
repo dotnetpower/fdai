@@ -6,33 +6,27 @@ import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any, Final, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal, Protocol
 
 from fdai.core.conversation.answer_plan import AnswerPlan
 from fdai.core.python_task.grounded_code import extract_grounded_code
-from fdai.delivery.operator_api.application.conversation.evidence.provenance import (
-    _web_search_summary,
-)
-from fdai.delivery.operator_api.application.conversation.verification import AnswerVerification
 from fdai.delivery.operator_api.projections.conversation.presentation import (
     response_presentation_artifact,
 )
-from fdai.delivery.operator_api.routes.chat_answer_quality import AnswerQualityResult
-from fdai.delivery.operator_api.routes.chat_freshness_context import EvidenceFreshnessContext
-from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
-    public_intent_graph_evidence,
-)
-from fdai.delivery.operator_api.routes.chat_llm_usage_rendering import (
+from fdai.delivery.operator_api.projections.conversation.provenance import web_search_summary
+from fdai.delivery.operator_api.projections.conversation.terminal.llm_usage import (
     response_llm_usage_analysis_context,
     response_llm_usage_chart_artifact,
 )
-from fdai.delivery.operator_api.routes.chat_resource_result_context import (
+from fdai.delivery.operator_api.projections.conversation.terminal.resource_context import (
     response_resource_result_context,
 )
-from fdai.delivery.operator_api.routes.chat_route_common import assurance_policy_summary
-from fdai.delivery.operator_api.routes.chat_source_failure_context import (
+from fdai.delivery.operator_api.projections.conversation.terminal.source_failure import (
     response_source_failure_context,
 )
+
+if TYPE_CHECKING:
+    from fdai.delivery.operator_api.application.conversation.verification import AnswerVerification
 
 TurnTimingPhase = Literal[
     "semantic_plan",
@@ -49,6 +43,16 @@ _TURN_TIMING_PHASES: Final[frozenset[str]] = frozenset(
 )
 _MAX_INCIDENT_CANDIDATES: Final[int] = 5
 _MAX_INCIDENT_FIELD_CHARS: Final[int] = 512
+_MAX_PUBLIC_EVIDENCE_REFS: Final[int] = 12
+_ASSURANCE_POLICY_KEY: Final[str] = "_conversation_assurance_policy"
+
+
+class _QualityProjection(Protocol):
+    def to_dict(self) -> dict[str, Any]: ...
+
+
+class _FreshnessProjection(Protocol):
+    def to_dict(self) -> dict[str, object]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,16 +184,8 @@ def response_incident_candidates(
             incident_id = _incident_candidate_field(f"INC-{correlation_id}")
         if incident_id is None:
             return None
-        projected = {
-            "incident_id": incident_id,
-            "correlation_id": correlation_id,
-        }
-        for field_name in (
-            "title",
-            "severity",
-            "status",
-            "last_updated_at",
-        ):
+        projected = {"incident_id": incident_id, "correlation_id": correlation_id}
+        for field_name in ("title", "severity", "status", "last_updated_at"):
             normalized = _incident_candidate_field(raw.get(field_name))
             if normalized is None:
                 return None
@@ -222,6 +218,86 @@ def _incident_candidate_locale(locale: str | None) -> str:
     return "ko" if primary == "ko" else "en"
 
 
+def public_intent_graph_evidence(raw: Mapping[str, Any]) -> dict[str, Any]:
+    """Remove provider payloads from the browser-persisted execution ledger."""
+
+    public_goals: list[dict[str, Any]] = []
+    goals = raw.get("goals")
+    if isinstance(goals, list):
+        for item in goals[:8]:
+            if not isinstance(item, Mapping):
+                continue
+            receipt = {
+                key: item[key]
+                for key in (
+                    "goal_id",
+                    "task_id",
+                    "intent",
+                    "capability",
+                    "evidence_mode",
+                    "status",
+                    "duration_ms",
+                    "depends_on",
+                    "reason",
+                    "blocked_by",
+                    "started_at",
+                    "completed_at",
+                )
+                if key in item
+            }
+            refs = _collect_evidence_refs(item.get("evidence"))
+            if refs:
+                receipt["evidence_refs"] = refs
+            public_goals.append(receipt)
+    return {
+        "schema_version": 1,
+        "status": str(raw.get("status") or "unavailable"),
+        "evidence_mode": str(raw.get("evidence_mode") or "held_for_review"),
+        "goals": public_goals,
+    }
+
+
+def _collect_evidence_refs(value: object) -> list[str]:
+    refs: list[str] = []
+
+    def visit(candidate: object, depth: int) -> None:
+        if depth > 3 or len(refs) >= _MAX_PUBLIC_EVIDENCE_REFS:
+            return
+        if isinstance(candidate, Mapping):
+            for key, nested in list(candidate.items())[:32]:
+                if key in {"evidence_ref", "trace_ref"} and isinstance(nested, str):
+                    refs.append(nested[:512])
+                elif key in {"evidence_refs", "source_refs"} and isinstance(nested, list):
+                    refs.extend(
+                        item[:512]
+                        for item in nested[: _MAX_PUBLIC_EVIDENCE_REFS - len(refs)]
+                        if isinstance(item, str)
+                    )
+                else:
+                    visit(nested, depth + 1)
+        elif isinstance(candidate, list):
+            for nested in candidate[:32]:
+                visit(nested, depth + 1)
+
+    visit(value, 0)
+    return list(dict.fromkeys(ref for ref in refs if ref))[:_MAX_PUBLIC_EVIDENCE_REFS]
+
+
+def assurance_policy_summary(view_context: Mapping[str, Any]) -> dict[str, str] | None:
+    """Project one bounded public summary from the server-owned policy context."""
+
+    raw = view_context.get(_ASSURANCE_POLICY_KEY)
+    if not isinstance(raw, Mapping):
+        return None
+    summary: dict[str, str] = {}
+    for key in ("candidate_id", "policy_digest", "stage", "target"):
+        value = raw.get(key)
+        if not isinstance(value, str) or not value:
+            return None
+        summary[key] = value
+    return summary
+
+
 def build_done_payload(
     *,
     verification: AnswerVerification,
@@ -241,9 +317,9 @@ def build_done_payload(
     response_locale: str | None,
     answer_plan: AnswerPlan,
     answer_planning: Mapping[str, Any] | None,
-    quality: AnswerQualityResult | None,
+    quality: _QualityProjection | None,
     resource_context: Mapping[str, str] | None,
-    freshness_context: EvidenceFreshnessContext | None,
+    freshness_context: _FreshnessProjection | None,
     model_trace: Mapping[str, Any] | None,
     turn_timing: Mapping[str, Any] | None,
     trajectory_detail: Mapping[str, Any] | None,
@@ -273,7 +349,7 @@ def build_done_payload(
         "latency_ms": int((time.monotonic() - started) * 1000),
         "verification": verification.to_dict(),
         "delegation": delegation,
-        "web_search": _web_search_summary(enriched_context),
+        "web_search": web_search_summary(enriched_context),
         "answer_plan": answer_plan.to_dict(),
         "answer_planning": answer_planning,
         "code_artifacts": [
@@ -346,3 +422,15 @@ def build_done_payload(
     if policy_summary is not None:
         payload["conversation_policy"] = policy_summary
     return payload
+
+
+__all__ = [
+    "TurnTimingRecorder",
+    "TurnTimingStatus",
+    "TurnTimingToken",
+    "assurance_policy_summary",
+    "build_done_payload",
+    "public_intent_graph_evidence",
+    "response_incident_candidates",
+    "verification_events",
+]

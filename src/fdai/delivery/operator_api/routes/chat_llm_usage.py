@@ -18,6 +18,9 @@ from fdai.core.metering.aggregate import (
 )
 from fdai.core.metering.records import InvocationScope
 from fdai.core.metering.sink import MeteringReader
+from fdai.delivery.operator_api.projections.conversation.terminal import (
+    parse_llm_usage_analysis_context,
+)
 from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
 from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
 
@@ -106,40 +109,6 @@ def is_llm_usage_followup(prompt: str) -> bool:
         and _FOLLOWUP_CUE.search(prompt)
         and not _EXPLICIT_OTHER_SUBJECT.search(prompt)
     )
-
-
-def parse_llm_usage_analysis_context(value: object) -> dict[str, object] | None:
-    """Return one bounded server-issued usage anchor or ``None``."""
-
-    if not isinstance(value, Mapping):
-        return None
-    expected = {
-        "schema_version",
-        "domain",
-        "capability",
-        "measure",
-        "group_by",
-        "lookback_days",
-        "usage_scope",
-    }
-    if set(value) != expected:
-        return None
-    group_by = value.get("group_by")
-    lookback_days = value.get("lookback_days")
-    if (
-        value.get("schema_version") != 1
-        or value.get("domain") != "llm_usage"
-        or value.get("capability") != "query_llm_usage"
-        or value.get("measure") != "total_tokens"
-        or not isinstance(group_by, str)
-        or group_by not in _GROUPERS
-        or not isinstance(lookback_days, int)
-        or isinstance(lookback_days, bool)
-        or not 1 <= lookback_days <= _MAX_LOOKBACK_DAYS
-        or value.get("usage_scope") not in {None, InvocationScope.OPERATOR_CHAT.value}
-    ):
-        return None
-    return {key: value[key] for key in expected}
 
 
 @dataclass(frozen=True, slots=True)
@@ -385,5 +354,4 @@ __all__ = [
     "LlmUsageChatTools",
     "is_llm_usage_followup",
     "needs_llm_usage",
-    "parse_llm_usage_analysis_context",
 ]

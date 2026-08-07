@@ -28,12 +28,12 @@ from fdai.delivery.operator_api.application.conversation.verification.text impor
 from fdai.delivery.operator_api.application.conversation.verification.tools import (
     verify_tool_contract,
 )
+from fdai.delivery.operator_api.projections.conversation.terminal import (
+    public_intent_graph_evidence,
+)
 from fdai.delivery.operator_api.routes.chat_behavior_evidence import (
     behavior_evidence_refs,
     render_behavior_answer,
-)
-from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
-    public_intent_graph_evidence,
 )
 from fdai.delivery.operator_api.routes.chat_vision_evidence import vision_evidence_refs
 

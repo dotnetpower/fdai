@@ -72,7 +72,6 @@ from fdai.delivery.operator_api.application.conversation.evidence.enrichment imp
     _retrieval_source_previews,
     _screen_incident_context,
     _tool_matches_current_route,
-    _web_search_summary,
     _with_agent_evidence,
     _with_behavior_evidence,
     _with_operational_evidence,
@@ -87,6 +86,18 @@ from fdai.delivery.operator_api.application.conversation.verification import (
 from fdai.delivery.operator_api.projections.conversation.presentation import (
     response_presentation_artifact,
     select_answer_presentation,
+)
+from fdai.delivery.operator_api.projections.conversation.provenance import (
+    web_search_summary as _web_search_summary,
+)
+from fdai.delivery.operator_api.projections.conversation.terminal import (
+    assurance_policy_summary,
+    public_intent_graph_evidence,
+    response_incident_candidates,
+    response_llm_usage_analysis_context,
+    response_llm_usage_chart_artifact,
+    response_resource_result_context,
+    response_source_failure_context,
 )
 from fdai.delivery.operator_api.routes.chat_action_context import (
     is_explicit_action_draft_request,
@@ -154,16 +165,9 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     plan_semantic_turn,
     planner_context_envelope,
 )
-from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
-    public_intent_graph_evidence,
-)
 from fdai.delivery.operator_api.routes.chat_llm_usage import (
     is_llm_usage_followup,
     needs_llm_usage,
-)
-from fdai.delivery.operator_api.routes.chat_llm_usage_rendering import (
-    response_llm_usage_analysis_context,
-    response_llm_usage_chart_artifact,
 )
 from fdai.delivery.operator_api.routes.chat_log_query import (
     needs_log_query,
@@ -219,9 +223,6 @@ from fdai.delivery.operator_api.routes.chat_resource_context import (
     resource_followup_verification,
     response_resource_context,
 )
-from fdai.delivery.operator_api.routes.chat_resource_result_context import (
-    response_resource_result_context,
-)
 from fdai.delivery.operator_api.routes.chat_response_tail import (
     ChatResponseTailContext,
     ChatResponseTailDependencies,
@@ -242,12 +243,8 @@ from fdai.delivery.operator_api.routes.chat_route_common import (
     _uses_evidence_fast_path,
     _with_assurance_policy,
     _with_compiled_user_policy,
-    assurance_policy_summary,
 )
 from fdai.delivery.operator_api.routes.chat_screen_data import render_screen_data_answer
-from fdai.delivery.operator_api.routes.chat_source_failure_context import (
-    response_source_failure_context,
-)
 from fdai.delivery.operator_api.routes.chat_stream import (
     DEFAULT_STREAM_PATH,
     make_chat_stream_route,
@@ -259,9 +256,6 @@ from fdai.delivery.operator_api.routes.chat_stream_protocol import (
     _sse,
     _sse_heartbeat,
     _with_sse_heartbeats,
-)
-from fdai.delivery.operator_api.routes.chat_stream_terminal import (
-    response_incident_candidates,
 )
 from fdai.delivery.operator_api.routes.chat_subscription_health import (
     needs_subscription_health,

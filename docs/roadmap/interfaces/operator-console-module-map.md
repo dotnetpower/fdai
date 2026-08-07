@@ -199,6 +199,21 @@ delivery. The former `routes.chat_stream_metrics` module had no external compati
 no shim remains. Rollback restores the reducer under `routes/` and changes the stream route import
 without changing metric names, SSE frames, or cancellation behavior.
 
+### Conversation terminal projection boundary
+
+The SD-01 terminal slice owns pure verification-frame assembly, terminal payload compilation,
+measured LLM usage rendering, durable inventory result context, and source-failure replay context
+under `fdai.delivery.operator_api.projections.conversation.terminal`. The package also owns the
+bounded public intent-graph and conversation-policy summaries used in terminal responses. It is
+read-only and request-local.
+
+JSON and SSE routes continue to own authentication, request parsing, HTTP status mapping, frame
+sequence and revision, cancellation, terminal delivery, and conversation history. All repository
+consumers of the four former route modules moved to the explicit terminal facade, and the package
+imports no `fdai.delivery.operator_api.routes` module, so no compatibility shim remains. Rollback
+restores the four route implementations and redirects the terminal facade without changing either
+wire contract.
+
 ### Immutable app composition
 
 Issue 72 keeps `OperatorApiConfig(**kwargs)` as the bounded compatibility constructor and projects
@@ -243,6 +258,7 @@ reverses physical ownership without a wire or caller migration.
 | `projections/conversation/` | Request-local conversation read projections and queue-accepted progress metric reduction outside HTTP transport | Retain in-process until service-graduation evidence exists. |
 | `projections/conversation/presentation/` | Value-free layout selection and verified evidence artifact compilation | Import through its explicit facade; keep JSON and SSE behavior in routes. |
 | `projections/conversation/inventory/` | Inventory evidence sanitization, result projection, and deterministic rendering | Import through its explicit facade; keep query compilation and provider coordination in the application package. |
+| `projections/conversation/terminal/` | Terminal payload, LLM usage, resource-result, and source-failure projections | Import through its explicit facade; keep JSON, SSE, authentication, cancellation, and history in routes. |
 | `production/` | Production provider construction and bindings | Reduce fanout incrementally without changing wire behavior. |
 | `routes/` | Mixed HTTP adapters, coordination, projections, and policy helpers | Move one measured family at a time; don't bulk-move chat before its typed service boundary. |
 | `streaming/` | Read-only SSE transport, redaction, fanout, and runtime projection | Retain until versioned relay and replay contracts exist. |
@@ -326,10 +342,12 @@ a separately reviewed boundary.
 - `projections/conversation/inventory/` owns inventory evidence sanitization, result projection,
   and deterministic rendering. It does not own provider selection, query compilation, HTTP, SSE,
   authentication, history, or durable state.
+- `projections/conversation/terminal/` owns terminal verification-frame and payload assembly,
+  measured LLM usage rendering, durable result context, and bounded public terminal summaries. It
+  does not own HTTP, SSE sequencing, authentication, cancellation, history, or durable state.
 - `projections/conversation/stream_metrics.py` owns queue-accepted aggregate progress reduction.
   It does not own frame sequencing, queue admission, cancellation, transport, or durable state.
 - `chat_stream_setup.py` owns authenticated request, evidence, history, and answer-plan validation.
-- `chat_stream_terminal.py` owns pure terminal verification-frame and replay-payload assembly.
 - `chat_trajectory_detail.py` owns bounded final progress projection for durable trajectory replay.
 - `chat_knowledge_context.py` reads exact prior-turn runbooks, source freshness, consented memory,
   and materialized learning without writing state.

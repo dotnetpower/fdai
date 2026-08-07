@@ -334,7 +334,7 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
     assert all(entry["exit_condition"].strip() for entry in known_wire_debts)
 
     selections = inventory["migration_selections"]
-    assert len(selections) == 4
+    assert len(selections) == 5
     assert all(set(selection) == _MIGRATION_SELECTION_KEYS for selection in selections)
     selections_by_family = {selection["family"]: selection for selection in selections}
     assert set(selections_by_family) == {
@@ -342,6 +342,7 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
         "chat_inventory*.py",
         "chat_evidence*.py",
         "chat_presentation*.py",
+        "chat terminal projections",
     }
     expected = {
         "audit*.py": (
@@ -388,8 +389,8 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
                 "chat_inventory_schedule.py",
                 "chat_inventory_semantic_retrieval.py",
                 "chat_inventory_semantics.py",
-                },
-            ),
+            },
+        ),
         "chat_evidence*.py": (
             71,
             "fdai.delivery.operator_api.application.conversation.evidence",
@@ -399,6 +400,16 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
                 "chat_evidence_enrichment.py",
                 "chat_evidence_pipeline.py",
                 "chat_evidence_provenance.py",
+            },
+        ),
+        "chat terminal projections": (
+            71,
+            "fdai.delivery.operator_api.projections.conversation.terminal",
+            {
+                "chat_stream_terminal.py",
+                "chat_llm_usage_rendering.py",
+                "chat_resource_result_context.py",
+                "chat_source_failure_context.py",
             },
         ),
     }

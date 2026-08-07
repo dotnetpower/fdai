@@ -119,6 +119,12 @@
       "candidate_destination": "retain behind the explicit inventory projection facade"
     },
     {
+      "path": "projections/conversation/terminal",
+      "responsibility": "Terminal payload, LLM usage, resource-result, and source-failure projections",
+      "classification": "read-projection",
+      "candidate_destination": "retain behind the explicit terminal projection facade"
+    },
+    {
       "path": "projections/audit",
       "responsibility": "Audit query and measurement read projections",
       "classification": "read-projection",
@@ -267,6 +273,20 @@
       ],
       "rationale": "request-local read-only evidence family after claims, verification, and presentation ownership were established",
       "rollback": "restore route implementations and redirect the evidence facade without changing JSON, SSE, authentication, or history contracts"
+    },
+    {
+      "tracking_issue": 71,
+      "family": "chat terminal projections",
+      "destination": "fdai.delivery.operator_api.projections.conversation.terminal",
+      "observed_window_days": 90,
+      "modules": [
+        {"module": "chat_stream_terminal.py", "direct_python_consumers": 5, "fdai_imports": 12, "changes": 16},
+        {"module": "chat_llm_usage_rendering.py", "direct_python_consumers": 3, "fdai_imports": 1, "changes": 2},
+        {"module": "chat_resource_result_context.py", "direct_python_consumers": 4, "fdai_imports": 0, "changes": 3},
+        {"module": "chat_source_failure_context.py", "direct_python_consumers": 4, "fdai_imports": 0, "changes": 2}
+      ],
+      "rationale": "cohesive request-local terminal payload and replay-context projection family after verification and presentation ownership were established",
+      "rollback": "restore route implementations and redirect the terminal facade without changing JSON, SSE, authentication, cancellation, or history contracts"
     }
   ],
   "reviewed_fallback_modules": [
