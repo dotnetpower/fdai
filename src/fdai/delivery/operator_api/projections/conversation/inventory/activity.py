@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, Final
 
-from fdai.delivery.operator_api.routes.chat_inventory_query import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.query import (
     InventoryQuery,
     InventoryQueryKind,
     inventory_query_matches,

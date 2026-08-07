@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Final
 
-from fdai.delivery.operator_api.routes.chat_inventory_language import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.language import (
     default_inventory_query_language_resolver,
 )
 from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver

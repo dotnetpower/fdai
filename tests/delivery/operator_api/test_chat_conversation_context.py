@@ -9,6 +9,9 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory import (
+    InventoryChatTools,
+)
 from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
 from fdai.delivery.operator_api.routes.chat_conversation_context import (
     ConversationContextChatTools,
@@ -18,7 +21,6 @@ from fdai.delivery.operator_api.routes.chat_conversation_context import (
 )
 from fdai.delivery.operator_api.routes.chat_current_time import CurrentTimeChatTools
 from fdai.delivery.operator_api.routes.chat_history import replay_metadata
-from fdai.delivery.operator_api.routes.chat_inventory import InventoryChatTools
 from fdai.delivery.operator_api.routes.chat_subscription_health import (
     SubscriptionHealthChatTools,
     needs_subscription_health_context,

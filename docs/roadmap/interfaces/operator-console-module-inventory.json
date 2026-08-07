@@ -29,6 +29,18 @@
       "candidate_destination": "retain in-process until conversation service-graduation evidence exists"
     },
     {
+      "path": "application/conversation/capabilities",
+      "responsibility": "Process-local typed conversation capabilities outside HTTP transport",
+      "classification": "application-coordination",
+      "candidate_destination": "retain as the domain capability owner"
+    },
+    {
+      "path": "application/conversation/capabilities/inventory",
+      "responsibility": "Typed inventory queries, deterministic compilation, semantic grounding, and provider-read coordination",
+      "classification": "application-coordination",
+      "candidate_destination": "retain behind the explicit inventory capability facade"
+    },
+    {
       "path": "application/conversation/claims",
       "responsibility": "Deterministic answer-claim extraction and bounded evidence verification",
       "classification": "application-coordination",
@@ -75,6 +87,12 @@
       "responsibility": "Value-free presentation planning and verified evidence artifact compilation",
       "classification": "read-projection",
       "candidate_destination": "retain behind the explicit presentation package facade"
+    },
+    {
+      "path": "projections/conversation/inventory",
+      "responsibility": "Inventory evidence sanitization, result projection, and deterministic rendering",
+      "classification": "read-projection",
+      "candidate_destination": "retain behind the explicit inventory projection facade"
     },
     {
       "path": "projections/audit",
@@ -187,6 +205,29 @@
       ],
       "rationale": "request-local read-only presentation family after the typed conversation boundary",
       "rollback": "restore route implementations and redirect the presentation facade without changing JSON or SSE contracts"
+    },
+    {
+      "tracking_issue": 71,
+      "family": "chat_inventory*.py",
+      "destination": "fdai.delivery.operator_api.application.conversation.capabilities.inventory and fdai.delivery.operator_api.projections.conversation.inventory",
+      "observed_window_days": 90,
+      "modules": [
+        {"module": "chat_inventory.py", "direct_python_consumers": 10, "fdai_imports": 15, "changes": 19},
+        {"module": "chat_inventory_activity.py", "direct_python_consumers": 2, "fdai_imports": 1, "changes": 1},
+        {"module": "chat_inventory_compiler.py", "direct_python_consumers": 11, "fdai_imports": 4, "changes": 9},
+        {"module": "chat_inventory_followup.py", "direct_python_consumers": 4, "fdai_imports": 2, "changes": 2},
+        {"module": "chat_inventory_language.py", "direct_python_consumers": 9, "fdai_imports": 1, "changes": 1},
+        {"module": "chat_inventory_ontology.py", "direct_python_consumers": 4, "fdai_imports": 2, "changes": 10},
+        {"module": "chat_inventory_projection.py", "direct_python_consumers": 2, "fdai_imports": 6, "changes": 1},
+        {"module": "chat_inventory_query.py", "direct_python_consumers": 17, "fdai_imports": 0, "changes": 5},
+        {"module": "chat_inventory_rendering.py", "direct_python_consumers": 1, "fdai_imports": 2, "changes": 1},
+        {"module": "chat_inventory_resource_types.py", "direct_python_consumers": 5, "fdai_imports": 3, "changes": 2},
+        {"module": "chat_inventory_schedule.py", "direct_python_consumers": 3, "fdai_imports": 2, "changes": 2},
+        {"module": "chat_inventory_semantic_retrieval.py", "direct_python_consumers": 5, "fdai_imports": 5, "changes": 6},
+        {"module": "chat_inventory_semantics.py", "direct_python_consumers": 4, "fdai_imports": 4, "changes": 5}
+      ],
+      "rationale": "cohesive typed inventory capability and read-only projection family after the conversation application boundary",
+      "rollback": "restore route implementations and redirect the two inventory facades without changing JSON, SSE, authentication, or history contracts"
     }
   ],
   "reviewed_fallback_modules": [
@@ -275,6 +316,16 @@
       "module": "fdai.delivery.operator_api.application.conversation.verification",
       "classification": "internal-implementation",
       "migration": "owned terminal answer-verification facade for route and application consumers"
+    },
+    {
+      "module": "fdai.delivery.operator_api.application.conversation.capabilities.inventory",
+      "classification": "internal-implementation",
+      "migration": "owned typed inventory query, semantic, compilation, and provider-read coordination facade"
+    },
+    {
+      "module": "fdai.delivery.operator_api.projections.conversation.inventory",
+      "classification": "internal-implementation",
+      "migration": "owned read-only inventory result and deterministic rendering facade"
     },
     {
       "module": "fdai.delivery.operator_api.routes.chat_verification",

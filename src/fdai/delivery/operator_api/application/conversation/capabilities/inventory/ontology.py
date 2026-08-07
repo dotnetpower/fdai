@@ -8,7 +8,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from fdai.delivery.operator_api.routes.chat_inventory_query import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.query import (
     inventory_query_argument_schema,
 )
 from fdai.shared.contracts.models import (

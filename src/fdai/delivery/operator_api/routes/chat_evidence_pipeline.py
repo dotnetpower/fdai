@@ -9,6 +9,17 @@ from fdai.core.read_investigation.routing import (
     classify_read_investigation_intent,
     resource_name_from_question,
 )
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.compiler import (
+    compile_inventory_query,
+    inventory_query_requires_semantic_completion,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.semantics import (
+    SemanticInventoryStatusError,
+    validate_semantic_inventory_status_arguments,
+)
+from fdai.delivery.operator_api.projections.conversation.inventory import (
+    needs_inventory_evidence,
+)
 from fdai.delivery.operator_api.routes.chat_action_context import (
     is_explicit_action_draft_request,
     needs_action_context,
@@ -43,15 +54,6 @@ from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
 from fdai.delivery.operator_api.routes.chat_intent_graph import IntentGraph
 from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
     resolve_intent_graph_evidence,
-)
-from fdai.delivery.operator_api.routes.chat_inventory import needs_inventory_evidence
-from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
-    compile_inventory_query,
-    inventory_query_requires_semantic_completion,
-)
-from fdai.delivery.operator_api.routes.chat_inventory_semantics import (
-    SemanticInventoryStatusError,
-    validate_semantic_inventory_status_arguments,
 )
 from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query
 from fdai.delivery.operator_api.routes.chat_preincident_activity import parse_preincident_activity

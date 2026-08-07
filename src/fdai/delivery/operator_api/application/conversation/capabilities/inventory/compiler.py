@@ -6,11 +6,11 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
-from fdai.delivery.operator_api.routes.chat_inventory_language import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.language import (
     InventoryQueryLanguageResolver,
     default_inventory_query_language_resolver,
 )
-from fdai.delivery.operator_api.routes.chat_inventory_query import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.query import (
     InventoryField,
     InventoryOperator,
     InventoryPredicate,
@@ -24,11 +24,12 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
     InventoryScheduleWindow,
     normalize_inventory_value,
 )
-from fdai.delivery.operator_api.routes.chat_inventory_resource_types import (
+from fdai.rule_catalog.schema.inventory_query_language import QueryEvidenceAuthority
+
+from .resource_types import (
     InventoryResourceTypeResolver,
     default_inventory_resource_type_resolver,
 )
-from fdai.rule_catalog.schema.inventory_query_language import QueryEvidenceAuthority
 
 
 def is_inventory_question(

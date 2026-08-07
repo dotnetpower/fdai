@@ -11,14 +11,16 @@ from starlette.testclient import TestClient
 
 from fdai.core.rbac.resolver import RoleResolver
 from fdai.delivery.kubernetes.ontology_functions import diagnostic_function_types
-from fdai.delivery.operator_api.auth import build_authenticator
-from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
-from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
-from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
-from fdai.delivery.operator_api.routes.chat_inventory_ontology import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.compiler import (
+    compile_inventory_query,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.ontology import (
     inventory_query_function_type,
     project_inventory_function_result,
 )
+from fdai.delivery.operator_api.auth import build_authenticator
+from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
+from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.link_type import load_link_type_catalog
 from fdai.rule_catalog.schema.object_type import load_object_type_catalog

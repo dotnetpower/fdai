@@ -17,7 +17,6 @@ LEGACY_REGEX_FILES = frozenset(
         "chat_data_sources.py",
         "chat_evidence.py",
         "chat_evidence_enrichment.py",
-        "chat_inventory.py",
         "chat_prompt.py",
         "chat_prompt_ontology.py",
     }

@@ -8,17 +8,17 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Final, Protocol, runtime_checkable
 
-from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory import (
+    default_inventory_resource_type_resolver,
+    normalize_inventory_value,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.compiler import (
     inventory_query_evidence_authorities,
     inventory_query_status_groups,
     is_specific_inventory_question,
 )
-from fdai.delivery.operator_api.routes.chat_inventory_language import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.language import (
     default_inventory_query_language_resolver,
-)
-from fdai.delivery.operator_api.routes.chat_inventory_query import normalize_inventory_value
-from fdai.delivery.operator_api.routes.chat_inventory_resource_types import (
-    default_inventory_resource_type_resolver,
 )
 from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query
 from fdai.delivery.operator_api.routes.chat_subscription_health_metrics import (

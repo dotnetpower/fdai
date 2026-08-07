@@ -6,19 +6,19 @@ from typing import Any
 import pytest
 from jsonschema import Draft202012Validator
 
-from fdai.delivery.operator_api.routes.chat_inventory import (
-    InventoryChatTools,
-    render_inventory_answer,
-)
-from fdai.delivery.operator_api.routes.chat_inventory_ontology import (
-    inventory_query_function_type,
-    project_inventory_function_result,
-)
-from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory import (
     EmbeddingInventorySemanticResolver,
+    InventoryChatTools,
     InventorySemanticConfig,
     InventorySemanticKind,
     InventorySemanticMatch,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.ontology import (
+    inventory_query_function_type,
+    project_inventory_function_result,
+)
+from fdai.delivery.operator_api.projections.conversation.inventory import (
+    render_inventory_answer,
 )
 from fdai.shared.contracts.models import (
     OntologyDeclarationKind,

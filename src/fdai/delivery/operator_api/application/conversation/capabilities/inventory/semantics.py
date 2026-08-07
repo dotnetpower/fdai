@@ -6,10 +6,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any
 
-from fdai.delivery.operator_api.routes.chat_inventory_language import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.language import (
     default_inventory_query_language_resolver,
 )
-from fdai.delivery.operator_api.routes.chat_inventory_query import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.query import (
     InventoryField,
     InventoryOperator,
     InventoryPredicate,
@@ -17,10 +17,11 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
     inventory_query_matches,
     normalize_inventory_value,
 )
-from fdai.delivery.operator_api.routes.chat_inventory_resource_types import (
+from fdai.rule_catalog.schema.inventory_query_language import QueryEvidenceAuthority
+
+from .resource_types import (
     default_inventory_resource_type_resolver,
 )
-from fdai.rule_catalog.schema.inventory_query_language import QueryEvidenceAuthority
 
 _PROVIDER_STATUS_PREFIXES = frozenset({"powerstate", "vm"})
 

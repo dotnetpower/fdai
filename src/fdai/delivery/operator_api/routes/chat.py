@@ -38,6 +38,14 @@ from fdai.delivery.operator_api.application import (
     ConversationTurnInput,
     ConversationTurnTerminalStatus,
 )
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.compiler import (
+    compile_inventory_query,
+    inventory_query_requires_semantic_completion,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.followup import (
+    contextualize_inventory_scope_followup,
+    contextualize_inventory_screen_scope,
+)
 from fdai.delivery.operator_api.application.conversation.verification import (
     AnswerVerification,
     verify_answer,
@@ -178,14 +186,6 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
 )
 from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
     public_intent_graph_evidence,
-)
-from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
-    compile_inventory_query,
-    inventory_query_requires_semantic_completion,
-)
-from fdai.delivery.operator_api.routes.chat_inventory_followup import (
-    contextualize_inventory_scope_followup,
-    contextualize_inventory_screen_scope,
 )
 from fdai.delivery.operator_api.routes.chat_llm_usage import (
     is_llm_usage_followup,

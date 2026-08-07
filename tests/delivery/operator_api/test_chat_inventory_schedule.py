@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fdai.delivery.operator_api.routes.chat_inventory_query import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.query import (
     InventoryField,
     InventoryOperator,
     InventoryPredicate,
@@ -13,7 +13,7 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
     InventoryQuerySource,
     InventoryScheduleWindow,
 )
-from fdai.delivery.operator_api.routes.chat_inventory_schedule import (
+from fdai.delivery.operator_api.projections.conversation.inventory.schedule import (
     project_scheduled_shutdown_result,
     render_scheduled_shutdown_answer,
 )

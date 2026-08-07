@@ -6,8 +6,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
-from fdai.delivery.operator_api.routes.chat_inventory_compiler import is_inventory_question
-from fdai.delivery.operator_api.routes.chat_inventory_language import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.compiler import (
+    is_inventory_question,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.language import (
     default_inventory_query_language_resolver,
 )
 

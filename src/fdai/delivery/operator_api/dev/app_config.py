@@ -244,11 +244,9 @@ def build_local_operator_api_config(
 
     from fdai.delivery.catalog_search.ontology_function import catalog_query_function_type
     from fdai.delivery.kubernetes.ontology_functions import diagnostic_function_types
-    from fdai.delivery.operator_api.routes.chat_inventory_ontology import (
-        inventory_query_function_type,
-    )
-    from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import (
+    from fdai.delivery.operator_api.application.conversation.capabilities.inventory import (
         EmbeddingInventorySemanticResolver,
+        inventory_query_function_type,
     )
 
     ontology_function_types = (

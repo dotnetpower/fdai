@@ -16,7 +16,7 @@ from fdai.core.ontology_platform import (
     SemanticOperationClass,
     build_semantic_candidate,
 )
-from fdai.delivery.operator_api.routes.chat_inventory_language import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.language import (
     InventoryQueryLanguageResolver,
     default_inventory_query_language_resolver,
 )

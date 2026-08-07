@@ -8,7 +8,7 @@ from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fdai.delivery.inventory_schedule import VM_SHUTDOWN_SCHEDULE_TYPE
-from fdai.delivery.operator_api.routes.chat_inventory_query import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.query import (
     InventoryQuery,
     InventoryScheduleWindow,
 )

@@ -7,21 +7,21 @@ from pathlib import Path
 import pytest
 import yaml
 
-from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory import (
+    InventoryResourceTypeResolver,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.compiler import (
     compile_inventory_query,
     inventory_query_evidence_authorities,
     is_inventory_question,
 )
-from fdai.delivery.operator_api.routes.chat_inventory_query import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.query import (
     InventoryField,
     InventoryOperator,
     InventoryQueryGrouping,
     InventoryQueryKind,
     InventoryQueryScope,
     InventoryQuerySource,
-)
-from fdai.delivery.operator_api.routes.chat_inventory_resource_types import (
-    InventoryResourceTypeResolver,
 )
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 

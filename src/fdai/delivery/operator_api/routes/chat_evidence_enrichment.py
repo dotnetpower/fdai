@@ -16,6 +16,10 @@ from fdai.core.read_investigation import (
     resource_name_from_question,
 )
 from fdai.delivery.agent_introspection_bus import addressed_agent
+from fdai.delivery.operator_api.projections.conversation.inventory import (
+    inventory_screen_scope_unavailable_evidence,
+    needs_inventory_evidence,
+)
 from fdai.delivery.operator_api.routes.chat_action_context import needs_action_context
 from fdai.delivery.operator_api.routes.chat_conversation_context import (
     needs_conversation_context,
@@ -38,10 +42,6 @@ from fdai.delivery.operator_api.routes.chat_evidence_provenance import (
 )
 from fdai.delivery.operator_api.routes.chat_evidence_provenance import (
     _web_search_summary as _web_search_summary,
-)
-from fdai.delivery.operator_api.routes.chat_inventory import (
-    inventory_screen_scope_unavailable_evidence,
-    needs_inventory_evidence,
 )
 from fdai.delivery.operator_api.routes.chat_llm_usage import (
     is_llm_usage_followup,

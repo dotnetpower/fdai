@@ -19,6 +19,12 @@ from fdai.core.skills import RuntimeSkillDisclosure
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.delivery.handover_events import HandoverAvailabilityPublisher
 from fdai.delivery.operator_api.application import ConversationTurnApplicationService
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory import (
+    InventoryActivityProvider,
+    InventoryChatTools,
+    InventorySemanticResolver,
+    KubernetesWorkloadProvider,
+)
 from fdai.delivery.operator_api.read_model import ConsoleReadModel
 from fdai.delivery.operator_api.routes.busy_input import make_busy_input_routes
 from fdai.delivery.operator_api.routes.busy_input_runtime import BusyInputRuntime
@@ -49,14 +55,6 @@ from fdai.delivery.operator_api.routes.chat_detection_readiness import Detection
 from fdai.delivery.operator_api.routes.chat_document_evidence import ChatDocumentEvidenceResolver
 from fdai.delivery.operator_api.routes.chat_evidence import OperationalEvidenceResolver
 from fdai.delivery.operator_api.routes.chat_intent_graph import BackendIntentGraphPlanner
-from fdai.delivery.operator_api.routes.chat_inventory import (
-    InventoryActivityProvider,
-    InventoryChatTools,
-    KubernetesWorkloadProvider,
-)
-from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import (
-    InventorySemanticResolver,
-)
 from fdai.delivery.operator_api.routes.chat_llm_usage import (
     LlmUsageChatTools,
     is_llm_usage_followup,

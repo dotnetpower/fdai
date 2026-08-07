@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from fdai.delivery.operator_api.routes.chat_inventory_query import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.query import (
     InventoryField,
     InventoryOperator,
     InventoryPredicate,

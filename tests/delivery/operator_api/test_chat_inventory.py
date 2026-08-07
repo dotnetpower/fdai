@@ -14,7 +14,29 @@ from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from fdai.core.conversation.answer_plan import AnswerIntent
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory import (
+    InventoryChatTools,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.compiler import (
+    compile_inventory_query,
+    inventory_query_status_groups,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.followup import (
+    InventoryScreenScopeStatus,
+    contextualize_inventory_scope_followup,
+    contextualize_inventory_screen_scope,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.query import (
+    InventoryField,
+    InventoryQueryKind,
+    InventoryQueryScope,
+)
 from fdai.delivery.operator_api.application.conversation.verification import verify_answer
+from fdai.delivery.operator_api.projections.conversation.inventory import (
+    inventory_evidence_refs,
+    inventory_execution_query,
+    render_inventory_answer,
+)
 from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
 from fdai.delivery.operator_api.routes.chat_behavior_evidence import (
     RepositoryBehaviorEvidenceResolver,
@@ -24,26 +46,6 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     EvidenceMode,
     IntentGoal,
     IntentGraph,
-)
-from fdai.delivery.operator_api.routes.chat_inventory import (
-    InventoryChatTools,
-    inventory_evidence_refs,
-    inventory_execution_query,
-    render_inventory_answer,
-)
-from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
-    compile_inventory_query,
-    inventory_query_status_groups,
-)
-from fdai.delivery.operator_api.routes.chat_inventory_followup import (
-    InventoryScreenScopeStatus,
-    contextualize_inventory_scope_followup,
-    contextualize_inventory_screen_scope,
-)
-from fdai.delivery.operator_api.routes.chat_inventory_query import (
-    InventoryField,
-    InventoryQueryKind,
-    InventoryQueryScope,
 )
 from fdai.delivery.operator_api.routes.chat_resource_context import (
     resource_followup_answer,

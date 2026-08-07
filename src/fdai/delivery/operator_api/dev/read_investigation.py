@@ -32,7 +32,9 @@ from fdai.delivery.azure.subscription_health import (
     AzureSubscriptionHealthScope,
 )
 from fdai.delivery.mcp import ManagedMcpClient
-from fdai.delivery.operator_api.routes.chat_inventory import InventoryActivityProvider
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory import (
+    InventoryActivityProvider,
+)
 from fdai.delivery.operator_api.routes.read_investigation_catalog import (
     load_bound_investigation_intents,
 )

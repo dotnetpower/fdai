@@ -7,11 +7,13 @@ from typing import Any
 import pytest
 
 import fdai.delivery.operator_api.routes.chat_intent_graph_execution as graph_execution
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.query import (
+    inventory_query_argument_schema,
+)
 from fdai.delivery.operator_api.routes.chat_intent_graph import parse_intent_graph
 from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
     resolve_intent_graph_evidence,
 )
-from fdai.delivery.operator_api.routes.chat_inventory_query import inventory_query_argument_schema
 from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
 
 

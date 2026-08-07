@@ -333,10 +333,14 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
     assert all(entry["exit_condition"].strip() for entry in known_wire_debts)
 
     selections = inventory["migration_selections"]
-    assert len(selections) == 2
+    assert len(selections) == 3
     assert all(set(selection) == _MIGRATION_SELECTION_KEYS for selection in selections)
     selections_by_family = {selection["family"]: selection for selection in selections}
-    assert set(selections_by_family) == {"audit*.py", "chat_presentation*.py"}
+    assert set(selections_by_family) == {
+        "audit*.py",
+        "chat_inventory*.py",
+        "chat_presentation*.py",
+    }
     expected = {
         "audit*.py": (
             70,
@@ -360,6 +364,28 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
                 "chat_presentation_health_artifact.py",
                 "chat_presentation_inventory_artifact.py",
                 "chat_presentation_profiles.py",
+            },
+        ),
+        "chat_inventory*.py": (
+            71,
+            (
+                "fdai.delivery.operator_api.application.conversation.capabilities.inventory "
+                "and fdai.delivery.operator_api.projections.conversation.inventory"
+            ),
+            {
+                "chat_inventory.py",
+                "chat_inventory_activity.py",
+                "chat_inventory_compiler.py",
+                "chat_inventory_followup.py",
+                "chat_inventory_language.py",
+                "chat_inventory_ontology.py",
+                "chat_inventory_projection.py",
+                "chat_inventory_query.py",
+                "chat_inventory_rendering.py",
+                "chat_inventory_resource_types.py",
+                "chat_inventory_schedule.py",
+                "chat_inventory_semantic_retrieval.py",
+                "chat_inventory_semantics.py",
             },
         ),
     }

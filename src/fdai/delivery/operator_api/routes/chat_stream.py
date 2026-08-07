@@ -30,6 +30,10 @@ from fdai.delivery.operator_api.application import (
     ConversationTurnInput,
     ConversationTurnTerminalStatus,
 )
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.compiler import (
+    compile_inventory_query,
+    inventory_query_requires_semantic_completion,
+)
 from fdai.delivery.operator_api.application.conversation.verification import (
     AnswerVerification,
     verify_answer,
@@ -119,10 +123,6 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     draft_capability_available,
     plan_semantic_turn,
     planner_context_envelope,
-)
-from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
-    compile_inventory_query,
-    inventory_query_requires_semantic_completion,
 )
 from fdai.delivery.operator_api.routes.chat_llm_usage import (
     is_llm_usage_followup,

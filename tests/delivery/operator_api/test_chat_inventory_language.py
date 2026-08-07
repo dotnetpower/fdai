@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from fdai.delivery.operator_api.routes.chat_inventory_language import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.language import (
     default_inventory_query_language_resolver,
 )
 
@@ -41,14 +41,14 @@ def test_catalog_parses_bilingual_activity_windows() -> None:
 
 def test_inventory_modules_do_not_own_prompt_regular_expressions() -> None:
     modules = (
-        "chat_inventory.py",
-        "chat_inventory_compiler.py",
-        "chat_inventory_followup.py",
-        "chat_inventory_resource_types.py",
+        "application/conversation/capabilities/inventory/service.py",
+        "application/conversation/capabilities/inventory/compiler.py",
+        "application/conversation/capabilities/inventory/followup.py",
+        "application/conversation/capabilities/inventory/resource_types.py",
     )
 
     for module in modules:
-        path = REPO_ROOT / "src" / "fdai" / "delivery" / "operator_api" / "routes" / module
+        path = REPO_ROOT / "src" / "fdai" / "delivery" / "operator_api" / module
         tree = ast.parse(path.read_text(encoding="utf-8"))
         imports = {
             alias.name

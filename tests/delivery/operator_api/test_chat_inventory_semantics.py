@@ -4,8 +4,10 @@ from types import SimpleNamespace
 
 import pytest
 
-import fdai.delivery.operator_api.routes.chat_inventory_semantics as inventory_semantics
-from fdai.delivery.operator_api.routes.chat_inventory_query import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory import (
+    semantics as inventory_semantics,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.query import (
     InventoryField,
     InventoryOperator,
     InventoryPredicate,
@@ -14,7 +16,7 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
     InventoryQuerySource,
     inventory_query_matches,
 )
-from fdai.delivery.operator_api.routes.chat_inventory_semantics import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.semantics import (
     SemanticInventoryStatusError,
     ground_inventory_status_query,
     merge_semantic_inventory_status,

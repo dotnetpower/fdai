@@ -147,7 +147,7 @@ class InventoryQueryLanguageResolver:
 
 @lru_cache(maxsize=1)
 def default_inventory_query_language_resolver() -> InventoryQueryLanguageResolver:
-    repo_root = Path(__file__).resolve().parents[5]
+    repo_root = Path(__file__).resolve().parents[8]
     path = repo_root / "rule-catalog" / "vocabulary" / "inventory-query-language.yaml"
     registry = load_inventory_query_language_from_mapping(
         yaml.safe_load(path.read_text(encoding="utf-8"))

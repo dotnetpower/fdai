@@ -8,11 +8,13 @@ from pathlib import Path
 
 import yaml
 
-from fdai.delivery.operator_api.routes.chat_inventory_language import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.language import (
     InventoryQueryLanguageResolver,
     default_inventory_query_language_resolver,
 )
-from fdai.delivery.operator_api.routes.chat_inventory_query import normalize_inventory_value
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.query import (
+    normalize_inventory_value,
+)
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     load_resource_type_registry_from_mapping,
@@ -162,7 +164,7 @@ class InventoryResourceTypeResolver:
 def default_inventory_resource_type_resolver() -> InventoryResourceTypeResolver:
     """Load the shipped catalog once for direct and composed Operator API callers."""
 
-    repo_root = Path(__file__).resolve().parents[5]
+    repo_root = Path(__file__).resolve().parents[8]
     vocabulary_file = repo_root / "rule-catalog" / "vocabulary" / "resource-types.yaml"
     registry = load_resource_type_registry_from_mapping(
         yaml.safe_load(vocabulary_file.read_text(encoding="utf-8"))

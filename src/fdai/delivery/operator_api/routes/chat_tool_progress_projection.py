@@ -7,8 +7,10 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
+from fdai.delivery.operator_api.projections.conversation.inventory import (
+    inventory_execution_query,
+)
 from fdai.delivery.operator_api.routes.chat_execution_output import inventory_execution_output
-from fdai.delivery.operator_api.routes.chat_inventory import inventory_execution_query
 from fdai.delivery.operator_api.routes.inventory_provider_execution import (
     project_inventory_provider_execution,
 )

@@ -6,11 +6,11 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from fdai.delivery.operator_api.routes.chat_inventory_projection import _optional_text
-from fdai.delivery.operator_api.routes.chat_inventory_query import (
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.query import (
     InventoryQuery,
     normalize_inventory_value,
 )
+from fdai.delivery.operator_api.projections.conversation.inventory.projection import _optional_text
 
 _MAX_RESOURCES = 40
 

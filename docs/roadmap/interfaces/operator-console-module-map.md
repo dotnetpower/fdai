@@ -131,6 +131,27 @@ artifact schema, localized labels, evidence references, byte bounds, and planner
 Rollback restores the route implementation modules and redirects the presentation facade without
 changing either wire contract.
 
+### Conversation inventory application and projection boundaries
+
+The SD-01 inventory slice owns typed queries, deterministic compilation, follow-up scope,
+catalog-backed language and resource semantics, ontology functions, semantic retrieval, and
+provider-read coordination under
+`fdai.delivery.operator_api.application.conversation.capabilities.inventory`. The capability is
+read-only and request-local. It does not own HTTP, SSE, authentication, cancellation, history, or
+inventory writes.
+
+Sanitization, current and activity result projection, scheduled-shutdown projection, and
+deterministic answer rendering live under
+`fdai.delivery.operator_api.projections.conversation.inventory`. Routes and terminal verification
+import the explicit application or projection facade according to responsibility. Every former
+`routes.chat_inventory*` consumer was internal implementation or test code, so no compatibility
+shim remains. JSON, SSE sequence and revision, authorization, provider scope, and conversation
+history behavior stay unchanged.
+
+Rollback restores the inventory implementation modules under `routes/` and redirects the two
+inventory package facades to those restored owners. It does not change either wire contract or the
+authoritative inventory providers.
+
 ### Immutable app composition
 
 Issue 72 keeps `OperatorApiConfig(**kwargs)` as the bounded compatibility constructor and projects
@@ -159,6 +180,8 @@ reverses physical ownership without a wire or caller migration.
 | `app/` | Shared ASGI assembly, middleware, registration, and lifespan | Retain as the HTTP composition boundary. |
 | `application/` | Typed process-local, non-authoritative application coordination | Retain until service-graduation evidence justifies a process boundary. |
 | `application/conversation/` | Process-local conversation capabilities outside HTTP transport | Retain in-process until service-graduation evidence exists. |
+| `application/conversation/capabilities/` | Typed process-local conversation capabilities grouped by domain | Retain as the non-authoritative capability owner. |
+| `application/conversation/capabilities/inventory/` | Typed inventory queries, deterministic compilation, semantic grounding, and provider-read coordination | Import through its explicit package facade; keep JSON, SSE, authentication, and history in routes. |
 | `application/conversation/claims/` | Deterministic answer-claim extraction and bounded evidence verification | Import through its explicit package facade; keep JSON, SSE, and authentication in routes. |
 | `application/conversation/verification/` | Deterministic terminal answer verification and bounded evidence rendering | Import through its explicit package facade; keep wire behavior and authentication in routes. |
 | `dev/` | Interactive local and test-only provider composition | Keep unavailable to production imports. |
@@ -168,6 +191,7 @@ reverses physical ownership without a wire or caller migration.
 | `projections/audit/` | Audit query and autonomy/FinOps measurement projections | Import through its explicit facade; keep old route modules as shims. |
 | `projections/conversation/` | Request-local conversation read projections outside HTTP transport | Retain in-process until service-graduation evidence exists. |
 | `projections/conversation/presentation/` | Value-free layout selection and verified evidence artifact compilation | Import through its explicit facade; keep JSON and SSE behavior in routes. |
+| `projections/conversation/inventory/` | Inventory evidence sanitization, result projection, and deterministic rendering | Import through its explicit facade; keep query compilation and provider coordination in the application package. |
 | `production/` | Production provider construction and bindings | Reduce fanout incrementally without changing wire behavior. |
 | `routes/` | Mixed HTTP adapters, coordination, projections, and policy helpers | Move one measured family at a time; don't bulk-move chat before its typed service boundary. |
 | `streaming/` | Read-only SSE transport, redaction, fanout, and runtime projection | Retain until versioned relay and replay contracts exist. |
@@ -233,9 +257,15 @@ a separately reviewed boundary.
 - `application/conversation/verification/` owns terminal answer integrity, deterministic evidence
   verification, and bounded verification prose. It does not own HTTP, SSE, authentication,
   cancellation, or durable state.
+- `application/conversation/capabilities/inventory/` owns typed inventory queries, compilation,
+  semantic grounding, and provider-read coordination. It does not own HTTP, SSE, authentication,
+  history, rendering, or inventory writes.
 - `projections/conversation/presentation/` owns value-free presentation plans, verified evidence
   artifact compilation, bounds, and localized labels. It does not own HTTP, SSE, authentication,
   cancellation, terminal delivery, or durable state.
+- `projections/conversation/inventory/` owns inventory evidence sanitization, result projection,
+  and deterministic rendering. It does not own provider selection, query compilation, HTTP, SSE,
+  authentication, history, or durable state.
 - `chat_stream_setup.py` owns authenticated request, evidence, history, and answer-plan validation.
 - `chat_stream_terminal.py` owns pure terminal verification-frame and replay-payload assembly.
 - `chat_trajectory_detail.py` owns bounded final progress projection for durable trajectory replay.

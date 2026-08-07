@@ -6,6 +6,10 @@ enforce|src/fdai/delivery/operator_api/app/__init__.py
 enforce|src/fdai/delivery/operator_api/application/__init__.py
 # Conversation capabilities remain process-local and transport-neutral.
 report|src/fdai/delivery/operator_api/application/conversation/__init__.py
+# Domain capabilities remain process-local and outside HTTP transport.
+report|src/fdai/delivery/operator_api/application/conversation/capabilities/__init__.py
+# Inventory query and semantic coordination is read-only application logic.
+report|src/fdai/delivery/operator_api/application/conversation/capabilities/inventory/__init__.py
 # Claim verification is read-only application logic outside route ownership.
 report|src/fdai/delivery/operator_api/application/conversation/claims/__init__.py
 # Terminal answer verification is request-local application logic outside route ownership.
@@ -22,6 +26,8 @@ report|src/fdai/delivery/operator_api/projections/audit/__init__.py
 report|src/fdai/delivery/operator_api/projections/conversation/__init__.py
 # Presentation projections arrange and compile verified evidence without authority.
 report|src/fdai/delivery/operator_api/projections/conversation/presentation/__init__.py
+# Inventory projections sanitize and render verified evidence without authority.
+report|src/fdai/delivery/operator_api/projections/conversation/inventory/__init__.py
 # Route registration begins in report mode while route families are decomposed.
 report|src/fdai/delivery/operator_api/routes/__init__.py
 # Streaming lifecycle begins in report mode pending endpoint decomposition.

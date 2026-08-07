@@ -9,6 +9,11 @@ from fdai.delivery.operator_api.application.conversation.verification.models imp
     VerificationPayload,
     VerificationStatus,
 )
+from fdai.delivery.operator_api.projections.conversation.inventory import (
+    inventory_evidence_refs,
+    partial_inventory_findings_are_grounded,
+    render_inventory_answer,
+)
 from fdai.delivery.operator_api.routes.chat_action_context import (
     action_context_evidence_refs,
     render_action_context_answer,
@@ -28,11 +33,6 @@ from fdai.delivery.operator_api.routes.chat_data_sources import (
 from fdai.delivery.operator_api.routes.chat_detection_readiness import (
     detection_readiness_evidence_refs,
     render_detection_readiness_answer,
-)
-from fdai.delivery.operator_api.routes.chat_inventory import (
-    inventory_evidence_refs,
-    partial_inventory_findings_are_grounded,
-    render_inventory_answer,
 )
 from fdai.delivery.operator_api.routes.chat_knowledge_context import (
     knowledge_context_evidence_refs,

@@ -8,6 +8,15 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any, Final
 
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.compiler import (
+    compile_inventory_query,
+    inventory_query_requires_semantic_completion,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.semantics import (
+    SemanticInventoryInterpretationRequiredError,
+    SemanticInventoryStatusError,
+    validate_semantic_inventory_status_arguments,
+)
 from fdai.delivery.operator_api.routes.chat_evidence_branches import BranchProgressObserver
 from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
     AgentChatDelegate,
@@ -18,15 +27,6 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     EvidenceMode,
     IntentGoal,
     IntentGraph,
-)
-from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
-    compile_inventory_query,
-    inventory_query_requires_semantic_completion,
-)
-from fdai.delivery.operator_api.routes.chat_inventory_semantics import (
-    SemanticInventoryInterpretationRequiredError,
-    SemanticInventoryStatusError,
-    validate_semantic_inventory_status_arguments,
 )
 
 _MAX_CONCURRENCY: Final = 4

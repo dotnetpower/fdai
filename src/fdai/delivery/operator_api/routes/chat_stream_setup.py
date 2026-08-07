@@ -10,6 +10,10 @@ from starlette.requests import Request
 
 from fdai.core.conversation.answer_plan import AnswerPlan, build_answer_plan
 from fdai.core.conversation.answer_preferences import ResponsePreferenceProfile
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.followup import (
+    contextualize_inventory_scope_followup,
+    contextualize_inventory_screen_scope,
+)
 from fdai.delivery.operator_api.routes.chat_action_context import needs_action_context
 from fdai.delivery.operator_api.routes.chat_backend_common import (
     ChatContentPolicyError,
@@ -35,10 +39,6 @@ from fdai.delivery.operator_api.routes.chat_history_context import (
     ChatHistoryCompressor,
     ChatHistoryPolicy,
     resolve_chat_history_result,
-)
-from fdai.delivery.operator_api.routes.chat_inventory_followup import (
-    contextualize_inventory_scope_followup,
-    contextualize_inventory_screen_scope,
 )
 from fdai.delivery.operator_api.routes.chat_llm_usage import is_llm_usage_followup
 from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query_context
