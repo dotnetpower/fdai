@@ -1,6 +1,13 @@
 export type Locale = "en" | "ko";
 export type Direction = "RIGHT" | "DOWN";
 export type LocalizedText = Record<Locale, string>;
+export type DiagramKind =
+  | "context"
+  | "container"
+  | "component"
+  | "deployment"
+  | "data-flow"
+  | "network";
 
 export interface DiagramDocumentText {
   title: string;
@@ -77,7 +84,7 @@ export interface DiagramEdge {
 export interface DiagramSpec {
   id: string;
   version: number;
-  kind: "context" | "container" | "component" | "deployment" | "data-flow" | "network";
+  kind: DiagramKind;
   updated?: string;
   formats?: Array<"svg" | "png">;
   locales: Record<Locale, DiagramDocumentText>;

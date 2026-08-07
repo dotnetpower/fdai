@@ -13,6 +13,7 @@ import type {
   DiagramPort,
   DiagramSpec,
 } from "../model/types.js";
+import { diagramDefinition } from "../model/definitions.js";
 import { edgeLabelGeometry, nodeGeometry } from "../model/text.js";
 
 export interface PositionedShape {
@@ -1370,6 +1371,7 @@ function applyExplicitRoutes(
 
 export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
   const compact = spec.canvas.profile === "azure-reference";
+  const definition = diagramDefinition(spec.kind);
   const containedEdges = edgesByContainer(spec);
   const rootGroups = spec.groups
     .filter((group) => !group.parent)
@@ -1385,8 +1387,7 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
       "elk.algorithm": "layered",
       "elk.direction": spec.canvas.direction,
       "elk.edgeRouting": "ORTHOGONAL",
-      "elk.hierarchyHandling":
-        spec.kind === "deployment" ? "INCLUDE_CHILDREN" : "SEPARATE_CHILDREN",
+      "elk.hierarchyHandling": definition.hierarchyHandling,
       "elk.padding": `[top=${spec.canvas.padding ?? (compact ? 24 : 40)},left=${spec.canvas.padding ?? (compact ? 24 : 40)},bottom=${spec.canvas.padding ?? (compact ? 24 : 40)},right=${spec.canvas.padding ?? (compact ? 24 : 40)}]`,
       "elk.spacing.nodeNode": compact ? "18" : "28",
       "elk.layered.spacing.nodeNodeBetweenLayers": compact ? "38" : "52",
