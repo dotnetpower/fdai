@@ -194,6 +194,13 @@ split yet.
 without opening every issue. `Iteration` drives the sprint board and `Quarter` drives the roadmap
 view; set `Start date` and `Target date` on epics so they render on the roadmap timeline.
 
+Issues that predate this scheme were mapped retrospectively: `Priority` came from the `[P0-2]`
+style prefix where the title carried one, otherwise from the safety and security labels;
+`Size` came from the exit-criteria count, falling back to discussion volume for issues opened
+before exit criteria were required. Epics take their dates from the real created and closed
+timestamps, and an open epic keeps an empty `Target date` rather than an invented one. Treat those
+values as a starting point and correct any that read wrong.
+
 ## Opening issues
 
 Issues are English-only project-tracking artifacts (never translated - see
