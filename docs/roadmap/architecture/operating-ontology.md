@@ -10,6 +10,10 @@ cloud-operations concepts, while each deployment supplies its observed instances
 
 > **Positioning:** FDAI is agent-driven, not ontology-driven. The graph constrains interpretation
 > and makes agent work replayable; it never senses, judges, approves, executes, recovers, or learns.
+> It is nonetheless the required read path. An operational question resolves object identity,
+> relationships, and evidence through the ontology instead of an ad hoc provider query, so the
+> evidence an answer depends on stays typed, bounded, citable, and complete enough to name what it
+> did not observe.
 
 > **Authority boundary:** The ontology graph is a shared semantic read model, not a mutable system
 > of record and not an execution surface. Events, approved configuration, telemetry sources, the
@@ -216,13 +220,20 @@ was true or observed and when FDAI recorded it.
 - **Event time:** Observations, changes, forecasts, incidents, and outcomes carry source time and
   an evidence cutoff.
 - **Recorded time:** Every projection records when FDAI accepted it and the source revision.
-- **Append-only revision:** A late fact creates a new revision or link interval. It does not
-  rewrite the context used by a historical decision.
+- **Immutable decision context:** A late fact never rewrites the context a historical decision
+  used. The decision context is content-addressed and pinned at its cutoff, so a later observation
+  produces a new context instead of editing the recorded one.
+- **Current-state instance store:** The instance graph holds current observed state under one
+  writer per subgraph. It is not a bitemporal store: an update replaces the prior property values
+  and a disappeared object is deleted by its owning projection. Historical instance values live in
+  the authoritative source generation that produced them, not in the instance graph.
 - **Freshness:** Every decision context records freshness per source. One fresh source cannot hide
   a stale objective, topology edge, or cost observation.
 
-Replay resolves the graph as of the original decision cutoff and catalog versions. Current-state
-queries use the latest valid revisions that pass freshness checks.
+Replay resolves the pinned catalog release and the retained decision context, not an arbitrary past
+state of the instance graph. Recomputing a context identity proves equivalence; reconstructing the
+original content requires that context to have been retained. Current-state queries use the latest
+valid revisions that pass freshness checks.
 
 ## Sources of truth
 

@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 5eea02378956c943d6272f4c2948459aa06973f8
+translation_source_sha: ee152fdc11bb4dce173d633bcdcad8a7e4f69170
 translation_revised: 2026-08-05
 ---
 # FDAI 운영 온톨로지
@@ -13,7 +13,9 @@ cloud-operations 개념을 소유하고 deployment는 observed instance와 inten
 
 > **Positioning:** FDAI는 agent-driven이며 ontology-driven이 아닙니다. Graph는 해석을 제한하고
 > agent work를 replay 가능하게 하지만 sensing, judgment, approval, execution, recovery, learning을
-> 수행하지 않습니다.
+> 수행하지 않습니다. 다만 graph는 필수 read path입니다. 운영 질문은 ad hoc provider query가 아니라
+> ontology를 통해 object identity, relationship, evidence를 resolve하므로, 답이 의존하는 evidence는
+> typed·bounded·citable 상태로 유지되고 관측하지 못한 범위까지 밝힐 수 있습니다.
 
 > **권한 경계:** 온톨로지 graph는 공유 semantic read model이며 mutable system of record 또는
 > execution surface가 아닙니다. Event, 승인된 configuration, telemetry source, append-only audit
@@ -219,13 +221,20 @@ FDAI가 기록한 시간을 모두 포함합니다.
   `effective_to`를 포함합니다.
 - **Event time:** Observation, change, forecast, incident, outcome은 source time과 evidence cutoff를 포함합니다.
 - **Recorded time:** 모든 projection은 FDAI가 수락한 시간과 source revision을 기록합니다.
-- **Append-only revision:** 늦게 도착한 사실은 새 revision 또는 link interval을 만듭니다. 과거
-  decision이 사용한 context를 다시 쓰지 않습니다.
+- **Immutable decision context:** 늦게 도착한 사실은 과거 decision이 사용한 context를 다시 쓰지
+  않습니다. Decision context는 content-addressed이며 자신의 cutoff에 pin되므로, 이후 observation은
+  기록된 context를 수정하지 않고 새 context를 만듭니다.
+- **Current-state instance store:** Instance graph는 subgraph별 단일 writer 아래에서 현재 observed
+  state를 보관합니다. Bitemporal store가 아닙니다. Update는 이전 property 값을 대체하고, 사라진
+  object는 소유 projection이 삭제합니다. 과거 instance 값은 instance graph가 아니라 그것을 만든
+  authoritative source generation에 남습니다.
 - **Freshness:** 모든 decision context는 source별 freshness를 기록합니다. 하나의 fresh source가
   오래된 objective, topology edge, cost observation을 숨길 수 없습니다.
 
-Replay는 원래 decision cutoff와 catalog version 시점의 graph를 resolve합니다. Current-state
-query는 freshness check를 통과한 최신 valid revision을 사용합니다.
+Replay는 instance graph의 임의 과거 상태가 아니라 pin된 catalog release와 보존된 decision context를
+resolve합니다. Context identity 재계산은 동등성을 증명하며, 원본 내용을 복원하려면 그 context가
+보존되어 있어야 합니다. Current-state query는 freshness check를 통과한 최신 valid revision을
+사용합니다.
 
 ## 사실의 권위 원천
 
