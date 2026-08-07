@@ -13,7 +13,7 @@ def _release():
     object_type = OntologyObjectType(
         schema_version="1.0.0",
         name="Workload",
-        version="2.0.0",
+        version="1.0.0",
         key="id",
         properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
     )
@@ -21,6 +21,7 @@ def _release():
 
 
 def test_object_row_preserves_persisted_historical_type_ref() -> None:
+    release = _release()
     record = _object_from_row(
         {
             "id": "workload-a",
@@ -28,17 +29,18 @@ def test_object_row_preserves_persisted_historical_type_ref() -> None:
             "properties": {"id": "workload-a"},
             "revision": 3,
             "type_version": "1.0.0",
-            "catalog_digest": "sha256:" + "a" * 64,
+            "catalog_digest": release.digest,
         },
-        _release(),
+        releases={release.digest: release},
     )
 
     assert record.type_ref is not None
     assert record.type_ref.version == "1.0.0"
-    assert record.type_ref.catalog_digest == "sha256:" + "a" * 64
+    assert record.type_ref.catalog_digest == release.digest
 
 
 def test_object_row_rejects_partial_type_ref() -> None:
+    release = _release()
     with pytest.raises(RuntimeError, match="type reference is incomplete"):
         _object_from_row(
             {
@@ -49,11 +51,12 @@ def test_object_row_rejects_partial_type_ref() -> None:
                 "type_version": "1.0.0",
                 "catalog_digest": None,
             },
-            _release(),
+            releases={release.digest: release},
         )
 
 
 def test_object_row_keeps_pre_migration_type_ref_unknown() -> None:
+    release = _release()
     record = _object_from_row(
         {
             "id": "workload-a",
@@ -63,7 +66,7 @@ def test_object_row_keeps_pre_migration_type_ref_unknown() -> None:
             "type_version": None,
             "catalog_digest": None,
         },
-        _release(),
+        releases={release.digest: release},
     )
 
     assert record.type_ref is None

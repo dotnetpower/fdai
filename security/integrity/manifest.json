@@ -136,7 +136,7 @@
     "src/fdai/core/browser_evidence/surfaces.py": "891652dfc8745fcbc8b96036071fc3289fe2b71e4719ac93f95c14d859fcbd42",
     "src/fdai/core/capability_catalog/__init__.py": "ef78ed3eb9fa4d1645aed8c2b61f43bd235b94ab91e32852ca6ed6c1fa4fa993",
     "src/fdai/core/capability_catalog/catalog.py": "463d907bd070d63119a8382e9dc9aaeb6adababda2d0ca50f5f59519610d45d6",
-    "src/fdai/core/capability_catalog/defaults.py": "ccc29a3cc0b66bf54888cf18cabe917a6b9c6a801c4bb3d6c31850f52ef8bbbf",
+    "src/fdai/core/capability_catalog/defaults.py": "10f7716ffc87b13d3a7a1fc228bd1ad2a7015f91ddf7e445eb6daf9951a4b342",
     "src/fdai/core/capability_catalog/extensions.py": "3ccffb8aeb2219a0afcc05555849ddf14ac050fd73dc9e4275b624d9e0e97861",
     "src/fdai/core/capability_catalog/runtime.py": "49ea1eefead9e082f3eb13d6845918c8c0b4f088220301416b0df68e6cb882a9",
     "src/fdai/core/capacity/__init__.py": "7ce5fe8cf6fe9129a4b66a963f9ea4376c44f2e7388c495cf9b8faca547d3c28",
@@ -988,7 +988,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-07T05:01:44Z",
+  "generated_at": "2026-08-07T05:03:47Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
