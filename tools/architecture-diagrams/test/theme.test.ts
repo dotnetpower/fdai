@@ -35,9 +35,12 @@ test("standalone and embedded theme scopes remain separate", () => {
 test("foundation excludes the Azure reference profile", () => {
   const css = calmSlateFoundationCss();
   assert.match(css, /not\(\[data-profile="azure-reference"\]\)/);
-    assert.match(css, /data-profile="azure-reference"[^}]+is-keyboard-focused/);
+  assert.match(css, /data-profile="azure-reference"[^}]+is-keyboard-focused/);
   assert.match(css, /Segoe UI Variable Text/);
   assert.match(css, /stroke-width: 1/);
+  assert.match(css, /filter: url\(#label-shadow\)/);
+  assert.match(css, /fill-opacity: 0.18/);
+  assert.match(css, /fill-opacity: 0.44/);
   assert.match(css, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.edge-path \{ transition: none; \}/);
 });

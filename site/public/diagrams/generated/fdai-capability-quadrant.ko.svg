@@ -2,7 +2,7 @@
   <title id="diagram-title">FDAI 기능 결정 사분면</title>
   <desc id="diagram-description">네 가지 기능을 낮음에서 높음으로 증가하는 근거 신뢰도와 변경 영향 축에 배치합니다.</desc>
   <metadata>{&quot;id&quot;:&quot;fdai-capability-quadrant&quot;,&quot;version&quot;:1,&quot;updated&quot;:&quot;2026-08-08&quot;}</metadata>
-  <defs><marker id="arrow-request" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-request, #315f82)"/></marker><marker id="arrow-event" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-event, #3f7773)"/></marker><marker id="arrow-approval" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-approval, #705f8a)"/></marker><marker id="arrow-mutation" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-mutation, #a86a45)"/></marker><marker id="arrow-audit" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-audit, #617950)"/></marker><marker id="arrow-rollback" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-rollback, #9d555b)"/></marker><marker id="arrow-read" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-read, #3f7773)"/></marker><marker id="arrow-write" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-write, #705f8a)"/></marker><marker id="arrow-feedback" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-feedback, #80688d)"/></marker><marker id="arrow-sequence" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-sequence, #315f82)"/></marker><marker id="arrow-transition" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-transition, #705f8a)"/></marker><marker id="arrow-association" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-association, #626c73)"/></marker><marker id="arrow-dependency" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-dependency, #778087)"/></marker><marker id="arrow-timeline" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-timeline, #986346)"/></marker><filter id="node-shadow" x="-25%" y="-30%" width="150%" height="170%"><feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#2e3640" flood-opacity="0.08"/></filter></defs>
+  <defs><marker id="arrow-request" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-request, #315f82)"/></marker><marker id="arrow-event" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-event, #3f7773)"/></marker><marker id="arrow-approval" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-approval, #705f8a)"/></marker><marker id="arrow-mutation" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-mutation, #a86a45)"/></marker><marker id="arrow-audit" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-audit, #617950)"/></marker><marker id="arrow-rollback" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-rollback, #9d555b)"/></marker><marker id="arrow-read" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-read, #3f7773)"/></marker><marker id="arrow-write" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-write, #705f8a)"/></marker><marker id="arrow-feedback" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-feedback, #80688d)"/></marker><marker id="arrow-sequence" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-sequence, #315f82)"/></marker><marker id="arrow-transition" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-transition, #705f8a)"/></marker><marker id="arrow-association" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-association, #626c73)"/></marker><marker id="arrow-dependency" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-dependency, #778087)"/></marker><marker id="arrow-timeline" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fdai-diagram-edge-timeline, #986346)"/></marker><filter id="node-shadow" x="-25%" y="-30%" width="150%" height="170%"><feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.10"/><feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.07"/></filter><filter id="label-shadow" x="-20%" y="-40%" width="140%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.08"/></filter></defs>
   <style>
     svg[data-diagram-id] { color: var(--fdai-diagram-text, #323130); font-family: "Noto Sans KR", "Noto Sans", "Segoe UI", sans-serif; }
     @media (prefers-color-scheme: dark) {
@@ -53,6 +53,17 @@
     .diagram-node[data-tone="feedback"] > .node-surface { fill: var(--fdai-diagram-tone-feedback-fill, #f2edf3); stroke: var(--fdai-diagram-tone-feedback-stroke, #80688d); }
     .diagram-node[data-tone="store"] > .node-surface { fill: var(--fdai-diagram-tone-store-fill, #eff1f2); stroke: var(--fdai-diagram-tone-store-stroke, #596871); }
     .diagram-node[data-tone="neutral"] > .node-surface { fill: var(--fdai-diagram-tone-neutral-fill, #ffffff); stroke: var(--fdai-diagram-tone-neutral-stroke, #737d84); }
+    .node-accent { stroke-linecap: round; stroke-width: 3; opacity: 0.9; }
+    .node-icon-backplate { stroke-width: 1; fill-opacity: 0.08; stroke-opacity: 0.16; }
+    .diagram-node[data-tone="input"] > .node-accent { stroke: var(--fdai-diagram-tone-input-stroke, #315f82); } .diagram-node[data-tone="input"] > .node-icon-backplate { fill: var(--fdai-diagram-tone-input-stroke, #315f82); stroke: var(--fdai-diagram-tone-input-stroke, #315f82); }
+    .diagram-node[data-tone="interpretation"] > .node-accent { stroke: var(--fdai-diagram-tone-interpretation-stroke, #4b7180); } .diagram-node[data-tone="interpretation"] > .node-icon-backplate { fill: var(--fdai-diagram-tone-interpretation-stroke, #4b7180); stroke: var(--fdai-diagram-tone-interpretation-stroke, #4b7180); }
+    .diagram-node[data-tone="model"] > .node-accent { stroke: var(--fdai-diagram-tone-model-stroke, #3f7773); } .diagram-node[data-tone="model"] > .node-icon-backplate { fill: var(--fdai-diagram-tone-model-stroke, #3f7773); stroke: var(--fdai-diagram-tone-model-stroke, #3f7773); }
+    .diagram-node[data-tone="policy"] > .node-accent { stroke: var(--fdai-diagram-tone-policy-stroke, #617950); } .diagram-node[data-tone="policy"] > .node-icon-backplate { fill: var(--fdai-diagram-tone-policy-stroke, #617950); stroke: var(--fdai-diagram-tone-policy-stroke, #617950); }
+    .diagram-node[data-tone="decision"] > .node-accent { stroke: var(--fdai-diagram-tone-decision-stroke, #986346); } .diagram-node[data-tone="decision"] > .node-icon-backplate { fill: var(--fdai-diagram-tone-decision-stroke, #986346); stroke: var(--fdai-diagram-tone-decision-stroke, #986346); }
+    .diagram-node[data-tone="execution"] > .node-accent { stroke: var(--fdai-diagram-tone-execution-stroke, #705f8a); } .diagram-node[data-tone="execution"] > .node-icon-backplate { fill: var(--fdai-diagram-tone-execution-stroke, #705f8a); stroke: var(--fdai-diagram-tone-execution-stroke, #705f8a); }
+    .diagram-node[data-tone="feedback"] > .node-accent { stroke: var(--fdai-diagram-tone-feedback-stroke, #80688d); } .diagram-node[data-tone="feedback"] > .node-icon-backplate { fill: var(--fdai-diagram-tone-feedback-stroke, #80688d); stroke: var(--fdai-diagram-tone-feedback-stroke, #80688d); }
+    .diagram-node[data-tone="store"] > .node-accent { stroke: var(--fdai-diagram-tone-store-stroke, #596871); } .diagram-node[data-tone="store"] > .node-icon-backplate { fill: var(--fdai-diagram-tone-store-stroke, #596871); stroke: var(--fdai-diagram-tone-store-stroke, #596871); }
+    .diagram-node[data-tone="neutral"] > .node-accent { stroke: var(--fdai-diagram-tone-neutral-stroke, #737d84); } .diagram-node[data-tone="neutral"] > .node-icon-backplate { fill: var(--fdai-diagram-tone-neutral-stroke, #737d84); stroke: var(--fdai-diagram-tone-neutral-stroke, #737d84); }
     .diagram-node[data-shape="bar"] > .node-surface { fill: var(--fdai-diagram-gantt-planned, #e8edf2); stroke: var(--fdai-diagram-gantt-planned-stroke, #667085); filter: none; }
     .diagram-node[data-shape="bar"] .node-label { fill: var(--fdai-diagram-gantt-planned-text, #323130); font-size: 14px; }
     .diagram-node[data-shape="bar"][data-status="active"] > .node-surface { fill: var(--fdai-diagram-gantt-active, #0f6cbd); stroke: var(--fdai-diagram-gantt-active-stroke, #005a9e); }
@@ -77,9 +88,9 @@
     svg[data-kind="venn"] .diagram-node[data-palette-index="0"] > .node-surface { fill: var(--fdai-diagram-chart-1, #0f6cbd); stroke: var(--fdai-diagram-chart-1, #0f6cbd); }
     svg[data-kind="venn"] .diagram-node[data-palette-index="1"] > .node-surface { fill: var(--fdai-diagram-chart-2, #008272); stroke: var(--fdai-diagram-chart-2, #008272); }
     svg[data-kind="venn"] .diagram-node[data-palette-index="2"] > .node-surface { fill: var(--fdai-diagram-chart-3, #6b46c1); stroke: var(--fdai-diagram-chart-3, #6b46c1); }
-    .chart-frame { fill: var(--fdai-diagram-chart-surface, #ffffff); stroke: var(--fdai-diagram-border-strong, #605e5c); stroke-width: 1.5; }
-    .chart-guide { stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1; stroke-dasharray: 5 5; }
-    .chart-guide-ring { fill: none; stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1; stroke-dasharray: 4 5; }
+    .chart-frame { fill: var(--fdai-diagram-chart-surface, #ffffff); stroke: var(--fdai-diagram-border-strong, #605e5c); stroke-width: 1; }
+    .chart-guide { stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1; stroke-dasharray: 5 5; opacity: 0.72; }
+    .chart-guide-ring { fill: none; stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1; stroke-dasharray: 4 6; opacity: 0.76; }
     .chart-axis-label { fill: var(--fdai-diagram-muted, #605e5c); font-size: 14px; font-weight: 600; }
     .edge-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
     .edge-path { pointer-events: stroke; transition: stroke-width 140ms ease, opacity 140ms ease; }
@@ -90,7 +101,8 @@
     .edge-label-text { transition: fill 140ms ease; }
     .diagram-edge.is-muted { opacity: 0.12; }
     .diagram-edge.is-muted:hover { opacity: 1; }
-    .diagram-edge.is-active > .edge-path, .diagram-edge:hover > .edge-path { stroke-width: 4; opacity: 1; }
+    svg:not([data-kind="sankey"]) .diagram-edge.is-active > .edge-path,
+    svg:not([data-kind="sankey"]) .diagram-edge:hover > .edge-path { stroke-width: 4; opacity: 1; }
     .diagram-edge:hover .edge-label rect { fill: var(--fdai-diagram-control-header, #deecf9); stroke: var(--fdai-diagram-azure-dark, #005a9e); stroke-width: 2; }
     .diagram-edge:hover .edge-label-text { fill: var(--fdai-diagram-text, #323130); font-weight: 700; }
     .edge-step circle { fill: #107c10; stroke: #ffffff; stroke-width: 2; }
@@ -127,9 +139,9 @@
     svg[data-profile="azure-reference"] .edge-label-text,
     svg[data-profile="azure-reference"] .legend-item text { fill: #484644; font-size: 12px; font-weight: 650; }
 
-    svg[data-diagram-id]:not([data-embedded]) { --fdai-diagram-canvas:#f6f7f6;--fdai-diagram-surface:#ffffff;--fdai-diagram-node:#ffffff;--fdai-diagram-label-surface:#ffffff;--fdai-diagram-text:#20262d;--fdai-diagram-muted:#5f6872;--fdai-diagram-border:#d7dbde;--fdai-diagram-border-strong:#9ba3aa;--fdai-diagram-neutral-header:#ecefee;--fdai-diagram-control-surface:#edf2f5;--fdai-diagram-control-header:#dfe8ed;--fdai-diagram-delivery-surface:#edf3f1;--fdai-diagram-delivery-header:#dce8e4;--fdai-diagram-azure:#315f82;--fdai-diagram-azure-dark:#243f56;--fdai-diagram-cyan-dark:#3f7773;--fdai-diagram-tone-input-fill:#edf2f5;--fdai-diagram-tone-input-stroke:#315f82;--fdai-diagram-tone-interpretation-fill:#edf3f3;--fdai-diagram-tone-interpretation-stroke:#4b7180;--fdai-diagram-tone-model-fill:#ebf2ef;--fdai-diagram-tone-model-stroke:#3f7773;--fdai-diagram-tone-policy-fill:#eff2ea;--fdai-diagram-tone-policy-stroke:#617950;--fdai-diagram-tone-decision-fill:#f5eee8;--fdai-diagram-tone-decision-stroke:#986346;--fdai-diagram-tone-execution-fill:#f0edf4;--fdai-diagram-tone-execution-stroke:#705f8a;--fdai-diagram-tone-feedback-fill:#f2edf3;--fdai-diagram-tone-feedback-stroke:#80688d;--fdai-diagram-tone-store-fill:#eff1f2;--fdai-diagram-tone-store-stroke:#596871;--fdai-diagram-tone-neutral-fill:#ffffff;--fdai-diagram-tone-neutral-stroke:#737d84;--fdai-diagram-edge-request:#315f82;--fdai-diagram-edge-event:#3f7773;--fdai-diagram-edge-approval:#705f8a;--fdai-diagram-edge-mutation:#a86a45;--fdai-diagram-edge-audit:#617950;--fdai-diagram-edge-rollback:#9d555b;--fdai-diagram-edge-read:#3f7773;--fdai-diagram-edge-write:#705f8a;--fdai-diagram-edge-feedback:#80688d;--fdai-diagram-edge-sequence:#315f82;--fdai-diagram-edge-transition:#705f8a;--fdai-diagram-edge-association:#626c73;--fdai-diagram-edge-dependency:#778087;--fdai-diagram-edge-timeline:#986346;--fdai-diagram-group-lane-fill:#f8f9f8;--fdai-diagram-group-lane-stroke:#cfd4d6;--fdai-diagram-group-sidebar-fill:#f0edf3;--fdai-diagram-group-sidebar-stroke:#8a7895;--fdai-diagram-group-feedback-fill:#f4f0f4;--fdai-diagram-group-feedback-stroke:#8a7895;--fdai-diagram-group-datastore-fill:#f0f2f2;--fdai-diagram-group-datastore-stroke:#8d979c;--fdai-diagram-badge-fill:#243f56;--fdai-diagram-badge-ring:#ffffff;--fdai-diagram-badge-text:#ffffff;--fdai-diagram-gantt-planned:#e7e5e2;--fdai-diagram-gantt-planned-stroke:#aaa6a1;--fdai-diagram-gantt-planned-text:#2c333a;--fdai-diagram-gantt-active:#6685a4;--fdai-diagram-gantt-active-stroke:#44688e;--fdai-diagram-gantt-done:#718c6d;--fdai-diagram-gantt-done-stroke:#5e8259;--fdai-diagram-gantt-critical:#b97b59;--fdai-diagram-gantt-critical-stroke:#9e5f3c;--fdai-diagram-gantt-milestone:#887aa5;--fdai-diagram-gantt-milestone-stroke:#6f608c;--fdai-diagram-gantt-progress:#ffffff;--fdai-diagram-gantt-text:#ffffff;--fdai-diagram-chart-surface:#ffffff;--fdai-diagram-chart-1:#426b8c;--fdai-diagram-chart-2:#477d75;--fdai-diagram-chart-3:#75628d;--fdai-diagram-chart-4:#a26e50;--fdai-diagram-chart-5:#987a4d;--fdai-diagram-chart-6:#9a5e65;--fdai-diagram-chart-7:#5e7f91;--fdai-diagram-chart-8:#5c536f;--fdai-diagram-pie-text:#ffffff; }
+    svg[data-diagram-id]:not([data-embedded]) { --fdai-diagram-canvas:#f6f7f6;--fdai-diagram-surface:#ffffff;--fdai-diagram-node:#ffffff;--fdai-diagram-label-surface:#ffffff;--fdai-diagram-text:#20262d;--fdai-diagram-muted:#5f6872;--fdai-diagram-border:#d7dbde;--fdai-diagram-border-strong:#9ba3aa;--fdai-diagram-shadow:#17212b;--fdai-diagram-neutral-header:#ecefee;--fdai-diagram-control-surface:#edf2f5;--fdai-diagram-control-header:#dfe8ed;--fdai-diagram-delivery-surface:#edf3f1;--fdai-diagram-delivery-header:#dce8e4;--fdai-diagram-azure:#315f82;--fdai-diagram-azure-dark:#243f56;--fdai-diagram-cyan-dark:#3f7773;--fdai-diagram-tone-input-fill:#edf2f5;--fdai-diagram-tone-input-stroke:#315f82;--fdai-diagram-tone-interpretation-fill:#edf3f3;--fdai-diagram-tone-interpretation-stroke:#4b7180;--fdai-diagram-tone-model-fill:#ebf2ef;--fdai-diagram-tone-model-stroke:#3f7773;--fdai-diagram-tone-policy-fill:#eff2ea;--fdai-diagram-tone-policy-stroke:#617950;--fdai-diagram-tone-decision-fill:#f5eee8;--fdai-diagram-tone-decision-stroke:#986346;--fdai-diagram-tone-execution-fill:#f0edf4;--fdai-diagram-tone-execution-stroke:#705f8a;--fdai-diagram-tone-feedback-fill:#f2edf3;--fdai-diagram-tone-feedback-stroke:#80688d;--fdai-diagram-tone-store-fill:#eff1f2;--fdai-diagram-tone-store-stroke:#596871;--fdai-diagram-tone-neutral-fill:#ffffff;--fdai-diagram-tone-neutral-stroke:#737d84;--fdai-diagram-edge-request:#315f82;--fdai-diagram-edge-event:#3f7773;--fdai-diagram-edge-approval:#705f8a;--fdai-diagram-edge-mutation:#a86a45;--fdai-diagram-edge-audit:#617950;--fdai-diagram-edge-rollback:#9d555b;--fdai-diagram-edge-read:#3f7773;--fdai-diagram-edge-write:#705f8a;--fdai-diagram-edge-feedback:#80688d;--fdai-diagram-edge-sequence:#315f82;--fdai-diagram-edge-transition:#705f8a;--fdai-diagram-edge-association:#626c73;--fdai-diagram-edge-dependency:#778087;--fdai-diagram-edge-timeline:#986346;--fdai-diagram-group-lane-fill:#f8f9f8;--fdai-diagram-group-lane-stroke:#cfd4d6;--fdai-diagram-group-sidebar-fill:#f0edf3;--fdai-diagram-group-sidebar-stroke:#8a7895;--fdai-diagram-group-feedback-fill:#f4f0f4;--fdai-diagram-group-feedback-stroke:#8a7895;--fdai-diagram-group-datastore-fill:#f0f2f2;--fdai-diagram-group-datastore-stroke:#8d979c;--fdai-diagram-badge-fill:#243f56;--fdai-diagram-badge-ring:#ffffff;--fdai-diagram-badge-text:#ffffff;--fdai-diagram-gantt-planned:#e7e5e2;--fdai-diagram-gantt-planned-stroke:#aaa6a1;--fdai-diagram-gantt-planned-text:#2c333a;--fdai-diagram-gantt-active:#6685a4;--fdai-diagram-gantt-active-stroke:#44688e;--fdai-diagram-gantt-done:#718c6d;--fdai-diagram-gantt-done-stroke:#5e8259;--fdai-diagram-gantt-critical:#b97b59;--fdai-diagram-gantt-critical-stroke:#9e5f3c;--fdai-diagram-gantt-milestone:#887aa5;--fdai-diagram-gantt-milestone-stroke:#6f608c;--fdai-diagram-gantt-progress:#ffffff;--fdai-diagram-gantt-text:#ffffff;--fdai-diagram-chart-surface:#ffffff;--fdai-diagram-chart-1:#426b8c;--fdai-diagram-chart-2:#477d75;--fdai-diagram-chart-3:#75628d;--fdai-diagram-chart-4:#a26e50;--fdai-diagram-chart-5:#987a4d;--fdai-diagram-chart-6:#9a5e65;--fdai-diagram-chart-7:#5e7f91;--fdai-diagram-chart-8:#5c536f;--fdai-diagram-pie-text:#ffffff; }
     @media (prefers-color-scheme: dark) {
-      svg[data-diagram-id]:not([data-embedded]) { --fdai-diagram-canvas:#181b1d;--fdai-diagram-surface:#22272a;--fdai-diagram-node:#252b2e;--fdai-diagram-label-surface:#22272a;--fdai-diagram-text:#f1f3f2;--fdai-diagram-muted:#b8c0c4;--fdai-diagram-border:#3d454a;--fdai-diagram-border-strong:#737e84;--fdai-diagram-neutral-header:#2b3035;--fdai-diagram-control-surface:#202b35;--fdai-diagram-control-header:#273744;--fdai-diagram-delivery-surface:#202f2d;--fdai-diagram-delivery-header:#283d39;--fdai-diagram-azure:#7196b2;--fdai-diagram-azure-dark:#b1c7d8;--fdai-diagram-cyan-dark:#70a19a;--fdai-diagram-tone-input-fill:#202d37;--fdai-diagram-tone-input-stroke:#7196b2;--fdai-diagram-tone-interpretation-fill:#213033;--fdai-diagram-tone-interpretation-stroke:#78a0ad;--fdai-diagram-tone-model-fill:#20312d;--fdai-diagram-tone-model-stroke:#70a19a;--fdai-diagram-tone-policy-fill:#293226;--fdai-diagram-tone-policy-stroke:#93a77a;--fdai-diagram-tone-decision-fill:#382d27;--fdai-diagram-tone-decision-stroke:#d09a77;--fdai-diagram-tone-execution-fill:#302b37;--fdai-diagram-tone-execution-stroke:#a99ac0;--fdai-diagram-tone-feedback-fill:#332b36;--fdai-diagram-tone-feedback-stroke:#b299b6;--fdai-diagram-tone-store-fill:#292f32;--fdai-diagram-tone-store-stroke:#9ba7ad;--fdai-diagram-tone-neutral-fill:#24292e;--fdai-diagram-tone-neutral-stroke:#8e979f;--fdai-diagram-edge-request:#7196b2;--fdai-diagram-edge-event:#70a19a;--fdai-diagram-edge-approval:#a99ac0;--fdai-diagram-edge-mutation:#d09a77;--fdai-diagram-edge-audit:#93a77a;--fdai-diagram-edge-rollback:#cd8585;--fdai-diagram-edge-read:#70a19a;--fdai-diagram-edge-write:#a99ac0;--fdai-diagram-edge-feedback:#b299b6;--fdai-diagram-edge-sequence:#7196b2;--fdai-diagram-edge-transition:#a99ac0;--fdai-diagram-edge-association:#a9afb4;--fdai-diagram-edge-dependency:#8e979f;--fdai-diagram-edge-timeline:#d09a77;--fdai-diagram-group-lane-fill:#1d2125;--fdai-diagram-group-lane-stroke:#41484f;--fdai-diagram-group-sidebar-fill:#292631;--fdai-diagram-group-sidebar-stroke:#8f82a5;--fdai-diagram-group-feedback-fill:#29262f;--fdai-diagram-group-feedback-stroke:#8f82a5;--fdai-diagram-group-datastore-fill:#25292d;--fdai-diagram-group-datastore-stroke:#68717a;--fdai-diagram-badge-fill:#9db3c8;--fdai-diagram-badge-ring:#171a1d;--fdai-diagram-badge-text:#171a1d;--fdai-diagram-gantt-planned:#353a3f;--fdai-diagram-gantt-planned-stroke:#737b83;--fdai-diagram-gantt-planned-text:#edf0f2;--fdai-diagram-gantt-active:#567897;--fdai-diagram-gantt-active-stroke:#86a4c2;--fdai-diagram-gantt-done:#617b5f;--fdai-diagram-gantt-done-stroke:#91ad89;--fdai-diagram-gantt-critical:#9a6248;--fdai-diagram-gantt-critical-stroke:#d09a77;--fdai-diagram-gantt-milestone:#6f6088;--fdai-diagram-gantt-milestone-stroke:#aa99c4;--fdai-diagram-gantt-progress:#ffffff;--fdai-diagram-gantt-text:#ffffff;--fdai-diagram-chart-surface:#202429;--fdai-diagram-chart-1:#7196b2;--fdai-diagram-chart-2:#70a19a;--fdai-diagram-chart-3:#a99ac0;--fdai-diagram-chart-4:#c58b69;--fdai-diagram-chart-5:#b5966f;--fdai-diagram-chart-6:#b97d7d;--fdai-diagram-chart-7:#87a6b8;--fdai-diagram-chart-8:#8b7ea8;--fdai-diagram-pie-text:#ffffff; }
+      svg[data-diagram-id]:not([data-embedded]) { --fdai-diagram-canvas:#181b1d;--fdai-diagram-surface:#22272a;--fdai-diagram-node:#252b2e;--fdai-diagram-label-surface:#22272a;--fdai-diagram-text:#f1f3f2;--fdai-diagram-muted:#b8c0c4;--fdai-diagram-border:#3d454a;--fdai-diagram-border-strong:#737e84;--fdai-diagram-shadow:#000000;--fdai-diagram-neutral-header:#2b3035;--fdai-diagram-control-surface:#202b35;--fdai-diagram-control-header:#273744;--fdai-diagram-delivery-surface:#202f2d;--fdai-diagram-delivery-header:#283d39;--fdai-diagram-azure:#7196b2;--fdai-diagram-azure-dark:#b1c7d8;--fdai-diagram-cyan-dark:#70a19a;--fdai-diagram-tone-input-fill:#202d37;--fdai-diagram-tone-input-stroke:#7196b2;--fdai-diagram-tone-interpretation-fill:#213033;--fdai-diagram-tone-interpretation-stroke:#78a0ad;--fdai-diagram-tone-model-fill:#20312d;--fdai-diagram-tone-model-stroke:#70a19a;--fdai-diagram-tone-policy-fill:#293226;--fdai-diagram-tone-policy-stroke:#93a77a;--fdai-diagram-tone-decision-fill:#382d27;--fdai-diagram-tone-decision-stroke:#d09a77;--fdai-diagram-tone-execution-fill:#302b37;--fdai-diagram-tone-execution-stroke:#a99ac0;--fdai-diagram-tone-feedback-fill:#332b36;--fdai-diagram-tone-feedback-stroke:#b299b6;--fdai-diagram-tone-store-fill:#292f32;--fdai-diagram-tone-store-stroke:#9ba7ad;--fdai-diagram-tone-neutral-fill:#24292e;--fdai-diagram-tone-neutral-stroke:#8e979f;--fdai-diagram-edge-request:#7196b2;--fdai-diagram-edge-event:#70a19a;--fdai-diagram-edge-approval:#a99ac0;--fdai-diagram-edge-mutation:#d09a77;--fdai-diagram-edge-audit:#93a77a;--fdai-diagram-edge-rollback:#cd8585;--fdai-diagram-edge-read:#70a19a;--fdai-diagram-edge-write:#a99ac0;--fdai-diagram-edge-feedback:#b299b6;--fdai-diagram-edge-sequence:#7196b2;--fdai-diagram-edge-transition:#a99ac0;--fdai-diagram-edge-association:#a9afb4;--fdai-diagram-edge-dependency:#8e979f;--fdai-diagram-edge-timeline:#d09a77;--fdai-diagram-group-lane-fill:#1d2125;--fdai-diagram-group-lane-stroke:#41484f;--fdai-diagram-group-sidebar-fill:#292631;--fdai-diagram-group-sidebar-stroke:#8f82a5;--fdai-diagram-group-feedback-fill:#29262f;--fdai-diagram-group-feedback-stroke:#8f82a5;--fdai-diagram-group-datastore-fill:#25292d;--fdai-diagram-group-datastore-stroke:#68717a;--fdai-diagram-badge-fill:#9db3c8;--fdai-diagram-badge-ring:#171a1d;--fdai-diagram-badge-text:#171a1d;--fdai-diagram-gantt-planned:#353a3f;--fdai-diagram-gantt-planned-stroke:#737b83;--fdai-diagram-gantt-planned-text:#edf0f2;--fdai-diagram-gantt-active:#567897;--fdai-diagram-gantt-active-stroke:#86a4c2;--fdai-diagram-gantt-done:#617b5f;--fdai-diagram-gantt-done-stroke:#91ad89;--fdai-diagram-gantt-critical:#9a6248;--fdai-diagram-gantt-critical-stroke:#d09a77;--fdai-diagram-gantt-milestone:#6f6088;--fdai-diagram-gantt-milestone-stroke:#aa99c4;--fdai-diagram-gantt-progress:#ffffff;--fdai-diagram-gantt-text:#ffffff;--fdai-diagram-chart-surface:#202429;--fdai-diagram-chart-1:#7196b2;--fdai-diagram-chart-2:#70a19a;--fdai-diagram-chart-3:#a99ac0;--fdai-diagram-chart-4:#c58b69;--fdai-diagram-chart-5:#b5966f;--fdai-diagram-chart-6:#b97d7d;--fdai-diagram-chart-7:#87a6b8;--fdai-diagram-chart-8:#8b7ea8;--fdai-diagram-pie-text:#ffffff; }
     }
 
 
@@ -137,13 +149,23 @@
       font-family: "Segoe UI Variable Text", "Segoe UI", "Noto Sans KR", sans-serif;
     }
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-title {
-      font-size: 24px; font-weight: 680;
+      font-size: 28px; font-weight: 720;
     }
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-subtitle {
-      font-size: 15px;
+      font-size: 14px; font-weight: 480;
     }
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-group .group-surface {
       stroke-width: 1; stroke-dasharray: none;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .group-accent {
+      stroke: var(--fdai-diagram-azure); stroke-width: 3; stroke-linecap: round;
+    }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="sidebar"] > .group-accent,
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="feedback"] > .group-accent {
+      stroke: var(--fdai-diagram-tone-feedback-stroke);
+    }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="datastore"] > .group-accent {
+      stroke: var(--fdai-diagram-tone-store-stroke);
     }
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node > rect,
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node > .node-surface {
@@ -159,19 +181,43 @@
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node.is-keyboard-focused > .node-surface {
       stroke-width: 2;
     }
-      svg[data-profile="azure-reference"] .diagram-node.is-keyboard-focused > rect,
-      svg[data-profile="azure-reference"] .diagram-node.is-keyboard-focused > .node-surface {
-        stroke: var(--fdai-diagram-azure); stroke-width: 1.5;
-      }
-      svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"].is-keyboard-focused > rect {
-        fill: #ffffff;
-      }
+    svg[data-profile="azure-reference"] .diagram-node.is-keyboard-focused > rect,
+    svg[data-profile="azure-reference"] .diagram-node.is-keyboard-focused > .node-surface {
+      stroke: var(--fdai-diagram-azure); stroke-width: 1.5;
+    }
+    svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"].is-keyboard-focused > rect {
+      fill: #ffffff;
+    }
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .node-label,
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .group-label {
-      font-weight: 620;
+      font-weight: 680;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .node-body {
+      font-weight: 470;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .group-label {
+      font-weight: 650;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .edge-path {
+      opacity: 0.82;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .edge-label rect {
+      filter: url(#label-shadow); stroke-width: 1;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-legend {
+      opacity: 0.9;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .legend-swatch {
+      stroke-width: 1.25;
     }
     svg[data-kind="gantt"] .diagram-node[data-shape="bar"] .node-label {
       fill: var(--fdai-diagram-text); font-size: 14px; font-weight: 600;
+    }
+    svg[data-kind="gantt"] .diagram-node[data-shape="bar"] > .node-surface {
+      stroke-width: 1; filter: url(#label-shadow);
+    }
+    svg[data-kind="gantt"] .node-progress {
+      fill-opacity: 0.24;
     }
     svg[data-kind="gantt"] .diagram-node[data-status="milestone"] > .node-surface {
       filter: none;
@@ -180,7 +226,7 @@
       fill: var(--fdai-diagram-muted); font-size: 12px; font-weight: 550;
     }
     svg[data-kind="gantt"] .gantt-grid .chart-guide {
-      stroke-dasharray: 2 6; opacity: 0.72;
+      stroke-dasharray: 2 7; opacity: 0.48;
     }
     svg[data-profile="conceptual"] .diagram-group[data-presentation="panel"] > .group-surface {
       fill: var(--fdai-diagram-canvas); stroke: var(--fdai-diagram-border);
@@ -207,11 +253,11 @@
       fill: var(--fdai-diagram-muted); font-size: 11px; font-weight: 650;
     }
     svg[data-kind="radar"] .radar-spoke {
-      stroke: var(--fdai-diagram-border); stroke-width: 1;
+      stroke: var(--fdai-diagram-border); stroke-width: 1; opacity: 0.66;
     }
     svg[data-kind="radar"] .radar-area {
-      fill: var(--fdai-diagram-chart-1); fill-opacity: 0.14;
-      stroke: var(--fdai-diagram-chart-1); stroke-width: 2;
+      fill: var(--fdai-diagram-chart-1); fill-opacity: 0.18;
+      stroke: var(--fdai-diagram-chart-1); stroke-width: 2.5;
     }
     svg[data-kind="radar"] .diagram-edge { opacity: 0; pointer-events: none; }
     svg[data-kind="radar"] .diagram-node > .node-surface {
@@ -222,7 +268,7 @@
     svg[data-kind="quadrant"] .region-two { fill: var(--fdai-diagram-tone-model-fill); }
     svg[data-kind="quadrant"] .region-three { fill: var(--fdai-diagram-tone-neutral-fill); }
     svg[data-kind="quadrant"] .region-four { fill: var(--fdai-diagram-tone-decision-fill); }
-    svg[data-kind="quadrant"] .quadrant-region { fill-opacity: 0.62; }
+    svg[data-kind="quadrant"] .quadrant-region { fill-opacity: 0.44; }
     svg[data-kind="quadrant"] .diagram-node > .node-surface {
       filter: none; stroke-width: 1.5;
     }
@@ -242,7 +288,7 @@
     }
     svg[data-kind="sankey"] .diagram-edge:hover > .edge-path,
     svg[data-kind="sankey"] .diagram-edge.is-active > .edge-path {
-      opacity: 0.88;
+      opacity: 0.88; stroke-width: revert;
     }
     svg[data-kind="sankey"] .diagram-node > .node-surface {
       fill: var(--fdai-diagram-surface); filter: none; stroke-width: 1.5;

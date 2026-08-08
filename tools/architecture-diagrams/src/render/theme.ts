@@ -9,6 +9,7 @@ export const CALM_SLATE_LIGHT: ThemeVariables = {
   "--fdai-diagram-muted": "#5f6872",
   "--fdai-diagram-border": "#d7dbde",
   "--fdai-diagram-border-strong": "#9ba3aa",
+  "--fdai-diagram-shadow": "#17212b",
   "--fdai-diagram-neutral-header": "#ecefee",
   "--fdai-diagram-control-surface": "#edf2f5",
   "--fdai-diagram-control-header": "#dfe8ed",
@@ -95,6 +96,7 @@ export const CALM_SLATE_DARK: ThemeVariables = {
   "--fdai-diagram-muted": "#b8c0c4",
   "--fdai-diagram-border": "#3d454a",
   "--fdai-diagram-border-strong": "#737e84",
+  "--fdai-diagram-shadow": "#000000",
   "--fdai-diagram-neutral-header": "#2b3035",
   "--fdai-diagram-control-surface": "#202b35",
   "--fdai-diagram-control-header": "#273744",
@@ -196,13 +198,23 @@ export function calmSlateFoundationCss(): string {
       font-family: "Segoe UI Variable Text", "Segoe UI", "Noto Sans KR", sans-serif;
     }
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-title {
-      font-size: 24px; font-weight: 680;
+      font-size: 28px; font-weight: 720;
     }
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-subtitle {
-      font-size: 15px;
+      font-size: 14px; font-weight: 480;
     }
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-group .group-surface {
       stroke-width: 1; stroke-dasharray: none;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .group-accent {
+      stroke: var(--fdai-diagram-azure); stroke-width: 3; stroke-linecap: round;
+    }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="sidebar"] > .group-accent,
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="feedback"] > .group-accent {
+      stroke: var(--fdai-diagram-tone-feedback-stroke);
+    }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="datastore"] > .group-accent {
+      stroke: var(--fdai-diagram-tone-store-stroke);
     }
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node > rect,
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node > .node-surface {
@@ -218,19 +230,43 @@ export function calmSlateFoundationCss(): string {
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node.is-keyboard-focused > .node-surface {
       stroke-width: 2;
     }
-      svg[data-profile="azure-reference"] .diagram-node.is-keyboard-focused > rect,
-      svg[data-profile="azure-reference"] .diagram-node.is-keyboard-focused > .node-surface {
-        stroke: var(--fdai-diagram-azure); stroke-width: 1.5;
-      }
-      svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"].is-keyboard-focused > rect {
-        fill: #ffffff;
-      }
+    svg[data-profile="azure-reference"] .diagram-node.is-keyboard-focused > rect,
+    svg[data-profile="azure-reference"] .diagram-node.is-keyboard-focused > .node-surface {
+      stroke: var(--fdai-diagram-azure); stroke-width: 1.5;
+    }
+    svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"].is-keyboard-focused > rect {
+      fill: #ffffff;
+    }
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .node-label,
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .group-label {
-      font-weight: 620;
+      font-weight: 680;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .node-body {
+      font-weight: 470;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .group-label {
+      font-weight: 650;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .edge-path {
+      opacity: 0.82;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .edge-label rect {
+      filter: url(#label-shadow); stroke-width: 1;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-legend {
+      opacity: 0.9;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .legend-swatch {
+      stroke-width: 1.25;
     }
     svg[data-kind="gantt"] .diagram-node[data-shape="bar"] .node-label {
       fill: var(--fdai-diagram-text); font-size: 14px; font-weight: 600;
+    }
+    svg[data-kind="gantt"] .diagram-node[data-shape="bar"] > .node-surface {
+      stroke-width: 1; filter: url(#label-shadow);
+    }
+    svg[data-kind="gantt"] .node-progress {
+      fill-opacity: 0.24;
     }
     svg[data-kind="gantt"] .diagram-node[data-status="milestone"] > .node-surface {
       filter: none;
@@ -239,7 +275,7 @@ export function calmSlateFoundationCss(): string {
       fill: var(--fdai-diagram-muted); font-size: 12px; font-weight: 550;
     }
     svg[data-kind="gantt"] .gantt-grid .chart-guide {
-      stroke-dasharray: 2 6; opacity: 0.72;
+      stroke-dasharray: 2 7; opacity: 0.48;
     }
     svg[data-profile="conceptual"] .diagram-group[data-presentation="panel"] > .group-surface {
       fill: var(--fdai-diagram-canvas); stroke: var(--fdai-diagram-border);
@@ -266,11 +302,11 @@ export function calmSlateFoundationCss(): string {
       fill: var(--fdai-diagram-muted); font-size: 11px; font-weight: 650;
     }
     svg[data-kind="radar"] .radar-spoke {
-      stroke: var(--fdai-diagram-border); stroke-width: 1;
+      stroke: var(--fdai-diagram-border); stroke-width: 1; opacity: 0.66;
     }
     svg[data-kind="radar"] .radar-area {
-      fill: var(--fdai-diagram-chart-1); fill-opacity: 0.14;
-      stroke: var(--fdai-diagram-chart-1); stroke-width: 2;
+      fill: var(--fdai-diagram-chart-1); fill-opacity: 0.18;
+      stroke: var(--fdai-diagram-chart-1); stroke-width: 2.5;
     }
     svg[data-kind="radar"] .diagram-edge { opacity: 0; pointer-events: none; }
     svg[data-kind="radar"] .diagram-node > .node-surface {
@@ -281,7 +317,7 @@ export function calmSlateFoundationCss(): string {
     svg[data-kind="quadrant"] .region-two { fill: var(--fdai-diagram-tone-model-fill); }
     svg[data-kind="quadrant"] .region-three { fill: var(--fdai-diagram-tone-neutral-fill); }
     svg[data-kind="quadrant"] .region-four { fill: var(--fdai-diagram-tone-decision-fill); }
-    svg[data-kind="quadrant"] .quadrant-region { fill-opacity: 0.62; }
+    svg[data-kind="quadrant"] .quadrant-region { fill-opacity: 0.44; }
     svg[data-kind="quadrant"] .diagram-node > .node-surface {
       filter: none; stroke-width: 1.5;
     }
@@ -301,7 +337,7 @@ export function calmSlateFoundationCss(): string {
     }
     svg[data-kind="sankey"] .diagram-edge:hover > .edge-path,
     svg[data-kind="sankey"] .diagram-edge.is-active > .edge-path {
-      opacity: 0.88;
+      opacity: 0.88; stroke-width: revert;
     }
     svg[data-kind="sankey"] .diagram-node > .node-surface {
       fill: var(--fdai-diagram-surface); filter: none; stroke-width: 1.5;

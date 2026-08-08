@@ -69,6 +69,8 @@ test("renders conceptual shapes, content, tones, and feedback semantics", async 
   assert.match(svg, /data-shape="terminator" data-tone="input"/);
   assert.match(svg, /data-shape="diamond" data-tone="policy"/);
   assert.match(svg, /class="node-body"/);
+  assert.match(svg, /class="node-accent"/);
+  assert.match(svg, /class="group-accent"/);
   assert.match(svg, /의도와 컨텍스트/);
   assert.match(svg, /class="node-badge"/);
   assert.match(svg, /class="diagram-edge edge-feedback"/);
@@ -96,4 +98,5 @@ test("compiles the canonical conceptual control loop in both locales", async () 
     (artifact) => artifact.path === "fdai-conceptual-control-loop.ko.svg",
   );
   assert.match(koreanSvg!.content.toString("utf8"), /통제형 자동화 아키텍처/);
+  assert.match(koreanSvg!.content.toString("utf8"), /class="node-icon-backplate"/);
 });

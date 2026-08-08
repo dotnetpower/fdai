@@ -305,15 +305,24 @@ async function renderNode(
         "start",
       )
     : "";
+    const presentation = node.presentation ?? "card";
+    const nodeShape = node.shape ?? "card";
+    const premiumCard = !compact &&
+      (nodeShape === "card" || nodeShape === "terminator") &&
+      presentation !== "icon";
+    const iconBackplateMarkup = icon && premiumCard
+      ? `<circle class="node-icon-backplate" cx="${x}" cy="${shape.y + geometry.iconTop + geometry.iconSize / 2}" r="${geometry.iconSize / 2 + 7}" aria-hidden="true"/>`
+      : "";
   const iconMarkup = icon
     ? `<image${node.kind === "agent" ? ' class="agent-icon"' : ""} href="${icon}" x="${x - geometry.iconSize / 2}" y="${shape.y + geometry.iconTop}" width="${geometry.iconSize}" height="${geometry.iconSize}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"/>`
     : "";
   const description = node.description?.[locale] ?? node.label[locale];
-  const presentation = node.presentation ?? "card";
-  const nodeShape = node.shape ?? "card";
   const surface = barShape && node.status === "milestone"
     ? milestoneShapeMarkup(shape)
     : nodeShapeMarkup(nodeShape, shape, presentation);
+    const accentMarkup = premiumCard
+      ? `<line class="node-accent" x1="${shape.x + 12}" y1="${shape.y + 1.5}" x2="${shape.x + shape.width - 12}" y2="${shape.y + 1.5}" aria-hidden="true"/>`
+      : "";
   const progressMarkup = barShape && node.status !== "milestone" && node.progress !== undefined
     ? `<rect class="node-progress" x="${shape.x}" y="${shape.y}" width="${shape.width * node.progress / 100}" height="${shape.height}" rx="4" aria-hidden="true"/>`
     : "";
@@ -323,7 +332,7 @@ async function renderNode(
   const leaderMarkup = shape.leader
     ? `<path class="chart-leader" d="${shape.leader}" aria-hidden="true"/>`
     : "";
-  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" data-presentation="${presentation}" data-shape="${nodeShape}" data-tone="${node.tone ?? "neutral"}"${shape.paletteIndex !== undefined ? ` data-palette-index="${shape.paletteIndex % 8}"` : ""}${node.status ? ` data-status="${node.status}"` : ""} transform="translate(${offsetX} ${offsetY})" role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}">${leaderMarkup}${surface}${progressMarkup}${iconMarkup}${textLines(labelLines, x, labelStart, "node-label", nodeLineHeight, externalBarLabel ? "start" : "middle")}${bodyMarkup}${badgeMarkup}</g>`;
+  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" data-presentation="${presentation}" data-shape="${nodeShape}" data-tone="${node.tone ?? "neutral"}"${shape.paletteIndex !== undefined ? ` data-palette-index="${shape.paletteIndex % 8}"` : ""}${node.status ? ` data-status="${node.status}"` : ""} transform="translate(${offsetX} ${offsetY})" role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}">${leaderMarkup}${surface}${accentMarkup}${progressMarkup}${iconBackplateMarkup}${iconMarkup}${textLines(labelLines, x, labelStart, "node-label", nodeLineHeight, externalBarLabel ? "start" : "middle")}${bodyMarkup}${badgeMarkup}</g>`;
 }
 
 function milestoneShapeMarkup(shape: PositionedShape): string {
@@ -492,7 +501,7 @@ function renderEdge(
     ? -((labelLines.length - 1) * edgeLineHeight) / 2 + edgeFontSize * 0.35
     : 0;
   const labelMarkup = label && labelGeometry
-    ? `<g class="edge-label" transform="translate(${labelX + offsetX} ${labelY + offsetY})"><rect x="${-labelGeometry.width / 2}" y="${-labelGeometry.height / 2}" width="${labelGeometry.width}" height="${labelGeometry.height}" rx="4"/>${textLines(labelLines, 0, labelStart, "edge-label-text", edgeLineHeight)}</g>`
+    ? `<g class="edge-label" transform="translate(${labelX + offsetX} ${labelY + offsetY})"><rect x="${-labelGeometry.width / 2}" y="${-labelGeometry.height / 2}" width="${labelGeometry.width}" height="${labelGeometry.height}" rx="8"/>${textLines(labelLines, 0, labelStart, "edge-label-text", edgeLineHeight)}</g>`
     : "";
   const stepPosition = edgeStepPosition(section, labelX, labelY, labelGeometry);
   const stepMarkup = edge.step
@@ -622,7 +631,10 @@ export async function renderSvg(
       );
       const presentation = group.presentation ?? "default";
       const radius = spec.canvas.profile === "azure-reference" ? 2 : 8;
-      return `<g class="diagram-group group-${group.kind}" data-group-id="${group.id}" data-presentation="${presentation}" role="group" aria-label="${escapeXml(group.label[locale])}"><rect class="group-surface" x="${shape.x + offsetX}" y="${shape.y + offsetY}" width="${shape.width}" height="${shape.height}" rx="${radius}"/><rect class="group-header" x="${shape.x + offsetX + 1}" y="${shape.y + offsetY + 1}" width="${Math.max(0, shape.width - 2)}" height="38" rx="${radius}"/>${textLines(groupLines, shape.x + offsetX + 18, shape.y + offsetY + 27, "group-label", compact ? 16 : 21, "start")}</g>`;
+      const accent = compact
+        ? ""
+        : `<line class="group-accent" x1="${shape.x + offsetX + 18}" y1="${shape.y + offsetY + 39}" x2="${shape.x + offsetX + 66}" y2="${shape.y + offsetY + 39}" aria-hidden="true"/>`;
+      return `<g class="diagram-group group-${group.kind}" data-group-id="${group.id}" data-presentation="${presentation}" role="group" aria-label="${escapeXml(group.label[locale])}"><rect class="group-surface" x="${shape.x + offsetX}" y="${shape.y + offsetY}" width="${shape.width}" height="${shape.height}" rx="${radius}"/><rect class="group-header" x="${shape.x + offsetX + 1}" y="${shape.y + offsetY + 1}" width="${Math.max(0, shape.width - 2)}" height="38" rx="${radius}"/>${accent}${textLines(groupLines, shape.x + offsetX + 18, shape.y + offsetY + 27, "group-label", compact ? 16 : 21, "start")}</g>`;
     })
     .join("");
   const edges = layout.edges
@@ -667,7 +679,7 @@ export async function renderSvg(
   <title id="diagram-title">${escapeXml(spec.locales[locale].title)}</title>
   <desc id="diagram-description">${escapeXml(spec.locales[locale].alt)}</desc>
   <metadata>${escapeXml(JSON.stringify({ id: spec.id, version: spec.version, updated: spec.updated }))}</metadata>
-  <defs>${markers}<filter id="node-shadow" x="-25%" y="-30%" width="150%" height="170%"><feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#2e3640" flood-opacity="0.08"/></filter></defs>
+  <defs>${markers}<filter id="node-shadow" x="-25%" y="-30%" width="150%" height="170%"><feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.10"/><feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.07"/></filter><filter id="label-shadow" x="-20%" y="-40%" width="140%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.08"/></filter></defs>
   <style>
     svg[data-diagram-id] { color: var(--fdai-diagram-text, #323130); font-family: "Noto Sans KR", "Noto Sans", "Segoe UI", sans-serif; }
     @media (prefers-color-scheme: dark) {
@@ -710,6 +722,9 @@ export async function renderSvg(
     .node-badge circle { fill: var(--fdai-diagram-badge-fill, #173b6c); stroke: var(--fdai-diagram-badge-ring, #ffffff); stroke-width: 2; }
     .node-badge text { fill: var(--fdai-diagram-badge-text, #ffffff); font-size: 12px; font-weight: 700; text-anchor: middle; }
     ${Object.entries(toneStyles).map(([tone, style]) => `.diagram-node[data-tone="${tone}"] > .node-surface { fill: ${style.fill}; stroke: ${style.stroke}; }`).join("\n    ")}
+    .node-accent { stroke-linecap: round; stroke-width: 3; opacity: 0.9; }
+    .node-icon-backplate { stroke-width: 1; fill-opacity: 0.08; stroke-opacity: 0.16; }
+    ${Object.entries(toneStyles).map(([tone, style]) => `.diagram-node[data-tone="${tone}"] > .node-accent { stroke: ${style.stroke}; } .diagram-node[data-tone="${tone}"] > .node-icon-backplate { fill: ${style.stroke}; stroke: ${style.stroke}; }`).join("\n    ")}
     .diagram-node[data-shape="bar"] > .node-surface { fill: var(--fdai-diagram-gantt-planned, #e8edf2); stroke: var(--fdai-diagram-gantt-planned-stroke, #667085); filter: none; }
     .diagram-node[data-shape="bar"] .node-label { fill: var(--fdai-diagram-gantt-planned-text, #323130); font-size: 14px; }
     .diagram-node[data-shape="bar"][data-status="active"] > .node-surface { fill: var(--fdai-diagram-gantt-active, #0f6cbd); stroke: var(--fdai-diagram-gantt-active-stroke, #005a9e); }
@@ -734,9 +749,9 @@ export async function renderSvg(
     svg[data-kind="venn"] .diagram-node[data-palette-index="0"] > .node-surface { fill: var(--fdai-diagram-chart-1, #0f6cbd); stroke: var(--fdai-diagram-chart-1, #0f6cbd); }
     svg[data-kind="venn"] .diagram-node[data-palette-index="1"] > .node-surface { fill: var(--fdai-diagram-chart-2, #008272); stroke: var(--fdai-diagram-chart-2, #008272); }
     svg[data-kind="venn"] .diagram-node[data-palette-index="2"] > .node-surface { fill: var(--fdai-diagram-chart-3, #6b46c1); stroke: var(--fdai-diagram-chart-3, #6b46c1); }
-    .chart-frame { fill: var(--fdai-diagram-chart-surface, #ffffff); stroke: var(--fdai-diagram-border-strong, #605e5c); stroke-width: 1.5; }
-    .chart-guide { stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1; stroke-dasharray: 5 5; }
-    .chart-guide-ring { fill: none; stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1; stroke-dasharray: 4 5; }
+    .chart-frame { fill: var(--fdai-diagram-chart-surface, #ffffff); stroke: var(--fdai-diagram-border-strong, #605e5c); stroke-width: 1; }
+    .chart-guide { stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1; stroke-dasharray: 5 5; opacity: 0.72; }
+    .chart-guide-ring { fill: none; stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1; stroke-dasharray: 4 6; opacity: 0.76; }
     .chart-axis-label { fill: var(--fdai-diagram-muted, #605e5c); font-size: 14px; font-weight: 600; }
     .edge-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
     .edge-path { pointer-events: stroke; transition: stroke-width 140ms ease, opacity 140ms ease; }
@@ -747,7 +762,8 @@ export async function renderSvg(
     .edge-label-text { transition: fill 140ms ease; }
     .diagram-edge.is-muted { opacity: 0.12; }
     .diagram-edge.is-muted:hover { opacity: 1; }
-    .diagram-edge.is-active > .edge-path, .diagram-edge:hover > .edge-path { stroke-width: 4; opacity: 1; }
+    svg:not([data-kind="sankey"]) .diagram-edge.is-active > .edge-path,
+    svg:not([data-kind="sankey"]) .diagram-edge:hover > .edge-path { stroke-width: 4; opacity: 1; }
     .diagram-edge:hover .edge-label rect { fill: var(--fdai-diagram-control-header, #deecf9); stroke: var(--fdai-diagram-azure-dark, #005a9e); stroke-width: 2; }
     .diagram-edge:hover .edge-label-text { fill: var(--fdai-diagram-text, #323130); font-weight: 700; }
     .edge-step circle { fill: #107c10; stroke: #ffffff; stroke-width: 2; }
