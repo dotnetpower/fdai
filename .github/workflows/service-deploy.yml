@@ -501,6 +501,7 @@ jobs:
       - name: Apply exact protected service plan
         if: ${{ inputs.apply }}
         id: apply
+        continue-on-error: true
         run: |
           set -euo pipefail
           terraform -chdir="$TERRAFORM_ROOT" apply \
@@ -509,7 +510,7 @@ jobs:
             "$RUNNER_TEMP/service-plan-bundle/service.plan"
 
       - name: Verify post-apply service health
-        if: ${{ inputs.apply }}
+        if: ${{ inputs.apply && steps.apply.outcome == 'success' }}
         id: health
         continue-on-error: true
         run: |
@@ -521,7 +522,7 @@ jobs:
             "$TRUSTED_CONTROLS/scripts/deployment/service"
 
       - name: Roll back unhealthy service revision
-        if: ${{ inputs.apply && steps.health.outcome == 'failure' }}
+        if: ${{ inputs.apply && (steps.apply.outcome == 'failure' || steps.health.outcome == 'failure') }}
         run: |
           set -euo pipefail
           rollback_dir="$RUNNER_TEMP/service-rollback"
@@ -555,9 +556,9 @@ jobs:
             --revision "$rollback_dir/revision-after.json"
 
       - name: Fail deployment after automatic rollback
-        if: ${{ inputs.apply && steps.health.outcome == 'failure' }}
+        if: ${{ inputs.apply && (steps.apply.outcome == 'failure' || steps.health.outcome == 'failure') }}
         run: |
-          echo "post-apply health failed; the previous image was restored and verified." >&2
+          echo "service apply or post-apply health failed; the previous image was restored and verified." >&2
           exit 1
 
       - name: Remove temporary deployment material

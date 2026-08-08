@@ -117,6 +117,16 @@ def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
     assert "-destroy" not in _WORKFLOW
 
 
+def test_apply_failure_uses_the_same_verified_rollback_path() -> None:
+    rollback_condition = (
+        "if: ${{ inputs.apply && (steps.apply.outcome == 'failure' || "
+        "steps.health.outcome == 'failure') }}"
+    )
+    assert "id: apply\n        continue-on-error: true" in _WORKFLOW
+    assert "if: ${{ inputs.apply && steps.apply.outcome == 'success' }}" in _WORKFLOW
+    assert _WORKFLOW.count(rollback_condition) == 2
+
+
 def test_service_and_legacy_workflows_enforce_state_cutover_fence() -> None:
     assert "Verify service state cutover ownership" in _WORKFLOW
     assert 'state_migration.py" verify' in _WORKFLOW
