@@ -152,6 +152,7 @@ def test_core_wheel_cold_imports_without_fdai_distribution(
     contract_wheel = _build_wheel("fdai-service-contracts", tmp_path)
     uv = shutil.which("uv")
     assert uv is not None
+    supported_python = shutil.which("python3.12") or sys.executable
     script = """
 from importlib.metadata import PackageNotFoundError, distribution
 
@@ -181,7 +182,7 @@ assert distribution("fdai-core-control-plane").version == "0.1.0"
             "--no-project",
             "--offline",
             "--python",
-            sys.executable,
+            supported_python,
             "--with",
             str(core_wheel),
             "--with",
