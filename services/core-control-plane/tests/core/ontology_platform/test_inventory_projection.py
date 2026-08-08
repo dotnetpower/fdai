@@ -54,6 +54,7 @@ def _observation_metadata() -> LinkObservationMetadata:
         verified=True,
         verifier_identity="inventory-readback",
         verifier_revision="revision-3",
+        verification_receipt_ref="verification-receipt-3",
     )
 
 
@@ -167,6 +168,25 @@ def test_conflicting_observation_for_one_id_is_rejected() -> None:
         build_inventory_ontology_projection(
             generation="snapshot-1",
             resources=(_resource("vm-1", name="vm-one"), _resource("vm-1", name="vm-two")),
+        )
+
+
+def test_conflicting_duplicate_link_is_rejected() -> None:
+    with pytest.raises(InventoryProjectionConflictError, match="link.*conflicting content"):
+        build_inventory_ontology_projection(
+            generation="snapshot-1",
+            resources=(_resource("vm-1"), _resource("vm-2")),
+            links=(
+                LinkRecord("vm-1", "Resource", "depends_on", "vm-2", "Resource"),
+                LinkRecord(
+                    "vm-1",
+                    "Resource",
+                    "depends_on",
+                    "vm-2",
+                    "Resource",
+                    link_props={"observation": "different"},
+                ),
+            ),
         )
 
 

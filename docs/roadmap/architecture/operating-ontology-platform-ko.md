@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: dc159b934d0587c6e6d1abcd5d642d767346f3e8
-translation_revised: 2026-08-08
+translation_source_sha: 7ab53313e17d0e3ce9895305b0841b663a945b22
+translation_revised: 2026-08-09
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -215,6 +215,11 @@ receipt는 read-only provenance이며 diagnostic function을 action으로 바꾸
 `provider_observed` object에서는 성공한 API receipt가 state update가 아닙니다. Reconciliation은
 intended effect를 fresh evidence와 비교하고 `matched`, `mismatched`, `timed_out`, `unscorable` 중
 하나인 `ReconciliationReceipt`을 emit합니다. Authoritative projection만 observed state를 갱신합니다.
+
+Observed inventory relationship은 immutable state-fact 및 verification metadata를 운반할 수
+있습니다. Projection은 이를 권한으로 취급하지 않고 envelope를 보존하며 incomplete observation의
+relationship claim을 억제합니다. Stale, synthetic, conflicting, unverified evidence는 downstream
+autonomy를 낮출 수만 있습니다.
 
 `ProjectionBinding`은 source-to-ontology mapping을 review 가능하게 만듭니다. Source identity, type
 target, identity/property mapping, watermark behavior, freshness, deletion semantics, conflict policy,

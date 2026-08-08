@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
+from enum import StrEnum
 
 from fdai.core.ontology_platform.inventory_projection import (
     InventoryOntologyProjection,
@@ -30,9 +31,17 @@ from fdai.shared.providers.ontology_instance import (
 from fdai.shared.providers.state_store import StateStore
 
 INVENTORY_ONTOLOGY_MANIFEST_KEY = "inventory-ontology:manifest"
+INVENTORY_ONTOLOGY_STATUS_KEY = "inventory-ontology:status"
 _MANIFEST_SCHEMA_VERSION = "1.0.0"
 
 _LOG = logging.getLogger(__name__)
+
+
+class InventoryOntologyProjectionStatus(StrEnum):
+    """Availability of the latest promoted inventory projection attempt."""
+
+    AVAILABLE = "available"
+    UNAVAILABLE = "unavailable"
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +49,7 @@ class InventoryOntologyProjectionResult:
     """Counts and coverage for one applied generation."""
 
     generation: str
+    status: InventoryOntologyProjectionStatus
     object_count: int
     link_count: int
     complete: bool
@@ -77,6 +87,19 @@ class InventoryOntologyProjector:
             links=observation.links,
             observation_complete=observation.complete,
         )
+        if not projection.complete:
+            await self._write_status(
+                projection,
+                status=InventoryOntologyProjectionStatus.UNAVAILABLE,
+            )
+            return InventoryOntologyProjectionResult(
+                generation=projection.generation,
+                status=InventoryOntologyProjectionStatus.UNAVAILABLE,
+                object_count=0,
+                link_count=0,
+                complete=False,
+                dropped_reasons=projection.dropped_reasons,
+            )
         previous = await self._read_manifest()
         pinned = await self._pin_owned_revisions(projection.objects, owned_ids=previous.object_ids)
         await self._store.replace_subgraph(
@@ -86,6 +109,10 @@ class InventoryOntologyProjector:
             previous_link_keys=previous.link_keys,
         )
         await self._write_manifest(projection)
+        await self._write_status(
+            projection,
+            status=InventoryOntologyProjectionStatus.AVAILABLE,
+        )
         _LOG.info(
             "inventory_ontology_projected",
             extra={
@@ -97,6 +124,7 @@ class InventoryOntologyProjector:
         )
         return InventoryOntologyProjectionResult(
             generation=projection.generation,
+            status=InventoryOntologyProjectionStatus.AVAILABLE,
             object_count=len(projection.objects),
             link_count=len(projection.links),
             complete=projection.complete,
@@ -153,9 +181,27 @@ class InventoryOntologyProjector:
             },
         )
 
+    async def _write_status(
+        self,
+        projection: InventoryOntologyProjection,
+        *,
+        status: InventoryOntologyProjectionStatus,
+    ) -> None:
+        await self._status_store.write_state(
+            INVENTORY_ONTOLOGY_STATUS_KEY,
+            {
+                "schema_version": _MANIFEST_SCHEMA_VERSION,
+                "generation": projection.generation,
+                "status": status.value,
+                "dropped_reasons": list(projection.dropped_reasons),
+            },
+        )
+
 
 __all__ = [
     "INVENTORY_ONTOLOGY_MANIFEST_KEY",
+    "INVENTORY_ONTOLOGY_STATUS_KEY",
     "InventoryOntologyProjectionResult",
+    "InventoryOntologyProjectionStatus",
     "InventoryOntologyProjector",
 ]

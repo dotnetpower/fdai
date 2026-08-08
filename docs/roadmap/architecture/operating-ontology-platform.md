@@ -214,6 +214,11 @@ compares the intended effect with fresh evidence and emits a `ReconciliationRece
 `matched`, `mismatched`, `timed_out`, or `unscorable`. Only the authoritative projection updates
 observed state.
 
+Observed inventory relationships may carry immutable state-fact and verification metadata. The
+projection preserves that envelope without treating it as permission, suppresses relationship
+claims for incomplete observations, and lets stale, synthetic, conflicting, or unverified evidence
+lower downstream autonomy.
+
 `ProjectionBinding` makes source-to-ontology mapping reviewable. It declares source identity,
 type targets, identity and property mappings, watermark behavior, freshness, deletion semantics,
 conflict policy, and batch limits. A source cannot silently overwrite another authority.

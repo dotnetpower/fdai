@@ -22,6 +22,8 @@ class SourceFreshness:
             raise ValueError("SourceFreshness.source MUST be non-empty")
         if self.observed_at.tzinfo is None:
             raise ValueError("SourceFreshness.observed_at MUST be timezone-aware")
+        if isinstance(self.max_age_seconds, bool) or not isinstance(self.max_age_seconds, int):
+            raise ValueError("SourceFreshness.max_age_seconds MUST be an integer")
         if self.max_age_seconds < 1:
             raise ValueError("SourceFreshness.max_age_seconds MUST be >= 1")
 
@@ -96,12 +98,15 @@ class OperationalContextSnapshot:
     stale_sources: tuple[str, ...]
     conflicts: tuple[str, ...]
     autonomy_ceiling: Autonomy
+    clock_identity: str = "system-utc"
 
     def __post_init__(self) -> None:
         if not self.snapshot_id or not self.target_resource_id:
             raise ValueError("operational context identities MUST be non-empty")
         if self.cutoff.tzinfo is None or self.recorded_at.tzinfo is None:
             raise ValueError("operational context timestamps MUST be timezone-aware")
+        if not self.clock_identity.strip():
+            raise ValueError("operational context clock_identity MUST be non-empty")
 
     @property
     def review_required(self) -> bool:

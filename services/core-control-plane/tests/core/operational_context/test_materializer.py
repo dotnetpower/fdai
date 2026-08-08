@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import cast
 
@@ -144,7 +144,13 @@ def _link_metadata(
         verified=not conflicts,
         verifier_identity=None if conflicts else "inventory-readback",
         verifier_revision=None if conflicts else "revision-2",
+        verification_receipt_ref=None if conflicts else "verification-receipt-2",
     )
+
+
+def test_source_freshness_rejects_boolean_age() -> None:
+    with pytest.raises(ValueError, match="MUST be an integer"):
+        SourceFreshness(source="inventory", observed_at=CUTOFF, max_age_seconds=True)
 
 
 async def _set_workload_link_metadata(
@@ -167,7 +173,7 @@ async def test_fresh_context_preserves_autonomy_and_replays() -> None:
     materializer = OperationalContextMaterializer(store=store, clock=lambda: CUTOFF)
     freshness = (
         SourceFreshness(
-            source="inventory",
+            source="metrics:availability",
             observed_at=CUTOFF - timedelta(seconds=30),
             max_age_seconds=300,
         ),
@@ -213,6 +219,171 @@ async def test_fresh_context_preserves_autonomy_and_replays() -> None:
     ]
     assert first.autonomy_ceiling is Autonomy.ENFORCE_AUTO
     assert first.review_required is False
+
+
+async def test_missing_required_source_freshness_lowers_snapshot_ceiling() -> None:
+    store = _store()
+    await _seed_service_graph(store)
+
+    snapshot = await OperationalContextMaterializer(store=store, clock=lambda: CUTOFF).materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF,
+        catalog_versions={"ontology": "1.0.0"},
+    )
+
+    assert "source_freshness_missing:metrics:availability" in snapshot.conflicts
+    assert snapshot.autonomy_ceiling is Autonomy.SHADOW_ONLY
+
+
+async def test_legacy_link_metadata_lowers_authority_only_when_verification_is_required() -> None:
+    store = _store()
+    await _seed_service_graph(store)
+    materializer = OperationalContextMaterializer(store=store, clock=lambda: CUTOFF)
+    freshness = (
+        SourceFreshness(
+            source="metrics:availability",
+            observed_at=CUTOFF - timedelta(seconds=30),
+            max_age_seconds=300,
+        ),
+    )
+
+    compatible = await materializer.materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF,
+        catalog_versions={"ontology": "1.0.0"},
+        source_freshness=freshness,
+    )
+    required = await materializer.materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF,
+        catalog_versions={"ontology": "1.0.0"},
+        source_freshness=freshness,
+        require_verified_links=True,
+    )
+
+    assert not any(item.startswith("link_evidence_missing:") for item in compatible.conflicts)
+    assert compatible.autonomy_ceiling is Autonomy.ENFORCE_AUTO
+    assert any(item.startswith("link_evidence_missing:") for item in required.conflicts)
+    assert required.autonomy_ceiling is Autonomy.SHADOW_ONLY
+
+
+async def test_future_cutoff_and_evidence_beyond_trusted_clock_skew_lower_authority() -> None:
+    store = _store()
+    await _seed_service_graph(store)
+    future_metadata = LinkObservationMetadata(
+        state_fact=StateFactMetadata(
+            lane=StateFactLane.OBSERVED,
+            authority=StateFactAuthority.PROVIDER,
+            source_identity="inventory-provider",
+            source_revision="revision-future",
+            effective_at=CUTOFF + timedelta(seconds=28),
+            evidence_cutoff=CUTOFF + timedelta(seconds=29),
+            recorded_at=CUTOFF + timedelta(seconds=31),
+            freshness_ceiling_seconds=300,
+            completeness=1.0,
+            synthetic=False,
+            evidence_refs=("inventory-receipt-future",),
+        ),
+        verification_method="provider-readback",
+        verified=True,
+        verifier_identity="inventory-readback",
+        verifier_revision="revision-future",
+        verification_receipt_ref="verification-receipt-future",
+    )
+    await _set_workload_link_metadata(store, future_metadata)
+
+    snapshot = await OperationalContextMaterializer(
+        store=store,
+        clock=lambda: CUTOFF,
+        max_clock_skew_seconds=30,
+    ).materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF + timedelta(seconds=30),
+        catalog_versions={"ontology": "1.0.0"},
+        source_freshness=(
+            SourceFreshness(
+                source="metrics:availability",
+                observed_at=CUTOFF,
+                max_age_seconds=300,
+            ),
+        ),
+    )
+
+    assert any(item.startswith("link_evidence_after_trusted_now:") for item in snapshot.conflicts)
+    assert snapshot.autonomy_ceiling is Autonomy.SHADOW_ONLY
+
+    later_cutoff = await OperationalContextMaterializer(
+        store=store,
+        clock=lambda: CUTOFF,
+        max_clock_skew_seconds=30,
+    ).materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF + timedelta(seconds=31),
+        catalog_versions={"ontology": "1.0.0"},
+    )
+    assert "context_cutoff_after_trusted_now" in later_cutoff.conflicts
+    assert later_cutoff.autonomy_ceiling is Autonomy.SHADOW_ONLY
+
+
+async def test_snapshot_identity_uses_canonical_utc_recorded_time_and_clock_identity() -> None:
+    store = _store()
+    await _seed_service_graph(store)
+    freshness = (
+        SourceFreshness(
+            source="metrics:availability",
+            observed_at=CUTOFF - timedelta(seconds=30),
+            max_age_seconds=300,
+        ),
+    )
+    offset = timezone(timedelta(hours=9))
+
+    utc_snapshot = await OperationalContextMaterializer(
+        store=store,
+        clock=lambda: CUTOFF,
+        clock_identity="trusted-control-plane-clock",
+    ).materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF,
+        catalog_versions={"ontology": "1.0.0"},
+        source_freshness=freshness,
+    )
+    offset_snapshot = await OperationalContextMaterializer(
+        store=store,
+        clock=lambda: CUTOFF.astimezone(offset),
+        clock_identity="trusted-control-plane-clock",
+    ).materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF.astimezone(offset),
+        catalog_versions={"ontology": "1.0.0"},
+        source_freshness=freshness,
+    )
+    other_clock = await OperationalContextMaterializer(
+        store=store,
+        clock=lambda: CUTOFF,
+        clock_identity="other-trusted-clock",
+    ).materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF,
+        catalog_versions={"ontology": "1.0.0"},
+        source_freshness=freshness,
+    )
+    later_recording = await OperationalContextMaterializer(
+        store=store,
+        clock=lambda: CUTOFF + timedelta(seconds=1),
+        clock_identity="trusted-control-plane-clock",
+    ).materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF,
+        catalog_versions={"ontology": "1.0.0"},
+        source_freshness=freshness,
+    )
+
+    assert utc_snapshot.snapshot_id == offset_snapshot.snapshot_id
+    assert utc_snapshot.recorded_at == CUTOFF
+    assert utc_snapshot.recorded_at.tzinfo is UTC
+    assert utc_snapshot.clock_identity == "trusted-control-plane-clock"
+    assert other_clock.snapshot_id != utc_snapshot.snapshot_id
+    assert later_recording.snapshot_id != utc_snapshot.snapshot_id
 
 
 async def test_revision_and_freshness_receipts_change_snapshot_identity() -> None:

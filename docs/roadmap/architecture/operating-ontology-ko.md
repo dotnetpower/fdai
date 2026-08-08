@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 376cc5dec3628e5030a28ea4e4a0e710ba998db1
+translation_source_sha: 29c309e900659bce7489351c42b16767853aeed4
 translation_revised: 2026-08-08
 ---
 # FDAI 운영 온톨로지
@@ -33,6 +33,9 @@ cloud-operations 개념을 소유하고 deployment는 observed instance와 inten
 > 선택적인 inventory link observation metadata는 ontology projection과 operational-context
 > materialization을 거쳐 보존되고 snapshot identity에 반영됩니다. Evidence가 stale, incomplete,
 > conflicting, synthetic, future-cutoff 또는 unverified이면 snapshot ceiling을 낮춥니다.
+> Verified link는 독립적인 verifier, 신뢰된 verification method 및 immutable verification
+> receipt를 요구합니다. 필수 source freshness, 신뢰된 UTC clock identity, recorded time 및
+> skew 범위의 future check도 context safety와 replay identity에 반영됩니다.
 > 변경관리는 `Change`에 planned-change evidence를 추가하고, reviewed `ChangeWindow`와 target 및
 > decision에서 impact, process, outcome, recovery까지 이어지는 typed link를 제공합니다. 이러한
 > declaration은 semantic evidence일 뿐 승인 또는 실행 권한을 제공하지 않습니다. Huginn은 같은
@@ -241,7 +244,10 @@ revision, effective time과 recorded time, evidence cutoff, freshness ceiling, c
 synthetic status, conflict, immutable evidence reference를 pin합니다. Lane-authority validation은
 provider observation이 derived fact로 decode되거나 그 반대가 되는 것을 방지합니다. Inventory
 link도 같은 state-fact envelope와 independent verification identity를 포함할 수 있습니다. Metadata가
-없는 legacy link는 additive adoption 기간에도 valid합니다.
+새 verified link는 신뢰된 verification method와 immutable receipt도 포함하며 verifier identity는
+observation source와 달라야 합니다. Metadata가 없는 legacy link는 additive adoption 기간에도
+valid하고 verification을 주장하지 않습니다. 해당 metadata가 없다는 사실은 query profile이 verified
+link를 명시적으로 요구할 때만 authority를 낮춥니다.
 
 Replay는 instance graph의 임의 과거 상태가 아니라 pin된 catalog release와 보존된 decision context를
 resolve합니다. Context identity 재계산은 동등성을 증명하며, 원본 내용을 복원하려면 그 context가
@@ -316,13 +322,19 @@ observation time과 허용된 maximum age도 유지합니다. Snapshot identity�
 effective interval, provenance ref, freshness receipt, stale-source 결과, conflict를 포함하므로
 topology, revision, validity, provenance 또는 freshness가 바뀌면 이전 identity를 재사용할 수
 없습니다. Raw object property는 권위 있는 provider에 남으며 snapshot에 복사하지 않습니다.
+Snapshot time은 canonical UTC로 normalize합니다. Identity에는 신뢰된 recorded time, trusted clock
+identity, query가 verified link를 요구했는지도 포함합니다. Historical replay는 새 wall clock을
+sampling하지 않고 보존된 recorded time을 제공합니다.
 
 Typed link observation metadata는 raw link property를 버리는 규칙의 예외입니다. Materializer는 각
 evidence link에서 canonical verification envelope만 보존하고 link와 path identity에 해당 envelope를
 포함합니다. Stale, incomplete, conflicting, synthetic, after-cutoff 또는 unverified link는 명시적인
 context conflict를 추가하고 snapshot ceiling을 `SHADOW_ONLY`로 낮출 수만 있습니다. Healthy
 metadata는 ceiling을 높이지 않으며, metadata가 없으면 verification을 주장하지 않고 legacy decoding을
-유지합니다.
+유지합니다. 다만 query profile이 verified link를 요구하면 authority를 낮춥니다. 도달 가능한 object가
+freshness policy를 선언하면 일치하는 source-freshness receipt가 필요하며, receipt가 없으면 ceiling을
+`SHADOW_ONLY`로 낮춥니다. Decision cutoff 또는 evidence timestamp가 신뢰된 recorded time과 설정된
+clock-skew allowance의 합을 넘는 경우에도 ceiling을 낮춥니다.
 
 Materialization은 `effective_from <= cutoff`이고 `effective_to`가 없거나
 `cutoff < effective_to`인 object만 포함합니다. 이 half-open interval 밖의 object는 replay를 위한
@@ -348,6 +360,12 @@ model bound를 초과하지 않습니다. Startup은 다른 snapshot을 stage하
 정리하므로 반복 crash가 revision 사이의 ownership을 누적하지 않습니다. 선택적
 `FDAI_OPERATING_MODEL_MAX_BYTES` ceiling의 기본값은 16 MiB입니다. `GET /ontology/graph`는 projection
 status, source revision, aggregate count만 노출하며 deployment instance property는 반환하지 않습니다.
+
+Promoted inventory projection은 graph projection 전에 모든 resource 및 link record를 검증합니다.
+Malformed identity, property 또는 observation timestamp는 attempt를 실패시키며, 충돌하는 duplicate
+link는 complete absence로 해석하지 않고 reject합니다. Promoted observation accumulation이
+incomplete이면 runtime은 기존 graph와 ownership manifest를 유지하고 새 attempt를 `unavailable`로
+기록합니다. Complete projection만 owned resource subgraph를 교체할 수 있습니다.
 
 Cost 및 capacity specialist의 event-time은 advice와 함께 전달됩니다. Forseti는 하나의
 time-consistent snapshot을 materialize하고 공유 case를 만들어 arbitration request에 포함합니다.

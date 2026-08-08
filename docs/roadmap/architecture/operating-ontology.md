@@ -31,6 +31,9 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > Optional inventory link observation metadata survives ontology projection and operational-context
 > materialization, contributes to snapshot identity, and lowers the snapshot ceiling when evidence
 > is stale, incomplete, conflicting, synthetic, future-cutoff, or unverified.
+> Verified links require an independent verifier, a trusted verification method, and an immutable
+> verification receipt. Required source freshness, trusted UTC clock identity, recorded time, and
+> skew-bounded future checks also contribute to context safety and replay identity.
 > Change management adds planned-change evidence to `Change`, a reviewed `ChangeWindow`, and typed
 > links from target and decision through impact, process, outcome, and recovery. These declarations
 > are semantic evidence only and grant no approval or execution authority. Huginn now carries the
@@ -240,7 +243,10 @@ identity and revision, effective and recorded time, evidence cutoff, freshness c
 completeness, synthetic status, conflicts, and immutable evidence references. Lane-authority
 validation prevents a provider observation from being decoded as a derived fact or the reverse.
 Inventory links can carry the same state-fact envelope plus independent verification identity.
-Legacy links without metadata remain valid during additive adoption.
+New verified links also carry a trusted verification method and immutable receipt, and the verifier
+identity must differ from the observation source. Legacy links without metadata remain valid during
+additive adoption and never claim verification. Their absence lowers authority only for a query
+profile that explicitly requires verified links.
 
 Replay resolves the pinned catalog release and the retained decision context, not an arbitrary past
 state of the instance graph. Recomputing a context identity proves equivalence; reconstructing the
@@ -315,13 +321,19 @@ observation time and accepted maximum age. The snapshot identity covers those re
 effective intervals, provenance refs, freshness receipts, stale-source results, and conflicts, so a
 topology, revision, validity, provenance, or freshness change cannot reuse the prior identity. Raw
 object properties remain in their authoritative provider and are not copied into the snapshot.
+Snapshot time is normalized to canonical UTC. The identity also covers trusted recorded time,
+trusted clock identity, and whether the query required verified links. Historical replay supplies
+the retained recorded time instead of sampling a new wall clock.
 
 Typed link observation metadata is the exception to dropping raw link properties: the materializer
 retains only its canonical verification envelope on each evidence link and includes that envelope
 in both link and path identity. A stale, incomplete, conflicting, synthetic, after-cutoff, or
 unverified link adds an explicit context conflict and can only lower the snapshot ceiling to
 `SHADOW_ONLY`. Healthy metadata does not raise a ceiling, and absent metadata preserves legacy
-decoding without claiming verification.
+decoding without claiming verification unless the query profile requires verified links. A
+reachable object that declares a freshness policy requires a matching source-freshness receipt;
+missing receipts lower the ceiling to `SHADOW_ONLY`. A decision cutoff or evidence timestamp beyond
+trusted recorded time plus the configured clock-skew allowance also lowers the ceiling.
 
 Materialization includes an object only when `effective_from <= cutoff` and either
 `effective_to` is absent or `cutoff < effective_to`. Objects outside that half-open interval are
@@ -348,6 +360,13 @@ so historical revisions cannot exceed the configured model bounds. Startup clean
 ownership across revisions. The optional
 `FDAI_OPERATING_MODEL_MAX_BYTES` ceiling defaults to 16 MiB. `GET /ontology/graph` exposes only the
 projection status, source revision, and aggregate counts, never deployment instance properties.
+
+The promoted inventory projection validates every resource and link record before graph projection.
+Malformed identities, properties, or observation timestamps fail the attempt, and conflicting
+duplicate links are rejected instead of being interpreted as complete absence. If promoted
+observation accumulation is incomplete, the runtime preserves the prior graph and ownership
+manifest and records the new attempt as `unavailable`; only a complete projection can replace the
+owned resource subgraph.
 
 Cost and capacity specialist event-time travels with their advice. Forseti materializes one
 time-consistent snapshot, builds the shared case, and includes it in the arbitration request. Odin's

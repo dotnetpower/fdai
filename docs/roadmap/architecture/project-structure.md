@@ -275,7 +275,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   values; unsupported objects and `NaN` are rejected before identity calculation, publication, or
   PostgreSQL connection. Realtime projectors and immutable snapshot staging store only prevalidated
   canonical JSON documents; snapshot coverage metadata follows the same rule before begin or
-  promotion.
+  promotion. Inventory links can also carry immutable observation metadata that pins source
+  authority, revision, cutoff, freshness, completeness, and verification evidence. An incomplete
+  inventory observation projects no relationship claim, and stale or conflicting link evidence can
+  only lower operational-context autonomy.
   All events in the bounded batch are constructed and validated before the first publication, so
   a malformed later resource cannot leave an earlier event partially published by validation.
   Every delta page marked `has_more` must provide a new continuation cursor before its records are

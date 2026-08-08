@@ -114,7 +114,7 @@ def _build_objects(resources: Sequence[ResourceRecord]) -> dict[str, OntologyObj
     for record in resources:
         resource_id = record.resource_id.strip()
         if not resource_id or not record.type.strip():
-            continue
+            raise ValueError("inventory resource identity and type MUST be non-empty")
         projected = _resource_object(record, resource_id=resource_id)
         existing = objects.get(resource_id)
         if existing is None:
@@ -151,12 +151,13 @@ def _build_links(
 ) -> tuple[OntologyLinkRecord, ...]:
     """Return deduplicated topology links whose endpoints were both observed."""
     keyed: dict[tuple[str, str, str], OntologyLinkRecord] = {}
+    endpoint_types: dict[tuple[str, str, str], tuple[str, str]] = {}
     for record in links:
         link_type = record.link_type.strip()
         from_id = record.from_id.strip()
         to_id = record.to_id.strip()
         if not link_type or not from_id or not to_id:
-            continue
+            raise ValueError("inventory link identity fields MUST be non-empty")
         if link_type not in TOPOLOGY_LINK_TYPES:
             dropped.add(_DROP_UNREGISTERED_LINK_TYPE)
             continue
@@ -167,8 +168,6 @@ def _build_links(
             dropped.add(_DROP_UNOBSERVED_ENDPOINT)
             continue
         key = (link_type, from_id, to_id)
-        if key in keyed:
-            continue
         link_props = normalize_json_value(dict(record.link_props), path=f"inventory.{link_type}")
         properties = dict(link_props) if isinstance(link_props, Mapping) else {}
         if record.observation_metadata is not None:
@@ -176,12 +175,23 @@ def _build_links(
                 record.observation_metadata.to_mapping(),
                 path=f"inventory.{link_type}.{LINK_OBSERVATION_METADATA_PROPERTY}",
             )
-        keyed[key] = OntologyLinkRecord(
+        projected = OntologyLinkRecord(
             link_type=link_type,
             from_id=from_id,
             to_id=to_id,
             properties=properties,
         )
+        existing = keyed.get(key)
+        current_endpoint_types = (record.from_type.strip(), record.to_type.strip())
+        if existing is not None and (
+            existing.properties != projected.properties
+            or endpoint_types[key] != current_endpoint_types
+        ):
+            raise InventoryProjectionConflictError(
+                f"inventory link {key!r} observed with conflicting content"
+            )
+        keyed[key] = projected
+        endpoint_types[key] = current_endpoint_types
     return tuple(keyed[key] for key in sorted(keyed))
 
 

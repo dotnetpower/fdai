@@ -117,3 +117,71 @@ async def test_fresh_operational_context_preserves_auto_verdict() -> None:
     assert verdict is not None
     assert verdict["risk_verdict"] == "auto"
     assert verdict["operational_context"]["service_ids"] == ["service-example"]
+
+
+async def test_boolean_source_freshness_age_lowers_verdict_to_hil() -> None:
+    store = _store()
+    await _add_resource(store)
+    for record in (
+        OntologyObjectRecord(
+            id="workload-example",
+            object_type="Workload",
+            properties={
+                "id": "workload-example",
+                "name": "Example Workload",
+                "workload_kind": "api",
+                "effective_from": NOW.isoformat(),
+                "source_ref": "service-manifest:example",
+            },
+        ),
+        OntologyObjectRecord(
+            id="service-example",
+            object_type="BusinessService",
+            properties={
+                "id": "service-example",
+                "name": "Example Service",
+                "criticality": "high",
+                "effective_from": NOW.isoformat(),
+                "source_ref": "service-catalog:example",
+            },
+        ),
+    ):
+        await store.upsert_object(record)
+    for link in (
+        OntologyLinkRecord(
+            link_type="workload_runs_on",
+            from_id="workload-example",
+            to_id="resource-example",
+        ),
+        OntologyLinkRecord(
+            link_type="implemented_by",
+            from_id="service-example",
+            to_id="workload-example",
+        ),
+    ):
+        await store.upsert_link(link)
+    forseti = Forseti(
+        operational_context=OperationalContextMaterializer(store=store, clock=lambda: NOW)
+    )
+
+    verdict = await forseti.judge(
+        {
+            "event_type": "restart_needed",
+            "correlation_id": "correlation-example",
+            "resource_id": "resource-example",
+            "detected_at": NOW.isoformat(),
+            "catalog_versions": {"ontology": "1.0.0"},
+            "source_freshness": [
+                {
+                    "source": "inventory",
+                    "observed_at": NOW.isoformat(),
+                    "max_age_seconds": True,
+                }
+            ],
+        }
+    )
+
+    assert verdict is not None
+    assert verdict["risk_verdict"] == "hil"
+    assert verdict["reason"] == "operational_context_invalid"
+    assert "operational_context" not in verdict

@@ -47,6 +47,22 @@ def test_resource_record_is_frozen() -> None:
         record.type = "compute.function"  # type: ignore[misc]
 
 
+@pytest.mark.parametrize(
+    ("resource_id", "resource_type"),
+    [("", "compute.vm"), ("rid", "")],
+)
+def test_resource_record_rejects_blank_identity(resource_id: str, resource_type: str) -> None:
+    with pytest.raises(ValueError, match="MUST be non-empty"):
+        ResourceRecord(resource_id=resource_id, type=resource_type)
+
+
+def test_resource_record_rejects_malformed_properties_and_timestamp() -> None:
+    with pytest.raises(ValueError, match="props MUST be a mapping"):
+        ResourceRecord(resource_id="rid", type="compute.vm", props=[])  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="last_seen MUST be timezone-aware RFC 3339"):
+        ResourceRecord(resource_id="rid", type="compute.vm", last_seen="2026-08-08T12:00:00")
+
+
 def test_link_record_is_frozen() -> None:
     link = LinkRecord(
         from_id="a",
@@ -57,6 +73,32 @@ def test_link_record_is_frozen() -> None:
     )
     with pytest.raises((AttributeError, TypeError)):
         link.link_type = "attached_to"  # type: ignore[misc]
+
+
+@pytest.mark.parametrize("field_name", ["from_id", "from_type", "link_type", "to_id", "to_type"])
+def test_link_record_rejects_blank_identity(field_name: str) -> None:
+    values = {
+        "from_id": "a",
+        "from_type": "resource-group",
+        "link_type": "contains",
+        "to_id": "b",
+        "to_type": "compute.vm",
+    }
+    values[field_name] = ""
+    with pytest.raises(ValueError, match="MUST be non-empty"):
+        LinkRecord(**values)
+
+
+def test_link_record_rejects_malformed_properties() -> None:
+    with pytest.raises(ValueError, match="link_props MUST be a mapping"):
+        LinkRecord(
+            "a",
+            "resource-group",
+            "contains",
+            "b",
+            "compute.vm",
+            link_props=[],  # type: ignore[arg-type]
+        )
 
 
 def test_legacy_link_record_has_no_observation_metadata() -> None:

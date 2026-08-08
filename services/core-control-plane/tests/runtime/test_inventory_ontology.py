@@ -124,17 +124,26 @@ async def test_foreign_owned_object_is_rejected() -> None:
         await projector.apply(_observation(generation="snapshot-1", resource_ids=("vm-1",)))
 
 
-async def test_incomplete_observation_records_coverage() -> None:
+async def test_incomplete_observation_preserves_prior_projection_and_records_unavailable() -> None:
     store = _store()
     status = InMemoryStateStore()
     projector = InventoryOntologyProjector(store=store, status_store=status)
 
+    await projector.apply(_observation(generation="snapshot-1", resource_ids=("vm-1",)))
+    prior_manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
     result = await projector.apply(
-        _observation(generation="snapshot-1", resource_ids=("vm-1",), complete=False)
+        _observation(generation="snapshot-2", resource_ids=("vm-2",), complete=False)
     )
 
     assert result.complete is False
     assert "observation_incomplete" in result.dropped_reasons
-    manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
-    assert manifest is not None
-    assert manifest["complete"] is False
+    assert getattr(result, "status", None) == "unavailable"
+    assert await store.get_object("vm-1") is not None
+    assert await store.get_object("vm-2") is None
+    assert await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY) == prior_manifest
+    assert await status.read_state("inventory-ontology:status") == {
+        "schema_version": "1.0.0",
+        "generation": "snapshot-2",
+        "status": "unavailable",
+        "dropped_reasons": ["observation_incomplete"],
+    }

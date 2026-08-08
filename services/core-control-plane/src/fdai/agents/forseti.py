@@ -997,14 +997,20 @@ def _source_freshness(raw: object) -> tuple[SourceFreshness, ...]:
     for item in raw:
         if not isinstance(item, Mapping):
             raise ValueError("source_freshness entries MUST be objects")
+        source = item.get("source")
         observed_at = item.get("observed_at")
+        max_age_seconds = item.get("max_age_seconds")
+        if not isinstance(source, str):
+            raise ValueError("source_freshness source MUST be a string")
         if not isinstance(observed_at, str):
             raise ValueError("source_freshness observed_at MUST be a timestamp")
+        if isinstance(max_age_seconds, bool) or not isinstance(max_age_seconds, int):
+            raise ValueError("source_freshness max_age_seconds MUST be an integer")
         items.append(
             SourceFreshness(
-                source=str(item.get("source") or ""),
+                source=source,
                 observed_at=datetime.fromisoformat(observed_at.replace("Z", "+00:00")),
-                max_age_seconds=int(item.get("max_age_seconds") or 0),
+                max_age_seconds=max_age_seconds,
             )
         )
     return tuple(items)

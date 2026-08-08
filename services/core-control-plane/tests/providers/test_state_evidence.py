@@ -67,12 +67,49 @@ def test_state_fact_metadata_rejects_future_evidence() -> None:
         replace(_fact(), evidence_cutoff=RECORDED_AT + timedelta(seconds=1))
 
 
+@pytest.mark.parametrize(
+    ("field_name", "value", "message"),
+    [
+        ("freshness_ceiling_seconds", True, "MUST be an integer"),
+        ("completeness", True, "MUST be numeric"),
+        ("synthetic", 1, "MUST be a boolean"),
+    ],
+)
+def test_direct_state_fact_construction_rejects_bool_integer_aliases(
+    field_name: str,
+    value: object,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        replace(_fact(), **{field_name: value})
+
+
 def test_link_verification_requires_independent_identity() -> None:
-    with pytest.raises(ValueError, match="identify verifier"):
+    with pytest.raises(ValueError, match="verification receipt"):
         LinkObservationMetadata(
             state_fact=_fact(),
             verification_method="provider-readback",
             verified=True,
+        )
+
+    with pytest.raises(ValueError, match="independent verifier"):
+        LinkObservationMetadata(
+            state_fact=_fact(),
+            verification_method="provider-readback",
+            verified=True,
+            verifier_identity="inventory-provider",
+            verifier_revision="revision-2",
+            verification_receipt_ref="verification-receipt-2",
+        )
+
+    with pytest.raises(ValueError, match="trusted verification method"):
+        LinkObservationMetadata(
+            state_fact=_fact(),
+            verification_method="self-asserted",
+            verified=True,
+            verifier_identity="inventory-readback",
+            verifier_revision="revision-2",
+            verification_receipt_ref="verification-receipt-2",
         )
 
     metadata = LinkObservationMetadata(
@@ -81,5 +118,26 @@ def test_link_verification_requires_independent_identity() -> None:
         verified=True,
         verifier_identity="inventory-readback",
         verifier_revision="revision-2",
+        verification_receipt_ref="verification-receipt-2",
     )
     assert LinkObservationMetadata.from_mapping(metadata.to_mapping()) == metadata
+
+
+def test_legacy_link_metadata_without_verification_receipt_cannot_claim_verified() -> None:
+    metadata = LinkObservationMetadata(
+        state_fact=_fact(),
+        verification_method="provider-readback",
+        verified=True,
+        verifier_identity="inventory-readback",
+        verifier_revision="revision-2",
+        verification_receipt_ref="verification-receipt-2",
+    )
+    legacy = metadata.to_mapping()
+    del legacy["verification_receipt_ref"]
+
+    decoded = LinkObservationMetadata.from_mapping(legacy)
+
+    assert decoded.verified is False
+    assert decoded.verifier_identity is None
+    assert decoded.verifier_revision is None
+    assert decoded.verification_receipt_ref is None

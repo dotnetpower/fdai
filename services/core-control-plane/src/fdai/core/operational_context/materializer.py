@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections import deque
 from collections.abc import Callable, Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.ontology_instance import (
@@ -49,9 +49,19 @@ class OperationalContextMaterializer:
         *,
         store: OntologyInstanceStore,
         clock: Callable[[], datetime] | None = None,
+        clock_identity: str = "system-utc",
+        max_clock_skew_seconds: int = 30,
     ) -> None:
+        if not clock_identity.strip():
+            raise ValueError("clock_identity MUST be non-empty")
+        if isinstance(max_clock_skew_seconds, bool) or not isinstance(max_clock_skew_seconds, int):
+            raise ValueError("max_clock_skew_seconds MUST be an integer")
+        if max_clock_skew_seconds < 0:
+            raise ValueError("max_clock_skew_seconds MUST be >= 0")
         self._store = store
         self._clock = clock or (lambda: datetime.now(tz=UTC))
+        self._clock_identity = clock_identity
+        self._max_clock_skew_seconds = max_clock_skew_seconds
 
     async def materialize(
         self,
@@ -60,17 +70,23 @@ class OperationalContextMaterializer:
         cutoff: datetime,
         catalog_versions: Mapping[str, str],
         source_freshness: Sequence[SourceFreshness] = (),
+        require_verified_links: bool = False,
     ) -> OperationalContextSnapshot:
         if not target_resource_id.strip():
             raise ValueError("target_resource_id MUST be non-empty")
         if cutoff.tzinfo is None:
             raise ValueError("cutoff MUST be timezone-aware")
+        cutoff = cutoff.astimezone(UTC)
         recorded_at = self._clock()
         if recorded_at.tzinfo is None:
             raise RuntimeError("operational context clock MUST be timezone-aware")
+        recorded_at = recorded_at.astimezone(UTC)
+        trusted_latest = recorded_at + timedelta(seconds=self._max_clock_skew_seconds)
 
         target = await self._store.get_object(target_resource_id)
         conflicts: list[str] = []
+        if cutoff > trusted_latest:
+            conflicts.append("context_cutoff_after_trusted_now")
         objects: tuple[OntologyObjectRecord, ...]
         links: tuple[OntologyLinkRecord, ...]
         if target is None or target.object_type != "Resource":
@@ -125,6 +141,8 @@ class OperationalContextMaterializer:
         link_conflicts, link_stale_sources = _link_evidence_constraints(
             evidence_links,
             cutoff=cutoff,
+            trusted_latest=trusted_latest,
+            require_verified=require_verified_links,
         )
         conflicts.extend(link_conflicts)
 
@@ -143,7 +161,14 @@ class OperationalContextMaterializer:
 
         canonical_freshness = tuple(
             sorted(
-                source_freshness,
+                (
+                    SourceFreshness(
+                        source=item.source,
+                        observed_at=item.observed_at.astimezone(UTC),
+                        max_age_seconds=item.max_age_seconds,
+                    )
+                    for item in source_freshness
+                ),
                 key=lambda item: (
                     item.source,
                     item.observed_at.astimezone(UTC),
@@ -152,7 +177,13 @@ class OperationalContextMaterializer:
             )
         )
         stale_sources = list(link_stale_sources)
+        freshness_sources = {item.source for item in canonical_freshness}
+        for required_source in _required_freshness_sources(objects):
+            if required_source not in freshness_sources:
+                conflicts.append(f"source_freshness_missing:{required_source}")
         for freshness in canonical_freshness:
+            if freshness.observed_at > trusted_latest:
+                conflicts.append(f"source_after_trusted_now:{freshness.source}")
             if freshness.observed_at > cutoff:
                 conflicts.append(f"source_after_cutoff:{freshness.source}")
             elif (cutoff - freshness.observed_at).total_seconds() > freshness.max_age_seconds:
@@ -183,6 +214,9 @@ class OperationalContextMaterializer:
         identity = _snapshot_identity(
             target_resource_id=target_resource_id,
             cutoff=cutoff,
+            recorded_at=recorded_at,
+            clock_identity=self._clock_identity,
+            require_verified_links=require_verified_links,
             catalog_versions=canonical_versions,
             evidence_links=evidence_links,
             evidence_paths=evidence_paths,
@@ -196,6 +230,7 @@ class OperationalContextMaterializer:
             target_resource_id=target_resource_id,
             cutoff=cutoff,
             recorded_at=recorded_at,
+            clock_identity=self._clock_identity,
             catalog_versions=canonical_versions,
             service_ids=service_ids,
             workload_ids=workload_ids,
@@ -247,6 +282,8 @@ def _link_evidence_constraints(
     links: Sequence[OperationalContextEvidenceLink],
     *,
     cutoff: datetime,
+    trusted_latest: datetime,
+    require_verified: bool,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Return never-raising context constraints from typed link evidence."""
 
@@ -254,10 +291,18 @@ def _link_evidence_constraints(
     stale_sources: set[str] = set()
     for link in links:
         metadata = link.observation_metadata
+        identity = f"{link.link_type}:{link.from_id}:{link.to_id}"
         if metadata is None:
+            if require_verified:
+                conflicts.add(f"link_evidence_missing:{identity}")
             continue
         fact = metadata.state_fact
-        identity = f"{link.link_type}:{link.from_id}:{link.to_id}"
+        if (
+            fact.recorded_at > trusted_latest
+            or fact.evidence_cutoff > trusted_latest
+            or fact.effective_at > trusted_latest
+        ):
+            conflicts.add(f"link_evidence_after_trusted_now:{identity}")
         if fact.recorded_at > cutoff or fact.evidence_cutoff > cutoff or fact.effective_at > cutoff:
             conflicts.add(f"link_evidence_after_cutoff:{identity}")
             continue
@@ -273,6 +318,34 @@ def _link_evidence_constraints(
         if not metadata.verified:
             conflicts.add(f"link_evidence_unverified:{identity}")
     return tuple(sorted(conflicts)), tuple(sorted(stale_sources))
+
+
+def _required_freshness_sources(
+    objects: Sequence[OntologyObjectRecord],
+) -> tuple[str, ...]:
+    """Return source ids for reachable objects that declare a freshness policy."""
+
+    required: set[str] = set()
+    for item in objects:
+        ceiling = item.properties.get("freshness_seconds")
+        if ceiling is None:
+            continue
+        if isinstance(ceiling, bool) or not isinstance(ceiling, int) or ceiling < 1:
+            raise ValueError(f"{item.object_type}.freshness_seconds MUST be a positive integer")
+        source = next(
+            (
+                value.strip()
+                for name in ("measurement_source_ref", "source_ref")
+                if isinstance((value := item.properties.get(name)), str) and value.strip()
+            ),
+            None,
+        )
+        if source is None:
+            raise ValueError(
+                f"{item.object_type} with freshness_seconds MUST identify its evidence source"
+            )
+        required.add(source)
+    return tuple(sorted(required))
 
 
 def _evidence_paths(
@@ -353,6 +426,9 @@ def _snapshot_identity(
     *,
     target_resource_id: str,
     cutoff: datetime,
+    recorded_at: datetime,
+    clock_identity: str,
+    require_verified_links: bool,
     catalog_versions: tuple[tuple[str, str], ...],
     evidence_links: tuple[OperationalContextEvidenceLink, ...],
     evidence_paths: tuple[OperationalContextEvidencePath, ...],
@@ -364,20 +440,23 @@ def _snapshot_identity(
     payload = {
         "catalog_versions": catalog_versions,
         "conflicts": conflicts,
-        "cutoff": cutoff.isoformat(),
+        "clock_identity": clock_identity,
+        "cutoff": _utc_timestamp(cutoff),
         "evidence_links": tuple(_evidence_link_identity(item) for item in evidence_links),
         "evidence_paths": _path_identities(evidence_paths),
         "temporal_exclusions": _path_identities(temporal_exclusions),
         "source_freshness": tuple(
             (
                 item.source,
-                item.observed_at.astimezone(UTC).isoformat(),
+                _utc_timestamp(item.observed_at),
                 item.max_age_seconds,
             )
             for item in source_freshness
         ),
         "stale_sources": stale_sources,
         "target_resource_id": target_resource_id,
+        "recorded_at": _utc_timestamp(recorded_at),
+        "require_verified_links": require_verified_links,
     }
     encoded = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
     return hashlib.sha256(encoded.encode()).hexdigest()
@@ -391,8 +470,8 @@ def _path_identities(
             item.object_id,
             item.object_type,
             item.revision,
-            item.effective_from.isoformat() if item.effective_from is not None else None,
-            item.effective_to.isoformat() if item.effective_to is not None else None,
+            _utc_timestamp(item.effective_from) if item.effective_from is not None else None,
+            _utc_timestamp(item.effective_to) if item.effective_to is not None else None,
             item.provenance_refs,
             tuple(_evidence_link_identity(link) for link in item.links),
         )
@@ -408,6 +487,10 @@ def _evidence_link_identity(link: OperationalContextEvidenceLink) -> tuple[objec
         link.to_id,
         metadata.to_mapping() if metadata is not None else None,
     )
+
+
+def _utc_timestamp(value: datetime) -> str:
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 __all__ = ["OperationalContextMaterializer"]

@@ -37,6 +37,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
 from .state_evidence import LINK_OBSERVATION_METADATA_PROPERTY, LinkObservationMetadata
@@ -66,6 +67,24 @@ class ResourceRecord:
     """RFC 3339 UTC timestamp of the observation; ``None`` when the
     adapter cannot supply one (rare)."""
 
+    def __post_init__(self) -> None:
+        for field_name, value in (("resource_id", self.resource_id), ("type", self.type)):
+            if not value.strip():
+                raise ValueError(f"ResourceRecord.{field_name} MUST be non-empty")
+        if not isinstance(self.props, Mapping):
+            raise ValueError("ResourceRecord.props MUST be a mapping")
+        if self.provider_ref is not None and not self.provider_ref.strip():
+            raise ValueError("ResourceRecord.provider_ref MUST be non-empty when supplied")
+        if self.last_seen is not None:
+            try:
+                parsed = datetime.fromisoformat(self.last_seen.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ValueError(
+                    "ResourceRecord.last_seen MUST be timezone-aware RFC 3339"
+                ) from exc
+            if parsed.tzinfo is None:
+                raise ValueError("ResourceRecord.last_seen MUST be timezone-aware RFC 3339")
+
 
 @dataclass(frozen=True, slots=True)
 class LinkRecord:
@@ -88,6 +107,21 @@ class LinkRecord:
     observation_metadata: LinkObservationMetadata | None = None
 
     def __post_init__(self) -> None:
+        for field_name, value in (
+            ("from_id", self.from_id),
+            ("from_type", self.from_type),
+            ("link_type", self.link_type),
+            ("to_id", self.to_id),
+            ("to_type", self.to_type),
+        ):
+            if not value.strip():
+                raise ValueError(f"LinkRecord.{field_name} MUST be non-empty")
+        if not isinstance(self.link_props, Mapping):
+            raise ValueError("LinkRecord.link_props MUST be a mapping")
+        if self.observation_metadata is not None and not isinstance(
+            self.observation_metadata, LinkObservationMetadata
+        ):
+            raise ValueError("LinkRecord.observation_metadata MUST be typed metadata")
         if LINK_OBSERVATION_METADATA_PROPERTY in self.link_props:
             raise ValueError("LinkRecord.link_props MUST NOT contain reserved observation metadata")
 

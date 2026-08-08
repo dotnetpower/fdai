@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 08fcc90cd7c526cadf41564d724e4d01dede8240
-translation_revised: 2026-08-08
+translation_source_sha: f1197f9acd721c40cddc2c66ee36d1498883a694
+translation_revised: 2026-08-09
 ---
 
 # 프로젝트 구조
@@ -275,7 +275,10 @@ fdai/
   않는 object와 `NaN`은 identity 계산, 발행 또는 PostgreSQL 연결 전에 거부됩니다. Projector는 사전
   검증된 canonical JSON document만 저장합니다. Realtime projector와 immutable snapshot staging은
   모두 사전 검증된 canonical JSON document만 저장하며 snapshot coverage metadata도 begin 또는
-  promotion 전에 같은 규칙을 적용합니다.
+  promotion 전에 같은 규칙을 적용합니다. Inventory link는 source authority, revision, cutoff,
+  freshness, completeness, verification evidence를 고정하는 immutable observation metadata도 운반할
+  수 있습니다. Incomplete inventory observation은 relationship claim을 project하지 않으며 stale 또는
+  conflicting link evidence는 operational-context autonomy를 낮출 수만 있습니다.
   Bounded batch의 모든 event는 첫 발행 전에 생성 및 검증되므로 뒤쪽의 잘못된 리소스 때문에 앞쪽
   event가 validation 단계에서 부분 발행되지 않습니다.
   `has_more`로 표시된 모든 delta page는 record를 방출하기 전에 새로운 continuation cursor를 제공해야

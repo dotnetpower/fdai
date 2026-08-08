@@ -10,6 +10,9 @@ from typing import Any, Self
 
 STATE_FACT_METADATA_PROPERTY = "state_fact_metadata"
 LINK_OBSERVATION_METADATA_PROPERTY = "link_observation_metadata"
+TRUSTED_LINK_VERIFICATION_METHODS = frozenset(
+    {"deterministic-cross-check", "independent-source", "provider-readback"}
+)
 
 
 class StateFactLane(StrEnum):
@@ -79,10 +82,18 @@ class StateFactMetadata:
             raise ValueError("StateFactMetadata.effective_at MUST NOT exceed evidence_cutoff")
         if self.evidence_cutoff > self.recorded_at:
             raise ValueError("StateFactMetadata.evidence_cutoff MUST NOT exceed recorded_at")
+        if isinstance(self.freshness_ceiling_seconds, bool) or not isinstance(
+            self.freshness_ceiling_seconds, int
+        ):
+            raise ValueError("StateFactMetadata.freshness_ceiling_seconds MUST be an integer")
         if self.freshness_ceiling_seconds < 1:
             raise ValueError("StateFactMetadata.freshness_ceiling_seconds MUST be >= 1")
+        if isinstance(self.completeness, bool) or not isinstance(self.completeness, (int, float)):
+            raise ValueError("StateFactMetadata.completeness MUST be numeric")
         if not 0.0 <= self.completeness <= 1.0:
             raise ValueError("StateFactMetadata.completeness MUST be between 0 and 1")
+        if not isinstance(self.synthetic, bool):
+            raise ValueError("StateFactMetadata.synthetic MUST be a boolean")
         canonical_conflicts = _canonical_refs(
             self.conflicts,
             field_name="conflicts",
@@ -170,17 +181,33 @@ class LinkObservationMetadata:
     verified: bool
     verifier_identity: str | None = None
     verifier_revision: str | None = None
+    verification_receipt_ref: str | None = None
 
     def __post_init__(self) -> None:
         if self.state_fact.lane not in {StateFactLane.OBSERVED, StateFactLane.DERIVED}:
             raise ValueError("link observation state fact MUST be observed or derived")
         if not self.verification_method.strip():
             raise ValueError("LinkObservationMetadata.verification_method MUST be non-empty")
-        verifier_values = (self.verifier_identity, self.verifier_revision)
+        verifier_values = (
+            self.verifier_identity,
+            self.verifier_revision,
+            self.verification_receipt_ref,
+        )
+        if self.verified and (
+            self.verification_receipt_ref is None or not self.verification_receipt_ref.strip()
+        ):
+            raise ValueError("verified link observation MUST identify verification receipt")
         if self.verified and any(value is None or not value.strip() for value in verifier_values):
             raise ValueError("verified link observation MUST identify verifier and revision")
         if not self.verified and any(value is not None for value in verifier_values):
             raise ValueError("unverified link observation MUST NOT claim verifier metadata")
+        if self.verified and self.verification_method not in TRUSTED_LINK_VERIFICATION_METHODS:
+            raise ValueError("verified link observation MUST use a trusted verification method")
+        if self.verified and (
+            self.state_fact.source_identity.strip().casefold()
+            == str(self.verifier_identity).strip().casefold()
+        ):
+            raise ValueError("verified link observation MUST identify an independent verifier")
         if self.verified and self.state_fact.conflicts:
             raise ValueError("conflicting link observation MUST NOT be marked verified")
 
@@ -193,35 +220,43 @@ class LinkObservationMetadata:
             "verified": self.verified,
             "verifier_identity": self.verifier_identity,
             "verifier_revision": self.verifier_revision,
+            "verification_receipt_ref": self.verification_receipt_ref,
         }
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> Self:
         """Decode the exact canonical property shape or reject malformed evidence."""
 
-        _require_keys(
-            value,
-            {
-                "state_fact",
-                "verification_method",
-                "verified",
-                "verifier_identity",
-                "verifier_revision",
-            },
-            name="link observation metadata",
-        )
+        expected = {
+            "state_fact",
+            "verification_method",
+            "verified",
+            "verifier_identity",
+            "verifier_revision",
+            "verification_receipt_ref",
+        }
+        legacy_expected = expected - {"verification_receipt_ref"}
+        if set(value) not in {frozenset(expected), frozenset(legacy_expected)}:
+            raise ValueError(
+                "link observation metadata MUST contain the canonical or legacy verification shape"
+            )
         raw_state_fact = value["state_fact"]
-        verified = value["verified"]
+        raw_verified = value["verified"]
         if not isinstance(raw_state_fact, Mapping):
             raise ValueError("link observation state_fact MUST be an object")
-        if not isinstance(verified, bool):
+        if not isinstance(raw_verified, bool):
             raise ValueError("link observation verified MUST be a boolean")
+        has_receipt = "verification_receipt_ref" in value
+        verified = raw_verified and has_receipt
         return cls(
             state_fact=StateFactMetadata.from_mapping(raw_state_fact),
             verification_method=_string(value, "verification_method"),
             verified=verified,
-            verifier_identity=_optional_string(value, "verifier_identity"),
-            verifier_revision=_optional_string(value, "verifier_revision"),
+            verifier_identity=(_optional_string(value, "verifier_identity") if verified else None),
+            verifier_revision=(_optional_string(value, "verifier_revision") if verified else None),
+            verification_receipt_ref=(
+                _optional_string(value, "verification_receipt_ref") if verified else None
+            ),
         )
 
 
@@ -277,6 +312,7 @@ def _string_tuple(value: Mapping[str, Any], field_name: str) -> tuple[str, ...]:
 __all__ = [
     "LINK_OBSERVATION_METADATA_PROPERTY",
     "STATE_FACT_METADATA_PROPERTY",
+    "TRUSTED_LINK_VERIFICATION_METHODS",
     "LinkObservationMetadata",
     "StateFactAuthority",
     "StateFactLane",
