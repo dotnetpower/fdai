@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "coverage": {
+    "source_patterns": [
+      "services/*/pyproject.toml",
+      "services/*/src/**/*.py"
+    ],
+    "test_patterns": [
+      "services/*/tests/**/*.py"
+    ]
+  },
+  "services": [
+    {
+      "id": "core-control-plane",
+      "source_roots": [
+        "services/core-control-plane"
+      ],
+      "test_groups": {
+        "unit": [
+          "services/core-control-plane/tests"
+        ],
+        "contract": [],
+        "integration": [],
+        "smoke": []
+      }
+    },
+    {
+      "id": "operator-service",
+      "source_roots": [
+        "services/operator-service"
+      ],
+      "test_groups": {
+        "unit": [
+          "services/operator-service/tests"
+        ],
+        "contract": [],
+        "integration": [],
+        "smoke": []
+      }
+    },
+    {
+      "id": "document-ingestion-api",
+      "source_roots": [
+        "services/document-ingestion-api"
+      ],
+      "test_groups": {
+        "unit": [
+          "services/document-ingestion-api/tests"
+        ],
+        "contract": [],
+        "integration": [],
+        "smoke": []
+      }
+    },
+    {
+      "id": "document-processing-worker",
+      "source_roots": [
+        "services/document-processing-worker"
+      ],
+      "test_groups": {
+        "unit": [
+          "services/document-processing-worker/tests"
+        ],
+        "contract": [],
+        "integration": [],
+        "smoke": []
+      }
+    },
+    {
+      "id": "isolated-executor",
+      "source_roots": [
+        "services/isolated-executor"
+      ],
+      "test_groups": {
+        "unit": [
+          "services/isolated-executor/tests"
+        ],
+        "contract": [],
+        "integration": [],
+        "smoke": []
+      }
+    }
+  ]
+}

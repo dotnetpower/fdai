@@ -200,6 +200,8 @@ ignore = []
 # Tests intentionally include hardcoded strings like "token" that trip the
 # bandit-style S1xx rules; asserts (S101) are the whole point of the suite.
 "tests/**" = ["S101", "S105", "S106"]
+"services/**/tests/**" = ["S101", "S105", "S106"]
+"packages/**/tests/**" = ["S101", "S105", "S106"]
 "extensions/**/tests/**" = ["S101", "S105", "S106"]
 "benchmarks/**/tests/**" = ["S101", "S104"]
 # Developer helper scripts shell out to `git` / `python3` with hardcoded
@@ -264,6 +266,7 @@ pythonpath = [
     ".",
     "extensions/code-assurance/src",
     "packages/service-contracts/src",
+    "services/core-control-plane",
     "services/core-control-plane/src",
     "services/operator-service/src",
     "services/document-ingestion-api/src",

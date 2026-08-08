@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MANIFEST_PATH = REPO_ROOT / "tests" / "service-suites.json"
+MANIFEST_PATH = REPO_ROOT / "tests" / "integration" / "service-suites.json"
 SERVICE_PLAN_PATH = REPO_ROOT / "config" / "service-decomposition.json"
 GROUPS = ("unit", "contract", "integration", "smoke")
 _SERVICE_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -138,7 +138,7 @@ def _validate_coverage(
         )
     for label, patterns, allowed_root, claims in (
         ("source", value["source_patterns"], REPO_ROOT / "services", source_claims),
-        ("test", value["test_patterns"], REPO_ROOT / "tests", test_claims),
+        ("test", value["test_patterns"], REPO_ROOT / "services", test_claims),
     ):
         if (
             not isinstance(patterns, list)
@@ -207,7 +207,7 @@ def _validated_service(entry: Mapping[str, object]) -> dict[str, Any]:
     test_groups = {
         group: _validated_paths(
             groups[group],
-            allowed_root=REPO_ROOT / "tests",
+            allowed_root=REPO_ROOT / "services" / service_id / "tests",
             label=f"service {service_id} {group} test path",
             allow_empty=True,
         )
@@ -303,7 +303,7 @@ def _python_path(service_ids: Sequence[str]) -> str:
     roots = [REPO_ROOT / "services" / service_id / "src" for service_id in service_ids]
     roots.append(REPO_ROOT / "packages" / "service-contracts" / "src")
     if "core-control-plane" in service_ids:
-        roots.append(REPO_ROOT / "src")
+        roots.append(REPO_ROOT / "services" / "core-control-plane")
     missing = [path for path in roots if not path.is_dir()]
     if missing:
         raise ValueError(f"service import root does not exist: {missing[0]}")

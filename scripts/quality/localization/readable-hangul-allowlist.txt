@@ -1,14 +1,2 @@
-# Unicode block boundaries are the behavior under test, not hidden Korean prose.
-src/fdai/delivery/operator_api/application/conversation/post_generation/quality.py	[\u1100-\u11ff\u3130-\u318f\uac00-\ud7a3]
-# Unicode block boundaries keep word-token extraction explicit and reviewable.
-src/fdai/delivery/operator_api/application/conversation/claims/text.py	[\uac00-\ud7a3]
-# Conversation evidence uses readable NFC UTF-8 terms and requires no escape exception.
-# Keep src/fdai/delivery/operator_api/application/conversation/evidence/ out of this allowlist.
-# Unicode block boundaries classify Korean script independently of display wording.
-src/fdai/delivery/operator_api/application/conversation/prompt.py	[\u1100-\u11ff\u3130-\u318f\uac00-\ud7a3]
-# Unicode block boundaries select Korean locale without embedding a prose token.
-src/fdai/delivery/operator_api/application/conversation/capabilities/subscription_health.py	[\uac00-\ud7a3]
-# Presentation projections use readable NFC UTF-8 labels and require no escape exception.
-# Keep src/fdai/delivery/operator_api/projections/conversation/presentation/ out of this allowlist.
 # This test guards the complete Hangul and CJK scenario-file exclusion ranges.
-tests/scenarios/test_frozen.py	[\uac00-\ud7a3\u1100-\u11ff\u4e00-\u9fff]
+services/core-control-plane/tests/scenarios/test_frozen.py	[\uac00-\ud7a3\u1100-\u11ff\u4e00-\u9fff]

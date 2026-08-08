@@ -40,7 +40,7 @@ from fdai_service_contracts import (  # noqa: E402
 )
 
 MANIFEST_PATH = CONTRACT_SOURCE / "fdai_service_contracts" / "compatibility-manifest.json"
-FIXTURE_ROOT = REPO_ROOT / "tests" / "fixtures" / "services"
+FIXTURE_ROOT = REPO_ROOT / "packages" / "service-contracts" / "tests" / "fixtures" / "services"
 SERVICE_IDS = {
     "core-control-plane",
     "operator-service",
