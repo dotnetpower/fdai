@@ -1258,6 +1258,27 @@ def _capture_peer_manifest(
     )
 
 
+def _capture_peer_manifest_from_states(
+    peer_state: ModuleType,
+    tmp_path: Path,
+    *,
+    phase: str,
+    states: dict[str, dict[str, object]],
+) -> dict[str, object]:
+    state_dir = tmp_path / phase
+    state_dir.mkdir()
+    for coordinate in peer_state.peer_coordinates("operator-service", "dev"):
+        (state_dir / f"{coordinate.service}.json").write_text(
+            json.dumps(states[coordinate.service]), encoding="utf-8"
+        )
+    return peer_state.capture_manifest(
+        selected_service="operator-service",
+        environment="dev",
+        phase=phase,
+        state_dir=state_dir,
+    )
+
+
 def test_peer_state_capture_is_closed_and_redacts_raw_state(
     peer_state: ModuleType,
     tmp_path: Path,
@@ -1278,6 +1299,88 @@ def test_peer_state_capture_is_closed_and_redacts_raw_state(
     assert "not-for-receipt" not in encoded
     assert "example-lineage" not in encoded
     assert all(peer["managed_resource_count"] == 1 for peer in manifest["peers"])
+
+
+def test_peer_state_receipt_ignores_nonsemantic_state_serialization_changes(
+    peer_state: ModuleType,
+    tmp_path: Path,
+) -> None:
+    services = {
+        coordinate.service for coordinate in peer_state.peer_coordinates("operator-service", "dev")
+    }
+    before_states = {service: _peer_raw_state() for service in services}
+    after_states = copy.deepcopy(before_states)
+    core = after_states["core-control-plane"]
+    core["outputs"] = {
+        "other": {"value": "ignored", "sensitive": False, "type": "string"},
+        **core["outputs"],
+    }
+    core["terraform_version"] = "1.15.6"
+    before = _capture_peer_manifest_from_states(
+        peer_state, tmp_path, phase="before", states=before_states
+    )
+    after = _capture_peer_manifest_from_states(
+        peer_state, tmp_path, phase="after", states=after_states
+    )
+
+    receipt = peer_state.verify_peer_isolation(
+        before=before,
+        after=after,
+        mode="plan",
+        selected_service="operator-service",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="a" * 40,
+        image_ref=_image("fdai-operator-service"),
+        workflow_run_id="10",
+        workflow_run_attempt="1",
+        plan_run_id="10",
+        plan_run_attempt="1",
+        plan_digest="b" * 64,
+        context_digest="c" * 64,
+    )
+
+    assert receipt["status"] == "verified"
+
+
+def test_peer_state_receipt_rejects_managed_resource_identity_drift(
+    peer_state: ModuleType,
+    tmp_path: Path,
+) -> None:
+    services = {
+        coordinate.service for coordinate in peer_state.peer_coordinates("operator-service", "dev")
+    }
+    before_states = {service: _peer_raw_state() for service in services}
+    after_states = copy.deepcopy(before_states)
+    instance = after_states["core-control-plane"]["resources"][0]["instances"][0]
+    instance["attributes"]["id"] = "/synthetic/replaced-service"
+    before = _capture_peer_manifest_from_states(
+        peer_state, tmp_path, phase="before", states=before_states
+    )
+    after = _capture_peer_manifest_from_states(
+        peer_state, tmp_path, phase="after", states=after_states
+    )
+
+    with pytest.raises(
+        peer_state.PeerStateError,
+        match=r"core-control-plane \(managed_resource_identity_sha256=",
+    ):
+        peer_state.verify_peer_isolation(
+            before=before,
+            after=after,
+            mode="plan",
+            selected_service="operator-service",
+            environment="dev",
+            repository="example/fdai",
+            commit_sha="a" * 40,
+            image_ref=_image("fdai-operator-service"),
+            workflow_run_id="10",
+            workflow_run_attempt="1",
+            plan_run_id="10",
+            plan_run_attempt="1",
+            plan_digest="b" * 64,
+            context_digest="c" * 64,
+        )
 
 
 def test_peer_state_receipt_binds_exact_plan_and_unchanged_peers(
@@ -1323,7 +1426,7 @@ def test_peer_state_receipt_rejects_any_peer_drift(
 
     with pytest.raises(
         peer_state.PeerStateError,
-        match=r"isolated-executor \(state_sha256=.*serial=1->2\)",
+        match=r"isolated-executor \(serial=1->2\)",
     ):
         peer_state.verify_peer_isolation(
             before=before,

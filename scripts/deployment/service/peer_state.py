@@ -76,21 +76,54 @@ def peer_coordinates(selected_service: str, environment: str) -> tuple[PeerCoord
     return peers
 
 
-def _managed_resource_count(state: dict[str, Any]) -> int:
+def _managed_resource_identities(state: dict[str, Any]) -> tuple[dict[str, str | None], ...]:
     resources = state.get("resources")
     if not isinstance(resources, list):
         raise PeerStateError("raw Terraform state resources must be an array")
-    count = 0
+    identities: list[dict[str, str | None]] = []
     for resource in resources:
         if not isinstance(resource, dict):
             raise PeerStateError("raw Terraform state contains an invalid resource")
         if resource.get("mode", "managed") != "managed":
             continue
+        resource_type = resource.get("type")
+        name = resource.get("name")
+        module = resource.get("module")
         instances = resource.get("instances")
-        if not isinstance(instances, list):
-            raise PeerStateError("raw Terraform state resource instances must be an array")
-        count += len(instances)
-    return count
+        if (
+            not isinstance(resource_type, str)
+            or not isinstance(name, str)
+            or (module is not None and not isinstance(module, str))
+            or not isinstance(instances, list)
+        ):
+            raise PeerStateError("raw Terraform state resource identity is invalid")
+        for instance in instances:
+            if not isinstance(instance, dict):
+                raise PeerStateError("raw Terraform state contains an invalid instance")
+            index_key = instance.get("index_key")
+            if index_key is not None and (
+                isinstance(index_key, bool) or not isinstance(index_key, (int, str))
+            ):
+                raise PeerStateError("raw Terraform state instance index is invalid")
+            attributes = instance.get("attributes")
+            resource_id = attributes.get("id") if isinstance(attributes, dict) else None
+            identities.append(
+                {
+                    "address": ".".join(item for item in (module, resource_type, name) if item),
+                    "index": json.dumps(index_key, separators=(",", ":"), sort_keys=True),
+                    "resource_id": resource_id.lower() if isinstance(resource_id, str) else None,
+                }
+            )
+    return tuple(
+        sorted(
+            identities,
+            key=lambda identity: (
+                identity["address"] or "",
+                identity["index"] or "",
+                identity["resource_id"] or "",
+            ),
+        )
+    )
 
 
 def _state_evidence(path: Path) -> dict[str, Any]:
@@ -103,11 +136,14 @@ def _state_evidence(path: Path) -> dict[str, Any]:
         raise PeerStateError("raw Terraform state serial must be a non-negative integer")
     if not isinstance(lineage, str) or not lineage:
         raise PeerStateError("raw Terraform state lineage must be non-empty")
+    identities = _managed_resource_identities(state)
     return {
-        "state_sha256": _digest(state),
+        "managed_resource_identity_sha256": hashlib.sha256(
+            json.dumps(identities, separators=(",", ":"), sort_keys=True).encode()
+        ).hexdigest(),
         "serial": serial,
         "lineage_sha256": hashlib.sha256(lineage.encode()).hexdigest(),
-        "managed_resource_count": _managed_resource_count(state),
+        "managed_resource_count": len(identities),
     }
 
 
@@ -226,7 +262,7 @@ def verify_peer_isolation(
         after_by_service = {peer["service"]: peer for peer in after_peers}
         changed: list[str] = []
         evidence_fields = (
-            "state_sha256",
+            "managed_resource_identity_sha256",
             "serial",
             "lineage_sha256",
             "managed_resource_count",
