@@ -322,23 +322,20 @@ if [[ $run_pytest -eq 1 ]]; then
     fi
     echo "--- running pytest on the paths above ---" >&2
 
-    parallel_args=()
-    pytest_cache_args=()
-    if [[ -n "${FDAI_CHANGED_TEST_CACHE_DIR:-}" ]]; then
-        pytest_cache_args=(-o "cache_dir=$FDAI_CHANGED_TEST_CACHE_DIR")
-    fi
     parallel_threshold="${FDAI_CHANGED_TEST_PARALLEL_THRESHOLD:-20}"
     if [[ ! "$parallel_threshold" =~ ^[1-9][0-9]*$ ]]; then
         echo "tests-for-diff.sh: FDAI_CHANGED_TEST_PARALLEL_THRESHOLD must be a positive integer" >&2
         exit 2
     fi
+    shard_count=1
     if [[ "${FDAI_PYTEST_XDIST:-1}" == "1" ]] && \
         [[ $full_suite_selected -eq 1 || -n "${seen[tests]:-}" || ${#tests[@]} -ge $parallel_threshold ]]; then
-        parallel_args=(
-            -n auto
-            --maxprocesses="${FDAI_PYTEST_MAX_WORKERS:-8}"
-            --dist=worksteal
-        )
+        shard_count="${FDAI_PYTEST_MAX_WORKERS:-4}"
+        if [[ ! "$shard_count" =~ ^[1-9][0-9]*$ ]]; then
+            echo "tests-for-diff.sh: FDAI_PYTEST_MAX_WORKERS must be a positive integer" >&2
+            exit 2
+        fi
+        (( shard_count > 4 )) && shard_count=4
     fi
     pytest_roots=()
     if [[ -d "$repo_root/packages/service-contracts/src" ]]; then
@@ -354,70 +351,18 @@ if [[ $run_pytest -eq 1 ]]; then
     if [[ -n "${PYTHONPATH:-}" ]]; then
         pytest_pythonpath="$pytest_pythonpath:$PYTHONPATH"
     fi
-    clean_pytest_env=(
-        env
-        -u RUNTIME_ENV
-        -u DATABASE_URL
-        -u POSTGRES_URL
-        -u AZURE_CONFIG_DIR
-    )
-    while IFS='=' read -r name _value; do
-        if [[ "$name" == FDAI_* ]]; then
-            clean_pytest_env+=(-u "$name")
-        fi
-    done < <(env)
     run_integration="${FDAI_CHANGED_TEST_INTEGRATION:-0}"
     if [[ "$run_integration" != "0" && "$run_integration" != "1" ]]; then
         echo "tests-for-diff.sh: FDAI_CHANGED_TEST_INTEGRATION must be 0 or 1" >&2
         exit 2
     fi
 
-    set +e
-    "${clean_pytest_env[@]}" PYTHONPATH="$pytest_pythonpath" \
-        uv run pytest -q -m "not integration" --no-cov "${pytest_cache_args[@]}" \
-        "${parallel_args[@]}" "${tests[@]}"
-    non_integration_status=$?
-    set -e
-    if [[ $non_integration_status -ne 0 && $non_integration_status -ne 5 ]]; then
-        exit "$non_integration_status"
-    fi
-
-    if [[ "$run_integration" == "1" ]]; then
-        if [[ -z "${FDAI_DATABASE_URL:-}" ]]; then
-            echo "tests-for-diff.sh: FDAI_DATABASE_URL is required when integration is enabled" >&2
-            exit 2
-        fi
-        set +e
-        "${clean_pytest_env[@]}" FDAI_DATABASE_URL="$FDAI_DATABASE_URL" \
-            PYTHONPATH="$pytest_pythonpath" \
-            uv run pytest -q -m integration --no-cov "${pytest_cache_args[@]}" "${tests[@]}"
-        integration_status=$?
-        set -e
-        if [[ $integration_status -ne 0 && $integration_status -ne 5 ]]; then
-            exit "$integration_status"
-        fi
-        if [[ $non_integration_status -eq 5 && $integration_status -eq 5 ]]; then
-            echo "tests-for-diff.sh: no tests selected for the changed paths" >&2
-            exit 5
-        fi
-        exit 0
-    fi
-
-    if [[ $non_integration_status -eq 5 ]]; then
-        set +e
-        "${clean_pytest_env[@]}" PYTHONPATH="$pytest_pythonpath" \
-            uv run pytest --collect-only -q -m integration --no-cov \
-            "${pytest_cache_args[@]}" "${tests[@]}"
-        integration_collect_status=$?
-        set -e
-        if [[ $integration_collect_status -eq 5 ]]; then
-            echo "tests-for-diff.sh: no tests selected for the changed paths" >&2
-            exit 5
-        fi
-        if [[ $integration_collect_status -ne 0 ]]; then
-            exit "$integration_collect_status"
-        fi
-    fi
-
-    echo "tests-for-diff.sh: integration tests skipped; set FDAI_CHANGED_TEST_INTEGRATION=1 with a disposable FDAI_DATABASE_URL to run them" >&2
+    shard_cache_root="${FDAI_CHANGED_TEST_CACHE_DIR:-$repo_root/.pytest_cache/fdai-changed-tests}"
+    shard_result_root="${FDAI_CHANGED_TEST_SHARD_DIR:-$repo_root/.pytest_cache/fdai-changed-test-results}"
+    PYTHONPATH="$pytest_pythonpath" python3 "$selector_dir/run-changed-test-shards.py" \
+        --shard-count "$shard_count" \
+        --cache-root "$shard_cache_root" \
+        --result-root "$shard_result_root" \
+        --integration "$run_integration" \
+        "${tests[@]}"
 fi

@@ -37,14 +37,19 @@ def _safe_nodeids(values: object, validation_root: Path) -> list[str]:
 
 
 def failed_nodeids(cache_dir: Path, validation_root: Path) -> list[str]:
-    """Read valid failed pytest node IDs from a persistent cache."""
-    try:
-        payload: object = json.loads(
-            (cache_dir / "v" / "cache" / "lastfailed").read_text(encoding="utf-8")
-        )
-    except (OSError, json.JSONDecodeError):
-        return []
-    return _safe_nodeids(payload, validation_root)
+    """Read valid failed pytest node IDs from direct or sharded caches."""
+    cache_files = [
+        cache_dir / "v" / "cache" / "lastfailed",
+        *(cache_dir.glob("shard-*/v/cache/lastfailed")),
+    ]
+    nodeids: set[str] = set()
+    for cache_file in cache_files:
+        try:
+            payload: object = json.loads(cache_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        nodeids.update(_safe_nodeids(payload, validation_root))
+    return sorted(nodeids)
 
 
 def changed_test_resume_context(

@@ -234,6 +234,7 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
         changed_test_context = changed_test_resume_context(cache_context, dependency_fingerprint)
         changed_test_cache = changed_test_cache_dir(paths, head)
         environment["FDAI_CHANGED_TEST_CACHE_DIR"] = str(changed_test_cache)
+        environment["FDAI_CHANGED_TEST_SHARD_DIR"] = str(paths.stage_cache / "pytest-shards" / head)
         passed_stages = load_stage_cache(cache_path, cache_context)
         print(
             f"validation-queue: validating {len(selected)} commit(s) at {head[:12]} "

@@ -105,11 +105,14 @@ Python caches and the installed Console and CLI dependency trees from any
 available linked worktree. Dependency synchronization is skipped when the
 locked dependency files and selected Python interpreter have the same digest.
 
-Changed-test workers adapt from one to four based on CPU load and available
-memory. Set `FDAI_PYTEST_MAX_WORKERS` to override that decision. Fast gates use
-the commit diff to skip checks with unrelated declared inputs. Repository-wide
-text checks and the design-impact check still run on every batch, and running
-`verify.sh --fast` without `--diff` preserves the complete fast-gate suite.
+Changed tests run in one to four deterministic file shards based on CPU load
+and available memory. Set `FDAI_PYTEST_MAX_WORKERS` to lower that cap. Each
+shard records status, duration, and a command-bound pass marker under the shared
+queue state. An identical retry skips completed shards while rerunning failed
+ones. Fast gates use the commit diff to skip checks with unrelated declared
+inputs. Repository-wide text checks and the design-impact check still run on
+every batch, and running `verify.sh --fast` without `--diff` preserves the
+complete fast-gate suite.
 
 Each stage records its duration and cache status in the run record and commit
 receipts under `.git/fdai-validation-queue/`. If a late gate fails, a retry at

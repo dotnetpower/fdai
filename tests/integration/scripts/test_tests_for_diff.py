@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -501,9 +502,9 @@ def test_run_uses_uv_managed_pytest(git_repo: Path) -> None:
     result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
 
     assert result.returncode == 0, result.stderr
-    assert args_file.read_text(encoding="utf-8").splitlines() == [
-        "run pytest -q -m not integration --no-cov tests/integration/scripts/test_changed.py"
-    ]
+    command = args_file.read_text(encoding="utf-8").strip()
+    assert "run pytest -q -m not integration --no-cov --durations=25" in command
+    assert command.endswith("tests/integration/scripts/test_changed.py")
     assert "integration tests skipped" in result.stderr
 
 
@@ -564,13 +565,13 @@ esac
     result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
 
     assert result.returncode == 0, result.stderr
-    assert args_file.read_text(encoding="utf-8").splitlines() == [
-        ("run pytest -q -m not integration --no-cov tests/integration/scripts/test_changed.py"),
-        (
-            "run pytest --collect-only -q -m integration --no-cov "
-            "tests/integration/scripts/test_changed.py"
-        ),
-    ]
+    commands = args_file.read_text(encoding="utf-8").splitlines()
+    assert len(commands) == 2
+    assert "run pytest -q -m not integration --no-cov --durations=25" in commands[0]
+    assert "run pytest --collect-only -q -m integration --no-cov" in commands[1]
+    assert all(
+        command.endswith("tests/integration/scripts/test_changed.py") for command in commands
+    )
     assert "integration tests skipped" in result.stderr
     assert "FDAI_CHANGED_TEST_INTEGRATION=1" in result.stderr
 
@@ -598,10 +599,13 @@ def test_run_executes_selected_integration_tests_with_database(git_repo: Path) -
     result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
 
     assert result.returncode == 0, result.stderr
-    assert args_file.read_text(encoding="utf-8").splitlines() == [
-        "run pytest -q -m not integration --no-cov tests/integration/scripts/test_changed.py",
-        "run pytest -q -m integration --no-cov tests/integration/scripts/test_changed.py",
-    ]
+    commands = args_file.read_text(encoding="utf-8").splitlines()
+    assert len(commands) == 2
+    assert "run pytest -q -m not integration --no-cov --durations=25" in commands[0]
+    assert "run pytest -q -m integration --no-cov --durations=25" in commands[1]
+    assert all(
+        command.endswith("tests/integration/scripts/test_changed.py") for command in commands
+    )
 
 
 def test_run_isolates_runtime_env_and_readds_only_integration_database(git_repo: Path) -> None:
@@ -662,9 +666,9 @@ def test_run_does_not_use_database_without_explicit_integration_opt_in(git_repo:
     result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
 
     assert result.returncode == 0, result.stderr
-    assert args_file.read_text(encoding="utf-8").splitlines() == [
-        "run pytest -q -m not integration --no-cov tests/integration/scripts/test_changed.py"
-    ]
+    command = args_file.read_text(encoding="utf-8").strip()
+    assert "run pytest -q -m not integration --no-cov --durations=25" in command
+    assert command.endswith("tests/integration/scripts/test_changed.py")
     assert "integration tests skipped" in result.stderr
     assert "disposable FDAI_DATABASE_URL" in result.stderr
 
@@ -676,6 +680,8 @@ def test_run_parallelizes_broad_non_integration_selection(git_repo: Path) -> Non
     bin_dir = git_repo / "bin"
     bin_dir.mkdir()
     args_file = git_repo / "uv-args.txt"
+    shard_dir = git_repo / "changed-test-shards"
+    cache_dir = git_repo / "changed-test-cache"
     fake_uv = bin_dir / "uv"
     fake_uv.write_text(
         '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$UV_ARGS_FILE"\n',
@@ -687,15 +693,35 @@ def test_run_parallelizes_broad_non_integration_selection(git_repo: Path) -> Non
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
         "UV_ARGS_FILE": str(args_file),
         "FDAI_DATABASE_URL": "",
+        "FDAI_CHANGED_TEST_SHARD_DIR": str(shard_dir),
+        "FDAI_CHANGED_TEST_CACHE_DIR": str(cache_dir),
+        "FDAI_PYTEST_MAX_WORKERS": "4",
     }
-    env.pop("FDAI_PYTEST_MAX_WORKERS", None)
 
     result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
 
     assert result.returncode == 0, result.stderr
-    command = args_file.read_text(encoding="utf-8").splitlines()[0]
-    assert "-n auto --maxprocesses=8 --dist=worksteal" in command
-    assert "-m not integration" in command
+    commands = args_file.read_text(encoding="utf-8").splitlines()
+    assert len(commands) == 4
+    for command in commands:
+        assert "-m not integration" in command
+        assert "--durations=25" in command
+        assert "-p scripts.quality.ci.pytest_shard" in command
+    assert {
+        index
+        for index in range(1, 5)
+        if any(f"cache_dir={cache_dir}/shard-{index}" in command for command in commands)
+    } == {1, 2, 3, 4}
+    summary = json.loads((shard_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["shard_count"] == 4
+    assert [shard["status"] for shard in summary["shards"]] == [0, 0, 0, 0]
+
+    retried = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
+
+    assert retried.returncode == 0, retried.stderr
+    assert args_file.read_text(encoding="utf-8").splitlines() == commands
+    retry_summary = json.loads((shard_dir / "summary.json").read_text(encoding="utf-8"))
+    assert [shard["cached"] for shard in retry_summary["shards"]] == [True] * 4
 
 
 def test_run_parallelizes_full_suite_fallback(git_repo: Path) -> None:
@@ -720,9 +746,10 @@ def test_run_parallelizes_full_suite_fallback(git_repo: Path) -> None:
     result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
 
     assert result.returncode == 0, result.stderr
-    command = args_file.read_text(encoding="utf-8").splitlines()[0]
-    assert "-n auto --maxprocesses=8 --dist=worksteal" in command
-    assert command.endswith(" " + " ".join(_ALL_TEST_ROOTS))
+    commands = args_file.read_text(encoding="utf-8").splitlines()
+    assert len(commands) == 4
+    assert all("-p scripts.quality.ci.pytest_shard" in command for command in commands)
+    assert all(command.endswith(" " + " ".join(_ALL_TEST_ROOTS)) for command in commands)
 
 
 def test_run_combines_included_failure_with_delta_and_external_cache(git_repo: Path) -> None:
