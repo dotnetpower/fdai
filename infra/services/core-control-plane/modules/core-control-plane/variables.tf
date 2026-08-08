@@ -8,6 +8,15 @@ variable "platform" {
   })
 }
 variable "image" { type = string }
+variable "bootstrap" {
+  type = object({
+    azure_tenant_id       = string
+    azure_subscription_id = string
+    azure_region          = string
+    postgres_host         = string
+    postgres_database     = string
+  })
+}
 variable "identity" {
   type = object({
     resource_id        = string

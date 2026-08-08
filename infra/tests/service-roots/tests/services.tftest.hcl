@@ -11,7 +11,14 @@ run "core_control_plane_plan" {
       acr_login_server             = "registry.example.com"
       kafka_bootstrap_servers      = "kafka.example.com:9093"
     }
-    image        = "registry.example.com/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    image = "registry.example.com/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    bootstrap = {
+      azure_tenant_id       = "tenant-example"
+      azure_subscription_id = "subscription-example"
+      azure_region          = "example-region"
+      postgres_host         = "postgres.example.com"
+      postgres_database     = "fdai"
+    }
     identity     = { resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-core", client_id = "core-client" }
     event_topics = { events = "object.event", executor_command = "object.executor-command", executor_receipt = "object.executor-receipt" }
     database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/core-dsn", role = "fdai_core" }

@@ -529,6 +529,17 @@ def test_matrix_resolves_exact_five_services_and_state_keys(contract: ModuleType
         assert resolved.terraform_root == f"infra/services/{service}"
 
 
+def test_core_contract_requires_complete_bootstrap_environment(contract: ModuleType) -> None:
+    resolved = contract.resolve_service("core-control-plane", "dev")
+    assert {
+        "AZURE_TENANT_ID",
+        "AZURE_SUBSCRIPTION_ID",
+        "AZURE_REGION",
+        "POSTGRES_HOST",
+        "POSTGRES_DATABASE",
+    } <= set(resolved.required_environment)
+
+
 def test_unknown_service_and_environment_fail_closed(contract: ModuleType) -> None:
     with pytest.raises(contract.ServiceContractError, match="five independent"):
         contract.resolve_service("platform", "dev")

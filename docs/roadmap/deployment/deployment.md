@@ -64,7 +64,9 @@ prod topology so shadow evaluation is representative.
   the resource identity, platform, workload identities, resource limits, secret provenance, and
   sidecars unchanged. Core may remove the already-active isolated-Executor cutover marker; no
   service may add authority. Later plans return to image-only updates unless another reviewed
-  deployment mode is introduced.
+  deployment mode is introduced. The service contract includes every environment value consumed
+  by its production entry point. For example, Core binds the Azure tenant, subscription, region,
+  PostgreSQL host, and database before the protected plan can pass startup validation.
 - **Drift detection**: scheduled `plan` (read-only) per environment surfaces drift as an alert
   and a reconciliation PR; drift is never silently auto-applied to prod.
 - Provisioned resources - **minimum cost-efficient set** (full inventory + tier decisions in
