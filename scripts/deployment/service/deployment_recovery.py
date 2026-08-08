@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import re
 import sys
@@ -11,6 +12,9 @@ from pathlib import Path
 from typing import Any
 
 _DIGEST_IMAGE = re.compile(r"[^\s]+@sha256:[0-9a-f]{64}")
+_ALLOWED_SIDECARS = {
+    "document-processing-worker": frozenset({"clamav"}),
+}
 
 
 class DeploymentRecoveryError(ValueError):
@@ -31,16 +35,81 @@ def _required(payload: dict[str, Any], key: str, *, label: str) -> str:
     return value
 
 
-def _revision_image(revision: dict[str, Any]) -> str:
+def _container_contract(container: dict[str, Any], *, label: str) -> dict[str, Any]:
+    image = container.get("image")
+    if not isinstance(image, str) or _DIGEST_IMAGE.fullmatch(image) is None:
+        raise DeploymentRecoveryError(f"{label} image must be pinned by sha256 digest")
+    probes = container.get("probes")
+    if not isinstance(probes, list) or not all(isinstance(probe, dict) for probe in probes):
+        raise DeploymentRecoveryError(f"{label} probes are invalid")
+    return {
+        "image": image,
+        "probes": sorted(copy.deepcopy(probes), key=lambda probe: str(probe.get("type", ""))),
+    }
+
+
+def _validate_sidecar_probes(contract: dict[str, Any], *, name: str) -> None:
+    probes = contract["probes"]
+    by_type = {
+        str(probe.get("type", "")).lower(): probe for probe in probes if isinstance(probe, dict)
+    }
+    if len(probes) != 3 or set(by_type) != {"startup", "liveness", "readiness"}:
+        raise DeploymentRecoveryError(f"sidecar {name} must expose exact startup probes")
+    ports: set[int] = set()
+    for probe in by_type.values():
+        socket = probe.get("tcpSocket")
+        port = socket.get("port") if isinstance(socket, dict) else None
+        if (
+            not isinstance(port, int)
+            or isinstance(port, bool)
+            or not 0 < port < 65536
+            or "httpGet" in probe
+        ):
+            raise DeploymentRecoveryError(f"sidecar {name} probes must use one TCP port")
+        ports.add(port)
+    if len(ports) != 1 or by_type["startup"].get("failureThreshold") != 30:
+        raise DeploymentRecoveryError(f"sidecar {name} probe contract changed")
+
+
+def _revision_container_contracts(
+    revision: dict[str, Any],
+    *,
+    service: str,
+) -> dict[str, Any]:
     properties = revision.get("properties")
     template = properties.get("template") if isinstance(properties, dict) else None
     containers = template.get("containers") if isinstance(template, dict) else None
-    if not isinstance(containers, list) or len(containers) != 1:
-        raise DeploymentRecoveryError("revision must contain exactly one container")
-    image = containers[0].get("image") if isinstance(containers[0], dict) else None
-    if not isinstance(image, str) or _DIGEST_IMAGE.fullmatch(image) is None:
-        raise DeploymentRecoveryError("revision image must be pinned by sha256 digest")
-    return image
+    if not isinstance(containers, list) or not containers:
+        raise DeploymentRecoveryError("revision must contain containers")
+    expected_sidecars = _ALLOWED_SIDECARS.get(service, frozenset())
+    if not expected_sidecars:
+        if len(containers) != 1 or not isinstance(containers[0], dict):
+            raise DeploymentRecoveryError(
+                "revision must contain one primary and the exact allowed sidecar set"
+            )
+        return {
+            "primary": _container_contract(containers[0], label="primary container"),
+            "sidecars": {},
+        }
+
+    by_name: dict[str, dict[str, Any]] = {}
+    for container in containers:
+        name = container.get("name") if isinstance(container, dict) else None
+        if not isinstance(name, str) or not name or name in by_name:
+            raise DeploymentRecoveryError("revision container names are invalid")
+        by_name[name] = container
+    primary_names = set(by_name) - expected_sidecars
+    if len(primary_names) != 1 or set(by_name) != primary_names | expected_sidecars:
+        raise DeploymentRecoveryError(
+            "revision must contain one primary and the exact allowed sidecar set"
+        )
+    primary = _container_contract(by_name[primary_names.pop()], label="primary container")
+    sidecars: dict[str, dict[str, Any]] = {}
+    for name in sorted(expected_sidecars):
+        contract = _container_contract(by_name[name], label=f"sidecar {name}")
+        _validate_sidecar_probes(contract, name=name)
+        sidecars[name] = contract
+    return {"primary": primary, "sidecars": sidecars}
 
 
 def _target(context: dict[str, Any]) -> dict[str, Any]:
@@ -68,6 +137,7 @@ def validate_health(
     expected_name = _required(target, "service_name", label="service name")
     expected_component = _required(target, "component_tag", label="component tag")
     expected_image = _required(target, "image_ref", label="image reference")
+    service = _required(context, "service", label="service")
     if str(service_output.get("id", "")).lower() != expected_id.lower():
         raise DeploymentRecoveryError("Terraform service resource id does not match sealed context")
     if service_output.get("name") != expected_name:
@@ -97,7 +167,8 @@ def validate_health(
         raise DeploymentRecoveryError("new revision is not Provisioned")
     if properties.get("healthState") != "Healthy" or properties.get("active") is not True:
         raise DeploymentRecoveryError("new revision is not healthy and active")
-    if _revision_image(revision) != expected_image:
+    containers = _revision_container_contracts(revision, service=service)
+    if containers["primary"]["image"] != expected_image:
         raise DeploymentRecoveryError("new revision image digest does not match sealed context")
 
 
@@ -123,6 +194,8 @@ def capture_snapshot(
     )
     if not isinstance(previous_revision, str) or revision.get("name") != previous_revision:
         raise DeploymentRecoveryError("rollback snapshot revision is not the current revision")
+    service = _required(context, "service", label="service")
+    containers = _revision_container_contracts(revision, service=service)
     authority_fallback = rollback_contract.get("authority_fallback", "")
     if authority_fallback not in ("", "core-in-process"):
         raise DeploymentRecoveryError("rollback authority fallback is unsupported")
@@ -132,8 +205,10 @@ def capture_snapshot(
         "service_name": _required(target, "service_name", label="service name"),
         "resource_group": _required(target, "resource_group", label="resource group"),
         "component_tag": _required(target, "component_tag", label="component tag"),
+        "service": service,
         "previous_revision": previous_revision,
-        "previous_image": _revision_image(revision),
+        "previous_image": containers["primary"]["image"],
+        "previous_containers": containers,
         "platform_rollback_required": authority_fallback == "core-in-process",
     }
 
@@ -196,7 +271,14 @@ def validate_rollback(
         or revision_properties.get("active") is not True
     ):
         raise DeploymentRecoveryError("rollback revision is not healthy and active")
-    if _revision_image(revision) != _required(snapshot, "previous_image", label="previous image"):
+    service = _required(snapshot, "service", label="service")
+    containers = _revision_container_contracts(revision, service=service)
+    previous_containers = snapshot.get("previous_containers")
+    if not isinstance(previous_containers, dict) or containers != previous_containers:
+        raise DeploymentRecoveryError("rollback container contract does not match snapshot")
+    if containers["primary"]["image"] != _required(
+        snapshot, "previous_image", label="previous image"
+    ):
         raise DeploymentRecoveryError("rollback revision image does not match snapshot")
 
 

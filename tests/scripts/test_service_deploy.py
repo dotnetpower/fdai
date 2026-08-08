@@ -168,6 +168,58 @@ def _plan(address: str, actions: list[str], *, image: str = "image") -> dict[str
     }
 
 
+def _worker_plan() -> dict[str, object]:
+    address = "module.document_processing_worker.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    before = plan["resource_changes"][0]["change"]["before"]  # type: ignore[index]
+    after = plan["resource_changes"][0]["change"]["after"]  # type: ignore[index]
+    for resource in (before, after):
+        primary = resource["template"][0]["container"][0]  # type: ignore[index]
+        primary["name"] = "document-processing-worker"
+        primary["command"] = ["fdai-document-processing-worker"]
+        primary["env"] = [
+            {"name": name, "value": "example"}
+            for name in (
+                "FDAI_DATABASE_URL",
+                "FDAI_DATABASE_ROLE",
+                "FDAI_INGESTION_DEPLOYMENT_ROLE",
+                "RUNTIME_ENV",
+                "FDAI_MI_CLIENT_ID",
+                "FDAI_KAFKA_BOOTSTRAP_SERVERS",
+                "FDAI_DOCUMENT_EVENT_TOPIC",
+                "FDAI_PANTHEON_OBJECT_TOPIC",
+                "FDAI_EMBEDDING_ENDPOINT",
+                "FDAI_EMBEDDING_DEPLOYMENT",
+                "FDAI_ADLS_ACCOUNT_NAME",
+                "FDAI_ADLS_ACCOUNT_URL",
+                "FDAI_ADLS_SOURCE_FILE_SYSTEM",
+                "FDAI_ADLS_DERIVED_FILE_SYSTEM",
+                "FDAI_INGESTION_WORKER_HEALTH_PORT",
+                "FDAI_CLAMAV_HOST",
+                "FDAI_CLAMAV_PORT",
+            )
+        ]
+        resource["tags"] = {"fdai:component": "document-processing-worker"}
+        resource["template"][0]["container"].append(  # type: ignore[index]
+            {
+                "name": "clamav",
+                "image": "docker.io/clamav/clamav@sha256:" + "b" * 64,
+                "cpu": 0.5,
+                "memory": "1Gi",
+                "startup_probe": [
+                    {
+                        "transport": "TCP",
+                        "port": 3310,
+                        "failure_count_threshold": 30,
+                    }
+                ],
+                "liveness_probe": [{"transport": "TCP", "port": 3310}],
+                "readiness_probe": [{"transport": "TCP", "port": 3310}],
+            }
+        )
+    return plan
+
+
 def _bundle_coordinates() -> dict[str, str]:
     return {
         "tenant_id": "example-tenant",
@@ -297,6 +349,7 @@ def _health_evidence() -> tuple[dict[str, object], ...]:
         "Microsoft.App/containerApps/example"
     )
     context = {
+        "service": "operator-service",
         "subscription_id": "example-subscription",
         "target": {
             "service_resource_id": resource_id.lower(),
@@ -324,10 +377,45 @@ def _health_evidence() -> tuple[dict[str, object], ...]:
             "provisioningState": "Provisioned",
             "healthState": "Healthy",
             "active": True,
-            "template": {"containers": [{"image": image}]},
+            "template": {"containers": [{"image": image, "probes": []}]},
         },
     }
     return context, service_output, account, app, revision
+
+
+def _worker_health_evidence() -> tuple[dict[str, object], ...]:
+    evidence = [copy.deepcopy(item) for item in _health_evidence()]
+    context = evidence[0]
+    app = evidence[3]
+    revision = evidence[4]
+    context["service"] = "document-processing-worker"
+    context["target"]["component_tag"] = "document-processing-worker"  # type: ignore[index]
+    context["target"]["image_ref"] = _image("fdai-document-processing-worker")  # type: ignore[index]
+    app["tags"] = {"fdai:component": "document-processing-worker"}
+    revision["properties"]["template"]["containers"] = [  # type: ignore[index]
+        {
+            "name": "document-processing-worker",
+            "image": _image("fdai-document-processing-worker"),
+            "probes": [
+                {"type": "Liveness", "httpGet": {"path": "/live", "port": 8000}},
+                {"type": "Readiness", "httpGet": {"path": "/ready", "port": 8000}},
+            ],
+        },
+        {
+            "name": "clamav",
+            "image": "docker.io/clamav/clamav@sha256:" + "b" * 64,
+            "probes": [
+                {
+                    "type": "Startup",
+                    "tcpSocket": {"port": 3310},
+                    "failureThreshold": 30,
+                },
+                {"type": "Liveness", "tcpSocket": {"port": 3310}},
+                {"type": "Readiness", "tcpSocket": {"port": 3310}},
+            ],
+        },
+    ]
+    return tuple(evidence)
 
 
 def test_matrix_resolves_exact_five_services_and_state_keys(contract: ModuleType) -> None:
@@ -387,6 +475,69 @@ def test_plan_guard_allows_only_selected_service_image_update_or_noop(
         guard.validate_plan(
             _plan(address, ["create"]),
             service="operator-service",
+            environment="dev",
+            image_ref="image",
+        )
+
+
+def test_plan_guard_allows_worker_primary_image_update_with_exact_clamav_sidecar(
+    guard: ModuleType,
+) -> None:
+    guard.validate_plan(
+        _worker_plan(),
+        service="document-processing-worker",
+        environment="dev",
+        image_ref="image",
+    )
+
+
+def test_plan_guard_rejects_unknown_worker_sidecar(guard: ModuleType) -> None:
+    plan = _worker_plan()
+    for side in ("before", "after"):
+        containers = plan["resource_changes"][0]["change"][side]["template"][0][  # type: ignore[index]
+            "container"
+        ]
+        containers.append(  # type: ignore[union-attr]
+            {
+                "name": "unknown",
+                "image": "docker.io/example/unknown@sha256:" + "c" * 64,
+            }
+        )
+    with pytest.raises(guard.PlanGuardError, match="exact allowed sidecar set"):
+        guard.validate_plan(
+            plan,
+            service="document-processing-worker",
+            environment="dev",
+            image_ref="image",
+        )
+
+
+def test_plan_guard_rejects_mutable_worker_sidecar(guard: ModuleType) -> None:
+    plan = _worker_plan()
+    for side in ("before", "after"):
+        sidecar = plan["resource_changes"][0]["change"][side]["template"][0][  # type: ignore[index]
+            "container"
+        ][1]
+        sidecar["image"] = "docker.io/clamav/clamav:latest"
+    with pytest.raises(guard.PlanGuardError, match="sidecar clamav image is not immutable"):
+        guard.validate_plan(
+            plan,
+            service="document-processing-worker",
+            environment="dev",
+            image_ref="image",
+        )
+
+
+def test_plan_guard_rejects_changed_worker_sidecar(guard: ModuleType) -> None:
+    plan = _worker_plan()
+    sidecar = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][1]
+    sidecar["image"] = "docker.io/clamav/clamav@sha256:" + "c" * 64
+    with pytest.raises(guard.PlanGuardError, match="sidecar contract drift"):
+        guard.validate_plan(
+            plan,
+            service="document-processing-worker",
             environment="dev",
             image_ref="image",
         )
@@ -767,6 +918,115 @@ def test_health_verification_binds_exact_resource_revision_component_and_image(
         revision=revision,
         previous_revision="example--old",
     )
+
+
+def test_worker_recovery_snapshots_and_verifies_primary_and_clamav_contracts(
+    recovery: ModuleType,
+) -> None:
+    context, service_output, account, app, revision = _worker_health_evidence()
+    recovery.validate_health(
+        context=context,
+        service_output=service_output,
+        account=account,
+        app=app,
+        revision=revision,
+        previous_revision="example--old",
+    )
+    snapshot = recovery.capture_snapshot(
+        context=context,
+        account=account,
+        app=app,
+        revision=revision,
+        rollback_contract={"authority_fallback": ""},
+    )
+    assert snapshot["previous_containers"]["primary"] == {
+        "image": _image("fdai-document-processing-worker"),
+        "probes": revision["properties"]["template"]["containers"][0]["probes"],  # type: ignore[index]
+    }
+    assert snapshot["previous_containers"]["sidecars"]["clamav"] == {
+        "image": "docker.io/clamav/clamav@sha256:" + "b" * 64,
+        "probes": sorted(
+            revision["properties"]["template"]["containers"][1]["probes"],  # type: ignore[index]
+            key=lambda probe: probe["type"],
+        ),
+    }
+
+    app["properties"]["latestRevisionName"] = "example--recovery"  # type: ignore[index]
+    revision["name"] = "example--recovery"
+    recovery.validate_rollback(
+        snapshot=snapshot,
+        account=account,
+        app=app,
+        revision=revision,
+    )
+
+
+def test_worker_health_rejects_unknown_sidecar(recovery: ModuleType) -> None:
+    context, service_output, account, app, revision = _worker_health_evidence()
+    revision["properties"]["template"]["containers"].append(  # type: ignore[index]
+        {
+            "name": "unknown",
+            "image": "docker.io/example/unknown@sha256:" + "c" * 64,
+            "probes": [],
+        }
+    )
+    with pytest.raises(recovery.DeploymentRecoveryError, match="exact allowed sidecar set"):
+        recovery.validate_health(
+            context=context,
+            service_output=service_output,
+            account=account,
+            app=app,
+            revision=revision,
+            previous_revision="example--old",
+        )
+
+
+def test_worker_health_rejects_mutable_sidecar(recovery: ModuleType) -> None:
+    context, service_output, account, app, revision = _worker_health_evidence()
+    revision["properties"]["template"]["containers"][1]["image"] = (  # type: ignore[index]
+        "docker.io/clamav/clamav:latest"
+    )
+    with pytest.raises(recovery.DeploymentRecoveryError, match="sidecar clamav image"):
+        recovery.validate_health(
+            context=context,
+            service_output=service_output,
+            account=account,
+            app=app,
+            revision=revision,
+            previous_revision="example--old",
+        )
+
+
+@pytest.mark.parametrize("mutation", ["image", "probe"])
+def test_worker_rollback_rejects_changed_sidecar_contract(
+    recovery: ModuleType,
+    mutation: str,
+) -> None:
+    context, _, account, app, revision = _worker_health_evidence()
+    snapshot = recovery.capture_snapshot(
+        context=context,
+        account=account,
+        app=app,
+        revision=revision,
+        rollback_contract={"authority_fallback": ""},
+    )
+    app["properties"]["latestRevisionName"] = "example--recovery"  # type: ignore[index]
+    revision["name"] = "example--recovery"
+    sidecar = revision["properties"]["template"]["containers"][1]  # type: ignore[index]
+    if mutation == "image":
+        sidecar["image"] = "docker.io/clamav/clamav@sha256:" + "c" * 64
+    else:
+        sidecar["probes"][0]["tcpSocket"]["port"] = 3311
+    with pytest.raises(
+        recovery.DeploymentRecoveryError,
+        match="container contract|sidecar clamav probe contract",
+    ):
+        recovery.validate_rollback(
+            snapshot=snapshot,
+            account=account,
+            app=app,
+            revision=revision,
+        )
 
 
 @pytest.mark.parametrize(

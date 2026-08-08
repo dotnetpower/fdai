@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,12 @@ from service_contract import ServiceContract, ServiceContractError, resolve_serv
 
 class PlanGuardError(ValueError):
     """Raised when a Terraform plan exceeds one service's resource boundary."""
+
+
+_DIGEST_IMAGE = re.compile(r"[^\s]+@sha256:[0-9a-f]{64}")
+_ALLOWED_SIDECARS = {
+    "document-processing-worker": frozenset({"clamav"}),
+}
 
 
 def _actions(change: Any, *, address: str) -> tuple[str, ...]:
@@ -25,10 +32,17 @@ def _actions(change: Any, *, address: str) -> tuple[str, ...]:
     return actions
 
 
-def _planned_image(change: dict[str, Any], *, address: str) -> str:
-    image = _container(_resource(change, side="after", address=address), address=address).get(
-        "image"
-    )
+def _planned_image(
+    change: dict[str, Any],
+    *,
+    address: str,
+    contract: ServiceContract,
+) -> str:
+    image = _primary_container(
+        _resource(change, side="after", address=address),
+        address=address,
+        contract=contract,
+    ).get("image")
     if not isinstance(image, str):
         raise PlanGuardError(f"resource at {address} has no container image")
     return image
@@ -41,20 +55,92 @@ def _resource(change: dict[str, Any], *, side: str, address: str) -> dict[str, A
     return resource
 
 
-def _container(resource: dict[str, Any], *, address: str) -> dict[str, Any]:
+def _containers(resource: dict[str, Any], *, address: str) -> dict[str, dict[str, Any]]:
     templates = resource.get("template")
     if not isinstance(templates, list) or len(templates) != 1:
         raise PlanGuardError(f"resource at {address} has an invalid template")
     containers = templates[0].get("container") if isinstance(templates[0], dict) else None
-    if not isinstance(containers, list) or len(containers) != 1:
-        raise PlanGuardError(f"resource at {address} must contain exactly one container")
-    container = containers[0]
-    if not isinstance(container, dict):
-        raise PlanGuardError(f"resource at {address} has an invalid container")
-    image = container.get("image")
-    if not isinstance(image, str) or not image:
-        raise PlanGuardError(f"resource at {address} has no container image")
-    return container
+    if not isinstance(containers, list) or not containers:
+        raise PlanGuardError(f"resource at {address} has no containers")
+    result: dict[str, dict[str, Any]] = {}
+    for container in containers:
+        if not isinstance(container, dict):
+            raise PlanGuardError(f"resource at {address} has an invalid container")
+        name = container.get("name")
+        image = container.get("image")
+        if not isinstance(name, str) or not name or name in result:
+            raise PlanGuardError(f"resource at {address} has invalid container names")
+        if not isinstance(image, str) or not image:
+            raise PlanGuardError(f"container {name} at {address} has no image")
+        result[name] = container
+    return result
+
+
+def _container_layout(
+    resource: dict[str, Any],
+    *,
+    address: str,
+    contract: ServiceContract,
+) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    containers = _containers(resource, address=address)
+    expected_sidecars = _ALLOWED_SIDECARS.get(contract.service, frozenset())
+    primary_names = set(containers) - expected_sidecars
+    if len(primary_names) != 1 or set(containers) != primary_names | expected_sidecars:
+        raise PlanGuardError(
+            f"resource at {address} must contain one primary and the exact allowed sidecar set"
+        )
+    primary = containers[primary_names.pop()]
+    sidecars = {name: containers[name] for name in expected_sidecars}
+    return primary, sidecars
+
+
+def _primary_container(
+    resource: dict[str, Any],
+    *,
+    address: str,
+    contract: ServiceContract,
+) -> dict[str, Any]:
+    primary, _ = _container_layout(resource, address=address, contract=contract)
+    return primary
+
+
+def _guard_sidecars(
+    resource: dict[str, Any],
+    *,
+    address: str,
+    contract: ServiceContract,
+) -> list[str]:
+    _, sidecars = _container_layout(resource, address=address, contract=contract)
+    violations: list[str] = []
+    for name, sidecar in sidecars.items():
+        image = sidecar.get("image")
+        if not isinstance(image, str) or _DIGEST_IMAGE.fullmatch(image) is None:
+            violations.append(f"sidecar {name} image is not immutable at {address}")
+        probes: dict[str, dict[str, Any]] = {}
+        for probe_name in ("startup_probe", "liveness_probe", "readiness_probe"):
+            raw_probe = sidecar.get(probe_name)
+            if (
+                not isinstance(raw_probe, list)
+                or len(raw_probe) != 1
+                or not isinstance(raw_probe[0], dict)
+            ):
+                violations.append(f"sidecar {name} has invalid {probe_name} at {address}")
+                continue
+            probes[probe_name] = raw_probe[0]
+        if len(probes) != 3:
+            continue
+        ports = {probe.get("port") for probe in probes.values()}
+        if (
+            len(ports) != 1
+            or not all(
+                isinstance(port, int) and not isinstance(port, bool) and 0 < port < 65536
+                for port in ports
+            )
+            or not all(probe.get("transport") == "TCP" for probe in probes.values())
+            or probes["startup_probe"].get("failure_count_threshold") != 30
+        ):
+            violations.append(f"sidecar {name} probe contract changed at {address}")
+    return violations
 
 
 def _identity_ids(resource: dict[str, Any], *, address: str) -> frozenset[str]:
@@ -72,13 +158,23 @@ def _identity_ids(resource: dict[str, Any], *, address: str) -> frozenset[str]:
     return frozenset(raw_ids)
 
 
-def _runtime_contract(resource: dict[str, Any], *, address: str) -> dict[str, Any]:
-    container = _container(resource, address=address)
+def _runtime_contract(
+    resource: dict[str, Any],
+    *,
+    address: str,
+    contract: ServiceContract,
+) -> dict[str, Any]:
+    container = _primary_container(resource, address=address, contract=contract)
     return {key: container.get(key) for key in ("name", "command", "args", "env")}
 
 
-def _authority_cutover(resource: dict[str, Any], *, address: str) -> str | None:
-    environment = _container(resource, address=address).get("env")
+def _authority_cutover(
+    resource: dict[str, Any],
+    *,
+    address: str,
+    contract: ServiceContract,
+) -> str | None:
+    environment = _primary_container(resource, address=address, contract=contract).get("env")
     if not isinstance(environment, list):
         raise PlanGuardError(f"resource at {address} has an invalid environment")
     values = {
@@ -112,6 +208,7 @@ def _guard_update(
     after: dict[str, Any],
     *,
     address: str,
+    contract: ServiceContract,
 ) -> list[str]:
     violations: list[str] = []
     for field in ("name", "resource_group_name"):
@@ -127,9 +224,13 @@ def _guard_update(
     elif after_identities != before_identities:
         violations.append(f"workload identity drift at {address}")
 
-    if _authority_cutover(before, address=address) != _authority_cutover(after, address=address):
+    if _authority_cutover(before, address=address, contract=contract) != _authority_cutover(
+        after, address=address, contract=contract
+    ):
         violations.append(f"authority cutover change at {address}")
-    elif _runtime_contract(before, address=address) != _runtime_contract(after, address=address):
+    elif _runtime_contract(before, address=address, contract=contract) != _runtime_contract(
+        after, address=address, contract=contract
+    ):
         violations.append(f"command or environment drift at {address}")
 
     if _resource_ids(before) != _resource_ids(after):
@@ -139,9 +240,13 @@ def _guard_update(
     if isinstance(before_tags, dict) and isinstance(after_tags, dict):
         if before_tags.get("fdai:authority-cutover") != after_tags.get("fdai:authority-cutover"):
             violations.append(f"authority cutover tag change at {address}")
+    _, before_sidecars = _container_layout(before, address=address, contract=contract)
+    _, after_sidecars = _container_layout(after, address=address, contract=contract)
+    if before_sidecars != after_sidecars:
+        violations.append(f"sidecar contract drift at {address}")
     image_only_before = copy.deepcopy(before)
-    _container(image_only_before, address=address)["image"] = _planned_image(
-        {"after": after}, address=address
+    _primary_container(image_only_before, address=address, contract=contract)["image"] = (
+        _planned_image({"after": after}, address=address, contract=contract)
     )
     if image_only_before != after:
         violations.append(f"protected update changes fields rollback cannot prove at {address}")
@@ -154,7 +259,7 @@ def _guard_service_runtime(
     address: str,
     contract: ServiceContract,
 ) -> list[str]:
-    container = _container(resource, address=address)
+    container = _primary_container(resource, address=address, contract=contract)
     violations: list[str] = []
     if container.get("command") != [contract.entrypoint] or container.get("args") not in ([], None):
         violations.append(f"planned command does not match the service entrypoint at {address}")
@@ -174,6 +279,7 @@ def _guard_service_runtime(
     tags = resource.get("tags")
     if not isinstance(tags, dict) or tags.get("fdai:component") != contract.service:
         violations.append(f"planned component tag does not match the selected service at {address}")
+    violations.extend(_guard_sidecars(resource, address=address, contract=contract))
     return violations
 
 
@@ -213,14 +319,17 @@ def validate_plan(
         if actions != ("update",):
             violations.append(f"unsupported action {actions!r} at {address}")
             continue
-        if not isinstance(change, dict) or _planned_image(change, address=address) != image_ref:
+        if (
+            not isinstance(change, dict)
+            or _planned_image(change, address=address, contract=contract) != image_ref
+        ):
             violations.append(f"planned image at {address} does not match the attested image")
             continue
         after = _resource(change, side="after", address=address)
         _identity_ids(after, address=address)
         violations.extend(_guard_service_runtime(after, address=address, contract=contract))
         before = _resource(change, side="before", address=address)
-        violations.extend(_guard_update(before, after, address=address))
+        violations.extend(_guard_update(before, after, address=address, contract=contract))
     deferred_changes = payload.get("deferred_changes", [])
     if deferred_changes not in (None, []):
         violations.append("deferred plan changes are not eligible for protected apply")
