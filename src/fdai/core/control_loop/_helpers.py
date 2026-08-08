@@ -306,7 +306,7 @@ def _is_execution_success(
 ) -> bool:
     if not hasattr(result, "outcome"):
         return False
-    return result.outcome in (
+    dispatched = result.outcome in (
         ExecutorOutcome.PUBLISHED,
         ExecutorOutcome.ALREADY_EXISTED,
         DirectApiExecutionOutcome.DISPATCHED,
@@ -314,6 +314,9 @@ def _is_execution_success(
         ToolCallExecutionOutcome.DISPATCHED,
         ToolCallExecutionOutcome.ALREADY_APPLIED,
     )
+    if not dispatched:
+        return False
+    return result.audit_context.get("effect_verified") is not False
 
 
 def _synthetic_action_build_failure(*, event: Event, finding: Any, reason: str) -> ExecutionResult:

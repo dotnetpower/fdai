@@ -8,10 +8,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from fdai.core.control_loop import ControlLoop
+from fdai.core.control_loop import ControlLoop, _is_execution_success
 from fdai.core.executor import ExecutionResult, ExecutorOutcome
+from fdai.core.executor.direct_api import (
+    DirectApiExecutionOutcome,
+    DirectApiExecutionResult,
+)
 from fdai.core.mscp_profile import ExpectedEffect, ObservedEffect
-from fdai.shared.contracts.models import Action, Rule
+from fdai.shared.contracts.models import Action, Mode, Rule
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 7, 21, tzinfo=UTC)
@@ -80,6 +84,7 @@ def _result() -> ExecutionResult:
     return ExecutionResult(
         action_id=str(_action().action_id),
         outcome=ExecutorOutcome.PUBLISHED,
+        audit_context={"effect_applied": True, "effect_verified": False},
     )
 
 
@@ -136,7 +141,28 @@ async def test_unbound_profile_is_a_complete_dispatch_noop() -> None:
     result = await loop._dispatch_action(action=_action(), rule=_rule())
 
     assert result is executor.execute.return_value
+    assert _is_execution_success(result) is False
     assert _audit_payloads(audit) == ()
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        DirectApiExecutionOutcome.DISPATCHED,
+        DirectApiExecutionOutcome.ALREADY_APPLIED,
+    ],
+)
+def test_unverified_isolated_executor_receipt_is_not_success(
+    outcome: DirectApiExecutionOutcome,
+) -> None:
+    result = DirectApiExecutionResult(
+        action_id=str(_action().action_id),
+        outcome=outcome,
+        mode=Mode.ENFORCE,
+        audit_context={"effect_applied": True, "effect_verified": False},
+    )
+
+    assert _is_execution_success(result) is False
 
 
 async def test_bound_profile_predicts_before_dispatch_and_observes_after() -> None:
@@ -190,6 +216,8 @@ async def test_bound_profile_predicts_before_dispatch_and_observes_after() -> No
     entries = _audit_payloads(audit)
 
     assert result.outcome is ExecutorOutcome.PUBLISHED
+    assert result.audit_context["effect_verified"] is True
+    assert _is_execution_success(result) is True
     assert order == ["predict", "execute", "observe", "relay", "record"]
     recorder.record.assert_awaited_once()
     assert len(entries) == 2
@@ -205,7 +233,7 @@ async def test_bound_profile_predicts_before_dispatch_and_observes_after() -> No
     assert "target_resource_ref" not in response_entry
 
 
-async def test_mismatch_is_audited_without_changing_execution_result() -> None:
+async def test_mismatch_is_audited_and_holds_execution_success() -> None:
     async def predict(_action: Action) -> ExpectedEffect:
         return _expected()
 
@@ -232,13 +260,17 @@ async def test_mismatch_is_audited_without_changing_execution_result() -> None:
     result = await loop._dispatch_action(action=_action(), rule=_rule())
     entry = _entry(_audit_payloads(audit), "measurement.action_outcome.v1")
 
-    assert result is expected_result
+    assert result.outcome is expected_result.outcome
+    assert result.audit_context["effect_verified"] is False
+    assert result.audit_context["effect_verification_status"] == "mismatch"
+    assert _is_execution_success(result) is False
     assert entry["verification_status"] == "mismatch"
     assert entry["verification_reason"] == "value_outside_acceptable_range"
+    assert entry["decision"] == "abstain"
 
 
 @pytest.mark.parametrize("failure_side", ["prediction", "observation"])
-async def test_provider_failure_holds_without_breaking_dispatch(failure_side: str) -> None:
+async def test_provider_failure_holds_execution_success(failure_side: str) -> None:
     async def predict(_action: Action) -> ExpectedEffect:
         if failure_side == "prediction":
             raise RuntimeError("prediction unavailable")
@@ -271,11 +303,15 @@ async def test_provider_failure_holds_without_breaking_dispatch(failure_side: st
     entry = _entry(entries, "effect_verification.shadow")
     response_entry = _entry(entries, "measurement.action_outcome.v1")
 
-    assert result is expected_result
+    assert result.outcome is expected_result.outcome
+    assert result.audit_context["effect_verified"] is False
+    assert result.audit_context["effect_verification_status"] == "hold"
+    assert _is_execution_success(result) is False
     assert entry["verification_status"] == "hold"
     assert entry["verification_reason"] == f"{failure_side}_provider_failed"
     assert response_entry["label"] == "unscorable"
     assert response_entry["scorable"] is False
+    assert response_entry["decision"] == "abstain"
     assert "observed_at" not in response_entry
 
 
@@ -341,4 +377,5 @@ async def test_shadow_audit_failure_does_not_change_execution_result() -> None:
     result = await loop._dispatch_action(action=_action(), rule=_rule())
 
     assert result is expected_result
+    assert _is_execution_success(result) is False
     relay.assert_not_awaited()

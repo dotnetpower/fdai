@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from fdai.core.control_loop._helpers import (
@@ -299,13 +300,23 @@ class ControlLoopExecutionMixin:
             )
         else:
             result = await self._executor.execute(action=action, rule=rule)
-        await self._record_mscp_effect_shadow(
+        verification = await self._record_mscp_effect_shadow(
             action=action,
             result=result,
             expected=expected,
             prediction_failure=prediction_failure,
         )
-        return result
+        if verification is None:
+            return result
+        return replace(
+            result,
+            audit_context={
+                **result.audit_context,
+                "effect_verified": verification.status is EffectVerificationStatus.VERIFIED,
+                "effect_verification_status": verification.status.value,
+                "effect_verification_reason": verification.reason.value,
+            },
+        )
 
     async def _prepare_mscp_effect(
         self,
@@ -336,10 +347,11 @@ class ControlLoopExecutionMixin:
         result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult,
         expected: ExpectedEffect | None,
         prediction_failure: EffectVerificationReason | None,
-    ) -> None:
+    ) -> EffectVerificationResult | None:
+        """Audit independent effect evidence and return only durable verification."""
         observer = self._mscp_effect_observer
         if observer is None:
-            return
+            return None
 
         observed: ObservedEffect | None = None
         if prediction_failure is not None:
@@ -391,6 +403,9 @@ class ControlLoopExecutionMixin:
             recorded_at=recorded_at,
             expected=expected,
             observed=observed,
+            decision=(
+                "auto" if verification.status is EffectVerificationStatus.VERIFIED else "abstain"
+            ),
             rollback_succeeded=getattr(result, "rollback_succeeded", None),
         )
         try:
@@ -404,7 +419,7 @@ class ControlLoopExecutionMixin:
                 extra={"action_type": action.action_type},
                 exc_info=True,
             )
-            return
+            return None
         if self._response_outcome_sink is not None:
             try:
                 await self._response_outcome_sink(response_outcome)
@@ -430,6 +445,7 @@ class ControlLoopExecutionMixin:
                     extra={"action_type": action.action_type},
                     exc_info=True,
                 )
+        return verification
 
     async def _evaluate_and_audit(
         self, *, event: Event, action: Action, rule: Rule
