@@ -181,6 +181,16 @@ def test_five_configs_have_distinct_heads_and_explicit_adoption() -> None:
     assert len(version_tables) == 5
 
 
+def test_service_migrations_serialize_cross_service_ddl_before_service_lock() -> None:
+    source = (MIGRATION_ROOT / "runtime/env.py").read_text(encoding="utf-8")
+
+    assert 'coordination_lock_key = _lock_key("all-services")' in source
+    coordination_lock = source.index('{"lock_key": coordination_lock_key}')
+    service_lock = source.index('{"lock_key": migration_lock_key}')
+    migration_run = source.index("context.run_migrations()", service_lock)
+    assert coordination_lock < service_lock < migration_run
+
+
 def test_forward_revision_requires_rollback_metadata(tmp_path: Path) -> None:
     revision = tmp_path / "missing_rollback.py"
     revision.write_text(

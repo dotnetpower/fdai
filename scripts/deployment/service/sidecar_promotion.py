@@ -140,13 +140,25 @@ def _validate_approval(
         or not isinstance(approvers, list)
         or not approvers
         or not all(isinstance(approver, str) and approver for approver in approvers)
-        or len(set(approvers)) != len(approvers)
-        or requester in approvers
+    ):
+        raise SidecarPromotionError("sidecar promotion requires separate named approval")
+    normalized_requester = requester.strip().casefold()
+    normalized_approvers = [approver.strip().casefold() for approver in approvers]
+    if (
+        not normalized_requester
+        or any(not approver for approver in normalized_approvers)
+        or len(set(normalized_approvers)) != len(normalized_approvers)
+        or normalized_requester in normalized_approvers
     ):
         raise SidecarPromotionError("sidecar promotion requires separate named approval")
 
 
-def _validate_attestation(attestation: dict[str, Any], *, new_digest: str) -> None:
+def _validate_attestation(
+    attestation: dict[str, Any],
+    *,
+    new_digest: str,
+    source_revision: str,
+) -> None:
     expected_keys = {
         "schema_version",
         "verified",
@@ -161,8 +173,8 @@ def _validate_attestation(attestation: dict[str, Any], *, new_digest: str) -> No
         attestation.get("schema_version") != _ATTESTATION_SCHEMA
         or attestation.get("verified") is not True
         or attestation.get("subject_digest") != new_digest
+        or attestation.get("source_revision") != source_revision
         or attestation.get("predicate_type") != "https://slsa.dev/provenance/v1"
-        or _COMMIT.fullmatch(str(attestation.get("source_revision", ""))) is None
     ):
         raise SidecarPromotionError("sidecar attestation does not verify the new digest")
     _required(attestation, "signer_workflow", label="attestation signer workflow")
@@ -213,6 +225,9 @@ def build_promotion_context(
         raise SidecarPromotionError("old ClamAV digest does not match sealed plan context")
 
     environment = _required(plan_context, "environment", label="deployment environment")
+    source_revision = _required(plan_context, "commit_sha", label="source revision")
+    if _COMMIT.fullmatch(source_revision) is None:
+        raise SidecarPromotionError("source revision must be a lowercase git SHA")
     contract = resolve_service(_SERVICE, environment)
     changes = plan.get("resource_changes")
     if not isinstance(changes, list) or len(changes) != 1 or not isinstance(changes[0], dict):
@@ -250,7 +265,11 @@ def build_promotion_context(
         new_image_ref=new_image_ref,
         plan_context_digest=plan_context_digest,
     )
-    _validate_attestation(attestation, new_digest=new_digest)
+    _validate_attestation(
+        attestation,
+        new_digest=new_digest,
+        source_revision=source_revision,
+    )
     _validate_scan(scan, new_digest=new_digest)
     target = plan_context.get("target")
     if not isinstance(target, dict):

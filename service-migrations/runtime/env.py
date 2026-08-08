@@ -27,8 +27,14 @@ if database_url.startswith("postgresql://"):
     database_url = "postgresql+psycopg://" + database_url[len("postgresql://") :]
 config.set_main_option("sqlalchemy.url", database_url)
 
-lock_digest = hashlib.sha256(f"fdai-migration:{service_id}".encode()).digest()
-migration_lock_key = int.from_bytes(lock_digest[:8], "big") & 0x7FFF_FFFF_FFFF_FFFF
+
+def _lock_key(scope: str) -> int:
+    digest = hashlib.sha256(f"fdai-migration:{scope}".encode()).digest()
+    return int.from_bytes(digest[:8], "big") & 0x7FFF_FFFF_FFFF_FFFF
+
+
+coordination_lock_key = _lock_key("all-services")
+migration_lock_key = _lock_key(service_id)
 
 
 def run_migrations_offline() -> None:
@@ -58,6 +64,10 @@ def run_migrations_online() -> None:
             version_table=version_table,
         )
         with context.begin_transaction():
+            connection.execute(
+                text("SELECT pg_advisory_xact_lock(:lock_key)"),
+                {"lock_key": coordination_lock_key},
+            )
             connection.execute(
                 text("SELECT pg_advisory_xact_lock(:lock_key)"),
                 {"lock_key": migration_lock_key},

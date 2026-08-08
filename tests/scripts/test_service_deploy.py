@@ -262,6 +262,7 @@ def _sidecar_promotion_inputs(bundle: ModuleType) -> dict[str, object]:
     plan_context = {
         "service": "document-processing-worker",
         "environment": "dev",
+        "commit_sha": "e" * 40,
         "target": {
             "service_resource_id": before["id"],  # type: ignore[index]
             "service_name": before["name"],  # type: ignore[index]
@@ -1486,7 +1487,10 @@ def test_clamav_promotion_rejects_unknown_plan_changes(
         promotion.build_promotion_context(**inputs)
 
 
-@pytest.mark.parametrize("proof", ["approval", "attestation", "scan"])
+@pytest.mark.parametrize(
+    "proof",
+    ["approval", "approval_case", "approval_duplicate_case", "attestation", "scan"],
+)
 def test_clamav_promotion_rejects_unbound_proof(
     bundle: ModuleType,
     promotion: ModuleType,
@@ -1495,12 +1499,31 @@ def test_clamav_promotion_rejects_unbound_proof(
     inputs = _sidecar_promotion_inputs(bundle)
     if proof == "approval":
         inputs["approval"]["approved_by"] = ["requester@example.com"]  # type: ignore[index]
+    elif proof == "approval_case":
+        inputs["approval"]["approved_by"] = ["Requester@Example.com"]  # type: ignore[index]
+    elif proof == "approval_duplicate_case":
+        inputs["approval"]["approved_by"] = [  # type: ignore[index]
+            "approver@example.com",
+            "Approver@Example.com",
+        ]
     elif proof == "attestation":
         inputs["attestation"]["subject_digest"] = "sha256:" + "b" * 64  # type: ignore[index]
     else:
         inputs["scan"]["passed"] = False  # type: ignore[index]
 
-    with pytest.raises(promotion.SidecarPromotionError, match=proof):
+    expected_error = "approval" if proof.startswith("approval") else proof
+    with pytest.raises(promotion.SidecarPromotionError, match=expected_error):
+        promotion.build_promotion_context(**inputs)
+
+
+def test_clamav_promotion_rejects_attestation_from_another_source_revision(
+    bundle: ModuleType,
+    promotion: ModuleType,
+) -> None:
+    inputs = _sidecar_promotion_inputs(bundle)
+    inputs["attestation"]["source_revision"] = "f" * 40  # type: ignore[index]
+
+    with pytest.raises(promotion.SidecarPromotionError, match="attestation"):
         promotion.build_promotion_context(**inputs)
 
 
