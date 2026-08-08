@@ -58,6 +58,7 @@ class IngestionGatewayConfig:
     default_reader_groups: tuple[str, ...] = ()
     allowed_collections: tuple[str, ...] = ()
     startup_checks: tuple[Callable[[], Awaitable[None]], ...] = ()
+    readiness_checks: tuple[Callable[[], Awaitable[None]], ...] = ()
     background_services: tuple[Callable[[], Coroutine[Any, Any, None]], ...] = ()
     shutdown_callbacks: tuple[Callable[[], Awaitable[None]], ...] = ()
 
@@ -76,6 +77,8 @@ def build_app(
     """Build the public ingestion application without worker implementation imports."""
     resolved = config or IngestionGatewayConfig()
     _validate_boundary(resolved)
+    lifecycle_started = False
+    background_tasks: tuple[asyncio.Task[None], ...] = ()
 
     def authorize(request: Request, roles: tuple[Role, ...]) -> Principal:
         if resolved.dev_mode:
@@ -281,7 +284,21 @@ def build_app(
         )
 
     async def healthz(_request: Request) -> Response:
-        return JSONResponse({"status": "ok"})
+        requires_lifecycle = bool(
+            resolved.startup_checks or resolved.readiness_checks or resolved.background_services
+        )
+        ready = lifecycle_started or not requires_lifecycle
+        if ready:
+            try:
+                await asyncio.gather(*(check() for check in resolved.readiness_checks))
+            except Exception:  # noqa: BLE001 - dependency probes fail closed
+                ready = False
+        if ready and any(task.done() for task in background_tasks):
+            ready = False
+        return JSONResponse(
+            {"status": "ok" if ready else "not-ready"},
+            status_code=200 if ready else 503,
+        )
 
     async def stewardship_merge_webhook(request: Request) -> Response:
         if stewardship_webhook is None:
@@ -378,17 +395,23 @@ def build_app(
 
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
+        nonlocal background_tasks, lifecycle_started
         for check in resolved.startup_checks:
             await check()
-        tasks = [asyncio.create_task(service()) for service in resolved.background_services]
+        background_tasks = tuple(
+            asyncio.create_task(service()) for service in resolved.background_services
+        )
+        lifecycle_started = True
         try:
             yield
         finally:
-            for task in tasks:
+            lifecycle_started = False
+            for task in background_tasks:
                 task.cancel()
-            for task in tasks:
+            for task in background_tasks:
                 with suppress(asyncio.CancelledError):
                     await task
+            background_tasks = ()
             for callback in resolved.shutdown_callbacks:
                 await callback()
 

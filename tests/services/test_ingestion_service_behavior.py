@@ -67,6 +67,7 @@ from fdai_service_contracts import (
     canonical_audit_entry,
     next_audit_hash,
 )
+from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
 
@@ -1648,6 +1649,68 @@ def test_http_upload_content_and_complete_preserve_wire_contract(
         "upload.created",
         "document.received",
     ]
+
+
+def _ingestion_health_app(config: IngestionGatewayConfig) -> Starlette:
+    service = DocumentIngestionService(
+        access=ClaimsDocumentAccessProvider(),
+        metadata=MemoryMetadata(),
+        objects=MemoryObjects(),
+        capabilities=IngestionCapabilities(
+            supported_formats=("text",),
+            storage_modes=(SourceStorageMode.MANAGED_COPY,),
+            max_file_size=1024,
+            max_batch_count=1,
+            archives_enabled=False,
+            policy_versions=("test",),
+        ),
+    )
+    return build_app(
+        authenticator=Authenticator(
+            verifier=lambda _token: {"oid": "operator", "roles": ["Owner"]},
+            mapping=GroupMapping("r", "c", "a", "o", "b"),
+        ),
+        service=service,
+        deletion=NoDeletion(),
+        config=config,
+    )
+
+
+def test_ingestion_api_readiness_reflects_dependency_loss_after_startup() -> None:
+    available = True
+
+    async def readiness_check() -> None:
+        if not available:
+            raise RuntimeError("broker unavailable")
+
+    async def required_service() -> None:
+        await asyncio.Event().wait()
+
+    app = _ingestion_health_app(
+        IngestionGatewayConfig(
+            startup_checks=(readiness_check,),
+            readiness_checks=(readiness_check,),
+            background_services=(required_service,),
+        )
+    )
+    with TestClient(app) as client:
+        response = client.get("/healthz")
+        assert (response.status_code, response.json()) == (200, {"status": "ok"})
+
+        available = False
+        response = client.get("/healthz")
+        assert (response.status_code, response.json()) == (503, {"status": "not-ready"})
+
+
+def test_ingestion_api_readiness_rejects_stopped_required_service() -> None:
+    async def stopped_service() -> None:
+        return None
+
+    app = _ingestion_health_app(IngestionGatewayConfig(background_services=(stopped_service,)))
+    with TestClient(app) as client:
+        response = client.get("/healthz")
+
+    assert (response.status_code, response.json()) == (503, {"status": "not-ready"})
 
 
 @pytest.mark.asyncio

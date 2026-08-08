@@ -205,6 +205,7 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
         config=IngestionGatewayConfig(
             proxy_upload=True,
             startup_checks=(verify_database_role, verify_adapters),
+            readiness_checks=(verify_database_role, verify_adapters),
             background_services=(drain_outbox,),
             cors_allow_origins=_origins(env["FDAI_INGESTION_CORS_ALLOW_ORIGINS"]),
             default_reader_groups=(env["FDAI_RBAC_READERS_GROUP_ID"].strip(),),
