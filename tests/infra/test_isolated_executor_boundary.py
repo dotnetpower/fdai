@@ -107,8 +107,8 @@ def test_authority_cutover_moves_gateway_and_vertical_identities_from_core() -> 
     )
     assert gateway is not None
     gateway_body = gateway.group("body")
-    assert "local.effect_executor_principal_id" in gateway_body
-    assert "local.effect_executor_client_id" in gateway_body
+    assert 'join(",", local.effect_executor_principal_ids)' in gateway_body
+    assert "allowed_applications = local.effect_executor_client_ids" in gateway_body
 
     compute = re.search(r'module "compute" \{(?P<body>.*?)\n\}', MAIN, re.DOTALL)
     assert compute is not None

@@ -101,7 +101,7 @@ class GatewayConfig:
     subscription_id: str
     resource_groups: frozenset[str]
     contributor_group_id: str
-    executor_principal_id: str
+    executor_principal_ids: frozenset[str]
     reader_identity_client_id: str
     executor_identity_client_id: str
     idempotency_container_url: str
@@ -141,11 +141,20 @@ class GatewayConfig:
         mutations_raw = values.get("FDAI_DEV_GATEWAY_MUTATIONS_ENABLED", "0").strip()
         if mutations_raw not in {"0", "1"}:
             raise ValueError("FDAI_DEV_GATEWAY_MUTATIONS_ENABLED MUST be 0 or 1")
+        executor_principal_ids = frozenset(
+            item.strip()
+            for item in values.get("FDAI_DEV_GATEWAY_EXECUTOR_PRINCIPAL_IDS", "").split(",")
+            if item.strip()
+        )
+        if not executor_principal_ids or len(executor_principal_ids) > 8:
+            raise ValueError("executor principal ids MUST contain between 1 and 8 entries")
+        if any(len(item) > 256 for item in executor_principal_ids):
+            raise ValueError("executor principal ids MUST be bounded")
         config = cls(
             subscription_id=values.get("FDAI_DEV_GATEWAY_SUBSCRIPTION_ID", "").strip(),
             resource_groups=groups,
             contributor_group_id=values.get("FDAI_DEV_GATEWAY_CONTRIBUTOR_GROUP_ID", "").strip(),
-            executor_principal_id=values.get("FDAI_DEV_GATEWAY_EXECUTOR_PRINCIPAL_ID", "").strip(),
+            executor_principal_ids=executor_principal_ids,
             reader_identity_client_id=values.get(
                 "FDAI_DEV_GATEWAY_READER_MI_CLIENT_ID", ""
             ).strip(),
@@ -159,7 +168,6 @@ class GatewayConfig:
         for name, value in (
             ("subscription id", config.subscription_id),
             ("contributor group id", config.contributor_group_id),
-            ("executor principal id", config.executor_principal_id),
             ("reader identity client id", config.reader_identity_client_id),
             ("executor identity client id", config.executor_identity_client_id),
             ("idempotency container URL", config.idempotency_container_url),
@@ -449,14 +457,14 @@ class OperationsGateway:
         if (
             self._config.contributor_group_id not in principal.groups
             and not principal.roles.intersection({"Contributor", "Approver", "Owner"})
-            and principal.object_id != self._config.executor_principal_id
+            and principal.object_id not in self._config.executor_principal_ids
         ):
             raise GatewayError(403, "forbidden", "Contributor access is required")
 
     def _authorize_mutation(
         self, principal: GatewayPrincipal, payload: Mapping[str, object]
     ) -> tuple[str, str]:
-        if principal.object_id != self._config.executor_principal_id:
+        if principal.object_id not in self._config.executor_principal_ids:
             raise GatewayError(403, "executor_required", "Thor executor identity is required")
         safety = payload.get("safety")
         if not isinstance(safety, Mapping):
@@ -486,7 +494,7 @@ class OperationsGateway:
                 raise GatewayError(400, "safety_invalid", f"safety.{field} MUST be bounded")
 
     def _authorize_executor(self, principal: GatewayPrincipal) -> None:
-        if principal.object_id != self._config.executor_principal_id:
+        if principal.object_id not in self._config.executor_principal_ids:
             raise GatewayError(403, "executor_required", "Thor executor identity is required")
 
     def _mutation_resource_key(

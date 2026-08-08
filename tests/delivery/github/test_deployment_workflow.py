@@ -626,7 +626,7 @@ def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:
         r'AzureWebJobsStorage__credential\s*=\s*"managedidentity"',
         gateway_app_settings,
     )
-    assert "allowed_applications = [local.effect_executor_client_id]" in gateway_resource
+    assert "allowed_applications = local.effect_executor_client_ids" in gateway_resource
     assert "APPLICATIONINSIGHTS_CONNECTION_STRING" not in gateway_app_settings
     assert workflow.index("Restore and verify exact protected plan") < workflow.index(
         "Terraform apply"

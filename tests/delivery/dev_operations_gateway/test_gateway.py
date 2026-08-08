@@ -100,7 +100,7 @@ def _config() -> GatewayConfig:
         subscription_id="sub-example",
         resource_groups=frozenset({"rg-example"}),
         contributor_group_id="group-contributor",
-        executor_principal_id="principal-executor",
+        executor_principal_ids=frozenset({"principal-change", "principal-resilience"}),
         reader_identity_client_id="client-reader",
         executor_identity_client_id="client-executor",
         idempotency_container_url="https://storage.example.com/operation-idempotency",
@@ -127,7 +127,7 @@ def _environment(**overrides: str) -> dict[str, str]:
         "FDAI_DEV_GATEWAY_SUBSCRIPTION_ID": "sub-example",
         "FDAI_DEV_GATEWAY_RESOURCE_GROUPS": "rg-example",
         "FDAI_DEV_GATEWAY_CONTRIBUTOR_GROUP_ID": "group-contributor",
-        "FDAI_DEV_GATEWAY_EXECUTOR_PRINCIPAL_ID": "principal-executor",
+        "FDAI_DEV_GATEWAY_EXECUTOR_PRINCIPAL_IDS": "principal-change,principal-resilience",
         "FDAI_DEV_GATEWAY_READER_MI_CLIENT_ID": "client-reader",
         "FDAI_DEV_GATEWAY_EXECUTOR_MI_CLIENT_ID": "client-executor",
         "FDAI_DEV_GATEWAY_IDEMPOTENCY_CONTAINER_URL": (
@@ -190,7 +190,7 @@ async def test_mutations_are_disabled_by_default() -> None:
                     "vm_name": "vm-app",
                     "safety": _safety(),
                 },
-                GatewayPrincipal("principal-executor", frozenset()),
+                GatewayPrincipal("principal-change", frozenset()),
             )
 
     assert error.value.status_code == 404
@@ -386,7 +386,7 @@ async def test_private_probe_never_follows_redirects() -> None:
         subscription_id=config.subscription_id,
         resource_groups=config.resource_groups,
         contributor_group_id=config.contributor_group_id,
-        executor_principal_id=config.executor_principal_id,
+        executor_principal_ids=config.executor_principal_ids,
         reader_identity_client_id=config.reader_identity_client_id,
         executor_identity_client_id=config.executor_identity_client_id,
         idempotency_container_url=config.idempotency_container_url,
@@ -424,7 +424,7 @@ async def test_application_dependency_probe_requires_typed_database_receipt() ->
         subscription_id=config.subscription_id,
         resource_groups=config.resource_groups,
         contributor_group_id=config.contributor_group_id,
-        executor_principal_id=config.executor_principal_id,
+        executor_principal_ids=config.executor_principal_ids,
         reader_identity_client_id=config.reader_identity_client_id,
         executor_identity_client_id=config.executor_identity_client_id,
         idempotency_container_url=config.idempotency_container_url,
@@ -546,7 +546,7 @@ async def test_executor_requires_complete_safety_envelope() -> None:
             http_client=client,
             idempotency_ledger=_Ledger(),
         )
-        principal = GatewayPrincipal("principal-executor", frozenset())
+        principal = GatewayPrincipal("principal-change", frozenset())
         with pytest.raises(GatewayError, match="safety envelope"):
             await gateway.invoke(
                 "azure.compute.vm.start",
@@ -611,7 +611,7 @@ async def test_executor_plan_issues_receipt_for_matching_mutation() -> None:
             http_client=client,
             idempotency_ledger=ledger,
         )
-        principal = GatewayPrincipal("principal-executor", frozenset())
+        principal = GatewayPrincipal("principal-change", frozenset())
         arguments = {"resource_group": "rg-example", "vm_name": "vm-app"}
         planned_safety = dict(_safety("operation:planned"))
         planned_safety.pop("dry_run_receipt")
@@ -658,7 +658,7 @@ async def test_executor_plan_receipt_rejects_changed_safety_evidence() -> None:
             http_client=client,
             idempotency_ledger=ledger,
         )
-        principal = GatewayPrincipal("principal-executor", frozenset())
+        principal = GatewayPrincipal("principal-change", frozenset())
         arguments = {"resource_group": "rg-example", "vm_name": "vm-app"}
         planned_safety = dict(_safety("operation:changed"))
         planned_safety.pop("dry_run_receipt")
@@ -706,7 +706,7 @@ async def test_executor_plan_receipt_rejects_another_operation() -> None:
             http_client=client,
             idempotency_ledger=ledger,
         )
-        principal = GatewayPrincipal("principal-executor", frozenset())
+        principal = GatewayPrincipal("principal-change", frozenset())
         arguments = {"resource_group": "rg-example", "vm_name": "vm-app"}
         planned_safety = dict(_safety("operation:cross"))
         planned_safety.pop("dry_run_receipt")
@@ -783,7 +783,7 @@ async def test_executor_mutation_is_idempotent_across_duplicate_delivery() -> No
             http_client=client,
             idempotency_ledger=_Ledger(),
         )
-        principal = GatewayPrincipal("principal-executor", frozenset())
+        principal = GatewayPrincipal("principal-change", frozenset())
         payload = {
             "resource_group": "rg-example",
             "vm_name": "vm-app",
@@ -835,7 +835,7 @@ async def test_executor_tracks_arm_long_running_operation_by_idempotency_key() -
             http_client=client,
             idempotency_ledger=ledger,
         )
-        principal = GatewayPrincipal("principal-executor", frozenset())
+        principal = GatewayPrincipal("principal-change", frozenset())
         payload = {
             "resource_group": "rg-example",
             "vm_name": "vm-app",
@@ -892,7 +892,7 @@ async def test_mutation_rejects_unrecognized_arm_status_query() -> None:
                     "vm_name": "vm-app",
                     "safety": _safety("operation:query"),
                 },
-                GatewayPrincipal("principal-executor", frozenset()),
+                GatewayPrincipal("principal-change", frozenset()),
             )
 
     assert error.value.code == "azure_response_invalid"
@@ -935,7 +935,7 @@ async def test_executor_token_failure_releases_claim_and_resource() -> None:
                     "vm_name": "vm-app",
                     "safety": _safety("operation:token-failure"),
                 },
-                GatewayPrincipal("principal-executor", frozenset()),
+                GatewayPrincipal("principal-change", frozenset()),
             )
 
     assert ledger.held == set()
@@ -981,7 +981,7 @@ async def test_same_resource_different_idempotency_keys_are_serialized() -> None
             http_client=client,
             idempotency_ledger=BusyLedger(),
         )
-        principal = GatewayPrincipal("principal-executor", frozenset())
+        principal = GatewayPrincipal("principal-change", frozenset())
         first = asyncio.create_task(
             gateway.invoke(
                 "azure.compute.vm.start",

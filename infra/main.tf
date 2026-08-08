@@ -786,16 +786,16 @@ locals {
   isolated_executor_vertical_identity_ids = (
     var.enable_isolated_executor_authority_cutover ? local.vertical_identity_ids : []
   )
-  effect_executor_principal_id = (
-    var.enable_isolated_executor_authority_cutover
-    ? try(module.isolated_executor_identity[0].principal_id, "")
-    : module.identity.principal_id
-  )
-  effect_executor_client_id = (
-    var.enable_isolated_executor_authority_cutover
-    ? try(module.isolated_executor_identity[0].client_id, "")
-    : module.identity.client_id
-  )
+  effect_executor_principal_ids = [
+    module.identity_change.principal_id,
+    module.identity_resilience.principal_id,
+    module.identity_finops.principal_id,
+  ]
+  effect_executor_client_ids = [
+    module.identity_change.client_id,
+    module.identity_resilience.client_id,
+    module.identity_finops.client_id,
+  ]
 }
 
 resource "terraform_data" "isolated_executor_authority_cutover_contract" {
@@ -1154,7 +1154,7 @@ resource "azurerm_function_app_flex_consumption" "dev_gateway" {
     FDAI_DEV_GATEWAY_SUBSCRIPTION_ID           = data.azurerm_client_config.current.subscription_id
     FDAI_DEV_GATEWAY_RESOURCE_GROUPS           = module.resource_group.name
     FDAI_DEV_GATEWAY_CONTRIBUTOR_GROUP_ID      = var.rbac_contributors_group_id
-    FDAI_DEV_GATEWAY_EXECUTOR_PRINCIPAL_ID     = local.effect_executor_principal_id
+    FDAI_DEV_GATEWAY_EXECUTOR_PRINCIPAL_IDS    = join(",", local.effect_executor_principal_ids)
     FDAI_DEV_GATEWAY_READER_MI_CLIENT_ID       = module.dev_gateway_reader_identity[0].client_id
     FDAI_DEV_GATEWAY_EXECUTOR_MI_CLIENT_ID     = module.dev_gateway_executor_identity[0].client_id
     FDAI_DEV_GATEWAY_IDEMPOTENCY_CONTAINER_URL = "${azurerm_storage_account.dev_gateway[0].primary_blob_endpoint}${azurerm_storage_container.dev_gateway_idempotency[0].name}"
@@ -1176,7 +1176,7 @@ resource "azurerm_function_app_flex_consumption" "dev_gateway" {
       client_id            = trimprefix(var.operator_api_audience, "api://")
       tenant_auth_endpoint = "https://login.microsoftonline.com/${var.tenant_id}/v2.0"
       allowed_audiences    = [var.operator_api_audience]
-      allowed_applications = [local.effect_executor_client_id]
+      allowed_applications = local.effect_executor_client_ids
     }
   }
 
