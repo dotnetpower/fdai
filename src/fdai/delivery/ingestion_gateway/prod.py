@@ -137,14 +137,13 @@ def build_prod_runtime(
         raise ProdIngestionConfigError(
             "FDAI_INGESTION_DEPLOYMENT_ROLE does not match the process role"
         )
-    expected_database_role = (
-        "fdai_ingestion_worker"
-        if role is IngestionDeploymentRole.WORKER
-        else (
-            "fdai_ingestion_cohost"
-            if _boolean(env, "FDAI_INGESTION_COHOST_WORKER", False)
-            else "fdai_ingestion_api"
+    if role is IngestionDeploymentRole.API and _boolean(env, "FDAI_INGESTION_COHOST_WORKER", False):
+        raise ProdIngestionConfigError(
+            "ingestion cohost rollback is unavailable after the service split because "
+            "durable deletion, outbox, and effect reconciliation cannot be proven"
         )
+    expected_database_role = (
+        "fdai_ingestion_worker" if role is IngestionDeploymentRole.WORKER else "fdai_ingestion_api"
     )
     if env["FDAI_DATABASE_ROLE"].strip() != expected_database_role:
         raise ProdIngestionConfigError("FDAI_DATABASE_ROLE does not match the process role")
@@ -335,7 +334,7 @@ def build_prod_runtime(
 
 
 def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
-    """Build the public API role; worker loops require an explicit rollback flag."""
+    """Build the public API role without the retired cohost worker path."""
     runtime = build_prod_runtime(environ, role=IngestionDeploymentRole.API)
     env = runtime.env
     verifier = EntraJwtVerifier.from_env(env)
@@ -355,15 +354,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         config=IngestionGatewayConfig(
             proxy_upload=True,
             startup_checks=runtime.startup_checks,
-            background_services=(
-                (
-                    runtime.worker_service.run,
-                    runtime.worker_service.run_index_commands,
-                    runtime.worker_service.reconcile,
-                )
-                if _boolean(env, "FDAI_INGESTION_COHOST_WORKER", False)
-                else ()
-            ),
+            background_services=(),
             cors_allow_origins=_origins(env["FDAI_INGESTION_CORS_ALLOW_ORIGINS"]),
             default_reader_groups=(env["FDAI_RBAC_READERS_GROUP_ID"].strip(),),
             allowed_collections=_collections(

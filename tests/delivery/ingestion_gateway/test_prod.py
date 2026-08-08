@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
-from collections.abc import Coroutine
-from typing import Any
-
 import pytest
 from starlette.testclient import TestClient
 
@@ -89,35 +85,16 @@ def test_prod_api_lifespan_starts_no_worker_loops(monkeypatch: pytest.MonkeyPatc
         assert second_client.get("/healthz").status_code == 200
 
 
-def test_prod_api_cohost_rollback_starts_exact_worker_loops(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("IDENTITY_ENDPOINT", "http://127.0.0.1:40342/token")
-    monkeypatch.setenv("IDENTITY_HEADER", "synthetic-proof")
-    application = build_prod_app(
-        _api_env(
-            FDAI_DATABASE_ROLE="fdai_ingestion_cohost",
-            FDAI_INGESTION_COHOST_WORKER="1",
+def test_prod_api_cohost_rollback_is_retired_before_health_can_start() -> None:
+    with pytest.raises(ProdIngestionConfigError, match="cohost rollback is unavailable"):
+        build_prod_app(
+            _api_env(
+                FDAI_DATABASE_ROLE="fdai_ingestion_cohost",
+                FDAI_INGESTION_COHOST_WORKER="1",
+            )
         )
-    )
-    original_create_task = gateway_main.asyncio.create_task
-    created = 0
-
-    async def parked() -> None:
-        await asyncio.Event().wait()
-
-    def replace_worker_task(coroutine: Coroutine[Any, Any, None]) -> asyncio.Task[None]:
-        nonlocal created
-        created += 1
-        coroutine.close()
-        return original_create_task(parked())
-
-    monkeypatch.setattr(gateway_main.asyncio, "create_task", replace_worker_task)
-    with TestClient(application) as client:
-        assert client.get("/healthz").status_code == 200
-        assert created == 3
 
 
 def test_prod_api_cohost_rollback_rejects_split_database_role() -> None:
-    with pytest.raises(ProdIngestionConfigError, match="DATABASE_ROLE"):
+    with pytest.raises(ProdIngestionConfigError, match="cohost rollback is unavailable"):
         build_prod_app(_api_env(FDAI_INGESTION_COHOST_WORKER="1"))
