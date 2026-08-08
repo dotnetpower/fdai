@@ -18,9 +18,9 @@ test("canonical text artifacts end with exactly one newline", () => {
 test("resolves diagram CSS variable fallbacks for static PNG rendering", () => {
   assert.equal(
     resolveCssFallbacks(
-      "fill: var(--fdai-diagram-canvas, #faf9f8); color: var(--fdai-diagram-text); stroke: var(--custom);",
+      "fill: var(--fdai-diagram-canvas, #faf9f8); color: var(--fdai-diagram-text); stroke: var(--custom, #abcdef); outline: var(--unknown);",
     ),
-    "fill: #faf9f8; color: #2c333a; stroke: var(--custom);",
+    "fill: #f6f7f6; color: #20262d; stroke: #abcdef; outline: var(--unknown);",
   );
 });
 

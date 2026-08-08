@@ -49,14 +49,20 @@ test("canonical overview avoids collisions while preserving direct hops", async 
   assert.ok(controlFlow && ruleCatalog);
   assert.ok(ruleCatalog.y > controlFlow.y + controlFlow.height);
 
-  const busToIngest = svg.match(
-    /data-edge-id="bus-to-ingest"[\s\S]*?<path class="edge-path" d="([^"]+)"/,
-  );
-  assert.ok(busToIngest);
-  assert.match(busToIngest[1] ?? "", /Q/);
-  assert.match(svg, /data-edge-id="bus-to-ingest"[^>]+data-edge-route="orthogonal-horizontal"/);
+  for (const [edgeId, route] of [
+    ["bus-to-ingest", "orthogonal-outer"],
+    ["executor-to-remediation", "orthogonal-outer"],
+    ["audit-to-console", "orthogonal-shortest"],
+  ] as const) {
+    const match = svg.match(
+      new RegExp(`data-edge-id="${edgeId}"[\\s\\S]*?<path class="edge-path" d="([^"]+)"`),
+    );
+    assert.ok(match);
+    assert.match(match[1] ?? "", /Q/);
+    assert.match(svg, new RegExp(`data-edge-id="${edgeId}"[^>]+data-edge-route="${route}"`));
+  }
 
-  for (const edgeId of ["catalog-to-decision", "executor-to-remediation"]) {
+  for (const edgeId of ["catalog-to-decision"]) {
     const match = svg.match(
       new RegExp(`data-edge-id="${edgeId}"[\\s\\S]*?<path class="edge-path" d="([^"]+)"`),
     );
@@ -65,10 +71,7 @@ test("canonical overview avoids collisions while preserving direct hops", async 
     assert.doesNotMatch(match[1] ?? "", /[QC]/);
   }
 
-  for (const edgeId of [
-    "risk-to-approval",
-    "audit-to-console",
-  ]) {
+  for (const edgeId of ["risk-to-approval"]) {
     const match = svg.match(
       new RegExp(`data-edge-id="${edgeId}"[\\s\\S]*?<path class="edge-path" d="([^"]+)"`),
     );

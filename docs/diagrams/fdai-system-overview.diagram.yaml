@@ -167,7 +167,7 @@ edges:
     to: event-ingest
     kind: event
     label: { en: normalized events, ko: 정규화된 이벤트 }
-    route: orthogonal-horizontal
+    route: orthogonal-outer
   - id: ingest-to-router
     from: event-ingest
     to: trust-router
@@ -210,7 +210,7 @@ edges:
     to: remediation-pr
     kind: mutation
     label: { en: approved change, ko: 승인된 변경 }
-    route: diagonal
+    route: orthogonal-outer
   - id: executor-to-audit
     from: executor
     to: audit-store
@@ -237,7 +237,7 @@ edges:
     to: read-only-console
     kind: read
     label: { en: audited projection, ko: 감사 projection }
-    route: curve
+    route: orthogonal-shortest
 legend:
   - kind: event
     label: { en: Asynchronous event, ko: 비동기 이벤트 }

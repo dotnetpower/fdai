@@ -18,7 +18,7 @@ export function resolveCssFallbacks(source: string): string {
   return source.replace(
     /var\((--[a-z0-9-]+)(?:,\s*([^)]+))?\)/gi,
     (match, name: string, fallback: string | undefined) =>
-      fallback?.trim() ?? CALM_SLATE_LIGHT[name as keyof typeof CALM_SLATE_LIGHT] ?? match,
+      CALM_SLATE_LIGHT[name as keyof typeof CALM_SLATE_LIGHT] ?? fallback?.trim() ?? match,
   );
 }
 

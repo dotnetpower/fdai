@@ -7,7 +7,6 @@ import {
   contentViewBox,
   fitViewBox,
   interactiveInitialViewBox,
-  needsReadableInitialCrop,
   panViewBox,
   zoomPercentage,
   zoomViewBox,
@@ -33,17 +32,11 @@ test("compact initial view leaves room to pan on both axes", () => {
   const compact = interactiveInitialViewBox(bounds, 400, 500, true);
   assert.equal(compact.x, 0);
   assert.equal(compact.y, 88);
-  assert.ok(Math.abs(compact.width - 284.8) < 0.001);
-  assert.ok(Math.abs(compact.height - 356) < 0.001);
+  assert.ok(Math.abs(compact.width - 467.072) < 0.001);
+  assert.ok(Math.abs(compact.height - 583.84) < 0.001);
   assert.ok(compact.width < bounds.width);
   assert.ok(compact.height < bounds.height);
   assert.deepEqual(interactiveInitialViewBox(bounds, 1600, 712, false), bounds);
-});
-
-test("dense diagrams start cropped even in a wide browser", () => {
-  assert.equal(needsReadableInitialCrop(bounds, 800, false), true);
-  assert.equal(needsReadableInitialCrop(bounds, 1200, false), false);
-  assert.equal(needsReadableInitialCrop(bounds, 1600, true), true);
 });
 
 test("chart view can center the compact crop", () => {

@@ -13,17 +13,17 @@ import { validateDiagram } from "../src/model/validate.js";
 import { renderSvg } from "../src/render/svg.js";
 
 test("light palette maps semantic roles to Calm Slate colors", () => {
-  assert.equal(CALM_SLATE_LIGHT["--fdai-diagram-canvas"], "#fbfaf9");
-  assert.equal(CALM_SLATE_LIGHT["--fdai-diagram-edge-request"], "#44688e");
-  assert.equal(CALM_SLATE_LIGHT["--fdai-diagram-edge-audit"], "#5e8259");
-  assert.equal(CALM_SLATE_LIGHT["--fdai-diagram-edge-mutation"], "#bc7449");
-  assert.equal(CALM_SLATE_LIGHT["--fdai-diagram-edge-rollback"], "#ac5a5a");
+  assert.equal(CALM_SLATE_LIGHT["--fdai-diagram-canvas"], "#f6f7f6");
+  assert.equal(CALM_SLATE_LIGHT["--fdai-diagram-edge-request"], "#315f82");
+  assert.equal(CALM_SLATE_LIGHT["--fdai-diagram-edge-audit"], "#617950");
+  assert.equal(CALM_SLATE_LIGHT["--fdai-diagram-edge-mutation"], "#a86a45");
+  assert.equal(CALM_SLATE_LIGHT["--fdai-diagram-edge-rollback"], "#9d555b");
 });
 
 test("dark palette stays warm and avoids a black canvas", () => {
-  assert.equal(CALM_SLATE_DARK["--fdai-diagram-canvas"], "#171a1d");
+  assert.equal(CALM_SLATE_DARK["--fdai-diagram-canvas"], "#181b1d");
   assert.notEqual(CALM_SLATE_DARK["--fdai-diagram-canvas"], "#000000");
-  assert.equal(CALM_SLATE_DARK["--fdai-diagram-chart-2"], "#71a097");
+  assert.equal(CALM_SLATE_DARK["--fdai-diagram-chart-2"], "#70a19a");
 });
 
 test("standalone and embedded theme scopes remain separate", () => {
@@ -61,6 +61,6 @@ test("render fallbacks use the Calm Slate semantic palette", async () => {
   });
   const svg = await renderSvg(spec, await layoutDiagram(spec), "en");
 
-  assert.match(svg, /var\(--fdai-diagram-edge-request, #44688e\)/);
-  assert.match(svg, /var\(--fdai-diagram-tone-input-fill, #f2f5f8\)/);
+  assert.match(svg, /var\(--fdai-diagram-edge-request, #315f82\)/);
+  assert.match(svg, /var\(--fdai-diagram-tone-input-fill, #edf2f5\)/);
 });

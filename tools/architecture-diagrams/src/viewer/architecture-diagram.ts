@@ -14,7 +14,6 @@ import {
   centerViewBox,
   contentViewBox,
   interactiveInitialViewBox,
-  needsReadableInitialCrop,
   panViewBox,
   zoomPercentage,
   zoomViewBox,
@@ -255,16 +254,11 @@ class ArchitectureDiagramElement extends HTMLElement {
     const contentBounds = contentViewBox(parseViewBox(svg));
     const compact = window.matchMedia("(max-width: 44rem)").matches;
     const viewportWidth = Math.max(320, this.getBoundingClientRect().width);
-    const readableCrop = needsReadableInitialCrop(
-      contentBounds,
-      viewportWidth,
-      compact,
-    );
     const compactViewBox = interactiveInitialViewBox(
       contentBounds,
       viewportWidth,
       Math.min(480, window.innerHeight * 0.72),
-      readableCrop,
+      compact,
     );
     const centerOnCompact = [
       "pie",
@@ -274,7 +268,7 @@ class ArchitectureDiagramElement extends HTMLElement {
       "venn",
       "wardley",
     ].includes(manifest.kind);
-    const initialViewBox = readableCrop && centerOnCompact
+    const initialViewBox = compact && centerOnCompact
       ? centerViewBox(compactViewBox, contentBounds)
       : compactViewBox;
     let viewBox = { ...initialViewBox };
@@ -336,7 +330,7 @@ class ArchitectureDiagramElement extends HTMLElement {
     const stage = document.createElement("div");
     stage.className = "stage";
     if (!compact) {
-      stage.style.aspectRatio = `${initialViewBox.width} / ${initialViewBox.height}`;
+      stage.style.aspectRatio = `${contentBounds.width} / ${contentBounds.height}`;
     }
     stage.tabIndex = 0;
     stage.setAttribute("role", "region");

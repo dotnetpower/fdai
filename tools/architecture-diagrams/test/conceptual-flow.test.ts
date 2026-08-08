@@ -77,6 +77,11 @@ test("renders conceptual shapes, content, tones, and feedback semantics", async 
 
 test("compiles the canonical conceptual control loop in both locales", async () => {
   const spec = parseDiagram(await readFile(canonicalUrl, "utf8"));
+  const layout = await layoutDiagram(spec);
+  const governedFlowHeights = spec.nodes
+    .filter((node) => node.parent === "governed-flow")
+    .map((node) => layout.nodes.get(node.id)?.height);
+  assert.equal(new Set(governedFlowHeights).size, 1);
   const artifacts = await compileDiagram(spec);
   const paths = artifacts.map((artifact) => artifact.path);
 

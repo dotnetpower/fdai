@@ -58,15 +58,7 @@ export function interactiveInitialViewBox(
 ): ViewBox {
   if (!compact) return { ...bounds };
   const fitted = fitViewBox(bounds, viewportWidth, viewportHeight);
-  return zoomViewBox(fitted, bounds, 0.5, 0, 0);
-}
-
-export function needsReadableInitialCrop(
-  bounds: ViewBox,
-  viewportWidth: number,
-  compact: boolean,
-): boolean {
-  return compact || bounds.width > viewportWidth * 1.6;
+  return zoomViewBox(fitted, bounds, 0.82, 0, 0);
 }
 
 export function centerViewBox(view: ViewBox, bounds: ViewBox): ViewBox {

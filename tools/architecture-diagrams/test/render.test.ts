@@ -71,7 +71,7 @@ test("lays out nested groups and renders accessible SVG", async () => {
   assert.match(svg, /var\(--fdai-diagram-azure, #0078d4\)/);
   assert.match(svg, /var\(--fdai-diagram-text, #323130\)/);
   assert.match(svg, /@media \(prefers-color-scheme: dark\)/);
-  assert.match(svg, /var\(--fdai-diagram-edge-event, #4f847e\)/);
+  assert.match(svg, /var\(--fdai-diagram-edge-event, #3f7773\)/);
   assert.match(svg, /\.diagram-node > rect/);
   assert.doesNotMatch(svg, /\.diagram-node rect \{/);
   assert.match(svg, /<title id="diagram-title">Render sample<\/title>/);
@@ -94,7 +94,7 @@ test("lays out nested groups and renders accessible SVG", async () => {
   );
   assert.ok(processorIcon);
   const processorSvg = Buffer.from(processorIcon[1]!, "base64").toString("utf8");
-  assert.match(processorSvg, /stroke="#44688e"/);
+  assert.match(processorSvg, /stroke="#315f82"/);
   assert.match(processorSvg, /<path [^>]*\/>/);
   assert.doesNotMatch(processorSvg, /\bkey=/);
   for (const id of ["source", "sink"]) {

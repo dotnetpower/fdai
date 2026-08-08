@@ -47,6 +47,13 @@ import {
   NODE_BODY_LINE_HEIGHT,
   NODE_FONT_SIZE,
   NODE_LINE_HEIGHT,
+  REFERENCE_EDGE_FONT_SIZE,
+  REFERENCE_EDGE_LINE_HEIGHT,
+  REFERENCE_GROUP_FONT_SIZE,
+  REFERENCE_NODE_BODY_FONT_SIZE,
+  REFERENCE_NODE_BODY_LINE_HEIGHT,
+  REFERENCE_NODE_FONT_SIZE,
+  REFERENCE_NODE_LINE_HEIGHT,
   edgeLabelGeometry,
   estimatedTextWidth,
   nodeBodyLines,
@@ -192,7 +199,7 @@ function lucideIconDataUri(icon: string): string | undefined {
       return `<${tag}${serialized}/>`;
     })
     .join("");
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#44688e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#315f82" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }
 
@@ -256,8 +263,15 @@ async function renderNode(
   locale: Locale,
   offsetX = 0,
   offsetY = 0,
+  compact = false,
 ): Promise<string> {
-  const geometry = nodeGeometry(node);
+  const geometry = nodeGeometry(node, compact);
+  const nodeFontSize = compact ? REFERENCE_NODE_FONT_SIZE : NODE_FONT_SIZE;
+  const nodeLineHeight = compact ? REFERENCE_NODE_LINE_HEIGHT : NODE_LINE_HEIGHT;
+  const bodyFontSize = compact ? REFERENCE_NODE_BODY_FONT_SIZE : NODE_BODY_FONT_SIZE;
+  const bodyLineHeight = compact
+    ? REFERENCE_NODE_BODY_LINE_HEIGHT
+    : NODE_BODY_LINE_HEIGHT;
   const icon = node.kind === "agent"
     ? await pantheonAgentIconDataUri(node)
     : node.icon === "agent-pantheon"
@@ -271,23 +285,23 @@ async function renderNode(
   const labelLines = wrapText(
     node.label[locale],
     barShape || centeredChartNode
-      ? Math.max(4, (shape.width - 16) / NODE_FONT_SIZE)
+      ? Math.max(4, (shape.width - 16) / nodeFontSize)
       : geometry.maxLabelUnits,
   );
   const labelStart = externalBarLabel
-    ? shape.labelY! + NODE_FONT_SIZE * 0.35
+    ? shape.labelY! + nodeFontSize * 0.35
     : barShape || centeredChartNode
     ? shape.y + shape.height / 2 -
-      ((labelLines.length - 1) * NODE_LINE_HEIGHT) / 2 + NODE_FONT_SIZE * 0.35
-    : shape.y + geometry.labelTop + NODE_FONT_SIZE;
+      ((labelLines.length - 1) * nodeLineHeight) / 2 + nodeFontSize * 0.35
+    : shape.y + geometry.labelTop + nodeFontSize;
   const bodyLines = nodeBodyLines(node, locale, geometry.maxBodyUnits);
   const bodyMarkup = bodyLines.length
     ? textLines(
         bodyLines,
         shape.x + 14,
-        shape.y + geometry.bodyTop + NODE_BODY_FONT_SIZE,
+        shape.y + geometry.bodyTop + bodyFontSize,
         "node-body",
-        NODE_BODY_LINE_HEIGHT,
+        bodyLineHeight,
         "start",
       )
     : "";
@@ -309,7 +323,7 @@ async function renderNode(
   const leaderMarkup = shape.leader
     ? `<path class="chart-leader" d="${shape.leader}" aria-hidden="true"/>`
     : "";
-  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" data-presentation="${presentation}" data-shape="${nodeShape}" data-tone="${node.tone ?? "neutral"}"${shape.paletteIndex !== undefined ? ` data-palette-index="${shape.paletteIndex % 8}"` : ""}${node.status ? ` data-status="${node.status}"` : ""} transform="translate(${offsetX} ${offsetY})" role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}">${leaderMarkup}${surface}${progressMarkup}${iconMarkup}${textLines(labelLines, x, labelStart, "node-label", NODE_LINE_HEIGHT, externalBarLabel ? "start" : "middle")}${bodyMarkup}${badgeMarkup}</g>`;
+  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" data-presentation="${presentation}" data-shape="${nodeShape}" data-tone="${node.tone ?? "neutral"}"${shape.paletteIndex !== undefined ? ` data-palette-index="${shape.paletteIndex % 8}"` : ""}${node.status ? ` data-status="${node.status}"` : ""} transform="translate(${offsetX} ${offsetY})" role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}">${leaderMarkup}${surface}${progressMarkup}${iconMarkup}${textLines(labelLines, x, labelStart, "node-label", nodeLineHeight, externalBarLabel ? "start" : "middle")}${bodyMarkup}${badgeMarkup}</g>`;
 }
 
 function milestoneShapeMarkup(shape: PositionedShape): string {
@@ -458,9 +472,12 @@ function renderEdge(
   layoutLabel?: ElkLabel,
 ): string {
   const style = edgeStyles[edge.kind];
+  const compact = profile === "azure-reference";
+  const edgeFontSize = compact ? REFERENCE_EDGE_FONT_SIZE : EDGE_FONT_SIZE;
+  const edgeLineHeight = compact ? REFERENCE_EDGE_LINE_HEIGHT : EDGE_LINE_HEIGHT;
   const strokeWidth = Math.min(14, style.width * (edge.weight ?? 1));
   const label = edge.label?.[locale];
-  const labelGeometry = edgeLabelGeometry(edge);
+  const labelGeometry = edgeLabelGeometry(edge, compact);
   const fallbackPosition = edgeLabelPosition(section);
   const labelX = layoutLabel?.x !== undefined && labelGeometry
     ? layoutLabel.x + labelGeometry.width / 2
@@ -472,10 +489,10 @@ function renderEdge(
     ? wrapText(label, labelGeometry.maxLabelUnits)
     : [];
   const labelStart = labelGeometry
-    ? -((labelLines.length - 1) * EDGE_LINE_HEIGHT) / 2 + EDGE_FONT_SIZE * 0.35
+    ? -((labelLines.length - 1) * edgeLineHeight) / 2 + edgeFontSize * 0.35
     : 0;
   const labelMarkup = label && labelGeometry
-    ? `<g class="edge-label" transform="translate(${labelX + offsetX} ${labelY + offsetY})"><rect x="${-labelGeometry.width / 2}" y="${-labelGeometry.height / 2}" width="${labelGeometry.width}" height="${labelGeometry.height}" rx="4"/>${textLines(labelLines, 0, labelStart, "edge-label-text", EDGE_LINE_HEIGHT)}</g>`
+    ? `<g class="edge-label" transform="translate(${labelX + offsetX} ${labelY + offsetY})"><rect x="${-labelGeometry.width / 2}" y="${-labelGeometry.height / 2}" width="${labelGeometry.width}" height="${labelGeometry.height}" rx="4"/>${textLines(labelLines, 0, labelStart, "edge-label-text", edgeLineHeight)}</g>`
     : "";
   const stepPosition = edgeStepPosition(section, labelX, labelY, labelGeometry);
   const stepMarkup = edge.step
@@ -597,13 +614,15 @@ export async function renderSvg(
     .map((shape) => {
       const group = groupById.get(shape.id);
       if (!group) return "";
+      const compact = spec.canvas.profile === "azure-reference";
+      const groupFontSize = compact ? REFERENCE_GROUP_FONT_SIZE : GROUP_FONT_SIZE;
       const groupLines = wrapText(
         group.label[locale],
-        (shape.width - 36) / GROUP_FONT_SIZE,
+        (shape.width - 36) / groupFontSize,
       );
       const presentation = group.presentation ?? "default";
       const radius = spec.canvas.profile === "azure-reference" ? 2 : 8;
-      return `<g class="diagram-group group-${group.kind}" data-group-id="${group.id}" data-presentation="${presentation}" role="group" aria-label="${escapeXml(group.label[locale])}"><rect class="group-surface" x="${shape.x + offsetX}" y="${shape.y + offsetY}" width="${shape.width}" height="${shape.height}" rx="${radius}"/><rect class="group-header" x="${shape.x + offsetX + 1}" y="${shape.y + offsetY + 1}" width="${Math.max(0, shape.width - 2)}" height="38" rx="${radius}"/>${textLines(groupLines, shape.x + offsetX + 18, shape.y + offsetY + 27, "group-label", 16, "start")}</g>`;
+      return `<g class="diagram-group group-${group.kind}" data-group-id="${group.id}" data-presentation="${presentation}" role="group" aria-label="${escapeXml(group.label[locale])}"><rect class="group-surface" x="${shape.x + offsetX}" y="${shape.y + offsetY}" width="${shape.width}" height="${shape.height}" rx="${radius}"/><rect class="group-header" x="${shape.x + offsetX + 1}" y="${shape.y + offsetY + 1}" width="${Math.max(0, shape.width - 2)}" height="38" rx="${radius}"/>${textLines(groupLines, shape.x + offsetX + 18, shape.y + offsetY + 27, "group-label", compact ? 16 : 21, "start")}</g>`;
     })
     .join("");
   const edges = layout.edges
@@ -632,7 +651,14 @@ export async function renderSvg(
       [...layout.nodes.values()].map(async (shape) => {
         const node = nodeById.get(shape.id);
         if (!node) return "";
-        return renderNode(node, shape, locale, offsetX, offsetY);
+        return renderNode(
+          node,
+          shape,
+          locale,
+          offsetX,
+          offsetY,
+          spec.canvas.profile === "azure-reference",
+        );
       }),
     )
   ).join("");
@@ -752,10 +778,11 @@ export async function renderSvg(
     svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"]:hover > rect,
     svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"]:focus > rect,
     svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"].is-active > rect { fill: #ffffff; stroke: var(--fdai-diagram-azure, #0078d4); stroke-width: 1.5; }
-    svg[data-profile="azure-reference"] .group-label { fill: #3b3a39; font-weight: 650; }
+    svg[data-profile="azure-reference"] .group-label { fill: #3b3a39; font-size: ${REFERENCE_GROUP_FONT_SIZE}px; font-weight: 650; }
     svg[data-profile="azure-reference"] .node-label { font-size: 13px; font-weight: 650; fill: #323130; }
+    svg[data-profile="azure-reference"] .node-body { font-size: ${REFERENCE_NODE_BODY_FONT_SIZE}px; }
     svg[data-profile="azure-reference"] .edge-label-text,
-    svg[data-profile="azure-reference"] .legend-item text { fill: #484644; font-weight: 650; }
+    svg[data-profile="azure-reference"] .legend-item text { fill: #484644; font-size: ${REFERENCE_EDGE_FONT_SIZE}px; font-weight: 650; }
     ${standaloneThemeCss()}
     ${calmSlateFoundationCss()}
   </style>

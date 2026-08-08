@@ -5,18 +5,25 @@ import type {
   LocalizedText,
 } from "./types.js";
 
-export const GROUP_FONT_SIZE = 16;
-export const NODE_FONT_SIZE = 15;
-export const NODE_LINE_HEIGHT = 20;
-export const NODE_BODY_FONT_SIZE = 13;
-export const NODE_BODY_LINE_HEIGHT = 18;
+export const GROUP_FONT_SIZE = 17;
+export const NODE_FONT_SIZE = 17;
+export const NODE_LINE_HEIGHT = 22;
+export const NODE_BODY_FONT_SIZE = 14;
+export const NODE_BODY_LINE_HEIGHT = 20;
 export const NODE_ICON_SIZE = 42;
 export const NODE_ICON_TOP = 12;
 export const NODE_LABEL_GAP = 10;
 export const NODE_BOTTOM_PADDING = 12;
 export const REFERENCE_NODE_ICON_SIZE = 50;
-export const EDGE_FONT_SIZE = 13;
-export const EDGE_LINE_HEIGHT = 18;
+export const EDGE_FONT_SIZE = 14;
+export const EDGE_LINE_HEIGHT = 19;
+export const REFERENCE_GROUP_FONT_SIZE = 14;
+export const REFERENCE_NODE_FONT_SIZE = 13;
+export const REFERENCE_NODE_LINE_HEIGHT = 17;
+export const REFERENCE_NODE_BODY_FONT_SIZE = 11;
+export const REFERENCE_NODE_BODY_LINE_HEIGHT = 15;
+export const REFERENCE_EDGE_FONT_SIZE = 12;
+export const REFERENCE_EDGE_LINE_HEIGHT = 16;
 
 function glyphUnits(character: string): number {
   if (/\s/u.test(character)) return 0.35;
@@ -104,12 +111,18 @@ export interface NodeGeometry {
   maxBodyUnits: number;
 }
 
-export function nodeGeometry(node: DiagramNode): NodeGeometry {
+export function nodeGeometry(node: DiagramNode, compact = false): NodeGeometry {
+  const nodeFontSize = compact ? REFERENCE_NODE_FONT_SIZE : NODE_FONT_SIZE;
+  const nodeLineHeight = compact ? REFERENCE_NODE_LINE_HEIGHT : NODE_LINE_HEIGHT;
+  const bodyFontSize = compact ? REFERENCE_NODE_BODY_FONT_SIZE : NODE_BODY_FONT_SIZE;
+  const bodyLineHeight = compact
+    ? REFERENCE_NODE_BODY_LINE_HEIGHT
+    : NODE_BODY_LINE_HEIGHT;
   const iconPresentation = node.presentation === "icon";
   const databaseShape = node.shape === "database";
   const width = node.width ?? (iconPresentation ? 116 : node.content?.length ? 220 : 148);
-  const maxLabelUnits = (width - (iconPresentation ? 12 : 20)) / NODE_FONT_SIZE;
-  const maxBodyUnits = (width - 24) / NODE_BODY_FONT_SIZE;
+  const maxLabelUnits = (width - (iconPresentation ? 12 : 20)) / nodeFontSize;
+  const maxBodyUnits = (width - 24) / bodyFontSize;
   const lineCount = maxLocaleLineCount(node.label, maxLabelUnits);
   const bodyLineCount = Math.max(
     ...(["en", "ko"] satisfies Locale[]).map(
@@ -117,8 +130,8 @@ export function nodeGeometry(node: DiagramNode): NodeGeometry {
     ),
   );
   const hasIcon = Boolean(node.icon) || node.kind === "agent";
-  const textHeight = lineCount * NODE_LINE_HEIGHT;
-  const bodyHeight = bodyLineCount * NODE_BODY_LINE_HEIGHT;
+  const textHeight = lineCount * nodeLineHeight;
+  const bodyHeight = bodyLineCount * bodyLineHeight;
   const iconSize = iconPresentation ? REFERENCE_NODE_ICON_SIZE : NODE_ICON_SIZE;
   const iconTop = iconPresentation ? 8 : NODE_ICON_TOP;
   const labelGap = iconPresentation ? 6 : NODE_LABEL_GAP;
@@ -157,8 +170,11 @@ export interface EdgeLabelGeometry {
 
 export function edgeLabelGeometry(
   edge: DiagramEdge,
+  compact = false,
 ): EdgeLabelGeometry | undefined {
   if (!edge.label) return undefined;
+  const fontSize = compact ? REFERENCE_EDGE_FONT_SIZE : EDGE_FONT_SIZE;
+  const lineHeight = compact ? REFERENCE_EDGE_LINE_HEIGHT : EDGE_LINE_HEIGHT;
   const maxLabelUnits = 14;
   const localeLines = (["en", "ko"] satisfies Locale[]).map((locale) =>
     wrapText(edge.label![locale], maxLabelUnits),
@@ -166,12 +182,12 @@ export function edgeLabelGeometry(
   const lines = localeLines.flat();
   const width = Math.max(
     64,
-    ...lines.map((line) => estimatedTextWidth(line, EDGE_FONT_SIZE) + 18),
+    ...lines.map((line) => estimatedTextWidth(line, fontSize) + 18),
   );
   const lineCount = Math.max(...localeLines.map((value) => value.length));
   return {
     width,
-    height: lineCount * EDGE_LINE_HEIGHT + 8,
+    height: lineCount * lineHeight + 8,
     maxLabelUnits,
     lineCount,
   };
