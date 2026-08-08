@@ -160,6 +160,19 @@
   .domain ul { margin: 18px 0 0; padding: 0; list-style: none; }
   .domain li { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 
+  .aiops-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
+  .aiops-capability { grid-column: span 2; min-width: 0; min-height: 174px; padding: 17px 20px; border-top: 6px solid var(--azure); background: var(--soft-blue); }
+  .aiops-capability:nth-child(4), .aiops-capability:nth-child(5) { grid-column: span 3; }
+  .aiops-capability:nth-child(2) { border-color: var(--teal); background: var(--soft-teal); }
+  .aiops-capability:nth-child(3) { border-color: #765995; background: var(--soft-plum); }
+  .aiops-capability:nth-child(4) { border-color: var(--amber); background: var(--soft-amber); }
+  .aiops-capability:nth-child(5) { border-color: var(--green); background: #edf6f0; }
+  .aiops-capability .capability-no { display: block; margin-bottom: 10px; color: var(--azure); font-size: 15px; font-weight: 800; }
+  .aiops-capability h2 { margin-bottom: 7px; color: var(--navy); font-size: 20px; line-height: 1.3; }
+  .aiops-capability p { margin-bottom: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+  .aiops-capability strong { display: block; margin-top: 9px; padding-top: 8px; border-top: 1px solid rgba(36,63,99,.16); color: var(--navy); font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
+  .source-note { margin-top: 14px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+
   .diagram-frame { height: 500px; margin-top: 20px; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--line); background: #f8fafb; }
   .diagram-frame img { display: block; width: 100%; height: 498px; object-fit: contain; }
 
@@ -410,7 +423,7 @@
         <div class="problem-grid">
           <section class="problem"><span class="problem-no">01</span><h2>신호가 흩어져 있습니다</h2><p>리소스 상태, 변경 기록, 비용과 운영 목표를 여러 도구에서 따로 확인해야 합니다.</p></section>
           <section class="problem"><span class="problem-no">02</span><h2>기준이 분산되어 있습니다</h2><p>운영 기준은 정책, 매뉴얼, 담당자의 경험과 이전 사례에 나뉘어 있습니다.</p></section>
-          <section class="problem"><span class="problem-no">03</span><h2>책임 연결에 시간이 듭니다</h2><p>상황을 이해하고 적절한 담당자와 실행 범위를 찾는 동안 대응 시간이 길어집니다.</p></section>
+          <section class="problem"><span class="problem-no">03</span><h2>사람만 늘려 대응하기 어렵습니다</h2><p>운영 규모와 속도가 커질수록 수동 분석과 인력 추가만으로 대응을 지속하기 어렵습니다.</p></section>
         </div><div class="statement">FDAI는 신호, 운영 기준, 담당 체계와 실행 결과를 하나의 제어 루프로 연결합니다.</div><span class="slide-number">04</span>
       </article>
 
@@ -428,23 +441,35 @@
         </div><p class="flow-note">현재 구현 대상은 Azure이며, 핵심 판단 계약은 클라우드 공급자와 분리되어 있습니다.</p><span class="slide-number">05</span>
       </article>
 
+      <article class="slide" data-title="AIOps를 평가하는 다섯 가지 관점">
+        <span class="brand-mark">FDAI</span><p class="eyebrow">AIOps Evaluation Framework</p><h1>좋은 AIOps는 데이터에서 시작해<br />확인 가능한 운영 결과로 이어집니다</h1>
+        <div class="aiops-grid">
+          <section class="aiops-capability"><span class="capability-no">01</span><h2>포괄적인<br />운영 신호</h2><p>리소스, 서비스, 변경, 비용과 사용자 영향 정보를 같은 시간선에서 연결합니다.</p><strong>FDAI: typed event와 운영 온톨로지</strong></section>
+          <section class="aiops-capability"><span class="capability-no">02</span><h2>설명 가능한<br />판단</h2><p>어떤 규칙과 근거를 사용했는지 보여 주고, 새로운 판단은 검증을 거칩니다.</p><strong>FDAI: T0/T1/T2와 quality gate</strong></section>
+          <section class="aiops-capability"><span class="capability-no">03</span><h2>독립적으로 발전하는<br />구조</h2><p>관찰, 판단, 실행과 감사를 분리하여 각 기능을 독립적으로 개선할 수 있습니다.</p><strong>FDAI: 15개 역할과 이벤트 기반 협업</strong></section>
+          <section class="aiops-capability"><span class="capability-no">04</span><h2>선제적<br />폐루프 운영</h2><p>이상을 찾는 데서 끝나지 않고 대응, 실행, 효과 확인과 학습까지 연결합니다.</p><strong>FDAI: observe-to-learn control loop</strong></section>
+          <section class="aiops-capability"><span class="capability-no">05</span><h2>쉽게 확인하는<br />운영 가치</h2><p>운영자는 자연어와 콘솔을 통해 상태, 이유, 다음 단계와 측정 결과를 확인합니다.</p><strong>FDAI: Bragi, Console과 Outcome Assurance</strong></section>
+        </div>
+        <p class="source-note">참고 관점: Juniper Networks, "AIOps에 대해 알아야 할 5가지" (2022). FDAI의 운영 범위와 책임 모델에 맞게 재구성했습니다.</p><span class="slide-number">06</span>
+      </article>
+
       <article class="slide" data-title="주요 운영 영역">
         <span class="brand-mark">FDAI</span><p class="eyebrow">Operating Domains</p><h1>하나의 운영 모델로<br />세 가지 영역을 함께 관리합니다</h1>
         <div class="domain-grid">
           <section class="domain"><div class="domain-band"></div><p class="label">Resilience</p><h2>복원력</h2><p>장애 대응, 재해 복구와 복구 훈련을 실제 결과 검증까지 연결합니다.</p><ul><li>장애 대응과 복구</li><li>RTO/RPO 검증</li><li>카오스 실험</li></ul></section>
           <section class="domain"><div class="domain-band"></div><p class="label">Change Safety</p><h2>변경 안전성</h2><p>설계 기준, 정책과 변경 결과를 연결하여 더 일관된 변경 판단을 지원합니다.</p><ul><li>아키텍처 검토</li><li>정책 및 드리프트</li><li>변경 후 효과 확인</li></ul></section>
           <section class="domain"><div class="domain-band"></div><p class="label">Cost Governance</p><h2>비용 거버넌스</h2><p>서비스 목표를 유지하면서 비용 이상과 용량 최적화 기회를 관리합니다.</p><ul><li>비용 이상과 예산</li><li>용량 및 수요 예측</li><li>실현 절감 확인</li></ul></section>
-        </div><div class="statement">SRE와 SLO는 세 운영 영역에 공통으로 적용되는 운영 모델입니다.</div><span class="slide-number">06</span>
+        </div><div class="statement">SRE와 SLO는 세 운영 영역에 공통으로 적용되는 운영 모델입니다.</div><span class="slide-number">07</span>
       </article>
 
       <article class="slide" data-title="FDAI 아키텍처">
         <span class="brand-mark">FDAI</span><p class="eyebrow">Reference Architecture</p><h1>신호, 판단, 실행과 사람의 결정을 연결합니다</h1>
-        <div class="diagram-frame"><img src="../../docs/diagrams/generated/fdai-reference-architecture.ko.svg" alt="FDAI 참조 아키텍처" /></div><span class="slide-number">07</span>
+        <div class="diagram-frame"><img src="../../docs/diagrams/generated/fdai-reference-architecture.ko.svg" alt="FDAI 참조 아키텍처" /></div><span class="slide-number">08</span>
       </article>
 
       <article class="slide" data-title="하나의 이벤트 처리 흐름">
         <span class="brand-mark">FDAI</span><p class="eyebrow">Control Loop</p><h1>모든 운영 이벤트는 같은 제어 흐름을 따릅니다</h1>
-        <div class="diagram-frame"><img src="../../docs/diagrams/generated/fdai-conceptual-control-loop.ko.svg" alt="FDAI 개념 제어 루프" /></div><span class="slide-number">08</span>
+        <div class="diagram-frame"><img src="../../docs/diagrams/generated/fdai-conceptual-control-loop.ko.svg" alt="FDAI 개념 제어 루프" /></div><span class="slide-number">09</span>
       </article>
 
       <article class="slide" data-title="결정론 우선 처리">
@@ -456,7 +481,7 @@
             <section class="tier"><span class="tier-code">T2</span><div class="tier-copy"><strong>근거 기반 추론</strong><span>새로운 상황에서 여러 근거와 검증 결과를 종합합니다.</span></div><span class="tier-share">목표 5-10%</span></section>
           </div>
           <aside class="principle-panel"><strong>결정론 우선</strong><p>규칙으로 해결할 수 있는 업무를 매번 새롭게 해석하지 않습니다.</p><p>새로운 판단은 검증을 거쳐 재사용 가능한 운영 지식으로 발전합니다.</p><small>표시된 비율은 측정된 성과가 아니라 검증할 목표 범위입니다.</small></aside>
-        </div><span class="slide-number">09</span>
+        </div><span class="slide-number">10</span>
       </article>
 
       <article class="slide" data-title="판단 방식과 책임 범위">
@@ -464,7 +489,7 @@
         <div class="axis-layout">
           <section class="axis"><p class="label">판단 방식</p><h2>T0 / T1 / T2</h2><p>어떤 방법과 근거를 사용해 대응 후보를 만들었는지 설명합니다.</p><div class="axis-row"><span class="axis-chip">규칙</span><span class="axis-chip">사례</span><span class="axis-chip">추론</span></div><div class="axis-result">결과: 판단의 출처와 검증 수준</div></section>
           <section class="axis"><p class="label">책임 범위</p><h2>A0 - A4</h2><p>현재 정책과 담당 체계에서 어떤 수준의 작업을 수행할 수 있는지 설명합니다.</p><div class="axis-row"><span class="axis-chip">관찰</span><span class="axis-chip">자동 수행</span><span class="axis-chip">사람 승인</span></div><div class="axis-result">결과: 적용 가능한 작업 범위</div></section>
-        </div><div class="statement">T0 판단도 중요도에 따라 사람 승인이 필요할 수 있고, T2 제안도 공통 검토를 통과해야 다음 단계로 이동합니다.</div><span class="slide-number">10</span>
+        </div><div class="statement">T0 판단도 중요도에 따라 사람 승인이 필요할 수 있고, T2 제안도 공통 검토를 통과해야 다음 단계로 이동합니다.</div><span class="slide-number">11</span>
       </article>
 
       <article class="slide" data-title="작업별 책임 수준">
@@ -476,7 +501,7 @@
           <section class="authority"><strong>A3-H</strong><b>사람과 함께 결정</b><span>중요한 작업은 실행할 때마다 독립적인 승인을 받습니다.</span></section>
           <section class="authority"><strong>A3-E</strong><b>사전에 합의한 긴급 대응</b><span>정해진 시간과 범위 안에서 사용하는 비상 대응 목표입니다.</span></section>
           <section class="authority"><strong>A4</strong><b>운영 범위 밖의 작업</b><span>정책이나 책임 범위에 포함되지 않아 적용하지 않습니다.</span></section>
-        </div><p class="status-note">A3-E는 목표 설계이며 현재 실행 가능한 운영 경로는 계획 단계입니다.</p><span class="slide-number">11</span>
+        </div><p class="status-note">A3-E는 목표 설계이며 현재 실행 가능한 운영 경로는 계획 단계입니다.</p><span class="slide-number">12</span>
       </article>
 
       <article class="slide" data-title="RAG와 운영 온톨로지">
@@ -485,7 +510,7 @@
           <section class="knowledge-panel"><p class="label">RAG</p><h2>판단 근거를 찾습니다</h2><p>규칙, 정책, 매뉴얼과 이전 사례에서 현재 상황을 설명하는 근거를 검색하고 인용합니다.</p><ul class="knowledge-list"><li>근거 문서 검색</li><li>인용과 주장 연결 확인</li><li>새로운 상황의 설명 지원</li></ul></section>
           <div class="knowledge-link" aria-hidden="true">+</div>
           <section class="knowledge-panel"><p class="label">Operating Ontology</p><h2>운영 의미를 연결합니다</h2><p>서비스, 리소스, 의존 관계, 목표, 관찰 결과와 작업의 의미를 공통 언어로 표현합니다.</p><ul class="knowledge-list"><li>대상과 관계 식별</li><li>시간과 근거의 출처 보존</li><li>판단 과정 재구성</li></ul></section>
-        </div><div class="knowledge-caption">RAG와 온톨로지는 판단을 지원합니다. 실행 책임은 정책, 승인과 전용 실행 체계가 결정합니다.</div><span class="slide-number">12</span>
+        </div><div class="knowledge-caption">RAG와 온톨로지는 판단을 지원합니다. 실행 책임은 정책, 승인과 전용 실행 체계가 결정합니다.</div><span class="slide-number">13</span>
       </article>
 
       <article class="slide" data-title="운영 문서를 지식으로 전환">
@@ -496,12 +521,12 @@
           <section class="distill-box"><p class="label">Distillation</p><h2>내용의 성격에 따라 분류합니다</h2><div class="artifact-grid"><span class="artifact">규칙</span><span class="artifact">정책</span><span class="artifact">워크플로</span><span class="artifact">ActionType</span></div></section>
           <div class="distill-arrow" aria-hidden="true">&gt;</div>
           <section class="distill-box result"><p class="label">Runtime</p><h2>결정론적으로 재사용</h2><p>버전과 출처가 관리되는 T0/T1 지식으로 운영에 적용합니다.</p></section>
-        </div><div class="statement">RAG는 사라지지 않습니다. 원문 설명과 새로운 사례의 근거 확인에 집중합니다.</div><span class="slide-number">13</span>
+        </div><div class="statement">RAG는 사라지지 않습니다. 원문 설명과 새로운 사례의 근거 확인에 집중합니다.</div><span class="slide-number">14</span>
       </article>
 
       <article class="slide chapter dark" data-title="15개 에이전트" data-dark="true">
         <div class="chapter-panel"><p class="eyebrow">Part 2 | Agent Organization</p><span class="chapter-index">02</span><h1>15개 에이전트</h1><p class="lead">각 에이전트는 하나의 책임과 정해진 쓰기 권한을 가집니다.</p></div>
-        <div class="chapter-art" aria-hidden="true"><span class="chapter-node one"></span><span class="chapter-node two"></span><span class="chapter-node three"></span></div><span class="slide-number">14</span>
+        <div class="chapter-art" aria-hidden="true"><span class="chapter-node one"></span><span class="chapter-node two"></span><span class="chapter-node three"></span></div><span class="slide-number">15</span>
       </article>
 
       <article class="slide" data-title="15개 에이전트 조직">
@@ -514,7 +539,7 @@
             <div class="org-row"><div class="agent ops"><strong>Vidar</strong><span>복구</span></div><div class="agent ops"><strong>Var</strong><span>사람 승인</span></div><div class="agent ops"><strong>Bragi</strong><span>설명</span></div><div class="agent"><strong>Huginn</strong><span>수집</span></div><div class="agent"><strong>Heimdall</strong><span>관찰</span></div></div>
             <div class="org-row"><div class="agent domain"><strong>Njord</strong><span>비용</span></div><div class="agent domain"><strong>Freyr</strong><span>용량</span></div><div class="agent domain"><strong>Loki</strong><span>실험</span></div></div>
           </div>
-        </div><span class="slide-number">15</span>
+        </div><span class="slide-number">16</span>
       </article>
 
       <article class="slide" data-title="에이전트 역할">
@@ -524,7 +549,7 @@
           <section class="role-column"><h2>실행과 협업</h2><div class="role-item"><strong>Thor</strong><span>승인된 작업 실행</span></div><div class="role-item"><strong>Var</strong><span>사람 승인 연결</span></div><div class="role-item"><strong>Vidar</strong><span>복구와 롤백</span></div><div class="role-item"><strong>Bragi</strong><span>운영자 대화와 설명</span></div></section>
           <section class="role-column"><h2>지식과 거버넌스</h2><div class="role-item"><strong>Saga</strong><span>감사와 이력</span></div><div class="role-item"><strong>Mimir</strong><span>규칙 생애주기</span></div><div class="role-item"><strong>Muninn</strong><span>상태와 운영 맥락</span></div><div class="role-item"><strong>Norns</strong><span>학습 후보 제안</span></div></section>
           <section class="role-column"><h2>전문 운영 영역</h2><div class="role-item"><strong>Njord</strong><span>비용 관찰과 제안</span></div><div class="role-item"><strong>Freyr</strong><span>수요와 용량 예측</span></div><div class="role-item"><strong>Loki</strong><span>복원력 실험 제안</span></div></section>
-        </div><span class="slide-number">16</span>
+        </div><span class="slide-number">17</span>
       </article>
 
       <article class="slide" data-title="에이전트의 협업 방식">
@@ -532,7 +557,7 @@
         <div class="collab-layout">
           <div class="collab-principles"><section class="collab-principle"><strong>직접 제어하지 않습니다</strong><span>에이전트는 서로 직접 호출하지 않고 형식이 정해진 이벤트를 발행하고 구독합니다.</span></section><section class="collab-principle"><strong>결과마다 작성 책임자가 있습니다</strong><span>판단, 승인, 실행과 감사 기록은 각각 정해진 에이전트만 작성합니다.</span></section><section class="collab-principle"><strong>역할을 분리합니다</strong><span>판단한 에이전트가 실행하지 않고, 승인한 사람도 실행 ID를 사용하지 않습니다.</span></section></div>
           <section class="event-lane"><h2>Typed Event Flow</h2><div class="event-sequence"><span class="event-node">관찰</span><span class="event-arrow">&gt;</span><span class="event-node">판단</span><span class="event-arrow">&gt;</span><span class="event-node">승인</span><span class="event-arrow">&gt;</span><span class="event-node">실행</span><span class="event-arrow">&gt;</span><span class="event-node">감사</span></div><p>정보는 필요한 여러 역할에 전달될 수 있지만, 권위 있는 결과를 작성하는 주체는 하나입니다.</p></section>
-        </div><span class="slide-number">17</span>
+        </div><span class="slide-number">18</span>
       </article>
 
       <article class="slide" data-title="실행 전 확인과 실행 후 검증">
@@ -545,7 +570,7 @@
           <section class="safeguard"><span class="safeguard-no">05</span><strong>대상 잠금</strong><span>같은 대상의 작업 순서를 일관되게 유지합니다.</span></section>
           <section class="safeguard"><span class="safeguard-no">06</span><strong>중복 방지</strong><span>재시도해도 같은 변경이 두 번 적용되지 않습니다.</span></section>
           <section class="safeguard"><span class="safeguard-no">07</span><strong>감사 이력</strong><span>실행 전 의도와 실행 후 결과를 연결해 기록합니다.</span></section>
-        </div><div class="verification-bar">API 응답만으로 성공을 판단하지 않습니다. 별도의 관찰을 통해 기대한 효과를 확인합니다.</div><span class="slide-number">18</span>
+        </div><div class="verification-bar">API 응답만으로 성공을 판단하지 않습니다. 별도의 관찰을 통해 기대한 효과를 확인합니다.</div><span class="slide-number">19</span>
       </article>
 
       <article class="slide" data-title="업무 인수인계">
@@ -553,7 +578,7 @@
         <div class="handover-layout">
           <section class="handover-copy"><h2>수행자에서 책임 담당자로</h2><p>기존 담당자는 반복 작업을 직접 수행하는 대신 운영 기준을 관리하고, 중요한 판단을 검토하며, 필요한 경우 에스컬레이션을 받습니다.</p><p><strong>담당 체계</strong>는 누가 책임지고 연락받는지를 정합니다. 실행 권한은 별도의 역할과 정책에서 결정합니다.</p></section>
           <div><div class="handover-chain"><section class="handover-person"><strong>주 담당자</strong><span>가장 먼저 판단 요청을 받습니다.</span></section><span class="handover-arrow">&gt;</span><section class="handover-person"><strong>백업 담당자</strong><span>주 담당자를 대신할 수 있습니다.</span></section><span class="handover-arrow">&gt;</span><section class="handover-person"><strong>에스컬레이션</strong><span>업무 영역의 추가 판단을 담당합니다.</span></section></div><div class="handover-note">모든 에이전트에는 책임 담당자 또는 명시적으로 합의된 자율 운영 범위가 필요합니다. FDAI 자체에도 유지관리자를 지정합니다.</div></div>
-        </div><span class="slide-number">19</span>
+        </div><span class="slide-number">20</span>
       </article>
 
       <article class="slide" data-title="운영 연속성">
@@ -562,7 +587,7 @@
           <section class="continuity-step"><h2>현재 상태 확인</h2><p>어떤 정보와 역할을 사용할 수 있는지 확인하고 영향을 받는 운영 흐름을 구분합니다.</p></section><span class="continuity-arrow">&gt;</span>
           <section class="continuity-step"><h2>책임 범위 조정</h2><p>추가 판단이 필요한 작업은 대기하거나 사람에게 연결합니다. 관찰과 조회는 가능한 범위에서 계속합니다.</p></section><span class="continuity-arrow">&gt;</span>
           <section class="continuity-step"><h2>복구 후 이어서 처리</h2><p>보존된 이벤트와 감사 이력을 사용하여 중복 없이 운영 흐름을 다시 시작합니다.</p></section>
-        </div><div class="statement">감사나 복구 경로를 사용할 수 없으면 새로운 변경은 관찰 모드에 머뭅니다.</div><span class="slide-number">20</span>
+        </div><div class="statement">감사나 복구 경로를 사용할 수 없으면 새로운 변경은 관찰 모드에 머뭅니다.</div><span class="slide-number">21</span>
       </article>
 
       <article class="slide" data-title="운영 시나리오 데모">
@@ -570,7 +595,7 @@
         <div class="demo-layout">
           <div class="video-frame"><div class="play" aria-hidden="true"></div><div class="video-label"><strong>90초 데모 영상</strong><span>잘못된 배포 감지에서 서비스 회복 확인까지</span></div></div>
           <div><div class="demo-steps"><div class="demo-step"><b>01</b><span>배포 이상 신호 수집</span></div><div class="demo-step"><b>02</b><span>관련 서비스와 영향 연결</span></div><div class="demo-step"><b>03</b><span>대응 기준과 책임 범위 확인</span></div><div class="demo-step"><b>04</b><span>승인된 복구 작업 수행</span></div><div class="demo-step"><b>05</b><span>서비스 상태 회복 검증</span></div><div class="demo-step"><b>06</b><span>판단과 결과 이력 재생</span></div></div><p class="demo-evidence">현재 근거: Azure 장애 시나리오 10종의 주입, 탐지와 원복 검증. 자동 판단 범위는 관찰 모드와 실제 적용 결과를 구분해 표시합니다.</p></div>
-        </div><span class="slide-number">21</span>
+        </div><span class="slide-number">22</span>
       </article>
 
       <article class="slide" data-title="기대효과">
@@ -580,33 +605,33 @@
           <section class="outcome-card"><strong>대응 속도</strong><span class="metric">MTTR</span><p>감지부터 검증된 복구까지 걸린 시간을 비교합니다.</p></section>
           <section class="outcome-card"><strong>변경 흐름</strong><span class="metric">Lead time</span><p>변경 요청부터 적용과 결과 확인까지의 시간을 측정합니다.</p></section>
           <section class="outcome-card"><strong>사람의 판단</strong><span class="metric">Touchpoints</span><p>이벤트 100개당 필요한 승인과 수동 판단 횟수를 확인합니다.</p></section>
-        </div><p class="measurement-note">개선 배수는 달성 수치가 아니라 검증할 목표입니다. 동일한 시나리오, 측정 기간과 기준선을 사용한 결과만 성과로 보고합니다.</p><span class="slide-number">22</span>
+        </div><p class="measurement-note">개선 배수는 달성 수치가 아니라 검증할 목표입니다. 동일한 시나리오, 측정 기간과 기준선을 사용한 결과만 성과로 보고합니다.</p><span class="slide-number">23</span>
       </article>
 
       <article class="slide" data-title="도입 절차">
         <span class="brand-mark">FDAI</span><p class="eyebrow">Adoption</p><h1>관찰과 측정에서 시작해<br />검증된 범위부터 적용합니다</h1>
         <div class="adoption">
-          <section class="adoption-step"><span class="adoption-no">01</span><strong>운영 범위 정의</strong><span>대상 서비스와 운영 영역을 선택합니다.</span></section>
+          <section class="adoption-step"><span class="adoption-no">01</span><strong>파일럿 범위 선택</strong><span>까다롭지만 범위와 성과를 측정할 수 있는 운영 업무를 선택합니다.</span></section>
           <section class="adoption-step"><span class="adoption-no">02</span><strong>담당 체계 연결</strong><span>에이전트별 주 담당자와 백업을 지정합니다.</span></section>
           <section class="adoption-step"><span class="adoption-no">03</span><strong>신호와 목표 연결</strong><span>리소스, 서비스 목표와 운영 기준을 연결합니다.</span></section>
           <section class="adoption-step"><span class="adoption-no">04</span><strong>기준선 측정</strong><span>현재 처리 시간, 사람 판단과 결과를 측정합니다.</span></section>
           <section class="adoption-step"><span class="adoption-no">05</span><strong>관찰 모드 운영</strong><span>변경 없이 판단 결과와 적용 후보를 검토합니다.</span></section>
           <section class="adoption-step"><span class="adoption-no">06</span><strong>단계적 확대</strong><span>검증된 일상 작업부터 적용 범위를 넓힙니다.</span></section>
-        </div><span class="slide-number">23</span>
+        </div><span class="slide-number">24</span>
       </article>
 
       <article class="slide dark" data-title="마무리" data-dark="true">
         <div class="closing">
           <div><p class="eyebrow">FDAI | Summary</p><h1>자동화의 범위와<br />사람의 책임을 함께 설계합니다</h1><p class="lead">FDAI는 더 많은 일을 자동화하는 것에 그치지 않고, 판단 근거와 책임을 운영 흐름 안에 남깁니다.</p></div>
           <div class="closing-points"><section class="closing-point"><strong>결정론 우선</strong><span>반복 가능한 업무는 규칙과 검증된 사례로 처리합니다.</span></section><section class="closing-point"><strong>역할과 책임의 분리</strong><span>관찰, 판단, 승인, 실행과 감사를 독립적으로 관리합니다.</span></section><section class="closing-point"><strong>측정하며 확장</strong><span>관찰 모드에서 증명된 범위만 단계적으로 적용합니다.</span></section></div>
-        </div><span class="slide-number">24</span>
+        </div><span class="slide-number">25</span>
       </article>
     </div>
   </section>
 
   <div class="toolbar" aria-label="프레젠테이션 컨트롤">
     <button class="tool-button" id="prev" type="button" aria-label="이전 슬라이드" title="이전 슬라이드">&#8592;</button>
-    <span class="counter" id="counter">1 / 24</span>
+    <span class="counter" id="counter">1 / 25</span>
     <button class="tool-button" id="next" type="button" aria-label="다음 슬라이드" title="다음 슬라이드">&#8594;</button>
     <button class="tool-button" id="overview" type="button" aria-label="전체 슬라이드 보기" title="전체 슬라이드 보기">&#9638;</button>
     <button class="tool-button" id="print" type="button" aria-label="인쇄" title="인쇄">&#9113;</button>
