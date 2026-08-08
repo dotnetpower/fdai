@@ -39,7 +39,9 @@ unchanged; there is no need to import from the submodules directly.
 - :mod:`.incident` - the incident-lifecycle contract
 - :mod:`.action` - autonomous action + blast-radius + rollback-ref
 - :mod:`.rule` - the CSP-neutral rule / catalog entry
-- :mod:`.ontology` - ObjectType / LinkType / ActionType declarations
+- :mod:`.ontology` - ObjectType / LinkType / FunctionType declarations
+- :mod:`.ontology_action` - ActionType authority and rollback declarations
+- :mod:`.ontology_semantic` - bounded ActionType semantic contracts
 - :mod:`.workflow` - the process-automation contract
 """
 
@@ -124,39 +126,27 @@ from .forecast_outcome import (
 from .incident import Incident
 from .knowledge_evidence import KnowledgeEvidenceEvent, KnowledgeEvidenceEventType
 from .ontology import (
-    ActionBlastRadius,
-    ActionEffectSpec,
-    ActionLockScope,
-    ActionParameterDeclaration,
-    ActionParameterRedaction,
-    ActionPostconditionKind,
-    ActionPostconditionSpec,
-    ActionPrecondition,
-    ActionReadSetReference,
-    ActionSemanticContract,
-    ActionSemanticEffectKind,
-    ActionSubmissionCriterion,
-    ActionTargetCardinality,
-    ActionTargetSelector,
-    ActionTransactionMode,
-    ActionTransactionPolicy,
-    CeilingByTier,
     LifecycleCriterion,
     LifecycleDeduplication,
     LifecycleOwner,
     LogicCapability,
     LogicExecutionClass,
     ObjectLifecycle,
-    OntologyActionType,
     OntologyFunctionKind,
     OntologyFunctionType,
     OntologyInterfaceType,
     OntologyLinkType,
     OntologyObjectType,
     OntologyProvenance,
-    ProdDowngrade,
     PromotionGate,
     PropertyDecl,
+)
+from .ontology_action import (
+    ActionBlastRadius,
+    ActionPrecondition,
+    CeilingByTier,
+    OntologyActionType,
+    ProdDowngrade,
     TierCeiling,
     TriggerKindDecl,
 )
@@ -166,6 +156,22 @@ from .ontology_identity import (
     OntologyRelease,
     OntologyReleaseRef,
     OntologyTypeRef,
+)
+from .ontology_semantic import (
+    ActionEffectSpec,
+    ActionLockScope,
+    ActionParameterDeclaration,
+    ActionParameterRedaction,
+    ActionPostconditionKind,
+    ActionPostconditionSpec,
+    ActionReadSetReference,
+    ActionSemanticContract,
+    ActionSemanticEffectKind,
+    ActionSubmissionCriterion,
+    ActionTargetCardinality,
+    ActionTargetSelector,
+    ActionTransactionMode,
+    ActionTransactionPolicy,
 )
 from .response_outcome import (
     ResponseOutcome,

@@ -208,6 +208,8 @@ _ALLOWED_INTRA_MODEL_IMPORTS: dict[str, set[str]] = {
     "incident": {"_base", "enums"},
     "rule": {"_base", "enums"},
     "ontology": {"_base", "enums", "safety"},
+    "ontology_action": {"_base", "enums", "ontology", "ontology_semantic", "safety"},
+    "ontology_semantic": {"_base"},
     "safety": {"_base", "enums"},
     "workflow": {"_base", "enums", "ontology"},  # Workflow -> PromotionGate
 }
