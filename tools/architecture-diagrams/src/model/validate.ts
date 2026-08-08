@@ -38,12 +38,35 @@ function findDuplicate(values: string[]): string | undefined {
   });
 }
 
+function validateGantt(spec: DiagramSpec): void {
+  const nodeIds = new Set(spec.nodes.map((node) => node.id));
+  const temporalTypes = new Set<string>();
+  for (const node of spec.nodes) {
+    if (node.start === undefined && !node.after) {
+      throw new Error(`Gantt task '${node.id}' requires 'start' or 'after'`);
+    }
+    if (node.end === undefined && node.duration === undefined) {
+      throw new Error(`Gantt task '${node.id}' requires 'end' or 'duration'`);
+    }
+    if (node.after && (!nodeIds.has(node.after) || node.after === node.id)) {
+      throw new Error(`Gantt task '${node.id}' has invalid dependency '${node.after}'`);
+    }
+    for (const value of [node.start, node.end]) {
+      if (value !== undefined) temporalTypes.add(typeof value);
+    }
+  }
+  if (temporalTypes.size > 1) {
+    throw new Error("Gantt tasks cannot mix numeric and date axes");
+  }
+}
+
 export function validateDiagram(value: unknown): DiagramSpec {
   if (!validateSchema(value)) {
     throw new Error(`Diagram schema validation failed: ${formatSchemaErrors(validateSchema.errors)}`);
   }
 
   const spec = value as DiagramSpec;
+  if (spec.kind === "gantt") validateGantt(spec);
   const definition = diagramDefinition(spec.kind);
   if (
     definition.requiredEdgeKind &&

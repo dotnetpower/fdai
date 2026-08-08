@@ -13,6 +13,8 @@ test("registers every supported diagram kind", () => {
     "component",
     "deployment",
     "data-flow",
+    "flowchart",
+    "graph",
     "network",
     "conceptual-flow",
     "sequence",
@@ -22,6 +24,7 @@ test("registers every supported diagram kind", () => {
     "domain",
     "entity-relationship",
     "timeline",
+    "gantt",
   ]);
 });
 
@@ -32,6 +35,7 @@ test("assigns specialized layout strategies to non-topology diagrams", () => {
   assert.equal(diagramDefinition("decision-tree").layoutStrategy, "tree");
   assert.equal(diagramDefinition("domain").requiredEdgeKind, "association");
   assert.equal(diagramDefinition("timeline").direction, "RIGHT");
+  assert.equal(diagramDefinition("gantt").layoutStrategy, "gantt");
 });
 
 test("keeps deployment compound-edge handling isolated", () => {

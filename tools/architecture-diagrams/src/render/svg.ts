@@ -253,8 +253,15 @@ async function renderNode(
       ? await pantheonIconDataUri(pantheonIconManifest.collective, node.icon)
       : await iconDataUri(node.icon);
   const x = shape.x + shape.width / 2;
-  const labelLines = wrapText(node.label[locale], geometry.maxLabelUnits);
-  const labelStart = shape.y + geometry.labelTop + NODE_FONT_SIZE;
+  const barShape = node.shape === "bar";
+  const labelLines = wrapText(
+    node.label[locale],
+    barShape ? Math.max(4, (shape.width - 16) / NODE_FONT_SIZE) : geometry.maxLabelUnits,
+  );
+  const labelStart = barShape
+    ? shape.y + shape.height / 2 -
+      ((labelLines.length - 1) * NODE_LINE_HEIGHT) / 2 + NODE_FONT_SIZE * 0.35
+    : shape.y + geometry.labelTop + NODE_FONT_SIZE;
   const bodyLines = nodeBodyLines(node, locale, geometry.maxBodyUnits);
   const bodyMarkup = bodyLines.length
     ? textLines(
@@ -273,10 +280,13 @@ async function renderNode(
   const presentation = node.presentation ?? "card";
   const nodeShape = node.shape ?? "card";
   const surface = nodeShapeMarkup(nodeShape, shape, presentation);
+  const progressMarkup = barShape && node.progress !== undefined
+    ? `<rect class="node-progress" x="${shape.x}" y="${shape.y}" width="${shape.width * node.progress / 100}" height="${shape.height}" rx="4" aria-hidden="true"/>`
+    : "";
   const badgeMarkup = node.badge
     ? `<g class="node-badge" transform="translate(${shape.x + 14} ${shape.y + 14})" aria-hidden="true"><circle r="12"/><text y="4">${node.badge}</text></g>`
     : "";
-  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" data-presentation="${presentation}" data-shape="${nodeShape}" data-tone="${node.tone ?? "neutral"}" role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}">${surface}${iconMarkup}${textLines(labelLines, x, labelStart, "node-label")}${bodyMarkup}${badgeMarkup}</g>`;
+  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" data-presentation="${presentation}" data-shape="${nodeShape}" data-tone="${node.tone ?? "neutral"}"${node.status ? ` data-status="${node.status}"` : ""} role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}">${surface}${progressMarkup}${iconMarkup}${textLines(labelLines, x, labelStart, "node-label")}${bodyMarkup}${badgeMarkup}</g>`;
 }
 
 function nodeShapeMarkup(
@@ -301,6 +311,8 @@ function nodeShapeMarkup(
   }
   const radius = shapeKind === "terminator"
     ? height / 2
+    : shapeKind === "bar"
+      ? 4
     : presentation === "icon"
       ? 4
       : 8;
@@ -546,7 +558,7 @@ export async function renderSvg(
         --fdai-diagram-canvas: #111315; --fdai-diagram-surface: #1b1f23; --fdai-diagram-node: #20252a; --fdai-diagram-label-surface: #1b1f23; --fdai-diagram-text: #f3f5f7; --fdai-diagram-muted: #c5cbd2; --fdai-diagram-border: #69737d; --fdai-diagram-border-strong: #aab2bb; --fdai-diagram-neutral-header: #30363d; --fdai-diagram-control-surface: #10283d; --fdai-diagram-control-header: #153d5c; --fdai-diagram-delivery-surface: #102d32; --fdai-diagram-delivery-header: #134148; --fdai-diagram-azure: #63d9ff; --fdai-diagram-azure-dark: #8bc8ff; --fdai-diagram-cyan-dark: #63d9ff;
         --fdai-diagram-tone-input-fill: #10243a; --fdai-diagram-tone-input-stroke: #6cb8ff; --fdai-diagram-tone-interpretation-fill: #102a3a; --fdai-diagram-tone-interpretation-stroke: #50c8ff; --fdai-diagram-tone-model-fill: #0e2d28; --fdai-diagram-tone-model-stroke: #5ee0bd; --fdai-diagram-tone-policy-fill: #17331d; --fdai-diagram-tone-policy-stroke: #73d17c; --fdai-diagram-tone-decision-fill: #3a2a0b; --fdai-diagram-tone-decision-stroke: #f3c969; --fdai-diagram-tone-execution-fill: #2b2040; --fdai-diagram-tone-execution-stroke: #c7a0ff; --fdai-diagram-tone-feedback-fill: #261f42; --fdai-diagram-tone-feedback-stroke: #b9a1ff; --fdai-diagram-tone-store-fill: #25292e; --fdai-diagram-tone-store-stroke: #b8c2cc; --fdai-diagram-tone-neutral-fill: #20252a; --fdai-diagram-tone-neutral-stroke: #b8c2cc;
         --fdai-diagram-edge-request: #6cb8ff; --fdai-diagram-edge-event: #50c8ff; --fdai-diagram-edge-approval: #c7a0ff; --fdai-diagram-edge-mutation: #ff9d72; --fdai-diagram-edge-audit: #73d17c; --fdai-diagram-edge-rollback: #ff8b91; --fdai-diagram-edge-read: #5ee0bd; --fdai-diagram-edge-write: #d6a8ff; --fdai-diagram-edge-feedback: #b9a1ff; --fdai-diagram-edge-sequence: #6cb8ff; --fdai-diagram-edge-transition: #c7a0ff; --fdai-diagram-edge-association: #c5cbd2; --fdai-diagram-edge-dependency: #aab2bb; --fdai-diagram-edge-timeline: #f3c969;
-        --fdai-diagram-group-lane-fill: #1b1f23; --fdai-diagram-group-lane-stroke: #7890a8; --fdai-diagram-group-sidebar-fill: #25203a; --fdai-diagram-group-sidebar-stroke: #b9a1ff; --fdai-diagram-group-feedback-fill: #211d35; --fdai-diagram-group-feedback-stroke: #b9a1ff; --fdai-diagram-group-datastore-fill: #20252a; --fdai-diagram-group-datastore-stroke: #aab2bb; --fdai-diagram-badge-fill: #6cb8ff; --fdai-diagram-badge-text: #07131f;
+        --fdai-diagram-group-lane-fill: #1b1f23; --fdai-diagram-group-lane-stroke: #7890a8; --fdai-diagram-group-sidebar-fill: #25203a; --fdai-diagram-group-sidebar-stroke: #b9a1ff; --fdai-diagram-group-feedback-fill: #211d35; --fdai-diagram-group-feedback-stroke: #b9a1ff; --fdai-diagram-group-datastore-fill: #20252a; --fdai-diagram-group-datastore-stroke: #aab2bb; --fdai-diagram-badge-fill: #6cb8ff; --fdai-diagram-badge-text: #07131f; --fdai-diagram-gantt-planned: #313840; --fdai-diagram-gantt-planned-stroke: #aab2bb; --fdai-diagram-gantt-planned-text: #f3f5f7; --fdai-diagram-gantt-active: #237bc2; --fdai-diagram-gantt-active-stroke: #8bc8ff; --fdai-diagram-gantt-done: #267a35; --fdai-diagram-gantt-done-stroke: #73d17c; --fdai-diagram-gantt-critical: #b94a2f; --fdai-diagram-gantt-critical-stroke: #ff9d72; --fdai-diagram-gantt-milestone: #7655bd; --fdai-diagram-gantt-milestone-stroke: #c7a0ff; --fdai-diagram-gantt-progress: #ffffff; --fdai-diagram-gantt-text: #ffffff;
       }
     }
     .diagram-title { font-size: 26px; font-weight: 700; fill: var(--fdai-diagram-text, #323130); }
@@ -577,9 +589,20 @@ export async function renderSvg(
     .node-label { font-size: ${NODE_FONT_SIZE}px; font-weight: 650; fill: var(--fdai-diagram-text, #323130); letter-spacing: 0; }
     .node-body { font-size: ${NODE_BODY_FONT_SIZE}px; font-weight: 450; fill: var(--fdai-diagram-muted, #605e5c); letter-spacing: 0; }
     .node-detail { fill: none; stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1.25; }
+    .node-progress { fill: var(--fdai-diagram-gantt-progress, #ffffff); fill-opacity: 0.2; pointer-events: none; }
     .node-badge circle { fill: var(--fdai-diagram-badge-fill, #173b6c); stroke: var(--fdai-diagram-badge-ring, #ffffff); stroke-width: 2; }
     .node-badge text { fill: var(--fdai-diagram-badge-text, #ffffff); font-size: 11px; font-weight: 700; text-anchor: middle; }
     ${Object.entries(toneStyles).map(([tone, style]) => `.diagram-node[data-tone="${tone}"] > .node-surface { fill: ${style.fill}; stroke: ${style.stroke}; }`).join("\n    ")}
+    .diagram-node[data-shape="bar"] > .node-surface { fill: var(--fdai-diagram-gantt-planned, #e8edf2); stroke: var(--fdai-diagram-gantt-planned-stroke, #667085); filter: none; }
+    .diagram-node[data-shape="bar"] .node-label { fill: var(--fdai-diagram-gantt-planned-text, #323130); font-size: 12px; }
+    .diagram-node[data-shape="bar"][data-status="active"] > .node-surface { fill: var(--fdai-diagram-gantt-active, #0f6cbd); stroke: var(--fdai-diagram-gantt-active-stroke, #005a9e); }
+    .diagram-node[data-shape="bar"][data-status="done"] > .node-surface { fill: var(--fdai-diagram-gantt-done, #107c10); stroke: var(--fdai-diagram-gantt-done-stroke, #0b5c0b); }
+    .diagram-node[data-shape="bar"][data-status="critical"] > .node-surface { fill: var(--fdai-diagram-gantt-critical, #c43501); stroke: var(--fdai-diagram-gantt-critical-stroke, #8f2600); }
+    .diagram-node[data-shape="bar"][data-status="milestone"] > .node-surface { fill: var(--fdai-diagram-gantt-milestone, #6b46c1); stroke: var(--fdai-diagram-gantt-milestone-stroke, #51349a); }
+    .diagram-node[data-shape="bar"][data-status="active"] .node-label,
+    .diagram-node[data-shape="bar"][data-status="done"] .node-label,
+    .diagram-node[data-shape="bar"][data-status="critical"] .node-label,
+    .diagram-node[data-shape="bar"][data-status="milestone"] .node-label { fill: var(--fdai-diagram-gantt-text, #ffffff); }
     .edge-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
     .edge-path { pointer-events: stroke; transition: stroke-width 140ms ease, opacity 140ms ease; }
     .diagram-edge[data-edge-route="orthogonal-above"][data-edge-step] > .edge-path { opacity: 0.52; stroke-width: 2; }

@@ -7,6 +7,8 @@ export type DiagramKind =
   | "component"
   | "deployment"
   | "data-flow"
+  | "flowchart"
+  | "graph"
   | "network"
   | "conceptual-flow"
   | "sequence"
@@ -15,7 +17,8 @@ export type DiagramKind =
   | "decision-tree"
   | "domain"
   | "entity-relationship"
-  | "timeline";
+  | "timeline"
+  | "gantt";
 
 export type DiagramNodeShape =
   | "card"
@@ -23,7 +26,15 @@ export type DiagramNodeShape =
   | "terminator"
   | "database"
   | "document"
-  | "circle";
+  | "circle"
+  | "bar";
+
+export type DiagramNodeStatus =
+  | "planned"
+  | "active"
+  | "done"
+  | "critical"
+  | "milestone";
 
 export type DiagramTone =
   | "input"
@@ -76,6 +87,12 @@ export interface DiagramNode {
   label: LocalizedText;
   description?: LocalizedText;
   content?: LocalizedText[];
+  start?: number | string;
+  end?: number | string;
+  duration?: number;
+  after?: string;
+  status?: DiagramNodeStatus;
+  progress?: number;
   width?: number;
   height?: number;
   ports?: DiagramPort[];

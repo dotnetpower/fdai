@@ -12,7 +12,8 @@ export type DiagramLayoutStrategy =
   | "state"
   | "tree"
   | "domain"
-  | "timeline";
+  | "timeline"
+  | "gantt";
 
 export interface DiagramDefinition {
   kind: DiagramKind;
@@ -51,6 +52,16 @@ const diagramDefinitions: Record<DiagramKind, DiagramDefinition> = {
   },
   "data-flow": {
     kind: "data-flow",
+    layoutStrategy: "layered",
+    hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  flowchart: {
+    kind: "flowchart",
+    layoutStrategy: "layered",
+    hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  graph: {
+    kind: "graph",
     layoutStrategy: "layered",
     hierarchyHandling: "SEPARATE_CHILDREN",
   },
@@ -134,6 +145,12 @@ const diagramDefinitions: Record<DiagramKind, DiagramDefinition> = {
     nodeSpacing: 38,
     layerSpacing: 72,
     requiredEdgeKind: "timeline",
+  },
+  gantt: {
+    kind: "gantt",
+    layoutStrategy: "gantt",
+    hierarchyHandling: "SEPARATE_CHILDREN",
+    direction: "RIGHT",
   },
 };
 

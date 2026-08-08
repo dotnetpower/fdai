@@ -7,6 +7,7 @@ import type {
 } from "elkjs/lib/elk-api.js";
 import { createRequire } from "node:module";
 
+import { layoutGantt } from "./gantt.js";
 import type {
   DiagramGroup,
   DiagramNode,
@@ -1436,6 +1437,7 @@ function applyExplicitRoutes(
 export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
   const compact = spec.canvas.profile === "azure-reference";
   const definition = diagramDefinition(spec.kind);
+  if (definition.layoutStrategy === "gantt") return layoutGantt(spec);
   const containedEdges = edgesByContainer(spec);
   const rootGroups = spec.groups
     .filter((group) => !group.parent)

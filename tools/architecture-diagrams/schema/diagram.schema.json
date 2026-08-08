@@ -15,7 +15,7 @@
       "uniqueItems": true
     },
     "kind": {
-      "enum": ["context", "container", "component", "deployment", "data-flow", "network", "conceptual-flow", "sequence", "swimlane", "state", "decision-tree", "domain", "entity-relationship", "timeline"]
+      "enum": ["context", "container", "component", "deployment", "data-flow", "flowchart", "graph", "network", "conceptual-flow", "sequence", "swimlane", "state", "decision-tree", "domain", "entity-relationship", "timeline", "gantt"]
     },
     "updated": { "type": "string", "format": "date" },
     "locales": {
@@ -133,7 +133,7 @@
         "parent": { "$ref": "#/definitions/id" },
         "kind": { "enum": ["azure-service", "service", "process", "store", "external", "person", "agent", "decision"] },
         "presentation": { "enum": ["card", "icon"] },
-        "shape": { "enum": ["card", "diamond", "terminator", "database", "document", "circle"] },
+        "shape": { "enum": ["card", "diamond", "terminator", "database", "document", "circle", "bar"] },
         "tone": { "enum": ["input", "interpretation", "model", "policy", "decision", "execution", "feedback", "store", "neutral"] },
         "badge": { "type": "integer", "minimum": 1, "maximum": 99 },
         "icon": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
@@ -145,6 +145,22 @@
           "maxItems": 8,
           "items": { "$ref": "#/definitions/localizedText" }
         },
+        "start": {
+          "oneOf": [
+            { "type": "number" },
+            { "type": "string", "format": "date" }
+          ]
+        },
+        "end": {
+          "oneOf": [
+            { "type": "number" },
+            { "type": "string", "format": "date" }
+          ]
+        },
+        "duration": { "type": "number", "exclusiveMinimum": 0 },
+        "after": { "$ref": "#/definitions/id" },
+        "status": { "enum": ["planned", "active", "done", "critical", "milestone"] },
+        "progress": { "type": "number", "minimum": 0, "maximum": 100 },
         "width": { "type": "integer", "minimum": 96, "maximum": 360 },
         "height": { "type": "integer", "minimum": 64, "maximum": 220 },
         "ports": {
