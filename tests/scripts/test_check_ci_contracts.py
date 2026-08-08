@@ -43,6 +43,50 @@ def test_action_refs_reject_stale_and_unknown_remote_actions(
     ]
 
 
+def test_privileged_workflows_require_reviewed_immutable_action_refs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "deploy-dev.yml").write_text(
+        "steps:\n"
+        "  - uses: actions/checkout@v7.0.1\n"
+        "  - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a\n"
+        "  - uses: example/unreviewed-action@" + "a" * 40 + " # v1.0.0\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == [
+        ".github/workflows/deploy-dev.yml must pin actions/checkout to an immutable "
+        "40-character SHA; found v7.0.1",
+        ".github/workflows/deploy-dev.yml must document actions/upload-artifact@"
+        "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a with trusted version comment # v7.0.1",
+        ".github/workflows/deploy-dev.yml uses unapproved privileged action "
+        f"example/unreviewed-action@{'a' * 40}",
+    ]
+
+
+def test_non_privileged_workflow_accepts_reviewed_immutable_action_ref(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "container-supply-chain.yml").write_text(
+        "steps:\n"
+        "  - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 "
+        "# v4.2.2, Node 20\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_action_runtime_versions() == []
+
+
 def test_uv_cache_contract_allows_one_writer(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

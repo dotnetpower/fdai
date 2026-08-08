@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
 import subprocess
 import sys
@@ -455,7 +456,7 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "preflight-evidence.json" in workflow
     assert "--overwrite false" in workflow
     assert '"expires_at": os.environ["EXPIRES_AT"]' in workflow
-    assert "actions/upload-artifact@v7.0.1" in workflow
+    assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1" in workflow
     assert "path: infra/plan-metadata.json" in workflow
     assert "path: infra/dev.plan" not in workflow
     assert "cleanup-deployment-plans.py" in workflow
@@ -479,6 +480,99 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "path: infra/apply-claim.json" in workflow
     assert "path: infra/apply-receipt.json" in workflow
     assert workflow.count("--overwrite false") >= 4
+
+
+def test_runner_rejects_unprotected_caller_commit_before_privileged_steps(
+    tmp_path: Path,
+) -> None:
+    workflow_path = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "deploy-dev.yml"
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["terraform"]["steps"]
+    names = [step.get("name") for step in steps]
+
+    assert names[0] == "Verify caller commit is on protected origin/main"
+    guard = steps[0]
+    assert "uses" not in guard
+    assert names.index("Verify caller commit is on protected origin/main") < names.index(
+        "Prepare self-hosted runner workspace"
+    )
+    assert names.index("Verify caller commit is on protected origin/main") < names.index("Checkout")
+    assert names.index("Verify caller commit is on protected origin/main") < names.index(
+        "Azure login (runner managed identity)"
+    )
+    assert "refs/heads/main:refs/remotes/origin/main" in guard["run"]
+    assert 'merge-base --is-ancestor "$CALLER_COMMIT_SHA"' in guard["run"]
+    subprocess.run(
+        ["/usr/bin/bash", "-n"],
+        input=guard["run"],
+        text=True,
+        check=True,
+    )
+
+    origin = tmp_path / "origin"
+    origin.mkdir()
+
+    def run_git(*arguments: str, capture_output: bool = False) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(  # noqa: S603 - fixed git executable and test-owned arguments
+            ["/usr/bin/git", *arguments],
+            cwd=origin,
+            check=True,
+            capture_output=capture_output,
+            text=True,
+        )
+
+    run_git("init", "-b", "main", capture_output=True)
+    run_git("config", "user.email", "user@example.com")
+    run_git("config", "user.name", "Test User")
+    (origin / "trusted.txt").write_text("trusted\n", encoding="utf-8")
+    run_git("add", "trusted.txt")
+    run_git("commit", "-m", "trusted", capture_output=True)
+    trusted_sha = run_git("rev-parse", "HEAD", capture_output=True).stdout.strip()
+    run_git("switch", "-c", "attacker")
+    (origin / "attacker.txt").write_text("unreviewed\n", encoding="utf-8")
+    run_git("add", "attacker.txt")
+    run_git("commit", "-m", "unreviewed", capture_output=True)
+    attacker_sha = run_git("rev-parse", "HEAD", capture_output=True).stdout.strip()
+
+    base_env = {
+        **os.environ,
+        "GITHUB_RUN_ATTEMPT": "1",
+        "GITHUB_RUN_ID": "123",
+        "GITHUB_TOKEN": "",
+        "PROTECTED_ORIGIN_URL": str(origin),
+        "RUNNER_TEMP": str(tmp_path / "runner-temp"),
+    }
+    accepted = subprocess.run(  # noqa: S603 - repository-owned workflow guard
+        ["/usr/bin/bash", "-c", guard["run"]],
+        env={**base_env, "CALLER_COMMIT_SHA": trusted_sha},
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    rejected = subprocess.run(  # noqa: S603 - repository-owned workflow guard
+        ["/usr/bin/bash", "-c", guard["run"]],
+        env={**base_env, "CALLER_COMMIT_SHA": attacker_sha},
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert accepted.returncode == 0, accepted.stderr
+    assert rejected.returncode != 0
+    assert "caller commit is not an ancestor of protected origin/main" in rejected.stderr
+
+
+def test_deploy_workflow_remote_actions_are_immutable_and_version_documented() -> None:
+    workflow_path = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "deploy-dev.yml"
+    workflow = workflow_path.read_text(encoding="utf-8")
+    remote_action = re.compile(
+        r"uses:\s*[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@(?P<ref>[^\s#]+)"
+        r"\s+#\s+v[0-9]+(?:\.[0-9]+){1,2}(?:,[^\n]+)?"
+    )
+    matches = list(remote_action.finditer(workflow))
+
+    assert len(matches) == workflow.count("uses:")
+    assert all(re.fullmatch(r"[0-9a-f]{40}", match.group("ref")) for match in matches)
 
 
 def test_runner_promotes_only_an_exact_attested_executor_image_before_plan() -> None:
@@ -533,7 +627,9 @@ def test_runner_promotes_only_an_exact_attested_executor_image_before_plan() -> 
     assert "Publish exact development operations gateway source" in workflow
     assert "Verify exact development operations gateway source" in workflow
     assert "dev_operations_gateway_app_name" in workflow
-    assert "uses: Azure/functions-action@v1.5.6" in workflow
+    assert (
+        "uses: Azure/functions-action@bc63708cc6539760eea18d8a7de4ce8ef5fdf593 # v1.5.6" in workflow
+    )
     assert "remote-build: true" in workflow
     assert "functions?api-version=2024-04-01" in workflow
     assert "az functionapp function list" not in workflow
@@ -643,7 +739,10 @@ def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:
     assert workflow.index("verify-deployment-plan.py", deploy_step) < publish_step
     assert deploy_step < stale_setting_cleanup < publish_step < verify_step
     assert workflow.index("az functionapp restart", stale_setting_cleanup) < publish_step
-    assert "uses: Azure/functions-action@v1.5.6" in workflow[publish_step:verify_step]
+    assert (
+        "uses: Azure/functions-action@bc63708cc6539760eea18d8a7de4ce8ef5fdf593 # v1.5.6"
+        in workflow[publish_step:verify_step]
+    )
     assert "remote-build: true" in workflow[publish_step:verify_step]
     assert "json.JSONDecoder().raw_decode" in workflow[verify_step:]
     assert 're.sub(r"(\\.\\d{6})\\d+"' in workflow[verify_step:]
@@ -918,5 +1017,5 @@ def test_gateway_source_workflow_steps_are_structurally_executable() -> None:
     )
     assert separator
     compile(source, "<gateway-source-artifact>", "exec")
-    assert publish_step["uses"] == "Azure/functions-action@v1.5.6"
+    assert publish_step["uses"] == "Azure/functions-action@bc63708cc6539760eea18d8a7de4ce8ef5fdf593"
     assert publish_step["with"]["remote-build"] is True

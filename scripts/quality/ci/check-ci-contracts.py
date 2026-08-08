@@ -46,7 +46,36 @@ REQUIRED_ACTION_REFS = {
     "pypa/gh-action-pip-audit": "v1.1.0",
     "pypa/gh-action-pypi-publish": "v1.14.1",
 }
-ACTION_REF_RE = re.compile(r"uses:\s*(?P<action>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@(?P<ref>[^\s#]+)")
+REVIEWED_IMMUTABLE_ACTION_REFS = {
+    "actions/attest": frozenset({"f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"}),
+    "actions/checkout": frozenset({"11bd71901bbe5b1630ceea73d27597364c9af683"}),
+    "actions/upload-artifact": frozenset({"ea165f8d65b6e75b540449e92b4886f43607fa02"}),
+}
+PRIVILEGED_WORKFLOWS = frozenset(
+    {
+        ".github/workflows/deploy-dev.yml",
+        ".github/workflows/service-deploy.yml",
+    }
+)
+PRIVILEGED_ACTION_REFS = {
+    "Azure/functions-action": "bc63708cc6539760eea18d8a7de4ce8ef5fdf593",
+    "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+    "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+    "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    "astral-sh/setup-uv": "11f9893b081a58869d3b5fccaea48c9e9e46f990",
+}
+PRIVILEGED_ACTION_VERSIONS = {
+    "Azure/functions-action": "v1.5.6",
+    "actions/checkout": "v7.0.1",
+    "actions/download-artifact": "v8.0.1",
+    "actions/upload-artifact": "v7.0.1",
+    "astral-sh/setup-uv": "v8.3.2",
+}
+ACTION_REF_RE = re.compile(
+    r"uses:\s*(?P<action>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@(?P<ref>[^\s#]+)"
+    r"(?:\s*#\s*(?P<comment>[^\r\n]+))?"
+)
+IMMUTABLE_ACTION_REF_RE = re.compile(r"[0-9a-f]{40}")
 UV_SETUP_BLOCK_RE = re.compile(r"(?ms)^\s+- name: Set up uv \(Python 3\.13\).*?(?=^\s+- name:|\Z)")
 BASE_IMAGE_REGISTRY_ARG = "BASE_IMAGE_REGISTRY"
 BASE_IMAGE_PREFIX = "${" + BASE_IMAGE_REGISTRY_ARG + "}/"
@@ -210,13 +239,39 @@ def _validate_action_runtime_versions() -> list[str]:
     for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
         content = path.read_text(encoding="utf-8")
         relative = path.relative_to(REPO_ROOT)
+        privileged = relative.as_posix() in PRIVILEGED_WORKFLOWS
         for match in ACTION_REF_RE.finditer(content):
             action = match.group("action")
             actual_ref = match.group("ref")
+            if privileged:
+                expected_ref = PRIVILEGED_ACTION_REFS.get(action)
+                if expected_ref is None:
+                    errors.append(
+                        f"{relative} uses unapproved privileged action {action}@{actual_ref}"
+                    )
+                elif IMMUTABLE_ACTION_REF_RE.fullmatch(actual_ref) is None:
+                    errors.append(
+                        f"{relative} must pin {action} to an immutable 40-character SHA; "
+                        f"found {actual_ref}"
+                    )
+                elif actual_ref != expected_ref:
+                    errors.append(f"{relative} uses {action}@{actual_ref}; expected {expected_ref}")
+                else:
+                    expected_version = PRIVILEGED_ACTION_VERSIONS[action]
+                    comment = (match.group("comment") or "").split(",", maxsplit=1)[0].strip()
+                    if comment != expected_version:
+                        errors.append(
+                            f"{relative} must document {action}@{actual_ref} with trusted "
+                            f"version comment # {expected_version}"
+                        )
+                continue
             expected_ref = REQUIRED_ACTION_REFS.get(action)
             if expected_ref is None:
                 errors.append(f"{relative} uses unapproved remote action {action}@{actual_ref}")
-            elif actual_ref != expected_ref:
+            elif (
+                actual_ref != expected_ref
+                and actual_ref not in REVIEWED_IMMUTABLE_ACTION_REFS.get(action, frozenset())
+            ):
                 errors.append(f"{relative} uses {action}@{actual_ref}; expected {expected_ref}")
     return errors
 

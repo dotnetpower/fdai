@@ -203,6 +203,47 @@ jobs:
       TF_VAR_chatops_webhook_url: ${{ secrets.CHATOPS_WEBHOOK_URL }}
       TF_VAR_chatops_webhook_secret: ${{ secrets.CHATOPS_WEBHOOK_SECRET }}
     steps:
+      - name: Verify caller commit is on protected origin/main
+        working-directory: ${{ runner.temp }}
+        env:
+          CALLER_COMMIT_SHA: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
+        run: |
+          set -euo pipefail
+          if [[ ! "$CALLER_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "caller commit must be a lowercase 40-character git SHA" >&2
+            exit 1
+          fi
+          guard_repo="$RUNNER_TEMP/fdai-protected-origin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
+          rm -rf -- "$guard_repo"
+          mkdir -p "$RUNNER_TEMP"
+          git init --bare "$guard_repo" >/dev/null
+          trap 'rm -rf -- "$guard_repo"' EXIT
+          if [[ -n "$GITHUB_TOKEN" ]]; then
+            auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+            GIT_CONFIG_COUNT=1 \
+              GIT_CONFIG_KEY_0=http.extraheader \
+              GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
+              git -C "$guard_repo" fetch --force --no-tags --filter=blob:none \
+                "$PROTECTED_ORIGIN_URL" \
+                "+refs/heads/main:refs/remotes/origin/main" "$CALLER_COMMIT_SHA"
+            unset auth_header
+          else
+            git -C "$guard_repo" fetch --force --no-tags --filter=blob:none \
+              "$PROTECTED_ORIGIN_URL" \
+              "+refs/heads/main:refs/remotes/origin/main" "$CALLER_COMMIT_SHA"
+          fi
+          if ! git -C "$guard_repo" cat-file -e "${CALLER_COMMIT_SHA}^{commit}"; then
+            echo "caller commit is not present in protected origin/main history" >&2
+            exit 1
+          fi
+          if ! git -C "$guard_repo" merge-base --is-ancestor "$CALLER_COMMIT_SHA" \
+            refs/remotes/origin/main; then
+            echo "caller commit is not an ancestor of protected origin/main" >&2
+            exit 1
+          fi
+
       - name: Prepare self-hosted runner workspace
         run: |
           set -euo pipefail
@@ -215,7 +256,7 @@ jobs:
           echo "AZURE_CONFIG_DIR=$azure_config_dir" >> "$GITHUB_ENV"
 
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}
           fetch-depth: 0
@@ -883,7 +924,7 @@ jobs:
 
       - name: Install pinned uv for live preflight
         if: ${{ !inputs.apply && inputs.request_id != '' }}
-        uses: astral-sh/setup-uv@v8.3.2
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.8.22"
           enable-cache: true
@@ -1113,7 +1154,7 @@ jobs:
 
       - name: Publish sanitized plan metadata
         if: ${{ !inputs.apply && inputs.request_id != '' }}
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: deployment-plan-plan-${{ github.run_id }}-${{ github.run_attempt }}
           path: infra/plan-metadata.json
@@ -1277,7 +1318,7 @@ jobs:
 
       - name: Publish sanitized apply claim
         if: ${{ inputs.apply && !inputs.resume_verification }}
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: deployment-apply-claim-${{ inputs.plan_id }}
           path: infra/apply-claim.json
@@ -1365,7 +1406,7 @@ jobs:
 
       - name: Publish exact development operations gateway source
         if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway }}
-        uses: Azure/functions-action@v1.5.6
+        uses: Azure/functions-action@bc63708cc6539760eea18d8a7de4ce8ef5fdf593 # v1.5.6
         with:
           app-name: ${{ env.GATEWAY_FUNCTION_APP }}
           package: infra/fdai-dev-operations-gateway.zip
@@ -1754,7 +1795,7 @@ jobs:
 
       - name: Publish Executor authority effect receipt
         if: ${{ inputs.apply && inputs.verify_executor_effect && success() }}
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: executor-authority-effect-receipt-${{ inputs.plan_id }}
           path: infra/authority-effect-receipt.json
@@ -1821,7 +1862,7 @@ jobs:
 
       - name: Publish sanitized apply receipt
         if: ${{ inputs.apply && success() }}
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: deployment-apply-receipt-${{ inputs.plan_id }}
           path: infra/apply-receipt.json
