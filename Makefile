@@ -7,7 +7,7 @@
 
 .PHONY: dev-up dev-down dev-logs dev-nuke help \
 	lint format test test-changed service-test service-test-all operator gates check validation-status validation-run \
-	validation-all roadmap-verification-sync roadmap-verification-status \
+	validation-all worktree-maintenance worktree-cleanup roadmap-verification-sync roadmap-verification-status \
 	roadmap-verification-report roadmap-verification-apply pre-commit-install hooks-install \
         azd-up genesis-up
 
@@ -78,6 +78,12 @@ validation-run: ## validate the pending batch with changed tests + fast gates
 
 validation-all: ## validate the pending batch with whole-repository gates
 	@python3 scripts/automation/validation_queue.py run --all
+
+worktree-maintenance: ## preview clean completed worktrees eligible for removal
+	@python3 scripts/automation/worktree-maintenance.py --min-age-hours "$(or $(MIN_AGE_HOURS),24)"
+
+worktree-cleanup: ## remove eligible worktrees (optional: MIN_AGE_HOURS=48)
+	@python3 scripts/automation/worktree-maintenance.py --min-age-hours "$(or $(MIN_AGE_HOURS),24)" --apply
 
 roadmap-verification-sync: ## discover canonical roadmap documents and refresh queue freshness
 	@python3 scripts/automation/roadmap_verification_cli.py sync

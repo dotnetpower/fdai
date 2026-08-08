@@ -150,6 +150,20 @@ container image build/push work begin only after this check passes. Short read-o
 such as `az account show` may run earlier. A later code edit creates a new revision and requires a
 new receipt before another external run.
 
+Preview completed worktrees that are eligible for conservative cleanup:
+
+```bash
+make worktree-maintenance
+make worktree-cleanup MIN_AGE_HOURS=24
+```
+
+The default command is read-only. Apply mode removes only registered worktrees
+that are clean, already reachable from `main`, older than the minimum activity
+age, outside the primary and validator paths, and unused as a current directory
+by any visible process. Dirty, unmerged, recent, and active worktrees stay in
+place. Pending queue records for a removed path move to `retired/` only when the
+same commit already has a validation receipt.
+
 `make validation-status` lists only pending commits reachable from the current
 `HEAD` and summarizes pending work on other branches or worktrees. Show every
 pending id only when diagnosing queue history:
