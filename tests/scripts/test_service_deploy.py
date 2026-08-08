@@ -1077,6 +1077,32 @@ def test_initial_worker_cutover_allows_revision_name_only_drift(guard: ModuleTyp
     )
 
 
+def test_plan_guard_reports_drift_paths_without_values(guard: ModuleType) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    plan["resource_drift"] = [
+        {
+            "address": address,
+            "change": {
+                "actions": ["update"],
+                "before": {"identity": {"client_id": "secret-old"}},
+                "after": {"identity": {"client_id": "secret-new"}},
+            },
+        }
+    ]
+    with pytest.raises(guard.PlanGuardError) as error:
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+        )
+    message = str(error.value)
+    assert "$.identity.client_id" in message
+    assert "secret-old" not in message
+    assert "secret-new" not in message
+
+
 def test_plan_guard_rejects_refreshed_platform_or_peer_drift(guard: ModuleType) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])

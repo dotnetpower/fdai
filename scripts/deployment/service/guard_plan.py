@@ -23,6 +23,26 @@ _ALLOWED_SIDECARS = {
 }
 
 
+def _difference_paths(before: Any, after: Any, *, path: str = "$") -> list[str]:
+    if type(before) is not type(after):
+        return [path]
+    if isinstance(before, dict):
+        paths: list[str] = []
+        for key in sorted(set(before) | set(after)):
+            nested = f"{path}.{key}"
+            if key not in before or key not in after:
+                paths.append(nested)
+            else:
+                paths.extend(_difference_paths(before[key], after[key], path=nested))
+        return paths
+    if isinstance(before, list):
+        paths = [path] if len(before) != len(after) else []
+        for index, (left, right) in enumerate(zip(before, after, strict=False)):
+            paths.extend(_difference_paths(left, right, path=f"{path}[{index}]"))
+        return paths
+    return [] if before == after else [path]
+
+
 def _actions(change: Any, *, address: str) -> tuple[str, ...]:
     if not isinstance(change, dict) or not isinstance(change.get("actions"), list):
         raise PlanGuardError(f"plan change for {address} has no action list")
@@ -541,7 +561,17 @@ def validate_plan(
         )
     )
     if resource_drift not in (None, []) and not allowed_worker_drift:
-        violations.append("platform or peer resource drift is not eligible for protected apply")
+        drift_paths: list[str] = []
+        if isinstance(resource_drift, list) and len(resource_drift) == 1:
+            drift_change = resource_drift[0].get("change")
+            if isinstance(drift_change, dict):
+                drift_paths = _difference_paths(
+                    drift_change.get("before"), drift_change.get("after")
+                )
+        suffix = f": {drift_paths!r}" if drift_paths else ""
+        violations.append(
+            f"platform or peer resource drift is not eligible for protected apply{suffix}"
+        )
     deferred_changes = payload.get("deferred_changes", [])
     if deferred_changes not in (None, []):
         violations.append("deferred plan changes are not eligible for protected apply")
