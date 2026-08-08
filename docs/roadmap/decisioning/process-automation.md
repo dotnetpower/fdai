@@ -33,7 +33,7 @@ a single responsibility.
 | **ActionType** | one CSP-neutral mutation category with seven safeguards (stop, rollback, impact cap, dry-run, lock, idempotency, audit) | [`rule-catalog/action-types/`](../../../rule-catalog/action-types), [action-ontology.md](action-ontology.md) |
 | **Workflow** | the *declaration* of a business process: an ordered list of steps, each referencing one `ActionType`, plus a trigger, a promotion gate, and a default mode | [`rule-catalog/workflows/`](../../../rule-catalog/workflows), schema below |
 | **Process** | the *runtime instance and state* of a running workflow: which step is current, which resource it targets, which findings it advanced through | `Process` ObjectType (ontology) |
-| **Runbook** | the *execution mechanism*: walk the step list, honor `on_failure`, write the aggregate audit row | [`src/fdai/core/runbook/`](../../../src/fdai/core/runbook) |
+| **Runbook** | the *execution mechanism*: walk the step list, honor `on_failure`, write the aggregate audit row | [`services/core-control-plane/src/fdai/core/runbook/`](../../../services/core-control-plane/src/fdai/core/runbook) |
 
 The separation matters: a `Workflow` declares *what* runs and *when*; a `Runbook` is the thin
 executor a compiled `Workflow` produces; a `Process` is the audited state of one live run. Mutation
@@ -45,7 +45,7 @@ evidence is unavailable ([design](../interfaces/browser-evidence.md)).
 
 A workflow is catalog-as-code under
 [`rule-catalog/workflows/`](../../../rule-catalog/workflows), validated at load
-against [`shared/contracts/workflow/schema.json`](../../../src/fdai/shared/contracts/workflow/schema.json)
+against [`shared/contracts/workflow/schema.json`](../../../services/core-control-plane/src/fdai/shared/contracts/workflow/schema.json)
 and the `Workflow` pydantic model. All fields except `description` and
 `anti_scope` are required.
 
@@ -87,15 +87,15 @@ Field rules the loader enforces:
   on it across upstream and every fork addition.
 - `steps` has at least one entry; step `id` is unique within the workflow.
 - Every `action_type_ref` MUST resolve to a registered `ActionType` name from
-  [`load_action_type_catalog`](../../../src/fdai/rule_catalog/schema/action_type.py).
+  [`load_action_type_catalog`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py).
   A typo fails at load, not at first dispatch - the same cross-reference
   discipline the `remediates` link uses in
-  [`rule.py`](../../../src/fdai/rule_catalog/schema/rule.py).
+  [`rule.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule.py).
 - `compensated_by`, when set, MUST also resolve to an `ActionType` name. It is
   the saga rollback action for that step (see [section 5](#5-saga-compensation)).
 - `on_failure`, when set, MUST reference an existing step `id` in the same
   workflow that appears **later** in the step list (never itself or an earlier
-  step), exactly like a [`Runbook`](../../../src/fdai/core/runbook/models.py)
+  step), exactly like a [`Runbook`](../../../services/core-control-plane/src/fdai/core/runbook/models.py)
   step. A backward fallback would make the runner re-run an already-applied
   step, so it is rejected at load.
 - `guard_rule_ref`, when set, MUST resolve to a Rule id from the loaded rule
@@ -350,7 +350,7 @@ Malformed, out-of-range, or truncated evidence remains blocked.
 A workflow step that routes to HIL needs a concrete answer to "who approves,
 and how are they reached". Process automation does not add a new approval
 surface; it bridges a workflow to the existing HIL machinery through the
-[`WorkflowApprovalPlanner`](../../../src/fdai/core/workflow/approval.py).
+[`WorkflowApprovalPlanner`](../../../services/core-control-plane/src/fdai/core/workflow/approval.py).
 
 Given a `Workflow`, the planner produces a deterministic, read-only
 `ApprovalPlan` - one `StepApproval` per step:
@@ -361,14 +361,14 @@ Given a `Workflow`, the planner produces a deterministic, read-only
   uses; the planner never invents a second rule.
 - **Who approves?** The required human role is the highest `min_role` across the
   HIL tiers, resolved to its Entra security-group objectId via the RBAC
-  [`GroupMapping`](../../../src/fdai/core/rbac/resolver.py) (the `aw-approvers` or
+  [`GroupMapping`](../../../services/core-control-plane/src/fdai/core/rbac/resolver.py) (the `aw-approvers` or
   `aw-owners` group). No-self-approval is carried forward on every gated step.
 - **How are they reached?** The A1 `hil_approval` route from the
   [notifications matrix](../../../config/notifications-matrix.yaml) - Teams primary,
   Slack / email fallback. The concrete adapters implement the
-  [`HilChannel`](../../../src/fdai/shared/providers/hil_channel.py) seam:
-  [`TeamsHilAdapter`](../../../src/fdai/delivery/chatops/teams_adapter.py) and
-  [`SlackHilAdapter`](../../../src/fdai/delivery/chatops/slack_adapter.py) (Adaptive
+  [`HilChannel`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py) seam:
+  [`TeamsHilAdapter`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py) and
+  [`SlackHilAdapter`](../../../services/core-control-plane/src/fdai/delivery/chatops/) (Adaptive
   Card / Block Kit, HMAC-signed, fail-closed). Email is a send-only alert lane,
   not an A1 approval back-channel.
 
@@ -381,12 +381,12 @@ slots. The Process can resume from the authoritative decision even when receipt 
 interrupted. The headless runtime and production Operator API bind this provider; interactive local
 enforcement also requires its durable database and Azure event transport. The specific on-call OID
 and channel card remain integrations of
-[`HilResumeCoordinator`](../../../src/fdai/core/hil_resume/coordinator.py) and
-[`OnCallResolver`](../../../src/fdai/core/oncall/resolver.py); no second approval authority is added.
+[`HilResumeCoordinator`](../../../services/core-control-plane/src/fdai/core/hil_resume/coordinator.py) and
+[`OnCallResolver`](../../../services/core-control-plane/src/fdai/core/oncall/resolver.py); no second approval authority is added.
 
 ## 7. Loader and CI validation
 
-[`load_workflow_catalog`](../../../src/fdai/rule_catalog/schema/workflow.py) is
+[`load_workflow_catalog`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/workflow.py) is
 pure I/O plus validation, mirroring the `ActionType` and ObjectType loaders. It
 fails closed: any issue in any file raises a single aggregated error carrying
 every issue across every file. It cross-references each `action_type_ref` and
@@ -502,7 +502,7 @@ suggestion cannot corrupt a later stage.
 
 Three opt-in, Reader-gated Operator API routes back validation and browsing as pure
 projections that write no state (see
-[`workflow_authoring.py`](../../../src/fdai/delivery/operator_api/routes/workflow_authoring.py)):
+[`workflow_authoring.py`](../../../services/operator-service/src/fdai_operator_service/)):
 
 - **`GET /workflows/catalog`** - the built-in Workflow catalog. A read-only
   projection of the loaded `Workflow` catalog carrying each workflow's full
@@ -516,13 +516,13 @@ projections that write no state (see
   what makes a step's `action_type_ref` resolvable at load time - the builder
   cannot invent an unknown reference.
 - **`POST /workflows/validate`** - a pure function that runs the same
-  [`load_workflow_from_mapping`](../../../src/fdai/rule_catalog/schema/workflow.py)
+  [`load_workflow_from_mapping`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/workflow.py)
   the catalog loader uses (JSON Schema + the `Workflow` pydantic structural
   invariants + `ActionType` / rule cross-reference), and returns the aggregated
   issues plus a canonical YAML preview. It mutates nothing and creates no PR.
 
 These routes are opt-in through
-[`OperatorApiConfig.workflow_authoring`](../../../src/fdai/delivery/operator_api/main.py)
+[`OperatorApiConfig.workflow_authoring`](../../../services/operator-service/src/fdai_operator_service/)
 (a `WorkflowAuthoringConfig` carrying the loaded palette, built-in workflows,
 rule ids, and schema registry); unset upstream so the console stays minimal,
 wired in the local dev harness so the view renders out of the box.

@@ -41,9 +41,9 @@ The layers have different release and dependency boundaries:
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
 | Evaluation SDK | `evaluation-sdk/` | Immutable request, task, result, target, capability, workspace, artifact, receipt, adapter, host, and runner contracts. |
-| FDAI host | `src/fdai/evaluation/` | Typed ingress, capability attenuation, workspace and artifact policy, result mapping, cleanup, and audit. |
+| FDAI host | `services/core-control-plane/src/fdai/evaluation/` | Typed ingress, capability attenuation, workspace and artifact policy, result mapping, cleanup, and audit. |
 | Harness driver | `benchmarks/<name>/` | Harness lifecycle, neutral task mapping, external validation, package dependencies, and tests. |
-| Compatibility facade | `src/fdai/benchmarking/` | Legacy text task/submission, plugin, binding, and runner API during migration. |
+| Compatibility facade | `services/core-control-plane/src/fdai/benchmarking/` | Legacy text task/submission, plugin, binding, and runner API during migration. |
 
 A harness driver is a separate Python distribution. Installing FDAI alone does not install or
 activate a benchmark integration. Removing a driver leaves the FDAI runtime unchanged.
@@ -496,7 +496,7 @@ The root `dev` extra binds both driver distributions as workspace-only dependenc
 from FDAI runtime dependencies and independently buildable wheels.
 
 ```bash
-.venv/bin/python -m pytest -q --no-cov evaluation-sdk/tests tests/evaluation
+.venv/bin/python -m pytest -q --no-cov evaluation-sdk/tests services/core-control-plane/tests/evaluation
 PYTHONPATH=evaluation-sdk/src:benchmarks/sregym/src .venv/bin/python -m pytest \
   -q --no-cov benchmarks/sregym/tests
 PYTHONPATH=evaluation-sdk/src:benchmarks/cybergym/src .venv/bin/python -m pytest \

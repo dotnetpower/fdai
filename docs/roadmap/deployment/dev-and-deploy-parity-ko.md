@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: ba4b4bc849a60d2af9187ab26ded8520bc2a187d
-translation_revised: 2026-08-06
+translation_source_sha: b84e166474756b460a1f41f50ac27d60f00ede55
+translation_revised: 2026-08-08
 ---
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
@@ -529,7 +529,7 @@ Audit store append는 resolver caller가 소유합니다.
 
 ### W-A: LLM용 Config schema + dev-mode 플래그 ✅  *(baseline, 배포)*
 
-- `src/fdai/shared/config/schema.json` + `models.py` 에 `LlmConfig` 추가:
+- `services/core-control-plane/src/fdai/shared/config/schema.json` + `models.py` 에 `LlmConfig` 추가:
   - `mode`: `local-fake` | `azure`. `local-fake`는 명시적 test/mock binding이며 deployment
     environment가 선택하지 않습니다.
   - `resolved_models_path`: 옵셔널 KV secret 이름 또는 파일시스템 경로.
@@ -554,7 +554,7 @@ Audit store append는 resolver caller가 소유합니다.
 
 ### W-C: Bootstrap resolver CLI ✅ *(배포자-스코프, 배포)*
 
-- 신규: `src/fdai/rule_catalog/schema/llm_resolver_cli.py`.
+- 신규: `services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py`.
 - 입력: `--registry`, `--region`, `--subscription-id`, `--dry-run`, `--out`.
 - 기본 fixture mode는 catalog/permission/quota JSON 세 개를 요구해 offline CI를 지원합니다.
 - `--use-azure-cli` mode는 기존 `az login` context와 선택적 `AZURE_CONFIG_DIR`을 사용해
@@ -578,9 +578,9 @@ Audit store append는 resolver caller가 소유합니다.
 
 ### W-E: Azure OpenAI 어댑터 클래스 ✅ *(delivery, 배포)*
 
-- `src/fdai/delivery/azure/llm/embeddings.py` - `EmbeddingModel` 을 구현하는
+- `services/core-control-plane/src/fdai/delivery/azure/llm/embeddings.py` - `EmbeddingModel` 을 구현하는
   `AzureOpenAIEmbeddingModel`, injected async `httpx` + `WorkloadIdentity`.
-- `src/fdai/delivery/azure/llm/cross_check.py` - `CrossCheckModel` 구현
+- `services/core-control-plane/src/fdai/delivery/azure/llm/cross_check.py` - `CrossCheckModel` 구현
   `AzureOpenAICrossCheckModel`.
 - 타임아웃, retry-after honouring, structured output (`response_format={"type":"json_object"}`)
   - [llm-strategy.md § Provider Abstraction](../architecture/llm-strategy-ko.md#provider-abstraction) 참조.
@@ -602,7 +602,7 @@ Audit store append는 resolver caller가 소유합니다.
   `shared/providers/local/` 로 이름 변경).
 - `LocalWorkloadIdentity` - fixture adapter만 수락하는 인-메모리 OIDC token을 발급합니다.
   Interactive local은 이를 Thor identity로 사용하지 않습니다.
-- `FileFixtureInventory` - fork 가 생성자에 넘긴 어떤 YAML fixture 든 (`fixture=Path(...)`) 에서 `Resource` 레코드를 읽는다. 업스트림은 시드 fixture 를 배송하지 않으며, 권장 컨벤션은 `tests/scenarios/inventory/*.yaml` (frozen scenario replay 옆) 이라 verticals 가 ARG 없이 dry-run 가능.
+- `FileFixtureInventory` - fork 가 생성자에 넘긴 어떤 YAML fixture 든 (`fixture=Path(...)`) 에서 `Resource` 레코드를 읽는다. 업스트림은 시드 fixture 를 배송하지 않으며, 권장 컨벤션은 `services/core-control-plane/tests/scenarios/inventory/*.yaml` (frozen scenario replay 옆) 이라 verticals 가 ARG 없이 dry-run 가능.
 - 테스트 + docstring이 정확한 fork-side 패턴 시연.
 
 ### W-H: 문서 동기화  *(이 phase)*

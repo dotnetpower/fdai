@@ -2,7 +2,7 @@
 #
 # Design authority: docs/roadmap/interfaces/agent-stewardship-and-handover.md.
 # Loaded at composition time by
-# `src/fdai/core/stewardship/resolver.py::StewardshipMap.from_config`.
+# `services/core-control-plane/src/fdai/core/stewardship/resolver.py::StewardshipMap.from_config`.
 #
 # This is an ACCOUNTABILITY + NOTIFICATION overlay, NOT an authorization or
 # execution surface. It MUST NOT declare any ActionType role field

@@ -14,7 +14,14 @@ import yaml
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _READINESS_MODULE_PATH = (
-    _REPO_ROOT / "src" / "fdai" / "core" / "architecture_review" / "readiness.py"
+    _REPO_ROOT
+    / "services"
+    / "core-control-plane"
+    / "src"
+    / "fdai"
+    / "core"
+    / "architecture_review"
+    / "readiness.py"
 )
 
 

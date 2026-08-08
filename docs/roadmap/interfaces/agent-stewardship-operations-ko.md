@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: e37afa0094528ab179f898239e1cd1ca402271da
-translation_revised: 2026-08-05
+translation_source_sha: dde6b94d335647ecf48d69c07ca84a0e1991f5ff
+translation_revised: 2026-08-08
 title: 에이전트 운영 책임 수명 주기
 ---
 # 에이전트 운영 책임 수명 주기
@@ -225,8 +225,8 @@ Deployment 전 focused ownership gate를 실행하세요.
 
 ```bash
 bash scripts/governance/check-stewardship.sh
-uv run pytest tests/core/stewardship tests/delivery/stewardship \
-  tests/delivery/ingestion_gateway/test_handover.py -q --no-cov
+uv run pytest services/core-control-plane/tests/core/stewardship services/core-control-plane/tests/delivery/stewardship \
+  services/core-control-plane/tests/delivery/ingestion_gateway/test_handover.py -q --no-cov
 terraform -chdir=infra validate
 ```
 

@@ -283,12 +283,12 @@ Focused verification covers:
 
 ```bash
 uv run pytest -q --no-cov \
-  tests/core/conversation/test_attachment_directive.py \
-  tests/conversation/test_channel_gateway.py \
-  tests/delivery/channels \
-  tests/delivery/azure/test_document_ocr.py \
-  tests/delivery/ingestion_gateway/test_chat_evidence.py \
-  tests/delivery/operator_api/test_chat_route.py
+  services/core-control-plane/tests/core/conversation/test_attachment_directive.py \
+  services/core-control-plane/tests/conversation/test_channel_gateway.py \
+  services/core-control-plane/tests/delivery/channels \
+  services/core-control-plane/tests/delivery/azure/test_document_ocr.py \
+  services/core-control-plane/tests/delivery/ingestion_gateway/test_chat_evidence.py \
+  services/operator-service/tests/
 terraform -chdir=infra validate
 ```
 

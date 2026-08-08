@@ -350,9 +350,9 @@ cross-check + verifier + grounding) before it is even eligible.
   granted by the deterministic gate, never the model.
 
 **Scenario replay.** The frozen scenarios in
-[tests/scenarios/v2026.07/](../../../tests/scenarios/v2026.07) are enriched
+[services/core-control-plane/tests/scenarios/v2026.07/](../../../services/core-control-plane/tests/scenarios/v2026.07) are enriched
 at T0 through overlays under
-[tests/scenarios/enrichment/v2026.07/](../../../tests/scenarios/enrichment/v2026.07)
+[services/core-control-plane/tests/scenarios/enrichment/v2026.07/](../../../services/core-control-plane/tests/scenarios/enrichment/v2026.07)
 wherever a shipped rule maps - e.g.
 `finops.stop-idle-dev-vm-off-hours.003` fires `compute.vm.idle-detected`
 and `dr.replica-lag-degraded.001` fires

@@ -30,7 +30,7 @@ environment-variable seams.
 | Azure Monitor Logs KQL (`RoutedMetricProvider` route #3) | **~2-5 min** | Auto-bound with `FDAI_MONITOR_WORKSPACE_ID` | pull (tick) |
 
 The three `RoutedMetricProvider` routes are set up automatically by
-[`wire_azure_container`](../../../src/fdai/composition/wire_azure.py)
+[`wire_azure_container`](../../../services/core-control-plane/src/fdai/composition/wire_azure.py)
 when their respective env vars are supplied - see
 [`infra/README.md § Opt-in variables`](../../../infra/README.md#opt-in-variables-metric-analyzer-tick--prometheus).
 The two push paths are Terraform modules the fork instantiates per
@@ -57,10 +57,10 @@ static.
 
 **Seams**
 
-- [Normalizer](../../../src/fdai/delivery/azure/monitor_alert.py) -
+- [Normalizer](../../../services/core-control-plane/src/fdai/delivery/azure/) -
   Common Alert Schema v2 -> `Event`. Pure function, unit tested
   against fired / resolved / malformed payloads.
-- [Webhook route](../../../src/fdai/delivery/operator_api/routes/azure_monitor_webhook.py) -
+- [Webhook route](../../../services/operator-service/src/fdai_operator_service/) -
   Starlette POST /webhook/azure-monitor. Bearer-token auth
   (constant-time compare), 256 KiB body cap, publishes to the
   ingest topic keyed by lowercased ARM id.
@@ -114,7 +114,7 @@ picks which ones actually turn into events.
 
 **Seams**
 
-- [Normalizer](../../../src/fdai/delivery/azure/monitor_diagnostic.py) -
+- [Normalizer](../../../services/core-control-plane/src/fdai/delivery/azure/) -
   Diagnostic AllMetrics batch -> tuple of `Event`. Pure function,
   fail-closed on shape mismatch, silently skips whitelist misses so
   a firehose does not degrade the tick.
@@ -124,7 +124,7 @@ picks which ones actually turn into events.
 - The **Kafka consumer wiring** that reads the Event Hub Kafka
   endpoint and calls `normalize_diagnostic_records` is a fork task -
   the standard `AIOKafkaConsumer` in
-  [`delivery/azure/event_bus.py`](../../../src/fdai/delivery/azure/event_bus.py)
+  [`delivery/azure/event_bus.py`](../../../services/core-control-plane/src/fdai/delivery/azure/event_bus.py)
   already reads from a topic; the fork's composition root points
   a second consumer instance at the diagnostic hub and pipes each
   batch through the normalizer.

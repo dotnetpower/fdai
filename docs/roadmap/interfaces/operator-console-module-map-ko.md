@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: f72ca34eb393b8716c1e63c0dc1dcfc83b913a0c
+translation_source_sha: a353782aa8b16e2814fe56a2da315c1ce7a03fb9
 translation_revised: 2026-08-08
 ---
 # Operator Console Module Map and Boundaries
@@ -16,7 +16,7 @@ package 책임, route family 분류, 후보 destination 및 import surface 상�
 file-count 목표가 아닌 설명 기준이지만, executable completeness gate는 현재 모든 module directory와
 route module을 분류된 상태로 유지하도록 요구합니다.
 Candidate destination은 package hint입니다. 새 process, identity, transport 또는 data owner의 gate는 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)입니다.
-[`test_operator_api_layout.py`](../../../tests/delivery/operator_api/test_operator_api_layout.py)는 현재 모든
+[`test_operator_api_layout.py`](../../../services/operator-service/tests/)는 현재 모든
 package와 route module이 분류된 상태인지 확인하고, exact 기본 method, path, route-name set 및 대표 HTTP
 envelope를 고정합니다. 의도적인 기본 route 추가는 같은 변경에서 검토된 baseline을 갱신합니다.
 
@@ -437,7 +437,7 @@ frame을 거부합니다.
 
 ## Core 및 delivery map
 
-- [`src/fdai/core/conversation/`](../../../src/fdai/core/conversation)
+- [`services/core-control-plane/src/fdai/core/conversation/`](../../../services/core-control-plane/src/fdai/core/conversation)
   - `coordinator.py`는 Layer 2 `ConversationCoordinator` orchestration을 소유합니다.
   - `tool_arguments.py`는 pure canonical-verb argument parsing을 소유하며 tool authority를 부여하지 않습니다.
   - `read_plan.py`는 bounded-plan validation, serial read execution, result aggregation 및
@@ -454,10 +454,10 @@ frame을 거부합니다.
   - `src/repl.ts`는 shared `POST /chat` coordinator용 IME-safe stdin/stdout channel입니다.
   - `src/cockpit.ts`는 self-describing screen snapshot을 같은 coordinator에 publish하는 live SSE
     presentation입니다.
-- [`src/fdai/core/conversation/channel_gateway.py`](../../../src/fdai/core/conversation/channel_gateway.py)는
+- [`services/core-control-plane/src/fdai/core/conversation/channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py)는
   sender를 인증하고 message idempotency key를 claim하며 coordinator를 호출합니다. Durable delivery가
   구성되면 provider send 전에 complete response를 저장합니다.
-- [`src/fdai/delivery/channels/`](../../../src/fdai/delivery/channels)
+- [`services/operator-service/src/fdai_operator_service//`](../../../services/operator-service/src/fdai_operator_service/)
   - `teams.py`는 bearer-token verification 이후 Bot Framework activity를 normalize하고 injected reply
     publisher를 사용합니다. Payload-supplied reply URL을 신뢰하지 않습니다.
   - `slack.py`는 timestamped signature를 검증하고 replay 또는 bot-authored event를 차단하며 message를
@@ -465,7 +465,7 @@ frame을 거부합니다.
   - Slack, Teams 및 web attachment contract는
     [conversation attachment](conversation-attachments-ko.md)를 통해 수렴합니다. Dedicated WebSocket
     adapter는 optional입니다.
-- [`current_time.py`](../../../src/fdai/delivery/operator_api/application/conversation/capabilities/current_time.py)는 injected
+- [`current_time.py`](../../../services/operator-service/src/fdai_operator_service/)는 injected
   aware clock과 principal IANA timezone에서 current-time 질문을 resolve합니다.
 
 ## Operator API route ownership

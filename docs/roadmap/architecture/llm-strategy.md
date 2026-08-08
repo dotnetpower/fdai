@@ -332,7 +332,7 @@ critic, an RCA reasoner, and an escalation ceiling. The composition root then
 quietly falls back to a forced-disagree cross-check and every T2 case routes to
 HIL, with no signal at deploy time that the reasoning tier is effectively off.
 
-[`assess_provisioning`](../../../src/fdai/rule_catalog/schema/provisioning_assessment.py)
+[`assess_provisioning`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/provisioning_assessment.py)
 closes that gap. It compares the authoritative `llm-registry.yaml` (intended)
 against `resolved-models.json` (actual) and returns a deterministic
 `ProvisioningReport`:
@@ -384,9 +384,9 @@ return quorum_result(cand_a, cand_b)
 
 The `if not agree(...): escalated = ...` step above is a **policy decision**, not a
 hard-coded branch. It is implemented as a pure, deterministic function in
-[`core/quality_gate/escalation_ladder.py`](../../../src/fdai/core/quality_gate/escalation_ladder.py)
+[`core/quality_gate/escalation_ladder.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/escalation_ladder.py)
 (`decide_escalation`), mirroring the sibling
-[`debate_router`](../../../src/fdai/core/quality_gate/debate_router.py): a frozen
+[`debate_router`](../../../services/core-control-plane/src/fdai/core/quality_gate/debate_router.py): a frozen
 `EscalationLadderConfig` plus a stateless function that answers "climb to the
 stronger model, or stop and route to HIL?". Shipping the policy on its own -
 testable and auditable before any live wiring - follows the debate-router
@@ -731,7 +731,7 @@ microseconds to milliseconds.
 
 ### ActionType Contract
 
-An **ActionType** ([schema](../../../src/fdai/shared/contracts/ontology/action-type.json))
+An **ActionType** ([schema](../../../services/core-control-plane/src/fdai/shared/contracts/ontology/action-type.json))
 declares one CSP-neutral mutation category and the safety invariants for every instance
 of it. All fields except `preconditions` / `stop_conditions` / `blast_radius` /
 `description` are required.

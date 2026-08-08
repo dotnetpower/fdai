@@ -1,0 +1,325 @@
+"""Upstream command catalog: local checks plus one Azure read operation."""
+
+from __future__ import annotations
+
+from fdai.core.tools.command_catalog import (
+    CommandArgumentKind,
+    CommandArgumentSource,
+    CommandArgumentSpec,
+    CommandCatalog,
+    CommandSpec,
+)
+from fdai.shared.providers.command_runner import (
+    CommandExecutionClass,
+    CommandNetworkProfile,
+    CommandOutputFormat,
+)
+
+_TEST_PATH = (
+    r"(?:services/[A-Za-z0-9_.-]+/(?:src|tests)|"
+    r"packages/[A-Za-z0-9_.-]+/(?:src|tests)|tests/integration)"
+    r"(?:/[A-Za-z0-9_.-]+)*"
+)
+_RESOURCE_GROUP = r"[A-Za-z0-9_.()-]{1,90}"
+_RESOURCE_NAME = r"[A-Za-z0-9_.()-]{1,128}"
+_RESOURCE_TYPE = r"[A-Za-z0-9_.-]{1,128}(?:/[A-Za-z0-9_.-]{1,128})?"
+_RESOURCE_ID = (
+    r"/subscriptions/[A-Za-z0-9-]{1,64}/resourceGroups/[A-Za-z0-9_.()-]{1,90}/"
+    r"providers/[A-Za-z0-9_.()/-]{1,300}"
+)
+_SUBSCRIPTION = r"[A-Za-z0-9-]{1,64}"
+_TIMESTAMP = r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.-]+Z"
+
+
+def default_command_catalog() -> CommandCatalog:
+    """Return the versioned command set shipped by the upstream project."""
+
+    return CommandCatalog(
+        (
+            CommandSpec(
+                command_id="local.git.status",
+                version=1,
+                executable_ref="git.cli",
+                fixed_argv=("status", "--short", "--untracked-files=all"),
+                arguments=(),
+                execution_class=CommandExecutionClass.LOCAL_READ,
+                workspace_required=True,
+            ),
+            CommandSpec(
+                command_id="local.git.diff",
+                version=1,
+                executable_ref="git.cli",
+                fixed_argv=("diff", "--no-ext-diff", "--"),
+                arguments=(
+                    CommandArgumentSpec(
+                        name="path",
+                        kind=CommandArgumentKind.STRING,
+                        required=False,
+                        pattern=_TEST_PATH,
+                    ),
+                ),
+                execution_class=CommandExecutionClass.LOCAL_READ,
+                workspace_required=True,
+            ),
+            CommandSpec(
+                command_id="local.python.pytest",
+                version=1,
+                executable_ref="python.runtime",
+                fixed_argv=("-m", "pytest", "-q", "--no-cov"),
+                arguments=(
+                    CommandArgumentSpec(
+                        name="target",
+                        kind=CommandArgumentKind.STRING,
+                        pattern=_TEST_PATH,
+                    ),
+                ),
+                execution_class=CommandExecutionClass.LOCAL_READ,
+                timeout_seconds=900,
+                max_output_bytes=1_000_000,
+                workspace_required=True,
+            ),
+            CommandSpec(
+                command_id="local.python.ruff",
+                version=1,
+                executable_ref="python.runtime",
+                fixed_argv=("-m", "ruff", "check"),
+                arguments=(
+                    CommandArgumentSpec(
+                        name="target",
+                        kind=CommandArgumentKind.STRING,
+                        pattern=_TEST_PATH,
+                    ),
+                ),
+                execution_class=CommandExecutionClass.LOCAL_READ,
+                timeout_seconds=300,
+                workspace_required=True,
+            ),
+            CommandSpec(
+                command_id="azure.resource.list",
+                version=1,
+                executable_ref="azure.cli",
+                fixed_argv=("resource", "list", "--only-show-errors", "--output", "json"),
+                arguments=(
+                    CommandArgumentSpec(
+                        name="resource_group",
+                        kind=CommandArgumentKind.STRING,
+                        flag="--resource-group",
+                        pattern=_RESOURCE_GROUP,
+                        required=False,
+                    ),
+                    CommandArgumentSpec(
+                        name="resource_type",
+                        kind=CommandArgumentKind.STRING,
+                        flag="--resource-type",
+                        pattern=_RESOURCE_TYPE,
+                        required=False,
+                    ),
+                    CommandArgumentSpec(
+                        name="subscription",
+                        kind=CommandArgumentKind.STRING,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--subscription",
+                        pattern=_SUBSCRIPTION,
+                    ),
+                ),
+                execution_class=CommandExecutionClass.CLOUD_READ,
+                network_profile=CommandNetworkProfile.AZURE_CONTROL_PLANE,
+                output_format=CommandOutputFormat.JSON,
+                credential_profile="azure.reader",
+            ),
+            CommandSpec(
+                command_id="azure.read.resource.resolve",
+                version=1,
+                executable_ref="azure.cli",
+                fixed_argv=(
+                    "resource",
+                    "list",
+                    "--only-show-errors",
+                    "--query",
+                    "[:9].{id:id,name:name,type:type,resourceGroup:resourceGroup}",
+                    "--output",
+                    "json",
+                ),
+                arguments=(
+                    CommandArgumentSpec(
+                        name="name",
+                        kind=CommandArgumentKind.STRING,
+                        flag="--name",
+                        pattern=_RESOURCE_NAME,
+                    ),
+                    CommandArgumentSpec(
+                        name="resource_group",
+                        kind=CommandArgumentKind.STRING,
+                        flag="--resource-group",
+                        pattern=_RESOURCE_GROUP,
+                    ),
+                    CommandArgumentSpec(
+                        name="resource_type",
+                        kind=CommandArgumentKind.STRING,
+                        flag="--resource-type",
+                        pattern=_RESOURCE_TYPE,
+                        required=False,
+                    ),
+                    CommandArgumentSpec(
+                        name="subscription",
+                        kind=CommandArgumentKind.STRING,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--subscription",
+                        pattern=_SUBSCRIPTION,
+                    ),
+                ),
+                execution_class=CommandExecutionClass.CLOUD_READ,
+                network_profile=CommandNetworkProfile.AZURE_CONTROL_PLANE,
+                output_format=CommandOutputFormat.JSON,
+                timeout_seconds=60,
+                max_output_bytes=64_000,
+                credential_profile="azure.reader",
+            ),
+            CommandSpec(
+                command_id="azure.activity-log.list",
+                version=1,
+                executable_ref="azure.cli",
+                fixed_argv=(
+                    "monitor",
+                    "activity-log",
+                    "list",
+                    "--only-show-errors",
+                    "--query",
+                    "[].{eventTimestamp:eventTimestamp,status:status,operationName:operationName,caller:caller,correlationId:correlationId}",
+                    "--output",
+                    "json",
+                ),
+                arguments=(
+                    CommandArgumentSpec(
+                        name="resource_id",
+                        kind=CommandArgumentKind.STRING,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--resource-id",
+                        pattern=_RESOURCE_ID,
+                    ),
+                    CommandArgumentSpec(
+                        name="start_time",
+                        kind=CommandArgumentKind.STRING,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--start-time",
+                        pattern=_TIMESTAMP,
+                    ),
+                    CommandArgumentSpec(
+                        name="max_events",
+                        kind=CommandArgumentKind.INTEGER,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--max-events",
+                        minimum=1,
+                        maximum=8,
+                    ),
+                    CommandArgumentSpec(
+                        name="subscription",
+                        kind=CommandArgumentKind.STRING,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--subscription",
+                        pattern=_SUBSCRIPTION,
+                    ),
+                ),
+                execution_class=CommandExecutionClass.CLOUD_READ,
+                network_profile=CommandNetworkProfile.AZURE_CONTROL_PLANE,
+                output_format=CommandOutputFormat.JSON,
+                timeout_seconds=60,
+                max_output_bytes=64_000,
+                credential_profile="azure.reader",
+            ),
+            CommandSpec(
+                command_id="azure.group.list",
+                version=1,
+                executable_ref="azure.cli",
+                fixed_argv=("group", "list", "--only-show-errors", "--output", "json"),
+                arguments=(
+                    CommandArgumentSpec(
+                        name="subscription",
+                        kind=CommandArgumentKind.STRING,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--subscription",
+                        pattern=_SUBSCRIPTION,
+                    ),
+                ),
+                execution_class=CommandExecutionClass.CLOUD_READ,
+                network_profile=CommandNetworkProfile.AZURE_CONTROL_PLANE,
+                output_format=CommandOutputFormat.JSON,
+                credential_profile="azure.reader",
+            ),
+            CommandSpec(
+                command_id="azure.vm.list",
+                version=1,
+                executable_ref="azure.cli",
+                fixed_argv=(
+                    "vm",
+                    "list",
+                    "--show-details",
+                    "--only-show-errors",
+                    "--output",
+                    "json",
+                ),
+                arguments=(
+                    CommandArgumentSpec(
+                        name="resource_group",
+                        kind=CommandArgumentKind.STRING,
+                        flag="--resource-group",
+                        pattern=_RESOURCE_GROUP,
+                        required=False,
+                    ),
+                    CommandArgumentSpec(
+                        name="subscription",
+                        kind=CommandArgumentKind.STRING,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--subscription",
+                        pattern=_SUBSCRIPTION,
+                    ),
+                ),
+                execution_class=CommandExecutionClass.CLOUD_READ,
+                network_profile=CommandNetworkProfile.AZURE_CONTROL_PLANE,
+                output_format=CommandOutputFormat.JSON,
+                timeout_seconds=120,
+                max_output_bytes=1_000_000,
+                credential_profile="azure.reader",
+            ),
+            CommandSpec(
+                command_id="azure.vm.status",
+                version=1,
+                executable_ref="azure.cli",
+                fixed_argv=(
+                    "vm",
+                    "get-instance-view",
+                    "--only-show-errors",
+                    "--output",
+                    "json",
+                ),
+                arguments=(
+                    CommandArgumentSpec(
+                        name="resource_group",
+                        kind=CommandArgumentKind.STRING,
+                        flag="--resource-group",
+                        pattern=_RESOURCE_GROUP,
+                    ),
+                    CommandArgumentSpec(
+                        name="name",
+                        kind=CommandArgumentKind.STRING,
+                        flag="--name",
+                        pattern=_RESOURCE_NAME,
+                    ),
+                    CommandArgumentSpec(
+                        name="subscription",
+                        kind=CommandArgumentKind.STRING,
+                        source=CommandArgumentSource.TRUSTED,
+                        flag="--subscription",
+                        pattern=_SUBSCRIPTION,
+                    ),
+                ),
+                execution_class=CommandExecutionClass.CLOUD_READ,
+                network_profile=CommandNetworkProfile.AZURE_CONTROL_PLANE,
+                output_format=CommandOutputFormat.JSON,
+                credential_profile="azure.reader",
+            ),
+        )
+    )
+
+
+__all__ = ["default_command_catalog"]

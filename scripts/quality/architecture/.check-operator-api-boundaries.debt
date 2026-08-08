@@ -1,6 +1,1 @@
-# Existing route-to-core imports remain report-only until route families gain application services.
-report-route-core-policy|195
-# Existing Operator API runtime imports remain report-only until their owning service moves.
-report-operator-to-runtime|4
-# Existing Operator API ingestion import remains report-only until its evidence contract moves.
-report-operator-to-ingestion|1
+# Final service boundaries allow no report-only implementation-import debt.

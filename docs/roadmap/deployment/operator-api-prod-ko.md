@@ -1,16 +1,16 @@
 ---
 title: 콘솔 Operator API 프로덕션 배포
 translation_of: operator-api-prod.md
-translation_source_sha: 55744c0c39e7648fe6c0a07c2997edb784e87c93
-translation_revised: 2026-08-02
+translation_source_sha: d80be1162018de4930a039aa0be52b65c86d3ad9
+translation_revised: 2026-08-08
 ---
 # 콘솔 Operator API 프로덕션 배포
 
 업스트림 리포는 콘솔 Operator API용 ASGI 진입점 두 개를 제공한다:
-로컬 facade ([`src/fdai/delivery/operator_api/dev/local.py`](../../../src/fdai/delivery/operator_api/dev/local.py))는
+로컬 facade ([`services/operator-service/src/fdai_operator_service/`](../../../services/operator-service/src/fdai_operator_service/))는
 기본적으로 Entra 또는 명시적 Azure CLI principal과 authoritative Azure view를 요구하고,
 pytest의 `test_fixtures=True`에서만 `UnsafeClaimsExtractor`와 synthetic view를 허용합니다.
-프로덕션 facade ([`src/fdai/delivery/operator_api/prod.py`](../../../src/fdai/delivery/operator_api/prod.py))은
+프로덕션 facade ([`services/operator-service/src/fdai_operator_service/`](../../../services/operator-service/src/fdai_operator_service/))은
 실제 Entra JWT 검증과 Postgres 기반 read 모델을 환경변수로 조립합니다.
 이 문서는 프로덕션 진입점을 다룬다.
 
@@ -21,7 +21,7 @@ pytest의 `test_fixtures=True`에서만 `UnsafeClaimsExtractor`와 synthetic vie
 ## 한눈에 보는 설계
 
 - **동일한 `build_app` 글루.** 프로덕션 팩토리는 공용
-  [`build_app`](../../../src/fdai/delivery/operator_api/main.py)을
+  [`build_app`](../../../services/operator-service/src/fdai_operator_service/)을
   `dev_mode=False`로 호출합니다. 그 결과 cloud-resource mutation은 API 외부에
   유지됩니다. Opt-in POST route는 proposal, approval 또는 access request를 기록하지만
   executor ID를 보유하지 않습니다. 또한
@@ -60,7 +60,7 @@ pytest의 `test_fixtures=True`에서만 `UnsafeClaimsExtractor`와 synthetic vie
 | 변수 | 용도 |
 |------|------|
 | `FDAI_DATABASE_URL` | psycopg 3 DSN. 허용 스킴: `postgresql://`, `postgres://`, `postgresql+psycopg://`. 그 외 `+<driver>` 접미사(`+asyncpg`, `+psycopg2` 등)는 시작 시점에 `ProdOperatorApiConfigError`로 거부된다. 라이터가 `alembic upgrade head`로 이미 프로비저닝한 `audit_log` + `state_kv` 스키마 대상. |
-| `FDAI_ENTRA_TENANT_ID` | [`EntraJwtVerifier.from_env`](../../../src/fdai/delivery/operator_api/entra_verifier.py)가 소비. |
+| `FDAI_ENTRA_TENANT_ID` | [`EntraJwtVerifier.from_env`](../../../services/operator-service/src/fdai_operator_service/)가 소비. |
 | `FDAI_API_AUDIENCE` | `fdai-api` App ID URI (`api://<guid>`). |
 | `FDAI_RBAC_READERS_GROUP_ID` | Reader 역할에 매핑되는 Entra 그룹 `objectId`. |
 | `FDAI_RBAC_CONTRIBUTORS_GROUP_ID` | Contributor 매핑. |
@@ -125,29 +125,29 @@ uvicorn fdai.delivery.operator_api.prod:app \
 
 ## 어디에 뭐가 있나
 
-- [`prod.py`](../../../src/fdai/delivery/operator_api/prod.py) - 안정적인 import facade와 `app()` 팩토리.
-- [`production/config.py`](../../../src/fdai/delivery/operator_api/production/config.py) 및
-  [`production/factory.py`](../../../src/fdai/delivery/operator_api/production/factory.py) - 환경 검증,
+- [`prod.py`](../../../services/operator-service/src/fdai_operator_service/) - 안정적인 import facade와 `app()` 팩토리.
+- [`production/config.py`](../../../services/operator-service/src/fdai_operator_service/) 및
+  [`production/factory.py`](../../../services/operator-service/src/fdai_operator_service/) - 환경 검증,
   Postgres/Entra/provider composition의 실제 owner.
-- [`postgres_read_model.py`](../../../src/fdai/delivery/operator_api/postgres_read_model.py)
+- [`postgres_read_model.py`](../../../services/operator-service/src/fdai_operator_service/)
   - `audit_log` + `state_kv` 위의 구체 :class:`ConsoleReadModel`. row -> dataclass
     매퍼와 경계가 정해진 KPI 집계는 같은 모듈의 순수함수로 분리되어 있어
     라이브 DB 없이 유닛테스트가 가능하다.
-- [`main.py`](../../../src/fdai/delivery/operator_api/main.py) - 공용 `build_app`
+- [`main.py`](../../../services/operator-service/src/fdai_operator_service/) - 공용 `build_app`
   글루 (라우트 등록, `_authorize` 게이트, staging/prod 트립와이어).
-- [`streaming/live_stage_broadcaster.py`](../../../src/fdai/delivery/operator_api/streaming/live_stage_broadcaster.py)
+- [`streaming/live_stage_broadcaster.py`](../../../services/operator-service/src/fdai_operator_service/)
   - Kafka 단계 레코드를 검증하고 브라우저가 기대하는 원시 `event: stage` SSE
   계약을 유지합니다.
 
 ## 테스트
 
-- `tests/delivery/operator_api/test_prod.py` - env 파싱 + 조립 가드
+- `services/operator-service/tests/` - env 파싱 + 조립 가드
   (DB 왕복 없음).
-- `tests/delivery/operator_api/streaming/test_live_stage_broadcaster.py` - 원시 단계
+- `services/operator-service/tests/` - 원시 단계
   relay, 잘못된 프레임 거부, lifecycle 동작.
-- `tests/delivery/operator_api/test_postgres_read_model_units.py` - row 매퍼,
+- `services/operator-service/tests/` - row 매퍼,
   커서 파싱, KPI 집계 (DB 왕복 없음).
-- `tests/persistence/test_postgres_console_read_model.py` -
+- `services/core-control-plane/tests/persistence/test_postgres_console_read_model.py` -
   라이브 Postgres 대상 end-to-end 라운드트립. `FDAI_DATABASE_URL`이 없으면
   스킵. 로컬 `docker-compose` dev 스택 (`bash scripts/deployment/local/dev-up.sh`)이
   `postgresql+psycopg://fdai:devonly@localhost:5432/fdai`로 노출한다.

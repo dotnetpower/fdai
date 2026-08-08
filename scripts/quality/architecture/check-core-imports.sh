@@ -6,7 +6,7 @@
 # Rule (see docs/roadmap/architecture/project-structure.md § Module Boundaries and
 # .github/copilot-instructions.md § Implementation Focus):
 #
-#   src/fdai/core/** MUST NOT import:
+#   services/core-control-plane/src/fdai/core/** MUST NOT import:
 #     * any cloud SDK (azure-*, boto3, google.cloud.*)
 #     * any HTTP client (httpx, requests, aiohttp)
 #     * anything under fdai.delivery.*
@@ -33,7 +33,7 @@ cd "$repo_root"
 # uncommitted edit that introduces a banned import still fails locally
 # - matching the developer expectation for pre-commit / pre-push hooks.
 mapfile -t files < <(
-  find src/fdai/core -type f -name '*.py' \
+  find services/core-control-plane/src/fdai/core -type f -name '*.py' \
     ! -path '*/__pycache__/*' \
     ! -name '__init__.pyc' \
     | sort
@@ -64,7 +64,7 @@ if (( fail )); then
   cat >&2 <<'EOF'
 
 Fix by moving the offending SDK / HTTP / delivery adapter call behind
-one of the CSP-neutral Protocols in src/fdai/shared/providers/
+one of the CSP-neutral Protocols in services/core-control-plane/src/fdai/shared/providers/
 (see docs/roadmap/architecture/csp-neutrality.md § 1-5) and binding the concrete
 implementation at the composition root.
 EOF

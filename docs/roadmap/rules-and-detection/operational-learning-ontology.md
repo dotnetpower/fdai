@@ -239,7 +239,7 @@ changing the learned pattern or control-loop authority model.
 The O0 through O2 code batches implemented these foundations:
 
 1. `OperationalCaseProjection` and `FailureFingerprint` are pure immutable models under
-   `src/fdai/core/case_history/`;
+   `services/core-control-plane/src/fdai/core/case_history/`;
 2. canonical identifiers, sorted and deduplicated graph descriptors, and schema version form the
   only fingerprint input;
 3. sealed case revision identity and evidence references form the immutable learning projection;

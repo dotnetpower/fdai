@@ -23,8 +23,8 @@ in [coding-conventions.instructions.md](../../../.github/instructions/coding-con
 > [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md).
 
 > **Implementation status (2026-08-04):** W0-W8 are implemented. The sections preserve rollout
-> order and acceptance intent. Shared machinery lives under `src/fdai/agents/_framework/`, with
-> coverage from `tests/agents/test_wave2_governance.py` through `test_wave8_kpi_degradation.py`.
+> order and acceptance intent. Shared machinery lives under `services/core-control-plane/src/fdai/agents/_framework/`, with
+> coverage from `services/core-control-plane/tests/agents/test_wave2_governance.py` through `test_wave8_kpi_degradation.py`.
 > Workflows carry executable trace refs, KPI reports distinguish measured values from unavailable evidence, and every agent has an injected degradation drill.
 > Huginn also publishes normalized planned and observed changes on `object.change`, and Muninn
 > retains immutable content-addressed revisions without adding execution authority. The causal
@@ -42,7 +42,7 @@ The pantheon doc ([agent-pantheon.md](agent-pantheon.md)) defines the
   join the existing catalog under `rule-catalog/vocabulary/object-types/`.
 - **Typed capabilities**: arbitration, handoff, notification, and rule-candidate publication use
   their owner agent's schema-checked object topics, not catalog ActionTypes; `governance.*` remains reserved for `pr_native` catalog-as-code changes.
-- **Python core**: `src/fdai/agents/` with 15 flat specialist modules and
+- **Python core**: `services/core-control-plane/src/fdai/agents/` with 15 flat specialist modules and
   shared base, registry, topic, bus, runtime, and two-port machinery under
   `_framework/`.
 - **Tests**: registry integrity, single-writer topic enforcement, ActionType
@@ -78,7 +78,7 @@ measurable; a wave does not close on prose.
 | Wave | Deliverable set | Exit gate |
 |------|-----------------|-----------|
 | **W0** | Docs foundation: workflows doc, pantheon §4 detail, ontology YAML additions | translation-pair CI + schema lint green; new object types resolve via `/ontology/graph` (dev) |
-| **W1** | Python scaffolding: `agents/` package, base class, 15 stubs, topic registry, two-port skeleton | `pytest tests/agents/` passes with registry + topic-owner enforcement tests |
+| **W1** | Python scaffolding: `agents/` package, base class, 15 stubs, topic registry, two-port skeleton | `pytest services/core-control-plane/tests/agents/` passes with registry + topic-owner enforcement tests |
 | **W2** | Governance staff: Saga (audit + issue), Mimir (rule steward), Muninn (memory / RAG), Norns (learner) fully wired in shadow | end-to-end audit trail: a synthetic event walks through, Saga writes an `AuditEntry`, replay reconstructs it, Norns picks up a pattern |
 | **W3** | Sensing + judgment + risk: Huginn, Heimdall, Forseti, Var, Vidar, Thor connected via typed port; verdict-to-execute-to-audit loop live in shadow | 100 synthetic events flow ingress -> verdict -> HIL or auto -> execute (shadow) -> audit with zero policy violations |
 | **W4** | Bragi + Odin: conversational port with routing, per-user context, arbitration | one operator NL query walks routing -> primary + contributors -> aggregated response; Odin arbitrates a synthetic domain_conflict |
@@ -129,7 +129,7 @@ measurable; a wave does not close on prose.
 
 **Scope**
 
-- Package `src/fdai/agents/` with:
+- Package `services/core-control-plane/src/fdai/agents/` with:
   - `_framework/base.py` - abstract `Agent` class: fields (`name`, `layer`,
     `owns`, `executes`, `subscribes`, `publishes`, `question_domains`,
     `owns_code_paths`, `llm_bindings`, `rate_limits`), methods
@@ -145,9 +145,9 @@ measurable; a wave does not close on prose.
     and EventBus bridge that enforce `producer_principal == owner_agent`.
   - Flat specialist modules (`odin.py`, `thor.py`, ...) - one implementation
     per fixed pantheon agent.
-- `src/fdai/agents/__init__.py` exports the registry entry point.
+- `services/core-control-plane/src/fdai/agents/__init__.py` exports the registry entry point.
 
-**Tests (`tests/agents/`)**
+**Tests (`services/core-control-plane/tests/agents/`)**
 
 - `test_framework_layout.py`, `test_registry.py`, and `test_topics.py` cover
   package shape, the fixed 15-agent registry, single-writer ownership, and
@@ -158,7 +158,7 @@ measurable; a wave does not close on prose.
 
 **Exit gate**
 
-- `pytest tests/agents/` green.
+- `pytest services/core-control-plane/tests/agents/` green.
 - `scripts/quality/architecture/check-core-imports.sh` still green (no new cross-layer
   imports outside `agents/`).
 - `mypy` (or the repo's current type-check bar) clean on the new
@@ -183,7 +183,7 @@ Forseti reasons; Norns closes the discovery loop.
 
 **Scope**
 
-- **Saga (`src/fdai/agents/saga.py`)** - implement `append_audit`
+- **Saga (`services/core-control-plane/src/fdai/agents/saga.py`)** - implement `append_audit`
   handler subscribed to every terminal-state topic. Persist to the
   existing audit store (see
   [security-and-identity.md](../architecture/security-and-identity.md)). Implement
@@ -192,17 +192,17 @@ Forseti reasons; Norns closes the discovery loop.
   adapter (defer real network to fork; use an in-memory adapter in
   tests). Implement replay by consuming past audit-entries in
   chronological order without republishing.
-- **Mimir (`src/fdai/agents/mimir.py`)** - subscribe to
+- **Mimir (`services/core-control-plane/src/fdai/agents/mimir.py`)** - subscribe to
   `object.rule-candidate`. Implement `promote_rule` and `revoke_rule`
   as sync operations on the existing rule catalog store. Add a
   freshness monitor (recurring): read audit-log firing counts per rule,
   emit `RuleStalenessSignal` on inactivity threshold.
-- **Muninn (`src/fdai/agents/muninn.py`)** - state / context store
+- **Muninn (`services/core-control-plane/src/fdai/agents/muninn.py`)** - state / context store
   reader for other agents. Backed by the existing state store provider
   ([project-structure.md](../architecture/project-structure.md#customization-via-dependency-injection)).
   Implement bitemporal snapshot rotation and cache eviction. Own the
   Issue fingerprint index used by Saga.
-- **Norns (`src/fdai/agents/norns.py`)** - two entry points: batch
+- **Norns (`services/core-control-plane/src/fdai/agents/norns.py`)** - two entry points: batch
   (hourly cron via existing scheduler) and stream (subscribe to
   `object.audit-entry`). Implement pattern extraction as T1 clustering
   first; leave T2 LLM summary hook for W7. Publish `RuleCandidate` and
@@ -241,7 +241,7 @@ Forseti reasons; Norns closes the discovery loop.
 
 **Scope**
 
-- **Huginn (`src/fdai/agents/huginn.py`)** - own the real-time resource and change
+- **Huginn (`services/core-control-plane/src/fdai/agents/huginn.py`)** - own the real-time resource and change
   discovery ingress. Subscription-scoped Azure write/delete events arrive on
   the raw Event Hub through managed-identity Event Grid delivery, a runtime
   normalizer republishes canonical Events, and Huginn deduplicates, invokes the
@@ -249,7 +249,7 @@ Forseti reasons; Norns closes the discovery loop.
   release, and provider-activity events additionally publish `object.change`; Muninn stores
   immutable revisions for context and replay. The
   six-hour Inventory sync job remains the full ARG/ARM reconciliation path.
-- **Heimdall (`src/fdai/agents/heimdall.py`)** - discovery freshness/coverage
+- **Heimdall (`services/core-control-plane/src/fdai/agents/heimdall.py`)** - discovery freshness/coverage
   assurance plus anomaly detector
   (statistical threshold, adaptive baseline via T0/T1), drift detector
   (declared vs actual state via Muninn snapshot compare), forecast
@@ -258,7 +258,7 @@ Forseti reasons; Norns closes the discovery loop.
   for W6. An injected bounded read-only operational evidence hook can enrich an authoritative
   anomaly without granting judgment or execution authority. Stale/degraded inventory fails closed;
   Heimdall never starts the reconciliation job.
-- **Forseti (`src/fdai/agents/forseti.py`)** - subscribe to
+- **Forseti (`services/core-control-plane/src/fdai/agents/forseti.py`)** - subscribe to
   `object.anomaly`, `object.drift`, `object.event`. Implement the
   three-tier trust router locally: T0 rule match via Mimir; T1
   similarity via Muninn; T2 stays a stub returning `abstain` until
@@ -266,17 +266,17 @@ Forseti reasons; Norns closes the discovery loop.
   `risk-classification.yaml` table plus ActionType ceiling. Emit
   `Verdict` with `auto | hil | deny`. Emit `arbitrate` signal when
   `domain_conflict: true` (Odin lands in W4).
-- **Thor (`src/fdai/agents/thor.py`)** - subscribe to `object.verdict` and
+- **Thor (`services/core-control-plane/src/fdai/agents/thor.py`)** - subscribe to `object.verdict` and
   `object.rollback`.
   Dispatch: `auto` -> shadow execute against the existing executor
   provider; `hil` -> publish `object.hil-request` (Var lands here too);
   `deny` -> publish drop record for Saga. Enforce per-resource mutex on
   `resource_id` partition. Trigger rollback on failure.
-- **Var (`src/fdai/agents/var.py`)** - subscribe to
+- **Var (`services/core-control-plane/src/fdai/agents/var.py`)** - subscribe to
   `object.hil-request`. Present via existing ChatOps adapter (stub in
   W3, real adapter in W5). Timeout / expire tracking. Publish
   `object.hil-response`.
-- **Vidar (`src/fdai/agents/vidar.py`)** - subscribe to Thor failure
+- **Vidar (`services/core-control-plane/src/fdai/agents/vidar.py`)** - subscribe to Thor failure
   signal. Invoke the injected rollback executor selected by the ActionType
   `rollback_contract`, and publish the provider receipt on `object.rollback`.
   Thor keeps the failed ActionRun and resource lock until that receipt arrives;
@@ -314,7 +314,7 @@ defaults and never invokes the privileged executor.
 
 **Scope**
 
-- **Bragi (`src/fdai/agents/bragi.py`)** - conversational port entry
+- **Bragi (`services/core-control-plane/src/fdai/agents/bragi.py`)** - conversational port entry
   point. Existing operator-console adapter
   ([operator-console.md](../interfaces/operator-console.md)) reused. Implement:
   - Intent classification: T0 keyword match against
@@ -326,7 +326,7 @@ defaults and never invokes the privileged executor.
     contributors, aggregate their responses, render NL response.
   - Conversation state: session, turn, per-user partitioning,
     retention.
-- **Odin (`src/fdai/agents/odin.py`)** - subscribe to
+- **Odin (`services/core-control-plane/src/fdai/agents/odin.py`)** - subscribe to
   `object.arbitration-request` emitted by Forseti. Read the
   fork-configured priority policy (default: SLO > cost > architecture)
   from the rule catalog. Publish `object.arbitration-response`.
@@ -364,15 +364,15 @@ defaults and never invokes the privileged executor.
 
 **Scope**
 
-- **Njord (`src/fdai/agents/njord.py`)** - consume bounded cost samples from canonical
+- **Njord (`services/core-control-plane/src/fdai/agents/njord.py`)** - consume bounded cost samples from canonical
   `object.event` (Azure Cost Management adapter; in-memory in tests).
   Emit `CostAnomaly` when spend deviates from forecast by threshold.
   Provide advisory hook on Forseti verdict for cost-impact
   attribution.
-- **Freyr (`src/fdai/agents/freyr.py`)** - consume bounded utilization samples from canonical
+- **Freyr (`services/core-control-plane/src/fdai/agents/freyr.py`)** - consume bounded utilization samples from canonical
   `object.event`. Emit `CapacityForecast`, `SizingRecommendation`. Advisory
   hook on Forseti verdict.
-- **Loki (`src/fdai/agents/loki.py`)** - consume bounded schedule triggers from canonical
+- **Loki (`services/core-control-plane/src/fdai/agents/loki.py`)** - consume bounded schedule triggers from canonical
   `object.event`; every experiment is proposed as an `ActionRun` with `blast_radius`
   bounded and `default_mode: shadow`. Loki NEVER auto-executes an
   experiment: the ActionType routes through Forseti + Var per §7.6
@@ -533,9 +533,9 @@ with flags off).
 
 Waves W1 - W8 land agent behavior and exercise it through tests, but
 the agents only communicate once the process wires them to a real
-event bus. That seam is `src/fdai/agents/_framework/runtime.py`
-(`PantheonRuntime`), assembled by `src/fdai/runtime/bootstrap.py`; the headless
-`src/fdai/__main__.py` delegates to that bootstrap:
+event bus. That seam is `services/core-control-plane/src/fdai/agents/_framework/runtime.py`
+(`PantheonRuntime`), assembled by `services/core-control-plane/src/fdai/runtime/bootstrap.py`; the headless
+`services/core-control-plane/src/fdai/__main__.py` delegates to that bootstrap:
 
 - `PantheonRuntime.build(provider, raw_event_topic)` instantiates all
   15 agents, binds every publishing agent to one
@@ -569,7 +569,7 @@ Thor judges-and-logs only and never double-executes alongside the P1
 loop. Promotion to enforce is an explicit, separately reviewed opt-in
 (`FDAI_PANTHEON_ENFORCE` / `build(enforce=True)`) - never the default.
 Agents use the in-memory audit / issue / admin adapters from
-`src/fdai/agents/_framework/adapters.py`; a fork injects a durable, StateStore-backed
+`services/core-control-plane/src/fdai/agents/_framework/adapters.py`; a fork injects a durable, StateStore-backed
 `Saga` via `build(saga=...)` and swaps the other adapters for durable
 backends (see §13.3).
 
@@ -702,7 +702,7 @@ Configurable + observable seams:
   than flooding the DLQ, since the P1 loop still processes the record.
 
 The agent `bus` seam is typed against the `PantheonBus` Protocol
-(`src/fdai/agents/_framework/bus.py`), which both the in-memory `InMemoryBus`
+(`services/core-control-plane/src/fdai/agents/_framework/bus.py`), which both the in-memory `InMemoryBus`
 (tests) and the Kafka-backed `EventBusBridge` (production) satisfy;
 `Agent.bind_bus` on the base class lets the composition root bind every
 agent uniformly.
@@ -729,7 +729,7 @@ Every other agent - Huginn, Heimdall, Vidar, Var, Thor, Odin, Saga, Mimir,
 Muninn, and the domain specialists - stays LLM-free in the hot-path.
 
 **Composition-root binding (`LlmBindings`).** The model seam is resolved once
-at the composition root (`src/fdai/composition/`), never inside an agent. The
+at the composition root (`services/core-control-plane/src/fdai/composition/`), never inside an agent. The
 container carries an `LlmBindings` that provides the T1 embedding model and the
 T2 cross-check models, selected by `llm.mode`:
 

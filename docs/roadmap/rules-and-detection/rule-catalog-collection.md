@@ -302,7 +302,7 @@ source manifest ─► fetch ─► verify ─► parse ─► map to schema ─
 
 Authored Rego lives in the **top-level** `policies/` (consumed by T0 and the verifier) and is
 referenced by `check_logic.reference`; source manifests live under `rule-catalog/sources/`, runtime
-loaders/schemas under `src/fdai/rule_catalog/schema/` and `src/fdai/shared/contracts/`, and normalized output under `rule-catalog/catalog/`. This aligns
+loaders/schemas under `services/core-control-plane/src/fdai/rule_catalog/schema/` and `services/core-control-plane/src/fdai/shared/contracts/`, and normalized output under `rule-catalog/catalog/`. This aligns
 with [project-structure.md](../architecture/project-structure.md).
 
 ## YAML Normalization
@@ -327,8 +327,8 @@ contradictory:
 
 - `source` equals a registered manifest `source_id` (the phase-1 `source` enum).
 - The normalized `Rule` requires `schema_version` and has no `kind` discriminator. Its strict
-  schema is `src/fdai/shared/contracts/rule/schema.json`. `BestPractice` uses the
-  `best-practice` discriminator and the strict schema under `src/fdai/rule_catalog/schema/`.
+  schema is `services/core-control-plane/src/fdai/shared/contracts/rule/schema.json`. `BestPractice` uses the
+  `best-practice` discriminator and the strict schema under `services/core-control-plane/src/fdai/rule_catalog/schema/`.
   Config-baseline and measurement-baseline remain target shapes until their loaders land.
 - Enums: `severity` ∈ `critical | high | medium | low` (matching phase-1 precedence),
   `category` ∈ `security | reliability | cost | config_drift | compliance`, `redistribution` ∈
@@ -421,7 +421,7 @@ provenance:
 
 > `remediates` is validated at load time against
 > [`rule-catalog/action-types/`](../../../rule-catalog/action-types) by
-> [`rule_catalog.schema.rule`](../../../src/fdai/rule_catalog/schema/rule.py) - an
+> [`rule_catalog.schema.rule`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule.py) - an
 > unknown ActionType id fails the load, so a rule can never quote a mutation category
 > that has no `rollback_contract` / `promotion_gate` declared. Optional `alternatives`
 > follows the same rule; the shipped
@@ -531,23 +531,23 @@ fdai/
     ├── catalog/           # normalized, version-pinned YAML output (catalog-as-code)
     └── exemptions/        # time-boxed, audited exemption artifacts
 
-  src/fdai/rule_catalog/
+  services/core-control-plane/src/fdai/rule_catalog/
   ├── schema/                # source-manifest and catalog runtime loaders/schemas
   └── pipeline/              # watch → collect → parse → shadow-eval → promote/rollback
 ```
 
 Authored Rego is **not** nested under `rule-catalog/`; it lives in the top-level `policies/`
 consumed by T0 and the verifier, exactly as in
-[project-structure.md](../architecture/project-structure.md). `src/fdai/rule_catalog/pipeline/` is the continuous updater.
+[project-structure.md](../architecture/project-structure.md). `services/core-control-plane/src/fdai/rule_catalog/pipeline/` is the continuous updater.
 
 - `vocabulary/resource-types.yaml` - the enumerated CSP-neutral `resource_type` identifier
   set every rule quotes from. Rename → catalog-wide migration; add → governance PR. Loader:
-  `src/fdai/rule_catalog/schema/resource_type.py`, JSON Schema:
-  `src/fdai/rule_catalog/schema/resource_types.schema.json`.
+  `services/core-control-plane/src/fdai/rule_catalog/schema/resource_type.py`, JSON Schema:
+  `services/core-control-plane/src/fdai/rule_catalog/schema/resource_types.schema.json`.
 - `action-types/*.yaml` - one file per ontology `ActionType` instance. `default_mode`
   MUST be `shadow` in upstream and `promotion_gate` MUST be present. Loader:
-  `src/fdai/rule_catalog/schema/action_type.py`; JSON Schema is the shared ontology
-  schema at `src/fdai/shared/contracts/ontology/action-type.json`.
+  `services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py`; JSON Schema is the shared ontology
+  schema at `services/core-control-plane/src/fdai/shared/contracts/ontology/action-type.json`.
 
 ### Semantic axes
 

@@ -1,8 +1,8 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: 685b566a5eac6f68fef20e604e0862a438ee1b5f
-translation_revised: 2026-08-04
+translation_source_sha: 4b5f34b4df9c22d370e598d25855775aff927e71
+translation_revised: 2026-08-08
 ---
 
 # Workflow Control-Loop Integration
@@ -12,9 +12,9 @@ translation_revised: 2026-08-04
 ## 4. 컨트롤 루프 통합
 
 컴파일된 워크플로는 side channel 에서 실행되지 않는다.
-[`WorkflowCompiler`](../../../src/fdai/core/workflow/compiler.py) 는 `Workflow` 를
-[`Runbook`](../../../src/fdai/core/runbook/models.py) 으로 바꾸고, 기존
-[`RunbookRunner`](../../../src/fdai/core/runbook/runner.py) 가 스텝을 걷는다. 각
+[`WorkflowCompiler`](../../../services/core-control-plane/src/fdai/core/workflow/compiler.py) 는 `Workflow` 를
+[`Runbook`](../../../services/core-control-plane/src/fdai/core/runbook/models.py) 으로 바꾸고, 기존
+[`RunbookRunner`](../../../services/core-control-plane/src/fdai/core/runbook/runner.py) 가 스텝을 걷는다. 각
 스텝은 주입된 `StepExecutor` 를 통해 dispatch 되며, 이는 typed 파이프라인에
 재진입한다: `ActionType` -> risk-gate -> executor -> audit. 스텝 간 direct RPC 도,
 risk-gate 우회도 없다. 이는 행동 요청은 typed 파이프라인에 재진입한다는 pantheon
@@ -27,11 +27,11 @@ Evidence 및 control step은 mutation authority가 없고 전용 typed contract�
 
 ### 4.1 거버넌스가 적용되는 shadow 및 enforce 오케스트레이터
 
-[`WorkflowOrchestrator`](../../../src/fdai/core/workflow/orchestrator.py) 가 첫
+[`WorkflowOrchestrator`](../../../services/core-control-plane/src/fdai/core/workflow/orchestrator.py) 가 첫
 라이브 소비자다. 승인을 계획하고 ([6.1절](#61-승인자-할당approver-assignment)),
 `(workflow, target_resource_id, trigger_ts)` 에서 idempotent `Process` id 를
 파생하고, 워크플로를 컴파일한 뒤
-[`ShadowWorkflowStepExecutor`](../../../src/fdai/core/workflow/orchestrator.py) 로
+[`ShadowWorkflowStepExecutor`](../../../services/core-control-plane/src/fdai/core/workflow/orchestrator.py) 로
 걷는다 - 이 `StepExecutor` 는 publisher 도, direct-API executor 도, resource lock
 도 없어서 **구조적으로 mutation 이 불가능**하다. 각 스텝은 (해결된 승인자 할당과
 함께) judge-and-log 되어 `SUCCESS` 로 보고되고, 실행은 `workflow.process-plan`
@@ -56,13 +56,13 @@ Approval request는 attempt-scoped입니다. Reject는 complete quorum attempt�
 뒤 retry는 fresh Var slot을 만들며 attempt 1 durable-key compatibility를 유지합니다.
 
 이벤트 진입점은
-[`WorkflowTriggerCoordinator`](../../../src/fdai/core/workflow/coordinator.py) 다:
+[`WorkflowTriggerCoordinator`](../../../services/core-control-plane/src/fdai/core/workflow/coordinator.py) 다:
 `event-ingest` 를 통과한 Event 는 `event_type` 으로
-[`WorkflowTriggerIndex`](../../../src/fdai/core/workflow/trigger_index.py) 에 매칭되고,
+[`WorkflowTriggerIndex`](../../../services/core-control-plane/src/fdai/core/workflow/trigger_index.py) 에 매칭되고,
 매칭된 모든 Workflow 는 shadow 로 실행된다 (name 순서, 리소스 + 타임스탬프는
 Event 에서). 어떤 Workflow 도 매칭하지 않는 이벤트는 아무것도 시작하지 않는다.
 
-코디네이터는 [`ControlLoop`](../../../src/fdai/core/control_loop/orchestrator.py) 에 **기본 활성,
+코디네이터는 [`ControlLoop`](../../../services/core-control-plane/src/fdai/core/control_loop/orchestrator.py) 에 **기본 활성,
 fail-safe side-consumer** 로 배선된다. 카탈로그가 Workflow 를 실으면 엔트리 포인트가
 (로드된 Workflow 카탈로그, RBAC
 그룹 매핑, notification matrix 로) 조립하고 모든 ingested 이벤트가 매칭된
@@ -75,7 +75,7 @@ non-mutating observation을 활성 상태로 유지한다.
 
 스텝의 `guard_rule_ref` 는 스텝의 결정론적 "언제"다 - policy-as-code 술어이지,
 모델 텍스트가 아니다. 오케스트레이터는
-[`WorkflowGuardEvaluator`](../../../src/fdai/core/workflow/orchestrator.py) seam 을
+[`WorkflowGuardEvaluator`](../../../services/core-control-plane/src/fdai/core/workflow/orchestrator.py) seam 을
 노출한다 (async, 결정론적, side-effect 없음). upstream 기본값은 evaluator 를 **주입
 하지 않는다**: guard 는 rule 카탈로그에 대해 load-validate 되지만 런타임엔
 `guard_evaluated: false` 로 기록되어 upstream 은 동작상 중립을 유지한다. fork (또는

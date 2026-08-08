@@ -3,7 +3,7 @@ title: Change Safety
 description: How FDAI keeps every proposed change safe. Each one is policy-gated, risk-classified, and delivered as an auditable pull request.
 derives_from:
   - source: docs/roadmap/architecture/goals-and-metrics.md
-    sha: a75593fff77569c7074a7c0f84504a198cfdb955
+    sha: 28fc74aa7c0414e08d1a81e8e8ba55f509ebb209
 ---
 
 # Change Safety

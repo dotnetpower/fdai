@@ -1,8 +1,8 @@
 ---
 title: 네트워크 연결 매트릭스
 translation_of: network-connectivity-matrix.md
-translation_source_sha: b031e97a8daa4bff761029a4f50f6b7601d775b1
-translation_revised: 2026-08-03
+translation_source_sha: d9b016d3774db834fadfc30a6ea1ab55fd6a1855
+translation_revised: 2026-08-09
 ---
 # 네트워크 연결 매트릭스
 
@@ -20,6 +20,9 @@ translation_revised: 2026-08-03
 > deployment output, Azure service tag 또는 FQDN application rule을 사용하세요. Microsoft는
 > service tag 뒤의 public prefix를 갱신합니다. Private endpoint IP와 internal API Management
 > virtual IP도 deployment별로 다릅니다.
+
+이 cross-service matrix의 실행 가능한 repository contract는
+`tests/integration/scripts/test_check_network_connectivity.py`입니다.
 
 ## 한눈에 보는 설계
 

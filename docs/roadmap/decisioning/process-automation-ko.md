@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: bc77ae4253f0b48b1fdeb77d035f5129f83b5ab3
-translation_revised: 2026-08-04
+translation_source_sha: cdbfe64d7a76faf979ebf603198dfd05694dfb97
+translation_revised: 2026-08-08
 ---
 
 # 프로세스 자동화(Process Automation)
@@ -35,7 +35,7 @@ dispatch 한다.
 | **ActionType** | 7개 안전조건(stop, rollback, impact cap, dry-run, lock, idempotency, audit)을 가진 CSP-중립 mutation 카테고리 | [`rule-catalog/action-types/`](../../../rule-catalog/action-types), [action-ontology.md](action-ontology-ko.md) |
 | **Workflow** | 비즈니스 프로세스의 *선언*: 각각 하나의 `ActionType` 을 참조하는 스텝의 순서 리스트 + 트리거 + promotion gate + 기본 모드 | [`rule-catalog/workflows/`](../../../rule-catalog/workflows), 아래 스키마 |
 | **Process** | 실행 중 워크플로의 *런타임 인스턴스와 상태*: 현재 스텝, 대상 리소스, 진행한 finding | `Process` ObjectType (ontology) |
-| **Runbook** | *실행 메커니즘*: 스텝 리스트를 걷고, `on_failure` 를 존중하며, 집계 audit row 를 기록 | [`src/fdai/core/runbook/`](../../../src/fdai/core/runbook) |
+| **Runbook** | *실행 메커니즘*: 스텝 리스트를 걷고, `on_failure` 를 존중하며, 집계 audit row 를 기록 | [`services/core-control-plane/src/fdai/core/runbook/`](../../../services/core-control-plane/src/fdai/core/runbook) |
 
 분리가 중요합니다. `Workflow`는 *무엇*이 *언제* 실행되는지 선언하고 `Runbook`은 compiled
 `Workflow`의 thin executor이며 `Process`는 한 번의 실행에 대한 audited state입니다. Mutation
@@ -47,7 +47,7 @@ fail-closed됩니다. ([설계](../interfaces/browser-evidence-ko.md))
 
 워크플로는 [`rule-catalog/workflows/`](../../../rule-catalog/workflows) 아래의
 catalog-as-code 이며, 로드 시
-[`shared/contracts/workflow/schema.json`](../../../src/fdai/shared/contracts/workflow/schema.json)
+[`shared/contracts/workflow/schema.json`](../../../services/core-control-plane/src/fdai/shared/contracts/workflow/schema.json)
 과 `Workflow` pydantic 모델에 대해 검증된다. `description` 과 `anti_scope` 를
 제외한 모든 필드는 필수다.
 
@@ -89,15 +89,15 @@ anti_scope: >-                          # 선택적; 워크플로가 의도적�
   fork 추가분에 걸쳐 이 값으로 dedupe 한다.
 - `steps` 는 최소 하나; step `id` 는 워크플로 내에서 유일하다.
 - 모든 `action_type_ref` 는
-  [`load_action_type_catalog`](../../../src/fdai/rule_catalog/schema/action_type.py)
+  [`load_action_type_catalog`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py)
   의 등록된 `ActionType` name 으로 resolve MUST. 오타는 첫 dispatch 가 아니라
-  로드 시 실패한다 - [`rule.py`](../../../src/fdai/rule_catalog/schema/rule.py) 의
+  로드 시 실패한다 - [`rule.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule.py) 의
   `remediates` 링크가 쓰는 동일한 cross-reference 규율.
 - `compensated_by` 는 설정 시 역시 `ActionType` name 으로 resolve MUST. 그 스텝의
   saga rollback 액션이다 ([5절](#5-saga-보상saga-compensation) 참조).
 - `on_failure` 는 설정 시 같은 워크플로 내 스텝 리스트에서 **뒤에 오는** 기존 step
   `id` 를 참조 MUST (자기 자신이나 앞 스텝은 불가), 정확히
-  [`Runbook`](../../../src/fdai/core/runbook/models.py) 스텝처럼. 역방향 fallback 은
+  [`Runbook`](../../../services/core-control-plane/src/fdai/core/runbook/models.py) 스텝처럼. 역방향 fallback 은
   러너가 이미 적용된 스텝을 재실행하게 만들므로 로드 시 거부된다.
 - `guard_rule_ref` 는 설정 시 로드된 rule 카탈로그의 Rule id 로 resolve MUST.
   guard 는 스텝의 결정론적 "언제"다 - policy-as-code 술어이지, 모델 텍스트가
@@ -341,7 +341,7 @@ out-of-range, truncated evidence는 계속 차단됩니다.
 
 HIL 로 라우팅되는 워크플로 스텝은 "누가 승인하고, 어떻게 도달하는가"에 대한 구체적
 답이 필요하다. 프로세스 자동화는 새 approval 표면을 추가하지 않는다;
-[`WorkflowApprovalPlanner`](../../../src/fdai/core/workflow/approval.py) 를 통해
+[`WorkflowApprovalPlanner`](../../../services/core-control-plane/src/fdai/core/workflow/approval.py) 를 통해
 워크플로를 기존 HIL 기계장치에 연결한다.
 
 `Workflow` 가 주어지면 플래너는 결정론적, read-only `ApprovalPlan` 을 만든다 -
@@ -352,14 +352,14 @@ HIL 로 라우팅되는 워크플로 스텝은 "누가 승인하고, 어떻게 �
   이는 risk-gate 가 쓰는 것과 동일한 source of truth 다; 플래너는 두 번째 규칙을
   만들지 않는다.
 - **누가 승인하나?** 필요한 human 역할은 HIL 티어 전반의 최상위 `min_role` 이며,
-  RBAC [`GroupMapping`](../../../src/fdai/core/rbac/resolver.py) 을 통해 Entra
+  RBAC [`GroupMapping`](../../../services/core-control-plane/src/fdai/core/rbac/resolver.py) 을 통해 Entra
   security-group objectId (`aw-approvers` 또는 `aw-owners` 그룹)로 resolve 된다.
   no-self-approval 은 모든 게이트 스텝에 이어진다.
 - **어떻게 도달하나?** [notifications matrix](../../../config/notifications-matrix.yaml)
   의 A1 `hil_approval` 라우트 - Teams primary, Slack / email fallback. 구체
-  어댑터는 [`HilChannel`](../../../src/fdai/shared/providers/hil_channel.py) seam 을
-  구현한다: [`TeamsHilAdapter`](../../../src/fdai/delivery/chatops/teams_adapter.py)
-  와 [`SlackHilAdapter`](../../../src/fdai/delivery/chatops/slack_adapter.py)
+  어댑터는 [`HilChannel`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py) seam 을
+  구현한다: [`TeamsHilAdapter`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py)
+  와 [`SlackHilAdapter`](../../../services/core-control-plane/src/fdai/delivery/chatops/)
   (Adaptive Card / Block Kit, HMAC 서명, fail-closed). email 은 send-only alert
   레인이지 A1 승인 back-channel 이 아니다.
 
@@ -372,13 +372,13 @@ decision, receipt, time을 Var audit entry와 함께 기록합니다. 서명된 
 Process는 authoritative decision에서 resume할 수 있습니다. Headless runtime과 production
 Operator API가 이 provider를 bind하며 interactive local 적용 모드는 durable database와
 Azure event transport도 요구합니다. 구체적인 on-call OID와 channel card는 기존
-[`HilResumeCoordinator`](../../../src/fdai/core/hil_resume/coordinator.py) 및
-[`OnCallResolver`](../../../src/fdai/core/oncall/resolver.py) integration으로 남으며 두 번째
+[`HilResumeCoordinator`](../../../services/core-control-plane/src/fdai/core/hil_resume/coordinator.py) 및
+[`OnCallResolver`](../../../services/core-control-plane/src/fdai/core/oncall/resolver.py) integration으로 남으며 두 번째
 approval authority는 추가되지 않습니다.
 
 ## 7. 로더와 CI 검증
 
-[`load_workflow_catalog`](../../../src/fdai/rule_catalog/schema/workflow.py) 는 순수
+[`load_workflow_catalog`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/workflow.py) 는 순수
 I/O + 검증이며, `ActionType` 및 ObjectType 로더를 미러한다. fail-closed 다: 어느
 파일의 어느 이슈든 모든 파일의 모든 이슈를 담은 하나의 집계 에러를 raise 한다.
 각 `action_type_ref` 와 `compensated_by` 를 `ActionType` 카탈로그에 대해, 각
@@ -485,7 +485,7 @@ echo 되는 클릭 가능한 **옵션 칩**입니다. 설계 속성은 다음과
 
 세 개의 opt-in, Reader-gated Operator API 라우트가 validation 및 browse 를
 뒷받침합니다. 모두 상태를 쓰지 않는 pure projection 입니다 (see
-[`workflow_authoring.py`](../../../src/fdai/delivery/operator_api/routes/workflow_authoring.py)):
+[`workflow_authoring.py`](../../../services/operator-service/src/fdai_operator_service/)):
 
 - **`GET /workflows/catalog`** - 빌트인 Workflow 카탈로그. 로드된 `Workflow`
   카탈로그의 read-only projection 으로 각 워크플로의 전체 내용 (trigger, steps,
@@ -498,13 +498,13 @@ echo 되는 클릭 가능한 **옵션 칩**입니다. 설계 속성은 다음과
   `action_type_ref` 를 load 시점에 resolve 가능하게 만든다 - 빌더는 알 수 없는
   참조를 만들어낼 수 없다.
 - **`POST /workflows/validate`** - 카탈로그 로더가 쓰는 것과 동일한
-  [`load_workflow_from_mapping`](../../../src/fdai/rule_catalog/schema/workflow.py)
+  [`load_workflow_from_mapping`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/workflow.py)
   (JSON Schema + `Workflow` pydantic 구조 불변식 + `ActionType` / rule
   cross-reference) 을 실행하는 순수 함수이며, 집계된 이슈와 canonical YAML
   미리보기를 반환한다. 아무것도 mutate 하지 않고 PR 도 만들지 않는다.
 
 세 라우트는
-[`OperatorApiConfig.workflow_authoring`](../../../src/fdai/delivery/operator_api/main.py)
+[`OperatorApiConfig.workflow_authoring`](../../../services/operator-service/src/fdai_operator_service/)
 (로드된 팔레트, 빌트인 워크플로, rule id, schema registry 를 담은
 `WorkflowAuthoringConfig`) 를 통해 opt-in 이다; upstream 에선 unset 이라 콘솔이
 minimal 로 유지되고, 로컬 dev 하네스에는 배선되어 뷰가 곧바로 렌더된다.

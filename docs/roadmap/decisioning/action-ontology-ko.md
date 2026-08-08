@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 2bbc522b4c31879b2769a8f42066323ca70d04cb
+translation_source_sha: b8d743a9ba98e6404d02d37dfb17833e57e0bb9f
 translation_revised: 2026-08-08
 ---
 
@@ -343,7 +343,7 @@ Catalog backfill은 다음 상태로 완료되었습니다:
   별도로 governed state-forward action입니다.
 
 **Vertical 매핑.** 각 ops ActionType 은 소유 vertical 로 태깅되어
-[verticals](../../../src/fdai/core/verticals) 가 claim 하고 vertical 룰이
+[verticals](../../../services/core-control-plane/src/fdai/core/verticals) 가 claim 하고 vertical 룰이
 `remediates:` 할 수 있음: `ops.failover-primary` 와 `ops.restart-service`
 -> Resilience; `ops.scale-in` / `ops.scale-out` -> Cost Governance;
 `ops.drain-connection` / `ops.rotate-cert` -> Change Safety.
@@ -379,7 +379,7 @@ catalog-as-code artifact):
 - `governance.override-ceiling` - 특정 resource / tag 스코프에 대한 tier
   ceiling 의 operator-측 override (fork extension).
   **Dispatcher shipped**:
-  [`src/fdai/core/risk_gate/override_writer.py`](../../../src/fdai/core/risk_gate/override_writer.py).
+  [`services/core-control-plane/src/fdai/core/risk_gate/override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py).
 
 Governance action은 catalog-as-code 변경이므로 `execution_path: pr_native`를 사용하고 reviewed
 diff로 landing해야 합니다. 닫힌 예외는 하나뿐입니다. `governance.promote-action-type`은 Owner
@@ -391,7 +391,7 @@ action은 이 예외를 사용할 수 없습니다.
 
 substrate 를 mutate 하지 않고 등록된 함수 (tool) 를 invoke. LLM 이 tool 을
 호출하는 방식의 온톨로지-네이티브 대응물: executor 가
-[`ToolExecutor`](../../../src/fdai/shared/providers/tool.py) Protocol
+[`ToolExecutor`](../../../services/core-control-plane/src/fdai/shared/providers/tool.py) Protocol
 (`ToolCallShadowExecutor`) 을 통해, **아티팩트** 또는 side effect (문서,
 메시지, 티켓) 를 생산하는 등록된 함수로 dispatch. Shipped 예시:
 
@@ -482,7 +482,7 @@ ActionType 은 `trigger_kind=operator_request` 이고 tool 은 `approve` 또는
 온톨로지 **property read** 는 두 독립 차원 - `access_scope` (role rank)
 AND `purpose_binding` (purpose-set 교집합) - 으로 gate 됨. read 는 아니면
 single-gate 연산이고 data-minimization 이 두 번째 축을 필요로 하기 때문
-([`shared/ontology/acl.py`](../../../src/fdai/shared/ontology/acl.py)).
+([`shared/ontology/acl.py`](../../../services/core-control-plane/src/fdai/shared/ontology/acl.py)).
 
 ActionType **execution** 은 의도적으로 `purpose_binding` 을 carry 하지
 않음; 그 인가는 `ceiling_by_tier.min_role` 에 더해 full 6-축 RiskGate
@@ -690,7 +690,7 @@ ActionType 을 조용히 shadow 할 수 없다 (shadowing 은 7.1 overlay 계층
 
 ## 8. 로더 + 검증
 
-- 로더 ([`rule_catalog/schema/action_type.py`](../../../src/fdai/rule_catalog/schema/action_type.py))
+- 로더 ([`rule_catalog/schema/action_type.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py))
   는 startup 시 upstream + overrides + Rego reference 를 load.
 - Cross-check (기존 shipping):
   - 모든 룰의 `remediates:` 는 로딩된 ActionType 을 pointing.

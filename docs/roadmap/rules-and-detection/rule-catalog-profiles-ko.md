@@ -1,8 +1,8 @@
 ---
 title: Rule-catalog profile 및 collector
 translation_of: rule-catalog-profiles.md
-translation_source_sha: 688089122841b391395e69073e95024a104a4eb0
-translation_revised: 2026-07-21
+translation_source_sha: dde16ae7e74319d3590df1c022752cea8486bb15
+translation_revised: 2026-08-08
 ---
 # Rule-catalog profile 및 collector
 
@@ -29,7 +29,7 @@ design contract 이다.
 
 Design contract: [scope-expansion.md § 3](../fork-and-sequencing/scope-expansion-ko.md),
 profile schema:
-[`shared/contracts/profile/schema.json`](../../../src/fdai/shared/contracts/profile/schema.json).
+[`shared/contracts/profile/schema.json`](../../../services/core-control-plane/src/fdai/shared/contracts/profile/schema.json).
 
 - **Upstream 은 세 개의 canonical profile 을 ship**:
   - `baseline` - 최소 안전 posture, 10 rules, zero customization 으로
@@ -75,9 +75,9 @@ byte-stable.
 모든 source 는
 [`rule-catalog/sources/<id>/manifest.yaml`](../../../rule-catalog/sources)
 아래에
-[`source_manifest.schema.json`](../../../src/fdai/rule_catalog/schema/source_manifest.schema.json)
+[`source_manifest.schema.json`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/source_manifest.schema.json)
 의 shape 로 declared. `parser` 필드는
-[`src/fdai/rule_catalog/pipeline/parse/`](../../../src/fdai/rule_catalog/pipeline/parse)
+[`services/core-control-plane/src/fdai/rule_catalog/pipeline/parse/`](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/parse)
 아래 등록된 parser plugin 중 하나를 지정.
 
 ### Ship 된 upstream collector
@@ -91,7 +91,7 @@ byte-stable.
 
 ### Reserved-but-unimplemented parser
 
-[`ParserName`](../../../src/fdai/rule_catalog/pipeline/parse/parser.py) 에
+[`ParserName`](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/parse/parser.py) 에
 declared 되어 manifest 가 이를 참조하면 clear 한
 `ParserNotImplementedError` 로 collect time 에 fail:
 
@@ -153,10 +153,10 @@ rules:
 구현하지 않습니다.
 
 > **배선 상태 (2026-07):** `ProfileRegistry` 라이브러리
-> (`src/fdai/core/rule_catalog_profiles/`) 는 shipped 되고 테스트
+> (`services/core-control-plane/src/fdai/core/rule_catalog_profiles/`) 는 shipped 되고 테스트
 > 커버 완료. 하지만 composition root 는 아직 `FDAI_PROFILE_ID` 를
 > 읽지 않는다. 이 knob 이 런타임에 효과를 내려면
-> [`src/fdai/composition/`](../../../src/fdai/composition/) 에
+> [`services/core-control-plane/src/fdai/composition/`](../../../services/core-control-plane/src/fdai/composition/) 에
 > `resolve()` 호출이 추가되어야 한다. 지금 당장 profile 레이어가
 > 필요한 fork 는 upstream default binder 가 배선되기 전까지
 > wrapping factory 로 자체 resolved profile 을 바인딩 가능.

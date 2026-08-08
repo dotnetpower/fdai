@@ -7,13 +7,11 @@ logs/
 tmp/
 resolved-models*.json
 !resolved-models.json
-# Exclude the test tree from the build context EXCEPT tests/scenarios/, which
-# the runtime image ships so the frozen-scenario replay / measurement path can
-# run inside the container (see Dockerfile: COPY tests/scenarios/). Use
-# `tests/*` (not `tests/`) so the directory stays traversable and the
-# re-include exception below actually applies.
+# Exclude root integration tests and service test trees from the build context.
+# The Core runtime image ships only its frozen scenarios for replay and measurement.
 tests/*
-!tests/scenarios/
+services/*/tests/*
+!services/core-control-plane/tests/scenarios/
 docs/*
 !docs/internals/
 docs/internals/*

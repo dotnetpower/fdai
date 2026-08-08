@@ -48,6 +48,45 @@ def _matches(path: str, pattern: str) -> bool:
     return pattern == "**" or fnmatch.fnmatchcase(path, pattern)
 
 
+def _route_paths(path: str) -> tuple[str, ...]:
+    aliases = {
+        "services/core-control-plane/src/fdai/": "services/core-control-plane/src/fdai/",
+        "services/core-control-plane/tests/": "tests/",
+        "services/operator-service/src/fdai_operator_service/": (
+            "services/core-control-plane/src/fdai/delivery/operator_api/"
+        ),
+        "services/operator-service/tests/": (
+            "services/core-control-plane/tests/delivery/operator_api/"
+        ),
+        "services/document-ingestion-api/src/fdai_ingestion_api_service/": (
+            "services/core-control-plane/src/fdai/delivery/ingestion_gateway/"
+        ),
+        "services/document-ingestion-api/tests/": (
+            "services/core-control-plane/tests/delivery/ingestion_gateway/"
+        ),
+        "services/document-processing-worker/src/fdai_document_worker_service/": (
+            "services/core-control-plane/src/fdai/delivery/ingestion_gateway/"
+        ),
+        "services/document-processing-worker/tests/": (
+            "services/core-control-plane/tests/delivery/ingestion_gateway/"
+        ),
+        "services/isolated-executor/src/fdai_executor_service/": (
+            "services/core-control-plane/src/fdai/runtime/"
+        ),
+        "services/isolated-executor/tests/": ("services/core-control-plane/tests/runtime/"),
+        "packages/service-contracts/src/fdai_service_contracts/": (
+            "services/core-control-plane/src/fdai/shared/contracts/"
+        ),
+        "packages/service-contracts/tests/": (
+            "services/core-control-plane/tests/shared/contracts/"
+        ),
+    }
+    for prefix, replacement in aliases.items():
+        if path.startswith(prefix):
+            return path, replacement + path.removeprefix(prefix)
+    return (path,)
+
+
 def missing_doc_updates(
     paths: set[str], manifest: dict[str, Any]
 ) -> list[tuple[str, tuple[str, ...], tuple[str, ...]]]:
@@ -58,7 +97,15 @@ def missing_doc_updates(
             continue
         patterns = tuple(route.get("paths", ())) + tuple(route.get("optional_paths", ()))
         impacted = tuple(
-            sorted(path for path in paths if any(_matches(path, pattern) for pattern in patterns))
+            sorted(
+                path
+                for path in paths
+                if any(
+                    _matches(candidate, pattern)
+                    for candidate in _route_paths(path)
+                    for pattern in patterns
+                )
+            )
         )
         if not impacted or any(doc in paths for doc in required_docs):
             continue

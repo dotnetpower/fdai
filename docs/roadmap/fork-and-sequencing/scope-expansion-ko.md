@@ -1,8 +1,8 @@
 ---
 title: 스코프 개선 및 구조적 갭
 translation_of: scope-expansion.md
-translation_source_sha: 9fef1470fe457a1d8327eeea75a6a7b9ab38e804
-translation_revised: 2026-08-01
+translation_source_sha: 3334d0ed5a74ed5131c2a6768a10009a3e43f6cd
+translation_revised: 2026-08-08
 ---
 # 스코프 개선 및 구조적 갭
 
@@ -344,9 +344,9 @@ T1 reuse는 **shadow-only**입니다. T2는 candidate를 Action/risk path까지 
   `ABSTAIN` 은 절대 auto-execute 되지 않음. execution eligibility 는
   결정론적 gate 가 부여하며, model 은 절대 부여하지 않음.
 
-**Scenario replay.** [tests/scenarios/v2026.07/](../../../tests/scenarios/v2026.07)
+**Scenario replay.** [services/core-control-plane/tests/scenarios/v2026.07/](../../../services/core-control-plane/tests/scenarios/v2026.07)
 의 frozen 시나리오는 shipped 룰이 매핑되는 곳마다
-[tests/scenarios/enrichment/v2026.07/](../../../tests/scenarios/enrichment/v2026.07)
+[services/core-control-plane/tests/scenarios/enrichment/v2026.07/](../../../services/core-control-plane/tests/scenarios/enrichment/v2026.07)
 overlay 로 T0 에서 enrich 됨 - 예:
 `finops.stop-idle-dev-vm-off-hours.003` 은 `compute.vm.idle-detected` 발화,
 `dr.replica-lag-degraded.001` 은 `postgresql-server.high-availability` 발화

@@ -202,6 +202,7 @@ for gate_path in \
   scripts/quality/architecture/check-evaluation-boundaries.py \
   scripts/quality/architecture/check-fork-runtime-independence.py \
   scripts/quality/architecture/check-file-loc.sh \
+  scripts/quality/architecture/check-independent-services.py \
   scripts/quality/architecture/check-operator-api-boundaries.py \
   scripts/quality/architecture/check-subsystem-fanout.sh \
   scripts/quality/repository/check-doc-links.sh

@@ -25,7 +25,7 @@ document and the code.
 
 | Decision | Current status | Current authority |
 |----------|----------------|-------------------|
-| R1 | Not adopted | Axis A is the baseline; independent ceiling axes including static blast and env may lower autonomy. [`ceiling.py`](../../../src/fdai/core/risk_gate/ceiling.py) and [execution-model.md](../decisioning/execution-model.md) are authoritative. |
+| R1 | Not adopted | Axis A is the baseline; independent ceiling axes including static blast and env may lower autonomy. [`ceiling.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/ceiling.py) and [execution-model.md](../decisioning/execution-model.md) are authoritative. |
 | R2 | Not adopted | `ConversationCoordinator` receives an explicit `SystemConsoleTool` registry. ActionTypes provide discovery evidence, not automatic write-tool projection. |
 | R3 | Not adopted | `LlmBindings` aggregates role-specific Protocols/adapters. No unified `LlmBinding` or `AzureOpenAIChatBinding` exists. |
 | R4 | Partially implemented | `ScratchProjection` and the Assurance Twin consumer shipped. Deployment Preflight currently uses `FeasibilityProbe`/`PreflightAnalyzer`. |
@@ -170,7 +170,7 @@ consolidates them.
 - Composition-root wiring is one Protocol -> one adapter. A fork replaces
   every LLM role by binding a single alternate implementation.
 - The prompt composer
-  ([prompts/composer.py](../../../src/fdai/core/prompts/composer.py))
+  ([prompts/composer.py](../../../services/core-control-plane/src/fdai/core/prompts/composer.py))
   is the only component that varies system prompt per role; the binding
   is prompt-agnostic.
 
@@ -341,7 +341,7 @@ integration; does not add new autonomy.
   `live_probe_ref`, `provenance`. Loader cross-checks per
   [action-ontology.md § 8](../decisioning/action-ontology.md#8-loader--validation).
 - **F2** `resolved_ceiling` JSON Schema at
-  `src/fdai/shared/contracts/ontology/resolved-ceiling.json`,
+  `services/core-control-plane/src/fdai/shared/contracts/ontology/resolved-ceiling.json`,
   matching the shape in
   [execution-model.md § 8](../decisioning/execution-model.md#8-resolved_ceiling-audit-block)
   with the R1 derivation notation (`derived_from` on Axes D and G).
@@ -514,7 +514,7 @@ Follows W1. Implements
   ([action-ontology.md § 3.3](../decisioning/action-ontology.md#33-governance)). All
   `execution_path: pr_native`.
 - **W2.3** Direct-API executor at
-  `src/fdai/core/executor/direct_api.py` with idempotency-key
+  `services/core-control-plane/src/fdai/core/executor/direct_api.py` with idempotency-key
   reuse, `stop_conditions` enforcement, and `mutation_target=direct`
   HIL items. **Shipped**: the CSP-neutral :class:`DirectApiExecutor`
   Protocol + fake (`shared/providers/direct_api.py` +

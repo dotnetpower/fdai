@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
-
 from fdai.core.capability_catalog import (
     CapabilityReferences,
     CapabilityRuntime,
@@ -13,6 +12,7 @@ from fdai.core.capability_catalog import (
     ExtensionState,
 )
 from fdai.core.tools import DefaultToolExecutor, StaticToolRegistry, ToolArgumentValidationError
+
 from fdai_code_assurance.assets import load_code_assurance_assets
 from fdai_code_assurance.bundle import (
     PROVIDER_ID,

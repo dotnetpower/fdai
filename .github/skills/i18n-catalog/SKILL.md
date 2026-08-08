@@ -90,7 +90,7 @@ truth; Korean MAY lag.
 - CLI: [`cli/src/i18n/messages.{en,ko}.json`](../../../cli/src/i18n/)
 - Console: [`console/src/i18n/messages.{en,ko}.json`](../../../console/src/i18n/)
 - Notifications core:
-  [`src/fdai/core/notifications/messages.{en,ko}.json`](../../../src/fdai/core/notifications/)
+  [`services/core-control-plane/src/fdai/core/notifications/messages.{en,ko}.json`](../../../services/core-control-plane/src/fdai/core/notifications/)
 - Site (Astro Starlight): built-in `locales: { root: {lang: en},
   ko: {lang: ko} }` in `astro.config.mjs` - no separate JSON pair.
 

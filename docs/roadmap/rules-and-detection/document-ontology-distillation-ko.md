@@ -1,7 +1,7 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: e2684c771a41d3f0b30ab91193b29e8189d20e39
-translation_revised: 2026-08-04
+translation_source_sha: 7911257f26ecc753c841d682e201bd49cad375fd
+translation_revised: 2026-08-08
 ---
 # 문서 온톨로지 증류
 
@@ -217,7 +217,7 @@ assessment에서는 `deny`가 `review`보다 우선하고 `review`가 `pass`보�
 evidence-only이자 review-only입니다. 통과 결과는 실행 권한을 부여하거나 ontology change를 promote하거나
 capability mode를 변경하지 않습니다.
 
-Public-corpus harness는 `tests/evaluation/` 아래 machine manifest를 읽습니다. 각 source entry는 stable
+Public-corpus harness는 `services/core-control-plane/tests/evaluation/` 아래 machine manifest를 읽습니다. 각 source entry는 stable
 id, HTTPS URL, SHA-256, license id와 license source, format, language, source byte/line count 및 expected
 claim signal이 포함된 critical source-line hash를 두 개 이상 고정합니다. Source body는 repository 밖에
 둡니다. Caller가 temporary 또는 cache directory를 선택합니다.

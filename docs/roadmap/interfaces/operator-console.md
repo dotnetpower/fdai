@@ -641,7 +641,7 @@ Split into focused owner documents:
 ## 14. MCP delivery and managed catalog
 
 FDAI can consume externally hosted MCP tools through the managed outbound catalog under
-`src/fdai/delivery/mcp/`. Servers install disabled. Enable performs a non-invoking `tools/list`
+`services/core-control-plane/src/fdai/delivery/mcp/`. Servers install disabled. Enable performs a non-invoking `tools/list`
 discovery and verifies every ActionType-to-tool allowlist entry. Catalog mutations use a durable
 revision-CAS snapshot; manifest, health, revision, and the admin audit record commit in one
 PostgreSQL transaction. A periodic monitor records health transitions, and only enabled, healthy

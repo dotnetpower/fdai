@@ -7,7 +7,7 @@
 # (mocks/ui-webgl/provision-genesis.html) plus the `provision.*` SSE route on
 # localhost for the lifetime of one apply.
 #
-# The bridge (src/fdai/delivery/provisioning/terraform_bridge.py) is a pure
+# The bridge (services/core-control-plane/src/fdai/delivery/provisioning/terraform_bridge.py) is a pure
 # fold over Terraform's `-json` machine output; nothing in this script edits
 # Azure state, and no subprocess is spawned by the Python core. The core
 # never runs Terraform - the operator does, and pipes the stream in.

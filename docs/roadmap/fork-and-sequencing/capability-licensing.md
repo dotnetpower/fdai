@@ -116,9 +116,9 @@ A distribution that wants fail-closed behavior sets `require_license` at its com
 
 | Concern | Location |
 |---------|----------|
-| Token contract, validation, canonical bytes | `src/fdai/core/licensing/token.py` (crypto-free) |
-| Status, binding, and entitlement resolution | `src/fdai/core/licensing/entitlement.py` |
-| Signature verification | `Ed25519LicenseVerifier` in `src/fdai/delivery/trust/ed25519.py` |
+| Token contract, validation, canonical bytes | `services/core-control-plane/src/fdai/core/licensing/token.py` (crypto-free) |
+| Status, binding, and entitlement resolution | `services/core-control-plane/src/fdai/core/licensing/entitlement.py` |
+| Signature verification | `Ed25519LicenseVerifier` in `services/core-control-plane/src/fdai/delivery/trust/ed25519.py` |
 | Issuing (release-only) | `scripts/deployment/release/issue-license.py` |
 | Offline verification for any operator | `fdaictl license inspect` |
 
@@ -147,8 +147,8 @@ PYTHONPATH=src python3 -m fdai.deployment_cli license inspect \
 rotated signing key fails at issue time rather than at the customer site. `license inspect` reports
 status and non-secret metadata only; it never echoes the token, the document, or the signature.
 
-Automated coverage lives in `tests/core/licensing/` for the contract and degradation table, and in
-`tests/scripts/test_issue_license.py` for a real issue-then-verify path including tampering, a wrong
+Automated coverage lives in `services/core-control-plane/tests/core/licensing/` for the contract and degradation table, and in
+`tests/integration/scripts/test_issue_license.py` for a real issue-then-verify path including tampering, a wrong
 signer, and a wrong binding.
 
 ## Honest limits

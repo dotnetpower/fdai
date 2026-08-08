@@ -15,7 +15,7 @@ description: >-
 # ref and the risk gate resolves it at use time. Until the fork binds
 # it, an ActionType that opts into live_probe_ref: blast_radius_classifier
 # fails closed (fail-toward-safety per execution-model.md § 4.2), never
-# a silent no-op. See tests/rule_catalog/test_probe_catalog.py for the
+# a silent no-op. See services/core-control-plane/tests/rule_catalog/test_probe_catalog.py for the
 # adapter-ref naming convention this obeys.
 adapter_ref: probe-adapters/blast-radius-http
 adapter_payload:

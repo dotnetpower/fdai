@@ -12,7 +12,7 @@ GROUPS = ("unit", "contract", "integration", "smoke")
 
 def resolve_owned_tests(root: Path, changed_paths: list[Path]) -> list[Path]:
     """Return owned test paths only when every changed source has one service owner."""
-    manifest_path = root / "tests" / "service-suites.json"
+    manifest_path = root / "tests" / "integration" / "service-suites.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     services = manifest.get("services")
     if manifest.get("schema_version") != 1 or not isinstance(services, list):

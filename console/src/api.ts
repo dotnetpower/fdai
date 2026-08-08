@@ -1,6 +1,6 @@
 /**
  * Operator API client. The console makes exactly three kinds of GET call
- * against the API defined in `src/fdai/delivery/operator_api/main.py`.
+ * against the API defined in `services/core-control-plane/src/fdai/delivery/operator_api/main.py`.
  * All routes are read-only; there are NO helpers here for POST / PUT /
  * DELETE / PATCH - the read-only invariant is enforced by not writing
  * such helpers in the first place (see app-shape.instructions.md).
@@ -209,7 +209,7 @@ export class OperatorApiClient {
 
   /**
    * Fetch a fork-supplied read-only panel payload. Backs the `ReadPanel`
-   * seam in `src/fdai/delivery/operator_api/panels.py`: a fork registers
+   * seam in `services/core-control-plane/src/fdai/delivery/operator_api/panels.py`: a fork registers
    * a GET route on the API and a matching console panel, then reads it
    * here. This is GET-only like every other call - a panel MUST NOT mutate
    * state (see app-shape.instructions.md § Operator console).

@@ -83,7 +83,7 @@ bus-factor 1).
 
 - [ ] `bash scripts/governance/check-stewardship.sh` is green (15 agents, maintainer floor,
       no forbidden role fields).
-- [ ] `pytest tests/core/stewardship/ -q --no-cov` passes.
+- [ ] `pytest services/core-control-plane/tests/core/stewardship/ -q --no-cov` passes.
 - [ ] `python -c "from pathlib import Path; from fdai.core.stewardship import
       load_stewardship_from_yaml, build_coverage_report as r;
       print([f.code for f in r(load_stewardship_from_yaml(Path('config/agent-stewardship.yaml'))).warnings])"`

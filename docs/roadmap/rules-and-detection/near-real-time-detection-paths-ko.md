@@ -1,8 +1,8 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: 2a6a38803d62654146e52efe373c9ccdcaa17e81
-translation_revised: 2026-08-02
+translation_source_sha: 6d80a4e695c53f30ae94194d650bf4ba176b5803
+translation_revised: 2026-08-08
 ---
 
 # 근실시간 감지 경로
@@ -32,7 +32,7 @@ translation_revised: 2026-08-02
 | Azure Monitor Logs KQL (`RoutedMetricProvider` route #3) | **~2~5분** | `FDAI_MONITOR_WORKSPACE_ID` 세트되면 자동 | pull (tick) |
 
 세 개의 `RoutedMetricProvider` route는 해당 env-var가 공급되면
-[`wire_azure_container`](../../../src/fdai/composition/wire_azure.py)가
+[`wire_azure_container`](../../../services/core-control-plane/src/fdai/composition/wire_azure.py)가
 자동으로 조립함 -
 [`infra/README.md § Opt-in variables`](../../../infra/README.md#opt-in-variables-metric-analyzer-tick--prometheus)
 참조. 두 push 경로는 fork가 리소스별로 인스턴스화하는 Terraform 모듈;
@@ -58,10 +58,10 @@ flowchart LR
 
 **Seams**
 
-- [Normalizer](../../../src/fdai/delivery/azure/monitor_alert.py) -
+- [Normalizer](../../../services/core-control-plane/src/fdai/delivery/azure/) -
   Common Alert Schema v2 -> `Event`. Pure function, fired /
   resolved / malformed 페이로드에 대한 unit test.
-- [Webhook route](../../../src/fdai/delivery/operator_api/routes/azure_monitor_webhook.py) -
+- [Webhook route](../../../services/operator-service/src/fdai_operator_service/) -
   Starlette POST `/webhook/azure-monitor`. Bearer-token 인증 (constant-time
   비교), 256 KiB body cap, 소문자화된 ARM id를 key로 ingest topic에 publish.
 - [Terraform 모듈](../../../infra/modules/observability/metric-alert-rules/main.tf) -
@@ -113,7 +113,7 @@ event로 승격할지 고름.
 
 **Seams**
 
-- [Normalizer](../../../src/fdai/delivery/azure/monitor_diagnostic.py) -
+- [Normalizer](../../../services/core-control-plane/src/fdai/delivery/azure/) -
   Diagnostic AllMetrics batch -> tuple of `Event`. Pure function,
   shape mismatch에 fail-closed, whitelist miss는 조용히 skip해서
   firehose가 tick을 저하시키지 않음.
@@ -122,7 +122,7 @@ event로 승격할지 고름.
   route. Metric / log category는 opt-in.
 - **Kafka consumer 배선**이 Event Hub의 Kafka endpoint를 읽고
   `normalize_diagnostic_records`를 호출하는 것은 fork 작업 -
-  [`delivery/azure/event_bus.py`](../../../src/fdai/delivery/azure/event_bus.py)의
+  [`delivery/azure/event_bus.py`](../../../services/core-control-plane/src/fdai/delivery/azure/event_bus.py)의
   표준 `AIOKafkaConsumer`가 이미 topic을 읽으니, fork의 composition
   root가 두 번째 consumer instance를 diagnostic hub에 붙이고 각 batch를
   normalizer로 흘려주면 됨.

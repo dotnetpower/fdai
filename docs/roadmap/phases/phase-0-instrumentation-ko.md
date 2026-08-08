@@ -1,8 +1,8 @@
 ---
 title: Phase 0 - 계측과 언블록
 translation_of: phase-0-instrumentation.md
-translation_source_sha: 68d11c0dd1aba645d3fe843c91cc806b76c7746d
-translation_revised: 2026-07-25
+translation_source_sha: 6b9e8fedb87433f061cc5b39d984242db502c096
+translation_revised: 2026-08-08
 ---
 
 # Phase 0 - 계측과 언블록
@@ -42,7 +42,7 @@ phase들이 이득을 증명할 기준 베이스라인을 **확립** ; 자체로
 | 3 | **베이스라인 리포트** - 고정된 시나리오 세트에서 측정된 pinned reference agent, 방법론과 원시 카운트 있는 커밋된 아티팩트로 기록. | 재현 가능: 같은 시나리오 세트 버전에서 pinned agent 재실행이 보고된 신뢰구간 내 수치 산출. |
 | 4 | **아이덴티티 매핑** - 프로비저닝된 외부 IdP ↔ Entra ↔ Managed Identity 경로 ([security-and-identity-ko.md#인가-모델authorization-model](../architecture/security-and-identity-ko.md#인가-모델authorization-model)). | 종단 경로가 자동 최소권한 프로브 통과; deny-by-default 검증; 접근 재인증 스케줄. |
 | 5 | **정책 예외 워크플로** - 준수하는 자율 배포를 위한 요청 가능, time-boxed, 감사, 소유자 승인된 예외 경로. | 워크플로가 소유자와 SLA로 문서화; dry-run 요청이 감사 하에 부여·만료, 어떤 컨트롤도 우회하지 않음. |
-| 6 | **로컬 개발 프리셋** - `src/fdai/shared/providers/` 의 storage / event-bus / secret / workload-identity provider 인터페이스, 오프라인 유닛 테스트 + 디버그 용 in-memory 페이크 페어, 리어-레벨 통합 테스트용 **pgvector + Redpanda** Docker Compose (`infra/local/`) 프리셋. [tech-stack-ko.md § 로컬 개발](../architecture/tech-stack-ko.md#로컬-개발) 의 로컬-개발 계약과 [project-structure-ko.md § 주입 가능한-seams](../architecture/project-structure-ko.md#주입-가능한-seams) 의 DI seam 을 실현. | Docker 없이 `pytest` 가 in-memory 페이크로 green; `scripts/deployment/local/dev-up.sh` 가 `pgvector/pgvector:pg16` + `redpandadata/redpanda` 컨테이너를 건강하게 울림; **동일 계약-테스트 스위트** 가 페이크와 Compose 스택 모두에 대해 통과. |
+| 6 | **로컬 개발 프리셋** - `services/core-control-plane/src/fdai/shared/providers/` 의 storage / event-bus / secret / workload-identity provider 인터페이스, 오프라인 유닛 테스트 + 디버그 용 in-memory 페이크 페어, 리어-레벨 통합 테스트용 **pgvector + Redpanda** Docker Compose (`infra/local/`) 프리셋. [tech-stack-ko.md § 로컬 개발](../architecture/tech-stack-ko.md#로컬-개발) 의 로컬-개발 계약과 [project-structure-ko.md § 주입 가능한-seams](../architecture/project-structure-ko.md#주입-가능한-seams) 의 DI seam 을 실현. | Docker 없이 `pytest` 가 in-memory 페이크로 green; `scripts/deployment/local/dev-up.sh` 가 `pgvector/pgvector:pg16` + `redpandadata/redpanda` 컨테이너를 건강하게 울림; **동일 계약-테스트 스위트** 가 페이크와 Compose 스택 모두에 대해 통과. |
 
 ## Work Items
 
@@ -94,23 +94,23 @@ P0에는 enforce-mode 능력이 범위에 없음.
 
 | Task | 제목 | Deps | 산출물 | 수용 | 크기 |
 |------|------|------|--------|------|------|
-| **W1.1** | Monorepo 스켈레톤 | - | [project-structure-ko.md](../architecture/project-structure-ko.md) 의 디렉토리: `core/`, `shared/`, `rule-catalog/`, `delivery/`, `infra/`, `policies/`, `tests/`, `.github/` + placeholder README + 서브시스템별 lockfile | 디렉토리 의존 방향을 CI가 강제 (lint job이 금지된 import 플래그) | S |
-| **W1.2** | 온톨로지 + 이벤트 계약 | W1.1 | `src/fdai/shared/contracts/ontology/{object-type,link-type,action-type}.json`, `src/fdai/shared/contracts/event/schema.json`; 언어별 생성 타입 | 스키마가 CI에서 검증 (`ajv`); breaking change는 semver bump | M |
-| **W1.3** | Config 스키마 + fail-fast 로더 | W1.1 | `src/fdai/shared/config/schema.json` + Python loader; env + file provider | 잘못되거나 누락된 필수 필드가 구조화된 에러로 시작 중단 | S |
-| **W1.4** | OpenTelemetry 배선 | W1.1 | `src/fdai/shared/telemetry/` traces, metrics, logs; `correlation_id` 있는 JSON-구조화 로그; `infra/` 의 collector config | 합성 이벤트가 하나의 correlation id로 종단 trace (ingest → tier → gate → audit) | M |
+| **W1.1** | Monorepo 스켈레톤 | - | [project-structure-ko.md](../architecture/project-structure-ko.md) 의 디렉토리: `core/`, `shared/`, `rule-catalog/`, `delivery/`, `infra/`, `policies/`, `services/core-control-plane/tests/`, `.github/` + placeholder README + 서브시스템별 lockfile | 디렉토리 의존 방향을 CI가 강제 (lint job이 금지된 import 플래그) | S |
+| **W1.2** | 온톨로지 + 이벤트 계약 | W1.1 | `services/core-control-plane/src/fdai/shared/contracts/ontology/{object-type,link-type,action-type}.json`, `services/core-control-plane/src/fdai/shared/contracts/event/schema.json`; 언어별 생성 타입 | 스키마가 CI에서 검증 (`ajv`); breaking change는 semver bump | M |
+| **W1.3** | Config 스키마 + fail-fast 로더 | W1.1 | `services/core-control-plane/src/fdai/shared/config/schema.json` + Python loader; env + file provider | 잘못되거나 누락된 필수 필드가 구조화된 에러로 시작 중단 | S |
+| **W1.4** | OpenTelemetry 배선 | W1.1 | `services/core-control-plane/src/fdai/shared/telemetry/` traces, metrics, logs; `correlation_id` 있는 JSON-구조화 로그; `infra/` 의 collector config | 합성 이벤트가 하나의 correlation id로 종단 trace (ingest → tier → gate → audit) | M |
 | **W1.5** | PostgreSQL DDL - instance + audit | W1.2 | `ontology_object_type`, `ontology_link_type`, `ontology_resource`, `ontology_finding`, `ontology_link`, `audit_log`(hash-chain) 마이그레이션 | `flyway`/`alembic` 마이그레이션이 빈 DB에서 클린 실행; DDL이 [llm-strategy-ko.md § Ontology Storage Layout](../architecture/llm-strategy-ko.md#ontology-storage-layout) 와 매칭 | M |
 | **W1.6** | PostgreSQL DDL - 계층 캐시 | W1.5 | `learned_action`, `ontology_embedding` (pgvector), `t2_cache`(`catalog_version` 파티션) 마이그레이션 | pgvector 확장 활성; HNSW 인덱스 빌드; 파티션 로테이션 스크립트 테스트 | S |
 | **W1.7** | CI baseline 파이프라인 | W1.1 | `.github/workflows/`: format, lint, ASCII identifier/path 및 punctuation 검사, translation/catalog parity, secret scan, coverage 게이트, dependency audit | 실패한 검사가 머지 블록; 한국어와 영어 natural-language text는 모두 허용 | M |
-| **W1.8** | Golden-fixture 메트릭 테스트 | W1.4, W1.5 | `tests/telemetry/` - 기록된 합성-이벤트 trace + 픽스처가 모든 대시보드 메트릭이 원격측정에서 재현되는지 단언 | CI에서 green; trace 속성 제거가 특정 메트릭 단언 실패 | M |
+| **W1.8** | Golden-fixture 메트릭 테스트 | W1.4, W1.5 | `services/core-control-plane/tests/telemetry/` - 기록된 합성-이벤트 trace + 픽스처가 모든 대시보드 메트릭이 원격측정에서 재현되는지 단언 | CI에서 green; trace 속성 제거가 특정 메트릭 단언 실패 | M |
 | **W1.9** | KPI 대시보드 | W1.4, W1.5, W1.8 | 성공 1-4, 가드 메트릭, 선행 지표 패널 - 각각 원격측정-소스 주석 | 어떤 패널도 수동으로 채워지지 않음; 소스 이름 변경이 패널 빌드 검사 실패 | M |
 
 ### WI2 - 시나리오 세트 (freeze)
 
 | Task | 제목 | Deps | 산출물 | 수용 | 크기 |
 |------|------|------|--------|------|------|
-| **W2.1** | 시나리오 스키마 | W1.2 | `tests/scenarios/schema.json` - 이벤트 입력, 예상 판정, 도메인, 태그 | 스키마가 CI에서 검증; 알려지지 않은 도메인/판정 값은 거부 | S |
-| **W2.2** | 균형 시나리오 작성 | W2.1 | `tests/scenarios/v2026.07/` - Change / DR / FinOps 균형 합성 이벤트(도메인당 목표 ≥ N, `N` 은 작성 시 결정) | CI에서 균형 검사: 어떤 도메인도 평균 카운트에서 10% 초과 편차 없음 | M |
-| **W2.3** | Freeze + 버전 | W2.2 | 디렉토리 `tests/scenarios/v2026.07/` 가 브랜치 보호로 **불변** ; 새 세트는 새 버전 디렉토리 | CI가 기존 버전 디렉토리의 어떤 수정도 거부 | S |
+| **W2.1** | 시나리오 스키마 | W1.2 | `services/core-control-plane/tests/scenarios/schema.json` - 이벤트 입력, 예상 판정, 도메인, 태그 | 스키마가 CI에서 검증; 알려지지 않은 도메인/판정 값은 거부 | S |
+| **W2.2** | 균형 시나리오 작성 | W2.1 | `services/core-control-plane/tests/scenarios/v2026.07/` - Change / DR / FinOps 균형 합성 이벤트(도메인당 목표 ≥ N, `N` 은 작성 시 결정) | CI에서 균형 검사: 어떤 도메인도 평균 카운트에서 10% 초과 편차 없음 | M |
+| **W2.3** | Freeze + 버전 | W2.2 | 디렉토리 `services/core-control-plane/tests/scenarios/v2026.07/` 가 브랜치 보호로 **불변** ; 새 세트는 새 버전 디렉토리 | CI가 기존 버전 디렉토리의 어떤 수정도 거부 | S |
 | **W2.4** | 시나리오 커버리지 테스트 | W2.2 | Property 테스트: 고객 값 없음, identifier/path는 ASCII, 모든 시나리오가 성공과 가드 기대 모두 가짐 | Customer GUID 또는 non-ASCII identifier/path 주입은 실패; natural-language 값은 한국어와 영어 모두 허용 | S |
 
 ### WI3 - 베이스라인 측정 (WI2 freeze로 블록됨)
@@ -118,7 +118,7 @@ P0에는 enforce-mode 능력이 범위에 없음.
 | Task | 제목 | Deps | 산출물 | 수용 | 크기 |
 |------|------|------|--------|------|------|
 | **W3.1** | Pinned reference agent | W1.2, W2.3 | `tools/reference_agent/` - pinned implementation version을 가진 deterministic no-tiering wrapper | 같은 시나리오 버전에서 두 실행이 동일 출력(결정론) | M |
-| **W3.2** | 베이스라인 러너 CLI | W3.1, W1.5 | `python -m tools.baseline_run --scenarios tests/scenarios/v2026.07` - 성공 메트릭 + 가드 메트릭 + 표본 크기 + 신뢰구간 기록 | CLI가 누락 메트릭에 대해 non-zero exit code | S |
+| **W3.2** | 베이스라인 러너 CLI | W3.1, W1.5 | `python -m tools.baseline_run --scenarios services/core-control-plane/tests/scenarios/v2026.07` - 성공 메트릭 + 가드 메트릭 + 표본 크기 + 신뢰구간 기록 | CLI가 누락 메트릭에 대해 non-zero exit code | S |
 | **W3.3** | 베이스라인 리포트 아티팩트 | W3.2 | `docs/baselines/v2026.07.md` - 방법론, 원시 카운트, 환경, CI, 표본 크기 | 리포트가 커밋되고 시나리오 세트 버전으로 다시 링크 | S |
 | **W3.4** | 재현성 CI | W3.3 | CI job이 `v2026.07` 에서 pinned agent를 재실행하고 보고된 CI 내 수치 단언 | 재실행이 CI 밴드 밖으로 drift하면 job 실패 | M |
 
@@ -139,7 +139,7 @@ P0에는 enforce-mode 능력이 범위에 없음.
 
 | Task | 제목 | Deps | 산출물 | 수용 | 크기 |
 |------|------|------|--------|------|------|
-| **W5.1** | 예외 아티팩트 스키마 | W1.2 | `src/fdai/rule_catalog/schema/exemption.schema.json`; `.github/PULL_REQUEST_TEMPLATE/exemption.md` 의 PR 템플릿 | 누락 `justification` / `expires_at` 이 CI 실패 | S |
+| **W5.1** | 예외 아티팩트 스키마 | W1.2 | `services/core-control-plane/src/fdai/rule_catalog/schema/exemption.schema.json`; `.github/PULL_REQUEST_TEMPLATE/exemption.md` 의 PR 템플릿 | 누락 `justification` / `expires_at` 이 CI 실패 | S |
 | **W5.2** | Requester ≠ approver CI 검사 | W5.1, W4.5 | CI가 PR trailer Entra OID 를 리뷰어 OID에 대해 파싱; 자기승인 블록 | Author-approves-own-PR 테스트 케이스가 머지 블록 | S |
 | **W5.3** | Auto-expiry Container Apps Job | W5.1, W4.1 | `expires_at` 통과 시 audit `expired` 엔트리 emit하고 기저 할당 재적용하는 일일 cron job | Dry-run: 생성 → 대기 → 만료 → 감사 엔트리 존재; 할당 재적용 | M |
 | **W5.4** | 만료 사전 알림 | W5.3 | 14일 lookahead 다이제스트 ([channels-and-notifications-ko.md § 라우팅](../interfaces/channels-and-notifications-ko.md#6-라우팅-정책-config-driven)) `exemption_expiry_lookahead_weekly` 배선 | 월요일 아침 포스트가 만료되는 각 exemption을 requester `@mention` 과 함께 리스트 | S |
@@ -154,8 +154,8 @@ P0에는 enforce-mode 능력이 범위에 없음.
 
 | Task | 제목 | Deps | 산출물 | 수용 | 크기 |
 |------|------|------|--------|------|------|
-| **W6.1** | Storage / bus / secret / identity provider 인터페이스 | W1.2 | `src/fdai/shared/providers/` 의 `StateStore`, `EventBus`, `SecretProvider`, `WorkloadIdentity` Protocol 클래스 - 각각 네 개의 CSP-중립 계약 중 하나에 매핑 | `mypy --strict` 통과; 인프라에 닿는 모든 core 모듈이 이 Protocol 만 import (W1.7 import-lint 규칙이 `core/` 의 클라우드 SDK 금지 강제) | S |
-| **W6.2** | In-memory 페이크 어댑터 + 공유 계약-테스트 스위트 | W6.1 | `src/fdai/shared/providers/testing/` - dict 기반 `StateStore`(audit 용 hash-chain 생산), 큐 + 컨슈머-그룹 `EventBus`, `SecretProvider`, `WorkloadIdentity`; `tests/providers/` 에 `[fake, postgres, redpanda]` 로 파라미터라이즈된 계약 테스트 | 계약-테스트 스위트가 **Docker 없이** 페이크에서 green, Docker 가용 시 Compose 스택에서도 green; *동일* 테스트 파일이 두 매트릭스 모두 통과 | M |
+| **W6.1** | Storage / bus / secret / identity provider 인터페이스 | W1.2 | `services/core-control-plane/src/fdai/shared/providers/` 의 `StateStore`, `EventBus`, `SecretProvider`, `WorkloadIdentity` Protocol 클래스 - 각각 네 개의 CSP-중립 계약 중 하나에 매핑 | `mypy --strict` 통과; 인프라에 닿는 모든 core 모듈이 이 Protocol 만 import (W1.7 import-lint 규칙이 `core/` 의 클라우드 SDK 금지 강제) | S |
+| **W6.2** | In-memory 페이크 어댑터 + 공유 계약-테스트 스위트 | W6.1 | `services/core-control-plane/src/fdai/shared/providers/testing/` - dict 기반 `StateStore`(audit 용 hash-chain 생산), 큐 + 컨슈머-그룹 `EventBus`, `SecretProvider`, `WorkloadIdentity`; `services/core-control-plane/tests/providers/` 에 `[fake, postgres, redpanda]` 로 파라미터라이즈된 계약 테스트 | 계약-테스트 스위트가 **Docker 없이** 페이크에서 green, Docker 가용 시 Compose 스택에서도 green; *동일* 테스트 파일이 두 매트릭스 모두 통과 | M |
 | **W6.3** | Docker Compose 개발 프리셋 + 래퍼 스크립트 | W6.1 | `pgvector/pgvector:pg16` 와 `redpandadata/redpanda:latest` 가 실행되는 `infra/local/docker-compose.yml` (single-node, zookeeper 불필요); 헬스 체크와 함께 스택을 올리고 내리는 `scripts/deployment/local/dev-up.sh` / `scripts/deployment/local/dev-down.sh`; `Makefile` 타겟 `dev-up`, `dev-down`, `dev-logs` | Fresh clone: `scripts/deployment/local/dev-up.sh` 가 종료코드 0과 건강한 두 컨테이너 반환; 노출된 포트에 `psql` 연결되고 `CREATE EXTENSION vector` 성공; Redpanda 프로듀서 + 컨슈머 라운드트립이 `localhost:9092` 에서 완료. Azure / 클라우드 호출 없음 | M |
 
 ### 시퀀싱된 태스크 타임라인

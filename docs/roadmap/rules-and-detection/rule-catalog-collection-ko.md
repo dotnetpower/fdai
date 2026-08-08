@@ -1,8 +1,8 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: d14a3e698ec900f6b7fe88099374ad31b5dff69e
-translation_revised: 2026-08-04
+translation_source_sha: 57813cf5b5714bce32fc48faac58bd943c74d0d5
+translation_revised: 2026-08-08
 ---
 
 # 규칙 카탈로그 수집(Rule Catalog Collection)
@@ -299,7 +299,7 @@ source manifest ─► fetch ─► verify ─► parse ─► map to schema ─
 
 Authored Rego는 **top-level** `policies/`(T0와 verifier가 소비) 에 살고 `check_logic.reference` 로
 참조; source manifest는 `rule-catalog/sources/`, runtime loader/schema는
-`src/fdai/rule_catalog/schema/` 및 `src/fdai/shared/contracts/`, 정규화 출력은
+`services/core-control-plane/src/fdai/rule_catalog/schema/` 및 `services/core-control-plane/src/fdai/shared/contracts/`, 정규화 출력은
 `rule-catalog/catalog/`. 이는 [project-structure-ko.md](../architecture/project-structure-ko.md) 와 정렬.
 
 ## YAML 정규화
@@ -324,8 +324,8 @@ YAML 키는 **snake_case** ;
 
 - `source` 는 등록된 manifest `source_id` (phase-1 `source` enum) 와 같음.
 - Normalized `Rule`은 `schema_version`이 필수이고 `kind` discriminator가 없습니다. Strict
-  schema owner는 `src/fdai/shared/contracts/rule/schema.json`입니다. `BestPractice`는
-  `best-practice` discriminator와 `src/fdai/rule_catalog/schema/` 아래 strict schema를
+  schema owner는 `services/core-control-plane/src/fdai/shared/contracts/rule/schema.json`입니다. `BestPractice`는
+  `best-practice` discriminator와 `services/core-control-plane/src/fdai/rule_catalog/schema/` 아래 strict schema를
   사용합니다. Config-baseline과 measurement-baseline은 loader가 landing할 때까지 목표
   shape로 남습니다.
 - Enums: `severity` ∈ `critical | high | medium | low` (phase-1 우선순위와 매칭),
@@ -415,7 +415,7 @@ provenance:
 ```
 
 > `remediates` 는 load 시점에
-> [`rule_catalog.schema.rule`](../../../src/fdai/rule_catalog/schema/rule.py) 이
+> [`rule_catalog.schema.rule`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule.py) 이
 > [`rule-catalog/action-types/`](../../../rule-catalog/action-types) 에 대해 검증 -
 > 알려지지 않은 ActionType id 는 load 를 실패시켜, 규칙이 `rollback_contract` /
 > `promotion_gate` 를 선언하지 않은 mutation 카테고리를 인용할 수 없도록 강제. 선택적
@@ -527,7 +527,7 @@ fdai/
     ├── exemptions/        # 시간-바운드 감사된 예외 아티팩트
     └── baselines/         # measurement 베이스라인 (YAML; 규칙과 별도 네임스페이스 + 저장소)
 
-  src/fdai/rule_catalog/
+  services/core-control-plane/src/fdai/rule_catalog/
   ├── schema/                # rule, source-manifest, ActionType runtime loader/schema
   └── pipeline/              # watch → collect → parse → shadow-eval → promote/rollback
 ```
@@ -538,12 +538,12 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 verif
 
 - `vocabulary/resource-types.yaml` - 모든 규칙이 인용하는 CSP-중립 `resource_type` 식별자
   집합. 이름 변경 → 카탈로그 전역 마이그레이션; 추가 → 거버넌스 PR. Loader:
-  `src/fdai/rule_catalog/schema/resource_type.py`, JSON Schema:
-  `src/fdai/rule_catalog/schema/resource_types.schema.json`.
+  `services/core-control-plane/src/fdai/rule_catalog/schema/resource_type.py`, JSON Schema:
+  `services/core-control-plane/src/fdai/rule_catalog/schema/resource_types.schema.json`.
 - `action-types/*.yaml` - 온톨로지 `ActionType` 인스턴스 파일당 하나. Upstream 에서 `default_mode`
   는 **반드시** `shadow` 여야 하고 `promotion_gate` 필수. Loader:
-  `src/fdai/rule_catalog/schema/action_type.py`; JSON Schema 는 공유 온톨로지 스키마
-  `src/fdai/shared/contracts/ontology/action-type.json`.
+  `services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py`; JSON Schema 는 공유 온톨로지 스키마
+  `services/core-control-plane/src/fdai/shared/contracts/ontology/action-type.json`.
 
 ### Semantic 축
 

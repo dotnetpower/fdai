@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: b18d3c99adf1c70d24524e51092dc6ffebe646d2
-translation_revised: 2026-08-06
+translation_source_sha: afafab110bbe13be7cc301d27edca9915344581b
+translation_revised: 2026-08-08
 ---
 
 # 규칙 거버넌스(Rule Governance)
@@ -109,35 +109,35 @@ Effect(위반 시 무엇을 할지)는 **enforcement 모드** (액션할지 여�
   PR 업데이트.
 
 > **구현 상태**: effect 기반은
-> [`rule_catalog/schema/effect.py`](../../../src/fdai/rule_catalog/schema/effect.py) 에 ship 됨 -
+> [`rule_catalog/schema/effect.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/effect.py) 에 ship 됨 -
 > `Effect` (`disabled` / `audit` / `deny` / `remediate`) 와 `Enforcement`
 > (`enforce` / `do-not-enforce`) enum, 충돌하는 assignment 를 해소하는 strictest-effect 우선순위
 > (`deny` > `remediate` > `audit` > `disabled`), 그리고 위 전이 표를 강제하는
 > `validate_effect_transition` (enforce effect 로의 상향은 별도 promotion 승인 필요). scope 선택
-> 계층도 [`rule_catalog/schema/scope.py`](../../../src/fdai/rule_catalog/schema/scope.py) 에 함께
+> 계층도 [`rule_catalog/schema/scope.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/scope.py) 에 함께
 > ship 됨 - `ScopeLevel` 계층, `ScopeSelector` (resource-type / tag / resource-id, 선언된 것들의
 > AND), exclusions, `Scope.covers`, 그리고 `most_specific` 우선순위 헬퍼. `Assignment` artifact 와
 > `resolve_assignments` 충돌 해소기 (strictest effect 승; 가장 구체적인 scope 가 parameter 제공;
 > specificity tie 는 HIL flag; loser 는 audit 기록)는
-> [`rule_catalog/schema/assignment.py`](../../../src/fdai/rule_catalog/schema/assignment.py) 에
+> [`rule_catalog/schema/assignment.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/assignment.py) 에
 > ship 됨. `RuleSet` (initiative) 그룹 - version-pin 된 member + per-rule `default_effect` +
 > `assignment_from_rule_set` - 는
-> [`rule_catalog/schema/rule_set.py`](../../../src/fdai/rule_catalog/schema/rule_set.py) 에 ship 됨.
+> [`rule_catalog/schema/rule_set.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_set.py) 에 ship 됨.
 > governance 모델 계층(effect / scope / assignment / rule-set)은 in-memory 로 완성. assignment
 > catalog-as-code 로더도 ship 됨:
-> [`assignment.schema.json`](../../../src/fdai/rule_catalog/schema/assignment.schema.json) +
+> [`assignment.schema.json`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/assignment.schema.json) +
 > `load_assignment_from_mapping`
-> ([`governance_loader.py`](../../../src/fdai/rule_catalog/schema/governance_loader.py)) - YAML
+> ([`governance_loader.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/governance_loader.py)) - YAML
 > assignment 를 검증해 도메인 객체를 빌드하고, 모든 schema 이슈를 경계에서 한 번에 실패시킴.
 > rule-set 로더 (`rule_set.schema.json` + `load_rule_set_from_mapping`)도 같은 모듈에 ship 됨.
 > 디렉토리 로더
-> ([`governance_catalog.py`](../../../src/fdai/rule_catalog/schema/governance_catalog.py),
+> ([`governance_catalog.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/governance_catalog.py),
 > `load_governance_catalog`)는 catalog-as-code 트리 전체(`assignments/` + `rule-sets/`)를 읽어
 > 모든 파일의 이슈를 집계함. assignment 은 명시적 `target_rule_ids` 목록 또는 `rule_set`(id)를
 > 바인딩함: 로더는 rule-set 참조를 로드된 rule-set 에 대해 해석하고 `assignment_from_rule_set` 으로
 > 펼쳐(rule-set 의 rule별 `default_effect` 를 override 로 실음), "rule-set 을 scope 에 적용"이 end-to-end
 > 로 동작함; 해석되지 않는 참조는 로드 경계에서 실패. CI 전이 게이트 핵심도 ship 됨: `validate_catalog_transition`
-> ([`governance_transitions.py`](../../../src/fdai/rule_catalog/schema/governance_transitions.py))
+> ([`governance_transitions.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/governance_transitions.py))
 > 은 이전과 현재 `GovernanceCatalog` 를 비교해, 허용 테이블을 벗어난 rule 별 유효 effect 전이를
 > 모두 거부함 - 신규 assignment/rule 은 강제 기본값 `audit` 에서 전이한 것으로 검증하고, enforce
 > effect(`deny` / `remediate`)로 올리려면 assignment id 가 `promotions_approved` 에 있어야 함.
@@ -153,11 +153,11 @@ Effect(위반 시 무엇을 할지)는 **enforcement 모드** (액션할지 여�
 > 소비하는 T0 런타임.
 >
 > ship 된 catalog-as-code 스키마는 이제 아래 "YAML Shapes" 섹션과 일치함: 공유 `Provenance` 값 객체
-> ([`provenance.py`](../../../src/fdai/rule_catalog/schema/provenance.py)), `kind`
-> ([`governance_kind.py`](../../../src/fdai/rule_catalog/schema/governance_kind.py)) discriminator 와
+> ([`provenance.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/provenance.py)), `kind`
+> ([`governance_kind.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/governance_kind.py)) discriminator 와
 > 아티팩트 `version`, 정규 `scope://`
-> [`ScopeRef`](../../../src/fdai/rule_catalog/schema/scope.py) 주소와 include/exclude
-> [`ScopeBinding`](../../../src/fdai/rule_catalog/schema/scope.py) 폼(`ScopeMatcher` 프로토콜 뒤로
+> [`ScopeRef`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/scope.py) 주소와 include/exclude
+> [`ScopeBinding`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/scope.py) 폼(`ScopeMatcher` 프로토콜 뒤로
 > 통일), 그리고 rule별 `parameter_overrides` 가 모두 ship 됨. rule-set 은 `rule_set`(또는 명시적
 > `target_rule_ids` 리스트)로 바인딩되고 scope 좁히기는 더 풍부한 `selector`(`resource_types` /
 > `tags` / `resource_ids`)를 씀.

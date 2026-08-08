@@ -131,7 +131,7 @@ Do these before your first `git commit` on the fork.
 
 ## 3. The one hard rule
 
-**Never edit files under `src/fdai/core/`.** Supported customization paths use seams. If you find yourself wanting to
+**Never edit files under `services/core-control-plane/src/fdai/core/`.** Supported customization paths use seams. If you find yourself wanting to
 edit `core/`, one of two things is happening:
 
 1. You are trying to inject a value that belongs in configuration
@@ -147,9 +147,9 @@ The rule is enforced by three invariants:
   file that imports from `delivery/*` or from a cloud SDK.
 - Upstream's `scripts/integrity/check-protected-paths.sh` inspects the
   changed files and warns (upstream) or **hard-blocks (fork)** any
-  edit to the framework surface - `src/fdai/core/`,
-  `src/fdai/composition/`, `src/fdai/shared/providers/`,
-  `src/fdai/shared/contracts/`, `src/fdai/agents/`,
+  edit to the framework surface - `services/core-control-plane/src/fdai/core/`,
+  `services/core-control-plane/src/fdai/composition/`, `services/core-control-plane/src/fdai/shared/providers/`,
+  `services/core-control-plane/src/fdai/shared/contracts/`, `services/core-control-plane/src/fdai/agents/`,
   `rule-catalog/schema/`, and `.github/instructions/`. A fork opts
   into block mode with `FDAI_FORK=1` (local shells), a **committed**
   `.fdai-fork` marker file (the reliable signal for CI, because it
@@ -158,7 +158,7 @@ The rule is enforced by three invariants:
   hook and as the `protected-paths` CI job (which also posts a
   `::warning::` annotation per file on the PR Files tab).
 - The composition root
-  ([`src/fdai/composition/`](../../../src/fdai/composition))
+  ([`services/core-control-plane/src/fdai/composition/`](../../../services/core-control-plane/src/fdai/composition))
   is the only place where concrete implementations bind to
   Protocols in `shared/providers/`. A fork writes its own
   composition root; it does not edit this file. `.github/CODEOWNERS`
@@ -266,14 +266,14 @@ end-to-end reference - the **`ops.change-summary`** on-demand
 (ObjectType `ChangeSummary`, LinkType `summarizes`, ActionType
 `ops.publish-change-summary`, rule `ops.change-summary`, Rego,
 Markdown template) plus one test file
-([`tests/verticals/test_change_summary_example.py`](../../../tests/verticals/test_change_summary_example.py))
+([`services/core-control-plane/tests/verticals/test_change_summary_example.py`](../../../services/core-control-plane/tests/verticals/test_change_summary_example.py))
 form the minimum working scaffold. Fork copies the six files, renames
 to its own business object, and has a green baseline before adding
 lifecycle. The walkthrough above shows what grows on top when the
 workflow needs reviewers and multi-step approval.
 
 **Extending a contract model (rare)**: the seven domain contract
-modules live under [`src/fdai/shared/contracts/models/`](../../../src/fdai/shared/contracts/models)
+modules live under [`services/core-control-plane/src/fdai/shared/contracts/models/`](../../../services/core-control-plane/src/fdai/shared/contracts/models)
 (`event.py` / `action.py` / `rule.py` / `incident.py` / `ontology.py`
 / `workflow.py` / `document.py`), each re-exported from the package facade. A fork
 that legitimately needs a bespoke contract subclasses `ContractBase`
@@ -319,8 +319,8 @@ seam Protocol's method signature is treated as a breaking change
 even if not tagged as such. The upstream policy is to ship the new
 Protocol alongside the old one for one release, then remove the
 old; a fork should complete the migration within that window.
-Watch `src/fdai/shared/providers/**` and
-`src/fdai/composition/` diffs on every sync.
+Watch `services/core-control-plane/src/fdai/shared/providers/**` and
+`services/core-control-plane/src/fdai/composition/` diffs on every sync.
 
 ### 6.2 Sync workflow
 
@@ -335,7 +335,7 @@ git merge upstream/main            # or rebase - team choice
 # Resolve conflicts (usually zero if the fork rule is honored)
 ./scripts/quality/repository/check-punctuation.sh     # sanity gates
 ./scripts/quality/localization/check-translations.sh
-uv run pytest -q tests/ fork/tests/  # full suite
+uv run pytest -q services/core-control-plane/tests/ fork/services/core-control-plane/tests/  # full suite
 git push origin main
 ```
 
@@ -355,8 +355,8 @@ Hard don'ts. Any of these is a merge-blocker:
   does not catch customer resource names, hostnames, or bearer
   tokens. The fork MUST layer its own regex gate + an OSS secret
   scanner (see §2 item 4).
-- **Modifying files under `src/fdai/core/**` or
-  `src/fdai/composition/` in place**. A fork MUST `import`
+- **Modifying files under `services/core-control-plane/src/fdai/core/**` or
+  `services/core-control-plane/src/fdai/composition/` in place**. A fork MUST `import`
   from these modules (that is the whole point of the seams), but
   MUST NOT edit them. Every customization goes through
   `dataclasses.replace()` on a container returned by

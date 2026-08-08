@@ -504,7 +504,7 @@ routes blast-radius-dependent actions to human review.
 
 Consumes external metrics (Prometheus, Azure Monitor Logs, CloudWatch, Datadog) via
 `MetricProvider.query(MetricQuery) -> AsyncIterator[MetricPoint]`
-([`shared/providers/metric.py`](../../../src/fdai/shared/providers/metric.py)).
+([`shared/providers/metric.py`](../../../services/core-control-plane/src/fdai/shared/providers/metric.py)).
 `MetricQuery` is vendor-neutral (`metric_name`, `labels`, `since`, `until`, `aggregation`
 hint); the adapter maps the CSP-neutral name to its vendor namespace and honors the
 hint on a best-effort basis. Upstream ships `NoopMetricProvider` (empty result) +
@@ -522,7 +522,7 @@ hint on a best-effort basis. Upstream ships `NoopMetricProvider` (empty result) 
 
 Consumes structured logs (Log Analytics KQL, Loki LogQL, Elasticsearch, CloudWatch
 Logs) via `LogQueryProvider.query(LogQuery) -> AsyncIterator[LogRecord]`
-([`shared/providers/log_query.py`](../../../src/fdai/shared/providers/log_query.py)).
+([`shared/providers/log_query.py`](../../../services/core-control-plane/src/fdai/shared/providers/log_query.py)).
 The `expression` field carries the vendor-specific query string; `labels` carry the
 CSP-neutral pre-filter the adapter maps to its label surface. Kept separate so a caller
 can compose a CSP-neutral filter with a vendor-specific tail without hard-coding the
@@ -532,7 +532,7 @@ tail into `core/`.
 
 Consumes spans (App Insights, Tempo, Jaeger, Honeycomb) via
 `TraceQueryProvider.query(TraceQuery) -> AsyncIterator[Span]`
-([`shared/providers/trace_query.py`](../../../src/fdai/shared/providers/trace_query.py)).
+([`shared/providers/trace_query.py`](../../../services/core-control-plane/src/fdai/shared/providers/trace_query.py)).
 `Span` carries `trace_id`, `span_id`, `parent_span_id`, `service`, `operation`, `start`,
 `duration`, `status`, and CSP-neutral `labels` so RCA can walk a request across services
 without knowing which backend recorded it.

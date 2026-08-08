@@ -1,6 +1,6 @@
 /**
  * Payload shapes returned by the Operator API. Mirrored from
- * `src/fdai/delivery/operator_api/read_model.py`. Keep in sync by hand
+ * `services/core-control-plane/src/fdai/delivery/operator_api/read_model.py`. Keep in sync by hand
  * - the surface is intentionally small (three routes).
  */
 

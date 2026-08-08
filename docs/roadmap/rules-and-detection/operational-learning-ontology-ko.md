@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: bfe5374429be46c171157caf2bf8ee90fda29f77
-translation_revised: 2026-08-06
+translation_source_sha: f4bc42aeadecda7ab116699dfb7954bf53160c53
+translation_revised: 2026-08-08
 ---
 # 운영 학습 온톨로지
 
@@ -243,7 +243,7 @@ authority model을 바꾸지 않고 Azure evidence binding을 제공합니다.
 O0부터 O2 code batch는 다음 foundation을 구현했습니다.
 
 1. `OperationalCaseProjection`과 `FailureFingerprint`는
-   `src/fdai/core/case_history/` 아래의 pure immutable model입니다.
+   `services/core-control-plane/src/fdai/core/case_history/` 아래의 pure immutable model입니다.
 2. Canonical identifier, 정렬 및 중복 제거된 graph descriptor, schema version만 fingerprint
    input을 구성합니다.
 3. Sealed case revision identity와 evidence reference가 immutable learning projection을

@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: f4c10d578b19bc51e31e848e63419bc4c9456a04
-translation_revised: 2026-08-01
+translation_source_sha: 14a3e993c7ada844739309413069447743b9746f
+translation_revised: 2026-08-08
 ---
 
 # Downstream Fork 가이드
@@ -134,7 +134,7 @@ Fork에서 첫 `git commit` 전에 이것들을 하세요.
 
 ## 3. 유일한 강한 규칙
 
-**`src/fdai/core/` 아래 파일을 절대 편집하지 마세요.** 지원되는 customization 경로는
+**`services/core-control-plane/src/fdai/core/` 아래 파일을 절대 편집하지 마세요.** 지원되는 customization 경로는
 seam을 사용합니다. `core/`를 편집하고
 싶어질 때, 둘 중 하나가 일어나고 있는 것입니다:
 
@@ -149,9 +149,9 @@ seam을 사용합니다. `core/`를 편집하고
 - Upstream의 `scripts/quality/architecture/check-core-imports.sh`가 `delivery/*` 또는
   클라우드 SDK에서 import하는 `core/` 파일을 거부.
 - Upstream의 `scripts/integrity/check-protected-paths.sh`가 변경된 파일을
-  검사해 framework surface - `src/fdai/core/`,
-  `src/fdai/composition/`, `src/fdai/shared/providers/`,
-  `src/fdai/shared/contracts/`, `src/fdai/agents/`,
+  검사해 framework surface - `services/core-control-plane/src/fdai/core/`,
+  `services/core-control-plane/src/fdai/composition/`, `services/core-control-plane/src/fdai/shared/providers/`,
+  `services/core-control-plane/src/fdai/shared/contracts/`, `services/core-control-plane/src/fdai/agents/`,
   `rule-catalog/schema/`, `.github/instructions/` - 편집을 경고
   (upstream)하거나 **하드 차단(fork)** 합니다. Fork는 `FDAI_FORK=1`
   (로컬 셸), **커밋된** `.fdai-fork` marker 파일(트리에 따라가므로
@@ -160,7 +160,7 @@ seam을 사용합니다. `core/`를 편집하고
   훅과 `protected-paths` CI job으로 실행되며, 후자는 PR Files 탭에
   파일별 `::warning::` annotation도 남깁니다.
 - Composition root
-  ([`src/fdai/composition/`](../../../src/fdai/composition))가
+  ([`services/core-control-plane/src/fdai/composition/`](../../../services/core-control-plane/src/fdai/composition))가
   `shared/providers/`의 Protocol에 구체적 구현이 바인딩되는 유일한
   곳. Fork는 자체 composition root를 씀; 이 파일을 편집하지 않음.
   `.github/CODEOWNERS`가 리뷰 시점의 대응물입니다: framework surface
@@ -263,14 +263,14 @@ incident-postmortem workflow)을 추가하는 fork에는
 생성기. 6개 파일 (ObjectType `ChangeSummary`, LinkType `summarizes`,
 ActionType `ops.publish-change-summary`, rule `ops.change-summary`, Rego,
 Markdown 템플릿)과 1개 테스트 파일
-([`tests/verticals/test_change_summary_example.py`](../../../tests/verticals/test_change_summary_example.py))
+([`services/core-control-plane/tests/verticals/test_change_summary_example.py`](../../../services/core-control-plane/tests/verticals/test_change_summary_example.py))
 이 최소 작동 scaffold를 구성. Fork는 6개 파일을 복사해 자기 비즈니스
 오브젝트로 rename 하면 lifecycle 추가 전에 이미 green baseline. 위 walkthrough는
 workflow가 reviewer와 multi-step 승인을 필요로 할 때 그 위에 무엇이 자라는지
 보여줌.
 
 **Contract 모델 확장 (드물게)**: 일곱 개 도메인 contract 모듈은
-[`src/fdai/shared/contracts/models/`](../../../src/fdai/shared/contracts/models)
+[`services/core-control-plane/src/fdai/shared/contracts/models/`](../../../services/core-control-plane/src/fdai/shared/contracts/models)
 아래에 있으며 (`event.py` / `action.py` / `rule.py` / `incident.py` /
 `ontology.py` / `workflow.py` / `document.py`), 전부 패키지 파사드에서 re-export 됩니다.
 포크가 정당하게 bespoke contract를 필요로 한다면 `ContractBase` (내부
@@ -314,8 +314,8 @@ SHOULD. 수용 가능한 두 전략:
 upstream 변경은 breaking으로 태그되지 않더라도 breaking 변경으로 다룸.
 Upstream 정책은 한 release 동안 새 Protocol을 old와 함께 배포한 뒤
 old를 제거; fork는 그 window 안에 마이그레이션을 완료해야 함. 모든
-sync에서 `src/fdai/shared/providers/**` +
-`src/fdai/composition/` diff를 확인.
+sync에서 `services/core-control-plane/src/fdai/shared/providers/**` +
+`services/core-control-plane/src/fdai/composition/` diff를 확인.
 
 ### 6.2 Sync 워크플로
 
@@ -330,7 +330,7 @@ git merge upstream/main            # 또는 rebase - 팀 선택
 # Conflict 해결 (fork 규칙 준수 시 일반적으로 zero)
 ./scripts/quality/repository/check-punctuation.sh     # sanity gate
 ./scripts/quality/localization/check-translations.sh
-uv run pytest -q tests/ fork/tests/  # 전체 스위트
+uv run pytest -q services/core-control-plane/tests/ fork/services/core-control-plane/tests/  # 전체 스위트
 git push origin main
 ```
 
@@ -347,7 +347,7 @@ root 또는 어댑터로 이동, sync 재실행.
   로드. Upstream의 `check-guids.sh`는 `8-4-4-4-12` GUID 형식만 catch -
   고객 리소스 이름, hostname, bearer 토큰은 catch 하지 못합니다. Fork는
   자체 regex gate + OSS secret scanner를 layer 해야 함 (§2 항목 4 참조).
-- **`src/fdai/core/**` 또는 `src/fdai/composition/` 파일을
+- **`services/core-control-plane/src/fdai/core/**` 또는 `services/core-control-plane/src/fdai/composition/` 파일을
   in-place 수정**. Fork는 이 모듈들에서 `import`해야 하지만 (그것이
   seam의 요점), 편집해서는 안 됩니다. 모든 커스터마이제이션은
   `default_container(...)`가 반환한 컨테이너에 `dataclasses.replace()`를

@@ -27,7 +27,7 @@ collector shipped by upstream, per the strategic decisions in
 ## 1. Profiles
 
 Design contract: [scope-expansion.md § 3](../fork-and-sequencing/scope-expansion.md), profile
-schema: [`shared/contracts/profile/schema.json`](../../../src/fdai/shared/contracts/profile/schema.json).
+schema: [`shared/contracts/profile/schema.json`](../../../services/core-control-plane/src/fdai/shared/contracts/profile/schema.json).
 
 - **Upstream ships three canonical profiles**:
   - `baseline` - the minimum-safe posture, 10 rules, ships to any
@@ -75,9 +75,9 @@ resolutions is byte-stable.
 Every source is declared under
 [`rule-catalog/sources/<id>/manifest.yaml`](../../../rule-catalog/sources)
 per the shape in
-[`source_manifest.schema.json`](../../../src/fdai/rule_catalog/schema/source_manifest.schema.json).
+[`source_manifest.schema.json`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/source_manifest.schema.json).
 The `parser` field names one of the parser plugins registered under
-[`src/fdai/rule_catalog/pipeline/parse/`](../../../src/fdai/rule_catalog/pipeline/parse).
+[`services/core-control-plane/src/fdai/rule_catalog/pipeline/parse/`](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/parse).
 
 ### Shipped upstream collectors
 
@@ -90,7 +90,7 @@ The `parser` field names one of the parser plugins registered under
 
 ### Reserved-but-unimplemented parsers
 
-Declared in [`ParserName`](../../../src/fdai/rule_catalog/pipeline/parse/parser.py)
+Declared in [`ParserName`](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/parse/parser.py)
 so a manifest referencing them fails at collect time with a clear
 `ParserNotImplementedError`:
 
@@ -153,10 +153,10 @@ to `ControlLoop` / `T0Engine` / `RiskGate` at startup. The default composition d
 that contract yet.
 
 > **Wiring status (2026-07):** the `ProfileRegistry` library
-> (`src/fdai/core/rule_catalog_profiles/`) is shipped and covered by
+> (`services/core-control-plane/src/fdai/core/rule_catalog_profiles/`) is shipped and covered by
 > tests, but the composition root does not yet read `FDAI_PROFILE_ID`.
 > The `resolve()` call must be added to
-> [`src/fdai/composition/`](../../../src/fdai/composition/) before this
+> [`services/core-control-plane/src/fdai/composition/`](../../../services/core-control-plane/src/fdai/composition/) before this
 > knob has any runtime effect; fork maintainers who need the profile
 > layer today can bind their own resolved profile via a wrapping factory
 > until the upstream default binder wires it.

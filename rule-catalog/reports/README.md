@@ -1,13 +1,13 @@
 # `rule-catalog/reports/`
 
 Report definitions consumed by the reporting subsystem
-(`src/fdai/core/reporting/`). Every file here is one report, loaded and
+(`services/core-control-plane/src/fdai/core/reporting/`). Every file here is one report, loaded and
 validated at composition-root time and rendered on demand through the
 read-only ``GET /reports/*`` routes.
 
 - [`schema/report.schema.json`](schema/report.schema.json) - JSON Schema
   every report file MUST satisfy. Loader:
-  [`load_report_catalog`](../../src/fdai/core/reporting/catalog.py).
+  [`load_report_catalog`](../../services/core-control-plane/src/fdai/core/reporting/catalog.py).
 - Reports shipped upstream are **customer-agnostic**: they never carry a
   subscription id, resource name, endpoint, or any private identifier.
   A fork adds its own reports under a fork-local directory and loads

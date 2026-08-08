@@ -3,7 +3,7 @@
 Rule catalog (catalog-as-code) - normalized, versioned rules, Best Practices, and governance data.
 
 Data-only YAML tree. Pipeline code lives in
-[src/fdai/rule_catalog/](../src/fdai/rule_catalog/README.md).
+[services/core-control-plane/src/fdai/rule_catalog/](../services/core-control-plane/src/fdai/rule_catalog/README.md).
 Full design: [docs/roadmap/rules-and-detection/rule-catalog-collection.md](../docs/roadmap/rules-and-detection/rule-catalog-collection.md).
 
 - [`RULE_AUTHORING_GUIDE.md`](RULE_AUTHORING_GUIDE.md) - canonical

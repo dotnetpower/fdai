@@ -190,7 +190,7 @@ One hardening candidate must:
 - Include affected bilingual design documentation.
 - Stay within 12 changed files and 800 changed lines unless an operator explicitly changes the
   local cap.
-- Change only `src/fdai/`, `tests/`, and `docs/roadmap/` paths.
+- Change only `services/core-control-plane/src/fdai/`, `services/core-control-plane/tests/`, and `docs/roadmap/` paths.
 - Pass exact and similar-question live measurement, focused tests, fast verification, and the
   whole-suite gate.
 

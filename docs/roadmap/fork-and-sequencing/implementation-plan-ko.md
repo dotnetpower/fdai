@@ -1,8 +1,8 @@
 ---
 title: 구현 계획 기록 (2026-07-06 표준 세트)
 translation_of: implementation-plan.md
-translation_source_sha: dc8261052680f3fd5517f390201f15ee2cb3784d
-translation_revised: 2026-08-02
+translation_source_sha: f18c35ad7c802cf0b4a3fa23e0831202d0c3658e
+translation_revised: 2026-08-08
 ---
 
 # 구현 계획 기록 (2026-07-06 표준 세트)
@@ -27,7 +27,7 @@ FDAI의 2026-07-06 작업 tranche를 조정한 historical record입니다. 당�
 
 | 결정 | 현재 상태 | 현재 authority |
 |------|-----------|----------------|
-| R1 | 채택 안 됨 | Axis A는 baseline이고 static blast/env를 포함한 ceiling axis는 독립적으로 autonomy를 낮춥니다. [`ceiling.py`](../../../src/fdai/core/risk_gate/ceiling.py)와 [execution-model-ko.md](../decisioning/execution-model-ko.md)가 authority입니다. |
+| R1 | 채택 안 됨 | Axis A는 baseline이고 static blast/env를 포함한 ceiling axis는 독립적으로 autonomy를 낮춥니다. [`ceiling.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/ceiling.py)와 [execution-model-ko.md](../decisioning/execution-model-ko.md)가 authority입니다. |
 | R2 | 채택 안 됨 | `ConversationCoordinator`는 명시적 `SystemConsoleTool` registry를 받습니다. ActionType catalog는 discovery evidence를 제공하지만 write tool의 자동 projection source는 아닙니다. |
 | R3 | 채택 안 됨 | `LlmBindings` aggregate 아래 role-specific Protocol/adapter가 유지됩니다. 단일 `LlmBinding`/`AzureOpenAIChatBinding`은 없습니다. |
 | R4 | 부분 구현 | `ScratchProjection`과 Assurance Twin consumer는 배포됐습니다. Deployment Preflight는 현재 `FeasibilityProbe`/`PreflightAnalyzer`를 사용합니다. |
@@ -162,7 +162,7 @@ prompt-composition 확장, db-dr-drill 런북). 나란히 놓고 보면 같은 �
 - 컴포지션 루트 wiring은 하나의 Protocol -> 하나의 어댑터. 포크는
   대체 구현 하나를 바인딩해서 모든 LLM role을 교체한다.
 - 프롬프트 컴포저
-  ([prompts/composer.py](../../../src/fdai/core/prompts/composer.py))
+  ([prompts/composer.py](../../../services/core-control-plane/src/fdai/core/prompts/composer.py))
   가 role 별 system prompt를 달리하는 유일한 컴포넌트다. binding은
   프롬프트 비종속.
 
@@ -326,7 +326,7 @@ PR이 아래 중 어느 것이라도 바뀐 것으로 읽는다면 그 독해가
   `argument_schema`, `live_probe_ref`, `provenance`. 로더 cross-check
   는 [action-ontology.md § 8](../decisioning/action-ontology.md#8-loader--validation).
 - **F2** `resolved_ceiling` JSON Schema를
-  `src/fdai/shared/contracts/ontology/resolved-ceiling.json`
+  `services/core-control-plane/src/fdai/shared/contracts/ontology/resolved-ceiling.json`
   에 배치.
   [execution-model.md § 8](../decisioning/execution-model.md#8-resolved_ceiling-audit-block)
   의 모양을 R1 파생 표기(축 D와 G의 `derived_from`)와 함께 반영.
@@ -491,7 +491,7 @@ W1 뒤.
   ([execution-model.md § 2.8](../decisioning/execution-model.md#28-cost-increasing-ops-actions)).
 - **W2.2** [action-ontology.md § 3.3](../decisioning/action-ontology.md#33-governance)
   의 `governance.*` ActionType YAML. 전부 `execution_path: pr_native`.
-- **W2.3** `src/fdai/core/executor/direct_api.py`의 Direct-API
+- **W2.3** `services/core-control-plane/src/fdai/core/executor/direct_api.py`의 Direct-API
   executor. 아이덤포턴시 키 재사용, `stop_conditions` 강제,
   `mutation_target=direct` HIL 아이템 지원. **배송 완료**:
   CSP-중립 :class:`DirectApiExecutor` Protocol + fake

@@ -196,7 +196,7 @@ It holds no cloud SDK and no privileged identity.
 ### Implementation status
 
 The deterministic core ships in
-[`core/readiness/`](../../../src/fdai/core/readiness): the `OwnershipTransfer`
+[`core/readiness/`](../../../services/core-control-plane/src/fdai/core/readiness): the `OwnershipTransfer`
 signal, the generic `ReadinessReport` / `HandoffVerdict` / `ReadinessFinding`
 shape, the pure Best Practice evaluator, and the `compose_readiness_report` coordinator that folds
 posture, preflight, and checklist findings into one verdict, applies the environment
@@ -204,7 +204,7 @@ gate (a `prod` target forces a `critical` finding to blocking), and sets
 `blocks_handoff` (shadow-first: `false` unless the pass ran in enforce mode). It
 imports only `shared/` types.
 
-[`OperationalReadinessService`](../../../src/fdai/composition/readiness.py) now
+[`OperationalReadinessService`](../../../services/core-control-plane/src/fdai/composition/readiness.py) now
 wires the signal to an injected `PostureAssessmentProvider`, the existing `PreflightAnalyzer`, and
 an optional `ChecklistEvidenceProvider`. It runs the passes concurrently, composes the report, writes
 the append-only audit entry, and then calls the injected

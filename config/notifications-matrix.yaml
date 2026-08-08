@@ -1,7 +1,7 @@
 # FDAI notification routing matrix.
 #
 # Loaded at composition time by
-# `src/fdai/core/notifications/matrix.py::load_matrix_from_yaml`.
+# `services/core-control-plane/src/fdai/core/notifications/matrix.py::load_matrix_from_yaml`.
 # Category ↔ channel binding is authoritative here; adding, replacing, or
 # reordering channels is a config change, never a code change.
 #

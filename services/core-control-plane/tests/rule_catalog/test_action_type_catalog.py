@@ -1,0 +1,1042 @@
+"""ActionType catalog loader + shipped ActionType invariants.
+
+Enforces at test-time what the schema guarantees at load-time, plus P1
+policy rules:
+- Every shipped ActionType is `default_mode: shadow`.
+- `rollback_contract` never falls back to a legacy `none` value.
+- Every ActionType names a registered `operation`, and irreversible
+  actions carry the explicit `irreversible: true` flag.
+- Duplicate ActionType names across files fail-close.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import pytest
+import yaml
+from fdai.rule_catalog.schema.action_type import (
+    ActionTypeCatalogError,
+    load_action_type_catalog,
+    load_action_type_from_mapping,
+)
+from fdai.rule_catalog.schema.link_type import load_link_type_catalog
+from fdai.rule_catalog.schema.object_type import load_object_type_catalog
+from fdai.rule_catalog.schema.ontology_provenance import ontology_content_hash
+from fdai.shared.contracts.models import (
+    Mode,
+    OntologyActionType,
+    OntologyDeclarationKind,
+    Operation,
+    RollbackKind,
+)
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+CATALOG_ROOT = REPO_ROOT / "rule-catalog" / "action-types"
+OBJECT_TYPES_ROOT = REPO_ROOT / "rule-catalog" / "vocabulary" / "object-types"
+LINK_TYPES_ROOT = REPO_ROOT / "rule-catalog" / "vocabulary" / "link-types"
+
+
+def _registry() -> PackageResourceSchemaRegistry:
+    return PackageResourceSchemaRegistry()
+
+
+def test_shipped_action_types_load() -> None:
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    names = {a.name for a in catalog}
+    # P1 initial 5 (change if the shipped set grows).
+    assert names >= {
+        "remediate.disable-public-access",
+        "remediate.tag-add",
+        "remediate.right-size",
+        "remediate.rotate-secret",
+        "remediate.enable-tde",
+    }
+
+
+def _link_types() -> tuple:
+    object_types = load_object_type_catalog(OBJECT_TYPES_ROOT, schema_registry=_registry())
+    return load_link_type_catalog(
+        LINK_TYPES_ROOT,
+        schema_registry=_registry(),
+        object_types=object_types,
+    )
+
+
+def test_shipped_precondition_link_types_resolve() -> None:
+    catalog = load_action_type_catalog(
+        CATALOG_ROOT,
+        schema_registry=_registry(),
+        link_types=_link_types(),
+    )
+    assert catalog
+
+
+def test_unknown_precondition_link_type_is_rejected(tmp_path: Path) -> None:
+    body = _complete_ops_yaml() + (
+        "preconditions:\n- kind: link_exists\n  link_type: misspelled_link\n"
+    )
+    root = _write_catalog(tmp_path, body)
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(
+            root,
+            schema_registry=_registry(),
+            link_types=_link_types(),
+        )
+    assert "misspelled_link" in " ".join(issue.message for issue in info.value.issues)
+
+
+def test_precondition_rejects_missing_and_unrelated_parameters(tmp_path: Path) -> None:
+    body = _complete_ops_yaml() + (
+        "preconditions:\n- kind: link_absent\n- kind: maintenance_window_active\n  tag: unrelated\n"
+    )
+    root = _write_catalog(tmp_path, body)
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    joined = " ".join(issue.message for issue in info.value.issues)
+    assert "requires link_type" in joined
+    assert "does not accept tag" in joined
+
+
+def test_every_shipped_action_type_defaults_to_shadow() -> None:
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    for action in catalog:
+        assert action.default_mode is Mode.SHADOW, (
+            f"{action.name}: default_mode MUST be shadow in upstream"
+        )
+
+
+def test_every_shipped_action_type_has_a_rollback_contract() -> None:
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    valid = {
+        RollbackKind.PR_REVERT,
+        RollbackKind.SCRIPTED,
+        RollbackKind.PITR,
+        RollbackKind.SNAPSHOT_RESTORE,
+        RollbackKind.STATE_FORWARD_ONLY,
+    }
+    for action in catalog:
+        assert action.rollback_contract in valid, (
+            f"{action.name}: rollback_contract MUST be a live enum value"
+        )
+
+
+def test_promotion_gate_criteria_are_measurable() -> None:
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    for action in catalog:
+        gate = action.promotion_gate
+        assert gate.min_shadow_days >= 1
+        assert gate.min_samples >= 1
+        assert 0.0 <= gate.min_accuracy <= 1.0
+        assert gate.max_policy_escapes >= 0
+
+
+def test_operations_are_from_the_documented_verb_set() -> None:
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    seen = {a.operation for a in catalog}
+    # Every ActionType operation MUST come from the Operation enum. The
+    # exact set expands as new ActionTypes ship; the invariant is that
+    # nothing in the catalog uses a verb outside the ontology.
+    assert seen.issubset(set(Operation))
+    # Guard against an empty catalog going unnoticed.
+    assert len(seen) >= 5
+
+
+def test_default_mode_enforce_in_upstream_is_rejected() -> None:
+    raw = {
+        "schema_version": "1.0.0",
+        "name": "remediate.example",
+        "version": "1.0.0",
+        "operation": "tag",
+        "interfaces": ["ControlPlane"],
+        "rollback_contract": "pr_revert",
+        "default_mode": "enforce",  # forbidden in upstream
+        "promotion_gate": {
+            "min_shadow_days": 1,
+            "min_samples": 1,
+            "min_accuracy": 0.9,
+            "max_policy_escapes": 0,
+        },
+    }
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_from_mapping(raw, schema_registry=_registry())
+    joined = " ".join(i.message for i in info.value.issues).lower()
+    assert "shadow" in joined
+
+
+def _semantic_action_mapping() -> dict:
+    digest = "sha256:" + "a" * 64
+    target_ref = {
+        "kind": "object",
+        "name": "Workload",
+        "version": "1.0.0",
+        "declaration_digest": digest,
+    }
+    function_ref = {
+        "kind": "function",
+        "name": "plan.scale",
+        "version": "1.0.0",
+        "declaration_digest": digest,
+    }
+    return {
+        "schema_version": "2.0.0",
+        "name": "ops.semantic-scale",
+        "version": "2.0.0",
+        "operation": "scale",
+        "rollback_contract": "state_forward_only",
+        "default_mode": "shadow",
+        "promotion_gate": {
+            "min_shadow_days": 1,
+            "min_samples": 1,
+            "min_accuracy": 1.0,
+            "max_policy_escapes": 0,
+        },
+        "semantic": {
+            "target": {"type_ref": target_ref, "cardinality": "one"},
+            "planner_ref": function_ref,
+            "effects": [
+                {
+                    "effect_id": "scale-command",
+                    "kind": "provider_command",
+                    "operation_ref": "provider.scale",
+                    "rollback_operation_ref": "provider.scale.rollback",
+                }
+            ],
+            "postconditions": [
+                {
+                    "postcondition_id": "replicas-converged",
+                    "kind": "property",
+                    "observation_ref": "property.replicas",
+                }
+            ],
+            "transaction_policy": {
+                "mode": "saga",
+                "lock_scope": "target",
+                "max_affected_objects": 1,
+            },
+        },
+    }
+
+
+def test_semantic_action_type_mapping_decodes_exact_declaration_refs() -> None:
+    digest = "sha256:" + "a" * 64
+    target_ref = {
+        "kind": "object",
+        "name": "Workload",
+        "version": "1.0.0",
+        "declaration_digest": digest,
+    }
+    function_ref = {
+        "kind": "function",
+        "name": "plan.scale",
+        "version": "1.0.0",
+        "declaration_digest": digest,
+    }
+    raw = {
+        "schema_version": "2.0.0",
+        "name": "ops.semantic-scale",
+        "version": "2.0.0",
+        "operation": "scale",
+        "rollback_contract": "state_forward_only",
+        "default_mode": "shadow",
+        "promotion_gate": {
+            "min_shadow_days": 1,
+            "min_samples": 1,
+            "min_accuracy": 1.0,
+            "max_policy_escapes": 0,
+        },
+        "semantic": {
+            "target": {"type_ref": target_ref, "cardinality": "one"},
+            "planner_ref": function_ref,
+            "effects": [
+                {
+                    "effect_id": "scale-command",
+                    "kind": "provider_command",
+                    "operation_ref": "provider.scale",
+                    "rollback_operation_ref": "provider.scale.rollback",
+                }
+            ],
+            "postconditions": [
+                {
+                    "postcondition_id": "replicas-converged",
+                    "kind": "property",
+                    "observation_ref": "property.replicas",
+                }
+            ],
+            "transaction_policy": {
+                "mode": "saga",
+                "lock_scope": "target",
+                "max_affected_objects": 1,
+            },
+        },
+    }
+
+    loaded = load_action_type_from_mapping(raw, schema_registry=_registry())
+
+    assert loaded.semantic is not None
+    assert loaded.semantic.target.type_ref.kind is OntologyDeclarationKind.OBJECT
+    assert loaded.semantic.planner_ref.kind is OntologyDeclarationKind.FUNCTION
+    assert loaded.semantic.effects[0].rollback_operation_ref == "provider.scale.rollback"
+
+
+def test_reversible_semantic_action_requires_rollback_operation_ref() -> None:
+    raw = _semantic_action_mapping()
+    raw["semantic"]["effects"][0].pop("rollback_operation_ref")  # type: ignore[index]
+
+    with pytest.raises(ActionTypeCatalogError, match="rollback_operation_ref"):
+        load_action_type_from_mapping(raw, schema_registry=_registry())
+
+
+def test_set_semantic_target_requires_target_set_lock_scope() -> None:
+    raw = _semantic_action_mapping()
+    raw["semantic"]["target"]["cardinality"] = "set"  # type: ignore[index]
+    raw["semantic"]["transaction_policy"] = {  # type: ignore[index]
+        "mode": "saga",
+        "lock_scope": "target",
+        "max_affected_objects": 2,
+    }
+
+    with pytest.raises(ActionTypeCatalogError, match="target_set lock scope"):
+        load_action_type_from_mapping(raw, schema_registry=_registry())
+
+
+def test_rollback_none_is_rejected_by_schema(tmp_path: Path) -> None:
+    file = tmp_path / "bad.yaml"
+    file.write_text(
+        (
+            'schema_version: "1.0.0"\n'
+            "name: remediate.bad-none\n"
+            'version: "1.0.0"\n'
+            "operation: tag\n"
+            "interfaces: [ControlPlane]\n"
+            "rollback_contract: none\n"  # <- disallowed
+            "default_mode: shadow\n"
+            "promotion_gate:\n"
+            "  min_shadow_days: 1\n"
+            "  min_samples: 1\n"
+            "  min_accuracy: 0.9\n"
+            "  max_policy_escapes: 0\n"
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(tmp_path, schema_registry=_registry())
+    joined = " ".join(i.message for i in info.value.issues).lower()
+    # The schema enum error names the offending value; either way the load
+    # MUST fail so `none` cannot silence the safety invariant.
+    assert "'none'" in joined or "none is not" in joined
+    # And the offending property path MUST surface for the reviewer.
+    keys = " ".join(i.key for i in info.value.issues).lower()
+    assert "rollback_contract" in keys
+
+
+def test_duplicate_name_across_files_is_rejected(tmp_path: Path) -> None:
+    body = (
+        'schema_version: "1.0.0"\n'
+        "name: remediate.dup\n"
+        'version: "1.0.0"\n'
+        "operation: tag\n"
+        "interfaces: [ControlPlane]\n"
+        "rollback_contract: pr_revert\n"
+        "default_mode: shadow\n"
+        "promotion_gate:\n"
+        "  min_shadow_days: 1\n"
+        "  min_samples: 1\n"
+        "  min_accuracy: 0.9\n"
+        "  max_policy_escapes: 0\n"
+    )
+    (tmp_path / "a.yaml").write_text(body, encoding="utf-8")
+    (tmp_path / "b.yaml").write_text(body, encoding="utf-8")
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(tmp_path, schema_registry=_registry())
+    joined = " ".join(i.message for i in info.value.issues).lower()
+    assert "duplicate" in joined
+
+
+def test_invalid_yaml_reports_the_file(tmp_path: Path) -> None:
+    (tmp_path / "broken.yaml").write_text(":\n  - invalid: [\n", encoding="utf-8")
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(tmp_path, schema_registry=_registry())
+    keys = " ".join(i.key for i in info.value.issues)
+    assert "broken.yaml" in keys
+    assert any("invalid YAML" in i.message for i in info.value.issues)
+
+
+def test_top_level_not_a_mapping_is_rejected(tmp_path: Path) -> None:
+    (tmp_path / "list.yaml").write_text("- just_a_list_item\n", encoding="utf-8")
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(tmp_path, schema_registry=_registry())
+    assert any("top-level" in i.message for i in info.value.issues)
+
+
+def test_action_type_names_helper_agrees_with_catalog() -> None:
+    from fdai.rule_catalog.schema.action_type import action_type_names
+
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    names = action_type_names(catalog)
+    assert names == {a.name for a in catalog}
+    assert "remediate.tag-add" in names
+
+
+def _ops_mapping(**extra: object) -> dict[str, object]:
+    raw: dict[str, object] = {
+        "schema_version": "1.0.0",
+        "name": "ops.restart-service",
+        "version": "1.0.0",
+        "operation": "restart",
+        "interfaces": ["ControlPlane", "IdempotentByKey"],
+        "rollback_contract": "state_forward_only",
+        "default_mode": "shadow",
+        "promotion_gate": {
+            "min_shadow_days": 7,
+            "min_samples": 50,
+            "min_accuracy": 0.99,
+            "max_policy_escapes": 0,
+        },
+        "category": "ops",
+    }
+    raw.update(extra)
+    return raw
+
+
+def test_operator_request_without_argument_schema_is_rejected() -> None:
+    raw = _ops_mapping(trigger_kind={"kind": "operator_request"})
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_from_mapping(raw, schema_registry=_registry())
+    keys = " ".join(i.key for i in info.value.issues).lower()
+    assert "argument_schema" in keys
+
+
+def test_operator_request_with_argument_schema_loads() -> None:
+    raw = _ops_mapping(
+        trigger_kind={"kind": "both"},
+        argument_schema={"type": "object", "required": ["target_resource_ref"]},
+        execution_path="direct_api",
+    )
+    model = load_action_type_from_mapping(raw, schema_registry=_registry())
+    assert model.trigger_kind is not None
+    assert model.trigger_kind.kind.value == "both"
+
+
+def test_rule_violation_without_argument_schema_is_fine() -> None:
+    raw = _ops_mapping(trigger_kind={"kind": "rule_violation"})
+    model = load_action_type_from_mapping(raw, schema_registry=_registry())
+    assert model.argument_schema is None
+
+
+# --- M1.3: live_probe_ref cross-check against probe catalog ---
+
+PROBES_ROOT = REPO_ROOT / "rule-catalog" / "probes"
+
+
+def test_shipped_action_types_pass_live_probe_cross_check() -> None:
+    """Every shipped ``live_probe_ref`` resolves to a shipped probe id.
+
+    Wired via ``load_action_type_catalog(..., probes_root=...)``; the
+    cross-check is Wave M1.3 in the implementation plan. Regression guard
+    against a misspelled reference.
+    """
+
+    catalog = load_action_type_catalog(
+        CATALOG_ROOT,
+        schema_registry=_registry(),
+        probes_root=PROBES_ROOT,
+    )
+    # At least one shipped ActionType wires a live probe (ops.scale-in +
+    # ops.restart-service after Wave M1.3).
+    refs = [a.live_probe_ref for a in catalog if a.live_probe_ref is not None]
+    assert refs, "expected at least one ActionType with a live_probe_ref"
+
+
+def test_unknown_live_probe_ref_is_rejected(tmp_path: Path) -> None:
+    """A live_probe_ref pointing at an unknown probe fails the load."""
+
+    bad = tmp_path / "action-types"
+    bad.mkdir()
+    (bad / "ops.example.yaml").write_text(
+        (
+            'schema_version: "1.0.0"\n'
+            "name: ops.example\n"
+            'version: "1.0.0"\n'
+            "operation: restart\n"
+            "interfaces:\n- ControlPlane\n"
+            "rollback_contract: state_forward_only\n"
+            "irreversible: true\n"
+            "default_mode: shadow\n"
+            "promotion_gate:\n"
+            "  min_shadow_days: 14\n"
+            "  min_samples: 30\n"
+            "  min_accuracy: 0.98\n"
+            "  max_policy_escapes: 0\n"
+            "category: ops\n"
+            "trigger_kind:\n  kind: rule_violation\n"
+            "execution_path: direct_api\n"
+            "live_probe_ref: probe_that_does_not_exist\n"
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(
+            bad,
+            schema_registry=_registry(),
+            probes_root=PROBES_ROOT,
+        )
+    joined = " ".join(i.message for i in info.value.issues)
+    assert "probe_that_does_not_exist" in joined
+    assert "live_probe_ref" in " ".join(i.key for i in info.value.issues)
+
+
+def test_live_probe_ref_check_is_skipped_when_probes_root_is_none() -> None:
+    """Backward compatibility: existing callers pass no ``probes_root``.
+
+    The load must still succeed even when a live_probe_ref points at an
+    id no longer present in the probe catalog - callers that pass
+    ``probes_root=None`` explicitly opt out of the cross-check.
+    """
+
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry(), probes_root=None)
+    assert catalog  # smoke
+
+
+def test_probes_root_broken_reports_probe_load_error(tmp_path: Path) -> None:
+    """A broken probe catalog surfaces as an ActionTypeCatalogError.
+
+    Fail-closed - do not silently disable the cross-check when the
+    probe catalog itself is invalid.
+    """
+
+    action_types_dir = tmp_path / "action-types"
+    action_types_dir.mkdir()
+    (action_types_dir / "ops.example.yaml").write_text(
+        (
+            'schema_version: "1.0.0"\n'
+            "name: ops.example\n"
+            'version: "1.0.0"\n'
+            "operation: restart\n"
+            "interfaces:\n- ControlPlane\n"
+            "rollback_contract: state_forward_only\n"
+            "irreversible: true\n"
+            "default_mode: shadow\n"
+            "promotion_gate:\n"
+            "  min_shadow_days: 14\n"
+            "  min_samples: 30\n"
+            "  min_accuracy: 0.98\n"
+            "  max_policy_escapes: 0\n"
+            "category: ops\n"
+            "trigger_kind:\n  kind: rule_violation\n"
+            "execution_path: direct_api\n"
+            "live_probe_ref: vm_traffic_last_5m\n"
+        ),
+        encoding="utf-8",
+    )
+    broken_probes = tmp_path / "probes"
+    broken_probes.mkdir()
+    # Copy schema so the loader enters strict mode, then plant a bad manifest.
+    schema_src = PROBES_ROOT / "probe.schema.json"
+    (broken_probes / "probe.schema.json").write_text(
+        schema_src.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (broken_probes / "bad.yaml").write_text("id: []\n", encoding="utf-8")  # id must be a string
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(
+            action_types_dir,
+            schema_registry=_registry(),
+            probes_root=broken_probes,
+        )
+    joined = " ".join(i.key for i in info.value.issues)
+    assert "probes" in joined
+
+
+# --- W2.1/W2.2: doc-declared ops.* + governance.* completeness ---
+
+
+# Sourced from docs/roadmap/decisioning/action-ontology.md 3.2. Any addition to the
+# doc's ops.* list MUST land a matching YAML; any addition to the YAML
+# MUST update the doc.
+_DOC_OPS_ACTION_TYPES: frozenset[str] = frozenset(
+    {
+        "ops.restart-service",
+        "ops.scale-out",
+        "ops.scale-in",
+        "ops.flush-cache",
+        "ops.drain-connection",
+        "ops.rotate-cert",
+        "ops.failover-primary",
+        "ops.switch-t2-proposer-route",
+        "ops.publish-change-summary",
+        "ops.start-vm",
+        "ops.deallocate-vm",
+        "ops.upsert-network-rule",
+        "ops.delete-network-rule",
+        "ops.apply-human-access",
+        "ops.revoke-human-access",
+    }
+)
+
+# Sourced from docs/roadmap/decisioning/action-ontology.md 3.3. Same drift guard.
+_DOC_GOVERNANCE_ACTION_TYPES: frozenset[str] = frozenset(
+    {
+        "governance.promote-action-type",
+        "governance.retire-rule",
+        "governance.grant-exemption",
+        "governance.override-ceiling",
+    }
+)
+
+
+def test_every_doc_declared_ops_action_type_ships_as_yaml() -> None:
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    shipped_ops = {a.name for a in catalog if a.name.startswith("ops.")}
+    missing = _DOC_OPS_ACTION_TYPES - shipped_ops
+    assert not missing, (
+        f"action-ontology.md 3.2 declares these ops.* actions but no YAML ships: {sorted(missing)}"
+    )
+
+
+def test_no_extra_ops_action_type_undocumented() -> None:
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    shipped_ops = {a.name for a in catalog if a.name.startswith("ops.")}
+    extra = shipped_ops - _DOC_OPS_ACTION_TYPES
+    assert not extra, (
+        "these ops.* YAMLs are not documented in action-ontology.md 3.2: "
+        f"{sorted(extra)}. Update the doc OR the YAML."
+    )
+
+
+def test_every_doc_declared_governance_action_type_ships_as_yaml() -> None:
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    shipped_gov = {a.name for a in catalog if a.name.startswith("governance.")}
+    missing = _DOC_GOVERNANCE_ACTION_TYPES - shipped_gov
+    assert not missing, (
+        "action-ontology.md 3.3 declares these governance.* actions but no YAML ships: "
+        f"{sorted(missing)}"
+    )
+
+
+def test_no_extra_governance_action_type_undocumented() -> None:
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    shipped_gov = {a.name for a in catalog if a.name.startswith("governance.")}
+    extra = shipped_gov - _DOC_GOVERNANCE_ACTION_TYPES
+    assert not extra, (
+        "these governance.* YAMLs are not documented in action-ontology.md 3.3: "
+        f"{sorted(extra)}. Update the doc OR the YAML."
+    )
+
+
+def test_governance_action_execution_paths_match_authority_contract() -> None:
+    """Governance is PR-native except the exact HIL-only runtime promotion."""
+
+    from fdai.shared.contracts.models import ExecutionPath
+
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    for action in catalog:
+        if not action.name.startswith("governance."):
+            continue
+        expected = (
+            ExecutionPath.DIRECT_API
+            if action.name == "governance.promote-action-type"
+            else ExecutionPath.PR_NATIVE
+        )
+        assert action.execution_path is expected
+
+
+def test_no_shipped_action_type_uses_pr_manual() -> None:
+    """R7 collapsed pr_manual into pr_native + require_manual_merge; no
+    upstream ActionType should still use the legacy pr_manual value."""
+
+    from fdai.shared.contracts.models import ExecutionPath
+
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    offenders = [a.name for a in catalog if a.execution_path is ExecutionPath.PR_MANUAL]
+    assert not offenders, (
+        "R7 (implementation-plan.md 2.6) collapsed pr_manual into pr_native + "
+        f"require_manual_merge; these YAMLs still use pr_manual: {sorted(offenders)}"
+    )
+
+
+def test_every_ops_and_governance_declares_execution_path() -> None:
+    """Post-F1 backfill invariant: every shipped ops.* and governance.*
+    ActionType declares an explicit execution_path (loader accepts None
+    for pre-F1 remediate.* rows during migration)."""
+
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    missing = [
+        a.name
+        for a in catalog
+        if a.name.startswith(("ops.", "governance.")) and a.execution_path is None
+    ]
+    assert not missing, (
+        "these ops./governance ActionTypes lack execution_path: "
+        f"{sorted(missing)}. Add 'execution_path: pr_native' or 'direct_api'."
+    )
+
+
+# --- Catalog policy: safety-critical fields the JSON Schema leaves
+#     optional MUST be present on a real catalog entry (_check_catalog_policy).
+
+
+def _complete_ops_yaml(*, omit: str | None = None, argument_schema: str | None = None) -> str:
+    """A fully-populated ops ActionType YAML. ``omit`` drops one top-level
+    field so a test can prove the catalog loader rejects the gap."""
+
+    blocks: dict[str, str] = {
+        "head": (
+            'schema_version: "1.0.0"\n'
+            "name: ops.example\n"
+            'version: "1.0.0"\n'
+            "operation: restart\n"
+            "interfaces:\n- ControlPlane\n"
+            "rollback_contract: state_forward_only\n"
+            "irreversible: true\n"
+            "default_mode: shadow\n"
+            "promotion_gate:\n"
+            "  min_shadow_days: 14\n"
+            "  min_samples: 30\n"
+            "  min_accuracy: 0.98\n"
+            "  max_policy_escapes: 0\n"
+        ),
+        "category": "category: ops\n",
+        "trigger_kind": "trigger_kind:\n  kind: rule_violation\n",
+        "execution_path": "execution_path: direct_api\n",
+        "blast_radius": ("blast_radius:\n  computation: static_enum\n  static_bucket: resource\n"),
+        "ceiling_by_tier": (
+            "ceiling_by_tier:\n"
+            "  t0:\n    max_autonomy: enforce_hil\n    min_role: contributor\n"
+            "  t1:\n    max_autonomy: shadow_only\n    min_role: contributor\n"
+            "  t2:\n    max_autonomy: shadow_only\n    min_role: approver\n"
+        ),
+    }
+    text = "".join(v for k, v in blocks.items() if k != omit)
+    if argument_schema is not None:
+        text += argument_schema
+    return text
+
+
+def _write_catalog(tmp_path: Path, body: str) -> Path:
+    root = tmp_path / "action-types"
+    root.mkdir()
+    declaration = OntologyActionType.model_validate(yaml.safe_load(body))
+    body += (
+        "provenance:\n"
+        "  source_url: https://example.com/fdai/ontology\n"
+        f"  resolved_ref: action-type:{declaration.name}@{declaration.version}\n"
+        f"  content_hash: {ontology_content_hash(declaration)}\n"
+        "  license: MIT\n"
+        '  retrieved_at: "2026-07-29T00:00:00Z"\n'
+    )
+    (root / "ops.example.yaml").write_text(body, encoding="utf-8")
+    return root
+
+
+def test_complete_ops_yaml_baseline_loads(tmp_path: Path) -> None:
+    """Sanity: the fully-populated baseline used by the negative tests
+    loads cleanly, so a failure below is the omission, not the fixture."""
+
+    root = _write_catalog(tmp_path, _complete_ops_yaml())
+    catalog = load_action_type_catalog(root, schema_registry=_registry())
+    assert {a.name for a in catalog} == {"ops.example"}
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["category", "trigger_kind", "execution_path", "blast_radius", "ceiling_by_tier"],
+)
+def test_catalog_entry_missing_safety_field_is_rejected(tmp_path: Path, field: str) -> None:
+    """A catalog entry that omits any safety-critical field fails closed."""
+
+    root = _write_catalog(tmp_path, _complete_ops_yaml(omit=field))
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    keys = " ".join(i.key for i in info.value.issues)
+    assert field in keys, f"expected {field} to surface in issues; got {keys}"
+
+
+def test_catalog_entry_partial_ceiling_by_tier_is_rejected(tmp_path: Path) -> None:
+    """ceiling_by_tier MUST declare all three tiers (t0/t1/t2)."""
+
+    body = _complete_ops_yaml(omit="ceiling_by_tier") + (
+        "ceiling_by_tier:\n  t0:\n    max_autonomy: enforce_hil\n    min_role: contributor\n"
+    )
+    root = _write_catalog(tmp_path, body)
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    assert "ceiling_by_tier" in " ".join(i.key for i in info.value.issues)
+
+
+def test_catalog_t2_ceiling_above_shadow_only_is_rejected(tmp_path: Path) -> None:
+    """A catalog entry MUST NOT declare ceiling_by_tier.t2 above shadow_only;
+    raising T2 is a Rego-overlay concern, never a YAML ceiling (critique #19)."""
+
+    body = _complete_ops_yaml(omit="ceiling_by_tier") + (
+        "ceiling_by_tier:\n"
+        "  t0:\n    max_autonomy: enforce_hil\n    min_role: contributor\n"
+        "  t1:\n    max_autonomy: shadow_only\n    min_role: contributor\n"
+        "  t2:\n    max_autonomy: enforce_auto\n    min_role: approver\n"
+    )
+    root = _write_catalog(tmp_path, body)
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    keys = " ".join(i.key for i in info.value.issues)
+    assert "ceiling_by_tier.t2.max_autonomy" in keys
+
+
+def test_argument_schema_without_additional_properties_false_is_rejected(
+    tmp_path: Path,
+) -> None:
+    """An argument_schema that omits additionalProperties: false is rejected
+    so the console can never pass unspecified arguments (action-ontology.md 5)."""
+
+    arg = (
+        "trigger_kind:\n  kind: operator_request\n"
+        "argument_schema:\n"
+        "  type: object\n"
+        "  required:\n  - target_resource_ref\n"
+        "  properties:\n"
+        "    target_resource_ref:\n      type: string\n      minLength: 1\n"
+    )
+    # Baseline omits its own trigger_kind so the arg block supplies it.
+    body = _complete_ops_yaml(omit="trigger_kind") + arg
+    root = _write_catalog(tmp_path, body)
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    assert "argument_schema" in " ".join(i.key for i in info.value.issues)
+
+
+def test_argument_schema_hardened_loads(tmp_path: Path) -> None:
+    """The hardened form (type: object + additionalProperties: false) loads."""
+
+    arg = (
+        "trigger_kind:\n  kind: operator_request\n"
+        "argument_schema:\n"
+        "  type: object\n"
+        "  additionalProperties: false\n"
+        "  required:\n  - target_resource_ref\n"
+        "  properties:\n"
+        "    target_resource_ref:\n"
+        "      type: string\n      minLength: 1\n      x-fdai-audit-safe: true\n"
+    )
+    body = _complete_ops_yaml(omit="trigger_kind") + arg
+    root = _write_catalog(tmp_path, body)
+    catalog = load_action_type_catalog(root, schema_registry=_registry())
+    assert {a.name for a in catalog} == {"ops.example"}
+
+
+@pytest.mark.parametrize("operation", ["drop", "purge"])
+def test_drop_purge_without_data_plane_mutating_is_rejected(tmp_path: Path, operation: str) -> None:
+    """drop/purge destroy data/schema and MUST declare DataPlaneMutating so
+    the data-plane HIL gate applies; omitting it silently downgrades the
+    risk classification (action-ontology critique #14)."""
+
+    body = _complete_ops_yaml().replace("operation: restart", f"operation: {operation}")
+    # Baseline interfaces are just [ControlPlane]; no DataPlaneMutating.
+    root = _write_catalog(tmp_path, body)
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    assert "interfaces" in " ".join(i.key for i in info.value.issues)
+    joined = " ".join(i.message for i in info.value.issues)
+    assert "DataPlaneMutating" in joined
+
+
+@pytest.mark.parametrize("operation", ["drop", "purge"])
+def test_drop_purge_with_data_plane_mutating_loads(tmp_path: Path, operation: str) -> None:
+    """The same drop/purge entry loads once DataPlaneMutating is declared."""
+
+    body = (
+        _complete_ops_yaml()
+        .replace("operation: restart", f"operation: {operation}")
+        .replace("interfaces:\n- ControlPlane\n", "interfaces:\n- DataPlaneMutating\n")
+    )
+    root = _write_catalog(tmp_path, body)
+    catalog = load_action_type_catalog(root, schema_registry=_registry())
+    assert {a.name for a in catalog} == {"ops.example"}
+
+
+# --- #22: argument_schema redaction hints ---
+
+
+def _ops_with_arg_schema(arg_body: str) -> str:
+    """Baseline ops YAML with an operator_request trigger + argument_schema."""
+
+    return (
+        _complete_ops_yaml(omit="trigger_kind")
+        + "trigger_kind:\n  kind: operator_request\n"
+        + arg_body
+    )
+
+
+def test_unknown_x_fdai_extension_key_is_rejected(tmp_path: Path) -> None:
+    """A misspelled x-fdai-* key is a fatal typo guard so it cannot silently
+    fail to redact a secret (action-ontology.md 5.2)."""
+
+    arg = (
+        "argument_schema:\n"
+        "  type: object\n"
+        "  additionalProperties: false\n"
+        "  properties:\n"
+        "    secret_field:\n"
+        "      type: string\n"
+        "      x-fdai-redcat: true\n"  # typo: redcat
+    )
+    root = _write_catalog(tmp_path, _ops_with_arg_schema(arg))
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    joined = " ".join(i.message for i in info.value.issues)
+    assert "x-fdai-redcat" in joined
+    assert "unknown extension key" in joined
+
+
+def test_x_fdai_redact_on_non_leaf_is_rejected(tmp_path: Path) -> None:
+    """x-fdai-redact on a whole object would drop audit-relevant keys."""
+
+    arg = (
+        "argument_schema:\n"
+        "  type: object\n"
+        "  additionalProperties: false\n"
+        "  properties:\n"
+        "    payload:\n"
+        "      type: object\n"
+        "      x-fdai-redact: true\n"
+        "      properties:\n"
+        "        inner:\n          type: string\n          x-fdai-audit-safe: true\n"
+    )
+    root = _write_catalog(tmp_path, _ops_with_arg_schema(arg))
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    joined = " ".join(i.message for i in info.value.issues)
+    assert "leaf string/number" in joined
+
+
+def test_property_with_both_redact_and_audit_safe_is_rejected(tmp_path: Path) -> None:
+    arg = (
+        "argument_schema:\n"
+        "  type: object\n"
+        "  additionalProperties: false\n"
+        "  properties:\n"
+        "    field:\n"
+        "      type: string\n"
+        "      x-fdai-redact: true\n"
+        "      x-fdai-audit-safe: true\n"
+    )
+    root = _write_catalog(tmp_path, _ops_with_arg_schema(arg))
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    joined = " ".join(i.message for i in info.value.issues)
+    assert "MUST NOT set both" in joined
+
+
+def test_argument_schema_redaction_paths_collects_flagged_leaves(tmp_path: Path) -> None:
+    from fdai.rule_catalog.schema.action_type import argument_schema_redaction_paths
+
+    arg = (
+        "argument_schema:\n"
+        "  type: object\n"
+        "  additionalProperties: false\n"
+        "  properties:\n"
+        "    target_resource_ref:\n"
+        "      type: string\n      x-fdai-audit-safe: true\n"
+        "    temp_admin_password:\n"
+        "      type: string\n      x-fdai-redact: true\n"
+    )
+    root = _write_catalog(tmp_path, _ops_with_arg_schema(arg))
+    catalog = load_action_type_catalog(root, schema_registry=_registry())
+    (action,) = catalog
+    assert argument_schema_redaction_paths(action) == frozenset({"temp_admin_password"})
+
+
+def test_unmarked_free_text_string_is_rejected(tmp_path: Path) -> None:
+    """A free-text string with neither x-fdai-redact nor x-fdai-audit-safe is
+    rejected - the author MUST decide (allowlist, not denylist) so a secret
+    typed mid-tool-call is never persisted by default (critique #22)."""
+
+    arg = (
+        "argument_schema:\n"
+        "  type: object\n"
+        "  additionalProperties: false\n"
+        "  properties:\n"
+        "    reason:\n"
+        "      type: string\n      minLength: 10\n"  # free-text, no mark
+    )
+    root = _write_catalog(tmp_path, _ops_with_arg_schema(arg))
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    joined = " ".join(i.message for i in info.value.issues)
+    assert "free-text string property MUST declare" in joined
+
+
+def test_constrained_string_needs_no_redaction_mark(tmp_path: Path) -> None:
+    """A string constrained by enum/pattern/format is not free-text, so it
+    needs no redaction decision."""
+
+    arg = (
+        "argument_schema:\n"
+        "  type: object\n"
+        "  additionalProperties: false\n"
+        "  properties:\n"
+        "    mode:\n"
+        "      type: string\n      enum:\n      - shadow\n      - enforce\n"
+    )
+    root = _write_catalog(tmp_path, _ops_with_arg_schema(arg))
+    catalog = load_action_type_catalog(root, schema_registry=_registry())
+    assert {a.name for a in catalog} == {"ops.example"}
+
+
+# --- #17: near-duplicate ActionType names ---
+
+
+def test_near_duplicate_names_collide(tmp_path: Path) -> None:
+    """Two names differing only by separator (ops.example vs ops-example)
+    are rejected as a typo-squatting hazard (critique #17)."""
+
+    root = tmp_path / "action-types"
+    root.mkdir()
+    (root / "a.yaml").write_text(_complete_ops_yaml(), encoding="utf-8")
+    (root / "b.yaml").write_text(
+        _complete_ops_yaml().replace("name: ops.example", "name: ops-example"),
+        encoding="utf-8",
+    )
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    joined = " ".join(i.message for i in info.value.issues)
+    assert "collides with" in joined
+
+
+# --- #27: restrict_to_scenarios entries ---
+
+
+def test_empty_restrict_to_scenarios_entry_is_rejected(tmp_path: Path) -> None:
+    """A blank scenario id in restrict_to_scenarios is a defect (critique #27)."""
+
+    body = _complete_ops_yaml(omit="trigger_kind") + (
+        "trigger_kind:\n  kind: rule_violation\n  restrict_to_scenarios:\n  - ''\n"
+    )
+    root = _write_catalog(tmp_path, body)
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    assert "restrict_to_scenarios" in " ".join(i.key for i in info.value.issues)
+
+
+# --- #26: docs-site showcase must not drift from the shipped catalog ---
+
+
+def test_docs_site_action_ontology_ts_names_exist_in_catalog() -> None:
+    """Every ActionType name referenced by the curated docs-site showcase
+    (site/src/data/action-ontology.ts) MUST exist in the shipped catalog,
+    so a catalog rename or typo cannot leave the showcase pointing at a
+    dead name (action-ontology critique #26). The showcase is a subset, so
+    the guard is one-directional (TS names subset of catalog names)."""
+
+    ts_path = REPO_ROOT / "site" / "src" / "data" / "action-ontology.ts"
+    if not ts_path.exists():
+        pytest.skip("docs-site action-ontology.ts not present")
+    text = ts_path.read_text(encoding="utf-8")
+    ts_names = {n for n in re.findall(r'name:\s*"([a-z][a-z0-9_.\-]+)"', text) if "." in n}
+    assert ts_names, "expected the showcase to list at least one ActionType name"
+    catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    shipped = {a.name for a in catalog}
+    drifted = ts_names - shipped
+    assert not drifted, (
+        "site/src/data/action-ontology.ts references ActionType names absent from "
+        f"the shipped catalog (drift - refresh the showcase): {sorted(drifted)}"
+    )

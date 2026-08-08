@@ -12,7 +12,7 @@
 #      that name means someone tried to repoint execution authority here.
 #   2. Agent-name integrity: the `agents:` block MUST name exactly the 15
 #      pantheon members (parity with PANTHEON_NAMES is additionally pinned by
-#      tests/core/stewardship/test_pantheon_parity.py).
+#      services/core-control-plane/tests/core/stewardship/test_pantheon_parity.py).
 #   3. Maintainer floor: at least 1 maintainer must be declared.
 #
 # Placeholder policy (all-zero tracked config, real ids in deployed environments) is
@@ -56,7 +56,7 @@ except ModuleNotFoundError:
     sys.exit(0)
 
 # The 15 pantheon names. Parity with PANTHEON_NAMES is enforced by
-# tests/core/stewardship/test_pantheon_parity.py; this list is the CI-side
+# services/core-control-plane/tests/core/stewardship/test_pantheon_parity.py; this list is the CI-side
 # mirror so the gate has no import dependency on src/fdai.
 EXPECTED = {
     "Odin", "Thor", "Forseti", "Huginn", "Heimdall", "Vidar", "Var", "Bragi",

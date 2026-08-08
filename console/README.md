@@ -23,7 +23,7 @@ share the executor identity.
 ## Read-only surface
 
 The SPA starts with six always-on GET routes on the Operator API
-(`src/fdai/delivery/operator_api/main.py`):
+(`services/operator-service/src/fdai_operator_service/`):
 
 | Route | Purpose |
 |-------|---------|
@@ -38,7 +38,7 @@ Managed-resource views use GET-only read routes. The console has narrow POST
 carve-outs for narrator turns, typed action **proposals**, and pure workflow
 validation; none executes a managed-resource mutation directly. Core read
 routes enforce `405` on mutating verbs
-(`tests/delivery/operator_api/test_main.py::TestReadOnlyInvariant`).
+(`services/operator-service/tests/`).
 
 The **Evidence > Documents** panel is a separate content-ingestion surface, not
 a managed-resource mutation path. Its dedicated client talks only to the
@@ -206,7 +206,7 @@ as the source of truth while allowing a visible tab to update without polling.
 The hook closes the SSE connection while the tab is
 hidden and reconnects when it becomes visible. The dev
 Operator API seed
-([`src/fdai/delivery/operator_api/_local.py`](../src/fdai/delivery/operator_api/dev/local.py))
+([`services/operator-service/src/fdai_operator_service/`](../services/operator-service/src/fdai_operator_service/))
 attributes each row to its producing agent and carries the lifecycle
 timestamps + inputs / outputs + conversation so the pane renders a realistic
 sample.
@@ -247,7 +247,7 @@ section via a generic key/value viewer. This means the genuinely-stored live
 fields that have no dedicated section - the executor's `rollback_kind`,
 `blast_radius`, `resource_ref`, `operation`, `rule_id`, `pr_ref`,
 `citing_rule_ids`, `stop_condition` (see
-[`src/fdai/core/executor/executor.py`](../src/fdai/core/executor/executor.py)
+[`services/core-control-plane/src/fdai/core/executor/executor.py`](../services/core-control-plane/src/fdai/core/executor/executor.py)
 `_write_audit`) - are shown, not dropped by a hardcoded allow-list, and new
 producer fields appear automatically. The invariant is two-way: everything
 shown comes from the stored `entry` (read-only passthrough), and everything
@@ -367,7 +367,7 @@ detected issues deep-link into the full Architecture panel when they carry a res
 The **Knowledge > Rules** panel ([`src/routes/rule-catalog.tsx`](src/routes/rule-catalog.tsx))
 answers "what does this rule enforce, why does it matter, and which resources
 violate it" and shows versioned control-framework coverage over five GET routes
-([`src/fdai/delivery/operator_api/rule_catalog.py`](../src/fdai/delivery/operator_api/routes/rule_catalog.py)):
+([`services/operator-service/src/fdai_operator_service/`](../services/operator-service/src/fdai_operator_service/)):
 
 | Route | Purpose |
 |-------|---------|
@@ -449,7 +449,7 @@ authorship. The seam seeds a draft the operator still sends and never executes
 an action.
 
 Playwright covers this operator flow in
-[`tests/e2e/agents-incident-deck.spec.ts`](tests/e2e/agents-incident-deck.spec.ts)
+[`src/routes/agents.detail.test.ts`](src/routes/agents.detail.test.ts)
 for desktop and mobile Chromium. The browser test clicks accessible controls,
 checks the outbound binding, Bragi identity, RCA-unavailable wording, bounded
 agent activity, trust status, and absence of redundant disambiguation. It uses
@@ -479,7 +479,7 @@ that answers "what is this agent doing right now?" - the coarse state, a
 plain-language task description (`STATE_TASK`), the streamed `detail` when the
 producer supplies one, and the incident (ticket + title) it is engaged on. The
 dev/demo emitter enriches each `agent.state` frame with a task `detail`
-([`agent_activity_emitter.py`](../src/fdai/delivery/operator_api/streaming/agent_activity_emitter.py));
+([`agent_activity_emitter.py`](../services/operator-service/src/fdai_operator_service/));
 the field stays optional so the real relay is free to omit it. A hovered node
 returns to full opacity even while dimmed, so its card stays readable (a parent
 `opacity` otherwise caps the child tooltip).
@@ -587,7 +587,7 @@ vocabulary, not by adding code. The server narrator receives the same `purpose`
 and `glossary` in the snapshot JSON and is instructed to ground term and causal
 answers in them.
 
-The chat backend (`src/fdai/delivery/operator_api/routes/chat.py`) keeps each turn's
+The chat backend (`services/operator-service/src/fdai_operator_service/`) keeps each turn's
 system prompt lean for cost and latency: compact base instructions, the FDAI
 glossary appended only for concept questions (EN + KO), and every `records`
 array capped to a representative sample (with a `_records_truncated` hint) so
@@ -685,7 +685,7 @@ DR-drill history) **without editing `app.tsx` or `shell.tsx`**, through two
 matching seams:
 
 1. **API side** - implement the `ReadPanel` Protocol
-   (`src/fdai/delivery/operator_api/panels.py`) and register it at the
+   (`services/operator-service/src/fdai_operator_service/`) and register it at the
    composition root via `OperatorApiConfig.extra_panels`. The app factory wraps
    each panel as a **GET-only** route, authorizes it with the same reader-role
    gate as the core routes, and fails fast on a malformed / colliding path -

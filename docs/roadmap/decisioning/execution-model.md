@@ -182,7 +182,7 @@ resolved role (from
 
 For rule-fired actions the "principal" is the executor identity
 (system MI); its role is fixed at composition time
-([composition.py](../../../src/fdai/composition/__init__.py)).
+([composition.py](../../../services/core-control-plane/src/fdai/composition/__init__.py)).
 
 ### 2.6 Axis G - Environment (prod downgrade)
 
@@ -209,7 +209,7 @@ substrate) have a tripped circuit breaker. It caps autonomy at
 `shadow_only`, so a failing dependency can never drive an enforce-mode
 mutation ("fail toward safety" at system scope, see
 [csp-neutrality.md](../architecture/csp-neutrality.md)). The axis is fed by
-[`DegradationController.autonomy_permitted()`](../../../src/fdai/shared/resilience/degradation.py)
+[`DegradationController.autonomy_permitted()`](../../../services/core-control-plane/src/fdai/shared/resilience/degradation.py)
 through the `system_degraded` input on `evaluate_execution_authority`; when
 the system is healthy the axis is omitted and the decision is the
 byte-identical six-axis result.
@@ -221,7 +221,7 @@ engaged the global kill-switch** - a deliberate emergency action (RBAC
 `TRIGGER_KILL_SWITCH`) that halts all auto-execution immediately. Like
 `system_health` it caps autonomy at `shadow_only`, so no action mutates
 while the halt is active (a human path stays open via HIL). It is fed by
-[`KillSwitch.is_engaged()`](../../../src/fdai/shared/resilience/kill_switch.py)
+[`KillSwitch.is_engaged()`](../../../services/core-control-plane/src/fdai/shared/resilience/kill_switch.py)
 through the `kill_switch_engaged` input on `evaluate_execution_authority`;
 the switch is operable without the executor identity (a fork backs its state
 in the state store) - see
@@ -247,35 +247,35 @@ ActionType so Axis A (the risk-classification table) can apply the
 threshold cost estimate is never `auto`; this keeps the Cost Governance
 vertical authoritative over runtime ops that would otherwise bypass it
 through the `direct_api` fast path. The Cost Governance vertical
-([verticals](../../../src/fdai/core/verticals)) owns the estimate
+([verticals](../../../services/core-control-plane/src/fdai/core/verticals)) owns the estimate
 function; the ActionType only references it.
 
 ## 3. Unified RiskGate
 
 The RiskGate lives in
-[`src/fdai/core/risk_gate/`](../../../src/fdai/core/risk_gate)
+[`services/core-control-plane/src/fdai/core/risk_gate/`](../../../services/core-control-plane/src/fdai/core/risk_gate)
 and is the single decision point for **both** trigger surfaces (rule-
 fired and operator-requested; see
 [action-ontology.md § 4](action-ontology.md#4-trigger-surfaces)).
 
 > Implementation status: the pure combinator ships as
-> [`ceiling.py`](../../../src/fdai/core/risk_gate/ceiling.py) (the six
-> axes), [`risk_table.py`](../../../src/fdai/core/risk_gate/risk_table.py)
+> [`ceiling.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/ceiling.py) (the six
+> axes), [`risk_table.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/risk_table.py)
 > (Axis A first-match table + `rule-catalog/risk-classification.yaml`), and
-> [`feature.py`](../../../src/fdai/core/risk_gate/feature.py) (the
+> [`feature.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/feature.py) (the
 > `FeatureVector` extractor), unified end-to-end by
-> [`authority.py`](../../../src/fdai/core/risk_gate/authority.py)
+> [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py)
 > `evaluate_execution_authority()`. That function is the single pipeline
 > `feature -> table (Axis A) -> six-axis min() -> ExecutionAuthorityDecision`.
-> The [`ControlLoop`](../../../src/fdai/core/control_loop/orchestrator.py) invokes it in
+> The [`ControlLoop`](../../../services/core-control-plane/src/fdai/core/control_loop/orchestrator.py) invokes it in
 > two modes. When only a risk table is wired it records one
 > `risk_gate.shadow_authority` audit entry per executed action (authority-only,
 > judge-and-log, executor path unchanged). When both the risk table and the
-> pre-existing [`gate.py`](../../../src/fdai/core/risk_gate/gate.py)
+> pre-existing [`gate.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/gate.py)
 > `RiskGate` are wired, the gate (runtime Action safety: exemption /
 > precondition / promotion) and the authority (policy ceiling) are combined
 > into one `UnifiedRiskDecision` by
-> [`evaluator.py`](../../../src/fdai/core/risk_gate/evaluator.py)
+> [`evaluator.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/evaluator.py)
 > `combine()` (canonical-level `min()`, both evaluators unchanged), and the
 > loop **routes on it**: a `deny` or `hil` decision skips the executor
 > (overall outcome `DENIED` / `HIL`, no PR published), only `auto` proceeds to
@@ -318,7 +318,7 @@ class RiskDecision:
   off the async seam list in
   [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md#safety),
   and matches the existing synchronous
-  [`RiskGate.evaluate`](../../../src/fdai/core/risk_gate/gate.py). The
+  [`RiskGate.evaluate`](../../../services/core-control-plane/src/fdai/core/risk_gate/gate.py). The
   probe pre-fetch happens in the ControlLoop / coordinator, which are
   already async.
 - **Compatibility boundary.** The runtime safety gate keeps its typed
@@ -327,7 +327,7 @@ class RiskDecision:
   `UnifiedRiskDecision`. Callers consume that combined contract rather than a
   staged field migration on the original dataclass.
 - `promotion_state` is read from the existing
-  [`ActionPromotionRegistry`](../../../src/fdai/core/risk_gate/gate.py) -
+  [`ActionPromotionRegistry`](../../../services/core-control-plane/src/fdai/core/risk_gate/gate.py) -
   a shadow-mode ActionType clamps `mode` to `shadow` regardless of
   what the axes permit.
 - `execution_path` is the ActionType default unless an axis
@@ -440,7 +440,7 @@ mutates no substrate, so it does not sit on that ladder.
 
 ### 5.1 PR-native (`pr_native`)
 
-- Executor builds a PR via [`GitOpsPrAdapter`](../../../src/fdai/delivery/gitops_pr/adapter.py).
+- Executor builds a PR via [`GitOpsPrAdapter`](../../../services/core-control-plane/src/fdai/delivery/gitops_pr/adapter.py).
 - On `auto` decision, the PR carries no `hil` label and the branch's auto-merge policy accepts.
 - On `hil` decision, the PR carries the `hil` label and an approver merges via the console.
 - Audit + rollback lean on git: revert commit is the rollback path.
@@ -453,7 +453,7 @@ Best for: configuration changes, IaC patches, catalog updates, governance change
 
 ### 5.2 Direct API (`direct_api`)
 
-- Executor calls the substrate API directly (Azure ARM, kubectl, Redis via the corresponding delivery adapter under `src/fdai/delivery/`).
+- Executor calls the substrate API directly (Azure ARM, kubectl, Redis via the corresponding delivery adapter under `services/core-control-plane/src/fdai/delivery/`).
 - On `auto` decision, the call proceeds without HIL; the executor enforces the ActionType's `stop_conditions` and `preconditions` before and during the call.
   The adapter receives the complete ordered stop-condition tuple, including every threshold, window, seconds, and count parameter;
   the singular string is only a compatibility shorthand.
@@ -597,7 +597,7 @@ router is an optional seam: absent, the loop behaves exactly as before.
 
 - Executor invokes a **registered function** - generate a PDF report,
   send a notification, open a ticket - through the
-  [`ToolExecutor`](../../../src/fdai/shared/providers/tool.py) Protocol
+  [`ToolExecutor`](../../../services/core-control-plane/src/fdai/shared/providers/tool.py) Protocol
   (`ToolCallShadowExecutor` in `core/executor/tool_call.py`). It mutates
   no cloud substrate; it produces an **artifact** or a side effect. This
   is the ontology-native counterpart of the way an LLM calls a tool: a

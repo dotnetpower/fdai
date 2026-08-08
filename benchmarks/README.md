@@ -11,7 +11,7 @@ installed with the base FDAI distribution.
 | `sregym/` | SREGym conductor lifecycle driver. |
 | `cybergym/` | CyberGym-E2E source workspace and artifact driver. |
 | `<name>/pyproject.toml` | Independent SDK-only package dependencies. |
-| `<name>/tests/` | Harness-specific transport and lifecycle tests. |
+| `<name>/services/core-control-plane/tests/` | Harness-specific transport and lifecycle tests. |
 
 ## Adding a driver
 

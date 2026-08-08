@@ -11,7 +11,7 @@ not part of the FDAI runtime distribution.
 | `src/fdai_bench_sregym/adapter.py` | Translates conductor stages to SDK requests, tasks, and results. |
 | `src/fdai_bench_sregym/plugin.py` | Provides the temporary environment factory for compatibility callers. |
 | `Dockerfile` | Layers FDAI and the plugin onto the reviewed SREGym agent base. |
-| `tests/` | Verifies transport validation and fail-closed lifecycle behavior. |
+| `services/core-control-plane/tests/` | Verifies transport validation and fail-closed lifecycle behavior. |
 
 ## Current scope
 

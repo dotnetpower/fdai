@@ -1,10 +1,13 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "target_service_count": 5,
   "services": [
     {
       "id": "core-control-plane",
-      "current_source_roots": ["src/fdai/core", "src/fdai/agents", "src/fdai/runtime/bootstrap.py"],
+      "source_roots": [
+        "services/core-control-plane/src/fdai",
+        "services/core-control-plane/src/fdai_core_service"
+      ],
       "target_package": "services/core-control-plane",
       "distribution": "fdai-core-control-plane",
       "distribution_version": "0.1.0",
@@ -17,7 +20,7 @@
     },
     {
       "id": "operator-service",
-      "current_source_roots": ["src/fdai/delivery/operator_api"],
+      "source_roots": ["services/operator-service/src/fdai_operator_service"],
       "target_package": "services/operator-service",
       "distribution": "fdai-operator-service",
       "distribution_version": "0.1.0",
@@ -30,7 +33,7 @@
     },
     {
       "id": "document-ingestion-api",
-      "current_source_roots": ["src/fdai/delivery/ingestion_gateway"],
+      "source_roots": ["services/document-ingestion-api/src/fdai_ingestion_api_service"],
       "target_package": "services/document-ingestion-api",
       "distribution": "fdai-document-ingestion-api",
       "distribution_version": "0.1.0",
@@ -43,7 +46,9 @@
     },
     {
       "id": "document-processing-worker",
-      "current_source_roots": ["src/fdai/delivery/ingestion_gateway"],
+      "source_roots": [
+        "services/document-processing-worker/src/fdai_document_worker_service"
+      ],
       "target_package": "services/document-processing-worker",
       "distribution": "fdai-document-processing-worker",
       "distribution_version": "0.1.0",
@@ -56,7 +61,7 @@
     },
     {
       "id": "isolated-executor",
-      "current_source_roots": ["services/isolated-executor/src/fdai_executor_service"],
+      "source_roots": ["services/isolated-executor/src/fdai_executor_service"],
       "target_package": "services/isolated-executor",
       "distribution": "fdai-isolated-executor-service",
       "distribution_version": "0.1.0",
@@ -69,10 +74,21 @@
     }
   ],
   "allowed_shared_roots": [
-    "src/fdai/shared/contracts",
-    "src/fdai/shared/providers",
-    "src/fdai/shared/telemetry"
+    "packages/service-contracts/src/fdai_service_contracts"
   ],
+  "physical_ownership": {
+    "service_test_roots": {
+      "core-control-plane": "services/core-control-plane/tests",
+      "operator-service": "services/operator-service/tests",
+      "document-ingestion-api": "services/document-ingestion-api/tests",
+      "document-processing-worker": "services/document-processing-worker/tests",
+      "isolated-executor": "services/isolated-executor/tests"
+    },
+    "shared_contract_test_root": "packages/service-contracts/tests",
+    "cross_service_integration_test_root": "tests/integration",
+    "workspace_project": "pyproject.toml",
+    "workspace_package": false
+  },
   "independence_targets": {
     "cross_service_implementation_imports": 0,
     "service_python_distributions": 5,
@@ -82,18 +98,38 @@
     "independent_upgrade_and_rollback_proofs": 5
   },
   "current_baseline": {
-    "operator_files_importing_core": 140,
-    "ingestion_files_importing_core": 5,
-    "executor_files_importing_core": 2,
     "service_python_distributions": 5,
     "service_images": 5,
     "service_terraform_roots": 5,
     "service_migration_branches": 5,
     "independent_upgrade_and_rollback_proofs": 0,
-    "service_forbidden_implementation_import_files": 0
+    "service_forbidden_implementation_import_files": 0,
+    "top_level_production_source_roots": 0
+  },
+  "local_layout_evidence": {
+    "base_commit": "f19cbeb73",
+    "state": "completed",
+    "source_and_test_moves_present": true,
+    "service_dockerfiles": 5,
+    "top_level_compatibility_paths": 0,
+    "cross_service_implementation_imports": 0,
+    "independent_critique_rounds": 10,
+    "medium_or_higher_local_residuals": 0,
+    "pending_parallel_lanes": [],
+    "live_upgrade_and_rollback_proof_work_package": "IS-07",
+    "local_validation": {
+      "service_wheels": 5,
+      "contract_wheels": 1,
+      "service_images": 5,
+      "service_image_healthchecks": 5,
+      "migration_branches": 5,
+      "migration_tables": 104,
+      "migration_transitions": 11,
+      "terraform_roots_validated": 5
+    }
   },
   "compatibility_retirements": {
-    "legacy_isolated_executor_module": "requires-independent-service-entrypoint",
+    "legacy_isolated_executor_module": "retired",
     "ingestion_cohost": "retired"
   },
   "work_packages": [
@@ -101,11 +137,11 @@
     {"id": "IS-01", "status": "completed", "dependencies": ["IS-00"]},
     {"id": "IS-02", "status": "completed", "dependencies": ["IS-01"]},
     {"id": "IS-03", "status": "completed", "dependencies": ["IS-01", "IS-02"]},
-    {"id": "IS-04", "status": "in_progress", "dependencies": ["IS-02"]},
+    {"id": "IS-04", "status": "completed", "dependencies": ["IS-02"]},
     {"id": "IS-05", "status": "completed", "dependencies": ["IS-02", "IS-03"]},
     {"id": "IS-06", "status": "in_progress", "dependencies": ["IS-04", "IS-05"]},
-    {"id": "IS-07", "status": "in_progress", "dependencies": ["IS-03", "IS-06"]},
-    {"id": "IS-08", "status": "planned", "dependencies": ["IS-07"]},
-    {"id": "IS-09", "status": "planned", "dependencies": ["IS-08"]}
+    {"id": "IS-07", "status": "in_progress", "dependencies": ["IS-03", "IS-06", "IS-08"]},
+    {"id": "IS-08", "status": "completed", "dependencies": ["IS-03", "IS-05"]},
+    {"id": "IS-09", "status": "in_progress", "dependencies": ["IS-07", "IS-08"]}
   ]
 }

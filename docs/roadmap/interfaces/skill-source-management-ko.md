@@ -1,8 +1,8 @@
 ---
 title: 스킬 소스 관리
 translation_of: skill-source-management.md
-translation_source_sha: cf9bd813ca230eb3bda24a60e7b7cbf683041762
-translation_revised: 2026-08-02
+translation_source_sha: 39aebd18074ff95bda4e5aea9103c48bb3966cc0
+translation_revised: 2026-08-08
 ---
 # 스킬 소스 관리
 
@@ -148,11 +148,11 @@ quarantine evidence는 계속 inspect할 수 있습니다.
 이 subsystem을 변경할 때 다음 focused check를 사용합니다.
 
 ```bash
-uv run pytest -q tests/core/supply_chain/test_skill_source_*.py
-uv run pytest -q tests/persistence/test_postgres_skill_source*.py tests/persistence/test_postgres_skill_quarantine.py
-uv run pytest -q tests/delivery/github/test_skill_source.py tests/delivery/operator_api/test_skill_sources.py
-uv run ruff check src/fdai/core/supply_chain/skill_source_*.py src/fdai/delivery/persistence/postgres_skill_*.py
-uv run mypy src/fdai/core/supply_chain/skill_source_*.py src/fdai/delivery/persistence/postgres_skill_*.py
+uv run pytest -q services/core-control-plane/tests/core/supply_chain/test_skill_source_*.py
+uv run pytest -q services/core-control-plane/tests/persistence/test_postgres_skill_source*.py services/core-control-plane/tests/persistence/test_postgres_skill_quarantine.py
+uv run pytest -q services/core-control-plane/tests/delivery/github/test_skill_source.py services/operator-service/tests/
+uv run ruff check services/core-control-plane/src/fdai/core/supply_chain/skill_source_*.py services/core-control-plane/src/fdai/delivery/persistence/postgres_skill_*.py
+uv run mypy services/core-control-plane/src/fdai/core/supply_chain/skill_source_*.py services/core-control-plane/src/fdai/delivery/persistence/postgres_skill_*.py
 ```
 
 Live integration test는 `FDAI_DATABASE_URL`이 configured된 경우 실행하고 그렇지 않으면 명시적으로

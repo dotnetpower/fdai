@@ -1,8 +1,8 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: 46db70b1f7f3383893cade0b030ad0bd84cf2c46
-translation_revised: 2026-08-03
+translation_source_sha: 7816b2b77659285b5b66dce4ee1f3556cd63c2f8
+translation_revised: 2026-08-08
 ---
 # Capability 라이선싱
 
@@ -114,9 +114,9 @@ Fail-closed를 원하는 distribution은 composition root에서 `require_license
 
 | 관심사 | 위치 |
 |--------|------|
-| Token contract, 검증, canonical byte | `src/fdai/core/licensing/token.py` (crypto-free) |
-| 상태, binding, entitlement 해석 | `src/fdai/core/licensing/entitlement.py` |
-| Signature 검증 | `src/fdai/delivery/trust/ed25519.py`의 `Ed25519LicenseVerifier` |
+| Token contract, 검증, canonical byte | `services/core-control-plane/src/fdai/core/licensing/token.py` (crypto-free) |
+| 상태, binding, entitlement 해석 | `services/core-control-plane/src/fdai/core/licensing/entitlement.py` |
+| Signature 검증 | `services/core-control-plane/src/fdai/delivery/trust/ed25519.py`의 `Ed25519LicenseVerifier` |
 | 발급 (release 전용) | `scripts/deployment/release/issue-license.py` |
 | 모든 운영자를 위한 오프라인 검증 | `fdaictl license inspect` |
 
@@ -145,8 +145,8 @@ PYTHONPATH=src python3 -m fdai.deployment_cli license inspect \
 key는 고객 현장이 아니라 발급 시점에 실패합니다. `license inspect`는 상태와 비밀이 아닌 metadata만
 보고하며 token, document, signature를 절대 출력하지 않습니다.
 
-자동화된 커버리지는 contract와 저하 표에 대해 `tests/core/licensing/`, 변조·잘못된 서명자·잘못된
-binding을 포함한 실제 발급-검증 경로에 대해 `tests/scripts/test_issue_license.py`에 있습니다.
+자동화된 커버리지는 contract와 저하 표에 대해 `services/core-control-plane/tests/core/licensing/`, 변조·잘못된 서명자·잘못된
+binding을 포함한 실제 발급-검증 경로에 대해 `tests/integration/scripts/test_issue_license.py`에 있습니다.
 
 ## 정직한 한계
 

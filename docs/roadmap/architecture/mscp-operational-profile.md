@@ -18,7 +18,7 @@ implements every MSCP level or satisfies full MSCP conformance.
 ## Design at a glance
 
 The profile supplies deterministic, I/O-free policy primitives under
-`src/fdai/core/mscp_profile/`. Callers provide already collected observations, limits, and
+`services/core-control-plane/src/fdai/core/mscp_profile/`. Callers provide already collected observations, limits, and
 component digests. The profile returns typed verification or hold decisions and never calls a
 provider, changes a resource, writes an audit entry, promotes a capability, or edits a rule.
 
@@ -142,7 +142,7 @@ profile. In particular:
 
 ## Verification
 
-Focused tests under `tests/core/mscp_profile/` cover:
+Focused tests under `services/core-control-plane/tests/core/mscp_profile/` cover:
 
 - level-neutral profile identity and the mandatory non-conformance declaration;
 - stable, source-pinned audit provenance;

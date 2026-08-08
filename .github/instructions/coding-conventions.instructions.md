@@ -1,6 +1,6 @@
 ---
 description: "Use when editing source, tests, scripts, infrastructure, policies, or catalogs. Covers safety, boundaries, testing, docs-first, and docs-after."
-applyTo: "src/**,tests/**,scripts/**,console/**,cli/**,infra/**,rule-catalog/**,policies/**"
+applyTo: "services/**,packages/**,tests/integration/**,scripts/**,console/**,cli/**,infra/**,rule-catalog/**,policies/**"
 ---
 
 # Coding Conventions

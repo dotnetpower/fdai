@@ -15,7 +15,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import SchemaError, ValidationError
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CONTRACT_SOURCE = REPO_ROOT / "service-contracts" / "src"
+CONTRACT_SOURCE = REPO_ROOT / "packages" / "service-contracts" / "src"
 SERVICE_SOURCES = (
     REPO_ROOT / "services" / "core-control-plane" / "src",
     REPO_ROOT / "services" / "operator-service" / "src",
@@ -40,7 +40,7 @@ from fdai_service_contracts import (  # noqa: E402
 )
 
 MANIFEST_PATH = CONTRACT_SOURCE / "fdai_service_contracts" / "compatibility-manifest.json"
-FIXTURE_ROOT = REPO_ROOT / "tests" / "fixtures" / "services"
+FIXTURE_ROOT = REPO_ROOT / "packages" / "service-contracts" / "tests" / "fixtures" / "services"
 SERVICE_IDS = {
     "core-control-plane",
     "operator-service",

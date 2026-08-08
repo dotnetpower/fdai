@@ -1,14 +1,5 @@
-# FDAI - autonomous cloud operations control plane
-#
-# Python is the core runtime language for the control plane
-# (see docs/roadmap/architecture/tech-stack.md - OD-1 resolved).
-# All executable code lives under src/fdai/ (Python "src layout").
-# Non-Python trees (rule-catalog/ YAML data, policies/ Rego, infra/ Terraform)
-# live at the repo root - they are data or IaC, not Python packages.
-#
-# Skeleton scope (Phase 0 W1.1): manifest + package layout only.
-# Runtime dependencies land in W1.2-W1.4 (contracts, config loader, OpenTelemetry wiring);
-# CI tooling (ruff / mypy / pytest / coverage gates) lands in W1.7.
+# FDAI workspace orchestration and development tooling.
+# Runtime packages are owned by services/* and packages/* workspace members.
 
 [project]
 name = "fdai"
@@ -30,77 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: System :: Systems Administration",
 ]
-dependencies = [
-    # Public evaluation contracts are released independently from the FDAI
-    # implementation. The local workspace member mirrors that release boundary.
-    "fdai-evaluation-sdk>=0.1,<0.2",
-    # Cross-process service constants and Protocols stay implementation-free.
-    "fdai-service-contracts==0.1.0",
-    # W1.2 - contracts: typed models + JSON Schema validation at boundaries only.
-    # Everything else (event bus, state store, telemetry, LLM clients) is deferred
-    # to its own P0 work item so a violation is easy to spot in the lockfile diff.
-    "pydantic>=2.9,<3",
-    "jsonschema>=4.23,<5",
-    # W1.4 - OpenTelemetry API + SDK. Day-zero uses local exporters; optional
-    # OTLP/gRPC export is enabled only when a collector endpoint is configured.
-    "opentelemetry-api>=1.29,<2",
-    "opentelemetry-sdk>=1.29,<2",
-    # W1.5 / W1.6 - schema migrations against PostgreSQL (pgvector). Alembic
-    # pins SQLAlchemy transitively; psycopg[binary] carries both sync and
-    # async drivers so the future StateStore adapter reuses the same client.
-    "sqlalchemy>=2.0,<3",
-    "alembic>=1.13,<2",
-    "psycopg[binary]>=3.2,<4",
-    # W2.1 - YAML parsing for catalog-as-code (action-types, vocabulary,
-    # exemptions). Catalog files are authored as YAML per
-    # docs/roadmap/rules-and-detection/rule-catalog-collection.md; JSON Schema stays the
-    # validator, PyYAML only reads the file. Version pinned wide so a
-    # lockfile bump doesn't churn other packages.
-    "pyyaml>=6.0,<7",
-    # D4c document distillation - CommonMark block tokens retain source-line
-    # maps so Markdown paragraphs, headings, lists, tables, and code do not
-    # degrade into unrelated physical-line chunks.
-    "markdown-it-py>=4,<5",
-    # D4c document distillation - strict PDF parsing supports modern xref and
-    # object streams while FDAI retains page, object, unit, and character budgets.
-    "pypdf>=6.15,<7",
-    # W3 - HTTP client for provider adapters (Azure Resource Graph REST).
-    # Async by default; `core/` never imports it - only adapters under
-    # `delivery/<csp>/` do. Pinned per docs/roadmap/architecture/csp-neutrality.md § 5.
-    "httpx>=0.27,<1",
-    # W3.5 - Kafka client for the event-bus adapter. Realizes the wire-level
-    # contract in docs/roadmap/architecture/csp-neutrality.md § 1; the same client talks
-    # to Event Hubs Kafka on :9093 (SASL_SSL / OAUTHBEARER) or a self-hosted
-    # broker. Only `delivery/<csp>/event_bus.py` imports it - `core/` stays
-    # portable behind the `EventBus` Protocol.
-    "aiokafka>=0.12,<0.13",
-    # Read-only console API - Starlette is the ASGI micro-framework used by
-    # `delivery/operator_api/`. Chosen over FastAPI because the surface is three
-    # GET routes (no OpenAPI generation, no request-body validation via
-    # pydantic-integration) and Starlette carries fewer transitive deps
-    # (see app-shape.instructions.md § Operator console). `core/` never
-    # imports it - the framework touches only the delivery layer.
-    #
-    # Floor 1.3.1: closes 6 CVEs on 0.52.x, notably CVE-2026-48818
-    # (StaticFiles UNC-path SSRF on Windows), CVE-2026-48817
-    # (HTTPEndpoint non-standard-method attribute dispatch),
-    # PYSEC-2026-161 / 248 (request.url Host / path reconstruction),
-    # PYSEC-2026-249 (FormParser urlencoded limits ignored). Upper bound
-    # <2 tracks the next stable major.
-    "starlette>=1.3.1,<2",
-    # Console Operator API Entra JWT verification (delivery/operator_api/entra_verifier.py).
-    # PyJWT's PyJWKClient fetches + caches the tenant JWKS and `jwt.decode`
-    # validates signature + `aud` + `iss` + `exp`/`nbf` in one call. The
-    # `[crypto]` extra pulls `cryptography` for RS256. Generic + CSP-neutral:
-    # the tenant id / audience / issuer are supplied via env, never baked in
-    # (see docs/roadmap/interfaces/user-rbac-and-identity.md § 10.2). `core/` never imports
-    # it - only the delivery layer validates human tokens.
-    "pyjwt[crypto]>=2.10,<3",
-    "croniter>=6,<7",
-    "azure-storage-file-datalake>=12.25,<13",
-    "aiohttp>=3.14.2,<4",
-    "opentelemetry-exporter-otlp-proto-grpc>=1.29,<2",
-]
+dependencies = []
 
 [project.optional-dependencies]
 # Development tooling. Concrete runtime deps still arrive with their own P0 tasks.
@@ -110,6 +31,28 @@ dev = [
     # the FDAI runtime wheel while making the repository suite self-contained.
     "fdai-benchmark-cybergym>=0.1,<0.2",
     "fdai-benchmark-sregym>=0.1,<0.2",
+    "fdai-evaluation-sdk>=0.1,<0.2",
+    "fdai-service-contracts==0.1.0",
+    # Root integration tests span the five independently owned distributions.
+    # Runtime images resolve dependencies from each service pyproject instead.
+    "aiohttp>=3.14.2,<4",
+    "aiokafka>=0.12,<0.13",
+    "alembic>=1.13,<2",
+    "azure-storage-file-datalake>=12.25,<13",
+    "croniter>=6,<7",
+    "httpx>=0.27,<1",
+    "jsonschema>=4.23,<5",
+    "markdown-it-py>=4,<5",
+    "opentelemetry-api>=1.29,<2",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.29,<2",
+    "opentelemetry-sdk>=1.29,<2",
+    "psycopg[binary]>=3.2,<4",
+    "pydantic>=2.9,<3",
+    "pyjwt[crypto]>=2.10,<3",
+    "pypdf>=6.15,<7",
+    "pyyaml>=6.0,<7",
+    "sqlalchemy>=2.0,<3",
+    "starlette>=1.3.1,<2",
     # pytest floor is 9.0.3: pytest <= 9.0.2 uses a predictable
     # /tmp/pytest-of-{user} temp dir (CVE-2025-71176, local DoS/priv-esc).
     "pytest>=9.0.3,<10",
@@ -159,16 +102,8 @@ azure-mcp = [
 Homepage = "https://github.com/dotnetpower/fdai"
 Documentation = "https://github.com/dotnetpower/fdai/blob/main/docs/roadmap/README.md"
 
-[project.scripts]
-fdaictl = "fdai.deployment_cli.cli:main"
-fdai-catalog-generation = "fdai.delivery.catalog_search.generation_cli:main"
-fdai-evaluation-runner = "fdai.runtime.evaluation_runner_cli:main"
-fdai-executor-authority-probe = "fdai.runtime.executor_authority_probe_cli:main"
-fdai-model-endpoint-discovery = "fdai.delivery.azure.llm.endpoint_discovery_cli:main"
-
-[build-system]
-requires = ["hatchling>=1.24"]
-build-backend = "hatchling.build"
+[tool.uv]
+package = false
 
 [tool.uv.sources]
 fdai-evaluation-sdk = { workspace = true }
@@ -187,21 +122,13 @@ members = [
     "benchmarks/sregym",
     "benchmarks/cybergym",
     "extensions/code-assurance",
-    "service-contracts",
+    "packages/service-contracts",
     "services/core-control-plane",
     "services/operator-service",
     "services/document-ingestion-api",
     "services/document-processing-worker",
     "services/isolated-executor",
 ]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/fdai"]
-exclude = ["src/fdai/runtime/isolated_executor_cli.py"]
-
-[tool.hatch.build.targets.sdist]
-include = ["src/fdai", "README.md", "LICENSE", "pyproject.toml"]
-exclude = ["src/fdai/runtime/isolated_executor_cli.py"]
 
 # ---------------------------------------------------------------------------
 # Dev-tool config lives here so it is picked up as soon as the tools are added
@@ -211,7 +138,7 @@ exclude = ["src/fdai/runtime/isolated_executor_cli.py"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["src", "tests", "extensions/code-assurance/src"]
+src = ["services", "packages", "tests", "extensions/code-assurance/src"]
 # Mock/design assets and design experiments are not part of the shipped
 # monorepo; they live outside the lint gate on purpose.
 extend-exclude = ["mocks", "examples"]
@@ -225,6 +152,8 @@ ignore = []
 # Tests intentionally include hardcoded strings like "token" that trip the
 # bandit-style S1xx rules; asserts (S101) are the whole point of the suite.
 "tests/**" = ["S101", "S105", "S106"]
+"services/**/tests/**" = ["S101", "S105", "S106"]
+"packages/**/tests/**" = ["S101", "S105", "S106"]
 "extensions/**/tests/**" = ["S101", "S105", "S106"]
 "benchmarks/**/tests/**" = ["S101", "S104"]
 # Developer helper scripts shell out to `git` / `python3` with hardcoded
@@ -239,20 +168,33 @@ ignore = []
 # Chat backend embeds a long-form system prompt as a triple-quoted string
 # literal. Breaking the prompt across lines would corrupt the payload the
 # LLM sees; the E501 rule does not apply to prose inside a prompt.
-"src/fdai/delivery/operator_api/routes/chat.py" = ["E501"]
 # Codegen CLI + object-type loader header comments run slightly over the
 # 100-column budget for readability of a single-line docstring / import.
 # These are already committed; opening the doorway to reformat every
 # docstring would exceed the intent of this cleanup.
-"src/fdai/rule_catalog/codegen/**" = ["E501"]
-"src/fdai/rule_catalog/schema/object_type.py" = ["E501"]
-"tests/delivery/operator_api/test_bitemporal.py" = ["E501"]
+"services/core-control-plane/src/fdai/rule_catalog/codegen/**" = ["E501"]
+"services/core-control-plane/src/fdai/rule_catalog/schema/object_type.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src/fdai", "extensions/code-assurance/src/fdai_code_assurance"]
-mypy_path = ["service-contracts/src", "services/isolated-executor/src"]
+files = [
+    "services/core-control-plane/src",
+    "services/operator-service/src",
+    "services/document-ingestion-api/src",
+    "services/document-processing-worker/src",
+    "services/isolated-executor/src",
+    "packages/service-contracts/src",
+    "extensions/code-assurance/src/fdai_code_assurance",
+]
+mypy_path = [
+    "packages/service-contracts/src",
+    "services/core-control-plane/src",
+    "services/operator-service/src",
+    "services/document-ingestion-api/src",
+    "services/document-processing-worker/src",
+    "services/isolated-executor/src",
+]
 
 # aiokafka ships no py.typed marker and no stub package. It is only imported
 # by `delivery/azure/event_bus.py`; the adapter boundary in composition
@@ -269,12 +211,13 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-testpaths = ["tests", "src/fdai", "extensions/code-assurance/tests"]
+testpaths = ["tests", "services", "packages", "extensions/code-assurance/tests"]
 addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
 pythonpath = [
     ".",
     "extensions/code-assurance/src",
-    "service-contracts/src",
+    "packages/service-contracts/src",
+    "services/core-control-plane",
     "services/core-control-plane/src",
     "services/operator-service/src",
     "services/document-ingestion-api/src",
@@ -293,7 +236,7 @@ asyncio_mode = "auto"
 # a real regression (a warning from OUR code) still surfaces.
 filterwarnings = [
     # starlette 1.3.1 asks TestClient users to switch to httpx2. httpx is used
-    # extensively across src/fdai/delivery/**; migrating to httpx2 is a
+    # extensively across services/core-control-plane/src/fdai/delivery/**; migrating to httpx2 is a
     # separate work item and does not affect correctness.
     "ignore::starlette.exceptions.StarletteDeprecationWarning",
 ]
@@ -303,17 +246,17 @@ filterwarnings = [
 # scripts/quality/ci/run-python-tests.sh instead of repeating these paths.
 [tool.coverage.run]
 source = [
-    "src/fdai/core/event_ingest",
-    "src/fdai/core/trust_router",
-    "src/fdai/core/tiers/t0_deterministic",
-    "src/fdai/core/tiers/t1_lightweight",
-    "src/fdai/core/tiers/t2_reasoning",
-    "src/fdai/core/quality_gate",
-    "src/fdai/core/risk_gate",
-    "src/fdai/core/hil_resume",
-    "src/fdai/core/executor",
-    "src/fdai/core/audit",
-    "src/fdai/core/control_loop",
+    "services/core-control-plane/src/fdai/core/event_ingest",
+    "services/core-control-plane/src/fdai/core/trust_router",
+    "services/core-control-plane/src/fdai/core/tiers/t0_deterministic",
+    "services/core-control-plane/src/fdai/core/tiers/t1_lightweight",
+    "services/core-control-plane/src/fdai/core/tiers/t2_reasoning",
+    "services/core-control-plane/src/fdai/core/quality_gate",
+    "services/core-control-plane/src/fdai/core/risk_gate",
+    "services/core-control-plane/src/fdai/core/hil_resume",
+    "services/core-control-plane/src/fdai/core/executor",
+    "services/core-control-plane/src/fdai/core/audit",
+    "services/core-control-plane/src/fdai/core/control_loop",
 ]
 branch = true
 

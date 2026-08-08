@@ -174,7 +174,7 @@ demotes back to shadow.
 
 ## DI seams
 
-All in `src/fdai/core/quality_gate/` (core stays LLM-SDK-free); the concrete
+All in `services/core-control-plane/src/fdai/core/quality_gate/` (core stays LLM-SDK-free); the concrete
 adapter is in `delivery/`.
 
 | Seam | Where | Role |
@@ -252,7 +252,7 @@ should:
    BASE/PACK assembly path does NOT cover (`get_base` filters `PromptLayer.BASE`
    only), so the fork loads it by id/layer directly, exactly as a Critic/Judge
    wiring loads `t2-critic` / `t2-judge`. A CI gate
-   (`tests/rule_catalog/test_prompt_registry_consistency.py`) asserts every
+   (`services/core-control-plane/tests/rule_catalog/test_prompt_registry_consistency.py`) asserts every
    prompt `applies_to` capability exists in `llm-registry.yaml`, so a typo'd
    `t2.rubric.judge` cannot silently orphan the prompt.
 2. Keep `QualityCandidate.reasoning_trace` populated. The shipped local and

@@ -2,7 +2,7 @@
 #
 # check-chaos-scenarios.sh - CI gate for the chaos-scenarios catalog.
 #
-# Runs `load_all()` from `src/fdai/core/chaos/scenario_catalog.py`, which
+# Runs `load_all()` from the Core service's `fdai/core/chaos/scenario_catalog.py`, which
 # fails on:
 #   - schema violations (schema/chaos-scenario.schema.json),
 #   - unknown expected_signal (not in core/detection/signals.py),
@@ -27,6 +27,7 @@ set -uo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root" || exit 2
+export PYTHONPATH="$repo_root/services/core-control-plane/src:$repo_root/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}"
 
 if command -v uv >/dev/null 2>&1; then
     python_cmd=(uv run python)
@@ -39,7 +40,7 @@ fi
 
 # ---- 1. load_all() must succeed ------------------------------------------
 
-if ! output="$(PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}" "${python_cmd[@]}" -c '
+if ! output="$("${python_cmd[@]}" -c '
 import sys
 from fdai.core.chaos.scenario_catalog import ScenarioCatalogError, load_all
 try:

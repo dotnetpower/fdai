@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: a80f081ec9e12b90323a51d937bbfa811548b2cf
-translation_revised: 2026-08-02
+translation_source_sha: 74bc394f7ce47774e85575ae4181fd1c5f38b184
+translation_revised: 2026-08-08
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -523,7 +523,7 @@ matrix:
 - **렌더링 방식(Option C).** `core`는 최종 현지화 문자열을 절대 baked하지 않는다.
   모든 `NotificationMessage`는 `template_key`와 타입화된 `params`를 실어 나르고,
   라우터가 `send` 직전에 대상 채널의 로케일로 카탈로그
-  (`src/fdai/core/notifications/messages.{en,ko}.json`)에서 `title` /
+  (`services/core-control-plane/src/fdai/core/notifications/messages.{en,ko}.json`)에서 `title` /
   `body_markdown`을 렌더링한다. 어댑터는 그대로다 - 여전히 `title` /
   `body_markdown`을 소비한다.
 - **라벨만 현지화된다.** L0 값(decision word, rule id, 리소스 유형, mode)은 모든

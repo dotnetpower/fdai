@@ -57,7 +57,7 @@ it makes the roles legible and auditable.
   role assignments are locked. Forks customize behaviour through configured
   seams (§10) - not by adding, removing, or renaming agents.
 - **Repository layout preserves the boundary.** Named agents live in
-  [`src/fdai/agents/`](../../../src/fdai/agents), while shared runtime machinery stays in its private
+  [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents), while shared runtime machinery stays in its private
   `_framework`. External callers import only `fdai.agents`; the layout test enforces the boundary.
 ## 2. Organization chart
 
@@ -136,10 +136,10 @@ Norns remains the sole writer of inert `RuleCandidate` proposals. Its three-pers
 ## 4. Agent catalog
 
 > **Machine-readable source of truth**: `PANTHEON_SPECS` in
-> [`src/fdai/agents/_framework/pantheon.py`](../../../src/fdai/agents/_framework/pantheon.py).
+> [`services/core-control-plane/src/fdai/agents/_framework/pantheon.py`](../../../services/core-control-plane/src/fdai/agents/_framework/pantheon.py).
 > The table below paraphrases those `AgentSpec` entries for humans. If
 > they disagree, the code wins - and
-> [`tests/agents/test_pantheon_doc_parity.py`](../../../tests/agents/test_pantheon_doc_parity.py)
+> [`services/core-control-plane/tests/agents/test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py)
 > pins all 15 names plus catalog layer and ownership against `PANTHEON_SPECS`
 > in both English and Korean so drift is caught in CI.
 

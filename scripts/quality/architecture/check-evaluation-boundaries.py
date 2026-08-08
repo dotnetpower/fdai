@@ -80,7 +80,7 @@ def _fallback_import_scan(path: Path, surface: str) -> tuple[Violation, ...]:
 
 def _python_surfaces(root: Path):  # type: ignore[no-untyped-def]
     surfaces = (
-        (root / "src" / "fdai", "fdai"),
+        (root / "services" / "core-control-plane" / "src" / "fdai", "fdai"),
         (root / "evaluation-sdk" / "src", "sdk"),
         (root / "benchmarks", "benchmarks"),
     )

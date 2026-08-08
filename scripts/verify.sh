@@ -34,7 +34,7 @@ set -uo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root" || exit 1
-export PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$repo_root/services/core-control-plane/src:$repo_root/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}"
 
 MODE="fast"
 PYTEST_PATH=""
@@ -154,11 +154,11 @@ run_gate_scoped() {
 # ---- fast gates (always) ----------------------------------------------------
 
 if command -v uv >/dev/null 2>&1; then
-    run_gate_scoped "ruff format (src tests extensions)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' uv run ruff format --check src tests extensions/code-assurance
-    run_gate_scoped "ruff lint (src tests extensions)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' uv run ruff check src tests extensions/code-assurance
+    run_gate_scoped "ruff format (services packages tests extensions)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' uv run ruff format --check services packages tests extensions/code-assurance
+    run_gate_scoped "ruff lint (services packages tests extensions)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' uv run ruff check services packages tests extensions/code-assurance
 elif command -v ruff >/dev/null 2>&1; then
-    run_gate "ruff format (src tests extensions)" ruff format --check src tests extensions/code-assurance
-    run_gate "ruff lint (src tests extensions)" ruff check src tests extensions/code-assurance
+    run_gate "ruff format (services packages tests extensions)" ruff format --check services packages tests extensions/code-assurance
+    run_gate "ruff lint (services packages tests extensions)" ruff check services packages tests extensions/code-assurance
 else
     echo "verify.sh: 'ruff' not found on PATH; skipping (activate the venv first)" >&2
     NAMES+=("ruff format (src tests extensions)" "ruff lint (src tests extensions)")
@@ -174,14 +174,15 @@ else
     overall=1
 fi
 
-run_gate_scoped "ci-contracts" '^(\.github/workflows/|Dockerfile$|\.dockerignore$|resolved-models.*\.json$|scripts/quality/ci/|tests/persistence/|src/fdai/)' python3 scripts/quality/ci/check-ci-contracts.py
+run_gate_scoped "ci-contracts" '^(\.github/workflows/|Dockerfile$|\.dockerignore$|resolved-models.*\.json$|scripts/quality/ci/|services/core-control-plane/tests/persistence/|services/core-control-plane/src/fdai/)' python3 scripts/quality/ci/check-ci-contracts.py
 run_gate_scoped "issue-lifecycle" '^(\.github/ISSUE_TEMPLATE/|\.github/workflows/issue-lifecycle\.yml$|\.github/copilot-instructions\.md$|CONTRIBUTING\.md$|scripts/quality/repository/check-issue-lifecycle\.py$)' python3 scripts/quality/repository/check-issue-lifecycle.py
 run_gate_scoped "design-routes" '^(\.github/instructions/|scripts/lib/design-routes\.json$|scripts/quality/architecture/check-design-routes\.py$|docs/)' python3 scripts/quality/architecture/check-design-routes.py
 run_gate_scoped "constitution" '^(\.github/|config/constitution-traceability\.json$|docs/roadmap/|scripts/quality/architecture/check-constitution\.py$)' python3 scripts/quality/architecture/check-constitution.py
 run_gate "design-doc-impact" python3 scripts/quality/architecture/check-design-doc-impact.py
 run_gate_scoped "fork-runtime-independence" '^(src/|config/|infra/|scripts/quality/architecture/check-fork-runtime-independence\.py$)' python3 scripts/quality/architecture/check-fork-runtime-independence.py
 run_gate_scoped "evaluation-boundaries" '^(evaluation-sdk/|src/|tests/|pyproject\.toml$|scripts/quality/architecture/check-evaluation-boundaries\.py$)' python3 scripts/quality/architecture/check-evaluation-boundaries.py
-run_gate_scoped "chat-semantic-routing" '^(src/fdai/delivery/operator_api/|console/|tests/delivery/operator_api/|scripts/quality/architecture/check-chat-semantic-routing\.py$)' python3 scripts/quality/architecture/check-chat-semantic-routing.py
+run_gate_scoped "independent-services" '^(services/|packages/service-contracts/|tests/integration/|config/independent-services\.json$|scripts/quality/architecture/check-independent-services\.py$)' uv run python scripts/quality/architecture/check-independent-services.py
+run_gate_scoped "chat-semantic-routing" '^(services/operator-service/|console/|tests/integration/|scripts/quality/architecture/check-chat-semantic-routing\.py$)' python3 scripts/quality/architecture/check-chat-semantic-routing.py
 run_gate_scoped "boundary-docstrings" '^(src/|scripts/quality/architecture/(check-boundary-docstrings\.py|\.boundary-docstring-scopes)$)' python3 scripts/quality/architecture/check-boundary-docstrings.py
 run_gate_scoped "document-size" '^(docs/roadmap/|scripts/quality/architecture/check-document-size\.py$)' python3 scripts/quality/architecture/check-document-size.py
 run_gate_scoped "display-terminology" '^(README|docs/|rule-catalog/|console/|cli/|scripts/quality/documentation/check-display-terminology\.py$)' python3 scripts/quality/documentation/check-display-terminology.py
@@ -192,7 +193,7 @@ run_gate "guids"        bash scripts/quality/repository/check-guids.sh
 run_gate_scoped "translations" '^(README(-ko)?\.md$|docs/.*\.md$|scripts/quality/localization/check-translations\.sh$)' bash scripts/quality/localization/check-translations.sh
 
 run_gate_scoped "catalog-parity" '^(console|cli|src)/.*messages\.(en|ko)\.json$|^scripts/quality/localization/check-catalog-parity\.sh$' bash scripts/quality/localization/check-catalog-parity.sh
-run_gate_scoped "stewardship" '^(config/agent-stewardship\.yaml$|src/fdai/agents/_framework/pantheon\.py$|scripts/governance/check-stewardship\.sh$)' bash scripts/governance/check-stewardship.sh
+run_gate_scoped "stewardship" '^(config/agent-stewardship\.yaml$|services/core-control-plane/src/fdai/agents/_framework/pantheon\.py$|scripts/governance/check-stewardship\.sh$)' bash scripts/governance/check-stewardship.sh
 run_gate_scoped "chaos-scenarios" '^(rule-catalog/chaos-scenarios/|docs/user-guide/sre/scenario-validation-inventory|scripts/catalog/)' bash scripts/catalog/check-chaos-scenarios.sh
 run_gate_scoped "architecture-review" '^(config/architecture-review\.yaml$|scripts/governance/check-arb-readiness\.py$)' python3 scripts/governance/check-arb-readiness.py
 
@@ -206,7 +207,7 @@ run_gate_scoped "derived-sources" '^(README(-ko)?\.md$|docs/|scripts/quality/loc
 # Upstream: advisory (edits are legitimate; re-sign before release, rc 0).
 # Fork: hard fail on any edit/add under the signed surface (rc 1). Skipped
 # loudly when any signed artifact is missing.
-run_gate_scoped "framework-integrity" '^(src/fdai/(core/|agents/|composition|shared/(contracts|providers)/)|rule-catalog/schema/|\.github/instructions/|security/integrity/|scripts/integrity/)' bash scripts/integrity/check-integrity.sh
+run_gate_scoped "framework-integrity" '^(services/core-control-plane/src/fdai/(core/|agents/|composition|shared/(contracts|providers)/)|rule-catalog/schema/|\.github/instructions/|security/integrity/|scripts/integrity/)' bash scripts/integrity/check-integrity.sh
 
 # ---- pytest and whole-repository gates (opt-in) -----------------------------
 

@@ -14,4 +14,4 @@
 # executor, hil_resume, audit, notifications, verticals, workflow, rca).
 # Splitting it into a Stage protocol + stages/ is G-2 phase 2 in tracker
 # #14. Until that lands, the fan-out is by design.
-src/fdai/core/control_loop/orchestrator.py
+services/core-control-plane/src/fdai/core/control_loop/orchestrator.py

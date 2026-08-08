@@ -146,11 +146,11 @@ audit and quarantine evidence remain inspectable.
 Use these focused checks while changing this subsystem:
 
 ```bash
-uv run pytest -q tests/core/supply_chain/test_skill_source_*.py
-uv run pytest -q tests/persistence/test_postgres_skill_source*.py tests/persistence/test_postgres_skill_quarantine.py
-uv run pytest -q tests/delivery/github/test_skill_source.py tests/delivery/operator_api/test_skill_sources.py
-uv run ruff check src/fdai/core/supply_chain/skill_source_*.py src/fdai/delivery/persistence/postgres_skill_*.py
-uv run mypy src/fdai/core/supply_chain/skill_source_*.py src/fdai/delivery/persistence/postgres_skill_*.py
+uv run pytest -q services/core-control-plane/tests/core/supply_chain/test_skill_source_*.py
+uv run pytest -q services/core-control-plane/tests/persistence/test_postgres_skill_source*.py services/core-control-plane/tests/persistence/test_postgres_skill_quarantine.py
+uv run pytest -q services/core-control-plane/tests/delivery/github/test_skill_source.py services/operator-service/tests/
+uv run ruff check services/core-control-plane/src/fdai/core/supply_chain/skill_source_*.py services/core-control-plane/src/fdai/delivery/persistence/postgres_skill_*.py
+uv run mypy services/core-control-plane/src/fdai/core/supply_chain/skill_source_*.py services/core-control-plane/src/fdai/delivery/persistence/postgres_skill_*.py
 ```
 
 The live integration test runs when `FDAI_DATABASE_URL` is configured and otherwise reports an

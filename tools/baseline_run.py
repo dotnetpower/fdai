@@ -8,9 +8,9 @@ Usage
 
 .. code-block:: shell
 
-    python -m tools.baseline_run --scenarios tests/scenarios/v2026.07
+    python -m tools.baseline_run --scenarios services/core-control-plane/tests/scenarios/v2026.07
     python -m tools.baseline_run \
-        --scenarios tests/scenarios/v2026.07 \
+        --scenarios services/core-control-plane/tests/scenarios/v2026.07 \
         --json docs/baselines/v2026.07.json \
         --report docs/baselines/v2026.07.md
 
@@ -667,7 +667,10 @@ def main(argv: Iterable[str] | None = None) -> int:
         "--scenarios",
         required=True,
         type=Path,
-        help="Frozen scenario-set directory (e.g. tests/scenarios/v2026.07).",
+        help=(
+            "Frozen scenario-set directory "
+            "(e.g. services/core-control-plane/tests/scenarios/v2026.07)."
+        ),
     )
     parser.add_argument(
         "--observations",

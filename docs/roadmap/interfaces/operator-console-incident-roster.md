@@ -361,5 +361,5 @@ An RCA hypothesis answers "why", never "execute": execution eligibility stays
 with the risk gate + verifier. The route is Reader-gated, returns `405` for
 mutating verbs, and provides links into Audit and Trace but no execute /
 approve / rollback button. The projection is a pure function
-(`src/fdai/delivery/operator_api/routes/rca_projection.py`) covered by
-`tests/delivery/operator_api/test_rca.py`.
+(`services/operator-service/src/fdai_operator_service/`) covered by
+`services/operator-service/tests/`.

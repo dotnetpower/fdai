@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: a6e37cf617f35c2e5304d98c226836c5ffef6581
+translation_source_sha: b585f0cd342900223a20310cef1b5cf008458d42
 translation_revised: 2026-08-08
 ---
 
@@ -315,7 +315,7 @@ resolver는 프로비저닝 불가능한 capability를 `hil-only`로 강등시�
 fallback 하고 모든 T2 케이스가 HIL로 라우팅되며, reasoning tier가 사실상 꺼졌다는
 신호가 배포 시점에 없다.
 
-[`assess_provisioning`](../../../src/fdai/rule_catalog/schema/provisioning_assessment.py)
+[`assess_provisioning`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/provisioning_assessment.py)
 이 그 gap을 닫는다. 권위 `llm-registry.yaml`(의도)과 `resolved-models.json`(실제)
 을 비교해 결정론적 `ProvisioningReport`를 반환한다:
 
@@ -360,9 +360,9 @@ return quorum_result(cand_a, cand_b)
 ### Escalation Ladder 정책
 
 위의 `if not agree(...): escalated = ...` 스텝은 하드코딩된 분기가 아니라
-**정책 결정**이다. [`core/quality_gate/escalation_ladder.py`](../../../src/fdai/core/quality_gate/escalation_ladder.py)
+**정책 결정**이다. [`core/quality_gate/escalation_ladder.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/escalation_ladder.py)
 (`decide_escalation`)에 순수·결정론 함수로 구현되며, 형제
-[`debate_router`](../../../src/fdai/core/quality_gate/debate_router.py)를 그대로
+[`debate_router`](../../../services/core-control-plane/src/fdai/core/quality_gate/debate_router.py)를 그대로
 미러링한다: frozen `EscalationLadderConfig` + "더 강한 모델로 올라갈까,
 멈추고 HIL로 라우팅할까?"에 답하는 stateless 함수. 정책을 먼저 단독으로 -
 라이브 배선 전에 테스트·감사 가능하게 - 출하하는 것은 debate-router
@@ -690,7 +690,7 @@ catch-all이지 추론된 signal이 아님. TrustRouter와 T0는 같은 `applies
 
 ### ActionType 계약
 
-**ActionType** ([스키마](../../../src/fdai/shared/contracts/ontology/action-type.json)) 는
+**ActionType** ([스키마](../../../services/core-control-plane/src/fdai/shared/contracts/ontology/action-type.json)) 는
 하나의 CSP-중립 mutation 카테고리와 그 카테고리의 모든 인스턴스에 대한 안전 불변식을 선언.
 `preconditions` / `stop_conditions` / `blast_radius` / `description` 을 제외한 모든 필드는
 필수.

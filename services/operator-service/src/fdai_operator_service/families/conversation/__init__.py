@@ -1,4 +1,20 @@
-"""Public service-local API for the Operator conversation route family."""
+"""Public service-local API for the Operator conversation route family.
+
+Responsibility:
+Expose conversation contracts, route metadata, and the family factory.
+
+Boundary:
+Translate authenticated operator requests into read queries or typed proposals.
+
+Authority and state:
+Perform no managed-resource effects and retain no shared mutable workflow state.
+
+Dependencies:
+Use injected projection, authorization, event-stream, and outbox ports.
+
+Deployment:
+Run only inside the independently deployed Operator Service process.
+"""
 
 from fdai_operator_service.families.conversation.contracts import (
     ConversationAuthorizer,

@@ -1,4 +1,20 @@
-"""Public facade for the independent Operator workflow route family."""
+"""Public facade for the independent Operator workflow route family.
+
+Responsibility:
+Expose workflow read contracts, proposal contracts, metadata, and route factory.
+
+Boundary:
+Render workflow projections and publish typed operator proposals.
+
+Authority and state:
+Hold no execution authority and mutate no workflow state in process.
+
+Dependencies:
+Use injected workflow read stores, authorizers, and proposal writers.
+
+Deployment:
+Run as a route family within the independently deployed Operator Service.
+"""
 
 from fdai_operator_service.families.workflow.contracts import (
     ProjectionProvenance,

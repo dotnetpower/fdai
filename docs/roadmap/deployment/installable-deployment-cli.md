@@ -368,14 +368,15 @@ implicitly.
 
 ## Deployment artifact model
 
-The current Python wheel contains the `src/fdai` package, while deployment also depends on
-Terraform modules, policies, schemas, and selected rule-catalog data. Packaging all mutable
-infrastructure files as importable Python resources would make version alignment and inspection
-harder. Use two version-matched artifacts instead.
+The runtime now ships as five service wheels plus the versioned service-contract SDK. Those
+runtime distributions do not include the planned `fdaictl` deployment commands. Deployment also
+depends on Terraform modules, policies, schemas, and selected rule-catalog data. Packaging all
+mutable infrastructure files as importable Python resources would make version alignment and
+inspection harder. Use a dedicated CLI wheel and a version-matched deployment bundle instead.
 
-### Python wheel
+### Planned deployment CLI wheel
 
-The wheel contains:
+The dedicated wheel will contain:
 
 - the `fdaictl` entry point and command parser;
 - configuration and output schemas;
@@ -383,10 +384,9 @@ The wheel contains:
 - artifact download and signature verification;
 - workflow submission and status clients.
 
-Deployment-only integrations should remain outside the control-plane runtime import path. The
-first implementation can ship in the existing distribution. A separate lightweight CLI
-distribution can be considered later if installation size or dependency isolation becomes a
-measured problem.
+Deployment-only integrations remain outside every service runtime import path. Do not restore the
+retired top-level `fdai.deployment_cli` package to a runtime wheel. Ship the command surface only
+through the dedicated lightweight CLI distribution when this planned interface is implemented.
 
 ### Signed deployment bundle
 

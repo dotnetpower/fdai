@@ -1,8 +1,8 @@
 ---
 title: Fork Seam Recipe 조리서
 translation_of: downstream-fork-seam-recipes.md
-translation_source_sha: 7d47d54b641e3b40cc80b7c8f5033fd551fb27cb
-translation_revised: 2026-08-02
+translation_source_sha: a1bf6836eeebe129b02fc043bbb0696f154205a3
+translation_revised: 2026-08-08
 ---
 
 # Fork Seam Recipes
@@ -43,8 +43,8 @@ synthetic generated baseline이며 hand-edit하지 않습니다. Direct Key Vaul
 **바인딩 방법 (Azure endpoint override)**:
 
 Upstream이 전체 Azure wire-up을 위한 **public composition API**를
-배포: [`wire_azure_container`](../../../src/fdai/composition/__init__.py) +
-선언적 [`AzureWireOverrides`](../../../src/fdai/composition/__init__.py)
+배포: [`wire_azure_container`](../../../services/core-control-plane/src/fdai/composition/__init__.py) +
+선언적 [`AzureWireOverrides`](../../../services/core-control-plane/src/fdai/composition/__init__.py)
 dataclass. Fork는 concrete 어댑터로 `AzureWireOverrides` 하나를 만들어
 넘기면 됩니다 - 함수가 composer, tool registry, prompt composition
 (base / critic / judge), 내부 `bind_azure_llm_bindings()` 호출을 한
@@ -103,7 +103,7 @@ return replace(container, llm_bindings=new_bindings)
 **테스트 방법**: 단위 테스트에는 upstream in-memory fake
 (`MatchTypeCrossCheckModel`, `DeterministicEmbeddingModel`) 재사용;
 wire-level 검사에는 live 어댑터를 `httpx.MockTransport`에 대해 실행
-(`tests/delivery/azure/llm/test_adapters.py` 참조).
+(`services/core-control-plane/tests/delivery/azure/llm/test_adapters.py` 참조).
 
 ### 5.2 OperatorMemoryStore (in-memory / Postgres / custom)
 
@@ -123,7 +123,7 @@ Protocol - 세 개의 async 메서드: `append`, `list_active_for_scope`,
 instance를 `DefaultPromptComposer(operator_memory_store=...)`에 전달.
 
 **테스트 방법**: 단위 테스트에서 `InMemoryOperatorMemoryStore` 재사용;
-커스텀 store를 배포하면 `tests/persistence/test_postgres_operator_memory.py`
+커스텀 store를 배포하면 `services/core-control-plane/tests/persistence/test_postgres_operator_memory.py`
 모양을 미러링 (offline 정책 테스트 + DSN 환경 변수로 gated된 integration
 테스트).
 
@@ -176,7 +176,7 @@ async def handle_teams_approval_click(payload, *, materializer, second_approver_
 ```
 
 **테스트 방법**: `InMemoryOperatorMemoryStore` + 합성 `HilResponse`로
-`tests/core/operator_memory/test_hil_pipeline.py` 미러링.
+`services/core-control-plane/tests/core/operator_memory/test_hil_pipeline.py` 미러링.
 
 ### 5.4 WebSearchProvider
 
@@ -240,7 +240,7 @@ class BingWebSearchProvider(WebSearchProvider):
 반드시 통과해야 합니다** - 배포된 sanitizer가 도메인 allowlist, injection
 marker 탐지, `trusted="false"` XML envelope을 실행.
 
-**테스트 방법**: `tests/core/web_search/test_web_search.py` 미러링.
+**테스트 방법**: `services/core-control-plane/tests/core/web_search/test_web_search.py` 미러링.
 Upstream 테스트는 sanitizer + `NoOpWebSearchProvider`를 커버; fork는
 `httpx.MockTransport`로 자체 어댑터 레벨 테스트 추가.
 
@@ -327,7 +327,7 @@ out); upstream 테스트 의존성 없음.
 
 **바인딩 방법**: 두 capability가 `resolved-models.json`에 나타나도록
 지역별 카탈로그 fixture에 대해 LLM resolver CLI 실행. Upstream CLI는
-[`src/fdai/rule_catalog/schema/llm_resolver_cli.py`](../../../src/fdai/rule_catalog/schema/llm_resolver_cli.py)에
+[`services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py)에
 위치; 다음처럼 호출: `uv run python -m fdai.rule_catalog.schema.llm_resolver_cli
 --registry rule-catalog/llm-registry.yaml --region <your-region>
 --subscription-id <sub> --deployer-object-id <oid> --catalog-fixture
@@ -343,7 +343,7 @@ Precedence 규칙은
 [prompt-composition.md § Wave 4.5 delta-2a](../decisioning/prompt-composition-ko.md#wave-45-delta-2a---무엇이-배포되었나)
 참조.
 
-**테스트 방법**: `tests/core/quality_gate/test_gate.py`의 `_StubCritic`
+**테스트 방법**: `services/core-control-plane/tests/core/quality_gate/test_gate.py`의 `_StubCritic`
 / `_StubJudge` 패턴 재사용. Escalation 매트릭스 (PROCEED / ABORT /
 router 킬스위치)는 이미 upstream에 커버됨; fork의 테스트는 live 어댑터에
 집중.
@@ -406,7 +406,7 @@ index = RuleIndex.build(upstream_rules + fork_rules)
 별도 consumer도 결합 tuple의 id uniqueness를 같은 방식으로 검사해야 합니다.
 
 **테스트 방법**: 배포된 rule-loader 테스트를 template으로 재사용
-(`tests/rule_catalog/test_rule_catalog.py`); fork-specific fixture
+(`services/core-control-plane/tests/rule_catalog/test_rule_catalog.py`); fork-specific fixture
 디렉터리와 두 카탈로그가 id 충돌 없이 로드되는 smoke test 추가.
 
 ### 5.8a Ontology ObjectType / LinkType 추가
@@ -490,8 +490,8 @@ cross-root `name` uniqueness를 별도로 검사해야 합니다.
   issue를 open. rule loader를 fork-patch하지 말 것; cross-reference는
   로드 타이밍에 오타를 잡는 safety boundary.
 
-**테스트 방법**: `tests/rule_catalog/test_object_type_catalog.py`와
-`tests/rule_catalog/test_link_type_catalog.py`를 mirror. fork
+**테스트 방법**: `services/core-control-plane/tests/rule_catalog/test_object_type_catalog.py`와
+`services/core-control-plane/tests/rule_catalog/test_link_type_catalog.py`를 mirror. fork
 테스트는 joint load (upstream + fork 루트)와, 새 ObjectType이 필요한
 consumer(assurance twin, operator console, custom delivery adapter)
 에서 dispatchable한지 assert 하나에 집중.
@@ -520,7 +520,7 @@ overlay는 autonomy를 낮추기만 가능하고 절대 올릴 수 없음, per
 [execution-model-ko.md § 통합 RiskGate](../decisioning/execution-model-ko.md#3-통합-riskgate)).
 
 **현재 상태**: **Rego overlay wire는 execution-model 설계에
-스코프되어 있지만 `src/fdai/core/risk_gate/`의 RiskGate
+스코프되어 있지만 `services/core-control-plane/src/fdai/core/risk_gate/`의 RiskGate
 모듈은 아직 overlay 파일을 로드하지 않습니다.** 오늘 두 개의 authoritative
 decision surface: (a) ActionType 스키마의 `ceiling_by_tier` 블록
 (배포된 ontology YAML을 직접 편집하고 변경이 customer-agnostic이면
@@ -571,7 +571,7 @@ Protocol을 준수함을 증명, (b) composition-root 변경 후에도 upstream
 
 ```
 fork/
-  tests/
+  services/core-control-plane/tests/
     adapters/        # live 어댑터의 wire-level 테스트
     composition/     # composition_root를 end-to-end로 실행하는 테스트
     contract/        # 얇은 Protocol 준수 테스트 (아래 참조)
@@ -596,9 +596,9 @@ def test_bing_provider_is_websearch_protocol():
 **양쪽 스위트 실행**:
 
 ```bash
-uv run pytest -q tests/ fork/tests/       # 전체 CI 실행
-uv run pytest -q tests/                   # upstream 계약 회귀만
-uv run pytest -q fork/tests/              # fork 어댑터 검사만
+uv run pytest -q services/core-control-plane/tests/ fork/services/core-control-plane/tests/       # 전체 CI 실행
+uv run pytest -q services/core-control-plane/tests/                   # upstream 계약 회귀만
+uv run pytest -q fork/services/core-control-plane/tests/              # fork 어댑터 검사만
 ```
 
 **Fork의 `pyproject.toml`에서 pytest-asyncio auto-mode 상속**
@@ -693,7 +693,7 @@ carry; 선언된 키는 pydantic 모델 검증 전에 upstream 매핑에 deep-me
 Upstream에 매칭이 없는 `name`을 가진 overlay는 rejected - 오타가 조용히
 phantom ActionType을 도입할 수 없음.
 
-**테스트 방법**: `tests/rule_catalog/test_action_type_catalog.py`를
+**테스트 방법**: `services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py`를
 template으로 재사용. Fork 테스트는 다음을 assert SHOULD:
 
 - 모든 fork ActionType이 오류 없이 `load_action_type_from_mapping`을
@@ -814,7 +814,7 @@ publish 한다면 `pr_revert`, space 정책이 append-only라면
 `state_forward_only`. `none`은 선택하지 말 것 - 더 이상 유효한 값이
 아님.
 
-**테스트 방법**: `tests/delivery/gitops_pr/test_adapter.py` 미러링.
+**테스트 방법**: `services/core-control-plane/tests/delivery/gitops_pr/test_adapter.py` 미러링.
 Wire 테스트는 벤더 API에 대해 `httpx.MockTransport` 사용; contract
 테스트는 Protocol이 `@runtime_checkable`이므로 런타임에
 `isinstance(adapter, RemediationPrPublisher)` assert.
@@ -839,7 +839,7 @@ Wire 테스트는 벤더 API에 대해 `httpx.MockTransport` 사용; contract
 건너뛰기.
 
 **Seam**: `fdai.delivery.operator_api.routes.panels.ReadPanel` Protocol +
-[`fdai.delivery.operator_api.main`](../../../src/fdai/delivery/operator_api/main.py)
+[`fdai.delivery.operator_api.main`](../../../services/operator-service/src/fdai_operator_service/)
 의 `OperatorApiConfig.extra_panels` 튜플. `ReadPanel`은 자체 HTTP 경로를
 선언하고 `render()`에서 직렬화된 모델 반환; Operator API가 각 panel을
 GET-only 라우트로 mount 하며 경로는 빌드 시 검증 (`/`로 시작, `..`
@@ -851,7 +851,7 @@ traversal 없음).
   안 됨 - projection surface 전용. Workflow를 트리거하려는 panel은
   event bus에 `Signal`을 emit 하는 방식으로 하지 executor 호출로
   하지 말 것.
-- [`panels.py`](../../../src/fdai/delivery/operator_api/routes/panels.py) 아래
+- [`panels.py`](../../../services/operator-service/src/fdai_operator_service/) 아래
   upstream `ExampleFinOpsPanel`은 reference 구현이며 기본으로
   **등록되지 않음**. 그 shape를 복사하되 import해서 재등록하지 말 것 -
   upstream은 의도적으로 UI를 최소로 유지.
@@ -905,7 +905,7 @@ SPA. 새 panel을 배포하는 fork는 panel이 sidebar에 나타나도록
 MUST. 그 콘솔 편집은 fork의 repo `console/` 아래에서만 살고 upstream
 `console/`은 generic 유지.
 
-**테스트 방법**: `tests/delivery/operator_api/test_panels.py`가 upstream의
+**테스트 방법**: `services/operator-service/tests/`가 upstream의
 mount / path-validation 로직을 커버. Fork는 다음을 추가:
 
 1. 스텁된 데이터 소스로 panel의 `render()`에 대한 unit 테스트.
@@ -934,7 +934,7 @@ mount / path-validation 로직을 커버. Fork는 다음을 추가:
 진입점을 rename"이라고 명시; 이 recipe는 작동하는 `fork/entry.py`가
 어떻게 생겼는지 보여줍니다.
 
-**Seam**: upstream의 [`src/fdai/__main__.py`](../../../src/fdai/__main__.py)는
+**Seam**: upstream의 [`services/core-control-plane/src/fdai/__main__.py`](../../../services/core-control-plane/src/fdai/__main__.py)는
 `fdai.runtime.*`의 compatibility facade입니다. `_resolve_catalog_root`,
 `_build_audit_store`, `_build_operator_memory_store`,
 `_build_pattern_library`, `_build_publisher`, `_build_hil_channel`,
@@ -1076,7 +1076,7 @@ Upstream은 동일한 `fdai` script를 `fdai.__main__:main`을 가리키게
 배포; script 이름을 override 하면 fork의 Dockerfile에서 빌드된
 컨테이너 이미지가 CMD 변경 없이도 자동으로 fork 진입점을 실행.
 
-**테스트 방법**: `tests/composition/test_entry.py` (fork-local)이
+**테스트 방법**: `services/core-control-plane/tests/composition/test_entry.py` (fork-local)이
 in-memory fake에 대해 `build_container_with_fork_catalogs`를 실행하고
 다음을 assert SHOULD:
 
@@ -1137,7 +1137,7 @@ freshness diff, coverage)는 upstream이며 fork 작업이 필요 없다. 빌드
 게이트를 거친다.
 
 **테스트 방법**: 배포된 distill 테스트를 템플릿으로 재사용
-(`tests/rule_catalog/pipeline/distill/*`); fork 픽스처 디렉토리를 추가하고
+(`services/core-control-plane/tests/rule_catalog/pipeline/distill/*`); fork 픽스처 디렉토리를 추가하고
 (1) `ManualSource.list_candidates`가 기대 후보를 반환하는지, (2) 민감도를
 건드리는 픽스처가 `distilled`가 아니라 `held`로 라우팅되는지, (3)
 `Distiller` 출력이 `source_ref` provenance를 인용하고 coverage diff를
@@ -1176,7 +1176,7 @@ binding은 typed reference일 뿐이며 대상을 직접 호출하지 않습니�
 Installer는 알 수 없는 대상, 누락 또는 중복 provider, tool artifact에 선언된
 provider와 bundle의 불일치, 참조되지 않은 provider가 있으면 시작을 차단합니다.
 복사해서 사용할 수 있는 state-query provider와 composition helper는
-[`fdai.fork_examples.capability_bundle`](../../../src/fdai/fork_examples/capability_bundle.py)를
+[`fdai.fork_examples.capability_bundle`](../../../examples/extension-kit/)를
 참조하세요.
 
 **테스트 방법**: 원본 container에 fork binding이 없는지, 반환된 container가

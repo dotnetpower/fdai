@@ -1,7 +1,7 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 69a640e798056df4cb26a84a844b65ead5ebe07d
-translation_revised: 2026-08-02
+translation_source_sha: 3a748c48599575be16e037c6d8033cb4b78cb5f5
+translation_revised: 2026-08-08
 ---
 # 사용자-에이전트 할당 구현 계획
 
@@ -84,7 +84,7 @@ Stewardship 스키마 v2는 accountable steward 항목에 `duty: primary | backu
 ### 할당 상태
 
 순수 모델, 전환 검증, 커버리지 점검, 기존 `StateStore` 기반 조정자를 포함하는
-`src/fdai/core/human_assignment/`를 추가합니다. 초기 영속성은 원자적 `state_kv`와 감사 해시
+`services/core-control-plane/src/fdai/core/human_assignment/`를 추가합니다. 초기 영속성은 원자적 `state_kv`와 감사 해시
 체인을 사용하므로 첫 번째 릴리스에는 Alembic 마이그레이션이 필요하지 않습니다.
 
 | 상태 키 | 내용 |
@@ -299,13 +299,13 @@ restart, 재해 복구 훈련을 완료합니다. 모든 활성 할당은 검증
 
 | 작업 | 커밋 전 좁은 명령 |
 |------|-------------------|
-| Stewardship v2 | `uv run pytest -q --no-cov tests/core/stewardship` 및 `bash scripts/governance/check-stewardship.sh` |
-| 할당 코어 | `uv run pytest -q --no-cov tests/core/human_assignment` |
-| IAM API | `uv run pytest -q --no-cov tests/delivery/operator_api/test_iam.py tests/delivery/operator_api/test_human_assignments.py` |
+| Stewardship v2 | `uv run pytest -q --no-cov services/core-control-plane/tests/core/stewardship` 및 `bash scripts/governance/check-stewardship.sh` |
+| 할당 코어 | `uv run pytest -q --no-cov services/core-control-plane/tests/core/human_assignment` |
+| IAM API | `uv run pytest -q --no-cov services/operator-service/tests/ services/operator-service/tests/` |
 | 콘솔 | `npm --prefix console test -- --run src/routes/settings-iam.test.ts src/routes/settings-iam-assignments.test.tsx` |
-| 담당 체계 거버넌스 | `uv run pytest -q --no-cov tests/delivery/stewardship tests/delivery/ingestion_gateway/test_handover.py` |
-| 승인 감독자 | `uv run pytest -q --no-cov tests/core/hil_resume` |
-| 지식 수명주기 | `uv run pytest -q --no-cov tests/core/document_ingestion tests/delivery/document_index tests/delivery/ingestion_gateway` |
+| 담당 체계 거버넌스 | `uv run pytest -q --no-cov services/core-control-plane/tests/delivery/stewardship services/core-control-plane/tests/delivery/ingestion_gateway/test_handover.py` |
+| 승인 감독자 | `uv run pytest -q --no-cov services/core-control-plane/tests/core/hil_resume` |
+| 지식 수명주기 | `uv run pytest -q --no-cov services/core-control-plane/tests/core/document_ingestion services/core-control-plane/tests/delivery/document_index services/core-control-plane/tests/delivery/ingestion_gateway` |
 
 각 묶음은 집중 커밋 전에 변경한 Python 경로에 대해서만 Ruff와 strict mypy도 실행합니다. 중앙
 Integration

@@ -58,7 +58,7 @@ Terms used across all metrics, fixed here to avoid ambiguity:
   Governance, DR, and Chaos Engineering capability packs, used identically for baseline and
   treatment. Each release records the scenario-set and per-pack versions (e.g. `v2026.07`).
 
-> **Current coverage gap:** `tests/scenarios/manifests/v2026.07.json` assigns every fixture to SRE,
+> **Current coverage gap:** `services/core-control-plane/tests/scenarios/manifests/v2026.07.json` assigns every fixture to SRE,
 > ARB / Change Safety, FinOps, DR, or Chaos. A coverage dimension counts only when it cites a
 > scenario owned by that pack and an existing executable test. The set remains `incomplete`: SRE
 > has no scenario and every existing pack lacks one or more required cases.
@@ -168,7 +168,7 @@ Every metric maps to a concrete telemetry source so the dashboard is buildable, 
   or correction for one event replaces that event's earlier value instead of adding statistical
   weight; observations from different events remain independent samples.
 - **MTTR (metric 3a)** is computed by the pure aggregator
-  [`core/measurement/mttr.py`](../../../src/fdai/core/measurement/mttr.py), which folds resolved
+  [`core/measurement/mttr.py`](../../../services/core-control-plane/src/fdai/core/measurement/mttr.py), which folds resolved
   incidents (`resolved_at - opened_at`) into **mean, median, and p90** seconds; unresolved and
   integrity-violating incidents are counted but excluded, never contributing a `0` or a
   negative duration. The delivery-layer wiring that feeds it live incidents (replacing the

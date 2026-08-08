@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: b85389aa73305d590a1db9a315c191a894336a5d
-translation_revised: 2026-08-08
+translation_source_sha: 528b75bdd3fdf1b964e8c97c00d4793f8d1e5f74
+translation_revised: 2026-08-09
 ---
 # 설치형 배포 CLI
 
@@ -369,14 +369,15 @@ fdaictl bootstrap probe-policy --allow-probe-resources
 
 ## 배포 artifact 모델
 
-현재 Python wheel에는 `src/fdai` package가 포함되지만 배포에는 Terraform module, policy,
-schema, 선택된 rule-catalog data도 필요합니다. 변경 가능한 모든 infrastructure file을
-import 가능한 Python resource로 packaging하면 version alignment와 inspection이 어려워집니다.
-대신 버전이 일치하는 두 artifact를 사용합니다.
+Runtime은 이제 5개 service wheel과 versioned service-contract SDK로 제공됩니다. 이 runtime
+distribution에는 계획된 `fdaictl` deployment command가 포함되지 않습니다. 배포에는 Terraform
+module, policy, schema, 선택된 rule-catalog data도 필요합니다. 변경 가능한 모든 infrastructure
+file을 import 가능한 Python resource로 packaging하면 version alignment와 inspection이
+어려워집니다. 대신 전용 CLI wheel과 version이 일치하는 deployment bundle을 사용합니다.
 
-### Python wheel
+### 계획된 deployment CLI wheel
 
-Wheel에는 다음이 포함됩니다.
+전용 wheel에는 다음이 포함될 예정입니다.
 
 - `fdaictl` entry point와 command parser.
 - Configuration 및 output schema.
@@ -384,9 +385,9 @@ Wheel에는 다음이 포함됩니다.
 - Artifact download 및 signature verification.
 - Workflow submission 및 status client.
 
-Deployment 전용 integration은 control-plane runtime import path 밖에 유지하는 것이 좋습니다.
-첫 구현은 기존 distribution에 포함할 수 있습니다. Installation size 또는 dependency isolation이
-측정된 문제가 되면 별도의 lightweight CLI distribution을 검토할 수 있습니다.
+Deployment 전용 integration은 모든 service runtime import path 밖에 유지합니다. 폐기된 최상위
+`fdai.deployment_cli` package를 runtime wheel에 복원하지 마세요. 이 계획된 interface를 구현할
+때 command surface는 전용 lightweight CLI distribution으로만 제공합니다.
 
 ### 서명된 deployment bundle
 

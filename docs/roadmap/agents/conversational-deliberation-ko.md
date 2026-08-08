@@ -1,8 +1,8 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: a48ffdacc7442df79fc6d2fd0782c47b80955d59
-translation_revised: 2026-08-01
+translation_source_sha: 321e0af55efaa35ab7c850f84e7949f2006f1ce8
+translation_revised: 2026-08-08
 ---
 # 판테온 대화형 숙의
 
@@ -116,7 +116,7 @@ full-charter digest, tool id, owner attribution, evidence ref 및 조립된 laye
 Role directive는 그 뒤의 evidence만큼만 유효합니다. Agent가 노출하지 않는 mechanic을 거론하는
 directive는 allowed tool로 충족할 수 없으므로 grounding layer와 충돌하고, 답변은 그럴듯한
 abstention으로 퇴화합니다. 모든 charter는 네 가지 규칙을 지키며, 각각은
-`tests/agents/test_charter_robustness.py`가 고정합니다.
+`services/core-control-plane/tests/agents/test_charter_robustness.py`가 고정합니다.
 
 | 규칙 | 막아주는 것 |
 |------|-------------|
@@ -476,17 +476,17 @@ charter가 같은 participant에 귀속되도록 유지합니다.
 
 ## 검증
 
-`tests/agents/test_prompt_deliberation.py`는 agent마다 33개 기준을 적용해 baseline judgment
+`services/core-control-plane/tests/agents/test_prompt_deliberation.py`는 agent마다 33개 기준을 적용해 baseline judgment
 495개를 검증합니다. T1-required routing, two bounded phase, optional T2 synthesis,
 presentation-only authority, exact role contract, budget denial 및 action-intent refusal도 검증합니다.
 또한 primary owner, distinct claim owner 또는 participant prompt ordering이 일치하지 않는 cross-field
 T2 request를 차단합니다.
 
-`tests/agents/test_prompt_contract_audit.py`는 15개 agent 모두에 structural critique 40개를 적용해
+`services/core-control-plane/tests/agents/test_prompt_contract_audit.py`는 15개 agent 모두에 structural critique 40개를 적용해
 all-agent judgment 600개를 검증합니다. 이어서 global single-writer/tool ownership, strict roster,
 mandatory role directive 및 complete unique baseline manifest를 별도로 검증합니다.
 
-`tests/agents/test_conversation_prompt_composition.py`는 15개 agent 각각의 situation 순열
+`services/core-control-plane/tests/agents/test_conversation_prompt_composition.py`는 15개 agent 각각의 situation 순열
 1,152개에 33개 기준을 다시 적용해 deterministic judgment 570,240개를 검증합니다. Baseline은
 항상 조립된 prompt의 prefix이며 위조된 turn context는 prompt에 자기 text를 넣을 수 없습니다.
 

@@ -533,7 +533,7 @@ the source strings are English, and a channel MAY render them in another locale.
 - **How it renders (Option C).** `core` never bakes a final localized string.
   Every `NotificationMessage` carries a `template_key` plus typed `params`; the
   router renders `title` / `body_markdown` from the catalog
-  (`src/fdai/core/notifications/messages.{en,ko}.json`) in the destination
+  (`services/core-control-plane/src/fdai/core/notifications/messages.{en,ko}.json`) in the destination
   channel's locale, just before `send`. Adapters are untouched - they still
   consume `title` / `body_markdown`.
 - **Only labels localize.** The L0 values (decision word, rule ids, resource

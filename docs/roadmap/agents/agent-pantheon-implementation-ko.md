@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: f28cc16a1b2cbab346b3ad223e8e0e8ee0efaa98
-translation_revised: 2026-08-06
+translation_source_sha: fd81bc6693580d8198c90cc9cece0ee4c56c9a67
+translation_revised: 2026-08-08
 ---
 
 # 에이전트 판테온 구현 계획
@@ -25,8 +25,8 @@ translation_revised: 2026-08-06
 > 의 배치를 따른다.
 
 > **구현 상태 (2026-08-04):** W0-W8은 구현되었습니다. 아래 섹션은 rollout 순서와 acceptance 의도를 보존합니다.
-> 공유 구성 요소는 `src/fdai/agents/_framework/`에 있고, wave coverage는
-> `tests/agents/test_wave2_governance.py`부터 `test_wave8_kpi_degradation.py`까지입니다.
+> 공유 구성 요소는 `services/core-control-plane/src/fdai/agents/_framework/`에 있고, wave coverage는
+> `services/core-control-plane/tests/agents/test_wave2_governance.py`부터 `test_wave8_kpi_degradation.py`까지입니다.
 > Workflow inventory는 executable trace ref를 포함하고 KPI report는 measured value와 unavailable evidence를 구분하며, 모든 agent는 injected degradation drill을 가집니다.
 > Huginn은 normalized planned 및 observed change를 `object.change`로 publish하고 Muninn은
 > execution authority를 추가하지 않은 채 immutable content-addressed revision을 보존합니다.
@@ -45,7 +45,7 @@ translation_revised: 2026-08-06
   `rule-catalog/vocabulary/object-types/` 아래 기존 카탈로그에 합류.
 - **Typed capability**: arbitration, handoff, notification, rule-candidate publication은 owner agent의 schema-checked object topic을 사용합니다.
   이 동작은 catalog ActionType이 아니며 `governance.*`는 `pr_native` catalog-as-code 변경에만 사용합니다.
-- **Python core**: `src/fdai/agents/` 아래 15개 flat specialist module과
+- **Python core**: `services/core-control-plane/src/fdai/agents/` 아래 15개 flat specialist module과
   `_framework/` 아래 공유 base, registry, topic, bus, runtime, two-port 구성 요소.
 - **테스트**: registry 무결성, single-writer topic 강제, ActionType 역할
   바인딩, pantheon 서브그래프 ontology 조회.
@@ -80,7 +80,7 @@ translation_revised: 2026-08-06
 | Wave | 산출물 세트 | Exit gate |
 |------|-------------|-----------|
 | **W0** | Docs foundation: workflows doc, pantheon §4 detail, ontology YAML 추가 | translation-pair CI + schema lint green; 새 object type 이 `/ontology/graph` (dev) 로 해석됨 |
-| **W1** | Python 스캐폴딩: `agents/` 패키지, base class, 15 stub, topic registry, two-port skeleton | registry + topic-owner 강제 테스트로 `pytest tests/agents/` 통과 |
+| **W1** | Python 스캐폴딩: `agents/` 패키지, base class, 15 stub, topic registry, two-port skeleton | registry + topic-owner 강제 테스트로 `pytest services/core-control-plane/tests/agents/` 통과 |
 | **W2** | Governance staff: Saga (audit + issue), Mimir (rule steward), Muninn (memory / RAG), Norns (learner) shadow 로 완전 배선 | 종단간 audit trail: 합성 이벤트가 walk-through, Saga 가 `AuditEntry` 를 write, replay 가 재구성, Norns 가 pattern 포착 |
 | **W3** | Sensing + judgment + risk: Huginn, Heimdall, Forseti, Var, Vidar, Thor 가 typed port 로 연결; verdict-to-execute-to-audit 루프 shadow 로 live | 100개 합성 이벤트가 ingress -> verdict -> HIL 또는 auto -> execute (shadow) -> audit 로 정책 위반 zero 로 흐름 |
 | **W4** | Bragi + Odin: routing, per-user context, arbitration 이 있는 conversational port | 오퍼레이터 NL query 하나가 routing -> primary + contributors -> aggregated response 로 walk-through; Odin 이 합성 domain_conflict 를 arbitrate |
@@ -131,7 +131,7 @@ translation_revised: 2026-08-06
 
 **Scope**
 
-- `src/fdai/agents/` 패키지:
+- `services/core-control-plane/src/fdai/agents/` 패키지:
   - `_framework/base.py` - 추상 `Agent` 클래스: 필드 (`name`, `layer`, `owns`,
     `executes`, `subscribes`, `publishes`, `question_domains`,
     `owns_code_paths`, `llm_bindings`, `rate_limits`), 메서드
@@ -147,9 +147,9 @@ translation_revised: 2026-08-06
     `producer_principal == owner_agent`를 강제하는 in-memory contract와 EventBus bridge.
   - Flat specialist module (`odin.py`, `thor.py`, ...) - 고정 pantheon
     agent마다 하나의 구현.
-- `src/fdai/agents/__init__.py` 가 registry entry point 를 export.
+- `services/core-control-plane/src/fdai/agents/__init__.py` 가 registry entry point 를 export.
 
-**테스트 (`tests/agents/`)**
+**테스트 (`services/core-control-plane/tests/agents/`)**
 
 - `test_framework_layout.py`, `test_registry.py`, `test_topics.py`가 package
   shape, 고정 15-agent registry, single-writer ownership, partition-key 동작을 검증.
@@ -159,7 +159,7 @@ translation_revised: 2026-08-06
 
 **Exit gate**
 
-- `pytest tests/agents/` green.
+- `pytest services/core-control-plane/tests/agents/` green.
 - `scripts/quality/architecture/check-core-imports.sh` 여전히 green (`agents/` 외부에 새
   cross-layer import 없음).
 - 새 패키지에 `mypy` (또는 repo 의 현재 타입-체크 bar) clean.
@@ -183,7 +183,7 @@ discovery loop 를 닫는다.
 
 **Scope**
 
-- **Saga (`src/fdai/agents/saga.py`)** - 모든 terminal-state topic 을 구독한
+- **Saga (`services/core-control-plane/src/fdai/agents/saga.py`)** - 모든 terminal-state topic 을 구독한
   `append_audit` 핸들러 구현. 기존 audit store 에 persist
   ([security-and-identity.md](../architecture/security-and-identity-ko.md) 참고).
   `escalate_to_github_issue` executor 구현: fingerprint 계산, Muninn 을
@@ -191,17 +191,17 @@ discovery loop 를 닫는다.
   comment append (실제 네트워크는 fork 로 미룸; 테스트에서 in-memory
   adapter 사용). 과거 audit-entry 를 chronological order 로 소비하며
   republish 없이 replay 구현.
-- **Mimir (`src/fdai/agents/mimir.py`)** - `object.rule-candidate` 구독.
+- **Mimir (`services/core-control-plane/src/fdai/agents/mimir.py`)** - `object.rule-candidate` 구독.
   기존 룰 카탈로그 store 에 대한 sync 작업으로 `promote_rule` 과
   `revoke_rule` 구현. Freshness monitor 추가 (recurring): rule 별 발화
   카운트를 audit-log 에서 read, 비활성 임계값에서 `RuleStalenessSignal`
   emit.
-- **Muninn (`src/fdai/agents/muninn.py`)** - 다른 에이전트를 위한 state /
+- **Muninn (`services/core-control-plane/src/fdai/agents/muninn.py`)** - 다른 에이전트를 위한 state /
   context store reader. 기존 state store provider 로 backed
   ([project-structure.md](../architecture/project-structure-ko.md#customization-via-dependency-injection)).
   Bitemporal snapshot rotation 과 cache eviction 구현. Saga 가 사용하는
   Issue fingerprint 인덱스 소유.
-- **Norns (`src/fdai/agents/norns.py`)** - 두 entry point: batch (기존
+- **Norns (`services/core-control-plane/src/fdai/agents/norns.py`)** - 두 entry point: batch (기존
   scheduler 를 통한 hourly cron) 과 stream (`object.audit-entry` 구독).
   Pattern extraction 을 T1 clustering 우선으로 구현; T2 LLM summary hook
   은 W7 에 남겨둠. `RuleCandidate` 와 `close_issue` action 발행. Publish 전에
@@ -237,7 +237,7 @@ discovery loop 를 닫는다.
 
 **Scope**
 
-- **Huginn (`src/fdai/agents/huginn.py`)** - 실시간 resource 및 change discovery
+- **Huginn (`services/core-control-plane/src/fdai/agents/huginn.py`)** - 실시간 resource 및 change discovery
   ingress를 소유합니다. Subscription scope의 Azure write/delete event는 managed identity
   Event Grid delivery를 통해 raw Event Hub로 들어오고, runtime normalizer가 canonical
   Event로 다시 publish합니다. Huginn은 dedup 후 주입된 durable inventory projector를
@@ -245,7 +245,7 @@ discovery loop 를 닫는다.
   event는 `object.change`도 publish하고 Muninn은 context 및 replay를 위해 immutable revision을
   저장합니다. 6시간 Inventory sync job은 full ARG/ARM
   reconciliation 경로로 유지됩니다.
-- **Heimdall (`src/fdai/agents/heimdall.py`)** - discovery freshness/coverage
+- **Heimdall (`services/core-control-plane/src/fdai/agents/heimdall.py`)** - discovery freshness/coverage
   assurance와 anomaly detector
   (statistical threshold, T0/T1 을 통한 adaptive baseline), drift
   detector (Muninn snapshot 비교를 통한 declared vs actual state),
@@ -254,23 +254,23 @@ discovery loop 를 닫는다.
   예약. 주입된 bounded read-only operational evidence hook은 판단 또는 execution authority를
   부여하지 않고 authoritative anomaly를 enrich할 수 있습니다. Stale/degraded inventory는 fail
   closed하며 Heimdall은 reconciliation job을 시작하지 않습니다.
-- **Forseti (`src/fdai/agents/forseti.py`)** - `object.anomaly`,
+- **Forseti (`services/core-control-plane/src/fdai/agents/forseti.py`)** - `object.anomaly`,
   `object.drift`, `object.event` 구독. 3-tier trust router 를 로컬 구현:
   Mimir 를 통한 T0 rule match; Muninn 을 통한 T1 similarity; T2 는 W7
   까지 `abstain` 반환하는 stub 유지. Verdict 는 결정론 `risk-classification.yaml`
   테이블 + ActionType ceiling 에서 계산된 `risk_verdict` 를 포함.
   `auto | hil | deny` 로 `Verdict` emit. `domain_conflict: true` 시
   `arbitrate` signal emit (Odin 은 W4 에서 착지).
-- **Thor (`src/fdai/agents/thor.py`)** - `object.verdict` 와
+- **Thor (`services/core-control-plane/src/fdai/agents/thor.py`)** - `object.verdict` 와
   `object.rollback` 을 구독합니다.
   Dispatch: `auto` -> 기존 executor provider 에 대해 shadow execute;
   `hil` -> `object.hil-request` publish (Var 도 여기서 착지); `deny` ->
   Saga 를 위한 drop record publish. `resource_id` partition 에서
   per-resource mutex 강제. 실패 시 rollback trigger.
-- **Var (`src/fdai/agents/var.py`)** - `object.hil-request` 구독. 기존
+- **Var (`services/core-control-plane/src/fdai/agents/var.py`)** - `object.hil-request` 구독. 기존
   ChatOps adapter 를 통해 present (W3 에서는 stub, W5 에서 real
   adapter). Timeout / expire tracking. `object.hil-response` publish.
-- **Vidar (`src/fdai/agents/vidar.py`)** - Thor 실패 signal 을 구독합니다.
+- **Vidar (`services/core-control-plane/src/fdai/agents/vidar.py`)** - Thor 실패 signal 을 구독합니다.
   ActionType `rollback_contract` 로 선택한 주입형 rollback executor 를
   호출하고 provider receipt 를 `object.rollback` 으로 publish 합니다.
   Thor 는 receipt 가 도착할 때까지 실패한 ActionRun 과 resource lock 을
@@ -308,7 +308,7 @@ default 를 유지하며 privileged executor 를 호출하지 않습니다.
 
 **Scope**
 
-- **Bragi (`src/fdai/agents/bragi.py`)** - conversational port entry
+- **Bragi (`services/core-control-plane/src/fdai/agents/bragi.py`)** - conversational port entry
   point. 기존 operator-console adapter
   ([operator-console.md](../interfaces/operator-console-ko.md)) 재사용. 구현:
   - Intent 분류: `Agent.question_domains` 대비 T0 keyword match;
@@ -318,7 +318,7 @@ default 를 유지하며 privileged executor 를 호출하지 않습니다.
   - Multi-agent aggregation: primary + contributors 에 typed query
     보냄, 응답을 aggregate, NL response 로 render.
   - Conversation 상태: session, turn, per-user partitioning, retention.
-- **Odin (`src/fdai/agents/odin.py`)** - Forseti 가 발행한
+- **Odin (`services/core-control-plane/src/fdai/agents/odin.py`)** - Forseti 가 발행한
   `object.arbitration-request` 구독. rule 카탈로그에서 fork-configured
   priority policy (default: SLO > cost > architecture) read.
   `object.arbitration-response` publish. Recurring: 선언된 우선순위에서
@@ -355,14 +355,14 @@ default 를 유지하며 privileged executor 를 호출하지 않습니다.
 
 **Scope**
 
-- **Njord (`src/fdai/agents/njord.py`)** - canonical `object.event`에서 bounded cost sample을
+- **Njord (`services/core-control-plane/src/fdai/agents/njord.py`)** - canonical `object.event`에서 bounded cost sample을
   consume합니다(Azure Cost Management adapter; 테스트에서 in-memory). spend 가
   forecast 에서 threshold 만큼 편차 시 `CostAnomaly` emit. cost-impact
   attribution 을 위한 Forseti verdict advisory hook 제공.
-- **Freyr (`src/fdai/agents/freyr.py`)** - canonical `object.event`에서 bounded utilization sample을 consume.
+- **Freyr (`services/core-control-plane/src/fdai/agents/freyr.py`)** - canonical `object.event`에서 bounded utilization sample을 consume.
   `CapacityForecast`, `SizingRecommendation` emit. Forseti verdict
   advisory hook.
-- **Loki (`src/fdai/agents/loki.py`)** - canonical `object.event`에서 bounded schedule trigger를 consume. 모든 실험은
+- **Loki (`services/core-control-plane/src/fdai/agents/loki.py`)** - canonical `object.event`에서 bounded schedule trigger를 consume. 모든 실험은
   `blast_radius` 가 bounded 되고 `default_mode: shadow` 인 `ActionRun`
   으로 propose. Loki 는 절대 실험을 auto-execute 하지 않는다:
   ActionType 은 판테온 §7.6 별 Forseti + Var 를 통과.
@@ -518,9 +518,9 @@ PR 에서 ship
 
 웨이브 W1 - W8 은 에이전트 동작을 구현하고 테스트로 검증하지만,
 에이전트들은 프로세스가 실제 이벤트 버스에 그들을 배선한 뒤에야 서로
-통신한다. 그 seam 은 `src/fdai/agents/_framework/runtime.py`
-(`PantheonRuntime`)이며 `src/fdai/runtime/bootstrap.py`에서 조립됩니다.
-Headless `src/fdai/__main__.py`는 이 bootstrap에 위임합니다:
+통신한다. 그 seam 은 `services/core-control-plane/src/fdai/agents/_framework/runtime.py`
+(`PantheonRuntime`)이며 `services/core-control-plane/src/fdai/runtime/bootstrap.py`에서 조립됩니다.
+Headless `services/core-control-plane/src/fdai/__main__.py`는 이 bootstrap에 위임합니다:
 
 - `PantheonRuntime.build(provider, raw_event_topic)` 은 15 개 에이전트를
   전부 인스턴스화하고, 발행(publish)하는 각 에이전트를 주입된 `EventBus`
@@ -552,7 +552,7 @@ shadow 모드로 강제(`enforce=False`, 기본)하므로 판테온 Thor 는
 judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. enforce 로의 승격은
 명시적이고 별도 리뷰되는 opt-in(`FDAI_PANTHEON_ENFORCE` /
 `build(enforce=True)`)이며 절대 기본이 아니다. 에이전트는
-`src/fdai/agents/_framework/adapters.py` 의 in-memory audit / issue / admin 어댑터를
+`services/core-control-plane/src/fdai/agents/_framework/adapters.py` 의 in-memory audit / issue / admin 어댑터를
 쓴다; fork 는 `build(saga=...)` 로 durable(StateStore 기반) `Saga` 를
 주입하고 나머지 어댑터도 durable 백엔드로 교체한다(§13.3 참조).
 
@@ -673,7 +673,7 @@ judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. enforce 로
   경고(`pantheon_ingress_unkeyed_event`)와 함께 drop 된다(P1 루프가 같은
   레코드를 여전히 처리하므로).
 
-에이전트의 `bus` seam 은 `PantheonBus` Protocol(`src/fdai/agents/_framework/bus.py`)로
+에이전트의 `bus` seam 은 `PantheonBus` Protocol(`services/core-control-plane/src/fdai/agents/_framework/bus.py`)로
 타입되며, in-memory `InMemoryBus`(테스트)와 Kafka 기반
 `EventBusBridge`(프로덕션) 둘 다 이를 만족한다; base 클래스의
 `Agent.bind_bus` 로 composition root 가 모든 에이전트를 균일하게 bind 한다.
@@ -701,7 +701,7 @@ Mimir, Muninn, 그리고 domain specialist - 는 hot-path 에서 LLM-free 를
 유지한다.
 
 **Composition-root 바인딩 (`LlmBindings`).** 모델 seam 은 에이전트 내부가
-아니라 composition root(`src/fdai/composition/`)에서 한 번만 해석된다.
+아니라 composition root(`services/core-control-plane/src/fdai/composition/`)에서 한 번만 해석된다.
 컨테이너는 T1 embedding 모델과 T2 cross-check 모델을 제공하는 `LlmBindings`
 를 들고 있고, `llm.mode` 로 선택한다:
 

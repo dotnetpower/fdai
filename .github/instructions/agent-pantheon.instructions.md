@@ -1,12 +1,12 @@
 ---
 description: Agent Pantheon roles, permissions, and the MUST rules for changing any agent code.
-applyTo: "src/fdai/agents/**"
+applyTo: "services/core-control-plane/src/fdai/agents/**"
 ---
 
 # Agent Pantheon - Roles and Code-Change Contract
 
 This file is the **normative contract for editing any file under
-`src/fdai/agents/**`**. It exists so that when the code changes, the change stays
+`services/core-control-plane/src/fdai/agents/**`**. It exists so that when the code changes, the change stays
 consistent with the agent's declared role, permissions, and safety invariants -
 never silently drifting from the design.
 
@@ -37,16 +37,16 @@ strong default; **MAY** is optional.
 ### 1.1 Directory layout (MUST)
 
 The 15 pantheon members live **flat at the top level** of
-`src/fdai/agents/`; framework code (bus, runtime, registry, base, pantheon
+`services/core-control-plane/src/fdai/agents/`; framework code (bus, runtime, registry, base, pantheon
 spec, arbitration, introspection, kpi, adapters, provider_adapters,
 factory, workflows, topics, candidate_guard, divergence, bus_bridge,
-bus_metrics, action_semantics, rate_limiter) lives under `src/fdai/agents/_framework/`.
+bus_metrics, action_semantics, rate_limiter) lives under `services/core-control-plane/src/fdai/agents/_framework/`.
 This is the G-7 layout from tracker #14 and it is enforced by
-`tests/agents/test_framework_layout.py`:
+`services/core-control-plane/tests/agents/test_framework_layout.py`:
 
-- A new `.py` file directly under `src/fdai/agents/` MUST be one of the
+- A new `.py` file directly under `services/core-control-plane/src/fdai/agents/` MUST be one of the
   15 pantheon members. Anything else belongs under `_framework/`.
-- External callers (any file outside `src/fdai/agents/`) MUST import
+- External callers (any file outside `services/core-control-plane/src/fdai/agents/`) MUST import
   from `fdai.agents` (the facade), not from `fdai.agents._framework.<X>`.
   The leading underscore is not decorative - it signals "not for
   external consumption; reaching in defeats the facade and breaks
@@ -62,14 +62,14 @@ This is the G-7 layout from tracker #14 and it is enforced by
 ## 2. Role, ownership, and topic table (authoritative for edits)
 
 > **Machine-readable source of truth**: `PANTHEON_SPECS` in
-> [`src/fdai/agents/_framework/pantheon.py`](../../src/fdai/agents/_framework/pantheon.py).
+> [`services/core-control-plane/src/fdai/agents/_framework/pantheon.py`](../../services/core-control-plane/src/fdai/agents/_framework/pantheon.py).
 > Each `AgentSpec` there carries `name`, `layer`, `reports_to`, `owns`,
 > `executes`, `initiates`, `subscribes`, `question_domains`, multilingual `conversation`, and
 > `owns_code_paths`. The tables in this file and in
 > [`docs/roadmap/agents/agent-pantheon.md`](../../docs/roadmap/agents/agent-pantheon.md)
 > paraphrase that data for human readers. If they disagree, the code
 > and documents are inconsistent; neither overrides the Constitution. A regression test
-> ([`tests/agents/test_pantheon_doc_parity.py`](../../tests/agents/test_pantheon_doc_parity.py))
+> ([`services/core-control-plane/tests/agents/test_pantheon_doc_parity.py`](../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py))
 > catches the drift on the 15 agent names.
 
 Layer: `domain` (specialist) | `pipeline` (sensing/judgment/operations/interface)
@@ -146,7 +146,7 @@ MAY publish that object type's topic.
 
 ## 4. Code-change MUST rules (the reason this file auto-loads)
 
-When you add, edit, or refactor **any file under `src/fdai/agents/**`**, you MUST
+When you add, edit, or refactor **any file under `services/core-control-plane/src/fdai/agents/**`**, you MUST
 do all of the following before proposing the change as complete:
 
 1. **Name the agent(s) and restate the role.** Identify which pantheon agent the

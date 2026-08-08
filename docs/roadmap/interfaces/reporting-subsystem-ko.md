@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 5b6b9883a264faceebbbd4d4a437b8ce58245a4b
-translation_revised: 2026-08-02
+translation_source_sha: 2f5c4a6c86c1ccfb5eaff34234cadca6b540b934
+translation_revised: 2026-08-08
 ---
 # 리포팅 서브시스템
 
@@ -71,10 +71,10 @@ source나 문제 있는 빌더는 그 위젯을 `error` 설정 + 빈 `data`로
 
 코드 지도 ([project-structure.md](../architecture/project-structure.md) 참조):
 
-- `src/fdai/core/reporting/` - 엔진 전체 (framework-neutral).
-- `src/fdai/core/reporting/composition.py` - 포크 composition
+- `services/core-control-plane/src/fdai/core/reporting/` - 엔진 전체 (framework-neutral).
+- `services/core-control-plane/src/fdai/core/reporting/composition.py` - 포크 composition
   root용 `default_reporting_engine` factory.
-- `src/fdai/delivery/operator_api/routes/reporting.py` - 여덟 개의 `GET` 라우트.
+- `services/operator-service/src/fdai_operator_service/` - 여덟 개의 `GET` 라우트.
 - `rule-catalog/reports/` - YAML 카탈로그 + JSON Schema.
 
 ### Console SPA 구현 상태
@@ -374,7 +374,7 @@ widgets:
         projection: count_by_mode
 ```
 
-로더 ([`core.reporting.catalog.load_report_catalog`](../../../src/fdai/core/reporting/catalog.py)):
+로더 ([`core.reporting.catalog.load_report_catalog`](../../../services/core-control-plane/src/fdai/core/reporting/catalog.py)):
 
 - 모든 파일을 JSON Schema에 대해 validate
   (모든 레벨에서 `additionalProperties: false` - 오타는 첫 렌더가
@@ -397,7 +397,7 @@ widgets:
 ## Operator API 라우트
 
 여덟 개의 GET을 설정 가능한 prefix(기본 `/reports`) 아래에서
-[`build_reporting_routes`](../../../src/fdai/delivery/operator_api/routes/reporting.py)가
+[`build_reporting_routes`](../../../services/operator-service/src/fdai_operator_service/)가
 마운트:
 
 | Route | Purpose |
@@ -528,7 +528,7 @@ validate합니다.
 
 shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 비평해 10개의 안전장치를 추가했습니다. 각 항목은
-[`tests/core/reporting/test_hardening.py`](../../../tests/core/reporting/test_hardening.py)의
+[`services/core-control-plane/tests/core/reporting/`](../../../services/core-control-plane/tests/core/reporting/)의
 전용 테스트로 커버됩니다:
 
 1. **CSV formula injection** - `=` / `+` / `-` / `@` / TAB / CR로
@@ -562,7 +562,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 두 번째 비평은 확장된 위젯 빌더 카탈로그를 겨냥했다: 빌더는 신뢰할 수
 없는 데이터소스 값을 변환하므로, 악의적/버그성 값이 직렬화를 깨거나 차트
 순서를 뒤엎어서는 안 된다. 각 항목은
-[`tests/core/reporting/test_widgets_hardening.py`](../../../tests/core/reporting/test_widgets_hardening.py)
+[`services/core-control-plane/tests/core/reporting/test_widgets_hardening.py`](../../../services/core-control-plane/tests/core/reporting/test_widgets_hardening.py)
 가 커버한다:
 
 1. **JSON 비유한 안전성** - `JsonFormatEncoder`가 `NaN` / `+-Inf`를

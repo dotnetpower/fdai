@@ -148,7 +148,7 @@
     "expected_signal": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9_]*$",
-      "description": "Must be a registered SIGNAL_* in `src/fdai/core/detection/signals.py`. Loader rejects unknown signals."
+      "description": "Must be a registered SIGNAL_* in `services/core-control-plane/src/fdai/core/detection/signals.py`. Loader rejects unknown signals."
     },
     "injector": {
       "type": "string",

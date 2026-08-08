@@ -261,31 +261,31 @@ FDAI implementation evidence:
 - [SRE Agent parity audit](sre-agent-parity-audit.md)
 - [Azure read investigations](../roadmap/interfaces/azure-read-investigations.md)
 - [Operator console](../roadmap/interfaces/operator-console.md)
-- `src/fdai/core/read_investigation/routing.py`
-- `src/fdai/core/conversation/answer_plan.py`
-- `src/fdai/delivery/operator_api/routes/read_investigation_responder.py`
-- `src/fdai/delivery/operator_api/application/conversation/evidence/operational.py`
-- `src/fdai/delivery/operator_api/routes/chat_inventory.py`
-- `src/fdai/delivery/operator_api/routes/chat_log_query.py`
-- `src/fdai/delivery/operator_api/routes/chat_subscription_health.py`
-- `src/fdai/delivery/operator_api/routes/chat_verification.py`
-- `tests/delivery/operator_api/test_chat_inventory.py`
-- `tests/delivery/operator_api/test_chat_evidence.py`
-- `tests/delivery/operator_api/test_chat_log_query.py`
-- `tests/delivery/operator_api/test_chat_subscription_health.py`
-- `tests/delivery/operator_api/test_read_investigations.py`
+- `services/core-control-plane/src/fdai/core/read_investigation/routing.py`
+- `services/core-control-plane/src/fdai/core/conversation/answer_plan.py`
+- `services/operator-service/src/fdai_operator_service/`
+- `services/operator-service/src/fdai_operator_service/`
+- `services/operator-service/src/fdai_operator_service/`
+- `services/operator-service/src/fdai_operator_service/`
+- `services/operator-service/src/fdai_operator_service/`
+- `services/operator-service/src/fdai_operator_service/`
+- `services/operator-service/tests/`
+- `services/operator-service/tests/`
+- `services/operator-service/tests/`
+- `services/operator-service/tests/`
+- `services/operator-service/tests/`
 
 Executable validation map:
 
 | Scenario rows | Focused evidence |
 |---------------|------------------|
-| 1-2 | [Inventory chat tests](../../tests/delivery/operator_api/test_chat_inventory.py) |
-| 3-10, 35, 37-40 | [Read investigation tests](../../tests/delivery/operator_api/test_read_investigations.py) and [progress tests](../../tests/delivery/operator_api/test_read_investigation_chat_progress.py) |
-| 4, 36 | [Subscription health tests](../../tests/delivery/operator_api/test_chat_subscription_health.py) |
-| 14 | [Bounded KQL chat tests](../../tests/delivery/operator_api/test_chat_log_query.py) |
-| 26-29, 43 | [Operational evidence tests](../../tests/delivery/operator_api/test_chat_evidence.py) and [chat route tests](../../tests/delivery/operator_api/test_chat_route.py) |
-| 38, 52 | [Terminal verification tests](../../tests/delivery/operator_api/test_chat_verification.py) |
-| 53-54 | [Answer-plan tests](../../tests/delivery/operator_api/test_chat_turn_plan.py) and [chat route tests](../../tests/delivery/operator_api/test_chat_route.py) |
+| 1-2 | [Inventory chat tests](../../services/operator-service/tests/) |
+| 3-10, 35, 37-40 | [Read investigation tests](../../services/operator-service/tests/) and [progress tests](../../services/operator-service/tests/) |
+| 4, 36 | [Subscription health tests](../../services/operator-service/tests/) |
+| 14 | [Bounded KQL chat tests](../../services/operator-service/tests/) |
+| 26-29, 43 | [Operational evidence tests](../../services/operator-service/tests/) and [chat route tests](../../services/operator-service/tests/) |
+| 38, 52 | [Terminal verification tests](../../services/operator-service/tests/) |
+| 53-54 | [Answer-plan tests](../../services/operator-service/tests/) and [chat route tests](../../services/operator-service/tests/) |
 
 ## Related docs
 

@@ -31,7 +31,7 @@ the toggle modules themselves live in
 The rails already exist; active reassembly connects them end to end:
 
 1. **Detection** - a `FeasibilityProbe` emits a grounded `ProbeFinding`
-   ([feasibility_probe.py](../../../src/fdai/shared/providers/feasibility_probe.py)).
+   ([feasibility_probe.py](../../../services/core-control-plane/src/fdai/shared/providers/feasibility_probe.py)).
 2. **Mapping** - the finding carries a `ProbeResolution(kind=TERRAFORM_TOGGLE,
    autofix, module, set_vars)` naming the exact infra sub-module and the variable
    override that makes the deploy comply.
@@ -44,7 +44,7 @@ The two pieces this design added now have these states:
 
 - **Toggle proposal builder (shipped)**: renders every `autofix` toggle in a cleared outcome as
   one typed proposal. The live sink/publisher binding is still absent, so it does not open a PR
-  ([check_publish.py](../../../src/fdai/core/deploy_preflight/check_publish.py)).
+  ([check_publish.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/check_publish.py)).
 - **Convergence loop (shipped)**: uses caller-provided plan-render and reanalysis callbacks to
   ensure a fix for one blocker cannot silently introduce another.
 
@@ -94,7 +94,7 @@ configuration, not hardcoded literals, so a fork can tune them without editing
 ## ActionType: `remediate.apply-preflight-toggle`
 
 Active reassembly is **not** a new privileged path. It reuses the existing
-[executor](../../../src/fdai/core/executor/executor.py) by registering a first-class
+[executor](../../../services/core-control-plane/src/fdai/core/executor/executor.py) by registering a first-class
 ontology `ActionType`, so the seven safeguards, shadow-first gating, and
 the append-only audit entry come for free (the same reason the console vocabulary
 routes every action through the typed pipeline, see
@@ -144,7 +144,7 @@ single-toggle (`finding_id` + `toggle_module` + `set_vars`), so audit, rollback
 (`pr_revert`), and blast-radius stay at toggle granularity and map 1:1 to the
 finding each toggle resolves. The loop retains the per-toggle provenance
 (`AppliedToggle`: `finding_id`, `module`, `set_vars`, `scope`); the proposal
-builder ([reassembly_proposals.py](../../../src/fdai/core/deploy_preflight/reassembly_proposals.py))
+builder ([reassembly_proposals.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py))
 renders one proposal per toggle and submits each through the same typed pipeline
 seam an operator command re-enters (`ProposalSink` -> Huginn -> Forseti -> Thor),
 shadow-first. An escalated outcome yields no proposals - the caller routes it to
@@ -193,14 +193,14 @@ category is explicitly promoted to enforce.
 
 | Piece | Location | Status |
 |-------|----------|--------|
-| Toggle resolution on a finding | [feasibility_probe.py](../../../src/fdai/shared/providers/feasibility_probe.py) | shipped |
+| Toggle resolution on a finding | [feasibility_probe.py](../../../services/core-control-plane/src/fdai/shared/providers/feasibility_probe.py) | shipped |
 | Capability-mode toggle modules | [infra/modules/preflight-toggles/](../../../infra/modules/preflight-toggles/README.md) | shipped (data-only) |
-| Readiness report + verdict | [core/deploy_preflight/report.py](../../../src/fdai/core/deploy_preflight/report.py) | shipped |
-| Report -> PR check publish | [core/deploy_preflight/check_publish.py](../../../src/fdai/core/deploy_preflight/check_publish.py) | shipped (report only) |
-| Convergence loop + stop-conditions | [core/deploy_preflight/reassemble.py](../../../src/fdai/core/deploy_preflight/reassemble.py) | shipped |
+| Readiness report + verdict | [core/deploy_preflight/report.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/report.py) | shipped |
+| Report -> PR check publish | [core/deploy_preflight/check_publish.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/check_publish.py) | shipped (report only) |
+| Convergence loop + stop-conditions | [core/deploy_preflight/reassemble.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/reassemble.py) | shipped |
 | `remediate.apply-preflight-toggle` ActionType | [rule-catalog/action-types/](../../../rule-catalog/action-types/remediate.apply-preflight-toggle.yaml) | shipped |
-| Overrides -> Action proposals (one per toggle) | [core/deploy_preflight/reassembly_proposals.py](../../../src/fdai/core/deploy_preflight/reassembly_proposals.py) | shipped |
-| Recurring manual blocker -> inert candidate | [agents/norns.py](../../../src/fdai/agents/norns.py) | shipped (caller-supplied observation) |
+| Overrides -> Action proposals (one per toggle) | [core/deploy_preflight/reassembly_proposals.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py) | shipped |
+| Recurring manual blocker -> inert candidate | [agents/norns.py](../../../services/core-control-plane/src/fdai/agents/norns.py) | shipped (caller-supplied observation) |
 | Reference consumer wiring (one toggle) | [infra/modules/preflight-toggles/reference-disk-consumer/](../../../infra/modules/preflight-toggles/reference-disk-consumer/README.md) | shipped (fork copies it) |
 | **Composition wiring: `ProposalSink` + live trigger** | composition root + `delivery/azure/preflight/` | **remaining** |
 

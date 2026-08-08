@@ -13,17 +13,17 @@ one focused change + one commit.** The loop is documented in
 
 Pick one that has NOT already been hardened this session:
 
-- `src/fdai/core/risk_gate/`
-- `src/fdai/core/tiers/t0_deterministic/`
-- `src/fdai/core/tiers/t1_lightweight/`
-- `src/fdai/core/tiers/t2_reasoning/`
-- `src/fdai/core/quality_gate/`
-- `src/fdai/core/executor/`
-- `src/fdai/core/event_ingest/` (idempotency + dedup)
-- `src/fdai/core/trust_router/`
-- `src/fdai/agents/forseti.py` (Judge)
-- `src/fdai/agents/var.py` (Approver)
-- `src/fdai/agents/thor.py` (Responder)
+- `services/core-control-plane/src/fdai/core/risk_gate/`
+- `services/core-control-plane/src/fdai/core/tiers/t0_deterministic/`
+- `services/core-control-plane/src/fdai/core/tiers/t1_lightweight/`
+- `services/core-control-plane/src/fdai/core/tiers/t2_reasoning/`
+- `services/core-control-plane/src/fdai/core/quality_gate/`
+- `services/core-control-plane/src/fdai/core/executor/`
+- `services/core-control-plane/src/fdai/core/event_ingest/` (idempotency + dedup)
+- `services/core-control-plane/src/fdai/core/trust_router/`
+- `services/core-control-plane/src/fdai/agents/forseti.py` (Judge)
+- `services/core-control-plane/src/fdai/agents/var.py` (Approver)
+- `services/core-control-plane/src/fdai/agents/thor.py` (Responder)
 
 ## Steps
 
@@ -37,7 +37,7 @@ Pick one that has NOT already been hardened this session:
 4. **Verify**:
    - `bash scripts/verify.sh --fast`
    - Targeted pytest for the touched module, with coverage:
-     `pytest tests/<matching_path> -q --no-cov` (or a coverage run if
+     `pytest services/core-control-plane/tests/<matching_path> -q --no-cov` (or a coverage run if
      coverage is at risk).
    - Safety-core property tests must still pass unchanged.
 5. **Docs-first / docs-after**: if behavior, DI seam, config key, or a
@@ -54,7 +54,7 @@ Pick one that has NOT already been hardened this session:
   only; if the type system already excludes the state, do not add a
   guard. See the `lock.py::snapshot()` false-positive lesson in
   `/memories/repo/coding-ability.md`.
-- **Agent code = pantheon rules**: any file under `src/fdai/agents/**`
+- **Agent code = pantheon rules**: any file under `services/core-control-plane/src/fdai/agents/**`
   MUST follow the fork-locked role bindings (executor / judge /
   approver / auditor / initiators). See
   `.github/instructions/agent-pantheon.instructions.md`.

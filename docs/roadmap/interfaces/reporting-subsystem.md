@@ -66,10 +66,10 @@ isolated**: one broken source or bogus builder renders that widget with
 
 Code map (see [project-structure.md](../architecture/project-structure.md)):
 
-- `src/fdai/core/reporting/` - the whole engine (framework-neutral).
-- `src/fdai/core/reporting/composition.py` - `default_reporting_engine`
+- `services/core-control-plane/src/fdai/core/reporting/` - the whole engine (framework-neutral).
+- `services/core-control-plane/src/fdai/core/reporting/composition.py` - `default_reporting_engine`
   factory for fork composition roots.
-- `src/fdai/delivery/operator_api/routes/reporting.py` - the eight `GET` routes.
+- `services/operator-service/src/fdai_operator_service/` - the eight `GET` routes.
 - `rule-catalog/reports/` - the YAML catalog + JSON Schema.
 
 ### Console SPA implementation status
@@ -376,7 +376,7 @@ widgets:
         projection: count_by_mode
 ```
 
-Loader ([`core.reporting.catalog.load_report_catalog`](../../../src/fdai/core/reporting/catalog.py)):
+Loader ([`core.reporting.catalog.load_report_catalog`](../../../services/core-control-plane/src/fdai/core/reporting/catalog.py)):
 
 - validates every file against the JSON Schema
   (`additionalProperties: false` at every level - a typo fails at
@@ -399,7 +399,7 @@ Six reports ship in the current catalog:
 ## Operator API routes
 
 Eight GETs, mounted under a configurable prefix (default `/reports`) by
-[`build_reporting_routes`](../../../src/fdai/delivery/operator_api/routes/reporting.py):
+[`build_reporting_routes`](../../../services/operator-service/src/fdai_operator_service/):
 
 | Route | Purpose |
 |-------|---------|
@@ -525,7 +525,7 @@ route.
 
 Ten safeguards were added after a systematic OWASP + `app-shape`
 critique of the shipped subsystem. Each is covered by a dedicated test
-in [`tests/core/reporting/test_hardening.py`](../../../tests/core/reporting/test_hardening.py):
+in [`services/core-control-plane/tests/core/reporting/`](../../../services/core-control-plane/tests/core/reporting/):
 
 1. **CSV formula injection** - cells starting with `=` / `+` / `-` /
    `@` / TAB / CR are prefixed with `'` (OWASP CSV injection).
@@ -559,7 +559,7 @@ in [`tests/core/reporting/test_hardening.py`](../../../tests/core/reporting/test
 A second critique targeted the expanded widget-builder catalog: builders
 transform untrusted datasource values, so a hostile or buggy value must
 never crash serialization or misorder a chart. Each item is covered in
-[`tests/core/reporting/test_widgets_hardening.py`](../../../tests/core/reporting/test_widgets_hardening.py):
+[`services/core-control-plane/tests/core/reporting/test_widgets_hardening.py`](../../../services/core-control-plane/tests/core/reporting/test_widgets_hardening.py):
 
 1. **JSON non-finite safety** - `JsonFormatEncoder` recursively rewrites
    `NaN` / `+-Inf` to `null` and sets `allow_nan=False`, so a datasource

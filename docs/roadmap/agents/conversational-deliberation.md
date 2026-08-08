@@ -112,7 +112,7 @@ full-charter digest, tool ids, owner attribution, evidence refs, and the compose
 A role directive is only as good as the evidence behind it. A directive that names a mechanic the
 agent never exposes cannot be satisfied through the allowed tools, so it collides with the
 grounding layer and the answer degrades to a plausible-sounding abstention. Every charter is held
-to four rules, each pinned by `tests/agents/test_charter_robustness.py`:
+to four rules, each pinned by `services/core-control-plane/tests/agents/test_charter_robustness.py`:
 
 | Rule | What it prevents |
 |------|------------------|
@@ -485,17 +485,17 @@ to the same participant before a provider receives the request.
 
 ## Verification
 
-`tests/agents/test_prompt_deliberation.py` applies 33 criteria to every agent, for 495 baseline
+`services/core-control-plane/tests/agents/test_prompt_deliberation.py` applies 33 criteria to every agent, for 495 baseline
 judgments. It also verifies T1-required routing, two bounded phases, optional T2 synthesis,
 presentation-only authority, exact role contracts, budget denial, and action-intent refusal.
 It also rejects cross-field T2 requests whose primary owner, distinct claim owners, or participant
 prompt ordering disagree.
 
-`tests/agents/test_prompt_contract_audit.py` applies the 40 structural critiques to all 15 agents,
+`services/core-control-plane/tests/agents/test_prompt_contract_audit.py` applies the 40 structural critiques to all 15 agents,
 for 600 all-agent judgments, then separately verifies global single-writer/tool ownership, strict
 roster handling, mandatory role directives, and the complete unique baseline manifest.
 
-`tests/agents/test_conversation_prompt_composition.py` re-applies the 33 criteria to 1,152 situation
+`services/core-control-plane/tests/agents/test_conversation_prompt_composition.py` re-applies the 33 criteria to 1,152 situation
 permutations for each of 15 agents, for 570,240 deterministic judgments. It pins that the baseline
 is always a prefix and that forged turn context can never place its own text in a prompt.
 

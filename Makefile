@@ -38,13 +38,13 @@ genesis-up: ## Day-1 Genesis screen over 'terraform apply -json'; FDAI_GENESIS_C
 # ---------------------------------------------------------------------------
 
 lint: ## ruff check + ruff format --check + mypy --strict
-	uv run ruff format --check src tests
-	uv run ruff check src tests
+	uv run ruff format --check services packages tests/integration
+	uv run ruff check services packages tests/integration
 	uv run mypy
 
 format: ## apply ruff format + ruff --fix (mutates files)
-	uv run ruff format src tests
-	uv run ruff check --fix src tests
+	uv run ruff format services packages tests/integration
+	uv run ruff check --fix services packages tests/integration
 
 test: ## pytest with safety-core branch coverage (--cov-fail-under=90 matches CI)
 	bash scripts/quality/ci/run-python-tests.sh

@@ -164,4 +164,4 @@ Do not:
   [docs/roadmap/README.md](../../docs/roadmap/README.md).
 - Tier B canonical: [docs/roadmap/architecture-adjacent](../../docs/roadmap/README.md)
   (any of the numbered reference docs 1-18).
-- Tier C canonical: [src/fdai/core/README.md](../../src/fdai/core/README.md).
+- Tier C canonical: [services/core-control-plane/src/fdai/core/README.md](../../services/core-control-plane/src/fdai/core/README.md).

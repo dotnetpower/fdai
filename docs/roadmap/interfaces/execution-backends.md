@@ -168,12 +168,12 @@ evidence.
 
 | Responsibility | Source | Tests |
 |----------------|--------|-------|
-| Protocol and ledger records | `src/fdai/shared/providers/execution_backend.py` | provider and focused lifecycle tests |
-| Profiles, registry, coordinator | `src/fdai/core/execution_backend/` | `tests/core/execution_backend/` |
-| Bubblewrap and VM adapters | `src/fdai/delivery/execution_backend/` | `tests/delivery/execution_backend/` |
-| Azure Container Apps Job | `src/fdai/delivery/azure/container_apps_job_backend.py` | `tests/delivery/azure/test_container_apps_job_backend.py` |
-| PostgreSQL ledger | `src/fdai/delivery/persistence/postgres_execution_backend.py` | `tests/persistence/test_execution_backend_ledger.py` |
-| Startup binding | `src/fdai/composition/wire_execution_backends.py` | `tests/composition/test_execution_backends.py` |
+| Protocol and ledger records | `services/core-control-plane/src/fdai/shared/providers/execution_backend.py` | provider and focused lifecycle tests |
+| Profiles, registry, coordinator | `services/core-control-plane/src/fdai/core/execution_backend/` | `services/core-control-plane/tests/core/execution_backend/` |
+| Bubblewrap and VM adapters | `services/core-control-plane/src/fdai/delivery/execution_backend/` | `services/core-control-plane/tests/delivery/execution_backend/` |
+| Azure Container Apps Job | `services/core-control-plane/src/fdai/delivery/azure/container_apps_job_backend.py` | `services/core-control-plane/tests/delivery/azure/test_container_apps_job_backend.py` |
+| PostgreSQL ledger | `services/core-control-plane/src/fdai/delivery/persistence/postgres_execution_backend.py` | `services/core-control-plane/tests/persistence/test_execution_backend_ledger.py` |
+| Startup binding | `services/core-control-plane/src/fdai/composition/wire_execution_backends.py` | `services/core-control-plane/tests/composition/test_execution_backends.py` |
 
 ## Related docs
 

@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 6824ed348bf332318b9f4592685c9a494c3630cc
-translation_revised: 2026-08-06
+translation_source_sha: df07b4cb39cc61bbc0fea86ad0a3e664ff663a04
+translation_revised: 2026-08-08
 ---
 
 # FDAI Console 대화
@@ -623,7 +623,7 @@ focused owner 문서로 분리했습니다:
 - [operator-console-incident-roster-ko.md](operator-console-incident-roster-ko.md) - 인시던트 목록 및 교정 이력(13.5).
 ## 14. MCP delivery 및 managed catalog
 
-FDAI는 `src/fdai/delivery/mcp/` 아래 managed outbound catalog를 통해 외부 hosted MCP tool을
+FDAI는 `services/core-control-plane/src/fdai/delivery/mcp/` 아래 managed outbound catalog를 통해 외부 hosted MCP tool을
 사용할 수 있습니다. Server는 disabled 상태로 install됩니다. Enable은 non-invoking
 `tools/list` discovery를 실행하고 모든 ActionType-to-tool allowlist entry를 검증합니다.
 Catalog mutation은 durable revision-CAS snapshot을 사용하며 manifest, health, revision, admin

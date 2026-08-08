@@ -18,6 +18,9 @@ and to predict which FDAI capability becomes unavailable when a path is blocked.
 > prefixes behind service tags. A private endpoint IP and an internal API Management virtual IP
 > are also deployment-specific.
 
+The executable repository contract for this cross-service matrix is
+`tests/integration/scripts/test_check_network_connectivity.py`.
+
 ## Design at a glance
 
 Provisioned Throughput Units (PTU) change Azure OpenAI capacity, not its network protocol. Direct

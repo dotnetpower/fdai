@@ -16,7 +16,7 @@
 #   FILE_LOC_WARN=400   - warn threshold
 #   FILE_LOC_FAIL=800   - fail threshold
 #
-# Scope: src/fdai/**/*.py only. Excludes tests, migrations, third-party,
+# Scope: services/core-control-plane/src/fdai/**/*.py only. Excludes tests, migrations, third-party,
 # generated code, and __pycache__.
 #
 # Allowlist: scripts/.check-file-loc.allowlist (one path per line, '#'
@@ -153,7 +153,7 @@ fi
 # gate honest when a developer runs it inside a repo that also carries
 # .pytest_cache/ or a nested .venv (checked-out for a debug session).
 mapfile -t files < <(
-  find src/fdai -type f -name '*.py' \
+  find services/core-control-plane/src/fdai -type f -name '*.py' \
     ! -path '*/__pycache__/*' \
     ! -path '*/.pytest_cache/*' \
     ! -path '*/.mypy_cache/*' \
@@ -166,7 +166,7 @@ mapfile -t files < <(
 )
 
 if (( ${#files[@]} == 0 )); then
-  echo "check-file-loc: no src/fdai Python files - skipping."
+  echo "check-file-loc: no Core service Python files - skipping."
   exit 0
 fi
 

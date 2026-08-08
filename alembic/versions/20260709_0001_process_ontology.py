@@ -15,7 +15,7 @@ Rows come from the design doc, not the runtime - the objective is
 violations", not "authoritative catalog". Full definitions live in
 ``rule-catalog/vocabulary/object-types/Process.yaml`` and
 ``rule-catalog/vocabulary/link-types/{targets,advances}.yaml``; the
-loaders under ``src/fdai/rule_catalog/schema/`` remain the authoritative
+loaders under ``services/core-control-plane/src/fdai/rule_catalog/schema/`` remain the authoritative
 runtime source. See ``docs/roadmap/decisioning/process-automation.md`` 3.
 
 Both ``targets`` (Process -> Resource) and ``advances`` (Process ->

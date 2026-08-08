@@ -1,0 +1,266 @@
+"""Integration tests for the PostgreSQL ontology instance graph."""
+
+from __future__ import annotations
+
+import asyncio
+import os
+import subprocess
+import sys
+import uuid
+from pathlib import Path
+
+import pytest
+from fdai.delivery.persistence import (
+    PostgresOntologyInstanceStore,
+    PostgresOntologyInstanceStoreConfig,
+)
+from fdai.shared.contracts.models import (
+    LinkCardinality,
+    OntologyLinkType,
+    OntologyObjectType,
+    PropertyDecl,
+    PropertyType,
+)
+from fdai.shared.providers.ontology_instance import (
+    OntologyInstanceValidationError,
+    OntologyLinkRecord,
+    OntologyObjectRecord,
+)
+
+pytestmark = pytest.mark.integration
+REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _requires_live_db() -> str:
+    url = os.environ.get("FDAI_DATABASE_URL")
+    if not url:
+        pytest.skip("FDAI_DATABASE_URL is unset")
+    return url.replace("postgresql+psycopg://", "postgresql://", 1)
+
+
+def _upgrade_head() -> None:
+    result = subprocess.run(  # noqa: S603 - controlled subprocess
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def _type(name: str) -> OntologyObjectType:
+    return OntologyObjectType(
+        schema_version="1.0.0",
+        name=name,
+        version="1.0.0",
+        key="id",
+        properties={
+            "id": PropertyDecl(type=PropertyType.STRING, required=True),
+            "status": PropertyDecl(type=PropertyType.STRING, required=True),
+        },
+    )
+
+
+def _store() -> PostgresOntologyInstanceStore:
+    return PostgresOntologyInstanceStore(
+        config=PostgresOntologyInstanceStoreConfig(dsn=_requires_live_db()),
+        object_types=(_type("ReviewCase"), _type("ReviewCheck")),
+        link_types=(
+            OntologyLinkType(
+                schema_version="1.0.0",
+                name="contains_check",
+                version="1.0.0",
+                from_type="ReviewCase",
+                to_type="ReviewCheck",
+                cardinality=LinkCardinality.ONE_TO_MANY,
+            ),
+        ),
+    )
+
+
+async def test_postgres_ontology_round_trip_and_traversal() -> None:
+    _requires_live_db()
+    _upgrade_head()
+    store = _store()
+    suffix = uuid.uuid4().hex
+    review_id = f"review-{suffix}"
+    check_id = f"check-{suffix}"
+    review = await store.upsert_object(
+        OntologyObjectRecord(
+            id=review_id,
+            object_type="ReviewCase",
+            properties={"id": review_id, "status": "open"},
+        )
+    )
+    updated = await store.upsert_object(
+        OntologyObjectRecord(
+            id=review_id,
+            object_type="ReviewCase",
+            properties={"id": review_id, "status": "in_review"},
+        ),
+        expected_revision=review.revision,
+    )
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id=check_id,
+            object_type="ReviewCheck",
+            properties={"id": check_id, "status": "blocked"},
+        )
+    )
+    await store.upsert_link(
+        OntologyLinkRecord(
+            link_type="contains_check",
+            from_id=review_id,
+            to_id=check_id,
+        )
+    )
+
+    graph = await store.traverse(root_ids=(review_id,), max_depth=1)
+    selected = await store.query_objects(
+        object_types=("ReviewCheck",), property_equals={"status": "blocked"}
+    )
+    root_limited = await store.traverse(root_ids=(check_id, review_id), limit=1)
+    exact_root_limit = await store.traverse(root_ids=(check_id,), limit=1)
+    deduplicated_roots = await store.traverse(
+        root_ids=(f"missing-{suffix}", check_id, check_id), limit=1
+    )
+
+    assert updated.revision == 2
+    assert {item.id for item in graph.objects} == {review_id, check_id}
+    assert len(graph.links) == 1
+    assert any(item.id == check_id for item in selected.objects)
+    assert [item.id for item in root_limited.objects] == [check_id]
+    assert root_limited.truncated is True
+    assert [item.id for item in exact_root_limit.objects] == [check_id]
+    assert exact_root_limit.truncated is False
+    assert [item.id for item in deduplicated_roots.objects] == [check_id]
+    assert deduplicated_roots.truncated is False
+
+
+async def test_postgres_replace_subgraph_removes_prior_owned_records() -> None:
+    _requires_live_db()
+    _upgrade_head()
+    store = _store()
+    suffix = uuid.uuid4().hex
+    review_id = f"review-{suffix}"
+    check_id = f"check-{suffix}"
+    review = OntologyObjectRecord(
+        id=review_id,
+        object_type="ReviewCase",
+        properties={"id": review_id, "status": "open"},
+    )
+    check = OntologyObjectRecord(
+        id=check_id,
+        object_type="ReviewCheck",
+        properties={"id": check_id, "status": "blocked"},
+    )
+    link = OntologyLinkRecord(
+        link_type="contains_check",
+        from_id=review_id,
+        to_id=check_id,
+    )
+    await store.replace_subgraph(objects=(review, check), links=(link,))
+    stored_review = await store.get_object(review_id)
+    assert stored_review is not None
+
+    await store.replace_subgraph(
+        objects=(
+            OntologyObjectRecord(
+                id=review.id,
+                object_type=review.object_type,
+                properties=review.properties,
+                revision=stored_review.revision,
+            ),
+        ),
+        links=(),
+        previous_object_ids=(review_id, check_id),
+        previous_link_keys=((review_id, "contains_check", check_id),),
+    )
+
+    assert await store.get_object(review_id) is not None
+    assert await store.get_object(check_id) is None
+    graph = await store.traverse(root_ids=(review_id,), max_depth=1)
+    assert graph.links == ()
+
+
+async def test_postgres_replace_subgraph_rejects_batch_cardinality_atomically() -> None:
+    _requires_live_db()
+    _upgrade_head()
+    store = _store()
+    suffix = uuid.uuid4().hex
+    review_ids = (f"review-a-{suffix}", f"review-b-{suffix}")
+    check_id = f"check-{suffix}"
+    objects = (
+        *(
+            OntologyObjectRecord(
+                id=review_id,
+                object_type="ReviewCase",
+                properties={"id": review_id, "status": "open"},
+            )
+            for review_id in review_ids
+        ),
+        OntologyObjectRecord(
+            id=check_id,
+            object_type="ReviewCheck",
+            properties={"id": check_id, "status": "ready"},
+        ),
+    )
+    links = tuple(
+        OntologyLinkRecord(
+            link_type="contains_check",
+            from_id=review_id,
+            to_id=check_id,
+        )
+        for review_id in review_ids
+    )
+
+    with pytest.raises(OntologyInstanceValidationError, match="one_to_many cardinality"):
+        await store.replace_subgraph(objects=objects, links=links)
+
+    assert [await store.get_object(record.id) for record in objects] == [None, None, None]
+
+
+async def test_postgres_upsert_and_replace_share_cardinality_lock() -> None:
+    _requires_live_db()
+    _upgrade_head()
+    store = _store()
+    suffix = uuid.uuid4().hex
+    review_ids = (f"review-a-{suffix}", f"review-b-{suffix}")
+    check_id = f"check-{suffix}"
+    for review_id in review_ids:
+        await store.upsert_object(
+            OntologyObjectRecord(
+                id=review_id,
+                object_type="ReviewCase",
+                properties={"id": review_id, "status": "open"},
+            )
+        )
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id=check_id,
+            object_type="ReviewCheck",
+            properties={"id": check_id, "status": "ready"},
+        )
+    )
+    links = tuple(
+        OntologyLinkRecord(
+            link_type="contains_check",
+            from_id=review_id,
+            to_id=check_id,
+        )
+        for review_id in review_ids
+    )
+
+    results = await asyncio.gather(
+        store.upsert_link(links[0]),
+        store.replace_subgraph(objects=(), links=(links[1],)),
+        return_exceptions=True,
+    )
+
+    errors = [result for result in results if isinstance(result, Exception)]
+    assert len(errors) == 1
+    assert isinstance(errors[0], OntologyInstanceValidationError)
+    assert "one_to_many cardinality" in str(errors[0])
+    graph = await store.traverse(root_ids=(*review_ids, check_id), max_depth=1)
+    assert len(graph.links) == 1

@@ -2,13 +2,13 @@
 name: agent-pantheon-edit
 description: |
   Safe-edit workflow for the FDAI 15-agent pantheon under
-  `src/fdai/agents/**`. The pantheon is fixed (Odin, Thor, Forseti,
+  `services/core-control-plane/src/fdai/agents/**`. The pantheon is fixed (Odin, Thor, Forseti,
   Huginn, Heimdall, Var, Vidar, Bragi, Saga, Mimir, Norns, Muninn,
   Njord, Freyr, Loki) and its role bindings are fork-locked. This
   skill walks through the AgentSpec + layout + role-invariant
   checklist and points at the machine-readable source of truth
-  (`PANTHEON_SPECS` in `src/fdai/agents/_framework/pantheon.py`).
-  Load when you are about to edit any file under `src/fdai/agents/**`,
+  (`PANTHEON_SPECS` in `services/core-control-plane/src/fdai/agents/_framework/pantheon.py`).
+  Load when you are about to edit any file under `services/core-control-plane/src/fdai/agents/**`,
   when you see a `test_framework_layout.py` failure, or when adding
   an ActionType binding.
 version: 1.0.0
@@ -19,7 +19,7 @@ scope: repository
 
 The short-form contract is
 [.github/instructions/agent-pantheon.instructions.md](../../instructions/agent-pantheon.instructions.md)
-(auto-loaded for `src/fdai/agents/**`). The design of record is
+(auto-loaded for `services/core-control-plane/src/fdai/agents/**`). The design of record is
 [docs/roadmap/agents/agent-pantheon.md](../../../docs/roadmap/agents/agent-pantheon.md).
 This skill is the runnable checklist you follow before touching a
 pantheon file, plus the traps that trip up cross-agent edits.
@@ -30,9 +30,9 @@ pantheon file, plus the traps that trip up cross-agent edits.
    STOP. That is an upstream design PR against `agent-pantheon.md`,
    never a code-only edit. The pantheon is exactly 15 members.
 2. Would your change move a pantheon member out of the flat top-level
-   layout of `src/fdai/agents/`, or move a framework helper INTO the
+   layout of `services/core-control-plane/src/fdai/agents/`, or move a framework helper INTO the
    flat layout? If yes, STOP. The layout is enforced by
-   [`tests/agents/test_framework_layout.py`](../../../tests/agents/test_framework_layout.py):
+   [`services/core-control-plane/tests/agents/test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py):
    pantheon members flat, framework code under `_framework/`.
 3. Is your change ambiguous about which agent is the executor / judge /
    approver / auditor / initiator for an ActionType? If yes, STOP.
@@ -45,8 +45,8 @@ pantheon file, plus the traps that trip up cross-agent edits.
 ## The 15 Agents (canonical)
 
 Machine-readable source of truth: `PANTHEON_SPECS` in
-[`src/fdai/agents/_framework/pantheon.py`](../../../src/fdai/agents/_framework/pantheon.py).
-`tests/agents/test_pantheon_doc_parity.py` pins the docs to this list.
+[`services/core-control-plane/src/fdai/agents/_framework/pantheon.py`](../../../services/core-control-plane/src/fdai/agents/_framework/pantheon.py).
+`services/core-control-plane/tests/agents/test_pantheon_doc_parity.py` pins the docs to this list.
 
 | Agent | Layer | Role summary |
 |-------|-------|--------------|
@@ -117,7 +117,7 @@ Each `AgentSpec` in `pantheon.py` carries:
   `trigger_kind`, safety contract, and any matching AgentSpec capability.
 3. Run the layout test first:
    ```
-   pytest tests/agents/test_framework_layout.py -q --no-cov
+   pytest services/core-control-plane/tests/agents/test_framework_layout.py -q --no-cov
    ```
 4. Add / update tests for the specific role invariant your change
    affects. For safety-core agents (Forseti, Var, Thor) coverage must
@@ -129,7 +129,7 @@ Each `AgentSpec` in `pantheon.py` carries:
 6. Verify:
    ```
    bash scripts/verify.sh --fast
-   pytest tests/agents/ -q --no-cov
+   pytest services/core-control-plane/tests/agents/ -q --no-cov
    ```
 7. Per-file `git add`, then a Conventional Commit scoped to the
    agent name:
@@ -158,4 +158,4 @@ Each `AgentSpec` in `pantheon.py` carries:
 - Full design:
   [docs/roadmap/agents/agent-pantheon.md](../../../docs/roadmap/agents/agent-pantheon.md).
 - Parity regression:
-  [tests/agents/test_pantheon_doc_parity.py](../../../tests/agents/test_pantheon_doc_parity.py).
+  [services/core-control-plane/tests/agents/test_pantheon_doc_parity.py](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py).

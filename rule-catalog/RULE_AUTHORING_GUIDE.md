@@ -150,9 +150,9 @@ provenance:
 Run these in order - each catches a different class of drift:
 
 ```bash
-uv run pytest tests/rule_catalog -q      # schema + cross-reference load
-uv run pytest tests/pipeline -q          # end-to-end control loop with OPA
-uv run pytest tests/core/tiers -q        # T0 evaluator round-trip
+uv run pytest services/core-control-plane/tests/rule_catalog -q      # schema + cross-reference load
+uv run pytest services/core-control-plane/tests/pipeline -q          # end-to-end control loop with OPA
+uv run pytest services/core-control-plane/tests/core/tiers -q        # T0 evaluator round-trip
 scripts/quality/localization/check-translations.sh            # docs pair invariant (if you touched user docs)
 ```
 

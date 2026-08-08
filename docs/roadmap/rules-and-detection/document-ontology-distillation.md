@@ -215,7 +215,7 @@ Reason codes retain the partition key, such as
 `review` takes precedence over `pass`. This gate is evidence-only and review-only. A passing result
 does not grant execution authority, promote an ontology change, or alter a capability mode.
 
-The public-corpus harness reads a machine manifest under `tests/evaluation/`. Each source entry
+The public-corpus harness reads a machine manifest under `services/core-control-plane/tests/evaluation/`. Each source entry
 pins a stable id, HTTPS URL, SHA-256, license id and license source, format, language, source byte
 and line counts, plus at least two critical source-line hashes with expected claim signals. Source
 bodies stay outside the repository. The caller chooses a temporary or cache directory.

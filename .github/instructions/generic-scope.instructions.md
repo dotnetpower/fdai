@@ -1,6 +1,6 @@
 ---
 description: "Use when adding configuration, examples, fixtures, deployment values, tenant scope, or downstream customization. Prevents customer data and defines the fork boundary."
-applyTo: "config/**,docs/**,examples/**,mocks/**,infra/**,rule-catalog/**,src/**,tests/**,.github/**"
+applyTo: "config/**,docs/**,examples/**,mocks/**,infra/**,rule-catalog/**,services/**,packages/**,tests/integration/**,.github/**"
 ---
 
 # Customer-Agnostic Scope
@@ -94,11 +94,11 @@ rule of thumb: **if a path is listed there, it is LOCKED; otherwise it is editab
 
 | Locked path | What it is |
 |-------------|------------|
-| `src/fdai/core/` | control loop - never fork-edited |
-| `src/fdai/composition.py` (and `src/fdai/composition/`) | the upstream composition root |
-| `src/fdai/shared/providers/` | injectable Protocol seam **definitions** |
-| `src/fdai/shared/contracts/` | versioned event / action / rule / ontology types |
-| `src/fdai/agents/` | the 15-agent pantheon (role bindings fork-locked) |
+| `services/core-control-plane/src/fdai/core/` | control loop - never fork-edited |
+| `services/core-control-plane/src/fdai/composition.py` (and `services/core-control-plane/src/fdai/composition/`) | the upstream composition root |
+| `services/core-control-plane/src/fdai/shared/providers/` | injectable Protocol seam **definitions** |
+| `services/core-control-plane/src/fdai/shared/contracts/` | versioned event / action / rule / ontology types |
+| `services/core-control-plane/src/fdai/agents/` | the 15-agent pantheon (role bindings fork-locked) |
 | `rule-catalog/schema/` | catalog schemas (add entries, never widen a schema) |
 | `.github/instructions/` | this normative rule set |
 
@@ -114,7 +114,7 @@ rule of thumb: **if a path is listed there, it is LOCKED; otherwise it is editab
 - **Catalog and policy additions by entry** (schema unchanged): rule-catalog rules,
   ontology `ObjectType`/`LinkType`, `ActionType` entries, Rego risk overlays.
 - **Contract extension by subclassing** `ContractBase` in the fork's own package - never
-  by editing a module under `src/fdai/shared/contracts/`.
+  by editing a module under `services/core-control-plane/src/fdai/shared/contracts/`.
 - `pyproject.toml` (a fork MAY add its own package + entry point).
 
 **The distinction in one line**: changing a **definition** (Protocol signature, core logic,
@@ -138,9 +138,9 @@ Do not rely on human review alone. Gate every change:
 - **Custom regex check** in CI for other repo-specific tokens (known resource-name
   prefixes, `*.azure.com`/cloud endpoints) is future work.
 - **Framework-surface guard**: `scripts/integrity/check-protected-paths.sh` warns (upstream)
-  or hard-blocks (fork) any edit to the files a fork MUST NOT touch (`src/fdai/core/`,
-  `src/fdai/composition.py`, `src/fdai/shared/providers/`, `src/fdai/shared/contracts/`,
-  `src/fdai/agents/`, `rule-catalog/schema/`, `.github/instructions/`). A fork opts into
+  or hard-blocks (fork) any edit to the files a fork MUST NOT touch (`services/core-control-plane/src/fdai/core/`,
+  `services/core-control-plane/src/fdai/composition.py`, `services/core-control-plane/src/fdai/shared/providers/`, `services/core-control-plane/src/fdai/shared/contracts/`,
+  `services/core-control-plane/src/fdai/agents/`, `rule-catalog/schema/`, `.github/instructions/`). A fork opts into
   block mode with `FDAI_FORK=1`, a `.fdai-fork` marker, or `git config fdai.fork true`.
   Runs in the pre-push hook and the `protected-paths` CI job; `.github/CODEOWNERS`
   is its review-time counterpart.

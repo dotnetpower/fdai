@@ -1,8 +1,8 @@
 ---
 title: 기술 스택
 translation_of: tech-stack.md
-translation_source_sha: 8dfb8b3f2d11b4d019050f073a183bc818e31b9c
-translation_revised: 2026-08-02
+translation_source_sha: 48e0abc4afa4d53f9c850152c1e534f8af7fbf35
+translation_revised: 2026-08-08
 ---
 
 # 기술 스택
@@ -44,7 +44,7 @@ translation_revised: 2026-08-02
 
 | 관심사 | 권장 | 근거 | Alternatives (중립 / OSS) |
 |--------|------|------|--------------------------|
-| Core engine 런타임 | **Python (3.12+)** - `src/fdai/` 아래 src-layout | LLM / OPA / IaC-스캐너 SDK가 가장 성숙, mypy로 타이핑 강제 가능, 모든 서브시스템이 한 언어 ([OD-1](#od-1-core-런타임-언어) 참조) | TypeScript (Node), Go, .NET - 동일 인터페이스 뒤에서 향후 성능 기반 분리 시 예비 |
+| Core engine 런타임 | **Python (3.12+)** - `services/core-control-plane/src/fdai/` 아래 src-layout | LLM / OPA / IaC-스캐너 SDK가 가장 성숙, mypy로 타이핑 강제 가능, 모든 서브시스템이 한 언어 ([OD-1](#od-1-core-런타임-언어) 참조) | TypeScript (Node), Go, .NET - 동일 인터페이스 뒤에서 향후 성능 기반 분리 시 예비 |
 | Policy engine | **OPA / Rego** | CSP-중립 policy-as-code; T0와 T2 verifier가 재사용 | Gatekeeper (K8s), Cloud Custodian |
 | IaC | **Terraform** (Azure 대상, HCL) | OD 해결; Terraform이 엔트리 커맨드 대상 (`terraform apply`)이며 [csp-neutrality-ko.md](csp-neutrality-ko.md)의 8개 CSP-중립 계약을 렌더링; Bicep과 OpenTofu는 호환 대안 | 엄격한 OSS 툴체인이 필요하면 **OpenTofu** (MPL-2.0 포크); Azure-only 편의는 Bicep; 범용 언어 선호 시 Pulumi |
 | Event bus | **Event Hubs** 를 **`:9093` 의 Kafka endpoint 로만** 소비 (Kafka 와이어 프로토콜이 CSP-중립 계약 - [csp-neutrality-ko.md](csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜) 참조) | 하나의 와이어 프로토콜이 모든 관리형 대상 (MSK, GCP Managed Kafka, Confluent, Redpanda) 을 커버 → 비-Azure 어댑터는 config 스왑 | MSK Serverless / GCP Managed Kafka / Confluent / Redpanda / self-hosted Strimzi - 비-Azure 옵션은 TBD |
@@ -149,16 +149,16 @@ translation_revised: 2026-08-02
 - **컨텍스트**: 어댑터, LLM SDK, 규칙 도구가 선택을 주도.
 - **옵션**: TypeScript (Node) · Python · Go.
 - **기준**: 어댑터/SDK 성숙도, 팀 친숙도, 타이핑/성능 헤드룸.
-- **상태**: **결정됨 - Python (3.12+), `src/fdai/` 아래 단일 언어 monorepo.**
+- **상태**: **결정됨 - Python (3.12+), `services/core-control-plane/src/fdai/` 아래 단일 언어 monorepo.**
   근거: (i) OPA 바인딩, LLM provider, IaC 스캐너 툴체인 (Checkov / tfsec / KICS / Trivy) 이
   가장 풍부한 언어가 Python; (ii) mypy로 safety-core 에 필요한 타이핑 강도 확보; (iii) 모든
   서브시스템이 한 언어라 `core/tiers/t0_deterministic` 과 `core/risk_gate` 의 ≥ 90% 커버리지
   게이트가 단순해짐. 향후 성능 기반 분리 (예: `event_ingest` 를 Go 로) 는 서브시스템이 이미
   `shared/` 의 인터페이스 뒤에 있어 추가적으로 가능.
-- **패키지 레이아웃**: Python "src layout" - 모든 런타임 모듈은 `src/fdai/<subsystem>/`
+- **패키지 레이아웃**: Python "src layout" - 모든 런타임 모듈은 `services/core-control-plane/src/fdai/<subsystem>/`
   아래. [project-structure-ko.md](project-structure-ko.md) 의 `core/`, `shared/`, `delivery/`,
-  `rule_catalog/` 서브시스템 폴더는 각각 `src/fdai/core/`, `src/fdai/shared/`,
-  `src/fdai/delivery/`, `src/fdai/rule_catalog/` 로 매핑됩니다. 디렉토리 이름은
+  `rule_catalog/` 서브시스템 폴더는 각각 `services/core-control-plane/src/fdai/core/`, `services/core-control-plane/src/fdai/shared/`,
+  `services/core-control-plane/src/fdai/delivery/`, `services/core-control-plane/src/fdai/rule_catalog/` 로 매핑됩니다. 디렉토리 이름은
   `snake_case` (Python 식별자 규칙); 논리적 `kebab-case` 이름은
   [language.instructions.md](../../../.github/instructions/language.instructions.md) 에 따라
   문서와 rule id 에서 어휘로 유지됩니다.

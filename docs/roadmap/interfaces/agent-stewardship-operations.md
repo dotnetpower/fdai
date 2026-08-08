@@ -222,8 +222,8 @@ Run the focused ownership gates before deployment:
 
 ```bash
 bash scripts/governance/check-stewardship.sh
-uv run pytest tests/core/stewardship tests/delivery/stewardship \
-  tests/delivery/ingestion_gateway/test_handover.py -q --no-cov
+uv run pytest services/core-control-plane/tests/core/stewardship services/core-control-plane/tests/delivery/stewardship \
+  services/core-control-plane/tests/delivery/ingestion_gateway/test_handover.py -q --no-cov
 terraform -chdir=infra validate
 ```
 

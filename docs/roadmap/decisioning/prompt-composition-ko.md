@@ -1,8 +1,8 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: b456fed2c660ddeaeb3c8e582ae241e2dc7833b3
-translation_revised: 2026-08-04
+translation_source_sha: 2383cf87a23b94ffb5eed904177e0c40807a0a2b
+translation_revised: 2026-08-08
 ---
 
 # 진화하는 시스템 프롬프트
@@ -259,7 +259,7 @@ Web search는 최후의 수단 툴입니다. 배포별 opt-in이며 절대 groun
 - **언제 실행 가능**: T2 케이스, novelty score가 threshold 초과, capability의
   tool allowlist가 `web.search`를 포함, 이벤트당 query / cost budget이 소진되지
   않음. 이 결정은 산문이 아니라 순수 · 결정론적
-  [`decide_web_search`](../../../src/fdai/core/web_search/policy.py) 정책
+  [`decide_web_search`](../../../services/core-control-plane/src/fdai/core/web_search/policy.py) 정책
   (`WebSearchPolicyConfig` + `WebSearchSignals` -> `SEARCH` / `SKIP`)이며,
   `escalation_ladder`를 미러링합니다. deny-first 게이트(disabled -> provider
   없음 -> capability allowlist 미포함 -> reasoning-tier 아님 -> query budget
@@ -440,7 +440,7 @@ Wave 1은 런타임 행동을 바꾸지 않은 채 seam을 도입합니다.
 - `rule-catalog/prompts/schema/prompt.schema.json` - 프롬프트 아티팩트용 JSON
   Schema.
 - `rule-catalog/prompts/base/t2-cross-check.v1.yaml` - 추출된 T2 base 프롬프트.
-- `src/fdai/core/prompts/` - `PromptRegistry` Protocol,
+- `services/core-control-plane/src/fdai/core/prompts/` - `PromptRegistry` Protocol,
   `FileSystemPromptRegistry` 구현, aggregate-error 검증.
 - `bind_azure_llm_bindings`가 선택적 `system_prompt`를 받아 모든 cross-check
   config에 스레딩.
@@ -451,9 +451,9 @@ Wave 1은 런타임 행동을 바꾸지 않은 채 seam을 도입합니다.
 
 Wave 2는 프롬프트 조립을 정식 composer로 승격하며 seam을 완성합니다.
 
-- `src/fdai/core/prompts/composer.py` - `PromptComposer` async Protocol
+- `services/core-control-plane/src/fdai/core/prompts/composer.py` - `PromptComposer` async Protocol
   + `DefaultPromptComposer` (Base + Task Skill Pack 조립).
-- `src/fdai/core/prompts/testing.py` - fork 테스트가 catalog를 건드리지
+- `services/core-control-plane/src/fdai/core/prompts/testing.py` - fork 테스트가 catalog를 건드리지
   않고 캔닝된 프롬프트를 주입할 수 있게 하는 `StaticPromptComposer` fake.
 - `PromptRegistry.get_packs(capability_id)` - 특정 capability에 바인딩된 모든
   task-pack 아티팩트를 반환하며, id당 최고 버전만 유지.
@@ -485,7 +485,7 @@ Tool 매니페스트 주입과 executor는 Wave 2.5-B에서 랜딩합니다.
   통과해야 합니다.
 - `rule-catalog/prompts/tools/README.md` - prompts 서브시스템 README를
   미러링한 디렉토리 계약.
-- `src/fdai/core/tools/` (이전 `core/prompts/tool_registry.py`에서
+- `services/core-control-plane/src/fdai/core/tools/` (이전 `core/prompts/tool_registry.py`에서
   이관) - `ToolArtifact`, `CapabilityGate`, `ToolRegistry` Protocol,
   aggregate-error 검증을 가진 `FileSystemToolRegistry`. 빈 catalog가 에러
   없이 로드되므로 fork는 첫 tool을 저작하기 전에 seam을 채택할 수 있습니다.
@@ -519,14 +519,14 @@ Wave 2.5-B step 2a는 Azure OpenAI 어댑터를 아직 건드리지 않은 채�
 콜을 end-to-end로 dispatch할 수 있게 하는 executor seam을 도입합니다.
 Step 2b가 모델 발행 `tool_calls`를 이 executor로 스레딩합니다.
 
-- `src/fdai/core/tools/executor.py` - `ToolExecutor` async Protocol
+- `services/core-control-plane/src/fdai/core/tools/executor.py` - `ToolExecutor` async Protocol
   + `DefaultToolExecutor` upstream 구현 + fork가 tool 그룹별로 구현하는
   `ToolProvider` seam. 모든 실패는 `ToolExecutorError`의 다섯 개
   typed 서브클래스 (`UnknownToolError`, `ShadowToolBlockedError`,
   `ToolArgumentValidationError`, `MissingProviderError`,
   `ProviderCallError`) 중 하나로 surfacing되어, 호출자가 부분 결과를
   삼키지 않고 HIL로 라우팅할 수 있습니다.
-- `src/fdai/core/tools/testing.py` - `InMemoryToolProvider`
+- `services/core-control-plane/src/fdai/core/tools/testing.py` - `InMemoryToolProvider`
   (tool id + 정렬된 arguments 튜플로 keying된 canned response, 호출
   기록 저장) 및 `NoOpToolProvider` (모든 호출 거부. fork가 provider
   wiring 없이 tool을 승격했을 때의 upstream 기본값).
@@ -598,12 +598,12 @@ Wave 3 step A는 HIL 파이프라인과 composer가 안정된 표면 위에 구�
 수 있도록 operator-memory seam을 도입합니다. Postgres store, HIL 2차
 승인 워크플로우, composer 통합은 Wave 3의 후속 step에서 랜딩합니다.
 
-- `src/fdai/core/operator_memory/types.py` - `OperatorMemoryEntry`
+- `services/core-control-plane/src/fdai/core/operator_memory/types.py` - `OperatorMemoryEntry`
   frozen dataclass + 세 개의 enum: `ScopeKind` (값은 `resource-group`과
   `resource`로 제한. 더 넓은 scope는 거부되는데, rule을 org 전역에서
   비활성화하는 것은 override가 아니라 rule 폐기이기 때문), `MemorySource`,
   `MemoryCategory`.
-- `src/fdai/core/operator_memory/store.py` - `OperatorMemoryStore`
+- `services/core-control-plane/src/fdai/core/operator_memory/store.py` - `OperatorMemoryStore`
   async Protocol + `InMemoryOperatorMemoryStore` upstream 기본값. 모든
   write는 동일한 정책 validator를 실행하므로, 호출자가 store를 직접
   건드려서 Human Override 계약을 우회할 수 없습니다. 정책 코드는
@@ -611,7 +611,7 @@ Wave 3 step A는 HIL 파이프라인과 composer가 안정된 표면 위에 구�
   가능하게 합니다 (`empty_body`, `empty_scope_ref`, `scope_too_wide`,
   `missing_author`, `missing_approver`, `self_approval`, `invalid_ttl`,
   `duplicate_id`, `already_superseded`).
-- `src/fdai/core/operator_memory/sanitizer.py` -
+- `services/core-control-plane/src/fdai/core/operator_memory/sanitizer.py` -
   `detect_injection_markers`가 body를 큐레이션된 prompt-injection 패턴
   목록에 대해 검사 (대소문자 무관. "ignore previous", "system:",
   role-hijack 토큰). `wrap_operator_note`가 accepted body를
@@ -651,7 +651,7 @@ composer가 모든 T2 event마다 조회할 수 있게 합니다. Step B의 나�
   유일한 UPDATE는 `FOR UPDATE`-locked 트랜잭션 내부의 `superseded_by`
   뿐이며, store는 pointer를 덮어쓰는 대신 `already_superseded`를
   반환합니다.
-- `src/fdai/delivery/persistence/postgres_operator_memory.py` -
+- `services/core-control-plane/src/fdai/delivery/persistence/postgres_operator_memory.py` -
   `PostgresOperatorMemoryStore`가 in-memory fake와 동일한 async
   `OperatorMemoryStore` Protocol을 realize합니다. DSN +
   `statement_timeout_ms` 계약은 `PostgresStateStore`와 동일하므로 두
@@ -670,7 +670,7 @@ composer가 모든 T2 event마다 조회할 수 있게 합니다. Step B의 나�
 - `_row_to_entry()`가 naive `datetime` 값을 UTC로 coerce하고 ISO-8601
   / UUID 문자열 컬럼을 방어적으로 파싱하여 JSON export/import 왕복이
   올바른 Python 타입에 landing.
-- 통합 테스트(`tests/persistence/test_postgres_operator_memory.py`)는
+- 통합 테스트(`services/core-control-plane/tests/persistence/test_postgres_operator_memory.py`)는
   pgvector + state-store adapter와 동일한 `FDAI_DATABASE_URL`
   unset 시 skip 패턴을 따르며, 라이브 Postgres에서 append + list +
   supersede + expiry + duplicate-id + unknown-id-lookup을 커버합니다.
@@ -687,7 +687,7 @@ operator가 승인한 후 저장된 `OperatorMemoryEntry`로 변환하는 순수
 Card 버튼, reconciler poll, fork-authored CLI 어느 것에서
 트리거되든 동일 클래스가 2차 승인 로직을 처리합니다.
 
-- `src/fdai/core/operator_memory/hil_pipeline.py` -
+- `services/core-control-plane/src/fdai/core/operator_memory/hil_pipeline.py` -
   `HilRejectMaterializer(*, store, entry_id_fn=uuid4, now_fn=None)`가
   단일 async 메서드 `materialize(*, hil_response, second_approver,
   material)`를 노출합니다. 결정론적 훅 (`entry_id_fn`, `now_fn`)이
@@ -728,7 +728,7 @@ slice 3가 특정 second-approval 채널을 배포할 것입니다. 이 slice는
 연결 조직 - 한 경로가 append한 entry가 다음 event에서 즉시 composer에
 보이게 만듭니다.
 
-- `src/fdai/runtime/providers.py`의 `_build_operator_memory_store()`가
+- `services/core-control-plane/src/fdai/runtime/providers.py`의 `_build_operator_memory_store()`가
   기존 `_build_audit_store()` 패턴을 미러링: `FDAI_OPERATOR_MEMORY_DSN`
   (컨테이너의 Key Vault secret ref로 채워짐)이 설정되면 wire가
   `PostgresOperatorMemoryStore`를 반환하고, 그렇지 않으면 결정론적
@@ -747,9 +747,9 @@ slice 3가 특정 second-approval 채널을 배포할 것입니다. 이 slice는
   (`if dsn:`가 `""`에 대해 falsy)되므로 mis-quoted env var가 broken
   Postgres adapter를 instantiate하는 대신 in-memory fake로 fallback
   합니다. 테스트가 이 동작을 regression 방지로 pin합니다.
-- `tests/test_main_helpers.py`의 세 개 offline 테스트가 각 env-var
+- `services/core-control-plane/tests/test_main_helpers.py`의 세 개 offline 테스트가 각 env-var
   상태에 대해 헬퍼가 올바른 backend를 wire함을 증명합니다. Seam의
-  composer 측은 이미 `tests/core/prompts/test_composer.py`가 커버하므로
+  composer 측은 이미 `services/core-control-plane/tests/core/prompts/test_composer.py`가 커버하므로
   end-to-end wire는 composition으로 증명됩니다.
 
 ## Wave 3 step C-1 - 무엇이 배포되었나
@@ -829,7 +829,7 @@ Wave 3 step D-1은 recognition-probe KPI의 순수 evaluator 부분을
 랜딩합니다. Step D-2가 composer에게 레이어별 canary 토큰 삽입을
 가르치고, 숫자를 시나리오 runner를 통해 대시보드에 wiring합니다.
 
-- `src/fdai/core/measurement/prompt_probe.py` - 네 개의 typed
+- `services/core-control-plane/src/fdai/core/measurement/prompt_probe.py` - 네 개의 typed
   입력/출력 dataclass (`RequiredField`, `ExpectedResponse`,
   `CitationScores`, `RecognitionResult`)와 네 개의 순수 evaluator:
   `evaluate_adherence` (JSON 유효성 + 필드별 존재/타입/비-empty를
@@ -914,7 +914,7 @@ Wave 3 step D-2b-ii-alpha는 배치 스코어링과 라이브 시나리오 실�
 런타임 API를 전달합니다. Catalog-as-code YAML 형식, CLI, 대시보드
 emission은 ``beta`` / ``gamma`` 서브 스텝에서 랜딩합니다.
 
-- `src/fdai/core/measurement/prompt_probe_runner.py` -
+- `services/core-control-plane/src/fdai/core/measurement/prompt_probe_runner.py` -
   `RecognitionSample` (composed prompt + response + expected),
   `RecognitionRunReport` (per-sample 결과 + KPI 요약을 한 번들에),
   `RecognitionScenario` (조립 가능한 spec: capability id + 선택적
@@ -951,7 +951,7 @@ Wave 3 step D-2b-ii-beta는 recognition-probe surface의 catalog-as-code
   하나 필요.
 - `rule-catalog/prompts/scenarios/README.md` - prompts + tools
   서브시스템 README를 미러링한 디렉토리 계약.
-- `src/fdai/core/measurement/prompt_probe_loader.py` -
+- `services/core-control-plane/src/fdai/core/measurement/prompt_probe_loader.py` -
   prompts와 tools registry와 동일한 aggregate-error surface를 가진
   `load_scenarios(catalog_root) -> tuple[RecognitionScenario, ...]`.
   빈 catalog가 legal이므로 fork는 첫 시나리오를 저작하기 전에 seam을
@@ -966,7 +966,7 @@ Wave 3 step D-2b-ii-gamma-1은 `RecognitionRunReport`를 target-neutral
 metric row 리스트로 변환하는 순수 KPI row emitter를 랜딩합니다. Step
 gamma-2가 CLI를 wire하여 이 rows를 소비합니다.
 
-- `src/fdai/core/measurement/prompt_probe_emit.py` -
+- `services/core-control-plane/src/fdai/core/measurement/prompt_probe_emit.py` -
   `KpiRow(metric, value, unit, dimensions)` + `RowUnit` enum
   (`ratio`, `count`) + 5개 metric 이름 상수
   (`prompt.recognition.sample_count`,
@@ -1001,7 +1001,7 @@ recognition-probe 챕터를 마무리합니다. Recognition metric 이름을
 명명하는 대시보드 panel은 후속 문서 편집에서 P0 KPI dashboard와 함께
 랜딩합니다. 이 step은 런타임에 집중합니다.
 
-- `src/fdai/core/measurement/prompt_probe_testing.py` -
+- `services/core-control-plane/src/fdai/core/measurement/prompt_probe_testing.py` -
   `AbstainResponder`는 매 호출마다 canned `hil.escalate` JSON action을
   반환하므로 upstream CLI가 live model 없이 smoke-run 가능하며,
   `RecordingResponder`는 queue에서 canned answer를 pop하면서
@@ -1011,7 +1011,7 @@ recognition-probe 챕터를 마무리합니다. Recognition metric 이름을
   직렬화하므로 모든 `respond` 호출은 byte-identical text를 반환합니다.
   시간에 따라 응답을 비교하는 shadow run이 허위 variation을 보지
   않습니다.
-- `src/fdai/core/measurement/prompt_probe_cli.py` -
+- `services/core-control-plane/src/fdai/core/measurement/prompt_probe_cli.py` -
   `run_from_catalog(catalog_root, responder)`가
   `FileSystemPromptRegistry` + `DefaultPromptComposer`를 wire하고
   `load_scenarios(catalog_root)`를 호출한 후 `run_scenarios`에
@@ -1036,7 +1036,7 @@ orchestration합니다. 이 alpha step은 의도적으로 dormant이므로 타�
 evaluator가 현재 T2 흐름에 위험 없이 fork-authored probe와 미래
 orchestrator 코드에서 소비 가능합니다.
 
-- `src/fdai/core/quality_gate/critic.py` -
+- `services/core-control-plane/src/fdai/core/quality_gate/critic.py` -
   `CriticStance` (`agree` / `challenge` / `abstain`),
   `CriticSeverity` (`low` / `medium` / `high`),
   `CriticObjection` (blank citation 또는 description을 거부하는
@@ -1084,7 +1084,7 @@ Wave 4 beta-1은 Azure OpenAI를 상대로 실제 Critic 호출을 하는 Azure
 않습니다. Wave 4 beta-2가 `llm-registry.yaml`에 `t2.critic` capability
 엔트리를 추가하고 어댑터를 composition root로 threading합니다.
 
-- `src/fdai/delivery/azure/llm/critic.py` -
+- `services/core-control-plane/src/fdai/delivery/azure/llm/critic.py` -
   `AzureOpenAICriticModelConfig` (endpoint, deployment, **required**
   `system_prompt`, api_version, temperature, max_tokens,
   timeout_seconds) + `AzureOpenAICriticModel`의 단일 async
@@ -1117,7 +1117,7 @@ Wave 4 beta-1은 Azure OpenAI를 상대로 실제 Critic 호출을 하는 Azure
 - `CriticObjection.__post_init__`가 두 번째 방어선 - 파서가 whitespace-
   only description을 놓쳐도 dataclass가 객체가 어댑터를 escape하기
   전에 `ValueError`를 raise합니다.
-- `tests/delivery/azure/llm/test_critic.py`가 6개 config 검증 경로 +
+- `services/core-control-plane/tests/delivery/azure/llm/test_critic.py`가 6개 config 검증 경로 +
   4개 성공 파싱 + 10개 fail-closed 파싱 + HTTP status 전파를
   커버합니다. `httpx.MockTransport`를 사용하므로 live network 불필요.
 - `delivery/azure/llm/__init__.py`에서 cross-check 어댑터와 함께
@@ -1148,7 +1148,7 @@ pre-Wave-4 shape 유지; capability를 resolve하는 fork는
   degrade하고 `critic_prompt_missing` 구조화 로그를 emit하여
   deployment가 이유를 grep 가능. 성공 시 기존 `prompt_composed`
   엔트리와 함께 `critic_prompt_composed` emit.
-- `tests/test_composition_llm.py`의 세 테스트가 three-way 매트릭스 pin:
+- `services/core-control-plane/tests/test_composition_llm.py`의 세 테스트가 three-way 매트릭스 pin:
   (capability + prompt) → 바인딩, (capability만) → None, (prompt만,
   capability 없음) → None.
 
@@ -1160,7 +1160,7 @@ seed를 랜딩합니다 - Critic Wave 4 alpha slice를 미러링. Judge는
 orchestrator 설계 준수; tier 하락이 Proposer / Critic 쌍이 비쌀 때도
 Judge의 per-event 비용을 bound.
 
-- `src/fdai/core/quality_gate/judge.py` -
+- `services/core-control-plane/src/fdai/core/quality_gate/judge.py` -
   `JudgeDecision` (`accept` / `revise_and_retry` /
   `escalate_hil`), `JudgeOutput` (blank justification을 거부하는
   `__post_init__`을 가진 frozen dataclass),
@@ -1190,7 +1190,7 @@ Judge의 per-event 비용을 bound.
 Wave 4.5 beta는 Azure Judge 어댑터를 랜딩; Wave 4 beta-1 shape을
 미러링.
 
-- `src/fdai/delivery/azure/llm/judge.py` -
+- `services/core-control-plane/src/fdai/delivery/azure/llm/judge.py` -
   `AzureOpenAIJudgeModelConfig` (endpoint, deployment,
   **required** `system_prompt`, api_version, temperature,
   max_tokens, timeout_seconds) + `AzureOpenAIJudgeModel`의 단일
@@ -1206,7 +1206,7 @@ Wave 4.5 beta는 Azure Judge 어댑터를 랜딩; Wave 4 beta-1 shape을
   non-array `citations`, non-string citation entry - 모두
   `RuntimeError` raise. `JudgeOutput.__post_init__`이 blank
   justification을 두 번째 방어선으로 catch.
-- `tests/delivery/azure/llm/test_judge.py`의 20개 테스트가
+- `services/core-control-plane/tests/delivery/azure/llm/test_judge.py`의 20개 테스트가
   `httpx.MockTransport`로 6개 config 검증 + 4개 성공 파싱 + 10개
   fail-closed 파싱 커버.
 - 아직 composition root에 wire되지 않음; Wave 4.5 gamma가
@@ -1221,7 +1221,7 @@ candidate 주변에서 Critic과 Judge를 조율. 이것이 `core/`에서 Wave 4
 챕터를 닫음; Wave 4.5 delta가 orchestrator를 live `QualityGate`에
 wire.
 
-- `src/fdai/core/quality_gate/debate.py` -
+- `services/core-control-plane/src/fdai/core/quality_gate/debate.py` -
   `DebateOrchestrator(*, critic, judge, config=None)`;
   `DebateOrchestratorConfig(max_rounds=1)`이 Wave 4.5에서
   `[0, 1]` 밖의 값을 거부하는 strict `__post_init__`을 가짐 (나중에
@@ -1250,7 +1250,7 @@ wire.
   debate transcript (Critic output, Judge output, previous-round
   verdicts)가 `DebateOutcome`에 threading되어 audit log가 debate가
   얼마나 진행됐는지 정확히 표시 가능.
-- `tests/quality_gate/test_debate.py`의 14개 테스트가 커버: config
+- `services/core-control-plane/tests/quality_gate/test_debate.py`의 14개 테스트가 커버: config
   검증 (2), retry-argument-required (1), Round-1 happy path +
   Critic ABORT short-circuit + Critic ABSTAIN short-circuit + Judge
   escalate (4), retry round + max_rounds=0 refusal + retry Critic
@@ -1282,7 +1282,7 @@ model 모두 바인딩되면 `DebateOrchestrator`를 자동 생성합니다. Con
   조립하되 `LookupError`-graceful degradation (Critic 경로 미러링):
   성공 시 `judge_prompt_composed`, catalog에 Judge base prompt가 없으면
   `judge_prompt_missing` emit.
-- `tests/test_composition_llm.py`의 다섯 테스트가 four-way 매트릭스와
+- `services/core-control-plane/tests/test_composition_llm.py`의 다섯 테스트가 four-way 매트릭스와
   수동 생성 rejection pin: (a) 두 capability + 두 prompt -> orchestrator
   생성; (b) judge cap만 -> orchestrator None; (c) critic cap만 ->
   orchestrator None; (d) 두 cap 있지만 judge prompt 없음 -> orchestrator
@@ -1301,7 +1301,7 @@ Wave 4.5 delta-2a는 Wave 4.5 delta-2b가 live `QualityGate`에 wire할
 exercise 가능하고, 어떤 event가 실제로 debate를 통과하기 전에 promotion
 gate가 signal을 수집할 수 있음.
 
-- `src/fdai/core/quality_gate/debate_router.py` -
+- `services/core-control-plane/src/fdai/core/quality_gate/debate_router.py` -
   `DebateRoute` (`debate` / `skip`) enum,
   `DebateRoutingDecision` (route + reason + snapshot된
   ``action_type`` + metadata) frozen dataclass,
@@ -1329,7 +1329,7 @@ gate가 signal을 수집할 수 있음.
 - `core/`-safe 유지: `fdai.core.quality_gate.gate`와 stdlib
   에서만 import; `delivery.*` 또는 LLM SDK 없음.
   `scripts/quality/architecture/check-core-imports.sh`가 계속 통과.
-- `tests/quality_gate/test_debate_router.py`의 11개 테스트가 모든
+- `services/core-control-plane/tests/quality_gate/test_debate_router.py`의 11개 테스트가 모든
   precedence rule + config의 overlap validator + `action_type`
   snapshot (미래의 ActionType 이름 변경이 과거 audit entry를 절대
   깨지 않음) 커버.
@@ -1378,7 +1378,7 @@ historical shape을 유지하므로 모든 기존 `QualityGate` caller가 동작
   decide_debate_route`)가 `evaluate()` 내부에 위치하여 module-level
   cycle을 break (`debate`와 `debate_router` 둘 다 `gate`에서
   `QualityCandidate`를 import).
-- `tests/core/quality_gate/test_gate.py`의 7개 테스트가 커버:
+- `services/core-control-plane/tests/core/quality_gate/test_gate.py`의 7개 테스트가 커버:
   half-wiring rejection (2), `PROCEED` -> `ELIGIBLE` (1),
   Critic HIGH-severity에서 `ABORT`가 `DISAGREE` 유지 (1), router
   killswitch가 orchestrator 호출 방지 (1), `PROCEED` + low-confidence가
@@ -1393,7 +1393,7 @@ Protocol, 기본 비활성 fake, sanitizer 방어. 이후 검토된 Azure Respon
 adapter와 Operator API chat wiring이 배포됐고 core T2 prompt composition은
 아직 이 seam에서 멈춥니다.
 
-- `src/fdai/core/web_search/types.py` -
+- `services/core-control-plane/src/fdai/core/web_search/types.py` -
   `WebSearchQuery` (`__post_init__`가 blank text, zero max_results,
   zero budget_ms를 거부하는 frozen dataclass; caller가 공급하는
   `allowed_domains` tuple + `metadata`),
@@ -1403,14 +1403,14 @@ adapter와 Operator API chat wiring이 배포됐고 core T2 prompt composition�
   `WebSearchResult` (originating query, retrieved snippet,
   audit-friendly `reasons` tuple을 운반하는 frozen envelope -
   operator가 검색이 왜 degrade했는지 볼 수 있게).
-- `src/fdai/core/web_search/provider.py` -
+- `services/core-control-plane/src/fdai/core/web_search/provider.py` -
   하나의 async `search(query) -> WebSearchResult` 메서드를 가진
   `WebSearchProvider` `@runtime_checkable` Protocol (API 키 같은
   비밀은 어댑터 생성자에 유지, Protocol surface 밖에), 그리고
   `NoOpWebSearchProvider` - 모든 쿼리에서 `snippets=()` +
   `reasons=("no_op_provider",)`을 반환하는 배포된 deny-by-default
   fake.
-- `src/fdai/core/web_search/sanitizer.py` -
+- `services/core-control-plane/src/fdai/core/web_search/sanitizer.py` -
   구조화된 코드 (`off_allowlist`, `empty_allowlist`,
   `injection_markers_detected`)를 가진 `WebSnippetPolicyError`,
   operator-memory marker 리스트를 재사용하는
@@ -1425,7 +1425,7 @@ adapter와 Operator API chat wiring이 배포됐고 core T2 prompt composition�
 - `core/`-safe 유지: stdlib과 `fdai.core.operator_memory.sanitizer`
   (공유 marker 리스트용)에서만 import. LLM SDK 없음, `delivery.*`
   없음. `scripts/quality/architecture/check-core-imports.sh` 계속 통과.
-- `tests/core/web_search/test_web_search.py`의 19개 테스트가 모든
+- `services/core-control-plane/tests/core/web_search/test_web_search.py`의 19개 테스트가 모든
   constructor invariant (4 + 3), NoOp provider 동작 + Protocol
   runtime-check (2), 도메인 allowlist 강제 (3), injection 탐지 (2),
   `wrap_web_snippet` (5 - body + url XML-escape, off-allowlist
