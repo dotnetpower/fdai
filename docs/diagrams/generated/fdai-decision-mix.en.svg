@@ -282,15 +282,30 @@
       filter: url(#label-shadow); stroke-width: 1.5;
     }
     svg[data-kind="kanban"] .diagram-group > .group-surface {
-      fill: var(--fdai-diagram-neutral-header); fill-opacity: 0.62;
-      stroke: none;
+      fill: var(--fdai-diagram-surface); fill-opacity: 0.72;
+      stroke: var(--fdai-diagram-border); filter: url(#group-shadow);
     }
     svg[data-kind="kanban"] .diagram-group > .group-header {
-      fill: transparent;
+      fill: var(--fdai-diagram-neutral-header); opacity: 0.76;
+    }
+    svg[data-kind="kanban"] .group-accent { display: none; }
+    svg[data-kind="kanban"] .kanban-header-divider {
+      stroke: var(--fdai-diagram-border); stroke-width: 1;
+    }
+    svg[data-kind="kanban"] .kanban-count circle {
+      fill: var(--fdai-diagram-surface); stroke: var(--fdai-diagram-border-strong);
+      stroke-width: 1;
+    }
+    svg[data-kind="kanban"] .kanban-count text {
+      fill: var(--fdai-diagram-muted); font-size: 11px; font-weight: 700;
+      text-anchor: middle;
     }
     svg[data-kind="kanban"] .diagram-node > .node-surface {
-      fill: var(--fdai-diagram-surface); stroke: var(--fdai-diagram-border);
-      filter: url(#node-shadow);
+      fill: var(--fdai-diagram-surface); stroke: var(--fdai-diagram-border-strong);
+      filter: url(#label-shadow);
+    }
+    svg[data-kind="kanban"] .diagram-node .node-label {
+      font-weight: 650;
     }
     svg[data-kind="sankey"] .diagram-edge > .edge-path {
       opacity: 0.52; stroke-linecap: butt;
@@ -310,5 +325,5 @@
   <rect class="diagram-background" width="1096" height="852" fill="var(--fdai-diagram-canvas, #faf9f8)"/>
   <text class="diagram-title" x="48" y="45">FDAI decision mix</text>
   <text class="diagram-subtitle" x="48" y="72">The decision workload is divided into deterministic rules, verified reuse, and grounded reasoning.</text>
-  <g data-diagram-viewport=""><g class="chart-backdrop donut-center" aria-hidden="true"><circle class="donut-center-ring" cx="548" cy="472" r="54"/><text class="donut-total" x="548" y="469" text-anchor="middle">100</text><text class="donut-caption" x="548" y="491" text-anchor="middle">TOTAL</text></g><g class="diagram-node node-process" data-node-id="deterministic-rules" data-presentation="card" data-shape="pie-slice" data-tone="neutral" data-palette-index="0" transform="translate(48 112)" role="button" tabindex="0" aria-label="Rules 62%. Rules 62%"><path class="chart-leader" d="M691.191798346173 435.69818801765575 L747.4246802126944 457.96236096402504" aria-hidden="true"/><path class="node-surface" d="M500 158.39999999999998 A201.60000000000002 201.60000000000002 0 1 1 361.99530344477637 506.96007528815653 L422.7173699290747 442.29764216136766 A112.89600000000003 112.89600000000003 0 1 0 500 247.10399999999998 Z"/><text class="node-label" x="747.4246802126944" y="463.912360964025" text-anchor="middle"><tspan x="747.4246802126944" dy="0">Rules 62%</tspan></text></g><g class="diagram-node node-process" data-node-id="verified-reuse" data-presentation="card" data-shape="pie-slice" data-tone="neutral" data-palette-index="1" transform="translate(48 112)" role="button" tabindex="0" aria-label="Reuse 25%. Reuse 25%"><path class="chart-leader" d="M294.4694669788738 366.45905721075366 L234.0193102079544 368.35877991979885" aria-hidden="true"/><path class="node-surface" d="M361.99530344477637 506.96007528815653 A201.60000000000002 201.60000000000002 0 0 1 353.0399247118434 221.99530344477634 L417.7023578386323 282.7173699290747 A112.89600000000003 112.89600000000003 0 0 0 422.7173699290747 442.29764216136766 Z"/><text class="node-label" x="234.0193102079544" y="374.30877991979884" text-anchor="middle"><tspan x="234.0193102079544" dy="0">Reuse 25%</tspan></text></g><g class="diagram-node node-process" data-node-id="grounded-reasoning" data-presentation="card" data-shape="pie-slice" data-tone="neutral" data-palette-index="2" transform="translate(48 112)" role="button" tabindex="0" aria-label="Reasoning 13%. Reasoning 13%"><path class="chart-leader" d="M418.33368495298885 171.28028081135153 L394.31418052739735 115.77448104998436" aria-hidden="true"/><path class="node-surface" d="M353.0399247118434 221.99530344477634 A201.60000000000002 201.60000000000002 0 0 1 499.99999999999994 158.39999999999998 L500 247.10399999999998 A112.89600000000003 112.89600000000003 0 0 0 417.7023578386323 282.7173699290747 Z"/><text class="node-label" x="394.31418052739735" y="121.72448104998436" text-anchor="middle"><tspan x="394.31418052739735" dy="0">Reasoning 13%</tspan></text></g></g>
+  <g data-diagram-viewport=""><g class="chart-backdrop donut-center" aria-hidden="true"><circle class="donut-center-ring" cx="548" cy="472" r="54"/><text class="donut-total" x="548" y="469" text-anchor="middle">100</text><text class="donut-caption" x="548" y="491" text-anchor="middle">TOTAL</text></g><g class="diagram-node node-process" data-node-id="deterministic-rules" data-presentation="card" data-shape="pie-slice" data-tone="neutral" data-palette-index="0" transform="translate(48 112)" role="button" tabindex="0" aria-label="Rules 62%. Rules 62%"><path class="chart-leader" d="M691.191798346173 435.69818801765575 L724.9315274660858 449.0566917854773" aria-hidden="true"/><path class="node-surface" d="M500 158.39999999999998 A201.60000000000002 201.60000000000002 0 1 1 361.99530344477637 506.96007528815653 L422.7173699290747 442.29764216136766 A112.89600000000003 112.89600000000003 0 1 0 500 247.10399999999998 Z"/><text class="node-label" x="822.4018560347229" y="493.5979248925175" text-anchor="middle"><tspan x="822.4018560347229" dy="0">Rules 62%</tspan></text></g><g class="diagram-node node-process" data-node-id="verified-reuse" data-presentation="card" data-shape="pie-slice" data-tone="neutral" data-palette-index="1" transform="translate(48 112)" role="button" tabindex="0" aria-label="Reuse 25%. Reuse 25%"><path class="chart-leader" d="M294.4694669788738 366.45905721075366 L258.1993729163222 367.5988908361808" aria-hidden="true"/><path class="node-surface" d="M361.99530344477637 506.96007528815653 A201.60000000000002 201.60000000000002 0 0 1 353.0399247118434 221.99530344477634 L417.7023578386323 282.7173699290747 A112.89600000000003 112.89600000000003 0 0 0 422.7173699290747 442.29764216136766 Z"/><text class="node-label" x="153.41910118006183" y="376.8417435318591" text-anchor="middle"><tspan x="153.41910118006183" dy="0">Reuse 25%</tspan></text></g><g class="diagram-node node-process" data-node-id="grounded-reasoning" data-presentation="card" data-shape="pie-slice" data-tone="neutral" data-palette-index="2" transform="translate(48 112)" role="button" tabindex="0" aria-label="Reasoning 13%. Reasoning 13%"><path class="chart-leader" d="M418.33368495298885 171.28028081135153 L403.9219822976339 137.97680095453123" aria-hidden="true"/><path class="node-surface" d="M353.0399247118434 221.99530344477634 A201.60000000000002 201.60000000000002 0 0 1 499.99999999999994 158.39999999999998 L500 247.10399999999998 A112.89600000000003 112.89600000000003 0 0 0 417.7023578386323 282.7173699290747 Z"/><text class="node-label" x="362.2881746266087" y="47.71674803482814" text-anchor="middle"><tspan x="362.2881746266087" dy="0">Reasoning 13%</tspan></text></g></g>
 </svg>

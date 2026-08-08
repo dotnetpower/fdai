@@ -237,7 +237,7 @@ edges:
     to: read-only-console
     kind: read
     label: { en: audited projection, ko: 감사 projection }
-    route: orthogonal-shortest
+    route: orthogonal-outer
 legend:
   - kind: event
     label: { en: Asynchronous event, ko: 비동기 이벤트 }

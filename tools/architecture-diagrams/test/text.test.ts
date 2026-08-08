@@ -89,6 +89,17 @@ test("explicit node width overrides the presentation default", () => {
   assert.equal(geometry.width, 100);
 });
 
+test("simple cards widen before wrapping a short bilingual label", () => {
+  const geometry = nodeGeometry({
+    id: "remediation",
+    kind: "service",
+    label: { en: "Remediation pull request", ko: "수정 pull request" },
+  });
+
+  assert.ok(geometry.width > 148);
+  assert.equal(wrapText("수정 pull request", geometry.maxLabelUnits).length, 1);
+});
+
 test("node geometry expands for localized body content", () => {
   const geometry = nodeGeometry({
     id: "process",

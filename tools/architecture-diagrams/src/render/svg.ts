@@ -284,7 +284,9 @@ async function renderNode(
   const x = externalBarLabel ? shape.labelX! : shape.x + shape.width / 2;
   const labelLines = wrapText(
     node.label[locale],
-    barShape || centeredChartNode
+    externalBarLabel
+      ? Math.max(4, shape.labelWidth! / nodeFontSize)
+      : barShape || centeredChartNode
       ? Math.max(4, (shape.width - 16) / nodeFontSize)
       : geometry.maxLabelUnits,
   );
@@ -637,7 +639,11 @@ export async function renderSvg(
       const accent = compact
         ? ""
         : `<line class="group-accent" x1="${shape.x + offsetX + 18}" y1="${shape.y + offsetY + 39}" x2="${shape.x + offsetX + 66}" y2="${shape.y + offsetY + 39}" aria-hidden="true"/>`;
-      return `<g class="diagram-group group-${group.kind}" data-group-id="${group.id}" data-depth="${shape.depth}" data-presentation="${presentation}" role="group" aria-label="${escapeXml(group.label[locale])}"><rect class="group-surface" x="${shape.x + offsetX}" y="${shape.y + offsetY}" width="${shape.width}" height="${shape.height}" rx="${radius}"/><rect class="group-header" x="${shape.x + offsetX + 1}" y="${shape.y + offsetY + 1}" width="${Math.max(0, shape.width - 2)}" height="38" rx="${radius}"/>${accent}${textLines(groupLines, shape.x + offsetX + 18, shape.y + offsetY + 27, "group-label", compact ? 16 : 21, "start")}</g>`;
+      const itemCount = spec.nodes.filter((node) => node.parent === group.id).length;
+      const kanbanChrome = spec.kind === "kanban"
+        ? `<line class="kanban-header-divider" x1="${shape.x + offsetX + 14}" y1="${shape.y + offsetY + 42}" x2="${shape.x + offsetX + shape.width - 14}" y2="${shape.y + offsetY + 42}" aria-hidden="true"/><g class="kanban-count" transform="translate(${shape.x + offsetX + shape.width - 22} ${shape.y + offsetY + 20})" aria-hidden="true"><circle r="10"/><text y="4">${itemCount}</text></g>`
+        : "";
+      return `<g class="diagram-group group-${group.kind}" data-group-id="${group.id}" data-depth="${shape.depth}" data-presentation="${presentation}" role="group" aria-label="${escapeXml(group.label[locale])}"><rect class="group-surface" x="${shape.x + offsetX}" y="${shape.y + offsetY}" width="${shape.width}" height="${shape.height}" rx="${radius}"/><rect class="group-header" x="${shape.x + offsetX + 1}" y="${shape.y + offsetY + 1}" width="${Math.max(0, shape.width - 2)}" height="38" rx="${radius}"/>${accent}${kanbanChrome}${textLines(groupLines, shape.x + offsetX + 18, shape.y + offsetY + 27, "group-label", compact ? 16 : 21, "start")}</g>`;
     })
     .join("");
   const edges = layout.edges

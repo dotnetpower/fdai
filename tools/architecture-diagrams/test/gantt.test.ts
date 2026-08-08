@@ -37,16 +37,23 @@ function ganttSpec() {
 
 test("lays dependent Gantt tasks on a shared time axis", async () => {
   const spec = ganttSpec();
+  spec.nodes[0]!.label.ko = "의미 모델 릴리스";
   const layout = await layoutDiagram(spec);
   const design = layout.nodes.get("design")!;
   const build = layout.nodes.get("build")!;
 
   assert.ok(build.x >= design.x + design.width);
   assert.equal(design.height, 34);
+  assert.ok((design.labelWidth ?? 0) > 0);
   assert.ok(layout.groups.get("foundation")!.height > design.height);
   assert.equal(layout.edges.length, 1);
-  const svg = await renderSvg(spec, layout, "en");
+  const svg = await renderSvg(spec, layout, "ko");
   assert.match(svg, /data-node-id="design"[^>]+transform="translate\(48 112\)"/);
+  const designMarkup = svg.slice(
+    svg.indexOf('data-node-id="design"'),
+    svg.indexOf('<g class="diagram-node', svg.indexOf('data-node-id="design"') + 1),
+  );
+  assert.equal([...designMarkup.matchAll(/<tspan/g)].length, 1);
 });
 
 test("accepts an ISO date axis", async () => {

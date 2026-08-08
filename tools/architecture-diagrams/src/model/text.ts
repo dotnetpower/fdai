@@ -120,7 +120,24 @@ export function nodeGeometry(node: DiagramNode, compact = false): NodeGeometry {
     : NODE_BODY_LINE_HEIGHT;
   const iconPresentation = node.presentation === "icon";
   const databaseShape = node.shape === "database";
-  const width = node.width ?? (iconPresentation ? 116 : node.content?.length ? 220 : 148);
+  const naturalLabelWidth = Math.min(
+    220,
+    Math.max(
+      156,
+      ...(["en", "ko"] satisfies Locale[]).map(
+        (locale) => estimatedTextWidth(node.label[locale], nodeFontSize) + 28,
+      ),
+    ),
+  );
+  const width = node.width ?? (
+    iconPresentation
+      ? 116
+      : node.content?.length
+        ? 220
+        : compact
+          ? 148
+          : naturalLabelWidth
+  );
   const maxLabelUnits = (width - (iconPresentation ? 12 : 20)) / nodeFontSize;
   const maxBodyUnits = (width - 24) / bodyFontSize;
   const lineCount = maxLocaleLineCount(node.label, maxLabelUnits);

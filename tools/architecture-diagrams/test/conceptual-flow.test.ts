@@ -87,6 +87,14 @@ test("compiles the canonical conceptual control loop in both locales", async () 
     .filter((node) => node.parent === "governed-flow")
     .map((node) => layout.nodes.get(node.id)?.height);
   assert.equal(new Set(governedFlowHeights).size, 1);
+  const architectureCardHeights = [
+    "shared-context",
+    "ontology-model",
+    "rego-policy",
+    "action-catalog",
+    "execution-targets",
+  ].map((nodeId) => layout.nodes.get(nodeId)?.height);
+  assert.equal(new Set(architectureCardHeights).size, 1);
   const artifacts = await compileDiagram(spec);
   const paths = artifacts.map((artifact) => artifact.path);
 

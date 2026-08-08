@@ -52,7 +52,7 @@ test("canonical overview avoids collisions while preserving direct hops", async 
   for (const [edgeId, route] of [
     ["bus-to-ingest", "orthogonal-outer"],
     ["executor-to-remediation", "orthogonal-outer"],
-    ["audit-to-console", "orthogonal-shortest"],
+    ["audit-to-console", "orthogonal-outer"],
   ] as const) {
     const match = svg.match(
       new RegExp(`data-edge-id="${edgeId}"[\\s\\S]*?<path class="edge-path" d="([^"]+)"`),

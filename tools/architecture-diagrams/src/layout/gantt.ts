@@ -128,6 +128,7 @@ export function layoutGantt(spec: DiagramSpec): DiagramLayout {
         depth: sectionId === "root" ? 0 : 1,
         labelX: padding + groupPadding,
         labelY: contentY + index * (rowHeight + rowGap) + rowHeight / 2,
+        labelWidth: labelWidth - 20,
       });
     });
     y += sectionHeight + groupGap;

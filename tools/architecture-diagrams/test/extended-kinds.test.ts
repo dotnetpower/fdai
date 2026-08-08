@@ -31,6 +31,13 @@ test("pie strategy produces distinct arc paths and themed slices", async () => {
   ]);
   const layout = await layoutDiagram(spec);
   assert.equal(new Set([...layout.nodes.values()].map((node) => node.path)).size, 3);
+  const rules = layout.nodes.get("rules")!;
+  const leaderEnd = rules.leader!.match(/L([\d.]+) ([\d.]+)$/);
+  assert.ok(leaderEnd);
+  assert.ok(Math.hypot(
+    Number(leaderEnd[1]) - (rules.x + rules.width / 2),
+    Number(leaderEnd[2]) - (rules.y + rules.height / 2),
+  ) > 50);
   assertLayoutIntegrity(spec, layout);
   const svg = await renderSvg(spec, layout, "ko");
   assert.match(svg, /data-shape="pie-slice"/);
@@ -60,12 +67,17 @@ test("grid strategy creates stable Kanban columns", async () => {
     ],
     nodes: [
       { id: "proposal", parent: "queued", kind: "process", label: { en: "Proposal", ko: "제안" } },
+      { id: "review", parent: "queued", kind: "process", label: { en: "Review", ko: "검토" } },
       { id: "validation", parent: "doing", kind: "process", label: { en: "Validation", ko: "검증" } },
     ],
   });
   const layout = await layoutDiagram(spec);
   assert.ok(layout.groups.get("doing")!.x > layout.groups.get("queued")!.x);
+  assert.equal(layout.groups.get("doing")!.height, layout.groups.get("queued")!.height);
   assertLayoutIntegrity(spec, layout);
+  const svg = await renderSvg(spec, layout, "ko");
+  assert.match(svg, /class="kanban-count"/);
+  assert.match(svg, /class="kanban-header-divider"/);
 });
 
 test("radar strategy scales points by value", async () => {

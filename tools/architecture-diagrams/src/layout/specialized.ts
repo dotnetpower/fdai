@@ -86,7 +86,8 @@ function pieLayout(spec: DiagramSpec): DiagramLayout {
     const largeArc = sweep > Math.PI ? 1 : 0;
     const middleAngle = angle + sweep / 2;
     const leaderStart = polarPoint(centerX, centerY, radius * 1.02, middleAngle);
-    const labelCenter = polarPoint(centerX, centerY, radius * 1.32, middleAngle);
+    const leaderEnd = polarPoint(centerX, centerY, radius * 1.2, middleAngle);
+    const labelCenter = polarPoint(centerX, centerY, radius * 1.72, middleAngle);
     nodes.set(node.id, {
       id: node.id,
       x: labelCenter.x - 74,
@@ -95,7 +96,7 @@ function pieLayout(spec: DiagramSpec): DiagramLayout {
       height: 40,
       depth: 0,
       path: `M${start.x} ${start.y} A${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y} L${innerEnd.x} ${innerEnd.y} A${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${innerStart.x} ${innerStart.y} Z`,
-      leader: `M${leaderStart.x} ${leaderStart.y} L${labelCenter.x} ${labelCenter.y}`,
+      leader: `M${leaderStart.x} ${leaderStart.y} L${leaderEnd.x} ${leaderEnd.y}`,
       paletteIndex: index,
     });
     angle = nextAngle;
@@ -149,11 +150,16 @@ export function layoutGrid(spec: DiagramSpec): DiagramLayout {
     ...spec.nodes.map((node) => (node.column ?? 0) + 1),
   );
   const columnWidth = (spec.canvas.width - padding * 2 - gap * (columnCount - 1)) / columnCount;
+  const laneHeight = Math.max(
+    180,
+    64 + Math.max(0, ...rootGroups.map((group) =>
+      spec.nodes.filter((node) => node.parent === group.id).length,
+    )) * 88,
+  );
   rootGroups.forEach((group, groupIndex) => {
     const x = padding + groupIndex * (columnWidth + gap);
     const tasks = spec.nodes.filter((node) => node.parent === group.id);
-    const height = Math.max(180, 64 + tasks.length * 88);
-    groups.set(group.id, { id: group.id, x, y: padding, width: columnWidth, height, depth: 0 });
+    groups.set(group.id, { id: group.id, x, y: padding, width: columnWidth, height: laneHeight, depth: 0 });
     tasks.forEach((node, index) => {
       nodes.set(node.id, {
         id: node.id,

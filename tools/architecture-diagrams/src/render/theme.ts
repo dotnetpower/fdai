@@ -329,15 +329,30 @@ export function calmSlateFoundationCss(): string {
       filter: url(#label-shadow); stroke-width: 1.5;
     }
     svg[data-kind="kanban"] .diagram-group > .group-surface {
-      fill: var(--fdai-diagram-neutral-header); fill-opacity: 0.62;
-      stroke: none;
+      fill: var(--fdai-diagram-surface); fill-opacity: 0.72;
+      stroke: var(--fdai-diagram-border); filter: url(#group-shadow);
     }
     svg[data-kind="kanban"] .diagram-group > .group-header {
-      fill: transparent;
+      fill: var(--fdai-diagram-neutral-header); opacity: 0.76;
+    }
+    svg[data-kind="kanban"] .group-accent { display: none; }
+    svg[data-kind="kanban"] .kanban-header-divider {
+      stroke: var(--fdai-diagram-border); stroke-width: 1;
+    }
+    svg[data-kind="kanban"] .kanban-count circle {
+      fill: var(--fdai-diagram-surface); stroke: var(--fdai-diagram-border-strong);
+      stroke-width: 1;
+    }
+    svg[data-kind="kanban"] .kanban-count text {
+      fill: var(--fdai-diagram-muted); font-size: 11px; font-weight: 700;
+      text-anchor: middle;
     }
     svg[data-kind="kanban"] .diagram-node > .node-surface {
-      fill: var(--fdai-diagram-surface); stroke: var(--fdai-diagram-border);
-      filter: url(#node-shadow);
+      fill: var(--fdai-diagram-surface); stroke: var(--fdai-diagram-border-strong);
+      filter: url(#label-shadow);
+    }
+    svg[data-kind="kanban"] .diagram-node .node-label {
+      font-weight: 650;
     }
     svg[data-kind="sankey"] .diagram-edge > .edge-path {
       opacity: 0.52; stroke-linecap: butt;

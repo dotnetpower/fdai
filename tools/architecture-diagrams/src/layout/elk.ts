@@ -33,6 +33,7 @@ export interface PositionedShape {
   paletteIndex?: number;
   labelX?: number;
   labelY?: number;
+  labelWidth?: number;
   leader?: string;
 }
 
@@ -234,15 +235,29 @@ function childrenForGroup(
   spec: DiagramSpec,
   group: DiagramGroup,
   containedEdges: Map<string, ElkExtendedEdge[]>,
+  directNodeHeight?: number,
 ): ElkNode[] {
-  const childGroups = spec.groups
-    .filter((candidate) => candidate.parent === group.id)
-    .map((candidate) => groupToElk(spec, candidate, containedEdges));
-  const childNodeSpecs = spec.nodes.filter((node) => node.parent === group.id);
   const compact = spec.canvas.profile === "azure-reference";
-  const equalizedHeight = !compact && group.layout === "row" && childNodeSpecs.length > 1
-    ? Math.max(...childNodeSpecs.map((node) => nodeGeometry(node, compact).height))
+  const childGroupSpecs = spec.groups.filter((candidate) => candidate.parent === group.id);
+  const peerNodeSpecs = childGroupSpecs.flatMap((candidate) => {
+    const directNodes = spec.nodes.filter((node) => node.parent === candidate.id);
+    return directNodes.length === 1 ? directNodes : [];
+  });
+  const peerNodeHeight = !compact &&
+    group.layout === "row" &&
+    childGroupSpecs.length > 1 &&
+    peerNodeSpecs.length === childGroupSpecs.length
+    ? Math.max(...peerNodeSpecs.map((node) => nodeGeometry(node, compact).height))
     : undefined;
+  const childGroups = childGroupSpecs.map((candidate) =>
+    groupToElk(spec, candidate, containedEdges, peerNodeHeight),
+  );
+  const childNodeSpecs = spec.nodes.filter((node) => node.parent === group.id);
+  const equalizedHeight = directNodeHeight ?? (
+    !compact && group.layout === "row" && childNodeSpecs.length > 1
+    ? Math.max(...childNodeSpecs.map((node) => nodeGeometry(node, compact).height))
+    : undefined
+  );
   const childNodes = childNodeSpecs.map((node) =>
     diagramNodeToElk(node, compact, equalizedHeight),
   );
@@ -253,13 +268,14 @@ function groupToElk(
   spec: DiagramSpec,
   group: DiagramGroup,
   containedEdges: Map<string, ElkExtendedEdge[]>,
+  directNodeHeight?: number,
 ): ElkNode {
   const edges = containedEdges.get(group.id);
   const compact = spec.canvas.profile === "azure-reference";
   const definition = diagramDefinition(spec.kind);
   return {
     id: group.id,
-    children: childrenForGroup(spec, group, containedEdges),
+    children: childrenForGroup(spec, group, containedEdges, directNodeHeight),
     ...(edges?.length ? { edges } : {}),
     layoutOptions: {
       "elk.algorithm": "layered",
