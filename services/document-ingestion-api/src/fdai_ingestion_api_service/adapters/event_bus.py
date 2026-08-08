@@ -60,8 +60,11 @@ class EventHubsKafkaPublisher:
         adapter = "event-hubs-kafka-publisher"
         producer: AIOKafkaProducer | None = None
         try:
-            producer = await asyncio.wait_for(self._get_producer(), timeout=5.0)
-            await asyncio.wait_for(producer.client.fetch_all_metadata(), timeout=5.0)
+            active_producer: AIOKafkaProducer = await asyncio.wait_for(
+                self._get_producer(), timeout=5.0
+            )
+            producer = active_producer
+            await asyncio.wait_for(active_producer.client.fetch_all_metadata(), timeout=5.0)
         except TimeoutError:
             if producer is not None:
                 await self._discard_producer(producer)

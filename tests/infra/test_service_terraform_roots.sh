@@ -103,6 +103,11 @@ done
 worker_main="$services_root/document-processing-worker/modules/document-processing-worker/main.tf"
 rg -Fq '{ name = "FDAI_INGESTION_WORKER_HEALTH_PORT", value = tostring(var.health.port) }' \
   "$worker_main"
+rg -Fq '{ name = "FDAI_CLAMAV_HOST", value = var.clamav.host }' "$worker_main"
+rg -Fq '{ name = "FDAI_CLAMAV_PORT", value = tostring(var.clamav.port) }' "$worker_main"
+rg -q 'name[[:space:]]*=[[:space:]]*"clamav"' "$worker_main"
+rg -q 'image[[:space:]]*=[[:space:]]*var\.clamav\.image' "$worker_main"
+rg -q 'transport[[:space:]]*=[[:space:]]*"TCP"' "$worker_main"
 ! rg -Fq '{ name = "FDAI_HEALTH_PORT"' "$worker_main"
 executor_main="$services_root/isolated-executor/modules/isolated-executor/main.tf"
 rg -Fq '{ name = "FDAI_ISOLATED_EXECUTOR_DEPLOYED", value = "1" }' "$executor_main"
@@ -119,6 +124,20 @@ test "$container_app_declarations" -eq 1 || {
   echo "expected exactly one shared Container App renderer, got $container_app_declarations" >&2
   exit 1
 }
+
+shared_container_app="$services_root/_modules/container-app"
+rg -q 'variable[[:space:]]+"sidecars"' "$shared_container_app/variables.tf"
+rg -q 'dynamic[[:space:]]+"container"' "$shared_container_app/main.tf"
+rg -Fq 'var.health.liveness_path != var.health.readiness_path' \
+  "$shared_container_app/main.tf"
+
+rg -Fq 'liveness_path = "/live"' "$services_root/operator-service/variables.tf"
+rg -Fq 'readiness_path = "/ready"' "$services_root/operator-service/variables.tf"
+rg -Fq 'liveness_path = "/live"' "$services_root/document-ingestion-api/variables.tf"
+rg -Fq 'readiness_path = "/ready"' "$services_root/document-ingestion-api/variables.tf"
+rg -q 'variable[[:space:]]+"clamav"' \
+  "$services_root/document-processing-worker/variables.tf"
+rg -Fq '@sha256:' "$services_root/document-processing-worker/variables.tf"
 
 manifest="$services_root/state-migration.json"
 jq -e '.schema_version == "2.0.0"' "$manifest" >/dev/null

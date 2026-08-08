@@ -20,6 +20,10 @@ from fdai_document_worker_service.effects import (
     worker_effect_id,
 )
 from fdai_document_worker_service.processing import DocumentIngestionWorker
+from fdai_document_worker_service.production import (
+    ProductionConfigurationError as WorkerProductionConfigurationError,
+)
+from fdai_document_worker_service.production import build_runtime as build_worker_runtime
 from fdai_document_worker_service.state_machine import (
     InvalidDocumentTransitionError as InvalidWorkerTransitionError,
 )
@@ -69,6 +73,25 @@ from fdai_service_contracts import (
 )
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
+
+
+def test_worker_production_requires_explicit_clamav_endpoint() -> None:
+    environment = {
+        "FDAI_DATABASE_URL": "postgresql://example.invalid/fdai",
+        "FDAI_DATABASE_ROLE": "fdai_ingestion_worker",
+        "FDAI_INGESTION_DEPLOYMENT_ROLE": "worker",
+        "FDAI_ADLS_ACCOUNT_URL": "https://example.invalid",
+        "FDAI_EMBEDDING_ENDPOINT": "https://example.invalid",
+        "FDAI_EMBEDDING_DEPLOYMENT": "embedding",
+        "FDAI_KAFKA_BOOTSTRAP_SERVERS": "example.invalid:9093",
+        "FDAI_DOCUMENT_EVENT_TOPIC": "aw.pipeline.stages",
+    }
+
+    with pytest.raises(
+        WorkerProductionConfigurationError,
+        match="FDAI_CLAMAV_HOST, FDAI_CLAMAV_PORT",
+    ):
+        build_worker_runtime(environment)
 
 
 class MemoryMetadata:

@@ -8,6 +8,25 @@ module "container_app" {
   registry_identity_id = var.identity.resource_id
   command              = ["fdai-document-processing-worker"]
   args                 = []
+  sidecars = [{
+    name   = "clamav"
+    image  = var.clamav.image
+    cpu    = var.clamav.cpu
+    memory = var.clamav.memory
+    startup_probe = {
+      transport               = "TCP"
+      port                    = var.clamav.port
+      failure_count_threshold = 30
+    }
+    liveness_probe = {
+      transport = "TCP"
+      port      = var.clamav.port
+    }
+    readiness_probe = {
+      transport = "TCP"
+      port      = var.clamav.port
+    }
+  }]
   secrets = [{
     name                = "database-dsn"
     identity            = var.identity.resource_id
@@ -29,6 +48,8 @@ module "container_app" {
     { name = "FDAI_ADLS_SOURCE_FILE_SYSTEM", value = var.document_store.source_file_system },
     { name = "FDAI_ADLS_DERIVED_FILE_SYSTEM", value = var.document_store.derived_file_system },
     { name = "FDAI_INGESTION_WORKER_HEALTH_PORT", value = tostring(var.health.port) },
+    { name = "FDAI_CLAMAV_HOST", value = var.clamav.host },
+    { name = "FDAI_CLAMAV_PORT", value = tostring(var.clamav.port) },
   ]
   health            = var.health
   scaling           = var.scaling

@@ -1,6 +1,20 @@
 variable "name" { type = string }
 variable "platform" { type = object({ resource_group_name = string, container_app_environment_id = string, acr_login_server = string, kafka_bootstrap_servers = string }) }
 variable "image" { type = string }
+variable "clamav" {
+  type = object({
+    image  = string
+    host   = string
+    port   = number
+    cpu    = optional(number, 0.5)
+    memory = optional(string, "1Gi")
+  })
+
+  validation {
+    condition     = can(regex("@sha256:[0-9a-f]{64}$", var.clamav.image))
+    error_message = "clamav.image must be pinned by sha256 digest."
+  }
+}
 variable "identity" { type = object({ resource_id = string, client_id = string }) }
 variable "event_topics" { type = object({ pipeline_stages = string, pantheon_objects = string }) }
 variable "database" {

@@ -48,7 +48,7 @@ variable "health" {
     failure_count_threshold = optional(number, 3)
     startup_failure_count   = optional(number, 30)
   })
-  default = { port = 8000, liveness_path = "/healthz", readiness_path = "/healthz", startup_path = "/healthz" }
+  default = { port = 8000, liveness_path = "/live", readiness_path = "/ready", startup_path = "/live" }
 }
 variable "rollback" {
   description = "Revision rollback contract consumed by the deployment orchestrator."

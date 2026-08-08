@@ -61,6 +61,8 @@ _REQUIRED_ENV = (
     "FDAI_EMBEDDING_DEPLOYMENT",
     "FDAI_KAFKA_BOOTSTRAP_SERVERS",
     "FDAI_DOCUMENT_EVENT_TOPIC",
+    "FDAI_CLAMAV_HOST",
+    "FDAI_CLAMAV_PORT",
 )
 
 
@@ -159,8 +161,8 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
         objects=source_store,
         malware=ClamAvMalwareScanner(
             config=ClamAvScannerConfig(
-                host=env.get("FDAI_CLAMAV_HOST", "127.0.0.1"),
-                port=_positive_int(env, "FDAI_CLAMAV_PORT", 3310),
+                host=env["FDAI_CLAMAV_HOST"].strip(),
+                port=_positive_int(env, "FDAI_CLAMAV_PORT", 0),
                 max_stream_bytes=_positive_int(
                     env, "FDAI_DOCUMENT_MAX_FILE_SIZE", 25 * 1024 * 1024
                 ),

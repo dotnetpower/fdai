@@ -93,6 +93,54 @@ resource "azurerm_container_app" "service" {
         }
       }
     }
+
+    dynamic "container" {
+      for_each = { for sidecar in var.sidecars : sidecar.name => sidecar }
+      content {
+        name    = container.value.name
+        image   = container.value.image
+        cpu     = container.value.cpu
+        memory  = container.value.memory
+        command = container.value.command
+        args    = container.value.args
+
+        dynamic "startup_probe" {
+          for_each = container.value.startup_probe == null ? [] : [container.value.startup_probe]
+          content {
+            transport               = startup_probe.value.transport
+            port                    = startup_probe.value.port
+            path                    = startup_probe.value.path
+            interval_seconds        = startup_probe.value.interval_seconds
+            timeout                 = startup_probe.value.timeout_seconds
+            failure_count_threshold = startup_probe.value.failure_count_threshold
+          }
+        }
+
+        dynamic "liveness_probe" {
+          for_each = container.value.liveness_probe == null ? [] : [container.value.liveness_probe]
+          content {
+            transport               = liveness_probe.value.transport
+            port                    = liveness_probe.value.port
+            path                    = liveness_probe.value.path
+            interval_seconds        = liveness_probe.value.interval_seconds
+            timeout                 = liveness_probe.value.timeout_seconds
+            failure_count_threshold = liveness_probe.value.failure_count_threshold
+          }
+        }
+
+        dynamic "readiness_probe" {
+          for_each = container.value.readiness_probe == null ? [] : [container.value.readiness_probe]
+          content {
+            transport               = readiness_probe.value.transport
+            port                    = readiness_probe.value.port
+            path                    = readiness_probe.value.path
+            interval_seconds        = readiness_probe.value.interval_seconds
+            timeout                 = readiness_probe.value.timeout_seconds
+            failure_count_threshold = readiness_probe.value.failure_count_threshold
+          }
+        }
+      }
+    }
   }
 
   tags = merge(var.tags, {
@@ -108,6 +156,10 @@ resource "azurerm_container_app" "service" {
     precondition {
       condition     = startswith(var.health.liveness_path, "/") && startswith(var.health.readiness_path, "/")
       error_message = "Health paths must be absolute HTTP paths."
+    }
+    precondition {
+      condition     = var.health.liveness_path != var.health.readiness_path
+      error_message = "Liveness and readiness paths must be distinct."
     }
   }
 }
