@@ -23,9 +23,7 @@ _TRANSITIONS = MappingProxyType(
                 DocumentState.HELD,
             }
         ),
-        DocumentState.EXTRACTING: frozenset(
-            {DocumentState.INDEXING, DocumentState.FAILED}
-        ),
+        DocumentState.EXTRACTING: frozenset({DocumentState.INDEXING, DocumentState.FAILED}),
         DocumentState.INDEXING: frozenset(
             {
                 DocumentState.READY,

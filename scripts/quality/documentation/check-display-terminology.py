@@ -145,9 +145,11 @@ READER_PREFIXES = (
 CONTRACT_PREFIXES = (
     ".github/",
     "docs/roadmap/",
+    "packages/",
     "rule-catalog/",
     "scripts/",
     "security/",
+    "services/",
     "src/",
     "tests/",
 )

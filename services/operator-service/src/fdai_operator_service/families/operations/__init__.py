@@ -1,4 +1,20 @@
-"""Service-local HTTP family for bounded operational reads and proposals."""
+"""Service-local HTTP family for bounded operational reads and proposals.
+
+Responsibility:
+Expose operational projections, replay reads, and typed proposal routes.
+
+Boundary:
+Read authoritative projections and submit requests through injected ports.
+
+Authority and state:
+Perform no direct effects and own no cross-service mutable state.
+
+Dependencies:
+Use projection readers, proposal writers, replay readers, and webhook verifiers.
+
+Deployment:
+Run as a route family within the independently deployed Operator Service.
+"""
 
 from fdai_operator_service.families.operations.contracts import (
     DurableReplayReader,

@@ -34,7 +34,7 @@ set -uo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root" || exit 1
-export PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$repo_root/services/core-control-plane/src:$repo_root/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}"
 
 MODE="fast"
 PYTEST_PATH=""
@@ -181,7 +181,7 @@ run_gate_scoped "constitution" '^(\.github/|config/constitution-traceability\.js
 run_gate "design-doc-impact" python3 scripts/quality/architecture/check-design-doc-impact.py
 run_gate_scoped "fork-runtime-independence" '^(src/|config/|infra/|scripts/quality/architecture/check-fork-runtime-independence\.py$)' python3 scripts/quality/architecture/check-fork-runtime-independence.py
 run_gate_scoped "evaluation-boundaries" '^(evaluation-sdk/|src/|tests/|pyproject\.toml$|scripts/quality/architecture/check-evaluation-boundaries\.py$)' python3 scripts/quality/architecture/check-evaluation-boundaries.py
-run_gate_scoped "independent-services" '^(services/|packages/service-contracts/|tests/integration/|config/independent-services\.json$|scripts/quality/architecture/check-independent-services\.py$)' python3 scripts/quality/architecture/check-independent-services.py
+run_gate_scoped "independent-services" '^(services/|packages/service-contracts/|tests/integration/|config/independent-services\.json$|scripts/quality/architecture/check-independent-services\.py$)' uv run python scripts/quality/architecture/check-independent-services.py
 run_gate_scoped "chat-semantic-routing" '^(services/operator-service/|console/|tests/integration/|scripts/quality/architecture/check-chat-semantic-routing\.py$)' python3 scripts/quality/architecture/check-chat-semantic-routing.py
 run_gate_scoped "boundary-docstrings" '^(src/|scripts/quality/architecture/(check-boundary-docstrings\.py|\.boundary-docstring-scopes)$)' python3 scripts/quality/architecture/check-boundary-docstrings.py
 run_gate_scoped "document-size" '^(docs/roadmap/|scripts/quality/architecture/check-document-size\.py$)' python3 scripts/quality/architecture/check-document-size.py

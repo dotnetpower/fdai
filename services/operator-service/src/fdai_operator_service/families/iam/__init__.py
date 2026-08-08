@@ -1,4 +1,20 @@
-"""Service-local Starlette factory for IAM and human governance routes."""
+"""Service-local Starlette factory for IAM and human governance routes.
+
+Responsibility:
+Assemble IAM, human approval, assignment, and governance HTTP routes.
+
+Boundary:
+Validate operator identity and publish requests through injected ports.
+
+Authority and state:
+Never share executor identity, self-approve, or mutate managed resources.
+
+Dependencies:
+Use service-local route builders, redaction, directories, registries, and outboxes.
+
+Deployment:
+Run as a route family within the non-privileged Operator Service.
+"""
 
 from __future__ import annotations
 
