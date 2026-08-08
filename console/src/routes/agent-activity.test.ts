@@ -279,7 +279,7 @@ describe("entryConversation", () => {
 
 describe("otherEntryFields - nothing stored is hidden", () => {
   test("live executor row: rollback / blast_radius / resource_ref are surfaced", () => {
-    // Shape mirrors ShadowExecutor._write_audit (src/fdai/core/executor/executor.py).
+    // Shape mirrors ShadowExecutor._write_audit (services/core-control-plane/src/fdai/core/executor/executor.py).
     const item = makeItem({
       actor: "fdai.core.executor.shadow",
       action_kind: "remediate.enable-encryption",

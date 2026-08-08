@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def test_registration_replaces_existing_local_configuration() -> None:
-    script_path = Path(__file__).resolve().parents[2] / "infra" / "bootstrap" / "register-runner.sh"
+    script_path = Path(__file__).resolve().parents[3] / "infra" / "bootstrap" / "register-runner.sh"
     script = script_path.read_text(encoding="utf-8")
 
     subprocess.run(  # noqa: S603 - static repository-owned script

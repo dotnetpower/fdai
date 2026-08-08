@@ -10,7 +10,7 @@ from fdai.rule_catalog.schema.llm_resolver_cli import main
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 REGISTRY = REPO_ROOT / "rule-catalog" / "llm-registry.yaml"
-FIXTURES = REPO_ROOT / "tests" / "scenarios" / "llm"
+FIXTURES = REPO_ROOT / "services" / "core-control-plane" / "tests" / "scenarios" / "llm"
 
 
 def _base_argv(tmp_path: Path, permission: str) -> list[str]:

@@ -537,7 +537,7 @@ async def _run() -> int:
                             "Azure post-turn review requires resolved model configuration"
                         )
                     post_turn_models = build_azure_post_turn_models(
-                        repo_root=Path(__file__).resolve().parents[3],
+                        repo_root=Path(__file__).resolve().parents[5],
                         resolved_models_path=resolved_models_path,
                         endpoint=os.environ["FDAI_LLM_ENDPOINT"],
                         identity=identity,

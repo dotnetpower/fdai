@@ -36,7 +36,9 @@ def test_opa_downloads_are_bounded_and_checksum_verified() -> None:
 
 
 def test_container_opa_build_overrides_vulnerable_go_modules() -> None:
-    dockerfile = (_ROOT / "Dockerfile").read_text(encoding="utf-8")
+    dockerfile = (_ROOT / "services" / "core-control-plane" / "docker" / "Dockerfile").read_text(
+        encoding="utf-8"
+    )
 
     assert "ARG OPA_VERSION=v1.18.2" in dockerfile
     assert "ARG OPA_GRPC_VERSION=v1.82.1" in dockerfile

@@ -37,7 +37,17 @@ CATALOG_DIRS = [
     REPO_ROOT / "rule-catalog" / "catalog",
     REPO_ROOT / "rule-catalog" / "collected",
 ]
-SCHEMA_PATH = REPO_ROOT / "src" / "fdai" / "shared" / "contracts" / "rule" / "schema.json"
+SCHEMA_PATH = (
+    REPO_ROOT
+    / "services"
+    / "core-control-plane"
+    / "src"
+    / "fdai"
+    / "shared"
+    / "contracts"
+    / "rule"
+    / "schema.json"
+)
 
 
 def _load_yaml(path: Path) -> object:

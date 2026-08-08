@@ -10,7 +10,7 @@ from types import ModuleType
 
 import pytest
 
-_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "automation" / "run-workflow.py"
+_SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "automation" / "run-workflow.py"
 
 
 def _load_script() -> ModuleType:

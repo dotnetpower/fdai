@@ -88,8 +88,7 @@ def _iter_external_python_files() -> list[Path]:
         if _AGENTS_DIR in path.parents or path.parent == _AGENTS_DIR:
             continue
         files.append(path)
-    # Scan the Core tests except tests/agents/, which legitimately introspects
-    # the split for these drift guards.
+    # The agent tests legitimately introspect the split for these drift guards.
     for path in _REPO_ROOT.glob("services/core-control-plane/tests/**/*.py"):
         rel = str(path.relative_to(_REPO_ROOT)).replace("\\", "/")
         if rel.startswith("services/core-control-plane/tests/agents/"):

@@ -104,11 +104,17 @@ def test_worker_rejects_verification_surface_changes() -> None:
     module = _load_module()
 
     module._reject_verification_surface_changes(
-        ["src/fdai/core/example.py", "tests/core/test_example.py"]
+        [
+            "services/core-control-plane/src/fdai/core/example.py",
+            "services/core-control-plane/tests/core/test_example.py",
+        ]
     )
     with pytest.raises(RuntimeError, match="repository-control"):
         module._reject_verification_surface_changes(
-            ["src/fdai/core/example.py", "scripts/automation/tests-for-diff.sh"]
+            [
+                "services/core-control-plane/src/fdai/core/example.py",
+                "scripts/automation/tests-for-diff.sh",
+            ]
         )
 
 

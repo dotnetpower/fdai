@@ -2,7 +2,7 @@
  * Reference fork panel - a minimal FinOps cost summary.
  *
  * This is the frontend twin of `ExampleFinOpsPanel` in
- * `src/fdai/delivery/operator_api/panels.py`. It is intentionally NOT
+ * `services/core-control-plane/src/fdai/delivery/operator_api/panels.py`. It is intentionally NOT
  * listed in `EXTRA_PANELS` (see `../panels.tsx`) so the upstream console
  * stays minimal. A fork opts in by:
  *

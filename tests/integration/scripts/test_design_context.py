@@ -171,7 +171,9 @@ def test_pre_tool_use_allows_focused_verify_path() -> None:
     payload = {
         "tool_name": "run_in_terminal",
         "tool_input": {
-            "command": "bash scripts/verify.sh --full tests/scripts/test_design_context.py"
+            "command": (
+                "bash scripts/verify.sh --full tests/integration/scripts/test_design_context.py"
+            )
         },
     }
 
@@ -181,7 +183,7 @@ def test_pre_tool_use_allows_focused_verify_path() -> None:
 @pytest.mark.parametrize(
     "command",
     [
-        "uv run pytest -q --no-cov tests/scripts/test_design_context.py",
+        "uv run pytest -q --no-cov tests/integration/scripts/test_design_context.py",
         "uv run pytest -q --no-cov services/operator-service/tests",
         "uv run pytest -q --no-cov packages/service-contracts/tests",
         "uv run mypy scripts/agent/design_context.py",
@@ -206,7 +208,7 @@ def test_pre_tool_use_denies_only_unscoped_test_tool() -> None:
     }
     focused = {
         "tool_name": "runTests",
-        "tool_input": {"files": ["tests/scripts/test_design_context.py"]},
+        "tool_input": {"files": ["tests/integration/scripts/test_design_context.py"]},
     }
 
     assert module.pre_tool_use(broad)["hookSpecificOutput"]["permissionDecision"] == "deny"

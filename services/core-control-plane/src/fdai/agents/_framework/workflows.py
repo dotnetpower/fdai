@@ -37,7 +37,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
         trigger="object.drift or object.anomaly with a matched rule",
         default_mode="shadow",
         promotion_gate=("14d shadow; Njord cost forecast MAPE < 20%; zero missing cost_annotation"),
-        trace_ref="tests/agents/test_wave7_workflows.py::test_workflow_cost_aware_remediation_shadow_trace",
+        trace_ref="services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_cost_aware_remediation_shadow_trace",
     ),
     WorkflowSpec(
         id="predictive-scale",
@@ -47,7 +47,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
         trigger="Freyr forecast threshold breach within predictive_horizon",
         default_mode="shadow",
         promotion_gate=("30d shadow; Freyr forecast MAPE < 15%; false-positive scale rate < 5%"),
-        trace_ref="tests/agents/test_wave7_workflows.py::test_workflow_predictive_scale_shadow_trace",
+        trace_ref="services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_predictive_scale_shadow_trace",
     ),
     WorkflowSpec(
         id="dr-drill-orchestration",
@@ -60,7 +60,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
             "3 successful drills in shadow; drill duration < declared budget; "
             "zero unplanned prod side-effects"
         ),
-        trace_ref="tests/agents/test_wave7_workflows.py::test_workflow_dr_drill_orchestration_respects_blast_radius",
+        trace_ref="services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_dr_drill_orchestration_respects_blast_radius",
     ),
     WorkflowSpec(
         id="override-discovery",
@@ -73,7 +73,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
             "60d shadow; override-to-candidate conversion pattern captured; "
             "false-candidate rate < 10%"
         ),
-        trace_ref="tests/agents/test_wave7_workflows.py::test_workflow_override_to_discovery_via_norns",
+        trace_ref="services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_override_to_discovery_via_norns",
     ),
     WorkflowSpec(
         id="security-escalation",
@@ -83,7 +83,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
         trigger="Forseti emits SecurityEvent",
         default_mode="shadow",
         promotion_gate="30d shadow (bootstrap); zero critical false-negative; high FP < 5%",
-        trace_ref="tests/agents/test_wave7_workflows.py::test_workflow_security_escalation_reaches_admin_channel",
+        trace_ref="services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_security_escalation_reaches_admin_channel",
     ),
     WorkflowSpec(
         id="handoff-capability",
@@ -95,7 +95,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
         promotion_gate=(
             "90d shadow; conversion (handoff -> promoted rule) baseline; false-close rate < 2%"
         ),
-        trace_ref="tests/agents/test_wave7_workflows.py::test_workflow_handoff_capability_promotes_and_closes_issue",
+        trace_ref="services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_handoff_capability_promotes_and_closes_issue",
     ),
     WorkflowSpec(
         id="agent-health-degradation",
@@ -108,7 +108,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
             "30d shadow; every declared degradation policy tested at least once; "
             "briefing latency p99 < 60s"
         ),
-        trace_ref="tests/agents/test_wave7_workflows.py::test_workflow_agent_health_degradation_reports_via_odin",
+        trace_ref="services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_agent_health_degradation_reports_via_odin",
     ),
     WorkflowSpec(
         id="judgment-coherence-audit",
@@ -118,7 +118,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
         trigger="Forseti daily self-test",
         default_mode="shadow",
         promotion_gate="60d shadow; mismatch rate baseline captured; false-drift-alert rate < 5%",
-        trace_ref="tests/agents/test_wave7_workflows.py::test_workflow_judgment_coherence_deterministic_verdict",
+        trace_ref="services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_judgment_coherence_deterministic_verdict",
     ),
     WorkflowSpec(
         id="rollback-rehearsal",
@@ -128,7 +128,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
         trigger="Loki monthly schedule",
         default_mode="shadow",
         promotion_gate="3 successful rehearsals per ActionType before enforce eligibility",
-        trace_ref="tests/agents/test_wave7_workflows.py::test_workflow_rollback_rehearsal_uses_loki_and_leaves_no_flight_targets",
+        trace_ref="services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_rollback_rehearsal_uses_loki_and_leaves_no_flight_targets",
     ),
     WorkflowSpec(
         id="retrospective-what-if",
@@ -138,7 +138,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
         trigger="Operator via Bragi or scheduled post-incident",
         default_mode="shadow",
         promotion_gate="inherently shadow - never promoted",
-        trace_ref="tests/agents/test_wave7_workflows.py::test_workflow_retrospective_what_if_is_judge_only",
+        trace_ref="services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_retrospective_what_if_is_judge_only",
     ),
     WorkflowSpec(
         id="operational-readiness-handoff",
@@ -151,7 +151,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
             "30d shadow per environment; zero critical false-negative; "
             "blocking false-positive rate < 5%"
         ),
-        trace_ref="tests/composition/test_readiness_service.py::test_blocking_posture_finding_gates_enforce_handoff",
+        trace_ref="services/core-control-plane/tests/composition/test_readiness_service.py::test_blocking_posture_finding_gates_enforce_handoff",
     ),
     WorkflowSpec(
         id="scheduled-governed-python-task",
@@ -163,7 +163,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
         promotion_gate=(
             "14d and 30 shadow plans; accuracy >= 99%; zero policy escapes; Owner review"
         ),
-        trace_ref="tests/core/test_control_loop_operator_request.py::test_raw_proposal_reaches_vm_runner_after_owner_approval",
+        trace_ref="services/core-control-plane/tests/core/test_control_loop_operator_request.py::test_raw_proposal_reaches_vm_runner_after_owner_approval",
     ),
     WorkflowSpec(
         id="detection-readiness-assurance",
@@ -175,7 +175,7 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
         promotion_gate=(
             "30d shadow per target; zero false-ready snapshots; stale detection p99 < 15m"
         ),
-        trace_ref="tests/agents/test_detection_readiness.py::test_huginn_to_heimdall_reduces_readiness_in_shadow",
+        trace_ref="services/core-control-plane/tests/agents/test_detection_readiness.py::test_huginn_to_heimdall_reduces_readiness_in_shadow",
     ),
 )
 

@@ -20,7 +20,7 @@ from fdai.deployment_cli.offline_kit import (
 )
 
 _SCRIPT = (
-    Path(__file__).resolve().parents[2]
+    Path(__file__).resolve().parents[3]
     / "scripts"
     / "deployment"
     / "release"

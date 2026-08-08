@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 _BASH = "/usr/bin/bash"
-_RUNNER = Path(__file__).parents[2] / "scripts" / "automation" / "run-local-service.sh"
+_RUNNER = Path(__file__).parents[3] / "scripts" / "automation" / "run-local-service.sh"
 _TIMESTAMP_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}[+-]\d{2}:\d{2} ")
 
 

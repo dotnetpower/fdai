@@ -30,7 +30,7 @@ def _run(root: Path) -> subprocess.CompletedProcess[str]:
 def test_clean_public_dependency_direction_passes(tmp_path: Path) -> None:
     _write(
         tmp_path,
-        "src/fdai/evaluation/host.py",
+        "services/core-control-plane/src/fdai/evaluation/host.py",
         "from fdai_evaluation_sdk import EvaluationTask\n",
     )
     _write(
@@ -50,7 +50,7 @@ def test_clean_public_dependency_direction_passes(tmp_path: Path) -> None:
     ("relative", "source", "message"),
     (
         (
-            "src/fdai/evaluation/host.py",
+            "services/core-control-plane/src/fdai/evaluation/host.py",
             "import fdai_bench_example\n",
             "MUST NOT import benchmark",
         ),
@@ -100,14 +100,14 @@ def test_benchmark_may_import_only_public_fdai_spi(tmp_path: Path) -> None:
 def test_newer_non_evaluation_fdai_syntax_uses_import_fallback(tmp_path: Path) -> None:
     _write(
         tmp_path,
-        "src/fdai/core/new_syntax.py",
+        "services/core-control-plane/src/fdai/core/new_syntax.py",
         "def identity[T](value: T) -> T:\n    return value\n",
     )
     assert _run(tmp_path).returncode == 0
 
     _write(
         tmp_path,
-        "src/fdai/core/new_syntax.py",
+        "services/core-control-plane/src/fdai/core/new_syntax.py",
         "from fdai_bench_example import Adapter\n"
         "def identity[T](value: T) -> T:\n    return value\n",
     )

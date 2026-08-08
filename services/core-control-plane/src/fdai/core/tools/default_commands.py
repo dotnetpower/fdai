@@ -15,7 +15,11 @@ from fdai.shared.providers.command_runner import (
     CommandOutputFormat,
 )
 
-_TEST_PATH = r"(?:tests|src/fdai)(?:/[A-Za-z0-9_.-]+)*"
+_TEST_PATH = (
+    r"(?:services/[A-Za-z0-9_.-]+/(?:src|tests)|"
+    r"packages/[A-Za-z0-9_.-]+/(?:src|tests)|tests/integration)"
+    r"(?:/[A-Za-z0-9_.-]+)*"
+)
 _RESOURCE_GROUP = r"[A-Za-z0-9_.()-]{1,90}"
 _RESOURCE_NAME = r"[A-Za-z0-9_.()-]{1,128}"
 _RESOURCE_TYPE = r"[A-Za-z0-9_.-]{1,128}(?:/[A-Za-z0-9_.-]{1,128})?"

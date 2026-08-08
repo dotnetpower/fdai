@@ -1,6 +1,6 @@
 """Typed configuration models.
 
-Mirrors ``src/fdai/shared/config/schema.json``. The JSON Schema is the
+Mirrors ``services/core-control-plane/src/fdai/shared/config/schema.json``. The JSON Schema is the
 source of truth for validation at the config-load boundary; these pydantic
 models are the typed programmatic view used inside the process.
 

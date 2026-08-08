@@ -19,7 +19,7 @@ coverage_paths=(
   tests/pipeline
   tests/scenarios
   tests/verticals
-  tests/delivery/test_canary_cli.py
+  services/core-control-plane/tests/delivery/test_canary_cli.py
 )
 
 parallel_args=()

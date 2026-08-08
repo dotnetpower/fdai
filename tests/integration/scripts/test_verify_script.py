@@ -154,7 +154,7 @@ def test_python_test_runner_prefers_current_checkout_at_runtime(tmp_path: Path) 
     bash = shutil.which("bash")
     assert bash is not None
     result = subprocess.run(  # noqa: S603 - fixed repository script, test-controlled env
-        [bash, str(_PYTHON_TESTS), "tests/scripts/test_verify_script.py"],
+        [bash, str(_PYTHON_TESTS), "tests/integration/scripts/test_verify_script.py"],
         cwd=_ROOT,
         env={
             **os.environ,

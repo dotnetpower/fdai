@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "owner": "FDAI maintainers",
   "tracking_issue": 67,
-  "scope": "src/fdai/delivery/operator_api",
+  "scope": "services/core-control-plane/src/fdai/delivery/operator_api",
   "packages": [
     {
       "path": ".",
@@ -563,7 +563,7 @@
     },
     {
       "module": "fdai.delivery.operator_api.streaming.provision_stream",
-      "consumer_scope": "src/fdai/delivery/provisioning/*.py",
+      "consumer_scope": "services/core-control-plane/src/fdai/delivery/provisioning/*.py",
       "classification": "transitional-cross-service",
       "migration": "preserve provisioning publisher compatibility until a neutral stream contract exists"
     },
@@ -576,63 +576,63 @@
   "wire_baselines": [
     {
       "contract": "default-route-method-path-name",
-      "test": "tests/delivery/operator_api/test_operator_api_layout.py::test_build_app_composes_starlette_router"
+      "test": "services/core-control-plane/tests/delivery/operator_api/test_operator_api_layout.py::test_build_app_composes_starlette_router"
     },
     {
       "contract": "extension-panel-route-name-uniqueness",
-      "test": "tests/delivery/operator_api/test_main.py::TestExtensionPanels::test_duplicate_panel_names_rejected"
+      "test": "services/core-control-plane/tests/delivery/operator_api/test_main.py::TestExtensionPanels::test_duplicate_panel_names_rejected"
     },
     {
       "contract": "extension-panel-path-uniqueness",
-      "test": "tests/delivery/operator_api/test_main.py::TestExtensionPanels::test_panel_path_collision_with_assembled_route_rejected"
+      "test": "services/core-control-plane/tests/delivery/operator_api/test_main.py::TestExtensionPanels::test_panel_path_collision_with_assembled_route_rejected"
     },
     {
       "contract": "representative-http-envelopes",
-      "test": "tests/delivery/operator_api/test_operator_api_layout.py::test_default_http_envelopes_are_stable"
+      "test": "services/core-control-plane/tests/delivery/operator_api/test_operator_api_layout.py::test_default_http_envelopes_are_stable"
     },
     {
       "contract": "progress-sequence-and-terminal-branch-bounds",
-      "test": "tests/delivery/operator_api/test_chat_evidence_branches.py::test_terminal_branch_frame_keeps_only_bounded_branch_evidence_refs"
+      "test": "services/core-control-plane/tests/delivery/operator_api/test_chat_evidence_branches.py::test_terminal_branch_frame_keeps_only_bounded_branch_evidence_refs"
     },
     {
       "contract": "redacted-model-trace",
-      "test": "tests/delivery/operator_api/test_chat_route.py::TestChatStreamEvidence::test_stream_opt_in_returns_redacted_actual_model_trace"
+      "test": "services/core-control-plane/tests/delivery/operator_api/test_chat_route.py::TestChatStreamEvidence::test_stream_opt_in_returns_redacted_actual_model_trace"
     },
     {
       "contract": "poisoned-model-trace-redaction",
-      "test": "tests/delivery/operator_api/test_chat_model_trace.py::test_trace_preserves_roles_and_hashes_while_redacting_sensitive_values"
+      "test": "services/core-control-plane/tests/delivery/operator_api/test_chat_model_trace.py::test_trace_preserves_roles_and_hashes_while_redacting_sensitive_values"
     },
     {
       "contract": "json-sse-terminal-parity",
-      "test": "tests/delivery/operator_api/test_chat_route.py::test_json_and_sse_terminal_payloads_share_nullable_fields_and_verification"
+      "test": "services/core-control-plane/tests/delivery/operator_api/test_chat_route.py::test_json_and_sse_terminal_payloads_share_nullable_fields_and_verification"
     },
     {
       "contract": "terminal-replay-idempotency",
-      "test": "tests/delivery/operator_api/test_chat_request_idempotency.py::test_stream_exact_retry_replays_only_completed_terminal_response"
+      "test": "services/core-control-plane/tests/delivery/operator_api/test_chat_request_idempotency.py::test_stream_exact_retry_replays_only_completed_terminal_response"
     },
     {
       "contract": "sse-frame-injection-neutralization",
-      "test": "tests/delivery/operator_api/test_live_stream_hardening.py::test_r3_injection_cannot_forge_a_second_event"
+      "test": "services/core-control-plane/tests/delivery/operator_api/test_live_stream_hardening.py::test_r3_injection_cannot_forge_a_second_event"
     },
     {
       "contract": "sse-frame-size-cap",
-      "test": "tests/delivery/operator_api/test_live_stream_hardening.py::test_r4_data_is_capped"
+      "test": "services/core-control-plane/tests/delivery/operator_api/test_live_stream_hardening.py::test_r4_data_is_capped"
     },
     {
       "contract": "sse-sink-failure-termination",
-      "test": "tests/delivery/operator_api/test_live_stream_hardening.py::test_r7_stream_ends_when_sink_errors"
+      "test": "services/core-control-plane/tests/delivery/operator_api/test_live_stream_hardening.py::test_r7_stream_ends_when_sink_errors"
     },
     {
       "contract": "chat-sse-producer-frame-cap",
-      "test": "tests/delivery/operator_api/test_chat_stream_protocol.py::test_chat_sse_frame_rejects_payload_above_browser_limit"
+      "test": "services/core-control-plane/tests/delivery/operator_api/test_chat_stream_protocol.py::test_chat_sse_frame_rejects_payload_above_browser_limit"
     },
     {
       "contract": "chat-sse-error-envelope-parity",
-      "test": "tests/delivery/operator_api/test_conversation_turn_service.py::test_sse_known_http_failure_retains_bounded_status_and_reason"
+      "test": "services/core-control-plane/tests/delivery/operator_api/test_conversation_turn_service.py::test_sse_known_http_failure_retains_bounded_status_and_reason"
     },
     {
       "contract": "chat-sse-route-envelope-ownership",
-      "test": "tests/delivery/operator_api/test_conversation_turn_service.py::test_sse_transport_envelope_overrides_backend_reserved_fields"
+      "test": "services/core-control-plane/tests/delivery/operator_api/test_conversation_turn_service.py::test_sse_transport_envelope_overrides_backend_reserved_fields"
     }
   ],
   "client_wire_baselines": [

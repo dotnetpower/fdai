@@ -22,7 +22,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fdai.deployment_cli.cli import main as cli_main
 
 _SCRIPT = (
-    Path(__file__).resolve().parents[2] / "scripts" / "deployment" / "release" / "issue-license.py"
+    Path(__file__).resolve().parents[3] / "scripts" / "deployment" / "release" / "issue-license.py"
 )
 _CAPABILITIES = ("cost.metering", "incident.restart")
 

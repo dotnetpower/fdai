@@ -22,7 +22,7 @@ Design notes
 The loader is pure I/O + validation; it does NOT compile Rego, evaluate
 policy, or touch the graph. The T0 engine consumes the loaded tuple and
 builds its lookup indexes (see
-``src/fdai/core/tiers/t0_deterministic/``).
+``services/core-control-plane/src/fdai/core/tiers/t0_deterministic/``).
 
 Placement rationale: this module lives next to the other schema loaders
 (``action_type.py``, ``resource_type.py``, ``exemption.py``) because it

@@ -309,8 +309,9 @@ class AgentSpec:
 class Agent:
     """Runtime base class for a pantheon agent.
 
-    Subclasses live under `src/fdai/agents/` (one file per canonical name,
-    added wave-by-wave). Wave 1 ships stub subclasses that implement no
+    Subclasses live under `services/core-control-plane/src/fdai/agents/`
+    (one file per canonical name, added wave-by-wave). Wave 1 ships stub
+    subclasses that implement no
     behavior beyond registering their `AgentSpec`.
     """
 

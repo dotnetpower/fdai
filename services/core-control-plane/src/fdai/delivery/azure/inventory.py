@@ -2,7 +2,7 @@
 
 This module realizes the 5th CSP-neutral wire contract for Azure - see
 ``docs/roadmap/architecture/csp-neutrality.md § 5. Inventory Contract`` and the Protocol
-in ``src/fdai/shared/providers/inventory.py``.
+in ``services/core-control-plane/src/fdai/shared/providers/inventory.py``.
 
 P1 W-2 scope (stub)
 -------------------

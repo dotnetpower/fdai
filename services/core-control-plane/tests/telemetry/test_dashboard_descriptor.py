@@ -23,7 +23,7 @@ from typing import Any, cast
 import pytest
 from fdai.shared.telemetry.metrics_derivation import DashboardMetrics
 
-DESCRIPTOR_PATH = Path(__file__).resolve().parents[2] / "docs" / "dashboards" / "phase-0-kpi.json"
+DESCRIPTOR_PATH = Path(__file__).resolve().parents[4] / "docs" / "dashboards" / "phase-0-kpi.json"
 
 
 def _load() -> dict[str, Any]:

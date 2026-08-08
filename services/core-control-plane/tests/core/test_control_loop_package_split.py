@@ -16,7 +16,7 @@ import pytest
 from fdai.core.control_loop import _helpers
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-_CL_DIR = _REPO_ROOT / "src" / "fdai" / "core" / "control_loop"
+_CL_DIR = _REPO_ROOT / "services" / "core-control-plane" / "src" / "fdai" / "core" / "control_loop"
 
 _PUBLIC_NAMES = (
     "ControlLoop",

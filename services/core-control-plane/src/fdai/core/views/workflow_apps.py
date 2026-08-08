@@ -11,7 +11,7 @@ import yaml
 from jsonschema import Draft202012Validator
 
 _DEFAULT_SCHEMA = (
-    Path(__file__).resolve().parents[4]
+    Path(__file__).resolve().parents[6]
     / "rule-catalog"
     / "operator-console"
     / "schema"

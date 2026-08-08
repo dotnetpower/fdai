@@ -17,7 +17,7 @@ import fdai.composition as composition_pkg
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_COMP_DIR = _REPO_ROOT / "src" / "fdai" / "composition"
+_COMP_DIR = _REPO_ROOT / "services" / "core-control-plane" / "src" / "fdai" / "composition"
 
 _EXPECTED_FILES = frozenset(
     {
@@ -156,7 +156,7 @@ def test_no_external_caller_reaches_into_wire_files() -> None:
     offenders: list[tuple[str, str]] = []
     for path in _REPO_ROOT.glob("src/**/*.py"):
         rel_str = str(path.relative_to(_REPO_ROOT)).replace("\\", "/")
-        if rel_str.startswith("src/fdai/composition/"):
+        if rel_str.startswith("services/core-control-plane/src/fdai/composition/"):
             continue
         body = path.read_text(encoding="utf-8")
         for line in body.splitlines():

@@ -14,7 +14,7 @@ from fdai.core.measurement.prompt_probe_loader import (
 from fdai.core.operator_memory import OperatorScope
 
 _SCHEMA_PATH = (
-    Path(__file__).resolve().parents[3]
+    Path(__file__).resolve().parents[5]
     / "rule-catalog"
     / "prompts"
     / "scenarios"

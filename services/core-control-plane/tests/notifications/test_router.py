@@ -300,7 +300,7 @@ class TestMatrixLoader:
 
         from fdai.core.notifications import load_matrix_from_yaml
 
-        repo_matrix = Path(__file__).resolve().parents[2] / "config" / "notifications-matrix.yaml"
+        repo_matrix = Path(__file__).resolve().parents[4] / "config" / "notifications-matrix.yaml"
         loaded = load_matrix_from_yaml(repo_matrix)
         assert "hil_approval" in loaded.routes
         assert loaded.routes["hil_approval"].trust_tier is TrustTier.A1_HIL_APPROVAL

@@ -19,7 +19,7 @@ from types import ModuleType
 
 import pytest
 
-MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "alembic" / "versions"
+MIGRATIONS_DIR = Path(__file__).resolve().parents[4] / "alembic" / "versions"
 
 MIGRATION_FILES = sorted(p for p in MIGRATIONS_DIR.glob("*.py") if not p.name.startswith("__"))
 

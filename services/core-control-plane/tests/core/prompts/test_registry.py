@@ -21,7 +21,7 @@ from fdai.core.prompts import (
 )
 
 _SCHEMA_PATH = (
-    Path(__file__).resolve().parents[3]
+    Path(__file__).resolve().parents[5]
     / "rule-catalog"
     / "prompts"
     / "schema"

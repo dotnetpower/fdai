@@ -175,7 +175,7 @@ def test_service_suite_manifest_rejects_unknown_keys(tmp_path: Path, target: str
     if target == "root":
         suite_plan["schema_verison"] = 1
     else:
-        suite_plan["services"][0]["source_root"] = "src/fdai/core"
+        suite_plan["services"][0]["source_root"] = "services/core-control-plane/src/fdai/core"
     manifest = _write_suite_plan(tmp_path, suite_plan)
     namespace["_load_services"].__globals__["MANIFEST_PATH"] = manifest
 
@@ -351,7 +351,12 @@ def test_service_test_runner_rejects_foreign_pytest_path(
 
     monkeypatch.setattr(subprocess, "run", fail_if_called)
 
-    assert namespace["main"](["isolated-executor", "--", "tests/delivery/operator_api"]) == 2
+    assert (
+        namespace["main"](
+            ["isolated-executor", "--", "services/core-control-plane/tests/delivery/operator_api"]
+        )
+        == 2
+    )
     assert "pytest argument is not allowed" in capsys.readouterr().err
 
 
@@ -389,7 +394,7 @@ def test_service_test_runner_propagates_pytest_exit_code(
     "unsafe_path",
     (
         "/outside.py",
-        "tests/../src/fdai/runtime/isolated_executor.py",
+        "tests/../services/core-control-plane/src/fdai/runtime/isolated_executor.py",
     ),
 )
 def test_service_suite_manifest_rejects_unconfined_paths(

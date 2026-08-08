@@ -5,7 +5,7 @@ Pure functions - no I/O, no async, no telemetry side effects. Consumers:
 - The KPI dashboard (W1.9) renders these numbers.
 - The reference-agent baseline runner (``tools/baseline_run.py``)
   computes a subset of them against a scenario replay.
-- The golden-fixture regression test (``tests/telemetry/``) proves that
+- The golden-fixture regression test (``services/core-control-plane/tests/telemetry/``) proves that
   a recorded trace reproduces every dashboard metric.
 
 Every metric is grounded in a single audit-log column so a "why is this

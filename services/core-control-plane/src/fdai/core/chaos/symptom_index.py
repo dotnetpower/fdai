@@ -47,7 +47,7 @@ from typing import Any
 from fdai.core.chaos.scenario_catalog import DEFAULT_ROOT, CatalogEntry, load_all, load_promoted
 
 _HERE = pathlib.Path(__file__).resolve()
-_REPO_ROOT = _HERE.parents[4]
+_REPO_ROOT = _HERE.parents[6]
 
 _INTENSITY_TO_SEVERITY: Mapping[str, str] = {
     "mild": "low",

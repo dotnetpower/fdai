@@ -48,22 +48,36 @@ def _matches(path: str, pattern: str) -> bool:
 
 def _route_paths(path: str) -> tuple[str, ...]:
     aliases = {
-        "services/core-control-plane/src/fdai/": "src/fdai/",
+        "services/core-control-plane/src/fdai/": "services/core-control-plane/src/fdai/",
         "services/core-control-plane/tests/": "tests/",
-        "services/operator-service/src/fdai_operator_service/": ("src/fdai/delivery/operator_api/"),
-        "services/operator-service/tests/": "tests/delivery/operator_api/",
+        "services/operator-service/src/fdai_operator_service/": (
+            "services/core-control-plane/src/fdai/delivery/operator_api/"
+        ),
+        "services/operator-service/tests/": (
+            "services/core-control-plane/tests/delivery/operator_api/"
+        ),
         "services/document-ingestion-api/src/fdai_ingestion_api_service/": (
-            "src/fdai/delivery/ingestion_gateway/"
+            "services/core-control-plane/src/fdai/delivery/ingestion_gateway/"
         ),
-        "services/document-ingestion-api/tests/": "tests/delivery/ingestion_gateway/",
+        "services/document-ingestion-api/tests/": (
+            "services/core-control-plane/tests/delivery/ingestion_gateway/"
+        ),
         "services/document-processing-worker/src/fdai_document_worker_service/": (
-            "src/fdai/delivery/ingestion_gateway/"
+            "services/core-control-plane/src/fdai/delivery/ingestion_gateway/"
         ),
-        "services/document-processing-worker/tests/": "tests/delivery/ingestion_gateway/",
-        "services/isolated-executor/src/fdai_executor_service/": "src/fdai/runtime/",
-        "services/isolated-executor/tests/": "tests/runtime/",
-        "packages/service-contracts/src/fdai_service_contracts/": "src/fdai/shared/contracts/",
-        "packages/service-contracts/tests/": "tests/shared/contracts/",
+        "services/document-processing-worker/tests/": (
+            "services/core-control-plane/tests/delivery/ingestion_gateway/"
+        ),
+        "services/isolated-executor/src/fdai_executor_service/": (
+            "services/core-control-plane/src/fdai/runtime/"
+        ),
+        "services/isolated-executor/tests/": ("services/core-control-plane/tests/runtime/"),
+        "packages/service-contracts/src/fdai_service_contracts/": (
+            "services/core-control-plane/src/fdai/shared/contracts/"
+        ),
+        "packages/service-contracts/tests/": (
+            "services/core-control-plane/tests/shared/contracts/"
+        ),
     }
     for prefix, replacement in aliases.items():
         if path.startswith(prefix):

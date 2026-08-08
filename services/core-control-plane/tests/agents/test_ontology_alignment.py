@@ -19,7 +19,15 @@ from fdai.shared.contracts.models import LifecycleOwner
 REPO_ROOT = Path(__file__).resolve().parents[4]
 AGENT_YAML = REPO_ROOT / "rule-catalog" / "vocabulary" / "object-types" / "Agent.yaml"
 ACTION_TYPE_SCHEMA = (
-    REPO_ROOT / "src" / "fdai" / "shared" / "contracts" / "ontology" / "action-type.json"
+    REPO_ROOT
+    / "services"
+    / "core-control-plane"
+    / "src"
+    / "fdai"
+    / "shared"
+    / "contracts"
+    / "ontology"
+    / "action-type.json"
 )
 
 

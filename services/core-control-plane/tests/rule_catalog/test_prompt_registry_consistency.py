@@ -23,7 +23,7 @@ from fdai.core.prompts.registry import FileSystemPromptRegistry
 from fdai.core.prompts.types import PromptLayer
 from fdai.rule_catalog.schema.llm_registry import load_llm_registry_from_yaml
 
-_REPO = Path(__file__).resolve().parents[2]
+_REPO = Path(__file__).resolve().parents[4]
 _CATALOG = _REPO / "rule-catalog"
 
 # Capabilities that intentionally have NO llm-registry entry. The console

@@ -27,6 +27,7 @@ _CODEOWNERS = _REPO_ROOT / ".github" / "CODEOWNERS"
 _RANGE = "HEAD~1...HEAD"
 _GIT = shutil.which("git") or "git"
 _BASH = shutil.which("bash") or "bash"
+_PROTECTED_CORE = Path("services/core-control-plane/src/fdai/core")
 
 
 def _git(cwd: Path, *args: str) -> None:
@@ -66,8 +67,8 @@ def repo(tmp_path: Path) -> Path:
     _git(root, "config", "user.email", "test@example.com")
     _git(root, "config", "user.name", "test")
     # Base commit: one protected file + one ordinary fork-owned file.
-    (root / "src" / "fdai" / "core").mkdir(parents=True)
-    (root / "src" / "fdai" / "core" / "loop.py").write_text("x = 1\n")
+    (root / _PROTECTED_CORE).mkdir(parents=True)
+    (root / _PROTECTED_CORE / "loop.py").write_text("x = 1\n")
     (root / "fork").mkdir()
     (root / "fork" / "adapter.py").write_text("y = 1\n")
     surface_target = root / "scripts" / "lib" / "framework-surface.txt"
@@ -79,21 +80,26 @@ def repo(tmp_path: Path) -> Path:
 
 
 def test_upstream_protected_edit_is_advisory(repo: Path) -> None:
-    _commit_edit(repo, "src/fdai/core/loop.py", "x = 2\n", "edit core")
+    _commit_edit(repo, "services/core-control-plane/src/fdai/core/loop.py", "x = 2\n", "edit core")
     res = _run(repo, _RANGE)
     assert res.returncode == 0, res.stderr
     assert "FRAMEWORK SURFACE" in res.stderr
 
 
 def test_fork_protected_edit_is_blocked(repo: Path) -> None:
-    _commit_edit(repo, "src/fdai/core/loop.py", "x = 2\n", "edit core")
+    _commit_edit(repo, "services/core-control-plane/src/fdai/core/loop.py", "x = 2\n", "edit core")
     res = _run(repo, _RANGE, FDAI_FORK="1")
     assert res.returncode == 1
     assert "BLOCKED" in res.stderr
 
 
 def test_fork_composition_package_edit_is_blocked(repo: Path) -> None:
-    _commit_edit(repo, "src/fdai/composition/wire.py", "x = 1\n", "edit composition package")
+    _commit_edit(
+        repo,
+        "services/core-control-plane/src/fdai/composition/wire.py",
+        "x = 1\n",
+        "edit composition package",
+    )
     res = _run(repo, _RANGE, FDAI_FORK="1")
     assert res.returncode == 1
     assert "BLOCKED" in res.stderr
@@ -106,13 +112,13 @@ def test_non_protected_edit_passes_both_modes(repo: Path) -> None:
 
 
 def test_local_override_unblocks_fork(repo: Path) -> None:
-    _commit_edit(repo, "src/fdai/core/loop.py", "x = 2\n", "edit core")
+    _commit_edit(repo, "services/core-control-plane/src/fdai/core/loop.py", "x = 2\n", "edit core")
     res = _run(repo, _RANGE, FDAI_FORK="1", FDAI_ALLOW_PROTECTED="1")
     assert res.returncode == 0
 
 
 def test_override_is_ignored_in_ci(repo: Path) -> None:
-    _commit_edit(repo, "src/fdai/core/loop.py", "x = 2\n", "edit core")
+    _commit_edit(repo, "services/core-control-plane/src/fdai/core/loop.py", "x = 2\n", "edit core")
     res = _run(
         repo,
         _RANGE,
@@ -131,7 +137,9 @@ def test_bad_range_fails_loud(repo: Path) -> None:
 
 def test_exact_file_match_not_prefix(repo: Path) -> None:
     # `composition.py` is protected as an exact file; a sibling `.bak` is not.
-    _commit_edit(repo, "src/fdai/composition.py.bak", "z = 1\n", "add bak")
+    _commit_edit(
+        repo, "services/core-control-plane/src/fdai/composition.py.bak", "z = 1\n", "add bak"
+    )
     res = _run(repo, _RANGE, FDAI_FORK="1")
     assert res.returncode == 0
 

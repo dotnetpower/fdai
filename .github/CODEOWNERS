@@ -8,7 +8,7 @@
 /rule-catalog/risk-classification.yaml    @dotnetpower/fdai-owners
 
 # Risk-gate policy changes always want Owner review.
-/src/fdai/core/risk_gate/    @dotnetpower/fdai-owners
+/services/core-control-plane/src/fdai/core/risk_gate/    @dotnetpower/fdai-owners
 
 # ---------------------------------------------------------------------------
 # Framework surface - the review-time counterpart of
@@ -18,12 +18,12 @@
 # but change a contract other people build on, so they route to the owners.
 # Keep this list in sync with the guard's `protected_prefixes`.
 # ---------------------------------------------------------------------------
-/src/fdai/core/                  @dotnetpower/fdai-owners
-/src/fdai/composition.py         @dotnetpower/fdai-owners
-/src/fdai/composition/           @dotnetpower/fdai-owners
-/src/fdai/shared/providers/      @dotnetpower/fdai-owners
-/src/fdai/shared/contracts/      @dotnetpower/fdai-owners
-/src/fdai/agents/                @dotnetpower/fdai-owners
+/services/core-control-plane/src/fdai/core/                  @dotnetpower/fdai-owners
+/services/core-control-plane/src/fdai/composition.py         @dotnetpower/fdai-owners
+/services/core-control-plane/src/fdai/composition/           @dotnetpower/fdai-owners
+/services/core-control-plane/src/fdai/shared/providers/      @dotnetpower/fdai-owners
+/services/core-control-plane/src/fdai/shared/contracts/      @dotnetpower/fdai-owners
+/services/core-control-plane/src/fdai/agents/                @dotnetpower/fdai-owners
 /rule-catalog/schema/            @dotnetpower/fdai-owners
 /.github/instructions/           @dotnetpower/fdai-owners
 /.github/hooks/                  @dotnetpower/fdai-owners

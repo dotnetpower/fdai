@@ -26,7 +26,7 @@ from fdai.rule_catalog.schema.llm_resolver import (
 _SUB = "00000000-0000-0000-0000-000000000000"
 _OID = "00000000-0000-0000-0000-000000000001"
 _REGION = "koreacentral"
-_UPSTREAM_REGISTRY = Path(__file__).resolve().parents[3] / "rule-catalog" / "llm-registry.yaml"
+_UPSTREAM_REGISTRY = Path(__file__).resolve().parents[5] / "rule-catalog" / "llm-registry.yaml"
 
 
 def _registry(overrides: Mapping[str, Any] | None = None):  # type: ignore[no-untyped-def]

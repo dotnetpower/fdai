@@ -25,7 +25,15 @@ from fdai.shared.contracts.models import (
     Workflow,
 )
 
-_CONTRACTS = Path(__file__).resolve().parents[3] / "src" / "fdai" / "shared" / "contracts"
+_CONTRACTS = (
+    Path(__file__).resolve().parents[5]
+    / "services"
+    / "core-control-plane"
+    / "src"
+    / "fdai"
+    / "shared"
+    / "contracts"
+)
 
 # Pydantic name -> JSON Schema stem.
 _PAIRS = {

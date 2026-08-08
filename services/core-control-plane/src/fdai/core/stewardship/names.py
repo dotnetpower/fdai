@@ -4,7 +4,7 @@
 `scripts/quality/architecture/check-core-imports.sh` keeps the control plane layered and portable).
 The stewardship config therefore carries its **own** copy of the 15 agent
 names, and a parity test
-(`tests/core/stewardship/test_pantheon_parity.py`) pins this tuple to
+(`services/core-control-plane/tests/core/stewardship/test_pantheon_parity.py`) pins this tuple to
 `fdai.agents._framework.pantheon.PANTHEON_NAMES` so the two can never drift.
 
 Order mirrors `PANTHEON_SPECS` for readability; membership (not order) is what

@@ -6,7 +6,7 @@ from types import ModuleType
 
 
 def _load_module() -> ModuleType:
-    path = Path(__file__).parents[2] / "scripts" / "automation" / "next-version.py"
+    path = Path(__file__).parents[3] / "scripts" / "automation" / "next-version.py"
     spec = importlib.util.spec_from_file_location("next_version", path)
     assert spec is not None
     assert spec.loader is not None

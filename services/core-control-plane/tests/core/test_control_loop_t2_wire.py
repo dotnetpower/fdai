@@ -346,7 +346,7 @@ async def test_t2_candidate_requires_execution_authorization(tmp_path: Path) -> 
     audit = InMemoryStateStore()
     loop = _make_loop(t2_engine=None, audit=audit, tmp_path=tmp_path)
     action_types = load_action_type_catalog(
-        Path(__file__).resolve().parents[2] / "rule-catalog" / "action-types",
+        Path(__file__).resolve().parents[4] / "rule-catalog" / "action-types",
         schema_registry=PackageResourceSchemaRegistry(),
     )
     loop._action_builder = ActionBuilder(  # noqa: SLF001 - composition assertion

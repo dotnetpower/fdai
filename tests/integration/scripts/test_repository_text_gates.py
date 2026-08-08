@@ -225,7 +225,7 @@ def test_pre_commit_scopes_expensive_repository_gates() -> None:
     assert "require_serial: true" in readable_hangul
     assert "require_serial: true" in guids
     assert "files: ^(README(?:-ko)?\\.md|docs/.*\\.md)$" in translations
-    assert "files: ^src/fdai/core/" in core_imports
+    assert "files: ^services/core-control-plane/src/fdai/core/" in core_imports
 
 
 def test_readable_hangul_gate_is_wired_to_ci_and_fast_verification() -> None:

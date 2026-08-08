@@ -142,7 +142,7 @@ def _make_loop(
 
 def _configure_t1_routing(loop: ControlLoop) -> None:
     action_types = load_action_type_catalog(
-        Path(__file__).resolve().parents[2] / "rule-catalog" / "action-types",
+        Path(__file__).resolve().parents[4] / "rule-catalog" / "action-types",
         schema_registry=PackageResourceSchemaRegistry(),
     )
     loop._action_builder = ActionBuilder(  # noqa: SLF001 - composition assertion

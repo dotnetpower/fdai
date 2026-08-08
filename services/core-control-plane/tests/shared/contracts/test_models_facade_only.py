@@ -23,7 +23,16 @@ from pathlib import Path
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
-_MODELS_PATH = _REPO_ROOT / "src" / "fdai" / "shared" / "contracts" / "models"
+_MODELS_PATH = (
+    _REPO_ROOT
+    / "services"
+    / "core-control-plane"
+    / "src"
+    / "fdai"
+    / "shared"
+    / "contracts"
+    / "models"
+)
 
 # Match either 'from fdai.shared.contracts.models.<X>' or
 # 'import fdai.shared.contracts.models.<X>' where X is a submodule name.

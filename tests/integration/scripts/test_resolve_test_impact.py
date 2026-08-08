@@ -166,7 +166,7 @@ print("not an import")
 
 
 def test_non_source_change_has_no_python_impact(tmp_path: Path) -> None:
-    _write(tmp_path, "tests/test_example.py", "def test_example(): pass\n")
+    _write(tmp_path, "tests/integration/test_example.py", "def test_example(): pass\n")
 
     assert resolve_tests(tmp_path, [tmp_path / "README.md"]) == []
 

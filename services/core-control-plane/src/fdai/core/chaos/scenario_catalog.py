@@ -40,7 +40,7 @@ import yaml
 from fdai.core.detection.signals import is_known_signal
 
 _HERE = pathlib.Path(__file__).resolve()
-_REPO_ROOT = _HERE.parents[4]
+_REPO_ROOT = _HERE.parents[6]
 
 DEFAULT_ROOT: pathlib.Path = _REPO_ROOT / "rule-catalog" / "chaos-scenarios"
 

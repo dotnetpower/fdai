@@ -8,7 +8,7 @@
  * a drift board, a DR-drill history) does NOT edit `app.tsx` or
  * `shell.tsx`. It appends a `ConsolePanel` to `EXTRA_PANELS` (or injects
  * one at build time) and, on the API side, registers a matching
- * `ReadPanel` (`src/fdai/delivery/operator_api/panels.py`).
+ * `ReadPanel` (`services/core-control-plane/src/fdai/delivery/operator_api/panels.py`).
  *
  * Every panel is read-only. A panel renders data fetched through the
  * GET-only `OperatorApiClient`; there is no mutating back-channel. Approvals

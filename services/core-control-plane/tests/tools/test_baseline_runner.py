@@ -13,7 +13,7 @@ from tools.baseline_run import _run
 from tools.reference_agent import AgentDecision, ReferenceAgent
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-SCENARIOS = REPO_ROOT / "tests" / "scenarios" / "v2026.07"
+SCENARIOS = REPO_ROOT / "services" / "core-control-plane" / "tests" / "scenarios" / "v2026.07"
 
 
 def test_reference_agent_is_deterministic() -> None:

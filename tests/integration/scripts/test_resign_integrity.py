@@ -14,6 +14,7 @@ _HOOK = _REPO_ROOT / "scripts" / "integrity" / "resign-if-surface-staged.sh"
 _SURFACE_LIST = _REPO_ROOT / "scripts" / "lib" / "framework-surface.txt"
 _BASH = shutil.which("bash") or "bash"
 _GIT = shutil.which("git") or "git"
+_PROTECTED_FILE = Path("services/core-control-plane/src/fdai/core/example.py")
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -54,7 +55,7 @@ def repo(tmp_path: Path) -> Path:
     private_key = root / "private-key.pem"
     private_key.write_text("test-only\n", encoding="utf-8")
 
-    protected = root / "src" / "fdai" / "core" / "example.py"
+    protected = root / _PROTECTED_FILE
     protected.parent.mkdir(parents=True)
     protected.write_text("VALUE = 1\n", encoding="utf-8")
     _git(root, "add", ".")
@@ -75,7 +76,7 @@ def _run_hook(repo: Path) -> subprocess.CompletedProcess[str]:
 
 
 def test_staged_protected_deletion_triggers_resigning(repo: Path) -> None:
-    (repo / "src" / "fdai" / "core" / "example.py").unlink()
+    (repo / _PROTECTED_FILE).unlink()
     _git(repo, "add", "-u")
 
     result = _run_hook(repo)
@@ -85,7 +86,7 @@ def test_staged_protected_deletion_triggers_resigning(repo: Path) -> None:
 
 
 def test_partially_staged_protected_file_blocks_resigning(repo: Path) -> None:
-    protected = repo / "src" / "fdai" / "core" / "example.py"
+    protected = repo / _PROTECTED_FILE
     protected.write_text("VALUE = 2\n", encoding="utf-8")
     _git(repo, "add", str(protected.relative_to(repo)))
     protected.write_text("VALUE = 3\n", encoding="utf-8")
@@ -98,7 +99,7 @@ def test_partially_staged_protected_file_blocks_resigning(repo: Path) -> None:
 
 
 def test_partially_staged_unprotected_file_does_not_block_resigning(repo: Path) -> None:
-    protected = repo / "src" / "fdai" / "core" / "example.py"
+    protected = repo / _PROTECTED_FILE
     protected.write_text("VALUE = 2\n", encoding="utf-8")
     ordinary = repo / "notes.txt"
     ordinary.write_text("staged\n", encoding="utf-8")

@@ -21,7 +21,9 @@ from fdai.core.verticals.registry import VerticalDescriptor
 from fdai.shared.contracts.models import Category
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-_VERTICALS_DIR = _REPO_ROOT / "src" / "fdai" / "core" / "verticals"
+_VERTICALS_DIR = (
+    _REPO_ROOT / "services" / "core-control-plane" / "src" / "fdai" / "core" / "verticals"
+)
 
 _VERTICAL_NAMES = frozenset({"resilience", "change_safety", "cost_governance"})
 

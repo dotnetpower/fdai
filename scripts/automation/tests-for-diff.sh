@@ -59,6 +59,7 @@ fi
 declare -A seen=()
 tests=()
 python_sources=()
+full_suite_selected=0
 
 add_test() {
     local path="$1"
@@ -75,6 +76,7 @@ add_test() {
 add_all_tests() {
     local found=0
     local path
+    full_suite_selected=1
     for path in services/*/tests packages/*/tests tests/integration; do
         [[ -e "$path" ]] || continue
         add_test "$path"
@@ -99,7 +101,7 @@ while IFS= read -r file; do
             fi
             continue
             ;;
-        .github/workflows/ci.yml|Dockerfile|Makefile|alembic.ini|pyproject.toml|uv.lock|tests/conftest.py)
+        .github/workflows/ci.yml|Dockerfile|Makefile|alembic.ini|pyproject.toml|uv.lock|tests/integration/conftest.py)
             add_all_tests
             continue
             ;;
@@ -107,7 +109,7 @@ while IFS= read -r file; do
             add_all_tests
             continue
             ;;
-        packages/service-contracts/*|src/fdai/composition/*|src/fdai/rule_catalog/*|src/fdai/shared/contracts/*|src/fdai/shared/providers/*)
+        packages/service-contracts/*|services/core-control-plane/src/fdai/composition/*|services/core-control-plane/src/fdai/rule_catalog/*|services/core-control-plane/src/fdai/shared/contracts/*|services/core-control-plane/src/fdai/shared/providers/*)
             add_all_tests
             continue
             ;;
@@ -124,7 +126,7 @@ while IFS= read -r file; do
 
     if [[ "$file" == *.py ]]; then
         case "$file" in
-            services/*/src/*|packages/*/src/*|src/fdai/*|delivery/*|scripts/*|tools/*)
+            services/*/src/*|packages/*/src/*|services/core-control-plane/src/fdai/*|delivery/*|scripts/*|tools/*)
                 python_sources+=("$file")
                 ;;
         esac
@@ -148,7 +150,7 @@ while IFS= read -r file; do
             continue
             ;;
         tools/*.py)
-            add_test "tests/tools"
+            add_test "services/core-control-plane/tests/tools"
             continue
             ;;
     esac
@@ -174,25 +176,25 @@ while IFS= read -r file; do
         if [[ "$sub" == "$rel" ]]; then
             candidate="tests/delivery"
         else
-            candidate="tests/delivery/${sub}"
+            candidate="services/core-control-plane/tests/delivery/${sub}"
         fi
         add_test "$candidate"
         continue
     fi
 
     # Source file - map to the mirrored test path.
-    #   src/fdai/core/<sub>/*.py            -> tests/core/<sub>/
-    #   src/fdai/agents/*.py                -> tests/agents/
-    #   src/fdai/delivery/<sub>/*.py        -> tests/delivery/<sub>/
-    #   src/fdai/shared/<sub>/*.py          -> tests/shared/<sub>/
-    #   src/fdai/rule_catalog/*.py          -> tests/rule_catalog/
-    #   src/fdai/composition/*.py           -> tests/composition/
-    if [[ "$file" == src/fdai/* ]]; then
-        rel="${file#src/fdai/}"           # e.g. core/risk_gate/foo.py
+    #   services/core-control-plane/src/fdai/core/<sub>/*.py            -> services/core-control-plane/tests/core/<sub>/
+    #   services/core-control-plane/src/fdai/agents/*.py                -> services/core-control-plane/tests/agents/
+    #   services/core-control-plane/src/fdai/delivery/<sub>/*.py        -> services/core-control-plane/tests/delivery/<sub>/
+    #   services/core-control-plane/src/fdai/shared/<sub>/*.py          -> services/core-control-plane/tests/shared/<sub>/
+    #   services/core-control-plane/src/fdai/rule_catalog/*.py          -> services/core-control-plane/tests/rule_catalog/
+    #   services/core-control-plane/src/fdai/composition/*.py           -> services/core-control-plane/tests/composition/
+    if [[ "$file" == services/core-control-plane/src/fdai/* ]]; then
+        rel="${file#services/core-control-plane/src/fdai/}"           # e.g. core/risk_gate/foo.py
         first="${rel%%/*}"                # core
         rest="${rel#*/}"                  # risk_gate/foo.py
         if [[ "$rest" == "$rel" ]]; then
-            # Flat file directly under src/fdai/
+            # Flat file directly under services/core-control-plane/src/fdai/
             candidate="tests"
         else
             case "$first" in
@@ -304,7 +306,7 @@ if [[ $run_pytest -eq 1 ]]; then
         exit 2
     fi
     if [[ "${FDAI_PYTEST_XDIST:-1}" == "1" ]] && \
-        [[ -n "${seen[tests]:-}" || ${#tests[@]} -ge $parallel_threshold ]]; then
+        [[ $full_suite_selected -eq 1 || -n "${seen[tests]:-}" || ${#tests[@]} -ge $parallel_threshold ]]; then
         parallel_args=(
             -n auto
             --maxprocesses="${FDAI_PYTEST_MAX_WORKERS:-8}"

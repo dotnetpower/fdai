@@ -26,7 +26,9 @@ ACTION_TYPES_DIR = CATALOG_ROOT / "action-types"
 REMEDIATION_DIR = CATALOG_ROOT / "remediation"
 RISK_CLASSIFICATION = CATALOG_ROOT / "risk-classification.yaml"
 SOURCES_DIR = CATALOG_ROOT / "sources"
-SCHEMA_ROOT = REPO_ROOT / "src" / "fdai" / "shared" / "contracts"
+SCHEMA_ROOT = (
+    REPO_ROOT / "services" / "core-control-plane" / "src" / "fdai" / "shared" / "contracts"
+)
 
 
 @dataclass

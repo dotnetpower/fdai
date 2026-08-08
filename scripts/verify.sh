@@ -174,7 +174,7 @@ else
     overall=1
 fi
 
-run_gate_scoped "ci-contracts" '^(\.github/workflows/|Dockerfile$|\.dockerignore$|resolved-models.*\.json$|scripts/quality/ci/|tests/persistence/|src/fdai/)' python3 scripts/quality/ci/check-ci-contracts.py
+run_gate_scoped "ci-contracts" '^(\.github/workflows/|Dockerfile$|\.dockerignore$|resolved-models.*\.json$|scripts/quality/ci/|services/core-control-plane/tests/persistence/|services/core-control-plane/src/fdai/)' python3 scripts/quality/ci/check-ci-contracts.py
 run_gate_scoped "issue-lifecycle" '^(\.github/ISSUE_TEMPLATE/|\.github/workflows/issue-lifecycle\.yml$|\.github/copilot-instructions\.md$|CONTRIBUTING\.md$|scripts/quality/repository/check-issue-lifecycle\.py$)' python3 scripts/quality/repository/check-issue-lifecycle.py
 run_gate_scoped "design-routes" '^(\.github/instructions/|scripts/lib/design-routes\.json$|scripts/quality/architecture/check-design-routes\.py$|docs/)' python3 scripts/quality/architecture/check-design-routes.py
 run_gate_scoped "constitution" '^(\.github/|config/constitution-traceability\.json$|docs/roadmap/|scripts/quality/architecture/check-constitution\.py$)' python3 scripts/quality/architecture/check-constitution.py
@@ -193,7 +193,7 @@ run_gate "guids"        bash scripts/quality/repository/check-guids.sh
 run_gate_scoped "translations" '^(README(-ko)?\.md$|docs/.*\.md$|scripts/quality/localization/check-translations\.sh$)' bash scripts/quality/localization/check-translations.sh
 
 run_gate_scoped "catalog-parity" '^(console|cli|src)/.*messages\.(en|ko)\.json$|^scripts/quality/localization/check-catalog-parity\.sh$' bash scripts/quality/localization/check-catalog-parity.sh
-run_gate_scoped "stewardship" '^(config/agent-stewardship\.yaml$|src/fdai/agents/_framework/pantheon\.py$|scripts/governance/check-stewardship\.sh$)' bash scripts/governance/check-stewardship.sh
+run_gate_scoped "stewardship" '^(config/agent-stewardship\.yaml$|services/core-control-plane/src/fdai/agents/_framework/pantheon\.py$|scripts/governance/check-stewardship\.sh$)' bash scripts/governance/check-stewardship.sh
 run_gate_scoped "chaos-scenarios" '^(rule-catalog/chaos-scenarios/|docs/user-guide/sre/scenario-validation-inventory|scripts/catalog/)' bash scripts/catalog/check-chaos-scenarios.sh
 run_gate_scoped "architecture-review" '^(config/architecture-review\.yaml$|scripts/governance/check-arb-readiness\.py$)' python3 scripts/governance/check-arb-readiness.py
 
@@ -207,7 +207,7 @@ run_gate_scoped "derived-sources" '^(README(-ko)?\.md$|docs/|scripts/quality/loc
 # Upstream: advisory (edits are legitimate; re-sign before release, rc 0).
 # Fork: hard fail on any edit/add under the signed surface (rc 1). Skipped
 # loudly when any signed artifact is missing.
-run_gate_scoped "framework-integrity" '^(src/fdai/(core/|agents/|composition|shared/(contracts|providers)/)|rule-catalog/schema/|\.github/instructions/|security/integrity/|scripts/integrity/)' bash scripts/integrity/check-integrity.sh
+run_gate_scoped "framework-integrity" '^(services/core-control-plane/src/fdai/(core/|agents/|composition|shared/(contracts|providers)/)|rule-catalog/schema/|\.github/instructions/|security/integrity/|scripts/integrity/)' bash scripts/integrity/check-integrity.sh
 
 # ---- pytest and whole-repository gates (opt-in) -----------------------------
 

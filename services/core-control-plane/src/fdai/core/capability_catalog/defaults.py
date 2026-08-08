@@ -160,7 +160,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.DETECTION,
         "Discover bounded Azure inventory across configured scopes.",
         _DIAGNOSE,
-        ("src/fdai/delivery/azure/inventory.py",),
+        ("services/core-control-plane/src/fdai/delivery/azure/inventory.py",),
     ),
     _parity(
         "observability.topology",
@@ -169,8 +169,8 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Project resource relationships and dependency paths.",
         _DIAGNOSE,
         (
-            "src/fdai/delivery/operator_api/routes/inventory_graph.py",
-            "src/fdai/core/rca/causal_chain.py",
+            "services/operator-service/src/fdai_operator_service/projections.py",
+            "services/core-control-plane/src/fdai/core/rca/causal_chain.py",
         ),
     ),
     _parity(
@@ -179,7 +179,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.INVESTIGATION,
         "Read and correlate administrative changes and deployments.",
         _DIAGNOSE,
-        ("src/fdai/delivery/azure/activity_log.py",),
+        ("services/core-control-plane/src/fdai/delivery/azure/activity_log.py",),
     ),
     _parity(
         "observability.log-query",
@@ -188,8 +188,8 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Run bounded single-workspace KQL and render verified rows.",
         _DIAGNOSE,
         (
-            "src/fdai/delivery/azure/log_query.py",
-            "src/fdai/delivery/operator_api/application/conversation/capabilities/log_query.py",
+            "services/core-control-plane/src/fdai/delivery/azure/log_query.py",
+            "services/core-control-plane/src/fdai/delivery/azure/log_query.py",
         ),
     ),
     _parity(
@@ -198,7 +198,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.INVESTIGATION,
         "Project AppRequests and AppDependencies into typed RCA spans.",
         _DIAGNOSE,
-        ("src/fdai/delivery/azure/telemetry_query.py", "src/fdai/shared/providers/trace_query.py"),
+        (
+            "services/core-control-plane/src/fdai/delivery/azure/telemetry_query.py",
+            "services/core-control-plane/src/fdai/shared/providers/trace_query.py",
+        ),
     ),
     _parity(
         "observability.metric-query",
@@ -206,7 +209,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.DETECTION,
         "Route metric reads across Prometheus, Metrics API, and KQL.",
         _DIAGNOSE,
-        ("src/fdai/composition/wire_metric_provider.py",),
+        ("services/core-control-plane/src/fdai/composition/wire_metric_provider.py",),
     ),
     _parity(
         "observability.metric-discovery",
@@ -215,8 +218,8 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Select the fastest configured backend for each known metric.",
         _DIAGNOSE,
         (
-            "src/fdai/shared/providers/routed_metric.py",
-            "src/fdai/delivery/azure/metrics_api_queries.py",
+            "services/core-control-plane/src/fdai/shared/providers/routed_metric.py",
+            "services/core-control-plane/src/fdai/delivery/azure/metrics_api_queries.py",
         ),
     ),
     _parity(
@@ -225,7 +228,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.DETECTION,
         "Detect anomaly, forecast, and composite multi-signal conditions.",
         _DIAGNOSE,
-        ("src/fdai/core/detection/anomaly.py", "src/fdai/core/detection/forecast.py"),
+        (
+            "services/core-control-plane/src/fdai/core/detection/anomaly.py",
+            "services/core-control-plane/src/fdai/core/detection/forecast.py",
+        ),
     ),
     _parity(
         "observability.deep-diagnostics",
@@ -233,7 +239,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.INVESTIGATION,
         "Use resource analyzers plus governed Python and shell task artifacts.",
         _DIAGNOSE,
-        ("src/fdai/core/investigation/analyzers.py", "src/fdai/core/python_task/"),
+        (
+            "services/core-control-plane/src/fdai/core/investigation/analyzers.py",
+            "services/core-control-plane/src/fdai/core/python_task/",
+        ),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),
     _parity(
@@ -242,7 +251,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.INVESTIGATION,
         "Execute cataloged Azure reads with exact argv and trusted subscription scope.",
         _TOOLS,
-        ("src/fdai/delivery/azure/command_runner.py", "src/fdai/core/tools/default_commands.py"),
+        (
+            "services/core-control-plane/src/fdai/shared/providers/command_runner.py",
+            "services/core-control-plane/src/fdai/core/tools/default_commands.py",
+        ),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),
     _parity(
@@ -252,7 +264,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Replace arbitrary write CLI with ActionType, dry-run, lock, rollback, "
         "risk, and audit gates.",
         _TOOLS,
-        ("src/fdai/core/executor/", "src/fdai/core/risk_gate/"),
+        (
+            "services/core-control-plane/src/fdai/core/executor/",
+            "services/core-control-plane/src/fdai/core/risk_gate/",
+        ),
         side_effect=SideEffectClass.EXECUTE,
         status=CapabilityParity.SAFER_ALTERNATIVE,
         role="approver",
@@ -264,8 +279,8 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Run cataloged kubectl diagnostics and promoted direct actions.",
         _TOOLS,
         (
-            "src/fdai/delivery/remediation/live_direct_api.py",
-            "src/fdai/delivery/chaos/live_injectors.py",
+            "services/core-control-plane/src/fdai/delivery/azure/gateway_direct_api.py",
+            "services/core-control-plane/src/fdai/delivery/chaos/live_injectors.py",
         ),
         side_effect=SideEffectClass.EXECUTE,
         status=CapabilityParity.SAFER_ALTERNATIVE,
@@ -277,7 +292,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.INVESTIGATION,
         "Combine inventory, telemetry, changes, audit, and knowledge citations.",
         _DIAGNOSE,
-        ("src/fdai/core/rca/evidence.py", "src/fdai/core/rca/change_evidence.py"),
+        (
+            "services/core-control-plane/src/fdai/core/rca/evidence.py",
+            "services/core-control-plane/src/fdai/core/rca/change_evidence.py",
+        ),
     ),
     _parity(
         "investigation.parallel",
@@ -285,7 +303,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.INVESTIGATION,
         "Bound concurrent analyzers and isolated task workers.",
         _TOOLS,
-        ("src/fdai/core/investigation/coordinator.py", "src/fdai/core/task_worker/runtime.py"),
+        (
+            "services/core-control-plane/src/fdai/core/investigation/coordinator.py",
+            "services/core-control-plane/src/fdai/core/task_worker/runtime.py",
+        ),
     ),
     _parity(
         "investigation.delegation",
@@ -293,7 +314,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.INVESTIGATION,
         "Delegate depth-one read tasks with attenuated tool capabilities.",
         _TOOLS,
-        ("src/fdai/core/task_worker/",),
+        ("services/core-control-plane/src/fdai/core/task_worker/",),
     ),
     _parity(
         "investigation.background",
@@ -301,7 +322,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.INVESTIGATION,
         "Persist bounded detached investigation state with cancellation and completion handoff.",
         _TOOLS,
-        ("src/fdai/core/background_task/",),
+        ("services/core-control-plane/src/fdai/core/background_task/",),
     ),
     _parity(
         "incident.platform-reception",
@@ -309,7 +330,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.INCIDENT,
         "Poll bounded incident sources and publish stable idempotent events.",
         _INCIDENTS,
-        ("src/fdai/core/incident/platform_sync.py",),
+        ("services/core-control-plane/src/fdai/core/incident/platform_sync.py",),
     ),
     _parity(
         "incident.platform-writeback",
@@ -317,7 +338,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.INCIDENT,
         "Acknowledge, resolve, and add notes through injected PagerDuty or ServiceNow adapters.",
         _INCIDENTS,
-        ("src/fdai/delivery/incident_platform/",),
+        ("services/core-control-plane/src/fdai/delivery/notifications/pagerduty.py",),
         side_effect=SideEffectClass.EXECUTE,
         status=CapabilityParity.EXTERNAL_BINDING,
         role="approver",
@@ -329,8 +350,8 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Render severity, status, action, and evidence in Teams and Slack cards.",
         _INCIDENTS,
         (
-            "src/fdai/delivery/chatops/teams_adapter.py",
-            "src/fdai/delivery/chatops/slack_adapter.py",
+            "services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py",
+            "services/core-control-plane/src/fdai/delivery/notifications/slack.py",
         ),
     ),
     _parity(
@@ -339,7 +360,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.RESPONSE_PLAN,
         "Compile event triggers, principal bindings, and enabled workflow definitions.",
         _PLANS,
-        ("src/fdai/core/workflow/trigger_index.py", "src/fdai/core/workflow/definition.py"),
+        (
+            "services/core-control-plane/src/fdai/core/workflow/trigger_index.py",
+            "services/core-control-plane/src/fdai/core/workflow/definition.py",
+        ),
     ),
     _parity(
         "incident.specialist-routing",
@@ -347,7 +371,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.RESPONSE_PLAN,
         "Route typed owned-object work to fixed accountable Pantheon specialists.",
         _PLANS,
-        ("src/fdai/agents/_framework/pantheon.py",),
+        ("services/core-control-plane/src/fdai/agents/_framework/pantheon.py",),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),
     _parity(
@@ -357,7 +381,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Derive autonomy from promotion, policy, risk, evidence, and role "
         "instead of a yolo toggle.",
         _PLANS,
-        ("src/fdai/core/risk_gate/ceiling.py", "src/fdai/core/risk_gate/gate.py"),
+        (
+            "services/core-control-plane/src/fdai/core/risk_gate/ceiling.py",
+            "services/core-control-plane/src/fdai/core/risk_gate/gate.py",
+        ),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),
     _parity(
@@ -366,7 +393,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.KNOWLEDGE,
         "Index and retrieve runbooks, architecture guides, and procedures with citations.",
         _MEMORY,
-        ("src/fdai/delivery/document_index/", "src/fdai/core/knowledge/"),
+        (
+            "services/core-control-plane/src/fdai/delivery/pgvector/knowledge.py",
+            "services/core-control-plane/src/fdai/core/knowledge/",
+        ),
     ),
     _parity(
         "knowledge.past-incidents",
@@ -375,8 +405,8 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Retrieve and reverify similar resolved incidents through T1.",
         _MEMORY,
         (
-            "src/fdai/core/tiers/t1_lightweight/",
-            "src/fdai/delivery/persistence/pgvector_pattern_library.py",
+            "services/core-control-plane/src/fdai/core/tiers/t1_lightweight/",
+            "services/core-control-plane/src/fdai/delivery/persistence/pgvector_pattern_library.py",
         ),
     ),
     _parity(
@@ -386,8 +416,8 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Persist principal-scoped confirmed facts with provenance and expiry.",
         _MEMORY,
         (
-            "src/fdai/shared/providers/user_context.py",
-            "src/fdai/delivery/persistence/postgres_user_context.py",
+            "services/core-control-plane/src/fdai/shared/providers/user_context.py",
+            "services/core-control-plane/src/fdai/delivery/persistence/postgres_user_context.py",
         ),
     ),
     _parity(
@@ -396,7 +426,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.KNOWLEDGE,
         "Run consent-gated post-turn review and inert proposal generation.",
         _MEMORY,
-        ("src/fdai/core/learning/", "src/fdai/runtime/post_turn_review.py"),
+        (
+            "services/core-control-plane/src/fdai/core/learning/",
+            "services/core-control-plane/src/fdai/runtime/post_turn_review.py",
+        ),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),
     _parity(
@@ -405,7 +438,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.KNOWLEDGE,
         "Scope memory, pattern, and incident retrieval to the active resource.",
         _MEMORY,
-        ("src/fdai/core/operator_memory/types.py", "src/fdai/core/rca/"),
+        (
+            "services/core-control-plane/src/fdai/core/operator_memory/types.py",
+            "services/core-control-plane/src/fdai/core/rca/",
+        ),
     ),
     _parity(
         "knowledge.graph",
@@ -413,7 +449,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.KNOWLEDGE,
         "Project ontology objects and links into durable PostgreSQL state.",
         _MEMORY,
-        ("src/fdai/delivery/persistence/postgres_ontology.py", "src/fdai/shared/ontology/"),
+        (
+            "services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology.py",
+            "services/core-control-plane/src/fdai/shared/ontology/",
+        ),
     ),
     _parity(
         "knowledge.tsg",
@@ -421,7 +460,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.KNOWLEDGE,
         "Ingest governed wiki and document sources through the knowledge seam.",
         _MEMORY,
-        ("src/fdai/core/knowledge/models.py", "src/fdai/delivery/knowledge/loader.py"),
+        (
+            "services/core-control-plane/src/fdai/core/knowledge/models.py",
+            "services/core-control-plane/src/fdai/delivery/pgvector/knowledge.py",
+        ),
         status=CapabilityParity.EXTERNAL_BINDING,
     ),
     _parity(
@@ -430,7 +472,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.KNOWLEDGE,
         "Read deployment changes and deliver governed PR, issue, and workflow operations.",
         _TOOLS,
-        ("src/fdai/delivery/github/", "src/fdai/delivery/gitops_pr/"),
+        (
+            "services/core-control-plane/src/fdai/delivery/github/",
+            "services/core-control-plane/src/fdai/delivery/gitops_pr/",
+        ),
         status=CapabilityParity.EXTERNAL_BINDING,
     ),
     _parity(
@@ -439,7 +484,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.KNOWLEDGE,
         "Read normalized Azure DevOps change evidence and deliver through the PR seam.",
         _TOOLS,
-        ("src/fdai/delivery/azure_devops/change_feed.py",),
+        ("services/core-control-plane/src/fdai/delivery/azure_devops/change_feed.py",),
         status=CapabilityParity.EXTERNAL_BINDING,
     ),
     _parity(
@@ -449,8 +494,8 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Use trusted metric KQL templates and bounded explicit Command Deck KQL.",
         _TOOLS,
         (
-            "src/fdai/delivery/azure/demo_queries.py",
-            "src/fdai/delivery/operator_api/application/conversation/capabilities/log_query.py",
+            "services/core-control-plane/src/fdai/delivery/azure/demo_queries.py",
+            "services/core-control-plane/src/fdai/delivery/azure/log_query.py",
         ),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),
@@ -460,7 +505,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.KNOWLEDGE,
         "Validate inert multi-file artifacts before isolated execution planning.",
         _TOOLS,
-        ("src/fdai/core/python_task/", "src/fdai/core/programmatic_pipeline/"),
+        (
+            "services/core-control-plane/src/fdai/core/python_task/",
+            "services/core-control-plane/src/fdai/core/programmatic_pipeline/",
+        ),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),
     _parity(
@@ -470,8 +518,8 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Validate shell artifacts and execute only in registered sandbox profiles.",
         _TOOLS,
         (
-            "src/fdai/core/python_task/shell_validator.py",
-            "src/fdai/delivery/shell/bubblewrap_runner.py",
+            "services/core-control-plane/src/fdai/core/python_task/shell_validator.py",
+            "services/core-control-plane/src/fdai/core/sandbox/",
         ),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),
@@ -481,7 +529,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.KNOWLEDGE,
         "Discover, govern, and execute MCP tools through catalog and management adapters.",
         _TOOLS,
-        ("src/fdai/delivery/mcp/",),
+        ("services/core-control-plane/src/fdai/core/tools/",),
     ),
     _parity(
         "extensibility.link",
@@ -490,8 +538,8 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Carry bounded evidence and source references instead of executable browser templates.",
         _TOOLS,
         (
-            "src/fdai/core/rca/contract.py",
-            "src/fdai/delivery/operator_api/application/conversation/verification/",
+            "services/core-control-plane/src/fdai/core/rca/contract.py",
+            "services/operator-service/src/fdai_operator_service/contracts.py",
         ),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),
@@ -501,7 +549,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.KNOWLEDGE,
         "Use registered MCP, webhook, and ToolExecutor adapters with server-owned authentication.",
         _TOOLS,
-        ("src/fdai/delivery/mcp/executor.py", "src/fdai/delivery/notifications/webhook.py"),
+        (
+            "services/core-control-plane/src/fdai/core/tools/executor.py",
+            "services/core-control-plane/src/fdai/delivery/notifications/webhook.py",
+        ),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),
     _parity(
@@ -510,7 +561,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.REPORTING,
         "Send signed contextual cards and threaded replies.",
         _TOOLS,
-        ("src/fdai/delivery/notifications/teams.py", "src/fdai/delivery/channels/teams.py"),
+        ("services/core-control-plane/src/fdai/delivery/notifications/teams.py",),
         status=CapabilityParity.EXTERNAL_BINDING,
     ),
     _parity(
@@ -519,7 +570,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.REPORTING,
         "Send reports and stakeholder briefings through the email channel.",
         _TOOLS,
-        ("src/fdai/delivery/notifications/email.py", "src/fdai/core/notifications/briefing.py"),
+        (
+            "services/core-control-plane/src/fdai/delivery/notifications/email.py",
+            "services/core-control-plane/src/fdai/core/notifications/briefing.py",
+        ),
         status=CapabilityParity.EXTERNAL_BINDING,
     ),
     _parity(
@@ -528,7 +582,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.SCHEDULING,
         "Create, pause, resume, edit, run now, cancel, persist, and inspect tasks.",
         _SCHEDULES,
-        ("src/fdai/core/scheduler/", "src/fdai/delivery/persistence/postgres_scheduler_store.py"),
+        (
+            "services/core-control-plane/src/fdai/core/scheduler/",
+            "services/core-control-plane/src/fdai/delivery/persistence/postgres_scheduler_store.py",
+        ),
     ),
     _parity(
         "scheduling.history",
@@ -536,7 +593,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.SCHEDULING,
         "Record idempotent dispatch attempts and expose bounded run history.",
         _SCHEDULES,
-        ("src/fdai/core/scheduler/run_ledger.py", "src/fdai/core/scheduler/history.py"),
+        (
+            "services/core-control-plane/src/fdai/core/scheduler/run_ledger.py",
+            "services/core-control-plane/src/fdai/core/scheduler/history.py",
+        ),
     ),
     _parity(
         "automation.workflow",
@@ -544,7 +604,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.RESPONSE_PLAN,
         "Validate versioned workflow definitions and execute through the normal action pipeline.",
         _WORKFLOWS,
-        ("src/fdai/core/workflow/", "src/fdai/delivery/operator_api/routes/workflow_authoring.py"),
+        (
+            "services/core-control-plane/src/fdai/core/workflow/",
+            "services/operator-service/src/fdai_operator_service/families/workflow/routes.py",
+        ),
     ),
     _parity(
         "automation.specialists",
@@ -552,7 +615,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.RESPONSE_PLAN,
         "Use a fixed role-invariant 15-agent Pantheon plus governed skills and bundles.",
         _WORKFLOWS,
-        ("src/fdai/agents/_framework/pantheon.py", "src/fdai/core/skills/"),
+        (
+            "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
+            "services/core-control-plane/src/fdai/core/skills/",
+        ),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),
     _parity(
@@ -561,7 +627,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.REPORTING,
         "Render declarative time-series, chart, heatmap, flow, and reliability widgets.",
         _TOOLS,
-        ("src/fdai/core/reporting/widgets/",),
+        ("services/core-control-plane/src/fdai/core/reporting/widgets/",),
     ),
     _parity(
         "reporting.pdf",
@@ -569,7 +635,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.REPORTING,
         "Encode print-quality reports with the optional PDF runtime.",
         _TOOLS,
-        ("src/fdai/delivery/reporting/pdf_format.py",),
+        ("services/core-control-plane/src/fdai/core/reporting/formats/defaults.py",),
     ),
     _parity(
         "measurement.slo",
@@ -577,7 +643,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.REPORTING,
         "Evaluate multi-window burn rates and publish breach events.",
         _DIAGNOSE,
-        ("src/fdai/core/slo/",),
+        ("services/core-control-plane/src/fdai/core/slo/",),
     ),
     _parity(
         "measurement.dora",
@@ -585,7 +651,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.REPORTING,
         "Compute deployment frequency, lead time, change failure, and recovery distributions.",
         _WORKFLOWS,
-        ("src/fdai/core/measurement/dora.py",),
+        ("services/core-control-plane/src/fdai/core/measurement/dora.py",),
     ),
     _parity(
         "paging.on-call",
@@ -594,8 +660,8 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Resolve schedule-aware escalation targets with fail-safe fallback.",
         _INCIDENTS,
         (
-            "src/fdai/core/oncall/resolver.py",
-            "src/fdai/delivery/incident_platform/pagerduty_oncall.py",
+            "services/core-control-plane/src/fdai/core/oncall/resolver.py",
+            "services/core-control-plane/src/fdai/delivery/notifications/pagerduty.py",
         ),
         status=CapabilityParity.EXTERNAL_BINDING,
     ),
@@ -606,8 +672,8 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Trigger deduplicated operational paging and synchronize incident lifecycle.",
         _INCIDENTS,
         (
-            "src/fdai/delivery/notifications/pagerduty.py",
-            "src/fdai/delivery/incident_platform/pagerduty.py",
+            "services/core-control-plane/src/fdai/delivery/notifications/pagerduty.py",
+            "services/core-control-plane/src/fdai/delivery/notifications/pagerduty.py",
         ),
         status=CapabilityParity.EXTERNAL_BINDING,
     ),
@@ -618,7 +684,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Require deterministic eligibility, risk, role, and approval gates "
         "instead of global auto-approval.",
         _PLANS,
-        ("src/fdai/core/risk_gate/", "src/fdai/core/hil_resume/"),
+        (
+            "services/core-control-plane/src/fdai/core/risk_gate/",
+            "services/core-control-plane/src/fdai/core/hil_resume/",
+        ),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),
     _parity(
@@ -627,7 +696,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.REPORTING,
         "Write every terminal path to append-only hash-chained audit state.",
         _WORKFLOWS,
-        ("src/fdai/core/audit/",),
+        ("services/core-control-plane/src/fdai/core/audit/",),
     ),
 )
 

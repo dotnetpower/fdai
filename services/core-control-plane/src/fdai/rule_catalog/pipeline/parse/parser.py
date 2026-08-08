@@ -34,7 +34,7 @@ class ParserName(StrEnum):
     """Every parser id the manifest schema accepts.
 
     Keep aligned with
-    ``src/fdai/rule_catalog/schema/source_manifest.schema.json``
+    ``services/core-control-plane/src/fdai/rule_catalog/schema/source_manifest.schema.json``
     ``parser`` enum; ``build_parser`` fails fast on any value not
     listed here.
     """

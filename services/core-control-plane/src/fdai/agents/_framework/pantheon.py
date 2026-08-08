@@ -66,7 +66,7 @@ _ODIN = AgentSpec(
         "object.verdict",  # portfolio outcome monitor
     ),
     question_domains=("priority_conflict", "portfolio_status"),
-    owns_code_paths=("src/fdai/agents/odin.py",),
+    owns_code_paths=("services/core-control-plane/src/fdai/agents/odin.py",),
 )
 
 # ---------------------------------------------------------------------------
@@ -109,7 +109,7 @@ _THOR = AgentSpec(
     initiates=(),
     subscribes=("object.verdict", "object.approval", "object.rollback"),
     question_domains=("action_status", "execution_history_recent"),
-    owns_code_paths=("src/fdai/agents/thor.py",),
+    owns_code_paths=("services/core-control-plane/src/fdai/agents/thor.py",),
 )
 
 # ---------------------------------------------------------------------------
@@ -159,7 +159,7 @@ _FORSETI = AgentSpec(
         "object.rule",  # cache reload on Mimir update
     ),
     question_domains=("why_denied", "why_rca", "verdict_explain"),
-    owns_code_paths=("src/fdai/agents/forseti.py",),
+    owns_code_paths=("services/core-control-plane/src/fdai/agents/forseti.py",),
     hot_path_llm=True,
 )
 
@@ -198,7 +198,7 @@ _HUGINN = AgentSpec(
         "resource_discovery",
         "resource_discovery_status",
     ),
-    owns_code_paths=("src/fdai/agents/huginn.py",),
+    owns_code_paths=("services/core-control-plane/src/fdai/agents/huginn.py",),
 )
 
 # ---------------------------------------------------------------------------
@@ -253,7 +253,7 @@ _HEIMDALL = AgentSpec(
         "privilege_escalation_status",
         "discovery_health",
     ),
-    owns_code_paths=("src/fdai/agents/heimdall.py",),
+    owns_code_paths=("services/core-control-plane/src/fdai/agents/heimdall.py",),
 )
 
 # ---------------------------------------------------------------------------
@@ -289,7 +289,7 @@ _VIDAR = AgentSpec(
     initiates=(),
     subscribes=("object.action-run",),  # picks up failures
     question_domains=("rollback_status", "dr_readiness", "rollback_dependency_health"),
-    owns_code_paths=("src/fdai/agents/vidar.py",),
+    owns_code_paths=("services/core-control-plane/src/fdai/agents/vidar.py",),
     hard_dependency=True,
 )
 
@@ -328,7 +328,7 @@ _VAR = AgentSpec(
     initiates=(),
     subscribes=("object.action-run", "object.audit-entry"),  # action + document HIL
     question_domains=("hil_pending", "approval_backlog"),
-    owns_code_paths=("src/fdai/agents/var.py",),
+    owns_code_paths=("services/core-control-plane/src/fdai/agents/var.py",),
 )
 
 # ---------------------------------------------------------------------------
@@ -362,7 +362,7 @@ _BRAGI = AgentSpec(
     initiates=(),
     subscribes=("object.verdict", "object.action-run"),  # for progress rendering
     question_domains=("help", "capability_list"),
-    owns_code_paths=("src/fdai/agents/bragi.py",),
+    owns_code_paths=("services/core-control-plane/src/fdai/agents/bragi.py",),
     hot_path_llm=True,
 )
 
@@ -411,7 +411,7 @@ _SAGA = AgentSpec(
         "object.rule",
     ),
     question_domains=("fdai_action_history", "audit_log", "approval_history"),
-    owns_code_paths=("src/fdai/agents/saga.py",),
+    owns_code_paths=("services/core-control-plane/src/fdai/agents/saga.py",),
     hard_dependency=True,
 )
 
@@ -454,7 +454,7 @@ _MIMIR = AgentSpec(
     initiates=(),
     subscribes=("object.rule-candidate", "object.issue"),
     question_domains=("rule_lookup", "policy_explain", "rule_history"),
-    owns_code_paths=("src/fdai/agents/mimir.py", "rule-catalog/**"),
+    owns_code_paths=("services/core-control-plane/src/fdai/agents/mimir.py", "rule-catalog/**"),
 )
 
 # ---------------------------------------------------------------------------
@@ -503,7 +503,7 @@ _MUNINN = AgentSpec(
         "resource_context",
         "case_history",
     ),
-    owns_code_paths=("src/fdai/agents/muninn.py",),
+    owns_code_paths=("services/core-control-plane/src/fdai/agents/muninn.py",),
 )
 
 # ---------------------------------------------------------------------------
@@ -548,7 +548,7 @@ _NORNS = AgentSpec(
         "learning_discovery_status",
         "rule_candidate_status",
     ),
-    owns_code_paths=("src/fdai/agents/norns.py",),
+    owns_code_paths=("services/core-control-plane/src/fdai/agents/norns.py",),
     off_path_llm=True,
 )
 
@@ -594,7 +594,7 @@ _NJORD = AgentSpec(
     initiates=(),
     subscribes=("object.event",),  # canonical cost samples from an adapter
     question_domains=("cost_breakdown", "budget_status", "cost_anomaly"),
-    owns_code_paths=("src/fdai/agents/njord.py",),
+    owns_code_paths=("services/core-control-plane/src/fdai/agents/njord.py",),
 )
 
 # ---------------------------------------------------------------------------
@@ -631,7 +631,7 @@ _FREYR = AgentSpec(
     initiates=(),
     subscribes=("object.event",),  # canonical utilization samples from an adapter
     question_domains=("capacity_status", "sizing_recommendation"),
-    owns_code_paths=("src/fdai/agents/freyr.py",),
+    owns_code_paths=("services/core-control-plane/src/fdai/agents/freyr.py",),
 )
 
 # ---------------------------------------------------------------------------
@@ -673,7 +673,7 @@ _LOKI = AgentSpec(
         "resilience_score",
         "chaos_execution_policy",
     ),
-    owns_code_paths=("src/fdai/agents/loki.py",),
+    owns_code_paths=("services/core-control-plane/src/fdai/agents/loki.py",),
 )
 
 

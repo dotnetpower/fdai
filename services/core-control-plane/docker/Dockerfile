@@ -69,7 +69,7 @@ COPY --chown=65532:65532 policies/ /app/policies/
 COPY --chown=65532:65532 config/ /app/config/
 COPY --chown=65532:65532 docs/internals/sregym-absorption-ledger.json /app/docs/internals/sregym-absorption-ledger.json
 COPY --chown=65532:65532 services/assets/resolved-models.json /app/resolved-models.json
-COPY --chown=65532:65532 services/core-control-plane/tests/scenarios/ /app/tests/scenarios/
+COPY --chown=65532:65532 services/core-control-plane/tests/scenarios/ /app/services/core-control-plane/tests/scenarios/
 COPY --chown=65532:65532 alembic/ /app/alembic/
 COPY --chown=65532:65532 alembic.ini /app/alembic.ini
 USER 65532

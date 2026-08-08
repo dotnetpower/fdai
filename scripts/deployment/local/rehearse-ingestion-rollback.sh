@@ -46,19 +46,19 @@ require_source_contract_count() {
 }
 
 require_source_contract \
-  "${repository_root}/src/fdai/delivery/ingestion_gateway/worker_service.py" \
+  "${repository_root}/services/core-control-plane/src/fdai/delivery/ingestion_gateway/worker_service.py" \
   'group_id: str = "fdai-document-audit-gated-worker"' \
   'consumer group'
 require_source_contract \
-  "${repository_root}/src/fdai/delivery/ingestion_gateway/prod.py" \
+  "${repository_root}/services/core-control-plane/src/fdai/delivery/ingestion_gateway/prod.py" \
   'auto_offset_reset="earliest"' \
   'offset reset policy'
 require_source_contract \
-  "${repository_root}/src/fdai/delivery/ingestion_gateway/prod.py" \
+  "${repository_root}/services/core-control-plane/src/fdai/delivery/ingestion_gateway/prod.py" \
   '"aw.pantheon.objects"' \
   'pantheon physical topic'
 require_source_contract \
-  "${repository_root}/src/fdai/delivery/persistence/postgres_document_ingestion.py" \
+  "${repository_root}/services/core-control-plane/src/fdai/delivery/persistence/postgres_document_ingestion.py" \
   'INSERT INTO document_worker_claim' \
   'durable claim namespace'
 require_source_contract_count \

@@ -17,7 +17,7 @@ from fdai.core.rbac.roles import Role
 from fdai.core.stewardship import Duty, load_stewardship_from_mapping, load_stewardship_from_yaml
 from fdai.core.stewardship.names import AGENT_NAMES
 
-_CONFIG = Path(__file__).resolve().parents[3] / "config" / "agent-stewardship.yaml"
+_CONFIG = Path(__file__).resolve().parents[5] / "config" / "agent-stewardship.yaml"
 
 
 def _intent(*, all_agents: bool = True, scope_ref: str = "scope:platform") -> AssignmentIntent:

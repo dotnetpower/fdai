@@ -43,7 +43,7 @@ describe("ontology explicit selections", () => {
             code: "agent_handoff",
             when: "An Agent emits HandoffEscalation.",
             result: "Saga creates Issue.",
-            source_refs: ["src/fdai/agents/saga.py#escalate_to_github_issue"],
+            source_refs: ["services/core-control-plane/src/fdai/agents/saga.py#escalate_to_github_issue"],
           }],
           closure: [],
           authority_refs: ["rule-catalog/vocabulary/object-types/Issue.yaml"],

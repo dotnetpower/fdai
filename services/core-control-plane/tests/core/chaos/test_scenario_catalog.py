@@ -70,7 +70,7 @@ def _stage_root(tmp_path: pathlib.Path) -> pathlib.Path:
     schema_dir = scenarios_root / "schema"
     schema_dir.mkdir(parents=True)
     real_schema = (
-        pathlib.Path(__file__).resolve().parents[3]
+        pathlib.Path(__file__).resolve().parents[5]
         / "rule-catalog"
         / "chaos-scenarios"
         / "schema"

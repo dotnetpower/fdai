@@ -49,7 +49,7 @@ def _test_ref_exists(test_ref: str) -> bool:
     relative_path, separator, test_name = test_ref.partition("::")
     if not separator:
         return False
-    path = Path(__file__).resolve().parents[2] / relative_path
+    path = Path(__file__).resolve().parents[4] / relative_path
     if not path.is_file():
         return False
     pattern = re.compile(rf"^(?:async )?def {re.escape(test_name)}\(", re.MULTILINE)

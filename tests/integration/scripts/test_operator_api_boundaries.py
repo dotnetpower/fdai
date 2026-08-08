@@ -51,17 +51,17 @@ def _run(
 def test_clean_dependency_directions_pass(tmp_path: Path) -> None:
     _write(
         tmp_path,
-        "src/fdai/core/service.py",
+        "services/core-control-plane/src/fdai/core/service.py",
         "from fdai.shared.providers.event_bus import EventBus\n",
     )
     _write(
         tmp_path,
-        "src/fdai/runtime/worker.py",
+        "services/core-control-plane/src/fdai/runtime/worker.py",
         "from fdai.delivery.agent_activity import AgentStateEvent\n",
     )
     _write(
         tmp_path,
-        "src/fdai/delivery/ingestion_gateway/main.py",
+        "services/core-control-plane/src/fdai/delivery/ingestion_gateway/main.py",
         "from fdai.delivery.auth import Authenticator\n",
     )
 
@@ -123,68 +123,68 @@ def test_final_service_cross_implementation_import_fails(
     ("relative", "source", "rule"),
     (
         (
-            "src/fdai/core/service.py",
+            "services/core-control-plane/src/fdai/core/service.py",
             "from fdai.delivery.auth import Authenticator\n",
             "core-to-delivery",
         ),
         (
-            "src/fdai/runtime/worker.py",
+            "services/core-control-plane/src/fdai/runtime/worker.py",
             "from fdai.delivery.operator_api.auth import Authenticator\n",
             "runtime-to-operator-api",
         ),
         (
-            "src/fdai/delivery/ingestion_gateway/main.py",
+            "services/core-control-plane/src/fdai/delivery/ingestion_gateway/main.py",
             "from fdai.delivery.operator_api.auth import Authenticator\n",
             "ingestion-to-operator-api",
         ),
         (
-            "src/fdai/delivery/auth/adapter.py",
+            "services/core-control-plane/src/fdai/delivery/auth/adapter.py",
             "from fdai.delivery.operator_api.routes.audit import route\n",
             "shared-delivery-to-application",
         ),
         (
-            "src/fdai/core/service.py",
+            "services/core-control-plane/src/fdai/core/service.py",
             "from ..delivery import operator_api\n",
             "core-to-delivery",
         ),
         (
-            "src/fdai/runtime/worker.py",
+            "services/core-control-plane/src/fdai/runtime/worker.py",
             "from ..delivery import operator_api\n",
             "runtime-to-operator-api",
         ),
         (
-            "src/fdai/delivery/ingestion_gateway/main.py",
+            "services/core-control-plane/src/fdai/delivery/ingestion_gateway/main.py",
             "from .. import operator_api\n",
             "ingestion-to-operator-api",
         ),
         (
-            "src/fdai/runtime/worker.py",
+            "services/core-control-plane/src/fdai/runtime/worker.py",
             "from fdai.delivery import operator_api\n",
             "runtime-to-operator-api",
         ),
         (
-            "src/fdai/runtime/worker.py",
+            "services/core-control-plane/src/fdai/runtime/worker.py",
             "import importlib\n"
             'operator_api = importlib.import_module("fdai.delivery.operator_api.auth")\n',
             "runtime-to-operator-api",
         ),
         (
-            "src/fdai/runtime/worker.py",
+            "services/core-control-plane/src/fdai/runtime/worker.py",
             'operator_api = __import__("fdai.delivery.operator_api.auth")\n',
             "runtime-to-operator-api",
         ),
         (
-            "src/fdai/delivery/agent_activity/__init__.py",
+            "services/core-control-plane/src/fdai/delivery/agent_activity/__init__.py",
             "from fdai.delivery.operator_api.routes.audit import route\n",
             "shared-delivery-to-application",
         ),
         (
-            "src/fdai/delivery/operator_api/application/conversation/backend/router.py",
+            "services/core-control-plane/src/fdai/delivery/operator_api/application/conversation/backend/router.py",
             "from fdai.delivery.operator_api.adapters.conversation import AzureAdChatBackend\n",
             "operator-application-to-adapter",
         ),
         (
-            "src/fdai/delivery/operator_api/routes/chat.py",
+            "services/core-control-plane/src/fdai/delivery/operator_api/routes/chat.py",
             "from fdai.delivery.operator_api.adapters.conversation import backend_from_env\n",
             "operator-route-to-adapter",
         ),
@@ -208,12 +208,12 @@ def test_known_operator_debt_is_reported_without_blocking(tmp_path: Path) -> Non
     debt_budget = "debt.txt"
     _write(
         tmp_path,
-        "src/fdai/delivery/operator_api/routes/audit.py",
+        "services/core-control-plane/src/fdai/delivery/operator_api/routes/audit.py",
         "from fdai.core.audit import AuditEntry\n",
     )
     _write(
         tmp_path,
-        "src/fdai/delivery/operator_api/production/identity.py",
+        "services/core-control-plane/src/fdai/delivery/operator_api/production/identity.py",
         "from fdai.runtime.health import RuntimeHealth\n"
         "from fdai.delivery.ingestion_gateway.main import build_app\n",
     )
@@ -234,7 +234,7 @@ def test_known_operator_debt_is_reported_without_blocking(tmp_path: Path) -> Non
 
 
 def test_composition_fanout_requires_reviewed_exception(tmp_path: Path) -> None:
-    relative = "src/fdai/delivery/operator_api/production/factory.py"
+    relative = "services/core-control-plane/src/fdai/delivery/operator_api/production/factory.py"
     _write(
         tmp_path,
         relative,
@@ -248,7 +248,7 @@ def test_composition_fanout_requires_reviewed_exception(tmp_path: Path) -> None:
 
 
 def test_justified_fanout_exception_passes(tmp_path: Path) -> None:
-    relative = "src/fdai/delivery/operator_api/production/factory.py"
+    relative = "services/core-control-plane/src/fdai/delivery/operator_api/production/factory.py"
     allowlist = "allowlist.txt"
     _write(
         tmp_path,
@@ -276,7 +276,7 @@ def test_fanout_allowlist_requires_justification(tmp_path: Path) -> None:
     _write(
         tmp_path,
         allowlist,
-        "composition-fanout|src/fdai/runtime/bootstrap.py|2\n",
+        "composition-fanout|services/core-control-plane/src/fdai/runtime/bootstrap.py|2\n",
     )
 
     result = _run(tmp_path, allowlist=allowlist)
@@ -286,7 +286,7 @@ def test_fanout_allowlist_requires_justification(tmp_path: Path) -> None:
 
 
 def test_stale_fanout_allowlist_entry_fails(tmp_path: Path) -> None:
-    relative = "src/fdai/runtime/bootstrap.py"
+    relative = "services/core-control-plane/src/fdai/runtime/bootstrap.py"
     allowlist = "allowlist.txt"
     _write(tmp_path, relative, "from fdai.core.audit import AuditEntry\n")
     _write(
@@ -304,24 +304,24 @@ def test_stale_fanout_allowlist_entry_fails(tmp_path: Path) -> None:
 def test_selected_path_ignores_unrelated_violation_and_allowlist(tmp_path: Path) -> None:
     _write(
         tmp_path,
-        "src/fdai/core/service.py",
+        "services/core-control-plane/src/fdai/core/service.py",
         "from fdai.delivery.auth import Authenticator\n",
     )
     _write(
         tmp_path,
-        "src/fdai/runtime/worker.py",
+        "services/core-control-plane/src/fdai/runtime/worker.py",
         "from fdai.delivery.agent_activity import AgentStateEvent\n",
     )
     _write(
         tmp_path,
         "allowlist.txt",
         "# Unselected composition root exception.\n"
-        "composition-fanout|src/fdai/delivery/operator_api/production/factory.py|40\n",
+        "composition-fanout|services/core-control-plane/src/fdai/delivery/operator_api/production/factory.py|40\n",
     )
 
     result = _run(
         tmp_path,
-        paths=("src/fdai/runtime",),
+        paths=("services/core-control-plane/src/fdai/runtime",),
         allowlist="allowlist.txt",
     )
 
@@ -329,7 +329,7 @@ def test_selected_path_ignores_unrelated_violation_and_allowlist(tmp_path: Path)
 
 
 def test_reviewed_fanout_ceiling_blocks_growth(tmp_path: Path) -> None:
-    relative = "src/fdai/delivery/operator_api/production/factory.py"
+    relative = "services/core-control-plane/src/fdai/delivery/operator_api/production/factory.py"
     allowlist = "allowlist.txt"
     _write(
         tmp_path,
@@ -355,7 +355,7 @@ def test_report_only_debt_cannot_grow_above_budget(tmp_path: Path) -> None:
     debt_budget = "debt.txt"
     _write(
         tmp_path,
-        "src/fdai/delivery/operator_api/routes/audit.py",
+        "services/core-control-plane/src/fdai/delivery/operator_api/routes/audit.py",
         "from fdai.core.audit import AuditEntry\nfrom fdai.core.rbac import Role\n",
     )
     _write(
@@ -373,7 +373,7 @@ def test_report_only_debt_cannot_grow_above_budget(tmp_path: Path) -> None:
 def test_nonliteral_dynamic_import_fails_closed(tmp_path: Path) -> None:
     _write(
         tmp_path,
-        "src/fdai/runtime/worker.py",
+        "services/core-control-plane/src/fdai/runtime/worker.py",
         "import importlib\nmodule_name = get_module_name()\n"
         "target = importlib.import_module(module_name)\n",
     )
@@ -393,7 +393,7 @@ def test_nonliteral_dynamic_import_fails_closed(tmp_path: Path) -> None:
     ],
 )
 def test_relative_dynamic_import_fails_closed(tmp_path: Path, source: str) -> None:
-    _write(tmp_path, "src/fdai/runtime/worker.py", source)
+    _write(tmp_path, "services/core-control-plane/src/fdai/runtime/worker.py", source)
 
     result = _run(tmp_path)
 
@@ -404,7 +404,7 @@ def test_relative_dynamic_import_fails_closed(tmp_path: Path, source: str) -> No
 def test_absolute_safe_dynamic_import_passes(tmp_path: Path) -> None:
     _write(
         tmp_path,
-        "src/fdai/runtime/worker.py",
+        "services/core-control-plane/src/fdai/runtime/worker.py",
         'import importlib\ntarget = importlib.import_module("fdai.delivery.agent_activity")\n',
     )
 
@@ -416,7 +416,7 @@ def test_absolute_safe_dynamic_import_passes(tmp_path: Path) -> None:
 def test_missing_debt_budget_fails_when_report_debt_exists(tmp_path: Path) -> None:
     _write(
         tmp_path,
-        "src/fdai/delivery/operator_api/routes/audit.py",
+        "services/core-control-plane/src/fdai/delivery/operator_api/routes/audit.py",
         "from fdai.core.audit import AuditEntry\n",
     )
 
@@ -430,7 +430,7 @@ def test_unbudgeted_report_rule_fails(tmp_path: Path) -> None:
     debt_budget = "debt.txt"
     _write(
         tmp_path,
-        "src/fdai/delivery/operator_api/production/identity.py",
+        "services/core-control-plane/src/fdai/delivery/operator_api/production/identity.py",
         "from fdai.runtime.health import RuntimeHealth\n",
     )
     _write(
@@ -448,19 +448,23 @@ def test_unbudgeted_report_rule_fails(tmp_path: Path) -> None:
 def test_selected_path_enforces_violation_inside_scope(tmp_path: Path) -> None:
     _write(
         tmp_path,
-        "src/fdai/runtime/worker.py",
+        "services/core-control-plane/src/fdai/runtime/worker.py",
         "from fdai.delivery.operator_api.auth import Authenticator\n",
     )
 
-    result = _run(tmp_path, paths=("src/fdai/runtime",))
+    result = _run(tmp_path, paths=("services/core-control-plane/src/fdai/runtime",))
 
     assert result.returncode == 1
     assert "[runtime-to-operator-api]" in result.stdout
 
 
 def test_equivalent_submodule_imports_share_one_fanout_identity(tmp_path: Path) -> None:
-    relative = "src/fdai/delivery/operator_api/production/factory.py"
-    _write(tmp_path, "src/fdai/core/audit.py", "class AuditEntry:\n    pass\n")
+    relative = "services/core-control-plane/src/fdai/delivery/operator_api/production/factory.py"
+    _write(
+        tmp_path,
+        "services/core-control-plane/src/fdai/core/audit.py",
+        "class AuditEntry:\n    pass\n",
+    )
     _write(
         tmp_path,
         relative,
@@ -502,7 +506,7 @@ def test_source_directory_symlink_fails_closed(tmp_path: Path) -> None:
         "bad.py",
         "from fdai.delivery.operator_api.auth import Authenticator\n",
     )
-    core = tmp_path / "src/fdai/core"
+    core = tmp_path / "services/core-control-plane/src/fdai/core"
     core.mkdir(parents=True)
     (core / "linked").symlink_to(outside, target_is_directory=True)
 
@@ -513,7 +517,7 @@ def test_source_directory_symlink_fails_closed(tmp_path: Path) -> None:
 
 
 def test_python_syntax_error_fails_closed(tmp_path: Path) -> None:
-    _write(tmp_path, "src/fdai/runtime/worker.py", "def broken(:\n")
+    _write(tmp_path, "services/core-control-plane/src/fdai/runtime/worker.py", "def broken(:\n")
 
     result = _run(tmp_path)
 

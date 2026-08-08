@@ -349,9 +349,10 @@ def test_operational_event_bus_prefers_isolated_auxiliary_bus() -> None:
 
 
 def test_startup_readiness_uses_operational_event_bus() -> None:
-    bootstrap = (Path(__file__).resolve().parents[1] / "src/fdai/runtime/bootstrap.py").read_text(
-        encoding="utf-8"
-    )
+    bootstrap = (
+        Path(__file__).resolve().parents[2]
+        / "services/core-control-plane/src/fdai/runtime/bootstrap.py"
+    ).read_text(encoding="utf-8")
 
     assert "event_bus=operational_bus" in bootstrap
 

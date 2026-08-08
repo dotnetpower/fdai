@@ -128,7 +128,10 @@ def test_runtime_assets_follow_service_ownership() -> None:
     assert "COPY --from=opa-builder /go/bin/opa" in core
     assert "rule-catalog/" in core and "policies/" in core and "config/" in core
     assert "resolved-models.json" in core
-    assert "services/core-control-plane/tests/scenarios/ /app/tests/scenarios/" in core
+    assert (
+        "services/core-control-plane/tests/scenarios/ "
+        "/app/services/core-control-plane/tests/scenarios/" in core
+    )
     for asset in ("config/", "rule-catalog/", "policies/", "resolved-models.json"):
         assert asset not in operator
     assert "config/agent-stewardship.yaml /app/config/agent-stewardship.yaml" in ingestion_api

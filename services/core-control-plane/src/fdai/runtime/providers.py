@@ -373,7 +373,7 @@ def _build_inventory_delta_projector() -> Any:
         )
 
         cache_path, _ = inventory_cache_path(
-            repo_root=Path(__file__).resolve().parents[3],
+            repo_root=Path(__file__).resolve().parents[5],
             subscription_id=subscription_id,
             azure_config_dir=os.environ.get("FDAI_LOCAL_AZURE_CONFIG_DIR", "").strip() or None,
         )

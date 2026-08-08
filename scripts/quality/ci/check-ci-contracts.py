@@ -66,6 +66,10 @@ BASE_IMAGE_REGISTRY_ARG = "BASE_IMAGE_REGISTRY"
 BASE_IMAGE_PREFIX = "${" + BASE_IMAGE_REGISTRY_ARG + "}/"
 
 
+def _service_dockerfiles() -> tuple[Path, ...]:
+    return tuple(sorted(REPO_ROOT.glob("services/*/docker/Dockerfile")))
+
+
 def _tracked_paths() -> set[str]:
     result = subprocess.run(
         ["git", "ls-files", "-z"],
@@ -78,25 +82,26 @@ def _tracked_paths() -> set[str]:
 
 def _docker_copy_sources() -> tuple[str, ...]:
     sources: list[str] = []
-    logical_line = ""
-    for raw_line in (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8").splitlines():
-        stripped = raw_line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        logical_line = f"{logical_line} {stripped}".strip()
-        if logical_line.endswith("\\"):
-            logical_line = logical_line[:-1].rstrip()
-            continue
-        parts = shlex.split(logical_line)
+    for dockerfile in _service_dockerfiles():
         logical_line = ""
-        if (
-            not parts
-            or parts[0].upper() != "COPY"
-            or any(part.startswith("--from=") for part in parts[1:])
-        ):
-            continue
-        operands = [part for part in parts[1:] if not part.startswith("--")]
-        sources.extend(operands[:-1])
+        for raw_line in dockerfile.read_text(encoding="utf-8").splitlines():
+            stripped = raw_line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            logical_line = f"{logical_line} {stripped}".strip()
+            if logical_line.endswith("\\"):
+                logical_line = logical_line[:-1].rstrip()
+                continue
+            parts = shlex.split(logical_line)
+            logical_line = ""
+            if (
+                not parts
+                or parts[0].upper() != "COPY"
+                or any(part.startswith("--from=") for part in parts[1:])
+            ):
+                continue
+            operands = [part for part in parts[1:] if not part.startswith("--")]
+            sources.extend(operands[:-1])
     return tuple(sources)
 
 
@@ -138,7 +143,11 @@ def _validate_build_context() -> list[str]:
     }
     if "tests/" in dockerignore:
         errors.append(".dockerignore must not exclude tests/ before its scenarios exception")
-    for rule in ("tests/*", "!tests/scenarios/"):
+    for rule in (
+        "tests/*",
+        "services/*/tests/*",
+        "!services/core-control-plane/tests/scenarios/",
+    ):
         if rule not in dockerignore:
             errors.append(f".dockerignore is missing required rule: {rule}")
 
@@ -163,25 +172,29 @@ def _validate_base_images() -> list[str]:
     accepted.
     """
     errors: list[str] = []
-    lines = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8").splitlines()
-    if not any(line.strip().startswith(f"ARG {BASE_IMAGE_REGISTRY_ARG}=") for line in lines):
-        errors.append(f"Dockerfile must declare ARG {BASE_IMAGE_REGISTRY_ARG} with a default")
-    stages: set[str] = set()
-    for line in lines:
-        parts = line.strip().split()
-        if len(parts) < 2 or parts[0].upper() != "FROM":
-            continue
-        reference = parts[1]
-        if len(parts) >= 4 and parts[2].upper() == "AS":
-            stages.add(parts[3])
-        if reference in stages:
-            continue
-        if not reference.startswith(BASE_IMAGE_PREFIX):
-            errors.append(
-                f"Dockerfile base image {reference} must be prefixed with {BASE_IMAGE_PREFIX}"
-            )
-        if "@sha256:" not in reference:
-            errors.append(f"Dockerfile base image {reference} must be digest-pinned")
+    dockerfiles = _service_dockerfiles()
+    if not dockerfiles:
+        return ["service-owned Dockerfiles are missing"]
+    for dockerfile in dockerfiles:
+        lines = dockerfile.read_text(encoding="utf-8").splitlines()
+        if not any(line.strip().startswith(f"ARG {BASE_IMAGE_REGISTRY_ARG}=") for line in lines):
+            errors.append(f"Dockerfile must declare ARG {BASE_IMAGE_REGISTRY_ARG} with a default")
+        stages: set[str] = set()
+        for line in lines:
+            parts = line.strip().split()
+            if len(parts) < 2 or parts[0].upper() != "FROM":
+                continue
+            reference = parts[1]
+            if len(parts) >= 4 and parts[2].upper() == "AS":
+                stages.add(parts[3])
+            if reference in stages:
+                continue
+            if not reference.startswith(BASE_IMAGE_PREFIX):
+                errors.append(
+                    f"Dockerfile base image {reference} must be prefixed with {BASE_IMAGE_PREFIX}"
+                )
+            if "@sha256:" not in reference:
+                errors.append(f"Dockerfile base image {reference} must be digest-pinned")
     return errors
 
 
@@ -192,7 +205,7 @@ def _validate_shared_runners() -> list[str]:
         for runner in SHARED_RUNNERS:
             if runner not in content:
                 errors.append(f"{entry_point} does not delegate to {runner}")
-        if "--cov=src/fdai/core" in content:
+        if "--cov=services/core-control-plane/src/fdai/core" in content:
             errors.append(f"{entry_point} duplicates the safety-core coverage target list")
     return errors
 

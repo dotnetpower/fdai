@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-_CORE_DIR = _REPO_ROOT / "src" / "fdai" / "core"
+_CORE_DIR = _REPO_ROOT / "services" / "core-control-plane" / "src" / "fdai" / "core"
 
 _DOMAIN_MEMBERSHIP: dict[str, tuple[str, ...]] = {
     "pipeline": (

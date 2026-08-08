@@ -16,7 +16,7 @@ from fdai.core.measurement.prompt_probe_cli import (
 from fdai.core.measurement.prompt_probe_testing import AbstainResponder
 
 _SCENARIO_SCHEMA_PATH = (
-    Path(__file__).resolve().parents[3]
+    Path(__file__).resolve().parents[5]
     / "rule-catalog"
     / "prompts"
     / "scenarios"
@@ -24,14 +24,14 @@ _SCENARIO_SCHEMA_PATH = (
     / "scenario.schema.json"
 )
 _PROMPT_SCHEMA_PATH = (
-    Path(__file__).resolve().parents[3]
+    Path(__file__).resolve().parents[5]
     / "rule-catalog"
     / "prompts"
     / "schema"
     / "prompt.schema.json"
 )
 _SHIPPED_BASE_YAML = (
-    Path(__file__).resolve().parents[3]
+    Path(__file__).resolve().parents[5]
     / "rule-catalog"
     / "prompts"
     / "base"

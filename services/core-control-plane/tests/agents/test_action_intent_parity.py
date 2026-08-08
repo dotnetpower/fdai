@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-_DECK = Path(__file__).resolve().parents[2] / "console" / "src" / "deck"
+_DECK = Path(__file__).resolve().parents[4] / "console" / "src" / "deck"
 
 
 def test_client_action_intent_router_stays_removed() -> None:

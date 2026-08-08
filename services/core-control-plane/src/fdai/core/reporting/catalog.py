@@ -39,7 +39,7 @@ from fdai.core.reporting.models import (
 )
 
 _DEFAULT_SCHEMA_PATH = (
-    Path(__file__).resolve().parents[4]
+    Path(__file__).resolve().parents[6]
     / "rule-catalog"
     / "reports"
     / "schema"

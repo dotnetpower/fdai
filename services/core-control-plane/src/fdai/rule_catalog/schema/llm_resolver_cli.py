@@ -10,14 +10,15 @@ Usage
 
 .. code-block:: bash
 
+    SCENARIOS=services/core-control-plane/tests/scenarios/llm
     python -m fdai.rule_catalog.schema.llm_resolver_cli \\
         --registry rule-catalog/llm-registry.yaml \\
         --region koreacentral \\
         --subscription-id 00000000-0000-0000-0000-000000000000 \\
         --deployer-object-id 00000000-0000-0000-0000-000000000001 \\
-        --catalog-fixture tests/scenarios/llm/catalog.koreacentral.json \\
-        --permission-fixture tests/scenarios/llm/permission.granted.json \\
-        --quota-fixture tests/scenarios/llm/quota.default.json \\
+        --catalog-fixture "$SCENARIOS/catalog.koreacentral.json" \
+        --permission-fixture "$SCENARIOS/permission.granted.json" \
+        --quota-fixture "$SCENARIOS/quota.default.json" \
         --out resolved-models.json
 
 Exit codes

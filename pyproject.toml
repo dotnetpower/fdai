@@ -174,7 +174,6 @@ ignore = []
 # docstring would exceed the intent of this cleanup.
 "services/core-control-plane/src/fdai/rule_catalog/codegen/**" = ["E501"]
 "services/core-control-plane/src/fdai/rule_catalog/schema/object_type.py" = ["E501"]
-"tests/delivery/operator_api/test_bitemporal.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -237,7 +236,7 @@ asyncio_mode = "auto"
 # a real regression (a warning from OUR code) still surfaces.
 filterwarnings = [
     # starlette 1.3.1 asks TestClient users to switch to httpx2. httpx is used
-    # extensively across src/fdai/delivery/**; migrating to httpx2 is a
+    # extensively across services/core-control-plane/src/fdai/delivery/**; migrating to httpx2 is a
     # separate work item and does not affect correctness.
     "ignore::starlette.exceptions.StarletteDeprecationWarning",
 ]

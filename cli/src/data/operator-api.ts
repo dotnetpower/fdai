@@ -2,7 +2,7 @@
  * Operator API client - the real data source behind `--source=api`.
  *
  * Talks to the running console Operator API (three GET routes: /kpi, /hil-queue,
- * /audit; see `src/fdai/delivery/operator_api/main.py`). This is the same read-only
+ * /audit; see `services/core-control-plane/src/fdai/delivery/operator_api/main.py`). This is the same read-only
  * surface the console SPA uses; the CLI just renders it differently. No mutating
  * calls - the console never executes an action.
  */

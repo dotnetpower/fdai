@@ -37,8 +37,8 @@ contract in
 [`docs/roadmap/architecture/csp-neutrality.md` § 5]).
 
 Full JSON definitions live in
-``src/fdai/shared/contracts/ontology/*.json``; the loaders under
-``src/fdai/rule_catalog/schema/`` remain the authoritative
+``services/core-control-plane/src/fdai/shared/contracts/ontology/*.json``; the loaders under
+``services/core-control-plane/src/fdai/rule_catalog/schema/`` remain the authoritative
 runtime source. This migration only *bootstraps* the tables.
 """
 

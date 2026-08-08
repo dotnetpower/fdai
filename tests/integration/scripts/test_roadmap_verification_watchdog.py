@@ -10,7 +10,7 @@ from types import ModuleType
 
 import pytest
 
-AUTOMATION = Path(__file__).resolve().parents[2] / "scripts" / "automation"
+AUTOMATION = Path(__file__).resolve().parents[3] / "scripts" / "automation"
 
 
 def _load(name: str, filename: str) -> ModuleType:
@@ -114,7 +114,7 @@ def test_timer_installer_creates_dedicated_campaign_worktree(tmp_path: Path) -> 
 
 
 def test_make_and_scripts_readme_expose_the_pipeline_facade() -> None:
-    root = AUTOMATION.parents[2]
+    root = AUTOMATION.parents[1]
     makefile = (root / "Makefile").read_text(encoding="utf-8")
     readme = (root / "scripts/README.md").read_text(encoding="utf-8")
 

@@ -13,7 +13,7 @@ PYPI_PUBLISH_SHA = "2834a314042ef964da07689278dd1e9d773e8afd"
 
 def test_release_workflow_is_approval_gated_reproducible_and_secret_safe() -> None:
     workflow = (
-        Path(__file__).resolve().parents[2]
+        Path(__file__).resolve().parents[3]
         / ".github"
         / "workflows"
         / "release-deployment-bundle.yml"
@@ -50,7 +50,7 @@ def test_release_workflow_is_approval_gated_reproducible_and_secret_safe() -> No
 
 def test_release_workflow_publishes_the_verified_python_artifact_with_oidc() -> None:
     workflow = (
-        Path(__file__).resolve().parents[2]
+        Path(__file__).resolve().parents[3]
         / ".github"
         / "workflows"
         / "release-deployment-bundle.yml"
@@ -73,7 +73,7 @@ def test_release_workflow_publishes_the_verified_python_artifact_with_oidc() -> 
 
 def test_python_distribution_jobs_are_structurally_executable() -> None:
     workflow_path = (
-        Path(__file__).resolve().parents[2]
+        Path(__file__).resolve().parents[3]
         / ".github"
         / "workflows"
         / "release-deployment-bundle.yml"

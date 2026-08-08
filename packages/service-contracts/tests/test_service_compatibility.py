@@ -127,7 +127,7 @@ def test_service_versions_match_distributions_without_claiming_n_minus_one() -> 
 
     assert independent["current_baseline"]["independent_upgrade_and_rollback_proofs"] == 0
     assert independent["compatibility_retirements"] == {
-        "legacy_isolated_executor_module": "requires-independent-service-entrypoint",
+        "legacy_isolated_executor_module": "retired",
         "ingestion_cohost": "retired",
     }
 

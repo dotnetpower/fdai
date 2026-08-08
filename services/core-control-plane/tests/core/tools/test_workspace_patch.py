@@ -29,7 +29,7 @@ def test_accepts_repository_relative_add_and_update() -> None:
         ),
         CodePatchOperation(
             kind=CodePatchKind.ADD,
-            path="services/core-control-plane/tests/test_example.py",
+            path="services/core-control-plane/tests/integration/test_example.py",
             content_after="def test_value():\n    assert True\n",
         ),
     )

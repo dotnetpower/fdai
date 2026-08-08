@@ -12,7 +12,7 @@ import pytest
 
 def _load_contract_module() -> ModuleType:
     script = (
-        Path(__file__).resolve().parents[2] / "scripts" / "quality" / "ci" / "check-ci-contracts.py"
+        Path(__file__).resolve().parents[3] / "scripts" / "quality" / "ci" / "check-ci-contracts.py"
     )
     spec = importlib.util.spec_from_file_location("check_ci_contracts", script)
     if spec is None or spec.loader is None:
@@ -175,7 +175,7 @@ def test_shipped_workflows_satisfy_security_contracts() -> None:
 
 def test_release_bundle_uses_exact_commit_and_reviewed_action_shas() -> None:
     workflow = (
-        Path(__file__).resolve().parents[2]
+        Path(__file__).resolve().parents[3]
         / ".github"
         / "workflows"
         / "release-deployment-bundle.yml"
@@ -202,7 +202,7 @@ def test_release_bundle_uses_exact_commit_and_reviewed_action_shas() -> None:
 
 def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
     module = _load_contract_module()
-    workflow_dir = Path(__file__).resolve().parents[2] / ".github" / "workflows"
+    workflow_dir = Path(__file__).resolve().parents[3] / ".github" / "workflows"
 
     privileged = {
         path.name
@@ -257,7 +257,8 @@ def test_base_images_must_stay_mirror_overridable_and_digest_pinned(
 ) -> None:
     """A disconnected build redirects where bytes come from, never which bytes."""
     module = _load_contract_module()
-    dockerfile = tmp_path / "Dockerfile"
+    dockerfile = tmp_path / "services" / "example" / "docker" / "Dockerfile"
+    dockerfile.parent.mkdir(parents=True)
     monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
     dockerfile.write_text(
         "FROM docker.io/library/python:3.13 AS builder\nFROM builder AS runtime\n",
@@ -275,7 +276,9 @@ def test_base_images_must_stay_mirror_overridable_and_digest_pinned(
 def test_compliant_base_images_pass(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_contract_module()
     monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
-    (tmp_path / "Dockerfile").write_text(
+    dockerfile = tmp_path / "services" / "example" / "docker" / "Dockerfile"
+    dockerfile.parent.mkdir(parents=True)
+    dockerfile.write_text(
         "ARG BASE_IMAGE_REGISTRY=docker.io\n"
         "FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:" + "a" * 64 + " AS builder\n"
         "FROM builder AS runtime\n",
@@ -299,17 +302,23 @@ def test_shipped_build_context_is_complete_or_materialized() -> None:
 
 def test_resolved_model_manifest_reaches_container_build_context() -> None:
     repo_root = Path(__file__).resolve().parents[3]
-    dockerfile = (repo_root / "Dockerfile").read_text(encoding="utf-8")
+    dockerfile = (
+        repo_root / "services" / "core-control-plane" / "docker" / "Dockerfile"
+    ).read_text(encoding="utf-8")
     dockerignore = (repo_root / ".dockerignore").read_text(encoding="utf-8").splitlines()
 
-    assert "COPY --chown=65532:65532 resolved-models.json /app/resolved-models.json" in dockerfile
+    assert (
+        "COPY --chown=65532:65532 services/assets/resolved-models.json /app/resolved-models.json"
+    ) in dockerfile
     assert "resolved-models*.json" in dockerignore
     assert "!resolved-models.json" in dockerignore
 
 
 def test_diagnostic_ontology_ledger_reaches_runtime_image() -> None:
     root = Path(__file__).resolve().parents[3]
-    dockerfile = (root / "Dockerfile").read_text(encoding="utf-8")
+    dockerfile = (root / "services" / "core-control-plane" / "docker" / "Dockerfile").read_text(
+        encoding="utf-8"
+    )
     dockerignore = (root / ".dockerignore").read_text(encoding="utf-8")
 
     assert (
@@ -321,7 +330,7 @@ def test_diagnostic_ontology_ledger_reaches_runtime_image() -> None:
 
 def test_sregym_image_uses_frozen_workspace_and_includes_ontology_ledger() -> None:
     dockerfile = (
-        Path(__file__).resolve().parents[2] / "benchmarks" / "sregym" / "Dockerfile"
+        Path(__file__).resolve().parents[3] / "benchmarks" / "sregym" / "Dockerfile"
     ).read_text(encoding="utf-8")
 
     assert "COPY pyproject.toml uv.lock README.md LICENSE ./" in dockerfile
@@ -340,21 +349,19 @@ def test_sregym_image_uses_frozen_workspace_and_includes_ontology_ledger() -> No
 
 def test_dockerfile_installs_only_runtime_workspace_packages() -> None:
     root = Path(__file__).resolve().parents[3]
-    dockerfile = (root / "Dockerfile").read_text(encoding="utf-8")
-    service_dockerfile = (root / "services" / "Dockerfile").read_text(encoding="utf-8")
-
-    assert "--no-install-workspace" in dockerfile
-    assert "COPY evaluation-sdk/ ./evaluation-sdk/" in dockerfile
-    assert "COPY benchmarks/sregym/pyproject.toml" in dockerfile
-    assert "COPY benchmarks/cybergym/pyproject.toml" in dockerfile
-    assert "uv sync --frozen --package fdai" in dockerfile
-    assert "fdai-isolated-executor" not in dockerfile
-    assert "RUN test -x /app/.venv/bin/fdai-isolated-executor-service" in service_dockerfile
-    assert 'ENTRYPOINT ["fdai-isolated-executor-service"]' in service_dockerfile
+    assert not (root / "Dockerfile").exists()
+    assert not (root / "services" / "Dockerfile").exists()
+    dockerfiles = sorted((root / "services").glob("*/docker/Dockerfile"))
+    assert len(dockerfiles) == 5
+    for dockerfile in dockerfiles:
+        text = dockerfile.read_text(encoding="utf-8")
+        assert "--no-install-package fdai-service-contracts" in text
+        assert "USER 65532" in text
+        assert "ENTRYPOINT" in text
 
 
 def test_ci_installs_and_audits_the_frozen_runtime_workspace() -> None:
-    workflow = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "ci.yml").read_text(
+    workflow = (Path(__file__).resolve().parents[3] / ".github" / "workflows" / "ci.yml").read_text(
         encoding="utf-8"
     )
     chaos_job = workflow.split("  chaos-scenarios:", 1)[1].split("\n  core-imports:", 1)[0]
@@ -369,7 +376,7 @@ def test_ci_installs_and_audits_the_frozen_runtime_workspace() -> None:
 
 def test_container_scan_blocks_all_medium_high_and_critical_vulnerabilities() -> None:
     workflow = (
-        Path(__file__).resolve().parents[2] / ".github" / "workflows" / "container-supply-chain.yml"
+        Path(__file__).resolve().parents[3] / ".github" / "workflows" / "container-supply-chain.yml"
     ).read_text(encoding="utf-8")
 
     assert workflow.count("--severity MEDIUM,HIGH,CRITICAL") == 2
@@ -378,7 +385,7 @@ def test_container_scan_blocks_all_medium_high_and_critical_vulnerabilities() ->
 
 def test_infrastructure_scan_blocks_medium_high_and_critical_findings() -> None:
     workflow = (
-        Path(__file__).resolve().parents[2] / ".github" / "workflows" / "infra-lint.yml"
+        Path(__file__).resolve().parents[3] / ".github" / "workflows" / "infra-lint.yml"
     ).read_text(encoding="utf-8")
 
     assert "trivy config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL infra" in workflow

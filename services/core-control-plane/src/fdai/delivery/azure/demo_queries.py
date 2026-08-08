@@ -449,7 +449,7 @@ def default_metric_queries() -> Mapping[str, MetricKqlTemplate]:
         merged[key] = template
     for key, template in _ANALYZER_QUERIES.items():
         if key in merged:  # pragma: no cover - defended by
-            # ``tests/delivery/azure/test_demo_queries.py``.
+            # ``services/core-control-plane/tests/delivery/azure/test_demo_queries.py``.
             raise RuntimeError(
                 f"metric name {key!r} collides between the demo capture "
                 "and analyzer maps - reconcile the two before shipping"

@@ -27,7 +27,7 @@ CATALOG_ROOT = REPO_ROOT / "rule-catalog" / "catalog"
 POLICIES_ROOT = REPO_ROOT / "policies"
 REMEDIATION_ROOT = REPO_ROOT / "rule-catalog" / "remediation"
 VOCABULARY_FILE = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
-SCENARIOS_DIR = REPO_ROOT / "tests" / "scenarios" / "v2026.07"
+SCENARIOS_DIR = REPO_ROOT / "services" / "core-control-plane" / "tests" / "scenarios" / "v2026.07"
 
 
 def _shipped_rules() -> tuple[Rule, ...]:

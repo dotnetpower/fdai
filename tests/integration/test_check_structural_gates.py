@@ -24,6 +24,9 @@ _AGENTS = _GATE_DIR / "check-agents-imports.sh"
 _FANOUT = _GATE_DIR / "check-subsystem-fanout.sh"
 _GIT = shutil.which("git") or "git"
 _BASH = shutil.which("bash") or "bash"
+_CORE_SOURCE = Path("services/core-control-plane/src/fdai")
+_CORE = _CORE_SOURCE / "core"
+_AGENTS_ROOT = _CORE_SOURCE / "agents"
 
 
 def _git(cwd: Path, *args: str) -> None:
@@ -90,7 +93,7 @@ class TestCheckFileLoc:
     def test_empty_tree_passes(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        (repo / "src" / "fdai").mkdir(parents=True)
+        (repo / _CORE_SOURCE).mkdir(parents=True)
         result = _run(repo, repo / "scripts" / "check-file-loc.sh")
         assert result.returncode == 0, result.stderr
         assert "skipping" in result.stdout
@@ -98,9 +101,9 @@ class TestCheckFileLoc:
     def test_warn_mode_never_fails(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        _seed_python_file(repo, "src/fdai/tiny.py", 10)
-        _seed_python_file(repo, "src/fdai/mid.py", 500)  # > 400 warn
-        _seed_python_file(repo, "src/fdai/huge.py", 900)  # > 800 fail
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/tiny.py", 10)
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/mid.py", 500)  # > 400 warn
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/huge.py", 900)  # > 800 fail
         result = _run(repo, repo / "scripts" / "check-file-loc.sh")
         assert result.returncode == 0
         assert "warned=1" in result.stdout
@@ -110,7 +113,7 @@ class TestCheckFileLoc:
     def test_enforce_mode_fails_on_over_800(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        _seed_python_file(repo, "src/fdai/huge.py", 900)
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/huge.py", 900)
         result = _run(repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce")
         assert result.returncode == 1
         assert "failed=1" in result.stdout
@@ -118,7 +121,7 @@ class TestCheckFileLoc:
     def test_enforce_mode_passes_without_fails(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        _seed_python_file(repo, "src/fdai/mid.py", 500)  # only warn
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/mid.py", 500)  # only warn
         result = _run(repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce")
         assert result.returncode == 0
         assert "failed=0" in result.stdout
@@ -126,7 +129,7 @@ class TestCheckFileLoc:
     def test_thresholds_are_env_overridable(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        _seed_python_file(repo, "src/fdai/mid.py", 500)
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/mid.py", 500)
         result = _run(
             repo,
             repo / "scripts" / "check-file-loc.sh",
@@ -163,9 +166,10 @@ class TestCheckFileLoc:
     def test_allowlist_skips_files(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        _seed_python_file(repo, "src/fdai/huge.py", 900)
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/huge.py", 900)
         (repo / "scripts" / ".check-file-loc.allowlist").write_text(
-            "# huge.py: intentionally big during migration\nsrc/fdai/huge.py\n"
+            "# huge.py: intentionally big during migration\n"
+            "services/core-control-plane/src/fdai/huge.py\n"
         )
         result = _run(repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce")
         assert result.returncode == 0
@@ -174,9 +178,11 @@ class TestCheckFileLoc:
     def test_allowlist_entry_without_justification_rejected(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        _seed_python_file(repo, "src/fdai/huge.py", 900)
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/huge.py", 900)
         # No '#' comment preceding the entry - a governance smell.
-        (repo / "scripts" / ".check-file-loc.allowlist").write_text("src/fdai/huge.py\n")
+        (repo / "scripts" / ".check-file-loc.allowlist").write_text(
+            "services/core-control-plane/src/fdai/huge.py\n"
+        )
         result = _run(repo, repo / "scripts" / "check-file-loc.sh")
         assert result.returncode == 2
         assert "justification comment" in result.stderr
@@ -184,9 +190,9 @@ class TestCheckFileLoc:
     def test_debt_baseline_allows_existing_size_without_growth(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        _seed_python_file(repo, "src/fdai/huge.py", 900)
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/huge.py", 900)
         (repo / "scripts" / ".check-file-loc.baseline").write_text(
-            "# Existing debt must not grow.\n900 src/fdai/huge.py\n"
+            "# Existing debt must not grow.\n900 services/core-control-plane/src/fdai/huge.py\n"
         )
 
         result = _run(repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce")
@@ -198,9 +204,9 @@ class TestCheckFileLoc:
     def test_debt_baseline_rejects_growth(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        _seed_python_file(repo, "src/fdai/huge.py", 901)
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/huge.py", 901)
         (repo / "scripts" / ".check-file-loc.baseline").write_text(
-            "# Existing debt must not grow.\n900 src/fdai/huge.py\n"
+            "# Existing debt must not grow.\n900 services/core-control-plane/src/fdai/huge.py\n"
         )
 
         result = _run(repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce")
@@ -211,9 +217,10 @@ class TestCheckFileLoc:
     def test_debt_baseline_is_stale_after_refactor(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        _seed_python_file(repo, "src/fdai/refactored.py", 800)
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/refactored.py", 800)
         (repo / "scripts" / ".check-file-loc.baseline").write_text(
-            "# Remove this cap after the split.\n900 src/fdai/refactored.py\n"
+            "# Remove this cap after the split.\n"
+            "900 services/core-control-plane/src/fdai/refactored.py\n"
         )
 
         result = _run(repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce")
@@ -224,11 +231,12 @@ class TestCheckFileLoc:
     def test_allowlist_glob_pattern_matches(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        _seed_python_file(repo, "src/fdai/generated/a.py", 900)
-        _seed_python_file(repo, "src/fdai/generated/b.py", 950)
-        _seed_python_file(repo, "src/fdai/handwritten.py", 900)
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/generated/a.py", 900)
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/generated/b.py", 950)
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/handwritten.py", 900)
         (repo / "scripts" / ".check-file-loc.allowlist").write_text(
-            "# generated: tolerated pending code-gen split\nsrc/fdai/generated/*.py\n"
+            "# generated: tolerated pending code-gen split\n"
+            "services/core-control-plane/src/fdai/generated/*.py\n"
         )
         result = _run(repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce")
         assert result.returncode == 1  # handwritten still fails
@@ -238,9 +246,10 @@ class TestCheckFileLoc:
     def test_stale_allowlist_entry_fails_enforce(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        _seed_python_file(repo, "src/fdai/small.py", 10)  # under warn
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/small.py", 10)  # under warn
         (repo / "scripts" / ".check-file-loc.allowlist").write_text(
-            "# ghost: file was refactored away but exemption forgotten\nsrc/fdai/ghost.py\n"
+            "# ghost: file was refactored away but exemption forgotten\n"
+            "services/core-control-plane/src/fdai/ghost.py\n"
         )
         # Enforce: stale entry is a failure.
         result = _run(repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce")
@@ -250,9 +259,10 @@ class TestCheckFileLoc:
     def test_stale_allowlist_entry_warns_in_warn_mode(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        _seed_python_file(repo, "src/fdai/small.py", 10)
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/small.py", 10)
         (repo / "scripts" / ".check-file-loc.allowlist").write_text(
-            "# ghost: file was refactored away but exemption forgotten\nsrc/fdai/ghost.py\n"
+            "# ghost: file was refactored away but exemption forgotten\n"
+            "services/core-control-plane/src/fdai/ghost.py\n"
         )
         # Warn mode: still exit 0, but the stale line is surfaced.
         result = _run(repo, repo / "scripts" / "check-file-loc.sh")
@@ -263,7 +273,7 @@ class TestCheckFileLoc:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
         for i in range(5):
-            _seed_python_file(repo, f"src/fdai/m{i}.py", 500)
+            _seed_python_file(repo, f"services/core-control-plane/src/fdai/m{i}.py", 500)
         result = _run(repo, repo / "scripts" / "check-file-loc.sh", CHECK_QUIET="1")
         assert result.returncode == 0
         assert "warned=5" in result.stdout
@@ -275,10 +285,10 @@ class TestCheckFileLoc:
     def test_pycache_is_excluded(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        _seed_python_file(repo, "src/fdai/__pycache__/junk.py", 5000)
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/__pycache__/junk.py", 5000)
         # Add a normal file so the "no python files" skip path is not taken;
         # otherwise the test cannot distinguish exclusion from empty tree.
-        _seed_python_file(repo, "src/fdai/keeper.py", 5)
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/keeper.py", 5)
         result = _run(repo, repo / "scripts" / "check-file-loc.sh")
         assert result.returncode == 0
         assert "scanned=1" in result.stdout  # only keeper.py, __pycache__ skipped
@@ -297,7 +307,7 @@ class TestCheckFileLoc:
     ) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        _seed_python_file(repo, "src/fdai/edge.py", lines)
+        _seed_python_file(repo, "services/core-control-plane/src/fdai/edge.py", lines)
         result = _run(repo, repo / "scripts" / "check-file-loc.sh")
         assert result.returncode == 0  # warn mode is never fatal
         if expected_bucket == "clean":
@@ -327,8 +337,8 @@ class TestCheckAgentsImports:
     def test_clean_agent_passes(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        (repo / "src" / "fdai" / "agents").mkdir(parents=True)
-        (repo / "src" / "fdai" / "agents" / "odin.py").write_text(
+        (repo / _AGENTS_ROOT).mkdir(parents=True)
+        (repo / _AGENTS_ROOT / "odin.py").write_text(
             "from fdai.core.executor import ShadowExecutor\n"
             "from fdai.shared.contracts.models import Verdict\n"
         )
@@ -352,8 +362,8 @@ class TestCheckAgentsImports:
     def test_forbidden_imports_are_flagged(self, tmp_path: Path, banned_line: str) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        (repo / "src" / "fdai" / "agents").mkdir(parents=True)
-        (repo / "src" / "fdai" / "agents" / "loki.py").write_text(banned_line)
+        (repo / _AGENTS_ROOT).mkdir(parents=True)
+        (repo / _AGENTS_ROOT / "loki.py").write_text(banned_line)
         result = _run(repo, repo / "scripts" / "check-agents-imports.sh")
         assert result.returncode == 1
         assert "forbidden import" in result.stdout
@@ -362,20 +372,20 @@ class TestCheckAgentsImports:
         # G-7 will introduce agents/_framework/; ensure it is not missed.
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        (repo / "src" / "fdai" / "agents" / "_framework").mkdir(parents=True)
-        (repo / "src" / "fdai" / "agents" / "_framework" / "bus.py").write_text("import httpx\n")
+        (repo / _AGENTS_ROOT / "_framework").mkdir(parents=True)
+        (repo / _AGENTS_ROOT / "_framework" / "bus.py").write_text("import httpx\n")
         result = _run(repo, repo / "scripts" / "check-agents-imports.sh")
         assert result.returncode == 1
 
     def test_allowlist_glob_pattern_matches(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        (repo / "src" / "fdai" / "agents" / "_framework").mkdir(parents=True)
+        (repo / _AGENTS_ROOT / "_framework").mkdir(parents=True)
         # A tolerated legacy file whose import we cannot fix this PR.
-        (repo / "src" / "fdai" / "agents" / "_framework" / "legacy.py").write_text("import httpx\n")
+        (repo / _AGENTS_ROOT / "_framework" / "legacy.py").write_text("import httpx\n")
         (repo / "scripts" / ".check-agents-imports.allowlist").write_text(
             "# legacy: transport call queued for extraction in follow-up PR\n"
-            "src/fdai/agents/_framework/legacy.py\n"
+            "services/core-control-plane/src/fdai/agents/_framework/legacy.py\n"
         )
         result = _run(repo, repo / "scripts" / "check-agents-imports.sh")
         assert result.returncode == 0
@@ -384,10 +394,11 @@ class TestCheckAgentsImports:
     def test_stale_allowlist_entry_fails(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        (repo / "src" / "fdai" / "agents").mkdir(parents=True)
-        (repo / "src" / "fdai" / "agents" / "odin.py").write_text("import os\n")
+        (repo / _AGENTS_ROOT).mkdir(parents=True)
+        (repo / _AGENTS_ROOT / "odin.py").write_text("import os\n")
         (repo / "scripts" / ".check-agents-imports.allowlist").write_text(
-            "# ghost: cleanup left this behind\nsrc/fdai/agents/_framework/gone.py\n"
+            "# ghost: cleanup left this behind\n"
+            "services/core-control-plane/src/fdai/agents/_framework/gone.py\n"
         )
         result = _run(repo, repo / "scripts" / "check-agents-imports.sh")
         assert result.returncode == 1
@@ -409,7 +420,7 @@ class TestCheckSubsystemFanout:
     def test_low_fanout_is_silent(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        core = repo / "src" / "fdai" / "core"
+        core = repo / _CORE
         core.mkdir(parents=True)
         (core / "small.py").write_text(
             "from fdai.core.executor import ShadowExecutor\nfrom fdai.core.audit import AuditLog\n"
@@ -421,7 +432,7 @@ class TestCheckSubsystemFanout:
     def test_warn_threshold_flags_but_passes(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        core = repo / "src" / "fdai" / "core"
+        core = repo / _CORE
         core.mkdir(parents=True)
         body = "".join(f"from fdai.core.sub{i} import Foo\n" for i in range(9))
         (core / "medium.py").write_text(body)
@@ -432,7 +443,7 @@ class TestCheckSubsystemFanout:
     def test_enforce_mode_fails_over_15(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        core = repo / "src" / "fdai" / "core"
+        core = repo / _CORE
         core.mkdir(parents=True)
         body = "".join(f"from fdai.core.sub{i} import Foo\n" for i in range(16))
         (core / "godlike.py").write_text(body)
@@ -448,7 +459,7 @@ class TestCheckSubsystemFanout:
         # their own subsystem against the fan-out budget.
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        pkg = repo / "src" / "fdai" / "core" / "foo"
+        pkg = repo / _CORE / "foo"
         pkg.mkdir(parents=True)
         body = "".join(f"from fdai.core.foo.sub{i} import Foo\n" for i in range(20))
         body += "from fdai.core.audit import x\n"  # only 1 other subsystem
@@ -463,13 +474,13 @@ class TestCheckSubsystemFanout:
     def test_allowlist_skips_files(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        core = repo / "src" / "fdai" / "core"
+        core = repo / _CORE
         core.mkdir(parents=True)
         body = "".join(f"from fdai.core.sub{i} import Foo\n" for i in range(16))
         (core / "orchestrator.py").write_text(body)
         (repo / "scripts" / ".check-subsystem-fanout.allowlist").write_text(
             "# orchestrator: legitimate composition root; wires stages\n"
-            "src/fdai/core/orchestrator.py\n"
+            "services/core-control-plane/src/fdai/core/orchestrator.py\n"
         )
         result = _run(
             repo,
@@ -493,7 +504,7 @@ class TestCheckSubsystemFanout:
     ) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)
-        core = repo / "src" / "fdai" / "core"
+        core = repo / _CORE
         core.mkdir(parents=True)
         body = "".join(f"from fdai.core.sub{i} import Foo\n" for i in range(count))
         (core / "edge.py").write_text(body)
