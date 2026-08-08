@@ -54,3 +54,30 @@ test("generated viewer and bilingual manifest are present", async () => {
   );
   assert.ok(conceptualManifest.nodes.some((node) => node.content?.length));
 });
+
+test("diagram gallery publishes every visual strategy example", async () => {
+  const gallery = await readFile(
+    new URL("src/content/docs/diagram-gallery.md", root),
+    "utf8",
+  );
+  const diagramIds = [
+    "fdai-conceptual-control-loop",
+    "fdai-delivery-roadmap",
+    "fdai-decision-mix",
+    "fdai-assurance-radar",
+    "fdai-capability-quadrant",
+    "fdai-governance-kanban",
+    "fdai-evidence-sankey",
+  ];
+
+  for (const diagramId of diagramIds) {
+    assert.match(gallery, new RegExp(`${diagramId}\\.manifest\\.json`));
+    const manifest = JSON.parse(
+      await readFile(
+        new URL(`public/diagrams/generated/${diagramId}.manifest.json`, root),
+        "utf8",
+      ),
+    );
+    assert.ok(manifest.nodes.length > 0);
+  }
+});

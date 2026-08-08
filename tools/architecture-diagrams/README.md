@@ -50,26 +50,33 @@ Use `kind` to select a validated layout strategy rather than treating it as a
 descriptive tag. Existing Azure topology kinds remain supported, while logical
 and behavioral diagrams use the same bilingual compiler and viewer.
 
-| Kind | Use it for | Strategy or required primitive |
-|------|------------|--------------------------------|
-| `context` | Systems and external actors | Layered graph |
-| `container` | Services and runtime boundaries | Layered compound graph |
-| `component` | Internals of one service or subsystem | Layered compound graph |
-| `deployment` | Deployed resources and boundaries | Compound-edge hierarchy |
-| `network` | Networks, subnets, and network paths | Orthogonal layered graph |
-| `data-flow` | Events, reads, and writes | Semantic edge flow |
-| `conceptual-flow` | Explanatory architecture and feedback loops | Conceptual profile and semantic tones |
-| `sequence` | Ordered interactions | Downward layout and a `sequence` edge |
-| `swimlane` | Cross-team or cross-system processes | Row of `lane` groups with downward contents |
-| `state` | Lifecycle and recovery transitions | Polyline layout and a `transition` edge |
-| `decision-tree` | Policy and branching decisions | Downward tree layout |
-| `domain` | Objects and semantic relationships | Polyline layout and an `association` edge |
-| `entity-relationship` | Data entities and relationships | Polyline layout and an `association` edge |
-| `timeline` | Milestones and phased delivery | Rightward layout and a `timeline` edge |
+| Family | Kinds | Strategy or required primitive |
+|--------|-------|--------------------------------|
+| Architecture | `context`, `container`, `component`, `deployment`, `network`, `architecture`, `c4-context`, `c4-container`, `c4-component`, `c4-deployment` | Layered compound graph with optional deployment hierarchy |
+| Flow | `data-flow`, `flowchart`, `graph`, `conceptual-flow` | Layered semantic flow with optional conceptual profile |
+| Interaction | `sequence`, `railroad` | Ordered interaction path |
+| Process | `swimlane`, `user-journey`, `kanban`, `block`, `cynefin` | Lane or grid layout |
+| State and decisions | `state`, `decision-tree`, `requirement` | Transition, tree, or dependency layout |
+| Semantic models | `domain`, `entity-relationship`, `class-diagram`, `mindmap`, `ishikawa`, `tree-view` | Association or tree layout |
+| Time | `timeline`, `gantt`, `git-graph`, `event-modeling` | Timeline or scaled task bars |
+| Coordinates | `quadrant`, `xy-chart`, `wardley`, `venn` | `xValue`, `yValue`, and optional `size` |
+| Radial charts | `pie`, `radar` | Positive `value` fields and radial geometry |
+| Weighted and partitioned | `sankey`, `packet` | Edge `weight` or node `value` |
 
 Kind-specific requirements fail during validation. This prevents a nominal
 sequence diagram with no interactions or a swimlane diagram with no lanes from
 silently rendering as an unrelated generic graph.
+
+Chart-oriented kinds use data fields in addition to the common node contract:
+
+- Gantt tasks use `start` or `after` plus `end` or `duration`. Optional
+  `status` and `progress` drive bar presentation and viewer details.
+- Pie and radar nodes use `value`. Pie nodes use `shape: pie-slice`.
+- Quadrant, XY, Wardley, and Venn nodes use `xValue` and `yValue` on a
+  normalized 0-100 axis. `size` controls the rendered marker.
+- Block, packet, Kanban, and Cynefin layouts may set `row` and `column`.
+- Sankey connectors set `weight`; the renderer scales stroke width without
+  changing the edge's semantic kind.
 
 ## Authoring contract
 
