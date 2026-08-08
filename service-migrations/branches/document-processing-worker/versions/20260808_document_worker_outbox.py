@@ -18,9 +18,35 @@ rollback = {
     "strategy": "drop-worker-outbox",
     "restores": "document_worker_base_20260808",
 }
+_LIFECYCLE_SCHEMA_COLUMNS = (
+    "document_upload_session.revision",
+    "document_version.revision",
+)
+migration_prerequisites: dict[str, str | tuple[str, ...]] = {
+    "revision": "ingestion_api_outbox_20260808",
+    "columns": _LIFECYCLE_SCHEMA_COLUMNS,
+}
+
+
+def _require_lifecycle_schema() -> None:
+    """Refuse worker migration when the API-owned revision fence is absent."""
+    inspector = sa.inspect(op.get_bind())
+    missing: list[str] = []
+    for prerequisite in _LIFECYCLE_SCHEMA_COLUMNS:
+        table, column = prerequisite.rsplit(".", maxsplit=1)
+        available = {item["name"] for item in inspector.get_columns(table)}
+        if column not in available:
+            missing.append(prerequisite)
+    if missing:
+        revision = migration_prerequisites["revision"]
+        raise RuntimeError(
+            f"document-processing-worker migration requires {revision}; "
+            f"missing columns: {', '.join(missing)}"
+        )
 
 
 def upgrade() -> None:
+    _require_lifecycle_schema()
     op.create_table(
         "document_worker_outbox",
         sa.Column("event_id", sa.Uuid(), primary_key=True),

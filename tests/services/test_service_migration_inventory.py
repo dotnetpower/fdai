@@ -3,10 +3,12 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import runpy
 import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from alembic.config import Config
@@ -73,8 +75,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
     }
     api_scope = (
         "document-ingestion-api",
-        "transitions:created->uploading,uploading->received,uploading->held,"
-        "nondeleted->deleting",
+        "transitions:created->uploading,uploading->received,uploading->held,nondeleted->deleting",
     )
     worker_scope = (
         "document-processing-worker",
@@ -199,6 +200,98 @@ def test_forward_revision_rejects_unowned_downgrade_ddl(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="touches unowned tables.*audit_log"):
         inventory_module.load_revision_metadata(revision)
+
+
+def test_document_worker_declares_lifecycle_schema_prerequisite() -> None:
+    raw = json.loads((MIGRATION_ROOT / "ownership.json").read_text(encoding="utf-8"))
+    assert raw["migration_dependencies"] == [
+        {
+            "consumer_service": "document-processing-worker",
+            "consumer_revision": "document_worker_outbox_20260808",
+            "provider_service": "document-ingestion-api",
+            "provider_revision": "ingestion_api_outbox_20260808",
+            "schema_prerequisites": [
+                "document_upload_session.revision",
+                "document_version.revision",
+            ],
+            "provider_rollback": "blocked-until-consumer-baseline",
+        }
+    ]
+
+    revision_path = (
+        MIGRATION_ROOT
+        / "branches/document-processing-worker/versions/20260808_document_worker_outbox.py"
+    )
+    migration = runpy.run_path(str(revision_path))
+    assert migration["migration_prerequisites"] == {
+        "revision": "ingestion_api_outbox_20260808",
+        "columns": (
+            "document_upload_session.revision",
+            "document_version.revision",
+        ),
+    }
+
+    class MissingPrerequisiteOp:
+        @staticmethod
+        def get_bind() -> object:
+            return object()
+
+        @staticmethod
+        def create_table(*_args: object, **_kwargs: object) -> None:
+            raise AssertionError("worker outbox DDL ran before prerequisite validation")
+
+    fake_sa = SimpleNamespace(
+        inspect=lambda _bind: SimpleNamespace(get_columns=lambda _table: ({"name": "id"},))
+    )
+    upgrade = migration["upgrade"]
+    upgrade.__globals__["op"] = MissingPrerequisiteOp()
+    upgrade.__globals__["sa"] = fake_sa
+    with pytest.raises(RuntimeError, match="ingestion_api_outbox_20260808"):
+        upgrade()
+
+
+def test_ingestion_api_downgrade_rejects_deployed_worker_dependency() -> None:
+    revision_path = (
+        MIGRATION_ROOT
+        / "branches/document-ingestion-api/versions/20260808_ingestion_api_lifecycle_outbox.py"
+    )
+    migration = runpy.run_path(str(revision_path))
+    assert migration["rollback"] == {
+        "strategy": "drop-api-outbox-and-revision-columns-after-worker-baseline",
+        "restores": "ingestion_api_base_20260808",
+        "requires": "document_worker_base_20260808",
+    }
+
+    class WorkerHeadResult:
+        @staticmethod
+        def scalar_one_or_none() -> str:
+            return "document_worker_outbox_20260808"
+
+    class UnsafeDowngradeOp:
+        dropped: list[str] = []
+
+        @staticmethod
+        def get_bind() -> SimpleNamespace:
+            return SimpleNamespace(execute=lambda _statement: WorkerHeadResult())
+
+        @classmethod
+        def drop_table(cls, table: str) -> None:
+            cls.dropped.append(table)
+
+        @classmethod
+        def drop_column(cls, table: str, column: str) -> None:
+            cls.dropped.append(f"{table}.{column}")
+
+        @staticmethod
+        def execute(_statement: str) -> None:
+            raise AssertionError("downgrade DML ran before dependency validation")
+
+    downgrade = migration["downgrade"]
+    downgrade.__globals__["op"] = UnsafeDowngradeOp()
+    downgrade.__globals__["sa"] = SimpleNamespace(text=lambda statement: statement)
+    with pytest.raises(RuntimeError, match="document-processing-worker"):
+        downgrade()
+    assert UnsafeDowngradeOp.dropped == []
 
 
 def test_dispatcher_validates_all_and_refuses_unknown_service() -> None:
@@ -392,9 +485,7 @@ def test_service_sql_writers_and_outbox_paths_match_ownership_manifest() -> None
     assert api_postgres.index("self._publisher.publish(physical_topic") < api_postgres.index(
         "self._mark_published(event.event_id)"
     )
-    assert worker_activity.index(
-        "self._event_bus.publish(event.topic"
-    ) < worker_activity.index(
+    assert worker_activity.index("self._event_bus.publish(event.topic") < worker_activity.index(
         "self._mark_published(event.event_id)"
     )
     assert "AND state = %s AND revision = %s" in api_postgres

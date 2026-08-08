@@ -5,6 +5,19 @@
     "schema": "public",
     "migration_history": "service-specific-version-tables"
   },
+  "migration_dependencies": [
+    {
+      "consumer_service": "document-processing-worker",
+      "consumer_revision": "document_worker_outbox_20260808",
+      "provider_service": "document-ingestion-api",
+      "provider_revision": "ingestion_api_outbox_20260808",
+      "schema_prerequisites": [
+        "document_upload_session.revision",
+        "document_version.revision"
+      ],
+      "provider_rollback": "blocked-until-consumer-baseline"
+    }
+  ],
   "legacy_inventory": {
     "head": "20260806_0077",
     "revision_count": 79,

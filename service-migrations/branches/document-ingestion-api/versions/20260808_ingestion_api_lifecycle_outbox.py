@@ -15,9 +15,26 @@ depends_on: str | Sequence[str] | None = None
 migration_owner = "document-ingestion-api"
 owned_tables = ("document_upload_session", "document_version", "document_api_outbox")
 rollback = {
-    "strategy": "drop-api-outbox-and-revision-columns",
+    "strategy": "drop-api-outbox-and-revision-columns-after-worker-baseline",
     "restores": "ingestion_api_base_20260808",
+    "requires": "document_worker_base_20260808",
 }
+
+_REQUIRED_WORKER_BASELINE = "document_worker_base_20260808"
+
+
+def _require_worker_baseline() -> None:
+    """Refuse to remove lifecycle columns while a worker consumer is deployed."""
+    worker_head = (
+        op.get_bind()
+        .execute(sa.text("SELECT version_num FROM alembic_version_document_processing_worker"))
+        .scalar_one_or_none()
+    )
+    if worker_head != _REQUIRED_WORKER_BASELINE:
+        raise RuntimeError(
+            "document-ingestion-api downgrade requires document-processing-worker "
+            f"at {_REQUIRED_WORKER_BASELINE}; observed {worker_head!r}"
+        )
 
 
 def upgrade() -> None:
@@ -49,6 +66,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    _require_worker_baseline()
     op.drop_table("document_api_outbox")
     op.execute("UPDATE document_version SET payload = payload - 'revision'")
     op.execute("UPDATE document_upload_session SET payload = payload - 'revision'")
