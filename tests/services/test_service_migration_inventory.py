@@ -295,7 +295,7 @@ def test_ingestion_api_downgrade_rejects_deployed_worker_dependency() -> None:
     assert UnsafeDowngradeOp.dropped == []
 
 
-def test_worker_migration_widens_claim_check_and_blocks_unsafe_downgrade() -> None:
+def test_worker_migration_widens_claim_check_and_blocks_inflight_deletion() -> None:
     revision_path = (
         MIGRATION_ROOT
         / "branches/document-processing-worker/versions/20260808_document_worker_outbox.py"
@@ -313,10 +313,15 @@ def test_worker_migration_widens_claim_check_and_blocks_unsafe_downgrade() -> No
 
     class UnsafeDowngradeOp:
         changed: list[str] = []
+        results = iter((0, 1))
 
         @staticmethod
         def get_bind() -> SimpleNamespace:
-            return SimpleNamespace(execute=lambda _statement: DeletionClaimResult())
+            return SimpleNamespace(
+                execute=lambda _statement: SimpleNamespace(
+                    scalar_one=lambda: next(UnsafeDowngradeOp.results)
+                )
+            )
 
         @classmethod
         def drop_table(cls, table: str) -> None:
@@ -329,9 +334,108 @@ def test_worker_migration_widens_claim_check_and_blocks_unsafe_downgrade() -> No
     downgrade = migration["downgrade"]
     downgrade.__globals__["op"] = UnsafeDowngradeOp()
     downgrade.__globals__["sa"] = SimpleNamespace(text=lambda statement: statement)
-    with pytest.raises(RuntimeError, match="deletion claims"):
+    with pytest.raises(RuntimeError, match="in-flight deletion claims"):
         downgrade()
     assert UnsafeDowngradeOp.changed == []
+    assert "status <> 'completed'" in source
+
+
+def test_worker_claim_check_downgrade_removes_completed_deletion_rows() -> None:
+    revision_path = (
+        MIGRATION_ROOT
+        / "branches/document-processing-worker/versions/20260808_document_worker_outbox.py"
+    )
+    migration = runpy.run_path(str(revision_path))
+
+    class SafeDowngradeOp:
+        statements: list[str] = []
+
+        @staticmethod
+        def get_bind() -> SimpleNamespace:
+            return SimpleNamespace(execute=lambda _statement: SimpleNamespace(scalar_one=lambda: 0))
+
+        @classmethod
+        def execute(cls, statement: str) -> None:
+            cls.statements.append(statement)
+
+        @staticmethod
+        def drop_table(_table: str) -> None:
+            return None
+
+        @staticmethod
+        def drop_constraint(_name: str, _table: str, **_kwargs: object) -> None:
+            return None
+
+        @staticmethod
+        def create_check_constraint(*_args: object, **_kwargs: object) -> None:
+            return None
+
+    downgrade = migration["downgrade"]
+    downgrade.__globals__["op"] = SafeDowngradeOp()
+    downgrade.__globals__["sa"] = SimpleNamespace(text=lambda statement: statement)
+
+    downgrade()
+
+    assert any(
+        "DELETE FROM document_worker_claim" in statement and "status = 'completed'" in statement
+        for statement in SafeDowngradeOp.statements
+    )
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "error_match"),
+    (
+        (
+            "branches/document-ingestion-api/versions/20260808_ingestion_api_lifecycle_outbox.py",
+            "document-ingestion-api downgrade is blocked while unpublished outbox rows exist",
+        ),
+        (
+            "branches/document-processing-worker/versions/20260808_document_worker_outbox.py",
+            "document-processing-worker downgrade is blocked while unpublished outbox rows exist",
+        ),
+        (
+            "branches/isolated-executor/versions/20260808_executor_receipt_outbox.py",
+            "isolated-executor downgrade is blocked while unpublished outbox rows exist",
+        ),
+    ),
+)
+def test_outbox_downgrades_reject_unpublished_rows(
+    relative_path: str,
+    error_match: str,
+) -> None:
+    migration = runpy.run_path(str(MIGRATION_ROOT / relative_path))
+
+    class PendingResult:
+        @staticmethod
+        def scalar_one() -> int:
+            return 1
+
+        @staticmethod
+        def scalar_one_or_none() -> str:
+            return "document_worker_base_20260808"
+
+    class GuardedOp:
+        changed: list[str] = []
+
+        @staticmethod
+        def get_bind() -> SimpleNamespace:
+            return SimpleNamespace(execute=lambda _statement: PendingResult())
+
+        @classmethod
+        def execute(cls, statement: str) -> None:
+            cls.changed.append(statement)
+
+        @classmethod
+        def drop_table(cls, table: str) -> None:
+            cls.changed.append(table)
+
+    downgrade = migration["downgrade"]
+    downgrade.__globals__["op"] = GuardedOp()
+    downgrade.__globals__["sa"] = SimpleNamespace(text=lambda statement: statement)
+
+    with pytest.raises(RuntimeError, match=error_match):
+        downgrade()
+    assert GuardedOp.changed == []
 
 
 def test_ingestion_outboxes_declare_runtime_least_privilege() -> None:
@@ -451,6 +555,10 @@ def test_shared_storage_migrations_enforce_canonical_writer_role_matrix() -> Non
     assert "starts_with(target_key, 'stewardship_merge:')" in core_sql
     assert "starts_with(target_key, 'stewardship_repository_draft:')" in core_sql
     assert "starts_with(target_key, 'handover_draft:')" in core_sql
+    assert "source_key := CASE WHEN TG_OP = 'INSERT' THEN NEW.key ELSE OLD.key END" in core_sql
+    assert "starts_with(source_key, 'stewardship_merge:')" in core_sql
+    assert "starts_with(source_key, 'stewardship_repository_draft:')" in core_sql
+    assert "starts_with(source_key, 'handover_draft:')" in core_sql
     assert (
         "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE state_kv "
         "TO fdai_ingestion_api, fdai_ingestion_worker" in core_sql

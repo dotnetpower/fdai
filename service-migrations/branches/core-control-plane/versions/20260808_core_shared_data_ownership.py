@@ -82,18 +82,29 @@ def upgrade() -> None:
         LANGUAGE plpgsql
         AS $state_owner$
         DECLARE
+            source_key TEXT;
             target_key TEXT;
         BEGIN
+            source_key := CASE WHEN TG_OP = 'INSERT' THEN NEW.key ELSE OLD.key END;
             target_key := CASE WHEN TG_OP = 'DELETE' THEN OLD.key ELSE NEW.key END;
             IF current_user = 'fdai_ingestion_api'
                AND NOT (
-                   starts_with(target_key, 'stewardship_merge:')
-                   OR starts_with(target_key, 'stewardship_repository_draft:')
+                   (
+                       starts_with(source_key, 'stewardship_merge:')
+                       OR starts_with(source_key, 'stewardship_repository_draft:')
+                   )
+                   AND (
+                       starts_with(target_key, 'stewardship_merge:')
+                       OR starts_with(target_key, 'stewardship_repository_draft:')
+                   )
                ) THEN
                 RAISE EXCEPTION
                     'fdai_ingestion_api does not own this state_kv namespace';
             ELSIF current_user = 'fdai_ingestion_worker'
-                  AND NOT starts_with(target_key, 'handover_draft:') THEN
+                  AND NOT (
+                      starts_with(source_key, 'handover_draft:')
+                      AND starts_with(target_key, 'handover_draft:')
+                  ) THEN
                 RAISE EXCEPTION
                     'fdai_ingestion_worker does not own this state_kv namespace';
             ELSIF current_user = 'fdai_ingestion_cohost' THEN

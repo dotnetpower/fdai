@@ -37,6 +37,18 @@ def _require_worker_baseline() -> None:
         )
 
 
+def _require_no_unpublished_outbox() -> None:
+    count = (
+        op.get_bind()
+        .execute(sa.text("SELECT count(*) FROM document_api_outbox WHERE published_at IS NULL"))
+        .scalar_one()
+    )
+    if int(count) != 0:
+        raise RuntimeError(
+            "document-ingestion-api downgrade is blocked while unpublished outbox rows exist"
+        )
+
+
 def upgrade() -> None:
     op.add_column(
         "document_upload_session",
@@ -143,6 +155,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     _require_worker_baseline()
+    _require_no_unpublished_outbox()
     op.execute(
         """
         DROP TRIGGER document_version_transition_owner ON document_version;

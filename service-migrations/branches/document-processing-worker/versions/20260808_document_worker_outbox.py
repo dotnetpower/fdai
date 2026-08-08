@@ -84,20 +84,41 @@ def upgrade() -> None:
     )
 
 
-def _require_no_deletion_claims() -> None:
+def _require_no_unpublished_outbox() -> None:
     count = (
         op.get_bind()
-        .execute(sa.text("SELECT count(*) FROM document_worker_claim WHERE stage = 'deletion'"))
+        .execute(sa.text("SELECT count(*) FROM document_worker_outbox WHERE published_at IS NULL"))
         .scalar_one()
     )
     if int(count) != 0:
         raise RuntimeError(
-            "document-processing-worker downgrade is blocked while deletion claims exist"
+            "document-processing-worker downgrade is blocked while unpublished outbox rows exist"
+        )
+
+
+def _require_no_inflight_deletion_claims() -> None:
+    count = (
+        op.get_bind()
+        .execute(
+            sa.text(
+                "SELECT count(*) FROM document_worker_claim "
+                "WHERE stage = 'deletion' AND status <> 'completed'"
+            )
+        )
+        .scalar_one()
+    )
+    if int(count) != 0:
+        raise RuntimeError(
+            "document-processing-worker downgrade is blocked while in-flight deletion claims exist"
         )
 
 
 def downgrade() -> None:
-    _require_no_deletion_claims()
+    _require_no_unpublished_outbox()
+    _require_no_inflight_deletion_claims()
+    op.execute(
+        "DELETE FROM document_worker_claim WHERE stage = 'deletion' AND status = 'completed'"
+    )
     op.execute("REVOKE ALL PRIVILEGES ON TABLE document_worker_outbox FROM fdai_ingestion_worker")
     op.drop_table("document_worker_outbox")
     op.drop_constraint(
