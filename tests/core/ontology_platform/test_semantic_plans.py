@@ -17,10 +17,30 @@ from fdai.shared.contracts.models import (
     OntologyDeclarationRef,
     OntologyRelease,
 )
+from fdai.shared.ontology.release import (
+    canonical_ontology_declarations,
+    ontology_release_digest,
+)
 
-_DIGEST_A = "sha256:" + "a" * 64
 _DIGEST_B = "sha256:" + "b" * 64
 _DIGEST_C = "sha256:" + "c" * 64
+_RELEASE_DECLARATIONS = canonical_ontology_declarations(
+    (
+        OntologyDeclarationRef(
+            kind=OntologyDeclarationKind.FUNCTION,
+            name="inventory.select_resources",
+            version="1.0.0",
+            declaration_digest=_DIGEST_B,
+        ),
+        OntologyDeclarationRef(
+            kind=OntologyDeclarationKind.ACTION,
+            name="ops.start-vm",
+            version="1.0.0",
+            declaration_digest=_DIGEST_C,
+        ),
+    )
+)
+_DIGEST_A = ontology_release_digest(_RELEASE_DECLARATIONS)
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,20 +62,7 @@ def _catalog(*candidates: Any, digest: str = _DIGEST_B) -> CatalogAuthority:
 def _release() -> OntologyRelease:
     return OntologyRelease(
         digest=_DIGEST_A,
-        declarations=(
-            OntologyDeclarationRef(
-                kind=OntologyDeclarationKind.FUNCTION,
-                name="inventory.select_resources",
-                version="1.0.0",
-                declaration_digest=_DIGEST_B,
-            ),
-            OntologyDeclarationRef(
-                kind=OntologyDeclarationKind.ACTION,
-                name="ops.start-vm",
-                version="1.0.0",
-                declaration_digest=_DIGEST_C,
-            ),
-        ),
+        declarations=_RELEASE_DECLARATIONS,
     )
 
 
@@ -218,7 +225,18 @@ def test_stale_release_cannot_verify_candidate() -> None:
         score=1.0,
         unresolved_terms=(),
     )
-    stale_release = OntologyRelease(digest=_DIGEST_C, declarations=release.declarations)
+    stale_declarations = canonical_ontology_declarations(
+        (
+            *release.declarations[:-1],
+            release.declarations[-1].model_copy(
+                update={"declaration_digest": "sha256:" + "d" * 64}
+            ),
+        )
+    )
+    stale_release = OntologyRelease(
+        digest=ontology_release_digest(stale_declarations),
+        declarations=stale_declarations,
+    )
 
     with pytest.raises(ValueError, match="release"):
         verify_semantic_candidate(

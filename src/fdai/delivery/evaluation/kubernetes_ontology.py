@@ -170,14 +170,25 @@ class KubernetesOntologyEvidenceObserver:
                     raise ValueError("diagnostic inputs do not match function receipt input")
                 if ontology_function_digest(mechanism_findings) != receipt.output_digest:
                     raise ValueError("diagnostic findings do not match function receipt output")
-                invocation_identity = ontology_function_digest(
+                request_identity = ontology_function_digest(
                     {
                         "function_ref": receipt.function_ref.model_dump(mode="json"),
                         "input_digest": receipt.input_digest,
-                        "output_digest": receipt.output_digest,
                         "caller_agent": receipt.caller_agent,
+                        "caller_role": receipt.caller_role.value,
+                        "purposes": list(receipt.purposes),
+                        "evidence_refs": list(receipt.evidence_refs),
                     }
                 ).removeprefix("sha256:")
+                expected_request_id = f"logic-request:{request_identity}"
+                invocation_identity = ontology_function_digest(
+                    {
+                        "request_id": expected_request_id,
+                        "output_digest": receipt.output_digest,
+                    }
+                ).removeprefix("sha256:")
+                if receipt.request_id != expected_request_id:
+                    raise ValueError("diagnostic request identity is invalid")
                 if receipt.invocation_id != f"logic-invocation:{invocation_identity}":
                     raise ValueError("diagnostic invocation identity is invalid")
                 function_ref = receipt.function_ref

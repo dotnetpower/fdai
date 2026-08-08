@@ -26,22 +26,24 @@ from fdai.shared.contracts.models import (
     OntologyRelease,
     OntologyTypeRef,
 )
+from fdai.shared.ontology.release import ontology_release_digest
 
-_RELEASE_DIGEST = "sha256:" + "a" * 64
 _DECLARATION_DIGEST = "sha256:" + "b" * 64
+_RELEASE_DECLARATIONS = (
+    OntologyDeclarationRef(
+        kind=OntologyDeclarationKind.FUNCTION,
+        name="inventory.select_resources",
+        version="1.0.0",
+        declaration_digest=_DECLARATION_DIGEST,
+    ),
+)
+_RELEASE_DIGEST = ontology_release_digest(_RELEASE_DECLARATIONS)
 
 
 def _target_ref() -> OntologyTypeRef:
     release = OntologyRelease(
         digest=_RELEASE_DIGEST,
-        declarations=(
-            OntologyDeclarationRef(
-                kind=OntologyDeclarationKind.FUNCTION,
-                name="inventory.select_resources",
-                version="1.0.0",
-                declaration_digest=_DECLARATION_DIGEST,
-            ),
-        ),
+        declarations=_RELEASE_DECLARATIONS,
     )
     return release.type_ref(OntologyDeclarationKind.FUNCTION, "inventory.select_resources")
 
