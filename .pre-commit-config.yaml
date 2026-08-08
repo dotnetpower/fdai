@@ -78,6 +78,11 @@ repos:
         pass_filenames: false
         files: ^(README(?:-ko)?\.md|docs/.*\.md)$
         exclude: ^docs/internals/
+      - id: check-design-doc-impact
+        name: check-design-doc-impact.py (staged paths)
+        entry: python3 scripts/quality/architecture/check-design-doc-impact.py --cached
+        language: system
+        pass_filenames: false
       - id: check-core-imports
         name: check-core-imports.sh
         entry: bash scripts/quality/architecture/check-core-imports.sh

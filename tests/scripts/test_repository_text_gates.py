@@ -216,6 +216,7 @@ def test_pre_commit_scopes_expensive_repository_gates() -> None:
     readable_hangul = config.split("- id: check-readable-hangul", 1)[1].split("- id:", 1)[0]
     guids = config.split("- id: check-guids", 1)[1].split("- id:", 1)[0]
     translations = config.split("- id: check-translations", 1)[1].split("- id:", 1)[0]
+    design_impact = config.split("- id: check-design-doc-impact", 1)[1].split("- id:", 1)[0]
     core_imports = config.split("- id: check-core-imports", 1)[1].split("- id:", 1)[0]
 
     assert "pass_filenames: false" not in punctuation
@@ -225,6 +226,8 @@ def test_pre_commit_scopes_expensive_repository_gates() -> None:
     assert "require_serial: true" in readable_hangul
     assert "require_serial: true" in guids
     assert "files: ^(README(?:-ko)?\\.md|docs/.*\\.md)$" in translations
+    assert "check-design-doc-impact.py --cached" in design_impact
+    assert "pass_filenames: false" in design_impact
     assert "files: ^src/fdai/core/" in core_imports
 
 

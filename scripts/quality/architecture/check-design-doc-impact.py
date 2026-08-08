@@ -25,7 +25,9 @@ def _git_paths(args: list[str]) -> set[str]:
     return {line for line in completed.stdout.splitlines() if line}
 
 
-def changed_paths(diff_range: str | None = None) -> set[str]:
+def changed_paths(diff_range: str | None = None, *, cached: bool = False) -> set[str]:
+    if cached:
+        return _git_paths(["--cached", "HEAD"])
     if diff_range:
         return _git_paths([diff_range])
     untracked = subprocess.run(
@@ -66,10 +68,16 @@ def missing_doc_updates(
 
 def main(argv: list[str]) -> int:
     if len(argv) > 2:
-        print("usage: check-design-doc-impact.py [<git-diff-range>]", file=sys.stderr)
+        print(
+            "usage: check-design-doc-impact.py [--cached | <git-diff-range>]",
+            file=sys.stderr,
+        )
         return 2
-    diff_range = argv[1] if len(argv) == 2 else None
-    paths = changed_paths(diff_range)
+    argument = argv[1] if len(argv) == 2 else None
+    paths = changed_paths(
+        argument if argument != "--cached" else None,
+        cached=argument == "--cached",
+    )
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     failures = missing_doc_updates(paths, manifest)
     if failures:

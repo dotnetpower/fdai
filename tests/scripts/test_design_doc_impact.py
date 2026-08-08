@@ -64,3 +64,12 @@ def test_unrouted_change_needs_no_doc_churn() -> None:
     failures = module.missing_doc_updates({"tests/unit/test_example.py"}, _manifest())
 
     assert failures == []
+
+
+def test_cached_change_scope_reads_only_staged_paths(monkeypatch) -> None:
+    module = _load_module()
+    calls: list[list[str]] = []
+    monkeypatch.setattr(module, "_git_paths", lambda args: calls.append(args) or {"staged.py"})
+
+    assert module.changed_paths(cached=True) == {"staged.py"}
+    assert calls == [["--cached", "HEAD"]]

@@ -82,17 +82,48 @@ def test_pre_tool_use_denies_edit_without_current_reads(
         "toolInput": {"input": (f"*** Begin Patch\n*** Update File: {target}\n*** End Patch")},
     }
 
-    result = module.enforce_edit(payload)
+    result = module.pre_tool_use(payload)
 
     assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
     assert "architecture.instructions.md" in result["systemMessage"]
+
+
+def test_pre_tool_use_allows_normal_edit_without_design_receipts(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    monkeypatch.setattr(module, "_state_path", lambda payload: tmp_path / "receipt.json")
+    target = REPO_ROOT / "src/fdai/delivery/operator_api/dev/factory.py"
+    payload = {
+        "sessionId": "session-normal-edit",
+        "toolName": "functions.apply_patch",
+        "toolInput": {"input": f"*** Begin Patch\n*** Update File: {target}\n*** End Patch"},
+    }
+
+    assert module.pre_tool_use(payload) == {"continue": True}
+
+
+def test_pre_tool_use_does_not_record_ordinary_source_reads(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    state_path = tmp_path / "receipt.json"
+    monkeypatch.setattr(module, "_state_path", lambda payload: state_path)
+    payload = {
+        "session_id": "session-source-read",
+        "tool_name": "read_file",
+        "tool_input": {"filePath": str(REPO_ROOT / "scripts/agent/design_context.py")},
+    }
+
+    assert module.pre_tool_use(payload) == {"continue": True}
+    assert not state_path.exists()
 
 
 def test_recorded_current_reads_allow_edit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     module = _load_module()
     state_path = tmp_path / "receipt.json"
     monkeypatch.setattr(module, "_state_path", lambda payload: state_path)
-    target = "scripts/quality/architecture/check-design-routes.py"
+    target = "scripts/agent/design_context.py"
     payload = {
         "session_id": "session-2",
         "tool_name": "apply_patch",

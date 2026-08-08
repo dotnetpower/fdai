@@ -12,12 +12,13 @@ authority. This file is its short always-on execution summary; scoped instructio
 designs may refine the constitution but never override it.
 
 This file is the small always-on contract. Detailed rules are loaded through
-[`design-routes.json`](../scripts/lib/design-routes.json). Before an edit, read every
-`must_read` document selected by all matching routes. The workspace hook blocks edits when
-that context is missing or stale. The single pre-tool hook records existing repository files
-requested through `read_file`; no post-tool hook receives or logs tool response bodies. A more
-specific instruction wins a conflict only within the Constitution's bounds; the Constitution
-always prevails.
+[`design-routes.json`](../scripts/lib/design-routes.json). Resolve the route-selected context once
+per task before changing behavior. The workspace hook hard-blocks only framework-surface,
+constitutional, and design-gate edits when required context is missing or stale; ordinary edits
+remain unblocked. Pre-commit checks staged design-document impact, and pre-push validates the
+committed snapshot. The single pre-tool hook records only requested design-context files; no
+post-tool hook receives or logs tool response bodies. A more specific instruction wins a conflict
+only within the Constitution's bounds; the Constitution always prevails.
 
 ## Core Principles (MUST)
 
@@ -55,7 +56,9 @@ always prevails.
    or isolated worktrees. Keep dependent work sequential, and do not parallelize tasks that can
    race on the same files, state, authority decision, or generated artifact. Every parallel branch
    must have a bounded output and an explicit merge or verification point.
-4. Read every route-selected design document before editing.
+4. Before a high-risk framework-surface, constitutional, or design-gate edit, read every
+   route-selected design document. For ordinary changes, resolve the controlling route context
+   once per task before changing behavior; do not serialize work through unrelated reference docs.
 5. Make the smallest coherent change, update affected contracts and docs, and never hand-edit
    generated runtime artifacts.
 6. Worker sessions run only the narrowest executable check that can falsify their change. They

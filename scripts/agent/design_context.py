@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Record requested design-document reads and gate edits without post-tool payloads."""
+"""Route focused validation and gate only high-risk edits on current design context."""
 
 from __future__ import annotations
 
@@ -11,12 +11,22 @@ import shlex
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = REPO_ROOT / "scripts/lib/design-routes.json"
+FRAMEWORK_SURFACE_PATH = REPO_ROOT / "scripts/lib/framework-surface.txt"
 EDIT_TOOL_NAMES = frozenset({"apply_patch", "create_file"})
 TERMINAL_TOOL_NAMES = frozenset({"run_in_terminal"})
+HIGH_RISK_ROUTE_IDS = frozenset({"constitution"})
+HIGH_RISK_EXACT_PATHS = frozenset(
+    {
+        ".github/hooks/design-context.json",
+        "scripts/agent/design_context.py",
+        "scripts/lib/design-routes.json",
+        "scripts/lib/framework-surface.txt",
+    }
+)
 HEAVY_VALIDATION_PATTERNS = (
     re.compile(
         r"(?:^|\s)(?:bash\s+)?scripts/verify\.sh(?:\s+(?:--fast|--all))?"
@@ -111,7 +121,7 @@ def _read_target(payload: dict[str, Any]) -> str | None:
 
 def record_read(payload: dict[str, Any]) -> dict[str, Any]:
     relative = _read_target(payload)
-    if relative is None:
+    if relative is None or relative not in _context_documents():
         return {"continue": True}
     path = REPO_ROOT / relative
     if not path.is_file():
@@ -144,10 +154,45 @@ def _matches(path: str, pattern: str) -> bool:
     return pattern == "**" or fnmatch.fnmatchcase(path, pattern)
 
 
+def _manifest() -> dict[str, Any]:
+    return cast(dict[str, Any], json.loads(MANIFEST_PATH.read_text(encoding="utf-8")))
+
+
+def _context_documents() -> frozenset[str]:
+    return frozenset(str(path) for route in _manifest()["routes"] for path in route["must_read"])
+
+
+def _framework_surface_entries() -> tuple[str, ...]:
+    return tuple(
+        line
+        for raw in FRAMEWORK_SURFACE_PATH.read_text(encoding="utf-8").splitlines()
+        if (line := raw.split("#", 1)[0].strip())
+    )
+
+
+def _matches_framework_surface(path: str) -> bool:
+    return any(
+        path.startswith(entry) if entry.endswith("/") else path == entry
+        for entry in _framework_surface_entries()
+    )
+
+
+def _is_high_risk_target(path: str) -> bool:
+    if path in HIGH_RISK_EXACT_PATHS or _matches_framework_surface(path):
+        return True
+    return any(
+        route.get("id") in HIGH_RISK_ROUTE_IDS
+        and any(
+            _matches(path, pattern)
+            for pattern in tuple(route.get("paths", ())) + tuple(route.get("optional_paths", ()))
+        )
+        for route in _manifest()["routes"]
+    )
+
+
 def required_context(targets: tuple[str, ...]) -> tuple[str, ...]:
-    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     required: set[str] = set()
-    for route in manifest["routes"]:
+    for route in _manifest()["routes"]:
         patterns = tuple(route.get("paths", ())) + tuple(route.get("optional_paths", ()))
         if any(_matches(target, pattern) for target in targets for pattern in patterns):
             required.update(str(path) for path in route["must_read"])
@@ -165,7 +210,7 @@ def missing_context(payload: dict[str, Any], targets: tuple[str, ...]) -> tuple[
 
 
 def enforce_edit(payload: dict[str, Any]) -> dict[str, Any]:
-    targets = _edit_targets(payload)
+    targets = tuple(target for target in _edit_targets(payload) if _is_high_risk_target(target))
     if not targets:
         return {"continue": True}
     missing = missing_context(payload, targets)
@@ -179,8 +224,8 @@ def enforce_edit(payload: dict[str, Any]) -> dict[str, Any]:
     target_lines = "\n".join(f"- {path}" for path in targets)
     missing_lines = "\n".join(f"- {path}" for path in missing)
     reason = (
-        "FDAI design context is incomplete for this edit. Read every required file with "
-        "read_file, state the controlling invariant and a falsifying check, then retry.\n"
+        "FDAI design context is incomplete for this high-risk edit. Read every required file "
+        "with read_file, state the controlling invariant and a falsifying check, then retry.\n"
         f"Targets:\n{target_lines}\nRequired unread or changed context:\n{missing_lines}"
     )
     return {
