@@ -164,7 +164,6 @@ fdaictl = "fdai.deployment_cli.cli:main"
 fdai-catalog-generation = "fdai.delivery.catalog_search.generation_cli:main"
 fdai-evaluation-runner = "fdai.runtime.evaluation_runner_cli:main"
 fdai-executor-authority-probe = "fdai.runtime.executor_authority_probe_cli:main"
-fdai-isolated-executor = "fdai.runtime.isolated_executor_cli:main"
 fdai-model-endpoint-discovery = "fdai.delivery.azure.llm.endpoint_discovery_cli:main"
 
 [build-system]
@@ -198,9 +197,11 @@ members = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fdai"]
+exclude = ["src/fdai/runtime/isolated_executor_cli.py"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/fdai", "README.md", "LICENSE", "pyproject.toml"]
+exclude = ["src/fdai/runtime/isolated_executor_cli.py"]
 
 # ---------------------------------------------------------------------------
 # Dev-tool config lives here so it is picked up as soon as the tools are added

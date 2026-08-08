@@ -58,7 +58,6 @@ COPY benchmarks/cybergym/pyproject.toml ./benchmarks/cybergym/pyproject.toml
 COPY rule-catalog/ ./rule-catalog/
 COPY policies/ ./policies/
 RUN uv sync --frozen --package fdai --no-dev --extra serve --extra pdf-report --extra azure-mcp --no-editable
-RUN test -x /app/.venv/bin/fdai-isolated-executor
 
 # ----------------------------------------------------------------------------
 FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:9d7f287598e1a5a978c015ee176d8216435aaf335ed69ac3c38dd1bbb10e8d64 AS runtime
@@ -90,6 +89,7 @@ COPY --chown=65532:65532 tests/scenarios/ /app/tests/scenarios/
 # checkout. Without this the Operator API prod factory cannot load the ontology
 # / views / reporting catalogs.
 COPY --chown=65532:65532 src/ /app/src/
+RUN rm /app/src/fdai/runtime/isolated_executor_cli.py
 # Schema migrations (raw-SQL alembic revisions). alembic is a runtime
 # dependency, so a one-off Container Apps Job can run `alembic upgrade head`
 # against the state store using the same image (no separate migration image).
@@ -97,6 +97,4 @@ COPY --chown=65532:65532 alembic/ /app/alembic/
 COPY --chown=65532:65532 alembic.ini /app/alembic.ini
 
 USER 65532
-RUN test -x /app/.venv/bin/fdai-isolated-executor \
-    && python -c "import fdai.runtime.isolated_executor_cli"
 ENTRYPOINT ["python", "-m", "fdai"]
