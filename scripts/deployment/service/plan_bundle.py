@@ -80,7 +80,7 @@ def _containers(resource: dict[str, Any], *, address: str) -> dict[str, dict[str
     return containers
 
 
-def _sidecar_contract(container: dict[str, Any], *, name: str) -> dict[str, str]:
+def planned_sidecar_contract(container: dict[str, Any], *, name: str) -> dict[str, str]:
     image = container.get("image")
     if not isinstance(image, str) or _DIGEST_IMAGE.fullmatch(image) is None:
         raise PlanBundleError(f"sidecar {name} image must be pinned by sha256 digest")
@@ -141,7 +141,7 @@ def _container_contract(
         "config_digest": hashlib.sha256(_canonical(primary_configuration)).hexdigest(),
     }
     sidecar_contracts = [
-        _sidecar_contract(containers[name], name=name) for name in sorted(expected_sidecars)
+        planned_sidecar_contract(containers[name], name=name) for name in sorted(expected_sidecars)
     ]
     return primary_contract, sidecar_contracts
 

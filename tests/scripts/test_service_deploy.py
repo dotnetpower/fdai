@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import json
 import os
@@ -60,8 +61,18 @@ def recovery() -> ModuleType:
     return _load("deployment_recovery")
 
 
+@pytest.fixture(scope="module")
+def promotion() -> ModuleType:
+    return _load("sidecar_promotion")
+
+
 def _image(service_image: str) -> str:
     return f"ghcr.io/example/fdai/{service_image}@sha256:{'a' * 64}"
+
+
+def _canonical_digest(payload: dict[str, object]) -> str:
+    encoded = (json.dumps(payload, separators=(",", ":"), sort_keys=True) + "\n").encode()
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _resource(*, image: str = "old-image") -> dict[str, object]:
@@ -233,6 +244,70 @@ def _bundle_coordinates() -> dict[str, str]:
     }
 
 
+def _sidecar_promotion_inputs(bundle: ModuleType) -> dict[str, object]:
+    plan = _worker_plan()
+    before = plan["resource_changes"][0]["change"]["before"]  # type: ignore[index]
+    after = plan["resource_changes"][0]["change"]["after"]  # type: ignore[index]
+    after["template"][0]["container"][0]["image"] = before["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["image"]
+    old_image = "docker.io/clamav/clamav@sha256:" + "b" * 64
+    new_image = "docker.io/clamav/clamav@sha256:" + "c" * 64
+    after["template"][0]["container"][1]["image"] = new_image  # type: ignore[index]
+    context_digest = "d" * 64
+    sidecar_contract = bundle.planned_sidecar_contract(
+        before["template"][0]["container"][1],  # type: ignore[index]
+        name="clamav",
+    )
+    plan_context = {
+        "service": "document-processing-worker",
+        "environment": "dev",
+        "target": {
+            "service_resource_id": before["id"],  # type: ignore[index]
+            "service_name": before["name"],  # type: ignore[index]
+            "sidecar_containers": [sidecar_contract],
+        },
+    }
+    approval = {
+        "schema_version": "fdai.sidecar-promotion-approval.v1",
+        "status": "approved",
+        "service": "document-processing-worker",
+        "sidecar": "clamav",
+        "old_image_ref": old_image,
+        "new_image_ref": new_image,
+        "plan_context_digest": context_digest,
+        "approval_id": "approval-example",
+        "requested_by": "requester@example.com",
+        "approved_by": ["approver@example.com"],
+    }
+    attestation = {
+        "schema_version": "fdai.sidecar-attestation-proof.v1",
+        "verified": True,
+        "subject_digest": "sha256:" + "c" * 64,
+        "source_revision": "e" * 40,
+        "signer_workflow": "example/clamav/.github/workflows/container-supply-chain.yml",
+        "predicate_type": "https://slsa.dev/provenance/v1",
+    }
+    scan = {
+        "schema_version": "fdai.sidecar-scan-proof.v1",
+        "passed": True,
+        "subject_digest": "sha256:" + "c" * 64,
+        "scanner": "trivy",
+        "severities": ["MEDIUM", "HIGH", "CRITICAL"],
+        "report_digest": "f" * 64,
+    }
+    return {
+        "plan": plan,
+        "plan_context": plan_context,
+        "plan_context_digest": context_digest,
+        "approval": approval,
+        "attestation": attestation,
+        "scan": scan,
+        "old_image_ref": old_image,
+        "new_image_ref": new_image,
+    }
+
+
 def _write_plan_json(
     path: Path,
     *,
@@ -391,6 +466,24 @@ def _worker_health_evidence() -> tuple[dict[str, object], ...]:
     context["service"] = "document-processing-worker"
     context["target"]["component_tag"] = "document-processing-worker"  # type: ignore[index]
     context["target"]["image_ref"] = _image("fdai-document-processing-worker")  # type: ignore[index]
+    context["target"]["sidecar_containers"] = [  # type: ignore[index]
+        {
+            "name": "clamav",
+            "image_ref": "docker.io/clamav/clamav@sha256:" + "b" * 64,
+            "config_digest": _canonical_digest({"name": "clamav", "cpu": 0.5, "memory": "1Gi"}),
+            "probe_digest": _canonical_digest(
+                {
+                    "startup_probe": {
+                        "transport": "TCP",
+                        "port": 3310,
+                        "failure_count_threshold": 30,
+                    },
+                    "liveness_probe": {"transport": "TCP", "port": 3310},
+                    "readiness_probe": {"transport": "TCP", "port": 3310},
+                }
+            ),
+        }
+    ]
     app["tags"] = {"fdai:component": "document-processing-worker"}
     revision["properties"]["template"]["containers"] = [  # type: ignore[index]
         {
@@ -404,6 +497,8 @@ def _worker_health_evidence() -> tuple[dict[str, object], ...]:
         {
             "name": "clamav",
             "image": "docker.io/clamav/clamav@sha256:" + "b" * 64,
+            "cpu": 0.5,
+            "memory": "1Gi",
             "probes": [
                 {
                     "type": "Startup",
@@ -950,6 +1045,10 @@ def test_worker_recovery_snapshots_and_verifies_primary_and_clamav_contracts(
             key=lambda probe: probe["type"],
         ),
     }
+    assert (
+        snapshot["previous_sidecar_contracts"]["clamav"]
+        == context["target"]["sidecar_containers"][0]
+    )
 
     app["properties"]["latestRevisionName"] = "example--recovery"  # type: ignore[index]
     revision["name"] = "example--recovery"
@@ -987,6 +1086,45 @@ def test_worker_health_rejects_mutable_sidecar(recovery: ModuleType) -> None:
         "docker.io/clamav/clamav:latest"
     )
     with pytest.raises(recovery.DeploymentRecoveryError, match="sidecar clamav image"):
+        recovery.validate_health(
+            context=context,
+            service_output=service_output,
+            account=account,
+            app=app,
+            revision=revision,
+            previous_revision="example--old",
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("cpu", 1.0, "config digest"),
+        (
+            "probes",
+            [
+                {
+                    "type": "Startup",
+                    "tcpSocket": {"port": 3310},
+                    "failureThreshold": 30,
+                },
+                {"type": "Liveness", "tcpSocket": {"port": 3310}},
+                {"type": "Readiness", "tcpSocket": {"port": 3311}},
+            ],
+            "probe",
+        ),
+    ],
+)
+def test_worker_health_rejects_sidecar_drift_from_sealed_plan_context(
+    recovery: ModuleType,
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    context, service_output, account, app, revision = _worker_health_evidence()
+    revision["properties"]["template"]["containers"][1][field] = value  # type: ignore[index]
+
+    with pytest.raises(recovery.DeploymentRecoveryError, match=message):
         recovery.validate_health(
             context=context,
             service_output=service_output,
@@ -1299,6 +1437,123 @@ def test_worker_plan_bundle_rejects_unsealed_sidecar_contract(
             workflow_run_id="123",
             now=datetime(2026, 8, 8, 10, 0, tzinfo=UTC),
             **_bundle_coordinates(),
+        )
+
+
+def test_clamav_promotion_seals_exact_evidence_and_rollback(
+    bundle: ModuleType,
+    promotion: ModuleType,
+) -> None:
+    inputs = _sidecar_promotion_inputs(bundle)
+
+    promotion_context = promotion.build_promotion_context(**inputs)
+
+    assert promotion_context["status"] == "ready"
+    assert promotion_context["old_image_ref"] == inputs["old_image_ref"]
+    assert promotion_context["new_image_ref"] == inputs["new_image_ref"]
+    assert promotion_context["plan_context_digest"] == inputs["plan_context_digest"]
+    assert promotion_context["rollback"] == {
+        "image_ref": inputs["old_image_ref"],
+        "sidecar_contract": inputs["plan_context"]["target"]["sidecar_containers"][0],  # type: ignore[index]
+    }
+    assert set(promotion_context["evidence"]) == {
+        "approval_digest",
+        "attestation_digest",
+        "scan_digest",
+    }
+    promotion.verify_promotion_context(promotion_context, **inputs)
+
+
+@pytest.mark.parametrize("mutation", ["primary", "config", "extra"])
+def test_clamav_promotion_rejects_unknown_plan_changes(
+    bundle: ModuleType,
+    promotion: ModuleType,
+    mutation: str,
+) -> None:
+    inputs = _sidecar_promotion_inputs(bundle)
+    plan = inputs["plan"]
+    after = plan["resource_changes"][0]["change"]["after"]  # type: ignore[index]
+    if mutation == "primary":
+        after["template"][0]["container"][0]["image"] = _image(  # type: ignore[index]
+            "fdai-document-processing-worker"
+        )
+    elif mutation == "config":
+        after["template"][0]["container"][1]["cpu"] = 1.0  # type: ignore[index]
+    else:
+        plan["resource_changes"].append(copy.deepcopy(plan["resource_changes"][0]))  # type: ignore[union-attr,index]
+
+    with pytest.raises(promotion.SidecarPromotionError, match="unknown|exactly one"):
+        promotion.build_promotion_context(**inputs)
+
+
+@pytest.mark.parametrize("proof", ["approval", "attestation", "scan"])
+def test_clamav_promotion_rejects_unbound_proof(
+    bundle: ModuleType,
+    promotion: ModuleType,
+    proof: str,
+) -> None:
+    inputs = _sidecar_promotion_inputs(bundle)
+    if proof == "approval":
+        inputs["approval"]["approved_by"] = ["requester@example.com"]  # type: ignore[index]
+    elif proof == "attestation":
+        inputs["attestation"]["subject_digest"] = "sha256:" + "b" * 64  # type: ignore[index]
+    else:
+        inputs["scan"]["passed"] = False  # type: ignore[index]
+
+    with pytest.raises(promotion.SidecarPromotionError, match=proof):
+        promotion.build_promotion_context(**inputs)
+
+
+def test_default_service_deploy_keeps_clamav_sidecar_immutable(
+    bundle: ModuleType,
+    guard: ModuleType,
+) -> None:
+    inputs = _sidecar_promotion_inputs(bundle)
+
+    with pytest.raises(guard.PlanGuardError, match="sidecar contract drift"):
+        primary_image = inputs["plan"]["resource_changes"][0]["change"]["after"][  # type: ignore[index]
+            "template"
+        ][0]["container"][0]["image"]
+        guard.validate_plan(
+            inputs["plan"],
+            service="document-processing-worker",
+            environment="dev",
+            image_ref=primary_image,
+        )
+
+
+def test_clamav_promotion_rollback_requires_exact_old_digest(
+    bundle: ModuleType,
+    promotion: ModuleType,
+) -> None:
+    inputs = _sidecar_promotion_inputs(bundle)
+    promotion_context = promotion.build_promotion_context(**inputs)
+    sidecar_contract = promotion_context["rollback"]["sidecar_contract"]
+    snapshot = {
+        "service": "document-processing-worker",
+        "service_resource_id": promotion_context["target"]["service_resource_id"],
+        "service_name": promotion_context["target"]["service_name"],
+        "resource_group": "example",
+        "previous_revision": "example--old",
+        "previous_image": _image("fdai-document-processing-worker"),
+        "previous_sidecar_contracts": {"clamav": sidecar_contract},
+    }
+
+    command = promotion.promotion_rollback_command(
+        promotion_context=promotion_context,
+        snapshot=snapshot,
+        revision_suffix="rollback-123-1",
+    )
+
+    assert command[0:4] == ["az", "containerapp", "revision", "copy"]
+    assert command[command.index("--from-revision") + 1] == "example--old"
+    changed = copy.deepcopy(snapshot)
+    changed["previous_sidecar_contracts"]["clamav"]["image_ref"] = inputs["new_image_ref"]
+    with pytest.raises(promotion.SidecarPromotionError, match="exact old ClamAV digest"):
+        promotion.promotion_rollback_command(
+            promotion_context=promotion_context,
+            snapshot=changed,
+            revision_suffix="rollback-123-1",
         )
 
 

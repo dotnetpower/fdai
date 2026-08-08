@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import re
 import sys
@@ -14,6 +15,14 @@ from typing import Any
 _DIGEST_IMAGE = re.compile(r"[^\s]+@sha256:[0-9a-f]{64}")
 _ALLOWED_SIDECARS = {
     "document-processing-worker": frozenset({"clamav"}),
+}
+_PROBE_FIELD_MAP = {
+    "failureThreshold": "failure_count_threshold",
+    "initialDelaySeconds": "initial_delay",
+    "periodSeconds": "interval_seconds",
+    "successThreshold": "success_count_threshold",
+    "terminationGracePeriodSeconds": "termination_grace_period_seconds",
+    "timeoutSeconds": "timeout",
 }
 
 
@@ -45,6 +54,88 @@ def _container_contract(container: dict[str, Any], *, label: str) -> dict[str, A
     return {
         "image": image,
         "probes": sorted(copy.deepcopy(probes), key=lambda probe: str(probe.get("type", ""))),
+    }
+
+
+def _canonical_digest(payload: dict[str, Any]) -> str:
+    canonical = (json.dumps(payload, separators=(",", ":"), sort_keys=True) + "\n").encode()
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _observed_sidecar_contract(container: dict[str, Any], *, name: str) -> dict[str, str]:
+    contract = _container_contract(container, label=f"sidecar {name}")
+    _validate_sidecar_probes(contract, name=name)
+    configuration = {
+        key: value for key, value in container.items() if key not in {"image", "probes"}
+    }
+    normalized_probes: dict[str, dict[str, Any]] = {}
+    for probe in contract["probes"]:
+        probe_type = str(probe.get("type", "")).lower()
+        socket = probe.get("tcpSocket")
+        if probe_type not in {"startup", "liveness", "readiness"} or not isinstance(socket, dict):
+            raise DeploymentRecoveryError(f"sidecar {name} probe contract changed")
+        unknown_fields = set(probe) - {"type", "tcpSocket", *_PROBE_FIELD_MAP}
+        if unknown_fields:
+            raise DeploymentRecoveryError(f"sidecar {name} probe contract changed")
+        normalized = {"transport": "TCP", "port": socket["port"]}
+        for observed_name, planned_name in _PROBE_FIELD_MAP.items():
+            if observed_name in probe:
+                normalized[planned_name] = probe[observed_name]
+        normalized_probes[f"{probe_type}_probe"] = normalized
+    return {
+        "name": name,
+        "image_ref": contract["image"],
+        "config_digest": _canonical_digest(configuration),
+        "probe_digest": _canonical_digest(normalized_probes),
+    }
+
+
+def _sealed_sidecars(target: dict[str, Any], *, service: str) -> dict[str, dict[str, str]]:
+    expected_names = _ALLOWED_SIDECARS.get(service, frozenset())
+    raw_sidecars = target.get("sidecar_containers")
+    if not isinstance(raw_sidecars, list):
+        raise DeploymentRecoveryError("sealed context has no sidecar container contract")
+    sidecars: dict[str, dict[str, str]] = {}
+    for item in raw_sidecars:
+        name = item.get("name") if isinstance(item, dict) else None
+        if not isinstance(name, str) or name in sidecars:
+            raise DeploymentRecoveryError("sealed sidecar container contract is invalid")
+        values: dict[str, str] = {}
+        for key in ("name", "image_ref", "config_digest", "probe_digest"):
+            value = item.get(key)
+            if not isinstance(value, str):
+                raise DeploymentRecoveryError("sealed sidecar container contract is invalid")
+            values[key] = value
+        if _DIGEST_IMAGE.fullmatch(values["image_ref"]) is None or any(
+            re.fullmatch(r"[0-9a-f]{64}", values[key]) is None
+            for key in ("config_digest", "probe_digest")
+        ):
+            raise DeploymentRecoveryError("sealed sidecar container contract is invalid")
+        sidecars[name] = values
+    if set(sidecars) != expected_names:
+        raise DeploymentRecoveryError("sealed context does not contain the exact sidecar set")
+    return sidecars
+
+
+def _observed_sidecars(revision: dict[str, Any], *, service: str) -> dict[str, dict[str, str]]:
+    expected_names = _ALLOWED_SIDECARS.get(service, frozenset())
+    if not expected_names:
+        return {}
+    properties = revision.get("properties")
+    template = properties.get("template") if isinstance(properties, dict) else None
+    raw_containers = template.get("containers") if isinstance(template, dict) else None
+    if not isinstance(raw_containers, list):
+        raise DeploymentRecoveryError("revision must contain containers")
+    by_name = {
+        container.get("name"): container
+        for container in raw_containers
+        if isinstance(container, dict) and isinstance(container.get("name"), str)
+    }
+    if not expected_names <= set(by_name):
+        raise DeploymentRecoveryError("revision does not contain the exact sidecar set")
+    return {
+        name: _observed_sidecar_contract(by_name[name], name=name)
+        for name in sorted(expected_names)
     }
 
 
@@ -170,6 +261,19 @@ def validate_health(
     containers = _revision_container_contracts(revision, service=service)
     if containers["primary"]["image"] != expected_image:
         raise DeploymentRecoveryError("new revision image digest does not match sealed context")
+    expected_sidecars = _ALLOWED_SIDECARS.get(service, frozenset())
+    if expected_sidecars:
+        sealed_sidecars = _sealed_sidecars(target, service=service)
+        observed_sidecars = _observed_sidecars(revision, service=service)
+        for name in sorted(expected_sidecars):
+            observed = observed_sidecars[name]
+            expected = sealed_sidecars[name]
+            for field in ("image_ref", "config_digest", "probe_digest"):
+                if observed[field] != expected[field]:
+                    raise DeploymentRecoveryError(
+                        f"observed sidecar {name} {field.replace('_', ' ')} "
+                        "does not match sealed context"
+                    )
 
 
 def capture_snapshot(
@@ -196,6 +300,7 @@ def capture_snapshot(
         raise DeploymentRecoveryError("rollback snapshot revision is not the current revision")
     service = _required(context, "service", label="service")
     containers = _revision_container_contracts(revision, service=service)
+    sidecar_contracts = _observed_sidecars(revision, service=service)
     authority_fallback = rollback_contract.get("authority_fallback", "")
     if authority_fallback not in ("", "core-in-process"):
         raise DeploymentRecoveryError("rollback authority fallback is unsupported")
@@ -209,6 +314,7 @@ def capture_snapshot(
         "previous_revision": previous_revision,
         "previous_image": containers["primary"]["image"],
         "previous_containers": containers,
+        "previous_sidecar_contracts": sidecar_contracts,
         "platform_rollback_required": authority_fallback == "core-in-process",
     }
 
@@ -280,6 +386,12 @@ def validate_rollback(
         snapshot, "previous_image", label="previous image"
     ):
         raise DeploymentRecoveryError("rollback revision image does not match snapshot")
+    previous_sidecar_contracts = snapshot.get("previous_sidecar_contracts")
+    if (
+        not isinstance(previous_sidecar_contracts, dict)
+        or _observed_sidecars(revision, service=service) != previous_sidecar_contracts
+    ):
+        raise DeploymentRecoveryError("rollback sidecar contract does not match snapshot")
 
 
 def main() -> int:

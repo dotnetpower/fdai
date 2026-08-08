@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 from pathlib import Path
 from types import ModuleType
 
@@ -170,6 +171,33 @@ def test_shipped_workflows_satisfy_security_contracts() -> None:
 
     assert module._validate_action_runtime_versions() == []
     assert module._validate_privileged_workflow_guards() == []
+
+
+def test_release_bundle_uses_exact_commit_and_reviewed_action_shas() -> None:
+    workflow = (
+        Path(__file__).resolve().parents[2]
+        / ".github"
+        / "workflows"
+        / "release-deployment-bundle.yml"
+    ).read_text(encoding="utf-8")
+    uses = re.findall(r"^\s*uses:\s+([^\s#]+)", workflow, re.MULTILINE)
+    pins = {
+        "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "actions/setup-node": "820762786026740c76f36085b0efc47a31fe5020",
+        "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+        "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+        "astral-sh/setup-uv": "11f9893b081a58869d3b5fccaea48c9e9e46f990",
+        "pypa/gh-action-pip-audit": "1220774d901786e6f652ae159f7b6bc8fea6d266",
+        "pypa/gh-action-pypi-publish": "2834a314042ef964da07689278dd1e9d773e8afd",
+    }
+
+    assert "commit_sha:" in workflow
+    assert 'description: "Exact protected origin/main commit to release."' in workflow
+    assert workflow.count("ref: ${{ inputs.commit_sha }}") == 4
+    assert "github.sha" not in workflow
+    assert uses and all(re.fullmatch(r"[^@]+@[0-9a-f]{40}", value) for value in uses)
+    for action, sha in pins.items():
+        assert f"{action}@{sha}" in uses
 
 
 def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
