@@ -38,7 +38,7 @@ class PostgresDocumentActivitySink:
             except (ValidationError, ValueError, RuntimeError):
                 try:
                     await self._event_bus.dead_letter(
-                        str(row["topic"]),
+                        self._event_topic,
                         str(row["partition_key"]),
                         {"outbox_event_id": str(row["event_id"])},
                         "invalid_document_worker_outbox_event",
@@ -55,7 +55,7 @@ class PostgresDocumentActivitySink:
                 await self._mark_published(row["event_id"])
                 continue
             try:
-                await self._event_bus.publish(event.topic, event.key, event.payload)
+                await self._event_bus.publish(self._event_topic, event.key, event.payload)
             except Exception as exc:  # noqa: BLE001 - durable row remains for retry
                 _LOGGER.warning(
                     "document_worker_outbox_publish_failed",

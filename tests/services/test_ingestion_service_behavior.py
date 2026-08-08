@@ -464,7 +464,7 @@ class FixedApiOutboxSink(ApiDocumentActivitySink):
 
 
 @pytest.mark.asyncio
-async def test_worker_outbox_dead_letters_poison_row_without_starving_valid_event() -> None:
+async def test_worker_outbox_uses_configured_transport_for_valid_and_poison_rows() -> None:
     event_bus = RecordingEventBus()
     poison_id = uuid4()
     valid = DocumentLifecycleEvent(
@@ -494,10 +494,10 @@ async def test_worker_outbox_dead_letters_poison_row_without_starving_valid_even
     )
 
     assert await sink.drain() == 1
-    assert event_bus.published == [(valid.topic, valid.key, valid.payload)]
+    assert event_bus.published == [("aw.events", valid.key, valid.payload)]
     assert event_bus.dead_letters == [
         (
-            "object.event",
+            "aw.events",
             "document-1",
             {"outbox_event_id": str(poison_id)},
             "invalid_document_worker_outbox_event",
