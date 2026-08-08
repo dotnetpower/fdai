@@ -130,7 +130,7 @@ fdai/
 | [x] | IS-04 | Split durable writer grants and migration branches by service. | IS-02 | Five migration heads and zero writer overlap |
 | [x] | IS-05 | Build, scan, attest, and publish five minimal service images. | IS-02, IS-03 | Five immutable image, SBOM, and startup receipts |
 | [x] | IS-06 | Split service Terraform roots, state, and deployment workflows from the shared platform. | IS-04, IS-05 | Five local roots, isolated backend contracts, state ownership checks, and peer-isolation mechanics pass |
-| [ ] | IS-07 | Prove N/N-1 contracts and independent upgrade/rollback for each service. | IS-03, IS-06, IS-08 | Five peer-stable rolling receipts built from the final service-owned layout |
+| [x] | IS-07 | Prove N/N-1 contracts and independent upgrade/rollback for each service. | IS-03, IS-06, IS-08 | Five local N -> N-1 -> N artifact transitions and ten peer-stable focused receipts pass |
 | [x] | IS-08 | Move implementation, unit tests, build definitions, and distributions under their five service roots; retire the top-level monolith source, duplicate contracts, co-host, in-process authority, shared-image, and shared-migration compatibility paths. | IS-03, IS-05 | Final repository layout matches the documented tree; top-level production source and topology compatibility path counts are zero |
 | [ ] | IS-09 | Enforce the final repository layout, run at least ten independent critique-and-hardening rounds, and close the program. | IS-07, IS-08 | Layout and import gates pass; Medium-or-higher residual count zero; deferred remote verification passes |
 
@@ -165,7 +165,7 @@ Local completion evidence includes six independently built wheels, five nonroot 
 five image health checks, five validated migration branches covering 104 tables and 11
 transitions, five locally validated Terraform roots, zero cross-service implementation imports,
 and ten independent critique-and-hardening rounds with zero Medium-or-higher local residuals.
-IS-06 is locally complete; IS-07 remains open for local N/N-1 evidence. Exact remote plan/apply and
+IS-06 and IS-07 are locally complete. Exact remote plan/apply and
 rolling confirmation is deferred to IS-09 and uses final service-owned inputs without restoring
 the monolith as a rollback source. IS-07 pins distribution `0.1.0` from Git history as N-1 and
 distribution `0.1.1` as N while retaining the existing contract-set `1.0.0`/`1.1.0` matrix.
@@ -276,6 +276,7 @@ state. For each transition:
 | 2026-08-08 | SD-08 | Completed | Plans `31207740363`, `31211368557`, `31214493667`; applies `31209982126`, `31211927016`, `31214900219` | The first isolated proof used offsets `[0,1]`, one provider write, ARM present/absent observation, cleanup, and a 142-second receipt. The rollback plan was `0 add / 3 change / 0 destroy`; local transport then proved one write and cleanup in 450 seconds. The final cutover plan was `0 add / 4 in-place change / 0 destroy`, with no replacement or role-assignment change. Final isolated transport continued at offsets `[3,4]`, produced exactly one provider write, passed independent ARM observation and cleanup in 436 seconds, kept all five revisions healthy, completed canary, and converged to no changes. |
 | 2026-08-08 | SD-09 | Completed | Closing validation receipt | The obsolete `routes.chat_verification` source-path facade was removed after the capability catalog moved to the owned verification package. All 22 reviewed boundary-docstring scopes now enforce, and the capability catalog, Operator layout, and boundary suite passed 30 focused tests with zero reported boundary gaps. Centralized validation passed 15076 tests with 15 environment-dependent skips, strict mypy over 1904 source files, and every repository gate before push. |
 | 2026-08-09 | IS-06 | Completed locally | Local deployment receipt | Five Terraform roots and backend contracts, five state-migration ownership contracts, protected plan/apply guards, and semantic four-peer isolation mechanics passed 113 focused deployment tests. Exact remote receipts remain deferred to the IS-09 program-final gate and are not claimed by this transition. |
+| 2026-08-09 | IS-07 | Completed locally | Local transition evidence | Five `0.1.1 -> 0.1.0 -> 0.1.1` wheel transitions, ten nonroot service images, and ten peer-stable focused migration/rollback receipts passed with preserved offsets, zero peer restarts, and zero duplicate terminal effects. Remote rolling confirmation remains deferred to IS-09. |
 
 ## Related documents
 

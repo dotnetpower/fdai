@@ -109,7 +109,7 @@
     "service_images": 5,
     "service_terraform_roots": 5,
     "service_migration_branches": 5,
-    "independent_upgrade_and_rollback_proofs": 0,
+    "independent_upgrade_and_rollback_proofs": 5,
     "service_forbidden_implementation_import_files": 0,
     "top_level_production_source_roots": 0
   },
@@ -134,6 +134,16 @@
     "peer_state_isolation_mechanics": "passed",
     "protected_plan_apply_contract": "passed",
     "focused_tests_passed": 113
+  },
+  "local_upgrade_and_rollback_evidence": {
+    "state": "completed",
+    "evidence_path": "config/independent-service-local-transition-evidence.json",
+    "service_artifact_pairs": 5,
+    "focused_transition_receipts": 10,
+    "independent_upgrade_and_rollback_proofs": 5,
+    "peer_restart_count": 0,
+    "duplicate_terminal_effects": 0,
+    "offsets_preserved": true
   },
   "local_layout_evidence": {
     "base_commit": "f19cbeb73",
@@ -169,7 +179,7 @@
     {"id": "IS-04", "status": "completed", "dependencies": ["IS-02"]},
     {"id": "IS-05", "status": "completed", "dependencies": ["IS-02", "IS-03"]},
     {"id": "IS-06", "status": "completed", "dependencies": ["IS-04", "IS-05"]},
-    {"id": "IS-07", "status": "in_progress", "dependencies": ["IS-03", "IS-06", "IS-08"]},
+    {"id": "IS-07", "status": "completed", "dependencies": ["IS-03", "IS-06", "IS-08"]},
     {"id": "IS-08", "status": "completed", "dependencies": ["IS-03", "IS-05"]},
     {"id": "IS-09", "status": "in_progress", "dependencies": ["IS-07", "IS-08"]}
   ]

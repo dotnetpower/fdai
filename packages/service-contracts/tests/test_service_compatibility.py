@@ -135,7 +135,7 @@ def test_service_versions_match_real_n_and_n_minus_one_distributions() -> None:
         assert "previous_version" not in declared
         assert "current_version" not in declared
 
-    assert independent["current_baseline"]["independent_upgrade_and_rollback_proofs"] == 0
+    assert independent["current_baseline"]["independent_upgrade_and_rollback_proofs"] == 5
     assert independent["compatibility_retirements"] == {
         "legacy_isolated_executor_module": "retired",
         "ingestion_cohost": "retired",

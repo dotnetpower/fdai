@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: f3faa3d5386788af89c6ad75df1ed9bbbf08f337
+translation_source_sha: f38ab0e3a4185355829948931634c5d09fe9da51
 translation_revised: 2026-08-09
 ---
 # 서비스 분해 실행 계획
@@ -127,7 +127,7 @@ fdai/
 | [x] | IS-04 | Durable writer grant와 migration branch를 service별로 분리합니다. | IS-02 | Migration head 5개와 writer overlap 0 |
 | [x] | IS-05 | 최소 service image 5개를 build, scan, attest, publish합니다. | IS-02, IS-03 | Immutable image, SBOM, startup receipt 5개 |
 | [x] | IS-06 | Shared platform에서 service Terraform root, state 및 deployment workflow를 분리합니다. | IS-04, IS-05 | Local root 5개, 격리된 backend contract, state ownership check 및 peer-isolation mechanics 통과 |
-| [ ] | IS-07 | 각 service의 N/N-1 contract와 독립 upgrade/rollback을 증명합니다. | IS-03, IS-06, IS-08 | 최종 service-owned layout에서 build하고 peer를 유지한 rolling receipt 5개 |
+| [x] | IS-07 | 각 service의 N/N-1 contract와 독립 upgrade/rollback을 증명합니다. | IS-03, IS-06, IS-08 | Local N -> N-1 -> N artifact transition 5개와 peer-stable focused receipt 10개 통과 |
 | [x] | IS-08 | Implementation, unit test, build definition 및 distribution을 5개 service root 아래로 이동하고 최상위 monolith source, 중복 contract, co-host, in-process authority, shared-image 및 shared-migration compatibility path를 제거합니다. | IS-03, IS-05 | 최종 리포지토리 레이아웃이 문서의 tree와 일치하고 최상위 production source 및 topology compatibility path 수가 0 |
 | [ ] | IS-09 | 최종 리포지토리 레이아웃을 enforce하고 독립 critique-and-hardening round를 10회 이상 실행한 뒤 program을 종료합니다. | IS-07, IS-08 | Layout 및 import gate 통과, Medium 이상 residual 0, 보류한 remote verification 통과 |
 
@@ -160,8 +160,8 @@ entry point, duplicate contract와 generic ingestion co-host seam은 제거되�
 로컬 완료 evidence에는 독립 build wheel 6개, nonroot service image 5개, image health check 5개,
 104개 table과 11개 transition을 포함하는 검증된 migration branch 5개, 로컬에서 validate한 Terraform
 root 5개, cross-service implementation import 0, 그리고 독립 critique-and-hardening 10회와 Medium 이상
-로컬 residual 0이 포함됩니다. IS-06은 local 기준으로 완료됐고 IS-07은 local N/N-1 evidence를 위해
-계속 열려 있습니다. Exact remote plan/apply와 rolling 확인은 IS-09로 보류하며 최종 service-owned
+로컬 residual 0이 포함됩니다. IS-06과 IS-07은 local 기준으로 완료됐습니다. Exact remote
+plan/apply와 rolling 확인은 IS-09로 보류하며 최종 service-owned
 input을 사용하고 monolith를 rollback source로 복원하지 않습니다. IS-07은 Git history의 distribution
 `0.1.0`을 N-1, distribution `0.1.1`을 N으로 고정하고 기존 contract-set `1.0.0`/`1.1.0` matrix를 유지합니다.
 
@@ -269,6 +269,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-08 | SD-08 | 완료 | Plan `31207740363`, `31211368557`, `31214493667`; apply `31209982126`, `31211927016`, `31214900219` | 첫 isolated proof는 offset `[0,1]`, provider write 1회, ARM present/absent 관측, cleanup 및 142초 receipt를 기록했습니다. Rollback plan은 `0 add / 3 change / 0 destroy`였고 local transport는 write 1회와 cleanup을 450초에 증명했습니다. 최종 cutover plan은 `0 add / 4 in-place change / 0 destroy`였으며 replacement와 role-assignment change는 0이었습니다. 최종 isolated transport는 offset `[3,4]`로 이어졌고 provider write 정확히 1회, independent ARM 관측과 cleanup을 436초에 통과했으며 revision 5개가 모두 healthy 상태를 유지하고 canary와 no-change convergence를 완료했습니다. |
 | 2026-08-08 | SD-09 | 완료 | Closing validation receipt | Capability catalog를 owned verification package로 옮긴 뒤 오래된 `routes.chat_verification` source-path facade를 제거했습니다. 검토된 boundary-docstring scope 22개를 모두 enforce로 전환했고 capability catalog, Operator layout 및 boundary suite의 focused test 30개가 boundary gap 보고 0건으로 통과했습니다. Centralized validation은 push 전에 test 15076개, environment-dependent skip 15개, source file 1904개 대상 strict mypy 및 모든 repository gate를 통과했습니다. |
 | 2026-08-09 | IS-06 | Local 완료 | Local deployment receipt | Terraform root와 backend contract 5개, state-migration ownership contract 5개, protected plan/apply guard 및 semantic four-peer isolation mechanics가 focused deployment test 113개를 통과했습니다. Exact remote receipt는 IS-09 program-final gate로 보류하며 이 전환의 evidence로 주장하지 않습니다. |
+| 2026-08-09 | IS-07 | Local 완료 | Local transition evidence | `0.1.1 -> 0.1.0 -> 0.1.1` wheel transition 5개, nonroot service image 10개 및 peer-stable focused migration/rollback receipt 10개가 offset 보존, peer restart 0, duplicate terminal effect 0으로 통과했습니다. Remote rolling 확인은 IS-09로 보류합니다. |
 
 ## 관련 문서
 

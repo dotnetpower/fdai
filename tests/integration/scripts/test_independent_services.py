@@ -9,6 +9,9 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = REPO_ROOT / "config" / "independent-services.json"
+TRANSITION_EVIDENCE_PATH = (
+    REPO_ROOT / "config" / "independent-service-local-transition-evidence.json"
+)
 CHECKER_PATH = REPO_ROOT / "scripts/quality/architecture/check-independent-services.py"
 
 
@@ -98,6 +101,7 @@ def test_manifest_records_completed_local_layout_assurance() -> None:
     assert evidence["pending_parallel_lanes"] == []
     assert statuses["IS-04"] == "completed"
     assert statuses["IS-06"] == "completed"
+    assert statuses["IS-07"] == "completed"
     assert statuses["IS-08"] == "completed"
     assert statuses["IS-09"] == "in_progress"
 
@@ -124,6 +128,51 @@ def test_manifest_records_completed_local_layout_assurance() -> None:
         "service_plan_apply_receipts": 0,
         "service_upgrade_and_rollback_proofs": 0,
     }
+
+    transition = manifest["local_upgrade_and_rollback_evidence"]
+    assert transition["state"] == "completed"
+    assert transition["evidence_path"] == TRANSITION_EVIDENCE_PATH.relative_to(REPO_ROOT).as_posix()
+    assert transition["service_artifact_pairs"] == 5
+    assert transition["focused_transition_receipts"] == 10
+    assert transition["independent_upgrade_and_rollback_proofs"] == 5
+    assert transition["peer_restart_count"] == 0
+    assert transition["duplicate_terminal_effects"] == 0
+    assert transition["offsets_preserved"] is True
+
+
+def test_local_transition_evidence_covers_five_stable_artifact_pairs() -> None:
+    evidence = json.loads(TRANSITION_EVIDENCE_PATH.read_text(encoding="utf-8"))
+
+    assert evidence["proof_kind"] == "local"
+    assert len(evidence["services"]) == 5
+    assert {item["id"] for item in evidence["services"]} == {
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+    }
+    assert all(item["peer_stable"] is True for item in evidence["services"])
+    assert all(
+        item["transition_sequence"] == ["0.1.1", "0.1.0", "0.1.1"] for item in evidence["services"]
+    )
+    assert evidence["summary"]["independent_upgrade_and_rollback_proofs"] == 5
+
+
+def test_checker_rejects_tampered_local_transition_artifact(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    checker = _checker_module()
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    evidence = json.loads(TRANSITION_EVIDENCE_PATH.read_text(encoding="utf-8"))
+    evidence["services"][0]["n"]["image_sha256"] = "sha256:invalid"
+    tampered = tmp_path / "evidence.json"
+    tampered.write_text(json.dumps(evidence), encoding="utf-8")
+    monkeypatch.setattr(checker, "LOCAL_TRANSITION_EVIDENCE_PATH", tampered)
+
+    with pytest.raises(ValueError, match="artifact digest is invalid"):
+        checker._validate_local_transition_evidence(manifest)
 
 
 def test_is09_cannot_complete_while_remote_verification_is_deferred(

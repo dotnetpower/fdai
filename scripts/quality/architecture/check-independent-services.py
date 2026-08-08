@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import re
 import tomllib
@@ -12,6 +13,26 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = REPO_ROOT / "config" / "independent-services.json"
+LOCAL_TRANSITION_EVIDENCE_PATH = (
+    REPO_ROOT / "config" / "independent-service-local-transition-evidence.json"
+)
+COMPATIBILITY_MANIFEST_PATH = (
+    REPO_ROOT
+    / "packages"
+    / "service-contracts"
+    / "src"
+    / "fdai_service_contracts"
+    / "compatibility-manifest.json"
+)
+UPGRADE_RECEIPTS_PATH = (
+    REPO_ROOT
+    / "packages"
+    / "service-contracts"
+    / "tests"
+    / "fixtures"
+    / "services"
+    / "upgrade-receipts.json"
+)
 SERVICE_IDS = (
     "core-control-plane",
     "operator-service",
@@ -26,6 +47,18 @@ def _load_manifest() -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError("independent-services manifest must be an object")
     return value
+
+
+def _load_json(path: Path, label: str) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"cannot load {label}: {path.relative_to(REPO_ROOT)}") from exc
+
+
+def _canonical_digest(value: object) -> str:
+    encoded = json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def _imports_prefix(path: Path, prefix: str) -> bool:
@@ -203,6 +236,103 @@ def _validate_release_transition(manifest: dict[str, Any]) -> None:
             raise ValueError(f"{service['id']} contract set version is inconsistent")
 
 
+def _validate_local_transition_evidence(manifest: dict[str, Any]) -> None:
+    evidence = _load_json(LOCAL_TRANSITION_EVIDENCE_PATH, "local transition evidence")
+    if not isinstance(evidence, dict) or evidence.get("schema_version") != "1.0.0":
+        raise ValueError("local transition evidence schema version is invalid")
+    if evidence.get("proof_kind") != "local":
+        raise ValueError("local transition evidence proof kind is invalid")
+    transition = manifest["release_transition"]
+    if evidence.get("n") != {
+        "distribution_version": transition["n_distribution_version"],
+        "source_revision": "559b8755d6ba1b6855c9b31460856f83925cce66",
+    }:
+        raise ValueError("local N artifact source is invalid")
+    if evidence.get("n_minus_one") != {
+        "distribution_version": transition["n_minus_one_distribution_version"],
+        "source_revision": transition["n_minus_one_source_revision"],
+    }:
+        raise ValueError("local N-1 artifact source is invalid")
+    compatibility = _load_json(COMPATIBILITY_MANIFEST_PATH, "compatibility manifest")
+    if evidence.get("matrix_digest") != _canonical_digest(
+        compatibility["producer_consumer_matrix"]
+    ):
+        raise ValueError("local transition matrix digest is invalid")
+    raw_receipts = _load_json(UPGRADE_RECEIPTS_PATH, "focused upgrade receipts")
+    if not isinstance(raw_receipts, list):
+        raise ValueError("focused upgrade receipts must be an array")
+    receipts = {
+        (receipt.get("service_id"), receipt.get("direction")): receipt
+        for receipt in raw_receipts
+        if isinstance(receipt, dict)
+    }
+    service_map = {service["id"]: service for service in manifest["services"]}
+    raw_services = evidence.get("services")
+    if not isinstance(raw_services, list) or len(raw_services) != 5:
+        raise ValueError("local transition evidence must contain five services")
+    digest_pattern = re.compile(r"sha256:[0-9a-f]{64}")
+    seen: set[str] = set()
+    for item in raw_services:
+        if not isinstance(item, dict) or item.get("id") not in service_map:
+            raise ValueError("local transition evidence service identity is invalid")
+        service_id = str(item["id"])
+        if service_id in seen:
+            raise ValueError("local transition evidence service ids must be unique")
+        seen.add(service_id)
+        service = service_map[service_id]
+        if item.get("distribution") != service["distribution"]:
+            raise ValueError(f"{service_id} evidence distribution is invalid")
+        if item.get("entrypoint") != service["entrypoint"]:
+            raise ValueError(f"{service_id} evidence entrypoint is invalid")
+        for release in ("n", "n_minus_one"):
+            artifact = item.get(release)
+            if not isinstance(artifact, dict):
+                raise ValueError(f"{service_id} {release} artifact is missing")
+            if any(
+                not isinstance(artifact.get(key), str)
+                or digest_pattern.fullmatch(str(artifact[key])) is None
+                for key in ("wheel_sha256", "image_sha256")
+            ):
+                raise ValueError(f"{service_id} {release} artifact digest is invalid")
+            if artifact.get("nonroot_user") != 65532 or artifact.get("healthcheck") is not True:
+                raise ValueError(f"{service_id} {release} runtime contract is invalid")
+        if item.get("transition_sequence") != ["0.1.1", "0.1.0", "0.1.1"]:
+            raise ValueError(f"{service_id} transition sequence is invalid")
+        if item.get("peer_stable") is not True:
+            raise ValueError(f"{service_id} local transition is not peer stable")
+        for direction in ("migration", "rollback"):
+            receipt = receipts.get((service_id, direction))
+            if receipt is None or item.get(f"{direction}_receipt_id") != receipt.get("receipt_id"):
+                raise ValueError(f"{service_id} {direction} receipt binding is invalid")
+            if (
+                receipt.get("proof_kind") != "focused"
+                or receipt.get("outcome") != "stable"
+                or receipt.get("peer_versions_before") != receipt.get("peer_versions_after")
+                or receipt.get("peer_restart_count") != 0
+                or receipt.get("duplicate_terminal_effects") != 0
+                or receipt.get("offsets_preserved") is not True
+            ):
+                raise ValueError(f"{service_id} {direction} receipt is not stable")
+    if seen != set(SERVICE_IDS):
+        raise ValueError("local transition evidence must cover the canonical five services")
+    expected_summary = {
+        "service_artifact_pairs": 5,
+        "focused_transition_receipts": 10,
+        "independent_upgrade_and_rollback_proofs": 5,
+        "peer_restart_count": 0,
+        "duplicate_terminal_effects": 0,
+        "offsets_preserved": True,
+        "outcome": "stable",
+    }
+    if evidence.get("summary") != expected_summary:
+        raise ValueError("local transition evidence summary is invalid")
+    if manifest["current_baseline"]["independent_upgrade_and_rollback_proofs"] != 5:
+        raise ValueError("local transition proof baseline must be five")
+    statuses = {item["id"]: item["status"] for item in manifest["work_packages"]}
+    if statuses["IS-07"] != "completed":
+        raise ValueError("IS-07 local transition evidence must release IS-09")
+
+
 def validate() -> None:
     manifest = _load_manifest()
     services = manifest["services"]
@@ -249,6 +379,7 @@ def validate() -> None:
     _validate_graph(manifest["work_packages"])
     _validate_program_final_verification(manifest)
     _validate_release_transition(manifest)
+    _validate_local_transition_evidence(manifest)
     baseline = manifest["current_baseline"]
     top_level_source_roots = int((REPO_ROOT / "src" / "fdai").exists())
     if top_level_source_roots != int(baseline["top_level_production_source_roots"]):
