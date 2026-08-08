@@ -66,7 +66,7 @@ fdai/
 │   │   ├── deploy_preflight/   # pre-deployment feasibility probes → grounded readiness report
 │   │   ├── readiness/          # operational handoff + startup and monitored-target readiness contracts, fail-closed reducers, evidence expiry, and authority ceilings
 │   │   ├── assurance_twin/     # read-only ontology twin: text-to-query, scalar/graph active-challenger models, required invariants, durable trajectory episodes, deterministic simulation, and off-path outcome closure (never executes or promotes)
-│   │   ├── ontology_platform/   # exact releases, semantic interfaces, bounded object sets, immutable diagnostic ledger/result projection, mutation plans, typed functions, reconciliation, and proposal-only SDK generation
+│   │   ├── ontology_platform/   # exact releases, semantic interfaces, bounded object sets, secured purpose/ACL query receipts, immutable diagnostic ledger/result projection, mutation plans, typed functions, reconciliation, and proposal-only SDK generation
 │   │   ├── conversation/       # Bragi-owned model-free screen T0, operator-console intent/tool coordination, conflict-aware read plans, grounded narration, shadow planning qualification receipts, per-turn isolation, durable delivery, and busy-input arbitration
 │   │   ├── user_context_projection.py  # metadata-only principal context / workflow binding projection into runtime ontology
 │   │   ├── console_request/    # operator-console write-direction re-request policy (Scenario B deny-override), a single pure `evaluate_operator_rerequest`

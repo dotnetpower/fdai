@@ -206,7 +206,10 @@ exact ontology release, semantic catalog, arguments, and reviewed evidence befor
 Current-state graph reads and historical evidence are different operations. `ObjectSetDefinition`
 selects the current graph. Metrics, logs, activity, audit, and retained trajectories are bounded
 functions in the same query plan. An `as_of` value does not turn the current instance store into a
-bitemporal database.
+bitemporal database. Until a store contract exposes an authoritative observation cutoff or
+watermark, the secured gateway accepts only the trusted current evaluation cutoff within a
+configured skew of at most five seconds. Other past or future values are explicitly unsupported,
+never historical-completeness claims.
 
 OPA/Rego is not mandatory for every read. It evaluates access, policy, and action eligibility over
 a bounded typed input when those decisions are required. It does not search the ontology or call a

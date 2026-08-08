@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 7ab53313e17d0e3ce9895305b0841b663a945b22
+translation_source_sha: 0cb9d53b1f3967ff51e2287615ac401edbb048e4
 translation_revised: 2026-08-09
 ---
 # FDAI 온톨로지 안전 인프라
@@ -140,6 +140,19 @@ result limit를 지원합니다. Free-form Cypher, SPARQL, SQL 또는 model text
 materialization은 release digest, cutoff, source watermark, truncation reason, redaction summary를
 기록합니다.
 
+현재 instance-store contract에는 historical observation API가 없습니다. 따라서 secured gateway는
+trusted evaluation cutoff와 최대 5초로 명시적으로 구성한 skew 안의 `as_of`만 허용합니다. 이 범위를
+벗어난 과거 또는 미래 cutoff는 unsupported로 차단하고, historical completeness를 주장하지 않은 채
+`current_state_only`, cutoff 및 허용된 skew를 기록합니다. 각 secured receipt는 exact ontology
+release, caller role, singleton purpose, canonical projected-result digest, completeness/truncation
+state 및 content-free redaction summary를 결합합니다. 반환된 graph property는 재귀적으로 immutable하며
+semantic query boundary는 사용 전에 result-receipt binding을 다시 검증합니다.
+
+LinkType declaration은 아직 property ACL을 정의하지 않습니다. 따라서 secured projection은 모든 link
+property를 제거하고 제거된 field 수를 receipt에 기록합니다. Typed endpoint와 exact type reference만
+보존합니다. Redacted object alias는 전체 source identity set 밖에서 할당하며 projector는 graph를
+반환하기 전에 object identity의 uniqueness와 visible endpoint closure를 검증합니다.
+
 Property predicate는 `equals`, `not_equals`, `in`, `exists`, `absent`, `at_least`, `at_most`,
 `contains`를 지원합니다. Single-value operator는 `equals`를 사용하고, `in`은 비어 있지 않은
 `values` tuple을 사용하며, single-value operand는 null일 수 없고, presence operator는 operand를
@@ -193,6 +206,12 @@ execution은 digest와 current revision을 다시 검증합니다. Stale plan은
 Function은 exact input/output schema, read set, determinism class, artifact digest, publisher,
 resource ceiling, network policy를 선언합니다. Executor identity를 받지 않으며 provider mutation을
 직접 호출하지 않습니다.
+
+Registry는 explicit adapter를 통해 기존 one-argument callback을 유지합니다. Authenticated read
+context가 필요한 function은 별도로 등록하고 exact authorized role과 attenuated purpose를 담은 immutable
+`FunctionInvocationContext`를 받습니다. Argument는 input digest를 위해 canonicalize되고 callback
+실행 전에 deep copy되므로 nested callback mutation이 caller-owned input 또는 invocation evidence를
+바꿀 수 없습니다.
 
 Diagnostic runtime은 Kubernetes reducer 22개를 exact-release `derive` function으로 등록합니다.
 Live provider는 `diagnostic-evaluation` purpose에서 Heimdall로 registry를 호출하고 각 invocation

@@ -183,10 +183,20 @@ def project_graph_snapshot(
     object_types: Mapping[str, OntologyObjectType],
     request: ProjectionRequest,
 ) -> OntologyGraphSnapshot:
-    """Apply ObjectType property ACLs to every object in a graph snapshot."""
+    """Apply object ACLs and remove link properties from a graph snapshot.
 
+    Link properties remain fail-closed until LinkType property ACL declarations
+    exist. Redacted object aliases are allocated outside the complete source-id
+    space so they cannot collide with visible identities or one another.
+    """
+
+    source_ids = [record.id for record in snapshot.objects]
+    if len(set(source_ids)) != len(source_ids):
+        raise OntologyProjectionError("ontology projection source object ids MUST be unique")
     projected_objects: list[OntologyObjectRecord] = []
     projected_ids: dict[str, str] = {}
+    allocated_aliases: set[str] = set()
+    reserved_ids = set(source_ids)
     for index, record in enumerate(snapshot.objects, start=1):
         declaration = object_types.get(record.object_type)
         if declaration is None:
@@ -198,7 +208,11 @@ def project_graph_snapshot(
         if redactions:
             values["__redactions__"] = redactions
         projected_id = (
-            f"redacted-object-{index}"
+            _allocate_redacted_alias(
+                index=index,
+                reserved_ids=reserved_ids,
+                allocated_aliases=allocated_aliases,
+            )
             if values.get(declaration.key) == REDACTED_PLACEHOLDER
             else record.id
         )
@@ -209,22 +223,53 @@ def project_graph_snapshot(
                 object_type=record.object_type,
                 properties=values,
                 revision=record.revision,
+                type_ref=record.type_ref,
             )
         )
-    return OntologyGraphSnapshot(
+    projected_snapshot = OntologyGraphSnapshot(
         objects=tuple(projected_objects),
         links=tuple(
             OntologyLinkRecord(
                 link_type=link.link_type,
                 from_id=projected_ids[link.from_id],
                 to_id=projected_ids[link.to_id],
-                properties=link.properties,
+                properties={},
+                type_ref=link.type_ref,
             )
             for link in snapshot.links
             if link.from_id in projected_ids and link.to_id in projected_ids
         ),
         truncated=snapshot.truncated,
     )
+    _validate_projected_snapshot(projected_snapshot)
+    return projected_snapshot
+
+
+def _allocate_redacted_alias(
+    *,
+    index: int,
+    reserved_ids: set[str],
+    allocated_aliases: set[str],
+) -> str:
+    base = f"redacted-object-{index}"
+    candidate = base
+    suffix = 1
+    while candidate in reserved_ids or candidate in allocated_aliases:
+        candidate = f"{base}-alias-{suffix}"
+        suffix += 1
+    allocated_aliases.add(candidate)
+    return candidate
+
+
+def _validate_projected_snapshot(snapshot: OntologyGraphSnapshot) -> None:
+    projected_ids = [record.id for record in snapshot.objects]
+    if len(set(projected_ids)) != len(projected_ids):
+        raise OntologyProjectionError("ontology projection object aliases MUST be unique")
+    visible_ids = set(projected_ids)
+    if any(
+        link.from_id not in visible_ids or link.to_id not in visible_ids for link in snapshot.links
+    ):
+        raise OntologyProjectionError("ontology projection links MUST close over visible objects")
 
 
 def declared_purposes_from_iterable(purposes: Iterable[str]) -> frozenset[str]:

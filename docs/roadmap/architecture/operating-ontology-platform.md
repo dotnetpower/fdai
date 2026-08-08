@@ -137,6 +137,21 @@ purpose, and a hard result limit. It does not accept free-form Cypher, SPARQL, S
 Every materialization records the release digest, cutoff, source watermarks, truncation reason,
 and redaction summary.
 
+The current instance-store contract has no historical observation API. The secured gateway
+therefore accepts `as_of` only at the trusted evaluation cutoff, with an explicitly configured
+skew of at most five seconds. It rejects past or future cutoffs outside that envelope as
+unsupported and records `current_state_only`, the cutoff, and the accepted skew without claiming
+historical completeness. Each secured receipt binds the exact ontology release, caller role,
+singleton purpose, canonical projected-result digest, completeness and truncation state, and a
+content-free redaction summary. Returned graph properties are recursively immutable, and the
+semantic query boundary revalidates the result-receipt binding before use.
+
+LinkType declarations do not yet define property ACLs. Secured projections consequently strip all
+link properties and count the removed fields in the receipt. They preserve only the typed
+endpoints and exact type reference. Redacted object aliases are allocated outside the complete
+source identity set, and the projector validates unique object identities and visible-endpoint
+closure before returning the graph.
+
 Property predicates support `equals`, `not_equals`, `in`, `exists`, `absent`, `at_least`,
 `at_most`, and `contains`. Single-value operators use `equals`, `in` uses a non-empty `values`
 tuple, single-value operands cannot be null, and presence operators accept no operand. The store
@@ -190,6 +205,12 @@ An `OntologyFunctionType` has one of four kinds:
 Functions declare exact input and output schemas, read sets, determinism class, artifact digest,
 publisher, resource ceilings, and network policy. A function never receives executor identity and
 never invokes a provider mutation directly.
+
+The registry keeps existing one-argument callbacks through an explicit adapter. A function that
+needs authenticated read context registers separately and receives an immutable
+`FunctionInvocationContext` with the exact authorized role and attenuated purpose. Arguments are
+canonicalized for the input digest and deep-copied before callback execution, so nested callback
+mutation cannot alter caller-owned input or invocation evidence.
 
 The diagnostic runtime registers 22 Kubernetes reducers as exact-release `derive` functions. Live
 providers invoke the registry as Heimdall under the `diagnostic-evaluation` purpose and preserve

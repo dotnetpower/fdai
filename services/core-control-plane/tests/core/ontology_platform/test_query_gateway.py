@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import cast
 
 import pytest
@@ -14,7 +14,10 @@ from fdai.core.ontology_platform.models import (
     ObjectSetMaterialization,
 )
 from fdai.core.ontology_platform.object_sets import ObjectSetService
-from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
+from fdai.core.ontology_platform.query_gateway import (
+    SecuredObjectSetQueryGateway,
+    SecuredObjectSetQueryResult,
+)
 from fdai.shared.contracts.models import (
     CeilingRole,
     LinkCardinality,
@@ -28,6 +31,7 @@ from fdai.shared.ontology.acl import (
     OntologyProjectionError,
     ProjectionRequest,
 )
+from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,
     OntologyLinkRecord,
@@ -59,6 +63,7 @@ def _object_type(*, restricted_identity: bool = False) -> OntologyObjectType:
                 type=PropertyType.STRING,
                 purpose_binding=["incident-response"],
             ),
+            "metadata": PropertyDecl(type=PropertyType.OBJECT),
         },
     )
 
@@ -111,6 +116,12 @@ async def _gateway_with_records(
     return SecuredObjectSetQueryGateway(
         service=service,
         object_types={object_type.name: object_type},
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            link_types=((link_type,) if links else ()),
+        ),
+        evaluation_cutoff=lambda: datetime(2026, 8, 8, tzinfo=UTC),
+        max_as_of_skew=timedelta(seconds=1),
     )
 
 
@@ -209,6 +220,8 @@ async def test_gateway_hides_redacted_endpoint_identity_and_drops_dangling_link(
     gateway = SecuredObjectSetQueryGateway(
         service=service,
         object_types={object_type.name: object_type},
+        ontology_release=build_ontology_release(object_types=(object_type,)),
+        evaluation_cutoff=lambda: datetime(2026, 8, 8, tzinfo=UTC),
     )
 
     result = await gateway.materialize(definition, projection_request=_request())
@@ -220,6 +233,102 @@ async def test_gateway_hides_redacted_endpoint_identity_and_drops_dangling_link(
     assert "hidden-resource" not in str(graph)
     assert result.receipt.redactions.redacted_identity_count == 1
     assert result.receipt.redactions.removed_link_count == 1
+
+
+async def test_gateway_strips_all_link_properties_and_records_redaction() -> None:
+    object_type = _object_type()
+    gateway = await _gateway_with_records(
+        object_type,
+        OntologyObjectRecord(
+            id="resource-a",
+            object_type="Resource",
+            properties={"id": "resource-a", "label": "API"},
+        ),
+        OntologyObjectRecord(
+            id="resource-b",
+            object_type="Resource",
+            properties={"id": "resource-b", "label": "Database"},
+        ),
+        links=(
+            OntologyLinkRecord(
+                link_type="depends_on",
+                from_id="resource-a",
+                to_id="resource-b",
+                properties={
+                    "provider_resource_id": "/subscriptions/raw-secret/resource-a",
+                    "evidence": {"target_id": "raw-secret-resource-b"},
+                },
+            ),
+        ),
+    )
+
+    result = await gateway.materialize(_definition(), projection_request=_request())
+
+    assert result.materialization.graph.links[0].properties == {}
+    assert result.receipt.redactions.links_with_redactions == 1
+    assert result.receipt.redactions.redacted_link_property_count == 2
+    assert "raw-secret" not in str(result)
+
+
+async def test_gateway_allocates_collision_safe_aliases_and_preserves_link_closure() -> None:
+    restricted_type = _object_type(restricted_identity=True)
+    visible_type = OntologyObjectType(
+        schema_version="1.0.0",
+        name="VisibleResource",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    definition = _definition()
+    materialization = ObjectSetMaterialization(
+        definition=definition,
+        graph=OntologyGraphSnapshot(
+            objects=(
+                OntologyObjectRecord(
+                    id="resource-secret",
+                    object_type="Resource",
+                    properties={"id": "resource-secret", "label": "Hidden identity"},
+                ),
+                OntologyObjectRecord(
+                    id="redacted-object-1",
+                    object_type="VisibleResource",
+                    properties={"id": "redacted-object-1"},
+                ),
+            ),
+            links=(
+                OntologyLinkRecord(
+                    link_type="depends_on",
+                    from_id="resource-secret",
+                    to_id="redacted-object-1",
+                ),
+            ),
+        ),
+        concrete_types=("Resource", "VisibleResource"),
+        truncated=False,
+    )
+    gateway = SecuredObjectSetQueryGateway(
+        service=cast(ObjectSetService, _StaticObjectSetService(materialization)),
+        object_types={
+            restricted_type.name: restricted_type,
+            visible_type.name: visible_type,
+        },
+        ontology_release=build_ontology_release(
+            object_types=(restricted_type, visible_type),
+        ),
+        evaluation_cutoff=lambda: datetime(2026, 8, 8, tzinfo=UTC),
+    )
+
+    result = await gateway.materialize(definition, projection_request=_request())
+
+    graph = result.materialization.graph
+    projected_ids = {record.id for record in graph.objects}
+    assert len(projected_ids) == len(graph.objects) == 2
+    assert "redacted-object-1" in projected_ids
+    assert "resource-secret" not in projected_ids
+    assert all(
+        link.from_id in projected_ids and link.to_id in projected_ids for link in graph.links
+    )
+    assert "resource-secret" not in str(result)
 
 
 async def test_gateway_preserves_object_set_truncation() -> None:
@@ -270,6 +379,8 @@ async def test_gateway_fails_closed_for_unknown_returned_declaration() -> None:
     gateway = SecuredObjectSetQueryGateway(
         service=service,
         object_types={"Resource": _object_type()},
+        ontology_release=build_ontology_release(object_types=(_object_type(),)),
+        evaluation_cutoff=lambda: datetime(2026, 8, 8, tzinfo=UTC),
     )
 
     with pytest.raises(OntologyProjectionError, match="missing ObjectType declaration"):
@@ -290,11 +401,76 @@ async def test_gateway_receipt_is_immutable_and_grants_no_authority() -> None:
     result = await gateway.materialize(_definition(), projection_request=_request())
 
     assert result.receipt.execution_authority is False
+    assert result.receipt.ontology_release.digest.startswith("sha256:")
+    assert result.receipt.projected_result_digest.startswith("sha256:")
+    assert result.receipt.observation_cutoff == datetime(2026, 8, 8, tzinfo=UTC)
+    assert result.receipt.temporal_support == "current_state_only"
     assert "approval" not in type(result.receipt).model_fields
     with pytest.raises(ValidationError, match="frozen"):
         result.receipt.execution_authority = True  # type: ignore[misc]
     with pytest.raises(ValidationError, match="frozen"):
         result.receipt.redactions.removed_link_count = 99  # type: ignore[misc]
+
+
+async def test_gateway_rejects_past_and_future_as_of_for_current_state_store() -> None:
+    object_type = _object_type()
+    gateway = await _gateway_with_records(
+        object_type,
+        OntologyObjectRecord(
+            id="resource-a",
+            object_type="Resource",
+            properties={"id": "resource-a", "label": "API"},
+        ),
+    )
+    cutoff = datetime(2026, 8, 8, tzinfo=UTC)
+
+    for unsupported_as_of in (
+        cutoff - timedelta(seconds=2),
+        cutoff + timedelta(seconds=2),
+    ):
+        with pytest.raises(ValueError, match="current-state.*as_of"):
+            await gateway.materialize(
+                _definition().model_copy(update={"as_of": unsupported_as_of}),
+                projection_request=_request(),
+            )
+
+
+async def test_gateway_deep_freezes_result_and_detects_receipt_mismatch() -> None:
+    object_type = _object_type()
+    gateway = await _gateway_with_records(
+        object_type,
+        OntologyObjectRecord(
+            id="resource-a",
+            object_type="Resource",
+            properties={
+                "id": "resource-a",
+                "label": "API",
+                "metadata": {"owners": ["team-a"], "nested": {"region": "example"}},
+            },
+        ),
+    )
+
+    result = await gateway.materialize(_definition(), projection_request=_request())
+    metadata = cast(
+        dict[str, object], result.materialization.graph.objects[0].properties["metadata"]
+    )
+    digest_before = result.receipt.projected_result_digest
+
+    with pytest.raises(TypeError):
+        metadata["nested"] = {"region": "changed"}
+    owners = cast(tuple[str, ...], metadata["owners"])
+    with pytest.raises(TypeError):
+        owners[0] = "changed"  # type: ignore[index]
+    assert result.receipt.projected_result_digest == digest_before
+
+    mismatched_receipt = result.receipt.model_copy(
+        update={"projected_result_digest": "sha256:" + "0" * 64}
+    )
+    with pytest.raises(ValueError, match="projected result digest"):
+        SecuredObjectSetQueryResult(
+            materialization=result.materialization,
+            receipt=mismatched_receipt,
+        )
 
 
 class _StaticObjectSetService:

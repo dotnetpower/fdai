@@ -142,6 +142,12 @@ class SemanticQueryService:
         )
         if not isinstance(result, SecuredObjectSetQueryResult):
             raise TypeError("object_set query function MUST return SecuredObjectSetQueryResult")
+        result = SecuredObjectSetQueryResult(
+            materialization=result.materialization,
+            receipt=result.receipt,
+        )
+        if result.receipt.ontology_release != self._release.ref():
+            raise ValueError("secured ObjectSet result targets a stale ontology release")
         if result.receipt.caller_role != attenuated_context.caller_role:
             raise PermissionError("secured ObjectSet result caller role does not match request")
         if result.receipt.purpose != profile.purpose:

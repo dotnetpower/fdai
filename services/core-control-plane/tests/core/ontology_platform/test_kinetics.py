@@ -19,6 +19,7 @@ from fdai.core.ontology_platform import (
     ProjectionBinding,
     ReconciliationStatus,
     build_mutation_plan,
+    ontology_function_digest,
     project_source_records,
     reconcile_expected_effects,
     validate_plan_revisions,
@@ -224,6 +225,54 @@ async def test_function_invocation_is_authorized_release_pinned_and_replay_stabl
             {"replicas": 2, "fdai_seed": 7},
             context=context,
         )
+
+
+async def test_contextual_function_receives_immutable_context_and_isolated_arguments() -> None:
+    declaration = OntologyFunctionType(
+        name="query.contextual",
+        version="1.0.0",
+        kind=OntologyFunctionKind.QUERY,
+        artifact_digest="sha256:" + "d" * 64,
+        publisher="fdai",
+        input_schema={
+            "type": "object",
+            "required": ["filters"],
+            "properties": {"filters": {"type": "object"}},
+        },
+        output_schema={"type": "object"},
+        required_role=CeilingRole.OWNER,
+        purpose_bindings=["operations-review"],
+    )
+    release = build_ontology_release(function_types=(declaration,))
+    registry = OntologyFunctionRegistry(release=release)
+    seen_contexts: list[FunctionInvocationContext] = []
+
+    async def query(arguments, context):
+        seen_contexts.append(context)
+        arguments["filters"]["owners"].append("callback-mutation")
+        with pytest.raises(ValueError, match="frozen"):
+            context.caller_role = CeilingRole.READER
+        return {"count": 1}
+
+    registry.register_contextual(declaration, query)
+    context = FunctionInvocationContext(
+        caller_agent="Bragi",
+        caller_role=CeilingRole.OWNER,
+        purposes=("operations-review",),
+    )
+    arguments = {"filters": {"owners": ["team-a"]}}
+    expected_digest = ontology_function_digest(arguments)
+
+    result, receipt = await registry.invoke_with_receipt(
+        declaration.name,
+        arguments,
+        context=context,
+    )
+
+    assert result == {"count": 1}
+    assert seen_contexts == [context]
+    assert arguments == {"filters": {"owners": ["team-a"]}}
+    assert receipt.input_digest == expected_digest
 
 
 async def test_function_registry_rejects_same_version_substitution_and_retains_copy() -> None:

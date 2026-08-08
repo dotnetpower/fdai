@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import hashlib
 import json
 from collections.abc import Awaitable, Callable, Mapping
@@ -23,10 +24,14 @@ from fdai.shared.contracts.models import (
     OntologyTypeRef,
 )
 from fdai.shared.ontology.release import build_ontology_release
+from fdai.shared.providers.ontology_instance import normalize_json_value
 
 from .kinetics import CriterionResult, MutationPlan, OntologyFunctionKind, OntologyFunctionType
 
 OntologyFunction = Callable[[Mapping[str, Any]], Awaitable[object]]
+ContextualOntologyFunction = Callable[
+    [Mapping[str, Any], "FunctionInvocationContext"], Awaitable[object]
+]
 
 
 class FunctionInvocationContext(ContractBase):
@@ -75,10 +80,34 @@ class OntologyFunctionRegistry:
     """
 
     def __init__(self, *, release: OntologyRelease | None = None) -> None:
-        self._functions: dict[str, tuple[OntologyFunctionType, OntologyFunction]] = {}
+        self._functions: dict[str, tuple[OntologyFunctionType, ContextualOntologyFunction]] = {}
         self._release = release
 
     def register(self, declaration: OntologyFunctionType, function: OntologyFunction) -> None:
+        """Register a backward-compatible callback that accepts arguments only."""
+
+        async def adapted(
+            arguments: Mapping[str, Any],
+            _context: FunctionInvocationContext,
+        ) -> object:
+            return await function(arguments)
+
+        self._register(declaration, adapted)
+
+    def register_contextual(
+        self,
+        declaration: OntologyFunctionType,
+        function: ContextualOntologyFunction,
+    ) -> None:
+        """Register a callback that receives the authorized immutable context."""
+
+        self._register(declaration, function)
+
+    def _register(
+        self,
+        declaration: OntologyFunctionType,
+        function: ContextualOntologyFunction,
+    ) -> None:
         if declaration.name in self._functions:
             raise ValueError(f"duplicate ontology function {declaration.name!r}")
         if declaration.network_allowed or declaration.credentials_allowed:
@@ -152,7 +181,13 @@ class OntologyFunctionRegistry:
             raise KeyError(f"unknown ontology function {name!r}") from exc
         invocation_context = context or FunctionInvocationContext(caller_agent="unattributed")
         _authorize(declaration, invocation_context)
-        raw_arguments = dict(arguments)
+        normalized_arguments = normalize_json_value(
+            arguments,
+            path=f"ontology_function.{declaration.name}.arguments",
+        )
+        if not isinstance(normalized_arguments, dict):  # pragma: no cover - Mapping input
+            raise ValueError("ontology function arguments MUST be a JSON object")
+        raw_arguments = normalized_arguments
         seed = None
         if declaration.execution_class is LogicExecutionClass.SEEDED_STOCHASTIC:
             seed_field = declaration.seed_field or "fdai_seed"
@@ -175,7 +210,7 @@ class OntologyFunctionRegistry:
         started_at = datetime.now(tz=UTC)
         try:
             async with asyncio.timeout(declaration.timeout_seconds):
-                result = await function(raw_arguments)
+                result = await function(copy.deepcopy(raw_arguments), invocation_context)
         except TimeoutError as exc:
             raise TimeoutError("ontology function exceeded its wall timeout") from exc
         if declaration.kind is OntologyFunctionKind.VALIDATE and not isinstance(
@@ -273,6 +308,7 @@ def _digest_bytes(value: bytes) -> str:
 
 
 __all__ = [
+    "ContextualOntologyFunction",
     "FunctionInvocationContext",
     "FunctionInvocationReceipt",
     "OntologyFunction",

@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: c832b18cf1e820fdab5fb8a48240d1a607f4f428
+translation_source_sha: 9d0101350447360164e4b33bd35b5a3e34a0280b
 translation_revised: 2026-08-08
 ---
 # FDAI 운영 온톨로지 메타모델
@@ -206,7 +206,10 @@ evidence를 resolve해야 합니다. Verified plan도 execution authority가 없
 
 Current-state graph read와 historical evidence는 서로 다른 operation입니다. `ObjectSetDefinition`은
 current graph를 선택합니다. Metric, log, activity, audit, retained trajectory는 동일 query plan의 bounded
-function입니다. `as_of` 값이 current instance store를 bitemporal database로 바꾸지 않습니다.
+function입니다. `as_of` 값이 current instance store를 bitemporal database로 바꾸지 않습니다. Store
+contract가 authoritative observation cutoff 또는 watermark를 제공하기 전까지 secured gateway는 최대
+5초로 구성한 skew 안의 trusted current evaluation cutoff만 허용합니다. 그 밖의 과거 또는 미래 값은
+historical completeness claim으로 취급하지 않고 명시적으로 unsupported로 차단합니다.
 
 모든 read에 OPA/Rego가 필요한 것은 아닙니다. OPA/Rego는 필요한 경우 bounded typed input을 대상으로
 access, policy, action eligibility를 평가합니다. Ontology를 검색하거나 provider API를 호출하지 않습니다.

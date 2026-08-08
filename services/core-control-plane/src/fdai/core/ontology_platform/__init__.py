@@ -8,6 +8,7 @@ from .catalog_projection import (
     merge_catalog_ontology_projections,
 )
 from .functions import (
+    ContextualOntologyFunction,
     FunctionInvocationContext,
     FunctionInvocationReceipt,
     OntologyFunction,
@@ -68,6 +69,7 @@ __all__ = [
     "CompiledInterfaceCatalog",
     "AuthorityClass",
     "CriterionResult",
+    "ContextualOntologyFunction",
     "GeneratedOntologySdk",
     "FunctionInvocationContext",
     "FunctionInvocationReceipt",

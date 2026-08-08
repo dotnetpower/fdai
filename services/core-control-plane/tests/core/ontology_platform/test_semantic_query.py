@@ -135,7 +135,13 @@ async def _build_harness(
         name="Resource",
         version="1.0.0",
         key="id",
-        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+        properties={
+            "id": PropertyDecl(type=PropertyType.STRING, required=True),
+            "owner_note": PropertyDecl(
+                type=PropertyType.STRING,
+                access_scope=CeilingRole.OWNER,
+            ),
+        },
     )
     function_type = _function_type()
     release = build_ontology_release(
@@ -148,7 +154,7 @@ async def _build_harness(
             OntologyObjectRecord(
                 id=object_id,
                 object_type="Resource",
-                properties={"id": object_id},
+                properties={"id": object_id, "owner_note": "owner-only"},
             )
         )
     object_sets = ObjectSetService(
@@ -163,20 +169,26 @@ async def _build_harness(
     gateway = SecuredObjectSetQueryGateway(
         service=object_sets,
         object_types={object_type.name: object_type},
+        ontology_release=release,
+        evaluation_cutoff=lambda: datetime(2026, 8, 8, tzinfo=UTC),
     )
     registry = OntologyFunctionRegistry(release=release)
 
-    async def materialize(arguments: Mapping[str, Any]) -> SecuredObjectSetQueryResult:
+    async def materialize(
+        arguments: Mapping[str, Any],
+        invocation_context: FunctionInvocationContext,
+    ) -> SecuredObjectSetQueryResult:
         definition = ObjectSetDefinition.model_validate(arguments["object_set"])
+        assert invocation_context.purposes == (definition.purpose,)
         return await gateway.materialize(
             definition,
             projection_request=ProjectionRequest(
-                caller_role=CeilingRole.READER,
-                declared_purposes=frozenset({definition.purpose}),
+                caller_role=invocation_context.caller_role,
+                declared_purposes=frozenset(invocation_context.purposes),
             ),
         )
 
-    registry.register(function_type, materialize)
+    registry.register_contextual(function_type, materialize)
     definition = ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
         as_of=datetime(2026, 8, 8, tzinfo=UTC),
@@ -385,6 +397,21 @@ async def test_semantic_query_attenuates_extra_purposes_and_stabilizes_request_i
     assert first.request_id == second.request_id
 
 
+async def test_semantic_query_preserves_owner_role_in_secured_projection() -> None:
+    harness = await _build_harness()
+    owner_context = harness.context.model_copy(update={"caller_role": CeilingRole.OWNER})
+
+    result, _receipt = await harness.service.execute(
+        profile=harness.profile,
+        plan=harness.plan,
+        context=owner_context,
+    )
+
+    assert isinstance(result, SecuredObjectSetQueryResult)
+    assert result.receipt.caller_role is CeilingRole.OWNER
+    assert result.materialization.graph.objects[0].properties["owner_note"] == "owner-only"
+
+
 async def test_semantic_query_rejects_unsecured_or_wrong_output_type() -> None:
     harness = await _build_harness()
     registry = OntologyFunctionRegistry(release=harness.release)
@@ -396,6 +423,36 @@ async def test_semantic_query_rejects_unsecured_or_wrong_output_type() -> None:
     service = SemanticQueryService(release=harness.release, registry=registry)
 
     with pytest.raises(TypeError, match="SecuredObjectSetQueryResult"):
+        await service.execute(
+            profile=harness.profile,
+            plan=harness.plan,
+            context=harness.context,
+        )
+
+
+async def test_semantic_query_revalidates_secured_result_receipt_binding() -> None:
+    harness = await _build_harness()
+    valid_result, _receipt = await harness.service.execute(
+        profile=harness.profile,
+        plan=harness.plan,
+        context=harness.context,
+    )
+    assert isinstance(valid_result, SecuredObjectSetQueryResult)
+    registry = OntologyFunctionRegistry(release=harness.release)
+    mismatched = SecuredObjectSetQueryResult.model_construct(
+        materialization=valid_result.materialization,
+        receipt=valid_result.receipt.model_copy(
+            update={"projected_result_digest": "sha256:" + "0" * 64}
+        ),
+    )
+
+    async def bypassed_validation(_arguments: Mapping[str, Any]) -> object:
+        return mismatched
+
+    registry.register(harness.function_type, bypassed_validation)
+    service = SemanticQueryService(release=harness.release, registry=registry)
+
+    with pytest.raises(ValueError, match="projected result digest"):
         await service.execute(
             profile=harness.profile,
             plan=harness.plan,
