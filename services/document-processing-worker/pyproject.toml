@@ -5,12 +5,13 @@ description = "FDAI Document Processing Worker service"
 requires-python = ">=3.12"
 dependencies = [
 	"aiokafka>=0.12,<1",
+	"azure-core>=1.35,<2",
 	"azure-identity>=1.23,<2",
 	"azure-storage-file-datalake>=12.21,<13",
-	"defusedxml>=0.7,<1",
 	"fdai-service-contracts==0.1.0",
 	"httpx>=0.28,<1",
 	"psycopg[binary]>=3.2,<4",
+	"pydantic>=2.9,<3",
 	"pypdf>=5.7,<7",
 ]
 

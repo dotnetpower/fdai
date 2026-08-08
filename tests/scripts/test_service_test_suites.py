@@ -14,6 +14,15 @@ SUITE_PATH = REPO_ROOT / "tests" / "service-suites.json"
 RUNNER_PATH = REPO_ROOT / "scripts" / "automation" / "run-service-tests.py"
 MAKEFILE_PATH = REPO_ROOT / "Makefile"
 GROUPS = ("unit", "contract", "integration", "smoke")
+SERVICE_SOURCE_ROOTS = {
+    "core-control-plane": "services/core-control-plane/src/fdai_core_service",
+    "operator-service": "services/operator-service/src/fdai_operator_service",
+    "document-ingestion-api": ("services/document-ingestion-api/src/fdai_ingestion_api_service"),
+    "document-processing-worker": (
+        "services/document-processing-worker/src/fdai_document_worker_service"
+    ),
+    "isolated-executor": "services/isolated-executor/src/fdai_executor_service",
+}
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -33,7 +42,9 @@ def _write_manifest(tmp_path: Path, services: list[object]) -> Path:
             {
                 "schema_version": 1,
                 "coverage": {
-                    "source_patterns": ["src/fdai/runtime/isolated_executor.py"],
+                    "source_patterns": [
+                        "services/isolated-executor/src/fdai_executor_service/**/*.py"
+                    ],
                     "test_patterns": ["tests/runtime/test_isolated_executor_shadow.py"],
                 },
                 "services": services,
@@ -58,7 +69,7 @@ def _service(
 ) -> dict[str, object]:
     return {
         "id": service_id,
-        "source_roots": source_roots or ["src/fdai/runtime/isolated_executor.py"],
+        "source_roots": source_roots or [SERVICE_SOURCE_ROOTS[service_id]],
         "test_groups": {
             "unit": test_paths
             if test_paths is not None
@@ -79,6 +90,14 @@ def test_every_runtime_service_has_one_test_suite() -> None:
 
     assert suite_plan["schema_version"] == 1
     assert actual == expected
+
+
+def test_service_suites_own_extracted_service_source_roots() -> None:
+    suite_plan = _load(SUITE_PATH)
+
+    assert {service["id"]: service["source_roots"] for service in suite_plan["services"]} == {
+        service_id: [source_root] for service_id, source_root in SERVICE_SOURCE_ROOTS.items()
+    }
 
 
 def test_service_test_make_targets_do_not_expand_freeform_pytest_args() -> None:
@@ -116,9 +135,9 @@ def test_service_suite_coverage_patterns_have_exactly_one_owner() -> None:
     _assert_pattern_coverage(coverage["test_patterns"], test_claims)
 
 
-def test_service_suite_coverage_rejects_new_unowned_runtime_test(tmp_path: Path) -> None:
+def test_service_suite_coverage_rejects_new_unowned_service_test(tmp_path: Path) -> None:
     namespace = _runner_namespace()
-    orphan = REPO_ROOT / "tests" / "runtime" / "test_isolated_executor_unowned.py"
+    orphan = REPO_ROOT / "tests" / "services" / "test_unowned_service.py"
     orphan.write_text("def test_orphan(): pass\n", encoding="utf-8")
     try:
         with pytest.raises(ValueError, match="coverage requires one owner"):
@@ -212,7 +231,7 @@ def test_service_test_runner_lists_only_owned_paths(
 
     assert namespace["main"](["isolated-executor", "--list"]) == 0
     listed = capsys.readouterr().out.splitlines()
-    assert "tests/contracts/test_executor_transport.py" in listed
+    assert "tests/services/test_executor_contract_sdk.py" in listed
     assert all("operator_api" not in path for path in listed)
 
 
@@ -245,10 +264,13 @@ def test_service_test_runner_executes_canonical_all_service_union(
         for path in service["test_groups"][group]
     ]
     observed: list[str] = []
+    observed_environment: dict[str, str] = {}
 
     def completed(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        del kwargs
         observed.extend(command)
+        environment = kwargs.get("env")
+        assert isinstance(environment, dict)
+        observed_environment.update(environment)
         return subprocess.CompletedProcess(args=command, returncode=0)
 
     monkeypatch.setattr(subprocess, "run", completed)
@@ -256,6 +278,11 @@ def test_service_test_runner_executes_canonical_all_service_union(
     assert namespace["main"](["--all", "-q"]) == 0
     assert observed[:4] == [namespace["sys"].executable, "-m", "pytest", "-q"]
     assert observed[4:] == expected
+    python_path = observed_environment["PYTHONPATH"].split(namespace["os"].pathsep)
+    assert str(REPO_ROOT / "service-contracts" / "src") in python_path
+    assert str(REPO_ROOT / "src") in python_path
+    for service_id in SERVICE_SOURCE_ROOTS:
+        assert str(REPO_ROOT / "services" / service_id / "src") in python_path
 
 
 @pytest.mark.parametrize(
@@ -398,8 +425,8 @@ def test_service_suite_manifest_rejects_overlap_within_one_service(tmp_path: Pat
     namespace = _runner_namespace()
     service = _service(
         source_roots=[
-            "src/fdai/runtime",
-            "src/fdai/runtime/isolated_executor.py",
+            "services/isolated-executor/src",
+            "services/isolated-executor/src/fdai_executor_service",
         ]
     )
     manifest = _write_manifest(tmp_path, [service])

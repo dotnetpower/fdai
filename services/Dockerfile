@@ -102,24 +102,19 @@ ENTRYPOINT ["fdai-core-control-plane"]
 
 FROM runtime-base AS operator-service
 COPY --from=operator-service-builder --chown=65532:65532 /app/.venv /app/.venv
-COPY --chown=65532:65532 rule-catalog/ /app/rule-catalog/
-COPY --chown=65532:65532 policies/ /app/policies/
-COPY --chown=65532:65532 config/ /app/config/
-COPY --chown=65532:65532 services/assets/resolved-models.json /app/resolved-models.json
 USER 65532
 RUN test -x /app/.venv/bin/fdai-operator-service
 ENTRYPOINT ["fdai-operator-service"]
 
 FROM runtime-base AS document-ingestion-api
 COPY --from=document-ingestion-api-builder --chown=65532:65532 /app/.venv /app/.venv
-COPY --chown=65532:65532 config/ /app/config/
+COPY --chown=65532:65532 config/agent-stewardship.yaml /app/config/agent-stewardship.yaml
 USER 65532
 RUN test -x /app/.venv/bin/fdai-document-ingestion-api
 ENTRYPOINT ["fdai-document-ingestion-api"]
 
 FROM runtime-base AS document-processing-worker
 COPY --from=document-processing-worker-builder --chown=65532:65532 /app/.venv /app/.venv
-COPY --chown=65532:65532 config/ /app/config/
 USER 65532
 RUN test -x /app/.venv/bin/fdai-document-processing-worker
 ENTRYPOINT ["fdai-document-processing-worker"]

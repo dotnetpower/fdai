@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -136,7 +137,7 @@ def _validate_coverage(
             "service test suite coverage MUST declare source_patterns and test_patterns"
         )
     for label, patterns, allowed_root, claims in (
-        ("source", value["source_patterns"], REPO_ROOT / "src" / "fdai", source_claims),
+        ("source", value["source_patterns"], REPO_ROOT / "services", source_claims),
         ("test", value["test_patterns"], REPO_ROOT / "tests", test_claims),
     ):
         if (
@@ -197,7 +198,7 @@ def _validated_service(entry: Mapping[str, object]) -> dict[str, Any]:
         raise ValueError("service id MUST use lowercase kebab-case")
     source_roots = _validated_paths(
         entry.get("source_roots"),
-        allowed_root=REPO_ROOT / "src" / "fdai",
+        allowed_root=REPO_ROOT / "services",
         label=f"service {service_id} source root",
     )
     groups = entry.get("test_groups")
@@ -298,6 +299,21 @@ def _test_paths(service: dict[str, Any]) -> tuple[str, ...]:
     return tuple(paths)
 
 
+def _python_path(service_ids: Sequence[str]) -> str:
+    roots = [REPO_ROOT / "services" / service_id / "src" for service_id in service_ids]
+    roots.append(REPO_ROOT / "service-contracts" / "src")
+    if "core-control-plane" in service_ids:
+        roots.append(REPO_ROOT / "src")
+    missing = [path for path in roots if not path.is_dir()]
+    if missing:
+        raise ValueError(f"service import root does not exist: {missing[0]}")
+    existing = os.environ.get("PYTHONPATH", "")
+    values = [str(path) for path in roots]
+    if existing:
+        values.append(existing)
+    return os.pathsep.join(values)
+
+
 def _parser(service_ids: Sequence[str]) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("service", nargs="?", choices=service_ids)
@@ -339,8 +355,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         if selection_count != 1:
             raise ValueError("select exactly one service or --all")
         if args.all_services:
+            selected_ids = tuple(services)
             paths = tuple(path for service in services.values() for path in _test_paths(service))
         else:
+            selected_ids = (args.service,)
             paths = _test_paths(services[args.service])
         pytest_args = _validated_pytest_args(pytest_args)
         if args.list:
@@ -348,11 +366,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise ValueError("pytest arguments cannot be combined with --list")
             print("\n".join(paths))
             return 0
+        environment = {**os.environ, "PYTHONPATH": _python_path(selected_ids)}
     except ValueError as exc:
         print(f"service-test: {exc}", file=sys.stderr)
         return 2
     command = [sys.executable, "-m", "pytest", *pytest_args, *paths]
-    return subprocess.run(command, cwd=REPO_ROOT, check=False).returncode
+    return subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        check=False,
+        env=environment,
+    ).returncode
 
 
 if __name__ == "__main__":

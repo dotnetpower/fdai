@@ -25,7 +25,6 @@ EXPECTED_FDAI_ROOTS = {
     "composition",
     "core",
     "delivery",
-    "deployment_cli",
     "py.typed",
     "rule_catalog",
     "runtime",
@@ -62,6 +61,7 @@ EXPECTED_RUNTIME_MODULES = {
 }
 
 PROHIBITED_WHEEL_PREFIXES = (
+    "fdai/deployment_cli/",
     "fdai/delivery/ingestion_gateway/",
     "fdai/delivery/operator_api/",
 )

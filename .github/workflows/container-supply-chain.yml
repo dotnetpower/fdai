@@ -3,27 +3,51 @@ name: container-supply-chain
 on:
   pull_request:
     paths:
-      - "Dockerfile"
+      - ".dockerignore"
+      - ".trivyignore.yaml"
       - "services/**"
       - "service-contracts/**"
       - "pyproject.toml"
       - "uv.lock"
+      - "LICENSE"
+      - "README.md"
+      - "evaluation-sdk/**"
+      - "benchmarks/sregym/pyproject.toml"
+      - "benchmarks/cybergym/pyproject.toml"
+      - "extensions/code-assurance/pyproject.toml"
       - "src/**"
       - "rule-catalog/**"
       - "policies/**"
+      - "config/**"
+      - "docs/internals/sregym-absorption-ledger.json"
+      - "tests/scenarios/**"
+      - "alembic/**"
+      - "alembic.ini"
       - ".github/workflows/container-supply-chain.yml"
   push:
     branches: [main]
     tags: ["v*"]
     paths:
-      - "Dockerfile"
+      - ".dockerignore"
+      - ".trivyignore.yaml"
       - "services/**"
       - "service-contracts/**"
       - "pyproject.toml"
       - "uv.lock"
+      - "LICENSE"
+      - "README.md"
+      - "evaluation-sdk/**"
+      - "benchmarks/sregym/pyproject.toml"
+      - "benchmarks/cybergym/pyproject.toml"
+      - "extensions/code-assurance/pyproject.toml"
       - "src/**"
       - "rule-catalog/**"
       - "policies/**"
+      - "config/**"
+      - "docs/internals/sregym-absorption-ledger.json"
+      - "tests/scenarios/**"
+      - "alembic/**"
+      - "alembic.ini"
       - ".github/workflows/container-supply-chain.yml"
   workflow_dispatch:
 
@@ -64,10 +88,10 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2, Node 20
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0, Node 24
 
       - name: Materialize resolved model manifest
         env:
@@ -95,14 +119,13 @@ jobs:
               capabilities = payload.get("capabilities")
               if not isinstance(capabilities, list):
                   raise SystemExit("RESOLVED_MODELS_JSON.capabilities must be an array")
-          Path("services/assets/resolved-models.json").write_text(
-            json.dumps(payload, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-          )
+          rendered = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+          Path("resolved-models.json").write_text(rendered, encoding="utf-8")
+          Path("services/assets/resolved-models.json").write_text(rendered, encoding="utf-8")
           PY
 
       - name: Build image for verification
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0, Node 24
         with:
           context: .
           file: ./services/Dockerfile
@@ -117,10 +140,15 @@ jobs:
       - name: Install Trivy
         env:
           TRIVY_VERSION: "0.72.0"
+          TRIVY_ARCHIVE_SHA256: "bbb64b9695866ce4a7a8f5c9592002c5961cab378577fa3f8a040df362b9b2ea"
         run: |
+          archive="$(mktemp)"
+          trap 'rm -f "${archive}"' EXIT
           curl --fail --location --silent --show-error \
             "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
-            | sudo tar -xz -C /usr/local/bin trivy
+            --output "${archive}"
+          echo "${TRIVY_ARCHIVE_SHA256}  ${archive}" | sha256sum --check --strict
+          sudo tar -xzf "${archive}" -C /usr/local/bin trivy
           trivy --version
 
       - name: Scan image for high and critical vulnerabilities
@@ -136,7 +164,7 @@ jobs:
           "${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
 
       - name: Upload SBOM evidence
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2, Node 20
         with:
           name: fdai-sbom-${{ matrix.service }}-${{ github.sha }}
           path: sbom-${{ matrix.service }}.cdx.json
@@ -145,7 +173,7 @@ jobs:
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1, Node 24
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -166,7 +194,7 @@ jobs:
 
       - name: Generate build provenance attestation
         if: github.event_name != 'pull_request'
-        uses: actions/attest@v4.2.0
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0, Node 24
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.image }}
           subject-digest: ${{ steps.push.outputs.digest }}
@@ -174,7 +202,7 @@ jobs:
 
       - name: Generate SBOM attestation
         if: github.event_name != 'pull_request'
-        uses: actions/attest@v4.2.0
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0, Node 24
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.image }}
           subject-digest: ${{ steps.push.outputs.digest }}

@@ -52,16 +52,22 @@ CORE_RUNTIME_FILES = (
 
 ROOT_PACKAGE_FILES = ("__init__.py", "__main__.py", "py.typed")
 
+SOURCE_REPLACEMENTS = {
+    Path("delivery/github/__init__.py"): Path(
+        "services/core-control-plane/assets/fdai/delivery/github/__init__.py"
+    ),
+}
+
 ALLOWED_CLOSURE_ROOTS = frozenset(
     {
         *OWNED_PACKAGE_TREES,
         "delivery",
-        "deployment_cli",
         "runtime",
     }
 )
 
 PROHIBITED_IMPLEMENTATION_PREFIXES = (
+    Path("deployment_cli"),
     Path("delivery/ingestion_gateway"),
     Path("delivery/operator_api"),
 )
@@ -109,8 +115,14 @@ def _module_name(source_root: Path, source_file: Path) -> str:
     return ".".join(("fdai", *parts))
 
 
-def _imported_modules(source_root: Path, source_file: Path) -> set[str]:
-    tree = ast.parse(source_file.read_text(encoding="utf-8"), filename=str(source_file))
+def _imported_modules(
+    source_root: Path,
+    source_file: Path,
+    *,
+    parse_file: Path | None = None,
+) -> set[str]:
+    parsed_file = parse_file or source_file
+    tree = ast.parse(parsed_file.read_text(encoding="utf-8"), filename=str(parsed_file))
     imported: set[str] = set()
     current_module = _module_name(source_root, source_file)
     current_package = (
@@ -149,6 +161,11 @@ def _package_initializers(source_root: Path, source_file: Path) -> set[Path]:
     return initializers
 
 
+def _build_source_file(repo_root: Path, source_root: Path, source_file: Path) -> Path:
+    replacement = SOURCE_REPLACEMENTS.get(source_file.relative_to(source_root))
+    return repo_root / replacement if replacement is not None else source_file
+
+
 def core_source_files(repo_root: Path) -> tuple[Path, ...]:
     """Return the deterministic Core payload and reject service implementations."""
 
@@ -177,7 +194,10 @@ def core_source_files(repo_root: Path) -> tuple[Path, ...]:
             if initializer not in selected:
                 selected.add(initializer)
                 pending.append(initializer)
-        for module in _imported_modules(source_root, source_file):
+        parse_file = _build_source_file(repo_root, source_root, source_file)
+        if not parse_file.is_file():
+            raise RuntimeError(f"Core package replacement source is missing: {parse_file}")
+        for module in _imported_modules(source_root, source_file, parse_file=parse_file):
             imported_file = _module_file(source_root, module)
             if imported_file is None:
                 continue
@@ -219,4 +239,5 @@ class CustomBuildHook(BuildHookInterface):  # type: ignore[misc]
             raise RuntimeError("Hatch wheel force_include build data must be a mapping")
         for source_file in core_source_files(repo_root):
             destination = Path("fdai") / source_file.relative_to(source_root)
-            force_include[str(source_file)] = destination.as_posix()
+            build_source = _build_source_file(repo_root, source_root, source_file)
+            force_include[str(build_source)] = destination.as_posix()

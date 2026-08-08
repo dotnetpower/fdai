@@ -2,145 +2,107 @@
   "schema_version": 1,
   "coverage": {
     "source_patterns": [
-      "src/fdai/core/**/*.py",
-      "src/fdai/agents/**/*.py",
-      "src/fdai/delivery/operator_api/**/*.py",
-      "src/fdai/delivery/ingestion_gateway/*.py",
-      "src/fdai/runtime/isolated_executor*.py"
+      "services/*/src/**/*.py"
     ],
     "test_patterns": [
-      "tests/contracts/test_*.py",
-      "tests/delivery/ingestion_gateway/test_*.py",
-      "tests/infra/test_isolated_executor*.py",
-      "tests/runtime/test_isolated_executor*.py"
+      "tests/services/test_*.py"
     ]
   },
   "services": [
     {
       "id": "core-control-plane",
       "source_roots": [
-        "src/fdai/core",
-        "src/fdai/agents"
+        "services/core-control-plane/src/fdai_core_service"
       ],
       "test_groups": {
         "unit": [
-          "tests/core",
-          "tests/agents"
+          "tests/services/test_core_service_package.py"
         ],
         "contract": [
-          "tests/contracts/test_compatibility.py",
-          "tests/contracts/test_forecast_outcome.py",
-          "tests/contracts/test_models_roundtrip.py",
-          "tests/contracts/test_registry.py",
-          "tests/contracts/test_schemas_valid.py",
-          "tests/contracts/test_validation.py"
+          "tests/services/test_service_compatibility.py"
         ],
         "integration": [
-          "tests/pipeline"
+          "tests/services/test_service_distributions.py",
+          "tests/services/test_service_migration_inventory.py"
         ],
         "smoke": [
-          "tests/runtime/test_health.py",
-          "tests/runtime/test_thor_execution_port.py"
+          "tests/services/test_service_images.py"
         ]
       }
     },
     {
       "id": "operator-service",
       "source_roots": [
-        "src/fdai/delivery/operator_api"
+        "services/operator-service/src/fdai_operator_service"
       ],
       "test_groups": {
         "unit": [
-          "tests/conversation"
+          "tests/services/test_operator_conversation_family.py",
+          "tests/services/test_operator_iam_family.py",
+          "tests/services/test_operator_operations_family.py",
+          "tests/services/test_operator_workflow_family.py"
         ],
-        "contract": [
-          "tests/contracts/test_response_outcome.py"
-        ],
+        "contract": [],
         "integration": [
-          "tests/delivery/operator_api"
+          "tests/services/test_operator_service_composition.py",
+          "tests/services/test_operator_service_full_composition.py",
+          "tests/services/test_operator_service_postgres.py"
         ],
-        "smoke": [
-          "tests/test_dev_deploy_parity.py"
-        ]
+        "smoke": []
       }
     },
     {
       "id": "document-ingestion-api",
       "source_roots": [
-        "src/fdai/delivery/ingestion_gateway/__init__.py",
-        "src/fdai/delivery/ingestion_gateway/access.py",
-        "src/fdai/delivery/ingestion_gateway/chat_evidence.py",
-        "src/fdai/delivery/ingestion_gateway/dev.py",
-        "src/fdai/delivery/ingestion_gateway/main.py",
-        "src/fdai/delivery/ingestion_gateway/prod.py"
+        "services/document-ingestion-api/src/fdai_ingestion_api_service"
       ],
       "test_groups": {
         "unit": [
-          "tests/delivery/ingestion_gateway/test_access.py",
-          "tests/delivery/ingestion_gateway/test_chat_evidence.py"
+          "tests/services/test_ingestion_service_behavior.py"
         ],
         "contract": [],
         "integration": [
-          "tests/delivery/ingestion_gateway/test_dev.py",
-          "tests/delivery/ingestion_gateway/test_main.py"
+          "tests/services/test_ingestion_service_composition.py"
         ],
         "smoke": [
-          "tests/delivery/ingestion_gateway/test_prod.py"
+          "tests/services/test_ingestion_stewardship_webhook.py"
         ]
       }
     },
     {
       "id": "document-processing-worker",
       "source_roots": [
-        "src/fdai/delivery/ingestion_gateway/activity.py",
-        "src/fdai/delivery/ingestion_gateway/handover.py",
-        "src/fdai/delivery/ingestion_gateway/pantheon_events.py",
-        "src/fdai/delivery/ingestion_gateway/worker.py",
-        "src/fdai/delivery/ingestion_gateway/worker_service.py"
+        "services/document-processing-worker/src/fdai_document_worker_service"
       ],
       "test_groups": {
         "unit": [
-          "tests/delivery/ingestion_gateway/test_activity.py",
-          "tests/delivery/ingestion_gateway/test_pantheon_events.py",
-          "tests/delivery/ingestion_gateway/test_worker.py"
+          "tests/services/test_ingestion_adapter_readiness.py",
+          "tests/services/test_ingestion_parser_parity.py"
         ],
-        "contract": [
-          "tests/contracts/test_document_worker_contracts.py"
-        ],
-        "integration": [
-          "tests/delivery/ingestion_gateway/test_worker_service.py"
-        ],
+        "contract": [],
+        "integration": [],
         "smoke": [
-          "tests/delivery/ingestion_gateway/test_handover.py"
+          "tests/services/test_ingestion_handover_parity.py"
         ]
       }
     },
     {
       "id": "isolated-executor",
       "source_roots": [
-        "src/fdai/runtime/executor_authority_probe_cli.py",
-        "src/fdai/runtime/isolated_executor.py",
-        "src/fdai/runtime/isolated_executor_cli.py",
-        "src/fdai/runtime/isolated_executor_client.py",
-        "src/fdai/runtime/isolated_executor_lock.py",
-        "src/fdai/runtime/isolated_executor_runtime.py"
+        "services/isolated-executor/src/fdai_executor_service"
       ],
       "test_groups": {
         "unit": [
-          "tests/runtime/test_isolated_executor_lock.py",
-          "tests/runtime/test_isolated_executor_shadow.py"
+          "tests/services/test_executor_event_bus_adapter.py",
+          "tests/services/test_executor_http_adapters.py",
+          "tests/services/test_executor_postgres_adapters.py"
         ],
         "contract": [
-          "tests/contracts/test_executor_transport.py"
+          "tests/services/test_executor_contract_sdk.py"
         ],
-        "integration": [
-          "tests/runtime/test_isolated_executor_effect.py",
-          "tests/runtime/test_isolated_executor_runtime.py"
-        ],
+        "integration": [],
         "smoke": [
-          "tests/runtime/test_executor_authority_probe_cli.py",
-          "tests/runtime/test_isolated_executor_cli.py",
-          "tests/infra/test_isolated_executor_boundary.py"
+          "tests/services/test_isolated_executor_service_boundary.py"
         ]
       }
     }
