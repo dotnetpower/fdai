@@ -13,9 +13,10 @@ from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdenti
 
 
 def test_hil_only_secondary_disables_semantic_review() -> None:
+    repo_root = Path(__file__).resolve().parents[4]
     evaluators = build_azure_conversation_assurance_evaluators(
-        repo_root=Path(__file__).resolve().parents[4],
-        resolved_models_path=str(Path(__file__).resolve().parents[2] / "resolved-models.json"),
+        repo_root=repo_root,
+        resolved_models_path=str(repo_root / "services" / "assets" / "resolved-models.json"),
         identity=StaticWorkloadIdentity(audience=COGNITIVE_SERVICES_SCOPE),
         http_client=httpx.AsyncClient(),
         pricing=PricingTable.from_mapping({}),

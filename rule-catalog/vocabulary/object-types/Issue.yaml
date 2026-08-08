@@ -16,14 +16,14 @@ lifecycle:
       when: An Agent cannot resolve a request within its owned scope and emits HandoffEscalation.
       result: Saga creates the Issue mirror and the backing GitHub issue.
       source_refs:
-        - src/fdai/agents/saga.py#escalate_to_github_issue
+        - services/core-control-plane/src/fdai/agents/saga.py#escalate_to_github_issue
         - rule-catalog/vocabulary/object-types/HandoffEscalation.yaml
     - code: bragi_unhandled_query
       when: Bragi abstains from a conversational turn with handoff_needed set to true.
       result: The runtime sends the handoff to Saga for Issue materialization.
       source_refs:
-        - src/fdai/agents/_framework/runtime.py#_maybe_escalate_handoff
-        - src/fdai/agents/saga.py#escalate_to_github_issue
+        - services/core-control-plane/src/fdai/agents/_framework/runtime.py#_maybe_escalate_handoff
+        - services/core-control-plane/src/fdai/agents/saga.py#escalate_to_github_issue
   deduplication:
     strategy: deterministic fingerprint
     fields:
@@ -38,12 +38,12 @@ lifecycle:
       when: A rule or capability that resolves the fingerprint is promoted and its regression window passes.
       result: Saga closes the Issue and records the promoting pull request.
       source_refs:
-        - src/fdai/agents/saga.py#close_issue
+        - services/core-control-plane/src/fdai/agents/saga.py#close_issue
         - docs/roadmap/agents/agent-pantheon.md#64-handoff-escalation-protocol
   authority_refs:
     - rule-catalog/vocabulary/object-types/Issue.yaml
-    - src/fdai/agents/saga.py#escalate_to_github_issue
-    - src/fdai/agents/_framework/runtime.py#_maybe_escalate_handoff
+    - services/core-control-plane/src/fdai/agents/saga.py#escalate_to_github_issue
+    - services/core-control-plane/src/fdai/agents/_framework/runtime.py#_maybe_escalate_handoff
 properties:
   id:
     type: string
@@ -88,6 +88,6 @@ properties:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Issue@1.0.0
-  content_hash: sha256:9bb205f737d2e59cf2d2ec9b2823f3f7b9994c46f493c469dd95d0081f582dc4
+  content_hash: sha256:13f4098211b74695842ad150af6328bb68b1c8ce6bf933fb075dc4711da0b3e9
   license: MIT
   retrieved_at: "2026-07-29T00:00:00Z"

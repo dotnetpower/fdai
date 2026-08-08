@@ -24,7 +24,7 @@ from scripts.evaluation.document_ontology_public_corpus import (
 )
 
 _ROOT = Path(__file__).resolve().parents[3]
-_MANIFEST = _ROOT / "tests/evaluation/document_ontology_public_corpus.v1.json"
+_MANIFEST = _ROOT / "tests/integration/evaluation/document_ontology_public_corpus.v1.json"
 _URL = "https://raw.githubusercontent.com/example/docs/main/manual.md"
 _LINES = (
     "Service must keep latency below 250 ms.",

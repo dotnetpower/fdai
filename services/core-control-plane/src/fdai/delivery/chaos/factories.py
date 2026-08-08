@@ -23,6 +23,7 @@ from fdai.delivery.chaos.factory_injectors import (
     _build_az_vm_stop_service,
     _build_az_vmss_lifecycle,
     _build_chaos_mesh,
+    _build_detection_only,
     _build_kubectl_pod_kill,
     _build_kubectl_scale,
     _build_kubectl_set_image,
@@ -33,6 +34,7 @@ from fdai.delivery.chaos.factory_probes import (
     _build_backend_health_probe,
     _build_cm_status_probe,
     _build_db_cpu_probe,
+    _build_gpu_sku_mismatch_probe,
     _build_host_cpu_probe,
     _build_host_memory_probe,
     _build_pod_restart_probe,
@@ -63,6 +65,7 @@ def register_default_builders(factory: ScenarioFactory) -> ScenarioFactory:
     factory.register_injector("az:nsg-rule", _build_az_nsg_rule)
     factory.register_injector("az:lb-backend-remove", _build_az_lb_backend_remove)
     factory.register_injector("az:servicebus-firewall", _build_az_servicebus_firewall)
+    factory.register_injector("probe-only", _build_detection_only)
 
     factory.register_probe("pod_restart", _build_pod_restart_probe)
     factory.register_probe("backend_health", _build_backend_health_probe)
@@ -71,6 +74,7 @@ def register_default_builders(factory: ScenarioFactory) -> ScenarioFactory:
     factory.register_probe("host_memory", _build_host_memory_probe)
     factory.register_probe("db_cpu", _build_db_cpu_probe)
     factory.register_probe("rate_limit", _build_rate_limit_probe)
+    factory.register_probe("gpu_sku_mismatch", _build_gpu_sku_mismatch_probe)
     for cm_signal in (
         "gateway_latency",
         "request_failure",
