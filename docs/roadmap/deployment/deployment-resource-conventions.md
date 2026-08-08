@@ -78,6 +78,22 @@ placement (none today).
 - **Inline naming logic in Python**: The app reads identifiers from environment variables;
   `infra/` decides names at plan time.
 
+## Terraform State Root Convention
+
+Every production Terraform root has one stable root id, one environment-scoped backend key, and
+one scheduled drift plan. The deployment contract currently contains seven roots:
+
+| Root class | Count | Backend key pattern |
+|------------|-------|---------------------|
+| Legacy platform | 1 | `fdai-<environment>.tfstate` |
+| Independent service | 5 | `services/<service>/<environment>.tfstate` |
+| Ops bootstrap | 1 | `ops/bootstrap/<environment>.tfstate` |
+
+The first bootstrap apply may use local state only while it creates the private backend. After
+migration, the remote bootstrap key is authoritative. Adding a production root without a unique
+backend key and drift-plan coordinate is not supported. Drift checks fail when evidence is missing
+or unreadable; they never omit a registered root and report success.
+
 ## Resource Tagging Convention
 
 Naming makes a resource readable; tagging makes a fleet queryable. Every resource this

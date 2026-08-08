@@ -54,8 +54,11 @@ prod topology so shadow evaluation is representative.
   bits). The **core engine stays CSP-neutral**; vendor-specific IaC lives behind the same
   provider boundary as the runtime adapters.
 - **State management**: the app layer uses a locked remote backend with **per-environment state
-  isolation**. Only the `infra/bootstrap/` ops layer keeps local state because it creates the
-  state backend itself.
+  isolation**. The first `infra/bootstrap/` apply keeps local state because it creates the state
+  backend. After the backend and VNet runner are available, bootstrap state moves to the dedicated
+  `ops/bootstrap/<environment>.tfstate` key. The migrated remote key is authoritative; the local
+  source remains only as a bounded migration backup until lineage, serial, and resource count are
+  verified.
 - **Independent-service state cutover**: each runtime service uses its own backend key. The
   migration tool backs up both states, moves one declared address, and accepts cutover only when
   the source contains zero copies and the destination contains exactly one. The legacy deployment
@@ -73,8 +76,11 @@ prod topology so shadow evaluation is representative.
   deployment mode is introduced. The service contract includes every environment value consumed
   by its production entry point. For example, Core binds the Azure tenant, subscription, region,
   PostgreSQL host, and database before the protected plan can pass startup validation.
-- **Drift detection**: scheduled `plan` (read-only) per environment surfaces drift as an alert
-  and a reconciliation PR; drift is never silently auto-applied to prod.
+- **Drift detection**: a scheduled read-only `plan` covers the legacy platform root, the five
+  independent service roots, and the bootstrap root for each environment. The root contract uses
+  distinct backend keys and resolves service images from pre-refresh state, so an out-of-band image
+  change remains visible. Missing state, missing inputs, unreadable evidence, and detected drift all
+  fail the run; drift is never silently auto-applied to prod.
 - Provisioned resources - **minimum cost-efficient set** (full inventory + tier decisions in
   [deploy-and-onboard.md](deploy-and-onboard.md#azure-resource-inventory-minimum-set); the
   inventory renders the CSP-neutral contracts in [csp-neutrality.md](../architecture/csp-neutrality.md)):

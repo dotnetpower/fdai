@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 8867c1b4cdf9609aeebc4f0703681a5d3dc34efb
-translation_revised: 2026-08-08
+translation_source_sha: 5bfc37a4c220b4042f6ed4f1f5a23547bd8a2359
+translation_revised: 2026-08-09
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -265,10 +265,12 @@ Communication Service, Email Service, Azure-managed domain, association, notific
 deterministic role assignment을 state로 가져옵니다. Plan을 적용한 뒤 flag를 끄는 것이 좋으며,
 새 환경에서는 Terraform이 stack을 직접 생성하도록 합니다.
 
-CI 는 자격증명 없는 가드 2개를 더한다: [`infra-lint.yml`](../../../.github/workflows/infra-lint.yml)
-(모든 infra PR 에 fmt + validate + tfsec + Checkov) 와
-[`infra-drift.yml`](../../../.github/workflows/infra-drift.yml) (러너에서 스케줄 `plan -detailed-exitcode`
-- 빨간 run 은 라이브 infra 가 코드에서 drift 했다는 뜻). 모니터링은 활성화 시 action group +
+CI는 자격증명 없는 가드 2개를 추가합니다. [`infra-lint.yml`](../../../.github/workflows/infra-lint.yml)은
+모든 infra PR에서 fmt + validate + tfsec + Checkov를 실행합니다.
+[`infra-drift.yml`](../../../.github/workflows/infra-drift.yml)은 runner에서 legacy, 독립 서비스 5개,
+bootstrap state root에 대해 스케줄된 `plan -detailed-exitcode`를 실행합니다. Root가 없거나 읽을 수
+없거나 변경되면 drift run이 닫힌 상태로 실패하므로 green run은 production root 7개가 완전한
+evidence를 제공했다는 뜻입니다. 모니터링은 활성화 시 action group +
 metric alert(Postgres / Key Vault / Event Hubs / Container App) + Log Analytics 진단설정을
 provision 하며, alert 는 인간 신호일 뿐 자율 액션이 아니다.
 

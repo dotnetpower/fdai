@@ -50,9 +50,29 @@ terraform -chdir=infra/bootstrap apply -var-file=bootstrap.tfvars
 terraform -chdir=infra/bootstrap output backend_config_hint
 ```
 
-State for THIS layer stays local (it holds only infrastructure handles, no app
-secrets). The `backend_config_hint` output feeds the app config's
-`terraform init -backend-config=...` and the CI workflow. The `tfstate` and
+The first apply keeps local state because the private backend does not exist yet. After the state
+container and VNet runner are available, copy `backend.azurerm.tf.example` to `backend.tf` on a
+host with private backend access and migrate the state to the dedicated
+`ops/bootstrap/<environment>.tfstate` key:
+
+```bash
+cp infra/bootstrap/backend.azurerm.tf.example infra/bootstrap/backend.tf
+terraform -chdir=infra/bootstrap init -migrate-state -force-copy \
+   -backend-config="resource_group_name=<ops-resource-group>" \
+   -backend-config="storage_account_name=<state-storage-account>" \
+   -backend-config="container_name=tfstate" \
+   -backend-config="key=ops/bootstrap/<environment>.tfstate" \
+   -backend-config="use_azuread_auth=true"
+```
+
+Compare the migrated lineage, serial, and managed-resource count with the local source before
+retiring the local copy. The remote key becomes authoritative and allows `infra-drift.yml` to
+check the bootstrap layer with the legacy platform and five independent service roots. A missing,
+unreadable, or unregistered production root fails the drift run instead of reporting a partial
+green result.
+
+The `backend_config_hint` output feeds the app config's `terraform init -backend-config=...` and
+the CI workflow. The `tfstate` and
 `deployment-plans` containers are created from the runner (over the blob PE) by
 the deploy workflow. CLI-requested plans use immutable run-specific blob paths;
 their metadata carries a one-hour logical expiry and never includes target ids
