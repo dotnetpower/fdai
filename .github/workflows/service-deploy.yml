@@ -214,7 +214,6 @@ jobs:
         id: contract
         env:
           IMAGE_REF: ${{ inputs.image_ref }}
-          INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
         run: |
           set -euo pipefail
           python3 "$TRUSTED_CONTROLS/scripts/deployment/service/service_contract.py" \
@@ -472,6 +471,7 @@ jobs:
         if: ${{ !inputs.apply && !inputs.migrate_state }}
         env:
           IMAGE_REF: ${{ inputs.image_ref }}
+          INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
         run: |
           set -euo pipefail
           terraform -chdir="$TERRAFORM_ROOT" plan \

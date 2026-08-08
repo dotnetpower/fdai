@@ -122,6 +122,7 @@ def test_plan_and_apply_both_verify_image_and_guard_exact_binary_plan() -> None:
     assert 'scripts/deployment/service/plan_bundle.py" verify' in _WORKFLOW
     assert 'cmp "$bundle/service-plan.json" "$RUNNER_TEMP/replayed-service-plan.json"' in _WORKFLOW
     assert '"$RUNNER_TEMP/service-plan-bundle/service.plan"' in _WORKFLOW
+    assert _WORKFLOW.count("INITIAL_CUTOVER: ${{ inputs.initial_cutover }}") == 4
     assert _WORKFLOW.count("cutover_args+=(--initial-cutover)") == 3
     assert _WORKFLOW.count('"${cutover_args[@]}"') == 4
     for argument in (
