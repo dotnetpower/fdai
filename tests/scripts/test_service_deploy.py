@@ -1329,6 +1329,60 @@ def test_health_verification_binds_exact_resource_revision_component_and_image(
     )
 
 
+def test_health_verification_uses_azure_latest_revision_not_stale_terraform_output(
+    recovery: ModuleType,
+) -> None:
+    context, service_output, account, app, revision = _health_evidence()
+    service_output["latest_revision_name"] = "example--stale"
+    recovery.validate_health(
+        context=context,
+        service_output=service_output,
+        account=account,
+        app=app,
+        revision=revision,
+        previous_revision="example--old",
+    )
+
+
+def test_recovery_snapshots_only_restorable_key_vault_references(
+    recovery: ModuleType,
+) -> None:
+    context, _, account, app, revision = _health_evidence()
+    app["properties"]["configuration"] = {  # type: ignore[index]
+        "secrets": [
+            {
+                "name": "database-dsn",
+                "keyVaultUrl": "https://example.vault.azure.net/secrets/database",
+                "identity": "/subscriptions/example/identities/runtime",
+            }
+        ]
+    }
+    snapshot = recovery.capture_snapshot(
+        context=context,
+        account=account,
+        app=app,
+        revision=revision,
+        rollback_contract={"authority_fallback": ""},
+    )
+    assert snapshot["previous_secrets"] == [
+        {
+            "name": "database-dsn",
+            "key_vault_url": "https://example.vault.azure.net/secrets/database",
+            "identity": "/subscriptions/example/identities/runtime",
+        }
+    ]
+    opaque = copy.deepcopy(app)
+    opaque["properties"]["configuration"]["secrets"] = [{"name": "opaque"}]  # type: ignore[index]
+    with pytest.raises(recovery.DeploymentRecoveryError, match="Key Vault reference"):
+        recovery.capture_snapshot(
+            context=context,
+            account=account,
+            app=opaque,
+            revision=revision,
+            rollback_contract={"authority_fallback": ""},
+        )
+
+
 def test_worker_recovery_snapshots_and_verifies_primary_and_clamav_contracts(
     recovery: ModuleType,
 ) -> None:
@@ -1546,7 +1600,7 @@ def test_executor_rollback_uses_previous_revision_image_without_changing_authori
     command = recovery.rollback_command(snapshot, revision_suffix="rollback-123-1")
     assert command[0:4] == ["az", "containerapp", "revision", "copy"]
     assert command[command.index("--from-revision") + 1] == "executor--previous"
-    assert command[command.index("--image") + 1] == snapshot["previous_image"]
+    assert "--image" not in command
     assert "--set-env-vars" not in command
 
 

@@ -17,18 +17,25 @@ az account show --only-show-errors --output json >"$work_dir/account.json"
 resource_id="$(jq -er '.target.service_resource_id' "$context_path")"
 resource_group="$(jq -er '.target.resource_group' "$context_path")"
 service_name="$(jq -er '.target.service_name' "$context_path")"
-revision_name="$(jq -er '.latest_revision_name' "$work_dir/service.json")"
 fqdn="$(jq -r '.fqdn // ""' "$work_dir/service.json")"
-timeout 60s az containerapp show \
-    --ids "$resource_id" \
-    --only-show-errors \
-    --output json >"$work_dir/app.json"
-timeout 60s az containerapp revision show \
-        --resource-group "$resource_group" \
-        --name "$service_name" \
-        --revision "$revision_name" \
-    --only-show-errors \
-        --output json >"$work_dir/revision.json"
+for _attempt in $(seq 1 36); do
+  timeout 60s az containerapp show \
+      --ids "$resource_id" \
+      --only-show-errors \
+      --output json >"$work_dir/app.json"
+  revision_name="$(jq -er '.properties.latestRevisionName' "$work_dir/app.json")"
+  timeout 60s az containerapp revision show \
+      --resource-group "$resource_group" \
+      --name "$service_name" \
+      --revision "$revision_name" \
+      --only-show-errors \
+      --output json >"$work_dir/revision.json"
+  if jq -e '.properties.provisioningState == "Provisioned" and .properties.healthState == "Healthy" and .properties.active == true' \
+      "$work_dir/revision.json" >/dev/null; then
+    break
+  fi
+  sleep 5
+done
 python3 "$control_root/deployment_recovery.py" verify \
     --context "$context_path" \
     --service-output "$work_dir/service.json" \

@@ -8,6 +8,9 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[2]
 _WORKFLOW = (_ROOT / ".github" / "workflows" / "service-deploy.yml").read_text(encoding="utf-8")
+_HEALTH_SCRIPT = (_ROOT / "scripts" / "deployment" / "service" / "verify_health.sh").read_text(
+    encoding="utf-8"
+)
 _LEGACY_WORKFLOW = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
 _MATRIX = json.loads(
     (_ROOT / "scripts" / "deployment" / "service" / "service-matrix.json").read_text(
@@ -153,6 +156,12 @@ def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
     assert "protected platform rollback is required" in _WORKFLOW
     assert "terraform destroy" not in _WORKFLOW
     assert "-destroy" not in _WORKFLOW
+    assert "az containerapp secret set" in _WORKFLOW
+    assert "previous_secrets[]" in _WORKFLOW
+    assert "sleep 5" in _WORKFLOW
+    assert ".properties.latestRevisionName" in _HEALTH_SCRIPT
+    assert ".latest_revision_name" not in _HEALTH_SCRIPT
+    assert "for _attempt in $(seq 1 36)" in _HEALTH_SCRIPT
 
 
 def test_apply_failure_uses_the_same_verified_rollback_path() -> None:

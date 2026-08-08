@@ -10,7 +10,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 _DIGEST_IMAGE = re.compile(r"[^\s]+@sha256:[0-9a-f]{64}")
 _ALLOWED_SIDECARS = {
@@ -210,6 +210,33 @@ def _target(context: dict[str, Any]) -> dict[str, Any]:
     return target
 
 
+def _key_vault_secrets(app: dict[str, Any]) -> list[dict[str, str]]:
+    properties = app.get("properties")
+    configuration = properties.get("configuration") if isinstance(properties, dict) else None
+    raw_secrets = configuration.get("secrets", []) if isinstance(configuration, dict) else []
+    if not isinstance(raw_secrets, list):
+        raise DeploymentRecoveryError("Container App secret configuration is invalid")
+    secrets: list[dict[str, str]] = []
+    for raw in raw_secrets:
+        if not isinstance(raw, dict):
+            raise DeploymentRecoveryError("Container App secret configuration is invalid")
+        name = raw.get("name")
+        key_vault_url = raw.get("keyVaultUrl")
+        identity = raw.get("identity")
+        if not all(isinstance(value, str) and value for value in (name, key_vault_url, identity)):
+            raise DeploymentRecoveryError(
+                "rollback requires every Container App secret to use a Key Vault reference"
+            )
+        secrets.append(
+            {
+                "name": cast(str, name),
+                "key_vault_url": cast(str, key_vault_url),
+                "identity": cast(str, identity),
+            }
+        )
+    return sorted(secrets, key=lambda item: item["name"])
+
+
 def validate_health(
     *,
     context: dict[str, Any],
@@ -244,9 +271,8 @@ def validate_health(
     latest_revision = (
         app_properties.get("latestRevisionName") if isinstance(app_properties, dict) else None
     )
-    terraform_revision = service_output.get("latest_revision_name")
-    if not isinstance(latest_revision, str) or latest_revision != terraform_revision:
-        raise DeploymentRecoveryError("latest revision does not match Terraform output")
+    if not isinstance(latest_revision, str):
+        raise DeploymentRecoveryError("latest revision is missing from Azure state")
     if latest_revision == previous_revision:
         raise DeploymentRecoveryError("post-apply health did not observe a new revision")
     if revision.get("name") != latest_revision:
@@ -315,6 +341,7 @@ def capture_snapshot(
         "previous_image": containers["primary"]["image"],
         "previous_containers": containers,
         "previous_sidecar_contracts": sidecar_contracts,
+        "previous_secrets": _key_vault_secrets(app),
         "platform_rollback_required": authority_fallback == "core-in-process",
     }
 
@@ -334,8 +361,6 @@ def rollback_command(snapshot: dict[str, Any], *, revision_suffix: str) -> list[
         _required(snapshot, "service_name", label="service name"),
         "--from-revision",
         _required(snapshot, "previous_revision", label="previous revision"),
-        "--image",
-        _required(snapshot, "previous_image", label="previous image"),
         "--revision-suffix",
         revision_suffix,
         "--only-show-errors",
@@ -392,6 +417,9 @@ def validate_rollback(
         or _observed_sidecars(revision, service=service) != previous_sidecar_contracts
     ):
         raise DeploymentRecoveryError("rollback sidecar contract does not match snapshot")
+    previous_secrets = snapshot.get("previous_secrets")
+    if not isinstance(previous_secrets, list) or _key_vault_secrets(app) != previous_secrets:
+        raise DeploymentRecoveryError("rollback Key Vault secret references do not match snapshot")
 
 
 def main() -> int:

@@ -711,21 +711,40 @@ jobs:
               --snapshot "$rollback_dir/snapshot.json" \
               --revision-suffix "rollback-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           )
+          mapfile -t previous_secrets < <(
+            jq -r '.previous_secrets[] | "\(.name)=keyvaultref:\(.key_vault_url),identityref:\(.identity)"' \
+              "$rollback_dir/snapshot.json"
+          )
+          if [[ ${#previous_secrets[@]} -gt 0 ]]; then
+            timeout 60s az containerapp secret set \
+              --resource-group "$(jq -er '.resource_group' "$rollback_dir/snapshot.json")" \
+              --name "$(jq -er '.service_name' "$rollback_dir/snapshot.json")" \
+              --secrets "${previous_secrets[@]}" \
+              --only-show-errors \
+              --output none
+          fi
           "${rollback_command[@]}" >"$rollback_dir/rollback-result.json"
           resource_id="$(jq -er '.service_resource_id' "$rollback_dir/snapshot.json")"
           resource_group="$(jq -er '.resource_group' "$rollback_dir/snapshot.json")"
           service_name="$(jq -er '.service_name' "$rollback_dir/snapshot.json")"
-          timeout 60s az containerapp show \
-            --ids "$resource_id" \
-            --only-show-errors \
-            --output json >"$rollback_dir/app-after.json"
-          recovery_revision="$(jq -er '.properties.latestRevisionName' "$rollback_dir/app-after.json")"
-          timeout 60s az containerapp revision show \
-            --resource-group "$resource_group" \
-            --name "$service_name" \
-            --revision "$recovery_revision" \
-            --only-show-errors \
-            --output json >"$rollback_dir/revision-after.json"
+          for _attempt in $(seq 1 36); do
+            timeout 60s az containerapp show \
+              --ids "$resource_id" \
+              --only-show-errors \
+              --output json >"$rollback_dir/app-after.json"
+            recovery_revision="$(jq -er '.properties.latestRevisionName' "$rollback_dir/app-after.json")"
+            timeout 60s az containerapp revision show \
+              --resource-group "$resource_group" \
+              --name "$service_name" \
+              --revision "$recovery_revision" \
+              --only-show-errors \
+              --output json >"$rollback_dir/revision-after.json"
+            if jq -e '.properties.provisioningState == "Provisioned" and .properties.healthState == "Healthy" and .properties.active == true' \
+              "$rollback_dir/revision-after.json" >/dev/null; then
+              break
+            fi
+            sleep 5
+          done
           az account show --only-show-errors --output json >"$rollback_dir/account-after.json"
           python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_recovery.py" \
             verify-rollback \
