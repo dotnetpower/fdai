@@ -516,6 +516,22 @@ def test_source_directory_symlink_fails_closed(tmp_path: Path) -> None:
     assert "source tree must not contain directory symlink" in result.stdout
 
 
+def test_hidden_parent_of_repository_root_does_not_hide_sources(tmp_path: Path) -> None:
+    root = tmp_path / ".git" / "fdai-validation-queue" / "worktree"
+    relative = "services/core-control-plane/src/fdai/runtime/bootstrap.py"
+    _write(root, relative, "import fdai.core.audit\n")
+    _write(
+        root,
+        "scripts/quality/architecture/.check-operator-api-boundaries.allowlist",
+        f"# Reviewed validation fixture.\ncomposition-fanout|{relative}|1\n",
+    )
+
+    result = _run(root, fanout_limit=1)
+
+    assert result.returncode == 0, result.stdout
+    assert f"fanout {relative}: 1 unique fdai imports (reviewed)" in result.stdout
+
+
 def test_python_syntax_error_fails_closed(tmp_path: Path) -> None:
     _write(tmp_path, "services/core-control-plane/src/fdai/runtime/worker.py", "def broken(:\n")
 

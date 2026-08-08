@@ -503,8 +503,9 @@ def _walk_python_files(target: Path, root: Path) -> Iterator[Path]:
                     f"source tree must not contain file symlink: "
                     f"{child.relative_to(root).as_posix()}"
                 )
+            relative_child = child.relative_to(root)
             if child.suffix == ".py" and not any(
-                part.startswith(".") or part == "__pycache__" for part in child.parts
+                part.startswith(".") or part == "__pycache__" for part in relative_child.parts
             ):
                 if not child.resolve().is_relative_to(root):
                     raise ScanError(
