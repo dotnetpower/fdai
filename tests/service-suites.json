@@ -97,7 +97,8 @@
         "unit": [
           "tests/services/test_executor_event_bus_adapter.py",
           "tests/services/test_executor_http_adapters.py",
-          "tests/services/test_executor_postgres_adapters.py"
+          "tests/services/test_executor_postgres_adapters.py",
+          "tests/services/test_executor_terraform_identity.py"
         ],
         "contract": [
           "tests/services/test_executor_contract_sdk.py"

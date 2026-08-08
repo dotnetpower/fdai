@@ -159,19 +159,18 @@ def test_sregym_image_uses_frozen_workspace_and_includes_ontology_ledger() -> No
 
 
 def test_dockerfile_installs_only_runtime_workspace_packages() -> None:
-    dockerfile = (Path(__file__).resolve().parents[2] / "Dockerfile").read_text(encoding="utf-8")
+    root = Path(__file__).resolve().parents[2]
+    dockerfile = (root / "Dockerfile").read_text(encoding="utf-8")
+    service_dockerfile = (root / "services" / "Dockerfile").read_text(encoding="utf-8")
 
     assert "--no-install-workspace" in dockerfile
     assert "COPY evaluation-sdk/ ./evaluation-sdk/" in dockerfile
     assert "COPY benchmarks/sregym/pyproject.toml" in dockerfile
     assert "COPY benchmarks/cybergym/pyproject.toml" in dockerfile
     assert "uv sync --frozen --package fdai" in dockerfile
-    assert "RUN test -x /app/.venv/bin/fdai-isolated-executor" in dockerfile
-    runtime_stage = dockerfile[dockerfile.index("FROM ${BASE_IMAGE_REGISTRY}/library/python@") :]
-    assert runtime_stage.index("USER 65532") < runtime_stage.rindex(
-        "RUN test -x /app/.venv/bin/fdai-isolated-executor"
-    )
-    assert 'python -c "import fdai.runtime.isolated_executor_cli"' in runtime_stage
+    assert "fdai-isolated-executor" not in dockerfile
+    assert "RUN test -x /app/.venv/bin/fdai-isolated-executor-service" in service_dockerfile
+    assert 'ENTRYPOINT ["fdai-isolated-executor-service"]' in service_dockerfile
 
 
 def test_ci_installs_and_audits_the_frozen_runtime_workspace() -> None:
