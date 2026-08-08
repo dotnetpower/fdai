@@ -73,6 +73,28 @@
     "started_at": {"type": "string", "format": "date-time"},
     "completed_at": {"type": "string", "format": "date-time"},
     "proof_kind": {"type": "string", "enum": ["focused", "live"]},
+    "observation_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "health",
+        "identity",
+        "image",
+        "offset",
+        "schema",
+        "source",
+        "topology"
+      ],
+      "properties": {
+        "health": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "identity": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "image": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "offset": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "schema": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "source": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "topology": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+      }
+    },
     "outcome": {"const": "stable"}
   },
   "$defs": {

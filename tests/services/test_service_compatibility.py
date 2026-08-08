@@ -278,6 +278,38 @@ def test_each_service_has_valid_independent_migration_and_rollback_receipts() ->
     assert core_rollback["peer_versions_before"]["isolated-executor"] == "1.0.0"
 
 
+def test_focused_receipt_remains_valid_without_live_observations() -> None:
+    manifest = _manifest()
+    receipt = copy.deepcopy(_generated_upgrade_receipts(manifest)[0])
+
+    assert receipt["proof_kind"] == "focused"
+    assert "observation_refs" not in receipt
+    validate_peer_upgrade_receipt(manifest, receipt)
+
+
+def test_live_receipt_requires_exact_immutable_observation_refs() -> None:
+    manifest = _manifest()
+    receipt = copy.deepcopy(_generated_upgrade_receipts(manifest)[0])
+    receipt["proof_kind"] = "live"
+
+    with pytest.raises(CompatibilityError, match="must name exact"):
+        validate_peer_upgrade_receipt(manifest, receipt)
+
+    receipt["observation_refs"] = {
+        key: "sha256:" + character * 64
+        for key, character in zip(
+            ("health", "identity", "image", "offset", "schema", "source", "topology"),
+            "1234567",
+            strict=True,
+        )
+    }
+    validate_peer_upgrade_receipt(manifest, receipt)
+
+    receipt["observation_refs"]["health"] = "run:mutable"
+    with pytest.raises(CompatibilityError, match="immutable sha256"):
+        validate_peer_upgrade_receipt(manifest, receipt)
+
+
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [

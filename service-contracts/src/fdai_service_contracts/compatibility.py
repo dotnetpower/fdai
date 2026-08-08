@@ -21,6 +21,18 @@ _SERVICE_IDS = frozenset(
         "isolated-executor",
     }
 )
+_LIVE_OBSERVATION_KEYS = frozenset(
+    {
+        "health",
+        "identity",
+        "image",
+        "offset",
+        "schema",
+        "source",
+        "topology",
+    }
+)
+_IMMUTABLE_REF = re.compile(r"^sha256:[a-f0-9]{64}$")
 
 
 class CompatibilityError(ValueError):
@@ -345,6 +357,7 @@ def validate_peer_upgrade_receipt(
         raise CompatibilityError("receipt idempotency key is not transition-stable")
     if receipt.get("matrix_digest") != matrix_digest(manifest):
         raise CompatibilityError("receipt matrix digest does not match the manifest")
+    _validate_proof_observations(receipt)
 
     peers_before = _mapping(receipt.get("peer_versions_before"), "peer_versions_before")
     peers_after = _mapping(receipt.get("peer_versions_after"), "peer_versions_after")
@@ -374,6 +387,31 @@ def validate_peer_upgrade_receipt(
         raise CompatibilityError("independent transition did not preserve offsets")
     if receipt.get("outcome") != "stable":
         raise CompatibilityError("independent transition outcome is not stable")
+
+
+def _validate_proof_observations(receipt: Mapping[str, Any]) -> None:
+    proof_kind = receipt.get("proof_kind")
+    if proof_kind not in {"focused", "live"}:
+        raise CompatibilityError("receipt proof_kind must be focused or live")
+    if proof_kind == "focused":
+        return
+    raw_observations = receipt.get("observation_refs")
+    if not isinstance(raw_observations, Mapping):
+        raise CompatibilityError(
+            "live receipt must name exact image, source, topology, identity, schema, "
+            "offset, and health observation refs"
+        )
+    observations = _mapping(raw_observations, "observation_refs")
+    if set(observations) != _LIVE_OBSERVATION_KEYS:
+        raise CompatibilityError(
+            "live receipt must name exact image, source, topology, identity, schema, "
+            "offset, and health observation refs"
+        )
+    if any(
+        not isinstance(reference, str) or _IMMUTABLE_REF.fullmatch(reference) is None
+        for reference in observations.values()
+    ):
+        raise CompatibilityError("live receipt observation refs must be immutable sha256 refs")
 
 
 def load_json_object(path: Path) -> dict[str, Any]:
