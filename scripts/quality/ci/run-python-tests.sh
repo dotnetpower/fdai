@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root"
-export PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$repo_root/services/core-control-plane/src:$repo_root/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}"
 
 coverage_args=(
   --cov
@@ -14,11 +14,11 @@ coverage_args=(
 )
 
 coverage_paths=(
-  tests/core
-  tests/quality_gate
-  tests/pipeline
-  tests/scenarios
-  tests/verticals
+  services/core-control-plane/tests/core
+  services/core-control-plane/tests/quality_gate
+  services/core-control-plane/tests/pipeline
+  services/core-control-plane/tests/scenarios
+  services/core-control-plane/tests/verticals
   services/core-control-plane/tests/delivery/test_canary_cli.py
 )
 

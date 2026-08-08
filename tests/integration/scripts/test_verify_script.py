@@ -130,14 +130,19 @@ def test_diff_is_rejected_outside_fast_mode() -> None:
 
 
 def test_verification_entrypoints_prepend_current_checkout_source() -> None:
-    contract = 'export PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}"'
+    contract = (
+        'export PYTHONPATH="$repo_root/services/core-control-plane/src:'
+        '$repo_root/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}"'
+    )
 
     assert contract in _VERIFY.read_text(encoding="utf-8")
     assert contract in _PYTHON_TESTS.read_text(encoding="utf-8")
 
 
 def test_safety_core_coverage_includes_dedicated_quality_gate_tests() -> None:
-    assert "tests/quality_gate" in _PYTHON_TESTS.read_text(encoding="utf-8")
+    assert "services/core-control-plane/tests/quality_gate" in _PYTHON_TESTS.read_text(
+        encoding="utf-8"
+    )
 
 
 def test_python_test_runner_prefers_current_checkout_at_runtime(tmp_path: Path) -> None:
@@ -168,8 +173,9 @@ def test_python_test_runner_prefers_current_checkout_at_runtime(tmp_path: Path) 
     )
 
     assert result.returncode == 0, result.stderr
-    assert recorded.read_text(encoding="utf-8").strip().split(":")[:2] == [
-        str(_ROOT / "src"),
+    assert recorded.read_text(encoding="utf-8").strip().split(":")[:3] == [
+        str(_ROOT / "services" / "core-control-plane" / "src"),
+        str(_ROOT / "packages" / "service-contracts" / "src"),
         inherited,
     ]
 
