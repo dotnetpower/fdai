@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
+from itertools import islice
 from typing import Final
 
 from fdai_operator_service.auth import (
@@ -39,8 +41,11 @@ MAX_CURSOR_CHARS: Final = 1024
 MAX_QUERY_VALUES: Final = 64
 MAX_QUERY_VALUE_CHARS: Final = 2048
 MAX_BODY_BYTES: Final = 256 * 1024
+MAX_SSE_FRAME_BYTES: Final = 256 * 1024
 MAX_REDACTION_DEPTH: Final = 12
+MAX_REDACTION_ITEMS: Final = 500
 _SENSITIVE_PARTS: Final = ("authorization", "credential", "password", "secret", "token")
+_EVENT_NAME: Final = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 _CONTRIBUTOR_ROLES: Final = frozenset({OperatorRole.CONTRIBUTOR, OperatorRole.OWNER})
 
 
@@ -337,8 +342,18 @@ def _last_event_id(request: Request) -> int | None:
 
 
 def _sse_event(event: ReplayEvent) -> bytes:
-    payload = json.dumps(_redact(event.data), separators=(",", ":"), sort_keys=True)
-    return f"id: {event.sequence}\nevent: {event.event}\ndata: {payload}\n\n".encode()
+    if _EVENT_NAME.fullmatch(event.event) is None:
+        return _bounded_sse_frame(event.sequence, "invalid", {"error": "invalid_event_name"})
+    return _bounded_sse_frame(event.sequence, event.event, _redact(event.data))
+
+
+def _bounded_sse_frame(sequence: int, event: str, data: object) -> bytes:
+    payload = json.dumps(data, separators=(",", ":"), sort_keys=True)
+    frame = f"id: {sequence}\nevent: {event}\ndata: {payload}\n\n".encode()
+    if len(frame) <= MAX_SSE_FRAME_BYTES:
+        return frame
+    fallback = json.dumps({"error": "frame_too_large"}, separators=(",", ":"))
+    return f"id: {sequence}\nevent: invalid\ndata: {fallback}\n\n".encode()
 
 
 def _redact(value: object, *, depth: int = 0) -> object:
@@ -349,10 +364,10 @@ def _redact(value: object, *, depth: int = 0) -> object:
             str(key): "[REDACTED]"
             if any(part in str(key).lower() for part in _SENSITIVE_PARTS)
             else _redact(item, depth=depth + 1)
-            for key, item in value.items()
+            for key, item in islice(value.items(), MAX_REDACTION_ITEMS)
         }
     if isinstance(value, (list, tuple)):
-        return [_redact(item, depth=depth + 1) for item in value[:MAX_LIMIT]]
+        return [_redact(item, depth=depth + 1) for item in value[:MAX_REDACTION_ITEMS]]
     return value
 
 

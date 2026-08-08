@@ -117,6 +117,7 @@ class PostgresConversationAdapters:
         try:
             records = await self.store.replay(
                 stream=request.operation,
+                principal_id=request.scope.subject_id,
                 after_sequence=after,
                 limit=500,
             )
@@ -255,6 +256,7 @@ class PostgresOperationsAdapters:
         try:
             stored = await self.store.replay(
                 stream=query.stream,
+                principal_id=query.principal_id,
                 after_sequence=query.after_sequence,
                 limit=query.limit,
             )

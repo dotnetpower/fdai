@@ -66,6 +66,9 @@ class RecordingDependencies:
         self.proposals: list[EventProposal] = []
         self.replays: list[ReplayQuery] = []
         self.unavailable = False
+        self.replay_events = (
+            ReplayEvent(8, "message", {"type": "provision.progress", "secret": "x"}),
+        )
 
     async def read(self, query: ProjectionQuery) -> Mapping[str, object]:
         self.queries.append(query)
@@ -85,7 +88,7 @@ class RecordingDependencies:
     async def replay(self, query: ReplayQuery) -> ReplayBatch:
         self.replays.append(query)
         return ReplayBatch(
-            events=(ReplayEvent(8, "message", {"type": "provision.progress", "secret": "x"}),),
+            events=self.replay_events,
             watermark=8,
         )
 
@@ -279,6 +282,70 @@ def test_read_investigation_sse_replays_only_after_durable_proposal() -> None:
         )
     ]
     assert "id: 8\nevent: message" in body
+
+
+def test_operations_sse_rejects_multiline_event_names() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.replay_events = (ReplayEvent(8, "message\ndata: forged", {"ok": True}),)
+
+    with _client(dependencies).stream("GET", "/provision/stream", headers=HEADERS) as response:
+        body = b"".join(response.iter_bytes()).decode()
+
+    assert response.status_code == 200
+    assert "forged" not in body
+    assert "event: invalid" in body
+
+
+def test_operations_sse_caps_serialized_frames_at_256_kib() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.replay_events = (ReplayEvent(8, "message", {"value": "x" * (256 * 1024)}),)
+
+    with _client(dependencies).stream("GET", "/provision/stream", headers=HEADERS) as response:
+        body = b"".join(response.iter_bytes())
+
+    assert response.status_code == 200
+    frames = [frame for frame in body.split(b"\n\n") if frame]
+    assert all(len(frame) + 2 <= 256 * 1024 for frame in frames)
+    assert b'"error":"frame_too_large"' in body
+
+
+def test_operations_sse_redaction_bounds_recursive_containers() -> None:
+    dependencies = RecordingDependencies()
+    nested: object = "leaf"
+    for _ in range(20):
+        nested = {"child": nested}
+    dependencies.replay_events = (ReplayEvent(8, "message", {"root": nested}),)
+
+    with _client(dependencies).stream("GET", "/provision/stream", headers=HEADERS) as response:
+        body = b"".join(response.iter_bytes()).decode()
+
+    assert response.status_code == 200
+    assert '"[REDACTED]"' in body
+    assert "leaf" not in body
+
+
+def test_operations_sse_redaction_bounds_mapping_and_sequence_width() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.replay_events = (
+        ReplayEvent(
+            8,
+            "message",
+            {
+                "mapping": {f"key-{index}": index for index in range(600)},
+                "sequence": list(range(600)),
+            },
+        ),
+    )
+
+    with _client(dependencies).stream("GET", "/provision/stream", headers=HEADERS) as response:
+        body = b"".join(response.iter_bytes()).decode()
+
+    assert response.status_code == 200
+    assert '"key-499":499' in body
+    assert '"key-500":500' not in body
+    assert '"sequence":[0,1,2' in body
+    assert ",499]" in body
+    assert ",500]" not in body
 
 
 def test_family_has_no_fdai_implementation_imports() -> None:

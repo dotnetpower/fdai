@@ -13,9 +13,12 @@ import pytest
 from fdai_service_contracts import (
     CompatibilityError,
     assert_additive_schema,
+    delivery_checks,
     ensure_supported_version,
+    generate_upgrade_receipts,
     load_json_object,
-    validate_delivery_trace,
+    matrix_digest,
+    run_delivery_transition_harness,
     validate_manifest,
     validate_peer_upgrade_receipt,
 )
@@ -64,6 +67,14 @@ def _checker_module() -> ModuleType:
     return module
 
 
+def _generated_upgrade_receipts(manifest: dict[str, Any]) -> tuple[dict[str, Any], ...]:
+    checker = _checker_module()
+    upgrade_checks = checker._upgrade_checks
+    checks = upgrade_checks(manifest)
+    assert all(checks.values())
+    return generate_upgrade_receipts(manifest, checks=checks)
+
+
 def test_manifest_and_focused_fixture_gate_pass() -> None:
     summary = validate_manifest(_manifest(), repo_root=REPO_ROOT)
     _checker_module().validate()
@@ -83,10 +94,24 @@ def test_matrix_covers_every_release_pair_for_every_contract() -> None:
         pairs = {
             (pair["producer_release"], pair["consumer_release"]) for pair in edge["supported_pairs"]
         }
-        assert pairs == REQUIRED_PAIRS
+        unsupported = {
+            (pair["producer_release"], pair["consumer_release"])
+            for pair in edge.get("unsupported_pairs", [])
+        }
+        assert pairs | unsupported == REQUIRED_PAIRS
+        assert pairs.isdisjoint(unsupported)
+
+    executor_receipt = next(edge for edge in matrix if edge["contract_id"] == "executor-receipt")
+    assert executor_receipt["unsupported_pairs"] == [
+        {
+            "producer_release": "N",
+            "consumer_release": "N-1",
+            "reason": "executor receipt 1.1.0 requires Core 1.1.0 before Executor 1.1.0",
+        }
+    ]
 
 
-def test_missing_new_producer_old_consumer_pair_fails_closed() -> None:
+def test_missing_pair_without_explicit_unsupported_rollout_fails_closed() -> None:
     manifest = _manifest()
     matrix = manifest["producer_consumer_matrix"]
     assert isinstance(matrix, list)
@@ -98,7 +123,7 @@ def test_missing_new_producer_old_consumer_pair_fails_closed() -> None:
         pair for pair in pairs if pair != {"producer_release": "N", "consumer_release": "N-1"}
     ]
 
-    with pytest.raises(CompatibilityError, match="each N/N-1 pair once"):
+    with pytest.raises(CompatibilityError, match="classify each N/N-1 pair once"):
         validate_manifest(manifest, repo_root=REPO_ROOT)
 
 
@@ -121,65 +146,71 @@ def test_additive_fields_are_allowed_but_new_required_fields_are_rejected() -> N
         assert_additive_schema(previous, breaking)
 
 
+@pytest.mark.parametrize(
+    ("keyword", "previous_value", "current_value"),
+    [
+        ("maxLength", 32, 16),
+        ("minLength", 1, 2),
+        ("maximum", 100, 99),
+        ("minimum", 0, 1),
+        ("pattern", None, "^[a-z]+$"),
+        ("format", None, "uuid"),
+        ("const", None, "fixed"),
+        ("additionalProperties", True, False),
+    ],
+)
+def test_additive_schema_rejects_new_or_narrower_constraints(
+    keyword: str,
+    previous_value: object,
+    current_value: object,
+) -> None:
+    previous: dict[str, object] = {"type": "string"}
+    current: dict[str, object] = {"type": "string"}
+    if previous_value is not None:
+        previous[keyword] = previous_value
+    if current_value is not None:
+        current[keyword] = current_value
+
+    with pytest.raises(CompatibilityError, match=keyword):
+        assert_additive_schema(previous, current)
+
+
+@pytest.mark.parametrize("keyword", ["allOf", "anyOf", "oneOf", "not"])
+def test_additive_schema_rejects_new_composition_constraints(keyword: str) -> None:
+    with pytest.raises(CompatibilityError, match=keyword):
+        assert_additive_schema(
+            {"type": "object"},
+            {"type": "object", keyword: [{"required": ["new_field"]}]},
+        )
+
+
 def test_unsupported_major_is_rejected() -> None:
     assert str(ensure_supported_version("1.9.0", 1)) == "1.9.0"
     with pytest.raises(CompatibilityError, match="unsupported major 2"):
         ensure_supported_version("2.0.0", 1)
 
 
-def test_duplicate_and_reordered_delivery_converges_for_all_five_services() -> None:
-    traces = _fixture_array("delivery-traces.json")
-    assert {trace["service_id"] for trace in traces} == SERVICE_IDS
+@pytest.mark.parametrize("service_id", sorted(SERVICE_IDS))
+def test_delivery_transition_harness_proves_required_restart_scenarios(service_id: str) -> None:
+    receipts = run_delivery_transition_harness(service_id)
+    by_scenario = {receipt.scenario: receipt for receipt in receipts}
 
-    for trace in traces:
-        attempts = trace["attempts"]
-        assert isinstance(attempts, list)
-        result = validate_delivery_trace(attempts)
-        assert result.duplicate_count == 2
-        assert len(result.accepted_idempotency_keys) == 1
-
-
-def test_idempotency_collision_and_duplicate_terminal_effect_fail_closed() -> None:
-    digest_a = "sha256:" + "a" * 64
-    digest_b = "sha256:" + "b" * 64
-    collision = [
-        {
-            "sequence": 0,
-            "idempotency_key": "same",
-            "payload_digest": digest_a,
-            "terminal_effect": False,
-        },
-        {
-            "sequence": 1,
-            "idempotency_key": "same",
-            "payload_digest": digest_b,
-            "terminal_effect": False,
-        },
-    ]
-    duplicate_effect = [
-        {
-            "sequence": 0,
-            "idempotency_key": "same",
-            "payload_digest": digest_a,
-            "terminal_effect": True,
-        },
-        {
-            "sequence": 1,
-            "idempotency_key": "same",
-            "payload_digest": digest_a,
-            "terminal_effect": True,
-        },
-    ]
-
-    with pytest.raises(CompatibilityError, match="idempotency collision"):
-        validate_delivery_trace(collision)
-    with pytest.raises(CompatibilityError, match="duplicate terminal effect"):
-        validate_delivery_trace(duplicate_effect)
+    assert set(by_scenario) == {
+        "commit_failure_redelivery",
+        "restart_from_committed_offset",
+        "rebalance_before_commit",
+        "process_restart_duplicate",
+    }
+    assert by_scenario["commit_failure_redelivery"].duplicate_count == 1
+    assert by_scenario["rebalance_before_commit"].terminal_effects == 1
+    assert by_scenario["process_restart_duplicate"].terminal_effects == 1
+    assert by_scenario["restart_from_committed_offset"].committed_offset == 1
+    assert all(delivery_checks(receipts).values())
 
 
 def test_each_service_has_valid_independent_migration_and_rollback_receipts() -> None:
     manifest = _manifest()
-    receipts = _fixture_array("upgrade-receipts.json")
+    receipts = _generated_upgrade_receipts(manifest)
     identities: set[tuple[object, object]] = set()
 
     for receipt in receipts:
@@ -191,6 +222,18 @@ def test_each_service_has_valid_independent_migration_and_rollback_receipts() ->
         for service_id in SERVICE_IDS
         for direction in ("migration", "rollback")
     }
+    executor_migration = next(
+        receipt
+        for receipt in receipts
+        if receipt["service_id"] == "isolated-executor" and receipt["direction"] == "migration"
+    )
+    core_rollback = next(
+        receipt
+        for receipt in receipts
+        if receipt["service_id"] == "core-control-plane" and receipt["direction"] == "rollback"
+    )
+    assert executor_migration["peer_versions_before"]["core-control-plane"] == "1.1.0"
+    assert core_rollback["peer_versions_before"]["isolated-executor"] == "1.0.0"
 
 
 @pytest.mark.parametrize(
@@ -204,7 +247,7 @@ def test_each_service_has_valid_independent_migration_and_rollback_receipts() ->
 )
 def test_upgrade_receipt_tampering_fails_closed(mutation: str, message: str) -> None:
     manifest = _manifest()
-    receipt = copy.deepcopy(_fixture_array("upgrade-receipts.json")[0])
+    receipt = copy.deepcopy(_generated_upgrade_receipts(manifest)[0])
 
     if mutation == "peer_version":
         peers_after = receipt["peer_versions_after"]
@@ -221,6 +264,9 @@ def test_upgrade_receipt_tampering_fails_closed(mutation: str, message: str) -> 
         peers_before["operator-service"] = "2.0.0"
         peers_after["operator-service"] = "2.0.0"
 
+    if mutation != "matrix_digest":
+        receipt["matrix_digest"] = matrix_digest(manifest)
+
     with pytest.raises(CompatibilityError, match=message):
         validate_peer_upgrade_receipt(manifest, receipt)
 
@@ -231,6 +277,21 @@ def test_contract_sdk_remains_free_of_service_implementation_imports() -> None:
 
     assert "from fdai." not in source
     assert "import fdai." not in source
+
+
+def test_checker_fails_when_declared_codec_artifact_is_not_importable() -> None:
+    manifest = _manifest()
+    contracts = manifest["contracts"]
+    assert isinstance(contracts, list)
+    contract = contracts[0]
+    assert isinstance(contract, dict)
+    producer_codecs = contract["producer_codecs"]
+    assert isinstance(producer_codecs, dict)
+    producer_codecs["N"] = "missing.service.codec:NOT_PRESENT"
+    checker = _checker_module()
+
+    with pytest.raises(CompatibilityError, match="cannot import artifact"):
+        checker._validate_codec_artifacts(manifest, checker._contract_map(manifest))
 
 
 def test_wire_fixtures_cover_each_contract_and_all_five_services() -> None:

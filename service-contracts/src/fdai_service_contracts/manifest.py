@@ -1,7 +1,6 @@
 """Validation for the five-service N/N-1 compatibility manifest."""
 
 from __future__ import annotations
-
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,7 +23,7 @@ _SERVICE_IDS = frozenset(
     }
 )
 _RELEASE_LABELS = frozenset({"N", "N-1"})
-_REQUIRED_PAIRS = frozenset(
+_ALL_PAIRS = frozenset(
     {
         ("N-1", "N-1"),
         ("N-1", "N"),
@@ -85,20 +84,48 @@ def _validate_services(value: object) -> dict[str, Mapping[str, Any]]:
             raise CompatibilityError(f"{service_id} current_version must follow previous_version")
         migration = _mapping(service.get("migration"), f"{service_id}.migration")
         rollback = _mapping(service.get("rollback"), f"{service_id}.rollback")
-        if migration != {
-            "from_version": str(previous),
-            "to_version": str(current),
-        }:
-            raise CompatibilityError(f"{service_id} migration versions are not exact")
-        if rollback != {
-            "from_version": str(current),
-            "to_version": str(previous),
-        }:
-            raise CompatibilityError(f"{service_id} rollback versions are not exact")
+        _validate_transition(
+            service_id,
+            "migration",
+            migration,
+            from_version=str(previous),
+            to_version=str(current),
+            supported_major=current.major,
+        )
+        _validate_transition(
+            service_id,
+            "rollback",
+            rollback,
+            from_version=str(current),
+            to_version=str(previous),
+            supported_major=current.major,
+        )
         services[service_id] = service
     if set(services) != _SERVICE_IDS:
         raise CompatibilityError("manifest must declare exactly the five FDAI services")
     return services
+
+
+def _validate_transition(
+    service_id: str,
+    direction: str,
+    transition: Mapping[str, Any],
+    *,
+    from_version: str,
+    to_version: str,
+    supported_major: int,
+) -> None:
+    if transition.get("from_version") != from_version or transition.get("to_version") != to_version:
+        raise CompatibilityError(f"{service_id} {direction} versions are not exact")
+    requirements = _mapping(
+        transition.get("requires_peer_versions", {}),
+        f"{service_id}.{direction}.requires_peer_versions",
+    )
+    if service_id in requirements or not set(requirements) <= _SERVICE_IDS - {service_id}:
+        raise CompatibilityError(f"{service_id} {direction} peer requirements are invalid")
+    for version in requirements.values():
+        if SemVer.parse(version).major != supported_major:
+            raise CompatibilityError(f"{service_id} {direction} peer version is unsupported")
 
 
 def _validate_contracts(
@@ -130,19 +157,18 @@ def _validate_contracts(
         consumer_accepts = _mapping(
             contract.get("consumer_accepts"), f"{contract_id}.consumer_accepts"
         )
+        _validate_codec_references(contract_id, contract)
         if set(producer_schemas) != _RELEASE_LABELS or set(consumer_accepts) != _RELEASE_LABELS:
             raise CompatibilityError(f"{contract_id} must declare N and N-1 schema support")
         resolved_schemas: dict[str, Mapping[str, Any]] = {}
-        schema_versions: dict[str, str] = {}
         for release_label in _RELEASE_LABELS:
             schema_ref = _mapping(
                 producer_schemas[release_label],
                 f"{contract_id}.producer_schemas.{release_label}",
             )
-            version = str(SemVer.parse(schema_ref.get("version")))
+            SemVer.parse(schema_ref.get("version"))
             path = _safe_repo_path(repo_root, schema_ref.get("path"))
             resolved_schemas[release_label] = load_json_object(path)
-            schema_versions[release_label] = version
             accepted = set(
                 _string_list(
                     consumer_accepts[release_label],
@@ -155,24 +181,16 @@ def _validate_contracts(
                 raise CompatibilityError(f"{contract_id} consumer acceptance cannot be empty")
         policy = contract.get("compatibility_policy")
         if policy == "additive-ignore-unknown":
-            assert_additive_schema(resolved_schemas["N-1"], resolved_schemas["N"])
+            assert_additive_schema(
+                resolved_schemas["N-1"],
+                resolved_schemas["N"],
+                version_field="schema_version",
+            )
         elif policy == "stable":
             if producer_schemas["N-1"] != producer_schemas["N"]:
                 raise CompatibilityError(f"{contract_id} stable schemas must be identical")
         elif policy != "version-negotiated":
             raise CompatibilityError(f"{contract_id} has unsupported compatibility_policy")
-        for producer_release, consumer_release in _REQUIRED_PAIRS:
-            produced_version = schema_versions[producer_release]
-            accepted_versions = set(
-                _string_list(
-                    consumer_accepts[consumer_release],
-                    f"{contract_id}.consumer_accepts.{consumer_release}",
-                )
-            )
-            if produced_version not in accepted_versions:
-                raise CompatibilityError(
-                    f"{contract_id} {producer_release}->{consumer_release} rejects {produced_version}"
-                )
         contracts[contract_id] = contract
     if participating_services != _SERVICE_IDS:
         raise CompatibilityError("wire contracts must cover all five services")
@@ -189,6 +207,18 @@ def _validate_delivery(contract_id: str, value: object) -> None:
             raise CompatibilityError(f"{contract_id} delivery {key} must be non-empty")
     if delivery.get("normal_retention_days") != 1 or delivery.get("dlq_retention_days") != 7:
         raise CompatibilityError(f"{contract_id} retention must be 1 day and DLQ 7 days")
+
+
+def _validate_codec_references(contract_id: str, contract: Mapping[str, Any]) -> None:
+    for artifact_kind in ("producer_codecs", "consumer_codecs"):
+        references = _mapping(contract.get(artifact_kind), f"{contract_id}.{artifact_kind}")
+        if set(references) != _RELEASE_LABELS:
+            raise CompatibilityError(f"{contract_id} {artifact_kind} must declare N and N-1")
+        if any(
+            not isinstance(reference, str) or reference.count(":") != 1
+            for reference in references.values()
+        ):
+            raise CompatibilityError(f"{contract_id} {artifact_kind} reference is invalid")
 
 
 def _validate_matrix(
@@ -219,8 +249,51 @@ def _validate_matrix(
             if not isinstance(producer_release, str) or not isinstance(consumer_release, str):
                 raise CompatibilityError(f"{contract_id} supported pair labels must be strings")
             pairs.add((producer_release, consumer_release))
-        if pairs != _REQUIRED_PAIRS or len(pairs_value) != len(_REQUIRED_PAIRS):
-            raise CompatibilityError(f"{contract_id} matrix must contain each N/N-1 pair once")
+        unsupported_value = edge.get("unsupported_pairs", [])
+        if not isinstance(unsupported_value, list):
+            raise CompatibilityError(f"{contract_id} unsupported_pairs must be an array")
+        unsupported: set[tuple[str, str]] = set()
+        for pair_value in unsupported_value:
+            pair = _mapping(pair_value, f"{contract_id} unsupported pair")
+            producer_release = pair.get("producer_release")
+            consumer_release = pair.get("consumer_release")
+            reason = pair.get("reason")
+            if (
+                not isinstance(producer_release, str)
+                or not isinstance(consumer_release, str)
+                or not isinstance(reason, str)
+                or not reason.strip()
+            ):
+                raise CompatibilityError(
+                    f"{contract_id} unsupported pair labels and reason must be strings"
+                )
+            unsupported.add((producer_release, consumer_release))
+        if (
+            pairs & unsupported
+            or pairs | unsupported != _ALL_PAIRS
+            or len(pairs_value) + len(unsupported_value) != len(_ALL_PAIRS)
+        ):
+            raise CompatibilityError(f"{contract_id} matrix must classify each N/N-1 pair once")
+        producer_schemas = _mapping(contract.get("producer_schemas"), "producer_schemas")
+        consumer_accepts = _mapping(contract.get("consumer_accepts"), "consumer_accepts")
+        translators = _mapping(contract.get("translators", {}), "translators")
+        for direction, reference in translators.items():
+            if direction not in {"N->N-1", "N-1->N"}:
+                raise CompatibilityError(f"{contract_id} translator direction is unsupported")
+            if not isinstance(reference, str) or ":" not in reference:
+                raise CompatibilityError(f"{contract_id} translator reference is invalid")
+        for producer_release, consumer_release in _ALL_PAIRS:
+            schema_ref = _mapping(producer_schemas[producer_release], "producer schema")
+            directly_supported = schema_ref.get("version") in set(
+                _string_list(consumer_accepts[consumer_release], "consumer acceptance")
+            )
+            translated_supported = f"{producer_release}->{consumer_release}" in translators
+            classified_supported = (producer_release, consumer_release) in pairs
+            if (directly_supported or translated_supported) != classified_supported:
+                raise CompatibilityError(
+                    f"{contract_id} matrix conflicts with consumer acceptance for "
+                    f"{producer_release}->{consumer_release}"
+                )
         seen.add(contract_id)
     if seen != set(contracts):
         raise CompatibilityError("matrix must contain every declared contract")

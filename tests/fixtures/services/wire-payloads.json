@@ -127,5 +127,25 @@
       "provider_receipt_ref": "provider-receipt:example-108",
       "audit_ref": "audit:example-108"
     }
+  },
+  {
+    "contract_id": "executor-receipt",
+    "producer_release": "N-1",
+    "payload": {
+      "schema_version": "1.0.0",
+      "receipt_id": "00000000-0000-0000-0000-000000000109",
+      "command_id": "00000000-0000-0000-0000-000000000105",
+      "action_id": "00000000-0000-0000-0000-000000000106",
+      "idempotency_key": "executor-action-106",
+      "attempt": 1,
+      "action_payload_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "requested_mode": "shadow",
+      "status": "shadowed",
+      "reason": "shadow execution only",
+      "executor_instance_id": "executor-instance-example",
+      "received_at": "2026-08-08T01:00:04Z",
+      "completed_at": "2026-08-08T01:00:05Z",
+      "effect_applied": false
+    }
   }
 ]

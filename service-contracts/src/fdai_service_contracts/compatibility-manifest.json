@@ -2,7 +2,7 @@
   "manifest_version": "1.0.0",
   "policy": {
     "release_labels": ["N-1", "N"],
-    "description": "Every directed wire edge supports old-old, old-new, new-old, and new-new service release pairs."
+    "description": "Every directed wire edge classifies old-old, old-new, new-old, and new-new pairs; unsupported pairs require ordered rollout."
   },
   "services": [
     {
@@ -11,7 +11,7 @@
       "previous_version": "1.0.0",
       "current_version": "1.1.0",
       "migration": {"from_version": "1.0.0", "to_version": "1.1.0"},
-      "rollback": {"from_version": "1.1.0", "to_version": "1.0.0"}
+      "rollback": {"from_version": "1.1.0", "to_version": "1.0.0", "requires_peer_versions": {"isolated-executor": "1.0.0"}}
     },
     {
       "id": "operator-service",
@@ -42,7 +42,7 @@
       "supported_major": 1,
       "previous_version": "1.0.0",
       "current_version": "1.1.0",
-      "migration": {"from_version": "1.0.0", "to_version": "1.1.0"},
+      "migration": {"from_version": "1.0.0", "to_version": "1.1.0", "requires_peer_versions": {"core-control-plane": "1.1.0"}},
       "rollback": {"from_version": "1.1.0", "to_version": "1.0.0"}
     }
   ],
@@ -57,7 +57,10 @@
         "N-1": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/operator-core-request/1.0.0.json"},
         "N": {"version": "1.1.0", "path": "service-contracts/src/fdai_service_contracts/schemas/operator-core-request/1.1.0.json"}
       },
-      "consumer_accepts": {"N-1": ["1.0.0", "1.1.0"], "N": ["1.0.0", "1.1.0"]},
+      "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0", "1.1.0"]},
+      "translators": {"N->N-1": "fdai_service_contracts.translators:operator_core_request_1_1_to_1_0"},
+      "producer_codecs": {"N-1": "fdai_operator_service.contract_codecs:CORE_REQUEST_PRODUCER_V1", "N": "fdai_operator_service.contract_codecs:CORE_REQUEST_PRODUCER_V11"},
+      "consumer_codecs": {"N-1": "fdai_core_service.contract_codecs:OPERATOR_REQUEST_CONSUMER_V1", "N": "fdai_core_service.contract_codecs:OPERATOR_REQUEST_CONSUMER_V11"},
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "resource_ref",
@@ -78,7 +81,10 @@
         "N-1": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/core-operator-projection/1.0.0.json"},
         "N": {"version": "1.1.0", "path": "service-contracts/src/fdai_service_contracts/schemas/core-operator-projection/1.1.0.json"}
       },
-      "consumer_accepts": {"N-1": ["1.0.0", "1.1.0"], "N": ["1.0.0", "1.1.0"]},
+      "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0", "1.1.0"]},
+      "translators": {"N->N-1": "fdai_service_contracts.translators:core_operator_projection_1_1_to_1_0"},
+      "producer_codecs": {"N-1": "fdai_core_service.contract_codecs:OPERATOR_PROJECTION_PRODUCER_V1", "N": "fdai_core_service.contract_codecs:OPERATOR_PROJECTION_PRODUCER_V11"},
+      "consumer_codecs": {"N-1": "fdai_operator_service.contract_codecs:CORE_PROJECTION_CONSUMER_V1", "N": "fdai_operator_service.contract_codecs:CORE_PROJECTION_CONSUMER_V11"},
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "correlation_id",
@@ -99,7 +105,10 @@
         "N-1": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/document-ingestion-activity/1.0.0.json"},
         "N": {"version": "1.1.0", "path": "service-contracts/src/fdai_service_contracts/schemas/document-ingestion-activity/1.1.0.json"}
       },
-      "consumer_accepts": {"N-1": ["1.0.0", "1.1.0"], "N": ["1.0.0", "1.1.0"]},
+      "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0", "1.1.0"]},
+      "translators": {"N->N-1": "fdai_service_contracts.translators:document_ingestion_activity_1_1_to_1_0"},
+      "producer_codecs": {"N-1": "fdai_ingestion_api_service.contract_codecs:DOCUMENT_ACTIVITY_PRODUCER_V1", "N": "fdai_ingestion_api_service.contract_codecs:DOCUMENT_ACTIVITY_PRODUCER_V11"},
+      "consumer_codecs": {"N-1": "fdai_document_worker_service.contract_codecs:DOCUMENT_ACTIVITY_CONSUMER_V1", "N": "fdai_document_worker_service.contract_codecs:DOCUMENT_ACTIVITY_CONSUMER_V11"},
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "upload_id",
@@ -117,10 +126,12 @@
       "consumer": "document-processing-worker",
       "compatibility_policy": "stable",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "src/fdai/shared/contracts/document-worker-audit/schema.json"},
-        "N": {"version": "1.0.0", "path": "src/fdai/shared/contracts/document-worker-audit/schema.json"}
+        "N-1": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/document-worker-audit/1.0.0.json"},
+        "N": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/document-worker-audit/1.0.0.json"}
       },
       "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0"]},
+      "producer_codecs": {"N-1": "fdai_core_service.contract_codecs:DOCUMENT_AUDIT_PRODUCER_V1", "N": "fdai_core_service.contract_codecs:DOCUMENT_AUDIT_PRODUCER_V11"},
+      "consumer_codecs": {"N-1": "fdai_document_worker_service.contract_codecs:DOCUMENT_AUDIT_CONSUMER_V1", "N": "fdai_document_worker_service.contract_codecs:DOCUMENT_AUDIT_CONSUMER_V11"},
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "upload_id",
@@ -138,10 +149,12 @@
       "consumer": "document-processing-worker",
       "compatibility_policy": "stable",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "src/fdai/shared/contracts/document-worker-index/schema.json"},
-        "N": {"version": "1.0.0", "path": "src/fdai/shared/contracts/document-worker-index/schema.json"}
+        "N-1": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/document-worker-index/1.0.0.json"},
+        "N": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/document-worker-index/1.0.0.json"}
       },
       "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0"]},
+      "producer_codecs": {"N-1": "fdai_core_service.contract_codecs:DOCUMENT_INDEX_PRODUCER_V1", "N": "fdai_core_service.contract_codecs:DOCUMENT_INDEX_PRODUCER_V11"},
+      "consumer_codecs": {"N-1": "fdai_document_worker_service.contract_codecs:DOCUMENT_INDEX_CONSUMER_V1", "N": "fdai_document_worker_service.contract_codecs:DOCUMENT_INDEX_CONSUMER_V11"},
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "upload_id",
@@ -163,6 +176,8 @@
         "N": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/executor-command/1.0.0.json"}
       },
       "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0"]},
+      "producer_codecs": {"N-1": "fdai_core_service.contract_codecs:EXECUTOR_COMMAND_PRODUCER_V1", "N": "fdai_core_service.contract_codecs:EXECUTOR_COMMAND_PRODUCER_V11"},
+      "consumer_codecs": {"N-1": "fdai_executor_service.contract_codecs:EXECUTOR_COMMAND_CONSUMER_V1", "N": "fdai_executor_service.contract_codecs:EXECUTOR_COMMAND_CONSUMER_V11"},
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "partition_key",
@@ -183,7 +198,9 @@
         "N-1": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/executor-receipt/1.0.0.json"},
         "N": {"version": "1.1.0", "path": "service-contracts/src/fdai_service_contracts/schemas/executor-receipt/1.1.0.json"}
       },
-      "consumer_accepts": {"N-1": ["1.0.0", "1.1.0"], "N": ["1.0.0", "1.1.0"]},
+      "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0", "1.1.0"]},
+      "producer_codecs": {"N-1": "fdai_executor_service.contract_codecs:EXECUTOR_RECEIPT_PRODUCER_V1", "N": "fdai_executor_service.contract_codecs:EXECUTOR_RECEIPT_PRODUCER_V11"},
+      "consumer_codecs": {"N-1": "fdai_core_service.contract_codecs:EXECUTOR_RECEIPT_CONSUMER_V1", "N": "fdai_core_service.contract_codecs:EXECUTOR_RECEIPT_CONSUMER_V11"},
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "command_id",
@@ -269,8 +286,10 @@
       "supported_pairs": [
         {"producer_release": "N-1", "consumer_release": "N-1"},
         {"producer_release": "N-1", "consumer_release": "N"},
-        {"producer_release": "N", "consumer_release": "N-1"},
         {"producer_release": "N", "consumer_release": "N"}
+      ],
+      "unsupported_pairs": [
+        {"producer_release": "N", "consumer_release": "N-1", "reason": "executor receipt 1.1.0 requires Core 1.1.0 before Executor 1.1.0"}
       ]
     }
   ],

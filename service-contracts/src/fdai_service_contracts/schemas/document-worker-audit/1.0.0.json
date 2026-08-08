@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/document-worker-audit/1.0.0",
+  "title": "DocumentWorkerAuditEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "producer_principal", "kind", "audited_topic",
+    "stage", "decision", "upload_id"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "producer_principal": {"const": "Saga"},
+    "kind": {"const": "document_ingestion"},
+    "audited_topic": {"enum": ["object.verdict", "object.approval"]},
+    "correlation_id": {"type": "string", "maxLength": 512, "default": ""},
+    "idempotency_key": {"type": "string", "maxLength": 512, "default": ""},
+    "stage": {"enum": ["received", "protection_check"]},
+    "decision": {"type": "string", "minLength": 1, "maxLength": 64},
+    "reason": {"type": "string", "maxLength": 256, "default": ""},
+    "document_id": {"type": "string", "maxLength": 128, "default": ""},
+    "upload_id": {"type": "string", "format": "uuid"},
+    "initiator_principal": {"type": "string", "maxLength": 256, "default": ""},
+    "approvers": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1, "maxLength": 256},
+      "default": []
+    }
+  }
+}

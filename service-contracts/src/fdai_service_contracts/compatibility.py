@@ -94,10 +94,15 @@ def project_additive_fields(
     return {key: payload[key] for key in properties if key in payload}
 
 
-def assert_additive_schema(previous: Mapping[str, Any], current: Mapping[str, Any]) -> None:
+def assert_additive_schema(
+    previous: Mapping[str, Any],
+    current: Mapping[str, Any],
+    *,
+    version_field: str | None = None,
+) -> None:
     """Reject field removal, new requirements, narrowing, or nested breaking changes."""
 
-    _assert_additive_node(previous, current, path="$")
+    _assert_additive_node(previous, current, path="$", version_field=version_field)
 
 
 def _assert_additive_node(
@@ -105,6 +110,7 @@ def _assert_additive_node(
     current: Mapping[str, Any],
     *,
     path: str,
+    version_field: str | None,
 ) -> None:
     previous_types = _type_set(previous.get("type"))
     current_types = _type_set(current.get("type"))
@@ -122,6 +128,11 @@ def _assert_additive_node(
             raise CompatibilityError(f"schema narrows enum at {path}")
     elif previous_enum is None and current_enum is not None:
         raise CompatibilityError(f"schema adds an enum constraint at {path}")
+
+    _assert_scalar_constraints(previous, current, path=path)
+    if path != f"$.{version_field}":
+        _assert_exact_constraints(previous, current, path=path)
+    _assert_composition_constraints(previous, current, path=path)
 
     previous_properties = previous.get("properties")
     current_properties = current.get("properties")
@@ -142,14 +153,105 @@ def _assert_additive_node(
             current_child = current_properties[name]
             if not isinstance(previous_child, Mapping) or not isinstance(current_child, Mapping):
                 raise CompatibilityError(f"schema property at {path}.{name} must be an object")
-            _assert_additive_node(previous_child, current_child, path=f"{path}.{name}")
+            _assert_additive_node(
+                previous_child,
+                current_child,
+                path=f"{path}.{name}",
+                version_field=version_field,
+            )
 
     previous_items = previous.get("items")
     current_items = current.get("items")
     if isinstance(previous_items, Mapping):
         if not isinstance(current_items, Mapping):
             raise CompatibilityError(f"schema removes array item constraints at {path}")
-        _assert_additive_node(previous_items, current_items, path=f"{path}[]")
+        _assert_additive_node(
+            previous_items,
+            current_items,
+            path=f"{path}[]",
+            version_field=version_field,
+        )
+
+
+def _assert_scalar_constraints(
+    previous: Mapping[str, Any],
+    current: Mapping[str, Any],
+    *,
+    path: str,
+) -> None:
+    for keyword in ("maximum", "exclusiveMaximum", "maxLength", "maxItems", "maxProperties"):
+        _assert_bound(previous, current, keyword=keyword, path=path, increase_widens=True)
+    for keyword in ("minimum", "exclusiveMinimum", "minLength", "minItems", "minProperties"):
+        _assert_bound(previous, current, keyword=keyword, path=path, increase_widens=False)
+
+
+def _assert_bound(
+    previous: Mapping[str, Any],
+    current: Mapping[str, Any],
+    *,
+    keyword: str,
+    path: str,
+    increase_widens: bool,
+) -> None:
+    old = previous.get(keyword)
+    new = current.get(keyword)
+    if old is None and new is not None:
+        raise CompatibilityError(f"schema adds {keyword} at {path}")
+    if old is None or new is None:
+        return
+    if (
+        not isinstance(old, (int, float))
+        or isinstance(old, bool)
+        or not isinstance(new, (int, float))
+        or isinstance(new, bool)
+    ):
+        raise CompatibilityError(f"schema {keyword} at {path} must be numeric")
+    if (increase_widens and new < old) or (not increase_widens and new > old):
+        raise CompatibilityError(f"schema narrows {keyword} at {path}")
+
+
+def _assert_exact_constraints(
+    previous: Mapping[str, Any],
+    current: Mapping[str, Any],
+    *,
+    path: str,
+) -> None:
+    for keyword in ("pattern", "format", "const"):
+        old = previous.get(keyword)
+        new = current.get(keyword)
+        if old is None and new is not None:
+            raise CompatibilityError(f"schema adds {keyword} at {path}")
+        if old is not None and new is not None and old != new:
+            raise CompatibilityError(f"schema changes {keyword} at {path}")
+    old_additional = previous.get("additionalProperties", True)
+    new_additional = current.get("additionalProperties", True)
+    if old_additional is True and new_additional is not True:
+        raise CompatibilityError(f"schema narrows additionalProperties at {path}")
+    if isinstance(old_additional, Mapping):
+        if new_additional is False:
+            raise CompatibilityError(f"schema narrows additionalProperties at {path}")
+        if isinstance(new_additional, Mapping):
+            _assert_additive_node(
+                old_additional,
+                new_additional,
+                path=f"{path}.*",
+                version_field=None,
+            )
+
+
+def _assert_composition_constraints(
+    previous: Mapping[str, Any],
+    current: Mapping[str, Any],
+    *,
+    path: str,
+) -> None:
+    for keyword in ("allOf", "anyOf", "oneOf", "not", "if", "then", "else"):
+        old = previous.get(keyword)
+        new = current.get(keyword)
+        if old is None and new is not None:
+            raise CompatibilityError(f"schema adds {keyword} at {path}")
+        if old is not None and new is not None and old != new:
+            raise CompatibilityError(f"schema changes {keyword} at {path}")
 
 
 def _type_set(value: object) -> set[str]:
@@ -252,6 +354,12 @@ def validate_peer_upgrade_receipt(
         raise CompatibilityError("peer versions changed during an independent transition")
     for peer_id, version in peers_before.items():
         ensure_supported_version(version, services[peer_id].get("supported_major"))
+    required_peers = _mapping(
+        transition.get("requires_peer_versions", {}),
+        f"{service_id}.{direction}.requires_peer_versions",
+    )
+    if any(peers_before.get(peer_id) != version for peer_id, version in required_peers.items()):
+        raise CompatibilityError("receipt violates the ordered rollout peer requirements")
 
     checks = _mapping(receipt.get("checks"), "checks")
     required_checks = set(_string_sequence(receipt_format.get("required_checks")))

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import sys
 from collections.abc import Mapping
@@ -14,13 +15,27 @@ from jsonschema.exceptions import SchemaError, ValidationError
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CONTRACT_SOURCE = REPO_ROOT / "service-contracts" / "src"
-sys.path.insert(0, str(CONTRACT_SOURCE))
+SERVICE_SOURCES = (
+    REPO_ROOT / "services" / "core-control-plane" / "src",
+    REPO_ROOT / "services" / "operator-service" / "src",
+    REPO_ROOT / "services" / "document-ingestion-api" / "src",
+    REPO_ROOT / "services" / "document-processing-worker" / "src",
+    REPO_ROOT / "services" / "isolated-executor" / "src",
+)
+for source_root in (CONTRACT_SOURCE, *SERVICE_SOURCES):
+    sys.path.insert(0, str(source_root))
 
 from fdai_service_contracts import (  # noqa: E402
     CompatibilityError,
+    ConsumerCodec,
+    ProducerCodec,
+    assert_additive_schema,
+    delivery_checks,
+    ensure_supported_version,
+    generate_upgrade_receipts,
     load_json_object,
     project_additive_fields,
-    validate_delivery_trace,
+    run_delivery_transition_harness,
     validate_manifest,
     validate_peer_upgrade_receipt,
 )
@@ -43,6 +58,7 @@ def validate() -> None:
     summary = validate_manifest(manifest, repo_root=REPO_ROOT)
     contracts = _contract_map(manifest)
     _validate_wire_payloads(contracts)
+    _validate_codec_artifacts(manifest, contracts)
     _validate_delivery_traces()
     receipt_count = _validate_upgrade_receipts(manifest)
     print(
@@ -77,31 +93,95 @@ def _validate_wire_payloads(contracts: Mapping[str, Mapping[str, Any]]) -> None:
         raise CompatibilityError("wire fixtures must cover every contract")
 
 
+def _validate_codec_artifacts(
+    manifest: Mapping[str, Any],
+    contracts: Mapping[str, Mapping[str, Any]],
+) -> None:
+    fixtures = _load_json_array(FIXTURE_ROOT / "wire-payloads.json")
+    payloads = {
+        (str(fixture["contract_id"]), str(fixture["producer_release"])): _mapping(
+            fixture.get("payload"), "wire payload"
+        )
+        for fixture in fixtures
+    }
+    matrix = {
+        str(_mapping(edge, "matrix edge")["contract_id"]): _mapping(edge, "matrix edge")
+        for edge in _sequence(manifest.get("producer_consumer_matrix"), "matrix")
+    }
+    for contract_id, contract in contracts.items():
+        producer_codecs = _mapping(contract.get("producer_codecs"), "producer_codecs")
+        consumer_codecs = _mapping(contract.get("consumer_codecs"), "consumer_codecs")
+        translators = _mapping(contract.get("translators", {}), "translators")
+        edge = matrix[contract_id]
+        supported_pairs = {
+            (str(pair["producer_release"]), str(pair["consumer_release"]))
+            for pair in (
+                _mapping(item, "supported pair")
+                for item in _sequence(edge.get("supported_pairs"), "supported_pairs")
+            )
+        }
+        for producer_release in ("N-1", "N"):
+            producer = _load_symbol(str(producer_codecs[producer_release]))
+            if not isinstance(producer, ProducerCodec):
+                raise CompatibilityError(f"{contract_id} producer codec has the wrong type")
+            payload = payloads.get((contract_id, producer_release))
+            if payload is None:
+                current = payloads.get((contract_id, "N"))
+                if current is None:
+                    raise CompatibilityError(f"{contract_id} has no executable wire payload")
+                translator_ref = translators.get("N->N-1")
+                if translator_ref is not None:
+                    translator = _load_symbol(str(translator_ref))
+                    payload = _mapping(translator(current), "translated wire payload")
+                else:
+                    payload = current
+            encoded = producer.encode(payload)
+            for consumer_release in ("N-1", "N"):
+                if (producer_release, consumer_release) not in supported_pairs:
+                    continue
+                consumer = _load_symbol(str(consumer_codecs[consumer_release]))
+                if not isinstance(consumer, ConsumerCodec):
+                    raise CompatibilityError(f"{contract_id} consumer codec has the wrong type")
+                translated = encoded
+                translator_ref = translators.get(f"{producer_release}->{consumer_release}")
+                if translator_ref is not None:
+                    translator = _load_symbol(str(translator_ref))
+                    translated_payload = _mapping(translator(payload), "translated wire payload")
+                    translated = json.dumps(
+                        translated_payload, separators=(",", ":"), sort_keys=True
+                    ).encode()
+                consumer.decode(translated)
+
+
+def _load_symbol(reference: str) -> object:
+    module_name, separator, symbol_name = reference.partition(":")
+    if not separator or not module_name or not symbol_name:
+        raise CompatibilityError(f"invalid artifact reference: {reference}")
+    try:
+        module = importlib.import_module(module_name)
+        return getattr(module, symbol_name)
+    except (ImportError, AttributeError) as exc:
+        raise CompatibilityError(f"cannot import artifact: {reference}") from exc
+
+
 def _validate_delivery_traces() -> None:
-    fixtures = _load_json_array(FIXTURE_ROOT / "delivery-traces.json")
-    seen: set[str] = set()
-    for fixture in fixtures:
-        service_id = fixture.get("service_id")
-        if not isinstance(service_id, str) or service_id in seen:
-            raise CompatibilityError("delivery trace service ids must be unique strings")
-        attempts_value = fixture.get("attempts")
-        if not isinstance(attempts_value, list):
-            raise CompatibilityError(f"{service_id} attempts must be an array")
-        attempts = [
-            _mapping(attempt, f"{service_id} delivery attempt") for attempt in attempts_value
-        ]
-        result = validate_delivery_trace(attempts)
-        if result.duplicate_count < 1:
-            raise CompatibilityError(f"{service_id} delivery trace must exercise a duplicate")
-        seen.add(service_id)
-    if seen != SERVICE_IDS:
-        raise CompatibilityError("delivery traces must cover exactly the five services")
+    for service_id in SERVICE_IDS:
+        receipts = run_delivery_transition_harness(service_id)
+        checks = delivery_checks(receipts)
+        if set(receipt.scenario for receipt in receipts) != {
+            "commit_failure_redelivery",
+            "restart_from_committed_offset",
+            "rebalance_before_commit",
+            "process_restart_duplicate",
+        } or any(value is not True for value in checks.values()):
+            raise CompatibilityError(f"{service_id} executable delivery transitions failed")
 
 
 def _validate_upgrade_receipts(manifest: Mapping[str, Any]) -> int:
     receipt_contract = _mapping(manifest.get("upgrade_receipt"), "upgrade_receipt")
     schema = load_json_object(REPO_ROOT / str(receipt_contract["schema_path"]))
-    fixtures = _load_json_array(FIXTURE_ROOT / "upgrade-receipts.json")
+    checks = _upgrade_checks(manifest)
+    fixtures = generate_upgrade_receipts(manifest, checks=checks)
     seen: set[tuple[str, str]] = set()
     for receipt in fixtures:
         _validator(schema).validate(receipt)
@@ -122,6 +202,62 @@ def _validate_upgrade_receipts(manifest: Mapping[str, Any]) -> int:
     if seen != expected:
         raise CompatibilityError("receipts must cover migration and rollback for all five services")
     return len(fixtures)
+
+
+def _upgrade_checks(manifest: Mapping[str, Any]) -> dict[str, bool]:
+    receipts = tuple(
+        receipt
+        for service_id in sorted(SERVICE_IDS)
+        for receipt in run_delivery_transition_harness(service_id)
+    )
+    checks = delivery_checks(receipts)
+    checks.update(
+        {
+            "additive_fields": _additive_contracts_pass(manifest),
+            "matrix": _matrix_is_complete(manifest),
+            "unsupported_major_rejection": _unsupported_major_is_rejected(),
+        }
+    )
+    return checks
+
+
+def _additive_contracts_pass(manifest: Mapping[str, Any]) -> bool:
+    for contract in _contract_map(manifest).values():
+        if contract.get("compatibility_policy") != "additive-ignore-unknown":
+            continue
+        schemas = _mapping(contract.get("producer_schemas"), "producer_schemas")
+        previous = _mapping(schemas["N-1"], "N-1 schema")
+        current = _mapping(schemas["N"], "N schema")
+        assert_additive_schema(
+            load_json_object(REPO_ROOT / str(previous["path"])),
+            load_json_object(REPO_ROOT / str(current["path"])),
+            version_field="schema_version",
+        )
+    return True
+
+
+def _matrix_is_complete(manifest: Mapping[str, Any]) -> bool:
+    expected = {("N-1", "N-1"), ("N-1", "N"), ("N", "N-1"), ("N", "N")}
+    for edge_value in _sequence(manifest.get("producer_consumer_matrix"), "matrix"):
+        edge = _mapping(edge_value, "matrix edge")
+        classified = {
+            (str(pair["producer_release"]), str(pair["consumer_release"]))
+            for key in ("supported_pairs", "unsupported_pairs")
+            for pair in (
+                _mapping(item, "matrix pair") for item in _sequence(edge.get(key, []), key)
+            )
+        }
+        if classified != expected:
+            return False
+    return True
+
+
+def _unsupported_major_is_rejected() -> bool:
+    try:
+        ensure_supported_version("2.0.0", 1)
+    except CompatibilityError:
+        return True
+    return False
 
 
 def _contract_map(manifest: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
@@ -151,6 +287,12 @@ def _load_json_array(path: Path) -> list[Mapping[str, Any]]:
     if not isinstance(value, list):
         raise CompatibilityError(f"JSON fixture must be an array: {path}")
     return [_mapping(item, f"fixture in {path.name}") for item in value]
+
+
+def _sequence(value: object, name: str) -> list[object]:
+    if not isinstance(value, list):
+        raise CompatibilityError(f"{name} must be an array")
+    return value
 
 
 def _mapping(value: object, name: str) -> Mapping[str, Any]:

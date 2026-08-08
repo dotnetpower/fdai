@@ -1,42 +1,4 @@
-[
-  {
-    "service_id": "core-control-plane",
-    "attempts": [
-      {"sequence": 2, "idempotency_key": "core-201", "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "terminal_effect": false},
-      {"sequence": 0, "idempotency_key": "core-201", "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "terminal_effect": false},
-      {"sequence": 1, "idempotency_key": "core-201", "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "terminal_effect": true}
-    ]
-  },
-  {
-    "service_id": "operator-service",
-    "attempts": [
-      {"sequence": 2, "idempotency_key": "operator-202", "payload_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "terminal_effect": false},
-      {"sequence": 0, "idempotency_key": "operator-202", "payload_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "terminal_effect": false},
-      {"sequence": 1, "idempotency_key": "operator-202", "payload_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "terminal_effect": true}
-    ]
-  },
-  {
-    "service_id": "document-ingestion-api",
-    "attempts": [
-      {"sequence": 2, "idempotency_key": "ingestion-203", "payload_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "terminal_effect": false},
-      {"sequence": 0, "idempotency_key": "ingestion-203", "payload_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "terminal_effect": false},
-      {"sequence": 1, "idempotency_key": "ingestion-203", "payload_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "terminal_effect": true}
-    ]
-  },
-  {
-    "service_id": "document-processing-worker",
-    "attempts": [
-      {"sequence": 2, "idempotency_key": "worker-204", "payload_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "terminal_effect": false},
-      {"sequence": 0, "idempotency_key": "worker-204", "payload_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "terminal_effect": false},
-      {"sequence": 1, "idempotency_key": "worker-204", "payload_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "terminal_effect": true}
-    ]
-  },
-  {
-    "service_id": "isolated-executor",
-    "attempts": [
-      {"sequence": 2, "idempotency_key": "executor-205", "payload_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "terminal_effect": false},
-      {"sequence": 0, "idempotency_key": "executor-205", "payload_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "terminal_effect": false},
-      {"sequence": 1, "idempotency_key": "executor-205", "payload_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "terminal_effect": true}
-    ]
-  }
-]
+{
+  "generated_by": "fdai_service_contracts.transition:run_delivery_transition_harness",
+  "note": "The compatibility checker executes the harness; this file contains no claimed result."
+}

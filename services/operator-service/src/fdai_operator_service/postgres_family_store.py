@@ -195,22 +195,31 @@ class PostgresFamilyStore:
         self,
         *,
         stream: str,
+        principal_id: str,
         after_sequence: int | None,
         limit: int,
     ) -> tuple[StoredReplayEvent, ...]:
-        """Read bounded monotonic stream records from the authoritative audit ledger."""
+        """Read principal-scoped monotonic records from the authoritative audit ledger."""
+        _bounded_component("stream", stream)
+        _bounded_component("principal_id", principal_id)
+        if after_sequence is not None and after_sequence < 0:
+            raise ValueError("after_sequence MUST be non-negative")
+        if not 1 <= limit <= 500:
+            raise ValueError("replay limit MUST be in [1, 500]")
         rows = await self._fetch_all(
             """
             SELECT seq, action_kind, entry
               FROM audit_log
              WHERE seq > %(after_sequence)s
                AND (action_kind = %(stream)s OR entry ->> 'stream' = %(stream)s)
+                             AND entry ->> 'principal_id' = %(principal_id)s
              ORDER BY seq ASC
              LIMIT %(limit)s
             """,
             {
                 "after_sequence": after_sequence or 0,
                 "stream": stream,
+                "principal_id": principal_id,
                 "limit": limit,
             },
         )
@@ -343,10 +352,11 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
         self,
         *,
         stream: str,
+        principal_id: str,
         after_sequence: int | None,
         limit: int,
     ) -> tuple[StoredReplayEvent, ...]:
-        del stream, after_sequence, limit
+        del stream, principal_id, after_sequence, limit
         raise PostgresFamilyStoreUnavailable("authoritative replay is unavailable")
 
 

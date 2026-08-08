@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from importlib import resources
 from typing import Any, Protocol, runtime_checkable
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
 
 
@@ -28,9 +28,17 @@ class SchemaNotFoundError(LookupError):
 _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("action", "1.0.0"): "schemas/action/1.0.0.json",
     ("document-deletion-request", "1.0.0"): "schemas/document-deletion-request/1.0.0.json",
+    ("core-operator-projection", "1.0.0"): "schemas/core-operator-projection/1.0.0.json",
+    ("core-operator-projection", "1.1.0"): "schemas/core-operator-projection/1.1.0.json",
+    ("document-ingestion-activity", "1.0.0"): "schemas/document-ingestion-activity/1.0.0.json",
+    ("document-ingestion-activity", "1.1.0"): "schemas/document-ingestion-activity/1.1.0.json",
+    ("document-worker-audit", "1.0.0"): "schemas/document-worker-audit/1.0.0.json",
+    ("document-worker-index", "1.0.0"): "schemas/document-worker-index/1.0.0.json",
     ("executor-command", "1.0.0"): "schemas/executor-command/1.0.0.json",
     ("executor-receipt", "1.0.0"): "schemas/executor-receipt/1.0.0.json",
     ("executor-receipt", "1.1.0"): "schemas/executor-receipt/1.1.0.json",
+    ("operator-core-request", "1.0.0"): "schemas/operator-core-request/1.0.0.json",
+    ("operator-core-request", "1.1.0"): "schemas/operator-core-request/1.1.0.json",
 }
 
 
@@ -120,7 +128,7 @@ class JsonSchemaContractValidator:
         if validator is None:
             schema = self._registry.get(schema_name, version)
             Draft202012Validator.check_schema(schema)
-            validator = Draft202012Validator(schema)
+            validator = Draft202012Validator(schema, format_checker=FormatChecker())
             self._cache[(schema_name, version)] = validator
         errors = sorted(validator.iter_errors(dict(instance)), key=lambda error: list(error.path))
         if errors:
