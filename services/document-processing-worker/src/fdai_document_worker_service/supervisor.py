@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import signal
+import time
 from collections.abc import Awaitable, Callable
 from typing import Protocol
 
@@ -33,30 +34,50 @@ class IngestionWorkerRuntime(Protocol):
 class IngestionWorkerSupervisor:
     """Fail the process when any required worker loop stops or fails."""
 
-    def __init__(self, *, runtime: IngestionWorkerRuntime, health_port: int) -> None:
+    def __init__(
+        self,
+        *,
+        runtime: IngestionWorkerRuntime,
+        health_port: int,
+        readiness_interval_seconds: float = 5.0,
+        readiness_freshness_seconds: float = 15.0,
+        monotonic: Callable[[], float] = time.monotonic,
+    ) -> None:
         if not 1 <= health_port <= 65_535:
             raise ValueError("FDAI_INGESTION_WORKER_HEALTH_PORT MUST be between 1 and 65535")
+        if readiness_interval_seconds <= 0:
+            raise ValueError("worker readiness interval MUST be positive")
+        if readiness_freshness_seconds < readiness_interval_seconds:
+            raise ValueError("worker readiness freshness MUST cover at least one probe interval")
         self._runtime = runtime
         self._health_port = health_port
+        self._readiness_interval_seconds = readiness_interval_seconds
+        self._readiness_freshness_seconds = readiness_freshness_seconds
+        self._monotonic = monotonic
         self._ready = False
+        self._last_dependency_success: float | None = None
         self._loop_tasks: tuple[asyncio.Task[None], ...] = ()
 
     @property
     def ready(self) -> bool:
+        last_success = self._last_dependency_success
         return (
             self._ready
+            and last_success is not None
+            and self._monotonic() - last_success <= self._readiness_freshness_seconds
             and bool(self._loop_tasks)
             and all(not task.done() for task in self._loop_tasks)
         )
 
     async def run(self, *, stop: asyncio.Event | None = None) -> int:
-        health = RuntimeHealthServer(port=self._health_port, readiness=lambda: self._ready)
+        health = RuntimeHealthServer(port=self._health_port, readiness=lambda: self.ready)
         tasks: tuple[asyncio.Task[None], ...] = ()
         stop_task: asyncio.Task[bool] | None = None
         failure: BaseException | None = None
         try:
             for check in self._runtime.startup_checks:
                 await check()
+            self._last_dependency_success = self._monotonic()
             await health.start()
             tasks = (
                 asyncio.create_task(
@@ -77,6 +98,10 @@ class IngestionWorkerSupervisor:
                 asyncio.create_task(
                     self._runtime.worker_service.reconcile(), name="document-reconciler"
                 ),
+                asyncio.create_task(
+                    self._monitor_dependencies(),
+                    name="document-dependency-readiness",
+                ),
             )
             self._loop_tasks = tasks
             stop_event = stop or _install_shutdown_signals()
@@ -95,6 +120,7 @@ class IngestionWorkerSupervisor:
                     )
         finally:
             self._ready = False
+            self._last_dependency_success = None
             tracked = (*tasks, stop_task) if stop_task is not None else tasks
             for task in tracked:
                 task.cancel()
@@ -112,6 +138,14 @@ class IngestionWorkerSupervisor:
         if failure is not None:
             raise RuntimeError("ingestion worker runtime failed") from failure
         return 0
+
+    async def _monitor_dependencies(self) -> None:
+        """Refresh required DB and broker evidence or fail the supervised loop."""
+        while True:
+            await asyncio.sleep(self._readiness_interval_seconds)
+            for check in self._runtime.startup_checks:
+                await check()
+            self._last_dependency_success = self._monotonic()
 
 
 def _install_shutdown_signals() -> asyncio.Event:

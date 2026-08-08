@@ -1778,3 +1778,126 @@ async def test_worker_supervisor_stops_cleanly(monkeypatch: pytest.MonkeyPatch) 
     supervisor = IngestionWorkerSupervisor(runtime=WorkerRuntime(), health_port=8000)
     assert await supervisor.run(stop=stop) == 0
     assert not supervisor.ready
+
+
+@pytest.mark.asyncio
+async def test_worker_readiness_fails_when_required_loop_stops(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    started = asyncio.Event()
+    fail = asyncio.Event()
+
+    class FailingLoopService(LoopService):
+        async def run(self) -> None:
+            started.set()
+            await fail.wait()
+            raise RuntimeError("consumer lost")
+
+    class FailingRuntime(WorkerRuntime):
+        worker_service = FailingLoopService()
+
+    async def no_health_start(_self: object) -> None:
+        return None
+
+    async def no_health_close(_self: object) -> None:
+        return None
+
+    monkeypatch.setattr(
+        "fdai_document_worker_service.health.RuntimeHealthServer.start",
+        no_health_start,
+    )
+    monkeypatch.setattr(
+        "fdai_document_worker_service.health.RuntimeHealthServer.close",
+        no_health_close,
+    )
+    supervisor = IngestionWorkerSupervisor(runtime=FailingRuntime(), health_port=8000)
+    running = asyncio.create_task(supervisor.run(stop=asyncio.Event()))
+    await started.wait()
+    assert supervisor.ready
+
+    fail.set()
+    with pytest.raises(RuntimeError, match="ingestion worker runtime failed"):
+        await running
+    assert not supervisor.ready
+
+
+@pytest.mark.asyncio
+async def test_worker_readiness_fails_when_dependency_probe_is_lost(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checks = 0
+
+    async def dependency_check() -> None:
+        nonlocal checks
+        checks += 1
+        if checks > 1:
+            raise RuntimeError("database unavailable")
+
+    class DependencyRuntime(WorkerRuntime):
+        startup_checks = (dependency_check,)
+
+    async def no_health_start(_self: object) -> None:
+        return None
+
+    async def no_health_close(_self: object) -> None:
+        return None
+
+    monkeypatch.setattr(
+        "fdai_document_worker_service.health.RuntimeHealthServer.start",
+        no_health_start,
+    )
+    monkeypatch.setattr(
+        "fdai_document_worker_service.health.RuntimeHealthServer.close",
+        no_health_close,
+    )
+    supervisor = IngestionWorkerSupervisor(
+        runtime=DependencyRuntime(),
+        health_port=8000,
+        readiness_interval_seconds=0.001,
+        readiness_freshness_seconds=0.01,
+    )
+
+    with pytest.raises(RuntimeError, match="ingestion worker runtime failed"):
+        await supervisor.run(stop=asyncio.Event())
+    assert checks == 2
+    assert not supervisor.ready
+
+
+@pytest.mark.asyncio
+async def test_worker_readiness_rejects_stale_dependency_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = 10.0
+    health_started = asyncio.Event()
+
+    async def no_health_start(_self: object) -> None:
+        health_started.set()
+
+    async def no_health_close(_self: object) -> None:
+        return None
+
+    monkeypatch.setattr(
+        "fdai_document_worker_service.health.RuntimeHealthServer.start",
+        no_health_start,
+    )
+    monkeypatch.setattr(
+        "fdai_document_worker_service.health.RuntimeHealthServer.close",
+        no_health_close,
+    )
+    stop = asyncio.Event()
+    supervisor = IngestionWorkerSupervisor(
+        runtime=WorkerRuntime(),
+        health_port=8000,
+        readiness_interval_seconds=5.0,
+        readiness_freshness_seconds=15.0,
+        monotonic=lambda: now,
+    )
+    running = asyncio.create_task(supervisor.run(stop=stop))
+    await health_started.wait()
+    await asyncio.sleep(0)
+    assert supervisor.ready
+
+    now = 26.0
+    assert not supervisor.ready
+    stop.set()
+    assert await running == 0
