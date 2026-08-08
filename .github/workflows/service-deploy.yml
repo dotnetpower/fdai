@@ -618,7 +618,7 @@ jobs:
             echo "source plan deployment controls differ from current protected main." >&2
             exit 1
           }
-          echo "PLAN_CONTROLS_COMMIT_SHA=$source_head_sha" >> "$GITHUB_ENV"
+          echo "SOURCE_PLAN_HEAD_SHA=$source_head_sha" >> "$GITHUB_ENV"
 
       - name: Download exact protected service plan
         if: ${{ inputs.apply }}
@@ -629,6 +629,35 @@ jobs:
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ inputs.plan_run_id }}
+
+      - name: Verify plan controls checkout provenance
+        if: ${{ inputs.apply }}
+        run: |
+          set -euo pipefail
+          metadata="$RUNNER_TEMP/service-plan-bundle/service-plan-metadata.json"
+          plan_controls_commit_sha="$(jq -er '.controls_commit_sha' "$metadata")"
+          [[ "$plan_controls_commit_sha" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "plan metadata controls commit must be a lowercase git SHA." >&2
+            exit 1
+          }
+          git -C "$TRUSTED_CONTROLS" fetch --no-tags origin "$plan_controls_commit_sha"
+          git -C "$TRUSTED_CONTROLS" merge-base --is-ancestor \
+            "$SOURCE_PLAN_HEAD_SHA" "$plan_controls_commit_sha" || {
+            echo "plan controls checkout predates or diverges from the source workflow run." >&2
+            exit 1
+          }
+          git -C "$TRUSTED_CONTROLS" merge-base --is-ancestor \
+            "$plan_controls_commit_sha" "$CONTROLS_COMMIT_SHA" || {
+            echo "plan controls checkout is not an ancestor of current protected main." >&2
+            exit 1
+          }
+          git -C "$TRUSTED_CONTROLS" diff --quiet \
+            "$plan_controls_commit_sha" "$CONTROLS_COMMIT_SHA" -- \
+            .github/workflows/service-deploy.yml scripts/deployment/service || {
+            echo "plan deployment controls differ from current protected main." >&2
+            exit 1
+          }
+          echo "PLAN_CONTROLS_COMMIT_SHA=$plan_controls_commit_sha" >> "$GITHUB_ENV"
 
       - name: Verify exact plan bundle and action boundary
         if: ${{ inputs.apply }}

@@ -90,7 +90,7 @@ def test_workflow_binds_image_attestation_to_source_and_signer() -> None:
     assert _WORKFLOW.count('--resolved-models-digest "$RESOLVED_MODELS_DIGEST"') == 2
 
 
-def test_workflow_validates_exact_source_run_before_artifact_download() -> None:
+def test_workflow_validates_source_run_and_actual_plan_controls_checkout() -> None:
     assert 'gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PLAN_RUN_ID"' in _WORKFLOW
     for field in (".id", ".run_attempt", ".conclusion", ".event", ".head_sha", ".path"):
         assert field in _WORKFLOW
@@ -102,7 +102,15 @@ def test_workflow_validates_exact_source_run_before_artifact_download() -> None:
     assert '"$source_head_sha" "$CONTROLS_COMMIT_SHA"' in _WORKFLOW
     assert ".github/workflows/service-deploy.yml" in _WORKFLOW
     assert "scripts/deployment/service" in _WORKFLOW
-    assert 'echo "PLAN_CONTROLS_COMMIT_SHA=$source_head_sha"' in _WORKFLOW
+    assert 'echo "SOURCE_PLAN_HEAD_SHA=$source_head_sha"' in _WORKFLOW
+    assert "Verify plan controls checkout provenance" in _WORKFLOW
+    assert 'plan_controls_commit_sha="$(jq -er \'.controls_commit_sha\' "$metadata")"' in _WORKFLOW
+    assert '"$SOURCE_PLAN_HEAD_SHA" "$plan_controls_commit_sha"' in _WORKFLOW
+    assert '"$plan_controls_commit_sha" "$CONTROLS_COMMIT_SHA"' in _WORKFLOW
+    assert 'echo "PLAN_CONTROLS_COMMIT_SHA=$plan_controls_commit_sha"' in _WORKFLOW
+    assert _WORKFLOW.index("Download exact protected service plan") < _WORKFLOW.index(
+        "Verify plan controls checkout provenance"
+    )
     assert _WORKFLOW.count('--controls-commit-sha "$CONTROLS_COMMIT_SHA"') == 1
     assert _WORKFLOW.count('--controls-commit-sha "$PLAN_CONTROLS_COMMIT_SHA"') == 1
     assert _WORKFLOW.index('--controls-commit-sha "$CONTROLS_COMMIT_SHA"') < _WORKFLOW.index(
