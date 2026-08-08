@@ -32,6 +32,20 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > Canonical releases now include typed function declarations. The function registry checks the
 > caller agent, role, and purpose, derives replay-stable seeds for declared stochastic functions,
 > and emits content-addressed invocation receipts pinned to the exact release.
+> M5 adds the deterministic `query.network_path_segments` FunctionType and the `routes_to` and
+> reciprocal `peered_with` declarations as an unwired foundation. It consumes a bounded secured
+> query result only through an injected trusted receipt verifier and opaque verification context.
+> The contextual callback binds caller role, singleton purpose, ontology release, and projected
+> result digest to `FunctionInvocationContext`; no production issuer exists, so the function stays
+> unwired and a self-minted receipt is rejected. Evaluation time must exactly equal the receipt's
+> trusted observation cutoff. Link effective, evidence, and recorded times cannot exceed that
+> cutoff, and freshness is capped at one year before timestamp arithmetic. Reciprocal peering needs
+> distinct direction-bound observation and verification receipt lineage; reusing one lineage for
+> both directions leaves the segment unverified. Inventory projection also rejects link endpoint
+> types that conflict with the observed `ResourceRecord.type`. Incomplete graphs return
+> `query_incomplete`, and only relevant network links consume the segment bound. The FunctionType
+> artifact digest is derived from module source, so behavior changes produce a new declaration
+> identity. The function has no network, credential, provider, mutation, or execution path.
 > Reconciliation is an in-memory foundation: versioned request and receipt contracts, a separate
 > authenticated observation context, an attempt ledger, and an atomic terminal-outcome plus outbox
 > reference store are implemented. Production composition does not wire this coordinator, and a
@@ -64,6 +78,25 @@ The shared property-semantics registry gives every canonical property one conten
 identity for meaning, unit, value kind, and bounds. Catalog projection validates each reference
 against that registry and preserves finite numeric values without float coercion, so services and
 replays cannot silently reinterpret the same property.
+
+## Pod telemetry path foundation
+
+`evaluate_pod_telemetry_path` is a pure A0 read over a `SecuredObjectSetQueryResult` and an immutable
+mapping of state-evidence subjects to `StateFactMetadata`. It follows only the reviewed physical
+links `kubernetes_selects`, `kubernetes_exposes_endpoints`, and
+`observation_targets_resource`. Traversal is already bounded and purpose checked by the secured
+ObjectSet gateway; the evaluator performs no provider, Kubernetes, network, registry, or store I/O.
+
+The result contains four ordered segments: Pod selected by Service, Service exposing Endpoints,
+Observation targeting the Pod, and the Observation sample. Segment evidence is verified only when
+its state fact is complete, current at the supplied cutoff, non-synthetic, and conflict free.
+Incomplete graph receipts cannot prove absence, so unresolved segments remain `unverified` rather
+than becoming `missing`. The exact secured graph receipt digest and all retained evidence refs are
+returned for replay.
+
+This foundation is not exported through composition or registered in the ontology function
+registry. It does not derive a health value, produce Finding or Forecast objects, grant action
+authority, or alter any existing Kubernetes delivery module.
 
 ## Design at a glance
 
@@ -227,6 +260,23 @@ the canonical function arguments with each invocation receipt. The observer acce
 when the active release, caller, invocation identity, input digest, and output digest all match.
 These receipts are read-only provenance; they do not turn a diagnostic function into an action.
 
+The network competency foundation declares `query.network_path_segments` as an exact-release
+deterministic `query` function. Its input is one purpose-bound `SecuredObjectSetQueryResult` plus
+explicit source, target, evaluation time, depth, and segment ceilings. It never calls an inventory
+provider. Registration requires a trusted `NetworkQueryReceiptVerifier` and an opaque
+composition-owned verification context. The contextual callback checks that the receipt role,
+singleton purpose, exact release, and result digest match `FunctionInvocationContext`, then asks the
+verifier to authenticate the same tuple. Because no production receipt issuer is available, this
+foundation remains unwired. `evaluated_at` must equal the receipt observation cutoff exactly. Link
+effective, evidence, and recorded times stay at or before that cutoff, and freshness ceilings above
+one year or overflowing timestamp arithmetic remain unverified. `attached_to` may be traversed
+inversely for a query while retaining its stored direction, `contains` and `routes_to` follow stored
+direction, and `peered_with` requires both directed records with distinct observation and
+verification receipt lineage. Only a complete path whose every segment has fresh independent
+verification reports `reachability_verified: true`; every other result uses `null`, never `false`.
+An incomplete graph returns `query_incomplete`, and unrelated graph links don't consume the
+network-segment limit.
+
 ## Authority-aware writeback and projection
 
 Each ObjectType declares one authority class and write policy:
@@ -348,10 +398,12 @@ decoding is removed only after retained audit and instance fixtures replay under
 | Query safety | Every object set is bounded, purpose checked, and explicit about truncation. |
 | Action safety | Stop, rollback, impact, dry-run, lock, idempotency, and audit remain mandatory. |
 | Function safety | Query and planning code has no executor identity or direct mutation path. |
+| Network path safety | Directed storage, reciprocal peering, per-segment evidence, cycle detection, and depth/segment ceilings are receipt-bound; absence never becomes an unreachable claim. |
 | Reconciliation | Provider acceptance and observed convergence remain distinct states. |
 | Dynamic replay | The same bounded inputs produce the same predicted trajectory and invariant verdict. |
 | Dynamic authority | Prediction, model agreement, or model promotion evidence cannot approve or execute an action. |
 | Dynamic closure | Only complete independent observations score trajectory fidelity or update a challenger. |
+| Pod telemetry | A purpose-scoped secured graph plus state evidence yields deterministic verified, unverified, stale, and missing segments without provider I/O or health inference. |
 
 ## Related docs
 

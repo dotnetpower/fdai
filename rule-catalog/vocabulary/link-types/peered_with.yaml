@@ -1,0 +1,18 @@
+# LinkType: peered_with (Resource -> Resource, M:M, reciprocal)
+#
+# The store remains directed. A symmetric peer relationship exists only when
+# both directions are independently observed and verified; one record never
+# implies its reverse.
+schema_version: "1.0.0"
+name: peered_with
+version: "1.0.0"
+from_type: Resource
+to_type: Resource
+cardinality: many_to_many
+description: Symmetric network peering represented by two independently supported directed records.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:peered_with@1.0.0
+  content_hash: sha256:9c0344944129ba578accbff033008d1f9fcde044215ba9f59e8eac8714272d45
+  license: MIT
+  retrieved_at: "2026-08-08T00:00:00Z"

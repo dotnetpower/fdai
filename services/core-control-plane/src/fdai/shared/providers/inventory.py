@@ -90,6 +90,11 @@ class ResourceRecord:
 class LinkRecord:
     """One CSP-neutral Resource→Resource link observed by the inventory adapter.
 
+    ``from_type`` and ``to_type`` are the exact provider-neutral resource types
+    carried by the endpoint ``ResourceRecord`` values in the same promoted
+    observation. Projection rejects a mismatch instead of accepting a link whose
+    endpoint meaning conflicts with the resource graph.
+
     ``link_type`` MUST be a name registered in
     ``shared/contracts/ontology/link-type.json`` (P1: ``contains`` /
     ``attached_to`` / ``depends_on``; P3+: ``peered_with`` /

@@ -611,18 +611,18 @@ invariants, not visualization hints.
 | `overrides` | Override → Rule (M:1) | - | the override targets this rule (see [rule-governance.md](../rules-and-detection/rule-governance.md#overrides)) |
 | `causes` / `prevents` | Rule → Outcome (M:M, causal) | - | causal metadata that T2 may reason over (rare) |
 | `precedes` / `follows` | Finding → Finding (M:M, temporal) | - | correlation of related findings on one incident |
-| `contains` | Resource -> Resource (1:M, parent -> child) | ✓ | ownership / scope containment: subscription -> resource-group -> resource, VNet -> subnet, cluster -> node-pool. Recursive traversal walks descendants. Populated by the [inventory adapter](csp-neutrality.md#5-inventory-contract--resource-graph). |
+| `contains` | Resource -> Resource (1:M, parent -> child) | ✓ | ownership / scope containment: subscription -> resource-group -> resource, VNet -> subnet, cluster -> node-pool. Recursive traversal follows the stored parent-to-child direction. Populated by the [inventory adapter](csp-neutrality.md#5-inventory-contract--resource-graph). |
 | `attached_to` | Resource → Resource (M:1) | - | lifetime-bound attachment: NIC→VM, disk→VM, private-endpoint→target. Removing the parent breaks the child. |
 | `depends_on` | Resource → Resource (M:M) | - | logical reference required for correct operation: ContainerApp→Key-Vault / ACR / Postgres, managed-identity→app. Broken edges degrade the dependent, not the target. |
-| `peered_with` *(Phase 3+)* | Resource ↔ Resource (M:M, symmetric) | - | reachable-by-network symmetric peer: VNet peering, cross-region replicas. |
-| `routes_to` *(Phase 3+)* | Resource → Resource (M:1) | - | traffic path or reference: UDR next-hop, private-DNS zone link. |
+| `peered_with` | Resource ↔ Resource (M:M, symmetric) | - | network peer represented by two independently supported directed records; one record never implies its reverse. |
+| `routes_to` | Resource → Resource (M:1) | - | directed traffic path or reference such as a UDR next hop; absence never proves unreachable. |
 
 Traversal is directional and cached; a `Signal` of type `T` on a `Resource` of type `R`
 resolves to exactly the set of rules where `triggered_by ∋ T` and `applies_to ∋ R` via
 two index intersections - no text search, no model call.
 
-The Resource→Resource links (`contains`, `attached_to`, `depends_on`, and later
-`peered_with` / `routes_to`) are what let the risk-gate compute an *actual* blast radius
+The Resource→Resource links (`contains`, `attached_to`, `depends_on`, `peered_with`, and
+`routes_to`) are what let the risk-gate compute an *actual* blast radius
 instead of the three-value enum in [risk-classification.md](../decisioning/risk-classification.md), and
 what let T2 be prompted with a **depth-2 neighborhood subgraph** around the target
 resource - grounded, cited context instead of a bare resource id. Their authoritative

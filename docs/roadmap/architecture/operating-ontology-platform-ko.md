@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 0c373f26d8bebe0b4e8c8d26d54228ac8843089c
+translation_source_sha: 8cf7e094704f71385f68c7e7206201f55cb4d5be
 translation_revised: 2026-08-09
 ---
 # FDAI 온톨로지 안전 인프라
@@ -35,6 +35,20 @@ exact schema pinning, generated SDK surface를 추가합니다. 모든 runtime t
 > Canonical release는 이제 typed function declaration을 포함합니다. Function registry는 caller
 > agent, role, purpose를 검사하고, 선언된 stochastic function을 위해 replay-stable seed를 파생하며,
 > 정확한 release에 고정된 content-addressed invocation receipt를 emit합니다.
+> M5는 deterministic `query.network_path_segments` FunctionType과 `routes_to` 및 reciprocal
+> `peered_with` declaration을 unwired foundation으로 추가합니다. Bounded secured query result는
+> injected trusted receipt verifier와 opaque verification context를 통해서만 사용합니다.
+> Contextual callback은 caller role, singleton purpose, ontology release 및 projected result
+> digest를 `FunctionInvocationContext`에 bind합니다. Production issuer가 없으므로 function은
+> unwired 상태로 유지되고 self-minted receipt는 차단됩니다. Evaluation time은 receipt의 trusted
+> observation cutoff와 정확히 같아야 합니다. Link의 effective, evidence 및 recorded time은 이
+> cutoff를 넘을 수 없고 freshness는 timestamp 연산 전에 1년으로 제한됩니다. Reciprocal
+> peering에는 방향별로 구분된 observation 및 verification receipt lineage가 필요하며 두 방향에
+> 같은 lineage를 재사용하면 segment는 unverified로 남습니다. Inventory projection은 link
+> endpoint type이 observed `ResourceRecord.type`과 충돌하면 차단합니다. Incomplete graph는
+> `query_incomplete`를 반환하고 관련 network link만 segment bound를 소비합니다. FunctionType
+> artifact digest는 module source에서 파생되므로 behavior change는 새 declaration identity를
+> 만듭니다. Function에는 network, credential, provider, mutation 또는 execution path가 없습니다.
 > Reconciliation은 in-memory foundation입니다. Versioned request/receipt contract, 분리된
 > authenticated observation context, attempt ledger, terminal outcome과 outbox를 원자적으로
 > 저장하는 reference store를 구현했습니다. Production composition은 아직 이 coordinator를
@@ -68,6 +82,25 @@ Shared property-semantics registry는 canonical property마다 meaning, unit, va
 content-addressed identity 하나를 제공합니다. Catalog projection은 모든 reference를 registry에 대해
 검증하고 float coercion 없이 finite numeric value를 보존하므로 service와 replay가 같은 property를
 조용히 다르게 해석할 수 없습니다.
+
+## Pod telemetry path foundation
+
+`evaluate_pod_telemetry_path`는 `SecuredObjectSetQueryResult`와 state-evidence subject에서
+`StateFactMetadata`로 이어지는 immutable mapping을 사용하는 pure A0 read입니다. 검토된 물리 link인
+`kubernetes_selects`, `kubernetes_exposes_endpoints`, `observation_targets_resource`만 따라갑니다.
+Traversal은 secured ObjectSet gateway에서 이미 bounded 및 purpose checked 상태이며 evaluator는
+provider, Kubernetes, network, registry 또는 store I/O를 수행하지 않습니다.
+
+Result는 Pod selected by Service, Service exposing Endpoints, Observation targeting the Pod,
+Observation sample의 순서가 고정된 네 segment를 포함합니다. Segment state fact가 supplied cutoff에서
+complete하고 current하며 non-synthetic 및 conflict-free일 때만 evidence를 verified로 판단합니다.
+Incomplete graph receipt는 absence를 입증할 수 없으므로 unresolved segment는 `missing`이 아니라
+`unverified`로 유지됩니다. Replay를 위해 exact secured graph receipt digest와 보존된 모든 evidence
+reference를 반환합니다.
+
+이 foundation은 composition을 통해 export되거나 ontology function registry에 등록되지 않습니다.
+Health value를 derive하거나 Finding 또는 Forecast object를 만들지 않으며 action authority를 부여하거나
+기존 Kubernetes delivery module을 변경하지 않습니다.
 
 ## 한눈에 보는 설계
 
@@ -228,6 +261,23 @@ receipt와 함께 canonical function argument를 보존합니다. Observer는 ac
 invocation identity, input digest 및 output digest가 모두 일치할 때만 finding을 수락합니다. 이러한
 receipt는 read-only provenance이며 diagnostic function을 action으로 바꾸지 않습니다.
 
+Network competency foundation은 `query.network_path_segments`를 exact-release deterministic
+`query` function으로 선언합니다. Input은 purpose-bound `SecuredObjectSetQueryResult` 하나와 명시적인
+source, target, evaluation time, depth 및 segment ceiling입니다. Inventory provider를 호출하지
+않습니다. 등록에는 trusted `NetworkQueryReceiptVerifier`와 composition이 소유한 opaque verification
+context가 필요합니다. Contextual callback은 receipt role, singleton purpose, exact release 및 result
+digest가 `FunctionInvocationContext`와 일치하는지 확인한 후 verifier에 같은 tuple의 인증을
+요청합니다. Production receipt issuer가 없으므로 이 foundation은 unwired 상태로 유지됩니다.
+`evaluated_at`은 receipt observation cutoff와 정확히 같아야 합니다. Link effective, evidence 및
+recorded time은 이 cutoff와 같거나 이전이어야 하며 1년을 넘는 freshness ceiling 또는 overflow가
+발생하는 timestamp 연산은 unverified로 남습니다. `attached_to`는 stored direction을 유지하면서
+query에서 inverse로 traverse할 수 있고, `contains`와 `routes_to`는 stored direction을 따르며,
+`peered_with`는 서로 다른 observation 및 verification receipt lineage를 가진 directed record 두 개를
+요구합니다. 모든 segment가 fresh independent verification을 가진 complete path만
+`reachability_verified: true`를 보고합니다. 그 밖의 결과는 `false`가 아니라 `null`을 사용합니다.
+Incomplete graph는 `query_incomplete`를 반환하며 관련 없는 graph link는 network segment limit을
+소비하지 않습니다.
+
 ## Authority-aware writeback과 projection
 
 각 ObjectType은 하나의 authority class와 write policy를 선언합니다.
@@ -349,10 +399,12 @@ Ontology release는 scoped Python/TypeScript SDK와 OpenAPI metadata를 생성�
 | Query safety | 모든 object set은 bounded, purpose checked, truncation 명시 상태입니다. |
 | Action safety | Stop, rollback, impact, dry-run, lock, idempotency, audit가 필수로 유지됩니다. |
 | Function safety | Query 및 planning code에 executor identity 또는 direct mutation path가 없습니다. |
+| Network path safety | Directed storage, reciprocal peering, segment별 evidence, cycle detection, depth/segment ceiling이 receipt에 bind되며 absence는 unreachable claim으로 바뀌지 않습니다. |
 | Reconciliation | Provider acceptance와 observed convergence가 별도 state로 유지됩니다. |
 | Dynamic replay | 동일한 bounded input이 동일한 predicted trajectory와 invariant verdict를 만듭니다. |
 | Dynamic authority | Prediction, model agreement 또는 model promotion evidence가 action을 승인하거나 실행할 수 없습니다. |
 | Dynamic closure | Complete independent observation만 trajectory fidelity를 score하거나 challenger를 update합니다. |
+| Pod telemetry | Purpose 범위가 지정된 secured graph와 state evidence가 provider I/O 또는 health inference 없이 deterministic `verified`, `unverified`, `stale`, `missing` segment를 만듭니다. |
 
 ## 관련 문서
 

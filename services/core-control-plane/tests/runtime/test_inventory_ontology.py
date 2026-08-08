@@ -64,10 +64,10 @@ async def test_first_generation_writes_owned_objects_and_manifest() -> None:
             links=(
                 LinkRecord(
                     from_id="vm-1",
-                    from_type="Resource",
+                    from_type="compute.vm",
                     link_type="depends_on",
                     to_id="vm-2",
-                    to_type="Resource",
+                    to_type="compute.vm",
                 ),
             ),
         )

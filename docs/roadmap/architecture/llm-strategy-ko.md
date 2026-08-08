@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: b585f0cd342900223a20310cef1b5cf008458d42
-translation_revised: 2026-08-08
+translation_source_sha: ce68d9b11bc0c5ed9ed2505db0b40f4aa5fc3bd2
+translation_revised: 2026-08-09
 ---
 
 # LLM 전략(LLM Strategy)
@@ -575,18 +575,18 @@ O(인덱스 lookup). 각 선언은 `is_transitive`, `is_causal`, `temporal_order
 | `overrides` | Override → Rule (M:1) | - | override가 이 규칙 대상([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md#override) 참조) |
 | `causes` / `prevents` | Rule → Outcome (M:M, causal) | - | T2가 추론할 수 있는 causal 메타데이터(드묾) |
 | `precedes` / `follows` | Finding → Finding (M:M, temporal) | - | 하나의 인시던트에 대한 관련 finding 상관관계 |
-| `contains` | Resource -> Resource (1:M, 부모 -> 자식) | ✓ | 소유/스코프 포함: subscription -> resource-group -> resource, VNet -> subnet, cluster -> node-pool입니다. Recursive traversal로 descendant를 탐색합니다. [Inventory 어댑터](csp-neutrality-ko.md#5-인벤토리-계약--리소스-그래프)가 채웁니다. |
+| `contains` | Resource -> Resource (1:M, 부모 -> 자식) | ✓ | 소유/스코프 포함: subscription -> resource-group -> resource, VNet -> subnet, cluster -> node-pool입니다. Recursive traversal은 저장된 parent-to-child direction을 따릅니다. [Inventory 어댑터](csp-neutrality-ko.md#5-인벤토리-계약--리소스-그래프)가 채웁니다. |
 | `attached_to` | Resource → Resource (M:1) | - | 수명 결합 attachment: NIC→VM, disk→VM, private-endpoint→target. 부모 삭제 시 자식이 깨짐. |
 | `depends_on` | Resource → Resource (M:M) | - | 정상 동작에 필요한 논리적 참조: ContainerApp→Key-Vault / ACR / Postgres, managed-identity→app. 끊긴 엣지는 target 이 아니라 dependent 를 degrade. |
-| `peered_with` *(Phase 3+)* | Resource ↔ Resource (M:M, symmetric) | - | 네트워크로 도달 가능한 대칭 피어: VNet peering, cross-region replica. |
-| `routes_to` *(Phase 3+)* | Resource → Resource (M:1) | - | 트래픽 경로 또는 참조: UDR next-hop, private-DNS zone link. |
+| `peered_with` | Resource ↔ Resource (M:M, symmetric) | - | Independently supported directed record 두 개로 표현하는 network peer이며 record 하나는 reverse를 imply하지 않습니다. |
+| `routes_to` | Resource → Resource (M:1) | - | UDR next hop 같은 directed traffic path 또는 reference이며 absence는 unreachable을 입증하지 않습니다. |
 
 Traversal은 방향적이고 캐시됨; 타입 `R` 의 `Resource` 에 대한 타입 `T` 의 `Signal` 은 두 인덱스
 교집합을 통해 `triggered_by ∋ T` 및 `applies_to ∋ R` 인 정확한 규칙 세트로 해결 - 텍스트 검색
 없음, 모델 호출 없음.
 
-Resource→Resource 링크(`contains`, `attached_to`, `depends_on`, 이후 `peered_with` /
-`routes_to`) 는 risk-gate 가 [risk-classification-ko.md](../decisioning/risk-classification-ko.md) 의 3-값
+Resource→Resource 링크(`contains`, `attached_to`, `depends_on`, `peered_with`, `routes_to`)는
+risk-gate가 [risk-classification-ko.md](../decisioning/risk-classification-ko.md)의 3-값
 enum 대신 *실제* blast radius 를 계산할 수 있게 하고, T2 가 대상 리소스 주변 **depth-2 이웃
 서브그래프** 를 프롬프트로 받을 수 있게 하는 것 - 벌거벗은 리소스 id 가 아니라 근거 있고
 인용 가능한 컨텍스트. Authoritative source 는

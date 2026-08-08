@@ -52,6 +52,8 @@ def test_shipped_link_types_load() -> None:
         "contains",
         "attached_to",
         "depends_on",
+        "routes_to",
+        "peered_with",
         "precedes",
         # Process automation (docs/roadmap/decisioning/process-automation.md 3.2)
         "targets",

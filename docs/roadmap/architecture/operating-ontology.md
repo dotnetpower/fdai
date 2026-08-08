@@ -55,6 +55,19 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > only for reviewed entries and carries the exact semantic-registry version and content digest.
 > Runtime projection reuses the registry validated during catalog loading instead of reading the
 > file again. Legacy properties remain valid but cannot claim normalized equivalence.
+> M5 adds the catalog-declared `routes_to` and `peered_with` Resource links to inventory projection
+> and a read-only deterministic `query.network_path_segments` function foundation. The function
+> consumes one bounded, purpose-bound query result only after an injected verifier authenticates
+> its role, purpose, exact release, and projected-result digest against the contextual invocation
+> and an opaque composition-owned trust context. No production issuer is available, so the
+> foundation remains unwired and self-minted receipts are rejected. Evaluation time exactly equals
+> the trusted receipt cutoff; future effective, evidence, or recorded times and unbounded freshness
+> stay unverified. It preserves stored edge direction and requires two directed peering records with
+> distinct direction-bound observation and verification receipt lineage. Missing endpoints,
+> incomplete queries, or absent paths remain unknown, never a claim that traffic cannot flow.
+> Inventory projection rejects endpoint-type conflicts against observed resources. The function
+> uses a source-derived artifact digest, emits exact-release invocation receipts, and has no
+> provider I/O or execution authority.
 
 ## Catalog semantic projection
 
@@ -110,6 +123,25 @@ server and certificate authority. Complete observations replace current relation
 observations withdraw unsupported relationships without deleting resource objects, and unavailable
 inventory leaves the prior projection untouched. None of these objects grants action, approval,
 promotion, or execution authority.
+
+### Pod telemetry competency foundation
+
+M5 reuses `Resource` for Kubernetes Pod, Service, and Endpoints instances and reuses `Observation`
+for bounded metric samples. The physical `observation_targets_resource` LinkType records
+`Observation -> Resource`; existing `kubernetes_selects` and `kubernetes_exposes_endpoints` links
+cover the Pod, Service, and Endpoints topology. No `TelemetryChain` ObjectType is introduced.
+
+The read-only evaluator consumes one purpose-scoped secured ObjectSet result plus immutable
+`StateFactMetadata` for every relationship and sample. It reports each required segment as
+`verified`, `unverified`, `stale`, or `missing`, along with evidence references and an exact
+completeness fraction. A missing relation is reported as `missing` only when the secured graph
+receipt proves complete coverage. Truncated graphs, cycles, ambiguous paths, synthetic samples,
+partial state, conflicts, stale samples, and wrong-cluster identities remain unverified or missing.
+The result always records `claimed_health: false` and `execution_authority: false`.
+
+This slice is a platform foundation only. It does not register a runtime FunctionType, call a
+Kubernetes or provider adapter, join Finding or Forecast objects, alter composition, or feed an
+authority-bearing decision path.
 
 ## Design at a glance
 
@@ -227,9 +259,14 @@ The initial relationship set should stay small and query-driven.
 | `implemented_by` | BusinessService -> Workload | Workloads that implement a service. |
 | `runs_on` | Workload -> Resource | Runtime placement without changing resource ownership. |
 | `depends_on` | Workload/Resource -> Workload/Resource | Dependency required for correct operation. |
+| `contains` | Resource -> Resource | Containing parent to contained child; traversal never reverses stored ownership. |
+| `attached_to` | Resource -> Resource | Attached resource to its anchor; a query may traverse the inverse without rewriting storage. |
+| `routes_to` | Resource -> Resource | Directed observed forwarding or next-hop reference; absence proves nothing about reachability. |
+| `peered_with` | Resource -> Resource | Symmetric peer represented by two independently supported directed records. |
 | `governed_by` | Service/Workload -> Objective/Constraint | Intent that applies to the target. |
 | `owned_by` | Service/Workload/Objective -> Ownership | Accountable operating owner. |
 | `observes` | Observation/Signal -> Service/Workload/Resource | Target of measured evidence. |
+| `observation_targets_resource` | Observation -> Resource | Physical measured-evidence target used by bounded telemetry verification. |
 | `affects` | Change/Incident/Experiment -> Service/Workload/Resource | Scope influenced by an episode. |
 | `predicts_breach_of` | Forecast -> Objective | Objective at risk within the declared horizon. |
 | `considers` | DecisionCase -> ActionOption | Bounded alternatives evaluated together. |
@@ -527,6 +564,10 @@ answer these questions with evidence and explicit unknowns:
 6. Why did Odin prefer one objective, and how close was the alternative?
 7. Did the selected action produce its expected effect without guard-metric regression?
 8. Is the prior case reusable under the current topology, objectives, and policy versions?
+9. Which evidence-backed network segments connect two resources, and which segment is stale,
+   unverified, missing, cyclic, or outside the query bound?
+10. Is a Pod's telemetry path complete and current across its Service, Endpoints, and Observation
+  evidence without inferring health from a missing sample?
 
 Each question becomes a versioned query fixture with positive, negative, stale, conflicting, and
 unknown cases. A new type or link is justified by a failing fixture, then retained by regression.
@@ -558,6 +599,8 @@ separately validated slices.
 | Effect closure | Every executed option reaches a scored or explicitly unscorable outcome. |
 | Extension safety | Fork additions cannot redefine kernel semantics or raise execution authority. |
 | Customer isolation | Upstream fixtures use synthetic values and contain no deployment instances. |
+| Network evidence | Every segment preserves stored direction and evidence state; unilateral peering, missing endpoints, cycles, and traversal limits never become reachability claims. |
+| Pod telemetry | Complete, missing-selector, stale, synthetic, wrong-cluster, bounded-cycle, and missing-observation fixtures preserve segment status and never claim health. |
 
 ## Related docs
 

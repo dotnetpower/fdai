@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1010,
+  "file_count": 1013,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "767d30b9a69ee481b736652645e723b44ac61262b8ccc96e8e0594379d764955",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -443,11 +443,14 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/functions.py": "4160327bef1153772db9197b142513c9c287735198a166f49e84311e32c7928d",
     "services/core-control-plane/src/fdai/core/ontology_platform/interfaces.py": "0e4ed92d206763171f8202318daf4022ebc2aec6671fe1b3e441f18052da6d4b",
     "services/core-control-plane/src/fdai/core/ontology_platform/introspection.py": "c3c8ad97436e3bf811ef22771f9114e4defb733966f1a15610eac88a1006979d",
-    "services/core-control-plane/src/fdai/core/ontology_platform/inventory_projection.py": "bb3199509125fda34c89e08672b0adf6f9f116070c61adcd0f25a2f5713fb3e7",
+    "services/core-control-plane/src/fdai/core/ontology_platform/inventory_projection.py": "3f195dc49f793aad7faeabdbf0ba54dfecdd8fd29bcf18e24dc19d24d3cf737a",
     "services/core-control-plane/src/fdai/core/ontology_platform/kinetics.py": "3e709930b79493a14ef1e0888b9b357219a0b717ed5ddd765f9c5cc40d852f2b",
     "services/core-control-plane/src/fdai/core/ontology_platform/models.py": "fdb4f44eb94250fdbdae66da045d3917db29dbd8af3b354c4faa7e0a168de4fa",
+    "services/core-control-plane/src/fdai/core/ontology_platform/network_path.py": "939999b16b50bb0b41e7bebb6428859a1c9534f9fea49a602fa210f1b69d8241",
     "services/core-control-plane/src/fdai/core/ontology_platform/object_sets.py": "b730512a1032f112f9df14fc993efee6e5f4b74d8809cf2fb421a1603b0da7cf",
     "services/core-control-plane/src/fdai/core/ontology_platform/planning.py": "8746fa87199ad70fbdb98601b5cefa697a33f7b765b9f2328788413de5c0342c",
+    "services/core-control-plane/src/fdai/core/ontology_platform/pod_telemetry.py": "37e1ffda93bd3058dc0703bd6ded826922a610362f790eec528b956f928f44f5",
+    "services/core-control-plane/src/fdai/core/ontology_platform/pod_telemetry_evidence.py": "2ca3d5edd9152000ea3fedee3d1bb531cab7af17410a29f6743c941cb25b0ae0",
     "services/core-control-plane/src/fdai/core/ontology_platform/projection.py": "c39e903c920dbaea9fe598638fdc3392174d2f73b2925747705410d92e7ee22e",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_gateway.py": "19d9cd471fd4092f3431f644ae830e134f47977ec3352e3abf38f7a0739f2dc9",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_profiles.py": "6c176498d28302acc102810d49755af34bbf96b4111d8d37d6807bcf0bb6e072",
@@ -912,7 +915,7 @@
     "services/core-control-plane/src/fdai/shared/providers/iac_review.py": "c0774b2a510bd1d7ce1617810a1d540e5111328473a8dbd2a68f14ccc517a08f",
     "services/core-control-plane/src/fdai/shared/providers/idempotency.py": "66b21a614515dc2b0578779bf361bd07e812d8a99d44baf7bd392f2388740e1a",
     "services/core-control-plane/src/fdai/shared/providers/incident_platform.py": "048ccf4b187dc02aa7309a82c9d0465791696c0089b55233009379c0b6ae1920",
-    "services/core-control-plane/src/fdai/shared/providers/inventory.py": "21d543d7552864561e7381807e149ee15aebd1dfb968128a2d28f61a0d74305b",
+    "services/core-control-plane/src/fdai/shared/providers/inventory.py": "4fab0bdf9fbd41728d603bdc3dad042b296dfeaee6b31e0db04419ff6b1e93a1",
     "services/core-control-plane/src/fdai/shared/providers/inventory_snapshot.py": "d076bfc6c9d1492d80aa7880e5d4694cfabea80c26f62dfef978624457c23df0",
     "services/core-control-plane/src/fdai/shared/providers/knowledge.py": "e2a4a37ed4fc95f612a1fbfb4dc81b4f2aa7f7c4f35c6428a6ccc91db4d419c4",
     "services/core-control-plane/src/fdai/shared/providers/local/__init__.py": "3ee90db23ead7a100cd433cbb0f402f986bda3e780d7e9fd7a009b109350a9cc",
@@ -1013,7 +1016,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-08T16:59:23Z",
+  "generated_at": "2026-08-08T17:03:09Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

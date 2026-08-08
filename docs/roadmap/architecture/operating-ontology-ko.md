@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 2e24d3d7d6068c58f218f16e0bfcae7757543696
+translation_source_sha: 3415d41575bebe365decd7142925bc6feeb269a4
 translation_revised: 2026-08-08
 ---
 # FDAI 운영 온톨로지
@@ -59,6 +59,19 @@ cloud-operations 개념을 소유하고 deployment는 observed instance와 inten
 > content digest를 포함합니다. Runtime projection은 file을 다시 읽지 않고 catalog load에서
 > 검증된 registry를 재사용합니다. Legacy property는 계속 유효하지만 normalized equivalence를
 > 주장할 수 없습니다.
+> M5는 catalog에 선언된 `routes_to` 및 `peered_with` Resource link를 inventory projection에
+> 추가하고 read-only deterministic `query.network_path_segments` function foundation을 제공합니다.
+> Function은 injected verifier가 contextual invocation 및 composition 소유의 opaque trust context에
+> 대해 role, purpose, exact release 및 projected-result digest를 인증한 뒤에만 bounded 및
+> purpose-bound query result를 사용합니다. Production issuer가 없으므로 foundation은 unwired 상태로
+> 유지되고 self-minted receipt는 차단됩니다. Evaluation time은 trusted receipt cutoff와 정확히
+> 같으며, future effective, evidence 또는 recorded time과 unbounded freshness는 unverified로
+> 남습니다. Stored edge direction을 보존하고 symmetric peering segment 하나에 방향별로 구분된
+> observation 및 verification receipt lineage를 가진 directed record 두 개를 요구합니다. 누락된
+> endpoint, incomplete query 또는 없는 path는 traffic이 흐르지 않는다는 결론이 아니라 unknown으로
+> 유지됩니다. Inventory projection은 observed resource와 endpoint type이 충돌하면 차단합니다.
+> Function은 source-derived artifact digest를 사용하고 exact-release invocation receipt를 emit하며
+> provider I/O 또는 execution authority가 없습니다.
 
 ## 카탈로그 semantic projection
 
@@ -113,6 +126,26 @@ cluster-scoped resource identity를 사용합니다. Complete observation은 cur
 교체하고, incomplete observation은 resource object를 삭제하지 않으면서 지원되지 않는
 relationship을 철회하며, unavailable inventory는 기존 projection을 유지합니다. 이러한 object는
 action, approval, promotion 또는 execution authority를 부여하지 않습니다.
+
+### Pod telemetry 역량 foundation
+
+M5는 Kubernetes Pod, Service, Endpoints instance에 `Resource`를 재사용하고 bounded metric sample에
+`Observation`을 재사용합니다. 물리 `observation_targets_resource` LinkType은
+`Observation -> Resource`를 기록합니다. 기존 `kubernetes_selects` 및
+`kubernetes_exposes_endpoints` link가 Pod, Service, Endpoints topology를 구성합니다.
+`TelemetryChain` ObjectType은 추가하지 않습니다.
+
+Read-only evaluator는 purpose 범위가 지정된 secured ObjectSet result 하나와 각 relationship 및
+sample의 immutable `StateFactMetadata`를 사용합니다. 각 필수 segment를 evidence reference 및 정확한
+completeness fraction과 함께 `verified`, `unverified`, `stale`, `missing`으로 보고합니다. Secured graph
+receipt가 complete coverage를 입증할 때만 누락 relation을 `missing`으로 보고합니다. Truncated graph,
+cycle, ambiguous path, synthetic sample, partial state, conflict, stale sample, wrong-cluster identity는
+unverified 또는 missing으로 유지됩니다. Result는 항상 `claimed_health: false`와
+`execution_authority: false`를 기록합니다.
+
+이 slice는 platform foundation일 뿐입니다. Runtime FunctionType을 등록하거나 Kubernetes 또는
+provider adapter를 호출하지 않으며, Finding 또는 Forecast object를 join하지 않고 composition이나
+authority-bearing decision path를 변경하지 않습니다.
 
 ## 한눈에 보는 설계
 
@@ -229,9 +262,14 @@ Saga, replay consumer가 같은 사실을 참조하게 하는 immutable semantic
 | `implemented_by` | BusinessService -> Workload | Service를 구현하는 workload입니다. |
 | `runs_on` | Workload -> Resource | Resource ownership을 바꾸지 않는 runtime placement입니다. |
 | `depends_on` | Workload/Resource -> Workload/Resource | 올바른 운영에 필요한 dependency입니다. |
+| `contains` | Resource -> Resource | 포함 parent에서 포함된 child로 향하며 traversal은 stored ownership을 뒤집지 않습니다. |
+| `attached_to` | Resource -> Resource | Attached resource에서 anchor로 향하며 query는 storage를 다시 쓰지 않고 inverse를 traverse할 수 있습니다. |
+| `routes_to` | Resource -> Resource | 관측된 forwarding 또는 next-hop의 directed reference이며 absence는 reachability를 입증하지 않습니다. |
+| `peered_with` | Resource -> Resource | Independently supported directed record 두 개로 표현하는 symmetric peer입니다. |
 | `governed_by` | Service/Workload -> Objective/Constraint | Target에 적용하는 intent입니다. |
 | `owned_by` | Service/Workload/Objective -> Ownership | 책임 운영 owner입니다. |
 | `observes` | Observation/Signal -> Service/Workload/Resource | 측정 evidence의 target입니다. |
+| `observation_targets_resource` | Observation -> Resource | Bounded telemetry verification에 사용하는 물리 measured-evidence target입니다. |
 | `affects` | Change/Incident/Experiment -> Service/Workload/Resource | Episode가 영향을 주는 scope입니다. |
 | `predicts_breach_of` | Forecast -> Objective | 선언된 horizon 안에서 위험한 objective입니다. |
 | `considers` | DecisionCase -> ActionOption | 함께 평가한 bounded alternative입니다. |
@@ -524,6 +562,10 @@ Ontology 품질은 object 수가 아니라 deterministic question으로 측정�
 6. Odin이 한 objective를 선호한 이유와 alternative와의 차이는 얼마입니까?
 7. 선택한 action이 guard metric regression 없이 expected effect를 냈습니까?
 8. 현재 topology, objective, policy version에서 이전 case를 계속 재사용할 수 있습니까?
+9. 두 resource를 연결하는 evidence-backed network segment는 무엇이며 어느 segment가 stale,
+   unverified, missing, cyclic 또는 query bound 밖에 있습니까?
+10. 누락 sample에서 health를 추론하지 않으면서 Pod의 Service, Endpoints 및 Observation evidence
+  경로가 complete하고 current한지 확인할 수 있습니까?
 
 각 질문은 positive, negative, stale, conflicting, unknown case를 가진 versioned query fixture가 됩니다.
 새 type 또는 link는 실패하는 fixture로 필요성을 입증한 후 regression으로 유지합니다.
@@ -554,6 +596,8 @@ O0 이후 첫 code slice는 semantic-spine declaration, link constraint, query f
 | Effect closure | 실행된 option이 scored 또는 명시적으로 unscorable한 outcome에 도달합니다. |
 | Extension safety | Fork addition이 kernel semantics를 다시 정의하거나 execution authority를 높일 수 없습니다. |
 | Customer isolation | Upstream fixture는 synthetic value를 사용하고 deployment instance를 포함하지 않습니다. |
+| Network evidence | 모든 segment가 stored direction과 evidence state를 보존하며 unilateral peering, missing endpoint, cycle, traversal limit가 reachability claim으로 바뀌지 않습니다. |
+| Pod telemetry | Complete, missing-selector, stale, synthetic, wrong-cluster, bounded-cycle 및 missing-observation fixture가 segment status를 보존하고 health를 주장하지 않습니다. |
 
 ## 관련 문서
 

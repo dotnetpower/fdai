@@ -29,7 +29,13 @@ from fdai.shared.providers.state_evidence import LINK_OBSERVATION_METADATA_PROPE
 #: Registered ``Resource -> Resource`` observation links. A new topology link type
 #: enters the catalog vocabulary first, then this tuple; an unlisted type is
 #: dropped rather than written under a name the catalog cannot validate.
-TOPOLOGY_LINK_TYPES: tuple[str, ...] = ("contains", "attached_to", "depends_on")
+TOPOLOGY_LINK_TYPES: tuple[str, ...] = (
+    "contains",
+    "attached_to",
+    "depends_on",
+    "routes_to",
+    "peered_with",
+)
 
 _RESOURCE_OBJECT_TYPE = "Resource"
 _MAX_RESOURCES = 50_000
@@ -92,9 +98,16 @@ def build_inventory_ontology_projection(
         raise ValueError("inventory projection link count exceeds its bound")
 
     objects = _build_objects(resources)
+    observed_types = {
+        resource_id: str(record.properties["type"]) for resource_id, record in objects.items()
+    }
     dropped: set[str] = set()
     if observation_complete:
-        projected_links = _build_links(links, observed_ids=set(objects), dropped=dropped)
+        projected_links = _build_links(
+            links,
+            observed_types=observed_types,
+            dropped=dropped,
+        )
     else:
         projected_links = ()
         dropped.add(_DROP_OBSERVATION_INCOMPLETE)
@@ -146,7 +159,7 @@ def _resource_object(record: ResourceRecord, *, resource_id: str) -> OntologyObj
 def _build_links(
     links: Sequence[LinkRecord],
     *,
-    observed_ids: set[str],
+    observed_types: Mapping[str, str],
     dropped: set[str],
 ) -> tuple[OntologyLinkRecord, ...]:
     """Return deduplicated topology links whose endpoints were both observed."""
@@ -164,9 +177,16 @@ def _build_links(
         if from_id == to_id:
             dropped.add(_DROP_SELF_REFERENCE)
             continue
-        if from_id not in observed_ids or to_id not in observed_ids:
+        if from_id not in observed_types or to_id not in observed_types:
             dropped.add(_DROP_UNOBSERVED_ENDPOINT)
             continue
+        current_endpoint_types = (record.from_type.strip(), record.to_type.strip())
+        observed_endpoint_types = (observed_types[from_id], observed_types[to_id])
+        if current_endpoint_types != observed_endpoint_types:
+            raise InventoryProjectionConflictError(
+                f"inventory link {(link_type, from_id, to_id)!r} endpoint type conflicts "
+                "with observed resources"
+            )
         key = (link_type, from_id, to_id)
         link_props = normalize_json_value(dict(record.link_props), path=f"inventory.{link_type}")
         properties = dict(link_props) if isinstance(link_props, Mapping) else {}
@@ -182,7 +202,6 @@ def _build_links(
             properties=properties,
         )
         existing = keyed.get(key)
-        current_endpoint_types = (record.from_type.strip(), record.to_type.strip())
         if existing is not None and (
             existing.properties != projected.properties
             or endpoint_types[key] != current_endpoint_types

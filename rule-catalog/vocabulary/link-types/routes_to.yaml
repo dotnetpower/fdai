@@ -1,0 +1,18 @@
+# LinkType: routes_to (Resource -> Resource, M:1)
+#
+# Directed traffic-path or next-hop reference. The stored source is the
+# observed forwarding resource and the target is its observed destination.
+# Absence never proves that no route exists.
+schema_version: "1.0.0"
+name: routes_to
+version: "1.0.0"
+from_type: Resource
+to_type: Resource
+cardinality: many_to_one
+description: Directed traffic path or next-hop reference from a resource to its observed destination.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:routes_to@1.0.0
+  content_hash: sha256:826e7fd6bef6080d425ead45c00a274bb9cbf6707cc4be2937f43b4d0edafbb8
+  license: MIT
+  retrieved_at: "2026-08-08T00:00:00Z"
