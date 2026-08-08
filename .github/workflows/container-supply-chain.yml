@@ -154,7 +154,6 @@ jobs:
       - name: Scan image for high and critical vulnerabilities
         run: >-
           trivy image --exit-code 1 --severity HIGH,CRITICAL
-          --ignore-unfixed
           --ignorefile .trivyignore.yaml
           "${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
 

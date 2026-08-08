@@ -176,6 +176,8 @@ def test_supply_chain_verifies_pinned_trivy_archive_checksum() -> None:
     assert f'TRIVY_ARCHIVE_SHA256: "{TRIVY_ARCHIVE_SHA256}"' in text
     assert 'echo "${TRIVY_ARCHIVE_SHA256}  ${archive}" | sha256sum --check --strict' in text
     assert 'tar -xzf "${archive}" -C /usr/local/bin trivy' in text
+    assert "--severity HIGH,CRITICAL" in text
+    assert "--ignore-unfixed" not in text
 
 
 def test_supply_chain_triggers_for_every_image_and_scan_input() -> None:
