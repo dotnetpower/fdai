@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -45,6 +45,7 @@ from fdai_service_contracts import (
     DocumentState,
     DocumentVersion,
     DocumentWorkerClaim,
+    DocumentWorkerClaimConflictError,
     DocumentWorkerClaimStatus,
     DocumentWorkerStage,
     IngestionCapabilities,
@@ -120,6 +121,46 @@ class MemoryMetadata:
         self.versions[(version.document_id, version.version_id)] = version
         self.events.append(event)
 
+    async def transition_worker_stage(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        claim: DocumentWorkerClaim,
+        expected_upload_state: str,
+        expected_upload_revision: int,
+        expected_version_state: str,
+        expected_version_revision: int,
+        event: DocumentLifecycleEvent,
+    ) -> None:
+        await self.assert_worker_stage_active(claim)
+        await self.transition(
+            session,
+            version,
+            expected_upload_state=expected_upload_state,
+            expected_upload_revision=expected_upload_revision,
+            expected_version_state=expected_version_state,
+            expected_version_revision=expected_version_revision,
+            event=event,
+        )
+
+    async def assert_worker_stage_active(self, claim: DocumentWorkerClaim) -> None:
+        current = self.claims[(claim.upload_id, claim.stage)]
+        if (
+            current.owner != claim.owner
+            or current.attempt_id != claim.attempt_id
+            or current.revision != claim.revision
+            or current.status is not DocumentWorkerClaimStatus.ACTIVE
+            or current.lease_expires_at <= datetime.now(UTC)
+        ):
+            raise DocumentWorkerClaimConflictError("document worker claim conflict")
+
+    async def enqueue_worker_event(
+        self, event: DocumentLifecycleEvent, *, claim: DocumentWorkerClaim
+    ) -> None:
+        await self.assert_worker_stage_active(claim)
+        self.events.append(event)
+
     async def enqueue_event(self, event: DocumentLifecycleEvent) -> None:
         self.events.append(event)
 
@@ -139,9 +180,31 @@ class MemoryMetadata:
         lease_seconds: int,
     ) -> DocumentWorkerClaim | None:
         key = (upload_id, stage)
-        if key in self.claims:
-            return None
         now = datetime.now(UTC)
+        current = self.claims.get(key)
+        if current is not None:
+            if current.status is DocumentWorkerClaimStatus.COMPLETED:
+                return None
+            if (
+                current.status is DocumentWorkerClaimStatus.ACTIVE
+                and current.lease_expires_at > now
+            ):
+                return None
+            if current.attempt_id == attempt_id:
+                return None
+            claim = current.model_copy(
+                update={
+                    "owner": owner,
+                    "attempt_id": attempt_id,
+                    "revision": current.revision + 1,
+                    "status": DocumentWorkerClaimStatus.ACTIVE,
+                    "claimed_at": now,
+                    "lease_expires_at": now + timedelta(seconds=lease_seconds),
+                    "finished_at": None,
+                }
+            )
+            self.claims[key] = claim
+            return claim
         claim = DocumentWorkerClaim(
             upload_id=upload_id,
             stage=stage,
@@ -168,6 +231,13 @@ class MemoryMetadata:
         expected_revision: int,
     ) -> DocumentWorkerClaim:
         current = self.claims[(upload_id, stage)]
+        await self.assert_worker_stage_active(current)
+        if (
+            current.owner != owner
+            or current.attempt_id != attempt_id
+            or current.revision != expected_revision
+        ):
+            raise DocumentWorkerClaimConflictError("document worker claim conflict")
         completed = current.model_copy(
             update={
                 "revision": expected_revision + 1,
@@ -178,8 +248,32 @@ class MemoryMetadata:
         self.claims[(upload_id, stage)] = completed
         return completed
 
-    async def release_worker_stage(self, *_args: object, **_kwargs: object) -> DocumentWorkerClaim:
-        raise AssertionError("successful operation must not release")
+    async def release_worker_stage(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        expected_revision: int,
+    ) -> DocumentWorkerClaim:
+        current = self.claims[(upload_id, stage)]
+        await self.assert_worker_stage_active(current)
+        if (
+            current.owner != owner
+            or current.attempt_id != attempt_id
+            or current.revision != expected_revision
+        ):
+            raise DocumentWorkerClaimConflictError("document worker claim conflict")
+        released = current.model_copy(
+            update={
+                "revision": expected_revision + 1,
+                "status": DocumentWorkerClaimStatus.RELEASED,
+                "finished_at": datetime.now(UTC),
+            }
+        )
+        self.claims[(upload_id, stage)] = released
+        return released
 
 
 def test_audit_hash_contract_matches_existing_chain_snapshot() -> None:
@@ -223,9 +317,7 @@ def test_api_and_worker_state_machines_enforce_transition_ownership() -> None:
     assert api_transition(DocumentState.UPLOADING, DocumentState.RECEIVED) is (
         DocumentState.RECEIVED
     )
-    assert api_transition(DocumentState.READY, DocumentState.DELETING) is (
-        DocumentState.DELETING
-    )
+    assert api_transition(DocumentState.READY, DocumentState.DELETING) is (DocumentState.DELETING)
     with pytest.raises(InvalidApiTransitionError):
         api_transition(DocumentState.RECEIVED, DocumentState.QUARANTINED)
     with pytest.raises(InvalidApiTransitionError):
@@ -646,7 +738,15 @@ async def test_api_cancel_hands_deletion_completion_to_worker() -> None:
         index=DeleteRecorder(),
     )
 
-    deleted = await worker.apply_deletion_request(request)
+    claim = await metadata.claim_worker_stage(
+        session.upload_id,
+        DocumentWorkerStage.DELETION,
+        owner="worker-a",
+        attempt_id=uuid4(),
+        lease_seconds=30,
+    )
+    assert claim is not None
+    deleted = await worker.apply_deletion_request(request, lambda: claim)
 
     assert deleted.state is DocumentState.DELETED
     assert session.object_key not in objects.content
@@ -661,7 +761,7 @@ class DeleteRecorder:
 
 
 @pytest.mark.asyncio
-async def test_worker_rejects_stale_deletion_before_any_external_delete() -> None:
+async def test_worker_rejects_stale_request_and_claim_before_any_external_delete() -> None:
     metadata = MemoryMetadata()
     objects = MemoryObjects()
     now = datetime.now(UTC)
@@ -731,13 +831,47 @@ async def test_worker_rejects_stale_deletion_before_any_external_delete() -> Non
         expected_version_revision=3,
         requested_at=now,
     )
+    claim = await metadata.claim_worker_stage(
+        upload_id,
+        DocumentWorkerStage.DELETION,
+        owner="worker-a",
+        attempt_id=uuid4(),
+        lease_seconds=30,
+    )
+    assert claim is not None
 
     with pytest.raises(DocumentLifecycleConflictError, match="stale document deletion"):
-        await worker.apply_deletion_request(stale)
+        await worker.apply_deletion_request(stale, lambda: claim)
+
+    metadata.claims[(upload_id, DocumentWorkerStage.DELETION)] = claim.model_copy(
+        update={"lease_expires_at": now - timedelta(seconds=1)}
+    )
+    reclaimed = await metadata.claim_worker_stage(
+        upload_id,
+        DocumentWorkerStage.DELETION,
+        owner="worker-b",
+        attempt_id=uuid4(),
+        lease_seconds=30,
+    )
+    assert reclaimed is not None
+    current = DocumentDeletionRequest(
+        request_id=uuid4(),
+        idempotency_key="document.delete:current",
+        document_id=document_id,
+        version_id=version_id,
+        upload_id=upload_id,
+        requested_by="operator",
+        expected_upload_revision=session.revision,
+        expected_version_revision=version.revision,
+        requested_at=now,
+    )
+    with pytest.raises(DocumentWorkerClaimConflictError, match="claim conflict"):
+        await worker.apply_deletion_request(current, lambda: claim)
 
     assert index.deleted == []
     assert artifacts.deleted == []
     assert session.object_key in objects.content
+    assert metadata.events == []
 
 
 def test_http_upload_content_and_complete_preserve_wire_contract(
@@ -806,7 +940,7 @@ async def test_worker_claim_prevents_duplicate_operation() -> None:
     upload_id = uuid4()
     calls = 0
 
-    async def operation(_upload_id: UUID) -> object:
+    async def operation(_upload_id: UUID, _claim: object) -> object:
         nonlocal calls
         calls += 1
         return object()
@@ -825,6 +959,63 @@ async def test_worker_claim_prevents_duplicate_operation() -> None:
     assert metadata.claims[(upload_id, DocumentWorkerStage.INDEXING)].status is (
         DocumentWorkerClaimStatus.COMPLETED
     )
+
+
+@pytest.mark.asyncio
+async def test_worker_reclaim_rejects_stale_attempt_and_restart_completes_once() -> None:
+    metadata = MemoryMetadata()
+    upload_id = uuid4()
+    stage = DocumentWorkerStage.INDEXING
+    calls: list[str] = []
+    first = DocumentIngestionEventConsumer(
+        event_bus=object(),  # type: ignore[arg-type]
+        worker=object(),  # type: ignore[arg-type]
+        metadata=metadata,
+        activity=Activity(),
+        topic="object.audit-entry",
+        worker_owner="worker-a",
+        lease_seconds=30,
+    )
+
+    async def stale_operation(
+        _upload_id: UUID, current_claim: Callable[[], DocumentWorkerClaim]
+    ) -> object:
+        stale = current_claim()
+        metadata.claims[(upload_id, stage)] = stale.model_copy(
+            update={"lease_expires_at": datetime.now(UTC) - timedelta(seconds=1)}
+        )
+        await metadata.assert_worker_stage_active(stale)
+        calls.append("stale")
+        return object()
+
+    with pytest.raises(DocumentWorkerClaimConflictError, match="claim conflict"):
+        await first._run_once(upload_id, stage, stale_operation)
+
+    restarted = DocumentIngestionEventConsumer(
+        event_bus=object(),  # type: ignore[arg-type]
+        worker=object(),  # type: ignore[arg-type]
+        metadata=metadata,
+        activity=Activity(),
+        topic="object.audit-entry",
+        worker_owner="worker-b",
+        lease_seconds=30,
+    )
+
+    async def recovered_operation(
+        _upload_id: UUID, current_claim: Callable[[], DocumentWorkerClaim]
+    ) -> object:
+        await metadata.assert_worker_stage_active(current_claim())
+        calls.append("recovered")
+        return object()
+
+    await restarted._run_once(upload_id, stage, recovered_operation)
+    await first._run_once(upload_id, stage, recovered_operation)
+
+    completed = metadata.claims[(upload_id, stage)]
+    assert calls == ["recovered"]
+    assert completed.owner == "worker-b"
+    assert completed.revision == 3
+    assert completed.status is DocumentWorkerClaimStatus.COMPLETED
 
 
 class LoopService:

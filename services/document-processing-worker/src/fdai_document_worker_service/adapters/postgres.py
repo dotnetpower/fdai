@@ -108,13 +108,31 @@ class PostgresDocumentMetadataStore:
         expected_version_revision: int,
         event: DocumentLifecycleEvent,
     ) -> None:
-        """Atomically CAS both lifecycle rows and enqueue one worker fact."""
+        """Reject worker lifecycle writes that are not bound to a stage claim."""
+        raise PermissionError("worker lifecycle transitions require an active stage claim")
+
+    async def transition_worker_stage(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        claim: DocumentWorkerClaim,
+        expected_upload_state: str,
+        expected_upload_revision: int,
+        expected_version_state: str,
+        expected_version_revision: int,
+        event: DocumentLifecycleEvent,
+    ) -> None:
+        """Fence lifecycle and outbox commit with the active unexpired claim."""
         if session.revision != expected_upload_revision + 1:
             raise ValueError("upload transition revision MUST increment exactly once")
         if version.revision != expected_version_revision + 1:
             raise ValueError("version transition revision MUST increment exactly once")
+        if claim.upload_id != session.upload_id:
+            raise DocumentWorkerClaimConflictError("document worker claim conflict")
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
+            await self._lock_active_claim(connection, claim)
             upload_cursor = await connection.execute(
                 "UPDATE document_upload_session SET state = %s, revision = %s, "
                 "payload = %s::jsonb, updated_at = NOW() WHERE upload_id = %s "
@@ -156,6 +174,21 @@ class PostgresDocumentMetadataStore:
             )
             if await version_cursor.fetchone() is None:
                 raise DocumentLifecycleConflictError("document version lifecycle CAS conflict")
+            await _enqueue_outbox(connection, event)
+
+    async def assert_worker_stage_active(self, claim: DocumentWorkerClaim) -> None:
+        """Revalidate a claim immediately before a non-transactional stage effect."""
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            await self._lock_active_claim(connection, claim)
+
+    async def enqueue_worker_event(
+        self, event: DocumentLifecycleEvent, *, claim: DocumentWorkerClaim
+    ) -> None:
+        """Fence a non-replay outbox write with the active worker claim."""
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            await self._lock_active_claim(connection, claim)
             await _enqueue_outbox(connection, event)
 
     async def enqueue_event(self, event: DocumentLifecycleEvent) -> None:
@@ -381,6 +414,27 @@ class PostgresDocumentMetadataStore:
         if row is None:
             raise DocumentWorkerClaimConflictError("document worker claim conflict")
         return _claim(row)
+
+    @staticmethod
+    async def _lock_active_claim(
+        connection: psycopg.AsyncConnection[Any], claim: DocumentWorkerClaim
+    ) -> None:
+        row = await (
+            await connection.execute(
+                "SELECT 1 FROM document_worker_claim WHERE upload_id = %s AND stage = %s "
+                "AND owner = %s AND attempt_id = %s AND revision = %s AND status = 'active' "
+                "AND lease_expires_at > clock_timestamp() FOR UPDATE",
+                (
+                    claim.upload_id,
+                    claim.stage.value,
+                    claim.owner,
+                    claim.attempt_id,
+                    claim.revision,
+                ),
+            )
+        ).fetchone()
+        if row is None:
+            raise DocumentWorkerClaimConflictError("document worker claim conflict")
 
     async def _one(self, query: str, params: tuple[object, ...]) -> dict[str, Any] | None:
         async with await self._connect() as connection:

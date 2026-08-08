@@ -23,6 +23,8 @@ from fdai_service_contracts import (
     DocumentReadyConsumer,
     DocumentState,
     DocumentVersion,
+    DocumentWorkerClaim,
+    DocumentWorkerClaimConflictError,
     MalwareScanner,
     MalwareVerdict,
     PromotableDocumentObjectStore,
@@ -44,6 +46,7 @@ _EXTRACTABLE_PROTECTION = frozenset(
 )
 _LOGGER = logging.getLogger(__name__)
 _ResultT = TypeVar("_ResultT")
+_ClaimReader = Callable[[], DocumentWorkerClaim]
 
 
 class DocumentIngestionWorker:
@@ -76,13 +79,13 @@ class DocumentIngestionWorker:
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._indexing_stage_timeout_seconds = indexing_stage_timeout_seconds
 
-    async def process(self, upload_id: UUID) -> DocumentVersion:
-        version = await self.inspect(upload_id)
+    async def process(self, upload_id: UUID, claim: _ClaimReader) -> DocumentVersion:
+        version = await self.inspect(upload_id, claim)
         if version.state in _TERMINAL_STATES:
             return version
-        return await self.index(upload_id)
+        return await self.index(upload_id, claim)
 
-    async def inspect(self, upload_id: UUID) -> DocumentVersion:
+    async def inspect(self, upload_id: UUID, claim: _ClaimReader) -> DocumentVersion:
         session = await self._metadata.get_upload(upload_id)
         version = await self._metadata.get_version(session.document_id, session.version_id)
         if version.state in _TERMINAL_STATES or version.state in {
@@ -98,9 +101,13 @@ class DocumentIngestionWorker:
         }:
             raise ValueError("worker cannot inspect the current document state")
         if version.state is DocumentState.RECEIVED:
-            session, version = await self._advance(session, version, DocumentState.QUARANTINED)
+            session, version = await self._advance(
+                session, version, DocumentState.QUARANTINED, claim=claim
+            )
         if version.state is DocumentState.QUARANTINED:
-            session, version = await self._advance(session, version, DocumentState.SCANNING)
+            session, version = await self._advance(
+                session, version, DocumentState.SCANNING, claim=claim
+            )
         if version.state is not DocumentState.SCANNING:
             return version
         try:
@@ -134,12 +141,13 @@ class DocumentIngestionWorker:
             session,
             version,
             DocumentState.PROTECTION_CHECK,
+            claim=claim,
             action="document.inspected",
             extra={"malware_verdict": malware_verdict.value},
         )
         return version
 
-    async def index(self, upload_id: UUID) -> DocumentVersion:
+    async def index(self, upload_id: UUID, claim: _ClaimReader) -> DocumentVersion:
         session = await self._metadata.get_upload(upload_id)
         version = await self._metadata.get_version(session.document_id, session.version_id)
         if version.state in _TERMINAL_STATES:
@@ -150,17 +158,21 @@ class DocumentIngestionWorker:
                     session,
                     version,
                     version.failure_code or version.protection_state.value,
+                    claim,
                 )
             if session.storage_mode is SourceStorageMode.METADATA_ONLY:
                 session, version = await self._advance(
                     session,
                     version,
                     DocumentState.READY,
+                    claim=claim,
                     version_updates={"active": True, "available": True},
                     action="document.ready",
                 )
                 return version
-            session, version = await self._advance(session, version, DocumentState.EXTRACTING)
+            session, version = await self._advance(
+                session, version, DocumentState.EXTRACTING, claim=claim
+            )
         if version.state not in {DocumentState.EXTRACTING, DocumentState.INDEXING}:
             raise ValueError("worker cannot index the current document state")
         try:
@@ -169,27 +181,35 @@ class DocumentIngestionWorker:
                 chunks=self._objects.read(session.object_key),
             )
         except DocumentExtractionUnavailableError as exc:
-            return await self._fail(session, version, exc.reason.value)
+            return await self._fail(session, version, exc.reason.value, claim)
         except Exception:  # noqa: BLE001 - parser details must not leak
-            return await self._fail(session, version, "extraction_failed")
+            return await self._fail(session, version, "extraction_failed", claim)
         if version.state is DocumentState.EXTRACTING:
-            session, version = await self._advance(session, version, DocumentState.INDEXING)
+            session, version = await self._advance(
+                session, version, DocumentState.INDEXING, claim=claim
+            )
         try:
+            await self._assert_active_claim(upload_id, claim)
             await self._run_stage("artifact_put", upload_id, self._artifacts.put(envelope))
+            await self._assert_active_claim(upload_id, claim)
             await self._run_stage("index_commit", upload_id, self._index.commit(envelope))
+            await self._assert_active_claim(upload_id, claim)
             consumer_warnings = await self._run_stage(
                 "consumer_delivery", upload_id, self._consume(session, envelope)
             )
+        except DocumentWorkerClaimConflictError:
+            raise
         except Exception:  # noqa: BLE001 - partially indexed content never becomes available
             await self._index.delete(version.document_id, version.version_id)
             await self._artifacts.delete(version.document_id, version.version_id)
-            return await self._fail(session, version, "indexing_failed")
+            return await self._fail(session, version, "indexing_failed", claim)
         session_updates: dict[str, object] = {}
         if session.storage_mode is SourceStorageMode.MANAGED_COPY and isinstance(
             self._objects, PromotableDocumentObjectStore
         ):
             source_session = session
             session_updates["object_key"] = self._objects.governed_key(session)
+            await self._assert_active_claim(upload_id, claim)
             await self._objects.promote(source_session)
         warnings = envelope.warnings + consumer_warnings
         target = DocumentState.READY_WITH_WARNINGS if warnings else DocumentState.READY
@@ -198,6 +218,7 @@ class DocumentIngestionWorker:
                 session,
                 version,
                 target,
+                claim=claim,
                 session_updates=session_updates,
                 version_updates={
                     "active": True,
@@ -206,16 +227,19 @@ class DocumentIngestionWorker:
                 },
                 action="document.ready",
             )
+        except DocumentWorkerClaimConflictError:
+            raise
         except DocumentLifecycleConflictError:
             await self._index.delete(version.document_id, version.version_id)
             await self._artifacts.delete(version.document_id, version.version_id)
             raise
         if session.storage_mode is SourceStorageMode.EPHEMERAL_PROCESSING:
+            await self._assert_active_claim(upload_id, claim)
             await self._objects.delete(session.object_key)
         return version
 
     async def apply_safety_decision(
-        self, upload_id: UUID, *, decision: str, reason: str
+        self, upload_id: UUID, claim: _ClaimReader, *, decision: str, reason: str
     ) -> DocumentVersion:
         session = await self._metadata.get_upload(upload_id)
         version = await self._metadata.get_version(session.document_id, session.version_id)
@@ -224,8 +248,8 @@ class DocumentIngestionWorker:
                 return version
             raise ValueError("safety decision requires protection_check state")
         if decision != "admit":
-            return await self._hold(session, version, reason or "safety_hold")
-        return await self.index(upload_id)
+            return await self._hold(session, version, reason or "safety_hold", claim)
+        return await self.index(upload_id, claim)
 
     async def republish_received(self, upload_id: UUID) -> None:
         session = await self._metadata.get_upload(upload_id)
@@ -260,7 +284,9 @@ class DocumentIngestionWorker:
             )
         )
 
-    async def apply_deletion_request(self, request: DocumentDeletionRequest) -> DocumentVersion:
+    async def apply_deletion_request(
+        self, request: DocumentDeletionRequest, claim: _ClaimReader
+    ) -> DocumentVersion:
         """Delete artifacts only while the API-requested lifecycle revision is current."""
         version = await self._metadata.get_version(request.document_id, request.version_id)
         session = await self._metadata.get_upload(request.upload_id)
@@ -274,18 +300,28 @@ class DocumentIngestionWorker:
         ):
             raise DocumentLifecycleConflictError("stale document deletion request")
         try:
+            await self._assert_active_claim(request.upload_id, claim)
             await self._index.delete(request.document_id, request.version_id)
+            await self._assert_active_claim(request.upload_id, claim)
             await self._artifacts.delete(request.document_id, request.version_id)
+            await self._assert_active_claim(request.upload_id, claim)
             await self._objects.delete(session.object_key)
-        except Exception:
-            await self._metadata.enqueue_event(
-                self._event(session, version, "document.deletion_pending")
+        except DocumentWorkerClaimConflictError:
+            raise
+        except Exception as exc:
+            current_claim = claim()
+            if current_claim.upload_id != request.upload_id:
+                raise DocumentWorkerClaimConflictError("document worker claim conflict") from exc
+            await self._metadata.enqueue_worker_event(
+                self._event(session, version, "document.deletion_pending"),
+                claim=current_claim,
             )
             raise
         session, version = await self._advance(
             session,
             version,
             DocumentState.DELETED,
+            claim=claim,
             version_updates={"available": False, "active": False},
             action="document.deleted",
             actor_id=request.requested_by,
@@ -323,6 +359,7 @@ class DocumentIngestionWorker:
         version: DocumentVersion,
         target: DocumentState,
         *,
+        claim: _ClaimReader,
         session_updates: dict[str, object] | None = None,
         version_updates: dict[str, object] | None = None,
         action: str | None = None,
@@ -346,9 +383,13 @@ class DocumentIngestionWorker:
             }
         )
         event_action = action or f"document.{state.value}"
-        await self._metadata.transition(
+        current_claim = claim()
+        if current_claim.upload_id != session.upload_id:
+            raise DocumentWorkerClaimConflictError("document worker claim conflict")
+        await self._metadata.transition_worker_stage(
             updated_session,
             updated_version,
+            claim=current_claim,
             expected_upload_state=session.state.value,
             expected_upload_revision=session.revision,
             expected_version_state=version.state.value,
@@ -364,12 +405,17 @@ class DocumentIngestionWorker:
         return updated_session, updated_version
 
     async def _hold(
-        self, session: UploadSession, version: DocumentVersion, reason: str
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        reason: str,
+        claim: _ClaimReader,
     ) -> DocumentVersion:
         session, version = await self._advance(
             session,
             version,
             DocumentState.HELD,
+            claim=claim,
             session_updates={"failure_code": reason},
             version_updates={"failure_code": reason, "available": False},
             action="document.held",
@@ -377,17 +423,28 @@ class DocumentIngestionWorker:
         return version
 
     async def _fail(
-        self, session: UploadSession, version: DocumentVersion, reason: str
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        reason: str,
+        claim: _ClaimReader,
     ) -> DocumentVersion:
         session, version = await self._advance(
             session,
             version,
             DocumentState.FAILED,
+            claim=claim,
             session_updates={"failure_code": reason},
             version_updates={"failure_code": reason, "available": False},
             action="document.failed",
         )
         return version
+
+    async def _assert_active_claim(self, upload_id: UUID, claim: _ClaimReader) -> None:
+        current_claim = claim()
+        if current_claim.upload_id != upload_id:
+            raise DocumentWorkerClaimConflictError("document worker claim conflict")
+        await self._metadata.assert_worker_stage_active(current_claim)
 
     def _event(
         self,

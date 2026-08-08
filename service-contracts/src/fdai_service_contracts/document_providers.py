@@ -146,6 +146,31 @@ class DocumentUploadMetadataStore(Protocol):
 class DocumentMetadataStore(DocumentUploadMetadataStore, Protocol):
     """Worker extension that owns durable stage-claim transitions."""
 
+    async def transition_worker_stage(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        claim: DocumentWorkerClaim,
+        expected_upload_state: str,
+        expected_upload_revision: int,
+        expected_version_state: str,
+        expected_version_revision: int,
+        event: DocumentLifecycleEvent,
+    ) -> None:
+        """Commit lifecycle state only while the exact worker claim is active."""
+        ...
+
+    async def assert_worker_stage_active(self, claim: DocumentWorkerClaim) -> None:
+        """Fail unless the exact claim remains active and unexpired."""
+        ...
+
+    async def enqueue_worker_event(
+        self, event: DocumentLifecycleEvent, *, claim: DocumentWorkerClaim
+    ) -> None:
+        """Enqueue a non-replay worker fact only while the exact claim is active."""
+        ...
+
     async def claim_worker_stage(
         self,
         upload_id: UUID,

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from uuid import uuid4
 
 import fdai_document_worker_service.adapters.event_bus as event_bus_module
 import httpx
@@ -26,7 +28,14 @@ from fdai_document_worker_service.adapters.storage import (
     AzureDataLakeConfig,
     AzureDataLakeObjectStore,
 )
-from fdai_service_contracts import AdapterReadinessState, ProviderUnavailableError
+from fdai_service_contracts import (
+    AdapterReadinessState,
+    DocumentWorkerClaim,
+    DocumentWorkerClaimConflictError,
+    DocumentWorkerClaimStatus,
+    DocumentWorkerStage,
+    ProviderUnavailableError,
+)
 
 
 class Credential:
@@ -110,6 +119,34 @@ class Connection:
         return object()
 
 
+class Cursor:
+    def __init__(self, row: object | None) -> None:
+        self._row = row
+
+    async def fetchone(self) -> object | None:
+        return self._row
+
+
+class Transaction:
+    async def __aenter__(self) -> Transaction:
+        return self
+
+    async def __aexit__(self, *_args: object) -> None:
+        return None
+
+
+class StaleClaimConnection(Connection):
+    def __init__(self) -> None:
+        self.queries: list[str] = []
+
+    def transaction(self) -> Transaction:
+        return Transaction()
+
+    async def execute(self, query: str, _params: object = ()) -> Cursor:
+        self.queries.append(query)
+        return Cursor(None)
+
+
 def test_live_adapters_report_configuration_evidence_without_network_calls() -> None:
     credential = Credential()
     adls = AzureDataLakeObjectStore(
@@ -140,6 +177,54 @@ def test_live_adapters_report_configuration_evidence_without_network_calls() -> 
     assert all(item.state is AdapterReadinessState.READY for item in readiness)
     assert all(item.evidence == "configuration" for item in readiness)
     assert all(item.live_verified is False for item in readiness)
+
+
+async def test_postgres_worker_transition_rejects_stale_claim_before_lifecycle_write(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    postgres = PostgresDocumentMetadataStore(
+        config=PostgresWorkerConfig(dsn="postgresql://example")
+    )
+    connection = StaleClaimConnection()
+
+    async def connect() -> StaleClaimConnection:
+        return connection
+
+    monkeypatch.setattr(postgres, "_connect", connect)
+    now = datetime.now(UTC)
+    claim = DocumentWorkerClaim(
+        upload_id=uuid4(),
+        stage=DocumentWorkerStage.INDEXING,
+        owner="stale-worker",
+        attempt_id=uuid4(),
+        revision=3,
+        status=DocumentWorkerClaimStatus.ACTIVE,
+        claimed_at=now - timedelta(seconds=30),
+        lease_expires_at=now - timedelta(seconds=1),
+    )
+    session = SimpleNamespace(upload_id=claim.upload_id, revision=2)
+    version = SimpleNamespace(revision=2)
+
+    with pytest.raises(DocumentWorkerClaimConflictError, match="claim conflict"):
+        await postgres.transition_worker_stage(
+            session,  # type: ignore[arg-type]
+            version,  # type: ignore[arg-type]
+            claim=claim,
+            expected_upload_state="indexing",
+            expected_upload_revision=1,
+            expected_version_state="indexing",
+            expected_version_revision=1,
+            event=object(),  # type: ignore[arg-type]
+        )
+
+    assert any("FROM document_worker_claim" in query for query in connection.queries)
+    assert not any("UPDATE document_upload_session" in query for query in connection.queries)
+
+    connection.queries.clear()
+    with pytest.raises(DocumentWorkerClaimConflictError, match="claim conflict"):
+        await postgres.enqueue_worker_event(object(), claim=claim)  # type: ignore[arg-type]
+    assert any("FROM document_worker_claim" in query for query in connection.queries)
+    assert not any("INSERT INTO document_worker_outbox" in query for query in connection.queries)
 
 
 async def test_kafka_consumer_dead_letters_decode_error_before_committing_offset(

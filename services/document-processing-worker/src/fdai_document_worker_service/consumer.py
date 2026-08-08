@@ -31,6 +31,8 @@ from pydantic import ValidationError
 from fdai_document_worker_service.processing import DocumentIngestionWorker
 
 _LOGGER = logging.getLogger(__name__)
+_ClaimReader = Callable[[], DocumentWorkerClaim]
+_ClaimedOperation = Callable[[UUID, _ClaimReader], Awaitable[object]]
 
 
 class DocumentIngestionEventConsumer:
@@ -188,9 +190,10 @@ class DocumentIngestionEventConsumer:
 
                     async def apply(
                         _upload_id: UUID,
+                        claim: _ClaimReader,
                         deletion_request: DocumentDeletionRequest = request,
                     ) -> object:
-                        return await self._worker.apply_deletion_request(deletion_request)
+                        return await self._worker.apply_deletion_request(deletion_request, claim)
 
                     await self._run_once(
                         request.upload_id,
@@ -252,7 +255,7 @@ class DocumentIngestionEventConsumer:
             for session in await self._metadata.list_uploads_by_state(
                 state.value, limit=self._reconcile_batch_size
             ):
-                await self._run_reconcile(session.upload_id, stage, operation)
+                await self._run_replay(session.upload_id, stage, operation)
         for state in (DocumentState.QUARANTINED, DocumentState.SCANNING):
             for session in await self._metadata.list_uploads_by_state(
                 state.value, limit=self._reconcile_batch_size
@@ -276,7 +279,7 @@ class DocumentIngestionEventConsumer:
         self,
         upload_id: UUID,
         stage: DocumentWorkerStage,
-        operation: Callable[[UUID], Awaitable[object]],
+        operation: _ClaimedOperation,
     ) -> None:
         try:
             await self._run_once(upload_id, stage, operation)
@@ -292,11 +295,22 @@ class DocumentIngestionEventConsumer:
                 },
             )
 
-    async def _run_once(
+    async def _run_replay(
         self,
         upload_id: UUID,
         stage: DocumentWorkerStage,
         operation: Callable[[UUID], Awaitable[object]],
+    ) -> None:
+        async def replay(current_upload_id: UUID, _claim: _ClaimReader) -> object:
+            return await operation(current_upload_id)
+
+        await self._run_reconcile(upload_id, stage, replay)
+
+    async def _run_once(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        operation: _ClaimedOperation,
     ) -> None:
         attempt_id = uuid4()
         claim = await self._metadata.claim_worker_stage(
@@ -309,9 +323,10 @@ class DocumentIngestionEventConsumer:
         if claim is None:
             return
         current_claim = [claim]
-        operation_task = asyncio.ensure_future(operation(upload_id))
+        renewal_stop = asyncio.Event()
+        operation_task = asyncio.ensure_future(operation(upload_id, lambda: current_claim[0]))
         renewal_task = asyncio.create_task(
-            self._renew_claim(upload_id, stage, attempt_id, current_claim)
+            self._renew_claim(upload_id, stage, attempt_id, current_claim, renewal_stop)
         )
         try:
             done, _ = await asyncio.wait(
@@ -321,8 +336,8 @@ class DocumentIngestionEventConsumer:
                 await renewal_task
                 raise RuntimeError("document worker claim renewal stopped unexpectedly")
             await operation_task
-            renewal_task.cancel()
-            await asyncio.gather(renewal_task, return_exceptions=True)
+            renewal_stop.set()
+            await renewal_task
             await self._metadata.complete_worker_stage(
                 upload_id,
                 stage,
@@ -331,13 +346,17 @@ class DocumentIngestionEventConsumer:
                 expected_revision=current_claim[0].revision,
             )
         except asyncio.CancelledError:
-            await self._cancel_operation(operation_task, renewal_task)
+            renewal_stop.set()
+            await self._cancel_operation(operation_task)
+            await asyncio.gather(renewal_task, return_exceptions=True)
             await self._release_claim_safely(
                 upload_id, stage, attempt_id, current_claim[0].revision
             )
             raise
         except Exception:
-            await self._cancel_operation(operation_task, renewal_task)
+            renewal_stop.set()
+            await self._cancel_operation(operation_task)
+            await asyncio.gather(renewal_task, return_exceptions=True)
             await self._release_claim_safely(
                 upload_id, stage, attempt_id, current_claim[0].revision
             )
@@ -349,9 +368,14 @@ class DocumentIngestionEventConsumer:
         stage: DocumentWorkerStage,
         attempt_id: UUID,
         current_claim: list[DocumentWorkerClaim],
+        stop: asyncio.Event,
     ) -> None:
         while True:
-            await asyncio.sleep(self._lease_seconds / 3)
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=self._lease_seconds / 3)
+                return
+            except TimeoutError:
+                pass
             current_claim[0] = await self._metadata.renew_worker_stage(
                 upload_id,
                 stage,
