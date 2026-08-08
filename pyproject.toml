@@ -187,7 +187,7 @@ members = [
     "benchmarks/sregym",
     "benchmarks/cybergym",
     "extensions/code-assurance",
-    "service-contracts",
+    "packages/service-contracts",
     "services/core-control-plane",
     "services/operator-service",
     "services/document-ingestion-api",
@@ -252,7 +252,7 @@ ignore = []
 python_version = "3.12"
 strict = true
 files = ["src/fdai", "extensions/code-assurance/src/fdai_code_assurance"]
-mypy_path = ["service-contracts/src", "services/isolated-executor/src"]
+mypy_path = ["packages/service-contracts/src", "services/isolated-executor/src"]
 
 # aiokafka ships no py.typed marker and no stub package. It is only imported
 # by `delivery/azure/event_bus.py`; the adapter boundary in composition
@@ -274,7 +274,7 @@ addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importli
 pythonpath = [
     ".",
     "extensions/code-assurance/src",
-    "service-contracts/src",
+    "packages/service-contracts/src",
     "services/core-control-plane/src",
     "services/operator-service/src",
     "services/document-ingestion-api/src",

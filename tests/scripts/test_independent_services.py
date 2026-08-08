@@ -44,6 +44,11 @@ def test_manifest_requires_zero_cross_service_implementation_imports() -> None:
     }
 
 
+def test_contract_sdk_uses_final_package_layout() -> None:
+    assert (REPO_ROOT / "packages" / "service-contracts" / "pyproject.toml").is_file()
+    assert not (REPO_ROOT / "service-contracts").exists()
+
+
 def test_checker_accepts_current_non_growth_baseline() -> None:
     _checker_module().validate()
 

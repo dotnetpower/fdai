@@ -34,6 +34,7 @@ from jsonschema.exceptions import ValidationError
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = (
     REPO_ROOT
+    / "packages"
     / "service-contracts"
     / "src"
     / "fdai_service_contracts"
@@ -434,6 +435,7 @@ def test_live_receipt_requires_exact_immutable_observation_refs() -> None:
     receipt["proof_kind"] = "live"
     schema = load_json_object(
         REPO_ROOT
+        / "packages"
         / "service-contracts"
         / "src"
         / "fdai_service_contracts"
@@ -558,7 +560,7 @@ def test_upgrade_receipt_tampering_fails_closed(mutation: str, message: str) -> 
 
 
 def test_contract_sdk_remains_free_of_service_implementation_imports() -> None:
-    source_root = REPO_ROOT / "service-contracts" / "src" / "fdai_service_contracts"
+    source_root = REPO_ROOT / "packages" / "service-contracts" / "src" / "fdai_service_contracts"
     source = "\n".join(path.read_text(encoding="utf-8") for path in source_root.glob("*.py"))
 
     assert "from fdai." not in source

@@ -38,7 +38,7 @@ COPY evaluation-sdk/ ./evaluation-sdk/
 COPY benchmarks/sregym/pyproject.toml ./benchmarks/sregym/pyproject.toml
 COPY benchmarks/cybergym/pyproject.toml ./benchmarks/cybergym/pyproject.toml
 COPY extensions/code-assurance/pyproject.toml ./extensions/code-assurance/pyproject.toml
-COPY service-contracts/ ./service-contracts/
+COPY packages/service-contracts/ ./packages/service-contracts/
 COPY services/ ./services/
 COPY src/ ./src/
 

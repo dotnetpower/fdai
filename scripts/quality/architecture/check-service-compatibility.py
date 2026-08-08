@@ -15,7 +15,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import SchemaError, ValidationError
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CONTRACT_SOURCE = REPO_ROOT / "service-contracts" / "src"
+CONTRACT_SOURCE = REPO_ROOT / "packages" / "service-contracts" / "src"
 SERVICE_SOURCES = (
     REPO_ROOT / "services" / "core-control-plane" / "src",
     REPO_ROOT / "services" / "operator-service" / "src",

@@ -30,7 +30,7 @@ from fdai_service_contracts.schema import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CONTRACT_SOURCE = REPO_ROOT / "service-contracts" / "src" / "fdai_service_contracts"
+CONTRACT_SOURCE = REPO_ROOT / "packages" / "service-contracts" / "src" / "fdai_service_contracts"
 EXECUTOR_SOURCE = REPO_ROOT / "services" / "isolated-executor" / "src" / "fdai_executor_service"
 
 

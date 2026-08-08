@@ -209,7 +209,7 @@ def test_service_wheel_contains_only_owned_package_roots(
 
 
 def test_service_contract_sdk_contains_no_fdai_implementation_import() -> None:
-    source = REPO_ROOT / "service-contracts" / "src" / "fdai_service_contracts"
+    source = REPO_ROOT / "packages" / "service-contracts" / "src" / "fdai_service_contracts"
     text = "\n".join(path.read_text(encoding="utf-8") for path in source.glob("*.py"))
     assert "from fdai." not in text
     assert "import fdai." not in text

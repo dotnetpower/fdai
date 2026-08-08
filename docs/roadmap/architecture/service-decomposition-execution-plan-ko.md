@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: f28827575b428906aaf5bb1d568ad8e854412c1f
+translation_source_sha: 116edc3d3f3b2f55999811b64f9cb7cca027aace
 translation_revised: 2026-08-08
 ---
 # 서비스 분해 실행 계획
@@ -111,9 +111,10 @@ fdai/
 - **Cross-service test:** Root `tests/integration/`은 wire compatibility와 deployed workflow를
   검증합니다. Unit test와 component test는 소유 service로 이동합니다.
 - **폐기할 compatibility tree:** 최상위 `src/fdai/`, shared multi-target service Dockerfile, legacy
-  service entry point 및 중복 contract 정의는 migration 전용 artifact입니다. IS-07이 image 기반
-  N/N-1 rollback을 증명한 뒤 IS-08에서 제거합니다. Checked-in legacy source tree 대신 Git history와
-  변경 불가능한 이전 image를 rollback mechanism으로 사용합니다.
+  service entry point 및 중복 contract 정의는 migration 전용 artifact입니다. IS-08에서 먼저 로컬로
+  제거한 뒤, 최종 service-owned source를 사용해 IS-07의 image 기반 N/N-1 rollback을 증명합니다.
+  Checked-in legacy source tree 대신 Git history와 변경 불가능한 이전 image를 rollback mechanism으로
+  사용합니다.
 
 | 완료 | ID | Work package | Dependency | Exit evidence |
 |------|----|--------------|------------|---------------|
@@ -124,9 +125,9 @@ fdai/
 | [ ] | IS-04 | Durable writer grant와 migration branch를 service별로 분리합니다. | IS-02 | Migration head 5개와 writer overlap 0 |
 | [x] | IS-05 | 최소 service image 5개를 build, scan, attest, publish합니다. | IS-02, IS-03 | Immutable image, SBOM, startup receipt 5개 |
 | [ ] | IS-06 | Shared platform에서 service Terraform root, state 및 deployment workflow를 분리합니다. | IS-04, IS-05 | 각 service가 peer 변경 없이 plan/apply한 receipt |
-| [ ] | IS-07 | 각 service의 N/N-1 contract와 독립 upgrade/rollback을 증명합니다. | IS-03, IS-06 | Peer를 유지한 rolling receipt 5개 |
-| [ ] | IS-08 | Implementation, unit test, build definition 및 distribution을 5개 service root 아래로 이동하고 최상위 monolith source, 중복 contract, co-host, in-process authority, shared-image 및 shared-migration compatibility path를 제거합니다. | IS-07 | 최종 리포지토리 레이아웃이 문서의 tree와 일치하고 최상위 production source 및 topology compatibility path 수가 0 |
-| [ ] | IS-09 | 최종 리포지토리 레이아웃을 enforce하고 독립 critique-and-hardening round를 10회 이상 실행한 뒤 program을 종료합니다. | IS-08 | Layout 및 import gate 통과, Medium 이상 residual 0 |
+| [ ] | IS-07 | 각 service의 N/N-1 contract와 독립 upgrade/rollback을 증명합니다. | IS-03, IS-06, IS-08 | 최종 service-owned layout에서 build하고 peer를 유지한 rolling receipt 5개 |
+| [ ] | IS-08 | Implementation, unit test, build definition 및 distribution을 5개 service root 아래로 이동하고 최상위 monolith source, 중복 contract, co-host, in-process authority, shared-image 및 shared-migration compatibility path를 제거합니다. | IS-03, IS-05 | 최종 리포지토리 레이아웃이 문서의 tree와 일치하고 최상위 production source 및 topology compatibility path 수가 0 |
+| [ ] | IS-09 | 최종 리포지토리 레이아웃을 enforce하고 독립 critique-and-hardening round를 10회 이상 실행한 뒤 program을 종료합니다. | IS-07, IS-08 | Layout 및 import gate 통과, Medium 이상 residual 0 |
 
 Machine source of truth는 `config/independent-services.json`입니다. 각 migration wave는 같은 focused
 commit에서 status와 evidence를 업데이트합니다. Shared Event Hubs, PostgreSQL hosting, ACR, Key Vault,
@@ -148,8 +149,9 @@ Core는 monolithic FDAI distribution을 설치하지 않고 정확한 owned sour
 nonroot image 5개를 build합니다. Supply-chain matrix는 service별 scan, SBOM, provenance 및 attestation을
 유지합니다. Legacy monolith import는 이전 compatibility tree에만 남습니다. Core의 build-time source
 allowlist, root `src/fdai/` tree 및 shared multi-target Dockerfile은 최종 layout이 아닌 transition
-mechanism입니다. Live rolling proof 후 IS-08에서 제거하고 각 owned source와 test를 해당 service root로
-이동합니다.
+mechanism입니다. 로컬 IS-08에서 먼저 제거하고 각 owned source와 test를 해당 service root로
+이동합니다. 그런 다음 IS-07은 최종 service-owned build input으로 live rolling proof를 수행하며
+monolith를 rollback source로 유지하지 않습니다.
 
 ## 병렬 실행 규칙
 

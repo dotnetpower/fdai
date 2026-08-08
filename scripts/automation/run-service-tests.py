@@ -301,7 +301,7 @@ def _test_paths(service: dict[str, Any]) -> tuple[str, ...]:
 
 def _python_path(service_ids: Sequence[str]) -> str:
     roots = [REPO_ROOT / "services" / service_id / "src" for service_id in service_ids]
-    roots.append(REPO_ROOT / "service-contracts" / "src")
+    roots.append(REPO_ROOT / "packages" / "service-contracts" / "src")
     if "core-control-plane" in service_ids:
         roots.append(REPO_ROOT / "src")
     missing = [path for path in roots if not path.is_dir()]

@@ -286,7 +286,7 @@ def test_service_test_runner_executes_canonical_all_service_union(
     assert observed[:4] == [namespace["sys"].executable, "-m", "pytest", "-q"]
     assert observed[4:] == expected
     python_path = observed_environment["PYTHONPATH"].split(namespace["os"].pathsep)
-    assert str(REPO_ROOT / "service-contracts" / "src") in python_path
+    assert str(REPO_ROOT / "packages" / "service-contracts" / "src") in python_path
     assert str(REPO_ROOT / "src") in python_path
     for service_id in SERVICE_SOURCE_ROOTS:
         assert str(REPO_ROOT / "services" / service_id / "src") in python_path
@@ -305,11 +305,11 @@ def test_service_test_python_path_ignores_hostile_inherited_paths(
 
     assert namespace["_python_path"](("isolated-executor",)).split(path_separator) == [
         str(REPO_ROOT / "services" / "isolated-executor" / "src"),
-        str(REPO_ROOT / "service-contracts" / "src"),
+        str(REPO_ROOT / "packages" / "service-contracts" / "src"),
     ]
     assert namespace["_python_path"](("core-control-plane",)).split(path_separator) == [
         str(REPO_ROOT / "services" / "core-control-plane" / "src"),
-        str(REPO_ROOT / "service-contracts" / "src"),
+        str(REPO_ROOT / "packages" / "service-contracts" / "src"),
         str(REPO_ROOT / "src"),
     ]
 

@@ -761,7 +761,7 @@ requires-dist = [
     { name = "fdai-benchmark-cybergym", marker = "extra == 'dev'", editable = "benchmarks/cybergym" },
     { name = "fdai-benchmark-sregym", marker = "extra == 'dev'", editable = "benchmarks/sregym" },
     { name = "fdai-evaluation-sdk", editable = "evaluation-sdk" },
-    { name = "fdai-service-contracts", editable = "service-contracts" },
+    { name = "fdai-service-contracts", editable = "packages/service-contracts" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "jsonschema", specifier = ">=4.23,<5" },
     { name = "markdown-it-py", specifier = ">=4,<5" },
@@ -898,7 +898,7 @@ requires-dist = [
     { name = "aiokafka", specifier = ">=0.12,<0.13" },
     { name = "alembic", specifier = ">=1.13,<2" },
     { name = "croniter", specifier = ">=6,<7" },
-    { name = "fdai-service-contracts", editable = "service-contracts" },
+    { name = "fdai-service-contracts", editable = "packages/service-contracts" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "jsonschema", specifier = ">=4.23,<5" },
     { name = "markdown-it-py", specifier = ">=4,<5" },
@@ -936,7 +936,7 @@ requires-dist = [
     { name = "azure-core", specifier = ">=1.35,<2" },
     { name = "azure-identity", specifier = ">=1.23,<2" },
     { name = "azure-storage-file-datalake", specifier = ">=12.21,<13" },
-    { name = "fdai-service-contracts", editable = "service-contracts" },
+    { name = "fdai-service-contracts", editable = "packages/service-contracts" },
     { name = "httpx", specifier = ">=0.28,<1" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
     { name = "pydantic", specifier = ">=2.9,<3" },
@@ -967,7 +967,7 @@ requires-dist = [
     { name = "azure-core", specifier = ">=1.35,<2" },
     { name = "azure-identity", specifier = ">=1.23,<2" },
     { name = "azure-storage-file-datalake", specifier = ">=12.21,<13" },
-    { name = "fdai-service-contracts", editable = "service-contracts" },
+    { name = "fdai-service-contracts", editable = "packages/service-contracts" },
     { name = "httpx", specifier = ">=0.28,<1" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
     { name = "pydantic", specifier = ">=2.9,<3" },
@@ -1019,7 +1019,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "aiokafka", specifier = ">=0.12,<0.13" },
-    { name = "fdai-service-contracts", editable = "service-contracts" },
+    { name = "fdai-service-contracts", editable = "packages/service-contracts" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
     { name = "pydantic", specifier = ">=2.9,<3" },
@@ -1039,7 +1039,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fdai-service-contracts", editable = "service-contracts" },
+    { name = "fdai-service-contracts", editable = "packages/service-contracts" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10,<3" },
     { name = "starlette", specifier = ">=1.3.1,<2" },
@@ -1049,7 +1049,7 @@ requires-dist = [
 [[package]]
 name = "fdai-service-contracts"
 version = "0.1.0"
-source = { editable = "service-contracts" }
+source = { editable = "packages/service-contracts" }
 dependencies = [
     { name = "jsonschema" },
     { name = "pydantic" },
