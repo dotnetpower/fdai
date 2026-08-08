@@ -224,8 +224,8 @@ def _guard_initial_cutover(
     contract: ServiceContract,
 ) -> list[str]:
     violations: list[str] = []
-    before_primary, _ = _container_layout(before, address=address, contract=contract)
-    after_primary, _ = _container_layout(after, address=address, contract=contract)
+    before_primary, before_sidecars = _container_layout(before, address=address, contract=contract)
+    after_primary, after_sidecars = _container_layout(after, address=address, contract=contract)
     before_image = before_primary.get("image")
     if not isinstance(before_image, str) or _DIGEST_IMAGE.fullmatch(before_image) is None:
         violations.append(f"initial cutover rollback image is not immutable at {address}")
@@ -243,6 +243,20 @@ def _guard_initial_cutover(
     if before_resources != after_resources:
         violations.append(f"initial cutover changes service resource limits at {address}")
 
+    for name, after_sidecar in after_sidecars.items():
+        before_sidecar = before_sidecars[name]
+        if before_sidecar.get("image") != after_sidecar.get("image"):
+            violations.append(f"initial cutover changes sidecar {name} image at {address}")
+        probe_fields = {"startup_probe", "liveness_probe", "readiness_probe"}
+        before_config = {
+            key: value for key, value in before_sidecar.items() if key not in probe_fields
+        }
+        after_config = {
+            key: value for key, value in after_sidecar.items() if key not in probe_fields
+        }
+        if before_config != after_config:
+            violations.append(f"initial cutover changes sidecar {name} config at {address}")
+
     before_secret_ids = _secret_ids(before)
     after_secret_ids = _secret_ids(after)
     if not after_secret_ids or not after_secret_ids <= before_secret_ids:
@@ -253,7 +267,11 @@ def _guard_initial_cutover(
     if not isinstance(before_tags, dict) or not isinstance(after_tags, dict):
         violations.append(f"initial cutover tags are invalid at {address}")
     else:
-        allowed_tag_changes = {"fdai:component", "fdai:rollback-strategy"}
+        allowed_tag_changes = {
+            "fdai:component",
+            "fdai:rollback-strategy",
+            "fdai:authority-cutover",
+        }
         changed_tags = {
             key
             for key in set(before_tags) | set(after_tags)
@@ -275,6 +293,10 @@ def _guard_initial_cutover(
     expected_primary = _primary_container(expected, address=address, contract=contract)
     expected_primary.clear()
     expected_primary.update(copy.deepcopy(after_primary))
+    expected_containers = _containers(expected, address=address)
+    for name, sidecar in after_sidecars.items():
+        expected_containers[name].clear()
+        expected_containers[name].update(copy.deepcopy(sidecar))
     if expected != after:
         violations.append(
             f"initial cutover changes fields outside its rollback boundary at {address}"
@@ -319,16 +341,29 @@ def _guard_update(
     ) != _runtime_contract(after, address=address, contract=contract):
         violations.append(f"command or environment drift at {address}")
 
-    if _resource_ids(before) != _resource_ids(after):
+    before_resource_ids = _resource_ids(before)
+    after_resource_ids = _resource_ids(after)
+    if initial_cutover and after_resource_ids <= before_resource_ids:
+        pass
+    elif before_resource_ids != after_resource_ids:
         violations.append(f"platform or peer resource identity drift at {address}")
     before_tags = before.get("tags")
     after_tags = after.get("tags")
     if isinstance(before_tags, dict) and isinstance(after_tags, dict):
-        if before_tags.get("fdai:authority-cutover") != after_tags.get("fdai:authority-cutover"):
+        before_authority_tag = before_tags.get("fdai:authority-cutover")
+        after_authority_tag = after_tags.get("fdai:authority-cutover")
+        aligned_executor_tag = (
+            initial_cutover
+            and contract.service == "isolated-executor"
+            and before_authority == after_authority == "1"
+            and before_authority_tag in (None, "true")
+            and after_authority_tag == "true"
+        )
+        if before_authority_tag != after_authority_tag and not aligned_executor_tag:
             violations.append(f"authority cutover tag change at {address}")
     _, before_sidecars = _container_layout(before, address=address, contract=contract)
     _, after_sidecars = _container_layout(after, address=address, contract=contract)
-    if before_sidecars != after_sidecars:
+    if before_sidecars != after_sidecars and not initial_cutover:
         violations.append(f"sidecar contract drift at {address}")
     if initial_cutover:
         violations.extend(_guard_initial_cutover(before, after, address=address, contract=contract))
@@ -372,6 +407,70 @@ def _guard_service_runtime(
     return violations
 
 
+def _guard_initial_worker_drift(
+    resource_drift: Any,
+    *,
+    contract: ServiceContract,
+    planned_resource: dict[str, Any],
+) -> bool:
+    if contract.service != "document-processing-worker":
+        return False
+    if not isinstance(resource_drift, list) or len(resource_drift) != 1:
+        return False
+    entry = resource_drift[0]
+    if not isinstance(entry, dict) or entry.get("address") != contract.allowed_resource_address:
+        return False
+    change = entry.get("change")
+    if not isinstance(change, dict) or change.get("actions") != ["update"]:
+        return False
+    before = change.get("before")
+    after = change.get("after")
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return False
+    try:
+        before_primary, before_sidecars = _container_layout(
+            before,
+            address=contract.allowed_resource_address,
+            contract=contract,
+        )
+        after_primary, after_sidecars = _container_layout(
+            after,
+            address=contract.allowed_resource_address,
+            contract=contract,
+        )
+        _, planned_sidecars = _container_layout(
+            planned_resource,
+            address=contract.allowed_resource_address,
+            contract=contract,
+        )
+    except PlanGuardError:
+        return False
+    if before_primary != after_primary:
+        return False
+    before_sidecar = before_sidecars.get("clamav")
+    after_sidecar = after_sidecars.get("clamav")
+    planned_sidecar = planned_sidecars.get("clamav")
+    if (
+        before_sidecar is None
+        or after_sidecar is None
+        or planned_sidecar is None
+        or before_sidecar.get("image") != "clamav/clamav:stable"
+        or not isinstance(after_sidecar.get("image"), str)
+        or _DIGEST_IMAGE.fullmatch(after_sidecar["image"]) is None
+        or after_sidecar.get("image") != planned_sidecar.get("image")
+    ):
+        return False
+    expected = copy.deepcopy(before)
+    expected["latest_revision_name"] = after.get("latest_revision_name")
+    expected_sidecars = _container_layout(
+        expected,
+        address=contract.allowed_resource_address,
+        contract=contract,
+    )[1]
+    expected_sidecars["clamav"]["image"] = after_sidecar["image"]
+    return expected == after
+
+
 def validate_plan(
     payload: dict[str, Any],
     *,
@@ -386,9 +485,7 @@ def validate_plan(
     if not isinstance(resource_changes, list):
         raise PlanGuardError("Terraform plan resource_changes must be an array")
     violations: list[str] = []
-    resource_drift = payload.get("resource_drift", [])
-    if resource_drift not in (None, []):
-        violations.append("platform or peer resource drift is not eligible for protected apply")
+    selected_after: dict[str, Any] | None = None
     for entry in resource_changes:
         if not isinstance(entry, dict) or not isinstance(entry.get("address"), str):
             raise PlanGuardError("Terraform plan contains an invalid resource change")
@@ -416,6 +513,7 @@ def validate_plan(
             violations.append(f"planned image at {address} does not match the attested image")
             continue
         after = _resource(change, side="after", address=address)
+        selected_after = after
         _identity_ids(after, address=address)
         violations.extend(_guard_service_runtime(after, address=address, contract=contract))
         before = _resource(change, side="before", address=address)
@@ -428,6 +526,18 @@ def validate_plan(
                 initial_cutover=initial_cutover,
             )
         )
+    resource_drift = payload.get("resource_drift", [])
+    allowed_worker_drift = (
+        initial_cutover
+        and selected_after is not None
+        and _guard_initial_worker_drift(
+            resource_drift,
+            contract=contract,
+            planned_resource=selected_after,
+        )
+    )
+    if resource_drift not in (None, []) and not allowed_worker_drift:
+        violations.append("platform or peer resource drift is not eligible for protected apply")
     deferred_changes = payload.get("deferred_changes", [])
     if deferred_changes not in (None, []):
         violations.append("deferred plan changes are not eligible for protected apply")

@@ -910,6 +910,136 @@ def test_initial_cutover_rejects_executor_authority_change(guard: ModuleType) ->
         )
 
 
+def test_initial_cutover_allows_only_resource_reference_removal(guard: ModuleType) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before = change["before"]
+    after = change["after"]
+    before_container = before["template"][0]["container"][0]
+    before_container["image"] = "registry.example.com/operator@sha256:" + "b" * 64
+    before_container["command"] = ["legacy-operator"]
+    before_container["env"].append(
+        {
+            "name": "LEGACY_RESOURCE",
+            "value": "/subscriptions/example/resourceGroups/example/providers/example/legacy",
+        }
+    )
+    before["tags"] = {}
+    after["tags"] = {
+        "fdai:component": "operator-service",
+        "fdai:rollback-strategy": "previous-revision",
+    }
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+        initial_cutover=True,
+    )
+    after["peer_id"] = "/subscriptions/example/resourceGroups/example/providers/example/new-peer"
+    with pytest.raises(guard.PlanGuardError, match="platform or peer resource identity"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            initial_cutover=True,
+        )
+
+
+def test_initial_cutover_allows_aligned_executor_authority_tag(guard: ModuleType) -> None:
+    address = "module.isolated_executor.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before = change["before"]
+    after = change["after"]
+    contract = guard.resolve_service("isolated-executor", "dev")
+    after_container = after["template"][0]["container"][0]
+    after_container["command"] = [contract.entrypoint]
+    after_container["env"] = [
+        {
+            "name": name,
+            "value": "1" if name == "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER" else "value",
+        }
+        for name in contract.required_environment
+    ]
+    after["tags"] = {
+        "fdai:component": "isolated-executor",
+        "fdai:rollback-strategy": "previous-revision",
+        "fdai:authority-cutover": "true",
+    }
+    before_container = before["template"][0]["container"][0]
+    before_container.clear()
+    before_container.update(copy.deepcopy(after_container))
+    before_container["image"] = "registry.example.com/executor@sha256:" + "b" * 64
+    before_container["command"] = ["legacy-executor"]
+    before["tags"] = {}
+    guard.validate_plan(
+        plan,
+        service="isolated-executor",
+        environment="dev",
+        image_ref="image",
+        initial_cutover=True,
+    )
+
+
+def test_initial_cutover_allows_exact_clamav_tag_normalization_drift(
+    guard: ModuleType,
+) -> None:
+    plan = _worker_plan()
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    planned_sidecar = change["after"]["template"][0]["container"][1]
+    drift_before = copy.deepcopy(change["before"])
+    drift_after = copy.deepcopy(drift_before)
+    drift_before["template"][0]["container"][1]["image"] = "clamav/clamav:stable"
+    drift_after["template"][0]["container"][1]["image"] = planned_sidecar["image"]
+    drift_after["latest_revision_name"] = "worker--normalized"
+    plan["resource_drift"] = [
+        {
+            "address": (
+                "module.document_processing_worker.module.container_app."
+                "azurerm_container_app.service"
+            ),
+            "change": {
+                "actions": ["update"],
+                "before": drift_before,
+                "after": drift_after,
+            },
+        }
+    ]
+    before = change["before"]
+    before["template"][0]["container"][0]["image"] = (
+        "registry.example.com/worker@sha256:" + "d" * 64
+    )
+    before["template"][0]["container"][0]["command"] = ["legacy-worker"]
+    before_sidecar = before["template"][0]["container"][1]
+    before_sidecar.pop("startup_probe")
+    before_sidecar.pop("liveness_probe")
+    before_sidecar.pop("readiness_probe")
+    before["tags"] = {}
+    change["after"]["tags"] = {
+        "fdai:component": "document-processing-worker",
+        "fdai:rollback-strategy": "previous-revision",
+    }
+    guard.validate_plan(
+        plan,
+        service="document-processing-worker",
+        environment="dev",
+        image_ref="image",
+        initial_cutover=True,
+    )
+    plan["resource_drift"][0]["change"]["after"]["identity"] = []  # type: ignore[index]
+    with pytest.raises(guard.PlanGuardError, match="platform or peer resource drift"):
+        guard.validate_plan(
+            plan,
+            service="document-processing-worker",
+            environment="dev",
+            image_ref="image",
+            initial_cutover=True,
+        )
+
+
 def test_plan_guard_rejects_refreshed_platform_or_peer_drift(guard: ModuleType) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])
