@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 3415d41575bebe365decd7142925bc6feeb269a4
-translation_revised: 2026-08-08
+translation_source_sha: 41787fe393282845d6d9c03e60339f35895a0601
+translation_revised: 2026-08-09
 ---
 # FDAI 운영 온톨로지
 
@@ -109,6 +109,23 @@ freshness에는 finite positive upper bound가 있습니다. Catalog projection�
 projection이 하나의 stable legacy empty registry를 사용합니다. 검토된 metadata가 없는 Property는
 legacy projection field를 유지하고 `normalized_equivalence`를 생략합니다. Caller는 이 registry를
 통해 해당 Property의 equivalence를 추론하거나 값을 normalize할 수 없습니다.
+
+### Configuration drift vocabulary
+
+Catalog은 provider-neutral data shape로 `ConfigurationBaseline`,
+`ConfigurationDriftEvidence`, `ConfigurationDriftCheck`, `ConfigurationDriftFinding`을
+선언합니다. 이 object들은 검토된 desired configuration, bounded current-state evidence,
+비교 결과 한 건, resource 또는 field 차이를 분리합니다. Terraform plan output은 가능한
+`source_kind` 중 하나입니다. Azure Policy, GitOps manifest, Kubernetes desired state도 core에
+provider branch를 추가하지 않고 같은 semantic record를 생성할 수 있습니다.
+
+Link는 baseline에서 check, check에서 evidence, check에서 finding, finding에서 resource로 이어지는
+방향을 보존합니다. `CausalHypothesis`는 drift finding을 설명하려고 시도할 수 있지만, 이 link는
+operator, deployment 또는 provider가 원인임을 입증하지 않습니다. Raw plan과 value는 governed
+evidence storage에 유지합니다. Ontology record는 bounded summary와 digest만 보존하고 redaction
+metadata 및 명시적인 `execution_authority`를 요구합니다. 이 선언은 vocabulary data일 뿐입니다.
+Catalog 변경은 runtime projector, scheduled detector, remediation proposal, approval 또는 execution
+path를 추가하지 않습니다.
 
 ### 진단 지식 projection
 

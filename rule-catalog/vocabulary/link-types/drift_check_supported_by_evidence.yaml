@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: drift_check_supported_by_evidence
+version: "1.0.0"
+from_type: ConfigurationDriftCheck
+to_type: ConfigurationDriftEvidence
+cardinality: one_to_many
+description: Bounded evidence receipts supporting one configuration drift check.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:drift_check_supported_by_evidence@1.0.0
+  content_hash: sha256:fc83fa844065a6a85b8ecf9e99906ab433913e137701860e501168af33fbe943
+  license: MIT
+  retrieved_at: "2026-08-09T00:00:00Z"

@@ -1,0 +1,29 @@
+schema_version: "1.0.0"
+name: ConfigurationDriftCheck
+version: "1.0.0"
+key: id
+description: Immutable result of one deterministic comparison between reviewed intent and current evidence.
+properties:
+  id: {type: string, required: true}
+  scope_ref: {type: string, required: true}
+  root_ref: {type: string, required: true}
+  detector_ref: {type: string, required: true}
+  detector_revision: {type: string, required: true}
+  observed_at: {type: datetime, required: true}
+  recorded_at: {type: datetime, required: true}
+  evidence_cutoff: {type: datetime, required: true}
+  completeness: {type: string, required: true}
+  verdict: {type: string, required: true}
+  resource_count: {type: integer, required: true}
+  finding_count: {type: integer, required: true}
+  baseline_digest: {type: string, required: true}
+  observation_digest: {type: string, required: true}
+  report_digest: {type: string, required: true}
+  synthetic: {type: boolean, required: true}
+  execution_authority: {type: boolean, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ConfigurationDriftCheck@1.0.0
+  content_hash: sha256:84c5f3869ec500d1eca178528e0333f04733c73a183bdaadfeb70948de63adb4
+  license: MIT
+  retrieved_at: "2026-08-09T00:00:00Z"

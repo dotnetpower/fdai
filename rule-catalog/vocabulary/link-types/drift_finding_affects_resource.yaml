@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: drift_finding_affects_resource
+version: "1.0.0"
+from_type: ConfigurationDriftFinding
+to_type: Resource
+cardinality: many_to_one
+description: Governed Resource whose desired or observed configuration differs.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:drift_finding_affects_resource@1.0.0
+  content_hash: sha256:4cb00a5f14d59563efe8a03026a354f4a112c5f336b1abdaac9fb8df0d1e1872
+  license: MIT
+  retrieved_at: "2026-08-09T00:00:00Z"

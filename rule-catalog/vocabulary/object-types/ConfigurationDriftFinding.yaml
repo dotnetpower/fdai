@@ -1,0 +1,27 @@
+schema_version: "1.0.0"
+name: ConfigurationDriftFinding
+version: "1.0.0"
+key: id
+description: One evidence-backed resource, topology, or field difference found by a configuration drift check.
+properties:
+  id: {type: string, required: true}
+  target_ref: {type: string, required: true}
+  target_type: {type: string, required: true}
+  field_path: {type: string, required: true}
+  drift_type: {type: string, required: true}
+  verdict: {type: string, required: true}
+  severity: {type: string, required: true}
+  expected_summary: {type: string, required: false}
+  observed_summary: {type: string, required: false}
+  expected_value_digest: {type: string, required: true}
+  observed_value_digest: {type: string, required: true}
+  observed_at: {type: datetime, required: true}
+  remediation_status: {type: string, required: true}
+  synthetic: {type: boolean, required: true}
+  execution_authority: {type: boolean, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ConfigurationDriftFinding@1.0.0
+  content_hash: sha256:4a394bc65c98917101271bd88c66803d0f092435d7b75fb8d9b1fcfc952033f5
+  license: MIT
+  retrieved_at: "2026-08-09T00:00:00Z"

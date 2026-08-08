@@ -107,6 +107,23 @@ empty registry for loading and runtime projection. A Property without reviewed m
 legacy projection fields and omits `normalized_equivalence`; callers cannot infer equivalence or
 normalize it through this registry.
 
+### Configuration drift vocabulary
+
+The catalog declares `ConfigurationBaseline`, `ConfigurationDriftEvidence`,
+`ConfigurationDriftCheck`, and `ConfigurationDriftFinding` as provider-neutral data shapes.
+Together they separate reviewed desired configuration, bounded current-state evidence, one
+comparison result, and its resource or field differences. Terraform plan output is one possible
+`source_kind`; Azure Policy, GitOps manifests, and Kubernetes desired state can produce the same
+semantic records without adding provider branches to core.
+
+The links preserve baseline-to-check, check-to-evidence, check-to-finding, and finding-to-resource
+direction. A `CausalHypothesis` may attempt to explain a drift finding, but the link never proves
+that an operator, deployment, or provider caused it. Raw plans and values remain in governed
+evidence storage. Ontology records retain bounded summaries and digests, require redaction
+metadata, and set `execution_authority` explicitly. These declarations are vocabulary data only:
+no runtime projector, scheduled detector, remediation proposal, approval, or execution path is
+added by the catalog change.
+
 ### Diagnostic knowledge projection
 
 The SREGym absorption ledger projects 61 reviewed diagnostic mechanisms into

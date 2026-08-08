@@ -1,0 +1,30 @@
+schema_version: "1.0.0"
+name: ConfigurationDriftEvidence
+version: "1.0.0"
+key: id
+description: Bounded immutable evidence metadata for one desired-versus-observed comparison.
+properties:
+  id: {type: string, required: true}
+  authority_class: {type: string, required: true}
+  authenticated_source_ref: {type: string, required: true}
+  scope_ref: {type: string, required: true}
+  purpose: {type: string, required: true}
+  source_kind: {type: string, required: true}
+  source_revision: {type: string, required: true}
+  detector_ref: {type: string, required: true}
+  observed_at: {type: datetime, required: true}
+  recorded_at: {type: datetime, required: true}
+  evidence_cutoff: {type: datetime, required: true}
+  freshness_seconds: {type: integer, required: true}
+  completeness: {type: string, required: true}
+  evidence_ref: {type: string, required: true}
+  payload_digest: {type: string, required: true}
+  provenance_digest: {type: string, required: true}
+  redaction_summary: {type: object, required: true}
+  synthetic: {type: boolean, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ConfigurationDriftEvidence@1.0.0
+  content_hash: sha256:cb76141180ed62bd5870c864a49ccd9bfbbc489d4a2774d4c7e4cc9babd42311
+  license: MIT
+  retrieved_at: "2026-08-09T00:00:00Z"

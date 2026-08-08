@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: baseline_used_by_drift_check
+version: "1.0.0"
+from_type: ConfigurationBaseline
+to_type: ConfigurationDriftCheck
+cardinality: one_to_many
+description: Reviewed desired configuration used by one immutable drift comparison.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:baseline_used_by_drift_check@1.0.0
+  content_hash: sha256:58a38a9273eb3f495aa1e82ac9ccfa9c0dd70235c8249542411760908305b7f7
+  license: MIT
+  retrieved_at: "2026-08-09T00:00:00Z"
