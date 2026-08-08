@@ -486,6 +486,17 @@ def _guard_initial_worker_drift(
         return False
     expected = copy.deepcopy(before)
     expected["latest_revision_name"] = after.get("latest_revision_name")
+    expected_templates = expected.get("template")
+    after_templates = after.get("template")
+    if (
+        isinstance(expected_templates, list)
+        and len(expected_templates) == 1
+        and isinstance(expected_templates[0], dict)
+        and isinstance(after_templates, list)
+        and len(after_templates) == 1
+        and isinstance(after_templates[0], dict)
+    ):
+        expected_templates[0]["revision_suffix"] = after_templates[0].get("revision_suffix")
     expected_sidecars = _container_layout(
         expected,
         address=contract.allowed_resource_address,

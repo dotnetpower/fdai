@@ -994,6 +994,7 @@ def test_initial_cutover_allows_exact_clamav_tag_normalization_drift(
     drift_after = copy.deepcopy(drift_before)
     drift_before["template"][0]["container"][1]["image"] = "clamav/clamav:stable"
     drift_after["template"][0]["container"][1]["image"] = planned_sidecar["image"]
+    drift_after["template"][0]["revision_suffix"] = "normalized"
     drift_after["latest_revision_name"] = "worker--normalized"
     plan["resource_drift"] = [
         {
