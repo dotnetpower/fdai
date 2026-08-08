@@ -14,10 +14,19 @@ from fdai_executor_service.runtime import (
     IsolatedExecutorCommandConsumer,
 )
 from fdai_executor_service.service import IsolatedExecutorEffectService
-from fdai_service_contracts.executor import ExecutionPath, ExecutorCommand
+from fdai_service_contracts.executor import (
+    ExecutionPath,
+    ExecutorCommand,
+    ExecutorEffectReceipt,
+    ExecutorEffectReceiptStatus,
+    executor_action_payload_digest,
+)
 
 from fdai.core.executor import DirectApiExecutionOutcome
-from fdai.runtime.isolated_executor_client import EventBusDirectApiExecutionClient
+from fdai.runtime.isolated_executor_client import (
+    EventBusDirectApiExecutionClient,
+    executor_command_id,
+)
 from fdai.shared.contracts.models import (
     Action,
     ActionStopCondition,
@@ -195,3 +204,70 @@ async def test_effect_command_expired_while_waiting_never_reaches_provider() -> 
     assert receipt.effect_applied is False
     assert provider.records == ()
     assert [row["entry"]["audit_phase"] for row in audit.audit_entries] == ["terminal"]
+
+
+async def test_core_client_rejects_receipt_rebound_to_another_action() -> None:
+    bus = InMemoryEventBus()
+    audit = InMemoryStateStore()
+    action = _action()
+    client = EventBusDirectApiExecutionClient(
+        event_bus=bus,
+        audit_store=audit,
+        instance_id="core-one",
+        response_timeout_seconds=1.0,
+        retry_seconds=0.01,
+    )
+    task = asyncio.create_task(client.execute(action=action))
+    for _attempt in range(20):
+        if client._pending:
+            break
+        await asyncio.sleep(0)
+    assert client._pending
+    now = datetime.now(tz=UTC)
+    command_id = executor_command_id(action)
+    forged = ExecutorEffectReceipt(
+        receipt_id=UUID("00000000-0000-0000-0000-000000000804"),
+        command_id=command_id,
+        action_id=UUID("00000000-0000-0000-0000-000000000805"),
+        idempotency_key=action.idempotency_key,
+        attempt=1,
+        action_payload_digest="sha256:" + "0" * 64,
+        requested_mode=action.mode,
+        status=ExecutorEffectReceiptStatus.DISPATCHED,
+        executor_instance_id="isolated-executor-effect-1",
+        received_at=now,
+        completed_at=now,
+        effect_applied=True,
+        provider_receipt_ref="provider:forged",
+        audit_ref="action:forged",
+    )
+    await bus.publish(
+        EXECUTOR_RECEIPT_TOPIC,
+        action.target_resource_ref,
+        forged.model_dump(mode="json"),
+    )
+    await asyncio.sleep(0.01)
+    assert task.done() is False
+
+    payload = action.model_dump(mode="json", exclude_none=True)
+    valid = forged.model_copy(
+        update={
+            "receipt_id": UUID("00000000-0000-0000-0000-000000000806"),
+            "action_id": action.action_id,
+            "action_payload_digest": executor_action_payload_digest(payload),
+            "provider_receipt_ref": "provider:valid",
+            "audit_ref": f"action:{action.action_id}",
+        }
+    )
+    await bus.publish(
+        EXECUTOR_RECEIPT_TOPIC,
+        action.target_resource_ref,
+        valid.model_dump(mode="json"),
+    )
+    try:
+        result = await task
+    finally:
+        await client.stop()
+
+    assert result.outcome.value == "dispatched"
+    assert result.receipt_ref == "provider:valid"

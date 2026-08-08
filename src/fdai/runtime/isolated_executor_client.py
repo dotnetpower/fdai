@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -22,6 +23,8 @@ from fdai.shared.contracts import ExecutorCommand, ExecutorEffectReceipt
 from fdai.shared.contracts.models import Action, ExecutionPath, Mode
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
+
+_LOGGER = logging.getLogger("fdai.runtime.isolated_executor_client")
 
 
 class RemoteDirectApiExecutionOutcome(StrEnum):
@@ -56,6 +59,12 @@ class RemoteDirectApiExecutionResult:
     audit_context: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True, slots=True)
+class _PendingExecutorRequest:
+    command: ExecutorCommand
+    future: asyncio.Future[ExecutorEffectReceipt]
+
+
 @dataclass(slots=True)
 class EventBusDirectApiExecutionClient:
     """Publish governed Actions and correlate unverified dispatch receipts."""
@@ -67,7 +76,7 @@ class EventBusDirectApiExecutionClient:
     retry_seconds: float = 0.05
     max_pending_requests: int = 256
     _consumer_task: asyncio.Task[None] | None = None
-    _pending: dict[str, asyncio.Future[ExecutorEffectReceipt]] = field(default_factory=dict)
+    _pending: dict[str, _PendingExecutorRequest] = field(default_factory=dict)
 
     async def start(self) -> None:
         """Start the single receipt consumer used by all pending commands."""
@@ -87,24 +96,25 @@ class EventBusDirectApiExecutionClient:
         if task is not None:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
-        for future in self._pending.values():
-            if not future.done():
-                future.cancel()
+        for pending in self._pending.values():
+            if not pending.future.done():
+                pending.future.cancel()
         self._pending.clear()
 
     async def execute(self, *, action: Action) -> RemoteDirectApiExecutionResult:
         """Dispatch one Action, failing closed when transport closure is unavailable."""
 
         await self.start()
-        if len(self._pending) >= self.max_pending_requests:
-            return await self._transport_failure(action, "executor command capacity exceeded")
         command_id = executor_command_id(action)
         key = str(command_id)
         existing = self._pending.get(key)
-        owner = existing is None
-        future = existing or asyncio.get_running_loop().create_future()
-        if owner:
-            self._pending[key] = future
+        if existing is None:
+            owner = True
+            if len(self._pending) >= self.max_pending_requests:
+                return await self._transport_failure(
+                    action,
+                    "executor command capacity exceeded",
+                )
             now = datetime.now(UTC)
             command = ExecutorCommand.from_action(
                 command_id=command_id,
@@ -114,6 +124,11 @@ class EventBusDirectApiExecutionClient:
                 issued_at=now,
                 deadline_at=now + timedelta(seconds=self.response_timeout_seconds),
             )
+            pending = _PendingExecutorRequest(
+                command=command,
+                future=asyncio.get_running_loop().create_future(),
+            )
+            self._pending[key] = pending
             try:
                 await self.event_bus.publish(
                     EXECUTOR_COMMAND_TOPIC,
@@ -128,9 +143,12 @@ class EventBusDirectApiExecutionClient:
                     action,
                     "executor command publication failed",
                 )
+        else:
+            owner = False
+            pending = existing
         try:
             receipt = await asyncio.wait_for(
-                asyncio.shield(future),
+                asyncio.shield(pending.future),
                 timeout=self.response_timeout_seconds,
             )
         except asyncio.CancelledError:
@@ -179,9 +197,23 @@ class EventBusDirectApiExecutionClient:
                     receipt = ExecutorEffectReceipt.model_validate(envelope.payload)
                 except ValidationError:
                     continue
-                future = self._pending.get(str(receipt.command_id))
-                if future is not None and not future.done():
-                    future.set_result(receipt)
+                pending = self._pending.get(str(receipt.command_id))
+                if pending is None or pending.future.done():
+                    continue
+                if not _receipt_matches_command(
+                    pending.command,
+                    receipt,
+                    partition_key=envelope.key,
+                ):
+                    _LOGGER.warning(
+                        "isolated_executor_receipt_binding_mismatch",
+                        extra={
+                            "command_id": str(receipt.command_id),
+                            "receipt_id": str(receipt.receipt_id),
+                        },
+                    )
+                    continue
+                pending.future.set_result(receipt)
             await asyncio.sleep(self.retry_seconds)
 
 
@@ -193,6 +225,24 @@ def executor_command_id(action: Action) -> UUID:
     )
     digest = hashlib.sha256(payload.encode()).hexdigest()
     return uuid5(NAMESPACE_URL, f"fdai:executor-command:{action.idempotency_key}:{digest}")
+
+
+def _receipt_matches_command(
+    command: ExecutorCommand,
+    receipt: ExecutorEffectReceipt,
+    *,
+    partition_key: str,
+) -> bool:
+    return (
+        partition_key == command.partition_key
+        and receipt.command_id == command.command_id
+        and receipt.action_id == command.action_id
+        and receipt.idempotency_key == command.idempotency_key
+        and receipt.attempt == command.attempt
+        and receipt.action_payload_digest == command.action_payload_digest
+        and receipt.requested_mode is command.requested_mode
+        and receipt.audit_ref == f"action:{command.action_id}"
+    )
 
 
 def _result_from_receipt(
