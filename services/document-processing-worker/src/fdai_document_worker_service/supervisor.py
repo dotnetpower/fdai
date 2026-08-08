@@ -1,4 +1,4 @@
-"""Lifecycle supervisor for the three required document worker loops."""
+"""Lifecycle supervisor for the required document worker loops."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import asyncio
 import logging
 import signal
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Protocol
 
 from fdai_document_worker_service.health import RuntimeHealthServer
@@ -16,6 +16,7 @@ _LOGGER = logging.getLogger("fdai.ingestion.worker")
 
 class WorkerLoopService(Protocol):
     def readiness(self) -> bool: ...
+    def status(self) -> Mapping[str, object]: ...
     async def run(self) -> None: ...
     async def run_index_commands(self) -> None: ...
     async def run_deletion_requests(self) -> None: ...
@@ -70,6 +71,24 @@ class IngestionWorkerSupervisor:
             and all(not task.done() for task in self._loop_tasks)
             and self._runtime.worker_service.readiness()
         )
+
+    def status(self) -> dict[str, object]:
+        """Return readiness and measured worker signals as separate fields."""
+        now = self._monotonic()
+        last_success = self._last_dependency_success
+        dependency_age = max(0.0, now - last_success) if last_success is not None else None
+        return {
+            "ready": self.ready,
+            "dependency": {
+                "last_success_age_seconds": dependency_age,
+                "fresh": bool(
+                    dependency_age is not None
+                    and dependency_age <= self._readiness_freshness_seconds
+                ),
+            },
+            "loops": {task.get_name(): {"running": not task.done()} for task in self._loop_tasks},
+            "worker": dict(self._runtime.worker_service.status()),
+        }
 
     async def run(self, *, stop: asyncio.Event | None = None) -> int:
         health = RuntimeHealthServer(port=self._health_port, readiness=lambda: self.ready)

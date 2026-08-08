@@ -1208,6 +1208,100 @@ def test_plan_bundle_round_trip_and_tamper_rejection(bundle: ModuleType, tmp_pat
         )
 
 
+def test_worker_plan_bundle_seals_exact_primary_and_sidecar_contract(
+    bundle: ModuleType, tmp_path: Path
+) -> None:
+    plan = tmp_path / "service.plan"
+    plan.write_bytes(b"binary worker plan")
+    plan_json = tmp_path / "service-plan.json"
+    image = _image("fdai-document-processing-worker")
+    payload = _worker_plan()
+    payload["resource_changes"][0]["change"]["after"]["template"][0]["container"][0][  # type: ignore[index]
+        "image"
+    ] = image
+    plan_json.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    context = tmp_path / "context.json"
+    metadata = tmp_path / "metadata.json"
+
+    bundle.create_bundle(
+        plan=plan,
+        plan_json=plan_json,
+        context_path=context,
+        metadata_path=metadata,
+        service="document-processing-worker",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="b" * 40,
+        image_ref=image,
+        workflow_run_id="123",
+        now=datetime(2026, 8, 8, 10, 0, tzinfo=UTC),
+        **_bundle_coordinates(),
+    )
+
+    target = json.loads(context.read_text(encoding="utf-8"))["target"]
+    assert target["primary_container"] == {
+        "config_digest": target["primary_container"]["config_digest"],
+        "image_ref": image,
+        "name": "document-processing-worker",
+    }
+    assert len(target["primary_container"]["config_digest"]) == 64
+    assert target["sidecar_containers"] == [
+        {
+            "config_digest": target["sidecar_containers"][0]["config_digest"],
+            "image_ref": "docker.io/clamav/clamav@sha256:" + "b" * 64,
+            "name": "clamav",
+            "probe_digest": target["sidecar_containers"][0]["probe_digest"],
+        }
+    ]
+    assert len(target["sidecar_containers"][0]["config_digest"]) == 64
+    assert len(target["sidecar_containers"][0]["probe_digest"]) == 64
+
+
+@pytest.mark.parametrize("mutation", ["unknown", "mutable", "changed"])
+def test_worker_plan_bundle_rejects_unsealed_sidecar_contract(
+    bundle: ModuleType,
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    plan = tmp_path / "service.plan"
+    plan.write_bytes(b"binary worker plan")
+    plan_json = tmp_path / "service-plan.json"
+    image = _image("fdai-document-processing-worker")
+    payload = _worker_plan()
+    after_containers = payload["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ]
+    after_containers[0]["image"] = image
+    if mutation == "unknown":
+        after_containers.append(
+            {
+                "name": "unknown",
+                "image": "docker.io/example/unknown@sha256:" + "c" * 64,
+            }
+        )
+    elif mutation == "mutable":
+        after_containers[1]["image"] = "docker.io/clamav/clamav:latest"
+    else:
+        after_containers[1]["cpu"] = 1.0
+    plan_json.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    with pytest.raises(bundle.PlanBundleError, match="sidecar|container"):
+        bundle.create_bundle(
+            plan=plan,
+            plan_json=plan_json,
+            context_path=tmp_path / "context.json",
+            metadata_path=tmp_path / "metadata.json",
+            service="document-processing-worker",
+            environment="dev",
+            repository="example/fdai",
+            commit_sha="b" * 40,
+            image_ref=image,
+            workflow_run_id="123",
+            now=datetime(2026, 8, 8, 10, 0, tzinfo=UTC),
+            **_bundle_coordinates(),
+        )
+
+
 def test_core_plan_bundle_seals_only_canonical_resolved_models_digest(
     bundle: ModuleType, tmp_path: Path
 ) -> None:

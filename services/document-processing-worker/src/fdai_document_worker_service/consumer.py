@@ -103,6 +103,9 @@ class DocumentIngestionEventConsumer:
         self._reconcile_cursors: dict[DocumentState, UUID | None] = {}
         self._loop_failures: dict[str, str] = {}
         self._loop_successes: dict[str, float] = {}
+        self._consumer_offsets: dict[str, tuple[int, float]] = {}
+        self._dlq_count = 0
+        self._ownership_conflict_count = 0
         self._contract_validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())
 
     def readiness(self) -> bool:
@@ -132,10 +135,57 @@ class DocumentIngestionEventConsumer:
             for loop_name in (_OUTBOX_LOOP, _RECONCILE_LOOP)
         )
 
+    def status(self) -> dict[str, object]:
+        """Project bounded worker health without inferring unobserved broker lag."""
+        consumer_groups = (
+            (_AUDIT_LOOP, self._topic, self._group_id),
+            (_INDEX_LOOP, "object.context-index", "fdai-document-index-worker"),
+            (_DELETION_LOOP, "object.event", "fdai-document-deletion-worker"),
+        )
+        readiness_provider = (
+            self._event_bus if isinstance(self._event_bus, _ConsumerGroupReadiness) else None
+        )
+        now = self._monotonic()
+        consumers: dict[str, object] = {}
+        for loop_name, topic, group_id in consumer_groups:
+            observed = self._consumer_offsets.get(loop_name)
+            offset_age = max(0.0, now - observed[1]) if observed is not None else None
+            consumers[loop_name] = {
+                "topic": topic,
+                "consumer_group": group_id,
+                "ready": bool(
+                    readiness_provider is not None
+                    and loop_name not in self._loop_failures
+                    and readiness_provider.consumer_group_ready(
+                        topic,
+                        group_id,
+                        freshness_seconds=self._readiness_freshness_seconds,
+                    )
+                ),
+                "last_observed_offset": observed[0] if observed is not None else None,
+                "offset_age_seconds": offset_age,
+                "offset_fresh": bool(
+                    offset_age is not None and offset_age <= self._readiness_freshness_seconds
+                ),
+                "offset_evidence": "consumed_event",
+                "offset_live_verified": False,
+                "lag": None,
+                "lag_evidence": "unavailable",
+                "lag_fresh": False,
+            }
+        return {
+            "ready": self.readiness(),
+            "consumers": consumers,
+            "dlq_count": self._dlq_count,
+            "ownership_conflict_count": self._ownership_conflict_count,
+            "loop_failures": dict(sorted(self._loop_failures.items())),
+        }
+
     async def run(self) -> None:
         while True:
             try:
                 async for event in self._event_bus.subscribe(self._topic, self._group_id):
+                    self._observe_consumer_offset(_AUDIT_LOOP, event.offset)
                     if not _is_document_candidate(
                         event.payload, required_shape=("upload_id", "stage", "decision")
                     ):
@@ -185,6 +235,7 @@ class DocumentIngestionEventConsumer:
                 async for event in self._event_bus.subscribe(
                     "object.context-index", "fdai-document-index-worker"
                 ):
+                    self._observe_consumer_offset(_INDEX_LOOP, event.offset)
                     if not _is_document_candidate(
                         event.payload, required_shape=("upload_id", "stage", "command")
                     ):
@@ -220,6 +271,7 @@ class DocumentIngestionEventConsumer:
                 async for event in self._event_bus.subscribe(
                     "object.event", "fdai-document-deletion-worker"
                 ):
+                    self._observe_consumer_offset(_DELETION_LOOP, event.offset)
                     if not _is_document_candidate(
                         event.payload, required_shape=("deletion_request",)
                     ):
@@ -317,6 +369,11 @@ class DocumentIngestionEventConsumer:
 
     def _loop_failed(self, loop_name: str, exc: Exception) -> None:
         self._loop_failures[loop_name] = type(exc).__name__
+
+    def _observe_consumer_offset(self, loop_name: str, offset: int | None) -> None:
+        if offset is None:
+            return
+        self._consumer_offsets[loop_name] = (offset, self._monotonic())
 
     async def _reconcile_cycle(self) -> bool:
         healthy = True
@@ -438,13 +495,17 @@ class DocumentIngestionEventConsumer:
         operation: _ClaimedOperation,
     ) -> None:
         attempt_id = uuid4()
-        claim = await self._metadata.claim_worker_stage(
-            upload_id,
-            stage,
-            owner=self._worker_owner,
-            attempt_id=attempt_id,
-            lease_seconds=self._lease_seconds,
-        )
+        try:
+            claim = await self._metadata.claim_worker_stage(
+                upload_id,
+                stage,
+                owner=self._worker_owner,
+                attempt_id=attempt_id,
+                lease_seconds=self._lease_seconds,
+            )
+        except DocumentWorkerClaimConflictError:
+            self._ownership_conflict_count += 1
+            raise
         if claim is None:
             return
         current_claim = [claim]
@@ -471,6 +532,15 @@ class DocumentIngestionEventConsumer:
                 expected_revision=current_claim[0].revision,
             )
         except asyncio.CancelledError:
+            renewal_stop.set()
+            await self._cancel_operation(operation_task)
+            await asyncio.gather(renewal_task, return_exceptions=True)
+            await self._release_claim_safely(
+                upload_id, stage, attempt_id, current_claim[0].revision
+            )
+            raise
+        except DocumentWorkerClaimConflictError:
+            self._ownership_conflict_count += 1
             renewal_stop.set()
             await self._cancel_operation(operation_task)
             await asyncio.gather(renewal_task, return_exceptions=True)
@@ -526,6 +596,7 @@ class DocumentIngestionEventConsumer:
                 expected_revision=expected_revision,
             )
         except DocumentWorkerClaimConflictError:
+            self._ownership_conflict_count += 1
             _LOGGER.warning(
                 "document_worker_claim_release_conflict",
                 extra={"upload_id": str(upload_id), "stage": stage.value},
@@ -533,6 +604,7 @@ class DocumentIngestionEventConsumer:
 
     async def _dead_letter_invalid(self, event: EventEnvelope, *, reason: str) -> None:
         await self._event_bus.dead_letter(event.topic, event.key, event.payload, reason)
+        self._dlq_count += 1
         _LOGGER.warning(
             "document_worker_message_dead_lettered",
             extra={

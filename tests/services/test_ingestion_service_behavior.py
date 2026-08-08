@@ -1902,6 +1902,7 @@ async def test_worker_reclaim_rejects_stale_attempt_and_restart_completes_once()
 
     with pytest.raises(DocumentWorkerClaimConflictError, match="claim conflict"):
         await first._run_once(upload_id, stage, stale_operation)
+    assert first.status()["ownership_conflict_count"] == 2
 
     restarted = DocumentIngestionEventConsumer(
         event_bus=object(),  # type: ignore[arg-type]
@@ -1933,6 +1934,9 @@ async def test_worker_reclaim_rejects_stale_attempt_and_restart_completes_once()
 class LoopService:
     def readiness(self) -> bool:
         return True
+
+    def status(self) -> Mapping[str, object]:
+        return {"ready": self.readiness()}
 
     async def run(self) -> None:
         await asyncio.Event().wait()
@@ -2054,6 +2058,15 @@ async def test_worker_readiness_fails_when_consumer_reports_failure(
     await health_started.wait()
     await asyncio.sleep(0)
     assert supervisor.ready
+    status = supervisor.status()
+    assert status["ready"] is True
+    assert status["dependency"]["fresh"] is True
+    dependency_age = status["dependency"]["last_success_age_seconds"]
+    assert isinstance(dependency_age, float)
+    assert 0.0 <= dependency_age <= 15.0
+    assert status["worker"] == {"ready": True}
+    assert len(status["loops"]) == 6
+    assert all(loop["running"] is True for loop in status["loops"].values())
 
     failed = True
     assert not supervisor.ready
@@ -2079,6 +2092,95 @@ def test_worker_consumer_reports_each_required_loop_failure(loop_name: str) -> N
     consumer._loop_failed(loop_name, RuntimeError("permanent loop failure"))
 
     assert not consumer.readiness()
+
+
+@pytest.mark.asyncio
+async def test_worker_status_separates_readiness_from_measured_consumer_signals() -> None:
+    now = 10.0
+
+    class ConflictMetadata:
+        async def release_worker_stage(self, *_args: object, **_kwargs: object) -> None:
+            raise DocumentWorkerClaimConflictError("document worker claim conflict")
+
+    consumer = DocumentIngestionEventConsumer(
+        event_bus=ReadyConsumerEventBus(),
+        worker=object(),  # type: ignore[arg-type]
+        metadata=ConflictMetadata(),  # type: ignore[arg-type]
+        activity=object(),  # type: ignore[arg-type]
+        topic="object.audit-entry",
+        monotonic=lambda: now,
+    )
+    consumer._loop_succeeded("outbox")
+    consumer._loop_succeeded("reconcile")
+    consumer._observe_consumer_offset("audit", 42)
+    await consumer._dead_letter_invalid(
+        EventEnvelope(
+            topic="object.audit-entry",
+            key="document-1",
+            payload={"kind": "document_ingestion"},
+            offset=42,
+        ),
+        reason="invalid_document_worker_audit_event",
+    )
+    await consumer._release_claim(
+        uuid4(),
+        DocumentWorkerStage.INSPECTION,
+        uuid4(),
+        1,
+    )
+
+    status = consumer.status()
+
+    assert status["ready"] is True
+    assert status["dlq_count"] == 1
+    assert status["ownership_conflict_count"] == 1
+    assert status["consumers"]["audit"] == {
+        "consumer_group": "fdai-document-audit-gated-worker",
+        "lag": None,
+        "lag_evidence": "unavailable",
+        "last_observed_offset": 42,
+        "offset_age_seconds": 0.0,
+        "offset_evidence": "consumed_event",
+        "offset_fresh": True,
+        "offset_live_verified": False,
+        "ready": True,
+        "topic": "object.audit-entry",
+        "lag_fresh": False,
+    }
+    assert status["consumers"]["index"]["last_observed_offset"] is None
+    assert status["consumers"]["index"]["offset_fresh"] is False
+
+    now = 30.0
+    stale = consumer.status()
+    assert stale["consumers"]["audit"]["offset_age_seconds"] == 20.0
+    assert stale["consumers"]["audit"]["offset_fresh"] is False
+    assert stale["consumers"]["audit"]["lag"] is None
+    assert stale["consumers"]["audit"]["lag_fresh"] is False
+
+    class ClaimConflictMetadata:
+        async def claim_worker_stage(self, *_args: object, **_kwargs: object) -> None:
+            raise DocumentWorkerClaimConflictError("document worker claim conflict")
+
+    claim_conflict_consumer = DocumentIngestionEventConsumer(
+        event_bus=ReadyConsumerEventBus(),
+        worker=object(),  # type: ignore[arg-type]
+        metadata=ClaimConflictMetadata(),  # type: ignore[arg-type]
+        activity=object(),  # type: ignore[arg-type]
+        topic="object.audit-entry",
+    )
+
+    async def unused_operation(
+        _upload_id: UUID, _claim: Callable[[], DocumentWorkerClaim]
+    ) -> object:
+        raise AssertionError("operation must not run without a claim")
+
+    with pytest.raises(DocumentWorkerClaimConflictError, match="claim conflict"):
+        await claim_conflict_consumer._run_once(
+            uuid4(),
+            DocumentWorkerStage.INSPECTION,
+            unused_operation,
+        )
+    assert claim_conflict_consumer.status()["ownership_conflict_count"] == 1
 
 
 @pytest.mark.asyncio

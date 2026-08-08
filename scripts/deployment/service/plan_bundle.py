@@ -13,9 +13,14 @@ from typing import Any
 
 from service_contract import ServiceContractError, resolve_service, validate_image_reference
 
-_SCHEMA_VERSION = "fdai.service-deployment-plan.v3"
+_SCHEMA_VERSION = "fdai.service-deployment-plan.v4"
 _SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 _COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
+_DIGEST_IMAGE = re.compile(r"[^\s]+@sha256:[0-9a-f]{64}")
+_ALLOWED_SIDECARS = {
+    "document-processing-worker": frozenset({"clamav"}),
+}
+_PROBE_FIELDS = ("startup_probe", "liveness_probe", "readiness_probe")
 
 
 class PlanBundleError(ValueError):
@@ -60,10 +65,92 @@ def _resource_ids(value: Any) -> list[str]:
     return sorted(found)
 
 
+def _containers(resource: dict[str, Any], *, address: str) -> dict[str, dict[str, Any]]:
+    templates = resource.get("template")
+    template = templates[0] if isinstance(templates, list) and len(templates) == 1 else None
+    raw_containers = template.get("container") if isinstance(template, dict) else None
+    if not isinstance(raw_containers, list) or not raw_containers:
+        raise PlanBundleError(f"selected service at {address} has no containers")
+    containers: dict[str, dict[str, Any]] = {}
+    for container in raw_containers:
+        name = container.get("name") if isinstance(container, dict) else None
+        if not isinstance(name, str) or not name or name in containers:
+            raise PlanBundleError(f"selected service at {address} has invalid container names")
+        containers[name] = container
+    return containers
+
+
+def _sidecar_contract(container: dict[str, Any], *, name: str) -> dict[str, str]:
+    image = container.get("image")
+    if not isinstance(image, str) or _DIGEST_IMAGE.fullmatch(image) is None:
+        raise PlanBundleError(f"sidecar {name} image must be pinned by sha256 digest")
+    probes: dict[str, dict[str, Any]] = {}
+    for probe_name in _PROBE_FIELDS:
+        raw_probe = container.get(probe_name)
+        if (
+            not isinstance(raw_probe, list)
+            or len(raw_probe) != 1
+            or not isinstance(raw_probe[0], dict)
+        ):
+            raise PlanBundleError(f"sidecar {name} has invalid {probe_name}")
+        probes[probe_name] = raw_probe[0]
+    ports = {probe.get("port") for probe in probes.values()}
+    if (
+        len(ports) != 1
+        or not all(
+            isinstance(port, int) and not isinstance(port, bool) and 0 < port < 65_536
+            for port in ports
+        )
+        or not all(probe.get("transport") == "TCP" for probe in probes.values())
+        or probes["startup_probe"].get("failure_count_threshold") != 30
+    ):
+        raise PlanBundleError(f"sidecar {name} probe contract changed")
+    configuration = {
+        key: value for key, value in container.items() if key not in {"image", *_PROBE_FIELDS}
+    }
+    return {
+        "name": name,
+        "image_ref": image,
+        "config_digest": hashlib.sha256(_canonical(configuration)).hexdigest(),
+        "probe_digest": hashlib.sha256(_canonical(probes)).hexdigest(),
+    }
+
+
+def _container_contract(
+    resource: dict[str, Any],
+    *,
+    address: str,
+    service: str,
+    image_ref: str,
+) -> tuple[dict[str, str], list[dict[str, str]]]:
+    containers = _containers(resource, address=address)
+    expected_sidecars = _ALLOWED_SIDECARS.get(service, frozenset())
+    primary_names = set(containers) - expected_sidecars
+    if len(primary_names) != 1 or set(containers) != primary_names | expected_sidecars:
+        raise PlanBundleError(
+            f"selected service at {address} must contain one primary and the exact sidecar set"
+        )
+    primary_name = primary_names.pop()
+    primary = containers[primary_name]
+    if primary.get("image") != image_ref:
+        raise PlanBundleError("planned service image does not match protected image context")
+    primary_configuration = {key: value for key, value in primary.items() if key != "image"}
+    primary_contract = {
+        "name": primary_name,
+        "image_ref": image_ref,
+        "config_digest": hashlib.sha256(_canonical(primary_configuration)).hexdigest(),
+    }
+    sidecar_contracts = [
+        _sidecar_contract(containers[name], name=name) for name in sorted(expected_sidecars)
+    ]
+    return primary_contract, sidecar_contracts
+
+
 def _target_context(
     payload: dict[str, Any],
     *,
     allowed_address: str,
+    service: str,
     subscription_id: str,
     image_ref: str,
 ) -> dict[str, Any]:
@@ -110,13 +197,38 @@ def _target_context(
     ):
         raise PlanBundleError("planned service workload identity set is invalid")
 
-    templates = after.get("template")
-    template = templates[0] if isinstance(templates, list) and len(templates) == 1 else None
-    containers = template.get("container") if isinstance(template, dict) else None
-    container = containers[0] if isinstance(containers, list) and len(containers) == 1 else None
-    if not isinstance(container, dict) or container.get("image") != image_ref:
-        raise PlanBundleError("planned service image does not match protected image context")
-    runtime_contract = {key: container.get(key) for key in ("name", "command", "args", "env")}
+    primary_container, sidecar_containers = _container_contract(
+        after,
+        address=allowed_address,
+        service=service,
+        image_ref=image_ref,
+    )
+    before = change.get("before") if isinstance(change, dict) else None
+    if sidecar_containers:
+        if not isinstance(before, dict):
+            raise PlanBundleError("worker sidecar contract requires a previous planned resource")
+        before_containers = _containers(before, address=allowed_address)
+        expected_sidecars = _ALLOWED_SIDECARS.get(service, frozenset())
+        before_primary_names = set(before_containers) - expected_sidecars
+        if (
+            len(before_primary_names) != 1
+            or set(before_containers) != before_primary_names | expected_sidecars
+        ):
+            raise PlanBundleError(
+                f"selected service at {allowed_address} must contain one primary "
+                "and the exact sidecar set"
+            )
+        before_primary = before_containers[before_primary_names.pop()]
+        _, previous_sidecars = _container_contract(
+            before,
+            address=allowed_address,
+            service=service,
+            image_ref=str(before_primary.get("image", "")),
+        )
+        if previous_sidecars != sidecar_containers:
+            raise PlanBundleError("planned sidecar contract changed from the protected revision")
+    primary = _containers(after, address=allowed_address)[primary_container["name"]]
+    runtime_contract = {key: primary.get(key) for key in ("name", "command", "args", "env")}
     tags = after.get("tags")
     component_tag = tags.get("fdai:component") if isinstance(tags, dict) else None
     if not isinstance(component_tag, str) or not component_tag:
@@ -130,6 +242,8 @@ def _target_context(
         "identity_resource_ids": sorted(identity_id.lower() for identity_id in raw_identity_ids),
         "referenced_resource_ids": _resource_ids(after),
         "image_ref": image_ref,
+        "primary_container": primary_container,
+        "sidecar_containers": sidecar_containers,
         "runtime_contract_digest": hashlib.sha256(_canonical(runtime_contract)).hexdigest(),
     }
 
@@ -170,6 +284,7 @@ def _deployment_context(
         "target": _target_context(
             _read_object(plan_json),
             allowed_address=contract.allowed_resource_address,
+            service=service,
             subscription_id=subscription_id,
             image_ref=image_ref,
         ),
