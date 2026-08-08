@@ -9,14 +9,15 @@ from typing import Any
 import fdai_executor_service.cli as cli
 import httpx
 import pytest
+from fdai_executor_service.adapters.event_hubs_kafka import EventHubsKafkaBusConfig
 from fdai_executor_service.cli import (
     IsolatedExecutorRuntimeConfig,
     build_isolated_executor_supervisor,
 )
 
 from fdai.core.executor.lock import ResourceLockManager
-from fdai.delivery.azure.event_bus import EventHubsKafkaBusConfig
 from fdai.shared.providers.testing import InMemoryEventBus, InMemoryStateStore
+from fdai.shared.providers.testing.idempotency import InMemoryIdempotencyStore
 
 
 def _environment(**changes: str) -> dict[str, str]:
@@ -72,6 +73,16 @@ class _ClosableBus(InMemoryEventBus):
         self.closed = True
 
 
+class _ReadyStateStore(InMemoryStateStore):
+    async def assert_schema(self) -> None:
+        return None
+
+
+class _ReadyIdempotencyStore(InMemoryIdempotencyStore):
+    async def assert_schema(self) -> None:
+        return None
+
+
 def test_composition_uses_earliest_transport_and_locked_shadow_handler(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -86,8 +97,9 @@ def test_composition_uses_earliest_transport_and_locked_shadow_handler(
     identity = object()
     monkeypatch.setattr(cli, "EventHubsKafkaBus", event_bus_factory)
     monkeypatch.setattr(cli, "build_runtime_workload_identity", lambda *_args, **_kwargs: identity)
-    monkeypatch.setattr(cli, "_build_audit_store", InMemoryStateStore)
+    monkeypatch.setattr(cli, "_build_audit_store", _ReadyStateStore)
     monkeypatch.setattr(cli, "_build_resource_lock", ResourceLockManager)
+    monkeypatch.setattr(cli, "_build_idempotency_store", _ReadyIdempotencyStore)
     config = IsolatedExecutorRuntimeConfig.from_env(_environment())
     http_client = httpx.AsyncClient()
 
