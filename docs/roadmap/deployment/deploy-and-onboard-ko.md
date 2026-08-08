@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: db7987adb6ae89a8620515487813fc0070f2a82a
+translation_source_sha: 1d99b410ec3aee4b71cdb660902276284298d5b6
 translation_revised: 2026-08-09
 ---
 
@@ -94,7 +94,7 @@ runner가 아니라 점프박스가 되며, 테난트가 자체 승인 경로를
 - private 로 잠긴 **terraform remote-state storage account**, ops VNet 에 링크된
   `privatelink.blob.core.windows.net` blob private endpoint 로 프론트;
 - public IP 없이 독립 runner slot을 1-5개 등록하는 **self-hosted 배포 runner VM**. Slot마다
-  path를 VM에서 확장하고 별도 work directory를 쓰며 managed identity는 공유합니다. 이 identity는 앱 RG에
+  VM-side Bash에서 path를 확장하고 필수 success marker를 내보냅니다. Work directory는 분리하고 managed identity는 공유합니다. 이 identity는 앱 RG에
   `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`, state account에
   `Storage Blob Data Contributor`, subscription scope에 `EventGrid Contributor`만 보유합니다.
   각 run은 managed identity login 전에 Azure CLI account cache를 지운 뒤 storage, plan, apply 전에

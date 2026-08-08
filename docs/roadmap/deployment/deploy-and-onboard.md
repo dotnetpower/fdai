@@ -91,7 +91,7 @@ jumpbox rather than a registered runner, and the tenant supplies its own approve
 - a **terraform remote-state storage account** locked to private, fronted by a blob private
   endpoint on `privatelink.blob.core.windows.net` linked to the ops VNet;
 - a **self-hosted deploy runner VM** (no public IP) with one to five independent runner slots.
-  Slot paths expand on the VM; each uses a separate work directory and the same managed identity, which holds
+  VM-side Bash expands slot paths and emits a required success marker; each slot has a separate work directory but shares the managed identity, which holds
   `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on the ops RG,
   `Storage Blob Data Contributor` on state, and only subscription-scoped `EventGrid Contributor`.
   Each run clears the Azure CLI account cache before managed-identity login, then proves the exact
