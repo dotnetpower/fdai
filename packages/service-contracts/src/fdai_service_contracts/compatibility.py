@@ -491,6 +491,13 @@ def _validate_live_evidence_binding(
         content = resolved_artifact.get("content")
         if resolved_artifact.get("content_digest") != canonical_digest(content):
             raise CompatibilityError(f"live {kind} artifact content digest is invalid")
+        if (
+            not isinstance(content, Mapping)
+            or content.get("kind") != kind
+            or content.get("service_id") != receipt.get("service_id")
+            or content.get("observed") is not True
+        ):
+            raise CompatibilityError(f"live {kind} artifact observation is invalid")
         artifact_without_ref = {
             key: value for key, value in resolved_artifact.items() if key != "ref"
         }

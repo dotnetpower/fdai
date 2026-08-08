@@ -522,6 +522,30 @@ def test_live_receipt_rejects_unbound_evidence(
         )
 
 
+def test_live_receipt_rejects_digest_valid_but_unobserved_content() -> None:
+    manifest = _manifest()
+    receipt = copy.deepcopy(_generated_upgrade_receipts(manifest)[0])
+    evidence_manifest = _bound_live_evidence(receipt)
+    artifact = evidence_manifest["artifacts"][0]
+    old_ref = artifact["ref"]
+    artifact["content"]["observed"] = False
+    artifact["content_digest"] = canonical_digest(artifact["content"])
+    artifact["ref"] = canonical_digest(
+        {key: value for key, value in artifact.items() if key != "ref"}
+    )
+    receipt["observation_refs"][artifact["kind"]] = artifact["ref"]
+    assert receipt["observation_refs"][artifact["kind"]] != old_ref
+    receipt["evidence_manifest_digest"] = canonical_digest(evidence_manifest)
+
+    with pytest.raises(CompatibilityError, match="observation is invalid"):
+        validate_peer_upgrade_receipt(
+            manifest,
+            receipt,
+            required_proof_kind="live",
+            evidence_manifest=evidence_manifest,
+        )
+
+
 def test_live_checker_requires_verified_receipts_for_all_five_services() -> None:
     with pytest.raises(
         CompatibilityError,

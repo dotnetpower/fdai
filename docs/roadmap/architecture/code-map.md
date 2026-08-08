@@ -73,6 +73,8 @@ composition, provider implementation, database access, or business workflow.
 
 The five service distributions use corrected `0.1.1` images as N-1 and `0.1.2` as N. Their existing contract-set
 `1.0.0`/`1.1.0` matrix remains the cross-process compatibility boundary.
+Content-addressed live evidence also binds the exact service and observation kind and requires
+`observed=true`; recomputing a digest cannot convert an unobserved claim into a live receipt.
 
 The package test tree validates SDK behavior. Cross-service N/N-1 and topology checks remain under
 [root integration tests](../../../tests/integration/).
