@@ -74,3 +74,28 @@ async def test_postgres_replay_rejects_empty_principal_before_query(monkeypatch:
     else:
         raise AssertionError("empty replay principal did not fail closed")
     assert called is False
+
+
+async def test_postgres_readiness_references_required_projection_schema(monkeypatch: Any) -> None:
+    captured: list[str] = []
+
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self
+        assert parameters == {}
+        captured.append(statement)
+        return [{"ready": 1}]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    assert await store.probe_readiness() is True
+    statement = captured[0]
+    assert "key, value, updated_at" in statement
+    assert "FROM state_kv" in statement
+    assert "seq, event_id, correlation_id, actor, action_kind, mode" in statement
+    assert "entry, previous_hash, entry_hash, created_at" in statement
+    assert "FROM audit_log" in statement

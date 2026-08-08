@@ -1694,12 +1694,18 @@ def test_ingestion_api_readiness_reflects_dependency_loss_after_startup() -> Non
         )
     )
     with TestClient(app) as client:
-        response = client.get("/healthz")
+        assert (client.get("/live").status_code, client.get("/live").json()) == (
+            200,
+            {"status": "ok"},
+        )
+        response = client.get("/ready")
         assert (response.status_code, response.json()) == (200, {"status": "ok"})
 
         available = False
-        response = client.get("/healthz")
+        assert client.get("/live").status_code == 200
+        response = client.get("/ready")
         assert (response.status_code, response.json()) == (503, {"status": "not-ready"})
+        assert client.get("/healthz").status_code == 503
 
 
 def test_ingestion_api_readiness_rejects_stopped_required_service() -> None:

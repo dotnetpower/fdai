@@ -283,7 +283,10 @@ def build_app(
             }
         )
 
-    async def healthz(_request: Request) -> Response:
+    async def liveness(_request: Request) -> Response:
+        return JSONResponse({"status": "ok"})
+
+    async def readiness(_request: Request) -> Response:
         requires_lifecycle = bool(
             resolved.startup_checks or resolved.readiness_checks or resolved.background_services
         )
@@ -337,7 +340,9 @@ def build_app(
         )
 
     routes = [
-        Route("/healthz", healthz, methods=["GET"]),
+        Route("/healthz", readiness, methods=["GET"]),
+        Route("/live", liveness, methods=["GET"]),
+        Route("/ready", readiness, methods=["GET"]),
         Route("/ingestion/capabilities", capabilities, methods=["GET"]),
         Route("/ingestion/uploads", create_upload, methods=["POST"]),
         Route("/ingestion/uploads/{upload_id}/resume", resume_upload, methods=["POST"]),

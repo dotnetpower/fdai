@@ -28,6 +28,13 @@ from fdai_document_worker_service.adapters.storage import (
     AzureDataLakeConfig,
     AzureDataLakeObjectStore,
 )
+from fdai_ingestion_api_service.adapters.event_bus import EventHubsKafkaPublisher
+from fdai_ingestion_api_service.adapters.postgres import (
+    PostgresApiConfig,
+)
+from fdai_ingestion_api_service.adapters.postgres import (
+    PostgresDocumentMetadataStore as PostgresApiDocumentMetadataStore,
+)
 from fdai_service_contracts import (
     AdapterReadinessState,
     DocumentWorkerClaim,
@@ -145,6 +152,97 @@ class StaleClaimConnection(Connection):
     async def execute(self, query: str, _params: object = ()) -> Cursor:
         self.queries.append(query)
         return Cursor(None)
+
+
+class SchemaProbeConnection(Connection):
+    def __init__(self) -> None:
+        self.queries: list[str] = []
+
+    async def execute(self, query: str, _params: object = ()) -> Cursor:
+        self.queries.append(query)
+        return Cursor(None)
+
+
+class KafkaMetadataClient:
+    def __init__(self, *, failure: Exception | None = None) -> None:
+        self.failure = failure
+        self.calls = 0
+
+    async def fetch_all_metadata(self) -> object:
+        self.calls += 1
+        if self.failure is not None:
+            raise self.failure
+        return object()
+
+
+class CachedKafkaProducer:
+    def __init__(self, *, metadata_failure: Exception | None = None) -> None:
+        self.client = KafkaMetadataClient(failure=metadata_failure)
+        self.stop_calls = 0
+
+    async def send_and_wait(self, *_args: object, **_kwargs: object) -> object:
+        raise RuntimeError("broker send failed")
+
+    async def stop(self) -> None:
+        self.stop_calls += 1
+
+
+async def test_ingestion_api_postgres_probe_references_required_owned_schema(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = PostgresApiDocumentMetadataStore(
+        config=PostgresApiConfig(dsn="postgresql://example.invalid/fdai")
+    )
+    connection = SchemaProbeConnection()
+
+    async def connect() -> SchemaProbeConnection:
+        return connection
+
+    monkeypatch.setattr(store, "_connect", connect)
+
+    result = await store.probe_readiness()
+
+    assert result.live_verified is True
+    statement = connection.queries[-1]
+    for fragment in (
+        "FROM document_upload_session",
+        "FROM document_version",
+        "FROM document_api_outbox",
+        "FROM knowledge_chunk",
+        "FROM state_kv",
+    ):
+        assert fragment in statement
+
+
+async def test_ingestion_api_kafka_probe_refreshes_metadata_and_discards_stale_producer() -> None:
+    publisher = EventHubsKafkaPublisher(
+        bootstrap_servers="example.invalid:9093",
+        credential=LiveCredential(),  # type: ignore[arg-type]
+    )
+    producer = CachedKafkaProducer(metadata_failure=RuntimeError("broker unavailable"))
+    publisher._producer = producer  # type: ignore[assignment]
+
+    result = await publisher.probe_readiness()
+
+    assert result.live_verified is False
+    assert producer.client.calls == 1
+    assert producer.stop_calls == 1
+    assert publisher._producer is None
+
+
+async def test_ingestion_api_kafka_send_failure_discards_cached_producer() -> None:
+    publisher = EventHubsKafkaPublisher(
+        bootstrap_servers="example.invalid:9093",
+        credential=LiveCredential(),  # type: ignore[arg-type]
+    )
+    producer = CachedKafkaProducer()
+    publisher._producer = producer  # type: ignore[assignment]
+
+    with pytest.raises(RuntimeError, match="broker send failed"):
+        await publisher.publish("events", "key", {"value": "payload"})
+
+    assert producer.stop_calls == 1
+    assert publisher._producer is None
 
 
 def test_live_adapters_report_configuration_evidence_without_network_calls() -> None:

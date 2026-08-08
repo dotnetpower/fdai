@@ -14,6 +14,21 @@ from psycopg.rows import dict_row
 
 _PROJECTION_PREFIX: Final = "operator-projection:"
 _PROPOSAL_PREFIX: Final = "operator-proposal:"
+_READINESS_SQL: Final = """
+SELECT probe.ready
+    FROM (VALUES (1)) AS probe(ready)
+    LEFT JOIN (
+            SELECT key, value, updated_at
+                FROM state_kv
+             LIMIT 0
+    ) AS required_state ON FALSE
+    LEFT JOIN (
+            SELECT seq, event_id, correlation_id, actor, action_kind, mode,
+                         entry, previous_hash, entry_hash, created_at
+                FROM audit_log
+             LIMIT 0
+    ) AS required_audit ON FALSE
+"""
 
 
 class PostgresFamilyStoreUnavailableError(RuntimeError):
@@ -69,8 +84,8 @@ class PostgresFamilyStore:
         self._config = config
 
     async def probe_readiness(self) -> bool:
-        """Verify the authoritative projection and proposal database is reachable."""
-        rows = await self._fetch_all("SELECT 1 AS ready", {})
+        """Verify required projection tables, columns, grants, and connectivity."""
+        rows = await self._fetch_all(_READINESS_SQL, {})
         return len(rows) == 1 and rows[0].get("ready") == 1
 
     async def read_state(self, key: str) -> dict[str, object] | None:

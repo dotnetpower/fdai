@@ -56,23 +56,33 @@ class EventHubsKafkaPublisher:
         return configured_readiness("event-hubs-kafka-publisher")
 
     async def probe_readiness(self) -> AdapterReadiness:
-        """Start the authenticated producer without publishing an event."""
+        """Refresh broker metadata and discard a producer that cannot reach Kafka."""
         adapter = "event-hubs-kafka-publisher"
+        producer: AIOKafkaProducer | None = None
         try:
-            await asyncio.wait_for(self._get_producer(), timeout=5.0)
+            producer = await asyncio.wait_for(self._get_producer(), timeout=5.0)
+            await asyncio.wait_for(producer.client.fetch_all_metadata(), timeout=5.0)
         except TimeoutError:
+            if producer is not None:
+                await self._discard_producer(producer)
             return live_unavailable_readiness(adapter, "probe_timeout")
         except Exception as exc:  # noqa: BLE001 - return only the safe exception type
+            if producer is not None:
+                await self._discard_producer(producer)
             return live_unavailable_readiness(adapter, f"probe_failed:{type(exc).__name__}")
         return live_readiness(adapter)
 
     async def publish(self, topic: str, key: str, payload: Mapping[str, object]) -> object:
         producer = await self._get_producer()
-        return await producer.send_and_wait(
-            topic,
-            key=key.encode("utf-8"),
-            value=json.dumps(dict(payload), separators=(",", ":"), sort_keys=True).encode(),
-        )
+        try:
+            return await producer.send_and_wait(
+                topic,
+                key=key.encode("utf-8"),
+                value=json.dumps(dict(payload), separators=(",", ":"), sort_keys=True).encode(),
+            )
+        except Exception:
+            await self._discard_producer(producer)
+            raise
 
     async def close(self) -> None:
         async with self._lock:
@@ -110,6 +120,13 @@ class EventHubsKafkaPublisher:
                     raise
                 self._producer = producer
             return self._producer
+
+    async def _discard_producer(self, producer: AIOKafkaProducer) -> None:
+        async with self._lock:
+            if self._producer is not producer:
+                return
+            self._producer = None
+        await _stop(producer)
 
 
 async def _stop(client: Any) -> None:
