@@ -451,6 +451,17 @@ jobs:
             --destination-address "${migration_coordinates[3]}" \
             --phase post
 
+      - name: Capture peer states before deployment
+        if: ${{ !inputs.migrate_state }}
+        run: |
+          "$TRUSTED_CONTROLS/scripts/deployment/service/capture_peer_states.sh" \
+            "${{ inputs.service }}" \
+            "${{ inputs.environment }}" \
+            "$TARGET_ROOT" \
+            "$TRUSTED_CONTROLS/scripts/deployment/service" \
+            before \
+            "$RUNNER_TEMP/service-peer-state-before"
+
       - name: Materialize selected service inputs
         if: ${{ !inputs.apply && !inputs.migrate_state }}
         env:
@@ -490,6 +501,17 @@ jobs:
             --environment "${{ inputs.environment }}" \
             --image-ref "$IMAGE_REF" \
             "${cutover_args[@]}"
+
+      - name: Capture peer states after plan
+        if: ${{ !inputs.apply && !inputs.migrate_state }}
+        run: |
+          "$TRUSTED_CONTROLS/scripts/deployment/service/capture_peer_states.sh" \
+            "${{ inputs.service }}" \
+            "${{ inputs.environment }}" \
+            "$TARGET_ROOT" \
+            "$TRUSTED_CONTROLS/scripts/deployment/service" \
+            after \
+            "$RUNNER_TEMP/service-peer-state-after"
 
       - name: Seal plan artifact and context
         if: ${{ !inputs.apply && !inputs.migrate_state }}
@@ -710,6 +732,54 @@ jobs:
             "$PREVIOUS_REVISION" \
             "$TRUSTED_CONTROLS/scripts/deployment/service"
 
+      - name: Capture peer states after apply
+        if: ${{ inputs.apply && steps.apply.outcome == 'success' && steps.health.outcome == 'success' }}
+        run: |
+          "$TRUSTED_CONTROLS/scripts/deployment/service/capture_peer_states.sh" \
+            "${{ inputs.service }}" \
+            "${{ inputs.environment }}" \
+            "$TARGET_ROOT" \
+            "$TRUSTED_CONTROLS/scripts/deployment/service" \
+            after \
+            "$RUNNER_TEMP/service-peer-state-after"
+
+      - name: Verify peer isolation and seal receipt
+        if: ${{ !inputs.migrate_state && (!inputs.apply || (steps.apply.outcome == 'success' && steps.health.outcome == 'success')) }}
+        env:
+          DEPLOYMENT_MODE: ${{ inputs.apply && 'apply' || 'plan' }}
+          IMAGE_REF: ${{ inputs.image_ref }}
+          PLAN_RUN_ID: ${{ inputs.apply && inputs.plan_run_id || github.run_id }}
+          PLAN_RUN_ATTEMPT: ${{ inputs.apply && inputs.plan_run_attempt || github.run_attempt }}
+          PLAN_DIGEST: ${{ inputs.apply && inputs.plan_digest || steps.seal.outputs.plan_digest }}
+          CONTEXT_DIGEST: ${{ inputs.apply && inputs.context_digest || steps.seal.outputs.context_digest }}
+        run: |
+          set -euo pipefail
+          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/peer_state.py" verify \
+            --before "$RUNNER_TEMP/service-peer-state-before/manifest.json" \
+            --after "$RUNNER_TEMP/service-peer-state-after/manifest.json" \
+            --mode "$DEPLOYMENT_MODE" \
+            --service "${{ inputs.service }}" \
+            --environment "${{ inputs.environment }}" \
+            --repository "$GITHUB_REPOSITORY" \
+            --commit-sha "${{ inputs.commit_sha }}" \
+            --image-ref "$IMAGE_REF" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --plan-run-id "$PLAN_RUN_ID" \
+            --plan-run-attempt "$PLAN_RUN_ATTEMPT" \
+            --plan-digest "$PLAN_DIGEST" \
+            --context-digest "$CONTEXT_DIGEST" \
+            --output "$RUNNER_TEMP/service-peer-isolation-receipt.json"
+
+      - name: Upload peer isolation receipt
+        if: ${{ !inputs.migrate_state && (!inputs.apply || (steps.apply.outcome == 'success' && steps.health.outcome == 'success')) }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: service-peer-isolation-${{ inputs.service }}-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/service-peer-isolation-receipt.json
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Roll back unhealthy service revision
         if: ${{ inputs.apply && (steps.apply.outcome == 'failure' || steps.health.outcome == 'failure') }}
         id: rollback
@@ -794,4 +864,6 @@ jobs:
             "$RUNNER_TEMP/independent-service-state.json"
           rm -rf "$RUNNER_TEMP/service-plan-bundle" "$RUNNER_TEMP/service-deploy-azure"
           rm -rf "$RUNNER_TEMP/service-rollback"
+          rm -rf "$RUNNER_TEMP/service-peer-state-before" "$RUNNER_TEMP/service-peer-state-after"
+          rm -f "$RUNNER_TEMP/service-peer-isolation-receipt.json"
           rm -rf "$RUNNER_TEMP/legacy-terraform-data"

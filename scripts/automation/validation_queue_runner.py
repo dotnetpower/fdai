@@ -21,6 +21,13 @@ from scripts.automation.validation_queue_context import (
     validation_environment,
     write_stage_cache,
 )
+from scripts.automation.validation_queue_resume import (
+    changed_test_cache_dir,
+    changed_test_resume_context,
+    failed_nodeids,
+    load_changed_test_resume,
+    write_changed_test_failure,
+)
 from scripts.automation.validation_queue_support import (
     UTC,
     QueuePaths,
@@ -40,6 +47,8 @@ class StageResult(TypedDict):
     status: int
     duration_seconds: float
     cached: bool
+    resumed_from: str | None
+    resumed_failures: int
 
 
 def _link_local_path(source: Path, destination: Path) -> None:
@@ -78,12 +87,21 @@ def _run_stage(
         "status": status,
         "duration_seconds": duration,
         "cached": False,
+        "resumed_from": None,
+        "resumed_failures": 0,
     }
 
 
 def _cached_stage(name: str) -> StageResult:
     print(f"validation-queue: stage={name} status=0 cached=true")
-    return {"name": name, "status": 0, "duration_seconds": 0.0, "cached": True}
+    return {
+        "name": name,
+        "status": 0,
+        "duration_seconds": 0.0,
+        "cached": True,
+        "resumed_from": None,
+        "resumed_failures": 0,
+    }
 
 
 def _registered_worktrees(paths: QueuePaths) -> set[Path]:
@@ -148,7 +166,8 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
     head = resolve_commit(paths, "HEAD")
     pending = pending_commits(paths)
     history = git("rev-list", "--reverse", "--topo-order", head, cwd=paths.repo_root).stdout
-    selected = [commit for commit in history.splitlines() if commit in pending]
+    history_commits = history.splitlines()
+    selected = [commit for commit in history_commits if commit in pending]
     if not selected:
         print("validation-queue: no pending commits reachable from HEAD")
         return 0
@@ -212,6 +231,9 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
             environment=environment,
             local_digest=environment["FDAI_VERIFY_CONTEXT_DIGEST"],
         )
+        changed_test_context = changed_test_resume_context(cache_context, dependency_fingerprint)
+        changed_test_cache = changed_test_cache_dir(paths, head)
+        environment["FDAI_CHANGED_TEST_CACHE_DIR"] = str(changed_test_cache)
         passed_stages = load_stage_cache(cache_path, cache_context)
         print(
             f"validation-queue: validating {len(selected)} commit(s) at {head[:12]} "
@@ -221,15 +243,50 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
             if "changed-tests" in passed_stages:
                 changed_result = _cached_stage("changed-tests")
             else:
+                resume = load_changed_test_resume(
+                    paths,
+                    history=history_commits,
+                    head=head,
+                    context=changed_test_context,
+                    validation_root=validation_root,
+                )
+                changed_arguments = [
+                    "bash",
+                    "scripts/automation/tests-for-diff.sh",
+                    "--run",
+                ]
+                changed_range = revision_range
+                if resume is not None:
+                    for nodeid in resume["nodeids"]:
+                        changed_arguments.extend(("--include-test", nodeid))
+                    changed_range = f"{resume['failed_head']}..{head}"
+                    print(
+                        "validation-queue: resuming changed tests from "
+                        f"{resume['failed_head'][:12]} with "
+                        f"{len(resume['nodeids'])} prior failure(s)"
+                    )
+                changed_arguments.append(changed_range)
                 changed_result = _run_stage(
                     "changed-tests",
-                    ["bash", "scripts/automation/tests-for-diff.sh", "--run", revision_range],
+                    changed_arguments,
                     cwd=validation_root,
                     env=environment,
                 )
+                if resume is not None:
+                    changed_result["resumed_from"] = resume["failed_head"]
+                    changed_result["resumed_failures"] = len(resume["nodeids"])
                 if changed_result["status"] == 0:
                     passed_stages.add("changed-tests")
                     write_stage_cache(cache_path, cache_context, passed_stages)
+                elif changed_result["status"] == 1:
+                    failed_tests = failed_nodeids(changed_test_cache, validation_root)
+                    if failed_tests:
+                        write_changed_test_failure(
+                            paths,
+                            head=head,
+                            context=changed_test_context,
+                            nodeids=failed_tests,
+                        )
             stages.append(changed_result)
             if changed_result["status"] != 0:
                 status = int(changed_result["status"])

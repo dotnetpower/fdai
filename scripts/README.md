@@ -119,6 +119,17 @@ Changing any of those inputs invalidates the matching cache. A failed gate
 leaves the commits pending. A successful run writes per-commit receipts, and
 the pre-push hook blocks outgoing commits without those receipts.
 
+When changed tests fail and a descendant fix commit is queued, the runner keeps
+the failed pytest node IDs outside the detached worktree. The next run combines
+those failures with tests selected from the failed-`HEAD`-to-fix-`HEAD` delta
+instead of repeating every test that already passed. Reuse requires the same
+validation base, mode, dependency fingerprint, integration setting, database
+identity, and local resolved-model digest. Changes to the selector, queue
+runner, impact resolvers, or any `conftest.py` restart the complete changed-test
+stage. Integration-enabled runs also restart the complete stage because their
+two pytest phases don't yet provide a complete partial-run proof. Receipts
+record the source `HEAD` and number of resumed failures.
+
 Check whether one exact revision is ready for slow external follow-up work:
 
 ```bash

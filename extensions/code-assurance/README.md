@@ -69,8 +69,8 @@ From the repository root, run focused checks:
 ```bash
 uv run ruff check extensions/code-assurance/src extensions/code-assurance/tests
 uv run mypy --strict extensions/code-assurance/src/fdai_code_assurance
-PYTHONPATH=extensions/code-assurance/src uv run pytest -q --no-cov extensions/code-assurance/services/core-control-plane/tests/test_analyzer.py
-PYTHONPATH=extensions/code-assurance/src uv run pytest -q --no-cov extensions/code-assurance/services/core-control-plane/tests/test_github.py
-PYTHONPATH=extensions/code-assurance/src uv run pytest -q --no-cov extensions/code-assurance/services/core-control-plane/tests/test_bundle.py
+PYTHONPATH=extensions/code-assurance/src uv run pytest -q --no-cov extensions/code-assurance/tests/test_analyzer.py
+PYTHONPATH=extensions/code-assurance/src uv run pytest -q --no-cov extensions/code-assurance/tests/test_github.py
+PYTHONPATH=extensions/code-assurance/src uv run pytest -q --no-cov extensions/code-assurance/tests/test_bundle.py
 uv build --package fdai-code-assurance
 ```

@@ -383,6 +383,30 @@ def test_container_scan_blocks_all_medium_high_and_critical_vulnerabilities() ->
     assert "--ignore-unfixed" not in workflow
 
 
+def test_container_supply_chain_builds_only_service_owned_dockerfiles() -> None:
+    root = Path(__file__).resolve().parents[3]
+    workflow = (root / ".github" / "workflows" / "container-supply-chain.yml").read_text(
+        encoding="utf-8"
+    )
+    dockerfiles = {
+        f"services/{service}/docker/Dockerfile"
+        for service in (
+            "core-control-plane",
+            "operator-service",
+            "document-ingestion-api",
+            "document-processing-worker",
+            "isolated-executor",
+        )
+    }
+
+    assert "file: ${{ matrix.dockerfile }}" in workflow
+    assert "services/Dockerfile" not in workflow
+    assert "          target:" not in workflow
+    for dockerfile in dockerfiles:
+        assert f"dockerfile: {dockerfile}" in workflow
+        assert (root / dockerfile).is_file()
+
+
 def test_infrastructure_scan_blocks_medium_high_and_critical_findings() -> None:
     workflow = (
         Path(__file__).resolve().parents[3] / ".github" / "workflows" / "infra-lint.yml"

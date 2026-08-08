@@ -78,19 +78,19 @@ jobs:
       matrix:
         include:
           - service: core-control-plane
-            target: core-control-plane
+            dockerfile: services/core-control-plane/docker/Dockerfile
             image: fdai-core-control-plane
           - service: operator-service
-            target: operator-service
+            dockerfile: services/operator-service/docker/Dockerfile
             image: fdai-operator-service
           - service: document-ingestion-api
-            target: document-ingestion-api
+            dockerfile: services/document-ingestion-api/docker/Dockerfile
             image: fdai-document-ingestion-api
           - service: document-processing-worker
-            target: document-processing-worker
+            dockerfile: services/document-processing-worker/docker/Dockerfile
             image: fdai-document-processing-worker
           - service: isolated-executor
-            target: isolated-executor
+            dockerfile: services/isolated-executor/docker/Dockerfile
             image: fdai-isolated-executor
     permissions:
       contents: read
@@ -187,8 +187,7 @@ jobs:
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0, Node 24
         with:
           context: .
-          file: ./services/Dockerfile
-          target: ${{ matrix.target }}
+          file: ${{ matrix.dockerfile }}
           load: true
           push: false
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}

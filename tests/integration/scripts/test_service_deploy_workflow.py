@@ -71,7 +71,7 @@ def test_workflow_uses_protected_controls_and_protected_commit_ancestry() -> Non
     assert 'git -C "$TRUSTED_CONTROLS" merge-base --is-ancestor' in _WORKFLOW
     assert '"$COMMIT_SHA" refs/remotes/origin/main' in _WORKFLOW
     assert 'TRUSTED_CONTROLS="$GITHUB_WORKSPACE/trusted-controls"' in _WORKFLOW
-    for script in ("service_contract.py", "guard_plan.py", "plan_bundle.py"):
+    for script in ("service_contract.py", "guard_plan.py", "plan_bundle.py", "peer_state.py"):
         assert f'"$TRUSTED_CONTROLS/scripts/deployment/service/{script}"' in _WORKFLOW
 
 
@@ -148,7 +148,8 @@ def test_plan_and_apply_both_verify_image_and_guard_exact_binary_plan() -> None:
         "--controls-commit-sha",
         "--attestation-signer-workflow",
     ):
-        assert _WORKFLOW.count(argument) == 2
+        expected_count = 3 if argument == "--workflow-run-attempt" else 2
+        assert _WORKFLOW.count(argument) == expected_count
 
 
 def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
@@ -210,3 +211,21 @@ def test_state_migration_uses_remote_legacy_backend_and_verified_restore_helper(
     assert 'terraform -chdir="$TARGET_ROOT/infra" state pull' in _WORKFLOW
     assert 'terraform -chdir="$TERRAFORM_ROOT" state pull' in _WORKFLOW
     assert "terraform show -json" not in _WORKFLOW
+
+
+def test_plan_and_apply_capture_four_peer_states_and_upload_sealed_receipts() -> None:
+    assert "Capture peer states before deployment" in _WORKFLOW
+    assert "Capture peer states after plan" in _WORKFLOW
+    assert "Capture peer states after apply" in _WORKFLOW
+    assert _WORKFLOW.count("capture_peer_states.sh") == 3
+    assert "Verify peer isolation and seal receipt" in _WORKFLOW
+    assert 'peer_state.py" verify' in _WORKFLOW
+    assert '--mode "$DEPLOYMENT_MODE"' in _WORKFLOW
+    assert '--plan-digest "$PLAN_DIGEST"' in _WORKFLOW
+    assert '--context-digest "$CONTEXT_DIGEST"' in _WORKFLOW
+    assert "Upload peer isolation receipt" in _WORKFLOW
+    assert "service-peer-isolation-${{ inputs.service }}" in _WORKFLOW
+    assert "retention-days: 90" in _WORKFLOW
+    assert "service-peer-state-before" in _WORKFLOW
+    assert "service-peer-state-after" in _WORKFLOW
+    assert "service-peer-isolation-receipt.json" in _WORKFLOW

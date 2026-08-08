@@ -177,13 +177,18 @@ def test_supply_chain_matrix_builds_and_attests_all_service_targets() -> None:
     job = workflow["jobs"]["build-scan-attest"]
     matrix = job["strategy"]["matrix"]["include"]
     assert matrix == [
-        {"service": service, "target": service, "image": image}
+        {
+            "service": service,
+            "dockerfile": f"services/{service}/docker/Dockerfile",
+            "image": image,
+        }
         for service, (_, _, image) in SERVICES.items()
     ]
 
     text = WORKFLOW.read_text(encoding="utf-8")
-    assert "file: ./services/Dockerfile" in text
-    assert "target: ${{ matrix.target }}" in text
+    assert "file: ${{ matrix.dockerfile }}" in text
+    assert "services/Dockerfile" not in text
+    assert "target: ${{ matrix.target }}" not in text
     assert "${{ env.IMAGE_NAME }}/${{ matrix.image }}" in text
     assert "sbom-${{ matrix.service }}-${TARGET_COMMIT_SHA}.cdx.json" in text
     assert "sbom-${{ matrix.service }}-${TARGET_COMMIT_SHA}.spdx.json" in text

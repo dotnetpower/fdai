@@ -22,7 +22,9 @@ bindings through configuration (see
 > Independent-service deploys also bind a protected plan to the exact source workflow,
 > backend, Azure target, identities, and image. They verify state cutover ownership and restore
 > the captured revision and digest-pinned image automatically when immediate post-apply health
-> verification fails.
+> verification fails. Each plan and successful apply also captures the four peer service states
+> before and after the operation, rejects any canonical state change, and retains only a sealed
+> non-sensitive peer-isolation receipt.
 > Automated dev -> staging -> prod promotion, Container Apps traffic-split canaries,
 > SLO-driven rollback, and console blue/green remain target designs. The core Container App
 > currently uses `revision_mode = Single`.
@@ -58,6 +60,10 @@ prod topology so shadow evaluation is representative.
   migration tool backs up both states, moves one declared address, and accepts cutover only when
   the source contains zero copies and the destination contains exactly one. The legacy deployment
   plan gate blocks any later create, update, replacement, or delete at a migrated source address.
+  Protected service plans and successful applies pull all four peer states before and after the
+  operation. They compare the canonical state digest, serial, lineage digest, and managed-resource
+  count for every peer. Raw state is deleted immediately and never uploaded; the workflow retains
+  the sealed peer-isolation receipt for 90 days.
 - **Initial service runtime cutover**: after state ownership moves, the first protected plan uses
   the explicit `initial_cutover` mode. The sealed plan may replace the legacy command,
   environment, secret bindings, and primary probes with the service-owned contract while keeping
@@ -141,7 +147,7 @@ flowchart TD
 - **CI identity**: the pipeline authenticates with a **short-lived, OIDC-federated** identity
   (no long-lived cloud keys in CI). Secrets are pulled from the secret store at runtime and
   are **never** written to logs or build artifacts (secret scanning gates the merge).
-- **Supply chain**: `.github/workflows/container-supply-chain.yml` builds the Dockerfile,
+- **Supply chain**: `.github/workflows/container-supply-chain.yml` builds each service-owned Dockerfile,
   blocks on HIGH/CRITICAL Trivy findings, emits a CycloneDX **SBOM**, publishes the verified
   image to GHCR on `main`/release, and writes GitHub build-provenance and SBOM attestations.
   The Dockerfile base is pinned by **digest** and runs as uid 65532. Deployment verifies the

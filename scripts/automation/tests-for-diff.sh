@@ -12,6 +12,7 @@
 #   scripts/automation/tests-for-diff.sh HEAD~5..HEAD       # commit range
 #   scripts/automation/tests-for-diff.sh --run              # also run pytest
 #   scripts/automation/tests-for-diff.sh --run HEAD~1..HEAD # combined
+#   scripts/automation/tests-for-diff.sh --include-test <nodeid> <range>
 #
 # Notes:
 #   - Working-tree selection includes tracked, staged, and untracked files.
@@ -31,9 +32,18 @@ cd "$repo_root"
 
 run_pytest=0
 diff_arg=""
-for arg in "$@"; do
-    case "$arg" in
+include_tests=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         --run) run_pytest=1 ;;
+        --include-test)
+            shift
+            if [[ $# -eq 0 || -z "$1" ]]; then
+                echo "tests-for-diff.sh: --include-test requires a pytest node id" >&2
+                exit 2
+            fi
+            include_tests+=("$1")
+            ;;
         -h|--help)
             sed -n '2,22p' "$0"
             exit 0
@@ -43,9 +53,10 @@ for arg in "$@"; do
                 echo "tests-for-diff.sh: only one diff range accepted" >&2
                 exit 2
             fi
-            diff_arg="$arg"
+            diff_arg="$1"
             ;;
     esac
+    shift
 done
 
 if [[ -z "$diff_arg" ]]; then
@@ -64,7 +75,8 @@ full_suite_selected=0
 add_test() {
     local path="$1"
     [[ -z "$path" ]] && return 0
-    if [[ ! -e "$path" ]]; then
+    local file_path="${path%%::*}"
+    if [[ ! -e "$file_path" ]]; then
         path="tests"
     fi
     if [[ -z "${seen[$path]:-}" ]]; then
@@ -266,6 +278,10 @@ if [[ ${#python_sources[@]} -gt 0 && -z "${seen[tests]:-}" ]]; then
     done <<< "$selected_impact"
 fi
 
+for test_nodeid in "${include_tests[@]}"; do
+    add_test "$test_nodeid"
+done
+
 if [[ ${#tests[@]} -eq 0 ]]; then
     exit 0
 fi
@@ -279,6 +295,13 @@ selected=()
 for path in "${tests[@]}"; do
     covered=0
     for parent in "${selected[@]}"; do
+        path_file="${path%%::*}"
+        parent_file="${parent%%::*}"
+        if [[ "$path" != "$path_file" ]] && \
+            [[ "$path_file" == "$parent_file" || "$path_file" == "$parent_file"/* ]]; then
+            covered=1
+            break
+        fi
         if [[ "$path" == "$parent"/* ]]; then
             covered=1
             break
@@ -300,6 +323,10 @@ if [[ $run_pytest -eq 1 ]]; then
     echo "--- running pytest on the paths above ---" >&2
 
     parallel_args=()
+    pytest_cache_args=()
+    if [[ -n "${FDAI_CHANGED_TEST_CACHE_DIR:-}" ]]; then
+        pytest_cache_args=(-o "cache_dir=$FDAI_CHANGED_TEST_CACHE_DIR")
+    fi
     parallel_threshold="${FDAI_CHANGED_TEST_PARALLEL_THRESHOLD:-20}"
     if [[ ! "$parallel_threshold" =~ ^[1-9][0-9]*$ ]]; then
         echo "tests-for-diff.sh: FDAI_CHANGED_TEST_PARALLEL_THRESHOLD must be a positive integer" >&2
@@ -347,7 +374,8 @@ if [[ $run_pytest -eq 1 ]]; then
 
     set +e
     "${clean_pytest_env[@]}" PYTHONPATH="$pytest_pythonpath" \
-        uv run pytest -q -m "not integration" --no-cov "${parallel_args[@]}" "${tests[@]}"
+        uv run pytest -q -m "not integration" --no-cov "${pytest_cache_args[@]}" \
+        "${parallel_args[@]}" "${tests[@]}"
     non_integration_status=$?
     set -e
     if [[ $non_integration_status -ne 0 && $non_integration_status -ne 5 ]]; then
@@ -362,7 +390,7 @@ if [[ $run_pytest -eq 1 ]]; then
         set +e
         "${clean_pytest_env[@]}" FDAI_DATABASE_URL="$FDAI_DATABASE_URL" \
             PYTHONPATH="$pytest_pythonpath" \
-            uv run pytest -q -m integration --no-cov "${tests[@]}"
+            uv run pytest -q -m integration --no-cov "${pytest_cache_args[@]}" "${tests[@]}"
         integration_status=$?
         set -e
         if [[ $integration_status -ne 0 && $integration_status -ne 5 ]]; then
@@ -378,7 +406,8 @@ if [[ $run_pytest -eq 1 ]]; then
     if [[ $non_integration_status -eq 5 ]]; then
         set +e
         "${clean_pytest_env[@]}" PYTHONPATH="$pytest_pythonpath" \
-            uv run pytest --collect-only -q -m integration --no-cov "${tests[@]}"
+            uv run pytest --collect-only -q -m integration --no-cov \
+            "${pytest_cache_args[@]}" "${tests[@]}"
         integration_collect_status=$?
         set -e
         if [[ $integration_collect_status -eq 5 ]]; then
