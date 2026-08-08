@@ -8,10 +8,6 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from starlette.requests import Request
-from starlette.responses import JSONResponse, Response, StreamingResponse
-from starlette.routing import Route
-
 from fdai_operator_service.families.iam.contracts import (
     AccessGrantDecisionCommand,
     AccessGrantOutbox,
@@ -27,6 +23,9 @@ from fdai_operator_service.families.iam.http import (
     require_revision,
     require_string,
 )
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response, StreamingResponse
+from starlette.routing import Route
 
 _MAX_BODY_BYTES: Final = 8_192
 _MAX_REASON_CHARS: Final = 2_000

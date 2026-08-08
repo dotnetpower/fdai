@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from starlette.routing import Route
-
 from fdai_operator_service.families.iam.access_grants import make_access_grant_routes
 from fdai_operator_service.families.iam.assignments import make_assignment_routes
 from fdai_operator_service.families.iam.contracts import (
@@ -37,6 +35,7 @@ from fdai_operator_service.families.iam.settings import (
     make_model_settings_routes,
     make_runtime_settings_routes,
 )
+from starlette.routing import Route
 
 
 @dataclass(frozen=True, slots=True)

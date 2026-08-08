@@ -4,10 +4,6 @@ from __future__ import annotations
 
 from typing import Final
 
-from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
-from starlette.routing import Route
-
 from fdai_operator_service.families.iam.capabilities import IamCapability, has_capability
 from fdai_operator_service.families.iam.contracts import (
     AuthorizePrincipal,
@@ -24,6 +20,9 @@ from fdai_operator_service.families.iam.http import (
     read_json_object,
     require_revision,
 )
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+from starlette.routing import Route
 
 _MAX_BODY_BYTES: Final = 16_000
 

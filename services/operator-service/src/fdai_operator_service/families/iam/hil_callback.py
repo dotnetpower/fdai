@@ -10,11 +10,6 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Final
 
-from fdai_service_contracts import OperatorRole
-from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
-from starlette.routing import Route
-
 from fdai_operator_service.families.iam.capabilities import IamCapability, has_capability
 from fdai_operator_service.families.iam.contracts import (
     HilApprovalDecision,
@@ -25,6 +20,10 @@ from fdai_operator_service.families.iam.contracts import (
 )
 from fdai_operator_service.families.iam.errors import IamFamilyError
 from fdai_operator_service.families.iam.http import error_response, family_error
+from fdai_service_contracts import OperatorRole
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+from starlette.routing import Route
 
 DEFAULT_MAX_SKEW_SECONDS: Final = 300
 DEFAULT_MAX_BODY_BYTES: Final = 8 * 1024

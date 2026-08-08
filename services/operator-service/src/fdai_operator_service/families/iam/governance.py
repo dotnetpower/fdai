@@ -7,10 +7,6 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Final
 
-from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
-from starlette.routing import Route
-
 from fdai_operator_service.families.iam.capabilities import IamCapability, has_capability
 from fdai_operator_service.families.iam.contracts import (
     AuthorizePrincipal,
@@ -25,6 +21,9 @@ from fdai_operator_service.families.iam.http import (
     family_error,
     read_json_object,
 )
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+from starlette.routing import Route
 
 DEFAULT_KILL_SWITCH_PATH: Final = "/system/kill-switch"
 _MAX_BODY_BYTES: Final = 16_000
