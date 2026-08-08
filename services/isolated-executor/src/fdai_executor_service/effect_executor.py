@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -57,6 +57,7 @@ class DirectApiEffectOutcome(StrEnum):
     REJECTED_MODE = "rejected_mode"
     REJECTED_INVARIANT = "rejected_invariant"
     REJECTED_IDEMPOTENCY_CONFLICT = "rejected_idempotency_conflict"
+    EXPIRED = "expired"
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +99,7 @@ class ServiceDirectApiEffectExecutor:
         idempotency: IdempotencyStore | None,
         allow_enforce: bool,
         config: DirectApiEffectConfig | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._executor = executor
         self._audit_store = audit_store
@@ -105,9 +107,15 @@ class ServiceDirectApiEffectExecutor:
         self._idempotency = idempotency
         self._allow_enforce = allow_enforce
         self._config = config or DirectApiEffectConfig()
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._dedupe: dict[str, DirectApiEffectResult] = {}
 
-    async def execute(self, *, action: Action) -> DirectApiEffectResult:
+    async def execute(
+        self,
+        *,
+        action: Action,
+        deadline_at: datetime | None = None,
+    ) -> DirectApiEffectResult:
         """Validate, lock, audit, dispatch, and durably deduplicate one effect."""
 
         if action.mode is not Mode.SHADOW and not self._allow_enforce:
@@ -139,6 +147,20 @@ class ServiceDirectApiEffectExecutor:
             await locks.enter_async_context(
                 self._resource_lock.acquire(resource_lock_key(action.target_resource_ref))
             )
+            if deadline_at is not None:
+                now = self._clock()
+                if now.tzinfo is None or deadline_at.tzinfo is None:
+                    return await self._finish(
+                        action,
+                        DirectApiEffectOutcome.REJECTED_INVARIANT,
+                        "effect deadline and executor clock MUST be timezone-aware",
+                    )
+                if now > deadline_at:
+                    return await self._finish(
+                        action,
+                        DirectApiEffectOutcome.EXPIRED,
+                        "command deadline expired while waiting for effect locks",
+                    )
 
             if self._idempotency is not None:
                 stored = await self._idempotency.seen(action.idempotency_key)

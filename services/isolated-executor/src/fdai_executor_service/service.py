@@ -46,7 +46,12 @@ class ExecutorCommandConflictError(RuntimeError):
 class DirectApiCommandExecutor(Protocol):
     """Direct-API surface already enforcing the seven action safeguards."""
 
-    async def execute(self, *, action: Action) -> DirectApiExecutionResultLike: ...
+    async def execute(
+        self,
+        *,
+        action: Action,
+        deadline_at: datetime,
+    ) -> DirectApiExecutionResultLike: ...
 
 
 class IsolatedExecutorEffectService:
@@ -101,7 +106,10 @@ class IsolatedExecutorEffectService:
             )
 
         action = Action.model_validate(command.action_payload)
-        result = await self._direct_api_executor.execute(action=action)
+        result = await self._direct_api_executor.execute(
+            action=action,
+            deadline_at=command.deadline_at,
+        )
         completed_at = self._clock()
         status = ExecutorEffectReceiptStatus(result.outcome.value)
         effect_applied = result.outcome.value in {"dispatched", "already_applied"}

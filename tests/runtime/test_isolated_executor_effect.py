@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fdai_executor_service.effect_executor import ServiceDirectApiEffectExecutor
@@ -14,6 +14,7 @@ from fdai_executor_service.runtime import (
     IsolatedExecutorCommandConsumer,
 )
 from fdai_executor_service.service import IsolatedExecutorEffectService
+from fdai_service_contracts.executor import ExecutionPath, ExecutorCommand
 
 from fdai.core.executor import DirectApiExecutionOutcome
 from fdai.runtime.isolated_executor_client import EventBusDirectApiExecutionClient
@@ -156,5 +157,41 @@ async def test_effect_executor_rejects_excessive_blast_radius_before_provider() 
     result = await executor.execute(action=action)
 
     assert result.outcome.value == "abstained_blast_radius"
+    assert provider.records == ()
+    assert [row["entry"]["audit_phase"] for row in audit.audit_entries] == ["terminal"]
+
+
+async def test_effect_command_expired_while_waiting_never_reaches_provider() -> None:
+    audit = InMemoryStateStore()
+    provider = RecordingDirectApiExecutor()
+    issued_at = datetime(2026, 8, 8, tzinfo=UTC)
+    deadline_at = issued_at + timedelta(seconds=30)
+    executor = ServiceDirectApiEffectExecutor(
+        executor=provider,
+        audit_store=audit,
+        resource_lock=_ResourceLock(),
+        idempotency=InMemoryIdempotencyStore(),
+        allow_enforce=True,
+        clock=lambda: deadline_at + timedelta(microseconds=1),
+    )
+    service = IsolatedExecutorEffectService(
+        direct_api_executor=executor,
+        contract_validator=JsonSchemaContractValidator(PackageResourceSchemaRegistry()),
+        executor_instance_id="isolated-executor-effect-1",
+        clock=lambda: issued_at,
+    )
+    command = ExecutorCommand.from_action(
+        command_id=UUID("00000000-0000-0000-0000-000000000803"),
+        action=_action(),
+        execution_path=ExecutionPath.DIRECT_API,
+        attempt=1,
+        issued_at=issued_at,
+        deadline_at=deadline_at,
+    )
+
+    receipt = await service.handle(command)
+
+    assert receipt.status.value == "expired"
+    assert receipt.effect_applied is False
     assert provider.records == ()
     assert [row["entry"]["audit_phase"] for row in audit.audit_entries] == ["terminal"]
