@@ -377,19 +377,21 @@ class DocumentIngestionWorker:
             or version.revision != request.expected_version_revision
         ):
             raise DocumentLifecycleConflictError("stale document deletion request")
+        effect = await self._metadata.prepare_worker_effect(
+            claim=claim(),
+            kind=WorkerEffectKind.DELETION_CLEANUP,
+            document_id=request.document_id,
+            version_id=request.version_id,
+            object_key=session.object_key,
+        )
         try:
-            await self._assert_active_claim(request.upload_id, claim)
-            await self._index.delete(request.document_id, request.version_id)
-            await self._assert_active_claim(request.upload_id, claim)
-            await self._artifacts.delete(request.document_id, request.version_id)
-            object_keys = {session.object_key}
-            if session.storage_mode is SourceStorageMode.MANAGED_COPY and isinstance(
-                self._objects, PromotableDocumentObjectStore
-            ):
-                object_keys.add(self._objects.governed_key(session))
-            for object_key in sorted(object_keys):
-                await self._assert_active_claim(request.upload_id, claim)
-                await self._objects.delete(object_key)
+            version = await self._complete_deletion_cleanup(
+                effect,
+                session,
+                version,
+                claim,
+                actor_id=request.requested_by,
+            )
         except DocumentWorkerClaimConflictError:
             raise
         except Exception as exc:
@@ -401,15 +403,72 @@ class DocumentIngestionWorker:
                 claim=current_claim,
             )
             raise
-        session, version = await self._advance(
+        return version
+
+    async def reconcile_deletion_effect(
+        self,
+        upload_id: UUID,
+        claim: _ClaimReader,
+        *,
+        effect: WorkerEffect,
+    ) -> DocumentVersion:
+        """Resume one deletion intent under a newly acquired deletion-stage claim."""
+        if effect.upload_id != upload_id or effect.kind is not WorkerEffectKind.DELETION_CLEANUP:
+            raise DocumentLifecycleConflictError("invalid deletion cleanup effect")
+        session = await self._metadata.get_upload(upload_id)
+        version = await self._metadata.get_version(effect.document_id, effect.version_id)
+        if (
+            session.document_id != effect.document_id
+            or session.version_id != effect.version_id
+            or version.upload_id != upload_id
+            or session.state not in {DocumentState.DELETING, DocumentState.DELETED}
+            or version.state not in {DocumentState.DELETING, DocumentState.DELETED}
+        ):
+            raise DocumentLifecycleConflictError(
+                "deletion cleanup effect no longer matches lifecycle state"
+            )
+        return await self._complete_deletion_cleanup(
+            effect,
             session,
             version,
-            DocumentState.DELETED,
-            claim=claim,
-            version_updates={"available": False, "active": False},
-            action="document.deleted",
-            actor_id=request.requested_by,
+            claim,
+            actor_id="ingestion-reconciler",
         )
+
+    async def _complete_deletion_cleanup(
+        self,
+        effect: WorkerEffect,
+        session: UploadSession,
+        version: DocumentVersion,
+        claim: _ClaimReader,
+        *,
+        actor_id: str,
+    ) -> DocumentVersion:
+        if effect.object_key != session.object_key:
+            raise DocumentLifecycleConflictError("deletion cleanup source target changed")
+        await self._assert_active_claim(session.upload_id, claim)
+        await self._index.delete(version.document_id, version.version_id)
+        await self._assert_active_claim(session.upload_id, claim)
+        await self._artifacts.delete(version.document_id, version.version_id)
+        object_keys = {session.object_key}
+        if session.storage_mode is SourceStorageMode.MANAGED_COPY and isinstance(
+            self._objects, PromotableDocumentObjectStore
+        ):
+            object_keys.add(self._objects.governed_key(session))
+        for object_key in sorted(object_keys):
+            await self._assert_active_claim(session.upload_id, claim)
+            await self._objects.delete(object_key)
+        if version.state is DocumentState.DELETING:
+            _session, version = await self._advance(
+                session,
+                version,
+                DocumentState.DELETED,
+                claim=claim,
+                version_updates={"available": False, "active": False},
+                action="document.deleted",
+                actor_id=actor_id,
+            )
+        await self._metadata.complete_worker_effect(effect.effect_id)
         return version
 
     async def _run_stage(

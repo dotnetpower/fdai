@@ -43,6 +43,57 @@ _EFFECT_COLUMNS = (
     "effect_id, upload_id, document_id, version_id, effect_kind, object_key, "
     "status, created_at, completed_at"
 )
+_READINESS_SQL: Final = """
+SELECT
+    has_table_privilege(current_user, 'document_upload_session', 'SELECT, UPDATE')
+    AND has_table_privilege(current_user, 'document_version', 'SELECT, UPDATE')
+    AND has_table_privilege(current_user, 'document_worker_claim', 'SELECT, INSERT, UPDATE')
+    AND has_table_privilege(current_user, 'document_worker_outbox', 'SELECT, INSERT, UPDATE')
+    AND has_table_privilege(current_user, 'document_worker_effect', 'SELECT, INSERT, UPDATE')
+    AND has_table_privilege(current_user, 'knowledge_chunk', 'SELECT, INSERT, UPDATE, DELETE')
+    AND has_table_privilege(current_user, 'state_kv', 'SELECT, INSERT, UPDATE, DELETE') AS ready
+  FROM (VALUES (1)) AS probe(value)
+  LEFT JOIN (
+     SELECT upload_id, document_id, version_id, state, revision, payload,
+            created_at, updated_at
+       FROM document_upload_session
+      LIMIT 0
+  ) AS required_upload ON FALSE
+  LEFT JOIN (
+     SELECT document_id, version_id, upload_id, state, active, revision,
+            payload, created_at, updated_at
+       FROM document_version
+      LIMIT 0
+  ) AS required_version ON FALSE
+  LEFT JOIN (
+     SELECT upload_id, stage, owner, attempt_id, revision, status,
+            claimed_at, lease_expires_at, finished_at
+       FROM document_worker_claim
+      LIMIT 0
+  ) AS required_claim ON FALSE
+  LEFT JOIN (
+     SELECT event_id, idempotency_key, topic, partition_key, payload,
+            created_at, published_at, next_attempt_at, attempt_count
+       FROM document_worker_outbox
+      LIMIT 0
+  ) AS required_outbox ON FALSE
+  LEFT JOIN (
+     SELECT effect_id, upload_id, document_id, version_id, effect_kind,
+            object_key, status, created_at, completed_at, attempt_count, next_attempt_at
+       FROM document_worker_effect
+      LIMIT 0
+  ) AS required_effect ON FALSE
+  LEFT JOIN (
+     SELECT doc_id, chunk_id, text, source_ref, metadata, embedding
+       FROM knowledge_chunk
+      LIMIT 0
+  ) AS required_chunks ON FALSE
+  LEFT JOIN (
+     SELECT key, value, updated_at
+       FROM state_kv
+      LIMIT 0
+  ) AS required_state ON FALSE
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,16 +120,18 @@ class PostgresDocumentMetadataStore:
         return configured_readiness("postgres-document-metadata")
 
     async def probe_readiness(self) -> AdapterReadiness:
-        """Run one bounded read-only database statement."""
+        """Verify required worker tables, columns, grants, and connectivity."""
         adapter = "postgres-document-metadata"
         try:
             async with asyncio.timeout(min(float(self._config.connect_timeout_s), 5.0)):
                 async with await self._connect() as connection:
-                    await connection.execute("SELECT 1")
+                    row = await (await connection.execute(_READINESS_SQL)).fetchone()
         except TimeoutError:
             return live_unavailable_readiness(adapter, "probe_timeout")
         except Exception as exc:  # noqa: BLE001 - return only the safe exception type
             return live_unavailable_readiness(adapter, f"probe_failed:{type(exc).__name__}")
+        if row is None or row.get("ready") is not True:
+            return live_unavailable_readiness(adapter, "required_schema_or_grants_missing")
         return live_readiness(adapter)
 
     async def create(

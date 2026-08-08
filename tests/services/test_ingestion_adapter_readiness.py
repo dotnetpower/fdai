@@ -111,6 +111,9 @@ class FakeKafkaConsumer:
     async def commit(self) -> None:
         self.commits += 1
 
+    def assignment(self) -> set[str]:
+        return {"object.event:0"}
+
     async def stop(self) -> None:
         return None
 
@@ -122,8 +125,8 @@ class Connection:
     async def __aexit__(self, *_args: object) -> None:
         return None
 
-    async def execute(self, _query: str) -> object:
-        return object()
+    async def execute(self, _query: str) -> Cursor:
+        return Cursor({"ready": True})
 
 
 class Cursor:
@@ -160,7 +163,7 @@ class SchemaProbeConnection(Connection):
 
     async def execute(self, query: str, _params: object = ()) -> Cursor:
         self.queries.append(query)
-        return Cursor(None)
+        return Cursor({"ready": True})
 
 
 class KafkaMetadataClient:
@@ -210,6 +213,38 @@ async def test_ingestion_api_postgres_probe_references_required_owned_schema(
         "FROM document_api_outbox",
         "FROM knowledge_chunk",
         "FROM state_kv",
+    ):
+        assert fragment in statement
+
+
+async def test_ingestion_worker_postgres_probe_requires_owned_schema_and_grants(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = PostgresDocumentMetadataStore(
+        config=PostgresWorkerConfig(dsn="postgresql://example.invalid/fdai")
+    )
+    connection = SchemaProbeConnection()
+
+    async def connect() -> SchemaProbeConnection:
+        return connection
+
+    monkeypatch.setattr(store, "_connect", connect)
+
+    result = await store.probe_readiness()
+
+    assert result.live_verified is True
+    statement = connection.queries[-1]
+    for fragment in (
+        "FROM document_upload_session",
+        "FROM document_version",
+        "FROM document_worker_claim",
+        "FROM document_worker_outbox",
+        "FROM document_worker_effect",
+        "FROM knowledge_chunk",
+        "FROM state_kv",
+        "has_table_privilege(current_user, 'document_upload_session', 'SELECT, UPDATE')",
+        "has_table_privilege(current_user, 'document_worker_claim', 'SELECT, INSERT, UPDATE')",
+        "has_table_privilege(current_user, 'knowledge_chunk', 'SELECT, INSERT, UPDATE, DELETE')",
     ):
         assert fragment in statement
 
@@ -362,6 +397,37 @@ async def test_kafka_consumer_dead_letters_decode_error_before_committing_offset
         )
     ]
     assert consumer.commits == 1
+
+
+async def test_kafka_consumer_readiness_requires_current_group_ownership(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", FakeKafkaConsumer)
+    now = 10.0
+    bus = EventHubsKafkaBus(
+        config=EventHubsKafkaConfig(bootstrap_servers="example.com:9093"),
+        credential=OffsetCredential(),  # type: ignore[arg-type]
+        monotonic=lambda: now,
+    )
+
+    async def dead_letter(
+        _topic: str,
+        _key: str,
+        _payload: dict[str, object],
+        _reason: str,
+    ) -> None:
+        return None
+
+    monkeypatch.setattr(bus, "dead_letter", dead_letter)
+    events = bus.subscribe("object.event", "document-worker")
+
+    await anext(events)
+
+    assert bus.consumer_group_ready("object.event", "document-worker", freshness_seconds=5.0)
+    now = 16.0
+    assert not bus.consumer_group_ready("object.event", "document-worker", freshness_seconds=5.0)
+    await events.aclose()
+    assert not bus.consumer_group_ready("object.event", "document-worker", freshness_seconds=5.0)
 
 
 async def test_kafka_consumer_does_not_commit_when_decode_dlq_fails(

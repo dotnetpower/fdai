@@ -51,7 +51,7 @@ def upgrade() -> None:
         ),
         sa.UniqueConstraint("upload_id", "effect_kind", name="uq_document_worker_effect_kind"),
         sa.CheckConstraint(
-            "effect_kind IN ('source_promotion', 'ephemeral_source_cleanup')",
+            "effect_kind IN ('source_promotion', 'ephemeral_source_cleanup', 'deletion_cleanup')",
             name="ck_document_worker_effect_kind",
         ),
         sa.CheckConstraint(

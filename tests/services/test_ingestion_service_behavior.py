@@ -536,6 +536,18 @@ class ArtifactRecorder:
         self.deleted.append((document_id, version_id))
 
 
+class FailOnceArtifactRecorder(ArtifactRecorder):
+    def __init__(self) -> None:
+        super().__init__()
+        self.failed = False
+
+    async def delete(self, document_id: UUID, version_id: UUID) -> None:
+        if not self.failed:
+            self.failed = True
+            raise RuntimeError("injected artifact deletion failure")
+        await super().delete(document_id, version_id)
+
+
 class IndexRecorder:
     def __init__(self) -> None:
         self.deleted: list[tuple[UUID, UUID]] = []
@@ -890,6 +902,66 @@ async def test_deletion_request_removes_unrecorded_governed_promotion_target() -
     assert target not in objects.content
 
 
+@pytest.mark.asyncio
+async def test_deletion_effect_reconciles_partial_cleanup_and_closes_state() -> None:
+    metadata, session, version = await _effect_fixture(
+        state=DocumentState.DELETING,
+        storage_mode=SourceStorageMode.MANAGED_COPY,
+        object_key="quarantine/partial-deletion",
+    )
+    objects = PromotableMemoryObjects()
+    objects.content[session.object_key] = b"hello"
+    objects.content[objects.governed_key(session)] = b"hello"
+    artifacts = FailOnceArtifactRecorder()
+    index = IndexRecorder()
+    claim = await metadata.claim_worker_stage(
+        session.upload_id,
+        DocumentWorkerStage.DELETION,
+        owner="deletion-worker",
+        attempt_id=uuid4(),
+        lease_seconds=30,
+    )
+    assert claim is not None
+    worker = DocumentIngestionWorker(
+        metadata=metadata,
+        objects=objects,
+        malware=object(),  # type: ignore[arg-type]
+        protection=object(),  # type: ignore[arg-type]
+        extractor=object(),  # type: ignore[arg-type]
+        artifacts=artifacts,
+        index=index,
+    )
+    request = DocumentDeletionRequest(
+        request_id=uuid4(),
+        idempotency_key="document.delete:partial-cleanup",
+        document_id=version.document_id,
+        version_id=version.version_id,
+        upload_id=session.upload_id,
+        requested_by="operator",
+        expected_upload_revision=session.revision,
+        expected_version_revision=version.revision,
+        requested_at=datetime.now(UTC),
+    )
+
+    with pytest.raises(RuntimeError, match="injected artifact deletion failure"):
+        await worker.apply_deletion_request(request, lambda: claim)
+
+    effect = await metadata.get_worker_effect(session.upload_id, WorkerEffectKind.DELETION_CLEANUP)
+    assert effect is not None
+    assert effect.status is WorkerEffectStatus.PENDING
+    assert metadata.uploads[session.upload_id].state is DocumentState.DELETING
+
+    deleted = await worker.reconcile_deletion_effect(
+        session.upload_id,
+        lambda: claim,
+        effect=effect,
+    )
+
+    assert deleted.state is DocumentState.DELETED
+    assert objects.content == {}
+    assert metadata.effects[effect.effect_id].status is WorkerEffectStatus.COMPLETED
+
+
 class FailingGrantObjects(MemoryObjects):
     def __init__(self) -> None:
         super().__init__()
@@ -932,6 +1004,17 @@ class RecordingEventBus:
         reason: str,
     ) -> None:
         self.dead_letters.append((topic, key, payload, reason))
+
+
+class ReadyConsumerEventBus(RecordingEventBus):
+    def consumer_group_ready(
+        self,
+        _topic: str,
+        _group_id: str,
+        *,
+        freshness_seconds: float,
+    ) -> bool:
+        return freshness_seconds > 0
 
 
 class CandidateEventBus(RecordingEventBus):
@@ -1821,6 +1904,9 @@ async def test_worker_reclaim_rejects_stale_attempt_and_restart_completes_once()
 
 
 class LoopService:
+    def readiness(self) -> bool:
+        return True
+
     async def run(self) -> None:
         await asyncio.Event().wait()
 
@@ -1905,6 +1991,67 @@ async def test_worker_readiness_fails_when_required_loop_stops(
     with pytest.raises(RuntimeError, match="ingestion worker runtime failed"):
         await running
     assert not supervisor.ready
+
+
+@pytest.mark.asyncio
+async def test_worker_readiness_fails_when_consumer_reports_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    failed = False
+    health_started = asyncio.Event()
+
+    class ReportingLoopService(LoopService):
+        def readiness(self) -> bool:
+            return not failed
+
+    class ReportingRuntime(WorkerRuntime):
+        worker_service = ReportingLoopService()
+
+    async def no_health_start(_self: object) -> None:
+        health_started.set()
+
+    async def no_health_close(_self: object) -> None:
+        return None
+
+    monkeypatch.setattr(
+        "fdai_document_worker_service.health.RuntimeHealthServer.start",
+        no_health_start,
+    )
+    monkeypatch.setattr(
+        "fdai_document_worker_service.health.RuntimeHealthServer.close",
+        no_health_close,
+    )
+    stop = asyncio.Event()
+    supervisor = IngestionWorkerSupervisor(runtime=ReportingRuntime(), health_port=8000)
+    running = asyncio.create_task(supervisor.run(stop=stop))
+    await health_started.wait()
+    await asyncio.sleep(0)
+    assert supervisor.ready
+
+    failed = True
+    assert not supervisor.ready
+    stop.set()
+    assert await running == 0
+
+
+@pytest.mark.parametrize("loop_name", ["audit", "index", "deletion", "outbox", "reconcile"])
+def test_worker_consumer_reports_each_required_loop_failure(loop_name: str) -> None:
+    now = 10.0
+    consumer = DocumentIngestionEventConsumer(
+        event_bus=ReadyConsumerEventBus(),
+        worker=object(),  # type: ignore[arg-type]
+        metadata=object(),  # type: ignore[arg-type]
+        activity=object(),  # type: ignore[arg-type]
+        topic="object.audit-entry",
+        monotonic=lambda: now,
+    )
+    consumer._loop_succeeded("outbox")
+    consumer._loop_succeeded("reconcile")
+    assert consumer.readiness()
+
+    consumer._loop_failed(loop_name, RuntimeError("permanent loop failure"))
+
+    assert not consumer.readiness()
 
 
 @pytest.mark.asyncio

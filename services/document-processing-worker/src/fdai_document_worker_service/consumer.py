@@ -5,9 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import socket
+import time
 from collections.abc import Awaitable, Callable, Mapping
 from functools import partial
-from typing import Final
+from typing import Final, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from fdai_service_contracts import (
@@ -28,12 +29,28 @@ from fdai_service_contracts import (
 )
 from pydantic import ValidationError
 
-from fdai_document_worker_service.effects import WorkerMetadataStore
+from fdai_document_worker_service.effects import WorkerEffectKind, WorkerMetadataStore
 from fdai_document_worker_service.processing import DocumentIngestionWorker
 
 _LOGGER = logging.getLogger(__name__)
 _ClaimReader = Callable[[], DocumentWorkerClaim]
 _ClaimedOperation = Callable[[UUID, _ClaimReader], Awaitable[object]]
+_AUDIT_LOOP = "audit"
+_INDEX_LOOP = "index"
+_DELETION_LOOP = "deletion"
+_OUTBOX_LOOP = "outbox"
+_RECONCILE_LOOP = "reconcile"
+
+
+@runtime_checkable
+class _ConsumerGroupReadiness(Protocol):
+    def consumer_group_ready(
+        self,
+        topic: str,
+        group_id: str,
+        *,
+        freshness_seconds: float,
+    ) -> bool: ...
 
 
 class DocumentIngestionEventConsumer:
@@ -53,6 +70,8 @@ class DocumentIngestionEventConsumer:
         reconcile_batch_size: int = 100,
         worker_owner: str | None = None,
         lease_seconds: int = 120,
+        readiness_freshness_seconds: float = 15.0,
+        monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         if (
             topic != "object.audit-entry"
@@ -62,6 +81,7 @@ class DocumentIngestionEventConsumer:
             or reconcile_batch_size < 1
             or lease_seconds < 3
             or lease_seconds > 3600
+            or readiness_freshness_seconds <= 0
         ):
             raise ValueError("document worker MUST consume object.audit-entry with valid limits")
         resolved_owner = worker_owner or f"{socket.gethostname()}:{uuid4().hex}"
@@ -78,8 +98,39 @@ class DocumentIngestionEventConsumer:
         self._reconcile_batch_size: Final = reconcile_batch_size
         self._worker_owner: Final = resolved_owner
         self._lease_seconds: Final = lease_seconds
+        self._readiness_freshness_seconds: Final = readiness_freshness_seconds
+        self._monotonic: Final = monotonic
         self._reconcile_cursors: dict[DocumentState, UUID | None] = {}
+        self._loop_failures: dict[str, str] = {}
+        self._loop_successes: dict[str, float] = {}
         self._contract_validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())
+
+    def readiness(self) -> bool:
+        """Report whether all required worker loops remain operational."""
+        if not isinstance(self._event_bus, _ConsumerGroupReadiness):
+            return False
+        consumer_groups = (
+            (_AUDIT_LOOP, self._topic, self._group_id),
+            (_INDEX_LOOP, "object.context-index", "fdai-document-index-worker"),
+            (_DELETION_LOOP, "object.event", "fdai-document-deletion-worker"),
+        )
+        if any(
+            loop_name in self._loop_failures
+            or not self._event_bus.consumer_group_ready(
+                topic,
+                group_id,
+                freshness_seconds=self._readiness_freshness_seconds,
+            )
+            for loop_name, topic, group_id in consumer_groups
+        ):
+            return False
+        now = self._monotonic()
+        return all(
+            loop_name not in self._loop_failures
+            and (last_success := self._loop_successes.get(loop_name)) is not None
+            and now - last_success <= self._readiness_freshness_seconds
+            for loop_name in (_OUTBOX_LOOP, _RECONCILE_LOOP)
+        )
 
     async def run(self) -> None:
         while True:
@@ -116,10 +167,12 @@ class DocumentIngestionEventConsumer:
                                 reason=command.reason or "safety_hold",
                             ),
                         )
+                    self._loop_succeeded(_AUDIT_LOOP)
                 await asyncio.sleep(self._retry_seconds)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                self._loop_failed(_AUDIT_LOOP, exc)
                 _LOGGER.error(
                     "document_ingestion_event_consumer_failed",
                     extra={"exception_type": type(exc).__name__},
@@ -148,10 +201,12 @@ class DocumentIngestionEventConsumer:
                         DocumentWorkerStage.INDEXING,
                         self._worker.index,
                     )
+                    self._loop_succeeded(_INDEX_LOOP)
                 await asyncio.sleep(self._retry_seconds)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                self._loop_failed(_INDEX_LOOP, exc)
                 _LOGGER.error(
                     "document_index_event_consumer_failed",
                     extra={"exception_type": type(exc).__name__},
@@ -206,10 +261,12 @@ class DocumentIngestionEventConsumer:
                         DocumentWorkerStage.DELETION,
                         apply,
                     )
+                    self._loop_succeeded(_DELETION_LOOP)
                 await asyncio.sleep(self._retry_seconds)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                self._loop_failed(_DELETION_LOOP, exc)
                 _LOGGER.error(
                     "document_deletion_event_consumer_failed",
                     extra={"exception_type": type(exc).__name__},
@@ -221,9 +278,11 @@ class DocumentIngestionEventConsumer:
         while True:
             try:
                 published = await self._activity.drain()
+                self._loop_succeeded(_OUTBOX_LOOP)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                self._loop_failed(_OUTBOX_LOOP, exc)
                 _LOGGER.error(
                     "document_worker_outbox_drain_failed",
                     extra={"exception_type": type(exc).__name__},
@@ -234,25 +293,49 @@ class DocumentIngestionEventConsumer:
     async def reconcile(self) -> None:
         while True:
             try:
-                await self._reconcile_cycle()
+                healthy = await self._reconcile_cycle()
+                if healthy:
+                    self._loop_succeeded(_RECONCILE_LOOP)
+                else:
+                    self._loop_failed(
+                        _RECONCILE_LOOP,
+                        RuntimeError("document reconciliation cycle had failures"),
+                    )
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                self._loop_failed(_RECONCILE_LOOP, exc)
                 _LOGGER.error(
                     "document_ingestion_reconcile_cycle_failed",
                     extra={"exception_type": type(exc).__name__},
                 )
             await asyncio.sleep(self._reconcile_interval_seconds)
 
-    async def _reconcile_cycle(self) -> None:
+    def _loop_succeeded(self, loop_name: str) -> None:
+        self._loop_failures.pop(loop_name, None)
+        self._loop_successes[loop_name] = self._monotonic()
+
+    def _loop_failed(self, loop_name: str, exc: Exception) -> None:
+        self._loop_failures[loop_name] = type(exc).__name__
+
+    async def _reconcile_cycle(self) -> bool:
+        healthy = True
         for effect in await self._metadata.claim_pending_worker_effects(
             limit=self._reconcile_batch_size
         ):
             try:
-                await self._worker.reconcile_effect(effect)
+                if effect.kind is WorkerEffectKind.DELETION_CLEANUP:
+                    await self._run_reconcile(
+                        effect.upload_id,
+                        DocumentWorkerStage.DELETION,
+                        partial(self._worker.reconcile_deletion_effect, effect=effect),
+                    )
+                else:
+                    await self._worker.reconcile_effect(effect)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                healthy = False
                 _LOGGER.error(
                     "document_worker_effect_reconcile_failed",
                     extra={
@@ -275,21 +358,28 @@ class DocumentIngestionEventConsumer:
         )
         for state, stage, operation in replay:
             for session in await self._next_reconcile_batch(state):
-                await self._run_replay(session.upload_id, stage, operation)
+                healthy = await self._run_replay(session.upload_id, stage, operation) and healthy
         for state in (DocumentState.QUARANTINED, DocumentState.SCANNING):
             for session in await self._next_reconcile_batch(state):
-                await self._run_reconcile(
-                    session.upload_id,
-                    DocumentWorkerStage.INSPECTION,
-                    self._worker.inspect,
+                healthy = (
+                    await self._run_reconcile(
+                        session.upload_id,
+                        DocumentWorkerStage.INSPECTION,
+                        self._worker.inspect,
+                    )
+                    and healthy
                 )
         for state in (DocumentState.EXTRACTING, DocumentState.INDEXING):
             for session in await self._next_reconcile_batch(state):
-                await self._run_reconcile(
-                    session.upload_id,
-                    DocumentWorkerStage.INDEXING,
-                    self._worker.index,
+                healthy = (
+                    await self._run_reconcile(
+                        session.upload_id,
+                        DocumentWorkerStage.INDEXING,
+                        self._worker.index,
+                    )
+                    and healthy
                 )
+        return healthy
 
     async def _next_reconcile_batch(self, state: DocumentState) -> tuple[UploadSession, ...]:
         cursor = self._reconcile_cursors.get(state)
@@ -313,7 +403,7 @@ class DocumentIngestionEventConsumer:
         upload_id: UUID,
         stage: DocumentWorkerStage,
         operation: _ClaimedOperation,
-    ) -> None:
+    ) -> bool:
         try:
             await self._run_once(upload_id, stage, operation)
         except asyncio.CancelledError:
@@ -327,17 +417,19 @@ class DocumentIngestionEventConsumer:
                     "exception_type": type(exc).__name__,
                 },
             )
+            return False
+        return True
 
     async def _run_replay(
         self,
         upload_id: UUID,
         stage: DocumentWorkerStage,
         operation: Callable[[UUID], Awaitable[object]],
-    ) -> None:
+    ) -> bool:
         async def replay(current_upload_id: UUID, _claim: _ClaimReader) -> object:
             return await operation(current_upload_id)
 
-        await self._run_reconcile(upload_id, stage, replay)
+        return await self._run_reconcile(upload_id, stage, replay)
 
     async def _run_once(
         self,

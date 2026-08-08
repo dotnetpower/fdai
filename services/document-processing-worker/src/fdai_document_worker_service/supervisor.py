@@ -15,6 +15,7 @@ _LOGGER = logging.getLogger("fdai.ingestion.worker")
 
 
 class WorkerLoopService(Protocol):
+    def readiness(self) -> bool: ...
     async def run(self) -> None: ...
     async def run_index_commands(self) -> None: ...
     async def run_deletion_requests(self) -> None: ...
@@ -67,6 +68,7 @@ class IngestionWorkerSupervisor:
             and self._monotonic() - last_success <= self._readiness_freshness_seconds
             and bool(self._loop_tasks)
             and all(not task.done() for task in self._loop_tasks)
+            and self._runtime.worker_service.readiness()
         )
 
     async def run(self, *, stop: asyncio.Event | None = None) -> int:
