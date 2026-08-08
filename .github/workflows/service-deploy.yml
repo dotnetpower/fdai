@@ -598,10 +598,17 @@ jobs:
             echo "source plan controls are not an ancestor of current protected main." >&2
             exit 1
           }
+          deployment_inputs=(
+            .github/workflows/service-deploy.yml
+            scripts/deployment/service
+            infra/services
+            service-migrations
+            pyproject.toml
+            uv.lock
+          )
           git -C "$TRUSTED_CONTROLS" diff --quiet \
-            "$source_head_sha" "$CONTROLS_COMMIT_SHA" -- \
-            .github/workflows/service-deploy.yml scripts/deployment/service || {
-            echo "source plan deployment controls differ from current protected main." >&2
+            "$source_head_sha" "$CONTROLS_COMMIT_SHA" -- "${deployment_inputs[@]}" || {
+            echo "source plan deployment inputs differ from current protected main." >&2
             exit 1
           }
           echo "SOURCE_PLAN_HEAD_SHA=$source_head_sha" >> "$GITHUB_ENV"
@@ -637,10 +644,18 @@ jobs:
             echo "plan controls checkout is not an ancestor of current protected main." >&2
             exit 1
           }
+          deployment_inputs=(
+            .github/workflows/service-deploy.yml
+            scripts/deployment/service
+            infra/services
+            service-migrations
+            pyproject.toml
+            uv.lock
+          )
           git -C "$TRUSTED_CONTROLS" diff --quiet \
             "$plan_controls_commit_sha" "$CONTROLS_COMMIT_SHA" -- \
-            .github/workflows/service-deploy.yml scripts/deployment/service || {
-            echo "plan deployment controls differ from current protected main." >&2
+            "${deployment_inputs[@]}" || {
+            echo "plan deployment inputs differ from current protected main." >&2
             exit 1
           }
           echo "PLAN_CONTROLS_COMMIT_SHA=$plan_controls_commit_sha" >> "$GITHUB_ENV"

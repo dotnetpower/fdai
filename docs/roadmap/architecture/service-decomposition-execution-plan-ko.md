@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: ffee94f83e5fd89ddec03fb43358fd97b2830842
+translation_source_sha: 3a1588d5c61af0c2d3ff95e381d55943ef8cbd37
 translation_revised: 2026-08-09
 ---
 # 서비스 분해 실행 계획
@@ -159,7 +159,7 @@ entry point, duplicate contract와 generic ingestion co-host seam은 제거되�
 
 로컬 완료 evidence에는 독립 build wheel 6개, nonroot service image 5개, image health check 5개,
 104개 table과 11개 transition을 포함하는 검증된 migration branch 5개, 로컬에서 validate한 Terraform
-root 5개, cross-service implementation import 0, 그리고 독립 critique-and-hardening 35회와 Medium 이상
+root 5개, cross-service implementation import 0, 그리고 독립 critique-and-hardening 36회와 Medium 이상
 로컬 residual 0이 포함됩니다. IS-06과 IS-07은 local 기준으로 완료됐습니다. Exact remote
 plan/apply와 rolling 확인은 IS-09로 보류하며 최종 service-owned
 input을 사용하고 monolith를 rollback source로 복원하지 않습니다. IS-09는 deployable distribution
@@ -287,6 +287,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-09 | IS-09 | Enforced database principal | Round 33 | Plan은 `fdai_operator`, `fdai_executor` 등 service role을 선언하지만 일부 DSN secret은 admin principal로 인증했습니다. Service module 5개는 PostgreSQL `PGOPTIONS=-c role=<declared role>`을 설정해 readiness와 grant가 intended `current_user`를 평가하도록 합니다. |
 | 2026-08-09 | IS-09 | Historical rollback provenance | Round 34 | Privileged workflow guard가 historical image source에 byte-identical deployment control을 요구해 control hardening이 한 번이라도 적용되면 N-1 rollback을 영구 차단했습니다. 이제 historical artifact revision은 protected-main ancestry와 attestation을 요구하고 실행 workflow와 control은 현재 protected `main`에 고정합니다. |
 | 2026-08-09 | IS-09 | Current deployment source | Round 35 | Live preflight에서 `commit_sha`가 image revision과 historical Terraform을 함께 선택해 rollback 중 이후 role 및 recovery hardening을 조용히 제거할 수 있음을 발견했습니다. 이제 이 값은 immutable image provenance만 binding하고 Terraform root, migration, legacy state operation 및 peer capture는 모두 현재 protected `main`을 사용합니다. 취소한 Operator run은 backend validation 중 중단됐고 모든 mutation step은 skip됐습니다. |
+| 2026-08-09 | IS-09 | Complete plan staleness fence | Round 36 | Successful plan 이후 migration dependency fix가 반영됐지만 apply provenance는 workflow와 helper script만 비교했습니다. 이제 exact apply는 workflow, deployment helper, 모든 service Terraform root와 shared module, service migration, root project dependency 또는 `uv.lock` 변경을 거부합니다. 영향받은 plan은 apply 전에 모두 폐기했습니다. |
 
 ## 관련 문서
 
