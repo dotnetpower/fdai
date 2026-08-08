@@ -67,7 +67,7 @@ def downgrade() -> None:
     op.execute(
         """
         ALTER TABLE ontology_link
-        DROP CONSTRAINT ontology_link_contains_version_direction;
+        DROP CONSTRAINT IF EXISTS ontology_link_contains_version_direction;
 
         UPDATE ontology_link_type
         SET version = '1.0.0',

@@ -88,6 +88,19 @@ def test_ontology_direction_migration_invalidates_only_reversed_links() -> None:
     assert "cardinality = 'one_to_many'" in migration
     assert "ontology_link_contains_version_direction" in migration
     assert "type_version IS NOT NULL AND type_version <> '1.0.0'" in migration
+    assert "DROP CONSTRAINT IF EXISTS ontology_link_contains_version_direction" in migration
+
+
+def test_ontology_direction_guard_repairs_existing_0078_databases() -> None:
+    migration = (MIGRATIONS_DIR / "20260808_0079_ontology_direction_guard.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'down_revision: str | None = "20260808_0078"' in migration
+    assert "type_version = '1.0.0' OR type_version IS NULL" in migration
+    assert "ontology_link_contains_version_direction" in migration
+    assert "IF NOT EXISTS" in migration
+    assert "DROP CONSTRAINT IF EXISTS" in migration
 
 
 @pytest.mark.parametrize("path", MIGRATION_FILES)

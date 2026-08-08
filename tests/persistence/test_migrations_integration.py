@@ -337,3 +337,71 @@ def test_direction_migration_preserves_unrelated_graph_and_release_pins() -> Non
                 (list(object_ids), list(object_ids)),
             )
             cur.execute("DELETE FROM ontology_resource WHERE id = ANY(%s)", (list(object_ids),))
+
+
+def test_direction_guard_repairs_database_already_stamped_at_0078() -> None:
+    url = _requires_live_db()
+    with _connect(url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT to_regclass('public.alembic_version')")
+        version_table = cur.fetchone()[0]
+        if version_table is None:
+            current_revision = None
+        else:
+            cur.execute("SELECT version_num FROM alembic_version")
+            current_revision = cur.fetchone()[0]
+    if current_revision is None:
+        _alembic("upgrade", "20260806_0077")
+    elif current_revision != "20260806_0077":
+        _alembic("downgrade", "20260806_0077")
+    _alembic("stamp", "20260808_0078")
+    digest = f"sha256:{'b' * 64}"
+    object_ids = ("migration-existing-parent", "migration-existing-child")
+    try:
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "UPDATE ontology_link_type SET version = '2.0.0', "
+                "cardinality = 'one_to_many' WHERE name = 'contains'"
+            )
+            cur.executemany(
+                "INSERT INTO ontology_resource "
+                "(id, object_type, properties, revision, type_version, catalog_digest) "
+                "VALUES (%s, 'Resource', %s::jsonb, 1, '1.0.0', %s)",
+                (
+                    (
+                        object_id,
+                        json.dumps({"id": object_id, "type": "example.resource"}),
+                        digest,
+                    )
+                    for object_id in object_ids
+                ),
+            )
+            cur.execute(
+                "INSERT INTO ontology_link "
+                "(link_type, from_id, to_id, properties, type_version, catalog_digest) "
+                "VALUES ('contains', %s, %s, '{}'::jsonb, '1.0.0', %s)",
+                (object_ids[1], object_ids[0], digest),
+            )
+
+        _alembic("upgrade", "head")
+
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) FROM ontology_link "
+                "WHERE from_id = %s AND link_type = 'contains' AND to_id = %s",
+                (object_ids[1], object_ids[0]),
+            )
+            assert cur.fetchone() == (0,)
+            cur.execute(
+                "SELECT conname FROM pg_constraint "
+                "WHERE conrelid = 'ontology_link'::regclass "
+                "AND conname = 'ontology_link_contains_version_direction'"
+            )
+            assert cur.fetchone() == ("ontology_link_contains_version_direction",)
+    finally:
+        _alembic("upgrade", "head")
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM ontology_link WHERE from_id = ANY(%s) OR to_id = ANY(%s)",
+                (list(object_ids), list(object_ids)),
+            )
+            cur.execute("DELETE FROM ontology_resource WHERE id = ANY(%s)", (list(object_ids),))
