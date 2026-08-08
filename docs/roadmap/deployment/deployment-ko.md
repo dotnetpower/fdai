@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: c48e61ed1a5cd2ec0c562c89109dc009c08a38ee
-translation_revised: 2026-08-08
+translation_source_sha: 348a1f5a0c57ca1661c5985877369ab85c7866cd
+translation_revised: 2026-08-09
 ---
 
 # 배포(Deployment)
@@ -25,7 +25,9 @@ state binding을 제공합니다.
 > drift plan, post-apply canary Job smoke는 배포됐습니다.
 > 독립 서비스 배포는 protected plan을 정확한 source workflow, backend, Azure target, identity,
 > image에 binding합니다. State cutover ownership을 검증하고 immediate post-apply health 검증이
-> 실패하면 capture한 revision과 digest-pinned image를 자동 복원합니다.
+> 실패하면 capture한 revision과 digest-pinned image를 자동 복원합니다. 각 plan과 성공한
+> apply는 작업 전후 peer service 4개의 state를 capture하고 canonical state 변경을 차단하며,
+> 민감하지 않게 sealed한 peer-isolation receipt만 보존합니다.
 > 자동 dev -> staging -> prod 승격,
 > Container Apps traffic-split canary, SLO 기반 자동 rollback, console blue/green은 아직
 > 목표 설계입니다. Core Container App은 현재 `revision_mode = Single`입니다.
@@ -59,7 +61,10 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
 - **독립 서비스 state cutover**: 각 runtime service는 별도 backend key를 사용합니다. Migration
   tool은 두 state를 모두 백업하고 선언된 address 하나를 이동합니다. Source에 copy가 0개이고
   destination에 정확히 1개일 때만 cutover를 수락합니다. Legacy deployment plan gate는 migrated
-  source address의 이후 create, update, replacement, delete를 차단합니다.
+  source address의 이후 create, update, replacement, delete를 차단합니다. Protected service plan과
+  성공한 apply는 작업 전후 peer state 4개를 모두 pull합니다. 각 peer의 canonical state digest,
+  serial, lineage digest 및 managed-resource count를 비교합니다. Raw state는 즉시 삭제하고
+  upload하지 않으며, workflow는 sealed peer-isolation receipt를 90일 동안 보존합니다.
 - **최초 서비스 runtime cutover**: state ownership을 이동한 뒤 첫 protected plan은 명시적
   `initial_cutover` mode를 사용합니다. Sealed plan은 resource identity, platform, workload
   identity, resource limit, secret provenance, sidecar를 그대로 유지하면서 legacy command,

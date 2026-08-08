@@ -66,6 +66,11 @@ def migration() -> ModuleType:
 
 
 @pytest.fixture(scope="module")
+def peer_state() -> ModuleType:
+    return _load("peer_state")
+
+
+@pytest.fixture(scope="module")
 def recovery() -> ModuleType:
     return _load("deployment_recovery")
 
@@ -1209,6 +1214,130 @@ def test_state_migration_resolves_exact_source_and_destination(
     assert destination == (
         "module.operator_service.module.container_app.azurerm_container_app.service"
     )
+
+
+def _peer_raw_state(
+    *, serial: int = 1, sensitive_value: str = "not-for-receipt"
+) -> dict[str, object]:
+    return {
+        "version": 4,
+        "terraform_version": "1.9.0",
+        "serial": serial,
+        "lineage": "example-lineage",
+        "outputs": {"sensitive": {"value": sensitive_value, "sensitive": True, "type": "string"}},
+        "resources": [
+            {
+                "mode": "managed",
+                "type": "azurerm_container_app",
+                "name": "service",
+                "instances": [{"attributes": {"id": "/synthetic/service"}}],
+            }
+        ],
+    }
+
+
+def _capture_peer_manifest(
+    peer_state: ModuleType,
+    tmp_path: Path,
+    *,
+    phase: str,
+    changed_service: str | None = None,
+) -> dict[str, object]:
+    state_dir = tmp_path / phase
+    state_dir.mkdir()
+    for coordinate in peer_state.peer_coordinates("operator-service", "dev"):
+        serial = 2 if coordinate.service == changed_service else 1
+        (state_dir / f"{coordinate.service}.json").write_text(
+            json.dumps(_peer_raw_state(serial=serial)), encoding="utf-8"
+        )
+    return peer_state.capture_manifest(
+        selected_service="operator-service",
+        environment="dev",
+        phase=phase,
+        state_dir=state_dir,
+    )
+
+
+def test_peer_state_capture_is_closed_and_redacts_raw_state(
+    peer_state: ModuleType,
+    tmp_path: Path,
+) -> None:
+    coordinates = peer_state.peer_coordinates("operator-service", "dev")
+    assert len(coordinates) == 4
+    assert {coordinate.service for coordinate in coordinates} == {
+        "core-control-plane",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+    }
+
+    manifest = _capture_peer_manifest(peer_state, tmp_path, phase="before")
+
+    assert manifest["peer_count"] == 4
+    encoded = json.dumps(manifest)
+    assert "not-for-receipt" not in encoded
+    assert "example-lineage" not in encoded
+    assert all(peer["managed_resource_count"] == 1 for peer in manifest["peers"])
+
+
+def test_peer_state_receipt_binds_exact_plan_and_unchanged_peers(
+    peer_state: ModuleType,
+    tmp_path: Path,
+) -> None:
+    before = _capture_peer_manifest(peer_state, tmp_path, phase="before")
+    after = _capture_peer_manifest(peer_state, tmp_path, phase="after")
+
+    receipt = peer_state.verify_peer_isolation(
+        before=before,
+        after=after,
+        mode="plan",
+        selected_service="operator-service",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="a" * 40,
+        image_ref=_image("fdai-operator-service"),
+        workflow_run_id="10",
+        workflow_run_attempt="1",
+        plan_run_id="10",
+        plan_run_attempt="1",
+        plan_digest="b" * 64,
+        context_digest="c" * 64,
+    )
+
+    assert receipt["status"] == "verified"
+    assert receipt["peer_count"] == 4
+    assert receipt["plan_digest"] == "b" * 64
+
+
+def test_peer_state_receipt_rejects_any_peer_drift(
+    peer_state: ModuleType,
+    tmp_path: Path,
+) -> None:
+    before = _capture_peer_manifest(peer_state, tmp_path, phase="before")
+    after = _capture_peer_manifest(
+        peer_state,
+        tmp_path,
+        phase="after",
+        changed_service="isolated-executor",
+    )
+
+    with pytest.raises(peer_state.PeerStateError, match="isolated-executor"):
+        peer_state.verify_peer_isolation(
+            before=before,
+            after=after,
+            mode="apply",
+            selected_service="operator-service",
+            environment="dev",
+            repository="example/fdai",
+            commit_sha="a" * 40,
+            image_ref=_image("fdai-operator-service"),
+            workflow_run_id="11",
+            workflow_run_attempt="1",
+            plan_run_id="10",
+            plan_run_attempt="1",
+            plan_digest="b" * 64,
+            context_digest="c" * 64,
+        )
 
 
 def test_state_cutover_requires_source_zero_and_destination_exactly_once(
