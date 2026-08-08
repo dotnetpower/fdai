@@ -98,6 +98,12 @@ def test_workflow_validates_exact_source_run_before_artifact_download() -> None:
     assert '"workflow_dispatch"' in _WORKFLOW
     assert '".github/workflows/service-deploy.yml"' in _WORKFLOW
     assert "-${{ inputs.plan_run_attempt }}" in _WORKFLOW
+    assert "merge-base --is-ancestor" in _WORKFLOW
+    assert '"$source_head_sha" "$CONTROLS_COMMIT_SHA"' in _WORKFLOW
+    assert ".github/workflows/service-deploy.yml" in _WORKFLOW
+    assert "scripts/deployment/service" in _WORKFLOW
+    assert 'echo "PLAN_CONTROLS_COMMIT_SHA=$source_head_sha"' in _WORKFLOW
+    assert '--controls-commit-sha "$PLAN_CONTROLS_COMMIT_SHA"' in _WORKFLOW
 
 
 def test_workflow_uses_per_service_backend_and_never_platform_root() -> None:

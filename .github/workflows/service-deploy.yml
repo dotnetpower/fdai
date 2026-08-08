@@ -518,7 +518,7 @@ jobs:
             --backend-resource-group "$STATE_RESOURCE_GROUP" \
             --backend-storage-account "$STATE_STORAGE_ACCOUNT" \
             --backend-container "$STATE_CONTAINER" \
-            --controls-commit-sha "$CONTROLS_COMMIT_SHA" \
+            --controls-commit-sha "$PLAN_CONTROLS_COMMIT_SHA" \
             --resolved-models-digest "$RESOLVED_MODELS_DIGEST" \
             --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
             "${cutover_args[@]}" >/dev/null
@@ -569,22 +569,34 @@ jobs:
           PLAN_RUN_ATTEMPT: ${{ inputs.plan_run_attempt }}
         run: |
           set -euo pipefail
-          SOURCE_HEAD_SHA="$CONTROLS_COMMIT_SHA"
           run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PLAN_RUN_ID")"
           jq -e \
             --argjson run_id "$PLAN_RUN_ID" \
             --argjson run_attempt "$PLAN_RUN_ATTEMPT" \
-            --arg head_sha "$SOURCE_HEAD_SHA" \
             '.id == $run_id and
              .run_attempt == $run_attempt and
              .conclusion == "success" and
              .event == "workflow_dispatch" and
-             .head_sha == $head_sha and
+             (.head_sha | test("^[0-9a-f]{40}$")) and
              .path == ".github/workflows/service-deploy.yml"' \
             <<<"$run_json" >/dev/null || {
             echo "source plan run provenance does not match exact apply inputs." >&2
             exit 1
           }
+          source_head_sha="$(jq -er '.head_sha' <<<"$run_json")"
+          git -C "$TRUSTED_CONTROLS" fetch --no-tags origin "$source_head_sha"
+          git -C "$TRUSTED_CONTROLS" merge-base --is-ancestor \
+            "$source_head_sha" "$CONTROLS_COMMIT_SHA" || {
+            echo "source plan controls are not an ancestor of current protected main." >&2
+            exit 1
+          }
+          git -C "$TRUSTED_CONTROLS" diff --quiet \
+            "$source_head_sha" "$CONTROLS_COMMIT_SHA" -- \
+            .github/workflows/service-deploy.yml scripts/deployment/service || {
+            echo "source plan deployment controls differ from current protected main." >&2
+            exit 1
+          }
+          echo "PLAN_CONTROLS_COMMIT_SHA=$source_head_sha" >> "$GITHUB_ENV"
 
       - name: Download exact protected service plan
         if: ${{ inputs.apply }}
@@ -625,7 +637,7 @@ jobs:
             --backend-resource-group "$STATE_RESOURCE_GROUP" \
             --backend-storage-account "$STATE_STORAGE_ACCOUNT" \
             --backend-container "$STATE_CONTAINER" \
-            --controls-commit-sha "$CONTROLS_COMMIT_SHA" \
+            --controls-commit-sha "$PLAN_CONTROLS_COMMIT_SHA" \
             --resolved-models-digest "$RESOLVED_MODELS_DIGEST" \
             --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
             "${cutover_args[@]}" >/dev/null
