@@ -4,6 +4,7 @@ import importlib
 import json
 import os
 import runpy
+import shutil
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -701,7 +702,8 @@ def test_service_command_wrappers_exist_and_are_executable() -> None:
         wrapper = MIGRATION_ROOT / "bin" / service_id
         assert wrapper.is_file()
         assert wrapper.stat().st_mode & 0o111
-        environment = dict(os.environ, FDAI_MIGRATION_PYTHON=sys.executable)
+        environment = dict(os.environ)
+        environment.pop("FDAI_MIGRATION_PYTHON", None)
         result = subprocess.run(  # noqa: S603 - fixed repository wrapper
             [str(wrapper), "heads"],
             check=False,
@@ -714,6 +716,35 @@ def test_service_command_wrappers_exist_and_are_executable() -> None:
         expected_head = ScriptDirectory.from_config(config).get_current_head()
         assert expected_head is not None
         assert expected_head in result.stdout
+
+
+def test_service_command_wrapper_fails_clearly_without_project_python(
+    tmp_path: Path,
+) -> None:
+    wrapper_root = tmp_path / "repo" / "service-migrations" / "bin"
+    wrapper_root.mkdir(parents=True)
+    wrapper = wrapper_root / "core-control-plane"
+    shutil.copy2(MIGRATION_ROOT / "bin" / "core-control-plane", wrapper)
+    shell = shutil.which("sh")
+    assert shell is not None
+    path = tmp_path / "path"
+    path.mkdir()
+    (path / "sh").symlink_to(shell)
+    environment = {"PATH": str(path)}
+
+    result = subprocess.run(  # noqa: S603 - isolated repository wrapper fixture
+        [str(wrapper), "heads"],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+
+    assert result.returncode == 127
+    assert result.stderr == (
+        "error: no supported project Python found; set FDAI_MIGRATION_PYTHON, "
+        "create .venv, or install uv\n"
+    )
 
 
 def test_independent_service_manifest_references_existing_migration_branches() -> None:

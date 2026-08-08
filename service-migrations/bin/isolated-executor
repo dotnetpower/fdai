@@ -1,4 +1,22 @@
 #!/usr/bin/env sh
 set -eu
-python_bin=${FDAI_MIGRATION_PYTHON:-python3}
-exec "$python_bin" "$(dirname "$0")/../migrate.py" isolated-executor "$@"
+
+repo_root=$(CDPATH= cd -P -- "${0%/*}/../.." && pwd)
+migration_entry="$repo_root/service-migrations/migrate.py"
+
+if [ -n "${FDAI_MIGRATION_PYTHON:-}" ]; then
+	exec "$FDAI_MIGRATION_PYTHON" "$migration_entry" isolated-executor "$@"
+fi
+
+if [ -x "$repo_root/.venv/bin/python" ]; then
+	exec "$repo_root/.venv/bin/python" "$migration_entry" isolated-executor "$@"
+fi
+
+if command -v uv >/dev/null 2>&1; then
+	exec uv run --frozen --project "$repo_root" python "$migration_entry" isolated-executor "$@"
+fi
+
+printf '%s\n' \
+	'error: no supported project Python found; set FDAI_MIGRATION_PYTHON, create .venv, or install uv' \
+	>&2
+exit 127
