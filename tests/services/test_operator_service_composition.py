@@ -14,6 +14,7 @@ from fdai_operator_service.contracts import ReadinessProbe
 from fdai_operator_service.environment import (
     AUDIENCE_ENV,
     CORS_ORIGINS_ENV,
+    DATABASE_ROLE_ENV,
     DATABASE_URL_ENV,
     GROUP_ENV,
     HOST_ENV,
@@ -304,13 +305,37 @@ def test_unbound_projection_fails_closed_instead_of_returning_empty_live_state()
 def test_database_url_binds_service_owned_postgres_projection() -> None:
     composition = ProductionOperatorComposition(verifier_factory=lambda environment: _verify)
     runtime = composition.build_runtime(
-        {**BASE_ENV, DATABASE_URL_ENV: "postgresql://example.invalid/fdai"}
+        {
+            **BASE_ENV,
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+        }
     )
 
     assert isinstance(runtime.read_model, PostgresOperatorReadModel)
     source = next(item for item in runtime.data_sources if item.key == "operational-state")
     assert source.configured is True
     assert source.authoritative is True
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {DATABASE_URL_ENV: "postgresql://example.invalid/fdai"},
+        {
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "postgres",
+        },
+        {DATABASE_ROLE_ENV: "fdai_operator"},
+    ],
+)
+def test_database_url_and_exact_operator_role_must_be_configured_together(
+    overrides: Mapping[str, str],
+) -> None:
+    composition = ProductionOperatorComposition(verifier_factory=lambda environment: _verify)
+
+    with pytest.raises(OperatorServiceConfigurationError, match=DATABASE_ROLE_ENV):
+        composition.build_runtime({**BASE_ENV, **overrides})
 
 
 def test_incident_and_rca_queries_preserve_stable_error_envelopes() -> None:

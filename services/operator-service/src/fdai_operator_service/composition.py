@@ -189,9 +189,12 @@ def _build_route_families(
 def _postgres_family_store(environment: OperatorEnvironment) -> PostgresFamilyStore | None:
     if environment.database_url is None:
         return None
+    if environment.database_role is None:
+        raise RuntimeError("validated Operator database role is missing")
     return PostgresFamilyStore(
         PostgresFamilyStoreConfig(
             dsn=environment.database_url,
+            role=environment.database_role,
             statement_timeout_ms=environment.database_statement_timeout_ms,
             connect_timeout_s=environment.database_connect_timeout_s,
         )

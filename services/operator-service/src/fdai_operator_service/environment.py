@@ -16,8 +16,10 @@ ISSUER_ENV = "FDAI_ENTRA_ISSUER"
 JWKS_URI_ENV = "FDAI_ENTRA_JWKS_URI"
 CORS_ORIGINS_ENV = "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS"
 DATABASE_URL_ENV = "FDAI_DATABASE_URL"
+DATABASE_ROLE_ENV = "FDAI_DATABASE_ROLE"
 DATABASE_STATEMENT_TIMEOUT_ENV = "FDAI_OPERATOR_DATABASE_STATEMENT_TIMEOUT_MS"
 DATABASE_CONNECT_TIMEOUT_ENV = "FDAI_OPERATOR_DATABASE_CONNECT_TIMEOUT_S"
+EXPECTED_DATABASE_ROLE = "fdai_operator"
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 - Container ingress terminates external HTTPS.
 DEFAULT_PORT = 8000
 DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS = 20_000
@@ -52,6 +54,7 @@ class OperatorEnvironment:
     group_ids: Mapping[OperatorRole, str]
     cors_allow_origins: tuple[str, ...]
     database_url: str | None
+    database_role: str | None
     database_statement_timeout_ms: int
     database_connect_timeout_s: int
 
@@ -94,6 +97,15 @@ class OperatorEnvironment:
             )
 
         database_url = values.get(DATABASE_URL_ENV, "").strip() or None
+        database_role = values.get(DATABASE_ROLE_ENV, "").strip() or None
+        if database_url is None and database_role is not None:
+            raise OperatorServiceConfigurationError(
+                f"{DATABASE_ROLE_ENV} MUST be unset when {DATABASE_URL_ENV} is unset"
+            )
+        if database_url is not None and database_role != EXPECTED_DATABASE_ROLE:
+            raise OperatorServiceConfigurationError(
+                f"{DATABASE_ROLE_ENV} MUST be {EXPECTED_DATABASE_ROLE}"
+            )
         database_statement_timeout_ms = _positive_int(
             values,
             DATABASE_STATEMENT_TIMEOUT_ENV,
@@ -116,6 +128,7 @@ class OperatorEnvironment:
             group_ids=MappingProxyType(group_ids),
             cors_allow_origins=cors_allow_origins,
             database_url=database_url,
+            database_role=database_role,
             database_statement_timeout_ms=database_statement_timeout_ms,
             database_connect_timeout_s=database_connect_timeout_s,
         )
@@ -143,10 +156,12 @@ __all__ = [
     "AUDIENCE_ENV",
     "CORS_ORIGINS_ENV",
     "DATABASE_CONNECT_TIMEOUT_ENV",
+    "DATABASE_ROLE_ENV",
     "DATABASE_STATEMENT_TIMEOUT_ENV",
     "DATABASE_URL_ENV",
     "DEFAULT_HOST",
     "DEFAULT_PORT",
+    "EXPECTED_DATABASE_ROLE",
     "GROUP_ENV",
     "HOST_ENV",
     "ISSUER_ENV",

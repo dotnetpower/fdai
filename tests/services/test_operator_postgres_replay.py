@@ -85,17 +85,16 @@ async def test_postgres_readiness_references_required_projection_schema(monkeypa
         parameters: Mapping[str, object],
     ) -> list[dict[str, object]]:
         del self
-        assert parameters == {}
+        assert parameters == {"expected_role": "fdai_operator"}
         captured.append(statement)
-        return [{"ready": 1}]
+        return [{"ready": True}]
 
     monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
     store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
 
     assert await store.probe_readiness() is True
     statement = captured[0]
-    assert "key, value, updated_at" in statement
-    assert "FROM state_kv" in statement
-    assert "seq, event_id, correlation_id, actor, action_kind, mode" in statement
-    assert "entry, previous_hash, entry_hash, created_at" in statement
-    assert "FROM audit_log" in statement
+    assert "current_user = %(expected_role)s" in statement
+    assert "has_table_privilege(current_user, 'state_kv', 'SELECT')" in statement
+    assert "has_table_privilege(current_user, 'state_kv', 'INSERT')" in statement
+    assert "has_table_privilege(current_user, 'audit_log', 'SELECT')" in statement

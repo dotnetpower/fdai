@@ -12,22 +12,36 @@ from typing import Any, Final
 import psycopg
 from psycopg.rows import dict_row
 
+from fdai_operator_service.environment import EXPECTED_DATABASE_ROLE
+
 _PROJECTION_PREFIX: Final = "operator-projection:"
 _PROPOSAL_PREFIX: Final = "operator-proposal:"
 _READINESS_SQL: Final = """
-SELECT probe.ready
-    FROM (VALUES (1)) AS probe(ready)
-    LEFT JOIN (
-            SELECT key, value, updated_at
-                FROM state_kv
-             LIMIT 0
-    ) AS required_state ON FALSE
-    LEFT JOIN (
-            SELECT seq, event_id, correlation_id, actor, action_kind, mode,
-                         entry, previous_hash, entry_hash, created_at
-                FROM audit_log
-             LIMIT 0
-    ) AS required_audit ON FALSE
+SELECT (
+           current_user = %(expected_role)s
+       AND NOT login_role.rolsuper
+       AND NOT login_role.rolcreaterole
+       AND NOT login_role.rolcreatedb
+       AND NOT login_role.rolreplication
+       AND NOT login_role.rolbypassrls
+       AND NOT pg_has_role(current_user, 'pg_read_all_data', 'MEMBER')
+       AND NOT pg_has_role(current_user, 'pg_write_all_data', 'MEMBER')
+       AND has_table_privilege(current_user, 'audit_log', 'SELECT')
+       AND NOT has_table_privilege(current_user, 'audit_log', 'INSERT')
+       AND NOT has_table_privilege(current_user, 'audit_log', 'UPDATE')
+       AND NOT has_table_privilege(current_user, 'audit_log', 'DELETE')
+       AND NOT has_table_privilege(current_user, 'audit_log', 'TRUNCATE')
+       AND NOT has_table_privilege(current_user, 'audit_log', 'REFERENCES')
+       AND NOT has_table_privilege(current_user, 'audit_log', 'TRIGGER')
+       AND has_table_privilege(current_user, 'state_kv', 'SELECT')
+       AND has_table_privilege(current_user, 'state_kv', 'INSERT')
+       AND NOT has_table_privilege(current_user, 'state_kv', 'DELETE')
+       AND NOT has_table_privilege(current_user, 'state_kv', 'TRUNCATE')
+       AND NOT has_table_privilege(current_user, 'state_kv', 'REFERENCES')
+       AND NOT has_table_privilege(current_user, 'state_kv', 'TRIGGER')
+       ) AS ready
+  FROM pg_catalog.pg_roles AS login_role
+ WHERE login_role.rolname = current_user
 """
 
 
@@ -48,12 +62,15 @@ class PostgresFamilyStoreConfig:
     """Bound PostgreSQL connection and statement timeouts for family adapters."""
 
     dsn: str
+    role: str = EXPECTED_DATABASE_ROLE
     statement_timeout_ms: int = 20_000
     connect_timeout_s: int = 10
 
     def __post_init__(self) -> None:
         if not self.dsn.strip():
             raise ValueError("PostgreSQL DSN MUST be non-empty")
+        if self.role != EXPECTED_DATABASE_ROLE:
+            raise ValueError(f"PostgreSQL role MUST be {EXPECTED_DATABASE_ROLE}")
         if self.statement_timeout_ms < 1 or self.connect_timeout_s < 1:
             raise ValueError("PostgreSQL timeouts MUST be positive")
 
@@ -85,8 +102,11 @@ class PostgresFamilyStore:
 
     async def probe_readiness(self) -> bool:
         """Verify required projection tables, columns, grants, and connectivity."""
-        rows = await self._fetch_all(_READINESS_SQL, {})
-        return len(rows) == 1 and rows[0].get("ready") == 1
+        rows = await self._fetch_all(
+            _READINESS_SQL,
+            {"expected_role": self._config.role},
+        )
+        return len(rows) == 1 and rows[0].get("ready") is True
 
     async def read_state(self, key: str) -> dict[str, object] | None:
         """Read one existing authoritative state record by its stable key."""

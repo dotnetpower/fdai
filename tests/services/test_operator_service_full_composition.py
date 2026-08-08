@@ -8,7 +8,13 @@ from typing import Any, cast
 
 from fdai_operator_service.application import create_app
 from fdai_operator_service.composition import ProductionOperatorComposition
-from fdai_operator_service.environment import AUDIENCE_ENV, DATABASE_URL_ENV, GROUP_ENV, TENANT_ENV
+from fdai_operator_service.environment import (
+    AUDIENCE_ENV,
+    DATABASE_ROLE_ENV,
+    DATABASE_URL_ENV,
+    GROUP_ENV,
+    TENANT_ENV,
+)
 from fdai_operator_service.postgres_family_store import PostgresFamilyStore, StoredProposal
 from fdai_operator_service.routes import MINIMAL_ROUTE_MANIFEST, aggregate_route_manifest
 from fdai_service_contracts import OperatorRole
@@ -152,7 +158,12 @@ def test_configured_postgres_adapters_dispatch_reads_and_typed_proposals(
 
     monkeypatch.setattr(PostgresFamilyStore, "read_projection", read_projection)
     monkeypatch.setattr(PostgresFamilyStore, "append_proposal", append_proposal)
-    client = _client({DATABASE_URL_ENV: "postgresql://example.invalid/fdai"})
+    client = _client(
+        {
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+        }
+    )
 
     projected = client.get("/rules", headers={"Authorization": "Bearer reader"})
     proposed = client.post(

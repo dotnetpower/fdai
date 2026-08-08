@@ -12,6 +12,10 @@ from fdai_operator_service.postgres import (
     PostgresOperatorReadModelConfig,
     _psycopg_dsn,
 )
+from fdai_operator_service.postgres_family_store import (
+    PostgresFamilyStore,
+    PostgresFamilyStoreConfig,
+)
 from fdai_operator_service.postgres_sql import (
     AUDIT_PAGE_SQL,
     HIL_COUNT_SQL,
@@ -30,6 +34,28 @@ from fdai_service_contracts import (
 _NOW = datetime(2026, 8, 8, tzinfo=UTC)
 
 
+class ReadinessPostgresFamilyStore(PostgresFamilyStore):
+    """Capture the bounded readiness statement without opening PostgreSQL."""
+
+    def __init__(self, row: dict[str, object]) -> None:
+        super().__init__(
+            PostgresFamilyStoreConfig(
+                dsn="postgresql://example.invalid/db",
+                role="fdai_operator",
+            )
+        )
+        self.row = row
+        self.calls: list[tuple[str, Mapping[str, object]]] = []
+
+    async def _fetch_all(
+        self,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, Any]]:
+        self.calls.append((statement, parameters))
+        return [self.row]
+
+
 def test_sqlalchemy_psycopg_dsn_is_normalized_for_direct_driver_use() -> None:
     assert _psycopg_dsn("postgresql+psycopg://user@example.invalid/db") == (
         "postgresql://user@example.invalid/db"
@@ -37,6 +63,37 @@ def test_sqlalchemy_psycopg_dsn_is_normalized_for_direct_driver_use() -> None:
     assert _psycopg_dsn("postgresql://user@example.invalid/db") == (
         "postgresql://user@example.invalid/db"
     )
+
+
+@pytest.mark.asyncio
+async def test_operator_readiness_verifies_role_and_privileges_without_durable_write() -> None:
+    store = ReadinessPostgresFamilyStore({"ready": True})
+
+    assert await store.probe_readiness() is True
+
+    statement, parameters = store.calls[-1]
+    assert parameters == {"expected_role": "fdai_operator"}
+    for fragment in (
+        "current_user = %(expected_role)s",
+        "NOT login_role.rolsuper",
+        "NOT login_role.rolcreaterole",
+        "NOT login_role.rolcreatedb",
+        "NOT login_role.rolreplication",
+        "NOT login_role.rolbypassrls",
+        "has_table_privilege(current_user, 'audit_log', 'SELECT')",
+        "has_table_privilege(current_user, 'state_kv', 'SELECT')",
+        "has_table_privilege(current_user, 'state_kv', 'INSERT')",
+    ):
+        assert fragment in statement
+    for mutation in ("INSERT INTO", "UPDATE state_kv", "DELETE FROM"):
+        assert mutation not in statement
+
+
+@pytest.mark.asyncio
+async def test_operator_readiness_rejects_role_or_privilege_failure() -> None:
+    store = ReadinessPostgresFamilyStore({"ready": False})
+
+    assert await store.probe_readiness() is False
 
 
 def _audit_row(
