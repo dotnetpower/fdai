@@ -12,7 +12,7 @@ import zipfile
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 import httpx
 import pytest
@@ -652,6 +652,155 @@ def test_deployment_workflow_embedded_python_is_syntax_valid() -> None:
         )
         source = "\n".join(line[indentation:] for line in snippet.splitlines()) + "\n"
         compile(source, f"{workflow_path}:heredoc-{index}", "exec")
+
+
+@pytest.mark.parametrize(
+    ("observer_mode", "expected_exit"),
+    (
+        ("absent", 0),
+        ("present", 1),
+        ("authorization-failure", 2),
+        ("network-failure", 2),
+        ("malformed-success", 2),
+    ),
+)
+def test_rollback_absence_observer_fails_closed(
+    tmp_path: Path,
+    observer_mode: str,
+    expected_exit: int,
+) -> None:
+    workflow_path = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "deploy-dev.yml"
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    step = next(
+        item
+        for item in workflow["jobs"]["terraform"]["steps"]
+        if item.get("name") == "Verify independent Executor effect and rollback"
+    )
+    match = re.search(r"(?ms)^wait_absent\(\) \{\n.*?^\}", step["run"])
+    assert match is not None
+    harness = (
+        f"{match.group(0)}\n"
+        "rg=example-rg\n"
+        "nsg=example-nsg\n"
+        "rule=example-rule\n"
+        "seq() { printf '1\\n'; }\n"
+        "sleep() { :; }\n"
+        "az() {\n"
+        '  case "$OBSERVER_MODE" in\n'
+        "    absent) return 0 ;;\n"
+        "    present) printf '%s\\n' \"$rule\"; return 0 ;;\n"
+        "    authorization-failure) return 1 ;;\n"
+        "    network-failure) return 28 ;;\n"
+        "    malformed-success) printf 'unexpected-rule\\n'; return 0 ;;\n"
+        "  esac\n"
+        "}\n"
+        "wait_absent\n"
+    )
+
+    completed = subprocess.run(  # noqa: S603 - repository-owned workflow function
+        ["/usr/bin/bash", "-c", harness],
+        env={**os.environ, "OBSERVER_MODE": observer_mode, "RUNNER_TEMP": str(tmp_path)},
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == expected_exit, completed.stderr
+
+
+def test_executor_receipt_observer_joins_actual_committed_and_published_fields(
+    tmp_path: Path,
+) -> None:
+    root = Path(__file__).resolve().parents[3]
+    workflow_path = root / ".github" / "workflows" / "deploy-dev.yml"
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    step = next(
+        item
+        for item in workflow["jobs"]["terraform"]["steps"]
+        if item.get("name") == "Verify independent Executor effect and rollback"
+    )
+    marker = 'COMMAND_ID="$command_id" LOGS_FILE="$logs_file" python3 - <<\'PY\'\n'
+    source, separator, _remaining = step["run"].split(marker, maxsplit=1)[1].partition("\nPY\n")
+    assert separator
+    indentation = min(
+        len(line) - len(line.lstrip()) for line in source.splitlines() if line.strip()
+    )
+    source = "\n".join(line[indentation:] for line in source.splitlines()) + "\n"
+    compile(source, "<executor-receipt-observer>", "exec")
+
+    runtime = (
+        root / "services" / "isolated-executor" / "src" / "fdai_executor_service" / "runtime.py"
+    ).read_text(encoding="utf-8")
+    for field in (
+        '"event": "isolated_executor_receipt_committed"',
+        '"command_id": str(command.command_id)',
+        '"status": receipt.status.value',
+        '"command_offset": envelope.offset',
+        '"event": "isolated_executor_receipt_published"',
+        '"receipt_id": str(pending.receipt_id)',
+        '"offset": broker_receipt.offset',
+    ):
+        assert field in runtime
+    executor_service = (
+        root / "services" / "isolated-executor" / "src" / "fdai_executor_service" / "service.py"
+    ).read_text(encoding="utf-8")
+    assert (
+        'f"fdai:isolated-executor-effect:{command.command_id}:{status.value}"' in executor_service
+    )
+
+    command_id = "00000000-0000-0000-0000-000000000123"
+    receipt_id = str(uuid5(NAMESPACE_URL, f"fdai:isolated-executor-effect:{command_id}:dispatched"))
+    logs_file = tmp_path / "executor-logs.json"
+    committed = {
+        "event": "isolated_executor_receipt_committed",
+        "command_id": command_id,
+        "status": "dispatched",
+        "command_offset": 41,
+    }
+    published = {
+        "event": "isolated_executor_receipt_published",
+        "receipt_id": receipt_id,
+        "offset": 73,
+    }
+    logs_file.write_text(
+        json.dumps(
+            [
+                {"Log_s": f"prefix {json.dumps(committed)}"},
+                {"Log_s": json.dumps(published)},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    environment = {
+        **os.environ,
+        "COMMAND_ID": command_id,
+        "LOGS_FILE": str(logs_file),
+    }
+
+    observed = subprocess.run(  # noqa: S603 - repository-owned embedded Python
+        [sys.executable, "-c", source],
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert json.loads(observed.stdout) == [
+        {
+            "command_offset": 41,
+            "receipt_id": receipt_id,
+            "receipt_offset": 73,
+        }
+    ]
+
+    logs_file.write_text(json.dumps([{"Log_s": json.dumps(committed)}]), encoding="utf-8")
+    committed_only = subprocess.run(  # noqa: S603 - repository-owned embedded Python
+        [sys.executable, "-c", source],
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert json.loads(committed_only.stdout) == []
 
 
 def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:

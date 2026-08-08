@@ -1673,24 +1673,114 @@ jobs:
             return 1
           }
           wait_absent() {
+            local observed
+            local observer_status
             for _ in $(seq 1 30); do
-              if ! az network nsg rule show --resource-group "$rg" --nsg-name "$nsg" \
-                --name "$rule" --only-show-errors >/dev/null 2>&1; then
+              set +e
+              observed="$(az network nsg rule list --resource-group "$rg" --nsg-name "$nsg" \
+              --query "[?name=='${rule}'].name | [0]" -o tsv --only-show-errors 2>/dev/null)"
+              observer_status=$?
+              set -e
+              if [[ "$observer_status" -ne 0 ]]; then
+              echo "independent ARM absence observer failed" >&2
+              return 2
+              fi
+              if [[ -z "$observed" ]]; then
                 return 0
+              fi
+              if [[ "$observed" != "$rule" ]]; then
+              echo "independent ARM absence observer returned an unexpected result" >&2
+              return 2
               fi
               sleep 2
             done
             return 1
           }
-          receipt_offsets() {
+            receipt_observations() {
             local command_id="$1"
-            az containerapp logs show --name "$executor_app" --resource-group "$rg" \
-              --type console --tail 300 --format json 2>/dev/null \
-              | sed 's/\\"/"/g' \
-              | grep -F "$command_id" \
-              | grep -F 'isolated_executor_receipt_published' \
-              | sed -n 's/.*"command_offset":\([0-9][0-9]*\).*/\1/p' \
-              | sort -n -u
+            local logs_file="$RUNNER_TEMP/executor-receipts-${command_id}.json"
+            if ! az containerapp logs show --name "$executor_app" --resource-group "$rg" \
+              --type console --tail 300 --format json > "$logs_file" 2>/dev/null; then
+              echo "isolated Executor receipt log query failed" >&2
+              return 2
+            fi
+            COMMAND_ID="$command_id" LOGS_FILE="$logs_file" python3 - <<'PY'
+          if __name__ == "__main__":
+            import json
+            import os
+            from collections.abc import Iterator
+            from typing import Any
+            from uuid import NAMESPACE_URL, uuid5
+
+            decoder = json.JSONDecoder()
+
+
+            def records(value: Any) -> Iterator[dict[str, Any]]:
+              if isinstance(value, dict):
+                if isinstance(value.get("event"), str):
+                  yield value
+                for child in value.values():
+                  yield from records(child)
+                return
+              if isinstance(value, list):
+                for child in value:
+                  yield from records(child)
+                return
+              if not isinstance(value, str):
+                return
+              candidate = value.replace('\\"', '"')
+              cursor = 0
+              while True:
+                start = candidate.find("{", cursor)
+                if start < 0:
+                  return
+                try:
+                  decoded, consumed = decoder.raw_decode(candidate[start:])
+                except json.JSONDecodeError:
+                  cursor = start + 1
+                  continue
+                yield from records(decoded)
+                cursor = start + consumed
+
+
+            with open(os.environ["LOGS_FILE"], encoding="utf-8") as stream:
+              log_records = tuple(records(json.load(stream)))
+            command_id = os.environ["COMMAND_ID"]
+            committed: dict[tuple[int, str], str] = {}
+            published: dict[str, int] = {}
+            for record in log_records:
+              event = record.get("event")
+              if event == "isolated_executor_receipt_committed" and record.get(
+                "command_id"
+              ) == command_id:
+                try:
+                  command_offset = int(record["command_offset"])
+                  status = str(record["status"])
+                except (KeyError, TypeError, ValueError) as exc:
+                  raise SystemExit("committed Executor receipt telemetry is invalid") from exc
+                receipt_id = str(
+                  uuid5(
+                    NAMESPACE_URL,
+                    f"fdai:isolated-executor-effect:{command_id}:{status}",
+                  )
+                )
+                committed[(command_offset, receipt_id)] = status
+              elif event == "isolated_executor_receipt_published":
+                try:
+                  published[str(record["receipt_id"])] = int(record["offset"])
+                except (KeyError, TypeError, ValueError) as exc:
+                  raise SystemExit("published Executor receipt telemetry is invalid") from exc
+            observations = [
+              {
+                "command_offset": command_offset,
+                "receipt_id": receipt_id,
+                "receipt_offset": published[receipt_id],
+              }
+              for command_offset, receipt_id in sorted(committed)
+              if receipt_id in published
+            ]
+            print(json.dumps(observations, sort_keys=True, separators=(",", ":")))
+          PY
           }
 
           upsert_key="sd08-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-upsert"
@@ -1704,22 +1794,40 @@ jobs:
           [[ -n "$duplicate_json" ]] || { echo "duplicate authority probe returned no receipt" >&2; exit 1; }
 
           command_id=""
-          offsets=""
+          observation_json="[]"
+          command_offsets_json="[]"
+          receipt_ids_json="[]"
+          receipt_offsets_json="[]"
           if [[ "$transport" == "isolated" ]]; then
             command_id="$(printf '%s' "$upsert_json" | python3 -c \
               'import json, sys; print(json.load(sys.stdin)["command_id"])')"
             for _ in $(seq 1 30); do
-              offsets="$(receipt_offsets "$command_id")"
-              [[ "$(printf '%s\n' "$offsets" | sed '/^$/d' | wc -l)" -ge 2 ]] && break
+              observation_json="$(receipt_observations "$command_id")"
+              observation_count="$(printf '%s' "$observation_json" | python3 -c \
+                'import json, sys; print(len(json.load(sys.stdin)))')"
+              [[ "$observation_count" -ge 2 ]] && break
               sleep 2
             done
-            mapfile -t offset_rows < <(printf '%s\n' "$offsets" | sed '/^$/d')
-            [[ "${#offset_rows[@]}" -ge 2 ]] || {
-              echo "terminal isolated Executor receipts were not observed" >&2
+            command_offsets_json="$(printf '%s' "$observation_json" | python3 -c \
+              'import json, sys; print(json.dumps([row["command_offset"] for row in json.load(sys.stdin)]))')"
+            receipt_ids_json="$(printf '%s' "$observation_json" | python3 -c \
+              'import json, sys; print(json.dumps([row["receipt_id"] for row in json.load(sys.stdin)]))')"
+            receipt_offsets_json="$(printf '%s' "$observation_json" | python3 -c \
+              'import json, sys; print(json.dumps([row["receipt_offset"] for row in json.load(sys.stdin)]))')"
+            readarray -t command_offset_rows < <(printf '%s' "$command_offsets_json" | python3 -c \
+              'import json, sys; print(*json.load(sys.stdin), sep="\n")')
+            readarray -t receipt_offset_rows < <(printf '%s' "$receipt_offsets_json" | python3 -c \
+              'import json, sys; print(*json.load(sys.stdin), sep="\n")')
+            [[ "${#command_offset_rows[@]}" -ge 2 && "${#receipt_offset_rows[@]}" -ge 2 ]] || {
+              echo "committed and published isolated Executor receipts were not observed" >&2
               exit 1
             }
-            [[ "${offset_rows[1]}" -gt "${offset_rows[0]}" ]] || {
+            [[ "${command_offset_rows[1]}" -gt "${command_offset_rows[0]}" ]] || {
               echo "Executor command offsets did not advance" >&2
+              exit 1
+            }
+            [[ "${receipt_offset_rows[1]}" -gt "${receipt_offset_rows[0]}" ]] || {
+              echo "Executor receipt offsets did not advance" >&2
               exit 1
             }
           else
@@ -1762,8 +1870,8 @@ jobs:
           }
           export AUTHORITY_CUTOVER="$AUTHORITY_CUTOVER" COMMAND_ID="$command_id" ELAPSED="$elapsed"
           export OBSERVED_STARTED_AT="$observed_started_at" TRANSPORT="$transport" WRITE_COUNT="$write_count"
-          export OFFSETS_JSON="$(printf '%s\n' "$offsets" | sed '/^$/d' | python3 -c \
-            'import json, sys; print(json.dumps([int(line) for line in sys.stdin if line.strip()]))')"
+          export OFFSETS_JSON="$command_offsets_json" RECEIPT_IDS_JSON="$receipt_ids_json"
+          export RECEIPT_OFFSETS_JSON="$receipt_offsets_json"
           python3 - <<'PY'
           import json
           import os
@@ -1779,6 +1887,8 @@ jobs:
               "elapsed_seconds": int(os.environ["ELAPSED"]),
               "max_elapsed_seconds": 900,
               "observed_started_at": os.environ["OBSERVED_STARTED_AT"],
+              "receipt_ids": json.loads(os.environ["RECEIPT_IDS_JSON"]),
+              "receipt_offsets": json.loads(os.environ["RECEIPT_OFFSETS_JSON"]),
               "rollback_verified": True,
               "transport": os.environ["TRANSPORT"],
           }
