@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 733211d1e7bd7facb57973f5ac49ebb57a385b49
+translation_source_sha: a49825e436f9e6d1b10fb6dd5e33225f3d68c21c
 translation_revised: 2026-08-09
 ---
 
@@ -57,7 +57,10 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
 - 모든 인프라는 `infra/` 에 정의(Terraform 주, Azure-only 부분은 Bicep 선택). **코어 엔진은
   CSP-중립 유지**; 벤더 특이 IaC는 런타임 어댑터와 동일한 provider 경계 뒤에 있습니다.
 - **State 관리**: 앱 layer는 원격 backend + locking + **환경별 state 격리**를 사용합니다.
-  `infra/bootstrap/` ops layer만 state backend 자체를 만들기 위해 local state를 유지합니다.
+  첫 `infra/bootstrap/` apply는 state backend를 만들기 때문에 local state를 사용합니다. Backend와
+  VNet runner가 준비되면 bootstrap state를 전용 `ops/bootstrap/<environment>.tfstate` key로
+  이동합니다. 이동한 remote key가 권위 state이며, local source는 lineage, serial, resource count를
+  검증할 때까지만 제한된 migration backup으로 유지합니다.
 - **독립 서비스 state cutover**: 각 runtime service는 별도 backend key를 사용합니다. Migration
   tool은 두 state를 모두 백업하고 선언된 address 하나를 이동합니다. Source에 copy가 0개이고
   destination에 정확히 1개일 때만 cutover를 수락합니다. Legacy deployment plan gate는 migrated
@@ -74,8 +77,11 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   한 image-only update로 돌아갑니다. Service contract에는 production entry point가 소비하는
   모든 environment value가 포함됩니다. 예를 들어 Core는 protected plan이 startup validation을
   통과하기 전에 Azure tenant, subscription, region, PostgreSQL host 및 database를 binding합니다.
-- **Drift 감지**: 환경별 스케줄된 `plan` (읽기 전용) 이 drift를 알림과 조정 PR로 표면화;
-  drift는 prod에 조용히 auto-apply 되지 않음.
+- **Drift 감지**: 환경별로 스케줄된 읽기 전용 `plan`은 legacy platform root, 독립 서비스 root
+  5개, bootstrap root를 모두 검사합니다. Root contract는 서로 다른 backend key를 사용하고
+  refresh 전 state에서 service image를 해석하므로 out-of-band image 변경도 드러납니다. State나
+  입력이 없거나 evidence를 읽을 수 없거나 drift가 발견되면 run이 실패합니다. Drift를 prod에
+  자동으로 적용하지 않습니다.
 - 프로비저닝 리소스 - **최소 비용 효율 세트** (전체 인벤토리 + 티어 결정은
   [deploy-and-onboard-ko.md](deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set);
   인벤토리는 [csp-neutrality-ko.md](../architecture/csp-neutrality-ko.md) 의 CSP-중립 계약을 렌더링):

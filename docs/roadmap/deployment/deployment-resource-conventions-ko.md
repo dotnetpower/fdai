@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: f831cea98f703a37015e0f0f1c2ed5d1a40b382d
-translation_revised: 2026-08-03
+translation_source_sha: 865b1f2a63057763696d617131437670b3988342
+translation_revised: 2026-08-09
 ---
 # 배포 리소스 규약
 
@@ -79,6 +79,22 @@ upstream distribution 외부에 두는 데 사용하세요.
   태그 맵에 둡니다.
 - **Python의 인라인 명명 로직**: 앱은 환경 변수에서 식별자를 읽고, `infra/`가 플랜 시점에
   이름을 결정합니다.
+
+## Terraform State Root 규약
+
+모든 production Terraform root는 안정적인 root id, 환경별 backend key, 스케줄된 drift plan을
+각각 하나씩 가집니다. 현재 deployment contract에는 root 7개가 있습니다.
+
+| Root 종류 | 개수 | Backend key 패턴 |
+|-----------|------|------------------|
+| Legacy platform | 1 | `fdai-<environment>.tfstate` |
+| 독립 서비스 | 5 | `services/<service>/<environment>.tfstate` |
+| Ops bootstrap | 1 | `ops/bootstrap/<environment>.tfstate` |
+
+첫 bootstrap apply는 private backend를 만드는 동안에만 local state를 사용할 수 있습니다.
+Migration 이후에는 remote bootstrap key가 권위 state입니다. 고유 backend key와 drift-plan
+좌표 없이 production root를 추가하는 방식은 지원되지 않습니다. Drift check는 evidence가 없거나
+읽을 수 없으면 실패하며, 등록된 root를 생략한 채 성공으로 보고하지 않습니다.
 
 ## 리소스 태깅 규약(Resource Tagging Convention)
 

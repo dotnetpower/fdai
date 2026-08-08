@@ -1,0 +1,6 @@
+# Activated only after the first local bootstrap creates the private state
+# backend. CI copies this file to backend.tf and supplies deployment-specific
+# coordinates through terraform init -backend-config arguments.
+terraform {
+  backend "azurerm" {}
+}

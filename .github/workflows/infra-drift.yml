@@ -38,6 +38,10 @@ jobs:
     env:
       ARM_USE_AZUREAD: "true"
       ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP }}
+      STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
+      STATE_CONTAINER: tfstate
       TF_VAR_env: ${{ inputs.environment || 'dev' }}
       TF_VAR_region: ${{ vars.AZURE_REGION }}
       TF_VAR_region_short: ${{ vars.AZURE_REGION_SHORT }}
@@ -98,15 +102,136 @@ jobs:
       - name: Activate remote state backend
         run: cp backend.azurerm.tf.example backend.tf
 
-      - name: Terraform init
+      - name: Activate bootstrap remote state backend
+        working-directory: infra/bootstrap
+        run: cp backend.azurerm.tf.example backend.tf
+
+      - name: Initialize legacy state
         run: |
           terraform init -input=false \
-            -backend-config="resource_group_name=${{ vars.OPS_RESOURCE_GROUP_NAME }}" \
-            -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=tfstate" \
+            -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$STATE_CONTAINER" \
             -backend-config="key=fdai-${{ inputs.environment || 'dev' }}.tfstate"
 
-      - name: Terraform plan (detect drift)
-        # -detailed-exitcode: 0 = no changes, 1 = error, 2 = drift. The step
-        # fails on 2 so the run turns red = a human-visible drift signal.
+      - name: Plan legacy root
+        id: legacy_drift
+        continue-on-error: true
         run: terraform plan -input=false -lock-timeout=300s -detailed-exitcode
+
+      - name: Plan independent service roots
+        id: service_drift
+        continue-on-error: true
+        working-directory: ${{ github.workspace }}
+        env:
+          ENVIRONMENT: ${{ inputs.environment || 'dev' }}
+          SERVICE_DEPLOY_TFVARS_JSON: ${{ secrets.SERVICE_DEPLOY_TFVARS_JSON }}
+        run: |
+          set -euo pipefail
+          [[ -n "$SERVICE_DEPLOY_TFVARS_JSON" ]] || {
+            echo "SERVICE_DEPLOY_TFVARS_JSON is required for service drift detection." >&2
+            exit 1
+          }
+          temp_root="$RUNNER_TEMP/service-drift"
+          rm -rf -- "$temp_root"
+          mkdir -m 700 "$temp_root"
+          trap 'rm -rf -- "$temp_root"' EXIT
+          printf '%s' "$SERVICE_DEPLOY_TFVARS_JSON" >"$temp_root/all-services.json"
+          chmod 600 "$temp_root/all-services.json"
+          roots_json="$(python3 scripts/deployment/service/drift_contract.py roots \
+            --environment "$ENVIRONMENT")"
+          service_count="$(jq '[.[] | select(.kind == "service")] | length' \
+            <<<"$roots_json")"
+          [[ "$service_count" -eq 5 ]] || {
+            echo "Drift root contract must resolve exactly five service roots." >&2
+            exit 1
+          }
+          drift_found=0
+          while IFS=$'\t' read -r root_id terraform_root backend_key; do
+            service="${root_id#service:}"
+            terraform -chdir="$terraform_root" init -input=false -lockfile=readonly \
+              -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
+              -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+              -backend-config="container_name=$STATE_CONTAINER" \
+              -backend-config="key=$backend_key" \
+              -backend-config="use_azuread_auth=true"
+            terraform -chdir="$terraform_root" show -json >"$temp_root/$service-state.json"
+            image_ref="$(python3 scripts/deployment/service/drift_contract.py stored-image \
+              --service "$service" \
+              --environment "$ENVIRONMENT" \
+              --repository "$GITHUB_REPOSITORY" \
+              --state-json "$temp_root/$service-state.json")"
+            python3 scripts/deployment/service/materialize_tfvars.py \
+              --service "$service" \
+              --environment "$ENVIRONMENT" \
+              --output "$temp_root/$service.tfvars.json" \
+              <"$temp_root/all-services.json"
+            set +e
+            terraform -chdir="$terraform_root" plan \
+              -input=false \
+              -lock-timeout=5m \
+              -detailed-exitcode \
+              -var-file="$temp_root/$service.tfvars.json" \
+              -var="image=$image_ref"
+            plan_status=$?
+            set -e
+            case "$plan_status" in
+              0) echo "No drift: $root_id" ;;
+              2) echo "Drift detected: $root_id" >&2; drift_found=1 ;;
+              *) echo "Drift evidence failed: $root_id" >&2; exit 1 ;;
+            esac
+            rm -rf -- "$terraform_root/.terraform"
+          done < <(jq -r \
+            '.[] | select(.kind == "service") | [.root_id, .terraform_root, .backend_key] | @tsv' \
+            <<<"$roots_json")
+          [[ "$drift_found" -eq 0 ]]
+
+      - name: Initialize bootstrap state
+        working-directory: infra/bootstrap
+        run: |
+          terraform init -input=false -lockfile=readonly \
+            -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$STATE_CONTAINER" \
+            -backend-config="key=ops/bootstrap/${{ inputs.environment || 'dev' }}.tfstate" \
+            -backend-config="use_azuread_auth=true"
+
+      - name: Plan bootstrap root
+        id: bootstrap_drift
+        continue-on-error: true
+        working-directory: infra/bootstrap
+        env:
+          TF_VAR_state_storage_account_name: ${{ vars.STATE_STORAGE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          state_json="$RUNNER_TEMP/bootstrap-pre-refresh-state.json"
+          trap 'rm -f "$state_json"' EXIT
+          terraform show -json >"$state_json"
+          stored_inputs="$(python3 ../../scripts/deployment/service/drift_contract.py \
+            bootstrap-inputs --state-json "$state_json")"
+          export TF_VAR_app_resource_group_name="$(jq -er '.app_resource_group_name' \
+            <<<"$stored_inputs")"
+          export TF_VAR_runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' \
+            <<<"$stored_inputs")"
+          terraform plan -input=false -lock-timeout=300s -detailed-exitcode
+
+      - name: Enforce complete drift evidence
+        if: always()
+        env:
+          LEGACY_OUTCOME: ${{ steps.legacy_drift.outcome }}
+          SERVICE_OUTCOME: ${{ steps.service_drift.outcome }}
+          BOOTSTRAP_OUTCOME: ${{ steps.bootstrap_drift.outcome }}
+        run: |
+          set -euo pipefail
+          [[ "$LEGACY_OUTCOME" == "success" ]] || {
+            echo "Legacy Terraform drift was detected or could not be evaluated." >&2
+            exit 1
+          }
+          [[ "$SERVICE_OUTCOME" == "success" ]] || {
+            echo "Independent-service Terraform drift was detected or could not be evaluated." >&2
+            exit 1
+          }
+          [[ "$BOOTSTRAP_OUTCOME" == "success" ]] || {
+            echo "Bootstrap Terraform drift was detected or could not be evaluated." >&2
+            exit 1
+          }

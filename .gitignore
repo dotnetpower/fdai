@@ -266,6 +266,7 @@ override.tf.json
 # at init time. The activated file is per-run / per-host and must never be
 # committed (local dev stays on the default local backend).
 infra/backend.tf
+infra/bootstrap/backend.tf
 *_override.tf.json
 
 # --------------------------------------------------------------------------
