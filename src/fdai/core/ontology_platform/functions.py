@@ -59,6 +59,15 @@ class OntologyFunctionRegistry:
                 raise ValueError("ontology function declaration does not match release")
         self._functions[declaration.name] = (declaration, function)
 
+    def declaration(self, name: str) -> OntologyFunctionType:
+        """Return the exact declaration used for authorization and schema validation."""
+
+        try:
+            declaration, _function = self._functions[name]
+        except KeyError as exc:
+            raise KeyError(f"unknown ontology function {name!r}") from exc
+        return declaration
+
     async def invoke(
         self,
         name: str,
