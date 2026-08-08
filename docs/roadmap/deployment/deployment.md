@@ -58,6 +58,13 @@ prod topology so shadow evaluation is representative.
   migration tool backs up both states, moves one declared address, and accepts cutover only when
   the source contains zero copies and the destination contains exactly one. The legacy deployment
   plan gate blocks any later create, update, replacement, or delete at a migrated source address.
+- **Initial service runtime cutover**: after state ownership moves, the first protected plan uses
+  the explicit `initial_cutover` mode. The sealed plan may replace the legacy command,
+  environment, secret bindings, and primary probes with the service-owned contract while keeping
+  the resource identity, platform, workload identities, resource limits, secret provenance, and
+  sidecars unchanged. Core may remove the already-active isolated-Executor cutover marker; no
+  service may add authority. Later plans return to image-only updates unless another reviewed
+  deployment mode is introduced.
 - **Drift detection**: scheduled `plan` (read-only) per environment surfaces drift as an alert
   and a reconciliation PR; drift is never silently auto-applied to prod.
 - Provisioned resources - **minimum cost-efficient set** (full inventory + tier decisions in

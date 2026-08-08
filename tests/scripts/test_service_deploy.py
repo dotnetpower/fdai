@@ -820,6 +820,96 @@ def test_plan_guard_rejects_authority_cutover_change(guard: ModuleType) -> None:
         )
 
 
+def test_plan_guard_allows_bounded_initial_runtime_cutover(guard: ModuleType) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before = change["before"]
+    after = change["after"]
+    before_container = before["template"][0]["container"][0]
+    before_container["image"] = "registry.example.com/operator@sha256:" + "b" * 64
+    before_container["command"] = ["legacy-operator"]
+    before_container["env"].append({"name": "LEGACY_OPTIONAL", "value": "enabled"})
+    before["tags"] = {}
+    after["tags"] = {
+        "fdai:component": "operator-service",
+        "fdai:rollback-strategy": "previous-revision",
+    }
+
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+        initial_cutover=True,
+    )
+    with pytest.raises(guard.PlanGuardError, match="command or environment drift"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+        )
+
+
+def test_initial_cutover_rejects_changes_outside_runtime_rollback_boundary(
+    guard: ModuleType,
+) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before = change["before"]
+    after = change["after"]
+    before_container = before["template"][0]["container"][0]
+    before_container["image"] = "registry.example.com/operator@sha256:" + "b" * 64
+    before_container["command"] = ["legacy-operator"]
+    before["tags"] = {}
+    after["tags"] = {
+        "fdai:component": "operator-service",
+        "fdai:rollback-strategy": "previous-revision",
+    }
+    after["revision_mode"] = "Multiple"
+    with pytest.raises(guard.PlanGuardError, match="outside its rollback boundary"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            initial_cutover=True,
+        )
+
+
+def test_initial_cutover_rejects_executor_authority_change(guard: ModuleType) -> None:
+    address = "module.isolated_executor.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before = change["before"]
+    after = change["after"]
+    before_container = before["template"][0]["container"][0]
+    after_container = after["template"][0]["container"][0]
+    before_container["image"] = "registry.example.com/executor@sha256:" + "b" * 64
+    before_container["command"] = ["legacy-executor"]
+    before_container["env"].append(
+        {"name": "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER", "value": "0"}
+    )
+    after_container["env"].append(
+        {"name": "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER", "value": "1"}
+    )
+    before["tags"] = {}
+    after["tags"] = {
+        "fdai:component": "isolated-executor",
+        "fdai:rollback-strategy": "previous-revision",
+    }
+    with pytest.raises(guard.PlanGuardError, match="authority cutover"):
+        guard.validate_plan(
+            plan,
+            service="isolated-executor",
+            environment="dev",
+            image_ref="image",
+            initial_cutover=True,
+        )
+
+
 def test_plan_guard_rejects_refreshed_platform_or_peer_drift(guard: ModuleType) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])
@@ -1334,6 +1424,8 @@ def test_plan_bundle_round_trip_and_tamper_rejection(bundle: ModuleType, tmp_pat
     )
     assert verified == created
     sealed_context = json.loads(context.read_text(encoding="utf-8"))
+    assert created["deployment_mode"] == "standard"
+    assert sealed_context["deployment_mode"] == "standard"
     assert sealed_context["tenant_id"] == "example-tenant"
     assert sealed_context["subscription_id"] == "example-subscription"
     assert sealed_context["backend"] == {
@@ -1358,6 +1450,52 @@ def test_plan_bundle_round_trip_and_tamper_rejection(bundle: ModuleType, tmp_pat
     }
     plan.write_bytes(b"tampered")
     with pytest.raises(bundle.PlanBundleError, match="binary plan digest"):
+        bundle.verify_bundle(
+            plan=plan,
+            plan_json=plan_json,
+            context_path=context,
+            metadata_path=metadata,
+            service="operator-service",
+            environment="dev",
+            repository="example/fdai",
+            commit_sha="b" * 40,
+            image_ref=image,
+            plan_digest=created["plan_digest"],
+            context_digest=created["context_digest"],
+            plan_run_id="123",
+            now=now + timedelta(minutes=5),
+            **coordinates,
+        )
+
+
+def test_plan_bundle_binds_initial_cutover_mode(bundle: ModuleType, tmp_path: Path) -> None:
+    plan = tmp_path / "service.plan"
+    plan.write_bytes(b"binary plan")
+    plan_json = tmp_path / "service-plan.json"
+    context = tmp_path / "context.json"
+    metadata = tmp_path / "metadata.json"
+    now = datetime(2026, 8, 8, 10, 0, tzinfo=UTC)
+    image = _image("fdai-operator-service")
+    _write_plan_json(plan_json, image=image)
+    coordinates = _bundle_coordinates()
+    created = bundle.create_bundle(
+        plan=plan,
+        plan_json=plan_json,
+        context_path=context,
+        metadata_path=metadata,
+        service="operator-service",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="b" * 40,
+        image_ref=image,
+        workflow_run_id="123",
+        initial_cutover=True,
+        now=now,
+        **coordinates,
+    )
+    assert created["deployment_mode"] == "initial-cutover"
+    assert json.loads(context.read_text(encoding="utf-8"))["deployment_mode"] == ("initial-cutover")
+    with pytest.raises(bundle.PlanBundleError, match="deployment_mode"):
         bundle.verify_bundle(
             plan=plan,
             plan_json=plan_json,

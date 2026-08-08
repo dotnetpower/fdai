@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 3e44a33239ecd11a48e4027e7c5a9eb2db59a6cf
+translation_source_sha: 4718083e4b937b7419aff8dcfd4da40b7d811660
 translation_revised: 2026-08-08
 ---
 
@@ -60,6 +60,13 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   tool은 두 state를 모두 백업하고 선언된 address 하나를 이동합니다. Source에 copy가 0개이고
   destination에 정확히 1개일 때만 cutover를 수락합니다. Legacy deployment plan gate는 migrated
   source address의 이후 create, update, replacement, delete를 차단합니다.
+- **최초 서비스 runtime cutover**: state ownership을 이동한 뒤 첫 protected plan은 명시적
+  `initial_cutover` mode를 사용합니다. Sealed plan은 resource identity, platform, workload
+  identity, resource limit, secret provenance, sidecar를 그대로 유지하면서 legacy command,
+  environment, secret binding, primary probe를 서비스 소유 contract로 바꿀 수 있습니다.
+  Core는 이미 활성화된 isolated-Executor cutover marker를 제거할 수 있지만 어떤 서비스도
+  authority를 추가할 수 없습니다. 이후 plan은 별도로 검토된 deployment mode가 추가되지 않는
+  한 image-only update로 돌아갑니다.
 - **Drift 감지**: 환경별 스케줄된 `plan` (읽기 전용) 이 drift를 알림과 조정 PR로 표면화;
   drift는 prod에 조용히 auto-apply 되지 않음.
 - 프로비저닝 리소스 - **최소 비용 효율 세트** (전체 인벤토리 + 티어 결정은

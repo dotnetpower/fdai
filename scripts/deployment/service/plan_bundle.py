@@ -13,7 +13,7 @@ from typing import Any
 
 from service_contract import ServiceContractError, resolve_service, validate_image_reference
 
-_SCHEMA_VERSION = "fdai.service-deployment-plan.v4"
+_SCHEMA_VERSION = "fdai.service-deployment-plan.v5"
 _SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 _COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
 _DIGEST_IMAGE = re.compile(r"[^\s]+@sha256:[0-9a-f]{64}")
@@ -265,6 +265,7 @@ def _deployment_context(
     controls_commit_sha: str,
     resolved_models_digest: str,
     attestation_signer_workflow: str,
+    initial_cutover: bool,
 ) -> dict[str, Any]:
     contract = resolve_service(service, environment)
     context = {
@@ -296,6 +297,7 @@ def _deployment_context(
             ),
         },
         "trusted_controls": {"commit_sha": controls_commit_sha},
+        "deployment_mode": "initial-cutover" if initial_cutover else "standard",
     }
     if service == "core-control-plane":
         if _SHA256_PATTERN.fullmatch(resolved_models_digest) is None:
@@ -330,6 +332,7 @@ def create_bundle(
     attestation_signer_workflow: str,
     now: datetime,
     resolved_models_digest: str = "",
+    initial_cutover: bool = False,
 ) -> dict[str, Any]:
     """Seal a guarded binary plan and its deployment context for exact later apply."""
     if _COMMIT_PATTERN.fullmatch(commit_sha) is None:
@@ -358,6 +361,7 @@ def create_bundle(
         controls_commit_sha=controls_commit_sha,
         resolved_models_digest=resolved_models_digest,
         attestation_signer_workflow=attestation_signer_workflow,
+        initial_cutover=initial_cutover,
     )
     context_path.write_bytes(_canonical(context))
     context_digest = _digest(context_path)
@@ -386,6 +390,7 @@ def create_bundle(
         "controls_commit_sha": controls_commit_sha,
         "resolved_models_digest": resolved_models_digest,
         "attestation_signer_workflow": attestation_signer_workflow,
+        "deployment_mode": "initial-cutover" if initial_cutover else "standard",
         "created_at": now.astimezone(UTC).isoformat(),
         "expires_at": (now.astimezone(UTC) + timedelta(hours=24)).isoformat(),
     }
@@ -417,6 +422,7 @@ def verify_bundle(
     attestation_signer_workflow: str,
     now: datetime,
     resolved_models_digest: str = "",
+    initial_cutover: bool = False,
 ) -> dict[str, Any]:
     """Verify exact apply inputs against every sealed plan artifact and mapping."""
     invalid_plan_digest = _SHA256_PATTERN.fullmatch(plan_digest) is None
@@ -454,6 +460,7 @@ def verify_bundle(
         "controls_commit_sha": controls_commit_sha,
         "resolved_models_digest": resolved_models_digest,
         "attestation_signer_workflow": attestation_signer_workflow,
+        "deployment_mode": "initial-cutover" if initial_cutover else "standard",
     }
     for key, value in expected.items():
         if metadata.get(key) != value:
@@ -481,6 +488,7 @@ def verify_bundle(
         controls_commit_sha=controls_commit_sha,
         resolved_models_digest=resolved_models_digest,
         attestation_signer_workflow=attestation_signer_workflow,
+        initial_cutover=initial_cutover,
     )
     if context != expected_context:
         raise PlanBundleError("sealed deployment context does not match exact apply input")
@@ -512,6 +520,7 @@ def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--controls-commit-sha", required=True)
     parser.add_argument("--resolved-models-digest", default="")
     parser.add_argument("--attestation-signer-workflow", required=True)
+    parser.add_argument("--initial-cutover", action="store_true")
 
 
 def main() -> int:
@@ -546,6 +555,7 @@ def main() -> int:
         "controls_commit_sha": args.controls_commit_sha,
         "resolved_models_digest": args.resolved_models_digest,
         "attestation_signer_workflow": args.attestation_signer_workflow,
+        "initial_cutover": args.initial_cutover,
     }
     try:
         if args.command == "create":

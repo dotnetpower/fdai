@@ -51,10 +51,12 @@ def test_workflow_defaults_to_plan_and_requires_exact_apply_coordinates() -> Non
     assert "if: ${{ inputs.apply }}" in _WORKFLOW
     assert "apply and migrate_state are mutually exclusive." in _WORKFLOW
     assert "service-state-migration-{0}" in _WORKFLOW
+    assert "service-initial-cutover-{0}" in _WORKFLOW
     assert "inputs.apply && format('service-apply-{0}'" in _WORKFLOW
     for coordinate in ("PLAN_RUN_ID", "PLAN_RUN_ATTEMPT", "PLAN_DIGEST", "CONTEXT_DIGEST"):
         assert f'[[ "${coordinate}" =~' in _WORKFLOW
     assert '[[ "$(git -C "$TARGET_ROOT" rev-parse HEAD)" == "$COMMIT_SHA" ]]' in _WORKFLOW
+    assert "migrate_state and initial_cutover are mutually exclusive." in _WORKFLOW
 
 
 def test_workflow_uses_protected_controls_and_protected_commit_ancestry() -> None:
@@ -120,6 +122,8 @@ def test_plan_and_apply_both_verify_image_and_guard_exact_binary_plan() -> None:
     assert 'scripts/deployment/service/plan_bundle.py" verify' in _WORKFLOW
     assert 'cmp "$bundle/service-plan.json" "$RUNNER_TEMP/replayed-service-plan.json"' in _WORKFLOW
     assert '"$RUNNER_TEMP/service-plan-bundle/service.plan"' in _WORKFLOW
+    assert _WORKFLOW.count("cutover_args+=(--initial-cutover)") == 3
+    assert _WORKFLOW.count('"${cutover_args[@]}"') == 4
     for argument in (
         "--workflow-run-attempt",
         "--tenant-id",

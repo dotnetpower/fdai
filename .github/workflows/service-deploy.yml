@@ -37,6 +37,10 @@ on:
         description: "Explicitly move this service from legacy state with verified backups."
         type: boolean
         default: false
+      initial_cutover:
+        description: "Explicit one-time transition from the legacy runtime contract."
+        type: boolean
+        default: false
       plan_run_id:
         description: "Plan workflow run id. Required only for apply."
         type: string
@@ -68,7 +72,7 @@ jobs:
   protected-service-deploy:
     if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, fdai-deploy]
-    environment: ${{ inputs.migrate_state && format('service-state-migration-{0}', inputs.environment) || inputs.apply && format('service-apply-{0}', inputs.environment) || 'plan-only' }}
+    environment: ${{ inputs.migrate_state && format('service-state-migration-{0}', inputs.environment) || inputs.initial_cutover && format('service-initial-cutover-{0}', inputs.environment) || inputs.apply && format('service-apply-{0}', inputs.environment) || 'plan-only' }}
     env:
       ARM_USE_AZUREAD: "true"
       ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
@@ -135,6 +139,7 @@ jobs:
         env:
           APPLY: ${{ inputs.apply }}
           MIGRATE_STATE: ${{ inputs.migrate_state }}
+          INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
           PLAN_RUN_ID: ${{ inputs.plan_run_id }}
           PLAN_RUN_ATTEMPT: ${{ inputs.plan_run_attempt }}
@@ -179,6 +184,10 @@ jobs:
             echo "apply and migrate_state are mutually exclusive." >&2
             exit 1
           fi
+          if [[ "$MIGRATE_STATE" == "true" && "$INITIAL_CUTOVER" == "true" ]]; then
+            echo "migrate_state and initial_cutover are mutually exclusive." >&2
+            exit 1
+          fi
           if [[ "$APPLY" == "true" ]]; then
             [[ "$PLAN_RUN_ID" =~ ^[0-9]+$ ]] || {
               echo "apply requires a numeric plan_run_id." >&2
@@ -205,6 +214,7 @@ jobs:
         id: contract
         env:
           IMAGE_REF: ${{ inputs.image_ref }}
+          INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
         run: |
           set -euo pipefail
           python3 "$TRUSTED_CONTROLS/scripts/deployment/service/service_contract.py" \
@@ -472,19 +482,25 @@ jobs:
             -var="image=$IMAGE_REF"
           terraform -chdir="$TERRAFORM_ROOT" show \
             -json "$RUNNER_TEMP/service.plan" > "$RUNNER_TEMP/service-plan.json"
+          cutover_args=()
+          [[ "$INITIAL_CUTOVER" == "true" ]] && cutover_args+=(--initial-cutover)
           python3 "$TRUSTED_CONTROLS/scripts/deployment/service/guard_plan.py" \
             --plan-json "$RUNNER_TEMP/service-plan.json" \
             --service "${{ inputs.service }}" \
             --environment "${{ inputs.environment }}" \
-            --image-ref "$IMAGE_REF"
+            --image-ref "$IMAGE_REF" \
+            "${cutover_args[@]}"
 
       - name: Seal plan artifact and context
         if: ${{ !inputs.apply && !inputs.migrate_state }}
         id: seal
         env:
           IMAGE_REF: ${{ inputs.image_ref }}
+          INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
         run: |
           set -euo pipefail
+          cutover_args=()
+          [[ "$INITIAL_CUTOVER" == "true" ]] && cutover_args+=(--initial-cutover)
           python3 "$TRUSTED_CONTROLS/scripts/deployment/service/plan_bundle.py" create \
             --plan "$RUNNER_TEMP/service.plan" \
             --plan-json "$RUNNER_TEMP/service-plan.json" \
@@ -504,7 +520,8 @@ jobs:
             --backend-container "$STATE_CONTAINER" \
             --controls-commit-sha "$CONTROLS_COMMIT_SHA" \
             --resolved-models-digest "$RESOLVED_MODELS_DIGEST" \
-            --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" >/dev/null
+            --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
+            "${cutover_args[@]}" >/dev/null
           python3 - "$RUNNER_TEMP/service-plan-metadata.json" "$GITHUB_OUTPUT" <<'PY'
           import json
           import sys
@@ -535,6 +552,7 @@ jobs:
             echo "### Protected service plan"
             echo "- Service: \`${{ inputs.service }}\`"
             echo "- Environment: \`${{ inputs.environment }}\`"
+            echo "- Deployment mode: \`${{ inputs.initial_cutover && 'initial-cutover' || 'standard' }}\`"
             echo "- Commit: \`${{ inputs.commit_sha }}\`"
             echo "- Plan run id: \`$GITHUB_RUN_ID\`"
             echo "- Plan run attempt: \`$GITHUB_RUN_ATTEMPT\`"
@@ -582,9 +600,12 @@ jobs:
         if: ${{ inputs.apply }}
         env:
           IMAGE_REF: ${{ inputs.image_ref }}
+          INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
         run: |
           set -euo pipefail
           bundle="$RUNNER_TEMP/service-plan-bundle"
+          cutover_args=()
+          [[ "$INITIAL_CUTOVER" == "true" ]] && cutover_args+=(--initial-cutover)
           python3 "$TRUSTED_CONTROLS/scripts/deployment/service/plan_bundle.py" verify \
             --plan "$bundle/service.plan" \
             --plan-json "$bundle/service-plan.json" \
@@ -606,7 +627,8 @@ jobs:
             --backend-container "$STATE_CONTAINER" \
             --controls-commit-sha "$CONTROLS_COMMIT_SHA" \
             --resolved-models-digest "$RESOLVED_MODELS_DIGEST" \
-            --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" >/dev/null
+            --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
+            "${cutover_args[@]}" >/dev/null
           terraform -chdir="$TERRAFORM_ROOT" show \
             -json "$bundle/service.plan" > "$RUNNER_TEMP/replayed-service-plan.json"
           cmp "$bundle/service-plan.json" "$RUNNER_TEMP/replayed-service-plan.json" || {
@@ -617,7 +639,8 @@ jobs:
             --plan-json "$RUNNER_TEMP/replayed-service-plan.json" \
             --service "${{ inputs.service }}" \
             --environment "${{ inputs.environment }}" \
-            --image-ref "$IMAGE_REF"
+            --image-ref "$IMAGE_REF" \
+            "${cutover_args[@]}"
 
       - name: Capture pre-apply rollback snapshot
         if: ${{ inputs.apply }}
