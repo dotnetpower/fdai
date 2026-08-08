@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a6d73fcf4f04c6a9fdcee524679d74d8c6100736
+translation_source_sha: dc6a1707a32d628f586b76924f9eb7cfb66ed480
 translation_revised: 2026-08-09
 ---
 # 코드 맵
@@ -343,7 +343,7 @@ agent는 owned advisory topic을 publish하기 전에 이 canonical Event를 con
 | [check-readable-hangul.py](../../../scripts/quality/localization/check-readable-hangul.py) | Source의 불투명한 Hangul escape를 차단하고 UTF-8 기계적 fixer를 제공하며, 정확한 rationale이 있는 code-point 예외만 허용합니다. |
 | [tools/architecture-diagrams/](../../../tools/architecture-diagrams/) | Bilingual YAML을 SVG/PNG architecture diagram으로 컴파일하고 progressive site viewer를 생성합니다. Canonical spec은 [docs/diagrams/](../../diagrams/)에 있습니다. |
 | [scripts/lib/design-routes.json](../../../scripts/lib/design-routes.json) | Machine-readable path -> required instruction/design doc -> owning doc -> focused validation route입니다. |
-| [scripts/agent/design_context.py](../../../scripts/agent/design_context.py) / [.github/hooks/design-context.json](../../../.github/hooks/design-context.json) | Design context read만 기록하고 framework 및 constitution edit의 stale context를 hard-block하며, 일반 edit는 허용하면서 중복 repository-wide validation을 차단합니다. |
+| [scripts/agent/design_context.py](../../../scripts/agent/design_context.py) / [external_operation_guard.py](../../../scripts/agent/external_operation_guard.py) / [.github/hooks/design-context.json](../../../.github/hooks/design-context.json) | Design context read만 기록하고 framework 및 constitution edit의 stale context를 hard-block하며, 중복 repository-wide validation을 차단하고 `HEAD`에 validation receipt가 생길 때까지 느린 CI, deployment 및 image 작업을 지연합니다. |
 | [check-design-doc-impact.py](../../../scripts/quality/architecture/check-design-doc-impact.py) / [check-document-size.py](../../../scripts/quality/architecture/check-document-size.py) | Docs-after enforcement와 new-doc/legacy-growth size ratchet입니다. |
 | [check-fork-runtime-independence.py](../../../scripts/quality/architecture/check-fork-runtime-independence.py) | Fork integrity marker가 runtime/config/infra behavior에 들어오면 차단합니다. |
 | [scripts/quality/ci/check-ci-contracts.py](../../../scripts/quality/ci/check-ci-contracts.py) | 로컬 검증과 CI가 공유하는 clean-checkout, Docker build-context, live-DB skip 순서, Python test partition 회귀 검사입니다. |

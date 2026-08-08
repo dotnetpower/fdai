@@ -119,6 +119,17 @@ Changing any of those inputs invalidates the matching cache. A failed gate
 leaves the commits pending. A successful run writes per-commit receipts, and
 the pre-push hook blocks outgoing commits without those receipts.
 
+Check whether one exact revision is ready for slow external follow-up work:
+
+```bash
+python3 scripts/automation/validation_queue.py check-commit HEAD
+```
+
+GitHub Actions investigation or reruns, Azure plan/apply/deploy operations, remote evaluation, and
+container image build/push work begin only after this check passes. Short read-only context checks
+such as `az account show` may run earlier. A later code edit creates a new revision and requires a
+new receipt before another external run.
+
 `make validation-status` lists only pending commits reachable from the current
 `HEAD` and summarizes pending work on other branches or worktrees. Show every
 pending id only when diagnosing queue history:

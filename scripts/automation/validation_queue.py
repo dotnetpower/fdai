@@ -58,6 +58,20 @@ def unvalidated_range(paths: QueuePaths, revision_range: str) -> list[str]:
     ]
 
 
+def check_commit(paths: QueuePaths, revision: str) -> int:
+    initialize(paths)
+    commit = resolve_commit(paths, revision)
+    if (paths.receipts / f"{commit}.json").is_file():
+        print(f"validation-queue: commit is validated: {commit}")
+        return 0
+    print(
+        f"validation-queue: BLOCKED - commit requires integration validation: {commit}",
+        file=sys.stderr,
+    )
+    print("  Run 'make validation-run' in the dedicated integration session.", file=sys.stderr)
+    return 1
+
+
 def run(paths: QueuePaths, mode: str) -> int:
     return run_validation(paths, mode)
 
@@ -89,6 +103,8 @@ def _parser() -> argparse.ArgumentParser:
     ensure_parser.add_argument("revision_range")
     check_parser = subparsers.add_parser("check-range")
     check_parser.add_argument("revision_range")
+    check_commit_parser = subparsers.add_parser("check-commit")
+    check_commit_parser.add_argument("revision", nargs="?", default="HEAD")
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument("--all", action="store_true", dest="all_gates")
     status_parser = subparsers.add_parser("status")
@@ -119,6 +135,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {commit}", file=sys.stderr)
         print("  Run 'make validation-run' in the dedicated integration session.", file=sys.stderr)
         return 1
+    if arguments.command == "check-commit":
+        return check_commit(paths, arguments.revision)
     if arguments.command == "run":
         return run(paths, "all" if arguments.all_gates else "fast")
     return status(paths, show_all=arguments.all_pending)
