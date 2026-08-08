@@ -168,6 +168,47 @@ argument_schema:                         # JSON Schema; console renders + valida
   properties: {...}
   required: [...]
 
+# --- Semantic planning contract (optional for legacy decode) -----------
+semantic:
+  target:
+    type_ref:                            # exact ObjectType or InterfaceType declaration
+      kind: object | interface
+      name: Workload
+      version: 1.0.0
+      declaration_digest: sha256:<hex>
+    cardinality: one | set
+  parameters:                            # each item uses inline_schema or schema_ref
+    - name: replicas
+      required: true
+      inline_schema: {type: integer, minimum: 1, maximum: 100}
+      redaction: audit_safe | redact
+  read_sets:                             # bounded query FunctionType references
+    - function_ref: {kind: function, name: query.workloads,
+                     version: 1.0.0, declaration_digest: sha256:<hex>}
+      properties: [replicas]
+      max_objects: 100
+  submission_criteria:
+    - criterion_ref: capacity-within-policy
+    - function_ref: {kind: function, name: validate.capacity,
+                     version: 1.0.0, declaration_digest: sha256:<hex>}
+  planner_ref: {kind: function, name: plan.scale,
+                version: 1.0.0, declaration_digest: sha256:<hex>}
+  effects:
+    - effect_id: scale-command
+      kind: provider_command
+      operation_ref: provider.scale
+      grants_authority: false
+  postconditions:
+    - postcondition_id: replicas-converged
+      kind: property
+      observation_ref: property.replicas
+      evidence_required: true
+      grants_authority: false
+  transaction_policy:
+    mode: atomic | saga
+    lock_scope: target | target_set
+    max_affected_objects: 100
+
 # --- Provenance (existing) ---------------------------------------------
 provenance:
   source_url: string
@@ -194,6 +235,20 @@ A workflow-originated runtime `Action` may also carry `workflow_action` with the
 `step_id`, and dispatch `proposal_ref`. This lineage is Action metadata, not an ActionType argument,
 so strict `argument_schema` validation remains unchanged. The proposal reference proves dispatch
 only; an independent outcome receipt is still required before the Process advances.
+
+The `semantic` block is optional so retained v1 YAML and audit fixtures decode unchanged. When the
+block is present, it is complete and bounded. References inside an ActionType use
+`OntologyDeclarationRef`, which pins declaration kind, name, version, and declaration digest
+without embedding the containing release digest recursively. The pure
+`compile_action_mutation_plan` function then requires every reference to be an exact member of the
+active `OntologyRelease`. It checks that read sets use `query` functions, submission and function
+postconditions use `validate` functions, and the planner uses a `plan` function.
+
+Compilation returns only an immutable `MutationPlan`. It validates selected ObjectType or compiled
+InterfaceType targets, the transaction maximum, declared effect kinds, rollback coverage, and
+target revisions. When given an existing plan, it rebuilds the proposal and compares its digest and
+content before returning the same plan. The compiler does not call the RiskGate, an agent, an
+executor, or a provider, and neither an effect nor a postcondition can declare authority.
 
 The catalog backfill has completed with:
 
@@ -764,6 +819,9 @@ operator proposals re-enter the normal ControlLoop.
 - **Cross-check load errors** - fixture ActionType with a missing
   `argument_schema` for `operator_request` fails load with a specific
   error.
+- **Semantic compiler** - focused tests retain legacy decode, accept exact refs, reject stale refs,
+  preserve rollback coverage, enforce the maximum target count, require a `plan` planner, validate
+  existing plan digests and revisions, and prove effects and postconditions cannot grant authority.
 
 ## 12. Design boundaries and lifecycle
 

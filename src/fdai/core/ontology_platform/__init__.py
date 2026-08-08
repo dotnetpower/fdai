@@ -1,5 +1,6 @@
 """Typed operational ontology platform primitives."""
 
+from .action_plans import compile_action_mutation_plan
 from .catalog_projection import (
     CatalogOntologyProjection,
     CatalogOntologyProjector,
@@ -96,6 +97,7 @@ __all__ = [
     "VerifiedInterpretationBasis",
     "VerifiedSemanticPlan",
     "build_mutation_plan",
+    "compile_action_mutation_plan",
     "build_semantic_candidate",
     "build_catalog_ontology_projection",
     "merge_catalog_ontology_projections",
