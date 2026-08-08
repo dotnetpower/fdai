@@ -10,7 +10,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCKERFILE = REPO_ROOT / "services" / "Dockerfile"
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "container-supply-chain.yml"
-PYTHON_DIGEST = "9d7f287598e1a5a978c015ee176d8216435aaf335ed69ac3c38dd1bbb10e8d64"
+PYTHON_DIGEST = "9fdbf2e3e82628351513560b121e2ee6ce31cac212be9e070c5a5e2769fb5e76"
 ACTION_PINS = {
     "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
     "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",

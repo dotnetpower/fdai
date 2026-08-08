@@ -22,16 +22,14 @@ RUN /usr/local/go/bin/go mod download "github.com/open-policy-agent/opa@${OPA_VE
     && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "golang.org/x/text" {print $3}')" = "${OPA_X_TEXT_VERSION}" \
     && /go/bin/opa version
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:9d7f287598e1a5a978c015ee176d8216435aaf335ed69ac3c38dd1bbb10e8d64 AS service-build-base
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:9fdbf2e3e82628351513560b121e2ee6ce31cac212be9e070c5a5e2769fb5e76 AS service-build-base
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN apt-get update \
-    && apt-get install --yes --no-install-recommends build-essential zlib1g-dev \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache build-base zlib-dev
 RUN pip install --no-cache-dir uv==0.11.32
 
 WORKDIR /app
@@ -74,7 +72,7 @@ RUN uv build --wheel --package fdai-isolated-executor-service --out-dir /wheels 
     && uv pip install --python /app/.venv/bin/python --reinstall --no-deps /wheels/fdai_isolated_executor_service-*.whl \
     && test -x /app/.venv/bin/fdai-isolated-executor-service
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:9d7f287598e1a5a978c015ee176d8216435aaf335ed69ac3c38dd1bbb10e8d64 AS runtime-base
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:9fdbf2e3e82628351513560b121e2ee6ce31cac212be9e070c5a5e2769fb5e76 AS runtime-base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
