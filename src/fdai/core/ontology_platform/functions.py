@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 from jsonschema import Draft202012Validator
-from pydantic import Field
+from pydantic import Field, ValidationInfo, field_validator
 
 from fdai.shared.contracts.models import (
     CEILING_ROLE_RANK,
@@ -18,8 +19,10 @@ from fdai.shared.contracts.models import (
     LogicExecutionClass,
     OntologyDeclarationKind,
     OntologyRelease,
+    OntologyReleaseRef,
     OntologyTypeRef,
 )
+from fdai.shared.ontology.release import build_ontology_release
 
 from .kinetics import CriterionResult, MutationPlan, OntologyFunctionKind, OntologyFunctionType
 
@@ -29,14 +32,32 @@ OntologyFunction = Callable[[Mapping[str, Any]], Awaitable[object]]
 class FunctionInvocationContext(ContractBase):
     caller_agent: str = Field(min_length=1, max_length=64)
     caller_role: CeilingRole = CeilingRole.READER
-    purposes: tuple[str, ...] = ()
-    evidence_refs: tuple[str, ...] = ()
+    purposes: tuple[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")], ...] = ()
+    evidence_refs: tuple[Annotated[str, Field(min_length=1, max_length=512)], ...] = ()
+
+    @field_validator("purposes", "evidence_refs", mode="after")
+    @classmethod
+    def _deduplicate_bounded_context(
+        cls,
+        values: tuple[str, ...],
+        info: ValidationInfo,
+    ) -> tuple[str, ...]:
+        unique = tuple(dict.fromkeys(values))
+        limit = 16 if info.field_name == "purposes" else 64
+        if len(unique) > limit:
+            raise ValueError(
+                f"ontology function invocation {info.field_name} exceeds {limit} items"
+            )
+        return unique
 
 
 class FunctionInvocationReceipt(ContractBase):
+    request_id: str = Field(pattern=r"^logic-request:[a-f0-9]{64}$")
     invocation_id: str = Field(pattern=r"^logic-invocation:[a-f0-9]{64}$")
     function_ref: OntologyTypeRef
     caller_agent: str
+    caller_role: CeilingRole
+    purposes: tuple[str, ...] = ()
     input_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
     output_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
     seed: int | None = None
@@ -46,6 +67,13 @@ class FunctionInvocationReceipt(ContractBase):
 
 
 class OntologyFunctionRegistry:
+    """Run local read/proposal functions under exact release and wall/output bounds.
+
+    CPU and memory declarations remain metadata for an isolated runner. This
+    in-process registry rejects network or credential access instead of claiming
+    to enforce isolation that it does not provide.
+    """
+
     def __init__(self, *, release: OntologyRelease | None = None) -> None:
         self._functions: dict[str, tuple[OntologyFunctionType, OntologyFunction]] = {}
         self._release = release
@@ -53,11 +81,29 @@ class OntologyFunctionRegistry:
     def register(self, declaration: OntologyFunctionType, function: OntologyFunction) -> None:
         if declaration.name in self._functions:
             raise ValueError(f"duplicate ontology function {declaration.name!r}")
+        if declaration.network_allowed or declaration.credentials_allowed:
+            raise ValueError("network or credential ontology functions require an isolated runner")
+        retained = declaration.model_copy(deep=True)
         if self._release is not None:
-            reference = self._release.type_ref(OntologyDeclarationKind.FUNCTION, declaration.name)
-            if reference.version != declaration.version:
+            active = next(
+                (
+                    reference
+                    for reference in self._release.declarations
+                    if reference.kind is OntologyDeclarationKind.FUNCTION
+                    and reference.name == retained.name
+                ),
+                None,
+            )
+            registered = build_ontology_release(function_types=(retained,)).declarations[0]
+            if active != registered:
                 raise ValueError("ontology function declaration does not match release")
-        self._functions[declaration.name] = (declaration, function)
+        self._functions[retained.name] = (retained, function)
+
+    @property
+    def release_ref(self) -> OntologyReleaseRef | None:
+        """Return only the registry's exact immutable release identity."""
+
+        return self._release.ref() if self._release is not None else None
 
     def declaration(self, name: str) -> OntologyFunctionType:
         """Return the exact declaration used for authorization and schema validation."""
@@ -66,7 +112,7 @@ class OntologyFunctionRegistry:
             declaration, _function = self._functions[name]
         except KeyError as exc:
             raise KeyError(f"unknown ontology function {name!r}") from exc
-        return declaration
+        return declaration.model_copy(deep=True)
 
     async def invoke(
         self,
@@ -125,8 +171,13 @@ class OntologyFunctionRegistry:
         )
         if input_errors:
             raise ValueError("ontology function arguments violate input_schema")
+        input_digest = ontology_function_digest(raw_arguments)
         started_at = datetime.now(tz=UTC)
-        result = await function(raw_arguments)
+        try:
+            async with asyncio.timeout(declaration.timeout_seconds):
+                result = await function(raw_arguments)
+        except TimeoutError as exc:
+            raise TimeoutError("ontology function exceeded its wall timeout") from exc
         if declaration.kind is OntologyFunctionKind.VALIDATE and not isinstance(
             result, CriterionResult
         ):
@@ -140,6 +191,9 @@ class OntologyFunctionRegistry:
         if read_only_kind and isinstance(result, MutationPlan):
             raise TypeError("read-only ontology function MUST NOT return MutationPlan")
         serialized = result.model_dump(mode="json") if hasattr(result, "model_dump") else result
+        output_bytes = _canonical_json_bytes(serialized)
+        if len(output_bytes) > declaration.max_output_bytes:
+            raise ValueError("ontology function result exceeds max_output_bytes")
         output_errors = list(
             Draft202012Validator(declaration.output_schema).iter_errors(serialized)
         )
@@ -151,20 +205,30 @@ class OntologyFunctionRegistry:
         if release is None:  # pragma: no cover - checked by public method
             raise RuntimeError("ontology release is unavailable")
         function_ref = release.type_ref(OntologyDeclarationKind.FUNCTION, declaration.name)
-        input_digest = ontology_function_digest(raw_arguments)
-        output_digest = ontology_function_digest(serialized)
-        identity = ontology_function_digest(
+        output_digest = _digest_bytes(output_bytes)
+        request_identity = ontology_function_digest(
             {
                 "function_ref": function_ref.model_dump(mode="json"),
                 "input_digest": input_digest,
-                "output_digest": output_digest,
                 "caller_agent": invocation_context.caller_agent,
+                "caller_role": invocation_context.caller_role.value,
+                "purposes": list(invocation_context.purposes),
+                "evidence_refs": list(invocation_context.evidence_refs),
+            }
+        ).removeprefix("sha256:")
+        identity = ontology_function_digest(
+            {
+                "request_id": f"logic-request:{request_identity}",
+                "output_digest": output_digest,
             }
         ).removeprefix("sha256:")
         return result, FunctionInvocationReceipt(
+            request_id=f"logic-request:{request_identity}",
             invocation_id=f"logic-invocation:{identity}",
             function_ref=function_ref,
             caller_agent=invocation_context.caller_agent,
+            caller_role=invocation_context.caller_role,
+            purposes=invocation_context.purposes,
             input_digest=input_digest,
             output_digest=output_digest,
             seed=seed,
@@ -188,8 +252,12 @@ def _authorize(declaration: OntologyFunctionType, context: FunctionInvocationCon
 def ontology_function_digest(value: object) -> str:
     """Return the canonical digest used by ontology function receipts."""
 
+    return _digest_bytes(_canonical_json_bytes(value))
+
+
+def _canonical_json_bytes(value: object) -> bytes:
     try:
-        encoded = json.dumps(
+        return json.dumps(
             value,
             allow_nan=False,
             ensure_ascii=False,
@@ -198,7 +266,10 @@ def ontology_function_digest(value: object) -> str:
         ).encode("utf-8")
     except (TypeError, ValueError) as exc:
         raise ValueError("ontology function values MUST be canonical JSON") from exc
-    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _digest_bytes(value: bytes) -> str:
+    return f"sha256:{hashlib.sha256(value).hexdigest()}"
 
 
 __all__ = [

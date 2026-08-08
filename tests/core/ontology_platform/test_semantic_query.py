@@ -18,9 +18,12 @@ from fdai.core.ontology_platform.models import (
     ObjectSelector,
     ObjectSelectorKind,
     ObjectSetDefinition,
-    ObjectSetMaterialization,
 )
 from fdai.core.ontology_platform.object_sets import ObjectSetService
+from fdai.core.ontology_platform.query_gateway import (
+    SecuredObjectSetQueryGateway,
+    SecuredObjectSetQueryResult,
+)
 from fdai.core.ontology_platform.query_profiles import QueryProfile
 from fdai.core.ontology_platform.semantic_plans import (
     InterpretationCandidateSource,
@@ -36,6 +39,7 @@ from fdai.core.ontology_platform.semantic_query import (
     SemanticQueryService,
 )
 from fdai.shared.contracts.models import (
+    CeilingRole,
     OntologyDeclarationKind,
     OntologyFunctionKind,
     OntologyFunctionType,
@@ -45,6 +49,7 @@ from fdai.shared.contracts.models import (
     PropertyDecl,
     PropertyType,
 )
+from fdai.shared.ontology.acl import ProjectionRequest
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
@@ -156,11 +161,21 @@ async def _build_harness(
         ),
         object_type_names=frozenset({"Resource"}),
     )
+    gateway = SecuredObjectSetQueryGateway(
+        service=object_sets,
+        object_types={object_type.name: object_type},
+    )
     registry = OntologyFunctionRegistry(release=release)
 
-    async def materialize(arguments: Mapping[str, Any]) -> ObjectSetMaterialization:
+    async def materialize(arguments: Mapping[str, Any]) -> SecuredObjectSetQueryResult:
         definition = ObjectSetDefinition.model_validate(arguments["object_set"])
-        return await object_sets.materialize(definition)
+        return await gateway.materialize(
+            definition,
+            projection_request=ProjectionRequest(
+                caller_role=CeilingRole.READER,
+                declared_purposes=frozenset({definition.purpose}),
+            ),
+        )
 
     registry.register(function_type, materialize)
     definition = ObjectSetDefinition(
@@ -212,10 +227,15 @@ async def test_semantic_query_returns_canonical_object_set_receipt_without_autho
         context=harness.context,
     )
 
-    assert isinstance(result, ObjectSetMaterialization)
-    assert [item.id for item in result.graph.objects] == ["resource-a"]
+    assert isinstance(result, SecuredObjectSetQueryResult)
+    assert [item.id for item in result.materialization.graph.objects] == ["resource-a"]
+    assert receipt.ontology_release == harness.release.ref()
+    assert receipt.profile_ref == harness.profile.profile_ref
+    assert receipt.profile_digest == harness.profile.profile_digest
+    assert receipt.request_id.startswith("semantic-query-request:")
     assert receipt.plan_digest == harness.plan.plan_digest
     assert receipt.function_invocation.function_ref == harness.profile.function_ref
+    assert receipt.function_invocation.purposes == (harness.profile.purpose,)
     assert receipt.truncated is False
     assert receipt.truncation_reason is None
     assert harness.plan.execution_authority is False
@@ -293,14 +313,21 @@ async def test_semantic_query_rejects_mismatched_registry_declaration() -> None:
     async def should_not_run(_arguments: Mapping[str, Any]) -> object:
         raise AssertionError("mismatched registry function was invoked")
 
-    registry.register(mismatched, should_not_run)
+    with pytest.raises(ValueError, match="does not match release"):
+        registry.register(mismatched, should_not_run)
 
-    with pytest.raises(ValueError, match="registry declaration does not match"):
-        await SemanticQueryService(release=harness.release, registry=registry).execute(
-            profile=harness.profile,
-            plan=harness.plan,
-            context=harness.context,
-        )
+
+async def test_semantic_query_rejects_registry_release_mismatch() -> None:
+    harness = await _build_harness()
+    stale_release = build_ontology_release(function_types=(harness.function_type,))
+    registry = OntologyFunctionRegistry(release=stale_release)
+
+    async def should_not_run(_arguments: Mapping[str, Any]) -> object:
+        raise AssertionError("release-mismatched registry function was invoked")
+
+    registry.register(harness.function_type, should_not_run)
+    with pytest.raises(ValueError, match="registry release does not match"):
+        SemanticQueryService(release=harness.release, registry=registry)
 
 
 async def test_semantic_query_rejects_non_query_plan() -> None:
@@ -338,6 +365,45 @@ async def test_semantic_query_rejects_purpose_mismatch() -> None:
         )
 
 
+async def test_semantic_query_attenuates_extra_purposes_and_stabilizes_request_id() -> None:
+    harness = await _build_harness()
+    context = harness.context.model_copy(
+        update={"purposes": ("operations-review", "incident-review")}
+    )
+
+    _first_result, first = await harness.service.execute(
+        profile=harness.profile,
+        plan=harness.plan,
+        context=context,
+    )
+    _second_result, second = await harness.service.execute(
+        profile=harness.profile,
+        plan=harness.plan,
+        context=context,
+    )
+
+    assert first.function_invocation.purposes == ("operations-review",)
+    assert first.request_id == second.request_id
+
+
+async def test_semantic_query_rejects_unsecured_or_wrong_output_type() -> None:
+    harness = await _build_harness()
+    registry = OntologyFunctionRegistry(release=harness.release)
+
+    async def raw_output(_arguments: Mapping[str, Any]) -> object:
+        return {"unsecured": True}
+
+    registry.register(harness.function_type, raw_output)
+    service = SemanticQueryService(release=harness.release, registry=registry)
+
+    with pytest.raises(TypeError, match="SecuredObjectSetQueryResult"):
+        await service.execute(
+            profile=harness.profile,
+            plan=harness.plan,
+            context=harness.context,
+        )
+
+
 async def test_semantic_query_propagates_object_set_truncation() -> None:
     harness = await _build_harness(object_ids=("resource-a", "resource-b"), limit=1)
 
@@ -347,6 +413,6 @@ async def test_semantic_query_propagates_object_set_truncation() -> None:
         context=harness.context,
     )
 
-    assert isinstance(result, ObjectSetMaterialization)
+    assert isinstance(result, SecuredObjectSetQueryResult)
     assert receipt.truncated is True
     assert receipt.truncation_reason == "result_limit"

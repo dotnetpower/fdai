@@ -12,6 +12,7 @@ from fdai.shared.contracts.models import (
     OntologyFunctionKind,
     OntologyFunctionType,
     OntologyInterfaceType,
+    OntologyRelease,
     OntologyReleaseRef,
     Operation,
     PromotionGate,
@@ -83,6 +84,27 @@ def test_release_reference_rejects_missing_or_invalid_digest() -> None:
 def test_release_rejects_duplicate_declaration_identity() -> None:
     with pytest.raises(ValueError, match="identities MUST be unique"):
         build_ontology_release(action_types=(_action("ops.alpha"), _action("ops.alpha")))
+
+
+def test_direct_release_construction_rejects_noncanonical_content() -> None:
+    release = build_ontology_release(action_types=(_action("ops.alpha"), _action("ops.beta")))
+
+    assert OntologyRelease.model_validate_json(release.model_dump_json()) == release
+    with pytest.raises(ValueError, match="identities MUST be unique"):
+        OntologyRelease(
+            digest=release.digest,
+            declarations=(release.declarations[0], release.declarations[0]),
+        )
+    with pytest.raises(ValueError, match="canonical order"):
+        OntologyRelease(
+            digest=release.digest,
+            declarations=tuple(reversed(release.declarations)),
+        )
+    with pytest.raises(ValueError, match="digest does not match"):
+        OntologyRelease(
+            digest="sha256:" + "0" * 64,
+            declarations=release.declarations,
+        )
 
 
 def test_release_pins_function_identity_and_artifact_changes() -> None:

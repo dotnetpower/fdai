@@ -29,31 +29,53 @@ def build_ontology_release(
 ) -> OntologyRelease:
     """Build one deterministic release over the supplied declarations."""
 
-    declarations = tuple(
-        sorted(
-            (
-                *(_declaration_ref(OntologyDeclarationKind.OBJECT, item) for item in object_types),
-                *(_declaration_ref(OntologyDeclarationKind.LINK, item) for item in link_types),
-                *(_declaration_ref(OntologyDeclarationKind.ACTION, item) for item in action_types),
-                *(
-                    _declaration_ref(OntologyDeclarationKind.INTERFACE, item)
-                    for item in interface_types
-                ),
-                *(
-                    _declaration_ref(OntologyDeclarationKind.FUNCTION, item)
-                    for item in function_types
-                ),
+    declarations = canonical_ontology_declarations(
+        (
+            *(_declaration_ref(OntologyDeclarationKind.OBJECT, item) for item in object_types),
+            *(_declaration_ref(OntologyDeclarationKind.LINK, item) for item in link_types),
+            *(_declaration_ref(OntologyDeclarationKind.ACTION, item) for item in action_types),
+            *(
+                _declaration_ref(OntologyDeclarationKind.INTERFACE, item)
+                for item in interface_types
             ),
+            *(_declaration_ref(OntologyDeclarationKind.FUNCTION, item) for item in function_types),
+        )
+    )
+    return OntologyRelease(
+        digest=ontology_release_digest(declarations),
+        declarations=declarations,
+    )
+
+
+def canonical_ontology_declarations(
+    declarations: Sequence[OntologyDeclarationRef],
+) -> tuple[OntologyDeclarationRef, ...]:
+    """Return declarations in the one canonical release order."""
+
+    return tuple(
+        sorted(
+            declarations,
             key=lambda item: (item.kind.value, item.name, item.version),
         )
     )
-    identities = {(item.kind, item.name) for item in declarations}
-    if len(identities) != len(declarations):
+
+
+def ontology_release_digest(declarations: Sequence[OntologyDeclarationRef]) -> str:
+    """Return the canonical digest for an ordered declaration sequence."""
+
+    return _digest([item.model_dump(mode="json") for item in declarations])
+
+
+def validate_ontology_release(release: OntologyRelease) -> None:
+    """Reject duplicate, noncanonical, or digest-inconsistent release content."""
+
+    identities = {(item.kind, item.name) for item in release.declarations}
+    if len(identities) != len(release.declarations):
         raise ValueError("ontology release declaration identities MUST be unique")
-    return OntologyRelease(
-        digest=_digest([item.model_dump(mode="json") for item in declarations]),
-        declarations=declarations,
-    )
+    if release.declarations != canonical_ontology_declarations(release.declarations):
+        raise ValueError("ontology release declarations MUST use canonical order")
+    if release.digest != ontology_release_digest(release.declarations):
+        raise ValueError("ontology release digest does not match declarations")
 
 
 def _declaration_ref(

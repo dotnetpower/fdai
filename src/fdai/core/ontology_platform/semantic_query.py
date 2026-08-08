@@ -6,7 +6,12 @@ from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
-from fdai.shared.contracts.models import ContractBase, OntologyDeclarationKind, OntologyRelease
+from fdai.shared.contracts.models import (
+    ContractBase,
+    OntologyDeclarationKind,
+    OntologyRelease,
+    OntologyReleaseRef,
+)
 from fdai.shared.ontology.release import build_ontology_release
 
 from .functions import (
@@ -15,7 +20,8 @@ from .functions import (
     OntologyFunctionRegistry,
     ontology_function_digest,
 )
-from .models import ObjectSetMaterialization, ObjectSetTruncationReason
+from .models import ObjectSetTruncationReason
+from .query_gateway import SecuredObjectSetQueryResult
 from .query_profiles import QueryProfile
 from .semantic_plans import SemanticOperationClass, VerifiedSemanticPlan
 
@@ -26,6 +32,16 @@ class SemanticQueryReceipt(ContractBase):
     """Canonical query-plan and function-invocation lineage with no authority."""
 
     schema_version: Literal["1.0.0"] = "1.0.0"
+    ontology_release: OntologyReleaseRef
+    profile_ref: Annotated[
+        str,
+        Field(pattern=r"^query-profile:[a-z][a-z0-9_.-]{0,79}@\d+\.\d+\.\d+$"),
+    ]
+    profile_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+    request_id: Annotated[
+        str,
+        Field(pattern=r"^semantic-query-request:[a-f0-9]{64}$"),
+    ]
     plan_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     function_invocation: FunctionInvocationReceipt
     truncated: bool | None = None
@@ -42,6 +58,10 @@ class SemanticQueryReceipt(ContractBase):
         if self.truncated is True and self.truncation_reason is None:
             raise ValueError("truncated ObjectSet query receipt requires truncation_reason")
         if self.receipt_digest != _receipt_digest(
+            ontology_release=self.ontology_release,
+            profile_ref=self.profile_ref,
+            profile_digest=self.profile_digest,
+            request_id=self.request_id,
             plan_digest=self.plan_digest,
             function_invocation=self.function_invocation,
             truncated=self.truncated,
@@ -62,6 +82,8 @@ class SemanticQueryService:
     ) -> None:
         self._release = release
         self._registry = registry
+        if registry.release_ref != release.ref():
+            raise ValueError("ontology function registry release does not match active release")
 
     async def execute(
         self,
@@ -107,23 +129,46 @@ class SemanticQueryService:
         if plan.arguments != arguments:
             raise ValueError("semantic query plan arguments do not match query profile")
 
+        attenuated_context = FunctionInvocationContext(
+            caller_agent=context.caller_agent,
+            caller_role=context.caller_role,
+            purposes=(profile.purpose,),
+            evidence_refs=context.evidence_refs,
+        )
         result, invocation = await self._registry.invoke_with_receipt(
             profile.function_type.name,
             arguments,
-            context=context,
+            context=attenuated_context,
         )
-        truncated: bool | None = None
-        truncation_reason: ObjectSetTruncationReason | None = None
-        if isinstance(result, ObjectSetMaterialization):
-            truncated = result.truncated
-            truncation_reason = result.truncation_reason
+        if not isinstance(result, SecuredObjectSetQueryResult):
+            raise TypeError("object_set query function MUST return SecuredObjectSetQueryResult")
+        if result.receipt.caller_role != attenuated_context.caller_role:
+            raise PermissionError("secured ObjectSet result caller role does not match request")
+        if result.receipt.purpose != profile.purpose:
+            raise PermissionError("secured ObjectSet result purpose does not match query profile")
+        truncated = result.materialization.truncated
+        truncation_reason = result.materialization.truncation_reason
+        request_id = _request_id(
+            ontology_release=self._release.ref(),
+            profile=profile,
+            plan_digest=plan.plan_digest,
+            function_request_id=invocation.request_id,
+        )
         receipt_digest = _receipt_digest(
+            ontology_release=self._release.ref(),
+            profile_ref=profile.profile_ref,
+            profile_digest=profile.profile_digest,
+            request_id=request_id,
             plan_digest=plan.plan_digest,
             function_invocation=invocation,
             truncated=truncated,
             truncation_reason=truncation_reason,
         )
         return result, SemanticQueryReceipt(
+            ontology_release=self._release.ref(),
+            profile_ref=profile.profile_ref,
+            profile_digest=profile.profile_digest,
+            request_id=request_id,
             plan_digest=plan.plan_digest,
             function_invocation=invocation,
             truncated=truncated,
@@ -134,6 +179,10 @@ class SemanticQueryService:
 
 def _receipt_digest(
     *,
+    ontology_release: OntologyReleaseRef,
+    profile_ref: str,
+    profile_digest: str,
+    request_id: str,
     plan_digest: str,
     function_invocation: FunctionInvocationReceipt,
     truncated: bool | None,
@@ -141,6 +190,10 @@ def _receipt_digest(
 ) -> str:
     return ontology_function_digest(
         {
+            "ontology_release": ontology_release.model_dump(mode="json"),
+            "profile_ref": profile_ref,
+            "profile_digest": profile_digest,
+            "request_id": request_id,
             "plan_digest": plan_digest,
             "function_invocation": function_invocation.model_dump(mode="json"),
             "truncated": truncated,
@@ -150,6 +203,25 @@ def _receipt_digest(
             "execution_authority": False,
         }
     )
+
+
+def _request_id(
+    *,
+    ontology_release: OntologyReleaseRef,
+    profile: QueryProfile,
+    plan_digest: str,
+    function_request_id: str,
+) -> str:
+    identity = ontology_function_digest(
+        {
+            "ontology_release": ontology_release.model_dump(mode="json"),
+            "profile_ref": profile.profile_ref,
+            "profile_digest": profile.profile_digest,
+            "plan_digest": plan_digest,
+            "function_request_id": function_request_id,
+        }
+    ).removeprefix("sha256:")
+    return f"semantic-query-request:{identity}"
 
 
 __all__ = ["SemanticQueryReceipt", "SemanticQueryService"]

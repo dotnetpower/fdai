@@ -15,6 +15,7 @@ from fdai.shared.contracts.models import (
     SemVer,
 )
 
+from .functions import ontology_function_digest
 from .models import ObjectSetDefinition
 
 
@@ -28,6 +29,19 @@ class QueryProfile(ContractBase):
     function_ref: OntologyTypeRef
     object_set_template: ObjectSetDefinition
     purpose: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")]
+    output_kind: Literal["object_set"] = "object_set"
+
+    @property
+    def profile_ref(self) -> str:
+        """Return the stable logical identity for this profile version."""
+
+        return f"query-profile:{self.name}@{self.version}"
+
+    @property
+    def profile_digest(self) -> str:
+        """Return the canonical digest of the complete reviewed profile content."""
+
+        return ontology_function_digest(self.model_dump(mode="json"))
 
     @model_validator(mode="after")
     def _selection_is_consistent(self) -> QueryProfile:
