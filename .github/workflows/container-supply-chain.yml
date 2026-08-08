@@ -94,11 +94,13 @@ jobs:
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0, Node 24
 
       - name: Materialize resolved model manifest
+        id: models
         env:
           EVENT_NAME: ${{ github.event_name }}
           RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
         run: |
           python3 - <<'PY'
+          import hashlib
           import json
           import os
           from pathlib import Path
@@ -119,9 +121,21 @@ jobs:
               capabilities = payload.get("capabilities")
               if not isinstance(capabilities, list):
                   raise SystemExit("RESOLVED_MODELS_JSON.capabilities must be an array")
+              canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
+              digest = hashlib.sha256(canonical).hexdigest()
           rendered = json.dumps(payload, indent=2, sort_keys=True) + "\n"
           Path("resolved-models.json").write_text(rendered, encoding="utf-8")
           Path("services/assets/resolved-models.json").write_text(rendered, encoding="utf-8")
+              predicate = {
+                "schema_version": "1.0.0",
+                "resolved_models": {"canonical_json_sha256": digest},
+              }
+              Path("resolved-models.provenance.json").write_text(
+                json.dumps(predicate, separators=(",", ":"), sort_keys=True) + "\n",
+                encoding="utf-8",
+              )
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+                output.write(f"digest={digest}\n")
           PY
 
       - name: Build image for verification
@@ -151,29 +165,11 @@ jobs:
           sudo tar -xzf "${archive}" -C /usr/local/bin trivy
           trivy --version
 
-      - name: Scan image for high and critical vulnerabilities
+      - name: Scan local image before publication
         run: >-
           trivy image --exit-code 1 --severity HIGH,CRITICAL
           --ignorefile .trivyignore.yaml
           "${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
-
-      - name: Generate CycloneDX SBOM
-        run: >-
-          trivy image --format cyclonedx --output "sbom-${{ matrix.service }}.cdx.json"
-          "${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
-
-      - name: Generate SPDX SBOM for attestation
-        run: >-
-          trivy image --format spdx-json --output "sbom-${{ matrix.service }}.spdx.json"
-          "${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
-
-      - name: Upload SBOM evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2, Node 20
-        with:
-          name: fdai-sbom-${{ matrix.service }}-${{ github.sha }}
-          path: sbom-${{ matrix.service }}.cdx.json
-          if-no-files-found: error
-          retention-days: 90
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
@@ -187,14 +183,64 @@ jobs:
         if: github.event_name != 'pull_request'
         id: push
         run: |
+          set -euo pipefail
           image="${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
-          docker push "$image"
-          digest="$(docker buildx imagetools inspect "$image" --format '{{json .Manifest.Digest}}' | tr -d '"')"
-          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-            echo "invalid pushed image digest: $digest" >&2
+          push_receipt="$(mktemp)"
+          trap 'rm -f "$push_receipt"' EXIT
+          docker push "$image" 2>&1 | tee "$push_receipt"
+          mapfile -t digests < <(
+            sed -nE 's/^.*digest: (sha256:[0-9a-f]{64}) size:.*$/\1/p' "$push_receipt"
+          )
+          if [[ ${#digests[@]} -ne 1 ]]; then
+            echo "docker push must return exactly one immutable image digest" >&2
             exit 1
           fi
+          digest="${digests[0]}"
+          repository="${image%:*}"
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "reference=$repository@$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Select exact evidence subject
+        id: subject
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSHED_REFERENCE: ${{ steps.push.outputs.reference }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            reference="${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
+          else
+            reference="$PUSHED_REFERENCE"
+            [[ "$reference" =~ @sha256:[0-9a-f]{64}$ ]] || {
+              echo "published evidence subject must be digest-pinned" >&2
+              exit 1
+            }
+          fi
+          echo "reference=$reference" >> "$GITHUB_OUTPUT"
+
+      - name: Scan exact evidence subject
+        run: >-
+          trivy image --exit-code 1 --severity HIGH,CRITICAL
+          --ignorefile .trivyignore.yaml
+          "${{ steps.subject.outputs.reference }}"
+
+      - name: Generate CycloneDX SBOM
+        run: >-
+          trivy image --format cyclonedx --output "sbom-${{ matrix.service }}.cdx.json"
+          "${{ steps.subject.outputs.reference }}"
+
+      - name: Generate SPDX SBOM for attestation
+        run: >-
+          trivy image --format spdx-json --output "sbom-${{ matrix.service }}.spdx.json"
+          "${{ steps.subject.outputs.reference }}"
+
+      - name: Upload SBOM evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2, Node 20
+        with:
+          name: fdai-sbom-${{ matrix.service }}-${{ github.sha }}
+          path: sbom-${{ matrix.service }}.cdx.json
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Generate build provenance attestation
         if: github.event_name != 'pull_request'
@@ -202,6 +248,16 @@ jobs:
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.image }}
           subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest Core resolved model material
+        if: github.event_name != 'pull_request' && matrix.service == 'core-control-plane'
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0, Node 24
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.image }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          predicate-type: https://github.com/${{ github.repository }}/attestations/resolved-models/v1
+          predicate-path: resolved-models.provenance.json
           push-to-registry: true
 
       - name: Generate SBOM attestation

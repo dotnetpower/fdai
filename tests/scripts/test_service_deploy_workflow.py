@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[2]
@@ -16,6 +17,11 @@ _MATRIX = json.loads(
 _MIGRATION = json.loads(
     (_ROOT / "infra" / "services" / "state-migration.json").read_text(encoding="utf-8")
 )
+_ACTION_PINS = {
+    "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+    "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+}
 
 
 def test_workflow_has_closed_five_service_input_and_runner() -> None:
@@ -26,6 +32,15 @@ def test_workflow_has_closed_five_service_input_and_runner() -> None:
         assert f"          - {service}\n" in _WORKFLOW
     assert "runs-on: [self-hosted, fdai-deploy]" in _WORKFLOW
     assert "group: service-deploy-${{ inputs.service }}-${{ inputs.environment }}" in _WORKFLOW
+
+
+def test_workflow_pins_every_action_to_trusted_immutable_commit() -> None:
+    uses = re.findall(r"^\s*uses:\s+([^\s#]+)", _WORKFLOW, re.MULTILINE)
+
+    assert uses
+    assert all(re.fullmatch(r"[^@]+@[0-9a-f]{40}", value) for value in uses)
+    for action, sha in _ACTION_PINS.items():
+        assert f"{action}@{sha}" in uses
 
 
 def test_workflow_defaults_to_plan_and_requires_exact_apply_coordinates() -> None:
@@ -52,11 +67,14 @@ def test_workflow_uses_protected_controls_and_protected_commit_ancestry() -> Non
 
 
 def test_workflow_binds_image_attestation_to_source_and_signer() -> None:
-    assert _WORKFLOW.count('--source-digest "$COMMIT_SHA"') == 2
-    assert _WORKFLOW.count('--signer-workflow "$ATTESTATION_SIGNER_WORKFLOW"') == 2
+    assert _WORKFLOW.count('--source-digest "$COMMIT_SHA"') == 3
+    assert _WORKFLOW.count('--signer-workflow "$ATTESTATION_SIGNER_WORKFLOW"') == 3
     assert '--predicate-type "https://slsa.dev/provenance/v1"' in _WORKFLOW
     assert '--predicate-type "https://spdx.dev/Document/v2.3"' in _WORKFLOW
     assert "container-supply-chain.yml" in _WORKFLOW
+    assert "attestations/resolved-models/v1" in _WORKFLOW
+    assert "Core image must have one canonical resolved-models digest." in _WORKFLOW
+    assert _WORKFLOW.count('--resolved-models-digest "$RESOLVED_MODELS_DIGEST"') == 2
 
 
 def test_workflow_validates_exact_source_run_before_artifact_download() -> None:
@@ -85,7 +103,7 @@ def test_workflow_uses_per_service_backend_and_never_platform_root() -> None:
 
 
 def test_plan_and_apply_both_verify_image_and_guard_exact_binary_plan() -> None:
-    assert _WORKFLOW.count("gh attestation verify") == 2
+    assert _WORKFLOW.count("gh attestation verify") == 3
     assert "manifests/sha-${COMMIT_SHA}" in _WORKFLOW
     assert '[[ "$commit_digest" == "$IMAGE_DIGEST" ]]' in _WORKFLOW
     assert "scripts/deployment/service/service_contract.py" in _WORKFLOW

@@ -13,7 +13,7 @@ from typing import Any
 
 from service_contract import ServiceContractError, resolve_service, validate_image_reference
 
-_SCHEMA_VERSION = "fdai.service-deployment-plan.v2"
+_SCHEMA_VERSION = "fdai.service-deployment-plan.v3"
 _SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 _COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
 
@@ -149,10 +149,11 @@ def _deployment_context(
     backend_storage_account: str,
     backend_container: str,
     controls_commit_sha: str,
+    resolved_models_digest: str,
     attestation_signer_workflow: str,
 ) -> dict[str, Any]:
     contract = resolve_service(service, environment)
-    return {
+    context = {
         "service": service,
         "environment": environment,
         "repository": repository,
@@ -181,6 +182,15 @@ def _deployment_context(
         },
         "trusted_controls": {"commit_sha": controls_commit_sha},
     }
+    if service == "core-control-plane":
+        if _SHA256_PATTERN.fullmatch(resolved_models_digest) is None:
+            raise PlanBundleError("Core deployment requires a canonical resolved-models digest")
+        context["materials"] = {
+            "resolved_models": {"canonical_json_sha256": resolved_models_digest}
+        }
+    elif resolved_models_digest:
+        raise PlanBundleError("resolved-models digest is valid only for the Core control plane")
+    return context
 
 
 def create_bundle(
@@ -204,6 +214,7 @@ def create_bundle(
     controls_commit_sha: str,
     attestation_signer_workflow: str,
     now: datetime,
+    resolved_models_digest: str = "",
 ) -> dict[str, Any]:
     """Seal a guarded binary plan and its deployment context for exact later apply."""
     if _COMMIT_PATTERN.fullmatch(commit_sha) is None:
@@ -230,6 +241,7 @@ def create_bundle(
         backend_storage_account=backend_storage_account,
         backend_container=backend_container,
         controls_commit_sha=controls_commit_sha,
+        resolved_models_digest=resolved_models_digest,
         attestation_signer_workflow=attestation_signer_workflow,
     )
     context_path.write_bytes(_canonical(context))
@@ -257,6 +269,7 @@ def create_bundle(
         "backend_storage_account": backend_storage_account,
         "backend_container": backend_container,
         "controls_commit_sha": controls_commit_sha,
+        "resolved_models_digest": resolved_models_digest,
         "attestation_signer_workflow": attestation_signer_workflow,
         "created_at": now.astimezone(UTC).isoformat(),
         "expires_at": (now.astimezone(UTC) + timedelta(hours=24)).isoformat(),
@@ -288,6 +301,7 @@ def verify_bundle(
     controls_commit_sha: str,
     attestation_signer_workflow: str,
     now: datetime,
+    resolved_models_digest: str = "",
 ) -> dict[str, Any]:
     """Verify exact apply inputs against every sealed plan artifact and mapping."""
     invalid_plan_digest = _SHA256_PATTERN.fullmatch(plan_digest) is None
@@ -323,6 +337,7 @@ def verify_bundle(
         "backend_storage_account": backend_storage_account,
         "backend_container": backend_container,
         "controls_commit_sha": controls_commit_sha,
+        "resolved_models_digest": resolved_models_digest,
         "attestation_signer_workflow": attestation_signer_workflow,
     }
     for key, value in expected.items():
@@ -349,6 +364,7 @@ def verify_bundle(
         backend_storage_account=backend_storage_account,
         backend_container=backend_container,
         controls_commit_sha=controls_commit_sha,
+        resolved_models_digest=resolved_models_digest,
         attestation_signer_workflow=attestation_signer_workflow,
     )
     if context != expected_context:
@@ -379,6 +395,7 @@ def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--backend-storage-account", required=True)
     parser.add_argument("--backend-container", required=True)
     parser.add_argument("--controls-commit-sha", required=True)
+    parser.add_argument("--resolved-models-digest", default="")
     parser.add_argument("--attestation-signer-workflow", required=True)
 
 
@@ -412,6 +429,7 @@ def main() -> int:
         "backend_storage_account": args.backend_storage_account,
         "backend_container": args.backend_container,
         "controls_commit_sha": args.controls_commit_sha,
+        "resolved_models_digest": args.resolved_models_digest,
         "attestation_signer_workflow": args.attestation_signer_workflow,
     }
     try:

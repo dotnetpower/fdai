@@ -157,7 +157,28 @@ def test_supply_chain_matrix_builds_and_attests_all_service_targets() -> None:
     assert '--format spdx-json --output "sbom-${{ matrix.service }}.spdx.json"' in text
     assert "subject-digest: ${{ steps.push.outputs.digest }}" in text
     assert "sbom-path: sbom-${{ matrix.service }}.spdx.json" in text
-    assert text.count(f"uses: actions/attest@{ACTION_PINS['actions/attest']}") == 2
+    assert text.count(f"uses: actions/attest@{ACTION_PINS['actions/attest']}") == 3
+
+
+def test_supply_chain_uses_docker_push_digest_as_exact_evidence_subject() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "docker buildx imagetools inspect" not in text
+    assert 'docker push "$image" 2>&1 | tee "$push_receipt"' in text
+    assert "docker push must return exactly one immutable image digest" in text
+    assert 'echo "reference=$repository@$digest" >> "$GITHUB_OUTPUT"' in text
+    assert text.count('"${{ steps.subject.outputs.reference }}"') == 3
+
+
+def test_core_provenance_contains_only_canonical_resolved_models_digest() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "id: models" in text
+    assert 'canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()' in text
+    assert '"resolved_models": {"canonical_json_sha256": digest}' in text
+    assert "matrix.service == 'core-control-plane'" in text
+    assert "predicate-path: resolved-models.provenance.json" in text
+    assert "predicate: ${{ vars.RESOLVED_MODELS_JSON }}" not in text
 
 
 def test_supply_chain_pins_node_compatible_actions_to_full_shas() -> None:

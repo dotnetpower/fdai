@@ -5,7 +5,11 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import os
+import shutil
+import subprocess
 import sys
+import textwrap
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType
@@ -177,8 +181,12 @@ def _bundle_coordinates() -> dict[str, str]:
     }
 
 
-def _write_plan_json(path: Path, *, image: str) -> None:
-    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+def _write_plan_json(
+    path: Path,
+    *,
+    image: str,
+    address: str = "module.operator_service.module.container_app.azurerm_container_app.service",
+) -> None:
     path.write_text(json.dumps(_plan(address, ["update"], image=image)) + "\n", encoding="utf-8")
 
 
@@ -203,6 +211,83 @@ def _state(*addresses: str, resource_id: str | None = None) -> dict[str, object]
             }
         }
     }
+
+
+def _write_fake_terraform(path: Path) -> None:
+    path.write_text(
+        textwrap.dedent(
+            """\
+            #!/usr/bin/env python3
+            import json
+            import os
+            import shutil
+            import sys
+            from pathlib import Path
+
+            args = sys.argv[1:]
+            state_dir = Path(os.environ["FAKE_STATE_DIR"])
+            log_path = state_dir / "calls.log"
+            with log_path.open("a", encoding="utf-8") as log:
+                log.write(" ".join(args) + "\\n")
+            root = None
+            if args and args[0].startswith("-chdir="):
+                root = Path(args.pop(0).split("=", 1)[1]).name
+
+            if args[:2] == ["state", "pull"]:
+                sys.stdout.write((state_dir / f"{root}.json").read_text(encoding="utf-8"))
+            elif args and args[0] == "show":
+                sys.stdout.write(Path(args[-1]).read_text(encoding="utf-8"))
+            elif args[:2] == ["state", "list"]:
+                state_path = Path(
+                    next(
+                        value.split("=", 1)[1]
+                        for value in args
+                        if value.startswith("-state=")
+                    )
+                )
+                payload = json.loads(state_path.read_text(encoding="utf-8"))
+                for resource in payload["values"]["root_module"]["resources"]:
+                    print(resource["address"])
+            elif args[:2] == ["state", "mv"]:
+                source_path = Path(
+                    next(
+                        value.split("=", 1)[1]
+                        for value in args
+                        if value.startswith("-state=")
+                    )
+                )
+                destination_path = Path(
+                    next(
+                        value.split("=", 1)[1]
+                        for value in args
+                        if value.startswith("-state-out=")
+                    )
+                )
+                source_address, destination_address = args[-2:]
+                source = json.loads(source_path.read_text(encoding="utf-8"))
+                destination = json.loads(destination_path.read_text(encoding="utf-8"))
+                source_resources = source["values"]["root_module"]["resources"]
+                moved = next(item for item in source_resources if item["address"] == source_address)
+                source_resources.remove(moved)
+                moved["address"] = destination_address
+                destination["values"]["root_module"]["resources"].append(moved)
+                source_path.write_text(json.dumps(source), encoding="utf-8")
+                destination_path.write_text(json.dumps(destination), encoding="utf-8")
+            elif args[:2] == ["state", "push"]:
+                force = "-force" in args
+                candidate = Path(args[-1])
+                marker = state_dir / "source-push-failed"
+                if root == "source" and not force and not marker.exists():
+                    marker.write_text("failed\\n", encoding="utf-8")
+                    raise SystemExit(9)
+                shutil.copyfile(candidate, state_dir / f"{root}.json")
+            else:
+                raise SystemExit(f"unsupported fake terraform command: {args!r}")
+            """
+        ),
+        encoding="utf-8",
+    )
+    path.chmod(0o755)
 
 
 def _health_evidence() -> tuple[dict[str, object], ...]:
@@ -286,11 +371,21 @@ def test_image_reference_is_service_specific_and_digest_pinned(contract: ModuleT
         )
 
 
-def test_plan_guard_allows_only_selected_service_create_or_update(guard: ModuleType) -> None:
+def test_plan_guard_allows_only_selected_service_image_update_or_noop(
+    guard: ModuleType,
+) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
-    for action in ("create", "update", "no-op"):
+    for action in ("update", "no-op"):
         guard.validate_plan(
             _plan(address, [action]),
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+        )
+
+    with pytest.raises(guard.PlanGuardError, match="creation has no automatic recovery"):
+        guard.validate_plan(
+            _plan(address, ["create"]),
             service="operator-service",
             environment="dev",
             image_ref="image",
@@ -334,9 +429,9 @@ def test_plan_guard_rejects_image_substitution(guard: ModuleType) -> None:
         )
 
 
-def test_plan_guard_rejects_untrusted_runtime_on_first_create(guard: ModuleType) -> None:
+def test_plan_guard_rejects_untrusted_runtime_on_update(guard: ModuleType) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
-    plan = _plan(address, ["create"])
+    plan = _plan(address, ["update"])
     container = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
         "container"
     ][0]
@@ -417,6 +512,35 @@ def test_plan_guard_rejects_command_and_environment_drift(
     ][0]
     container[runtime_field] = ["unexpected"]
     with pytest.raises(guard.PlanGuardError, match=message):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("workload_profile_name", "Dedicated-D4"),
+        ("revision_mode", "Multiple"),
+        ("max_inactive_revisions", 50),
+        ("ingress", [{"external_enabled": True}]),
+        ("secret", [{"name": "replacement", "value": "not-a-secret"}]),
+        ("registry", [{"server": "peer.example.com", "identity": "system"}]),
+        ("tags", {"fdai:component": "operator-service", "mutable": "changed"}),
+    ],
+)
+def test_plan_guard_rejects_fields_rollback_cannot_prove(
+    guard: ModuleType,
+    field: str,
+    value: object,
+) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    plan["resource_changes"][0]["change"]["after"][field] = value  # type: ignore[index]
+    with pytest.raises(guard.PlanGuardError, match="rollback cannot prove"):
         guard.validate_plan(
             plan,
             service="operator-service",
@@ -547,6 +671,70 @@ def test_state_cutover_rejects_alias_with_duplicate_physical_resource(
         )
 
 
+def test_state_migration_restores_both_backends_when_source_push_fails(
+    migration: ModuleType,
+    tmp_path: Path,
+) -> None:
+    source_address = "module.operator_api[0].azurerm_container_app.operator_api"
+    destination_address = (
+        "module.operator_service.module.container_app.azurerm_container_app.service"
+    )
+    resource_id = (
+        "/subscriptions/example/resourceGroups/example/providers/"
+        "Microsoft.App/containerApps/operator-service"
+    )
+    state_dir = tmp_path / "state"
+    state_dir.mkdir()
+    (state_dir / "source.json").write_text(
+        json.dumps(_state(source_address, resource_id=resource_id)), encoding="utf-8"
+    )
+    (state_dir / "destination.json").write_text(json.dumps(_state()), encoding="utf-8")
+    source_root = tmp_path / "source"
+    destination_root = tmp_path / "destination"
+    source_root.mkdir()
+    destination_root.mkdir()
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    _write_fake_terraform(fake_bin / "terraform")
+    env = os.environ.copy()
+    env["FAKE_STATE_DIR"] = str(state_dir)
+    env["PATH"] = f"{fake_bin}:{env['PATH']}"
+    bash = shutil.which("bash")
+    assert bash is not None
+
+    result = subprocess.run(  # noqa: S603 - fixed script and synthetic arguments
+        [
+            bash,
+            str(_SCRIPTS / "migrate_state.sh"),
+            "operator-service",
+            "dev",
+            str(source_root),
+            str(destination_root),
+            str(tmp_path / "backups"),
+            "--execute",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 1
+    assert "state backups restored and single physical ownership verified" in result.stderr
+    restored_source = json.loads((state_dir / "source.json").read_text(encoding="utf-8"))
+    restored_destination = json.loads((state_dir / "destination.json").read_text(encoding="utf-8"))
+    migration.verify_state_pair(
+        restored_source,
+        restored_destination,
+        source_address=source_address,
+        destination_address=destination_address,
+        phase="pre",
+    )
+    calls = (state_dir / "calls.log").read_text(encoding="utf-8")
+    assert f"-chdir={destination_root} state push -force" in calls
+    assert f"-chdir={source_root} state push -force" in calls
+
+
 def test_cutover_fence_rejects_legacy_runtime_recreation(migration: ModuleType) -> None:
     source = "module.operator_api[0].azurerm_container_app.operator_api"
     migration.guard_legacy_plan(
@@ -644,6 +832,38 @@ def test_executor_rollback_uses_previous_revision_image_and_authority_fallback(
     )
 
 
+def test_executor_rollback_verification_requires_authority_fallback(
+    recovery: ModuleType,
+) -> None:
+    context, _, account, app, revision = _health_evidence()
+    snapshot = recovery.capture_snapshot(
+        context=context,
+        account=account,
+        app=app,
+        revision=revision,
+        rollback_contract={"authority_fallback": "core-in-process"},
+    )
+    app["properties"]["latestRevisionName"] = "example--recovery"  # type: ignore[index]
+    revision["name"] = "example--recovery"
+    revision["properties"]["template"]["containers"][0]["env"] = [  # type: ignore[index]
+        {"name": "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER", "value": "1"}
+    ]
+    with pytest.raises(recovery.DeploymentRecoveryError, match="authority fallback"):
+        recovery.validate_rollback(
+            snapshot=snapshot,
+            account=account,
+            app=app,
+            revision=revision,
+        )
+    revision["properties"]["template"]["containers"][0]["env"][0]["value"] = "0"  # type: ignore[index]
+    recovery.validate_rollback(
+        snapshot=snapshot,
+        account=account,
+        app=app,
+        revision=revision,
+    )
+
+
 def test_plan_bundle_round_trip_and_tamper_rejection(bundle: ModuleType, tmp_path: Path) -> None:
     plan = tmp_path / "service.plan"
     plan.write_bytes(b"binary plan")
@@ -726,6 +946,58 @@ def test_plan_bundle_round_trip_and_tamper_rejection(bundle: ModuleType, tmp_pat
             now=now + timedelta(minutes=5),
             **coordinates,
         )
+
+
+def test_core_plan_bundle_seals_only_canonical_resolved_models_digest(
+    bundle: ModuleType, tmp_path: Path
+) -> None:
+    plan = tmp_path / "service.plan"
+    plan.write_bytes(b"binary plan")
+    plan_json = tmp_path / "service-plan.json"
+    image = _image("fdai-core-control-plane")
+    _write_plan_json(
+        plan_json,
+        image=image,
+        address="module.core_control_plane.module.container_app.azurerm_container_app.service",
+    )
+    context = tmp_path / "context.json"
+    metadata = tmp_path / "metadata.json"
+    digest = "e" * 64
+    coordinates = _bundle_coordinates()
+    created = bundle.create_bundle(
+        plan=plan,
+        plan_json=plan_json,
+        context_path=context,
+        metadata_path=metadata,
+        service="core-control-plane",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="b" * 40,
+        image_ref=image,
+        workflow_run_id="123",
+        resolved_models_digest=digest,
+        now=datetime(2026, 8, 8, 10, 0, tzinfo=UTC),
+        **coordinates,
+    )
+    sealed_context = json.loads(context.read_text(encoding="utf-8"))
+    assert sealed_context["materials"] == {"resolved_models": {"canonical_json_sha256": digest}}
+    assert "capabilities" not in sealed_context
+    with pytest.raises(bundle.PlanBundleError, match="canonical resolved-models"):
+        bundle.create_bundle(
+            plan=plan,
+            plan_json=plan_json,
+            context_path=context,
+            metadata_path=metadata,
+            service="core-control-plane",
+            environment="dev",
+            repository="example/fdai",
+            commit_sha="b" * 40,
+            image_ref=image,
+            workflow_run_id="123",
+            now=datetime(2026, 8, 8, 10, 0, tzinfo=UTC),
+            **coordinates,
+        )
+    assert created["resolved_models_digest"] == digest
 
 
 @pytest.mark.parametrize(

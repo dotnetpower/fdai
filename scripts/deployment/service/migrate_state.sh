@@ -77,15 +77,51 @@ python3 "$script_root/state_migration.py" verify \
   exit 0
 }
 
-terraform -chdir="$destination_root" state push "$destination_work"
-terraform -chdir="$source_root" state push "$source_work"
-terraform -chdir="$source_root" state pull >"$backup_dir/source-verified.tfstate"
-terraform -chdir="$destination_root" state pull >"$backup_dir/destination-verified.tfstate"
-terraform show -json "$backup_dir/source-verified.tfstate" >"$backup_dir/source-verified.json"
-terraform show -json "$backup_dir/destination-verified.tfstate" >"$backup_dir/destination-verified.json"
-python3 "$script_root/state_migration.py" verify \
-  --source-state "$backup_dir/source-verified.json" \
-  --destination-state "$backup_dir/destination-verified.json" \
-  --source-address "$source_address" \
-  --destination-address "$destination_address" \
-  --phase post
+verify_live_pair() {
+  local phase="$1"
+  local prefix="$2"
+  local source_state="$backup_dir/source-${prefix}.tfstate"
+  local destination_state="$backup_dir/destination-${prefix}.tfstate"
+  local source_json="$backup_dir/source-${prefix}.json"
+  local destination_json="$backup_dir/destination-${prefix}.json"
+
+  terraform -chdir="$source_root" state pull >"$source_state"
+  terraform -chdir="$destination_root" state pull >"$destination_state"
+  chmod 600 "$source_state" "$destination_state"
+  terraform show -json "$source_state" >"$source_json"
+  terraform show -json "$destination_state" >"$destination_json"
+  python3 "$script_root/state_migration.py" verify \
+    --source-state "$source_json" \
+    --destination-state "$destination_json" \
+    --source-address "$source_address" \
+    --destination-address "$destination_address" \
+    --phase "$phase"
+}
+
+restore_backups() {
+  local restore_failed=0
+  terraform -chdir="$destination_root" state push -force "$destination_backup" || \
+    restore_failed=1
+  terraform -chdir="$source_root" state push -force "$source_backup" || restore_failed=1
+  if [[ "$restore_failed" -eq 0 ]]; then
+    verify_live_pair pre restored || restore_failed=1
+  fi
+  return "$restore_failed"
+}
+
+fail_with_restore() {
+  local reason="$1"
+  echo "$reason; restoring both state backups" >&2
+  if restore_backups; then
+    echo "state backups restored and single physical ownership verified" >&2
+  else
+    echo "state backup restoration or ownership verification failed" >&2
+  fi
+  exit 1
+}
+
+terraform -chdir="$destination_root" state push "$destination_work" || \
+  fail_with_restore "destination state push failed"
+terraform -chdir="$source_root" state push "$source_work" || \
+  fail_with_restore "source state push failed"
+verify_live_pair post verified || fail_with_restore "post-migration ownership verification failed"

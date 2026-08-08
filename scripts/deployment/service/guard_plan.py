@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 from pathlib import Path
 from typing import Any
@@ -138,6 +139,12 @@ def _guard_update(
     if isinstance(before_tags, dict) and isinstance(after_tags, dict):
         if before_tags.get("fdai:authority-cutover") != after_tags.get("fdai:authority-cutover"):
             violations.append(f"authority cutover tag change at {address}")
+    image_only_before = copy.deepcopy(before)
+    _container(image_only_before, address=address)["image"] = _planned_image(
+        {"after": after}, address=address
+    )
+    if image_only_before != after:
+        violations.append(f"protected update changes fields rollback cannot prove at {address}")
     return violations
 
 
@@ -200,7 +207,10 @@ def validate_plan(
         if "delete" in actions:
             violations.append(f"delete or replacement action {actions!r} at {address}")
             continue
-        if actions not in {("create",), ("update",)}:
+        if actions == ("create",):
+            violations.append(f"service creation has no automatic recovery at {address}")
+            continue
+        if actions != ("update",):
             violations.append(f"unsupported action {actions!r} at {address}")
             continue
         if not isinstance(change, dict) or _planned_image(change, address=address) != image_ref:
@@ -209,14 +219,8 @@ def validate_plan(
         after = _resource(change, side="after", address=address)
         _identity_ids(after, address=address)
         violations.extend(_guard_service_runtime(after, address=address, contract=contract))
-        if actions == ("update",):
-            before = _resource(change, side="before", address=address)
-            violations.extend(_guard_update(before, after, address=address))
-        elif service == "isolated-executor" and _authority_cutover(after, address=address) not in (
-            None,
-            "0",
-        ):
-            violations.append("authority cutover cannot be enabled by service creation")
+        before = _resource(change, side="before", address=address)
+        violations.extend(_guard_update(before, after, address=address))
     deferred_changes = payload.get("deferred_changes", [])
     if deferred_changes not in (None, []):
         violations.append("deferred plan changes are not eligible for protected apply")

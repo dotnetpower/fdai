@@ -75,7 +75,7 @@ jobs:
       TF_INPUT: "false"
     steps:
       - name: Checkout protected deployment controls
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           fetch-depth: 0
@@ -83,7 +83,7 @@ jobs:
           path: trusted-controls
 
       - name: Checkout exact target commit
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 1
@@ -180,6 +180,8 @@ jobs:
           IMAGE_DIGEST: ${{ steps.contract.outputs.image_digest }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
           ATTESTATION_SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/container-supply-chain.yml
+          MODEL_PREDICATE_TYPE: https://github.com/${{ github.repository }}/attestations/resolved-models/v1
+          SERVICE: ${{ inputs.service }}
         run: |
           set -euo pipefail
           image_path="${IMAGE_REF#ghcr.io/}"
@@ -216,6 +218,28 @@ jobs:
             --source-digest "$COMMIT_SHA" \
             --predicate-type "https://spdx.dev/Document/v2.3" \
             --signer-workflow "$ATTESTATION_SIGNER_WORKFLOW" >/dev/null
+          resolved_models_digest=""
+          if [[ "$SERVICE" == "core-control-plane" ]]; then
+            model_attestations="$RUNNER_TEMP/resolved-models-attestations.json"
+            timeout 60s gh attestation verify \
+              "oci://${IMAGE_REF}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --source-digest "$COMMIT_SHA" \
+              --predicate-type "$MODEL_PREDICATE_TYPE" \
+              --signer-workflow "$ATTESTATION_SIGNER_WORKFLOW" \
+              --format json >"$model_attestations"
+            mapfile -t model_digests < <(
+              jq -er \
+                '.[].verificationResult.statement.predicate.resolved_models.canonical_json_sha256' \
+                "$model_attestations" | sort -u
+            )
+            if [[ ${#model_digests[@]} -ne 1 || ! "${model_digests[0]}" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "Core image must have one canonical resolved-models digest." >&2
+              exit 1
+            fi
+            resolved_models_digest="${model_digests[0]}"
+          fi
+          echo "RESOLVED_MODELS_DIGEST=$resolved_models_digest" >> "$GITHUB_ENV"
 
       - name: Authenticate runner managed identity
         run: |
@@ -358,6 +382,7 @@ jobs:
             --backend-storage-account "$STATE_STORAGE_ACCOUNT" \
             --backend-container "$STATE_CONTAINER" \
             --controls-commit-sha "$CONTROLS_COMMIT_SHA" \
+            --resolved-models-digest "$RESOLVED_MODELS_DIGEST" \
             --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" >/dev/null
           python3 - "$RUNNER_TEMP/service-plan-metadata.json" "$GITHUB_OUTPUT" <<'PY'
           import json
@@ -371,7 +396,7 @@ jobs:
 
       - name: Upload protected service plan
         if: ${{ !inputs.apply }}
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: service-plan-${{ inputs.service }}-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -424,7 +449,7 @@ jobs:
 
       - name: Download exact protected service plan
         if: ${{ inputs.apply }}
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: service-plan-${{ inputs.service }}-${{ inputs.environment }}-${{ inputs.plan_run_id }}-${{ inputs.plan_run_attempt }}
           path: ${{ runner.temp }}/service-plan-bundle
@@ -459,6 +484,7 @@ jobs:
             --backend-storage-account "$STATE_STORAGE_ACCOUNT" \
             --backend-container "$STATE_CONTAINER" \
             --controls-commit-sha "$CONTROLS_COMMIT_SHA" \
+            --resolved-models-digest "$RESOLVED_MODELS_DIGEST" \
             --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" >/dev/null
           terraform -chdir="$TERRAFORM_ROOT" show \
             -json "$bundle/service.plan" > "$RUNNER_TEMP/replayed-service-plan.json"
