@@ -69,38 +69,6 @@ always prevails.
 8. Commit each focused-check-passing user-requested change before reporting completion unless the user says
    not to commit. Stage only task-owned files and hunks; never commit failed or incomplete work.
 
-## Continuous Conversation Assurance Triggers (MUST)
-
-Treat `대화개선`, `채팅개선`, `대화무한개선`, `채팅무한개선`, `conversation improvement`,
-`chat improvement`, and `continuous conversation assurance` as requests to load the
-`conversational-assurance` skill and start exactly one explicit bounded campaign. Use the persisted
-SRE, ARB, Change Management, DR, Chaos, or Balanced focus; default to SRE when no focus is stored,
-and update it when the operator names a different focus. One campaign may evaluate at most 20 new
-questions and start at most 20 hardening attempts. These are per-campaign limits, not daily limits;
-a later explicit trigger starts a new campaign with fresh limits.
-
-Treat `대화개선 현황`, `채팅개선 현황`, and `conversation assurance status` as read-only status
-requests. Do not restart the campaign or ask for focus. Report the campaign summary and a Markdown
-table of the latest 20 question-and-answer evaluations.
-
-Every cycle MUST measure answer appropriateness, terminal verification state, answer-type-specific
-visualization, investigation and redacted execution detail, total latency, and per-phase
-bottlenecks through the same Operator API stream used by the Console. Score exactly ten named
-rubrics at 0 or 1 point each and report a total out of 10; the campaign pass threshold is 9/10.
-Persist every redacted question, answer, rubric result, timing summary, and regression cohort in
-ignored mode-`0600` ledgers. All prior and cohort questions participate in duplicate rejection. A
-score below 9 starts or resumes an isolated Copilot hardening candidate immediately; the same
-question and its paraphrase cohort are remeasured
-until every item reaches at least 9/10 or the campaign hardening limit is reached. After focused
-verification, the next bounded question cycle starts within the same explicit campaign until its
-question limit is reached or a cycle cannot make progress. The loop remains A0/read-only, never
-merges to `main`, never uses generated text as a command, and never grants approval or execution
-authority.
-
-Conversation assurance MUST NOT start from systemd, login, boot, a recurring timer, stale-activity
-recovery, or any other implicit scheduler. Only an explicit campaign trigger may start work.
-`.improve/STOP` remains the immediate local stop switch.
-
 ## Issue Lifecycle (MUST)
 
 - Every new issue includes explicit, observable **Exit criteria** as a checkbox list.
