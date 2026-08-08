@@ -163,6 +163,11 @@ jobs:
           trivy image --format cyclonedx --output "sbom-${{ matrix.service }}.cdx.json"
           "${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
 
+      - name: Generate SPDX SBOM for attestation
+        run: >-
+          trivy image --format spdx-json --output "sbom-${{ matrix.service }}.spdx.json"
+          "${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
+
       - name: Upload SBOM evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2, Node 20
         with:
@@ -206,5 +211,5 @@ jobs:
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.image }}
           subject-digest: ${{ steps.push.outputs.digest }}
-          sbom-path: sbom-${{ matrix.service }}.cdx.json
+          sbom-path: sbom-${{ matrix.service }}.spdx.json
           push-to-registry: true

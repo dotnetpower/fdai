@@ -52,8 +52,10 @@ def test_workflow_uses_protected_controls_and_protected_commit_ancestry() -> Non
 
 
 def test_workflow_binds_image_attestation_to_source_and_signer() -> None:
-    assert '--source-digest "$COMMIT_SHA"' in _WORKFLOW
-    assert '--signer-workflow "$ATTESTATION_SIGNER_WORKFLOW"' in _WORKFLOW
+    assert _WORKFLOW.count('--source-digest "$COMMIT_SHA"') == 2
+    assert _WORKFLOW.count('--signer-workflow "$ATTESTATION_SIGNER_WORKFLOW"') == 2
+    assert '--predicate-type "https://slsa.dev/provenance/v1"' in _WORKFLOW
+    assert '--predicate-type "https://spdx.dev/Document/v2.3"' in _WORKFLOW
     assert "container-supply-chain.yml" in _WORKFLOW
 
 
@@ -83,7 +85,7 @@ def test_workflow_uses_per_service_backend_and_never_platform_root() -> None:
 
 
 def test_plan_and_apply_both_verify_image_and_guard_exact_binary_plan() -> None:
-    assert _WORKFLOW.count("gh attestation verify") == 1
+    assert _WORKFLOW.count("gh attestation verify") == 2
     assert "manifests/sha-${COMMIT_SHA}" in _WORKFLOW
     assert '[[ "$commit_digest" == "$IMAGE_DIGEST" ]]' in _WORKFLOW
     assert "scripts/deployment/service/service_contract.py" in _WORKFLOW

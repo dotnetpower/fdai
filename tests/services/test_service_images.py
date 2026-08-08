@@ -154,7 +154,9 @@ def test_supply_chain_matrix_builds_and_attests_all_service_targets() -> None:
     assert "target: ${{ matrix.target }}" in text
     assert "${{ env.IMAGE_NAME }}/${{ matrix.image }}" in text
     assert "sbom-${{ matrix.service }}.cdx.json" in text
+    assert '--format spdx-json --output "sbom-${{ matrix.service }}.spdx.json"' in text
     assert "subject-digest: ${{ steps.push.outputs.digest }}" in text
+    assert "sbom-path: sbom-${{ matrix.service }}.spdx.json" in text
     assert text.count(f"uses: actions/attest@{ACTION_PINS['actions/attest']}") == 2
 
 
