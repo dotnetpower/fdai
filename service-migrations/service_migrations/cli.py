@@ -53,6 +53,10 @@ def _parser() -> argparse.ArgumentParser:
     subparsers.add_parser("heads")
     subparsers.add_parser("history")
     subparsers.add_parser("current")
+    prepare = subparsers.add_parser("prepare-adoption")
+    prepare.add_argument("--evidence-output", type=Path, required=True)
+    prepare.add_argument("--schema-output", type=Path, required=True)
+    prepare.add_argument("--rollback-reference", required=True)
     stamp = subparsers.add_parser("stamp-baseline")
     stamp.add_argument("--evidence", type=Path, required=True)
     upgrade = subparsers.add_parser("upgrade")
@@ -183,6 +187,91 @@ def _revision_contains(config: Config, observed: str, required: str) -> bool:
     return required in {
         revision.revision for revision in script.iterate_revisions(observed, "base")
     }
+
+
+def _prepare_adoption_evidence(
+    service_id: str,
+    *,
+    adoption: AdoptionManifest,
+    expected_schema_fingerprint: str,
+    legacy_owned_tables: tuple[str, ...],
+    evidence_output: Path,
+    schema_output: Path,
+    rollback_reference: str,
+) -> None:
+    if not rollback_reference.strip():
+        raise RuntimeError("adoption rollback reference must be non-empty")
+    legacy_versions = _read_versions(adoption.legacy_version_table)
+    if legacy_versions != (adoption.required_legacy_head,):
+        raise RuntimeError(
+            f"legacy database must be at {adoption.required_legacy_head}; "
+            f"observed {legacy_versions}"
+        )
+    observed_schema = _live_schema_fingerprint(service_id, legacy_owned_tables)
+    if observed_schema != expected_schema_fingerprint:
+        raise RuntimeError(f"{service_id} schema fingerprint mismatch; refusing adoption")
+    verified_at = datetime.now(tz=UTC).isoformat()
+    _write_json_atomic(
+        schema_output,
+        {
+            "schema_version": 1,
+            "service_id": service_id,
+            "owned_tables": list(legacy_owned_tables),
+            "observed_schema_fingerprint": observed_schema,
+            "verified_at": verified_at,
+        },
+    )
+    _write_json_atomic(
+        evidence_output,
+        {
+            "service_id": service_id,
+            "observed_legacy_head": adoption.required_legacy_head,
+            "observed_legacy_revision_count": adoption.legacy_revision_count,
+            "observed_schema_fingerprint": observed_schema,
+            "verified_at": verified_at,
+            "schema_reference": str(schema_output.resolve()),
+            "rollback_reference": rollback_reference,
+        },
+    )
+
+
+def _stamp_service_baseline(
+    service_id: str,
+    *,
+    adoption: AdoptionManifest,
+    expected_schema_fingerprint: str,
+    legacy_owned_tables: tuple[str, ...],
+    evidence: Path,
+) -> None:
+    _validate_evidence(
+        evidence,
+        service_id=service_id,
+        head=adoption.required_legacy_head,
+        count=adoption.legacy_revision_count,
+        expected_schema_fingerprint=expected_schema_fingerprint,
+    )
+    legacy_versions = _read_versions(adoption.legacy_version_table)
+    if legacy_versions != (adoption.required_legacy_head,):
+        raise RuntimeError(
+            f"legacy database must be at {adoption.required_legacy_head}; "
+            f"observed {legacy_versions}"
+        )
+    service_versions = _read_versions(adoption.service_version_table)
+    if service_versions == (adoption.baseline_revision,):
+        return
+    if service_versions is not None:
+        raise RuntimeError(
+            f"{service_id} version table already exists with {service_versions}; "
+            "refusing to overwrite service migration history"
+        )
+    live_schema = _live_schema_fingerprint(service_id, legacy_owned_tables)
+    if live_schema != expected_schema_fingerprint:
+        raise RuntimeError(f"{service_id} schema fingerprint mismatch; refusing baseline stamp")
+    config = Config(str(MIGRATION_ROOT / "configs" / f"{service_id}.ini"))
+    command.stamp(config, adoption.baseline_revision)
+    resulting_versions = _read_versions(adoption.service_version_table)
+    if resulting_versions != (adoption.baseline_revision,):
+        raise RuntimeError(f"{service_id} baseline stamp did not produce the exact expected head")
 
 
 def _require_dependency_revisions(
@@ -384,47 +473,35 @@ def main(argv: list[str] | None = None) -> int:
     service_id = cast(str, args.service)
     adoption = adoptions[service_id]
     config = Config(str(MIGRATION_ROOT / "configs" / f"{service_id}.ini"))
+    legacy_owned_tables = tuple(
+        table
+        for table, owner in ownership.table_migrators.items()
+        if owner == service_id and table in inventory.table_sources
+    )
     if args.command == "heads":
         command.heads(config)
     elif args.command == "history":
         command.history(config)
     elif args.command == "current":
         command.current(config)
+    elif args.command == "prepare-adoption":
+        _prepare_adoption_evidence(
+            service_id,
+            adoption=adoption,
+            expected_schema_fingerprint=schema_contract[service_id].digest,
+            legacy_owned_tables=legacy_owned_tables,
+            evidence_output=args.evidence_output,
+            schema_output=args.schema_output,
+            rollback_reference=args.rollback_reference,
+        )
     elif args.command == "stamp-baseline":
-        expected_schema = schema_contract[service_id].digest
-        _validate_evidence(
-            args.evidence,
-            service_id=service_id,
-            head=adoption.required_legacy_head,
-            count=adoption.legacy_revision_count,
-            expected_schema_fingerprint=expected_schema,
+        _stamp_service_baseline(
+            service_id,
+            adoption=adoption,
+            expected_schema_fingerprint=schema_contract[service_id].digest,
+            legacy_owned_tables=legacy_owned_tables,
+            evidence=args.evidence,
         )
-        legacy_versions = _read_versions(adoption.legacy_version_table)
-        if legacy_versions != (adoption.required_legacy_head,):
-            raise RuntimeError(
-                f"legacy database must be at {adoption.required_legacy_head}; "
-                f"observed {legacy_versions}"
-            )
-        service_versions = _read_versions(adoption.service_version_table)
-        if service_versions is not None:
-            raise RuntimeError(
-                f"{service_id} version table already exists with {service_versions}; "
-                "refusing to overwrite service migration history"
-            )
-        legacy_owned_tables = tuple(
-            table
-            for table, owner in ownership.table_migrators.items()
-            if owner == service_id and table in inventory.table_sources
-        )
-        live_schema = _live_schema_fingerprint(service_id, legacy_owned_tables)
-        if live_schema != expected_schema:
-            raise RuntimeError(f"{service_id} schema fingerprint mismatch; refusing baseline stamp")
-        command.stamp(config, adoption.baseline_revision)
-        resulting_versions = _read_versions(adoption.service_version_table)
-        if resulting_versions != (adoption.baseline_revision,):
-            raise RuntimeError(
-                f"{service_id} baseline stamp did not produce the exact expected head"
-            )
     elif args.command == "upgrade":
         _upgrade_service(
             service_id,

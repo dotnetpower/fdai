@@ -156,7 +156,7 @@ def test_plan_and_apply_both_verify_image_and_guard_exact_binary_plan() -> None:
     assert 'scripts/deployment/service/plan_bundle.py" verify' in _WORKFLOW
     assert 'cmp "$bundle/service-plan.json" "$RUNNER_TEMP/replayed-service-plan.json"' in _WORKFLOW
     assert '"$RUNNER_TEMP/service-plan-bundle/service.plan"' in _WORKFLOW
-    assert _WORKFLOW.count("INITIAL_CUTOVER: ${{ inputs.initial_cutover }}") == 4
+    assert _WORKFLOW.count("INITIAL_CUTOVER: ${{ inputs.initial_cutover }}") == 5
     assert _WORKFLOW.count("cutover_args+=(--initial-cutover)") == 3
     assert _WORKFLOW.count('"${cutover_args[@]}"') == 4
     for argument in (
@@ -187,6 +187,20 @@ def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
     assert "authority was unchanged" in _WORKFLOW
     assert "protected platform rollback is required" in _WORKFLOW
     assert "terraform destroy" not in _WORKFLOW
+
+
+def test_initial_cutover_prepares_stamps_and_upgrades_service_migrations() -> None:
+    migration_index = _WORKFLOW.index("Apply service-owned database migrations")
+    snapshot_index = _WORKFLOW.index("Capture pre-apply rollback snapshot")
+    apply_index = _WORKFLOW.index("Apply exact protected service plan")
+    assert migration_index < snapshot_index < apply_index
+    assert "migration_dsn_secret_name" in _WORKFLOW
+    assert "az keyvault secret show" in _WORKFLOW
+    assert 'if [[ "$INITIAL_CUTOVER" == "true" ]]' in _WORKFLOW
+    assert "prepare-adoption" in _WORKFLOW
+    assert "stamp-baseline" in _WORKFLOW
+    assert _WORKFLOW.index("prepare-adoption") < _WORKFLOW.index("stamp-baseline")
+    assert _WORKFLOW.index("stamp-baseline") < _WORKFLOW.index("upgrade head")
     assert "-destroy" not in _WORKFLOW
     assert "az containerapp secret set" in _WORKFLOW
     assert "previous_secrets[]" in _WORKFLOW

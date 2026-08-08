@@ -709,6 +709,7 @@ jobs:
       - name: Apply service-owned database migrations
         if: ${{ inputs.apply }}
         env:
+          INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
           SERVICE: ${{ inputs.service }}
         run: |
           set -euo pipefail
@@ -754,8 +755,19 @@ jobs:
             exit 1
           }
           echo "::add-mask::$migration_dsn"
-          FDAI_DATABASE_URL="$migration_dsn" \
-            "$TRUSTED_CONTROLS/service-migrations/bin/$SERVICE" upgrade head
+          migration_command="$TRUSTED_CONTROLS/service-migrations/bin/$SERVICE"
+          if [[ "$INITIAL_CUTOVER" == "true" ]]; then
+            evidence="$RUNNER_TEMP/service-migration-adoption.json"
+            schema="$RUNNER_TEMP/service-migration-schema.json"
+            rollback_reference="git:${PLAN_CONTROLS_COMMIT_SHA}:service-migrations/branches/${SERVICE}/adoption.json#rollback"
+            FDAI_DATABASE_URL="$migration_dsn" "$migration_command" prepare-adoption \
+              --evidence-output "$evidence" \
+              --schema-output "$schema" \
+              --rollback-reference "$rollback_reference"
+            FDAI_DATABASE_URL="$migration_dsn" "$migration_command" stamp-baseline \
+              --evidence "$evidence"
+          fi
+          FDAI_DATABASE_URL="$migration_dsn" "$migration_command" upgrade head
           unset migration_dsn
 
       - name: Capture pre-apply rollback snapshot
