@@ -1,16 +1,18 @@
 """Validation for the five-service N/N-1 compatibility manifest."""
 
 from __future__ import annotations
+
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
+from importlib import resources
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from fdai_service_contracts.compatibility import (
     CompatibilityError,
     SemVer,
     assert_additive_schema,
-    load_json_object,
 )
 
 _SERVICE_IDS = frozenset(
@@ -50,9 +52,15 @@ class CompatibilitySummary:
 def validate_manifest(
     manifest: Mapping[str, Any],
     *,
-    repo_root: Path,
+    repo_root: Path | None = None,
 ) -> CompatibilitySummary:
-    """Validate service versions, wire contracts, matrix coverage, and rollback declarations."""
+    """Validate the bundled manifest without depending on a repository checkout.
+
+    ``repo_root`` remains accepted for N/N-1 callers that still pass it, but schema
+    resolution is package-backed so an installed wheel validates the same artifact.
+    """
+
+    del repo_root
 
     if manifest.get("manifest_version") != "1.0.0":
         raise CompatibilityError("manifest_version must be 1.0.0")
@@ -60,9 +68,9 @@ def validate_manifest(
     if set(_string_list(policy.get("release_labels"), "policy.release_labels")) != _RELEASE_LABELS:
         raise CompatibilityError("policy release_labels must be N and N-1")
     services = _validate_services(manifest.get("services"))
-    contracts = _validate_contracts(manifest.get("contracts"), services, repo_root=repo_root)
+    contracts = _validate_contracts(manifest.get("contracts"), services)
     edge_count = _validate_matrix(manifest.get("producer_consumer_matrix"), contracts)
-    _validate_receipt_contract(manifest.get("upgrade_receipt"), repo_root=repo_root)
+    _validate_receipt_contract(manifest.get("upgrade_receipt"))
     return CompatibilitySummary(len(services), len(contracts), edge_count)
 
 
@@ -131,8 +139,6 @@ def _validate_transition(
 def _validate_contracts(
     value: object,
     services: Mapping[str, Mapping[str, Any]],
-    *,
-    repo_root: Path,
 ) -> dict[str, Mapping[str, Any]]:
     if not isinstance(value, list) or not value:
         raise CompatibilityError("contracts must be a non-empty array")
@@ -167,8 +173,7 @@ def _validate_contracts(
                 f"{contract_id}.producer_schemas.{release_label}",
             )
             SemVer.parse(schema_ref.get("version"))
-            path = _safe_repo_path(repo_root, schema_ref.get("path"))
-            resolved_schemas[release_label] = load_json_object(path)
+            resolved_schemas[release_label] = _load_package_schema(schema_ref.get("path"))
             accepted = set(
                 _string_list(
                     consumer_accepts[release_label],
@@ -300,10 +305,10 @@ def _validate_matrix(
     return len(seen)
 
 
-def _validate_receipt_contract(value: object, *, repo_root: Path) -> None:
+def _validate_receipt_contract(value: object) -> None:
     receipt = _mapping(value, "upgrade_receipt")
     SemVer.parse(receipt.get("version"))
-    _safe_repo_path(repo_root, receipt.get("schema_path"))
+    _load_package_schema(receipt.get("schema_path"))
     required_checks = set(_string_list(receipt.get("required_checks"), "required_checks"))
     expected = {
         "additive_fields",
@@ -318,14 +323,26 @@ def _validate_receipt_contract(value: object, *, repo_root: Path) -> None:
         raise CompatibilityError("upgrade receipt checks do not match the compatibility gate")
 
 
-def _safe_repo_path(repo_root: Path, value: object) -> Path:
+def _load_package_schema(value: object) -> Mapping[str, Any]:
     if not isinstance(value, str) or not value:
         raise CompatibilityError("schema path must be a non-empty string")
-    root = repo_root.resolve()
-    path = (root / value).resolve()
-    if not path.is_relative_to(root) or not path.is_file():
-        raise CompatibilityError(f"schema path is missing or escapes the repository: {value}")
-    return path
+    path = PurePosixPath(value)
+    legacy_prefix = ("service-contracts", "src", "fdai_service_contracts")
+    parts = path.parts
+    if parts[: len(legacy_prefix)] == legacy_prefix:
+        parts = parts[len(legacy_prefix) :]
+    if path.is_absolute() or not parts or parts[0] != "schemas" or ".." in parts:
+        raise CompatibilityError(f"schema path is missing or escapes the package: {value}")
+    resource = resources.files("fdai_service_contracts").joinpath(*parts)
+    if not resource.is_file():
+        raise CompatibilityError(f"schema path is missing or escapes the package: {value}")
+    try:
+        loaded = json.loads(resource.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CompatibilityError(f"cannot load JSON object from package schema: {value}") from exc
+    if not isinstance(loaded, dict):
+        raise CompatibilityError(f"package schema is not a JSON object: {value}")
+    return loaded
 
 
 def _mapping(value: object, name: str) -> Mapping[str, Any]:

@@ -39,6 +39,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("executor-receipt", "1.1.0"): "schemas/executor-receipt/1.1.0.json",
     ("operator-core-request", "1.0.0"): "schemas/operator-core-request/1.0.0.json",
     ("operator-core-request", "1.1.0"): "schemas/operator-core-request/1.1.0.json",
+    ("service-upgrade-receipt", "1.0.0"): "schemas/service-upgrade-receipt/1.0.0.json",
 }
 
 

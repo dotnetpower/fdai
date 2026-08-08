@@ -139,3 +139,12 @@ def test_executor_command_and_receipt_validate_with_packaged_schemas() -> None:
         receipt.model_dump(mode="json"),
         version=receipt.schema_version,
     )
+
+
+def test_upgrade_receipt_schema_is_registered_with_the_contract_sdk() -> None:
+    registry = PackageResourceSchemaRegistry()
+
+    schema = registry.get("service-upgrade-receipt", "1.0.0")
+
+    assert "service-upgrade-receipt" in registry.names()
+    assert schema["$id"].endswith("/service-upgrade-receipt/1.0.0")

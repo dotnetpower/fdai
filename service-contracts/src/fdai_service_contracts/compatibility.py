@@ -7,6 +7,7 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -380,11 +381,31 @@ def load_json_object(path: Path) -> dict[str, Any]:
 
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except OSError as exc:
+        value = _load_bundled_schema_fallback(path, original_error=exc)
+    except json.JSONDecodeError as exc:
         raise CompatibilityError(f"cannot load JSON object: {path}") from exc
     if not isinstance(value, dict):
         raise CompatibilityError(f"JSON value must be an object: {path}")
     return value
+
+
+def _load_bundled_schema_fallback(path: Path, *, original_error: OSError) -> object:
+    parts = path.parts
+    try:
+        schema_index = parts.index("schemas")
+    except ValueError:
+        raise CompatibilityError(f"cannot load JSON object: {path}") from original_error
+    resource_parts = parts[schema_index:]
+    if ".." in resource_parts:
+        raise CompatibilityError(f"cannot load JSON object: {path}") from original_error
+    resource = resources.files("fdai_service_contracts").joinpath(*resource_parts)
+    if not resource.is_file():
+        raise CompatibilityError(f"cannot load JSON object: {path}") from original_error
+    try:
+        return json.loads(resource.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CompatibilityError(f"cannot load JSON object: {path}") from exc
 
 
 def _service_map(manifest: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:

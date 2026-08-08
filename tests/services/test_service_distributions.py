@@ -211,3 +211,65 @@ def test_service_contract_sdk_contains_no_fdai_implementation_import() -> None:
     text = "\n".join(path.read_text(encoding="utf-8") for path in source.glob("*.py"))
     assert "from fdai." not in text
     assert "import fdai." not in text
+
+
+def test_installed_contract_wheel_validates_its_bundled_manifest(tmp_path: Path) -> None:
+    uv = shutil.which("uv")
+    assert uv is not None
+    wheel_dir = tmp_path / "wheels"
+    environment = tmp_path / "venv"
+    subprocess.run(  # noqa: S603 - resolved uv executable runs fixed build arguments
+        [
+            uv,
+            "build",
+            "--wheel",
+            "--package",
+            "fdai-service-contracts",
+            "--out-dir",
+            str(wheel_dir),
+        ],
+        cwd=REPO_ROOT,
+        check=True,
+        env={**os.environ, "UV_NO_PROGRESS": "1"},
+        capture_output=True,
+        text=True,
+    )
+    wheel = next(wheel_dir.glob("fdai_service_contracts-*.whl"))
+    subprocess.run(  # noqa: S603 - resolved uv executable creates an isolated test venv
+        [uv, "venv", "--python", sys.executable, str(environment)],
+        check=True,
+        env={**os.environ, "UV_NO_PROGRESS": "1"},
+        capture_output=True,
+        text=True,
+    )
+    python = environment / "bin" / "python"
+    subprocess.run(  # noqa: S603 - resolved uv executable installs the built test wheel
+        [uv, "pip", "install", "--python", str(python), str(wheel)],
+        check=True,
+        env={**os.environ, "UV_NO_PROGRESS": "1"},
+        capture_output=True,
+        text=True,
+    )
+    completed = subprocess.run(  # noqa: S603 - venv Python executes fixed validation code
+        [
+            str(python),
+            "-I",
+            "-c",
+            (
+                "import json; from importlib import resources; "
+                "from fdai_service_contracts import validate_manifest; "
+                "manifest=json.loads(resources.files('fdai_service_contracts')"
+                ".joinpath('compatibility-manifest.json').read_text()); "
+                "summary=validate_manifest(manifest); "
+                "print(summary.service_count, summary.contract_count, summary.matrix_edge_count)"
+            ),
+        ],
+        cwd=tmp_path,
+        check=False,
+        env={"PATH": os.environ["PATH"]},
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "5 7 7"

@@ -54,8 +54,8 @@
       "consumer": "core-control-plane",
       "compatibility_policy": "additive-ignore-unknown",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/operator-core-request/1.0.0.json"},
-        "N": {"version": "1.1.0", "path": "service-contracts/src/fdai_service_contracts/schemas/operator-core-request/1.1.0.json"}
+        "N-1": {"version": "1.0.0", "path": "schemas/operator-core-request/1.0.0.json"},
+        "N": {"version": "1.1.0", "path": "schemas/operator-core-request/1.1.0.json"}
       },
       "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0", "1.1.0"]},
       "translators": {"N->N-1": "fdai_service_contracts.translators:operator_core_request_1_1_to_1_0"},
@@ -78,8 +78,8 @@
       "consumer": "operator-service",
       "compatibility_policy": "additive-ignore-unknown",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/core-operator-projection/1.0.0.json"},
-        "N": {"version": "1.1.0", "path": "service-contracts/src/fdai_service_contracts/schemas/core-operator-projection/1.1.0.json"}
+        "N-1": {"version": "1.0.0", "path": "schemas/core-operator-projection/1.0.0.json"},
+        "N": {"version": "1.1.0", "path": "schemas/core-operator-projection/1.1.0.json"}
       },
       "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0", "1.1.0"]},
       "translators": {"N->N-1": "fdai_service_contracts.translators:core_operator_projection_1_1_to_1_0"},
@@ -102,8 +102,8 @@
       "consumer": "document-processing-worker",
       "compatibility_policy": "additive-ignore-unknown",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/document-ingestion-activity/1.0.0.json"},
-        "N": {"version": "1.1.0", "path": "service-contracts/src/fdai_service_contracts/schemas/document-ingestion-activity/1.1.0.json"}
+        "N-1": {"version": "1.0.0", "path": "schemas/document-ingestion-activity/1.0.0.json"},
+        "N": {"version": "1.1.0", "path": "schemas/document-ingestion-activity/1.1.0.json"}
       },
       "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0", "1.1.0"]},
       "translators": {"N->N-1": "fdai_service_contracts.translators:document_ingestion_activity_1_1_to_1_0"},
@@ -126,8 +126,8 @@
       "consumer": "document-processing-worker",
       "compatibility_policy": "stable",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/document-worker-audit/1.0.0.json"},
-        "N": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/document-worker-audit/1.0.0.json"}
+        "N-1": {"version": "1.0.0", "path": "schemas/document-worker-audit/1.0.0.json"},
+        "N": {"version": "1.0.0", "path": "schemas/document-worker-audit/1.0.0.json"}
       },
       "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0"]},
       "producer_codecs": {"N-1": "fdai_core_service.contract_codecs:DOCUMENT_AUDIT_PRODUCER_V1", "N": "fdai_core_service.contract_codecs:DOCUMENT_AUDIT_PRODUCER_V11"},
@@ -149,8 +149,8 @@
       "consumer": "document-processing-worker",
       "compatibility_policy": "stable",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/document-worker-index/1.0.0.json"},
-        "N": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/document-worker-index/1.0.0.json"}
+        "N-1": {"version": "1.0.0", "path": "schemas/document-worker-index/1.0.0.json"},
+        "N": {"version": "1.0.0", "path": "schemas/document-worker-index/1.0.0.json"}
       },
       "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0"]},
       "producer_codecs": {"N-1": "fdai_core_service.contract_codecs:DOCUMENT_INDEX_PRODUCER_V1", "N": "fdai_core_service.contract_codecs:DOCUMENT_INDEX_PRODUCER_V11"},
@@ -172,8 +172,8 @@
       "consumer": "isolated-executor",
       "compatibility_policy": "stable",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/executor-command/1.0.0.json"},
-        "N": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/executor-command/1.0.0.json"}
+        "N-1": {"version": "1.0.0", "path": "schemas/executor-command/1.0.0.json"},
+        "N": {"version": "1.0.0", "path": "schemas/executor-command/1.0.0.json"}
       },
       "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0"]},
       "producer_codecs": {"N-1": "fdai_core_service.contract_codecs:EXECUTOR_COMMAND_PRODUCER_V1", "N": "fdai_core_service.contract_codecs:EXECUTOR_COMMAND_PRODUCER_V11"},
@@ -195,8 +195,8 @@
       "consumer": "core-control-plane",
       "compatibility_policy": "version-negotiated",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/executor-receipt/1.0.0.json"},
-        "N": {"version": "1.1.0", "path": "service-contracts/src/fdai_service_contracts/schemas/executor-receipt/1.1.0.json"}
+        "N-1": {"version": "1.0.0", "path": "schemas/executor-receipt/1.0.0.json"},
+        "N": {"version": "1.1.0", "path": "schemas/executor-receipt/1.1.0.json"}
       },
       "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0", "1.1.0"]},
       "producer_codecs": {"N-1": "fdai_executor_service.contract_codecs:EXECUTOR_RECEIPT_PRODUCER_V1", "N": "fdai_executor_service.contract_codecs:EXECUTOR_RECEIPT_PRODUCER_V11"},
@@ -295,7 +295,7 @@
   ],
   "upgrade_receipt": {
     "version": "1.0.0",
-    "schema_path": "service-contracts/src/fdai_service_contracts/schemas/service-upgrade-receipt/1.0.0.json",
+    "schema_path": "schemas/service-upgrade-receipt/1.0.0.json",
     "required_checks": [
       "additive_fields",
       "duplicate_delivery",
