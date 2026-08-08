@@ -56,6 +56,7 @@ FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:9fdbf2e3e82628351513560b121e2e
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     AZURE_MCP_COLLECT_TELEMETRY=false \
+    FDAI_HEALTH_PORT=8000 \
     HOME=/tmp/fdai \
     PATH="/app/.venv/bin:${PATH}" \
     XDG_CACHE_HOME=/tmp/fdai/.cache
@@ -73,6 +74,7 @@ COPY --chown=65532:65532 alembic/ /app/alembic/
 COPY --chown=65532:65532 alembic.ini /app/alembic.ini
 USER 65532
 RUN test -x /app/.venv/bin/fdai-core-control-plane
+EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
-    CMD ["python", "-c", "import os;os.kill(1,0)"]
+    CMD ["python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/live',timeout=2).read()"]
 ENTRYPOINT ["fdai-core-control-plane"]

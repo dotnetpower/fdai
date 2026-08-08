@@ -148,7 +148,8 @@ def test_service_images_declare_runtime_appropriate_health_checks() -> None:
         service: _dockerfile(service).read_text(encoding="utf-8") for service in SERVICES
     }
 
-    assert "os.kill(1,0)" in dockerfiles["core-control-plane"]
+    assert "FDAI_HEALTH_PORT=8000" in dockerfiles["core-control-plane"]
+    assert "/live" in dockerfiles["core-control-plane"]
     assert "/healthz" in dockerfiles["operator-service"]
     assert "/healthz" in dockerfiles["document-ingestion-api"]
     assert "/live" in dockerfiles["document-processing-worker"]

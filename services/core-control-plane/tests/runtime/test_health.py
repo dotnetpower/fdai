@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import socket
+from types import SimpleNamespace
 
+from fdai.runtime.bootstrap_lifecycle import start_health_server
 from fdai.runtime.health import RuntimeHealthServer
 
 
@@ -15,6 +18,30 @@ async def _request(port: int, path: str) -> bytes:
     writer.close()
     await writer.wait_closed()
     return response
+
+
+def _available_port() -> int:
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        return int(listener.getsockname()[1])
+
+
+async def test_bootstrap_starts_health_server_from_environment(monkeypatch) -> None:
+    port = _available_port()
+    monkeypatch.setenv("FDAI_HEALTH_PORT", str(port))
+    readiness = SimpleNamespace(state=SimpleNamespace(is_ready=lambda: True))
+
+    server = await start_health_server(
+        control_loop=object(),  # type: ignore[arg-type]
+        startup_readiness=readiness,  # type: ignore[arg-type]
+    )
+    assert server is not None
+    try:
+        response = await _request(port, "/live")
+    finally:
+        await server.close()
+
+    assert response.startswith(b"HTTP/1.1 200 OK")
 
 
 async def test_health_server_serves_live_and_ready_after_start() -> None:
