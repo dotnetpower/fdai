@@ -55,7 +55,7 @@ def _managed_resources(state: dict[str, Any]) -> list[tuple[str, str | None]]:
     values = state.get("values")
     root = values.get("root_module") if isinstance(values, dict) else None
     if root is None:
-        return []
+        return _raw_managed_resources(state)
     found: list[tuple[str, str | None]] = []
 
     def walk(module: Any) -> None:
@@ -81,6 +81,55 @@ def _managed_resources(state: dict[str, Any]) -> list[tuple[str, str | None]]:
 
     walk(root)
     return found
+
+
+def _raw_managed_resources(state: dict[str, Any]) -> list[tuple[str, str | None]]:
+    """Read managed addresses directly from a pulled Terraform state v4 document."""
+    if state == {}:
+        return []
+    if state.get("version") != 4:
+        raise StateMigrationError("raw Terraform state must use version 4")
+    resources = state.get("resources")
+    if not isinstance(resources, list):
+        raise StateMigrationError("raw Terraform state resources must be an array")
+    found: list[tuple[str, str | None]] = []
+    for resource in resources:
+        if not isinstance(resource, dict):
+            raise StateMigrationError("raw Terraform state contains an invalid resource")
+        if resource.get("mode", "managed") != "managed":
+            continue
+        resource_type = resource.get("type")
+        name = resource.get("name")
+        module = resource.get("module")
+        instances = resource.get("instances")
+        if (
+            not isinstance(resource_type, str)
+            or not isinstance(name, str)
+            or (module is not None and not isinstance(module, str))
+            or not isinstance(instances, list)
+        ):
+            raise StateMigrationError("raw Terraform state resource identity is invalid")
+        base_address = ".".join(item for item in (module, resource_type, name) if item)
+        for instance in instances:
+            if not isinstance(instance, dict):
+                raise StateMigrationError("raw Terraform state instance is invalid")
+            address = base_address + _raw_instance_suffix(instance.get("index_key"))
+            attributes = instance.get("attributes")
+            resource_id = attributes.get("id") if isinstance(attributes, dict) else None
+            found.append((address, resource_id if isinstance(resource_id, str) else None))
+    return found
+
+
+def _raw_instance_suffix(index_key: object) -> str:
+    if index_key is None:
+        return ""
+    if isinstance(index_key, bool):
+        raise StateMigrationError("raw Terraform state index key is invalid")
+    if isinstance(index_key, int):
+        return f"[{index_key}]"
+    if isinstance(index_key, str):
+        return f"[{json.dumps(index_key)}]"
+    raise StateMigrationError("raw Terraform state index key is invalid")
 
 
 def verify_state_pair(

@@ -926,6 +926,35 @@ def test_state_cutover_rejects_alias_with_duplicate_physical_resource(
         )
 
 
+def test_state_cutover_accepts_raw_v4_state_without_provider_schemas(
+    migration: ModuleType,
+) -> None:
+    source = "module.compute.azurerm_container_app.core"
+    destination = "module.core_control_plane.module.container_app.azurerm_container_app.service"
+    resource_id = (
+        "/subscriptions/example/resourceGroups/example/providers/Microsoft.App/containerApps/core"
+    )
+    source_state = {
+        "version": 4,
+        "resources": [
+            {
+                "module": "module.compute",
+                "mode": "managed",
+                "type": "azurerm_container_app",
+                "name": "core",
+                "instances": [{"attributes": {"id": resource_id}}],
+            }
+        ],
+    }
+    migration.verify_state_pair(
+        source_state,
+        {"version": 4, "resources": []},
+        source_address=source,
+        destination_address=destination,
+        phase="pre",
+    )
+
+
 def test_state_migration_restores_both_backends_when_source_push_fails(
     migration: ModuleType,
     tmp_path: Path,

@@ -181,3 +181,6 @@ def test_state_migration_uses_remote_legacy_backend_and_verified_restore_helper(
     assert '"$backup_dir" \\' in _WORKFLOW
     assert "            --execute" in _WORKFLOW
     assert "Verify migrated service state ownership" in _WORKFLOW
+    assert 'terraform -chdir="$TARGET_ROOT/infra" state pull' in _WORKFLOW
+    assert 'terraform -chdir="$TERRAFORM_ROOT" state pull' in _WORKFLOW
+    assert "terraform show -json" not in _WORKFLOW

@@ -35,17 +35,14 @@ source_backup="$backup_dir/source-before.tfstate"
 destination_backup="$backup_dir/destination-before.tfstate"
 source_work="$backup_dir/source-after.tfstate"
 destination_work="$backup_dir/destination-after.tfstate"
-source_view="$backup_dir/source-after.json"
-destination_view="$backup_dir/destination-after.json"
+source_view="$source_work"
+destination_view="$destination_work"
 
 terraform -chdir="$source_root" state pull >"$source_backup"
 terraform -chdir="$destination_root" state pull >"$destination_backup"
 chmod 600 "$source_backup" "$destination_backup"
 cp "$source_backup" "$source_work"
 cp "$destination_backup" "$destination_work"
-terraform show -json "$source_work" >"$source_view"
-terraform show -json "$destination_work" >"$destination_view"
-
 python3 "$script_root/state_migration.py" verify \
   --source-state "$source_view" \
   --destination-state "$destination_view" \
@@ -58,8 +55,6 @@ terraform state mv \
   -state-out="$destination_work" \
   "$source_address" \
   "$destination_address"
-terraform show -json "$source_work" >"$source_view"
-terraform show -json "$destination_work" >"$destination_view"
 python3 "$script_root/state_migration.py" verify \
   --source-state "$source_view" \
   --destination-state "$destination_view" \
@@ -77,14 +72,12 @@ verify_live_pair() {
   local prefix="$2"
   local source_state="$backup_dir/source-${prefix}.tfstate"
   local destination_state="$backup_dir/destination-${prefix}.tfstate"
-  local source_json="$backup_dir/source-${prefix}.json"
-  local destination_json="$backup_dir/destination-${prefix}.json"
+  local source_json="$source_state"
+  local destination_json="$destination_state"
 
   terraform -chdir="$source_root" state pull >"$source_state"
   terraform -chdir="$destination_root" state pull >"$destination_state"
   chmod 600 "$source_state" "$destination_state"
-  terraform show -json "$source_state" >"$source_json"
-  terraform show -json "$destination_state" >"$destination_json"
   python3 "$script_root/state_migration.py" verify \
     --source-state "$source_json" \
     --destination-state "$destination_json" \

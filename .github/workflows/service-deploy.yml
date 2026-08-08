@@ -371,9 +371,9 @@ jobs:
             -backend-config="container_name=$STATE_CONTAINER" \
             -backend-config="key=fdai-${ENVIRONMENT}.tfstate" \
             -backend-config="use_azuread_auth=true"
-          terraform -chdir="$TARGET_ROOT/infra" show -json \
+          terraform -chdir="$TARGET_ROOT/infra" state pull \
             >"$RUNNER_TEMP/legacy-service-state.json"
-          terraform -chdir="$TERRAFORM_ROOT" show -json \
+          terraform -chdir="$TERRAFORM_ROOT" state pull \
             >"$RUNNER_TEMP/independent-service-state.json"
           mapfile -t migration_coordinates < <(
             python3 "$TRUSTED_CONTROLS/scripts/deployment/service/state_migration.py" \
@@ -431,9 +431,9 @@ jobs:
             python3 "$TRUSTED_CONTROLS/scripts/deployment/service/state_migration.py" \
               coordinates --service "$SERVICE" --environment "$ENVIRONMENT"
           )
-          terraform -chdir="$TARGET_ROOT/infra" show -json \
+          terraform -chdir="$TARGET_ROOT/infra" state pull \
             >"$RUNNER_TEMP/legacy-service-state-after.json"
-          terraform -chdir="$TERRAFORM_ROOT" show -json \
+          terraform -chdir="$TERRAFORM_ROOT" state pull \
             >"$RUNNER_TEMP/independent-service-state-after.json"
           python3 "$TRUSTED_CONTROLS/scripts/deployment/service/state_migration.py" verify \
             --source-state "$RUNNER_TEMP/legacy-service-state-after.json" \
