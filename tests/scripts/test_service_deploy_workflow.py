@@ -22,6 +22,8 @@ _ACTION_PINS = {
     "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
     "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
 }
+_GH_CLI_VERSION = "2.94.0"
+_GH_CLI_ARCHIVE_SHA256 = "a757f1ba6db18f4de8cbadb244843a5f89bc75b5e7c6fc127d2bd77fbd12ed62"
 
 
 def test_workflow_has_closed_five_service_input_and_runner() -> None:
@@ -67,6 +69,10 @@ def test_workflow_uses_protected_controls_and_protected_commit_ancestry() -> Non
 
 
 def test_workflow_binds_image_attestation_to_source_and_signer() -> None:
+    assert f'GH_CLI_VERSION: "{_GH_CLI_VERSION}"' in _WORKFLOW
+    assert f'GH_CLI_ARCHIVE_SHA256: "{_GH_CLI_ARCHIVE_SHA256}"' in _WORKFLOW
+    assert "sha256sum --check --strict" in _WORKFLOW
+    assert 'echo "$install_root/bin" >> "$GITHUB_PATH"' in _WORKFLOW
     assert _WORKFLOW.count('--source-digest "$COMMIT_SHA"') == 3
     assert _WORKFLOW.count('--signer-workflow "$ATTESTATION_SIGNER_WORKFLOW"') == 3
     assert '--predicate-type "https://slsa.dev/provenance/v1"' in _WORKFLOW
