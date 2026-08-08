@@ -188,6 +188,15 @@ def test_is09_cannot_complete_while_remote_verification_is_deferred(
         checker._validate_program_final_verification(manifest)
 
 
+def test_completed_program_verification_requires_all_remote_evidence() -> None:
+    checker = _checker_module()
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    manifest["program_final_verification"]["status"] = "completed"
+
+    with pytest.raises(ValueError, match="requires all remote evidence"):
+        checker._validate_program_final_verification(manifest)
+
+
 def _write_final_layout(root: Path) -> None:
     for service_id in (
         "core-control-plane",

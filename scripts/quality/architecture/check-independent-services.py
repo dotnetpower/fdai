@@ -204,6 +204,8 @@ def _validate_program_final_verification(manifest: dict[str, Any]) -> None:
         raise ValueError("program-final remote verification targets must cover five services")
     if any(not 0 <= accepted[key] <= targets[key] for key in expected_keys):
         raise ValueError("accepted remote verification evidence count is invalid")
+    if policy["status"] == "completed" and accepted != targets:
+        raise ValueError("completed program-final verification requires all remote evidence")
     statuses = {item["id"]: item["status"] for item in manifest["work_packages"]}
     if statuses["IS-06"] != "completed":
         raise ValueError("IS-06 local deployment evidence must release IS-07")
