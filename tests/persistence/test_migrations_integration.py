@@ -199,6 +199,7 @@ def test_direction_migration_preserves_unrelated_graph_and_release_pins() -> Non
     elif current_revision != "20260806_0077":
         _alembic("downgrade", "20260806_0077")
     digest = f"sha256:{'a' * 64}"
+    previous_digest = "sha256:dd90ae7025bb0472cc091c23e8ed763f7d2ff94a109daf0295a60bb732f33037"
     object_rows = (
         ("migration-parent", {"id": "migration-parent", "type": "resource.group"}),
         (
@@ -213,6 +214,7 @@ def test_direction_migration_preserves_unrelated_graph_and_release_pins() -> Non
         ("migration-foreign-b", {"id": "migration-foreign-b", "type": "example.b"}),
         ("migration-vm", {"id": "migration-vm", "type": "compute.vm"}),
         ("migration-nic", {"id": "migration-nic", "type": "network.interface"}),
+        ("migration-legacy", {"id": "migration-legacy", "type": "example.legacy"}),
     )
     link_rows = (
         ("contains", "migration-child", "migration-parent"),
@@ -221,6 +223,7 @@ def test_direction_migration_preserves_unrelated_graph_and_release_pins() -> Non
         ("attached_to", "migration-vm", "migration-nic"),
         ("attached_to", "migration-nic", "migration-vm"),
         ("depends_on", "migration-foreign-a", "migration-foreign-b"),
+        ("depends_on", "migration-legacy", "migration-foreign-a"),
     )
     object_ids = tuple(row[0] for row in object_rows)
     try:
@@ -245,6 +248,14 @@ def test_direction_migration_preserves_unrelated_graph_and_release_pins() -> Non
                 "VALUES (%s, %s, %s, '{}'::jsonb, '1.0.0', %s)",
                 ((*row, digest) for row in link_rows),
             )
+            cur.execute(
+                "UPDATE ontology_resource SET catalog_digest = %s WHERE id = 'migration-legacy'",
+                (previous_digest,),
+            )
+            cur.execute(
+                "UPDATE ontology_link SET catalog_digest = %s WHERE from_id = 'migration-legacy'",
+                (previous_digest,),
+            )
 
         _alembic("upgrade", "head")
 
@@ -260,14 +271,26 @@ def test_direction_migration_preserves_unrelated_graph_and_release_pins() -> Non
                 (list(object_ids),),
             )
             retained_objects = set(cur.fetchall())
+            cur.execute(
+                "SELECT version, cardinality FROM ontology_link_type WHERE name = 'contains'"
+            )
+            contains_declaration = cur.fetchone()
 
         assert retained == {
             ("contains", "migration-parent", "migration-child", "1.0.0", digest),
             ("contains", "migration-foreign-a", "migration-foreign-b", "1.0.0", digest),
             ("attached_to", "migration-nic", "migration-vm", "1.0.0", digest),
             ("depends_on", "migration-foreign-a", "migration-foreign-b", "1.0.0", digest),
+            ("depends_on", "migration-legacy", "migration-foreign-a", None, None),
         }
-        assert retained_objects == {(object_id, "1.0.0", digest) for object_id in object_ids}
+        expected_objects = {
+            (object_id, "1.0.0", digest)
+            for object_id in object_ids
+            if object_id != "migration-legacy"
+        }
+        expected_objects.add(("migration-legacy", None, None))
+        assert retained_objects == expected_objects
+        assert contains_declaration == ("2.0.0", "one_to_many")
     finally:
         _alembic("upgrade", "head")
         with _connect(url) as conn, conn.cursor() as cur:

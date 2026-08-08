@@ -83,8 +83,9 @@ def test_ontology_direction_migration_invalidates_only_reversed_links() -> None:
     assert "child.properties ->> 'parent_id' = parent.id" in migration
     assert "source.properties ->> 'type' = 'compute.vm'" in migration
     assert "DELETE FROM ontology_link\n        WHERE link_type = 'contains'" not in migration
-    assert "UPDATE ontology_resource\n        SET type_version = NULL" not in migration
-    assert "UPDATE ontology_link\n        SET type_version = NULL" not in migration
+    assert "sha256:dd90ae7025bb0472cc091c23e8ed763f7d2ff94a109daf0295a60bb732f33037" in migration
+    assert "WHERE catalog_digest =" in migration
+    assert "WHERE type_version IS NOT NULL OR catalog_digest IS NOT NULL" not in migration
     assert "cardinality = 'one_to_many'" in migration
 
 

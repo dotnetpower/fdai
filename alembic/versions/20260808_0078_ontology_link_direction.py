@@ -16,13 +16,15 @@ down_revision: str | None = "20260806_0077"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
+_PREVIOUS_RELEASE_DIGEST = "sha256:dd90ae7025bb0472cc091c23e8ed763f7d2ff94a109daf0295a60bb732f33037"
+
 
 def upgrade() -> None:
     # The ontology instance tables are a rebuildable current-state read model.
     # Remove only links whose stored endpoints prove the old semantic direction.
     # Unrelated projections and exact release pins remain intact.
     op.execute(
-        """
+        f"""
         DELETE FROM ontology_link AS link
         USING ontology_resource AS child, ontology_resource AS parent
         WHERE link.link_type = 'contains'
@@ -38,6 +40,14 @@ def upgrade() -> None:
           AND link.from_id = source.id
           AND source.object_type = 'Resource'
           AND source.properties ->> 'type' = 'compute.vm';
+
+                UPDATE ontology_resource
+                SET type_version = NULL, catalog_digest = NULL
+                WHERE catalog_digest = '{_PREVIOUS_RELEASE_DIGEST}';
+
+                UPDATE ontology_link
+                SET type_version = NULL, catalog_digest = NULL
+                WHERE catalog_digest = '{_PREVIOUS_RELEASE_DIGEST}';
 
         UPDATE ontology_link_type
         SET version = '2.0.0',
