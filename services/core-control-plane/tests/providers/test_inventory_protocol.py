@@ -90,6 +90,13 @@ def test_inventory_batch_final_defaults_to_false() -> None:
     assert batch.resources == ()
     assert batch.links == ()
     assert batch.cursor is None
+    assert batch.relationship_reconciliation_after is None
+
+
+def test_inventory_batch_carries_relationship_reconciliation_marker() -> None:
+    batch = InventoryBatch(relationship_reconciliation_after="2026-08-08T01:02:03+00:00")
+
+    assert batch.relationship_reconciliation_after == "2026-08-08T01:02:03+00:00"
 
 
 @pytest.mark.asyncio
@@ -107,11 +114,11 @@ async def test_minimal_async_full_snapshot_streams_final_true() -> None:
                 resources=(ResourceRecord(resource_id="vm1", type="compute.vm"),),
                 links=(
                     LinkRecord(
-                        from_id="vm1",
-                        from_type="compute.vm",
+                        from_id="rg1",
+                        from_type="resource-group",
                         link_type="contains",
-                        to_id="rg1",
-                        to_type="resource-group",
+                        to_id="vm1",
+                        to_type="compute.vm",
                     ),
                 ),
                 cursor="c-1",

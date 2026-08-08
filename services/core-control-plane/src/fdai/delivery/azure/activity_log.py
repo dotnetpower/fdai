@@ -181,7 +181,7 @@ class AzureActivityLogFactory:
                 request_url = self._initial_url(lower_bound=carried_max)
 
             payload = await self._get(request_url)
-            resources, page_max = self._map_events(payload)
+            resources, page_max, relationship_reconciliation_after = self._map_events(payload)
             links = extract_rg_contains_links(resources)
             running_max = _max_dt(carried_max, page_max)
 
@@ -192,6 +192,9 @@ class AzureActivityLogFactory:
                     links=links,
                     cursor=_encode_cursor(running_max, link),
                     has_more=True,
+                    relationship_reconciliation_after=_optional_timestamp(
+                        relationship_reconciliation_after
+                    ),
                 )
             # Last page: hand back the running newest timestamp as the next
             # resume cursor (or echo the input cursor when no event was seen).
@@ -201,6 +204,9 @@ class AzureActivityLogFactory:
                 links=links,
                 cursor=resume,
                 has_more=False,
+                relationship_reconciliation_after=_optional_timestamp(
+                    relationship_reconciliation_after
+                ),
             )
 
         return _fetch
@@ -257,7 +263,7 @@ class AzureActivityLogFactory:
 
     def _map_events(
         self, payload: Mapping[str, Any]
-    ) -> tuple[tuple[ResourceRecord, ...], datetime | None]:
+    ) -> tuple[tuple[ResourceRecord, ...], datetime | None, datetime | None]:
         events = payload.get("value")
         if not isinstance(events, list):
             raise ActivityLogError("Activity Log payload missing 'value' array")
@@ -270,6 +276,7 @@ class AzureActivityLogFactory:
         # event so a resource written twice in one page upserts once.
         by_id: dict[str, tuple[datetime, str, ResourceRecord]] = {}
         page_max: datetime | None = None
+        relationship_reconciliation_after: datetime | None = None
         for event in events:
             if not isinstance(event, Mapping):
                 raise ActivityLogError("Activity Log payload contains a non-object event")
@@ -282,17 +289,27 @@ class AzureActivityLogFactory:
             mapped = self._map_one(event)
             if mapped is None:
                 continue
-            at, record = mapped
+            at, record, relationship_incomplete = mapped
+            if relationship_incomplete:
+                relationship_reconciliation_after = _max_dt(
+                    relationship_reconciliation_after,
+                    at,
+                )
+            if record is None:
+                continue
             tie_breaker = _record_tie_breaker(record)
             prior = by_id.get(record.resource_id)
             if prior is None or (at, tie_breaker) > (prior[0], prior[1]):
                 by_id[record.resource_id] = (at, tie_breaker, record)
 
         resources = tuple(by_id[resource_id][2] for resource_id in sorted(by_id))
-        return resources, page_max
+        return resources, page_max, relationship_reconciliation_after
 
-    def _map_one(self, event: Mapping[str, Any]) -> tuple[datetime, ResourceRecord] | None:
-        if self._config.only_succeeded and _nested_value(event, "status") != "Succeeded":
+    def _map_one(
+        self, event: Mapping[str, Any]
+    ) -> tuple[datetime, ResourceRecord | None, bool] | None:
+        succeeded = _nested_value(event, "status") == "Succeeded"
+        if self._config.only_succeeded and not succeeded:
             return None
         operation = _nested_value(event, "operationName")
 
@@ -314,8 +331,10 @@ class AzureActivityLogFactory:
             raise ActivityLogError(
                 "Activity Log eventTimestamp MUST be a timezone-aware RFC 3339 timestamp"
             )
-        if operation and operation.rsplit("/", maxsplit=1)[-1].casefold() == "delete":
-            return None
+        operation_kind = operation.rsplit("/", maxsplit=1)[-1].casefold() if operation else ""
+        relationship_incomplete = succeeded and operation_kind in {"write", "delete"}
+        if operation_kind == "delete":
+            return at, None, relationship_incomplete
 
         props = _truncate_props(
             {
@@ -333,7 +352,7 @@ class AzureActivityLogFactory:
             provider_ref=arm_id,
             last_seen=at.isoformat(),
         )
-        return at, record
+        return at, record, relationship_incomplete
 
 
 # ---------------------------------------------------------------------------
@@ -344,6 +363,10 @@ class AzureActivityLogFactory:
 def _activity_log_timestamp(value: datetime) -> str:
     """Serialize an Activity Log filter timestamp in Azure's accepted UTC form."""
     return value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _optional_timestamp(value: datetime | None) -> str | None:
+    return value.astimezone(UTC).isoformat() if value is not None else None
 
 
 def _record_tie_breaker(record: ResourceRecord) -> str:

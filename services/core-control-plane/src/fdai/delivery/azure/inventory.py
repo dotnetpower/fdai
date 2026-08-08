@@ -88,6 +88,8 @@ class ActivityLogPage:
     links: tuple[LinkRecord, ...] = ()
     cursor: str | None = None
     has_more: bool = False
+    relationship_reconciliation_after: str | None = None
+    """Newest tracked write/delete whose complete links require an ARG snapshot."""
 
 
 # Injected async callable for the incremental path: given the current
@@ -254,11 +256,12 @@ class AzureResourceGraphInventory:
                 raise RuntimeError("inventory delta continuation cursor did not advance")
             resources = _dedupe_resources(page.resources)
             links = _dedupe_links(page.links)
-            if resources or links:
+            if resources or links or page.relationship_reconciliation_after is not None:
                 yield InventoryBatch(
                     resources=resources,
                     links=links,
                     cursor=page.cursor,
+                    relationship_reconciliation_after=page.relationship_reconciliation_after,
                 )
             if page.cursor is not None:
                 current = page.cursor

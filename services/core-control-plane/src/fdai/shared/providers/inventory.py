@@ -41,6 +41,8 @@ from typing import Any, Protocol, runtime_checkable
 
 from .state_evidence import LINK_OBSERVATION_METADATA_PROPERTY, LinkObservationMetadata
 
+INVENTORY_RELATIONSHIP_RECONCILIATION_PREFIX = "inventory-relationship-reconciliation:"
+
 
 class InventoryGraphViewNotFoundError(LookupError):
     """Raised by named-view providers for an unknown explicit view id."""
@@ -109,6 +111,14 @@ class InventoryBatch:
     """``True`` only on the last batch of a successful ``full_snapshot``
     call. The caller uses this as the atomic-promote fence - a stream
     that ends without a ``final=True`` batch MUST be discarded."""
+    relationship_reconciliation_after: str | None = None
+    """RFC 3339 observation time after which relationship coverage is incomplete.
+
+    A delta adapter sets this only when its native change signal proves a
+    resource changed but cannot reconstruct the resource's complete links. The
+    scheduler uses it to request an authoritative ``full_snapshot``; consumers
+    must not infer or delete relationships from this marker alone.
+    """
 
 
 @runtime_checkable

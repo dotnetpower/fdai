@@ -129,6 +129,7 @@ async def test_resume_cursor_builds_filter_and_maps_event() -> None:
     assert page.links[0].link_type == "contains"
     assert page.links[0].to_id == rec.resource_id
     assert page.links[0].to_type == rec.type
+    assert page.relationship_reconciliation_after == "2026-07-10T06:00:00.123000+00:00"
     # bearer token attached
     assert captured[0].headers["Authorization"] == "Bearer test-token-xyz"
     assert "eventTimestamp" in str(captured[0].url)
@@ -171,6 +172,7 @@ async def test_delete_event_is_not_upserted_and_still_advances_cursor() -> None:
     assert page.resources == ()
     assert page.links == ()
     assert page.cursor == "2026-07-10T06:30:00+00:00"
+    assert page.relationship_reconciliation_after == "2026-07-10T06:30:00+00:00"
 
 
 @pytest.mark.asyncio
@@ -387,6 +389,8 @@ async def test_failed_status_and_unknown_type_dropped() -> None:
         page = await fetch("2026-07-10T05:00:00+00:00")
     finally:
         await client.aclose()
+
+    assert page.relationship_reconciliation_after is None
 
     assert page.resources == ()
 
