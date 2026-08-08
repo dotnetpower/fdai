@@ -122,6 +122,20 @@ for the full 45-subsystem index.
   - `test(<scope>): cover <module> (<X% -> Y%>)` for coverage-only.
   - `fix(<scope>): <what you fixed>` for a plain bug fix.
 
+### 6. Run external follow-up only after validation
+
+- Do not watch, rerun, or troubleshoot GitHub Actions while a hardening batch is still being edited
+  or while its focused checks are failing. Keep the critique loop local until the batch commits.
+- Before any remote CI investigation, Azure operation, remote evaluation, or container image build,
+  require the exact commit's centralized receipt:
+  ```bash
+  python3 scripts/automation/validation_queue.py check-commit HEAD
+  ```
+- A remote failure belongs to the exact tested commit. If fixing it changes code, stop remote
+  polling, return to step 2, rerun the focused check, commit, and obtain a new receipt.
+- Build container images from the receipted commit in a clean checkout or isolated worktree. Never
+  let uncommitted hardening work leak into an image used for deployment.
+
 ## Coverage-Driven Recipe
 
 The 0-risk companion to the critique loop: raise coverage without

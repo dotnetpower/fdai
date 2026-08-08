@@ -244,3 +244,74 @@ def test_pre_tool_use_denies_only_unscoped_test_tool() -> None:
 
     assert module.pre_tool_use(broad)["hookSpecificOutput"]["permissionDecision"] == "deny"
     assert module.pre_tool_use(focused) == {"continue": True}
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh run watch 123",
+        "gh workflow run deploy-dev.yml",
+        "terraform plan",
+        "azd provision --preview",
+        "docker build -t example/fdai .",
+        "docker compose up --build",
+        "az acr build -r example -t fdai:dev .",
+        "az group create -n example -l koreacentral",
+        "bash scripts/deployment/azure/azd-up.sh",
+    ],
+)
+def test_pre_tool_use_defers_slow_external_work_until_head_is_validated(
+    monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    module = _load_module()
+    monkeypatch.setattr(
+        module.external_operation_guard,
+        "_head_has_validation_receipt",
+        lambda repo_root: False,
+    )
+    payload = {"tool_name": "run_in_terminal", "tool_input": {"command": command}}
+
+    result = module.pre_tool_use(payload)
+
+    assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert "check-commit HEAD" in result["systemMessage"]
+
+
+def test_pre_tool_use_allows_slow_external_work_for_validated_head(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    monkeypatch.setattr(
+        module.external_operation_guard,
+        "_head_has_validation_receipt",
+        lambda repo_root: True,
+    )
+    payload = {
+        "tool_name": "run_in_terminal",
+        "tool_input": {"command": "gh run view 123 --log"},
+    }
+
+    assert module.pre_tool_use(payload) == {"continue": True}
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "az account show",
+        "docker version",
+        "gh issue view 123",
+        "git fetch origin main",
+    ],
+)
+def test_pre_tool_use_allows_lightweight_external_preflight(
+    monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    module = _load_module()
+    monkeypatch.setattr(
+        module.external_operation_guard,
+        "_head_has_validation_receipt",
+        lambda repo_root: False,
+    )
+    payload = {"tool_name": "run_in_terminal", "tool_input": {"command": command}}
+
+    assert module.pre_tool_use(payload) == {"continue": True}

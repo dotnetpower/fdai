@@ -110,6 +110,7 @@ def test_run_batches_pending_commits_and_records_receipts(git_repo: Path, tmp_pa
 
     enqueued = _run(git_repo, "python3", str(script), "enqueue", commit)
     blocked = _run(git_repo, "python3", str(script), "check-range", revision_range)
+    commit_blocked = _run(git_repo, "python3", str(script), "check-commit", commit)
     validated = _run(
         git_repo,
         "python3",
@@ -118,11 +119,14 @@ def test_run_batches_pending_commits_and_records_receipts(git_repo: Path, tmp_pa
         env={"FDAI_VALIDATION_TEST_LOG": str(log_path)},
     )
     accepted = _run(git_repo, "python3", str(script), "check-range", revision_range)
+    commit_accepted = _run(git_repo, "python3", str(script), "check-commit", commit)
 
     assert enqueued.returncode == 0, enqueued.stderr
     assert blocked.returncode == 1
+    assert commit_blocked.returncode == 1
     assert validated.returncode == 0, validated.stderr
     assert accepted.returncode == 0, accepted.stderr
+    assert commit_accepted.returncode == 0, commit_accepted.stderr
     assert log_path.read_text(encoding="utf-8").splitlines() == [
         "uv:sync --frozen --extra dev --extra azure-mcp --python 3.13",
         f"changed:--run {parent}..{commit}",

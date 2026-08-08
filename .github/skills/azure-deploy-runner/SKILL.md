@@ -103,7 +103,16 @@ Two Terraform layers plus a runner VM.
 
 ## Standard Deploy Flow
 
-1. **Preflight (from the laptop)**: run `scripts/deployment/local/dev-status.sh` and
+1. **Validated revision gate**: finish implementation and focused tests, commit the slice, then
+  require a centralized receipt for the exact deploy revision:
+  ```bash
+  python3 scripts/automation/validation_queue.py check-commit HEAD
+  ```
+  Do not start or troubleshoot the deploy workflow while this command fails. Push the validated
+  commit and confirm the workflow branch resolves to that revision. If container inputs changed,
+  build and smoke-test the image from a clean checkout or isolated worktree at that commit before
+  dispatching Azure deployment.
+2. **Preflight (from the laptop)**: run `scripts/deployment/local/dev-status.sh` and
   set explicit `AZURE_SUBSCRIPTION_ID` and `AZURE_TENANT_ID`, then confirm the
   exact `az account show` subscription. Every mutating bootstrap helper calls
   `scripts/deployment/azure/verify-azure-context.sh` and refuses an inaccessible
@@ -111,23 +120,23 @@ Two Terraform layers plus a runner VM.
    profiles are present (default + a customer profile under
    `$HOME/.azure-customer`), check the customer one with
    `AZURE_CONFIG_DIR=$HOME/.azure-customer az account show`.
-2. **Start the runner** if deallocated.
-3. **Plan-only run**:
+3. **Start the runner** if deallocated.
+4. **Plan-only run**:
    ```
    gh workflow run deploy-dev.yml
    ```
    Watch the summary; a plan of `0 add / N change / 0 destroy` where
    `N` matches a known no-op set (e.g. rotating the KV-hosted DB
    password to the GH-secret value) is safe to promote to apply.
-4. **Apply run** (still from the workflow, still on the runner):
+5. **Apply run** (still from the workflow, still on the runner):
    ```
    gh workflow run deploy-dev.yml -f apply=true
    ```
-5. **Console identity sync**: when `deploy_console=true`, the workflow reads
+6. **Console identity sync**: when `deploy_console=true`, the workflow reads
   the Terraform Static Web App hostname, verifies the active tenant, preserves
   existing SPA redirect URIs, and adds the deployed HTTPS origin. A missing
   variable, tenant mismatch, or Graph authorization failure blocks the run.
-6. **Post-apply audit**: read the runner's audit log (via
+7. **Post-apply audit**: read the runner's audit log (via
    `az vm run-command` + `journalctl`); confirm no secrets landed
    in logs; deallocate the runner.
 
@@ -160,6 +169,9 @@ Two Terraform layers plus a runner VM.
 
 ## Guardrails (do NOT deploy)
 
+- Do not deploy, provision, build an image, or start sustained GitHub Actions troubleshooting until
+  the exact revision has passed focused checks, is committed, and has a centralized validation
+  receipt. Read-only tenant/context preflight does not waive this gate.
 - **FDAI dev deploy on the maintainer's private tenant requires
   explicit maintainer approval per session.** The `moonchoi` cost
   policy has been lifted, but the "no `terraform apply` before P1

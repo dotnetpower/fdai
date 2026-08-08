@@ -84,7 +84,7 @@ The package test tree validates SDK behavior. Cross-service N/N-1 and topology c
 | [policies/](../../../policies/) | OPA/Rego policy-as-code. |
 | [console/](../../../console/) | Thin operator SPA. |
 | [cli/](../../../cli/) | Operator command-line client. |
-| [scripts/agent/design_context.py](../../../scripts/agent/design_context.py) | Records design-context reads, hard-blocks stale context for framework and constitutional edits, and prevents duplicate repository-wide validation while ordinary edits remain unblocked. |
+| [scripts/agent/design_context.py](../../../scripts/agent/design_context.py) and [external_operation_guard.py](../../../scripts/agent/external_operation_guard.py) | Record design-context reads, hard-block stale context for framework and constitutional edits, prevent duplicate repository-wide validation, and defer slow CI, deployment, and image work until `HEAD` has a validation receipt. |
 
 ## Related docs
 

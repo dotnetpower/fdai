@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
+from scripts.agent import external_operation_guard
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = REPO_ROOT / "scripts/lib/design-routes.json"
 FRAMEWORK_SURFACE_PATH = REPO_ROOT / "scripts/lib/framework-surface.txt"
@@ -23,6 +25,7 @@ HIGH_RISK_EXACT_PATHS = frozenset(
     {
         ".github/hooks/design-context.json",
         "scripts/agent/design_context.py",
+        "scripts/agent/external_operation_guard.py",
         "scripts/lib/design-routes.json",
         "scripts/lib/framework-surface.txt",
     }
@@ -356,7 +359,14 @@ def pre_tool_use(payload: dict[str, Any]) -> dict[str, Any]:
     edit_result = enforce_edit(payload)
     if edit_result.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
         return edit_result
-    return enforce_validation_route(payload)
+    validation_result = enforce_validation_route(payload)
+    if validation_result.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
+        return validation_result
+    return external_operation_guard.enforce_external_operation_order(
+        tool_name=_tool_name(payload),
+        tool_input=_tool_input(payload),
+        repo_root=REPO_ROOT,
+    )
 
 
 def main(argv: list[str]) -> int:

@@ -181,6 +181,11 @@ region family availability, else the capability degrades to `hil-only`).
 
 ## Guardrails (MUST)
 
+- **Validate code before Azure mutation.** Before creating an account, role assignment, or model
+  deployment, finish and commit the local code slice and require
+  `python3 scripts/automation/validation_queue.py check-commit HEAD` to pass. A standalone
+  environment repair with no code change still targets the currently receipted `HEAD`. Read-only
+  account and inventory checks may run earlier.
 - **Confirm the subscription first** (Step 0). Never create resources in a
   profile the operator did not confirm this session.
 - **Propose, then create.** Print the exact commands and the target

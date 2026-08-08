@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d5e6783a6a1cb71e04badaa6a35e1cbf689679e7
+translation_source_sha: 652d6e8eca255c33c732295aa3b963793a4789a7
 translation_revised: 2026-08-09
 ---
 # 코드 맵
@@ -87,7 +87,7 @@ Package test tree는 SDK behavior를 검증합니다. Cross-service N/N-1 및 to
 | [policies/](../../../policies/) | OPA/Rego policy-as-code입니다. |
 | [console/](../../../console/) | 얇은 operator SPA입니다. |
 | [cli/](../../../cli/) | Operator command-line client입니다. |
-| [scripts/agent/design_context.py](../../../scripts/agent/design_context.py) | Design context read를 기록하고 framework 및 constitution edit의 stale context를 hard-block하며, 일반 edit는 허용하면서 중복 repository-wide validation을 차단합니다. |
+| [scripts/agent/design_context.py](../../../scripts/agent/design_context.py)와 [external_operation_guard.py](../../../scripts/agent/external_operation_guard.py) | Design context read를 기록하고 framework 및 constitution edit의 stale context를 hard-block하며, 중복 repository-wide validation을 차단하고 `HEAD`에 validation receipt가 생길 때까지 느린 CI, deployment 및 image 작업을 지연합니다. |
 
 ## 관련 문서
 

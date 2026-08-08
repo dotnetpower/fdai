@@ -71,6 +71,11 @@ only within the Constitution's bounds; the Constitution always prevails.
    until every outgoing commit has a centralized validation receipt.
 8. Commit each focused-check-passing user-requested change before reporting completion unless the user says
    not to commit. Stage only task-owned files and hunks; never commit failed or incomplete work.
+9. Treat slow network-dependent work as a post-validation phase. Do not watch or rerun GitHub
+   Actions, deploy or provision Azure, or build or push container images while implementation or
+   focused tests are incomplete. Commit the finished slice and obtain its centralized validation
+   receipt first. Lightweight read-only identity and context checks may run earlier; they must not
+   become long polling or remote troubleshooting.
 
 ## Issue Lifecycle (MUST)
 
