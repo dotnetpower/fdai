@@ -29,6 +29,7 @@ _ACTION_OPERATIONS = {
     "ops.upsert-network-rule": "azure.network.nsg.rule.upsert",
     "ops.delete-network-rule": "azure.network.nsg.rule.delete",
 }
+_EXECUTOR_IDENTITY_REFS = frozenset({"identity/change", "identity/resilience", "identity/finops"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,11 +71,14 @@ class AzureGatewayDirectApiExecutor:
         self,
         *,
         config: AzureGatewayDirectApiConfig,
-        identity: WorkloadIdentity,
+        identities: Mapping[str, WorkloadIdentity],
         http_client: httpx.AsyncClient,
     ) -> None:
+        unknown_refs = set(identities) - _EXECUTOR_IDENTITY_REFS
+        if not identities or unknown_refs:
+            raise ValueError("gateway executor identities MUST use registered identity refs")
         self._config = config
-        self._identity = identity
+        self._identities = dict(identities)
         self._http = http_client
 
     async def execute(self, request: DirectApiRequest) -> DirectApiReceipt:
@@ -83,6 +87,12 @@ class AzureGatewayDirectApiExecutor:
         if request.mode is Mode.ENFORCE and "enforce" not in request.labels:
             raise DirectApiPromotionError(
                 "enforce-mode gateway call requires an explicit enforce label"
+            )
+        identity_ref = request.metadata.get("executor_identity_ref")
+        identity = self._identities.get(identity_ref or "")
+        if identity is None:
+            raise DirectApiPreconditionError(
+                "gateway request requires a registered executor_identity_ref"
             )
         operation_id = _ACTION_OPERATIONS.get(request.action_type_name)
         if operation_id is None:
@@ -94,6 +104,7 @@ class AzureGatewayDirectApiExecutor:
         plan = await self._invoke(
             "azure.operation.plan",
             {"operation_id": operation_id, "arguments": arguments, "safety": safety},
+            identity=identity,
         )
         plan_result = _result(plan, expected_operation="azure.operation.plan")
         dry_run_receipt = plan_result.get("dry_run_receipt")
@@ -108,7 +119,11 @@ class AzureGatewayDirectApiExecutor:
 
         mutation_safety = dict(safety)
         mutation_safety["dry_run_receipt"] = dry_run_receipt
-        response = await self._invoke(operation_id, {**arguments, "safety": mutation_safety})
+        response = await self._invoke(
+            operation_id,
+            {**arguments, "safety": mutation_safety},
+            identity=identity,
+        )
         body = _validated_body(response, expected_operation=operation_id)
         status = body.get("status")
         if status == "succeeded":
@@ -120,15 +135,21 @@ class AzureGatewayDirectApiExecutor:
                 rollback_succeeded=False,
                 detail="gateway mutation returned a non-terminal status",
             )
-        return await self._poll_until_terminal(request)
+        return await self._poll_until_terminal(request, identity=identity)
 
-    async def _poll_until_terminal(self, request: DirectApiRequest) -> DirectApiReceipt:
+    async def _poll_until_terminal(
+        self,
+        request: DirectApiRequest,
+        *,
+        identity: WorkloadIdentity,
+    ) -> DirectApiReceipt:
         for _attempt in range(self._config.max_poll_attempts):
             if self._config.poll_interval_seconds:
                 await asyncio.sleep(self._config.poll_interval_seconds)
             response = await self._invoke(
                 "azure.operation.status",
                 {"idempotency_key": request.idempotency_key},
+                identity=identity,
             )
             body = _validated_body(response, expected_operation="azure.operation.status")
             status = body.get("status")
@@ -154,9 +175,11 @@ class AzureGatewayDirectApiExecutor:
         self,
         operation_id: str,
         payload: Mapping[str, object],
+        *,
+        identity: WorkloadIdentity,
     ) -> Mapping[str, object]:
         try:
-            token = await self._identity.get_token(self._config.audience)
+            token = await identity.get_token(self._config.audience)
         except Exception as exc:  # noqa: BLE001 - identity provider boundary
             raise DirectApiAuthenticationError(
                 "operations gateway identity token acquisition failed"

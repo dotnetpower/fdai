@@ -75,9 +75,14 @@ async def test_managed_identity_malformed_response_is_redacted() -> None:
 
 
 class _Identity:
+    def __init__(self, token: str) -> None:
+        self.token = token
+        self.audiences: list[str] = []
+
     async def get_token(self, audience: str) -> IdentityToken:
+        self.audiences.append(audience)
         return IdentityToken(
-            token="gateway-token",
+            token=self.token,
             expires_at=datetime.now(tz=UTC) + timedelta(hours=1),
             audience=audience,
         )
@@ -98,6 +103,7 @@ def _request(mode: Mode) -> DirectApiRequest:
             "stop_condition": "provider_api_error_streak",
             "rollback_ref": "state_forward_only",
             "max_resources": "1",
+            "executor_identity_ref": "identity/change",
         },
     )
 
@@ -134,12 +140,87 @@ async def test_gateway_plans_before_enforce_mutation() -> None:
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         receipt = await AzureGatewayDirectApiExecutor(
             config=_gateway_config(),
-            identity=_Identity(),
+            identities={"identity/change": _Identity("gateway-token")},
             http_client=client,
         ).execute(_request(Mode.ENFORCE))
 
     assert receipt.outcome is DirectApiOutcome.SUCCEEDED
     assert operations == ["azure.operation.plan", "azure.compute.vm.start"]
+
+
+async def test_gateway_uses_exact_action_bound_executor_identity() -> None:
+    change_identity = _Identity("change-token")
+    resilience_identity = _Identity("resilience-token")
+    authorization_headers: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        authorization_headers.append(request.headers["Authorization"])
+        operation = request.url.path.rsplit("/", 1)[-1]
+        if operation == "azure.operation.plan":
+            return httpx.Response(
+                200,
+                json={
+                    "operation_id": operation,
+                    "status": "succeeded",
+                    "result": {"dry_run_receipt": "dry-run-one"},
+                },
+            )
+        return httpx.Response(
+            200,
+            json={"operation_id": operation, "status": "succeeded"},
+        )
+
+    request = replace(
+        _request(Mode.ENFORCE),
+        metadata={
+            **_request(Mode.ENFORCE).metadata,
+            "executor_identity_ref": "identity/change",
+        },
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        receipt = await AzureGatewayDirectApiExecutor(
+            config=_gateway_config(),
+            identities={
+                "identity/change": change_identity,
+                "identity/resilience": resilience_identity,
+            },
+            http_client=client,
+        ).execute(request)
+
+    assert receipt.outcome is DirectApiOutcome.SUCCEEDED
+    assert authorization_headers == ["Bearer change-token", "Bearer change-token"]
+    assert change_identity.audiences == ["gateway-audience", "gateway-audience"]
+    assert resilience_identity.audiences == []
+
+
+@pytest.mark.parametrize("identity_ref", (None, "identity/unknown"))
+async def test_gateway_rejects_unbound_executor_identity_before_http(
+    identity_ref: str | None,
+) -> None:
+    calls = 0
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(500)
+
+    request = _request(Mode.ENFORCE)
+    metadata = dict(request.metadata)
+    if identity_ref is None:
+        metadata.pop("executor_identity_ref")
+    else:
+        metadata["executor_identity_ref"] = identity_ref
+    request = replace(request, metadata=metadata)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        executor = AzureGatewayDirectApiExecutor(
+            config=_gateway_config(),
+            identities={"identity/change": _Identity("gateway-token")},
+            http_client=client,
+        )
+        with pytest.raises(DirectApiPreconditionError, match="executor_identity_ref"):
+            await executor.execute(request)
+
+    assert calls == 0
 
 
 @pytest.mark.parametrize(
@@ -155,7 +236,9 @@ async def test_gateway_redacts_authorization_response(
     )
     async with httpx.AsyncClient(transport=transport) as client:
         executor = AzureGatewayDirectApiExecutor(
-            config=_gateway_config(), identity=_Identity(), http_client=client
+            config=_gateway_config(),
+            identities={"identity/change": _Identity("gateway-token")},
+            http_client=client,
         )
         with pytest.raises(error_type) as caught:
             await executor.execute(_request(Mode.SHADOW))
@@ -167,7 +250,9 @@ async def test_gateway_rejects_oversized_response() -> None:
     transport = httpx.MockTransport(lambda _request: httpx.Response(200, content=b"x" * 262_145))
     async with httpx.AsyncClient(transport=transport) as client:
         executor = AzureGatewayDirectApiExecutor(
-            config=_gateway_config(), identity=_Identity(), http_client=client
+            config=_gateway_config(),
+            identities={"identity/change": _Identity("gateway-token")},
+            http_client=client,
         )
         with pytest.raises(RuntimeError, match="too large"):
             await executor.execute(_request(Mode.SHADOW))
@@ -195,7 +280,9 @@ async def test_gateway_rejects_unregistered_operation_before_http() -> None:
     request = replace(request, action_type_name="ops.unknown")
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         executor = AzureGatewayDirectApiExecutor(
-            config=_gateway_config(), identity=_Identity(), http_client=client
+            config=_gateway_config(),
+            identities={"identity/change": _Identity("gateway-token")},
+            http_client=client,
         )
         with pytest.raises(DirectApiPreconditionError, match="no registered operation"):
             await executor.execute(request)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 
 import httpx
 from fdai_service_contracts.executor import IdempotencyStore, ResourceLock, WorkloadIdentity
@@ -92,7 +93,7 @@ def build_direct_api_effect_executor(
     resource_lock: ResourceLock,
     idempotency: IdempotencyStore,
     http_client: httpx.AsyncClient,
-    identity: WorkloadIdentity,
+    identities: Mapping[str, WorkloadIdentity],
 ) -> ServiceDirectApiEffectExecutor:
     """Bind the provider adapter behind the service-owned safety executor."""
 
@@ -101,7 +102,7 @@ def build_direct_api_effect_executor(
             base_url=_required("FDAI_DEV_OPERATIONS_GATEWAY_URL"),
             audience=_required("FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE"),
         ),
-        identity=identity,
+        identities=identities,
         http_client=http_client,
     )
     return ServiceDirectApiEffectExecutor(

@@ -65,6 +65,11 @@ from fdai_executor_service.service import (
 _SHADOW_IDENTITY_ENV = "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID"
 _DEPLOYED_MARKER_ENV = "FDAI_ISOLATED_EXECUTOR_DEPLOYED"
 _AUTHORITY_CUTOVER_ENV = "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER"
+_EXECUTOR_IDENTITY_ENVS = {
+    "identity/change": "FDAI_CHANGE_MI_CLIENT_ID",
+    "identity/resilience": "FDAI_RESILIENCE_MI_CLIENT_ID",
+    "identity/finops": "FDAI_FINOPS_MI_CLIENT_ID",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +104,8 @@ class IsolatedExecutorRuntimeConfig:
         if authority_cutover:
             _required(values, "FDAI_DEV_OPERATIONS_GATEWAY_URL")
             _required(values, "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE")
+            for identity_env in _EXECUTOR_IDENTITY_ENVS.values():
+                _required(values, identity_env)
         command_topic = values.get(
             "FDAI_EXECUTOR_COMMAND_TOPIC",
             EXECUTOR_COMMAND_TOPIC,
@@ -161,12 +168,20 @@ def build_isolated_executor_supervisor(
     idempotency = _build_idempotency_store()
     service: ExecutorCommandHandler | ExecutorShadowCommandHandler
     if config.authority_cutover:
+        executor_identities = {
+            identity_ref: build_runtime_workload_identity(
+                http_client,
+                client_id_env=identity_env,
+                require_client_id=True,
+            )
+            for identity_ref, identity_env in _EXECUTOR_IDENTITY_ENVS.items()
+        }
         direct_api_executor = _build_direct_api_executor(
             audit_store=audit_store,
             resource_lock=_build_resource_lock(),
             idempotency=idempotency,
             http_client=http_client,
-            identity=identity,
+            identities=executor_identities,
         )
         service = IsolatedExecutorEffectService(
             direct_api_executor=direct_api_executor,

@@ -122,11 +122,23 @@ def test_authority_cutover_requires_gateway_binding() -> None:
             _environment(FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER="1")
         )
 
-    config = IsolatedExecutorRuntimeConfig.from_env(
-        _environment(
-            FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER="1",
-            FDAI_DEV_OPERATIONS_GATEWAY_URL="https://gateway.example.com",
-            FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE="api://example",
-        )
+    cutover_environment = _environment(
+        FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER="1",
+        FDAI_DEV_OPERATIONS_GATEWAY_URL="https://gateway.example.com",
+        FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE="api://example",
+        FDAI_CHANGE_MI_CLIENT_ID="change-client",
+        FDAI_RESILIENCE_MI_CLIENT_ID="resilience-client",
+        FDAI_FINOPS_MI_CLIENT_ID="finops-client",
     )
+    for missing in (
+        "FDAI_CHANGE_MI_CLIENT_ID",
+        "FDAI_RESILIENCE_MI_CLIENT_ID",
+        "FDAI_FINOPS_MI_CLIENT_ID",
+    ):
+        incomplete_environment = dict(cutover_environment)
+        incomplete_environment.pop(missing)
+        with pytest.raises(RuntimeError, match=missing):
+            IsolatedExecutorRuntimeConfig.from_env(incomplete_environment)
+
+    config = IsolatedExecutorRuntimeConfig.from_env(cutover_environment)
     assert config.authority_cutover is True
