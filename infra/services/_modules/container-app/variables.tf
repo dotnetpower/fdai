@@ -77,7 +77,7 @@ variable "environment" {
 variable "health" {
   type = object({
     port                    = number
-    liveness_path           = string
+    liveness_path           = optional(string)
     readiness_path          = string
     startup_path            = optional(string)
     interval_seconds        = optional(number, 30)

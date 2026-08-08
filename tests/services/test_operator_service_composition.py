@@ -52,8 +52,6 @@ EXPECTED_ROUTES = (
     (("GET", "HEAD"), "/audit", "get_audit"),
     (("GET", "HEAD"), "/audit/{correlation_id}/trace", "rule_fire_trace"),
     (("GET", "HEAD"), "/healthz", "healthz"),
-    (("GET", "HEAD"), "/live", "liveness"),
-    (("GET", "HEAD"), "/ready", "readiness"),
     (("GET", "HEAD"), "/hil-queue", "get_hil_queue"),
     (("GET", "HEAD"), "/incidents", "panel:incidents"),
     (("GET", "HEAD"), "/incidents/stream", "incident_attention_stream"),
@@ -245,20 +243,12 @@ def test_health_reflects_required_dependency_loss_after_startup() -> None:
         return available
 
     client = _client(read_model=EmptyReadModel(), readiness_probe=readiness_probe)
-    assert client.get("/live").json() == {"status": "ok"}
-    response = client.get("/ready")
+    response = client.get("/healthz")
     assert (response.status_code, response.json()) == (200, {"status": "ok"})
 
     available = False
-    assert client.get("/live").status_code == 200
-    response = client.get("/ready")
+    response = client.get("/healthz")
     assert (response.status_code, response.json()) == (503, {"status": "not-ready"})
-    assert (
-        _client(read_model=EmptyReadModel(), readiness_probe=readiness_probe)
-        .get("/healthz")
-        .status_code
-        == 503
-    )
 
 
 def test_authenticated_audit_envelopes_are_stable() -> None:

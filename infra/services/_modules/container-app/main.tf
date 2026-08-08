@@ -67,7 +67,7 @@ resource "azurerm_container_app" "service" {
       }
 
       liveness_probe {
-        transport               = "HTTP"
+        transport               = var.health.liveness_path == null ? "TCP" : "HTTP"
         port                    = var.health.port
         path                    = var.health.liveness_path
         interval_seconds        = var.health.interval_seconds
@@ -154,12 +154,14 @@ resource "azurerm_container_app" "service" {
       error_message = "At least one non-empty workload identity resource id is required."
     }
     precondition {
-      condition     = startswith(var.health.liveness_path, "/") && startswith(var.health.readiness_path, "/")
-      error_message = "Health paths must be absolute HTTP paths."
+      condition = (
+        var.health.liveness_path == null || startswith(var.health.liveness_path, "/")
+      ) && startswith(var.health.readiness_path, "/")
+      error_message = "Configured HTTP health paths must be absolute."
     }
     precondition {
-      condition     = var.health.liveness_path != var.health.readiness_path
-      error_message = "Liveness and readiness paths must be distinct."
+      condition     = var.health.liveness_path == null || var.health.liveness_path != var.health.readiness_path
+      error_message = "HTTP liveness and readiness paths must be distinct."
     }
   }
 }

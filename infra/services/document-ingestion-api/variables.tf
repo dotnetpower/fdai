@@ -40,7 +40,7 @@ variable "health" {
   description = "Ingestion API HTTP health contract."
   type = object({
     port                    = number
-    liveness_path           = string
+    liveness_path           = optional(string)
     readiness_path          = string
     startup_path            = optional(string)
     interval_seconds        = optional(number, 30)
@@ -48,7 +48,7 @@ variable "health" {
     failure_count_threshold = optional(number, 3)
     startup_failure_count   = optional(number, 30)
   })
-  default = { port = 8000, liveness_path = "/live", readiness_path = "/ready", startup_path = "/live" }
+  default = { port = 8000, liveness_path = null, readiness_path = "/healthz", startup_path = null }
 }
 variable "rollback" {
   description = "Revision rollback contract consumed by the deployment orchestrator."

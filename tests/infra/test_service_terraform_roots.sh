@@ -128,13 +128,13 @@ test "$container_app_declarations" -eq 1 || {
 shared_container_app="$services_root/_modules/container-app"
 rg -q 'variable[[:space:]]+"sidecars"' "$shared_container_app/variables.tf"
 rg -q 'dynamic[[:space:]]+"container"' "$shared_container_app/main.tf"
-rg -Fq 'var.health.liveness_path != var.health.readiness_path' \
+rg -Fq 'var.health.liveness_path == null || var.health.liveness_path != var.health.readiness_path' \
   "$shared_container_app/main.tf"
 
-rg -Fq 'liveness_path = "/live"' "$services_root/operator-service/variables.tf"
-rg -Fq 'readiness_path = "/ready"' "$services_root/operator-service/variables.tf"
-rg -Fq 'liveness_path = "/live"' "$services_root/document-ingestion-api/variables.tf"
-rg -Fq 'readiness_path = "/ready"' "$services_root/document-ingestion-api/variables.tf"
+rg -Fq 'liveness_path = null' "$services_root/operator-service/variables.tf"
+rg -Fq 'readiness_path = "/healthz"' "$services_root/operator-service/variables.tf"
+rg -Fq 'liveness_path = null' "$services_root/document-ingestion-api/variables.tf"
+rg -Fq 'readiness_path = "/healthz"' "$services_root/document-ingestion-api/variables.tf"
 rg -q 'variable[[:space:]]+"clamav"' \
   "$services_root/document-processing-worker/variables.tf"
 rg -Fq '@sha256:' "$services_root/document-processing-worker/variables.tf"

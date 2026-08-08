@@ -103,8 +103,6 @@ MINIMAL_ROUTE_MANIFEST: Final = (
     RouteOwnership("GET", "/audit", "minimal"),
     RouteOwnership("GET", "/audit/{correlation_id}/trace", "minimal"),
     RouteOwnership("GET", "/healthz", "minimal"),
-    RouteOwnership("GET", "/live", "minimal"),
-    RouteOwnership("GET", "/ready", "minimal"),
     RouteOwnership("GET", "/hil-queue", "minimal"),
     RouteOwnership("GET", "/incidents", "minimal"),
     RouteOwnership("GET", "/incidents/stream", "minimal"),
@@ -152,9 +150,6 @@ def build_operator_app(
 
     def authorize(request: Request) -> OperatorPrincipal:
         return authenticator.require_any(request.headers.get("authorization"), READER_ROLES)
-
-    async def liveness(_: Request) -> Response:
-        return JSONResponse({"status": "ok"})
 
     async def readiness(_: Request) -> Response:
         try:
@@ -286,8 +281,6 @@ def build_operator_app(
             name="rule_fire_trace",
         ),
         Route("/healthz", readiness, methods=["GET"], name="healthz"),
-        Route("/live", liveness, methods=["GET"], name="liveness"),
-        Route("/ready", readiness, methods=["GET"], name="readiness"),
         Route("/hil-queue", get_hil_queue, methods=["GET"], name="get_hil_queue"),
         Route("/incidents", get_incidents, methods=["GET"], name="panel:incidents"),
         Route(
