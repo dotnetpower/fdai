@@ -103,7 +103,11 @@ def test_workflow_validates_exact_source_run_before_artifact_download() -> None:
     assert ".github/workflows/service-deploy.yml" in _WORKFLOW
     assert "scripts/deployment/service" in _WORKFLOW
     assert 'echo "PLAN_CONTROLS_COMMIT_SHA=$source_head_sha"' in _WORKFLOW
-    assert '--controls-commit-sha "$PLAN_CONTROLS_COMMIT_SHA"' in _WORKFLOW
+    assert _WORKFLOW.count('--controls-commit-sha "$CONTROLS_COMMIT_SHA"') == 1
+    assert _WORKFLOW.count('--controls-commit-sha "$PLAN_CONTROLS_COMMIT_SHA"') == 1
+    assert _WORKFLOW.index('--controls-commit-sha "$CONTROLS_COMMIT_SHA"') < _WORKFLOW.index(
+        '--controls-commit-sha "$PLAN_CONTROLS_COMMIT_SHA"'
+    )
 
 
 def test_workflow_uses_per_service_backend_and_never_platform_root() -> None:

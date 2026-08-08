@@ -518,7 +518,7 @@ jobs:
             --backend-resource-group "$STATE_RESOURCE_GROUP" \
             --backend-storage-account "$STATE_STORAGE_ACCOUNT" \
             --backend-container "$STATE_CONTAINER" \
-            --controls-commit-sha "$PLAN_CONTROLS_COMMIT_SHA" \
+            --controls-commit-sha "$CONTROLS_COMMIT_SHA" \
             --resolved-models-digest "$RESOLVED_MODELS_DIGEST" \
             --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
             "${cutover_args[@]}" >/dev/null
