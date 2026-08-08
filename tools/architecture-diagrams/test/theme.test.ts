@@ -39,6 +39,8 @@ test("foundation excludes the Azure reference profile", () => {
   assert.match(css, /Segoe UI Variable Text/);
   assert.match(css, /stroke-width: 1/);
   assert.match(css, /filter: url\(#label-shadow\)/);
+  assert.match(css, /filter: url\(#group-shadow\)/);
+  assert.match(css, /donut-center-ring/);
   assert.match(css, /fill-opacity: 0.18/);
   assert.match(css, /fill-opacity: 0.44/);
   assert.match(css, /prefers-reduced-motion: reduce/);

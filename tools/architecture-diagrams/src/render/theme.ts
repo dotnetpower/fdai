@@ -207,14 +207,17 @@ export function calmSlateFoundationCss(): string {
       stroke-width: 1; stroke-dasharray: none;
     }
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .group-accent {
-      stroke: var(--fdai-diagram-azure); stroke-width: 3; stroke-linecap: round;
+      stroke: var(--fdai-diagram-border-strong); stroke-width: 2; stroke-linecap: round;
+      opacity: 0.56;
     }
-    svg[data-profile="conceptual"] .diagram-group[data-presentation="sidebar"] > .group-accent,
-    svg[data-profile="conceptual"] .diagram-group[data-presentation="feedback"] > .group-accent {
-      stroke: var(--fdai-diagram-tone-feedback-stroke);
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-group[data-depth="1"] > .group-surface {
+      filter: url(#group-shadow);
     }
-    svg[data-profile="conceptual"] .diagram-group[data-presentation="datastore"] > .group-accent {
-      stroke: var(--fdai-diagram-tone-store-stroke);
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-group:not([data-depth="1"]) > .group-surface {
+      stroke-opacity: 0.78;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-group:not([data-depth="1"]) > .group-header {
+      opacity: 0.72;
     }
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node > rect,
     svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node > .node-surface {
@@ -301,6 +304,10 @@ export function calmSlateFoundationCss(): string {
     svg[data-kind="pie"] .donut-caption {
       fill: var(--fdai-diagram-muted); font-size: 11px; font-weight: 650;
     }
+    svg[data-kind="pie"] .donut-center-ring {
+      fill: var(--fdai-diagram-surface); fill-opacity: 0.32;
+      stroke: var(--fdai-diagram-border); stroke-width: 1;
+    }
     svg[data-kind="radar"] .radar-spoke {
       stroke: var(--fdai-diagram-border); stroke-width: 1; opacity: 0.66;
     }
@@ -310,7 +317,7 @@ export function calmSlateFoundationCss(): string {
     }
     svg[data-kind="radar"] .diagram-edge { opacity: 0; pointer-events: none; }
     svg[data-kind="radar"] .diagram-node > .node-surface {
-      fill: var(--fdai-diagram-surface); stroke-width: 1.5; filter: none;
+      fill: var(--fdai-diagram-surface); stroke-width: 1.5; filter: url(#label-shadow);
     }
     svg[data-kind="quadrant"] .quadrant-region { stroke: none; }
     svg[data-kind="quadrant"] .region-one { fill: var(--fdai-diagram-tone-policy-fill); }
@@ -319,7 +326,7 @@ export function calmSlateFoundationCss(): string {
     svg[data-kind="quadrant"] .region-four { fill: var(--fdai-diagram-tone-decision-fill); }
     svg[data-kind="quadrant"] .quadrant-region { fill-opacity: 0.44; }
     svg[data-kind="quadrant"] .diagram-node > .node-surface {
-      filter: none; stroke-width: 1.5;
+      filter: url(#label-shadow); stroke-width: 1.5;
     }
     svg[data-kind="kanban"] .diagram-group > .group-surface {
       fill: var(--fdai-diagram-neutral-header); fill-opacity: 0.62;

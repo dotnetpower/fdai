@@ -69,8 +69,11 @@ test("renders conceptual shapes, content, tones, and feedback semantics", async 
   assert.match(svg, /data-shape="terminator" data-tone="input"/);
   assert.match(svg, /data-shape="diamond" data-tone="policy"/);
   assert.match(svg, /class="node-body"/);
-  assert.match(svg, /class="node-accent"/);
+  assert.doesNotMatch(svg, /class="node-accent"/);
+  assert.match(svg, /class="node-inset"/);
+  assert.match(svg, /class="node-divider"/);
   assert.match(svg, /class="group-accent"/);
+  assert.match(svg, /data-depth="1"/);
   assert.match(svg, /의도와 컨텍스트/);
   assert.match(svg, /class="node-badge"/);
   assert.match(svg, /class="diagram-edge edge-feedback"/);

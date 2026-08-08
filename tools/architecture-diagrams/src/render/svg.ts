@@ -305,14 +305,14 @@ async function renderNode(
         "start",
       )
     : "";
-    const presentation = node.presentation ?? "card";
-    const nodeShape = node.shape ?? "card";
-    const premiumCard = !compact &&
-      (nodeShape === "card" || nodeShape === "terminator") &&
-      presentation !== "icon";
-    const iconBackplateMarkup = icon && premiumCard
-      ? `<circle class="node-icon-backplate" cx="${x}" cy="${shape.y + geometry.iconTop + geometry.iconSize / 2}" r="${geometry.iconSize / 2 + 7}" aria-hidden="true"/>`
-      : "";
+  const presentation = node.presentation ?? "card";
+  const nodeShape = node.shape ?? "card";
+  const premiumCard = !compact &&
+    (nodeShape === "card" || nodeShape === "terminator") &&
+    presentation !== "icon";
+  const iconBackplateMarkup = icon && premiumCard
+    ? `<circle class="node-icon-backplate" cx="${x}" cy="${shape.y + geometry.iconTop + geometry.iconSize / 2}" r="${geometry.iconSize / 2 + 7}" aria-hidden="true"/>`
+    : "";
   const iconMarkup = icon
     ? `<image${node.kind === "agent" ? ' class="agent-icon"' : ""} href="${icon}" x="${x - geometry.iconSize / 2}" y="${shape.y + geometry.iconTop}" width="${geometry.iconSize}" height="${geometry.iconSize}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"/>`
     : "";
@@ -320,9 +320,12 @@ async function renderNode(
   const surface = barShape && node.status === "milestone"
     ? milestoneShapeMarkup(shape)
     : nodeShapeMarkup(nodeShape, shape, presentation);
-    const accentMarkup = premiumCard
-      ? `<line class="node-accent" x1="${shape.x + 12}" y1="${shape.y + 1.5}" x2="${shape.x + shape.width - 12}" y2="${shape.y + 1.5}" aria-hidden="true"/>`
-      : "";
+  const insetMarkup = premiumCard
+    ? `<rect class="node-inset" x="${shape.x + 2}" y="${shape.y + 2}" width="${Math.max(0, shape.width - 4)}" height="${Math.max(0, shape.height - 4)}" rx="${nodeShape === "terminator" ? Math.max(0, shape.height / 2 - 2) : 6}" aria-hidden="true"/>`
+    : "";
+  const dividerMarkup = premiumCard && bodyLines.length
+    ? `<line class="node-divider" x1="${shape.x + 14}" y1="${shape.y + geometry.bodyTop - 4}" x2="${shape.x + shape.width - 14}" y2="${shape.y + geometry.bodyTop - 4}" aria-hidden="true"/>`
+    : "";
   const progressMarkup = barShape && node.status !== "milestone" && node.progress !== undefined
     ? `<rect class="node-progress" x="${shape.x}" y="${shape.y}" width="${shape.width * node.progress / 100}" height="${shape.height}" rx="4" aria-hidden="true"/>`
     : "";
@@ -332,7 +335,7 @@ async function renderNode(
   const leaderMarkup = shape.leader
     ? `<path class="chart-leader" d="${shape.leader}" aria-hidden="true"/>`
     : "";
-  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" data-presentation="${presentation}" data-shape="${nodeShape}" data-tone="${node.tone ?? "neutral"}"${shape.paletteIndex !== undefined ? ` data-palette-index="${shape.paletteIndex % 8}"` : ""}${node.status ? ` data-status="${node.status}"` : ""} transform="translate(${offsetX} ${offsetY})" role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}">${leaderMarkup}${surface}${accentMarkup}${progressMarkup}${iconBackplateMarkup}${iconMarkup}${textLines(labelLines, x, labelStart, "node-label", nodeLineHeight, externalBarLabel ? "start" : "middle")}${bodyMarkup}${badgeMarkup}</g>`;
+  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" data-presentation="${presentation}" data-shape="${nodeShape}" data-tone="${node.tone ?? "neutral"}"${shape.paletteIndex !== undefined ? ` data-palette-index="${shape.paletteIndex % 8}"` : ""}${node.status ? ` data-status="${node.status}"` : ""} transform="translate(${offsetX} ${offsetY})" role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}">${leaderMarkup}${surface}${insetMarkup}${progressMarkup}${iconBackplateMarkup}${iconMarkup}${textLines(labelLines, x, labelStart, "node-label", nodeLineHeight, externalBarLabel ? "start" : "middle")}${dividerMarkup}${bodyMarkup}${badgeMarkup}</g>`;
 }
 
 function milestoneShapeMarkup(shape: PositionedShape): string {
@@ -530,7 +533,7 @@ function renderLegend(spec: DiagramSpec, locale: Locale, y: number): string {
     const width = Math.max(120, estimatedTextWidth(label, 12) + 58);
     const symbol = item.kind
       ? `<line x1="0" y1="0" x2="34" y2="0" stroke="${edgeStyles[item.kind].color}" stroke-width="${edgeStyles[item.kind].width}" stroke-dasharray="${edgeStyles[item.kind].dash}" marker-end="url(#arrow-${item.kind})"/>`
-      : `<rect class="legend-swatch" x="0" y="-10" width="28" height="18" rx="3" fill="${toneStyles[item.tone].fill}" stroke="${toneStyles[item.tone].stroke}"/>`;
+      : `<rect class="legend-swatch" x="0" y="-8" width="24" height="14" rx="7" fill="${toneStyles[item.tone].fill}" stroke="${toneStyles[item.tone].stroke}"/>`;
     const markup = `<g class="legend-item" transform="translate(${x} ${y})">${symbol}<text x="45" y="5">${escapeXml(label)}</text></g>`;
     x += width;
     return markup;
@@ -565,7 +568,7 @@ function renderChartBackdrop(
     const centerX = offsetX + layout.width / 2;
     const centerY = offsetY + layout.height / 2;
     const total = spec.nodes.reduce((sum, node) => sum + (node.value ?? 0), 0);
-    return `<g class="chart-backdrop donut-center" aria-hidden="true"><text class="donut-total" x="${centerX}" y="${centerY - 3}" text-anchor="middle">${total}</text><text class="donut-caption" x="${centerX}" y="${centerY + 19}" text-anchor="middle">TOTAL</text></g>`;
+    return `<g class="chart-backdrop donut-center" aria-hidden="true"><circle class="donut-center-ring" cx="${centerX}" cy="${centerY}" r="54"/><text class="donut-total" x="${centerX}" y="${centerY - 3}" text-anchor="middle">${total}</text><text class="donut-caption" x="${centerX}" y="${centerY + 19}" text-anchor="middle">TOTAL</text></g>`;
   }
   if (["quadrant", "xy-chart", "wardley"].includes(spec.kind)) {
     const padding = spec.canvas.padding ?? 56;
@@ -578,7 +581,7 @@ function renderChartBackdrop(
     const regions = spec.kind === "quadrant"
       ? `<rect class="quadrant-region region-one" x="${x}" y="${y}" width="${width / 2}" height="${height / 2}"/><rect class="quadrant-region region-two" x="${x + width / 2}" y="${y}" width="${width / 2}" height="${height / 2}"/><rect class="quadrant-region region-three" x="${x}" y="${y + height / 2}" width="${width / 2}" height="${height / 2}"/><rect class="quadrant-region region-four" x="${x + width / 2}" y="${y + height / 2}" width="${width / 2}" height="${height / 2}"/>`
       : "";
-    return `<g class="chart-backdrop" aria-hidden="true"><rect class="chart-frame" x="${x}" y="${y}" width="${width}" height="${height}"/>${regions}<line class="chart-guide" x1="${x + width / 2}" y1="${y}" x2="${x + width / 2}" y2="${y + height}"/><line class="chart-guide" x1="${x}" y1="${y + height / 2}" x2="${x + width}" y2="${y + height / 2}"/>${xAxis ? `<text class="chart-axis-label" x="${x + width / 2}" y="${y + height + 28}" text-anchor="middle">${escapeXml(xAxis)}</text>` : ""}${yAxis ? `<text class="chart-axis-label" x="${x - 18}" y="${y + height / 2}" text-anchor="middle" transform="rotate(-90 ${x - 18} ${y + height / 2})">${escapeXml(yAxis)}</text>` : ""}</g>`;
+    return `<g class="chart-backdrop" aria-hidden="true"><rect class="chart-frame" x="${x}" y="${y}" width="${width}" height="${height}" rx="8"/>${regions}<line class="chart-guide" x1="${x + width / 2}" y1="${y}" x2="${x + width / 2}" y2="${y + height}"/><line class="chart-guide" x1="${x}" y1="${y + height / 2}" x2="${x + width}" y2="${y + height / 2}"/>${xAxis ? `<text class="chart-axis-label" x="${x + width / 2}" y="${y + height + 28}" text-anchor="middle">${escapeXml(xAxis)}</text>` : ""}${yAxis ? `<text class="chart-axis-label" x="${x - 18}" y="${y + height / 2}" text-anchor="middle" transform="rotate(-90 ${x - 18} ${y + height / 2})">${escapeXml(yAxis)}</text>` : ""}</g>`;
   }
   if (spec.kind === "radar") {
     const centerX = offsetX + layout.width / 2;
@@ -615,7 +618,7 @@ export async function renderSvg(
   const markers = Object.entries(edgeStyles)
     .map(
       ([kind, style]) =>
-        `<marker id="arrow-${kind}" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="${style.color}"/></marker>`,
+        `<marker id="arrow-${kind}" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="${style.color}"/></marker>`,
     )
     .join("");
   const groups = [...layout.groups.values()]
@@ -634,7 +637,7 @@ export async function renderSvg(
       const accent = compact
         ? ""
         : `<line class="group-accent" x1="${shape.x + offsetX + 18}" y1="${shape.y + offsetY + 39}" x2="${shape.x + offsetX + 66}" y2="${shape.y + offsetY + 39}" aria-hidden="true"/>`;
-      return `<g class="diagram-group group-${group.kind}" data-group-id="${group.id}" data-presentation="${presentation}" role="group" aria-label="${escapeXml(group.label[locale])}"><rect class="group-surface" x="${shape.x + offsetX}" y="${shape.y + offsetY}" width="${shape.width}" height="${shape.height}" rx="${radius}"/><rect class="group-header" x="${shape.x + offsetX + 1}" y="${shape.y + offsetY + 1}" width="${Math.max(0, shape.width - 2)}" height="38" rx="${radius}"/>${accent}${textLines(groupLines, shape.x + offsetX + 18, shape.y + offsetY + 27, "group-label", compact ? 16 : 21, "start")}</g>`;
+      return `<g class="diagram-group group-${group.kind}" data-group-id="${group.id}" data-depth="${shape.depth}" data-presentation="${presentation}" role="group" aria-label="${escapeXml(group.label[locale])}"><rect class="group-surface" x="${shape.x + offsetX}" y="${shape.y + offsetY}" width="${shape.width}" height="${shape.height}" rx="${radius}"/><rect class="group-header" x="${shape.x + offsetX + 1}" y="${shape.y + offsetY + 1}" width="${Math.max(0, shape.width - 2)}" height="38" rx="${radius}"/>${accent}${textLines(groupLines, shape.x + offsetX + 18, shape.y + offsetY + 27, "group-label", compact ? 16 : 21, "start")}</g>`;
     })
     .join("");
   const edges = layout.edges
@@ -679,7 +682,7 @@ export async function renderSvg(
   <title id="diagram-title">${escapeXml(spec.locales[locale].title)}</title>
   <desc id="diagram-description">${escapeXml(spec.locales[locale].alt)}</desc>
   <metadata>${escapeXml(JSON.stringify({ id: spec.id, version: spec.version, updated: spec.updated }))}</metadata>
-  <defs>${markers}<filter id="node-shadow" x="-25%" y="-30%" width="150%" height="170%"><feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.10"/><feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.07"/></filter><filter id="label-shadow" x="-20%" y="-40%" width="140%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.08"/></filter></defs>
+  <defs>${markers}<filter id="node-shadow" x="-25%" y="-30%" width="150%" height="170%"><feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.10"/><feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.07"/></filter><filter id="group-shadow" x="-10%" y="-15%" width="120%" height="135%"><feDropShadow dx="0" dy="5" stdDeviation="12" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.045"/></filter><filter id="label-shadow" x="-20%" y="-40%" width="140%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.08"/></filter></defs>
   <style>
     svg[data-diagram-id] { color: var(--fdai-diagram-text, #323130); font-family: "Noto Sans KR", "Noto Sans", "Segoe UI", sans-serif; }
     @media (prefers-color-scheme: dark) {
@@ -719,12 +722,14 @@ export async function renderSvg(
     .node-body { font-size: ${NODE_BODY_FONT_SIZE}px; font-weight: 450; fill: var(--fdai-diagram-muted, #605e5c); letter-spacing: 0; }
     .node-detail { fill: none; stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1.25; }
     .node-progress { fill: var(--fdai-diagram-gantt-progress, #ffffff); fill-opacity: 0.2; pointer-events: none; }
-    .node-badge circle { fill: var(--fdai-diagram-badge-fill, #173b6c); stroke: var(--fdai-diagram-badge-ring, #ffffff); stroke-width: 2; }
+    .node-badge { filter: url(#label-shadow); }
+    .node-badge circle { fill: var(--fdai-diagram-badge-fill, #173b6c); stroke: var(--fdai-diagram-badge-ring, #ffffff); stroke-width: 2.5; }
     .node-badge text { fill: var(--fdai-diagram-badge-text, #ffffff); font-size: 12px; font-weight: 700; text-anchor: middle; }
     ${Object.entries(toneStyles).map(([tone, style]) => `.diagram-node[data-tone="${tone}"] > .node-surface { fill: ${style.fill}; stroke: ${style.stroke}; }`).join("\n    ")}
-    .node-accent { stroke-linecap: round; stroke-width: 3; opacity: 0.9; }
-    .node-icon-backplate { stroke-width: 1; fill-opacity: 0.08; stroke-opacity: 0.16; }
-    ${Object.entries(toneStyles).map(([tone, style]) => `.diagram-node[data-tone="${tone}"] > .node-accent { stroke: ${style.stroke}; } .diagram-node[data-tone="${tone}"] > .node-icon-backplate { fill: ${style.stroke}; stroke: ${style.stroke}; }`).join("\n    ")}
+    .node-inset { fill: none; stroke: var(--fdai-diagram-surface, #ffffff); stroke-opacity: 0.72; stroke-width: 1; pointer-events: none; }
+    .node-divider { stroke: var(--fdai-diagram-border, #d7dbde); stroke-width: 1; stroke-opacity: 0.72; }
+    .node-icon-backplate { fill: var(--fdai-diagram-surface, #ffffff); stroke-width: 1.25; stroke-opacity: 0.34; }
+    ${Object.entries(toneStyles).map(([tone, style]) => `.diagram-node[data-tone="${tone}"] > .node-icon-backplate { stroke: ${style.stroke}; }`).join("\n    ")}
     .diagram-node[data-shape="bar"] > .node-surface { fill: var(--fdai-diagram-gantt-planned, #e8edf2); stroke: var(--fdai-diagram-gantt-planned-stroke, #667085); filter: none; }
     .diagram-node[data-shape="bar"] .node-label { fill: var(--fdai-diagram-gantt-planned-text, #323130); font-size: 14px; }
     .diagram-node[data-shape="bar"][data-status="active"] > .node-surface { fill: var(--fdai-diagram-gantt-active, #0f6cbd); stroke: var(--fdai-diagram-gantt-active-stroke, #005a9e); }

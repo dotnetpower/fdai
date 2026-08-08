@@ -359,7 +359,7 @@ test("Azure resource network flow routes every compound edge", async () => {
     svg,
     /data-edge-route="orthogonal-above"\]\[data-edge-step\] > \.edge-path/,
   );
-  assert.match(svg, /markerUnits="userSpaceOnUse" markerWidth="9"/);
+  assert.match(svg, /markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7"/);
   assert.match(
     svg,
     /data-group-id="azure-region"\] > \.group-surface \{ fill: #f8fbfe;/,
