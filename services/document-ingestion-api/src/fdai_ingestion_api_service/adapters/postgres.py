@@ -24,6 +24,7 @@ from fdai_service_contracts import (
     live_unavailable_readiness,
 )
 from psycopg.rows import dict_row
+from pydantic import ValidationError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -261,7 +262,34 @@ class PostgresDocumentActivitySink:
         rows = await self._claim(limit)
         published = 0
         for row in rows:
-            event = DocumentLifecycleEvent.model_validate(_payload(row["payload"]))
+            try:
+                event = DocumentLifecycleEvent.model_validate(_payload(row["payload"]))
+            except (ValidationError, ValueError, RuntimeError):
+                logical_topic = str(row["topic"])
+                physical_topic = (
+                    self._pantheon_topic if logical_topic.startswith("object.") else self._topic
+                )
+                try:
+                    await self._publisher.publish(
+                        f"{physical_topic}.dlq",
+                        str(row["partition_key"]),
+                        {
+                            "original_topic": logical_topic,
+                            "reason": "invalid_document_api_outbox_event",
+                            "outbox_event_id": str(row["event_id"]),
+                        },
+                    )
+                except Exception as exc:  # noqa: BLE001 - preserve row until DLQ succeeds
+                    _LOGGER.warning(
+                        "document_api_outbox_dead_letter_failed",
+                        extra={
+                            "event_id": str(row["event_id"]),
+                            "exception_type": type(exc).__name__,
+                        },
+                    )
+                    continue
+                await self._mark_published(row["event_id"])
+                continue
             physical_topic = (
                 self._pantheon_topic if event.topic.startswith("object.") else self._topic
             )
@@ -291,7 +319,7 @@ class PostgresDocumentActivitySink:
         ):
             rows = await (
                 await connection.execute(
-                    "SELECT event_id, payload FROM document_api_outbox "
+                    "SELECT event_id, topic, partition_key, payload FROM document_api_outbox "
                     "WHERE published_at IS NULL "
                     "AND next_attempt_at <= clock_timestamp() ORDER BY created_at, event_id "
                     "FOR UPDATE SKIP LOCKED LIMIT %s",

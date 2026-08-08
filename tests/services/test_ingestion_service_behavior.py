@@ -9,10 +9,19 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
+from fdai_document_worker_service.adapters.activity import (
+    PostgresDocumentActivitySink as WorkerDocumentActivitySink,
+)
 from fdai_document_worker_service.consumer import DocumentIngestionEventConsumer
 from fdai_document_worker_service.processing import DocumentIngestionWorker
 from fdai_document_worker_service.supervisor import IngestionWorkerSupervisor
 from fdai_ingestion_api_service.access import ClaimsDocumentAccessProvider
+from fdai_ingestion_api_service.adapters.postgres import (
+    PostgresApiConfig,
+)
+from fdai_ingestion_api_service.adapters.postgres import (
+    PostgresDocumentActivitySink as ApiDocumentActivitySink,
+)
 from fdai_ingestion_api_service.auth import Authenticator, GroupMapping
 from fdai_ingestion_api_service.deletion import ApiDocumentDeletionService
 from fdai_ingestion_api_service.http import IngestionGatewayConfig, build_app
@@ -269,6 +278,158 @@ class Activity:
 
     async def drain(self, *, limit: int = 100) -> int:
         return 0
+
+
+class RecordingEventBus:
+    def __init__(self) -> None:
+        self.published: list[tuple[str, str, Mapping[str, object]]] = []
+        self.dead_letters: list[tuple[str, str, Mapping[str, object], str]] = []
+
+    async def publish(self, topic: str, key: str, payload: Mapping[str, object]) -> None:
+        self.published.append((topic, key, payload))
+
+    async def dead_letter(
+        self,
+        topic: str,
+        key: str,
+        payload: Mapping[str, object],
+        reason: str,
+    ) -> None:
+        self.dead_letters.append((topic, key, payload, reason))
+
+
+class FixedWorkerOutboxSink(WorkerDocumentActivitySink):
+    def __init__(
+        self,
+        *,
+        rows: list[dict[str, object]],
+        event_bus: RecordingEventBus,
+    ) -> None:
+        super().__init__(dsn="postgresql://unused", event_bus=event_bus, event_topic="aw.events")
+        self._rows = rows
+        self.marked: list[UUID] = []
+
+    async def _claim(self, limit: int) -> list[dict[str, object]]:
+        return self._rows[:limit]
+
+    async def _mark_published(self, event_id: UUID) -> None:
+        self.marked.append(event_id)
+
+
+class FixedApiOutboxSink(ApiDocumentActivitySink):
+    def __init__(
+        self,
+        *,
+        rows: list[dict[str, object]],
+        publisher: RecordingEventBus,
+    ) -> None:
+        super().__init__(
+            config=PostgresApiConfig(dsn="postgresql://unused"),
+            publisher=publisher,
+            topic="aw.events",
+            pantheon_topic="aw.pantheon.objects",
+        )
+        self._rows = rows
+        self.marked: list[UUID] = []
+
+    async def _claim(self, limit: int) -> list[dict[str, object]]:
+        return self._rows[:limit]
+
+    async def _mark_published(self, event_id: UUID) -> None:
+        self.marked.append(event_id)
+
+
+@pytest.mark.asyncio
+async def test_worker_outbox_dead_letters_poison_row_without_starving_valid_event() -> None:
+    event_bus = RecordingEventBus()
+    poison_id = uuid4()
+    valid = DocumentLifecycleEvent(
+        event_id=uuid4(),
+        idempotency_key="document.ready:version-1:7",
+        topic="object.event",
+        key="document-1",
+        payload={"action": "document.ready"},
+        created_at=datetime.now(UTC),
+    )
+    sink = FixedWorkerOutboxSink(
+        rows=[
+            {
+                "event_id": poison_id,
+                "topic": "object.event",
+                "partition_key": "document-1",
+                "payload": {"invalid": True},
+            },
+            {
+                "event_id": valid.event_id,
+                "topic": valid.topic,
+                "partition_key": valid.key,
+                "payload": valid.model_dump(mode="json"),
+            },
+        ],
+        event_bus=event_bus,
+    )
+
+    assert await sink.drain() == 1
+    assert event_bus.published == [(valid.topic, valid.key, valid.payload)]
+    assert event_bus.dead_letters == [
+        (
+            "object.event",
+            "document-1",
+            {"outbox_event_id": str(poison_id)},
+            "invalid_document_worker_outbox_event",
+        )
+    ]
+    assert sink.marked == [poison_id, valid.event_id]
+
+
+@pytest.mark.asyncio
+async def test_api_outbox_dead_letters_poison_row_without_starving_valid_event() -> None:
+    publisher = RecordingEventBus()
+    poison_id = uuid4()
+    valid = DocumentLifecycleEvent(
+        event_id=uuid4(),
+        idempotency_key="document.received:version-1:3",
+        topic="object.event",
+        key="document-1",
+        payload={"action": "document.received"},
+        created_at=datetime.now(UTC),
+    )
+    sink = FixedApiOutboxSink(
+        rows=[
+            {
+                "event_id": poison_id,
+                "topic": "object.event",
+                "partition_key": "document-1",
+                "payload": {"invalid": True},
+            },
+            {
+                "event_id": valid.event_id,
+                "topic": valid.topic,
+                "partition_key": valid.key,
+                "payload": valid.model_dump(mode="json"),
+            },
+        ],
+        publisher=publisher,
+    )
+
+    assert await sink.drain() == 1
+    assert publisher.published == [
+        (
+            "aw.pantheon.objects.dlq",
+            "document-1",
+            {
+                "original_topic": "object.event",
+                "reason": "invalid_document_api_outbox_event",
+                "outbox_event_id": str(poison_id),
+            },
+        ),
+        (
+            "aw.pantheon.objects",
+            valid.key,
+            valid.payload | {"_fdai_logical_topic": valid.topic},
+        ),
+    ]
+    assert sink.marked == [poison_id, valid.event_id]
 
 
 class NoDeletion:

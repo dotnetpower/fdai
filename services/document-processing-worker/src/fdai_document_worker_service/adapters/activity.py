@@ -13,6 +13,7 @@ from fdai_service_contracts import (
     EventBus,
 )
 from psycopg.rows import dict_row
+from pydantic import ValidationError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,7 +33,27 @@ class PostgresDocumentActivitySink:
         rows = await self._claim(limit)
         published = 0
         for row in rows:
-            event = DocumentLifecycleEvent.model_validate(_payload(row["payload"]))
+            try:
+                event = DocumentLifecycleEvent.model_validate(_payload(row["payload"]))
+            except (ValidationError, ValueError, RuntimeError):
+                try:
+                    await self._event_bus.dead_letter(
+                        str(row["topic"]),
+                        str(row["partition_key"]),
+                        {"outbox_event_id": str(row["event_id"])},
+                        "invalid_document_worker_outbox_event",
+                    )
+                except Exception as exc:  # noqa: BLE001 - preserve row until DLQ succeeds
+                    _LOGGER.warning(
+                        "document_worker_outbox_dead_letter_failed",
+                        extra={
+                            "event_id": str(row["event_id"]),
+                            "exception_type": type(exc).__name__,
+                        },
+                    )
+                    continue
+                await self._mark_published(row["event_id"])
+                continue
             try:
                 await self._event_bus.publish(event.topic, event.key, event.payload)
             except Exception as exc:  # noqa: BLE001 - durable row remains for retry
@@ -52,7 +73,8 @@ class PostgresDocumentActivitySink:
         ):
             rows = await (
                 await connection.execute(
-                    "SELECT event_id, payload FROM document_worker_outbox "
+                    "SELECT event_id, topic, partition_key, payload "
+                    "FROM document_worker_outbox "
                     "WHERE published_at IS NULL AND next_attempt_at <= clock_timestamp() "
                     "ORDER BY created_at, event_id FOR UPDATE SKIP LOCKED LIMIT %s",
                     (limit,),
