@@ -50,6 +50,13 @@ def upgrade() -> None:
             description = 'Ownership / scope containment from parent to child; '
                 || 'recursive traversal walks descendants.'
         WHERE name = 'contains';
+
+        ALTER TABLE ontology_link
+        ADD CONSTRAINT ontology_link_contains_version_direction
+        CHECK (
+            link_type <> 'contains'
+            OR (type_version IS NOT NULL AND type_version <> '1.0.0')
+        );
         """
     )
 
@@ -59,6 +66,9 @@ def downgrade() -> None:
     # prior runtime rebuilds them from its authoritative inventory source.
     op.execute(
         """
+        ALTER TABLE ontology_link
+        DROP CONSTRAINT ontology_link_contains_version_direction;
+
         UPDATE ontology_link_type
         SET version = '1.0.0',
             cardinality = 'many_to_one',

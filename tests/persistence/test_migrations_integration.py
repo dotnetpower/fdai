@@ -21,6 +21,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import psycopg
 import pytest
 
 pytestmark = pytest.mark.integration
@@ -285,6 +286,12 @@ def test_direction_migration_preserves_unrelated_graph_and_release_pins() -> Non
                 "SELECT version, cardinality FROM ontology_link_type WHERE name = 'contains'"
             )
             contains_declaration = cur.fetchone()
+            cur.execute(
+                "SELECT conname FROM pg_constraint "
+                "WHERE conrelid = 'ontology_link'::regclass "
+                "AND conname = 'ontology_link_contains_version_direction'"
+            )
+            contains_guard = cur.fetchone()
 
         assert retained == {
             ("contains", "migration-parent", "migration-child", "2.0.0", digest),
@@ -301,6 +308,27 @@ def test_direction_migration_preserves_unrelated_graph_and_release_pins() -> Non
         expected_objects.add(("migration-legacy", None, None))
         assert retained_objects == expected_objects
         assert contains_declaration == ("2.0.0", "one_to_many")
+        assert contains_guard == ("ontology_link_contains_version_direction",)
+        with _connect(url) as conn, conn.cursor() as cur:
+            with pytest.raises(
+                psycopg.errors.CheckViolation,
+                match="ontology_link_contains_version_direction",
+            ):
+                cur.execute(
+                    "INSERT INTO ontology_link "
+                    "(link_type, from_id, to_id, properties, type_version, catalog_digest) "
+                    "VALUES ('contains', 'migration-child', 'migration-parent', "
+                    "'{}'::jsonb, '1.0.0', %s)",
+                    (digest,),
+                )
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO ontology_link "
+                "(link_type, from_id, to_id, properties, type_version, catalog_digest) "
+                "VALUES ('contains', 'migration-legacy', 'migration-parent', "
+                "'{}'::jsonb, '2.1.0', %s)",
+                (digest,),
+            )
     finally:
         _alembic("upgrade", "head")
         with _connect(url) as conn, conn.cursor() as cur:

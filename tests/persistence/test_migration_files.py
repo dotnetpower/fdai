@@ -86,6 +86,8 @@ def test_ontology_direction_migration_invalidates_only_reversed_links() -> None:
     assert "WHERE catalog_digest =" in migration
     assert "WHERE type_version IS NOT NULL OR catalog_digest IS NOT NULL" not in migration
     assert "cardinality = 'one_to_many'" in migration
+    assert "ontology_link_contains_version_direction" in migration
+    assert "type_version IS NOT NULL AND type_version <> '1.0.0'" in migration
 
 
 @pytest.mark.parametrize("path", MIGRATION_FILES)
