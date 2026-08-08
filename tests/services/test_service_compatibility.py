@@ -84,6 +84,32 @@ def test_manifest_and_focused_fixture_gate_pass() -> None:
     assert summary.matrix_edge_count == 7
 
 
+def test_checker_rejects_missing_persisted_transition_evidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checker = _checker_module()
+    wire_payloads = (FIXTURE_ROOT / "wire-payloads.json").read_text(encoding="utf-8")
+    (tmp_path / "wire-payloads.json").write_text(wire_payloads, encoding="utf-8")
+    monkeypatch.setattr(checker, "FIXTURE_ROOT", tmp_path)
+
+    with pytest.raises(CompatibilityError, match="cannot load JSON array"):
+        checker.validate()
+
+
+def test_checker_rejects_self_attested_receipt_when_executable_check_fails() -> None:
+    checker = _checker_module()
+
+    with pytest.raises(
+        CompatibilityError,
+        match="persisted upgrade receipt does not match executable compatibility checks",
+    ):
+        checker._validate_upgrade_receipts(
+            _manifest(),
+            unsupported_major_rejection=False,
+        )
+
+
 def test_matrix_covers_every_release_pair_for_every_contract() -> None:
     manifest = _manifest()
     matrix = manifest["producer_consumer_matrix"]
@@ -190,6 +216,16 @@ def test_unsupported_major_is_rejected() -> None:
         ensure_supported_version("2.0.0", 1)
 
 
+def test_real_codecs_exercise_supported_pairs_and_reject_unsupported_versions() -> None:
+    manifest = _manifest()
+    checker = _checker_module()
+
+    assert checker._validate_codec_artifacts(
+        manifest,
+        checker._contract_map(manifest),
+    )
+
+
 @pytest.mark.parametrize("service_id", sorted(SERVICE_IDS))
 def test_delivery_transition_harness_proves_required_restart_scenarios(service_id: str) -> None:
     receipts = run_delivery_transition_harness(service_id)
@@ -210,11 +246,17 @@ def test_delivery_transition_harness_proves_required_restart_scenarios(service_i
 
 def test_each_service_has_valid_independent_migration_and_rollback_receipts() -> None:
     manifest = _manifest()
-    receipts = _generated_upgrade_receipts(manifest)
+    receipts = _fixture_array("upgrade-receipts.json")
+    checker = _checker_module()
+    checks = checker._upgrade_checks(manifest)
     identities: set[tuple[object, object]] = set()
 
     for receipt in receipts:
         validate_peer_upgrade_receipt(manifest, receipt)
+        assert receipt["offsets_preserved"] is checks["offsets_preserved"]
+        assert receipt["checks"] == {
+            name: value for name, value in checks.items() if name != "offsets_preserved"
+        }
         identities.add((receipt["service_id"], receipt["direction"]))
 
     assert identities == {

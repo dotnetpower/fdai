@@ -6,7 +6,7 @@ from __future__ import annotations
 import importlib
 import json
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -31,8 +31,6 @@ from fdai_service_contracts import (  # noqa: E402
     ProducerCodec,
     assert_additive_schema,
     delivery_checks,
-    ensure_supported_version,
-    generate_upgrade_receipts,
     load_json_object,
     project_additive_fields,
     run_delivery_transition_harness,
@@ -58,9 +56,12 @@ def validate() -> None:
     summary = validate_manifest(manifest, repo_root=REPO_ROOT)
     contracts = _contract_map(manifest)
     _validate_wire_payloads(contracts)
-    _validate_codec_artifacts(manifest, contracts)
+    unsupported_major_rejection = _validate_codec_artifacts(manifest, contracts)
     _validate_delivery_traces()
-    receipt_count = _validate_upgrade_receipts(manifest)
+    receipt_count = _validate_upgrade_receipts(
+        manifest,
+        unsupported_major_rejection=unsupported_major_rejection,
+    )
     print(
         "check-service-compatibility: OK "
         f"(services={summary.service_count} contracts={summary.contract_count} "
@@ -96,7 +97,7 @@ def _validate_wire_payloads(contracts: Mapping[str, Mapping[str, Any]]) -> None:
 def _validate_codec_artifacts(
     manifest: Mapping[str, Any],
     contracts: Mapping[str, Mapping[str, Any]],
-) -> None:
+) -> bool:
     fixtures = _load_json_array(FIXTURE_ROOT / "wire-payloads.json")
     payloads = {
         (str(fixture["contract_id"]), str(fixture["producer_release"])): _mapping(
@@ -124,33 +125,92 @@ def _validate_codec_artifacts(
             producer = _load_symbol(str(producer_codecs[producer_release]))
             if not isinstance(producer, ProducerCodec):
                 raise CompatibilityError(f"{contract_id} producer codec has the wrong type")
-            payload = payloads.get((contract_id, producer_release))
-            if payload is None:
-                current = payloads.get((contract_id, "N"))
-                if current is None:
-                    raise CompatibilityError(f"{contract_id} has no executable wire payload")
-                translator_ref = translators.get("N->N-1")
-                if translator_ref is not None:
-                    translator = _load_symbol(str(translator_ref))
-                    payload = _mapping(translator(current), "translated wire payload")
-                else:
-                    payload = current
+            payload = _payload_for_release(
+                contract_id,
+                producer_release,
+                payloads=payloads,
+                translators=translators,
+            )
             encoded = producer.encode(payload)
             for consumer_release in ("N-1", "N"):
-                if (producer_release, consumer_release) not in supported_pairs:
-                    continue
                 consumer = _load_symbol(str(consumer_codecs[consumer_release]))
                 if not isinstance(consumer, ConsumerCodec):
                     raise CompatibilityError(f"{contract_id} consumer codec has the wrong type")
+                if (producer_release, consumer_release) not in supported_pairs:
+                    try:
+                        consumer.decode(encoded)
+                    except CompatibilityError:
+                        continue
+                    raise CompatibilityError(
+                        f"{contract_id} consumer accepted unsupported pair "
+                        f"{producer_release}->{consumer_release}"
+                    )
                 translated = encoded
                 translator_ref = translators.get(f"{producer_release}->{consumer_release}")
                 if translator_ref is not None:
-                    translator = _load_symbol(str(translator_ref))
+                    translator = _load_translator(str(translator_ref))
                     translated_payload = _mapping(translator(payload), "translated wire payload")
                     translated = json.dumps(
                         translated_payload, separators=(",", ":"), sort_keys=True
                     ).encode()
                 consumer.decode(translated)
+        for consumer_release in ("N-1", "N"):
+            consumer = _load_symbol(str(consumer_codecs[consumer_release]))
+            if not isinstance(consumer, ConsumerCodec):
+                raise CompatibilityError(f"{contract_id} consumer codec has the wrong type")
+            accepted_release = next(
+                release
+                for release in ("N-1", "N")
+                if str(
+                    _mapping(
+                        _mapping(contract.get("producer_schemas"), "producer_schemas")[release],
+                        "producer schema",
+                    )["version"]
+                )
+                in consumer.accepted_versions
+            )
+            major_probe = dict(
+                _payload_for_release(
+                    contract_id,
+                    accepted_release,
+                    payloads=payloads,
+                    translators=translators,
+                )
+            )
+            major_probe["schema_version"] = "2.0.0"
+            encoded_probe = json.dumps(
+                major_probe,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
+            try:
+                consumer.decode(encoded_probe)
+            except CompatibilityError:
+                continue
+            raise CompatibilityError(
+                f"{contract_id} consumer {consumer_release} accepted unsupported major 2"
+            )
+    return True
+
+
+def _payload_for_release(
+    contract_id: str,
+    release: str,
+    *,
+    payloads: Mapping[tuple[str, str], Mapping[str, Any]],
+    translators: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    payload = payloads.get((contract_id, release))
+    if payload is not None:
+        return payload
+    current = payloads.get((contract_id, "N"))
+    if current is None:
+        raise CompatibilityError(f"{contract_id} has no executable wire payload")
+    translator_ref = translators.get("N->N-1")
+    if translator_ref is None:
+        return current
+    translator = _load_translator(str(translator_ref))
+    return _mapping(translator(current), "translated wire payload")
 
 
 def _load_symbol(reference: str) -> object:
@@ -164,7 +224,16 @@ def _load_symbol(reference: str) -> object:
         raise CompatibilityError(f"cannot import artifact: {reference}") from exc
 
 
+def _load_translator(reference: str) -> Callable[[Mapping[str, Any]], object]:
+    symbol = _load_symbol(reference)
+    if not callable(symbol):
+        raise CompatibilityError(f"translator artifact is not callable: {reference}")
+    return symbol
+
+
 def _validate_delivery_traces() -> None:
+    persisted = _load_json_array(FIXTURE_ROOT / "delivery-traces.json")
+    expected: list[dict[str, object]] = []
     for service_id in SERVICE_IDS:
         receipts = run_delivery_transition_harness(service_id)
         checks = delivery_checks(receipts)
@@ -175,17 +244,54 @@ def _validate_delivery_traces() -> None:
             "process_restart_duplicate",
         } or any(value is not True for value in checks.values()):
             raise CompatibilityError(f"{service_id} executable delivery transitions failed")
+        expected.extend(
+            {
+                "service_id": service_id,
+                "scenario": receipt.scenario,
+                "committed_offset": receipt.committed_offset,
+                "terminal_effects": receipt.terminal_effects,
+                "duplicate_count": receipt.duplicate_count,
+                "redelivery_count": receipt.redelivery_count,
+            }
+            for receipt in receipts
+        )
+    if sorted(persisted, key=_delivery_evidence_key) != sorted(
+        expected,
+        key=_delivery_evidence_key,
+    ):
+        raise CompatibilityError(
+            "persisted delivery evidence does not match executable transition observations"
+        )
 
 
-def _validate_upgrade_receipts(manifest: Mapping[str, Any]) -> int:
+def _delivery_evidence_key(item: Mapping[str, Any]) -> tuple[str, str]:
+    return str(item.get("service_id")), str(item.get("scenario"))
+
+
+def _validate_upgrade_receipts(
+    manifest: Mapping[str, Any],
+    *,
+    unsupported_major_rejection: bool,
+) -> int:
     receipt_contract = _mapping(manifest.get("upgrade_receipt"), "upgrade_receipt")
     schema = load_json_object(REPO_ROOT / str(receipt_contract["schema_path"]))
-    checks = _upgrade_checks(manifest)
-    fixtures = generate_upgrade_receipts(manifest, checks=checks)
+    checks = _upgrade_checks(
+        manifest,
+        unsupported_major_rejection=unsupported_major_rejection,
+    )
+    fixtures = _load_json_array(FIXTURE_ROOT / "upgrade-receipts.json")
+    expected_checks = {name: value for name, value in checks.items() if name != "offsets_preserved"}
     seen: set[tuple[str, str]] = set()
     for receipt in fixtures:
         _validator(schema).validate(receipt)
         validate_peer_upgrade_receipt(manifest, receipt)
+        if (
+            receipt.get("offsets_preserved") is not checks["offsets_preserved"]
+            or receipt.get("checks") != expected_checks
+        ):
+            raise CompatibilityError(
+                "persisted upgrade receipt does not match executable compatibility checks"
+            )
         service_id = receipt.get("service_id")
         direction = receipt.get("direction")
         if not isinstance(service_id, str) or not isinstance(direction, str):
@@ -204,7 +310,11 @@ def _validate_upgrade_receipts(manifest: Mapping[str, Any]) -> int:
     return len(fixtures)
 
 
-def _upgrade_checks(manifest: Mapping[str, Any]) -> dict[str, bool]:
+def _upgrade_checks(
+    manifest: Mapping[str, Any],
+    *,
+    unsupported_major_rejection: bool | None = None,
+) -> dict[str, bool]:
     receipts = tuple(
         receipt
         for service_id in sorted(SERVICE_IDS)
@@ -215,7 +325,11 @@ def _upgrade_checks(manifest: Mapping[str, Any]) -> dict[str, bool]:
         {
             "additive_fields": _additive_contracts_pass(manifest),
             "matrix": _matrix_is_complete(manifest),
-            "unsupported_major_rejection": _unsupported_major_is_rejected(),
+            "unsupported_major_rejection": (
+                _validate_codec_artifacts(manifest, _contract_map(manifest))
+                if unsupported_major_rejection is None
+                else unsupported_major_rejection
+            ),
         }
     )
     return checks
@@ -250,14 +364,6 @@ def _matrix_is_complete(manifest: Mapping[str, Any]) -> bool:
         if classified != expected:
             return False
     return True
-
-
-def _unsupported_major_is_rejected() -> bool:
-    try:
-        ensure_supported_version("2.0.0", 1)
-    except CompatibilityError:
-        return True
-    return False
 
 
 def _contract_map(manifest: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:

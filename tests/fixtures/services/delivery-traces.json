@@ -1,4 +1,22 @@
-{
-  "generated_by": "fdai_service_contracts.transition:run_delivery_transition_harness",
-  "note": "The compatibility checker executes the harness; this file contains no claimed result."
-}
+[
+  {"service_id": "core-control-plane", "scenario": "commit_failure_redelivery", "committed_offset": 0, "terminal_effects": 1, "duplicate_count": 1, "redelivery_count": 1},
+  {"service_id": "core-control-plane", "scenario": "restart_from_committed_offset", "committed_offset": 1, "terminal_effects": 2, "duplicate_count": 0, "redelivery_count": 0},
+  {"service_id": "core-control-plane", "scenario": "rebalance_before_commit", "committed_offset": 0, "terminal_effects": 1, "duplicate_count": 1, "redelivery_count": 1},
+  {"service_id": "core-control-plane", "scenario": "process_restart_duplicate", "committed_offset": 0, "terminal_effects": 1, "duplicate_count": 1, "redelivery_count": 1},
+  {"service_id": "operator-service", "scenario": "commit_failure_redelivery", "committed_offset": 0, "terminal_effects": 1, "duplicate_count": 1, "redelivery_count": 1},
+  {"service_id": "operator-service", "scenario": "restart_from_committed_offset", "committed_offset": 1, "terminal_effects": 2, "duplicate_count": 0, "redelivery_count": 0},
+  {"service_id": "operator-service", "scenario": "rebalance_before_commit", "committed_offset": 0, "terminal_effects": 1, "duplicate_count": 1, "redelivery_count": 1},
+  {"service_id": "operator-service", "scenario": "process_restart_duplicate", "committed_offset": 0, "terminal_effects": 1, "duplicate_count": 1, "redelivery_count": 1},
+  {"service_id": "document-ingestion-api", "scenario": "commit_failure_redelivery", "committed_offset": 0, "terminal_effects": 1, "duplicate_count": 1, "redelivery_count": 1},
+  {"service_id": "document-ingestion-api", "scenario": "restart_from_committed_offset", "committed_offset": 1, "terminal_effects": 2, "duplicate_count": 0, "redelivery_count": 0},
+  {"service_id": "document-ingestion-api", "scenario": "rebalance_before_commit", "committed_offset": 0, "terminal_effects": 1, "duplicate_count": 1, "redelivery_count": 1},
+  {"service_id": "document-ingestion-api", "scenario": "process_restart_duplicate", "committed_offset": 0, "terminal_effects": 1, "duplicate_count": 1, "redelivery_count": 1},
+  {"service_id": "document-processing-worker", "scenario": "commit_failure_redelivery", "committed_offset": 0, "terminal_effects": 1, "duplicate_count": 1, "redelivery_count": 1},
+  {"service_id": "document-processing-worker", "scenario": "restart_from_committed_offset", "committed_offset": 1, "terminal_effects": 2, "duplicate_count": 0, "redelivery_count": 0},
+  {"service_id": "document-processing-worker", "scenario": "rebalance_before_commit", "committed_offset": 0, "terminal_effects": 1, "duplicate_count": 1, "redelivery_count": 1},
+  {"service_id": "document-processing-worker", "scenario": "process_restart_duplicate", "committed_offset": 0, "terminal_effects": 1, "duplicate_count": 1, "redelivery_count": 1},
+  {"service_id": "isolated-executor", "scenario": "commit_failure_redelivery", "committed_offset": 0, "terminal_effects": 1, "duplicate_count": 1, "redelivery_count": 1},
+  {"service_id": "isolated-executor", "scenario": "restart_from_committed_offset", "committed_offset": 1, "terminal_effects": 2, "duplicate_count": 0, "redelivery_count": 0},
+  {"service_id": "isolated-executor", "scenario": "rebalance_before_commit", "committed_offset": 0, "terminal_effects": 1, "duplicate_count": 1, "redelivery_count": 1},
+  {"service_id": "isolated-executor", "scenario": "process_restart_duplicate", "committed_offset": 0, "terminal_effects": 1, "duplicate_count": 1, "redelivery_count": 1}
+]
