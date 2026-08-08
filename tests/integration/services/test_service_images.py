@@ -100,11 +100,15 @@ def test_service_targets_install_owned_wheels_and_entrypoints() -> None:
         assert "uv build --wheel --package fdai-service-contracts" in builder
         assert f"uv build --wheel --package {distribution}" in builder
         assert f"uv sync --frozen --package {distribution} --no-dev --no-editable" in builder
+        assert "UV_PROJECT_ENVIRONMENT=/app/.venv" in builder
         assert "--no-install-package fdai-service-contracts" in builder
         assert f"--no-install-package {distribution}" in builder
         assert "/wheels/fdai_service_contracts-*.whl" in builder
         assert f"/wheels/{wheel_name}-*.whl" in builder
-        assert "COPY --from=builder" in runtime
+        assert f'test "$(head -n 1 /app/.venv/bin/{entrypoint})"' in builder
+        assert "#!/app/.venv/bin/python" in builder
+        assert "/build/.venv" not in dockerfile
+        assert "COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv" in runtime
         assert "USER 65532" in runtime
         assert f'ENTRYPOINT ["{entrypoint}"]' in runtime
 

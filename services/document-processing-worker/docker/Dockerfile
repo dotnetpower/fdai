@@ -7,6 +7,7 @@ FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:9fdbf2e3e82628351513560b121e2e
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never \
+    UV_PROJECT_ENVIRONMENT=/app/.venv \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 RUN apk add --no-cache build-base zlib-dev
@@ -30,10 +31,11 @@ RUN uv build --wheel --package fdai-service-contracts --out-dir /wheels \
         --no-install-package fdai \
         --no-install-package fdai-service-contracts \
         --no-install-package fdai-document-processing-worker \
-    && uv pip install --python /build/.venv/bin/python --no-deps \
+    && uv pip install --python /app/.venv/bin/python --no-deps \
         /wheels/fdai_service_contracts-*.whl \
         /wheels/fdai_document_processing_worker-*.whl \
-    && test -x /build/.venv/bin/fdai-document-processing-worker
+    && test -x /app/.venv/bin/fdai-document-processing-worker \
+    && test "$(head -n 1 /app/.venv/bin/fdai-document-processing-worker)" = "#!/app/.venv/bin/python"
 
 FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:9fdbf2e3e82628351513560b121e2ee6ce31cac212be9e070c5a5e2769fb5e76 AS runtime
 
@@ -45,7 +47,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     XDG_CACHE_HOME=/tmp/fdai/.cache
 
 WORKDIR /app
-COPY --from=builder --chown=65532:65532 /build/.venv /app/.venv
+COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv
 USER 65532
 RUN test -x /app/.venv/bin/fdai-document-processing-worker
 EXPOSE 8000
