@@ -1739,6 +1739,15 @@ def test_apply_runs_service_migrations_from_masked_key_vault_dsn() -> None:
     assert "migration_dsn_secret_name" in workflow
 
 
+def test_rollback_removes_secrets_absent_from_the_exact_snapshot() -> None:
+    workflow = (_ROOT / ".github/workflows/service-deploy.yml").read_text(encoding="utf-8")
+
+    assert "app-before-secret-restore.json" in workflow
+    assert "mapfile -t extra_secret_names" in workflow
+    assert "az containerapp secret remove" in workflow
+    assert '--secret-names "${extra_secret_names[@]}"' in workflow
+
+
 def test_initial_worker_cutover_snapshots_exact_empty_legacy_sidecar_probes(
     recovery: ModuleType,
 ) -> None:

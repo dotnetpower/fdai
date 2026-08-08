@@ -117,7 +117,7 @@ The deploy job runs from `infra/`, so a step that invokes a repository-root scri
 `../scripts/` or overrides the working directory. A bare `scripts/...` path resolves under `infra/`
 and exits 127 on the runner, before Terraform has produced anything to inspect.
 Protected plans store the binary Terraform plan, bounded preflight evidence, and the Function
-source archive with separate SHA-256 digests. Exact apply downloads and verifies every artifact.
+source archive with separate SHA-256 digests. Exact apply verifies every artifact; service rollback removes only post-apply secret names absent from the immutable snapshot before restoring its exact Key Vault references.
 Before storing a new plan, the runner selects only allowlisted plan, metadata, source, preflight,
 claim, and receipt blobs older than 24 hours. It scans fewer than 1001, deletes at most 1000 with
 eight workers, and fails the plan if selection is incomplete or any delete fails.

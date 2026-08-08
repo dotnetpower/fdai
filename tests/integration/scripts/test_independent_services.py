@@ -96,7 +96,7 @@ def test_manifest_records_completed_local_layout_assurance() -> None:
     statuses = {item["id"]: item["status"] for item in manifest["work_packages"]}
 
     assert evidence["state"] == "completed"
-    assert evidence["independent_critique_rounds"] >= 31
+    assert evidence["independent_critique_rounds"] >= 32
     assert evidence["medium_or_higher_local_residuals"] == 0
     assert evidence["pending_parallel_lanes"] == []
     assert statuses["IS-04"] == "completed"

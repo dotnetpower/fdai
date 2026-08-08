@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 8d74d43d4eb4a4ddf320e97b01c843bec78df967
+translation_source_sha: 32b57e4a25fc271c2140e8acb8393e8782443371
 translation_revised: 2026-08-09
 ---
 # 서비스 분해 실행 계획
@@ -275,6 +275,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-09 | IS-09 | Live evidence hardening | Round 29 | `observed:false` content를 다시 hash한 live evidence artifact는 더 이상 통과하지 않습니다. Validation은 각 observation의 kind와 service를 binding하고 실제 observed result가 true인 경우에만 content-addressed ref가 live migration 또는 rollback receipt를 충족하도록 요구합니다. |
 | 2026-08-09 | IS-09 | Worker cutover recovery | Round 30 | Run `31276433851`은 live legacy ClamAV sidecar에 probe가 없어 mutation 전에 실패했습니다. Initial cutover는 rollback용 exact empty probe contract만 snapshot하고 exact restoration을 검증합니다. Normal snapshot과 모든 새 worker revision은 계속 startup, liveness, readiness TCP probe를 요구합니다. |
 | 2026-08-09 | IS-09 | Runtime dependency와 migration readiness | Round 31 | Live revision에서 ingestion API의 `aiohttp` 누락과 미적용 Operator/Executor role branch가 드러났습니다. Ingestion distribution은 async Azure transport dependency를 소유하고, protected service apply는 validated Key Vault reference에서 admin DSN을 읽어 mask한 뒤 traffic 전에 exact service-owned migration branch를 적용합니다. |
+| 2026-08-09 | IS-09 | Exact secret rollback | Round 32 | Operator와 Executor recovery revision은 healthy였지만 post-apply `database-dsn` alias가 legacy name과 함께 남아 verification이 실패했습니다. Rollback은 immutable snapshot에 없는 secret name만 제거하고 prior Key Vault reference를 복원한 뒤 exact equality를 검증합니다. |
 
 ## 관련 문서
 

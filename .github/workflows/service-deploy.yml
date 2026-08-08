@@ -878,6 +878,26 @@ jobs:
             jq -r '.previous_secrets[] | "\(.name)=keyvaultref:\(.key_vault_url),identityref:\(.identity)"' \
               "$rollback_dir/snapshot.json"
           )
+          mapfile -t previous_secret_names < <(
+            jq -r '.previous_secrets[].name' "$rollback_dir/snapshot.json"
+          )
+          timeout 60s az containerapp show \
+            --ids "$(jq -er '.service_resource_id' "$rollback_dir/snapshot.json")" \
+            --only-show-errors \
+            --output json >"$rollback_dir/app-before-secret-restore.json"
+          mapfile -t extra_secret_names < <(
+            jq -r --argjson expected "$(printf '%s\n' "${previous_secret_names[@]}" | jq -Rsc 'split("\n")[:-1]')" \
+              '.properties.configuration.secrets[].name | select(. as $name | $expected | index($name) | not)' \
+              "$rollback_dir/app-before-secret-restore.json"
+          )
+          if [[ ${#extra_secret_names[@]} -gt 0 ]]; then
+            timeout 60s az containerapp secret remove \
+              --resource-group "$(jq -er '.resource_group' "$rollback_dir/snapshot.json")" \
+              --name "$(jq -er '.service_name' "$rollback_dir/snapshot.json")" \
+              --secret-names "${extra_secret_names[@]}" \
+              --only-show-errors \
+              --output none
+          fi
           if [[ ${#previous_secrets[@]} -gt 0 ]]; then
             timeout 60s az containerapp secret set \
               --resource-group "$(jq -er '.resource_group' "$rollback_dir/snapshot.json")" \
