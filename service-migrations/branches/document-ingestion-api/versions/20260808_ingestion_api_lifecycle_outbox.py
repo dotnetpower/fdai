@@ -63,10 +63,94 @@ def upgrade() -> None:
             server_default=sa.func.now(),
         ),
     )
+    op.execute(
+        "REVOKE ALL PRIVILEGES ON TABLE document_api_outbox "
+        "FROM PUBLIC, fdai_ingestion_worker, fdai_ingestion_cohost"
+    )
+    op.execute("GRANT SELECT, INSERT, UPDATE ON TABLE document_api_outbox TO fdai_ingestion_api")
+    op.execute(
+        """
+        CREATE FUNCTION enforce_document_lifecycle_transition_owner()
+        RETURNS TRIGGER
+        LANGUAGE plpgsql
+        AS $lifecycle$
+        DECLARE
+            api_allowed BOOLEAN;
+            worker_allowed BOOLEAN;
+        BEGIN
+            IF NEW.revision <> OLD.revision + 1 THEN
+                RAISE EXCEPTION 'document lifecycle revision must increment exactly once';
+            END IF;
+            IF NEW.payload->>'state' IS DISTINCT FROM NEW.state
+               OR (NEW.payload->>'revision')::BIGINT IS DISTINCT FROM NEW.revision THEN
+                RAISE EXCEPTION
+                    'document lifecycle payload must match relational state and revision';
+            END IF;
+
+            api_allowed :=
+                (OLD.state = 'created' AND NEW.state = 'uploading')
+                OR (OLD.state = 'uploading' AND NEW.state IN ('received', 'held'))
+                OR (
+                    OLD.state NOT IN ('deleting', 'deleted')
+                    AND NEW.state = 'deleting'
+                );
+            worker_allowed :=
+                (OLD.state = 'received' AND NEW.state = 'quarantined')
+                OR (OLD.state = 'quarantined' AND NEW.state = 'scanning')
+                OR (OLD.state = 'scanning' AND NEW.state = 'protection_check')
+                OR (
+                    OLD.state = 'protection_check'
+                    AND NEW.state IN ('extracting', 'ready', 'held')
+                )
+                OR (OLD.state = 'extracting' AND NEW.state IN ('indexing', 'failed'))
+                OR (
+                    OLD.state = 'indexing'
+                    AND NEW.state IN ('ready', 'ready_with_warnings', 'failed')
+                )
+                OR (OLD.state = 'deleting' AND NEW.state = 'deleted')
+                OR (
+                    TG_TABLE_NAME = 'document_version'
+                    AND OLD.state = NEW.state
+                    AND to_jsonb(OLD)->>'active' = 'true'
+                    AND to_jsonb(NEW)->>'active' = 'false'
+                );
+
+            IF current_user = 'fdai_ingestion_api' AND NOT api_allowed THEN
+                RAISE EXCEPTION
+                    'fdai_ingestion_api does not own this lifecycle transition';
+            ELSIF current_user = 'fdai_ingestion_worker' AND NOT worker_allowed THEN
+                RAISE EXCEPTION
+                    'fdai_ingestion_worker does not own this lifecycle transition';
+            ELSIF current_user = 'fdai_ingestion_cohost'
+                  AND NOT (api_allowed OR worker_allowed) THEN
+                RAISE EXCEPTION
+                    'fdai_ingestion_cohost does not own this lifecycle transition';
+            END IF;
+            RETURN NEW;
+        END;
+        $lifecycle$;
+
+        CREATE TRIGGER document_upload_session_transition_owner
+        BEFORE UPDATE ON document_upload_session
+        FOR EACH ROW EXECUTE FUNCTION enforce_document_lifecycle_transition_owner();
+
+        CREATE TRIGGER document_version_transition_owner
+        BEFORE UPDATE ON document_version
+        FOR EACH ROW EXECUTE FUNCTION enforce_document_lifecycle_transition_owner();
+        """
+    )
 
 
 def downgrade() -> None:
     _require_worker_baseline()
+    op.execute(
+        """
+        DROP TRIGGER document_version_transition_owner ON document_version;
+        DROP TRIGGER document_upload_session_transition_owner ON document_upload_session;
+        DROP FUNCTION enforce_document_lifecycle_transition_owner();
+        """
+    )
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE document_api_outbox FROM fdai_ingestion_api")
     op.drop_table("document_api_outbox")
     op.execute("UPDATE document_version SET payload = payload - 'revision'")
     op.execute("UPDATE document_upload_session SET payload = payload - 'revision'")

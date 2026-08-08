@@ -20,6 +20,12 @@ _DDL_TABLE = re.compile(
     r"(?:public\.)?([a-zA-Z_][a-zA-Z0-9_]*)",
     re.IGNORECASE,
 )
+_TRIGGER_TABLE = re.compile(
+    r"(?:CREATE|DROP)\s+TRIGGER\s+[a-zA-Z_][a-zA-Z0-9_]*\s+.*?\s+ON\s+"
+    r"(?:public\.)?([a-zA-Z_][a-zA-Z0-9_]*)",
+    re.IGNORECASE | re.DOTALL,
+)
+_SQL_NON_TABLE_TOKENS = frozenset({"OF", "ON", "SET"})
 _TABLE_ARG_BY_OPERATION = {
     "add_column": 0,
     "alter_column": 0,
@@ -125,11 +131,21 @@ def _literal_table_argument(call: ast.Call, operation: str, index: int) -> str:
     return value
 
 
+def _sql_tables(statement: str) -> set[str]:
+    tables = {
+        table
+        for table in _DDL_TABLE.findall(statement)
+        if table.upper() not in _SQL_NON_TABLE_TOKENS
+    }
+    tables.update(_TRIGGER_TABLE.findall(statement))
+    return tables
+
+
 def _touched_tables(upgrade: ast.FunctionDef) -> set[str]:
     tables: set[str] = set()
     for node in ast.walk(upgrade):
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            tables.update(_DDL_TABLE.findall(node.value))
+            tables.update(_sql_tables(node.value))
         if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
             continue
         if not isinstance(node.func.value, ast.Name) or node.func.value.id != "op":
@@ -148,7 +164,7 @@ def _touched_tables(upgrade: ast.FunctionDef) -> set[str]:
                 or not isinstance(node.args[0].value, str)
             ):
                 raise ValueError("op.execute() SQL must be a string literal for ownership review")
-            tables.update(_DDL_TABLE.findall(node.args[0].value))
+            tables.update(_sql_tables(node.args[0].value))
             continue
         index = _TABLE_ARG_BY_OPERATION.get(operation)
         if index is not None:

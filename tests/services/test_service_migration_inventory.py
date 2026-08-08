@@ -294,6 +294,80 @@ def test_ingestion_api_downgrade_rejects_deployed_worker_dependency() -> None:
     assert UnsafeDowngradeOp.dropped == []
 
 
+def test_worker_migration_widens_claim_check_and_blocks_unsafe_downgrade() -> None:
+    revision_path = (
+        MIGRATION_ROOT
+        / "branches/document-processing-worker/versions/20260808_document_worker_outbox.py"
+    )
+    source = revision_path.read_text(encoding="utf-8")
+    migration = runpy.run_path(str(revision_path))
+
+    assert "'deletion'" in source
+    assert "document_worker_claim_stage_check" in source
+
+    class DeletionClaimResult:
+        @staticmethod
+        def scalar_one() -> int:
+            return 1
+
+    class UnsafeDowngradeOp:
+        changed: list[str] = []
+
+        @staticmethod
+        def get_bind() -> SimpleNamespace:
+            return SimpleNamespace(execute=lambda _statement: DeletionClaimResult())
+
+        @classmethod
+        def drop_table(cls, table: str) -> None:
+            cls.changed.append(table)
+
+        @classmethod
+        def drop_constraint(cls, name: str, table: str, **_kwargs: object) -> None:
+            cls.changed.append(f"{table}.{name}")
+
+    downgrade = migration["downgrade"]
+    downgrade.__globals__["op"] = UnsafeDowngradeOp()
+    downgrade.__globals__["sa"] = SimpleNamespace(text=lambda statement: statement)
+    with pytest.raises(RuntimeError, match="deletion claims"):
+        downgrade()
+    assert UnsafeDowngradeOp.changed == []
+
+
+def test_ingestion_outboxes_declare_runtime_least_privilege() -> None:
+    api_source = (
+        MIGRATION_ROOT
+        / "branches/document-ingestion-api/versions/20260808_ingestion_api_lifecycle_outbox.py"
+    ).read_text(encoding="utf-8")
+    worker_source = (
+        MIGRATION_ROOT
+        / "branches/document-processing-worker/versions/20260808_document_worker_outbox.py"
+    ).read_text(encoding="utf-8")
+
+    assert "GRANT SELECT, INSERT, UPDATE ON TABLE document_api_outbox" in api_source
+    assert "FROM PUBLIC, fdai_ingestion_worker" in api_source
+    assert "GRANT SELECT, INSERT, UPDATE ON TABLE document_worker_outbox" in worker_source
+    assert "FROM PUBLIC, fdai_ingestion_api" in worker_source
+    assert "REVOKE ALL PRIVILEGES ON TABLE document_api_outbox" in api_source
+    assert "REVOKE ALL PRIVILEGES ON TABLE document_worker_outbox" in worker_source
+
+
+def test_lifecycle_migration_enforces_role_owned_transitions_in_database() -> None:
+    source = (
+        MIGRATION_ROOT
+        / "branches/document-ingestion-api/versions/20260808_ingestion_api_lifecycle_outbox.py"
+    ).read_text(encoding="utf-8")
+
+    assert "CREATE FUNCTION enforce_document_lifecycle_transition_owner" in source
+    assert "CREATE TRIGGER document_upload_session_transition_owner" in source
+    assert "CREATE TRIGGER document_version_transition_owner" in source
+    assert "current_user = 'fdai_ingestion_api'" in source
+    assert "current_user = 'fdai_ingestion_worker'" in source
+    assert "OLD.state = 'uploading' AND NEW.state IN ('received', 'held')" in source
+    assert "OLD.state = 'received' AND NEW.state = 'quarantined'" in source
+    assert "OLD.state = 'deleting' AND NEW.state = 'deleted'" in source
+    assert "NEW.revision <> OLD.revision + 1" in source
+
+
 def test_dispatcher_validates_all_and_refuses_unknown_service() -> None:
     valid = subprocess.run(  # noqa: S603 - fixed interpreter and repository script
         [sys.executable, str(MIGRATION_ROOT / "migrate.py"), "all", "validate"],
@@ -485,9 +559,9 @@ def test_service_sql_writers_and_outbox_paths_match_ownership_manifest() -> None
     assert api_postgres.index("self._publisher.publish(physical_topic") < api_postgres.index(
         "self._mark_published(event.event_id)"
     )
-    assert worker_activity.index("self._event_bus.publish(event.topic") < worker_activity.index(
-        "self._mark_published(event.event_id)"
-    )
+    assert worker_activity.index(
+        "self._event_bus.publish(self._event_topic"
+    ) < worker_activity.index("self._mark_published(event.event_id)")
     assert "AND state = %s AND revision = %s" in api_postgres
     assert "AND state = %s AND revision = %s" in worker_postgres
     assert "SET active = FALSE, revision = revision + 1" in api_postgres
