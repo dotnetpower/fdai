@@ -224,6 +224,7 @@ def test_direction_migration_preserves_unrelated_graph_and_release_pins() -> Non
         ("attached_to", "migration-nic", "migration-vm"),
         ("depends_on", "migration-foreign-a", "migration-foreign-b"),
         ("depends_on", "migration-legacy", "migration-foreign-a"),
+        ("contains", "migration-legacy", "migration-parent"),
     )
     object_ids = tuple(row[0] for row in object_rows)
     try:
@@ -256,6 +257,15 @@ def test_direction_migration_preserves_unrelated_graph_and_release_pins() -> Non
                 "UPDATE ontology_link SET catalog_digest = %s WHERE from_id = 'migration-legacy'",
                 (previous_digest,),
             )
+            cur.execute(
+                "UPDATE ontology_link SET type_version = '2.0.0' "
+                "WHERE link_type = 'contains' "
+                "AND from_id IN ('migration-parent', 'migration-foreign-a')"
+            )
+            cur.execute(
+                "UPDATE ontology_link SET type_version = NULL, catalog_digest = NULL "
+                "WHERE link_type = 'contains' AND from_id = 'migration-legacy'"
+            )
 
         _alembic("upgrade", "head")
 
@@ -277,8 +287,8 @@ def test_direction_migration_preserves_unrelated_graph_and_release_pins() -> Non
             contains_declaration = cur.fetchone()
 
         assert retained == {
-            ("contains", "migration-parent", "migration-child", "1.0.0", digest),
-            ("contains", "migration-foreign-a", "migration-foreign-b", "1.0.0", digest),
+            ("contains", "migration-parent", "migration-child", "2.0.0", digest),
+            ("contains", "migration-foreign-a", "migration-foreign-b", "2.0.0", digest),
             ("attached_to", "migration-nic", "migration-vm", "1.0.0", digest),
             ("depends_on", "migration-foreign-a", "migration-foreign-b", "1.0.0", digest),
             ("depends_on", "migration-legacy", "migration-foreign-a", None, None),

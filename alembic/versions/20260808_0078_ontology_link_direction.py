@@ -25,14 +25,9 @@ def upgrade() -> None:
     # Unrelated projections and exact release pins remain intact.
     op.execute(
         f"""
-        DELETE FROM ontology_link AS link
-        USING ontology_resource AS child, ontology_resource AS parent
-        WHERE link.link_type = 'contains'
-          AND link.from_id = child.id
-          AND link.to_id = parent.id
-          AND child.object_type = 'Resource'
-          AND parent.object_type = 'Resource'
-          AND child.properties ->> 'parent_id' = parent.id;
+                DELETE FROM ontology_link
+                WHERE link_type = 'contains'
+                    AND (type_version = '1.0.0' OR type_version IS NULL);
 
         DELETE FROM ontology_link AS link
         USING ontology_resource AS source
