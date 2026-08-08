@@ -21,7 +21,11 @@ from fdai.shared.contracts.models import (
     PropertyDecl,
     PropertyType,
 )
-from fdai.shared.providers.ontology_instance import OntologyLinkRecord, OntologyObjectRecord
+from fdai.shared.providers.ontology_instance import (
+    OntologyInstanceValidationError,
+    OntologyLinkRecord,
+    OntologyObjectRecord,
+)
 
 pytestmark = pytest.mark.integration
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -178,3 +182,40 @@ async def test_postgres_replace_subgraph_removes_prior_owned_records() -> None:
     assert await store.get_object(check_id) is None
     graph = await store.traverse(root_ids=(review_id,), max_depth=1)
     assert graph.links == ()
+
+
+async def test_postgres_replace_subgraph_rejects_batch_cardinality_atomically() -> None:
+    _requires_live_db()
+    _upgrade_head()
+    store = _store()
+    suffix = uuid.uuid4().hex
+    review_ids = (f"review-a-{suffix}", f"review-b-{suffix}")
+    check_id = f"check-{suffix}"
+    objects = (
+        *(
+            OntologyObjectRecord(
+                id=review_id,
+                object_type="ReviewCase",
+                properties={"id": review_id, "status": "open"},
+            )
+            for review_id in review_ids
+        ),
+        OntologyObjectRecord(
+            id=check_id,
+            object_type="ReviewCheck",
+            properties={"id": check_id, "status": "ready"},
+        ),
+    )
+    links = tuple(
+        OntologyLinkRecord(
+            link_type="contains_check",
+            from_id=review_id,
+            to_id=check_id,
+        )
+        for review_id in review_ids
+    )
+
+    with pytest.raises(OntologyInstanceValidationError, match="one_to_many cardinality"):
+        await store.replace_subgraph(objects=objects, links=links)
+
+    assert [await store.get_object(record.id) for record in objects] == [None, None, None]

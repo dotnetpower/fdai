@@ -312,6 +312,44 @@ async def test_link_cardinality_is_enforced() -> None:
         )
 
 
+async def test_replace_subgraph_rejects_batch_cardinality_violation_atomically() -> None:
+    store = _store()
+    objects = (
+        OntologyObjectRecord(
+            id="review-1",
+            object_type="ReviewCase",
+            properties={"id": "review-1", "status": "open"},
+        ),
+        OntologyObjectRecord(
+            id="review-2",
+            object_type="ReviewCase",
+            properties={"id": "review-2", "status": "open"},
+        ),
+        OntologyObjectRecord(
+            id="check-1",
+            object_type="ReviewCheck",
+            properties={"id": "check-1", "status": "ready"},
+        ),
+    )
+    links = (
+        OntologyLinkRecord(
+            link_type="contains_check",
+            from_id="review-1",
+            to_id="check-1",
+        ),
+        OntologyLinkRecord(
+            link_type="contains_check",
+            from_id="review-2",
+            to_id="check-1",
+        ),
+    )
+
+    with pytest.raises(OntologyInstanceValidationError, match="one_to_many cardinality"):
+        await store.replace_subgraph(objects=objects, links=links)
+
+    assert [await store.get_object(record.id) for record in objects] == [None, None, None]
+
+
 @pytest.mark.parametrize(
     ("cardinality", "second_edge", "allowed"),
     [
