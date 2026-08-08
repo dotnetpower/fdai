@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast
 
@@ -138,7 +138,7 @@ def _parse_roles(raw: object) -> frozenset[OperatorRole]:
 def _string_items(raw: object) -> Iterable[str]:
     if isinstance(raw, str):
         yield from raw.split()
-    elif isinstance(raw, Iterable):
+    elif isinstance(raw, Sequence) and not isinstance(raw, (bytes, bytearray)):
         for value in raw:
             if isinstance(value, str) and value:
                 yield value

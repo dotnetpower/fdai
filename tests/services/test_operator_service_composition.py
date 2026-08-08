@@ -251,6 +251,22 @@ def test_authenticated_audit_envelopes_are_stable() -> None:
     )
 
 
+def test_mapping_shaped_roles_claim_does_not_grant_operator_access() -> None:
+    def verify_mapping_role(token: str) -> Mapping[str, object]:
+        del token
+        return {"oid": "operator", "roles": {OperatorRole.OWNER.value: True}}
+
+    composition = ProductionOperatorComposition(
+        verifier_factory=lambda environment: verify_mapping_role,
+        read_model=EmptyReadModel(),
+    )
+    client = TestClient(create_app(BASE_ENV, composition=composition))
+
+    response = client.get("/audit", headers={"Authorization": "Bearer malformed-role"})
+
+    assert response.status_code == 403
+
+
 def test_unbound_projection_fails_closed_instead_of_returning_empty_live_state() -> None:
     response = _client().get("/audit", headers={"Authorization": "Bearer reader"})
     assert (response.status_code, response.json()) == (
