@@ -15,37 +15,17 @@ _TRANSITIONS = MappingProxyType(
         DocumentState.UPLOADING: frozenset(
             {DocumentState.RECEIVED, DocumentState.HELD, DocumentState.DELETING}
         ),
-        DocumentState.RECEIVED: frozenset(
-            {DocumentState.QUARANTINED, DocumentState.HELD, DocumentState.DELETING}
-        ),
-        DocumentState.QUARANTINED: frozenset({DocumentState.SCANNING, DocumentState.DELETING}),
-        DocumentState.SCANNING: frozenset(
-            {DocumentState.PROTECTION_CHECK, DocumentState.HELD, DocumentState.DELETING}
-        ),
-        DocumentState.PROTECTION_CHECK: frozenset(
-            {
-                DocumentState.EXTRACTING,
-                DocumentState.READY,
-                DocumentState.HELD,
-                DocumentState.DELETING,
-            }
-        ),
-        DocumentState.EXTRACTING: frozenset(
-            {DocumentState.INDEXING, DocumentState.FAILED, DocumentState.DELETING}
-        ),
-        DocumentState.INDEXING: frozenset(
-            {
-                DocumentState.READY,
-                DocumentState.READY_WITH_WARNINGS,
-                DocumentState.FAILED,
-                DocumentState.DELETING,
-            }
-        ),
+        DocumentState.RECEIVED: frozenset({DocumentState.DELETING}),
+        DocumentState.QUARANTINED: frozenset({DocumentState.DELETING}),
+        DocumentState.SCANNING: frozenset({DocumentState.DELETING}),
+        DocumentState.PROTECTION_CHECK: frozenset({DocumentState.DELETING}),
+        DocumentState.EXTRACTING: frozenset({DocumentState.DELETING}),
+        DocumentState.INDEXING: frozenset({DocumentState.DELETING}),
         DocumentState.READY: frozenset({DocumentState.DELETING}),
         DocumentState.READY_WITH_WARNINGS: frozenset({DocumentState.DELETING}),
         DocumentState.HELD: frozenset({DocumentState.DELETING}),
         DocumentState.FAILED: frozenset({DocumentState.DELETING}),
-        DocumentState.DELETING: frozenset({DocumentState.DELETED}),
+        DocumentState.DELETING: frozenset(),
         DocumentState.DELETED: frozenset(),
     }
 )

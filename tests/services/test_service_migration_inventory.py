@@ -68,6 +68,25 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         manifest.transitions
     )
     assert {item.writer for item in manifest.transitions} == set(SERVICE_IDS)
+    transition_scopes = {
+        item.transition_id: (item.writer, item.scope) for item in manifest.transitions
+    }
+    api_scope = (
+        "document-ingestion-api",
+        "transitions:created->uploading,uploading->received,uploading->held,"
+        "nondeleted->deleting",
+    )
+    worker_scope = (
+        "document-processing-worker",
+        "transitions:received->quarantined,quarantined->scanning,"
+        "scanning->protection_check,protection_check->extracting|ready|held,"
+        "extracting->indexing|failed,indexing->ready|ready_with_warnings|failed,"
+        "deleting->deleted",
+    )
+    assert transition_scopes["document-upload-api-lifecycle"] == api_scope
+    assert transition_scopes["document-version-api-lifecycle"] == api_scope
+    assert transition_scopes["document-upload-worker-lifecycle"] == worker_scope
+    assert transition_scopes["document-version-worker-lifecycle"] == worker_scope
 
 
 def test_ownership_manifest_rejects_overlapping_migrators(tmp_path: Path) -> None:
@@ -370,11 +389,13 @@ def test_service_sql_writers_and_outbox_paths_match_ownership_manifest() -> None
     assert "next_attempt_at = clock_timestamp() + INTERVAL '5 seconds'" in api_postgres
     assert "FOR UPDATE SKIP LOCKED" in worker_activity
     assert "next_attempt_at = clock_timestamp() + INTERVAL '5 seconds'" in worker_activity
-    assert api_postgres.index("self._publisher.publish") < api_postgres.index(
-        "self._mark_published"
+    assert api_postgres.index("self._publisher.publish(physical_topic") < api_postgres.index(
+        "self._mark_published(event.event_id)"
     )
-    assert worker_activity.index("self._event_bus.publish") < worker_activity.index(
-        "self._mark_published"
+    assert worker_activity.index(
+        "self._event_bus.publish(event.topic"
+    ) < worker_activity.index(
+        "self._mark_published(event.event_id)"
     )
     assert "AND state = %s AND revision = %s" in api_postgres
     assert "AND state = %s AND revision = %s" in worker_postgres

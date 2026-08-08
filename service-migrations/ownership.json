@@ -282,25 +282,25 @@
     {
       "id": "document-upload-api-lifecycle",
       "table": "document_upload_session",
-      "scope": "transitions:create,upload,received,cancel",
+      "scope": "transitions:created->uploading,uploading->received,uploading->held,nondeleted->deleting",
       "writer": "document-ingestion-api"
     },
     {
       "id": "document-upload-worker-lifecycle",
       "table": "document_upload_session",
-      "scope": "transitions:quarantine,protect,extract,index,terminal",
+      "scope": "transitions:received->quarantined,quarantined->scanning,scanning->protection_check,protection_check->extracting|ready|held,extracting->indexing|failed,indexing->ready|ready_with_warnings|failed,deleting->deleted",
       "writer": "document-processing-worker"
     },
     {
       "id": "document-version-api-lifecycle",
       "table": "document_version",
-      "scope": "transitions:create,upload,received,cancel",
+      "scope": "transitions:created->uploading,uploading->received,uploading->held,nondeleted->deleting",
       "writer": "document-ingestion-api"
     },
     {
       "id": "document-version-worker-lifecycle",
       "table": "document_version",
-      "scope": "transitions:quarantine,protect,extract,index,activate,reject,fail",
+      "scope": "transitions:received->quarantined,quarantined->scanning,scanning->protection_check,protection_check->extracting|ready|held,extracting->indexing|failed,indexing->ready|ready_with_warnings|failed,deleting->deleted",
       "writer": "document-processing-worker"
     }
   ]

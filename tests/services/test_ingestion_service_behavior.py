@@ -14,6 +14,10 @@ from fdai_document_worker_service.adapters.activity import (
 )
 from fdai_document_worker_service.consumer import DocumentIngestionEventConsumer
 from fdai_document_worker_service.processing import DocumentIngestionWorker
+from fdai_document_worker_service.state_machine import (
+    InvalidDocumentTransitionError as InvalidWorkerTransitionError,
+)
+from fdai_document_worker_service.state_machine import transition as worker_transition
 from fdai_document_worker_service.supervisor import IngestionWorkerSupervisor
 from fdai_ingestion_api_service.access import ClaimsDocumentAccessProvider
 from fdai_ingestion_api_service.adapters.postgres import (
@@ -26,6 +30,10 @@ from fdai_ingestion_api_service.auth import Authenticator, GroupMapping
 from fdai_ingestion_api_service.deletion import ApiDocumentDeletionService
 from fdai_ingestion_api_service.http import IngestionGatewayConfig, build_app
 from fdai_ingestion_api_service.ingestion import CreateUploadRequest, DocumentIngestionService
+from fdai_ingestion_api_service.state_machine import (
+    InvalidDocumentTransitionError as InvalidApiTransitionError,
+)
+from fdai_ingestion_api_service.state_machine import transition as api_transition
 from fdai_service_contracts import (
     AUDIT_APPEND_LOCK_KEY,
     AUDIT_GENESIS_HASH,
@@ -209,6 +217,30 @@ def test_deletion_request_requires_a_positive_expected_revision() -> None:
         request.model_copy(update={"expected_version_revision": 0}).model_validate(
             request.model_dump() | {"expected_version_revision": 0}
         )
+
+
+def test_api_and_worker_state_machines_enforce_transition_ownership() -> None:
+    assert api_transition(DocumentState.UPLOADING, DocumentState.RECEIVED) is (
+        DocumentState.RECEIVED
+    )
+    assert api_transition(DocumentState.READY, DocumentState.DELETING) is (
+        DocumentState.DELETING
+    )
+    with pytest.raises(InvalidApiTransitionError):
+        api_transition(DocumentState.RECEIVED, DocumentState.QUARANTINED)
+    with pytest.raises(InvalidApiTransitionError):
+        api_transition(DocumentState.DELETING, DocumentState.DELETED)
+
+    assert worker_transition(DocumentState.RECEIVED, DocumentState.QUARANTINED) is (
+        DocumentState.QUARANTINED
+    )
+    assert worker_transition(DocumentState.DELETING, DocumentState.DELETED) is (
+        DocumentState.DELETED
+    )
+    with pytest.raises(InvalidWorkerTransitionError):
+        worker_transition(DocumentState.CREATED, DocumentState.UPLOADING)
+    with pytest.raises(InvalidWorkerTransitionError):
+        worker_transition(DocumentState.READY, DocumentState.DELETING)
 
 
 class MemoryObjects:
@@ -559,6 +591,65 @@ async def test_api_deletion_enqueues_worker_request_without_deleting_artifacts()
             expected_version_revision=version.revision,
             event=metadata.events[0],
         )
+
+
+@pytest.mark.asyncio
+async def test_api_cancel_hands_deletion_completion_to_worker() -> None:
+    metadata = MemoryMetadata()
+    objects = MemoryObjects()
+    content = b"hello"
+    service = DocumentIngestionService(
+        access=ClaimsDocumentAccessProvider(),
+        metadata=metadata,
+        objects=objects,
+        capabilities=IngestionCapabilities(
+            supported_formats=("text",),
+            storage_modes=(SourceStorageMode.MANAGED_COPY,),
+            max_file_size=1024,
+            max_batch_count=1,
+            archives_enabled=False,
+            policy_versions=("test",),
+        ),
+    )
+    session, _grant = await service.create_upload(
+        actor_id="operator",
+        actor_groups=frozenset({"role:Contributor"}),
+        request=CreateUploadRequest(
+            source_name="note.txt",
+            collection_id="shared",
+            media_type_hint="text/plain",
+            expected_size=len(content),
+            expected_sha256=hashlib.sha256(content).hexdigest(),
+            storage_mode=SourceStorageMode.MANAGED_COPY,
+            purposes=(DocumentPurpose.KNOWLEDGE_BASE,),
+            access_descriptor_ref="collection:shared",
+            reader_groups=(),
+            retention_policy_version="test",
+        ),
+    )
+    objects.content[session.object_key] = content
+
+    cancelling = await service.cancel_upload(actor_id="operator", upload_id=session.upload_id)
+
+    assert cancelling.state is DocumentState.DELETING
+    assert session.object_key in objects.content
+    event = metadata.events[-1]
+    assert event.payload["action"] == "document.deletion_requested"
+    request = DocumentDeletionRequest.model_validate(event.payload["deletion_request"])
+    worker = DocumentIngestionWorker(
+        metadata=metadata,
+        objects=objects,
+        malware=object(),  # type: ignore[arg-type]
+        protection=object(),  # type: ignore[arg-type]
+        extractor=object(),  # type: ignore[arg-type]
+        artifacts=DeleteRecorder(),
+        index=DeleteRecorder(),
+    )
+
+    deleted = await worker.apply_deletion_request(request)
+
+    assert deleted.state is DocumentState.DELETED
+    assert session.object_key not in objects.content
 
 
 class DeleteRecorder:

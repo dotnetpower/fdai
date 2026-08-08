@@ -12,6 +12,7 @@ from fdai_service_contracts import (
     AccessDescriptor,
     DirectUploadStore,
     DocumentAccessProvider,
+    DocumentDeletionRequest,
     DocumentLifecycleEvent,
     DocumentObjectStore,
     DocumentPurpose,
@@ -364,6 +365,7 @@ class DocumentIngestionService:
         }:
             raise ValueError("processed content requires lineage-aware deletion")
         deleting = transition(session.state, DocumentState.DELETING)
+        requested_at = self._clock()
         deleting_session = session.model_copy(
             update={
                 "state": deleting,
@@ -377,40 +379,26 @@ class DocumentIngestionService:
                 "available": False,
                 "active": False,
                 "failure_code": "cancelled",
-                "updated_at": self._clock(),
+                "updated_at": requested_at,
                 "revision": version.revision + 1,
             }
         )
-        await self._commit_transition(
-            session,
-            version,
+        await self._metadata.transition(
             deleting_session,
             deleting_version,
-            actor_id=actor_id,
-            action="document.deletion_pending",
+            expected_upload_state=session.state.value,
+            expected_upload_revision=session.revision,
+            expected_version_state=version.state.value,
+            expected_version_revision=version.revision,
+            event=self._deletion_event(
+                deleting_session,
+                deleting_version,
+                actor_id=actor_id,
+                requested_at=requested_at,
+            ),
         )
         await self._objects.revoke_upload(upload_id)
-        await self._objects.delete(session.object_key)
-        deleted = transition(deleting, DocumentState.DELETED)
-        deleted_session = deleting_session.model_copy(
-            update={"state": deleted, "revision": deleting_session.revision + 1}
-        )
-        deleted_version = deleting_version.model_copy(
-            update={
-                "state": deleted,
-                "updated_at": self._clock(),
-                "revision": deleting_version.revision + 1,
-            }
-        )
-        await self._commit_transition(
-            deleting_session,
-            deleting_version,
-            deleted_session,
-            deleted_version,
-            actor_id=actor_id,
-            action="document.deleted",
-        )
-        return deleted_session
+        return deleting_session
 
     async def _authorized_upload(self, upload_id: UUID) -> tuple[UploadSession, DocumentVersion]:
         session = await self._metadata.get_upload(upload_id)
@@ -478,6 +466,46 @@ class DocumentIngestionService:
                 "record": record,
             },
             created_at=self._clock(),
+        )
+
+    @staticmethod
+    def _deletion_event(
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        actor_id: str,
+        requested_at: datetime,
+    ) -> DocumentLifecycleEvent:
+        identity = f"document.delete:{version.version_id}:{version.revision}"
+        request = DocumentDeletionRequest(
+            request_id=UUID(bytes=hashlib.sha256(identity.encode()).digest()[:16]),
+            idempotency_key=identity,
+            document_id=version.document_id,
+            version_id=version.version_id,
+            upload_id=session.upload_id,
+            requested_by=actor_id,
+            expected_upload_revision=session.revision,
+            expected_version_revision=version.revision,
+            requested_at=requested_at,
+        )
+        return DocumentLifecycleEvent(
+            event_id=request.request_id,
+            idempotency_key=request.idempotency_key,
+            topic="object.event",
+            key=str(version.document_id),
+            payload={
+                "producer_principal": "Huginn",
+                "kind": "document_ingestion",
+                "action": "document.deletion_requested",
+                "event_type": "document.deletion_requested",
+                "correlation_id": str(session.upload_id),
+                "idempotency_key": identity,
+                "resource_id": str(version.document_id),
+                "resource_type": "document",
+                "document_id": str(version.document_id),
+                "deletion_request": request.model_dump(mode="json"),
+            },
+            created_at=requested_at,
         )
 
 
