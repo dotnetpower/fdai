@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+import pytest
 from fdai_executor_service.effect_executor import ServiceDirectApiEffectExecutor
 from fdai_executor_service.runtime import (
     EXECUTOR_RECEIPT_TOPIC,
@@ -15,6 +17,8 @@ from fdai_executor_service.runtime import (
 )
 from fdai_executor_service.service import IsolatedExecutorEffectService
 from fdai_service_contracts.executor import (
+    DirectApiReceipt,
+    DirectApiRequest,
     ExecutionPath,
     ExecutorCommand,
     ExecutorEffectReceipt,
@@ -53,6 +57,15 @@ class _ResourceLock:
     async def acquire(self, resource_id: str) -> AsyncIterator[None]:
         del resource_id
         yield
+
+
+class _UncontrolledProvider:
+    def __init__(self, detail: str) -> None:
+        self._detail = detail
+
+    async def execute(self, request: DirectApiRequest) -> DirectApiReceipt:
+        del request
+        raise RuntimeError(self._detail)
 
 
 def _action() -> Action:
@@ -168,6 +181,48 @@ async def test_effect_executor_rejects_excessive_blast_radius_before_provider() 
     assert result.outcome.value == "abstained_blast_radius"
     assert provider.records == ()
     assert [row["entry"]["audit_phase"] for row in audit.audit_entries] == ["terminal"]
+
+
+async def test_uncontrolled_provider_error_is_redacted_before_audit_and_receipt(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    leaked_detail = "credential=must-not-escape-" + "x" * 1024
+    audit = InMemoryStateStore()
+    now = _action().created_at
+    executor = ServiceDirectApiEffectExecutor(
+        executor=_UncontrolledProvider(leaked_detail),
+        audit_store=audit,
+        resource_lock=_ResourceLock(),
+        idempotency=InMemoryIdempotencyStore(),
+        allow_enforce=True,
+        clock=lambda: now,
+    )
+    service = IsolatedExecutorEffectService(
+        direct_api_executor=executor,
+        contract_validator=JsonSchemaContractValidator(PackageResourceSchemaRegistry()),
+        executor_instance_id="isolated-executor-effect-1",
+        clock=lambda: now,
+    )
+    command = ExecutorCommand.from_action(
+        command_id=UUID("00000000-0000-0000-0000-000000000807"),
+        action=_action(),
+        execution_path=ExecutionPath.DIRECT_API,
+        attempt=1,
+        issued_at=now,
+        deadline_at=now + timedelta(minutes=1),
+    )
+
+    with caplog.at_level(logging.ERROR, logger="fdai.isolated_executor.effect"):
+        receipt = await service.handle(command)
+
+    terminal = audit.audit_entries[-1]["entry"]
+    assert receipt.status is ExecutorEffectReceiptStatus.FAILED
+    assert receipt.reason == "provider failed with an uncontrolled error"
+    assert terminal["reason"] == receipt.reason
+    assert len(receipt.reason) <= 512
+    assert leaked_detail not in caplog.text
+    assert leaked_detail not in str(terminal)
+    assert leaked_detail not in receipt.model_dump_json()
 
 
 async def test_effect_command_expired_while_waiting_never_reaches_provider() -> None:

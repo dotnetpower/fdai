@@ -210,12 +210,15 @@ class ServiceDirectApiEffectExecutor:
                     f"adapter error [{exc.kind}]: {exc}",
                     rollback_succeeded=False,
                 )
-            except Exception as exc:  # noqa: BLE001 - provider boundary
-                _LOGGER.exception("isolated Executor provider raised uncontrolled")
+            except Exception:  # noqa: BLE001 - provider boundary
+                _LOGGER.error(
+                    "isolated_executor_provider_uncontrolled_error",
+                    extra={"failure_kind": "uncontrolled_provider_error"},
+                )
                 return await self._finish(
                     action,
                     DirectApiEffectOutcome.FAILED,
-                    f"uncontrolled adapter error: {exc!r}",
+                    "provider failed with an uncontrolled error",
                     rollback_succeeded=False,
                 )
             return await self._finish_from_receipt(action, receipt)
