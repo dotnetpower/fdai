@@ -164,7 +164,7 @@ contracts, and generic ingestion co-host seam are absent.
 Local completion evidence includes six independently built wheels, five nonroot service images,
 five image health checks, five validated migration branches covering 104 tables and 11
 transitions, five locally validated Terraform roots, zero cross-service implementation imports,
-and thirty-three independent critique-and-hardening rounds with zero Medium-or-higher local residuals.
+and thirty-five independent critique-and-hardening rounds with zero Medium-or-higher local residuals.
 IS-06 and IS-07 are locally complete. Exact remote plan/apply and
 rolling confirmation is deferred to IS-09 and uses final service-owned inputs without restoring
 the monolith as a rollback source. IS-09 pins deployable distribution `0.1.2` images as N-1 and
@@ -173,10 +173,10 @@ distribution `0.1.3` as N while retaining the existing contract-set `1.0.0`/`1.1
 Protected service deployment separates immutable artifact provenance from execution-control
 provenance. A target `commit_sha` may be any ancestor of protected `main`, which permits an
 attested N-1 image to participate in rollback rehearsal. The workflow itself and every deployment
-control script always come from current protected `main`; exact plan/apply replay rejects a control
-change between its two runs. Image builds and plans may run concurrently across the five runner
-slots, but evidence-bearing applies run serially so each service receipt can prove that all four
-peer states remained unchanged.
+control script, Terraform root, service migration, and peer-state input always come from current
+protected `main`; exact plan/apply replay rejects a control change between its two runs. Image
+builds and plans may run concurrently across the five runner slots, but evidence-bearing applies
+run serially so each service receipt can prove that all four peer states remained unchanged.
 
 ## Parallel execution rules
 
@@ -292,6 +292,8 @@ state. For each transition:
 | 2026-08-09 | IS-09 | Runtime dependency and migration readiness | Round 31 | Live revisions exposed missing `aiohttp` in the ingestion API and unapplied Operator/Executor role branches. The ingestion distribution now owns the async Azure transport dependency, and protected service apply resolves a validated Key Vault reference, masks the admin DSN, and advances the exact service-owned migration branch before traffic. |
 | 2026-08-09 | IS-09 | Exact secret rollback | Round 32 | Operator and Executor recovery revisions were healthy, but verification found post-apply `database-dsn` aliases beside legacy names. Rollback now removes only secret names absent from the immutable snapshot, restores prior Key Vault references, and then verifies exact equality. |
 | 2026-08-09 | IS-09 | Enforced database principal | Round 33 | Plans declared `fdai_operator`, `fdai_executor`, and the other service roles while some DSN secrets still authenticated as the admin principal. All five service modules now set PostgreSQL `PGOPTIONS=-c role=<declared role>` so readiness and grants evaluate the intended `current_user`. |
+| 2026-08-09 | IS-09 | Historical rollback provenance | Round 34 | The privileged workflow guard required a historical image source to contain byte-identical deployment controls, which made any control hardening permanently block N-1 rollback. Historical artifact revisions now require protected-main ancestry and attestation while the executing workflow and controls remain pinned to current protected `main`. |
+| 2026-08-09 | IS-09 | Current deployment source | Round 35 | Live preflight found that `commit_sha` selected both an image revision and historical Terraform, which could silently remove later role and recovery hardening during rollback. The value now binds only immutable image provenance; Terraform roots, migrations, legacy state operations, and peer capture all use current protected `main`. The canceled Operator run stopped during backend validation, and every mutation step was skipped. |
 
 ## Related documents
 

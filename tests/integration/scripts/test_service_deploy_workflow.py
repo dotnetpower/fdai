@@ -58,21 +58,23 @@ def test_workflow_defaults_to_plan_and_requires_exact_apply_coordinates() -> Non
     assert "inputs.apply && format('service-apply-{0}'" in _WORKFLOW
     for coordinate in ("PLAN_RUN_ID", "PLAN_RUN_ATTEMPT", "PLAN_DIGEST", "CONTEXT_DIGEST"):
         assert f'[[ "${coordinate}" =~' in _WORKFLOW
-    assert '[[ "$(git -C "$TARGET_ROOT" rev-parse HEAD)" == "$COMMIT_SHA" ]]' in _WORKFLOW
     assert "migrate_state and initial_cutover are mutually exclusive." in _WORKFLOW
 
 
 def test_workflow_uses_protected_controls_and_protected_commit_ancestry() -> None:
     assert "path: trusted-controls" in _WORKFLOW
     assert "ref: main" in _WORKFLOW
-    assert "fetch-depth: 1" in _WORKFLOW
-    assert "path: target" in _WORKFLOW
+    assert "path: target" not in _WORKFLOW
+    assert "TARGET_ROOT" not in _WORKFLOW
     assert '"+refs/heads/main:refs/remotes/origin/main"' in _WORKFLOW
     assert 'git -C "$TRUSTED_CONTROLS" merge-base --is-ancestor' in _WORKFLOW
     assert '"$COMMIT_SHA" refs/remotes/origin/main' in _WORKFLOW
     assert 'git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA"' in _WORKFLOW
     assert "TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" not in _WORKFLOW
     assert 'TRUSTED_CONTROLS="$GITHUB_WORKSPACE/trusted-controls"' in _WORKFLOW
+    assert (
+        "TERRAFORM_ROOT=$TRUSTED_CONTROLS/${{ steps.contract.outputs.terraform_root }}" in _WORKFLOW
+    )
     for script in ("service_contract.py", "guard_plan.py", "plan_bundle.py", "peer_state.py"):
         assert f'"$TRUSTED_CONTROLS/scripts/deployment/service/{script}"' in _WORKFLOW
 
@@ -218,7 +220,7 @@ def test_state_migration_uses_remote_legacy_backend_and_verified_restore_helper(
     assert '"$backup_dir" \\' in _WORKFLOW
     assert "            --execute" in _WORKFLOW
     assert "Verify migrated service state ownership" in _WORKFLOW
-    assert 'terraform -chdir="$TARGET_ROOT/infra" state pull' in _WORKFLOW
+    assert 'terraform -chdir="$TRUSTED_CONTROLS/infra" state pull' in _WORKFLOW
     assert 'terraform -chdir="$TERRAFORM_ROOT" state pull' in _WORKFLOW
     assert "terraform show -json" not in _WORKFLOW
 

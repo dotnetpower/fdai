@@ -120,14 +120,6 @@ jobs:
           clean: true
           path: trusted-controls
 
-      - name: Checkout exact target commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.commit_sha }}
-          fetch-depth: 1
-          clean: true
-          path: target
-
       - name: Verify protected ancestry and explicit apply inputs
         env:
           APPLY: ${{ inputs.apply }}
@@ -141,13 +133,8 @@ jobs:
         run: |
           set -euo pipefail
           TRUSTED_CONTROLS="$GITHUB_WORKSPACE/trusted-controls"
-          TARGET_ROOT="$GITHUB_WORKSPACE/target"
           [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || {
             echo "commit_sha must be a lowercase 40-character git SHA." >&2
-            exit 1
-          }
-          [[ "$(git -C "$TARGET_ROOT" rev-parse HEAD)" == "$COMMIT_SHA" ]] || {
-            echo "checked out commit does not match commit_sha." >&2
             exit 1
           }
           git -C "$TRUSTED_CONTROLS" fetch --no-tags origin \
@@ -170,7 +157,6 @@ jobs:
           }
           {
             echo "TRUSTED_CONTROLS=$TRUSTED_CONTROLS"
-            echo "TARGET_ROOT=$TARGET_ROOT"
             echo "CONTROLS_COMMIT_SHA=$controls_commit_sha"
           } >> "$GITHUB_ENV"
           if [[ "$APPLY" == "true" && "$MIGRATE_STATE" == "true" ]]; then
@@ -218,7 +204,7 @@ jobs:
 
       - name: Bind target Terraform root
         run: |
-          echo "TERRAFORM_ROOT=$TARGET_ROOT/${{ steps.contract.outputs.terraform_root }}" >> "$GITHUB_ENV"
+          echo "TERRAFORM_ROOT=$TRUSTED_CONTROLS/${{ steps.contract.outputs.terraform_root }}" >> "$GITHUB_ENV"
 
       - name: Install pinned GitHub CLI
         env:
@@ -368,19 +354,19 @@ jobs:
           ENVIRONMENT: ${{ inputs.environment }}
         run: |
           set -euo pipefail
-          cat >"$TARGET_ROOT/infra/service-state-backend.tf" <<'EOF'
+          cat >"$TRUSTED_CONTROLS/infra/service-state-backend.tf" <<'EOF'
           terraform {
             backend "azurerm" {}
           }
           EOF
-          terraform -chdir="$TARGET_ROOT/infra" init \
+          terraform -chdir="$TRUSTED_CONTROLS/infra" init \
             -input=false \
             -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
             -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
             -backend-config="container_name=$STATE_CONTAINER" \
             -backend-config="key=fdai-${ENVIRONMENT}.tfstate" \
             -backend-config="use_azuread_auth=true"
-          terraform -chdir="$TARGET_ROOT/infra" state pull \
+          terraform -chdir="$TRUSTED_CONTROLS/infra" state pull \
             >"$RUNNER_TEMP/legacy-service-state.json"
           terraform -chdir="$TERRAFORM_ROOT" state pull \
             >"$RUNNER_TEMP/independent-service-state.json"
@@ -408,12 +394,12 @@ jobs:
           ENVIRONMENT: ${{ inputs.environment }}
         run: |
           set -euo pipefail
-          cat >"$TARGET_ROOT/infra/service-state-backend.tf" <<'EOF'
+          cat >"$TRUSTED_CONTROLS/infra/service-state-backend.tf" <<'EOF'
           terraform {
             backend "azurerm" {}
           }
           EOF
-          terraform -chdir="$TARGET_ROOT/infra" init \
+          terraform -chdir="$TRUSTED_CONTROLS/infra" init \
             -input=false \
             -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
             -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
@@ -424,7 +410,7 @@ jobs:
           bash "$TRUSTED_CONTROLS/scripts/deployment/service/migrate_state.sh" \
             "$SERVICE" \
             "$ENVIRONMENT" \
-            "$TARGET_ROOT/infra" \
+            "$TRUSTED_CONTROLS/infra" \
             "$TERRAFORM_ROOT" \
             "$backup_dir" \
             --execute
@@ -440,7 +426,7 @@ jobs:
             python3 "$TRUSTED_CONTROLS/scripts/deployment/service/state_migration.py" \
               coordinates --service "$SERVICE" --environment "$ENVIRONMENT"
           )
-          terraform -chdir="$TARGET_ROOT/infra" state pull \
+          terraform -chdir="$TRUSTED_CONTROLS/infra" state pull \
             >"$RUNNER_TEMP/legacy-service-state-after.json"
           terraform -chdir="$TERRAFORM_ROOT" state pull \
             >"$RUNNER_TEMP/independent-service-state-after.json"
@@ -457,7 +443,7 @@ jobs:
           "$TRUSTED_CONTROLS/scripts/deployment/service/capture_peer_states.sh" \
             "${{ inputs.service }}" \
             "${{ inputs.environment }}" \
-            "$TARGET_ROOT" \
+            "$TRUSTED_CONTROLS" \
             "$TRUSTED_CONTROLS/scripts/deployment/service" \
             before \
             "$RUNNER_TEMP/service-peer-state-before"
@@ -508,7 +494,7 @@ jobs:
           "$TRUSTED_CONTROLS/scripts/deployment/service/capture_peer_states.sh" \
             "${{ inputs.service }}" \
             "${{ inputs.environment }}" \
-            "$TARGET_ROOT" \
+            "$TRUSTED_CONTROLS" \
             "$TRUSTED_CONTROLS/scripts/deployment/service" \
             after \
             "$RUNNER_TEMP/service-peer-state-after"
@@ -819,7 +805,7 @@ jobs:
           "$TRUSTED_CONTROLS/scripts/deployment/service/capture_peer_states.sh" \
             "${{ inputs.service }}" \
             "${{ inputs.environment }}" \
-            "$TARGET_ROOT" \
+            "$TRUSTED_CONTROLS" \
             "$TRUSTED_CONTROLS/scripts/deployment/service" \
             after \
             "$RUNNER_TEMP/service-peer-state-after"
