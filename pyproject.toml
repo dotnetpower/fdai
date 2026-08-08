@@ -323,5 +323,6 @@ skip_covered = false
 
 [dependency-groups]
 dev = [
+    "azure-identity>=1.23,<2",
     "types-croniter>=6.2.4.20260711",
 ]

@@ -747,6 +747,7 @@ serve = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "azure-identity" },
     { name = "types-croniter" },
 ]
 
@@ -793,7 +794,10 @@ requires-dist = [
 provides-extras = ["dev", "serve", "pdf-report", "browser-evidence", "azure-mcp"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "types-croniter", specifier = ">=6.2.4.20260711" }]
+dev = [
+    { name = "azure-identity", specifier = ">=1.23,<2" },
+    { name = "types-croniter", specifier = ">=6.2.4.20260711" },
+]
 
 [[package]]
 name = "fdai-benchmark-cybergym"
