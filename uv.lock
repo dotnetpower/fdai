@@ -915,6 +915,7 @@ name = "fdai-document-ingestion-api"
 version = "0.1.2"
 source = { editable = "services/document-ingestion-api" }
 dependencies = [
+    { name = "aiohttp" },
     { name = "aiokafka" },
     { name = "azure-core" },
     { name = "azure-identity" },
@@ -930,6 +931,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", specifier = ">=3.12,<4" },
     { name = "aiokafka", specifier = ">=0.12,<1" },
     { name = "azure-core", specifier = ">=1.35,<2" },
     { name = "azure-identity", specifier = ">=1.23,<2" },

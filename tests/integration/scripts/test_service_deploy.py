@@ -537,6 +537,9 @@ def test_matrix_resolves_exact_five_services_and_state_keys(contract: ModuleType
         "document-processing-worker",
         "isolated-executor",
     }
+    assert {service["migration_dsn_secret_name"] for service in matrix["services"].values()} == {
+        "fdai-state-store-dsn"
+    }
     for service in matrix["services"]:
         resolved = contract.resolve_service(service, "staging")
         assert resolved.backend_key == f"services/{service}/staging.tfstate"
@@ -1724,6 +1727,16 @@ def test_worker_recovery_snapshots_and_verifies_primary_and_clamav_contracts(
         app=app,
         revision=revision,
     )
+
+
+def test_apply_runs_service_migrations_from_masked_key_vault_dsn() -> None:
+    workflow = (_ROOT / ".github/workflows/service-deploy.yml").read_text(encoding="utf-8")
+
+    assert "- name: Apply service-owned database migrations" in workflow
+    assert 'echo "::add-mask::$migration_dsn"' in workflow
+    assert '"$TRUSTED_CONTROLS/service-migrations/bin/$SERVICE" upgrade head' in workflow
+    assert "database-dsn must be an Azure Key Vault HTTPS secret reference" in workflow
+    assert "migration_dsn_secret_name" in workflow
 
 
 def test_initial_worker_cutover_snapshots_exact_empty_legacy_sidecar_probes(

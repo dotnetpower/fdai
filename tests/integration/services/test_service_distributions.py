@@ -67,6 +67,7 @@ EXPECTED_DEPENDENCIES = {
     },
     "document-ingestion-api": {
         "aiokafka",
+        "aiohttp",
         "azure-core",
         "azure-identity",
         "azure-storage-file-datalake",
@@ -96,6 +97,10 @@ EXPECTED_DEPENDENCIES = {
         "psycopg",
         "pydantic",
     },
+}
+
+INDIRECT_RUNTIME_DEPENDENCIES = {
+    "document-ingestion-api": {"aiohttp"},
 }
 
 IMPORT_DISTRIBUTIONS = {
@@ -175,7 +180,9 @@ def test_extracted_service_direct_imports_are_declared() -> None:
         if service_id == "core-control-plane":
             continue
         source_root = SERVICE_ROOT / service_id / "src"
-        assert _direct_import_distributions(source_root) == EXPECTED_DEPENDENCIES[service_id]
+        assert _direct_import_distributions(source_root) == (
+            EXPECTED_DEPENDENCIES[service_id] - INDIRECT_RUNTIME_DEPENDENCIES.get(service_id, set())
+        )
 
 
 @pytest.mark.parametrize("service_id", tuple(EXPECTED))

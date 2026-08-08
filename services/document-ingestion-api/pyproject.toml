@@ -5,6 +5,7 @@ description = "FDAI Document Ingestion API service"
 requires-python = ">=3.12"
 dependencies = [
 	"aiokafka>=0.12,<1",
+	"aiohttp>=3.12,<4",
 	"azure-core>=1.35,<2",
 	"azure-identity>=1.23,<2",
 	"azure-storage-file-datalake>=12.21,<13",

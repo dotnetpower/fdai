@@ -705,6 +705,58 @@ jobs:
             --image-ref "$IMAGE_REF" \
             "${cutover_args[@]}"
 
+      - name: Apply service-owned database migrations
+        if: ${{ inputs.apply }}
+        env:
+          SERVICE: ${{ inputs.service }}
+        run: |
+          set -euo pipefail
+          migration_secret_name="$(
+            jq -er --arg service "$SERVICE" \
+              '.services[$service].migration_dsn_secret_name' \
+              "$TRUSTED_CONTROLS/scripts/deployment/service/service-matrix.json"
+          )"
+          service_resource_id="$(
+            jq -er '.target.service_resource_id' \
+              "$RUNNER_TEMP/service-plan-bundle/service-context.json"
+          )"
+          role_secret_url="$(
+            timeout 60s az containerapp show \
+              --ids "$service_resource_id" \
+              --query "properties.configuration.secrets[?name=='database-dsn'].keyVaultUrl | [0]" \
+              --only-show-errors \
+              --output tsv
+          )"
+          vault_name="$(
+            ROLE_SECRET_URL="$role_secret_url" python3 - <<'PY'
+          import os
+          import re
+          from urllib.parse import urlparse
+
+          parsed = urlparse(os.environ["ROLE_SECRET_URL"])
+          match = re.fullmatch(r"([a-z0-9-]{3,24})\.vault\.azure\.net", parsed.hostname or "")
+          if parsed.scheme != "https" or match is None or not parsed.path.startswith("/secrets/"):
+              raise SystemExit("database-dsn must be an Azure Key Vault HTTPS secret reference")
+          print(match.group(1))
+          PY
+          )"
+          migration_dsn="$(
+            timeout 60s az keyvault secret show \
+              --vault-name "$vault_name" \
+              --name "$migration_secret_name" \
+              --query value \
+              --only-show-errors \
+              --output tsv
+          )"
+          [[ -n "$migration_dsn" ]] || {
+            echo "service migration DSN is unavailable" >&2
+            exit 1
+          }
+          echo "::add-mask::$migration_dsn"
+          FDAI_DATABASE_URL="$migration_dsn" \
+            "$TRUSTED_CONTROLS/service-migrations/bin/$SERVICE" upgrade head
+          unset migration_dsn
+
       - name: Capture pre-apply rollback snapshot
         if: ${{ inputs.apply }}
         run: |

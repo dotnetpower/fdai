@@ -395,9 +395,9 @@ ingestion CORS origins. Terraform then provisions:
 - a public ingestion API Container App and an internal worker app with replica-local ClamAV; initial cutover may snapshot exact empty legacy sidecar probes only for rollback, while the new revision still requires all three strict probes;
 - a manual migration job that applies the document metadata and pgvector schema before traffic.
 
-The `deploy-dev` workflow exposes `deploy_document_ingestion`. Plan remains the default. An apply
-runs the migration job, verifies both revisions, and publishes `ingestion_gateway_fqdn`; build with
-`VITE_INGESTION_API_BASE_URL=https://<fqdn>`. Production gates require private networking and
+The `deploy-dev` workflow exposes `deploy_document_ingestion`. Plan remains the default.
+An apply runs the migration job; independent service apply masks the Key Vault admin DSN and advances its service-owned branch before traffic.
+It verifies both revisions and publishes `ingestion_gateway_fqdn`; build with `VITE_INGESTION_API_BASE_URL=https://<fqdn>`. Production gates require private networking and
 digest-pinned FDAI plus ClamAV images.
 
 The public Static Web App never reaches ADLS directly. It streams through the authenticated
