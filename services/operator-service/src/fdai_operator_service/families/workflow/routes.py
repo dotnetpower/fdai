@@ -25,6 +25,7 @@ from fdai_operator_service.families.workflow.manifest import (
     PaginationSpec,
     WorkflowRouteSpec,
 )
+from fdai_operator_service.redaction import redact_mapping
 from fdai_service_contracts import JsonObject
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
@@ -86,7 +87,7 @@ def _build_endpoint(
                 )
             )
             return JSONResponse(
-                result.payload,
+                redact_mapping(result.payload),
                 status_code=result.status_code,
                 headers={
                     "X-FDAI-Provenance": result.provenance.source_ref,

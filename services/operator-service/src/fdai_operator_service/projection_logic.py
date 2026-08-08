@@ -9,23 +9,9 @@ from typing import Any, Final, cast
 
 from fdai_service_contracts import JsonObject, JsonValue
 
+from fdai_operator_service.redaction import redact_projection
+
 KPI_SAMPLE_LIMIT: Final = 500
-_REDACTED: Final = "[REDACTED]"
-_SENSITIVE_KEYS: Final = frozenset(
-    {
-        "access_token",
-        "api_key",
-        "authorization",
-        "client_secret",
-        "connection_string",
-        "credential",
-        "password",
-        "refresh_token",
-        "secret",
-        "token",
-    }
-)
-_COMPACT_SENSITIVE_KEYS: Final = frozenset(key.replace("_", "") for key in _SENSITIVE_KEYS)
 
 
 def audit_item(row: Mapping[str, Any]) -> JsonObject:
@@ -50,27 +36,8 @@ def audit_item(row: Mapping[str, Any]) -> JsonObject:
 
 
 def redact(value: object) -> JsonValue:
-    """Copy JSON-like evidence while replacing credential-bearing fields."""
-    if isinstance(value, Mapping):
-        return {
-            str(key): _REDACTED if _sensitive_key(str(key)) else redact(item)
-            for key, item in value.items()
-        }
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        return [redact(item) for item in value]
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    return str(value)
-
-
-def _sensitive_key(value: str) -> bool:
-    normalized = value.lower().replace("-", "_")
-    compact = normalized.replace("_", "")
-    return (
-        normalized in _SENSITIVE_KEYS
-        or compact in _COMPACT_SENSITIVE_KEYS
-        or normalized.endswith(("_token", "_secret", "_password", "_credential"))
-    )
+    """Apply the shared bounded Operator projection redaction contract."""
+    return redact_projection(value)
 
 
 def hil_item(row: Mapping[str, Any]) -> JsonObject | None:

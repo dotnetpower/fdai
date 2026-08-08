@@ -205,7 +205,11 @@ async def test_representative_read_envelopes_are_scoped_and_redacted() -> None:
         context = await client.get("/me/context")
         assurance = await client.get("/conversation-assurance")
 
-    assert health.json() == {"available": True, "mode": "test"}
+    assert health.json() == {
+        "available": True,
+        "mode": "test",
+        "endpoint": "[REDACTED]",
+    }
     assert busy.json()["pending"] == []
     assert workers.json() == {"workers": []}
     assert context.json()["conversation_page"] == {"has_more": False, "next_cursor": None}
@@ -292,8 +296,10 @@ async def test_sse_frames_support_replay_redaction_and_close() -> None:
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
     assert "id: 5\nevent: progress" in response.text
-    assert 'data: {"kind":"investigation.started","sequence":5}' in response.text
-    assert "token" not in response.text
+    assert (
+        'data: {"kind":"investigation.started","sequence":5,"token":"[REDACTED]"}' in response.text
+    )
+    assert "secret" not in response.text
     assert streams.requests[0].after_event_id == "4"
     assert streams.requests[0].scope.subject_id == "principal-a"
     assert streams.last_iterator is not None and streams.last_iterator.closed is True

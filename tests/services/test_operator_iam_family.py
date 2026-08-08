@@ -209,7 +209,19 @@ class RecordingModelSettings:
         refresh_model_catalog: bool = False,
     ) -> Mapping[str, Any]:
         del refresh_model_catalog
-        return {"principal_id": principal_id, "can_manage": can_manage_web_search}
+        return {
+            "principal_id": principal_id,
+            "can_manage": can_manage_web_search,
+            "provider": {
+                "clientSecret": "must-not-leak",
+                "nested": [
+                    {
+                        "connection-string": "must-not-leak",
+                        "visible": "preserved",
+                    }
+                ],
+            },
+        }
 
     async def set_preference(self, command: ModelPreferenceCommand) -> None:
         self.preference = command
@@ -223,7 +235,11 @@ class RecordingRuntimeSettings:
         self.command: RuntimeSettingsCommand | None = None
 
     async def projection(self, *, can_manage: bool) -> Mapping[str, Any]:
-        return {"revision": 2, "can_manage": can_manage}
+        return {
+            "revision": 2,
+            "can_manage": can_manage,
+            "credentials": {"accessToken": "must-not-leak"},
+        }
 
     async def update(self, command: RuntimeSettingsCommand) -> None:
         self.command = command
@@ -478,6 +494,29 @@ def test_settings_kill_switch_and_review_preserve_revision_and_idempotency() -> 
     assert runtime.command is not None and runtime.command.expected_revision == 2
     assert kill.command is not None and kill.command.request_id == "stop-1"
     assert review.command is not None and review.command.run_id == "review-1"
+
+
+def test_iam_settings_redact_nested_sensitive_alias_fields() -> None:
+    client = _client(
+        model_settings=RecordingModelSettings(),
+        runtime_settings=RecordingRuntimeSettings(),
+    )
+    owner = {"x-test-role": "Owner"}
+
+    models = client.get("/models/settings", headers=owner)
+    runtime = client.get("/runtime/settings", headers=owner)
+
+    assert models.status_code == runtime.status_code == 200
+    assert models.json()["provider"] == {
+        "clientSecret": "[REDACTED]",
+        "nested": [
+            {
+                "connection-string": "[REDACTED]",
+                "visible": "preserved",
+            }
+        ],
+    }
+    assert runtime.json()["credentials"] == {"accessToken": "[REDACTED]"}
 
 
 def test_signed_hil_callback_binds_path_rejects_self_approval_and_enqueues_receipt() -> None:

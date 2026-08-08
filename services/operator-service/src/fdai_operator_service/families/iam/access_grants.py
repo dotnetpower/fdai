@@ -23,6 +23,7 @@ from fdai_operator_service.families.iam.http import (
     require_revision,
     require_string,
 )
+from fdai_operator_service.redaction import redact_projection
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
@@ -151,7 +152,7 @@ def access_grant_sse_frame(snapshot: AccessGrantSnapshot) -> bytes:
         "ts": snapshot.generated_at.astimezone(UTC).isoformat(),
         "requests": [item.to_dict() for item in snapshot.requests],
     }
-    data = json.dumps(payload, separators=(",", ":"))
+    data = json.dumps(redact_projection(payload), separators=(",", ":"))
     return (f"id: {snapshot.sequence}\nevent: access-grant\ndata: {data}\n\n").encode()
 
 

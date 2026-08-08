@@ -6,7 +6,6 @@ import json
 import re
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
-from itertools import islice
 from typing import Final
 
 from fdai_operator_service.auth import (
@@ -30,6 +29,7 @@ from fdai_operator_service.families.operations.manifest import (
     OPERATIONS_ROUTE_MANIFEST,
     OperationRoute,
 )
+from fdai_operator_service.redaction import redact_projection
 from fdai_service_contracts import OperatorPrincipal, OperatorRole
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
@@ -42,9 +42,6 @@ MAX_QUERY_VALUES: Final = 64
 MAX_QUERY_VALUE_CHARS: Final = 2048
 MAX_BODY_BYTES: Final = 256 * 1024
 MAX_SSE_FRAME_BYTES: Final = 256 * 1024
-MAX_REDACTION_DEPTH: Final = 12
-MAX_REDACTION_ITEMS: Final = 500
-_SENSITIVE_PARTS: Final = ("authorization", "credential", "password", "secret", "token")
 _EVENT_NAME: Final = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 _CONTRIBUTOR_ROLES: Final = frozenset({OperatorRole.CONTRIBUTOR, OperatorRole.OWNER})
 
@@ -143,7 +140,7 @@ async def _projection(
         return _error(503, "authoritative projection is unavailable")
     except ValueError as exc:
         return _error(400, str(exc))
-    return JSONResponse(_redact(payload))
+    return JSONResponse(redact_projection(payload))
 
 
 async def _proposal(
@@ -344,7 +341,7 @@ def _last_event_id(request: Request) -> int | None:
 def _sse_event(event: ReplayEvent) -> bytes:
     if _EVENT_NAME.fullmatch(event.event) is None:
         return _bounded_sse_frame(event.sequence, "invalid", {"error": "invalid_event_name"})
-    return _bounded_sse_frame(event.sequence, event.event, _redact(event.data))
+    return _bounded_sse_frame(event.sequence, event.event, redact_projection(event.data))
 
 
 def _bounded_sse_frame(sequence: int, event: str, data: object) -> bytes:
@@ -354,21 +351,6 @@ def _bounded_sse_frame(sequence: int, event: str, data: object) -> bytes:
         return frame
     fallback = json.dumps({"error": "frame_too_large"}, separators=(",", ":"))
     return f"id: {sequence}\nevent: invalid\ndata: {fallback}\n\n".encode()
-
-
-def _redact(value: object, *, depth: int = 0) -> object:
-    if depth >= MAX_REDACTION_DEPTH:
-        return "[REDACTED]"
-    if isinstance(value, Mapping):
-        return {
-            str(key): "[REDACTED]"
-            if any(part in str(key).lower() for part in _SENSITIVE_PARTS)
-            else _redact(item, depth=depth + 1)
-            for key, item in islice(value.items(), MAX_REDACTION_ITEMS)
-        }
-    if isinstance(value, (list, tuple)):
-        return [_redact(item, depth=depth + 1) for item in value[:MAX_REDACTION_ITEMS]]
-    return value
 
 
 def _panel_entry(panel: PanelRoute) -> OperationRoute:

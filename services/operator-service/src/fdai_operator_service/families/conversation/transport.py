@@ -14,6 +14,7 @@ from fdai_operator_service.families.conversation.contracts import (
     PrincipalScope,
     StreamEvent,
 )
+from fdai_operator_service.redaction import redact_mapping
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
@@ -22,19 +23,6 @@ MAX_QUERY_VALUES = 64
 MAX_PATH_VALUE_CHARS = 256
 _CLIENT_SCOPE_KEYS = frozenset(
     {"owner_principal_id", "principal_id", "principal_scope", "reported_by", "user_id"}
-)
-_SENSITIVE_KEYS = frozenset(
-    {
-        "api_key",
-        "authorization",
-        "connection_string",
-        "cookie",
-        "credential",
-        "endpoint",
-        "password",
-        "secret",
-        "token",
-    }
 )
 
 
@@ -143,7 +131,7 @@ def response_from_contract(contract: ConversationResponse) -> Response:
             headers=headers,
         )
     return JSONResponse(
-        redact_object(contract.body),
+        redact_mapping(contract.body),
         status_code=contract.status_code,
         headers=headers,
     )
@@ -180,35 +168,9 @@ def sse_frame(event: StreamEvent) -> bytes:
     lines.append(f"event: {event.event}")
     if event.retry_ms is not None:
         lines.append(f"retry: {event.retry_ms}")
-    payload = json.dumps(redact_object(event.data), separators=(",", ":"), sort_keys=True)
+    payload = json.dumps(redact_mapping(event.data), separators=(",", ":"), sort_keys=True)
     lines.append(f"data: {payload}")
     return ("\n".join(lines) + "\n\n").encode()
-
-
-def redact_object(value: Mapping[str, object]) -> JsonObject:
-    """Remove credentials and deployment endpoints recursively from a response."""
-    return {
-        str(key): redact_value(item, depth=1)
-        for key, item in value.items()
-        if not _is_sensitive(str(key))
-    }
-
-
-def redact_value(value: object, *, depth: int) -> JsonValue:
-    """Convert provider values to bounded JSON while applying recursive redaction."""
-    if depth > 16:
-        return "[redacted-depth]"
-    if value is None or isinstance(value, str | int | float | bool):
-        return value
-    if isinstance(value, Mapping):
-        return {
-            str(key): redact_value(item, depth=depth + 1)
-            for key, item in value.items()
-            if not _is_sensitive(str(key))
-        }
-    if isinstance(value, list | tuple):
-        return [redact_value(item, depth=depth + 1) for item in value[:1_000]]
-    return str(value)
 
 
 def _json_value(value: object) -> JsonValue:
@@ -219,11 +181,6 @@ def _json_value(value: object) -> JsonValue:
     if isinstance(value, list):
         return [_json_value(item) for item in value]
     raise _bad_request(400, "request body contains a non-JSON value")
-
-
-def _is_sensitive(key: str) -> bool:
-    lowered = key.lower()
-    return lowered in _SENSITIVE_KEYS or lowered.endswith(("_password", "_secret", "_token"))
 
 
 def _bad_request(status_code: int, message: str) -> ConversationBoundaryError:

@@ -60,6 +60,7 @@ from fdai_operator_service.families.workflow import (
     build_workflow_family_routes,
 )
 from fdai_operator_service.projections import ProjectionUnavailableError
+from fdai_operator_service.redaction import redact_projection
 
 DEFAULT_LIMIT: Final = 50
 MAX_LIMIT: Final = 500
@@ -172,11 +173,11 @@ def build_operator_app(
             )
         except ValueError as exc:
             raise _BadQueryError(str(exc)) from exc
-        return JSONResponse(page.to_dict())
+        return JSONResponse(redact_projection(page.to_dict()))
 
     async def get_kpi(request: Request) -> Response:
         authorize(request)
-        return JSONResponse((await read_model.dashboard_metrics()).to_dict())
+        return JSONResponse(redact_projection((await read_model.dashboard_metrics()).to_dict()))
 
     async def get_hil_queue(request: Request) -> Response:
         principal = authorize(request)
@@ -189,7 +190,7 @@ def build_operator_app(
                 include_details=include_details,
             )
         )
-        return JSONResponse(projection.to_dict(include_details=include_details))
+        return JSONResponse(redact_projection(projection.to_dict(include_details=include_details)))
 
     async def get_incidents(request: Request) -> Response:
         authorize(request)
@@ -198,7 +199,7 @@ def build_operator_app(
             projection = await read_model.list_incidents(query)
         except ValueError as exc:
             raise _BadQueryError(str(exc)) from exc
-        return JSONResponse(projection.to_dict())
+        return JSONResponse(redact_projection(projection.to_dict()))
 
     async def incident_attention_stream(request: Request) -> Response:
         authorize(request)
@@ -241,7 +242,7 @@ def build_operator_app(
         projection = await read_model.get_rca(correlation_id)
         if projection is None:
             return _error(404, f"no audit evidence for correlation {correlation_id!r}")
-        return JSONResponse(projection.to_dict())
+        return JSONResponse(redact_projection(projection.to_dict()))
 
     async def rule_fire_trace(request: Request) -> Response:
         authorize(request)
@@ -253,21 +254,23 @@ def build_operator_app(
         projection = await read_model.get_rule_fire_trace(correlation_id)
         if projection is None:
             return _error(404, f"no audit items for correlation_id {correlation_id!r}")
-        return JSONResponse(projection.to_dict())
+        return JSONResponse(redact_projection(projection.to_dict()))
 
     async def get_data_sources(request: Request) -> Response:
         authorize(request)
         ordered = sorted(data_sources, key=lambda source: source.key)
         return JSONResponse(
-            {
-                "surface": "read-data-sources",
-                "sources": [source.to_dict() for source in ordered],
-            }
+            redact_projection(
+                {
+                    "surface": "read-data-sources",
+                    "sources": [source.to_dict() for source in ordered],
+                }
+            )
         )
 
     async def get_incident_opened_template(request: Request) -> Response:
         authorize(request)
-        return JSONResponse(_incident_template_preview())
+        return JSONResponse(redact_projection(_incident_template_preview()))
 
     minimal_routes = [
         Route("/audit", get_audit, methods=["GET"], name="get_audit"),
@@ -407,7 +410,11 @@ def _last_event_id(request: Request) -> int | None:
 
 
 def _sse_frame(projection: IncidentAttentionProjection) -> bytes:
-    data = json.dumps(projection.to_dict(), separators=(",", ":"), sort_keys=True)
+    data = json.dumps(
+        redact_projection(projection.to_dict()),
+        separators=(",", ":"),
+        sort_keys=True,
+    )
     return f"id: {projection.sequence}\nevent: incident-attention\ndata: {data}\n\n".encode()
 
 

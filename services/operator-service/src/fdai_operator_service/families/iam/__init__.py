@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import cast
 
 from fdai_operator_service.families.iam.access_grants import make_access_grant_routes
 from fdai_operator_service.families.iam.assignments import make_assignment_routes
@@ -35,6 +38,9 @@ from fdai_operator_service.families.iam.settings import (
     make_model_settings_routes,
     make_runtime_settings_routes,
 )
+from fdai_operator_service.redaction import redact_projection
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 
@@ -114,7 +120,32 @@ def make_iam_family_routes(bindings: IamFamilyBindings) -> tuple[Route, ...]:
     expected = tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
     if snapshot != expected:
         raise RuntimeError("IAM family route factory does not match its frozen manifest")
-    return routes
+    return tuple(_redacting_route(route) for route in routes)
+
+
+def _redacting_route(route: Route) -> Route:
+    endpoint = cast(Callable[[Request], Awaitable[Response]], route.endpoint)
+
+    async def redacted_endpoint(request: Request) -> Response:
+        response = await endpoint(request)
+        if not isinstance(response, JSONResponse):
+            return response
+        payload = json.loads(bytes(response.body))
+        headers = {
+            key: value
+            for key, value in response.headers.items()
+            if key.casefold() not in {"content-length", "content-type"}
+        }
+        return JSONResponse(
+            redact_projection(payload),
+            status_code=response.status_code,
+            headers=headers,
+            background=response.background,
+        )
+
+    redacted_endpoint.__name__ = route.name
+    methods = sorted((route.methods or set()) - {"HEAD", "OPTIONS"})
+    return Route(route.path, redacted_endpoint, methods=methods, name=route.name)
 
 
 __all__ = [
