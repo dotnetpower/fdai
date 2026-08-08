@@ -224,12 +224,28 @@ def verify_peer_isolation(
     if before_peers != after_peers:
         before_by_service = {peer["service"]: peer for peer in before_peers}
         after_by_service = {peer["service"]: peer for peer in after_peers}
-        changed = sorted(
-            service
-            for service in before_by_service
-            if before_by_service[service] != after_by_service[service]
+        changed: list[str] = []
+        evidence_fields = (
+            "state_sha256",
+            "serial",
+            "lineage_sha256",
+            "managed_resource_count",
         )
-        raise PeerStateError(f"peer state drift detected for: {', '.join(changed)}")
+        for service in sorted(before_by_service):
+            before_peer = before_by_service[service]
+            after_peer = after_by_service[service]
+            changed_fields = [
+                field
+                for field in evidence_fields
+                if before_peer.get(field) != after_peer.get(field)
+            ]
+            if changed_fields:
+                transitions = ", ".join(
+                    f"{field}={before_peer.get(field)}->{after_peer.get(field)}"
+                    for field in changed_fields
+                )
+                changed.append(f"{service} ({transitions})")
+        raise PeerStateError(f"peer state drift detected for: {'; '.join(changed)}")
     return {
         "schema_version": _RECEIPT_SCHEMA,
         "status": "verified",

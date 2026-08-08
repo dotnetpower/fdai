@@ -1321,7 +1321,10 @@ def test_peer_state_receipt_rejects_any_peer_drift(
         changed_service="isolated-executor",
     )
 
-    with pytest.raises(peer_state.PeerStateError, match="isolated-executor"):
+    with pytest.raises(
+        peer_state.PeerStateError,
+        match=r"isolated-executor \(state_sha256=.*serial=1->2\)",
+    ):
         peer_state.verify_peer_isolation(
             before=before,
             after=after,
