@@ -1,10 +1,17 @@
 module "container_app" {
   source = "../../../_modules/container-app"
 
-  name                 = var.name
-  platform             = var.platform
-  image                = var.image
-  identity_ids         = concat([var.identity.transport_resource_id], var.authority.cutover ? var.identity.action_resource_ids : [])
+  name     = var.name
+  platform = var.platform
+  image    = var.image
+  identity_ids = concat(
+    [var.identity.transport_resource_id],
+    var.authority.cutover ? [
+      var.identity.change_resource_id,
+      var.identity.resilience_resource_id,
+      var.identity.finops_resource_id,
+    ] : []
+  )
   registry_identity_id = var.identity.transport_resource_id
   command              = ["fdai-isolated-executor-service"]
   args                 = []
@@ -19,6 +26,9 @@ module "container_app" {
     { name = "RUNTIME_ENV", value = var.runtime_env },
     { name = "FDAI_MI_CLIENT_ID", value = var.identity.transport_client_id },
     { name = "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID", value = var.identity.transport_client_id },
+    { name = "FDAI_CHANGE_MI_CLIENT_ID", value = var.authority.cutover ? var.identity.change_client_id : "" },
+    { name = "FDAI_RESILIENCE_MI_CLIENT_ID", value = var.authority.cutover ? var.identity.resilience_client_id : "" },
+    { name = "FDAI_FINOPS_MI_CLIENT_ID", value = var.authority.cutover ? var.identity.finops_client_id : "" },
     { name = "FDAI_ISOLATED_EXECUTOR_DEPLOYED", value = "1" },
     { name = "KAFKA_BOOTSTRAP_SERVERS", value = var.platform.kafka_bootstrap_servers },
     { name = "FDAI_EXECUTOR_COMMAND_TOPIC", value = var.event_topics.command },

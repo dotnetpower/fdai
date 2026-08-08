@@ -1,7 +1,24 @@
 variable "name" { type = string }
 variable "platform" { type = object({ resource_group_name = string, container_app_environment_id = string, acr_login_server = string, kafka_bootstrap_servers = string }) }
 variable "image" { type = string }
-variable "identity" { type = object({ transport_resource_id = string, transport_client_id = string, action_resource_ids = optional(list(string), []) }) }
+variable "identity" {
+  type = object({
+    transport_resource_id  = string
+    transport_client_id    = string
+    change_resource_id     = string
+    change_client_id       = string
+    resilience_resource_id = string
+    resilience_client_id   = string
+    finops_resource_id     = string
+    finops_client_id       = string
+  })
+  validation {
+    condition = alltrue([
+      for value in values(var.identity) : trimspace(value) != ""
+    ])
+    error_message = "Executor identity inputs require transport and all three vertical resource and client IDs."
+  }
+}
 variable "event_topics" { type = object({ command = string, receipt = string, dlq_suffix = string }) }
 variable "database" {
   type      = object({ dsn_secret_id = string, role = string })

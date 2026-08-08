@@ -18,10 +18,21 @@ variable "image" {
 variable "identity" {
   description = "Transport and cutover-only action identities supplied by the identity state owner."
   type = object({
-    transport_resource_id = string
-    transport_client_id   = string
-    action_resource_ids   = optional(list(string), [])
+    transport_resource_id  = string
+    transport_client_id    = string
+    change_resource_id     = string
+    change_client_id       = string
+    resilience_resource_id = string
+    resilience_client_id   = string
+    finops_resource_id     = string
+    finops_client_id       = string
   })
+  validation {
+    condition = alltrue([
+      for value in values(var.identity) : trimspace(value) != ""
+    ])
+    error_message = "Executor identity inputs require transport and all three vertical resource and client IDs."
+  }
 }
 variable "event_topics" {
   description = "Versioned Executor transport entities."
