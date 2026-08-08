@@ -72,6 +72,10 @@ if ! python3 "$validation_queue" check-range "$range"; then
   echo "pre-push: BLOCKED - centralized integration validation is pending."
   exit 1
 fi
+structural_evidence=0
+if python3 "$validation_queue" check-structural-gates HEAD; then
+  structural_evidence=1
+fi
 
 # Files changed in the commits being pushed (skip deletions).
 mapfile -t changed < <(git diff --name-only --diff-filter=d "$range" 2>/dev/null || true)
@@ -192,45 +196,19 @@ if [ -f scripts/quality/architecture/check-document-size.py ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 6. Structural gates (warn-only in the hook - CI is the authoritative
-#    fail surface). Kept lightweight so pushes stay fast. Tracker #14,
-#    issue #22.
+# 6. Structural gates. A central receipt for this exact HEAD and exact gate
+#    digest avoids repeating the same checks. Missing or stale evidence falls
+#    back to the shared runner in this isolated committed snapshot.
 # ---------------------------------------------------------------------------
-for gate_path in \
-  scripts/quality/architecture/check-agents-imports.sh \
-  scripts/quality/architecture/check-design-routes.py \
-  scripts/quality/architecture/check-evaluation-boundaries.py \
-  scripts/quality/architecture/check-fork-runtime-independence.py \
-  scripts/quality/architecture/check-file-loc.sh \
-  scripts/quality/architecture/check-independent-services.py \
-  scripts/quality/architecture/check-operator-api-boundaries.py \
-  scripts/quality/architecture/check-subsystem-fanout.sh \
-  scripts/quality/repository/check-doc-links.sh
-do
-  gate="${gate_path##*/}"
-  gate="${gate%.sh}"
-  if [ ! -f "$gate_path" ]; then
-    echo "pre-push: BLOCKED - required structural gate is missing: $gate_path"
+if [[ $structural_evidence -eq 1 ]]; then
+  echo "pre-push: structural gates reused from centralized validation receipt"
+else
+  echo "pre-push: structural receipt missing or stale; running fallback gates..."
+  if ! bash scripts/automation/run-pre-push-structural-gates.sh; then
+    echo "pre-push: BLOCKED - structural gates failed."
     exit 1
   fi
-  # Pre-push runs in warn-only mode for the two threshold gates (H2/H5
-  # give them their loud voices in CI); suppress per-file lines with
-  # CHECK_QUIET so a routine push does not flood the terminal.
-  if [[ "$gate_path" == *.py ]]; then
-    if ! command -v uv >/dev/null 2>&1; then
-      echo "pre-push: BLOCKED - uv is required for project-version Python gates."
-      exit 1
-    fi
-    gate_command=(uv run python "$gate_path")
-  else
-    gate_command=(bash "$gate_path")
-  fi
-  if ! CHECK_QUIET=1 "${gate_command[@]}" > /tmp/pre-push-${gate}.out 2>&1; then
-    echo "pre-push: BLOCKED - ${gate} failed:"
-    sed 's/^/  /' /tmp/pre-push-${gate}.out
-    exit 1
-  fi
-done
+fi
 
 echo "pre-push: OK"
 exit 0

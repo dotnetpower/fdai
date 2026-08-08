@@ -21,6 +21,7 @@ from scripts.automation.validation_queue_context import (
     validation_environment,
     write_stage_cache,
 )
+from scripts.automation.validation_queue_evidence import structural_gate_digest
 from scripts.automation.validation_queue_resume import (
     changed_test_cache_dir,
     changed_test_resume_context,
@@ -49,6 +50,7 @@ class StageResult(TypedDict):
     cached: bool
     resumed_from: str | None
     resumed_failures: int
+    input_digest: str | None
 
 
 def _link_local_path(source: Path, destination: Path) -> None:
@@ -89,6 +91,7 @@ def _run_stage(
         "cached": False,
         "resumed_from": None,
         "resumed_failures": 0,
+        "input_digest": None,
     }
 
 
@@ -101,6 +104,7 @@ def _cached_stage(name: str) -> StageResult:
         "cached": True,
         "resumed_from": None,
         "resumed_failures": 0,
+        "input_digest": None,
     }
 
 
@@ -310,6 +314,17 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
         stages.append(verify_result)
         if verify_result["status"] != 0:
             status = int(verify_result["status"])
+            return status
+        structural_result = _run_stage(
+            "structural-gates",
+            ["bash", "scripts/automation/run-pre-push-structural-gates.sh"],
+            cwd=validation_root,
+            env=environment,
+        )
+        structural_result["input_digest"] = structural_gate_digest(validation_root)
+        stages.append(structural_result)
+        if structural_result["status"] != 0:
+            status = int(structural_result["status"])
             return status
         status = 0
         run_record = _run_record(

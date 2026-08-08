@@ -122,6 +122,12 @@ Changing any of those inputs invalidates the matching cache. A failed gate
 leaves the commits pending. A successful run writes per-commit receipts, and
 the pre-push hook blocks outgoing commits without those receipts.
 
+Central validation also runs the complete pre-push structural gate set and
+binds its input digest to each receipt. Pre-push reuses that evidence only for
+the exact current `HEAD` when the shared runner, every structural gate,
+`pyproject.toml`, and `uv.lock` still match. Missing or stale evidence falls
+back to the same shared gate runner in an isolated committed worktree.
+
 When changed tests fail and a descendant fix commit is queued, the runner keeps
 the failed pytest node IDs outside the detached worktree. The next run combines
 those failures with tests selected from the failed-`HEAD`-to-fix-`HEAD` delta

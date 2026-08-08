@@ -12,6 +12,7 @@ from pathlib import Path
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from scripts.automation.validation_queue_evidence import structural_gate_digest
 from scripts.automation.validation_queue_runner import run_validation
 from scripts.automation.validation_queue_support import (
     COMMIT_PATTERN,
@@ -72,6 +73,39 @@ def check_commit(paths: QueuePaths, revision: str) -> int:
     return 1
 
 
+def check_structural_gates(paths: QueuePaths, revision: str) -> int:
+    """Accept structural-gate evidence only for the exact current snapshot."""
+    initialize(paths)
+    commit = resolve_commit(paths, revision)
+    head = resolve_commit(paths, "HEAD")
+    if commit != head:
+        print(
+            "validation-queue: structural evidence must target the current HEAD",
+            file=sys.stderr,
+        )
+        return 1
+    try:
+        receipt: object = json.loads(
+            (paths.receipts / f"{commit}.json").read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError):
+        return 1
+    if not isinstance(receipt, dict) or receipt.get("validated_head") != commit:
+        return 1
+    stages = receipt.get("stages")
+    expected_digest = structural_gate_digest(paths.repo_root)
+    if not isinstance(stages, list) or not any(
+        isinstance(stage, dict)
+        and stage.get("name") == "structural-gates"
+        and stage.get("status") == 0
+        and stage.get("input_digest") == expected_digest
+        for stage in stages
+    ):
+        return 1
+    print(f"validation-queue: structural gates already validated: {commit}")
+    return 0
+
+
 def run(paths: QueuePaths, mode: str) -> int:
     return run_validation(paths, mode)
 
@@ -105,6 +139,8 @@ def _parser() -> argparse.ArgumentParser:
     check_parser.add_argument("revision_range")
     check_commit_parser = subparsers.add_parser("check-commit")
     check_commit_parser.add_argument("revision", nargs="?", default="HEAD")
+    structural_parser = subparsers.add_parser("check-structural-gates")
+    structural_parser.add_argument("revision", nargs="?", default="HEAD")
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument("--all", action="store_true", dest="all_gates")
     status_parser = subparsers.add_parser("status")
@@ -137,6 +173,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if arguments.command == "check-commit":
         return check_commit(paths, arguments.revision)
+    if arguments.command == "check-structural-gates":
+        return check_structural_gates(paths, arguments.revision)
     if arguments.command == "run":
         return run(paths, "all" if arguments.all_gates else "fast")
     return status(paths, show_all=arguments.all_pending)

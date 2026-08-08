@@ -15,6 +15,7 @@ pytestmark = pytest.mark.no_cover
 REPO_ROOT = Path(__file__).resolve().parents[3]
 QUEUE_SCRIPT = REPO_ROOT / "scripts" / "automation" / "validation_queue.py"
 QUEUE_CONTEXT = REPO_ROOT / "scripts" / "automation" / "validation_queue_context.py"
+QUEUE_EVIDENCE = REPO_ROOT / "scripts" / "automation" / "validation_queue_evidence.py"
 QUEUE_RESUME = REPO_ROOT / "scripts" / "automation" / "validation_queue_resume.py"
 QUEUE_RUNNER = REPO_ROOT / "scripts" / "automation" / "validation_queue_runner.py"
 QUEUE_SUPPORT = REPO_ROOT / "scripts" / "automation" / "validation_queue_support.py"
@@ -61,7 +62,14 @@ def git_repo(tmp_path: Path) -> Path:
     )
     (repo / "bin" / "uv").chmod(0o755)
     (repo / "scripts" / "automation").mkdir(parents=True)
-    for source in (QUEUE_SCRIPT, QUEUE_CONTEXT, QUEUE_RESUME, QUEUE_RUNNER, QUEUE_SUPPORT):
+    for source in (
+        QUEUE_SCRIPT,
+        QUEUE_CONTEXT,
+        QUEUE_EVIDENCE,
+        QUEUE_RESUME,
+        QUEUE_RUNNER,
+        QUEUE_SUPPORT,
+    ):
         shutil.copy2(source, repo / "scripts" / "automation" / source.name)
     (repo / "scripts" / "automation" / "tests-for-diff.sh").write_text(
         "#!/usr/bin/env bash\n"
@@ -86,6 +94,10 @@ def git_repo(tmp_path: Path) -> Path:
         'test "$UV_NO_SYNC" = 1 || exit 13\n'
         'printf "verify:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n'
         '[[ "${FDAI_VALIDATION_VERIFY_FAIL:-0}" != 1 ]] || exit 17\n',
+        encoding="utf-8",
+    )
+    (repo / "scripts" / "automation" / "run-pre-push-structural-gates.sh").write_text(
+        "#!/usr/bin/env bash\nexit 0\n",
         encoding="utf-8",
     )
     (repo / ".gitignore").write_text("resolved-models*.json\n", encoding="utf-8")
@@ -151,7 +163,28 @@ def test_run_batches_pending_commits_and_records_receipts(git_repo: Path, tmp_pa
         "dependency-sync",
         "changed-tests",
         "fast-gates",
+        "structural-gates",
     ]
+    structural = receipt["stages"][-1]
+    assert structural["input_digest"]
+    structural_accepted = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "check-structural-gates",
+        commit,
+    )
+    assert structural_accepted.returncode == 0, structural_accepted.stderr
+    structural_runner = git_repo / "scripts" / "automation" / "run-pre-push-structural-gates.sh"
+    structural_runner.write_text("#!/usr/bin/env bash\n# changed\n", encoding="utf-8")
+    structural_stale = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "check-structural-gates",
+        commit,
+    )
+    assert structural_stale.returncode == 1
     assert (state_root / "worktree").is_dir()
 
 
@@ -419,14 +452,17 @@ def test_post_commit_hook_automatically_enqueues_commit(git_repo: Path) -> None:
 
 def test_pre_push_requires_central_validation_receipts() -> None:
     hook = PRE_PUSH_HOOK.read_text(encoding="utf-8")
+    structural_runner = (
+        REPO_ROOT / "scripts" / "automation" / "run-pre-push-structural-gates.sh"
+    ).read_text(encoding="utf-8")
 
     ensure_offset = hook.index('ensure-range "$range"')
     check_offset = hook.index('check-range "$range"')
     worktree_offset = hook.index("git worktree add")
 
     assert ensure_offset < check_offset < worktree_offset
-    assert 'gate_command=(uv run python "$gate_path")' in hook
-    assert 'gate_command=(python3 "$gate_path")' not in hook
+    assert 'gate_command=(uv run python "$gate_path")' in structural_runner
+    assert 'gate_command=(python3 "$gate_path")' not in structural_runner
 
 
 def test_validator_agent_is_read_execute_only_and_uses_make_facade() -> None:

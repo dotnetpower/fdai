@@ -73,7 +73,7 @@ def test_operator_api_boundary_ci_step_is_exact(ci_workflow: dict) -> None:
 
 
 def test_pre_push_hook_invokes_all_structural_gates() -> None:
-    body = _PRE_PUSH.read_text()
+    body = (_REPO_ROOT / "scripts" / "automation" / "run-pre-push-structural-gates.sh").read_text()
     for gate_path in (
         "scripts/quality/architecture/check-agents-imports.sh",
         "scripts/quality/architecture/check-evaluation-boundaries.py",
@@ -90,7 +90,7 @@ def test_pre_push_hook_invokes_all_structural_gates() -> None:
 
 
 def test_operator_api_boundary_gate_is_in_executed_pre_push_loop() -> None:
-    body = _PRE_PUSH.read_text()
+    body = (_REPO_ROOT / "scripts" / "automation" / "run-pre-push-structural-gates.sh").read_text()
     loop_start = body.index("for gate_path in \\")
     loop_end = body.index("\ndo\n", loop_start)
     loop_paths = body[loop_start:loop_end]
@@ -98,10 +98,15 @@ def test_operator_api_boundary_gate_is_in_executed_pre_push_loop() -> None:
     execution_block = body[loop_end : body.index("done", loop_end)]
     assert 'gate_command=(uv run python "$gate_path")' in execution_block
     assert 'gate_command=(python3 "$gate_path")' not in execution_block
-    assert (
-        'if ! CHECK_QUIET=1 "${gate_command[@]}" > '
-        "/tmp/pre-push-${gate}.out 2>&1; then" in execution_block
-    )
+    assert 'output="${TMPDIR:-/tmp}/pre-push-${gate}.out"' in execution_block
+    assert 'if ! CHECK_QUIET=1 "${gate_command[@]}" > "$output" 2>&1; then' in execution_block
+
+
+def test_pre_push_reuses_or_falls_back_to_structural_gate_evidence() -> None:
+    body = _PRE_PUSH.read_text()
+
+    assert "check-structural-gates HEAD" in body
+    assert "bash scripts/automation/run-pre-push-structural-gates.sh" in body
 
 
 def test_pre_push_validates_an_isolated_committed_snapshot() -> None:
