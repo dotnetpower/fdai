@@ -80,6 +80,20 @@ def test_runtime_packages_own_tests_and_root_keeps_integration_only() -> None:
     assert {path.name for path in (REPO_ROOT / "tests").iterdir()} == {"integration"}
 
 
+def test_manifest_records_completed_local_layout_assurance() -> None:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    evidence = manifest["local_layout_evidence"]
+    statuses = {item["id"]: item["status"] for item in manifest["work_packages"]}
+
+    assert evidence["state"] == "completed"
+    assert evidence["independent_critique_rounds"] >= 10
+    assert evidence["medium_or_higher_local_residuals"] == 0
+    assert evidence["pending_parallel_lanes"] == []
+    assert statuses["IS-04"] == "completed"
+    assert statuses["IS-08"] == "completed"
+    assert statuses["IS-09"] == "in_progress"
+
+
 def _write_final_layout(root: Path) -> None:
     for service_id in (
         "core-control-plane",
@@ -114,7 +128,7 @@ def test_checker_accepts_final_service_owned_layout(
 
 @pytest.mark.parametrize(
     "legacy_path",
-    ("src/fdai", "service-contracts", "services/Dockerfile"),
+    ("Dockerfile", "src/fdai", "service-contracts", "services/Dockerfile"),
 )
 def test_checker_rejects_retired_compatibility_paths(
     tmp_path: Path,

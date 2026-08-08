@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: d00076b85e057a5bbd390c899cd4d9a4d8d6effe
+translation_source_sha: 331bc814e475aa3bfc4993ccbc54fcd089c5fa7b
 translation_revised: 2026-08-08
 ---
 # 서비스 분해 실행 계획
@@ -112,7 +112,7 @@ fdai/
   install하지 않습니다.
 - **Cross-service test:** Root `tests/integration/`은 wire compatibility와 deployed workflow를
   검증합니다. Unit test와 component test는 소유 service로 이동합니다.
-- **폐기할 compatibility tree:** 최상위 `services/core-control-plane/src/fdai/`, shared multi-target service Dockerfile, legacy
+- **폐기할 compatibility tree:** 최상위 `src/fdai/`, shared multi-target service Dockerfile, legacy
   service entry point 및 중복 contract 정의는 migration 전용 artifact입니다. IS-08에서 먼저 로컬로
   제거한 뒤, 최종 service-owned source를 사용해 IS-07의 image 기반 N/N-1 rollback을 증명합니다.
   Checked-in legacy source tree 대신 Git history와 변경 불가능한 이전 image를 rollback mechanism으로
@@ -124,11 +124,11 @@ fdai/
 | [x] | IS-01 | Service implementation이 없는 versioned shared contract SDK를 추출합니다. | IS-00 | Consumer 5개가 같은 SDK를 install하고 validate한 receipt |
 | [x] | IS-02 | 독립 실행 가능한 service distribution과 composition root 5개를 추가합니다. | IS-01 | 독립 wheel 및 cold-start receipt 5개 |
 | [x] | IS-03 | Cross-service implementation import를 모두 제거합니다. | IS-01, IS-02 | Import count 0과 enforced boundary gate |
-| [ ] | IS-04 | Durable writer grant와 migration branch를 service별로 분리합니다. | IS-02 | Migration head 5개와 writer overlap 0 |
+| [x] | IS-04 | Durable writer grant와 migration branch를 service별로 분리합니다. | IS-02 | Migration head 5개와 writer overlap 0 |
 | [x] | IS-05 | 최소 service image 5개를 build, scan, attest, publish합니다. | IS-02, IS-03 | Immutable image, SBOM, startup receipt 5개 |
 | [ ] | IS-06 | Shared platform에서 service Terraform root, state 및 deployment workflow를 분리합니다. | IS-04, IS-05 | 각 service가 peer 변경 없이 plan/apply한 receipt |
 | [ ] | IS-07 | 각 service의 N/N-1 contract와 독립 upgrade/rollback을 증명합니다. | IS-03, IS-06, IS-08 | 최종 service-owned layout에서 build하고 peer를 유지한 rolling receipt 5개 |
-| [ ] | IS-08 | Implementation, unit test, build definition 및 distribution을 5개 service root 아래로 이동하고 최상위 monolith source, 중복 contract, co-host, in-process authority, shared-image 및 shared-migration compatibility path를 제거합니다. | IS-03, IS-05 | 최종 리포지토리 레이아웃이 문서의 tree와 일치하고 최상위 production source 및 topology compatibility path 수가 0 |
+| [x] | IS-08 | Implementation, unit test, build definition 및 distribution을 5개 service root 아래로 이동하고 최상위 monolith source, 중복 contract, co-host, in-process authority, shared-image 및 shared-migration compatibility path를 제거합니다. | IS-03, IS-05 | 최종 리포지토리 레이아웃이 문서의 tree와 일치하고 최상위 production source 및 topology compatibility path 수가 0 |
 | [ ] | IS-09 | 최종 리포지토리 레이아웃을 enforce하고 독립 critique-and-hardening round를 10회 이상 실행한 뒤 program을 종료합니다. | IS-07, IS-08 | Layout 및 import gate 통과, Medium 이상 residual 0 |
 
 Machine source of truth는 `config/independent-services.json`입니다. 각 migration wave는 같은 focused
@@ -146,22 +146,18 @@ IS-01/02는 implementation이 없는 contract wheel 1개와 고유 console entry
 evidence가 아닙니다.
 
 IS-03은 wrapper와 5개 service distribution의 모든 cross-service implementation import를 제거했습니다.
-Core는 monolithic FDAI distribution을 설치하지 않고 정확한 owned source allowlist를 package하며, 다른
-4개 service는 service-local implementation과 contract SDK만 포함합니다. IS-05는 tracked input만으로
-nonroot image 5개를 build합니다. Supply-chain matrix는 service별 scan, SBOM, provenance 및 attestation을
-유지합니다. Legacy monolith import는 이전 compatibility tree에만 남습니다. Core의 build-time source
-allowlist, root `services/core-control-plane/src/fdai/` tree 및 shared multi-target Dockerfile은 최종 layout이 아닌 transition
-mechanism입니다. 로컬 IS-08에서 먼저 제거하고 각 owned source와 test를 해당 service root로
-이동합니다. 그런 다음 IS-07은 최종 service-owned build input으로 live rolling proof를 수행하며
-monolith를 rollback source로 유지하지 않습니다.
+로컬 IS-08에서 Core는 service root 아래의 `src/fdai`와 `src/fdai_core_service`를 물리적으로 소유합니다.
+나머지 service 4개는 service-local implementation과 contract SDK만 포함합니다. 각 service는 test와
+`docker/Dockerfile`을 소유하고, root workspace는 package를 만들지 않는 orchestration 전용이며,
+`tests/integration`에는 cross-service check만 남습니다. Root 및 shared multi-target Dockerfile, legacy
+entry point, duplicate contract와 generic ingestion co-host seam은 제거되었습니다.
 
-로컬 base `f19cbeb73`에는 물리 source 및 test 이동이 반영되어 있습니다. Core는 `src/fdai`,
-`src/fdai_core_service`와 해당 service test tree를 소유하고, 나머지 service 4개는 각각 고유 package와
-test를 소유합니다. `packages/service-contracts`는 shared SDK와 해당 test를 소유하며, root
-`services/core-control-plane/tests/integration`에는 cross-service check만 남습니다. 이는 IS-08의 진행 중 로컬 evidence이며 완료
-evidence가 아닙니다. 병렬 service Dockerfile lane과 final-layout gate lane을 병합하고 통과하기 전에는
-IS-08을 완료할 수 없습니다. 그다음 IS-07에서 이 최종 service-owned input으로 live N/N-1 upgrade 및
-rollback을 증명하므로, 로컬 layout을 해당 live proof보다 먼저 반영하는 순서가 의도된 흐름입니다.
+로컬 완료 evidence에는 독립 build wheel 6개, nonroot service image 5개, image health check 5개,
+104개 table과 11개 transition을 포함하는 검증된 migration branch 5개, 로컬에서 validate한 Terraform
+root 5개, cross-service implementation import 0, 그리고 독립 critique-and-hardening 10회와 Medium 이상
+로컬 residual 0이 포함됩니다. IS-06과 IS-07은 exact remote plan/apply 및 N/N-1 rolling receipt를 위해
+계속 열려 있습니다. 해당 live proof는 최종 service-owned input을 사용하며 monolith를 rollback
+source로 복원하지 않습니다.
 
 ## 병렬 실행 규칙
 

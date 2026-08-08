@@ -115,7 +115,7 @@ fdai/
   distribution.
 - **Cross-service tests:** Root `tests/integration/` verifies wire compatibility and deployed
   workflows. Unit and component tests move with their owning service.
-- **Retired compatibility tree:** Top-level `services/core-control-plane/src/fdai/`, the shared multi-target service
+- **Retired compatibility tree:** Top-level `src/fdai/`, the shared multi-target service
   Dockerfile, legacy service entry points, and duplicate contract definitions are migration-only
   artifacts. IS-08 removes them locally before IS-07 proves image-based N/N-1 rollback from the
   final service-owned sources. Git history and immutable prior images replace a checked-in legacy
@@ -127,11 +127,11 @@ fdai/
 | [x] | IS-01 | Extract the versioned shared contract SDK without service implementations. | IS-00 | Five consumers install and validate the same SDK |
 | [x] | IS-02 | Add five independently executable service distributions and composition roots. | IS-01 | Five isolated wheel and cold-start receipts |
 | [x] | IS-03 | Remove every cross-service implementation import. | IS-01, IS-02 | Import count zero and enforced boundary gate |
-| [ ] | IS-04 | Split durable writer grants and migration branches by service. | IS-02 | Five migration heads and zero writer overlap |
+| [x] | IS-04 | Split durable writer grants and migration branches by service. | IS-02 | Five migration heads and zero writer overlap |
 | [x] | IS-05 | Build, scan, attest, and publish five minimal service images. | IS-02, IS-03 | Five immutable image, SBOM, and startup receipts |
 | [ ] | IS-06 | Split service Terraform roots, state, and deployment workflows from the shared platform. | IS-04, IS-05 | Each service plans/applies without changing peers |
 | [ ] | IS-07 | Prove N/N-1 contracts and independent upgrade/rollback for each service. | IS-03, IS-06, IS-08 | Five peer-stable rolling receipts built from the final service-owned layout |
-| [ ] | IS-08 | Move implementation, unit tests, build definitions, and distributions under their five service roots; retire the top-level monolith source, duplicate contracts, co-host, in-process authority, shared-image, and shared-migration compatibility paths. | IS-03, IS-05 | Final repository layout matches the documented tree; top-level production source and topology compatibility path counts are zero |
+| [x] | IS-08 | Move implementation, unit tests, build definitions, and distributions under their five service roots; retire the top-level monolith source, duplicate contracts, co-host, in-process authority, shared-image, and shared-migration compatibility paths. | IS-03, IS-05 | Final repository layout matches the documented tree; top-level production source and topology compatibility path counts are zero |
 | [ ] | IS-09 | Enforce the final repository layout, run at least ten independent critique-and-hardening rounds, and close the program. | IS-07, IS-08 | Layout and import gates pass; Medium-or-higher residual count zero |
 
 The machine source of truth is `config/independent-services.json`. Every migration wave updates its
@@ -149,24 +149,19 @@ implementation so behavior stays unchanged. The five wrapper imports are an expl
 they are not evidence of final source independence.
 
 IS-03 removed those wrappers and every cross-service implementation import from the five service
-distributions. Core packages its exact owned source allowlist without installing the monolithic
-FDAI distribution; the other four services contain only service-local implementation and the
-contract SDK. IS-05 builds all five nonroot images from tracked inputs. The supply-chain matrix
-keeps per-service scan, SBOM, provenance, and attestation. Legacy monolith imports remain only in
-the old compatibility tree. Core's build-time source allowlist, the root `services/core-control-plane/src/fdai/` tree, and the
-shared multi-target Dockerfile are transition mechanisms rather than the final layout. Local IS-08
-removes them first and moves each owned source and test into its service root. IS-07 then uses those
-final service-owned build inputs for live rolling proof; it does not retain the monolith as a
-rollback source.
+distributions. Local IS-08 now gives Core physical ownership of `src/fdai` and
+`src/fdai_core_service` below its service root. The other four services contain only service-local
+implementation and the contract SDK. Each service owns its tests and `docker/Dockerfile`; the root
+workspace is non-package orchestration; and only cross-service checks remain under
+`tests/integration`. The root and shared multi-target Dockerfiles, legacy entry points, duplicate
+contracts, and generic ingestion co-host seam are absent.
 
-At local base `f19cbeb73`, the physical source and test moves are present: Core owns `src/fdai`,
-`src/fdai_core_service`, and its service test tree; each of the other four services owns its named
-package and tests; `packages/service-contracts` owns the shared SDK and its tests; and only
-cross-service checks remain under root `services/core-control-plane/tests/integration`. This is in-progress IS-08 local
-evidence, not completion evidence. The parallel service-Dockerfile and final-layout gate lanes must
-merge and pass before IS-08 can close. IS-07 then performs live N/N-1 upgrade and rollback proof
-from these final service-owned inputs, so the local layout intentionally lands before that live
-proof.
+Local completion evidence includes six independently built wheels, five nonroot service images,
+five image health checks, five validated migration branches covering 104 tables and 11
+transitions, five locally validated Terraform roots, zero cross-service implementation imports,
+and ten independent critique-and-hardening rounds with zero Medium-or-higher local residuals.
+IS-06 and IS-07 remain open for exact remote plan/apply and N/N-1 rolling receipts. Those live
+proofs use the final service-owned inputs and do not restore the monolith as a rollback source.
 
 ## Parallel execution rules
 

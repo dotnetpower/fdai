@@ -108,10 +108,25 @@
   },
   "local_layout_evidence": {
     "base_commit": "f19cbeb73",
-    "state": "in_progress",
+    "state": "completed",
     "source_and_test_moves_present": true,
-    "pending_parallel_lanes": ["service-dockerfiles", "final-layout-gates"],
-    "live_upgrade_and_rollback_proof_work_package": "IS-07"
+    "service_dockerfiles": 5,
+    "top_level_compatibility_paths": 0,
+    "cross_service_implementation_imports": 0,
+    "independent_critique_rounds": 10,
+    "medium_or_higher_local_residuals": 0,
+    "pending_parallel_lanes": [],
+    "live_upgrade_and_rollback_proof_work_package": "IS-07",
+    "local_validation": {
+      "service_wheels": 5,
+      "contract_wheels": 1,
+      "service_images": 5,
+      "service_image_healthchecks": 5,
+      "migration_branches": 5,
+      "migration_tables": 104,
+      "migration_transitions": 11,
+      "terraform_roots_validated": 5
+    }
   },
   "compatibility_retirements": {
     "legacy_isolated_executor_module": "retired",
@@ -122,11 +137,11 @@
     {"id": "IS-01", "status": "completed", "dependencies": ["IS-00"]},
     {"id": "IS-02", "status": "completed", "dependencies": ["IS-01"]},
     {"id": "IS-03", "status": "completed", "dependencies": ["IS-01", "IS-02"]},
-    {"id": "IS-04", "status": "in_progress", "dependencies": ["IS-02"]},
+    {"id": "IS-04", "status": "completed", "dependencies": ["IS-02"]},
     {"id": "IS-05", "status": "completed", "dependencies": ["IS-02", "IS-03"]},
     {"id": "IS-06", "status": "in_progress", "dependencies": ["IS-04", "IS-05"]},
     {"id": "IS-07", "status": "in_progress", "dependencies": ["IS-03", "IS-06", "IS-08"]},
-    {"id": "IS-08", "status": "in_progress", "dependencies": ["IS-03", "IS-05"]},
-    {"id": "IS-09", "status": "planned", "dependencies": ["IS-07", "IS-08"]}
+    {"id": "IS-08", "status": "completed", "dependencies": ["IS-03", "IS-05"]},
+    {"id": "IS-09", "status": "in_progress", "dependencies": ["IS-07", "IS-08"]}
   ]
 }
