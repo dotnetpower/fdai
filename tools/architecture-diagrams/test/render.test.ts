@@ -71,7 +71,7 @@ test("lays out nested groups and renders accessible SVG", async () => {
   assert.match(svg, /var\(--fdai-diagram-azure, #0078d4\)/);
   assert.match(svg, /var\(--fdai-diagram-text, #323130\)/);
   assert.match(svg, /@media \(prefers-color-scheme: dark\)/);
-  assert.match(svg, /var\(--fdai-diagram-edge-event, #187ea8\)/);
+  assert.match(svg, /var\(--fdai-diagram-edge-event, #4f847e\)/);
   assert.match(svg, /\.diagram-node > rect/);
   assert.doesNotMatch(svg, /\.diagram-node rect \{/);
   assert.match(svg, /<title id="diagram-title">Render sample<\/title>/);

@@ -7,20 +7,23 @@ import { layoutDiagram } from "./layout/elk.js";
 import { assertLayoutIntegrity } from "./layout/integrity.js";
 import type { DiagramSpec, Locale } from "./model/types.js";
 import { renderSvg } from "./render/svg.js";
+import { CALM_SLATE_LIGHT } from "./render/theme.js";
 
 const diagramFontPath = fileURLToPath(
   new URL("../assets/fonts/noto-sans-kr-diagrams.ttf", import.meta.url),
 );
 
+/** Resolves the default light theme for deterministic static rendering. */
 export function resolveCssFallbacks(source: string): string {
   return source.replace(
-    /var\(--[a-z0-9-]+,\s*([^)]+)\)/gi,
-    (_match, fallback: string) => fallback.trim(),
+    /var\((--[a-z0-9-]+)(?:,\s*([^)]+))?\)/gi,
+    (match, name: string, fallback: string | undefined) =>
+      fallback?.trim() ?? CALM_SLATE_LIGHT[name as keyof typeof CALM_SLATE_LIGHT] ?? match,
   );
 }
 
 export function canonicalTextArtifact(source: string): Buffer {
-  return Buffer.from(`${source.replace(/\n+$/u, "")}\n`);
+  return Buffer.from(`${source.replace(/[ \t]+$/gmu, "").replace(/\n+$/u, "")}\n`);
 }
 
 export interface DiagramArtifact {

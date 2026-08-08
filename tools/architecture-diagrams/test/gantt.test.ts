@@ -5,6 +5,7 @@ import test from "node:test";
 import { compileDiagram } from "../src/compiler.js";
 import { layoutDiagram } from "../src/layout/elk.js";
 import { validateDiagram } from "../src/model/validate.js";
+import { renderSvg } from "../src/render/svg.js";
 
 const canonicalUrl = new URL(
   "../../../docs/diagrams/fdai-delivery-roadmap.diagram.yaml",
@@ -44,6 +45,8 @@ test("lays dependent Gantt tasks on a shared time axis", async () => {
   assert.equal(design.height, 34);
   assert.ok(layout.groups.get("foundation")!.height > design.height);
   assert.equal(layout.edges.length, 1);
+  const svg = await renderSvg(spec, layout, "en");
+  assert.match(svg, /data-node-id="design"[^>]+transform="translate\(48 112\)"/);
 });
 
 test("accepts an ISO date axis", async () => {

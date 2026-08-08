@@ -31,6 +31,9 @@ export interface PositionedShape {
   depth: number;
   path?: string;
   paletteIndex?: number;
+  labelX?: number;
+  labelY?: number;
+  leader?: string;
 }
 
 export interface DiagramLayout {
@@ -39,6 +42,13 @@ export interface DiagramLayout {
   groups: Map<string, PositionedShape>;
   nodes: Map<string, PositionedShape>;
   edges: ElkExtendedEdge[];
+  axis?: {
+    minimum: number;
+    maximum: number;
+    x: number;
+    width: number;
+    kind: "number" | "date";
+  };
 }
 
 const require = createRequire(import.meta.url);

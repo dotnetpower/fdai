@@ -27,6 +27,11 @@ import {
 
 import type { DiagramLayout, PositionedShape } from "../layout/elk.js";
 import { cubicCurve } from "../layout/curve.js";
+import {
+  CALM_SLATE_LIGHT,
+  calmSlateFoundationCss,
+  standaloneThemeCss,
+} from "./theme.js";
 import type {
   DiagramEdge,
   DiagramNode,
@@ -49,33 +54,37 @@ import {
   wrapText,
 } from "../model/text.js";
 
+function themeColor(name: keyof typeof CALM_SLATE_LIGHT): string {
+  return `var(${name}, ${CALM_SLATE_LIGHT[name]})`;
+}
+
 const edgeStyles: Record<EdgeKind, { color: string; dash: string; width: number }> = {
-  request: { color: "var(--fdai-diagram-edge-request, #0078d4)", dash: "none", width: 2.4 },
-  event: { color: "var(--fdai-diagram-edge-event, #187ea8)", dash: "7 4", width: 2.4 },
-  approval: { color: "var(--fdai-diagram-edge-approval, #7651a8)", dash: "3 4", width: 2.6 },
-  mutation: { color: "var(--fdai-diagram-edge-mutation, #c43501)", dash: "none", width: 3 },
-  audit: { color: "var(--fdai-diagram-edge-audit, #107c10)", dash: "2 4", width: 2.4 },
-  rollback: { color: "var(--fdai-diagram-edge-rollback, #a4262c)", dash: "9 4 2 4", width: 2.6 },
-  read: { color: "var(--fdai-diagram-edge-read, #008272)", dash: "5 4", width: 2.2 },
-  write: { color: "var(--fdai-diagram-edge-write, #5c2d91)", dash: "none", width: 2.6 },
-  feedback: { color: "var(--fdai-diagram-edge-feedback, #6045df)", dash: "8 4", width: 2.6 },
-  sequence: { color: "var(--fdai-diagram-edge-sequence, #0f6cbd)", dash: "none", width: 2.4 },
-  transition: { color: "var(--fdai-diagram-edge-transition, #6b46c1)", dash: "none", width: 2.4 },
-  association: { color: "var(--fdai-diagram-edge-association, #44546a)", dash: "none", width: 2.2 },
-  dependency: { color: "var(--fdai-diagram-edge-dependency, #667085)", dash: "5 4", width: 2.2 },
-  timeline: { color: "var(--fdai-diagram-edge-timeline, #9a6500)", dash: "none", width: 3 },
+  request: { color: themeColor("--fdai-diagram-edge-request"), dash: "none", width: 2.4 },
+  event: { color: themeColor("--fdai-diagram-edge-event"), dash: "7 4", width: 2.4 },
+  approval: { color: themeColor("--fdai-diagram-edge-approval"), dash: "3 4", width: 2.6 },
+  mutation: { color: themeColor("--fdai-diagram-edge-mutation"), dash: "none", width: 3 },
+  audit: { color: themeColor("--fdai-diagram-edge-audit"), dash: "2 4", width: 2.4 },
+  rollback: { color: themeColor("--fdai-diagram-edge-rollback"), dash: "9 4 2 4", width: 2.6 },
+  read: { color: themeColor("--fdai-diagram-edge-read"), dash: "5 4", width: 2.2 },
+  write: { color: themeColor("--fdai-diagram-edge-write"), dash: "none", width: 2.6 },
+  feedback: { color: themeColor("--fdai-diagram-edge-feedback"), dash: "8 4", width: 2.6 },
+  sequence: { color: themeColor("--fdai-diagram-edge-sequence"), dash: "none", width: 2.4 },
+  transition: { color: themeColor("--fdai-diagram-edge-transition"), dash: "none", width: 2.4 },
+  association: { color: themeColor("--fdai-diagram-edge-association"), dash: "none", width: 2.2 },
+  dependency: { color: themeColor("--fdai-diagram-edge-dependency"), dash: "5 4", width: 2.2 },
+  timeline: { color: themeColor("--fdai-diagram-edge-timeline"), dash: "none", width: 3 },
 };
 
 const toneStyles = {
-  input: { fill: "var(--fdai-diagram-tone-input-fill, #f4f8ff)", stroke: "var(--fdai-diagram-tone-input-stroke, #2563eb)" },
-  interpretation: { fill: "var(--fdai-diagram-tone-interpretation-fill, #eef6ff)", stroke: "var(--fdai-diagram-tone-interpretation-stroke, #0f6cbd)" },
-  model: { fill: "var(--fdai-diagram-tone-model-fill, #eefbf7)", stroke: "var(--fdai-diagram-tone-model-stroke, #008272)" },
-  policy: { fill: "var(--fdai-diagram-tone-policy-fill, #f1faef)", stroke: "var(--fdai-diagram-tone-policy-stroke, #2e7d32)" },
-  decision: { fill: "var(--fdai-diagram-tone-decision-fill, #fff8e6)", stroke: "var(--fdai-diagram-tone-decision-stroke, #9a6500)" },
-  execution: { fill: "var(--fdai-diagram-tone-execution-fill, #f7f2ff)", stroke: "var(--fdai-diagram-tone-execution-stroke, #6b46c1)" },
-  feedback: { fill: "var(--fdai-diagram-tone-feedback-fill, #f5f2ff)", stroke: "var(--fdai-diagram-tone-feedback-stroke, #6045df)" },
-  store: { fill: "var(--fdai-diagram-tone-store-fill, #f6f7f8)", stroke: "var(--fdai-diagram-tone-store-stroke, #5f6b7a)" },
-  neutral: { fill: "var(--fdai-diagram-tone-neutral-fill, #ffffff)", stroke: "var(--fdai-diagram-tone-neutral-stroke, #667085)" },
+  input: { fill: themeColor("--fdai-diagram-tone-input-fill"), stroke: themeColor("--fdai-diagram-tone-input-stroke") },
+  interpretation: { fill: themeColor("--fdai-diagram-tone-interpretation-fill"), stroke: themeColor("--fdai-diagram-tone-interpretation-stroke") },
+  model: { fill: themeColor("--fdai-diagram-tone-model-fill"), stroke: themeColor("--fdai-diagram-tone-model-stroke") },
+  policy: { fill: themeColor("--fdai-diagram-tone-policy-fill"), stroke: themeColor("--fdai-diagram-tone-policy-stroke") },
+  decision: { fill: themeColor("--fdai-diagram-tone-decision-fill"), stroke: themeColor("--fdai-diagram-tone-decision-stroke") },
+  execution: { fill: themeColor("--fdai-diagram-tone-execution-fill"), stroke: themeColor("--fdai-diagram-tone-execution-stroke") },
+  feedback: { fill: themeColor("--fdai-diagram-tone-feedback-fill"), stroke: themeColor("--fdai-diagram-tone-feedback-stroke") },
+  store: { fill: themeColor("--fdai-diagram-tone-store-fill"), stroke: themeColor("--fdai-diagram-tone-store-stroke") },
+  neutral: { fill: themeColor("--fdai-diagram-tone-neutral-fill"), stroke: themeColor("--fdai-diagram-tone-neutral-stroke") },
 } as const;
 
 const edgeKindLabels: Record<EdgeKind, Record<Locale, string>> = {
@@ -245,6 +254,8 @@ async function renderNode(
   node: DiagramNode,
   shape: PositionedShape,
   locale: Locale,
+  offsetX = 0,
+  offsetY = 0,
 ): Promise<string> {
   const geometry = nodeGeometry(node);
   const icon = node.kind === "agent"
@@ -252,17 +263,20 @@ async function renderNode(
     : node.icon === "agent-pantheon"
       ? await pantheonIconDataUri(pantheonIconManifest.collective, node.icon)
       : await iconDataUri(node.icon);
-  const x = shape.x + shape.width / 2;
   const barShape = node.shape === "bar";
   const pieSlice = node.shape === "pie-slice";
   const centeredChartNode = ["circle", "pie-slice"].includes(node.shape ?? "");
+  const externalBarLabel = barShape && shape.labelX !== undefined;
+  const x = externalBarLabel ? shape.labelX! : shape.x + shape.width / 2;
   const labelLines = wrapText(
     node.label[locale],
     barShape || centeredChartNode
       ? Math.max(4, (shape.width - 16) / NODE_FONT_SIZE)
       : geometry.maxLabelUnits,
   );
-  const labelStart = barShape || centeredChartNode
+  const labelStart = externalBarLabel
+    ? shape.labelY! + NODE_FONT_SIZE * 0.35
+    : barShape || centeredChartNode
     ? shape.y + shape.height / 2 -
       ((labelLines.length - 1) * NODE_LINE_HEIGHT) / 2 + NODE_FONT_SIZE * 0.35
     : shape.y + geometry.labelTop + NODE_FONT_SIZE;
@@ -283,14 +297,26 @@ async function renderNode(
   const description = node.description?.[locale] ?? node.label[locale];
   const presentation = node.presentation ?? "card";
   const nodeShape = node.shape ?? "card";
-  const surface = nodeShapeMarkup(nodeShape, shape, presentation);
-  const progressMarkup = barShape && node.progress !== undefined
+  const surface = barShape && node.status === "milestone"
+    ? milestoneShapeMarkup(shape)
+    : nodeShapeMarkup(nodeShape, shape, presentation);
+  const progressMarkup = barShape && node.status !== "milestone" && node.progress !== undefined
     ? `<rect class="node-progress" x="${shape.x}" y="${shape.y}" width="${shape.width * node.progress / 100}" height="${shape.height}" rx="4" aria-hidden="true"/>`
     : "";
   const badgeMarkup = node.badge
     ? `<g class="node-badge" transform="translate(${shape.x + 14} ${shape.y + 14})" aria-hidden="true"><circle r="12"/><text y="4">${node.badge}</text></g>`
     : "";
-  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" data-presentation="${presentation}" data-shape="${nodeShape}" data-tone="${node.tone ?? "neutral"}"${shape.paletteIndex !== undefined ? ` data-palette-index="${shape.paletteIndex % 8}"` : ""}${node.status ? ` data-status="${node.status}"` : ""} role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}">${surface}${progressMarkup}${iconMarkup}${textLines(labelLines, x, labelStart, "node-label")}${bodyMarkup}${badgeMarkup}</g>`;
+  const leaderMarkup = shape.leader
+    ? `<path class="chart-leader" d="${shape.leader}" aria-hidden="true"/>`
+    : "";
+  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" data-presentation="${presentation}" data-shape="${nodeShape}" data-tone="${node.tone ?? "neutral"}"${shape.paletteIndex !== undefined ? ` data-palette-index="${shape.paletteIndex % 8}"` : ""}${node.status ? ` data-status="${node.status}"` : ""} transform="translate(${offsetX} ${offsetY})" role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}">${leaderMarkup}${surface}${progressMarkup}${iconMarkup}${textLines(labelLines, x, labelStart, "node-label", NODE_LINE_HEIGHT, externalBarLabel ? "start" : "middle")}${bodyMarkup}${badgeMarkup}</g>`;
+}
+
+function milestoneShapeMarkup(shape: PositionedShape): string {
+  const centerX = shape.x + shape.width / 2;
+  const centerY = shape.y + shape.height / 2;
+  const radius = Math.min(11, shape.height / 2 - 2);
+  return `<polygon class="node-surface" points="${centerX},${centerY - radius} ${centerX + radius},${centerY} ${centerX},${centerY + radius} ${centerX - radius},${centerY}"/>`;
 }
 
 function nodeShapeMarkup(
@@ -427,6 +453,7 @@ function renderEdge(
   locale: Locale,
   offsetX: number,
   offsetY: number,
+  diagramKind: DiagramSpec["kind"],
   profile: DiagramSpec["canvas"]["profile"],
   layoutLabel?: ElkLabel,
 ): string {
@@ -455,8 +482,9 @@ function renderEdge(
     ? `<g class="edge-step" transform="translate(${stepPosition.x + offsetX} ${stepPosition.y + offsetY})" aria-hidden="true"><circle r="13"/><text y="4">${edge.step}</text></g>`
     : "";
   const accessibleLabel = `${edge.step ? `Step ${edge.step}. ` : ""}${label ?? edgeKindLabels[edge.kind][locale]}`;
+  const sankey = diagramKind === "sankey";
   const path =
-    edge.route === "curve"
+    edge.route === "curve" || sankey
       ? smoothCurvePath(section.startPoint, section.endPoint, offsetX, offsetY)
       : roundedEdgePath(
           sectionPoints(section),
@@ -464,7 +492,8 @@ function renderEdge(
           offsetY,
           profile === "azure-reference" ? 4 : 14,
         );
-  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}" data-edge-route="${edge.route ?? "auto"}"${edge.weight ? ` data-edge-weight="${edge.weight}"` : ""}${edge.step ? ` data-edge-step="${edge.step}"` : ""}><title>${escapeXml(accessibleLabel)}</title><path class="edge-hit" d="${path}"/><path class="edge-path" d="${path}" fill="none" stroke="${style.color}" stroke-width="${strokeWidth}" stroke-dasharray="${style.dash}" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-${edge.kind})"/>${labelMarkup}${stepMarkup}</g>`;
+  const marker = sankey ? "" : ` marker-end="url(#arrow-${edge.kind})"`;
+  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}" data-edge-route="${edge.route ?? "auto"}"${edge.weight ? ` data-edge-weight="${edge.weight}"` : ""}${edge.step ? ` data-edge-step="${edge.step}"` : ""}><title>${escapeXml(accessibleLabel)}</title><path class="edge-hit" d="${path}"/><path class="edge-path" d="${path}" fill="none" stroke="${style.color}" stroke-width="${strokeWidth}" stroke-dasharray="${style.dash}" stroke-linecap="round" stroke-linejoin="round"${marker}/>${labelMarkup}${stepMarkup}</g>`;
 }
 
 function renderLegend(spec: DiagramSpec, locale: Locale, y: number): string {
@@ -490,6 +519,28 @@ function renderChartBackdrop(
   offsetX: number,
   offsetY: number,
 ): string {
+  if (spec.kind === "gantt" && layout.axis) {
+    const groups = [...layout.groups.values()];
+    const top = offsetY + Math.min(...groups.map((group) => group.y));
+    const bottom = offsetY + Math.max(...groups.map((group) => group.y + group.height));
+    const ticks = Array.from({ length: 6 }, (_, index) => {
+      const ratio = index / 5;
+      const value = layout.axis!.minimum +
+        (layout.axis!.maximum - layout.axis!.minimum) * ratio;
+      const x = offsetX + layout.axis!.x + layout.axis!.width * ratio;
+      const label = layout.axis!.kind === "date"
+        ? new Date(value * 86_400_000).toISOString().slice(0, 10)
+        : Number.isInteger(value) ? String(value) : value.toFixed(1);
+      return `<line class="chart-guide" x1="${x}" y1="${top + 38}" x2="${x}" y2="${bottom}"/><text class="chart-tick-label" x="${x}" y="${top + 29}" text-anchor="middle">${label}</text>`;
+    }).join("");
+    return `<g class="chart-backdrop gantt-grid" aria-hidden="true">${ticks}</g>`;
+  }
+  if (spec.kind === "pie") {
+    const centerX = offsetX + layout.width / 2;
+    const centerY = offsetY + layout.height / 2;
+    const total = spec.nodes.reduce((sum, node) => sum + (node.value ?? 0), 0);
+    return `<g class="chart-backdrop donut-center" aria-hidden="true"><text class="donut-total" x="${centerX}" y="${centerY - 3}" text-anchor="middle">${total}</text><text class="donut-caption" x="${centerX}" y="${centerY + 19}" text-anchor="middle">TOTAL</text></g>`;
+  }
   if (["quadrant", "xy-chart", "wardley"].includes(spec.kind)) {
     const padding = spec.canvas.padding ?? 56;
     const x = offsetX + padding;
@@ -498,13 +549,23 @@ function renderChartBackdrop(
     const height = layout.height - padding * 2;
     const xAxis = spec.canvas.xAxis?.[locale] ?? "";
     const yAxis = spec.canvas.yAxis?.[locale] ?? "";
-    return `<g class="chart-backdrop" aria-hidden="true"><rect class="chart-frame" x="${x}" y="${y}" width="${width}" height="${height}"/><line class="chart-guide" x1="${x + width / 2}" y1="${y}" x2="${x + width / 2}" y2="${y + height}"/><line class="chart-guide" x1="${x}" y1="${y + height / 2}" x2="${x + width}" y2="${y + height / 2}"/>${xAxis ? `<text class="chart-axis-label" x="${x + width / 2}" y="${y + height + 28}" text-anchor="middle">${escapeXml(xAxis)}</text>` : ""}${yAxis ? `<text class="chart-axis-label" x="${x - 18}" y="${y + height / 2}" text-anchor="middle" transform="rotate(-90 ${x - 18} ${y + height / 2})">${escapeXml(yAxis)}</text>` : ""}</g>`;
+    const regions = spec.kind === "quadrant"
+      ? `<rect class="quadrant-region region-one" x="${x}" y="${y}" width="${width / 2}" height="${height / 2}"/><rect class="quadrant-region region-two" x="${x + width / 2}" y="${y}" width="${width / 2}" height="${height / 2}"/><rect class="quadrant-region region-three" x="${x}" y="${y + height / 2}" width="${width / 2}" height="${height / 2}"/><rect class="quadrant-region region-four" x="${x + width / 2}" y="${y + height / 2}" width="${width / 2}" height="${height / 2}"/>`
+      : "";
+    return `<g class="chart-backdrop" aria-hidden="true"><rect class="chart-frame" x="${x}" y="${y}" width="${width}" height="${height}"/>${regions}<line class="chart-guide" x1="${x + width / 2}" y1="${y}" x2="${x + width / 2}" y2="${y + height}"/><line class="chart-guide" x1="${x}" y1="${y + height / 2}" x2="${x + width}" y2="${y + height / 2}"/>${xAxis ? `<text class="chart-axis-label" x="${x + width / 2}" y="${y + height + 28}" text-anchor="middle">${escapeXml(xAxis)}</text>` : ""}${yAxis ? `<text class="chart-axis-label" x="${x - 18}" y="${y + height / 2}" text-anchor="middle" transform="rotate(-90 ${x - 18} ${y + height / 2})">${escapeXml(yAxis)}</text>` : ""}</g>`;
   }
   if (spec.kind === "radar") {
     const centerX = offsetX + layout.width / 2;
     const centerY = offsetY + layout.height / 2;
     const radius = Math.min(layout.width, layout.height) * 0.34;
-    return `<g class="chart-backdrop" aria-hidden="true">${[0.25, 0.5, 0.75, 1].map((scale) => `<circle class="chart-guide-ring" cx="${centerX}" cy="${centerY}" r="${radius * scale}"/>`).join("")}</g>`;
+    const points = [...layout.nodes.values()].map(
+      (node) => `${offsetX + node.x + node.width / 2},${offsetY + node.y + node.height / 2}`,
+    );
+    const spokes = points.map((point) => {
+      const [x, y] = point.split(",");
+      return `<line class="radar-spoke" x1="${centerX}" y1="${centerY}" x2="${x}" y2="${y}"/>`;
+    }).join("");
+    return `<g class="chart-backdrop" aria-hidden="true">${[0.25, 0.5, 0.75, 1].map((scale) => `<circle class="chart-guide-ring" cx="${centerX}" cy="${centerY}" r="${radius * scale}"/>`).join("")}${spokes}<polygon class="radar-area" points="${points.join(" ")}"/></g>`;
   }
   return "";
 }
@@ -559,6 +620,7 @@ export async function renderSvg(
           locale,
           offsetX + (container?.x ?? 0),
           offsetY + (container?.y ?? 0),
+          spec.kind,
           spec.canvas.profile,
           index === 0 ? layoutEdge.labels?.[0] : undefined,
         ),
@@ -570,12 +632,7 @@ export async function renderSvg(
       [...layout.nodes.values()].map(async (shape) => {
         const node = nodeById.get(shape.id);
         if (!node) return "";
-        const translatedShape = {
-          ...shape,
-          x: shape.x + offsetX,
-          y: shape.y + offsetY,
-        };
-        return renderNode(node, translatedShape, locale);
+        return renderNode(node, shape, locale, offsetX, offsetY);
       }),
     )
   ).join("");
@@ -584,7 +641,7 @@ export async function renderSvg(
   <title id="diagram-title">${escapeXml(spec.locales[locale].title)}</title>
   <desc id="diagram-description">${escapeXml(spec.locales[locale].alt)}</desc>
   <metadata>${escapeXml(JSON.stringify({ id: spec.id, version: spec.version, updated: spec.updated }))}</metadata>
-  <defs>${markers}<filter id="node-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#172b4d" flood-opacity="0.14"/></filter></defs>
+  <defs>${markers}<filter id="node-shadow" x="-25%" y="-30%" width="150%" height="170%"><feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#2e3640" flood-opacity="0.08"/></filter></defs>
   <style>
     svg[data-diagram-id] { color: var(--fdai-diagram-text, #323130); font-family: "Noto Sans KR", "Noto Sans", "Segoe UI", sans-serif; }
     @media (prefers-color-scheme: dark) {
@@ -596,7 +653,7 @@ export async function renderSvg(
       }
     }
     .diagram-title { font-size: 26px; font-weight: 700; fill: var(--fdai-diagram-text, #323130); }
-    .diagram-subtitle { font-size: 14px; fill: var(--fdai-diagram-muted, #605e5c); }
+    .diagram-subtitle { font-size: 15px; fill: var(--fdai-diagram-muted, #605e5c); }
     .diagram-group .group-surface { fill: var(--fdai-diagram-surface, #ffffff); stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1.5; stroke-dasharray: 5 4; }
     .diagram-group .group-header { fill: var(--fdai-diagram-neutral-header, #edebe9); stroke: none; }
     .diagram-group.group-system .group-surface { fill: var(--fdai-diagram-control-surface, #eff6fc); stroke: var(--fdai-diagram-azure, #0078d4); }
@@ -625,10 +682,10 @@ export async function renderSvg(
     .node-detail { fill: none; stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1.25; }
     .node-progress { fill: var(--fdai-diagram-gantt-progress, #ffffff); fill-opacity: 0.2; pointer-events: none; }
     .node-badge circle { fill: var(--fdai-diagram-badge-fill, #173b6c); stroke: var(--fdai-diagram-badge-ring, #ffffff); stroke-width: 2; }
-    .node-badge text { fill: var(--fdai-diagram-badge-text, #ffffff); font-size: 11px; font-weight: 700; text-anchor: middle; }
+    .node-badge text { fill: var(--fdai-diagram-badge-text, #ffffff); font-size: 12px; font-weight: 700; text-anchor: middle; }
     ${Object.entries(toneStyles).map(([tone, style]) => `.diagram-node[data-tone="${tone}"] > .node-surface { fill: ${style.fill}; stroke: ${style.stroke}; }`).join("\n    ")}
     .diagram-node[data-shape="bar"] > .node-surface { fill: var(--fdai-diagram-gantt-planned, #e8edf2); stroke: var(--fdai-diagram-gantt-planned-stroke, #667085); filter: none; }
-    .diagram-node[data-shape="bar"] .node-label { fill: var(--fdai-diagram-gantt-planned-text, #323130); font-size: 12px; }
+    .diagram-node[data-shape="bar"] .node-label { fill: var(--fdai-diagram-gantt-planned-text, #323130); font-size: 14px; }
     .diagram-node[data-shape="bar"][data-status="active"] > .node-surface { fill: var(--fdai-diagram-gantt-active, #0f6cbd); stroke: var(--fdai-diagram-gantt-active-stroke, #005a9e); }
     .diagram-node[data-shape="bar"][data-status="done"] > .node-surface { fill: var(--fdai-diagram-gantt-done, #107c10); stroke: var(--fdai-diagram-gantt-done-stroke, #0b5c0b); }
     .diagram-node[data-shape="bar"][data-status="critical"] > .node-surface { fill: var(--fdai-diagram-gantt-critical, #c43501); stroke: var(--fdai-diagram-gantt-critical-stroke, #8f2600); }
@@ -638,7 +695,7 @@ export async function renderSvg(
     .diagram-node[data-shape="bar"][data-status="critical"] .node-label,
     .diagram-node[data-shape="bar"][data-status="milestone"] .node-label { fill: var(--fdai-diagram-gantt-text, #ffffff); }
     .diagram-node[data-shape="pie-slice"] > .node-surface { filter: none; stroke: var(--fdai-diagram-surface, #ffffff); stroke-width: 2; }
-    .diagram-node[data-shape="pie-slice"] .node-label { fill: var(--fdai-diagram-pie-text, #ffffff); font-size: 12px; }
+    .diagram-node[data-shape="pie-slice"] .node-label { fill: var(--fdai-diagram-pie-text, #ffffff); font-size: 14px; }
     .diagram-node[data-shape="pie-slice"][data-palette-index="0"] > .node-surface { fill: var(--fdai-diagram-chart-1, #0f6cbd); }
     .diagram-node[data-shape="pie-slice"][data-palette-index="1"] > .node-surface { fill: var(--fdai-diagram-chart-2, #008272); }
     .diagram-node[data-shape="pie-slice"][data-palette-index="2"] > .node-surface { fill: var(--fdai-diagram-chart-3, #6b46c1); }
@@ -654,13 +711,13 @@ export async function renderSvg(
     .chart-frame { fill: var(--fdai-diagram-chart-surface, #ffffff); stroke: var(--fdai-diagram-border-strong, #605e5c); stroke-width: 1.5; }
     .chart-guide { stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1; stroke-dasharray: 5 5; }
     .chart-guide-ring { fill: none; stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1; stroke-dasharray: 4 5; }
-    .chart-axis-label { fill: var(--fdai-diagram-muted, #605e5c); font-size: 12px; font-weight: 600; }
+    .chart-axis-label { fill: var(--fdai-diagram-muted, #605e5c); font-size: 14px; font-weight: 600; }
     .edge-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
     .edge-path { pointer-events: stroke; transition: stroke-width 140ms ease, opacity 140ms ease; }
     .diagram-edge[data-edge-route="orthogonal-above"][data-edge-step] > .edge-path { opacity: 0.52; stroke-width: 2; }
     .edge-label { cursor: pointer; }
     .edge-label rect { fill: var(--fdai-diagram-label-surface, #ffffff); stroke: var(--fdai-diagram-border, #a19f9d); transition: fill 140ms ease, stroke 140ms ease, stroke-width 140ms ease; }
-    .edge-label-text, .legend-item text { font-size: 12px; font-weight: 600; fill: var(--fdai-diagram-muted, #605e5c); }
+    .edge-label-text, .legend-item text { font-size: ${EDGE_FONT_SIZE}px; font-weight: 600; fill: var(--fdai-diagram-muted, #605e5c); }
     .edge-label-text { transition: fill 140ms ease; }
     .diagram-edge.is-muted { opacity: 0.12; }
     .diagram-edge.is-muted:hover { opacity: 1; }
@@ -699,6 +756,8 @@ export async function renderSvg(
     svg[data-profile="azure-reference"] .node-label { font-size: 13px; font-weight: 650; fill: #323130; }
     svg[data-profile="azure-reference"] .edge-label-text,
     svg[data-profile="azure-reference"] .legend-item text { fill: #484644; font-weight: 650; }
+    ${standaloneThemeCss()}
+    ${calmSlateFoundationCss()}
   </style>
   <rect class="diagram-background" width="${width}" height="${height}" fill="${spec.canvas.profile === "azure-reference" ? "#ffffff" : "var(--fdai-diagram-canvas, #faf9f8)"}"/>
   <text class="diagram-title" x="48" y="45">${escapeXml(spec.locales[locale].title)}</text>

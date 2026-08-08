@@ -32,7 +32,7 @@ test("canonical overview exposes the five architecture layers", async () => {
   assert.equal(parentByNode.get("rule-catalog"), "rule-catalog-layer");
 });
 
-test("canonical overview rounds routed corners while preserving direct hops", async () => {
+test("canonical overview avoids collisions while preserving direct hops", async () => {
   const spec = parseDiagram(await readFile(overviewUrl, "utf8"));
   const layout = await layoutDiagram(spec);
   const svg = await renderSvg(spec, layout, "en");
@@ -49,18 +49,24 @@ test("canonical overview rounds routed corners while preserving direct hops", as
   assert.ok(controlFlow && ruleCatalog);
   assert.ok(ruleCatalog.y > controlFlow.y + controlFlow.height);
 
-  for (const edgeId of ["bus-to-ingest", "catalog-to-decision"]) {
+  const busToIngest = svg.match(
+    /data-edge-id="bus-to-ingest"[\s\S]*?<path class="edge-path" d="([^"]+)"/,
+  );
+  assert.ok(busToIngest);
+  assert.match(busToIngest[1] ?? "", /Q/);
+  assert.match(svg, /data-edge-id="bus-to-ingest"[^>]+data-edge-route="orthogonal-horizontal"/);
+
+  for (const edgeId of ["catalog-to-decision", "executor-to-remediation"]) {
     const match = svg.match(
       new RegExp(`data-edge-id="${edgeId}"[\\s\\S]*?<path class="edge-path" d="([^"]+)"`),
     );
     assert.ok(match);
     assert.equal(match[1]?.match(/[MLQ]/g)?.length, 2);
-    assert.doesNotMatch(match[1] ?? "", /Q/);
+    assert.doesNotMatch(match[1] ?? "", /[QC]/);
   }
 
   for (const edgeId of [
     "risk-to-approval",
-    "executor-to-remediation",
     "audit-to-console",
   ]) {
     const match = svg.match(

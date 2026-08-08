@@ -167,7 +167,7 @@ edges:
     to: event-ingest
     kind: event
     label: { en: normalized events, ko: 정규화된 이벤트 }
-    route: diagonal
+    route: orthogonal-horizontal
   - id: ingest-to-router
     from: event-ingest
     to: trust-router
@@ -210,7 +210,7 @@ edges:
     to: remediation-pr
     kind: mutation
     label: { en: approved change, ko: 승인된 변경 }
-    route: curve
+    route: diagonal
   - id: executor-to-audit
     from: executor
     to: audit-store

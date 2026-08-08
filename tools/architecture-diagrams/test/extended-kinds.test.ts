@@ -35,6 +35,8 @@ test("pie strategy produces distinct arc paths and themed slices", async () => {
   const svg = await renderSvg(spec, layout, "ko");
   assert.match(svg, /data-shape="pie-slice"/);
   assert.match(svg, /A[\d.]+ [\d.]+ 0 [01] 1/);
+  assert.match(svg, /data-node-id="rules"[^>]+transform="translate\(48 112\)"/);
+  assert.match(svg, /class="chart-leader"/);
 });
 
 test("coordinate strategy maps values onto chart axes", async () => {

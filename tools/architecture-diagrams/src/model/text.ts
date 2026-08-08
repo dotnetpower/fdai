@@ -5,18 +5,18 @@ import type {
   LocalizedText,
 } from "./types.js";
 
-export const GROUP_FONT_SIZE = 14;
-export const NODE_FONT_SIZE = 13;
-export const NODE_LINE_HEIGHT = 17;
-export const NODE_BODY_FONT_SIZE = 11;
-export const NODE_BODY_LINE_HEIGHT = 15;
+export const GROUP_FONT_SIZE = 16;
+export const NODE_FONT_SIZE = 15;
+export const NODE_LINE_HEIGHT = 20;
+export const NODE_BODY_FONT_SIZE = 13;
+export const NODE_BODY_LINE_HEIGHT = 18;
 export const NODE_ICON_SIZE = 42;
 export const NODE_ICON_TOP = 12;
 export const NODE_LABEL_GAP = 10;
 export const NODE_BOTTOM_PADDING = 12;
 export const REFERENCE_NODE_ICON_SIZE = 50;
-export const EDGE_FONT_SIZE = 12;
-export const EDGE_LINE_HEIGHT = 16;
+export const EDGE_FONT_SIZE = 13;
+export const EDGE_LINE_HEIGHT = 18;
 
 function glyphUnits(character: string): number {
   if (/\s/u.test(character)) return 0.35;

@@ -12,14 +12,15 @@ import { buildViewerArtifact } from "../src/viewer/build.js";
 test("canonical text artifacts end with exactly one newline", () => {
   assert.equal(canonicalTextArtifact("<svg></svg>").toString(), "<svg></svg>\n");
   assert.equal(canonicalTextArtifact("<svg></svg>\n\n").toString(), "<svg></svg>\n");
+  assert.equal(canonicalTextArtifact("<svg>  \n  </svg>\t").toString(), "<svg>\n  </svg>\n");
 });
 
 test("resolves diagram CSS variable fallbacks for static PNG rendering", () => {
   assert.equal(
     resolveCssFallbacks(
-      "fill: var(--fdai-diagram-canvas, #faf9f8); color: var(--fdai-diagram-text, #323130);",
+      "fill: var(--fdai-diagram-canvas, #faf9f8); color: var(--fdai-diagram-text); stroke: var(--custom);",
     ),
-    "fill: #faf9f8; color: #323130;",
+    "fill: #faf9f8; color: #2c333a; stroke: var(--custom);",
   );
 });
 

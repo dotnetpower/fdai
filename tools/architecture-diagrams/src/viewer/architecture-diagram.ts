@@ -14,11 +14,13 @@ import {
   centerViewBox,
   contentViewBox,
   interactiveInitialViewBox,
+  needsReadableInitialCrop,
   panViewBox,
   zoomPercentage,
   zoomViewBox,
   type ViewBox,
 } from "./viewport.js";
+import { embeddedThemeCss } from "../render/theme.js";
 
 type Locale = "en" | "ko";
 
@@ -252,11 +254,17 @@ class ArchitectureDiagramElement extends HTMLElement {
 
     const contentBounds = contentViewBox(parseViewBox(svg));
     const compact = window.matchMedia("(max-width: 44rem)").matches;
+    const viewportWidth = Math.max(320, this.getBoundingClientRect().width);
+    const readableCrop = needsReadableInitialCrop(
+      contentBounds,
+      viewportWidth,
+      compact,
+    );
     const compactViewBox = interactiveInitialViewBox(
       contentBounds,
-      Math.max(320, this.getBoundingClientRect().width),
+      viewportWidth,
       Math.min(480, window.innerHeight * 0.72),
-      compact,
+      readableCrop,
     );
     const centerOnCompact = [
       "pie",
@@ -266,7 +274,7 @@ class ArchitectureDiagramElement extends HTMLElement {
       "venn",
       "wardley",
     ].includes(manifest.kind);
-    const initialViewBox = compact && centerOnCompact
+    const initialViewBox = readableCrop && centerOnCompact
       ? centerViewBox(compactViewBox, contentBounds)
       : compactViewBox;
     let viewBox = { ...initialViewBox };
@@ -309,6 +317,7 @@ class ArchitectureDiagramElement extends HTMLElement {
       .shell:fullscreen { width: 100vw; height: 100vh; border: 0; border-radius: 0; }
       .shell:fullscreen .stage { height: 100vh; }
       .shell:fullscreen .details.open { position: absolute; inset-inline: 1rem; inset-block-end: 1rem; width: auto; max-height: 13rem; overflow: auto; border: 1px solid var(--sl-color-hairline, #d6e0ec); border-radius: 8px; box-shadow: 0 8px 28px rgb(15 23 42 / 0.24); }
+      ${embeddedThemeCss()}
       @media (max-width: 44rem) { .toolbar { inset-block-start: 0.3rem; inset-inline-end: 0.3rem; } .stage { height: min(72vh, 30rem); min-height: 24rem; } .details { grid-template-columns: 1fr; } }
       @media (hover: none) { .toolbar { opacity: 1; transform: none; pointer-events: auto; } }
       @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } .toolbar { transition: none; } }
@@ -327,7 +336,7 @@ class ArchitectureDiagramElement extends HTMLElement {
     const stage = document.createElement("div");
     stage.className = "stage";
     if (!compact) {
-      stage.style.aspectRatio = `${contentBounds.width} / ${contentBounds.height}`;
+      stage.style.aspectRatio = `${initialViewBox.width} / ${initialViewBox.height}`;
     }
     stage.tabIndex = 0;
     stage.setAttribute("role", "region");
@@ -444,6 +453,8 @@ class ArchitectureDiagramElement extends HTMLElement {
     diagramNodes.forEach((node, index) => {
       node.tabIndex = index === 0 ? 0 : -1;
       node.setAttribute("aria-pressed", "false");
+      node.addEventListener("focus", () => node.classList.add("is-keyboard-focused"));
+      node.addEventListener("blur", () => node.classList.remove("is-keyboard-focused"));
       const select = (): void => {
         this.selectNode(
           node.dataset.nodeId ?? null,

@@ -71,7 +71,8 @@ function pieLayout(spec: DiagramSpec): DiagramLayout {
   const height = Math.max(480, spec.canvas.height);
   const centerX = width / 2;
   const centerY = height / 2;
-  const radius = Math.min(width, height) * 0.32;
+  const radius = Math.min(width, height) * 0.28;
+  const innerRadius = radius * 0.56;
   const total = spec.nodes.reduce((sum, node) => sum + node.value!, 0);
   const nodes = new Map<string, PositionedShape>();
   let angle = -Math.PI / 2;
@@ -80,16 +81,21 @@ function pieLayout(spec: DiagramSpec): DiagramLayout {
     const nextAngle = angle + sweep;
     const start = polarPoint(centerX, centerY, radius, angle);
     const end = polarPoint(centerX, centerY, radius, nextAngle);
+    const innerStart = polarPoint(centerX, centerY, innerRadius, angle);
+    const innerEnd = polarPoint(centerX, centerY, innerRadius, nextAngle);
     const largeArc = sweep > Math.PI ? 1 : 0;
-    const middle = polarPoint(centerX, centerY, radius * 0.65, angle + sweep / 2);
+    const middleAngle = angle + sweep / 2;
+    const leaderStart = polarPoint(centerX, centerY, radius * 1.02, middleAngle);
+    const labelCenter = polarPoint(centerX, centerY, radius * 1.32, middleAngle);
     nodes.set(node.id, {
       id: node.id,
-      x: middle.x - 62,
-      y: middle.y - 24,
-      width: 124,
-      height: 48,
+      x: labelCenter.x - 74,
+      y: labelCenter.y - 20,
+      width: 148,
+      height: 40,
       depth: 0,
-      path: `M${centerX} ${centerY} L${start.x} ${start.y} A${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y} Z`,
+      path: `M${start.x} ${start.y} A${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y} L${innerEnd.x} ${innerEnd.y} A${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${innerStart.x} ${innerStart.y} Z`,
+      leader: `M${leaderStart.x} ${leaderStart.y} L${labelCenter.x} ${labelCenter.y}`,
       paletteIndex: index,
     });
     angle = nextAngle;

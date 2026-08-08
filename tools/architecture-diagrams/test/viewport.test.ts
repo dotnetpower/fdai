@@ -7,6 +7,7 @@ import {
   contentViewBox,
   fitViewBox,
   interactiveInitialViewBox,
+  needsReadableInitialCrop,
   panViewBox,
   zoomPercentage,
   zoomViewBox,
@@ -32,11 +33,17 @@ test("compact initial view leaves room to pan on both axes", () => {
   const compact = interactiveInitialViewBox(bounds, 400, 500, true);
   assert.equal(compact.x, 0);
   assert.equal(compact.y, 88);
-  assert.ok(Math.abs(compact.width - 467.072) < 0.001);
-  assert.ok(Math.abs(compact.height - 583.84) < 0.001);
+  assert.ok(Math.abs(compact.width - 284.8) < 0.001);
+  assert.ok(Math.abs(compact.height - 356) < 0.001);
   assert.ok(compact.width < bounds.width);
   assert.ok(compact.height < bounds.height);
   assert.deepEqual(interactiveInitialViewBox(bounds, 1600, 712, false), bounds);
+});
+
+test("dense diagrams start cropped even in a wide browser", () => {
+  assert.equal(needsReadableInitialCrop(bounds, 800, false), true);
+  assert.equal(needsReadableInitialCrop(bounds, 1200, false), false);
+  assert.equal(needsReadableInitialCrop(bounds, 1600, true), true);
 });
 
 test("chart view can center the compact crop", () => {
@@ -83,4 +90,6 @@ test("toolbar floats over the diagram and reveals on hover or focus", async () =
   assert.match(viewer, /@media \(hover: none\)[^{]*\{[^}]*\.toolbar/u);
   assert.doesNotMatch(viewer, /border-bottom:/u);
   assert.match(viewer, /\.shell:fullscreen \.stage \{ height: 100vh; \}/u);
+  assert.match(viewer, /classList\.add\("is-keyboard-focused"\)/u);
+  assert.match(viewer, /classList\.remove\("is-keyboard-focused"\)/u);
 });

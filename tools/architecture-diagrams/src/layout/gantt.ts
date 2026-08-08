@@ -89,7 +89,9 @@ export function layoutGantt(spec: DiagramSpec): DiagramLayout {
   const groupGap = 20;
   const groupHeader = 42;
   const groupPadding = 16;
-  const taskWidth = chartWidth - groupPadding * 2;
+  const labelWidth = Math.min(260, chartWidth * 0.24);
+  const axisX = padding + groupPadding + labelWidth;
+  const taskWidth = chartWidth - groupPadding * 2 - labelWidth;
   const groups = new Map<string, PositionedShape>();
   const nodes = new Map<string, PositionedShape>();
   const sections = [
@@ -119,11 +121,13 @@ export function layoutGantt(spec: DiagramSpec): DiagramLayout {
       const task = schedule.get(node.id)!;
       nodes.set(node.id, {
         id: node.id,
-        x: padding + groupPadding + ((task.start - origin) / span) * taskWidth,
+        x: axisX + ((task.start - origin) / span) * taskWidth,
         y: contentY + index * (rowHeight + rowGap),
         width: Math.max(32, ((task.end - task.start) / span) * taskWidth),
         height: rowHeight,
         depth: sectionId === "root" ? 0 : 1,
+        labelX: padding + groupPadding,
+        labelY: contentY + index * (rowHeight + rowGap) + rowHeight / 2,
       });
     });
     y += sectionHeight + groupGap;
@@ -134,5 +138,14 @@ export function layoutGantt(spec: DiagramSpec): DiagramLayout {
     groups,
     nodes,
     edges: dependencyEdges(spec, nodes),
+    axis: {
+      minimum: origin,
+      maximum: finish,
+      x: axisX,
+      width: taskWidth,
+      kind: spec.nodes.some(
+        (node) => typeof node.start === "string" || typeof node.end === "string",
+      ) ? "date" : "number",
+    },
   };
 }
