@@ -856,6 +856,9 @@ def test_service_command_wrappers_exist_and_are_executable() -> None:
         wrapper = MIGRATION_ROOT / "bin" / service_id
         assert wrapper.is_file()
         assert wrapper.stat().st_mode & 0o111
+        assert 'uv run --frozen --project "$repo_root" --extra dev python' in wrapper.read_text(
+            encoding="utf-8"
+        )
         environment = dict(os.environ)
         environment.pop("FDAI_MIGRATION_PYTHON", None)
         result = subprocess.run(  # noqa: S603 - fixed repository wrapper

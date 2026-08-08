@@ -13,7 +13,7 @@ if [ -x "$repo_root/.venv/bin/python" ]; then
 fi
 
 if command -v uv >/dev/null 2>&1; then
-	exec uv run --frozen --project "$repo_root" python "$migration_entry" isolated-executor "$@"
+	exec uv run --frozen --project "$repo_root" --extra dev python "$migration_entry" isolated-executor "$@"
 fi
 
 printf '%s\n' \
