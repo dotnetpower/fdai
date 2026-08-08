@@ -307,11 +307,7 @@ def _python_path(service_ids: Sequence[str]) -> str:
     missing = [path for path in roots if not path.is_dir()]
     if missing:
         raise ValueError(f"service import root does not exist: {missing[0]}")
-    existing = os.environ.get("PYTHONPATH", "")
-    values = [str(path) for path in roots]
-    if existing:
-        values.append(existing)
-    return os.pathsep.join(values)
+    return os.pathsep.join(str(path) for path in roots)
 
 
 def _parser(service_ids: Sequence[str]) -> argparse.ArgumentParser:

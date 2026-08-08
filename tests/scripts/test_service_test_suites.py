@@ -292,6 +292,28 @@ def test_service_test_runner_executes_canonical_all_service_union(
         assert str(REPO_ROOT / "services" / service_id / "src") in python_path
 
 
+def test_service_test_python_path_ignores_hostile_inherited_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    namespace = _runner_namespace()
+    path_separator = namespace["os"].pathsep
+    monkeypatch.setenv(
+        "PYTHONPATH",
+        path_separator.join((str(REPO_ROOT / "src"), str(tmp_path / "hostile"))),
+    )
+
+    assert namespace["_python_path"](("isolated-executor",)).split(path_separator) == [
+        str(REPO_ROOT / "services" / "isolated-executor" / "src"),
+        str(REPO_ROOT / "service-contracts" / "src"),
+    ]
+    assert namespace["_python_path"](("core-control-plane",)).split(path_separator) == [
+        str(REPO_ROOT / "services" / "core-control-plane" / "src"),
+        str(REPO_ROOT / "service-contracts" / "src"),
+        str(REPO_ROOT / "src"),
+    ]
+
+
 @pytest.mark.parametrize(
     "arguments",
     (
