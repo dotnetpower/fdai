@@ -122,6 +122,15 @@ async def test_gateway_plans_before_enforce_mutation() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         operation = request.url.path.rsplit("/", 1)[-1]
         operations.append(operation)
+        if operation == "azure.operation.status":
+            return httpx.Response(
+                404,
+                json={
+                    "status": "failed",
+                    "code": "idempotency_not_found",
+                    "detail": "operation record was not found",
+                },
+            )
         if operation == "azure.operation.plan":
             return httpx.Response(
                 200,
@@ -145,7 +154,34 @@ async def test_gateway_plans_before_enforce_mutation() -> None:
         ).execute(_request(Mode.ENFORCE))
 
     assert receipt.outcome is DirectApiOutcome.SUCCEEDED
-    assert operations == ["azure.operation.plan", "azure.compute.vm.start"]
+    assert operations == [
+        "azure.operation.status",
+        "azure.operation.plan",
+        "azure.compute.vm.start",
+    ]
+
+
+async def test_gateway_redelivery_reconstructs_applied_receipt_without_re_effect() -> None:
+    operations: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        operation = request.url.path.rsplit("/", 1)[-1]
+        operations.append(operation)
+        return httpx.Response(
+            200,
+            json={"operation_id": operation, "status": "succeeded"},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        receipt = await AzureGatewayDirectApiExecutor(
+            config=_gateway_config(),
+            identities={"identity/change": _Identity("gateway-token")},
+            http_client=client,
+        ).execute(_request(Mode.ENFORCE))
+
+    assert receipt.outcome is DirectApiOutcome.ALREADY_APPLIED
+    assert receipt.receipt_ref == "gateway:operation-one"
+    assert operations == ["azure.operation.status"]
 
 
 async def test_gateway_uses_exact_action_bound_executor_identity() -> None:
@@ -156,6 +192,15 @@ async def test_gateway_uses_exact_action_bound_executor_identity() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         authorization_headers.append(request.headers["Authorization"])
         operation = request.url.path.rsplit("/", 1)[-1]
+        if operation == "azure.operation.status":
+            return httpx.Response(
+                404,
+                json={
+                    "status": "failed",
+                    "code": "idempotency_not_found",
+                    "detail": "operation record was not found",
+                },
+            )
         if operation == "azure.operation.plan":
             return httpx.Response(
                 200,
@@ -188,8 +233,8 @@ async def test_gateway_uses_exact_action_bound_executor_identity() -> None:
         ).execute(request)
 
     assert receipt.outcome is DirectApiOutcome.SUCCEEDED
-    assert authorization_headers == ["Bearer change-token", "Bearer change-token"]
-    assert change_identity.audiences == ["gateway-audience", "gateway-audience"]
+    assert authorization_headers == ["Bearer change-token"] * 3
+    assert change_identity.audiences == ["gateway-audience"] * 3
     assert resilience_identity.audiences == []
 
 

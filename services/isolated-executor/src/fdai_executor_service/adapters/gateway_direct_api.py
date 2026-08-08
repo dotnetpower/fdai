@@ -101,6 +101,10 @@ class AzureGatewayDirectApiExecutor:
             )
         arguments = _arguments(operation_id, request.arguments)
         safety = _safety(request)
+        if request.mode is Mode.ENFORCE:
+            existing = await self._existing_operation_receipt(request, identity=identity)
+            if existing is not None:
+                return existing
         plan = await self._invoke(
             "azure.operation.plan",
             {"operation_id": operation_id, "arguments": arguments, "safety": safety},
@@ -137,11 +141,45 @@ class AzureGatewayDirectApiExecutor:
             )
         return await self._poll_until_terminal(request, identity=identity)
 
+    async def _existing_operation_receipt(
+        self,
+        request: DirectApiRequest,
+        *,
+        identity: WorkloadIdentity,
+    ) -> DirectApiReceipt | None:
+        response = await self._invoke(
+            "azure.operation.status",
+            {"idempotency_key": request.idempotency_key},
+            identity=identity,
+            not_found_code="idempotency_not_found",
+        )
+        body = _validated_body(response, expected_operation="azure.operation.status")
+        status = body.get("status")
+        if status == "not_found":
+            return None
+        if status == "succeeded":
+            return _success_receipt(request, already_applied=True)
+        if status == "running":
+            return await self._poll_until_terminal(
+                request,
+                identity=identity,
+                already_applied=True,
+            )
+        if status == "failed":
+            return DirectApiReceipt(
+                outcome=DirectApiOutcome.FAILED,
+                receipt_ref=f"gateway:{request.idempotency_key}",
+                rollback_succeeded=False,
+                detail="previous Azure long-running operation failed",
+            )
+        raise DirectApiError("invalid_response", "gateway status was not recognized")
+
     async def _poll_until_terminal(
         self,
         request: DirectApiRequest,
         *,
         identity: WorkloadIdentity,
+        already_applied: bool = False,
     ) -> DirectApiReceipt:
         for _attempt in range(self._config.max_poll_attempts):
             if self._config.poll_interval_seconds:
@@ -154,7 +192,7 @@ class AzureGatewayDirectApiExecutor:
             body = _validated_body(response, expected_operation="azure.operation.status")
             status = body.get("status")
             if status == "succeeded":
-                return _success_receipt(request)
+                return _success_receipt(request, already_applied=already_applied)
             if status == "failed":
                 return DirectApiReceipt(
                     outcome=DirectApiOutcome.FAILED,
@@ -177,6 +215,7 @@ class AzureGatewayDirectApiExecutor:
         payload: Mapping[str, object],
         *,
         identity: WorkloadIdentity,
+        not_found_code: str | None = None,
     ) -> Mapping[str, object]:
         try:
             token = await identity.get_token(self._config.audience)
@@ -217,6 +256,8 @@ class AzureGatewayDirectApiExecutor:
             raise DirectApiError(
                 "invalid_response", "operations gateway response was not an object"
             )
+        if status_code == 404 and not_found_code is not None and body.get("code") == not_found_code:
+            return {"operation_id": operation_id, "status": "not_found"}
         if status_code == 409:
             raise DirectApiPreconditionError("operations gateway precondition failed")
         if status_code >= 400:
@@ -280,11 +321,21 @@ def _result(body: Mapping[str, object], *, expected_operation: str) -> Mapping[s
     return result
 
 
-def _success_receipt(request: DirectApiRequest) -> DirectApiReceipt:
+def _success_receipt(
+    request: DirectApiRequest,
+    *,
+    already_applied: bool = False,
+) -> DirectApiReceipt:
     return DirectApiReceipt(
-        outcome=DirectApiOutcome.SUCCEEDED,
+        outcome=(
+            DirectApiOutcome.ALREADY_APPLIED if already_applied else DirectApiOutcome.SUCCEEDED
+        ),
         receipt_ref=f"gateway:{request.idempotency_key}",
-        detail="gateway mutation completed",
+        detail=(
+            "durable gateway status confirms mutation already applied"
+            if already_applied
+            else "gateway mutation completed"
+        ),
     )
 
 
