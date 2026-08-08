@@ -29,6 +29,11 @@ def test_shipped_ontology_catalog_loads_as_one_graph() -> None:
     contains = next(item for item in catalog.link_types if item.name == "contains")
     assert contains.version == "2.0.0"
     assert contains.cardinality is LinkCardinality.ONE_TO_MANY
+    assert {item.semantic_id for item in catalog.property_semantics.semantics} >= {
+        "lifecycle.secret.age",
+        "security.transport.minimum_tls",
+        "utilization.cpu.p95",
+    }
 
 
 def test_shipped_rules_declare_concrete_semantic_axes() -> None:

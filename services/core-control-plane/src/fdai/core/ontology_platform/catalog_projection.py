@@ -5,6 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 
+from fdai.rule_catalog.schema.property_semantic import (
+    PropertySemantic,
+    PropertySemanticRegistry,
+)
 from fdai.rule_catalog.schema.rego_semantics import RegoSemantics, property_path
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
 from fdai.rule_catalog.schema.signal_type import SignalTypeRegistry
@@ -70,6 +74,7 @@ def build_catalog_ontology_projection(
     resource_types: ResourceTypeRegistry,
     signal_types: SignalTypeRegistry,
     policy_semantics: Mapping[str, RegoSemantics],
+    property_semantics: PropertySemanticRegistry | None = None,
 ) -> CatalogOntologyProjection:
     """Build a deterministic catalog subgraph without writing external state."""
 
@@ -170,6 +175,11 @@ def build_catalog_ontology_projection(
         for reference_id in sorted(rule.evaluates):
             path = property_path(rule.resource_type, reference_id)
             property_id = _property_id(reference_id)
+            semantic = (
+                property_semantics.for_property(reference_id)
+                if property_semantics is not None
+                else None
+            )
             _add_object(
                 objects,
                 OntologyObjectRecord(
@@ -179,6 +189,7 @@ def build_catalog_ontology_projection(
                         "id": reference_id,
                         "resource_type": rule.resource_type,
                         "path": path,
+                        **(_property_semantic_projection(semantic) if semantic is not None else {}),
                     },
                 ),
             )
@@ -264,6 +275,31 @@ def _add_object(
     if previous is not None and previous != record:
         raise ValueError(f"catalog ontology object collision: {record.id!r}")
     objects[record.id] = record
+
+
+def _property_semantic_projection(semantic: PropertySemantic) -> dict[str, object]:
+    projected: dict[str, object] = {
+        "semantic_id": semantic.semantic_id,
+        "value_type": semantic.value_type.value,
+        "normalization_rule": semantic.normalization_rule.value,
+        "authority_policy": semantic.authority.model_dump(mode="json", by_alias=True),
+        "freshness_policy": semantic.freshness.model_dump(mode="json"),
+        "equivalent_provider_paths": [
+            path.model_dump(mode="json")
+            for path in sorted(
+                semantic.equivalent_provider_paths,
+                key=lambda item: (item.provider, item.resource_type, item.path),
+            )
+        ],
+        "normalized_equivalence": True,
+    }
+    if semantic.canonical_unit is not None:
+        projected["canonical_unit"] = semantic.canonical_unit
+    if semantic.enum_values:
+        projected["enum_values"] = list(semantic.enum_values)
+    if semantic.range is not None:
+        projected["range"] = semantic.range.model_dump(mode="json", exclude_none=True)
+    return projected
 
 
 def _add_link(

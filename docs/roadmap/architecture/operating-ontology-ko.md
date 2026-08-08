@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 64f9e82a52f91845945b5e3af6c12d3c0488684f
+translation_source_sha: eeb0e65c866f4a58d92578e4e9db53f9603d259e
 translation_revised: 2026-08-08
 ---
 # FDAI 운영 온톨로지
@@ -48,6 +48,11 @@ cloud-operations 개념을 소유하고 deployment는 observed instance와 inten
 > `ChangeAssessment`를 계산해 Verdict와 DecisionCase evidence에 보존하고, stale, incomplete,
 > failed 또는 review-required assessment에는 사람 검토를 요구합니다. 현재 runtime에는
 > graph-freshness authority가 없으므로 planned change는 이 gate를 auto-clear할 수 없습니다.
+> Wave 2는 새 declaration kind를 추가하지 않고 검토된 shared Property semantics를 추가합니다.
+> Catalog loader는 canonical meaning, value type, optional unit, enum 또는 range,
+> normalization, authority, freshness 및 equivalent provider path를 검증합니다. Catalog
+> projection은 검토된 entry에만 이러한 field를 노출합니다. Legacy property는 계속 유효하지만
+> normalized equivalence를 주장할 수 없습니다.
 
 ## 카탈로그 semantic projection
 
@@ -59,6 +64,21 @@ deterministic 정책에 연결합니다. `scripts/catalog/sync-rule-semantics.py
 검토된 하나의 구성 baseline SignalType이 일치하지 않는 원시 이벤트 형식을 처리합니다. 따라서
 wildcard 온톨로지 링크 없이 deterministic T0 범위를 보존합니다. 이러한 카탈로그 선언은 의미만
 설명하며 현재 provider 상태를 주장하거나 실행 권한을 부여하지 않습니다.
+
+Catalog-owned `Property` ObjectType은 rule property reference를 위한 meta object로 유지됩니다.
+`rule-catalog/vocabulary/property-semantics.yaml`은 선택된 Property instance에 검토된 semantics를
+data로 추가합니다. 각 entry는 canonical `semantic_id`, `PropertyType`, optional canonical unit,
+enum 또는 numeric range, normalization rule identifier, authority와 freshness policy 및 equivalent
+provider path를 선언합니다. Provider-specific path는 이 vocabulary에 data로 남으며 core code의
+provider branch가 되지 않습니다.
+
+Loader는 duplicate provider path와 하나의 property reference에 서로 다른 semantic id가 지정되는
+충돌을 차단합니다. Normalization은 선언된 trim 또는 case-fold rule을 적용한 NFC string, finite
+number의 canonical decimal string, strict integer와 boolean 및 UTC RFC 3339 time value를
+생성합니다. Boolean은 integer 또는 number로 허용되지 않습니다. Range와 enum check는
+normalization 후에 실행됩니다. 검토된 metadata가 없는 Property는 legacy projection field를
+유지하고 `normalized_equivalence`를 생략합니다. Caller는 이 registry를 통해 해당 Property의
+equivalence를 추론하거나 값을 normalize할 수 없습니다.
 
 ### 진단 지식 projection
 

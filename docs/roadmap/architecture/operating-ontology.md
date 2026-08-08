@@ -46,6 +46,11 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > `ChangeAssessment`, preserves it on Verdict and DecisionCase evidence, and requires human review
 > for stale, incomplete, failed, or review-required assessment. The runtime currently supplies no
 > graph-freshness authority, so planned changes cannot auto-clear this gate.
+> Wave 2 adds reviewed shared Property semantics without adding a declaration kind. The catalog
+> loader validates canonical meaning, value type, optional unit, enum or range, normalization,
+> authority, freshness, and equivalent provider paths. Catalog projection exposes those fields
+> only for reviewed entries. Legacy properties remain valid but cannot claim normalized
+> equivalence.
 
 ## Catalog semantic projection
 
@@ -57,6 +62,20 @@ OPA, verifies package metadata, and blocks drift between policy property reads a
 One reviewed configuration baseline SignalType handles unmatched raw event types. This preserves
 deterministic T0 coverage without retaining wildcard ontology links. These catalog declarations
 describe meaning only. They don't assert current provider state or grant execution authority.
+
+The catalog-owned `Property` ObjectType remains the meta object for rule property references.
+`rule-catalog/vocabulary/property-semantics.yaml` adds reviewed semantics to selected Property
+instances as data. Each entry declares a canonical `semantic_id`, `PropertyType`, optional
+canonical unit, enum or numeric range, normalization rule identifier, authority and freshness
+policy, and equivalent provider paths. Provider-specific paths stay in this vocabulary and don't
+become provider branches in core code.
+
+The loader rejects duplicate provider paths and a property reference assigned to conflicting
+semantic ids. Normalization produces NFC strings with the declared trim or case-fold rule,
+canonical decimal strings for finite numbers, strict integers and booleans, and UTC RFC 3339 time
+values. A boolean is never accepted as an integer or number. Range and enum checks run after
+normalization. A Property without reviewed metadata keeps its legacy projection fields and omits
+`normalized_equivalence`; callers cannot infer equivalence or normalize it through this registry.
 
 ### Diagnostic knowledge projection
 

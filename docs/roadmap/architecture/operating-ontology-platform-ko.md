@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: a63dbdd67791b0e2ab72cbaea7c2c797cb570498
+translation_source_sha: 8713c2f36e5d72ac01bb8628cfeff21b4371ff47
 translation_revised: 2026-08-09
 ---
 # FDAI 온톨로지 안전 인프라
@@ -59,6 +59,11 @@ ActionType instance를 하나의 catalog-owned subgraph에 projection합니다. 
 catalog-as-code가 계속 권위 원천이고 instance graph는 read model로 유지됩니다. 선택적 local
 profile에서 OPA 또는 ontology store를 사용할 수 없으면 synthetic 상태로 대체하지 않고 projection을
 unavailable로 유지합니다. 배포 profile은 T0 평가를 위해 계속 OPA를 요구합니다.
+
+Shared property-semantics registry는 canonical property마다 meaning, unit, value kind, bound에 대한
+content-addressed identity 하나를 제공합니다. Catalog projection은 모든 reference를 registry에 대해
+검증하고 float coercion 없이 finite numeric value를 보존하므로 service와 replay가 같은 property를
+조용히 다르게 해석할 수 없습니다.
 
 ## 한눈에 보는 설계
 

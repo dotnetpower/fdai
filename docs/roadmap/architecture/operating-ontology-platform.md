@@ -56,6 +56,11 @@ catalog-as-code remains authoritative, and the instance graph remains a read mod
 ontology store is unavailable in an optional local profile, projection remains unavailable rather
 than substituting synthetic state. Deployed profiles continue to require OPA for T0 evaluation.
 
+The shared property-semantics registry gives every canonical property one content-addressed
+identity for meaning, unit, value kind, and bounds. Catalog projection validates each reference
+against that registry and preserves finite numeric values without float coercion, so services and
+replays cannot silently reinterpret the same property.
+
 ## Design at a glance
 
 The infrastructure separates semantic declarations, authority-specific state, and agent-owned

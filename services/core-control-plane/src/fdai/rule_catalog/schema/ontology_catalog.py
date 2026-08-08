@@ -8,6 +8,10 @@ from pathlib import Path
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.link_type import load_link_type_catalog
 from fdai.rule_catalog.schema.object_type import load_object_type_catalog
+from fdai.rule_catalog.schema.property_semantic import (
+    PropertySemanticRegistry,
+    load_property_semantic_registry,
+)
 from fdai.shared.contracts.models import (
     OntologyActionType,
     OntologyLinkType,
@@ -21,6 +25,7 @@ class OntologyCatalog:
     object_types: tuple[OntologyObjectType, ...]
     link_types: tuple[OntologyLinkType, ...]
     action_types: tuple[OntologyActionType, ...]
+    property_semantics: PropertySemanticRegistry
 
 
 def load_ontology_catalog(
@@ -49,10 +54,21 @@ def load_ontology_catalog(
         probes_root=probes_root,
         link_types=link_types,
     )
+    property_semantics_path = vocabulary_root / "property-semantics.yaml"
+    property_semantics = (
+        load_property_semantic_registry(property_semantics_path)
+        if property_semantics_path.exists()
+        else PropertySemanticRegistry(
+            schema_version="1.0.0",
+            version="1.0.0",
+            semantics=(),
+        )
+    )
     return OntologyCatalog(
         object_types=object_types,
         link_types=link_types,
         action_types=action_types,
+        property_semantics=property_semantics,
     )
 
 

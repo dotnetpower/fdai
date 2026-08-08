@@ -1,0 +1,71 @@
+schema_version: "1.0.0"
+version: "1.0.0"
+semantics:
+  - semantic_id: utilization.cpu.p95
+    value_type: number
+    canonical_unit: percent
+    range:
+      minimum: 0
+      maximum: 100
+    normalization_rule: number.decimal
+    authority:
+      class: provider_observed
+      source_identity_required: true
+    freshness:
+      max_age_seconds: 900
+      stale_behavior: lower_autonomy
+    equivalent_provider_paths:
+      - provider: azure
+        resource_type: compute.vm
+        path: cpu_p95_percent
+      - provider: azure
+        resource_type: compute.vm-scale-set
+        path: cpu_p95_percent
+      - provider: azure
+        resource_type: postgresql-server
+        path: cpu_p95_percent
+  - semantic_id: security.transport.minimum_tls
+    value_type: string
+    enum_values:
+      - tls1_2
+      - tls1_3
+    normalization_rule: string.trim_casefold
+    authority:
+      class: provider_observed
+      source_identity_required: true
+    freshness:
+      max_age_seconds: 3600
+      stale_behavior: unknown
+    equivalent_provider_paths:
+      - provider: azure
+        resource_type: object-storage
+        path: min_tls_version
+  - semantic_id: lifecycle.secret.age
+    value_type: integer
+    canonical_unit: day
+    range:
+      minimum: 0
+    normalization_rule: integer.strict
+    authority:
+      class: derived
+      source_identity_required: true
+    freshness:
+      max_age_seconds: 86400
+      stale_behavior: lower_autonomy
+    equivalent_provider_paths:
+      - provider: azure
+        resource_type: secret-store
+        path: age_days
+  - semantic_id: security.network.public_access
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority:
+      class: provider_observed
+      source_identity_required: true
+    freshness:
+      max_age_seconds: 3600
+      stale_behavior: unknown
+    equivalent_provider_paths:
+      - provider: azure
+        resource_type: object-storage
+        path: public_access
