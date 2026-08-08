@@ -252,6 +252,7 @@ ignore = []
 python_version = "3.12"
 strict = true
 files = ["src/fdai", "extensions/code-assurance/src/fdai_code_assurance"]
+mypy_path = ["service-contracts/src", "services/isolated-executor/src"]
 
 # aiokafka ships no py.typed marker and no stub package. It is only imported
 # by `delivery/azure/event_bus.py`; the adapter boundary in composition
