@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import fdai_document_worker_service.adapters.event_bus as event_bus_module
 import httpx
 import pytest
 from fdai_document_worker_service.adapters.event_bus import (
@@ -60,6 +61,44 @@ class LiveCredential:
         return None
 
 
+class OffsetCredential:
+    async def get_token(self, *_scopes: str) -> object:
+        return SimpleNamespace(token="redacted-token", expires_on=4_000_000_000)
+
+    async def close(self) -> None:
+        return None
+
+
+class FakeKafkaConsumer:
+    latest: FakeKafkaConsumer | None = None
+
+    def __init__(self, *_topics: str, **kwargs: object) -> None:
+        self._token_provider = kwargs["sasl_oauth_token_provider"]
+        self.messages = [
+            SimpleNamespace(topic="object.event", key=b"document-1", value=b"{", offset=7),
+            SimpleNamespace(
+                topic="object.event",
+                key=b"document-1",
+                value=b'{"kind":"document_ingestion"}',
+                offset=8,
+            ),
+        ]
+        self.commits = 0
+        FakeKafkaConsumer.latest = self
+
+    async def start(self) -> None:
+        await self._token_provider.token()
+
+    async def getone(self) -> object:
+        return self.messages.pop(0)
+
+    async def commit(self) -> None:
+        self.commits += 1
+
+    async def stop(self) -> None:
+        return None
+
+
 class Connection:
     async def __aenter__(self) -> Connection:
         return self
@@ -101,6 +140,73 @@ def test_live_adapters_report_configuration_evidence_without_network_calls() -> 
     assert all(item.state is AdapterReadinessState.READY for item in readiness)
     assert all(item.evidence == "configuration" for item in readiness)
     assert all(item.live_verified is False for item in readiness)
+
+
+async def test_kafka_consumer_dead_letters_decode_error_before_committing_offset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", FakeKafkaConsumer)
+    bus = EventHubsKafkaBus(
+        config=EventHubsKafkaConfig(bootstrap_servers="example.com:9093"),
+        credential=OffsetCredential(),  # type: ignore[arg-type]
+    )
+    dead_letters: list[tuple[str, str, dict[str, object], str]] = []
+
+    async def dead_letter(
+        topic: str,
+        key: str,
+        payload: dict[str, object],
+        reason: str,
+    ) -> None:
+        dead_letters.append((topic, key, payload, reason))
+
+    monkeypatch.setattr(bus, "dead_letter", dead_letter)
+    events = bus.subscribe("object.event", "document-worker")
+
+    event = await anext(events)
+    await events.aclose()
+
+    consumer = FakeKafkaConsumer.latest
+    assert consumer is not None
+    assert event.offset == 8
+    assert event.payload == {"kind": "document_ingestion"}
+    assert dead_letters == [
+        (
+            "object.event",
+            "document-1",
+            {"source_offset": 7},
+            "invalid_event_payload",
+        )
+    ]
+    assert consumer.commits == 1
+
+
+async def test_kafka_consumer_does_not_commit_when_decode_dlq_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", FakeKafkaConsumer)
+    bus = EventHubsKafkaBus(
+        config=EventHubsKafkaConfig(bootstrap_servers="example.com:9093"),
+        credential=OffsetCredential(),  # type: ignore[arg-type]
+    )
+
+    async def dead_letter(
+        _topic: str,
+        _key: str,
+        _payload: dict[str, object],
+        _reason: str,
+    ) -> None:
+        raise RuntimeError("DLQ unavailable")
+
+    monkeypatch.setattr(bus, "dead_letter", dead_letter)
+    events = bus.subscribe("object.event", "document-worker")
+
+    with pytest.raises(RuntimeError, match="DLQ unavailable"):
+        await anext(events)
+
+    consumer = FakeKafkaConsumer.latest
+    assert consumer is not None
+    assert consumer.commits == 0
 
 
 async def test_unconfigured_ocr_is_explicitly_unavailable_and_fails_closed() -> None:

@@ -181,10 +181,20 @@ class EventHubsKafkaBus:
                     except TimeoutError:
                         break
                     key = (message.key or b"").decode(errors="replace")
+                    payload = _decode(message.value)
+                    if payload.get("_decode_error") is True:
+                        await self.dead_letter(
+                            message.topic,
+                            key,
+                            {"source_offset": message.offset},
+                            "invalid_event_payload",
+                        )
+                        await consumer.commit()
+                        continue
                     yield EventEnvelope(
                         topic=message.topic,
                         key=key,
-                        payload=_decode(message.value),
+                        payload=payload,
                         offset=message.offset,
                     )
                     await consumer.commit()
