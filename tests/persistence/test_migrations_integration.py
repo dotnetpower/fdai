@@ -15,6 +15,7 @@ The test:
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -181,3 +182,97 @@ def test_ontology_seed_is_idempotent_across_migrations() -> None:
 
     assert after_objects == baseline_objects, "ontology_object_type row count drifted"
     assert after_links == baseline_links, "ontology_link_type row count drifted"
+
+
+def test_direction_migration_preserves_unrelated_graph_and_release_pins() -> None:
+    url = _requires_live_db()
+    with _connect(url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT to_regclass('public.alembic_version')")
+        version_table = cur.fetchone()[0]
+        if version_table is None:
+            current_revision = None
+        else:
+            cur.execute("SELECT version_num FROM alembic_version")
+            current_revision = cur.fetchone()[0]
+    if current_revision is None:
+        _alembic("upgrade", "20260806_0077")
+    elif current_revision != "20260806_0077":
+        _alembic("downgrade", "20260806_0077")
+    digest = f"sha256:{'a' * 64}"
+    object_rows = (
+        ("migration-parent", {"id": "migration-parent", "type": "resource.group"}),
+        (
+            "migration-child",
+            {
+                "id": "migration-child",
+                "type": "compute.vm",
+                "parent_id": "migration-parent",
+            },
+        ),
+        ("migration-foreign-a", {"id": "migration-foreign-a", "type": "example.a"}),
+        ("migration-foreign-b", {"id": "migration-foreign-b", "type": "example.b"}),
+        ("migration-vm", {"id": "migration-vm", "type": "compute.vm"}),
+        ("migration-nic", {"id": "migration-nic", "type": "network.interface"}),
+    )
+    link_rows = (
+        ("contains", "migration-child", "migration-parent"),
+        ("contains", "migration-parent", "migration-child"),
+        ("contains", "migration-foreign-a", "migration-foreign-b"),
+        ("attached_to", "migration-vm", "migration-nic"),
+        ("attached_to", "migration-nic", "migration-vm"),
+        ("depends_on", "migration-foreign-a", "migration-foreign-b"),
+    )
+    object_ids = tuple(row[0] for row in object_rows)
+    try:
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM ontology_link WHERE from_id = ANY(%s) OR to_id = ANY(%s)",
+                (list(object_ids), list(object_ids)),
+            )
+            cur.execute("DELETE FROM ontology_resource WHERE id = ANY(%s)", (list(object_ids),))
+            cur.executemany(
+                "INSERT INTO ontology_resource "
+                "(id, object_type, properties, revision, type_version, catalog_digest) "
+                "VALUES (%s, 'Resource', %s::jsonb, 1, '1.0.0', %s)",
+                (
+                    (object_id, json.dumps(properties, sort_keys=True), digest)
+                    for object_id, properties in object_rows
+                ),
+            )
+            cur.executemany(
+                "INSERT INTO ontology_link "
+                "(link_type, from_id, to_id, properties, type_version, catalog_digest) "
+                "VALUES (%s, %s, %s, '{}'::jsonb, '1.0.0', %s)",
+                ((*row, digest) for row in link_rows),
+            )
+
+        _alembic("upgrade", "head")
+
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT link_type, from_id, to_id, type_version, catalog_digest "
+                "FROM ontology_link WHERE from_id = ANY(%s) OR to_id = ANY(%s)",
+                (list(object_ids), list(object_ids)),
+            )
+            retained = set(cur.fetchall())
+            cur.execute(
+                "SELECT id, type_version, catalog_digest FROM ontology_resource WHERE id = ANY(%s)",
+                (list(object_ids),),
+            )
+            retained_objects = set(cur.fetchall())
+
+        assert retained == {
+            ("contains", "migration-parent", "migration-child", "1.0.0", digest),
+            ("contains", "migration-foreign-a", "migration-foreign-b", "1.0.0", digest),
+            ("attached_to", "migration-nic", "migration-vm", "1.0.0", digest),
+            ("depends_on", "migration-foreign-a", "migration-foreign-b", "1.0.0", digest),
+        }
+        assert retained_objects == {(object_id, "1.0.0", digest) for object_id in object_ids}
+    finally:
+        _alembic("upgrade", "head")
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM ontology_link WHERE from_id = ANY(%s) OR to_id = ANY(%s)",
+                (list(object_ids), list(object_ids)),
+            )
+            cur.execute("DELETE FROM ontology_resource WHERE id = ANY(%s)", (list(object_ids),))

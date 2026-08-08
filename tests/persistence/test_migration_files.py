@@ -74,15 +74,17 @@ def test_materialized_operator_memory_proposal_has_foreign_key() -> None:
     assert "VALIDATE CONSTRAINT" in migration
 
 
-def test_ontology_direction_migration_invalidates_rebuildable_current_graph() -> None:
+def test_ontology_direction_migration_invalidates_only_reversed_links() -> None:
     migration = (MIGRATIONS_DIR / "20260808_0078_ontology_link_direction.py").read_text(
         encoding="utf-8"
     )
 
     assert 'down_revision: str | None = "20260806_0077"' in migration
-    assert "DELETE FROM ontology_link\n        WHERE link_type = 'contains'" in migration
+    assert "child.properties ->> 'parent_id' = parent.id" in migration
     assert "source.properties ->> 'type' = 'compute.vm'" in migration
-    assert "SET type_version = NULL, catalog_digest = NULL" in migration
+    assert "DELETE FROM ontology_link\n        WHERE link_type = 'contains'" not in migration
+    assert "UPDATE ontology_resource\n        SET type_version = NULL" not in migration
+    assert "UPDATE ontology_link\n        SET type_version = NULL" not in migration
     assert "cardinality = 'one_to_many'" in migration
 
 

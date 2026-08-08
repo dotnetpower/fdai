@@ -19,13 +19,18 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     # The ontology instance tables are a rebuildable current-state read model.
-    # Remove links whose meaning changed, then leave retained current rows
-    # explicitly unpinned so the next authoritative projection can validate and
-    # pin them to the new release without fabricating historical provenance.
+    # Remove only links whose stored endpoints prove the old semantic direction.
+    # Unrelated projections and exact release pins remain intact.
     op.execute(
         """
-        DELETE FROM ontology_link
-        WHERE link_type = 'contains';
+        DELETE FROM ontology_link AS link
+        USING ontology_resource AS child, ontology_resource AS parent
+        WHERE link.link_type = 'contains'
+          AND link.from_id = child.id
+          AND link.to_id = parent.id
+          AND child.object_type = 'Resource'
+          AND parent.object_type = 'Resource'
+          AND child.properties ->> 'parent_id' = parent.id;
 
         DELETE FROM ontology_link AS link
         USING ontology_resource AS source
@@ -33,14 +38,6 @@ def upgrade() -> None:
           AND link.from_id = source.id
           AND source.object_type = 'Resource'
           AND source.properties ->> 'type' = 'compute.vm';
-
-        UPDATE ontology_resource
-        SET type_version = NULL, catalog_digest = NULL
-        WHERE type_version IS NOT NULL OR catalog_digest IS NOT NULL;
-
-        UPDATE ontology_link
-        SET type_version = NULL, catalog_digest = NULL
-        WHERE type_version IS NOT NULL OR catalog_digest IS NOT NULL;
 
         UPDATE ontology_link_type
         SET version = '2.0.0',
@@ -54,7 +51,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # Deleted observed links cannot be reconstructed by a schema downgrade. The
-    # prior runtime will rebuild them from its authoritative inventory source.
+    # prior runtime rebuilds them from its authoritative inventory source.
     op.execute(
         """
         UPDATE ontology_link_type
