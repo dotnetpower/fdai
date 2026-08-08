@@ -40,7 +40,6 @@ from fdai.core.control_loop import ControlLoop, ControlLoopOutcome
 from fdai.core.event_ingest import EventIngest
 from fdai.core.executor import (
     ResourceLockManager,
-    ShadowExecutor,
     TemplateRenderer,
 )
 from fdai.core.executor.action_builder import ActionBuilder
@@ -64,6 +63,7 @@ from fdai.shared.providers.testing import (
     InMemoryStateStore,
     RecordingRemediationPrPublisher,
 )
+from tests.verified_shadow_executor import VerifiedShadowExecutor
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ACTION_TYPES_ROOT = REPO_ROOT / "rule-catalog" / "action-types"
@@ -125,7 +125,7 @@ def _loop_with_lock(
     evaluator = OpaRegoEvaluator(policies_root=POLICIES_ROOT)
     publisher = RecordingRemediationPrPublisher()
     audit = InMemoryStateStore()
-    executor = ShadowExecutor(
+    executor = VerifiedShadowExecutor(
         publisher=publisher,
         audit_store=audit,
         renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
@@ -213,7 +213,7 @@ async def test_concurrent_events_on_same_resource_are_serialized(
 
     await asyncio.gather(loop.process(event_a), loop.process(event_b))
 
-    # Only same-resource acquisitions are recorded — every enter MUST be
+    # Only same-resource acquisitions are recorded - every enter MUST be
     # followed by its own exit before the next enter (serialization).
     same_resource = [entry for entry in events_log if entry[1] == "fdai:resource:stg-shared"]
     assert same_resource, "no lock acquisitions recorded on the shared resource"
@@ -224,7 +224,7 @@ async def test_concurrent_events_on_same_resource_are_serialized(
         else:
             balance -= 1
         assert balance <= 1, (
-            f"lock held by more than one coroutine at once — series={same_resource}"
+            f"lock held by more than one coroutine at once - series={same_resource}"
         )
     assert balance == 0
 
@@ -241,7 +241,7 @@ async def test_concurrent_events_on_different_resources_run_in_parallel(
 ) -> None:
     """Distinct resources MUST NOT block each other.
 
-    Two events targeting different resource ids race — the lock
+    Two events targeting different resource ids race - the lock
     guarantees no ordering. This is the counterexample to the previous
     test: isolation is per-resource, not global.
     """
@@ -274,7 +274,7 @@ async def test_concurrent_events_on_different_resources_run_in_parallel(
     assert result_a.outcome is ControlLoopOutcome.EXECUTED
     assert result_b.outcome is ControlLoopOutcome.EXECUTED
 
-    # Different resources MAY interleave — enters MAY appear back-to-back
+    # Different resources MAY interleave - enters MAY appear back-to-back
     # before any exit. Balance MAY go to 2.
     balance = 0
     peak = 0
@@ -286,7 +286,7 @@ async def test_concurrent_events_on_different_resources_run_in_parallel(
         else:
             balance -= 1
     assert peak >= 2, (
-        f"distinct resources did not overlap under the lock — peak={peak} trace={resource_events}"
+        f"distinct resources did not overlap under the lock - peak={peak} trace={resource_events}"
     )
     assert balance == 0
 

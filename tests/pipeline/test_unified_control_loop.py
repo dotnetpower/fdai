@@ -42,7 +42,6 @@ from fdai.core.control_loop import (
 from fdai.core.event_ingest import EventIngest
 from fdai.core.executor import (
     ResourceLockManager,
-    ShadowExecutor,
     TemplateRenderer,
 )
 from fdai.core.executor.action_builder import ActionBuilder
@@ -73,6 +72,7 @@ from fdai.shared.providers.testing import (
     InMemoryStateStore,
     RecordingRemediationPrPublisher,
 )
+from tests.verified_shadow_executor import VerifiedShadowExecutor
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ACTION_TYPES_ROOT = REPO_ROOT / "rule-catalog" / "action-types"
@@ -115,7 +115,7 @@ def _make_loop(
     evaluator = OpaRegoEvaluator(policies_root=POLICIES_ROOT)
     publisher = RecordingRemediationPrPublisher()
     audit = InMemoryStateStore()
-    executor = ShadowExecutor(
+    executor = VerifiedShadowExecutor(
         publisher=publisher,
         audit_store=audit,
         renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
