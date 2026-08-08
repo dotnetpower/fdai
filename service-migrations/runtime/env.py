@@ -50,29 +50,37 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def _run_online_migrations(connection: object) -> None:
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        version_table=version_table,
+    )
+    with context.begin_transaction():
+        connection.execute(
+            text("SELECT pg_advisory_xact_lock(:lock_key)"),
+            {"lock_key": coordination_lock_key},
+        )
+        connection.execute(
+            text("SELECT pg_advisory_xact_lock(:lock_key)"),
+            {"lock_key": migration_lock_key},
+        )
+        context.run_migrations()
+
+
 def run_migrations_online() -> None:
     """Apply the selected service branch under its PostgreSQL advisory lock."""
+    supplied_connection = config.attributes.get("connection")
+    if supplied_connection is not None:
+        _run_online_migrations(supplied_connection)
+        return
     connectable = engine_from_config(
         config.get_section(config.config_ini_section) or {},
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            version_table=version_table,
-        )
-        with context.begin_transaction():
-            connection.execute(
-                text("SELECT pg_advisory_xact_lock(:lock_key)"),
-                {"lock_key": coordination_lock_key},
-            )
-            connection.execute(
-                text("SELECT pg_advisory_xact_lock(:lock_key)"),
-                {"lock_key": migration_lock_key},
-            )
-            context.run_migrations()
+        _run_online_migrations(connection)
 
 
 if context.is_offline_mode():

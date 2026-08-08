@@ -182,13 +182,27 @@ def test_five_configs_have_distinct_heads_and_explicit_adoption() -> None:
 
 
 def test_service_migrations_serialize_cross_service_ddl_before_service_lock() -> None:
-    source = (MIGRATION_ROOT / "runtime/env.py").read_text(encoding="utf-8")
+    environment_source = (MIGRATION_ROOT / "runtime/env.py").read_text(encoding="utf-8")
+    cli_source = (MIGRATION_ROOT / "service_migrations/cli.py").read_text(encoding="utf-8")
 
-    assert 'coordination_lock_key = _lock_key("all-services")' in source
-    coordination_lock = source.index('{"lock_key": coordination_lock_key}')
-    service_lock = source.index('{"lock_key": migration_lock_key}')
-    migration_run = source.index("context.run_migrations()", service_lock)
+    assert 'coordination_lock_key = _lock_key("all-services")' in environment_source
+    coordination_lock = environment_source.index('{"lock_key": coordination_lock_key}')
+    service_lock = environment_source.index('{"lock_key": migration_lock_key}')
+    migration_run = environment_source.index("context.run_migrations()", service_lock)
     assert coordination_lock < service_lock < migration_run
+    assert 'text("SELECT pg_advisory_lock(:lock_key)")' in cli_source
+    assert 'config.attributes["connection"] = connection' in cli_source
+    dependency_check = cli_source.index(
+        "_require_dependency_revisions(", cli_source.index("def _upgrade_service")
+    )
+    command_upgrade = cli_source.index("command.upgrade(config, revision, sql=False)")
+    assert dependency_check < command_upgrade
+    dependent_check = cli_source.index(
+        "_require_dependents_at_baseline(",
+        cli_source.index("def _downgrade_service"),
+    )
+    command_downgrade = cli_source.index("command.downgrade(config, revision)")
+    assert dependent_check < command_downgrade
 
 
 def test_forward_revision_requires_rollback_metadata(tmp_path: Path) -> None:

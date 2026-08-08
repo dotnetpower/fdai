@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
@@ -13,6 +16,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Connection
 
 from service_migrations.adoption import AdoptionManifest
 from service_migrations.inventory import load_legacy_inventory
@@ -22,11 +26,23 @@ from service_migrations.ownership import (
     load_ownership_manifest,
     migration_order,
 )
-from service_migrations.schema import fingerprint_owned_schema, load_schema_contract
+from service_migrations.schema import (
+    SchemaFingerprint,
+    fingerprint_owned_schema,
+    load_schema_contract,
+)
 from service_migrations.validation import validate_service_branches
 
 MIGRATION_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = MIGRATION_ROOT.parent
+
+
+def _lock_key(scope: str) -> int:
+    digest = hashlib.sha256(f"fdai-migration:{scope}".encode()).digest()
+    return int.from_bytes(digest[:8], "big") & 0x7FFF_FFFF_FFFF_FFFF
+
+
+_COORDINATION_LOCK_KEY = _lock_key("all-services")
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -60,19 +76,54 @@ def _database_url() -> str:
     return database_url
 
 
-def _read_versions(table_name: str) -> tuple[str, ...] | None:
-    if not table_name.replace("_", "").isalnum():
-        raise RuntimeError(f"unsafe version table identifier: {table_name}")
+@contextmanager
+def _coordination_connection() -> Iterator[Connection]:
+    """Hold the cross-service migration fence from dependency checks through DDL."""
     engine = create_engine(_database_url())
     with engine.connect() as connection:
-        exists = connection.execute(
-            text("SELECT to_regclass(:name)"),
-            {"name": table_name},
-        ).scalar()
-        if exists is None:
-            return None
-        rows = connection.execute(text(f"SELECT version_num FROM {table_name}"))  # noqa: S608
-        return tuple(sorted(str(row[0]) for row in rows))
+        connection.execute(
+            text("SELECT pg_advisory_lock(:lock_key)"),
+            {"lock_key": _COORDINATION_LOCK_KEY},
+        )
+        connection.commit()
+        try:
+            yield connection
+        finally:
+            if connection.in_transaction():
+                connection.rollback()
+            connection.execute(
+                text("SELECT pg_advisory_unlock(:lock_key)"),
+                {"lock_key": _COORDINATION_LOCK_KEY},
+            )
+            connection.commit()
+
+
+def _read_versions(
+    table_name: str,
+    *,
+    connection: Connection | None = None,
+) -> tuple[str, ...] | None:
+    if not table_name.replace("_", "").isalnum():
+        raise RuntimeError(f"unsafe version table identifier: {table_name}")
+    if connection is not None:
+        return _read_versions_on_connection(connection, table_name)
+    engine = create_engine(_database_url())
+    with engine.connect() as owned_connection:
+        return _read_versions_on_connection(owned_connection, table_name)
+
+
+def _read_versions_on_connection(
+    connection: Connection,
+    table_name: str,
+) -> tuple[str, ...] | None:
+    exists = connection.execute(
+        text("SELECT to_regclass(:name)"),
+        {"name": table_name},
+    ).scalar()
+    if exists is None:
+        return None
+    rows = connection.execute(text(f"SELECT version_num FROM {table_name}"))  # noqa: S608
+    return tuple(sorted(str(row[0]) for row in rows))
 
 
 def _validate_evidence(
@@ -114,10 +165,17 @@ def _validate_evidence(
     return cast(str, raw["rollback_reference"])
 
 
-def _live_schema_fingerprint(service_id: str, owned_tables: tuple[str, ...]) -> str:
-    engine = create_engine(_database_url())
-    with engine.connect() as connection:
+def _live_schema_fingerprint(
+    service_id: str,
+    owned_tables: tuple[str, ...],
+    *,
+    connection: Connection | None = None,
+) -> str:
+    if connection is not None:
         return fingerprint_owned_schema(connection, owned_tables=owned_tables).digest
+    engine = create_engine(_database_url())
+    with engine.connect() as owned_connection:
+        return fingerprint_owned_schema(owned_connection, owned_tables=owned_tables).digest
 
 
 def _revision_contains(config: Config, observed: str, required: str) -> bool:
@@ -131,12 +189,17 @@ def _require_dependency_revisions(
     service_id: str,
     ownership: OwnershipManifest,
     adoptions: dict[str, AdoptionManifest],
+    *,
+    connection: Connection | None = None,
 ) -> None:
     for dependency in ownership.migration_dependencies:
         if dependency.consumer_service != service_id:
             continue
         provider = dependency.provider_service
-        versions = _read_versions(adoptions[provider].service_version_table)
+        versions = _read_versions(
+            adoptions[provider].service_version_table,
+            connection=connection,
+        )
         provider_config = Config(str(MIGRATION_ROOT / "configs" / f"{provider}.ini"))
         if (
             versions is None
@@ -153,13 +216,18 @@ def _require_dependents_at_baseline(
     service_id: str,
     ownership: OwnershipManifest,
     adoptions: dict[str, AdoptionManifest],
+    *,
+    connection: Connection | None = None,
 ) -> None:
     for dependency in ownership.migration_dependencies:
         if dependency.provider_service != service_id:
             continue
         consumer = dependency.consumer_service
         baseline = adoptions[consumer].baseline_revision
-        versions = _read_versions(adoptions[consumer].service_version_table)
+        versions = _read_versions(
+            adoptions[consumer].service_version_table,
+            connection=connection,
+        )
         if versions != (baseline,):
             raise RuntimeError(
                 f"{service_id} downgrade requires dependent {consumer} at baseline "
@@ -177,16 +245,105 @@ def _upgrade_service(
 ) -> None:
     adoption = adoptions[service_id]
     config = Config(str(MIGRATION_ROOT / "configs" / f"{service_id}.ini"))
-    if not sql:
-        service_versions = _read_versions(adoption.service_version_table)
+    if sql:
+        command.upgrade(config, revision, sql=True)
+        return
+    with _coordination_connection() as connection:
+        service_versions = _read_versions(
+            adoption.service_version_table,
+            connection=connection,
+        )
         if (
             service_versions is None
             or len(service_versions) != 1
             or not _revision_contains(config, service_versions[0], adoption.baseline_revision)
         ):
             raise RuntimeError(f"{service_id} baseline is not stamped; run stamp-baseline first")
-        _require_dependency_revisions(service_id, ownership, adoptions)
-    command.upgrade(config, revision, sql=sql)
+        _require_dependency_revisions(
+            service_id,
+            ownership,
+            adoptions,
+            connection=connection,
+        )
+        connection.commit()
+        config.attributes["connection"] = connection
+        command.upgrade(config, revision, sql=False)
+
+
+def _downgrade_service(
+    service_id: str,
+    *,
+    revision: str,
+    rollback_reference: Path,
+    evidence_output: Path,
+    ownership: OwnershipManifest,
+    adoptions: dict[str, AdoptionManifest],
+    schema_contract: dict[str, SchemaFingerprint],
+    legacy_tables: frozenset[str],
+) -> None:
+    adoption = adoptions[service_id]
+    config = Config(str(MIGRATION_ROOT / "configs" / f"{service_id}.ini"))
+    with _coordination_connection() as connection:
+        service_versions = _read_versions(
+            adoption.service_version_table,
+            connection=connection,
+        )
+        if service_versions is None:
+            raise RuntimeError(f"{service_id} baseline has not been adopted")
+        branch_head = tuple(ScriptDirectory.from_config(config).get_heads())
+        if service_versions != branch_head:
+            raise RuntimeError(
+                f"{service_id} rollback must start at exact branch head {branch_head}; "
+                f"observed {service_versions}"
+            )
+        _require_dependents_at_baseline(
+            service_id,
+            ownership,
+            adoptions,
+            connection=connection,
+        )
+        connection.commit()
+        config.attributes["connection"] = connection
+        command.downgrade(config, revision)
+        resulting_versions = _read_versions(
+            adoption.service_version_table,
+            connection=connection,
+        )
+        if resulting_versions != (adoption.baseline_revision,):
+            raise RuntimeError(
+                f"{service_id} rollback did not produce exact head "
+                f"{adoption.baseline_revision}; observed {resulting_versions}"
+            )
+        legacy_owned_tables = tuple(
+            table
+            for table, owner in ownership.table_migrators.items()
+            if owner == service_id and table in legacy_tables
+        )
+        observed_schema = _live_schema_fingerprint(
+            service_id,
+            legacy_owned_tables,
+            connection=connection,
+        )
+        expected_schema = schema_contract[service_id].digest
+        if observed_schema != expected_schema:
+            raise RuntimeError(f"{service_id} rollback schema fingerprint mismatch")
+        evidence = {
+            "schema_version": 1,
+            "service_id": service_id,
+            "from_head": branch_head[0],
+            "resulting_head": adoption.baseline_revision,
+            "schema_fingerprint": observed_schema,
+            "completed_at": datetime.now(tz=UTC).isoformat(),
+            "persisted_reference": str(rollback_reference),
+        }
+        _validate_rollback_evidence(
+            evidence,
+            service_id=service_id,
+            from_head=branch_head[0],
+            resulting_head=adoption.baseline_revision,
+            schema_fingerprint=expected_schema,
+        )
+        _write_json_atomic(evidence_output, evidence)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -284,49 +441,16 @@ def main(argv: list[str] | None = None) -> int:
             raise RuntimeError(
                 f"{service_id} rollback target must be exact baseline {adoption.baseline_revision}"
             )
-        service_versions = _read_versions(adoption.service_version_table)
-        if service_versions is None:
-            raise RuntimeError(f"{service_id} baseline has not been adopted")
-        branch_head = tuple(ScriptDirectory.from_config(config).get_heads())
-        if service_versions != branch_head:
-            raise RuntimeError(
-                f"{service_id} rollback must start at exact branch head {branch_head}; "
-                f"observed {service_versions}"
-            )
-        _require_dependents_at_baseline(service_id, ownership, adoptions)
-        command.downgrade(config, args.revision)
-        resulting_versions = _read_versions(adoption.service_version_table)
-        if resulting_versions != (adoption.baseline_revision,):
-            raise RuntimeError(
-                f"{service_id} rollback did not produce exact head "
-                f"{adoption.baseline_revision}; observed {resulting_versions}"
-            )
-        legacy_owned_tables = tuple(
-            table
-            for table, owner in ownership.table_migrators.items()
-            if owner == service_id and table in inventory.table_sources
+        _downgrade_service(
+            service_id,
+            revision=args.revision,
+            rollback_reference=rollback_reference,
+            evidence_output=args.evidence_output,
+            ownership=ownership,
+            adoptions=adoptions,
+            schema_contract=schema_contract,
+            legacy_tables=frozenset(inventory.table_sources),
         )
-        observed_schema = _live_schema_fingerprint(service_id, legacy_owned_tables)
-        expected_schema = schema_contract[service_id].digest
-        if observed_schema != expected_schema:
-            raise RuntimeError(f"{service_id} rollback schema fingerprint mismatch")
-        evidence = {
-            "schema_version": 1,
-            "service_id": service_id,
-            "from_head": branch_head[0],
-            "resulting_head": adoption.baseline_revision,
-            "schema_fingerprint": observed_schema,
-            "completed_at": datetime.now(tz=UTC).isoformat(),
-            "persisted_reference": str(rollback_reference),
-        }
-        _validate_rollback_evidence(
-            evidence,
-            service_id=service_id,
-            from_head=branch_head[0],
-            resulting_head=adoption.baseline_revision,
-            schema_fingerprint=expected_schema,
-        )
-        _write_json_atomic(args.evidence_output, evidence)
     else:  # pragma: no cover - argparse constrains commands
         raise AssertionError(args.command)
     return 0
