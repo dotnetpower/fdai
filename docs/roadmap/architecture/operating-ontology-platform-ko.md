@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 284b6c66db3fec81afb82923ac60df95fffc3220
-translation_revised: 2026-08-07
+translation_source_sha: dc159b934d0587c6e6d1abcd5d642d767346f3e8
+translation_revised: 2026-08-08
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -29,6 +29,9 @@ exact schema pinning, generated SDK surface를 추가합니다. 모든 runtime t
 > Pre-migration row는 original release digest를 정직하게 복원할 수 없으므로 명시적으로 unpinned
 > 상태를 유지합니다. 다음 successful write는 완전히 다시 검증한 current-state revision을 새로
 > 만들고 그 새 revision을 해당 시점의 active release로 pin합니다.
+> Semantic Interface declaration은 이제 shared contract를 사용하며 canonical release digest에
+> 포함될 수 있습니다. Production catalog loading과 composition은 아직 Interface declaration을
+> 공급하지 않으므로 polymorphic ObjectSet query는 연결되지 않은 platform capability로 남습니다.
 > Canonical release는 이제 typed function declaration을 포함합니다. Function registry는 caller
 > agent, role, purpose를 검사하고, 선언된 stochastic function을 위해 replay-stable seed를 파생하며,
 > 정확한 release에 고정된 content-addressed invocation receipt를 emit합니다.
@@ -136,6 +139,23 @@ predicate, named-link traversal, deterministic ordering, `as_of` cutoff, freshne
 result limit를 지원합니다. Free-form Cypher, SPARQL, SQL 또는 model text를 받지 않습니다. 모든
 materialization은 release digest, cutoff, source watermark, truncation reason, redaction summary를
 기록합니다.
+
+Property predicate는 `equals`, `not_equals`, `in`, `exists`, `absent`, `at_least`, `at_most`,
+`contains`를 지원합니다. Single-value operator는 `equals`를 사용하고, `in`은 비어 있지 않은
+`values` tuple을 사용하며, single-value operand는 null일 수 없고, presence operator는 operand를
+받지 않습니다. Store에는 index pushdown을 위해 `equals` predicate만 전달합니다. Direct query와
+traversal은 모두 bounded candidate graph에 모든 predicate를 다시 적용하고 filter된 endpoint가 있는
+link를 제거합니다. Predicate operand는 finite number, 최대 32 nesting level, 최대 64 KiB encoded
+data를 갖는 canonical JSON입니다.
+하나의 definition은 최대 32 predicate를 받고, 하나의 `in` predicate는 최대 1000 value를 받으며,
+하나의 traversal은 최대 1000 root와 64 named link type을 받습니다. Traversal 없는 root id와 named
+link type 없는 traversal은 store I/O 전에 차단됩니다.
+
+Materialization은 `result_limit`, `candidate_limit`, `traversal_limit`을 구분합니다.
+`candidate_limit`은 memory filtering이 처음 1000개 store candidate만 확인했다는 뜻이므로 비어 있거나
+짧은 결과를 complete absence claim으로 사용할 수 없습니다. `traversal_limit`은 graph expansion이
+object ceiling에 도달했다는 뜻입니다. In-memory 및 PostgreSQL store는 reached object뿐 아니라 initial
+root에도 요청한 object limit를 동일하게 적용합니다.
 
 ## Semantic action과 mutation plan
 
@@ -287,6 +307,7 @@ Ontology release는 scoped Python/TypeScript SDK와 OpenAPI metadata를 생성�
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| Declaration kind 및 runtime State/Context boundary | [운영 온톨로지 메타모델](operating-ontology-metamodel-ko.md) |
 | 기존 semantic 및 authority model | [FDAI 운영 온톨로지](operating-ontology-ko.md) |
 | 기존 ActionType safety contract | [Action 온톨로지](../decisioning/action-ontology-ko.md) |
 | Runtime execution authority | [실행 모델](../decisioning/execution-model-ko.md) |

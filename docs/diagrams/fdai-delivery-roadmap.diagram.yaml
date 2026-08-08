@@ -1,0 +1,123 @@
+id: fdai-delivery-roadmap
+version: 1
+kind: gantt
+updated: 2026-08-08
+locales:
+  en:
+    title: FDAI governed delivery roadmap
+    description: Workstreams share one numeric delivery axis while dependencies, status, and progress remain explicit.
+    alt: Three workstreams show ontology, policy, and delivery tasks as time-scaled bars. Completed, active, planned, critical, and milestone states use distinct colors, and dependency arrows connect gated work.
+  ko:
+    title: FDAI 통제형 전달 로드맵
+    description: 여러 작업 흐름이 하나의 숫자형 전달 축을 공유하며 의존 관계, 상태 및 진행률을 명시적으로 표시합니다.
+    alt: 온톨로지, 정책 및 전달 작업 흐름을 시간 비율 막대로 표시합니다. 완료, 진행 중, 계획, 중요 및 마일스톤 상태를 서로 다른 색으로 구분하고 통제된 작업 사이를 의존 화살표로 연결합니다.
+canvas:
+  width: 1600
+  height: 900
+  direction: RIGHT
+  padding: 40
+groups:
+  - id: semantic-foundation
+    kind: layer
+    label: { en: Semantic foundation, ko: 의미 기반 }
+  - id: policy-assurance
+    kind: layer
+    label: { en: Policy and assurance, ko: 정책 및 보증 }
+  - id: governed-delivery
+    kind: layer
+    label: { en: Governed delivery, ko: 통제된 전달 }
+nodes:
+  - id: ontology-contracts
+    parent: semantic-foundation
+    kind: process
+    shape: bar
+    label: { en: Ontology contracts, ko: 온톨로지 계약 }
+    start: 0
+    duration: 4
+    status: done
+    progress: 100
+  - id: context-projection
+    parent: semantic-foundation
+    kind: process
+    shape: bar
+    label: { en: Context projection, ko: 컨텍스트 projection }
+    after: ontology-contracts
+    duration: 3
+    status: active
+    progress: 65
+  - id: semantic-release
+    parent: semantic-foundation
+    kind: process
+    shape: bar
+    label: { en: Semantic release, ko: 의미 모델 릴리스 }
+    after: context-projection
+    duration: 1
+    status: milestone
+    progress: 0
+  - id: policy-catalog
+    parent: policy-assurance
+    kind: process
+    shape: bar
+    label: { en: Policy catalog, ko: 정책 카탈로그 }
+    start: 2
+    duration: 4
+    status: done
+    progress: 100
+  - id: scenario-regression
+    parent: policy-assurance
+    kind: process
+    shape: bar
+    label: { en: Scenario regression, ko: 시나리오 회귀 검증 }
+    after: policy-catalog
+    duration: 4
+    status: active
+    progress: 40
+  - id: promotion-evidence
+    parent: policy-assurance
+    kind: process
+    shape: bar
+    label: { en: Promotion evidence, ko: 승격 근거 }
+    after: scenario-regression
+    duration: 2
+    status: critical
+    progress: 15
+  - id: console-projection
+    parent: governed-delivery
+    kind: process
+    shape: bar
+    label: { en: Console projection, ko: 콘솔 projection }
+    start: 5
+    duration: 3
+    status: done
+    progress: 100
+  - id: operator-validation
+    parent: governed-delivery
+    kind: process
+    shape: bar
+    label: { en: Operator validation, ko: 운영자 검증 }
+    after: console-projection
+    duration: 3
+    status: active
+    progress: 55
+  - id: release-readiness
+    parent: governed-delivery
+    kind: process
+    shape: bar
+    label: { en: Release readiness, ko: 릴리스 준비 }
+    after: operator-validation
+    duration: 2
+    status: planned
+    progress: 0
+edges:
+  - id: contracts-to-context
+    from: ontology-contracts
+    to: context-projection
+    kind: timeline
+  - id: catalog-to-regression
+    from: policy-catalog
+    to: scenario-regression
+    kind: timeline
+  - id: console-to-validation
+    from: console-projection
+    to: operator-validation
+    kind: timeline

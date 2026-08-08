@@ -25,7 +25,13 @@ from fdai.rule_catalog.schema.action_type import (
 from fdai.rule_catalog.schema.link_type import load_link_type_catalog
 from fdai.rule_catalog.schema.object_type import load_object_type_catalog
 from fdai.rule_catalog.schema.ontology_provenance import ontology_content_hash
-from fdai.shared.contracts.models import Mode, OntologyActionType, Operation, RollbackKind
+from fdai.shared.contracts.models import (
+    Mode,
+    OntologyActionType,
+    OntologyDeclarationKind,
+    Operation,
+    RollbackKind,
+)
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -159,6 +165,142 @@ def test_default_mode_enforce_in_upstream_is_rejected() -> None:
         load_action_type_from_mapping(raw, schema_registry=_registry())
     joined = " ".join(i.message for i in info.value.issues).lower()
     assert "shadow" in joined
+
+
+def _semantic_action_mapping() -> dict:
+    digest = "sha256:" + "a" * 64
+    target_ref = {
+        "kind": "object",
+        "name": "Workload",
+        "version": "1.0.0",
+        "declaration_digest": digest,
+    }
+    function_ref = {
+        "kind": "function",
+        "name": "plan.scale",
+        "version": "1.0.0",
+        "declaration_digest": digest,
+    }
+    return {
+        "schema_version": "2.0.0",
+        "name": "ops.semantic-scale",
+        "version": "2.0.0",
+        "operation": "scale",
+        "rollback_contract": "state_forward_only",
+        "default_mode": "shadow",
+        "promotion_gate": {
+            "min_shadow_days": 1,
+            "min_samples": 1,
+            "min_accuracy": 1.0,
+            "max_policy_escapes": 0,
+        },
+        "semantic": {
+            "target": {"type_ref": target_ref, "cardinality": "one"},
+            "planner_ref": function_ref,
+            "effects": [
+                {
+                    "effect_id": "scale-command",
+                    "kind": "provider_command",
+                    "operation_ref": "provider.scale",
+                    "rollback_operation_ref": "provider.scale.rollback",
+                }
+            ],
+            "postconditions": [
+                {
+                    "postcondition_id": "replicas-converged",
+                    "kind": "property",
+                    "observation_ref": "property.replicas",
+                }
+            ],
+            "transaction_policy": {
+                "mode": "saga",
+                "lock_scope": "target",
+                "max_affected_objects": 1,
+            },
+        },
+    }
+
+
+def test_semantic_action_type_mapping_decodes_exact_declaration_refs() -> None:
+    digest = "sha256:" + "a" * 64
+    target_ref = {
+        "kind": "object",
+        "name": "Workload",
+        "version": "1.0.0",
+        "declaration_digest": digest,
+    }
+    function_ref = {
+        "kind": "function",
+        "name": "plan.scale",
+        "version": "1.0.0",
+        "declaration_digest": digest,
+    }
+    raw = {
+        "schema_version": "2.0.0",
+        "name": "ops.semantic-scale",
+        "version": "2.0.0",
+        "operation": "scale",
+        "rollback_contract": "state_forward_only",
+        "default_mode": "shadow",
+        "promotion_gate": {
+            "min_shadow_days": 1,
+            "min_samples": 1,
+            "min_accuracy": 1.0,
+            "max_policy_escapes": 0,
+        },
+        "semantic": {
+            "target": {"type_ref": target_ref, "cardinality": "one"},
+            "planner_ref": function_ref,
+            "effects": [
+                {
+                    "effect_id": "scale-command",
+                    "kind": "provider_command",
+                    "operation_ref": "provider.scale",
+                    "rollback_operation_ref": "provider.scale.rollback",
+                }
+            ],
+            "postconditions": [
+                {
+                    "postcondition_id": "replicas-converged",
+                    "kind": "property",
+                    "observation_ref": "property.replicas",
+                }
+            ],
+            "transaction_policy": {
+                "mode": "saga",
+                "lock_scope": "target",
+                "max_affected_objects": 1,
+            },
+        },
+    }
+
+    loaded = load_action_type_from_mapping(raw, schema_registry=_registry())
+
+    assert loaded.semantic is not None
+    assert loaded.semantic.target.type_ref.kind is OntologyDeclarationKind.OBJECT
+    assert loaded.semantic.planner_ref.kind is OntologyDeclarationKind.FUNCTION
+    assert loaded.semantic.effects[0].rollback_operation_ref == "provider.scale.rollback"
+
+
+def test_reversible_semantic_action_requires_rollback_operation_ref() -> None:
+    raw = _semantic_action_mapping()
+    raw["semantic"]["effects"][0].pop("rollback_operation_ref")  # type: ignore[index]
+
+    with pytest.raises(ActionTypeCatalogError, match="rollback_operation_ref"):
+        load_action_type_from_mapping(raw, schema_registry=_registry())
+
+
+def test_set_semantic_target_requires_target_set_lock_scope() -> None:
+    raw = _semantic_action_mapping()
+    raw["semantic"]["target"]["cardinality"] = "set"  # type: ignore[index]
+    raw["semantic"]["transaction_policy"] = {  # type: ignore[index]
+        "mode": "saga",
+        "lock_scope": "target",
+        "max_affected_objects": 2,
+    }
+
+    with pytest.raises(ActionTypeCatalogError, match="target_set lock scope"):
+        load_action_type_from_mapping(raw, schema_registry=_registry())
 
 
 def test_rollback_none_is_rejected_by_schema(tmp_path: Path) -> None:

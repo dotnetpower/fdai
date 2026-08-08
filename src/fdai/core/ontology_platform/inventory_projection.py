@@ -24,6 +24,7 @@ from fdai.shared.providers.ontology_instance import (
     OntologyObjectRecord,
     normalize_json_value,
 )
+from fdai.shared.providers.state_evidence import LINK_OBSERVATION_METADATA_PROPERTY
 
 #: Registered ``Resource -> Resource`` observation links. A new topology link type
 #: enters the catalog vocabulary first, then this tuple; an unlisted type is
@@ -169,11 +170,17 @@ def _build_links(
         if key in keyed:
             continue
         link_props = normalize_json_value(dict(record.link_props), path=f"inventory.{link_type}")
+        properties = dict(link_props) if isinstance(link_props, Mapping) else {}
+        if record.observation_metadata is not None:
+            properties[LINK_OBSERVATION_METADATA_PROPERTY] = normalize_json_value(
+                record.observation_metadata.to_mapping(),
+                path=f"inventory.{link_type}.{LINK_OBSERVATION_METADATA_PROPERTY}",
+            )
         keyed[key] = OntologyLinkRecord(
             link_type=link_type,
             from_id=from_id,
             to_id=to_id,
-            properties=link_props if isinstance(link_props, Mapping) else {},
+            properties=properties,
         )
     return tuple(keyed[key] for key in sorted(keyed))
 

@@ -1,0 +1,151 @@
+{
+  "id": "fdai-evidence-sankey",
+  "kind": "sankey",
+  "version": 1,
+  "updated": "2026-08-08",
+  "locales": {
+    "en": {
+      "title": "FDAI evidence flow",
+      "description": "Weighted connectors show how operational evidence contributes to decisions and durable audit records.",
+      "alt": "Telemetry, inventory, and policy sources feed verified decisions with weighted links, and decisions produce actions and audit records."
+    },
+    "ko": {
+      "title": "FDAI 근거 흐름",
+      "description": "가중 연결선으로 운영 근거가 결정과 영구 감사 기록에 기여하는 정도를 표시합니다.",
+      "alt": "관찰 데이터, 인벤토리 및 정책 원본이 가중 연결선으로 검증된 결정에 입력되고 결정은 작업과 감사 기록을 생성합니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-evidence-sankey.en.svg",
+      "png": "fdai-evidence-sankey.en.png"
+    },
+    "ko": {
+      "svg": "fdai-evidence-sankey.ko.svg",
+      "png": "fdai-evidence-sankey.ko.png"
+    }
+  },
+  "nodes": [
+    {
+      "id": "telemetry-source",
+      "kind": "external",
+      "tone": "input",
+      "label": {
+        "en": "Telemetry",
+        "ko": "관찰 데이터"
+      },
+      "description": {
+        "en": "Telemetry",
+        "ko": "관찰 데이터"
+      }
+    },
+    {
+      "id": "inventory-source",
+      "kind": "external",
+      "tone": "input",
+      "label": {
+        "en": "Inventory",
+        "ko": "인벤토리"
+      },
+      "description": {
+        "en": "Inventory",
+        "ko": "인벤토리"
+      }
+    },
+    {
+      "id": "policy-source",
+      "kind": "external",
+      "tone": "policy",
+      "label": {
+        "en": "Policy",
+        "ko": "정책"
+      },
+      "description": {
+        "en": "Policy",
+        "ko": "정책"
+      }
+    },
+    {
+      "id": "verified-decision",
+      "kind": "decision",
+      "tone": "decision",
+      "label": {
+        "en": "Verified decision",
+        "ko": "검증된 결정"
+      },
+      "description": {
+        "en": "Verified decision",
+        "ko": "검증된 결정"
+      }
+    },
+    {
+      "id": "governed-action",
+      "kind": "process",
+      "tone": "execution",
+      "label": {
+        "en": "Governed action",
+        "ko": "통제된 작업"
+      },
+      "description": {
+        "en": "Governed action",
+        "ko": "통제된 작업"
+      }
+    },
+    {
+      "id": "audit-record",
+      "kind": "store",
+      "shape": "database",
+      "tone": "store",
+      "label": {
+        "en": "Audit record",
+        "ko": "감사 기록"
+      },
+      "description": {
+        "en": "Audit record",
+        "ko": "감사 기록"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "telemetry-to-decision",
+      "from": "telemetry-source",
+      "to": "verified-decision",
+      "kind": "event",
+      "label": null,
+      "weight": 4
+    },
+    {
+      "id": "inventory-to-decision",
+      "from": "inventory-source",
+      "to": "verified-decision",
+      "kind": "read",
+      "label": null,
+      "weight": 3
+    },
+    {
+      "id": "policy-to-decision",
+      "from": "policy-source",
+      "to": "verified-decision",
+      "kind": "approval",
+      "label": null,
+      "weight": 2
+    },
+    {
+      "id": "decision-to-action",
+      "from": "verified-decision",
+      "to": "governed-action",
+      "kind": "mutation",
+      "label": null,
+      "weight": 3
+    },
+    {
+      "id": "decision-to-audit",
+      "from": "verified-decision",
+      "to": "audit-record",
+      "kind": "audit",
+      "label": null,
+      "weight": 4
+    }
+  ]
+}

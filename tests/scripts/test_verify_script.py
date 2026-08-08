@@ -22,6 +22,18 @@ def _run(*arguments: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _git(repo: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+    git = shutil.which("git")
+    assert git is not None
+    return subprocess.run(  # noqa: S603 - test-controlled Git arguments
+        [git, *arguments],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
 def test_full_requires_a_focused_pytest_path() -> None:
     result = _run("--full")
 
@@ -36,6 +48,85 @@ def test_help_distinguishes_focused_and_whole_suite_modes() -> None:
     assert result.returncode == 0
     assert "--full <path>" in result.stdout
     assert "--all" in result.stdout
+
+
+def test_diff_scoping_and_gate_cache_use_exact_head(tmp_path: Path) -> None:
+    assert _git(tmp_path, "init", "--quiet").returncode == 0
+    assert _git(tmp_path, "config", "user.email", "tests@example.com").returncode == 0
+    assert _git(tmp_path, "config", "user.name", "FDAI Tests").returncode == 0
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    document = docs / "guide.md"
+    document.write_text("initial\n", encoding="utf-8")
+    assert _git(tmp_path, "add", ".").returncode == 0
+    assert _git(tmp_path, "commit", "--quiet", "-m", "initial").returncode == 0
+    document.write_text("changed\n", encoding="utf-8")
+    assert _git(tmp_path, "add", ".").returncode == 0
+    assert _git(tmp_path, "commit", "--quiet", "-m", "docs").returncode == 0
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    command_log = tmp_path / "commands.log"
+    fake = bin_dir / "fake"
+    fake.write_text(
+        '#!/bin/sh\nprintf "%s:%s\\n" "$(basename "$0")" "$*" >> "$FDAI_VERIFY_TEST_LOG"\n',
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    for name in ("bash", "python3", "uv"):
+        (bin_dir / name).symlink_to(fake)
+    environment = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "FDAI_VERIFY_CACHE_DIR": str(tmp_path / "cache"),
+        "FDAI_VERIFY_TEST_LOG": str(command_log),
+    }
+    real_bash = shutil.which("bash", path=os.environ["PATH"])
+    assert real_bash is not None
+    command = [real_bash, str(_VERIFY), "--fast", "--diff", "HEAD^..HEAD"]
+
+    first = subprocess.run(  # noqa: S603 - fixed script and test-controlled arguments
+        command,
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    first_commands = command_log.read_text(encoding="utf-8")
+    second = subprocess.run(  # noqa: S603 - fixed script and test-controlled arguments
+        command,
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    environment["FDAI_VERIFY_CONTEXT_DIGEST"] = "changed-local-input"
+    third = subprocess.run(  # noqa: S603 - fixed script and test-controlled arguments
+        command,
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert first.returncode == 0, first.stderr
+    assert second.returncode == 0, second.stderr
+    assert third.returncode == 0, third.stderr
+    assert "ruff format" not in first_commands
+    assert "mypy" not in first_commands
+    assert "check-translations.sh" in first_commands
+    assert command_log.read_text(encoding="utf-8") == first_commands * 2
+    assert "CACHED" in second.stdout
+
+
+def test_diff_is_rejected_outside_fast_mode() -> None:
+    result = _run("--all", "--diff", "HEAD^..HEAD")
+
+    assert result.returncode == 2
+    assert "supported only with --fast" in result.stderr
 
 
 def test_verification_entrypoints_prepend_current_checkout_source() -> None:

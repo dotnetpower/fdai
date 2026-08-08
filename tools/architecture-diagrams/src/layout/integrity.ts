@@ -97,7 +97,12 @@ export function layoutIntegrityErrors(
   const edgeLabelBoxes: Box[] = [];
   const stepBadgeBoxes: Box[] = [];
 
-  for (let leftIndex = 0; leftIndex < nodes.length; leftIndex += 1) {
+  const intentionalNodeOverlap = spec.kind === "pie" || spec.kind === "venn";
+  for (
+    let leftIndex = 0;
+    leftIndex < nodes.length && !intentionalNodeOverlap;
+    leftIndex += 1
+  ) {
     for (
       let rightIndex = leftIndex + 1;
       rightIndex < nodes.length;

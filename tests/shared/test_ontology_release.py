@@ -11,6 +11,8 @@ from fdai.shared.contracts.models import (
     OntologyDeclarationKind,
     OntologyFunctionKind,
     OntologyFunctionType,
+    OntologyInterfaceType,
+    OntologyRelease,
     OntologyReleaseRef,
     Operation,
     PromotionGate,
@@ -84,6 +86,27 @@ def test_release_rejects_duplicate_declaration_identity() -> None:
         build_ontology_release(action_types=(_action("ops.alpha"), _action("ops.alpha")))
 
 
+def test_direct_release_construction_rejects_noncanonical_content() -> None:
+    release = build_ontology_release(action_types=(_action("ops.alpha"), _action("ops.beta")))
+
+    assert OntologyRelease.model_validate_json(release.model_dump_json()) == release
+    with pytest.raises(ValueError, match="identities MUST be unique"):
+        OntologyRelease(
+            digest=release.digest,
+            declarations=(release.declarations[0], release.declarations[0]),
+        )
+    with pytest.raises(ValueError, match="canonical order"):
+        OntologyRelease(
+            digest=release.digest,
+            declarations=tuple(reversed(release.declarations)),
+        )
+    with pytest.raises(ValueError, match="digest does not match"):
+        OntologyRelease(
+            digest="sha256:" + "0" * 64,
+            declarations=release.declarations,
+        )
+
+
 def test_release_pins_function_identity_and_artifact_changes() -> None:
     function = OntologyFunctionType(
         name="predict.capacity",
@@ -102,5 +125,23 @@ def test_release_pins_function_identity_and_artifact_changes() -> None:
     reference = release.type_ref(OntologyDeclarationKind.FUNCTION, function.name)
 
     assert reference.version == function.version
+    assert reference.catalog_digest == release.digest
+    assert changed.digest != release.digest
+
+
+def test_release_pins_interface_identity_without_changing_empty_release() -> None:
+    interface = OntologyInterfaceType(name="Operable", version="1.0.0")
+
+    implicit_empty = build_ontology_release()
+    explicit_empty = build_ontology_release(interface_types=())
+    release = build_ontology_release(interface_types=(interface,))
+    changed = build_ontology_release(
+        interface_types=(interface.model_copy(update={"supported_actions": ("ops.restart",)}),)
+    )
+
+    reference = release.type_ref(OntologyDeclarationKind.INTERFACE, interface.name)
+
+    assert implicit_empty.digest == explicit_empty.digest
+    assert reference.version == interface.version
     assert reference.catalog_digest == release.digest
     assert changed.digest != release.digest

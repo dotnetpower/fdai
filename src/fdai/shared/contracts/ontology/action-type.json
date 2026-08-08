@@ -259,9 +259,194 @@
     },
     "provenance": {
       "$ref": "#/$defs/provenance"
+    },
+    "semantic": {
+      "$ref": "#/$defs/semanticActionContract"
     }
   },
   "$defs": {
+    "semanticActionContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "planner_ref",
+        "effects",
+        "postconditions",
+        "transaction_policy"
+      ],
+      "properties": {
+        "target": {"$ref": "#/$defs/actionTargetSelector"},
+        "parameters": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {"$ref": "#/$defs/actionParameterDeclaration"},
+          "default": []
+        },
+        "read_sets": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"$ref": "#/$defs/actionReadSetReference"},
+          "default": []
+        },
+        "submission_criteria": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"$ref": "#/$defs/actionSubmissionCriterion"},
+          "default": []
+        },
+        "planner_ref": {"$ref": "#/$defs/functionDeclarationRef"},
+        "effects": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {"$ref": "#/$defs/actionEffectSpec"}
+        },
+        "postconditions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {"$ref": "#/$defs/actionPostconditionSpec"}
+        },
+        "transaction_policy": {"$ref": "#/$defs/actionTransactionPolicy"}
+      }
+    },
+    "actionTargetSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type_ref", "cardinality"],
+      "properties": {
+        "type_ref": {"$ref": "#/$defs/targetDeclarationRef"},
+        "cardinality": {"type": "string", "enum": ["one", "set"]}
+      }
+    },
+    "actionParameterDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "redaction"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"},
+        "required": {"type": "boolean", "default": false},
+        "inline_schema": {"type": "object", "minProperties": 1},
+        "schema_ref": {"$ref": "#/$defs/targetDeclarationRef"},
+        "redaction": {"type": "string", "enum": ["redact", "audit_safe"]}
+      },
+      "oneOf": [
+        {"required": ["inline_schema"], "not": {"required": ["schema_ref"]}},
+        {"required": ["schema_ref"], "not": {"required": ["inline_schema"]}}
+      ]
+    },
+    "actionReadSetReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["function_ref", "properties", "max_objects"],
+      "properties": {
+        "function_ref": {"$ref": "#/$defs/functionDeclarationRef"},
+        "properties": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {"type": "string", "minLength": 1, "maxLength": 256},
+          "uniqueItems": true
+        },
+        "max_objects": {"type": "integer", "minimum": 1, "maximum": 1000}
+      }
+    },
+    "actionSubmissionCriterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "criterion_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+        "function_ref": {"$ref": "#/$defs/functionDeclarationRef"}
+      },
+      "oneOf": [
+        {"required": ["criterion_ref"], "not": {"required": ["function_ref"]}},
+        {"required": ["function_ref"], "not": {"required": ["criterion_ref"]}}
+      ]
+    },
+    "actionEffectSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["effect_id", "kind", "operation_ref"],
+      "properties": {
+        "effect_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,79}$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "internal_write",
+            "catalog_pr",
+            "provider_command",
+            "notification",
+            "schedule"
+          ]
+        },
+        "operation_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+        "rollback_operation_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "grants_authority": {"const": false, "default": false}
+      }
+    },
+    "actionPostconditionSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["postcondition_id", "kind"],
+      "properties": {
+        "postcondition_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,79}$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["property", "metric", "event", "function"]
+        },
+        "observation_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+        "function_ref": {"$ref": "#/$defs/functionDeclarationRef"},
+        "evidence_required": {"const": true, "default": true},
+        "grants_authority": {"const": false, "default": false}
+      },
+      "oneOf": [
+        {"required": ["observation_ref"], "not": {"required": ["function_ref"]}},
+        {"required": ["function_ref"], "not": {"required": ["observation_ref"]}}
+      ]
+    },
+    "actionTransactionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "lock_scope", "max_affected_objects"],
+      "properties": {
+        "mode": {"type": "string", "enum": ["atomic", "saga"]},
+        "lock_scope": {"type": "string", "enum": ["target", "target_set"]},
+        "max_affected_objects": {"type": "integer", "minimum": 1, "maximum": 1000}
+      }
+    },
+    "targetDeclarationRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "version", "declaration_digest"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["object", "interface"]},
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+        "declaration_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+      }
+    },
+    "functionDeclarationRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "version", "declaration_digest"],
+      "properties": {
+        "kind": {"const": "function"},
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+        "declaration_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+      }
+    },
     "tierCeiling": {
       "type": "object",
       "additionalProperties": false,

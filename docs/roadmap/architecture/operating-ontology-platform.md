@@ -26,6 +26,9 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > Pre-migration rows remain explicitly unpinned because their original release digest cannot be
 > reconstructed honestly. The next successful write creates a new, fully revalidated current-state
 > revision and pins that new revision to the then-active release.
+> Semantic Interface declarations now use the shared contract and can contribute to a canonical
+> release digest. Production catalog loading and composition still provide no Interface
+> declarations, so polymorphic ObjectSet queries remain an unwired platform capability.
 > Canonical releases now include typed function declarations. The function registry checks the
 > caller agent, role, and purpose, derives replay-stable seeds for declared stochastic functions,
 > and emits content-addressed invocation receipts pinned to the exact release.
@@ -133,6 +136,23 @@ property predicates, named-link traversal, deterministic ordering, an `as_of` cu
 purpose, and a hard result limit. It does not accept free-form Cypher, SPARQL, SQL, or model text.
 Every materialization records the release digest, cutoff, source watermarks, truncation reason,
 and redaction summary.
+
+Property predicates support `equals`, `not_equals`, `in`, `exists`, `absent`, `at_least`,
+`at_most`, and `contains`. Single-value operators use `equals`, `in` uses a non-empty `values`
+tuple, single-value operands cannot be null, and presence operators accept no operand. The store
+receives only `equals` predicates for indexed pushdown. Both direct queries and traversals apply
+every predicate again to the bounded candidate graph and remove links whose endpoints were
+filtered out. Predicate operands are canonical JSON with finite numbers, at most 32 nesting
+levels, and at most 64 KiB of encoded data.
+One definition accepts at most 32 predicates, one `in` predicate accepts at most 1000 values, and
+one traversal accepts at most 1000 roots and 64 named link types. Root ids without a traversal and
+traversals without a named link type are rejected before store I/O.
+
+Materialization distinguishes `result_limit`, `candidate_limit`, and `traversal_limit`. A
+`candidate_limit` means memory filtering saw only the first 1000 store candidates, so an empty or
+short result is incomplete evidence rather than a complete absence claim. A `traversal_limit`
+means graph expansion reached its object ceiling. The in-memory and PostgreSQL stores both apply
+the requested object limit to initial roots as well as reached objects.
 
 ## Semantic actions and mutation plans
 
@@ -285,6 +305,7 @@ decoding is removed only after retained audit and instance fixtures replay under
 
 | To learn about | Read |
 |----------------|------|
+| Declaration kinds and runtime State/Context boundaries | [Operating Ontology Metamodel](operating-ontology-metamodel.md) |
 | Existing semantic and authority model | [FDAI Operating Ontology](operating-ontology.md) |
 | Existing ActionType safety contract | [Action Ontology](../decisioning/action-ontology.md) |
 | Runtime execution authority | [Execution Model](../decisioning/execution-model.md) |

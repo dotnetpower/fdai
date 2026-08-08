@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 4653c4d35f4abb0cdca5f3d74bf5f489b7b62e27
-translation_revised: 2026-08-04
+translation_source_sha: 2bbc522b4c31879b2769a8f42066323ca70d04cb
+translation_revised: 2026-08-08
 ---
 
 # Action 온톨로지
@@ -165,6 +165,48 @@ argument_schema:                         # JSON Schema; 콘솔이 렌더 + 검�
   properties: {...}
   required: [...]
 
+# --- 의미 계획 계약 (레거시 디코딩에서는 선택 사항) --------------------
+semantic:
+  target:
+    type_ref:                            # 정확한 ObjectType 또는 InterfaceType 선언
+      kind: object | interface
+      name: Workload
+      version: 1.0.0
+      declaration_digest: sha256:<hex>
+    cardinality: one | set
+  parameters:                            # 각 항목은 inline_schema 또는 schema_ref 사용
+    - name: replicas
+      required: true
+      inline_schema: {type: integer, minimum: 1, maximum: 100}
+      redaction: audit_safe | redact
+  read_sets:                             # 범위가 제한된 query FunctionType 참조
+    - function_ref: {kind: function, name: query.workloads,
+                     version: 1.0.0, declaration_digest: sha256:<hex>}
+      properties: [replicas]
+      max_objects: 100
+  submission_criteria:
+    - criterion_ref: capacity-within-policy
+    - function_ref: {kind: function, name: validate.capacity,
+                     version: 1.0.0, declaration_digest: sha256:<hex>}
+  planner_ref: {kind: function, name: plan.scale,
+                version: 1.0.0, declaration_digest: sha256:<hex>}
+  effects:
+    - effect_id: scale-command
+      kind: provider_command
+      operation_ref: provider.scale
+      rollback_operation_ref: provider.scale.rollback
+      grants_authority: false
+  postconditions:
+    - postcondition_id: replicas-converged
+      kind: property
+      observation_ref: property.replicas
+      evidence_required: true
+      grants_authority: false
+  transaction_policy:
+    mode: atomic | saga
+    lock_scope: target | target_set
+    max_affected_objects: 100
+
 # --- Provenance (기존) ---------------------------------------------------
 provenance:
   source_url: string
@@ -191,6 +233,42 @@ Workflow에서 시작된 runtime `Action`은 정확한 `process_id`, `step_id`, 
 포함하는 `workflow_action`도 전달할 수 있습니다. 이 lineage는 ActionType argument가 아니라
 Action metadata이므로 strict `argument_schema` 검증은 그대로 유지됩니다. Proposal reference는
 dispatch만 입증하며 Process가 진행하려면 독립적인 outcome receipt가 필요합니다.
+
+`semantic` 블록은 선택 사항이므로 보존된 v1 YAML과 감사 fixture를 변경 없이 디코딩할 수
+있습니다. 블록이 있으면 완전하고 범위가 제한되어야 합니다. ActionType 내부 참조는
+`OntologyDeclarationRef`를 사용합니다. 이 참조는 선언 kind, name, version, declaration digest를
+고정하면서 포함하는 release digest를 재귀적으로 넣지 않습니다. 이후 순수
+`compile_action_mutation_plan` 함수는 모든 참조가 active `OntologyRelease`의 정확한 멤버인지
+확인합니다. Read set은 `query` 함수, submission 및 함수 postcondition은 `validate` 함수,
+planner는 `plan` 함수를 사용해야 합니다.
+
+컴파일은 immutable한 proposal 전용 `MutationPlan` version 2만 반환합니다. Compiler는 plan
+identity를 만들기 전에 다음을 확인합니다.
+
+- Canonical argument에는 모든 required parameter가 있어야 하고 undeclared parameter가 없어야
+  하며 각 inline JSON Schema를 통과해야 합니다. Plan은 전체 canonical argument object의 digest와
+  supplied parameter별 binding을 저장합니다. `audit_safe` binding은 canonical JSON만 보존하고,
+  `redact` binding은 value digest와 고정 `<redacted>` projection만 보존하며 raw value는 저장하지
+  않습니다.
+- 선언된 read set마다 content-addressed receipt 하나가 있어야 하고 submission criterion마다
+  content-addressed `CriterionResult` 하나가 있어야 합니다. Compiler는 누락, 중복, undeclared,
+  incomplete, truncated, future-observed, stale 또는 digest mismatch receipt를 차단합니다. Criterion은
+  plan을 제안하기 전에 pass해야 합니다.
+- Forward effect는 선언된 `effect_id`와 선택된 target id의 정확한 Cartesian set과 일치해야 합니다.
+  Expected effect는 정확한 `postcondition_id` set 및 해당 property, observation 또는 function
+  reference와 일치해야 합니다. Provider command에는 `command_ref`가 필요하며 forward와 rollback
+  command reference는 선언된 operation reference와 같아야 합니다.
+- Reversible action은 모든 forward effect에 `rollback_operation_ref`를 선언하고 rollback effect가
+  모든 `(effect_id, target_id)` pair를 포함해야 합니다. Irreversible action은 plan에 표시되며,
+  recovery operation이 선언되지 않은 effect에 가짜 rollback을 만들지 않습니다.
+- Plan은 transaction mode, lock scope, 정렬된 deterministic target lock key, 선언된 최대 affected
+  object 수를 결합합니다. Set-cardinality target에는 `target_set` lock이 필요합니다.
+
+Compiler는 선택된 ObjectType 또는 컴파일된 InterfaceType target과 정확한 target revision도
+검증합니다. 기존 version 2 plan을 받으면 proposal을 다시 빌드하고 digest와 내용을 비교한 뒤 같은
+plan을 반환합니다. 보존된 version 1 `MutationPlan` payload는 version 2 identity field 없이도 계속
+decode되지만 semantic compilation은 항상 version 2를 생성합니다. Compiler는 RiskGate, agent,
+executor 또는 provider를 호출하지 않으며 effect와 postcondition은 authority를 선언할 수 없습니다.
 
 Catalog backfill은 다음 상태로 완료되었습니다:
 
@@ -730,6 +808,13 @@ verbatim 기록되므로 과거 audit entry 를 절대 break 하지 않음.
   test; time frozen; audit entry 가 overlay layer 를 name 함을 assert.
 - **Cross-check 로드 error** - `operator_request` 에 `argument_schema`
   누락한 fixture ActionType 가 특정 error 로 로드 실패.
+- **Semantic compiler** - 집중 테스트가 레거시 ActionType 및 `MutationPlan` decode를 유지하고,
+  exact ref를 수락하며, stale ref를 차단하고, canonical 및 redacted argument를 검증하며, complete하고
+  fresh한 content-addressed read 및 criterion receipt를 요구합니다. 또한 일대일 effect 및
+  postcondition binding을 강제하고, reversible 및 irreversible recovery semantics를 보존하며,
+  deterministic target-set lock과 transaction limit을 결합하고, `plan` planner를 요구하고, 기존
+  plan digest와 revision을 검증하며, effect와 postcondition이 authority를 부여할 수 없음을
+  입증합니다.
 
 ## 12. 설계 경계와 라이프사이클
 

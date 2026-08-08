@@ -61,6 +61,17 @@ export function interactiveInitialViewBox(
   return zoomViewBox(fitted, bounds, 0.82, 0, 0);
 }
 
+export function centerViewBox(view: ViewBox, bounds: ViewBox): ViewBox {
+  return constrainViewBox(
+    {
+      ...view,
+      x: bounds.x + (bounds.width - view.width) / 2,
+      y: bounds.y + (bounds.height - view.height) / 2,
+    },
+    bounds,
+  );
+}
+
 export function zoomViewBox(
   view: ViewBox,
   bounds: ViewBox,

@@ -16,7 +16,12 @@ from fdai.core.ontology_platform import (
     OntologyInterfaceType,
     compile_interfaces,
 )
-from fdai.shared.contracts.models import OntologyObjectType, PropertyDecl, PropertyType
+from fdai.shared.contracts.models import (
+    CeilingRole,
+    OntologyObjectType,
+    PropertyDecl,
+    PropertyType,
+)
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
 
@@ -37,7 +42,7 @@ def _object_type(name: str, *, include_owner: bool = True) -> OntologyObjectType
     )
 
 
-def _interfaces():
+def _interfaces() -> tuple[OntologyInterfaceType, OntologyInterfaceType]:
     ownable = OntologyInterfaceType(
         name="Ownable",
         version="1.0.0",
@@ -80,7 +85,7 @@ def test_compiled_interface_catalog_is_deeply_immutable() -> None:
     with pytest.raises(TypeError):
         compiled.concrete_types["Operable"] = ("Other",)  # type: ignore[index]
     with pytest.raises(TypeError):
-        compiled.interfaces["Operable"].properties["injected"] = PropertyDecl(  # type: ignore[index]
+        compiled.interfaces["Operable"].properties["injected"] = PropertyDecl(
             type=PropertyType.STRING
         )
     assert compiled.resolve("Operable") == ("Workload",)
@@ -112,6 +117,99 @@ def test_interface_compilation_rejects_incompatible_parent_properties() -> None:
 
     with pytest.raises(ValueError, match="conflicting properties"):
         compile_interfaces(interfaces=(left, right, child), implementations=(), object_types=())
+
+
+@pytest.mark.parametrize(
+    ("requirement", "implementation", "reason"),
+    [
+        (
+            PropertyDecl(type=PropertyType.STRING),
+            PropertyDecl(type=PropertyType.INTEGER),
+            "type",
+        ),
+        (
+            PropertyDecl(type=PropertyType.STRING, required=True),
+            PropertyDecl(type=PropertyType.STRING),
+            "requiredness",
+        ),
+        (
+            PropertyDecl(type=PropertyType.STRING, access_scope=CeilingRole.APPROVER),
+            PropertyDecl(type=PropertyType.STRING, access_scope=CeilingRole.READER),
+            "access scope",
+        ),
+        (
+            PropertyDecl(type=PropertyType.STRING, purpose_binding=["incident-response"]),
+            PropertyDecl(
+                type=PropertyType.STRING,
+                purpose_binding=["incident-response", "inventory-review"],
+            ),
+            "purpose binding",
+        ),
+    ],
+)
+def test_interface_compilation_rejects_incompatible_property_contracts(
+    requirement: PropertyDecl,
+    implementation: PropertyDecl,
+    reason: str,
+) -> None:
+    interface = OntologyInterfaceType(
+        name="Observable",
+        version="1.0.0",
+        properties={"status": requirement},
+    )
+    object_type = _object_type("Workload").model_copy(
+        update={
+            "properties": {
+                **_object_type("Workload").properties,
+                "status": implementation,
+            }
+        }
+    )
+
+    with pytest.raises(ValueError, match=reason):
+        compile_interfaces(
+            interfaces=(interface,),
+            implementations=(
+                InterfaceImplementation(object_type="Workload", interfaces=("Observable",)),
+            ),
+            object_types=(object_type,),
+        )
+
+
+def test_interface_compilation_accepts_more_restrictive_property_contract() -> None:
+    interface = OntologyInterfaceType(
+        name="Observable",
+        version="1.0.0",
+        properties={
+            "status": PropertyDecl(
+                type=PropertyType.STRING,
+                purpose_binding=["incident-response", "inventory-review"],
+            )
+        },
+    )
+    object_type = _object_type("Workload").model_copy(
+        update={
+            "properties": {
+                **_object_type("Workload").properties,
+                "status": PropertyDecl(
+                    type=PropertyType.STRING,
+                    required=True,
+                    access_scope=CeilingRole.APPROVER,
+                    purpose_binding=["incident-response"],
+                ),
+            }
+        }
+    )
+
+    compiled = compile_interfaces(
+        interfaces=(interface,),
+        implementations=(
+            InterfaceImplementation(object_type="Workload", interfaces=("Observable",)),
+        ),
+        object_types=(object_type,),
+    )
+
+    assert compiled.resolve("Observable") == ("Workload",)
 
 
 async def test_object_set_materializes_interface_query_with_hard_limit() -> None:

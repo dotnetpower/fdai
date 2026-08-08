@@ -40,51 +40,34 @@ always prevails.
 
 ## Agent Workflow (MUST)
 
-1. Read every route-selected design document before editing.
-2. Make the smallest coherent change, update affected contracts and docs, and never hand-edit
+1. Classify the request before implementation. A design pass is required when the change affects
+   architecture, public contracts, security or authority boundaries, cross-subsystem behavior,
+   persistent data flow, or presents multiple viable approaches with material tradeoffs. A small
+   local fix, mechanical edit, or implementation of an already-approved design does not require a
+   new design artifact.
+2. For design-required work, draft the smallest sufficient design, critique it against the user
+   requirements, route-selected documents, simplicity, failure modes, operability, and validation,
+   then revise the design before implementation. Resolve material critique findings in the revised
+   design; do not preserve rejected alternatives as implementation work.
+3. For any task that needs an implementation plan, derive it from the revised design when one is
+   required. Identify dependencies, shared files or mutable state, and validation joins; mark
+   independent work explicitly and execute it in parallel with available parallel tools, subagents,
+   or isolated worktrees. Keep dependent work sequential, and do not parallelize tasks that can
+   race on the same files, state, authority decision, or generated artifact. Every parallel branch
+   must have a bounded output and an explicit merge or verification point.
+4. Read every route-selected design document before editing.
+5. Make the smallest coherent change, update affected contracts and docs, and never hand-edit
    generated runtime artifacts.
-3. Worker sessions run only the narrowest executable check that can falsify their change. They
+6. Worker sessions run only the narrowest executable check that can falsify their change. They
    MUST NOT run repository-wide checks, unscoped tests, or direct `verify.sh --fast` / `--all`.
    Follow the diff-scoped and parallel-worktree rules in
    [coding-conventions.instructions.md](instructions/coding-conventions.instructions.md).
-4. Every commit is automatically registered in the Git-common-dir validation queue. The dedicated
+7. Every commit is automatically registered in the Git-common-dir validation queue. The dedicated
    `Integration Validator` session runs `make validation-run` once per stable batch; use
    `make validation-all` only at an explicit merge or release boundary. Normal pushes are blocked
    until every outgoing commit has a centralized validation receipt.
-5. Commit each focused-check-passing user-requested change before reporting completion unless the user says
+8. Commit each focused-check-passing user-requested change before reporting completion unless the user says
    not to commit. Stage only task-owned files and hunks; never commit failed or incomplete work.
-
-## Continuous Conversation Assurance Triggers (MUST)
-
-Treat `대화개선`, `채팅개선`, `대화무한개선`, `채팅무한개선`, `conversation improvement`,
-`chat improvement`, and `continuous conversation assurance` as requests to load the
-`conversational-assurance` skill and start exactly one explicit bounded campaign. Use the persisted
-SRE, ARB, Change Management, DR, Chaos, or Balanced focus; default to SRE when no focus is stored,
-and update it when the operator names a different focus. One campaign may evaluate at most 20 new
-questions and start at most 20 hardening attempts. These are per-campaign limits, not daily limits;
-a later explicit trigger starts a new campaign with fresh limits.
-
-Treat `대화개선 현황`, `채팅개선 현황`, and `conversation assurance status` as read-only status
-requests. Do not restart the campaign or ask for focus. Report the campaign summary and a Markdown
-table of the latest 20 question-and-answer evaluations.
-
-Every cycle MUST measure answer appropriateness, terminal verification state, answer-type-specific
-visualization, investigation and redacted execution detail, total latency, and per-phase
-bottlenecks through the same Operator API stream used by the Console. Score exactly ten named
-rubrics at 0 or 1 point each and report a total out of 10; the campaign pass threshold is 9/10.
-Persist every redacted question, answer, rubric result, timing summary, and regression cohort in
-ignored mode-`0600` ledgers. All prior and cohort questions participate in duplicate rejection. A
-score below 9 starts or resumes an isolated Copilot hardening candidate immediately; the same
-question and its paraphrase cohort are remeasured
-until every item reaches at least 9/10 or the campaign hardening limit is reached. After focused
-verification, the next bounded question cycle starts within the same explicit campaign until its
-question limit is reached or a cycle cannot make progress. The loop remains A0/read-only, never
-merges to `main`, never uses generated text as a command, and never grants approval or execution
-authority.
-
-Conversation assurance MUST NOT start from systemd, login, boot, a recurring timer, stale-activity
-recovery, or any other implicit scheduler. Only an explicit campaign trigger may start work.
-`.improve/STOP` remains the immediate local stop switch.
 
 ## Issue Lifecycle (MUST)
 

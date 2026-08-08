@@ -1655,11 +1655,12 @@ def test_extract_attached_to_from_vm_network_interfaces_and_disks() -> None:
         arm_to_neutral=reverse,
     )
 
-    assert {(link.to_type, link.to_id.rsplit("/", 1)[-1]) for link in links} == {
+    assert {(link.from_type, link.from_id.rsplit("/", 1)[-1]) for link in links} == {
         ("network.interface", "nic-1"),
         ("disk", "os-1"),
         ("disk", "data-1"),
     }
+    assert {(link.to_type, link.to_id) for link in links} == {("compute.vm", child.resource_id)}
 
 
 def test_extract_attached_to_drops_reference_to_unmapped_type() -> None:

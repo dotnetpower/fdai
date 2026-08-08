@@ -231,34 +231,52 @@ def extract_attached_to_links_from_row(
     child: ResourceRecord,
     arm_to_neutral: Mapping[str, str],
 ) -> tuple[LinkRecord, ...]:
-    """Project whitelisted hard attachment references from one ARG row."""
+    """Project hard attachments from the attached resource to its anchor.
+
+    Most provider rows own the attached resource and point to its anchor. VM rows
+    invert that payload shape by listing attached NIC and disk ids, so those
+    references are reversed when emitted as ontology links.
+    """
     properties = row.get("properties")
     if not isinstance(properties, Mapping):
         return ()
 
     seen: set[tuple[str, str, str]] = set()
     links: list[LinkRecord] = []
-    for ref_id in _attachment_ids(properties):
+
+    def emit(ref_id: str, *, reverse: bool = False) -> None:
         arm_type = arm_id_to_type(ref_id)
         if arm_type is None:
-            continue
-        to_type = arm_to_neutral.get(arm_type.lower())
-        if to_type is None:
-            continue
-        target_neutral = to_neutral_id(ref_id)
-        dedup_key = (child.resource_id, "attached_to", target_neutral)
+            return
+        referenced_type = arm_to_neutral.get(arm_type.lower())
+        if referenced_type is None:
+            return
+        referenced_id = to_neutral_id(ref_id)
+        if reverse:
+            from_id, from_type = referenced_id, referenced_type
+            to_id, to_type = child.resource_id, child.type
+        else:
+            from_id, from_type = child.resource_id, child.type
+            to_id, to_type = referenced_id, referenced_type
+        dedup_key = (from_id, "attached_to", to_id)
         if dedup_key in seen:
-            continue
+            return
         seen.add(dedup_key)
         links.append(
             LinkRecord(
-                from_id=child.resource_id,
-                from_type=child.type,
+                from_id=from_id,
+                from_type=from_type,
                 link_type="attached_to",
-                to_id=target_neutral,
+                to_id=to_id,
                 to_type=to_type,
             )
         )
+
+    for ref_id in _attachment_ids(properties):
+        emit(ref_id)
+    if child.type == "compute.vm":
+        for ref_id in _vm_attachment_ids(properties):
+            emit(ref_id, reverse=True)
     return tuple(links)
 
 
@@ -283,6 +301,8 @@ def _attachment_ids(properties: Mapping[str, Any]) -> Iterable[str]:
             if isinstance(nested, Mapping) and isinstance(nested.get("id"), str):
                 yield nested["id"]
 
+
+def _vm_attachment_ids(properties: Mapping[str, Any]) -> Iterable[str]:
     network_profile = properties.get("networkProfile")
     if isinstance(network_profile, Mapping):
         network_interfaces = network_profile.get("networkInterfaces")

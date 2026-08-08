@@ -1,5 +1,6 @@
 {
   "id": "fdai-azure-resource-network-flow",
+  "kind": "deployment",
   "version": 1,
   "updated": "2026-08-02",
   "locales": {

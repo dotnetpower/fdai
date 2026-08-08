@@ -1,6 +1,77 @@
 export type Locale = "en" | "ko";
 export type Direction = "RIGHT" | "DOWN";
 export type LocalizedText = Record<Locale, string>;
+export type DiagramKind =
+  | "context"
+  | "container"
+  | "component"
+  | "deployment"
+  | "data-flow"
+  | "flowchart"
+  | "graph"
+  | "network"
+  | "conceptual-flow"
+  | "sequence"
+  | "swimlane"
+  | "state"
+  | "decision-tree"
+  | "domain"
+  | "entity-relationship"
+  | "timeline"
+  | "gantt"
+  | "class-diagram"
+  | "user-journey"
+  | "pie"
+  | "quadrant"
+  | "requirement"
+  | "git-graph"
+  | "c4-context"
+  | "c4-container"
+  | "c4-component"
+  | "c4-deployment"
+  | "mindmap"
+  | "sankey"
+  | "xy-chart"
+  | "block"
+  | "packet"
+  | "kanban"
+  | "architecture"
+  | "radar"
+  | "venn"
+  | "wardley"
+  | "cynefin"
+  | "railroad"
+  | "ishikawa"
+  | "event-modeling"
+  | "tree-view";
+
+export type DiagramNodeShape =
+  | "card"
+  | "diamond"
+  | "terminator"
+  | "database"
+  | "document"
+  | "circle"
+  | "bar"
+  | "pie-slice";
+
+export type DiagramNodeStatus =
+  | "planned"
+  | "active"
+  | "done"
+  | "critical"
+  | "milestone";
+
+export type DiagramTone =
+  | "input"
+  | "interpretation"
+  | "model"
+  | "policy"
+  | "decision"
+  | "execution"
+  | "feedback"
+  | "store"
+  | "neutral";
 
 export interface DiagramDocumentText {
   title: string;
@@ -12,7 +83,7 @@ export interface DiagramGroup {
   id: string;
   parent?: string;
   kind: "system" | "cloud" | "region" | "network" | "subnet" | "cluster" | "layer";
-  presentation?: "boundary" | "band" | "panel";
+  presentation?: "boundary" | "band" | "panel" | "lane" | "sidebar" | "feedback" | "datastore";
   label: LocalizedText;
   description?: LocalizedText;
   direction?: Direction;
@@ -35,9 +106,25 @@ export interface DiagramNode {
   parent?: string;
   kind: "azure-service" | "service" | "process" | "store" | "external" | "person" | "agent" | "decision";
   presentation?: "card" | "icon";
+  shape?: DiagramNodeShape;
+  tone?: DiagramTone;
+  badge?: number;
   icon?: string;
   label: LocalizedText;
   description?: LocalizedText;
+  content?: LocalizedText[];
+  start?: number | string;
+  end?: number | string;
+  duration?: number;
+  after?: string;
+  status?: DiagramNodeStatus;
+  progress?: number;
+  value?: number;
+  xValue?: number;
+  yValue?: number;
+  size?: number;
+  row?: number;
+  column?: number;
   width?: number;
   height?: number;
   ports?: DiagramPort[];
@@ -51,7 +138,13 @@ export type EdgeKind =
   | "audit"
   | "rollback"
   | "read"
-  | "write";
+  | "write"
+  | "feedback"
+  | "sequence"
+  | "transition"
+  | "association"
+  | "dependency"
+  | "timeline";
 
 export interface DiagramEdge {
   id: string;
@@ -69,15 +162,17 @@ export interface DiagramEdge {
     | "orthogonal-trunk"
     | "orthogonal-top"
     | "orthogonal-above"
-    | "orthogonal-right";
+    | "orthogonal-right"
+    | "orthogonal-outer";
   lane?: number;
   step?: number;
+  weight?: number;
 }
 
 export interface DiagramSpec {
   id: string;
   version: number;
-  kind: "context" | "container" | "component" | "deployment" | "data-flow" | "network";
+  kind: DiagramKind;
   updated?: string;
   formats?: Array<"svg" | "png">;
   locales: Record<Locale, DiagramDocumentText>;
@@ -86,12 +181,17 @@ export interface DiagramSpec {
     height: number;
     direction: Direction;
     rootLayout?: "row" | "column";
+    xAxis?: LocalizedText;
+    yAxis?: LocalizedText;
     padding?: number;
-    profile?: "default" | "azure-reference";
+    profile?: "default" | "azure-reference" | "conceptual";
   };
   groups: DiagramGroup[];
   nodes: DiagramNode[];
   edges: DiagramEdge[];
-  legend?: Array<{ kind: EdgeKind; label: LocalizedText }>;
+  legend?: Array<
+    | { kind: EdgeKind; tone?: never; label: LocalizedText }
+    | { kind?: never; tone: DiagramTone; label: LocalizedText }
+  >;
   references?: Array<{ label: LocalizedText; url: string }>;
 }

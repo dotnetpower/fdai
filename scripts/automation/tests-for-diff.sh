@@ -78,6 +78,10 @@ while IFS= read -r file; do
     # These inputs can affect collection or every Python test. Selecting the
     # full suite is cheaper than silently missing a cross-cutting regression.
     case "$file" in
+        config/service-decomposition.json)
+            add_test "tests/scripts"
+            continue
+            ;;
         .github/workflows/ci.yml|Dockerfile|Makefile|alembic.ini|pyproject.toml|uv.lock|tests/conftest.py)
             add_test "tests"
             continue
@@ -188,6 +192,12 @@ done <<< "$changed"
 
 if [[ ${#python_sources[@]} -gt 0 && -z "${seen[tests]:-}" ]]; then
     impact_resolver="${FDAI_TEST_IMPACT_RESOLVER:-$selector_dir/resolve_test_impact.py}"
+    ownership_resolver="${FDAI_TEST_OWNERSHIP_RESOLVER:-$selector_dir/resolve_test_ownership.py}"
+    ownership_threshold="${FDAI_TEST_IMPACT_SERVICE_THRESHOLD:-250}"
+    if [[ ! "$ownership_threshold" =~ ^[1-9][0-9]*$ ]]; then
+        echo "tests-for-diff.sh: FDAI_TEST_IMPACT_SERVICE_THRESHOLD must be a positive integer" >&2
+        exit 2
+    fi
     set +e
     impacted_output=$(
         python3 "$impact_resolver" --root "$repo_root" "${python_sources[@]}"
@@ -198,9 +208,28 @@ if [[ ${#python_sources[@]} -gt 0 && -z "${seen[tests]:-}" ]]; then
         echo "tests-for-diff.sh: impact resolver failed with status $impact_status" >&2
         exit "$impact_status"
     fi
+    mapfile -t impacted_tests < <(printf '%s\n' "$impacted_output" | sed '/^$/d')
+    owned_output=""
+    if [[ ${#impacted_tests[@]} -ge $ownership_threshold ]]; then
+        set +e
+        owned_output=$(
+            python3 "$ownership_resolver" --root "$repo_root" "${python_sources[@]}"
+        )
+        ownership_status=$?
+        set -e
+        if [[ $ownership_status -ne 0 ]]; then
+            echo "tests-for-diff.sh: ownership resolver failed; using import impact" >&2
+            owned_output=""
+        fi
+    fi
+    selected_impact="$impacted_output"
+    if [[ -n "$owned_output" ]]; then
+        selected_impact=$(printf '%s\n%s\n' "$owned_output" "$impacted_output")
+        echo "tests-for-diff.sh: broad import impact compressed with service-owned suites" >&2
+    fi
     while IFS= read -r impacted_test; do
         add_test "$impacted_test"
-    done <<< "$impacted_output"
+    done <<< "$selected_impact"
 fi
 
 if [[ ${#tests[@]} -eq 0 ]]; then

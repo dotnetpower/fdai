@@ -9,6 +9,10 @@ Use this skill to operate the local FDAI Conversation Assurance Watchdog. The wa
 generates unique FDAI questions within one explicit bounded campaign, measures real answers, and
 proposes isolated fixes when objective contracts fail.
 
+This skill is the single owner of conversation-assurance trigger semantics, campaign limits,
+status behavior, evaluation rubrics, persistence, hardening, and stop conditions. Do not duplicate
+these operational rules in the always-on Copilot instructions.
+
 > Scope: This is a local development assurance loop. It does not join the Pantheon, execute an
 > Azure mutation, approve an action, or merge a generated branch into `main`.
 

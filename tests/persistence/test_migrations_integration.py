@@ -15,11 +15,13 @@ The test:
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 
+import psycopg
 import pytest
 
 pytestmark = pytest.mark.integration
@@ -181,3 +183,225 @@ def test_ontology_seed_is_idempotent_across_migrations() -> None:
 
     assert after_objects == baseline_objects, "ontology_object_type row count drifted"
     assert after_links == baseline_links, "ontology_link_type row count drifted"
+
+
+def test_direction_migration_preserves_unrelated_graph_and_release_pins() -> None:
+    url = _requires_live_db()
+    with _connect(url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT to_regclass('public.alembic_version')")
+        version_table = cur.fetchone()[0]
+        if version_table is None:
+            current_revision = None
+        else:
+            cur.execute("SELECT version_num FROM alembic_version")
+            current_revision = cur.fetchone()[0]
+    if current_revision is None:
+        _alembic("upgrade", "20260806_0077")
+    elif current_revision != "20260806_0077":
+        _alembic("downgrade", "20260806_0077")
+    digest = f"sha256:{'a' * 64}"
+    previous_digest = "sha256:dd90ae7025bb0472cc091c23e8ed763f7d2ff94a109daf0295a60bb732f33037"
+    object_rows = (
+        ("migration-parent", {"id": "migration-parent", "type": "resource.group"}),
+        (
+            "migration-child",
+            {
+                "id": "migration-child",
+                "type": "compute.vm",
+                "parent_id": "migration-parent",
+            },
+        ),
+        ("migration-foreign-a", {"id": "migration-foreign-a", "type": "example.a"}),
+        ("migration-foreign-b", {"id": "migration-foreign-b", "type": "example.b"}),
+        ("migration-vm", {"id": "migration-vm", "type": "compute.vm"}),
+        ("migration-nic", {"id": "migration-nic", "type": "network.interface"}),
+        ("migration-legacy", {"id": "migration-legacy", "type": "example.legacy"}),
+    )
+    link_rows = (
+        ("contains", "migration-child", "migration-parent"),
+        ("contains", "migration-parent", "migration-child"),
+        ("contains", "migration-foreign-a", "migration-foreign-b"),
+        ("attached_to", "migration-vm", "migration-nic"),
+        ("attached_to", "migration-nic", "migration-vm"),
+        ("depends_on", "migration-foreign-a", "migration-foreign-b"),
+        ("depends_on", "migration-legacy", "migration-foreign-a"),
+        ("contains", "migration-legacy", "migration-parent"),
+    )
+    object_ids = tuple(row[0] for row in object_rows)
+    try:
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM ontology_link WHERE from_id = ANY(%s) OR to_id = ANY(%s)",
+                (list(object_ids), list(object_ids)),
+            )
+            cur.execute("DELETE FROM ontology_resource WHERE id = ANY(%s)", (list(object_ids),))
+            cur.executemany(
+                "INSERT INTO ontology_resource "
+                "(id, object_type, properties, revision, type_version, catalog_digest) "
+                "VALUES (%s, 'Resource', %s::jsonb, 1, '1.0.0', %s)",
+                (
+                    (object_id, json.dumps(properties, sort_keys=True), digest)
+                    for object_id, properties in object_rows
+                ),
+            )
+            cur.executemany(
+                "INSERT INTO ontology_link "
+                "(link_type, from_id, to_id, properties, type_version, catalog_digest) "
+                "VALUES (%s, %s, %s, '{}'::jsonb, '1.0.0', %s)",
+                ((*row, digest) for row in link_rows),
+            )
+            cur.execute(
+                "UPDATE ontology_resource SET catalog_digest = %s WHERE id = 'migration-legacy'",
+                (previous_digest,),
+            )
+            cur.execute(
+                "UPDATE ontology_link SET catalog_digest = %s WHERE from_id = 'migration-legacy'",
+                (previous_digest,),
+            )
+            cur.execute(
+                "UPDATE ontology_link SET type_version = '2.0.0' "
+                "WHERE link_type = 'contains' "
+                "AND from_id IN ('migration-parent', 'migration-foreign-a')"
+            )
+            cur.execute(
+                "UPDATE ontology_link SET type_version = NULL, catalog_digest = NULL "
+                "WHERE link_type = 'contains' AND from_id = 'migration-legacy'"
+            )
+
+        _alembic("upgrade", "head")
+
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT link_type, from_id, to_id, type_version, catalog_digest "
+                "FROM ontology_link WHERE from_id = ANY(%s) OR to_id = ANY(%s)",
+                (list(object_ids), list(object_ids)),
+            )
+            retained = set(cur.fetchall())
+            cur.execute(
+                "SELECT id, type_version, catalog_digest FROM ontology_resource WHERE id = ANY(%s)",
+                (list(object_ids),),
+            )
+            retained_objects = set(cur.fetchall())
+            cur.execute(
+                "SELECT version, cardinality FROM ontology_link_type WHERE name = 'contains'"
+            )
+            contains_declaration = cur.fetchone()
+            cur.execute(
+                "SELECT conname FROM pg_constraint "
+                "WHERE conrelid = 'ontology_link'::regclass "
+                "AND conname = 'ontology_link_contains_version_direction'"
+            )
+            contains_guard = cur.fetchone()
+
+        assert retained == {
+            ("contains", "migration-parent", "migration-child", "2.0.0", digest),
+            ("contains", "migration-foreign-a", "migration-foreign-b", "2.0.0", digest),
+            ("attached_to", "migration-nic", "migration-vm", "1.0.0", digest),
+            ("depends_on", "migration-foreign-a", "migration-foreign-b", "1.0.0", digest),
+            ("depends_on", "migration-legacy", "migration-foreign-a", None, None),
+        }
+        expected_objects = {
+            (object_id, "1.0.0", digest)
+            for object_id in object_ids
+            if object_id != "migration-legacy"
+        }
+        expected_objects.add(("migration-legacy", None, None))
+        assert retained_objects == expected_objects
+        assert contains_declaration == ("2.0.0", "one_to_many")
+        assert contains_guard == ("ontology_link_contains_version_direction",)
+        with _connect(url) as conn, conn.cursor() as cur:
+            with pytest.raises(
+                psycopg.errors.CheckViolation,
+                match="ontology_link_contains_version_direction",
+            ):
+                cur.execute(
+                    "INSERT INTO ontology_link "
+                    "(link_type, from_id, to_id, properties, type_version, catalog_digest) "
+                    "VALUES ('contains', 'migration-child', 'migration-parent', "
+                    "'{}'::jsonb, '1.0.0', %s)",
+                    (digest,),
+                )
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO ontology_link "
+                "(link_type, from_id, to_id, properties, type_version, catalog_digest) "
+                "VALUES ('contains', 'migration-legacy', 'migration-parent', "
+                "'{}'::jsonb, '2.1.0', %s)",
+                (digest,),
+            )
+    finally:
+        _alembic("upgrade", "head")
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM ontology_link WHERE from_id = ANY(%s) OR to_id = ANY(%s)",
+                (list(object_ids), list(object_ids)),
+            )
+            cur.execute("DELETE FROM ontology_resource WHERE id = ANY(%s)", (list(object_ids),))
+
+
+def test_direction_guard_repairs_database_already_stamped_at_0078() -> None:
+    url = _requires_live_db()
+    with _connect(url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT to_regclass('public.alembic_version')")
+        version_table = cur.fetchone()[0]
+        if version_table is None:
+            current_revision = None
+        else:
+            cur.execute("SELECT version_num FROM alembic_version")
+            current_revision = cur.fetchone()[0]
+    if current_revision is None:
+        _alembic("upgrade", "20260806_0077")
+    elif current_revision != "20260806_0077":
+        _alembic("downgrade", "20260806_0077")
+    _alembic("stamp", "20260808_0078")
+    digest = f"sha256:{'b' * 64}"
+    object_ids = ("migration-existing-parent", "migration-existing-child")
+    try:
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "UPDATE ontology_link_type SET version = '2.0.0', "
+                "cardinality = 'one_to_many' WHERE name = 'contains'"
+            )
+            cur.executemany(
+                "INSERT INTO ontology_resource "
+                "(id, object_type, properties, revision, type_version, catalog_digest) "
+                "VALUES (%s, 'Resource', %s::jsonb, 1, '1.0.0', %s)",
+                (
+                    (
+                        object_id,
+                        json.dumps({"id": object_id, "type": "example.resource"}),
+                        digest,
+                    )
+                    for object_id in object_ids
+                ),
+            )
+            cur.execute(
+                "INSERT INTO ontology_link "
+                "(link_type, from_id, to_id, properties, type_version, catalog_digest) "
+                "VALUES ('contains', %s, %s, '{}'::jsonb, '1.0.0', %s)",
+                (object_ids[1], object_ids[0], digest),
+            )
+
+        _alembic("upgrade", "head")
+
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) FROM ontology_link "
+                "WHERE from_id = %s AND link_type = 'contains' AND to_id = %s",
+                (object_ids[1], object_ids[0]),
+            )
+            assert cur.fetchone() == (0,)
+            cur.execute(
+                "SELECT conname FROM pg_constraint "
+                "WHERE conrelid = 'ontology_link'::regclass "
+                "AND conname = 'ontology_link_contains_version_direction'"
+            )
+            assert cur.fetchone() == ("ontology_link_contains_version_direction",)
+    finally:
+        _alembic("upgrade", "head")
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM ontology_link WHERE from_id = ANY(%s) OR to_id = ANY(%s)",
+                (list(object_ids), list(object_ids)),
+            )
+            cur.execute("DELETE FROM ontology_resource WHERE id = ANY(%s)", (list(object_ids),))

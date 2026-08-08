@@ -23,10 +23,14 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > conflicting, or unproven context remains explicitly unknown and triggers bounded evidence
 > recovery, a smaller safe plan, no-op, or review. It never supplies permission to execute.
 >
-> **Implementation status (2026-08-04):** O1-O4 implement semantic declarations, immutable context,
+> **Implementation status (2026-08-08):** O1-O4 implement semantic declarations, immutable context,
 > Forseti ceiling wiring, decision-case selection, response closure, and Muninn/Norns learning
 > intake. `OperatingModelProvider` projects bounded deployment instances; context snapshots retain
 > typed evidence paths, revisions, effective time, provenance, and complete freshness receipts.
+> M3 adds immutable `StateFactMetadata` for observed, derived, desired, and execution lanes.
+> Optional inventory link observation metadata survives ontology projection and operational-context
+> materialization, contributes to snapshot identity, and lowers the snapshot ceiling when evidence
+> is stale, incomplete, conflicting, synthetic, future-cutoff, or unverified.
 > Change management adds planned-change evidence to `Change`, a reviewed `ChangeWindow`, and typed
 > links from target and decision through impact, process, outcome, and recovery. These declarations
 > are semantic evidence only and grant no approval or execution authority. Huginn now carries the
@@ -230,6 +234,14 @@ was true or observed and when FDAI recorded it.
 - **Freshness:** Every decision context records freshness per source. One fresh source cannot hide
   a stale objective, topology edge, or cost observation.
 
+Decision-relevant state facts use one immutable metadata shape across four authority-separated
+lanes: `observed`, `derived`, `desired`, and `execution`. The metadata pins authority class, source
+identity and revision, effective and recorded time, evidence cutoff, freshness ceiling,
+completeness, synthetic status, conflicts, and immutable evidence references. Lane-authority
+validation prevents a provider observation from being decoded as a derived fact or the reverse.
+Inventory links can carry the same state-fact envelope plus independent verification identity.
+Legacy links without metadata remain valid during additive adoption.
+
 Replay resolves the pinned catalog release and the retained decision context, not an arbitrary past
 state of the instance graph. Recomputing a context identity proves equivalence; reconstructing the
 original content requires that context to have been retained. Current-state queries use the latest
@@ -303,6 +315,13 @@ observation time and accepted maximum age. The snapshot identity covers those re
 effective intervals, provenance refs, freshness receipts, stale-source results, and conflicts, so a
 topology, revision, validity, provenance, or freshness change cannot reuse the prior identity. Raw
 object properties remain in their authoritative provider and are not copied into the snapshot.
+
+Typed link observation metadata is the exception to dropping raw link properties: the materializer
+retains only its canonical verification envelope on each evidence link and includes that envelope
+in both link and path identity. A stale, incomplete, conflicting, synthetic, after-cutoff, or
+unverified link adds an explicit context conflict and can only lower the snapshot ceiling to
+`SHADOW_ONLY`. Healthy metadata does not raise a ceiling, and absent metadata preserves legacy
+decoding without claiming verification.
 
 Materialization includes an object only when `effective_from <= cutoff` and either
 `effective_to` is absent or `cutoff < effective_to`. Objects outside that half-open interval are
@@ -443,6 +462,7 @@ separately validated slices.
 
 | To learn about | Read |
 |----------------|------|
+| Declaration kinds, operational lenses, state, and context boundaries | [Operating Ontology Metamodel](operating-ontology-metamodel.md) |
 | Current resource, rule, signal, and finding foundation | [LLM strategy](llm-strategy.md#ontology-foundation) |
 | Runtime ontology storage | [Rule lookup ontology storage](rule-lookup-ontology-storage.md) |
 | Action safety contract | [Action ontology](../decisioning/action-ontology.md) |

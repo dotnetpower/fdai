@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from fdai.shared.contracts.models import Autonomy
+from fdai.shared.providers.state_evidence import LinkObservationMetadata
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,11 +28,12 @@ class SourceFreshness:
 
 @dataclass(frozen=True, slots=True)
 class OperationalContextEvidenceLink:
-    """One typed graph edge retained without raw link properties."""
+    """One typed graph edge with optional canonical verification evidence."""
 
     link_type: str
     from_id: str
     to_id: str
+    observation_metadata: LinkObservationMetadata | None = None
 
     def __post_init__(self) -> None:
         if not self.link_type or not self.from_id or not self.to_id:

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  centerViewBox,
   contentViewBox,
   fitViewBox,
   interactiveInitialViewBox,
@@ -36,6 +37,16 @@ test("compact initial view leaves room to pan on both axes", () => {
   assert.ok(compact.width < bounds.width);
   assert.ok(compact.height < bounds.height);
   assert.deepEqual(interactiveInitialViewBox(bounds, 1600, 712, false), bounds);
+});
+
+test("chart view can center the compact crop", () => {
+  const compact = interactiveInitialViewBox(bounds, 400, 500, true);
+  const centered = centerViewBox(compact, bounds);
+
+  assert.ok(centered.x > compact.x);
+  assert.ok(centered.y > compact.y);
+  assert.equal(centered.width, compact.width);
+  assert.equal(centered.height, compact.height);
 });
 
 test("zoom anchors the selected point and cannot zoom beyond fit", () => {
@@ -72,4 +83,6 @@ test("toolbar floats over the diagram and reveals on hover or focus", async () =
   assert.match(viewer, /@media \(hover: none\)[^{]*\{[^}]*\.toolbar/u);
   assert.doesNotMatch(viewer, /border-bottom:/u);
   assert.match(viewer, /\.shell:fullscreen \.stage \{ height: 100vh; \}/u);
+  assert.match(viewer, /classList\.add\("is-keyboard-focused"\)/u);
+  assert.match(viewer, /classList\.remove\("is-keyboard-focused"\)/u);
 });

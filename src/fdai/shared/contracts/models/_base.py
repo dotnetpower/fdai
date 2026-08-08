@@ -22,7 +22,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # Aliases mirroring the JSON Schema pattern for semver strings.
 SemVer = Annotated[str, Field(pattern=r"^\d+\.\d+\.\d+$", min_length=5)]
@@ -93,6 +93,13 @@ class OntologyRelease(ContractBase):
     schema_version: SemVer = "1.0.0"
     digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     declarations: tuple[OntologyDeclarationRef, ...]
+
+    @model_validator(mode="after")
+    def _content_is_canonical(self) -> OntologyRelease:
+        from fdai.shared.ontology.release import validate_ontology_release
+
+        validate_ontology_release(self)
+        return self
 
     def ref(self) -> OntologyReleaseRef:
         """Return the compact exact identity used on semantic wire records."""

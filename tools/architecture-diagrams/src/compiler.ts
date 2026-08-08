@@ -7,20 +7,23 @@ import { layoutDiagram } from "./layout/elk.js";
 import { assertLayoutIntegrity } from "./layout/integrity.js";
 import type { DiagramSpec, Locale } from "./model/types.js";
 import { renderSvg } from "./render/svg.js";
+import { CALM_SLATE_LIGHT } from "./render/theme.js";
 
 const diagramFontPath = fileURLToPath(
   new URL("../assets/fonts/noto-sans-kr-diagrams.ttf", import.meta.url),
 );
 
+/** Resolves the default light theme for deterministic static rendering. */
 export function resolveCssFallbacks(source: string): string {
   return source.replace(
-    /var\(--[a-z0-9-]+,\s*([^)]+)\)/gi,
-    (_match, fallback: string) => fallback.trim(),
+    /var\((--[a-z0-9-]+)(?:,\s*([^)]+))?\)/gi,
+    (match, name: string, fallback: string | undefined) =>
+      CALM_SLATE_LIGHT[name as keyof typeof CALM_SLATE_LIGHT] ?? fallback?.trim() ?? match,
   );
 }
 
 export function canonicalTextArtifact(source: string): Buffer {
-  return Buffer.from(`${source.replace(/\n+$/u, "")}\n`);
+  return Buffer.from(`${source.replace(/[ \t]+$/gmu, "").replace(/\n+$/u, "")}\n`);
 }
 
 export interface DiagramArtifact {
@@ -65,6 +68,7 @@ export async function compileDiagram(spec: DiagramSpec): Promise<DiagramArtifact
   }
   const manifest = {
     id: spec.id,
+    kind: spec.kind,
     version: spec.version,
     updated: spec.updated ?? null,
     locales: spec.locales,
@@ -81,8 +85,24 @@ export async function compileDiagram(spec: DiagramSpec): Promise<DiagramArtifact
     nodes: spec.nodes.map((node) => ({
       id: node.id,
       kind: node.kind,
+      ...(node.shape ? { shape: node.shape } : {}),
+      ...(node.tone ? { tone: node.tone } : {}),
+      ...(node.badge ? { badge: node.badge } : {}),
+      ...(node.start !== undefined ? { start: node.start } : {}),
+      ...(node.end !== undefined ? { end: node.end } : {}),
+      ...(node.duration !== undefined ? { duration: node.duration } : {}),
+      ...(node.after ? { after: node.after } : {}),
+      ...(node.status ? { status: node.status } : {}),
+      ...(node.progress !== undefined ? { progress: node.progress } : {}),
+      ...(node.value !== undefined ? { value: node.value } : {}),
+      ...(node.xValue !== undefined ? { xValue: node.xValue } : {}),
+      ...(node.yValue !== undefined ? { yValue: node.yValue } : {}),
+      ...(node.size !== undefined ? { size: node.size } : {}),
+      ...(node.row !== undefined ? { row: node.row } : {}),
+      ...(node.column !== undefined ? { column: node.column } : {}),
       label: node.label,
       description: node.description ?? node.label,
+      ...(node.content ? { content: node.content } : {}),
     })),
     edges: spec.edges.map((edge) => ({
       id: edge.id,
@@ -90,6 +110,7 @@ export async function compileDiagram(spec: DiagramSpec): Promise<DiagramArtifact
       to: edge.to.split(":", 1)[0],
       kind: edge.kind,
       label: edge.label ?? null,
+      ...(edge.weight !== undefined ? { weight: edge.weight } : {}),
       ...(edge.step ? { step: edge.step } : {}),
     })),
   };

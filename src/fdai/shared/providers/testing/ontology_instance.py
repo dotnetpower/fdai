@@ -165,7 +165,10 @@ class InMemoryOntologyInstanceStore:
             item
             for item in sorted(self._objects.values(), key=lambda value: value.id)
             if (not selected_types or item.object_type in selected_types)
-            and all(item.properties.get(key) == value for key, value in filters.items())
+            and all(
+                _json_values_equal(item.properties.get(key), value)
+                for key, value in filters.items()
+            )
         ]
         truncated = len(matches) > limit
         objects = tuple(matches[:limit])
@@ -192,13 +195,17 @@ class InMemoryOntologyInstanceStore:
         if direction not in {"outgoing", "incoming", "both"}:
             raise ValueError("direction MUST be outgoing, incoming, or both")
         allowed_links = set(link_types)
+        ordered_root_ids = tuple(
+            dict.fromkeys(root_id for root_id in root_ids if root_id in self._objects)
+        )
+        allowed_root_ids = ordered_root_ids[:limit]
         queue: deque[tuple[str, int, str | None]] = deque(
-            (root_id, 0, None) for root_id in root_ids if root_id in self._objects
+            (root_id, 0, None) for root_id in allowed_root_ids
         )
         visited: set[str] = set()
         expanded: set[tuple[str, str | None]] = set()
         included_links: dict[tuple[str, str, str], OntologyLinkRecord] = {}
-        truncated = False
+        truncated = len(ordered_root_ids) > limit
         while queue:
             object_id, depth, previous_link_type = queue.popleft()
             state = (object_id, previous_link_type)
@@ -243,6 +250,12 @@ class InMemoryOntologyInstanceStore:
 def _validate_limit(limit: int) -> None:
     if not 1 <= limit <= 1000:
         raise ValueError("limit MUST be in [1, 1000]")
+
+
+def _json_values_equal(left: Any, right: Any) -> bool:
+    if isinstance(left, bool) or isinstance(right, bool):
+        return isinstance(left, bool) and isinstance(right, bool) and left == right
+    return bool(left == right)
 
 
 __all__ = ["InMemoryOntologyInstanceStore"]

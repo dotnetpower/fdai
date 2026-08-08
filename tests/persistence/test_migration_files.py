@@ -74,6 +74,35 @@ def test_materialized_operator_memory_proposal_has_foreign_key() -> None:
     assert "VALIDATE CONSTRAINT" in migration
 
 
+def test_ontology_direction_migration_invalidates_only_reversed_links() -> None:
+    migration = (MIGRATIONS_DIR / "20260808_0078_ontology_link_direction.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'down_revision: str | None = "20260806_0077"' in migration
+    assert "type_version = '1.0.0' OR type_version IS NULL" in migration
+    assert "source.properties ->> 'type' = 'compute.vm'" in migration
+    assert "sha256:dd90ae7025bb0472cc091c23e8ed763f7d2ff94a109daf0295a60bb732f33037" in migration
+    assert "WHERE catalog_digest =" in migration
+    assert "WHERE type_version IS NOT NULL OR catalog_digest IS NOT NULL" not in migration
+    assert "cardinality = 'one_to_many'" in migration
+    assert "ontology_link_contains_version_direction" in migration
+    assert "type_version IS NOT NULL AND type_version <> '1.0.0'" in migration
+    assert "DROP CONSTRAINT IF EXISTS ontology_link_contains_version_direction" in migration
+
+
+def test_ontology_direction_guard_repairs_existing_0078_databases() -> None:
+    migration = (MIGRATIONS_DIR / "20260808_0079_ontology_direction_guard.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'down_revision: str | None = "20260808_0078"' in migration
+    assert "type_version = '1.0.0' OR type_version IS NULL" in migration
+    assert "ontology_link_contains_version_direction" in migration
+    assert "IF NOT EXISTS" in migration
+    assert "DROP CONSTRAINT IF EXISTS" in migration
+
+
 @pytest.mark.parametrize("path", MIGRATION_FILES)
 def test_migration_uses_raw_sql_only(path: Path) -> None:
     """Migrations MUST NOT import SQLAlchemy ORM types (Column, Table, MetaData)."""

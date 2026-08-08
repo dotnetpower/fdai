@@ -256,8 +256,42 @@ async def test_query_and_traversal_are_bounded() -> None:
     result = await store.query_objects(object_types=("ReviewCase",), limit=1)
     assert len(result.objects) == 1
     assert result.truncated is True
+    traversal = await store.traverse(root_ids=("review-2", "review-1"), limit=1)
+    assert [item.id for item in traversal.objects] == ["review-2"]
+    assert traversal.truncated is True
+    exact = await store.traverse(root_ids=("review-2",), limit=1)
+    assert [item.id for item in exact.objects] == ["review-2"]
+    assert exact.truncated is False
+    deduplicated = await store.traverse(root_ids=("missing", "review-2", "review-2"), limit=1)
+    assert [item.id for item in deduplicated.objects] == ["review-2"]
+    assert deduplicated.truncated is False
     with pytest.raises(ValueError, match="max_depth"):
         await store.traverse(root_ids=("review-1",), max_depth=6)
+
+
+async def test_query_uses_json_boolean_equality() -> None:
+    object_type = OntologyObjectType(
+        schema_version="1.0.0",
+        name="FlaggedResource",
+        version="1.0.0",
+        key="id",
+        properties={
+            "id": PropertyDecl(type=PropertyType.STRING, required=True),
+            "enabled": PropertyDecl(type=PropertyType.BOOLEAN, required=True),
+        },
+    )
+    store = InMemoryOntologyInstanceStore(object_types=(object_type,), link_types=())
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="resource-1",
+            object_type="FlaggedResource",
+            properties={"id": "resource-1", "enabled": True},
+        )
+    )
+
+    result = await store.query_objects(property_equals={"enabled": 1})
+
+    assert result.objects == ()
 
 
 async def test_link_cardinality_is_enforced() -> None:
@@ -276,6 +310,44 @@ async def test_link_cardinality_is_enforced() -> None:
                 to_id="check-1",
             )
         )
+
+
+async def test_replace_subgraph_rejects_batch_cardinality_violation_atomically() -> None:
+    store = _store()
+    objects = (
+        OntologyObjectRecord(
+            id="review-1",
+            object_type="ReviewCase",
+            properties={"id": "review-1", "status": "open"},
+        ),
+        OntologyObjectRecord(
+            id="review-2",
+            object_type="ReviewCase",
+            properties={"id": "review-2", "status": "open"},
+        ),
+        OntologyObjectRecord(
+            id="check-1",
+            object_type="ReviewCheck",
+            properties={"id": "check-1", "status": "ready"},
+        ),
+    )
+    links = (
+        OntologyLinkRecord(
+            link_type="contains_check",
+            from_id="review-1",
+            to_id="check-1",
+        ),
+        OntologyLinkRecord(
+            link_type="contains_check",
+            from_id="review-2",
+            to_id="check-1",
+        ),
+    )
+
+    with pytest.raises(OntologyInstanceValidationError, match="one_to_many cardinality"):
+        await store.replace_subgraph(objects=objects, links=links)
+
+    assert [await store.get_object(record.id) for record in objects] == [None, None, None]
 
 
 @pytest.mark.parametrize(

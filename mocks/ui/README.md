@@ -65,6 +65,12 @@ Chat surfaces:
 | [deck.html](deck.html) | Command deck (chat) - 3-column shell with visible Bragi-to-agent handoffs, grounded citations, observed read-command evidence with collapsible output and timestamps, evidence attachments, and a right-side retrieval trace |
 | [deck-sources.html](deck-sources.html) | Same conversation surface zoomed into how Bragi streams retrieval + citations into an in-progress reply |
 
+Presentation wireframes (offline, not part of the console shell):
+
+| File | Purpose |
+|------|---------|
+| [roadmap-slide-wireframe.html](roadmap-slide-wireframe.html) | 16:9 PPT roadmap draft: a concise operating-model slide that connects SRE to Resilience (Chaos/DR), Change Safety (ARB + Change Management), and Cost Governance (FinOps), followed by a three-horizon capability roadmap. Timelines and maturity states are proposals, not completion claims. |
+
 Report and kit:
 
 | File | Purpose |

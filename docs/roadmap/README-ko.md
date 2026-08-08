@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: b9bbe0b6a6851a2b4dc330948f8eda2beca58d4f
-translation_revised: 2026-08-07
+translation_source_sha: 83f08d7d2647fa8e44cd6b9f425066b0a3248296
+translation_revised: 2026-08-08
 ---
 # FDAI 로드맵
 
@@ -53,6 +53,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 5a | [operating-ontology-ko.md](architecture/operating-ontology-ko.md) | Service, workload, objective, decision, effect, agent ownership, 통제된 확장을 위한 공유 cloud-operations 의미 |
 | 5b | [outcome-assurance-ko.md](architecture/outcome-assurance-ko.md) | FDAI의 세 vertical을 대상으로 하는 운영 준비도, 목표 정렬, 통제 보증 projection |
 | 5c | [operating-ontology-platform-ko.md](architecture/operating-ontology-platform-ko.md) | Agent-supporting ontology safety infrastructure: exact release, bounded object set, mutation plan, typed function, reconciliation, SDK |
+| 5d | [operating-ontology-metamodel-ko.md](architecture/operating-ontology-metamodel-ko.md) | Operational lens, canonical declaration kind, State/Context boundary, authority, time, ownership 및 additive migration |
 | 6 | [security-and-identity-ko.md](architecture/security-and-identity-ko.md) | 최소 권한 identity, secrets, 안전 불변식 |
 | 7 | [deployment-ko.md](deployment/deployment-ko.md) | IaC, CI/CD, 환경, 릴리스 / 롤백 |
 | 7a | [architecture-review-board-ko.md](architecture/architecture-review-board-ko.md) | Canonical ARB 패킷: 결정 경계, evidence contract, owner, dependency, production 종료 gate |

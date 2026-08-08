@@ -1,0 +1,147 @@
+{
+  "id": "fdai-assurance-radar",
+  "kind": "radar",
+  "version": 1,
+  "updated": "2026-08-08",
+  "locales": {
+    "en": {
+      "title": "FDAI assurance profile",
+      "description": "A radial profile compares evidence, safety, recovery, observability, and replay readiness.",
+      "alt": "Five assurance dimensions form a connected radial profile with values from 72 to 94 percent."
+    },
+    "ko": {
+      "title": "FDAI 보증 프로필",
+      "description": "방사형 프로필로 근거, 안전, 복구, 관찰 가능성 및 replay 준비도를 비교합니다.",
+      "alt": "다섯 가지 보증 차원이 72퍼센트에서 94퍼센트 사이의 값으로 연결된 방사형 프로필을 형성합니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-assurance-radar.en.svg",
+      "png": "fdai-assurance-radar.en.png"
+    },
+    "ko": {
+      "svg": "fdai-assurance-radar.ko.svg",
+      "png": "fdai-assurance-radar.ko.png"
+    }
+  },
+  "nodes": [
+    {
+      "id": "evidence",
+      "kind": "process",
+      "shape": "circle",
+      "tone": "input",
+      "value": 92,
+      "size": 76,
+      "label": {
+        "en": "Evidence",
+        "ko": "근거"
+      },
+      "description": {
+        "en": "Evidence",
+        "ko": "근거"
+      }
+    },
+    {
+      "id": "safety",
+      "kind": "process",
+      "shape": "circle",
+      "tone": "policy",
+      "value": 94,
+      "size": 76,
+      "label": {
+        "en": "Safety",
+        "ko": "안전"
+      },
+      "description": {
+        "en": "Safety",
+        "ko": "안전"
+      }
+    },
+    {
+      "id": "recovery",
+      "kind": "process",
+      "shape": "circle",
+      "tone": "decision",
+      "value": 78,
+      "size": 76,
+      "label": {
+        "en": "Recovery",
+        "ko": "복구"
+      },
+      "description": {
+        "en": "Recovery",
+        "ko": "복구"
+      }
+    },
+    {
+      "id": "observability",
+      "kind": "process",
+      "shape": "circle",
+      "tone": "model",
+      "value": 86,
+      "size": 76,
+      "label": {
+        "en": "Observe",
+        "ko": "관찰"
+      },
+      "description": {
+        "en": "Observe",
+        "ko": "관찰"
+      }
+    },
+    {
+      "id": "replay",
+      "kind": "process",
+      "shape": "circle",
+      "tone": "execution",
+      "value": 72,
+      "size": 76,
+      "label": {
+        "en": "Replay",
+        "ko": "Replay"
+      },
+      "description": {
+        "en": "Replay",
+        "ko": "Replay"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "evidence-safety",
+      "from": "evidence",
+      "to": "safety",
+      "kind": "association",
+      "label": null
+    },
+    {
+      "id": "safety-recovery",
+      "from": "safety",
+      "to": "recovery",
+      "kind": "association",
+      "label": null
+    },
+    {
+      "id": "recovery-observability",
+      "from": "recovery",
+      "to": "observability",
+      "kind": "association",
+      "label": null
+    },
+    {
+      "id": "observability-replay",
+      "from": "observability",
+      "to": "replay",
+      "kind": "association",
+      "label": null
+    },
+    {
+      "id": "replay-evidence",
+      "from": "replay",
+      "to": "evidence",
+      "kind": "association",
+      "label": null
+    }
+  ]
+}

@@ -15,7 +15,7 @@
       "uniqueItems": true
     },
     "kind": {
-      "enum": ["context", "container", "component", "deployment", "data-flow", "network"]
+      "enum": ["context", "container", "component", "deployment", "data-flow", "flowchart", "graph", "network", "conceptual-flow", "sequence", "swimlane", "state", "decision-tree", "domain", "entity-relationship", "timeline", "gantt", "class-diagram", "user-journey", "pie", "quadrant", "requirement", "git-graph", "c4-context", "c4-container", "c4-component", "c4-deployment", "mindmap", "sankey", "xy-chart", "block", "packet", "kanban", "architecture", "radar", "venn", "wardley", "cynefin", "railroad", "ishikawa", "event-modeling", "tree-view"]
     },
     "updated": { "type": "string", "format": "date" },
     "locales": {
@@ -36,8 +36,10 @@
         "height": { "type": "integer", "minimum": 360, "maximum": 1800 },
         "direction": { "enum": ["RIGHT", "DOWN"] },
         "rootLayout": { "enum": ["row", "column"] },
+        "xAxis": { "$ref": "#/definitions/localizedText" },
+        "yAxis": { "$ref": "#/definitions/localizedText" },
         "padding": { "type": "integer", "minimum": 16, "maximum": 160, "default": 40 },
-        "profile": { "enum": ["default", "azure-reference"], "default": "default" }
+        "profile": { "enum": ["default", "azure-reference", "conceptual"], "default": "default" }
       }
     },
     "groups": {
@@ -102,7 +104,7 @@
         "id": { "$ref": "#/definitions/id" },
         "parent": { "$ref": "#/definitions/id" },
         "kind": { "enum": ["system", "cloud", "region", "network", "subnet", "cluster", "layer"] },
-        "presentation": { "enum": ["boundary", "band", "panel"] },
+        "presentation": { "enum": ["boundary", "band", "panel", "lane", "sidebar", "feedback", "datastore"] },
         "label": { "$ref": "#/definitions/localizedText" },
         "description": { "$ref": "#/definitions/localizedText" },
         "direction": { "enum": ["RIGHT", "DOWN"] },
@@ -133,9 +135,40 @@
         "parent": { "$ref": "#/definitions/id" },
         "kind": { "enum": ["azure-service", "service", "process", "store", "external", "person", "agent", "decision"] },
         "presentation": { "enum": ["card", "icon"] },
+        "shape": { "enum": ["card", "diamond", "terminator", "database", "document", "circle", "bar", "pie-slice"] },
+        "tone": { "enum": ["input", "interpretation", "model", "policy", "decision", "execution", "feedback", "store", "neutral"] },
+        "badge": { "type": "integer", "minimum": 1, "maximum": 99 },
         "icon": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
         "label": { "$ref": "#/definitions/localizedText" },
         "description": { "$ref": "#/definitions/localizedText" },
+        "content": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/definitions/localizedText" }
+        },
+        "start": {
+          "oneOf": [
+            { "type": "number" },
+            { "type": "string", "format": "date" }
+          ]
+        },
+        "end": {
+          "oneOf": [
+            { "type": "number" },
+            { "type": "string", "format": "date" }
+          ]
+        },
+        "duration": { "type": "number", "exclusiveMinimum": 0 },
+        "after": { "$ref": "#/definitions/id" },
+        "status": { "enum": ["planned", "active", "done", "critical", "milestone"] },
+        "progress": { "type": "number", "minimum": 0, "maximum": 100 },
+        "value": { "type": "number", "minimum": 0 },
+        "xValue": { "type": "number", "minimum": 0, "maximum": 100 },
+        "yValue": { "type": "number", "minimum": 0, "maximum": 100 },
+        "size": { "type": "number", "minimum": 1, "maximum": 100 },
+        "row": { "type": "integer", "minimum": 0, "maximum": 99 },
+        "column": { "type": "integer", "minimum": 0, "maximum": 99 },
         "width": { "type": "integer", "minimum": 96, "maximum": 360 },
         "height": { "type": "integer", "minimum": 64, "maximum": 220 },
         "ports": {
@@ -156,22 +189,28 @@
         "id": { "$ref": "#/definitions/id" },
         "from": { "$ref": "#/definitions/endpoint" },
         "to": { "$ref": "#/definitions/endpoint" },
-        "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write"] },
+        "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write", "feedback", "sequence", "transition", "association", "dependency", "timeline"] },
         "label": { "$ref": "#/definitions/localizedText" },
         "protocol": { "type": "string", "minLength": 1 },
-        "route": { "enum": ["diagonal", "curve", "orthogonal", "orthogonal-shortest", "orthogonal-horizontal", "orthogonal-trunk", "orthogonal-top", "orthogonal-above", "orthogonal-right"] },
+        "route": { "enum": ["diagonal", "curve", "orthogonal", "orthogonal-shortest", "orthogonal-horizontal", "orthogonal-trunk", "orthogonal-top", "orthogonal-above", "orthogonal-right", "orthogonal-outer"] },
         "lane": { "type": "integer", "minimum": -8, "maximum": 8 },
-        "step": { "type": "integer", "minimum": 1, "maximum": 99 }
+        "step": { "type": "integer", "minimum": 1, "maximum": 99 },
+        "weight": { "type": "number", "exclusiveMinimum": 0, "maximum": 12 }
       }
     },
     "legendItem": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "label"],
+      "required": ["label"],
       "properties": {
-        "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write"] },
+        "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write", "feedback", "sequence", "transition", "association", "dependency", "timeline"] },
+        "tone": { "enum": ["input", "interpretation", "model", "policy", "decision", "execution", "feedback", "store", "neutral"] },
         "label": { "$ref": "#/definitions/localizedText" }
-      }
+      },
+      "oneOf": [
+        { "properties": { "kind": {} }, "required": ["kind"] },
+        { "properties": { "tone": {} }, "required": ["tone"] }
+      ]
     }
   }
 }

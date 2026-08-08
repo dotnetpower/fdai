@@ -7,12 +7,19 @@ import type {
 } from "elkjs/lib/elk-api.js";
 import { createRequire } from "node:module";
 
+import { layoutGantt } from "./gantt.js";
+import {
+  layoutCoordinate,
+  layoutGrid,
+  layoutRadial,
+} from "./specialized.js";
 import type {
   DiagramGroup,
   DiagramNode,
   DiagramPort,
   DiagramSpec,
 } from "../model/types.js";
+import { diagramDefinition } from "../model/definitions.js";
 import { edgeLabelGeometry, nodeGeometry } from "../model/text.js";
 
 export interface PositionedShape {
@@ -22,6 +29,12 @@ export interface PositionedShape {
   width: number;
   height: number;
   depth: number;
+  path?: string;
+  paletteIndex?: number;
+  labelX?: number;
+  labelY?: number;
+  labelWidth?: number;
+  leader?: string;
 }
 
 export interface DiagramLayout {
@@ -30,6 +43,13 @@ export interface DiagramLayout {
   groups: Map<string, PositionedShape>;
   nodes: Map<string, PositionedShape>;
   edges: ElkExtendedEdge[];
+  axis?: {
+    minimum: number;
+    maximum: number;
+    x: number;
+    width: number;
+    kind: "number" | "date";
+  };
 }
 
 const require = createRequire(import.meta.url);
@@ -157,8 +177,11 @@ function edgeContainer(spec: DiagramSpec, edge: DiagramSpec["edges"][number]): s
   );
 }
 
-function elkEdge(edge: DiagramSpec["edges"][number]): ElkExtendedEdge {
-  const label = edgeLabelGeometry(edge);
+function elkEdge(
+  edge: DiagramSpec["edges"][number],
+  compact: boolean,
+): ElkExtendedEdge {
+  const label = edgeLabelGeometry(edge, compact);
   return {
     id: edge.id,
     sources: [edge.from],
@@ -180,22 +203,27 @@ function elkEdge(edge: DiagramSpec["edges"][number]): ElkExtendedEdge {
 
 function edgesByContainer(spec: DiagramSpec): Map<string, ElkExtendedEdge[]> {
   const result = new Map<string, ElkExtendedEdge[]>();
+  const compact = spec.canvas.profile === "azure-reference";
   for (const edge of spec.edges) {
     const container = edgeContainer(spec, edge);
     const edges = result.get(container) ?? [];
-    edges.push(elkEdge(edge));
+    edges.push(elkEdge(edge, compact));
     result.set(container, edges);
   }
   return result;
 }
 
-function diagramNodeToElk(node: DiagramNode): ElkNode {
+function diagramNodeToElk(
+  node: DiagramNode,
+  compact: boolean,
+  equalizedHeight?: number,
+): ElkNode {
   const ports = nodePorts(node);
-  const geometry = nodeGeometry(node);
+  const geometry = nodeGeometry(node, compact);
   return {
     id: node.id,
     width: geometry.width,
-    height: geometry.height,
+    height: equalizedHeight ?? geometry.height,
     ...(ports ? { ports } : {}),
     ...(ports
       ? { layoutOptions: { "elk.portConstraints": "FIXED_SIDE" } }
@@ -207,13 +235,32 @@ function childrenForGroup(
   spec: DiagramSpec,
   group: DiagramGroup,
   containedEdges: Map<string, ElkExtendedEdge[]>,
+  directNodeHeight?: number,
 ): ElkNode[] {
-  const childGroups = spec.groups
-    .filter((candidate) => candidate.parent === group.id)
-    .map((candidate) => groupToElk(spec, candidate, containedEdges));
-  const childNodes = spec.nodes
-    .filter((node) => node.parent === group.id)
-    .map(diagramNodeToElk);
+  const compact = spec.canvas.profile === "azure-reference";
+  const childGroupSpecs = spec.groups.filter((candidate) => candidate.parent === group.id);
+  const peerNodeSpecs = childGroupSpecs.flatMap((candidate) => {
+    const directNodes = spec.nodes.filter((node) => node.parent === candidate.id);
+    return directNodes.length === 1 ? directNodes : [];
+  });
+  const peerNodeHeight = !compact &&
+    group.layout === "row" &&
+    childGroupSpecs.length > 1 &&
+    peerNodeSpecs.length === childGroupSpecs.length
+    ? Math.max(...peerNodeSpecs.map((node) => nodeGeometry(node, compact).height))
+    : undefined;
+  const childGroups = childGroupSpecs.map((candidate) =>
+    groupToElk(spec, candidate, containedEdges, peerNodeHeight),
+  );
+  const childNodeSpecs = spec.nodes.filter((node) => node.parent === group.id);
+  const equalizedHeight = directNodeHeight ?? (
+    !compact && group.layout === "row" && childNodeSpecs.length > 1
+    ? Math.max(...childNodeSpecs.map((node) => nodeGeometry(node, compact).height))
+    : undefined
+  );
+  const childNodes = childNodeSpecs.map((node) =>
+    diagramNodeToElk(node, compact, equalizedHeight),
+  );
   return [...childGroups, ...childNodes];
 }
 
@@ -221,22 +268,29 @@ function groupToElk(
   spec: DiagramSpec,
   group: DiagramGroup,
   containedEdges: Map<string, ElkExtendedEdge[]>,
+  directNodeHeight?: number,
 ): ElkNode {
   const edges = containedEdges.get(group.id);
   const compact = spec.canvas.profile === "azure-reference";
+  const definition = diagramDefinition(spec.kind);
   return {
     id: group.id,
-    children: childrenForGroup(spec, group, containedEdges),
+    children: childrenForGroup(spec, group, containedEdges, directNodeHeight),
     ...(edges?.length ? { edges } : {}),
     layoutOptions: {
       "elk.algorithm": "layered",
-      "elk.direction": group.direction ?? spec.canvas.direction,
-      "elk.edgeRouting": "ORTHOGONAL",
+      "elk.direction":
+        group.direction ?? definition.groupDirection ?? definition.direction ?? spec.canvas.direction,
+      "elk.edgeRouting": definition.edgeRouting ?? "ORTHOGONAL",
       "elk.padding": compact
         ? "[top=44,left=18,bottom=18,right=18]"
         : "[top=52,left=28,bottom=28,right=28]",
-      "elk.spacing.nodeNode": compact ? "16" : "22",
-      "elk.layered.spacing.nodeNodeBetweenLayers": compact ? "28" : "36",
+      "elk.spacing.nodeNode": String(
+        definition.nodeSpacing ?? (compact ? 16 : 22),
+      ),
+      "elk.layered.spacing.nodeNodeBetweenLayers": String(
+        definition.layerSpacing ?? (compact ? 28 : 36),
+      ),
     },
   };
 }
@@ -625,12 +679,11 @@ function applyRootGroupFlow(
   groups: Map<string, PositionedShape>,
   nodes: Map<string, PositionedShape>,
 ): { width: number; bottom: number } | undefined {
-  if (
-    spec.canvas.profile !== "azure-reference" ||
-    (!spec.canvas.rootLayout && spec.canvas.direction !== "DOWN")
-  ) {
-    return undefined;
-  }
+  const definition = diagramDefinition(spec.kind);
+  const configuredRootLayout = spec.canvas.rootLayout ?? definition.rootLayout;
+  const implicitCompactColumn =
+    spec.canvas.profile === "azure-reference" && spec.canvas.direction === "DOWN";
+  if (!configuredRootLayout && !implicitCompactColumn) return undefined;
   const rootGroups = spec.groups
     .filter((group) => !group.parent)
     .map((group) => groups.get(group.id))
@@ -638,7 +691,7 @@ function applyRootGroupFlow(
   if (!rootGroups.length) return undefined;
   const padding = spec.canvas.padding ?? 24;
   const gap = 38;
-  const rootLayout = spec.canvas.rootLayout ??
+  const rootLayout = configuredRootLayout ??
     (spec.canvas.direction === "DOWN" ? "column" : "row");
   if (rootLayout === "row") {
     const contentHeight = Math.max(...rootGroups.map((group) => group.height));
@@ -1148,6 +1201,53 @@ function orthogonalRightRouteSection(
   };
 }
 
+function orthogonalOuterRouteSection(
+  edgeId: string,
+  source: PositionedShape,
+  target: PositionedShape,
+  nodes: Map<string, PositionedShape>,
+  laneIndex: number,
+): ElkEdgeSection {
+  const targetIsBelow = target.y >= source.y;
+  const sourceExit = {
+    x: source.x + source.width / 2,
+    y: targetIsBelow ? source.y + source.height : source.y,
+  };
+  const sourceApproachY = sourceExit.y + (targetIsBelow ? 24 : -24);
+  const targetEntry = {
+    x: target.x + target.width / 2,
+    y: targetIsBelow ? target.y : target.y + target.height,
+  };
+  const approachY = targetEntry.y + (targetIsBelow ? -24 : 24);
+  const minimumY = Math.min(sourceApproachY, approachY);
+  const maximumY = Math.max(sourceApproachY, approachY);
+  const obstacleRight = Math.max(
+    source.x + source.width,
+    target.x + target.width,
+    ...[...nodes.values()]
+      .filter(
+        (node) =>
+          node.id !== source.id &&
+          node.id !== target.id &&
+          node.y < maximumY &&
+          node.y + node.height > minimumY,
+      )
+      .map((node) => node.x + node.width),
+  );
+  const corridorX = obstacleRight + 36 + laneIndex * 96;
+  return {
+    id: `${edgeId}-orthogonal-outer-route`,
+    startPoint: sourceExit,
+    bendPoints: [
+      { x: sourceExit.x, y: sourceApproachY },
+      { x: corridorX, y: sourceApproachY },
+      { x: corridorX, y: approachY },
+      { x: targetEntry.x, y: approachY },
+    ],
+    endPoint: targetEntry,
+  };
+}
+
 function routeLabelPosition(
   section: ElkEdgeSection,
   width: number,
@@ -1236,7 +1336,9 @@ function applyExplicitRoutes(
   const rightLaneByEdge = new Map<string, number>();
   const rightLaneCountByTargetGroup = new Map<string, number>();
   for (const edge of spec.edges.filter(
-    (candidate) => candidate.route === "orthogonal-right",
+    (candidate) =>
+      candidate.route === "orthogonal-right" ||
+      candidate.route === "orthogonal-outer",
   )) {
     const targetGroup = elementParent(spec, endpointNodeId(edge.to));
     const lane = rightLaneCountByTargetGroup.get(targetGroup) ?? 0;
@@ -1270,7 +1372,8 @@ function applyExplicitRoutes(
       specEdge.route !== "orthogonal-trunk" &&
       specEdge.route !== "orthogonal-top" &&
         specEdge.route !== "orthogonal-above" &&
-        specEdge.route !== "orthogonal-right")
+          specEdge.route !== "orthogonal-right" &&
+          specEdge.route !== "orthogonal-outer")
     ) {
       return edge;
     }
@@ -1333,6 +1436,14 @@ function applyExplicitRoutes(
               nodes,
               rightLaneByEdge.get(edge.id) ?? 0,
             )
+        : specEdge.route === "orthogonal-outer"
+          ? orthogonalOuterRouteSection(
+              edge.id,
+              source,
+              target,
+              nodes,
+              rightLaneByEdge.get(edge.id) ?? 0,
+            )
         : {
             id: `${edge.id}-diagonal-route`,
             startPoint: boundaryPoint(source, target),
@@ -1341,6 +1452,7 @@ function applyExplicitRoutes(
     const labels = edge.labels?.map((label) => ({
       ...label,
       ...(specEdge.route === "orthogonal-right" ||
+      specEdge.route === "orthogonal-outer" ||
       specEdge.route === "orthogonal-horizontal"
         ? rightRouteLabelPosition(section, label.width ?? 0, label.height ?? 0)
         : specEdge.route === "orthogonal" ||
@@ -1370,26 +1482,34 @@ function applyExplicitRoutes(
 
 export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
   const compact = spec.canvas.profile === "azure-reference";
+  const definition = diagramDefinition(spec.kind);
+  if (definition.layoutStrategy === "gantt") return layoutGantt(spec);
+  if (definition.layoutStrategy === "coordinate") return layoutCoordinate(spec);
+  if (definition.layoutStrategy === "radial") return layoutRadial(spec);
+  if (definition.layoutStrategy === "grid") return layoutGrid(spec);
   const containedEdges = edgesByContainer(spec);
   const rootGroups = spec.groups
     .filter((group) => !group.parent)
     .map((group) => groupToElk(spec, group, containedEdges));
   const rootNodes = spec.nodes
     .filter((node) => !node.parent)
-    .map(diagramNodeToElk);
+    .map((node) => diagramNodeToElk(node, compact));
   const graph: ElkNode = {
     id: "root",
     children: [...rootGroups, ...rootNodes],
     edges: containedEdges.get("root") ?? [],
     layoutOptions: {
       "elk.algorithm": "layered",
-      "elk.direction": spec.canvas.direction,
-      "elk.edgeRouting": "ORTHOGONAL",
-      "elk.hierarchyHandling":
-        spec.kind === "deployment" ? "INCLUDE_CHILDREN" : "SEPARATE_CHILDREN",
+      "elk.direction": definition.direction ?? spec.canvas.direction,
+      "elk.edgeRouting": definition.edgeRouting ?? "ORTHOGONAL",
+      "elk.hierarchyHandling": definition.hierarchyHandling,
       "elk.padding": `[top=${spec.canvas.padding ?? (compact ? 24 : 40)},left=${spec.canvas.padding ?? (compact ? 24 : 40)},bottom=${spec.canvas.padding ?? (compact ? 24 : 40)},right=${spec.canvas.padding ?? (compact ? 24 : 40)}]`,
-      "elk.spacing.nodeNode": compact ? "18" : "28",
-      "elk.layered.spacing.nodeNodeBetweenLayers": compact ? "38" : "52",
+      "elk.spacing.nodeNode": String(
+        definition.nodeSpacing ?? (compact ? 18 : 28),
+      ),
+      "elk.layered.spacing.nodeNodeBetweenLayers": String(
+        definition.layerSpacing ?? (compact ? 38 : 52),
+      ),
       "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
     },
   };

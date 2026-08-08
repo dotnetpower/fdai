@@ -1,0 +1,206 @@
+{
+  "id": "fdai-delivery-roadmap",
+  "kind": "gantt",
+  "version": 1,
+  "updated": "2026-08-08",
+  "locales": {
+    "en": {
+      "title": "FDAI governed delivery roadmap",
+      "description": "Workstreams share one numeric delivery axis while dependencies, status, and progress remain explicit.",
+      "alt": "Three workstreams show ontology, policy, and delivery tasks as time-scaled bars. Completed, active, planned, critical, and milestone states use distinct colors, and dependency arrows connect gated work."
+    },
+    "ko": {
+      "title": "FDAI 통제형 전달 로드맵",
+      "description": "여러 작업 흐름이 하나의 숫자형 전달 축을 공유하며 의존 관계, 상태 및 진행률을 명시적으로 표시합니다.",
+      "alt": "온톨로지, 정책 및 전달 작업 흐름을 시간 비율 막대로 표시합니다. 완료, 진행 중, 계획, 중요 및 마일스톤 상태를 서로 다른 색으로 구분하고 통제된 작업 사이를 의존 화살표로 연결합니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-delivery-roadmap.en.svg",
+      "png": "fdai-delivery-roadmap.en.png"
+    },
+    "ko": {
+      "svg": "fdai-delivery-roadmap.ko.svg",
+      "png": "fdai-delivery-roadmap.ko.png"
+    }
+  },
+  "nodes": [
+    {
+      "id": "ontology-contracts",
+      "kind": "process",
+      "shape": "bar",
+      "start": 0,
+      "duration": 4,
+      "status": "done",
+      "progress": 100,
+      "label": {
+        "en": "Ontology contracts",
+        "ko": "온톨로지 계약"
+      },
+      "description": {
+        "en": "Ontology contracts",
+        "ko": "온톨로지 계약"
+      }
+    },
+    {
+      "id": "context-projection",
+      "kind": "process",
+      "shape": "bar",
+      "duration": 3,
+      "after": "ontology-contracts",
+      "status": "active",
+      "progress": 65,
+      "label": {
+        "en": "Context projection",
+        "ko": "컨텍스트 projection"
+      },
+      "description": {
+        "en": "Context projection",
+        "ko": "컨텍스트 projection"
+      }
+    },
+    {
+      "id": "semantic-release",
+      "kind": "process",
+      "shape": "bar",
+      "duration": 1,
+      "after": "context-projection",
+      "status": "milestone",
+      "progress": 0,
+      "label": {
+        "en": "Semantic release",
+        "ko": "의미 모델 릴리스"
+      },
+      "description": {
+        "en": "Semantic release",
+        "ko": "의미 모델 릴리스"
+      }
+    },
+    {
+      "id": "policy-catalog",
+      "kind": "process",
+      "shape": "bar",
+      "start": 2,
+      "duration": 4,
+      "status": "done",
+      "progress": 100,
+      "label": {
+        "en": "Policy catalog",
+        "ko": "정책 카탈로그"
+      },
+      "description": {
+        "en": "Policy catalog",
+        "ko": "정책 카탈로그"
+      }
+    },
+    {
+      "id": "scenario-regression",
+      "kind": "process",
+      "shape": "bar",
+      "duration": 4,
+      "after": "policy-catalog",
+      "status": "active",
+      "progress": 40,
+      "label": {
+        "en": "Scenario regression",
+        "ko": "시나리오 회귀 검증"
+      },
+      "description": {
+        "en": "Scenario regression",
+        "ko": "시나리오 회귀 검증"
+      }
+    },
+    {
+      "id": "promotion-evidence",
+      "kind": "process",
+      "shape": "bar",
+      "duration": 2,
+      "after": "scenario-regression",
+      "status": "critical",
+      "progress": 15,
+      "label": {
+        "en": "Promotion evidence",
+        "ko": "승격 근거"
+      },
+      "description": {
+        "en": "Promotion evidence",
+        "ko": "승격 근거"
+      }
+    },
+    {
+      "id": "console-projection",
+      "kind": "process",
+      "shape": "bar",
+      "start": 5,
+      "duration": 3,
+      "status": "done",
+      "progress": 100,
+      "label": {
+        "en": "Console projection",
+        "ko": "콘솔 projection"
+      },
+      "description": {
+        "en": "Console projection",
+        "ko": "콘솔 projection"
+      }
+    },
+    {
+      "id": "operator-validation",
+      "kind": "process",
+      "shape": "bar",
+      "duration": 3,
+      "after": "console-projection",
+      "status": "active",
+      "progress": 55,
+      "label": {
+        "en": "Operator validation",
+        "ko": "운영자 검증"
+      },
+      "description": {
+        "en": "Operator validation",
+        "ko": "운영자 검증"
+      }
+    },
+    {
+      "id": "release-readiness",
+      "kind": "process",
+      "shape": "bar",
+      "duration": 2,
+      "after": "operator-validation",
+      "status": "planned",
+      "progress": 0,
+      "label": {
+        "en": "Release readiness",
+        "ko": "릴리스 준비"
+      },
+      "description": {
+        "en": "Release readiness",
+        "ko": "릴리스 준비"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "contracts-to-context",
+      "from": "ontology-contracts",
+      "to": "context-projection",
+      "kind": "timeline",
+      "label": null
+    },
+    {
+      "id": "catalog-to-regression",
+      "from": "policy-catalog",
+      "to": "scenario-regression",
+      "kind": "timeline",
+      "label": null
+    },
+    {
+      "id": "console-to-validation",
+      "from": "console-projection",
+      "to": "operator-validation",
+      "kind": "timeline",
+      "label": null
+    }
+  ]
+}

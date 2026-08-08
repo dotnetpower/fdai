@@ -1,5 +1,6 @@
 {
   "id": "fdai-agent-driven-runtime",
+  "kind": "data-flow",
   "version": 1,
   "updated": "2026-07-23",
   "locales": {

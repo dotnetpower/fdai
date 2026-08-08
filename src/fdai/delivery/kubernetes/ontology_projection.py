@@ -71,13 +71,31 @@ def build_kubernetes_ontology_projection(
                 },
             )
         )
+    namespace_ref = f"{cluster_ref}/namespace/{expected_namespace}"
+    if objects:
+        objects.append(
+            OntologyObjectRecord(
+                id=namespace_ref,
+                object_type="Resource",
+                properties={
+                    "id": namespace_ref,
+                    "type": "kubernetes.namespace",
+                    "name": expected_namespace,
+                    "properties": {
+                        "cluster_ref": cluster_ref,
+                        "namespace": expected_namespace,
+                    },
+                },
+            )
+        )
+        objects.sort(key=lambda item: item.id)
     if not evidence_complete:
         return KubernetesOntologyProjection(objects=tuple(objects), links=())
 
     links: dict[tuple[str, str, str], OntologyLinkRecord] = {}
     for object_id, resource in by_uid.values():
         namespace = _text(resource.get("namespace"))
-        _add_link(links, "contains", object_id, f"{cluster_ref}/namespace/{namespace}")
+        _add_link(links, "contains", f"{cluster_ref}/namespace/{namespace}", object_id)
         if resource.get("owner_reference_projection_complete") is True:
             for owner in _mappings(resource.get("owner_references")):
                 owner_uid = _text(owner.get("uid"))

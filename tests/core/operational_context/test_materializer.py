@@ -4,6 +4,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
 
+import pytest
+
 from fdai.core.operational_context import OperationalContextMaterializer, SourceFreshness
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.shared.contracts.models import Autonomy
@@ -13,6 +15,13 @@ from fdai.shared.providers.ontology_instance import (
     OntologyInstanceStore,
     OntologyLinkRecord,
     OntologyObjectRecord,
+)
+from fdai.shared.providers.state_evidence import (
+    LINK_OBSERVATION_METADATA_PROPERTY,
+    LinkObservationMetadata,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
 )
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
 
@@ -107,6 +116,50 @@ async def _seed_service_graph(store: InMemoryOntologyInstanceStore) -> None:
         ),
     ):
         await store.upsert_link(link)
+
+
+def _link_metadata(
+    *,
+    age_seconds: int = 30,
+    completeness: float = 1.0,
+    conflicts: tuple[str, ...] = (),
+    source_revision: str = "revision-1",
+) -> LinkObservationMetadata:
+    effective_at = CUTOFF - timedelta(seconds=age_seconds)
+    return LinkObservationMetadata(
+        state_fact=StateFactMetadata(
+            lane=StateFactLane.OBSERVED,
+            authority=StateFactAuthority.PROVIDER,
+            source_identity="inventory-provider",
+            source_revision=source_revision,
+            effective_at=effective_at,
+            evidence_cutoff=min(CUTOFF, effective_at + timedelta(seconds=1)),
+            recorded_at=CUTOFF,
+            freshness_ceiling_seconds=300,
+            completeness=completeness,
+            synthetic=False,
+            conflicts=conflicts,
+            evidence_refs=("inventory-receipt",),
+        ),
+        verification_method="provider-readback",
+        verified=not conflicts,
+        verifier_identity=None if conflicts else "inventory-readback",
+        verifier_revision=None if conflicts else "revision-2",
+    )
+
+
+async def _set_workload_link_metadata(
+    store: InMemoryOntologyInstanceStore,
+    metadata: LinkObservationMetadata,
+) -> None:
+    await store.upsert_link(
+        OntologyLinkRecord(
+            link_type="workload_runs_on",
+            from_id="workload-example",
+            to_id="resource-example",
+            properties={LINK_OBSERVATION_METADATA_PROPERTY: metadata.to_mapping()},
+        )
+    )
 
 
 async def test_fresh_context_preserves_autonomy_and_replays() -> None:
@@ -217,6 +270,61 @@ async def test_revision_and_freshness_receipts_change_snapshot_identity() -> Non
     assert {item.object_id: item.revision for item in revised.evidence_paths}[
         "service-example"
     ] == 2
+
+
+async def test_link_metadata_is_retained_and_changes_snapshot_identity() -> None:
+    store = _store()
+    await _seed_service_graph(store)
+    materializer = OperationalContextMaterializer(store=store, clock=lambda: CUTOFF)
+    first_metadata = _link_metadata(source_revision="revision-1")
+    await _set_workload_link_metadata(store, first_metadata)
+    first = await materializer.materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF,
+        catalog_versions={"ontology": "1.0.0"},
+    )
+    second_metadata = _link_metadata(source_revision="revision-2")
+    await _set_workload_link_metadata(store, second_metadata)
+    second = await materializer.materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF,
+        catalog_versions={"ontology": "1.0.0"},
+    )
+
+    workload_link = next(
+        item for item in first.evidence_links if item.link_type == "workload_runs_on"
+    )
+    assert workload_link.observation_metadata == first_metadata
+    assert first.snapshot_id != second.snapshot_id
+
+
+@pytest.mark.parametrize(
+    ("metadata", "expected_conflict"),
+    [
+        (_link_metadata(age_seconds=301), "link_evidence_stale"),
+        (_link_metadata(completeness=0.5), "link_evidence_incomplete"),
+        (_link_metadata(conflicts=("endpoint_disagreement",)), "link_evidence_conflicting"),
+    ],
+)
+async def test_degraded_link_evidence_lowers_snapshot_ceiling(
+    metadata: LinkObservationMetadata,
+    expected_conflict: str,
+) -> None:
+    store = _store()
+    await _seed_service_graph(store)
+    await _set_workload_link_metadata(store, metadata)
+
+    snapshot = await OperationalContextMaterializer(
+        store=store,
+        clock=lambda: CUTOFF,
+    ).materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF,
+        catalog_versions={"ontology": "1.0.0"},
+    )
+
+    assert any(item.startswith(expected_conflict) for item in snapshot.conflicts)
+    assert snapshot.autonomy_ceiling is Autonomy.SHADOW_ONLY
 
 
 async def test_truncated_graph_lowers_autonomy() -> None:

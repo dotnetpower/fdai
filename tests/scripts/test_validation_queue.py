@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -13,6 +14,9 @@ pytestmark = pytest.mark.no_cover
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 QUEUE_SCRIPT = REPO_ROOT / "scripts" / "automation" / "validation_queue.py"
+QUEUE_CONTEXT = REPO_ROOT / "scripts" / "automation" / "validation_queue_context.py"
+QUEUE_RUNNER = REPO_ROOT / "scripts" / "automation" / "validation_queue_runner.py"
+QUEUE_SUPPORT = REPO_ROOT / "scripts" / "automation" / "validation_queue_support.py"
 POST_COMMIT_HOOK = REPO_ROOT / ".githooks" / "post-commit"
 PRE_PUSH_HOOK = REPO_ROOT / ".githooks" / "pre-push"
 VALIDATOR_AGENT = REPO_ROOT / ".github" / "agents" / "integration-validator.agent.md"
@@ -47,6 +51,8 @@ def git_repo(tmp_path: Path) -> Path:
         "#!/usr/bin/env bash\n"
         'test "$1" = sync || exit 11\n'
         'test "$UV_PYTHON" = 3.13 || exit 12\n'
+        'mkdir -p "$UV_PROJECT_ENVIRONMENT/bin"\n'
+        'touch "$UV_PROJECT_ENVIRONMENT/bin/python"\n'
         'if [[ -n "${FDAI_VALIDATION_TEST_LOG:-}" ]]; then\n'
         '  printf "uv:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n'
         "fi\n",
@@ -54,7 +60,8 @@ def git_repo(tmp_path: Path) -> Path:
     )
     (repo / "bin" / "uv").chmod(0o755)
     (repo / "scripts" / "automation").mkdir(parents=True)
-    shutil.copy2(QUEUE_SCRIPT, repo / "scripts" / "automation" / "validation_queue.py")
+    for source in (QUEUE_SCRIPT, QUEUE_CONTEXT, QUEUE_RUNNER, QUEUE_SUPPORT):
+        shutil.copy2(source, repo / "scripts" / "automation" / source.name)
     (repo / "scripts" / "automation" / "tests-for-diff.sh").write_text(
         "#!/usr/bin/env bash\n"
         "test -f resolved-models.json || exit 9\n"
@@ -70,7 +77,8 @@ def git_repo(tmp_path: Path) -> Path:
         "test -f cli/node_modules/.validation-marker || exit 15\n"
         'case "$UV_PROJECT_ENVIRONMENT" in */fdai-validation-queue/venv) ;; *) exit 10 ;; esac\n'
         'test "$UV_NO_SYNC" = 1 || exit 13\n'
-        'printf "verify:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n',
+        'printf "verify:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n'
+        '[[ "${FDAI_VALIDATION_VERIFY_FAIL:-0}" != 1 ]] || exit 17\n',
         encoding="utf-8",
     )
     (repo / ".gitignore").write_text("resolved-models*.json\n", encoding="utf-8")
@@ -118,8 +126,17 @@ def test_run_batches_pending_commits_and_records_receipts(git_repo: Path, tmp_pa
     assert log_path.read_text(encoding="utf-8").splitlines() == [
         "uv:sync --frozen --extra dev --extra azure-mcp --python 3.13",
         f"changed:--run {parent}..{commit}",
-        "verify:--fast",
+        f"verify:--fast --diff {parent}..{commit}",
     ]
+    state_root = git_repo / ".git" / "fdai-validation-queue"
+    receipt = json.loads((state_root / "receipts" / f"{commit}.json").read_text())
+    assert receipt["duration_seconds"] >= 0
+    assert [stage["name"] for stage in receipt["stages"]] == [
+        "dependency-sync",
+        "changed-tests",
+        "fast-gates",
+    ]
+    assert (state_root / "worktree").is_dir()
 
 
 def test_linked_worktree_uses_the_shared_git_queue(git_repo: Path, tmp_path: Path) -> None:
@@ -142,9 +159,104 @@ def test_linked_worktree_uses_the_shared_git_queue(git_repo: Path, tmp_path: Pat
 
     assert enqueued.returncode == 0, enqueued.stderr
     assert status.returncode == 0, status.stderr
-    assert "1 pending commit(s)" in status.stdout
+    assert "1 reachable pending commit(s), 0 elsewhere" in status.stdout
     assert validated.returncode == 0, validated.stderr
-    assert log_path.read_text(encoding="utf-8").splitlines()[-1] == "verify:--fast"
+    assert log_path.read_text(encoding="utf-8").splitlines()[-1].startswith("verify:--fast --diff ")
+
+
+def test_retry_reuses_sync_and_passed_changed_tests(git_repo: Path, tmp_path: Path) -> None:
+    commit = _commit_change(git_repo)
+    parent = _run(git_repo, "git", "rev-parse", "HEAD^").stdout.strip()
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    log_path = tmp_path / "retry-validation.log"
+    assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+
+    failed = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        env={
+            "FDAI_VALIDATION_TEST_LOG": str(log_path),
+            "FDAI_VALIDATION_VERIFY_FAIL": "1",
+        },
+    )
+    retried = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        env={"FDAI_VALIDATION_TEST_LOG": str(log_path)},
+    )
+
+    assert failed.returncode == 17
+    assert retried.returncode == 0, retried.stderr
+    assert log_path.read_text(encoding="utf-8").splitlines() == [
+        "uv:sync --frozen --extra dev --extra azure-mcp --python 3.13",
+        f"changed:--run {parent}..{commit}",
+        f"verify:--fast --diff {parent}..{commit}",
+        f"verify:--fast --diff {parent}..{commit}",
+    ]
+
+
+def test_local_model_change_invalidates_passed_stage_cache(git_repo: Path, tmp_path: Path) -> None:
+    commit = _commit_change(git_repo)
+    parent = _run(git_repo, "git", "rev-parse", "HEAD^").stdout.strip()
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    log_path = tmp_path / "local-input-validation.log"
+    assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+
+    failed = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        env={
+            "FDAI_VALIDATION_TEST_LOG": str(log_path),
+            "FDAI_VALIDATION_VERIFY_FAIL": "1",
+        },
+    )
+    (git_repo / "resolved-models.json").write_text(
+        '{"capabilities": {"narrator": {}}}\n', encoding="utf-8"
+    )
+    retried = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        env={"FDAI_VALIDATION_TEST_LOG": str(log_path)},
+    )
+
+    assert failed.returncode == 17
+    assert retried.returncode == 0, retried.stderr
+    assert log_path.read_text(encoding="utf-8").splitlines() == [
+        "uv:sync --frozen --extra dev --extra azure-mcp --python 3.13",
+        f"changed:--run {parent}..{commit}",
+        f"verify:--fast --diff {parent}..{commit}",
+        f"changed:--run {parent}..{commit}",
+        f"verify:--fast --diff {parent}..{commit}",
+    ]
+
+
+def test_status_separates_reachable_and_elsewhere_pending(git_repo: Path) -> None:
+    elsewhere = _commit_change(git_repo)
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    assert _run(git_repo, "python3", str(script), "enqueue", elsewhere).returncode == 0
+    assert _run(git_repo, "git", "reset", "--hard", "HEAD^").returncode == 0
+    (git_repo / "source.txt").write_text("reachable\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", "source.txt").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "reachable").returncode == 0
+    reachable = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+    assert _run(git_repo, "python3", str(script), "enqueue", reachable).returncode == 0
+
+    status = _run(git_repo, "python3", str(script), "status")
+    verbose = _run(git_repo, "python3", str(script), "status", "--all")
+
+    assert status.returncode == 0
+    assert "1 reachable pending commit(s), 1 elsewhere" in status.stdout
+    assert reachable in status.stdout
+    assert elsewhere not in status.stdout
+    assert f"{elsewhere} (elsewhere)" in verbose.stdout
 
 
 def test_concurrent_enqueue_of_same_commit_is_atomic(git_repo: Path) -> None:
@@ -158,7 +270,7 @@ def test_concurrent_enqueue_of_same_commit_is_atomic(git_repo: Path) -> None:
 
     assert all(result.returncode == 0 for result in results)
     status = _run(git_repo, "python3", str(script), "status")
-    assert "1 pending commit(s)" in status.stdout
+    assert "1 reachable pending commit(s), 0 elsewhere" in status.stdout
 
 
 def test_all_mode_skips_changed_test_pass(git_repo: Path, tmp_path: Path) -> None:

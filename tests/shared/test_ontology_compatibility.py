@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from fdai.shared.contracts.models import OntologyDeclarationKind, OntologyObjectType
+from fdai.shared.contracts.models import (
+    OntologyDeclarationKind,
+    OntologyInterfaceType,
+    OntologyObjectType,
+)
 from fdai.shared.ontology.compatibility import (
     OntologyGenerationCompatibilityError,
     require_ontology_generation_compatibility,
@@ -31,6 +35,10 @@ def _schema(*, include_replicas: bool) -> dict[str, object]:
         "properties": properties,
         "required": ["id"],
     }
+
+
+def _interface(version: str = "1.0.0") -> OntologyInterfaceType:
+    return OntologyInterfaceType(name="Operable", version=version)
 
 
 def test_breaking_n_minus_one_schema_fails_before_activation() -> None:
@@ -117,6 +125,41 @@ def test_missing_release_schema_evidence_fails_closed() -> None:
             previous_release=previous,
             candidate_release=candidate,
             previous_schemas={},
+            candidate_schemas={},
+            generation_release_digest=candidate.digest,
+        )
+
+
+def test_interface_addition_is_reported_as_additive() -> None:
+    identity = (OntologyDeclarationKind.INTERFACE, "Operable")
+    previous = build_ontology_release()
+    candidate = build_ontology_release(interface_types=(_interface(),))
+
+    receipt = require_ontology_generation_compatibility(
+        previous_release=previous,
+        candidate_release=candidate,
+        previous_schemas={},
+        candidate_schemas={identity: _schema(include_replicas=False)},
+        generation_release_digest=candidate.digest,
+    )
+
+    assert receipt.checked_declarations == ()
+    assert receipt.added_declarations == ("interface:Operable",)
+
+
+def test_interface_removal_fails_closed() -> None:
+    identity = (OntologyDeclarationKind.INTERFACE, "Operable")
+    previous = build_ontology_release(interface_types=(_interface(),))
+    candidate = build_ontology_release()
+
+    with pytest.raises(
+        OntologyGenerationCompatibilityError,
+        match="removes declaration interface:Operable",
+    ):
+        require_ontology_generation_compatibility(
+            previous_release=previous,
+            candidate_release=candidate,
+            previous_schemas={identity: _schema(include_replicas=False)},
             candidate_schemas={},
             generation_release_digest=candidate.digest,
         )

@@ -12,14 +12,15 @@ import { buildViewerArtifact } from "../src/viewer/build.js";
 test("canonical text artifacts end with exactly one newline", () => {
   assert.equal(canonicalTextArtifact("<svg></svg>").toString(), "<svg></svg>\n");
   assert.equal(canonicalTextArtifact("<svg></svg>\n\n").toString(), "<svg></svg>\n");
+  assert.equal(canonicalTextArtifact("<svg>  \n  </svg>\t").toString(), "<svg>\n  </svg>\n");
 });
 
 test("resolves diagram CSS variable fallbacks for static PNG rendering", () => {
   assert.equal(
     resolveCssFallbacks(
-      "fill: var(--fdai-diagram-canvas, #faf9f8); color: var(--fdai-diagram-text, #323130);",
+      "fill: var(--fdai-diagram-canvas, #faf9f8); color: var(--fdai-diagram-text); stroke: var(--custom, #abcdef); outline: var(--unknown);",
     ),
-    "fill: #faf9f8; color: #323130;",
+    "fill: #f6f7f6; color: #20262d; stroke: #abcdef; outline: var(--unknown);",
   );
 });
 
@@ -28,6 +29,8 @@ test("viewer bundle preserves readable UTF-8 Korean labels", async () => {
   const source = artifact.content.toString("utf8");
 
   assert.match(source, /인터랙티브 아키텍처 다이어그램/);
+  assert.match(source, /--fdai-diagram-tone-policy-fill:\s*#17331d/);
+  assert.match(source, /data-embedded/);
   assert.doesNotMatch(source, /\\u(?:11|31|[a-dA-D])[0-9a-fA-F]{2}/);
 });
 
@@ -64,6 +67,52 @@ edges:
     edges: Array<{ step?: number }>;
   };
   assert.equal(manifest.edges[0]?.step, 2);
+});
+
+test("manifest preserves conceptual node presentation and localized content", async () => {
+  const spec = parseDiagram(`
+id: manifest-concept
+version: 1
+kind: conceptual-flow
+locales:
+  en: { title: Concept, description: Concept, alt: A conceptual node. }
+  ko: { title: 개념, description: 개념, alt: 개념 노드입니다. }
+canvas: { width: 640, height: 360, direction: RIGHT, profile: conceptual }
+groups: []
+nodes:
+  - id: decision
+    kind: decision
+    shape: diamond
+    tone: policy
+    badge: 4
+    label: { en: Decide, ko: 결정 }
+    content:
+      - { en: Evaluate policy, ko: 정책 평가 }
+edges: []
+`);
+  const artifacts = await compileDiagram(spec);
+  const manifestArtifact = artifacts.find(
+    (artifact) => artifact.path === "manifest-concept.manifest.json",
+  );
+  assert.ok(manifestArtifact);
+  const manifest = JSON.parse(manifestArtifact.content.toString("utf8")) as {
+    nodes: Array<{
+      shape?: string;
+      tone?: string;
+      badge?: number;
+      content?: Array<Record<string, string>>;
+    }>;
+  };
+  assert.deepEqual(manifest.nodes[0], {
+    id: "decision",
+    kind: "decision",
+    shape: "diamond",
+    tone: "policy",
+    badge: 4,
+    label: { en: "Decide", ko: "결정" },
+    description: { en: "Decide", ko: "결정" },
+    content: [{ en: "Evaluate policy", ko: "정책 평가" }],
+  });
 });
 
 test("SVG-only diagrams omit PNG artifacts and manifest references", async () => {

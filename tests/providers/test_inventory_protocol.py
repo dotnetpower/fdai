@@ -22,6 +22,7 @@ from fdai.shared.providers import (
     LinkRecord,
     ResourceRecord,
 )
+from fdai.shared.providers.state_evidence import LINK_OBSERVATION_METADATA_PROPERTY
 
 
 def test_inventory_protocol_is_importable_and_runtime_checkable() -> None:
@@ -57,6 +58,25 @@ def test_link_record_is_frozen() -> None:
     )
     with pytest.raises((AttributeError, TypeError)):
         link.link_type = "attached_to"  # type: ignore[misc]
+
+
+def test_legacy_link_record_has_no_observation_metadata() -> None:
+    link = LinkRecord("a", "resource-group", "contains", "b", "compute.vm")
+
+    assert link.link_props == {}
+    assert link.observation_metadata is None
+
+
+def test_link_record_rejects_raw_reserved_observation_metadata() -> None:
+    with pytest.raises(ValueError, match="reserved observation metadata"):
+        LinkRecord(
+            "a",
+            "resource-group",
+            "contains",
+            "b",
+            "compute.vm",
+            link_props={LINK_OBSERVATION_METADATA_PROPERTY: {}},
+        )
 
 
 def test_inventory_batch_final_defaults_to_false() -> None:

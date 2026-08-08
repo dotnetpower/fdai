@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime
 
@@ -135,7 +136,22 @@ async def test_typed_functions_cannot_return_plan_from_read_kind() -> None:
     assert await registry.invoke("query.workloads", {}) == {"count": 1}
 
     async def validate(_arguments):
-        return CriterionResult(passed=True, reason_code="ready", evidence_refs=("object:x",))
+        function_ref = next(
+            item
+            for item in release.declarations
+            if item.kind is OntologyDeclarationKind.FUNCTION and item.name == validate_decl.name
+        )
+        observed_at = datetime(2026, 8, 1, tzinfo=UTC)
+        return CriterionResult.create(
+            function_ref=function_ref,
+            passed=True,
+            reason_code="ready",
+            evidence_refs=("object:x",),
+            complete=True,
+            truncated=False,
+            observed_at=observed_at,
+            fresh_until=observed_at,
+        )
 
     registry.register(validate_decl, validate)
     result = await registry.invoke("validate.workload", {})
@@ -192,9 +208,11 @@ async def test_function_invocation_is_authorized_release_pinned_and_replay_stabl
     )
 
     assert replay == first
+    assert replay_receipt.request_id == first_receipt.request_id
     assert replay_receipt.invocation_id == first_receipt.invocation_id
     assert replay_receipt.seed == first_receipt.seed
     assert replay_receipt.function_ref.catalog_digest == release.digest
+    assert registry.release_ref == release.ref()
     with pytest.raises(PermissionError, match="role"):
         await registry.invoke(
             declaration.name,
@@ -206,6 +224,116 @@ async def test_function_invocation_is_authorized_release_pinned_and_replay_stabl
             declaration.name,
             {"replicas": 2, "fdai_seed": 7},
             context=context,
+        )
+
+
+async def test_function_registry_rejects_same_version_substitution_and_retains_copy() -> None:
+    declaration = OntologyFunctionType(
+        name="query.workloads",
+        version="1.0.0",
+        kind=OntologyFunctionKind.QUERY,
+        artifact_digest="sha256:" + "a" * 64,
+        publisher="fdai",
+        input_schema={"type": "object"},
+        output_schema={"type": "object"},
+    )
+    release = build_ontology_release(function_types=(declaration,))
+    substituted = declaration.model_copy(update={"artifact_digest": "sha256:" + "b" * 64})
+
+    async def query(_arguments):
+        return {"count": 1}
+
+    with pytest.raises(ValueError, match="does not match release"):
+        OntologyFunctionRegistry(release=release).register(substituted, query)
+
+    registry = OntologyFunctionRegistry(release=release)
+    registry.register(declaration, query)
+    declaration.input_schema["type"] = "array"
+    returned = registry.declaration(declaration.name)
+    returned.input_schema["type"] = "string"
+
+    assert registry.declaration(declaration.name).input_schema == {"type": "object"}
+
+
+async def test_function_registry_requires_isolation_for_network_or_credentials() -> None:
+    declaration = OntologyFunctionType(
+        name="query.remote",
+        version="1.0.0",
+        kind=OntologyFunctionKind.QUERY,
+        artifact_digest="sha256:" + "a" * 64,
+        publisher="fdai",
+        input_schema={"type": "object"},
+        output_schema={"type": "object"},
+        network_allowed=True,
+        credentials_allowed=True,
+    )
+    registry = OntologyFunctionRegistry(
+        release=build_ontology_release(function_types=(declaration,))
+    )
+
+    async def query(_arguments):
+        return {}
+
+    with pytest.raises(ValueError, match="isolated runner"):
+        registry.register(declaration, query)
+
+
+async def test_function_registry_enforces_wall_timeout_and_canonical_output_bytes() -> None:
+    timeout_declaration = OntologyFunctionType(
+        name="query.slow",
+        version="1.0.0",
+        kind=OntologyFunctionKind.QUERY,
+        artifact_digest="sha256:" + "a" * 64,
+        publisher="fdai",
+        input_schema={"type": "object"},
+        output_schema={"type": "object"},
+        timeout_seconds=1,
+    )
+    output_declaration = timeout_declaration.model_copy(
+        update={
+            "name": "query.large",
+            "artifact_digest": "sha256:" + "b" * 64,
+            "max_output_bytes": 16,
+        }
+    )
+    registry = OntologyFunctionRegistry(
+        release=build_ontology_release(function_types=(timeout_declaration, output_declaration))
+    )
+
+    async def slow(_arguments):
+        await asyncio.sleep(60)
+        return {}
+
+    async def large(_arguments):
+        return {"value": "x" * 64}
+
+    registry.register(timeout_declaration, slow)
+    registry.register(output_declaration, large)
+
+    with pytest.raises(TimeoutError, match="wall timeout"):
+        await registry.invoke(timeout_declaration.name, {})
+    with pytest.raises(ValueError, match="max_output_bytes"):
+        await registry.invoke(output_declaration.name, {})
+
+
+def test_function_invocation_context_deduplicates_and_bounds_metadata() -> None:
+    context = FunctionInvocationContext(
+        caller_agent="Bragi",
+        purposes=("operations-review", "operations-review"),
+        evidence_refs=("evidence:1", "evidence:1"),
+    )
+
+    assert context.purposes == ("operations-review",)
+    assert context.evidence_refs == ("evidence:1",)
+    with pytest.raises(ValueError, match="purposes exceeds 16"):
+        FunctionInvocationContext(
+            caller_agent="Bragi",
+            purposes=tuple(f"purpose-{index}" for index in range(17)),
+        )
+    with pytest.raises(ValueError, match="evidence_refs exceeds 64"):
+        FunctionInvocationContext(
+            caller_agent="Bragi",
+            evidence_refs=tuple(f"evidence:{index}" for index in range(65)),
         )
 
 

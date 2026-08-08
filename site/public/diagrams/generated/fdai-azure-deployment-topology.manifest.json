@@ -1,5 +1,6 @@
 {
   "id": "fdai-azure-deployment-topology",
+  "kind": "deployment",
   "version": 1,
   "updated": "2026-08-02",
   "locales": {

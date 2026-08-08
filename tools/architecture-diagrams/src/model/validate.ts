@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
 
+import { diagramDefinition } from "./definitions.js";
 import type { DiagramSpec } from "./types.js";
 
 const schemaPath = fileURLToPath(
@@ -37,12 +38,76 @@ function findDuplicate(values: string[]): string | undefined {
   });
 }
 
+function validateGantt(spec: DiagramSpec): void {
+  const nodeIds = new Set(spec.nodes.map((node) => node.id));
+  const temporalTypes = new Set<string>();
+  for (const node of spec.nodes) {
+    if (node.start === undefined && !node.after) {
+      throw new Error(`Gantt task '${node.id}' requires 'start' or 'after'`);
+    }
+    if (node.end === undefined && node.duration === undefined) {
+      throw new Error(`Gantt task '${node.id}' requires 'end' or 'duration'`);
+    }
+    if (node.after && (!nodeIds.has(node.after) || node.after === node.id)) {
+      throw new Error(`Gantt task '${node.id}' has invalid dependency '${node.after}'`);
+    }
+    for (const value of [node.start, node.end]) {
+      if (value !== undefined) temporalTypes.add(typeof value);
+    }
+  }
+  if (temporalTypes.size > 1) {
+    throw new Error("Gantt tasks cannot mix numeric and date axes");
+  }
+}
+
+function validateSpecializedDiagram(spec: DiagramSpec): void {
+  if (spec.kind === "pie") {
+    if (spec.nodes.length < 2 || spec.nodes.some((node) => !node.value)) {
+      throw new Error("Pie diagrams require at least two positive node values");
+    }
+  }
+  if (spec.kind === "radar") {
+    if (spec.nodes.length < 3 || spec.nodes.some((node) => node.value === undefined)) {
+      throw new Error("Radar diagrams require at least three node values");
+    }
+  }
+  if (["quadrant", "xy-chart", "venn", "wardley"].includes(spec.kind)) {
+    if (spec.nodes.some((node) => node.xValue === undefined || node.yValue === undefined)) {
+      throw new Error(`Diagram kind '${spec.kind}' requires xValue and yValue on every node`);
+    }
+  }
+  if (spec.kind === "sankey" && spec.edges.some((edge) => edge.weight === undefined)) {
+    throw new Error("Sankey diagrams require weight on every edge");
+  }
+}
+
 export function validateDiagram(value: unknown): DiagramSpec {
   if (!validateSchema(value)) {
     throw new Error(`Diagram schema validation failed: ${formatSchemaErrors(validateSchema.errors)}`);
   }
 
   const spec = value as DiagramSpec;
+  if (spec.kind === "gantt") validateGantt(spec);
+  validateSpecializedDiagram(spec);
+  const definition = diagramDefinition(spec.kind);
+  if (
+    definition.requiredEdgeKind &&
+    !spec.edges.some((edge) => edge.kind === definition.requiredEdgeKind)
+  ) {
+    throw new Error(
+      `Diagram kind '${spec.kind}' requires an edge of kind '${definition.requiredEdgeKind}'`,
+    );
+  }
+  if (
+    definition.requiredGroupPresentation &&
+    !spec.groups.some(
+      (group) => group.presentation === definition.requiredGroupPresentation,
+    )
+  ) {
+    throw new Error(
+      `Diagram kind '${spec.kind}' requires a '${definition.requiredGroupPresentation}' group`,
+    );
+  }
   const elementIds = [...spec.groups.map((group) => group.id), ...spec.nodes.map((node) => node.id)];
   const duplicateElement = findDuplicate(elementIds);
   if (duplicateElement) {

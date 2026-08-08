@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 01b757a7b35af223af7a15a3e209b0bb7451d79e
+translation_source_sha: 5a564a058d5745f07a4954585783cd408921c98d
 translation_revised: 2026-08-08
 ---
 # 코드 맵
@@ -102,7 +102,7 @@ shared 패키지를 커버한다.
 | capability_catalog | Typed binding, optional reasoning-tool metadata, provider, disabled-first extension lifecycle을 갖춘 additive capability package | [src/fdai/core/capability_catalog/](../../../src/fdai/core/capability_catalog/) | [tests/core/capability_catalog/](../../../tests/core/capability_catalog/) |
 | licensing | 이미지로 전달되는 distribution을 위한 서명된 capability entitlement: crypto-free token contract, available 축 전용 해석, 안전 저하 ([design](../fork-and-sequencing/capability-licensing-ko.md)) | [src/fdai/core/licensing/](../../../src/fdai/core/licensing/) | [tests/core/licensing/](../../../tests/core/licensing/)와 [tests/scripts/test_issue_license.py](../../../tests/scripts/test_issue_license.py) |
 | ontology_explorer | 로드된 ObjectType / LinkType 카탈로그의 결정론적 Mermaid 렌더러 (단일 모듈, 패키지 아님) | [src/fdai/core/ontology_explorer.py](../../../src/fdai/core/ontology_explorer.py) | [tests/core/](../../../tests/core/) |
-| ontology_platform | Exact release, semantic interface, bounded ObjectSet, mutation planning, typed function, projection/reconciliation, coverage를 보고하는 provider 관측 inventory topology projection, proposal-only SDK generation | [src/fdai/core/ontology_platform/](../../../src/fdai/core/ontology_platform/) | [tests/core/ontology_platform/](../../../tests/core/ontology_platform/) |
+| ontology_platform | Exact release, semantic interface, direct query와 traversal에서 canonical typed predicate, backend-consistent limit, typed completeness receipt를 적용하는 bounded ObjectSet, mutation planning, typed function, projection/reconciliation, coverage를 보고하는 provider 관측 inventory topology projection, proposal-only SDK generation | [src/fdai/core/ontology_platform/](../../../src/fdai/core/ontology_platform/) | [tests/core/ontology_platform/](../../../tests/core/ontology_platform/) |
 
 Provider 전체 Azure discovery, 정제된 reproduction command 및 명시적 coverage receipt는
 [Azure Resource Discovery Command Coverage](../interfaces/azure-resource-discovery-commands-ko.md)의

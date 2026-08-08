@@ -44,6 +44,40 @@ npm --prefix tools/architecture-diagrams run check
 `render` writes both generated output trees. `check` compiles in memory and
 fails when a committed artifact is missing or stale.
 
+## Diagram kinds
+
+Use `kind` to select a validated layout strategy rather than treating it as a
+descriptive tag. Existing Azure topology kinds remain supported, while logical
+and behavioral diagrams use the same bilingual compiler and viewer.
+
+| Family | Kinds | Strategy or required primitive |
+|--------|-------|--------------------------------|
+| Architecture | `context`, `container`, `component`, `deployment`, `network`, `architecture`, `c4-context`, `c4-container`, `c4-component`, `c4-deployment` | Layered compound graph with optional deployment hierarchy |
+| Flow | `data-flow`, `flowchart`, `graph`, `conceptual-flow` | Layered semantic flow with optional conceptual profile |
+| Interaction | `sequence`, `railroad` | Ordered interaction path |
+| Process | `swimlane`, `user-journey`, `kanban`, `block`, `cynefin` | Lane or grid layout |
+| State and decisions | `state`, `decision-tree`, `requirement` | Transition, tree, or dependency layout |
+| Semantic models | `domain`, `entity-relationship`, `class-diagram`, `mindmap`, `ishikawa`, `tree-view` | Association or tree layout |
+| Time | `timeline`, `gantt`, `git-graph`, `event-modeling` | Timeline or scaled task bars |
+| Coordinates | `quadrant`, `xy-chart`, `wardley`, `venn` | `xValue`, `yValue`, and optional `size` |
+| Radial charts | `pie`, `radar` | Positive `value` fields and radial geometry |
+| Weighted and partitioned | `sankey`, `packet` | Edge `weight` or node `value` |
+
+Kind-specific requirements fail during validation. This prevents a nominal
+sequence diagram with no interactions or a swimlane diagram with no lanes from
+silently rendering as an unrelated generic graph.
+
+Chart-oriented kinds use data fields in addition to the common node contract:
+
+- Gantt tasks use `start` or `after` plus `end` or `duration`. Optional
+  `status` and `progress` drive bar presentation and viewer details.
+- Pie and radar nodes use `value`. Pie nodes use `shape: pie-slice`.
+- Quadrant, XY, Wardley, and Venn nodes use `xValue` and `yValue` on a
+  normalized 0-100 axis. `size` controls the rendered marker.
+- Block, packet, Kanban, and Cynefin layouts may set `row` and `column`.
+- Sankey connectors set `weight`; the renderer scales stroke width without
+  changing the edge's semantic kind.
+
 ## Authoring contract
 
 Each `.diagram.yaml` file contains:
@@ -66,6 +100,53 @@ Each `.diagram.yaml` file contains:
 SVG is the mandatory canonical format. Diagrams default to SVG and PNG for
 backward compatibility, and can set `formats: [svg]` when no raster consumer
 exists.
+
+### Conceptual architecture
+
+Set `canvas.profile: conceptual` for architecture flows such as
+`docs/diagrams/fdai-conceptual-control-loop.diagram.yaml`. Keep domain meaning
+in `kind`, and use presentation fields only for visual communication:
+
+- Use `shape` for `card`, `diamond`, `terminator`, `database`, `document`, or
+  `circle` geometry.
+- Use `tone` for semantic color roles such as `input`, `model`, `policy`,
+  `decision`, `execution`, `feedback`, or `store`.
+- Use `content` for localized bullet text inside a node and `badge` for a
+  numbered stage.
+- Use `presentation: lane`, `sidebar`, `feedback`, or `datastore` for logical
+  group surfaces.
+- Use a tone legend for colored stages and an edge legend for connector
+  semantics.
+
+```yaml
+kind: conceptual-flow
+canvas:
+  width: 1600
+  height: 900
+  direction: RIGHT
+  rootLayout: column
+  profile: conceptual
+groups:
+  - id: governed-flow
+    kind: layer
+    presentation: lane
+    layout: row
+    label: { en: Governed flow, ko: 통제된 흐름 }
+nodes:
+  - id: policy
+    parent: governed-flow
+    kind: decision
+    shape: diamond
+    tone: policy
+    badge: 1
+    label: { en: Policy decision, ko: 정책 결정 }
+    content:
+      - { en: "Allow, deny, or hold", ko: "허용, 거부 또는 보류" }
+edges: []
+legend:
+  - tone: policy
+    label: { en: Policy judgment, ko: 정책 판단 }
+```
 
 Deployment diagrams can opt into `canvas.profile: azure-reference` for a compact,
 icon-forward Azure reference style. In that profile, use semantic presentation
@@ -99,7 +180,9 @@ Individual cross-layer edges can opt into an explicit route; compilation rejects
 a route when it crosses an unrelated node. All other edges retain ELK routing
 and bounded corner rounding. Use `orthogonal-shortest` for an obstacle-aware
 one-bend connection that falls back to the standard orthogonal route when both
-L-shaped candidates are blocked.
+L-shaped candidates are blocked. Use `orthogonal-outer` when a connection must
+leave its source band before following a right-side corridor across stacked
+bands.
 
 The validator rejects unknown keys, duplicate ids, missing locales, unknown
 parents, edges that reference missing elements, and port references that don't
