@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 56e79a9466f1efa6ed87f599659262ac9f4997ce
+translation_source_sha: c44824425ba2240f4424c452e0fed768cda1b666
 translation_revised: 2026-08-09
 ---
 # 서비스 분해 실행 계획
@@ -162,8 +162,8 @@ entry point, duplicate contract와 generic ingestion co-host seam은 제거되�
 root 5개, cross-service implementation import 0, 그리고 독립 critique-and-hardening 28회와 Medium 이상
 로컬 residual 0이 포함됩니다. IS-06과 IS-07은 local 기준으로 완료됐습니다. Exact remote
 plan/apply와 rolling 확인은 IS-09로 보류하며 최종 service-owned
-input을 사용하고 monolith를 rollback source로 복원하지 않습니다. IS-07은 Git history의 distribution
-`0.1.0`을 N-1, distribution `0.1.1`을 N으로 고정하고 기존 contract-set `1.0.0`/`1.1.0` matrix를 유지합니다.
+input을 사용하고 monolith를 rollback source로 복원하지 않습니다. IS-09는 수정된 distribution
+`0.1.1` image를 N-1, distribution `0.1.2`를 N으로 고정하고 기존 contract-set `1.0.0`/`1.1.0` matrix를 유지합니다.
 
 ## 병렬 실행 규칙
 

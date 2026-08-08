@@ -216,8 +216,8 @@ def _validate_program_final_verification(manifest: dict[str, Any]) -> None:
 def _validate_release_transition(manifest: dict[str, Any]) -> None:
     transition = manifest["release_transition"]
     if transition != {
-        "n_distribution_version": "0.1.1",
-        "n_minus_one_distribution_version": "0.1.0",
+        "n_distribution_version": "0.1.2",
+        "n_minus_one_distribution_version": "0.1.1",
         "n_minus_one_source_revision": transition.get("n_minus_one_source_revision"),
         "n_contract_set_version": "1.1.0",
         "n_minus_one_contract_set_version": "1.0.0",

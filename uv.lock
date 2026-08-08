@@ -871,7 +871,7 @@ requires-dist = [
 
 [[package]]
 name = "fdai-core-control-plane"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "services/core-control-plane" }
 dependencies = [
     { name = "aiokafka" },
@@ -912,7 +912,7 @@ requires-dist = [
 
 [[package]]
 name = "fdai-document-ingestion-api"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "services/document-ingestion-api" }
 dependencies = [
     { name = "aiokafka" },
@@ -945,7 +945,7 @@ requires-dist = [
 
 [[package]]
 name = "fdai-document-processing-worker"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "services/document-processing-worker" }
 dependencies = [
     { name = "aiokafka" },
@@ -1004,7 +1004,7 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "fdai-isolated-executor-service"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "services/isolated-executor" }
 dependencies = [
     { name = "aiokafka" },
@@ -1025,7 +1025,7 @@ requires-dist = [
 
 [[package]]
 name = "fdai-operator-service"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "services/operator-service" }
 dependencies = [
     { name = "fdai-service-contracts" },
