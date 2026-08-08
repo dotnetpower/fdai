@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import socket
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from functools import partial
 from typing import Final
 from uuid import UUID, uuid4
@@ -83,9 +83,9 @@ class DocumentIngestionEventConsumer:
         while True:
             try:
                 async for event in self._event_bus.subscribe(self._topic, self._group_id):
-                    if event.payload.get("kind") != "document_ingestion" or event.payload.get(
-                        "audited_topic"
-                    ) not in {"object.verdict", "object.approval"}:
+                    if not _is_document_candidate(
+                        event.payload, required_shape=("upload_id", "stage", "decision")
+                    ):
                         continue
                     try:
                         command = DocumentWorkerAuditEvent.model_validate(event.payload)
@@ -130,11 +130,8 @@ class DocumentIngestionEventConsumer:
                 async for event in self._event_bus.subscribe(
                     "object.context-index", "fdai-document-index-worker"
                 ):
-                    if (
-                        event.payload.get("producer_principal") != "Muninn"
-                        or event.payload.get("kind") != "document_ingestion"
-                        or event.payload.get("stage") != "indexing"
-                        or event.payload.get("command") != "index"
+                    if not _is_document_candidate(
+                        event.payload, required_shape=("upload_id", "stage", "command")
                     ):
                         continue
                     try:
@@ -166,11 +163,18 @@ class DocumentIngestionEventConsumer:
                 async for event in self._event_bus.subscribe(
                     "object.event", "fdai-document-deletion-worker"
                 ):
+                    if not _is_document_candidate(
+                        event.payload, required_shape=("deletion_request",)
+                    ):
+                        continue
                     if (
                         event.payload.get("producer_principal") != "Huginn"
                         or event.payload.get("kind") != "document_ingestion"
                         or event.payload.get("action") != "document.deletion_requested"
                     ):
+                        await self._dead_letter_invalid(
+                            event, reason="invalid_document_deletion_request"
+                        )
                         continue
                     raw_request = event.payload.get("deletion_request")
                     try:
@@ -442,3 +446,12 @@ class DocumentIngestionEventConsumer:
             if not task.done():
                 task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+
+
+def _is_document_candidate(
+    payload: Mapping[str, object], *, required_shape: tuple[str, ...]
+) -> bool:
+    """Treat document-shaped records as candidates before strict discriminator validation."""
+    return payload.get("kind") == "document_ingestion" or all(
+        field in payload for field in required_shape
+    )

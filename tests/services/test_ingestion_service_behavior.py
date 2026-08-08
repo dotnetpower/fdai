@@ -48,6 +48,7 @@ from fdai_service_contracts import (
     DocumentWorkerClaimConflictError,
     DocumentWorkerClaimStatus,
     DocumentWorkerStage,
+    EventEnvelope,
     IngestionCapabilities,
     JsonSchemaContractValidator,
     PackageResourceSchemaRegistry,
@@ -422,6 +423,31 @@ class RecordingEventBus:
         self.dead_letters.append((topic, key, payload, reason))
 
 
+class CandidateEventBus(RecordingEventBus):
+    def __init__(self, events: tuple[EventEnvelope, ...]) -> None:
+        super().__init__()
+        self._events = events
+        self.dead_lettered = asyncio.Event()
+
+    async def _events_iter(self) -> AsyncIterator[EventEnvelope]:
+        for event in self._events:
+            yield event
+        await asyncio.Event().wait()
+
+    def subscribe(self, _topic: str, _group_id: str) -> AsyncIterator[EventEnvelope]:
+        return self._events_iter()
+
+    async def dead_letter(
+        self,
+        topic: str,
+        key: str,
+        payload: Mapping[str, object],
+        reason: str,
+    ) -> None:
+        await super().dead_letter(topic, key, payload, reason)
+        self.dead_lettered.set()
+
+
 class FixedWorkerOutboxSink(WorkerDocumentActivitySink):
     def __init__(
         self,
@@ -554,6 +580,140 @@ async def test_api_outbox_dead_letters_poison_row_without_starving_valid_event()
         ),
     ]
     assert sink.marked == [poison_id, valid.event_id]
+
+
+@pytest.mark.asyncio
+async def test_audit_consumer_dlqs_malformed_document_candidate_and_ignores_unrelated() -> None:
+    upload_id = uuid4()
+    malformed = EventEnvelope(
+        topic="object.audit-entry",
+        key=str(upload_id),
+        payload={
+            "producer_principal": "Saga",
+            "audited_topic": "object.verdict",
+            "stage": "received",
+            "decision": "admit",
+            "upload_id": str(upload_id),
+        },
+        offset=10,
+    )
+    unrelated = EventEnvelope(
+        topic="object.audit-entry",
+        key="audit-2",
+        payload={"producer_principal": "Saga", "action": "audit.completed"},
+        offset=11,
+    )
+    event_bus = CandidateEventBus((malformed, unrelated))
+    consumer = DocumentIngestionEventConsumer(
+        event_bus=event_bus,
+        worker=object(),  # type: ignore[arg-type]
+        metadata=object(),  # type: ignore[arg-type]
+        activity=object(),  # type: ignore[arg-type]
+        topic="object.audit-entry",
+    )
+
+    task = asyncio.create_task(consumer.run())
+    await asyncio.wait_for(event_bus.dead_lettered.wait(), timeout=1)
+    await asyncio.sleep(0)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert event_bus.dead_letters == [
+        (
+            "object.audit-entry",
+            str(upload_id),
+            malformed.payload,
+            "invalid_document_worker_audit_event",
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_index_consumer_dlqs_document_candidate_missing_producer() -> None:
+    upload_id = uuid4()
+    malformed = EventEnvelope(
+        topic="object.context-index",
+        key=str(upload_id),
+        payload={
+            "kind": "document_ingestion",
+            "stage": "indexing",
+            "command": "index",
+            "upload_id": str(upload_id),
+        },
+        offset=12,
+    )
+    event_bus = CandidateEventBus((malformed,))
+    consumer = DocumentIngestionEventConsumer(
+        event_bus=event_bus,
+        worker=object(),  # type: ignore[arg-type]
+        metadata=object(),  # type: ignore[arg-type]
+        activity=object(),  # type: ignore[arg-type]
+        topic="object.audit-entry",
+    )
+
+    task = asyncio.create_task(consumer.run_index_commands())
+    await asyncio.wait_for(event_bus.dead_lettered.wait(), timeout=1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert event_bus.dead_letters == [
+        (
+            "object.context-index",
+            str(upload_id),
+            malformed.payload,
+            "invalid_document_worker_index_command",
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_deletion_consumer_dlqs_request_missing_outer_discriminators() -> None:
+    upload_id = uuid4()
+    request = DocumentDeletionRequest(
+        request_id=uuid4(),
+        idempotency_key="document.delete:version-1:2",
+        document_id=uuid4(),
+        version_id=uuid4(),
+        upload_id=upload_id,
+        requested_by="operator",
+        expected_upload_revision=2,
+        expected_version_revision=2,
+        requested_at=datetime.now(UTC),
+    )
+    malformed = EventEnvelope(
+        topic="object.event",
+        key=str(request.document_id),
+        payload={
+            "action": "document.deletion_requested",
+            "deletion_request": request.model_dump(mode="json"),
+        },
+        offset=13,
+    )
+    event_bus = CandidateEventBus((malformed,))
+    consumer = DocumentIngestionEventConsumer(
+        event_bus=event_bus,
+        worker=object(),  # type: ignore[arg-type]
+        metadata=object(),  # type: ignore[arg-type]
+        activity=object(),  # type: ignore[arg-type]
+        topic="object.audit-entry",
+    )
+
+    task = asyncio.create_task(consumer.run_deletion_requests())
+    await asyncio.wait_for(event_bus.dead_lettered.wait(), timeout=1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert event_bus.dead_letters == [
+        (
+            "object.event",
+            str(request.document_id),
+            malformed.payload,
+            "invalid_document_deletion_request",
+        )
+    ]
 
 
 class NoDeletion:
