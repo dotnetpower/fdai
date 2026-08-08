@@ -537,6 +537,7 @@ async def test_kafka_consumer_dead_letters_decode_error_before_committing_offset
         )
     ]
     assert consumer.commits == 1
+    assert bus.consumer_group_decode_dlq_count("object.event", "document-worker") == 1
 
 
 async def test_kafka_consumer_readiness_requires_current_group_ownership(
@@ -596,6 +597,7 @@ async def test_kafka_consumer_does_not_commit_when_decode_dlq_fails(
     consumer = FakeKafkaConsumer.latest
     assert consumer is not None
     assert consumer.commits == 0
+    assert bus.consumer_group_decode_dlq_count("object.event", "document-worker") == 0
 
 
 async def test_unconfigured_ocr_is_explicitly_unavailable_and_fails_closed() -> None:

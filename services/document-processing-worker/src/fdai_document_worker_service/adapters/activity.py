@@ -25,6 +25,16 @@ class PostgresDocumentActivitySink:
         self._dsn = dsn
         self._event_bus = event_bus
         self._event_topic = event_topic
+        self._dlq_count = 0
+        self._dlq_failure_count = 0
+
+    def outbox_dlq_count(self) -> int:
+        """Return poison outbox rows successfully written to the DLQ."""
+        return self._dlq_count
+
+    def outbox_dlq_failure_count(self) -> int:
+        """Return failed poison outbox DLQ writes retained for retry."""
+        return self._dlq_failure_count
 
     async def drain(self, *, limit: int = 100) -> int:
         """Publish claimed outbox rows and preserve failed rows for retry."""
@@ -44,6 +54,7 @@ class PostgresDocumentActivitySink:
                         "invalid_document_worker_outbox_event",
                     )
                 except Exception as exc:  # noqa: BLE001 - preserve row until DLQ succeeds
+                    self._dlq_failure_count += 1
                     _LOGGER.warning(
                         "document_worker_outbox_dead_letter_failed",
                         extra={
@@ -52,6 +63,7 @@ class PostgresDocumentActivitySink:
                         },
                     )
                     continue
+                self._dlq_count += 1
                 await self._mark_published(row["event_id"])
                 continue
             try:

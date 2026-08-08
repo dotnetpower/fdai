@@ -32,6 +32,7 @@ class _ConsumerGroupHealth:
     owners: int = 0
     last_success: float | None = None
     failure: str | None = None
+    decode_dlq_count: int = 0
 
 
 class _ManagedIdentityTokenProvider(AbstractTokenProvider):  # type: ignore[misc]
@@ -123,6 +124,11 @@ class EventHubsKafkaBus:
             and state.last_success is not None
             and self._monotonic() - state.last_success <= freshness_seconds
         )
+
+    def consumer_group_decode_dlq_count(self, topic: str, group_id: str) -> int:
+        """Return successful adapter decode dead-letter writes for one consumer group."""
+        state = self._consumer_groups.get((topic, group_id))
+        return state.decode_dlq_count if state is not None else 0
 
     async def dead_letter(
         self,
@@ -227,6 +233,7 @@ class EventHubsKafkaBus:
                             {"source_offset": message.offset},
                             "invalid_event_payload",
                         )
+                        self._consumer_decode_dead_lettered(topic, group_id)
                         await consumer.commit()
                         self._consumer_succeeded(topic, group_id)
                         continue
@@ -263,6 +270,10 @@ class EventHubsKafkaBus:
     def _consumer_failed(self, topic: str, group_id: str, exc: Exception) -> None:
         state = self._consumer_groups.setdefault((topic, group_id), _ConsumerGroupHealth())
         state.failure = type(exc).__name__
+
+    def _consumer_decode_dead_lettered(self, topic: str, group_id: str) -> None:
+        state = self._consumer_groups.setdefault((topic, group_id), _ConsumerGroupHealth())
+        state.decode_dlq_count += 1
 
     def _consumer_stopped(self, topic: str, group_id: str) -> None:
         state = self._consumer_groups.setdefault((topic, group_id), _ConsumerGroupHealth())
@@ -306,6 +317,15 @@ class MultiplexedEventBus:
             self.physical_topic,
             _logical_group_id(topic, group_id),
             freshness_seconds=freshness_seconds,
+        )
+
+    def consumer_group_decode_dlq_count(self, topic: str, group_id: str) -> int:
+        """Resolve logical routing before reading adapter decode DLQ metrics."""
+        if topic not in self.logical_topics:
+            return self.bus.consumer_group_decode_dlq_count(topic, group_id)
+        return self.bus.consumer_group_decode_dlq_count(
+            self.physical_topic,
+            _logical_group_id(topic, group_id),
         )
 
     async def _subscribe(self, topic: str, group_id: str) -> AsyncIterator[EventEnvelope]:

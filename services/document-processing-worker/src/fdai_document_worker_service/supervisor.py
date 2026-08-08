@@ -43,6 +43,7 @@ class IngestionWorkerSupervisor:
         health_port: int,
         readiness_interval_seconds: float = 5.0,
         readiness_freshness_seconds: float = 15.0,
+        status_interval_seconds: float = 30.0,
         monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         if not 1 <= health_port <= 65_535:
@@ -51,10 +52,13 @@ class IngestionWorkerSupervisor:
             raise ValueError("worker readiness interval MUST be positive")
         if readiness_freshness_seconds < readiness_interval_seconds:
             raise ValueError("worker readiness freshness MUST cover at least one probe interval")
+        if status_interval_seconds <= 0:
+            raise ValueError("worker status interval MUST be positive")
         self._runtime = runtime
         self._health_port = health_port
         self._readiness_interval_seconds = readiness_interval_seconds
         self._readiness_freshness_seconds = readiness_freshness_seconds
+        self._status_interval_seconds = status_interval_seconds
         self._monotonic = monotonic
         self._ready = False
         self._last_dependency_success: float | None = None
@@ -91,7 +95,11 @@ class IngestionWorkerSupervisor:
         }
 
     async def run(self, *, stop: asyncio.Event | None = None) -> int:
-        health = RuntimeHealthServer(port=self._health_port, readiness=lambda: self.ready)
+        health = RuntimeHealthServer(
+            port=self._health_port,
+            readiness=lambda: self.ready,
+            status=self.status,
+        )
         tasks: tuple[asyncio.Task[None], ...] = ()
         stop_task: asyncio.Task[bool] | None = None
         failure: BaseException | None = None
@@ -122,6 +130,10 @@ class IngestionWorkerSupervisor:
                 asyncio.create_task(
                     self._monitor_dependencies(),
                     name="document-dependency-readiness",
+                ),
+                asyncio.create_task(
+                    self._report_status(),
+                    name="document-status-reporter",
                 ),
             )
             self._loop_tasks = tasks
@@ -167,6 +179,12 @@ class IngestionWorkerSupervisor:
             for check in self._runtime.startup_checks:
                 await check()
             self._last_dependency_success = self._monotonic()
+
+    async def _report_status(self) -> None:
+        """Periodically emit the same bounded snapshot served by the status endpoint."""
+        while True:
+            _LOGGER.info("ingestion_worker_status", extra={"worker_status": self.status()})
+            await asyncio.sleep(self._status_interval_seconds)
 
 
 def _install_shutdown_signals() -> asyncio.Event:

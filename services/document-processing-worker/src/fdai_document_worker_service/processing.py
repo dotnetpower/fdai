@@ -371,7 +371,29 @@ class DocumentIngestionWorker:
         if (
             session.document_id != request.document_id
             or session.version_id != request.version_id
-            or session.state is not DocumentState.DELETING
+            or version.upload_id != request.upload_id
+        ):
+            raise DocumentLifecycleConflictError("stale document deletion request")
+        if (
+            session.state is DocumentState.DELETED
+            and version.state is DocumentState.DELETED
+            and session.revision == request.expected_upload_revision + 1
+            and version.revision == request.expected_version_revision + 1
+        ):
+            effect = await self._metadata.get_worker_effect(
+                request.upload_id, WorkerEffectKind.DELETION_CLEANUP
+            )
+            if (
+                effect is not None
+                and effect.status is WorkerEffectStatus.COMPLETED
+                and effect.document_id == request.document_id
+                and effect.version_id == request.version_id
+                and effect.object_key == session.object_key
+            ):
+                await self._assert_active_claim(request.upload_id, claim)
+                return version
+        if (
+            session.state is not DocumentState.DELETING
             or version.state is not DocumentState.DELETING
             or session.revision != request.expected_upload_revision
             or version.revision != request.expected_version_revision

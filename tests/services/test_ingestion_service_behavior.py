@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
+import logging
 from collections.abc import AsyncIterator, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
@@ -19,6 +21,7 @@ from fdai_document_worker_service.effects import (
     WorkerEffectStatus,
     worker_effect_id,
 )
+from fdai_document_worker_service.health import RuntimeHealthServer
 from fdai_document_worker_service.processing import DocumentIngestionWorker
 from fdai_document_worker_service.production import (
     ProductionConfigurationError as WorkerProductionConfigurationError,
@@ -989,6 +992,71 @@ async def test_deletion_effect_reconciles_partial_cleanup_and_closes_state() -> 
     assert metadata.effects[effect.effect_id].status is WorkerEffectStatus.COMPLETED
 
 
+@pytest.mark.asyncio
+async def test_deletion_effect_reconciliation_failure_marks_cycle_unhealthy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    metadata, session, version = await _effect_fixture(
+        state=DocumentState.DELETING,
+        storage_mode=SourceStorageMode.MANAGED_COPY,
+        object_key="quarantine/reconcile-failure",
+    )
+    claim = await metadata.claim_worker_stage(
+        session.upload_id,
+        DocumentWorkerStage.DELETION,
+        owner="deletion-worker",
+        attempt_id=uuid4(),
+        lease_seconds=30,
+    )
+    assert claim is not None
+    await metadata.prepare_worker_effect(
+        claim=claim,
+        kind=WorkerEffectKind.DELETION_CLEANUP,
+        document_id=version.document_id,
+        version_id=version.version_id,
+        object_key=session.object_key,
+    )
+    await metadata.release_worker_stage(
+        session.upload_id,
+        DocumentWorkerStage.DELETION,
+        owner=claim.owner,
+        attempt_id=claim.attempt_id,
+        expected_revision=claim.revision,
+    )
+
+    class FailingDeletionWorker:
+        async def reconcile_deletion_effect(self, *_args: object, **_kwargs: object) -> None:
+            raise RuntimeError("injected deletion reconciliation failure")
+
+        async def unused(self, *_args: object, **_kwargs: object) -> None:
+            return None
+
+        inspect = unused
+        index = unused
+        republish_received = unused
+        republish_inspection = unused
+
+    consumer = DocumentIngestionEventConsumer(
+        event_bus=object(),  # type: ignore[arg-type]
+        worker=FailingDeletionWorker(),  # type: ignore[arg-type]
+        metadata=metadata,
+        activity=object(),  # type: ignore[arg-type]
+        topic="object.audit-entry",
+    )
+
+    async def stop_after_cycle(_delay: float) -> None:
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(
+        "fdai_document_worker_service.consumer.asyncio.sleep",
+        stop_after_cycle,
+    )
+    with pytest.raises(asyncio.CancelledError):
+        await consumer.reconcile()
+
+    assert consumer.status()["loop_failures"] == {"reconcile": "RuntimeError"}
+
+
 class FailingGrantObjects(MemoryObjects):
     def __init__(self) -> None:
         super().__init__()
@@ -1013,6 +1081,14 @@ class Activity:
 
     async def drain(self, *, limit: int = 100) -> int:
         return 0
+
+
+class MetricActivity(Activity):
+    def outbox_dlq_count(self) -> int:
+        return 4
+
+    def outbox_dlq_failure_count(self) -> int:
+        return 1
 
 
 class RecordingEventBus:
@@ -1044,6 +1120,11 @@ class ReadyConsumerEventBus(RecordingEventBus):
         return freshness_seconds > 0
 
 
+class MetricReadyConsumerEventBus(ReadyConsumerEventBus):
+    def consumer_group_decode_dlq_count(self, _topic: str, group_id: str) -> int:
+        return 2 if group_id == "fdai-document-audit-gated-worker" else 0
+
+
 class CandidateEventBus(RecordingEventBus):
     def __init__(self, events: tuple[EventEnvelope, ...]) -> None:
         super().__init__()
@@ -1067,6 +1148,21 @@ class CandidateEventBus(RecordingEventBus):
     ) -> None:
         await super().dead_letter(topic, key, payload, reason)
         self.dead_lettered.set()
+
+
+class CommitTrackingCandidateEventBus(CandidateEventBus):
+    def __init__(self, events: tuple[EventEnvelope, ...]) -> None:
+        super().__init__(events)
+        self.committed_offsets: list[int] = []
+        self.committed = asyncio.Event()
+
+    async def _events_iter(self) -> AsyncIterator[EventEnvelope]:
+        for event in self._events:
+            yield event
+            if event.offset is not None:
+                self.committed_offsets.append(event.offset)
+            self.committed.set()
+        await asyncio.Event().wait()
 
 
 class FixedWorkerOutboxSink(WorkerDocumentActivitySink):
@@ -1151,6 +1247,39 @@ async def test_worker_outbox_uses_configured_transport_for_valid_and_poison_rows
         )
     ]
     assert sink.marked == [poison_id, valid.event_id]
+    assert sink.outbox_dlq_count() == 1
+    assert sink.outbox_dlq_failure_count() == 0
+
+
+@pytest.mark.asyncio
+async def test_worker_outbox_records_failed_dlq_write_and_preserves_poison_row() -> None:
+    class FailingDlqEventBus(RecordingEventBus):
+        async def dead_letter(
+            self,
+            _topic: str,
+            _key: str,
+            _payload: Mapping[str, object],
+            _reason: str,
+        ) -> None:
+            raise RuntimeError("DLQ unavailable")
+
+    poison_id = uuid4()
+    sink = FixedWorkerOutboxSink(
+        rows=[
+            {
+                "event_id": poison_id,
+                "topic": "object.event",
+                "partition_key": "document-1",
+                "payload": {"invalid": True},
+            }
+        ],
+        event_bus=FailingDlqEventBus(),
+    )
+
+    assert await sink.drain() == 0
+    assert sink.marked == []
+    assert sink.outbox_dlq_count() == 0
+    assert sink.outbox_dlq_failure_count() == 1
 
 
 @pytest.mark.asyncio
@@ -1229,7 +1358,7 @@ async def test_audit_consumer_dlqs_malformed_document_candidate_and_ignores_unre
         event_bus=event_bus,
         worker=object(),  # type: ignore[arg-type]
         metadata=object(),  # type: ignore[arg-type]
-        activity=object(),  # type: ignore[arg-type]
+        activity=MetricActivity(),
         topic="object.audit-entry",
     )
 
@@ -1335,6 +1464,94 @@ async def test_deletion_consumer_dlqs_request_missing_outer_discriminators() -> 
             "invalid_document_deletion_request",
         )
     ]
+
+
+@pytest.mark.asyncio
+async def test_completed_deletion_redelivery_completes_claim_and_commits_offset() -> None:
+    metadata, session, version = await _effect_fixture(
+        state=DocumentState.DELETING,
+        storage_mode=SourceStorageMode.MANAGED_COPY,
+        object_key="quarantine/completed-deletion",
+    )
+    objects = MemoryObjects()
+    objects.content[session.object_key] = b"hello"
+    artifacts = ArtifactRecorder()
+    index = IndexRecorder()
+    worker = DocumentIngestionWorker(
+        metadata=metadata,
+        objects=objects,
+        malware=object(),  # type: ignore[arg-type]
+        protection=object(),  # type: ignore[arg-type]
+        extractor=object(),  # type: ignore[arg-type]
+        artifacts=artifacts,
+        index=index,
+    )
+    initial_claim = await metadata.claim_worker_stage(
+        session.upload_id,
+        DocumentWorkerStage.DELETION,
+        owner="worker-before-restart",
+        attempt_id=uuid4(),
+        lease_seconds=30,
+    )
+    assert initial_claim is not None
+    request = DocumentDeletionRequest(
+        request_id=uuid4(),
+        idempotency_key="document.delete:completed-redelivery",
+        document_id=version.document_id,
+        version_id=version.version_id,
+        upload_id=session.upload_id,
+        requested_by="operator",
+        expected_upload_revision=session.revision,
+        expected_version_revision=version.revision,
+        requested_at=datetime.now(UTC),
+    )
+    await worker.apply_deletion_request(request, lambda: initial_claim)
+    await metadata.release_worker_stage(
+        session.upload_id,
+        DocumentWorkerStage.DELETION,
+        owner=initial_claim.owner,
+        attempt_id=initial_claim.attempt_id,
+        expected_revision=initial_claim.revision,
+    )
+    event = EventEnvelope(
+        topic="object.event",
+        key=str(request.document_id),
+        payload={
+            "producer_principal": "Huginn",
+            "kind": "document_ingestion",
+            "action": "document.deletion_requested",
+            "deletion_request": request.model_dump(mode="json"),
+        },
+        offset=17,
+    )
+    event_bus = CommitTrackingCandidateEventBus((event,))
+    consumer = DocumentIngestionEventConsumer(
+        event_bus=event_bus,
+        worker=worker,
+        metadata=metadata,
+        activity=Activity(),
+        topic="object.audit-entry",
+        retry_seconds=0.01,
+        worker_owner="worker-after-restart",
+        lease_seconds=30,
+    )
+
+    task = asyncio.create_task(consumer.run_deletion_requests())
+    await asyncio.wait_for(event_bus.committed.wait(), timeout=1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert event_bus.committed_offsets == [17]
+    assert metadata.uploads[session.upload_id].state is DocumentState.DELETED
+    assert metadata.versions[(version.document_id, version.version_id)].state is (
+        DocumentState.DELETED
+    )
+    assert metadata.claims[(session.upload_id, DocumentWorkerStage.DELETION)].status is (
+        DocumentWorkerClaimStatus.COMPLETED
+    )
+    assert index.deleted == [(version.document_id, version.version_id)]
+    assert artifacts.deleted == [(version.document_id, version.version_id)]
 
 
 @pytest.mark.asyncio
@@ -2065,7 +2282,8 @@ async def test_worker_readiness_fails_when_consumer_reports_failure(
     assert isinstance(dependency_age, float)
     assert 0.0 <= dependency_age <= 15.0
     assert status["worker"] == {"ready": True}
-    assert len(status["loops"]) == 6
+    assert len(status["loops"]) == 7
+    assert status["loops"]["document-status-reporter"] == {"running": True}
     assert all(loop["running"] is True for loop in status["loops"].values())
 
     failed = True
@@ -2103,10 +2321,10 @@ async def test_worker_status_separates_readiness_from_measured_consumer_signals(
             raise DocumentWorkerClaimConflictError("document worker claim conflict")
 
     consumer = DocumentIngestionEventConsumer(
-        event_bus=ReadyConsumerEventBus(),
+        event_bus=MetricReadyConsumerEventBus(),
         worker=object(),  # type: ignore[arg-type]
         metadata=ConflictMetadata(),  # type: ignore[arg-type]
-        activity=object(),  # type: ignore[arg-type]
+        activity=MetricActivity(),
         topic="object.audit-entry",
         monotonic=lambda: now,
     )
@@ -2132,10 +2350,15 @@ async def test_worker_status_separates_readiness_from_measured_consumer_signals(
     status = consumer.status()
 
     assert status["ready"] is True
-    assert status["dlq_count"] == 1
+    assert status["dlq_count"] == 7
+    assert status["validation_dlq_count"] == 1
+    assert status["adapter_decode_dlq_count"] == 2
+    assert status["outbox_dlq_count"] == 4
+    assert status["outbox_dlq_failure_count"] == 1
     assert status["ownership_conflict_count"] == 1
     assert status["consumers"]["audit"] == {
         "consumer_group": "fdai-document-audit-gated-worker",
+        "decode_dlq_count": 2,
         "lag": None,
         "lag_evidence": "unavailable",
         "last_observed_offset": 42,
@@ -2149,6 +2372,7 @@ async def test_worker_status_separates_readiness_from_measured_consumer_signals(
     }
     assert status["consumers"]["index"]["last_observed_offset"] is None
     assert status["consumers"]["index"]["offset_fresh"] is False
+    assert status["consumers"]["index"]["decode_dlq_count"] == 0
 
     now = 30.0
     stale = consumer.status()
@@ -2181,6 +2405,90 @@ async def test_worker_status_separates_readiness_from_measured_consumer_signals(
             unused_operation,
         )
     assert claim_conflict_consumer.status()["ownership_conflict_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_worker_health_status_is_bounded_operational_json() -> None:
+    class Writer:
+        def __init__(self) -> None:
+            self.response = bytearray()
+
+        def write(self, data: bytes) -> None:
+            self.response.extend(data)
+
+        async def drain(self) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+        async def wait_closed(self) -> None:
+            return None
+
+    snapshot = {
+        "ready": False,
+        "worker": {
+            "adapter_decode_dlq_count": 2,
+            "ownership_conflict_count": 1,
+            "loop_failures": {"reconcile": "RuntimeError"},
+        },
+    }
+    reader = asyncio.StreamReader()
+    reader.feed_data(b"GET /status HTTP/1.1\r\n")
+    reader.feed_eof()
+    writer = Writer()
+    server = RuntimeHealthServer(port=8000, status=lambda: snapshot)
+
+    await server._handle(reader, writer)  # type: ignore[arg-type]
+
+    headers, body = bytes(writer.response).split(b"\r\n\r\n", 1)
+    assert b"200 OK" in headers
+    assert json.loads(body) == snapshot
+
+    oversized_reader = asyncio.StreamReader()
+    oversized_reader.feed_data(b"GET /status HTTP/1.1\r\n")
+    oversized_reader.feed_eof()
+    oversized_writer = Writer()
+    oversized = RuntimeHealthServer(port=8000, status=lambda: {"value": "x" * 16_384})
+
+    await oversized._handle(oversized_reader, oversized_writer)  # type: ignore[arg-type]
+
+    headers, body = bytes(oversized_writer.response).split(b"\r\n\r\n", 1)
+    assert b"503 Service Unavailable" in headers
+    assert json.loads(body) == {"status": "unavailable"}
+
+
+@pytest.mark.asyncio
+async def test_worker_supervisor_periodically_logs_structured_status(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sleep_calls = 0
+
+    async def two_intervals(delay: float) -> None:
+        nonlocal sleep_calls
+        assert delay == 0.25
+        sleep_calls += 1
+        if sleep_calls == 2:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(
+        "fdai_document_worker_service.supervisor.asyncio.sleep",
+        two_intervals,
+    )
+    supervisor = IngestionWorkerSupervisor(
+        runtime=WorkerRuntime(),
+        health_port=8000,
+        status_interval_seconds=0.25,
+    )
+
+    with caplog.at_level(logging.INFO, logger="fdai.ingestion.worker"):
+        with pytest.raises(asyncio.CancelledError):
+            await supervisor._report_status()
+
+    records = [record for record in caplog.records if record.message == "ingestion_worker_status"]
+    assert len(records) == 2
+    assert all(record.worker_status["worker"] == {"ready": True} for record in records)
 
 
 @pytest.mark.asyncio

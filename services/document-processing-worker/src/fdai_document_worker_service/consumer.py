@@ -53,6 +53,17 @@ class _ConsumerGroupReadiness(Protocol):
     ) -> bool: ...
 
 
+@runtime_checkable
+class _ConsumerGroupMetrics(Protocol):
+    def consumer_group_decode_dlq_count(self, topic: str, group_id: str) -> int: ...
+
+
+@runtime_checkable
+class _OutboxMetrics(Protocol):
+    def outbox_dlq_count(self) -> int: ...
+    def outbox_dlq_failure_count(self) -> int: ...
+
+
 class DocumentIngestionEventConsumer:
     """Execute audited stages exactly once under renewable durable claims."""
 
@@ -145,11 +156,22 @@ class DocumentIngestionEventConsumer:
         readiness_provider = (
             self._event_bus if isinstance(self._event_bus, _ConsumerGroupReadiness) else None
         )
+        metrics_provider = (
+            self._event_bus if isinstance(self._event_bus, _ConsumerGroupMetrics) else None
+        )
+        outbox_metrics = self._activity if isinstance(self._activity, _OutboxMetrics) else None
         now = self._monotonic()
         consumers: dict[str, object] = {}
+        adapter_decode_dlq_count = 0
         for loop_name, topic, group_id in consumer_groups:
             observed = self._consumer_offsets.get(loop_name)
             offset_age = max(0.0, now - observed[1]) if observed is not None else None
+            decode_dlq_count = (
+                metrics_provider.consumer_group_decode_dlq_count(topic, group_id)
+                if metrics_provider is not None
+                else 0
+            )
+            adapter_decode_dlq_count += decode_dlq_count
             consumers[loop_name] = {
                 "topic": topic,
                 "consumer_group": group_id,
@@ -172,11 +194,20 @@ class DocumentIngestionEventConsumer:
                 "lag": None,
                 "lag_evidence": "unavailable",
                 "lag_fresh": False,
+                "decode_dlq_count": decode_dlq_count,
             }
+        outbox_dlq_count = outbox_metrics.outbox_dlq_count() if outbox_metrics else 0
+        outbox_dlq_failure_count = (
+            outbox_metrics.outbox_dlq_failure_count() if outbox_metrics else 0
+        )
         return {
             "ready": self.readiness(),
             "consumers": consumers,
-            "dlq_count": self._dlq_count,
+            "dlq_count": self._dlq_count + adapter_decode_dlq_count + outbox_dlq_count,
+            "validation_dlq_count": self._dlq_count,
+            "adapter_decode_dlq_count": adapter_decode_dlq_count,
+            "outbox_dlq_count": outbox_dlq_count,
+            "outbox_dlq_failure_count": outbox_dlq_failure_count,
             "ownership_conflict_count": self._ownership_conflict_count,
             "loop_failures": dict(sorted(self._loop_failures.items())),
         }
@@ -382,10 +413,13 @@ class DocumentIngestionEventConsumer:
         ):
             try:
                 if effect.kind is WorkerEffectKind.DELETION_CLEANUP:
-                    await self._run_reconcile(
-                        effect.upload_id,
-                        DocumentWorkerStage.DELETION,
-                        partial(self._worker.reconcile_deletion_effect, effect=effect),
+                    healthy = (
+                        await self._run_reconcile(
+                            effect.upload_id,
+                            DocumentWorkerStage.DELETION,
+                            partial(self._worker.reconcile_deletion_effect, effect=effect),
+                        )
+                        and healthy
                     )
                 else:
                     await self._worker.reconcile_effect(effect)

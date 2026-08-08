@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+import json
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from typing import Final
+
+_MAX_REQUEST_LINE_BYTES: Final[int] = 2_048
+_MAX_STATUS_BODY_BYTES: Final[int] = 16_384
 
 _OK = (
     b"HTTP/1.1 200 OK\r\n"
@@ -26,10 +31,24 @@ _NOT_FOUND = (
 )
 
 
+def _json_response(status: str, payload: Mapping[str, object]) -> bytes:
+    body = json.dumps(dict(payload), separators=(",", ":"), sort_keys=True).encode()
+    if len(body) > _MAX_STATUS_BODY_BYTES:
+        raise ValueError("worker status response exceeds the bounded payload size")
+    return (
+        f"HTTP/1.1 {status}\r\nContent-Type: application/json\r\n"
+        f"Content-Length: {len(body)}\r\nConnection: close\r\n\r\n"
+    ).encode() + body
+
+
+_STATUS_UNAVAILABLE = _json_response("503 Service Unavailable", {"status": "unavailable"})
+
+
 @dataclass(slots=True)
 class RuntimeHealthServer:
     port: int
     readiness: Callable[[], bool] = field(default=lambda: True, repr=False)
+    status: Callable[[], Mapping[str, object]] = field(default=dict, repr=False)
     _server: asyncio.Server | None = field(default=None, init=False, repr=False)
 
     async def start(self) -> None:
@@ -43,11 +62,17 @@ class RuntimeHealthServer:
 
     async def _handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         try:
-            parts = (await reader.readline()).split(b" ", 2)
+            line = await reader.readline()
+            parts = line.split(b" ", 2) if len(line) <= _MAX_REQUEST_LINE_BYTES else ()
             if len(parts) >= 2 and parts[0] == b"GET" and parts[1] == b"/live":
                 response = _OK
             elif len(parts) >= 2 and parts[0] == b"GET" and parts[1] == b"/ready":
                 response = _OK if self.readiness() else _NOT_READY
+            elif len(parts) >= 2 and parts[0] == b"GET" and parts[1] == b"/status":
+                try:
+                    response = _json_response("200 OK", self.status())
+                except (TypeError, ValueError):
+                    response = _STATUS_UNAVAILABLE
             else:
                 response = _NOT_FOUND
             writer.write(response)
