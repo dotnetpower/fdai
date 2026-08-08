@@ -1726,6 +1726,44 @@ def test_worker_recovery_snapshots_and_verifies_primary_and_clamav_contracts(
     )
 
 
+def test_initial_worker_cutover_snapshots_exact_empty_legacy_sidecar_probes(
+    recovery: ModuleType,
+) -> None:
+    context, _, account, app, revision = _worker_health_evidence()
+    context["deployment_mode"] = "initial-cutover"
+    revision["properties"]["template"]["containers"][1]["probes"] = []  # type: ignore[index]
+
+    snapshot = recovery.capture_snapshot(
+        context=context,
+        account=account,
+        app=app,
+        revision=revision,
+        rollback_contract={"authority_fallback": ""},
+    )
+
+    assert snapshot["legacy_sidecar_probe_rollback"] is True
+    assert snapshot["previous_containers"]["sidecars"]["clamav"]["probes"] == []
+    app["properties"]["latestRevisionName"] = "example--recovery"  # type: ignore[index]
+    revision["name"] = "example--recovery"
+    recovery.validate_rollback(
+        snapshot=snapshot,
+        account=account,
+        app=app,
+        revision=revision,
+    )
+
+    strict_context = copy.deepcopy(context)
+    strict_context["deployment_mode"] = "normal"
+    with pytest.raises(recovery.DeploymentRecoveryError, match="exact startup probes"):
+        recovery.capture_snapshot(
+            context=strict_context,
+            account=account,
+            app=app,
+            revision=revision,
+            rollback_contract={"authority_fallback": ""},
+        )
+
+
 def test_worker_health_rejects_unknown_sidecar(recovery: ModuleType) -> None:
     context, service_output, account, app, revision = _worker_health_evidence()
     revision["properties"]["template"]["containers"].append(  # type: ignore[index]

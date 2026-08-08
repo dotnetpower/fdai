@@ -392,7 +392,7 @@ ingestion CORS origins. Terraform then provisions:
 - `blob` and `dfs` private endpoints. The app VNet links to the endpoint zones; the ops runner
   resolves Blob through an A record in its existing central Blob zone, while the DFS zone links
   to both VNets. This avoids linking one VNet to duplicate zones with the same namespace;
-- a public ingestion API Container App and an internal worker app with replica-local ClamAV;
+- a public ingestion API Container App and an internal worker app with replica-local ClamAV; initial cutover may snapshot exact empty legacy sidecar probes only for rollback, while the new revision still requires all three strict probes;
 - a manual migration job that applies the document metadata and pgvector schema before traffic.
 
 The `deploy-dev` workflow exposes `deploy_document_ingestion`. Plan remains the default. An apply

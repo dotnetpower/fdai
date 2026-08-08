@@ -62,9 +62,18 @@ def _canonical_digest(payload: dict[str, Any]) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
-def _observed_sidecar_contract(container: dict[str, Any], *, name: str) -> dict[str, str]:
+def _observed_sidecar_contract(
+    container: dict[str, Any],
+    *,
+    name: str,
+    allow_legacy_empty_probes: bool = False,
+) -> dict[str, str]:
     contract = _container_contract(container, label=f"sidecar {name}")
-    _validate_sidecar_probes(contract, name=name)
+    _validate_sidecar_probes(
+        contract,
+        name=name,
+        allow_legacy_empty=allow_legacy_empty_probes,
+    )
     configuration = {
         key: value for key, value in container.items() if key not in {"image", "probes"}
     }
@@ -117,7 +126,12 @@ def _sealed_sidecars(target: dict[str, Any], *, service: str) -> dict[str, dict[
     return sidecars
 
 
-def _observed_sidecars(revision: dict[str, Any], *, service: str) -> dict[str, dict[str, str]]:
+def _observed_sidecars(
+    revision: dict[str, Any],
+    *,
+    service: str,
+    allow_legacy_empty_probes: bool = False,
+) -> dict[str, dict[str, str]]:
     expected_names = _ALLOWED_SIDECARS.get(service, frozenset())
     if not expected_names:
         return {}
@@ -134,13 +148,24 @@ def _observed_sidecars(revision: dict[str, Any], *, service: str) -> dict[str, d
     if not expected_names <= set(by_name):
         raise DeploymentRecoveryError("revision does not contain the exact sidecar set")
     return {
-        name: _observed_sidecar_contract(by_name[name], name=name)
+        name: _observed_sidecar_contract(
+            by_name[name],
+            name=name,
+            allow_legacy_empty_probes=allow_legacy_empty_probes,
+        )
         for name in sorted(expected_names)
     }
 
 
-def _validate_sidecar_probes(contract: dict[str, Any], *, name: str) -> None:
+def _validate_sidecar_probes(
+    contract: dict[str, Any],
+    *,
+    name: str,
+    allow_legacy_empty: bool = False,
+) -> None:
     probes = contract["probes"]
+    if allow_legacy_empty and probes == []:
+        return
     by_type = {
         str(probe.get("type", "")).lower(): probe for probe in probes if isinstance(probe, dict)
     }
@@ -166,6 +191,7 @@ def _revision_container_contracts(
     revision: dict[str, Any],
     *,
     service: str,
+    allow_legacy_empty_sidecar_probes: bool = False,
 ) -> dict[str, Any]:
     properties = revision.get("properties")
     template = properties.get("template") if isinstance(properties, dict) else None
@@ -198,7 +224,11 @@ def _revision_container_contracts(
     sidecars: dict[str, dict[str, Any]] = {}
     for name in sorted(expected_sidecars):
         contract = _container_contract(by_name[name], label=f"sidecar {name}")
-        _validate_sidecar_probes(contract, name=name)
+        _validate_sidecar_probes(
+            contract,
+            name=name,
+            allow_legacy_empty=allow_legacy_empty_sidecar_probes,
+        )
         sidecars[name] = contract
     return {"primary": primary, "sidecars": sidecars}
 
@@ -325,8 +355,20 @@ def capture_snapshot(
     if not isinstance(previous_revision, str) or revision.get("name") != previous_revision:
         raise DeploymentRecoveryError("rollback snapshot revision is not the current revision")
     service = _required(context, "service", label="service")
-    containers = _revision_container_contracts(revision, service=service)
-    sidecar_contracts = _observed_sidecars(revision, service=service)
+    allow_legacy_sidecar_probes = context.get("deployment_mode") == "initial-cutover"
+    containers = _revision_container_contracts(
+        revision,
+        service=service,
+        allow_legacy_empty_sidecar_probes=allow_legacy_sidecar_probes,
+    )
+    legacy_sidecar_probe_rollback = any(
+        contract["probes"] == [] for contract in containers["sidecars"].values()
+    )
+    sidecar_contracts = _observed_sidecars(
+        revision,
+        service=service,
+        allow_legacy_empty_probes=allow_legacy_sidecar_probes,
+    )
     authority_fallback = rollback_contract.get("authority_fallback", "")
     if authority_fallback not in ("", "core-in-process"):
         raise DeploymentRecoveryError("rollback authority fallback is unsupported")
@@ -341,6 +383,7 @@ def capture_snapshot(
         "previous_image": containers["primary"]["image"],
         "previous_containers": containers,
         "previous_sidecar_contracts": sidecar_contracts,
+        "legacy_sidecar_probe_rollback": legacy_sidecar_probe_rollback,
         "previous_secrets": _key_vault_secrets(app),
         "platform_rollback_required": authority_fallback == "core-in-process",
     }
@@ -403,7 +446,11 @@ def validate_rollback(
     ):
         raise DeploymentRecoveryError("rollback revision is not healthy and active")
     service = _required(snapshot, "service", label="service")
-    containers = _revision_container_contracts(revision, service=service)
+    containers = _revision_container_contracts(
+        revision,
+        service=service,
+        allow_legacy_empty_sidecar_probes=(snapshot.get("legacy_sidecar_probe_rollback") is True),
+    )
     previous_containers = snapshot.get("previous_containers")
     if not isinstance(previous_containers, dict) or containers != previous_containers:
         raise DeploymentRecoveryError("rollback container contract does not match snapshot")
@@ -414,7 +461,12 @@ def validate_rollback(
     previous_sidecar_contracts = snapshot.get("previous_sidecar_contracts")
     if (
         not isinstance(previous_sidecar_contracts, dict)
-        or _observed_sidecars(revision, service=service) != previous_sidecar_contracts
+        or _observed_sidecars(
+            revision,
+            service=service,
+            allow_legacy_empty_probes=(snapshot.get("legacy_sidecar_probe_rollback") is True),
+        )
+        != previous_sidecar_contracts
     ):
         raise DeploymentRecoveryError("rollback sidecar contract does not match snapshot")
     previous_secrets = snapshot.get("previous_secrets")

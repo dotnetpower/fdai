@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 2d225b47f1594ab20c15937daa6c77539f37b87c
+translation_source_sha: 87a69b8e705e0d5f5f7a6e702dcbbedcff43d97c
 translation_revised: 2026-08-09
 ---
 # 서비스 분해 실행 계획
@@ -273,6 +273,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-09 | IS-09 | Local review 완료 | Round 11-14, `07db3e5d8` | 독립 round 4회에서 protected deploy provenance, semantic peer-state isolation, 7개 root drift detection 및 N/N-1 evidence integrity를 검토했습니다. Program-final status를 completed로 설정해도 accepted receipt count가 불완전할 수 있는 재현 가능한 Medium finding 1건을 수정하여 plan/apply 5개와 upgrade/rollback 5개 receipt를 모두 요구합니다. Focused manifest와 compatibility check가 통과했고 Medium 이상 local residual은 0건입니다. 보류된 remote 5+5 verification이 통과할 때까지 IS-09는 진행 중으로 유지합니다. |
 | 2026-08-09 | IS-09 | Hardening 계속 | Round 15-28 | 독립 review 10회에서 protected deploy, plan sealing, peer isolation, rollback, live compatibility, migration, supply chain, drift, Terraform ownership 및 final closure를 검토했습니다. Live run을 통해 bounded parallel runner slot, remote shell expansion, explicit registration success 및 final-path image shebang을 추가로 hardening했습니다. Core run `31274885226`은 broken image가 fail closed하고 이전 healthy revision을 복원함을 증명했으며, 수정된 Core image는 local build와 import를 통과했습니다. Medium 이상 local residual은 0건이고 remote 5+5 verification은 계속 필요합니다. |
 | 2026-08-09 | IS-09 | Live evidence hardening | Round 29 | `observed:false` content를 다시 hash한 live evidence artifact는 더 이상 통과하지 않습니다. Validation은 각 observation의 kind와 service를 binding하고 실제 observed result가 true인 경우에만 content-addressed ref가 live migration 또는 rollback receipt를 충족하도록 요구합니다. |
+| 2026-08-09 | IS-09 | Worker cutover recovery | Round 30 | Run `31276433851`은 live legacy ClamAV sidecar에 probe가 없어 mutation 전에 실패했습니다. Initial cutover는 rollback용 exact empty probe contract만 snapshot하고 exact restoration을 검증합니다. Normal snapshot과 모든 새 worker revision은 계속 startup, liveness, readiness TCP probe를 요구합니다. |
 
 ## 관련 문서
 

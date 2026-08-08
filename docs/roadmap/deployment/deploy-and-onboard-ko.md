@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 1d99b410ec3aee4b71cdb660902276284298d5b6
+translation_source_sha: 1e81fe2c0a04dfde7a720796eac0e5e0c2ddb7a2
 translation_revised: 2026-08-09
 ---
 
@@ -394,7 +394,7 @@ Terraform은 다음 항목을 프로비저닝합니다.
 - `blob` 및 `dfs` private endpoint. App VNet은 endpoint zone에 link하고, ops runner는 기존
   central Blob zone의 A record로 Blob을 resolve합니다. DFS zone은 두 VNet에 link합니다.
   이 방식은 한 VNet을 같은 namespace의 중복 zone에 link하지 않습니다.
-- Public ingestion API Container App과 replica-local ClamAV를 포함한 internal worker app
+- Public ingestion API Container App과 replica-local ClamAV를 포함한 internal worker app. Initial cutover는 rollback용 exact empty legacy sidecar probe만 snapshot할 수 있고 새 revision은 계속 strict probe 3개를 요구합니다.
 - Traffic 전에 document metadata와 pgvector schema를 적용하는 manual migration job
 
 `deploy-dev` workflow는 `deploy_document_ingestion` input을 제공합니다. 기본 동작은 plan이며,
