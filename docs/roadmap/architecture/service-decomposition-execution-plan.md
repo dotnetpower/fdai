@@ -45,7 +45,7 @@ subscribers inside their owning runtime service.
 | Planned | 0 | No service-decomposition work package remains planned. |
 | Blocked | 0 | No work package is currently blocked. |
 
-Last updated: 2026-08-08.
+Last updated: 2026-08-09.
 
 ## Execution checklist
 
@@ -129,15 +129,20 @@ fdai/
 | [x] | IS-03 | Remove every cross-service implementation import. | IS-01, IS-02 | Import count zero and enforced boundary gate |
 | [x] | IS-04 | Split durable writer grants and migration branches by service. | IS-02 | Five migration heads and zero writer overlap |
 | [x] | IS-05 | Build, scan, attest, and publish five minimal service images. | IS-02, IS-03 | Five immutable image, SBOM, and startup receipts |
-| [ ] | IS-06 | Split service Terraform roots, state, and deployment workflows from the shared platform. | IS-04, IS-05 | Each service plans/applies without changing peers |
+| [x] | IS-06 | Split service Terraform roots, state, and deployment workflows from the shared platform. | IS-04, IS-05 | Five local roots, isolated backend contracts, state ownership checks, and peer-isolation mechanics pass |
 | [ ] | IS-07 | Prove N/N-1 contracts and independent upgrade/rollback for each service. | IS-03, IS-06, IS-08 | Five peer-stable rolling receipts built from the final service-owned layout |
 | [x] | IS-08 | Move implementation, unit tests, build definitions, and distributions under their five service roots; retire the top-level monolith source, duplicate contracts, co-host, in-process authority, shared-image, and shared-migration compatibility paths. | IS-03, IS-05 | Final repository layout matches the documented tree; top-level production source and topology compatibility path counts are zero |
-| [ ] | IS-09 | Enforce the final repository layout, run at least ten independent critique-and-hardening rounds, and close the program. | IS-07, IS-08 | Layout and import gates pass; Medium-or-higher residual count zero |
+| [ ] | IS-09 | Enforce the final repository layout, run at least ten independent critique-and-hardening rounds, and close the program. | IS-07, IS-08 | Layout and import gates pass; Medium-or-higher residual count zero; deferred remote verification passes |
 
 The machine source of truth is `config/independent-services.json`. Every migration wave updates its
 status and evidence in the same focused commit. Shared Event Hubs, PostgreSQL hosting, ACR, Key
 Vault, networking, and observability remain platform resources; logical ownership, credentials,
 schemas, migration history, deployment state, and rollback are service-specific.
+
+IS-06 and IS-07 close on local executable evidence so implementation can proceed without waiting
+for a deployment environment. Exact remote plan/apply, peer-drift, and rolling receipts are a
+separate program-final verification gate owned by IS-09. A failed final verification reopens the
+affected package and blocks program closure; local evidence never claims a live deployment result.
 
 The accepted IS-00 AST baseline is 140 Operator files, 5 ingestion files, and 2 isolated Executor
 files importing `fdai.core`. These are migration debts, not permitted target dependencies. The
@@ -160,8 +165,9 @@ Local completion evidence includes six independently built wheels, five nonroot 
 five image health checks, five validated migration branches covering 104 tables and 11
 transitions, five locally validated Terraform roots, zero cross-service implementation imports,
 and ten independent critique-and-hardening rounds with zero Medium-or-higher local residuals.
-IS-06 and IS-07 remain open for exact remote plan/apply and N/N-1 rolling receipts. Those live
-proofs use the final service-owned inputs and do not restore the monolith as a rollback source.
+IS-06 is locally complete; IS-07 remains open for local N/N-1 evidence. Exact remote plan/apply and
+rolling confirmation is deferred to IS-09 and uses final service-owned inputs without restoring
+the monolith as a rollback source.
 
 ## Parallel execution rules
 
@@ -268,6 +274,7 @@ state. For each transition:
 | 2026-08-08 | SD-08 | In progress | Implementation-ready focused receipt | Additive Executor receipt `1.1.0`, remote direct-API command/receipt correlation, pre-effect audit intent, stable Core receipt consumer group, duplicate-safe isolated dispatch, explicit default-off Terraform cutover, gateway principal transfer, reversible NSG probe, and protected workflow verification passed 126 focused tests, strict mypy, Ruff, Terraform validate, six root topology cases, and two module cases. Live effect authority remains unchanged until the protected plan is accepted and applied. |
 | 2026-08-08 | SD-08 | Completed | Plans `31207740363`, `31211368557`, `31214493667`; applies `31209982126`, `31211927016`, `31214900219` | The first isolated proof used offsets `[0,1]`, one provider write, ARM present/absent observation, cleanup, and a 142-second receipt. The rollback plan was `0 add / 3 change / 0 destroy`; local transport then proved one write and cleanup in 450 seconds. The final cutover plan was `0 add / 4 in-place change / 0 destroy`, with no replacement or role-assignment change. Final isolated transport continued at offsets `[3,4]`, produced exactly one provider write, passed independent ARM observation and cleanup in 436 seconds, kept all five revisions healthy, completed canary, and converged to no changes. |
 | 2026-08-08 | SD-09 | Completed | Closing validation receipt | The obsolete `routes.chat_verification` source-path facade was removed after the capability catalog moved to the owned verification package. All 22 reviewed boundary-docstring scopes now enforce, and the capability catalog, Operator layout, and boundary suite passed 30 focused tests with zero reported boundary gaps. Centralized validation passed 15076 tests with 15 environment-dependent skips, strict mypy over 1904 source files, and every repository gate before push. |
+| 2026-08-09 | IS-06 | Completed locally | Local deployment receipt | Five Terraform roots and backend contracts, five state-migration ownership contracts, protected plan/apply guards, and semantic four-peer isolation mechanics passed 113 focused deployment tests. Exact remote receipts remain deferred to the IS-09 program-final gate and are not claimed by this transition. |
 
 ## Related documents
 

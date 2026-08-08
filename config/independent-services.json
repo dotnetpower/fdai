@@ -106,6 +106,28 @@
     "service_forbidden_implementation_import_files": 0,
     "top_level_production_source_roots": 0
   },
+  "program_final_verification": {
+    "completion_basis": "local-executable-evidence",
+    "status": "deferred",
+    "required_before_work_package": "IS-09",
+    "remote_targets": {
+      "service_plan_apply_receipts": 5,
+      "service_upgrade_and_rollback_proofs": 5
+    },
+    "accepted_remote_evidence": {
+      "service_plan_apply_receipts": 0,
+      "service_upgrade_and_rollback_proofs": 0
+    }
+  },
+  "local_deployment_evidence": {
+    "state": "completed",
+    "service_terraform_roots": 5,
+    "isolated_backend_keys": 5,
+    "state_migration_contracts": 5,
+    "peer_state_isolation_mechanics": "passed",
+    "protected_plan_apply_contract": "passed",
+    "focused_tests_passed": 113
+  },
   "local_layout_evidence": {
     "base_commit": "f19cbeb73",
     "state": "completed",
@@ -139,7 +161,7 @@
     {"id": "IS-03", "status": "completed", "dependencies": ["IS-01", "IS-02"]},
     {"id": "IS-04", "status": "completed", "dependencies": ["IS-02"]},
     {"id": "IS-05", "status": "completed", "dependencies": ["IS-02", "IS-03"]},
-    {"id": "IS-06", "status": "in_progress", "dependencies": ["IS-04", "IS-05"]},
+    {"id": "IS-06", "status": "completed", "dependencies": ["IS-04", "IS-05"]},
     {"id": "IS-07", "status": "in_progress", "dependencies": ["IS-03", "IS-06", "IS-08"]},
     {"id": "IS-08", "status": "completed", "dependencies": ["IS-03", "IS-05"]},
     {"id": "IS-09", "status": "in_progress", "dependencies": ["IS-07", "IS-08"]}

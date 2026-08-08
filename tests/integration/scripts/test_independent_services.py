@@ -90,8 +90,46 @@ def test_manifest_records_completed_local_layout_assurance() -> None:
     assert evidence["medium_or_higher_local_residuals"] == 0
     assert evidence["pending_parallel_lanes"] == []
     assert statuses["IS-04"] == "completed"
+    assert statuses["IS-06"] == "completed"
     assert statuses["IS-08"] == "completed"
     assert statuses["IS-09"] == "in_progress"
+
+    deployment = manifest["local_deployment_evidence"]
+    assert deployment == {
+        "state": "completed",
+        "service_terraform_roots": 5,
+        "isolated_backend_keys": 5,
+        "state_migration_contracts": 5,
+        "peer_state_isolation_mechanics": "passed",
+        "protected_plan_apply_contract": "passed",
+        "focused_tests_passed": 113,
+    }
+
+    final_verification = manifest["program_final_verification"]
+    assert final_verification["completion_basis"] == "local-executable-evidence"
+    assert final_verification["status"] == "deferred"
+    assert final_verification["required_before_work_package"] == "IS-09"
+    assert final_verification["remote_targets"] == {
+        "service_plan_apply_receipts": 5,
+        "service_upgrade_and_rollback_proofs": 5,
+    }
+    assert final_verification["accepted_remote_evidence"] == {
+        "service_plan_apply_receipts": 0,
+        "service_upgrade_and_rollback_proofs": 0,
+    }
+
+
+def test_is09_cannot_complete_while_remote_verification_is_deferred(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checker = _checker_module()
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    next(item for item in manifest["work_packages"] if item["id"] == "IS-09")["status"] = (
+        "completed"
+    )
+
+    with pytest.raises(ValueError, match="IS-09 cannot complete"):
+        checker._validate_program_final_verification(manifest)
 
 
 def _write_final_layout(root: Path) -> None:

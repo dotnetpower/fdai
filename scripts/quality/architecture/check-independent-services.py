@@ -150,6 +150,33 @@ def _validate_graph(work_packages: list[dict[str, Any]]) -> None:
         remaining.difference_update(ready)
 
 
+def _validate_program_final_verification(manifest: dict[str, Any]) -> None:
+    policy = manifest["program_final_verification"]
+    if policy["completion_basis"] != "local-executable-evidence":
+        raise ValueError("independent-service completion must use local executable evidence")
+    if policy["required_before_work_package"] != "IS-09":
+        raise ValueError("remote verification must remain an IS-09 completion gate")
+    if policy["status"] not in {"deferred", "completed"}:
+        raise ValueError("program-final verification status is invalid")
+    targets = policy["remote_targets"]
+    accepted = policy["accepted_remote_evidence"]
+    expected_keys = {
+        "service_plan_apply_receipts",
+        "service_upgrade_and_rollback_proofs",
+    }
+    if set(targets) != expected_keys or set(accepted) != expected_keys:
+        raise ValueError("program-final verification evidence keys are invalid")
+    if any(targets[key] != 5 for key in expected_keys):
+        raise ValueError("program-final remote verification targets must cover five services")
+    if any(not 0 <= accepted[key] <= targets[key] for key in expected_keys):
+        raise ValueError("accepted remote verification evidence count is invalid")
+    statuses = {item["id"]: item["status"] for item in manifest["work_packages"]}
+    if statuses["IS-06"] != "completed":
+        raise ValueError("IS-06 local deployment evidence must release IS-07")
+    if statuses["IS-09"] == "completed" and policy["status"] != "completed":
+        raise ValueError("IS-09 cannot complete before program-final remote verification")
+
+
 def validate() -> None:
     manifest = _load_manifest()
     services = manifest["services"]
@@ -194,6 +221,7 @@ def validate() -> None:
             )
 
     _validate_graph(manifest["work_packages"])
+    _validate_program_final_verification(manifest)
     baseline = manifest["current_baseline"]
     top_level_source_roots = int((REPO_ROOT / "src" / "fdai").exists())
     if top_level_source_roots != int(baseline["top_level_production_source_roots"]):
