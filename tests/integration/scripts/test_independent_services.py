@@ -62,6 +62,7 @@ def test_core_source_uses_final_service_root() -> None:
 def test_root_is_workspace_orchestration_only() -> None:
     project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert project["tool"]["uv"]["package"] is False
+    assert project["project"]["dependencies"] == []
     assert "build-system" not in project
     assert "scripts" not in project["project"]
 

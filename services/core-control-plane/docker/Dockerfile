@@ -73,4 +73,6 @@ COPY --chown=65532:65532 alembic/ /app/alembic/
 COPY --chown=65532:65532 alembic.ini /app/alembic.ini
 USER 65532
 RUN test -x /app/.venv/bin/fdai-core-control-plane
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
+    CMD ["python", "-c", "import os;os.kill(1,0)"]
 ENTRYPOINT ["fdai-core-control-plane"]

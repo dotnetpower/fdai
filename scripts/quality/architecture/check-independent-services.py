@@ -82,6 +82,7 @@ def _require_file(path: Path, description: str) -> None:
 
 def _validate_final_layout() -> None:
     for legacy_path in (
+        REPO_ROOT / "Dockerfile",
         REPO_ROOT / "src" / "fdai",
         REPO_ROOT / "service-contracts",
         REPO_ROOT / "services" / "Dockerfile",

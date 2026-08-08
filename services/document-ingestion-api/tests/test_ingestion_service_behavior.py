@@ -2033,14 +2033,10 @@ def test_ingestion_api_readiness_reflects_dependency_loss_after_startup() -> Non
         if not available:
             raise RuntimeError("broker unavailable")
 
-    async def required_service() -> None:
-        await asyncio.Event().wait()
-
     app = _ingestion_health_app(
         IngestionGatewayConfig(
             startup_checks=(readiness_check,),
             readiness_checks=(readiness_check,),
-            background_services=(required_service,),
         )
     )
     with TestClient(app) as client:
@@ -2052,11 +2048,11 @@ def test_ingestion_api_readiness_reflects_dependency_loss_after_startup() -> Non
         assert (response.status_code, response.json()) == (503, {"status": "not-ready"})
 
 
-def test_ingestion_api_readiness_rejects_stopped_required_service() -> None:
-    async def stopped_service() -> None:
+def test_ingestion_api_readiness_rejects_stopped_api_outbox_drainer() -> None:
+    async def stopped_drainer() -> None:
         return None
 
-    app = _ingestion_health_app(IngestionGatewayConfig(background_services=(stopped_service,)))
+    app = _ingestion_health_app(IngestionGatewayConfig(api_outbox_drainers=(stopped_drainer,)))
     with TestClient(app) as client:
         response = client.get("/healthz")
 

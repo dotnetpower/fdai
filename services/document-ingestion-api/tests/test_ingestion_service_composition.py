@@ -80,6 +80,21 @@ def test_services_do_not_import_each_other() -> None:
     )
 
 
+def test_outbox_drainers_are_service_owned_without_cohost_seam() -> None:
+    api_source = "\n".join(path.read_text(encoding="utf-8") for path in API_SOURCE.glob("*.py"))
+    worker_supervisor = (WORKER_SOURCE / "supervisor.py").read_text(encoding="utf-8")
+
+    assert "background_services" not in api_source
+    assert "api_outbox_drainers=(drain_api_outbox,)" in api_source
+    assert "FROM document_api_outbox" in (API_SOURCE / "adapters" / "postgres.py").read_text(
+        encoding="utf-8"
+    )
+    assert "FROM document_worker_outbox" in (WORKER_SOURCE / "adapters" / "activity.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'name="document-outbox-drainer"' in worker_supervisor
+
+
 @pytest.mark.parametrize(
     "project",
     [

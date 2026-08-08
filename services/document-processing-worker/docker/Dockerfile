@@ -48,4 +48,7 @@ WORKDIR /app
 COPY --from=builder --chown=65532:65532 /build/.venv /app/.venv
 USER 65532
 RUN test -x /app/.venv/bin/fdai-document-processing-worker
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
+    CMD ["python", "-c", "import os,urllib.request;urllib.request.urlopen(f'http://127.0.0.1:{os.getenv(\"FDAI_INGESTION_WORKER_HEALTH_PORT\",\"8000\")}/live',timeout=2).read()"]
 ENTRYPOINT ["fdai-document-processing-worker"]

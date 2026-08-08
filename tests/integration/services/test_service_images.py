@@ -143,6 +143,19 @@ def test_runtime_assets_follow_service_ownership() -> None:
         assert asset not in executor
 
 
+def test_service_images_declare_runtime_appropriate_health_checks() -> None:
+    dockerfiles = {
+        service: _dockerfile(service).read_text(encoding="utf-8") for service in SERVICES
+    }
+
+    assert "os.kill(1,0)" in dockerfiles["core-control-plane"]
+    assert "/healthz" in dockerfiles["operator-service"]
+    assert "/healthz" in dockerfiles["document-ingestion-api"]
+    assert "/live" in dockerfiles["document-processing-worker"]
+    assert "/live" in dockerfiles["isolated-executor"]
+    assert all(text.count("HEALTHCHECK") == 1 for text in dockerfiles.values())
+
+
 def test_service_images_use_tracked_fail_closed_model_manifest() -> None:
     manifest_path = REPO_ROOT / "services" / "assets" / "resolved-models.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
