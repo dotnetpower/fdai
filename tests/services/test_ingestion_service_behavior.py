@@ -13,6 +13,12 @@ from fdai_document_worker_service.adapters.activity import (
     PostgresDocumentActivitySink as WorkerDocumentActivitySink,
 )
 from fdai_document_worker_service.consumer import DocumentIngestionEventConsumer
+from fdai_document_worker_service.effects import (
+    WorkerEffect,
+    WorkerEffectKind,
+    WorkerEffectStatus,
+    worker_effect_id,
+)
 from fdai_document_worker_service.processing import DocumentIngestionWorker
 from fdai_document_worker_service.state_machine import (
     InvalidDocumentTransitionError as InvalidWorkerTransitionError,
@@ -39,6 +45,7 @@ from fdai_service_contracts import (
     AUDIT_GENESIS_HASH,
     AccessDescriptor,
     DocumentDeletionRequest,
+    DocumentEnvelope,
     DocumentLifecycleConflictError,
     DocumentLifecycleEvent,
     DocumentPurpose,
@@ -69,6 +76,7 @@ class MemoryMetadata:
         self.versions: dict[tuple[UUID, UUID], DocumentVersion] = {}
         self.claims: dict[tuple[UUID, DocumentWorkerStage], DocumentWorkerClaim] = {}
         self.events: list[DocumentLifecycleEvent] = []
+        self.effects: dict[UUID, WorkerEffect] = {}
 
     async def create(
         self,
@@ -186,6 +194,55 @@ class MemoryMetadata:
             value
             for value in uploads
             if after_upload_id is None or value.upload_id > after_upload_id
+        )[:limit]
+
+    async def complete_worker_effect(self, effect_id: UUID) -> None:
+        effect = self.effects[effect_id]
+        self.effects[effect_id] = effect.model_copy(update={"status": WorkerEffectStatus.COMPLETED})
+
+    async def prepare_worker_effect(
+        self,
+        *,
+        claim: DocumentWorkerClaim,
+        kind: WorkerEffectKind,
+        document_id: UUID,
+        version_id: UUID,
+        object_key: str,
+    ) -> WorkerEffect:
+        await self.assert_worker_stage_active(claim)
+        effect_id = worker_effect_id(kind, version_id)
+        effect = self.effects.get(effect_id)
+        if effect is None:
+            effect = WorkerEffect(
+                effect_id=effect_id,
+                upload_id=claim.upload_id,
+                document_id=document_id,
+                version_id=version_id,
+                kind=kind,
+                object_key=object_key,
+                status=WorkerEffectStatus.PENDING,
+                created_at=datetime.now(UTC),
+            )
+            self.effects[effect_id] = effect
+        return effect
+
+    async def get_worker_effect(
+        self, upload_id: UUID, kind: WorkerEffectKind
+    ) -> WorkerEffect | None:
+        return next(
+            (
+                effect
+                for effect in self.effects.values()
+                if effect.upload_id == upload_id and effect.kind is kind
+            ),
+            None,
+        )
+
+    async def claim_pending_worker_effects(self, *, limit: int) -> tuple[WorkerEffect, ...]:
+        return tuple(
+            effect
+            for effect in self.effects.values()
+            if effect.status is WorkerEffectStatus.PENDING
         )[:limit]
 
     async def claim_worker_stage(
@@ -394,6 +451,419 @@ class MemoryObjects:
 
     async def delete_artifact(self, document_id: UUID, version_id: UUID) -> None:
         return None
+
+
+class PromotableMemoryObjects(MemoryObjects):
+    @staticmethod
+    def governed_key(session: UploadSession) -> str:
+        return f"governed/{session.document_id}/{session.version_id}/source"
+
+    async def promote(self, session: UploadSession) -> str:
+        target = self.governed_key(session)
+        if session.object_key in self.content:
+            self.content[target] = self.content.pop(session.object_key)
+        if target not in self.content:
+            raise KeyError(session.object_key)
+        return target
+
+
+class FailOnceDeleteObjects(MemoryObjects):
+    def __init__(self) -> None:
+        super().__init__()
+        self.failed = False
+
+    async def delete(self, object_key: str) -> None:
+        if not self.failed:
+            self.failed = True
+            raise RuntimeError("injected cleanup failure")
+        await super().delete(object_key)
+
+
+class StaticExtractor:
+    async def extract(
+        self, *, version: DocumentVersion, chunks: AsyncIterator[bytes]
+    ) -> DocumentEnvelope:
+        content = b"".join([chunk async for chunk in chunks])
+        return DocumentEnvelope(
+            document_id=version.document_id,
+            version_id=version.version_id,
+            source_sha256=version.source_sha256,
+            media_type=version.media_type,
+            observed_format="text",
+            size_bytes=len(content),
+            collection_id="shared",
+            purposes=version.purposes,
+            protection_state=version.protection_state,
+            access_descriptor_ref=version.access.reference,
+            units=(),
+            extractor_name="test",
+            extractor_version="1",
+        )
+
+
+class ArtifactRecorder:
+    def __init__(self) -> None:
+        self.deleted: list[tuple[UUID, UUID]] = []
+
+    async def put(self, envelope: DocumentEnvelope) -> str:
+        return f"artifact:{envelope.version_id}"
+
+    async def delete(self, document_id: UUID, version_id: UUID) -> None:
+        self.deleted.append((document_id, version_id))
+
+
+class IndexRecorder:
+    def __init__(self) -> None:
+        self.deleted: list[tuple[UUID, UUID]] = []
+
+    async def commit(self, _envelope: DocumentEnvelope) -> int:
+        return 1
+
+    async def delete(self, document_id: UUID, version_id: UUID) -> None:
+        self.deleted.append((document_id, version_id))
+
+
+class PromotionDeletionRaceMetadata(MemoryMetadata):
+    async def transition_worker_stage(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        **kwargs: object,
+    ) -> None:
+        if version.state in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}:
+            current_session = self.uploads[session.upload_id]
+            current_version = self.versions[(version.document_id, version.version_id)]
+            self.uploads[session.upload_id] = current_session.model_copy(
+                update={
+                    "state": DocumentState.DELETING,
+                    "revision": current_session.revision + 1,
+                }
+            )
+            self.versions[(version.document_id, version.version_id)] = current_version.model_copy(
+                update={
+                    "state": DocumentState.DELETING,
+                    "available": False,
+                    "active": False,
+                    "revision": current_version.revision + 1,
+                }
+            )
+        await super().transition_worker_stage(session, version, **kwargs)  # type: ignore[arg-type]
+
+
+async def _effect_fixture(
+    *,
+    state: DocumentState,
+    storage_mode: SourceStorageMode,
+    object_key: str,
+) -> tuple[MemoryMetadata, UploadSession, DocumentVersion]:
+    metadata = MemoryMetadata()
+    now = datetime.now(UTC)
+    upload_id = uuid4()
+    document_id = uuid4()
+    version_id = uuid4()
+    access = AccessDescriptor(reference="collection:shared", collection_id="shared")
+    retention = RetentionPolicy(policy_version="test")
+    session = UploadSession(
+        upload_id=upload_id,
+        document_id=document_id,
+        version_id=version_id,
+        actor_id="operator",
+        source_name="note.txt",
+        collection_id="shared",
+        object_key=object_key,
+        media_type_hint="text/plain",
+        expected_size=5,
+        expected_sha256=hashlib.sha256(b"hello").hexdigest(),
+        state=state,
+        storage_mode=storage_mode,
+        purposes=(DocumentPurpose.KNOWLEDGE_BASE,),
+        access=access,
+        retention=retention,
+        created_at=now,
+        expires_at=now + timedelta(minutes=15),
+    )
+    version = DocumentVersion(
+        document_id=document_id,
+        version_id=version_id,
+        upload_id=upload_id,
+        source_name="note.txt",
+        source_sha256=session.expected_sha256,
+        size_bytes=5,
+        media_type="text/plain",
+        state=state,
+        access=access,
+        retention=retention,
+        purposes=session.purposes,
+        uploader_id="operator",
+        created_at=now,
+        updated_at=now,
+        active=state in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS},
+        available=state in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS},
+    )
+    await metadata.create(session, version)
+    return metadata, session, version
+
+
+def _effect_worker(metadata: MemoryMetadata, objects: MemoryObjects) -> DocumentIngestionWorker:
+    return DocumentIngestionWorker(
+        metadata=metadata,
+        objects=objects,
+        malware=object(),  # type: ignore[arg-type]
+        protection=object(),  # type: ignore[arg-type]
+        extractor=object(),  # type: ignore[arg-type]
+        artifacts=DeleteRecorder(),
+        index=DeleteRecorder(),
+    )
+
+
+@pytest.mark.asyncio
+async def test_promotion_reconciliation_deletes_only_unowned_stale_target() -> None:
+    objects = PromotableMemoryObjects()
+    metadata, session, version = await _effect_fixture(
+        state=DocumentState.DELETING,
+        storage_mode=SourceStorageMode.MANAGED_COPY,
+        object_key="quarantine/source",
+    )
+    target = objects.governed_key(session)
+    objects.content[target] = b"hello"
+    stale = WorkerEffect(
+        effect_id=uuid4(),
+        upload_id=session.upload_id,
+        document_id=version.document_id,
+        version_id=version.version_id,
+        kind=WorkerEffectKind.SOURCE_PROMOTION,
+        object_key=target,
+        status=WorkerEffectStatus.PENDING,
+        created_at=datetime.now(UTC),
+    )
+    metadata.effects[stale.effect_id] = stale
+
+    await _effect_worker(metadata, objects).reconcile_effect(stale)
+
+    assert target not in objects.content
+    assert metadata.effects[stale.effect_id].status is WorkerEffectStatus.COMPLETED
+
+    owned_metadata, owned_session, owned_version = await _effect_fixture(
+        state=DocumentState.READY,
+        storage_mode=SourceStorageMode.MANAGED_COPY,
+        object_key=target,
+    )
+    owned_effect = stale.model_copy(
+        update={
+            "effect_id": uuid4(),
+            "upload_id": owned_session.upload_id,
+            "document_id": owned_version.document_id,
+            "version_id": owned_version.version_id,
+        }
+    )
+    owned_metadata.effects[owned_effect.effect_id] = owned_effect
+    objects.content[target] = b"new-owner-result"
+
+    await _effect_worker(owned_metadata, objects).reconcile_effect(owned_effect)
+
+    assert objects.content[target] == b"new-owner-result"
+    assert owned_metadata.effects[owned_effect.effect_id].status is WorkerEffectStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_restart_reconciles_ephemeral_cleanup_after_terminal_state() -> None:
+    objects = MemoryObjects()
+    metadata, session, version = await _effect_fixture(
+        state=DocumentState.READY,
+        storage_mode=SourceStorageMode.EPHEMERAL_PROCESSING,
+        object_key="quarantine/ephemeral",
+    )
+    objects.content[session.object_key] = b"hello"
+    effect = WorkerEffect(
+        effect_id=uuid4(),
+        upload_id=session.upload_id,
+        document_id=version.document_id,
+        version_id=version.version_id,
+        kind=WorkerEffectKind.EPHEMERAL_SOURCE_CLEANUP,
+        object_key=session.object_key,
+        status=WorkerEffectStatus.PENDING,
+        created_at=datetime.now(UTC),
+    )
+    metadata.effects[effect.effect_id] = effect
+
+    restarted_worker = _effect_worker(metadata, objects)
+    await restarted_worker.reconcile_effect(effect)
+
+    assert session.object_key not in objects.content
+    assert metadata.effects[effect.effect_id].status is WorkerEffectStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_promotion_race_persists_compensation_before_api_deletion_cas() -> None:
+    _base_metadata, session, version = await _effect_fixture(
+        state=DocumentState.INDEXING,
+        storage_mode=SourceStorageMode.MANAGED_COPY,
+        object_key="quarantine/race",
+    )
+    metadata = PromotionDeletionRaceMetadata()
+    await metadata.create(session, version)
+    objects = PromotableMemoryObjects()
+    objects.content[session.object_key] = b"hello"
+    claim = await metadata.claim_worker_stage(
+        session.upload_id,
+        DocumentWorkerStage.INDEXING,
+        owner="worker-a",
+        attempt_id=uuid4(),
+        lease_seconds=30,
+    )
+    assert claim is not None
+    worker = DocumentIngestionWorker(
+        metadata=metadata,
+        objects=objects,
+        malware=object(),  # type: ignore[arg-type]
+        protection=object(),  # type: ignore[arg-type]
+        extractor=StaticExtractor(),
+        artifacts=ArtifactRecorder(),
+        index=IndexRecorder(),
+    )
+
+    with pytest.raises(DocumentLifecycleConflictError, match="CAS conflict"):
+        await worker.index(session.upload_id, lambda: claim)
+
+    target = objects.governed_key(session)
+    effect = await metadata.get_worker_effect(session.upload_id, WorkerEffectKind.SOURCE_PROMOTION)
+    assert effect is not None
+    assert effect.status is WorkerEffectStatus.PENDING
+    assert target in objects.content
+    assert metadata.uploads[session.upload_id].state is DocumentState.DELETING
+
+    await worker.reconcile_effect(effect)
+
+    assert target not in objects.content
+    assert metadata.effects[effect.effect_id].status is WorkerEffectStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_ephemeral_cleanup_intent_survives_terminal_delete_failure() -> None:
+    metadata, session, version = await _effect_fixture(
+        state=DocumentState.INDEXING,
+        storage_mode=SourceStorageMode.EPHEMERAL_PROCESSING,
+        object_key="quarantine/ephemeral-failure",
+    )
+    objects = FailOnceDeleteObjects()
+    objects.content[session.object_key] = b"hello"
+    claim = await metadata.claim_worker_stage(
+        session.upload_id,
+        DocumentWorkerStage.INDEXING,
+        owner="worker-a",
+        attempt_id=uuid4(),
+        lease_seconds=30,
+    )
+    assert claim is not None
+    worker = DocumentIngestionWorker(
+        metadata=metadata,
+        objects=objects,
+        malware=object(),  # type: ignore[arg-type]
+        protection=object(),  # type: ignore[arg-type]
+        extractor=StaticExtractor(),
+        artifacts=ArtifactRecorder(),
+        index=IndexRecorder(),
+    )
+
+    with pytest.raises(RuntimeError, match="injected cleanup failure"):
+        await worker.index(session.upload_id, lambda: claim)
+
+    stored = await metadata.get_version(version.document_id, version.version_id)
+    effect = await metadata.get_worker_effect(
+        session.upload_id, WorkerEffectKind.EPHEMERAL_SOURCE_CLEANUP
+    )
+    assert stored.state is DocumentState.READY
+    assert effect is not None
+    assert effect.status is WorkerEffectStatus.PENDING
+    assert session.object_key in objects.content
+
+    await _effect_worker(metadata, objects).reconcile_effect(effect)
+
+    assert session.object_key not in objects.content
+    assert metadata.effects[effect.effect_id].status is WorkerEffectStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_restart_resumes_indexing_from_completed_promotion_intent() -> None:
+    metadata, session, version = await _effect_fixture(
+        state=DocumentState.INDEXING,
+        storage_mode=SourceStorageMode.MANAGED_COPY,
+        object_key="quarantine/promoted-before-crash",
+    )
+    objects = PromotableMemoryObjects()
+    target = objects.governed_key(session)
+    objects.content[target] = b"hello"
+    effect = WorkerEffect(
+        effect_id=worker_effect_id(WorkerEffectKind.SOURCE_PROMOTION, version.version_id),
+        upload_id=session.upload_id,
+        document_id=version.document_id,
+        version_id=version.version_id,
+        kind=WorkerEffectKind.SOURCE_PROMOTION,
+        object_key=target,
+        status=WorkerEffectStatus.PENDING,
+        created_at=datetime.now(UTC),
+    )
+    metadata.effects[effect.effect_id] = effect
+    claim = await metadata.claim_worker_stage(
+        session.upload_id,
+        DocumentWorkerStage.INDEXING,
+        owner="worker-restarted",
+        attempt_id=uuid4(),
+        lease_seconds=30,
+    )
+    assert claim is not None
+    worker = DocumentIngestionWorker(
+        metadata=metadata,
+        objects=objects,
+        malware=object(),  # type: ignore[arg-type]
+        protection=object(),  # type: ignore[arg-type]
+        extractor=StaticExtractor(),
+        artifacts=ArtifactRecorder(),
+        index=IndexRecorder(),
+    )
+
+    ready = await worker.index(session.upload_id, lambda: claim)
+
+    assert ready.state is DocumentState.READY
+    assert metadata.uploads[session.upload_id].object_key == target
+    assert objects.content[target] == b"hello"
+    assert metadata.effects[effect.effect_id].status is WorkerEffectStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_deletion_request_removes_unrecorded_governed_promotion_target() -> None:
+    metadata, session, version = await _effect_fixture(
+        state=DocumentState.DELETING,
+        storage_mode=SourceStorageMode.MANAGED_COPY,
+        object_key="quarantine/raced-deletion",
+    )
+    objects = PromotableMemoryObjects()
+    target = objects.governed_key(session)
+    objects.content[target] = b"hello"
+    claim = await metadata.claim_worker_stage(
+        session.upload_id,
+        DocumentWorkerStage.DELETION,
+        owner="deletion-worker",
+        attempt_id=uuid4(),
+        lease_seconds=30,
+    )
+    assert claim is not None
+    request = DocumentDeletionRequest(
+        request_id=uuid4(),
+        idempotency_key="document.delete:raced-promotion",
+        document_id=version.document_id,
+        version_id=version.version_id,
+        upload_id=session.upload_id,
+        requested_by="operator",
+        expected_upload_revision=session.revision,
+        expected_version_revision=version.revision,
+        requested_at=datetime.now(UTC),
+    )
+
+    deleted = await _effect_worker(metadata, objects).apply_deletion_request(request, lambda: claim)
+
+    assert deleted.state is DocumentState.DELETED
+    assert target not in objects.content
 
 
 class FailingGrantObjects(MemoryObjects):
@@ -740,6 +1210,9 @@ async def test_reconciler_keyset_cursor_reaches_tail_behind_poison_page(
     uploads = tuple(SimpleUpload(UUID(int=index)) for index in range(1, 102))
 
     class CursorMetadata:
+        async def claim_pending_worker_effects(self, *, limit: int) -> tuple[WorkerEffect, ...]:
+            return ()
+
         async def list_uploads_by_state_after(
             self,
             state: str,

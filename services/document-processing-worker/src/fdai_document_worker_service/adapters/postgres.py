@@ -28,9 +28,20 @@ from fdai_service_contracts import (
 )
 from psycopg.rows import dict_row
 
+from fdai_document_worker_service.effects import (
+    WorkerEffect,
+    WorkerEffectKind,
+    WorkerEffectStatus,
+    worker_effect_id,
+)
+
 _CLAIM_COLUMNS = (
     "upload_id, stage, owner, attempt_id, revision, status, claimed_at, "
     "lease_expires_at, finished_at"
+)
+_EFFECT_COLUMNS = (
+    "effect_id, upload_id, document_id, version_id, effect_kind, object_key, "
+    "status, created_at, completed_at"
 )
 
 
@@ -196,6 +207,105 @@ class PostgresDocumentMetadataStore:
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
             await _enqueue_outbox(connection, event)
+
+    async def prepare_worker_effect(
+        self,
+        *,
+        claim: DocumentWorkerClaim,
+        kind: WorkerEffectKind,
+        document_id: UUID,
+        version_id: UUID,
+        object_key: str,
+    ) -> WorkerEffect:
+        """Persist one immutable effect intent while the exact stage claim is active."""
+        effect_id = worker_effect_id(kind, version_id)
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            await self._lock_active_claim(connection, claim)
+            await connection.execute(
+                "INSERT INTO document_worker_effect "
+                "(effect_id, upload_id, document_id, version_id, effect_kind, object_key) "
+                "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (effect_id) DO NOTHING",
+                (
+                    effect_id,
+                    claim.upload_id,
+                    document_id,
+                    version_id,
+                    kind.value,
+                    object_key,
+                ),
+            )
+            row = await (
+                await connection.execute(
+                    f"SELECT {_EFFECT_COLUMNS} FROM document_worker_effect "
+                    "WHERE effect_id = %s FOR UPDATE",
+                    (effect_id,),
+                )
+            ).fetchone()
+        if row is None:
+            raise RuntimeError("document worker effect disappeared during preparation")
+        effect = _effect(row)
+        if (
+            effect.upload_id != claim.upload_id
+            or effect.document_id != document_id
+            or effect.version_id != version_id
+            or effect.kind is not kind
+            or effect.object_key != object_key
+        ):
+            raise DocumentLifecycleConflictError("document worker effect identity conflict")
+        return effect
+
+    async def get_worker_effect(
+        self, upload_id: UUID, kind: WorkerEffectKind
+    ) -> WorkerEffect | None:
+        row = await self._one(
+            f"SELECT {_EFFECT_COLUMNS} FROM document_worker_effect "
+            "WHERE upload_id = %s AND effect_kind = %s",
+            (upload_id, kind.value),
+        )
+        return None if row is None else _effect(row)
+
+    async def claim_pending_worker_effects(self, *, limit: int) -> tuple[WorkerEffect, ...]:
+        """Schedule one bounded pending-effect page for idempotent reconciliation."""
+        if limit < 1 or limit > 1000:
+            raise ValueError("document worker effect limit MUST be in [1, 1000]")
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            rows = await (
+                await connection.execute(
+                    f"SELECT {_EFFECT_COLUMNS} FROM document_worker_effect "
+                    "WHERE status = 'pending' AND next_attempt_at <= clock_timestamp() "
+                    "ORDER BY created_at, effect_id FOR UPDATE SKIP LOCKED LIMIT %s",
+                    (limit,),
+                )
+            ).fetchall()
+            if rows:
+                await connection.execute(
+                    "UPDATE document_worker_effect SET attempt_count = attempt_count + 1, "
+                    "next_attempt_at = clock_timestamp() + INTERVAL '5 seconds' "
+                    "WHERE effect_id = ANY(%s)",
+                    ([row["effect_id"] for row in rows],),
+                )
+        return tuple(_effect(row) for row in rows)
+
+    async def complete_worker_effect(self, effect_id: UUID) -> None:
+        async with await self._connect() as connection:
+            row = await (
+                await connection.execute(
+                    "UPDATE document_worker_effect SET status = 'completed', "
+                    "completed_at = clock_timestamp() WHERE effect_id = %s "
+                    f"AND status = 'pending' RETURNING {_EFFECT_COLUMNS}",
+                    (effect_id,),
+                )
+            ).fetchone()
+        if row is not None:
+            return
+        current = await self._one(
+            f"SELECT {_EFFECT_COLUMNS} FROM document_worker_effect WHERE effect_id = %s",
+            (effect_id,),
+        )
+        if current is None or _effect(current).status is not WorkerEffectStatus.COMPLETED:
+            raise DocumentLifecycleConflictError("document worker effect completion conflict")
 
     async def list_versions(self, document_id: UUID) -> tuple[DocumentVersion, ...]:
         rows = await self._many(
@@ -497,6 +607,20 @@ def _claim(row: dict[str, Any]) -> DocumentWorkerClaim:
         claimed_at=row["claimed_at"],
         lease_expires_at=row["lease_expires_at"],
         finished_at=row["finished_at"],
+    )
+
+
+def _effect(row: dict[str, Any]) -> WorkerEffect:
+    return WorkerEffect(
+        effect_id=row["effect_id"],
+        upload_id=row["upload_id"],
+        document_id=row["document_id"],
+        version_id=row["version_id"],
+        kind=WorkerEffectKind(row["effect_kind"]),
+        object_key=str(row["object_key"]),
+        status=WorkerEffectStatus(row["status"]),
+        created_at=row["created_at"],
+        completed_at=row["completed_at"],
     )
 
 

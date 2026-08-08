@@ -19,7 +19,6 @@ from fdai_service_contracts import (
     DocumentIndex,
     DocumentLifecycleConflictError,
     DocumentLifecycleEvent,
-    DocumentMetadataStore,
     DocumentReadyConsumer,
     DocumentState,
     DocumentVersion,
@@ -35,6 +34,12 @@ from fdai_service_contracts import (
     WorkerDocumentObjectStore,
 )
 
+from fdai_document_worker_service.effects import (
+    WorkerEffect,
+    WorkerEffectKind,
+    WorkerEffectStatus,
+    WorkerMetadataStore,
+)
 from fdai_document_worker_service.state_machine import transition
 
 _EXTRACTABLE_PROTECTION = frozenset(
@@ -55,7 +60,7 @@ class DocumentIngestionWorker:
     def __init__(
         self,
         *,
-        metadata: DocumentMetadataStore,
+        metadata: WorkerMetadataStore,
         objects: WorkerDocumentObjectStore,
         malware: MalwareScanner,
         protection: ProtectionInspector,
@@ -175,6 +180,19 @@ class DocumentIngestionWorker:
             )
         if version.state not in {DocumentState.EXTRACTING, DocumentState.INDEXING}:
             raise ValueError("worker cannot index the current document state")
+        prior_promotion = await self._metadata.get_worker_effect(
+            upload_id, WorkerEffectKind.SOURCE_PROMOTION
+        )
+        if prior_promotion is not None:
+            if not isinstance(self._objects, PromotableDocumentObjectStore):
+                raise DocumentLifecycleConflictError(
+                    "source promotion checkpoint requires a promotable object store"
+                )
+            await self._assert_active_claim(upload_id, claim)
+            promoted_key = await self._objects.promote(session)
+            if promoted_key != prior_promotion.object_key:
+                raise DocumentLifecycleConflictError("source promotion target changed")
+            session = session.model_copy(update={"object_key": promoted_key})
         try:
             envelope = await self._extractor.extract(
                 version=version,
@@ -204,15 +222,37 @@ class DocumentIngestionWorker:
             await self._artifacts.delete(version.document_id, version.version_id)
             return await self._fail(session, version, "indexing_failed", claim)
         session_updates: dict[str, object] = {}
+        promotion_effect: WorkerEffect | None = prior_promotion
         if session.storage_mode is SourceStorageMode.MANAGED_COPY and isinstance(
             self._objects, PromotableDocumentObjectStore
         ):
             source_session = session
-            session_updates["object_key"] = self._objects.governed_key(session)
             await self._assert_active_claim(upload_id, claim)
-            await self._objects.promote(source_session)
+            target_key = self._objects.governed_key(session)
+            if promotion_effect is None:
+                promotion_effect = await self._metadata.prepare_worker_effect(
+                    claim=claim(),
+                    kind=WorkerEffectKind.SOURCE_PROMOTION,
+                    document_id=version.document_id,
+                    version_id=version.version_id,
+                    object_key=target_key,
+                )
+            promoted_key = await self._objects.promote(source_session)
+            if promoted_key != promotion_effect.object_key:
+                raise DocumentLifecycleConflictError("source promotion target changed")
+            session_updates["object_key"] = promoted_key
         warnings = envelope.warnings + consumer_warnings
         target = DocumentState.READY_WITH_WARNINGS if warnings else DocumentState.READY
+        cleanup_effect: WorkerEffect | None = None
+        if session.storage_mode is SourceStorageMode.EPHEMERAL_PROCESSING:
+            await self._assert_active_claim(upload_id, claim)
+            cleanup_effect = await self._metadata.prepare_worker_effect(
+                claim=claim(),
+                kind=WorkerEffectKind.EPHEMERAL_SOURCE_CLEANUP,
+                document_id=version.document_id,
+                version_id=version.version_id,
+                object_key=session.object_key,
+            )
         try:
             session, version = await self._advance(
                 session,
@@ -233,10 +273,48 @@ class DocumentIngestionWorker:
             await self._index.delete(version.document_id, version.version_id)
             await self._artifacts.delete(version.document_id, version.version_id)
             raise
-        if session.storage_mode is SourceStorageMode.EPHEMERAL_PROCESSING:
+        if promotion_effect is not None:
+            await self._metadata.complete_worker_effect(promotion_effect.effect_id)
+        if cleanup_effect is not None:
             await self._assert_active_claim(upload_id, claim)
-            await self._objects.delete(session.object_key)
+            await self._objects.delete(cleanup_effect.object_key)
+            await self._metadata.complete_worker_effect(cleanup_effect.effect_id)
         return version
+
+    async def reconcile_effect(self, effect: WorkerEffect) -> None:
+        """Converge one pending idempotent effect from authoritative lifecycle state."""
+        if effect.status is WorkerEffectStatus.COMPLETED:
+            return
+        session = await self._metadata.get_upload(effect.upload_id)
+        version = await self._metadata.get_version(effect.document_id, effect.version_id)
+        if (
+            session.document_id != effect.document_id
+            or session.version_id != effect.version_id
+            or version.upload_id != effect.upload_id
+        ):
+            raise DocumentLifecycleConflictError("worker effect identity no longer matches")
+        ready_states = {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
+        deletion_states = {DocumentState.DELETING, DocumentState.DELETED}
+        if effect.kind is WorkerEffectKind.SOURCE_PROMOTION:
+            if version.state in ready_states and session.object_key == effect.object_key:
+                await self._metadata.complete_worker_effect(effect.effect_id)
+                return
+            if version.state in ready_states | deletion_states:
+                await self._objects.delete(effect.object_key)
+                await self._metadata.complete_worker_effect(effect.effect_id)
+                return
+            if version.state is DocumentState.INDEXING:
+                return
+        elif effect.kind is WorkerEffectKind.EPHEMERAL_SOURCE_CLEANUP:
+            if version.state in ready_states | deletion_states:
+                await self._objects.delete(effect.object_key)
+                await self._metadata.complete_worker_effect(effect.effect_id)
+                return
+            if version.state is DocumentState.INDEXING:
+                return
+        raise DocumentLifecycleConflictError(
+            "worker effect cannot be reconciled from the current lifecycle state"
+        )
 
     async def apply_safety_decision(
         self, upload_id: UUID, claim: _ClaimReader, *, decision: str, reason: str
@@ -304,8 +382,14 @@ class DocumentIngestionWorker:
             await self._index.delete(request.document_id, request.version_id)
             await self._assert_active_claim(request.upload_id, claim)
             await self._artifacts.delete(request.document_id, request.version_id)
-            await self._assert_active_claim(request.upload_id, claim)
-            await self._objects.delete(session.object_key)
+            object_keys = {session.object_key}
+            if session.storage_mode is SourceStorageMode.MANAGED_COPY and isinstance(
+                self._objects, PromotableDocumentObjectStore
+            ):
+                object_keys.add(self._objects.governed_key(session))
+            for object_key in sorted(object_keys):
+                await self._assert_active_claim(request.upload_id, claim)
+                await self._objects.delete(object_key)
         except DocumentWorkerClaimConflictError:
             raise
         except Exception as exc:

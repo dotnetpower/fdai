@@ -7,13 +7,12 @@ import logging
 import socket
 from collections.abc import Awaitable, Callable, Mapping
 from functools import partial
-from typing import Final, Protocol
+from typing import Final
 from uuid import UUID, uuid4
 
 from fdai_service_contracts import (
     ContractValidationError,
     DocumentDeletionRequest,
-    DocumentMetadataStore,
     DocumentOutboxDrainer,
     DocumentState,
     DocumentWorkerAuditEvent,
@@ -29,23 +28,12 @@ from fdai_service_contracts import (
 )
 from pydantic import ValidationError
 
+from fdai_document_worker_service.effects import WorkerMetadataStore
 from fdai_document_worker_service.processing import DocumentIngestionWorker
 
 _LOGGER = logging.getLogger(__name__)
 _ClaimReader = Callable[[], DocumentWorkerClaim]
 _ClaimedOperation = Callable[[UUID, _ClaimReader], Awaitable[object]]
-
-
-class ReconciliationMetadataStore(DocumentMetadataStore, Protocol):
-    """Worker metadata with keyset pagination for bounded reconciliation."""
-
-    async def list_uploads_by_state_after(
-        self,
-        state: str,
-        *,
-        after_upload_id: UUID | None,
-        limit: int,
-    ) -> tuple[UploadSession, ...]: ...
 
 
 class DocumentIngestionEventConsumer:
@@ -56,7 +44,7 @@ class DocumentIngestionEventConsumer:
         *,
         event_bus: EventBus,
         worker: DocumentIngestionWorker,
-        metadata: ReconciliationMetadataStore,
+        metadata: WorkerMetadataStore,
         activity: DocumentOutboxDrainer,
         topic: str,
         group_id: str = "fdai-document-audit-gated-worker",
@@ -257,6 +245,22 @@ class DocumentIngestionEventConsumer:
             await asyncio.sleep(self._reconcile_interval_seconds)
 
     async def _reconcile_cycle(self) -> None:
+        for effect in await self._metadata.claim_pending_worker_effects(
+            limit=self._reconcile_batch_size
+        ):
+            try:
+                await self._worker.reconcile_effect(effect)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                _LOGGER.error(
+                    "document_worker_effect_reconcile_failed",
+                    extra={
+                        "effect_id": str(effect.effect_id),
+                        "effect_kind": effect.kind.value,
+                        "exception_type": type(exc).__name__,
+                    },
+                )
         replay = (
             (
                 DocumentState.RECEIVED,

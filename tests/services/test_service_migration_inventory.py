@@ -61,6 +61,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
     assert tables <= set(manifest.table_migrators)
     assert future_tables == {
         "document_api_outbox",
+        "document_worker_effect",
         "document_worker_outbox",
         "executor_receipt_outbox",
     }
@@ -342,6 +343,10 @@ def test_ingestion_outboxes_declare_runtime_least_privilege() -> None:
         MIGRATION_ROOT
         / "branches/document-processing-worker/versions/20260808_document_worker_outbox.py"
     ).read_text(encoding="utf-8")
+    effect_source = (
+        MIGRATION_ROOT
+        / "branches/document-processing-worker/versions/20260808_document_worker_effects.py"
+    ).read_text(encoding="utf-8")
 
     assert "GRANT SELECT, INSERT, UPDATE ON TABLE document_api_outbox" in api_source
     assert "FROM PUBLIC, fdai_ingestion_worker" in api_source
@@ -349,6 +354,8 @@ def test_ingestion_outboxes_declare_runtime_least_privilege() -> None:
     assert "FROM PUBLIC, fdai_ingestion_api" in worker_source
     assert "REVOKE ALL PRIVILEGES ON TABLE document_api_outbox" in api_source
     assert "REVOKE ALL PRIVILEGES ON TABLE document_worker_outbox" in worker_source
+    assert "GRANT SELECT, INSERT, UPDATE ON TABLE document_worker_effect" in effect_source
+    assert "FROM PUBLIC, fdai_ingestion_api, fdai_ingestion_cohost" in effect_source
 
 
 def test_lifecycle_migration_enforces_role_owned_transitions_in_database() -> None:

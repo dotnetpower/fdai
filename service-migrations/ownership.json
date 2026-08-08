@@ -129,6 +129,7 @@
       "document_version"
     ],
     "document-processing-worker": [
+      "document_worker_effect",
       "document_worker_outbox",
       "document_worker_claim",
       "knowledge_chunk"
@@ -240,6 +241,7 @@
       "document_api_outbox"
     ],
     "document-processing-worker": [
+      "document_worker_effect",
       "document_worker_outbox",
       "document_worker_claim",
       "knowledge_chunk"
