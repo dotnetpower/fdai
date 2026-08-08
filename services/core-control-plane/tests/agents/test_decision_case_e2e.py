@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -10,7 +11,7 @@ from fdai.agents.odin import Odin
 from fdai.agents.thor import Thor
 from fdai.agents.var import Var
 from fdai.core.impact_analysis import ChangeAssessmentService, ImpactAnalyzer
-from fdai.core.operational_context import OperationalContextMaterializer
+from fdai.core.operational_context import OperationalContextMaterializer, SourceFreshness
 from fdai.core.operational_planning import (
     ConstraintEvaluation,
     ConstraintStatus,
@@ -25,6 +26,32 @@ from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 AT = "2026-07-31T00:00:00Z"
+
+
+def _source_freshness_payload() -> list[dict[str, object]]:
+    return [
+        {
+            "source": source,
+            "observed_at": AT,
+            "max_age_seconds": max_age_seconds,
+        }
+        for source, max_age_seconds in (
+            ("cost:monthly", 86400),
+            ("metrics:availability", 300),
+        )
+    ]
+
+
+def _source_freshness() -> tuple[SourceFreshness, ...]:
+    observed_at = datetime.fromisoformat(AT.replace("Z", "+00:00"))
+    return tuple(
+        SourceFreshness(
+            source=str(item["source"]),
+            observed_at=observed_at,
+            max_age_seconds=int(item["max_age_seconds"]),
+        )
+        for item in _source_freshness_payload()
+    )
 
 
 async def _context_store() -> InMemoryOntologyInstanceStore:
@@ -149,6 +176,7 @@ async def test_specialist_conflict_reaches_objective_aware_hil_verdict(
             "recommendation": "scale_down",
             "impact": 0.2,
             "observed_at": AT,
+            "source_freshness": _source_freshness_payload(),
         },
     )
     await forseti.on_typed_message(
@@ -159,6 +187,7 @@ async def test_specialist_conflict_reaches_objective_aware_hil_verdict(
             "recommendation": "scale_up",
             "impact": 1.0,
             "observed_at": AT,
+            "source_freshness": _source_freshness_payload(),
         },
     )
 
@@ -204,6 +233,7 @@ async def test_planned_change_assessment_lowers_arbitrated_decision_case() -> No
             "event_type": "restart_needed",
             "detected_at": AT,
             "domain_advice": {"cost": "scale_down", "capacity": "scale_up"},
+            "source_freshness": _source_freshness_payload(),
             "normalized_change": {
                 "id": "change-1",
                 "correlation_id": "change-correlation",
@@ -263,6 +293,7 @@ async def test_selected_option_action_mismatch_is_denied() -> None:
         correlation_id="mismatched-selection",
         impacts={"cost": 0.2, "capacity": 1.0},
         observed_at=AT,
+        source_freshness=_source_freshness(),
     )
     thor = Thor(bus=bus)
     var = Var(bus=bus)
@@ -345,6 +376,7 @@ async def test_specialist_events_carry_operational_plan_to_human_review() -> Non
             "recommendation": "scale_down",
             "impact": 0.2,
             "observed_at": AT,
+            "source_freshness": _source_freshness_payload(),
         },
     )
     await forseti.on_typed_message(
@@ -355,6 +387,7 @@ async def test_specialist_events_carry_operational_plan_to_human_review() -> Non
             "recommendation": "scale_up",
             "impact": 0.9,
             "observed_at": AT,
+            "source_freshness": _source_freshness_payload(),
         },
     )
 
@@ -376,6 +409,7 @@ async def test_non_semantic_decision_case_action_mismatch_is_denied() -> None:
         correlation_id="non-semantic-mismatch",
         impacts={"cost": 0.2, "capacity": 1.0},
         observed_at=AT,
+        source_freshness=_source_freshness(),
     )
     thor = Thor(bus=bus)
     var = Var(bus=bus)

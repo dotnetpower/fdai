@@ -61,7 +61,7 @@
     "services/core-control-plane/src/fdai/agents/_framework/vertical_precedence.py": "5e75973531eba5c426d7b6dd5060c2f8b70c7a1f69236533c27f58bb4b2e55d0",
     "services/core-control-plane/src/fdai/agents/_framework/workflows.py": "0702e932b27232c08dc222bc4f3ebc950dcdc7d25ba612e466f7ad560dbfe9e1",
     "services/core-control-plane/src/fdai/agents/bragi.py": "660e20501fb8e14ccdb22a47e74e233cf88d5c8f8175d27bfd8ae11d733f40c9",
-    "services/core-control-plane/src/fdai/agents/forseti.py": "45929854db836ee4f035af46f02b7d396aaa1514d07de4de019da002c229dabd",
+    "services/core-control-plane/src/fdai/agents/forseti.py": "2cac489a877f816b7fa8eff19e314c53312b204dbfe69f0b8ba7d74031345c41",
     "services/core-control-plane/src/fdai/agents/freyr.py": "34e80a770aa237a410343f9269b57751f26496099877fe24c1426efc721eb120",
     "services/core-control-plane/src/fdai/agents/heimdall.py": "8114dba1bbe9ba0cc5940cd3bce7fdc6fc811a3b4e5d7658f4ed04de9f223277",
     "services/core-control-plane/src/fdai/agents/huginn.py": "8533e497be3c2ed6eb21b7969444a45b1251f23a3ca3bf54e263a9b0659d5905",
@@ -1016,7 +1016,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-08T17:03:09Z",
+  "generated_at": "2026-08-08T17:04:08Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

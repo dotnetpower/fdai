@@ -195,7 +195,9 @@ Missing, stale, failed, or review-required assessment forces human approval. Obs
 context only, and the current runtime supplies no graph-freshness authority that could auto-clear a
 planned change. Operational-context freshness entries require an explicit string source, timestamp,
 and integer maximum age; malformed values, including boolean ages, fail closed and lower the verdict
-to human approval. This projection grants no action authority. Azure-specific parsing, point enrichment, and durable inventory
+to human approval. Ordinary verdicts and arbitration DecisionCases materialize from the same typed
+freshness evidence, so cross-domain arbitration cannot recover authority that the context ceiling
+removed. This projection grants no action authority. Azure-specific parsing, point enrichment, and durable inventory
 projection remain injected delivery responsibilities; Huginn never imports an
 Azure SDK or writes the inventory database directly. The scheduled Inventory
 sync job remains the periodic reconciliation backstop that repairs missed

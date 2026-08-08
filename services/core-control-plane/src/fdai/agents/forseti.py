@@ -260,6 +260,7 @@ class Forseti(Agent):
             correlation_id=correlation_id,
             observed_at=str(event.get("detected_at") or ""),
             change_assessment=_change_assessment_mapping(event),
+            source_freshness=_source_freshness(event.get("source_freshness")),
         )
 
     async def _ingest_domain_signal(
@@ -300,6 +301,7 @@ class Forseti(Agent):
             correlation_id=correlation_id,
             impacts=dict(impacts),
             observed_at=self._domain_observed_at.get(resource_id) or "",
+            source_freshness=_source_freshness(payload.get("source_freshness")),
         )
         # Consume the accumulated advice once the conflict is surfaced.
         # Leaving it in place would (a) grow both maps without bound over
@@ -320,6 +322,7 @@ class Forseti(Agent):
         impacts: dict[str, float] | None = None,
         observed_at: str = "",
         change_assessment: dict[str, Any] | None = None,
+        source_freshness: tuple[SourceFreshness, ...] = (),
     ) -> dict[str, Any]:
         if not correlation_id or not str(resource_id or ""):
             raise ValueError("arbitration request identities MUST be non-empty")
@@ -337,6 +340,7 @@ class Forseti(Agent):
             advice=advice,
             impacts=impacts or {},
             observed_at=observed_at,
+            source_freshness=source_freshness,
         )
         if projection is not None:
             request["decision_case"] = _decision_case_mapping(projection, change_assessment)
@@ -403,6 +407,7 @@ class Forseti(Agent):
         advice: dict[str, str],
         impacts: dict[str, float],
         observed_at: str,
+        source_freshness: tuple[SourceFreshness, ...],
     ) -> DomainDecisionProjection | SpecialistPlanningProjection | None:
         if self._operational_context is None or not resource_id or not observed_at:
             return None
@@ -414,6 +419,7 @@ class Forseti(Agent):
                 target_resource_id=resource_id,
                 cutoff=cutoff,
                 catalog_versions={},
+                source_freshness=source_freshness,
             )
             if context.review_required:
                 return None

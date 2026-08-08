@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: c34f7e4917e15cc3624d8532839ddb5f0b50193b
+translation_source_sha: 666b2f842c680fb8e53a5cf9fc1d58d1aea43b85
 translation_revised: 2026-08-09
 ---
 
@@ -195,7 +195,9 @@ evidence에 보존합니다. Assessment가 없거나 stale, failed, review-requi
 요구합니다. Observed change는 context로만 유지되며 현재 runtime에는 planned change를 auto-clear할
 graph-freshness authority가 없습니다. Operational-context freshness entry에는 명시적인 string source,
 timestamp, integer maximum age가 필요합니다. Boolean age를 포함한 malformed 값은 fail closed되어
-verdict를 사람 승인으로 낮춥니다. 이 projection은 action authority를 제공하지 않습니다. Azure 전용 parsing,
+verdict를 사람 승인으로 낮춥니다. Ordinary verdict와 arbitration DecisionCase는 같은 typed freshness
+evidence에서 materialize되므로 cross-domain arbitration은 context ceiling이 제거한 authority를 복구할
+수 없습니다. 이 projection은 action authority를 제공하지 않습니다. Azure 전용 parsing,
 point enrichment, durable inventory projection은 주입된 delivery 책임으로 유지합니다.
 Huginn은 Azure SDK를 import하거나 inventory database를 직접 쓰지 않습니다. Scheduled
 Inventory sync job은 누락된 signal을 완전한 ARG/ARM snapshot으로 복구하는 주기적
