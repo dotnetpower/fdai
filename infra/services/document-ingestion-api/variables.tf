@@ -70,6 +70,20 @@ variable "auth" {
   description = "Entra application contract for authenticated document intake."
   type        = object({ tenant_id = string, api_audience = string })
 }
+variable "rbac" {
+  description = "Distinct Entra App Role group identifiers for document intake."
+  type = object({
+    readers_group_id      = string
+    contributors_group_id = string
+    approvers_group_id    = string
+    owners_group_id       = string
+    break_glass_group_id  = string
+  })
+}
+variable "embedding" {
+  description = "Embedding provider contract used for document indexing requests."
+  type        = object({ endpoint = string, deployment = string })
+}
 variable "cors_allow_origins" {
   description = "Comma-separated explicit console origins."
   type        = string

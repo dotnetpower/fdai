@@ -12,6 +12,8 @@ module "document_ingestion_api" {
   rollback           = var.rollback
   runtime_env        = var.runtime_env
   auth               = var.auth
+  rbac               = var.rbac
+  embedding          = var.embedding
   cors_allow_origins = var.cors_allow_origins
   scaling            = var.scaling
   tags               = var.tags

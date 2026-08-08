@@ -37,6 +37,10 @@ on:
         description: "Plan workflow run id. Required only for apply."
         type: string
         required: false
+      plan_run_attempt:
+        description: "Exact plan workflow run attempt. Required only for apply."
+        type: string
+        required: false
       plan_digest:
         description: "Binary Terraform plan SHA-256. Required only for apply."
         type: string
@@ -70,33 +74,72 @@ jobs:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
     steps:
-      - name: Checkout exact commit
+      - name: Checkout protected deployment controls
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          clean: true
+          path: trusted-controls
+
+      - name: Checkout exact target commit
         uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 1
           clean: true
+          path: target
 
-      - name: Verify exact checkout and explicit apply inputs
+      - name: Verify protected ancestry and explicit apply inputs
         env:
           APPLY: ${{ inputs.apply }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
           PLAN_RUN_ID: ${{ inputs.plan_run_id }}
+          PLAN_RUN_ATTEMPT: ${{ inputs.plan_run_attempt }}
           PLAN_DIGEST: ${{ inputs.plan_digest }}
           CONTEXT_DIGEST: ${{ inputs.context_digest }}
         run: |
           set -euo pipefail
+          TRUSTED_CONTROLS="$GITHUB_WORKSPACE/trusted-controls"
+          TARGET_ROOT="$GITHUB_WORKSPACE/target"
           [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || {
             echo "commit_sha must be a lowercase 40-character git SHA." >&2
             exit 1
           }
-          [[ "$(git rev-parse HEAD)" == "$COMMIT_SHA" ]] || {
+          [[ "$(git -C "$TARGET_ROOT" rev-parse HEAD)" == "$COMMIT_SHA" ]] || {
             echo "checked out commit does not match commit_sha." >&2
             exit 1
           }
+          git -C "$TRUSTED_CONTROLS" fetch --no-tags origin \
+            "+refs/heads/main:refs/remotes/origin/main"
+          git -C "$TRUSTED_CONTROLS" fetch --no-tags origin "$COMMIT_SHA"
+          git -C "$TRUSTED_CONTROLS" merge-base --is-ancestor \
+            "$COMMIT_SHA" refs/remotes/origin/main || {
+            echo "commit_sha must be an ancestor of protected origin/main." >&2
+            exit 1
+          }
+          expected_workflow_ref="$GITHUB_REPOSITORY/.github/workflows/service-deploy.yml@refs/heads/main"
+          [[ "$GITHUB_WORKFLOW_REF" == "$expected_workflow_ref" ]] || {
+            echo "service-deploy must run from protected main." >&2
+            exit 1
+          }
+          controls_commit_sha="$(git -C "$TRUSTED_CONTROLS" rev-parse HEAD)"
+          [[ "$controls_commit_sha" == "$(git -C "$TRUSTED_CONTROLS" rev-parse refs/remotes/origin/main)" ]] || {
+            echo "deployment controls do not match protected origin/main." >&2
+            exit 1
+          }
+          {
+            echo "TRUSTED_CONTROLS=$TRUSTED_CONTROLS"
+            echo "TARGET_ROOT=$TARGET_ROOT"
+            echo "CONTROLS_COMMIT_SHA=$controls_commit_sha"
+          } >> "$GITHUB_ENV"
           if [[ "$APPLY" == "true" ]]; then
             [[ "$PLAN_RUN_ID" =~ ^[0-9]+$ ]] || {
               echo "apply requires a numeric plan_run_id." >&2
+              exit 1
+            }
+            [[ "$PLAN_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]] || {
+              echo "apply requires a positive plan_run_attempt." >&2
               exit 1
             }
             [[ "$PLAN_DIGEST" =~ ^[0-9a-f]{64}$ ]] || {
@@ -107,7 +150,7 @@ jobs:
               echo "apply requires a lowercase SHA-256 context_digest." >&2
               exit 1
             }
-          elif [[ -n "$PLAN_RUN_ID$PLAN_DIGEST$CONTEXT_DIGEST" ]]; then
+          elif [[ -n "$PLAN_RUN_ID$PLAN_RUN_ATTEMPT$PLAN_DIGEST$CONTEXT_DIGEST" ]]; then
             echo "plan-only requests must not supply apply artifact inputs." >&2
             exit 1
           fi
@@ -118,12 +161,16 @@ jobs:
           IMAGE_REF: ${{ inputs.image_ref }}
         run: |
           set -euo pipefail
-          python3 scripts/deployment/service/service_contract.py \
+          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/service_contract.py" \
             --service "${{ inputs.service }}" \
             --environment "${{ inputs.environment }}" \
             --repository "$GITHUB_REPOSITORY" \
             --image "$IMAGE_REF" \
             --github-output "$GITHUB_OUTPUT"
+
+      - name: Bind target Terraform root
+        run: |
+          echo "TERRAFORM_ROOT=$TARGET_ROOT/${{ steps.contract.outputs.terraform_root }}" >> "$GITHUB_ENV"
 
       - name: Verify immutable service image attestation
         env:
@@ -132,6 +179,7 @@ jobs:
           IMAGE_REF: ${{ inputs.image_ref }}
           IMAGE_DIGEST: ${{ steps.contract.outputs.image_digest }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
+          ATTESTATION_SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/container-supply-chain.yml
         run: |
           set -euo pipefail
           image_path="${IMAGE_REF#ghcr.io/}"
@@ -158,7 +206,9 @@ jobs:
           }
           timeout 60s gh attestation verify \
             "oci://${IMAGE_REF}" \
-            --repo "$GITHUB_REPOSITORY" >/dev/null
+            --repo "$GITHUB_REPOSITORY" \
+            --source-digest "$COMMIT_SHA" \
+            --signer-workflow "$ATTESTATION_SIGNER_WORKFLOW" >/dev/null
 
       - name: Authenticate runner managed identity
         run: |
@@ -195,14 +245,50 @@ jobs:
             echo "STATE_RESOURCE_GROUP, STATE_STORAGE_ACCOUNT, and STATE_CONTAINER are required." >&2
             exit 1
           }
-          terraform -chdir="${{ steps.contract.outputs.terraform_root }}" init \
+          terraform -chdir="$TERRAFORM_ROOT" init \
             -input=false \
             -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
             -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
             -backend-config="container_name=$STATE_CONTAINER" \
             -backend-config="key=$BACKEND_KEY" \
             -backend-config="use_azuread_auth=true"
-          terraform -chdir="${{ steps.contract.outputs.terraform_root }}" validate
+          terraform -chdir="$TERRAFORM_ROOT" validate
+
+      - name: Verify service state cutover ownership
+        env:
+          SERVICE: ${{ inputs.service }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          legacy_data="$RUNNER_TEMP/legacy-terraform-data"
+          mkdir -m 700 "$legacy_data"
+          TF_DATA_DIR="$legacy_data" terraform -chdir="$TARGET_ROOT/infra" init \
+            -input=false \
+            -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$STATE_CONTAINER" \
+            -backend-config="key=fdai-${ENVIRONMENT}.tfstate" \
+            -backend-config="use_azuread_auth=true"
+          TF_DATA_DIR="$legacy_data" terraform -chdir="$TARGET_ROOT/infra" show -json \
+            >"$RUNNER_TEMP/legacy-service-state.json"
+          terraform -chdir="$TERRAFORM_ROOT" show -json \
+            >"$RUNNER_TEMP/independent-service-state.json"
+          mapfile -t migration_coordinates < <(
+            python3 "$TRUSTED_CONTROLS/scripts/deployment/service/state_migration.py" \
+              coordinates \
+              --service "$SERVICE" \
+              --environment "$ENVIRONMENT"
+          )
+          [[ ${#migration_coordinates[@]} -eq 4 ]] || {
+            echo "state migration coordinates are incomplete." >&2
+            exit 1
+          }
+          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/state_migration.py" verify \
+            --source-state "$RUNNER_TEMP/legacy-service-state.json" \
+            --destination-state "$RUNNER_TEMP/independent-service-state.json" \
+            --source-address "${migration_coordinates[2]}" \
+            --destination-address "${migration_coordinates[3]}" \
+            --phase post
 
       - name: Materialize selected service inputs
         if: ${{ !inputs.apply }}
@@ -215,7 +301,7 @@ jobs:
             exit 1
           }
           printf '%s' "$SERVICE_TFVARS_JSON" \
-            | python3 scripts/deployment/service/materialize_tfvars.py \
+            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 --output "$RUNNER_TEMP/service.tfvars.json"
@@ -226,15 +312,15 @@ jobs:
           IMAGE_REF: ${{ inputs.image_ref }}
         run: |
           set -euo pipefail
-          terraform -chdir="${{ steps.contract.outputs.terraform_root }}" plan \
+          terraform -chdir="$TERRAFORM_ROOT" plan \
             -input=false \
             -lock-timeout=5m \
             -out="$RUNNER_TEMP/service.plan" \
             -var-file="$RUNNER_TEMP/service.tfvars.json" \
             -var="image=$IMAGE_REF"
-          terraform -chdir="${{ steps.contract.outputs.terraform_root }}" show \
+          terraform -chdir="$TERRAFORM_ROOT" show \
             -json "$RUNNER_TEMP/service.plan" > "$RUNNER_TEMP/service-plan.json"
-          python3 scripts/deployment/service/guard_plan.py \
+          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/guard_plan.py" \
             --plan-json "$RUNNER_TEMP/service-plan.json" \
             --service "${{ inputs.service }}" \
             --environment "${{ inputs.environment }}" \
@@ -247,7 +333,7 @@ jobs:
           IMAGE_REF: ${{ inputs.image_ref }}
         run: |
           set -euo pipefail
-          python3 scripts/deployment/service/plan_bundle.py create \
+          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/plan_bundle.py" create \
             --plan "$RUNNER_TEMP/service.plan" \
             --plan-json "$RUNNER_TEMP/service-plan.json" \
             --context "$RUNNER_TEMP/service-context.json" \
@@ -257,7 +343,15 @@ jobs:
             --repository "$GITHUB_REPOSITORY" \
             --commit-sha "${{ inputs.commit_sha }}" \
             --image-ref "$IMAGE_REF" \
-            --workflow-run-id "$GITHUB_RUN_ID" >/dev/null
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --tenant-id "$ARM_TENANT_ID" \
+            --subscription-id "$ARM_SUBSCRIPTION_ID" \
+            --backend-resource-group "$STATE_RESOURCE_GROUP" \
+            --backend-storage-account "$STATE_STORAGE_ACCOUNT" \
+            --backend-container "$STATE_CONTAINER" \
+            --controls-commit-sha "$CONTROLS_COMMIT_SHA" \
+            --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" >/dev/null
           python3 - "$RUNNER_TEMP/service-plan-metadata.json" "$GITHUB_OUTPUT" <<'PY'
           import json
           import sys
@@ -272,7 +366,7 @@ jobs:
         if: ${{ !inputs.apply }}
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: service-plan-${{ inputs.service }}-${{ inputs.environment }}-${{ github.run_id }}
+          name: service-plan-${{ inputs.service }}-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/service.plan
             ${{ runner.temp }}/service-plan.json
@@ -290,16 +384,42 @@ jobs:
             echo "- Environment: \`${{ inputs.environment }}\`"
             echo "- Commit: \`${{ inputs.commit_sha }}\`"
             echo "- Plan run id: \`$GITHUB_RUN_ID\`"
+            echo "- Plan run attempt: \`$GITHUB_RUN_ATTEMPT\`"
             echo "- Plan digest: \`${{ steps.seal.outputs.plan_digest }}\`"
             echo "- Context digest: \`${{ steps.seal.outputs.context_digest }}\`"
             echo "- Backend key: \`${{ steps.contract.outputs.backend_key }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Verify source workflow run provenance
+        if: ${{ inputs.apply }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN_RUN_ID: ${{ inputs.plan_run_id }}
+          PLAN_RUN_ATTEMPT: ${{ inputs.plan_run_attempt }}
+        run: |
+          set -euo pipefail
+          SOURCE_HEAD_SHA="$CONTROLS_COMMIT_SHA"
+          run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PLAN_RUN_ID")"
+          jq -e \
+            --argjson run_id "$PLAN_RUN_ID" \
+            --argjson run_attempt "$PLAN_RUN_ATTEMPT" \
+            --arg head_sha "$SOURCE_HEAD_SHA" \
+            '.id == $run_id and
+             .run_attempt == $run_attempt and
+             .conclusion == "success" and
+             .event == "workflow_dispatch" and
+             .head_sha == $head_sha and
+             .path == ".github/workflows/service-deploy.yml"' \
+            <<<"$run_json" >/dev/null || {
+            echo "source plan run provenance does not match exact apply inputs." >&2
+            exit 1
+          }
+
       - name: Download exact protected service plan
         if: ${{ inputs.apply }}
         uses: actions/download-artifact@v8.0.1
         with:
-          name: service-plan-${{ inputs.service }}-${{ inputs.environment }}-${{ inputs.plan_run_id }}
+          name: service-plan-${{ inputs.service }}-${{ inputs.environment }}-${{ inputs.plan_run_id }}-${{ inputs.plan_run_attempt }}
           path: ${{ runner.temp }}/service-plan-bundle
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
@@ -312,7 +432,7 @@ jobs:
         run: |
           set -euo pipefail
           bundle="$RUNNER_TEMP/service-plan-bundle"
-          python3 scripts/deployment/service/plan_bundle.py verify \
+          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/plan_bundle.py" verify \
             --plan "$bundle/service.plan" \
             --plan-json "$bundle/service-plan.json" \
             --context "$bundle/service-context.json" \
@@ -324,34 +444,121 @@ jobs:
             --image-ref "$IMAGE_REF" \
             --plan-digest "${{ inputs.plan_digest }}" \
             --context-digest "${{ inputs.context_digest }}" \
-            --plan-run-id "${{ inputs.plan_run_id }}" >/dev/null
-          terraform -chdir="${{ steps.contract.outputs.terraform_root }}" show \
+            --plan-run-id "${{ inputs.plan_run_id }}" \
+            --workflow-run-attempt "${{ inputs.plan_run_attempt }}" \
+            --tenant-id "$ARM_TENANT_ID" \
+            --subscription-id "$ARM_SUBSCRIPTION_ID" \
+            --backend-resource-group "$STATE_RESOURCE_GROUP" \
+            --backend-storage-account "$STATE_STORAGE_ACCOUNT" \
+            --backend-container "$STATE_CONTAINER" \
+            --controls-commit-sha "$CONTROLS_COMMIT_SHA" \
+            --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" >/dev/null
+          terraform -chdir="$TERRAFORM_ROOT" show \
             -json "$bundle/service.plan" > "$RUNNER_TEMP/replayed-service-plan.json"
           cmp "$bundle/service-plan.json" "$RUNNER_TEMP/replayed-service-plan.json" || {
             echo "binary plan and sealed plan JSON disagree." >&2
             exit 1
           }
-          python3 scripts/deployment/service/guard_plan.py \
+          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/guard_plan.py" \
             --plan-json "$RUNNER_TEMP/replayed-service-plan.json" \
             --service "${{ inputs.service }}" \
             --environment "${{ inputs.environment }}" \
             --image-ref "$IMAGE_REF"
 
-      - name: Apply exact protected service plan
+      - name: Capture pre-apply rollback snapshot
         if: ${{ inputs.apply }}
         run: |
           set -euo pipefail
-          terraform -chdir="${{ steps.contract.outputs.terraform_root }}" apply \
+          bundle="$RUNNER_TEMP/service-plan-bundle"
+          rollback_dir="$RUNNER_TEMP/service-rollback"
+          mkdir -m 700 "$rollback_dir"
+          terraform -chdir="$TERRAFORM_ROOT" output -json rollback_contract \
+            >"$rollback_dir/rollback-contract.json"
+          az account show --only-show-errors --output json >"$rollback_dir/account.json"
+          resource_id="$(jq -er '.target.service_resource_id' "$bundle/service-context.json")"
+          resource_group="$(jq -er '.target.resource_group' "$bundle/service-context.json")"
+          service_name="$(jq -er '.target.service_name' "$bundle/service-context.json")"
+          timeout 60s az containerapp show \
+            --ids "$resource_id" \
+            --only-show-errors \
+            --output json >"$rollback_dir/app.json"
+          previous_revision="$(jq -er '.properties.latestRevisionName' "$rollback_dir/app.json")"
+          timeout 60s az containerapp revision show \
+            --resource-group "$resource_group" \
+            --name "$service_name" \
+            --revision "$previous_revision" \
+            --only-show-errors \
+            --output json >"$rollback_dir/revision.json"
+          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_recovery.py" capture \
+            --context "$bundle/service-context.json" \
+            --account "$rollback_dir/account.json" \
+            --app "$rollback_dir/app.json" \
+            --revision "$rollback_dir/revision.json" \
+            --rollback-contract "$rollback_dir/rollback-contract.json" \
+            --output "$rollback_dir/snapshot.json"
+          echo "PREVIOUS_REVISION=$previous_revision" >> "$GITHUB_ENV"
+
+      - name: Apply exact protected service plan
+        if: ${{ inputs.apply }}
+        id: apply
+        run: |
+          set -euo pipefail
+          terraform -chdir="$TERRAFORM_ROOT" apply \
             -input=false \
             -lock-timeout=5m \
             "$RUNNER_TEMP/service-plan-bundle/service.plan"
 
       - name: Verify post-apply service health
         if: ${{ inputs.apply }}
+        id: health
+        continue-on-error: true
         run: |
           set -euo pipefail
-          cd "${{ steps.contract.outputs.terraform_root }}"
-          "$GITHUB_WORKSPACE/scripts/deployment/service/verify_health.sh"
+          cd "$TERRAFORM_ROOT"
+          "$TRUSTED_CONTROLS/scripts/deployment/service/verify_health.sh" \
+            "$RUNNER_TEMP/service-plan-bundle/service-context.json" \
+            "$PREVIOUS_REVISION" \
+            "$TRUSTED_CONTROLS/scripts/deployment/service"
+
+      - name: Roll back unhealthy service revision
+        if: ${{ inputs.apply && steps.health.outcome == 'failure' }}
+        run: |
+          set -euo pipefail
+          rollback_dir="$RUNNER_TEMP/service-rollback"
+          mapfile -d '' -t rollback_command < <(
+            python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_recovery.py" \
+              rollback-command \
+              --snapshot "$rollback_dir/snapshot.json" \
+              --revision-suffix "rollback-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          )
+          "${rollback_command[@]}" >"$rollback_dir/rollback-result.json"
+          resource_id="$(jq -er '.service_resource_id' "$rollback_dir/snapshot.json")"
+          resource_group="$(jq -er '.resource_group' "$rollback_dir/snapshot.json")"
+          service_name="$(jq -er '.service_name' "$rollback_dir/snapshot.json")"
+          timeout 60s az containerapp show \
+            --ids "$resource_id" \
+            --only-show-errors \
+            --output json >"$rollback_dir/app-after.json"
+          recovery_revision="$(jq -er '.properties.latestRevisionName' "$rollback_dir/app-after.json")"
+          timeout 60s az containerapp revision show \
+            --resource-group "$resource_group" \
+            --name "$service_name" \
+            --revision "$recovery_revision" \
+            --only-show-errors \
+            --output json >"$rollback_dir/revision-after.json"
+          az account show --only-show-errors --output json >"$rollback_dir/account-after.json"
+          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_recovery.py" \
+            verify-rollback \
+            --snapshot "$rollback_dir/snapshot.json" \
+            --account "$rollback_dir/account-after.json" \
+            --app "$rollback_dir/app-after.json" \
+            --revision "$rollback_dir/revision-after.json"
+
+      - name: Fail deployment after automatic rollback
+        if: ${{ inputs.apply && steps.health.outcome == 'failure' }}
+        run: |
+          echo "post-apply health failed; the previous image was restored and verified." >&2
+          exit 1
 
       - name: Remove temporary deployment material
         if: ${{ always() }}
@@ -362,5 +569,9 @@ jobs:
             "$RUNNER_TEMP/service-plan.json" \
             "$RUNNER_TEMP/service-context.json" \
             "$RUNNER_TEMP/service-plan-metadata.json" \
-            "$RUNNER_TEMP/replayed-service-plan.json"
+            "$RUNNER_TEMP/replayed-service-plan.json" \
+            "$RUNNER_TEMP/legacy-service-state.json" \
+            "$RUNNER_TEMP/independent-service-state.json"
           rm -rf "$RUNNER_TEMP/service-plan-bundle" "$RUNNER_TEMP/service-deploy-azure"
+          rm -rf "$RUNNER_TEMP/service-rollback"
+          rm -rf "$RUNNER_TEMP/legacy-terraform-data"

@@ -11,6 +11,7 @@ module "operator_service" {
   rollback           = var.rollback
   runtime_env        = var.runtime_env
   auth               = var.auth
+  rbac               = var.rbac
   cors_allow_origins = var.cors_allow_origins
   scaling            = var.scaling
   tags               = var.tags

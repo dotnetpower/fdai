@@ -6,8 +6,8 @@ module "container_app" {
   image                = var.image
   identity_ids         = [var.identity.resource_id]
   registry_identity_id = var.identity.resource_id
-  command              = ["python"]
-  args                 = ["-m", "fdai.delivery.ingestion_gateway.worker"]
+  command              = ["fdai-document-processing-worker"]
+  args                 = []
   secrets = [{
     name                = "database-dsn"
     identity            = var.identity.resource_id
@@ -22,11 +22,13 @@ module "container_app" {
     { name = "FDAI_KAFKA_BOOTSTRAP_SERVERS", value = var.platform.kafka_bootstrap_servers },
     { name = "FDAI_DOCUMENT_EVENT_TOPIC", value = var.event_topics.pipeline_stages },
     { name = "FDAI_PANTHEON_OBJECT_TOPIC", value = var.event_topics.pantheon_objects },
+    { name = "FDAI_EMBEDDING_ENDPOINT", value = var.embedding.endpoint },
+    { name = "FDAI_EMBEDDING_DEPLOYMENT", value = var.embedding.deployment },
     { name = "FDAI_ADLS_ACCOUNT_NAME", value = var.document_store.account_name },
     { name = "FDAI_ADLS_ACCOUNT_URL", value = var.document_store.account_url },
     { name = "FDAI_ADLS_SOURCE_FILE_SYSTEM", value = var.document_store.source_file_system },
     { name = "FDAI_ADLS_DERIVED_FILE_SYSTEM", value = var.document_store.derived_file_system },
-    { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
+    { name = "FDAI_INGESTION_WORKER_HEALTH_PORT", value = tostring(var.health.port) },
   ]
   health            = var.health
   scaling           = var.scaling

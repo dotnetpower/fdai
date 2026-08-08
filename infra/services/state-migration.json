@@ -1,8 +1,9 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "method": "terraform-state-mv-between-state-files",
   "services": {
     "core-control-plane": {
+      "source_backend_key_template": "fdai-{environment}.tfstate",
       "backend_key": "services/core-control-plane/<environment>.tfstate",
       "moves": [
         {
@@ -12,6 +13,7 @@
       ]
     },
     "operator-service": {
+      "source_backend_key_template": "fdai-{environment}.tfstate",
       "backend_key": "services/operator-service/<environment>.tfstate",
       "moves": [
         {
@@ -21,6 +23,7 @@
       ]
     },
     "document-ingestion-api": {
+      "source_backend_key_template": "fdai-{environment}.tfstate",
       "backend_key": "services/document-ingestion-api/<environment>.tfstate",
       "moves": [
         {
@@ -30,6 +33,7 @@
       ]
     },
     "document-processing-worker": {
+      "source_backend_key_template": "fdai-{environment}.tfstate",
       "backend_key": "services/document-processing-worker/<environment>.tfstate",
       "moves": [
         {
@@ -39,6 +43,7 @@
       ]
     },
     "isolated-executor": {
+      "source_backend_key_template": "fdai-{environment}.tfstate",
       "backend_key": "services/isolated-executor/<environment>.tfstate",
       "moves": [
         {

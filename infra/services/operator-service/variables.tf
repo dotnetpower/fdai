@@ -67,6 +67,16 @@ variable "auth" {
   description = "Entra application contract for the Operator HTTPS boundary."
   type        = object({ tenant_id = string, api_audience = string })
 }
+variable "rbac" {
+  description = "Distinct Entra App Role group identifiers for the Operator boundary."
+  type = object({
+    readers_group_id      = string
+    contributors_group_id = string
+    approvers_group_id    = string
+    owners_group_id       = string
+    break_glass_group_id  = string
+  })
+}
 variable "cors_allow_origins" {
   description = "Comma-separated explicit console origins."
   type        = string

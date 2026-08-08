@@ -55,8 +55,8 @@ variable "rollback" {
     max_unavailable_replicas = optional(number, 0)
   })
   validation {
-    condition     = contains(["previous-revision", "image-redeploy"], var.rollback.strategy) && var.rollback.authority_fallback != ""
-    error_message = "Executor rollback requires a supported revision strategy and a non-empty authority fallback."
+    condition     = contains(["previous-revision", "image-redeploy"], var.rollback.strategy) && var.rollback.authority_fallback == "core-in-process"
+    error_message = "Executor rollback requires a supported revision strategy and the core-in-process authority fallback."
   }
 }
 variable "runtime_env" {

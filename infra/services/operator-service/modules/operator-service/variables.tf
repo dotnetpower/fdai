@@ -11,6 +11,7 @@ variable "health" { type = object({ port = number, liveness_path = string, readi
 variable "rollback" { type = object({ strategy = string, previous_image = string, max_unavailable_replicas = optional(number, 0) }) }
 variable "runtime_env" { type = string }
 variable "auth" { type = object({ tenant_id = string, api_audience = string }) }
+variable "rbac" { type = object({ readers_group_id = string, contributors_group_id = string, approvers_group_id = string, owners_group_id = string, break_glass_group_id = string }) }
 variable "cors_allow_origins" { type = string }
 variable "scaling" { type = object({ min_replicas = number, max_replicas = number, cpu = number, memory = string }) }
 variable "tags" { type = map(string) }

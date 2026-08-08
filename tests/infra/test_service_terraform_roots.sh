@@ -12,6 +12,14 @@ services=(
   isolated-executor
 )
 
+declare -A service_entrypoints=(
+  [core-control-plane]=fdai-core-control-plane
+  [operator-service]=fdai-operator-service
+  [document-ingestion-api]=fdai-document-ingestion-api
+  [document-processing-worker]=fdai-document-processing-worker
+  [isolated-executor]=fdai-isolated-executor-service
+)
+
 required_root_files=(
   backend.hcl.example
   main.tf
@@ -66,7 +74,39 @@ for service in "${services[@]}"; do
     echo "$service backend key is not service-scoped" >&2
     exit 1
   }
+
+  module_main="$root/modules/$service/main.tf"
+  rg -Fq "command              = [\"${service_entrypoints[$service]}\"]" "$module_main" || {
+    echo "$service must start its service-owned console entry point" >&2
+    exit 1
+  }
 done
+
+rg -Fq '{ name = "FDAI_OPERATOR_SERVICE_PORT", value = tostring(var.health.port) }' \
+  "$services_root/operator-service/modules/operator-service/main.tf"
+for required_env in \
+  FDAI_RBAC_READERS_GROUP_ID \
+  FDAI_RBAC_CONTRIBUTORS_GROUP_ID \
+  FDAI_RBAC_APPROVERS_GROUP_ID \
+  FDAI_RBAC_OWNERS_GROUP_ID \
+  FDAI_RBAC_BREAK_GLASS_GROUP_ID; do
+  rg -Fq "{ name = \"$required_env\"" \
+    "$services_root/operator-service/modules/operator-service/main.tf"
+  rg -Fq "{ name = \"$required_env\"" \
+    "$services_root/document-ingestion-api/modules/document-ingestion-api/main.tf"
+done
+for service in document-ingestion-api document-processing-worker; do
+  module_main="$services_root/$service/modules/$service/main.tf"
+  rg -Fq '{ name = "FDAI_EMBEDDING_ENDPOINT"' "$module_main"
+  rg -Fq '{ name = "FDAI_EMBEDDING_DEPLOYMENT"' "$module_main"
+done
+worker_main="$services_root/document-processing-worker/modules/document-processing-worker/main.tf"
+rg -Fq '{ name = "FDAI_INGESTION_WORKER_HEALTH_PORT", value = tostring(var.health.port) }' \
+  "$worker_main"
+! rg -Fq '{ name = "FDAI_HEALTH_PORT"' "$worker_main"
+executor_main="$services_root/isolated-executor/modules/isolated-executor/main.tf"
+rg -Fq '{ name = "FDAI_ISOLATED_EXECUTOR_DEPLOYED", value = "1" }' "$executor_main"
+rg -Fq '{ name = "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID"' "$executor_main"
 
 forbidden_resource_pattern='resource[[:space:]]+"azurerm_(resource_group|virtual_network|subnet|eventhub|eventhub_namespace|postgresql_flexible_server|key_vault|container_registry)"'
 if rg -n "$forbidden_resource_pattern" "$services_root" --glob '*.tf'; then
@@ -81,12 +121,13 @@ test "$container_app_declarations" -eq 1 || {
 }
 
 manifest="$services_root/state-migration.json"
-jq -e '.schema_version == "1.0.0"' "$manifest" >/dev/null
+jq -e '.schema_version == "2.0.0"' "$manifest" >/dev/null
 test "$(jq -r '.services | keys | length' "$manifest")" -eq "${#services[@]}"
 for service in "${services[@]}"; do
   module_name="${service//-/_}"
   jq -e --arg service "$service" '
     .services[$service].backend_key == ("services/" + $service + "/<environment>.tfstate") and
+    .services[$service].source_backend_key_template == "fdai-{environment}.tfstate" and
     (.services[$service].moves | length) > 0 and
     all(.services[$service].moves[]; (.from | length) > 0 and (.to | length) > 0)
   ' "$manifest" >/dev/null

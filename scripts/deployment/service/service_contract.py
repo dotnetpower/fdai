@@ -32,6 +32,8 @@ class ServiceContract:
     backend_key: str
     allowed_resource_address: str
     image_repository: str
+    entrypoint: str
+    required_environment: tuple[str, ...]
 
 
 def _load_object(path: Path) -> dict[str, Any]:
@@ -100,9 +102,20 @@ def resolve_service(service: str, environment: str) -> ServiceContract:
         "backend_key_template",
         "allowed_resource_address",
         "image_repository",
+        "entrypoint",
     )
     if any(not isinstance(raw.get(field), str) or not raw[field] for field in fields):
         raise ServiceContractError(f"service matrix entry for {service} is incomplete")
+    required_environment = raw.get("required_environment")
+    if (
+        not isinstance(required_environment, list)
+        or not required_environment
+        or not all(isinstance(name, str) and name for name in required_environment)
+        or len(set(required_environment)) != len(required_environment)
+    ):
+        raise ServiceContractError(
+            f"service matrix entry for {service} has an invalid environment contract"
+        )
     terraform_root = raw["terraform_root"]
     if not (_REPO_ROOT / terraform_root).is_dir():
         raise ServiceContractError(f"Terraform root for {service} does not exist")
@@ -113,6 +126,8 @@ def resolve_service(service: str, environment: str) -> ServiceContract:
         backend_key=raw["backend_key_template"].format(environment=environment),
         allowed_resource_address=raw["allowed_resource_address"],
         image_repository=raw["image_repository"],
+        entrypoint=raw["entrypoint"],
+        required_environment=tuple(required_environment),
     )
 
 

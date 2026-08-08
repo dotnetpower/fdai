@@ -67,6 +67,10 @@ variable "runtime_env" {
     error_message = "runtime_env must be dev, staging, or prod."
   }
 }
+variable "embedding" {
+  description = "Embedding provider contract used by the document worker."
+  type        = object({ endpoint = string, deployment = string })
+}
 variable "scaling" {
   description = "Worker replica and resource limits."
   type        = object({ min_replicas = number, max_replicas = number, cpu = number, memory = string })

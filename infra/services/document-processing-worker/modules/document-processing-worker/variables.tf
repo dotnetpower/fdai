@@ -11,5 +11,6 @@ variable "document_store" { type = object({ account_name = string, account_url =
 variable "health" { type = object({ port = number, liveness_path = string, readiness_path = string, startup_path = optional(string), interval_seconds = optional(number, 30), timeout_seconds = optional(number, 3), failure_count_threshold = optional(number, 3), startup_failure_count = optional(number, 30) }) }
 variable "rollback" { type = object({ strategy = string, previous_image = string, max_unavailable_replicas = optional(number, 0) }) }
 variable "runtime_env" { type = string }
+variable "embedding" { type = object({ endpoint = string, deployment = string }) }
 variable "scaling" { type = object({ min_replicas = number, max_replicas = number, cpu = number, memory = string }) }
 variable "tags" { type = map(string) }

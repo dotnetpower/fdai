@@ -11,6 +11,7 @@ module "document_processing_worker" {
   health         = var.health
   rollback       = var.rollback
   runtime_env    = var.runtime_env
+  embedding      = var.embedding
   scaling        = var.scaling
   tags           = var.tags
 }

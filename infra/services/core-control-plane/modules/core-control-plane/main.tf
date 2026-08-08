@@ -6,8 +6,8 @@ module "container_app" {
   image                = var.image
   identity_ids         = concat([var.identity.resource_id], var.identity.extra_resource_ids)
   registry_identity_id = var.identity.resource_id
-  command              = ["python"]
-  args                 = ["-m", "fdai"]
+  command              = ["fdai-core-control-plane"]
+  args                 = []
   secrets = [{
     name                = "database-dsn"
     identity            = var.identity.resource_id

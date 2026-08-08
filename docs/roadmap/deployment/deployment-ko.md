@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 6cbf7b3637df710da1bcc4738c1caa8a08932979
+translation_source_sha: 3e44a33239ecd11a48e4027e7c5a9eb2db59a6cf
 translation_revised: 2026-08-08
 ---
 
@@ -22,7 +22,11 @@ state binding을 제공합니다.
 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 > **구현 상태.** Terraform plan/apply, production input gate, image scan/SBOM/attestation,
-> drift plan, post-apply canary Job smoke는 배포됐습니다. 자동 dev -> staging -> prod 승격,
+> drift plan, post-apply canary Job smoke는 배포됐습니다.
+> 독립 서비스 배포는 protected plan을 정확한 source workflow, backend, Azure target, identity,
+> image에 binding합니다. State cutover ownership을 검증하고 immediate post-apply health 검증이
+> 실패하면 capture한 revision과 digest-pinned image를 자동 복원합니다.
+> 자동 dev -> staging -> prod 승격,
 > Container Apps traffic-split canary, SLO 기반 자동 rollback, console blue/green은 아직
 > 목표 설계입니다. Core Container App은 현재 `revision_mode = Single`입니다.
 
@@ -52,6 +56,10 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   CSP-중립 유지**; 벤더 특이 IaC는 런타임 어댑터와 동일한 provider 경계 뒤에 있습니다.
 - **State 관리**: 앱 layer는 원격 backend + locking + **환경별 state 격리**를 사용합니다.
   `infra/bootstrap/` ops layer만 state backend 자체를 만들기 위해 local state를 유지합니다.
+- **독립 서비스 state cutover**: 각 runtime service는 별도 backend key를 사용합니다. Migration
+  tool은 두 state를 모두 백업하고 선언된 address 하나를 이동합니다. Source에 copy가 0개이고
+  destination에 정확히 1개일 때만 cutover를 수락합니다. Legacy deployment plan gate는 migrated
+  source address의 이후 create, update, replacement, delete를 차단합니다.
 - **Drift 감지**: 환경별 스케줄된 `plan` (읽기 전용) 이 drift를 알림과 조정 PR로 표면화;
   drift는 prod에 조용히 auto-apply 되지 않음.
 - 프로비저닝 리소스 - **최소 비용 효율 세트** (전체 인벤토리 + 티어 결정은
@@ -149,9 +157,11 @@ flowchart TD
 
 ## 점진 딜리버리(Progressive Delivery, 목표 상태)
 
-아래 전략은 아직 자동 배선되지 않았습니다. 현재 deploy workflow는 단일 revision을 apply한 뒤
-canary publisher smoke를 실행하며, 실패 시 run을 중단하지만 이전 revision으로 traffic을
-자동 전환하지 않습니다.
+Traffic-split canary 전략은 아직 자동 배선되지 않았습니다. Platform deploy workflow는 단일
+revision을 apply한 뒤 canary publisher smoke를 실행합니다. 반면 독립 서비스 workflow는 exact
+apply 전에 현재 revision과 image를 capture하고 새 resource id, subscription, component tag, image
+digest, revision을 검증합니다. Immediate health check가 실패하면 recovery revision을 자동 생성하고
+검증합니다. SLO window traffic rollback은 계속 목표 설계입니다.
 
 - **Core (Container Apps revisions)**: 트래픽 스플릿에 의한 **canary**. 단계로 승격(예: 5% →
   25% → 100%) 하며 헬스 신호로 게이팅. SLO burn, 에러율 급증, 가드 메트릭 상승 시 **자동
@@ -173,7 +183,9 @@ canary publisher smoke를 실행하며, 실패 시 run을 중단하지만 이전
 idempotency, audit entry)을
 운반합니다; 배포 롤백은 액션당 롤백을 대체하지 않고 보완합니다.
 
-- **애플리케이션 롤백**: 이전 컨테이너 revision으로 트래픽 시프트.
+- **애플리케이션 롤백**: 독립 서비스 배포는 immediate health failure 뒤 exact captured revision과
+  digest-pinned image를 복원하고 recovery revision을 검증한 다음 deployment를 실패로 닫습니다.
+  Isolated Executor는 cutover setting도 선언된 `core-in-process` authority fallback으로 되돌립니다.
 - **Ingestion topology 롤백**: `ingestion_cohost_worker=true`로 split worker를 제거하고 consumer
   group이나 offset 변경 없이 worker loop와 ClamAV sidecar를 API app으로 복원합니다.
 - **액션 롤백**: PR-네이티브 액션은 git으로 되돌림; stateful 액션(예: DB DR)은 액션당 롤백 경로

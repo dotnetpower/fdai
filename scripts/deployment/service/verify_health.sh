@@ -1,54 +1,41 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-service_json="$(terraform output -json service)"
+[[ $# -eq 3 ]] || {
+    echo "usage: verify_health.sh CONTEXT PREVIOUS_REVISION CONTROL_ROOT" >&2
+    exit 2
+}
+context_path="$1"
+previous_revision="$2"
+control_root="$3"
+work_dir="$(mktemp -d)"
+trap 'rm -rf "$work_dir"' EXIT
+
 health_json="$(terraform output -json health_contract)"
-
-readarray -t service_fields < <(
-  SERVICE_JSON="$service_json" python3 - <<'PY'
-import json
-import os
-
-service = json.loads(os.environ["SERVICE_JSON"])
-resource_id = service.get("id", "")
-parts = resource_id.split("/")
-try:
-    resource_group = parts[parts.index("resourceGroups") + 1]
-except (ValueError, IndexError) as exc:
-    raise SystemExit("service output has an invalid Azure resource id") from exc
-for field in (resource_group, service.get("name", ""), service.get("latest_revision_name", ""), service.get("fqdn") or ""):
-    if "\n" in field or "\r" in field:
-        raise SystemExit("service output contains an invalid line break")
-    print(field)
-PY
-)
-
-resource_group="${service_fields[0]}"
-service_name="${service_fields[1]}"
-revision_name="${service_fields[2]}"
-fqdn="${service_fields[3]}"
-
-revision_json="$(
-  timeout 60s az containerapp revision show \
-    --resource-group "$resource_group" \
-    --name "$service_name" \
-    --revision "$revision_name" \
+terraform output -json service >"$work_dir/service.json"
+az account show --only-show-errors --output json >"$work_dir/account.json"
+resource_id="$(jq -er '.target.service_resource_id' "$context_path")"
+resource_group="$(jq -er '.target.resource_group' "$context_path")"
+service_name="$(jq -er '.target.service_name' "$context_path")"
+revision_name="$(jq -er '.latest_revision_name' "$work_dir/service.json")"
+fqdn="$(jq -r '.fqdn // ""' "$work_dir/service.json")"
+timeout 60s az containerapp show \
+    --ids "$resource_id" \
     --only-show-errors \
-    --output json
-)"
-REVISION_JSON="$revision_json" python3 - <<'PY'
-import json
-import os
-
-revision = json.loads(os.environ["REVISION_JSON"])
-properties = revision.get("properties", {})
-if properties.get("provisioningState") != "Provisioned":
-    raise SystemExit("latest service revision is not Provisioned")
-if properties.get("healthState") != "Healthy":
-    raise SystemExit("latest service revision is not Healthy")
-if properties.get("active") is not True:
-    raise SystemExit("latest service revision is not active")
-PY
+    --output json >"$work_dir/app.json"
+timeout 60s az containerapp revision show \
+        --resource-group "$resource_group" \
+        --name "$service_name" \
+        --revision "$revision_name" \
+    --only-show-errors \
+        --output json >"$work_dir/revision.json"
+python3 "$control_root/deployment_recovery.py" verify \
+    --context "$context_path" \
+    --service-output "$work_dir/service.json" \
+    --account "$work_dir/account.json" \
+    --app "$work_dir/app.json" \
+    --revision "$work_dir/revision.json" \
+    --previous-revision "$previous_revision"
 
 if [[ -n "$fqdn" ]]; then
   readiness_path="$(HEALTH_JSON="$health_json" python3 -c 'import json, os; print(json.loads(os.environ["HEALTH_JSON"])["readiness_path"])')"

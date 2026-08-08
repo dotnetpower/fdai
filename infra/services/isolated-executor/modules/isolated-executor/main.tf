@@ -6,7 +6,7 @@ module "container_app" {
   image                = var.image
   identity_ids         = concat([var.identity.transport_resource_id], var.authority.cutover ? var.identity.action_resource_ids : [])
   registry_identity_id = var.identity.transport_resource_id
-  command              = ["fdai-isolated-executor"]
+  command              = ["fdai-isolated-executor-service"]
   args                 = []
   secrets = [{
     name                = "database-dsn"
@@ -18,10 +18,12 @@ module "container_app" {
     { name = "FDAI_DATABASE_ROLE", value = var.database.role },
     { name = "RUNTIME_ENV", value = var.runtime_env },
     { name = "FDAI_MI_CLIENT_ID", value = var.identity.transport_client_id },
-    { name = "FDAI_KAFKA_BOOTSTRAP_SERVERS", value = var.platform.kafka_bootstrap_servers },
+    { name = "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID", value = var.identity.transport_client_id },
+    { name = "FDAI_ISOLATED_EXECUTOR_DEPLOYED", value = "1" },
+    { name = "KAFKA_BOOTSTRAP_SERVERS", value = var.platform.kafka_bootstrap_servers },
     { name = "FDAI_EXECUTOR_COMMAND_TOPIC", value = var.event_topics.command },
     { name = "FDAI_EXECUTOR_RECEIPT_TOPIC", value = var.event_topics.receipt },
-    { name = "FDAI_EVENT_BUS_DLQ_SUFFIX", value = var.event_topics.dlq_suffix },
+    { name = "KAFKA_TOPIC_DLQ_SUFFIX", value = var.event_topics.dlq_suffix },
     { name = "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER", value = var.authority.cutover ? "1" : "0" },
     { name = "FDAI_DEV_OPERATIONS_GATEWAY_URL", value = var.authority.dev_operations_gateway_url },
     { name = "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", value = var.authority.dev_operations_gateway_audience },

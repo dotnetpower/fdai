@@ -19,6 +19,10 @@ bindings through configuration (see
 
 > **Implementation status.** Terraform plan/apply, production input gates, image
 > scan/SBOM/attestation, drift plans, and the post-apply canary Job smoke are shipped.
+> Independent-service deploys also bind a protected plan to the exact source workflow,
+> backend, Azure target, identities, and image. They verify state cutover ownership and restore
+> the captured revision and digest-pinned image automatically when immediate post-apply health
+> verification fails.
 > Automated dev -> staging -> prod promotion, Container Apps traffic-split canaries,
 > SLO-driven rollback, and console blue/green remain target designs. The core Container App
 > currently uses `revision_mode = Single`.
@@ -50,6 +54,10 @@ prod topology so shadow evaluation is representative.
 - **State management**: the app layer uses a locked remote backend with **per-environment state
   isolation**. Only the `infra/bootstrap/` ops layer keeps local state because it creates the
   state backend itself.
+- **Independent-service state cutover**: each runtime service uses its own backend key. The
+  migration tool backs up both states, moves one declared address, and accepts cutover only when
+  the source contains zero copies and the destination contains exactly one. The legacy deployment
+  plan gate blocks any later create, update, replacement, or delete at a migrated source address.
 - **Drift detection**: scheduled `plan` (read-only) per environment surfaces drift as an alert
   and a reconciliation PR; drift is never silently auto-applied to prod.
 - Provisioned resources - **minimum cost-efficient set** (full inventory + tier decisions in
@@ -148,9 +156,12 @@ flowchart TD
 
 ## Progressive Delivery (target state)
 
-These strategies are not automated yet. The current deploy workflow applies a single revision
-and runs the canary publisher smoke. A failure stops the run but does not shift traffic back to
-an earlier revision automatically.
+Traffic-split canary strategies are not automated yet. The platform deploy workflow applies a
+single revision and runs the canary publisher smoke. In contrast, the independent-service workflow
+captures the current revision and image before exact apply, verifies the new resource id,
+subscription, component tag, image digest, and revision, and automatically creates and verifies a
+recovery revision when that immediate health check fails. SLO-window traffic rollback remains a
+target design.
 
 - **Core (Container Apps revisions)**: **canary** by traffic split. Promote in steps
   (e.g. 5% → 25% → 100%) gated on health signals; **automated rollback** triggers on SLO burn,
@@ -172,7 +183,10 @@ blast-radius limit, dry-run, resource lock, idempotency, audit entry) from
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md);
 deployment rollback complements, not replaces, per-action rollback.
 
-- **Application rollback**: shift traffic back to the previous container revision.
+- **Application rollback**: an independent-service deploy restores the exact captured revision and
+  digest-pinned image after immediate health failure, then verifies the recovery revision before
+  closing the deployment as failed. The isolated Executor also returns its cutover setting to the
+  declared `core-in-process` authority fallback.
 - **Ingestion topology rollback**: set `ingestion_cohost_worker=true` to remove the split worker and
   restore its loops and ClamAV sidecar to the API app without changing consumer groups or offsets.
 - **Action rollback**: PR-native actions revert via git; stateful actions (e.g. DB DR) follow

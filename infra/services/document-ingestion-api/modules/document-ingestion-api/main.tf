@@ -6,8 +6,8 @@ module "container_app" {
   image                = var.image
   identity_ids         = [var.identity.resource_id]
   registry_identity_id = var.identity.resource_id
-  command              = ["uvicorn"]
-  args                 = ["fdai.delivery.ingestion_gateway.prod:app", "--factory", "--host", "0.0.0.0", "--port", tostring(var.health.port)]
+  command              = ["fdai-document-ingestion-api"]
+  args                 = []
   secrets = [{
     name                = "database-dsn"
     identity            = var.identity.resource_id
@@ -22,9 +22,16 @@ module "container_app" {
     { name = "FDAI_MI_CLIENT_ID", value = var.identity.client_id },
     { name = "FDAI_ENTRA_TENANT_ID", value = var.auth.tenant_id },
     { name = "FDAI_API_AUDIENCE", value = var.auth.api_audience },
+    { name = "FDAI_RBAC_READERS_GROUP_ID", value = var.rbac.readers_group_id },
+    { name = "FDAI_RBAC_CONTRIBUTORS_GROUP_ID", value = var.rbac.contributors_group_id },
+    { name = "FDAI_RBAC_APPROVERS_GROUP_ID", value = var.rbac.approvers_group_id },
+    { name = "FDAI_RBAC_OWNERS_GROUP_ID", value = var.rbac.owners_group_id },
+    { name = "FDAI_RBAC_BREAK_GLASS_GROUP_ID", value = var.rbac.break_glass_group_id },
     { name = "FDAI_INGESTION_CORS_ALLOW_ORIGINS", value = var.cors_allow_origins },
     { name = "FDAI_KAFKA_BOOTSTRAP_SERVERS", value = var.platform.kafka_bootstrap_servers },
     { name = "FDAI_DOCUMENT_EVENT_TOPIC", value = var.event_topics.pipeline_stages },
+    { name = "FDAI_EMBEDDING_ENDPOINT", value = var.embedding.endpoint },
+    { name = "FDAI_EMBEDDING_DEPLOYMENT", value = var.embedding.deployment },
     { name = "FDAI_ADLS_ACCOUNT_NAME", value = var.document_store.account_name },
     { name = "FDAI_ADLS_ACCOUNT_URL", value = var.document_store.account_url },
     { name = "FDAI_ADLS_SOURCE_FILE_SYSTEM", value = var.document_store.source_file_system },
