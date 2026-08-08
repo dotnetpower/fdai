@@ -691,7 +691,7 @@ wheels = [
 
 [[package]]
 name = "fdai"
-version = "0.1.223"
+version = "0.1.224"
 source = { virtual = "." }
 
 [package.optional-dependencies]
