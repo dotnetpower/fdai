@@ -506,6 +506,25 @@ def _guard_initial_worker_drift(
     return expected == after
 
 
+def _guard_aligned_initial_drift(
+    resource_drift: Any,
+    *,
+    contract: ServiceContract,
+    planned_before: dict[str, Any],
+) -> bool:
+    if not isinstance(resource_drift, list) or len(resource_drift) != 1:
+        return False
+    entry = resource_drift[0]
+    if not isinstance(entry, dict) or entry.get("address") != contract.allowed_resource_address:
+        return False
+    change = entry.get("change")
+    return (
+        isinstance(change, dict)
+        and change.get("actions") == ["update"]
+        and change.get("after") == planned_before
+    )
+
+
 def validate_plan(
     payload: dict[str, Any],
     *,
@@ -521,6 +540,7 @@ def validate_plan(
         raise PlanGuardError("Terraform plan resource_changes must be an array")
     violations: list[str] = []
     selected_after: dict[str, Any] | None = None
+    selected_before: dict[str, Any] | None = None
     for entry in resource_changes:
         if not isinstance(entry, dict) or not isinstance(entry.get("address"), str):
             raise PlanGuardError("Terraform plan contains an invalid resource change")
@@ -552,6 +572,7 @@ def validate_plan(
         _identity_ids(after, address=address)
         violations.extend(_guard_service_runtime(after, address=address, contract=contract))
         before = _resource(change, side="before", address=address)
+        selected_before = before
         violations.extend(
             _guard_update(
                 before,
@@ -571,7 +592,16 @@ def validate_plan(
             planned_resource=selected_after,
         )
     )
-    if resource_drift not in (None, []) and not allowed_worker_drift:
+    allowed_aligned_drift = (
+        initial_cutover
+        and selected_before is not None
+        and _guard_aligned_initial_drift(
+            resource_drift,
+            contract=contract,
+            planned_before=selected_before,
+        )
+    )
+    if resource_drift not in (None, []) and not allowed_worker_drift and not allowed_aligned_drift:
         drift_paths: list[str] = []
         if isinstance(resource_drift, list) and len(resource_drift) == 1:
             drift_change = resource_drift[0].get("change")

@@ -1104,6 +1104,47 @@ def test_plan_guard_reports_drift_paths_without_values(guard: ModuleType) -> Non
     assert "secret-new" not in message
 
 
+def test_initial_cutover_allows_drift_aligned_with_planned_before(guard: ModuleType) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before = change["before"]
+    before_container = before["template"][0]["container"][0]
+    before_container["image"] = "registry.example.com/operator@sha256:" + "b" * 64
+    before_container["command"] = ["legacy-operator"]
+    before["tags"] = {}
+    change["after"]["tags"] = {  # type: ignore[index]
+        "fdai:component": "operator-service",
+        "fdai:rollback-strategy": "previous-revision",
+    }
+    plan["resource_drift"] = [
+        {
+            "address": address,
+            "change": {
+                "actions": ["update"],
+                "before": copy.deepcopy(change["after"]),
+                "after": copy.deepcopy(before),
+            },
+        }
+    ]
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+        initial_cutover=True,
+    )
+    plan["resource_drift"][0]["change"]["after"]["name"] = "peer"  # type: ignore[index]
+    with pytest.raises(guard.PlanGuardError, match="platform or peer resource drift"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            initial_cutover=True,
+        )
+
+
 def test_plan_guard_rejects_refreshed_platform_or_peer_drift(guard: ModuleType) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])
