@@ -375,6 +375,163 @@ def test_lifecycle_migration_enforces_role_owned_transitions_in_database() -> No
     assert "NEW.revision <> OLD.revision + 1" in source
 
 
+def test_shared_storage_migrations_enforce_canonical_writer_role_matrix() -> None:
+    inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
+    ownership = ownership_module.load_ownership_manifest(
+        MIGRATION_ROOT / "ownership.json",
+        inventory,
+    )
+    core_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260808_core_shared_data_ownership.py"
+    )
+    worker_path = (
+        MIGRATION_ROOT
+        / "branches/document-processing-worker/versions/20260808_worker_knowledge_ownership.py"
+    )
+    api_stewardship_source = (
+        REPO_ROOT
+        / "services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/stewardship.py"
+    ).read_text(encoding="utf-8")
+    worker_handover_source = (
+        REPO_ROOT
+        / "services/document-processing-worker/src"
+        / "fdai_document_worker_service/adapters/handover.py"
+    ).read_text(encoding="utf-8")
+
+    class CaptureOp:
+        statements: list[str] = []
+
+        @classmethod
+        def execute(cls, statement: str) -> None:
+            cls.statements.append(statement)
+
+    core_migration = runpy.run_path(str(core_path))
+    core_migration["upgrade"].__globals__["op"] = CaptureOp()
+    core_migration["upgrade"]()
+    core_sql = "\n".join(CaptureOp.statements)
+
+    CaptureOp.statements = []
+    worker_migration = runpy.run_path(str(worker_path))
+    worker_migration["upgrade"].__globals__["op"] = CaptureOp()
+    worker_migration["upgrade"]()
+    worker_sql = "\n".join(CaptureOp.statements)
+
+    transition_writers = {
+        table: {
+            transition.writer for transition in ownership.transitions if transition.table == table
+        }
+        for table in ("audit_log", "state_kv")
+    }
+    assert transition_writers == {
+        "audit_log": {"core-control-plane", "isolated-executor"},
+        "state_kv": {
+            "core-control-plane",
+            "operator-service",
+            "document-ingestion-api",
+            "document-processing-worker",
+            "isolated-executor",
+        },
+    }
+    assert ownership.table_writers["knowledge_chunk"] == "document-processing-worker"
+    state_scopes = {
+        transition.writer: transition.scope
+        for transition in ownership.transitions
+        if transition.table == "state_kv"
+    }
+    assert state_scopes["document-ingestion-api"] == (
+        "namespaces:stewardship_merge:*,stewardship_repository_draft:*"
+    )
+    assert state_scopes["document-processing-worker"] == "namespace:handover_draft:*"
+    assert 'f"stewardship_merge:' in api_stewardship_source
+    assert 'f"stewardship_repository_draft:' in api_stewardship_source
+    assert 'f"handover_draft:' in worker_handover_source
+    assert "CREATE FUNCTION enforce_state_kv_namespace_owner" in core_sql
+    assert "CREATE TRIGGER state_kv_namespace_owner" in core_sql
+    assert "starts_with(target_key, 'stewardship_merge:')" in core_sql
+    assert "starts_with(target_key, 'stewardship_repository_draft:')" in core_sql
+    assert "starts_with(target_key, 'handover_draft:')" in core_sql
+    assert (
+        "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE state_kv "
+        "TO fdai_ingestion_api, fdai_ingestion_worker" in core_sql
+    )
+    assert "GRANT SELECT ON TABLE state_kv TO fdai_ingestion_cohost" in core_sql
+    assert "REVOKE INSERT, UPDATE, DELETE ON TABLE audit_log" in core_sql
+    assert "GRANT SELECT ON TABLE audit_log" in core_sql
+    assert "GRANT SELECT, INSERT ON TABLE audit_log" not in core_sql
+    assert "REVOKE ALL PRIVILEGES ON TABLE knowledge_chunk" in worker_sql
+    assert "GRANT SELECT ON TABLE knowledge_chunk TO fdai_ingestion_api" in worker_sql
+    assert (
+        "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE knowledge_chunk "
+        "TO fdai_ingestion_worker" in worker_sql
+    )
+    assert "GRANT SELECT, DELETE ON TABLE knowledge_chunk TO fdai_ingestion_api" not in (
+        core_sql + worker_sql
+    )
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "error_match", "required_head", "requires", "risk"),
+    (
+        (
+            "branches/core-control-plane/versions/20260808_core_shared_data_ownership.py",
+            "core shared-data downgrade requires stopped ingestion runtimes",
+            "ingestion_api_base_20260808",
+            "api-worker-base-heads-shared-database-drained-and-explicit-stop-ack",
+            "restores-overbroad-legacy-grants-for-monolith-recovery-only",
+        ),
+        (
+            "branches/document-processing-worker/versions/20260808_worker_knowledge_ownership.py",
+            "worker knowledge downgrade requires stopped ingestion runtimes",
+            "ingestion_api_outbox_20260808",
+            "api-outbox-worker-knowledge-heads-shared-database-drained-and-explicit-stop-ack",
+            "restores-api-delete-and-cohost-write-for-monolith-recovery-only",
+        ),
+    ),
+)
+def test_shared_storage_downgrades_fail_closed_before_restoring_legacy_grants(
+    relative_path: str,
+    error_match: str,
+    required_head: str,
+    requires: str,
+    risk: str,
+) -> None:
+    migration = runpy.run_path(str(MIGRATION_ROOT / relative_path))
+    assert migration["rollback"] == {
+        "strategy": "restore-legacy-grants-after-dependent-runtime-stop",
+        "restores": migration["down_revision"],
+        "requires": requires,
+        "risk": risk,
+    }
+    guard_sql = str(migration["_DEPENDENT_RUNTIME_GUARD"])
+    assert "fdai.dependent_runtimes_stopped" in guard_sql
+    assert "pg_stat_activity" in guard_sql
+    assert "datname = current_database()" in guard_sql
+    assert required_head in guard_sql
+
+    class UnsafeGuardResult:
+        @staticmethod
+        def scalar_one() -> bool:
+            return False
+
+    class UnsafeDowngradeOp:
+        statements: list[str] = []
+
+        @staticmethod
+        def get_bind() -> SimpleNamespace:
+            return SimpleNamespace(execute=lambda _statement: UnsafeGuardResult())
+
+        @classmethod
+        def execute(cls, statement: str) -> None:
+            cls.statements.append(statement)
+
+    downgrade = migration["downgrade"]
+    downgrade.__globals__["op"] = UnsafeDowngradeOp()
+    with pytest.raises(RuntimeError, match=error_match):
+        downgrade()
+    assert UnsafeDowngradeOp.statements == []
+
+
 def test_dispatcher_validates_all_and_refuses_unknown_service() -> None:
     valid = subprocess.run(  # noqa: S603 - fixed interpreter and repository script
         [sys.executable, str(MIGRATION_ROOT / "migrate.py"), "all", "validate"],

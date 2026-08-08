@@ -279,13 +279,13 @@
     {
       "id": "state-kv-ingestion-api-namespaces",
       "table": "state_kv",
-      "scope": "namespace:document-ingestion-api/*",
+      "scope": "namespaces:stewardship_merge:*,stewardship_repository_draft:*",
       "writer": "document-ingestion-api"
     },
     {
       "id": "state-kv-document-worker-namespaces",
       "table": "state_kv",
-      "scope": "namespace:document-processing-worker/*",
+      "scope": "namespace:handover_draft:*",
       "writer": "document-processing-worker"
     },
     {
