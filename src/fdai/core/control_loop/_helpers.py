@@ -304,6 +304,7 @@ def _extract_resource_id(event: Event, decision: RoutingDecision) -> str:
 def _is_execution_success(
     result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult | Any,
 ) -> bool:
+    """Return whether a dispatched mutation has durable effect verification."""
     if not hasattr(result, "outcome"):
         return False
     dispatched = result.outcome in (
@@ -316,7 +317,7 @@ def _is_execution_success(
     )
     if not dispatched:
         return False
-    return result.audit_context.get("effect_verified") is not False
+    return result.audit_context.get("effect_verified") is True
 
 
 def _synthetic_action_build_failure(*, event: Event, finding: Any, reason: str) -> ExecutionResult:

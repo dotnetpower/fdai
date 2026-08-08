@@ -274,7 +274,12 @@ async def test_direct_api_executor_bypassed_when_execution_path_absent() -> None
 def test_is_execution_success_for_pr_native_outcomes(
     outcome: ExecutorOutcome, expected: bool
 ) -> None:
-    result = ExecutionResult(action_id="a", outcome=outcome, mode=Mode.SHADOW)
+    result = ExecutionResult(
+        action_id="a",
+        outcome=outcome,
+        mode=Mode.SHADOW,
+        audit_context={"effect_verified": expected},
+    )
     assert _is_execution_success(result) is expected
 
 
@@ -294,7 +299,12 @@ def test_is_execution_success_for_pr_native_outcomes(
 def test_is_execution_success_for_direct_api_outcomes(
     outcome: DirectApiExecutionOutcome, expected: bool
 ) -> None:
-    result = DirectApiExecutionResult(action_id="a", outcome=outcome, mode=Mode.SHADOW)
+    result = DirectApiExecutionResult(
+        action_id="a",
+        outcome=outcome,
+        mode=Mode.SHADOW,
+        audit_context={"effect_verified": expected},
+    )
     assert _is_execution_success(result) is expected
 
 

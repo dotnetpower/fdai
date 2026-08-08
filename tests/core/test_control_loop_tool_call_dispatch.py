@@ -217,7 +217,11 @@ def test_is_execution_success_for_tool_call_outcomes() -> None:
         ToolCallExecutionOutcome.DISPATCHED,
         ToolCallExecutionOutcome.ALREADY_APPLIED,
     ):
-        result = ToolCallExecutionResult(action_id="x", outcome=outcome)
+        result = ToolCallExecutionResult(
+            action_id="x",
+            outcome=outcome,
+            audit_context={"effect_verified": True},
+        )
         assert _is_execution_success(result) is True
     for outcome in (
         ToolCallExecutionOutcome.ABSTAINED_BLAST_RADIUS,

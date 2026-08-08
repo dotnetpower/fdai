@@ -8,14 +8,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from fdai.core.control_loop import ControlLoop, _is_execution_success
+from fdai.core.control_loop import ControlLoop, ControlLoopOutcome, _is_execution_success
+from fdai.core.control_loop.operator_request import process_operator_request
 from fdai.core.executor import ExecutionResult, ExecutorOutcome
 from fdai.core.executor.direct_api import (
     DirectApiExecutionOutcome,
     DirectApiExecutionResult,
 )
 from fdai.core.mscp_profile import ExpectedEffect, ObservedEffect
-from fdai.shared.contracts.models import Action, Mode, Rule
+from fdai.shared.contracts.models import Action, Event, Mode, Rule
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 7, 21, tzinfo=UTC)
@@ -84,7 +85,7 @@ def _result() -> ExecutionResult:
     return ExecutionResult(
         action_id=str(_action().action_id),
         outcome=ExecutorOutcome.PUBLISHED,
-        audit_context={"effect_applied": True, "effect_verified": False},
+        audit_context={"effect_applied": True},
     )
 
 
@@ -132,6 +133,55 @@ def test_partial_binding_fails_fast() -> None:
         )
 
 
+def test_missing_effect_verification_is_not_execution_success() -> None:
+    assert _is_execution_success(_result()) is False
+
+
+async def test_missing_effect_verification_never_returns_executed_auto() -> None:
+    event = Event.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "event_id": "00000000-0000-0000-0000-000000000001",
+            "idempotency_key": "operator-request-1",
+            "source": "example",
+            "event_type": "operator_request",
+            "detected_at": "2026-07-21T00:00:00Z",
+            "ingested_at": "2026-07-21T00:00:01Z",
+            "mode": "enforce",
+            "payload": {
+                "operator_request": {"initiator_principal": "operator-1"},
+                "resource": {"resource_type": "compute.vm"},
+            },
+        }
+    )
+    unified = MagicMock(
+        is_auto=True,
+        requires_hil=False,
+        is_denied=False,
+        decision="auto",
+    )
+    unified.gate.effective_mode = Mode.ENFORCE
+    host = MagicMock()
+    host._inventory_context_provider = None
+    host._action_builder.build_from_operator_request.return_value = (_action(), _rule())
+    host._evaluate_execution_authorization = AsyncMock(return_value=None)
+    host._bind_authorized_identity.side_effect = lambda action, _authorization: action
+    host._evaluate_and_audit = AsyncMock(return_value=unified)
+    host._dispatch_action = AsyncMock(return_value=_result())
+    host._emit_stage = AsyncMock()
+    host._notify_decision = AsyncMock()
+
+    result = await process_operator_request(
+        host,
+        event=event,
+        event_id=str(event.event_id),
+        correlation_id=str(event.event_id),
+    )
+
+    assert result.outcome is ControlLoopOutcome.ABSTAINED_ACTION_BUILD
+    assert result.decision == "abstain"
+
+
 async def test_unbound_profile_is_a_complete_dispatch_noop() -> None:
     executor = MagicMock()
     executor.execute = AsyncMock(return_value=_result())
@@ -141,6 +191,7 @@ async def test_unbound_profile_is_a_complete_dispatch_noop() -> None:
     result = await loop._dispatch_action(action=_action(), rule=_rule())
 
     assert result is executor.execute.return_value
+    assert "effect_verified" not in result.audit_context
     assert _is_execution_success(result) is False
     assert _audit_payloads(audit) == ()
 
@@ -377,5 +428,6 @@ async def test_shadow_audit_failure_does_not_change_execution_result() -> None:
     result = await loop._dispatch_action(action=_action(), rule=_rule())
 
     assert result is expected_result
+    assert "effect_verified" not in result.audit_context
     assert _is_execution_success(result) is False
     relay.assert_not_awaited()

@@ -138,12 +138,9 @@ def test_helpers_does_not_import_orchestrator() -> None:
 
 
 # ---------------------------------------------------------------------------
-# H6: idempotency invariant - the extracted _is_execution_success
-# helper's contract is that a dispatched-but-already-applied outcome
-# counts as success. This is the linchpin of at-least-once delivery
-# safety: re-delivery of the same event yields an ALREADY_APPLIED
-# result, and the audit MUST treat it as success (never as a retry
-# that mutates twice).
+# H6: idempotency invariant - a dispatched-but-already-applied outcome
+# counts as success only after independent effect verification. This preserves
+# at-least-once delivery safety without treating a delivery receipt as proof.
 # ---------------------------------------------------------------------------
 
 
@@ -160,9 +157,10 @@ def test_is_execution_success_treats_already_applied_as_success() -> None:
         result = DirectApiExecutionResult(
             action_id="a-1",
             outcome=outcome,
+            audit_context={"effect_verified": True},
         )
         assert _helpers._is_execution_success(result), (
-            f"outcome {outcome!r} MUST count as success - re-delivery safety depends on this"
+            f"verified outcome {outcome!r} MUST preserve re-delivery success"
         )
 
 
