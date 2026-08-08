@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 66b5c08c4ae1d4a4915df5b3b973ef410e860502
+translation_source_sha: 0956a778d9ecee50419c5cfeb8b243289666b215
 translation_revised: 2026-08-09
 ---
 
@@ -218,19 +218,14 @@ coverage gap으로 유지하며 healthy-node 결론을 생성할 수 없습니�
 | `query_network_security` | Network resource provider | 제한된 custom/default NSG rule field와 association을 반환합니다. |
 | `query_network_peerings` | Network resource provider | 제한된 VNet peering state, synchronization, address-space 및 routing flag를 반환합니다. |
 
-REST 또는 SDK adapter가 production default입니다. Azure CLI는 기존 typed command broker 뒤의
-allowlisted fallback입니다. Model은 argv, KQL, ARG query, subscription id 또는 ARM URL을 생성하지
-않습니다. Registered tool 및 bounded enum argument만 선택합니다.
+REST 또는 SDK adapter가 production default입니다. Azure CLI는 기존 typed command broker 뒤의 allowlisted fallback입니다. Model은 argv, KQL, ARG query, subscription id 또는 ARM URL을 생성하지 않습니다. Registered tool 및 bounded enum argument만 선택합니다.
 
-Resource-state shadow comparison은 provider observation 하나를 exact ontology object, release,
-source revision, cutoff에 바인딩한 뒤 read-only match, mismatch 또는 unavailable receipt를
-기록합니다. Graph를 update하거나 provider receipt를 convergence로 취급하거나 execution authority를
-부여하지 않으며 conflicting lineage는 명시적인 comparison failure로 남습니다.
+Resource-state shadow comparison은 provider observation 하나를 exact ontology object, release, source revision, cutoff에 바인딩한 뒤 read-only match, mismatch 또는 unavailable receipt를 기록합니다.
+Graph를 update하거나 provider receipt를 convergence로 취급하거나 execution authority를 부여하지 않으며 conflicting lineage는 명시적인 comparison failure로 남습니다.
 
 ### 선택적 Azure MCP provider
 
-Azure MCP는 registered tool을 위한 추가 read transport를 제공할 수 있습니다. 이 provider는 선택
-사항입니다. MCP가 없거나, 연결할 수 없거나, 권한이 없거나, allowlist tool이 누락되어도 Resource
+Azure MCP는 registered tool을 위한 추가 read transport를 제공할 수 있습니다. 이 provider는 선택 사항입니다. MCP가 없거나, 연결할 수 없거나, 권한이 없거나, allowlist tool이 누락되어도 Resource
 Graph와 typed REST provider가 authoritative provider로 유지되며 요청을 계속 처리합니다.
 
 Operator API는 traffic을 받기 전에 bounded MCP handshake와 `tools/list` probe를 한 번 수행합니다.

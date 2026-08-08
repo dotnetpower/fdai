@@ -219,19 +219,14 @@ an output cap, and an evidence schema.
 | `query_network_security` | Network resource provider | Return bounded custom and default NSG rule fields and associations |
 | `query_network_peerings` | Network resource provider | Return bounded VNet peering state, synchronization, address-space, and routing flags |
 
-REST or SDK adapters are the production default. Azure CLI is an allowlisted fallback behind the
-existing typed command broker. The model never creates argv, KQL, an ARG query, a subscription id,
-or an ARM URL. It selects a registered tool and bounded enum arguments only.
+REST or SDK adapters are the production default. Azure CLI is an allowlisted fallback behind the existing typed command broker. The model never creates argv, KQL, an ARG query, a subscription id, or an ARM URL. It selects a registered tool and bounded enum arguments only.
 
-Resource-state shadow comparison binds one provider observation to the exact ontology object,
-release, source revision, and cutoff, then records a read-only match, mismatch, or unavailable
-receipt. It never updates the graph, treats a provider receipt as convergence, or grants execution
-authority; conflicting lineage remains an explicit comparison failure.
+Resource-state shadow comparison binds one provider observation to the exact ontology object, release, source revision, and cutoff, then records a read-only match, mismatch, or unavailable receipt.
+It never updates the graph, treats a provider receipt as convergence, or grants execution authority; conflicting lineage remains an explicit comparison failure.
 
 ### Optional Azure MCP provider
 
-Azure MCP can provide an additional read transport for registered tools. It remains optional:
-Resource Graph and typed REST providers stay authoritative and continue serving requests when MCP
+Azure MCP can provide an additional read transport for registered tools. It remains optional: Resource Graph and typed REST providers stay authoritative and continue serving requests when MCP
 is absent, unreachable, unauthorized, or missing an allowlisted tool.
 
 The Operator API performs one bounded MCP handshake and `tools/list` probe before accepting traffic.
