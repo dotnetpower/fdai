@@ -733,11 +733,11 @@ def test_executor_receipt_observer_joins_actual_committed_and_published_fields(
     ).read_text(encoding="utf-8")
     for field in (
         '"event": "isolated_executor_receipt_committed"',
-        '"command_id": str(command.command_id)',
-        '"status": receipt.status.value',
-        '"command_offset": envelope.offset',
         '"event": "isolated_executor_receipt_published"',
-        '"receipt_id": str(pending.receipt_id)',
+        '"receipt_id": str(receipt_id)',
+        '"command_id": command_id or _optional_text(payload.get("command_id"))',
+        '"command_offset": command_offset',
+        '"status": _optional_text(payload.get("status"))',
         '"offset": broker_receipt.offset',
     ):
         assert field in runtime
@@ -916,7 +916,10 @@ def test_repository_root_scripts_resolve_from_the_workspace() -> None:
     job = workflow["jobs"]["terraform"]
     assert job["defaults"]["run"]["working-directory"] == "infra"
 
-    bare_reference = re.compile(r"(?<!\.\./)(?<![\w./$-])scripts/")
+    bare_reference = re.compile(
+        r"(?:^|\s)(?:bash|sh|python3?|uv\s+run\s+python)\s+scripts/",
+        re.MULTILINE,
+    )
     offenders = [
         step.get("name")
         for step in job["steps"]

@@ -72,6 +72,9 @@ class _ClosableBus(InMemoryEventBus):
     async def close(self) -> None:
         self.closed = True
 
+    async def assert_publish_ready(self) -> None:
+        return None
+
 
 class _ReadyStateStore(InMemoryStateStore):
     async def assert_schema(self) -> None:
