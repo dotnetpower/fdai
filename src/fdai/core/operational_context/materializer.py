@@ -14,6 +14,10 @@ from fdai.shared.providers.ontology_instance import (
     OntologyLinkRecord,
     OntologyObjectRecord,
 )
+from fdai.shared.providers.state_evidence import (
+    LINK_OBSERVATION_METADATA_PROPERTY,
+    LinkObservationMetadata,
+)
 
 from .models import (
     OperationalContextEvidenceLink,
@@ -118,6 +122,11 @@ class OperationalContextMaterializer:
             for item in evidence_links
             if item.from_id in reachable_ids and item.to_id in reachable_ids
         )
+        link_conflicts, link_stale_sources = _link_evidence_constraints(
+            evidence_links,
+            cutoff=cutoff,
+        )
+        conflicts.extend(link_conflicts)
 
         by_type: dict[str, list[str]] = {}
         for item in objects:
@@ -142,7 +151,7 @@ class OperationalContextMaterializer:
                 ),
             )
         )
-        stale_sources: list[str] = []
+        stale_sources = list(link_stale_sources)
         for freshness in canonical_freshness:
             if freshness.observed_at > cutoff:
                 conflicts.append(f"source_after_cutoff:{freshness.source}")
@@ -219,9 +228,51 @@ def _evidence_links(
             link_type=link.link_type,
             from_id=link.from_id,
             to_id=link.to_id,
+            observation_metadata=_link_observation_metadata(link),
         )
         for link in sorted(links, key=lambda item: (item.link_type, item.from_id, item.to_id))
     )
+
+
+def _link_observation_metadata(link: OntologyLinkRecord) -> LinkObservationMetadata | None:
+    raw = link.properties.get(LINK_OBSERVATION_METADATA_PROPERTY)
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        raise ValueError(f"{link.link_type}.{LINK_OBSERVATION_METADATA_PROPERTY} MUST be an object")
+    return LinkObservationMetadata.from_mapping(raw)
+
+
+def _link_evidence_constraints(
+    links: Sequence[OperationalContextEvidenceLink],
+    *,
+    cutoff: datetime,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Return never-raising context constraints from typed link evidence."""
+
+    conflicts: set[str] = set()
+    stale_sources: set[str] = set()
+    for link in links:
+        metadata = link.observation_metadata
+        if metadata is None:
+            continue
+        fact = metadata.state_fact
+        identity = f"{link.link_type}:{link.from_id}:{link.to_id}"
+        if fact.recorded_at > cutoff or fact.evidence_cutoff > cutoff or fact.effective_at > cutoff:
+            conflicts.add(f"link_evidence_after_cutoff:{identity}")
+            continue
+        if (cutoff - fact.effective_at).total_seconds() > fact.freshness_ceiling_seconds:
+            conflicts.add(f"link_evidence_stale:{identity}")
+            stale_sources.add(fact.source_identity)
+        if fact.completeness < 1.0:
+            conflicts.add(f"link_evidence_incomplete:{identity}")
+        if fact.conflicts:
+            conflicts.add(f"link_evidence_conflicting:{identity}")
+        if fact.synthetic:
+            conflicts.add(f"link_evidence_synthetic:{identity}")
+        if not metadata.verified:
+            conflicts.add(f"link_evidence_unverified:{identity}")
+    return tuple(sorted(conflicts)), tuple(sorted(stale_sources))
 
 
 def _evidence_paths(
@@ -314,9 +365,7 @@ def _snapshot_identity(
         "catalog_versions": catalog_versions,
         "conflicts": conflicts,
         "cutoff": cutoff.isoformat(),
-        "evidence_links": tuple(
-            (item.link_type, item.from_id, item.to_id) for item in evidence_links
-        ),
+        "evidence_links": tuple(_evidence_link_identity(item) for item in evidence_links),
         "evidence_paths": _path_identities(evidence_paths),
         "temporal_exclusions": _path_identities(temporal_exclusions),
         "source_freshness": tuple(
@@ -345,9 +394,19 @@ def _path_identities(
             item.effective_from.isoformat() if item.effective_from is not None else None,
             item.effective_to.isoformat() if item.effective_to is not None else None,
             item.provenance_refs,
-            tuple((link.link_type, link.from_id, link.to_id) for link in item.links),
+            tuple(_evidence_link_identity(link) for link in item.links),
         )
         for item in paths
+    )
+
+
+def _evidence_link_identity(link: OperationalContextEvidenceLink) -> tuple[object, ...]:
+    metadata = link.observation_metadata
+    return (
+        link.link_type,
+        link.from_id,
+        link.to_id,
+        metadata.to_mapping() if metadata is not None else None,
     )
 
 

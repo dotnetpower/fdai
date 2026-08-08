@@ -39,6 +39,8 @@ from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
+from .state_evidence import LINK_OBSERVATION_METADATA_PROPERTY, LinkObservationMetadata
+
 
 class InventoryGraphViewNotFoundError(LookupError):
     """Raised by named-view providers for an unknown explicit view id."""
@@ -81,6 +83,11 @@ class LinkRecord:
     to_id: str
     to_type: str
     link_props: Mapping[str, Any] = field(default_factory=dict)
+    observation_metadata: LinkObservationMetadata | None = None
+
+    def __post_init__(self) -> None:
+        if LINK_OBSERVATION_METADATA_PROPERTY in self.link_props:
+            raise ValueError("LinkRecord.link_props MUST NOT contain reserved observation metadata")
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 93dea6676c00f6934382e3b834c1e1f58507edd1
+translation_source_sha: 376cc5dec3628e5030a28ea4e4a0e710ba998db1
 translation_revised: 2026-08-08
 ---
 # FDAI 운영 온톨로지
@@ -25,10 +25,14 @@ cloud-operations 개념을 소유하고 deployment는 observed instance와 inten
 > 오래되거나 충돌하거나 입증되지 않은 context는 unknown으로 남고 bounded evidence recovery,
 > 더 작은 safe plan, no-op 또는 review를 유발합니다. 실행 권한을 제공하지 않습니다.
 >
-> **구현 상태(2026-08-04):** O1-O4는 semantic declaration, immutable context, Forseti ceiling
+> **구현 상태(2026-08-08):** O1-O4는 semantic declaration, immutable context, Forseti ceiling
 > wiring, decision-case selection, response closure, Muninn/Norns learning intake를 구현합니다.
 > `OperatingModelProvider`는 bounded deployment instance를 project하고 context snapshot은 typed
 > evidence path, revision, effective time, provenance, complete freshness receipt를 보존합니다.
+> M3는 observed, derived, desired, execution lane에 immutable `StateFactMetadata`를 추가합니다.
+> 선택적인 inventory link observation metadata는 ontology projection과 operational-context
+> materialization을 거쳐 보존되고 snapshot identity에 반영됩니다. Evidence가 stale, incomplete,
+> conflicting, synthetic, future-cutoff 또는 unverified이면 snapshot ceiling을 낮춥니다.
 > 변경관리는 `Change`에 planned-change evidence를 추가하고, reviewed `ChangeWindow`와 target 및
 > decision에서 impact, process, outcome, recovery까지 이어지는 typed link를 제공합니다. 이러한
 > declaration은 semantic evidence일 뿐 승인 또는 실행 권한을 제공하지 않습니다. Huginn은 같은
@@ -231,6 +235,14 @@ FDAI가 기록한 시간을 모두 포함합니다.
 - **Freshness:** 모든 decision context는 source별 freshness를 기록합니다. 하나의 fresh source가
   오래된 objective, topology edge, cost observation을 숨길 수 없습니다.
 
+Decision-relevant state fact는 authority가 분리된 `observed`, `derived`, `desired`, `execution`의 네
+lane에서 하나의 immutable metadata shape을 사용합니다. Metadata는 authority class, source identity와
+revision, effective time과 recorded time, evidence cutoff, freshness ceiling, completeness,
+synthetic status, conflict, immutable evidence reference를 pin합니다. Lane-authority validation은
+provider observation이 derived fact로 decode되거나 그 반대가 되는 것을 방지합니다. Inventory
+link도 같은 state-fact envelope와 independent verification identity를 포함할 수 있습니다. Metadata가
+없는 legacy link는 additive adoption 기간에도 valid합니다.
+
 Replay는 instance graph의 임의 과거 상태가 아니라 pin된 catalog release와 보존된 decision context를
 resolve합니다. Context identity 재계산은 동등성을 증명하며, 원본 내용을 복원하려면 그 context가
 보존되어 있어야 합니다. Current-state query는 freshness check를 통과한 최신 valid revision을
@@ -304,6 +316,13 @@ observation time과 허용된 maximum age도 유지합니다. Snapshot identity�
 effective interval, provenance ref, freshness receipt, stale-source 결과, conflict를 포함하므로
 topology, revision, validity, provenance 또는 freshness가 바뀌면 이전 identity를 재사용할 수
 없습니다. Raw object property는 권위 있는 provider에 남으며 snapshot에 복사하지 않습니다.
+
+Typed link observation metadata는 raw link property를 버리는 규칙의 예외입니다. Materializer는 각
+evidence link에서 canonical verification envelope만 보존하고 link와 path identity에 해당 envelope를
+포함합니다. Stale, incomplete, conflicting, synthetic, after-cutoff 또는 unverified link는 명시적인
+context conflict를 추가하고 snapshot ceiling을 `SHADOW_ONLY`로 낮출 수만 있습니다. Healthy
+metadata는 ceiling을 높이지 않으며, metadata가 없으면 verification을 주장하지 않고 legacy decoding을
+유지합니다.
 
 Materialization은 `effective_from <= cutoff`이고 `effective_to`가 없거나
 `cutoff < effective_to`인 object만 포함합니다. 이 half-open interval 밖의 object는 replay를 위한
