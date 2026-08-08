@@ -22,6 +22,7 @@ from fdai_service_contracts.executor import (
     RollbackKind,
     RollbackRef,
     StopConditionKind,
+    resolve_azure_operation_target,
 )
 from fdai_service_contracts.schema import (
     JsonSchemaContractValidator,
@@ -148,3 +149,27 @@ def test_upgrade_receipt_schema_is_registered_with_the_contract_sdk() -> None:
 
     assert "service-upgrade-receipt" in registry.names()
     assert schema["$id"].endswith("/service-upgrade-receipt/1.0.0")
+
+
+def test_executor_contract_canonicalizes_azure_operation_targets() -> None:
+    vm = resolve_azure_operation_target(
+        "ops.start-vm",
+        {"resource_group": "Example", "vm_name": "VM-App"},
+    )
+    rule = resolve_azure_operation_target(
+        "ops.delete-network-rule",
+        {
+            "resource_group": "Example",
+            "nsg_name": "NSG-App",
+            "rule_name": "Allow-HTTPS",
+        },
+    )
+
+    assert vm.operation_id == "azure.compute.vm.start"
+    assert vm.resource_ref == (
+        "/resourcegroups/example/providers/microsoft.compute/virtualmachines/vm-app"
+    )
+    assert rule.resource_ref == (
+        "/resourcegroups/example/providers/microsoft.network/"
+        "networksecuritygroups/nsg-app/securityrules/allow-https"
+    )

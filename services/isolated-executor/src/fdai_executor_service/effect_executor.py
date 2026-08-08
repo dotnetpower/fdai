@@ -36,6 +36,7 @@ from fdai_executor_service.effect_safety import (
     idempotency_lock_key,
     missing_safety_invariant,
     resource_lock_key,
+    target_binding_refusal,
 )
 from fdai_executor_service.ports import ExecutorStateStore
 
@@ -142,6 +143,13 @@ class ServiceDirectApiEffectExecutor:
                 DirectApiEffectOutcome.REJECTED_INVARIANT,
                 invariant_reason,
             )
+        target_reason = target_binding_refusal(action)
+        if target_reason is not None:
+            return await self._finish(
+                action,
+                DirectApiEffectOutcome.REJECTED_INVARIANT,
+                target_reason,
+            )
 
         cache_key = dedupe_key(action)
         cached = self._dedupe.get(cache_key)
@@ -223,6 +231,13 @@ class ServiceDirectApiEffectExecutor:
             return None
         if missing_safety_invariant(action) is not None:
             return None
+        target_reason = target_binding_refusal(action)
+        if target_reason is not None:
+            return await self._finish(
+                action,
+                DirectApiEffectOutcome.REJECTED_INVARIANT,
+                target_reason,
+            )
 
         cache_key = dedupe_key(action)
         cached = self._dedupe.get(cache_key)

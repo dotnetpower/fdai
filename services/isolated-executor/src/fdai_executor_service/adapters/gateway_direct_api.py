@@ -20,15 +20,10 @@ from fdai_service_contracts.executor import (
     DirectApiRequest,
     Mode,
     WorkloadIdentity,
+    resolve_azure_operation_target,
 )
 
 _MAX_RESPONSE_BYTES = 262_144
-_ACTION_OPERATIONS = {
-    "ops.start-vm": "azure.compute.vm.start",
-    "ops.deallocate-vm": "azure.compute.vm.deallocate",
-    "ops.upsert-network-rule": "azure.network.nsg.rule.upsert",
-    "ops.delete-network-rule": "azure.network.nsg.rule.delete",
-}
 _ACTION_IDENTITY_REFS = {
     "ops.start-vm": "identity/resilience",
     "ops.deallocate-vm": "identity/finops",
@@ -92,7 +87,11 @@ class AzureGatewayDirectApiExecutor:
 
         identity, operation_id, arguments, safety = self._request_context(request)
         if request.mode is Mode.ENFORCE:
-            existing = await self._existing_operation_receipt(request, identity=identity)
+            existing = await self._existing_operation_receipt(
+                request,
+                identity=identity,
+                operation_id=operation_id,
+            )
             if existing is not None:
                 return existing
         plan = await self._invoke(
@@ -129,7 +128,11 @@ class AzureGatewayDirectApiExecutor:
                 rollback_succeeded=False,
                 detail="gateway mutation returned a non-terminal status",
             )
-        return await self._poll_until_terminal(request, identity=identity)
+        return await self._poll_until_terminal(
+            request,
+            identity=identity,
+            operation_id=operation_id,
+        )
 
     async def operation_status(
         self,
@@ -137,10 +140,14 @@ class AzureGatewayDirectApiExecutor:
     ) -> DirectApiReceipt | None:
         """Return durable gateway status without planning or dispatching a mutation."""
 
-        identity, _operation_id, _arguments_value, _safety_value = self._request_context(request)
+        identity, operation_id, _arguments_value, _safety_value = self._request_context(request)
         if request.mode is not Mode.ENFORCE:
             return None
-        return await self._existing_operation_receipt(request, identity=identity)
+        return await self._existing_operation_receipt(
+            request,
+            identity=identity,
+            operation_id=operation_id,
+        )
 
     def _request_context(
         self,
@@ -161,26 +168,27 @@ class AzureGatewayDirectApiExecutor:
             raise DirectApiPreconditionError(
                 f"{request.action_type_name} requires its registered vertical identity"
             )
-        operation_id = _ACTION_OPERATIONS.get(request.action_type_name)
-        if operation_id is None:
-            raise DirectApiPreconditionError(
-                f"gateway has no registered operation for {request.action_type_name}"
+        try:
+            target = resolve_azure_operation_target(
+                request.action_type_name,
+                request.arguments,
             )
-        arguments = _arguments(operation_id, request.arguments)
+        except ValueError as exc:
+            raise DirectApiPreconditionError(str(exc)) from exc
+        if request.resource_ref != target.resource_ref:
+            raise DirectApiPreconditionError(
+                "gateway resource_ref MUST exactly match the canonical Azure target"
+            )
         safety = _safety(request)
-        return identity, operation_id, arguments, safety
+        return identity, target.operation_id, target.arguments, safety
 
     async def _existing_operation_receipt(
         self,
         request: DirectApiRequest,
         *,
         identity: WorkloadIdentity,
+        operation_id: str,
     ) -> DirectApiReceipt | None:
-        operation_id = _ACTION_OPERATIONS.get(request.action_type_name)
-        if operation_id is None:
-            raise DirectApiPreconditionError(
-                f"gateway has no registered operation for {request.action_type_name}"
-            )
         response = await self._invoke(
             "azure.operation.status",
             {
@@ -200,6 +208,7 @@ class AzureGatewayDirectApiExecutor:
             return await self._poll_until_terminal(
                 request,
                 identity=identity,
+                operation_id=operation_id,
                 already_applied=True,
             )
         if status == "failed":
@@ -216,6 +225,7 @@ class AzureGatewayDirectApiExecutor:
         request: DirectApiRequest,
         *,
         identity: WorkloadIdentity,
+        operation_id: str,
         already_applied: bool = False,
     ) -> DirectApiReceipt:
         for _attempt in range(self._config.max_poll_attempts):
@@ -225,7 +235,7 @@ class AzureGatewayDirectApiExecutor:
                 "azure.operation.status",
                 {
                     "idempotency_key": request.idempotency_key,
-                    "operation_id": _ACTION_OPERATIONS[request.action_type_name],
+                    "operation_id": operation_id,
                 },
                 identity=identity,
             )
@@ -303,22 +313,6 @@ class AzureGatewayDirectApiExecutor:
         if status_code >= 400:
             raise DirectApiError("gateway", f"operations gateway returned HTTP {status_code}")
         return body
-
-
-def _arguments(operation_id: str, raw: Mapping[str, object]) -> dict[str, object]:
-    required: tuple[str, ...]
-    if operation_id.startswith("azure.compute.vm."):
-        required = ("resource_group", "vm_name")
-    elif operation_id == "azure.network.nsg.rule.delete":
-        required = ("resource_group", "nsg_name", "rule_name")
-    else:
-        required = ("resource_group", "nsg_name", "rule_name", "rule")
-    arguments: dict[str, object] = {}
-    for key in required:
-        if key not in raw:
-            raise DirectApiPreconditionError(f"gateway argument {key} is required")
-        arguments[key] = raw[key]
-    return arguments
 
 
 def _safety(request: DirectApiRequest) -> dict[str, object]:

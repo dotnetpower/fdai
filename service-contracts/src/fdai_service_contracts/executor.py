@@ -45,6 +45,10 @@ from fdai_service_contracts.executor_providers import (
     StateStore,
     WorkloadIdentity,
 )
+from fdai_service_contracts.executor_targets import (
+    AzureOperationTarget,
+    resolve_azure_operation_target,
+)
 
 EXECUTOR_COMMAND_TOPIC = "object.executor-command"
 EXECUTOR_RECEIPT_TOPIC = "object.executor-receipt"
@@ -84,6 +88,7 @@ class DirectApiExecutionResultLike(Protocol):
 __all__ = [
     "Action",
     "ActionStopCondition",
+    "AzureOperationTarget",
     "BlastRadius",
     "BlastRadiusScope",
     "CORE_EXECUTOR_RECEIPT_CONSUMER_GROUP",
@@ -125,4 +130,5 @@ __all__ = [
     "StopConditionKind",
     "WorkloadIdentity",
     "executor_action_payload_digest",
+    "resolve_azure_operation_target",
 ]

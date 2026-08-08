@@ -58,11 +58,23 @@ from fdai.shared.providers.testing import (
 )
 from fdai.shared.providers.testing.idempotency import InMemoryIdempotencyStore
 
+_VM_TARGET = "/resourcegroups/example/providers/microsoft.compute/virtualmachines/vm-one"
+
 
 class _ResourceLock:
     @asynccontextmanager
     async def acquire(self, resource_id: str) -> AsyncIterator[None]:
         del resource_id
+        yield
+
+
+class _RecordingResourceLock:
+    def __init__(self) -> None:
+        self.keys: list[str] = []
+
+    @asynccontextmanager
+    async def acquire(self, resource_id: str) -> AsyncIterator[None]:
+        self.keys.append(resource_id)
         yield
 
 
@@ -132,7 +144,7 @@ def _action() -> Action:
         event_id=UUID("00000000-0000-0000-0000-000000000802"),
         idempotency_key="sd08-effect-one",
         action_type="ops.start-vm",
-        target_resource_ref="resource:example/vm-one",
+        target_resource_ref=_VM_TARGET,
         operation=Operation.RESTART,
         params={"resource_group": "example", "vm_name": "vm-one"},
         stop_condition="provider_api_error_streak",
@@ -258,6 +270,88 @@ async def test_effect_executor_rejects_missing_safeguard_before_provider() -> No
     assert result.outcome.value == "rejected_invariant"
     assert provider.records == ()
     assert [row["entry"]["audit_phase"] for row in audit.audit_entries] == ["terminal"]
+
+
+async def test_same_actual_target_with_different_decoys_is_rejected_before_lock() -> None:
+    audit = InMemoryStateStore()
+    provider = RecordingDirectApiExecutor()
+    lock = _RecordingResourceLock()
+    executor = ServiceDirectApiEffectExecutor(
+        executor=provider,
+        audit_store=audit,
+        resource_lock=lock,
+        idempotency=InMemoryIdempotencyStore(),
+        allow_enforce=True,
+    )
+    first = _action().model_copy(update={"target_resource_ref": "resource:decoy-one"})
+    second = _action().model_copy(
+        update={
+            "action_id": UUID("00000000-0000-0000-0000-000000000811"),
+            "idempotency_key": "sd08-effect-decoy-two",
+            "target_resource_ref": "resource:decoy-two",
+        }
+    )
+
+    first_result = await executor.execute(action=first)
+    second_result = await executor.execute(action=second)
+
+    assert first_result.outcome.value == "rejected_invariant"
+    assert second_result.outcome.value == "rejected_invariant"
+    assert lock.keys == []
+    assert provider.records == ()
+
+
+async def test_valid_effect_locks_the_canonical_actual_target() -> None:
+    audit = InMemoryStateStore()
+    provider = _RecoverableProvider()
+    lock = _RecordingResourceLock()
+    executor = ServiceDirectApiEffectExecutor(
+        executor=provider,
+        audit_store=audit,
+        resource_lock=lock,
+        idempotency=InMemoryIdempotencyStore(),
+        allow_enforce=True,
+    )
+
+    result = await executor.execute(action=_action())
+
+    assert result.outcome.value == "dispatched"
+    assert lock.keys[-1] == f"fdai:resource:{_VM_TARGET}"
+    assert provider.execute_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("target_resource_ref", "params"),
+    (
+        (f"{_VM_TARGET}/", {"resource_group": "example", "vm_name": "vm-one"}),
+        (_VM_TARGET, {"resource_group": ["example"], "vm_name": "vm-one"}),
+        (_VM_TARGET, {"resource_group": "bad/group", "vm_name": "vm-one"}),
+    ),
+)
+async def test_malformed_actual_target_is_rejected_before_lock_or_status(
+    target_resource_ref: str,
+    params: dict[str, object],
+) -> None:
+    audit = InMemoryStateStore()
+    provider = _RecoverableProvider()
+    lock = _RecordingResourceLock()
+    executor = ServiceDirectApiEffectExecutor(
+        executor=provider,
+        audit_store=audit,
+        resource_lock=lock,
+        idempotency=InMemoryIdempotencyStore(),
+        allow_enforce=True,
+    )
+    action = _action().model_copy(
+        update={"target_resource_ref": target_resource_ref, "params": params}
+    )
+
+    result = await executor.execute(action=action)
+
+    assert result.outcome.value == "rejected_invariant"
+    assert lock.keys == []
+    assert provider.execute_calls == 0
+    assert provider.status_calls == 0
 
 
 async def test_effect_executor_rejects_excessive_blast_radius_before_provider() -> None:
@@ -386,9 +480,9 @@ async def test_typed_provider_error_is_sanitized_before_audit_log_and_receipt(
     assert "classified-secret" not in serialized
 
 
-async def test_effect_command_expired_while_waiting_never_reaches_provider() -> None:
+async def test_effect_command_recovers_not_applied_status_before_post_lock_expiry() -> None:
     audit = InMemoryStateStore()
-    provider = RecordingDirectApiExecutor()
+    provider = _RecoverableProvider()
     issued_at = datetime(2026, 8, 8, tzinfo=UTC)
     deadline_at = issued_at + timedelta(seconds=30)
     executor = ServiceDirectApiEffectExecutor(
@@ -418,7 +512,8 @@ async def test_effect_command_expired_while_waiting_never_reaches_provider() -> 
 
     assert receipt.status.value == "expired"
     assert receipt.effect_applied is False
-    assert provider.records == ()
+    assert provider.execute_calls == 0
+    assert provider.status_calls == 1
     assert [row["entry"]["audit_phase"] for row in audit.audit_entries] == ["terminal"]
 
 

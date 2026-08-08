@@ -27,6 +27,8 @@ from fdai_service_contracts.executor import (
     Mode,
 )
 
+_VM_TARGET = "/resourcegroups/example/providers/microsoft.compute/virtualmachines/vm-app"
+
 
 def _future_epoch(seconds: int = 3600) -> int:
     return int((datetime.now(tz=UTC) + timedelta(seconds=seconds)).timestamp())
@@ -94,7 +96,7 @@ def _request(mode: Mode) -> DirectApiRequest:
         idempotency_key="operation-one",
         action_type_name="ops.start-vm",
         rule_ids=("operator.request.ops.start-vm",),
-        resource_ref="resource:vm-app",
+        resource_ref=_VM_TARGET,
         arguments={"resource_group": "example", "vm_name": "vm-app"},
         labels=("enforce",) if mode is Mode.ENFORCE else ("shadow",),
         mode=mode,
@@ -400,6 +402,27 @@ async def test_gateway_rejects_unregistered_operation_before_http() -> None:
             http_client=client,
         )
         with pytest.raises(DirectApiPreconditionError, match="no registered operation"):
+            await executor.execute(request)
+
+    assert calls == 0
+
+
+async def test_gateway_rejects_decoy_target_before_status_or_plan() -> None:
+    calls = 0
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(500)
+
+    request = replace(_request(Mode.ENFORCE), resource_ref="resource:decoy")
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        executor = AzureGatewayDirectApiExecutor(
+            config=_gateway_config(),
+            identities={"identity/resilience": _Identity("gateway-token")},
+            http_client=client,
+        )
+        with pytest.raises(DirectApiPreconditionError, match="canonical Azure target"):
             await executor.execute(request)
 
     assert calls == 0

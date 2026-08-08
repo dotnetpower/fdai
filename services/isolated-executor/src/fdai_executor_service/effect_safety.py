@@ -6,7 +6,12 @@ import hashlib
 import json
 from typing import Protocol
 
-from fdai_service_contracts.executor import Action, DirectApiRequest, Mode
+from fdai_service_contracts.executor import (
+    Action,
+    DirectApiRequest,
+    Mode,
+    resolve_azure_operation_target,
+)
 
 
 class EffectCeilings(Protocol):
@@ -46,6 +51,18 @@ def blast_radius_refusal(action: Action, ceilings: EffectCeilings) -> str | None
         return (
             f"blast-radius rate {rate}/min exceeds executor cap {ceilings.max_rate_per_minute}/min"
         )
+    return None
+
+
+def target_binding_refusal(action: Action) -> str | None:
+    """Return why an action is not bound to its canonical Azure target."""
+
+    try:
+        target = resolve_azure_operation_target(action.action_type, action.params)
+    except ValueError:
+        return "action operation arguments do not identify a canonical Azure target"
+    if action.target_resource_ref != target.resource_ref:
+        return "action.target_resource_ref MUST exactly match the canonical Azure target"
     return None
 
 
@@ -116,4 +133,5 @@ __all__ = [
     "idempotency_lock_key",
     "missing_safety_invariant",
     "resource_lock_key",
+    "target_binding_refusal",
 ]
