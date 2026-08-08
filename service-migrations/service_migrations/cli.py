@@ -15,6 +15,7 @@ from typing import cast
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
+from alembic.script.revision import ResolutionError
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Connection
 
@@ -189,6 +190,29 @@ def _revision_contains(config: Config, observed: str, required: str) -> bool:
     }
 
 
+def _service_lineage_is_adopted(
+    service_id: str,
+    *,
+    adoption: AdoptionManifest,
+) -> bool:
+    service_versions = _read_versions(adoption.service_version_table)
+    if service_versions is None:
+        return False
+    config = Config(str(MIGRATION_ROOT / "configs" / f"{service_id}.ini"))
+    if len(service_versions) == 1:
+        try:
+            if _revision_contains(config, service_versions[0], adoption.baseline_revision):
+                return True
+        except ResolutionError as exc:
+            raise RuntimeError(
+                f"{service_id} version table contains unknown revision {service_versions[0]}"
+            ) from exc
+    raise RuntimeError(
+        f"{service_id} version table already exists with {service_versions}; "
+        "refusing to overwrite service migration history"
+    )
+
+
 def _prepare_adoption_evidence(
     service_id: str,
     *,
@@ -201,6 +225,10 @@ def _prepare_adoption_evidence(
 ) -> None:
     if not rollback_reference.strip():
         raise RuntimeError("adoption rollback reference must be non-empty")
+    if _service_lineage_is_adopted(service_id, adoption=adoption):
+        return
+    if evidence_output.resolve().parent != schema_output.resolve().parent:
+        raise RuntimeError("adoption evidence and schema outputs must share one directory")
     legacy_versions = _read_versions(adoption.legacy_version_table)
     if legacy_versions != (adoption.required_legacy_head,):
         raise RuntimeError(
@@ -229,7 +257,7 @@ def _prepare_adoption_evidence(
             "observed_legacy_revision_count": adoption.legacy_revision_count,
             "observed_schema_fingerprint": observed_schema,
             "verified_at": verified_at,
-            "schema_reference": str(schema_output.resolve()),
+            "schema_reference": schema_output.name,
             "rollback_reference": rollback_reference,
         },
     )
@@ -243,6 +271,8 @@ def _stamp_service_baseline(
     legacy_owned_tables: tuple[str, ...],
     evidence: Path,
 ) -> None:
+    if _service_lineage_is_adopted(service_id, adoption=adoption):
+        return
     _validate_evidence(
         evidence,
         service_id=service_id,
@@ -255,14 +285,6 @@ def _stamp_service_baseline(
         raise RuntimeError(
             f"legacy database must be at {adoption.required_legacy_head}; "
             f"observed {legacy_versions}"
-        )
-    service_versions = _read_versions(adoption.service_version_table)
-    if service_versions == (adoption.baseline_revision,):
-        return
-    if service_versions is not None:
-        raise RuntimeError(
-            f"{service_id} version table already exists with {service_versions}; "
-            "refusing to overwrite service migration history"
         )
     live_schema = _live_schema_fingerprint(service_id, legacy_owned_tables)
     if live_schema != expected_schema_fingerprint:

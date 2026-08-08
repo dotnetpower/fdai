@@ -201,6 +201,10 @@ def test_initial_cutover_prepares_stamps_and_upgrades_service_migrations() -> No
     assert "stamp-baseline" in _WORKFLOW
     assert _WORKFLOW.index("prepare-adoption") < _WORKFLOW.index("stamp-baseline")
     assert _WORKFLOW.index("stamp-baseline") < _WORKFLOW.index("upgrade head")
+    assert "Upload service migration adoption evidence" in _WORKFLOW
+    assert "service-migration-adoption-${{ inputs.service }}" in _WORKFLOW
+    assert "if-no-files-found: ignore" in _WORKFLOW
+    assert "retention-days: 90" in _WORKFLOW
     assert "-destroy" not in _WORKFLOW
     assert "az containerapp secret set" in _WORKFLOW
     assert "previous_secrets[]" in _WORKFLOW

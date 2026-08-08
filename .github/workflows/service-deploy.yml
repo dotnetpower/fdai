@@ -770,6 +770,17 @@ jobs:
           FDAI_DATABASE_URL="$migration_dsn" "$migration_command" upgrade head
           unset migration_dsn
 
+      - name: Upload service migration adoption evidence
+        if: ${{ always() && inputs.apply && inputs.initial_cutover }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: service-migration-adoption-${{ inputs.service }}-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/service-migration-adoption.json
+            ${{ runner.temp }}/service-migration-schema.json
+          if-no-files-found: ignore
+          retention-days: 90
+
       - name: Capture pre-apply rollback snapshot
         if: ${{ inputs.apply }}
         run: |

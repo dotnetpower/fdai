@@ -996,7 +996,11 @@ def test_prepare_adoption_writes_live_schema_and_evidence(
         rollback_strategy="delete-service-version-row",
     )
     digest = "sha256:" + "c" * 64
-    monkeypatch.setattr(cli_module, "_read_versions", lambda _table: ("legacy-head",))
+    monkeypatch.setattr(
+        cli_module,
+        "_read_versions",
+        lambda table: None if table == "alembic_version_operator" else ("legacy-head",),
+    )
     monkeypatch.setattr(cli_module, "_live_schema_fingerprint", lambda *_args: digest)
     evidence = tmp_path / "adoption.json"
     schema = tmp_path / "schema.json"
@@ -1013,9 +1017,19 @@ def test_prepare_adoption_writes_live_schema_and_evidence(
 
     evidence_payload = json.loads(evidence.read_text(encoding="utf-8"))
     schema_payload = json.loads(schema.read_text(encoding="utf-8"))
-    assert evidence_payload["schema_reference"] == str(schema.resolve())
+    assert evidence_payload["schema_reference"] == schema.name
     assert evidence_payload["observed_schema_fingerprint"] == digest
     assert schema_payload["owned_tables"] == ["operator_projection"]
+    assert (
+        cli_module._validate_evidence(
+            evidence,
+            service_id="operator-service",
+            head="legacy-head",
+            count=81,
+            expected_schema_fingerprint=digest,
+        )
+        == "git:commit:adoption.json#rollback"
+    )
 
 
 def test_stamp_baseline_is_idempotent_only_at_exact_baseline(
@@ -1037,6 +1051,7 @@ def test_stamp_baseline_is_idempotent_only_at_exact_baseline(
     }
     monkeypatch.setattr(cli_module, "_validate_evidence", lambda *_args, **_kwargs: "ref")
     monkeypatch.setattr(cli_module, "_read_versions", versions.__getitem__)
+    monkeypatch.setattr(cli_module, "_revision_contains", lambda *_args: True)
     monkeypatch.setattr(
         cli_module.command,
         "stamp",
@@ -1050,6 +1065,112 @@ def test_stamp_baseline_is_idempotent_only_at_exact_baseline(
         legacy_owned_tables=("operator_projection",),
         evidence=tmp_path / "adoption.json",
     )
+
+
+def test_prepare_adoption_skips_existing_baseline_descendant(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adoption = cli_module.AdoptionManifest(
+        service_id="operator-service",
+        baseline_revision="operator-base",
+        service_version_table="alembic_version_operator",
+        legacy_version_table="alembic_version",
+        required_legacy_head="legacy-head",
+        legacy_revision_count=81,
+        rollback_strategy="delete-service-version-row",
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "_read_versions",
+        lambda table: (
+            ("operator-head",)
+            if table == "alembic_version_operator"
+            else pytest.fail("adopted retry must not re-read legacy lineage")
+        ),
+    )
+    monkeypatch.setattr(cli_module, "_revision_contains", lambda *_args: True)
+    monkeypatch.setattr(
+        cli_module,
+        "_live_schema_fingerprint",
+        lambda *_args: pytest.fail("adopted retry must not require baseline schema"),
+    )
+    evidence = tmp_path / "adoption.json"
+    schema = tmp_path / "schema.json"
+
+    cli_module._prepare_adoption_evidence(
+        "operator-service",
+        adoption=adoption,
+        expected_schema_fingerprint="sha256:" + "e" * 64,
+        legacy_owned_tables=("operator_projection",),
+        evidence_output=evidence,
+        schema_output=schema,
+        rollback_reference="git:commit:adoption.json#rollback",
+    )
+
+    assert not evidence.exists()
+    assert not schema.exists()
+
+
+def test_stamp_baseline_skips_missing_temporary_evidence_at_descendant(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adoption = cli_module.AdoptionManifest(
+        service_id="operator-service",
+        baseline_revision="operator-base",
+        service_version_table="alembic_version_operator",
+        legacy_version_table="alembic_version",
+        required_legacy_head="legacy-head",
+        legacy_revision_count=81,
+        rollback_strategy="delete-service-version-row",
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "_read_versions",
+        lambda table: (
+            ("operator-head",)
+            if table == "alembic_version_operator"
+            else pytest.fail("adopted retry must not re-read legacy lineage")
+        ),
+    )
+    monkeypatch.setattr(cli_module, "_revision_contains", lambda *_args: True)
+
+    cli_module._stamp_service_baseline(
+        "operator-service",
+        adoption=adoption,
+        expected_schema_fingerprint="sha256:" + "f" * 64,
+        legacy_owned_tables=("operator_projection",),
+        evidence=tmp_path / "missing-adoption.json",
+    )
+
+
+def test_prepare_adoption_rejects_existing_foreign_lineage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adoption = cli_module.AdoptionManifest(
+        service_id="operator-service",
+        baseline_revision="operator-base",
+        service_version_table="alembic_version_operator",
+        legacy_version_table="alembic_version",
+        required_legacy_head="legacy-head",
+        legacy_revision_count=81,
+        rollback_strategy="delete-service-version-row",
+    )
+    monkeypatch.setattr(cli_module, "_read_versions", lambda _table: ("foreign-head",))
+    monkeypatch.setattr(cli_module, "_revision_contains", lambda *_args: False)
+
+    with pytest.raises(RuntimeError, match="refusing to overwrite service migration history"):
+        cli_module._prepare_adoption_evidence(
+            "operator-service",
+            adoption=adoption,
+            expected_schema_fingerprint="sha256:" + "a" * 64,
+            legacy_owned_tables=("operator_projection",),
+            evidence_output=tmp_path / "adoption.json",
+            schema_output=tmp_path / "schema.json",
+            rollback_reference="git:commit:adoption.json#rollback",
+        )
 
 
 def test_rollback_evidence_requires_exact_head_timestamp_schema_and_reference(

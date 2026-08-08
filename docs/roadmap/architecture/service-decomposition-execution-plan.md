@@ -164,7 +164,7 @@ contracts, and generic ingestion co-host seam are absent.
 Local completion evidence includes six independently built wheels, five nonroot service images,
 five image health checks, five validated migration branches covering 104 tables and 11
 transitions, five locally validated Terraform roots, zero cross-service implementation imports,
-and thirty-eight independent critique-and-hardening rounds with zero Medium-or-higher local residuals.
+and thirty-nine independent critique-and-hardening rounds with zero Medium-or-higher local residuals.
 IS-06 and IS-07 are locally complete. Exact remote plan/apply and
 rolling confirmation is deferred to IS-09 and uses final service-owned inputs without restoring
 the monolith as a rollback source. IS-09 pins deployable distribution `0.1.2` images as N-1 and
@@ -297,6 +297,7 @@ state. For each transition:
 | 2026-08-09 | IS-09 | Complete plan staleness fence | Round 36 | A migration dependency fix landed after successful plans, but apply provenance compared only the workflow and helper scripts. Exact apply now rejects changes to the workflow, deployment helpers, all service Terraform roots and shared modules, service migrations, root project dependencies, or `uv.lock`. The affected plans were discarded before apply. |
 | 2026-08-09 | IS-09 | Initial migration adoption | Round 37 | Core apply run `31281314437` failed before snapshot or Terraform mutation because the service migration baseline was not stamped. Initial cutover now observes the exact legacy head and owned-schema fingerprint, persists adoption and schema evidence with a commit-pinned rollback reference, idempotently stamps only the exact baseline, and then upgrades the service branch. Standard applies never create a baseline. |
 | 2026-08-09 | IS-09 | Adoption evidence schema parity | Round 38 | The public adoption-evidence schema still required 79 legacy revisions while every validated adoption manifest required the canonical 81. The schema now matches the live inventory, and a regression test derives both the required head and revision count from the canonical migration graph. |
+| 2026-08-09 | IS-09 | Adoption retry and evidence durability | Round 39 | An interrupted initial cutover could upgrade the service migration branch and then fail later, after which retry regenerated baseline evidence against the evolved schema and blocked itself. Prepare and stamp now no-op only when the exact service lineage contains the baseline, reject every other existing lineage, and retain portable adoption plus schema evidence for 90 days even when a later migration step fails. |
 
 ## Related documents
 
