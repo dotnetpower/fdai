@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 765ebbd2b8e2ba47a87d2fd2df5605eedd85bf0d
+translation_source_sha: c832b18cf1e820fdab5fb8a48240d1a607f4f428
 translation_revised: 2026-08-08
 ---
 # FDAI 운영 온톨로지 메타모델
@@ -24,8 +24,9 @@ declaration kind를 만드는 방식 없이 견고하게 만듭니다.
 > catalog와 composition root는 아직 Interface declaration을 공급하지 않으므로 M1은 완료되지
 > 않았습니다. State와 context behavior는 typed ObjectType, `OperationalStateTrajectory`,
 > `OperationalContextSnapshot`으로 구현되어 있습니다. Link declaration과 record는 이미
-> `from -> to` direction을 저장하지만 catalog와 provider projection은 아래에서 정의하는 direction
-> alignment audit을 아직 완료하지 않았습니다.
+> `from -> to` direction을 저장합니다. D1은 `contains`를 1:M cardinality의 부모 -> 자식 방향으로
+> 정렬하고 Kubernetes namespace containment 및 VM NIC/disk attachment를 맞춥니다. D2-D4 provider
+> mapping, adversarial coverage 및 shadow migration evidence는 제공 작업으로 남아 있습니다.
 
 ## 한눈에 보는 설계
 

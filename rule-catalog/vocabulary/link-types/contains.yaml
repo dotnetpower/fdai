@@ -1,4 +1,4 @@
-# LinkType: contains (Resource -> Resource, M:1, transitive)
+# LinkType: contains (Resource -> Resource, 1:M, transitive)
 #
 # Ownership / scope containment: subscription -> resource-group ->
 # resource, VNet -> subnet, cluster -> node-pool. Marked transitive so
@@ -6,15 +6,15 @@
 # adapter, never by core code.
 schema_version: "1.0.0"
 name: contains
-version: "1.0.0"
+version: "2.0.0"
 from_type: Resource
 to_type: Resource
-cardinality: many_to_one
+cardinality: one_to_many
 is_transitive: true
-description: Ownership / scope containment; recursive traversal walks the whole chain.
+description: Ownership / scope containment from parent to child; recursive traversal walks descendants.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
-  resolved_ref: link-type:contains@1.0.0
-  content_hash: sha256:424b0908c233b5b54709c7adf43ec3683c699f019e56b449ccafd49f1e7bb0e9
+  resolved_ref: link-type:contains@2.0.0
+  content_hash: sha256:d856a2842a22a62c2503d2399704cf19bf6abc70978c8d0eec3d26300cd7eb85
   license: MIT
   retrieved_at: "2026-07-29T00:00:00Z"

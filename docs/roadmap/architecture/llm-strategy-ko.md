@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 104e3407a076c168fc2823cd06ea13ef4ca687fe
-translation_revised: 2026-08-05
+translation_source_sha: a6e37cf617f35c2e5304d98c226836c5ffef6581
+translation_revised: 2026-08-08
 ---
 
 # LLM 전략(LLM Strategy)
@@ -575,7 +575,7 @@ O(인덱스 lookup). 각 선언은 `is_transitive`, `is_causal`, `temporal_order
 | `overrides` | Override → Rule (M:1) | - | override가 이 규칙 대상([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md#override) 참조) |
 | `causes` / `prevents` | Rule → Outcome (M:M, causal) | - | T2가 추론할 수 있는 causal 메타데이터(드묾) |
 | `precedes` / `follows` | Finding → Finding (M:M, temporal) | - | 하나의 인시던트에 대한 관련 finding 상관관계 |
-| `contains` | Resource → Resource (M:1, 자식→부모) | ✓ | 소유/스코프 포함: subscription→resource-group→resource, VNet→subnet, cluster→node-pool. Recursive CTE 로 전체 체인 walk. [Inventory 어댑터](csp-neutrality-ko.md#5-인벤토리-계약--리소스-그래프) 가 채움. |
+| `contains` | Resource -> Resource (1:M, 부모 -> 자식) | ✓ | 소유/스코프 포함: subscription -> resource-group -> resource, VNet -> subnet, cluster -> node-pool입니다. Recursive traversal로 descendant를 탐색합니다. [Inventory 어댑터](csp-neutrality-ko.md#5-인벤토리-계약--리소스-그래프)가 채웁니다. |
 | `attached_to` | Resource → Resource (M:1) | - | 수명 결합 attachment: NIC→VM, disk→VM, private-endpoint→target. 부모 삭제 시 자식이 깨짐. |
 | `depends_on` | Resource → Resource (M:M) | - | 정상 동작에 필요한 논리적 참조: ContainerApp→Key-Vault / ACR / Postgres, managed-identity→app. 끊긴 엣지는 target 이 아니라 dependent 를 degrade. |
 | `peered_with` *(Phase 3+)* | Resource ↔ Resource (M:M, symmetric) | - | 네트워크로 도달 가능한 대칭 피어: VNet peering, cross-region replica. |

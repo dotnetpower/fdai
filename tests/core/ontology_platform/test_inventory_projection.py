@@ -65,14 +65,14 @@ def test_complete_observation_projects_typed_objects_and_links() -> None:
             _resource("rg-1", type_id="resource-group", name="group-one"),
             _resource("vm-1", name="vm-one", parent_id="rg-1"),
         ),
-        links=(_link("vm-1", "contains", "rg-1"),),
+        links=(_link("rg-1", "contains", "vm-1"),),
     )
 
     assert projection.generation == "snapshot-1"
     assert [item.id for item in projection.objects] == ["rg-1", "vm-1"]
     assert all(item.object_type == "Resource" for item in projection.objects)
     assert [(item.link_type, item.from_id, item.to_id) for item in projection.links] == [
-        ("contains", "vm-1", "rg-1")
+        ("contains", "rg-1", "vm-1")
     ]
     assert projection.complete is True
     assert projection.dropped_reasons == ()
@@ -90,10 +90,10 @@ def test_link_observation_metadata_is_projected_canonically() -> None:
         resources=(_resource("vm-1"), _resource("rg-1", type_id="resource-group")),
         links=(
             LinkRecord(
-                from_id="vm-1",
+                from_id="rg-1",
                 from_type="Resource",
                 link_type="contains",
-                to_id="rg-1",
+                to_id="vm-1",
                 to_type="Resource",
                 observation_metadata=metadata,
             ),
@@ -109,7 +109,7 @@ def test_incomplete_observation_claims_no_relationship() -> None:
     projection = build_inventory_ontology_projection(
         generation="snapshot-1",
         resources=(_resource("vm-1"), _resource("rg-1", type_id="resource-group")),
-        links=(_link("vm-1", "contains", "rg-1"),),
+        links=(_link("rg-1", "contains", "vm-1"),),
         observation_complete=False,
     )
 
@@ -134,7 +134,7 @@ def test_unobserved_endpoint_is_dropped_and_reported() -> None:
     projection = build_inventory_ontology_projection(
         generation="snapshot-1",
         resources=(_resource("vm-1"),),
-        links=(_link("vm-1", "contains", "rg-missing"),),
+        links=(_link("rg-missing", "contains", "vm-1"),),
     )
 
     assert projection.links == ()

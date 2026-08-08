@@ -13,7 +13,7 @@ from fdai.rule_catalog.schema.ontology_provenance import ontology_content_hash
 from fdai.rule_catalog.schema.rego_semantics import load_rego_semantics
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.rule import load_rule_catalog
-from fdai.shared.contracts.models import OntologyActionType
+from fdai.shared.contracts.models import LinkCardinality, OntologyActionType
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -27,6 +27,9 @@ def test_shipped_ontology_catalog_loads_as_one_graph() -> None:
     )
     assert {item.name for item in catalog.link_types} >= {"depends_on", "emits_to"}
     assert {item.name for item in catalog.action_types} >= {"remediate.enable-diagnostic-settings"}
+    contains = next(item for item in catalog.link_types if item.name == "contains")
+    assert contains.version == "2.0.0"
+    assert contains.cardinality is LinkCardinality.ONE_TO_MANY
 
 
 def test_shipped_rules_declare_concrete_semantic_axes() -> None:

@@ -21,8 +21,9 @@ without turning every view into a new ontology declaration kind.
 > production catalog and composition roots do not yet supply Interface declarations, so M1 remains
 > incomplete. State and context behavior exists through typed ObjectTypes,
 > `OperationalStateTrajectory`, and `OperationalContextSnapshot`. Link declarations and records
-> already store `from -> to` direction, but the catalog and provider projections have not yet
-> completed the direction-alignment audit defined below.
+> already store `from -> to` direction. D1 aligns `contains` as parent -> child with 1:M
+> cardinality, Kubernetes namespace containment, and VM NIC/disk attachments. D2-D4 provider
+> mapping, adversarial coverage, and shadow migration evidence remain delivery work.
 
 ## Design at a glance
 

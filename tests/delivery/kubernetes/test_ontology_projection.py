@@ -72,12 +72,14 @@ def test_projects_exact_kubernetes_relationships() -> None:
         cluster_ref=_CLUSTER_REF,
     )
 
-    assert len(projection.objects) == 4
+    assert len(projection.objects) == 5
+    namespace = next(item for item in projection.objects if item.id == _NAMESPACE_REF)
+    assert namespace.properties["type"] == "kubernetes.namespace"
     assert {(item.link_type, item.from_id, item.to_id) for item in projection.links} == {
-        ("contains", _resource_ref("deployment-uid"), _NAMESPACE_REF),
-        ("contains", _resource_ref("endpoints-uid"), _NAMESPACE_REF),
-        ("contains", _resource_ref("pod-uid"), _NAMESPACE_REF),
-        ("contains", _resource_ref("service-uid"), _NAMESPACE_REF),
+        ("contains", _NAMESPACE_REF, _resource_ref("deployment-uid")),
+        ("contains", _NAMESPACE_REF, _resource_ref("endpoints-uid")),
+        ("contains", _NAMESPACE_REF, _resource_ref("pod-uid")),
+        ("contains", _NAMESPACE_REF, _resource_ref("service-uid")),
         ("depends_on", _resource_ref("deployment-uid"), _resource_ref("service-uid")),
         (
             "kubernetes_exposes_endpoints",
@@ -101,7 +103,7 @@ def test_incomplete_evidence_projects_objects_without_relationship_claims() -> N
         cluster_ref=_CLUSTER_REF,
     )
 
-    assert len(projection.objects) == 4
+    assert len(projection.objects) == 5
     assert projection.links == ()
 
 
@@ -113,7 +115,7 @@ def test_skips_resources_without_exact_uid() -> None:
         cluster_ref=_CLUSTER_REF,
     )
 
-    assert len(projection.objects) == 4
+    assert len(projection.objects) == 5
 
 
 def test_rejects_duplicate_uid() -> None:

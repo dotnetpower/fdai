@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from fdai.delivery.inventory_delta import _resource_event, forward_inventory_delta
+from fdai.delivery.inventory_delta import _links_by_owner, _resource_event, forward_inventory_delta
 from fdai.shared.providers.inventory import InventoryBatch, LinkRecord, ResourceRecord
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -71,6 +71,22 @@ class _Inventory:
         )
         if self.final:
             yield InventoryBatch(final=True, cursor="cursor-next")
+
+
+def test_parent_to_child_contains_link_is_owned_by_child_event() -> None:
+    parent = ResourceRecord("resource:example/group", "resource-group")
+    child = ResourceRecord("resource:example/group/vm", "compute.vm")
+    contains = LinkRecord(
+        from_id=parent.resource_id,
+        from_type=parent.type,
+        link_type="contains",
+        to_id=child.resource_id,
+        to_type=child.type,
+    )
+
+    grouped = _links_by_owner((parent, child), (contains,))
+
+    assert grouped == {child.resource_id: (contains,)}
 
 
 class _FinalBatchInventory:

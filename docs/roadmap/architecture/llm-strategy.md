@@ -611,7 +611,7 @@ invariants, not visualization hints.
 | `overrides` | Override → Rule (M:1) | - | the override targets this rule (see [rule-governance.md](../rules-and-detection/rule-governance.md#overrides)) |
 | `causes` / `prevents` | Rule → Outcome (M:M, causal) | - | causal metadata that T2 may reason over (rare) |
 | `precedes` / `follows` | Finding → Finding (M:M, temporal) | - | correlation of related findings on one incident |
-| `contains` | Resource → Resource (M:1, child→parent) | ✓ | ownership / scope containment: subscription→resource-group→resource, VNet→subnet, cluster→node-pool. Recursive CTE walks the whole chain. Populated by the [inventory adapter](csp-neutrality.md#5-inventory-contract--resource-graph). |
+| `contains` | Resource -> Resource (1:M, parent -> child) | ✓ | ownership / scope containment: subscription -> resource-group -> resource, VNet -> subnet, cluster -> node-pool. Recursive traversal walks descendants. Populated by the [inventory adapter](csp-neutrality.md#5-inventory-contract--resource-graph). |
 | `attached_to` | Resource → Resource (M:1) | - | lifetime-bound attachment: NIC→VM, disk→VM, private-endpoint→target. Removing the parent breaks the child. |
 | `depends_on` | Resource → Resource (M:M) | - | logical reference required for correct operation: ContainerApp→Key-Vault / ACR / Postgres, managed-identity→app. Broken edges degrade the dependent, not the target. |
 | `peered_with` *(Phase 3+)* | Resource ↔ Resource (M:M, symmetric) | - | reachable-by-network symmetric peer: VNet peering, cross-region replicas. |
