@@ -197,6 +197,7 @@ semantic:
     - effect_id: scale-command
       kind: provider_command
       operation_ref: provider.scale
+      rollback_operation_ref: provider.scale.rollback
       grants_authority: false
   postconditions:
     - postcondition_id: replicas-converged
@@ -244,11 +245,34 @@ without embedding the containing release digest recursively. The pure
 active `OntologyRelease`. It checks that read sets use `query` functions, submission and function
 postconditions use `validate` functions, and the planner uses a `plan` function.
 
-Compilation returns only an immutable `MutationPlan`. It validates selected ObjectType or compiled
-InterfaceType targets, the transaction maximum, declared effect kinds, rollback coverage, and
-target revisions. When given an existing plan, it rebuilds the proposal and compares its digest and
-content before returning the same plan. The compiler does not call the RiskGate, an agent, an
-executor, or a provider, and neither an effect nor a postcondition can declare authority.
+Compilation returns only an immutable, proposal-only `MutationPlan` version 2. The compiler applies
+these checks before it creates the plan identity:
+
+- Canonical arguments contain every required parameter, contain no undeclared parameter, and pass
+  each inline JSON Schema. The plan stores a digest of the complete canonical argument object plus
+  one binding per supplied parameter. An `audit_safe` binding retains only canonical JSON; a
+  `redact` binding retains the value digest and the fixed `<redacted>` projection, never the raw
+  value.
+- Every declared read set has one content-addressed receipt, and every submission criterion has one
+  content-addressed `CriterionResult`. The compiler rejects missing, duplicate, undeclared,
+  incomplete, truncated, future-observed, stale, or digest-mismatched receipts. A criterion must
+  also pass before a plan can be proposed.
+- Forward effects match the exact Cartesian set of declared `effect_id` values and selected target
+  ids. Expected effects match the exact `postcondition_id` set and its property, observation, or
+  function reference. Provider commands require `command_ref`, and forward and rollback command
+  references must equal the declared operation references.
+- Reversible actions declare `rollback_operation_ref` for every forward effect, and rollback effects
+  cover every `(effect_id, target_id)` pair. An irreversible action is marked in the plan and does
+  not invent a rollback for an effect without a declared recovery operation.
+- The plan binds transaction mode, lock scope, sorted deterministic target lock keys, and the
+  declared maximum affected-object count. Set-cardinality targets require `target_set` locking.
+
+The compiler also validates selected ObjectType or compiled InterfaceType targets and exact target
+revisions. When given an existing version 2 plan, it rebuilds the proposal and compares its digest
+and content before returning the same plan. Retained version 1 `MutationPlan` payloads still decode
+without the version 2 identity fields, but semantic compilation always emits version 2. The
+compiler does not call the RiskGate, an agent, an executor, or a provider, and neither an effect nor
+a postcondition can declare authority.
 
 The catalog backfill has completed with:
 
@@ -819,9 +843,12 @@ operator proposals re-enter the normal ControlLoop.
 - **Cross-check load errors** - fixture ActionType with a missing
   `argument_schema` for `operator_request` fails load with a specific
   error.
-- **Semantic compiler** - focused tests retain legacy decode, accept exact refs, reject stale refs,
-  preserve rollback coverage, enforce the maximum target count, require a `plan` planner, validate
-  existing plan digests and revisions, and prove effects and postconditions cannot grant authority.
+- **Semantic compiler** - focused tests retain legacy ActionType and `MutationPlan` decode, accept
+  exact refs, reject stale refs, validate canonical and redacted arguments, require complete fresh
+  content-addressed read and criterion receipts, enforce one-to-one effect and postcondition
+  bindings, preserve reversible and irreversible recovery semantics, bind deterministic target-set
+  locks and transaction limits, require a `plan` planner, validate existing plan digests and
+  revisions, and prove effects and postconditions cannot grant authority.
 
 ## 12. Design boundaries and lifecycle
 

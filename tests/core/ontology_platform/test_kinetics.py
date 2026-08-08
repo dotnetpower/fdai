@@ -136,7 +136,22 @@ async def test_typed_functions_cannot_return_plan_from_read_kind() -> None:
     assert await registry.invoke("query.workloads", {}) == {"count": 1}
 
     async def validate(_arguments):
-        return CriterionResult(passed=True, reason_code="ready", evidence_refs=("object:x",))
+        function_ref = next(
+            item
+            for item in release.declarations
+            if item.kind is OntologyDeclarationKind.FUNCTION and item.name == validate_decl.name
+        )
+        observed_at = datetime(2026, 8, 1, tzinfo=UTC)
+        return CriterionResult.create(
+            function_ref=function_ref,
+            passed=True,
+            reason_code="ready",
+            evidence_refs=("object:x",),
+            complete=True,
+            truncated=False,
+            observed_at=observed_at,
+            fresh_until=observed_at,
+        )
 
     registry.register(validate_decl, validate)
     result = await registry.invoke("validate.workload", {})

@@ -7,13 +7,13 @@ import json
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 
-from fdai.shared.contracts.models import OntologyTypeRef
+from fdai.shared.contracts.models import ActionLockScope, ActionTransactionMode, OntologyTypeRef
 from fdai.shared.providers.ontology_instance import (
     OntologyObjectRecord,
     canonical_json_mapping,
 )
 
-from .kinetics import MutationEffect, MutationPlan, TargetRevision
+from .kinetics import ActionArgumentBinding, MutationEffect, MutationPlan, TargetRevision
 
 
 def build_mutation_plan(
@@ -26,6 +26,15 @@ def build_mutation_plan(
     expected_effects: Sequence[MutationEffect] = (),
     created_at: datetime,
     max_affected_objects: int,
+    schema_version: str = "1.0.0",
+    arguments_digest: str | None = None,
+    argument_bindings: Sequence[ActionArgumentBinding] = (),
+    read_set_receipt_digests: Sequence[str] = (),
+    criterion_receipt_digests: Sequence[str] = (),
+    transaction_mode: ActionTransactionMode | None = None,
+    lock_scope: ActionLockScope | None = None,
+    lock_keys: Sequence[str] = (),
+    irreversible: bool = False,
 ) -> MutationPlan:
     if not 1 <= len(targets) <= max_affected_objects:
         raise ValueError("mutation target count exceeds the declared impact limit")
@@ -47,9 +56,19 @@ def build_mutation_plan(
         "effects": [_effect_dump(item) for item in effects],
         "rollback_effects": [_effect_dump(item) for item in rollback_effects],
         "expected_effects": [_effect_dump(item) for item in expected_effects],
+        "arguments_digest": arguments_digest,
+        "argument_bindings": [item.model_dump(mode="json") for item in argument_bindings],
+        "read_set_receipt_digests": list(read_set_receipt_digests),
+        "criterion_receipt_digests": list(criterion_receipt_digests),
+        "transaction_mode": transaction_mode.value if transaction_mode is not None else None,
+        "lock_scope": lock_scope.value if lock_scope is not None else None,
+        "lock_keys": list(lock_keys),
+        "max_affected_objects": max_affected_objects if schema_version == "2.0.0" else None,
+        "irreversible": irreversible,
     }
     digest = _digest(material)
     return MutationPlan(
+        schema_version=schema_version,
         plan_id=f"mutation-plan:{digest.removeprefix('sha256:')}",
         digest=digest,
         action_type_ref=action_type_ref,
@@ -59,6 +78,15 @@ def build_mutation_plan(
         rollback_effects=tuple(rollback_effects),
         expected_effects=tuple(expected_effects),
         created_at=created_at,
+        arguments_digest=arguments_digest,
+        argument_bindings=tuple(argument_bindings),
+        read_set_receipt_digests=tuple(read_set_receipt_digests),
+        criterion_receipt_digests=tuple(criterion_receipt_digests),
+        transaction_mode=transaction_mode,
+        lock_scope=lock_scope,
+        lock_keys=tuple(lock_keys),
+        max_affected_objects=(max_affected_objects if schema_version == "2.0.0" else None),
+        irreversible=irreversible,
     )
 
 

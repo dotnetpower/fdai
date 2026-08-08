@@ -17,6 +17,8 @@ from .functions import (
 from .interfaces import CompiledInterfaceCatalog, compile_interfaces
 from .introspection import platform_manifest
 from .kinetics import (
+    ActionArgumentBinding,
+    ActionReadSetReceipt,
     AuthorityClass,
     CriterionResult,
     MutationEffect,
@@ -58,6 +60,8 @@ from .semantic_plans import (
 )
 
 __all__ = [
+    "ActionArgumentBinding",
+    "ActionReadSetReceipt",
     "ActiveSemanticCatalog",
     "CatalogOntologyProjection",
     "CatalogOntologyProjector",

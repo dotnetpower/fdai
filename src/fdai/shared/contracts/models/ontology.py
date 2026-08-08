@@ -406,6 +406,7 @@ class ActionEffectSpec(_Base):
     effect_id: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.-]{0,79}$")]
     kind: ActionSemanticEffectKind
     operation_ref: Annotated[str, Field(min_length=1, max_length=256)]
+    rollback_operation_ref: Annotated[str, Field(min_length=1, max_length=256)] | None = None
     grants_authority: Literal[False] = False
 
 
@@ -464,6 +465,11 @@ class ActionSemanticContract(_Base):
             raise ValueError(
                 "one-cardinality action target requires max_affected_objects equal to 1"
             )
+        if (
+            self.target.cardinality is ActionTargetCardinality.SET
+            and self.transaction_policy.lock_scope is not ActionLockScope.TARGET_SET
+        ):
+            raise ValueError("set-cardinality action target requires target_set lock scope")
         _require_unique("action parameter names", (item.name for item in self.parameters))
         _require_unique(
             "action read-set function refs",
@@ -506,6 +512,20 @@ class OntologyActionType(_Base):
     live_probe_ref: str | None = None
     provenance: OntologyProvenance | None = None
     semantic: ActionSemanticContract | None = None
+
+    @model_validator(mode="after")
+    def _semantic_rollback_is_explicit(self) -> OntologyActionType:
+        if self.semantic is not None and not self.irreversible:
+            missing = [
+                effect.effect_id
+                for effect in self.semantic.effects
+                if effect.rollback_operation_ref is None
+            ]
+            if missing:
+                raise ValueError(
+                    "reversible semantic action effects require rollback_operation_ref"
+                )
+        return self
 
 
 def _require_unique(label: str, values: Any) -> None:
