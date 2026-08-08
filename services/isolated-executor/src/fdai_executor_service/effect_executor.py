@@ -8,7 +8,7 @@ from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from fdai_service_contracts.executor import (
     Action,
@@ -22,6 +22,7 @@ from fdai_service_contracts.executor import (
     DirectApiPreconditionError,
     DirectApiPromotionError,
     DirectApiReceipt,
+    DirectApiRequest,
     IdempotencyStore,
     Mode,
     ResourceLock,
@@ -85,6 +86,16 @@ class DirectApiEffectConfig:
 _MUTATION_OUTCOMES = frozenset(
     {DirectApiEffectOutcome.DISPATCHED, DirectApiEffectOutcome.ALREADY_APPLIED}
 )
+
+
+@runtime_checkable
+class DirectApiOperationStatusReader(Protocol):
+    """Read durable provider operation status without dispatching a new effect."""
+
+    async def operation_status(
+        self,
+        request: DirectApiRequest,
+    ) -> DirectApiReceipt | None: ...
 
 
 class ServiceDirectApiEffectExecutor:
@@ -183,33 +194,8 @@ class ServiceDirectApiEffectExecutor:
                 await self._write_audit_intent(action)
             try:
                 receipt = await self._executor.execute(build_direct_api_request(action))
-            except DirectApiPromotionError as exc:
-                return await self._finish(
-                    action, DirectApiEffectOutcome.REJECTED_MODE, f"adapter refused: {exc}"
-                )
-            except DirectApiPreconditionError as exc:
-                return await self._finish(
-                    action, DirectApiEffectOutcome.ABSTAINED_PRECONDITION, str(exc)
-                )
-            except DirectApiAuthenticationError as exc:
-                return await self._finish(
-                    action, DirectApiEffectOutcome.AUTHENTICATION_FAILED, str(exc)
-                )
-            except DirectApiPermissionDeniedError as exc:
-                return await self._finish(
-                    action, DirectApiEffectOutcome.PERMISSION_DENIED, str(exc)
-                )
-            except DirectApiPolicyDeniedError as exc:
-                return await self._finish(action, DirectApiEffectOutcome.POLICY_DENIED, str(exc))
-            except DirectApiNetworkDeniedError as exc:
-                return await self._finish(action, DirectApiEffectOutcome.NETWORK_DENIED, str(exc))
             except DirectApiError as exc:
-                return await self._finish(
-                    action,
-                    DirectApiEffectOutcome.FAILED,
-                    f"adapter error [{exc.kind}]: {exc}",
-                    rollback_succeeded=False,
-                )
+                return await self._finish_provider_error(action, exc)
             except Exception:  # noqa: BLE001 - provider boundary
                 _LOGGER.error(
                     "isolated_executor_provider_uncontrolled_error",
@@ -222,6 +208,77 @@ class ServiceDirectApiEffectExecutor:
                     rollback_succeeded=False,
                 )
             return await self._finish_from_receipt(action, receipt)
+
+    async def recover(self, *, action: Action) -> DirectApiEffectResult | None:
+        """Recover a prior effect from local or provider status without re-effecting."""
+
+        if action.mode is not Mode.ENFORCE or not self._allow_enforce:
+            return None
+        if missing_safety_invariant(action) is not None:
+            return None
+
+        cache_key = dedupe_key(action)
+        cached = self._dedupe.get(cache_key)
+        if cached is not None:
+            return await self._deduplicated_or_conflict(action, cached)
+
+        async with AsyncExitStack() as locks:
+            await locks.enter_async_context(
+                self._resource_lock.acquire(idempotency_lock_key(action.idempotency_key))
+            )
+            cached = self._dedupe.get(cache_key)
+            if cached is not None:
+                return await self._deduplicated_or_conflict(action, cached)
+            await locks.enter_async_context(
+                self._resource_lock.acquire(resource_lock_key(action.target_resource_ref))
+            )
+
+            if self._idempotency is not None:
+                stored = await self._idempotency.seen(action.idempotency_key)
+                if stored is not None:
+                    stored_result = _result_from_payload(stored)
+                    resolved = await self._deduplicated_or_conflict(action, stored_result)
+                    if resolved is stored_result:
+                        self._remember(cache_key, stored_result)
+                    return resolved
+
+            if not isinstance(self._executor, DirectApiOperationStatusReader):
+                return None
+            try:
+                receipt = await self._executor.operation_status(build_direct_api_request(action))
+            except DirectApiError as exc:
+                return await self._finish_provider_error(action, exc)
+            except Exception:  # noqa: BLE001 - provider status boundary
+                _LOGGER.error(
+                    "isolated_executor_provider_status_uncontrolled_error",
+                    extra={"failure_kind": "uncontrolled_provider_status_error"},
+                )
+                return await self._finish(
+                    action,
+                    DirectApiEffectOutcome.FAILED,
+                    "provider status failed with an uncontrolled error",
+                    rollback_succeeded=False,
+                )
+            if receipt is None:
+                return None
+            return await self._finish_from_receipt(action, receipt)
+
+    async def _finish_provider_error(
+        self,
+        action: Action,
+        error: DirectApiError,
+    ) -> DirectApiEffectResult:
+        outcome, failure_kind, reason, rollback_succeeded = _classified_provider_error(error)
+        _LOGGER.warning(
+            "isolated_executor_provider_classified_error",
+            extra={"failure_kind": failure_kind},
+        )
+        return await self._finish(
+            action,
+            outcome,
+            reason,
+            rollback_succeeded=rollback_succeeded,
+        )
 
     async def _deduplicated_or_conflict(
         self,
@@ -374,6 +431,59 @@ def _result_from_payload(payload: Mapping[str, Any]) -> DirectApiEffectResult:
         ),
         reason=None if payload.get("reason") is None else str(payload["reason"]),
         audit_context=dict(context) if isinstance(context, Mapping) else {},
+    )
+
+
+def _classified_provider_error(
+    error: DirectApiError,
+) -> tuple[DirectApiEffectOutcome, str, str, bool | None]:
+    if isinstance(error, DirectApiPromotionError):
+        return (
+            DirectApiEffectOutcome.REJECTED_MODE,
+            "promotion_rejected",
+            "provider rejected effect promotion",
+            None,
+        )
+    if isinstance(error, DirectApiPreconditionError):
+        return (
+            DirectApiEffectOutcome.ABSTAINED_PRECONDITION,
+            "precondition_failed",
+            "provider precondition was not satisfied",
+            None,
+        )
+    if isinstance(error, DirectApiAuthenticationError):
+        return (
+            DirectApiEffectOutcome.AUTHENTICATION_FAILED,
+            "authentication_failed",
+            "provider authentication failed",
+            None,
+        )
+    if isinstance(error, DirectApiPermissionDeniedError):
+        return (
+            DirectApiEffectOutcome.PERMISSION_DENIED,
+            "permission_denied",
+            "provider permission was denied",
+            None,
+        )
+    if isinstance(error, DirectApiPolicyDeniedError):
+        return (
+            DirectApiEffectOutcome.POLICY_DENIED,
+            "policy_denied",
+            "provider policy denied the effect",
+            None,
+        )
+    if isinstance(error, DirectApiNetworkDeniedError):
+        return (
+            DirectApiEffectOutcome.NETWORK_DENIED,
+            "network_denied",
+            "provider network policy denied the effect",
+            None,
+        )
+    return (
+        DirectApiEffectOutcome.FAILED,
+        "classified_adapter_error",
+        "provider failed with a classified adapter error",
+        False,
     )
 
 

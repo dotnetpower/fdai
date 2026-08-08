@@ -55,6 +55,12 @@ class DirectApiCommandExecutor(Protocol):
         deadline_at: datetime,
     ) -> DirectApiExecutionResultLike: ...
 
+    async def recover(
+        self,
+        *,
+        action: Action,
+    ) -> DirectApiExecutionResultLike | None: ...
+
 
 class IsolatedExecutorEffectService:
     """Validate a command and dispatch it through the governed direct-API executor."""
@@ -90,7 +96,13 @@ class IsolatedExecutorEffectService:
         received_at = self._clock()
         if received_at.tzinfo is None:
             raise ValueError("isolated Executor clock MUST be timezone-aware")
+        action = Action.model_validate(command.action_payload)
         if received_at > command.deadline_at:
+            recovered = None
+            if command.execution_path is ExecutionPath.DIRECT_API:
+                recovered = await self._direct_api_executor.recover(action=action)
+            if recovered is not None:
+                return self._receipt_from_result(command, recovered, received_at=received_at)
             return self._effect_receipt(
                 command,
                 status=ExecutorEffectReceiptStatus.EXPIRED,
@@ -107,11 +119,19 @@ class IsolatedExecutorEffectService:
                 completed_at=received_at,
             )
 
-        action = Action.model_validate(command.action_payload)
         result = await self._direct_api_executor.execute(
             action=action,
             deadline_at=command.deadline_at,
         )
+        return self._receipt_from_result(command, result, received_at=received_at)
+
+    def _receipt_from_result(
+        self,
+        command: ExecutorCommand,
+        result: DirectApiExecutionResultLike,
+        *,
+        received_at: datetime,
+    ) -> ExecutorEffectReceipt:
         completed_at = self._clock()
         status = ExecutorEffectReceiptStatus(result.outcome.value)
         effect_applied = result.outcome.value in {"dispatched", "already_applied"}

@@ -184,6 +184,32 @@ async def test_gateway_redelivery_reconstructs_applied_receipt_without_re_effect
     assert operations == ["azure.operation.status"]
 
 
+async def test_gateway_status_only_recovery_never_plans_or_dispatches() -> None:
+    operations: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        operation = request.url.path.rsplit("/", 1)[-1]
+        operations.append(operation)
+        return httpx.Response(
+            404,
+            json={
+                "status": "failed",
+                "code": "idempotency_not_found",
+                "detail": "operation record was not found",
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        receipt = await AzureGatewayDirectApiExecutor(
+            config=_gateway_config(),
+            identities={"identity/change": _Identity("gateway-token")},
+            http_client=client,
+        ).operation_status(_request(Mode.ENFORCE))
+
+    assert receipt is None
+    assert operations == ["azure.operation.status"]
+
+
 async def test_gateway_uses_exact_action_bound_executor_identity() -> None:
     change_identity = _Identity("change-token")
     resilience_identity = _Identity("resilience-token")

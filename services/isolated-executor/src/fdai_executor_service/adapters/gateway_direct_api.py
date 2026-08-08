@@ -84,23 +84,7 @@ class AzureGatewayDirectApiExecutor:
     async def execute(self, request: DirectApiRequest) -> DirectApiReceipt:
         """Validate promotion and safety metadata before gateway dispatch."""
 
-        if request.mode is Mode.ENFORCE and "enforce" not in request.labels:
-            raise DirectApiPromotionError(
-                "enforce-mode gateway call requires an explicit enforce label"
-            )
-        identity_ref = request.metadata.get("executor_identity_ref")
-        identity = self._identities.get(identity_ref or "")
-        if identity is None:
-            raise DirectApiPreconditionError(
-                "gateway request requires a registered executor_identity_ref"
-            )
-        operation_id = _ACTION_OPERATIONS.get(request.action_type_name)
-        if operation_id is None:
-            raise DirectApiPreconditionError(
-                f"gateway has no registered operation for {request.action_type_name}"
-            )
-        arguments = _arguments(operation_id, request.arguments)
-        safety = _safety(request)
+        identity, operation_id, arguments, safety = self._request_context(request)
         if request.mode is Mode.ENFORCE:
             existing = await self._existing_operation_receipt(request, identity=identity)
             if existing is not None:
@@ -140,6 +124,40 @@ class AzureGatewayDirectApiExecutor:
                 detail="gateway mutation returned a non-terminal status",
             )
         return await self._poll_until_terminal(request, identity=identity)
+
+    async def operation_status(
+        self,
+        request: DirectApiRequest,
+    ) -> DirectApiReceipt | None:
+        """Return durable gateway status without planning or dispatching a mutation."""
+
+        identity, _operation_id, _arguments_value, _safety_value = self._request_context(request)
+        if request.mode is not Mode.ENFORCE:
+            return None
+        return await self._existing_operation_receipt(request, identity=identity)
+
+    def _request_context(
+        self,
+        request: DirectApiRequest,
+    ) -> tuple[WorkloadIdentity, str, dict[str, object], dict[str, object]]:
+        if request.mode is Mode.ENFORCE and "enforce" not in request.labels:
+            raise DirectApiPromotionError(
+                "enforce-mode gateway call requires an explicit enforce label"
+            )
+        identity_ref = request.metadata.get("executor_identity_ref")
+        identity = self._identities.get(identity_ref or "")
+        if identity is None:
+            raise DirectApiPreconditionError(
+                "gateway request requires a registered executor_identity_ref"
+            )
+        operation_id = _ACTION_OPERATIONS.get(request.action_type_name)
+        if operation_id is None:
+            raise DirectApiPreconditionError(
+                f"gateway has no registered operation for {request.action_type_name}"
+            )
+        arguments = _arguments(operation_id, request.arguments)
+        safety = _safety(request)
+        return identity, operation_id, arguments, safety
 
     async def _existing_operation_receipt(
         self,
