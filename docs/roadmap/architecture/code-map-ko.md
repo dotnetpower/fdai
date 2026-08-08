@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b4b319149bb4415c7cb8820e7a6f378146d6d331
+translation_source_sha: 684114e7bfe1a704811d9819bb69301c9bcdfa15
 translation_revised: 2026-08-09
 ---
 # 코드 맵
@@ -74,7 +74,7 @@ package는 import하지 않습니다.
 operator contract 및 executor contract를 소유합니다. Service composition, provider implementation,
 database access 또는 business workflow는 포함하지 않습니다.
 
-Service distribution 5개는 수정된 `0.1.1` image를 N-1, `0.1.2`를 N으로 사용합니다. 기존 contract-set
+Service distribution 5개는 deployable `0.1.2` image를 N-1, `0.1.3`을 N으로 사용합니다. 기존 contract-set
 `1.0.0`/`1.1.0` matrix는 cross-process compatibility boundary로 유지합니다.
 Content-addressed live evidence는 exact service와 observation kind도 binding하고 `observed=true`를
 요구합니다. Digest를 다시 계산해도 관측하지 않은 claim은 live receipt가 될 수 없습니다.

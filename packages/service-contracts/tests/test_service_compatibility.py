@@ -109,9 +109,9 @@ def test_service_versions_match_real_n_and_n_minus_one_distributions() -> None:
     transition = independent["release_transition"]
 
     assert transition == {
-        "n_distribution_version": "0.1.2",
-        "n_minus_one_distribution_version": "0.1.1",
-        "n_minus_one_source_revision": "934781694addb00fdf01bb67214f19c9b719770b",
+        "n_distribution_version": "0.1.3",
+        "n_minus_one_distribution_version": "0.1.2",
+        "n_minus_one_source_revision": "9f1234f93d356dedbddcb3b88aa7bc4da38b2dc2",
         "n_contract_set_version": "1.1.0",
         "n_minus_one_contract_set_version": "1.0.0",
     }
@@ -126,10 +126,10 @@ def test_service_versions_match_real_n_and_n_minus_one_distributions() -> None:
             service["distribution_version"]
             == package["version"]
             == declared["distribution_version"]
-            == "0.1.2"
+            == "0.1.3"
         )
-        assert service["previous_distribution_version"] == "0.1.1"
-        assert declared["previous_distribution_version"] == "0.1.1"
+        assert service["previous_distribution_version"] == "0.1.2"
+        assert declared["previous_distribution_version"] == "0.1.2"
         assert service["contract_set_version"] == declared["current_contract_set_version"]
         assert declared["previous_contract_set_version"] == "1.0.0"
         assert "previous_version" not in declared
@@ -148,8 +148,8 @@ def test_service_versions_match_real_n_and_n_minus_one_distributions() -> None:
         entrypoint="fdai-core-control-plane",
         kind=ServiceKind.CONTROL_PLANE,
     )
-    assert descriptor.distribution_version == "0.1.2"
-    assert descriptor.previous_distribution_version == "0.1.1"
+    assert descriptor.distribution_version == "0.1.3"
+    assert descriptor.previous_distribution_version == "0.1.2"
     assert descriptor.release_label == "N"
     assert descriptor.contract_set_version == "1.1.0"
 

@@ -71,7 +71,7 @@ versioned wire descriptors, codecs, compatibility checks, readiness records, doc
 operator contracts, and executor contracts shared across processes. It contains no service
 composition, provider implementation, database access, or business workflow.
 
-The five service distributions use corrected `0.1.1` images as N-1 and `0.1.2` as N. Their existing contract-set
+The five service distributions use deployable `0.1.2` images as N-1 and `0.1.3` as N. Their existing contract-set
 `1.0.0`/`1.1.0` matrix remains the cross-process compatibility boundary.
 Content-addressed live evidence also binds the exact service and observation kind and requires
 `observed=true`; recomputing a digest cannot convert an unobserved claim into a live receipt.
