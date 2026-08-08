@@ -152,7 +152,7 @@
     "service_dockerfiles": 5,
     "top_level_compatibility_paths": 0,
     "cross_service_implementation_imports": 0,
-    "independent_critique_rounds": 10,
+    "independent_critique_rounds": 14,
     "medium_or_higher_local_residuals": 0,
     "pending_parallel_lanes": [],
     "live_upgrade_and_rollback_proof_work_package": "IS-07",

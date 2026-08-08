@@ -164,7 +164,7 @@ contracts, and generic ingestion co-host seam are absent.
 Local completion evidence includes six independently built wheels, five nonroot service images,
 five image health checks, five validated migration branches covering 104 tables and 11
 transitions, five locally validated Terraform roots, zero cross-service implementation imports,
-and ten independent critique-and-hardening rounds with zero Medium-or-higher local residuals.
+and fourteen independent critique-and-hardening rounds with zero Medium-or-higher local residuals.
 IS-06 and IS-07 are locally complete. Exact remote plan/apply and
 rolling confirmation is deferred to IS-09 and uses final service-owned inputs without restoring
 the monolith as a rollback source. IS-07 pins distribution `0.1.0` from Git history as N-1 and
@@ -277,6 +277,7 @@ state. For each transition:
 | 2026-08-08 | SD-09 | Completed | Closing validation receipt | The obsolete `routes.chat_verification` source-path facade was removed after the capability catalog moved to the owned verification package. All 22 reviewed boundary-docstring scopes now enforce, and the capability catalog, Operator layout, and boundary suite passed 30 focused tests with zero reported boundary gaps. Centralized validation passed 15076 tests with 15 environment-dependent skips, strict mypy over 1904 source files, and every repository gate before push. |
 | 2026-08-09 | IS-06 | Completed locally | Local deployment receipt | Five Terraform roots and backend contracts, five state-migration ownership contracts, protected plan/apply guards, and semantic four-peer isolation mechanics passed 113 focused deployment tests. Exact remote receipts remain deferred to the IS-09 program-final gate and are not claimed by this transition. |
 | 2026-08-09 | IS-07 | Completed locally | Local transition evidence | Five `0.1.1 -> 0.1.0 -> 0.1.1` wheel transitions, ten nonroot service images, and ten peer-stable focused migration/rollback receipts passed with preserved offsets, zero peer restarts, and zero duplicate terminal effects. Remote rolling confirmation remains deferred to IS-09. |
+| 2026-08-09 | IS-09 | Local review complete | Rounds 11-14; `07db3e5d8` | Four independent rounds reviewed protected deploy provenance, semantic peer-state isolation, seven-root drift detection, and N/N-1 evidence integrity. One reproducible Medium finding allowed a completed program-final status with incomplete accepted receipt counts; the checker now requires all five plan/apply and all five upgrade/rollback receipts. Focused manifest and compatibility checks pass with zero Medium-or-higher local residuals. IS-09 remains in progress until the deferred remote 5+5 verification passes. |
 
 ## Related documents
 

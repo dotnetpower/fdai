@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: f38ab0e3a4185355829948931634c5d09fe9da51
+translation_source_sha: 9293be1ea5704fb63b7c845d0b1646d3f4d7f321
 translation_revised: 2026-08-09
 ---
 # 서비스 분해 실행 계획
@@ -159,7 +159,7 @@ entry point, duplicate contract와 generic ingestion co-host seam은 제거되�
 
 로컬 완료 evidence에는 독립 build wheel 6개, nonroot service image 5개, image health check 5개,
 104개 table과 11개 transition을 포함하는 검증된 migration branch 5개, 로컬에서 validate한 Terraform
-root 5개, cross-service implementation import 0, 그리고 독립 critique-and-hardening 10회와 Medium 이상
+root 5개, cross-service implementation import 0, 그리고 독립 critique-and-hardening 14회와 Medium 이상
 로컬 residual 0이 포함됩니다. IS-06과 IS-07은 local 기준으로 완료됐습니다. Exact remote
 plan/apply와 rolling 확인은 IS-09로 보류하며 최종 service-owned
 input을 사용하고 monolith를 rollback source로 복원하지 않습니다. IS-07은 Git history의 distribution
@@ -270,6 +270,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-08 | SD-09 | 완료 | Closing validation receipt | Capability catalog를 owned verification package로 옮긴 뒤 오래된 `routes.chat_verification` source-path facade를 제거했습니다. 검토된 boundary-docstring scope 22개를 모두 enforce로 전환했고 capability catalog, Operator layout 및 boundary suite의 focused test 30개가 boundary gap 보고 0건으로 통과했습니다. Centralized validation은 push 전에 test 15076개, environment-dependent skip 15개, source file 1904개 대상 strict mypy 및 모든 repository gate를 통과했습니다. |
 | 2026-08-09 | IS-06 | Local 완료 | Local deployment receipt | Terraform root와 backend contract 5개, state-migration ownership contract 5개, protected plan/apply guard 및 semantic four-peer isolation mechanics가 focused deployment test 113개를 통과했습니다. Exact remote receipt는 IS-09 program-final gate로 보류하며 이 전환의 evidence로 주장하지 않습니다. |
 | 2026-08-09 | IS-07 | Local 완료 | Local transition evidence | `0.1.1 -> 0.1.0 -> 0.1.1` wheel transition 5개, nonroot service image 10개 및 peer-stable focused migration/rollback receipt 10개가 offset 보존, peer restart 0, duplicate terminal effect 0으로 통과했습니다. Remote rolling 확인은 IS-09로 보류합니다. |
+| 2026-08-09 | IS-09 | Local review 완료 | Round 11-14, `07db3e5d8` | 독립 round 4회에서 protected deploy provenance, semantic peer-state isolation, 7개 root drift detection 및 N/N-1 evidence integrity를 검토했습니다. Program-final status를 completed로 설정해도 accepted receipt count가 불완전할 수 있는 재현 가능한 Medium finding 1건을 수정하여 plan/apply 5개와 upgrade/rollback 5개 receipt를 모두 요구합니다. Focused manifest와 compatibility check가 통과했고 Medium 이상 local residual은 0건입니다. 보류된 remote 5+5 verification이 통과할 때까지 IS-09는 진행 중으로 유지합니다. |
 
 ## 관련 문서
 
