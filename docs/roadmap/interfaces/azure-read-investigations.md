@@ -222,6 +222,11 @@ REST or SDK adapters are the production default. Azure CLI is an allowlisted fal
 existing typed command broker. The model never creates argv, KQL, an ARG query, a subscription id,
 or an ARM URL. It selects a registered tool and bounded enum arguments only.
 
+Resource-state shadow comparison binds one provider observation to the exact ontology object,
+release, source revision, and cutoff, then records a read-only match, mismatch, or unavailable
+receipt. It never updates the graph, treats a provider receipt as convergence, or grants execution
+authority; conflicting lineage remains an explicit comparison failure.
+
 ### Optional Azure MCP provider
 
 Azure MCP can provide an additional read transport for registered tools. It remains optional:

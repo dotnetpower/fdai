@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 2a38f2fbd2f09a7f0732f1753f63a3a7c7d1ab35
-translation_revised: 2026-08-05
+translation_source_sha: b40e7004bfacb5dc4b40eca733fe8e6afc81ca52
+translation_revised: 2026-08-09
 ---
 
 # Azure 읽기 조사
@@ -220,6 +220,11 @@ coverage gap으로 유지하며 healthy-node 결론을 생성할 수 없습니�
 REST 또는 SDK adapter가 production default입니다. Azure CLI는 기존 typed command broker 뒤의
 allowlisted fallback입니다. Model은 argv, KQL, ARG query, subscription id 또는 ARM URL을 생성하지
 않습니다. Registered tool 및 bounded enum argument만 선택합니다.
+
+Resource-state shadow comparison은 provider observation 하나를 exact ontology object, release,
+source revision, cutoff에 바인딩한 뒤 read-only match, mismatch 또는 unavailable receipt를
+기록합니다. Graph를 update하거나 provider receipt를 convergence로 취급하거나 execution authority를
+부여하지 않으며 conflicting lineage는 명시적인 comparison failure로 남습니다.
 
 ### 선택적 Azure MCP provider
 
