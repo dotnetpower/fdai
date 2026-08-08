@@ -33,6 +33,10 @@ on:
         description: "Explicitly apply a previously protected plan. Defaults to plan-only."
         type: boolean
         default: false
+      migrate_state:
+        description: "Explicitly move this service from legacy state with verified backups."
+        type: boolean
+        default: false
       plan_run_id:
         description: "Plan workflow run id. Required only for apply."
         type: string
@@ -64,7 +68,7 @@ jobs:
   protected-service-deploy:
     if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, fdai-deploy]
-    environment: ${{ inputs.apply && format('service-apply-{0}', inputs.environment) || 'plan-only' }}
+    environment: ${{ inputs.migrate_state && format('service-state-migration-{0}', inputs.environment) || inputs.apply && format('service-apply-{0}', inputs.environment) || 'plan-only' }}
     env:
       ARM_USE_AZUREAD: "true"
       ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
@@ -130,6 +134,7 @@ jobs:
       - name: Verify protected ancestry and explicit apply inputs
         env:
           APPLY: ${{ inputs.apply }}
+          MIGRATE_STATE: ${{ inputs.migrate_state }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
           PLAN_RUN_ID: ${{ inputs.plan_run_id }}
           PLAN_RUN_ATTEMPT: ${{ inputs.plan_run_attempt }}
@@ -170,6 +175,10 @@ jobs:
             echo "TARGET_ROOT=$TARGET_ROOT"
             echo "CONTROLS_COMMIT_SHA=$controls_commit_sha"
           } >> "$GITHUB_ENV"
+          if [[ "$APPLY" == "true" && "$MIGRATE_STATE" == "true" ]]; then
+            echo "apply and migrate_state are mutually exclusive." >&2
+            exit 1
+          fi
           if [[ "$APPLY" == "true" ]]; then
             [[ "$PLAN_RUN_ID" =~ ^[0-9]+$ ]] || {
               echo "apply requires a numeric plan_run_id." >&2
@@ -344,21 +353,25 @@ jobs:
           terraform -chdir="$TERRAFORM_ROOT" validate
 
       - name: Verify service state cutover ownership
+        if: ${{ !inputs.migrate_state }}
         env:
           SERVICE: ${{ inputs.service }}
           ENVIRONMENT: ${{ inputs.environment }}
         run: |
           set -euo pipefail
-          legacy_data="$RUNNER_TEMP/legacy-terraform-data"
-          mkdir -m 700 "$legacy_data"
-          TF_DATA_DIR="$legacy_data" terraform -chdir="$TARGET_ROOT/infra" init \
+          cat >"$TARGET_ROOT/infra/service-state-backend.tf" <<'EOF'
+          terraform {
+            backend "azurerm" {}
+          }
+          EOF
+          terraform -chdir="$TARGET_ROOT/infra" init \
             -input=false \
             -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
             -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
             -backend-config="container_name=$STATE_CONTAINER" \
             -backend-config="key=fdai-${ENVIRONMENT}.tfstate" \
             -backend-config="use_azuread_auth=true"
-          TF_DATA_DIR="$legacy_data" terraform -chdir="$TARGET_ROOT/infra" show -json \
+          terraform -chdir="$TARGET_ROOT/infra" show -json \
             >"$RUNNER_TEMP/legacy-service-state.json"
           terraform -chdir="$TERRAFORM_ROOT" show -json \
             >"$RUNNER_TEMP/independent-service-state.json"
@@ -379,8 +392,58 @@ jobs:
             --destination-address "${migration_coordinates[3]}" \
             --phase post
 
+      - name: Migrate service state ownership
+        if: ${{ inputs.migrate_state }}
+        env:
+          SERVICE: ${{ inputs.service }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          cat >"$TARGET_ROOT/infra/service-state-backend.tf" <<'EOF'
+          terraform {
+            backend "azurerm" {}
+          }
+          EOF
+          terraform -chdir="$TARGET_ROOT/infra" init \
+            -input=false \
+            -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$STATE_CONTAINER" \
+            -backend-config="key=fdai-${ENVIRONMENT}.tfstate" \
+            -backend-config="use_azuread_auth=true"
+          backup_dir="$RUNNER_TEMP/service-state-migration-${SERVICE}-${ENVIRONMENT}"
+          bash "$TRUSTED_CONTROLS/scripts/deployment/service/migrate_state.sh" \
+            "$SERVICE" \
+            "$ENVIRONMENT" \
+            "$TARGET_ROOT/infra" \
+            "$TERRAFORM_ROOT" \
+            "$backup_dir" \
+            --execute
+
+      - name: Verify migrated service state ownership
+        if: ${{ inputs.migrate_state }}
+        env:
+          SERVICE: ${{ inputs.service }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          mapfile -t migration_coordinates < <(
+            python3 "$TRUSTED_CONTROLS/scripts/deployment/service/state_migration.py" \
+              coordinates --service "$SERVICE" --environment "$ENVIRONMENT"
+          )
+          terraform -chdir="$TARGET_ROOT/infra" show -json \
+            >"$RUNNER_TEMP/legacy-service-state-after.json"
+          terraform -chdir="$TERRAFORM_ROOT" show -json \
+            >"$RUNNER_TEMP/independent-service-state-after.json"
+          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/state_migration.py" verify \
+            --source-state "$RUNNER_TEMP/legacy-service-state-after.json" \
+            --destination-state "$RUNNER_TEMP/independent-service-state-after.json" \
+            --source-address "${migration_coordinates[2]}" \
+            --destination-address "${migration_coordinates[3]}" \
+            --phase post
+
       - name: Materialize selected service inputs
-        if: ${{ !inputs.apply }}
+        if: ${{ !inputs.apply && !inputs.migrate_state }}
         env:
           SERVICE_TFVARS_JSON: ${{ secrets.SERVICE_DEPLOY_TFVARS_JSON }}
         run: |
@@ -396,7 +459,7 @@ jobs:
                 --output "$RUNNER_TEMP/service.tfvars.json"
 
       - name: Create and guard service plan
-        if: ${{ !inputs.apply }}
+        if: ${{ !inputs.apply && !inputs.migrate_state }}
         env:
           IMAGE_REF: ${{ inputs.image_ref }}
         run: |
@@ -416,7 +479,7 @@ jobs:
             --image-ref "$IMAGE_REF"
 
       - name: Seal plan artifact and context
-        if: ${{ !inputs.apply }}
+        if: ${{ !inputs.apply && !inputs.migrate_state }}
         id: seal
         env:
           IMAGE_REF: ${{ inputs.image_ref }}
@@ -453,7 +516,7 @@ jobs:
           PY
 
       - name: Upload protected service plan
-        if: ${{ !inputs.apply }}
+        if: ${{ !inputs.apply && !inputs.migrate_state }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: service-plan-${{ inputs.service }}-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -466,7 +529,7 @@ jobs:
           retention-days: 1
 
       - name: Report protected plan coordinates
-        if: ${{ !inputs.apply }}
+        if: ${{ !inputs.apply && !inputs.migrate_state }}
         run: |
           {
             echo "### Protected service plan"

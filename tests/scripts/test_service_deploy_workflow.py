@@ -47,9 +47,11 @@ def test_workflow_pins_every_action_to_trusted_immutable_commit() -> None:
 
 def test_workflow_defaults_to_plan_and_requires_exact_apply_coordinates() -> None:
     assert "default: false" in _WORKFLOW
-    assert "if: ${{ !inputs.apply }}" in _WORKFLOW
+    assert "if: ${{ !inputs.apply && !inputs.migrate_state }}" in _WORKFLOW
     assert "if: ${{ inputs.apply }}" in _WORKFLOW
-    assert "environment: ${{ inputs.apply && format('service-apply-{0}'" in _WORKFLOW
+    assert "apply and migrate_state are mutually exclusive." in _WORKFLOW
+    assert "service-state-migration-{0}" in _WORKFLOW
+    assert "inputs.apply && format('service-apply-{0}'" in _WORKFLOW
     for coordinate in ("PLAN_RUN_ID", "PLAN_RUN_ATTEMPT", "PLAN_DIGEST", "CONTEXT_DIGEST"):
         assert f'[[ "${coordinate}" =~' in _WORKFLOW
     assert '[[ "$(git -C "$TARGET_ROOT" rev-parse HEAD)" == "$COMMIT_SHA" ]]' in _WORKFLOW
@@ -169,3 +171,13 @@ def test_service_and_legacy_workflows_enforce_state_cutover_fence() -> None:
     assert "--phase post" in _WORKFLOW
     assert "Guard migrated runtimes from legacy recreation" in _LEGACY_WORKFLOW
     assert "scripts/deployment/service/state_migration.py guard-legacy-plan" in _LEGACY_WORKFLOW
+
+
+def test_state_migration_uses_remote_legacy_backend_and_verified_restore_helper() -> None:
+    assert 'backend "azurerm" {}' in _WORKFLOW
+    assert '-backend-config="key=fdai-${ENVIRONMENT}.tfstate"' in _WORKFLOW
+    assert "Migrate service state ownership" in _WORKFLOW
+    assert 'migrate_state.sh"' in _WORKFLOW
+    assert '"$backup_dir" \\' in _WORKFLOW
+    assert "            --execute" in _WORKFLOW
+    assert "Verify migrated service state ownership" in _WORKFLOW
