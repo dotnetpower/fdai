@@ -3,14 +3,11 @@ title: Project Structure
 ---
 # Project Structure
 
-The system is a **headless control plane + thin console + ChatOps**, not one web app
-(see [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
-The layout below records the transition tree. The final service-owned layout and retirement
-criteria are in the [Service Decomposition Execution Plan](service-decomposition-execution-plan.md#final-repository-layout). Module names and the control loop follow [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md).
-The control plane is agent-driven: 15 fixed agents own sensing, judgment, arbitration, approval,
-execution, verification, recovery, audit, and learning through typed events. Core modules implement
-those owned capabilities; they do not form a second central orchestrator. Process splits follow
-[Service Graduation and Data Ownership](service-graduation-and-ownership.md); a package boundary alone never creates a service.
+The system is a **headless control plane + thin console + ChatOps**, not one web app. See [App Shape](../../../.github/instructions/app-shape.instructions.md).
+The layout below records the physical service-owned tree; completion evidence and retirement
+criteria are in the [Service Decomposition Execution Plan](service-decomposition-execution-plan.md#final-repository-layout).
+Fifteen fixed agents own the control loop through typed events. Process splits follow
+[Service Graduation and Data Ownership](service-graduation-and-ownership.md), and module names follow [Architecture](../../../.github/instructions/architecture.instructions.md).
 ## Monorepo Layout
 
 ```text
@@ -130,6 +127,8 @@ fdai/
 │   ├── composition/           # composition root package (G-3, tracker #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings (including optional conversation T2 synthesis) + focused `wire_*` binders
 │   ├── runtime/               # headless lifecycle and composition, including versioned isolated Executor shadow/effect handling, stable-offset remote client, EventBus/DLQ/health supervision, production entry point, reversible authority probe, operating-model and diagnostic-catalog startup projection/status, durable T2 recovery observation/backfill, StateStore-backed proposer route selection with Thor/Vidar execution and rollback, transport/identity bindings, startup readiness, worker gating, and post-turn review wiring into Norns
 │   └── __main__.py            # entry point (starts the P1 control loop)
+├── services/core-control-plane/{src/fdai_core_service,tests}/ # Core entry point and tests
+├── services/{operator-service,document-ingestion-api,document-processing-worker,isolated-executor}/ and packages/service-contracts/ # independent packages, shared SDK, and tests
 ├── evaluation-sdk/            # independently packageable neutral evaluation contracts and runner; no FDAI implementation imports
 ├── benchmarks/                # independently packaged external-harness drivers; not included in the FDAI wheel
 ├── extensions/                # independently packaged optional capabilities; not included in the FDAI wheel
@@ -207,9 +206,8 @@ fdai/
 > (`trust-router`, `deterministic-engine`, `rule-catalog`, `risk-gate`, `remediation-pr`,
 > `shadow-mode`, `HIL`). Python identifier rules require `snake_case` on disk
 > (`event_ingest`, `trust_router`, `rule_catalog`); the kebab-case names above are the
-> **logical vocabulary** used in docs, rule ids, config keys, and audit records. Tests mirror
-> the source layout under `tests/core/`, `tests/delivery/`, `tests/agents/`, and related roots;
-> cross-subsystem regression and property suites live in the same top-level `tests/` tree.
+> **logical vocabulary** used in docs, rule ids, config keys, and audit records. Each service and
+> shared package owns its tests; only cross-service and repository checks remain in `tests/integration/`.
 
 ## Module Boundaries
 
@@ -385,10 +383,10 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
    annotations, `CHECK_QUIET=1` summary mode).
 2. Ship the gate in **warn-only** so it does not break the current tree.
 3. Add a job to `.github/workflows/ci.yml` and a call in `.githooks/pre-push`.
-4. Add regression tests to `tests/test_check_structural_gates.py` covering
+4. Add regression tests to `services/core-control-plane/tests/test_check_structural_gates.py` covering
    warn / enforce / threshold overrides / allowlist / stale entries /
    boundary conditions.
-5. Extend `tests/test_structural_gates_drift.py` so the CI job and the
+5. Extend `services/core-control-plane/tests/test_structural_gates_drift.py` so the CI job and the
    pre-push wiring are drift-guarded.
 
 ### Promoting a gate warn -> enforce
@@ -417,7 +415,7 @@ clean (see the fork model in
 - **Composition root**: `core/` depends only on the CSP-neutral interfaces in `shared/`. A thin
   composition root (outside `core/`) binds concrete implementations at startup. `core/` never
   news-up a concrete adapter; it receives its dependencies. The upstream default binder is
-  [`fdai.composition.default_container`](../../../src/fdai/composition/__init__.py); a fork's
+  [`fdai.composition.default_container`](../../../services/core-control-plane/src/fdai/composition/__init__.py); a fork's
   entry point calls its own factory that wraps or replaces those bindings. Concrete adapter
   classes (e.g. `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`) are
   **not** re-exported from public sub-packages; they must be imported directly from their
@@ -474,7 +472,7 @@ installed runtime, then combines runtime providers with explicit
 `AzureWireOverrides.tool_providers`. Duplicate tool or provider ids are configuration errors
 rather than implicit overrides. `ActionType` and `Workflow` bindings are references only:
 mutating requests still re-enter the trust router, risk gate, executor, and audit path. See
-[`fdai.fork_examples.capability_bundle`](../../../src/fdai/fork_examples/capability_bundle.py)
+[Core package root](../../../services/core-control-plane/src/fdai/)
 for a copy-ready read-only provider and bundle.
 
 When a deployment needs install, enable, disable, or uninstall lifecycle around those bundles,
@@ -545,8 +543,8 @@ non-Azure phase registers a new implementation at the composition root without e
 | **Browser evidence** | `BrowserEvidenceProvider`, origin policy, capture request, artifact store, and custody sink in `shared/providers/browser_evidence.py`; policy and services in `core/browser_evidence/` | - | unbound by default; optional isolated Playwright delivery adapter, PostgreSQL artifacts, append-only custody, evidence workflow step, and GET-only inspection | bind exact server-owned policies and a restricted-egress runtime without executor identity; content stays untrusted and shadow-only ([design](../interfaces/browser-evidence.md)) |
 | **MSCP effect observation** | `ExpectedEffectProvider` and `IndependentEffectObserver` in `core/mscp_profile/`; optional pair on immutable `Container` | - | unbound by default; the headless runtime passes a complete pair into ControlLoop for predict -> dispatch -> observe -> shadow-audit ordering | bind both collaborators with `dataclasses.replace`; partial binding fails fast and shadow results never raise autonomy ([design](mscp-operational-profile.md)) |
 | **Typed external RPC** | `RpcRegistry`, `RpcMethod`, scopes, and idempotency contract in `core/rpc/`; bounded HTTP client/route, deterministic Python stub codegen, and `build_production_rpc_app(...)` in `delivery/rpc/` | - | no RPC route is mounted by the control plane; opt-in standalone app binds built-in tool discovery and PostgreSQL hashed claims | a fork supplies the identity-aware authorizer and explicit additional methods; side-effect methods require durable idempotency claims and still submit typed proposals rather than invoking an executor directly |
-| **Ontology ObjectType / LinkType** | `load_object_type_catalog(root, *, schema_registry)` and `load_link_type_catalog(root, *, schema_registry, object_types=...)` in `src/fdai/rule_catalog/schema/` | - | four upstream ObjectTypes (`Resource`, `Rule`, `Signal`, `Finding`) and the shipped LinkTypes under `rule-catalog/vocabulary/{object-types,link-types}/`, loaded into `Container.ontology_object_types` / `Container.ontology_link_types` by the entry point | fork ships additional YAML under a fork-local directory (e.g. `fork/vocabulary/object-types/ArchitectureProposal.yaml`), loads both roots at its composition root, and passes the concatenated tuples via `dataclasses.replace(container, ontology_object_types=..., ontology_link_types=...)`. Duplicate `name` across roots fails-closed. See [downstream-fork-seam-recipes.md § 5.8a](../fork-and-sequencing/downstream-fork-seam-recipes.md#58a-ontology-object-type--link-type-additions). |
-| **Workflow catalog (process automation)** | `load_workflow_catalog(root, *, schema_registry, action_type_names, rule_ids=...)` in `src/fdai/rule_catalog/schema/workflow.py`; `compile_workflow(...)` in `src/fdai/core/workflow/` | - | shadow-first Workflows under `rule-catalog/workflows/`; every action step cross-references an `ActionType`, while evidence/control steps use dedicated typed contracts | fork ships additional Workflow YAML under a fork-local `fork/workflows/` directory, loads it at its composition root with the concatenated ActionType / rule sets, and passes the tuple via `dataclasses.replace(container, workflows=...)`. Duplicate `name` across roots fails-closed. See [(4[56])](../decisioning/process-automation.md). |
+| **Ontology ObjectType / LinkType** | `load_object_type_catalog(root, *, schema_registry)` and `load_link_type_catalog(root, *, schema_registry, object_types=...)` in `services/core-control-plane/src/fdai/rule_catalog/schema/` | - | four upstream ObjectTypes (`Resource`, `Rule`, `Signal`, `Finding`) and the shipped LinkTypes under `rule-catalog/vocabulary/{object-types,link-types}/`, loaded into `Container.ontology_object_types` / `Container.ontology_link_types` by the entry point | fork ships additional YAML under a fork-local directory (e.g. `fork/vocabulary/object-types/ArchitectureProposal.yaml`), loads both roots at its composition root, and passes the concatenated tuples via `dataclasses.replace(container, ontology_object_types=..., ontology_link_types=...)`. Duplicate `name` across roots fails-closed. See [downstream-fork-seam-recipes.md § 5.8a](../fork-and-sequencing/downstream-fork-seam-recipes.md#58a-ontology-object-type--link-type-additions). |
+| **Workflow catalog (process automation)** | `load_workflow_catalog(root, *, schema_registry, action_type_names, rule_ids=...)` in `services/core-control-plane/src/fdai/rule_catalog/schema/workflow.py`; `compile_workflow(...)` in `services/core-control-plane/src/fdai/core/workflow/` | - | shadow-first Workflows under `rule-catalog/workflows/`; every action step cross-references an `ActionType`, while evidence/control steps use dedicated typed contracts | fork ships additional Workflow YAML under a fork-local `fork/workflows/` directory, loads it at its composition root with the concatenated ActionType / rule sets, and passes the tuple via `dataclasses.replace(container, workflows=...)`. Duplicate `name` across roots fails-closed. See [(4[56])](../decisioning/process-automation.md). |
 | **Governed Python task** | `PythonTaskAuthor`, `PythonTaskArtifactStore`, `VmTaskTargetResolver`, and `VmTaskRunner` in `shared/providers/` | - | local template author + in-memory artifacts/targets + planning runner; production stores immutable artifacts in Postgres, resolves targets from active inventory, and the headless executor binds Azure Managed Run Command | a fork supplies another author, artifact repository, target resolver, or compute runner while preserving content hashes, declared capabilities, idempotency, non-executing Operator API plans, and typed proposal dispatch. See [(4[56]) § 4.5](../decisioning/workflow-control-loop-integration.md#45-governed-python-tasks-and-cron-schedules). |
 | **Governed sandbox profiles** | `SandboxProfileCatalog`, `VmTaskSandboxCatalog`, `ToolSandboxCatalog`, and `DocumentConverterSandboxCatalog` in `core/sandbox/`; `DocumentConverter` in `shared/providers/` | - | unprofiled command, VM-task, tool, and converter requests fail closed; profiled wrappers enforce capability, mode, suffix, timeout, argument/input/output byte, and workspace/network ceilings immediately before concrete adapters | a fork supplies explicit server-owned profiles with each adapter binding. It may implement a converter or alternate runner behind the provider contracts, but cannot expose host paths, executables, credentials, or broader request authority. See [(4[56]) § 4.6](../decisioning/workflow-control-loop-integration.md#46-governed-command-and-shell-artifacts). |
 | **Governed execution backend** | `ExecutionBackend` and `ExecutionSubmissionLedger` in `shared/providers/execution_backend.py`; profile intersection and coordinator in `core/execution_backend/`; `bind_execution_backends(...)` in `composition/` | - | profiles load disabled, existing sandbox validation runs first, PostgreSQL stores idempotent lifecycle attempts, bubblewrap and VM adapters preserve behavior, and Azure Container Apps Job starts only pre-provisioned pinned templates | supply server-owned profiles and concrete adapters at composition. A binding can narrow but cannot add workloads, credentials, network, workspace access, limits, region, or scope. It owns no eligibility, approval, rollback, or audit decision. See [execution-backends.md](../interfaces/execution-backends.md). |
@@ -622,28 +620,30 @@ flowchart LR
 
 ## Repository Conventions
 
-- **Python (3.12+) is the single core runtime language** for the whole monorepo; all
-  executable code lives under `src/fdai/` (Python "src layout"). Rationale and the
+- **Python (3.12+) is the single core runtime language** for the whole monorepo. Executable
+  application code lives in the five `services/*/src/` package roots, and the versioned shared SDK
+  lives under `packages/service-contracts/src/`. Rationale and the
   historical choice matrix are in [tech-stack.md § OD-1](tech-stack.md#od-1-core-runtime-language).
   Non-Python trees are: [rule-catalog/](../../../rule-catalog) (YAML data), [policies/](../../../policies)
   (Rego), and [infra/](../../../infra) (Terraform HCL).
-- **One lockfile** at the repo root (`uv.lock` or equivalent); CI installs from the lockfile
-  only. The subsystem-per-lockfile guidance in earlier drafts assumed a multi-language
-  layout and is retired for the Python monorepo. Boundaries between subsystems are enforced
-  by an import-lint gate in CI, not by separate package installs.
-- Contracts (event, action, rule schemas, and ontology `ObjectType` / `LinkType` /
-  `ActionType` definitions) live in `src/fdai/shared/contracts/` (types) and
+- **One lockfile** at the repo root (`uv.lock` or equivalent); the root `pyproject.toml` is a
+  virtual workspace with `package = false`. Each runtime service and the shared contract SDK has
+  its own distribution manifest while dependency resolution remains workspace-wide.
+- Service wire contracts live in `packages/service-contracts/src/fdai_service_contracts/`.
+  Core-only event, action, rule, and ontology types remain in
+  `services/core-control-plane/src/fdai/shared/contracts/`, while catalog schemas live in
   `rule-catalog/schema/` (per-kind JSON Schema), carry a **semver** version, and change
   only in a backward-compatible way within a major version; breaking changes bump the
   major and ship a migration note. Runtime instance storage for those types is covered in
   [llm-strategy.md § Ontology Storage Layout](llm-strategy.md#ontology-storage-layout).
-- Tests for `src/fdai/core/tiers/t0_deterministic` (the deterministic-engine) and
-  `src/fdai/core/risk_gate` are the safety core: they hold a ≥ 90% coverage gate
+- Tests for `services/core-control-plane/src/fdai/core/tiers/t0_deterministic` (the
+  deterministic-engine) and `services/core-control-plane/src/fdai/core/risk_gate` are the safety
+  core: they hold a >= 90% coverage gate
   and include property-based tests asserting "high-risk never auto-executes", "shadow-mode
   never mutates", and "re-applying an action is a no-op". Every action path also has a
   shadow-mode test and a rollback test.
 - Rule and policy changes ship with a regression test; the
-  `src/fdai/rule_catalog/pipeline/` promotion gate blocks on a failing regression
+  `services/core-control-plane/src/fdai/rule_catalog/pipeline/` promotion gate blocks on a failing regression
   suite or any policy-violation escape.
 - CI enforces the gates referenced above-formatter/linter, secret scanning, dependency audit,
   coverage, and regression-before review; see

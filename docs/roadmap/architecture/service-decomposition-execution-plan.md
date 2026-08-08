@@ -83,20 +83,21 @@ fdai/
 ├── services/
 │   ├── core-control-plane/
 │   │   ├── docker/Dockerfile
-│   │   ├── src/
+│   │   ├── src/fdai/
+│   │   ├── src/fdai_core_service/
 │   │   ├── tests/
 │   │   └── pyproject.toml
 │   ├── operator-service/
 │   │   ├── docker/Dockerfile
-│   │   ├── src/
+│   │   ├── src/fdai_operator_service/
 │   │   ├── tests/
 │   │   └── pyproject.toml
-│   ├── document-ingestion-api/
-│   ├── document-processing-worker/
-│   └── isolated-executor/
+│   ├── document-ingestion-api/src/fdai_ingestion_api_service/
+│   ├── document-processing-worker/src/fdai_document_worker_service/
+│   └── isolated-executor/src/fdai_executor_service/
 ├── packages/
 │   └── service-contracts/
-│       ├── src/
+│       ├── src/fdai_service_contracts/
 │       ├── tests/
 │       └── pyproject.toml
 ├── tests/
@@ -110,7 +111,8 @@ fdai/
   Protocols, and telemetry primitives only. It does not contain business logic, composition, data
   access, or another service's adapter.
 - **Root workspace:** The root `pyproject.toml` coordinates workspace members and development
-  tooling. It does not publish or install a monolithic FDAI application distribution.
+  tooling with `package = false`. It does not publish or install a monolithic FDAI application
+  distribution.
 - **Cross-service tests:** Root `tests/integration/` verifies wire compatibility and deployed
   workflows. Unit and component tests move with their owning service.
 - **Retired compatibility tree:** Top-level `src/fdai/`, the shared multi-target service
@@ -156,6 +158,15 @@ shared multi-target Dockerfile are transition mechanisms rather than the final l
 removes them first and moves each owned source and test into its service root. IS-07 then uses those
 final service-owned build inputs for live rolling proof; it does not retain the monolith as a
 rollback source.
+
+At local base `f19cbeb73`, the physical source and test moves are present: Core owns `src/fdai`,
+`src/fdai_core_service`, and its service test tree; each of the other four services owns its named
+package and tests; `packages/service-contracts` owns the shared SDK and its tests; and only
+cross-service checks remain under root `tests/integration`. This is in-progress IS-08 local
+evidence, not completion evidence. The parallel service-Dockerfile and final-layout gate lanes must
+merge and pass before IS-08 can close. IS-07 then performs live N/N-1 upgrade and rollback proof
+from these final service-owned inputs, so the local layout intentionally lands before that live
+proof.
 
 ## Parallel execution rules
 

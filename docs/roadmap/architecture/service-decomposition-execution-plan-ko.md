@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 116edc3d3f3b2f55999811b64f9cb7cca027aace
+translation_source_sha: 080af1875d0a21978b0ad0f54071c03363618829
 translation_revised: 2026-08-08
 ---
 # 서비스 분해 실행 계획
@@ -80,20 +80,21 @@ fdai/
 ├── services/
 │   ├── core-control-plane/
 │   │   ├── docker/Dockerfile
-│   │   ├── src/
+│   │   ├── src/fdai/
+│   │   ├── src/fdai_core_service/
 │   │   ├── tests/
 │   │   └── pyproject.toml
 │   ├── operator-service/
 │   │   ├── docker/Dockerfile
-│   │   ├── src/
+│   │   ├── src/fdai_operator_service/
 │   │   ├── tests/
 │   │   └── pyproject.toml
-│   ├── document-ingestion-api/
-│   ├── document-processing-worker/
-│   └── isolated-executor/
+│   ├── document-ingestion-api/src/fdai_ingestion_api_service/
+│   ├── document-processing-worker/src/fdai_document_worker_service/
+│   └── isolated-executor/src/fdai_executor_service/
 ├── packages/
 │   └── service-contracts/
-│       ├── src/
+│       ├── src/fdai_service_contracts/
 │       ├── tests/
 │       └── pyproject.toml
 ├── tests/
@@ -107,7 +108,8 @@ fdai/
   telemetry primitive만 둡니다. Business logic, composition, data access 또는 다른 service의 adapter는
   포함하지 않습니다.
 - **Root workspace:** Root `pyproject.toml`은 workspace member와 development tooling을 조정합니다.
-  Monolithic FDAI application distribution을 publish하거나 install하지 않습니다.
+  `package = false`로 설정되며 monolithic FDAI application distribution을 publish하거나
+  install하지 않습니다.
 - **Cross-service test:** Root `tests/integration/`은 wire compatibility와 deployed workflow를
   검증합니다. Unit test와 component test는 소유 service로 이동합니다.
 - **폐기할 compatibility tree:** 최상위 `src/fdai/`, shared multi-target service Dockerfile, legacy
@@ -152,6 +154,14 @@ allowlist, root `src/fdai/` tree 및 shared multi-target Dockerfile은 최종 la
 mechanism입니다. 로컬 IS-08에서 먼저 제거하고 각 owned source와 test를 해당 service root로
 이동합니다. 그런 다음 IS-07은 최종 service-owned build input으로 live rolling proof를 수행하며
 monolith를 rollback source로 유지하지 않습니다.
+
+로컬 base `f19cbeb73`에는 물리 source 및 test 이동이 반영되어 있습니다. Core는 `src/fdai`,
+`src/fdai_core_service`와 해당 service test tree를 소유하고, 나머지 service 4개는 각각 고유 package와
+test를 소유합니다. `packages/service-contracts`는 shared SDK와 해당 test를 소유하며, root
+`tests/integration`에는 cross-service check만 남습니다. 이는 IS-08의 진행 중 로컬 evidence이며 완료
+evidence가 아닙니다. 병렬 service Dockerfile lane과 final-layout gate lane을 병합하고 통과하기 전에는
+IS-08을 완료할 수 없습니다. 그다음 IS-07에서 이 최종 service-owned input으로 live N/N-1 upgrade 및
+rollback을 증명하므로, 로컬 layout을 해당 live proof보다 먼저 반영하는 순서가 의도된 흐름입니다.
 
 ## 병렬 실행 규칙
 

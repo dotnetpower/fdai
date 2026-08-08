@@ -1,26 +1,23 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 40f74e7d3a97ff5ec401fa6cc2832d2e4b474451
+translation_source_sha: 6a8de45734205bc432fc69c78abc491bd65eedd6
 translation_revised: 2026-08-08
 ---
 
 # 프로젝트 구조
 
-이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps** 입니다
-([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) 참조).
-아래 layout은 전환 중인 tree를 기록합니다. 최종 service-owned layout과 폐기 기준은
-[서비스 분해 실행 계획](service-decomposition-execution-plan-ko.md#최종-리포지토리-레이아웃)에서 정의합니다. 모듈 이름과 컨트롤 루프는 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)를 따릅니다.
-Control plane은 agent-driven입니다. 고정된 15개 에이전트가 typed event를 통해 sensing, judgment,
-arbitration, approval, execution, verification, recovery, audit, learning을 소유합니다. Core module은
-해당 capability를 구현하며 두 번째 central orchestrator를 만들지 않습니다.
-Process split은 [서비스 승격과 데이터 소유권](service-graduation-and-ownership-ko.md)을 따르며 package boundary만으로 service를 만들지 않습니다.
+이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. [App Shape](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
+아래 layout은 물리적인 service-owned tree를 기록하며, 완료 evidence와 폐기 기준은
+[서비스 분해 실행 계획](service-decomposition-execution-plan-ko.md#최종-리포지토리-레이아웃)에서 정의합니다.
+고정된 agent 15개가 typed event로 control loop를 소유합니다. Process split은
+[서비스 승격과 데이터 소유권](service-graduation-and-ownership-ko.md), module name은 [Architecture](../../../.github/instructions/architecture.instructions.md)를 따릅니다.
 
 ## 모노레포 레이아웃
 
 ```text
 fdai/
-├── src/fdai/            # Python (3.12+, src-layout); 모노레포 전체가 하나의 언어
+├── services/core-control-plane/src/fdai/ # 전체 headless control-plane implementation
 │   ├── core/                  # headless 컨트롤 플레인 (UI 없음, 클라우드 SDK 직접 import 없음). G-1 phase 1 (트래커 #14) 이 core 서브시스템 위에 도메인 그룹 파사드를 도입했다: `pipeline/` (event_ingest, trust_router, tiers, quality_gate, risk_gate, hil_resume, executor, audit, control_loop), `incident/` (rca, slo, runbook, postmortem, oncall, irp, investigation, chaos, capacity), `operator/` (conversation, operator_memory, working_context, rbac, notifications, report_feed), `knowledge/` (prompts, tools, web_search, capability_catalog, rule_catalog_profiles, ontology_explorer), `platform/` (scheduler, metering, measurement, security, reporting, onboarding, workflow, detection, deploy_preflight, assurance_twin), 그리고 `verticals/` (G-6). Phase 1 은 additive - `from fdai.core.<subsystem> import X` 와 `from fdai.core.<domain> import <subsystem>` 둘 다 resolve. Phase 2 (연기) 는 물리적 `git mv` 대량 이동.
 │   │   ├── event_ingest/       # 버스 컨슈머; 이벤트 스키마로 정규화; idempotency key로 dedup; 관련 이벤트를 인시던트로 상관 연결
 │   │   ├── trust_router/       # 계산된 신뢰도로 각 이벤트를 T0 | T1 | T2 로 라우팅
@@ -135,6 +132,8 @@ fdai/
 │   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings(optional conversation T2 synthesis 포함) + focused `wire_*` binder
 │   ├── runtime/               # versioned isolated Executor shadow/effect handling, stable-offset remote client, EventBus/DLQ/health supervision, production entry point, reversible authority probe, operating-model 및 diagnostic-catalog startup projection/status, durable T2 recovery observation/backfill, Thor/Vidar 실행과 rollback을 사용하는 StateStore-backed proposer route selection, transport/identity binding, startup readiness, worker gating 및 Norns post-turn review를 포함한 headless lifecycle/composition
 │   └── __main__.py            # 진입점 (P1 컨트롤 루프 기동)
+├── services/core-control-plane/{src/fdai_core_service,tests}/ # Core entry point와 test
+├── services/{operator-service,document-ingestion-api,document-processing-worker,isolated-executor}/와 packages/service-contracts/ # 독립 package, shared SDK, test
 ├── evaluation-sdk/            # 독립적으로 package할 수 있는 neutral evaluation contract와 runner; FDAI implementation import 없음
 ├── benchmarks/                # 독립적으로 package된 external-harness driver; FDAI wheel에 포함되지 않음
 ├── extensions/                # 독립적으로 package된 optional capability; FDAI wheel에 포함되지 않음
@@ -201,19 +200,19 @@ fdai/
 │   └── package.json            # 의존: ink, react (tsx로 실행, 빌드 단계 없음)
 ├── site/                      # Astro / Starlight 문서 사이트 (docs/**/*.md 를 i18n + 검색으로 렌더)
 ├── ui/                        # (미래) 정적 UI 킷 (Calm Slate 테마) - placeholder
-├── tests/                     # 서브시스템 중심 단위 테스트 + 크로스-서브시스템 회귀 스위트 + 공유 fixture
+├── tests/integration/         # cross-service compatibility와 repository check만 유지
 ├── docs/roadmap/              # 이 로드맵과 설계 문서
-├── pyproject.toml             # Python 모노레포의 단일 매니페스트
+├── pyproject.toml             # virtual uv workspace root (`package = false`)
 └── .github/                   # instructions/ 와 workflows/ (CI: lint, secret-scan, coverage)
 ```
 
 > 디렉토리 이름은 정본 어휘(canonical vocabulary)입니다. 모듈 이름은
 > [language.instructions.md](../../../.github/instructions/language.instructions.md) 의 도메인
 > 용어 (`trust-router`, `deterministic-engine`, `rule-catalog`, `risk-gate`,
-> `remediation-pr`, `shadow-mode`, `HIL`) 와 정렬해서 유지하세요. 단위 테스트는 각 서브시스템과
-> 테스트는 `tests/core/`, `tests/delivery/`, `tests/agents/`와 관련 root 아래에서 source
-> layout을 미러링합니다. 크로스-서브시스템 회귀와 property suite도 같은 최상위 `tests/`
-> 트리에 둡니다.
+> `remediation-pr`, `shadow-mode`, `HIL`) 와 정렬해서 유지하세요. Core test는
+> `services/core-control-plane/tests/` 아래에서 source layout을 미러링합니다. 독립 service와
+> shared SDK는 각 package 옆의 test를 소유합니다. Cross-service 및 repository-wide check만
+> `tests/integration/`에 유지합니다.
 
 ## 모듈 경계(Module Boundaries)
 
@@ -376,9 +375,9 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
    GitHub Actions 어노테이션, `CHECK_QUIET=1` 요약 모드).
 2. 현재 트리를 깨지 않도록 **warn-only** 로 배포합니다.
 3. `.github/workflows/ci.yml` 에 잡을 추가하고 `.githooks/pre-push` 에 호출을 추가합니다.
-4. `tests/test_check_structural_gates.py` 에 warn / enforce / threshold override /
+4. `services/core-control-plane/tests/test_check_structural_gates.py` 에 warn / enforce / threshold override /
    allowlist / stale entry / boundary condition 을 커버하는 회귀 테스트를 추가합니다.
-5. `tests/test_structural_gates_drift.py` 에 CI 잡과 pre-push wiring 이 드리프트로 사라지지
+5. `services/core-control-plane/tests/test_structural_gates_drift.py` 에 CI 잡과 pre-push wiring 이 드리프트로 사라지지
    않도록 가드를 추가합니다.
 
 ### 게이트 warn -> enforce 승격
@@ -405,7 +404,7 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 - **Composition root**: `core/` 는 `shared/` 의 CSP-중립 인터페이스에만 의존합니다.
   얇은 조립 루트(`core/` 밖)가 시작 시 구체 구현을 바인딩합니다. `core/` 는 절대 구체
   어댑터를 new-up 하지 않고 의존성을 주입받습니다. 상류 기본 바인더는
-  [`fdai.composition.default_container`](../../../src/fdai/composition/__init__.py) 이며,
+  [`fdai.composition.default_container`](../../../services/core-control-plane/src/fdai/composition/__init__.py) 이며,
   포크의 엔트리 포인트는 해당 바인딩을 감싸거나 교체하는 자체 팩토리를 호출합니다.
   구체 어댑터 클래스(예: `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`)
   는 public 서브-패키지에서 re-export **되지 않습니다**; 해당 서브모듈에서 직접, 그리고
@@ -461,7 +460,7 @@ tool 또는 provider id는 암시적으로 덮어쓰지 않고 설정 오류로 
 `Workflow` binding은 참조일 뿐입니다. 변경 요청은 계속 trust router, risk gate, executor,
 audit 경로로 다시 들어갑니다. 복사해서 사용할 수 있는
 read-only provider와 bundle은
-[`fdai.fork_examples.capability_bundle`](../../../src/fdai/fork_examples/capability_bundle.py)를
+[Core package root](../../../services/core-control-plane/src/fdai/)를
 참조하세요.
 
 Deployment에서 해당 bundle에 install, enable, disable, uninstall lifecycle이 필요하면
@@ -533,8 +532,8 @@ phase 는 `core/` 를 편집하지 않고 composition root 에서 새 구현을 
 | **Browser evidence** | `shared/providers/browser_evidence.py`의 `BrowserEvidenceProvider`, origin policy, capture request, artifact store, custody sink와 `core/browser_evidence/`의 policy 및 service | - | 기본 unbound, 선택적 isolated Playwright delivery adapter, PostgreSQL artifact, append-only custody, evidence workflow step, GET-only inspection | Exact server-owned policy와 executor identity가 없는 restricted-egress runtime을 bind하며 content는 untrusted 및 shadow-only로 유지합니다. ([설계](../interfaces/browser-evidence-ko.md)) |
 | **MSCP effect observation** | `core/mscp_profile/`의 `ExpectedEffectProvider`, `IndependentEffectObserver`; immutable `Container`의 optional pair | - | 기본 unbound, headless runtime이 완전한 pair를 ControlLoop로 전달해 predict -> dispatch -> observe -> shadow-audit 순서 유지 | `dataclasses.replace`로 두 collaborator를 함께 bind, 일부 binding은 fail fast, shadow result는 autonomy를 높이지 않음 ([설계](mscp-operational-profile-ko.md)) |
 | **Typed external RPC** | `core/rpc/`의 `RpcRegistry`, `RpcMethod`, scope, idempotency contract, `delivery/rpc/`의 bounded HTTP client/route, deterministic Python stub codegen, `build_production_rpc_app(...)` | - | Control plane은 RPC route를 mount하지 않으며 opt-in standalone app이 built-in tool discovery와 PostgreSQL hashed claim을 binding | Fork가 identity-aware authorizer와 explicit additional method를 제공합니다. Side-effect method는 durable idempotency claim이 필요하고 executor를 직접 호출하지 않고 typed proposal을 제출합니다. |
-| **Ontology ObjectType / LinkType** | `src/fdai/rule_catalog/schema/`의 `load_object_type_catalog(root, *, schema_registry)` 및 `load_link_type_catalog(root, *, schema_registry, object_types=...)` | - | upstream ObjectType 4개(`Resource`, `Rule`, `Signal`, `Finding`)와 `rule-catalog/vocabulary/{object-types,link-types}/` 아래의 LinkType들. 엔트리포인트가 `Container.ontology_object_types` / `Container.ontology_link_types`로 주입 | fork는 자체 YAML 디렉토리(예: `fork/vocabulary/object-types/ArchitectureProposal.yaml`)를 추가로 로드해 두 루트를 concatenate 후 `dataclasses.replace(container, ontology_object_types=..., ontology_link_types=...)`로 주입. 두 루트 간 `name` 중복은 fail-close. 자세한 절차는 [downstream-fork-seam-recipes-ko.md § 5.8a](../fork-and-sequencing/downstream-fork-seam-recipes-ko.md#58a-ontology-object-type--link-type-additions). |
-| **Workflow 카탈로그 (프로세스 자동화)** | `src/fdai/rule_catalog/schema/workflow.py`의 `load_workflow_catalog(root, *, schema_registry, action_type_names, rule_ids=...)`; `src/fdai/core/workflow/`의 `compile_workflow(...)` | - | `rule-catalog/workflows/` 아래 shadow-first Workflow입니다. 각 action step은 `ActionType`을 cross-reference하고 evidence/control step은 전용 typed contract를 사용합니다. | fork는 자체 `fork/workflows/` 디렉토리에 Workflow YAML을 추가로 로드해 concatenate한 ActionType / rule 집합과 함께 `dataclasses.replace(container, workflows=...)`로 주입합니다. 두 루트 간 `name` 중복은 fail-closed됩니다. 자세한 내용은 [(4[56])](../decisioning/process-automation-ko.md)을 참고하세요. |
+| **Ontology ObjectType / LinkType** | `services/core-control-plane/src/fdai/rule_catalog/schema/`의 `load_object_type_catalog(root, *, schema_registry)` 및 `load_link_type_catalog(root, *, schema_registry, object_types=...)` | - | upstream ObjectType 4개(`Resource`, `Rule`, `Signal`, `Finding`)와 `rule-catalog/vocabulary/{object-types,link-types}/` 아래의 LinkType들. 엔트리포인트가 `Container.ontology_object_types` / `Container.ontology_link_types`로 주입 | fork는 자체 YAML 디렉토리(예: `fork/vocabulary/object-types/ArchitectureProposal.yaml`)를 추가로 로드해 두 루트를 concatenate 후 `dataclasses.replace(container, ontology_object_types=..., ontology_link_types=...)`로 주입. 두 루트 간 `name` 중복은 fail-close. 자세한 절차는 [downstream-fork-seam-recipes-ko.md § 5.8a](../fork-and-sequencing/downstream-fork-seam-recipes-ko.md#58a-ontology-object-type--link-type-additions). |
+| **Workflow 카탈로그 (프로세스 자동화)** | `services/core-control-plane/src/fdai/rule_catalog/schema/workflow.py`의 `load_workflow_catalog(root, *, schema_registry, action_type_names, rule_ids=...)`; `services/core-control-plane/src/fdai/core/workflow/`의 `compile_workflow(...)` | - | `rule-catalog/workflows/` 아래 shadow-first Workflow입니다. 각 action step은 `ActionType`을 cross-reference하고 evidence/control step은 전용 typed contract를 사용합니다. | fork는 자체 `fork/workflows/` 디렉토리에 Workflow YAML을 추가로 로드해 concatenate한 ActionType / rule 집합과 함께 `dataclasses.replace(container, workflows=...)`로 주입합니다. 두 루트 간 `name` 중복은 fail-closed됩니다. 자세한 내용은 [(4[56])](../decisioning/process-automation-ko.md)을 참고하세요. |
 | **Governed Python task** | `shared/providers/`의 `PythonTaskAuthor`, `PythonTaskArtifactStore`, `VmTaskTargetResolver`, `VmTaskRunner` | - | local template author + in-memory artifact/target + planning runner; production은 immutable artifact를 Postgres에 저장하고 active inventory에서 target을 resolve하며 headless executor가 Azure Managed Run Command를 bind | fork는 content hash, declared capability, idempotency, non-executing Operator API plan, typed proposal dispatch를 유지하면서 다른 author, artifact repository, target resolver, compute runner를 제공. [(4[56]) § 4.5](../decisioning/workflow-control-loop-integration-ko.md#45-governed-python-task-및-cron-schedule) 참조. |
 | **Governed sandbox profile** | `core/sandbox/`의 `SandboxProfileCatalog`, `VmTaskSandboxCatalog`, `ToolSandboxCatalog`, `DocumentConverterSandboxCatalog`; `shared/providers/`의 `DocumentConverter` | - | Profile이 없는 command, VM-task, tool, converter request는 fail closed합니다. Profiled wrapper는 concrete adapter 직전에 capability, mode, suffix, timeout, argument/input/output byte, workspace/network ceiling을 적용합니다. | Fork는 각 adapter binding과 함께 explicit server-owned profile을 제공합니다. Provider contract 뒤에서 converter 또는 alternate runner를 구현할 수 있지만 host path, executable, credential 또는 더 넓은 request authority를 노출하지 않습니다. [(4[56]) § 4.6](../decisioning/workflow-control-loop-integration-ko.md#46-governed-command-및-shell-artifact) 참조. |
 | **Governed execution backend** | `shared/providers/execution_backend.py`의 `ExecutionBackend`와 `ExecutionSubmissionLedger`; `core/execution_backend/`의 profile intersection 및 coordinator; `composition/`의 `bind_execution_backends(...)` | - | Profile은 disabled 상태로 로드되고 기존 sandbox validation이 먼저 실행됩니다. PostgreSQL은 idempotent lifecycle attempt를 저장하고 bubblewrap 및 VM adapter는 기존 동작을 보존하며 Azure Container Apps Job은 pre-provisioned pinned template만 시작합니다. | Composition에서 server-owned profile과 concrete adapter를 제공합니다. Binding은 workload, credential, network, workspace access, limit, region, scope를 추가하지 않고 낮출 수만 있습니다. Eligibility, approval, rollback, audit decision을 소유하지 않습니다. [execution-backends-ko.md](../interfaces/execution-backends-ko.md)를 참조하세요. |
@@ -608,28 +607,29 @@ flowchart LR
 
 ## 저장소 관례(Repository Conventions)
 
-- **Python (3.12+)이 모노레포 전체의 단일 코어 런타임 언어입니다**; 모든 실행 코드는
-  `src/fdai/` 아래에 있습니다 (Python "src layout"). 근거와 선택 필기는
+- **Python (3.12+)이 모노레포 전체의 단일 코어 런타임 언어입니다**. 실행 application code는
+  5개 `services/*/src/` package root에 있고 versioned shared SDK는
+  `packages/service-contracts/src/`에 있습니다. 근거와 선택 필기는
   [tech-stack-ko.md § OD-1](tech-stack-ko.md#od-1-core-런타임-언어) 에 있습니다. Python이
   아닌 트리: [rule-catalog/](../../../rule-catalog) (YAML 데이터), [policies/](../../../policies)
   (Rego), [infra/](../../../infra) (Terraform HCL).
-- 리포 루트에 **하나의 lockfile** (`uv.lock` 또는 동등물); CI는 lockfile에서만 설치합니다.
-  서브시스템별 lockfile 지침은 다언어 레이아웃 초안에 해당했던 것으로 Python 모노레포 에서는
-  폐지되었습니다. 서브시스템 간 경계는 별도 패키지 설치가 아닌 CI 의 import-lint 게이트로
-  강제됩니다.
-- 계약(event, action, rule 스키마와 온톨로지 `ObjectType` / `LinkType` / `ActionType`
-  정의)은 `src/fdai/shared/contracts/` (타입)와 `rule-catalog/schema/` (kind별
+- 리포 root에 **하나의 lockfile** (`uv.lock` 또는 동등물)을 두고 root `pyproject.toml`은
+  `package = false`인 virtual workspace입니다. Runtime service와 shared contract SDK는 각각
+  distribution manifest를 소유하지만 dependency resolution은 workspace 전체에서 수행합니다.
+- Service wire contract는 `packages/service-contracts/src/fdai_service_contracts/`에 있습니다.
+  Core 전용 event, action, rule 및 ontology type은
+  `services/core-control-plane/src/fdai/shared/contracts/`에 남고 catalog schema는 `rule-catalog/schema/` (kind별
   JSON Schema)에 있으며 **semver** 버전을 갖고, 메이저 안에서는 backward-compatible
   하게만 변경됩니다; breaking change는 메이저를 올리고 마이그레이션 노트를 제공합니다. 이들
   타입의 런타임 인스턴스 저장은
   [llm-strategy-ko.md § Ontology Storage Layout](llm-strategy-ko.md#ontology-storage-layout)
   에서 다룹니다.
-- `src/fdai/core/tiers/t0_deterministic` (deterministic-engine)과
-  `src/fdai/core/risk_gate` 의 테스트는 안전 코어입니다: ≥ 90% 커버리지 게이트를
+- `services/core-control-plane/src/fdai/core/tiers/t0_deterministic` (deterministic-engine)과
+  `services/core-control-plane/src/fdai/core/risk_gate`의 test는 안전 코어입니다. >= 90% coverage gate를
   유지하고 "high-risk는 절대 auto-execute 하지 않는다", "shadow-mode는 절대 변형하지 않는다",
   "액션 재적용은 no-op이다"를 단언하는 property-based 테스트를 포함합니다. 모든 액션
   경로는 shadow-mode 테스트와 rollback 테스트를 갖습니다.
-- 규칙과 정책 변경은 회귀 테스트와 함께 나갑니다. `src/fdai/rule_catalog/pipeline/`
+- 규칙과 정책 변경은 회귀 테스트와 함께 나갑니다. `services/core-control-plane/src/fdai/rule_catalog/pipeline/`
   승격 게이트는 실패한 회귀 스위트나 정책 위반 escape가 있으면 블록됩니다.
 - CI는 위에서 참조된 게이트(포매터/린터, secret scan, dependency audit, coverage, regression)
   를 리뷰 전에 강제합니다;

@@ -76,6 +76,19 @@
   "allowed_shared_roots": [
     "packages/service-contracts/src/fdai_service_contracts"
   ],
+  "physical_ownership": {
+    "service_test_roots": {
+      "core-control-plane": "services/core-control-plane/tests",
+      "operator-service": "services/operator-service/tests",
+      "document-ingestion-api": "services/document-ingestion-api/tests",
+      "document-processing-worker": "services/document-processing-worker/tests",
+      "isolated-executor": "services/isolated-executor/tests"
+    },
+    "shared_contract_test_root": "packages/service-contracts/tests",
+    "cross_service_integration_test_root": "tests/integration",
+    "workspace_project": "pyproject.toml",
+    "workspace_package": false
+  },
   "independence_targets": {
     "cross_service_implementation_imports": 0,
     "service_python_distributions": 5,
@@ -93,8 +106,15 @@
     "service_forbidden_implementation_import_files": 0,
     "top_level_production_source_roots": 0
   },
+  "local_layout_evidence": {
+    "base_commit": "f19cbeb73",
+    "state": "in_progress",
+    "source_and_test_moves_present": true,
+    "pending_parallel_lanes": ["service-dockerfiles", "final-layout-gates"],
+    "live_upgrade_and_rollback_proof_work_package": "IS-07"
+  },
   "compatibility_retirements": {
-    "legacy_isolated_executor_module": "requires-independent-service-entrypoint",
+    "legacy_isolated_executor_module": "retired",
     "ingestion_cohost": "retired"
   },
   "work_packages": [
