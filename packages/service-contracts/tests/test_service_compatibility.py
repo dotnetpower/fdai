@@ -103,9 +103,18 @@ def test_manifest_and_focused_fixture_gate_pass(
     assert "receipts=" not in output
 
 
-def test_service_versions_match_distributions_without_claiming_n_minus_one() -> None:
+def test_service_versions_match_real_n_and_n_minus_one_distributions() -> None:
     manifest_services = {service["id"]: service for service in _manifest()["services"]}
     independent = json.loads(INDEPENDENT_SERVICES_PATH.read_text(encoding="utf-8"))
+    transition = independent["release_transition"]
+
+    assert transition == {
+        "n_distribution_version": "0.1.1",
+        "n_minus_one_distribution_version": "0.1.0",
+        "n_minus_one_source_revision": "312ac1ca0d431579c6c415d58ff1631683319df8",
+        "n_contract_set_version": "1.1.0",
+        "n_minus_one_contract_set_version": "1.0.0",
+    }
 
     for service in independent["services"]:
         package = tomllib.loads(
@@ -117,11 +126,12 @@ def test_service_versions_match_distributions_without_claiming_n_minus_one() -> 
             service["distribution_version"]
             == package["version"]
             == declared["distribution_version"]
-            == "0.1.0"
+            == "0.1.1"
         )
-        assert service["previous_distribution_version"] is None
-        assert declared["previous_distribution_version"] is None
+        assert service["previous_distribution_version"] == "0.1.0"
+        assert declared["previous_distribution_version"] == "0.1.0"
         assert service["contract_set_version"] == declared["current_contract_set_version"]
+        assert declared["previous_contract_set_version"] == "1.0.0"
         assert "previous_version" not in declared
         assert "current_version" not in declared
 
@@ -138,8 +148,8 @@ def test_service_versions_match_distributions_without_claiming_n_minus_one() -> 
         entrypoint="fdai-core-control-plane",
         kind=ServiceKind.CONTROL_PLANE,
     )
-    assert descriptor.distribution_version == "0.1.0"
-    assert descriptor.previous_distribution_version is None
+    assert descriptor.distribution_version == "0.1.1"
+    assert descriptor.previous_distribution_version == "0.1.0"
     assert descriptor.release_label == "N"
     assert descriptor.contract_set_version == "1.1.0"
 

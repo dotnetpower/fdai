@@ -172,7 +172,7 @@ import fdai.runtime.isolated_executor_client
 import fdai.shared.contracts
 import fdai_core_service.main
 
-assert distribution("fdai-core-control-plane").version == "0.1.0"
+assert distribution("fdai-core-control-plane").version == "0.1.1"
 """
     subprocess.run(  # noqa: S603 - resolved uv executable runs fixed import arguments
         [

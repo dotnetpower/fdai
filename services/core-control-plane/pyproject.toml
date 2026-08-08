@@ -1,6 +1,6 @@
 [project]
 name = "fdai-core-control-plane"
-version = "0.1.0"
+version = "0.1.1"
 description = "FDAI Core Control Plane service"
 requires-python = ">=3.12"
 dependencies = [

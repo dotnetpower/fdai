@@ -26,8 +26,8 @@ class ServiceDescriptor:
     image: str
     entrypoint: str
     kind: ServiceKind
-    distribution_version: str = "0.1.0"
-    previous_distribution_version: str | None = None
+    distribution_version: str = "0.1.1"
+    previous_distribution_version: str | None = "0.1.0"
     release_label: Literal["N-1", "N"] = "N"
     contract_set_version: str = "1.1.0"
     executor_authority: bool = False

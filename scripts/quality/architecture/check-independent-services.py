@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -177,6 +178,31 @@ def _validate_program_final_verification(manifest: dict[str, Any]) -> None:
         raise ValueError("IS-09 cannot complete before program-final remote verification")
 
 
+def _validate_release_transition(manifest: dict[str, Any]) -> None:
+    transition = manifest["release_transition"]
+    if transition != {
+        "n_distribution_version": "0.1.1",
+        "n_minus_one_distribution_version": "0.1.0",
+        "n_minus_one_source_revision": transition.get("n_minus_one_source_revision"),
+        "n_contract_set_version": "1.1.0",
+        "n_minus_one_contract_set_version": "1.0.0",
+    }:
+        raise ValueError("independent-service release transition contract is invalid")
+    revision = transition["n_minus_one_source_revision"]
+    if not isinstance(revision, str) or re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+        raise ValueError("N-1 source revision must be a lowercase 40-character git SHA")
+    for service in manifest["services"]:
+        if service["distribution_version"] != transition["n_distribution_version"]:
+            raise ValueError(f"{service['id']} N distribution version is inconsistent")
+        if (
+            service["previous_distribution_version"]
+            != transition["n_minus_one_distribution_version"]
+        ):
+            raise ValueError(f"{service['id']} N-1 distribution version is inconsistent")
+        if service["contract_set_version"] != transition["n_contract_set_version"]:
+            raise ValueError(f"{service['id']} contract set version is inconsistent")
+
+
 def validate() -> None:
     manifest = _load_manifest()
     services = manifest["services"]
@@ -222,6 +248,7 @@ def validate() -> None:
 
     _validate_graph(manifest["work_packages"])
     _validate_program_final_verification(manifest)
+    _validate_release_transition(manifest)
     baseline = manifest["current_baseline"]
     top_level_source_roots = int((REPO_ROOT / "src" / "fdai").exists())
     if top_level_source_roots != int(baseline["top_level_production_source_roots"]):

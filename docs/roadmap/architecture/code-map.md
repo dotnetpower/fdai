@@ -70,6 +70,9 @@ versioned wire descriptors, codecs, compatibility checks, readiness records, doc
 operator contracts, and executor contracts shared across processes. It contains no service
 composition, provider implementation, database access, or business workflow.
 
+The five service distributions use `0.1.0` as N-1 and `0.1.1` as N. Their existing contract-set
+`1.0.0`/`1.1.0` matrix remains the cross-process compatibility boundary.
+
 The package test tree validates SDK behavior. Cross-service N/N-1 and topology checks remain under
 [root integration tests](../../../tests/integration/).
 

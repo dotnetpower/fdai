@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 652d6e8eca255c33c732295aa3b963793a4789a7
+translation_source_sha: 12493be3c4195adfb36d74a5871f1c780572b718
 translation_revised: 2026-08-09
 ---
 # 코드 맵
@@ -72,6 +72,9 @@ package는 import하지 않습니다.
 공유하는 versioned wire descriptor, codec, compatibility check, readiness record, document contract,
 operator contract 및 executor contract를 소유합니다. Service composition, provider implementation,
 database access 또는 business workflow는 포함하지 않습니다.
+
+Service distribution 5개는 `0.1.0`을 N-1, `0.1.1`을 N으로 사용합니다. 기존 contract-set
+`1.0.0`/`1.1.0` matrix는 cross-process compatibility boundary로 유지합니다.
 
 Package test tree는 SDK behavior를 검증합니다. Cross-service N/N-1 및 topology check는
 [root integration test](../../../tests/integration/)에 유지합니다.

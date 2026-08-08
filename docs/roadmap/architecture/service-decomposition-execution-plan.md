@@ -167,7 +167,8 @@ transitions, five locally validated Terraform roots, zero cross-service implemen
 and ten independent critique-and-hardening rounds with zero Medium-or-higher local residuals.
 IS-06 is locally complete; IS-07 remains open for local N/N-1 evidence. Exact remote plan/apply and
 rolling confirmation is deferred to IS-09 and uses final service-owned inputs without restoring
-the monolith as a rollback source.
+the monolith as a rollback source. IS-07 pins distribution `0.1.0` from Git history as N-1 and
+distribution `0.1.1` as N while retaining the existing contract-set `1.0.0`/`1.1.0` matrix.
 
 ## Parallel execution rules
 

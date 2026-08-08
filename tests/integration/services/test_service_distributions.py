@@ -154,6 +154,7 @@ def test_five_service_distributions_have_owned_entrypoints() -> None:
     for service_id, (distribution, script) in EXPECTED.items():
         project = tomllib.loads((SERVICE_ROOT / service_id / "pyproject.toml").read_text())
         assert project["project"]["name"] == distribution
+        assert project["project"]["version"] == "0.1.1"
         assert script in project["project"]["scripts"]
         assert "fdai-service-contracts==0.1.0" in project["project"]["dependencies"]
         distributions.add(distribution)
