@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: ea68b21ea596b194404e3d42a70af48cff150176
+translation_source_sha: 8e220e81039b52331031f897b9fc04e1c1d0d9b6
 translation_revised: 2026-08-09
 ---
 # FDAI 온톨로지 안전 인프라
@@ -49,10 +49,16 @@ exact schema pinning, generated SDK surface를 추가합니다. 모든 runtime t
 > `query_incomplete`를 반환하고 관련 network link만 segment bound를 소비합니다. FunctionType
 > artifact digest는 module source에서 파생되므로 behavior change는 새 declaration identity를
 > 만듭니다. Function에는 network, credential, provider, mutation 또는 execution path가 없습니다.
-> Reconciliation은 in-memory foundation입니다. Versioned request/receipt contract, 분리된
-> authenticated observation context, attempt ledger, terminal outcome과 outbox를 원자적으로
-> 저장하는 reference store를 구현했습니다. Production composition은 아직 이 coordinator를
-> 연결하지 않으며 durable ledger/outbox adapter는 service extraction 이후 작업으로 남습니다.
+> Reconciliation에는 in-memory reference ledger와 함께 durable
+> `StateStoreReconciliationLedger`가 구현되어 있습니다. 모든 attempt를 하나의 reconciliation
+> aggregate에 저장하고 atomic create 또는 revision compare-and-set을 사용하여 terminal outcome과
+> proposal-only outbox recommendation을 함께 commit합니다. Strict replay validation은 malformed
+> 또는 inconsistent durable state를 차단합니다. Focused test는 restart replay, concurrent
+> delivery, conflict detection, unscorable attempt에서 terminal로의 transition을 검증합니다.
+> 각 reconciliation은 최대 8개 attempt를 저장하며 마지막 slot은 terminal closure를 위해
+> 예약합니다. 16 MiB canonical aggregate ceiling은 state 또는 audit write 전에 oversized durable
+> state를 차단합니다. Production composition은 아직 coordinator를 연결하거나 event bus를 통해
+> outbox recommendation을 publish하지 않습니다.
 > K6-K8은 immutable operational state trajectory, dependency 범위 effect propagation,
 > time-bounded invariant, 독립 관측 trajectory outcome을 포함하는 graph-wide Dynamic evidence를
 > 목표로 합니다. 기존 action/metric Dynamic simulation은 구현되어 있으며 graph-wide propagation과

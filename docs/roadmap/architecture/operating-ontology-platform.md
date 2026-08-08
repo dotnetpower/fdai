@@ -46,10 +46,15 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > `query_incomplete`, and only relevant network links consume the segment bound. The FunctionType
 > artifact digest is derived from module source, so behavior changes produce a new declaration
 > identity. The function has no network, credential, provider, mutation, or execution path.
-> Reconciliation is an in-memory foundation: versioned request and receipt contracts, a separate
-> authenticated observation context, an attempt ledger, and an atomic terminal-outcome plus outbox
-> reference store are implemented. Production composition does not wire this coordinator, and a
-> durable ledger/outbox adapter remains post-service-extraction work.
+> Reconciliation now has a durable `StateStoreReconciliationLedger` in addition to the in-memory
+> reference ledger. It stores every attempt under one reconciliation aggregate and uses atomic
+> create or revision compare-and-set to commit a terminal outcome and its proposal-only outbox
+> recommendation together. Strict replay validation rejects malformed or inconsistent durable
+> state, and focused tests cover restart replay, concurrent delivery, conflict detection, and an
+> unscorable-attempt-to-terminal transition. Each reconciliation stores at most eight attempts and
+> reserves the final slot for terminal closure. A 16 MiB canonical aggregate ceiling rejects
+> oversized durable state before a state or audit write. Production composition does not yet wire
+> the coordinator or publish its outbox recommendation through the event bus.
 > K6-K8 target graph-wide Dynamic evidence: immutable operational state trajectories,
 > dependency-scoped effect propagation, time-bounded invariants, and independently observed
 > trajectory outcomes. Existing action/metric Dynamic simulation remains implemented; graph-wide

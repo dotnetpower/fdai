@@ -7,8 +7,8 @@ This page maps each FDAI runtime service and shared package to its physical sour
 owning design. Use it to find the current service-owned implementation without relying on the
 retired top-level application tree.
 
-> **Scope:** This map describes the validated local IS-08 repository ownership. IS-07 live upgrade
-> and rollback proof remains the next deployment-boundary follow-up.
+> **Scope:** This map describes the validated local IS-08 repository ownership and IS-07 local
+> upgrade and rollback proof. IS-09 owns the deferred remote verification.
 
 ## Design at a glance
 
@@ -40,6 +40,7 @@ unchanged by the physical move.
 | Area | Responsibility | Source | Tests |
 |------|----------------|--------|-------|
 | Control loop and decisioning | Event normalization, tier routing, quality, risk, approval, execution coordination, recovery, and audit | [core](../../../services/core-control-plane/src/fdai/core/) | [core tests](../../../services/core-control-plane/tests/core/) |
+| Ontology safety platform | Exact semantic releases, bounded queries, mutation plans, independent effect reconciliation, and durable reconciliation records | [ontology_platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [ontology platform tests](../../../services/core-control-plane/tests/core/ontology_platform/) |
 | Agent pantheon | Fifteen fixed agents and their typed event runtime | [agents](../../../services/core-control-plane/src/fdai/agents/) | [agent tests](../../../services/core-control-plane/tests/agents/) |
 | Composition | Provider and runtime dependency injection | [composition](../../../services/core-control-plane/src/fdai/composition/) | [composition tests](../../../services/core-control-plane/tests/composition/) |
 | Core adapters | Provider, persistence, notification, and platform adapters retained by Core | [delivery](../../../services/core-control-plane/src/fdai/delivery/) | [delivery tests](../../../services/core-control-plane/tests/delivery/) |

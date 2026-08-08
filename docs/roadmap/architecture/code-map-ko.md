@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 12493be3c4195adfb36d74a5871f1c780572b718
+translation_source_sha: 42a4f798cc5f8a95a1e441b7f633d11184f852ea
 translation_revised: 2026-08-09
 ---
 # 코드 맵
@@ -10,8 +10,8 @@ translation_revised: 2026-08-09
 연결합니다. 폐기된 최상위 application tree에 의존하지 않고 현재 service-owned implementation을
 찾을 때 사용합니다.
 
-> **범위:** 이 map은 검증된 로컬 IS-08 repository ownership을 설명합니다. IS-07 live upgrade와
-> rollback proof는 다음 deployment-boundary 후속 작업으로 남아 있습니다.
+> **범위:** 이 map은 검증된 로컬 IS-08 repository ownership과 IS-07 local upgrade 및 rollback
+> proof를 설명합니다. 지연된 remote verification은 IS-09가 소유합니다.
 
 ## 설계 개요
 
@@ -43,6 +43,7 @@ Core distribution은 전체 `fdai` namespace를 유지합니다. 내부 module b
 | 영역 | Responsibility | Source | Test |
 |------|----------------|--------|------|
 | Control loop와 decisioning | Event normalization, tier routing, quality, risk, approval, execution coordination, recovery 및 audit | [core](../../../services/core-control-plane/src/fdai/core/) | [core test](../../../services/core-control-plane/tests/core/) |
+| Ontology safety platform | Exact semantic release, bounded query, mutation plan, independent effect reconciliation 및 durable reconciliation record | [ontology_platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [ontology platform test](../../../services/core-control-plane/tests/core/ontology_platform/) |
 | Agent pantheon | 고정 agent 15개와 typed event runtime | [agents](../../../services/core-control-plane/src/fdai/agents/) | [agent test](../../../services/core-control-plane/tests/agents/) |
 | Composition | Provider 및 runtime dependency injection | [composition](../../../services/core-control-plane/src/fdai/composition/) | [composition test](../../../services/core-control-plane/tests/composition/) |
 | Core adapter | Core에 남은 provider, persistence, notification 및 platform adapter | [delivery](../../../services/core-control-plane/src/fdai/delivery/) | [delivery test](../../../services/core-control-plane/tests/delivery/) |
