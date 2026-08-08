@@ -3,12 +3,12 @@
   "proof_kind": "local",
   "matrix_digest": "sha256:ece4b04ad431b64f7dd40dcdeced421fb22ba4b6a11abc915c21680798a4a4b7",
   "n": {
-    "distribution_version": "0.1.1",
-    "source_revision": "559b8755d6ba1b6855c9b31460856f83925cce66"
+    "distribution_version": "0.1.2",
+    "source_revision": "b0602c38e068b775f572b3bec8356b379d434031"
   },
   "n_minus_one": {
-    "distribution_version": "0.1.0",
-    "source_revision": "312ac1ca0d431579c6c415d58ff1631683319df8"
+    "distribution_version": "0.1.1",
+    "source_revision": "934781694addb00fdf01bb67214f19c9b719770b"
   },
   "services": [
     {
@@ -16,18 +16,18 @@
       "distribution": "fdai-core-control-plane",
       "entrypoint": "fdai-core-control-plane",
       "n": {
-        "wheel_sha256": "sha256:c6bce93810ca1c0054744172db450adbf468a99ee75f00a93089e7bd49e71b97",
-        "image_sha256": "sha256:6837a0d0e78089ff0627bf516736f9701a3f00e5031114693679c51b0c40a3ca",
+        "wheel_sha256": "sha256:521f281b10b95b3699595e959f1caa1c343d212fde00ddbda7bfbcb19120ed0b",
+        "image_sha256": "sha256:2986ad8ab82091c41d0eb5415b988682337f28f4061a8e937878da9989c2af4d",
         "nonroot_user": 65532,
         "healthcheck": true
       },
       "n_minus_one": {
-        "wheel_sha256": "sha256:67532811f21a69c27c2e432d6af174c52962c7e7aebd4460f14f8e94c9ae9b66",
-        "image_sha256": "sha256:cc1336ce4b625ed403c1897ddd88ae5956edba9c7bdb5df2cb55c9c299e798a5",
+        "wheel_sha256": "sha256:4bb62251f4fdefee4dcae1aaec0940aedf437709949f7c9e7901eee05ce10663",
+        "image_sha256": "sha256:262a1995272af2f20a86ec9830da312adaac7ab3565dadc2bf0afe65410e905f",
         "nonroot_user": 65532,
         "healthcheck": true
       },
-      "transition_sequence": ["0.1.1", "0.1.0", "0.1.1"],
+      "transition_sequence": ["0.1.2", "0.1.1", "0.1.2"],
       "migration_receipt_id": "00000000-0000-0000-0000-000000000201",
       "rollback_receipt_id": "00000000-0000-0000-0000-000000000202",
       "peer_stable": true
@@ -37,18 +37,18 @@
       "distribution": "fdai-operator-service",
       "entrypoint": "fdai-operator-service",
       "n": {
-        "wheel_sha256": "sha256:6efaa15f52e7b2caa4ada42b4869f33d4eea5a53f2dd627c074ea8728d5c0b7c",
-        "image_sha256": "sha256:8c8ee3d4e95617dac70b570b42dab2bd06f9cf880fb077a83ad741f7c2fd56ac",
+        "wheel_sha256": "sha256:079f25c7997982cb158439691513fd951944e7a4c16a00647cf337ec83b04269",
+        "image_sha256": "sha256:706eb069c4d4531290421c413fe5416ae779e46860544e00d157e37574e46651",
         "nonroot_user": 65532,
         "healthcheck": true
       },
       "n_minus_one": {
-        "wheel_sha256": "sha256:72f0428792cec509895d1e31d38b6a20133532c211e0f7ac651bfa49cbd09d05",
-        "image_sha256": "sha256:6c635820321453fd26c1943f87563581feed1030f31c1ed78ff69f542853f54e",
+        "wheel_sha256": "sha256:6efaa15f52e7b2caa4ada42b4869f33d4eea5a53f2dd627c074ea8728d5c0b7c",
+        "image_sha256": "sha256:27f81184270f1ca8bf0059fba99b5b3597723e5e2f698ef0007277a982c630e0",
         "nonroot_user": 65532,
         "healthcheck": true
       },
-      "transition_sequence": ["0.1.1", "0.1.0", "0.1.1"],
+      "transition_sequence": ["0.1.2", "0.1.1", "0.1.2"],
       "migration_receipt_id": "00000000-0000-0000-0000-000000000203",
       "rollback_receipt_id": "00000000-0000-0000-0000-000000000204",
       "peer_stable": true
@@ -58,18 +58,18 @@
       "distribution": "fdai-document-ingestion-api",
       "entrypoint": "fdai-document-ingestion-api",
       "n": {
-        "wheel_sha256": "sha256:047660d70d85302e63ee2819d23a42773d6d04a9f76ec4fa685993ef24f635e5",
-        "image_sha256": "sha256:b813bf7eac33e86c968cca4780c55b525284cecf71b0040d4d69fe6b4b34e177",
+        "wheel_sha256": "sha256:4d3017a703dfbacf2c54a3f04cee1d416b9245b8b8f7f9bbe64c9103575193a9",
+        "image_sha256": "sha256:204c37fda754851d87dd8cae93d8446f6c0c0200582012260009da01afcecab5",
         "nonroot_user": 65532,
         "healthcheck": true
       },
       "n_minus_one": {
-        "wheel_sha256": "sha256:65d8e33c3d97fe89b333cd7dc5befa56125dbb5f21ba5539bbb89ee28b3a929a",
-        "image_sha256": "sha256:e188a6666cd423de3d753e8711724e141fcf5a7024a03314bcd5f7905065ae7c",
+        "wheel_sha256": "sha256:047660d70d85302e63ee2819d23a42773d6d04a9f76ec4fa685993ef24f635e5",
+        "image_sha256": "sha256:4beab2c2bc09aaabfce74bdac70306d6f5b4b4de24fa3783ce6e8a66e0afe874",
         "nonroot_user": 65532,
         "healthcheck": true
       },
-      "transition_sequence": ["0.1.1", "0.1.0", "0.1.1"],
+      "transition_sequence": ["0.1.2", "0.1.1", "0.1.2"],
       "migration_receipt_id": "00000000-0000-0000-0000-000000000205",
       "rollback_receipt_id": "00000000-0000-0000-0000-000000000206",
       "peer_stable": true
@@ -79,18 +79,18 @@
       "distribution": "fdai-document-processing-worker",
       "entrypoint": "fdai-document-processing-worker",
       "n": {
-        "wheel_sha256": "sha256:bc6f6a682992d3389b5a8a92b1ffb12ba8c7b07ccf91b93a4667d0b26d3eefaa",
-        "image_sha256": "sha256:20462bed909c4f97c51bf69bb6b9f69644db851b52bc70a8851626883f21de37",
+        "wheel_sha256": "sha256:6773635797b54c90eed19668269e91aa0c1b3de5f53024f220bbedc28f810b2d",
+        "image_sha256": "sha256:7ff42e6216152e961b7be9533d8b953a589cf927411507d6e80259fde17a038e",
         "nonroot_user": 65532,
         "healthcheck": true
       },
       "n_minus_one": {
-        "wheel_sha256": "sha256:330b90ab13d7a7b791d3cce7e3df1470726d11eeeca8ad4b6ae5690c371647dc",
-        "image_sha256": "sha256:817a707e163b372cb069b117a21cfbd90c58ef1dcb55931be7485ccbd0b0458c",
+        "wheel_sha256": "sha256:bc6f6a682992d3389b5a8a92b1ffb12ba8c7b07ccf91b93a4667d0b26d3eefaa",
+        "image_sha256": "sha256:4369eeddb6cd5241d3b57c63c570047fc117fd06537412079e630695c60584d2",
         "nonroot_user": 65532,
         "healthcheck": true
       },
-      "transition_sequence": ["0.1.1", "0.1.0", "0.1.1"],
+      "transition_sequence": ["0.1.2", "0.1.1", "0.1.2"],
       "migration_receipt_id": "00000000-0000-0000-0000-000000000207",
       "rollback_receipt_id": "00000000-0000-0000-0000-000000000208",
       "peer_stable": true
@@ -100,18 +100,18 @@
       "distribution": "fdai-isolated-executor-service",
       "entrypoint": "fdai-isolated-executor-service",
       "n": {
-        "wheel_sha256": "sha256:40f4ab0c9800193a677c1854d93334c7923d461476fd578f8c52e282f3d9f1a4",
-        "image_sha256": "sha256:795377d4dfcc2ec04205beed87d7dfa8b112da2316eb8a30f433d4ef1eef875d",
+        "wheel_sha256": "sha256:53cad5074c3b3520c3b0506fb747c9d9a1d22abfd8361ab8959ae5e0b5dcb706",
+        "image_sha256": "sha256:f0e38430d54d8e84e730f5f34e66d827d39a875e693c6768c4c7d458770e8e1a",
         "nonroot_user": 65532,
         "healthcheck": true
       },
       "n_minus_one": {
-        "wheel_sha256": "sha256:7f91129ac44f591b1a657bb330ad6d5c4bf3f4ca6fcf22b15cb5a9adac78d30d",
-        "image_sha256": "sha256:2c1e9e83999700d9379d6e63933f409fafeab973429a48732286855d258f3235",
+        "wheel_sha256": "sha256:40f4ab0c9800193a677c1854d93334c7923d461476fd578f8c52e282f3d9f1a4",
+        "image_sha256": "sha256:57eedf2696b25a56693dc93ad3de9adff9d25bf337a738bca63a5e4a84e47393",
         "nonroot_user": 65532,
         "healthcheck": true
       },
-      "transition_sequence": ["0.1.1", "0.1.0", "0.1.1"],
+      "transition_sequence": ["0.1.2", "0.1.1", "0.1.2"],
       "migration_receipt_id": "00000000-0000-0000-0000-000000000209",
       "rollback_receipt_id": "00000000-0000-0000-0000-000000000210",
       "peer_stable": true

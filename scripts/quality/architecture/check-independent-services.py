@@ -247,7 +247,7 @@ def _validate_local_transition_evidence(manifest: dict[str, Any]) -> None:
     transition = manifest["release_transition"]
     if evidence.get("n") != {
         "distribution_version": transition["n_distribution_version"],
-        "source_revision": "559b8755d6ba1b6855c9b31460856f83925cce66",
+        "source_revision": "b0602c38e068b775f572b3bec8356b379d434031",
     }:
         raise ValueError("local N artifact source is invalid")
     if evidence.get("n_minus_one") != {
@@ -298,7 +298,7 @@ def _validate_local_transition_evidence(manifest: dict[str, Any]) -> None:
                 raise ValueError(f"{service_id} {release} artifact digest is invalid")
             if artifact.get("nonroot_user") != 65532 or artifact.get("healthcheck") is not True:
                 raise ValueError(f"{service_id} {release} runtime contract is invalid")
-        if item.get("transition_sequence") != ["0.1.1", "0.1.0", "0.1.1"]:
+        if item.get("transition_sequence") != ["0.1.2", "0.1.1", "0.1.2"]:
             raise ValueError(f"{service_id} transition sequence is invalid")
         if item.get("peer_stable") is not True:
             raise ValueError(f"{service_id} local transition is not peer stable")

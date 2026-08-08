@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: c44824425ba2240f4424c452e0fed768cda1b666
+translation_source_sha: 55dc7699db95f01461e35ea1aa82018c565cbeb3
 translation_revised: 2026-08-09
 ---
 # 서비스 분해 실행 계획
@@ -269,7 +269,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-08 | SD-08 | 완료 | Plan `31207740363`, `31211368557`, `31214493667`; apply `31209982126`, `31211927016`, `31214900219` | 첫 isolated proof는 offset `[0,1]`, provider write 1회, ARM present/absent 관측, cleanup 및 142초 receipt를 기록했습니다. Rollback plan은 `0 add / 3 change / 0 destroy`였고 local transport는 write 1회와 cleanup을 450초에 증명했습니다. 최종 cutover plan은 `0 add / 4 in-place change / 0 destroy`였으며 replacement와 role-assignment change는 0이었습니다. 최종 isolated transport는 offset `[3,4]`로 이어졌고 provider write 정확히 1회, independent ARM 관측과 cleanup을 436초에 통과했으며 revision 5개가 모두 healthy 상태를 유지하고 canary와 no-change convergence를 완료했습니다. |
 | 2026-08-08 | SD-09 | 완료 | Closing validation receipt | Capability catalog를 owned verification package로 옮긴 뒤 오래된 `routes.chat_verification` source-path facade를 제거했습니다. 검토된 boundary-docstring scope 22개를 모두 enforce로 전환했고 capability catalog, Operator layout 및 boundary suite의 focused test 30개가 boundary gap 보고 0건으로 통과했습니다. Centralized validation은 push 전에 test 15076개, environment-dependent skip 15개, source file 1904개 대상 strict mypy 및 모든 repository gate를 통과했습니다. |
 | 2026-08-09 | IS-06 | Local 완료 | Local deployment receipt | Terraform root와 backend contract 5개, state-migration ownership contract 5개, protected plan/apply guard 및 semantic four-peer isolation mechanics가 focused deployment test 113개를 통과했습니다. Exact remote receipt는 IS-09 program-final gate로 보류하며 이 전환의 evidence로 주장하지 않습니다. |
-| 2026-08-09 | IS-07 | Local 완료 | Local transition evidence | `0.1.1 -> 0.1.0 -> 0.1.1` wheel transition 5개, nonroot service image 10개 및 peer-stable focused migration/rollback receipt 10개가 offset 보존, peer restart 0, duplicate terminal effect 0으로 통과했습니다. Remote rolling 확인은 IS-09로 보류합니다. |
+| 2026-08-09 | IS-07 | Local 완료 | Local transition evidence | `0.1.2 -> 0.1.1 -> 0.1.2` wheel transition 5개, nonroot service image 10개 및 peer-stable focused migration/rollback receipt 10개가 offset 보존, peer restart 0, duplicate terminal effect 0으로 통과했습니다. Remote rolling 확인은 IS-09로 보류합니다. |
 | 2026-08-09 | IS-09 | Local review 완료 | Round 11-14, `07db3e5d8` | 독립 round 4회에서 protected deploy provenance, semantic peer-state isolation, 7개 root drift detection 및 N/N-1 evidence integrity를 검토했습니다. Program-final status를 completed로 설정해도 accepted receipt count가 불완전할 수 있는 재현 가능한 Medium finding 1건을 수정하여 plan/apply 5개와 upgrade/rollback 5개 receipt를 모두 요구합니다. Focused manifest와 compatibility check가 통과했고 Medium 이상 local residual은 0건입니다. 보류된 remote 5+5 verification이 통과할 때까지 IS-09는 진행 중으로 유지합니다. |
 | 2026-08-09 | IS-09 | Hardening 계속 | Round 15-28 | 독립 review 10회에서 protected deploy, plan sealing, peer isolation, rollback, live compatibility, migration, supply chain, drift, Terraform ownership 및 final closure를 검토했습니다. Live run을 통해 bounded parallel runner slot, remote shell expansion, explicit registration success 및 final-path image shebang을 추가로 hardening했습니다. Core run `31274885226`은 broken image가 fail closed하고 이전 healthy revision을 복원함을 증명했으며, 수정된 Core image는 local build와 import를 통과했습니다. Medium 이상 local residual은 0건이고 remote 5+5 verification은 계속 필요합니다. |
 

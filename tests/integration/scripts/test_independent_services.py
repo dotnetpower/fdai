@@ -154,7 +154,7 @@ def test_local_transition_evidence_covers_five_stable_artifact_pairs() -> None:
     }
     assert all(item["peer_stable"] is True for item in evidence["services"])
     assert all(
-        item["transition_sequence"] == ["0.1.1", "0.1.0", "0.1.1"] for item in evidence["services"]
+        item["transition_sequence"] == ["0.1.2", "0.1.1", "0.1.2"] for item in evidence["services"]
     )
     assert evidence["summary"]["independent_upgrade_and_rollback_proofs"] == 5
 
