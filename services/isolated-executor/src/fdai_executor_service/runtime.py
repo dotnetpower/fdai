@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, Protocol
 from uuid import UUID
@@ -80,6 +81,8 @@ class IsolatedExecutorCommandConsumer:
         group_id: str = EXECUTOR_CONSUMER_GROUP,
         retry_seconds: float = 2.0,
         receipt_outbox: ExecutorReceiptOutbox | None = None,
+        outbox_readiness_freshness_seconds: float | None = None,
+        monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         if not command_topic or not receipt_topic or not group_id or retry_seconds <= 0:
             raise ValueError("isolated Executor consumer settings MUST be valid")
@@ -92,10 +95,32 @@ class IsolatedExecutorCommandConsumer:
         self._group_id = group_id
         self._retry_seconds = retry_seconds
         self._receipt_outbox = receipt_outbox or MemoryExecutorReceiptOutbox()
+        self._outbox_readiness_freshness_seconds = (
+            outbox_readiness_freshness_seconds
+            if outbox_readiness_freshness_seconds is not None
+            else max(10.0, retry_seconds * 3)
+        )
+        if self._outbox_readiness_freshness_seconds < retry_seconds:
+            raise ValueError("receipt outbox freshness MUST cover at least one retry interval")
+        self._monotonic = monotonic
+        self._outbox_task: asyncio.Task[None] | None = None
+        self._last_outbox_success: float | None = None
+
+    @property
+    def receipt_publication_ready(self) -> bool:
+        """Return true only while durable receipt publication is fresh and running."""
+
+        last_success = self._last_outbox_success
+        return (
+            self._outbox_task is not None
+            and not self._outbox_task.done()
+            and last_success is not None
+            and self._monotonic() - last_success <= self._outbox_readiness_freshness_seconds
+        )
 
     async def run(self) -> None:
         """Consume forever, retrying transport failures after bounded backoff."""
-        drainer = asyncio.create_task(self.drain_outbox(), name="executor-receipt-outbox")
+        self._outbox_task = asyncio.create_task(self.drain_outbox(), name="executor-receipt-outbox")
         try:
             while True:
                 try:
@@ -114,8 +139,10 @@ class IsolatedExecutorCommandConsumer:
                     )
                     await asyncio.sleep(self._retry_seconds)
         finally:
-            drainer.cancel()
-            await asyncio.gather(drainer, return_exceptions=True)
+            self._outbox_task.cancel()
+            await asyncio.gather(self._outbox_task, return_exceptions=True)
+            self._outbox_task = None
+            self._last_outbox_success = None
 
     async def drain_outbox(self) -> None:
         """Retry committed receipt delivery independently of command arrival."""
@@ -130,6 +157,8 @@ class IsolatedExecutorCommandConsumer:
                     extra={"exception_type": type(exc).__name__},
                 )
                 published = 0
+            else:
+                self._last_outbox_success = self._monotonic()
             await asyncio.sleep(0.1 if published else self._retry_seconds)
 
     async def handle_envelope(

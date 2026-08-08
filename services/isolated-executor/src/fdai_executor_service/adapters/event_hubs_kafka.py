@@ -124,6 +124,17 @@ class EventHubsKafkaBus(EventBus):
 
         return bool(self._active_consumers)
 
+    @property
+    def producer_ready(self) -> bool:
+        """Return whether receipt publication owns an initialized producer."""
+
+        return self._producer is not None
+
+    async def assert_publish_ready(self) -> None:
+        """Initialize the receipt producer or fail startup closed."""
+
+        await self._get_producer()
+
     async def publish(
         self,
         topic: str,

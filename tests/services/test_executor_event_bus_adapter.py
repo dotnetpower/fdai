@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -17,6 +18,7 @@ from fdai_executor_service.adapters.event_hubs_kafka import (
     _encode,
     _EntraTokenProvider,
 )
+from fdai_executor_service.runtime import IsolatedExecutorCommandConsumer
 from fdai_service_contracts.executor import IdentityToken
 
 
@@ -104,6 +106,79 @@ async def test_publish_failure_discards_producer_for_retry(
     assert len(producers) == 2
     assert producers[0].stopped is True
     assert receipt.offset == 7
+
+
+async def test_receipt_producer_readiness_requires_initialized_live_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Producer:
+        def __init__(self, **_kwargs: object) -> None:
+            return None
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaProducer", _Producer)
+    bus = EventHubsKafkaBus(identity=_Identity(), config=_config())
+
+    assert bus.producer_ready is False
+    await bus.assert_publish_ready()
+    assert bus.producer_ready is True
+    await bus.close()
+    assert bus.producer_ready is False
+
+
+async def test_executor_readiness_rejects_stale_receipt_outbox_state() -> None:
+    now = 10.0
+    claims = 0
+    available = True
+
+    class _Bus:
+        def subscribe(self, _topic: str, _group_id: str) -> object:
+            async def events() -> object:
+                await asyncio.Event().wait()
+                yield None
+
+            return events()
+
+    class _Outbox:
+        async def claim_receipts(self, *, limit: int) -> tuple[()]:
+            nonlocal claims
+            assert limit == 100
+            claims += 1
+            if not available:
+                raise RuntimeError("receipt state unavailable")
+            return ()
+
+        async def commit_receipt(self, *_args: object) -> None:
+            return None
+
+        async def mark_receipt_published(self, _receipt_id: object) -> None:
+            return None
+
+    consumer = IsolatedExecutorCommandConsumer(
+        event_bus=_Bus(),  # type: ignore[arg-type]
+        service=object(),  # type: ignore[arg-type]
+        retry_seconds=0.001,
+        receipt_outbox=_Outbox(),  # type: ignore[arg-type]
+        outbox_readiness_freshness_seconds=0.01,
+        monotonic=lambda: now,
+    )
+    running = asyncio.create_task(consumer.run())
+    while claims == 0:
+        await asyncio.sleep(0)
+    assert consumer.receipt_publication_ready
+
+    available = False
+    now = 10.02
+    while claims < 2:
+        await asyncio.sleep(0)
+    assert not consumer.receipt_publication_ready
+    running.cancel()
+    await asyncio.gather(running, return_exceptions=True)
 
 
 async def test_dead_letter_uses_sibling_topic_and_canonical_envelope(

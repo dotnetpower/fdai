@@ -209,8 +209,16 @@ def build_isolated_executor_supervisor(
     return IsolatedExecutorSupervisor(
         consumer=consumer,
         health_port=config.health_port,
-        startup_checks=(audit_store.assert_schema, idempotency.assert_schema),
-        readiness_checks=(lambda: event_bus.consumer_ready,),
+        startup_checks=(
+            audit_store.assert_schema,
+            idempotency.assert_schema,
+            event_bus.assert_publish_ready,
+        ),
+        readiness_checks=(
+            lambda: event_bus.consumer_ready,
+            lambda: event_bus.producer_ready,
+            lambda: consumer.receipt_publication_ready,
+        ),
         shutdown_callbacks=(event_bus.close, http_client.aclose),
     )
 
