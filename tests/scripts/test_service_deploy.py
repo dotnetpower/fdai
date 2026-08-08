@@ -182,11 +182,23 @@ def _write_plan_json(path: Path, *, image: str) -> None:
     path.write_text(json.dumps(_plan(address, ["update"], image=image)) + "\n", encoding="utf-8")
 
 
-def _state(*addresses: str) -> dict[str, object]:
+def _state(*addresses: str, resource_id: str | None = None) -> dict[str, object]:
     return {
         "values": {
             "root_module": {
-                "resources": [{"address": address} for address in addresses],
+                "resources": [
+                    {
+                        "address": address,
+                        "values": {
+                            "id": resource_id
+                            or (
+                                "/subscriptions/example/resourceGroups/example/providers/"
+                                f"Microsoft.App/containerApps/{address}"
+                            )
+                        },
+                    }
+                    for address in addresses
+                ],
                 "child_modules": [],
             }
         }
@@ -514,6 +526,23 @@ def test_state_cutover_requires_source_zero_and_destination_exactly_once(
             _state(destination, destination),
             source_address=source,
             destination_address=destination,
+            phase="post",
+        )
+
+
+def test_state_cutover_rejects_alias_with_duplicate_physical_resource(
+    migration: ModuleType,
+) -> None:
+    resource_id = (
+        "/subscriptions/example/resourceGroups/example/providers/"
+        "Microsoft.App/containerApps/operator-service"
+    )
+    with pytest.raises(migration.StateMigrationError, match="duplicate physical resource"):
+        migration.verify_state_pair(
+            _state("legacy.alias", resource_id=resource_id),
+            _state("independent.service", resource_id=resource_id),
+            source_address="legacy.service",
+            destination_address="independent.service",
             phase="post",
         )
 

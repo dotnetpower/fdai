@@ -51,12 +51,12 @@ def migration_coordinates(service: str, environment: str) -> tuple[str, str, str
     )
 
 
-def _addresses(state: dict[str, Any]) -> list[str]:
+def _managed_resources(state: dict[str, Any]) -> list[tuple[str, str | None]]:
     values = state.get("values")
     root = values.get("root_module") if isinstance(values, dict) else None
     if root is None:
         return []
-    found: list[str] = []
+    found: list[tuple[str, str | None]] = []
 
     def walk(module: Any) -> None:
         if not isinstance(module, dict):
@@ -68,7 +68,13 @@ def _addresses(state: dict[str, Any]) -> list[str]:
             address = resource.get("address") if isinstance(resource, dict) else None
             if not isinstance(address, str):
                 raise StateMigrationError("Terraform state resource has no address")
-            found.append(address)
+            if resource.get("mode", "managed") != "managed":
+                continue
+            resource_values = resource.get("values")
+            resource_id = (
+                resource_values.get("id") if isinstance(resource_values, dict) else None
+            )
+            found.append((address, resource_id if isinstance(resource_id, str) else None))
         children = module.get("child_modules", [])
         if not isinstance(children, list):
             raise StateMigrationError("Terraform state child_modules must be an array")
@@ -88,8 +94,18 @@ def verify_state_pair(
     phase: str,
 ) -> None:
     """Require exactly one owner before migration or one destination owner after it."""
-    source_count = _addresses(source_state).count(source_address)
-    destination_count = _addresses(destination_state).count(destination_address)
+    source_resources = _managed_resources(source_state)
+    destination_resources = _managed_resources(destination_state)
+    source_matches = [
+        resource_id for address, resource_id in source_resources if address == source_address
+    ]
+    destination_matches = [
+        resource_id
+        for address, resource_id in destination_resources
+        if address == destination_address
+    ]
+    source_count = len(source_matches)
+    destination_count = len(destination_matches)
     expected = (1, 0) if phase == "pre" else (0, 1)
     already_cutover = phase == "pre" and (source_count, destination_count) == (0, 1)
     if (source_count, destination_count) != expected and not already_cutover:
@@ -97,6 +113,23 @@ def verify_state_pair(
             f"{phase}-migration ownership must be source={expected[0]} and "
             f"destination={expected[1]}; got source={source_count} and "
             f"destination={destination_count}"
+        )
+    selected_ids = (
+        source_matches
+        if (source_count, destination_count) == (1, 0)
+        else destination_matches
+    )
+    if len(selected_ids) != 1 or not selected_ids[0]:
+        raise StateMigrationError("selected service state has no physical resource id")
+    source_ids = {
+        resource_id.lower() for _, resource_id in source_resources if resource_id
+    }
+    destination_ids = {
+        resource_id.lower() for _, resource_id in destination_resources if resource_id
+    }
+    if source_ids & destination_ids:
+        raise StateMigrationError(
+            "source and destination states contain duplicate physical resource ownership"
         )
 
 
