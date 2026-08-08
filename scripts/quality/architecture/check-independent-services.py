@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ast
 import json
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +62,22 @@ def _count_service_forbidden_imports() -> int:
     return count
 
 
+def _distribution_scripts(target_package: Path) -> dict[str, str]:
+    try:
+        pyproject = tomllib.loads((target_package / "pyproject.toml").read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise ValueError(f"cannot load service distribution: {target_package}") from exc
+    project = pyproject.get("project")
+    scripts = project.get("scripts") if isinstance(project, dict) else None
+    if not isinstance(scripts, dict) or not scripts:
+        raise ValueError(f"service distribution has no project scripts: {target_package}")
+    if not all(
+        isinstance(name, str) and isinstance(target, str) for name, target in scripts.items()
+    ):
+        raise ValueError(f"service distribution scripts are malformed: {target_package}")
+    return scripts
+
+
 def _validate_graph(work_packages: list[dict[str, Any]]) -> None:
     by_id = {str(item["id"]): item for item in work_packages}
     if len(by_id) != len(work_packages):
@@ -102,6 +119,11 @@ def validate() -> None:
         target_package = REPO_ROOT / service["target_package"]
         if not (target_package / "pyproject.toml").is_file():
             raise ValueError(f"missing service distribution: {service['target_package']}")
+        scripts = _distribution_scripts(target_package)
+        if service["entrypoint"] not in scripts:
+            raise ValueError(
+                f"{service['id']} entrypoint is not a service-owned distribution script"
+            )
         terraform_root = REPO_ROOT / service["target_terraform_root"]
         if not (terraform_root / "main.tf").is_file():
             raise ValueError(f"missing service Terraform root: {service['target_terraform_root']}")

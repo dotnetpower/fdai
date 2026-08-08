@@ -6,7 +6,7 @@
       "id": "core-control-plane",
       "current_source_roots": ["src/fdai/core", "src/fdai/agents", "src/fdai/runtime/bootstrap.py"],
       "target_package": "services/core-control-plane",
-      "entrypoint": "python -m fdai",
+      "entrypoint": "fdai-core-control-plane",
       "target_image": "fdai-core-control-plane",
       "target_terraform_root": "infra/services/core-control-plane",
       "target_migration_branch": "core-control-plane"
@@ -15,7 +15,7 @@
       "id": "operator-service",
       "current_source_roots": ["src/fdai/delivery/operator_api"],
       "target_package": "services/operator-service",
-      "entrypoint": "uvicorn fdai.delivery.operator_api.prod:app --factory",
+      "entrypoint": "fdai-operator-service",
       "target_image": "fdai-operator-service",
       "target_terraform_root": "infra/services/operator-service",
       "target_migration_branch": "operator-service"
@@ -24,7 +24,7 @@
       "id": "document-ingestion-api",
       "current_source_roots": ["src/fdai/delivery/ingestion_gateway"],
       "target_package": "services/document-ingestion-api",
-      "entrypoint": "uvicorn fdai.delivery.ingestion_gateway.prod:app --factory",
+      "entrypoint": "fdai-document-ingestion-api",
       "target_image": "fdai-document-ingestion-api",
       "target_terraform_root": "infra/services/document-ingestion-api",
       "target_migration_branch": "document-ingestion-api"
@@ -33,7 +33,7 @@
       "id": "document-processing-worker",
       "current_source_roots": ["src/fdai/delivery/ingestion_gateway"],
       "target_package": "services/document-processing-worker",
-      "entrypoint": "python -m fdai.delivery.ingestion_gateway.worker",
+      "entrypoint": "fdai-document-processing-worker",
       "target_image": "fdai-document-processing-worker",
       "target_terraform_root": "infra/services/document-processing-worker",
       "target_migration_branch": "document-processing-worker"
@@ -42,7 +42,7 @@
       "id": "isolated-executor",
       "current_source_roots": ["services/isolated-executor/src/fdai_executor_service"],
       "target_package": "services/isolated-executor",
-      "entrypoint": "fdai-isolated-executor",
+      "entrypoint": "fdai-isolated-executor-service",
       "target_image": "fdai-isolated-executor",
       "target_terraform_root": "infra/services/isolated-executor",
       "target_migration_branch": "isolated-executor"

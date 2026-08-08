@@ -46,3 +46,19 @@ def test_manifest_requires_zero_cross_service_implementation_imports() -> None:
 
 def test_checker_accepts_current_non_growth_baseline() -> None:
     _checker_module().validate()
+
+
+def test_checker_rejects_entrypoint_outside_distribution_scripts(
+    monkeypatch,
+) -> None:
+    checker = _checker_module()
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    manifest["services"][0]["entrypoint"] = "python -m fdai"
+    monkeypatch.setattr(checker, "_load_manifest", lambda: manifest)
+
+    try:
+        checker.validate()
+    except ValueError as exc:
+        assert "entrypoint is not a service-owned distribution script" in str(exc)
+    else:
+        raise AssertionError("checker accepted an entrypoint outside project.scripts")
