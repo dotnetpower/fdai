@@ -7,7 +7,7 @@ import logging
 import socket
 from collections.abc import Awaitable, Callable, Mapping
 from functools import partial
-from typing import Final
+from typing import Final, Protocol
 from uuid import UUID, uuid4
 
 from fdai_service_contracts import (
@@ -25,6 +25,7 @@ from fdai_service_contracts import (
     EventEnvelope,
     JsonSchemaContractValidator,
     PackageResourceSchemaRegistry,
+    UploadSession,
 )
 from pydantic import ValidationError
 
@@ -35,6 +36,18 @@ _ClaimReader = Callable[[], DocumentWorkerClaim]
 _ClaimedOperation = Callable[[UUID, _ClaimReader], Awaitable[object]]
 
 
+class ReconciliationMetadataStore(DocumentMetadataStore, Protocol):
+    """Worker metadata with keyset pagination for bounded reconciliation."""
+
+    async def list_uploads_by_state_after(
+        self,
+        state: str,
+        *,
+        after_upload_id: UUID | None,
+        limit: int,
+    ) -> tuple[UploadSession, ...]: ...
+
+
 class DocumentIngestionEventConsumer:
     """Execute audited stages exactly once under renewable durable claims."""
 
@@ -43,7 +56,7 @@ class DocumentIngestionEventConsumer:
         *,
         event_bus: EventBus,
         worker: DocumentIngestionWorker,
-        metadata: DocumentMetadataStore,
+        metadata: ReconciliationMetadataStore,
         activity: DocumentOutboxDrainer,
         topic: str,
         group_id: str = "fdai-document-audit-gated-worker",
@@ -77,6 +90,7 @@ class DocumentIngestionEventConsumer:
         self._reconcile_batch_size: Final = reconcile_batch_size
         self._worker_owner: Final = resolved_owner
         self._lease_seconds: Final = lease_seconds
+        self._reconcile_cursors: dict[DocumentState, UUID | None] = {}
         self._contract_validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())
 
     async def run(self) -> None:
@@ -256,28 +270,39 @@ class DocumentIngestionEventConsumer:
             ),
         )
         for state, stage, operation in replay:
-            for session in await self._metadata.list_uploads_by_state(
-                state.value, limit=self._reconcile_batch_size
-            ):
+            for session in await self._next_reconcile_batch(state):
                 await self._run_replay(session.upload_id, stage, operation)
         for state in (DocumentState.QUARANTINED, DocumentState.SCANNING):
-            for session in await self._metadata.list_uploads_by_state(
-                state.value, limit=self._reconcile_batch_size
-            ):
+            for session in await self._next_reconcile_batch(state):
                 await self._run_reconcile(
                     session.upload_id,
                     DocumentWorkerStage.INSPECTION,
                     self._worker.inspect,
                 )
         for state in (DocumentState.EXTRACTING, DocumentState.INDEXING):
-            for session in await self._metadata.list_uploads_by_state(
-                state.value, limit=self._reconcile_batch_size
-            ):
+            for session in await self._next_reconcile_batch(state):
                 await self._run_reconcile(
                     session.upload_id,
                     DocumentWorkerStage.INDEXING,
                     self._worker.index,
                 )
+
+    async def _next_reconcile_batch(self, state: DocumentState) -> tuple[UploadSession, ...]:
+        cursor = self._reconcile_cursors.get(state)
+        sessions = await self._metadata.list_uploads_by_state_after(
+            state.value,
+            after_upload_id=cursor,
+            limit=self._reconcile_batch_size,
+        )
+        if not sessions and cursor is not None:
+            cursor = None
+            sessions = await self._metadata.list_uploads_by_state_after(
+                state.value,
+                after_upload_id=None,
+                limit=self._reconcile_batch_size,
+            )
+        self._reconcile_cursors[state] = sessions[-1].upload_id if sessions else cursor
+        return sessions
 
     async def _run_reconcile(
         self,

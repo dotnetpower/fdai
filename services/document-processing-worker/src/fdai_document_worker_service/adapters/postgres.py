@@ -208,13 +208,30 @@ class PostgresDocumentMetadataStore:
         return tuple(DocumentVersion.model_validate(_payload(row["payload"])) for row in rows)
 
     async def list_uploads_by_state(self, state: str, *, limit: int) -> tuple[UploadSession, ...]:
+        return await self.list_uploads_by_state_after(state, after_upload_id=None, limit=limit)
+
+    async def list_uploads_by_state_after(
+        self,
+        state: str,
+        *,
+        after_upload_id: UUID | None,
+        limit: int,
+    ) -> tuple[UploadSession, ...]:
+        """List one stable UUID-ordered page after the supplied reconciliation cursor."""
         if limit < 1 or limit > 1000:
             raise ValueError("document upload state limit MUST be in [1, 1000]")
-        rows = await self._many(
-            "SELECT payload FROM document_upload_session WHERE state = %s "
-            "ORDER BY created_at ASC, upload_id ASC LIMIT %s",
-            (state, limit),
-        )
+        if after_upload_id is None:
+            rows = await self._many(
+                "SELECT payload FROM document_upload_session WHERE state = %s "
+                "ORDER BY upload_id ASC LIMIT %s",
+                (state, limit),
+            )
+        else:
+            rows = await self._many(
+                "SELECT payload FROM document_upload_session WHERE state = %s "
+                "AND upload_id > %s ORDER BY upload_id ASC LIMIT %s",
+                (state, after_upload_id, limit),
+            )
         return tuple(UploadSession.model_validate(_payload(row["payload"])) for row in rows)
 
     async def claim_worker_stage(

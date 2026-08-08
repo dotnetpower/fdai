@@ -171,6 +171,23 @@ class MemoryMetadata:
     async def list_uploads_by_state(self, state: str, *, limit: int) -> tuple[UploadSession, ...]:
         return tuple(value for value in self.uploads.values() if value.state.value == state)[:limit]
 
+    async def list_uploads_by_state_after(
+        self,
+        state: str,
+        *,
+        after_upload_id: UUID | None,
+        limit: int,
+    ) -> tuple[UploadSession, ...]:
+        uploads = sorted(
+            (value for value in self.uploads.values() if value.state.value == state),
+            key=lambda value: value.upload_id,
+        )
+        return tuple(
+            value
+            for value in uploads
+            if after_upload_id is None or value.upload_id > after_upload_id
+        )[:limit]
+
     async def claim_worker_stage(
         self,
         upload_id: UUID,
@@ -714,6 +731,72 @@ async def test_deletion_consumer_dlqs_request_missing_outer_discriminators() -> 
             "invalid_document_deletion_request",
         )
     ]
+
+
+@pytest.mark.asyncio
+async def test_reconciler_keyset_cursor_reaches_tail_behind_poison_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    uploads = tuple(SimpleUpload(UUID(int=index)) for index in range(1, 102))
+
+    class CursorMetadata:
+        async def list_uploads_by_state_after(
+            self,
+            state: str,
+            *,
+            after_upload_id: UUID | None,
+            limit: int,
+        ) -> tuple[SimpleUpload, ...]:
+            if state != DocumentState.QUARANTINED.value:
+                return ()
+            return tuple(
+                upload
+                for upload in uploads
+                if after_upload_id is None or upload.upload_id > after_upload_id
+            )[:limit]
+
+    async def unused_operation(*_args: object) -> None:
+        raise AssertionError("reconcile test replaces claimed execution")
+
+    worker = SimpleWorker(inspect=unused_operation, index=unused_operation)
+    consumer = DocumentIngestionEventConsumer(
+        event_bus=object(),  # type: ignore[arg-type]
+        worker=worker,  # type: ignore[arg-type]
+        metadata=CursorMetadata(),  # type: ignore[arg-type]
+        activity=object(),  # type: ignore[arg-type]
+        topic="object.audit-entry",
+        reconcile_batch_size=100,
+    )
+    attempted: list[UUID] = []
+
+    async def run_once(
+        upload_id: UUID,
+        _stage: DocumentWorkerStage,
+        _operation: object,
+    ) -> None:
+        attempted.append(upload_id)
+        if upload_id.int <= 100:
+            raise RuntimeError("poison upload")
+
+    monkeypatch.setattr(consumer, "_run_once", run_once)
+
+    await consumer._reconcile_cycle()
+    await consumer._reconcile_cycle()
+
+    assert UUID(int=101) in attempted
+
+
+class SimpleUpload:
+    def __init__(self, upload_id: UUID) -> None:
+        self.upload_id = upload_id
+
+
+class SimpleWorker:
+    def __init__(self, *, inspect: object, index: object) -> None:
+        self.inspect = inspect
+        self.index = index
+        self.republish_received = inspect
+        self.republish_inspection = inspect
 
 
 class NoDeletion:
