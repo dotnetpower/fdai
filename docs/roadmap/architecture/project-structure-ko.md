@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d2cba7de9bfd95d74ebb838ffa0d9befb5d85bd5
+translation_source_sha: 40f74e7d3a97ff5ec401fa6cc2832d2e4b474451
 translation_revised: 2026-08-08
 ---
 
@@ -9,14 +9,12 @@ translation_revised: 2026-08-08
 
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps** 입니다
 ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) 참조).
-저장소 레이아웃은 그 형상을 미러링하며 코어 엔진을 UI-agnostic하고 이식 가능하게 유지합니다.
-모듈 이름과 컨트롤 루프는
-[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 를
-따릅니다.
+아래 layout은 전환 중인 tree를 기록합니다. 최종 service-owned layout과 폐기 기준은
+[서비스 분해 실행 계획](service-decomposition-execution-plan-ko.md#최종-리포지토리-레이아웃)에서 정의합니다. 모듈 이름과 컨트롤 루프는 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)를 따릅니다.
 Control plane은 agent-driven입니다. 고정된 15개 에이전트가 typed event를 통해 sensing, judgment,
 arbitration, approval, execution, verification, recovery, audit, learning을 소유합니다. Core module은
 해당 capability를 구현하며 두 번째 central orchestrator를 만들지 않습니다.
-Process split은 [서비스 승격과 데이터 소유권](service-graduation-and-ownership-ko.md)을 따르고 현재 5개 service migration은 [서비스 분해 실행 계획](service-decomposition-execution-plan-ko.md)에서 추적하며 package boundary만으로 service를 만들지 않습니다.
+Process split은 [서비스 승격과 데이터 소유권](service-graduation-and-ownership-ko.md)을 따르며 package boundary만으로 service를 만들지 않습니다.
 
 ## 모노레포 레이아웃
 

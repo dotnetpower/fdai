@@ -71,6 +71,53 @@ upgrade/rollback proofs. A service may import only versioned shared contracts, p
 and telemetry primitives from another distribution; importing another service implementation is
 not supported.
 
+### Final repository layout
+
+The IS program is complete only when repository ownership matches runtime ownership. Each service
+owns its implementation, unit tests, build definition, and Python distribution below one service
+root. The repository root retains cross-service integration tests and workspace orchestration, not
+a second application package.
+
+```text
+fdai/
+├── services/
+│   ├── core-control-plane/
+│   │   ├── docker/Dockerfile
+│   │   ├── src/
+│   │   ├── tests/
+│   │   └── pyproject.toml
+│   ├── operator-service/
+│   │   ├── docker/Dockerfile
+│   │   ├── src/
+│   │   ├── tests/
+│   │   └── pyproject.toml
+│   ├── document-ingestion-api/
+│   ├── document-processing-worker/
+│   └── isolated-executor/
+├── packages/
+│   └── service-contracts/
+│       ├── src/
+│       ├── tests/
+│       └── pyproject.toml
+├── tests/
+│   └── integration/
+└── pyproject.toml
+```
+
+- **Service roots:** `services/<service>/` are the only implementation and unit-test owners for
+  the five runtime services. A service-specific Dockerfile builds only that service distribution.
+- **Shared package:** `packages/service-contracts/` contains versioned wire contracts, provider
+  Protocols, and telemetry primitives only. It does not contain business logic, composition, data
+  access, or another service's adapter.
+- **Root workspace:** The root `pyproject.toml` coordinates workspace members and development
+  tooling. It does not publish or install a monolithic FDAI application distribution.
+- **Cross-service tests:** Root `tests/integration/` verifies wire compatibility and deployed
+  workflows. Unit and component tests move with their owning service.
+- **Retired compatibility tree:** Top-level `src/fdai/`, the shared multi-target service
+  Dockerfile, legacy service entry points, and duplicate contract definitions are migration-only
+  artifacts. IS-08 removes them after IS-07 proves image-based N/N-1 rollback. Git history and
+  immutable prior images replace a checked-in legacy source tree as the rollback mechanism.
+
 | Done | ID | Work package | Dependencies | Exit evidence |
 |------|----|--------------|--------------|---------------|
 | [x] | IS-00 | Freeze current implementation-import debt and exact package, image, state, migration, and rollback targets. | None | Machine manifest and non-growth gate |
@@ -81,8 +128,8 @@ not supported.
 | [x] | IS-05 | Build, scan, attest, and publish five minimal service images. | IS-02, IS-03 | Five immutable image, SBOM, and startup receipts |
 | [ ] | IS-06 | Split service Terraform roots, state, and deployment workflows from the shared platform. | IS-04, IS-05 | Each service plans/applies without changing peers |
 | [ ] | IS-07 | Prove N/N-1 contracts and independent upgrade/rollback for each service. | IS-03, IS-06 | Five peer-stable rolling receipts |
-| [ ] | IS-08 | Remove co-host, in-process authority, shared-image, and shared-migration compatibility paths. | IS-07 | No topology compatibility path remains |
-| [ ] | IS-09 | Run at least ten independent critique-and-hardening rounds and close the program. | IS-08 | Medium-or-higher residual count zero |
+| [ ] | IS-08 | Move implementation, unit tests, build definitions, and distributions under their five service roots; retire the top-level monolith source, duplicate contracts, co-host, in-process authority, shared-image, and shared-migration compatibility paths. | IS-07 | Final repository layout matches the documented tree; top-level production source and topology compatibility path counts are zero |
+| [ ] | IS-09 | Enforce the final repository layout, run at least ten independent critique-and-hardening rounds, and close the program. | IS-08 | Layout and import gates pass; Medium-or-higher residual count zero |
 
 The machine source of truth is `config/independent-services.json`. Every migration wave updates its
 status and evidence in the same focused commit. Shared Event Hubs, PostgreSQL hosting, ACR, Key
@@ -103,7 +150,9 @@ distributions. Core packages its exact owned source allowlist without installing
 FDAI distribution; the other four services contain only service-local implementation and the
 contract SDK. IS-05 builds all five nonroot images from tracked inputs. The supply-chain matrix
 keeps per-service scan, SBOM, provenance, and attestation. Legacy monolith imports remain only in
-the old compatibility tree and are removed by IS-08 after live rolling proof.
+the old compatibility tree. Core's build-time source allowlist, the root `src/fdai/` tree, and the
+shared multi-target Dockerfile are transition mechanisms rather than the final layout. IS-08
+removes them after live rolling proof and moves each owned source and test into its service root.
 
 ## Parallel execution rules
 

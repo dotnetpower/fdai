@@ -5,12 +5,12 @@ title: Project Structure
 
 The system is a **headless control plane + thin console + ChatOps**, not one web app
 (see [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
-The repository layout mirrors that shape and keeps the core engine UI-agnostic and portable.
-Module names and the control loop follow
-[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md).
+The layout below records the transition tree. The final service-owned layout and retirement
+criteria are in the [Service Decomposition Execution Plan](service-decomposition-execution-plan.md#final-repository-layout). Module names and the control loop follow [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md).
 The control plane is agent-driven: 15 fixed agents own sensing, judgment, arbitration, approval,
 execution, verification, recovery, audit, and learning through typed events. Core modules implement
-those owned capabilities; they do not form a second central orchestrator. Process splits follow [Service Graduation and Data Ownership](service-graduation-and-ownership.md); the active five-service migration is tracked in the [Service Decomposition Execution Plan](service-decomposition-execution-plan.md), and a package boundary alone never creates a service.
+those owned capabilities; they do not form a second central orchestrator. Process splits follow
+[Service Graduation and Data Ownership](service-graduation-and-ownership.md); a package boundary alone never creates a service.
 ## Monorepo Layout
 
 ```text

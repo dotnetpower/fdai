@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 72296f7c775cbd48aef149b602452d25544207af
+translation_source_sha: f28827575b428906aaf5bb1d568ad8e854412c1f
 translation_revised: 2026-08-08
 ---
 # 서비스 분해 실행 계획
@@ -68,6 +68,53 @@ distribution, image, Terraform root, migration branch 및 독립 upgrade/rollbac
 합니다. Service는 다른 distribution에서 versioned shared contract, provider Protocol 및 telemetry
 primitive만 import할 수 있으며 다른 service implementation import는 지원하지 않습니다.
 
+### 최종 리포지토리 레이아웃
+
+IS program은 리포지토리 소유권이 runtime 소유권과 일치해야 완료됩니다. 각 service는 하나의 service
+root 아래에서 implementation, unit test, build definition 및 Python distribution을 소유합니다.
+리포지토리 root에는 cross-service integration test와 workspace orchestration만 남고 두 번째
+application package는 남지 않습니다.
+
+```text
+fdai/
+├── services/
+│   ├── core-control-plane/
+│   │   ├── docker/Dockerfile
+│   │   ├── src/
+│   │   ├── tests/
+│   │   └── pyproject.toml
+│   ├── operator-service/
+│   │   ├── docker/Dockerfile
+│   │   ├── src/
+│   │   ├── tests/
+│   │   └── pyproject.toml
+│   ├── document-ingestion-api/
+│   ├── document-processing-worker/
+│   └── isolated-executor/
+├── packages/
+│   └── service-contracts/
+│       ├── src/
+│       ├── tests/
+│       └── pyproject.toml
+├── tests/
+│   └── integration/
+└── pyproject.toml
+```
+
+- **Service root:** `services/<service>/`는 5개 runtime service의 유일한 implementation 및 unit-test
+  owner입니다. Service별 Dockerfile은 해당 service distribution만 build합니다.
+- **Shared package:** `packages/service-contracts/`에는 versioned wire contract, provider Protocol 및
+  telemetry primitive만 둡니다. Business logic, composition, data access 또는 다른 service의 adapter는
+  포함하지 않습니다.
+- **Root workspace:** Root `pyproject.toml`은 workspace member와 development tooling을 조정합니다.
+  Monolithic FDAI application distribution을 publish하거나 install하지 않습니다.
+- **Cross-service test:** Root `tests/integration/`은 wire compatibility와 deployed workflow를
+  검증합니다. Unit test와 component test는 소유 service로 이동합니다.
+- **폐기할 compatibility tree:** 최상위 `src/fdai/`, shared multi-target service Dockerfile, legacy
+  service entry point 및 중복 contract 정의는 migration 전용 artifact입니다. IS-07이 image 기반
+  N/N-1 rollback을 증명한 뒤 IS-08에서 제거합니다. Checked-in legacy source tree 대신 Git history와
+  변경 불가능한 이전 image를 rollback mechanism으로 사용합니다.
+
 | 완료 | ID | Work package | Dependency | Exit evidence |
 |------|----|--------------|------------|---------------|
 | [x] | IS-00 | 현재 implementation-import debt와 정확한 package, image, state, migration, rollback 목표를 고정합니다. | 없음 | Machine manifest와 non-growth gate |
@@ -78,8 +125,8 @@ primitive만 import할 수 있으며 다른 service implementation import는 지
 | [x] | IS-05 | 최소 service image 5개를 build, scan, attest, publish합니다. | IS-02, IS-03 | Immutable image, SBOM, startup receipt 5개 |
 | [ ] | IS-06 | Shared platform에서 service Terraform root, state 및 deployment workflow를 분리합니다. | IS-04, IS-05 | 각 service가 peer 변경 없이 plan/apply한 receipt |
 | [ ] | IS-07 | 각 service의 N/N-1 contract와 독립 upgrade/rollback을 증명합니다. | IS-03, IS-06 | Peer를 유지한 rolling receipt 5개 |
-| [ ] | IS-08 | Co-host, in-process authority, shared-image 및 shared-migration compatibility path를 제거합니다. | IS-07 | Topology compatibility path 0 |
-| [ ] | IS-09 | 독립 critique-and-hardening round를 10회 이상 실행하고 program을 종료합니다. | IS-08 | Medium 이상 residual 0 |
+| [ ] | IS-08 | Implementation, unit test, build definition 및 distribution을 5개 service root 아래로 이동하고 최상위 monolith source, 중복 contract, co-host, in-process authority, shared-image 및 shared-migration compatibility path를 제거합니다. | IS-07 | 최종 리포지토리 레이아웃이 문서의 tree와 일치하고 최상위 production source 및 topology compatibility path 수가 0 |
+| [ ] | IS-09 | 최종 리포지토리 레이아웃을 enforce하고 독립 critique-and-hardening round를 10회 이상 실행한 뒤 program을 종료합니다. | IS-08 | Layout 및 import gate 통과, Medium 이상 residual 0 |
 
 Machine source of truth는 `config/independent-services.json`입니다. 각 migration wave는 같은 focused
 commit에서 status와 evidence를 업데이트합니다. Shared Event Hubs, PostgreSQL hosting, ACR, Key Vault,
@@ -99,8 +146,10 @@ IS-03은 wrapper와 5개 service distribution의 모든 cross-service implementa
 Core는 monolithic FDAI distribution을 설치하지 않고 정확한 owned source allowlist를 package하며, 다른
 4개 service는 service-local implementation과 contract SDK만 포함합니다. IS-05는 tracked input만으로
 nonroot image 5개를 build합니다. Supply-chain matrix는 service별 scan, SBOM, provenance 및 attestation을
-유지합니다. Legacy monolith import는 이전 compatibility tree에만 남으며 live rolling proof 후 IS-08에서
-제거합니다.
+유지합니다. Legacy monolith import는 이전 compatibility tree에만 남습니다. Core의 build-time source
+allowlist, root `src/fdai/` tree 및 shared multi-target Dockerfile은 최종 layout이 아닌 transition
+mechanism입니다. Live rolling proof 후 IS-08에서 제거하고 각 owned source와 test를 해당 service root로
+이동합니다.
 
 ## 병렬 실행 규칙
 
