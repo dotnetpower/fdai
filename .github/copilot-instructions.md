@@ -40,18 +40,33 @@ always prevails.
 
 ## Agent Workflow (MUST)
 
-1. Read every route-selected design document before editing.
-2. Make the smallest coherent change, update affected contracts and docs, and never hand-edit
+1. Classify the request before implementation. A design pass is required when the change affects
+   architecture, public contracts, security or authority boundaries, cross-subsystem behavior,
+   persistent data flow, or presents multiple viable approaches with material tradeoffs. A small
+   local fix, mechanical edit, or implementation of an already-approved design does not require a
+   new design artifact.
+2. For design-required work, draft the smallest sufficient design, critique it against the user
+   requirements, route-selected documents, simplicity, failure modes, operability, and validation,
+   then revise the design before implementation. Resolve material critique findings in the revised
+   design; do not preserve rejected alternatives as implementation work.
+3. For any task that needs an implementation plan, derive it from the revised design when one is
+   required. Identify dependencies, shared files or mutable state, and validation joins; mark
+   independent work explicitly and execute it in parallel with available parallel tools, subagents,
+   or isolated worktrees. Keep dependent work sequential, and do not parallelize tasks that can
+   race on the same files, state, authority decision, or generated artifact. Every parallel branch
+   must have a bounded output and an explicit merge or verification point.
+4. Read every route-selected design document before editing.
+5. Make the smallest coherent change, update affected contracts and docs, and never hand-edit
    generated runtime artifacts.
-3. Worker sessions run only the narrowest executable check that can falsify their change. They
+6. Worker sessions run only the narrowest executable check that can falsify their change. They
    MUST NOT run repository-wide checks, unscoped tests, or direct `verify.sh --fast` / `--all`.
    Follow the diff-scoped and parallel-worktree rules in
    [coding-conventions.instructions.md](instructions/coding-conventions.instructions.md).
-4. Every commit is automatically registered in the Git-common-dir validation queue. The dedicated
+7. Every commit is automatically registered in the Git-common-dir validation queue. The dedicated
    `Integration Validator` session runs `make validation-run` once per stable batch; use
    `make validation-all` only at an explicit merge or release boundary. Normal pushes are blocked
    until every outgoing commit has a centralized validation receipt.
-5. Commit each focused-check-passing user-requested change before reporting completion unless the user says
+8. Commit each focused-check-passing user-requested change before reporting completion unless the user says
    not to commit. Stage only task-owned files and hunks; never commit failed or incomplete work.
 
 ## Continuous Conversation Assurance Triggers (MUST)
