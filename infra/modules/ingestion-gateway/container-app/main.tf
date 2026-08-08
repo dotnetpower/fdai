@@ -122,10 +122,6 @@ resource "azurerm_container_app" "ingestion" {
         name  = "FDAI_INGESTION_DEPLOYMENT_ROLE"
         value = "api"
       }
-      env {
-        name  = "FDAI_INGESTION_COHOST_WORKER"
-        value = var.cohost_worker ? "1" : "0"
-      }
       dynamic "env" {
         for_each = var.stewardship_governance_enabled ? [1] : []
         content {
@@ -324,22 +320,13 @@ resource "azurerm_container_app" "ingestion" {
       }
     }
 
-    dynamic "container" {
-      for_each = var.cohost_worker ? [1] : []
-      content {
-        name   = "clamav"
-        image  = var.clamav_image
-        cpu    = var.clamav_cpu
-        memory = var.clamav_memory
-      }
-    }
   }
 
   tags = merge(var.tags, { "fdai:role" = "api" })
 
   lifecycle {
     precondition {
-      condition = var.cohost_worker || (
+      condition = (
         var.worker_identity_id != "" &&
         var.worker_identity_client_id != "" &&
         var.worker_database_dsn_secret_id != ""
@@ -350,7 +337,7 @@ resource "azurerm_container_app" "ingestion" {
 }
 
 resource "azurerm_container_app" "worker" {
-  count                        = var.cohost_worker ? 0 : 1
+  count                        = 1
   name                         = var.worker_name
   container_app_environment_id = var.container_app_environment_id
   resource_group_name          = var.resource_group_name

@@ -14,8 +14,36 @@ variable "resource_group_name" {
 }
 
 variable "image" {
-  description = "FDAI runtime image containing the fdai-isolated-executor entry point."
+  description = "Independent isolated Executor service image. The removed monolith runtime image is unsupported."
   type        = string
+}
+
+variable "service_entrypoint" {
+  description = "Python console entry point declared by the independent isolated Executor distribution."
+  type        = string
+  default     = ""
+
+  validation {
+    condition = contains([
+      "",
+      "fdai-isolated-executor-service",
+    ], var.service_entrypoint)
+    error_message = "service_entrypoint must be fdai-isolated-executor-service from the independent distribution."
+  }
+}
+
+variable "service_distribution" {
+  description = "Distribution packaged into the supplied independent service image."
+  type        = string
+  default     = ""
+
+  validation {
+    condition = contains([
+      "",
+      "fdai-isolated-executor-service",
+    ], var.service_distribution)
+    error_message = "service_distribution must be fdai-isolated-executor-service."
+  }
 }
 
 variable "identity_id" {

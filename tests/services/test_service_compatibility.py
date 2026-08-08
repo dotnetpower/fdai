@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import tomllib
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -12,6 +13,9 @@ from typing import Any
 import pytest
 from fdai_service_contracts import (
     CompatibilityError,
+    ConsumerCodec,
+    ServiceDescriptor,
+    ServiceKind,
     assert_additive_schema,
     delivery_checks,
     ensure_supported_version,
@@ -22,6 +26,7 @@ from fdai_service_contracts import (
     validate_manifest,
     validate_peer_upgrade_receipt,
 )
+from fdai_service_contracts.codec import MAX_WIRE_BYTES
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = (
@@ -31,6 +36,7 @@ MANIFEST_PATH = (
     / "fdai_service_contracts"
     / "compatibility-manifest.json"
 )
+INDEPENDENT_SERVICES_PATH = REPO_ROOT / "config" / "independent-services.json"
 FIXTURE_ROOT = REPO_ROOT / "tests" / "fixtures" / "services"
 CHECKER_PATH = REPO_ROOT / "scripts" / "quality" / "architecture" / "check-service-compatibility.py"
 SERVICE_IDS = {
@@ -82,6 +88,47 @@ def test_manifest_and_focused_fixture_gate_pass() -> None:
     assert summary.service_count == 5
     assert summary.contract_count == 7
     assert summary.matrix_edge_count == 7
+
+
+def test_service_versions_match_distributions_without_claiming_n_minus_one() -> None:
+    manifest_services = {service["id"]: service for service in _manifest()["services"]}
+    independent = json.loads(INDEPENDENT_SERVICES_PATH.read_text(encoding="utf-8"))
+
+    for service in independent["services"]:
+        package = tomllib.loads(
+            (REPO_ROOT / service["target_package"] / "pyproject.toml").read_text(encoding="utf-8")
+        )["project"]
+        declared = manifest_services[service["id"]]
+        assert service["distribution"] == package["name"] == declared["distribution"]
+        assert (
+            service["distribution_version"]
+            == package["version"]
+            == declared["distribution_version"]
+            == "0.1.0"
+        )
+        assert service["previous_distribution_version"] is None
+        assert declared["previous_distribution_version"] is None
+        assert service["contract_set_version"] == declared["current_contract_set_version"]
+        assert "previous_version" not in declared
+        assert "current_version" not in declared
+
+    assert independent["current_baseline"]["independent_upgrade_and_rollback_proofs"] == 0
+    assert independent["compatibility_retirements"] == {
+        "legacy_isolated_executor_module": "requires-independent-service-entrypoint",
+        "ingestion_cohost": "retired",
+    }
+
+    descriptor = ServiceDescriptor(
+        service_id="core-control-plane",
+        distribution="fdai-core-control-plane",
+        image="fdai-core-control-plane",
+        entrypoint="fdai-core-control-plane",
+        kind=ServiceKind.CONTROL_PLANE,
+    )
+    assert descriptor.distribution_version == "0.1.0"
+    assert descriptor.previous_distribution_version is None
+    assert descriptor.release_label == "N"
+    assert descriptor.contract_set_version == "1.1.0"
 
 
 def test_checker_rejects_missing_persisted_transition_evidence(
@@ -224,6 +271,25 @@ def test_real_codecs_exercise_supported_pairs_and_reject_unsupported_versions() 
         manifest,
         checker._contract_map(manifest),
     )
+
+
+def test_executor_receipt_consumer_enforces_versions_and_wire_size() -> None:
+    payload = next(
+        fixture["payload"]
+        for fixture in _fixture_array("wire-payloads.json")
+        if fixture["contract_id"] == "executor-receipt" and fixture["producer_release"] == "N-1"
+    )
+    codec = ConsumerCodec("executor-receipt", "N", ("1.0.0", "1.1.0"))
+
+    assert codec.decode_mapping(payload) == payload
+
+    wrong_version = {**payload, "schema_version": "1.0.1"}
+    with pytest.raises(CompatibilityError, match="rejects version"):
+        codec.decode_mapping(wrong_version)
+
+    oversized = {**payload, "reason": "x" * MAX_WIRE_BYTES}
+    with pytest.raises(CompatibilityError, match="exceeds 256 KiB"):
+        codec.decode_mapping(oversized)
 
 
 @pytest.mark.parametrize("service_id", sorted(SERVICE_IDS))

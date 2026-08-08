@@ -1,5 +1,5 @@
-# SD-03 rollback rehearsal: apply split, co-host, then split again in Terraform's
-# disposable test state. Mock providers perform no Azure operations.
+# Compatibility retirement rehearsal: establish the split topology, reject the
+# removed cohost path, then prove the split state remains convergent.
 
 mock_provider "azurerm" {}
 
@@ -74,13 +74,16 @@ run "establish_split_topology" {
   }
 
   assert {
-    condition = one([
-      for item in one([
-        for container in azurerm_container_app.ingestion.template[0].container :
-        container if container.name == "ingestion"
-      ]).env : item.value if item.name == "FDAI_INGESTION_COHOST_WORKER"
-    ]) == "0"
-    error_message = "the rehearsal baseline must keep worker loops out of the API app"
+    condition = !contains(
+      toset([
+        for item in one([
+          for container in azurerm_container_app.ingestion.template[0].container :
+          container if container.name == "ingestion"
+        ]).env : item.name
+      ]),
+      "FDAI_INGESTION_COHOST_WORKER",
+    )
+    error_message = "the independent API must not advertise the retired cohost path"
   }
 
   assert {
@@ -99,60 +102,21 @@ run "establish_split_topology" {
   }
 }
 
-run "rollback_to_cohost" {
-  command = apply
+run "reject_retired_cohost" {
+  command = plan
 
   module {
     source = "./modules/ingestion-gateway/container-app"
   }
 
   variables {
-    cohost_worker     = true
-    api_database_role = "fdai_ingestion_cohost"
+    cohost_worker = true
   }
 
-  assert {
-    condition     = length(azurerm_container_app.worker) == 0
-    error_message = "co-host rollback must remove the independent worker topology"
-  }
-
-  assert {
-    condition = one([
-      for item in one([
-        for container in azurerm_container_app.ingestion.template[0].container :
-        container if container.name == "ingestion"
-      ]).env : item.value if item.name == "FDAI_INGESTION_COHOST_WORKER"
-    ]) == "1"
-    error_message = "co-host rollback must start worker loops in the API app"
-  }
-
-  assert {
-    condition = one([
-      for item in one([
-        for container in azurerm_container_app.ingestion.template[0].container :
-        container if container.name == "ingestion"
-      ]).env : item.value if item.name == "FDAI_DOCUMENT_EVENT_TOPIC"
-    ]) == "aw.pipeline.stages"
-    error_message = "co-host rollback must retain the pipeline stage topic"
-  }
-
-  assert {
-    condition = (
-      one([
-        for container in azurerm_container_app.ingestion.template[0].container :
-        container.image if container.name == "ingestion"
-      ]) == var.image &&
-      contains(azurerm_container_app_job.migrate.identity[0].identity_ids, var.migration_identity_id) &&
-      one([
-        for secret in azurerm_container_app_job.migrate.secret :
-        secret.identity if secret.name == "database-dsn"
-      ]) == var.migration_identity_id
-    )
-    error_message = "co-host rollback must not replace the runtime or move migration authority"
-  }
+  expect_failures = [var.cohost_worker]
 }
 
-run "restore_split_topology" {
+run "split_topology_remains_convergent" {
   command = apply
 
   module {
@@ -175,13 +139,16 @@ run "restore_split_topology" {
   }
 
   assert {
-    condition = one([
-      for item in one([
-        for container in azurerm_container_app.ingestion.template[0].container :
-        container if container.name == "ingestion"
-      ]).env : item.value if item.name == "FDAI_INGESTION_COHOST_WORKER"
-    ]) == "0"
-    error_message = "split restore must remove worker loops from the API app"
+    condition = !contains(
+      toset([
+        for item in one([
+          for container in azurerm_container_app.ingestion.template[0].container :
+          container if container.name == "ingestion"
+        ]).env : item.name
+      ]),
+      "FDAI_INGESTION_COHOST_WORKER",
+    )
+    error_message = "split convergence must keep the retired cohost path absent"
   }
 
   assert {

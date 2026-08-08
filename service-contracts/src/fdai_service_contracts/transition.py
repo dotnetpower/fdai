@@ -133,7 +133,11 @@ def generate_upgrade_receipts(
         service = services[service_id]
         for direction in ("migration", "rollback"):
             transition = _mapping(service[direction], f"{service_id}.{direction}")
-            baseline_key = "previous_version" if direction == "migration" else "current_version"
+            baseline_key = (
+                "previous_contract_set_version"
+                if direction == "migration"
+                else "current_contract_set_version"
+            )
             peers = {
                 peer_id: str(peer[baseline_key])
                 for peer_id, peer in services.items()

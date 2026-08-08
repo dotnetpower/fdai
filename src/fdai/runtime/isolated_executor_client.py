@@ -16,15 +16,27 @@ from fdai_service_contracts import (
     CORE_EXECUTOR_RECEIPT_CONSUMER_GROUP,
     EXECUTOR_COMMAND_TOPIC,
     EXECUTOR_RECEIPT_TOPIC,
+    CompatibilityError,
+    ConsumerCodec,
 )
 from pydantic import ValidationError
 
-from fdai.shared.contracts import ExecutorCommand, ExecutorEffectReceipt
+from fdai.shared.contracts import (
+    ExecutorCommand,
+    ExecutorEffectReceipt,
+    ExecutorShadowReceipt,
+)
 from fdai.shared.contracts.models import Action, ExecutionPath, Mode
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.runtime.isolated_executor_client")
+_EXECUTOR_RECEIPT_CONSUMER = ConsumerCodec(
+    "executor-receipt",
+    "N",
+    ("1.0.0", "1.1.0"),
+)
+type ExecutorReceipt = ExecutorShadowReceipt | ExecutorEffectReceipt
 
 
 class RemoteDirectApiExecutionOutcome(StrEnum):
@@ -62,7 +74,7 @@ class RemoteDirectApiExecutionResult:
 @dataclass(frozen=True, slots=True)
 class _PendingExecutorRequest:
     command: ExecutorCommand
-    future: asyncio.Future[ExecutorEffectReceipt]
+    future: asyncio.Future[ExecutorReceipt]
 
 
 @dataclass(slots=True)
@@ -194,8 +206,13 @@ class EventBusDirectApiExecutionClient:
         while True:
             async for envelope in self.event_bus.subscribe(EXECUTOR_RECEIPT_TOPIC, group_id):
                 try:
-                    receipt = ExecutorEffectReceipt.model_validate(envelope.payload)
-                except ValidationError:
+                    payload = _EXECUTOR_RECEIPT_CONSUMER.decode_mapping(envelope.payload)
+                    receipt = _executor_receipt_from_payload(payload)
+                except (CompatibilityError, ValidationError):
+                    _LOGGER.warning(
+                        "isolated_executor_receipt_rejected",
+                        extra={"consumer_group": group_id},
+                    )
                     continue
                 pending = self._pending.get(str(receipt.command_id))
                 if pending is None or pending.future.done():
@@ -229,7 +246,7 @@ def executor_command_id(action: Action) -> UUID:
 
 def _receipt_matches_command(
     command: ExecutorCommand,
-    receipt: ExecutorEffectReceipt,
+    receipt: ExecutorReceipt,
     *,
     partition_key: str,
 ) -> bool:
@@ -241,27 +258,49 @@ def _receipt_matches_command(
         and receipt.attempt == command.attempt
         and receipt.action_payload_digest == command.action_payload_digest
         and receipt.requested_mode is command.requested_mode
-        and receipt.audit_ref == f"action:{command.action_id}"
+        and receipt.audit_ref in {None, f"action:{command.action_id}"}
     )
+
+
+def _executor_receipt_from_payload(payload: dict[str, Any]) -> ExecutorReceipt:
+    version = payload["schema_version"]
+    if version == "1.0.0":
+        return ExecutorShadowReceipt.model_validate(payload)
+    return ExecutorEffectReceipt.model_validate(payload)
 
 
 def _result_from_receipt(
     action: Action,
-    receipt: ExecutorEffectReceipt,
+    receipt: ExecutorReceipt,
 ) -> RemoteDirectApiExecutionResult:
+    if isinstance(receipt, ExecutorShadowReceipt):
+        outcome = (
+            RemoteDirectApiExecutionOutcome.EXPIRED
+            if receipt.status.value == "expired"
+            else RemoteDirectApiExecutionOutcome.REJECTED_MODE
+        )
+        receipt_ref = None
+        rollback_succeeded = None
+        effect_verified = False
+    else:
+        outcome = RemoteDirectApiExecutionOutcome(receipt.status.value)
+        receipt_ref = receipt.provider_receipt_ref
+        rollback_succeeded = receipt.rollback_succeeded
+        effect_verified = receipt.effect_verified
     return RemoteDirectApiExecutionResult(
         action_id=str(action.action_id),
-        outcome=RemoteDirectApiExecutionOutcome(receipt.status.value),
+        outcome=outcome,
         mode=action.mode,
-        receipt_ref=receipt.provider_receipt_ref,
-        rollback_succeeded=receipt.rollback_succeeded,
+        receipt_ref=receipt_ref,
+        rollback_succeeded=rollback_succeeded,
         reason=receipt.reason,
         audit_context={
             "resource_ref": action.target_resource_ref,
             "action_type": action.action_type,
             "executor_receipt_ref": str(receipt.receipt_id),
+            "receipt_schema_version": receipt.schema_version,
             "effect_applied": receipt.effect_applied,
-            "effect_verified": receipt.effect_verified,
+            "effect_verified": effect_verified,
             "audit_ref": receipt.audit_ref,
         },
     )

@@ -8,6 +8,8 @@ run "shadow_only_internal_app" {
     container_app_environment_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.App/managedEnvironments/cae-example"
     resource_group_name          = "rg-example"
     image                        = "example.azurecr.io/fdai@sha256:example"
+    service_distribution         = "fdai-isolated-executor-service"
+    service_entrypoint           = "fdai-isolated-executor-service"
     identity_id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-example-executor-shadow"
     identity_client_id           = "shadow-client-id"
     state_store_dsn_secret_id    = "https://example.vault.azure.net/secrets/state-store"
@@ -37,9 +39,9 @@ run "shadow_only_internal_app" {
   assert {
     condition = (
       length(azurerm_container_app.shadow.template[0].container[0].command) == 1 &&
-      one(azurerm_container_app.shadow.template[0].container[0].command) == "fdai-isolated-executor"
+      one(azurerm_container_app.shadow.template[0].container[0].command) == "fdai-isolated-executor-service"
     )
-    error_message = "the app must run the isolated shadow entry point"
+    error_message = "the app must run the independent isolated Executor entry point"
   }
 
   assert {
@@ -85,6 +87,8 @@ run "cutover_attaches_action_scoped_identities" {
     container_app_environment_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.App/managedEnvironments/cae-example"
     resource_group_name          = "rg-example"
     image                        = "example.azurecr.io/fdai@sha256:example"
+    service_distribution         = "fdai-isolated-executor-service"
+    service_entrypoint           = "fdai-isolated-executor-service"
     identity_id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-example-executor"
     identity_client_id           = "executor-client-id"
     extra_identity_ids = [
@@ -122,4 +126,23 @@ run "cutover_attaches_action_scoped_identities" {
     ])
     error_message = "cutover must expose every attached action identity client id"
   }
+}
+
+run "missing_independent_entrypoint_is_rejected" {
+  command = plan
+
+  variables {
+    name                         = "ca-fdai-example-executor"
+    container_app_environment_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.App/managedEnvironments/cae-example"
+    resource_group_name          = "rg-example"
+    image                        = "example.azurecr.io/fdai@sha256:example"
+    identity_id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-example-executor-shadow"
+    identity_client_id           = "shadow-client-id"
+    state_store_dsn_secret_id    = "https://example.vault.azure.net/secrets/state-store"
+    kafka_bootstrap_servers      = "example.servicebus.windows.net:9093"
+    runtime_env                  = "dev"
+    acr_login_server             = "example.azurecr.io"
+  }
+
+  expect_failures = [azurerm_container_app.shadow]
 }

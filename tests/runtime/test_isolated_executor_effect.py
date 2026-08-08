@@ -27,12 +27,15 @@ from fdai_service_contracts.executor import (
     ExecutorCommand,
     ExecutorEffectReceipt,
     ExecutorEffectReceiptStatus,
+    ExecutorShadowReceipt,
+    ExecutorShadowReceiptStatus,
     executor_action_payload_digest,
 )
 
 from fdai.core.executor import DirectApiExecutionOutcome
 from fdai.runtime.isolated_executor_client import (
     EventBusDirectApiExecutionClient,
+    RemoteDirectApiExecutionOutcome,
     executor_command_id,
 )
 from fdai.shared.contracts.models import (
@@ -484,3 +487,52 @@ async def test_core_client_rejects_receipt_rebound_to_another_action() -> None:
 
     assert result.outcome.value == "dispatched"
     assert result.receipt_ref == "provider:valid"
+
+
+async def test_core_client_accepts_n_minus_one_rejected_receipt() -> None:
+    bus = InMemoryEventBus()
+    audit = InMemoryStateStore()
+    action = _action()
+    client = EventBusDirectApiExecutionClient(
+        event_bus=bus,
+        audit_store=audit,
+        instance_id="core-one",
+        response_timeout_seconds=1.0,
+        retry_seconds=0.01,
+    )
+    task = asyncio.create_task(client.execute(action=action))
+    for _attempt in range(20):
+        if client._pending:
+            break
+        await asyncio.sleep(0)
+    assert client._pending
+    now = datetime.now(tz=UTC)
+    payload = action.model_dump(mode="json", exclude_none=True)
+    receipt = ExecutorShadowReceipt(
+        receipt_id=UUID("00000000-0000-0000-0000-000000000808"),
+        command_id=executor_command_id(action),
+        action_id=action.action_id,
+        idempotency_key=action.idempotency_key,
+        attempt=1,
+        action_payload_digest=executor_action_payload_digest(payload),
+        requested_mode=action.mode,
+        status=ExecutorShadowReceiptStatus.REJECTED,
+        reason="N-1 executor has no effect authority",
+        executor_instance_id="isolated-executor-shadow-1",
+        received_at=now,
+        completed_at=now,
+        audit_ref=f"action:{action.action_id}",
+    )
+    await bus.publish(
+        EXECUTOR_RECEIPT_TOPIC,
+        action.target_resource_ref,
+        receipt.model_dump(mode="json"),
+    )
+    try:
+        result = await task
+    finally:
+        await client.stop()
+
+    assert result.outcome is RemoteDirectApiExecutionOutcome.REJECTED_MODE
+    assert result.reason == "N-1 executor has no effect authority"
+    assert result.audit_context["receipt_schema_version"] == "1.0.0"

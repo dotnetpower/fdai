@@ -12,6 +12,11 @@ variable "database_dsn_secret_id" { type = string }
 variable "api_database_role" {
   type    = string
   default = "fdai_ingestion_api"
+
+  validation {
+    condition     = var.api_database_role == "fdai_ingestion_api"
+    error_message = "api_database_role must remain fdai_ingestion_api; the cohost database role is retired."
+  }
 }
 variable "worker_identity_id" {
   type    = string
@@ -29,8 +34,14 @@ variable "worker_database_dsn_secret_id" {
 }
 variable "migration_database_dsn_secret_id" { type = string }
 variable "cohost_worker" {
-  type    = bool
-  default = false
+  description = "Retired compatibility input. The ingestion API and worker must remain independent."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.cohost_worker
+    error_message = "ingestion cohost mode is retired; deploy the independent API and worker services."
+  }
 }
 variable "stewardship_governance_enabled" { type = bool }
 variable "gitops_owner" { type = string }

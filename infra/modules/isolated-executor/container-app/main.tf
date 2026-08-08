@@ -33,7 +33,7 @@ resource "azurerm_container_app" "shadow" {
       image   = var.image
       cpu     = var.cpu
       memory  = var.memory
-      command = ["fdai-isolated-executor"]
+      command = [var.service_entrypoint]
 
       env {
         name  = "RUNTIME_ENV"
@@ -146,4 +146,14 @@ resource "azurerm_container_app" "shadow" {
     "azd-service-name" = "isolated-executor"
     "fdai:mode"        = "shadow"
   })
+
+  lifecycle {
+    precondition {
+      condition = (
+        var.service_distribution == "fdai-isolated-executor-service" &&
+        var.service_entrypoint == "fdai-isolated-executor-service"
+      )
+      error_message = "the legacy isolated Executor module requires the independent service image and fdai-isolated-executor-service entrypoint."
+    }
+  }
 }

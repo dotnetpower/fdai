@@ -16,6 +16,23 @@ from fdai_service_contracts.schema import (
 MAX_WIRE_BYTES = 256 * 1024
 
 
+def encode_wire_object(payload: Mapping[str, Any]) -> bytes:
+    """Canonically encode one JSON object and enforce the shared wire bound."""
+
+    try:
+        encoded = json.dumps(
+            dict(payload),
+            allow_nan=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+    except (TypeError, ValueError) as exc:
+        raise CompatibilityError("service contract must be canonical JSON") from exc
+    if len(encoded) > MAX_WIRE_BYTES:
+        raise CompatibilityError("encoded service contract exceeds 256 KiB")
+    return encoded
+
+
 @dataclass(frozen=True, slots=True)
 class ProducerCodec:
     """Validate and canonically encode one contract release at a producer boundary."""
@@ -28,15 +45,7 @@ class ProducerCodec:
         """Return one schema-valid canonical JSON object within the wire bound."""
 
         _validator().validate(self.contract_id, payload, version=self.schema_version)
-        encoded = json.dumps(
-            dict(payload),
-            allow_nan=False,
-            separators=(",", ":"),
-            sort_keys=True,
-        ).encode()
-        if len(encoded) > MAX_WIRE_BYTES:
-            raise CompatibilityError("encoded service contract exceeds 256 KiB")
-        return encoded
+        return encode_wire_object(payload)
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,9 +75,14 @@ class ConsumerCodec:
         _validator().validate(self.contract_id, payload, version=str(version))
         return payload
 
+    def decode_mapping(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        """Validate an EventBus mapping through the same byte-bounded wire path."""
+
+        return self.decode(encode_wire_object(payload))
+
 
 def _validator() -> JsonSchemaContractValidator:
     return JsonSchemaContractValidator(PackageResourceSchemaRegistry())
 
 
-__all__ = ["ConsumerCodec", "MAX_WIRE_BYTES", "ProducerCodec"]
+__all__ = ["ConsumerCodec", "MAX_WIRE_BYTES", "ProducerCodec", "encode_wire_object"]

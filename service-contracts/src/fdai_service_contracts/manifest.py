@@ -25,6 +25,13 @@ _SERVICE_IDS = frozenset(
     }
 )
 _RELEASE_LABELS = frozenset({"N", "N-1"})
+_SERVICE_DISTRIBUTIONS = {
+    "core-control-plane": "fdai-core-control-plane",
+    "operator-service": "fdai-operator-service",
+    "document-ingestion-api": "fdai-document-ingestion-api",
+    "document-processing-worker": "fdai-document-processing-worker",
+    "isolated-executor": "fdai-isolated-executor-service",
+}
 _ALL_PAIRS = frozenset(
     {
         ("N-1", "N-1"),
@@ -83,13 +90,34 @@ def _validate_services(value: object) -> dict[str, Mapping[str, Any]]:
         service_id = service.get("id")
         if not isinstance(service_id, str) or service_id in services:
             raise CompatibilityError("service ids must be unique strings")
-        current = SemVer.parse(service.get("current_version"))
-        previous = SemVer.parse(service.get("previous_version"))
+        distribution = service.get("distribution")
+        if distribution != _SERVICE_DISTRIBUTIONS.get(str(service_id)):
+            raise CompatibilityError(f"{service_id} distribution name is not canonical")
+        distribution_version = SemVer.parse(service.get("distribution_version"))
+        if "previous_distribution_version" not in service:
+            raise CompatibilityError(
+                f"{service_id} must declare previous_distribution_version explicitly"
+            )
+        previous_distribution_value = service.get("previous_distribution_version")
+        if previous_distribution_value is not None:
+            previous_distribution = SemVer.parse(previous_distribution_value)
+            if previous_distribution >= distribution_version:
+                raise CompatibilityError(
+                    f"{service_id} previous distribution version must precede the current version"
+                )
+        if service.get("release_label") not in _RELEASE_LABELS:
+            raise CompatibilityError(f"{service_id} release_label must be N or N-1")
+        current = SemVer.parse(service.get("current_contract_set_version"))
+        previous = SemVer.parse(service.get("previous_contract_set_version"))
         supported_major = service.get("supported_major")
         if supported_major != current.major or previous.major != current.major:
-            raise CompatibilityError(f"{service_id} versions must share supported_major")
+            raise CompatibilityError(
+                f"{service_id} contract-set versions must share supported_major"
+            )
         if current <= previous:
-            raise CompatibilityError(f"{service_id} current_version must follow previous_version")
+            raise CompatibilityError(
+                f"{service_id} current contract-set version must follow the previous version"
+            )
         migration = _mapping(service.get("migration"), f"{service_id}.migration")
         rollback = _mapping(service.get("rollback"), f"{service_id}.rollback")
         _validate_transition(

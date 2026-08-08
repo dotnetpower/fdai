@@ -75,7 +75,7 @@ def executor_action_payload_digest(payload: Mapping[str, Any]) -> str:
 class ExecutorCommand(_Base):
     """Immutable command envelope consumed by the isolated Executor service."""
 
-    schema_version: SemVer = "1.0.0"
+    schema_version: Literal["1.0.0"] = "1.0.0"
     command_id: UUID
     action_schema_version: SemVer
     action_id: UUID
@@ -149,7 +149,7 @@ class ExecutorCommand(_Base):
 class ExecutorShadowReceipt(_Base):
     """Terminal SD-07 receipt that can never assert an applied effect."""
 
-    schema_version: SemVer = "1.0.0"
+    schema_version: Literal["1.0.0"] = "1.0.0"
     receipt_id: UUID
     command_id: UUID
     action_id: UUID
@@ -182,7 +182,7 @@ class ExecutorShadowReceipt(_Base):
 class ExecutorEffectReceipt(_Base):
     """Terminal SD-08 dispatch receipt that leaves effect verification open."""
 
-    schema_version: SemVer = "1.1.0"
+    schema_version: Literal["1.1.0"] = "1.1.0"
     receipt_id: UUID
     command_id: UUID
     action_id: UUID
