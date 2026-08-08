@@ -9,7 +9,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import Any
+from typing import Any, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fdai_service_contracts import (
@@ -18,6 +18,7 @@ from fdai_service_contracts import (
     EXECUTOR_RECEIPT_TOPIC,
     CompatibilityError,
     ConsumerCodec,
+    load_manifest_codec,
 )
 from pydantic import ValidationError
 
@@ -31,10 +32,13 @@ from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.runtime.isolated_executor_client")
-_EXECUTOR_RECEIPT_CONSUMER = ConsumerCodec(
-    "executor-receipt",
-    "N",
-    ("1.0.0", "1.1.0"),
+_EXECUTOR_RECEIPT_CONSUMER = cast(
+    ConsumerCodec,
+    load_manifest_codec(
+        "executor-receipt",
+        artifact_kind="consumer_codecs",
+        release="N",
+    ),
 )
 type ExecutorReceipt = ExecutorShadowReceipt | ExecutorEffectReceipt
 

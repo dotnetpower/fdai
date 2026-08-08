@@ -140,7 +140,11 @@ from fdai_service_contracts.executor import (
     WorkloadIdentity,
     executor_action_payload_digest,
 )
-from fdai_service_contracts.manifest import CompatibilitySummary, validate_manifest
+from fdai_service_contracts.manifest import (
+    CompatibilitySummary,
+    load_manifest_codec,
+    validate_manifest,
+)
 from fdai_service_contracts.operator import (
     AuditQuery,
     HilQueueProjection,
@@ -349,6 +353,7 @@ __all__ = [
     "executor_action_payload_digest",
     "generate_upgrade_receipts",
     "load_json_object",
+    "load_manifest_codec",
     "live_readiness",
     "live_unavailable_readiness",
     "matrix_digest",

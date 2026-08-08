@@ -73,6 +73,15 @@
     "started_at": {"type": "string", "format": "date-time"},
     "completed_at": {"type": "string", "format": "date-time"},
     "proof_kind": {"type": "string", "enum": ["focused", "live"]},
+    "evidence_manifest_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "evidence_run_id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "evidence_source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
     "observation_refs": {
       "type": "object",
       "additionalProperties": false,
@@ -97,6 +106,32 @@
     },
     "outcome": {"const": "stable"}
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"proof_kind": {"const": "live"}},
+        "required": ["proof_kind"]
+      },
+      "then": {
+        "required": [
+          "evidence_manifest_digest",
+          "evidence_run_id",
+          "evidence_source_digest",
+          "observation_refs"
+        ]
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {"required": ["evidence_manifest_digest"]},
+            {"required": ["evidence_run_id"]},
+            {"required": ["evidence_source_digest"]},
+            {"required": ["observation_refs"]}
+          ]
+        }
+      }
+    }
+  ],
   "$defs": {
     "peerVersions": {
       "type": "object",

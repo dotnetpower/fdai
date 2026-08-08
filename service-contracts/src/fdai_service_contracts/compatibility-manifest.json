@@ -316,6 +316,7 @@
   "upgrade_receipt": {
     "version": "1.0.0",
     "schema_path": "schemas/service-upgrade-receipt/1.0.0.json",
+    "evidence_manifest_schema_path": "schemas/service-live-evidence-manifest/1.0.0.json",
     "required_checks": [
       "additive_fields",
       "duplicate_delivery",

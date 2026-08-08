@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ from fdai_service_contracts.compatibility import (
     SemVer,
     assert_additive_schema,
 )
+from fdai_service_contracts.codec import ConsumerCodec, ProducerCodec
 
 _SERVICE_IDS = frozenset(
     {
@@ -54,6 +56,49 @@ class CompatibilitySummary:
     service_count: int
     contract_count: int
     matrix_edge_count: int
+
+
+def load_manifest_codec(
+    contract_id: str,
+    *,
+    artifact_kind: str,
+    release: str,
+) -> ConsumerCodec | ProducerCodec:
+    """Resolve one exact codec object declared by the bundled compatibility manifest."""
+
+    if artifact_kind not in {"consumer_codecs", "producer_codecs"}:
+        raise CompatibilityError("codec artifact kind is invalid")
+    if release not in _RELEASE_LABELS:
+        raise CompatibilityError("codec release must be N or N-1")
+    manifest = _load_package_manifest()
+    contracts = manifest.get("contracts")
+    if not isinstance(contracts, list):
+        raise CompatibilityError("manifest contracts must be an array")
+    contract = next(
+        (
+            _mapping(item, "contract")
+            for item in contracts
+            if isinstance(item, Mapping) and item.get("id") == contract_id
+        ),
+        None,
+    )
+    if contract is None:
+        raise CompatibilityError(f"manifest contract is not declared: {contract_id}")
+    references = _mapping(contract.get(artifact_kind), f"{contract_id}.{artifact_kind}")
+    reference = references.get(release)
+    if not isinstance(reference, str):
+        raise CompatibilityError(f"manifest codec reference is missing: {contract_id} {release}")
+    module_name, separator, symbol_name = reference.partition(":")
+    if not separator or not module_name or not symbol_name:
+        raise CompatibilityError(f"manifest codec reference is invalid: {reference}")
+    try:
+        codec = getattr(importlib.import_module(module_name), symbol_name)
+    except (ImportError, AttributeError) as exc:
+        raise CompatibilityError(f"cannot import manifest codec: {reference}") from exc
+    expected_type = ConsumerCodec if artifact_kind == "consumer_codecs" else ProducerCodec
+    if not isinstance(codec, expected_type):
+        raise CompatibilityError(f"manifest codec has the wrong type: {reference}")
+    return codec
 
 
 def validate_manifest(
@@ -337,6 +382,7 @@ def _validate_receipt_contract(value: object) -> None:
     receipt = _mapping(value, "upgrade_receipt")
     SemVer.parse(receipt.get("version"))
     _load_package_schema(receipt.get("schema_path"))
+    _load_package_schema(receipt.get("evidence_manifest_schema_path"))
     required_checks = set(_string_list(receipt.get("required_checks"), "required_checks"))
     expected = {
         "additive_fields",
@@ -373,6 +419,15 @@ def _load_package_schema(value: object) -> Mapping[str, Any]:
     return loaded
 
 
+def _load_package_manifest() -> Mapping[str, Any]:
+    resource = resources.files("fdai_service_contracts").joinpath("compatibility-manifest.json")
+    try:
+        loaded = json.loads(resource.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CompatibilityError("cannot load bundled compatibility manifest") from exc
+    return _mapping(loaded, "compatibility manifest")
+
+
 def _mapping(value: object, name: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise CompatibilityError(f"{name} must be an object")
@@ -385,4 +440,4 @@ def _string_list(value: object, name: str) -> list[str]:
     return value
 
 
-__all__ = ["CompatibilitySummary", "validate_manifest"]
+__all__ = ["CompatibilitySummary", "load_manifest_codec", "validate_manifest"]

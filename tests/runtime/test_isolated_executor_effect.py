@@ -11,6 +11,7 @@ from typing import Any
 from uuid import UUID
 
 import pytest
+from fdai_core_service.contract_codecs import EXECUTOR_RECEIPT_CONSUMER_V11
 from fdai_executor_service.effect_executor import ServiceDirectApiEffectExecutor
 from fdai_executor_service.runtime import (
     EXECUTOR_RECEIPT_TOPIC,
@@ -31,9 +32,11 @@ from fdai_service_contracts.executor import (
     ExecutorShadowReceiptStatus,
     executor_action_payload_digest,
 )
+from fdai_service_contracts.manifest import load_manifest_codec
 
 from fdai.core.executor import DirectApiExecutionOutcome
 from fdai.runtime.isolated_executor_client import (
+    _EXECUTOR_RECEIPT_CONSUMER,
     EventBusDirectApiExecutionClient,
     RemoteDirectApiExecutionOutcome,
     executor_command_id,
@@ -157,6 +160,17 @@ def _action() -> Action:
         citing_rules=["ops.start-vm"],
         created_at=datetime(2026, 8, 8, tzinfo=UTC),
     )
+
+
+def test_core_receipt_consumer_is_the_manifest_declared_codec_object() -> None:
+    declared = load_manifest_codec(
+        "executor-receipt",
+        artifact_kind="consumer_codecs",
+        release="N",
+    )
+
+    assert declared is EXECUTOR_RECEIPT_CONSUMER_V11
+    assert _EXECUTOR_RECEIPT_CONSUMER is declared
 
 
 async def test_remote_effect_is_audited_and_duplicate_safe() -> None:

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import importlib
 import json
 import sys
@@ -49,8 +50,27 @@ SERVICE_IDS = {
 }
 
 
-def validate() -> None:
+class ReceiptSummary:
+    """Proof-kind counts from validated persisted compatibility receipts."""
+
+    __slots__ = ("focused_receipts", "live_receipts", "live_services")
+
+    def __init__(self, *, focused_receipts: int, live_receipts: int, live_services: int) -> None:
+        self.focused_receipts = focused_receipts
+        self.live_receipts = live_receipts
+        self.live_services = live_services
+
+
+def validate(
+    *,
+    mode: str,
+    receipts_path: Path | None = None,
+    evidence_manifest_path: Path | None = None,
+) -> None:
     """Validate the manifest, wire payloads, delivery traces, and transition receipts."""
+
+    if mode not in {"focused", "live"}:
+        raise CompatibilityError("compatibility mode must be focused or live")
 
     manifest = load_json_object(MANIFEST_PATH)
     summary = validate_manifest(manifest, repo_root=REPO_ROOT)
@@ -58,14 +78,20 @@ def validate() -> None:
     _validate_wire_payloads(contracts)
     unsupported_major_rejection = _validate_codec_artifacts(manifest, contracts)
     _validate_delivery_traces()
-    receipt_count = _validate_upgrade_receipts(
+    receipt_summary = _validate_upgrade_receipts(
         manifest,
         unsupported_major_rejection=unsupported_major_rejection,
+        required_proof_kind=mode,
+        receipts_path=receipts_path,
+        evidence_manifest_path=evidence_manifest_path,
     )
     print(
         "check-service-compatibility: OK "
-        f"(services={summary.service_count} contracts={summary.contract_count} "
-        f"matrix_edges={summary.matrix_edge_count} receipts={receipt_count})"
+        f"(mode={mode} proof_kind={mode} services={summary.service_count} "
+        f"contracts={summary.contract_count} matrix_edges={summary.matrix_edge_count} "
+        f"mechanics_proofs={receipt_summary.focused_receipts} "
+        f"live_proofs={receipt_summary.live_receipts} "
+        f"live_service_proofs={receipt_summary.live_services})"
     )
 
 
@@ -272,19 +298,46 @@ def _validate_upgrade_receipts(
     manifest: Mapping[str, Any],
     *,
     unsupported_major_rejection: bool,
-) -> int:
+    required_proof_kind: str,
+    evidence_manifest: Mapping[str, Any] | None = None,
+    receipts_path: Path | None = None,
+    evidence_manifest_path: Path | None = None,
+) -> ReceiptSummary:
     receipt_contract = _mapping(manifest.get("upgrade_receipt"), "upgrade_receipt")
     schema = load_json_object(REPO_ROOT / str(receipt_contract["schema_path"]))
+    if evidence_manifest is not None and evidence_manifest_path is not None:
+        raise CompatibilityError("live evidence manifest must have one source")
+    if evidence_manifest_path is not None:
+        evidence_manifest = load_json_object(evidence_manifest_path)
+    if evidence_manifest is not None:
+        evidence_schema = load_json_object(
+            REPO_ROOT / str(receipt_contract["evidence_manifest_schema_path"])
+        )
+        _validator(evidence_schema).validate(evidence_manifest)
     checks = _upgrade_checks(
         manifest,
         unsupported_major_rejection=unsupported_major_rejection,
     )
-    fixtures = _load_json_array(FIXTURE_ROOT / "upgrade-receipts.json")
+    fixtures = _load_json_array(receipts_path or FIXTURE_ROOT / "upgrade-receipts.json")
+    live_services = {
+        str(receipt.get("service_id"))
+        for receipt in fixtures
+        if receipt.get("proof_kind") == "live"
+    }
+    if required_proof_kind == "live" and live_services != SERVICE_IDS:
+        raise CompatibilityError(
+            "live certification requires verified live receipts for all five services"
+        )
     expected_checks = {name: value for name, value in checks.items() if name != "offsets_preserved"}
     seen: set[tuple[str, str]] = set()
     for receipt in fixtures:
         _validator(schema).validate(receipt)
-        validate_peer_upgrade_receipt(manifest, receipt)
+        validate_peer_upgrade_receipt(
+            manifest,
+            receipt,
+            required_proof_kind=required_proof_kind,
+            evidence_manifest=evidence_manifest,
+        )
         if (
             receipt.get("offsets_preserved") is not checks["offsets_preserved"]
             or receipt.get("checks") != expected_checks
@@ -307,7 +360,13 @@ def _validate_upgrade_receipts(
     }
     if seen != expected:
         raise CompatibilityError("receipts must cover migration and rollback for all five services")
-    return len(fixtures)
+    focused_receipts = sum(receipt.get("proof_kind") == "focused" for receipt in fixtures)
+    live_receipts = sum(receipt.get("proof_kind") == "live" for receipt in fixtures)
+    return ReceiptSummary(
+        focused_receipts=focused_receipts,
+        live_receipts=live_receipts,
+        live_services=len(live_services),
+    )
 
 
 def _upgrade_checks(
@@ -407,11 +466,21 @@ def _mapping(value: object, name: str) -> Mapping[str, Any]:
     return value
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     """Run the compatibility gate as a command-line check."""
 
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--mode", choices=("focused", "live"), required=True)
+    parser.add_argument("--receipts", type=Path)
+    parser.add_argument("--evidence-manifest", type=Path)
+    args = parser.parse_args(argv)
+
     try:
-        validate()
+        validate(
+            mode=args.mode,
+            receipts_path=args.receipts,
+            evidence_manifest_path=args.evidence_manifest,
+        )
     except (CompatibilityError, KeyError, SchemaError, ValidationError) as exc:
         print(f"check-service-compatibility: ERROR: {exc}")
         return 1

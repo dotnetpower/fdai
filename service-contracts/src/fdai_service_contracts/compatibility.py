@@ -328,6 +328,9 @@ def matrix_digest(manifest: Mapping[str, Any]) -> str:
 def validate_peer_upgrade_receipt(
     manifest: Mapping[str, Any],
     receipt: Mapping[str, Any],
+    *,
+    required_proof_kind: str,
+    evidence_manifest: Mapping[str, Any] | None = None,
 ) -> None:
     """Validate one migration or rollback while every peer remains unchanged."""
 
@@ -357,7 +360,11 @@ def validate_peer_upgrade_receipt(
         raise CompatibilityError("receipt idempotency key is not transition-stable")
     if receipt.get("matrix_digest") != matrix_digest(manifest):
         raise CompatibilityError("receipt matrix digest does not match the manifest")
-    _validate_proof_observations(receipt)
+    _validate_proof_observations(
+        receipt,
+        required_proof_kind=required_proof_kind,
+        evidence_manifest=evidence_manifest,
+    )
 
     peers_before = _mapping(receipt.get("peer_versions_before"), "peer_versions_before")
     peers_after = _mapping(receipt.get("peer_versions_after"), "peer_versions_after")
@@ -389,11 +396,32 @@ def validate_peer_upgrade_receipt(
         raise CompatibilityError("independent transition outcome is not stable")
 
 
-def _validate_proof_observations(receipt: Mapping[str, Any]) -> None:
+def _validate_proof_observations(
+    receipt: Mapping[str, Any],
+    *,
+    required_proof_kind: str,
+    evidence_manifest: Mapping[str, Any] | None,
+) -> None:
+    if required_proof_kind not in {"focused", "live"}:
+        raise CompatibilityError("required proof_kind must be focused or live")
     proof_kind = receipt.get("proof_kind")
     if proof_kind not in {"focused", "live"}:
         raise CompatibilityError("receipt proof_kind must be focused or live")
+    if proof_kind != required_proof_kind:
+        raise CompatibilityError(
+            f"receipt does not satisfy required proof_kind {required_proof_kind}"
+        )
     if proof_kind == "focused":
+        if any(
+            key in receipt
+            for key in (
+                "evidence_manifest_digest",
+                "evidence_run_id",
+                "evidence_source_digest",
+                "observation_refs",
+            )
+        ):
+            raise CompatibilityError("focused receipt must not carry live observation evidence")
         return
     raw_observations = receipt.get("observation_refs")
     if not isinstance(raw_observations, Mapping):
@@ -412,6 +440,62 @@ def _validate_proof_observations(receipt: Mapping[str, Any]) -> None:
         for reference in observations.values()
     ):
         raise CompatibilityError("live receipt observation refs must be immutable sha256 refs")
+    if evidence_manifest is None:
+        raise CompatibilityError("live receipt requires a persisted evidence manifest")
+    _validate_live_evidence_binding(receipt, observations, evidence_manifest)
+
+
+def _validate_live_evidence_binding(
+    receipt: Mapping[str, Any],
+    observations: Mapping[str, Any],
+    evidence_manifest: Mapping[str, Any],
+) -> None:
+    if receipt.get("evidence_manifest_digest") != canonical_digest(evidence_manifest):
+        raise CompatibilityError("live evidence manifest digest does not match persisted content")
+    if evidence_manifest.get("manifest_version") != "1.0.0":
+        raise CompatibilityError("live evidence manifest version must be 1.0.0")
+    run_id = evidence_manifest.get("run_id")
+    if not isinstance(run_id, str) or not run_id:
+        raise CompatibilityError("live evidence manifest run_id must be non-empty")
+    if receipt.get("evidence_run_id") != run_id:
+        raise CompatibilityError("live evidence run binding does not match the receipt")
+    source = _mapping(evidence_manifest.get("source"), "evidence source")
+    source_digest = evidence_manifest.get("source_digest")
+    if source_digest != canonical_digest(source):
+        raise CompatibilityError("live evidence source digest does not match source content")
+    if receipt.get("evidence_source_digest") != source_digest:
+        raise CompatibilityError("live evidence source binding does not match the receipt")
+    artifacts_value = evidence_manifest.get("artifacts")
+    if not isinstance(artifacts_value, list):
+        raise CompatibilityError("live evidence artifacts must be an array")
+    artifacts: dict[str, Mapping[str, Any]] = {}
+    for value in artifacts_value:
+        artifact_entry = _mapping(value, "evidence artifact")
+        reference = artifact_entry.get("ref")
+        if not isinstance(reference, str) or reference in artifacts:
+            raise CompatibilityError("live evidence artifact refs must be unique strings")
+        artifacts[reference] = artifact_entry
+    for kind, reference_value in observations.items():
+        reference = str(reference_value)
+        resolved_artifact = artifacts.get(reference)
+        if resolved_artifact is None:
+            raise CompatibilityError(f"live {kind} observation ref is not persisted")
+        if resolved_artifact.get("kind") != kind or resolved_artifact.get(
+            "service_id"
+        ) != receipt.get("service_id"):
+            raise CompatibilityError(f"live {kind} artifact identity binding is invalid")
+        if resolved_artifact.get("run_id") != run_id:
+            raise CompatibilityError(f"live {kind} artifact run binding is invalid")
+        if resolved_artifact.get("source_digest") != source_digest:
+            raise CompatibilityError(f"live {kind} artifact source binding is invalid")
+        content = resolved_artifact.get("content")
+        if resolved_artifact.get("content_digest") != canonical_digest(content):
+            raise CompatibilityError(f"live {kind} artifact content digest is invalid")
+        artifact_without_ref = {
+            key: value for key, value in resolved_artifact.items() if key != "ref"
+        }
+        if reference != canonical_digest(artifact_without_ref):
+            raise CompatibilityError(f"live {kind} artifact digest is invalid")
 
 
 def load_json_object(path: Path) -> dict[str, Any]:

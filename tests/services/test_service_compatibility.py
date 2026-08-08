@@ -17,16 +17,19 @@ from fdai_service_contracts import (
     ServiceDescriptor,
     ServiceKind,
     assert_additive_schema,
+    canonical_digest,
     delivery_checks,
     ensure_supported_version,
     generate_upgrade_receipts,
     load_json_object,
+    load_manifest_codec,
     matrix_digest,
     run_delivery_transition_harness,
     validate_manifest,
     validate_peer_upgrade_receipt,
 )
 from fdai_service_contracts.codec import MAX_WIRE_BYTES
+from jsonschema.exceptions import ValidationError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = (
@@ -81,13 +84,22 @@ def _generated_upgrade_receipts(manifest: dict[str, Any]) -> tuple[dict[str, Any
     return generate_upgrade_receipts(manifest, checks=checks)
 
 
-def test_manifest_and_focused_fixture_gate_pass() -> None:
+def test_manifest_and_focused_fixture_gate_pass(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     summary = validate_manifest(_manifest(), repo_root=REPO_ROOT)
-    _checker_module().validate()
+    _checker_module().validate(mode="focused")
 
     assert summary.service_count == 5
     assert summary.contract_count == 7
     assert summary.matrix_edge_count == 7
+    output = capsys.readouterr().out
+    assert "mode=focused" in output
+    assert "proof_kind=focused" in output
+    assert "mechanics_proofs=10" in output
+    assert "live_proofs=0" in output
+    assert "live_service_proofs=0" in output
+    assert "receipts=" not in output
 
 
 def test_service_versions_match_distributions_without_claiming_n_minus_one() -> None:
@@ -141,7 +153,7 @@ def test_checker_rejects_missing_persisted_transition_evidence(
     monkeypatch.setattr(checker, "FIXTURE_ROOT", tmp_path)
 
     with pytest.raises(CompatibilityError, match="cannot load JSON array"):
-        checker.validate()
+        checker.validate(mode="focused")
 
 
 def test_checker_rejects_self_attested_receipt_when_executable_check_fails() -> None:
@@ -154,6 +166,8 @@ def test_checker_rejects_self_attested_receipt_when_executable_check_fails() -> 
         checker._validate_upgrade_receipts(
             _manifest(),
             unsupported_major_rejection=False,
+            required_proof_kind="focused",
+            evidence_manifest=None,
         )
 
 
@@ -318,7 +332,11 @@ def test_each_service_has_valid_independent_migration_and_rollback_receipts() ->
     identities: set[tuple[object, object]] = set()
 
     for receipt in receipts:
-        validate_peer_upgrade_receipt(manifest, receipt)
+        validate_peer_upgrade_receipt(
+            manifest,
+            receipt,
+            required_proof_kind="focused",
+        )
         assert receipt["offsets_preserved"] is checks["offsets_preserved"]
         assert receipt["checks"] == {
             name: value for name, value in checks.items() if name != "offsets_preserved"
@@ -350,30 +368,154 @@ def test_focused_receipt_remains_valid_without_live_observations() -> None:
 
     assert receipt["proof_kind"] == "focused"
     assert "observation_refs" not in receipt
-    validate_peer_upgrade_receipt(manifest, receipt)
+    validate_peer_upgrade_receipt(
+        manifest,
+        receipt,
+        required_proof_kind="focused",
+    )
+
+    with pytest.raises(CompatibilityError, match="required proof_kind live"):
+        validate_peer_upgrade_receipt(
+            manifest,
+            receipt,
+            required_proof_kind="live",
+        )
+
+
+def _bound_live_evidence(receipt: dict[str, Any]) -> dict[str, Any]:
+    run_id = "service-compatibility-run-42"
+    source = {
+        "repository": "example/fdai",
+        "revision": "a" * 40,
+        "workflow": "service-live-compatibility",
+    }
+    source_digest = canonical_digest(source)
+    artifacts: list[dict[str, Any]] = []
+    observation_refs: dict[str, str] = {}
+    for kind in ("health", "identity", "image", "offset", "schema", "source", "topology"):
+        content = {
+            "kind": kind,
+            "observed": True,
+            "service_id": receipt["service_id"],
+        }
+        artifact = {
+            "kind": kind,
+            "service_id": receipt["service_id"],
+            "run_id": run_id,
+            "source_digest": source_digest,
+            "content_digest": canonical_digest(content),
+            "content": content,
+        }
+        artifact["ref"] = canonical_digest(artifact)
+        artifacts.append(artifact)
+        observation_refs[kind] = artifact["ref"]
+    evidence_manifest = {
+        "manifest_version": "1.0.0",
+        "run_id": run_id,
+        "source": source,
+        "source_digest": source_digest,
+        "artifacts": artifacts,
+    }
+    receipt.update(
+        {
+            "proof_kind": "live",
+            "evidence_manifest_digest": canonical_digest(evidence_manifest),
+            "evidence_run_id": run_id,
+            "evidence_source_digest": source_digest,
+            "observation_refs": observation_refs,
+        }
+    )
+    return evidence_manifest
 
 
 def test_live_receipt_requires_exact_immutable_observation_refs() -> None:
     manifest = _manifest()
     receipt = copy.deepcopy(_generated_upgrade_receipts(manifest)[0])
     receipt["proof_kind"] = "live"
+    schema = load_json_object(
+        REPO_ROOT
+        / "service-contracts"
+        / "src"
+        / "fdai_service_contracts"
+        / "schemas"
+        / "service-upgrade-receipt"
+        / "1.0.0.json"
+    )
+
+    with pytest.raises(ValidationError, match="evidence_manifest_digest"):
+        _checker_module()._validator(schema).validate(receipt)
 
     with pytest.raises(CompatibilityError, match="must name exact"):
-        validate_peer_upgrade_receipt(manifest, receipt)
-
-    receipt["observation_refs"] = {
-        key: "sha256:" + character * 64
-        for key, character in zip(
-            ("health", "identity", "image", "offset", "schema", "source", "topology"),
-            "1234567",
-            strict=True,
+        validate_peer_upgrade_receipt(
+            manifest,
+            receipt,
+            required_proof_kind="live",
         )
-    }
-    validate_peer_upgrade_receipt(manifest, receipt)
 
-    receipt["observation_refs"]["health"] = "run:mutable"
-    with pytest.raises(CompatibilityError, match="immutable sha256"):
-        validate_peer_upgrade_receipt(manifest, receipt)
+    evidence_manifest = _bound_live_evidence(receipt)
+    _checker_module()._validator(schema).validate(receipt)
+    with pytest.raises(CompatibilityError, match="persisted evidence manifest"):
+        validate_peer_upgrade_receipt(
+            manifest,
+            receipt,
+            required_proof_kind="live",
+        )
+    validate_peer_upgrade_receipt(
+        manifest,
+        receipt,
+        required_proof_kind="live",
+        evidence_manifest=evidence_manifest,
+    )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("content", "content digest"),
+        ("artifact_ref", "artifact digest"),
+        ("run", "run binding"),
+        ("source", "source binding"),
+        ("manifest", "manifest digest"),
+    ],
+)
+def test_live_receipt_rejects_unbound_evidence(
+    mutation: str,
+    message: str,
+) -> None:
+    manifest = _manifest()
+    receipt = copy.deepcopy(_generated_upgrade_receipts(manifest)[0])
+    evidence_manifest = _bound_live_evidence(receipt)
+    artifact = evidence_manifest["artifacts"][0]
+
+    if mutation == "content":
+        artifact["content"] = {"observed": False}
+    elif mutation == "artifact_ref":
+        artifact["ref"] = "sha256:" + "f" * 64
+        receipt["observation_refs"]["health"] = artifact["ref"]
+    elif mutation == "run":
+        artifact["run_id"] = "another-run"
+    elif mutation == "source":
+        artifact["source_digest"] = "sha256:" + "e" * 64
+    else:
+        receipt["evidence_manifest_digest"] = "sha256:" + "d" * 64
+    if mutation != "manifest":
+        receipt["evidence_manifest_digest"] = canonical_digest(evidence_manifest)
+
+    with pytest.raises(CompatibilityError, match=message):
+        validate_peer_upgrade_receipt(
+            manifest,
+            receipt,
+            required_proof_kind="live",
+            evidence_manifest=evidence_manifest,
+        )
+
+
+def test_live_checker_requires_verified_receipts_for_all_five_services() -> None:
+    with pytest.raises(
+        CompatibilityError,
+        match="live certification requires verified live receipts for all five services",
+    ):
+        _checker_module().validate(mode="live")
 
 
 @pytest.mark.parametrize(
@@ -408,7 +550,11 @@ def test_upgrade_receipt_tampering_fails_closed(mutation: str, message: str) -> 
         receipt["matrix_digest"] = matrix_digest(manifest)
 
     with pytest.raises(CompatibilityError, match=message):
-        validate_peer_upgrade_receipt(manifest, receipt)
+        validate_peer_upgrade_receipt(
+            manifest,
+            receipt,
+            required_proof_kind="focused",
+        )
 
 
 def test_contract_sdk_remains_free_of_service_implementation_imports() -> None:
@@ -432,6 +578,21 @@ def test_checker_fails_when_declared_codec_artifact_is_not_importable() -> None:
 
     with pytest.raises(CompatibilityError, match="cannot import artifact"):
         checker._validate_codec_artifacts(manifest, checker._contract_map(manifest))
+
+
+def test_core_uses_manifest_declared_executor_receipt_codec_object() -> None:
+    from fdai_core_service.contract_codecs import EXECUTOR_RECEIPT_CONSUMER_V11
+
+    from fdai.runtime import isolated_executor_client
+
+    declared = load_manifest_codec(
+        "executor-receipt",
+        artifact_kind="consumer_codecs",
+        release="N",
+    )
+
+    assert declared is EXECUTOR_RECEIPT_CONSUMER_V11
+    assert isolated_executor_client._EXECUTOR_RECEIPT_CONSUMER is declared
 
 
 def test_wire_fixtures_cover_each_contract_and_all_five_services() -> None:
