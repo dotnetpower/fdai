@@ -10,7 +10,7 @@
     ".github/instructions/documentation-style.instructions.md": "1afe6339d1dd528a8d27e987754fac2d8ec29982b567a7e592dcfe10367f9ec8",
     ".github/instructions/generic-scope.instructions.md": "d91d70b82f93cd2f62dbf2a1ae8b796debc9bed549210972fb3a515ee088bd3e",
     ".github/instructions/language.instructions.md": "2ccf2d2da591ce159db59e8b35b70ce1677ab95e72eeb36a36054cc267f78e00",
-    "rule-catalog/schema/README.md": "430c3b119a0f6a78d1517fcfc5642a4c344a0186f6f1778eadc5a1548ec9882d",
+    "rule-catalog/schema/README.md": "81dfb906a792b75de12df8c54463748f2827fea2f640d78e7d358eb56b2539b6",
     "rule-catalog/schema/extension-kit.schema.json": "e1d4250973b4f21115b313a5c7bddaba2df2db5af831cb1cae3628170b7ae08a",
     "rule-catalog/schema/skill-bundle.schema.json": "45dbd3b41a03fcf62a7cde47ff3f95e2fa720a8899ac2895445d41c596dbe550",
     "services/core-control-plane/src/fdai/agents/README.md": "ae63f24c8c243dc5165390e68d6336539b0682407fb2795cdbc530ba4f805cfe",
@@ -454,7 +454,7 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/projection.py": "c39e903c920dbaea9fe598638fdc3392174d2f73b2925747705410d92e7ee22e",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_gateway.py": "19d9cd471fd4092f3431f644ae830e134f47977ec3352e3abf38f7a0739f2dc9",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_profiles.py": "6c176498d28302acc102810d49755af34bbf96b4111d8d37d6807bcf0bb6e072",
-    "services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py": "0328388fbeeacf920eabb026a4a6683aeec9e4f33ffe046f1069c05bdceddacb",
+    "services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py": "76c53530ca2e38afff69c6cc4abd382a912fb9c1226bfd7f05692874fd36b4a5",
     "services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py": "70674f3640190795ec62d24176a41596c1311669017419d32f8455b7485d094b",
     "services/core-control-plane/src/fdai/core/ontology_platform/sdk_codegen.py": "f26e11f44bb593cd64ec9e5312ffec39f10aba8be2084f60a3cd22a27f397303",
     "services/core-control-plane/src/fdai/core/ontology_platform/semantic_plans.py": "8727465b401604a798ebaa42b688484a5d0914b799a36246c9d79e8374368c43",
@@ -1016,7 +1016,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-08T17:11:30Z",
+  "generated_at": "2026-08-08T19:15:29Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

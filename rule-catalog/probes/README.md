@@ -8,17 +8,20 @@ actually quiet. See
 and
 [docs/roadmap/decisioning/action-ontology.md § 6](../../docs/roadmap/decisioning/action-ontology.md#6-live-blast-probe-6-of-execution-modelmd-month-1).
 
-## Status: placeholder (Day 1)
+## Shipped Probes
 
-This directory intentionally ships **only this README** on Day 1. No shipped
-ActionType sets `live_probe_ref` yet, so there is nothing to load. The
-loader cross-check that "`live_probe_ref` must resolve to a probe under
-`rule-catalog/probes/`" is therefore a no-op until Month 1 binds the first
-probe (`AzureMonitorBlastProbe`). Keeping the empty directory under version
-control documents the contract and prevents a "missing directory" load
-error on forks that add probes early.
+| Probe id | Signal | Current catalog use |
+|----------|--------|---------------------|
+| `vm_traffic_last_5m` | VM network throughput over five minutes | Referenced by `ops.restart-service` and `ops.scale-in`. |
+| `lb_backend_health` | Load-balancer backend health ratio | Available to ActionTypes that explicitly reference it. |
+| `storage_access_log` | Storage transaction volume | Available to stateful storage actions that explicitly reference it. |
+| `blast_radius_classifier` | External-path versus internal-path health | Requires a fork-supplied `probe-adapters/blast-radius-http` binding. |
 
-## Contract (Month 1)
+[`probe.schema.json`](probe.schema.json) defines the authored shape. The loader in
+[`probe.py`](../../services/core-control-plane/src/fdai/rule_catalog/schema/probe.py) validates
+every manifest and the ActionType loader rejects an unresolved `live_probe_ref`.
+
+## Contract
 
 Each probe is one YAML file `<probe_id>.yaml` with:
 
@@ -29,6 +32,7 @@ Each probe is one YAML file `<probe_id>.yaml` with:
 - `interpretation` mapping the raw result to `quiet | active | overloaded`.
 - `timeout_seconds`, `cache_ttl_seconds`.
 
-Probe failure fails toward safety: a single failure yields `active` (forces
-HIL), repeated failure yields `shadow_only` (defer). Replay reads the
-recorded probe result, never a fresh query.
+Probe failure fails toward safety: a single failure yields `active` and forces human approval;
+repeated failure yields `shadow_only` and defers execution. Replay reads the recorded probe result,
+never a fresh query. A manifest declares an adapter reference but does not create the adapter or
+grant provider credentials; composition owns that binding.
