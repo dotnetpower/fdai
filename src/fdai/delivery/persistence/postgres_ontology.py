@@ -294,6 +294,13 @@ class PostgresOntologyInstanceStore:
                     "SELECT pg_advisory_xact_lock(%s)",
                     (_SUBGRAPH_REPLACEMENT_LOCK,),
                 )
+                link_type_names = sorted({record.link_type for record in normalized_links})
+                if link_type_names:
+                    await connection.execute(
+                        "SELECT name FROM ontology_link_type WHERE name = ANY(%s) "
+                        "ORDER BY name FOR UPDATE",
+                        (link_type_names,),
+                    )
                 for object_record in normalized_objects:
                     cursor = await connection.execute(
                         "SELECT object_type, revision FROM ontology_resource "
