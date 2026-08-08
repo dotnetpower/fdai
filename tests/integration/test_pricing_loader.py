@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from fdai.composition import load_pricing_table
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 _SHIPPED = _REPO_ROOT / "rule-catalog" / "llm-pricing.yaml"
 
 

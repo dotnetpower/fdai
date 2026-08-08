@@ -58,7 +58,8 @@ def _local_warning_log_path(
     if config.runtime.env != "dev" or "PYTEST_CURRENT_TEST" in resolved_environ:
         return None
     for candidate in (start, *start.parents):
-        if (candidate / ".git").exists() and (candidate / "src/fdai").is_dir():
+        core_source = candidate / "services" / "core-control-plane" / "src" / "fdai"
+        if (candidate / ".git").exists() and core_source.is_dir():
             return candidate / ".fdai/logs/warnings.jsonl"
     return None
 

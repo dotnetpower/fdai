@@ -137,7 +137,7 @@ def test_core_wheel_contains_only_the_declared_fdai_payload(core_wheel: Path) ->
     assert not (runtime_modules & PROHIBITED_RUNTIME_MODULES)
     assert all(not member.startswith(PROHIBITED_WHEEL_PREFIXES) for member in members)
     assert all(
-        Path(member).suffix in {".json", ".md", ".py", ".typed"}
+        Path(member).suffix in {".html", ".json", ".md", ".py", ".typed"}
         for member in members
         if member.startswith("fdai/")
     )
