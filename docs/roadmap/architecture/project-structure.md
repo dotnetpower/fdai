@@ -36,7 +36,7 @@ fdai/
 │   │   ├── scheduler/          # create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprints, and scoped continuations
 │   │   ├── document_ingestion/ # upload lifecycle + split inspect/index worker; Forseti/Saga/Var/Muninn gates, durable stage lease/CAS claims, and replay-only gated-state recovery
 │   │   ├── working_context/    # bounded per-turn prompt assembly: immutable selection policy + mandatory validator + shadow evidence/replay + planner/orchestrator folds + summarizer/retriever seams
-│   │   ├── operational_context/ # atomic owned-subgraph replacement and time-consistent snapshots with typed evidence paths, effective-time/provenance projection, source-freshness receipts, and fail-closed truncation
+│   │   ├── operational_context/ # atomic owned-subgraph replacement, time-consistent snapshots, and cutoff-bound graph+document evidence bundles with typed paths, provenance, source-freshness receipts, and fail-closed truncation
 │   │   ├── decision_case/      # protected-objective options, deterministic selection, and response closure
 │   │   ├── change_lineage/     # immutable replay-stable Change -> assessment -> decision -> action -> outcome join; no execution or promotion authority
 │   │   ├── operational_planning/ # hard-constraint eligibility, Pareto pruning, Process planning phases, and replay-stable plan identity; no execution authority

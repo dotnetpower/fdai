@@ -34,6 +34,11 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > Verified links require an independent verifier, a trusted verification method, and an immutable
 > verification receipt. Required source freshness, trusted UTC clock identity, recorded time, and
 > skew-bounded future checks also contribute to context safety and replay identity.
+> Wave 2 adds a content-addressed `OperationalEvidenceBundle` that keeps secured ontology paths,
+> authoritative state facts, catalog references, and governed document excerpts in separate
+> authority lanes. Deterministic claim and citation validation, exact typed-claim contradiction
+> detection, and byte and item budgets emit hold evidence and can only preserve or lower the
+> bundle's autonomy ceiling. The bundle has no action authority.
 > Change management adds planned-change evidence to `Change`, a reviewed `ChangeWindow`, and typed
 > links from target and decision through impact, process, outcome, and recovery. These declarations
 > are semantic evidence only and grant no approval or execution authority. Huginn now carries the
@@ -345,6 +350,25 @@ mapping cannot preserve automatic execution authority. The provenance allowlist 
 A bounded traversal that reaches its node limit is incomplete evidence. Materialization records
 `context_graph_truncated` as a conflict and lowers the autonomy ceiling to `SHADOW_ONLY`; a partial
 graph never preserves automatic execution authority.
+
+An `OperationalEvidenceBundle` can combine graph and document evidence without flattening their
+authority. Its four immutable lanes retain authority, source revision, evidence cutoff, freshness,
+completeness, and redaction independently:
+
+- **Ontology evidence:** Secured typed facts and deterministic paths from the operational graph.
+- **State evidence:** The original observed, derived, desired, or execution `StateFactMetadata`.
+- **Catalog evidence:** Exact rule or catalog references from reviewed catalog-as-code.
+- **Document evidence:** Governed excerpts stored as untrusted data with no instruction authority.
+
+Every exact claim stores canonical JSON, a subject, predicate, cutoff scope, and citation refs. The
+citation manifest is derived only from included evidence, so an omitted or fabricated ref produces
+an explicit missing path and hold. Contradiction detection compares only claims with the same
+subject, predicate, and cutoff scope, and reports a conflict only when their canonical typed values
+differ. It doesn't infer semantic disagreement from prose. Deterministic item and byte budgets
+record every omitted context path. Stale, incomplete, conflicting, synthetic, after-cutoff,
+uncited, or truncated evidence lowers the result to `SHADOW_ONLY`; healthy evidence never raises
+the caller's input ceiling. The bundle is read-only evidence and never grants approval or action
+authority.
 
 Forseti creates a `DecisionCase` from that snapshot. Each case contains the no-action baseline,
 bounded options, expected effects, protected objectives, violated constraints, uncertainty, and

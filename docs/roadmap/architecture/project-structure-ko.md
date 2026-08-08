@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7f5f9687fc586375788c6e33b3f16a3fbe1c9dfe
+translation_source_sha: 24e7bbbc3c52402f5255564fe97628823377c1bc
 translation_revised: 2026-08-09
 ---
 
@@ -41,7 +41,7 @@ fdai/
 │   │   ├── scheduler/          # create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprint, 범위 제한 continuation
 │   │   ├── document_ingestion/ # upload lifecycle + split inspect/index worker; Forseti/Saga/Var/Muninn gate, durable stage lease/CAS claim, replay-only gated-state recovery
 │   │   ├── working_context/    # 턴당 경계 프롬프트 조립: 불변 selection policy + 필수 validator + shadow evidence/replay + planner/orchestrator fold + summarizer/retriever seam
-│   │   ├── operational_context/ # atomic owned-subgraph replacement와 typed evidence path, effective-time/provenance projection, source-freshness receipt, fail-closed truncation을 포함하는 time-consistent snapshot
+│   │   ├── operational_context/ # atomic owned-subgraph replacement, time-consistent snapshot, cutoff-bound graph+document evidence bundle과 typed path, provenance, source-freshness receipt, fail-closed truncation
 │   │   ├── decision_case/      # protected-objective option, deterministic selection, response closure
 │   │   ├── change_lineage/     # 변경 불가능하고 replay-stable한 Change -> assessment -> decision -> action -> outcome join. Execution 또는 promotion authority 없음
 │   │   ├── operational_planning/ # hard-constraint eligibility, Pareto pruning, Process planning phase, replay-stable plan identity. Execution authority 없음

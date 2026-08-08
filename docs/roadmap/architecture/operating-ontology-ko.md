@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 29c309e900659bce7489351c42b16767853aeed4
+translation_source_sha: 64f9e82a52f91845945b5e3af6c12d3c0488684f
 translation_revised: 2026-08-08
 ---
 # FDAI 운영 온톨로지
@@ -36,6 +36,11 @@ cloud-operations 개념을 소유하고 deployment는 observed instance와 inten
 > Verified link는 독립적인 verifier, 신뢰된 verification method 및 immutable verification
 > receipt를 요구합니다. 필수 source freshness, 신뢰된 UTC clock identity, recorded time 및
 > skew 범위의 future check도 context safety와 replay identity에 반영됩니다.
+> Wave 2는 secured ontology path, authoritative state fact, catalog reference 및 governed document
+> excerpt를 분리된 authority lane으로 유지하는 content-addressed `OperationalEvidenceBundle`을
+> 추가합니다. Deterministic claim 및 citation validation, exact typed-claim contradiction detection,
+> byte 및 item budget은 hold evidence를 출력하고 bundle의 autonomy ceiling을 유지하거나 낮출 수만
+> 있습니다. Bundle에는 action authority가 없습니다.
 > 변경관리는 `Change`에 planned-change evidence를 추가하고, reviewed `ChangeWindow`와 target 및
 > decision에서 impact, process, outcome, recovery까지 이어지는 typed link를 제공합니다. 이러한
 > declaration은 semantic evidence일 뿐 승인 또는 실행 권한을 제공하지 않습니다. Huginn은 같은
@@ -346,6 +351,24 @@ mapping이 자동 실행 권한을 유지할 수 없습니다. Provenance allowl
 범위가 제한된 traversal이 node limit에 도달하면 근거가 불완전한 상태입니다. Materialization은
 `context_graph_truncated`를 conflict로 기록하고 autonomy ceiling을 `SHADOW_ONLY`로 낮춥니다. 일부
 graph만으로 자동 실행 권한을 유지하지 않습니다.
+
+`OperationalEvidenceBundle`은 authority를 하나로 flatten하지 않고 graph 및 document evidence를
+결합할 수 있습니다. 네 개의 immutable lane은 authority, source revision, evidence cutoff,
+freshness, completeness 및 redaction을 독립적으로 보존합니다.
+
+- **Ontology evidence:** Operational graph에서 가져온 secured typed fact와 deterministic path입니다.
+- **State evidence:** 원래의 observed, derived, desired 또는 execution `StateFactMetadata`입니다.
+- **Catalog evidence:** Reviewed catalog-as-code의 exact rule 또는 catalog reference입니다.
+- **Document evidence:** Instruction authority 없이 untrusted data로 저장되는 governed excerpt입니다.
+
+각 exact claim은 canonical JSON, subject, predicate, cutoff scope 및 citation ref를 저장합니다.
+Citation manifest는 포함된 evidence에서만 파생되므로 누락되거나 fabricated된 ref는 명시적인
+missing path와 hold를 생성합니다. Contradiction detection은 subject, predicate 및 cutoff scope가
+같은 claim만 비교하고 canonical typed value가 다를 때만 conflict를 보고합니다. Prose에서 semantic
+disagreement를 추론하지 않습니다. Deterministic item 및 byte budget은 생략된 모든 context path를
+기록합니다. Stale, incomplete, conflicting, synthetic, after-cutoff, uncited 또는 truncated evidence는
+결과를 `SHADOW_ONLY`로 낮춥니다. Healthy evidence는 caller의 input ceiling을 높이지 않습니다.
+Bundle은 read-only evidence이며 approval 또는 action authority를 부여하지 않습니다.
 
 Forseti는 snapshot에서 `DecisionCase`를 만듭니다. 각 case는 no-action baseline, bounded option,
 expected effect, protected objective, violated constraint, uncertainty, evidence reference를 포함합니다.
