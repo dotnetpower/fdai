@@ -78,6 +78,7 @@ def test_pre_push_hook_invokes_all_structural_gates() -> None:
         "scripts/quality/architecture/check-agents-imports.sh",
         "scripts/quality/architecture/check-evaluation-boundaries.py",
         "scripts/quality/architecture/check-file-loc.sh",
+        "scripts/quality/architecture/check-independent-services.py",
         "scripts/quality/architecture/check-operator-api-boundaries.py",
         "scripts/quality/architecture/check-subsystem-fanout.sh",
         "scripts/quality/repository/check-doc-links.sh",

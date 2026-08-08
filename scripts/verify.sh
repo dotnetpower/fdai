@@ -154,11 +154,11 @@ run_gate_scoped() {
 # ---- fast gates (always) ----------------------------------------------------
 
 if command -v uv >/dev/null 2>&1; then
-    run_gate_scoped "ruff format (src tests extensions)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' uv run ruff format --check src tests extensions/code-assurance
-    run_gate_scoped "ruff lint (src tests extensions)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' uv run ruff check src tests extensions/code-assurance
+    run_gate_scoped "ruff format (services packages tests extensions)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' uv run ruff format --check services packages tests extensions/code-assurance
+    run_gate_scoped "ruff lint (services packages tests extensions)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' uv run ruff check services packages tests extensions/code-assurance
 elif command -v ruff >/dev/null 2>&1; then
-    run_gate "ruff format (src tests extensions)" ruff format --check src tests extensions/code-assurance
-    run_gate "ruff lint (src tests extensions)" ruff check src tests extensions/code-assurance
+    run_gate "ruff format (services packages tests extensions)" ruff format --check services packages tests extensions/code-assurance
+    run_gate "ruff lint (services packages tests extensions)" ruff check services packages tests extensions/code-assurance
 else
     echo "verify.sh: 'ruff' not found on PATH; skipping (activate the venv first)" >&2
     NAMES+=("ruff format (src tests extensions)" "ruff lint (src tests extensions)")
@@ -181,7 +181,8 @@ run_gate_scoped "constitution" '^(\.github/|config/constitution-traceability\.js
 run_gate "design-doc-impact" python3 scripts/quality/architecture/check-design-doc-impact.py
 run_gate_scoped "fork-runtime-independence" '^(src/|config/|infra/|scripts/quality/architecture/check-fork-runtime-independence\.py$)' python3 scripts/quality/architecture/check-fork-runtime-independence.py
 run_gate_scoped "evaluation-boundaries" '^(evaluation-sdk/|src/|tests/|pyproject\.toml$|scripts/quality/architecture/check-evaluation-boundaries\.py$)' python3 scripts/quality/architecture/check-evaluation-boundaries.py
-run_gate_scoped "chat-semantic-routing" '^(src/fdai/delivery/operator_api/|console/|tests/delivery/operator_api/|scripts/quality/architecture/check-chat-semantic-routing\.py$)' python3 scripts/quality/architecture/check-chat-semantic-routing.py
+run_gate_scoped "independent-services" '^(services/|packages/service-contracts/|tests/integration/|config/independent-services\.json$|scripts/quality/architecture/check-independent-services\.py$)' python3 scripts/quality/architecture/check-independent-services.py
+run_gate_scoped "chat-semantic-routing" '^(services/operator-service/|console/|tests/integration/|scripts/quality/architecture/check-chat-semantic-routing\.py$)' python3 scripts/quality/architecture/check-chat-semantic-routing.py
 run_gate_scoped "boundary-docstrings" '^(src/|scripts/quality/architecture/(check-boundary-docstrings\.py|\.boundary-docstring-scopes)$)' python3 scripts/quality/architecture/check-boundary-docstrings.py
 run_gate_scoped "document-size" '^(docs/roadmap/|scripts/quality/architecture/check-document-size\.py$)' python3 scripts/quality/architecture/check-document-size.py
 run_gate_scoped "display-terminology" '^(README|docs/|rule-catalog/|console/|cli/|scripts/quality/documentation/check-display-terminology\.py$)' python3 scripts/quality/documentation/check-display-terminology.py

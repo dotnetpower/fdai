@@ -11,6 +11,13 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = REPO_ROOT / "config" / "independent-services.json"
+SERVICE_IDS = (
+    "core-control-plane",
+    "operator-service",
+    "document-ingestion-api",
+    "document-processing-worker",
+    "isolated-executor",
+)
 
 
 def _load_manifest() -> dict[str, Any]:
@@ -21,13 +28,14 @@ def _load_manifest() -> dict[str, Any]:
 
 
 def _imports_prefix(path: Path, prefix: str) -> bool:
+    def matches(module: str) -> bool:
+        return module == prefix.removesuffix(".") or module.startswith(prefix)
+
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith(prefix):
+        if isinstance(node, ast.ImportFrom) and matches(node.module or ""):
             return True
-        if isinstance(node, ast.Import) and any(
-            alias.name.startswith(prefix) for alias in node.names
-        ):
+        if isinstance(node, ast.Import) and any(matches(alias.name) for alias in node.names):
             return True
     return False
 
@@ -60,6 +68,53 @@ def _count_service_forbidden_imports() -> int:
             if any(_imports_prefix(path, prefix) for prefix in prefixes)
         )
     return count
+
+
+def _require_directory(path: Path, description: str) -> None:
+    if not path.is_dir():
+        raise ValueError(f"missing {description}: {path.relative_to(REPO_ROOT)}")
+
+
+def _require_file(path: Path, description: str) -> None:
+    if not path.is_file():
+        raise ValueError(f"missing {description}: {path.relative_to(REPO_ROOT)}")
+
+
+def _validate_final_layout() -> None:
+    for legacy_path in (
+        REPO_ROOT / "src" / "fdai",
+        REPO_ROOT / "service-contracts",
+        REPO_ROOT / "services" / "Dockerfile",
+    ):
+        if legacy_path.exists():
+            raise ValueError(
+                f"retired compatibility path must not exist: {legacy_path.relative_to(REPO_ROOT)}"
+            )
+
+    for service_id in SERVICE_IDS:
+        service_root = REPO_ROOT / "services" / service_id
+        _require_directory(service_root / "src", "service-owned source directory")
+        _require_directory(service_root / "tests", "service-owned test directory")
+        _require_file(service_root / "docker" / "Dockerfile", "service-owned Dockerfile")
+        _require_file(service_root / "pyproject.toml", "service-owned distribution")
+
+    contract_root = REPO_ROOT / "packages" / "service-contracts"
+    _require_directory(contract_root / "src", "contract source directory")
+    _require_directory(contract_root / "tests", "contract test directory")
+    _require_file(contract_root / "pyproject.toml", "contract distribution")
+
+    root_tests = REPO_ROOT / "tests"
+    _require_directory(root_tests / "integration", "root integration test directory")
+    unexpected = sorted(
+        path.name
+        for path in root_tests.iterdir()
+        if path.name not in {"integration", "__pycache__", ".pytest_cache"}
+    )
+    if unexpected:
+        raise ValueError(
+            "root tests must contain integration tests only; unexpected entries: "
+            + ", ".join(unexpected)
+        )
 
 
 def _distribution_scripts(target_package: Path) -> dict[str, str]:
@@ -100,8 +155,9 @@ def validate() -> None:
     if manifest["target_service_count"] != 5 or len(services) != 5:
         raise ValueError("independent-services target must contain exactly five services")
     service_ids = [str(item["id"]) for item in services]
-    if len(set(service_ids)) != len(service_ids):
-        raise ValueError("service ids must be unique")
+    if tuple(service_ids) != SERVICE_IDS:
+        raise ValueError("independent-services manifest must name the canonical five services")
+    _validate_final_layout()
     for service in services:
         for key in (
             "source_roots",
@@ -138,15 +194,13 @@ def validate() -> None:
 
     _validate_graph(manifest["work_packages"])
     baseline = manifest["current_baseline"]
-    legacy_source = REPO_ROOT / "src" / "fdai"
-    top_level_source_roots = int(legacy_source.exists())
+    top_level_source_roots = int((REPO_ROOT / "src" / "fdai").exists())
     if top_level_source_roots != int(baseline["top_level_production_source_roots"]):
         raise ValueError("top-level production source root must be retired")
     forbidden_imports = _count_service_forbidden_imports()
-    if forbidden_imports > int(baseline["service_forbidden_implementation_import_files"]):
+    if forbidden_imports != 0:
         raise ValueError(
-            "service_forbidden_implementation_import_files grew from "
-            f"{baseline['service_forbidden_implementation_import_files']} to {forbidden_imports}"
+            f"cross-service implementation import count must be zero, got {forbidden_imports}"
         )
     targets = manifest["independence_targets"]
     if targets["cross_service_implementation_imports"] != 0:

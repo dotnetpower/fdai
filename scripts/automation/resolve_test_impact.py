@@ -18,7 +18,9 @@ def _module_chain(module: str) -> set[str]:
 def _module_name(path: Path, root: Path) -> str | None:
     relative = path.relative_to(root)
     parts = list(relative.parts)
-    if parts[:2] == ["src", "fdai"]:
+    if len(parts) >= 4 and parts[0] in {"services", "packages"} and parts[2] == "src":
+        parts = parts[3:]
+    elif parts[:2] == ["src", "fdai"]:
         parts = ["fdai", *parts[2:]]
     elif parts and parts[0] in {"delivery", "scripts", "tools"}:
         pass
@@ -43,6 +45,23 @@ def _python_files(root: Path, *directories: str) -> list[Path]:
                 if "__pycache__" not in candidate.parts
             )
     return sorted(files)
+
+
+def _owned_python_files(root: Path, leaf: str) -> list[Path]:
+    roots = [*root.glob(f"services/*/{leaf}"), *root.glob(f"packages/*/{leaf}")]
+    return sorted(
+        candidate
+        for owned_root in roots
+        for candidate in owned_root.rglob("*.py")
+        if "__pycache__" not in candidate.parts
+    )
+
+
+def _test_module_name(path: Path, root: Path) -> str:
+    parts = list(path.relative_to(root).with_suffix("").parts)
+    if parts[-1] == "__init__":
+        parts.pop()
+    return ".".join(part.replace("-", "_") for part in parts)
 
 
 def _resolve_from(module: str, imported: str | None, level: int, *, is_package: bool) -> str | None:
@@ -114,8 +133,11 @@ def _depends_on(dependencies: set[str], affected: set[str]) -> bool:
 
 
 def resolve_tests(root: Path, changed_paths: list[Path]) -> list[Path]:
-    source_files = _python_files(root, "src/fdai", "delivery", "scripts", "tools")
-    test_files = _python_files(root, "tests")
+    source_files = [
+        *_owned_python_files(root, "src"),
+        *_python_files(root, "src/fdai", "delivery", "scripts", "tools"),
+    ]
+    test_files = [*_owned_python_files(root, "tests"), *_python_files(root, "tests")]
     source_modules = {
         module: path for path in source_files if (module := _module_name(path, root)) is not None
     }
@@ -157,7 +179,7 @@ def resolve_tests(root: Path, changed_paths: list[Path]) -> list[Path]:
 
     selected: list[Path] = []
     for path in test_files:
-        module = "tests." + ".".join(path.relative_to(root / "tests").with_suffix("").parts)
+        module = _test_module_name(path, root)
         if _depends_on(_imports(path, module, known_modules), affected):
             selected.append(path.relative_to(root))
     return sorted(selected)

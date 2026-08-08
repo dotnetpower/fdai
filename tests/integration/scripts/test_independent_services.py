@@ -5,6 +5,8 @@ import json
 import tomllib
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = REPO_ROOT / "config" / "independent-services.json"
 CHECKER_PATH = REPO_ROOT / "scripts/quality/architecture/check-independent-services.py"
@@ -77,17 +79,115 @@ def test_runtime_packages_own_tests_and_root_keeps_integration_only() -> None:
     assert {path.name for path in (REPO_ROOT / "tests").iterdir()} == {"integration"}
 
 
-def test_checker_accepts_current_non_growth_baseline() -> None:
-    _checker_module().validate()
+def _write_final_layout(root: Path) -> None:
+    for service_id in (
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+    ):
+        service_root = root / "services" / service_id
+        (service_root / "src").mkdir(parents=True)
+        (service_root / "tests").mkdir()
+        (service_root / "docker").mkdir()
+        (service_root / "docker" / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
+        (service_root / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+    contract_root = root / "packages" / "service-contracts"
+    (contract_root / "src").mkdir(parents=True)
+    (contract_root / "tests").mkdir()
+    (contract_root / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+    (root / "tests" / "integration").mkdir(parents=True)
+
+
+def test_checker_accepts_final_service_owned_layout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checker = _checker_module()
+    _write_final_layout(tmp_path)
+    monkeypatch.setattr(checker, "REPO_ROOT", tmp_path)
+
+    checker._validate_final_layout()
+
+
+@pytest.mark.parametrize(
+    "legacy_path",
+    ("src/fdai", "service-contracts", "services/Dockerfile"),
+)
+def test_checker_rejects_retired_compatibility_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    legacy_path: str,
+) -> None:
+    checker = _checker_module()
+    _write_final_layout(tmp_path)
+    path = tmp_path / legacy_path
+    if path.suffix:
+        path.write_text("legacy\n", encoding="utf-8")
+    else:
+        path.mkdir(parents=True)
+    monkeypatch.setattr(checker, "REPO_ROOT", tmp_path)
+
+    with pytest.raises(ValueError, match="retired compatibility path"):
+        checker._validate_final_layout()
+
+
+def test_checker_rejects_service_missing_owned_build_input(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checker = _checker_module()
+    _write_final_layout(tmp_path)
+    (tmp_path / "services" / "operator-service" / "docker" / "Dockerfile").unlink()
+    monkeypatch.setattr(checker, "REPO_ROOT", tmp_path)
+
+    with pytest.raises(ValueError, match="service-owned Dockerfile"):
+        checker._validate_final_layout()
+
+
+def test_checker_rejects_non_integration_root_test(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checker = _checker_module()
+    _write_final_layout(tmp_path)
+    (tmp_path / "tests" / "unit").mkdir()
+    monkeypatch.setattr(checker, "REPO_ROOT", tmp_path)
+
+    with pytest.raises(ValueError, match="integration tests only"):
+        checker._validate_final_layout()
+
+
+def test_checker_counts_cross_service_implementation_import(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checker = _checker_module()
+    _write_final_layout(tmp_path)
+    source = (
+        tmp_path
+        / "services"
+        / "operator-service"
+        / "src"
+        / "fdai_operator_service"
+        / "application.py"
+    )
+    source.parent.mkdir()
+    source.write_text("import fdai\n", encoding="utf-8")
+    monkeypatch.setattr(checker, "REPO_ROOT", tmp_path)
+
+    assert checker._count_service_forbidden_imports() == 1
 
 
 def test_checker_rejects_entrypoint_outside_distribution_scripts(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     checker = _checker_module()
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     manifest["services"][0]["entrypoint"] = "python -m fdai"
     monkeypatch.setattr(checker, "_load_manifest", lambda: manifest)
+    monkeypatch.setattr(checker, "_validate_final_layout", lambda: None)
 
     try:
         checker.validate()

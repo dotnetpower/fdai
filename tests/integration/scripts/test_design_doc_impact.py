@@ -44,6 +44,23 @@ def test_behavior_change_requires_route_owned_doc() -> None:
     ]
 
 
+def test_final_operator_path_requires_logical_route_doc() -> None:
+    module = _load_module()
+
+    failures = module.missing_doc_updates(
+        {"services/operator-service/src/fdai_operator_service/dev/factory.py"},
+        _manifest(),
+    )
+
+    assert failures == [
+        (
+            "local",
+            ("services/operator-service/src/fdai_operator_service/dev/factory.py",),
+            ("docs/parity.md", "docs/rbac.md"),
+        )
+    ]
+
+
 def test_one_owning_doc_satisfies_route() -> None:
     module = _load_module()
 

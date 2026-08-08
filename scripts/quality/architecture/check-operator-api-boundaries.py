@@ -19,6 +19,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 _DEFAULT_SCAN_ROOTS = (
+    "services/core-control-plane/src",
+    "services/operator-service/src",
+    "services/document-ingestion-api/src",
+    "services/document-processing-worker/src",
+    "services/isolated-executor/src",
+)
+_LEGACY_SCAN_ROOTS = (
     "src/fdai/core",
     "src/fdai/runtime",
     "src/fdai/delivery/auth",
@@ -28,12 +35,27 @@ _DEFAULT_SCAN_ROOTS = (
     "src/fdai/delivery/operator_api",
 )
 _COMPOSITION_ROOTS = (
+    "services/core-control-plane/src/fdai/runtime/bootstrap.py",
+    "services/operator-service/src/fdai_operator_service/composition.py",
+    "services/document-ingestion-api/src/fdai_ingestion_api_service/composition.py",
+    "services/document-processing-worker/src/fdai_document_worker_service/composition.py",
+    "services/isolated-executor/src/fdai_executor_service/composition.py",
     "src/fdai/delivery/operator_api/production/factory.py",
     "src/fdai/delivery/operator_api/dev/factory.py",
     "src/fdai/runtime/bootstrap.py",
 )
 _DEFAULT_ALLOWLIST = "scripts/quality/architecture/.check-operator-api-boundaries.allowlist"
 _DEFAULT_DEBT_BUDGET = "scripts/quality/architecture/.check-operator-api-boundaries.debt"
+_SERVICE_MODULES = {
+    "services/core-control-plane/": ("fdai", "fdai_core_service"),
+    "services/operator-service/": ("fdai_operator_service",),
+    "services/document-ingestion-api/": ("fdai_ingestion_api_service",),
+    "services/document-processing-worker/": ("fdai_document_worker_service",),
+    "services/isolated-executor/": ("fdai_executor_service",),
+}
+_IMPLEMENTATION_MODULES = tuple(
+    module for modules in _SERVICE_MODULES.values() for module in modules
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -212,6 +234,20 @@ def _classify(ref: ImportRef) -> Finding | None:
             ref,
             "dynamic import targets must be static string literals for dependency review",
         )
+    owner_modules = next(
+        (modules for prefix, modules in _SERVICE_MODULES.items() if path.startswith(prefix)),
+        None,
+    )
+    if owner_modules is not None and any(
+        _module_is(module, candidate)
+        for candidate in _IMPLEMENTATION_MODULES
+        if candidate not in owner_modules
+    ):
+        return Finding(
+            "cross-service-implementation-import",
+            ref,
+            "services may import shared contracts but not another service implementation",
+        )
     if path.startswith("src/fdai/core/") and _module_is(module, "fdai.delivery"):
         return Finding(
             "core-to-delivery",
@@ -382,7 +418,12 @@ def _load_allowlist(path: Path) -> tuple[AllowEntry, ...]:
 
 
 def _source_files(root: Path, selectors: tuple[str, ...]) -> tuple[Path, ...]:
-    candidates = selectors or _DEFAULT_SCAN_ROOTS
+    default_roots = (
+        _DEFAULT_SCAN_ROOTS
+        if any((root / relative).exists() for relative in _DEFAULT_SCAN_ROOTS)
+        else _LEGACY_SCAN_ROOTS
+    )
+    candidates = selectors or default_roots
     files: set[Path] = set()
     for relative in candidates:
         target = root / relative
@@ -518,10 +559,17 @@ def _dynamic_import_target(node: ast.Call, target: ast.expr | None) -> str:
 
 
 def _module_exists(root: Path, module: str) -> bool:
-    relative = Path("src", *module.split("."))
-    return (root / relative).with_suffix(".py").is_file() or (
-        root / relative / "__init__.py"
-    ).is_file()
+    relative = Path(*module.split("."))
+    source_roots = [
+        *root.glob("services/*/src"),
+        *root.glob("packages/*/src"),
+        root / "src",
+    ]
+    return any(
+        (source_root / relative).with_suffix(".py").is_file()
+        or (source_root / relative / "__init__.py").is_file()
+        for source_root in source_roots
+    )
 
 
 def _load_debt_budgets(path: Path) -> tuple[DebtBudget, ...]:

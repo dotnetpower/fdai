@@ -72,26 +72,43 @@ add_test() {
     fi
 }
 
+add_all_tests() {
+    local found=0
+    local path
+    for path in services/*/tests packages/*/tests tests/integration; do
+        [[ -e "$path" ]] || continue
+        add_test "$path"
+        found=1
+    done
+    if [[ $found -eq 0 ]]; then
+        add_test "tests"
+    fi
+}
+
 while IFS= read -r file; do
     [[ -z "$file" ]] && continue
 
     # These inputs can affect collection or every Python test. Selecting the
     # full suite is cheaper than silently missing a cross-cutting regression.
     case "$file" in
-        config/service-decomposition.json)
-            add_test "tests/scripts"
+        config/service-decomposition.json|config/independent-services.json)
+            if [[ -d tests/integration/scripts ]]; then
+                add_test "tests/integration/scripts"
+            else
+                add_test "tests/scripts"
+            fi
             continue
             ;;
         .github/workflows/ci.yml|Dockerfile|Makefile|alembic.ini|pyproject.toml|uv.lock|tests/conftest.py)
-            add_test "tests"
+            add_all_tests
             continue
             ;;
         alembic/*|config/*|policies/*|rule-catalog/*)
-            add_test "tests"
+            add_all_tests
             continue
             ;;
-        src/fdai/composition/*|src/fdai/rule_catalog/*|src/fdai/shared/contracts/*|src/fdai/shared/providers/*)
-            add_test "tests"
+        packages/service-contracts/*|src/fdai/composition/*|src/fdai/rule_catalog/*|src/fdai/shared/contracts/*|src/fdai/shared/providers/*)
+            add_all_tests
             continue
             ;;
         extensions/code-assurance/*)
@@ -100,21 +117,21 @@ while IFS= read -r file; do
             ;;
     esac
 
-    if [[ ("$file" == tests/* || "$file" == src/*) && "$file" != *.py ]]; then
-        add_test "tests"
+    if [[ ("$file" == tests/* || "$file" == services/*/src/* || "$file" == services/*/tests/* || "$file" == packages/*/src/* || "$file" == packages/*/tests/* || "$file" == src/*) && "$file" != *.py ]]; then
+        add_all_tests
         continue
     fi
 
     if [[ "$file" == *.py ]]; then
         case "$file" in
-            src/fdai/*|delivery/*|scripts/*|tools/*)
+            services/*/src/*|packages/*/src/*|src/fdai/*|delivery/*|scripts/*|tools/*)
                 python_sources+=("$file")
                 ;;
         esac
     fi
 
     # Test file changed directly - include it as-is.
-    if [[ "$file" == tests/*.py ]]; then
+    if [[ "$file" == tests/integration/*.py || "$file" == services/*/tests/*.py || "$file" == packages/*/tests/*.py || "$file" == tests/*.py ]]; then
         add_test "$file"
         continue
     fi
@@ -123,7 +140,11 @@ while IFS= read -r file; do
     # files themselves are not Python modules.
     case "$file" in
         scripts/*.py|scripts/*.sh|scripts/lib/*|scripts/quality/*.txt|scripts/quality/*.allowlist)
-            add_test "tests/scripts"
+            if [[ -d tests/integration/scripts ]]; then
+                add_test "tests/integration/scripts"
+            else
+                add_test "tests/scripts"
+            fi
             continue
             ;;
         tools/*.py)
@@ -133,6 +154,17 @@ while IFS= read -r file; do
     esac
 
     [[ "$file" == *.py ]] || continue
+
+    if [[ "$file" == services/*/src/* ]]; then
+        service_root="${file%%/src/*}"
+        add_test "$service_root/tests"
+        continue
+    fi
+
+    if [[ "$file" == packages/*/src/* ]]; then
+        add_all_tests
+        continue
+    fi
 
     # Developer-facing gateway packages live at the repository root instead
     # of under src/fdai, but retain the same mirrored delivery test layout.
@@ -187,7 +219,7 @@ while IFS= read -r file; do
     # A Python change that reaches this point belongs to an unrecognized
     # source layout. Fail safe to the full suite instead of reporting success
     # with no tests selected.
-    add_test "tests"
+    add_all_tests
 done <<< "$changed"
 
 if [[ ${#python_sources[@]} -gt 0 && -z "${seen[tests]:-}" ]]; then
@@ -279,7 +311,20 @@ if [[ $run_pytest -eq 1 ]]; then
             --dist=worksteal
         )
     fi
-    pytest_pythonpath="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}"
+    pytest_roots=()
+    if [[ -d "$repo_root/packages/service-contracts/src" ]]; then
+        pytest_roots+=("$repo_root/packages/service-contracts/src")
+    fi
+    for source_root in "$repo_root"/services/*/src; do
+        [[ -d "$source_root" ]] && pytest_roots+=("$source_root")
+    done
+    if [[ ${#pytest_roots[@]} -eq 0 ]]; then
+        pytest_roots+=("$repo_root/src")
+    fi
+    pytest_pythonpath=$(IFS=:; printf '%s' "${pytest_roots[*]}")
+    if [[ -n "${PYTHONPATH:-}" ]]; then
+        pytest_pythonpath="$pytest_pythonpath:$PYTHONPATH"
+    fi
     clean_pytest_env=(
         env
         -u RUNTIME_ENV

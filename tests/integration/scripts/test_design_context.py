@@ -33,6 +33,17 @@ def test_required_context_composes_every_matching_route() -> None:
     assert "docs/roadmap/interfaces/operator-console.md" in required
 
 
+def test_final_operator_path_reuses_logical_design_routes() -> None:
+    module = _load_module()
+
+    required = module.required_context(
+        ("services/operator-service/src/fdai_operator_service/application.py",)
+    )
+
+    assert ".github/instructions/app-shape.instructions.md" in required
+    assert "docs/roadmap/interfaces/operator-console-module-map.md" in required
+
+
 def test_constitutional_surface_requires_canonical_context() -> None:
     module = _load_module()
 
@@ -169,6 +180,8 @@ def test_pre_tool_use_allows_focused_verify_path() -> None:
     "command",
     [
         "uv run pytest -q --no-cov tests/scripts/test_design_context.py",
+        "uv run pytest -q --no-cov services/operator-service/tests",
+        "uv run pytest -q --no-cov packages/service-contracts/tests",
         "uv run mypy scripts/agent/design_context.py",
         "make test-changed DIFF=HEAD^..HEAD",
     ],

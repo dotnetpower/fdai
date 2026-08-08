@@ -71,6 +71,54 @@ def test_clean_dependency_directions_pass(tmp_path: Path) -> None:
     assert "check-operator-api-boundaries: OK" in result.stdout
 
 
+def test_final_service_roots_are_scanned_by_default(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "services/operator-service/src/fdai_operator_service/application.py",
+        "from fdai_service_contracts import ContractVersion\n",
+    )
+    _write(
+        tmp_path,
+        "services/isolated-executor/src/fdai_executor_service/runtime.py",
+        "from fdai_service_contracts import ContractVersion\n",
+    )
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0, result.stdout
+    assert "check-operator-api-boundaries: OK" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("relative", "source"),
+    (
+        (
+            "services/operator-service/src/fdai_operator_service/application.py",
+            "from fdai.core.audit import AuditEntry\n",
+        ),
+        (
+            "services/document-ingestion-api/src/fdai_ingestion_api_service/application.py",
+            "from fdai_document_worker_service.runtime import run\n",
+        ),
+        (
+            "services/isolated-executor/src/fdai_executor_service/runtime.py",
+            "from fdai_operator_service.application import app\n",
+        ),
+    ),
+)
+def test_final_service_cross_implementation_import_fails(
+    tmp_path: Path,
+    relative: str,
+    source: str,
+) -> None:
+    _write(tmp_path, relative, source)
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "[cross-service-implementation-import]" in result.stdout
+
+
 @pytest.mark.parametrize(
     ("relative", "source", "rule"),
     (

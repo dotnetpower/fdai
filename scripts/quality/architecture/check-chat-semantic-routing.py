@@ -9,28 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 DECK = ROOT / "console" / "src" / "deck"
-ROUTES = ROOT / "src" / "fdai" / "delivery" / "operator_api" / "routes"
-EVIDENCE = (
-    ROOT
-    / "src"
-    / "fdai"
-    / "delivery"
-    / "operator_api"
-    / "application"
-    / "conversation"
-    / "evidence"
-)
-
-LEGACY_REGEX_PATHS = frozenset(
-    {
-        "src/fdai/delivery/operator_api/application/conversation/evidence/enrichment.py",
-        "src/fdai/delivery/operator_api/application/conversation/evidence/operational.py",
-        "src/fdai.delivery.operator_api.application.conversation.capabilities.behavior_evidence.py",
-        "src/fdai.delivery.operator_api.application.conversation.capabilities.data_sources.py",
-        "src/fdai.delivery.operator_api.application.conversation.prompt.py",
-        "src/fdai.delivery.operator_api.application.conversation.prompt_ontology.py",
-    }
-)
+OPERATOR_SOURCE = ROOT / "services" / "operator-service" / "src"
 SEMANTIC_REGEX = re.compile(
     r"^_[A-Z0-9_]*(?:INTENT|TERMS|MARKERS|VERBS)[A-Z0-9_]*.*=\s*re\.compile",
     re.MULTILINE,
@@ -50,11 +29,8 @@ def violations() -> list[str]:
                 f"client submit path contains forbidden natural-language branch: {token}"
             )
 
-    candidates = (*ROUTES.glob("chat*.py"), *EVIDENCE.glob("*.py"))
-    for path in sorted(candidates):
+    for path in sorted(OPERATOR_SOURCE.rglob("*.py")):
         relative = path.relative_to(ROOT).as_posix()
-        if relative in LEGACY_REGEX_PATHS:
-            continue
         if SEMANTIC_REGEX.search(path.read_text(encoding="utf-8")):
             failures.append(f"new chat intent regex module is not allowed: {relative}")
     return failures

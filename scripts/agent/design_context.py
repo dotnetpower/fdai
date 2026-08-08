@@ -144,12 +144,42 @@ def _matches(path: str, pattern: str) -> bool:
     return pattern == "**" or fnmatch.fnmatchcase(path, pattern)
 
 
+def _route_paths(path: str) -> tuple[str, ...]:
+    aliases = {
+        "services/core-control-plane/src/fdai/": "src/fdai/",
+        "services/core-control-plane/tests/": "tests/",
+        "services/operator-service/src/fdai_operator_service/": ("src/fdai/delivery/operator_api/"),
+        "services/operator-service/tests/": "tests/delivery/operator_api/",
+        "services/document-ingestion-api/src/fdai_ingestion_api_service/": (
+            "src/fdai/delivery/ingestion_gateway/"
+        ),
+        "services/document-ingestion-api/tests/": "tests/delivery/ingestion_gateway/",
+        "services/document-processing-worker/src/fdai_document_worker_service/": (
+            "src/fdai/delivery/ingestion_gateway/"
+        ),
+        "services/document-processing-worker/tests/": "tests/delivery/ingestion_gateway/",
+        "services/isolated-executor/src/fdai_executor_service/": "src/fdai/runtime/",
+        "services/isolated-executor/tests/": "tests/runtime/",
+        "packages/service-contracts/src/fdai_service_contracts/": "src/fdai/shared/contracts/",
+        "packages/service-contracts/tests/": "tests/shared/contracts/",
+    }
+    for prefix, replacement in aliases.items():
+        if path.startswith(prefix):
+            return path, replacement + path.removeprefix(prefix)
+    return (path,)
+
+
 def required_context(targets: tuple[str, ...]) -> tuple[str, ...]:
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     required: set[str] = set()
     for route in manifest["routes"]:
         patterns = tuple(route.get("paths", ())) + tuple(route.get("optional_paths", ()))
-        if any(_matches(target, pattern) for target in targets for pattern in patterns):
+        if any(
+            _matches(candidate, pattern)
+            for target in targets
+            for candidate in _route_paths(target)
+            for pattern in patterns
+        ):
             required.update(str(path) for path in route["must_read"])
     return tuple(sorted(required))
 
@@ -197,6 +227,8 @@ def _has_focused_path(arguments: list[str]) -> bool:
     path_markers = (
         "tests",
         "src",
+        "services",
+        "packages",
         "scripts",
         "tools",
         "console",

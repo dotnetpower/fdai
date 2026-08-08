@@ -11,6 +11,13 @@ from scripts.quality.ci.resolve_test_scope import _PYTHON_FILES
 
 _ROOT = Path(__file__).resolve().parents[3]
 _SELECTOR = _ROOT / "scripts" / "automation" / "tests-for-diff.sh"
+_SERVICE_IDS = (
+    "core-control-plane",
+    "operator-service",
+    "document-ingestion-api",
+    "document-processing-worker",
+    "isolated-executor",
+)
 
 
 def _run(
@@ -56,6 +63,88 @@ def git_repo(tmp_path: Path) -> Path:
     assert _run(tmp_path, "git", "add", ".").returncode == 0
     assert _run(tmp_path, "git", "commit", "--quiet", "-m", "test fixture").returncode == 0
     return tmp_path
+
+
+def _commit_final_test_layout(repo: Path) -> None:
+    for service_id in _SERVICE_IDS:
+        test_root = repo / "services" / service_id / "tests"
+        test_root.mkdir(parents=True)
+        (test_root / ".keep").write_text("\n", encoding="utf-8")
+    contract_tests = repo / "packages" / "service-contracts" / "tests"
+    contract_tests.mkdir(parents=True)
+    (contract_tests / ".keep").write_text("\n", encoding="utf-8")
+    integration = repo / "tests" / "integration"
+    integration.mkdir()
+    (integration / ".keep").write_text("\n", encoding="utf-8")
+    assert _run(repo, "git", "add", ".").returncode == 0
+    assert _run(repo, "git", "commit", "--quiet", "-m", "add final test layout").returncode == 0
+
+
+def test_selects_service_owned_and_integration_consumers(git_repo: Path) -> None:
+    _commit_final_test_layout(git_repo)
+    consumer = git_repo / "tests" / "integration" / "test_risk_consumer.py"
+    consumer.write_text("from fdai.core.risk_gate import new_rule\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", ".").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "add consumer").returncode == 0
+    source = (
+        git_repo
+        / "services"
+        / "core-control-plane"
+        / "src"
+        / "fdai"
+        / "core"
+        / "risk_gate"
+        / "new_rule.py"
+    )
+    source.parent.mkdir(parents=True)
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "services/core-control-plane/tests",
+        "tests/integration/test_risk_consumer.py",
+    ]
+
+
+def test_contract_package_change_selects_every_owned_test_root(git_repo: Path) -> None:
+    _commit_final_test_layout(git_repo)
+    source = (
+        git_repo / "packages" / "service-contracts" / "src" / "fdai_service_contracts" / "models.py"
+    )
+    source.parent.mkdir(parents=True)
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "packages/service-contracts/tests",
+        "services/core-control-plane/tests",
+        "services/document-ingestion-api/tests",
+        "services/document-processing-worker/tests",
+        "services/isolated-executor/tests",
+        "services/operator-service/tests",
+        "tests/integration",
+    ]
+
+
+def test_script_change_selects_moved_integration_script_tests(git_repo: Path) -> None:
+    _commit_final_test_layout(git_repo)
+    script_tests = git_repo / "tests" / "integration" / "scripts"
+    script_tests.mkdir()
+    (script_tests / ".keep").write_text("\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", ".").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "add script tests").returncode == 0
+    script = git_repo / "scripts" / "automation" / "helper.sh"
+    script.parent.mkdir(parents=True)
+    script.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["tests/integration/scripts"]
 
 
 def test_selects_tests_for_untracked_python_source(git_repo: Path) -> None:
