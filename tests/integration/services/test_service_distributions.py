@@ -170,6 +170,15 @@ def test_five_service_distributions_have_owned_entrypoints() -> None:
     assert len(scripts) == 5
 
 
+def test_service_modules_force_the_declared_postgres_role() -> None:
+    for service_id in EXPECTED:
+        module = (
+            REPO_ROOT / "infra" / "services" / service_id / "modules" / service_id / "main.tf"
+        ).read_text(encoding="utf-8")
+        assert '{ name = "FDAI_DATABASE_ROLE", value = var.database.role }' in module
+        assert '{ name = "PGOPTIONS", value = "-c role=${var.database.role}" }' in module
+
+
 def test_service_distributions_declare_only_owned_runtime_dependencies() -> None:
     for service_id, expected in EXPECTED_DEPENDENCIES.items():
         project = tomllib.loads((SERVICE_ROOT / service_id / "pyproject.toml").read_text())

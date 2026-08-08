@@ -35,6 +35,7 @@ module "container_app" {
   environment = [
     { name = "FDAI_DATABASE_URL", secret_name = "database-dsn" },
     { name = "FDAI_DATABASE_ROLE", value = var.database.role },
+    { name = "PGOPTIONS", value = "-c role=${var.database.role}" },
     { name = "FDAI_INGESTION_DEPLOYMENT_ROLE", value = "worker" },
     { name = "RUNTIME_ENV", value = var.runtime_env },
     { name = "FDAI_MI_CLIENT_ID", value = var.identity.client_id },

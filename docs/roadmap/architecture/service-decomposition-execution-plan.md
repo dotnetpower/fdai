@@ -283,6 +283,7 @@ state. For each transition:
 | 2026-08-09 | IS-09 | Worker cutover recovery | Round 30 | Run `31276433851` failed before mutation because the live legacy ClamAV sidecar had no probes. Initial cutover now snapshots that exact empty probe contract only for rollback and verifies its exact restoration; normal snapshots and every new worker revision still require startup, liveness, and readiness TCP probes. |
 | 2026-08-09 | IS-09 | Runtime dependency and migration readiness | Round 31 | Live revisions exposed missing `aiohttp` in the ingestion API and unapplied Operator/Executor role branches. The ingestion distribution now owns the async Azure transport dependency, and protected service apply resolves a validated Key Vault reference, masks the admin DSN, and advances the exact service-owned migration branch before traffic. |
 | 2026-08-09 | IS-09 | Exact secret rollback | Round 32 | Operator and Executor recovery revisions were healthy, but verification found post-apply `database-dsn` aliases beside legacy names. Rollback now removes only secret names absent from the immutable snapshot, restores prior Key Vault references, and then verifies exact equality. |
+| 2026-08-09 | IS-09 | Enforced database principal | Round 33 | Plans declared `fdai_operator`, `fdai_executor`, and the other service roles while some DSN secrets still authenticated as the admin principal. All five service modules now set PostgreSQL `PGOPTIONS=-c role=<declared role>` so readiness and grants evaluate the intended `current_user`. |
 
 ## Related documents
 

@@ -16,6 +16,7 @@ module "container_app" {
   environment = [
     { name = "FDAI_STATE_STORE_DSN", secret_name = "database-dsn" },
     { name = "FDAI_DATABASE_ROLE", value = var.database.role },
+    { name = "PGOPTIONS", value = "-c role=${var.database.role}" },
     { name = "RUNTIME_ENV", value = var.runtime_env },
     { name = "AZURE_TENANT_ID", value = var.bootstrap.azure_tenant_id },
     { name = "AZURE_SUBSCRIPTION_ID", value = var.bootstrap.azure_subscription_id },

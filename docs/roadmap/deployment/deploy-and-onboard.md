@@ -396,7 +396,7 @@ ingestion CORS origins. Terraform then provisions:
 - a manual migration job that applies the document metadata and pgvector schema before traffic.
 
 The `deploy-dev` workflow exposes `deploy_document_ingestion`. Plan remains the default.
-An apply runs the migration job; independent service apply masks the Key Vault admin DSN and advances its service-owned branch before traffic.
+An apply runs the migration job; independent service apply masks the Key Vault admin DSN, advances its branch, and forces the declared role through PostgreSQL `PGOPTIONS` before traffic.
 It verifies both revisions and publishes `ingestion_gateway_fqdn`; build with `VITE_INGESTION_API_BASE_URL=https://<fqdn>`. Production gates require private networking and
 digest-pinned FDAI plus ClamAV images.
 

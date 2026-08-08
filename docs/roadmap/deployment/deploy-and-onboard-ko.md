@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 7d175537f37918cb206dac4f54667cf3a479ce3f
+translation_source_sha: c2d0063269e9c528a1cb70e0dfd0d8fceb07190e
 translation_revised: 2026-08-09
 ---
 
@@ -398,8 +398,8 @@ Terraform은 다음 항목을 프로비저닝합니다.
 - Traffic 전에 document metadata와 pgvector schema를 적용하는 manual migration job
 
 `deploy-dev` workflow는 `deploy_document_ingestion` input을 제공합니다. 기본 동작은 plan이며,
-apply는 migration job을 실행합니다. 독립 service apply도 Key Vault admin DSN을 mask하고 traffic 전에
-service-owned branch를 적용합니다. 두 revision을 검증한 뒤 `ingestion_gateway_fqdn`을 출력합니다. Console은
+apply는 migration job을 실행합니다. 독립 service apply도 Key Vault admin DSN을 mask하고 branch를 적용하며
+traffic 전에 PostgreSQL `PGOPTIONS`로 declared role을 강제합니다. 두 revision을 검증한 뒤 `ingestion_gateway_fqdn`을 출력합니다. Console은
 `VITE_INGESTION_API_BASE_URL=https://<fqdn>`으로 build합니다. Production gate는 private
 networking과 digest-pinned FDAI 및 ClamAV image를 요구합니다.
 
