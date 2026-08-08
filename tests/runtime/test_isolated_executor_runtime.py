@@ -158,7 +158,7 @@ async def test_consumer_dead_letters_immutable_poison_records(
     dead_letters = await _records(bus, f"{EXECUTOR_COMMAND_TOPIC}.dlq")
     assert receipt is None
     assert dead_letters[0].payload["reason"] == reason
-    assert await store.read_states("isolated_executor_attempt:", limit=10) == ()
+    assert await store.read_states("isolated-executor:attempt:", limit=10) == ()
 
 
 class _FailOnceReceiptBus(InMemoryEventBus):
@@ -199,7 +199,7 @@ async def test_receipt_publish_retry_does_not_change_durable_command_result(
     published = await _records(bus, EXECUTOR_RECEIPT_TOPIC)
     assert receipt is not None and len(published) == 1
     assert published[0].payload["receipt_id"] == str(receipt.receipt_id)
-    assert len(await store.read_states("isolated_executor_attempt:", limit=10)) == 1
+    assert len(await store.read_states("isolated-executor:attempt:", limit=10)) == 1
 
 
 class _ConsumerLoop:

@@ -219,7 +219,7 @@ async def test_executor_receipt_is_committed_to_outbox_before_publication(
 
     inserts = [call for call in connection.calls if "INSERT INTO" in call[0]]
     assert len(inserts) == 2
-    assert inserts[0][1][0] == f"isolated_executor_receipt:{receipt_id}"
+    assert inserts[0][1][0] == f"isolated-executor:receipt:{receipt_id}"
     assert inserts[1][1][0] == receipt_id
     assert inserts[1][1][1] == "resource:one"
     assert connection.transaction_entries == 1

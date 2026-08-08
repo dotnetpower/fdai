@@ -35,8 +35,10 @@ from fdai_service_contracts.schema import ContractValidator
 
 from fdai_executor_service.ports import ExecutorStateStore
 
-_ATTEMPT_PREFIX = "isolated_executor_attempt:"
-_DELIVERY_PREFIX = "isolated_executor_delivery:"
+_ATTEMPT_PREFIX = "isolated-executor:attempt:"
+_DELIVERY_PREFIX = "isolated-executor:delivery:"
+_LEGACY_ATTEMPT_PREFIX = "isolated_executor_attempt:"
+_LEGACY_DELIVERY_PREFIX = "isolated_executor_delivery:"
 
 
 class ExecutorCommandConflictError(RuntimeError):
@@ -202,7 +204,12 @@ class IsolatedExecutorShadowService:
             raise ValueError("isolated Executor clock MUST be timezone-aware")
 
         attempt_key = _attempt_key(command.idempotency_key)
-        existing = await self._state_store.read_state(attempt_key)
+        legacy_attempt_key = _legacy_attempt_key(command.idempotency_key)
+        existing = await _read_compatible_state(
+            self._state_store,
+            attempt_key,
+            legacy_attempt_key,
+        )
         if existing is not None:
             return await self._resolve_existing(command, existing, now=now)
 
@@ -215,7 +222,11 @@ class IsolatedExecutorShadowService:
         )
         if created:
             return receipt
-        winner = await self._state_store.read_state(attempt_key)
+        winner = await _read_compatible_state(
+            self._state_store,
+            attempt_key,
+            legacy_attempt_key,
+        )
         if winner is None:
             raise RuntimeError("isolated Executor attempt disappeared after atomic claim")
         return await self._resolve_existing(command, winner, now=now)
@@ -254,6 +265,15 @@ class IsolatedExecutorShadowService:
     ) -> ExecutorShadowReceipt:
         receipt = self._receipt(command, status=status, reason=reason, now=now)
         key = _delivery_key(command.idempotency_key, str(command.command_id))
+        legacy_key = _legacy_delivery_key(command.idempotency_key, str(command.command_id))
+        existing = await _read_compatible_state(self._state_store, key, legacy_key)
+        if existing is not None:
+            stored_command, stored_receipt = _decode_state_record(existing)
+            if stored_command != command:
+                raise ExecutorCommandConflictError(
+                    "Executor command id is bound to another immutable envelope"
+                )
+            return stored_receipt
         created = await self._state_store.write_state_with_audit_if_absent(
             key,
             _state_record(command, receipt),
@@ -261,7 +281,7 @@ class IsolatedExecutorShadowService:
         )
         if created:
             return receipt
-        existing = await self._state_store.read_state(key)
+        existing = await _read_compatible_state(self._state_store, key, legacy_key)
         if existing is None:
             raise RuntimeError("isolated Executor delivery disappeared after atomic claim")
         stored_command, stored_receipt = _decode_state_record(existing)
@@ -376,9 +396,29 @@ def _attempt_key(idempotency_key: str) -> str:
     return _ATTEMPT_PREFIX + hashlib.sha256(idempotency_key.encode()).hexdigest()
 
 
+def _legacy_attempt_key(idempotency_key: str) -> str:
+    return _LEGACY_ATTEMPT_PREFIX + hashlib.sha256(idempotency_key.encode()).hexdigest()
+
+
 def _delivery_key(idempotency_key: str, command_id: str) -> str:
     identity = f"{idempotency_key}\x00{command_id}".encode()
     return _DELIVERY_PREFIX + hashlib.sha256(identity).hexdigest()
+
+
+def _legacy_delivery_key(idempotency_key: str, command_id: str) -> str:
+    identity = f"{idempotency_key}\x00{command_id}".encode()
+    return _LEGACY_DELIVERY_PREFIX + hashlib.sha256(identity).hexdigest()
+
+
+async def _read_compatible_state(
+    state_store: ExecutorStateStore,
+    canonical_key: str,
+    legacy_key: str,
+) -> Mapping[str, Any] | None:
+    current = await state_store.read_state(canonical_key)
+    if current is not None:
+        return current
+    return await state_store.read_state(legacy_key)
 
 
 def _bounded_optional(value: object) -> str | None:

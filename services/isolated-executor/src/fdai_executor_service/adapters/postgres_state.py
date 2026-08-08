@@ -169,7 +169,7 @@ class PostgresStateStore:
             await connection.execute(
                 "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
                 "ON CONFLICT (key) DO NOTHING",
-                (f"isolated_executor_receipt:{receipt_id}", _canonical(payload)),
+                (f"isolated-executor:receipt:{receipt_id}", _canonical(payload)),
             )
             await connection.execute(
                 "INSERT INTO executor_receipt_outbox (receipt_id, partition_key, payload) "

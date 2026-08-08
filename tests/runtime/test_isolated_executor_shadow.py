@@ -2,34 +2,33 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
 import pytest
 from fdai_executor_service.service import IsolatedExecutorShadowService
-
-from fdai.shared.contracts import (
-    ExecutorCommand,
-    ExecutorShadowReceiptStatus,
-)
-from fdai.shared.contracts.models import (
+from fdai_service_contracts.executor import (
     Action,
     ActionStopCondition,
     BlastRadius,
     BlastRadiusScope,
     ExecutionPath,
+    ExecutorCommand,
+    ExecutorShadowReceiptStatus,
     Mode,
     Operation,
     RollbackKind,
     RollbackRef,
     StopConditionKind,
 )
-from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
-from fdai.shared.contracts.validation import (
+from fdai_service_contracts.schema import (
     ContractValidationError,
     JsonSchemaContractValidator,
+    PackageResourceSchemaRegistry,
 )
+
 from fdai.shared.providers.testing import InMemoryStateStore
 
 NOW = datetime(2026, 8, 7, 5, 0, tzinfo=UTC)
@@ -108,7 +107,8 @@ async def test_shadow_command_persists_terminal_no_effect_receipt() -> None:
 
     assert receipt.status is ExecutorShadowReceiptStatus.SHADOWED
     assert receipt.effect_applied is False
-    assert len(await store.read_states("isolated_executor_attempt:", limit=10)) == 1
+    assert len(await store.read_states("isolated-executor:attempt:", limit=10)) == 1
+    assert await store.read_states("isolated_executor_attempt:", limit=10) == ()
 
 
 async def test_exact_replay_and_restart_return_the_same_receipt() -> None:
@@ -119,8 +119,31 @@ async def test_exact_replay_and_restart_return_the_same_receipt() -> None:
     replay = await _service(store, instance="executor-after-restart").handle(command)
 
     assert replay == first
-    assert len(await store.read_states("isolated_executor_attempt:", limit=10)) == 1
-    assert len(await store.read_states("isolated_executor_delivery:", limit=10)) == 0
+    assert len(await store.read_states("isolated-executor:attempt:", limit=10)) == 1
+    assert len(await store.read_states("isolated-executor:delivery:", limit=10)) == 0
+
+
+async def test_legacy_attempt_and_delivery_records_remain_replayable() -> None:
+    command = _command(command_id=92, attempt=2)
+    reordered = _command(command_id=93, attempt=1)
+    seed_store = InMemoryStateStore()
+    seed_service = _service(seed_store)
+    await seed_service.handle(command)
+    expected = await seed_service.handle(reordered)
+    digest = hashlib.sha256(command.idempotency_key.encode()).hexdigest()
+    delivery_identity = f"{reordered.idempotency_key}\x00{reordered.command_id}".encode()
+    delivery_digest = hashlib.sha256(delivery_identity).hexdigest()
+    attempt_record = await seed_store.read_state(f"isolated-executor:attempt:{digest}")
+    delivery_record = await seed_store.read_state(f"isolated-executor:delivery:{delivery_digest}")
+    assert attempt_record is not None and delivery_record is not None
+    legacy_store = InMemoryStateStore()
+    await legacy_store.write_state(f"isolated_executor_attempt:{digest}", attempt_record)
+    await legacy_store.write_state(f"isolated_executor_delivery:{delivery_digest}", delivery_record)
+
+    replay = await _service(legacy_store, instance="executor-after-upgrade").handle(reordered)
+
+    assert replay == expected
+    assert await legacy_store.read_states("isolated-executor:", limit=10) == ()
 
 
 async def test_duplicate_and_reordered_attempts_are_durable_no_effect_receipts() -> None:
@@ -180,7 +203,7 @@ async def test_invalid_inner_action_is_rejected_before_state_write() -> None:
     with pytest.raises(ContractValidationError):
         await _service(store).handle(invalid)
 
-    assert await store.read_states("isolated_executor_attempt:", limit=10) == ()
+    assert await store.read_states("isolated-executor:attempt:", limit=10) == ()
 
 
 async def test_concurrent_duplicate_claims_converge_on_one_receipt() -> None:
@@ -193,4 +216,4 @@ async def test_concurrent_duplicate_claims_converge_on_one_receipt() -> None:
     first, second = await asyncio.gather(service.handle(command), service.handle(command))
 
     assert first == second
-    assert len(await store.read_states("isolated_executor_attempt:", limit=10)) == 1
+    assert len(await store.read_states("isolated-executor:attempt:", limit=10)) == 1
