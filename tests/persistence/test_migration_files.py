@@ -74,6 +74,18 @@ def test_materialized_operator_memory_proposal_has_foreign_key() -> None:
     assert "VALIDATE CONSTRAINT" in migration
 
 
+def test_ontology_direction_migration_invalidates_rebuildable_current_graph() -> None:
+    migration = (MIGRATIONS_DIR / "20260808_0078_ontology_link_direction.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'down_revision: str | None = "20260806_0077"' in migration
+    assert "DELETE FROM ontology_link\n        WHERE link_type = 'contains'" in migration
+    assert "source.properties ->> 'type' = 'compute.vm'" in migration
+    assert "SET type_version = NULL, catalog_digest = NULL" in migration
+    assert "cardinality = 'one_to_many'" in migration
+
+
 @pytest.mark.parametrize("path", MIGRATION_FILES)
 def test_migration_uses_raw_sql_only(path: Path) -> None:
     """Migrations MUST NOT import SQLAlchemy ORM types (Column, Table, MetaData)."""
