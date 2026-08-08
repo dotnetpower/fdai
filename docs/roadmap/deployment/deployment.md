@@ -147,7 +147,7 @@ flowchart TD
 - **CI identity**: the pipeline authenticates with a **short-lived, OIDC-federated** identity
   (no long-lived cloud keys in CI). Secrets are pulled from the secret store at runtime and
   are **never** written to logs or build artifacts (secret scanning gates the merge).
-- **Supply chain**: `.github/workflows/container-supply-chain.yml` builds the Dockerfile,
+- **Supply chain**: `.github/workflows/container-supply-chain.yml` builds each service-owned Dockerfile,
   blocks on HIGH/CRITICAL Trivy findings, emits a CycloneDX **SBOM**, publishes the verified
   image to GHCR on `main`/release, and writes GitHub build-provenance and SBOM attestations.
   The Dockerfile base is pinned by **digest** and runs as uid 65532. Deployment verifies the

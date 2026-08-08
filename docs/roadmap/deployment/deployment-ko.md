@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 348a1f5a0c57ca1661c5985877369ab85c7866cd
+translation_source_sha: 733211d1e7bd7facb57973f5ac49ebb57a385b49
 translation_revised: 2026-08-09
 ---
 
@@ -147,7 +147,7 @@ flowchart TD
 - **CI identity**: 파이프라인은 **단명, OIDC-federated** identity로 인증(장기 클라우드 키 CI에
   없음). 시크릿은 런타임에 secret store에서 pull, 로그·빌드 아티팩트에 **절대 쓰지 않음**
   (secret scanning이 머지를 게이팅).
-- **공급망**: `.github/workflows/container-supply-chain.yml`은 Dockerfile을 build하고
+- **공급망**: `.github/workflows/container-supply-chain.yml`은 각 service-owned Dockerfile을 build하고
   HIGH/CRITICAL Trivy finding을 차단하며 CycloneDX **SBOM**을 생성합니다. `main`/release에서는
   검증된 image를 GHCR에 publish하고 GitHub build-provenance/SBOM attestation을 기록합니다.
   Dockerfile base는 **digest**로 고정되고 uid 65532로 실행됩니다. Deployment는 rollout 전에
