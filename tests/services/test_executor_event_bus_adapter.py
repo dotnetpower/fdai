@@ -16,7 +16,6 @@ from fdai_executor_service.adapters.event_hubs_kafka import (
     _decode,
     _encode,
     _EntraTokenProvider,
-    _iter_consumer,
 )
 from fdai_service_contracts.executor import IdentityToken
 
@@ -173,20 +172,18 @@ async def test_consumer_commits_only_after_caller_resumes(
             self.commits += 1
 
     monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _Consumer)
-    iterator = _iter_consumer(
-        topic="executor.commands",
-        group_id="executor-group",
-        config=_config(),
-        identity=_Identity(),
-        audience="https://events.servicebus.windows.net/.default",
-    )
+    bus = EventHubsKafkaBus(identity=_Identity(), config=_config())
+    iterator = bus.subscribe("executor.commands", "executor-group")
 
+    assert bus.consumer_ready is False
     envelope = await anext(iterator)
     assert envelope.offset == 4
+    assert bus.consumer_ready is True
     assert consumers[0].commits == 0
     with pytest.raises(RuntimeError, match="consumer complete"):
         await anext(iterator)
     assert consumers[0].commits == 1
+    assert bus.consumer_ready is False
 
 
 def test_decode_redacts_invalid_payload_and_encoding_is_deterministic() -> None:

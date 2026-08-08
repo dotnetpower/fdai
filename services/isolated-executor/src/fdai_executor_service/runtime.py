@@ -239,6 +239,7 @@ class IsolatedExecutorSupervisor:
         consumer: IsolatedExecutorConsumerLoop,
         health_port: int,
         startup_checks: tuple[Callable[[], Awaitable[None]], ...] = (),
+        readiness_checks: tuple[Callable[[], bool], ...] = (),
         shutdown_callbacks: tuple[Callable[[], Awaitable[None]], ...] = (),
     ) -> None:
         if not 1 <= health_port <= 65_535:
@@ -246,6 +247,7 @@ class IsolatedExecutorSupervisor:
         self._consumer = consumer
         self._health_port = health_port
         self._startup_checks = startup_checks
+        self._readiness_checks = readiness_checks
         self._shutdown_callbacks = shutdown_callbacks
         self._ready = False
         self._consumer_task: asyncio.Task[None] | None = None
@@ -254,7 +256,12 @@ class IsolatedExecutorSupervisor:
     def ready(self) -> bool:
         """Return true only while the required consumer task is running."""
 
-        return self._ready and self._consumer_task is not None and not self._consumer_task.done()
+        if not (self._ready and self._consumer_task is not None and not self._consumer_task.done()):
+            return False
+        try:
+            return all(check() for check in self._readiness_checks)
+        except Exception:  # noqa: BLE001 - probe callbacks fail closed
+            return False
 
     async def run(self, *, stop: asyncio.Event) -> int:
         """Run until shutdown or required-consumer failure, then drain owners."""

@@ -7,7 +7,7 @@ import hashlib
 import json
 import logging
 import ssl
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, ClassVar, Final
@@ -116,6 +116,13 @@ class EventHubsKafkaBus(EventBus):
         )
         self._producer: AIOKafkaProducer | None = None
         self._producer_lock = asyncio.Lock()
+        self._active_consumers: set[tuple[str, str]] = set()
+
+    @property
+    def consumer_ready(self) -> bool:
+        """Return whether this process currently owns an active consumer."""
+
+        return bool(self._active_consumers)
 
     async def publish(
         self,
@@ -150,6 +157,11 @@ class EventHubsKafkaBus(EventBus):
             config=self._config,
             identity=self._identity,
             audience=self._audience,
+            on_readiness=lambda ready: self._set_consumer_readiness(
+                topic,
+                group_id,
+                ready=ready,
+            ),
         )
 
     async def dead_letter(
@@ -231,6 +243,19 @@ class EventHubsKafkaBus(EventBus):
                 self._producer = None
                 await _stop_after_failure(producer, operation=operation)
 
+    def _set_consumer_readiness(
+        self,
+        topic: str,
+        group_id: str,
+        *,
+        ready: bool,
+    ) -> None:
+        ownership = (topic, group_id)
+        if ready:
+            self._active_consumers.add(ownership)
+        else:
+            self._active_consumers.discard(ownership)
+
 
 async def _iter_consumer(
     *,
@@ -239,6 +264,7 @@ async def _iter_consumer(
     config: EventHubsKafkaBusConfig,
     identity: WorkloadIdentity,
     audience: str,
+    on_readiness: Callable[[bool], None] | None = None,
 ) -> AsyncIterator[EventEnvelope]:
     while True:
         token_provider = _EntraTokenProvider(identity, audience)
@@ -263,6 +289,8 @@ async def _iter_consumer(
         )
         try:
             await consumer.start()
+            if on_readiness is not None:
+                on_readiness(True)
             _LOGGER.info(
                 "event_bus_consumer_started",
                 extra={
@@ -294,6 +322,8 @@ async def _iter_consumer(
                 )
                 await consumer.commit()
         finally:
+            if on_readiness is not None:
+                on_readiness(False)
             await _stop_consumer(consumer)
 
 

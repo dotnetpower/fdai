@@ -281,6 +281,28 @@ async def test_supervisor_fails_closed_when_consumer_stops(
     assert supervisor.ready is False
 
 
+async def test_supervisor_readiness_requires_broker_ownership(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(runtime_module, "RuntimeHealthServer", _Health)
+    consumer = _ConsumerLoop()
+    broker_owned = False
+    supervisor = IsolatedExecutorSupervisor(
+        consumer=consumer,
+        health_port=8000,
+        readiness_checks=(lambda: broker_owned,),
+    )
+    stop = asyncio.Event()
+    task = asyncio.create_task(supervisor.run(stop=stop))
+    await consumer.started.wait()
+
+    assert supervisor.ready is False
+    broker_owned = True
+    assert supervisor.ready is True
+    stop.set()
+    assert await task == 0
+
+
 def test_supervisor_rejects_invalid_health_port() -> None:
     with pytest.raises(ValueError, match="health port"):
         IsolatedExecutorSupervisor(consumer=_ConsumerLoop(), health_port=0)

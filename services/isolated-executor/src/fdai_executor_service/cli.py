@@ -210,6 +210,7 @@ def build_isolated_executor_supervisor(
         consumer=consumer,
         health_port=config.health_port,
         startup_checks=(audit_store.assert_schema, idempotency.assert_schema),
+        readiness_checks=(lambda: event_bus.consumer_ready,),
         shutdown_callbacks=(event_bus.close, http_client.aclose),
     )
 
