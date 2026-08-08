@@ -725,6 +725,47 @@ def test_run_parallelizes_full_suite_fallback(git_repo: Path) -> None:
     assert command.endswith(" " + " ".join(_ALL_TEST_ROOTS))
 
 
+def test_run_combines_included_failure_with_delta_and_external_cache(git_repo: Path) -> None:
+    prior_failure = _integration_test(git_repo, "scripts", "test_prior.py")
+    prior_failure.write_text("def test_prior(): pass\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", ".").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "prior test").returncode == 0
+    changed_test = _integration_test(git_repo, "scripts", "test_changed.py")
+    changed_test.write_text("def test_changed(): pass\n", encoding="utf-8")
+    bin_dir = git_repo / "bin"
+    bin_dir.mkdir()
+    args_file = git_repo / "uv-args.txt"
+    fake_uv = bin_dir / "uv"
+    fake_uv.write_text(
+        '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$UV_ARGS_FILE"\n',
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+    cache_dir = git_repo / "shared-pytest-cache"
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "UV_ARGS_FILE": str(args_file),
+        "FDAI_CHANGED_TEST_CACHE_DIR": str(cache_dir),
+    }
+
+    result = _run(
+        git_repo,
+        "bash",
+        str(_SELECTOR),
+        "--run",
+        "--include-test",
+        "tests/integration/scripts/test_prior.py::test_prior",
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    command = args_file.read_text(encoding="utf-8").splitlines()[0]
+    assert f"-o cache_dir={cache_dir}" in command
+    assert "tests/integration/scripts/test_changed.py" in command
+    assert "tests/integration/scripts/test_prior.py::test_prior" in command
+
+
 def test_run_rejects_invalid_parallel_threshold(git_repo: Path) -> None:
     test_file = _integration_test(git_repo, "scripts", "test_changed.py")
     test_file.write_text("def test_changed(): pass\n", encoding="utf-8")

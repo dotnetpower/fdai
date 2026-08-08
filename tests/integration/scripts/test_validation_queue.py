@@ -15,6 +15,7 @@ pytestmark = pytest.mark.no_cover
 REPO_ROOT = Path(__file__).resolve().parents[3]
 QUEUE_SCRIPT = REPO_ROOT / "scripts" / "automation" / "validation_queue.py"
 QUEUE_CONTEXT = REPO_ROOT / "scripts" / "automation" / "validation_queue_context.py"
+QUEUE_RESUME = REPO_ROOT / "scripts" / "automation" / "validation_queue_resume.py"
 QUEUE_RUNNER = REPO_ROOT / "scripts" / "automation" / "validation_queue_runner.py"
 QUEUE_SUPPORT = REPO_ROOT / "scripts" / "automation" / "validation_queue_support.py"
 POST_COMMIT_HOOK = REPO_ROOT / ".githooks" / "post-commit"
@@ -60,14 +61,20 @@ def git_repo(tmp_path: Path) -> Path:
     )
     (repo / "bin" / "uv").chmod(0o755)
     (repo / "scripts" / "automation").mkdir(parents=True)
-    for source in (QUEUE_SCRIPT, QUEUE_CONTEXT, QUEUE_RUNNER, QUEUE_SUPPORT):
+    for source in (QUEUE_SCRIPT, QUEUE_CONTEXT, QUEUE_RESUME, QUEUE_RUNNER, QUEUE_SUPPORT):
         shutil.copy2(source, repo / "scripts" / "automation" / source.name)
     (repo / "scripts" / "automation" / "tests-for-diff.sh").write_text(
         "#!/usr/bin/env bash\n"
         "test -f resolved-models.json || exit 9\n"
         'case "$UV_PROJECT_ENVIRONMENT" in */fdai-validation-queue/venv) ;; *) exit 10 ;; esac\n'
         'test "$UV_NO_SYNC" = 1 || exit 13\n'
-        'printf "changed:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n',
+        'printf "changed:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n'
+        'if [[ "${FDAI_VALIDATION_CHANGED_TEST_FAIL:-0}" == 1 ]]; then\n'
+        '  mkdir -p "$FDAI_CHANGED_TEST_CACHE_DIR/v/cache"\n'
+        "  printf '{\"tests/test_example.py::test_failure\": true}\\n' > "
+        '"$FDAI_CHANGED_TEST_CACHE_DIR/v/cache/lastfailed"\n'
+        "  exit 1\n"
+        "fi\n",
         encoding="utf-8",
     )
     (repo / "scripts" / "verify.sh").write_text(
@@ -83,6 +90,11 @@ def git_repo(tmp_path: Path) -> Path:
     )
     (repo / ".gitignore").write_text("resolved-models*.json\n", encoding="utf-8")
     (repo / "source.txt").write_text("initial\n", encoding="utf-8")
+    (repo / "tests").mkdir()
+    (repo / "tests" / "test_example.py").write_text(
+        "def test_failure() -> None:\n    assert True\n",
+        encoding="utf-8",
+    )
     assert _run(repo, "git", "init", "--quiet", "--initial-branch=main").returncode == 0
     assert _run(repo, "git", "config", "user.email", "user@example.com").returncode == 0
     assert _run(repo, "git", "config", "user.name", "Example User").returncode == 0
@@ -200,6 +212,97 @@ def test_retry_reuses_sync_and_passed_changed_tests(git_repo: Path, tmp_path: Pa
         f"changed:--run {parent}..{commit}",
         f"verify:--fast --diff {parent}..{commit}",
         f"verify:--fast --diff {parent}..{commit}",
+    ]
+
+
+def test_fix_commit_resumes_failed_and_delta_changed_tests(git_repo: Path, tmp_path: Path) -> None:
+    failed_head = _commit_change(git_repo)
+    parent = _run(git_repo, "git", "rev-parse", f"{failed_head}^").stdout.strip()
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    log_path = tmp_path / "resume-validation.log"
+    assert _run(git_repo, "python3", str(script), "enqueue", failed_head).returncode == 0
+
+    failed = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        env={
+            "FDAI_VALIDATION_TEST_LOG": str(log_path),
+            "FDAI_VALIDATION_CHANGED_TEST_FAIL": "1",
+        },
+    )
+    (git_repo / "source.txt").write_text("fixed\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", "source.txt").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "fix").returncode == 0
+    fixed_head = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+    assert _run(git_repo, "python3", str(script), "enqueue", fixed_head).returncode == 0
+
+    resumed = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        env={"FDAI_VALIDATION_TEST_LOG": str(log_path)},
+    )
+
+    assert failed.returncode == 1
+    assert resumed.returncode == 0, resumed.stderr
+    assert log_path.read_text(encoding="utf-8").splitlines() == [
+        "uv:sync --frozen --extra dev --extra azure-mcp --python 3.13",
+        f"changed:--run {parent}..{failed_head}",
+        "changed:--run --include-test tests/test_example.py::test_failure "
+        f"{failed_head}..{fixed_head}",
+        f"verify:--fast --diff {parent}..{fixed_head}",
+    ]
+    state_root = git_repo / ".git" / "fdai-validation-queue"
+    receipt = json.loads((state_root / "receipts" / f"{fixed_head}.json").read_text())
+    changed_stage = next(stage for stage in receipt["stages"] if stage["name"] == "changed-tests")
+    assert changed_stage["resumed_from"] == failed_head
+    assert changed_stage["resumed_failures"] == 1
+
+
+def test_fix_commit_restarts_full_changed_tests_when_resume_control_changes(
+    git_repo: Path, tmp_path: Path
+) -> None:
+    failed_head = _commit_change(git_repo)
+    parent = _run(git_repo, "git", "rev-parse", f"{failed_head}^").stdout.strip()
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    log_path = tmp_path / "control-change-validation.log"
+    assert _run(git_repo, "python3", str(script), "enqueue", failed_head).returncode == 0
+    failed = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        env={
+            "FDAI_VALIDATION_TEST_LOG": str(log_path),
+            "FDAI_VALIDATION_CHANGED_TEST_FAIL": "1",
+        },
+    )
+
+    selector = git_repo / "scripts" / "automation" / "tests-for-diff.sh"
+    selector.write_text(selector.read_text(encoding="utf-8") + "# fixed\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", str(selector)).returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "fix selector").returncode == 0
+    fixed_head = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+    assert _run(git_repo, "python3", str(script), "enqueue", fixed_head).returncode == 0
+
+    restarted = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        env={"FDAI_VALIDATION_TEST_LOG": str(log_path)},
+    )
+
+    assert failed.returncode == 1
+    assert restarted.returncode == 0, restarted.stderr
+    assert log_path.read_text(encoding="utf-8").splitlines() == [
+        "uv:sync --frozen --extra dev --extra azure-mcp --python 3.13",
+        f"changed:--run {parent}..{failed_head}",
+        f"changed:--run {parent}..{fixed_head}",
+        f"verify:--fast --diff {parent}..{fixed_head}",
     ]
 
 
