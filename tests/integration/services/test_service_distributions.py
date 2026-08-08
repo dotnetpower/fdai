@@ -66,8 +66,8 @@ EXPECTED_DEPENDENCIES = {
         "uvicorn",
     },
     "document-ingestion-api": {
-        "aiokafka",
         "aiohttp",
+        "aiokafka",
         "azure-core",
         "azure-identity",
         "azure-storage-file-datalake",
@@ -80,6 +80,7 @@ EXPECTED_DEPENDENCIES = {
         "uvicorn",
     },
     "document-processing-worker": {
+        "aiohttp",
         "aiokafka",
         "azure-core",
         "azure-identity",
@@ -101,6 +102,7 @@ EXPECTED_DEPENDENCIES = {
 
 INDIRECT_RUNTIME_DEPENDENCIES = {
     "document-ingestion-api": {"aiohttp"},
+    "document-processing-worker": {"aiohttp"},
 }
 
 IMPORT_DISTRIBUTIONS = {

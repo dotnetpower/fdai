@@ -4,6 +4,7 @@ version = "0.1.2"
 description = "FDAI Document Processing Worker service"
 requires-python = ">=3.12"
 dependencies = [
+	"aiohttp>=3.12,<4",
 	"aiokafka>=0.12,<1",
 	"azure-core>=1.35,<2",
 	"azure-identity>=1.23,<2",
