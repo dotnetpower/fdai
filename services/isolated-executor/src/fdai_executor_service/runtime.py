@@ -172,7 +172,7 @@ class IsolatedExecutorCommandConsumer:
         _LOGGER.info(
             json.dumps(
                 {
-                    "event": "isolated_executor_receipt_published",
+                    "event": "isolated_executor_receipt_committed",
                     "command_id": str(command.command_id),
                     "action_id": str(command.action_id),
                     "status": receipt.status.value,
@@ -198,12 +198,31 @@ class IsolatedExecutorCommandConsumer:
     async def _drain_once(self) -> int:
         published = 0
         for pending in await self._receipt_outbox.claim_receipts(limit=100):
-            await self._event_bus.publish(
+            broker_receipt = await self._event_bus.publish(
                 self._receipt_topic,
                 pending.partition_key,
                 pending.payload,
             )
             await self._receipt_outbox.mark_receipt_published(pending.receipt_id)
+            _LOGGER.info(
+                json.dumps(
+                    {
+                        "event": "isolated_executor_receipt_published",
+                        "receipt_id": str(pending.receipt_id),
+                        "topic": broker_receipt.topic,
+                        "partition": broker_receipt.partition,
+                        "offset": broker_receipt.offset,
+                    },
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ),
+                extra={
+                    "receipt_id": str(pending.receipt_id),
+                    "topic": broker_receipt.topic,
+                    "partition": broker_receipt.partition,
+                    "offset": broker_receipt.offset,
+                },
+            )
             published += 1
         return published
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -177,16 +178,23 @@ class _FailOnceReceiptBus(InMemoryEventBus):
         return await super().publish(topic, key, payload)
 
 
-async def test_receipt_publish_retry_does_not_change_durable_command_result() -> None:
+async def test_receipt_publish_retry_does_not_change_durable_command_result(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO, logger="fdai.isolated_executor")
     bus = _FailOnceReceiptBus()
     store = InMemoryStateStore()
     command = _command()
     consumer = IsolatedExecutorCommandConsumer(event_bus=bus, service=_service(store))
 
     receipt = await consumer.handle_envelope(_envelope(command))
+    assert any("isolated_executor_receipt_committed" in row.message for row in caplog.records)
+    assert not any("isolated_executor_receipt_published" in row.message for row in caplog.records)
     with pytest.raises(RuntimeError, match="transport unavailable"):
         await consumer._drain_once()
+    assert not any("isolated_executor_receipt_published" in row.message for row in caplog.records)
     assert await consumer._drain_once() == 1
+    assert sum("isolated_executor_receipt_published" in row.message for row in caplog.records) == 1
 
     published = await _records(bus, EXECUTOR_RECEIPT_TOPIC)
     assert receipt is not None and len(published) == 1
