@@ -12,6 +12,7 @@ from fdai.shared.contracts.models import (
     OntologyDeclarationKind,
     OntologyDeclarationRef,
     OntologyFunctionType,
+    OntologyInterfaceType,
     OntologyLinkType,
     OntologyObjectType,
     OntologyRelease,
@@ -23,6 +24,7 @@ def build_ontology_release(
     object_types: Sequence[OntologyObjectType] = (),
     link_types: Sequence[OntologyLinkType] = (),
     action_types: Sequence[OntologyActionType] = (),
+    interface_types: Sequence[OntologyInterfaceType] = (),
     function_types: Sequence[OntologyFunctionType] = (),
 ) -> OntologyRelease:
     """Build one deterministic release over the supplied declarations."""
@@ -33,6 +35,10 @@ def build_ontology_release(
                 *(_declaration_ref(OntologyDeclarationKind.OBJECT, item) for item in object_types),
                 *(_declaration_ref(OntologyDeclarationKind.LINK, item) for item in link_types),
                 *(_declaration_ref(OntologyDeclarationKind.ACTION, item) for item in action_types),
+                *(
+                    _declaration_ref(OntologyDeclarationKind.INTERFACE, item)
+                    for item in interface_types
+                ),
                 *(
                     _declaration_ref(OntologyDeclarationKind.FUNCTION, item)
                     for item in function_types
@@ -53,7 +59,11 @@ def build_ontology_release(
 def _declaration_ref(
     kind: OntologyDeclarationKind,
     declaration: (
-        OntologyObjectType | OntologyLinkType | OntologyActionType | OntologyFunctionType
+        OntologyObjectType
+        | OntologyLinkType
+        | OntologyActionType
+        | OntologyInterfaceType
+        | OntologyFunctionType
     ),
 ) -> OntologyDeclarationRef:
     return OntologyDeclarationRef(

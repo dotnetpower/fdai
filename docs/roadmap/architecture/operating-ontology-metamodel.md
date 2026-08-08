@@ -15,10 +15,12 @@ without turning every view into a new ontology declaration kind.
 > **Authority boundary:** A state or context artifact can preserve or lower autonomy. It cannot
 > assert external truth, approve an action, or become shared mutable coordination state.
 >
-> **Implementation status (2026-08-08):** Object, Link, Action, and Function declarations are in
-> canonical releases. `INTERFACE` exists in `OntologyDeclarationKind`, but interface declarations
-> are not yet included by `build_ontology_release`. State and context behavior exists through
-> typed ObjectTypes, `OperationalStateTrajectory`, and `OperationalContextSnapshot`.
+> **Implementation status (2026-08-08):** Object, Link, Action, Function, and supplied Interface
+> declarations can enter canonical releases. `OntologyInterfaceType` is a shared contract, and
+> `build_ontology_release` preserves the prior digest when no interfaces are supplied. The
+> production catalog and composition roots do not yet supply Interface declarations, so M1 remains
+> incomplete. State and context behavior exists through typed ObjectTypes,
+> `OperationalStateTrajectory`, and `OperationalContextSnapshot`.
 
 ## Design at a glance
 
@@ -78,7 +80,7 @@ consumer surfaces that cannot be expressed by the existing kinds.
 | `LINK` | Endpoints, cardinality, causal and temporal semantics. | Active in canonical releases. |
 | `ACTION` | Target, safety envelope, planning, execution, and postconditions. | Active in canonical releases. |
 | `FUNCTION` | Bounded query, derive, validate, or plan operation. | Active in canonical releases. |
-| `INTERFACE` | Shared semantic capability across ObjectTypes. | Model exists; release integration is the next additive change. |
+| `INTERFACE` | Shared semantic capability across ObjectTypes. | Shared contract and release-builder support exist; catalog and composition integration remain. |
 
 `InterfaceType` should enter the release before State or Context receives another schema. This
 unblocks `Operable`, `Observable`, `Ownable`, `Recoverable`, and similar polymorphic queries while

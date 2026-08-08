@@ -15,7 +15,7 @@ from pydantic import (
     model_validator,
 )
 
-from fdai.shared.contracts.models import ContractBase, PropertyDecl, SemVer
+from fdai.shared.contracts.models import ContractBase, OntologyInterfaceType
 from fdai.shared.providers.ontology_instance import (
     OntologyDirection,
     OntologyGraphSnapshot,
@@ -27,15 +27,6 @@ _MAX_PREDICATES = 32
 _MAX_IN_VALUES = 1_000
 _MAX_ROOT_IDS = 1_000
 _MAX_LINK_TYPES = 64
-
-
-class OntologyInterfaceType(ContractBase):
-    name: Annotated[str, Field(pattern=r"^[A-Z][A-Za-z0-9]{0,63}$")]
-    version: SemVer
-    properties: dict[str, PropertyDecl] = Field(default_factory=dict)
-    required_links: tuple[str, ...] = ()
-    supported_actions: tuple[str, ...] = ()
-    extends: tuple[str, ...] = ()
 
 
 class InterfaceImplementation(ContractBase):

@@ -11,6 +11,7 @@ from fdai.shared.contracts.models import (
     OntologyDeclarationKind,
     OntologyFunctionKind,
     OntologyFunctionType,
+    OntologyInterfaceType,
     OntologyReleaseRef,
     Operation,
     PromotionGate,
@@ -102,5 +103,23 @@ def test_release_pins_function_identity_and_artifact_changes() -> None:
     reference = release.type_ref(OntologyDeclarationKind.FUNCTION, function.name)
 
     assert reference.version == function.version
+    assert reference.catalog_digest == release.digest
+    assert changed.digest != release.digest
+
+
+def test_release_pins_interface_identity_without_changing_empty_release() -> None:
+    interface = OntologyInterfaceType(name="Operable", version="1.0.0")
+
+    implicit_empty = build_ontology_release()
+    explicit_empty = build_ontology_release(interface_types=())
+    release = build_ontology_release(interface_types=(interface,))
+    changed = build_ontology_release(
+        interface_types=(interface.model_copy(update={"supported_actions": ("ops.restart",)}),)
+    )
+
+    reference = release.type_ref(OntologyDeclarationKind.INTERFACE, interface.name)
+
+    assert implicit_empty.digest == explicit_empty.digest
+    assert reference.version == interface.version
     assert reference.catalog_digest == release.digest
     assert changed.digest != release.digest

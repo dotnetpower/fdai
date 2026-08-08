@@ -26,6 +26,9 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > Pre-migration rows remain explicitly unpinned because their original release digest cannot be
 > reconstructed honestly. The next successful write creates a new, fully revalidated current-state
 > revision and pins that new revision to the then-active release.
+> Semantic Interface declarations now use the shared contract and can contribute to a canonical
+> release digest. Production catalog loading and composition still provide no Interface
+> declarations, so polymorphic ObjectSet queries remain an unwired platform capability.
 > Canonical releases now include typed function declarations. The function registry checks the
 > caller agent, role, and purpose, derives replay-stable seeds for declared stochastic functions,
 > and emits content-addressed invocation receipts pinned to the exact release.

@@ -119,6 +119,17 @@ class OntologyLinkType(_Base):
     provenance: OntologyProvenance | None = None
 
 
+class OntologyInterfaceType(_Base):
+    """Versioned polymorphic capability shared by ontology object types."""
+
+    name: Annotated[str, Field(pattern=r"^[A-Z][A-Za-z0-9]{0,63}$")]
+    version: SemVer
+    properties: dict[str, PropertyDecl] = Field(default_factory=dict)
+    required_links: tuple[str, ...] = ()
+    supported_actions: tuple[str, ...] = ()
+    extends: tuple[str, ...] = ()
+
+
 class PromotionGate(_Base):
     min_shadow_days: Annotated[int, Field(ge=1)]
     min_samples: Annotated[int, Field(ge=1)]
@@ -306,6 +317,7 @@ __all__ = [
     "OntologyActionType",
     "OntologyFunctionKind",
     "OntologyFunctionType",
+    "OntologyInterfaceType",
     "OntologyLinkType",
     "OntologyObjectType",
     "OntologyProvenance",

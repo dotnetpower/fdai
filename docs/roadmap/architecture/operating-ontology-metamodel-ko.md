@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 34db1769fe87eafb4f955676e10373056da0f02f
+translation_source_sha: 50f88eb90031f72bfe625441ed3df90d467dfcfa
 translation_revised: 2026-08-08
 ---
 # FDAI 운영 온톨로지 메타모델
@@ -18,10 +18,12 @@ declaration kind를 만드는 방식 없이 견고하게 만듭니다.
 > **권한 경계:** State 또는 context artifact는 autonomy를 유지하거나 낮출 수만 있습니다. External
 > truth를 주장하거나 action을 승인하거나 shared mutable coordination state가 될 수 없습니다.
 >
-> **구현 상태(2026-08-08):** Object, Link, Action, Function declaration은 canonical release에
-> 포함됩니다. `INTERFACE`는 `OntologyDeclarationKind`에 존재하지만 interface declaration은 아직
-> `build_ontology_release`에 포함되지 않습니다. State와 context behavior는 typed ObjectType,
-> `OperationalStateTrajectory`, `OperationalContextSnapshot`으로 구현되어 있습니다.
+> **구현 상태(2026-08-08):** Object, Link, Action, Function 및 공급된 Interface declaration은
+> canonical release에 포함될 수 있습니다. `OntologyInterfaceType`은 shared contract이며,
+> interface를 공급하지 않으면 `build_ontology_release`는 이전 digest를 유지합니다. Production
+> catalog와 composition root는 아직 Interface declaration을 공급하지 않으므로 M1은 완료되지
+> 않았습니다. State와 context behavior는 typed ObjectType, `OperationalStateTrajectory`,
+> `OperationalContextSnapshot`으로 구현되어 있습니다.
 
 ## 한눈에 보는 설계
 
@@ -81,7 +83,7 @@ reference, catalog lifecycle, generated consumer surface가 필요하고 기존 
 | `LINK` | Endpoint, cardinality, causal/temporal semantic입니다. | Canonical release에서 활성 상태입니다. |
 | `ACTION` | Target, safety envelope, planning, execution, postcondition입니다. | Canonical release에서 활성 상태입니다. |
 | `FUNCTION` | Bounded query, derive, validate 또는 plan operation입니다. | Canonical release에서 활성 상태입니다. |
-| `INTERFACE` | 여러 ObjectType의 shared semantic capability입니다. | Model은 있으며 release integration이 다음 additive change입니다. |
+| `INTERFACE` | 여러 ObjectType의 shared semantic capability입니다. | Shared contract와 release-builder support가 있으며 catalog/composition integration이 남았습니다. |
 
 `InterfaceType`은 State 또는 Context에 다른 schema를 추가하기 전에 release에 들어가는 것이 좋습니다.
 이를 통해 concrete ObjectType identity를 보존하면서 `Operable`, `Observable`, `Ownable`,
