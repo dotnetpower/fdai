@@ -26,6 +26,8 @@ SELECT (
        AND NOT login_role.rolbypassrls
        AND NOT pg_has_role(current_user, 'pg_read_all_data', 'MEMBER')
        AND NOT pg_has_role(current_user, 'pg_write_all_data', 'MEMBER')
+    AND has_schema_privilege(current_user, 'public', 'USAGE')
+    AND NOT has_schema_privilege(current_user, 'public', 'CREATE')
        AND has_table_privilege(current_user, 'audit_log', 'SELECT')
        AND NOT has_table_privilege(current_user, 'audit_log', 'INSERT')
        AND NOT has_table_privilege(current_user, 'audit_log', 'UPDATE')
@@ -35,6 +37,7 @@ SELECT (
        AND NOT has_table_privilege(current_user, 'audit_log', 'TRIGGER')
        AND has_table_privilege(current_user, 'state_kv', 'SELECT')
        AND has_table_privilege(current_user, 'state_kv', 'INSERT')
+    AND has_table_privilege(current_user, 'state_kv', 'UPDATE')
        AND NOT has_table_privilege(current_user, 'state_kv', 'DELETE')
        AND NOT has_table_privilege(current_user, 'state_kv', 'TRUNCATE')
        AND NOT has_table_privilege(current_user, 'state_kv', 'REFERENCES')

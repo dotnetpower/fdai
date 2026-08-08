@@ -179,6 +179,20 @@ async def test_state_store_readiness_requires_exact_role_and_privileges(
     with pytest.raises(RuntimeError, match="database role or persistence grants"):
         await store.assert_schema()
 
+    readiness_sql = next(sql for sql, _params in connection.calls if "pg_roles" in sql)
+    for fragment in (
+        "current_user = 'fdai_executor'",
+        "NOT login_role.rolsuper",
+        "NOT login_role.rolcreaterole",
+        "NOT login_role.rolbypassrls",
+        "NOT pg_has_role(current_user, 'pg_read_all_data', 'MEMBER')",
+        "NOT pg_has_role(current_user, 'pg_write_all_data', 'MEMBER')",
+        "NOT has_table_privilege(current_user, 'audit_log', 'UPDATE')",
+        "NOT has_table_privilege(current_user, 'state_kv', 'TRUNCATE')",
+        "NOT has_table_privilege(current_user, 'executor_receipt_outbox', 'DELETE')",
+    ):
+        assert fragment in readiness_sql
+
 
 async def test_resource_lock_uses_bound_key_and_always_unlocks(
     monkeypatch: pytest.MonkeyPatch,
@@ -268,6 +282,19 @@ async def test_idempotency_readiness_requires_exact_role_and_privileges(
 
     with pytest.raises(RuntimeError, match="database role or idempotency grants"):
         await store.assert_schema()
+
+    readiness_sql = next(sql for sql, _params in connection.calls if "pg_roles" in sql)
+    for fragment in (
+        "current_user = 'fdai_executor'",
+        "NOT login_role.rolsuper",
+        "NOT login_role.rolcreaterole",
+        "NOT login_role.rolbypassrls",
+        "NOT pg_has_role(current_user, 'pg_read_all_data', 'MEMBER')",
+        "NOT pg_has_role(current_user, 'pg_write_all_data', 'MEMBER')",
+        "NOT has_table_privilege(current_user, 'action_idempotency', 'UPDATE')",
+        "NOT has_table_privilege(current_user, 'action_idempotency', 'DELETE')",
+    ):
+        assert fragment in readiness_sql
 
 
 async def test_executor_receipt_is_committed_to_outbox_before_publication(

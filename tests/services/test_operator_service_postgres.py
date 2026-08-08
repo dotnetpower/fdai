@@ -80,9 +80,16 @@ async def test_operator_readiness_verifies_role_and_privileges_without_durable_w
         "NOT login_role.rolcreatedb",
         "NOT login_role.rolreplication",
         "NOT login_role.rolbypassrls",
+        "NOT pg_has_role(current_user, 'pg_read_all_data', 'MEMBER')",
+        "NOT pg_has_role(current_user, 'pg_write_all_data', 'MEMBER')",
         "has_table_privilege(current_user, 'audit_log', 'SELECT')",
         "has_table_privilege(current_user, 'state_kv', 'SELECT')",
         "has_table_privilege(current_user, 'state_kv', 'INSERT')",
+        "has_table_privilege(current_user, 'state_kv', 'UPDATE')",
+        "NOT has_table_privilege(current_user, 'audit_log', 'INSERT')",
+        "NOT has_table_privilege(current_user, 'audit_log', 'UPDATE')",
+        "NOT has_table_privilege(current_user, 'state_kv', 'DELETE')",
+        "NOT has_schema_privilege(current_user, 'public', 'CREATE')",
     ):
         assert fragment in statement
     for mutation in ("INSERT INTO", "UPDATE state_kv", "DELETE FROM"):

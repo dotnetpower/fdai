@@ -59,9 +59,28 @@ class PostgresIdempotencyStore:
             await self._prepare(connection)
             readiness = await (
                 await connection.execute(
-                    "SELECT current_user AS database_role, "
-                    "has_table_privilege(current_user, 'action_idempotency', "
-                    "'SELECT, INSERT') AS ready"
+                    "SELECT current_user AS database_role, ("
+                    "current_user = 'fdai_executor' "
+                    "AND NOT login_role.rolsuper "
+                    "AND NOT login_role.rolcreaterole "
+                    "AND NOT login_role.rolcreatedb "
+                    "AND NOT login_role.rolreplication "
+                    "AND NOT login_role.rolbypassrls "
+                    "AND NOT pg_has_role(current_user, 'pg_read_all_data', 'MEMBER') "
+                    "AND NOT pg_has_role(current_user, 'pg_write_all_data', 'MEMBER') "
+                    "AND has_schema_privilege(current_user, 'public', 'USAGE') "
+                    "AND NOT has_schema_privilege(current_user, 'public', 'CREATE') "
+                    "AND has_table_privilege(current_user, 'action_idempotency', 'SELECT') "
+                    "AND has_table_privilege(current_user, 'action_idempotency', 'INSERT') "
+                    "AND NOT has_table_privilege(current_user, 'action_idempotency', 'UPDATE') "
+                    "AND NOT has_table_privilege(current_user, 'action_idempotency', 'DELETE') "
+                    "AND NOT has_table_privilege(current_user, 'action_idempotency', "
+                    "'TRUNCATE') "
+                    "AND NOT has_table_privilege(current_user, 'action_idempotency', "
+                    "'REFERENCES') "
+                    "AND NOT has_table_privilege(current_user, 'action_idempotency', 'TRIGGER')"
+                    ") AS ready FROM pg_catalog.pg_roles AS login_role "
+                    "WHERE login_role.rolname = current_user"
                 )
             ).fetchone()
             if (
