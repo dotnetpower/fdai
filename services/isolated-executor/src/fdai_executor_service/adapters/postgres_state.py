@@ -156,6 +156,9 @@ class PostgresStateStore:
         receipt_id: UUID,
         partition_key: str,
         payload: Mapping[str, Any],
+        *,
+        command_id: str,
+        command_offset: int | None,
     ) -> None:
         """Atomically commit terminal receipt state and its publication outbox."""
         async with (
@@ -174,7 +177,17 @@ class PostgresStateStore:
             await connection.execute(
                 "INSERT INTO executor_receipt_outbox (receipt_id, partition_key, payload) "
                 "VALUES (%s, %s, %s::jsonb) ON CONFLICT (receipt_id) DO NOTHING",
-                (receipt_id, partition_key, _canonical(payload)),
+                (
+                    receipt_id,
+                    partition_key,
+                    _canonical(
+                        _receipt_outbox_record(
+                            payload,
+                            command_id=command_id,
+                            command_offset=command_offset,
+                        )
+                    ),
+                ),
             )
 
     async def claim_receipts(self, *, limit: int) -> tuple[PendingExecutorReceipt, ...]:
@@ -205,14 +218,20 @@ class PostgresStateStore:
                     "WHERE receipt_id = ANY(%s)",
                     ([row["receipt_id"] for row in rows],),
                 )
-        return tuple(
-            PendingExecutorReceipt(
-                receipt_id=row["receipt_id"],
-                partition_key=str(row["partition_key"]),
-                payload=_json_object(row["payload"], record_name="receipt outbox payload"),
+        pending: list[PendingExecutorReceipt] = []
+        for row in rows:
+            stored = _json_object(row["payload"], record_name="receipt outbox payload")
+            payload, command_id, command_offset = _decode_receipt_outbox_record(stored)
+            pending.append(
+                PendingExecutorReceipt(
+                    receipt_id=row["receipt_id"],
+                    partition_key=str(row["partition_key"]),
+                    payload=payload,
+                    command_id=command_id,
+                    command_offset=command_offset,
+                )
             )
-            for row in rows
-        )
+        return tuple(pending)
 
     async def mark_receipt_published(self, receipt_id: UUID) -> None:
         """Record broker acknowledgement idempotently."""
@@ -322,6 +341,44 @@ def _json_object(value: object, *, record_name: str) -> Mapping[str, Any]:
         if isinstance(decoded, dict):
             return decoded
     raise RuntimeError(f"Executor {record_name} is not a JSON object")
+
+
+def _receipt_outbox_record(
+    payload: Mapping[str, Any],
+    *,
+    command_id: str,
+    command_offset: int | None,
+) -> Mapping[str, Any]:
+    return {
+        "receipt": dict(payload),
+        "telemetry": {
+            "command_id": command_id,
+            "command_offset": command_offset,
+        },
+    }
+
+
+def _decode_receipt_outbox_record(
+    stored: Mapping[str, Any],
+) -> tuple[Mapping[str, Any], str | None, int | None]:
+    receipt = stored.get("receipt")
+    if receipt is None:
+        legacy_command_id = stored.get("command_id")
+        return (
+            dict(stored),
+            legacy_command_id if isinstance(legacy_command_id, str) else None,
+            None,
+        )
+    telemetry = stored.get("telemetry")
+    if not isinstance(receipt, Mapping) or not isinstance(telemetry, Mapping):
+        raise RuntimeError("Executor receipt outbox envelope is malformed")
+    command_id = telemetry.get("command_id")
+    command_offset = telemetry.get("command_offset")
+    if not isinstance(command_id, str) or not command_id:
+        raise RuntimeError("Executor receipt outbox command id is missing")
+    if isinstance(command_offset, bool) or not isinstance(command_offset, (int, type(None))):
+        raise RuntimeError("Executor receipt outbox command offset is malformed")
+    return dict(receipt), command_id, command_offset
 
 
 __all__ = ["PostgresStateStore", "PostgresStateStoreConfig"]

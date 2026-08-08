@@ -47,12 +47,24 @@ class MemoryExecutorReceiptOutbox:
         self._committed: dict[UUID, Mapping[str, Any]] = {}
 
     async def commit_receipt(
-        self, receipt_id: UUID, partition_key: str, payload: Mapping[str, Any]
+        self,
+        receipt_id: UUID,
+        partition_key: str,
+        payload: Mapping[str, Any],
+        *,
+        command_id: str,
+        command_offset: int | None,
     ) -> None:
         self._committed.setdefault(receipt_id, dict(payload))
         self._pending.setdefault(
             receipt_id,
-            PendingExecutorReceipt(receipt_id, partition_key, dict(payload)),
+            PendingExecutorReceipt(
+                receipt_id=receipt_id,
+                partition_key=partition_key,
+                payload=dict(payload),
+                command_id=command_id,
+                command_offset=command_offset,
+            ),
         )
 
     async def claim_receipts(self, *, limit: int) -> tuple[PendingExecutorReceipt, ...]:
@@ -197,30 +209,25 @@ class IsolatedExecutorCommandConsumer:
             receipt.receipt_id,
             command.partition_key,
             receipt.model_dump(mode="json"),
+            command_id=str(command.command_id),
+            command_offset=envelope.offset,
+        )
+        correlation = _receipt_correlation(
+            receipt_id=receipt.receipt_id,
+            payload=receipt.model_dump(mode="json"),
+            command_id=str(command.command_id),
+            command_offset=envelope.offset,
         )
         _LOGGER.info(
             json.dumps(
                 {
                     "event": "isolated_executor_receipt_committed",
-                    "command_id": str(command.command_id),
-                    "action_id": str(command.action_id),
-                    "status": receipt.status.value,
-                    "attempt": command.attempt,
-                    "effect_applied": receipt.effect_applied,
-                    "effect_verified": getattr(receipt, "effect_verified", False),
-                    "command_offset": envelope.offset,
+                    **correlation,
                 },
                 separators=(",", ":"),
                 sort_keys=True,
             ),
-            extra={
-                "command_id": str(command.command_id),
-                "action_id": str(command.action_id),
-                "status": receipt.status.value,
-                "attempt": command.attempt,
-                "effect_applied": receipt.effect_applied,
-                "command_offset": envelope.offset,
-            },
+            extra=correlation,
         )
         return receipt
 
@@ -233,11 +240,17 @@ class IsolatedExecutorCommandConsumer:
                 pending.payload,
             )
             await self._receipt_outbox.mark_receipt_published(pending.receipt_id)
+            correlation = _receipt_correlation(
+                receipt_id=pending.receipt_id,
+                payload=pending.payload,
+                command_id=pending.command_id,
+                command_offset=pending.command_offset,
+            )
             _LOGGER.info(
                 json.dumps(
                     {
                         "event": "isolated_executor_receipt_published",
-                        "receipt_id": str(pending.receipt_id),
+                        **correlation,
                         "topic": broker_receipt.topic,
                         "partition": broker_receipt.partition,
                         "offset": broker_receipt.offset,
@@ -246,7 +259,7 @@ class IsolatedExecutorCommandConsumer:
                     sort_keys=True,
                 ),
                 extra={
-                    "receipt_id": str(pending.receipt_id),
+                    **correlation,
                     "topic": broker_receipt.topic,
                     "partition": broker_receipt.partition,
                     "offset": broker_receipt.offset,
@@ -270,6 +283,31 @@ class IsolatedExecutorCommandConsumer:
             envelope.payload,
             reason,
         )
+
+
+def _receipt_correlation(
+    *,
+    receipt_id: UUID,
+    payload: Mapping[str, Any],
+    command_id: str | None,
+    command_offset: int | None,
+) -> dict[str, Any]:
+    """Project bounded identifiers shared by commit and publication telemetry."""
+
+    return {
+        "receipt_id": str(receipt_id),
+        "command_id": command_id or _optional_text(payload.get("command_id")),
+        "action_id": _optional_text(payload.get("action_id")),
+        "command_offset": command_offset,
+        "status": _optional_text(payload.get("status")),
+        "attempt": payload.get("attempt") if isinstance(payload.get("attempt"), int) else None,
+        "effect_applied": payload.get("effect_applied") is True,
+        "effect_verified": payload.get("effect_verified") is True,
+    }
+
+
+def _optional_text(value: object) -> str | None:
+    return value if isinstance(value, str) and value else None
 
 
 class IsolatedExecutorConsumerLoop(Protocol):

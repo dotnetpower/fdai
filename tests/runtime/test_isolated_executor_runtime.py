@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -195,6 +196,28 @@ async def test_receipt_publish_retry_does_not_change_durable_command_result(
     assert not any("isolated_executor_receipt_published" in row.message for row in caplog.records)
     assert await consumer._drain_once() == 1
     assert sum("isolated_executor_receipt_published" in row.message for row in caplog.records) == 1
+
+    committed_event = json.loads(
+        next(
+            row.message
+            for row in caplog.records
+            if "isolated_executor_receipt_committed" in row.message
+        )
+    )
+    published_event = json.loads(
+        next(
+            row.message
+            for row in caplog.records
+            if "isolated_executor_receipt_published" in row.message
+        )
+    )
+    for event in (committed_event, published_event):
+        assert event["receipt_id"] == str(receipt.receipt_id)
+        assert event["command_id"] == str(command.command_id)
+        assert event["action_id"] == str(command.action_id)
+        assert event["command_offset"] == 0
+        assert event["status"] == receipt.status.value
+        assert event["attempt"] == command.attempt
 
     published = await _records(bus, EXECUTOR_RECEIPT_TOPIC)
     assert receipt is not None and len(published) == 1

@@ -15,13 +15,21 @@ class PendingExecutorReceipt:
     receipt_id: UUID
     partition_key: str
     payload: Mapping[str, Any]
+    command_id: str | None
+    command_offset: int | None
 
 
 class ExecutorReceiptOutbox(Protocol):
     """Durably stage and acknowledge Executor receipt publication."""
 
     async def commit_receipt(
-        self, receipt_id: UUID, partition_key: str, payload: Mapping[str, Any]
+        self,
+        receipt_id: UUID,
+        partition_key: str,
+        payload: Mapping[str, Any],
+        *,
+        command_id: str,
+        command_offset: int | None,
     ) -> None: ...
 
     async def claim_receipts(self, *, limit: int) -> tuple[PendingExecutorReceipt, ...]: ...
@@ -46,7 +54,13 @@ class ExecutorStateStore(Protocol):
     async def assert_schema(self) -> None: ...
 
     async def commit_receipt(
-        self, receipt_id: UUID, partition_key: str, payload: Mapping[str, Any]
+        self,
+        receipt_id: UUID,
+        partition_key: str,
+        payload: Mapping[str, Any],
+        *,
+        command_id: str,
+        command_offset: int | None,
     ) -> None: ...
 
     async def claim_receipts(self, *, limit: int) -> tuple[PendingExecutorReceipt, ...]: ...

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from contextlib import AbstractAsyncContextManager
 from types import TracebackType
 from typing import Any, Self
@@ -215,14 +216,59 @@ async def test_executor_receipt_is_committed_to_outbox_before_publication(
     store = PostgresStateStore(config=PostgresStateStoreConfig(dsn="postgresql://example"))
     receipt_id = uuid4()
 
-    await store.commit_receipt(receipt_id, "resource:one", {"status": "dispatched"})
+    await store.commit_receipt(
+        receipt_id,
+        "resource:one",
+        {"status": "dispatched"},
+        command_id="command-one",
+        command_offset=42,
+    )
 
     inserts = [call for call in connection.calls if "INSERT INTO" in call[0]]
     assert len(inserts) == 2
     assert inserts[0][1][0] == f"isolated-executor:receipt:{receipt_id}"
     assert inserts[1][1][0] == receipt_id
     assert inserts[1][1][1] == "resource:one"
+    assert json.loads(inserts[1][1][2]) == {
+        "receipt": {"status": "dispatched"},
+        "telemetry": {"command_id": "command-one", "command_offset": 42},
+    }
     assert connection.transaction_entries == 1
+
+
+async def test_executor_receipt_claim_restores_correlation_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt_id = uuid4()
+    connection = _Connection(
+        rows=[
+            None,
+            [
+                {
+                    "receipt_id": receipt_id,
+                    "partition_key": "resource:one",
+                    "payload": {
+                        "receipt": {"status": "dispatched", "command_id": "command-one"},
+                        "telemetry": {"command_id": "command-one", "command_offset": 42},
+                    },
+                }
+            ],
+        ]
+    )
+
+    async def connect(*_args: object, **_kwargs: object) -> _Connection:
+        return connection
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", connect)
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn="postgresql://example"))
+
+    pending = await store.claim_receipts(limit=1)
+
+    assert len(pending) == 1
+    assert pending[0].receipt_id == receipt_id
+    assert pending[0].payload == {"status": "dispatched", "command_id": "command-one"}
+    assert pending[0].command_id == "command-one"
+    assert pending[0].command_offset == 42
 
 
 def test_state_hash_chain_is_canonical_and_ordered() -> None:
