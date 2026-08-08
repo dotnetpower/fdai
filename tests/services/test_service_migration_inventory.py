@@ -38,8 +38,8 @@ SERVICE_IDS = (
 def test_legacy_migration_inventory_is_linear_and_complete() -> None:
     inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
 
-    assert len(inventory.down_revisions) == 79
-    assert inventory.heads == ("20260806_0077",)
+    assert len(inventory.down_revisions) == 81
+    assert inventory.heads == ("20260808_0079",)
     assert len(inventory.table_sources) == 100
     assert "IF" not in inventory.table_sources
     assert inventory.table_sources["document_worker_claim"] == ("20260806_0075",)
@@ -936,7 +936,7 @@ def test_adoption_evidence_requires_matching_schema_and_resolvable_reference(
             {
                 "service_id": "isolated-executor",
                 "observed_legacy_head": "legacy-head",
-                "observed_legacy_revision_count": 79,
+                "observed_legacy_revision_count": 81,
                 "observed_schema_fingerprint": digest,
                 "verified_at": "2026-08-08T12:00:00+00:00",
                 "schema_reference": schema_reference.name,
@@ -951,7 +951,7 @@ def test_adoption_evidence_requires_matching_schema_and_resolvable_reference(
             evidence,
             service_id="isolated-executor",
             head="legacy-head",
-            count=79,
+            count=81,
             expected_schema_fingerprint=digest,
         )
         == "backup/example"
@@ -962,7 +962,7 @@ def test_adoption_evidence_requires_matching_schema_and_resolvable_reference(
             evidence,
             service_id="isolated-executor",
             head="legacy-head",
-            count=79,
+            count=81,
             expected_schema_fingerprint=digest,
         )
 
