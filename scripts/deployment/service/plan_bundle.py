@@ -153,6 +153,7 @@ def _target_context(
     service: str,
     subscription_id: str,
     image_ref: str,
+    initial_cutover: bool,
 ) -> dict[str, Any]:
     changes = payload.get("resource_changes")
     if not isinstance(changes, list):
@@ -204,7 +205,7 @@ def _target_context(
         image_ref=image_ref,
     )
     before = change.get("before") if isinstance(change, dict) else None
-    if sidecar_containers:
+    if sidecar_containers and not initial_cutover:
         if not isinstance(before, dict):
             raise PlanBundleError("worker sidecar contract requires a previous planned resource")
         before_containers = _containers(before, address=allowed_address)
@@ -288,6 +289,7 @@ def _deployment_context(
             service=service,
             subscription_id=subscription_id,
             image_ref=image_ref,
+            initial_cutover=initial_cutover,
         ),
         "attestation": {
             "source_digest": commit_sha,
