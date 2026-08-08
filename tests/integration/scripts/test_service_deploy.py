@@ -1742,7 +1742,10 @@ def test_apply_runs_service_migrations_from_masked_key_vault_dsn() -> None:
     )
     assert "- name: Apply service-owned database migrations" in workflow
     assert 'echo "::add-mask::$migration_dsn"' in workflow
-    assert '"$TRUSTED_CONTROLS/service-migrations/bin/$SERVICE" upgrade head' in workflow
+    assert 'migration_command="$TRUSTED_CONTROLS/service-migrations/bin/$SERVICE"' in workflow
+    assert '"$migration_command" prepare-adoption' in workflow
+    assert '"$migration_command" stamp-baseline' in workflow
+    assert '"$migration_command" upgrade head' in workflow
     assert "database-dsn must be an Azure Key Vault HTTPS secret reference" in workflow
     assert "migration_dsn_secret_name" in workflow
 
