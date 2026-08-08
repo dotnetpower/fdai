@@ -636,6 +636,14 @@ def test_state_cutover_requires_source_zero_and_destination_exactly_once(
         destination_address=destination,
         phase="post",
     )
+    with pytest.raises(migration.StateMigrationError, match="source=1 and destination=0"):
+        migration.verify_state_pair(
+            _state(),
+            _state(destination),
+            source_address=source,
+            destination_address=destination,
+            phase="pre",
+        )
     with pytest.raises(migration.StateMigrationError, match="source=0 and destination=1"):
         migration.verify_state_pair(
             _state(source),
@@ -813,7 +821,7 @@ def test_health_verification_rejects_stale_revision(recovery: ModuleType) -> Non
         )
 
 
-def test_executor_rollback_uses_previous_revision_image_and_authority_fallback(
+def test_executor_rollback_uses_previous_revision_image_without_changing_authority(
     recovery: ModuleType,
 ) -> None:
     snapshot = {
@@ -821,18 +829,16 @@ def test_executor_rollback_uses_previous_revision_image_and_authority_fallback(
         "service_name": "executor",
         "previous_revision": "executor--previous",
         "previous_image": _image("fdai-isolated-executor"),
-        "authority_fallback": "core-in-process",
+        "platform_rollback_required": True,
     }
     command = recovery.rollback_command(snapshot, revision_suffix="rollback-123-1")
     assert command[0:4] == ["az", "containerapp", "revision", "copy"]
     assert command[command.index("--from-revision") + 1] == "executor--previous"
     assert command[command.index("--image") + 1] == snapshot["previous_image"]
-    assert command[command.index("--set-env-vars") + 1] == (
-        "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER=0"
-    )
+    assert "--set-env-vars" not in command
 
 
-def test_executor_rollback_verification_requires_authority_fallback(
+def test_executor_rollback_records_separate_platform_authority_recovery(
     recovery: ModuleType,
 ) -> None:
     context, _, account, app, revision = _health_evidence()
@@ -843,19 +849,13 @@ def test_executor_rollback_verification_requires_authority_fallback(
         revision=revision,
         rollback_contract={"authority_fallback": "core-in-process"},
     )
+    assert snapshot["platform_rollback_required"] is True
+    assert "authority_fallback" not in snapshot
     app["properties"]["latestRevisionName"] = "example--recovery"  # type: ignore[index]
     revision["name"] = "example--recovery"
     revision["properties"]["template"]["containers"][0]["env"] = [  # type: ignore[index]
-        {"name": "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER", "value": "1"}
+        {"name": "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER", "value": "0"}
     ]
-    with pytest.raises(recovery.DeploymentRecoveryError, match="authority fallback"):
-        recovery.validate_rollback(
-            snapshot=snapshot,
-            account=account,
-            app=app,
-            revision=revision,
-        )
-    revision["properties"]["template"]["containers"][0]["env"][0]["value"] = "0"  # type: ignore[index]
     recovery.validate_rollback(
         snapshot=snapshot,
         account=account,

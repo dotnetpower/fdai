@@ -53,11 +53,6 @@ python3 "$script_root/state_migration.py" verify \
   --destination-address "$destination_address" \
   --phase pre
 
-if terraform state list -state="$destination_work" | grep -Fxq "$destination_address"; then
-  echo "state is already cut over; no migration was performed"
-  exit 0
-fi
-
 terraform state mv \
   -state="$source_work" \
   -state-out="$destination_work" \

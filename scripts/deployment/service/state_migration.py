@@ -71,9 +71,7 @@ def _managed_resources(state: dict[str, Any]) -> list[tuple[str, str | None]]:
             if resource.get("mode", "managed") != "managed":
                 continue
             resource_values = resource.get("values")
-            resource_id = (
-                resource_values.get("id") if isinstance(resource_values, dict) else None
-            )
+            resource_id = resource_values.get("id") if isinstance(resource_values, dict) else None
             found.append((address, resource_id if isinstance(resource_id, str) else None))
         children = module.get("child_modules", [])
         if not isinstance(children, list):
@@ -107,23 +105,16 @@ def verify_state_pair(
     source_count = len(source_matches)
     destination_count = len(destination_matches)
     expected = (1, 0) if phase == "pre" else (0, 1)
-    already_cutover = phase == "pre" and (source_count, destination_count) == (0, 1)
-    if (source_count, destination_count) != expected and not already_cutover:
+    if (source_count, destination_count) != expected:
         raise StateMigrationError(
             f"{phase}-migration ownership must be source={expected[0]} and "
             f"destination={expected[1]}; got source={source_count} and "
             f"destination={destination_count}"
         )
-    selected_ids = (
-        source_matches
-        if (source_count, destination_count) == (1, 0)
-        else destination_matches
-    )
+    selected_ids = source_matches if phase == "pre" else destination_matches
     if len(selected_ids) != 1 or not selected_ids[0]:
         raise StateMigrationError("selected service state has no physical resource id")
-    source_ids = {
-        resource_id.lower() for _, resource_id in source_resources if resource_id
-    }
+    source_ids = {resource_id.lower() for _, resource_id in source_resources if resource_id}
     destination_ids = {
         resource_id.lower() for _, resource_id in destination_resources if resource_id
     }

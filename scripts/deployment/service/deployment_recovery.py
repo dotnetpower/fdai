@@ -43,23 +43,6 @@ def _revision_image(revision: dict[str, Any]) -> str:
     return image
 
 
-def _revision_environment(revision: dict[str, Any]) -> dict[str, str]:
-    properties = revision.get("properties")
-    template = properties.get("template") if isinstance(properties, dict) else None
-    containers = template.get("containers") if isinstance(template, dict) else None
-    container = containers[0] if isinstance(containers, list) and len(containers) == 1 else None
-    environment = container.get("env") if isinstance(container, dict) else None
-    if not isinstance(environment, list):
-        raise DeploymentRecoveryError("revision environment is missing")
-    values: dict[str, str] = {}
-    for item in environment:
-        name = item.get("name") if isinstance(item, dict) else None
-        value = item.get("value") if isinstance(item, dict) else None
-        if isinstance(name, str) and isinstance(value, str):
-            values[name] = value
-    return values
-
-
 def _target(context: dict[str, Any]) -> dict[str, Any]:
     target = context.get("target")
     if not isinstance(target, dict):
@@ -151,7 +134,7 @@ def capture_snapshot(
         "component_tag": _required(target, "component_tag", label="component tag"),
         "previous_revision": previous_revision,
         "previous_image": _revision_image(revision),
-        "authority_fallback": authority_fallback,
+        "platform_rollback_required": authority_fallback == "core-in-process",
     }
 
 
@@ -178,8 +161,6 @@ def rollback_command(snapshot: dict[str, Any], *, revision_suffix: str) -> list[
         "--output",
         "json",
     ]
-    if snapshot.get("authority_fallback") == "core-in-process":
-        command.extend(["--set-env-vars", "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER=0"])
     return command
 
 
@@ -217,12 +198,6 @@ def validate_rollback(
         raise DeploymentRecoveryError("rollback revision is not healthy and active")
     if _revision_image(revision) != _required(snapshot, "previous_image", label="previous image"):
         raise DeploymentRecoveryError("rollback revision image does not match snapshot")
-    if snapshot.get("authority_fallback") == "core-in-process":
-        environment = _revision_environment(revision)
-        if environment.get("FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER") != "0":
-            raise DeploymentRecoveryError(
-                "rollback revision did not restore the Core authority fallback"
-            )
 
 
 def main() -> int:

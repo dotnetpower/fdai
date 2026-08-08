@@ -133,6 +133,9 @@ def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
     assert "verify-rollback" in _WORKFLOW
     assert "Fail deployment after automatic rollback" in _WORKFLOW
     assert "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER=0" not in _WORKFLOW
+    assert '"$rollback_dir/snapshot.json"' in _WORKFLOW
+    assert "authority was unchanged" in _WORKFLOW
+    assert "protected platform rollback is required" in _WORKFLOW
     assert "terraform destroy" not in _WORKFLOW
     assert "-destroy" not in _WORKFLOW
 
@@ -142,9 +145,16 @@ def test_apply_failure_uses_the_same_verified_rollback_path() -> None:
         "if: ${{ inputs.apply && (steps.apply.outcome == 'failure' || "
         "steps.health.outcome == 'failure') }}"
     )
+    final_failure_condition = (
+        "if: ${{ always() && inputs.apply && (steps.apply.outcome == 'failure' || "
+        "steps.health.outcome == 'failure') }}"
+    )
     assert "id: apply\n        continue-on-error: true" in _WORKFLOW
     assert "if: ${{ inputs.apply && steps.apply.outcome == 'success' }}" in _WORKFLOW
-    assert _WORKFLOW.count(rollback_condition) == 2
+    assert _WORKFLOW.count(rollback_condition) == 1
+    assert "id: rollback\n        continue-on-error: true" in _WORKFLOW
+    assert _WORKFLOW.count(final_failure_condition) == 1
+    assert '[[ "${{ steps.rollback.outcome }}" != "success" ]]' in _WORKFLOW
 
 
 def test_service_and_legacy_workflows_enforce_state_cutover_fence() -> None:

@@ -556,6 +556,8 @@ jobs:
 
       - name: Roll back unhealthy service revision
         if: ${{ inputs.apply && (steps.apply.outcome == 'failure' || steps.health.outcome == 'failure') }}
+        id: rollback
+        continue-on-error: true
         run: |
           set -euo pipefail
           rollback_dir="$RUNNER_TEMP/service-rollback"
@@ -589,9 +591,18 @@ jobs:
             --revision "$rollback_dir/revision-after.json"
 
       - name: Fail deployment after automatic rollback
-        if: ${{ inputs.apply && (steps.apply.outcome == 'failure' || steps.health.outcome == 'failure') }}
+        if: ${{ always() && inputs.apply && (steps.apply.outcome == 'failure' || steps.health.outcome == 'failure') }}
         run: |
-          echo "service apply or post-apply health failed; the previous image was restored and verified." >&2
+          rollback_dir="$RUNNER_TEMP/service-rollback"
+          if [[ "${{ steps.rollback.outcome }}" != "success" ]]; then
+            echo "service apply or post-apply health failed; automatic image rollback was not verified and operator recovery is required." >&2
+            exit 1
+          fi
+          if jq -e '.platform_rollback_required == true' "$rollback_dir/snapshot.json" >/dev/null; then
+            echo "service apply or post-apply health failed; the previous image was restored and verified, but authority was unchanged; a protected platform rollback is required before Core authority can be claimed." >&2
+          else
+            echo "service apply or post-apply health failed; the previous image was restored and verified." >&2
+          fi
           exit 1
 
       - name: Remove temporary deployment material
