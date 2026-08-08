@@ -13,6 +13,11 @@ on:
       - "README.md"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: "Exact protected origin/main commit to publish."
+        type: string
+        required: true
 
 # GitHub Pages OIDC deploy needs pages + id-token; contents:read for checkout.
 permissions:
@@ -26,15 +31,50 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  guard:
+    name: Verify protected Pages source
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify protected workflow source
+        env:
+          TARGET_COMMIT_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
+          PROTECTED_WORKFLOW_PATH: .github/workflows/pages.yml
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          guard_repo="$RUNNER_TEMP/fdai-protected-origin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
+          git init --bare "$guard_repo" >/dev/null
+          trap 'rm -rf -- "$guard_repo"' EXIT
+          auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraheader \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
+            git -C "$guard_repo" fetch --force --no-tags \
+              "$PROTECTED_ORIGIN_URL" \
+              "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
+          unset auth_header
+          git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
+            refs/remotes/origin/main
+          git -C "$guard_repo" diff --quiet \
+            "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" \
+            "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"
+
   build:
     name: Build (Astro Starlight)
+    needs: guard
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
           cache: npm
@@ -63,7 +103,7 @@ jobs:
         # the correct posture: Pages MUST be enabled once by a
         # maintainer under Settings, then Pages, before this workflow runs.
         id: pages
-        uses: actions/configure-pages@v6.0.0
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
         with:
           enablement: false
 
@@ -77,7 +117,7 @@ jobs:
         run: npm run build
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5.0.0
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site/dist
 
@@ -91,4 +131,4 @@ jobs:
     steps:
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v5.0.0
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

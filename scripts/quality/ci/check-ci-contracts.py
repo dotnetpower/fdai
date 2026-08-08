@@ -25,57 +25,42 @@ RUNNER_ENTRY_POINTS = (
     "Makefile",
     "scripts/verify.sh",
 )
-REQUIRED_ACTION_REFS = {
-    "Azure/functions-action": "v1.5.6",
-    "actions/attest": "v4.2.0",
-    "actions/checkout": "v7.0.1",
-    "actions/configure-pages": "v6.0.0",
-    "actions/deploy-pages": "v5.0.0",
-    "actions/download-artifact": "v8.0.1",
-    "actions/github-script": "v9.0.0",
-    "actions/setup-node": "v7.0.0",
-    "actions/setup-python": "v7.0.0",
-    "actions/upload-artifact": "v7.0.1",
-    "actions/upload-pages-artifact": "v5.0.0",
-    "astral-sh/setup-uv": "v8.3.2",
-    "docker/build-push-action": "53b7df96c91f9c12dcc8a07bcb9ccacbed38856a",
-    "docker/login-action": "abd2ef45e78c5afb21d64d4ca52ee8550d9572c7",
-    "docker/setup-buildx-action": "bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
-    "gitleaks/gitleaks-action": "v3.0.0",
-    "hashicorp/setup-terraform": "v4.0.1",
-    "pypa/gh-action-pip-audit": "v1.1.0",
-    "pypa/gh-action-pypi-publish": "v1.14.1",
-}
-REVIEWED_IMMUTABLE_ACTION_REFS = {
-    "actions/attest": frozenset({"f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"}),
-    "actions/checkout": frozenset({"11bd71901bbe5b1630ceea73d27597364c9af683"}),
-    "actions/upload-artifact": frozenset({"ea165f8d65b6e75b540449e92b4886f43607fa02"}),
-}
-PRIVILEGED_WORKFLOWS = frozenset(
-    {
-        ".github/workflows/deploy-dev.yml",
-        ".github/workflows/service-deploy.yml",
-    }
-)
-PRIVILEGED_ACTION_REFS = {
-    "Azure/functions-action": "bc63708cc6539760eea18d8a7de4ce8ef5fdf593",
-    "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
-    "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
-    "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
-    "astral-sh/setup-uv": "11f9893b081a58869d3b5fccaea48c9e9e46f990",
-}
-PRIVILEGED_ACTION_VERSIONS = {
-    "Azure/functions-action": "v1.5.6",
-    "actions/checkout": "v7.0.1",
-    "actions/download-artifact": "v8.0.1",
-    "actions/upload-artifact": "v7.0.1",
-    "astral-sh/setup-uv": "v8.3.2",
+APPROVED_ACTIONS = {
+    "Azure/functions-action": ("bc63708cc6539760eea18d8a7de4ce8ef5fdf593", "v1.5.6"),
+    "actions/attest": ("f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6", "v4.2.0"),
+    "actions/checkout": ("3d3c42e5aac5ba805825da76410c181273ba90b1", "v7.0.1"),
+    "actions/configure-pages": ("45bfe0192ca1faeb007ade9deae92b16b8254a0d", "v6.0.0"),
+    "actions/deploy-pages": ("cd2ce8fcbc39b97be8ca5fce6e763baed58fa128", "v5.0.0"),
+    "actions/download-artifact": ("3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c", "v8.0.1"),
+    "actions/github-script": ("d746ffe35508b1917358783b479e04febd2b8f71", "v9.0.0"),
+    "actions/setup-node": ("820762786026740c76f36085b0efc47a31fe5020", "v7.0.0"),
+    "actions/setup-python": ("5fda3b95a4ea91299a34e894583c3862153e4b97", "v7.0.0"),
+    "actions/upload-artifact": ("043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", "v7.0.1"),
+    "actions/upload-pages-artifact": ("fc324d3547104276b827a68afc52ff2a11cc49c9", "v5.0.0"),
+    "astral-sh/setup-uv": ("11f9893b081a58869d3b5fccaea48c9e9e46f990", "v8.3.2"),
+    "docker/build-push-action": ("53b7df96c91f9c12dcc8a07bcb9ccacbed38856a", "v7.3.0"),
+    "docker/login-action": ("abd2ef45e78c5afb21d64d4ca52ee8550d9572c7", "v4.5.1"),
+    "docker/setup-buildx-action": ("bb05f3f5519dd87d3ba754cc423b652a5edd6d2c", "v4.2.0"),
+    "gitleaks/gitleaks-action": ("e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e", "v3.0.0"),
+    "hashicorp/setup-terraform": ("dfe3c3f87815947d99a8997f908cb6525fc44e9e", "v4.0.1"),
+    "pypa/gh-action-pip-audit": ("1220774d901786e6f652ae159f7b6bc8fea6d266", "v1.1.0"),
+    "pypa/gh-action-pypi-publish": ("2834a314042ef964da07689278dd1e9d773e8afd", "v1.14.1"),
 }
 ACTION_REF_RE = re.compile(
-    r"uses:\s*(?P<action>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@(?P<ref>[^\s#]+)"
+    r"uses:\s*(?P<action>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*)"
+    r"@(?P<ref>[^\s#]+)"
     r"(?:\s*#\s*(?P<comment>[^\r\n]+))?"
 )
 IMMUTABLE_ACTION_REF_RE = re.compile(r"[0-9a-f]{40}")
+WRITE_PERMISSION_RE = re.compile(r"(?m)^\s+[a-z-]+:\s*write\s*(?:#.*)?$")
+WRITE_ALL_PERMISSION_RE = re.compile(r"(?m)^\s*permissions:\s*write-all\s*(?:#.*)?$")
+INLINE_WRITE_PERMISSION_RE = re.compile(r"permissions:\s*\{[^}\n]*:\s*write(?:\s*[,}])")
+PRIVILEGED_COMMAND_RE = re.compile(
+    r"\b(?:terraform\s+(?:apply|destroy)|git\s+push|docker\s+push|"
+    r"gh\s+(?:release|issue)\s+(?:create|delete|edit|upload|close|reopen)|"
+    r"az\s+\S+\s+(?:create|delete|deploy|import|restart|set|start|stop|update))\b"
+)
+PROTECTED_WORKFLOW_GUARD = "Verify protected workflow source"
 UV_SETUP_BLOCK_RE = re.compile(r"(?ms)^\s+- name: Set up uv \(Python 3\.13\).*?(?=^\s+- name:|\Z)")
 BASE_IMAGE_REGISTRY_ARG = "BASE_IMAGE_REGISTRY"
 BASE_IMAGE_PREFIX = "${" + BASE_IMAGE_REGISTRY_ARG + "}/"
@@ -239,40 +224,84 @@ def _validate_action_runtime_versions() -> list[str]:
     for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
         content = path.read_text(encoding="utf-8")
         relative = path.relative_to(REPO_ROOT)
-        privileged = relative.as_posix() in PRIVILEGED_WORKFLOWS
         for match in ACTION_REF_RE.finditer(content):
             action = match.group("action")
             actual_ref = match.group("ref")
-            if privileged:
-                expected_ref = PRIVILEGED_ACTION_REFS.get(action)
-                if expected_ref is None:
-                    errors.append(
-                        f"{relative} uses unapproved privileged action {action}@{actual_ref}"
-                    )
-                elif IMMUTABLE_ACTION_REF_RE.fullmatch(actual_ref) is None:
-                    errors.append(
-                        f"{relative} must pin {action} to an immutable 40-character SHA; "
-                        f"found {actual_ref}"
-                    )
-                elif actual_ref != expected_ref:
-                    errors.append(f"{relative} uses {action}@{actual_ref}; expected {expected_ref}")
-                else:
-                    expected_version = PRIVILEGED_ACTION_VERSIONS[action]
-                    comment = (match.group("comment") or "").split(",", maxsplit=1)[0].strip()
-                    if comment != expected_version:
-                        errors.append(
-                            f"{relative} must document {action}@{actual_ref} with trusted "
-                            f"version comment # {expected_version}"
-                        )
-                continue
-            expected_ref = REQUIRED_ACTION_REFS.get(action)
-            if expected_ref is None:
+            approved = APPROVED_ACTIONS.get(action)
+            if approved is None:
                 errors.append(f"{relative} uses unapproved remote action {action}@{actual_ref}")
-            elif (
-                actual_ref != expected_ref
-                and actual_ref not in REVIEWED_IMMUTABLE_ACTION_REFS.get(action, frozenset())
-            ):
+                continue
+            expected_ref, expected_version = approved
+            if IMMUTABLE_ACTION_REF_RE.fullmatch(actual_ref) is None:
+                errors.append(
+                    f"{relative} must pin {action} to an immutable 40-character SHA; "
+                    f"found {actual_ref}"
+                )
+            elif actual_ref != expected_ref:
                 errors.append(f"{relative} uses {action}@{actual_ref}; expected {expected_ref}")
+            else:
+                comment = (match.group("comment") or "").split(",", maxsplit=1)[0].strip()
+                if comment != expected_version:
+                    errors.append(
+                        f"{relative} must document {action}@{actual_ref} with trusted "
+                        f"version comment # {expected_version}"
+                    )
+    return errors
+
+
+def _is_privileged_workflow(content: str) -> bool:
+    """Detect workflows that can mutate durable state or use a privileged identity."""
+    return any(
+        (
+            WRITE_PERMISSION_RE.search(content),
+            WRITE_ALL_PERMISSION_RE.search(content),
+            INLINE_WRITE_PERMISSION_RE.search(content),
+            re.search(r"runs-on:\s*(?:\[[^\]]*\bself-hosted\b|self-hosted\b)", content),
+            PRIVILEGED_COMMAND_RE.search(content),
+        )
+    )
+
+
+def _validate_privileged_workflow_guards() -> list[str]:
+    """Require protected source provenance before privileged repository code executes."""
+    errors: list[str] = []
+    for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+        content = path.read_text(encoding="utf-8")
+        if not _is_privileged_workflow(content):
+            continue
+        relative = path.relative_to(REPO_ROOT).as_posix()
+        event_scoped_issue_mutation = (
+            re.search(r"(?m)^\s+issues:\s*$", content) is not None
+            and "github.event_name == 'issues'" in content
+            and "github.event.issue.pull_request == null" in content
+            and "actions/checkout@" not in content
+            and "\n        run:" not in content
+        )
+        if event_scoped_issue_mutation:
+            continue
+        required_fragments = (
+            PROTECTED_WORKFLOW_GUARD,
+            f"PROTECTED_WORKFLOW_PATH: {relative}",
+            "refs/heads/main:refs/remotes/origin/main",
+            'merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
+            "diff --quiet",
+            '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
+            '"refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
+        )
+        for fragment in required_fragments:
+            if fragment not in content:
+                errors.append(
+                    f"{relative} is privileged and lacks protected-source guard: {fragment}"
+                )
+        guard_index = content.find(PROTECTED_WORKFLOW_GUARD)
+        action_index = content.find("uses:")
+        if guard_index >= 0 and action_index >= 0 and guard_index > action_index:
+            errors.append(f"{relative} executes a remote action before its protected-source guard")
+        if "workflow_dispatch:" in content or "workflow_call:" in content:
+            if "commit_sha:" not in content:
+                errors.append(f"{relative} must accept an exact commit_sha for privileged dispatch")
+            if "github.ref == 'refs/heads/main'" not in content:
+                errors.append(f"{relative} must restrict privileged dispatch to protected main")
     return errors
 
 
@@ -337,6 +366,7 @@ def main() -> int:
         *_validate_shared_runners(),
         *_validate_python_test_partitioning(),
         *_validate_action_runtime_versions(),
+        *_validate_privileged_workflow_guards(),
         *_validate_uv_cache_writers(),
         *_validate_live_db_guards(),
     ]

@@ -17,6 +17,10 @@ on:
         description: "Type the environment name to confirm the destroy."
         type: string
         required: true
+      commit_sha:
+        description: "Exact protected origin/main commit to destroy from."
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -27,6 +31,7 @@ concurrency:
 
 jobs:
   destroy:
+    if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, fdai-deploy]
     defaults:
       run:
@@ -45,6 +50,43 @@ jobs:
       TF_VAR_postgres_admin_login: ${{ secrets.POSTGRES_ADMIN_LOGIN }}
       TF_VAR_postgres_admin_password: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
     steps:
+      - name: Verify protected workflow source
+        working-directory: ${{ runner.temp }}
+        env:
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
+          PROTECTED_WORKFLOW_PATH: .github/workflows/destroy-env.yml
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "commit_sha must be a lowercase 40-character git SHA." >&2
+            exit 1
+          }
+          guard_repo="$RUNNER_TEMP/fdai-protected-origin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
+          rm -rf -- "$guard_repo"
+          git init --bare "$guard_repo" >/dev/null
+          trap 'rm -rf -- "$guard_repo"' EXIT
+          auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0=http.extraheader \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
+            git -C "$guard_repo" fetch --force --no-tags \
+              "$PROTECTED_ORIGIN_URL" \
+              "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
+          unset auth_header
+          git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
+            refs/remotes/origin/main || {
+            echo "commit_sha must be an ancestor of protected origin/main." >&2
+            exit 1
+          }
+          git -C "$guard_repo" diff --quiet \
+            "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" \
+            "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH" || {
+            echo "destroy workflow controls differ from protected origin/main." >&2
+            exit 1
+          }
+
       # User-controlled inputs are read via env, NEVER interpolated
       # directly into bash - direct ${{ inputs.confirm }} in a run: block
       # is a classic GHA script-injection vector, and this runner holds
@@ -60,7 +102,11 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/checkout@v7.0.1
+      - name: Checkout exact protected source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
 
       - name: Azure login (runner managed identity)
         run: az login --identity --allow-no-subscriptions

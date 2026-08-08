@@ -134,6 +134,7 @@ concurrency:
 
 jobs:
   terraform:
+    if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, fdai-deploy]
     environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}
     defaults:
@@ -203,15 +204,16 @@ jobs:
       TF_VAR_chatops_webhook_url: ${{ secrets.CHATOPS_WEBHOOK_URL }}
       TF_VAR_chatops_webhook_secret: ${{ secrets.CHATOPS_WEBHOOK_SECRET }}
     steps:
-      - name: Verify caller commit is on protected origin/main
+      - name: Verify protected workflow source
         working-directory: ${{ runner.temp }}
         env:
-          CALLER_COMMIT_SHA: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}
           GITHUB_TOKEN: ${{ github.token }}
           PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
+          PROTECTED_WORKFLOW_PATH: .github/workflows/deploy-dev.yml
         run: |
           set -euo pipefail
-          if [[ ! "$CALLER_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+          if [[ ! "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
             echo "caller commit must be a lowercase 40-character git SHA" >&2
             exit 1
           fi
@@ -225,22 +227,28 @@ jobs:
             GIT_CONFIG_COUNT=1 \
               GIT_CONFIG_KEY_0=http.extraheader \
               GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
-              git -C "$guard_repo" fetch --force --no-tags --filter=blob:none \
+              git -C "$guard_repo" fetch --force --no-tags \
                 "$PROTECTED_ORIGIN_URL" \
-                "+refs/heads/main:refs/remotes/origin/main" "$CALLER_COMMIT_SHA"
+                "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
             unset auth_header
           else
-            git -C "$guard_repo" fetch --force --no-tags --filter=blob:none \
+            git -C "$guard_repo" fetch --force --no-tags \
               "$PROTECTED_ORIGIN_URL" \
-              "+refs/heads/main:refs/remotes/origin/main" "$CALLER_COMMIT_SHA"
+              "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
           fi
-          if ! git -C "$guard_repo" cat-file -e "${CALLER_COMMIT_SHA}^{commit}"; then
+          if ! git -C "$guard_repo" cat-file -e "${TARGET_COMMIT_SHA}^{commit}"; then
             echo "caller commit is not present in protected origin/main history" >&2
             exit 1
           fi
-          if ! git -C "$guard_repo" merge-base --is-ancestor "$CALLER_COMMIT_SHA" \
+          if ! git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
             refs/remotes/origin/main; then
             echo "caller commit is not an ancestor of protected origin/main" >&2
+            exit 1
+          fi
+          if ! git -C "$guard_repo" diff --quiet \
+            "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" \
+            "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"; then
+            echo "deploy workflow controls differ from protected origin/main" >&2
             exit 1
           fi
 

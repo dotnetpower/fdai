@@ -490,18 +490,20 @@ def test_runner_rejects_unprotected_caller_commit_before_privileged_steps(
     steps = workflow["jobs"]["terraform"]["steps"]
     names = [step.get("name") for step in steps]
 
-    assert names[0] == "Verify caller commit is on protected origin/main"
+    assert names[0] == "Verify protected workflow source"
     guard = steps[0]
     assert "uses" not in guard
-    assert names.index("Verify caller commit is on protected origin/main") < names.index(
+    assert names.index("Verify protected workflow source") < names.index(
         "Prepare self-hosted runner workspace"
     )
-    assert names.index("Verify caller commit is on protected origin/main") < names.index("Checkout")
-    assert names.index("Verify caller commit is on protected origin/main") < names.index(
+    assert names.index("Verify protected workflow source") < names.index("Checkout")
+    assert names.index("Verify protected workflow source") < names.index(
         "Azure login (runner managed identity)"
     )
     assert "refs/heads/main:refs/remotes/origin/main" in guard["run"]
-    assert 'merge-base --is-ancestor "$CALLER_COMMIT_SHA"' in guard["run"]
+    assert 'merge-base --is-ancestor "$TARGET_COMMIT_SHA"' in guard["run"]
+    assert '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"' in guard["run"]
+    assert '"refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"' in guard["run"]
     subprocess.run(
         ["/usr/bin/bash", "-n"],
         input=guard["run"],
@@ -524,9 +526,16 @@ def test_runner_rejects_unprotected_caller_commit_before_privileged_steps(
     run_git("init", "-b", "main", capture_output=True)
     run_git("config", "user.email", "user@example.com")
     run_git("config", "user.name", "Test User")
+    workflow_control = origin / ".github" / "workflows" / "deploy-dev.yml"
+    workflow_control.parent.mkdir(parents=True)
+    workflow_control.write_text("trusted deployment controls\n", encoding="utf-8")
     (origin / "trusted.txt").write_text("trusted\n", encoding="utf-8")
-    run_git("add", "trusted.txt")
-    run_git("commit", "-m", "trusted", capture_output=True)
+    run_git("add", "trusted.txt", ".github/workflows/deploy-dev.yml")
+    run_git("commit", "-m", "stale controls", capture_output=True)
+    stale_sha = run_git("rev-parse", "HEAD", capture_output=True).stdout.strip()
+    workflow_control.write_text("current deployment controls\n", encoding="utf-8")
+    run_git("add", ".github/workflows/deploy-dev.yml")
+    run_git("commit", "-m", "current controls", capture_output=True)
     trusted_sha = run_git("rev-parse", "HEAD", capture_output=True).stdout.strip()
     run_git("switch", "-c", "attacker")
     (origin / "attacker.txt").write_text("unreviewed\n", encoding="utf-8")
@@ -544,14 +553,33 @@ def test_runner_rejects_unprotected_caller_commit_before_privileged_steps(
     }
     accepted = subprocess.run(  # noqa: S603 - repository-owned workflow guard
         ["/usr/bin/bash", "-c", guard["run"]],
-        env={**base_env, "CALLER_COMMIT_SHA": trusted_sha},
+        env={
+            **base_env,
+            "PROTECTED_WORKFLOW_PATH": ".github/workflows/deploy-dev.yml",
+            "TARGET_COMMIT_SHA": trusted_sha,
+        },
         text=True,
         capture_output=True,
         check=False,
     )
     rejected = subprocess.run(  # noqa: S603 - repository-owned workflow guard
         ["/usr/bin/bash", "-c", guard["run"]],
-        env={**base_env, "CALLER_COMMIT_SHA": attacker_sha},
+        env={
+            **base_env,
+            "PROTECTED_WORKFLOW_PATH": ".github/workflows/deploy-dev.yml",
+            "TARGET_COMMIT_SHA": attacker_sha,
+        },
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    stale = subprocess.run(  # noqa: S603 - repository-owned workflow guard
+        ["/usr/bin/bash", "-c", guard["run"]],
+        env={
+            **base_env,
+            "PROTECTED_WORKFLOW_PATH": ".github/workflows/deploy-dev.yml",
+            "TARGET_COMMIT_SHA": stale_sha,
+        },
         text=True,
         capture_output=True,
         check=False,
@@ -560,6 +588,8 @@ def test_runner_rejects_unprotected_caller_commit_before_privileged_steps(
     assert accepted.returncode == 0, accepted.stderr
     assert rejected.returncode != 0
     assert "caller commit is not an ancestor of protected origin/main" in rejected.stderr
+    assert stale.returncode != 0
+    assert "deploy workflow controls differ from protected origin/main" in stale.stderr
 
 
 def test_deploy_workflow_remote_actions_are_immutable_and_version_documented() -> None:
@@ -573,6 +603,54 @@ def test_deploy_workflow_remote_actions_are_immutable_and_version_documented() -
 
     assert len(matches) == workflow.count("uses:")
     assert all(re.fullmatch(r"[0-9a-f]{40}", match.group("ref")) for match in matches)
+
+
+@pytest.mark.parametrize(
+    "workflow_name",
+    (
+        "automatic-version.yml",
+        "container-supply-chain.yml",
+        "deploy-dev.yml",
+        "destroy-env.yml",
+        "infra-drift.yml",
+        "pages.yml",
+        "release-deployment-bundle.yml",
+        "service-deploy.yml",
+    ),
+)
+def test_privileged_workflow_guard_precedes_actions_and_compiles(workflow_name: str) -> None:
+    workflow_path = Path(__file__).resolve().parents[3] / ".github" / "workflows" / workflow_name
+    workflow_text = workflow_path.read_text(encoding="utf-8")
+    workflow = yaml.safe_load(workflow_text)
+    guard_steps = [
+        step
+        for job in workflow["jobs"].values()
+        for step in job.get("steps", [])
+        if step.get("name") == "Verify protected workflow source"
+    ]
+
+    assert len(guard_steps) == 1
+    assert workflow_text.index("Verify protected workflow source") < workflow_text.index("uses:")
+    subprocess.run(
+        ["/usr/bin/bash", "-n"],
+        input=guard_steps[0]["run"],
+        text=True,
+        check=True,
+    )
+
+
+def test_every_remote_workflow_action_is_immutable_and_version_documented() -> None:
+    workflow_dir = Path(__file__).resolve().parents[3] / ".github" / "workflows"
+    remote_action = re.compile(
+        r"uses:\s*[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@(?P<ref>[^\s#]+)"
+        r"\s+#\s+v[0-9]+(?:\.[0-9]+){1,2}(?:,[^\n]+)?"
+    )
+
+    for workflow_path in workflow_dir.glob("*.yml"):
+        workflow = workflow_path.read_text(encoding="utf-8")
+        matches = list(remote_action.finditer(workflow))
+        assert len(matches) == workflow.count("uses:"), workflow_path.name
+        assert all(re.fullmatch(r"[0-9a-f]{40}", match.group("ref")) for match in matches)
 
 
 def test_runner_promotes_only_an_exact_attested_executor_image_before_plan() -> None:
@@ -641,17 +719,20 @@ def test_runner_promotes_only_an_exact_attested_executor_image_before_plan() -> 
 
 
 def test_deployment_workflow_embedded_python_is_syntax_valid() -> None:
-    workflow_path = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "deploy-dev.yml"
-    workflow = workflow_path.read_text(encoding="utf-8")
-    snippets = re.findall(r"python3 - <<'PY'\n(?P<body>.*?)\n\s*PY$", workflow, re.M | re.S)
+    workflow_dir = Path(__file__).resolve().parents[3] / ".github" / "workflows"
+    snippet_count = 0
+    for workflow_path in workflow_dir.glob("*.yml"):
+        workflow = workflow_path.read_text(encoding="utf-8")
+        snippets = re.findall(r"python3 - <<'PY'\n(?P<body>.*?)\n\s*PY$", workflow, re.M | re.S)
+        snippet_count += len(snippets)
+        for index, snippet in enumerate(snippets):
+            indentation = min(
+                len(line) - len(line.lstrip()) for line in snippet.splitlines() if line.strip()
+            )
+            source = "\n".join(line[indentation:] for line in snippet.splitlines()) + "\n"
+            compile(source, f"{workflow_path}:heredoc-{index}", "exec")
 
-    assert snippets
-    for index, snippet in enumerate(snippets):
-        indentation = min(
-            len(line) - len(line.lstrip()) for line in snippet.splitlines() if line.strip()
-        )
-        source = "\n".join(line[indentation:] for line in snippet.splitlines()) + "\n"
-        compile(source, f"{workflow_path}:heredoc-{index}", "exec")
+    assert snippet_count > 0
 
 
 @pytest.mark.parametrize(

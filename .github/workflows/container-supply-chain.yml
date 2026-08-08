@@ -50,6 +50,11 @@ on:
       - "alembic.ini"
       - ".github/workflows/container-supply-chain.yml"
   workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: "Exact protected origin/main commit to build and publish."
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -61,6 +66,11 @@ env:
 
 jobs:
   build-scan-attest:
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' &&
+        (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -87,8 +97,36 @@ jobs:
       attestations: write
       id-token: write
     steps:
+      - name: Verify protected workflow source
+        if: github.event_name != 'pull_request'
+        env:
+          TARGET_COMMIT_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
+          PROTECTED_WORKFLOW_PATH: .github/workflows/container-supply-chain.yml
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          guard_repo="$RUNNER_TEMP/fdai-protected-origin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
+          git init --bare "$guard_repo" >/dev/null
+          trap 'rm -rf -- "$guard_repo"' EXIT
+          auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraheader \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
+            git -C "$guard_repo" fetch --force --no-tags \
+              "$PROTECTED_ORIGIN_URL" \
+              "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
+          unset auth_header
+          git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
+            refs/remotes/origin/main
+          git -C "$guard_repo" diff --quiet \
+            "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" \
+            "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"
+
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2, Node 20
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0, Node 24
@@ -167,7 +205,7 @@ jobs:
 
       - name: Scan local image before publication
         run: >-
-          trivy image --exit-code 1 --severity HIGH,CRITICAL
+          trivy image --exit-code 1 --severity MEDIUM,HIGH,CRITICAL
           --ignorefile .trivyignore.yaml
           "${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
 
@@ -220,7 +258,7 @@ jobs:
 
       - name: Scan exact evidence subject
         run: >-
-          trivy image --exit-code 1 --severity HIGH,CRITICAL
+          trivy image --exit-code 1 --severity MEDIUM,HIGH,CRITICAL
           --ignorefile .trivyignore.yaml
           "${{ steps.subject.outputs.reference }}"
 
@@ -235,7 +273,7 @@ jobs:
           "${{ steps.subject.outputs.reference }}"
 
       - name: Upload SBOM evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2, Node 20
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: fdai-sbom-${{ matrix.service }}-${{ github.sha }}
           path: sbom-${{ matrix.service }}.cdx.json

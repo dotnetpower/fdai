@@ -3,6 +3,10 @@ name: release-deployment-bundle
 on:
   workflow_dispatch:
     inputs:
+      commit_sha:
+        description: "Exact protected origin/main commit to release."
+        type: string
+        required: true
       bundle_version:
         description: "Semantic version for the deployment bundle."
         type: string
@@ -37,8 +41,42 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  guard:
+    name: verify protected release source
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify protected workflow source
+        env:
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
+          PROTECTED_WORKFLOW_PATH: .github/workflows/release-deployment-bundle.yml
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "commit_sha must be a lowercase 40-character git SHA." >&2
+            exit 1
+          }
+          guard_repo="$RUNNER_TEMP/fdai-protected-origin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
+          git init --bare "$guard_repo" >/dev/null
+          trap 'rm -rf -- "$guard_repo"' EXIT
+          auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraheader \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
+            git -C "$guard_repo" fetch --force --no-tags \
+              "$PROTECTED_ORIGIN_URL" \
+              "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
+          unset auth_header
+          git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
+            refs/remotes/origin/main
+          git -C "$guard_repo" diff --quiet \
+            "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" \
+            "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"
+
   verify:
     name: clean checkout, live database, and package verification
+    needs: guard
     runs-on: ubuntu-24.04
     services:
       postgres:
@@ -58,7 +96,9 @@ jobs:
       FDAI_DATABASE_URL: postgresql+psycopg://fdai:ci@localhost:5432/fdai
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
 
       - name: Validate release publication inputs
         if: ${{ inputs.publish_pypi && !inputs.publish_release }}
@@ -70,13 +110,13 @@ jobs:
         run: test -z "$(git status --porcelain)"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.2
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.8.22"
           enable-cache: true
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
           cache: npm
@@ -111,13 +151,16 @@ jobs:
 
   dependency-audit:
     name: dependency vulnerability audit
+    needs: guard
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
 
       - name: Audit Python dependencies
-        uses: pypa/gh-action-pip-audit@v1.1.0
+        uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266 # v1.1.0
         with:
           inputs: .
 
@@ -129,10 +172,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.2
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.8.22"
           enable-cache: true
@@ -160,7 +205,7 @@ jobs:
           uvx --from twine twine check python-dist/*
 
       - name: Upload verified Python distributions
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: fdai-python-${{ inputs.bundle_version }}
           path: python-dist/
@@ -175,10 +220,12 @@ jobs:
       contents: write
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.2
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.8.22"
           enable-cache: true
@@ -242,7 +289,7 @@ jobs:
           sha256sum release-artifacts/* > release-artifacts/SHA256SUMS
 
       - name: Upload verified release artifacts
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: fdai-deployment-bundle-${{ inputs.bundle_version }}
           path: release-artifacts/
@@ -258,7 +305,7 @@ jobs:
           set -euo pipefail
           gh release create "deployment-bundle-${BUNDLE_VERSION}" \
             release-artifacts/* \
-            --target "$GITHUB_SHA" \
+            --target "${{ inputs.commit_sha }}" \
             --title "FDAI deployment bundle ${BUNDLE_VERSION}" \
             --notes "Reproducibly built, Ed25519-signed FDAI deployment bundle."
 
@@ -275,12 +322,12 @@ jobs:
       id-token: write
     steps:
       - name: Download verified Python distributions
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: fdai-python-${{ inputs.bundle_version }}
           path: python-dist/
 
       - name: Publish with PyPI Trusted Publishing
-        uses: pypa/gh-action-pypi-publish@v1.14.1
+        uses: pypa/gh-action-pypi-publish@2834a314042ef964da07689278dd1e9d773e8afd # v1.14.1
         with:
           packages-dir: python-dist/

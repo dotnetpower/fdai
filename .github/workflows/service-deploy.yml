@@ -62,6 +62,7 @@ concurrency:
 
 jobs:
   protected-service-deploy:
+    if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, fdai-deploy]
     environment: ${{ inputs.apply && format('service-apply-{0}', inputs.environment) || 'plan-only' }}
     env:
@@ -74,6 +75,42 @@ jobs:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
     steps:
+      - name: Verify protected workflow source
+        working-directory: ${{ runner.temp }}
+        env:
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
+          PROTECTED_WORKFLOW_PATH: .github/workflows/service-deploy.yml
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "commit_sha must be a lowercase 40-character git SHA." >&2
+            exit 1
+          }
+          guard_repo="$RUNNER_TEMP/fdai-protected-origin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
+          rm -rf -- "$guard_repo"
+          git init --bare "$guard_repo" >/dev/null
+          trap 'rm -rf -- "$guard_repo"' EXIT
+          auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraheader \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
+            git -C "$guard_repo" fetch --force --no-tags \
+              "$PROTECTED_ORIGIN_URL" \
+              "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
+          unset auth_header
+          git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
+            refs/remotes/origin/main || {
+            echo "commit_sha must be an ancestor of protected origin/main." >&2
+            exit 1
+          }
+          git -C "$guard_repo" diff --quiet \
+            "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" \
+            "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH" || {
+            echo "service deployment controls differ from protected origin/main." >&2
+            exit 1
+          }
+
       - name: Checkout protected deployment controls
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
