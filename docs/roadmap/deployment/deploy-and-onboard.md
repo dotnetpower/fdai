@@ -262,12 +262,10 @@ is applied; new environments should let Terraform create the stack directly.
 CI adds two credential-free guards: [`infra-lint.yml`](../../../.github/workflows/infra-lint.yml)
 (fmt + validate + tfsec + Checkov on every infra PR) and
 [`infra-drift.yml`](../../../.github/workflows/infra-drift.yml) (scheduled `plan -detailed-exitcode`
-on the runner for the legacy, five independent-service, and bootstrap state roots). The drift run
-fails closed when any root is missing, unreadable, or changed, so a green run means all seven
-production roots supplied complete evidence. Monitoring, when enabled,
+on the runner for the legacy, five independent-service, and bootstrap state roots). It fails closed
+on a missing, unreadable, or changed root, so green covers all seven. Monitoring, when enabled,
 provisions an action group + metric alerts (Postgres / Key Vault / Event Hubs / Container App)
-+ diagnostic settings to Log Analytics; alerts are a human signal only, never an autonomous
-action.
++ diagnostic settings to Log Analytics; alerts are a human signal only, never an autonomous action.
 
 ### Non-Azure Prerequisites
 
