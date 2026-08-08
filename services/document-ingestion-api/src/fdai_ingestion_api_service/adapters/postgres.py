@@ -4,27 +4,28 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final, Protocol
-from uuid import NAMESPACE_URL, UUID, uuid5
+from uuid import UUID
 
 import psycopg
 from fdai_service_contracts import (
-    AUDIT_APPEND_LOCK_KEY,
-    AUDIT_GENESIS_HASH,
     AdapterReadiness,
+    DocumentLifecycleConflictError,
+    DocumentLifecycleEvent,
     DocumentNotFoundError,
     DocumentVersion,
     KnowledgeChunk,
     UploadSession,
-    canonical_audit_entry,
     configured_readiness,
     live_readiness,
     live_unavailable_readiness,
-    next_audit_hash,
 )
 from psycopg.rows import dict_row
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,19 +64,26 @@ class PostgresDocumentMetadataStore:
             return live_unavailable_readiness(adapter, f"probe_failed:{type(exc).__name__}")
         return live_readiness(adapter)
 
-    async def create(self, session: UploadSession, version: DocumentVersion) -> None:
+    async def create(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        event: DocumentLifecycleEvent | None = None,
+    ) -> None:
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
             try:
                 await connection.execute(
                     "INSERT INTO document_upload_session "
-                    "(upload_id, document_id, version_id, state, payload, created_at, updated_at) "
-                    "VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s)",
+                    "(upload_id, document_id, version_id, state, revision, payload, "
+                    "created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, %s)",
                     (
                         session.upload_id,
                         session.document_id,
                         session.version_id,
                         session.state.value,
+                        session.revision,
                         session.model_dump_json(),
                         session.created_at,
                         session.created_at,
@@ -83,20 +91,22 @@ class PostgresDocumentMetadataStore:
                 )
                 await connection.execute(
                     "INSERT INTO document_version "
-                    "(document_id, version_id, upload_id, state, active, payload, "
-                    "created_at, updated_at) "
-                    "VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, %s)",
+                    "(document_id, version_id, upload_id, state, active, revision, payload, "
+                    "created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)",
                     (
                         version.document_id,
                         version.version_id,
                         version.upload_id,
                         version.state.value,
                         version.active,
+                        version.revision,
                         version.model_dump_json(),
                         version.created_at,
                         version.updated_at,
                     ),
                 )
+                if event is not None:
+                    await _enqueue_outbox(connection, event)
             except psycopg.errors.UniqueViolation as exc:
                 raise ValueError("document upload or version already exists") from exc
 
@@ -109,14 +119,6 @@ class PostgresDocumentMetadataStore:
             raise DocumentNotFoundError("upload was not found")
         return UploadSession.model_validate(_payload(row["payload"]))
 
-    async def save_upload(self, session: UploadSession) -> None:
-        await self._update(
-            "UPDATE document_upload_session SET state = %s, payload = %s::jsonb, "
-            "updated_at = NOW() WHERE upload_id = %s RETURNING upload_id",
-            (session.state.value, session.model_dump_json(), session.upload_id),
-            "upload was not found",
-        )
-
     async def get_version(self, document_id: UUID, version_id: UUID) -> DocumentVersion:
         row = await self._one(
             "SELECT payload FROM document_version WHERE document_id = %s AND version_id = %s",
@@ -126,30 +128,72 @@ class PostgresDocumentMetadataStore:
             raise DocumentNotFoundError("document version was not found")
         return DocumentVersion.model_validate(_payload(row["payload"]))
 
-    async def save_version(self, version: DocumentVersion) -> None:
+    async def transition(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        expected_upload_state: str,
+        expected_upload_revision: int,
+        expected_version_state: str,
+        expected_version_revision: int,
+        event: DocumentLifecycleEvent,
+    ) -> None:
+        """Atomically CAS both lifecycle rows and enqueue one durable event."""
+        if session.revision != expected_upload_revision + 1:
+            raise ValueError("upload transition revision MUST increment exactly once")
+        if version.revision != expected_version_revision + 1:
+            raise ValueError("version transition revision MUST increment exactly once")
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
+            upload_cursor = await connection.execute(
+                "UPDATE document_upload_session SET state = %s, revision = %s, "
+                "payload = %s::jsonb, updated_at = NOW() WHERE upload_id = %s "
+                "AND state = %s AND revision = %s RETURNING upload_id",
+                (
+                    session.state.value,
+                    session.revision,
+                    session.model_dump_json(),
+                    session.upload_id,
+                    expected_upload_state,
+                    expected_upload_revision,
+                ),
+            )
+            if await upload_cursor.fetchone() is None:
+                raise DocumentLifecycleConflictError("upload lifecycle CAS conflict")
             if version.active:
                 await connection.execute(
-                    "UPDATE document_version SET active = FALSE, "
-                    "payload = jsonb_set(payload, '{active}', 'false'::jsonb), updated_at = NOW() "
-                    "WHERE document_id = %s AND version_id <> %s AND active",
+                    "UPDATE document_version SET active = FALSE, revision = revision + 1, "
+                    "payload = jsonb_set(jsonb_set(payload, '{active}', 'false'::jsonb), "
+                    "'{revision}', to_jsonb(revision + 1)), "
+                    "updated_at = NOW() WHERE document_id = %s AND version_id <> %s AND active",
                     (version.document_id, version.version_id),
                 )
-            cursor = await connection.execute(
-                "UPDATE document_version SET state = %s, active = %s, payload = %s::jsonb, "
-                "updated_at = %s WHERE document_id = %s AND version_id = %s RETURNING version_id",
+            version_cursor = await connection.execute(
+                "UPDATE document_version SET state = %s, active = %s, revision = %s, "
+                "payload = %s::jsonb, updated_at = %s WHERE document_id = %s "
+                "AND version_id = %s AND state = %s AND revision = %s RETURNING version_id",
                 (
                     version.state.value,
                     version.active,
+                    version.revision,
                     version.model_dump_json(),
                     version.updated_at,
                     version.document_id,
                     version.version_id,
+                    expected_version_state,
+                    expected_version_revision,
                 ),
             )
-            if await cursor.fetchone() is None:
-                raise DocumentNotFoundError("document version was not found")
+            if await version_cursor.fetchone() is None:
+                raise DocumentLifecycleConflictError("document version lifecycle CAS conflict")
+            await _enqueue_outbox(connection, event)
+
+    async def enqueue_event(self, event: DocumentLifecycleEvent) -> None:
+        """Persist a replay event when no lifecycle row changes."""
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            await _enqueue_outbox(connection, event)
 
     async def list_versions(self, document_id: UUID) -> tuple[DocumentVersion, ...]:
         rows = await self._many(
@@ -181,12 +225,6 @@ class PostgresDocumentMetadataStore:
             await self._timeout(connection)
             return await (await connection.execute(query, params)).fetchall()
 
-    async def _update(self, query: str, params: tuple[object, ...], not_found: str) -> None:
-        async with await self._connect() as connection, connection.transaction():
-            await self._timeout(connection)
-            if await (await connection.execute(query, params)).fetchone() is None:
-                raise DocumentNotFoundError(not_found)
-
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         return await psycopg.AsyncConnection.connect(
             self._config.dsn,
@@ -201,7 +239,7 @@ class PostgresDocumentMetadataStore:
 
 
 class PostgresDocumentActivitySink:
-    """Append hash-chained lifecycle audit records before event publication."""
+    """Publish committed API outbox rows and retain failures for retry."""
 
     def __init__(
         self,
@@ -216,67 +254,68 @@ class PostgresDocumentActivitySink:
         self._topic = topic
         self._pantheon_topic = pantheon_topic
 
-    async def audit(self, record: Mapping[str, object]) -> None:
-        payload = dict(record)
-        canonical = canonical_audit_entry(payload)
+    async def drain(self, *, limit: int = 100) -> int:
+        """Claim committed rows, publish them, and mark successful deliveries."""
+        if limit < 1 or limit > 1000:
+            raise ValueError("outbox drain limit MUST be in [1, 1000]")
+        rows = await self._claim(limit)
+        published = 0
+        for row in rows:
+            event = DocumentLifecycleEvent.model_validate(_payload(row["payload"]))
+            physical_topic = (
+                self._pantheon_topic if event.topic.startswith("object.") else self._topic
+            )
+            payload = dict(event.payload)
+            if physical_topic == self._pantheon_topic:
+                payload["_fdai_logical_topic"] = event.topic
+            try:
+                await self._publisher.publish(physical_topic, event.key, payload)
+            except Exception as exc:  # noqa: BLE001 - row remains durable for retry
+                _LOGGER.warning(
+                    "document_api_outbox_publish_failed",
+                    extra={"event_id": str(event.event_id), "exception_type": type(exc).__name__},
+                )
+                continue
+            await self._mark_published(event.event_id)
+            published += 1
+        return published
+
+    async def _claim(self, limit: int) -> list[dict[str, Any]]:
         async with (
             await psycopg.AsyncConnection.connect(
                 self._config.dsn,
+                row_factory=dict_row,
                 connect_timeout=self._config.connect_timeout_s,
             ) as connection,
             connection.transaction(),
         ):
-            await connection.execute("SELECT pg_advisory_xact_lock(%s)", (AUDIT_APPEND_LOCK_KEY,))
-            row = await (
+            rows = await (
                 await connection.execute(
-                    "SELECT entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1"
+                    "SELECT event_id, payload FROM document_api_outbox "
+                    "WHERE published_at IS NULL "
+                    "AND next_attempt_at <= clock_timestamp() ORDER BY created_at, event_id "
+                    "FOR UPDATE SKIP LOCKED LIMIT %s",
+                    (limit,),
                 )
-            ).fetchone()
-            previous = str(row[0]) if row is not None else AUDIT_GENESIS_HASH
-            entry_hash = next_audit_hash(previous, payload)
-            identity = str(payload.get("idempotency_key") or canonical)
-            event_id = str(uuid5(NAMESPACE_URL, f"fdai.audit://{identity}"))
-            await connection.execute(
-                "INSERT INTO audit_log (event_id, correlation_id, actor, action_kind, mode, "
-                "entry, previous_hash, entry_hash) VALUES "
-                "(%s::uuid, %s, %s, %s, 'shadow', %s::jsonb, %s, %s)",
-                (
-                    event_id,
-                    payload.get("correlation_id"),
-                    str(payload.get("actor_id") or "fdai.system"),
-                    str(payload.get("action") or "document.activity"),
-                    canonical,
-                    previous,
-                    entry_hash,
-                ),
-            )
+            ).fetchall()
+            if rows:
+                await connection.execute(
+                    "UPDATE document_api_outbox SET attempt_count = attempt_count + 1, "
+                    "next_attempt_at = clock_timestamp() + INTERVAL '5 seconds' "
+                    "WHERE event_id = ANY(%s)",
+                    ([row["event_id"] for row in rows],),
+                )
+            return rows
 
-    async def publish(self, topic: str, key: str, payload: Mapping[str, object]) -> None:
-        event = dict(payload)
-        event["event_type"] = topic
-        try:
-            await self._publisher.publish(self._topic, key, event)
-        except Exception:
-            return
-        if topic in {"document.received", "document.inspected"}:
-            correlation_id = str(payload.get("upload_id") or key)
-            version_id = str(payload.get("version_id") or "")
-            await self._publisher.publish(
-                self._pantheon_topic,
-                key,
-                {
-                    "_fdai_logical_topic": "object.event",
-                    "producer_principal": "Huginn",
-                    "kind": "document_ingestion",
-                    "action": topic,
-                    "event_type": topic,
-                    "correlation_id": correlation_id,
-                    "idempotency_key": f"{topic}:{version_id or correlation_id}",
-                    "resource_id": key,
-                    "resource_type": "document",
-                    "document_id": key,
-                    "record": dict(payload),
-                },
+    async def _mark_published(self, event_id: UUID) -> None:
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as connection:
+            await connection.execute(
+                "UPDATE document_api_outbox SET published_at = clock_timestamp() "
+                "WHERE event_id = %s AND published_at IS NULL",
+                (event_id,),
             )
 
 
@@ -284,6 +323,24 @@ class EventPublisher(Protocol):
     """Minimal event publisher shape required by the API activity sink."""
 
     async def publish(self, topic: str, key: str, payload: Mapping[str, object]) -> object: ...
+
+
+async def _enqueue_outbox(
+    connection: psycopg.AsyncConnection[Any], event: DocumentLifecycleEvent
+) -> None:
+    await connection.execute(
+        "INSERT INTO document_api_outbox "
+        "(event_id, idempotency_key, topic, partition_key, payload, created_at) "
+        "VALUES (%s, %s, %s, %s, %s::jsonb, %s) ON CONFLICT (idempotency_key) DO NOTHING",
+        (
+            event.event_id,
+            event.idempotency_key,
+            event.topic,
+            event.key,
+            event.model_dump_json(),
+            event.created_at,
+        ),
+    )
 
 
 class PostgresDocumentSearch:

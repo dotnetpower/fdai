@@ -93,6 +93,9 @@ enforce the split. A reader never becomes a writer by deployment proximity.
 | `document_upload_session`, `document_version` - quarantined through terminal processing transitions | Document ingestion worker | Ingestion API status/search projections | Alembic migration job |
 | `document_worker_claim` | Document metadata claim CAS under the ingestion worker role | Reconciliation and operational diagnostics | Alembic migration job |
 | `knowledge_chunk` for governed documents | Document ingestion worker/index adapter | Authorized Operator API search projection | Alembic migration job |
+| `document_api_outbox` | Document ingestion API for API-owned lifecycle and deletion-request events | API outbox drainer | Document ingestion API migration branch |
+| `document_worker_outbox` | Document processing worker for worker-owned lifecycle events | Worker outbox drainer | Document processing worker migration branch |
+| `executor_receipt_outbox` | Isolated Executor for terminal receipt delivery | Executor receipt drainer | Isolated Executor migration branch |
 | `state_kv` namespaced records | The subsystem named by each key namespace | Explicit projections named by that subsystem's provider contract | Alembic migration job |
 | Agent-owned control-loop objects and topics | The single pantheon agent declared for each object type | Registered typed subscribers and cited read projections | Shared contract/catalog owner; no service-local migration |
 
@@ -105,6 +108,7 @@ A new candidate must add its data rows before implementation. A row with two ove
 |----------|--------------|----------|-----------|---------------|---------------|------------------------------------|
 | Document Saga audit event `1.0.0` | [Document audit schema](../../../src/fdai/shared/contracts/document-worker-audit/schema.json) | Saga | Ingestion audit-gated worker | `upload_id` | Additive fields; old/new producer-consumer tests | At-least-once; invalid records to sibling DLQ; [stage claim](../../../alembic/versions/20260806_0075_document_worker_claims.py) is idempotency fence; event 1 day, DLQ 7 days |
 | Document Muninn index command `1.0.0` | [Document index schema](../../../src/fdai/shared/contracts/document-worker-index/schema.json) | Muninn | Ingestion index worker | `upload_id` | Additive fields; unsupported versions fail closed | At-least-once; invalid records to sibling DLQ; completed index claim is terminal dedupe; event 1 day, DLQ 7 days |
+| Document deletion request `1.0.0` | `fdai-service-contracts` packaged JSON Schema | Document ingestion API | Document processing worker | `document_id` | Additive fields; unsupported versions fail closed | Transactional API outbox; exact upload/version revision fence; worker stage-claim dedupe; invalid records to sibling DLQ |
 | Document lifecycle activity | [Document activity contract](../../../src/fdai/delivery/ingestion_gateway/activity.py) | Ingestion API or worker for its owned transition | Audit/progress consumers and Huginn ingress bridge | `document_id` | Content-free additive event envelope | Stable action/version idempotency; reconciliation republishes persisted facts; event 1 day, DLQ 7 days |
 | Operator command/proposal event | [Event](../../../src/fdai/shared/contracts/event/schema.json) and [Action](../../../src/fdai/shared/contracts/action/schema.json) contracts | Operator API command identity | Huginn/Forseti typed pipeline | normalized `resource_id` | Registry semver and additive compatibility | At-least-once; catalog idempotency key; normal event/DLQ retention 1/7 days |
 | Agent introspection request/reply | [Agent-introspection transport](../../../src/fdai/delivery/agent_introspection_bus.py) | Bragi/Operator API bridge | Addressed agent and bounded reply consumer | correlation id | Versioned request/reply envelope before process split | Bounded timeout/retry, no authority, content-redacted failure, broker retention 1 day |
@@ -112,6 +116,13 @@ A new candidate must add its data rows before implementation. A row with two ove
 
 Contract retention is not audit retention. Event Hubs currently retains normal entities for 1 day
 and sibling DLQs for 7 days in the [Event Hubs module](../../../infra/modules/event-bus/event-hubs-kafka/main.tf); durable state and audit follow their own governed retention policies.
+
+Service baseline adoption verifies more than the legacy Alembic head. The migration dispatcher
+compares a checked-in fingerprint of each service's owned tables, ordered columns, constraints, and
+required PostgreSQL extensions with submitted evidence and the live database catalog before it
+stamps a service baseline. Rollback starts only from the exact service branch head, targets the
+exact baseline, rechecks the resulting schema fingerprint and head, and writes a timestamped JSON
+receipt that points to a resolvable persisted rollback artifact.
 
 ## Identity and deployment matrix
 

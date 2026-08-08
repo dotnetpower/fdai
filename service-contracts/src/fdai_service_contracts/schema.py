@@ -27,6 +27,7 @@ class SchemaNotFoundError(LookupError):
 
 _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("action", "1.0.0"): "schemas/action/1.0.0.json",
+    ("document-deletion-request", "1.0.0"): "schemas/document-deletion-request/1.0.0.json",
     ("executor-command", "1.0.0"): "schemas/executor-command/1.0.0.json",
     ("executor-receipt", "1.0.0"): "schemas/executor-receipt/1.0.0.json",
     ("executor-receipt", "1.1.0"): "schemas/executor-receipt/1.1.0.json",

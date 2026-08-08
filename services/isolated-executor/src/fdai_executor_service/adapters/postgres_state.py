@@ -12,6 +12,8 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 import psycopg
 from psycopg.rows import dict_row
 
+from fdai_executor_service.ports import PendingExecutorReceipt
+
 _GENESIS_HASH: Final[str] = "0" * 64
 _AUDIT_APPEND_LOCK_KEY: Final[int] = 0x0FDA10AAAAAA01
 
@@ -47,6 +49,60 @@ class PostgresStateStore:
             async with connection.transaction():
                 await self._set_statement_timeout(connection)
                 await self._append_audit(connection, dict(entry))
+
+    async def assert_schema(self) -> None:
+        """Fail startup unless all Executor-owned persistence contracts exist."""
+        required = {
+            "state_kv": {"key", "value"},
+            "audit_log": {
+                "seq",
+                "event_id",
+                "entry",
+                "previous_hash",
+                "entry_hash",
+            },
+            "executor_receipt_outbox": {
+                "receipt_id",
+                "partition_key",
+                "payload",
+                "created_at",
+                "published_at",
+                "attempt_count",
+                "next_attempt_at",
+            },
+        }
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            row_factory=dict_row,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as connection:
+            await self._set_statement_timeout(connection)
+            rows = await (
+                await connection.execute(
+                    "SELECT table_name, column_name FROM information_schema.columns "
+                    "WHERE table_schema = current_schema() AND table_name = ANY(%s)",
+                    (sorted(required),),
+                )
+            ).fetchall()
+            outbox_primary_key = await (
+                await connection.execute(
+                    "SELECT a.attname FROM pg_constraint c "
+                    "JOIN pg_class t ON t.oid = c.conrelid "
+                    "JOIN pg_namespace n ON n.oid = t.relnamespace "
+                    "JOIN unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord) ON TRUE "
+                    "JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum "
+                    "WHERE n.nspname = current_schema() "
+                    "AND t.relname = 'executor_receipt_outbox' AND c.contype = 'p' "
+                    "ORDER BY k.ord"
+                )
+            ).fetchall()
+        observed: dict[str, set[str]] = {table: set() for table in required}
+        for row in rows:
+            observed[str(row["table_name"])].add(str(row["column_name"]))
+        if any(not columns <= observed[table] for table, columns in required.items()) or tuple(
+            str(row["attname"]) for row in outbox_primary_key
+        ) != ("receipt_id",):
+            raise RuntimeError("Executor persistence schema is missing or incompatible")
 
     async def read_state(self, key: str) -> Mapping[str, Any] | None:
         """Read one durable attempt record without treating corruption as a miss."""
@@ -94,6 +150,82 @@ class PostgresStateStore:
                     return False
                 await self._append_audit(connection, dict(audit_entry))
         return True
+
+    async def commit_receipt(
+        self,
+        receipt_id: UUID,
+        partition_key: str,
+        payload: Mapping[str, Any],
+    ) -> None:
+        """Atomically commit terminal receipt state and its publication outbox."""
+        async with (
+            await psycopg.AsyncConnection.connect(
+                self._config.dsn,
+                connect_timeout=self._config.connect_timeout_s,
+            ) as connection,
+            connection.transaction(),
+        ):
+            await self._set_statement_timeout(connection)
+            await connection.execute(
+                "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
+                "ON CONFLICT (key) DO NOTHING",
+                (f"isolated_executor_receipt:{receipt_id}", _canonical(payload)),
+            )
+            await connection.execute(
+                "INSERT INTO executor_receipt_outbox (receipt_id, partition_key, payload) "
+                "VALUES (%s, %s, %s::jsonb) ON CONFLICT (receipt_id) DO NOTHING",
+                (receipt_id, partition_key, _canonical(payload)),
+            )
+
+    async def claim_receipts(self, *, limit: int) -> tuple[PendingExecutorReceipt, ...]:
+        """Lease due unpublished receipts by moving their retry timestamp."""
+        if limit < 1 or limit > 1000:
+            raise ValueError("Executor receipt outbox limit MUST be in [1, 1000]")
+        async with (
+            await psycopg.AsyncConnection.connect(
+                self._config.dsn,
+                row_factory=dict_row,
+                connect_timeout=self._config.connect_timeout_s,
+            ) as connection,
+            connection.transaction(),
+        ):
+            await self._set_statement_timeout(connection)
+            rows = await (
+                await connection.execute(
+                    "SELECT receipt_id, partition_key, payload FROM executor_receipt_outbox "
+                    "WHERE published_at IS NULL AND next_attempt_at <= clock_timestamp() "
+                    "ORDER BY created_at, receipt_id FOR UPDATE SKIP LOCKED LIMIT %s",
+                    (limit,),
+                )
+            ).fetchall()
+            if rows:
+                await connection.execute(
+                    "UPDATE executor_receipt_outbox SET attempt_count = attempt_count + 1, "
+                    "next_attempt_at = clock_timestamp() + INTERVAL '5 seconds' "
+                    "WHERE receipt_id = ANY(%s)",
+                    ([row["receipt_id"] for row in rows],),
+                )
+        return tuple(
+            PendingExecutorReceipt(
+                receipt_id=row["receipt_id"],
+                partition_key=str(row["partition_key"]),
+                payload=_json_object(row["payload"], record_name="receipt outbox payload"),
+            )
+            for row in rows
+        )
+
+    async def mark_receipt_published(self, receipt_id: UUID) -> None:
+        """Record broker acknowledgement idempotently."""
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as connection:
+            await self._set_statement_timeout(connection)
+            await connection.execute(
+                "UPDATE executor_receipt_outbox SET published_at = clock_timestamp() "
+                "WHERE receipt_id = %s AND published_at IS NULL",
+                (receipt_id,),
+            )
 
     async def _set_statement_timeout(
         self,

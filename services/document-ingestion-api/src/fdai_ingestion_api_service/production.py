@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Mapping
 
 import httpx
@@ -60,6 +61,7 @@ _REQUIRED_ENV = (
     "FDAI_RBAC_BREAK_GLASS_GROUP_ID",
     "FDAI_INGESTION_CORS_ALLOW_ORIGINS",
 )
+_LOGGER = logging.getLogger(__name__)
 
 
 class ProductionConfigurationError(ValueError):
@@ -110,7 +112,6 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
         access=access,
         metadata=metadata,
         objects=storage,
-        activity=activity,
         capabilities=IngestionCapabilities(
             supported_formats=("text", "ooxml", "image-metadata", "pdf-text"),
             storage_modes=tuple(SourceStorageMode),
@@ -166,6 +167,20 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
                 "ingestion API adapter readiness failed: " + ", ".join(failures)
             )
 
+    async def drain_outbox() -> None:
+        while True:
+            try:
+                published = await activity.drain()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - durable rows remain retryable
+                _LOGGER.error(
+                    "document_api_outbox_drain_failed",
+                    extra={"exception_type": type(exc).__name__},
+                )
+                published = 0
+            await asyncio.sleep(0.1 if published else 2.0)
+
     stewardship_webhook = _build_stewardship_webhook(
         env=env,
         dsn=dsn,
@@ -178,9 +193,6 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
         deletion=ApiDocumentDeletionService(
             access=access,
             metadata=metadata,
-            objects=storage,
-            database=database,
-            activity=activity,
         ),
         search_index=PostgresDocumentSearch(
             config=database,
@@ -193,6 +205,7 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
         config=IngestionGatewayConfig(
             proxy_upload=True,
             startup_checks=(verify_database_role, verify_adapters),
+            background_services=(drain_outbox,),
             cors_allow_origins=_origins(env["FDAI_INGESTION_CORS_ALLOW_ORIGINS"]),
             default_reader_groups=(env["FDAI_RBAC_READERS_GROUP_ID"].strip(),),
             allowed_collections=_collections(

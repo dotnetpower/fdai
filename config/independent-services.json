@@ -27,7 +27,7 @@
       "entrypoint": "uvicorn fdai.delivery.ingestion_gateway.prod:app --factory",
       "target_image": "fdai-document-ingestion-api",
       "target_terraform_root": "infra/services/document-ingestion-api",
-      "target_migration_branch": "document-ingestion"
+      "target_migration_branch": "document-ingestion-api"
     },
     {
       "id": "document-processing-worker",
@@ -36,7 +36,7 @@
       "entrypoint": "python -m fdai.delivery.ingestion_gateway.worker",
       "target_image": "fdai-document-processing-worker",
       "target_terraform_root": "infra/services/document-processing-worker",
-      "target_migration_branch": "document-processing"
+      "target_migration_branch": "document-processing-worker"
     },
     {
       "id": "isolated-executor",

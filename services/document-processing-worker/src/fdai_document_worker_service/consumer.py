@@ -11,7 +11,10 @@ from typing import Final
 from uuid import UUID, uuid4
 
 from fdai_service_contracts import (
+    ContractValidationError,
+    DocumentDeletionRequest,
     DocumentMetadataStore,
+    DocumentOutboxDrainer,
     DocumentState,
     DocumentWorkerAuditEvent,
     DocumentWorkerClaim,
@@ -20,6 +23,8 @@ from fdai_service_contracts import (
     DocumentWorkerStage,
     EventBus,
     EventEnvelope,
+    JsonSchemaContractValidator,
+    PackageResourceSchemaRegistry,
 )
 from pydantic import ValidationError
 
@@ -37,6 +42,7 @@ class DocumentIngestionEventConsumer:
         event_bus: EventBus,
         worker: DocumentIngestionWorker,
         metadata: DocumentMetadataStore,
+        activity: DocumentOutboxDrainer,
         topic: str,
         group_id: str = "fdai-document-audit-gated-worker",
         retry_seconds: float = 2.0,
@@ -61,6 +67,7 @@ class DocumentIngestionEventConsumer:
         self._event_bus: Final = event_bus
         self._worker: Final = worker
         self._metadata: Final = metadata
+        self._activity: Final = activity
         self._topic: Final = topic
         self._group_id: Final = group_id
         self._retry_seconds: Final = retry_seconds
@@ -68,6 +75,7 @@ class DocumentIngestionEventConsumer:
         self._reconcile_batch_size: Final = reconcile_batch_size
         self._worker_owner: Final = resolved_owner
         self._lease_seconds: Final = lease_seconds
+        self._contract_validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())
 
     async def run(self) -> None:
         while True:
@@ -148,6 +156,71 @@ class DocumentIngestionEventConsumer:
                     extra={"exception_type": type(exc).__name__},
                 )
                 await asyncio.sleep(self._retry_seconds)
+
+    async def run_deletion_requests(self) -> None:
+        """Consume exact revision-fenced deletion requests from Huginn ingress."""
+        while True:
+            try:
+                async for event in self._event_bus.subscribe(
+                    "object.event", "fdai-document-deletion-worker"
+                ):
+                    if (
+                        event.payload.get("producer_principal") != "Huginn"
+                        or event.payload.get("kind") != "document_ingestion"
+                        or event.payload.get("action") != "document.deletion_requested"
+                    ):
+                        continue
+                    raw_request = event.payload.get("deletion_request")
+                    try:
+                        if not isinstance(raw_request, dict):
+                            raise ValueError("deletion request must be an object")
+                        self._contract_validator.validate(
+                            "document-deletion-request",
+                            raw_request,
+                            version="1.0.0",
+                        )
+                        request = DocumentDeletionRequest.model_validate(raw_request)
+                    except (ContractValidationError, ValidationError, ValueError):
+                        await self._dead_letter_invalid(
+                            event, reason="invalid_document_deletion_request"
+                        )
+                        continue
+
+                    async def apply(
+                        _upload_id: UUID,
+                        deletion_request: DocumentDeletionRequest = request,
+                    ) -> object:
+                        return await self._worker.apply_deletion_request(deletion_request)
+
+                    await self._run_once(
+                        request.upload_id,
+                        DocumentWorkerStage.DELETION,
+                        apply,
+                    )
+                await asyncio.sleep(self._retry_seconds)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                _LOGGER.error(
+                    "document_deletion_event_consumer_failed",
+                    extra={"exception_type": type(exc).__name__},
+                )
+                await asyncio.sleep(self._retry_seconds)
+
+    async def drain_outbox(self) -> None:
+        """Retry committed worker publications until process shutdown."""
+        while True:
+            try:
+                published = await self._activity.drain()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                _LOGGER.error(
+                    "document_worker_outbox_drain_failed",
+                    extra={"exception_type": type(exc).__name__},
+                )
+                published = 0
+            await asyncio.sleep(0.1 if published else self._retry_seconds)
 
     async def reconcile(self) -> None:
         while True:

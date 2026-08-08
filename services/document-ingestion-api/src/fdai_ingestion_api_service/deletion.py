@@ -2,43 +2,33 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime
 from uuid import UUID
 
-import psycopg
 from fdai_service_contracts import (
     DocumentAccessProvider,
-    DocumentActivitySink,
+    DocumentDeletionRequest,
+    DocumentLifecycleEvent,
     DocumentState,
+    DocumentUploadMetadataStore,
     DocumentVersion,
-    UploadSession,
 )
 
-from fdai_ingestion_api_service.adapters.postgres import (
-    PostgresApiConfig,
-    PostgresDocumentMetadataStore,
-)
-from fdai_ingestion_api_service.adapters.storage import AzureDataLakeObjectStore
 from fdai_ingestion_api_service.state_machine import transition
 
 
 class ApiDocumentDeletionService:
-    """Delete API-visible source, derived, and index records without worker imports."""
+    """Authorize deletion and enqueue worker-owned cleanup without direct writes."""
 
     def __init__(
         self,
         *,
         access: DocumentAccessProvider,
-        metadata: PostgresDocumentMetadataStore,
-        objects: AzureDataLakeObjectStore,
-        database: PostgresApiConfig,
-        activity: DocumentActivitySink,
+        metadata: DocumentUploadMetadataStore,
     ) -> None:
         self._access = access
         self._metadata = metadata
-        self._objects = objects
-        self._database = database
-        self._activity = activity
 
     async def delete(
         self,
@@ -56,60 +46,57 @@ class ApiDocumentDeletionService:
             raise ValueError("document version is subject to legal hold")
         session = await self._metadata.get_upload(version.upload_id)
         deleting = transition(version.state, DocumentState.DELETING)
-        session = session.model_copy(update={"state": deleting})
-        version = version.model_copy(
+        requested_at = datetime.now(tz=UTC)
+        deleting_session = session.model_copy(
+            update={"state": deleting, "revision": session.revision + 1}
+        )
+        deleting_version = version.model_copy(
             update={
                 "state": deleting,
                 "available": False,
                 "active": False,
-                "updated_at": datetime.now(tz=UTC),
+                "updated_at": requested_at,
+                "revision": version.revision + 1,
             }
         )
-        await self._metadata.save_upload(session)
-        await self._metadata.save_version(version)
-        try:
-            await self._delete_chunks(document_id, version_id)
-            await self._objects.delete_artifact(document_id, version_id)
-            await self._objects.delete(session.object_key)
-        except Exception:
-            await self._record(session, version, "document.deletion_pending", actor_id)
-            raise
-        deleted = transition(deleting, DocumentState.DELETED)
-        session = session.model_copy(update={"state": deleted})
-        version = version.model_copy(update={"state": deleted, "updated_at": datetime.now(tz=UTC)})
-        await self._metadata.save_upload(session)
-        await self._metadata.save_version(version)
-        await self._record(session, version, "document.deleted", actor_id)
-        return version
-
-    async def _delete_chunks(self, document_id: UUID, version_id: UUID) -> None:
-        async with await psycopg.AsyncConnection.connect(
-            self._database.dsn,
-            connect_timeout=self._database.connect_timeout_s,
-        ) as connection:
-            await connection.execute(
-                "DELETE FROM knowledge_chunk WHERE metadata->>'document_id' = %s "
-                "AND metadata->>'version_id' = %s",
-                (str(document_id), str(version_id)),
-            )
-
-    async def _record(
-        self,
-        session: UploadSession,
-        version: DocumentVersion,
-        action: str,
-        actor_id: str,
-    ) -> None:
-        record: dict[str, object] = {
-            "action": action,
-            "actor_id": actor_id,
-            "collection_id": session.collection_id,
-            "document_id": str(version.document_id),
-            "version_id": str(version.version_id),
-            "source_sha256": version.source_sha256,
-            "state": version.state.value,
-            "policy_version": version.retention.policy_version,
-            "access_descriptor_ref": version.access.reference,
-        }
-        await self._activity.audit(record)
-        await self._activity.publish(action, str(version.document_id), record)
+        identity = f"document.delete:{version.version_id}:{deleting_version.revision}"
+        request = DocumentDeletionRequest(
+            request_id=UUID(bytes=hashlib.sha256(identity.encode()).digest()[:16]),
+            idempotency_key=identity,
+            document_id=document_id,
+            version_id=version_id,
+            upload_id=version.upload_id,
+            requested_by=actor_id,
+            expected_upload_revision=deleting_session.revision,
+            expected_version_revision=deleting_version.revision,
+            requested_at=requested_at,
+        )
+        event = DocumentLifecycleEvent(
+            event_id=request.request_id,
+            idempotency_key=request.idempotency_key,
+            topic="object.event",
+            key=str(document_id),
+            payload={
+                "producer_principal": "Huginn",
+                "kind": "document_ingestion",
+                "action": "document.deletion_requested",
+                "event_type": "document.deletion_requested",
+                "correlation_id": str(version.upload_id),
+                "idempotency_key": identity,
+                "resource_id": str(document_id),
+                "resource_type": "document",
+                "document_id": str(document_id),
+                "deletion_request": request.model_dump(mode="json"),
+            },
+            created_at=requested_at,
+        )
+        await self._metadata.transition(
+            deleting_session,
+            deleting_version,
+            expected_upload_state=session.state.value,
+            expected_upload_revision=session.revision,
+            expected_version_state=version.state.value,
+            expected_version_revision=version.revision,
+            event=event,
+        )
+        return deleting_version

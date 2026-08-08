@@ -12,7 +12,7 @@ from fdai_service_contracts import (
     AccessDescriptor,
     DirectUploadStore,
     DocumentAccessProvider,
-    DocumentActivitySink,
+    DocumentLifecycleEvent,
     DocumentObjectStore,
     DocumentPurpose,
     DocumentState,
@@ -71,7 +71,6 @@ class DocumentIngestionService:
         access: DocumentAccessProvider,
         metadata: DocumentUploadMetadataStore,
         objects: DocumentObjectStore,
-        activity: DocumentActivitySink,
         capabilities: IngestionCapabilities,
         clock: Callable[[], datetime] | None = None,
         id_factory: Callable[[], UUID] | None = None,
@@ -80,7 +79,6 @@ class DocumentIngestionService:
         self._access = access
         self._metadata = metadata
         self._objects = objects
-        self._activity = activity
         self._capabilities = capabilities
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._id_factory = id_factory or uuid4
@@ -145,7 +143,7 @@ class DocumentIngestionService:
             media_type_hint=request.media_type_hint,
             expected_size=request.expected_size,
             expected_sha256=request.expected_sha256,
-            state=DocumentState.UPLOADING,
+            state=DocumentState.CREATED,
             storage_mode=request.storage_mode,
             purposes=request.purposes,
             access=access,
@@ -162,7 +160,7 @@ class DocumentIngestionService:
             source_sha256=request.expected_sha256,
             size_bytes=request.expected_size,
             media_type=request.media_type_hint,
-            state=DocumentState.UPLOADING,
+            state=DocumentState.CREATED,
             access=access,
             retention=retention,
             purposes=request.purposes,
@@ -173,8 +171,30 @@ class DocumentIngestionService:
         )
         await self._metadata.create(session, version)
         grant = await self._objects.issue_upload(session)
-        await self._record(session, actor_id=actor_id, action="upload.created")
-        return session, grant
+        uploading = transition(DocumentState.CREATED, DocumentState.UPLOADING)
+        uploading_session = session.model_copy(
+            update={"state": uploading, "revision": session.revision + 1}
+        )
+        uploading_version = version.model_copy(
+            update={
+                "state": uploading,
+                "updated_at": self._clock(),
+                "revision": version.revision + 1,
+            }
+        )
+        try:
+            await self._commit_transition(
+                session,
+                version,
+                uploading_session,
+                uploading_version,
+                actor_id=actor_id,
+                action="upload.created",
+            )
+        except BaseException:
+            await self._objects.revoke_upload(session.upload_id)
+            raise
+        return uploading_session, grant
 
     async def resume_upload(
         self,
@@ -266,18 +286,38 @@ class DocumentIngestionService:
             failed_session = session.model_copy(
                 update={"state": DocumentState.HELD, "failure_code": "storage_commit_mismatch"}
             )
-            await self._metadata.save_version(held)
-            await self._metadata.save_upload(failed_session)
-            await self._record(failed_session, actor_id=actor_id, action="document.held")
+            held = held.model_copy(update={"revision": version.revision + 1})
+            failed_session = failed_session.model_copy(update={"revision": session.revision + 1})
+            await self._commit_transition(
+                session,
+                version,
+                failed_session,
+                held,
+                actor_id=actor_id,
+                action="document.held",
+            )
             raise ValueError("uploaded object does not match the declared size and hash")
         state = transition(session.state, DocumentState.RECEIVED)
-        session = session.model_copy(update={"state": state})
-        version = version.model_copy(update={"state": state, "updated_at": self._clock()})
-        await self._metadata.save_upload(session)
-        await self._metadata.save_version(version)
+        updated_session = session.model_copy(
+            update={"state": state, "revision": session.revision + 1}
+        )
+        updated_version = version.model_copy(
+            update={
+                "state": state,
+                "updated_at": self._clock(),
+                "revision": version.revision + 1,
+            }
+        )
+        await self._commit_transition(
+            session,
+            version,
+            updated_session,
+            updated_version,
+            actor_id=actor_id,
+            action="document.received",
+        )
         await self._objects.revoke_upload(upload_id)
-        await self._record(session, actor_id=actor_id, action="document.received")
-        return session
+        return updated_session
 
     async def get_upload(
         self,
@@ -324,30 +364,87 @@ class DocumentIngestionService:
         }:
             raise ValueError("processed content requires lineage-aware deletion")
         deleting = transition(session.state, DocumentState.DELETING)
-        await self._objects.revoke_upload(upload_id)
-        await self._objects.delete(session.object_key)
-        deleted = transition(deleting, DocumentState.DELETED)
-        session = session.model_copy(update={"state": deleted, "failure_code": "cancelled"})
-        version = version.model_copy(
+        deleting_session = session.model_copy(
             update={
-                "state": deleted,
+                "state": deleting,
+                "failure_code": "cancelled",
+                "revision": session.revision + 1,
+            }
+        )
+        deleting_version = version.model_copy(
+            update={
+                "state": deleting,
                 "available": False,
                 "active": False,
                 "failure_code": "cancelled",
                 "updated_at": self._clock(),
+                "revision": version.revision + 1,
             }
         )
-        await self._metadata.save_upload(session)
-        await self._metadata.save_version(version)
-        await self._record(session, actor_id=actor_id, action="document.deleted")
-        return session
+        await self._commit_transition(
+            session,
+            version,
+            deleting_session,
+            deleting_version,
+            actor_id=actor_id,
+            action="document.deletion_pending",
+        )
+        await self._objects.revoke_upload(upload_id)
+        await self._objects.delete(session.object_key)
+        deleted = transition(deleting, DocumentState.DELETED)
+        deleted_session = deleting_session.model_copy(
+            update={"state": deleted, "revision": deleting_session.revision + 1}
+        )
+        deleted_version = deleting_version.model_copy(
+            update={
+                "state": deleted,
+                "updated_at": self._clock(),
+                "revision": deleting_version.revision + 1,
+            }
+        )
+        await self._commit_transition(
+            deleting_session,
+            deleting_version,
+            deleted_session,
+            deleted_version,
+            actor_id=actor_id,
+            action="document.deleted",
+        )
+        return deleted_session
 
     async def _authorized_upload(self, upload_id: UUID) -> tuple[UploadSession, DocumentVersion]:
         session = await self._metadata.get_upload(upload_id)
         version = await self._metadata.get_version(session.document_id, session.version_id)
         return session, version
 
-    async def _record(self, session: UploadSession, *, actor_id: str, action: str) -> None:
+    async def _commit_transition(
+        self,
+        previous_session: UploadSession,
+        previous_version: DocumentVersion,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        actor_id: str,
+        action: str,
+    ) -> None:
+        await self._metadata.transition(
+            session,
+            version,
+            expected_upload_state=previous_session.state.value,
+            expected_upload_revision=previous_session.revision,
+            expected_version_state=previous_version.state.value,
+            expected_version_revision=previous_version.revision,
+            event=self._event(session, version, actor_id=actor_id, action=action),
+        )
+
+    def _event(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        actor_id: str,
+        action: str,
+    ) -> DocumentLifecycleEvent:
         record: dict[str, object] = {
             "action": action,
             "actor_id": actor_id,
@@ -359,9 +456,29 @@ class DocumentIngestionService:
             "state": session.state.value,
             "policy_version": session.retention.policy_version,
             "access_descriptor_ref": session.access.reference,
+            "upload_revision": session.revision,
+            "version_revision": version.revision,
         }
-        await self._activity.audit(record)
-        await self._activity.publish(action, str(session.document_id), record)
+        identity = f"{action}:{version.version_id}:{version.revision}"
+        return DocumentLifecycleEvent(
+            event_id=UUID(bytes=hashlib.sha256(identity.encode()).digest()[:16]),
+            idempotency_key=identity,
+            topic="object.event",
+            key=str(session.document_id),
+            payload={
+                "producer_principal": "Huginn",
+                "kind": "document_ingestion",
+                "action": action,
+                "event_type": action,
+                "correlation_id": str(session.upload_id),
+                "idempotency_key": identity,
+                "resource_id": str(session.document_id),
+                "resource_type": "document",
+                "document_id": str(session.document_id),
+                "record": record,
+            },
+            created_at=self._clock(),
+        )
 
 
 def _collection_segment(collection_id: str) -> str:

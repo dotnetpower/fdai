@@ -102,6 +102,16 @@ def validate() -> None:
         target_package = REPO_ROOT / service["target_package"]
         if not (target_package / "pyproject.toml").is_file():
             raise ValueError(f"missing service distribution: {service['target_package']}")
+        terraform_root = REPO_ROOT / service["target_terraform_root"]
+        if not (terraform_root / "main.tf").is_file():
+            raise ValueError(f"missing service Terraform root: {service['target_terraform_root']}")
+        migration_branch = (
+            REPO_ROOT / "service-migrations" / "branches" / service["target_migration_branch"]
+        )
+        if not (migration_branch / "versions").is_dir():
+            raise ValueError(
+                f"missing service migration branch: {service['target_migration_branch']}"
+            )
 
     _validate_graph(manifest["work_packages"])
     baseline = manifest["current_baseline"]

@@ -158,12 +158,13 @@ def build_isolated_executor_supervisor(
     )
     validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())
     audit_store = _build_audit_store()
+    idempotency = _build_idempotency_store()
     service: ExecutorCommandHandler | ExecutorShadowCommandHandler
     if config.authority_cutover:
         direct_api_executor = _build_direct_api_executor(
             audit_store=audit_store,
             resource_lock=_build_resource_lock(),
-            idempotency=_build_idempotency_store(),
+            idempotency=idempotency,
             http_client=http_client,
             identity=identity,
         )
@@ -188,10 +189,12 @@ def build_isolated_executor_supervisor(
         command_topic=config.command_topic,
         receipt_topic=config.receipt_topic,
         group_id=EXECUTOR_CONSUMER_GROUP,
+        receipt_outbox=audit_store,
     )
     return IsolatedExecutorSupervisor(
         consumer=consumer,
         health_port=config.health_port,
+        startup_checks=(audit_store.assert_schema, idempotency.assert_schema),
         shutdown_callbacks=(event_bus.close, http_client.aclose),
     )
 

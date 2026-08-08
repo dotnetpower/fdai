@@ -3,7 +3,30 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any, Protocol
+from uuid import UUID
+
+
+@dataclass(frozen=True, slots=True)
+class PendingExecutorReceipt:
+    """One committed receipt awaiting broker acknowledgement."""
+
+    receipt_id: UUID
+    partition_key: str
+    payload: Mapping[str, Any]
+
+
+class ExecutorReceiptOutbox(Protocol):
+    """Durably stage and acknowledge Executor receipt publication."""
+
+    async def commit_receipt(
+        self, receipt_id: UUID, partition_key: str, payload: Mapping[str, Any]
+    ) -> None: ...
+
+    async def claim_receipts(self, *, limit: int) -> tuple[PendingExecutorReceipt, ...]: ...
+
+    async def mark_receipt_published(self, receipt_id: UUID) -> None: ...
 
 
 class ExecutorStateStore(Protocol):
@@ -20,5 +43,15 @@ class ExecutorStateStore(Protocol):
         audit_entry: Mapping[str, Any],
     ) -> bool: ...
 
+    async def assert_schema(self) -> None: ...
 
-__all__ = ["ExecutorStateStore"]
+    async def commit_receipt(
+        self, receipt_id: UUID, partition_key: str, payload: Mapping[str, Any]
+    ) -> None: ...
+
+    async def claim_receipts(self, *, limit: int) -> tuple[PendingExecutorReceipt, ...]: ...
+
+    async def mark_receipt_published(self, receipt_id: UUID) -> None: ...
+
+
+__all__ = ["ExecutorReceiptOutbox", "ExecutorStateStore", "PendingExecutorReceipt"]

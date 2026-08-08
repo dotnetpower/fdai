@@ -21,6 +21,7 @@ def validate_service_branches(
     adoptions: dict[str, AdoptionManifest] = {}
     seen_revisions: set[str] = set()
     declared_table_owners: dict[str, str] = {}
+    created_table_owners: dict[str, str] = {}
     for service_id in SERVICE_IDS:
         config_path = root / "configs" / f"{service_id}.ini"
         config = Config(str(config_path))
@@ -61,13 +62,20 @@ def validate_service_branches(
                         f"forward migration ownership overlaps for {table}: "
                         f"{prior_owner} and {service_id}"
                     )
+            for table in metadata.created_tables:
+                prior_creator = created_table_owners.setdefault(table, service_id)
+                if prior_creator != service_id:
+                    raise ValueError(
+                        f"forward table creation overlaps for {table}: "
+                        f"{prior_creator} and {service_id}"
+                    )
         adoptions[service_id] = adoption
     if len({adoption.service_version_table for adoption in adoptions.values()}) != len(SERVICE_IDS):
         raise ValueError("service version tables must be unique")
     future_tables = set(ownership.table_migrators) - set(inventory.table_sources)
-    if future_tables != set(declared_table_owners):
-        missing = sorted(future_tables - set(declared_table_owners))
-        undeclared = sorted(set(declared_table_owners) - future_tables)
+    if future_tables != set(created_table_owners):
+        missing = sorted(future_tables - set(created_table_owners))
+        undeclared = sorted(set(created_table_owners) - future_tables)
         raise ValueError(
             f"forward table declarations mismatch; missing={missing}, undeclared={undeclared}"
         )

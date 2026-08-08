@@ -16,6 +16,8 @@ _LOGGER = logging.getLogger("fdai.ingestion.worker")
 class WorkerLoopService(Protocol):
     async def run(self) -> None: ...
     async def run_index_commands(self) -> None: ...
+    async def run_deletion_requests(self) -> None: ...
+    async def drain_outbox(self) -> None: ...
     async def reconcile(self) -> None: ...
 
 
@@ -63,6 +65,14 @@ class IngestionWorkerSupervisor:
                 asyncio.create_task(
                     self._runtime.worker_service.run_index_commands(),
                     name="document-index-consumer",
+                ),
+                asyncio.create_task(
+                    self._runtime.worker_service.run_deletion_requests(),
+                    name="document-deletion-consumer",
+                ),
+                asyncio.create_task(
+                    self._runtime.worker_service.drain_outbox(),
+                    name="document-outbox-drainer",
                 ),
                 asyncio.create_task(
                     self._runtime.worker_service.reconcile(), name="document-reconciler"

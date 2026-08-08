@@ -11,7 +11,7 @@ import httpx
 import psycopg
 from azure.identity.aio import ManagedIdentityCredential
 from azure.storage.filedatalake.aio import DataLakeServiceClient
-from fdai_service_contracts import AdapterLiveReadinessProvider, DocumentAccessDeniedError
+from fdai_service_contracts import AdapterLiveReadinessProvider
 
 from fdai_document_worker_service.adapters.activity import PostgresDocumentActivitySink
 from fdai_document_worker_service.adapters.event_bus import (
@@ -66,19 +66,6 @@ _REQUIRED_ENV = (
 
 class ProductionConfigurationError(ValueError):
     """Production worker environment is incomplete or grants the wrong role."""
-
-
-class WorkerAccessBoundary:
-    """Deny human upload/delete operations inside the headless worker."""
-
-    async def authorize_create(self, **_kwargs: object) -> None:
-        raise DocumentAccessDeniedError("the worker cannot create uploads")
-
-    async def authorize_read(self, **_kwargs: object) -> None:
-        raise DocumentAccessDeniedError("the worker has no human read surface")
-
-    async def authorize_delete(self, **_kwargs: object) -> None:
-        raise DocumentAccessDeniedError("the worker cannot accept delete requests")
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,7 +155,6 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
         event_topic=env["FDAI_DOCUMENT_EVENT_TOPIC"].strip(),
     )
     worker = DocumentIngestionWorker(
-        access=WorkerAccessBoundary(),
         metadata=metadata,
         objects=source_store,
         malware=ClamAvMalwareScanner(
@@ -211,7 +197,6 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
         ),
         artifacts=artifact_store,
         index=document_index,
-        activity=activity,
         consumers=(
             HandoverBootstrapConsumer(
                 directory=(
@@ -269,6 +254,7 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             event_bus=event_bus,
             worker=worker,
             metadata=metadata,
+            activity=activity,
             topic="object.audit-entry",
             worker_owner=env.get("FDAI_INGESTION_WORKER_OWNER", "").strip() or None,
             lease_seconds=_positive_int(env, "FDAI_INGESTION_WORKER_LEASE_SECONDS", 120),

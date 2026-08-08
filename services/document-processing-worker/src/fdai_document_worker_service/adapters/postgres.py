@@ -13,6 +13,8 @@ from uuid import UUID
 import psycopg
 from fdai_service_contracts import (
     AdapterReadiness,
+    DocumentLifecycleConflictError,
+    DocumentLifecycleEvent,
     DocumentNotFoundError,
     DocumentVersion,
     DocumentWorkerClaim,
@@ -68,7 +70,13 @@ class PostgresDocumentMetadataStore:
             return live_unavailable_readiness(adapter, f"probe_failed:{type(exc).__name__}")
         return live_readiness(adapter)
 
-    async def create(self, session: UploadSession, version: DocumentVersion) -> None:
+    async def create(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        event: DocumentLifecycleEvent | None = None,
+    ) -> None:
         raise PermissionError("the worker database role cannot create uploads")
 
     async def get_upload(self, upload_id: UUID) -> UploadSession:
@@ -80,14 +88,6 @@ class PostgresDocumentMetadataStore:
             raise DocumentNotFoundError("upload was not found")
         return UploadSession.model_validate(_payload(row["payload"]))
 
-    async def save_upload(self, session: UploadSession) -> None:
-        await self._update_record(
-            "UPDATE document_upload_session SET state = %s, payload = %s::jsonb, "
-            "updated_at = NOW() WHERE upload_id = %s RETURNING upload_id",
-            (session.state.value, session.model_dump_json(), session.upload_id),
-            "upload was not found",
-        )
-
     async def get_version(self, document_id: UUID, version_id: UUID) -> DocumentVersion:
         row = await self._one(
             "SELECT payload FROM document_version WHERE document_id = %s AND version_id = %s",
@@ -97,30 +97,72 @@ class PostgresDocumentMetadataStore:
             raise DocumentNotFoundError("document version was not found")
         return DocumentVersion.model_validate(_payload(row["payload"]))
 
-    async def save_version(self, version: DocumentVersion) -> None:
+    async def transition(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        expected_upload_state: str,
+        expected_upload_revision: int,
+        expected_version_state: str,
+        expected_version_revision: int,
+        event: DocumentLifecycleEvent,
+    ) -> None:
+        """Atomically CAS both lifecycle rows and enqueue one worker fact."""
+        if session.revision != expected_upload_revision + 1:
+            raise ValueError("upload transition revision MUST increment exactly once")
+        if version.revision != expected_version_revision + 1:
+            raise ValueError("version transition revision MUST increment exactly once")
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
+            upload_cursor = await connection.execute(
+                "UPDATE document_upload_session SET state = %s, revision = %s, "
+                "payload = %s::jsonb, updated_at = NOW() WHERE upload_id = %s "
+                "AND state = %s AND revision = %s RETURNING upload_id",
+                (
+                    session.state.value,
+                    session.revision,
+                    session.model_dump_json(),
+                    session.upload_id,
+                    expected_upload_state,
+                    expected_upload_revision,
+                ),
+            )
+            if await upload_cursor.fetchone() is None:
+                raise DocumentLifecycleConflictError("upload lifecycle CAS conflict")
             if version.active:
                 await connection.execute(
-                    "UPDATE document_version SET active = FALSE, "
-                    "payload = jsonb_set(payload, '{active}', 'false'::jsonb), updated_at = NOW() "
-                    "WHERE document_id = %s AND version_id <> %s AND active",
+                    "UPDATE document_version SET active = FALSE, revision = revision + 1, "
+                    "payload = jsonb_set(jsonb_set(payload, '{active}', 'false'::jsonb), "
+                    "'{revision}', to_jsonb(revision + 1)), "
+                    "updated_at = NOW() WHERE document_id = %s AND version_id <> %s AND active",
                     (version.document_id, version.version_id),
                 )
-            cursor = await connection.execute(
-                "UPDATE document_version SET state = %s, active = %s, payload = %s::jsonb, "
-                "updated_at = %s WHERE document_id = %s AND version_id = %s RETURNING version_id",
+            version_cursor = await connection.execute(
+                "UPDATE document_version SET state = %s, active = %s, revision = %s, "
+                "payload = %s::jsonb, updated_at = %s WHERE document_id = %s "
+                "AND version_id = %s AND state = %s AND revision = %s RETURNING version_id",
                 (
                     version.state.value,
                     version.active,
+                    version.revision,
                     version.model_dump_json(),
                     version.updated_at,
                     version.document_id,
                     version.version_id,
+                    expected_version_state,
+                    expected_version_revision,
                 ),
             )
-            if await cursor.fetchone() is None:
-                raise DocumentNotFoundError("document version was not found")
+            if await version_cursor.fetchone() is None:
+                raise DocumentLifecycleConflictError("document version lifecycle CAS conflict")
+            await _enqueue_outbox(connection, event)
+
+    async def enqueue_event(self, event: DocumentLifecycleEvent) -> None:
+        """Persist one replay fact outside a lifecycle transition."""
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            await _enqueue_outbox(connection, event)
 
     async def list_versions(self, document_id: UUID) -> tuple[DocumentVersion, ...]:
         rows = await self._many(
@@ -350,12 +392,6 @@ class PostgresDocumentMetadataStore:
             await self._timeout(connection)
             return await (await connection.execute(query, params)).fetchall()
 
-    async def _update_record(self, query: str, params: tuple[object, ...], not_found: str) -> None:
-        async with await self._connect() as connection, connection.transaction():
-            await self._timeout(connection)
-            if await (await connection.execute(query, params)).fetchone() is None:
-                raise DocumentNotFoundError(not_found)
-
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         return await psycopg.AsyncConnection.connect(
             self._config.dsn,
@@ -396,3 +432,21 @@ def _claim(row: dict[str, Any]) -> DocumentWorkerClaim:
 def _validate_claim(owner: str, lease_seconds: int) -> None:
     if not owner or len(owner) > 256 or lease_seconds < 1 or lease_seconds > 3600:
         raise ValueError("document worker owner and lease MUST be valid")
+
+
+async def _enqueue_outbox(
+    connection: psycopg.AsyncConnection[Any], event: DocumentLifecycleEvent
+) -> None:
+    await connection.execute(
+        "INSERT INTO document_worker_outbox "
+        "(event_id, idempotency_key, topic, partition_key, payload, created_at) "
+        "VALUES (%s, %s, %s, %s, %s::jsonb, %s) ON CONFLICT (idempotency_key) DO NOTHING",
+        (
+            event.event_id,
+            event.idempotency_key,
+            event.topic,
+            event.key,
+            event.model_dump_json(),
+            event.created_at,
+        ),
+    )

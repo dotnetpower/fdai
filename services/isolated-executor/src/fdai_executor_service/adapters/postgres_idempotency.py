@@ -10,13 +10,6 @@ from typing import Any
 import psycopg
 from psycopg.rows import dict_row
 
-_CREATE_SQL = """
-CREATE TABLE IF NOT EXISTS action_idempotency (
-    idempotency_key TEXT PRIMARY KEY,
-    result JSONB NOT NULL,
-    recorded_at TIMESTAMPTZ NOT NULL DEFAULT now()
-)
-"""
 _SELECT_SQL = "SELECT result FROM action_idempotency WHERE idempotency_key = %s"
 _INSERT_SQL = (
     "INSERT INTO action_idempotency (idempotency_key, result) "
@@ -59,6 +52,35 @@ class PostgresIdempotencyStore:
             raise ValueError("idempotency result is not a JSON object; refusing replay")
         return dict(result)
 
+    async def assert_schema(self) -> None:
+        """Fail startup unless the migration-owned idempotency schema is exact."""
+        async with await self._connect(row_factory=dict_row) as connection:
+            await self._prepare(connection)
+            columns = await (
+                await connection.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_schema = current_schema() AND table_name = %s",
+                    ("action_idempotency",),
+                )
+            ).fetchall()
+            primary_key = await (
+                await connection.execute(
+                    "SELECT a.attname FROM pg_constraint c "
+                    "JOIN pg_class t ON t.oid = c.conrelid "
+                    "JOIN pg_namespace n ON n.oid = t.relnamespace "
+                    "JOIN unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord) ON TRUE "
+                    "JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum "
+                    "WHERE n.nspname = current_schema() AND t.relname = %s "
+                    "AND c.contype = 'p' ORDER BY k.ord",
+                    ("action_idempotency",),
+                )
+            ).fetchall()
+        observed_columns = {str(row["column_name"]) for row in columns}
+        observed_primary_key = tuple(str(row["attname"]) for row in primary_key)
+        required_columns = {"idempotency_key", "result", "recorded_at"}
+        if not required_columns <= observed_columns or observed_primary_key != ("idempotency_key",):
+            raise RuntimeError("Executor idempotency schema is missing or incompatible")
+
     async def record(self, key: str, result: Mapping[str, Any]) -> bool:
         """Atomically record the first result and preserve any winner."""
 
@@ -83,7 +105,6 @@ class PostgresIdempotencyStore:
             "SELECT set_config('statement_timeout', %s, false)",
             (str(self._config.statement_timeout_ms),),
         )
-        await connection.execute(_CREATE_SQL)
 
 
 __all__ = ["PostgresIdempotencyStore", "PostgresIdempotencyStoreConfig"]

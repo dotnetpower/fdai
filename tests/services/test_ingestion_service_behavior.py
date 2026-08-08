@@ -10,17 +10,20 @@ from uuid import UUID, uuid4
 
 import pytest
 from fdai_document_worker_service.consumer import DocumentIngestionEventConsumer
+from fdai_document_worker_service.processing import DocumentIngestionWorker
 from fdai_document_worker_service.supervisor import IngestionWorkerSupervisor
 from fdai_ingestion_api_service.access import ClaimsDocumentAccessProvider
-from fdai_ingestion_api_service.adapters.postgres import PostgresApiConfig
 from fdai_ingestion_api_service.auth import Authenticator, GroupMapping
 from fdai_ingestion_api_service.deletion import ApiDocumentDeletionService
 from fdai_ingestion_api_service.http import IngestionGatewayConfig, build_app
-from fdai_ingestion_api_service.ingestion import DocumentIngestionService
+from fdai_ingestion_api_service.ingestion import CreateUploadRequest, DocumentIngestionService
 from fdai_service_contracts import (
     AUDIT_APPEND_LOCK_KEY,
     AUDIT_GENESIS_HASH,
     AccessDescriptor,
+    DocumentDeletionRequest,
+    DocumentLifecycleConflictError,
+    DocumentLifecycleEvent,
     DocumentPurpose,
     DocumentState,
     DocumentVersion,
@@ -28,6 +31,8 @@ from fdai_service_contracts import (
     DocumentWorkerClaimStatus,
     DocumentWorkerStage,
     IngestionCapabilities,
+    JsonSchemaContractValidator,
+    PackageResourceSchemaRegistry,
     RetentionPolicy,
     SourceStorageMode,
     StoredObjectInfo,
@@ -44,10 +49,19 @@ class MemoryMetadata:
         self.uploads: dict[UUID, UploadSession] = {}
         self.versions: dict[tuple[UUID, UUID], DocumentVersion] = {}
         self.claims: dict[tuple[UUID, DocumentWorkerStage], DocumentWorkerClaim] = {}
+        self.events: list[DocumentLifecycleEvent] = []
 
-    async def create(self, session: UploadSession, version: DocumentVersion) -> None:
+    async def create(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        event: DocumentLifecycleEvent | None = None,
+    ) -> None:
         self.uploads[session.upload_id] = session
         self.versions[(version.document_id, version.version_id)] = version
+        if event is not None:
+            self.events.append(event)
 
     async def get_upload(self, upload_id: UUID) -> UploadSession:
         return self.uploads[upload_id]
@@ -60,6 +74,37 @@ class MemoryMetadata:
 
     async def save_version(self, version: DocumentVersion) -> None:
         self.versions[(version.document_id, version.version_id)] = version
+
+    async def transition(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        expected_upload_state: str,
+        expected_upload_revision: int,
+        expected_version_state: str,
+        expected_version_revision: int,
+        event: DocumentLifecycleEvent,
+    ) -> None:
+        current_session = self.uploads[session.upload_id]
+        current_version = self.versions[(version.document_id, version.version_id)]
+        if (
+            current_session.state.value != expected_upload_state
+            or current_session.revision != expected_upload_revision
+            or current_version.state.value != expected_version_state
+            or current_version.revision != expected_version_revision
+        ):
+            raise DocumentLifecycleConflictError("document lifecycle CAS conflict")
+        if session.revision != expected_upload_revision + 1:
+            raise ValueError("upload transition revision MUST increment exactly once")
+        if version.revision != expected_version_revision + 1:
+            raise ValueError("version transition revision MUST increment exactly once")
+        self.uploads[session.upload_id] = session
+        self.versions[(version.document_id, version.version_id)] = version
+        self.events.append(event)
+
+    async def enqueue_event(self, event: DocumentLifecycleEvent) -> None:
+        self.events.append(event)
 
     async def list_versions(self, document_id: UUID) -> tuple[DocumentVersion, ...]:
         return tuple(value for (owner, _), value in self.versions.items() if owner == document_id)
@@ -131,6 +176,32 @@ def test_audit_hash_contract_matches_existing_chain_snapshot() -> None:
     )
 
 
+def test_deletion_request_requires_a_positive_expected_revision() -> None:
+    now = datetime.now(UTC)
+    request = DocumentDeletionRequest(
+        request_id=uuid4(),
+        idempotency_key="document.delete:version-1",
+        document_id=uuid4(),
+        version_id=uuid4(),
+        upload_id=uuid4(),
+        requested_by="operator",
+        expected_upload_revision=1,
+        expected_version_revision=1,
+        requested_at=now,
+    )
+
+    assert request.expected_version_revision == 1
+    JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate(
+        "document-deletion-request",
+        request.model_dump(mode="json"),
+        version=request.schema_version,
+    )
+    with pytest.raises(ValueError, match="greater than or equal to 1"):
+        request.model_copy(update={"expected_version_revision": 0}).model_validate(
+            request.model_dump() | {"expected_version_revision": 0}
+        )
+
+
 class MemoryObjects:
     def __init__(self) -> None:
         self.content: dict[str, bytes] = {}
@@ -174,6 +245,18 @@ class MemoryObjects:
         return None
 
 
+class FailingGrantObjects(MemoryObjects):
+    def __init__(self) -> None:
+        super().__init__()
+        self.revoked: list[UUID] = []
+
+    async def issue_upload(self, session: UploadSession) -> UploadGrant:
+        raise RuntimeError("grant unavailable")
+
+    async def revoke_upload(self, upload_id: UUID) -> None:
+        self.revoked.append(upload_id)
+
+
 class Activity:
     def __init__(self) -> None:
         self.records: list[Mapping[str, object]] = []
@@ -184,6 +267,9 @@ class Activity:
     async def publish(self, topic: str, key: str, payload: Mapping[str, object]) -> None:
         return None
 
+    async def drain(self, *, limit: int = 100) -> int:
+        return 0
+
 
 class NoDeletion:
     async def delete(self, **_kwargs: object) -> DocumentVersion:
@@ -191,12 +277,50 @@ class NoDeletion:
 
 
 @pytest.mark.asyncio
-async def test_api_owned_deletion_records_terminal_activity(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+async def test_failed_upload_grant_does_not_publish_upload_created() -> None:
+    metadata = MemoryMetadata()
+    objects = FailingGrantObjects()
+    service = DocumentIngestionService(
+        access=ClaimsDocumentAccessProvider(),
+        metadata=metadata,
+        objects=objects,
+        capabilities=IngestionCapabilities(
+            supported_formats=("text",),
+            storage_modes=(SourceStorageMode.MANAGED_COPY,),
+            max_file_size=1024,
+            max_batch_count=1,
+            archives_enabled=False,
+            policy_versions=("test",),
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="grant unavailable"):
+        await service.create_upload(
+            actor_id="operator",
+            actor_groups=frozenset({"role:Contributor"}),
+            request=CreateUploadRequest(
+                source_name="note.txt",
+                collection_id="shared",
+                media_type_hint="text/plain",
+                expected_size=5,
+                expected_sha256=hashlib.sha256(b"hello").hexdigest(),
+                storage_mode=SourceStorageMode.MANAGED_COPY,
+                purposes=(DocumentPurpose.KNOWLEDGE_BASE,),
+                access_descriptor_ref="collection:shared",
+                reader_groups=(),
+                retention_policy_version="test",
+            ),
+        )
+
+    assert {session.state for session in metadata.uploads.values()} == {DocumentState.CREATED}
+    assert metadata.events == []
+    assert len(objects.revoked) == 0
+
+
+@pytest.mark.asyncio
+async def test_api_deletion_enqueues_worker_request_without_deleting_artifacts() -> None:
     metadata = MemoryMetadata()
     objects = MemoryObjects()
-    activity = Activity()
     now = datetime.now(UTC)
     upload_id = uuid4()
     document_id = uuid4()
@@ -245,24 +369,123 @@ async def test_api_owned_deletion_records_terminal_activity(
     deletion = ApiDocumentDeletionService(
         access=ClaimsDocumentAccessProvider(),
         metadata=metadata,  # type: ignore[arg-type]
-        objects=objects,  # type: ignore[arg-type]
-        database=PostgresApiConfig(dsn="postgresql://unused"),
-        activity=activity,
     )
-
-    async def no_chunks(_document_id: UUID, _version_id: UUID) -> None:
-        return None
-
-    monkeypatch.setattr(deletion, "_delete_chunks", no_chunks)
-    deleted = await deletion.delete(
+    deleting = await deletion.delete(
         actor_id="operator",
         actor_groups=frozenset(),
         document_id=document_id,
         version_id=version_id,
     )
-    assert deleted.state is DocumentState.DELETED
-    assert session.object_key not in objects.content
-    assert [record["action"] for record in activity.records] == ["document.deleted"]
+
+    assert deleting.state is DocumentState.DELETING
+    assert session.object_key in objects.content
+    assert len(metadata.events) == 1
+    payload = metadata.events[0].payload
+    assert payload["action"] == "document.deletion_requested"
+    request = DocumentDeletionRequest.model_validate(payload["deletion_request"])
+    assert request.expected_upload_revision == session.revision + 1
+    assert request.expected_version_revision == version.revision + 1
+
+    with pytest.raises(DocumentLifecycleConflictError, match="CAS conflict"):
+        current_session = metadata.uploads[upload_id]
+        current_version = metadata.versions[(document_id, version_id)]
+        await metadata.transition(
+            current_session.model_copy(update={"revision": current_session.revision + 1}),
+            current_version.model_copy(update={"revision": current_version.revision + 1}),
+            expected_upload_state=DocumentState.READY.value,
+            expected_upload_revision=session.revision,
+            expected_version_state=DocumentState.READY.value,
+            expected_version_revision=version.revision,
+            event=metadata.events[0],
+        )
+
+
+class DeleteRecorder:
+    def __init__(self) -> None:
+        self.deleted: list[tuple[UUID, UUID]] = []
+
+    async def delete(self, document_id: UUID, version_id: UUID) -> None:
+        self.deleted.append((document_id, version_id))
+
+
+@pytest.mark.asyncio
+async def test_worker_rejects_stale_deletion_before_any_external_delete() -> None:
+    metadata = MemoryMetadata()
+    objects = MemoryObjects()
+    now = datetime.now(UTC)
+    upload_id = uuid4()
+    document_id = uuid4()
+    version_id = uuid4()
+    access = AccessDescriptor(reference="collection:shared", collection_id="shared")
+    retention = RetentionPolicy(policy_version="test")
+    session = UploadSession(
+        upload_id=upload_id,
+        document_id=document_id,
+        version_id=version_id,
+        actor_id="operator",
+        source_name="note.txt",
+        collection_id="shared",
+        object_key="governed/source",
+        media_type_hint="text/plain",
+        expected_size=5,
+        expected_sha256=hashlib.sha256(b"hello").hexdigest(),
+        state=DocumentState.DELETING,
+        storage_mode=SourceStorageMode.MANAGED_COPY,
+        purposes=(DocumentPurpose.KNOWLEDGE_BASE,),
+        access=access,
+        retention=retention,
+        created_at=now,
+        expires_at=now + timedelta(minutes=15),
+        revision=3,
+    )
+    version = DocumentVersion(
+        document_id=document_id,
+        version_id=version_id,
+        upload_id=upload_id,
+        source_name="note.txt",
+        source_sha256=session.expected_sha256,
+        size_bytes=5,
+        media_type="text/plain",
+        state=DocumentState.DELETING,
+        access=access,
+        retention=retention,
+        purposes=session.purposes,
+        uploader_id="operator",
+        created_at=now,
+        updated_at=now,
+        revision=4,
+    )
+    await metadata.create(session, version)
+    objects.content[session.object_key] = b"hello"
+    index = DeleteRecorder()
+    artifacts = DeleteRecorder()
+    worker = DocumentIngestionWorker(
+        metadata=metadata,
+        objects=objects,
+        malware=object(),  # type: ignore[arg-type]
+        protection=object(),  # type: ignore[arg-type]
+        extractor=object(),  # type: ignore[arg-type]
+        artifacts=artifacts,
+        index=index,
+    )
+    stale = DocumentDeletionRequest(
+        request_id=uuid4(),
+        idempotency_key="document.delete:stale",
+        document_id=document_id,
+        version_id=version_id,
+        upload_id=upload_id,
+        requested_by="operator",
+        expected_upload_revision=2,
+        expected_version_revision=3,
+        requested_at=now,
+    )
+
+    with pytest.raises(DocumentLifecycleConflictError, match="stale document deletion"):
+        await worker.apply_deletion_request(stale)
+
+    assert index.deleted == []
+    assert artifacts.deleted == []
+    assert session.object_key in objects.content
 
 
 def test_http_upload_content_and_complete_preserve_wire_contract(
@@ -271,12 +494,10 @@ def test_http_upload_content_and_complete_preserve_wire_contract(
     monkeypatch.setenv("FDAI_INGESTION_GATEWAY_DEV_MODE", "1")
     metadata = MemoryMetadata()
     objects = MemoryObjects()
-    activity = Activity()
     service = DocumentIngestionService(
         access=ClaimsDocumentAccessProvider(),
         metadata=metadata,
         objects=objects,
-        activity=activity,
         capabilities=IngestionCapabilities(
             supported_formats=("text",),
             storage_modes=(SourceStorageMode.MANAGED_COPY,),
@@ -321,7 +542,7 @@ def test_http_upload_content_and_complete_preserve_wire_contract(
         assert completed.status_code == 202
         assert completed.json()["state"] == "received"
         assert client.get(f"/ingestion/uploads/{upload_id}").json()["state"] == "received"
-    assert [record["action"] for record in activity.records] == [
+    assert [event.payload["action"] for event in metadata.events] == [
         "upload.created",
         "document.received",
     ]
@@ -342,6 +563,7 @@ async def test_worker_claim_prevents_duplicate_operation() -> None:
         event_bus=object(),  # type: ignore[arg-type]
         worker=object(),  # type: ignore[arg-type]
         metadata=metadata,
+        activity=Activity(),
         topic="object.audit-entry",
         lease_seconds=30,
     )
@@ -358,6 +580,12 @@ class LoopService:
         await asyncio.Event().wait()
 
     async def run_index_commands(self) -> None:
+        await asyncio.Event().wait()
+
+    async def run_deletion_requests(self) -> None:
+        await asyncio.Event().wait()
+
+    async def drain_outbox(self) -> None:
         await asyncio.Event().wait()
 
     async def reconcile(self) -> None:

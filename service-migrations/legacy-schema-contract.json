@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "services": {
+    "core-control-plane": {
+      "digest": "sha256:3b48d49099976177c36e397dd6d983416cad3c2987508e690a55243302c0fdbe",
+      "table_count": 34,
+      "column_count": 336,
+      "constraint_count": 170,
+      "extensions": ["pg_trgm", "plpgsql", "vector"]
+    },
+    "operator-service": {
+      "digest": "sha256:c33e4d7a7d914994eeded4782663a571690babb3ec16546da8d10bbbe9c2b2f6",
+      "table_count": 61,
+      "column_count": 638,
+      "constraint_count": 414,
+      "extensions": ["pg_trgm", "plpgsql", "vector"]
+    },
+    "document-ingestion-api": {
+      "digest": "sha256:e7af16bba90b1a14c81a71d00ae4f6d6f0f4ba67d30ea0d4999e4a3b81a041cd",
+      "table_count": 2,
+      "column_count": 15,
+      "constraint_count": 4,
+      "extensions": ["pg_trgm", "plpgsql", "vector"]
+    },
+    "document-processing-worker": {
+      "digest": "sha256:8e7a05f31e5324c6119a20c921cb2b5e4a492387cba837730b80d1ae3d5074ed",
+      "table_count": 2,
+      "column_count": 16,
+      "constraint_count": 9,
+      "extensions": ["pg_trgm", "plpgsql", "vector"]
+    },
+    "isolated-executor": {
+      "digest": "sha256:71f0bd9e0af5c46508a4e68c3b6abd7bf42ac9c77adbcd019b1b777bbb6fd404",
+      "table_count": 1,
+      "column_count": 3,
+      "constraint_count": 2,
+      "extensions": ["pg_trgm", "plpgsql", "vector"]
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/fdai/service-migration-rollback-evidence.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "service_id",
+    "from_head",
+    "resulting_head",
+    "schema_fingerprint",
+    "completed_at",
+    "persisted_reference"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "service_id": {
+      "enum": [
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor"
+      ]
+    },
+    "from_head": {"type": "string", "minLength": 1},
+    "resulting_head": {"type": "string", "minLength": 1},
+    "schema_fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "completed_at": {"type": "string", "format": "date-time"},
+    "persisted_reference": {"type": "string", "minLength": 1}
+  }
+}

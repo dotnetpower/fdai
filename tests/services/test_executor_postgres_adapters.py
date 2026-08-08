@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import AbstractAsyncContextManager
 from types import TracebackType
 from typing import Any, Self
+from uuid import uuid4
 
 import psycopg
 import pytest
@@ -32,6 +33,9 @@ class _Cursor:
 
     async def fetchone(self) -> Any:
         return self._row
+
+    async def fetchall(self) -> list[Any]:
+        return list(self._row) if isinstance(self._row, list) else []
 
 
 class _Transaction(AbstractAsyncContextManager[None]):
@@ -173,6 +177,52 @@ async def test_idempotency_store_is_first_writer_wins(
     mutation = next(call for call in connection.calls if "ON CONFLICT" in call[0])
     assert mutation[1][0] == "effect-one"
     assert "effect-one" not in mutation[0]
+    assert not any("CREATE TABLE" in sql.upper() for sql, _params in connection.calls)
+
+
+async def test_idempotency_store_fails_closed_when_schema_is_incomplete(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = _Connection(
+        rows=[
+            None,
+            [{"column_name": "idempotency_key"}],
+            [{"attname": "idempotency_key"}],
+        ]
+    )
+
+    async def connect(*_args: object, **_kwargs: object) -> _Connection:
+        return connection
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", connect)
+    store = PostgresIdempotencyStore(
+        config=PostgresIdempotencyStoreConfig(dsn="postgresql://example")
+    )
+
+    with pytest.raises(RuntimeError, match="schema is missing or incompatible"):
+        await store.assert_schema()
+
+
+async def test_executor_receipt_is_committed_to_outbox_before_publication(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = _Connection()
+
+    async def connect(*_args: object, **_kwargs: object) -> _Connection:
+        return connection
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", connect)
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn="postgresql://example"))
+    receipt_id = uuid4()
+
+    await store.commit_receipt(receipt_id, "resource:one", {"status": "dispatched"})
+
+    inserts = [call for call in connection.calls if "INSERT INTO" in call[0]]
+    assert len(inserts) == 2
+    assert inserts[0][1][0] == f"isolated_executor_receipt:{receipt_id}"
+    assert inserts[1][1][0] == receipt_id
+    assert inserts[1][1][1] == "resource:one"
+    assert connection.transaction_entries == 1
 
 
 def test_state_hash_chain_is_canonical_and_ordered() -> None:

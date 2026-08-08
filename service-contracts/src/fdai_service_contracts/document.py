@@ -83,6 +83,7 @@ class DocumentWorkerStage(StrEnum):
     PROTECTION_REPLAY = "protection_replay"
     SAFETY_DECISION = "safety_decision"
     INDEXING = "indexing"
+    DELETION = "deletion"
 
 
 class DocumentWorkerClaimStatus(StrEnum):
@@ -124,6 +125,7 @@ class UploadSession(DocumentContract):
     expires_at: datetime
     supersedes_version_id: UUID | None = None
     failure_code: str | None = None
+    revision: Annotated[int, Field(ge=1)] = 1
 
 
 class DocumentWorkerClaim(DocumentContract):
@@ -176,6 +178,33 @@ class DocumentWorkerIndexCommand(DocumentContract):
     upload_id: UUID
 
 
+class DocumentDeletionRequest(DocumentContract):
+    """Immutable API request for worker-owned document artifact deletion."""
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    request_id: UUID
+    idempotency_key: Annotated[str, Field(min_length=1, max_length=512)]
+    document_id: UUID
+    version_id: UUID
+    upload_id: UUID
+    requested_by: Annotated[str, Field(min_length=1, max_length=256)]
+    expected_upload_revision: Annotated[int, Field(ge=1)]
+    expected_version_revision: Annotated[int, Field(ge=1)]
+    requested_at: datetime
+
+
+class DocumentLifecycleEvent(DocumentContract):
+    """One durable lifecycle fact published only from a service outbox."""
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    event_id: UUID
+    idempotency_key: Annotated[str, Field(min_length=1, max_length=512)]
+    topic: Annotated[str, Field(min_length=1, max_length=256)]
+    key: Annotated[str, Field(min_length=1, max_length=512)]
+    payload: dict[str, object]
+    created_at: datetime
+
+
 class DocumentVersion(DocumentContract):
     document_id: UUID
     version_id: UUID
@@ -200,6 +229,7 @@ class DocumentVersion(DocumentContract):
     supersedes_version_id: UUID | None = None
     failure_code: str | None = None
     warnings: tuple[str, ...] = ()
+    revision: Annotated[int, Field(ge=1)] = 1
 
 
 class StructuralUnit(DocumentContract):

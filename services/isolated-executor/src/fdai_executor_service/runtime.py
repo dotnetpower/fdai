@@ -10,8 +10,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import Awaitable, Callable
-from typing import Protocol
+from collections.abc import Awaitable, Callable, Mapping
+from typing import Any, Protocol
+from uuid import UUID
 
 from fdai_service_contracts import (
     EXECUTOR_COMMAND_TOPIC,
@@ -30,10 +31,34 @@ from pydantic import ValidationError
 
 from fdai_executor_service.health import RuntimeHealthServer
 from fdai_executor_service.lock import ExecutorShadowCommandHandler
+from fdai_executor_service.ports import ExecutorReceiptOutbox, PendingExecutorReceipt
 from fdai_executor_service.service import ExecutorCommandConflictError
 
 _LOGGER = logging.getLogger("fdai.isolated_executor")
 type ExecutorReceipt = ExecutorShadowReceipt | ExecutorEffectReceipt
+
+
+class MemoryExecutorReceiptOutbox:
+    """Faithful process-local outbox used only when tests omit PostgreSQL."""
+
+    def __init__(self) -> None:
+        self._pending: dict[UUID, PendingExecutorReceipt] = {}
+        self._committed: dict[UUID, Mapping[str, Any]] = {}
+
+    async def commit_receipt(
+        self, receipt_id: UUID, partition_key: str, payload: Mapping[str, Any]
+    ) -> None:
+        self._committed.setdefault(receipt_id, dict(payload))
+        self._pending.setdefault(
+            receipt_id,
+            PendingExecutorReceipt(receipt_id, partition_key, dict(payload)),
+        )
+
+    async def claim_receipts(self, *, limit: int) -> tuple[PendingExecutorReceipt, ...]:
+        return tuple(self._pending.values())[:limit]
+
+    async def mark_receipt_published(self, receipt_id: UUID) -> None:
+        self._pending.pop(receipt_id, None)
 
 
 class ExecutorCommandHandler(Protocol):
@@ -54,6 +79,7 @@ class IsolatedExecutorCommandConsumer:
         receipt_topic: str = EXECUTOR_RECEIPT_TOPIC,
         group_id: str = EXECUTOR_CONSUMER_GROUP,
         retry_seconds: float = 2.0,
+        receipt_outbox: ExecutorReceiptOutbox | None = None,
     ) -> None:
         if not command_topic or not receipt_topic or not group_id or retry_seconds <= 0:
             raise ValueError("isolated Executor consumer settings MUST be valid")
@@ -65,26 +91,46 @@ class IsolatedExecutorCommandConsumer:
         self._receipt_topic = receipt_topic
         self._group_id = group_id
         self._retry_seconds = retry_seconds
+        self._receipt_outbox = receipt_outbox or MemoryExecutorReceiptOutbox()
 
     async def run(self) -> None:
         """Consume forever, retrying transport failures after bounded backoff."""
+        drainer = asyncio.create_task(self.drain_outbox(), name="executor-receipt-outbox")
+        try:
+            while True:
+                try:
+                    async for envelope in self._event_bus.subscribe(
+                        self._command_topic,
+                        self._group_id,
+                    ):
+                        await self.handle_envelope(envelope)
+                    await asyncio.sleep(self._retry_seconds)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001 - broker retry boundary
+                    _LOGGER.error(
+                        "isolated_executor_consumer_failed",
+                        extra={"exception_type": type(exc).__name__},
+                    )
+                    await asyncio.sleep(self._retry_seconds)
+        finally:
+            drainer.cancel()
+            await asyncio.gather(drainer, return_exceptions=True)
 
+    async def drain_outbox(self) -> None:
+        """Retry committed receipt delivery independently of command arrival."""
         while True:
             try:
-                async for envelope in self._event_bus.subscribe(
-                    self._command_topic,
-                    self._group_id,
-                ):
-                    await self.handle_envelope(envelope)
-                await asyncio.sleep(self._retry_seconds)
+                published = await self._drain_once()
             except asyncio.CancelledError:
                 raise
-            except Exception as exc:  # noqa: BLE001 - broker retry boundary
+            except Exception as exc:  # noqa: BLE001 - durable rows remain retryable
                 _LOGGER.error(
-                    "isolated_executor_consumer_failed",
+                    "isolated_executor_receipt_outbox_failed",
                     extra={"exception_type": type(exc).__name__},
                 )
-                await asyncio.sleep(self._retry_seconds)
+                published = 0
+            await asyncio.sleep(0.1 if published else self._retry_seconds)
 
     async def handle_envelope(
         self,
@@ -109,12 +155,17 @@ class IsolatedExecutorCommandConsumer:
         except ContractValidationError:
             await self._dead_letter(envelope, "invalid_executor_action_payload")
             return None
+        except ValueError as exc:
+            if type(exc).__name__ != "ContractValidationError":
+                raise
+            await self._dead_letter(envelope, "invalid_executor_action_payload")
+            return None
         except ExecutorCommandConflictError:
             await self._dead_letter(envelope, "executor_command_identity_conflict")
             return None
 
-        await self._event_bus.publish(
-            self._receipt_topic,
+        await self._receipt_outbox.commit_receipt(
+            receipt.receipt_id,
             command.partition_key,
             receipt.model_dump(mode="json"),
         )
@@ -143,6 +194,18 @@ class IsolatedExecutorCommandConsumer:
             },
         )
         return receipt
+
+    async def _drain_once(self) -> int:
+        published = 0
+        for pending in await self._receipt_outbox.claim_receipts(limit=100):
+            await self._event_bus.publish(
+                self._receipt_topic,
+                pending.partition_key,
+                pending.payload,
+            )
+            await self._receipt_outbox.mark_receipt_published(pending.receipt_id)
+            published += 1
+        return published
 
     async def _dead_letter(self, envelope: EventEnvelope, reason: str) -> None:
         _LOGGER.warning(
@@ -175,12 +238,14 @@ class IsolatedExecutorSupervisor:
         *,
         consumer: IsolatedExecutorConsumerLoop,
         health_port: int,
+        startup_checks: tuple[Callable[[], Awaitable[None]], ...] = (),
         shutdown_callbacks: tuple[Callable[[], Awaitable[None]], ...] = (),
     ) -> None:
         if not 1 <= health_port <= 65_535:
             raise ValueError("isolated Executor health port MUST be between 1 and 65535")
         self._consumer = consumer
         self._health_port = health_port
+        self._startup_checks = startup_checks
         self._shutdown_callbacks = shutdown_callbacks
         self._ready = False
         self._consumer_task: asyncio.Task[None] | None = None
@@ -201,6 +266,8 @@ class IsolatedExecutorSupervisor:
         stop_task: asyncio.Task[bool] | None = None
         failure: BaseException | None = None
         try:
+            for check in self._startup_checks:
+                await check()
             await health.start()
             self._consumer_task = asyncio.create_task(
                 self._consumer.run(),
@@ -249,6 +316,7 @@ __all__ = [
     "EXECUTOR_CONSUMER_GROUP",
     "EXECUTOR_RECEIPT_TOPIC",
     "ExecutorCommandHandler",
+    "MemoryExecutorReceiptOutbox",
     "IsolatedExecutorCommandConsumer",
     "IsolatedExecutorConsumerLoop",
     "IsolatedExecutorSupervisor",

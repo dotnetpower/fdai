@@ -7,7 +7,9 @@
     "service_id",
     "observed_legacy_head",
     "observed_legacy_revision_count",
+    "observed_schema_fingerprint",
     "verified_at",
+    "schema_reference",
     "rollback_reference"
   ],
   "properties": {
@@ -26,11 +28,19 @@
     "observed_legacy_revision_count": {
       "const": 79
     },
+    "observed_schema_fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "verified_at": {
       "type": "string",
       "format": "date-time"
     },
     "rollback_reference": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_reference": {
       "type": "string",
       "minLength": 1
     }

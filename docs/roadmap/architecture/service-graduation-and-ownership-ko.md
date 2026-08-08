@@ -1,6 +1,6 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 551e324e42bc0876d8ab811c2bbb0854a452bf83
+translation_source_sha: 61119bd9f0a84c38869c55716960a6cdf4cd996b
 translation_revised: 2026-08-08
 ---
 # 서비스 승격과 데이터 소유권
@@ -95,6 +95,9 @@ transition 또는 column을 이름으로 지정하고 database grant와 revision
 | `document_upload_session`, `document_version` - quarantined부터 terminal processing transition | Document ingestion worker | Ingestion API status/search projection | Alembic migration job |
 | `document_worker_claim` | Ingestion worker role 아래 document metadata claim CAS | Reconciliation과 operational diagnostic | Alembic migration job |
 | Governed document의 `knowledge_chunk` | Document ingestion worker/index adapter | Authorized Operator API search projection | Alembic migration job |
+| `document_api_outbox` | API 소유 lifecycle 및 deletion-request event의 Document ingestion API | API outbox drainer | Document ingestion API migration branch |
+| `document_worker_outbox` | Worker 소유 lifecycle event의 Document processing worker | Worker outbox drainer | Document processing worker migration branch |
+| `executor_receipt_outbox` | Terminal receipt delivery의 Isolated Executor | Executor receipt drainer | Isolated Executor migration branch |
 | `state_kv` namespaced record | 각 key namespace가 이름으로 지정한 subsystem | 해당 subsystem provider contract가 명시한 projection | Alembic migration job |
 | Agent-owned control-loop object와 topic | 각 object type에 선언된 single pantheon agent | Registered typed subscriber와 cited read projection | Shared contract/catalog owner. Service-local migration 없음 |
 
@@ -107,6 +110,7 @@ row, 이름이 없는 migration path는 승격을 차단합니다.
 |----------|--------------|----------|----------|---------------|---------------|------------------------------------|
 | Document Saga audit event `1.0.0` | [Document audit schema](../../../src/fdai/shared/contracts/document-worker-audit/schema.json) | Saga | Ingestion audit-gated worker | `upload_id` | Additive field, old/new producer-consumer test | At-least-once, invalid record는 sibling DLQ, [stage claim](../../../alembic/versions/20260806_0075_document_worker_claims.py)이 idempotency fence, event 1일/DLQ 7일 |
 | Document Muninn index command `1.0.0` | [Document index schema](../../../src/fdai/shared/contracts/document-worker-index/schema.json) | Muninn | Ingestion index worker | `upload_id` | Additive field, unsupported version은 fail closed | At-least-once, invalid record는 sibling DLQ, completed index claim은 terminal dedupe, event 1일/DLQ 7일 |
+| Document deletion request `1.0.0` | `fdai-service-contracts` packaged JSON Schema | Document ingestion API | Document processing worker | `document_id` | Additive field, unsupported version은 fail closed | Transactional API outbox, exact upload/version revision fence, worker stage-claim dedupe, invalid record는 sibling DLQ |
 | Document lifecycle activity | [Document activity contract](../../../src/fdai/delivery/ingestion_gateway/activity.py) | Owned transition의 ingestion API 또는 worker | Audit/progress consumer와 Huginn ingress bridge | `document_id` | Content-free additive event envelope | Stable action/version idempotency, reconciliation이 persisted fact 재발행, event 1일/DLQ 7일 |
 | Operator command/proposal event | [Event](../../../src/fdai/shared/contracts/event/schema.json)와 [Action](../../../src/fdai/shared/contracts/action/schema.json) contract | Operator API command identity | Huginn/Forseti typed pipeline | normalized `resource_id` | Registry semver와 additive compatibility | At-least-once, catalog idempotency key, normal event/DLQ retention 1일/7일 |
 | Agent introspection request/reply | [Agent-introspection transport](../../../src/fdai/delivery/agent_introspection_bus.py) | Bragi/Operator API bridge | Addressed agent와 bounded reply consumer | correlation id | Process split 전 versioned request/reply envelope | Bounded timeout/retry, authority 없음, content-redacted failure, broker retention 1일 |
@@ -114,6 +118,13 @@ row, 이름이 없는 migration path는 승격을 차단합니다.
 
 Contract retention은 audit retention이 아닙니다. Event Hubs는 현재 normal entity를 1일, sibling
 DLQ를 [Event Hubs module](../../../infra/modules/event-bus/event-hubs-kafka/main.tf)에서 7일 보존합니다. Durable state와 audit는 각각의 governed retention policy를 따릅니다.
+
+Service baseline adoption은 legacy Alembic head만 확인하지 않습니다. Migration dispatcher는 각
+service가 소유한 table, 순서가 고정된 column, constraint, 필수 PostgreSQL extension의 checked-in
+fingerprint를 제출된 evidence 및 live database catalog와 비교한 후 service baseline을 stamp합니다.
+Rollback은 exact service branch head에서만 시작하고 exact baseline을 target으로 사용합니다.
+완료 후 resulting schema fingerprint와 head를 다시 확인하고, 해석 가능한 persisted rollback
+artifact를 가리키는 timestamp 포함 JSON receipt를 기록합니다.
 
 ## Identity와 deployment matrix
 

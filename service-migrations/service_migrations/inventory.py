@@ -14,6 +14,26 @@ _CREATE_TABLE = re.compile(
     r"(?:public\.)?([a-zA-Z_][a-zA-Z0-9_]*)",
     re.IGNORECASE,
 )
+_DDL_TABLE = re.compile(
+    r"(?:CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?|ALTER\s+TABLE|DROP\s+TABLE"
+    r"|TRUNCATE(?:\s+TABLE)?|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+"
+    r"(?:public\.)?([a-zA-Z_][a-zA-Z0-9_]*)",
+    re.IGNORECASE,
+)
+_TABLE_ARG_BY_OPERATION = {
+    "add_column": 0,
+    "alter_column": 0,
+    "create_check_constraint": 1,
+    "create_foreign_key": 1,
+    "create_index": 1,
+    "create_primary_key": 1,
+    "create_table": 0,
+    "create_unique_constraint": 1,
+    "drop_column": 0,
+    "drop_constraint": 1,
+    "drop_index": 1,
+    "drop_table": 0,
+}
 
 
 @dataclass(frozen=True)
@@ -37,6 +57,8 @@ class RevisionMetadata:
     revision: str
     owner: str
     owned_tables: tuple[str, ...]
+    touched_tables: tuple[str, ...]
+    created_tables: tuple[str, ...]
     rollback: dict[str, str]
 
 
@@ -59,11 +81,11 @@ def _assignment_value(tree: ast.Module, name: str) -> object:
     raise ValueError(f"migration is missing {name!r}")
 
 
-def _upgrade_function(tree: ast.Module) -> ast.FunctionDef:
+def _migration_function(tree: ast.Module, name: str) -> ast.FunctionDef:
     for node in tree.body:
-        if isinstance(node, ast.FunctionDef) and node.name == "upgrade":
+        if isinstance(node, ast.FunctionDef) and node.name == name:
             return node
-    raise ValueError("migration is missing upgrade()")
+    raise ValueError(f"migration is missing {name}()")
 
 
 def _created_tables(upgrade: ast.FunctionDef) -> set[str]:
@@ -84,6 +106,53 @@ def _created_tables(upgrade: ast.FunctionDef) -> set[str]:
             if not isinstance(table_name, str):
                 raise ValueError("op.create_table() name must be a string literal")
             tables.add(table_name)
+    return tables
+
+
+def _literal_table_argument(call: ast.Call, operation: str, index: int) -> str:
+    if len(call.args) > index:
+        value = ast.literal_eval(call.args[index])
+    else:
+        keyword = next(
+            (item.value for item in call.keywords if item.arg == "table_name"),
+            None,
+        )
+        if keyword is None:
+            raise ValueError(f"op.{operation}() must name a literal table")
+        value = ast.literal_eval(keyword)
+    if not isinstance(value, str):
+        raise ValueError(f"op.{operation}() table name must be a string literal")
+    return value
+
+
+def _touched_tables(upgrade: ast.FunctionDef) -> set[str]:
+    tables: set[str] = set()
+    for node in ast.walk(upgrade):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            tables.update(_DDL_TABLE.findall(node.value))
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if not isinstance(node.func.value, ast.Name) or node.func.value.id != "op":
+            continue
+        operation = node.func.attr
+        if operation == "rename_table":
+            tables.add(_literal_table_argument(node, operation, 0))
+            tables.add(_literal_table_argument(node, operation, 1))
+            continue
+        if operation == "bulk_insert":
+            raise ValueError("op.bulk_insert() cannot prove literal table ownership")
+        if operation == "execute":
+            if (
+                not node.args
+                or not isinstance(node.args[0], ast.Constant)
+                or not isinstance(node.args[0].value, str)
+            ):
+                raise ValueError("op.execute() SQL must be a string literal for ownership review")
+            tables.update(_DDL_TABLE.findall(node.args[0].value))
+            continue
+        index = _TABLE_ARG_BY_OPERATION.get(operation)
+        if index is not None:
+            tables.add(_literal_table_argument(node, operation, index))
     return tables
 
 
@@ -110,7 +179,7 @@ def load_legacy_inventory(version_location: Path) -> LegacyInventory:
         if revision in down_revisions:
             raise ValueError(f"duplicate legacy revision: {revision}")
         down_revisions[revision] = down_revision
-        for table_name in sorted(_created_tables(_upgrade_function(tree))):
+        for table_name in sorted(_created_tables(_migration_function(tree, "upgrade"))):
             sources[table_name].append(revision)
 
     missing_parents = {
@@ -152,9 +221,18 @@ def load_revision_metadata(path: Path) -> RevisionMetadata:
         )
     ):
         raise ValueError(f"{path.name}: non-empty string rollback metadata is required")
+    upgrade = _migration_function(tree, "upgrade")
+    downgrade = _migration_function(tree, "downgrade")
+    touched_tables = tuple(sorted(_touched_tables(upgrade) | _touched_tables(downgrade)))
+    created_tables = tuple(sorted(_created_tables(upgrade)))
+    undeclared = set(touched_tables) - set(owned_tables)
+    if undeclared:
+        raise ValueError(f"{path.name}: migration touches unowned tables {sorted(undeclared)}")
     return RevisionMetadata(
         revision=revision,
         owner=owner,
         owned_tables=owned_tables,
+        touched_tables=touched_tables,
+        created_tables=created_tables,
         rollback=cast(dict[str, str], rollback),
     )

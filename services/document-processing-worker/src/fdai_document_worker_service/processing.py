@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime
@@ -10,13 +11,14 @@ from typing import TypeVar
 from uuid import UUID
 
 from fdai_service_contracts import (
-    DocumentAccessProvider,
-    DocumentActivitySink,
     DocumentArtifactStore,
+    DocumentDeletionRequest,
     DocumentEnvelope,
     DocumentExtractionUnavailableError,
     DocumentExtractor,
     DocumentIndex,
+    DocumentLifecycleConflictError,
+    DocumentLifecycleEvent,
     DocumentMetadataStore,
     DocumentReadyConsumer,
     DocumentState,
@@ -50,7 +52,6 @@ class DocumentIngestionWorker:
     def __init__(
         self,
         *,
-        access: DocumentAccessProvider,
         metadata: DocumentMetadataStore,
         objects: WorkerDocumentObjectStore,
         malware: MalwareScanner,
@@ -58,14 +59,12 @@ class DocumentIngestionWorker:
         extractor: DocumentExtractor,
         artifacts: DocumentArtifactStore,
         index: DocumentIndex,
-        activity: DocumentActivitySink,
         consumers: Iterable[DocumentReadyConsumer] = (),
         clock: Callable[[], datetime] | None = None,
         indexing_stage_timeout_seconds: float = 90.0,
     ) -> None:
         if indexing_stage_timeout_seconds <= 0:
             raise ValueError("indexing_stage_timeout_seconds MUST be positive")
-        self._access = access
         self._metadata = metadata
         self._objects = objects
         self._malware = malware
@@ -73,7 +72,6 @@ class DocumentIngestionWorker:
         self._extractor = extractor
         self._artifacts = artifacts
         self._index = index
-        self._activity = activity
         self._consumers = {consumer.purpose: consumer for consumer in consumers}
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._indexing_stage_timeout_seconds = indexing_stage_timeout_seconds
@@ -132,11 +130,11 @@ class DocumentIngestionWorker:
                 "updated_at": self._clock(),
             }
         )
-        session, version = await self._advance(session, version, DocumentState.PROTECTION_CHECK)
-        await self._record(
+        _session, version = await self._advance(
             session,
             version,
-            "document.inspected",
+            DocumentState.PROTECTION_CHECK,
+            action="document.inspected",
             extra={"malware_verdict": malware_verdict.value},
         )
         return version
@@ -154,10 +152,13 @@ class DocumentIngestionWorker:
                     version.failure_code or version.protection_state.value,
                 )
             if session.storage_mode is SourceStorageMode.METADATA_ONLY:
-                session, version = await self._advance(session, version, DocumentState.READY)
-                version = version.model_copy(update={"active": True, "available": True})
-                await self._metadata.save_version(version)
-                await self._record(session, version, "document.ready")
+                session, version = await self._advance(
+                    session,
+                    version,
+                    DocumentState.READY,
+                    version_updates={"active": True, "available": True},
+                    action="document.ready",
+                )
                 return version
             session, version = await self._advance(session, version, DocumentState.EXTRACTING)
         if version.state not in {DocumentState.EXTRACTING, DocumentState.INDEXING}:
@@ -183,30 +184,32 @@ class DocumentIngestionWorker:
             await self._index.delete(version.document_id, version.version_id)
             await self._artifacts.delete(version.document_id, version.version_id)
             return await self._fail(session, version, "indexing_failed")
+        session_updates: dict[str, object] = {}
         if session.storage_mode is SourceStorageMode.MANAGED_COPY and isinstance(
             self._objects, PromotableDocumentObjectStore
         ):
             source_session = session
-            session = session.model_copy(update={"object_key": self._objects.governed_key(session)})
-            await self._metadata.save_upload(session)
-            try:
-                await self._objects.promote(source_session)
-            except Exception:
-                await self._metadata.save_upload(source_session)
-                raise
+            session_updates["object_key"] = self._objects.governed_key(session)
+            await self._objects.promote(source_session)
         warnings = envelope.warnings + consumer_warnings
         target = DocumentState.READY_WITH_WARNINGS if warnings else DocumentState.READY
-        session, version = await self._advance(session, version, target)
-        version = version.model_copy(
-            update={
-                "active": True,
-                "available": True,
-                "warnings": warnings,
-                "updated_at": self._clock(),
-            }
-        )
-        await self._metadata.save_version(version)
-        await self._record(session, version, "document.ready")
+        try:
+            session, version = await self._advance(
+                session,
+                version,
+                target,
+                session_updates=session_updates,
+                version_updates={
+                    "active": True,
+                    "available": True,
+                    "warnings": warnings,
+                },
+                action="document.ready",
+            )
+        except DocumentLifecycleConflictError:
+            await self._index.delete(version.document_id, version.version_id)
+            await self._artifacts.delete(version.document_id, version.version_id)
+            raise
         if session.storage_mode is SourceStorageMode.EPHEMERAL_PROCESSING:
             await self._objects.delete(session.object_key)
         return version
@@ -228,10 +231,13 @@ class DocumentIngestionWorker:
         session = await self._metadata.get_upload(upload_id)
         version = await self._metadata.get_version(session.document_id, session.version_id)
         if version.state is DocumentState.RECEIVED:
-            await self._activity.publish(
-                "document.received",
-                str(version.document_id),
-                self._payload(session, version, "document.received", "ingestion-reconciler"),
+            await self._metadata.enqueue_event(
+                self._event(
+                    session,
+                    version,
+                    "document.received",
+                    actor_id="ingestion-reconciler",
+                )
             )
 
     async def republish_inspection(self, upload_id: UUID) -> None:
@@ -244,45 +250,46 @@ class DocumentIngestionWorker:
             malware_verdict = "infected"
         elif version.failure_code == "malware_scanner_unavailable":
             malware_verdict = "unavailable"
-        await self._activity.publish(
-            "document.inspected",
-            str(version.document_id),
-            self._payload(
+        await self._metadata.enqueue_event(
+            self._event(
                 session,
                 version,
                 "document.inspected",
-                "ingestion-reconciler",
-                {"malware_verdict": malware_verdict},
-            ),
+                actor_id="ingestion-reconciler",
+                extra={"malware_verdict": malware_verdict},
+            )
         )
 
-    async def delete(
-        self,
-        *,
-        actor_id: str,
-        document_id: UUID,
-        version_id: UUID,
-        actor_groups: frozenset[str] = frozenset(),
-    ) -> DocumentVersion:
-        version = await self._metadata.get_version(document_id, version_id)
-        await self._access.authorize_delete(
-            actor_id=actor_id, actor_groups=actor_groups, version=version
-        )
-        if version.retention.legal_hold:
-            raise ValueError("document version is subject to legal hold")
-        session = await self._metadata.get_upload(version.upload_id)
-        session, version = await self._advance(session, version, DocumentState.DELETING)
-        version = version.model_copy(update={"available": False, "active": False})
-        await self._metadata.save_version(version)
+    async def apply_deletion_request(self, request: DocumentDeletionRequest) -> DocumentVersion:
+        """Delete artifacts only while the API-requested lifecycle revision is current."""
+        version = await self._metadata.get_version(request.document_id, request.version_id)
+        session = await self._metadata.get_upload(request.upload_id)
+        if (
+            session.document_id != request.document_id
+            or session.version_id != request.version_id
+            or session.state is not DocumentState.DELETING
+            or version.state is not DocumentState.DELETING
+            or session.revision != request.expected_upload_revision
+            or version.revision != request.expected_version_revision
+        ):
+            raise DocumentLifecycleConflictError("stale document deletion request")
         try:
-            await self._index.delete(document_id, version_id)
-            await self._artifacts.delete(document_id, version_id)
+            await self._index.delete(request.document_id, request.version_id)
+            await self._artifacts.delete(request.document_id, request.version_id)
             await self._objects.delete(session.object_key)
         except Exception:
-            await self._record(session, version, "document.deletion_pending")
+            await self._metadata.enqueue_event(
+                self._event(session, version, "document.deletion_pending")
+            )
             raise
-        session, version = await self._advance(session, version, DocumentState.DELETED)
-        await self._record(session, version, "document.deleted", actor_id=actor_id)
+        session, version = await self._advance(
+            session,
+            version,
+            DocumentState.DELETED,
+            version_updates={"available": False, "active": False},
+            action="document.deleted",
+            actor_id=request.requested_by,
+        )
         return version
 
     async def _run_stage(
@@ -311,38 +318,78 @@ class DocumentIngestionWorker:
         return tuple(warnings)
 
     async def _advance(
-        self, session: UploadSession, version: DocumentVersion, target: DocumentState
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        target: DocumentState,
+        *,
+        session_updates: dict[str, object] | None = None,
+        version_updates: dict[str, object] | None = None,
+        action: str | None = None,
+        actor_id: str = "ingestion-worker",
+        extra: dict[str, object] | None = None,
     ) -> tuple[UploadSession, DocumentVersion]:
         state = transition(version.state, target)
-        session = session.model_copy(update={"state": state})
-        version = version.model_copy(update={"state": state, "updated_at": self._clock()})
-        await self._metadata.save_upload(session)
-        await self._metadata.save_version(version)
-        return session, version
+        updated_session = session.model_copy(
+            update={
+                **(session_updates or {}),
+                "state": state,
+                "revision": session.revision + 1,
+            }
+        )
+        updated_version = version.model_copy(
+            update={
+                **(version_updates or {}),
+                "state": state,
+                "updated_at": self._clock(),
+                "revision": version.revision + 1,
+            }
+        )
+        event_action = action or f"document.{state.value}"
+        await self._metadata.transition(
+            updated_session,
+            updated_version,
+            expected_upload_state=session.state.value,
+            expected_upload_revision=session.revision,
+            expected_version_state=version.state.value,
+            expected_version_revision=version.revision,
+            event=self._event(
+                updated_session,
+                updated_version,
+                event_action,
+                actor_id=actor_id,
+                extra=extra,
+            ),
+        )
+        return updated_session, updated_version
 
     async def _hold(
         self, session: UploadSession, version: DocumentVersion, reason: str
     ) -> DocumentVersion:
-        session, version = await self._advance(session, version, DocumentState.HELD)
-        version = version.model_copy(update={"failure_code": reason, "available": False})
-        session = session.model_copy(update={"failure_code": reason})
-        await self._metadata.save_version(version)
-        await self._metadata.save_upload(session)
-        await self._record(session, version, "document.held")
+        session, version = await self._advance(
+            session,
+            version,
+            DocumentState.HELD,
+            session_updates={"failure_code": reason},
+            version_updates={"failure_code": reason, "available": False},
+            action="document.held",
+        )
         return version
 
     async def _fail(
         self, session: UploadSession, version: DocumentVersion, reason: str
     ) -> DocumentVersion:
-        session, version = await self._advance(session, version, DocumentState.FAILED)
-        version = version.model_copy(update={"failure_code": reason, "available": False})
-        session = session.model_copy(update={"failure_code": reason})
-        await self._metadata.save_version(version)
-        await self._metadata.save_upload(session)
-        await self._record(session, version, "document.failed")
+        session, version = await self._advance(
+            session,
+            version,
+            DocumentState.FAILED,
+            session_updates={"failure_code": reason},
+            version_updates={"failure_code": reason, "available": False},
+            action="document.failed",
+        )
         return version
 
-    async def _record(
+    def _event(
         self,
         session: UploadSession,
         version: DocumentVersion,
@@ -350,10 +397,28 @@ class DocumentIngestionWorker:
         *,
         actor_id: str = "ingestion-worker",
         extra: dict[str, object] | None = None,
-    ) -> None:
+    ) -> DocumentLifecycleEvent:
         record = self._payload(session, version, action, actor_id, extra)
-        await self._activity.audit(record)
-        await self._activity.publish(action, str(version.document_id), record)
+        identity = f"{action}:{version.version_id}:{version.revision}"
+        return DocumentLifecycleEvent(
+            event_id=UUID(bytes=hashlib.sha256(identity.encode()).digest()[:16]),
+            idempotency_key=identity,
+            topic="object.event",
+            key=str(version.document_id),
+            payload={
+                "producer_principal": "Huginn",
+                "kind": "document_ingestion",
+                "action": action,
+                "event_type": action,
+                "correlation_id": str(session.upload_id),
+                "idempotency_key": identity,
+                "resource_id": str(version.document_id),
+                "resource_type": "document",
+                "document_id": str(version.document_id),
+                "record": record,
+            },
+            created_at=self._clock(),
+        )
 
     @staticmethod
     def _payload(
@@ -378,6 +443,8 @@ class DocumentIngestionWorker:
             "failure_code": version.failure_code or "",
             "policy_version": version.retention.policy_version,
             "access_descriptor_ref": version.access.reference,
+            "upload_revision": session.revision,
+            "version_revision": version.revision,
         }
         if extra:
             record.update(extra)

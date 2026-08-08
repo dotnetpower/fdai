@@ -111,21 +111,23 @@
       "workflow_definition"
     ],
     "document-ingestion-api": [
+      "document_api_outbox",
       "document_upload_session",
       "document_version"
     ],
     "document-processing-worker": [
+      "document_worker_outbox",
       "document_worker_claim",
       "knowledge_chunk"
     ],
     "isolated-executor": [
-      "action_idempotency"
+      "action_idempotency",
+      "executor_receipt_outbox"
     ]
   },
   "whole_table_writers": {
     "core-control-plane": [
       "action_outbox",
-      "audit_log",
       "case_history",
       "case_history_chunk",
       "case_history_migration_state",
@@ -221,16 +223,32 @@
       "workflow_binding",
       "workflow_definition"
     ],
-    "document-ingestion-api": [],
+    "document-ingestion-api": [
+      "document_api_outbox"
+    ],
     "document-processing-worker": [
+      "document_worker_outbox",
       "document_worker_claim",
       "knowledge_chunk"
     ],
     "isolated-executor": [
-      "action_idempotency"
+      "action_idempotency",
+      "executor_receipt_outbox"
     ]
   },
   "transition_ownership": [
+    {
+      "id": "audit-log-saga-chain",
+      "table": "audit_log",
+      "scope": "entries:saga-owned-control-plane",
+      "writer": "core-control-plane"
+    },
+    {
+      "id": "audit-log-executor-safeguards",
+      "table": "audit_log",
+      "scope": "entries:executor-pre-effect-terminal",
+      "writer": "isolated-executor"
+    },
     {
       "id": "state-kv-core-namespaces",
       "table": "state_kv",

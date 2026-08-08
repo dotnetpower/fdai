@@ -10,6 +10,7 @@ from uuid import UUID
 
 from fdai_service_contracts.document import (
     DocumentEnvelope,
+    DocumentLifecycleEvent,
     DocumentPurpose,
     DocumentVersion,
     DocumentWorkerClaim,
@@ -43,6 +44,10 @@ class DocumentAccessDeniedError(DocumentIngestionError):
 
 class DocumentWorkerClaimConflictError(DocumentIngestionError):
     """A worker claim changed owner, attempt, revision, or lease state."""
+
+
+class DocumentLifecycleConflictError(DocumentIngestionError):
+    """An upload or version changed state or revision before atomic commit."""
 
 
 class ProviderUnavailableError(DocumentIngestionError):
@@ -110,11 +115,27 @@ class DocumentAccessProvider(Protocol):
 class DocumentUploadMetadataStore(Protocol):
     """Upload and version records written by the API and processing pipeline."""
 
-    async def create(self, session: UploadSession, version: DocumentVersion) -> None: ...
+    async def create(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        event: DocumentLifecycleEvent | None = None,
+    ) -> None: ...
     async def get_upload(self, upload_id: UUID) -> UploadSession: ...
-    async def save_upload(self, session: UploadSession) -> None: ...
     async def get_version(self, document_id: UUID, version_id: UUID) -> DocumentVersion: ...
-    async def save_version(self, version: DocumentVersion) -> None: ...
+    async def transition(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        *,
+        expected_upload_state: str,
+        expected_upload_revision: int,
+        expected_version_state: str,
+        expected_version_revision: int,
+        event: DocumentLifecycleEvent,
+    ) -> None: ...
+    async def enqueue_event(self, event: DocumentLifecycleEvent) -> None: ...
     async def list_versions(self, document_id: UUID) -> tuple[DocumentVersion, ...]: ...
     async def list_uploads_by_state(
         self, state: str, *, limit: int
@@ -294,9 +315,10 @@ class RepositoryHandoverDraftRecorder(Protocol):
 
 
 @runtime_checkable
-class DocumentActivitySink(Protocol):
-    async def audit(self, record: Mapping[str, object]) -> None: ...
-    async def publish(self, topic: str, key: str, payload: Mapping[str, object]) -> None: ...
+class DocumentOutboxDrainer(Protocol):
+    """Publish only events already committed by an owning metadata store."""
+
+    async def drain(self, *, limit: int = 100) -> int: ...
 
 
 @runtime_checkable

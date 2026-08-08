@@ -110,6 +110,7 @@ async def test_consumer_publishes_terminal_shadow_receipt() -> None:
     )
 
     receipt = await consumer.handle_envelope(_envelope(command))
+    assert await consumer._drain_once() == 1
 
     published = await _records(bus, EXECUTOR_RECEIPT_TOPIC)
     assert receipt is not None and receipt.effect_applied is False
@@ -176,19 +177,20 @@ class _FailOnceReceiptBus(InMemoryEventBus):
         return await super().publish(topic, key, payload)
 
 
-async def test_receipt_publish_retry_reuses_durable_terminal_result() -> None:
+async def test_receipt_publish_retry_does_not_change_durable_command_result() -> None:
     bus = _FailOnceReceiptBus()
     store = InMemoryStateStore()
     command = _command()
     consumer = IsolatedExecutorCommandConsumer(event_bus=bus, service=_service(store))
 
+    receipt = await consumer.handle_envelope(_envelope(command))
     with pytest.raises(RuntimeError, match="transport unavailable"):
-        await consumer.handle_envelope(_envelope(command))
-    replay = await consumer.handle_envelope(_envelope(command))
+        await consumer._drain_once()
+    assert await consumer._drain_once() == 1
 
     published = await _records(bus, EXECUTOR_RECEIPT_TOPIC)
-    assert replay is not None and len(published) == 1
-    assert published[0].payload["receipt_id"] == str(replay.receipt_id)
+    assert receipt is not None and len(published) == 1
+    assert published[0].payload["receipt_id"] == str(receipt.receipt_id)
     assert len(await store.read_states("isolated_executor_attempt:", limit=10)) == 1
 
 

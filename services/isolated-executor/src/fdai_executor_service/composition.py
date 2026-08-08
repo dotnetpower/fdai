@@ -79,7 +79,7 @@ def build_resource_lock() -> ResourceLock:
     )
 
 
-def build_idempotency_store() -> IdempotencyStore:
+def build_idempotency_store() -> PostgresIdempotencyStore:
     """Bind the durable exactly-once effect ledger."""
 
     dsn = os.environ.get("FDAI_IDEMPOTENCY_DSN", "").strip() or _required("FDAI_STATE_STORE_DSN")
