@@ -6,15 +6,17 @@ import json
 import keyword
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from fdai.shared.contracts.models import (
     OntologyActionType,
     OntologyDeclarationKind,
+    OntologyDeclarationRef,
     OntologyInterfaceType,
     OntologyObjectType,
     OntologyRelease,
 )
+from fdai.shared.ontology.release import build_ontology_release
 
 from .interfaces import CompiledInterfaceCatalog
 from .kinetics import OntologyFunctionType
@@ -26,6 +28,53 @@ class GeneratedOntologySdk:
     python: str
     typescript: str
     manifest_json: str
+
+
+@dataclass(slots=True)
+class _GeneratedSymbolAllocator:
+    reserved: frozenset[str]
+    allocated: dict[str, str] = field(default_factory=dict)
+
+    def claim(self, symbol: str, owner: str) -> None:
+        if symbol in self.reserved:
+            raise ValueError(f"{owner} collides with reserved generated SDK symbol {symbol!r}")
+        previous = self.allocated.get(symbol)
+        if previous is not None:
+            raise ValueError(f"{owner} collides with {previous} at generated SDK symbol {symbol!r}")
+        self.allocated[symbol] = owner
+
+
+_GENERATED_SYMBOLS = frozenset(
+    {
+        "ActionTypeName",
+        "Any",
+        "Array",
+        "Boolean",
+        "INTERFACE_OBJECT_TYPES",
+        "INTERFACE_SUPPORTED_ACTIONS",
+        "Literal",
+        "Never",
+        "NotRequired",
+        "Number",
+        "Object",
+        "ONTOLOGY_RELEASE",
+        "OntologyClient",
+        "OntologyInterfaceName",
+        "Promise",
+        "Protocol",
+        "Readonly",
+        "Record",
+        "Required",
+        "String",
+        "TypedDict",
+        "interfaceObjectTypes",
+        "interfaceSupportedActions",
+        "ontologyRelease",
+        "resolveInterface",
+        "resolve_interface",
+        *keyword.kwlist,
+    }
+)
 
 
 def generate_ontology_sdk(
@@ -42,6 +91,16 @@ def generate_ontology_sdk(
     actions = tuple(sorted(action_types, key=lambda item: item.name))
     function_types = tuple(sorted(functions, key=lambda item: item.name))
     interface_types = tuple(interfaces.interfaces[name] for name in sorted(interfaces.interfaces))
+    _validate_release_declarations(
+        release=release,
+        object_types=objects,
+        action_types=actions,
+        functions=function_types,
+        interfaces=interfaces,
+    )
+    _validate_interface_catalog(release=release, interfaces=interfaces)
+    _validate_supported_actions(interface_types=interface_types, action_types=actions)
+    _validate_generated_symbols(object_types=objects, interface_types=interface_types)
     interface_manifest = _interface_manifest(
         release=release,
         interfaces=interfaces,
@@ -49,15 +108,17 @@ def generate_ontology_sdk(
     )
     python_lines = [
         '"""Generated FDAI ontology SDK. Do not edit."""',
-        "from typing import Any, NotRequired, Protocol, TypedDict",
+        "from typing import Any, Literal, Never, NotRequired, Protocol, Required, TypedDict",
         "",
         f'ONTOLOGY_RELEASE = "{release.digest}"',
         "",
+        *_python_action_type(actions),
     ]
     typescript_lines = [
         "// Generated FDAI ontology SDK. Do not edit.",
         f'export const ontologyRelease = "{release.digest}" as const;',
         "",
+        *_typescript_action_type(actions),
     ]
     for interface_type in interface_types:
         python_lines.extend(_python_interface(interface_type))
@@ -71,7 +132,7 @@ def generate_ontology_sdk(
         [
             "class OntologyClient(Protocol):",
             "    async def query(self, object_set: dict[str, Any]) -> list[dict[str, Any]]: ...",
-            "    async def propose_action(self, action_type: str, "
+            "    async def propose_action(self, action_type: ActionTypeName, "
             "arguments: dict[str, Any]) -> str: ...",
             "",
         ]
@@ -80,7 +141,7 @@ def generate_ontology_sdk(
         [
             "export interface OntologyClient {",
             "  query(objectSet: Readonly<Record<string, unknown>>): Promise<readonly unknown[]>;",
-            "  proposeAction(actionType: string, "
+            "  proposeAction(actionType: ActionTypeName, "
             "args: Readonly<Record<string, unknown>>): Promise<string>;",
             "}",
             "",
@@ -100,6 +161,137 @@ def generate_ontology_sdk(
         typescript="\n".join(typescript_lines),
         manifest_json=json.dumps(manifest, sort_keys=True, separators=(",", ":")),
     )
+
+
+def _validate_interface_catalog(
+    *,
+    release: OntologyRelease,
+    interfaces: CompiledInterfaceCatalog,
+) -> None:
+    if interfaces.release_digest != release.digest:
+        raise ValueError("compiled interface catalog is not bound to the ontology release")
+    included_kinds = {
+        OntologyDeclarationKind.OBJECT,
+        OntologyDeclarationKind.INTERFACE,
+    }
+    expected = {
+        (declaration.kind, declaration.name): declaration
+        for declaration in release.declarations
+        if declaration.kind in included_kinds
+    }
+    if dict(interfaces.declaration_refs) != expected:
+        raise ValueError(
+            "compiled interface catalog declaration refs do not match the ontology release"
+        )
+
+
+def _validate_supported_actions(
+    *,
+    interface_types: tuple[OntologyInterfaceType, ...],
+    action_types: tuple[OntologyActionType, ...],
+) -> None:
+    active_actions = {action_type.name for action_type in action_types}
+    for interface_type in interface_types:
+        missing = sorted(set(interface_type.supported_actions) - active_actions)
+        if missing:
+            raise ValueError(
+                f"InterfaceType {interface_type.name!r} references inactive ActionTypes: "
+                + ", ".join(missing)
+            )
+
+
+def _validate_generated_symbols(
+    *,
+    object_types: tuple[OntologyObjectType, ...],
+    interface_types: tuple[OntologyInterfaceType, ...],
+) -> None:
+    allocator = _GeneratedSymbolAllocator(reserved=_GENERATED_SYMBOLS)
+    for object_type in object_types:
+        allocator.claim(object_type.name, f"ObjectType {object_type.name!r}")
+    for interface_type in interface_types:
+        allocator.claim(interface_type.name, f"InterfaceType {interface_type.name!r}")
+
+
+def _validate_release_declarations(
+    *,
+    release: OntologyRelease,
+    object_types: tuple[OntologyObjectType, ...],
+    action_types: tuple[OntologyActionType, ...],
+    functions: tuple[OntologyFunctionType, ...],
+    interfaces: CompiledInterfaceCatalog,
+) -> None:
+    supplied_release = build_ontology_release(
+        object_types=object_types,
+        action_types=action_types,
+        function_types=functions,
+    )
+    included_kinds = {
+        OntologyDeclarationKind.OBJECT,
+        OntologyDeclarationKind.ACTION,
+        OntologyDeclarationKind.FUNCTION,
+        OntologyDeclarationKind.INTERFACE,
+    }
+    expected = {
+        (declaration.kind, declaration.name): declaration
+        for declaration in release.declarations
+        if declaration.kind in included_kinds
+    }
+    supplied: dict[tuple[OntologyDeclarationKind, str], OntologyDeclarationRef] = {
+        (declaration.kind, declaration.name): declaration
+        for declaration in supplied_release.declarations
+    }
+    supplied.update(
+        {
+            identity: declaration
+            for identity, declaration in interfaces.declaration_refs.items()
+            if declaration.kind is OntologyDeclarationKind.INTERFACE
+        }
+    )
+    if expected.keys() != supplied.keys():
+        missing = sorted(f"{kind.value}:{name}" for kind, name in expected.keys() - supplied.keys())
+        unexpected = sorted(
+            f"{kind.value}:{name}" for kind, name in supplied.keys() - expected.keys()
+        )
+        details = [
+            *(f"missing {identity}" for identity in missing),
+            *(f"unexpected {identity}" for identity in unexpected),
+        ]
+        raise ValueError(
+            "SDK declarations do not exactly match ontology release: " + ", ".join(details)
+        )
+    for identity, declaration in supplied.items():
+        release_declaration = expected[identity]
+        if declaration != release_declaration:
+            _raise_declaration_mismatch(declaration, release_declaration)
+
+
+def _raise_declaration_mismatch(
+    declaration: OntologyDeclarationRef,
+    release_declaration: OntologyDeclarationRef,
+) -> None:
+    kind_name = {
+        OntologyDeclarationKind.OBJECT: "ObjectType",
+        OntologyDeclarationKind.ACTION: "ActionType",
+        OntologyDeclarationKind.FUNCTION: "FunctionType",
+        OntologyDeclarationKind.INTERFACE: "InterfaceType",
+    }[declaration.kind]
+    raise ValueError(
+        f"{kind_name} {declaration.name!r} declaration does not match ontology release: "
+        f"expected {release_declaration.version}/{release_declaration.declaration_digest}, "
+        f"got {declaration.version}/{declaration.declaration_digest}"
+    )
+
+
+def _python_action_type(action_types: tuple[OntologyActionType, ...]) -> list[str]:
+    if not action_types:
+        return ["ActionTypeName = Never", ""]
+    values = ", ".join(json.dumps(action_type.name) for action_type in action_types)
+    return [f"ActionTypeName = Literal[{values}]", ""]
+
+
+def _typescript_action_type(action_types: tuple[OntologyActionType, ...]) -> list[str]:
+    values = " | ".join(json.dumps(action_type.name) for action_type in action_types) or "never"
+    return [f"export type ActionTypeName = {values};", ""]
 
 
 def _interface_manifest(
@@ -138,8 +330,8 @@ def _python_interface(interface_type: OntologyInterfaceType) -> list[str]:
             raise ValueError(f"InterfaceType {interface_type.name!r} has colliding SDK properties")
         identifiers.add(identifier)
         annotation = _python_type(declaration.type.value)
-        if not declaration.required:
-            annotation = f"NotRequired[{annotation}]"
+        wrapper = "Required" if declaration.required else "NotRequired"
+        annotation = f"{wrapper}[{annotation}]"
         lines.append(f"    {identifier}: {annotation}")
     if not interface_type.properties:
         lines.append("    pass")
@@ -233,7 +425,11 @@ def _python_object(object_type: OntologyObjectType) -> list[str]:
         if identifier in identifiers:
             raise ValueError(f"ObjectType {object_type.name!r} has colliding SDK properties")
         identifiers.add(identifier)
-        lines.append(f"    {identifier}: {_python_type(declaration.type.value)}")
+        wrapper = "Required" if declaration.required else "NotRequired"
+        annotation = _python_type(declaration.type.value)
+        lines.append(f"    {identifier}: {wrapper}[{annotation}]")
+    if not object_type.properties:
+        lines.append("    pass")
     return [*lines, ""]
 
 

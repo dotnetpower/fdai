@@ -3,10 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 
-from fdai.shared.contracts.models import OntologyObjectType, PropertyDecl
+from fdai.shared.contracts.models import (
+    CEILING_ROLE_RANK,
+    OntologyDeclarationKind,
+    OntologyDeclarationRef,
+    OntologyObjectType,
+    OntologyRelease,
+    PropertyDecl,
+)
+from fdai.shared.ontology.release import build_ontology_release
 
 from .models import InterfaceImplementation, OntologyInterfaceType
 
@@ -15,6 +23,10 @@ from .models import InterfaceImplementation, OntologyInterfaceType
 class CompiledInterfaceCatalog:
     interfaces: Mapping[str, OntologyInterfaceType]
     concrete_types: Mapping[str, tuple[str, ...]]
+    release_digest: str | None = None
+    declaration_refs: Mapping[tuple[OntologyDeclarationKind, str], OntologyDeclarationRef] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
 
     def resolve(self, interface_name: str) -> tuple[str, ...]:
         try:
@@ -28,11 +40,17 @@ def compile_interfaces(
     interfaces: tuple[OntologyInterfaceType, ...],
     implementations: tuple[InterfaceImplementation, ...],
     object_types: tuple[OntologyObjectType, ...],
+    release: OntologyRelease | None = None,
 ) -> CompiledInterfaceCatalog:
-    """Validate inheritance and concrete implementations all-before-return."""
+    """Validate inheritance, release identity, and concrete implementations."""
 
     by_name = _unique_interfaces(interfaces)
     objects = {item.name: item for item in object_types}
+    release_digest, declaration_refs = _release_identity(
+        release=release,
+        interfaces=interfaces,
+        object_types=object_types,
+    )
     expanded = {name: _expand(name, by_name, ()) for name in by_name}
     concrete: dict[str, set[str]] = {name: set() for name in by_name}
     for implementation in implementations:
@@ -52,6 +70,12 @@ def compile_interfaces(
                 raise ValueError(
                     f"{object_type.name} is missing interface properties: {missing_text}"
                 )
+            for property_name, requirement in requirements.properties.items():
+                _validate_property_implementation(
+                    object_type=object_type,
+                    property_name=property_name,
+                    requirement=requirement,
+                )
             for inherited_name in _interface_closure(interface_name, by_name):
                 concrete[inherited_name].add(object_type.name)
     frozen_interfaces = {
@@ -65,7 +89,71 @@ def compile_interfaces(
         concrete_types=MappingProxyType(
             {name: tuple(sorted(values)) for name, values in concrete.items()}
         ),
+        release_digest=release_digest,
+        declaration_refs=declaration_refs,
     )
+
+
+def _release_identity(
+    *,
+    release: OntologyRelease | None,
+    interfaces: tuple[OntologyInterfaceType, ...],
+    object_types: tuple[OntologyObjectType, ...],
+) -> tuple[
+    str | None,
+    Mapping[tuple[OntologyDeclarationKind, str], OntologyDeclarationRef],
+]:
+    if release is None:
+        return None, MappingProxyType({})
+    supplied = build_ontology_release(
+        object_types=object_types,
+        interface_types=interfaces,
+    ).declarations
+    included_kinds = {
+        OntologyDeclarationKind.OBJECT,
+        OntologyDeclarationKind.INTERFACE,
+    }
+    expected = {
+        (declaration.kind, declaration.name): declaration
+        for declaration in release.declarations
+        if declaration.kind in included_kinds
+    }
+    actual = {(declaration.kind, declaration.name): declaration for declaration in supplied}
+    if expected != actual:
+        raise ValueError(
+            "compiled interface declarations do not exactly match the ontology release"
+        )
+    return release.digest, MappingProxyType(actual)
+
+
+def _validate_property_implementation(
+    *,
+    object_type: OntologyObjectType,
+    property_name: str,
+    requirement: PropertyDecl,
+) -> None:
+    implementation = object_type.properties[property_name]
+    reason: str | None = None
+    if implementation.type is not requirement.type:
+        reason = "type"
+    elif requirement.required and not implementation.required:
+        reason = "requiredness"
+    elif (
+        CEILING_ROLE_RANK[implementation.access_scope] < CEILING_ROLE_RANK[requirement.access_scope]
+    ):
+        reason = "access scope"
+    else:
+        required_purposes = frozenset(requirement.purpose_binding)
+        implementation_purposes = frozenset(implementation.purpose_binding)
+        if required_purposes and (
+            not implementation_purposes or not implementation_purposes <= required_purposes
+        ):
+            reason = "purpose binding"
+    if reason is not None:
+        raise ValueError(
+            f"{object_type.name} has incompatible interface property "
+            f"{property_name!r}: {reason} weakens the interface contract"
+        )
 
 
 def _unique_interfaces(
