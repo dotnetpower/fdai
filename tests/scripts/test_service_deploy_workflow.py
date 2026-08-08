@@ -147,6 +147,8 @@ def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
     assert "Fail deployment after automatic rollback" in _WORKFLOW
     assert "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER=0" not in _WORKFLOW
     assert '"$rollback_dir/snapshot.json"' in _WORKFLOW
+    assert ".planned_values.outputs.rollback_contract.value" in _WORKFLOW
+    assert "output -json rollback_contract" not in _WORKFLOW
     assert "authority was unchanged" in _WORKFLOW
     assert "protected platform rollback is required" in _WORKFLOW
     assert "terraform destroy" not in _WORKFLOW

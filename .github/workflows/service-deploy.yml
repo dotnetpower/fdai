@@ -649,8 +649,8 @@ jobs:
           bundle="$RUNNER_TEMP/service-plan-bundle"
           rollback_dir="$RUNNER_TEMP/service-rollback"
           mkdir -m 700 "$rollback_dir"
-          terraform -chdir="$TERRAFORM_ROOT" output -json rollback_contract \
-            >"$rollback_dir/rollback-contract.json"
+          jq -e '.planned_values.outputs.rollback_contract.value' \
+            "$bundle/service-plan.json" >"$rollback_dir/rollback-contract.json"
           az account show --only-show-errors --output json >"$rollback_dir/account.json"
           resource_id="$(jq -er '.target.service_resource_id' "$bundle/service-context.json")"
           resource_group="$(jq -er '.target.resource_group' "$bundle/service-context.json")"
