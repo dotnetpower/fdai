@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d05b8258234ceb368bdc1458ff618dc2c3202526
+translation_source_sha: b3f3d03284bcaac63ca14ae1b2ab9d1536e0d7ee
 translation_revised: 2026-08-09
 ---
 
@@ -76,7 +76,7 @@ fdai/
 │   │   ├── user_context_projection.py  # principal context / workflow binding metadata만 runtime ontology에 projection
 │   │   ├── console_request/    # 오퍼레이터 콘솔 write-direction 재요청 정책 (Scenario B deny-override), 순수 함수 `evaluate_operator_rerequest` 하나
 │   │   ├── verticals/          # Resilience / Change Safety / Cost Governance (P3 통합 지점); Resilience는 control-plane recovery plan, record codec, epoch-fenced reducer 및 durable CAS coordinator를 포함하고, 각 vertical 은 sub-package (G-6) 로 자체 orchestrator + 서브모듈 을 가지며 공유 `Vertical` Protocol 은 `base.py`, `VerticalRegistry` seam 도 함께 제공
-│   │   ├── control_loop/       # P1 파이프라인: `orchestrator.py` (ControlLoop 조립), `_process.py` (순서가 보존된 이벤트 단계), `_fallback.py` (T1/T2), `_execution.py` (거버넌스/리스크/디스패치), `_rca.py` (shadow RCA), `_boundary.py` (감사/알림/stage 어댑터), `models.py` (typed result), `operator_request.py` (authoritative proposal lifecycle), `_helpers.py` (순수 유틸), `stages/` (Stage Protocol 스캐폴드)
+│   │   ├── control_loop/       # P1 파이프라인: `orchestrator.py` (ControlLoop 조립과 exact property-semantics injection), `_process.py` (순서가 보존된 이벤트 단계), `_fallback.py` (T1/T2), `_execution.py` (거버넌스/리스크/디스패치), `_rca.py` (shadow RCA), `_boundary.py` (감사/알림/stage 어댑터), `models.py` (typed result), `operator_request.py` (authoritative proposal lifecycle), `_helpers.py` (순수 유틸), `stages/` (Stage Protocol 스캐폴드). Semantic metadata는 authority를 높이지 않음
 │   │   └── ontology_explorer.py    # 로드된 ObjectType / LinkType 카탈로그를 결정론적 Mermaid 로 렌더
 │   ├── shared/                # 크로스컷팅; core/ 로부터 import 금지
 │   │   ├── contracts/          # domain별 model + 공유 safety value + versioned isolated-Executor command/receipt schema + registry.py + validation.py

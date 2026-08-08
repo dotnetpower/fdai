@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 8713c2f36e5d72ac01bb8628cfeff21b4371ff47
+translation_source_sha: 0c373f26d8bebe0b4e8c8d26d54228ac8843089c
 translation_revised: 2026-08-09
 ---
 # FDAI 온톨로지 안전 인프라
@@ -18,7 +18,7 @@ exact schema pinning, generated SDK surface를 추가합니다. 모든 runtime t
 > **안전 경계:** Function은 plan, query, derive 또는 validate만 수행합니다. Thor만 승인된
 > `MutationPlan`을 실행하며 모든 외부 effect는 독립 reconciliation으로 종료합니다.
 >
-> **구현 상태(2026-08-01):** Canonical release, ActionBuilder output, in-memory ontology write에
+> **구현 상태(2026-08-08):** Canonical release, ActionBuilder output, in-memory ontology write에
 > K0 contract identity를 구현했습니다. K1 semantic interface compilation과 bounded ObjectSet
 > query도 구현했습니다. K2-K5 core primitive는 mutation plan, stale revision check, typed
 > function, projection binding, reconciliation, scoped SDK generation, read-only manifest를
@@ -35,6 +35,10 @@ exact schema pinning, generated SDK surface를 추가합니다. 모든 runtime t
 > Canonical release는 이제 typed function declaration을 포함합니다. Function registry는 caller
 > agent, role, purpose를 검사하고, 선언된 stochastic function을 위해 replay-stable seed를 파생하며,
 > 정확한 release에 고정된 content-addressed invocation receipt를 emit합니다.
+> Reconciliation은 in-memory foundation입니다. Versioned request/receipt contract, 분리된
+> authenticated observation context, attempt ledger, terminal outcome과 outbox를 원자적으로
+> 저장하는 reference store를 구현했습니다. Production composition은 아직 이 coordinator를
+> 연결하지 않으며 durable ledger/outbox adapter는 service extraction 이후 작업으로 남습니다.
 > K6-K8은 immutable operational state trajectory, dependency 범위 effect propagation,
 > time-bounded invariant, 독립 관측 trajectory outcome을 포함하는 graph-wide Dynamic evidence를
 > 목표로 합니다. 기존 action/metric Dynamic simulation은 구현되어 있으며 graph-wide propagation과
@@ -244,6 +248,19 @@ Reconciliation coordinator는 attempt를 닫기 전에 exact release, ActionType
 authenticated observer context, independently observed record를 바인딩합니다. Terminal outcome과
 proposal-only next-step event는 atomic하게 commit되며 receipt와 outbox entry 모두 provider-observed
 state를 update하거나 execution authority를 부여하지 않습니다.
+
+Authority는 untrusted observation envelope와 별도로 공급되는 trusted
+`AuthenticatedObservationContext`에서만 가져옵니다. Context는 서로 다른 observer, executor,
+source credential lineage를 signed, content-addressed verification receipt에 bind합니다. Envelope의
+authority claim은 authority를 부여하지 않습니다. 모든 recommendation은 proposal-only이며
+`grants_authority: false`를 포함합니다.
+
+| Receipt status | Terminal | Proposal-only next step | Persistence |
+|----------------|----------|-------------------------|-------------|
+| `matched` | 예 | `close_matched` | Terminal outcome과 outbox recommendation을 원자적으로 commit합니다. |
+| `mismatched` | 예 | `request_vidar_recovery` | Terminal outcome과 outbox recommendation을 원자적으로 commit합니다. |
+| `timed_out` | 예 | `request_vidar_recovery` | Terminal outcome과 outbox recommendation을 원자적으로 commit합니다. |
+| `unscorable` | 아니요 | `hold_unscorable` | Observation attempt만 기록하며 이후 authenticated observation이 같은 terminal identity를 retry할 수 있습니다. |
 
 Observed inventory relationship은 immutable state-fact 및 verification metadata를 운반할 수
 있습니다. Projection은 이를 권한으로 취급하지 않고 envelope를 보존하며 incomplete observation의

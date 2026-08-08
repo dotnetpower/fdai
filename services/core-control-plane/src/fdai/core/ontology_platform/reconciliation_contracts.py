@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal, Self
 
@@ -12,6 +12,7 @@ from pydantic import Field, model_validator
 
 from fdai.shared.contracts.models import (
     ContractBase,
+    OntologyActionType,
     OntologyReleaseRef,
     OntologyTypeRef,
     SemVer,
@@ -25,7 +26,13 @@ from .kinetics import MutationPlan, ReconciliationReceipt
 
 _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 _IDENTITY_PATTERN = r"^reconciliation:[a-f0-9]{64}$"
+_ATTEMPT_PATTERN = r"^reconciliation-attempt:[a-f0-9]{64}$"
 _OBSERVATION_PATTERN = r"^effect-observation:[a-f0-9]{64}$"
+_RECOMMENDATION_PATTERN = r"^reconciliation-next-step:[a-f0-9]{64}$"
+_MAX_CONFLICTS = 64
+_MAX_EVIDENCE_REFS = 128
+_MAX_RECORDS = 1000
+_MAX_OBSERVATION_BYTES = 1_048_576
 
 
 class EffectEvidenceAuthority(StrEnum):
@@ -95,7 +102,11 @@ class ObservedEffectRecord(ContractBase):
 
 
 class EffectObservationEnvelope(ContractBase):
-    """Versioned Heimdall-owned evidence envelope for one effect observation cutoff."""
+    """Versioned untrusted evidence envelope for one effect observation cutoff.
+
+    Identity and authority fields are claims used for authenticated-context binding. They do not
+    grant observation authority by themselves.
+    """
 
     schema_version: SemVer = "1.0.0"
     observation_id: Annotated[str, Field(pattern=_OBSERVATION_PATTERN)]
@@ -114,12 +125,15 @@ class EffectObservationEnvelope(ContractBase):
     fresh_until: datetime
     complete: bool
     synthetic: bool
-    conflicts: tuple[Annotated[str, Field(min_length=1, max_length=256)], ...] = ()
+    conflicts: Annotated[
+        tuple[Annotated[str, Field(min_length=1, max_length=256)], ...],
+        Field(max_length=_MAX_CONFLICTS),
+    ] = ()
     evidence_refs: Annotated[
         tuple[Annotated[str, Field(min_length=1, max_length=512)], ...],
-        Field(min_length=1),
+        Field(min_length=1, max_length=_MAX_EVIDENCE_REFS),
     ]
-    records: tuple[ObservedEffectRecord, ...] = ()
+    records: Annotated[tuple[ObservedEffectRecord, ...], Field(max_length=_MAX_RECORDS)] = ()
 
     @classmethod
     def create(cls, **values: Any) -> Self:
@@ -181,7 +195,76 @@ class EffectObservationEnvelope(ContractBase):
         )
         if self.observation_id != expected_id:
             raise ValueError("effect observation id does not match its content")
+        if len(_canonical_json_bytes(self.model_dump(mode="json"))) > _MAX_OBSERVATION_BYTES:
+            raise ValueError("effect observation exceeds the canonical byte limit")
         return self
+
+    def content_digest(self) -> str:
+        """Return the digest bound by a trusted observation verification receipt."""
+
+        return reconciliation_content_digest(self.model_dump(mode="json"))
+
+
+class ObservationVerificationReceipt(ContractBase):
+    """Signed, content-addressed proof that an authenticator verified one observation."""
+
+    schema_version: SemVer = "1.0.0"
+    observation_id: Annotated[str, Field(pattern=_OBSERVATION_PATTERN)]
+    observation_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+    verifier_identity: Annotated[str, Field(min_length=1, max_length=512)]
+    verifier_credential_lineage: Annotated[str, Field(min_length=1, max_length=512)]
+    verified_at: datetime
+    signature_algorithm: Literal["ed25519"]
+    signature: Annotated[
+        str,
+        Field(pattern=r"^base64:[A-Za-z0-9_-]{16,684}$", max_length=691),
+    ]
+    receipt_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+
+    @classmethod
+    def create(cls, **values: Any) -> Self:
+        """Build the content address over the signed verification fields."""
+
+        prototype = cls.model_construct(
+            **values,
+            receipt_digest="sha256:" + "0" * 64,
+        )
+        return cls(
+            **values,
+            receipt_digest=reconciliation_content_digest(
+                prototype.model_dump(mode="json", exclude={"receipt_digest"})
+            ),
+        )
+
+    @model_validator(mode="after")
+    def _receipt_is_canonical(self) -> ObservationVerificationReceipt:
+        _require_aware_times(verified_at=self.verified_at)
+        expected = reconciliation_content_digest(
+            self.model_dump(mode="json", exclude={"receipt_digest"})
+        )
+        if self.receipt_digest != expected:
+            raise ValueError("observation verification receipt digest does not match content")
+        return self
+
+
+class AuthenticatedObservationContext(ContractBase):
+    """Trusted authentication result supplied separately from the evidence envelope."""
+
+    schema_version: SemVer = "1.0.0"
+    source_authority: EffectEvidenceAuthority
+    observer_identity: Annotated[str, Field(min_length=1, max_length=512)]
+    observer_credential_lineage: Annotated[str, Field(min_length=1, max_length=512)]
+    executor_identity: Annotated[str, Field(min_length=1, max_length=512)]
+    executor_credential_lineage: Annotated[str, Field(min_length=1, max_length=512)]
+    source_identity: Annotated[str, Field(min_length=1, max_length=512)]
+    source_credential_lineage: Annotated[str, Field(min_length=1, max_length=512)]
+    verification_receipt: ObservationVerificationReceipt
+    signature_verified: Literal[True]
+
+    def content_digest(self) -> str:
+        """Bind authenticated identities and credential lineage for replay."""
+
+        return reconciliation_content_digest(self.model_dump(mode="json"))
 
 
 class EffectReconciliationRequest(ContractBase):
@@ -189,8 +272,10 @@ class EffectReconciliationRequest(ContractBase):
 
     schema_version: SemVer = "1.0.0"
     reconciliation_id: Annotated[str, Field(pattern=_IDENTITY_PATTERN)]
+    observation_attempt_id: Annotated[str, Field(pattern=_ATTEMPT_PATTERN)]
     correlation_id: Annotated[str, Field(min_length=1, max_length=512)]
     plan: MutationPlan
+    action_type: OntologyActionType | None = None
     evidence: EffectObservationEnvelope
     deadline: datetime
     evaluated_at: datetime
@@ -201,7 +286,13 @@ class EffectReconciliationRequest(ContractBase):
         """Create stable reconciliation and request identities for at-least-once delivery."""
 
         normalized = dict(values)
+        normalized["deadline"] = _canonical_datetime(normalized["deadline"], name="deadline")
+        normalized["evaluated_at"] = _canonical_datetime(
+            normalized["evaluated_at"], name="evaluated_at"
+        )
         normalized["plan"] = MutationPlan.model_validate(normalized["plan"])
+        if normalized.get("action_type") is not None:
+            normalized["action_type"] = OntologyActionType.model_validate(normalized["action_type"])
         normalized["evidence"] = EffectObservationEnvelope.model_validate(normalized["evidence"])
         reconciliation_id = _identity(
             "reconciliation",
@@ -210,14 +301,25 @@ class EffectReconciliationRequest(ContractBase):
                 "plan_digest": normalized["plan"].digest,
             },
         )
+        observation_attempt_id = _identity(
+            "reconciliation-attempt",
+            {
+                "reconciliation_id": reconciliation_id,
+                "observation_id": normalized["evidence"].observation_id,
+                "deadline": normalized["deadline"].isoformat().replace("+00:00", "Z"),
+                "evaluated_at": normalized["evaluated_at"].isoformat().replace("+00:00", "Z"),
+            },
+        )
         prototype = cls.model_construct(
             **normalized,
             reconciliation_id=reconciliation_id,
+            observation_attempt_id=observation_attempt_id,
             request_digest="sha256:" + "0" * 64,
         )
         return cls(
             **normalized,
             reconciliation_id=reconciliation_id,
+            observation_attempt_id=observation_attempt_id,
             request_digest=reconciliation_content_digest(
                 prototype.model_dump(mode="json", exclude={"request_digest"})
             ),
@@ -230,6 +332,12 @@ class EffectReconciliationRequest(ContractBase):
             raise ValueError("reconciliation deadline MUST follow plan creation")
         if self.evaluated_at < self.evidence.recorded_at:
             raise ValueError("reconciliation evaluation MUST NOT precede evidence recording")
+        if self.evidence.observed_at < self.plan.created_at:
+            raise ValueError("effect observation MUST NOT precede plan creation")
+        if self.evidence.observation_cutoff > self.evaluated_at:
+            raise ValueError("effect observation cutoff MUST NOT follow evaluation")
+        if self.evidence.observation_cutoff > self.deadline:
+            raise ValueError("effect observation cutoff MUST NOT follow reconciliation deadline")
         if self.correlation_id != self.evidence.correlation_id:
             raise ValueError("reconciliation correlation id MUST match evidence")
         expected_id = _identity(
@@ -238,6 +346,19 @@ class EffectReconciliationRequest(ContractBase):
         )
         if self.reconciliation_id != expected_id:
             raise ValueError("reconciliation id does not match plan and correlation")
+        expected_attempt_id = _identity(
+            "reconciliation-attempt",
+            {
+                "reconciliation_id": self.reconciliation_id,
+                "observation_id": self.evidence.observation_id,
+                "deadline": self.deadline.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+                "evaluated_at": self.evaluated_at.astimezone(UTC)
+                .isoformat()
+                .replace("+00:00", "Z"),
+            },
+        )
+        if self.observation_attempt_id != expected_attempt_id:
+            raise ValueError("reconciliation attempt id does not match its observation")
         expected_digest = reconciliation_content_digest(
             self.model_dump(mode="json", exclude={"request_digest"})
         )
@@ -254,17 +375,41 @@ class ReconciliationRecommendation(ContractBase):
         "ontology.reconciliation.next_step.v1"
     )
     reconciliation_id: Annotated[str, Field(pattern=_IDENTITY_PATTERN)]
+    observation_attempt_id: Annotated[str, Field(pattern=_ATTEMPT_PATTERN)]
     correlation_id: Annotated[str, Field(min_length=1, max_length=512)]
+    ontology_release_ref: OntologyReleaseRef
+    action_type_ref: OntologyTypeRef
+    plan_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+    observation_id: Annotated[str, Field(pattern=_OBSERVATION_PATTERN)]
+    request_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     receipt_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+    observation_context_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+    verification_receipt_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+    idempotency_key: Annotated[str, Field(pattern=_RECOMMENDATION_PATTERN)]
     next_step: ReconciliationNextStep
     reason_code: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
     target_agent: Literal["vidar"] | None = None
+    proposal_only: Literal[True] = True
+    grants_authority: Literal[False] = False
+
+    @classmethod
+    def create(cls, **values: Any) -> Self:
+        """Create a replay-stable proposal event bound to every decision reference."""
+
+        normalized = dict(values)
+        normalized["next_step"] = ReconciliationNextStep(normalized["next_step"])
+        idempotency_key = _recommendation_idempotency_key(normalized)
+        return cls(**normalized, idempotency_key=idempotency_key)
 
     @model_validator(mode="after")
     def _target_matches_next_step(self) -> ReconciliationRecommendation:
         requires_vidar = self.next_step is ReconciliationNextStep.REQUEST_VIDAR_RECOVERY
         if requires_vidar != (self.target_agent == "vidar"):
             raise ValueError("only recovery recommendations target Vidar")
+        if self.idempotency_key != _recommendation_idempotency_key(
+            self.model_dump(mode="python", exclude={"idempotency_key"})
+        ):
+            raise ValueError("reconciliation recommendation idempotency key does not match content")
         return self
 
 
@@ -273,11 +418,16 @@ class ReconciliationOutcome(ContractBase):
 
     schema_version: SemVer = "1.0.0"
     reconciliation_id: Annotated[str, Field(pattern=_IDENTITY_PATTERN)]
+    observation_attempt_id: Annotated[str, Field(pattern=_ATTEMPT_PATTERN)]
     correlation_id: Annotated[str, Field(min_length=1, max_length=512)]
     request_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     receipt_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+    observation_context_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+    verification_receipt_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+    request: EffectReconciliationRequest
     receipt: ReconciliationReceipt
     recommendation: ReconciliationRecommendation
+    terminal: bool
 
     @model_validator(mode="after")
     def _output_is_bound(self) -> ReconciliationOutcome:
@@ -285,26 +435,57 @@ class ReconciliationOutcome(ContractBase):
             self.receipt.model_dump(mode="json")
         ):
             raise ValueError("reconciliation receipt digest does not match receipt")
+        request = self.request
+        if (
+            request.reconciliation_id != self.reconciliation_id
+            or request.observation_attempt_id != self.observation_attempt_id
+            or request.correlation_id != self.correlation_id
+            or request.request_digest != self.request_digest
+            or self.receipt.plan_digest != request.plan.digest
+        ):
+            raise ValueError("reconciliation outcome is not bound to its canonical request")
         if (
             self.recommendation.reconciliation_id != self.reconciliation_id
+            or self.recommendation.observation_attempt_id != self.observation_attempt_id
             or self.recommendation.correlation_id != self.correlation_id
+            or self.recommendation.ontology_release_ref != request.evidence.ontology_release_ref
+            or self.recommendation.action_type_ref != request.plan.action_type_ref
+            or self.recommendation.plan_digest != request.plan.digest
+            or self.recommendation.observation_id != request.evidence.observation_id
+            or self.recommendation.request_digest != self.request_digest
             or self.recommendation.receipt_digest != self.receipt_digest
+            or self.recommendation.observation_context_digest != self.observation_context_digest
+            or self.recommendation.verification_receipt_digest != self.verification_receipt_digest
         ):
             raise ValueError("reconciliation recommendation is not bound to its receipt")
+        expected_next_step = {
+            "matched": ReconciliationNextStep.CLOSE_MATCHED,
+            "mismatched": ReconciliationNextStep.REQUEST_VIDAR_RECOVERY,
+            "timed_out": ReconciliationNextStep.REQUEST_VIDAR_RECOVERY,
+            "unscorable": ReconciliationNextStep.HOLD_UNSCORABLE,
+        }[self.receipt.status.value]
+        if self.recommendation.next_step is not expected_next_step:
+            raise ValueError("reconciliation status does not match its exact next step")
+        if self.terminal == (self.receipt.status.value == "unscorable"):
+            raise ValueError("only matched, mismatched, and timed_out outcomes are terminal")
         return self
 
 
 def reconciliation_content_digest(value: object) -> str:
     """Return the canonical digest shared by request, receipt, and duplicate identity."""
 
-    encoded = json.dumps(
+    encoded = _canonical_json_bytes(value)
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _canonical_json_bytes(value: object) -> bytes:
+    return json.dumps(
         value,
         allow_nan=False,
         ensure_ascii=True,
         separators=(",", ":"),
         sort_keys=True,
     ).encode("utf-8")
-    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def _require_aware_times(**values: datetime) -> None:
@@ -313,15 +494,56 @@ def _require_aware_times(**values: datetime) -> None:
             raise ValueError(f"{name} MUST be timezone-aware")
 
 
+def _canonical_datetime(value: object, *, name: str) -> datetime:
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError(f"{name} MUST be RFC3339") from exc
+    else:
+        raise ValueError(f"{name} MUST be a datetime")
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError(f"{name} MUST be timezone-aware")
+    return parsed.astimezone(UTC)
+
+
+def _recommendation_idempotency_key(values: dict[str, Any]) -> str:
+    material = {
+        "reconciliation_id": values["reconciliation_id"],
+        "observation_attempt_id": values["observation_attempt_id"],
+        "correlation_id": values["correlation_id"],
+        "ontology_release_ref": OntologyReleaseRef.model_validate(
+            values["ontology_release_ref"]
+        ).model_dump(mode="json"),
+        "action_type_ref": OntologyTypeRef.model_validate(values["action_type_ref"]).model_dump(
+            mode="json"
+        ),
+        "plan_digest": values["plan_digest"],
+        "observation_id": values["observation_id"],
+        "request_digest": values["request_digest"],
+        "receipt_digest": values["receipt_digest"],
+        "observation_context_digest": values["observation_context_digest"],
+        "verification_receipt_digest": values["verification_receipt_digest"],
+        "next_step": ReconciliationNextStep(values["next_step"]).value,
+        "reason_code": values["reason_code"],
+        "target_agent": values.get("target_agent"),
+    }
+    return _identity("reconciliation-next-step", material)
+
+
 def _identity(prefix: str, value: object) -> str:
     return f"{prefix}:{reconciliation_content_digest(value).removeprefix('sha256:')}"
 
 
 __all__ = [
+    "AuthenticatedObservationContext",
     "EffectEvidenceAuthority",
     "EffectObservationEnvelope",
     "EffectReconciliationRequest",
     "ObservedEffectRecord",
+    "ObservationVerificationReceipt",
     "ReconciliationNextStep",
     "ReconciliationOutcome",
     "ReconciliationRecommendation",

@@ -21,7 +21,6 @@ from fdai.core.ontology_platform.diagnostic_ledger import validate_diagnostic_le
 from fdai.core.ontology_platform.diagnostic_projection import (
     build_diagnostic_catalog_projection,
 )
-from fdai.rule_catalog.schema.property_semantic import load_property_semantic_registry
 from fdai.rule_catalog.schema.rego_semantics import load_rego_semantics
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
@@ -81,9 +80,7 @@ async def project_catalog_ontology(
         resource_types=resource_types,
         signal_types=signal_types,
         policy_semantics=semantics,
-        property_semantics=load_property_semantic_registry(
-            catalog_root / "vocabulary/property-semantics.yaml"
-        ),
+        property_semantics=control_loop.property_semantics,
     )
     projection = merge_catalog_ontology_projections(
         base_projection,

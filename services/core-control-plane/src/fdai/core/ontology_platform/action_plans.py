@@ -157,6 +157,56 @@ def compile_action_mutation_plan(
     )
 
 
+def validate_action_plan_semantics(
+    *,
+    action_type: OntologyActionType,
+    release: OntologyRelease,
+    plan: MutationPlan,
+) -> None:
+    """Revalidate one V2 plan against its exact active ActionType semantics."""
+
+    if plan.schema_version != "2.0.0" or action_type.semantic is None:
+        raise ValueError("reconciliation requires a semantic MutationPlan version 2")
+    active_ref = release.type_ref(OntologyDeclarationKind.ACTION, action_type.name)
+    if plan.action_type_ref != active_ref or active_ref.version != action_type.version:
+        raise ValueError("MutationPlan does not use the exact active ActionType")
+    declaration = build_ontology_release(action_types=(action_type,)).declarations[0]
+    active_declaration = next(
+        item
+        for item in release.declarations
+        if item.kind is OntologyDeclarationKind.ACTION and item.name == action_type.name
+    )
+    if declaration != active_declaration:
+        raise ValueError("supplied ActionType content does not match the active release")
+    semantic = action_type.semantic
+    if plan.planner_ref != _planner_identity(semantic.planner_ref):
+        raise ValueError("MutationPlan planner does not match the ActionType planner")
+    if (
+        plan.transaction_mode is not semantic.transaction_policy.mode
+        or plan.lock_scope is not semantic.transaction_policy.lock_scope
+        or plan.max_affected_objects != semantic.transaction_policy.max_affected_objects
+        or plan.irreversible != action_type.irreversible
+    ):
+        raise ValueError("MutationPlan safety policy does not match the ActionType contract")
+    targets = tuple(
+        OntologyObjectRecord(
+            id=target.object_id,
+            object_type=target.type_ref.name,
+            properties={},
+            revision=target.revision,
+            type_ref=target.type_ref,
+        )
+        for target in plan.targets
+    )
+    _validate_effects(
+        action_type,
+        targets,
+        plan.effects,
+        plan.rollback_effects,
+        plan.expected_effects,
+    )
+
+
 def _validate_arguments(
     action_type: OntologyActionType,
     arguments: Mapping[str, Any],
@@ -579,4 +629,4 @@ def _planner_identity(reference: OntologyDeclarationRef) -> str:
     return f"{reference.name}@{reference.version}:{reference.declaration_digest}"
 
 
-__all__ = ["compile_action_mutation_plan"]
+__all__ = ["compile_action_mutation_plan", "validate_action_plan_semantics"]

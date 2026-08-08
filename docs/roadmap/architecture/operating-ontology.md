@@ -34,11 +34,14 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > Verified links require an independent verifier, a trusted verification method, and an immutable
 > verification receipt. Required source freshness, trusted UTC clock identity, recorded time, and
 > skew-bounded future checks also contribute to context safety and replay identity.
-> Wave 2 adds a content-addressed `OperationalEvidenceBundle` that keeps secured ontology paths,
-> authoritative state facts, catalog references, and governed document excerpts in separate
-> authority lanes. Deterministic claim and citation validation, exact typed-claim contradiction
-> detection, and byte and item budgets emit hold evidence and can only preserve or lower the
-> bundle's autonomy ceiling. The bundle has no action authority.
+> Wave 2 provides an unwired, content-addressed `OperationalEvidenceBundle` foundation that keeps
+> secured ontology paths, authoritative state facts, catalog references, and governed document
+> excerpts in separate authority lanes. Admission requires content-addressed source receipts that
+> pin the ontology release, catalog and document revisions, authenticated source, purpose, scope,
+> redaction summary, and typed temporal scope. Deterministic claim and citation validation, exact
+> typed-claim contradiction detection, and final-body byte and item budgets emit hold evidence and
+> can only preserve or lower the bundle's autonomy ceiling. No runtime or composition path consumes
+> this bundle yet, so it is not part of the production autonomy path and has no action authority.
 > Change management adds planned-change evidence to `Change`, a reviewed `ChangeWindow`, and typed
 > links from target and decision through impact, process, outcome, and recovery. These declarations
 > are semantic evidence only and grant no approval or execution authority. Huginn now carries the
@@ -49,8 +52,9 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > Wave 2 adds reviewed shared Property semantics without adding a declaration kind. The catalog
 > loader validates canonical meaning, value type, optional unit, enum or range, normalization,
 > authority, freshness, and equivalent provider paths. Catalog projection exposes those fields
-> only for reviewed entries. Legacy properties remain valid but cannot claim normalized
-> equivalence.
+> only for reviewed entries and carries the exact semantic-registry version and content digest.
+> Runtime projection reuses the registry validated during catalog loading instead of reading the
+> file again. Legacy properties remain valid but cannot claim normalized equivalence.
 
 ## Catalog semantic projection
 
@@ -70,12 +74,25 @@ canonical unit, enum or numeric range, normalization rule identifier, authority 
 policy, and equivalent provider paths. Provider-specific paths stay in this vocabulary and don't
 become provider branches in core code.
 
-The loader rejects duplicate provider paths and a property reference assigned to conflicting
-semantic ids. Normalization produces NFC strings with the declared trim or case-fold rule,
-canonical decimal strings for finite numbers, strict integers and booleans, and UTC RFC 3339 time
-values. A boolean is never accepted as an integer or number. Range and enum checks run after
-normalization. A Property without reviewed metadata keeps its legacy projection fields and omits
-`normalized_equivalence`; callers cannot infer equivalence or normalize it through this registry.
+The loader normalizes units and provider identity paths before rejecting collisions, and it
+normalizes, deduplicates, and orders enum values before use. String case folding is followed by NFC
+normalization. Decimal values use context-independent canonicalization with bounded input,
+coefficient, exponent, and output sizes; range checks compare the exact parsed value before
+rendering. YAML numeric range bounds are parsed from their authored scalar lexemes into `Decimal`
+before Pydantic validation, serialized as canonical decimal strings for content digests, and never
+pass through binary floating point. A finite JSON number with an integral mathematical value is a
+valid integer bound. Datetimes reject surrounding whitespace and require an RFC 3339 `T` separator,
+an explicit timezone, UTC conversion within the supported datetime range, and no more than six
+fractional digits. Booleans are never integers or numbers. Object and array Property semantics are
+rejected until bounded canonical JSON support exists.
+
+Every registry requires a version and provenance envelope whose SHA-256 covers canonical content
+excluding the provenance envelope itself. Every semantic requires authenticated source identity,
+and freshness has a finite positive upper bound. Catalog projection pins the verified registry
+version and digest on each reviewed Property. A missing registry file produces one stable legacy
+empty registry for loading and runtime projection. A Property without reviewed metadata keeps its
+legacy projection fields and omits `normalized_equivalence`; callers cannot infer equivalence or
+normalize it through this registry.
 
 ### Diagnostic knowledge projection
 
@@ -370,24 +387,46 @@ A bounded traversal that reaches its node limit is incomplete evidence. Material
 `context_graph_truncated` as a conflict and lowers the autonomy ceiling to `SHADOW_ONLY`; a partial
 graph never preserves automatic execution authority.
 
-An `OperationalEvidenceBundle` can combine graph and document evidence without flattening their
-authority. Its four immutable lanes retain authority, source revision, evidence cutoff, freshness,
-completeness, and redaction independently:
+An `OperationalEvidenceBundle` foundation can combine graph and document evidence without
+flattening their authority. It is not wired into runtime composition, Forseti decision-case
+construction, or the production prompt path. Production autonomy continues to use the existing
+operational-context snapshot and ordinary policy, risk, approval, execution, and audit gates. Its
+four immutable lanes retain verified source receipts independently:
 
-- **Ontology evidence:** Secured typed facts and deterministic paths from the operational graph.
+- **Ontology evidence:** Secured typed facts and closed, acyclic deterministic paths from the
+  operational graph. The preferred input is a secured ObjectSet snapshot receipt; every nested
+  link is checked for verification, freshness, completeness, conflicts, and synthetic status.
 - **State evidence:** The original observed, derived, desired, or execution `StateFactMetadata`.
 - **Catalog evidence:** Exact rule or catalog references from reviewed catalog-as-code.
 - **Document evidence:** Governed excerpts stored as untrusted data with no instruction authority.
 
-Every exact claim stores canonical JSON, a subject, predicate, cutoff scope, and citation refs. The
-citation manifest is derived only from included evidence, so an omitted or fabricated ref produces
-an explicit missing path and hold. Contradiction detection compares only claims with the same
-subject, predicate, and cutoff scope, and reports a conflict only when their canonical typed values
-differ. It doesn't infer semantic disagreement from prose. Deterministic item and byte budgets
-record every omitted context path. Stale, incomplete, conflicting, synthetic, after-cutoff,
-uncited, or truncated evidence lowers the result to `SHADOW_ONLY`; healthy evidence never raises
-the caller's input ceiling. The bundle is read-only evidence and never grants approval or action
-authority.
+Before admission, each lane item has a canonical payload that includes its evidence ref and exact
+lane content but excludes the source envelope to avoid a digest cycle. The verified source receipt
+binds that payload digest, the lane, and canonical source-supplied membership or inclusion
+evidence. Admission recomputes the digest and rejects an excerpt, graph path, or state fact changed
+under the same receipt. An injected receipt validator receives the receipt, lane, item digest,
+canonical payload, and lane-specific membership evidence so it can verify the source's inclusion
+proof rather than only the receipt reference. For state evidence, freshness ceiling, completeness,
+synthetic status, and conflicts must exactly match `StateFactMetadata`, and the bundle evaluates
+those metadata fields directly when deriving holds.
+
+Every exact claim stores canonical JSON, a subject, predicate, typed effective/evidence/recorded
+scope, and citation bindings containing the evidence ref, item digest, and source revision. The
+citation manifest is derived only from included evidence, so an omitted, fabricated, or
+revision-mismatched citation produces an explicit missing path and hold. Duplicate claims are
+rejected. Contradiction detection compares claims with the same subject, predicate, effective
+interval, and evidence cutoff, and reports a conflict only when their canonical typed values
+differ. Recorded time remains in each immutable claim identity but doesn't split a contradiction
+group, and it never implies supersession. The foundation has no implicit latest-wins rule; a future
+supersession policy would require an explicit reviewed claim relationship. The detector doesn't
+infer semantic disagreement from prose. Candidate and diagnostic counts and field lengths are
+bounded, nested sequences are copied to immutable tuples, and `max_bytes` applies to the final
+canonical body including its manifest, omissions, conflicts, and hold data. Stale, incomplete,
+conflicting, synthetic, after-cutoff, after-trusted-recorded-time, uncited, or truncated evidence
+lowers the result to `SHADOW_ONLY`; healthy evidence never raises the caller's input ceiling.
+Document prompt rendering places excerpts only in an escaped, delimited JSON data block. These
+tests establish a safe foundation but don't prove production wiring. The bundle remains read-only
+evidence and never grants approval or action authority.
 
 Forseti creates a `DecisionCase` from that snapshot. Each case contains the no-action baseline,
 bounded options, expected effects, protected objectives, violated constraints, uncertainty, and

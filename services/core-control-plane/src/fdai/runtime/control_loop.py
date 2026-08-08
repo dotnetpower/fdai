@@ -107,6 +107,7 @@ from fdai.delivery.persistence.workflow_approval import (
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.rule_catalog.schema.property_semantic import empty_property_semantic_registry
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     load_resource_type_registry_from_mapping,
@@ -349,6 +350,7 @@ def _build_control_loop(
         action_types = ontology_catalog.action_types
         ontology_object_types = ontology_catalog.object_types
         ontology_link_types = ontology_catalog.link_types
+        property_semantics = ontology_catalog.property_semantics
     else:
         action_types = load_action_type_catalog(
             action_types_root,
@@ -357,6 +359,7 @@ def _build_control_loop(
         )
         ontology_object_types = ()
         ontology_link_types = ()
+        property_semantics = empty_property_semantic_registry()
     resource_types = _load_resource_types()
     signal_types = load_signal_type_registry_from_mapping(
         yaml.safe_load(
@@ -744,6 +747,7 @@ def _build_control_loop(
         response_outcome_sink=response_outcome_sink,
         workflow_outcome_recorder=workflow_outcome_ledger,
         ontology_instance_store=ontology_instance_store,
+        property_semantics=property_semantics,
         execution_authorization_evaluator=container.execution_authorization_evaluator,
         execution_access_grant_sink=container.execution_access_grant_sink,
         execution_authorization_required=container.execution_authorization_required,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
@@ -114,7 +115,7 @@ def reconcile_expected_effects(
         if record is None or effect.property_name is None:
             mismatches.append(f"{effect.target_id}:unobserved")
             continue
-        if record.properties.get(effect.property_name) != effect.value:
+        if not _json_values_equal(record.properties.get(effect.property_name), effect.value):
             mismatches.append(f"{effect.target_id}:{effect.property_name}")
     status = ReconciliationStatus.MISMATCHED if mismatches else ReconciliationStatus.MATCHED
     return ReconciliationReceipt(
@@ -124,6 +125,22 @@ def reconcile_expected_effects(
         evidence_refs=evidence_refs,
         mismatches=tuple(mismatches),
     )
+
+
+def _json_values_equal(left: object, right: object) -> bool:
+    """Compare canonical JSON encodings so booleans never equal integers."""
+
+    return _canonical_json_bytes(left) == _canonical_json_bytes(right)
+
+
+def _canonical_json_bytes(value: object) -> bytes:
+    return json.dumps(
+        value,
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
 
 
 __all__ = ["project_source_records", "reconcile_expected_effects"]

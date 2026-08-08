@@ -118,7 +118,9 @@ def test_property_semantics_project_deterministically_without_upgrading_legacy()
     assert cpu.properties["semantic_id"] == "utilization.cpu.p95"
     assert cpu.properties["value_type"] == "number"
     assert cpu.properties["canonical_unit"] == "percent"
-    assert cpu.properties["range"] == {"minimum": 0.0, "maximum": 100.0}
+    assert cpu.properties["range"] == {"minimum": "0", "maximum": "100"}
+    assert cpu.properties["semantic_registry_version"] == ontology.property_semantics.version
+    assert cpu.properties["semantic_registry_digest"] == ontology.property_semantics.content_digest
     assert cpu.properties["normalized_equivalence"] is True
     assert cpu.properties["equivalent_provider_paths"] == [
         {

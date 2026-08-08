@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fdai.shared.contracts.models import ActionLockScope, ActionTransactionMode, OntologyTypeRef
 from fdai.shared.providers.ontology_instance import (
@@ -36,6 +36,9 @@ def build_mutation_plan(
     lock_keys: Sequence[str] = (),
     irreversible: bool = False,
 ) -> MutationPlan:
+    if created_at.tzinfo is None:
+        raise ValueError("MutationPlan.created_at MUST be timezone-aware")
+    canonical_created_at = created_at.astimezone(UTC)
     if not 1 <= len(targets) <= max_affected_objects:
         raise ValueError("mutation target count exceeds the declared impact limit")
     pinned = []
@@ -66,6 +69,9 @@ def build_mutation_plan(
         "max_affected_objects": max_affected_objects if schema_version == "2.0.0" else None,
         "irreversible": irreversible,
     }
+    if schema_version == "2.0.0":
+        material["schema_version"] = schema_version
+        material["created_at"] = canonical_created_at.isoformat().replace("+00:00", "Z")
     digest = _digest(material)
     return MutationPlan(
         schema_version=schema_version,
@@ -77,7 +83,7 @@ def build_mutation_plan(
         effects=tuple(effects),
         rollback_effects=tuple(rollback_effects),
         expected_effects=tuple(expected_effects),
-        created_at=created_at,
+        created_at=canonical_created_at if schema_version == "2.0.0" else created_at,
         arguments_digest=arguments_digest,
         argument_bindings=tuple(argument_bindings),
         read_set_receipt_digests=tuple(read_set_receipt_digests),

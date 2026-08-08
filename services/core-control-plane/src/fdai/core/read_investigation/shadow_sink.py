@@ -3,20 +3,40 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 
-if TYPE_CHECKING:
-    from fdai.core.read_investigation.resource_state_shadow_models import (
-        ShadowComparisonReceipt,
-    )
+from fdai.core.read_investigation.resource_state_shadow_models import (
+    ShadowComparisonReceipt,
+    ShadowReceiptPersistence,
+)
+
+
+class ShadowReceiptIdentityConflictError(ValueError):
+    """A persisted shadow identity was reused for different immutable content."""
+
+
+@dataclass(frozen=True, slots=True)
+class ShadowSinkAppendResult:
+    """The exact immutable record retained by an append operation."""
+
+    receipt: ShadowComparisonReceipt
+    persistence: ShadowReceiptPersistence
+
+    def __post_init__(self) -> None:
+        if self.persistence not in {
+            ShadowReceiptPersistence.RECORDED,
+            ShadowReceiptPersistence.RETAINED,
+        }:
+            raise ValueError("successful shadow sink result MUST be recorded or retained")
 
 
 @runtime_checkable
 class ShadowComparisonSink(Protocol):
     """Persist one immutable receipt without receiving response authority."""
 
-    async def append(self, receipt: ShadowComparisonReceipt) -> None:
-        """Append or idempotently retain one content-addressed receipt."""
+    async def append(self, receipt: ShadowComparisonReceipt) -> ShadowSinkAppendResult:
+        """Append or idempotently return the exact retained receipt."""
 
 
 class InMemoryShadowComparisonSink:
@@ -26,18 +46,25 @@ class InMemoryShadowComparisonSink:
         self._records: dict[str, ShadowComparisonReceipt] = {}
         self._lock = asyncio.Lock()
 
-    async def append(self, receipt: ShadowComparisonReceipt) -> None:
+    async def append(self, receipt: ShadowComparisonReceipt) -> ShadowSinkAppendResult:
         """Append a receipt, treating the same comparison identity as a replay."""
 
         async with self._lock:
             existing = self._records.get(receipt.receipt_digest)
             if existing is not None:
-                if existing.model_dump(exclude={"attempt_latency_ms"}) != receipt.model_dump(
-                    exclude={"attempt_latency_ms"}
-                ):
-                    raise ValueError("shadow comparison receipt digest collision")
-                return
+                if existing != receipt:
+                    raise ShadowReceiptIdentityConflictError(
+                        "shadow comparison receipt identity conflicts with retained content"
+                    )
+                return ShadowSinkAppendResult(
+                    receipt=existing,
+                    persistence=ShadowReceiptPersistence.RETAINED,
+                )
             self._records[receipt.receipt_digest] = receipt
+            return ShadowSinkAppendResult(
+                receipt=receipt,
+                persistence=ShadowReceiptPersistence.RECORDED,
+            )
 
     async def list_receipts(self) -> tuple[ShadowComparisonReceipt, ...]:
         """Return receipts in deterministic digest order."""
@@ -46,4 +73,9 @@ class InMemoryShadowComparisonSink:
             return tuple(self._records[key] for key in sorted(self._records))
 
 
-__all__ = ["InMemoryShadowComparisonSink", "ShadowComparisonSink"]
+__all__ = [
+    "InMemoryShadowComparisonSink",
+    "ShadowComparisonSink",
+    "ShadowReceiptIdentityConflictError",
+    "ShadowSinkAppendResult",
+]

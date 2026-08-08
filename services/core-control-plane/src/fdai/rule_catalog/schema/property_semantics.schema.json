@@ -5,7 +5,7 @@
   "description": "Reviewed canonical meanings for equivalent provider property paths.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "version", "semantics"],
+  "required": ["schema_version", "version", "semantics", "provenance"],
   "properties": {
     "schema_version": {"const": "1.0.0"},
     "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
@@ -13,11 +13,26 @@
       "type": "array",
       "maxItems": 1000,
       "items": {"$ref": "#/$defs/semantic"}
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
     }
   },
   "$defs": {
     "scalar": {
       "type": ["string", "integer", "number", "boolean"]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_url", "resolved_ref", "content_hash", "license", "retrieved_at"],
+      "properties": {
+        "source_url": {"type": "string", "minLength": 1, "maxLength": 512},
+        "resolved_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+        "content_hash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "license": {"type": "string", "minLength": 1, "maxLength": 128},
+        "retrieved_at": {"type": "string", "format": "date-time"}
+      }
     },
     "semantic": {
       "type": "object",
@@ -38,9 +53,14 @@
         },
         "value_type": {
           "type": "string",
-          "enum": ["string", "integer", "number", "boolean", "object", "array", "datetime"]
+          "enum": ["string", "integer", "number", "boolean", "datetime"]
         },
-        "canonical_unit": {"type": "string", "minLength": 1, "maxLength": 64},
+        "canonical_unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9._/%-]{0,63}$"
+        },
         "enum_values": {
           "type": "array",
           "maxItems": 256,
@@ -65,8 +85,7 @@
             "integer.strict",
             "number.decimal",
             "boolean.strict",
-            "datetime.rfc3339_utc",
-            "identity"
+            "datetime.rfc3339_utc"
           ]
         },
         "authority": {
@@ -84,7 +103,7 @@
                 "derived"
               ]
             },
-            "source_identity_required": {"type": "boolean"}
+            "source_identity_required": {"const": true}
           }
         },
         "freshness": {
@@ -92,7 +111,11 @@
           "additionalProperties": false,
           "required": ["max_age_seconds", "stale_behavior"],
           "properties": {
-            "max_age_seconds": {"type": "integer", "minimum": 1},
+            "max_age_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 31536000
+            },
             "stale_behavior": {
               "type": "string",
               "enum": ["unknown", "lower_autonomy"]
@@ -125,7 +148,68 @@
             }
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"value_type": {"const": "string"}}, "required": ["value_type"]},
+          "then": {
+            "properties": {
+              "normalization_rule": {"enum": ["string.trim", "string.trim_casefold"]},
+              "enum_values": {"items": {"type": "string"}}
+            },
+            "not": {"anyOf": [{"required": ["canonical_unit"]}, {"required": ["range"]}]}
+          }
+        },
+        {
+          "if": {"properties": {"value_type": {"const": "integer"}}, "required": ["value_type"]},
+          "then": {
+            "properties": {
+              "normalization_rule": {"const": "integer.strict"},
+              "enum_values": {"items": {"type": "integer"}},
+              "range": {
+                "properties": {
+                  "minimum": {"type": "integer"},
+                  "maximum": {"type": "integer"}
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"value_type": {"const": "number"}}, "required": ["value_type"]},
+          "then": {
+            "properties": {
+              "normalization_rule": {"const": "number.decimal"},
+              "enum_values": {
+                "items": {
+                  "anyOf": [{"type": "number"}, {"type": "string"}]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"value_type": {"const": "boolean"}}, "required": ["value_type"]},
+          "then": {
+            "properties": {
+              "normalization_rule": {"const": "boolean.strict"},
+              "enum_values": {"items": {"type": "boolean"}}
+            },
+            "not": {"anyOf": [{"required": ["canonical_unit"]}, {"required": ["range"]}]}
+          }
+        },
+        {
+          "if": {"properties": {"value_type": {"const": "datetime"}}, "required": ["value_type"]},
+          "then": {
+            "properties": {
+              "normalization_rule": {"const": "datetime.rfc3339_utc"},
+              "enum_values": {"items": {"type": "string"}}
+            },
+            "not": {"anyOf": [{"required": ["canonical_unit"]}, {"required": ["range"]}]}
+          }
+        },
+        {"not": {"required": ["range", "enum_values"]}}
+      ]
     }
   }
 }

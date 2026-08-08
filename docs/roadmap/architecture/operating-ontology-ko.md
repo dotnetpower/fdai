@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: eeb0e65c866f4a58d92578e4e9db53f9603d259e
+translation_source_sha: 2e24d3d7d6068c58f218f16e0bfcae7757543696
 translation_revised: 2026-08-08
 ---
 # FDAI 운영 온톨로지
@@ -37,10 +37,14 @@ cloud-operations 개념을 소유하고 deployment는 observed instance와 inten
 > receipt를 요구합니다. 필수 source freshness, 신뢰된 UTC clock identity, recorded time 및
 > skew 범위의 future check도 context safety와 replay identity에 반영됩니다.
 > Wave 2는 secured ontology path, authoritative state fact, catalog reference 및 governed document
-> excerpt를 분리된 authority lane으로 유지하는 content-addressed `OperationalEvidenceBundle`을
-> 추가합니다. Deterministic claim 및 citation validation, exact typed-claim contradiction detection,
-> byte 및 item budget은 hold evidence를 출력하고 bundle의 autonomy ceiling을 유지하거나 낮출 수만
-> 있습니다. Bundle에는 action authority가 없습니다.
+> excerpt를 분리된 authority lane으로 유지하는 unwired content-addressed
+> `OperationalEvidenceBundle` foundation을 제공합니다. Admission에는 ontology release, catalog 및
+> document revision, authenticated source, purpose, scope, redaction summary, typed temporal scope를
+> 고정하는 content-addressed source receipt가 필요합니다. Deterministic claim 및 citation
+> validation, exact typed-claim contradiction detection, final-body byte 및 item budget은 hold
+> evidence를 출력하고 bundle의 autonomy ceiling을 유지하거나 낮출 수만 있습니다. 아직 runtime
+> 또는 composition path가 이 bundle을 소비하지 않으므로 production autonomy path의 일부가 아니며
+> action authority가 없습니다.
 > 변경관리는 `Change`에 planned-change evidence를 추가하고, reviewed `ChangeWindow`와 target 및
 > decision에서 impact, process, outcome, recovery까지 이어지는 typed link를 제공합니다. 이러한
 > declaration은 semantic evidence일 뿐 승인 또는 실행 권한을 제공하지 않습니다. Huginn은 같은
@@ -51,8 +55,10 @@ cloud-operations 개념을 소유하고 deployment는 observed instance와 inten
 > Wave 2는 새 declaration kind를 추가하지 않고 검토된 shared Property semantics를 추가합니다.
 > Catalog loader는 canonical meaning, value type, optional unit, enum 또는 range,
 > normalization, authority, freshness 및 equivalent provider path를 검증합니다. Catalog
-> projection은 검토된 entry에만 이러한 field를 노출합니다. Legacy property는 계속 유효하지만
-> normalized equivalence를 주장할 수 없습니다.
+> projection은 검토된 entry에만 이러한 field를 노출하고 정확한 semantic-registry version과
+> content digest를 포함합니다. Runtime projection은 file을 다시 읽지 않고 catalog load에서
+> 검증된 registry를 재사용합니다. Legacy property는 계속 유효하지만 normalized equivalence를
+> 주장할 수 없습니다.
 
 ## 카탈로그 semantic projection
 
@@ -72,13 +78,24 @@ enum 또는 numeric range, normalization rule identifier, authority와 freshness
 provider path를 선언합니다. Provider-specific path는 이 vocabulary에 data로 남으며 core code의
 provider branch가 되지 않습니다.
 
-Loader는 duplicate provider path와 하나의 property reference에 서로 다른 semantic id가 지정되는
-충돌을 차단합니다. Normalization은 선언된 trim 또는 case-fold rule을 적용한 NFC string, finite
-number의 canonical decimal string, strict integer와 boolean 및 UTC RFC 3339 time value를
-생성합니다. Boolean은 integer 또는 number로 허용되지 않습니다. Range와 enum check는
-normalization 후에 실행됩니다. 검토된 metadata가 없는 Property는 legacy projection field를
-유지하고 `normalized_equivalence`를 생략합니다. Caller는 이 registry를 통해 해당 Property의
-equivalence를 추론하거나 값을 normalize할 수 없습니다.
+Loader는 충돌을 확인하기 전에 unit과 provider identity path를 normalize하고 enum value를
+normalize, deduplicate 및 order합니다. String case folding 후에는 NFC normalization을 적용합니다.
+Decimal value는 context-independent canonicalization을 사용하고 input, coefficient, exponent 및
+output size를 제한합니다. Range check는 rendering 전에 exact parsed value를 비교합니다. YAML
+numeric range bound는 작성된 scalar lexeme에서 Pydantic validation 전에 `Decimal`로 parse되고,
+content digest에서는 canonical decimal string으로 serialize되며 binary floating point를 거치지
+않습니다. 수학적으로 integral인 finite JSON number는 유효한 integer bound입니다. Datetime은
+앞뒤 whitespace를 거부하고 RFC 3339 `T` separator, 명시적 timezone, 지원 datetime range 안의 UTC
+conversion 및 최대 6자리 fractional digit를 요구합니다. Boolean은 integer 또는 number로 허용되지
+않습니다. Bounded canonical JSON 지원 전까지 object 및 array Property semantics는 차단됩니다.
+
+모든 registry는 version과 provenance envelope를 요구하며, SHA-256은 provenance envelope 자체를
+제외한 canonical content를 포함합니다. 모든 semantic은 authenticated source identity를 요구하고
+freshness에는 finite positive upper bound가 있습니다. Catalog projection은 검토된 각 Property에
+검증된 registry version과 digest를 고정합니다. Registry file이 없으면 catalog loading과 runtime
+projection이 하나의 stable legacy empty registry를 사용합니다. 검토된 metadata가 없는 Property는
+legacy projection field를 유지하고 `normalized_equivalence`를 생략합니다. Caller는 이 registry를
+통해 해당 Property의 equivalence를 추론하거나 값을 normalize할 수 없습니다.
 
 ### 진단 지식 projection
 
@@ -372,22 +389,44 @@ mapping이 자동 실행 권한을 유지할 수 없습니다. Provenance allowl
 `context_graph_truncated`를 conflict로 기록하고 autonomy ceiling을 `SHADOW_ONLY`로 낮춥니다. 일부
 graph만으로 자동 실행 권한을 유지하지 않습니다.
 
-`OperationalEvidenceBundle`은 authority를 하나로 flatten하지 않고 graph 및 document evidence를
-결합할 수 있습니다. 네 개의 immutable lane은 authority, source revision, evidence cutoff,
-freshness, completeness 및 redaction을 독립적으로 보존합니다.
+`OperationalEvidenceBundle` foundation은 authority를 하나로 flatten하지 않고 graph 및 document
+evidence를 결합할 수 있습니다. Runtime composition, Forseti decision-case construction 또는
+production prompt path에는 연결되어 있지 않습니다. Production autonomy는 기존 operational-context
+snapshot과 일반 policy, risk, approval, execution, audit gate를 계속 사용합니다. 네 개의 immutable
+lane은 verified source receipt를 독립적으로 보존합니다.
 
-- **Ontology evidence:** Operational graph에서 가져온 secured typed fact와 deterministic path입니다.
+- **Ontology evidence:** Operational graph에서 가져온 secured typed fact와 closed, acyclic
+  deterministic path입니다. Secured ObjectSet snapshot receipt가 권장 입력이며, 모든 nested link의
+  verification, freshness, completeness, conflict 및 synthetic 상태를 검사합니다.
 - **State evidence:** 원래의 observed, derived, desired 또는 execution `StateFactMetadata`입니다.
 - **Catalog evidence:** Reviewed catalog-as-code의 exact rule 또는 catalog reference입니다.
 - **Document evidence:** Instruction authority 없이 untrusted data로 저장되는 governed excerpt입니다.
 
-각 exact claim은 canonical JSON, subject, predicate, cutoff scope 및 citation ref를 저장합니다.
-Citation manifest는 포함된 evidence에서만 파생되므로 누락되거나 fabricated된 ref는 명시적인
-missing path와 hold를 생성합니다. Contradiction detection은 subject, predicate 및 cutoff scope가
-같은 claim만 비교하고 canonical typed value가 다를 때만 conflict를 보고합니다. Prose에서 semantic
-disagreement를 추론하지 않습니다. Deterministic item 및 byte budget은 생략된 모든 context path를
-기록합니다. Stale, incomplete, conflicting, synthetic, after-cutoff, uncited 또는 truncated evidence는
-결과를 `SHADOW_ONLY`로 낮춥니다. Healthy evidence는 caller의 input ceiling을 높이지 않습니다.
+Admission 전에 각 lane item은 evidence ref와 exact lane content를 포함하되 digest cycle을 피하기 위해
+source envelope를 제외한 canonical payload를 가집니다. Verified source receipt는 이 payload digest,
+lane 및 source가 제공한 canonical membership 또는 inclusion evidence를 결합합니다. Admission은
+digest를 다시 계산하며 같은 receipt 아래에서 excerpt, graph path 또는 state fact가 바뀌면
+거부합니다. Injected receipt validator는 receipt, lane, item digest, canonical payload 및 lane별
+membership evidence를 받으므로 receipt reference만 확인하지 않고 source inclusion proof를 검증할 수
+있습니다. State evidence에서는 freshness ceiling, completeness, synthetic status 및 conflict가
+`StateFactMetadata`와 정확히 일치해야 하며, bundle은 hold를 도출할 때 이 metadata field를 직접
+평가합니다.
+
+각 exact claim은 canonical JSON, subject, predicate, typed effective/evidence/recorded scope 및
+evidence ref, item digest, source revision을 포함하는 citation binding을 저장합니다. Citation
+manifest는 포함된 evidence에서만 파생되므로 누락, fabricated 또는 revision mismatch citation은
+명시적인 missing path와 hold를 생성합니다. Duplicate claim은 거부합니다. Contradiction detection은
+subject, predicate, effective interval 및 evidence cutoff가 같은 claim을 비교하고 canonical typed
+value가 다를 때만 conflict를 보고합니다. Recorded time은 각 immutable claim identity에 남지만
+contradiction group을 분리하지 않으며 supersession을 암시하지 않습니다. Foundation에는 암시적인
+latest-wins rule이 없습니다. 향후 supersession policy에는 명시적으로 reviewed된 claim relationship이
+필요합니다. Detector는 prose에서 semantic disagreement를 추론하지 않습니다. Candidate 및
+diagnostic count와 field length에는 bound가 있고 nested sequence는 immutable tuple로 copy됩니다.
+`max_bytes`는 manifest, omission, conflict 및 hold data를 포함한 최종 canonical body에 적용됩니다.
+Stale, incomplete, conflicting, synthetic, after-cutoff, trusted recorded time 이후, uncited 또는
+truncated evidence는 결과를 `SHADOW_ONLY`로 낮춥니다. Healthy evidence는 caller의 input ceiling을
+높이지 않습니다. Document prompt rendering은 excerpt를 escaped, delimited JSON data block에만
+배치합니다. 이러한 test는 safe foundation을 입증하지만 production wiring은 입증하지 않습니다.
 Bundle은 read-only evidence이며 approval 또는 action authority를 부여하지 않습니다.
 
 Forseti는 snapshot에서 `DecisionCase`를 만듭니다. 각 case는 no-action baseline, bounded option,

@@ -12,7 +12,13 @@ from typing import Any, Literal
 from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.state_evidence import StateFactMetadata
 
+from .evidence_bundle_sources import EvidenceTemporalScope, VerifiedEvidenceSourceReceipt
 from .models import OperationalContextEvidencePath
+
+_MAX_REF_LENGTH = 512
+_MAX_CLAIM_VALUE_BYTES = 65_536
+_MAX_CITATIONS_PER_CLAIM = 64
+_MAX_DOCUMENT_TEXT_BYTES = 65_536
 
 
 class EvidenceLane(StrEnum):
@@ -25,49 +31,25 @@ class EvidenceLane(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
-class EvidenceSourceMetadata:
-    """Source authority, revision, cutoff, freshness, completeness, and redaction."""
+class CitationBinding:
+    """Exact evidence item identity bound into a claim digest."""
 
-    authority: str
-    source_identity: str
+    evidence_ref: str
+    item_digest: str
     source_revision: str
-    cutoff: datetime
-    freshness_ceiling_seconds: int
-    completeness: float
-    redaction: str
 
     def __post_init__(self) -> None:
-        for field_name, value in (
-            ("authority", self.authority),
-            ("source_identity", self.source_identity),
-            ("source_revision", self.source_revision),
-            ("redaction", self.redaction),
-        ):
-            if not value.strip():
-                raise ValueError(f"EvidenceSourceMetadata.{field_name} MUST be non-empty")
-        if self.cutoff.tzinfo is None:
-            raise ValueError("EvidenceSourceMetadata.cutoff MUST be timezone-aware")
-        if isinstance(self.freshness_ceiling_seconds, bool) or not isinstance(
-            self.freshness_ceiling_seconds, int
-        ):
-            raise ValueError("freshness_ceiling_seconds MUST be an integer")
-        if self.freshness_ceiling_seconds < 1:
-            raise ValueError("freshness_ceiling_seconds MUST be >= 1")
-        if isinstance(self.completeness, bool) or not isinstance(self.completeness, (int, float)):
-            raise ValueError("completeness MUST be numeric")
-        if not 0.0 <= self.completeness <= 1.0:
-            raise ValueError("completeness MUST be between 0 and 1")
+        require_ref(self.evidence_ref)
+        require_ref(self.source_revision)
+        if not self.item_digest.startswith("sha256:") or len(self.item_digest) != 71:
+            raise ValueError("CitationBinding.item_digest MUST be a SHA-256 digest")
 
-    def to_mapping(self) -> dict[str, object]:
-        """Return the canonical source envelope used by bundle identity."""
+    def to_mapping(self) -> dict[str, str]:
+        """Return the canonical citation identity."""
 
         return {
-            "authority": self.authority,
-            "completeness": self.completeness,
-            "cutoff": utc_timestamp(self.cutoff),
-            "freshness_ceiling_seconds": self.freshness_ceiling_seconds,
-            "redaction": self.redaction,
-            "source_identity": self.source_identity,
+            "evidence_ref": self.evidence_ref,
+            "item_digest": self.item_digest,
             "source_revision": self.source_revision,
         }
 
@@ -79,26 +61,32 @@ class ClaimRecord:
     claim_id: str
     subject: str
     predicate: str
-    cutoff_scope: str
+    temporal_scope: EvidenceTemporalScope
     canonical_value: str
-    citation_refs: tuple[str, ...]
+    citations: tuple[CitationBinding, ...]
 
     def __post_init__(self) -> None:
         for field_name, value in (
             ("claim_id", self.claim_id),
             ("subject", self.subject),
             ("predicate", self.predicate),
-            ("cutoff_scope", self.cutoff_scope),
         ):
-            if not value.strip():
+            if not value.strip() or len(value) > _MAX_REF_LENGTH:
                 raise ValueError(f"ClaimRecord.{field_name} MUST be non-empty")
         canonical = canonical_json(json.loads(self.canonical_value))
         if canonical != self.canonical_value:
             raise ValueError("ClaimRecord.canonical_value MUST use canonical JSON")
-        citations = tuple(sorted(set(self.citation_refs)))
-        if any(not item.strip() for item in citations):
-            raise ValueError("ClaimRecord.citation_refs MUST contain non-empty values")
-        object.__setattr__(self, "citation_refs", citations)
+        if len(self.canonical_value.encode()) > _MAX_CLAIM_VALUE_BYTES:
+            raise ValueError("ClaimRecord.canonical_value exceeds byte limit")
+        citations = tuple(
+            sorted(
+                set(self.citations),
+                key=lambda item: (item.evidence_ref, item.item_digest, item.source_revision),
+            )
+        )
+        if len(citations) > _MAX_CITATIONS_PER_CLAIM:
+            raise ValueError("ClaimRecord.citations exceeds item limit")
+        object.__setattr__(self, "citations", citations)
         if self.claim_id != self.expected_id():
             raise ValueError("ClaimRecord.claim_id MUST match the canonical claim digest")
 
@@ -109,23 +97,40 @@ class ClaimRecord:
         subject: str,
         predicate: str,
         value: Any,
-        cutoff_scope: str,
-        citation_refs: tuple[str, ...],
+        temporal_scope: EvidenceTemporalScope,
+        citations: tuple[CitationBinding, ...],
     ) -> ClaimRecord:
         """Create a content-addressed claim from a JSON-compatible typed value."""
 
         canonical_value = canonical_json(value)
-        citations = tuple(sorted(set(citation_refs)))
-        payload = (subject, predicate, cutoff_scope, canonical_value, citations)
+        canonical_citations = tuple(
+            sorted(
+                set(citations),
+                key=lambda item: (item.evidence_ref, item.item_digest, item.source_revision),
+            )
+        )
+        payload = (
+            subject,
+            predicate,
+            temporal_scope.to_mapping(),
+            canonical_value,
+            tuple(item.to_mapping() for item in canonical_citations),
+        )
         claim_id = f"claim:sha256:{digest_json(payload)}"
         return cls(
             claim_id=claim_id,
             subject=subject,
             predicate=predicate,
-            cutoff_scope=cutoff_scope,
+            temporal_scope=temporal_scope,
             canonical_value=canonical_value,
-            citation_refs=citations,
+            citations=canonical_citations,
         )
+
+    @property
+    def citation_refs(self) -> tuple[str, ...]:
+        """Return cited references for diagnostics without weakening claim identity."""
+
+        return tuple(item.evidence_ref for item in self.citations)
 
     def expected_id(self) -> str:
         """Return the identity implied by this claim's canonical fields."""
@@ -133,9 +138,9 @@ class ClaimRecord:
         payload = (
             self.subject,
             self.predicate,
-            self.cutoff_scope,
+            self.temporal_scope.to_mapping(),
             self.canonical_value,
-            self.citation_refs,
+            tuple(item.to_mapping() for item in self.citations),
         )
         return f"claim:sha256:{digest_json(payload)}"
 
@@ -144,11 +149,11 @@ class ClaimRecord:
 
         return {
             "canonical_value": self.canonical_value,
-            "citation_refs": self.citation_refs,
+            "citations": tuple(item.to_mapping() for item in self.citations),
             "claim_id": self.claim_id,
-            "cutoff_scope": self.cutoff_scope,
             "predicate": self.predicate,
             "subject": self.subject,
+            "temporal_scope": self.temporal_scope.to_mapping(),
         }
 
 
@@ -157,11 +162,14 @@ class OntologyEvidenceItem:
     """One secured ontology fact path and its source envelope."""
 
     evidence_ref: str
-    source: EvidenceSourceMetadata
+    source: VerifiedEvidenceSourceReceipt
+    target_object_id: str
     path: OperationalContextEvidencePath
 
     def __post_init__(self) -> None:
         require_ref(self.evidence_ref)
+        require_ref(self.target_object_id)
+        _validate_path_closure(target_object_id=self.target_object_id, path=self.path)
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,26 +178,28 @@ class StateEvidenceItem:
 
     evidence_ref: str
     state_fact: StateFactMetadata
-    redaction: str
+    source: VerifiedEvidenceSourceReceipt
 
     def __post_init__(self) -> None:
         require_ref(self.evidence_ref)
-        if not self.redaction.strip():
-            raise ValueError("StateEvidenceItem.redaction MUST be non-empty")
-
-    @property
-    def source(self) -> EvidenceSourceMetadata:
-        """Project the state-fact envelope without changing its lane or authority."""
-
-        return EvidenceSourceMetadata(
-            authority=f"{self.state_fact.lane.value}:{self.state_fact.authority.value}",
-            source_identity=self.state_fact.source_identity,
-            source_revision=self.state_fact.source_revision,
-            cutoff=self.state_fact.evidence_cutoff,
-            freshness_ceiling_seconds=self.state_fact.freshness_ceiling_seconds,
-            completeness=self.state_fact.completeness,
-            redaction=self.redaction,
-        )
+        if self.source.source_identity != self.state_fact.source_identity:
+            raise ValueError("state source receipt identity does not match state fact")
+        if self.source.source_revision != self.state_fact.source_revision:
+            raise ValueError("state source receipt revision does not match state fact")
+        temporal = self.source.temporal_scope
+        if (
+            temporal.effective_from != self.state_fact.effective_at
+            or temporal.evidence_cutoff != self.state_fact.evidence_cutoff
+            or temporal.recorded_at != self.state_fact.recorded_at
+        ):
+            raise ValueError("state source receipt temporal scope does not match state fact")
+        if (
+            self.source.freshness_ceiling_seconds != self.state_fact.freshness_ceiling_seconds
+            or self.source.completeness != self.state_fact.completeness
+            or self.source.synthetic is not self.state_fact.synthetic
+            or self.source.conflicts != self.state_fact.conflicts
+        ):
+            raise ValueError("state source receipt quality does not match state fact")
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,7 +207,7 @@ class CatalogEvidenceItem:
     """One exact catalog or rule reference and its source envelope."""
 
     evidence_ref: str
-    source: EvidenceSourceMetadata
+    source: VerifiedEvidenceSourceReceipt
     catalog_ref: str
 
     def __post_init__(self) -> None:
@@ -210,7 +220,7 @@ class DocumentEvidenceExcerpt:
     """One governed document excerpt treated only as untrusted evidence data."""
 
     evidence_ref: str
-    source: EvidenceSourceMetadata
+    source: VerifiedEvidenceSourceReceipt
     document_ref: str
     excerpt_id: str
     text: str
@@ -221,6 +231,10 @@ class DocumentEvidenceExcerpt:
             require_ref(value)
         if not self.text:
             raise ValueError("DocumentEvidenceExcerpt.text MUST be non-empty")
+        if len(self.text.encode()) > _MAX_DOCUMENT_TEXT_BYTES:
+            raise ValueError("DocumentEvidenceExcerpt.text exceeds byte limit")
+        if self.source.document_revision is None:
+            raise ValueError("document evidence source receipt MUST pin document revision")
         if self.instruction_authority is not False:
             raise ValueError("document excerpts MUST NOT have instruction authority")
 
@@ -234,7 +248,12 @@ class CitationManifestEntry:
     item_digest: str
     source_revision: str
     cutoff: datetime
-    redaction: str
+    redaction_summary: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        require_ref(self.evidence_ref)
+        require_ref(self.source_revision)
+        object.__setattr__(self, "redaction_summary", tuple(self.redaction_summary))
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,6 +265,12 @@ class EvidenceConflict:
     claim_ids: tuple[str, ...]
     canonical_values: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        require_ref(self.kind)
+        require_ref(self.scope)
+        object.__setattr__(self, "claim_ids", tuple(self.claim_ids))
+        object.__setattr__(self, "canonical_values", tuple(self.canonical_values))
+
 
 @dataclass(frozen=True, slots=True)
 class OperationalEvidenceBundle:
@@ -254,6 +279,11 @@ class OperationalEvidenceBundle:
     bundle_id: str
     digest: str
     cutoff: datetime
+    trusted_recorded_at: datetime
+    ontology_release_digest: str
+    catalog_revision: str
+    purpose: str
+    scope: tuple[str, ...]
     claims: tuple[ClaimRecord, ...]
     ontology: tuple[OntologyEvidenceItem, ...]
     state: tuple[StateEvidenceItem, ...]
@@ -272,10 +302,28 @@ class OperationalEvidenceBundle:
     grants_action_authority: Literal[False] = False
 
     def __post_init__(self) -> None:
-        if self.cutoff.tzinfo is None:
-            raise ValueError("OperationalEvidenceBundle.cutoff MUST be timezone-aware")
+        if self.cutoff.tzinfo is None or self.trusted_recorded_at.tzinfo is None:
+            raise ValueError("OperationalEvidenceBundle timestamps MUST be timezone-aware")
+        if self.cutoff > self.trusted_recorded_at:
+            raise ValueError("bundle cutoff MUST NOT exceed trusted recorded time")
+        for field_name in (
+            "claims",
+            "ontology",
+            "state",
+            "catalog",
+            "documents",
+            "citation_manifest",
+            "conflicts",
+            "missing_paths",
+            "evidence_issues",
+            "hold_reasons",
+            "scope",
+        ):
+            object.__setattr__(self, field_name, tuple(getattr(self, field_name)))
         if self.grants_action_authority is not False:
             raise ValueError("operational evidence bundles MUST NOT grant action authority")
+        if self.used_bytes > self.max_bytes:
+            raise ValueError("canonical bundle body exceeds max_bytes")
         if self.bundle_id != f"operational-evidence-bundle:{self.digest}":
             raise ValueError("OperationalEvidenceBundle.bundle_id MUST match digest")
         from .evidence_bundle_identity import compute_bundle_digest
@@ -314,6 +362,33 @@ def digest_json(value: Any) -> str:
 def require_ref(value: str) -> None:
     if not value.strip():
         raise ValueError("evidence references MUST be non-empty")
+    if len(value) > _MAX_REF_LENGTH:
+        raise ValueError("evidence reference exceeds length limit")
+
+
+def _validate_path_closure(
+    *,
+    target_object_id: str,
+    path: OperationalContextEvidencePath,
+) -> None:
+    links = tuple(path.links)
+    if path.object_id == target_object_id:
+        if links:
+            raise ValueError("target self path MUST NOT contain links")
+        return
+    if not links:
+        raise ValueError("ontology evidence path MUST connect target to object")
+    if links[0].from_id != target_object_id or links[-1].to_id != path.object_id:
+        raise ValueError("ontology evidence path endpoints do not match target and object")
+    visited = {target_object_id}
+    prior = target_object_id
+    for link in links:
+        if link.from_id != prior:
+            raise ValueError("ontology evidence path links MUST form a closed chain")
+        if link.to_id in visited:
+            raise ValueError("ontology evidence path MUST NOT contain cycles")
+        visited.add(link.to_id)
+        prior = link.to_id
 
 
 def utc_timestamp(value: datetime) -> str:
@@ -322,12 +397,12 @@ def utc_timestamp(value: datetime) -> str:
 
 __all__ = [
     "CatalogEvidenceItem",
+    "CitationBinding",
     "CitationManifestEntry",
     "ClaimRecord",
     "DocumentEvidenceExcerpt",
     "EvidenceConflict",
     "EvidenceLane",
-    "EvidenceSourceMetadata",
     "OntologyEvidenceItem",
     "OperationalEvidenceBundle",
     "StateEvidenceItem",

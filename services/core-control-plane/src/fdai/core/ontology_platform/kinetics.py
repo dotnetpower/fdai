@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Annotated, Any, Self
 
@@ -141,9 +141,11 @@ class MutationPlan(ContractBase):
         rollback_keys = {(item.effect_id, item.target_id) for item in self.rollback_effects}
         if not self.irreversible and not effect_keys <= rollback_keys:
             raise ValueError("rollback effects MUST cover every mutation target")
-        if self.created_at.tzinfo is None:
+        if self.created_at.tzinfo is None or self.created_at.utcoffset() is None:
             raise ValueError("MutationPlan.created_at MUST be timezone-aware")
         if self.schema_version == "2.0.0":
+            if self.created_at.utcoffset() != timedelta(0):
+                raise ValueError("semantic MutationPlan.created_at MUST use UTC")
             if self.arguments_digest is None:
                 raise ValueError("semantic MutationPlan requires arguments_digest")
             if self.transaction_mode is None or self.lock_scope is None:
@@ -271,11 +273,32 @@ class ReconciliationStatus(StrEnum):
 
 
 class ReconciliationReceipt(ContractBase):
+    schema_version: SemVer = "1.0.0"
     plan_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
     status: ReconciliationStatus
     observed_at: datetime
-    evidence_refs: Annotated[tuple[str, ...], Field(min_length=1)]
-    mismatches: tuple[str, ...] = ()
+    evidence_refs: Annotated[
+        tuple[Annotated[str, Field(min_length=1, max_length=512)], ...],
+        Field(min_length=1, max_length=128),
+    ]
+    mismatches: Annotated[
+        tuple[Annotated[str, Field(min_length=1, max_length=512)], ...],
+        Field(max_length=128),
+    ] = ()
+
+    @model_validator(mode="after")
+    def _status_and_evidence_are_canonical(self) -> ReconciliationReceipt:
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
+            raise ValueError("ReconciliationReceipt.observed_at MUST be timezone-aware")
+        if tuple(sorted(set(self.evidence_refs))) != self.evidence_refs:
+            raise ValueError("ReconciliationReceipt evidence_refs MUST be sorted and unique")
+        if tuple(sorted(set(self.mismatches))) != self.mismatches:
+            raise ValueError("ReconciliationReceipt mismatches MUST be sorted and unique")
+        if self.status is ReconciliationStatus.MISMATCHED and not self.mismatches:
+            raise ValueError("mismatched ReconciliationReceipt requires mismatches")
+        if self.status is not ReconciliationStatus.MISMATCHED and self.mismatches:
+            raise ValueError("only mismatched ReconciliationReceipt may contain mismatches")
+        return self
 
 
 class ProjectedBatch(ContractBase):

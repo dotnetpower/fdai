@@ -48,6 +48,7 @@ from fdai.core.verticals.change_safety.detector import ChangeSafetyDetector
 from fdai.core.workflow.coordinator import WorkflowTriggerCoordinator
 from fdai.core.workflow.workflow_runtime import WorkflowOutcomeRecorder
 from fdai.rule_catalog.schema.assignment import Assignment
+from fdai.rule_catalog.schema.property_semantic import PropertySemanticRegistry
 from fdai.shared.contracts.models import (
     Event,
     OntologyActionType,
@@ -126,6 +127,7 @@ class ControlLoop(
         response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None = None,
         workflow_outcome_recorder: WorkflowOutcomeRecorder | None = None,
         ontology_instance_store: OntologyInstanceStore | None = None,
+        property_semantics: PropertySemanticRegistry | None = None,
         execution_authorization_evaluator: ExecutionAuthorizationEvaluator | None = None,
         execution_access_grant_sink: ExecutionAccessGrantSink | None = None,
         execution_authorization_required: bool = False,
@@ -186,6 +188,7 @@ class ControlLoop(
         self._response_outcome_sink = response_outcome_sink
         self._workflow_outcome_recorder = workflow_outcome_recorder
         self._ontology_instance_store = ontology_instance_store
+        self._property_semantics = property_semantics
         self._execution_authorization_evaluator = execution_authorization_evaluator
         self._execution_access_grant_sink = execution_access_grant_sink
         self._cost_estimator = cost_estimator
@@ -258,6 +261,12 @@ class ControlLoop(
     def ontology_instance_store(self) -> OntologyInstanceStore | None:
         """Return the shared read-model store used by runtime projections."""
         return self._ontology_instance_store
+
+    @property
+    def property_semantics(self) -> PropertySemanticRegistry | None:
+        """Return the property registry validated with this loop's catalog snapshot."""
+
+        return self._property_semantics
 
 
 __all__ = ["ControlLoop"]

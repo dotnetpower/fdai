@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: b40e7004bfacb5dc4b40eca733fe8e6afc81ca52
+translation_source_sha: 66b5c08c4ae1d4a4915df5b3b973ef410e860502
 translation_revised: 2026-08-09
 ---
 
@@ -67,6 +67,7 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 | Typed intent rendering | 구현됨 | 등록된 read intent 7개가 모두 typed evidence field와 observation time을 렌더링합니다. Renderer가 없는 enum을 추가하면 generic success string을 반환하지 않고 exhaustive type checking이 실패합니다. |
 | Catalog/runtime binding | 구현됨 | Catalog intent ID가 runtime enum과 정확히 일치하고 모든 read intent를 Heimdall이 계속 소유하며 plan ID가 unique인 경우에만 local 및 deployed composition이 provider I/O 전에 시작됩니다. |
 | Planner intent coverage | 구현됨 | 하나의 immutable runtime intent spec이 plan ID, default 및 interactive tool, lookback을 소유합니다. Enum gap은 import 및 exhaustive test에서 실패하고 catalog plan-ID drift는 startup에서 차단됩니다. |
+| Resource-state ontology shadow comparison | Foundation만 구현됨, 연결되지 않음 | Side-effect-free comparator는 exact reviewed `QueryProfile`과 `VerifiedSemanticPlan`을 요구하고 canonical request 및 receipt lineage를 다시 검증합니다. 하나의 trusted cutoff와 intent의 300초 freshness ceiling을 양쪽 observation에 적용하고 bounded immutable comparison evidence를 기록합니다. 기존 read result만 최종 답변 authority로 유지됩니다. Route, composition 또는 runtime binding은 없으며 read-investigation service extraction 전에는 연결하지 않습니다. |
 | 대화형 resource 연속성 | 구현됨 | Command Deck은 server가 선택한 inventory resource 하나를 terminal turn 사이에 유지합니다. Resource Health history는 resource group, timestamp 및 status로 구성된 완전한 anomalous-event anchor 하나도 유지할 수 있습니다. 생략된 history 및 장애 직전 후속 질문은 semantic 및 public-web planning을 우회하고, Heimdall이 bounded context를 다시 검증한 뒤 일치하는 read evidence를 직접 반환합니다. |
 | Subscription scope identity | 구현됨 | 현재 subscription identity 질문은 server에 configured된 subscription name과 state를 Azure Resource Manager에서 읽고, masked subscription ID만 렌더링하며, narrator model을 호출하지 않습니다. |
 | Subscription health sweep | 구현됨 | 명시적인 subscription 점검, 일반적인 service-outage 질문 및 일반적인 degraded 또는 unavailable resource-state 질문이 configured reader scope를 사용합니다. Inventory language catalog가 availability 의미에 대해 Resource Health authority를 선택합니다. Provider는 configured resource-group allowlist를 기본으로 사용합니다. 명시적인 server-owned subscription mode는 interactive local health 범위를 subscription inventory와 맞춥니다. Platform-impact read는 active Service Health event와 impacted resource를 query하고 outage를 maintenance 및 advisory와 분리한 다음 Resource Health cause와 correlate합니다. 다른 diagnosis read는 최대 16개 supported resource의 대표 metric을 concurrency 4 이하로 확인할 수 있습니다. |

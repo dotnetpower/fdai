@@ -15,7 +15,7 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > **Safety boundary:** Functions plan, query, derive, or validate. Only Thor executes an approved
 > `MutationPlan`, and every external effect closes through independent reconciliation.
 >
-> **Implementation status (2026-08-01):** K0 contract identity is implemented for canonical
+> **Implementation status (2026-08-08):** K0 contract identity is implemented for canonical
 > releases, ActionBuilder output, and in-memory ontology writes. K1 semantic interface compilation
 > and bounded ObjectSet queries are implemented. K2-K5 core primitives now cover mutation plans,
 > stale revision checks, typed functions, projection bindings, reconciliation, scoped SDK
@@ -32,6 +32,10 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > Canonical releases now include typed function declarations. The function registry checks the
 > caller agent, role, and purpose, derives replay-stable seeds for declared stochastic functions,
 > and emits content-addressed invocation receipts pinned to the exact release.
+> Reconciliation is an in-memory foundation: versioned request and receipt contracts, a separate
+> authenticated observation context, an attempt ledger, and an atomic terminal-outcome plus outbox
+> reference store are implemented. Production composition does not wire this coordinator, and a
+> durable ledger/outbox adapter remains post-service-extraction work.
 > K6-K8 target graph-wide Dynamic evidence: immutable operational state trajectories,
 > dependency-scoped effect propagation, time-bounded invariants, and independently observed
 > trajectory outcomes. Existing action/metric Dynamic simulation remains implemented; graph-wide
@@ -244,6 +248,18 @@ The reconciliation coordinator binds the exact release, ActionType, immutable pl
 observer context, and independently observed records before closing an attempt. A terminal outcome
 and its proposal-only next-step event commit atomically; neither the receipt nor its outbox entry
 updates provider-observed state or grants execution authority.
+
+Authority comes from a trusted `AuthenticatedObservationContext` supplied separately from the
+untrusted observation envelope. The context binds distinct observer, executor, and source
+credential lineages to a signed, content-addressed verification receipt. Envelope authority claims
+never grant authority. Every recommendation is proposal-only and carries `grants_authority: false`.
+
+| Receipt status | Terminal | Proposal-only next step | Persistence |
+|----------------|----------|-------------------------|-------------|
+| `matched` | Yes | `close_matched` | Atomically commit terminal outcome and outbox recommendation. |
+| `mismatched` | Yes | `request_vidar_recovery` | Atomically commit terminal outcome and outbox recommendation. |
+| `timed_out` | Yes | `request_vidar_recovery` | Atomically commit terminal outcome and outbox recommendation. |
+| `unscorable` | No | `hold_unscorable` | Record only the observation attempt; a later authenticated observation may retry the terminal identity. |
 
 Observed inventory relationships may carry immutable state-fact and verification metadata. The
 projection preserves that envelope without treating it as permission, suppresses relationship

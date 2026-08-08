@@ -56,8 +56,17 @@ async def test_projects_merged_runtime_catalog_idempotently_to_typed_store(
         ontology_instance_store=store,
         rules=(),
         action_types=(),
+        property_semantics=catalog.property_semantics,
     )
     monkeypatch.setattr("fdai.runtime.catalog_ontology.shutil.which", lambda _name: "/opa")
+    original_read_text = Path.read_text
+
+    def reject_property_registry_reread(path: Path, *args: object, **kwargs: object) -> str:
+        if path.name == "property-semantics.yaml":
+            raise AssertionError("runtime projection MUST use the already-loaded registry")
+        return original_read_text(path, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "read_text", reject_property_registry_reread)
 
     first = await project_catalog_ontology(control_loop)  # type: ignore[arg-type]
     second = await project_catalog_ontology(control_loop)  # type: ignore[arg-type]

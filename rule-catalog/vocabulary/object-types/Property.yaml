@@ -1,6 +1,6 @@
 schema_version: "1.0.0"
 name: Property
-version: "1.1.0"
+version: "1.2.0"
 key: id
 description: Meta object describing one resource property referenced by a Rule, with optional reviewed shared semantics.
 properties:
@@ -16,10 +16,12 @@ properties:
   authority_policy: {type: object}
   freshness_policy: {type: object}
   equivalent_provider_paths: {type: array}
+  semantic_registry_version: {type: string}
+  semantic_registry_digest: {type: string}
   normalized_equivalence: {type: boolean}
 provenance:
   source_url: https://github.com/dotnetpower/fdai
-  resolved_ref: object-type:Property@1.1.0
-  content_hash: sha256:26e2bdb5e8468b765f9e1914398e46d8f011a7e108d83c251556b61fe2bc0166
+  resolved_ref: object-type:Property@1.2.0
+  content_hash: sha256:0c20eeff288c8710510dae7df2f733e6073a0343b09d8e53535790c91bcdb658
   license: MIT
   retrieved_at: "2026-07-29T00:00:00Z"

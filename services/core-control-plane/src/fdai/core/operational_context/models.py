@@ -71,6 +71,8 @@ class OperationalContextEvidencePath:
             and self.effective_to <= self.effective_from
         ):
             raise ValueError("operational context effective_to MUST be after effective_from")
+        object.__setattr__(self, "provenance_refs", tuple(self.provenance_refs))
+        object.__setattr__(self, "links", tuple(self.links))
 
 
 @dataclass(frozen=True, slots=True)

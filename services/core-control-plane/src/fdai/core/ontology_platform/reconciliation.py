@@ -16,6 +16,7 @@ from fdai.shared.contracts.models import (
 )
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
+from .action_plans import validate_action_plan_semantics
 from .kinetics import (
     MutationEffectKind,
     MutationPlan,
@@ -25,9 +26,11 @@ from .kinetics import (
 from .planning import build_mutation_plan
 from .projection import reconcile_expected_effects
 from .reconciliation_contracts import (
+    AuthenticatedObservationContext,
     EffectEvidenceAuthority,
     EffectObservationEnvelope,
     EffectReconciliationRequest,
+    ObservationVerificationReceipt,
     ObservedEffectRecord,
     ReconciliationNextStep,
     ReconciliationOutcome,
@@ -41,29 +44,73 @@ class ReconciliationConflictError(RuntimeError):
 
 
 class ReconciliationLedger(Protocol):
-    """Atomic persistence seam for duplicate-safe reconciliation closure."""
+    """Persistence seam for attempt evidence and atomic terminal outcome plus outbox."""
 
-    async def commit(self, outcome: ReconciliationOutcome) -> ReconciliationOutcome: ...
+    async def record_attempt(self, outcome: ReconciliationOutcome) -> ReconciliationOutcome: ...
+
+    async def commit_terminal(self, outcome: ReconciliationOutcome) -> ReconciliationOutcome: ...
 
 
 class InMemoryReconciliationLedger:
     """Concurrency-safe reference ledger for local composition and focused tests."""
 
     def __init__(self) -> None:
-        self._outcomes: dict[str, ReconciliationOutcome] = {}
+        self._attempts: dict[str, ReconciliationOutcome] = {}
+        self._terminal_outcomes: dict[str, ReconciliationOutcome] = {}
+        self._outbox: dict[str, ReconciliationRecommendation] = {}
         self._lock = asyncio.Lock()
 
-    async def commit(self, outcome: ReconciliationOutcome) -> ReconciliationOutcome:
+    @property
+    def attempts(self) -> tuple[ReconciliationOutcome, ...]:
+        return tuple(self._attempts.values())
+
+    @property
+    def terminal_outcomes(self) -> tuple[ReconciliationOutcome, ...]:
+        return tuple(self._terminal_outcomes.values())
+
+    @property
+    def outbox(self) -> tuple[ReconciliationRecommendation, ...]:
+        return tuple(self._outbox.values())
+
+    async def record_attempt(self, outcome: ReconciliationOutcome) -> ReconciliationOutcome:
+        if outcome.terminal:
+            raise ValueError("terminal reconciliation MUST use commit_terminal")
         async with self._lock:
-            existing = self._outcomes.get(outcome.reconciliation_id)
+            existing = self._attempts.get(outcome.observation_attempt_id)
             if existing is None:
-                self._outcomes[outcome.reconciliation_id] = outcome
+                self._attempts[outcome.observation_attempt_id] = outcome
                 return outcome
             if existing.request_digest != outcome.request_digest:
                 raise ReconciliationConflictError(
-                    "reconciliation idempotency identity reused with different request content"
+                    "reconciliation attempt identity reused with different request content"
                 )
             return existing
+
+    async def commit_terminal(self, outcome: ReconciliationOutcome) -> ReconciliationOutcome:
+        """Atomically persist one terminal attempt, outcome, and proposal-only outbox event."""
+
+        if not outcome.terminal:
+            raise ValueError("unscorable reconciliation is attempt evidence, not terminal closure")
+        async with self._lock:
+            existing = self._terminal_outcomes.get(outcome.reconciliation_id)
+            if existing is not None:
+                if existing.request_digest != outcome.request_digest:
+                    raise ReconciliationConflictError(
+                        "reconciliation terminal identity reused with different request content"
+                    )
+                return existing
+            existing_attempt = self._attempts.get(outcome.observation_attempt_id)
+            if (
+                existing_attempt is not None
+                and existing_attempt.request_digest != outcome.request_digest
+            ):
+                raise ReconciliationConflictError(
+                    "reconciliation attempt identity reused with different request content"
+                )
+            self._attempts[outcome.observation_attempt_id] = outcome
+            self._terminal_outcomes[outcome.reconciliation_id] = outcome
+            self._outbox[outcome.recommendation.idempotency_key] = outcome.recommendation
+            return outcome
 
 
 class EffectReconciliationCoordinator:
@@ -76,32 +123,55 @@ class EffectReconciliationCoordinator:
         self,
         request: EffectReconciliationRequest,
         *,
+        observation_context: AuthenticatedObservationContext,
         active_release: OntologyRelease,
     ) -> ReconciliationOutcome:
         """Return a duplicate-stable receipt and recommendation for a validated request."""
 
         validated = EffectReconciliationRequest.model_validate_json(request.model_dump_json())
+        authenticated = AuthenticatedObservationContext.model_validate_json(
+            observation_context.model_dump_json()
+        )
         release = OntologyRelease.model_validate_json(active_release.model_dump_json())
         _validate_plan_integrity(validated.plan)
         _validate_exact_bindings(validated, release)
-        unscorable_reason = _unscorable_reason(validated, release)
-        if unscorable_reason is not None:
+        _validate_authenticated_binding(validated, authenticated)
+        unscorable_reason: str | None = None
+        if validated.evaluated_at > validated.deadline:
             receipt = ReconciliationReceipt(
                 plan_digest=validated.plan.digest,
-                status=ReconciliationStatus.UNSCORABLE,
-                observed_at=validated.evaluated_at,
+                status=ReconciliationStatus.TIMED_OUT,
+                observed_at=validated.evidence.observed_at,
                 evidence_refs=validated.evidence.evidence_refs,
             )
         else:
-            receipt = reconcile_expected_effects(
-                plan=validated.plan,
-                observed={item.object_id: item.to_record() for item in validated.evidence.records},
-                observed_at=validated.evaluated_at,
-                deadline=validated.deadline,
-                evidence_refs=validated.evidence.evidence_refs,
-            )
-        outcome = _build_outcome(validated, receipt, unscorable_reason=unscorable_reason)
-        return await self._ledger.commit(outcome)
+            unscorable_reason = _unscorable_reason(validated, release, authenticated)
+            if unscorable_reason is not None:
+                receipt = ReconciliationReceipt(
+                    plan_digest=validated.plan.digest,
+                    status=ReconciliationStatus.UNSCORABLE,
+                    observed_at=validated.evidence.observed_at,
+                    evidence_refs=validated.evidence.evidence_refs,
+                )
+            else:
+                receipt = reconcile_expected_effects(
+                    plan=validated.plan,
+                    observed={
+                        item.object_id: item.to_record() for item in validated.evidence.records
+                    },
+                    observed_at=validated.evidence.observed_at,
+                    deadline=validated.deadline,
+                    evidence_refs=validated.evidence.evidence_refs,
+                )
+        outcome = _build_outcome(
+            validated,
+            authenticated,
+            receipt,
+            unscorable_reason=unscorable_reason,
+        )
+        if outcome.terminal:
+            return await self._ledger.commit_terminal(outcome)
+        return await self._ledger.record_attempt(outcome)
 
 
 def _validate_plan_integrity(plan: MutationPlan) -> None:
@@ -162,31 +232,69 @@ def _validate_exact_bindings(
         raise ValueError("effect evidence ActionType ref does not match the plan")
 
 
+def _validate_authenticated_binding(
+    request: EffectReconciliationRequest,
+    context: AuthenticatedObservationContext,
+) -> None:
+    evidence = request.evidence
+    receipt = context.verification_receipt
+    if receipt.observation_id != evidence.observation_id:
+        raise ValueError("observation verification receipt binds another observation")
+    if receipt.observation_digest != evidence.content_digest():
+        raise ValueError("observation verification receipt content digest does not match")
+    if receipt.verified_at < evidence.recorded_at:
+        raise ValueError("observation verification MUST NOT precede evidence recording")
+    if receipt.verified_at > request.evaluated_at:
+        raise ValueError("observation verification MUST NOT follow reconciliation evaluation")
+    if (
+        context.observer_identity != evidence.observer_identity
+        or context.executor_identity != evidence.execution_identity
+        or context.source_identity != evidence.source_identity
+    ):
+        raise ValueError("authenticated observation identities do not match the envelope")
+
+
 def _unscorable_reason(
     request: EffectReconciliationRequest,
     release: OntologyRelease,
+    context: AuthenticatedObservationContext,
 ) -> str | None:
     evidence = request.evidence
-    if evidence.source_authority not in {
+    if context.source_authority not in {
         EffectEvidenceAuthority.PROVIDER,
         EffectEvidenceAuthority.TELEMETRY,
     }:
         return "source_not_authoritative"
     normalized_identities = {
-        evidence.observer_identity.strip().casefold(),
-        evidence.execution_identity.strip().casefold(),
-        evidence.source_identity.strip().casefold(),
+        context.observer_identity.strip().casefold(),
+        context.executor_identity.strip().casefold(),
+        context.source_identity.strip().casefold(),
     }
     if len(normalized_identities) != 3:
         return "observation_not_independent"
+    normalized_credentials = {
+        context.observer_credential_lineage.strip().casefold(),
+        context.executor_credential_lineage.strip().casefold(),
+        context.source_credential_lineage.strip().casefold(),
+    }
+    if len(normalized_credentials) != 3:
+        return "observation_credential_not_independent"
+    if request.plan.schema_version != "2.0.0" or request.action_type is None:
+        return "semantic_effect_coverage_unproven"
+    try:
+        validate_action_plan_semantics(
+            action_type=request.action_type,
+            release=release,
+            plan=request.plan,
+        )
+    except (KeyError, ValueError):
+        return "semantic_effect_coverage_unproven"
     if not evidence.complete:
         return "observation_incomplete"
     if evidence.synthetic:
         return "observation_synthetic"
     if evidence.conflicts:
         return "observation_conflicted"
-    if evidence.observation_cutoff < request.plan.created_at:
-        return "observation_before_plan"
     if evidence.fresh_until < request.evaluated_at:
         return "observation_stale"
     if any(
@@ -212,11 +320,14 @@ def _unscorable_reason(
 
 def _build_outcome(
     request: EffectReconciliationRequest,
+    observation_context: AuthenticatedObservationContext,
     receipt: ReconciliationReceipt,
     *,
     unscorable_reason: str | None,
 ) -> ReconciliationOutcome:
     receipt_digest = reconciliation_content_digest(receipt.model_dump(mode="json"))
+    observation_context_digest = observation_context.content_digest()
+    verification_receipt_digest = observation_context.verification_receipt.receipt_digest
     target_agent: Literal["vidar"] | None
     if receipt.status is ReconciliationStatus.MATCHED:
         next_step = ReconciliationNextStep.CLOSE_MATCHED
@@ -230,31 +341,46 @@ def _build_outcome(
         next_step = ReconciliationNextStep.HOLD_UNSCORABLE
         reason_code = unscorable_reason or "effects_unscorable"
         target_agent = None
-    recommendation = ReconciliationRecommendation(
+    recommendation = ReconciliationRecommendation.create(
         reconciliation_id=request.reconciliation_id,
+        observation_attempt_id=request.observation_attempt_id,
         correlation_id=request.correlation_id,
+        ontology_release_ref=request.evidence.ontology_release_ref,
+        action_type_ref=request.plan.action_type_ref,
+        plan_digest=request.plan.digest,
+        observation_id=request.evidence.observation_id,
+        request_digest=request.request_digest,
         receipt_digest=receipt_digest,
+        observation_context_digest=observation_context_digest,
+        verification_receipt_digest=verification_receipt_digest,
         next_step=next_step,
         reason_code=reason_code,
         target_agent=target_agent,
     )
     return ReconciliationOutcome(
         reconciliation_id=request.reconciliation_id,
+        observation_attempt_id=request.observation_attempt_id,
         correlation_id=request.correlation_id,
         request_digest=request.request_digest,
         receipt_digest=receipt_digest,
+        observation_context_digest=observation_context_digest,
+        verification_receipt_digest=verification_receipt_digest,
+        request=request,
         receipt=receipt,
         recommendation=recommendation,
+        terminal=receipt.status is not ReconciliationStatus.UNSCORABLE,
     )
 
 
 __all__ = [
+    "AuthenticatedObservationContext",
     "EffectEvidenceAuthority",
     "EffectObservationEnvelope",
     "EffectReconciliationCoordinator",
     "EffectReconciliationRequest",
     "InMemoryReconciliationLedger",
     "ObservedEffectRecord",
+    "ObservationVerificationReceipt",
     "ReconciliationConflictError",
     "ReconciliationLedger",
     "ReconciliationNextStep",

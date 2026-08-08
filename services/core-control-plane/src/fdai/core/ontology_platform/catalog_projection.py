@@ -189,7 +189,11 @@ def build_catalog_ontology_projection(
                         "id": reference_id,
                         "resource_type": rule.resource_type,
                         "path": path,
-                        **(_property_semantic_projection(semantic) if semantic is not None else {}),
+                        **(
+                            _property_semantic_projection(semantic, property_semantics)
+                            if semantic is not None and property_semantics is not None
+                            else {}
+                        ),
                     },
                 ),
             )
@@ -277,7 +281,10 @@ def _add_object(
     objects[record.id] = record
 
 
-def _property_semantic_projection(semantic: PropertySemantic) -> dict[str, object]:
+def _property_semantic_projection(
+    semantic: PropertySemantic,
+    registry: PropertySemanticRegistry,
+) -> dict[str, object]:
     projected: dict[str, object] = {
         "semantic_id": semantic.semantic_id,
         "value_type": semantic.value_type.value,
@@ -291,6 +298,8 @@ def _property_semantic_projection(semantic: PropertySemantic) -> dict[str, objec
                 key=lambda item: (item.provider, item.resource_type, item.path),
             )
         ],
+        "semantic_registry_version": registry.version,
+        "semantic_registry_digest": registry.content_digest,
         "normalized_equivalence": True,
     }
     if semantic.canonical_unit is not None:

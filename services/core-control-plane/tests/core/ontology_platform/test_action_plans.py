@@ -699,6 +699,52 @@ def test_legacy_mutation_plan_payload_decodes_without_v2_identity_fields() -> No
     assert decoded.lock_keys == ()
 
 
+def test_v2_plan_digest_binds_schema_and_canonical_utc_creation_time() -> None:
+    object_type, _functions, action_type, release = _fixture()
+    target = _target("workload-a", object_type, release)
+    command, rollback, expected = _effects(target.id)
+    created_utc = datetime(2026, 8, 8, tzinfo=UTC)
+    same_instant_offset = datetime.fromisoformat("2026-08-08T09:00:00+09:00")
+
+    def build(*, created_at: datetime, schema_version: str) -> MutationPlan:
+        semantic = action_type.semantic
+        assert semantic is not None
+        return build_mutation_plan(
+            action_type_ref=release.type_ref(
+                OntologyDeclarationKind.ACTION,
+                action_type.name,
+            ),
+            planner_ref="plan.scale@1.0.0",
+            targets=(target,),
+            effects=(command,),
+            rollback_effects=(rollback,),
+            expected_effects=(expected,),
+            created_at=created_at,
+            max_affected_objects=1,
+            schema_version=schema_version,
+            arguments_digest="sha256:" + "b" * 64,
+            transaction_mode=semantic.transaction_policy.mode,
+            lock_scope=semantic.transaction_policy.lock_scope,
+            lock_keys=("ontology-target:workload-a",),
+        )
+
+    first = build(created_at=created_utc, schema_version="2.0.0")
+    equivalent = build(created_at=same_instant_offset, schema_version="2.0.0")
+    later = build(created_at=created_utc + timedelta(seconds=1), schema_version="2.0.0")
+    legacy_first = build(created_at=created_utc, schema_version="1.0.0")
+    legacy_later = build(
+        created_at=created_utc + timedelta(seconds=1),
+        schema_version="1.0.0",
+    )
+
+    assert first.digest == equivalent.digest
+    assert first.created_at == created_utc
+    assert first.created_at.isoformat() == "2026-08-08T00:00:00+00:00"
+    assert later.digest != first.digest
+    assert legacy_first.digest == legacy_later.digest
+    assert legacy_first.digest != first.digest
+
+
 def test_compiler_rejects_stale_declaration_ref() -> None:
     object_type, functions, action_type, release = _fixture()
     assert action_type.semantic is not None

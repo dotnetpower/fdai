@@ -48,7 +48,16 @@ class ShadowReceiptPersistence(StrEnum):
     """Observable sink result, separate from comparison outcome."""
 
     RECORDED = "recorded"
+    RETAINED = "retained"
     FAILED = "failed"
+
+
+class ShadowSinkErrorKind(StrEnum):
+    """Bounded sink failure classes safe for metrics and audit records."""
+
+    APPEND_FAILED = "append_failed"
+    IDENTITY_CONFLICT = "identity_conflict"
+    INVALID_RESULT = "invalid_result"
 
 
 _DIVERGENCE_REASONS = frozenset(
@@ -79,13 +88,9 @@ _ERROR_REASONS = frozenset(
 
 
 class ShadowComparisonReceipt(ContractBase):
-    """Immutable comparison evidence with no approval or execution authority.
+    """Immutable comparison evidence with no approval or execution authority."""
 
-    ``receipt_digest`` addresses stable comparison content. Optional attempt
-    latency is deliberately excluded so retries retain one comparison identity.
-    """
-
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.1.0"] = "1.1.0"
     outcome: ShadowComparisonOutcome
     reasons: tuple[ShadowComparisonReason, ...] = ()
     correlation_ref: Annotated[str, Field(min_length=1, max_length=_MAX_REF)]
@@ -94,10 +99,14 @@ class ShadowComparisonReceipt(ContractBase):
     release_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     profile_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     plan_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+    semantic_request_id: Annotated[
+        str,
+        Field(pattern=r"^semantic-query-request:[a-f0-9]{64}$"),
+    ]
+    semantic_receipt_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     invocation_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     existing_evidence_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     semantic_evidence_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
-    attempt_latency_ms: float | None = Field(default=None, ge=0)
     authority: Literal["shadow_read_only"] = "shadow_read_only"
     execution_authority: Literal[False] = False
     receipt_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
@@ -106,8 +115,6 @@ class ShadowComparisonReceipt(ContractBase):
     def _validate_content_identity(self) -> ShadowComparisonReceipt:
         _bounded_ref("correlation_ref", self.correlation_ref)
         _bounded_ref("principal_ref", self.principal_ref)
-        if self.attempt_latency_ms is not None and not math.isfinite(self.attempt_latency_ms):
-            raise ValueError("shadow comparison attempt latency MUST be finite")
         canonical_reasons = tuple(sorted(set(self.reasons), key=str))
         if canonical_reasons != self.reasons:
             raise ValueError("shadow comparison reasons MUST be unique and sorted")
@@ -130,6 +137,8 @@ class ShadowComparisonReceipt(ContractBase):
             release_digest=self.release_digest,
             profile_digest=self.profile_digest,
             plan_digest=self.plan_digest,
+            semantic_request_id=self.semantic_request_id,
+            semantic_receipt_digest=self.semantic_receipt_digest,
             invocation_digest=self.invocation_digest,
             existing_evidence_digest=self.existing_evidence_digest,
             semantic_evidence_digest=self.semantic_evidence_digest,
@@ -145,15 +154,18 @@ class ShadowComparisonAttempt:
     authoritative_result: ReadInvestigationResult
     receipt: ShadowComparisonReceipt
     persistence: ShadowReceiptPersistence
-    sink_error_kind: str | None = None
+    attempt_latency_ms: float | None = None
+    sink_error_kind: ShadowSinkErrorKind | None = None
 
     def __post_init__(self) -> None:
         if (self.persistence is ShadowReceiptPersistence.FAILED) != (
             self.sink_error_kind is not None
         ):
             raise ValueError("shadow comparison sink status is inconsistent")
-        if self.sink_error_kind is not None:
-            _bounded_ref("sink_error_kind", self.sink_error_kind)
+        if self.attempt_latency_ms is not None and (
+            self.attempt_latency_ms < 0 or not math.isfinite(self.attempt_latency_ms)
+        ):
+            raise ValueError("shadow comparison attempt latency MUST be finite and non-negative")
 
 
 def select_shadow_outcome(
@@ -179,10 +191,11 @@ def build_shadow_receipt(
     release_digest: str,
     profile_digest: str,
     plan_digest: str,
+    semantic_request_id: str,
+    semantic_receipt_digest: str,
     invocation_digest: str,
     existing_evidence_digest: str,
     semantic_evidence_digest: str,
-    attempt_latency_ms: float | None,
 ) -> ShadowComparisonReceipt:
     """Build a validated receipt from stable comparison lineage and evidence."""
 
@@ -194,6 +207,8 @@ def build_shadow_receipt(
         release_digest=release_digest,
         profile_digest=profile_digest,
         plan_digest=plan_digest,
+        semantic_request_id=semantic_request_id,
+        semantic_receipt_digest=semantic_receipt_digest,
         invocation_digest=invocation_digest,
         existing_evidence_digest=existing_evidence_digest,
         semantic_evidence_digest=semantic_evidence_digest,
@@ -206,10 +221,11 @@ def build_shadow_receipt(
         release_digest=release_digest,
         profile_digest=profile_digest,
         plan_digest=plan_digest,
+        semantic_request_id=semantic_request_id,
+        semantic_receipt_digest=semantic_receipt_digest,
         invocation_digest=invocation_digest,
         existing_evidence_digest=existing_evidence_digest,
         semantic_evidence_digest=semantic_evidence_digest,
-        attempt_latency_ms=attempt_latency_ms,
         receipt_digest=digest,
     )
 
@@ -223,6 +239,8 @@ def shadow_receipt_digest(
     release_digest: str,
     profile_digest: str,
     plan_digest: str,
+    semantic_request_id: str,
+    semantic_receipt_digest: str,
     invocation_digest: str,
     existing_evidence_digest: str,
     semantic_evidence_digest: str,
@@ -231,7 +249,7 @@ def shadow_receipt_digest(
 
     return ontology_function_digest(
         {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "outcome": outcome.value,
             "reasons": [reason.value for reason in reasons],
             "correlation_ref": correlation_ref,
@@ -240,6 +258,8 @@ def shadow_receipt_digest(
             "release_digest": release_digest,
             "profile_digest": profile_digest,
             "plan_digest": plan_digest,
+            "semantic_request_id": semantic_request_id,
+            "semantic_receipt_digest": semantic_receipt_digest,
             "invocation_digest": invocation_digest,
             "existing_evidence_digest": existing_evidence_digest,
             "semantic_evidence_digest": semantic_evidence_digest,
@@ -260,6 +280,7 @@ __all__ = [
     "ShadowComparisonReason",
     "ShadowComparisonReceipt",
     "ShadowReceiptPersistence",
+    "ShadowSinkErrorKind",
     "build_shadow_receipt",
     "select_shadow_outcome",
 ]

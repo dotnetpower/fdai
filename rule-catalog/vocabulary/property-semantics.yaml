@@ -1,5 +1,11 @@
 schema_version: "1.0.0"
 version: "1.0.0"
+provenance:
+  source_url: repo://rule-catalog/vocabulary/property-semantics.yaml
+  resolved_ref: property-semantics@1.0.0
+  content_hash: sha256:045cfd529d8fa4274edcb7d0856f54492d91dbd58d777471b8002931889bccfe
+  license: Apache-2.0
+  retrieved_at: "2026-08-08T00:00:00Z"
 semantics:
   - semantic_id: utilization.cpu.p95
     value_type: number

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -21,6 +23,16 @@ from fdai.core.ontology_platform.query_gateway import (
     SecuredObjectSetQueryReceipt,
     SecuredObjectSetQueryResult,
 )
+from fdai.core.ontology_platform.query_profiles import QueryProfile
+from fdai.core.ontology_platform.semantic_plans import (
+    InterpretationCandidateSource,
+    SemanticInterpretationCandidate,
+    SemanticOperationClass,
+    VerifiedInterpretationBasis,
+    VerifiedSemanticPlan,
+    build_semantic_candidate,
+    verify_semantic_candidate,
+)
 from fdai.core.ontology_platform.semantic_query import SemanticQueryReceipt
 from fdai.core.read_investigation.models import (
     ReadInvestigationBudget,
@@ -32,17 +44,23 @@ from fdai.core.read_investigation.resource_state_shadow_models import (
     ShadowComparisonOutcome,
     ShadowComparisonReason,
     ShadowReceiptPersistence,
+    ShadowSinkErrorKind,
 )
 from fdai.core.read_investigation.resource_state_shadow_service import (
     ShadowResourceStateComparisonService,
 )
-from fdai.core.read_investigation.shadow_sink import InMemoryShadowComparisonSink
+from fdai.core.read_investigation.shadow_sink import (
+    InMemoryShadowComparisonSink,
+    ShadowSinkAppendResult,
+)
 from fdai.shared.contracts.models import (
     CeilingRole,
     OntologyDeclarationKind,
+    OntologyFunctionKind,
+    OntologyFunctionType,
     OntologyReleaseRef,
-    OntologyTypeRef,
 )
+from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,
     OntologyObjectRecord,
@@ -69,8 +87,67 @@ from fdai.shared.providers.state_evidence import (
 NOW = datetime(2026, 8, 8, 12, tzinfo=UTC)
 RESOURCE_REF = "resource:example-vm"
 RELEASE_DIGEST = "sha256:" + "a" * 64
-PROFILE_DIGEST = "sha256:" + "b" * 64
-PLAN_DIGEST = "sha256:" + "c" * 64
+CATALOG_DIGEST = "sha256:" + "b" * 64
+
+
+@dataclass(frozen=True, slots=True)
+class _Catalog:
+    digest: str
+    candidate_digest: str
+
+    def contains(self, candidate: SemanticInterpretationCandidate) -> bool:
+        return candidate.candidate_digest == self.candidate_digest
+
+
+def _reviewed_lineage(
+    definition: ObjectSetDefinition,
+) -> tuple[OntologyReleaseRef, QueryProfile, VerifiedSemanticPlan]:
+    function_type = OntologyFunctionType(
+        name="inventory.select_resources",
+        version="1.0.0",
+        kind=OntologyFunctionKind.QUERY,
+        artifact_digest=RELEASE_DIGEST,
+        publisher="fdai",
+        input_schema={
+            "type": "object",
+            "required": ["object_set"],
+            "additionalProperties": False,
+            "properties": {"object_set": {"type": "object"}},
+        },
+        output_schema={"type": "object"},
+        purpose_bindings=[definition.purpose],
+    )
+    release = build_ontology_release(function_types=(function_type,))
+    profile = QueryProfile(
+        name="resource-state",
+        version="1.0.0",
+        function_type=function_type,
+        function_ref=release.type_ref(
+            OntologyDeclarationKind.FUNCTION,
+            function_type.name,
+        ),
+        object_set_template=definition,
+        purpose=definition.purpose,
+    )
+    arguments = {"object_set": definition.model_dump(mode="json")}
+    candidate = build_semantic_candidate(
+        source=InterpretationCandidateSource.LEXICAL,
+        operation_class=SemanticOperationClass.QUERY,
+        target_ref=profile.function_ref,
+        arguments=arguments,
+        semantic_catalog_digest=CATALOG_DIGEST,
+        input_text="reviewed resource state shadow query",
+        score=1.0,
+        unresolved_terms=(),
+    )
+    plan = verify_semantic_candidate(
+        candidate,
+        release=release,
+        active_semantic_catalog=_Catalog(CATALOG_DIGEST, candidate.candidate_digest),
+        basis=VerifiedInterpretationBasis.EXACT_CATALOG,
+        basis_ref=f"catalog:{CATALOG_DIGEST}",
+    )
+    return release.ref(), profile, plan
 
 
 def _request() -> ReadInvestigationRequest:
@@ -96,6 +173,7 @@ def _existing_result(
     outcome: ReadInvestigationOutcome = ReadInvestigationOutcome.MATCHED,
     freshness: EvidenceFreshness = EvidenceFreshness.LIVE,
     truncated: bool = False,
+    limitations: tuple[EvidenceLimitationKind, ...] = (),
 ) -> ReadInvestigationResult:
     evidence_status = (
         EvidenceStatus.MATCHED
@@ -108,6 +186,11 @@ def _existing_result(
         else ()
     )
     truncation_reason = EvidenceLimitationKind.RESULT_LIMIT if truncated else None
+    effective_limitations = (
+        tuple(sorted({*limitations, truncation_reason}, key=str))
+        if truncation_reason is not None
+        else limitations
+    )
     return ReadInvestigationResult(
         request=_request(),
         outcome=outcome,
@@ -130,7 +213,7 @@ def _existing_result(
                 truncated=truncated,
                 records=records,
                 evidence_refs=("evidence:read-state",) if records else (),
-                limitations=((truncation_reason,) if truncation_reason is not None else ()),
+                limitations=effective_limitations,
                 truncation_reason=truncation_reason,
             ),
         ),
@@ -197,7 +280,10 @@ def _semantic_inputs(
     observed_at: datetime = NOW,
     resource_ref: str = RESOURCE_REF,
     truncated: bool = False,
+    graph_truncated: bool | None = None,
     freshness_ceiling_seconds: int = 300,
+    extra_properties: Mapping[str, Any] | None = None,
+    redacted_identity_count: int = 0,
 ) -> tuple[SecuredObjectSetQueryResult, SemanticQueryReceipt]:
     definition = ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
@@ -205,6 +291,7 @@ def _semantic_inputs(
         purpose="resource-state-shadow",
         limit=1,
     )
+    release, profile, plan = _reviewed_lineage(definition)
     state_fact = _state_metadata(
         observed_at=observed_at,
         freshness_ceiling_seconds=freshness_ceiling_seconds,
@@ -221,10 +308,11 @@ def _semantic_inputs(
                         "state": state,
                         STATE_FACT_METADATA_PROPERTY: state_fact.to_mapping(),
                     },
+                    **dict(extra_properties or {}),
                 },
             ),
         ),
-        truncated=truncated,
+        truncated=truncated if graph_truncated is None else graph_truncated,
     )
     truncation_reason = ObjectSetTruncationReason.RESULT_LIMIT if truncated else None
     materialization = ObjectSetMaterialization(
@@ -234,7 +322,6 @@ def _semantic_inputs(
         truncated=truncated,
         truncation_reason=truncation_reason,
     )
-    release = OntologyReleaseRef(digest=RELEASE_DIGEST)
     query_receipt = SecuredObjectSetQueryReceipt(
         ontology_release=release,
         projected_result_digest=_projected_result_digest(materialization),
@@ -249,7 +336,7 @@ def _semantic_inputs(
         truncation_reason=truncation_reason,
         redactions=ObjectSetRedactionSummary(
             objects_with_redactions=0,
-            redacted_identity_count=0,
+            redacted_identity_count=redacted_identity_count,
             access_scope_count=0,
             purpose_binding_count=0,
             undeclared_property_count=0,
@@ -262,46 +349,45 @@ def _semantic_inputs(
         materialization=materialization,
         receipt=query_receipt,
     )
-    function_ref = OntologyTypeRef(
-        kind=OntologyDeclarationKind.FUNCTION,
-        name="inventory.select_resources",
-        version="1.0.0",
-        catalog_digest=RELEASE_DIGEST,
-    )
+    arguments = {"object_set": definition.model_dump(mode="json")}
     invocation = FunctionInvocationReceipt(
         request_id="logic-request:" + "d" * 64,
         invocation_id="logic-invocation:" + "e" * 64,
-        function_ref=function_ref,
+        function_ref=profile.function_ref,
         caller_agent="Bragi",
         caller_role=CeilingRole.READER,
         purposes=(definition.purpose,),
-        input_digest="sha256:" + "f" * 64,
+        input_digest=ontology_function_digest(arguments),
         output_digest=ontology_function_digest(query_result.model_dump(mode="json")),
         started_at=NOW - timedelta(milliseconds=2),
         completed_at=NOW - timedelta(milliseconds=1),
         evidence_refs=("evidence:ontology-state",),
     )
-    semantic_digest = ontology_function_digest(
+    semantic_request_id = "semantic-query-request:" + ontology_function_digest(
         {
             "ontology_release": release.model_dump(mode="json"),
-            "profile_ref": "query-profile:resource-state@1.0.0",
-            "profile_digest": PROFILE_DIGEST,
-            "request_id": "semantic-query-request:" + "1" * 64,
-            "plan_digest": PLAN_DIGEST,
-            "function_invocation": invocation.model_dump(mode="json"),
-            "truncated": truncated,
-            "truncation_reason": (
-                truncation_reason.value if truncation_reason is not None else None
-            ),
-            "execution_authority": False,
+            "profile_ref": profile.profile_ref,
+            "profile_digest": profile.profile_digest,
+            "plan_digest": plan.plan_digest,
+            "function_request_id": invocation.request_id,
         }
+    ).removeprefix("sha256:")
+    semantic_digest = _semantic_receipt_digest(
+        ontology_release=release,
+        profile_ref=profile.profile_ref,
+        profile_digest=profile.profile_digest,
+        request_id=semantic_request_id,
+        plan_digest=plan.plan_digest,
+        invocation=invocation,
+        truncated=truncated,
+        truncation_reason=truncation_reason,
     )
     semantic_receipt = SemanticQueryReceipt(
         ontology_release=release,
-        profile_ref="query-profile:resource-state@1.0.0",
-        profile_digest=PROFILE_DIGEST,
-        request_id="semantic-query-request:" + "1" * 64,
-        plan_digest=PLAN_DIGEST,
+        profile_ref=profile.profile_ref,
+        profile_digest=profile.profile_digest,
+        request_id=semantic_request_id,
+        plan_digest=plan.plan_digest,
         function_invocation=invocation,
         truncated=truncated,
         truncation_reason=truncation_reason,
@@ -310,21 +396,108 @@ def _semantic_inputs(
     return query_result, semantic_receipt
 
 
+def _semantic_receipt_digest(
+    *,
+    ontology_release: OntologyReleaseRef,
+    profile_ref: str,
+    profile_digest: str,
+    request_id: str,
+    plan_digest: str,
+    invocation: FunctionInvocationReceipt,
+    truncated: bool,
+    truncation_reason: ObjectSetTruncationReason | None,
+) -> str:
+    return ontology_function_digest(
+        {
+            "ontology_release": ontology_release.model_dump(mode="json"),
+            "profile_ref": profile_ref,
+            "profile_digest": profile_digest,
+            "request_id": request_id,
+            "plan_digest": plan_digest,
+            "function_invocation": invocation.model_dump(mode="json"),
+            "truncated": truncated,
+            "truncation_reason": (
+                truncation_reason.value if truncation_reason is not None else None
+            ),
+            "execution_authority": False,
+        }
+    )
+
+
+def _canonical_request_id(
+    *,
+    ontology_release: OntologyReleaseRef,
+    profile: QueryProfile,
+    plan_digest: str,
+    invocation: FunctionInvocationReceipt,
+) -> str:
+    identity = ontology_function_digest(
+        {
+            "ontology_release": ontology_release.model_dump(mode="json"),
+            "profile_ref": profile.profile_ref,
+            "profile_digest": profile.profile_digest,
+            "plan_digest": plan_digest,
+            "function_request_id": invocation.request_id,
+        }
+    ).removeprefix("sha256:")
+    return f"semantic-query-request:{identity}"
+
+
+def _reseal_semantic_receipt(
+    receipt: SemanticQueryReceipt,
+    *,
+    request_id: str | None = None,
+    plan_digest: str | None = None,
+    invocation: FunctionInvocationReceipt | None = None,
+) -> SemanticQueryReceipt:
+    effective_request_id = request_id or receipt.request_id
+    effective_plan_digest = plan_digest or receipt.plan_digest
+    effective_invocation = invocation or receipt.function_invocation
+    digest = _semantic_receipt_digest(
+        ontology_release=receipt.ontology_release,
+        profile_ref=receipt.profile_ref,
+        profile_digest=receipt.profile_digest,
+        request_id=effective_request_id,
+        plan_digest=effective_plan_digest,
+        invocation=effective_invocation,
+        truncated=bool(receipt.truncated),
+        truncation_reason=receipt.truncation_reason,
+    )
+    return receipt.model_copy(
+        update={
+            "request_id": effective_request_id,
+            "plan_digest": effective_plan_digest,
+            "function_invocation": effective_invocation,
+            "receipt_digest": digest,
+        }
+    )
+
+
 async def _compare(
     *,
     existing: ReadInvestigationResult | None = None,
     query_result: SecuredObjectSetQueryResult | None = None,
     semantic_receipt: SemanticQueryReceipt | None = None,
+    query_profile: QueryProfile | None = None,
+    semantic_plan: VerifiedSemanticPlan | None = None,
     sink: InMemoryShadowComparisonSink | None = None,
     latency_ms: float | None = 4.5,
+    identity_canonicalizer: Callable[[str], str] | None = None,
 ) -> tuple[Any, InMemoryShadowComparisonSink]:
     actual_sink = sink or InMemoryShadowComparisonSink()
     if query_result is None or semantic_receipt is None:
         query_result, semantic_receipt = _semantic_inputs()
-    attempt = await ShadowResourceStateComparisonService(sink=actual_sink).compare(
+    if query_profile is None or semantic_plan is None:
+        _, query_profile, semantic_plan = _reviewed_lineage(query_result.materialization.definition)
+    attempt = await ShadowResourceStateComparisonService(
+        sink=actual_sink,
+        identity_canonicalizer=identity_canonicalizer,
+    ).compare(
         existing_result=existing or _existing_result(),
         query_result=query_result,
         semantic_receipt=semantic_receipt,
+        query_profile=query_profile,
+        semantic_plan=semantic_plan,
         principal_ref="principal:reader",
         correlation_ref="correlation:one",
         attempt_latency_ms=latency_ms,
@@ -419,26 +592,27 @@ async def test_receipt_identity_excludes_attempt_latency() -> None:
     fast, _ = await _compare(latency_ms=1.0)
     slow, _ = await _compare(latency_ms=999.0)
 
-    assert fast.receipt.attempt_latency_ms == 1.0
-    assert slow.receipt.attempt_latency_ms == 999.0
+    assert fast.attempt_latency_ms == 1.0
+    assert slow.attempt_latency_ms == 999.0
     assert fast.receipt.receipt_digest == slow.receipt.receipt_digest
-    assert fast.receipt.model_dump(exclude={"attempt_latency_ms"}) == slow.receipt.model_dump(
-        exclude={"attempt_latency_ms"}
-    )
+    assert fast.receipt == slow.receipt
 
 
 async def test_sink_failure_preserves_existing_response_and_is_observable() -> None:
     class _FailingSink:
-        async def append(self, receipt: object) -> None:
+        async def append(self, receipt: object) -> ShadowSinkAppendResult:
             del receipt
             raise RuntimeError("durable sink unavailable")
 
     existing = _existing_result()
     query_result, semantic_receipt = _semantic_inputs()
+    _, query_profile, semantic_plan = _reviewed_lineage(query_result.materialization.definition)
     attempt = await ShadowResourceStateComparisonService(sink=_FailingSink()).compare(
         existing_result=existing,
         query_result=query_result,
         semantic_receipt=semantic_receipt,
+        query_profile=query_profile,
+        semantic_plan=semantic_plan,
         principal_ref="principal:reader",
         correlation_ref="correlation:one",
     )
@@ -446,7 +620,7 @@ async def test_sink_failure_preserves_existing_response_and_is_observable() -> N
     assert attempt.authoritative_result is existing
     assert attempt.receipt.outcome is ShadowComparisonOutcome.MATCH
     assert attempt.persistence is ShadowReceiptPersistence.FAILED
-    assert attempt.sink_error_kind == "RuntimeError"
+    assert attempt.sink_error_kind is ShadowSinkErrorKind.APPEND_FAILED
 
 
 async def test_comparison_has_no_mutation_or_execution_authority() -> None:
@@ -484,3 +658,15 @@ async def test_mismatched_semantic_lineage_emits_error_receipt() -> None:
 
     assert attempt.receipt.outcome is ShadowComparisonOutcome.ERROR
     assert attempt.receipt.reasons == (ShadowComparisonReason.SEMANTIC_LINEAGE_MISMATCH,)
+
+
+async def test_malformed_semantic_state_emits_error_receipt_without_exception() -> None:
+    query_result, semantic_receipt = _semantic_inputs(state=" ")
+
+    attempt, _ = await _compare(
+        query_result=query_result,
+        semantic_receipt=semantic_receipt,
+    )
+
+    assert attempt.receipt.outcome is ShadowComparisonOutcome.ERROR
+    assert attempt.receipt.reasons == (ShadowComparisonReason.SEMANTIC_EVIDENCE_MALFORMED,)

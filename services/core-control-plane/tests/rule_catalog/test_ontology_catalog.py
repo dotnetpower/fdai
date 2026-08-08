@@ -9,6 +9,7 @@ import yaml
 from fdai.rule_catalog.schema.action_type import ActionTypeCatalogError
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.ontology_provenance import ontology_content_hash
+from fdai.rule_catalog.schema.property_semantic import property_semantic_registry_content_hash
 from fdai.rule_catalog.schema.rego_semantics import load_rego_semantics
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.rule import load_rule_catalog
@@ -16,6 +17,35 @@ from fdai.shared.contracts.models import LinkCardinality, OntologyActionType
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+def test_missing_property_semantic_file_uses_stable_legacy_registry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "fdai.rule_catalog.schema.ontology_catalog.load_object_type_catalog",
+        lambda *_args, **_kwargs: (),
+    )
+    monkeypatch.setattr(
+        "fdai.rule_catalog.schema.ontology_catalog.load_link_type_catalog",
+        lambda *_args, **_kwargs: (),
+    )
+    monkeypatch.setattr(
+        "fdai.rule_catalog.schema.ontology_catalog.load_action_type_catalog",
+        lambda *_args, **_kwargs: (),
+    )
+
+    catalog = load_ontology_catalog(
+        tmp_path,
+        schema_registry=PackageResourceSchemaRegistry(),
+    )
+
+    assert catalog.property_semantics.version == "0.0.0"
+    assert catalog.property_semantics.semantics == ()
+    assert catalog.property_semantics.content_digest == property_semantic_registry_content_hash(
+        catalog.property_semantics
+    )
 
 
 def test_shipped_ontology_catalog_loads_as_one_graph() -> None:
