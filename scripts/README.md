@@ -164,6 +164,20 @@ by any visible process. Dirty, unmerged, recent, and active worktrees stay in
 place. Pending queue records for a removed path move to `retired/` only when the
 same commit already has a validation receipt.
 
+Every successful local commit writes a concise handover record under the Git
+common directory at `.git/fdai-handovers/`. The record contains the commit,
+subject, branch, source worktree, and changed repository paths. It doesn't copy
+file contents, logs, prompts, credentials, or environment values. Start a new
+session with:
+
+```bash
+bash scripts/automation/resume.sh
+```
+
+The report selects the newest recorded commit relevant to the current history
+and resolves its validation state from the central receipt directory at read
+time.
+
 `make validation-status` lists only pending commits reachable from the current
 `HEAD` and summarizes pending work on other branches or worktrees. Show every
 pending id only when diagnosing queue history:

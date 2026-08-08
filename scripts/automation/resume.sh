@@ -61,6 +61,13 @@ last=$(git --no-pager log --oneline -1)
 printf 'branch:      %s\n' "$branch"
 printf 'last commit: %s\n' "$last"
 
+hr "automatic handover"
+if [[ -f scripts/automation/session-handover.py ]]; then
+    python3 scripts/automation/session-handover.py show
+else
+    echo "(handover tool unavailable)"
+fi
+
 hr "working tree"
 tree=$(git status --short)
 if [[ -z "$tree" ]]; then
@@ -103,7 +110,8 @@ hr "reminders"
 cat <<'EOM'
 - Use per-file `git add`; never `git add -A` while the tree is dirty.
 - `git pull --rebase --autostash` before starting a fresh batch.
-- Verify with `bash scripts/verify.sh --fast` before every commit.
+- Run the narrowest focused check before each commit.
+- Let the Integration Validator run `make validation-run` once per stable batch.
 - Push is a maintainer decision.
 - See .github/prompts/resume-session.prompt.md for the full flow.
 EOM

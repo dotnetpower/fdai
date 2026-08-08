@@ -14,4 +14,9 @@ if ! python3 "$queue_script" enqueue HEAD >/dev/null; then
   echo "post-commit: warning - failed to enqueue HEAD for integration validation" >&2
 fi
 
+handover_script="scripts/automation/session-handover.py"
+if [ -f "$handover_script" ] && ! python3 "$handover_script" record HEAD; then
+  echo "post-commit: warning - failed to record the local session handover" >&2
+fi
+
 exit 0

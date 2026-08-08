@@ -11,22 +11,13 @@ summary so the next batch can start immediately.
 
 ## Steps
 
-1. **Query recent sessions** with the session-store SQL:
-   ```sql
-   SELECT session_id, started_at, ended_at, summary
-   FROM sessions
-   WHERE ended_at > datetime('now', '-3 days')
-   ORDER BY ended_at DESC
-   LIMIT 5;
-   ```
-2. **Pull recent commits** on the current branch:
-   `git --no-pager log --oneline -15`
-3. **Show working-tree state** (respect maintainer WIP):
-   `git status --short`
-   `git rev-list @{u}..HEAD --oneline`
-4. **Check for in-progress todos** (`manage_todo_list`) and repo-memory
+1. **Read the durable local handover and Git snapshot**:
+   `bash scripts/automation/resume.sh`
+2. **Use the chronicle skill only when needed**. Query recent sessions when no
+   automatic handover exists or when the handover doesn't explain visible WIP.
+3. **Check for in-progress todos** (`manage_todo_list`) and repo-memory
    backlog markers under `/memories/repo/`.
-5. Produce a concise summary in this shape:
+4. Produce a concise summary in this shape:
    - **Last commit topic**: <one line>
    - **Working tree**: N modified, M new. Names of top 5 files.
    - **Unpushed commits**: N. Topics.
@@ -38,6 +29,8 @@ summary so the next batch can start immediately.
 
 - **Read-only.** Do not commit, do not stash, do not touch the working
   tree. This prompt just surfaces state.
+- Treat the automatic handover as local evidence, not authority to skip focused
+   checks or centralized validation.
 - Do not push. Push is always a maintainer decision.
 - If the working tree has WIP, remind the caller that autonomous
   batches must use per-file `git add`, never `git add -A`.
