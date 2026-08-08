@@ -106,6 +106,7 @@ export interface NodeGeometry {
 
 export function nodeGeometry(node: DiagramNode): NodeGeometry {
   const iconPresentation = node.presentation === "icon";
+  const databaseShape = node.shape === "database";
   const width = node.width ?? (iconPresentation ? 116 : node.content?.length ? 220 : 148);
   const maxLabelUnits = (width - (iconPresentation ? 12 : 20)) / NODE_FONT_SIZE;
   const maxBodyUnits = (width - 24) / NODE_BODY_FONT_SIZE;
@@ -121,14 +122,14 @@ export function nodeGeometry(node: DiagramNode): NodeGeometry {
   const iconSize = iconPresentation ? REFERENCE_NODE_ICON_SIZE : NODE_ICON_SIZE;
   const iconTop = iconPresentation ? 8 : NODE_ICON_TOP;
   const labelGap = iconPresentation ? 6 : NODE_LABEL_GAP;
-  const bottomPadding = iconPresentation ? 8 : NODE_BOTTOM_PADDING;
+  const bottomPadding = iconPresentation ? 8 : databaseShape ? 18 : NODE_BOTTOM_PADDING;
   const iconLabelTop = iconTop + iconSize + labelGap;
-  const naturalLabelTop = hasIcon ? iconLabelTop : 14;
+  const naturalLabelTop = hasIcon ? iconLabelTop : databaseShape ? 28 : 14;
   const bodyGap = bodyLineCount ? 8 : 0;
   const requiredHeight = bodyLineCount
     ? naturalLabelTop + textHeight + bodyGap + bodyHeight + bottomPadding
     : iconLabelTop + textHeight + bottomPadding;
-  const height = Math.max(requiredHeight, node.height ?? 0);
+  const height = Math.max(requiredHeight, databaseShape ? 88 : 0, node.height ?? 0);
   const labelTop = hasIcon
     ? iconLabelTop
     : bodyLineCount

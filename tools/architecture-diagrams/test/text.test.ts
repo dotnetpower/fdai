@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  NODE_BODY_LINE_HEIGHT,
   NODE_ICON_SIZE,
   NODE_LABEL_GAP,
   REFERENCE_NODE_ICON_SIZE,
@@ -102,4 +103,18 @@ test("node geometry expands for localized body content", () => {
   assert.equal(geometry.width, 220);
   assert.ok(geometry.bodyTop > geometry.labelTop);
   assert.ok(geometry.height > 75);
+});
+
+test("database geometry keeps text below the cylinder cap", () => {
+  const geometry = nodeGeometry({
+    id: "evidence-store",
+    kind: "store",
+    shape: "database",
+    label: { en: "Evidence store", ko: "근거 저장소" },
+    content: [{ en: "Searchable evidence", ko: "검색 가능한 근거" }],
+  });
+
+  assert.ok(geometry.labelTop >= 28);
+  assert.ok(geometry.height >= 88);
+  assert.ok(geometry.bodyTop + NODE_BODY_LINE_HEIGHT < geometry.height);
 });

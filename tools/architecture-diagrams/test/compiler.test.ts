@@ -28,6 +28,8 @@ test("viewer bundle preserves readable UTF-8 Korean labels", async () => {
   const source = artifact.content.toString("utf8");
 
   assert.match(source, /인터랙티브 아키텍처 다이어그램/);
+  assert.match(source, /--fdai-diagram-tone-policy-fill:\s*#17331d/);
+  assert.match(source, /data-embedded/);
   assert.doesNotMatch(source, /\\u(?:11|31|[a-dA-D])[0-9a-fA-F]{2}/);
 });
 

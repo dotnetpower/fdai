@@ -50,32 +50,32 @@ import {
 } from "../model/text.js";
 
 const edgeStyles: Record<EdgeKind, { color: string; dash: string; width: number }> = {
-  request: { color: "#0078d4", dash: "none", width: 2.4 },
-  event: { color: "#35b4e3", dash: "7 4", width: 2.4 },
-  approval: { color: "#8764b8", dash: "3 4", width: 2.6 },
-  mutation: { color: "#d83b01", dash: "none", width: 3 },
-  audit: { color: "#107c10", dash: "2 4", width: 2.4 },
-  rollback: { color: "#a4262c", dash: "9 4 2 4", width: 2.6 },
-  read: { color: "#008272", dash: "5 4", width: 2.2 },
-  write: { color: "#5c2d91", dash: "none", width: 2.6 },
-  feedback: { color: "#6b4eff", dash: "8 4", width: 2.6 },
-  sequence: { color: "#0f6cbd", dash: "none", width: 2.4 },
-  transition: { color: "#6b46c1", dash: "none", width: 2.4 },
-  association: { color: "#44546a", dash: "none", width: 2.2 },
-  dependency: { color: "#7a8699", dash: "5 4", width: 2.2 },
-  timeline: { color: "#b77900", dash: "none", width: 3 },
+  request: { color: "var(--fdai-diagram-edge-request, #0078d4)", dash: "none", width: 2.4 },
+  event: { color: "var(--fdai-diagram-edge-event, #187ea8)", dash: "7 4", width: 2.4 },
+  approval: { color: "var(--fdai-diagram-edge-approval, #7651a8)", dash: "3 4", width: 2.6 },
+  mutation: { color: "var(--fdai-diagram-edge-mutation, #c43501)", dash: "none", width: 3 },
+  audit: { color: "var(--fdai-diagram-edge-audit, #107c10)", dash: "2 4", width: 2.4 },
+  rollback: { color: "var(--fdai-diagram-edge-rollback, #a4262c)", dash: "9 4 2 4", width: 2.6 },
+  read: { color: "var(--fdai-diagram-edge-read, #008272)", dash: "5 4", width: 2.2 },
+  write: { color: "var(--fdai-diagram-edge-write, #5c2d91)", dash: "none", width: 2.6 },
+  feedback: { color: "var(--fdai-diagram-edge-feedback, #6045df)", dash: "8 4", width: 2.6 },
+  sequence: { color: "var(--fdai-diagram-edge-sequence, #0f6cbd)", dash: "none", width: 2.4 },
+  transition: { color: "var(--fdai-diagram-edge-transition, #6b46c1)", dash: "none", width: 2.4 },
+  association: { color: "var(--fdai-diagram-edge-association, #44546a)", dash: "none", width: 2.2 },
+  dependency: { color: "var(--fdai-diagram-edge-dependency, #667085)", dash: "5 4", width: 2.2 },
+  timeline: { color: "var(--fdai-diagram-edge-timeline, #9a6500)", dash: "none", width: 3 },
 };
 
 const toneStyles = {
-  input: { fill: "#f4f8ff", stroke: "#2563eb" },
-  interpretation: { fill: "#eef6ff", stroke: "#0f6cbd" },
-  model: { fill: "#eefbf7", stroke: "#008272" },
-  policy: { fill: "#f1faef", stroke: "#2e7d32" },
-  decision: { fill: "#fff8e6", stroke: "#b77900" },
-  execution: { fill: "#f7f2ff", stroke: "#6b46c1" },
-  feedback: { fill: "#f5f2ff", stroke: "#6b4eff" },
-  store: { fill: "#f6f7f8", stroke: "#5f6b7a" },
-  neutral: { fill: "#ffffff", stroke: "#7a8699" },
+  input: { fill: "var(--fdai-diagram-tone-input-fill, #f4f8ff)", stroke: "var(--fdai-diagram-tone-input-stroke, #2563eb)" },
+  interpretation: { fill: "var(--fdai-diagram-tone-interpretation-fill, #eef6ff)", stroke: "var(--fdai-diagram-tone-interpretation-stroke, #0f6cbd)" },
+  model: { fill: "var(--fdai-diagram-tone-model-fill, #eefbf7)", stroke: "var(--fdai-diagram-tone-model-stroke, #008272)" },
+  policy: { fill: "var(--fdai-diagram-tone-policy-fill, #f1faef)", stroke: "var(--fdai-diagram-tone-policy-stroke, #2e7d32)" },
+  decision: { fill: "var(--fdai-diagram-tone-decision-fill, #fff8e6)", stroke: "var(--fdai-diagram-tone-decision-stroke, #9a6500)" },
+  execution: { fill: "var(--fdai-diagram-tone-execution-fill, #f7f2ff)", stroke: "var(--fdai-diagram-tone-execution-stroke, #6b46c1)" },
+  feedback: { fill: "var(--fdai-diagram-tone-feedback-fill, #f5f2ff)", stroke: "var(--fdai-diagram-tone-feedback-stroke, #6045df)" },
+  store: { fill: "var(--fdai-diagram-tone-store-fill, #f6f7f8)", stroke: "var(--fdai-diagram-tone-store-stroke, #5f6b7a)" },
+  neutral: { fill: "var(--fdai-diagram-tone-neutral-fill, #ffffff)", stroke: "var(--fdai-diagram-tone-neutral-stroke, #667085)" },
 } as const;
 
 const edgeKindLabels: Record<EdgeKind, Record<Locale, string>> = {
@@ -541,6 +541,14 @@ export async function renderSvg(
   <defs>${markers}<filter id="node-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#172b4d" flood-opacity="0.14"/></filter></defs>
   <style>
     svg[data-diagram-id] { color: var(--fdai-diagram-text, #323130); font-family: "Noto Sans KR", "Noto Sans", "Segoe UI", sans-serif; }
+    @media (prefers-color-scheme: dark) {
+      svg[data-diagram-id]:not([data-embedded]) {
+        --fdai-diagram-canvas: #111315; --fdai-diagram-surface: #1b1f23; --fdai-diagram-node: #20252a; --fdai-diagram-label-surface: #1b1f23; --fdai-diagram-text: #f3f5f7; --fdai-diagram-muted: #c5cbd2; --fdai-diagram-border: #69737d; --fdai-diagram-border-strong: #aab2bb; --fdai-diagram-neutral-header: #30363d; --fdai-diagram-control-surface: #10283d; --fdai-diagram-control-header: #153d5c; --fdai-diagram-delivery-surface: #102d32; --fdai-diagram-delivery-header: #134148; --fdai-diagram-azure: #63d9ff; --fdai-diagram-azure-dark: #8bc8ff; --fdai-diagram-cyan-dark: #63d9ff;
+        --fdai-diagram-tone-input-fill: #10243a; --fdai-diagram-tone-input-stroke: #6cb8ff; --fdai-diagram-tone-interpretation-fill: #102a3a; --fdai-diagram-tone-interpretation-stroke: #50c8ff; --fdai-diagram-tone-model-fill: #0e2d28; --fdai-diagram-tone-model-stroke: #5ee0bd; --fdai-diagram-tone-policy-fill: #17331d; --fdai-diagram-tone-policy-stroke: #73d17c; --fdai-diagram-tone-decision-fill: #3a2a0b; --fdai-diagram-tone-decision-stroke: #f3c969; --fdai-diagram-tone-execution-fill: #2b2040; --fdai-diagram-tone-execution-stroke: #c7a0ff; --fdai-diagram-tone-feedback-fill: #261f42; --fdai-diagram-tone-feedback-stroke: #b9a1ff; --fdai-diagram-tone-store-fill: #25292e; --fdai-diagram-tone-store-stroke: #b8c2cc; --fdai-diagram-tone-neutral-fill: #20252a; --fdai-diagram-tone-neutral-stroke: #b8c2cc;
+        --fdai-diagram-edge-request: #6cb8ff; --fdai-diagram-edge-event: #50c8ff; --fdai-diagram-edge-approval: #c7a0ff; --fdai-diagram-edge-mutation: #ff9d72; --fdai-diagram-edge-audit: #73d17c; --fdai-diagram-edge-rollback: #ff8b91; --fdai-diagram-edge-read: #5ee0bd; --fdai-diagram-edge-write: #d6a8ff; --fdai-diagram-edge-feedback: #b9a1ff; --fdai-diagram-edge-sequence: #6cb8ff; --fdai-diagram-edge-transition: #c7a0ff; --fdai-diagram-edge-association: #c5cbd2; --fdai-diagram-edge-dependency: #aab2bb; --fdai-diagram-edge-timeline: #f3c969;
+        --fdai-diagram-group-lane-fill: #1b1f23; --fdai-diagram-group-lane-stroke: #7890a8; --fdai-diagram-group-sidebar-fill: #25203a; --fdai-diagram-group-sidebar-stroke: #b9a1ff; --fdai-diagram-group-feedback-fill: #211d35; --fdai-diagram-group-feedback-stroke: #b9a1ff; --fdai-diagram-group-datastore-fill: #20252a; --fdai-diagram-group-datastore-stroke: #aab2bb; --fdai-diagram-badge-fill: #6cb8ff; --fdai-diagram-badge-text: #07131f;
+      }
+    }
     .diagram-title { font-size: 26px; font-weight: 700; fill: var(--fdai-diagram-text, #323130); }
     .diagram-subtitle { font-size: 14px; fill: var(--fdai-diagram-muted, #605e5c); }
     .diagram-group .group-surface { fill: var(--fdai-diagram-surface, #ffffff); stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1.5; stroke-dasharray: 5 4; }
@@ -569,8 +577,8 @@ export async function renderSvg(
     .node-label { font-size: ${NODE_FONT_SIZE}px; font-weight: 650; fill: var(--fdai-diagram-text, #323130); letter-spacing: 0; }
     .node-body { font-size: ${NODE_BODY_FONT_SIZE}px; font-weight: 450; fill: var(--fdai-diagram-muted, #605e5c); letter-spacing: 0; }
     .node-detail { fill: none; stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1.25; }
-    .node-badge circle { fill: #173b6c; stroke: #ffffff; stroke-width: 2; }
-    .node-badge text { fill: #ffffff; font-size: 11px; font-weight: 700; text-anchor: middle; }
+    .node-badge circle { fill: var(--fdai-diagram-badge-fill, #173b6c); stroke: var(--fdai-diagram-badge-ring, #ffffff); stroke-width: 2; }
+    .node-badge text { fill: var(--fdai-diagram-badge-text, #ffffff); font-size: 11px; font-weight: 700; text-anchor: middle; }
     ${Object.entries(toneStyles).map(([tone, style]) => `.diagram-node[data-tone="${tone}"] > .node-surface { fill: ${style.fill}; stroke: ${style.stroke}; }`).join("\n    ")}
     .edge-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
     .edge-path { pointer-events: stroke; transition: stroke-width 140ms ease, opacity 140ms ease; }
@@ -587,10 +595,10 @@ export async function renderSvg(
     .edge-step circle { fill: #107c10; stroke: #ffffff; stroke-width: 2; }
     .edge-step text { fill: #ffffff; font-size: 12px; font-weight: 700; text-anchor: middle; }
     svg[data-profile="conceptual"] .diagram-group .group-surface { stroke-dasharray: none; }
-    svg[data-profile="conceptual"] .diagram-group[data-presentation="lane"] .group-surface { fill: #ffffff; stroke: #9fb3c8; }
-    svg[data-profile="conceptual"] .diagram-group[data-presentation="sidebar"] .group-surface { fill: #f7f5ff; stroke: #7c5ce7; }
-    svg[data-profile="conceptual"] .diagram-group[data-presentation="feedback"] .group-surface { fill: #faf8ff; stroke: #6b4eff; }
-    svg[data-profile="conceptual"] .diagram-group[data-presentation="datastore"] .group-surface { fill: #f7f8fa; stroke: #6b7280; }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="lane"] .group-surface { fill: var(--fdai-diagram-group-lane-fill, #ffffff); stroke: var(--fdai-diagram-group-lane-stroke, #9fb3c8); }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="sidebar"] .group-surface { fill: var(--fdai-diagram-group-sidebar-fill, #f7f5ff); stroke: var(--fdai-diagram-group-sidebar-stroke, #7c5ce7); }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="feedback"] .group-surface { fill: var(--fdai-diagram-group-feedback-fill, #faf8ff); stroke: var(--fdai-diagram-group-feedback-stroke, #6045df); }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="datastore"] .group-surface { fill: var(--fdai-diagram-group-datastore-fill, #f7f8fa); stroke: var(--fdai-diagram-group-datastore-stroke, #6b7280); }
     svg[data-profile="azure-reference"] .diagram-title { font-size: 24px; }
     svg[data-profile="azure-reference"] .diagram-group .group-surface { stroke-dasharray: none; }
     svg[data-profile="azure-reference"] .diagram-group .group-header { fill: transparent; }
@@ -617,7 +625,7 @@ export async function renderSvg(
     svg[data-profile="azure-reference"] .edge-label-text,
     svg[data-profile="azure-reference"] .legend-item text { fill: #484644; font-weight: 650; }
   </style>
-  <rect class="diagram-background" width="${width}" height="${height}" fill="${spec.canvas.profile === "azure-reference" || spec.canvas.profile === "conceptual" ? "#ffffff" : "var(--fdai-diagram-canvas, #faf9f8)"}"/>
+  <rect class="diagram-background" width="${width}" height="${height}" fill="${spec.canvas.profile === "azure-reference" ? "#ffffff" : "var(--fdai-diagram-canvas, #faf9f8)"}"/>
   <text class="diagram-title" x="48" y="45">${escapeXml(spec.locales[locale].title)}</text>
   <text class="diagram-subtitle" x="48" y="72">${escapeXml(spec.locales[locale].description)}</text>
   <g data-diagram-viewport="">${groups}${edges}${nodes}${renderLegend(spec, locale, height - 30)}</g>
