@@ -235,6 +235,11 @@ compares the intended effect with fresh evidence and emits a `ReconciliationRece
 `matched`, `mismatched`, `timed_out`, or `unscorable`. Only the authoritative projection updates
 observed state.
 
+The reconciliation coordinator binds the exact release, ActionType, immutable plan, authenticated
+observer context, and independently observed records before closing an attempt. A terminal outcome
+and its proposal-only next-step event commit atomically; neither the receipt nor its outbox entry
+updates provider-observed state or grants execution authority.
+
 Observed inventory relationships may carry immutable state-fact and verification metadata. The
 projection preserves that envelope without treating it as permission, suppresses relationship
 claims for incomplete observations, and lets stale, synthetic, conflicting, or unverified evidence

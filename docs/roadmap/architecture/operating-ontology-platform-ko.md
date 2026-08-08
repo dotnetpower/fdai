@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 0cb9d53b1f3967ff51e2287615ac401edbb048e4
+translation_source_sha: a63dbdd67791b0e2ab72cbaea7c2c797cb570498
 translation_revised: 2026-08-09
 ---
 # FDAI 온톨로지 안전 인프라
@@ -234,6 +234,11 @@ receipt는 read-only provenance이며 diagnostic function을 action으로 바꾸
 `provider_observed` object에서는 성공한 API receipt가 state update가 아닙니다. Reconciliation은
 intended effect를 fresh evidence와 비교하고 `matched`, `mismatched`, `timed_out`, `unscorable` 중
 하나인 `ReconciliationReceipt`을 emit합니다. Authoritative projection만 observed state를 갱신합니다.
+
+Reconciliation coordinator는 attempt를 닫기 전에 exact release, ActionType, immutable plan,
+authenticated observer context, independently observed record를 바인딩합니다. Terminal outcome과
+proposal-only next-step event는 atomic하게 commit되며 receipt와 outbox entry 모두 provider-observed
+state를 update하거나 execution authority를 부여하지 않습니다.
 
 Observed inventory relationship은 immutable state-fact 및 verification metadata를 운반할 수
 있습니다. Projection은 이를 권한으로 취급하지 않고 envelope를 보존하며 incomplete observation의

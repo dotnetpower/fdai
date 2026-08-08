@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 999,
+  "file_count": 1001,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "767d30b9a69ee481b736652645e723b44ac61262b8ccc96e8e0594379d764955",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -451,6 +451,8 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/projection.py": "fd701db72ed5de5a32841b316b449894c657f83b5b39d29c93087a49df5f176b",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_gateway.py": "19d9cd471fd4092f3431f644ae830e134f47977ec3352e3abf38f7a0739f2dc9",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_profiles.py": "6c176498d28302acc102810d49755af34bbf96b4111d8d37d6807bcf0bb6e072",
+    "services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py": "7c7b04c05cfc794e24a8849b368b3cec1b4bd8257de20411be23153421d26aee",
+    "services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py": "9c1ff304f6b025b995f8f4f5dbac34acd7d89a3fbbb8dbd3031a91290ada67f0",
     "services/core-control-plane/src/fdai/core/ontology_platform/sdk_codegen.py": "f26e11f44bb593cd64ec9e5312ffec39f10aba8be2084f60a3cd22a27f397303",
     "services/core-control-plane/src/fdai/core/ontology_platform/semantic_plans.py": "8727465b401604a798ebaa42b688484a5d0914b799a36246c9d79e8374368c43",
     "services/core-control-plane/src/fdai/core/ontology_platform/semantic_query.py": "2c77c48aed6d6c2a0716d21f7472a7fdbb0038e74c583fbc3472fe744fdf26cf",
@@ -1002,7 +1004,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-08T16:44:51Z",
+  "generated_at": "2026-08-08T16:46:08Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",
