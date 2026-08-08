@@ -10,6 +10,7 @@ from typing import Any
 import psycopg
 from psycopg.rows import dict_row
 
+_EXECUTOR_ROLE = "fdai_executor"
 _SELECT_SQL = "SELECT result FROM action_idempotency WHERE idempotency_key = %s"
 _INSERT_SQL = (
     "INSERT INTO action_idempotency (idempotency_key, result) "
@@ -56,6 +57,19 @@ class PostgresIdempotencyStore:
         """Fail startup unless the migration-owned idempotency schema is exact."""
         async with await self._connect(row_factory=dict_row) as connection:
             await self._prepare(connection)
+            readiness = await (
+                await connection.execute(
+                    "SELECT current_user AS database_role, "
+                    "has_table_privilege(current_user, 'action_idempotency', "
+                    "'SELECT, INSERT') AS ready"
+                )
+            ).fetchone()
+            if (
+                readiness is None
+                or str(readiness["database_role"]) != _EXECUTOR_ROLE
+                or readiness["ready"] is not True
+            ):
+                raise RuntimeError("Executor database role or idempotency grants are invalid")
             columns = await (
                 await connection.execute(
                     "SELECT column_name FROM information_schema.columns "

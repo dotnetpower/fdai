@@ -16,6 +16,11 @@ from fdai_executor_service.ports import PendingExecutorReceipt
 
 _GENESIS_HASH: Final[str] = "0" * 64
 _AUDIT_APPEND_LOCK_KEY: Final[int] = 0x0FDA10AAAAAA01
+_EXECUTOR_ROLE: Final[str] = "fdai_executor"
+_EXECUTOR_STATE_PREFIXES: Final[tuple[str, ...]] = (
+    "isolated-executor:",
+    "isolated_executor_",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +82,24 @@ class PostgresStateStore:
             connect_timeout=self._config.connect_timeout_s,
         ) as connection:
             await self._set_statement_timeout(connection)
+            readiness = await (
+                await connection.execute(
+                    "SELECT current_user AS database_role, "
+                    "has_table_privilege(current_user, 'state_kv', "
+                    "'SELECT, INSERT, UPDATE, DELETE') "
+                    "AND has_table_privilege(current_user, 'audit_log', 'SELECT, INSERT') "
+                    "AND has_sequence_privilege(current_user, 'audit_log_seq_seq', "
+                    "'USAGE, SELECT') "
+                    "AND has_table_privilege(current_user, 'executor_receipt_outbox', "
+                    "'SELECT, INSERT, UPDATE') AS ready"
+                )
+            ).fetchone()
+            if (
+                readiness is None
+                or str(readiness["database_role"]) != _EXECUTOR_ROLE
+                or readiness["ready"] is not True
+            ):
+                raise RuntimeError("Executor database role or persistence grants are invalid")
             rows = await (
                 await connection.execute(
                     "SELECT table_name, column_name FROM information_schema.columns "
@@ -107,6 +130,8 @@ class PostgresStateStore:
     async def read_state(self, key: str) -> Mapping[str, Any] | None:
         """Read one durable attempt record without treating corruption as a miss."""
 
+        _require_executor_state_key(key)
+
         async with await psycopg.AsyncConnection.connect(
             self._config.dsn,
             row_factory=dict_row,
@@ -130,6 +155,8 @@ class PostgresStateStore:
         audit_entry: Mapping[str, Any],
     ) -> bool:
         """Atomically claim one attempt and append its terminal audit record."""
+
+        _require_executor_state_key(key)
 
         async with await psycopg.AsyncConnection.connect(
             self._config.dsn,
@@ -260,6 +287,7 @@ class PostgresStateStore:
         connection: psycopg.AsyncConnection[Any],
         payload: Mapping[str, Any],
     ) -> None:
+        _require_executor_audit_entry(payload)
         mode = str(payload.get("mode", "shadow"))
         if mode not in {"shadow", "enforce"}:
             raise ValueError("audit entry mode MUST be 'shadow' or 'enforce'")
@@ -292,6 +320,22 @@ class PostgresStateStore:
                 entry_hash,
             ),
         )
+
+
+def _require_executor_state_key(key: str) -> None:
+    if not any(key.startswith(prefix) for prefix in _EXECUTOR_STATE_PREFIXES):
+        raise ValueError("Executor state key is outside the isolated-executor namespace")
+
+
+def _require_executor_audit_entry(payload: Mapping[str, Any]) -> None:
+    phase = payload.get("audit_phase")
+    effect_entry = payload.get("actor") == "fdai_executor_service.effect_executor" and phase in {
+        "intent",
+        "terminal",
+    }
+    shadow_terminal = payload.get("kind") == "isolated_executor.shadow_terminal"
+    if not effect_entry and not shadow_terminal:
+        raise ValueError("Executor audit entry is outside the intent or terminal scope")
 
 
 def _canonical(entry: Mapping[str, Any]) -> str:

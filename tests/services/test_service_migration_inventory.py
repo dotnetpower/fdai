@@ -205,19 +205,21 @@ def test_forward_revision_rejects_unowned_downgrade_ddl(tmp_path: Path) -> None:
 
 def test_document_worker_declares_lifecycle_schema_prerequisite() -> None:
     raw = json.loads((MIGRATION_ROOT / "ownership.json").read_text(encoding="utf-8"))
-    assert raw["migration_dependencies"] == [
-        {
-            "consumer_service": "document-processing-worker",
-            "consumer_revision": "document_worker_outbox_20260808",
-            "provider_service": "document-ingestion-api",
-            "provider_revision": "ingestion_api_outbox_20260808",
-            "schema_prerequisites": [
-                "document_upload_session.revision",
-                "document_version.revision",
-            ],
-            "provider_rollback": "blocked-until-consumer-baseline",
-        }
-    ]
+    dependencies = {
+        (item["consumer_service"], item["consumer_revision"]): item
+        for item in raw["migration_dependencies"]
+    }
+    assert dependencies[("document-processing-worker", "document_worker_outbox_20260808")] == {
+        "consumer_service": "document-processing-worker",
+        "consumer_revision": "document_worker_outbox_20260808",
+        "provider_service": "document-ingestion-api",
+        "provider_revision": "ingestion_api_outbox_20260808",
+        "schema_prerequisites": [
+            "document_upload_session.revision",
+            "document_version.revision",
+        ],
+        "provider_rollback": "blocked-until-consumer-baseline",
+    }
 
     revision_path = (
         MIGRATION_ROOT
@@ -293,6 +295,40 @@ def test_ingestion_api_downgrade_rejects_deployed_worker_dependency() -> None:
     with pytest.raises(RuntimeError, match="document-processing-worker"):
         downgrade()
     assert UnsafeDowngradeOp.dropped == []
+
+
+def test_executor_runtime_role_is_guarded_and_least_privileged() -> None:
+    raw = json.loads((MIGRATION_ROOT / "ownership.json").read_text(encoding="utf-8"))
+    dependencies = {
+        (item["consumer_service"], item["consumer_revision"]): item
+        for item in raw["migration_dependencies"]
+    }
+    assert dependencies[("isolated-executor", "executor_runtime_role_20260808")] == {
+        "consumer_service": "isolated-executor",
+        "consumer_revision": "executor_runtime_role_20260808",
+        "provider_service": "core-control-plane",
+        "provider_revision": "core_shared_data_ownership_20260808",
+        "schema_prerequisites": ["state_kv_namespace_owner", "audit_log.seq"],
+        "provider_rollback": "blocked-until-executor-baseline",
+    }
+    source = (
+        MIGRATION_ROOT / "branches/isolated-executor/versions/20260808_executor_runtime_role.py"
+    ).read_text(encoding="utf-8")
+
+    assert "CREATE ROLE fdai_executor" in source
+    assert "NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE" in source
+    assert "NOINHERIT NOREPLICATION NOBYPASSRLS" in source
+    assert "FROM PUBLIC, fdai_executor" in source
+    assert "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE state_kv TO fdai_executor" in source
+    assert "GRANT SELECT, INSERT ON TABLE audit_log TO fdai_executor" in source
+    assert "GRANT SELECT, INSERT ON TABLE action_idempotency TO fdai_executor" in source
+    assert (
+        "GRANT SELECT, INSERT, UPDATE ON TABLE executor_receipt_outbox TO fdai_executor" in source
+    )
+    assert "current_user = 'fdai_executor'" in source
+    assert "starts_with(source_key, 'isolated-executor:')" in source
+    assert "starts_with(target_key, 'isolated-executor:')" in source
+    assert "GRANT UPDATE, DELETE ON TABLE audit_log" not in source
 
 
 def test_worker_migration_widens_claim_check_and_blocks_inflight_deletion() -> None:

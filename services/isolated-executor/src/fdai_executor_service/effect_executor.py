@@ -158,6 +158,7 @@ class ServiceDirectApiEffectExecutor:
             await locks.enter_async_context(
                 self._resource_lock.acquire(resource_lock_key(action.target_resource_ref))
             )
+            expired_reason: str | None = None
             if deadline_at is not None:
                 now = self._clock()
                 if now.tzinfo is None or deadline_at.tzinfo is None:
@@ -167,11 +168,7 @@ class ServiceDirectApiEffectExecutor:
                         "effect deadline and executor clock MUST be timezone-aware",
                     )
                 if now > deadline_at:
-                    return await self._finish(
-                        action,
-                        DirectApiEffectOutcome.EXPIRED,
-                        "command deadline expired while waiting for effect locks",
-                    )
+                    expired_reason = "command deadline expired while waiting for effect locks"
 
             if self._idempotency is not None:
                 stored = await self._idempotency.seen(action.idempotency_key)
@@ -182,6 +179,16 @@ class ServiceDirectApiEffectExecutor:
                         if resolved is stored_result:
                             self._remember(cache_key, stored_result)
                         return resolved
+
+            if expired_reason is not None:
+                recovered = await self._recover_provider_status_locked(action)
+                if recovered is not None:
+                    return recovered
+                return await self._finish(
+                    action,
+                    DirectApiEffectOutcome.EXPIRED,
+                    expired_reason,
+                )
 
             blast_reason = blast_radius_refusal(action, self._config)
             if blast_reason is not None:
@@ -242,26 +249,34 @@ class ServiceDirectApiEffectExecutor:
                         self._remember(cache_key, stored_result)
                     return resolved
 
-            if not isinstance(self._executor, DirectApiOperationStatusReader):
-                return None
-            try:
-                receipt = await self._executor.operation_status(build_direct_api_request(action))
-            except DirectApiError as exc:
-                return await self._finish_provider_error(action, exc)
-            except Exception:  # noqa: BLE001 - provider status boundary
-                _LOGGER.error(
-                    "isolated_executor_provider_status_uncontrolled_error",
-                    extra={"failure_kind": "uncontrolled_provider_status_error"},
-                )
-                return await self._finish(
-                    action,
-                    DirectApiEffectOutcome.FAILED,
-                    "provider status failed with an uncontrolled error",
-                    rollback_succeeded=False,
-                )
-            if receipt is None:
-                return None
-            return await self._finish_from_receipt(action, receipt)
+            return await self._recover_provider_status_locked(action)
+
+    async def _recover_provider_status_locked(
+        self,
+        action: Action,
+    ) -> DirectApiEffectResult | None:
+        if action.mode is not Mode.ENFORCE or not isinstance(
+            self._executor, DirectApiOperationStatusReader
+        ):
+            return None
+        try:
+            receipt = await self._executor.operation_status(build_direct_api_request(action))
+        except DirectApiError as exc:
+            return await self._finish_provider_error(action, exc)
+        except Exception:  # noqa: BLE001 - provider status boundary
+            _LOGGER.error(
+                "isolated_executor_provider_status_uncontrolled_error",
+                extra={"failure_kind": "uncontrolled_provider_status_error"},
+            )
+            return await self._finish(
+                action,
+                DirectApiEffectOutcome.FAILED,
+                "provider status failed with an uncontrolled error",
+                rollback_succeeded=False,
+            )
+        if receipt is None:
+            return None
+        return await self._finish_from_receipt(action, receipt)
 
     async def _finish_provider_error(
         self,

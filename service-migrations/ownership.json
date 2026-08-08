@@ -7,6 +7,17 @@
   },
   "migration_dependencies": [
     {
+      "consumer_service": "isolated-executor",
+      "consumer_revision": "executor_runtime_role_20260808",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_shared_data_ownership_20260808",
+      "schema_prerequisites": [
+        "state_kv_namespace_owner",
+        "audit_log.seq"
+      ],
+      "provider_rollback": "blocked-until-executor-baseline"
+    },
+    {
       "consumer_service": "document-processing-worker",
       "consumer_revision": "document_worker_outbox_20260808",
       "provider_service": "document-ingestion-api",

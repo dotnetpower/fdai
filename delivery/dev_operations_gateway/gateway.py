@@ -39,6 +39,13 @@ _MUTATION_OPERATIONS = frozenset(
         "azure.compute.vm.deallocate",
     }
 )
+_EXECUTOR_VERTICAL_ORDER = ("change", "resilience", "finops")
+_OPERATION_VERTICALS = {
+    "azure.network.nsg.rule.upsert": "change",
+    "azure.network.nsg.rule.delete": "change",
+    "azure.compute.vm.start": "resilience",
+    "azure.compute.vm.deallocate": "finops",
+}
 
 
 class GatewayError(RuntimeError):
@@ -101,7 +108,7 @@ class GatewayConfig:
     subscription_id: str
     resource_groups: frozenset[str]
     contributor_group_id: str
-    executor_principal_ids: frozenset[str]
+    executor_principal_ids: tuple[str, str, str]
     reader_identity_client_id: str
     executor_identity_client_id: str
     idempotency_container_url: str
@@ -141,15 +148,24 @@ class GatewayConfig:
         mutations_raw = values.get("FDAI_DEV_GATEWAY_MUTATIONS_ENABLED", "0").strip()
         if mutations_raw not in {"0", "1"}:
             raise ValueError("FDAI_DEV_GATEWAY_MUTATIONS_ENABLED MUST be 0 or 1")
-        executor_principal_ids = frozenset(
+        parsed_executor_principal_ids = tuple(
             item.strip()
             for item in values.get("FDAI_DEV_GATEWAY_EXECUTOR_PRINCIPAL_IDS", "").split(",")
             if item.strip()
         )
-        if not executor_principal_ids or len(executor_principal_ids) > 8:
-            raise ValueError("executor principal ids MUST contain between 1 and 8 entries")
-        if any(len(item) > 256 for item in executor_principal_ids):
+        if len(parsed_executor_principal_ids) != len(_EXECUTOR_VERTICAL_ORDER):
+            raise ValueError(
+                "executor principal ids MUST contain change, resilience, and finops in order"
+            )
+        if len(set(parsed_executor_principal_ids)) != len(parsed_executor_principal_ids):
+            raise ValueError("executor principal ids MUST be distinct")
+        if any(len(item) > 256 for item in parsed_executor_principal_ids):
             raise ValueError("executor principal ids MUST be bounded")
+        executor_principal_ids = (
+            parsed_executor_principal_ids[0],
+            parsed_executor_principal_ids[1],
+            parsed_executor_principal_ids[2],
+        )
         config = cls(
             subscription_id=values.get("FDAI_DEV_GATEWAY_SUBSCRIPTION_ID", "").strip(),
             resource_groups=groups,
@@ -278,7 +294,11 @@ class OperationsGateway:
             result = await handler(payload)
             return {"operation_id": operation_id, "status": "succeeded", "result": result}
 
-        idempotency_key, dry_run_receipt = self._authorize_mutation(principal, payload)
+        idempotency_key, dry_run_receipt = self._authorize_mutation(
+            operation_id,
+            principal,
+            payload,
+        )
         if self._idempotency is None:
             raise GatewayError(
                 503,
@@ -367,14 +387,24 @@ class OperationsGateway:
         payload: Mapping[str, object],
         principal: GatewayPrincipal,
     ) -> Mapping[str, object]:
-        self._authorize_executor(principal)
         if self._idempotency is None:
             raise GatewayError(503, "idempotency_unavailable", "operation ledger is unavailable")
+        target_operation = _bounded(payload, "operation_id", maximum=128)
+        self._authorize_executor(principal, target_operation)
         idempotency_key = _bounded(payload, "idempotency_key", maximum=512)
         try:
             record = await self._idempotency.lookup(idempotency_key)
         except IdempotencyError as exc:
             raise GatewayError(exc.status_code, exc.code, str(exc)) from exc
+        recorded_operation = record.get("operation_id")
+        if not isinstance(recorded_operation, str):
+            raise GatewayError(503, "idempotency_unavailable", "operation identity is missing")
+        if recorded_operation != target_operation:
+            raise GatewayError(
+                409,
+                "operation_identity_conflict",
+                "operation status identity does not match the durable record",
+            )
         result = record.get("result")
         if record.get("status") in {"succeeded", "failed"} and isinstance(result, Mapping):
             provider_status = result.get("provider_status")
@@ -421,10 +451,10 @@ class OperationsGateway:
         payload: Mapping[str, object],
         principal: GatewayPrincipal,
     ) -> Mapping[str, object]:
-        self._authorize_executor(principal)
         if self._idempotency is None:
             raise GatewayError(503, "idempotency_unavailable", "operation ledger is unavailable")
         target_operation = _bounded(payload, "operation_id", maximum=128)
+        self._authorize_executor(principal, target_operation)
         arguments = payload.get("arguments")
         if not isinstance(arguments, Mapping):
             raise GatewayError(400, "payload_invalid", "plan arguments MUST be an object")
@@ -462,10 +492,12 @@ class OperationsGateway:
             raise GatewayError(403, "forbidden", "Contributor access is required")
 
     def _authorize_mutation(
-        self, principal: GatewayPrincipal, payload: Mapping[str, object]
+        self,
+        operation_id: str,
+        principal: GatewayPrincipal,
+        payload: Mapping[str, object],
     ) -> tuple[str, str]:
-        if principal.object_id not in self._config.executor_principal_ids:
-            raise GatewayError(403, "executor_required", "Thor executor identity is required")
+        self._authorize_executor(principal, operation_id)
         safety = payload.get("safety")
         if not isinstance(safety, Mapping):
             raise GatewayError(400, "safety_missing", "mutation safety envelope is required")
@@ -493,9 +525,21 @@ class OperationsGateway:
             if not isinstance(value, str) or not value.strip() or len(value) > 512:
                 raise GatewayError(400, "safety_invalid", f"safety.{field} MUST be bounded")
 
-    def _authorize_executor(self, principal: GatewayPrincipal) -> None:
-        if principal.object_id not in self._config.executor_principal_ids:
-            raise GatewayError(403, "executor_required", "Thor executor identity is required")
+    def _authorize_executor(
+        self,
+        principal: GatewayPrincipal,
+        operation_id: str,
+    ) -> None:
+        vertical = _OPERATION_VERTICALS.get(operation_id)
+        if vertical is None:
+            raise GatewayError(404, "operation_not_found", "mutation operation is not registered")
+        expected_index = _EXECUTOR_VERTICAL_ORDER.index(vertical)
+        if principal.object_id != self._config.executor_principal_ids[expected_index]:
+            raise GatewayError(
+                403,
+                "executor_vertical_denied",
+                "Thor executor identity is not authorized for this operation vertical",
+            )
 
     def _mutation_resource_key(
         self,

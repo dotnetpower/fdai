@@ -103,7 +103,7 @@ def _request(mode: Mode) -> DirectApiRequest:
             "stop_condition": "provider_api_error_streak",
             "rollback_ref": "state_forward_only",
             "max_resources": "1",
-            "executor_identity_ref": "identity/change",
+            "executor_identity_ref": "identity/resilience",
         },
     )
 
@@ -149,7 +149,7 @@ async def test_gateway_plans_before_enforce_mutation() -> None:
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         receipt = await AzureGatewayDirectApiExecutor(
             config=_gateway_config(),
-            identities={"identity/change": _Identity("gateway-token")},
+            identities={"identity/resilience": _Identity("gateway-token")},
             http_client=client,
         ).execute(_request(Mode.ENFORCE))
 
@@ -175,7 +175,7 @@ async def test_gateway_redelivery_reconstructs_applied_receipt_without_re_effect
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         receipt = await AzureGatewayDirectApiExecutor(
             config=_gateway_config(),
-            identities={"identity/change": _Identity("gateway-token")},
+            identities={"identity/resilience": _Identity("gateway-token")},
             http_client=client,
         ).execute(_request(Mode.ENFORCE))
 
@@ -202,7 +202,7 @@ async def test_gateway_status_only_recovery_never_plans_or_dispatches() -> None:
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         receipt = await AzureGatewayDirectApiExecutor(
             config=_gateway_config(),
-            identities={"identity/change": _Identity("gateway-token")},
+            identities={"identity/resilience": _Identity("gateway-token")},
             http_client=client,
         ).operation_status(_request(Mode.ENFORCE))
 
@@ -245,7 +245,7 @@ async def test_gateway_uses_exact_action_bound_executor_identity() -> None:
         _request(Mode.ENFORCE),
         metadata={
             **_request(Mode.ENFORCE).metadata,
-            "executor_identity_ref": "identity/change",
+            "executor_identity_ref": "identity/resilience",
         },
     )
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
@@ -259,9 +259,9 @@ async def test_gateway_uses_exact_action_bound_executor_identity() -> None:
         ).execute(request)
 
     assert receipt.outcome is DirectApiOutcome.SUCCEEDED
-    assert authorization_headers == ["Bearer change-token"] * 3
-    assert change_identity.audiences == ["gateway-audience"] * 3
-    assert resilience_identity.audiences == []
+    assert authorization_headers == ["Bearer resilience-token"] * 3
+    assert change_identity.audiences == []
+    assert resilience_identity.audiences == ["gateway-audience"] * 3
 
 
 @pytest.mark.parametrize("identity_ref", (None, "identity/unknown"))
@@ -295,6 +295,50 @@ async def test_gateway_rejects_unbound_executor_identity_before_http(
 
 
 @pytest.mark.parametrize(
+    ("action_type_name", "wrong_identity_ref"),
+    (
+        ("ops.start-vm", "identity/change"),
+        ("ops.deallocate-vm", "identity/resilience"),
+        ("ops.upsert-network-rule", "identity/resilience"),
+        ("ops.delete-network-rule", "identity/finops"),
+    ),
+)
+async def test_gateway_rejects_wrong_vertical_identity_before_http(
+    action_type_name: str,
+    wrong_identity_ref: str,
+) -> None:
+    calls = 0
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(500)
+
+    request = replace(
+        _request(Mode.ENFORCE),
+        action_type_name=action_type_name,
+        metadata={
+            **_request(Mode.ENFORCE).metadata,
+            "executor_identity_ref": wrong_identity_ref,
+        },
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        executor = AzureGatewayDirectApiExecutor(
+            config=_gateway_config(),
+            identities={
+                "identity/change": _Identity("change-token"),
+                "identity/resilience": _Identity("resilience-token"),
+                "identity/finops": _Identity("finops-token"),
+            },
+            http_client=client,
+        )
+        with pytest.raises(DirectApiPreconditionError, match="vertical identity"):
+            await executor.execute(request)
+
+    assert calls == 0
+
+
+@pytest.mark.parametrize(
     ("status_code", "error_type"),
     ((401, DirectApiAuthenticationError), (403, DirectApiPermissionDeniedError)),
 )
@@ -308,7 +352,7 @@ async def test_gateway_redacts_authorization_response(
     async with httpx.AsyncClient(transport=transport) as client:
         executor = AzureGatewayDirectApiExecutor(
             config=_gateway_config(),
-            identities={"identity/change": _Identity("gateway-token")},
+            identities={"identity/resilience": _Identity("gateway-token")},
             http_client=client,
         )
         with pytest.raises(error_type) as caught:
@@ -322,7 +366,7 @@ async def test_gateway_rejects_oversized_response() -> None:
     async with httpx.AsyncClient(transport=transport) as client:
         executor = AzureGatewayDirectApiExecutor(
             config=_gateway_config(),
-            identities={"identity/change": _Identity("gateway-token")},
+            identities={"identity/resilience": _Identity("gateway-token")},
             http_client=client,
         )
         with pytest.raises(RuntimeError, match="too large"):
@@ -352,7 +396,7 @@ async def test_gateway_rejects_unregistered_operation_before_http() -> None:
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         executor = AzureGatewayDirectApiExecutor(
             config=_gateway_config(),
-            identities={"identity/change": _Identity("gateway-token")},
+            identities={"identity/resilience": _Identity("gateway-token")},
             http_client=client,
         )
         with pytest.raises(DirectApiPreconditionError, match="no registered operation"):

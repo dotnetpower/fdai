@@ -124,18 +124,60 @@ async def test_state_claim_and_audit_share_one_transaction(
     store = PostgresStateStore(config=PostgresStateStoreConfig(dsn="postgresql://example"))
 
     created = await store.write_state_with_audit_if_absent(
-        "attempt-one",
+        "isolated-executor:attempt-one",
         {"revision": 1},
-        {"idempotency_key": "attempt-one", "mode": "shadow"},
+        {
+            "kind": "isolated_executor.shadow_terminal",
+            "idempotency_key": "attempt-one",
+            "mode": "shadow",
+        },
     )
 
     assert created is True
     assert connection.transaction_entries == 1
     insert_calls = [call for call in connection.calls if "INSERT INTO" in call[0]]
     assert len(insert_calls) == 2
-    assert insert_calls[0][1][0] == "attempt-one"
+    assert insert_calls[0][1][0] == "isolated-executor:attempt-one"
     assert "%s" in insert_calls[0][0]
-    assert "attempt-one" not in insert_calls[0][0]
+    assert "isolated-executor:attempt-one" not in insert_calls[0][0]
+
+
+async def test_state_store_rejects_foreign_namespace_and_audit_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = _Connection()
+
+    async def connect(*_args: object, **_kwargs: object) -> _Connection:
+        return connection
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", connect)
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn="postgresql://example"))
+
+    with pytest.raises(ValueError, match="namespace"):
+        await store.read_state("core-control-plane:attempt-one")
+    with pytest.raises(ValueError, match="intent or terminal"):
+        await store.append_audit_entry({"kind": "foreign.audit", "mode": "enforce"})
+
+
+@pytest.mark.parametrize(
+    ("database_role", "ready"),
+    (("fdai_core", True), ("fdai_executor", False)),
+)
+async def test_state_store_readiness_requires_exact_role_and_privileges(
+    monkeypatch: pytest.MonkeyPatch,
+    database_role: str,
+    ready: bool,
+) -> None:
+    connection = _Connection(rows=[None, {"database_role": database_role, "ready": ready}])
+
+    async def connect(*_args: object, **_kwargs: object) -> _Connection:
+        return connection
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", connect)
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn="postgresql://example"))
+
+    with pytest.raises(RuntimeError, match="database role or persistence grants"):
+        await store.assert_schema()
 
 
 async def test_resource_lock_uses_bound_key_and_always_unlocks(
@@ -187,6 +229,7 @@ async def test_idempotency_store_fails_closed_when_schema_is_incomplete(
     connection = _Connection(
         rows=[
             None,
+            {"database_role": "fdai_executor", "ready": True},
             [{"column_name": "idempotency_key"}],
             [{"attname": "idempotency_key"}],
         ]
@@ -201,6 +244,29 @@ async def test_idempotency_store_fails_closed_when_schema_is_incomplete(
     )
 
     with pytest.raises(RuntimeError, match="schema is missing or incompatible"):
+        await store.assert_schema()
+
+
+@pytest.mark.parametrize(
+    ("database_role", "ready"),
+    (("fdai_core", True), ("fdai_executor", False)),
+)
+async def test_idempotency_readiness_requires_exact_role_and_privileges(
+    monkeypatch: pytest.MonkeyPatch,
+    database_role: str,
+    ready: bool,
+) -> None:
+    connection = _Connection(rows=[None, {"database_role": database_role, "ready": ready}])
+
+    async def connect(*_args: object, **_kwargs: object) -> _Connection:
+        return connection
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", connect)
+    store = PostgresIdempotencyStore(
+        config=PostgresIdempotencyStoreConfig(dsn="postgresql://example")
+    )
+
+    with pytest.raises(RuntimeError, match="database role or idempotency grants"):
         await store.assert_schema()
 
 

@@ -422,6 +422,44 @@ async def test_effect_command_expired_while_waiting_never_reaches_provider() -> 
     assert [row["entry"]["audit_phase"] for row in audit.audit_entries] == ["terminal"]
 
 
+async def test_effect_command_recovers_provider_status_before_post_lock_expiry() -> None:
+    audit = InMemoryStateStore()
+    provider = _RecoverableProvider()
+    provider.applied = True
+    issued_at = datetime(2026, 8, 8, tzinfo=UTC)
+    deadline_at = issued_at + timedelta(seconds=30)
+    executor = ServiceDirectApiEffectExecutor(
+        executor=provider,
+        audit_store=audit,
+        resource_lock=_ResourceLock(),
+        idempotency=InMemoryIdempotencyStore(),
+        allow_enforce=True,
+        clock=lambda: deadline_at + timedelta(microseconds=1),
+    )
+    service = IsolatedExecutorEffectService(
+        direct_api_executor=executor,
+        contract_validator=JsonSchemaContractValidator(PackageResourceSchemaRegistry()),
+        executor_instance_id="isolated-executor-effect-1",
+        clock=lambda: issued_at,
+    )
+    command = ExecutorCommand.from_action(
+        command_id=UUID("00000000-0000-0000-0000-000000000810"),
+        action=_action(),
+        execution_path=ExecutionPath.DIRECT_API,
+        attempt=1,
+        issued_at=issued_at,
+        deadline_at=deadline_at,
+    )
+
+    receipt = await service.handle(command)
+
+    assert receipt.status is ExecutorEffectReceiptStatus.ALREADY_APPLIED
+    assert receipt.effect_applied is True
+    assert provider.execute_calls == 0
+    assert provider.status_calls == 1
+    assert [row["entry"]["audit_phase"] for row in audit.audit_entries] == ["terminal"]
+
+
 async def test_core_client_rejects_receipt_rebound_to_another_action() -> None:
     bus = InMemoryEventBus()
     audit = InMemoryStateStore()

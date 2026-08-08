@@ -27,6 +27,7 @@ def _environment(**changes: str) -> dict[str, str]:
         "KAFKA_BOOTSTRAP_SERVERS": "example.servicebus.windows.net:9093",
         "KAFKA_TOPIC_DLQ_SUFFIX": ".dlq",
         "FDAI_STATE_STORE_DSN": "postgresql://example.invalid/fdai",
+        "FDAI_DATABASE_ROLE": "fdai_executor",
         "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID": "shadow-identity-client",
         "FDAI_ISOLATED_EXECUTOR_INSTANCE_ID": "executor-shadow-1",
     }
@@ -38,6 +39,7 @@ def test_config_requires_deployed_shadow_identity_and_durability() -> None:
     for missing in (
         "KAFKA_BOOTSTRAP_SERVERS",
         "FDAI_STATE_STORE_DSN",
+        "FDAI_DATABASE_ROLE",
         "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID",
     ):
         environment = _environment()
@@ -47,6 +49,8 @@ def test_config_requires_deployed_shadow_identity_and_durability() -> None:
 
     with pytest.raises(RuntimeError, match="FDAI_ISOLATED_EXECUTOR_DEPLOYED"):
         IsolatedExecutorRuntimeConfig.from_env(_environment(FDAI_ISOLATED_EXECUTOR_DEPLOYED="0"))
+    with pytest.raises(RuntimeError, match="FDAI_DATABASE_ROLE MUST be fdai_executor"):
+        IsolatedExecutorRuntimeConfig.from_env(_environment(FDAI_DATABASE_ROLE="fdai_core"))
 
     config = IsolatedExecutorRuntimeConfig.from_env(_environment(RUNTIME_ENV="dev"))
     assert config.executor_instance_id == "executor-shadow-1"

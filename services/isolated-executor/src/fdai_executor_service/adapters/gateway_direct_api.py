@@ -29,6 +29,12 @@ _ACTION_OPERATIONS = {
     "ops.upsert-network-rule": "azure.network.nsg.rule.upsert",
     "ops.delete-network-rule": "azure.network.nsg.rule.delete",
 }
+_ACTION_IDENTITY_REFS = {
+    "ops.start-vm": "identity/resilience",
+    "ops.deallocate-vm": "identity/finops",
+    "ops.upsert-network-rule": "identity/change",
+    "ops.delete-network-rule": "identity/change",
+}
 _EXECUTOR_IDENTITY_REFS = frozenset({"identity/change", "identity/resilience", "identity/finops"})
 
 
@@ -150,6 +156,11 @@ class AzureGatewayDirectApiExecutor:
             raise DirectApiPreconditionError(
                 "gateway request requires a registered executor_identity_ref"
             )
+        required_identity_ref = _ACTION_IDENTITY_REFS.get(request.action_type_name)
+        if required_identity_ref is not None and identity_ref != required_identity_ref:
+            raise DirectApiPreconditionError(
+                f"{request.action_type_name} requires its registered vertical identity"
+            )
         operation_id = _ACTION_OPERATIONS.get(request.action_type_name)
         if operation_id is None:
             raise DirectApiPreconditionError(
@@ -165,9 +176,17 @@ class AzureGatewayDirectApiExecutor:
         *,
         identity: WorkloadIdentity,
     ) -> DirectApiReceipt | None:
+        operation_id = _ACTION_OPERATIONS.get(request.action_type_name)
+        if operation_id is None:
+            raise DirectApiPreconditionError(
+                f"gateway has no registered operation for {request.action_type_name}"
+            )
         response = await self._invoke(
             "azure.operation.status",
-            {"idempotency_key": request.idempotency_key},
+            {
+                "idempotency_key": request.idempotency_key,
+                "operation_id": operation_id,
+            },
             identity=identity,
             not_found_code="idempotency_not_found",
         )
@@ -204,7 +223,10 @@ class AzureGatewayDirectApiExecutor:
                 await asyncio.sleep(self._config.poll_interval_seconds)
             response = await self._invoke(
                 "azure.operation.status",
-                {"idempotency_key": request.idempotency_key},
+                {
+                    "idempotency_key": request.idempotency_key,
+                    "operation_id": _ACTION_OPERATIONS[request.action_type_name],
+                },
                 identity=identity,
             )
             body = _validated_body(response, expected_operation="azure.operation.status")
