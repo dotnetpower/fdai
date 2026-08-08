@@ -94,6 +94,33 @@ def test_worker_production_requires_explicit_clamav_endpoint() -> None:
         build_worker_runtime(environment)
 
 
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("FDAI_CLAMAV_HOST", "clamav"),
+        ("FDAI_CLAMAV_HOST", "localhost"),
+        ("FDAI_CLAMAV_PORT", "3311"),
+    ],
+)
+def test_worker_production_rejects_non_sidecar_clamav_endpoint(key: str, value: str) -> None:
+    environment = {
+        "FDAI_DATABASE_URL": "postgresql://example.invalid/fdai",
+        "FDAI_DATABASE_ROLE": "fdai_ingestion_worker",
+        "FDAI_INGESTION_DEPLOYMENT_ROLE": "worker",
+        "FDAI_ADLS_ACCOUNT_URL": "https://example.invalid",
+        "FDAI_EMBEDDING_ENDPOINT": "https://example.invalid",
+        "FDAI_EMBEDDING_DEPLOYMENT": "embedding",
+        "FDAI_KAFKA_BOOTSTRAP_SERVERS": "example.invalid:9093",
+        "FDAI_DOCUMENT_EVENT_TOPIC": "aw.pipeline.stages",
+        "FDAI_CLAMAV_HOST": "127.0.0.1",
+        "FDAI_CLAMAV_PORT": "3310",
+        key: value,
+    }
+
+    with pytest.raises(WorkerProductionConfigurationError, match=key):
+        build_worker_runtime(environment)
+
+
 class MemoryMetadata:
     def __init__(self) -> None:
         self.uploads: dict[UUID, UploadSession] = {}

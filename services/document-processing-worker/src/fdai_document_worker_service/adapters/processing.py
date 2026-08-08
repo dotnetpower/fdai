@@ -60,6 +60,32 @@ class ClamAvMalwareScanner:
     def __init__(self, *, config: ClamAvScannerConfig) -> None:
         self._config = config
 
+    def readiness(self) -> AdapterReadiness:
+        """Report validated replica-local clamd composition without opening a socket."""
+        return configured_readiness("clamav")
+
+    async def probe_readiness(self) -> AdapterReadiness:
+        """Require a live clamd engine with a loaded signature database."""
+        adapter = "clamav"
+        try:
+            async with asyncio.timeout(min(self._config.timeout_seconds, 5.0)):
+                ping = await self._command(b"zPING\0")
+                version = await self._command(b"zVERSION\0")
+        except TimeoutError:
+            return live_unavailable_readiness(adapter, "probe_timeout")
+        except (
+            OSError,
+            asyncio.IncompleteReadError,
+            asyncio.LimitOverrunError,
+            UnicodeError,
+        ) as exc:
+            return live_unavailable_readiness(adapter, f"probe_failed:{type(exc).__name__}")
+        if ping != "PONG\0":
+            return live_unavailable_readiness(adapter, "unexpected_ping_response")
+        if not _clamav_version_has_signatures(version):
+            return live_unavailable_readiness(adapter, "signature_database_unavailable")
+        return live_readiness(adapter)
+
     async def scan(self, chunks: AsyncIterator[bytes]) -> MalwareVerdict:
         try:
             return await asyncio.wait_for(self._scan(chunks), self._config.timeout_seconds)
@@ -91,6 +117,32 @@ class ClamAvMalwareScanner:
         if " FOUND\0" in response:
             return MalwareVerdict.INFECTED
         return MalwareVerdict.UNAVAILABLE
+
+    async def _command(self, command: bytes) -> str:
+        reader, writer = await asyncio.open_connection(self._config.host, self._config.port)
+        try:
+            writer.write(command)
+            await writer.drain()
+            return (await reader.readuntil(b"\0")).decode("ascii")
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+
+def _clamav_version_has_signatures(response: str) -> bool:
+    parts = response.rstrip("\0\r\n").split("/", 2)
+    if len(parts) != 3 or not parts[0].startswith("ClamAV "):
+        return False
+    engine_version = parts[0].removeprefix("ClamAV ").strip()
+    signature_revision = parts[1].strip()
+    signature_timestamp = parts[2].strip()
+    return (
+        bool(engine_version)
+        and signature_revision.isdecimal()
+        and int(signature_revision) > 0
+        and bool(signature_timestamp)
+        and signature_timestamp.casefold() != "unknown"
+    )
 
 
 class SignatureProtectionInspector:

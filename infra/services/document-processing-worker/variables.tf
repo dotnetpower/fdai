@@ -31,8 +31,8 @@ variable "clamav" {
   }
 
   validation {
-    condition     = trimspace(var.clamav.host) != "" && var.clamav.port > 0 && var.clamav.port < 65536
-    error_message = "clamav.host must be explicit and clamav.port must be valid."
+    condition     = var.clamav.host == "127.0.0.1" && var.clamav.port == 3310
+    error_message = "clamav must use the replica-local Azure Container Apps endpoint 127.0.0.1:3310."
   }
 }
 variable "identity" {

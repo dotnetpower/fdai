@@ -108,6 +108,12 @@ rg -Fq '{ name = "FDAI_CLAMAV_PORT", value = tostring(var.clamav.port) }' "$work
 rg -q 'name[[:space:]]*=[[:space:]]*"clamav"' "$worker_main"
 rg -q 'image[[:space:]]*=[[:space:]]*var\.clamav\.image' "$worker_main"
 rg -q 'transport[[:space:]]*=[[:space:]]*"TCP"' "$worker_main"
+for clamav_variables in \
+  "$services_root/document-processing-worker/variables.tf" \
+  "$services_root/document-processing-worker/modules/document-processing-worker/variables.tf"; do
+  rg -Fq 'var.clamav.host == "127.0.0.1"' "$clamav_variables"
+  rg -Fq 'var.clamav.port == 3310' "$clamav_variables"
+done
 ! rg -Fq '{ name = "FDAI_HEALTH_PORT"' "$worker_main"
 executor_main="$services_root/isolated-executor/modules/isolated-executor/main.tf"
 rg -Fq '{ name = "FDAI_ISOLATED_EXECUTOR_DEPLOYED", value = "1" }' "$executor_main"

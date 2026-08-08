@@ -14,6 +14,11 @@ variable "clamav" {
     condition     = can(regex("@sha256:[0-9a-f]{64}$", var.clamav.image))
     error_message = "clamav.image must be pinned by sha256 digest."
   }
+
+  validation {
+    condition     = var.clamav.host == "127.0.0.1" && var.clamav.port == 3310
+    error_message = "clamav must use the replica-local Azure Container Apps endpoint 127.0.0.1:3310."
+  }
 }
 variable "identity" { type = object({ resource_id = string, client_id = string }) }
 variable "event_topics" { type = object({ pipeline_stages = string, pantheon_objects = string }) }

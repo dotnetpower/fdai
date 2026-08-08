@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
@@ -22,12 +23,17 @@ from fdai_document_worker_service.adapters.processing import (
     AzureDocumentOcrConfig,
     AzureEmbeddingConfig,
     AzureEmbeddingModel,
+    ClamAvMalwareScanner,
+    ClamAvScannerConfig,
     UnavailableImageOcr,
 )
 from fdai_document_worker_service.adapters.storage import (
+    AzureDataLakeArtifactStore,
     AzureDataLakeConfig,
     AzureDataLakeObjectStore,
 )
+from fdai_document_worker_service.production import ProductionConfigurationError
+from fdai_document_worker_service.production import build_runtime as build_worker_runtime
 from fdai_ingestion_api_service.adapters.event_bus import EventHubsKafkaPublisher
 from fdai_ingestion_api_service.adapters.postgres import (
     PostgresApiConfig,
@@ -42,7 +48,22 @@ from fdai_service_contracts import (
     DocumentWorkerClaimStatus,
     DocumentWorkerStage,
     ProviderUnavailableError,
+    live_readiness,
+    live_unavailable_readiness,
 )
+
+_WORKER_ENV = {
+    "FDAI_DATABASE_URL": "postgresql://example.invalid/fdai",
+    "FDAI_DATABASE_ROLE": "fdai_ingestion_worker",
+    "FDAI_INGESTION_DEPLOYMENT_ROLE": "worker",
+    "FDAI_ADLS_ACCOUNT_URL": "https://example.invalid",
+    "FDAI_EMBEDDING_ENDPOINT": "https://example.invalid",
+    "FDAI_EMBEDDING_DEPLOYMENT": "embedding",
+    "FDAI_KAFKA_BOOTSTRAP_SERVERS": "example.invalid:9093",
+    "FDAI_DOCUMENT_EVENT_TOPIC": "aw.pipeline.stages",
+    "FDAI_CLAMAV_HOST": "127.0.0.1",
+    "FDAI_CLAMAV_PORT": "3310",
+}
 
 
 class Credential:
@@ -188,6 +209,125 @@ class CachedKafkaProducer:
 
     async def stop(self) -> None:
         self.stop_calls += 1
+
+
+class ClamAvReader:
+    def __init__(self, response: bytes) -> None:
+        self._response = response
+
+    async def readuntil(self, separator: bytes) -> bytes:
+        assert separator == b"\0"
+        return self._response
+
+
+class ClamAvWriter:
+    def __init__(self, commands: list[bytes]) -> None:
+        self._commands = commands
+
+    def write(self, data: bytes) -> None:
+        self._commands.append(data)
+
+    async def drain(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+    async def wait_closed(self) -> None:
+        return None
+
+
+async def test_clamav_live_probe_requires_ping_version_and_loaded_signatures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = iter(
+        (
+            b"PONG\0",
+            b"ClamAV 1.4.2/27500/Fri Aug  8 00:00:00 2026\0",
+        )
+    )
+    commands: list[bytes] = []
+
+    async def open_connection(host: str, port: int) -> tuple[ClamAvReader, ClamAvWriter]:
+        assert (host, port) == ("127.0.0.1", 3310)
+        return ClamAvReader(next(responses)), ClamAvWriter(commands)
+
+    monkeypatch.setattr(asyncio, "open_connection", open_connection)
+    scanner = ClamAvMalwareScanner(config=ClamAvScannerConfig(host="127.0.0.1", port=3310))
+
+    result = await scanner.probe_readiness()
+
+    assert result.live_verified is True
+    assert commands == [b"zPING\0", b"zVERSION\0"]
+
+
+async def test_clamav_live_probe_rejects_missing_signature_database(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = iter((b"PONG\0", b"ClamAV 1.4.2/0/unknown\0"))
+
+    async def open_connection(_host: str, _port: int) -> tuple[ClamAvReader, ClamAvWriter]:
+        return ClamAvReader(next(responses)), ClamAvWriter([])
+
+    monkeypatch.setattr(asyncio, "open_connection", open_connection)
+    scanner = ClamAvMalwareScanner(config=ClamAvScannerConfig(host="127.0.0.1", port=3310))
+
+    result = await scanner.probe_readiness()
+
+    assert result.live_verified is False
+    assert result.reason == "signature_database_unavailable"
+
+
+async def test_worker_startup_adapter_gate_includes_clamav(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[str] = []
+
+    async def probe(adapter: object) -> object:
+        name = type(adapter).__name__
+        observed.append(name)
+        return live_readiness(name)
+
+    for adapter_type in (
+        PostgresDocumentMetadataStore,
+        AzureDataLakeObjectStore,
+        AzureDataLakeArtifactStore,
+        EventHubsKafkaBus,
+        AzureEmbeddingModel,
+        ClamAvMalwareScanner,
+    ):
+        monkeypatch.setattr(adapter_type, "probe_readiness", probe)
+
+    runtime = build_worker_runtime(_WORKER_ENV)
+    await runtime.startup_checks[1]()
+    await asyncio.gather(*(callback() for callback in runtime.shutdown_callbacks))
+
+    assert "ClamAvMalwareScanner" in observed
+
+
+async def test_clamav_probe_failure_blocks_worker_startup_adapter_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def probe(adapter: object) -> object:
+        name = type(adapter).__name__
+        if isinstance(adapter, ClamAvMalwareScanner):
+            return live_unavailable_readiness("clamav", "probe_failed:ConnectionRefusedError")
+        return live_readiness(name)
+
+    for adapter_type in (
+        PostgresDocumentMetadataStore,
+        AzureDataLakeObjectStore,
+        AzureDataLakeArtifactStore,
+        EventHubsKafkaBus,
+        AzureEmbeddingModel,
+        ClamAvMalwareScanner,
+    ):
+        monkeypatch.setattr(adapter_type, "probe_readiness", probe)
+
+    runtime = build_worker_runtime(_WORKER_ENV)
+    with pytest.raises(ProductionConfigurationError, match="clamav:probe_failed"):
+        await runtime.startup_checks[1]()
+    await asyncio.gather(*(callback() for callback in runtime.shutdown_callbacks))
 
 
 async def test_ingestion_api_postgres_probe_references_required_owned_schema(

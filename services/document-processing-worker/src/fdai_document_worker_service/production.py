@@ -64,6 +64,8 @@ _REQUIRED_ENV = (
     "FDAI_CLAMAV_HOST",
     "FDAI_CLAMAV_PORT",
 )
+_CLAMAV_SIDECAR_HOST = "127.0.0.1"
+_CLAMAV_SIDECAR_PORT = 3310
 
 
 class ProductionConfigurationError(ValueError):
@@ -89,6 +91,16 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
         raise ProductionConfigurationError("FDAI_INGESTION_DEPLOYMENT_ROLE MUST be worker")
     if env["FDAI_DATABASE_ROLE"].strip() != "fdai_ingestion_worker":
         raise ProductionConfigurationError("FDAI_DATABASE_ROLE MUST be fdai_ingestion_worker")
+    clamav_host = env["FDAI_CLAMAV_HOST"].strip()
+    if clamav_host != _CLAMAV_SIDECAR_HOST:
+        raise ProductionConfigurationError(
+            f"FDAI_CLAMAV_HOST MUST be {_CLAMAV_SIDECAR_HOST} for the replica-local sidecar"
+        )
+    clamav_port = _positive_int(env, "FDAI_CLAMAV_PORT", 0)
+    if clamav_port != _CLAMAV_SIDECAR_PORT:
+        raise ProductionConfigurationError(
+            f"FDAI_CLAMAV_PORT MUST be {_CLAMAV_SIDECAR_PORT} for the replica-local sidecar"
+        )
     dsn = env["FDAI_DATABASE_URL"].strip()
     credential = ManagedIdentityCredential()
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0))
@@ -156,18 +168,17 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
         event_bus=event_bus,
         event_topic=env["FDAI_DOCUMENT_EVENT_TOPIC"].strip(),
     )
+    malware = ClamAvMalwareScanner(
+        config=ClamAvScannerConfig(
+            host=clamav_host,
+            port=clamav_port,
+            max_stream_bytes=_positive_int(env, "FDAI_DOCUMENT_MAX_FILE_SIZE", 25 * 1024 * 1024),
+        )
+    )
     worker = DocumentIngestionWorker(
         metadata=metadata,
         objects=source_store,
-        malware=ClamAvMalwareScanner(
-            config=ClamAvScannerConfig(
-                host=env["FDAI_CLAMAV_HOST"].strip(),
-                port=_positive_int(env, "FDAI_CLAMAV_PORT", 0),
-                max_stream_bytes=_positive_int(
-                    env, "FDAI_DOCUMENT_MAX_FILE_SIZE", 25 * 1024 * 1024
-                ),
-            )
-        ),
+        malware=malware,
         protection=SignatureProtectionInspector(
             max_input_bytes=_positive_int(env, "FDAI_DOCUMENT_MAX_FILE_SIZE", 25 * 1024 * 1024)
         ),
@@ -237,6 +248,7 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             artifact_store,
             raw_bus,
             embedding,
+            malware,
         ]
         if ocr_endpoint:
             configured.append(ocr)
