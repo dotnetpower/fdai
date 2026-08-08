@@ -188,10 +188,10 @@ def test_ci_installs_and_audits_the_frozen_runtime_workspace() -> None:
     assert "inputs: audit-requirements.txt" in audit_job
 
 
-def test_container_scan_blocks_actionable_vulnerabilities() -> None:
+def test_container_scan_blocks_all_high_and_critical_vulnerabilities() -> None:
     workflow = (
         Path(__file__).resolve().parents[2] / ".github" / "workflows" / "container-supply-chain.yml"
     ).read_text(encoding="utf-8")
 
     assert "--severity HIGH,CRITICAL" in workflow
-    assert "--ignore-unfixed" in workflow
+    assert "--ignore-unfixed" not in workflow

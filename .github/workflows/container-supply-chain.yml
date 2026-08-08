@@ -121,21 +121,21 @@ jobs:
               capabilities = payload.get("capabilities")
               if not isinstance(capabilities, list):
                   raise SystemExit("RESOLVED_MODELS_JSON.capabilities must be an array")
-              canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
-              digest = hashlib.sha256(canonical).hexdigest()
+          canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
+          digest = hashlib.sha256(canonical).hexdigest()
           rendered = json.dumps(payload, indent=2, sort_keys=True) + "\n"
           Path("resolved-models.json").write_text(rendered, encoding="utf-8")
           Path("services/assets/resolved-models.json").write_text(rendered, encoding="utf-8")
-              predicate = {
-                "schema_version": "1.0.0",
-                "resolved_models": {"canonical_json_sha256": digest},
-              }
-              Path("resolved-models.provenance.json").write_text(
-                json.dumps(predicate, separators=(",", ":"), sort_keys=True) + "\n",
-                encoding="utf-8",
-              )
-              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-                output.write(f"digest={digest}\n")
+          predicate = {
+              "schema_version": "1.0.0",
+              "resolved_models": {"canonical_json_sha256": digest},
+          }
+          Path("resolved-models.provenance.json").write_text(
+              json.dumps(predicate, separators=(",", ":"), sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"digest={digest}\n")
           PY
 
       - name: Build image for verification

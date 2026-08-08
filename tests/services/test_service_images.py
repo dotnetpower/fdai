@@ -181,6 +181,18 @@ def test_core_provenance_contains_only_canonical_resolved_models_digest() -> Non
     assert "predicate: ${{ vars.RESOLVED_MODELS_JSON }}" not in text
 
 
+def test_resolved_model_manifest_embedded_python_has_valid_syntax() -> None:
+    workflow = cast(dict[str, Any], yaml.safe_load(WORKFLOW.read_text(encoding="utf-8")))
+    steps = workflow["jobs"]["build-scan-attest"]["steps"]
+    materialize = next(
+        step for step in steps if step["name"] == "Materialize resolved model manifest"
+    )
+    match = re.fullmatch(r"python3 - <<'PY'\n(?P<source>.*)\nPY\n?", materialize["run"], re.DOTALL)
+
+    assert match is not None
+    compile(match.group("source"), "container-supply-chain:resolved-models", "exec")
+
+
 def test_supply_chain_pins_node_compatible_actions_to_full_shas() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     uses = re.findall(r"^\s*uses:\s+([^\s#]+)", text, re.MULTILINE)
