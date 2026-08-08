@@ -248,6 +248,13 @@ jobs:
           echo "$install_root/bin" >> "$GITHUB_PATH"
           "$install_root/bin/gh" --version
 
+      - name: Install pinned uv for service migrations
+        if: ${{ inputs.apply }}
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.32"
+          enable-cache: false
+
       - name: Verify immutable service image attestation
         env:
           GH_TOKEN: ${{ github.token }}

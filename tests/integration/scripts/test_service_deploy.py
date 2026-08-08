@@ -1732,6 +1732,14 @@ def test_worker_recovery_snapshots_and_verifies_primary_and_clamav_contracts(
 def test_apply_runs_service_migrations_from_masked_key_vault_dsn() -> None:
     workflow = (_ROOT / ".github/workflows/service-deploy.yml").read_text(encoding="utf-8")
 
+    setup_uv = "astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990"
+    assert "- name: Install pinned uv for service migrations" in workflow
+    assert setup_uv in workflow
+    assert 'version: "0.11.32"' in workflow
+    assert "enable-cache: false" in workflow
+    assert workflow.index(setup_uv) < workflow.index(
+        "- name: Apply service-owned database migrations"
+    )
     assert "- name: Apply service-owned database migrations" in workflow
     assert 'echo "::add-mask::$migration_dsn"' in workflow
     assert '"$TRUSTED_CONTROLS/service-migrations/bin/$SERVICE" upgrade head' in workflow
