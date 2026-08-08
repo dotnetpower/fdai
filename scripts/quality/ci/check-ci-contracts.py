@@ -292,20 +292,37 @@ def _validate_privileged_workflow_guards() -> list[str]:
         )
         if event_scoped_issue_mutation:
             continue
-        required_fragments = (
+        common_fragments = (
             PROTECTED_WORKFLOW_GUARD,
-            f"PROTECTED_WORKFLOW_PATH: {relative}",
             "refs/heads/main:refs/remotes/origin/main",
             'merge-base --is-ancestor "$TARGET_COMMIT_SHA"',
-            "diff --quiet",
-            '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
-            '"refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
         )
-        for fragment in required_fragments:
+        for fragment in common_fragments:
             if fragment not in content:
                 errors.append(
                     f"{relative} is privileged and lacks protected-source guard: {fragment}"
                 )
+        exact_source_fragments = (
+            f"PROTECTED_WORKFLOW_PATH: {relative}",
+            "diff --quiet",
+            '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
+            '"refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
+        )
+        protected_controls_fragments = (
+            "path: trusted-controls",
+            "ref: main",
+            f'expected_workflow_ref="$GITHUB_REPOSITORY/{relative}@refs/heads/main"',
+            '[[ "$GITHUB_WORKFLOW_REF" == "$expected_workflow_ref" ]]',
+            'controls_commit_sha="$(git -C "$TRUSTED_CONTROLS" rev-parse HEAD)"',
+            "deployment controls do not match protected origin/main.",
+        )
+        if not all(fragment in content for fragment in exact_source_fragments) and not all(
+            fragment in content for fragment in protected_controls_fragments
+        ):
+            errors.append(
+                f"{relative} is privileged and lacks a complete exact-source or "
+                "protected-controls guard"
+            )
         guard_index = content.find(PROTECTED_WORKFLOW_GUARD)
         action_index = content.find("uses:")
         if guard_index >= 0 and action_index >= 0 and guard_index > action_index:
