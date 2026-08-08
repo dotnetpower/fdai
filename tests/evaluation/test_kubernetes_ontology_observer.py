@@ -258,6 +258,59 @@ async def test_complete_inventory_removes_stale_namespace_topology_links() -> No
     assert not any(item.link_type == "kubernetes_selects" for item in graph.links)
 
 
+async def test_complete_inventory_projects_and_replaces_parent_to_child_containment() -> None:
+    store = await _store()
+    observer = KubernetesOntologyEvidenceObserver(store=store)
+    resource = {
+        "kind": "Service",
+        "namespace": "example",
+        "name": "backend",
+        "uid": "service-uid",
+    }
+    payload = {
+        "cluster": _CLUSTER,
+        "evidence_complete": True,
+        "resources": [resource],
+        "findings": [],
+    }
+
+    await observer.observe(
+        task=_task(),
+        evidence={
+            "observe.kubernetes.inventory": {
+                "status": "available",
+                "payload": payload,
+            }
+        },
+    )
+
+    resource_id = f"kubernetes.cluster:{_CLUSTER.removeprefix('sha256:')}/resource/service-uid"
+    graph = await store.query_objects(object_types=("Resource",), limit=10)
+    assert await store.get_object(resource_id) is not None
+    assert any(
+        item.from_id == _namespace_ref()
+        and item.link_type == "contains"
+        and item.to_id == resource_id
+        for item in graph.links
+    )
+
+    await observer.observe(
+        task=_task(),
+        evidence={
+            "observe.kubernetes.inventory": {
+                "status": "available",
+                "payload": {**payload, "resources": []},
+            }
+        },
+    )
+
+    graph = await store.query_objects(object_types=("Resource",), limit=10)
+    assert await store.get_object(resource_id) is None
+    assert not any(
+        item.link_type == "contains" and item.to_id == resource_id for item in graph.links
+    )
+
+
 async def test_redelivery_uses_receipt_time_not_advancing_observer_clock() -> None:
     store = await _store()
     calls = iter(

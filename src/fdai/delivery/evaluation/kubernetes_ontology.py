@@ -107,7 +107,10 @@ class KubernetesOntologyEvidenceObserver:
                 "id": namespace_ref,
                 "type": "kubernetes.namespace",
                 "name": task.target.value,
-                "properties": {"cluster": cluster_name},
+                "properties": {
+                    "cluster_ref": cluster_ref,
+                    "namespace": task.target.value,
+                },
             },
         )
         topology, topology_complete, topology_observed = self._topology(
@@ -115,10 +118,13 @@ class KubernetesOntologyEvidenceObserver:
             expected_namespace=task.target.value,
             cluster_ref=cluster_ref,
         )
+        topology_objects = topology.objects
+        if all(record.id != namespace_ref for record in topology_objects):
+            topology_objects = (namespace_record, *topology_objects)
         await _project_current_topology(
             self.store,
             KubernetesOntologyProjection(
-                objects=(namespace_record, *topology.objects),
+                objects=topology_objects,
                 links=topology.links,
             ),
             namespace_ref=namespace_ref,
@@ -208,7 +214,9 @@ class KubernetesOntologyEvidenceObserver:
             expected_namespace=expected_namespace,
             cluster_ref=cluster_ref,
         )
-        topology_complete = evidence_complete and len(projection.objects) == len(resources)
+        namespace_ref = f"{cluster_ref}/namespace/{expected_namespace}"
+        projected_resource_count = sum(record.id != namespace_ref for record in projection.objects)
+        topology_complete = evidence_complete and projected_resource_count == len(resources)
         if not topology_complete:
             projection = KubernetesOntologyProjection(objects=projection.objects, links=())
         return projection, topology_complete, True
@@ -261,7 +269,7 @@ async def _project_current_topology(
             for record in current.links
             if record.link_type in topology_link_types
         }
-        keys.update((record.id, "contains", namespace_ref) for record in current.objects)
+        keys.update((namespace_ref, "contains", record.id) for record in current.objects)
         previous_link_keys = tuple(sorted(keys))
     await store.replace_subgraph(
         objects=tuple(missing),
