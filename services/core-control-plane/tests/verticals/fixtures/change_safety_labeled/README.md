@@ -10,7 +10,7 @@ to establish the phase-1 out-of-band detection baseline:
 
 Every fixture is customer-agnostic (synthetic principals, no real
 tenant/subscription/resource identifiers) per
-[generic-scope.instructions.md](../../../../.github/instructions/generic-scope.instructions.md).
+[generic-scope.instructions.md](../../../../../../.github/instructions/generic-scope.instructions.md).
 
 ## Layout
 

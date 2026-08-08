@@ -4,10 +4,10 @@ Normalized, version-pinned rule instances (catalog-as-code). One YAML file per
 `Rule` instance; the filename mirrors the rule `id` for grep-ability.
 
 Each file MUST validate against the JSON Schema at
-[`src/fdai/shared/contracts/rule/schema.json`](../../src/fdai/shared/contracts/rule/schema.json)
+[`services/core-control-plane/src/fdai/shared/contracts/rule/schema.json`](../../services/core-control-plane/src/fdai/shared/contracts/rule/schema.json)
 (`additionalProperties: false`, `remediates` required) and pass the cross-reference
 checks in
-[`src/fdai/rule_catalog/schema/rule.py`](../../src/fdai/rule_catalog/schema/rule.py):
+[`services/core-control-plane/src/fdai/rule_catalog/schema/rule.py`](../../services/core-control-plane/src/fdai/rule_catalog/schema/rule.py):
 
 - `remediates` MUST resolve to a registered ActionType `name` under
   [`rule-catalog/action-types/`](../action-types/).
@@ -26,5 +26,5 @@ P1 W-3.
 - Ontology dispatch: [docs/roadmap/architecture/llm-strategy.md § Rule as Ontology Artifact](../../docs/roadmap/architecture/llm-strategy.md).
 
 New rules land through the collect → shadow-eval → regression → promote/rollback pipeline
-in [`rule-catalog/pipeline/`](../../src/fdai/rule_catalog/pipeline/) (Phase 2); a
+in [`rule-catalog/pipeline/`](../../services/core-control-plane/src/fdai/rule_catalog/pipeline/) (Phase 2); a
 manual authored rule follows the same schema and cross-reference gates.

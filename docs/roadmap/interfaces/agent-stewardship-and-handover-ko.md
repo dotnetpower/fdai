@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 222796546e161a5f5d4da94ae0aa93c91b366aea
-translation_revised: 2026-08-05
+translation_source_sha: 58e2dc6efab379c77acb603ae661f865d2202c17
+translation_revised: 2026-08-08
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -170,7 +170,7 @@ accountable subject만 있는 agent가 있으면 사람을 임의로 선택하�
 
 `agents:` 아래 15개 키는 정확히 판테온 이름이어야 한다. `core/stewardship`은 자체 canonical
 `AGENT_NAMES` 튜플을 두고, parity 테스트
-(`tests/core/stewardship/test_pantheon_parity.py`)가 이를
+(`services/core-control-plane/tests/core/stewardship/test_pantheon_parity.py`)가 이를
 `fdai.agents._framework.pantheon.PANTHEON_NAMES`에 고정하므로, config 스키마와 판테온은 절대
 drift할 수 없다. `core/`는 `agents/`를 import하지 않으며(module-boundary 규칙), parity 테스트가
 테스트 시점에 둘을 연결한다.
@@ -347,7 +347,7 @@ banner를 표시합니다.
 있다([issue #23](https://github.com/dotnetpower/fdai/issues/23)). 이는 위의 결정론적 코어 위에
 얹은 더 크고 분리 가능한 기능이며, 아무것도 적용하지 않고 코어를 막지도 않는다.
 
-`src/fdai/core/stewardship/handover_bootstrap/` 아래에 결정론 우선, 근거 기반, 기권형
+`services/core-control-plane/src/fdai/core/stewardship/handover_bootstrap/` 아래에 결정론 우선, 근거 기반, 기권형
 파이프라인으로 구현되어 있다:
 
 1. **결정론적 추출** (`extractor.py` + `agent_domains.py`). 각 문서 라인을 에이전트별

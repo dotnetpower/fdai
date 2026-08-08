@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: eb362ad2dce49f7e59f0b4d668d7ea2956ba428e
-translation_revised: 2026-08-04
+translation_source_sha: 4e93c33acb83df96a0bcea143e8d0b0516bd7bd5
+translation_revised: 2026-08-08
 ---
 
 # CSP-중립성 계약
@@ -508,7 +508,7 @@ FDAI는 이전 graph를 유지하고 stale로 표시하며 blast-radius 종속 a
 
 외부 메트릭 (Prometheus, Azure Monitor Logs, CloudWatch, Datadog) 을
 `MetricProvider.query(MetricQuery) -> AsyncIterator[MetricPoint]`
-([`shared/providers/metric.py`](../../../src/fdai/shared/providers/metric.py))
+([`shared/providers/metric.py`](../../../services/core-control-plane/src/fdai/shared/providers/metric.py))
 로 소비. `MetricQuery` 는 vendor-neutral (`metric_name`, `labels`, `since`, `until`,
 `aggregation` 힌트); 어댑터는 CSP-neutral 이름을 vendor namespace 로 매핑하고 힌트를
 best-effort 로 honor. Upstream 은 `NoopMetricProvider` (빈 결과) + `StaticMetricProvider`
@@ -527,7 +527,7 @@ best-effort 로 honor. Upstream 은 `NoopMetricProvider` (빈 결과) + `StaticM
 
 Structured log (Log Analytics KQL, Loki LogQL, Elasticsearch, CloudWatch Logs) 를
 `LogQueryProvider.query(LogQuery) -> AsyncIterator[LogRecord]`
-([`shared/providers/log_query.py`](../../../src/fdai/shared/providers/log_query.py))
+([`shared/providers/log_query.py`](../../../services/core-control-plane/src/fdai/shared/providers/log_query.py))
 로 소비. `expression` 필드는 vendor-specific 쿼리 문자열; `labels` 는 어댑터가 label
 surface 에 매핑하는 CSP-neutral pre-filter. `core/` 에 tail 을 hard-code 하지 않고
 CSP-neutral filter 와 vendor-specific tail 을 compose 할 수 있도록 분리 유지.
@@ -536,7 +536,7 @@ CSP-neutral filter 와 vendor-specific tail 을 compose 할 수 있도록 분리
 
 Span (App Insights, Tempo, Jaeger, Honeycomb) 을
 `TraceQueryProvider.query(TraceQuery) -> AsyncIterator[Span]`
-([`shared/providers/trace_query.py`](../../../src/fdai/shared/providers/trace_query.py))
+([`shared/providers/trace_query.py`](../../../services/core-control-plane/src/fdai/shared/providers/trace_query.py))
 로 소비. `Span` 은 `trace_id`, `span_id`, `parent_span_id`, `service`, `operation`,
 `start`, `duration`, `status`, 그리고 CSP-neutral `labels` 를 carry - RCA 가 어떤
 backend 가 기록했는지 모른 채 service 를 가로질러 request 를 walk 가능.

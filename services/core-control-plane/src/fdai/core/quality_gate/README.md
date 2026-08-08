@@ -1,4 +1,4 @@
-# `src/fdai/core/quality_gate`
+# `services/core-control-plane/src/fdai/core/quality_gate`
 
 Guards T2. Enforces mixed-model cross-check, re-verifies against policy-as-code and
 what-if, and requires grounded citations. Escalates to HIL on disagreement or low

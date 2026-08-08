@@ -1,8 +1,8 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 89c25c4d96d5e0bf3c5b9f0f5f8795b5328a39ae
-translation_revised: 2026-08-05
+translation_source_sha: e5398aca636566a8d43d45805d8d218795c3a0be
+translation_revised: 2026-08-08
 ---
 
 # 벤치마크 어댑터
@@ -44,9 +44,9 @@ flowchart LR
 | Layer | 위치 | 책임 |
 |-------|------|------|
 | Evaluation SDK | `evaluation-sdk/` | Immutable request, task, result, target, capability, workspace, artifact, receipt, adapter, host 및 runner contract입니다. |
-| FDAI host | `src/fdai/evaluation/` | Typed ingress, capability attenuation, workspace 및 artifact policy, result mapping, cleanup 및 audit입니다. |
+| FDAI host | `services/core-control-plane/src/fdai/evaluation/` | Typed ingress, capability attenuation, workspace 및 artifact policy, result mapping, cleanup 및 audit입니다. |
 | Harness driver | `benchmarks/<name>/` | Harness lifecycle, neutral task mapping, external validation, package dependency 및 test입니다. |
-| Compatibility facade | `src/fdai/benchmarking/` | Migration 기간의 legacy text task/submission, plugin, binding 및 runner API입니다. |
+| Compatibility facade | `services/core-control-plane/src/fdai/benchmarking/` | Migration 기간의 legacy text task/submission, plugin, binding 및 runner API입니다. |
 
 Harness driver는 별도 Python distribution입니다. FDAI만 설치하면 benchmark integration이
 설치되거나 활성화되지 않습니다. Driver를 제거해도 FDAI runtime은 변경되지 않습니다.
@@ -495,7 +495,7 @@ workspace-only dependency로 bind합니다. FDAI runtime dependency에는 포함
 독립적으로 build할 수 있습니다. `uv sync --extra dev --frozen`으로 이 dev 환경을 준비합니다.
 
 ```bash
-.venv/bin/python -m pytest -q --no-cov evaluation-sdk/tests tests/evaluation
+.venv/bin/python -m pytest -q --no-cov evaluation-sdk/tests services/core-control-plane/tests/evaluation
 PYTHONPATH=evaluation-sdk/src:benchmarks/sregym/src .venv/bin/python -m pytest \
   -q --no-cov benchmarks/sregym/tests
 PYTHONPATH=evaluation-sdk/src:benchmarks/cybergym/src .venv/bin/python -m pytest \

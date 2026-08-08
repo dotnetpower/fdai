@@ -54,5 +54,5 @@ both optionally so prompt-only tests do not need any registry beyond
   store or the scope is missing, the layer is skipped entirely - the
   model never sees an "empty notes" section.
 
-See [docs/roadmap/decisioning/prompt-composition.md](../../../../docs/roadmap/decisioning/prompt-composition.md)
+See [docs/roadmap/decisioning/prompt-composition.md](../../../../../../docs/roadmap/decisioning/prompt-composition.md)
 for how this module fits into the evolving-system-prompt design.

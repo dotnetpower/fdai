@@ -4,9 +4,9 @@ Catalog-as-code ActionType instances referenced from rules'
 `remediates` field.
 
 Every YAML file validates against the JSON Schema at
-[`src/fdai/shared/contracts/ontology/action-type.json`](../../src/fdai/shared/contracts/ontology/action-type.json)
+[`services/core-control-plane/src/fdai/shared/contracts/ontology/action-type.json`](../../services/core-control-plane/src/fdai/shared/contracts/ontology/action-type.json)
 and is loaded by
-[`src/fdai/rule_catalog/schema/action_type.py`](../../src/fdai/rule_catalog/schema/action_type.py).
+[`services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py`](../../services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py).
 
 ## Rules on adding an ActionType
 

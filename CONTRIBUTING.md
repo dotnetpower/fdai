@@ -103,7 +103,7 @@ reservations without disabling cache restores.
 
 Before running tests, `scripts/verify.sh` checks clean-checkout and Docker build
 context contracts. It catches untracked required guard inputs, missing
-Dockerfile `COPY` sources, a broken `tests/scenarios/` re-include, an invalid
+Dockerfile `COPY` sources, a broken `services/core-control-plane/tests/scenarios/` re-include, an invalid
 resolved model manifest, and live-DB tests that perform setup before their skip
 guard.
 
@@ -124,7 +124,7 @@ after updating the Korean sibling so the recorded
 
 The Postgres (pgvector) + Redpanda dev stack is not required for the
 unit tests. Bring it up only when you want to exercise the persistence
-layer end-to-end (`FDAI_DATABASE_URL` gates the `tests/persistence/`
+layer end-to-end (`FDAI_DATABASE_URL` gates the `services/core-control-plane/tests/persistence/`
 tests):
 
 ```bash

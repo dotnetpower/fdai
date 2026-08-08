@@ -232,7 +232,7 @@ and `~합니다` in the same bullet list.
 
 ## Universal Rules (already enforced elsewhere; recap)
 
-- ASCII punctuation only. No em-dash `—`, en-dash `–`, ellipsis `…`, smart
+- ASCII punctuation only. No em-dash `-`, en-dash `-`, ellipsis `...`, smart
   quotes, or no-break space. See
   [`../../instructions/language.instructions.md`](../../instructions/language.instructions.md).
   CI: `scripts/quality/repository/check-punctuation.sh`.
@@ -298,7 +298,7 @@ Before merging a PR that touches a `.md` file:
   [../../../docs/roadmap/README.md](../../../docs/roadmap/README.md).
 - Tier B canonical: any of the numbered reference docs 1-18 under
   [../../../docs/roadmap/](../../../docs/roadmap/README.md).
-- Tier C canonical: [../../../src/fdai/core/README.md](../../../src/fdai/core/README.md).
+- Tier C canonical: [../../../services/core-control-plane/src/fdai/core/README.md](../../../services/core-control-plane/src/fdai/core/README.md).
 - Tone reference: paired Microsoft Learn overview pages (Container Apps,
   AKS, Azure Monitor, Managed Identities, WAF Reliability) at
   [learn.microsoft.com](https://learn.microsoft.com/).

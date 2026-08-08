@@ -1,8 +1,8 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: b1e266eec41801715ffdf4e1c5b1c9b6348a967f
-translation_revised: 2026-08-05
+translation_source_sha: 5babe730acc8f4f387843b62a84154d9da9f8870
+translation_revised: 2026-08-08
 ---
 
 # 운영과 검증(Operating and Verification)
@@ -226,7 +226,7 @@ Testing, k6, JMeter)가 트래픽을 만든다 - 그 트래픽이 도는 동안 
   부하 테스트가 결정론적 tier 와 T2 quality gate 를 exercise 하고 모든 verdict 는
   기록되되 실행되지 않는다.
 - **예산 대비 감지 지연 측정.** 부하가 만든 이벤트가 tier 별 `LatencyBudgetMonitor`
-  ([`core/measurement/latency_budget.py`](../../../src/fdai/core/measurement/latency_budget.py))
+  ([`core/measurement/latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py))
   에 공급되어, 부하 하에서 p95 예산을 놓치는 tier 가 go-live 후가 아니라 전에 드러난다.
 - **canary + smoke 왕복.** [합성 canary](#synthetic-canary-event) 와
   [post-deploy smoke 테스트](#post-deploy-smoke-tests) 가 로드된 환경에서 전체
@@ -272,7 +272,7 @@ release evidence로 남습니다. Dedicated validation environment가 Azure 변�
 - **Shadow-first 가 기본 유지.** 새로 도입된 action 은 윈도우 동안 shadow 로 남고,
   아래 안정화 신호가 깨끗해질 때까지 enforce 승격을 미룬다 - 불안정한 오픈이 절대
   auto-execute 하지 않는다.
-- **baseline 대비 스케줄 비교.** 스케줄 태스크([`core/scheduler`](../../../src/fdai/core/scheduler))
+- **baseline 대비 스케줄 비교.** 스케줄 태스크([`core/scheduler`](../../../services/core-control-plane/src/fdai/core/scheduler))
   가 daily health check, 구성 드리프트 diff, 배포 검증을 문서화된 baseline(지식
   베이스에 업로드된 **리소스 플랜** 포함) 대비 수행한다 - 오픈 직후 오퍼레이터가 원하는
   "baseline 과 비교" 검사 그대로다.

@@ -34,7 +34,7 @@ Use when you are asked to:
 Do NOT use for:
 
 - Feature work with a design change (that is a docs-first PR).
-- Any change under `src/fdai/agents/**` without also loading the
+- Any change under `services/core-control-plane/src/fdai/agents/**` without also loading the
   Agent Pantheon safe-edit prompt.
 
 ## Priority Modules (safety core)
@@ -43,13 +43,13 @@ Pick one that has NOT been hardened in this session. See
 [docs/roadmap/architecture/code-map.md](../../../docs/roadmap/architecture/code-map.md)
 for the full 45-subsystem index.
 
-- `src/fdai/core/risk_gate/`
-- `src/fdai/core/tiers/{t0_deterministic,t1_lightweight,t2_reasoning}/`
-- `src/fdai/core/quality_gate/`
-- `src/fdai/core/executor/`
-- `src/fdai/core/event_ingest/` (idempotency + dedup)
-- `src/fdai/core/trust_router/`
-- `src/fdai/agents/{forseti,var,thor,vidar,saga}.py`
+- `services/core-control-plane/src/fdai/core/risk_gate/`
+- `services/core-control-plane/src/fdai/core/tiers/{t0_deterministic,t1_lightweight,t2_reasoning}/`
+- `services/core-control-plane/src/fdai/core/quality_gate/`
+- `services/core-control-plane/src/fdai/core/executor/`
+- `services/core-control-plane/src/fdai/core/event_ingest/` (idempotency + dedup)
+- `services/core-control-plane/src/fdai/core/trust_router/`
+- `services/core-control-plane/src/fdai/agents/{forseti,var,thor,vidar,saga}.py`
 
 ## The Loop
 
@@ -199,5 +199,5 @@ so no per-test marker is required.
   [.github/prompts/harden-coverage.prompt.md](../../prompts/harden-coverage.prompt.md).
 - Rule contract:
   [.github/instructions/coding-conventions.instructions.md](../../instructions/coding-conventions.instructions.md).
-- Agent-code rules (auto-loaded for `src/fdai/agents/**`):
+- Agent-code rules (auto-loaded for `services/core-control-plane/src/fdai/agents/**`):
   [.github/instructions/agent-pantheon.instructions.md](../../instructions/agent-pantheon.instructions.md).

@@ -14,7 +14,8 @@ non-mutating `azd provision --preview` by default; set `FDAI_AZD_CONFIRM=1` to
 run a real `azd up`. The two-gate design keeps an accidental apply impossible.
 
 `azure.yaml` also declares a `services.core` block so `azd deploy` / `azd up`
-builds the app image from the [`Dockerfile`](../Dockerfile) and deploys it to the
+builds each runtime image from its service-owned
+[`docker/Dockerfile`](../services/core-control-plane/docker/Dockerfile) pattern and deploys it to the
 Container App tagged `azd-service-name: core` (set in
 [`modules/compute/container-apps/main.tf`](modules/compute/container-apps/main.tf)).
 A `services` block only drives `azd deploy`; `azd provision --preview` is
@@ -144,7 +145,7 @@ secret or an env-var name whose value the app resolves at runtime via the inject
 
 ## Metric analyzer tick and Prometheus
 
-The reference threshold analyzers ([src/fdai/core/investigation/analyzers.py](../src/fdai/core/investigation/analyzers.py))
+The reference threshold analyzers ([services/core-control-plane/src/fdai/core/investigation/analyzers.py](../services/core-control-plane/src/fdai/core/investigation/analyzers.py))
 never fire on their own - a periodic tick has to invoke them. The Container Apps Job runs every
 minute by default in observation mode (`shadow`). It uses explicit targets when supplied and
 otherwise reads the durable inventory projection. Set an explicit empty cron to disable it. The
@@ -203,7 +204,7 @@ roadmap synchronized whenever a module, environment parameter, or bootstrap stag
 
 ## Configuration tests
 
-`tests/*.tftest.hcl` assert the **planned configuration**, not the source text. Each file declares
+`services/core-control-plane/tests/*.tftest.hcl` assert the **planned configuration**, not the source text. Each file declares
 `mock_provider` blocks, so the plan graph is evaluated with synthetic provider responses and no
 subscription, credentials, or network are required - the same posture a disconnected tenant has.
 

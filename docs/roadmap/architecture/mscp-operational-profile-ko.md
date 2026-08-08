@@ -1,8 +1,8 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: 7e5326c1a60a62bfd0c9254f23c22e6c6b9c2469
-translation_revised: 2026-08-06
+translation_source_sha: 56b6e291c656e30b1323fbf5c85094c4f2638873
+translation_revised: 2026-08-08
 ---
 # MSCP Operational Profile
 
@@ -19,7 +19,7 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 
 ## 한눈에 보는 설계
 
-이 프로파일은 `src/fdai/core/mscp_profile/` 아래에 결정론적이고 I/O가 없는 policy primitive를
+이 프로파일은 `services/core-control-plane/src/fdai/core/mscp_profile/` 아래에 결정론적이고 I/O가 없는 policy primitive를
 제공합니다. Caller는 이미 수집한 observation, limit 및 component digest를 제공합니다. 프로파일은
 typed verification 또는 hold decision을 반환하며 provider 호출, resource 변경, audit entry 쓰기,
 capability promotion 또는 rule 편집을 수행하지 않습니다.
@@ -144,7 +144,7 @@ distribution은 safety profile을 선택하거나 변경하지 않습니다. 특
 
 ## 검증
 
-`tests/core/mscp_profile/` 아래의 focused test는 다음 항목을 검증합니다.
+`services/core-control-plane/tests/core/mscp_profile/` 아래의 focused test는 다음 항목을 검증합니다.
 
 - 레벨 비종속 profile identity 및 필수 non-conformance 선언
 - 안정적이고 source가 고정된 audit provenance

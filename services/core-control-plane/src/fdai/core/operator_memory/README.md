@@ -35,5 +35,5 @@ XML envelope before it reaches the model.
   `<operator_note trusted="false" ...>...</operator_note>` with XML-escaped
   attribute values and content so an entry cannot forge the closing tag.
 
-See [docs/roadmap/decisioning/prompt-composition.md](../../../../docs/roadmap/decisioning/prompt-composition.md)
+See [docs/roadmap/decisioning/prompt-composition.md](../../../../../../docs/roadmap/decisioning/prompt-composition.md)
 for how operator memory fits into the evolving-system-prompt design.

@@ -43,7 +43,7 @@ and the threat model in [security-and-identity.md](security-and-identity.md).
 
 | Concern | Recommendation | Rationale | Alternatives (neutral / OSS) |
 |---------|----------------|-----------|------------------------------|
-| Core engine runtime | **Python (3.12+)** - src-layout under `src/fdai/` | mature LLM / OPA / IaC-scanner SDKs, strong typing via mypy, one language across every subsystem (see [OD-1](#od-1-core-runtime-language)) | TypeScript (Node), Go, .NET - reserved for a future perf-driven split behind the same interface |
+| Core engine runtime | **Python (3.12+)** - src-layout under `services/core-control-plane/src/fdai/` | mature LLM / OPA / IaC-scanner SDKs, strong typing via mypy, one language across every subsystem (see [OD-1](#od-1-core-runtime-language)) | TypeScript (Node), Go, .NET - reserved for a future perf-driven split behind the same interface |
 | Policy engine | **OPA / Rego** | CSP-neutral policy-as-code; reused by T0 and the T2 verifier | Gatekeeper (K8s), Cloud Custodian |
 | IaC | **Terraform** (Azure targeting, HCL) | resolves the OD; Terraform is the entry-command target (`terraform apply`) and renders the eight CSP-neutral contracts in [csp-neutrality.md](csp-neutrality.md); Bicep and OpenTofu remain compatible fallbacks | **OpenTofu** (MPL-2.0 fork) if a strictly OSS toolchain is required; Bicep for Azure-only convenience; Pulumi if a general-purpose language is preferred |
 | Event bus | **Event Hubs** consumed **only via its Kafka endpoint on `:9093`** (Kafka wire protocol is the CSP-neutral contract - see [csp-neutrality.md](csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol)) | one wire protocol serves every managed target (MSK, GCP Managed Kafka, Confluent, Redpanda), so a non-Azure adapter is a config swap | MSK Serverless / GCP Managed Kafka / Confluent / Redpanda / self-hosted Strimzi - non-Azure options are TBD |
@@ -147,7 +147,7 @@ land under the project structure defined in
 - **Context**: adapters, LLM SDKs, and rule tooling drive the choice.
 - **Options**: TypeScript (Node) · Python · Go.
 - **Criteria**: adapter/SDK maturity, team familiarity, typing/perf headroom.
-- **Status**: **Decided - Python (3.12+), single-language monorepo under `src/fdai/`.**
+- **Status**: **Decided - Python (3.12+), single-language monorepo under `services/core-control-plane/src/fdai/`.**
   Rationale: (i) the richest ecosystem for OPA bindings, LLM providers, and IaC-scanner
   toolchains (Checkov / tfsec / KICS / Trivy) is in Python; (ii) mypy provides sufficient
   typing rigor for the safety core; (iii) one language across every subsystem simplifies the
@@ -155,10 +155,10 @@ land under the project structure defined in
   driven split (e.g. Go for `event_ingest`) is additive because subsystems already sit behind
   the interfaces in `shared/`.
 - **Package layout**: Python "src layout" - every runtime module lives at
-  `src/fdai/<subsystem>/`. The `core/`, `shared/`, `delivery/`, and `rule_catalog/`
+  `services/core-control-plane/src/fdai/<subsystem>/`. The `core/`, `shared/`, `delivery/`, and `rule_catalog/`
   subsystem folders in [project-structure.md](project-structure.md) map to
-  `src/fdai/core/`, `src/fdai/shared/`, `src/fdai/delivery/`, and
-  `src/fdai/rule_catalog/` respectively. Directory names use `snake_case` (Python
+  `services/core-control-plane/src/fdai/core/`, `services/core-control-plane/src/fdai/shared/`, `services/core-control-plane/src/fdai/delivery/`, and
+  `services/core-control-plane/src/fdai/rule_catalog/` respectively. Directory names use `snake_case` (Python
   identifier rules); the logical `kebab-case` names remain the vocabulary in docs and rule
   ids per [language.instructions.md](../../../.github/instructions/language.instructions.md).
 - **Lockfile**: one `uv.lock` (or equivalent) at the repo root; the subsystem-per-lockfile

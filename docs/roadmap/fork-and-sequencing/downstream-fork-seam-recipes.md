@@ -41,8 +41,8 @@ secretRef env value or mounted file.
 **How to bind (Azure endpoint override)**:
 
 Upstream ships a **public composition API** for the full Azure wire-
-up: [`wire_azure_container`](../../../src/fdai/composition/__init__.py) +
-the declarative [`AzureWireOverrides`](../../../src/fdai/composition/__init__.py)
+up: [`wire_azure_container`](../../../services/core-control-plane/src/fdai/composition/__init__.py) +
+the declarative [`AzureWireOverrides`](../../../services/core-control-plane/src/fdai/composition/__init__.py)
 dataclass. A fork constructs one `AzureWireOverrides` with its
 concrete adapters and passes it in - the function handles the
 composer, tool registry, prompt composition (base / critic / judge),
@@ -104,7 +104,7 @@ return replace(container, llm_bindings=new_bindings)
 (`MatchTypeCrossCheckModel`, `DeterministicEmbeddingModel`) for
 unit tests; run your live adapters against
 `httpx.MockTransport` for wire-level checks (see
-`tests/delivery/azure/llm/test_adapters.py`).
+`services/core-control-plane/tests/delivery/azure/llm/test_adapters.py`).
 
 ### 5.2 OperatorMemoryStore (in-memory / Postgres / custom)
 
@@ -126,7 +126,7 @@ your composition root.
 
 **How to test**: reuse `InMemoryOperatorMemoryStore` in unit tests;
 if you shipped a custom store, mirror the shape of
-`tests/persistence/test_postgres_operator_memory.py` (offline
+`services/core-control-plane/tests/persistence/test_postgres_operator_memory.py` (offline
 policy tests + integration tests gated on a DSN env var).
 
 ### 5.3 HilRejectMaterializer + second-approval channel
@@ -177,7 +177,7 @@ async def handle_teams_approval_click(payload, *, materializer, second_approver_
     )
 ```
 
-**How to test**: mirror `tests/core/operator_memory/test_hil_pipeline.py`
+**How to test**: mirror `services/core-control-plane/tests/core/operator_memory/test_hil_pipeline.py`
 using `InMemoryOperatorMemoryStore` + a synthetic `HilResponse`.
 
 ### 5.4 WebSearchProvider
@@ -244,7 +244,7 @@ allowed_domains=query.allowed_domains)` before injection into a
 model turn** - the shipped sanitizer runs the domain allowlist,
 injection-marker detection, and `trusted="false"` XML envelope.
 
-**How to test**: mirror `tests/core/web_search/test_web_search.py`.
+**How to test**: mirror `services/core-control-plane/tests/core/web_search/test_web_search.py`.
 The upstream tests cover the sanitizer + `NoOpWebSearchProvider`; a
 fork adds its own adapter-level tests using `httpx.MockTransport`.
 
@@ -336,7 +336,7 @@ declared). A fork's `resolved-models.json` MUST include both for
 **How to bind**: run the LLM resolver CLI against your regional
 catalog fixture so both capabilities appear in
 `resolved-models.json`. The upstream CLI lives at
-[`src/fdai/rule_catalog/schema/llm_resolver_cli.py`](../../../src/fdai/rule_catalog/schema/llm_resolver_cli.py);
+[`services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py);
 invoke it as `uv run python -m fdai.rule_catalog.schema.llm_resolver_cli
 --registry rule-catalog/llm-registry.yaml --region <your-region>
 --subscription-id <sub> --deployer-object-id <oid> --catalog-fixture
@@ -354,7 +354,7 @@ orchestrator. See
 for the precedence rules.
 
 **How to test**: reuse `_StubCritic` / `_StubJudge` patterns from
-`tests/core/quality_gate/test_gate.py`. The escalation matrix
+`services/core-control-plane/tests/core/quality_gate/test_gate.py`. The escalation matrix
 (PROCEED / ABORT / router killswitch) is already covered upstream;
 a fork's tests focus on its live adapters.
 
@@ -422,7 +422,7 @@ index = RuleIndex.build(upstream_rules + fork_rules)
 index must perform the same id check over the combined tuple.
 
 **How to test**: reuse the shipped rule-loader tests as a template
-(`tests/rule_catalog/test_rule_catalog.py`); add a fork-specific
+(`services/core-control-plane/tests/rule_catalog/test_rule_catalog.py`); add a fork-specific
 fixture directory and a smoke test that both catalogs load without
 id conflicts.
 
@@ -512,8 +512,8 @@ non-Resource ObjectType requires either:
   cross-reference is the safety boundary that catches typos at load.
 
 **How to test**: mirror
-`tests/rule_catalog/test_object_type_catalog.py` and
-`tests/rule_catalog/test_link_type_catalog.py`. A fork's tests focus
+`services/core-control-plane/tests/rule_catalog/test_object_type_catalog.py` and
+`services/core-control-plane/tests/rule_catalog/test_link_type_catalog.py`. A fork's tests focus
 on the joint load (upstream + fork roots) plus one assertion that
 each new ObjectType is dispatchable by whatever consumer needs it
 (assurance twin, operator console, custom delivery adapter).
@@ -543,7 +543,7 @@ never raise it, per
 
 **Current state**: **the Rego overlay wire is scoped in the
 execution-model design but the RiskGate module in
-`src/fdai/core/risk_gate/` does not yet load overlay files.**
+`services/core-control-plane/src/fdai/core/risk_gate/` does not yet load overlay files.**
 The two authoritative decision surfaces today are (a) the
 ActionType schema's `ceiling_by_tier` block (edit the shipped
 ontology YAML directly and open an upstream PR if the change is
@@ -595,7 +595,7 @@ CI can triage which side broke.
 
 ```
 fork/
-  tests/
+  services/core-control-plane/tests/
     adapters/        # wire-level tests for your live adapters
     composition/     # tests that exercise your composition_root end-to-end
     contract/        # thin Protocol conformance tests (see below)
@@ -621,9 +621,9 @@ def test_bing_provider_is_websearch_protocol():
 **Running both suites**:
 
 ```bash
-uv run pytest -q tests/ fork/tests/       # full CI run
-uv run pytest -q tests/                   # upstream contract regression only
-uv run pytest -q fork/tests/              # fork adapter check only
+uv run pytest -q services/core-control-plane/tests/ fork/services/core-control-plane/tests/       # full CI run
+uv run pytest -q services/core-control-plane/tests/                   # upstream contract regression only
+uv run pytest -q fork/services/core-control-plane/tests/              # fork adapter check only
 ```
 
 **Inherit pytest-asyncio auto-mode** in your fork's `pyproject.toml`
@@ -721,7 +721,7 @@ full precondition list under the overlay name. An overlay whose `name`
 has no upstream match is rejected - a typo cannot silently introduce a
 phantom ActionType.
 
-**How to test**: reuse `tests/rule_catalog/test_action_type_catalog.py`
+**How to test**: reuse `services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py`
 as a template. A fork's tests SHOULD assert:
 
 - every fork ActionType round-trips through
@@ -846,7 +846,7 @@ policy is append-only. Do NOT pick `none` - it is no longer a valid
 value.
 
 **How to test**: mirror
-`tests/delivery/gitops_pr/test_adapter.py`. Wire tests use
+`services/core-control-plane/tests/delivery/gitops_pr/test_adapter.py`. Wire tests use
 `httpx.MockTransport` against the vendor API; contract tests assert
 `isinstance(adapter, RemediationPrPublisher)` at runtime because the
 Protocol is `@runtime_checkable`.
@@ -873,7 +873,7 @@ history, a DR-drill run log. If you only consume the shipped
 
 **The seam**: `fdai.delivery.operator_api.routes.panels.ReadPanel` Protocol plus
 the `OperatorApiConfig.extra_panels` tuple in
-[`fdai.delivery.operator_api.main`](../../../src/fdai/delivery/operator_api/main.py).
+[`fdai.delivery.operator_api.main`](../../../services/operator-service/src/fdai_operator_service/).
 A `ReadPanel` declares its own HTTP path and returns a serialised
 model on `render()`; the Operator API mounts each panel as a GET-only
 route with the path validated at build (starts with `/`, no `..`
@@ -886,7 +886,7 @@ traversal).
   workflow does it by emitting a `Signal` to the event bus, never by
   calling into an executor.
 - The upstream `ExampleFinOpsPanel` under
-  [`panels.py`](../../../src/fdai/delivery/operator_api/routes/panels.py) is a
+  [`panels.py`](../../../services/operator-service/src/fdai_operator_service/) is a
   reference implementation and is **not** registered by default. Copy
   its shape, do not import and re-register it - upstream keeps the UI
   minimal on purpose.
@@ -941,7 +941,7 @@ for its UI stack) so the panel appears in the sidebar. That console
 edit lives entirely under `console/` in the fork's repo; upstream
 `console/` stays generic.
 
-**How to test**: `tests/delivery/operator_api/test_main.py` covers the
+**How to test**: `services/operator-service/tests/` covers the
 mount / path-validation logic upstream. A fork adds:
 
 1. A unit test over your panel's `render()` with a stubbed data
@@ -972,7 +972,7 @@ mount / path-validation logic upstream. A fork adds:
 of upstream's `__main__`"; this recipe shows what a working
 `fork/entry.py` looks like.
 
-**The seam**: upstream's [`src/fdai/__main__.py`](../../../src/fdai/__main__.py) is a
+**The seam**: upstream's [`services/core-control-plane/src/fdai/__main__.py`](../../../services/core-control-plane/src/fdai/__main__.py) is a
 compatibility facade over `fdai.runtime.*` helpers such as `_resolve_catalog_root`,
 `_build_audit_store`, `_build_operator_memory_store`,
 `_build_pattern_library`, `_build_publisher`, `_build_hil_channel`,
@@ -1115,7 +1115,7 @@ overriding the script name means the container image built from the
 fork's Dockerfile runs the fork entry point automatically without
 changing the CMD.
 
-**How to test**: `tests/composition/test_entry.py` (fork-local)
+**How to test**: `services/core-control-plane/tests/composition/test_entry.py` (fork-local)
 should exercise `build_container_with_fork_catalogs` against the
 in-memory fakes and assert:
 
@@ -1178,7 +1178,7 @@ stitches them into one inert `DistillationPlan`; run a pass with
 the grounding / shadow / regression / promotion gates before enforce.
 
 **How to test**: reuse the shipped distill tests as templates
-(`tests/rule_catalog/pipeline/distill/*`); add a fork fixture directory
+(`services/core-control-plane/tests/rule_catalog/pipeline/distill/*`); add a fork fixture directory
 and assert that (1) your `ManualSource.list_candidates` returns the
 expected candidates, (2) a sensitivity-tripping fixture routes to
 `held`, not `distilled`, and (3) your `Distiller` output cites
@@ -1220,7 +1220,7 @@ binding is only a typed reference and never invokes the target directly.
 The installer blocks startup on unknown targets, missing or duplicate
 providers, mismatches between a tool artifact's declared provider and the
 bundle, and unreferenced providers. See
-[`fdai.fork_examples.capability_bundle`](../../../src/fdai/fork_examples/capability_bundle.py)
+[`fdai.fork_examples.capability_bundle`](../../../examples/extension-kit/)
 for a copy-ready state-query provider and composition helper.
 
 **How to test**: assert that the original container has no fork binding, the

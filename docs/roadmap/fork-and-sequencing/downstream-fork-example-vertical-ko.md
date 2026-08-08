@@ -1,8 +1,8 @@
 ---
 title: Fork Example Vertical - 새 비즈니스 오브젝트 end-to-end
 translation_of: downstream-fork-example-vertical.md
-translation_source_sha: 76c87760fb60df19a453d1fb4c9d07c6852a57c2
-translation_revised: 2026-07-21
+translation_source_sha: dfdb3c93558d3a5f0f9de3e93de58aaef5d515b2
+translation_revised: 2026-08-08
 ---
 
 # Fork Example Vertical: 새 비즈니스 오브젝트 end-to-end
@@ -30,7 +30,7 @@ Reviewer 세트로 라우팅되고, 승인 후 결정 문서를 발행. 패턴�
 결정을 가진 proposal flow). **최소 작동 shipped 예제**는 더 작고
 single-shot: 오퍼레이터가 이름으로 요청하는 on-demand `resource-group`
 **change summary**. 전체 아티팩트 세트가 이미 upstream 트리에 있고
-[`tests/verticals/test_change_summary_example.py`](../../../tests/verticals/test_change_summary_example.py)
+[`services/core-control-plane/tests/verticals/test_change_summary_example.py`](../../../services/core-control-plane/tests/verticals/test_change_summary_example.py)
 가 검증:
 
 | 조각 | 위치 |

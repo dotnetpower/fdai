@@ -25,7 +25,7 @@ store, retriever, summarizer, renderer, model client, tool, or executor.
 
 ## Contract boundary
 
-The core contract lives under `src/fdai/core/working_context/`:
+The core contract lives under `services/core-control-plane/src/fdai/core/working_context/`:
 
 | Type | Responsibility |
 |------|----------------|

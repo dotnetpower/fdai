@@ -1,8 +1,8 @@
 # Pantheon Runtime (`fdai.agents`)
 
 Runtime home for the 15 named pantheon agents. Design authority:
-[docs/roadmap/agents/agent-pantheon.md](../../../docs/roadmap/agents/agent-pantheon.md).
-Wave plan: [agent-pantheon-implementation.md](../../../docs/roadmap/agents/agent-pantheon-implementation.md).
+[docs/roadmap/agents/agent-pantheon.md](../../../../../docs/roadmap/agents/agent-pantheon.md).
+Wave plan: [agent-pantheon-implementation.md](../../../../../docs/roadmap/agents/agent-pantheon-implementation.md).
 
 ## Layout
 
@@ -46,23 +46,23 @@ agents/
 
 ## Testing
 
-- `tests/agents/test_registry.py` - single-writer invariant, publish authorization, canonical set
-- `tests/agents/test_topics.py` - topic naming + partition keys
-- `tests/agents/test_stubs.py` - all 15 stubs instantiate + honest abstain
-- `tests/agents/test_ontology_alignment.py` - YAML `Agent` object type <-> Python pantheon parity
-- `tests/agents/test_wave2_governance.py` - Saga chain + Issue dedup, Mimir promotion, Muninn store, Norns fingerprint counter
-- `tests/agents/test_norns_consensus.py` - Norns `3/3` consensus publication and disagreement hold behavior
-- `tests/agents/test_wave3_pipeline.py` - Huginn / Heimdall / Forseti / Var / Vidar / Thor + end-to-end verdict loop
-- `tests/agents/test_wave4_interface.py` - Bragi routing + scoring, Odin arbitration + priority table
-- `tests/agents/test_wave5_specialists.py` - Njord anomaly, Freyr forecast, Loki blast-radius
-- `tests/agents/test_wave6_handoff_security.py` - Handoff -> Issue -> Norns -> Mimir; Security -> admin card dedup + rate limit
-- `tests/agents/test_wave7_workflows.py` - 10 workflow catalog + smoke traces
-- `tests/agents/test_wave8_kpi_degradation.py` - KPI collector, promotion gate, degradation drills
-- `tests/agents/test_introspection.py` - conversational-port primitives (action-intent guard, token match, capability, base fallback)
-- `tests/agents/test_conversational_port.py` - `PantheonRuntime.ask` routing + agent-to-agent (A2A) `introspect`
-- `tests/agents/test_pantheon_concurrency_proof.py` - all 15 runtime consumer identities + concurrent multi-message fan-out without subscriber stealing
+- `services/core-control-plane/tests/agents/test_registry.py` - single-writer invariant, publish authorization, canonical set
+- `services/core-control-plane/tests/agents/test_topics.py` - topic naming + partition keys
+- `services/core-control-plane/tests/agents/test_stubs.py` - all 15 stubs instantiate + honest abstain
+- `services/core-control-plane/tests/agents/test_ontology_alignment.py` - YAML `Agent` object type <-> Python pantheon parity
+- `services/core-control-plane/tests/agents/test_wave2_governance.py` - Saga chain + Issue dedup, Mimir promotion, Muninn store, Norns fingerprint counter
+- `services/core-control-plane/tests/agents/test_norns_consensus.py` - Norns `3/3` consensus publication and disagreement hold behavior
+- `services/core-control-plane/tests/agents/test_wave3_pipeline.py` - Huginn / Heimdall / Forseti / Var / Vidar / Thor + end-to-end verdict loop
+- `services/core-control-plane/tests/agents/test_wave4_interface.py` - Bragi routing + scoring, Odin arbitration + priority table
+- `services/core-control-plane/tests/agents/test_wave5_specialists.py` - Njord anomaly, Freyr forecast, Loki blast-radius
+- `services/core-control-plane/tests/agents/test_wave6_handoff_security.py` - Handoff -> Issue -> Norns -> Mimir; Security -> admin card dedup + rate limit
+- `services/core-control-plane/tests/agents/test_wave7_workflows.py` - 10 workflow catalog + smoke traces
+- `services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py` - KPI collector, promotion gate, degradation drills
+- `services/core-control-plane/tests/agents/test_introspection.py` - conversational-port primitives (action-intent guard, token match, capability, base fallback)
+- `services/core-control-plane/tests/agents/test_conversational_port.py` - `PantheonRuntime.ask` routing + agent-to-agent (A2A) `introspect`
+- `services/core-control-plane/tests/agents/test_pantheon_concurrency_proof.py` - all 15 runtime consumer identities + concurrent multi-message fan-out without subscriber stealing
 
-Run just the pantheon suite: `pytest tests/agents/ -q`.
+Run just the pantheon suite: `pytest services/core-control-plane/tests/agents/ -q`.
 
 ## Fork integration seams
 
@@ -79,7 +79,7 @@ fork adapters implement to point at the real backend:
 
 None of the in-memory adapters read customer identifiers; fork adapters live
 in the downstream fork per the
-[generic-scope](../../../.github/instructions/generic-scope.instructions.md) rule.
+[generic-scope](../../../../../.github/instructions/generic-scope.instructions.md) rule.
 
 ## Invariants enforced in code
 

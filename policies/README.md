@@ -2,8 +2,8 @@
 
 OPA / Rego policy-as-code.
 
-Consumed by T0 (`src/fdai/core/tiers/t0_deterministic/`) and by the T2 verifier
-(`src/fdai/core/quality_gate/`). Policies are data, not code paths - adding a
+Consumed by T0 (`services/core-control-plane/src/fdai/core/tiers/t0_deterministic/`) and by the T2 verifier
+(`services/core-control-plane/src/fdai/core/quality_gate/`). Policies are data, not code paths - adding a
 policy MUST NOT require an engine change.
 
 ## Layout
@@ -11,7 +11,7 @@ policy MUST NOT require an engine change.
 One folder per CSP-neutral `resource_type` family. Each `.rego` file implements a
 single deterministic `check_logic.reference` cited from a rule under
 [`rule-catalog/catalog/`](../rule-catalog/catalog/); the rule loader
-([`src/fdai/rule_catalog/schema/rule.py`](../src/fdai/rule_catalog/schema/rule.py))
+([`services/core-control-plane/src/fdai/rule_catalog/schema/rule.py`](../services/core-control-plane/src/fdai/rule_catalog/schema/rule.py))
 cross-checks that every `check_logic.reference` under `policies/` actually exists on
 disk at load time.
 
@@ -48,7 +48,7 @@ policies/
 ## Runner
 
 The OPA/Rego runner
-[`OpaRegoEvaluator`](../src/fdai/core/tiers/t0_deterministic/opa_evaluator.py)
+[`OpaRegoEvaluator`](../services/core-control-plane/src/fdai/core/tiers/t0_deterministic/opa_evaluator.py)
 shells out to `opa eval --stdin-input --format json` under a bounded subprocess
 timeout (default 5 s). It is bound at the composition root through the existing
 `PolicyEvaluator` DI seam - the T0 engine itself never imports it.
@@ -56,7 +56,7 @@ timeout (default 5 s). It is bound at the composition root through the existing
 - **Fail-fast at construction**: `MissingOpaBinaryError` is raised when `opa`
   is not on `PATH`. A composition root running in a degraded environment
   (local dev without OPA installed) MUST catch that and bind
-  [`AbstainEvaluator`](../src/fdai/core/tiers/t0_deterministic/engine.py)
+  [`AbstainEvaluator`](../services/core-control-plane/src/fdai/core/tiers/t0_deterministic/engine.py)
   explicitly - auditable degradation, no silent no-op.
 - **Fail-close per rule**: subprocess timeout, non-zero exit, non-JSON stdout,
   or a missing / traversal-shaped policy reference raises `OpaEvaluatorError`.

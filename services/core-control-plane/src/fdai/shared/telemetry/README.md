@@ -1,9 +1,9 @@
-# `src/fdai/shared/telemetry`
+# `services/core-control-plane/src/fdai/shared/telemetry`
 
 This subsystem wires structured logging, OpenTelemetry traces, and metrics into the
 composition root. Every log line carries a `correlation_id`, and every metric maps to a
 named source in
-[goals-and-metrics.md](../../../../docs/roadmap/architecture/goals-and-metrics.md).
+[goals-and-metrics.md](../../../../../../docs/roadmap/architecture/goals-and-metrics.md).
 
 ## Files
 

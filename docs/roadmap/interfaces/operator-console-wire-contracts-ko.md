@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: fe7a111a92326f3dab601d70170e8969e3664237
-translation_revised: 2026-08-03
+translation_source_sha: 58a807dfcbe683e35b3ccdf06cf55ae84840b0f0
+translation_revised: 2026-08-08
 ---
 
 # Operator Console - Data and Wire Contracts
@@ -87,7 +87,7 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 action intent�
 - **호환 endpoint**: `POST /chat/action`, body `{"prompt": str, "session_id": str?,
   "idempotency_key": str?}`. `OperatorApiConfig.console_action` 이
   `ConsoleActionSubmitter`
-  (`src/fdai/delivery/operator_api/routes/console_action.py`)를 wire할 때만
+  (`services/operator-service/src/fdai_operator_service/`)를 wire할 때만
   등록됩니다. 이 raw-prompt route는 호환 API client를 위해 남아 있으며 브라우저
   Command Deck은 사용하지 않습니다. 오퍼레이터 제공 값은
   bound된다(prompt <= 4000, question <= 2000, resource id / session id /
@@ -151,7 +151,7 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 action intent�
 ### 13.7 Python VM task workbench
 
 Workflow Builder 는
-[`python_tasks.py`](../../../src/fdai/delivery/operator_api/routes/python_tasks.py) 의 여섯
+[`python_tasks.py`](../../../services/operator-service/src/fdai_operator_service/) 의 여섯
 mutation route 와 read-only `GET /python-tasks/capabilities` route 를 사용하는
 multi-file Python task workbench 를 포함합니다.
 Operator 는 source file 을 편집하고 entrypoint 를 선택하며 module 및 host

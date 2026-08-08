@@ -23,5 +23,5 @@ artifact storage, indexing, access checks, and activity delivery enter through a
 ## Testing
 
 The deterministic contract and adapters are covered under
-[tests/core/document_ingestion](../../../../tests/core/document_ingestion/). The HTTP boundary tests
-are under [tests/delivery/ingestion_gateway](../../../../tests/delivery/ingestion_gateway/).
+[services/core-control-plane/tests/core/document_ingestion](../../../../tests/core/document_ingestion/). The HTTP boundary tests
+are under [services/core-control-plane/tests/delivery/ingestion_gateway](../../../../../document-ingestion-api/tests/).

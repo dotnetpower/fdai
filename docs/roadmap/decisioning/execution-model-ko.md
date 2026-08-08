@@ -1,8 +1,8 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: ac32e300d20095f9e3b114d883cc33eea323a2ac
-translation_revised: 2026-08-03
+translation_source_sha: 3f843707e347976ed7936f5e6079f879b70e3f2f
+translation_revised: 2026-08-08
 ---
 
 # Execution 모델
@@ -183,7 +183,7 @@ resolved role ([user-rbac-and-identity.md](../interfaces/user-rbac-and-identity-
 
 룰-발화 액션의 경우 "principal" 은 executor identity (시스템 MI); 그
 role 은 composition time 에 fixed
-([composition.py](../../../src/fdai/composition/__init__.py)).
+([composition.py](../../../services/core-control-plane/src/fdai/composition/__init__.py)).
 
 ### 2.6 Axis G - Environment (prod downgrade)
 
@@ -208,7 +208,7 @@ substrate) 의 circuit breaker 가 trip 된 상태. autonomy 를 `shadow_only`
 로 cap 하므로, 실패한 dependency 가 enforce-mode mutation 을 절대 driving
 할 수 없음 (시스템 범위의 "fail toward safety",
 [csp-neutrality.md](../architecture/csp-neutrality.md) 참고). 이 axis 는
-[`DegradationController.autonomy_permitted()`](../../../src/fdai/shared/resilience/degradation.py)
+[`DegradationController.autonomy_permitted()`](../../../services/core-control-plane/src/fdai/shared/resilience/degradation.py)
 가 `evaluate_execution_authority` 의 `system_degraded` 입력을 통해 공급함;
 시스템이 healthy 하면 axis 는 생략되고 결정은 byte-identical 한 six-axis
 결과와 동일함.
@@ -220,7 +220,7 @@ engage 했을 때만** 존재함 - 모든 auto-execution 을 즉시 halt 하는 
 비상 조치 (RBAC `TRIGGER_KILL_SWITCH`). `system_health` 처럼 autonomy 를
 `shadow_only` 로 cap 하므로 halt 중에는 어떤 action 도 mutate 하지 않음
 (HIL 로 human path 는 유지). 이 axis 는
-[`KillSwitch.is_engaged()`](../../../src/fdai/shared/resilience/kill_switch.py)
+[`KillSwitch.is_engaged()`](../../../services/core-control-plane/src/fdai/shared/resilience/kill_switch.py)
 가 `evaluate_execution_authority` 의 `kill_switch_engaged` 입력을 통해
 공급함; kill-switch 는 executor identity 없이 operable 함 (fork 가 그 상태를
 state store 에 backing) -
@@ -245,34 +245,34 @@ quorum 과 axis-선언 quorum 의 최대값.
 비용 추정을 가진 `ops.scale-out` 은 절대 `auto` 아님; 이는 `direct_api`
 fast path 를 통해 우회될 수 있는 런타임 ops 에 대해 Cost Governance
 vertical 을 권위적으로 유지. Cost Governance vertical
-([verticals](../../../src/fdai/core/verticals)) 이 추정 함수를 소유;
+([verticals](../../../services/core-control-plane/src/fdai/core/verticals)) 이 추정 함수를 소유;
 ActionType 은 그것을 참조만 함.
 
 ## 3. 통합 RiskGate
 
 RiskGate 는
-[`src/fdai/core/risk_gate/`](../../../src/fdai/core/risk_gate)
+[`services/core-control-plane/src/fdai/core/risk_gate/`](../../../services/core-control-plane/src/fdai/core/risk_gate)
 에 살고 **두** trigger surface (룰-발화와 오퍼레이터-요청; see
 [action-ontology.md § 4](action-ontology-ko.md#4-트리거-surface))
 의 단일 결정 지점.
 
 > 구현 상태: 순수 combinator 는
-> [`ceiling.py`](../../../src/fdai/core/risk_gate/ceiling.py) (6축),
-> [`risk_table.py`](../../../src/fdai/core/risk_gate/risk_table.py)
+> [`ceiling.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/ceiling.py) (6축),
+> [`risk_table.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/risk_table.py)
 > (Axis A first-match 표 + `rule-catalog/risk-classification.yaml`),
-> [`feature.py`](../../../src/fdai/core/risk_gate/feature.py)
+> [`feature.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/feature.py)
 > (`FeatureVector` 추출기) 로 ship 되고,
-> [`authority.py`](../../../src/fdai/core/risk_gate/authority.py)
+> [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py)
 > `evaluate_execution_authority()` 가 end-to-end 로 통합. 이 함수가 단일
 > 파이프라인 `feature -> table (Axis A) -> 6축 min() -> ExecutionAuthorityDecision`.
-> [`ControlLoop`](../../../src/fdai/core/control_loop/orchestrator.py) 이 두 모드로
+> [`ControlLoop`](../../../services/core-control-plane/src/fdai/core/control_loop/orchestrator.py) 이 두 모드로
 > 호출한다. risk table 만 배선된 경우 실행 액션당 `risk_gate.shadow_authority`
 > audit 엔트리 1개를 기록 (authority 전용, judge+log, executor 경로 무변경).
 > risk table 과 기존
-> [`gate.py`](../../../src/fdai/core/risk_gate/gate.py) `RiskGate` 가
+> [`gate.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/gate.py) `RiskGate` 가
 > 모두 배선된 경우, gate (런타임 Action 안전: exemption / precondition /
 > promotion) 와 authority (정책 ceiling) 를
-> [`evaluator.py`](../../../src/fdai/core/risk_gate/evaluator.py)
+> [`evaluator.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/evaluator.py)
 > `combine()` 이 단일 `UnifiedRiskDecision` 으로 결합하고 (canonical-level
 > `min()`, 두 evaluator 무변경), 루프가 그 위에서 **라우팅**한다: `deny` 나
 > `hil` 결정은 executor 를 건너뛰고 (전체 outcome `DENIED` / `HIL`, PR 미발행),
@@ -315,7 +315,7 @@ class RiskDecision:
   결정론성 (§7) 을 보존하고, `evaluate` 를
   [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md#safety)
   의 async seam 목록 밖에 두며, 기존 동기
-  [`RiskGate.evaluate`](../../../src/fdai/core/risk_gate/gate.py) 와 일치.
+  [`RiskGate.evaluate`](../../../services/core-control-plane/src/fdai/core/risk_gate/gate.py) 와 일치.
   Probe 사전-fetch 는 이미 async 인 ControlLoop / coordinator 에서 수행.
 - **Compatibility boundary.** Runtime safety gate는 typed
   `RiskDecision(outcome: RiskDecisionOutcome, ...)`를 유지하고 authority evaluator는
@@ -323,7 +323,7 @@ class RiskDecision:
   `UnifiedRiskDecision`으로 결합하며 caller는 원본 dataclass의 staged field migration이
   아니라 이 combined contract를 사용합니다.
 - `promotion_state` 는 기존
-  [`ActionPromotionRegistry`](../../../src/fdai/core/risk_gate/gate.py)
+  [`ActionPromotionRegistry`](../../../services/core-control-plane/src/fdai/core/risk_gate/gate.py)
   로부터 read - shadow-mode ActionType 은 axis 가 permit 하는 것과 관계
   없이 `mode` 를 `shadow` 로 clamp.
 - `execution_path` 는 ActionType 기본이나 axis (전형적으로 role 또는
@@ -432,7 +432,7 @@ RiskGate 는 `pr_manual` 로 downgrade MAY (upgrade 절대 안 함). 네 번째
 
 ### 5.1 PR-native (`pr_native`)
 
-- Executor 가 [`GitOpsPrAdapter`](../../../src/fdai/delivery/gitops_pr/adapter.py) 로 PR 빌드.
+- Executor 가 [`GitOpsPrAdapter`](../../../services/core-control-plane/src/fdai/delivery/gitops_pr/adapter.py) 로 PR 빌드.
 - `auto` 결정 시, PR 은 `hil` label 을 carry 안 함 → branch 의 auto-merge 정책이 accept.
 - `hil` 결정 시, PR 은 `hil` label 을 carry → approver 가 콘솔로 merge.
 - 감사 + rollback 은 git 에 lean: revert commit 이 rollback path.
@@ -445,7 +445,7 @@ Best for: configuration 변경, IaC patch, 카탈로그 업데이트, governance
 
 ### 5.2 Direct API (`direct_api`)
 
-- Executor 가 substrate API 를 직접 호출 (Azure ARM, kubectl, `src/fdai/delivery/` 아래 해당 delivery adapter 를 통한 Redis).
+- Executor 가 substrate API 를 직접 호출 (Azure ARM, kubectl, `services/core-control-plane/src/fdai/delivery/` 아래 해당 delivery adapter 를 통한 Redis).
 - `auto` 결정 시, call 이 HIL 없이 진행되고 ActionType 의 `stop_conditions` 와 `preconditions` 가 call 전후로 executor 에 의해 enforce.
   Adapter는 모든 threshold, window, seconds, count parameter를 포함한 complete ordered stop-condition tuple을 받으며 singular string은 compatibility shorthand로만 유지.
 - `hil` 결정 시, executor 가 HIL item 을 enqueue (PR-manual 큐와 동일
@@ -579,7 +579,7 @@ operational-alert 도 emit 한다 - outbound-only, 정보성이며 승인 버튼
 ### 5.6 Tool call (`tool_call`)
 
 - Executor 가 **등록된 함수** - PDF 리포트 생성, 알림 발송, 티켓 오픈 -
-  를 [`ToolExecutor`](../../../src/fdai/shared/providers/tool.py) Protocol
+  를 [`ToolExecutor`](../../../services/core-control-plane/src/fdai/shared/providers/tool.py) Protocol
   (`core/executor/tool_call.py` 의 `ToolCallShadowExecutor`) 로 invoke.
   클라우드 substrate 를 mutate 하지 않고 **아티팩트** 또는 side effect 를
   생산한다. LLM 이 tool 을 호출하는 방식의 온톨로지-네이티브 대응물이다:

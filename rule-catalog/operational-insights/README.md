@@ -42,7 +42,7 @@ The initial catalog contains 50 independently executable recipes.
 Run the focused catalog and engine checks:
 
 ```bash
-uv run pytest -q tests/core/detection/test_insights.py \
-  tests/core/detection/test_insight_source.py \
-  tests/core/detection/test_insight_catalog.py
+uv run pytest -q services/core-control-plane/tests/core/detection/test_insights.py \
+  services/core-control-plane/tests/core/detection/test_insight_source.py \
+  services/core-control-plane/tests/core/detection/test_insight_catalog.py
 ```

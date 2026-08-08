@@ -1,12 +1,12 @@
 ---
 description: Agent stewardship + handover map rules for the config and core module.
-applyTo: "config/agent-stewardship.yaml,src/fdai/core/stewardship/**"
+applyTo: "config/agent-stewardship.yaml,services/core-control-plane/src/fdai/core/stewardship/**"
 ---
 
 # Agent Stewardship - Handover Map Contract
 
 Normative rules for editing `config/agent-stewardship.yaml` and any file under
-`src/fdai/core/stewardship/**`. The design of record is
+`services/core-control-plane/src/fdai/core/stewardship/**`. The design of record is
 [../../docs/roadmap/interfaces/agent-stewardship-and-handover.md](../../docs/roadmap/interfaces/agent-stewardship-and-handover.md).
 Related: [agent-pantheon.instructions.md](agent-pantheon.instructions.md)
 (the fork-locked role bindings this overlay must not touch),
@@ -34,7 +34,7 @@ strong default; **MAY** is optional.
   exactly. Missing or unknown names fail fast at load and in CI.
 - `core/stewardship/names.py::AGENT_NAMES` is the module-local mirror of
   `PANTHEON_NAMES`. `core/` MUST NOT import `agents/` (module boundary); keep the
-  mirror in sync through `tests/core/stewardship/test_pantheon_parity.py`, never
+  mirror in sync through `services/core-control-plane/tests/core/stewardship/test_pantheon_parity.py`, never
   by importing the pantheon into `core/`.
 
 ## 3. Steward and maintainer shape (MUST)
@@ -81,7 +81,7 @@ strong default; **MAY** is optional.
   (the SHA gate blocks drift).
 - Any new fail-fast rule MUST come with a resolver test; any new finding MUST come
   with a coverage test. Run `scripts/governance/check-stewardship.sh` and
-  `pytest tests/core/stewardship/` before proposing the change complete.
+  `pytest services/core-control-plane/tests/core/stewardship/` before proposing the change complete.
 - Editing the shipped `config/agent-stewardship.yaml` in production is a
   governance draft-PR flow (console is read-only); it notifies the affected
   stewards + maintainer and writes a Saga audit entry.

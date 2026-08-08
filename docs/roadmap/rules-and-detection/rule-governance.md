@@ -105,30 +105,30 @@ assignment's top-level `effect` is the default for rules without an override.
   updates the open PR rather than opening duplicates.
 
 > **Implementation status**: the effect foundation ships in
-> [`rule_catalog/schema/effect.py`](../../../src/fdai/rule_catalog/schema/effect.py) - the
+> [`rule_catalog/schema/effect.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/effect.py) - the
 > `Effect` (`disabled` / `audit` / `deny` / `remediate`) and `Enforcement`
 > (`enforce` / `do-not-enforce`) enums, the strictest-effect precedence
 > (`deny` > `remediate` > `audit` > `disabled`) used to resolve conflicting assignments, and
 > `validate_effect_transition` enforcing the transition table above (a raise to an enforce effect
 > requires the separate promotion approval). The scope selection layer ships alongside in
-> [`rule_catalog/schema/scope.py`](../../../src/fdai/rule_catalog/schema/scope.py) - the
+> [`rule_catalog/schema/scope.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/scope.py) - the
 > `ScopeLevel` hierarchy, `ScopeSelector` (resource-type / tag / resource-id, AND-of-declared),
 > exclusions, `Scope.covers`, and the `most_specific` precedence helper. The `Assignment` artifact
 > and the `resolve_assignments` conflict resolver (strictest effect wins; the most-specific scope
 > supplies parameters; a specificity tie flags HIL; losers recorded for audit) ship in
-> [`rule_catalog/schema/assignment.py`](../../../src/fdai/rule_catalog/schema/assignment.py). The
+> [`rule_catalog/schema/assignment.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/assignment.py). The
 > `RuleSet` (initiative) grouping - version-pinned members with per-rule `default_effect` and
 > `assignment_from_rule_set` - ships in
-> [`rule_catalog/schema/rule_set.py`](../../../src/fdai/rule_catalog/schema/rule_set.py). The
+> [`rule_catalog/schema/rule_set.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_set.py). The
 > governance model layer (effect / scope / assignment / rule-set) is complete in-memory. The
 > assignment catalog-as-code loader also ships:
-> [`assignment.schema.json`](../../../src/fdai/rule_catalog/schema/assignment.schema.json) +
+> [`assignment.schema.json`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/assignment.schema.json) +
 > `load_assignment_from_mapping`
-> ([`governance_loader.py`](../../../src/fdai/rule_catalog/schema/governance_loader.py)), which
+> ([`governance_loader.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/governance_loader.py)), which
 > validates a YAML assignment and builds the domain object, failing at the boundary with every
 > schema issue. The rule-set loader (`rule_set.schema.json` + `load_rule_set_from_mapping`) ships
 > in the same module. A directory loader
-> ([`governance_catalog.py`](../../../src/fdai/rule_catalog/schema/governance_catalog.py),
+> ([`governance_catalog.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/governance_catalog.py),
 > `load_governance_catalog`) reads the whole catalog-as-code tree (`assignments/` + `rule-sets/`),
 > aggregating every file's issues. An assignment binds either an explicit `target_rule_ids` list or
 > a `rule_set` (by id): the loader resolves a rule-set reference against the loaded rule-sets and
@@ -136,7 +136,7 @@ assignment's top-level `effect` is the default for rules without an override.
 > overrides), so "rule-set applied to a scope" works end-to-end; an unresolved reference fails at the
 > load boundary. The CI transition gate core also ships:
 > `validate_catalog_transition`
-> ([`governance_transitions.py`](../../../src/fdai/rule_catalog/schema/governance_transitions.py))
+> ([`governance_transitions.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/governance_transitions.py))
 > compares a previous and current `GovernanceCatalog` and rejects any per-rule effective-effect
 > transition outside the allowed table - a new assignment/rule is validated from the mandated
 > `audit` default, and raising to an enforce effect (`deny` / `remediate`) needs the assignment id
@@ -151,11 +151,11 @@ assignment's top-level `effect` is the default for rules without an override.
 > future check. The remaining follow-up is the T0 runtime that consumes a resolved assignment.
 >
 > The shipped catalog-as-code schema now matches the "YAML Shapes" section below: a shared
-> `Provenance` value object ([`provenance.py`](../../../src/fdai/rule_catalog/schema/provenance.py)),
-> the `kind` ([`governance_kind.py`](../../../src/fdai/rule_catalog/schema/governance_kind.py))
+> `Provenance` value object ([`provenance.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/provenance.py)),
+> the `kind` ([`governance_kind.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/governance_kind.py))
 > discriminator plus an artifact `version`, the canonical `scope://`
-> [`ScopeRef`](../../../src/fdai/rule_catalog/schema/scope.py) address and the include/exclude
-> [`ScopeBinding`](../../../src/fdai/rule_catalog/schema/scope.py) form (unified behind the
+> [`ScopeRef`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/scope.py) address and the include/exclude
+> [`ScopeBinding`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/scope.py) form (unified behind the
 > `ScopeMatcher` protocol), and per-rule `parameter_overrides` all ship. A rule-set is bound through
 > `rule_set` (or an explicit `target_rule_ids` list) and scope narrowing uses the richer `selector`
 > (`resource_types` / `tags` / `resource_ids`).

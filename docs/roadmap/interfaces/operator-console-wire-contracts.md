@@ -85,7 +85,7 @@ and does not send natural language directly to a write endpoint.
   `{"prompt": str, "session_id": str?,
   "idempotency_key": str?}`. Registered only when `OperatorApiConfig.console_action`
   wires a `ConsoleActionSubmitter`
-  (`src/fdai/delivery/operator_api/routes/console_action.py`). This raw-prompt route
+  (`services/operator-service/src/fdai_operator_service/`). This raw-prompt route
   remains for compatible API clients; the browser Command Deck does not use it.
   Operator-supplied values are bounded (prompt <= 4000,
   question <= 2000, resource id / session id / idempotency key <= 200 chars) so
@@ -154,7 +154,7 @@ and does not send natural language directly to a write endpoint.
 
 The Workflow Builder includes a multi-file Python task workbench backed by the
 six mutation routes and the read-only `GET /python-tasks/capabilities` route in
-[`python_tasks.py`](../../../src/fdai/delivery/operator_api/routes/python_tasks.py).
+[`python_tasks.py`](../../../services/operator-service/src/fdai_operator_service/).
 Operators can edit source files, choose an entrypoint, declare modules and host
 capabilities, validate, stage an immutable artifact, and render a shadow plan
 for an inventory Resource.

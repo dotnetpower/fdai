@@ -31,7 +31,7 @@ are **targets to validate**, not guarantees ([goals-and-metrics.md](../architect
 
 - **Continuous rule-update pipeline** (living rules), delivered as catalog-as-code PRs.
   P1 W-3 lands the deterministic in-process stages under
-  [`src/fdai/rule_catalog/pipeline/`](../../../src/fdai/rule_catalog/pipeline):
+  [`services/core-control-plane/src/fdai/rule_catalog/pipeline/`](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline):
   `ShadowEvaluator` replays a candidate rule set against a scenario set in judge-and-log
   mode; `RegressionGate` enforces zero policy-violation escapes + coverage ratio floor
   + missing-expected-rules cap; `RulePromotionController` records promote/rollback with
@@ -40,26 +40,26 @@ are **targets to validate**, not guarantees ([goals-and-metrics.md](../architect
   stages without editing `core/`.
 - **LLM quality gate** guarding T2: mixed-model cross-check, deterministic verifier, and
   grounding. Execution eligibility is granted by the verifier, **never by the model**.
-  Implemented in [`src/fdai/core/quality_gate/`](../../../src/fdai/core/quality_gate)
+  Implemented in [`services/core-control-plane/src/fdai/core/quality_gate/`](../../../services/core-control-plane/src/fdai/core/quality_gate)
   with three DI Protocols (`CrossCheckModel`, `VerifierPolicy`, `GroundingSource`) and
   the `QualityGate` orchestrator that emits `eligible | abstain | disagree | deny`.
   In-memory fakes for every seam live under
-  [`quality_gate/testing.py`](../../../src/fdai/core/quality_gate/testing.py) so
+  [`quality_gate/testing.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/testing.py) so
   a fork can smoke the composition root without any live LLM.
 - **Rubric hallucination filter** (subtractive): an optional
-  [`RubricEvaluator`](../../../src/fdai/core/quality_gate/rubric.py) scores a T2
+  [`RubricEvaluator`](../../../services/core-control-plane/src/fdai/core/quality_gate/rubric.py) scores a T2
   candidate's `reasoning_trace` against fixed criteria and the gate folds the minimum
   score into confidence via `min()` (never additive). Shadow-first, fail-closed, judge
   distinct from proposer. A `SelfConsistencySampler` adds an `action_stability` signal.
   Full design in [hallucination-rubric-gate.md](../decisioning/hallucination-rubric-gate.md).
 - **T1 lightweight tier**: embedding similarity + safety-re-verified learned-action reuse.
-  [`src/fdai/core/tiers/t1_lightweight/`](../../../src/fdai/core/tiers/t1_lightweight)
+  [`services/core-control-plane/src/fdai/core/tiers/t1_lightweight/`](../../../services/core-control-plane/src/fdai/core/tiers/t1_lightweight)
   ships the `T1Tier` orchestrator plus `EmbeddingModel` / `PatternLibrary` seams; the
   fake `DeterministicEmbeddingModel` + `InMemoryPatternLibrary` under
-  [`t1_lightweight/testing.py`](../../../src/fdai/core/tiers/t1_lightweight/testing.py)
+  [`t1_lightweight/testing.py`](../../../services/core-control-plane/src/fdai/core/tiers/t1_lightweight/testing.py)
   power reproducible unit tests without a real embedding model or pgvector.
 - **Shadow → enforce promotion**, per-action, gated on measured metrics with zero policy escapes.
-  [`src/fdai/core/risk_gate/`](../../../src/fdai/core/risk_gate) implements
+  [`services/core-control-plane/src/fdai/core/risk_gate/`](../../../services/core-control-plane/src/fdai/core/risk_gate) implements
   `ActionPromotionRegistry.consider_promotion(metrics)` which evaluates the ActionType's
   `promotion_gate` (min_shadow_days / min_samples / min_accuracy / max_policy_escapes)
   against measured `PromotionMetrics` and records the resulting mode. `RiskGate.evaluate`

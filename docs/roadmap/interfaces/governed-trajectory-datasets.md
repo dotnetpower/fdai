@@ -167,14 +167,14 @@ the existing Norns-to-Mimir quality gate.
 
 | Responsibility | Location |
 |----------------|----------|
-| Envelope, projection, review, validation | `src/fdai/core/trajectory/` |
-| Source and dataset provider contracts | `src/fdai/shared/providers/trajectory.py` |
-| JSONL exporter and scanner quarantine | `src/fdai/delivery/trajectory/` |
-| PostgreSQL metadata adapters | `src/fdai/delivery/persistence/postgres_trajectory.py` |
-| Read-only admin routes | `src/fdai/delivery/operator_api/routes/trajectory_datasets.py` |
-| Offline CLI | `src/fdai/deployment_cli/trajectory.py` |
+| Envelope, projection, review, validation | `services/core-control-plane/src/fdai/core/trajectory/` |
+| Source and dataset provider contracts | `services/core-control-plane/src/fdai/shared/providers/trajectory.py` |
+| JSONL exporter and scanner quarantine | `services/core-control-plane/src/fdai/delivery/trajectory/` |
+| PostgreSQL metadata adapters | `services/core-control-plane/src/fdai/delivery/persistence/postgres_trajectory.py` |
+| Read-only admin routes | `services/operator-service/src/fdai_operator_service/` |
+| Offline CLI | `services/core-control-plane/src/fdai/deployment_cli/trajectory.py` |
 | Migration | `alembic/versions/20260720_0048_trajectory_dataset.py` |
-| Golden tests | `tests/core/trajectory/`, `tests/delivery/trajectory/` |
+| Golden tests | `services/core-control-plane/tests/core/trajectory/`, `services/core-control-plane/tests/delivery/trajectory/` |
 
 ## Related docs
 

@@ -1,8 +1,8 @@
 ---
 title: 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
 translation_of: preflight-active-reassembly.md
-translation_source_sha: 7af77fb0bbc8555d25b09790544c3fec32d5f51c
-translation_revised: 2026-08-06
+translation_source_sha: a06b01451999e51de370c52c4eab6e7647bc34f4
+translation_revised: 2026-08-08
 ---
 # 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
 
@@ -34,7 +34,7 @@ wiring이 완료된 뒤 활성화됩니다.
 레일은 이미 존재합니다. 능동 재조립은 그것들을 끝에서 끝까지 잇습니다:
 
 1. **탐지** - `FeasibilityProbe`가 근거 있는 `ProbeFinding`을 emit합니다
-   ([feasibility_probe.py](../../../src/fdai/shared/providers/feasibility_probe.py)).
+   ([feasibility_probe.py](../../../services/core-control-plane/src/fdai/shared/providers/feasibility_probe.py)).
 2. **매핑** - finding이 정확한 infra 서브 모듈과 배포를 준수하게 만드는 변수 override를
    지명하는 `ProbeResolution(kind=TERRAFORM_TOGGLE, autofix, module, set_vars)`를
    실어 나릅니다.
@@ -47,7 +47,7 @@ wiring이 완료된 뒤 활성화됩니다.
 
 - **토글 proposal builder(완료)**: cleared outcome의 `autofix` toggle을 토글별 typed proposal로
   렌더합니다. Live sink/publisher wiring은 아직 없어 remediation PR을 열지는 않습니다
-  ([check_publish.py](../../../src/fdai/core/deploy_preflight/check_publish.py)).
+  ([check_publish.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/check_publish.py)).
 - **수렴 루프(완료)**: caller가 제공한 plan renderer와 reanalyzer를 통해 재조립된 플랜을
   다시 검사하여 한 blocker의 수정이 다른 blocker를 조용히 도입하지 못하게 합니다.
 
@@ -93,7 +93,7 @@ terraform plan (JSON)
 ## ActionType: `remediate.apply-preflight-toggle`
 
 능동 재조립은 **새로운** 특권 경로가 **아닙니다**. 일급 온톨로지 `ActionType`을 등록하여
-기존 [executor](../../../src/fdai/core/executor/executor.py)를 재사용하므로, 네 개의 안전
+기존 [executor](../../../services/core-control-plane/src/fdai/core/executor/executor.py)를 재사용하므로, 네 개의 안전
 7개 안전조건, shadow-first 게이팅, append-only 감사 항목이 공짜로 따라옵니다 (콘솔 어휘가 모든
 액션을 타입드 파이프라인으로 라우팅하는 것과 같은 이유,
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md#action-ontology-and-console-vocabulary)
@@ -142,7 +142,7 @@ guidance + `hil`로 격하됩니다:
 `toggle_module` + `set_vars`)로 유지되어, 감사·롤백(`pr_revert`)·blast-radius가 토글
 입도로 남고 각 토글이 해소하는 finding에 1:1로 매핑됩니다. 루프는 토글별 provenance를
 유지하며(`AppliedToggle`: `finding_id`, `module`, `set_vars`, `scope`), proposal
-빌더([reassembly_proposals.py](../../../src/fdai/core/deploy_preflight/reassembly_proposals.py))가
+빌더([reassembly_proposals.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py))가
 토글당 proposal 하나를 렌더하여, 오퍼레이터 명령이 재진입하는 것과 같은 타입드 파이프라인
 seam(`ProposalSink` -> Huginn -> Forseti -> Thor)을 통해 shadow-first로 제출합니다.
 escalate된 outcome은 proposal을 내지 않습니다 - 호출자가 `hil`로 라우팅합니다.
@@ -189,14 +189,14 @@ draft입니다.
 
 | 조각 | 위치 | 상태 |
 |-------|----------|--------|
-| finding 위의 토글 resolution | [feasibility_probe.py](../../../src/fdai/shared/providers/feasibility_probe.py) | 완료 |
+| finding 위의 토글 resolution | [feasibility_probe.py](../../../services/core-control-plane/src/fdai/shared/providers/feasibility_probe.py) | 완료 |
 | capability-mode 토글 모듈 | [infra/modules/preflight-toggles/](../../../infra/modules/preflight-toggles/README.md) | 완료 (data-only) |
-| Readiness 리포트 + verdict | [core/deploy_preflight/report.py](../../../src/fdai/core/deploy_preflight/report.py) | 완료 |
-| 리포트 -> PR 체크 게시 | [core/deploy_preflight/check_publish.py](../../../src/fdai/core/deploy_preflight/check_publish.py) | 완료 (리포트만) |
-| 수렴 루프 + stop-condition | [core/deploy_preflight/reassemble.py](../../../src/fdai/core/deploy_preflight/reassemble.py) | 완료 |
+| Readiness 리포트 + verdict | [core/deploy_preflight/report.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/report.py) | 완료 |
+| 리포트 -> PR 체크 게시 | [core/deploy_preflight/check_publish.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/check_publish.py) | 완료 (리포트만) |
+| 수렴 루프 + stop-condition | [core/deploy_preflight/reassemble.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/reassemble.py) | 완료 |
 | `remediate.apply-preflight-toggle` ActionType | [rule-catalog/action-types/](../../../rule-catalog/action-types/remediate.apply-preflight-toggle.yaml) | 완료 |
-| overrides -> Action proposal (토글당 하나) | [core/deploy_preflight/reassembly_proposals.py](../../../src/fdai/core/deploy_preflight/reassembly_proposals.py) | 완료 |
-| 반복 manual blocker -> inert candidate | [agents/norns.py](../../../src/fdai/agents/norns.py) | 완료 (caller-supplied observation) |
+| overrides -> Action proposal (토글당 하나) | [core/deploy_preflight/reassembly_proposals.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py) | 완료 |
+| 반복 manual blocker -> inert candidate | [agents/norns.py](../../../services/core-control-plane/src/fdai/agents/norns.py) | 완료 (caller-supplied observation) |
 | 참조 consumer 배선 (토글 하나) | [infra/modules/preflight-toggles/reference-disk-consumer/](../../../infra/modules/preflight-toggles/reference-disk-consumer/README.md) | 완료 (포크가 복사) |
 | **composition 배선: `ProposalSink` + 라이브 트리거** | composition root + `delivery/azure/preflight/` | **남음** |
 

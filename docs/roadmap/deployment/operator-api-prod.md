@@ -4,11 +4,11 @@ title: Operator API Production Deployment
 # Operator API Production Deployment
 
 The upstream repo ships two ASGI entrypoints for the console Operator API:
-the local facade ([`src/fdai/delivery/operator_api/dev/local.py`](../../../src/fdai/delivery/operator_api/dev/local.py))
+the local facade ([`services/operator-service/src/fdai_operator_service/`](../../../services/operator-service/src/fdai_operator_service/))
 that requires Entra or an explicit Azure CLI principal plus authoritative Azure views by default,
 and permits `UnsafeClaimsExtractor` plus synthetic views only under pytest's
 `test_fixtures=True`; and the production facade
-([`src/fdai/delivery/operator_api/prod.py`](../../../src/fdai/delivery/operator_api/prod.py))
+([`services/operator-service/src/fdai_operator_service/`](../../../services/operator-service/src/fdai_operator_service/))
 that composes real Entra JWT verification and a Postgres-backed read
 model from environment only. This doc covers the production entrypoint.
 
@@ -19,7 +19,7 @@ model from environment only. This doc covers the production entrypoint.
 ## Design at a glance
 
 - **Same `build_app` glue.** The prod factory calls the shared
-  [`build_app`](../../../src/fdai/delivery/operator_api/main.py) with
+  [`build_app`](../../../services/operator-service/src/fdai_operator_service/) with
   `dev_mode=False`, so cloud-resource mutation remains outside the API. Opt-in
   POST routes record proposals, approvals, or access requests but never hold
   the executor identity. The
@@ -61,7 +61,7 @@ Required (fail-fast at startup):
 | Variable | Purpose |
 |----------|---------|
 | `FDAI_DATABASE_URL` | psycopg 3 DSN. Accepted schemes: `postgresql://`, `postgres://`, `postgresql+psycopg://`. Any other `+<driver>` suffix (`+asyncpg`, `+psycopg2`, ...) is rejected at boot with a `ProdOperatorApiConfigError`. Points at the `audit_log` + `state_kv` schema the writer already provisions via `alembic upgrade head`. |
-| `FDAI_ENTRA_TENANT_ID` | Consumed by [`EntraJwtVerifier.from_env`](../../../src/fdai/delivery/operator_api/entra_verifier.py). |
+| `FDAI_ENTRA_TENANT_ID` | Consumed by [`EntraJwtVerifier.from_env`](../../../services/operator-service/src/fdai_operator_service/). |
 | `FDAI_API_AUDIENCE` | The `fdai-api` App ID URI (`api://<guid>`). |
 | `FDAI_RBAC_READERS_GROUP_ID` | Entra group `objectId` mapped to the Reader role. |
 | `FDAI_RBAC_CONTRIBUTORS_GROUP_ID` | Entra group `objectId` mapped to Contributor. |
@@ -126,32 +126,32 @@ Vault secret directly ([app-shape.instructions.md § Azure Mapping](../../../.gi
 
 ## What lives where
 
-- [`prod.py`](../../../src/fdai/delivery/operator_api/prod.py) - the stable import facade and
+- [`prod.py`](../../../services/operator-service/src/fdai_operator_service/) - the stable import facade and
   `app()` factory.
-- [`production/config.py`](../../../src/fdai/delivery/operator_api/production/config.py) and
-  [`production/factory.py`](../../../src/fdai/delivery/operator_api/production/factory.py) - the
+- [`production/config.py`](../../../services/operator-service/src/fdai_operator_service/) and
+  [`production/factory.py`](../../../services/operator-service/src/fdai_operator_service/) - the
   actual owners of environment validation and Postgres/Entra/provider composition.
-- [`postgres_read_model.py`](../../../src/fdai/delivery/operator_api/postgres_read_model.py)
+- [`postgres_read_model.py`](../../../services/operator-service/src/fdai_operator_service/)
   - the concrete :class:`ConsoleReadModel` on top of `audit_log` +
     `state_kv`. Pure row-to-dataclass mappers + a bounded KPI
     aggregation live in the same module so they are unit-tested without
     a live DB.
-- [`main.py`](../../../src/fdai/delivery/operator_api/main.py) - shared
+- [`main.py`](../../../services/operator-service/src/fdai_operator_service/) - shared
   `build_app` glue (route registration, `_authorize` gate, staging/prod
   tripwires).
-- [`streaming/live_stage_broadcaster.py`](../../../src/fdai/delivery/operator_api/streaming/live_stage_broadcaster.py)
+- [`streaming/live_stage_broadcaster.py`](../../../services/operator-service/src/fdai_operator_service/)
   - validates stage records from Kafka and preserves the raw `event: stage`
   SSE contract expected by the browser.
 
 ## Testing
 
-- `tests/delivery/operator_api/test_prod.py` - env parsing + composition
+- `services/operator-service/tests/` - env parsing + composition
   guards (no DB round-trip).
-- `tests/delivery/operator_api/streaming/test_live_stage_broadcaster.py` - raw
+- `services/operator-service/tests/` - raw
   stage relay, malformed-frame rejection, and lifecycle behavior.
-- `tests/delivery/operator_api/test_postgres_read_model_units.py` - row
+- `services/operator-service/tests/` - row
   mappers, cursor parsing, KPI aggregation (no DB round-trip).
-- `tests/persistence/test_postgres_console_read_model.py` -
+- `services/core-control-plane/tests/persistence/test_postgres_console_read_model.py` -
   end-to-end round-trip against a live Postgres. Skipped unless
   `FDAI_DATABASE_URL` is set; the local `docker-compose` dev stack
   (`bash scripts/deployment/local/dev-up.sh`) exposes it as

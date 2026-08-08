@@ -1,6 +1,6 @@
 ---
 description: "Use when changing the console, Operator API, local launch, runtime topology, deployment, or layer boundaries. Covers app shape and local/deployed parity."
-applyTo: ".vscode/**,console/**,src/fdai/delivery/operator_api/**,src/fdai/runtime/**,infra/**,azure.yaml"
+applyTo: ".vscode/**,console/**,services/operator-service/src/fdai_operator_service/**,services/core-control-plane/src/fdai/runtime/**,infra/**,azure.yaml"
 ---
 
 # App Shape

@@ -1,8 +1,8 @@
 ---
 title: 거버넌스 적용 실행 백엔드
 translation_of: execution-backends.md
-translation_source_sha: e243ba35a9f99f60eed4a229d170643934e20719
-translation_revised: 2026-07-28
+translation_source_sha: d23caf7c4346cf86143dd93205adefce3f98fa81
+translation_revised: 2026-08-08
 ---
 
 # 거버넌스 적용 실행 백엔드
@@ -168,12 +168,12 @@ provider retention, measured cost에 대한 live evidence가 필요합니다. �
 
 | 책임 | 소스 | 테스트 |
 |------|------|--------|
-| Protocol 및 ledger record | `src/fdai/shared/providers/execution_backend.py` | provider 및 focused lifecycle test |
-| Profile, registry, coordinator | `src/fdai/core/execution_backend/` | `tests/core/execution_backend/` |
-| Bubblewrap 및 VM adapter | `src/fdai/delivery/execution_backend/` | `tests/delivery/execution_backend/` |
-| Azure Container Apps Job | `src/fdai/delivery/azure/container_apps_job_backend.py` | `tests/delivery/azure/test_container_apps_job_backend.py` |
-| PostgreSQL ledger | `src/fdai/delivery/persistence/postgres_execution_backend.py` | `tests/persistence/test_execution_backend_ledger.py` |
-| Startup binding | `src/fdai/composition/wire_execution_backends.py` | `tests/composition/test_execution_backends.py` |
+| Protocol 및 ledger record | `services/core-control-plane/src/fdai/shared/providers/execution_backend.py` | provider 및 focused lifecycle test |
+| Profile, registry, coordinator | `services/core-control-plane/src/fdai/core/execution_backend/` | `services/core-control-plane/tests/core/execution_backend/` |
+| Bubblewrap 및 VM adapter | `services/core-control-plane/src/fdai/delivery/execution_backend/` | `services/core-control-plane/tests/delivery/execution_backend/` |
+| Azure Container Apps Job | `services/core-control-plane/src/fdai/delivery/azure/container_apps_job_backend.py` | `services/core-control-plane/tests/delivery/azure/test_container_apps_job_backend.py` |
+| PostgreSQL ledger | `services/core-control-plane/src/fdai/delivery/persistence/postgres_execution_backend.py` | `services/core-control-plane/tests/persistence/test_execution_backend_ledger.py` |
+| Startup binding | `services/core-control-plane/src/fdai/composition/wire_execution_backends.py` | `services/core-control-plane/tests/composition/test_execution_backends.py` |
 
 ## 관련 문서
 

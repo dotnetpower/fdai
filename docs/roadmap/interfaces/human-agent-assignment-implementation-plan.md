@@ -84,7 +84,7 @@ second mutable duty graph.
 
 ### Assignment state
 
-Add `src/fdai/core/human_assignment/` with pure models, transition validation, coverage checks, and
+Add `services/core-control-plane/src/fdai/core/human_assignment/` with pure models, transition validation, coverage checks, and
 a coordinator over the existing `StateStore`. Initial persistence uses atomic `state_kv` plus the
 audit hash chain, so no Alembic migration is required for the first release.
 
@@ -303,13 +303,13 @@ coverage and a current handover review date.
 
 | Slice | Narrow command before commit |
 |-------|------------------------------|
-| Stewardship v2 | `uv run pytest -q --no-cov tests/core/stewardship` plus `bash scripts/governance/check-stewardship.sh` |
-| Assignment core | `uv run pytest -q --no-cov tests/core/human_assignment` |
-| IAM API | `uv run pytest -q --no-cov tests/delivery/operator_api/test_iam.py tests/delivery/operator_api/test_human_assignments.py` |
+| Stewardship v2 | `uv run pytest -q --no-cov services/core-control-plane/tests/core/stewardship` plus `bash scripts/governance/check-stewardship.sh` |
+| Assignment core | `uv run pytest -q --no-cov services/core-control-plane/tests/core/human_assignment` |
+| IAM API | `uv run pytest -q --no-cov services/operator-service/tests/ services/operator-service/tests/` |
 | Console | `npm --prefix console test -- --run src/routes/settings-iam.test.ts src/routes/settings-iam-assignments.test.tsx` |
-| Ownership governance | `uv run pytest -q --no-cov tests/delivery/stewardship tests/delivery/ingestion_gateway/test_handover.py` |
-| HIL supervisor | `uv run pytest -q --no-cov tests/core/hil_resume` |
-| Knowledge lifecycle | `uv run pytest -q --no-cov tests/core/document_ingestion tests/delivery/document_index tests/delivery/ingestion_gateway` |
+| Ownership governance | `uv run pytest -q --no-cov services/core-control-plane/tests/delivery/stewardship services/core-control-plane/tests/delivery/ingestion_gateway/test_handover.py` |
+| HIL supervisor | `uv run pytest -q --no-cov services/core-control-plane/tests/core/hil_resume` |
+| Knowledge lifecycle | `uv run pytest -q --no-cov services/core-control-plane/tests/core/document_ingestion services/core-control-plane/tests/delivery/document_index services/core-control-plane/tests/delivery/ingestion_gateway` |
 
 Each package also runs Ruff and strict mypy only for touched Python paths before its focused
 commit. The centralized Integration

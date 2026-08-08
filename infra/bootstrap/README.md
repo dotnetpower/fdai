@@ -87,7 +87,7 @@ no cloud credentials are stored on the box.
 
 ## Configuration tests
 
-`tests/*.tftest.hcl` assert the planned configuration through `mock_provider`, so they run with no
+`services/core-control-plane/tests/*.tftest.hcl` assert the planned configuration through `mock_provider`, so they run with no
 subscription, credentials, or network:
 
 ```bash

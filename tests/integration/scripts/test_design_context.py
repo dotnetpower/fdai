@@ -23,7 +23,9 @@ def _load_module() -> ModuleType:
 def test_required_context_composes_every_matching_route() -> None:
     module = _load_module()
 
-    required = module.required_context(("src/fdai/delivery/operator_api/dev/factory.py",))
+    required = module.required_context(
+        ("services/operator-service/src/fdai_operator_service/composition.py",)
+    )
 
     assert ".github/copilot-instructions.md" in required
     assert "docs/roadmap/architecture/fdai-constitution.md" in required
@@ -86,7 +88,7 @@ def test_pre_tool_use_denies_edit_without_current_reads(
 ) -> None:
     module = _load_module()
     monkeypatch.setattr(module, "_state_path", lambda payload: tmp_path / "receipt.json")
-    target = REPO_ROOT / "src/fdai/core/risk_gate/gate.py"
+    target = REPO_ROOT / "services/core-control-plane/src/fdai/core/risk_gate/gate.py"
     payload = {
         "sessionId": "session-1",
         "toolName": "functions.apply_patch",

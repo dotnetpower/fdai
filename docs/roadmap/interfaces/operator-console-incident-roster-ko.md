@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 62e8e42cf07e71c88b83006c2216675a1e757426
-translation_revised: 2026-08-05
+translation_source_sha: 39ffd3244e7c7347bd3fb881d9d41c4a25230104
+translation_revised: 2026-08-08
 ---
 
 # Operator Console - Incident Roster and Fix History
@@ -333,5 +333,5 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 게이트 + 검증기에 있습니다. Route는 Reader 게이트가 적용되고, 변경 동사에는
 `405`를 반환하며, Audit / Trace로의 링크는 제공하지만 실행 / 승인 / 롤백
 버튼은 없습니다. 투영은 순수 함수
-(`src/fdai/delivery/operator_api/routes/rca_projection.py`)이며
-`tests/delivery/operator_api/test_rca.py`로 커버됩니다.
+(`services/operator-service/src/fdai_operator_service/`)이며
+`services/operator-service/tests/`로 커버됩니다.

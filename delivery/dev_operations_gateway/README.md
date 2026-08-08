@@ -69,5 +69,5 @@ Mutation callers use this sequence:
 Run the gateway contract tests from the repository root:
 
 ```sh
-uv run pytest -q --no-cov tests/delivery/dev_operations_gateway
+uv run pytest -q --no-cov services/core-control-plane/tests/delivery/dev_operations_gateway
 ```

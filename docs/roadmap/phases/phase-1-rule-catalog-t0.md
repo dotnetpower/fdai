@@ -44,7 +44,7 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
   `object-storage.public-access.deny`, `object-storage.owner-tag.required`,
   `compute.vm-scale-set.over-provisioned`, `secret-store.rotation-overdue`,
   `sql-database.tde-required`. The loader
-  [`src/fdai/rule_catalog/schema/rule.py`](../../../src/fdai/rule_catalog/schema/rule.py)
+  [`services/core-control-plane/src/fdai/rule_catalog/schema/rule.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule.py)
   cross-checks every rule's `remediates` / `alternatives` against the ActionType catalog,
   `resource_type` against the CSP-neutral vocabulary, **and** - when a `policies_root` is
   supplied - every `check_logic.reference` that starts with `policies/` against a Rego file
@@ -61,7 +61,7 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
   without editing the rule.
 - **Canonical `resource_type` vocabulary** - [`rule-catalog/vocabulary/resource-types.yaml`](../../../rule-catalog/vocabulary/resource-types.yaml)
   enumerates the initial CSP-neutral identifier set covering the three verticals; loader +
-  JSON Schema in `src/fdai/rule_catalog/schema/`.
+  JSON Schema in `services/core-control-plane/src/fdai/rule_catalog/schema/`.
 - **Initial ActionType catalog** - five shadow-mode `ActionType` instances under
   [`rule-catalog/action-types/`](../../../rule-catalog/action-types): `remediate.disable-public-access`,
   `remediate.tag-add`, `remediate.right-size`, `remediate.rotate-secret`, `remediate.enable-tde`.
@@ -69,11 +69,11 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
   shadow-first invariant at load-time so an accidental `default_mode: enforce` cannot ship.
 - **T0 deterministic engine**: policy-as-code gate (OPA/Rego) + what-if (dry-run) + drift
   detection, emitting a verdict and the citing rule ids for every event.
-  [`src/fdai/core/tiers/t0_deterministic/`](../../../src/fdai/core/tiers/t0_deterministic)
+  [`services/core-control-plane/src/fdai/core/tiers/t0_deterministic/`](../../../services/core-control-plane/src/fdai/core/tiers/t0_deterministic)
   ships a `RuleIndex` keyed on `resource_type` (severity-desc ordered), a `T0Engine`
   orchestrator, and a `PolicyEvaluator` DI seam. Two evaluators land in P1:
   the fail-closed `AbstainEvaluator` (fallback when OPA is not installed) and
-  [`OpaRegoEvaluator`](../../../src/fdai/core/tiers/t0_deterministic/opa_evaluator.py)
+  [`OpaRegoEvaluator`](../../../services/core-control-plane/src/fdai/core/tiers/t0_deterministic/opa_evaluator.py)
   - a subprocess-backed adapter that shells out to `opa eval --stdin-input --format json`
   under a bounded timeout, queries `data.fdai.<derived-path>`, and interprets
   `deny` + `deny_reason`. Fail-fast on missing binary; fail-close per rule on timeout,
@@ -85,7 +85,7 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
   rule; the loader cross-checks that every `remediation.template_ref` exists on disk
   at load time (fail-closed, symmetric to the `check_logic.reference` gate). The
   executor
-  ([`src/fdai/core/executor/`](../../../src/fdai/core/executor))
+  ([`services/core-control-plane/src/fdai/core/executor/`](../../../services/core-control-plane/src/fdai/core/executor))
   enforces every safety invariant on the way out:
   per-resource serialization via `ResourceLockManager`, in-process dedup by
   `Action.idempotency_key`, blast-radius caps (`ExecutorConfig.max_affected_resources` /
@@ -94,25 +94,25 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
   path - `PUBLISHED` / `ALREADY_EXISTED` / `ABSTAINED_BLAST_RADIUS` /
   `ABSTAINED_RENDER_ERROR` / `REJECTED_MODE` / `REJECTED_INVARIANT`. The delivery
   layer ships
-  [`GitOpsPrAdapter`](../../../src/fdai/delivery/gitops_pr/adapter.py), a
+  [`GitOpsPrAdapter`](../../../services/core-control-plane/src/fdai/delivery/gitops_pr/adapter.py), a
   GitHub REST implementation of the CSP-neutral
-  [`RemediationPrPublisher`](../../../src/fdai/shared/providers/remediation_pr.py)
+  [`RemediationPrPublisher`](../../../services/core-control-plane/src/fdai/shared/providers/remediation_pr.py)
   Protocol - Bearer-authed, probes for an existing open PR before writing,
   creates a shadow branch + commits the patch via the Contents API, opens the PR as
   a **draft** with the `shadow` label + `rule:<id>` + `action:<type>`. It never merges
   and never removes the `shadow` label; those paths are Phase 2 promotion territory.
 - **Pipeline orchestrator** -
-  [`ControlLoop`](../../../src/fdai/core/control_loop/orchestrator.py) wires the P1 stages
-  end-to-end: [`EventIngest`](../../../src/fdai/core/event_ingest/__init__.py)
+  [`ControlLoop`](../../../services/core-control-plane/src/fdai/core/control_loop/orchestrator.py) wires the P1 stages
+  end-to-end: [`EventIngest`](../../../services/core-control-plane/src/fdai/core/event_ingest/__init__.py)
   (normalize + dedup by `idempotency_key`) →
-  [`TrustRouter`](../../../src/fdai/core/trust_router/__init__.py) (route to T0
+  [`TrustRouter`](../../../services/core-control-plane/src/fdai/core/trust_router/__init__.py) (route to T0
   when a rule matches the event's `resource_type`, otherwise abstain) → `T0Engine` →
-  [`ActionBuilder`](../../../src/fdai/core/executor/action_builder.py) (Finding
+  [`ActionBuilder`](../../../services/core-control-plane/src/fdai/core/executor/action_builder.py) (Finding
   → `Action` with the safety invariants derived from the ActionType) → `ShadowExecutor`.
   Every terminal outcome (`DEDUPED` / `ABSTAINED_ROUTING` / `ABSTAINED_T0` / `EXECUTED`
   / `ABSTAINED_ACTION_BUILD`) writes an append-only audit record; the shipped rules +
   Rego + IaC templates fire end-to-end in
-  [`tests/pipeline/test_control_loop_e2e.py`](../../../tests/pipeline/test_control_loop_e2e.py)
+  [`services/core-control-plane/tests/pipeline/test_control_loop_e2e.py`](../../../services/core-control-plane/tests/pipeline/test_control_loop_e2e.py)
   under real OPA (skipped gracefully when `opa` is absent).
 - **Out-of-band change detection** for console/manual changes, with an explicit
   false-positive-suppression strategy.
@@ -123,13 +123,13 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
   Populates `ontology_resource` + `ontology_link` (`contains`, `attached_to`, `depends_on`) so
   T0 can cite CSP-neutral resource ids and the risk-gate can compute a real blast radius over
   the graph. The Protocol scaffold ships in
-  [`src/fdai/shared/providers/inventory.py`](../../../src/fdai/shared/providers/inventory.py);
+  [`services/core-control-plane/src/fdai/shared/providers/inventory.py`](../../../services/core-control-plane/src/fdai/shared/providers/inventory.py);
   the Azure adapter in
-  [`src/fdai/delivery/azure/inventory.py`](../../../src/fdai/delivery/azure/inventory.py)
+  [`services/core-control-plane/src/fdai/delivery/azure/inventory.py`](../../../services/core-control-plane/src/fdai/delivery/azure/inventory.py)
   provides the bounded-concurrency parallel-shard structure, the `final=True`
   atomic-promote fence, and the idempotent-upsert dedup pre-condition; the real
   Kusto-over-ARG REST wiring lives beside it in
-  [`src/fdai/delivery/azure/arg_query.py`](../../../src/fdai/delivery/azure/arg_query.py)
+  [`services/core-control-plane/src/fdai/delivery/azure/arg_query.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py)
   as an `AzureArgQueryFactory` that resolves the CSP-neutral `resource_type` to
   its `azure_arm_type` from the vocabulary, calls
   `POST /providers/Microsoft.ResourceGraph/resources` under an OIDC token from
@@ -142,13 +142,13 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
   production Operator API serves only the active last-known-good generation.
 - **Fixtures and a regression suite** covering the initial rule set and the detection paths.
 - **Frozen scenario replay harness** -
-  [`tests/scenarios/test_v2026_07_replay.py`](../../../tests/scenarios/test_v2026_07_replay.py)
+  [`services/core-control-plane/tests/scenarios/test_v2026_07_replay.py`](../../../services/core-control-plane/tests/scenarios/test_v2026_07_replay.py)
   parametrizes every scenario under
-  [`tests/scenarios/v2026.07/`](../../../tests/scenarios/v2026.07) through
+  [`services/core-control-plane/tests/scenarios/v2026.07/`](../../../services/core-control-plane/tests/scenarios/v2026.07) through
   the real `ControlLoop.process(...)` using the shipped catalog + Rego +
   IaC templates. Each frozen scenario is either paired with a
   concrete-payload overlay under
-  [`tests/scenarios/enrichment/v2026.07/`](../../../tests/scenarios/enrichment/v2026.07)
+  [`services/core-control-plane/tests/scenarios/enrichment/v2026.07/`](../../../services/core-control-plane/tests/scenarios/enrichment/v2026.07)
   (P1-replayable) or marked `xfail` with an in-code reason (T1/T2 or
   risk-gate not wired yet). A guard test ensures no scenario is silently
   skipped without an explicit reason.

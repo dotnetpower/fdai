@@ -14,7 +14,7 @@ destinations, and import-surface status. It is descriptive rather than a file-co
 executable completeness gate requires every current module directory and route module to remain
 classified.
 Candidate destinations remain package hints. [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md) is the gate for a new process, identity, transport, or data owner.
-[`test_operator_api_layout.py`](../../../tests/delivery/operator_api/test_operator_api_layout.py)
+[`test_operator_api_layout.py`](../../../services/operator-service/tests/)
 also pins the exact default method, path, and route-name set plus representative HTTP envelopes.
 An intentional default route addition updates this reviewed baseline in the same change.
 
@@ -444,7 +444,7 @@ a separately reviewed boundary.
 
 ## Core and delivery map
 
-- [`src/fdai/core/conversation/`](../../../src/fdai/core/conversation)
+- [`services/core-control-plane/src/fdai/core/conversation/`](../../../services/core-control-plane/src/fdai/core/conversation)
   - `coordinator.py` owns the Layer 2 `ConversationCoordinator` orchestration.
   - `tool_arguments.py` owns pure canonical-verb argument parsing and grants no tool authority.
   - `read_plan.py` owns bounded-plan validation, serial read execution, result aggregation, and
@@ -461,10 +461,10 @@ a separately reviewed boundary.
   - `src/repl.ts` is the IME-safe stdin/stdout channel for the shared `POST /chat` coordinator.
   - `src/cockpit.ts` is the live SSE presentation that publishes a self-describing screen snapshot
     to the same coordinator.
-- [`src/fdai/core/conversation/channel_gateway.py`](../../../src/fdai/core/conversation/channel_gateway.py)
+- [`services/core-control-plane/src/fdai/core/conversation/channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py)
   authenticates senders, claims message idempotency keys, calls the coordinator, and persists the
   complete response before provider send when durable delivery is configured.
-- [`src/fdai/delivery/channels/`](../../../src/fdai/delivery/channels)
+- [`services/operator-service/src/fdai_operator_service//`](../../../services/operator-service/src/fdai_operator_service/)
   - `teams.py` normalizes Bot Framework activities after bearer-token verification and uses an
     injected reply publisher. It never trusts a payload-supplied reply URL.
   - `slack.py` verifies timestamped signatures, rejects replayed or bot-authored events, normalizes
@@ -472,7 +472,7 @@ a separately reviewed boundary.
   - Slack, Teams, and web attachment contracts converge through
     [conversation attachments](conversation-attachments.md). A dedicated WebSocket adapter remains
     optional.
-- [`current_time.py`](../../../src/fdai/delivery/operator_api/application/conversation/capabilities/current_time.py)
+- [`current_time.py`](../../../services/operator-service/src/fdai_operator_service/)
   resolves current-time questions from an injected aware clock and principal IANA timezone.
 
 ## Operator API route ownership

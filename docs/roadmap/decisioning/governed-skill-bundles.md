@@ -26,7 +26,7 @@ returns one stable rejection reason and no member content.
 The public schema is
 [`rule-catalog/schema/skill-bundle.schema.json`](../../../rule-catalog/schema/skill-bundle.schema.json).
 The canonical parser and domain model live in
-[`core/skills/bundle_manifest.py`](../../../src/fdai/core/skills/bundle_manifest.py).
+[`core/skills/bundle_manifest.py`](../../../services/core-control-plane/src/fdai/core/skills/bundle_manifest.py).
 
 | Field | Contract |
 |-------|----------|

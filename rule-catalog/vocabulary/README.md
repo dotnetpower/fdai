@@ -14,4 +14,4 @@ catalog-wide migration.
 
 CI validates every entry against the JSON Schema shipped inside the
 Python package at
-[`src/fdai/rule_catalog/schema/resource_types.schema.json`](../../src/fdai/rule_catalog/schema/resource_types.schema.json).
+[`services/core-control-plane/src/fdai/rule_catalog/schema/resource_types.schema.json`](../../services/core-control-plane/src/fdai/rule_catalog/schema/resource_types.schema.json).

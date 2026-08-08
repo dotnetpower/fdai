@@ -1,8 +1,8 @@
 ---
 title: 배포 프리플라이트 (배포 가능성 및 blocker 수집)
 translation_of: deployment-preflight.md
-translation_source_sha: 5fa284992380cc0e6361bcbce941c8b3dda3f882
-translation_revised: 2026-08-06
+translation_source_sha: 8b24a3434f5b120386cdd8da1f90615b57bc54c9
+translation_revised: 2026-08-08
 ---
 # 배포 프리플라이트 (배포 가능성 및 blocker 수집)
 
@@ -66,7 +66,7 @@ finding을 해결하고, bounded·읽기 전용 라이브 프로브가 나머지
 ## Readiness 리포트
 
 finding은 하나의 `DeploymentReadinessReport`
-([core/deploy_preflight/report.py](../../../src/fdai/core/deploy_preflight/report.py))
+([core/deploy_preflight/report.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/report.py))
 로 조립됩니다. 각 finding은 세 개의 필수 부분을 가집니다:
 
 - **evidence** - 그것을 만들어낸 규칙의 CSP-neutral 인용
@@ -120,13 +120,13 @@ remediation PR로 제안할 수 있습니다; 그렇지 않으면 guidance를 em
 
 | 조각 | 위치 | 역할 |
 |-------|----------|------|
-| 프로브 seam | [shared/providers/feasibility_probe.py](../../../src/fdai/shared/providers/feasibility_probe.py) | `FeasibilityProbe` Protocol + finding / target dataclass |
-| 제네릭 프로브 | [shared/providers/local/feasibility.py](../../../src/fdai/shared/providers/local/feasibility.py) | 결정론적·config 주도 상류 기본값 (네트워크 없음) |
-| 오케스트레이터 | [core/deploy_preflight/analyzer.py](../../../src/fdai/core/deploy_preflight/analyzer.py) | 프로브에 fan out, 리포트 조립 (fail-closed) |
-| 리포트 | [core/deploy_preflight/report.py](../../../src/fdai/core/deploy_preflight/report.py) | 조립된 산출물 + verdict + `blocks_deploy` |
+| 프로브 seam | [shared/providers/feasibility_probe.py](../../../services/core-control-plane/src/fdai/shared/providers/feasibility_probe.py) | `FeasibilityProbe` Protocol + finding / target dataclass |
+| 제네릭 프로브 | [shared/providers/local/feasibility.py](../../../services/core-control-plane/src/fdai/shared/providers/local/feasibility.py) | 결정론적·config 주도 상류 기본값 (네트워크 없음) |
+| 오케스트레이터 | [core/deploy_preflight/analyzer.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/analyzer.py) | 프로브에 fan out, 리포트 조립 (fail-closed) |
+| 리포트 | [core/deploy_preflight/report.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/report.py) | 조립된 산출물 + verdict + `blocks_deploy` |
 
 `core/`는 `FeasibilityProbe` Protocol만 봅니다; 프로브는
-[composition root](../../../src/fdai/composition/__init__.py) 에서 `Container.feasibility_probes`
+[composition root](../../../services/core-control-plane/src/fdai/composition/__init__.py) 에서 `Container.feasibility_probes`
 seam을 통해 주입됩니다. 상류 기본값은 프로브를 바인딩하지 않습니다(denylist는 고객 config);
 포크 또는 라이브 Azure 어댑터가 `core/`를 편집하지 않고 자체 구현을 등록합니다.
 

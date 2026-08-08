@@ -83,14 +83,14 @@ fdai/
 ├── services/
 │   ├── core-control-plane/
 │   │   ├── docker/Dockerfile
-│   │   ├── src/fdai/
+│   │   ├── services/core-control-plane/src/fdai/
 │   │   ├── src/fdai_core_service/
-│   │   ├── tests/
+│   │   ├── services/core-control-plane/tests/
 │   │   └── pyproject.toml
 │   ├── operator-service/
 │   │   ├── docker/Dockerfile
 │   │   ├── src/fdai_operator_service/
-│   │   ├── tests/
+│   │   ├── services/core-control-plane/tests/
 │   │   └── pyproject.toml
 │   ├── document-ingestion-api/src/fdai_ingestion_api_service/
 │   ├── document-processing-worker/src/fdai_document_worker_service/
@@ -98,9 +98,9 @@ fdai/
 ├── packages/
 │   └── service-contracts/
 │       ├── src/fdai_service_contracts/
-│       ├── tests/
+│       ├── services/core-control-plane/tests/
 │       └── pyproject.toml
-├── tests/
+├── services/core-control-plane/tests/
 │   └── integration/
 └── pyproject.toml
 ```
@@ -115,7 +115,7 @@ fdai/
   distribution.
 - **Cross-service tests:** Root `tests/integration/` verifies wire compatibility and deployed
   workflows. Unit and component tests move with their owning service.
-- **Retired compatibility tree:** Top-level `src/fdai/`, the shared multi-target service
+- **Retired compatibility tree:** Top-level `services/core-control-plane/src/fdai/`, the shared multi-target service
   Dockerfile, legacy service entry points, and duplicate contract definitions are migration-only
   artifacts. IS-08 removes them locally before IS-07 proves image-based N/N-1 rollback from the
   final service-owned sources. Git history and immutable prior images replace a checked-in legacy
@@ -153,7 +153,7 @@ distributions. Core packages its exact owned source allowlist without installing
 FDAI distribution; the other four services contain only service-local implementation and the
 contract SDK. IS-05 builds all five nonroot images from tracked inputs. The supply-chain matrix
 keeps per-service scan, SBOM, provenance, and attestation. Legacy monolith imports remain only in
-the old compatibility tree. Core's build-time source allowlist, the root `src/fdai/` tree, and the
+the old compatibility tree. Core's build-time source allowlist, the root `services/core-control-plane/src/fdai/` tree, and the
 shared multi-target Dockerfile are transition mechanisms rather than the final layout. Local IS-08
 removes them first and moves each owned source and test into its service root. IS-07 then uses those
 final service-owned build inputs for live rolling proof; it does not retain the monolith as a
@@ -162,7 +162,7 @@ rollback source.
 At local base `f19cbeb73`, the physical source and test moves are present: Core owns `src/fdai`,
 `src/fdai_core_service`, and its service test tree; each of the other four services owns its named
 package and tests; `packages/service-contracts` owns the shared SDK and its tests; and only
-cross-service checks remain under root `tests/integration`. This is in-progress IS-08 local
+cross-service checks remain under root `services/core-control-plane/tests/integration`. This is in-progress IS-08 local
 evidence, not completion evidence. The parallel service-Dockerfile and final-layout gate lanes must
 merge and pass before IS-08 can close. IS-07 then performs live N/N-1 upgrade and rollback proof
 from these final service-owned inputs, so the local layout intentionally lands before that live

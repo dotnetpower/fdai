@@ -12,7 +12,7 @@ Fifteen fixed agents own the control loop through typed events. Process splits f
 
 ```text
 fdai/
-├── src/fdai/            # Python (3.12+, src-layout); one language across the monorepo
+├── services/core-control-plane/src/fdai/            # Python (3.12+, src-layout); one language across the monorepo
 │   ├── core/                  # headless control plane (no UI, no direct cloud SDK imports). G-1 phase 1 (tracker #14) introduced domain-group facades over the core subsystems: `pipeline/` (event_ingest, trust_router, tiers, quality_gate, risk_gate, hil_resume, executor, audit, control_loop), `incident/` (rca, slo, runbook, postmortem, oncall, irp, investigation, chaos, capacity), `operator/` (conversation, operator_memory, working_context, rbac, notifications, report_feed), `knowledge/` (prompts, tools, web_search, capability_catalog, rule_catalog_profiles, ontology_explorer), `platform/` (scheduler, metering, measurement, security, reporting, onboarding, workflow, detection, deploy_preflight, assurance_twin), plus `verticals/` (G-6). Phase 1 is additive: both `from fdai.core.<subsystem> import X` and `from fdai.core.<domain> import <subsystem>` resolve. Phase 2 (deferred) is the physical `git mv` mass move.
 │   │   ├── event_ingest/       # bus consumers; normalize to event schema; dedup by idempotency key; correlate related events into incidents
 │   │   ├── trust_router/       # routes each event to T0 | T1 | T2 by computed confidence
@@ -133,7 +133,7 @@ fdai/
 ├── benchmarks/                # independently packaged external-harness drivers; not included in the FDAI wheel
 ├── extensions/                # independently packaged optional capabilities; not included in the FDAI wheel
 │   └── code-assurance/         # read-only bounded GitHub PR code/security review + governed skill assets
-├── rule-catalog/              # catalog-as-code DATA (YAML) - no Python; pipeline lives in src/fdai/rule_catalog/
+├── rule-catalog/              # catalog-as-code DATA (YAML) - no Python; pipeline lives in services/core-control-plane/src/fdai/rule_catalog/
 │   ├── schema/                 # JSON Schema definitions (data)
 │   ├── vocabulary/             # canonical CSP-neutral vocabularies: resource-types.yaml, object-types/, link-types/
 │   ├── action-types/           # upstream ontology ActionType instances (shadow-default, promotion_gate-required)
@@ -195,7 +195,7 @@ fdai/
 │   └── package.json            # deps: ink, react (run with tsx, no build step)
 ├── site/                      # Astro / Starlight docs site (renders docs/**/*.md with i18n + search)
 ├── ui/                        # (future) static UI kit (Calm Slate theme) - placeholder
-├── tests/                     # subsystem-focused unit tests plus cross-subsystem regression suites and shared fixtures
+├── services/core-control-plane/tests/                     # subsystem-focused unit tests plus cross-subsystem regression suites and shared fixtures
 ├── docs/roadmap/              # this roadmap and design docs
 ├── pyproject.toml             # single manifest for the Python monorepo
 └── .github/                   # instructions/ and workflows/ (CI: lint, secret-scan, coverage)

@@ -237,7 +237,7 @@ proves its detection and judgment against realistic conditions without acting:
   and every verdict is recorded, none executed.
 - **Detection latency measured against budget.** The events the load generates
   feed the per-tier `LatencyBudgetMonitor`
-  ([`core/measurement/latency_budget.py`](../../../src/fdai/core/measurement/latency_budget.py)),
+  ([`core/measurement/latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py)),
   so a tier that misses its p95 budget under load surfaces before go-live, not
   after.
 - **Canary + smoke round-trip.** The [synthetic canary](#synthetic-canary-event)
@@ -288,7 +288,7 @@ separate mode, and it composes existing primitives:
   through the window; promotion to enforce waits until the stabilization
   signals below are clean, so an unstable opening never auto-executes.
 - **Scheduled comparison to baseline.** Scheduled tasks
-  ([`core/scheduler`](../../../src/fdai/core/scheduler)) run daily health
+  ([`core/scheduler`](../../../services/core-control-plane/src/fdai/core/scheduler)) run daily health
   checks, configuration-drift diffs, and deployment verification against a
   documented baseline (including an uploaded **resource plan** in the knowledge
   base) - exactly the "compare to baseline" checks the operator wants right

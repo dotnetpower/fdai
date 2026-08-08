@@ -1,8 +1,8 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: a75593fff77569c7074a7c0f84504a198cfdb955
-translation_revised: 2026-08-02
+translation_source_sha: 28fc74aa7c0414e08d1a81e8e8ba55f509ebb209
+translation_revised: 2026-08-08
 ---
 
 # 목표와 메트릭
@@ -63,7 +63,7 @@ event correlation을 공유하고 추가 human touchpoint를 만들지 않습니
   capability pack을 포괄하며 baseline과 treatment에 동일하게 사용하는 frozen, versioned
   collection입니다. 각 release는 scenario set 및 pack별 version을 기록합니다(예: `v2026.07`).
 
-> **현재 coverage gap:** `tests/scenarios/manifests/v2026.07.json`은 모든 fixture를 SRE, ARB /
+> **현재 coverage gap:** `services/core-control-plane/tests/scenarios/manifests/v2026.07.json`은 모든 fixture를 SRE, ARB /
 > Change Safety, FinOps, DR 또는 Chaos에 할당합니다. Coverage dimension은 해당 pack이 소유한
 > scenario와 실제 실행 가능한 test를 함께 인용할 때만 계산됩니다. Set은 `incomplete`입니다.
 > SRE scenario가 없고 모든 기존 pack이 하나 이상의 필수 case를 누락합니다. 다섯 pack이 모두
@@ -172,7 +172,7 @@ event correlation을 공유하고 추가 human touchpoint를 만들지 않습니
   대한 retry 또는 correction은 통계 가중치를 추가하지 않고 이전 값을 대체하며, 서로 다른 event의
   관측값은 독립 표본으로 유지합니다.
 - **MTTR(metric 3a)** 은 순수 집계기
-  [`core/measurement/mttr.py`](../../../src/fdai/core/measurement/mttr.py) 가 계산합니다. 해결된
+  [`core/measurement/mttr.py`](../../../services/core-control-plane/src/fdai/core/measurement/mttr.py) 가 계산합니다. 해결된
   인시던트(`resolved_at - opened_at`)를 **mean, median, p90** 초로 접습니다. 미해결/무결성
   위반 인시던트는 카운트하되 계산에서 제외하며, 절대 `0` 이나 음수 duration을 기여하지 않습니다.
   라이브 인시던트를 공급해 `/kpi/autonomy` 패널의 synthetic 데모값을 대체하는 delivery 레이어

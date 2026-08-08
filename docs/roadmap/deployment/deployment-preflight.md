@@ -69,7 +69,7 @@ rules are sourced.
 ## Readiness Report
 
 Findings are assembled into one `DeploymentReadinessReport`
-([core/deploy_preflight/report.py](../../../src/fdai/core/deploy_preflight/report.py)).
+([core/deploy_preflight/report.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/report.py)).
 Each finding carries three required parts:
 
 - **evidence** - a CSP-neutral citation of the rule that produced it
@@ -129,13 +129,13 @@ judgment; otherwise it emits guidance and routes to review.
 
 | Piece | Location | Role |
 |-------|----------|------|
-| Probe seam | [shared/providers/feasibility_probe.py](../../../src/fdai/shared/providers/feasibility_probe.py) | `FeasibilityProbe` Protocol + finding / target dataclasses |
-| Generic probes | [shared/providers/local/feasibility.py](../../../src/fdai/shared/providers/local/feasibility.py) | deterministic, config-driven upstream defaults (no network) |
-| Orchestrator | [core/deploy_preflight/analyzer.py](../../../src/fdai/core/deploy_preflight/analyzer.py) | fan out over probes, assemble the report (fail-closed) |
-| Report | [core/deploy_preflight/report.py](../../../src/fdai/core/deploy_preflight/report.py) | the assembled artifact + verdict + `blocks_deploy` |
+| Probe seam | [shared/providers/feasibility_probe.py](../../../services/core-control-plane/src/fdai/shared/providers/feasibility_probe.py) | `FeasibilityProbe` Protocol + finding / target dataclasses |
+| Generic probes | [shared/providers/local/feasibility.py](../../../services/core-control-plane/src/fdai/shared/providers/local/feasibility.py) | deterministic, config-driven upstream defaults (no network) |
+| Orchestrator | [core/deploy_preflight/analyzer.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/analyzer.py) | fan out over probes, assemble the report (fail-closed) |
+| Report | [core/deploy_preflight/report.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/report.py) | the assembled artifact + verdict + `blocks_deploy` |
 
 `core/` sees only the `FeasibilityProbe` Protocol; the probes are injected at the
-[composition root](../../../src/fdai/composition/__init__.py) via the
+[composition root](../../../services/core-control-plane/src/fdai/composition/__init__.py) via the
 `Container.feasibility_probes` seam. The upstream default binds no probes (the
 denylists are customer config); a fork or a live Azure adapter registers its own
 without editing `core/`.

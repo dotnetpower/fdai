@@ -1,7 +1,7 @@
 ---
 translation_of: exemption-workflow.md
-translation_source_sha: 4c89961ee25abd3d4e094831b687f504730a3f1b
-translation_revised: 2026-07-22
+translation_source_sha: 0842ba9eee3c7d8c5101c7345be7d7200a9f453a
+translation_revised: 2026-08-08
 title: 예외 워크플로
 owner: aw-owners (Owner-tier)
 sla: "PR 오픈으로부터 1 영업일 내 승인 결정"
@@ -10,7 +10,7 @@ sla: "PR 오픈으로부터 1 영업일 내 승인 결정"
 # 예외 워크플로
 
 특정 스코프에 대해 rule assignment의 **시간 제한, 감사, owner 승인** waiver 경로입니다.
-[`rule-catalog/schema/exemption.json`](../../src/fdai/rule_catalog/schema/exemption.schema.json)
+[`rule-catalog/schema/exemption.json`](../../services/core-control-plane/src/fdai/rule_catalog/schema/exemption.schema.json)
 과 `rule-catalog/exemptions/`를 만지는 모든 PR에서 실행되는 CI 검증기가 뒷받침합니다.
 
 ## 언제 예외를 쓰나
@@ -39,7 +39,7 @@ Rule이 일반적으로 틀렸다면 대신 rule-catalog 파이프라인을 통�
 ## 절차
 
 1. **`Exemption Request` 템플릿**으로 PR 오픈.
-2. [스키마](../../src/fdai/rule_catalog/schema/exemption.schema.json)에 따라
+2. [스키마](../../services/core-control-plane/src/fdai/rule_catalog/schema/exemption.schema.json)에 따라
    `rule-catalog/exemptions/<id>.json`에 **아티팩트 채우기**.
 3. **CI 실행**:
    - 스키마 검증 (`exemption-check` job).
@@ -83,7 +83,7 @@ Owner는 active 예외를 다음과 같이 취소할 수 있습니다:
 | 아티팩트 | 경로 |
 |----------|------|
 | 설계: Human Override | [../../.github/instructions/architecture.instructions.md#human-override](../../.github/instructions/architecture.instructions.md#human-override) |
-| 예외 스키마 | [../../src/fdai/rule_catalog/schema/exemption.schema.json](../../src/fdai/rule_catalog/schema/exemption.schema.json) |
+| 예외 스키마 | [../../services/core-control-plane/src/fdai/rule_catalog/schema/exemption.schema.json](../../services/core-control-plane/src/fdai/rule_catalog/schema/exemption.schema.json) |
 | CI 검사 (`exemption-check` job) | [../../.github/workflows/ci.yml](../../.github/workflows/ci.yml) |
 | 만료 CLI | [../../scripts/governance/exemption-expire.py](../../scripts/governance/exemption-expire.py) |
 | PR 템플릿 | [../../.github/PULL_REQUEST_TEMPLATE/exemption.md](../../.github/PULL_REQUEST_TEMPLATE/exemption.md) |

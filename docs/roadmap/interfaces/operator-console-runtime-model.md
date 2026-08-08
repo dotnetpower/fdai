@@ -226,7 +226,7 @@ class Narrator(Protocol):
 
 The upstream default is
 `AzureOpenAINarratorModel` under
-[`src/fdai/delivery/azure/llm/narrator.py`](../../../src/fdai/delivery/azure/llm/narrator.py)
+[`services/operator-service/src/fdai_operator_service/`](../../../services/operator-service/src/fdai_operator_service/)
 It calls Azure OpenAI chat completions as a strict one-line translator; composition supplies the
 resolved endpoint and deployment.
 
@@ -468,10 +468,10 @@ is never retried or routed to another model. An unrecoverable block writes a bod
 receipt with one idempotent retry and no assistant turn.
 
 Assembly is the pure
-[`compose_working_context`](../../../src/fdai/core/working_context/composer.py)
+[`compose_working_context`](../../../services/core-control-plane/src/fdai/core/working_context/composer.py)
 policy. It never caps the *number of turns*; it caps *tokens*, across four
 tiers drawn from a
-[`ContextBudget`](../../../src/fdai/core/working_context/types.py):
+[`ContextBudget`](../../../services/core-control-plane/src/fdai/core/working_context/types.py):
 
 - **Pinned** - standing operator constraints and unresolved decisions;
   always included, and fail-closed (a `WorkingContextError`) if they alone
@@ -492,24 +492,24 @@ tiers drawn from a
 - **Hierarchical summary** - everything else folded into rolling summaries
   (level 1 folds turns, level 2 folds level-1 summaries), so the summary
   tier grows `O(log L)` in session length `L`. The pure
-  [`plan_summarization`](../../../src/fdai/core/working_context/planner.py)
+  [`plan_summarization`](../../../services/core-control-plane/src/fdai/core/working_context/planner.py)
   policy decides which turns fold into which level - full `fold_factor`
   chunks only, so a turn is never folded alone then re-folded - and the
-  [`SummarizationOrchestrator`](../../../src/fdai/core/working_context/orchestrator.py)
+  [`SummarizationOrchestrator`](../../../services/core-control-plane/src/fdai/core/working_context/orchestrator.py)
   drives the plan against the `TranscriptSummarizer` seam so each planned
   fold runs off the hot path with a stable order.
 
 Unused budget in a higher-priority tier spills to the next, so a short
 session fills with verbatim turns rather than padding with summaries. The
 two I/O seams -
-[`TranscriptSummarizer`](../../../src/fdai/core/working_context/summarizer.py)
+[`TranscriptSummarizer`](../../../services/core-control-plane/src/fdai/core/working_context/summarizer.py)
 (mini-model folding, `t1.judge`) and `TranscriptRetriever` (pgvector) -
 are DI Protocols with deterministic no-LLM fakes shipped upstream. Every
 assembly writes a `context_manifest` to the turn audit (verbatim ids,
 summary hashes, retrieved ids, dropped ids, per-tier tokens) so any prompt
 is reconstructable from the memory of record.
 
-The end-to-end [`assemble_turn_context`](../../../src/fdai/core/conversation/context_bridge.py)
+The end-to-end [`assemble_turn_context`](../../../services/core-control-plane/src/fdai/core/conversation/context_bridge.py)
 combines session verbatim, operator memory, retrieval, and summaries into one bounded context. With
 no retriever, it uses `session_to_working_context` plus operator memory.
 

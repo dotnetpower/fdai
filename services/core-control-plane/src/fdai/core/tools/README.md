@@ -41,5 +41,5 @@ Azure OpenAI cross-check adapter.
   fallback), so the `trusted="false"` invariant reaches the next model turn
   even when a fork forgets to author a wrapper.
 
-See [docs/roadmap/decisioning/prompt-composition.md](../../../../docs/roadmap/decisioning/prompt-composition.md)
+See [docs/roadmap/decisioning/prompt-composition.md](../../../../../../docs/roadmap/decisioning/prompt-composition.md)
 for how tools fit into the evolving-system-prompt design.

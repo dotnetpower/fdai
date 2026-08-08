@@ -1,11 +1,11 @@
 ---
 mode: agent
-description: Safe-edit checklist for any file under src/fdai/agents/**.
+description: Safe-edit checklist for any file under services/core-control-plane/src/fdai/agents/**.
 ---
 
-# /pantheon-safe-edit - editing an agent under src/fdai/agents/**
+# /pantheon-safe-edit - editing an agent under services/core-control-plane/src/fdai/agents/**
 
-Any file under `src/fdai/agents/**` is governed by
+Any file under `services/core-control-plane/src/fdai/agents/**` is governed by
 `.github/instructions/agent-pantheon.instructions.md` (auto-loaded for
 that path) and the design in
 `docs/roadmap/agents/agent-pantheon.md`. Follow this checklist before
@@ -21,9 +21,9 @@ touching anything.
    That is an upstream design PR against `agent-pantheon.md` first,
    not a code edit.
 3. If your change would move an agent OUT of the flat top-level layout
-   of `src/fdai/agents/`, or a framework helper INTO the flat layout:
+   of `services/core-control-plane/src/fdai/agents/`, or a framework helper INTO the flat layout:
    STOP. The layout is enforced by
-   `tests/agents/test_framework_layout.py`. Pantheon members flat,
+   `services/core-control-plane/tests/agents/test_framework_layout.py`. Pantheon members flat,
    framework code under `_framework/`.
 
 ## Role invariants (MUST NOT violate)
@@ -57,7 +57,7 @@ typed pipeline. No bypass.
    fields are fork-locked: `initiators`, `judge`, `executor`,
    `approver`, `auditor`.
 3. Run the layout test first:
-   `pytest tests/agents/test_framework_layout.py -q --no-cov`
+   `pytest services/core-control-plane/tests/agents/test_framework_layout.py -q --no-cov`
 4. Add / update tests for the specific role invariant your change
    affects. For safety-core agents (Forseti, Var, Thor) keep coverage
    at the 90% floor.

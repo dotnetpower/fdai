@@ -30,7 +30,7 @@ entry point; place other scripts in the domain directories below.
 - Update CI workflows, Git hooks, tests, and documentation in the same change
   whenever a script path moves.
 - Keep shell scripts executable and cover behavior-bearing Python scripts with
-  focused tests under `tests/scripts/`.
+  focused tests under `tests/integration/scripts/`.
 
 ## Run changed tests
 
@@ -59,13 +59,13 @@ consumers, Python files outside a known source layout, and mapped test paths
 that don't exist select the full suite. The focused runner doesn't collect
 coverage and doesn't replace `make test` or `bash scripts/verify.sh --all` at
 a merge or release boundary.
-Non-Python fixtures under `tests/` and package resources under `src/` also
+Non-Python fixtures under `services/core-control-plane/tests/` and package resources under `src/` also
 select the full suite because their consumers can't be inferred from imports.
 
 Known repository inputs can declare a narrower owner before that fail-safe. For
-example, `config/service-decomposition.json` maps to `tests/scripts`. When the
+example, `config/service-decomposition.json` maps to `services/core-control-plane/tests/scripts`. When the
 static import graph selects at least 250 test paths and every changed Python
-source has exactly one owner in `tests/service-suites.json`, the runner uses the
+source has exactly one owner in `services/core-control-plane/tests/service-suites.json`, the runner uses the
 union of those service-owned suites and every impacted consumer outside them.
 This collapses redundant in-service test files to their owner directory without
 dropping cross-service consumers. Missing or overlapping ownership keeps the

@@ -1,7 +1,7 @@
 # `infra/modules/operator-api/`
 
 Azure Container App for the operator console Operator API
-([`src/fdai/delivery/operator_api/prod.py`](../../../src/fdai/delivery/operator_api/prod.py)),
+([`services/operator-service/src/fdai_operator_service/`](../../../services/operator-service/src/fdai_operator_service/)),
 plus a one-off schema-migration Container Apps Job.
 
 ## Contents

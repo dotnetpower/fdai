@@ -1,8 +1,8 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: 49e42d24023d4ef4f58d6af0cf1c1b4403cbd2c0
-translation_revised: 2026-08-01
+translation_source_sha: ba2b6b369c7a815eac84fca0ec44816539d78dcf
+translation_revised: 2026-08-08
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 
@@ -199,7 +199,7 @@ import 합니다([project-structure.md](../architecture/project-structure-ko.md#
 
 ### 구현 상태
 
-Deterministic core는 [`core/readiness/`](../../../src/fdai/core/readiness)에 있습니다.
+Deterministic core는 [`core/readiness/`](../../../services/core-control-plane/src/fdai/core/readiness)에 있습니다.
 `OwnershipTransfer` 신호, generic `ReadinessReport` / `HandoffVerdict` /
 `ReadinessFinding` shape, pure Best Practice evaluator, 그리고 posture, preflight 및 checklist
 finding을 하나의 verdict로 fold하고 environment 게이트(`prod` 타깃은 `critical` finding 을
@@ -207,7 +207,7 @@ blocking 으로 강제)를 적용하며 `blocks_handoff` 를 설정하는 순수
 `compose_readiness_report` coordinator (shadow-first: enforce 모드로 실행됐을
 때만 `true`)를 제공합니다. `shared/` 타입만 import합니다.
 
-[`OperationalReadinessService`](../../../src/fdai/composition/readiness.py)는 이제 signal을
+[`OperationalReadinessService`](../../../services/core-control-plane/src/fdai/composition/readiness.py)는 이제 signal을
 injected `PostureAssessmentProvider`, 기존 `PreflightAnalyzer` 및 선택적
 `ChecklistEvidenceProvider`에 연결하고 pass를 동시에 실행합니다. 이후 report를 compose하고
 append-only audit entry를 쓴 다음 injected

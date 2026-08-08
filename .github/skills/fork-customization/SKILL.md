@@ -4,15 +4,15 @@ description: |
   Decision + workflow skill for an agent working INSIDE a downstream FDAI
   fork. Answers "can I edit this file, or must I customize by dependency
   injection?" and routes every customization to the right seam. The fork
-  boundary is fork-locked: `src/fdai/core/`, `src/fdai/composition*`,
-  `src/fdai/shared/providers/`, `src/fdai/shared/contracts/`,
-  `src/fdai/agents/`, `rule-catalog/schema/`, and `.github/instructions/`
+  boundary is fork-locked: `services/core-control-plane/src/fdai/core/`, `services/core-control-plane/src/fdai/composition*`,
+  `services/core-control-plane/src/fdai/shared/providers/`, `services/core-control-plane/src/fdai/shared/contracts/`,
+  `services/core-control-plane/src/fdai/agents/`, `rule-catalog/schema/`, and `.github/instructions/`
   are LOCKED; a fork adds implementations + data entries instead. Load this
   skill when a maintainer asks to customize / extend / adapt FDAI in a fork,
   when a `check-protected-paths.sh` or `check-integrity.sh` gate fails in
   fork mode, when adding an LLM / HIL / search / scope adapter, a rule,
   an ActionType / ObjectType, or a Rego overlay, or when you are tempted to
-  edit a file under `src/fdai/core/`.
+  edit a file under `services/core-control-plane/src/fdai/core/`.
 version: 1.0.0
 scope: repository
 ---
@@ -59,7 +59,7 @@ the signed integrity manifest (`check-integrity.sh`), so it never drifts.
      (rule, ActionType, ObjectType, Rego overlay) that conforms to an unchanged
      schema = EDITABLE, do it in the fork.
 3. **Does the seam already exist?** Almost always yes. Search
-   `src/fdai/shared/providers/` for the Protocol before concluding you need a
+   `services/core-control-plane/src/fdai/shared/providers/` for the Protocol before concluding you need a
    core edit.
 
 ## Decision tree
@@ -67,7 +67,7 @@ the signed integrity manifest (`check-integrity.sh`), so it never drifts.
 ```text
 Want to customize behavior X.
   |
-  Is there a Protocol seam for X in src/fdai/shared/providers/?
+  Is there a Protocol seam for X in services/core-control-plane/src/fdai/shared/providers/?
   |-- YES -> write a concrete class in fork/adapters/, bind it in
   |          fork/composition_root.py via dataclasses.replace(). DONE.
   |
@@ -77,7 +77,7 @@ Want to customize behavior X.
   |
   Is X a new bespoke contract type?
   |-- YES -> subclass ContractBase in the fork package
-  |          (never edit src/fdai/shared/contracts/). DONE.
+  |          (never edit services/core-control-plane/src/fdai/shared/contracts/). DONE.
   |
   None of the above -> you have found a genuine upstream gap.
       -> open an upstream issue, OR ship a fork-local wrapper that

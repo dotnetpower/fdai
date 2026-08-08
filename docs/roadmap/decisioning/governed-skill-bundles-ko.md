@@ -1,7 +1,7 @@
 ---
 translation_of: governed-skill-bundles.md
-translation_source_sha: 0803249dafd1f0103b7cba1cc39c240dea03eccc
-translation_revised: 2026-07-26
+translation_source_sha: 1a8f62cebc15f7bbb0dd328aa0733be55f3a7b67
+translation_revised: 2026-08-08
 ---
 # Governed Skill Bundles
 
@@ -27,7 +27,7 @@ stable rejection reason 하나만 반환하고 member content는 반환하지 �
 Public schema는
 [`rule-catalog/schema/skill-bundle.schema.json`](../../../rule-catalog/schema/skill-bundle.schema.json)입니다.
 Canonical parser와 domain model은
-[`core/skills/bundle_manifest.py`](../../../src/fdai/core/skills/bundle_manifest.py)에 있습니다.
+[`core/skills/bundle_manifest.py`](../../../services/core-control-plane/src/fdai/core/skills/bundle_manifest.py)에 있습니다.
 
 | Field | Contract |
 |-------|----------|

@@ -1,4 +1,4 @@
-# `src/fdai/core/tiers/t1_lightweight`
+# `services/core-control-plane/src/fdai/core/tiers/t1_lightweight`
 
 T1 tier. Uses pgvector similarity search against the pattern library to reuse prior
 resolutions. Operational-case patterns also carry immutable case, failure fingerprint,

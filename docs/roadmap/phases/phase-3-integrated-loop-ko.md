@@ -1,8 +1,8 @@
 ---
 title: Phase 3 - 통합 컨트롤 루프 (Resilience · Change Safety · Cost Governance)
 translation_of: phase-3-integrated-loop.md
-translation_source_sha: e8080f5340957eb826fe492dc52d6c09be7d0523
-translation_revised: 2026-08-04
+translation_source_sha: 280a4ee5ce0ce1530bc04c8e4a12738e4d1a64fb
+translation_revised: 2026-08-08
 ---
 
 # Phase 3 - 통합 컨트롤 루프 (Resilience · Change Safety · Cost Governance)
@@ -28,24 +28,24 @@ P2에서 딜리버리된 T0/T1/T2 라우터, quality gate, 리스크 게이트
 
 ## 산출물
 
-각 산출물은 아래 섹션에 매핑. 모듈 참조는 [`src/fdai/`](../architecture/project-structure-ko.md)에서
+각 산출물은 아래 섹션에 매핑. 모듈 참조는 [`services/core-control-plane/src/fdai/`](../architecture/project-structure-ko.md)에서
 해당 산출물을 담고 있는 주요 Python 패키지를 가리킴.
 
 - Resilience, Change Safety, Cost Governance에 걸친 **통합 컨트롤 루프** - 하나의 `trust-router` →
   `risk-gate` → `executor` → `audit` 경로, 리소스별 순서/락과 크로스-버티컬 충돌 처리
   ([통합 컨트롤 루프](#통합-컨트롤-루프)).
-  모듈: [core/control_loop.py](../../../src/fdai/core/control_loop/orchestrator.py),
-  [core/risk_gate/precedence.py](../../../src/fdai/core/risk_gate/precedence.py).
+  모듈: [core/control_loop.py](../../../services/core-control-plane/src/fdai/core/control_loop/orchestrator.py),
+  [core/risk_gate/precedence.py](../../../services/core-control-plane/src/fdai/core/risk_gate/precedence.py).
 - 윈도우-기반 테스트 failover / game day, 딥 DB-DR 처리, 측정된 RPO/RTO 보고 있는 **DR/Chaos
   스케줄러** ([#dr--chaos--스케줄된-주기-테스트](#dr--chaos--스케줄된-주기-테스트)).
-  모듈: [core/verticals/resilience.py](../../../src/fdai/core/verticals/resilience/orchestrator.py).
+  모듈: [core/verticals/resilience.py](../../../services/core-control-plane/src/fdai/core/verticals/resilience/orchestrator.py).
 - Remediation PR로 딜리버리되는 리스크-게이팅 자율성 있는 **FinOps auto-actions**
   ([FinOps](#finops)).
-  모듈: [core/verticals/finops.py](../../../src/fdai/core/verticals/cost_governance/finops.py).
+  모듈: [core/verticals/finops.py](../../../services/core-control-plane/src/fdai/core/verticals/cost_governance/finops.py).
 - 저위험 auto-merge/reconcile, 고위험 HIL 로의 **통합 Change Safety**
   ([Change Safety](#change-safety-integrated)).
   모듈:
-  [core/verticals/change_safety.py](../../../src/fdai/core/verticals/change_safety/orchestrator.py).
+  [core/verticals/change_safety.py](../../../services/core-control-plane/src/fdai/core/verticals/change_safety/orchestrator.py).
 - **어슈어런스 트윈 (ambient + 시뮬레이션)** - 변경 이벤트에서의 선제적 변경별 리뷰,
   Change Safety(blast radius) · Resilience(RPO/RTO replay) · Cost Governance(비용 델타)가
   공유하는 그래프 전체 what-if, shadow remediation-PR 제안, 그리고 온디맨드

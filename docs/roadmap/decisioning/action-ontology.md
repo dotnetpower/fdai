@@ -348,7 +348,7 @@ Operator-requested runtime actions. Shipped Day 1:
   recovery is a separately governed state-forward action.
 
 **Vertical mapping.** Each ops ActionType is tagged with the owning
-vertical so the [verticals](../../../src/fdai/core/verticals) can claim
+vertical so the [verticals](../../../services/core-control-plane/src/fdai/core/verticals) can claim
 it and a vertical rule can `remediates:` it: `ops.failover-primary` and
 `ops.restart-service` -> Resilience; `ops.scale-in` / `ops.scale-out` ->
 Cost Governance; `ops.drain-connection` / `ops.rotate-cert` -> Change
@@ -385,7 +385,7 @@ a PR-native writer to land in P2):
 - `governance.override-ceiling` - operator-side override on the tier
   ceiling for a specific resource / tag scope (fork extension).
   **Dispatcher shipped** in
-  [`src/fdai/core/risk_gate/override_writer.py`](../../../src/fdai/core/risk_gate/override_writer.py).
+  [`services/core-control-plane/src/fdai/core/risk_gate/override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py).
 
 Governance actions use `execution_path: pr_native` because they are catalog-as-code changes and
 MUST land as reviewed diffs, with one closed exception: `governance.promote-action-type` uses
@@ -398,7 +398,7 @@ may use this exception.
 Invoke a registered function (a tool) rather than mutate a substrate.
 The ontology-native counterpart of the way an LLM calls a tool: the
 executor dispatches through the
-[`ToolExecutor`](../../../src/fdai/shared/providers/tool.py) Protocol
+[`ToolExecutor`](../../../services/core-control-plane/src/fdai/shared/providers/tool.py) Protocol
 (`ToolCallShadowExecutor`) to a registered function that produces an
 **artifact** or a side effect (a document, a message, a ticket). Shipped
 example:
@@ -494,7 +494,7 @@ An ontology **property read** is gated by two independent dimensions -
 `access_scope` (role rank) AND `purpose_binding` (purpose-set
 intersection) - because a read is otherwise a single-gate operation and
 data-minimization needs a second axis
-([`shared/ontology/acl.py`](../../../src/fdai/shared/ontology/acl.py)).
+([`shared/ontology/acl.py`](../../../services/core-control-plane/src/fdai/shared/ontology/acl.py)).
 
 An ActionType **execution** deliberately does NOT carry a
 `purpose_binding`; its authorization is `ceiling_by_tier.min_role` plus
@@ -712,7 +712,7 @@ what the 7.1 overlay layer is for). See
 
 ## 8. Loader + validation
 
-- The loader ([`rule_catalog/schema/action_type.py`](../../../src/fdai/rule_catalog/schema/action_type.py))
+- The loader ([`rule_catalog/schema/action_type.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py))
   loads upstream + overrides + Rego references at startup.
 - Cross-checks (already shipped):
   - Every `remediates:` on a rule points to a loaded ActionType.

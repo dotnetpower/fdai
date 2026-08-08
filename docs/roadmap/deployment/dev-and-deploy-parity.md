@@ -526,7 +526,7 @@ Each work item below reflects what actually landed - code, tests, and gate cover
 
 ### W-A: Config schema for LLM + dev-mode flag ✅ *(baseline, shipped)*
 
-- Add `LlmConfig` to `src/fdai/shared/config/schema.json` + `models.py`:
+- Add `LlmConfig` to `services/core-control-plane/src/fdai/shared/config/schema.json` + `models.py`:
   - `mode`: `local-fake` | `azure`. `local-fake` is an explicit test/mock binding; deployment
     environment does not select it.
   - `resolved_models_path`: optional KV secret name or filesystem path.
@@ -551,7 +551,7 @@ Each work item below reflects what actually landed - code, tests, and gate cover
 
 ### W-C: Bootstrap resolver CLI  ✅ *(deployer-scoped, shipped)*
 
-- New: `src/fdai/rule_catalog/schema/llm_resolver_cli.py`.
+- New: `services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py`.
 - Inputs: `--registry`, `--region`, `--subscription-id`, `--dry-run`, `--out`.
 - Fixture mode requires catalog, permission, and quota JSON inputs for offline CI.
 - `--use-azure-cli` uses the existing `az login` context and optional `AZURE_CONFIG_DIR`
@@ -576,9 +576,9 @@ Each work item below reflects what actually landed - code, tests, and gate cover
 
 ### W-E: Azure OpenAI adapter classes  ✅ *(delivery, shipped)*
 
-- `src/fdai/delivery/azure/llm/embeddings.py` - `AzureOpenAIEmbeddingModel`
+- `services/core-control-plane/src/fdai/delivery/azure/llm/embeddings.py` - `AzureOpenAIEmbeddingModel`
   implementing `EmbeddingModel`, using injected async `httpx` + `WorkloadIdentity`.
-- `src/fdai/delivery/azure/llm/cross_check.py` - `AzureOpenAICrossCheckModel`
+- `services/core-control-plane/src/fdai/delivery/azure/llm/cross_check.py` - `AzureOpenAICrossCheckModel`
   implementing `CrossCheckModel`.
 - Timeout, retry-after honouring, structured output (`response_format={"type":"json_object"}`)
   - see [llm-strategy.md § Provider Abstraction](../architecture/llm-strategy.md#provider-abstraction).
@@ -600,7 +600,7 @@ Each work item below reflects what actually landed - code, tests, and gate cover
   `shared/providers/local/` to reflect dev usage).
 - `LocalWorkloadIdentity` - issues an in-memory OIDC token accepted only by fixture adapters
   (no network). Interactive local never uses it as Thor's identity.
-- `FileFixtureInventory` - reads `Resource` records from any YAML fixture the fork passes to its constructor (`fixture=Path(...)`); upstream ships zero seed fixtures, and the recommended convention is `tests/scenarios/inventory/*.yaml` alongside the frozen scenario replay so verticals can dry-run without ARG.
+- `FileFixtureInventory` - reads `Resource` records from any YAML fixture the fork passes to its constructor (`fixture=Path(...)`); upstream ships zero seed fixtures, and the recommended convention is `services/core-control-plane/tests/scenarios/inventory/*.yaml` alongside the frozen scenario replay so verticals can dry-run without ARG.
 - Tests + docstrings show the exact fork-side pattern.
 
 ### W-H: Docs sync  *(this phase)*

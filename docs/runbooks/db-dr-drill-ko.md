@@ -1,16 +1,16 @@
 ---
 title: Deep DB-DR 복원 훈련 런북
 translation_of: db-dr-drill.md
-translation_source_sha: 6556736ad2eff2228a30f8a44a4288b9b8d1e2eb
-translation_revised: 2026-07-31
+translation_source_sha: b2e20a31732d10e406aba508893ece84e4214670
+translation_revised: 2026-08-08
 ---
 
 # Deep DB-DR 복원 훈련 런북
 
 Phase-3 § Deep DB-DR 훈련을 위한 운영자 런북. 이 리포지토리가 제공하는
-[`DbDrVerifier`](../../src/fdai/core/verticals/resilience/db_dr_verifier.py)와
+[`DbDrVerifier`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_verifier.py)와
 Azure 어댑터
-([`AzureDbDrRestoreAdapter`](../../src/fdai/delivery/azure/db_dr_restore.py))를
+([`AzureDbDrRestoreAdapter`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py))를
 반복 가능한 운영 절차로 만듭니다. 훈련은 프로덕션 PostgreSQL Flexible Server를
 대상으로 실행되지만 프로덕션 데이터는 절대 건드리지 않습니다 - 복원 결과는
 훈련이 끝나면 자동으로 정리되는 **격리된 리소스 그룹**에 배치됩니다.
@@ -21,7 +21,7 @@ Azure 어댑터
 - **스키마 마이그레이션 이후**: 사용자 노출 테이블을 변경한 마이그레이션은 7일
   이내 재실행합니다.
 - **복원 어댑터 변경 시**:
-  [`src/fdai/delivery/azure/db_dr_restore.py`](../../src/fdai/delivery/azure/db_dr_restore.py)
+  [`services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py)
   아래 어떤 커밋이든 재실행을 유발합니다.
 - **필요 시**: 인시던트 대응에서 최신 RPO/RTO 수치가 필요할 때 실행합니다.
 
@@ -84,7 +84,7 @@ Azure 어댑터
 
 4. **서버가 `Ready` 상태가 될 때까지 폴링.** 작은 dev 데이터베이스는 보통
    15-40분 안에 복원이 끝납니다.
-   [`AzureDbDrRestoreAdapter`](../../src/fdai/delivery/azure/db_dr_restore.py)는
+   [`AzureDbDrRestoreAdapter`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py)는
   기본 30분 예산 내에서 LRO 엔드포인트를 폴링합니다. Budget은 monotonic elapsed time을
   사용하며 configured sleep interval뿐 아니라 token 및 HTTP latency도 포함합니다. 운영자용 등가 명령은
    다음과 같습니다.
@@ -102,8 +102,8 @@ Azure 어댑터
    실패로 처리됩니다.
 
    상위(upstream)의
-   [`DbDrVerifier`](../../src/fdai/core/verticals/resilience/db_dr_verifier.py)는
-   [`IntegrityChecker`](../../src/fdai/shared/providers/db_dr.py)
+   [`DbDrVerifier`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_verifier.py)는
+   [`IntegrityChecker`](../../services/core-control-plane/src/fdai/shared/providers/db_dr.py)
    Protocol seam을 주입받아 사용합니다. 운영자용 등가 명령은 다음과 같습니다.
 
    ```bash
@@ -218,4 +218,4 @@ resource를 owned incident로 유지합니다.
 
 - [phase-3-integrated-loop-ko.md § Deep DB-DR (stateful - 전용 설계)](../roadmap/phases/phase-3-integrated-loop-ko.md)
 - [security-and-identity-ko.md](../roadmap/architecture/security-and-identity-ko.md)
-- [DbDrVerifier 모듈 docstring](../../src/fdai/core/verticals/resilience/db_dr_verifier.py)
+- [DbDrVerifier 모듈 docstring](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_verifier.py)

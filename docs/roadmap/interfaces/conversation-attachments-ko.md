@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: 68932e634bfc8d4f4d3d7abce89f3e262363ffca
-translation_revised: 2026-08-05
+translation_source_sha: 8008dca4bce2e25864ec6d1e9076e58c9e8ba7aa
+translation_revised: 2026-08-08
 title: 대화 첨부파일
 ---
 # 대화 첨부파일
@@ -291,12 +291,12 @@ Focused verification은 다음과 같습니다.
 
 ```bash
 uv run pytest -q --no-cov \
-  tests/core/conversation/test_attachment_directive.py \
-  tests/conversation/test_channel_gateway.py \
-  tests/delivery/channels \
-  tests/delivery/azure/test_document_ocr.py \
-  tests/delivery/ingestion_gateway/test_chat_evidence.py \
-  tests/delivery/operator_api/test_chat_route.py
+  services/core-control-plane/tests/core/conversation/test_attachment_directive.py \
+  services/core-control-plane/tests/conversation/test_channel_gateway.py \
+  services/core-control-plane/tests/delivery/channels \
+  services/core-control-plane/tests/delivery/azure/test_document_ocr.py \
+  services/core-control-plane/tests/delivery/ingestion_gateway/test_chat_evidence.py \
+  services/operator-service/tests/
 terraform -chdir=infra validate
 ```
 

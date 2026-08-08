@@ -9,7 +9,7 @@ implementations.
 | Path | Purpose |
 |------|---------|
 | `src/fdai_bench_cybergym/adapter.py` | Maps `e2e` and `patch-only` tasks, declared outputs, and external validation receipts. |
-| `tests/test_adapter.py` | Verifies both modes, bounds, hidden-oracle isolation, and SDK runner compatibility. |
+| `services/core-control-plane/tests/test_adapter.py` | Verifies both modes, bounds, hidden-oracle isolation, and SDK runner compatibility. |
 
 ## Contracts
 

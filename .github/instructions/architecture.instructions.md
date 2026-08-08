@@ -1,6 +1,6 @@
 ---
 description: "Use when changing the control loop, agents, contracts, ontology, rules, policies, risk decisions, or autonomous action behavior."
-applyTo: "src/fdai/core/**,src/fdai/agents/**,src/fdai/shared/contracts/**,src/fdai/shared/ontology/**,rule-catalog/**,policies/**"
+applyTo: "services/core-control-plane/src/fdai/core/**,services/core-control-plane/src/fdai/agents/**,services/core-control-plane/src/fdai/shared/contracts/**,services/core-control-plane/src/fdai/shared/ontology/**,packages/service-contracts/**,rule-catalog/**,policies/**"
 ---
 
 # Architecture
@@ -14,7 +14,7 @@ baseline and treatment on the same scenario set ([metrics](../../docs/roadmap/ar
 > [`.github/skills/coding-hardening/SKILL.md`](../skills/coding-hardening/SKILL.md)
 > for the critique -> harden -> verify loop on safety-core modules;
 > [`.github/skills/agent-pantheon-edit/SKILL.md`](../skills/agent-pantheon-edit/SKILL.md)
-> for the safe-edit checklist under `src/fdai/agents/**` (also auto-loaded via
+> for the safe-edit checklist under `services/core-control-plane/src/fdai/agents/**` (also auto-loaded via
 > [agent-pantheon.instructions.md](agent-pantheon.instructions.md)). Subsystem
 > index (source -> tests -> docs) lives at
 > [`docs/roadmap/architecture/code-map.md`](../../docs/roadmap/architecture/code-map.md).
@@ -183,8 +183,8 @@ neither raises autonomy above the other.
 ## Agent Pantheon
 
 The pantheon is exactly 15 named agents. `PANTHEON_SPECS` in
-`src/fdai/agents/_framework/pantheon.py` is the machine source of truth. Changes under
-`src/fdai/agents/` MUST load [agent-pantheon.instructions.md](agent-pantheon.instructions.md)
+`services/core-control-plane/src/fdai/agents/_framework/pantheon.py` is the machine source of truth. Changes under
+`services/core-control-plane/src/fdai/agents/` MUST load [agent-pantheon.instructions.md](agent-pantheon.instructions.md)
 and the [agent-pantheon-edit skill](../skills/agent-pantheon-edit/SKILL.md).
 
 The control-loop boundaries are fixed: Forseti judges, Thor alone executes, Var approves, Saga

@@ -1,7 +1,7 @@
 ---
 translation_of: context-selection-policy.md
-translation_source_sha: 1be4cd86331250c4cb1c3b29d3a9d8025fb4d84b
-translation_revised: 2026-07-21
+translation_source_sha: 79546aaf3b865c9f621845ddcdf8e43edb30da82
+translation_revised: 2026-08-08
 ---
 # 컨텍스트 선택 정책
 
@@ -27,7 +27,7 @@ model client, tool 또는 executor를 받지 않습니다.
 
 ## 계약 경계
 
-Core 계약은 `src/fdai/core/working_context/`에 있습니다:
+Core 계약은 `services/core-control-plane/src/fdai/core/working_context/`에 있습니다:
 
 | 타입 | 책임 |
 |------|------|

@@ -1,8 +1,8 @@
 ---
 title: 관리형 Trajectory 데이터셋
 translation_of: governed-trajectory-datasets.md
-translation_source_sha: b94ca93a59fe58117f7dd7b300076d600beb23a0
-translation_revised: 2026-08-02
+translation_source_sha: fa12fdd88627d735049b244bdad7b85e070423d1
+translation_revised: 2026-08-08
 ---
 
 # 관리형 Trajectory 데이터셋
@@ -172,14 +172,14 @@ Norns-to-Mimir quality gate를 사용합니다.
 
 | 책임 | 위치 |
 |------|------|
-| Envelope, projection, review, validation | `src/fdai/core/trajectory/` |
-| Source 및 dataset provider contract | `src/fdai/shared/providers/trajectory.py` |
-| JSONL exporter 및 scanner quarantine | `src/fdai/delivery/trajectory/` |
-| PostgreSQL metadata adapter | `src/fdai/delivery/persistence/postgres_trajectory.py` |
-| 읽기 전용 admin route | `src/fdai/delivery/operator_api/routes/trajectory_datasets.py` |
-| Offline CLI | `src/fdai/deployment_cli/trajectory.py` |
+| Envelope, projection, review, validation | `services/core-control-plane/src/fdai/core/trajectory/` |
+| Source 및 dataset provider contract | `services/core-control-plane/src/fdai/shared/providers/trajectory.py` |
+| JSONL exporter 및 scanner quarantine | `services/core-control-plane/src/fdai/delivery/trajectory/` |
+| PostgreSQL metadata adapter | `services/core-control-plane/src/fdai/delivery/persistence/postgres_trajectory.py` |
+| 읽기 전용 admin route | `services/operator-service/src/fdai_operator_service/` |
+| Offline CLI | `services/core-control-plane/src/fdai/deployment_cli/trajectory.py` |
 | Migration | `alembic/versions/20260720_0048_trajectory_dataset.py` |
-| Golden test | `tests/core/trajectory/`, `tests/delivery/trajectory/` |
+| Golden test | `services/core-control-plane/tests/core/trajectory/`, `services/core-control-plane/tests/delivery/trajectory/` |
 
 ## 관련 문서
 

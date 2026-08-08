@@ -1,8 +1,8 @@
 ---
 title: Hallucination Rubric Gate
 translation_of: hallucination-rubric-gate.md
-translation_source_sha: e1206b92c3516286c4de8d0134e561d54d56585e
-translation_revised: 2026-07-22
+translation_source_sha: f101c4939a90fdb1ee240b38fb6e513cb4ac09d3
+translation_revised: 2026-08-08
 ---
 # Hallucination Rubric Gate (환각 루브릭 게이트)
 
@@ -159,7 +159,7 @@ enforce로 전환 시 fail-closed 되도록.
 
 ## DI seam
 
-전부 `src/fdai/core/quality_gate/` (core는 LLM-SDK-free 유지); 구체 어댑터는
+전부 `services/core-control-plane/src/fdai/core/quality_gate/` (core는 LLM-SDK-free 유지); 구체 어댑터는
 `delivery/` 에.
 
 | Seam | 위치 | 역할 |
@@ -228,7 +228,7 @@ bridge 는 계속 gate 된 작업입니다. 포크가 `LlmBindings.rubric_evalua
    프롬프트는 `t2-rubric` 카탈로그 시드에서 오며, 이는 `rubric` 역할 레이어로 배포된다 -
    composer의 BASE/PACK 조립 경로가 다루지 않는 레이어다(`get_base` 는 `PromptLayer.BASE`
    만 필터). 그래서 포크가 Critic/Judge 배선이 `t2-critic` / `t2-judge` 를 로드하듯 id/layer로
-   직접 로드한다. CI 게이트(`tests/rule_catalog/test_prompt_registry_consistency.py`)가 모든
+   직접 로드한다. CI 게이트(`services/core-control-plane/tests/rule_catalog/test_prompt_registry_consistency.py`)가 모든
    프롬프트 `applies_to` capability가 `llm-registry.yaml` 에 존재함을 단언하므로, 오타난
    `t2.rubric.judge` 가 프롬프트를 조용히 orphan시킬 수 없다.
 2. `QualityCandidate.reasoning_trace` 를 계속 채웁니다. 배포된 local/Azure proposer 는

@@ -5,9 +5,9 @@ title: Deep DB-DR Restore Drill Runbook
 # Deep DB-DR restore drill runbook
 
 Operator runbook for the phase-3 § Deep DB-DR drill. Turns the shipped
-[`DbDrVerifier`](../../src/fdai/core/verticals/resilience/db_dr_verifier.py)
+[`DbDrVerifier`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_verifier.py)
 and its Azure adapter
-([`AzureDbDrRestoreAdapter`](../../src/fdai/delivery/azure/db_dr_restore.py))
+([`AzureDbDrRestoreAdapter`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py))
 into a repeatable operational procedure. The drill runs against a
 production PostgreSQL Flexible Server without ever touching production
 data - the restore lands in an **isolated resource group** the drill
@@ -19,7 +19,7 @@ tears down when done.
 - **After schema migration**: within 7 days of every migration that
   changes user-visible tables.
 - **On restore-adapter change**: any commit under
-  [`src/fdai/delivery/azure/db_dr_restore.py`](../../src/fdai/delivery/azure/db_dr_restore.py)
+  [`services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py)
   is a re-run trigger.
 - **On demand**: when incident response needs a fresh RPO/RTO figure.
 
@@ -90,7 +90,7 @@ tears down when done.
 
 4. **Poll until the server is `Ready`.** Restore typically completes
    in 15-40 minutes for a small dev database. The
-   [`AzureDbDrRestoreAdapter`](../../src/fdai/delivery/azure/db_dr_restore.py)
+   [`AzureDbDrRestoreAdapter`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py)
   polls the LRO endpoint under a 30-minute budget by default. The budget uses monotonic elapsed
   time and includes token and HTTP latency, not only configured sleep intervals. The
    operator equivalent is:
@@ -108,9 +108,9 @@ tears down when done.
    `$RESTORE_TIME`. Any mismatch fails the drill.
 
    The upstream
-   [`DbDrVerifier`](../../src/fdai/core/verticals/resilience/db_dr_verifier.py)
+   [`DbDrVerifier`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_verifier.py)
    consumes an
-   [`IntegrityChecker`](../../src/fdai/shared/providers/db_dr.py)
+   [`IntegrityChecker`](../../services/core-control-plane/src/fdai/shared/providers/db_dr.py)
    Protocol seam; the operator equivalent is:
 
    ```bash
@@ -230,4 +230,4 @@ tag `purpose=dr-drill` catch stray drill resource groups older than
 
 - [phase-3-integrated-loop.md § Deep DB-DR (stateful - dedicated design)](../roadmap/phases/phase-3-integrated-loop.md)
 - [security-and-identity.md](../roadmap/architecture/security-and-identity.md)
-- [DbDrVerifier module docstring](../../src/fdai/core/verticals/resilience/db_dr_verifier.py)
+- [DbDrVerifier module docstring](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_verifier.py)

@@ -31,29 +31,29 @@ and shadow-mode rules in [security-and-identity.md](../architecture/security-and
 ## Deliverables
 
 The module reference lists the primary Python package that carries the deliverable in
-[`src/fdai/`](../architecture/project-structure.md); every module listed here is
+[`services/core-control-plane/src/fdai/`](../architecture/project-structure.md); every module listed here is
 customer-agnostic and Azure-only in intent (multi-cloud deliverables below stay TBD).
 
 - Continuous measurement/improvement loop on the Azure baseline with automatic regression
   demotion.
   Module:
-  [core/measurement/regression.py](../../../src/fdai/core/measurement/regression.py).
+  [core/measurement/regression.py](../../../services/core-control-plane/src/fdai/core/measurement/regression.py).
 - Pattern-library (T1) growth with anti-overfitting guards.
   Module:
-  [core/measurement/pattern_growth.py](../../../src/fdai/core/measurement/pattern_growth.py).
+  [core/measurement/pattern_growth.py](../../../services/core-control-plane/src/fdai/core/measurement/pattern_growth.py).
 - Model cost/quality tracking with measurement-driven swaps.
   Module:
-  [core/measurement/model_tracking.py](../../../src/fdai/core/measurement/model_tracking.py).
+  [core/measurement/model_tracking.py](../../../services/core-control-plane/src/fdai/core/measurement/model_tracking.py).
 - Scalability/performance validation on Azure (per-tier latency budgets, event-driven
   scale-to-zero preserved).
   Module:
-  [core/measurement/latency_budget.py](../../../src/fdai/core/measurement/latency_budget.py).
+  [core/measurement/latency_budget.py](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py).
 - Scheduled runners that wire the two library-only measurement components into Container
   Apps Jobs - an automated-baseline regression runner (daily replay of the P0 scenario set,
   auto-demotes on regression) and a pattern-growth intake runner (drains the audit stream,
   ingests accepted patterns in shadow only, never auto-promotes).
   Module:
-  [core/measurement/runners.py](../../../src/fdai/core/measurement/runners.py).
+  [core/measurement/runners.py](../../../services/core-control-plane/src/fdai/core/measurement/runners.py).
   Infra:
   [infra/modules/measurement-runners/](../../../infra/modules/measurement-runners).
   The jobs call `fdai.delivery.measurement_runner_cli`, not the library-only

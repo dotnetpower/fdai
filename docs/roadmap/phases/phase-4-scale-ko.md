@@ -1,8 +1,8 @@
 ---
 title: Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
 translation_of: phase-4-scale.md
-translation_source_sha: 317df8cab47ea131b90d164297d22c7ad4a00fe6
-translation_revised: 2026-08-01
+translation_source_sha: 7f3a9b5359f1503dc899a04e407b3f3abb8e8a6a
+translation_revised: 2026-08-08
 ---
 
 # Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
@@ -32,28 +32,28 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 
 ## 산출물
 
-모듈 참조는 [`src/fdai/`](../architecture/project-structure-ko.md)에서 해당 산출물을 담고 있는
+모듈 참조는 [`services/core-control-plane/src/fdai/`](../architecture/project-structure-ko.md)에서 해당 산출물을 담고 있는
 주요 Python 패키지를 가리킴; 여기 나열된 모든 모듈은 고객-agnostic이고 Azure 전용
 (아래 멀티 클라우드 산출물은 TBD로 남음).
 
 - 자동 회귀 강등 있는 Azure 베이스라인의 지속 측정/개선 루프.
   모듈:
-  [core/measurement/regression.py](../../../src/fdai/core/measurement/regression.py).
+  [core/measurement/regression.py](../../../services/core-control-plane/src/fdai/core/measurement/regression.py).
 - 오버피팅 방지 가드 있는 패턴-라이브러리(T1) 성장.
   모듈:
-  [core/measurement/pattern_growth.py](../../../src/fdai/core/measurement/pattern_growth.py).
+  [core/measurement/pattern_growth.py](../../../services/core-control-plane/src/fdai/core/measurement/pattern_growth.py).
 - 측정-주도 스왑 있는 모델 cost/quality 추적.
   모듈:
-  [core/measurement/model_tracking.py](../../../src/fdai/core/measurement/model_tracking.py).
+  [core/measurement/model_tracking.py](../../../services/core-control-plane/src/fdai/core/measurement/model_tracking.py).
 - Azure에서 확장성/성능 검증(티어별 지연 예산, 이벤트-기반 scale-to-zero 보존).
   모듈:
-  [core/measurement/latency_budget.py](../../../src/fdai/core/measurement/latency_budget.py).
+  [core/measurement/latency_budget.py](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py).
 - 두 라이브러리-전용 측정 컴포넌트를 Container Apps Jobs로 배선하는 스케줄 러너 -
   automated-baseline 회귀 러너(P0 시나리오 세트를 매일 리플레이, 회귀 시 자동 강등)와
   pattern-growth 인테이크 러너(audit 스트림 드레인, 허용된 패턴을 shadow 로만 인제스트,
   자동 승격 금지).
   모듈:
-  [core/measurement/runners.py](../../../src/fdai/core/measurement/runners.py).
+  [core/measurement/runners.py](../../../services/core-control-plane/src/fdai/core/measurement/runners.py).
   Infra:
   [infra/modules/measurement-runners/](../../../infra/modules/measurement-runners).
   Job 은 library-only core module 이 아니라 `fdai.delivery.measurement_runner_cli`을

@@ -32,7 +32,7 @@ pattern (a proposal flow with reviewers and a decision). The
 on-demand `resource-group` **change summary** the operator asks for
 by name. Its complete set of artifacts is already in the upstream
 tree and is exercised by
-[`tests/verticals/test_change_summary_example.py`](../../../tests/verticals/test_change_summary_example.py):
+[`services/core-control-plane/tests/verticals/test_change_summary_example.py`](../../../services/core-control-plane/tests/verticals/test_change_summary_example.py):
 
 | Piece | Where it lives |
 |-------|----------------|

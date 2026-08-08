@@ -9,9 +9,9 @@ title: Workflow Control-Loop Integration
 ## 4. Control-loop integration
 
 A compiled workflow does not run in a side channel. The
-[`WorkflowCompiler`](../../../src/fdai/core/workflow/compiler.py) turns a
-`Workflow` into a [`Runbook`](../../../src/fdai/core/runbook/models.py), and the
-existing [`RunbookRunner`](../../../src/fdai/core/runbook/runner.py) walks the
+[`WorkflowCompiler`](../../../services/core-control-plane/src/fdai/core/workflow/compiler.py) turns a
+`Workflow` into a [`Runbook`](../../../services/core-control-plane/src/fdai/core/runbook/models.py), and the
+existing [`RunbookRunner`](../../../services/core-control-plane/src/fdai/core/runbook/runner.py) walks the
 steps. Each step is dispatched through the injected `StepExecutor`, which
 re-enters the typed pipeline: `ActionType` -> risk-gate -> executor -> audit.
 There is no direct RPC between steps and no bypass of the risk-gate. This
@@ -24,11 +24,11 @@ runner adds one aggregate `runbook.terminal` audit row for reconstruction.
 
 ### 4.1 Governed shadow and enforce orchestrator
 
-The [`WorkflowOrchestrator`](../../../src/fdai/core/workflow/orchestrator.py) plans
+The [`WorkflowOrchestrator`](../../../services/core-control-plane/src/fdai/core/workflow/orchestrator.py) plans
 approvals ([section 6.1](#61-approver-assignment)),
 derives an idempotent `Process` id from `(workflow, target_resource_id,
 trigger_ts)`, compiles the workflow, and walks it with the
-[`ShadowWorkflowStepExecutor`](../../../src/fdai/core/workflow/orchestrator.py) - a
+[`ShadowWorkflowStepExecutor`](../../../services/core-control-plane/src/fdai/core/workflow/orchestrator.py) - a
 `StepExecutor` that has no publisher, no direct-API executor, and no resource
 lock, so it **structurally cannot mutate**. Each step is judged and logged (with
 its resolved approver assignment) and reported `SUCCESS`; the run emits a
@@ -53,14 +53,14 @@ Approval requests are attempt-scoped. A reject closes the complete quorum attemp
 reject or timeout creates fresh Var slots and preserves attempt 1 durable-key compatibility.
 
 The event entry is the
-[`WorkflowTriggerCoordinator`](../../../src/fdai/core/workflow/coordinator.py): an
+[`WorkflowTriggerCoordinator`](../../../services/core-control-plane/src/fdai/core/workflow/coordinator.py): an
 Event that clears `event-ingest` is matched against the
-[`WorkflowTriggerIndex`](../../../src/fdai/core/workflow/trigger_index.py) on its
+[`WorkflowTriggerIndex`](../../../services/core-control-plane/src/fdai/core/workflow/trigger_index.py) on its
 `event_type`, and every matched Workflow is run in shadow (name-ordered,
 resource + timestamp taken from the Event). An event matching no Workflow starts
 nothing.
 
-The coordinator is wired into the [`ControlLoop`](../../../src/fdai/core/control_loop/orchestrator.py)
+The coordinator is wired into the [`ControlLoop`](../../../services/core-control-plane/src/fdai/core/control_loop/orchestrator.py)
 as an **enabled-by-default, fail-safe side-consumer**: when the catalog ships a Workflow,
 the entry point assembles it (from the loaded
 Workflow catalog, the RBAC group mapping, and the notification matrix) and every
@@ -73,7 +73,7 @@ maintenance disable; unset keeps non-mutating observation active.
 
 A step's `guard_rule_ref` is the deterministic "when" for the step - a
 policy-as-code predicate, never model text. The orchestrator exposes a
-[`WorkflowGuardEvaluator`](../../../src/fdai/core/workflow/orchestrator.py) seam
+[`WorkflowGuardEvaluator`](../../../services/core-control-plane/src/fdai/core/workflow/orchestrator.py) seam
 (async, deterministic, side-effect free). The upstream default injects **no**
 evaluator: a guard is load-validated against the rule catalog but recorded as
 `guard_evaluated: false` at run time, so upstream stays behaviourally neutral. A

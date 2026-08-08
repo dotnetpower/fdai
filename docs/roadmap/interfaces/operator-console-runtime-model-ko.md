@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: a930031bc0f7648d3e6f4dbdcab34d8fa8e20e2b
-translation_revised: 2026-08-03
+translation_source_sha: 56fbc2ca1e4ba379156e1f7256741fab12a2033b
+translation_revised: 2026-08-08
 ---
 
 # Operator Console - Narrator, DI Seams, and Session Model
@@ -213,7 +213,7 @@ class Narrator(Protocol):
   완료된 summary는 tab reload 이후에도 유지됩니다.
 
 Upstream 기본은
-[`src/fdai/delivery/azure/llm/narrator.py`](../../../src/fdai/delivery/azure/llm/narrator.py)
+[`services/operator-service/src/fdai_operator_service/`](../../../services/operator-service/src/fdai_operator_service/)
 아래의 `AzureOpenAINarratorModel`입니다. Azure OpenAI chat completion을 strict one-line
 translator로 호출하며 endpoint와 deployment는 composition에서 resolved model binding으로 받습니다.
 
@@ -445,9 +445,9 @@ routing하지 않습니다. 복구할 수 없는 block은 한 번의 idempotent 
 기록하고 assistant turn은 기록하지 않습니다.
 
 조립은 순수
-[`compose_working_context`](../../../src/fdai/core/working_context/composer.py)
+[`compose_working_context`](../../../services/core-control-plane/src/fdai/core/working_context/composer.py)
 정책이다. **턴 수**를 절대 제한하지 않는다; 대신 *토큰*을 제한하며,
-[`ContextBudget`](../../../src/fdai/core/working_context/types.py)에서 뽑은
+[`ContextBudget`](../../../services/core-control-plane/src/fdai/core/working_context/types.py)에서 뽑은
 네 개 tier에 걸쳐:
 
 - **Pinned** - 상시 오퍼레이터 제약과 미해결 결정; 항상 포함되고, 이들만
@@ -468,23 +468,23 @@ routing하지 않습니다. 복구할 수 없는 block은 한 번의 idempotent 
 - **Hierarchical summary** - 나머지 전부를 rolling summary로 접음(level 1
   이 턴을, level 2가 level-1 요약을 접음)므로 요약 tier는 세션 길이 `L`에
   대해 `O(log L)`로 성장. 순수
-  [`plan_summarization`](../../../src/fdai/core/working_context/planner.py)
+  [`plan_summarization`](../../../services/core-control-plane/src/fdai/core/working_context/planner.py)
   정책이 어떤 턴을 어느 level로 접을지 결정하고 - 전체 `fold_factor` 청크만,
   따라서 턴이 혼자 접혔다가 재접히는 일이 없음 -
-  [`SummarizationOrchestrator`](../../../src/fdai/core/working_context/orchestrator.py)
+  [`SummarizationOrchestrator`](../../../services/core-control-plane/src/fdai/core/working_context/orchestrator.py)
   가 그 계획을 `TranscriptSummarizer` seam에 대해 구동하여, 계획된 각 fold를
   안정된 순서로 핫 패스 밖에서 수행한다.
 
 상위 우선순위 tier의 미사용 예산은 다음 tier로 spill 되므로, 짧은 세션은
 요약으로 padding 하지 않고 verbatim 턴으로 채워진다. 두 I/O seam -
-[`TranscriptSummarizer`](../../../src/fdai/core/working_context/summarizer.py)
+[`TranscriptSummarizer`](../../../services/core-control-plane/src/fdai/core/working_context/summarizer.py)
 (mini 모델 folding, `t1.judge`)과 `TranscriptRetriever` (pgvector) - 은
 결정론적 no-LLM fake를 업스트림에 제공하는 DI Protocol이다. 모든 조립은
 턴 audit에 `context_manifest`(verbatim id, summary hash, retrieved id,
 dropped id, tier별 토큰)를 기록하므로 어떤 프롬프트든 memory of record에서
 재구성 가능하다.
 
-End-to-end [`assemble_turn_context`](../../../src/fdai/core/conversation/context_bridge.py)는
+End-to-end [`assemble_turn_context`](../../../services/core-control-plane/src/fdai/core/conversation/context_bridge.py)는
 session verbatim, operator memory, retrieval, summary를 하나의 bounded context로 묶습니다.
 Retriever가 없으면 `session_to_working_context`와 operator memory를 사용합니다.
 

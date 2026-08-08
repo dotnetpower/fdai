@@ -95,7 +95,7 @@ in [console/README.md](console/README.md#fork-configuration). The common keys:
 | `VITE_MSAL_CLIENT_ID` / `VITE_MSAL_TENANT_ID` | Entra SPA app registration for browser sign-in. |
 | `VITE_OPERATOR_API_BASE_URL` | Operator API origin (local default `http://127.0.0.1:8010`). |
 | `VITE_LOCAL_AZURE_CLI_AUTH` | `1` projects your `az login` user through the API instead of browser Entra. Never set in production. |
-| `FDAI_DATABASE_URL` | Postgres DSN; gates the `tests/persistence/` tests and the local core runtime. |
+| `FDAI_DATABASE_URL` | Postgres DSN; gates the `services/core-control-plane/tests/persistence/` tests and the local core runtime. |
 | `AZURE_CONFIG_DIR` | Named Azure CLI profile (see section 2). Export the same value for the API. |
 
 `resolved-models-local.json` points the local LLM and narrator path at an Azure

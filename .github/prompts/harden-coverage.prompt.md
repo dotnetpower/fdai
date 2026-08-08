@@ -7,7 +7,7 @@ description: One coverage-driven hardening batch on the lowest-covered core modu
 
 Follow the coverage-driven hardening recipe from the repo memory
 (`/memories/repo/coding-ability.md`): pick the lowest-covered production
-module under `src/fdai/core/`, add tests that cover the exact missing
+module under `services/core-control-plane/src/fdai/core/`, add tests that cover the exact missing
 lines, verify, commit. **One batch = one commit.**
 
 ## Rules

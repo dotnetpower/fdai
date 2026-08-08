@@ -3,7 +3,7 @@
 Catalog-as-code for FDAI fault-injection scenarios.
 
 Data-only YAML tree. Loader + validator live in
-[`src/fdai/core/chaos/scenario_catalog.py`](../../src/fdai/core/chaos/scenario_catalog.py).
+[`services/core-control-plane/src/fdai/core/chaos/scenario_catalog.py`](../../services/core-control-plane/src/fdai/core/chaos/scenario_catalog.py).
 Design memo:
 [`docs/internals/sre-scenario-library-scaling.md`](../../docs/internals/sre-scenario-library-scaling.md).
 
@@ -60,7 +60,7 @@ requires_hardware: false
 ## Rules
 
 - **Signals**: `expected_signal` MUST match a registered `SIGNAL_*` in
-  [`src/fdai/core/detection/signals.py`](../../src/fdai/core/detection/signals.py).
+  [`services/core-control-plane/src/fdai/core/detection/signals.py`](../../services/core-control-plane/src/fdai/core/detection/signals.py).
   The loader rejects unknown signals.
 - **Injectors**: `injector: needs-injector` is allowed only in `collected/`;
   scenarios with that value cannot land in `promoted/`.

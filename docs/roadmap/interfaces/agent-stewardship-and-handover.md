@@ -178,7 +178,7 @@ accountable subject, it lists those agents and stops instead of selecting a pers
 
 The 15 keys under `agents:` MUST be exactly the pantheon names. `core/stewardship`
 carries its own canonical `AGENT_NAMES` tuple and a parity test
-(`tests/core/stewardship/test_pantheon_parity.py`) pins it to
+(`services/core-control-plane/tests/core/stewardship/test_pantheon_parity.py`) pins it to
 `fdai.agents._framework.pantheon.PANTHEON_NAMES`, so the config schema and the
 pantheon can never drift. `core/` does not import `agents/` (module-boundary rule);
 the parity test bridges them at test time instead.
@@ -369,7 +369,7 @@ memos) and have FDAI parse them into a **draft** steward map for review
 separable capability layered on top of the deterministic core above; it never
 applies anything and never blocks the core.
 
-Implemented under `src/fdai/core/stewardship/handover_bootstrap/` as a
+Implemented under `services/core-control-plane/src/fdai/core/stewardship/handover_bootstrap/` as a
 deterministic-first, grounded, abstaining pipeline:
 
 1. **Deterministic extraction** (`extractor.py` + `agent_domains.py`). Each
