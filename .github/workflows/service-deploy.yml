@@ -89,7 +89,6 @@ jobs:
           TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
           GITHUB_TOKEN: ${{ github.token }}
           PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
-          PROTECTED_WORKFLOW_PATH: .github/workflows/service-deploy.yml
         run: |
           set -euo pipefail
           [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || {
@@ -110,12 +109,6 @@ jobs:
           git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
             refs/remotes/origin/main || {
             echo "commit_sha must be an ancestor of protected origin/main." >&2
-            exit 1
-          }
-          git -C "$guard_repo" diff --quiet \
-            "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" \
-            "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH" || {
-            echo "service deployment controls differ from protected origin/main." >&2
             exit 1
           }
 

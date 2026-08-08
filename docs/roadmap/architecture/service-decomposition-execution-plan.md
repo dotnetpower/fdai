@@ -164,11 +164,19 @@ contracts, and generic ingestion co-host seam are absent.
 Local completion evidence includes six independently built wheels, five nonroot service images,
 five image health checks, five validated migration branches covering 104 tables and 11
 transitions, five locally validated Terraform roots, zero cross-service implementation imports,
-and twenty-eight independent critique-and-hardening rounds with zero Medium-or-higher local residuals.
+and thirty-three independent critique-and-hardening rounds with zero Medium-or-higher local residuals.
 IS-06 and IS-07 are locally complete. Exact remote plan/apply and
 rolling confirmation is deferred to IS-09 and uses final service-owned inputs without restoring
 the monolith as a rollback source. IS-09 pins deployable distribution `0.1.2` images as N-1 and
 distribution `0.1.3` as N while retaining the existing contract-set `1.0.0`/`1.1.0` matrix.
+
+Protected service deployment separates immutable artifact provenance from execution-control
+provenance. A target `commit_sha` may be any ancestor of protected `main`, which permits an
+attested N-1 image to participate in rollback rehearsal. The workflow itself and every deployment
+control script always come from current protected `main`; exact plan/apply replay rejects a control
+change between its two runs. Image builds and plans may run concurrently across the five runner
+slots, but evidence-bearing applies run serially so each service receipt can prove that all four
+peer states remained unchanged.
 
 ## Parallel execution rules
 

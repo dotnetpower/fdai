@@ -70,6 +70,8 @@ def test_workflow_uses_protected_controls_and_protected_commit_ancestry() -> Non
     assert '"+refs/heads/main:refs/remotes/origin/main"' in _WORKFLOW
     assert 'git -C "$TRUSTED_CONTROLS" merge-base --is-ancestor' in _WORKFLOW
     assert '"$COMMIT_SHA" refs/remotes/origin/main' in _WORKFLOW
+    assert 'git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA"' in _WORKFLOW
+    assert "TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" not in _WORKFLOW
     assert 'TRUSTED_CONTROLS="$GITHUB_WORKSPACE/trusted-controls"' in _WORKFLOW
     for script in ("service_contract.py", "guard_plan.py", "plan_bundle.py", "peer_state.py"):
         assert f'"$TRUSTED_CONTROLS/scripts/deployment/service/{script}"' in _WORKFLOW

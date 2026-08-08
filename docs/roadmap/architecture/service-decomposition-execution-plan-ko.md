@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 2d927480c5527f84d92f70fb8bf1a3de0534f8d6
+translation_source_sha: a296cf6c53ba2b67f493d916da38d31462895d60
 translation_revised: 2026-08-09
 ---
 # 서비스 분해 실행 계획
@@ -159,11 +159,18 @@ entry point, duplicate contract와 generic ingestion co-host seam은 제거되�
 
 로컬 완료 evidence에는 독립 build wheel 6개, nonroot service image 5개, image health check 5개,
 104개 table과 11개 transition을 포함하는 검증된 migration branch 5개, 로컬에서 validate한 Terraform
-root 5개, cross-service implementation import 0, 그리고 독립 critique-and-hardening 28회와 Medium 이상
+root 5개, cross-service implementation import 0, 그리고 독립 critique-and-hardening 33회와 Medium 이상
 로컬 residual 0이 포함됩니다. IS-06과 IS-07은 local 기준으로 완료됐습니다. Exact remote
 plan/apply와 rolling 확인은 IS-09로 보류하며 최종 service-owned
 input을 사용하고 monolith를 rollback source로 복원하지 않습니다. IS-09는 deployable distribution
 `0.1.2` image를 N-1, distribution `0.1.3`을 N으로 고정하고 기존 contract-set `1.0.0`/`1.1.0` matrix를 유지합니다.
+
+Protected service deployment는 immutable artifact provenance와 execution-control provenance를
+분리합니다. Target `commit_sha`는 protected `main`의 어떤 ancestor도 될 수 있으므로 attestation된
+N-1 image를 rollback rehearsal에 사용할 수 있습니다. Workflow 자체와 모든 deployment control
+script는 항상 현재 protected `main`에서 가져오고, exact plan/apply replay는 두 run 사이의 control
+변경을 거부합니다. Image build와 plan은 runner slot 5개에서 병렬 실행할 수 있지만 evidence-bearing
+apply는 각 service receipt가 나머지 peer state 4개가 그대로였음을 증명할 수 있도록 직렬 실행합니다.
 
 ## 병렬 실행 규칙
 
