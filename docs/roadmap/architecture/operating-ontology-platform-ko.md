@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 8cf7e094704f71385f68c7e7206201f55cb4d5be
+translation_source_sha: ea68b21ea596b194404e3d42a70af48cff150176
 translation_revised: 2026-08-09
 ---
 # FDAI 온톨로지 안전 인프라
@@ -94,6 +94,9 @@ provider, Kubernetes, network, registry 또는 store I/O를 수행하지 않습�
 Result는 Pod selected by Service, Service exposing Endpoints, Observation targeting the Pod,
 Observation sample의 순서가 고정된 네 segment를 포함합니다. Segment state fact가 supplied cutoff에서
 complete하고 current하며 non-synthetic 및 conflict-free일 때만 evidence를 verified로 판단합니다.
+Pod, selected Service, exposed Endpoints는 모두 expected cluster scope의 identity를 가져야 합니다.
+Cross-cluster Service 또는 Endpoints record가 있으면 relationship evidence가 current하고 complete해도
+해당 segment는 unverified가 됩니다.
 Incomplete graph receipt는 absence를 입증할 수 없으므로 unresolved segment는 `missing`이 아니라
 `unverified`로 유지됩니다. Replay를 위해 exact secured graph receipt digest와 보존된 모든 evidence
 reference를 반환합니다.

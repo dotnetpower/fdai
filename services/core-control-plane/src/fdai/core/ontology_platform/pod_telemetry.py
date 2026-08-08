@@ -81,6 +81,15 @@ def evaluate_pod_telemetry_path(
         target_kind="Pod",
         graph_complete=graph_complete,
     )
+    if service_link is not None:
+        service_reasons = (
+            *service_reasons,
+            *_resource_cluster_reasons(
+                objects.get(service_link.from_id),
+                expected_cluster_ref=expected_cluster_ref,
+                label="service",
+            ),
+        )
     selector_segment = _link_segment(
         kind=TelemetrySegmentKind.POD_SELECTED_BY_SERVICE,
         link=service_link,
@@ -108,6 +117,20 @@ def evaluate_pod_telemetry_path(
         target_kind="Endpoints",
         graph_complete=graph_complete,
     )
+    if endpoint_link is not None:
+        endpoint_reasons = (
+            *endpoint_reasons,
+            *_resource_cluster_reasons(
+                objects.get(endpoint_link.from_id),
+                expected_cluster_ref=expected_cluster_ref,
+                label="service",
+            ),
+            *_resource_cluster_reasons(
+                objects.get(endpoint_link.to_id),
+                expected_cluster_ref=expected_cluster_ref,
+                label="endpoints",
+            ),
+        )
     if service_link is None:
         endpoint_reasons = (*endpoint_reasons, "service_unresolved")
     endpoint_segment = _link_segment(
@@ -207,6 +230,23 @@ def _identity_failure_segments(reasons: tuple[str, ...]) -> tuple[TelemetryPathS
     )
 
 
+def _resource_cluster_reasons(
+    resource: OntologyObjectRecord | None,
+    *,
+    expected_cluster_ref: str,
+    label: str,
+) -> tuple[str, ...]:
+    if resource is None or resource.object_type != "Resource":
+        return ()
+    expected_prefix = f"{expected_cluster_ref.rstrip('/')}/"
+    cluster_ref = _nested_text(resource, "cluster_ref")
+    if not resource.id.startswith(expected_prefix) or (
+        cluster_ref is not None and cluster_ref != expected_cluster_ref
+    ):
+        return (f"{label}_wrong_cluster_identity",)
+    return ()
+
+
 def _matching_links(
     links: Sequence[OntologyLinkRecord],
     *,
@@ -276,6 +316,8 @@ def _link_segment(
         )
     metadata = state_evidence.get(telemetry_link_subject(link))
     status, metadata_reasons = evaluate_state_fact_metadata(metadata, cutoff=cutoff)
+    if reasons and status is TelemetrySegmentStatus.VERIFIED:
+        status = TelemetrySegmentStatus.UNVERIFIED
     return TelemetryPathSegment(
         kind=kind,
         from_id=link.from_id,

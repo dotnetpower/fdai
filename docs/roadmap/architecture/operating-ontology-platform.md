@@ -90,6 +90,9 @@ ObjectSet gateway; the evaluator performs no provider, Kubernetes, network, regi
 The result contains four ordered segments: Pod selected by Service, Service exposing Endpoints,
 Observation targeting the Pod, and the Observation sample. Segment evidence is verified only when
 its state fact is complete, current at the supplied cutoff, non-synthetic, and conflict free.
+The Pod, selected Service, and exposed Endpoints must all carry identities in the expected cluster
+scope; a cross-cluster Service or Endpoints record makes the affected segment unverified even when
+its relationship evidence is otherwise current and complete.
 Incomplete graph receipts cannot prove absence, so unresolved segments remain `unverified` rather
 than becoming `missing`. The exact secured graph receipt digest and all retained evidence refs are
 returned for replay.

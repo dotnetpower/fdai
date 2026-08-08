@@ -367,6 +367,41 @@ async def test_wrong_cluster_identity_rejects_every_segment() -> None:
     assert all("wrong_cluster_identity" in segment.reasons for segment in result.segments)
 
 
+async def test_cross_cluster_service_and_endpoints_stay_unverified() -> None:
+    other_cluster = "kubernetes.cluster:other"
+    service_id = f"{other_cluster}/resource/service-uid"
+    endpoints_id = f"{other_cluster}/resource/endpoints-uid"
+    links = (
+        OntologyLinkRecord("kubernetes_selects", service_id, _POD_ID),
+        OntologyLinkRecord("kubernetes_exposes_endpoints", service_id, endpoints_id),
+        OntologyLinkRecord("observation_targets_resource", _OBSERVATION_ID, _POD_ID),
+    )
+    secured = await _secured_result(
+        objects=(
+            _resource(_POD_ID, "Pod", "api-0"),
+            _resource(service_id, "Service", "api"),
+            _resource(endpoints_id, "Endpoints", "api"),
+            _observation(),
+        ),
+        links=links,
+    )
+    evidence = {
+        telemetry_link_subject(link): _state_fact(f"cross-cluster:{index}")
+        for index, link in enumerate(links, start=1)
+    }
+    evidence[telemetry_object_subject(_OBSERVATION_ID)] = _state_fact("metric-sample:pod-cpu:1")
+
+    result = _evaluate(secured, evidence)
+
+    assert result.complete is False
+    assert result.completeness == 0.5
+    assert result.segments[0].status is TelemetrySegmentStatus.UNVERIFIED
+    assert "service_wrong_cluster_identity" in result.segments[0].reasons
+    assert result.segments[1].status is TelemetrySegmentStatus.UNVERIFIED
+    assert "service_wrong_cluster_identity" in result.segments[1].reasons
+    assert "endpoints_wrong_cluster_identity" in result.segments[1].reasons
+
+
 async def test_bounded_cyclic_graph_stays_unverified() -> None:
     links = (
         OntologyLinkRecord("kubernetes_selects", _SERVICE_ID, _POD_ID),
