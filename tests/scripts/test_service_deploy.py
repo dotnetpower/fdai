@@ -19,6 +19,15 @@ import pytest
 
 _ROOT = Path(__file__).resolve().parents[2]
 _SCRIPTS = _ROOT / "scripts" / "deployment" / "service"
+_CORE_TERRAFORM = (
+    _ROOT
+    / "infra"
+    / "services"
+    / "core-control-plane"
+    / "modules"
+    / "core-control-plane"
+    / "main.tf"
+).read_text(encoding="utf-8")
 sys.path.insert(0, str(_SCRIPTS))
 
 
@@ -537,7 +546,9 @@ def test_core_contract_requires_complete_bootstrap_environment(contract: ModuleT
         "AZURE_REGION",
         "POSTGRES_HOST",
         "POSTGRES_DATABASE",
+        "FDAI_START_CONSUMER",
     } <= set(resolved.required_environment)
+    assert '{ name = "FDAI_START_CONSUMER", value = "1" }' in _CORE_TERRAFORM
 
 
 def test_unknown_service_and_environment_fail_closed(contract: ModuleType) -> None:

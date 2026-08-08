@@ -6,7 +6,7 @@
       "backend_key_template": "services/core-control-plane/{environment}.tfstate",
       "entrypoint": "fdai-core-control-plane",
       "image_repository": "fdai-core-control-plane",
-      "required_environment": ["FDAI_STATE_STORE_DSN", "FDAI_DATABASE_ROLE", "RUNTIME_ENV", "AZURE_TENANT_ID", "AZURE_SUBSCRIPTION_ID", "AZURE_REGION", "POSTGRES_HOST", "POSTGRES_DATABASE", "FDAI_MI_CLIENT_ID", "KAFKA_BOOTSTRAP_SERVERS", "KAFKA_TOPIC_EVENTS", "FDAI_EXECUTOR_COMMAND_TOPIC", "FDAI_EXECUTOR_RECEIPT_TOPIC", "FDAI_HEALTH_PORT"],
+      "required_environment": ["FDAI_STATE_STORE_DSN", "FDAI_DATABASE_ROLE", "RUNTIME_ENV", "AZURE_TENANT_ID", "AZURE_SUBSCRIPTION_ID", "AZURE_REGION", "POSTGRES_HOST", "POSTGRES_DATABASE", "FDAI_MI_CLIENT_ID", "KAFKA_BOOTSTRAP_SERVERS", "KAFKA_TOPIC_EVENTS", "FDAI_EXECUTOR_COMMAND_TOPIC", "FDAI_EXECUTOR_RECEIPT_TOPIC", "FDAI_START_CONSUMER", "FDAI_HEALTH_PORT"],
       "terraform_root": "infra/services/core-control-plane"
     },
     "document-ingestion-api": {

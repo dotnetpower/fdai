@@ -27,6 +27,7 @@ module "container_app" {
     { name = "KAFKA_TOPIC_EVENTS", value = var.event_topics.events },
     { name = "FDAI_EXECUTOR_COMMAND_TOPIC", value = var.event_topics.executor_command },
     { name = "FDAI_EXECUTOR_RECEIPT_TOPIC", value = var.event_topics.executor_receipt },
+    { name = "FDAI_START_CONSUMER", value = "1" },
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
   ]
   health            = var.health
