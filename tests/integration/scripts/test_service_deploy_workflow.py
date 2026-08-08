@@ -107,6 +107,8 @@ def test_workflow_validates_source_run_and_actual_plan_controls_checkout() -> No
     assert ".github/workflows/service-deploy.yml" in _WORKFLOW
     assert "scripts/deployment/service" in _WORKFLOW
     for deployment_input in (
+        "alembic",
+        "alembic.ini",
         "infra/services",
         "service-migrations",
         "pyproject.toml",
@@ -197,10 +199,18 @@ def test_initial_cutover_prepares_stamps_and_upgrades_service_migrations() -> No
     assert "migration_dsn_secret_name" in _WORKFLOW
     assert "az keyvault secret show" in _WORKFLOW
     assert 'if [[ "$INITIAL_CUTOVER" == "true" ]]' in _WORKFLOW
+    legacy_upgrade = (
+        "alembic \\\n"
+        '              --config "$TRUSTED_CONTROLS/alembic.ini" \\\n'
+        "              upgrade head"
+    )
+    assert legacy_upgrade in _WORKFLOW
     assert "prepare-adoption" in _WORKFLOW
     assert "stamp-baseline" in _WORKFLOW
+    service_upgrade = '"$migration_command" upgrade head'
+    assert _WORKFLOW.index(legacy_upgrade) < _WORKFLOW.index("prepare-adoption")
     assert _WORKFLOW.index("prepare-adoption") < _WORKFLOW.index("stamp-baseline")
-    assert _WORKFLOW.index("stamp-baseline") < _WORKFLOW.index("upgrade head")
+    assert _WORKFLOW.index("stamp-baseline") < _WORKFLOW.index(service_upgrade)
     assert "Upload service migration adoption evidence" in _WORKFLOW
     assert "service-migration-adoption-${{ inputs.service }}" in _WORKFLOW
     assert "if-no-files-found: ignore" in _WORKFLOW

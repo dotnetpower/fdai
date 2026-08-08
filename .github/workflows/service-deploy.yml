@@ -602,6 +602,8 @@ jobs:
             .github/workflows/service-deploy.yml
             scripts/deployment/service
             infra/services
+            alembic
+            alembic.ini
             service-migrations
             pyproject.toml
             uv.lock
@@ -648,6 +650,8 @@ jobs:
             .github/workflows/service-deploy.yml
             scripts/deployment/service
             infra/services
+            alembic
+            alembic.ini
             service-migrations
             pyproject.toml
             uv.lock
@@ -757,6 +761,13 @@ jobs:
           echo "::add-mask::$migration_dsn"
           migration_command="$TRUSTED_CONTROLS/service-migrations/bin/$SERVICE"
           if [[ "$INITIAL_CUTOVER" == "true" ]]; then
+            FDAI_DATABASE_URL="$migration_dsn" uv run \
+              --frozen \
+              --project "$TRUSTED_CONTROLS" \
+              --extra dev \
+              alembic \
+              --config "$TRUSTED_CONTROLS/alembic.ini" \
+              upgrade head
             evidence="$RUNNER_TEMP/service-migration-adoption.json"
             schema="$RUNNER_TEMP/service-migration-schema.json"
             rollback_reference="git:${PLAN_CONTROLS_COMMIT_SHA}:service-migrations/branches/${SERVICE}/adoption.json#rollback"
