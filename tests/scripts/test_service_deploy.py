@@ -1040,6 +1040,43 @@ def test_initial_cutover_allows_exact_clamav_tag_normalization_drift(
         )
 
 
+def test_initial_worker_cutover_allows_revision_name_only_drift(guard: ModuleType) -> None:
+    plan = _worker_plan()
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before = copy.deepcopy(change["before"])
+    after = copy.deepcopy(before)
+    after["latest_revision_name"] = "worker--normalized"
+    plan["resource_drift"] = [
+        {
+            "address": (
+                "module.document_processing_worker.module.container_app."
+                "azurerm_container_app.service"
+            ),
+            "change": {"actions": ["update"], "before": before, "after": after},
+        }
+    ]
+    change["before"]["template"][0]["container"][0]["image"] = (
+        "registry.example.com/worker@sha256:" + "d" * 64
+    )
+    change["before"]["template"][0]["container"][0]["command"] = ["legacy-worker"]
+    before_sidecar = change["before"]["template"][0]["container"][1]
+    before_sidecar.pop("startup_probe")
+    before_sidecar.pop("liveness_probe")
+    before_sidecar.pop("readiness_probe")
+    change["before"]["tags"] = {}
+    change["after"]["tags"] = {
+        "fdai:component": "document-processing-worker",
+        "fdai:rollback-strategy": "previous-revision",
+    }
+    guard.validate_plan(
+        plan,
+        service="document-processing-worker",
+        environment="dev",
+        image_ref="image",
+        initial_cutover=True,
+    )
+
+
 def test_plan_guard_rejects_refreshed_platform_or_peer_drift(guard: ModuleType) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])

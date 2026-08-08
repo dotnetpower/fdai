@@ -427,6 +427,10 @@ def _guard_initial_worker_drift(
     after = change.get("after")
     if not isinstance(before, dict) or not isinstance(after, dict):
         return False
+    revision_only = copy.deepcopy(before)
+    revision_only["latest_revision_name"] = after.get("latest_revision_name")
+    if revision_only == after:
+        return True
     try:
         before_primary, before_sidecars = _container_layout(
             before,
