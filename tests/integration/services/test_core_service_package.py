@@ -16,7 +16,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CORE_PROJECT = REPO_ROOT / "services" / "core-control-plane"
 CONTRACT_PROJECT = REPO_ROOT / "packages" / "service-contracts"
-DOCKERFILE = REPO_ROOT / "services" / "Dockerfile"
+DOCKERFILE = CORE_PROJECT / "docker" / "Dockerfile"
 
 EXPECTED_FDAI_ROOTS = {
     "__init__.py",

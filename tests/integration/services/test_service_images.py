@@ -8,7 +8,6 @@ from typing import Any, cast
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DOCKERFILE = REPO_ROOT / "services" / "Dockerfile"
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "container-supply-chain.yml"
 PYTHON_DIGEST = "9fdbf2e3e82628351513560b121e2ee6ce31cac212be9e070c5a5e2769fb5e76"
 ACTION_PINS = {
@@ -73,6 +72,10 @@ SERVICES = {
 }
 
 
+def _dockerfile(service: str) -> Path:
+    return REPO_ROOT / "services" / service / "docker" / "Dockerfile"
+
+
 def _stage(text: str, name: str) -> str:
     match = re.search(
         rf"^FROM [^\n]+ AS {re.escape(name)}\n(?P<body>.*?)(?=^FROM |\Z)",
@@ -84,36 +87,48 @@ def _stage(text: str, name: str) -> str:
 
 
 def test_service_targets_install_owned_wheels_and_entrypoints() -> None:
-    dockerfile = DOCKERFILE.read_text(encoding="utf-8")
-    final_targets = set(
-        re.findall(r"^FROM runtime-base AS ([a-z0-9-]+)$", dockerfile, re.MULTILINE)
-    )
-    assert final_targets == set(SERVICES)
-    assert dockerfile.count(f"library/python@sha256:{PYTHON_DIGEST}") == 2
+    assert not (REPO_ROOT / "services" / "Dockerfile").exists()
 
-    for target, (distribution, entrypoint, _) in SERVICES.items():
-        builder = _stage(dockerfile, f"{target}-builder")
-        runtime = _stage(dockerfile, target)
+    for service, (distribution, entrypoint, _) in SERVICES.items():
+        dockerfile = _dockerfile(service).read_text(encoding="utf-8")
+        builder = _stage(dockerfile, "builder")
+        runtime = _stage(dockerfile, "runtime")
         wheel_name = distribution.replace("-", "_")
+        assert dockerfile.count(f"library/python@sha256:{PYTHON_DIGEST}") == 2
+        assert "SERVICE_ID" not in dockerfile
+        assert "--target" not in dockerfile
+        assert "uv build --wheel --package fdai-service-contracts" in builder
         assert f"uv build --wheel --package {distribution}" in builder
         assert f"uv sync --frozen --package {distribution} --no-dev --no-editable" in builder
+        assert "--no-install-package fdai-service-contracts" in builder
+        assert f"--no-install-package {distribution}" in builder
+        assert "/wheels/fdai_service_contracts-*.whl" in builder
         assert f"/wheels/{wheel_name}-*.whl" in builder
-        assert f"COPY --from={target}-builder" in runtime
+        assert "COPY --from=builder" in runtime
         assert "USER 65532" in runtime
         assert f'ENTRYPOINT ["{entrypoint}"]' in runtime
 
+        copied_service_sources = {
+            match for match in re.findall(r"^COPY services/([^/]+)/ ", dockerfile, re.MULTILINE)
+        }
+        assert copied_service_sources == {service}
+
 
 def test_runtime_assets_follow_service_ownership() -> None:
-    dockerfile = DOCKERFILE.read_text(encoding="utf-8")
-    core = _stage(dockerfile, "core-control-plane")
-    operator = _stage(dockerfile, "operator-service")
-    ingestion_api = _stage(dockerfile, "document-ingestion-api")
-    worker = _stage(dockerfile, "document-processing-worker")
-    executor = _stage(dockerfile, "isolated-executor")
+    core = _stage(_dockerfile("core-control-plane").read_text(encoding="utf-8"), "runtime")
+    operator = _stage(_dockerfile("operator-service").read_text(encoding="utf-8"), "runtime")
+    ingestion_api = _stage(
+        _dockerfile("document-ingestion-api").read_text(encoding="utf-8"), "runtime"
+    )
+    worker = _stage(
+        _dockerfile("document-processing-worker").read_text(encoding="utf-8"), "runtime"
+    )
+    executor = _stage(_dockerfile("isolated-executor").read_text(encoding="utf-8"), "runtime")
 
     assert "COPY --from=opa-builder /go/bin/opa" in core
     assert "rule-catalog/" in core and "policies/" in core and "config/" in core
     assert "resolved-models.json" in core
+    assert "services/core-control-plane/tests/scenarios/ /app/tests/scenarios/" in core
     for asset in ("config/", "rule-catalog/", "policies/", "resolved-models.json"):
         assert asset not in operator
     assert "config/agent-stewardship.yaml /app/config/agent-stewardship.yaml" in ingestion_api
@@ -136,8 +151,8 @@ def test_service_images_use_tracked_fail_closed_model_manifest() -> None:
         "mixed_model_mode": "hil-only",
         "schema_version": "1.0.0",
     }
-    dockerfile = DOCKERFILE.read_text(encoding="utf-8")
-    assert dockerfile.count("services/assets/resolved-models.json") == 1
+    dockerfiles = [_dockerfile(service).read_text(encoding="utf-8") for service in SERVICES]
+    assert sum(text.count("services/assets/resolved-models.json") for text in dockerfiles) == 1
 
 
 def test_supply_chain_matrix_builds_and_attests_all_service_targets() -> None:
