@@ -270,7 +270,16 @@ ignore_missing_imports = true
 minversion = "8.0"
 testpaths = ["tests", "src/fdai", "extensions/code-assurance/tests"]
 addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
-pythonpath = [".", "extensions/code-assurance/src"]
+pythonpath = [
+    ".",
+    "extensions/code-assurance/src",
+    "service-contracts/src",
+    "services/core-control-plane/src",
+    "services/operator-service/src",
+    "services/document-ingestion-api/src",
+    "services/document-processing-worker/src",
+    "services/isolated-executor/src",
+]
 markers = [
     "integration: requires a live Postgres (pgvector). Skipped unless FDAI_DATABASE_URL is set.",
 ]

@@ -5,6 +5,11 @@ from pathlib import Path
 
 import yaml
 
+PIP_AUDIT_SHA = "1220774d901786e6f652ae159f7b6bc8fea6d266"
+UPLOAD_ARTIFACT_SHA = "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+DOWNLOAD_ARTIFACT_SHA = "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
+PYPI_PUBLISH_SHA = "2834a314042ef964da07689278dd1e9d773e8afd"
+
 
 def test_release_workflow_is_approval_gated_reproducible_and_secret_safe() -> None:
     workflow = (
@@ -22,9 +27,9 @@ def test_release_workflow_is_approval_gated_reproducible_and_secret_safe() -> No
     assert "uv run bash scripts/verify.sh --all" in workflow
     assert "bash scripts/deployment/release/verify-productization.sh" in workflow
     assert "git diff --exit-code" in workflow
-    assert "pypa/gh-action-pip-audit@v1.1.0" in workflow
+    assert f"pypa/gh-action-pip-audit@{PIP_AUDIT_SHA}" in workflow
     assert "needs: [verify, dependency-audit]" in workflow
-    assert workflow.count("runs-on: ubuntu-24.04") == 5
+    assert workflow.count("runs-on: ubuntu-24.04") == 6
     assert "environment: release" in workflow
     assert "contents: write" in workflow
     assert "FDAI_BUNDLE_SIGNING_KEY_PEM" in workflow
@@ -37,7 +42,7 @@ def test_release_workflow_is_approval_gated_reproducible_and_secret_safe() -> No
     assert "diff -qr first/bundle second/bundle" in workflow
     assert "cmp first/bundle.tar.gz second/bundle.tar.gz" in workflow
     assert "fdaictl bundle verify" in workflow
-    assert "actions/upload-artifact@v7.0.1" in workflow
+    assert f"actions/upload-artifact@{UPLOAD_ARTIFACT_SHA}" in workflow
     assert "if: ${{ inputs.publish_release }}" in workflow
     assert "gh release create" in workflow
     assert "private-key" not in workflow.split("path: release-artifacts/", 1)[1]
@@ -60,8 +65,8 @@ def test_release_workflow_publishes_the_verified_python_artifact_with_oidc() -> 
     assert "needs: [python-package, bundle]" in workflow
     assert "environment:\n      name: pypi" in workflow
     assert "id-token: write" in workflow
-    assert "actions/download-artifact@v8.0.1" in workflow
-    assert "pypa/gh-action-pypi-publish@v1.14.1" in workflow
+    assert f"actions/download-artifact@{DOWNLOAD_ARTIFACT_SHA}" in workflow
+    assert f"pypa/gh-action-pypi-publish@{PYPI_PUBLISH_SHA}" in workflow
     assert "if: ${{ inputs.publish_pypi }}" in workflow
     assert "PYPI_API_TOKEN" not in workflow
 
@@ -77,6 +82,7 @@ def test_python_distribution_jobs_are_structurally_executable() -> None:
     workflow_dispatch = workflow[True]["workflow_dispatch"]
     inputs = workflow_dispatch["inputs"]
     assert set(inputs) == {
+        "commit_sha",
         "bundle_version",
         "release_channel",
         "min_cli_version",
