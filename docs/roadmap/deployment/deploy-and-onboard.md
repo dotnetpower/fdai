@@ -90,12 +90,12 @@ jumpbox rather than a registered runner, and the tenant supplies its own approve
   separate from the app RG, with a runner subnet and a private-endpoint subnet;
 - a **terraform remote-state storage account** locked to private, fronted by a blob private
   endpoint on `privatelink.blob.core.windows.net` linked to the ops VNet;
-- a **self-hosted deploy runner VM** (no public IP) whose system-assigned managed identity
-  holds `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on
-  the ops RG, `Storage Blob Data Contributor` on the state account, and only `EventGrid
-  Contributor` at subscription scope for realtime inventory system-topic and subscription delivery. Each
-  workflow run clears the Azure CLI account cache before managed-identity login, then proves the
-  exact repository-configured subscription and tenant before any storage, plan, or apply step.
+- a **self-hosted deploy runner VM** (no public IP) with one to five independent runner slots.
+  Slots use separate work directories and the same system-assigned managed identity, which holds
+  `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on the ops RG,
+  `Storage Blob Data Contributor` on state, and only subscription-scoped `EventGrid Contributor`.
+  Each run clears the Azure CLI account cache before managed-identity login, then proves the exact
+  repository-configured subscription and tenant before any storage, plan, or apply step.
   Before checkout, the runner removes only the legacy generated `infra/None` cache path so
   root-owned action residue cannot block the exact-commit clean step. That step creates the Azure
   CLI config under `RUNNER_TEMP` and exports it through `GITHUB_ENV` for subsequent steps.

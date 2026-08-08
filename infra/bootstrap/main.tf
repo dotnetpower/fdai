@@ -170,9 +170,10 @@ resource "azurerm_linux_virtual_machine" "runner" {
   }
 
   custom_data = base64encode(templatefile("${path.module}/runner-cloud-init.yaml.tftpl", {
-    runner_url   = var.github_runner_url
-    runner_token = var.github_runner_token
-    runner_user  = var.runner_admin_username
+    runner_parallelism = var.runner_parallelism
+    runner_url         = var.github_runner_url
+    runner_token       = var.github_runner_token
+    runner_user        = var.runner_admin_username
   }))
 
   # Do not replace the runner on a cloud-init edit or a new "latest" image:

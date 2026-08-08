@@ -25,3 +25,8 @@ github_runner_token = "" # short-lived; prefer manual `./config.sh` on the VM
 # Set false on the very first apply if you want the state backend + networking
 # before the runner VM.
 create_runner_vm = true
+
+# Independent service plans and applies already use per-service concurrency
+# groups. Increase this only when the VM has enough CPU and memory for parallel
+# Terraform jobs; every slot uses the same VM managed identity and its own workdir.
+runner_parallelism = 1

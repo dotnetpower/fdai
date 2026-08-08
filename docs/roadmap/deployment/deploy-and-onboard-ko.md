@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 453412edda8cb23b306071607e80de5b313c2479
+translation_source_sha: 8544ae826a03fccc5bd77bf72902ea9fdd56f2c6
 translation_revised: 2026-08-09
 ---
 
@@ -93,12 +93,12 @@ runner가 아니라 점프박스가 되며, 테난트가 자체 승인 경로를
   `vnet-fdai-ops-...`), 러너 서브넷과 private-endpoint 서브넷 포함;
 - private 로 잠긴 **terraform remote-state storage account**, ops VNet 에 링크된
   `privatelink.blob.core.windows.net` blob private endpoint 로 프론트;
-- public IP 없는 **self-hosted 배포 러너 VM**, system-assigned managed identity가 앱 RG에
-  `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`, state
-  account에 `Storage Blob Data Contributor`, subscription scope에는 realtime inventory
-  system topic과 subscription 관리용 `EventGrid Contributor`만 보유합니다. 각 workflow run은 managed
-  identity login 전에 Azure CLI account cache를 지운 뒤 storage, plan, apply 전에 repository에
-  설정된 exact subscription과 tenant를 증명하며 앱 private endpoint에 시야를 확보합니다.
+- public IP 없이 독립 runner slot을 1-5개 등록하는 **self-hosted 배포 runner VM**. Slot마다
+  work directory는 다르고 system-assigned managed identity는 공유합니다. 이 identity는 앱 RG에
+  `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`, state account에
+  `Storage Blob Data Contributor`, subscription scope에 `EventGrid Contributor`만 보유합니다.
+  각 run은 managed identity login 전에 Azure CLI account cache를 지운 뒤 storage, plan, apply 전에
+  repository에 설정된 exact subscription과 tenant를 증명합니다.
 Checkout 전 runner는 legacy generated `infra/None` cache path만 제거해 root-owned action
 residue가 exact-commit clean을 막지 않게 합니다. 해당 step은 Azure CLI config를
 `RUNNER_TEMP` 아래에 만들고 subsequent step용 `GITHUB_ENV`로 export합니다.

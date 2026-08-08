@@ -98,8 +98,9 @@ Two Terraform layers plus a runner VM.
   ```
   az vm start -g <ops-rg> -n <runner-vm-name>
   ```
-- The runner is registered as a systemd service labeled
-  `self-hosted,fdai-deploy` so the workflow's `runs-on` matches.
+- The VM registers one to five independent systemd runner slots labeled
+  `self-hosted,fdai-deploy`. Slots use separate work directories and the same system MI, so
+  service-specific concurrency groups can run in parallel without changing the Azure principal.
 
 ## Standard Deploy Flow
 

@@ -63,6 +63,17 @@ variable "runner_vm_size" {
   default     = "Standard_B2s"
 }
 
+variable "runner_parallelism" {
+  description = "Number of independent GitHub Actions runner slots registered on the runner VM. Slots share the VM managed identity but use separate work directories."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.runner_parallelism >= 1 && var.runner_parallelism <= 5 && floor(var.runner_parallelism) == var.runner_parallelism
+    error_message = "runner_parallelism must be an integer from 1 through 5."
+  }
+}
+
 variable "runner_admin_username" {
   description = "Admin username on the runner VM (SSH is key-only; no public IP)."
   type        = string

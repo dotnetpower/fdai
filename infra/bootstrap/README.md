@@ -105,6 +105,14 @@ Two options:
 The runner authenticates to Azure with `az login --identity` (its system MI) -
 no cloud credentials are stored on the box.
 
+Independent service workflows use a concurrency group per service and environment. Set
+`runner_parallelism` from 1 through 5, or run
+`register-runner.sh <owner>/<repo> <ops-rg> <vm> <user> <parallelism>`, to register that many
+isolated runner slots on the same VM. The slots have distinct runner names and work directories
+but share the VM managed identity, so a protected plan and its exact apply keep one Azure
+principal. Keep the default of 1 on a small VM; increase `runner_vm_size` before enabling enough
+slots to make concurrent Terraform jobs contend for memory or CPU.
+
 ## Configuration tests
 
 `services/core-control-plane/tests/*.tftest.hcl` assert the planned configuration through `mock_provider`, so they run with no

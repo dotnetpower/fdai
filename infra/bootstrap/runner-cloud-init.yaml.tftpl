@@ -29,7 +29,8 @@ write_files:
       RUNNER_USER="${runner_user}"
       RUNNER_URL="${runner_url}"
       RUNNER_TOKEN="${runner_token}"
-      RUNNER_HOME="/home/$RUNNER_USER/actions-runner"
+      RUNNER_BASE_HOME="/home/$RUNNER_USER/actions-runner"
+      RUNNER_PARALLELISM="${runner_parallelism}"
 
       # --- Terraform (HashiCorp apt repo) ---
       install -d -m 0755 /etc/apt/keyrings
@@ -48,29 +49,37 @@ write_files:
       apt-get install -y terraform azure-cli git
 
       # --- GitHub Actions runner ---
-      install -d -o "$RUNNER_USER" -g "$RUNNER_USER" "$RUNNER_HOME"
-      cd "$RUNNER_HOME"
       RUNNER_VERSION="$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest | jq -r .tag_name | sed 's/^v//')"
-      curl -fsSL -o runner.tar.gz \
-        "https://github.com/actions/runner/releases/download/v$${RUNNER_VERSION}/actions-runner-linux-x64-$${RUNNER_VERSION}.tar.gz"
-      tar xzf runner.tar.gz
-      rm -f runner.tar.gz
-      chown -R "$RUNNER_USER":"$RUNNER_USER" "$RUNNER_HOME"
+      for slot in $(seq 1 "$RUNNER_PARALLELISM"); do
+        runner_home="$RUNNER_BASE_HOME"
+        runner_name="$(hostname)"
+        if [ "$slot" -gt 1 ]; then
+          runner_home="$RUNNER_BASE_HOME-$slot"
+          runner_name="$(hostname)-$slot"
+        fi
+        install -d -o "$RUNNER_USER" -g "$RUNNER_USER" "$runner_home"
+        curl -fsSL -o "$runner_home/runner.tar.gz" \
+          "https://github.com/actions/runner/releases/download/v$${RUNNER_VERSION}/actions-runner-linux-x64-$${RUNNER_VERSION}.tar.gz"
+        tar xzf "$runner_home/runner.tar.gz" -C "$runner_home"
+        rm -f "$runner_home/runner.tar.gz"
+        chown -R "$RUNNER_USER":"$RUNNER_USER" "$runner_home"
+        cd "$runner_home"
 
-      if [ -n "$RUNNER_URL" ] && [ -n "$RUNNER_TOKEN" ]; then
-        sudo -u "$RUNNER_USER" ./config.sh \
-          --unattended \
-          --url "$RUNNER_URL" \
-          --token "$RUNNER_TOKEN" \
-          --name "$(hostname)" \
-          --labels self-hosted,fdai-deploy \
-          --replace
-        ./svc.sh install "$RUNNER_USER"
-        ./svc.sh start
-      else
-        echo "No registration token supplied - register manually:" \
-          "cd $RUNNER_HOME && sudo -u $RUNNER_USER ./config.sh --url <repo-url> --token <token>"
-      fi
+        if [ -n "$RUNNER_URL" ] && [ -n "$RUNNER_TOKEN" ]; then
+          sudo -u "$RUNNER_USER" ./config.sh \
+            --unattended \
+            --url "$RUNNER_URL" \
+            --token "$RUNNER_TOKEN" \
+            --name "$runner_name" \
+            --labels self-hosted,fdai-deploy \
+            --replace
+          ./svc.sh install "$RUNNER_USER"
+          ./svc.sh start
+        else
+          echo "No registration token supplied - register manually:" \
+            "cd $runner_home && sudo -u $RUNNER_USER ./config.sh --url <repo-url> --token <token>"
+        fi
+      done
 
 runcmd:
   - /opt/runner-setup/install.sh 2>&1 | tee /var/log/runner-setup.log
