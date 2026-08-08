@@ -2,7 +2,8 @@
   "schema_version": 1,
   "coverage": {
     "source_patterns": [
-      "services/*/src/**/*.py"
+      "services/*/pyproject.toml",
+      "services/*/**/*.py"
     ],
     "test_patterns": [
       "tests/services/test_*.py"
@@ -12,7 +13,7 @@
     {
       "id": "core-control-plane",
       "source_roots": [
-        "services/core-control-plane/src/fdai_core_service"
+        "services/core-control-plane"
       ],
       "test_groups": {
         "unit": [
@@ -33,7 +34,7 @@
     {
       "id": "operator-service",
       "source_roots": [
-        "services/operator-service/src/fdai_operator_service"
+        "services/operator-service"
       ],
       "test_groups": {
         "unit": [
@@ -44,6 +45,7 @@
         ],
         "contract": [],
         "integration": [
+          "tests/services/test_operator_postgres_replay.py",
           "tests/services/test_operator_service_composition.py",
           "tests/services/test_operator_service_full_composition.py",
           "tests/services/test_operator_service_postgres.py"
@@ -54,7 +56,7 @@
     {
       "id": "document-ingestion-api",
       "source_roots": [
-        "services/document-ingestion-api/src/fdai_ingestion_api_service"
+        "services/document-ingestion-api"
       ],
       "test_groups": {
         "unit": [
@@ -72,7 +74,7 @@
     {
       "id": "document-processing-worker",
       "source_roots": [
-        "services/document-processing-worker/src/fdai_document_worker_service"
+        "services/document-processing-worker"
       ],
       "test_groups": {
         "unit": [
@@ -89,7 +91,7 @@
     {
       "id": "isolated-executor",
       "source_roots": [
-        "services/isolated-executor/src/fdai_executor_service"
+        "services/isolated-executor"
       ],
       "test_groups": {
         "unit": [

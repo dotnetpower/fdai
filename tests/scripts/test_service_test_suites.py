@@ -15,13 +15,11 @@ RUNNER_PATH = REPO_ROOT / "scripts" / "automation" / "run-service-tests.py"
 MAKEFILE_PATH = REPO_ROOT / "Makefile"
 GROUPS = ("unit", "contract", "integration", "smoke")
 SERVICE_SOURCE_ROOTS = {
-    "core-control-plane": "services/core-control-plane/src/fdai_core_service",
-    "operator-service": "services/operator-service/src/fdai_operator_service",
-    "document-ingestion-api": ("services/document-ingestion-api/src/fdai_ingestion_api_service"),
-    "document-processing-worker": (
-        "services/document-processing-worker/src/fdai_document_worker_service"
-    ),
-    "isolated-executor": "services/isolated-executor/src/fdai_executor_service",
+    "core-control-plane": "services/core-control-plane",
+    "operator-service": "services/operator-service",
+    "document-ingestion-api": "services/document-ingestion-api",
+    "document-processing-worker": "services/document-processing-worker",
+    "isolated-executor": "services/isolated-executor",
 }
 
 
@@ -98,6 +96,15 @@ def test_service_suites_own_extracted_service_source_roots() -> None:
     assert {service["id"]: service["source_roots"] for service in suite_plan["services"]} == {
         service_id: [source_root] for service_id, source_root in SERVICE_SOURCE_ROOTS.items()
     }
+
+
+def test_service_suite_coverage_includes_distribution_build_inputs() -> None:
+    coverage = _load(SUITE_PATH)["coverage"]
+
+    assert coverage["source_patterns"] == [
+        "services/*/pyproject.toml",
+        "services/*/**/*.py",
+    ]
 
 
 def test_service_test_make_targets_do_not_expand_freeform_pytest_args() -> None:
