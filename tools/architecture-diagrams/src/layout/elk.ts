@@ -8,6 +8,11 @@ import type {
 import { createRequire } from "node:module";
 
 import { layoutGantt } from "./gantt.js";
+import {
+  layoutCoordinate,
+  layoutGrid,
+  layoutRadial,
+} from "./specialized.js";
 import type {
   DiagramGroup,
   DiagramNode,
@@ -24,6 +29,8 @@ export interface PositionedShape {
   width: number;
   height: number;
   depth: number;
+  path?: string;
+  paletteIndex?: number;
 }
 
 export interface DiagramLayout {
@@ -1438,6 +1445,9 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
   const compact = spec.canvas.profile === "azure-reference";
   const definition = diagramDefinition(spec.kind);
   if (definition.layoutStrategy === "gantt") return layoutGantt(spec);
+  if (definition.layoutStrategy === "coordinate") return layoutCoordinate(spec);
+  if (definition.layoutStrategy === "radial") return layoutRadial(spec);
+  if (definition.layoutStrategy === "grid") return layoutGrid(spec);
   const containedEdges = edgesByContainer(spec);
   const rootGroups = spec.groups
     .filter((group) => !group.parent)

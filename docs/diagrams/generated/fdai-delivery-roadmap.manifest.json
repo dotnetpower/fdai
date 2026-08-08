@@ -1,5 +1,6 @@
 {
   "id": "fdai-delivery-roadmap",
+  "kind": "gantt",
   "version": 1,
   "updated": "2026-08-08",
   "locales": {

@@ -254,11 +254,15 @@ async function renderNode(
       : await iconDataUri(node.icon);
   const x = shape.x + shape.width / 2;
   const barShape = node.shape === "bar";
+  const pieSlice = node.shape === "pie-slice";
+  const centeredChartNode = ["circle", "pie-slice"].includes(node.shape ?? "");
   const labelLines = wrapText(
     node.label[locale],
-    barShape ? Math.max(4, (shape.width - 16) / NODE_FONT_SIZE) : geometry.maxLabelUnits,
+    barShape || centeredChartNode
+      ? Math.max(4, (shape.width - 16) / NODE_FONT_SIZE)
+      : geometry.maxLabelUnits,
   );
-  const labelStart = barShape
+  const labelStart = barShape || centeredChartNode
     ? shape.y + shape.height / 2 -
       ((labelLines.length - 1) * NODE_LINE_HEIGHT) / 2 + NODE_FONT_SIZE * 0.35
     : shape.y + geometry.labelTop + NODE_FONT_SIZE;
@@ -286,7 +290,7 @@ async function renderNode(
   const badgeMarkup = node.badge
     ? `<g class="node-badge" transform="translate(${shape.x + 14} ${shape.y + 14})" aria-hidden="true"><circle r="12"/><text y="4">${node.badge}</text></g>`
     : "";
-  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" data-presentation="${presentation}" data-shape="${nodeShape}" data-tone="${node.tone ?? "neutral"}"${node.status ? ` data-status="${node.status}"` : ""} role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}">${surface}${progressMarkup}${iconMarkup}${textLines(labelLines, x, labelStart, "node-label")}${bodyMarkup}${badgeMarkup}</g>`;
+  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" data-presentation="${presentation}" data-shape="${nodeShape}" data-tone="${node.tone ?? "neutral"}"${shape.paletteIndex !== undefined ? ` data-palette-index="${shape.paletteIndex % 8}"` : ""}${node.status ? ` data-status="${node.status}"` : ""} role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}">${surface}${progressMarkup}${iconMarkup}${textLines(labelLines, x, labelStart, "node-label")}${bodyMarkup}${badgeMarkup}</g>`;
 }
 
 function nodeShapeMarkup(
@@ -295,6 +299,9 @@ function nodeShapeMarkup(
   presentation: NonNullable<DiagramNode["presentation"]> | "card",
 ): string {
   const { x, y, width, height } = shape;
+  if (shapeKind === "pie-slice" && shape.path) {
+    return `<path class="node-surface" d="${shape.path}"/>`;
+  }
   if (shapeKind === "diamond") {
     return `<polygon class="node-surface" points="${x + width / 2},${y} ${x + width},${y + height / 2} ${x + width / 2},${y + height} ${x},${y + height / 2}"/>`;
   }
@@ -424,6 +431,7 @@ function renderEdge(
   layoutLabel?: ElkLabel,
 ): string {
   const style = edgeStyles[edge.kind];
+  const strokeWidth = Math.min(14, style.width * (edge.weight ?? 1));
   const label = edge.label?.[locale];
   const labelGeometry = edgeLabelGeometry(edge);
   const fallbackPosition = edgeLabelPosition(section);
@@ -456,7 +464,7 @@ function renderEdge(
           offsetY,
           profile === "azure-reference" ? 4 : 14,
         );
-  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}" data-edge-route="${edge.route ?? "auto"}"${edge.step ? ` data-edge-step="${edge.step}"` : ""}><title>${escapeXml(accessibleLabel)}</title><path class="edge-hit" d="${path}"/><path class="edge-path" d="${path}" fill="none" stroke="${style.color}" stroke-width="${style.width}" stroke-dasharray="${style.dash}" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-${edge.kind})"/>${labelMarkup}${stepMarkup}</g>`;
+  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}" data-edge-route="${edge.route ?? "auto"}"${edge.weight ? ` data-edge-weight="${edge.weight}"` : ""}${edge.step ? ` data-edge-step="${edge.step}"` : ""}><title>${escapeXml(accessibleLabel)}</title><path class="edge-hit" d="${path}"/><path class="edge-path" d="${path}" fill="none" stroke="${style.color}" stroke-width="${strokeWidth}" stroke-dasharray="${style.dash}" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-${edge.kind})"/>${labelMarkup}${stepMarkup}</g>`;
 }
 
 function renderLegend(spec: DiagramSpec, locale: Locale, y: number): string {
@@ -473,6 +481,32 @@ function renderLegend(spec: DiagramSpec, locale: Locale, y: number): string {
     return markup;
   });
   return `<g class="diagram-legend" role="group" aria-label="${locale === "ko" ? "범례" : "Legend"}">${items.join("")}</g>`;
+}
+
+function renderChartBackdrop(
+  spec: DiagramSpec,
+  layout: DiagramLayout,
+  locale: Locale,
+  offsetX: number,
+  offsetY: number,
+): string {
+  if (["quadrant", "xy-chart", "wardley"].includes(spec.kind)) {
+    const padding = spec.canvas.padding ?? 56;
+    const x = offsetX + padding;
+    const y = offsetY + padding;
+    const width = layout.width - padding * 2;
+    const height = layout.height - padding * 2;
+    const xAxis = spec.canvas.xAxis?.[locale] ?? "";
+    const yAxis = spec.canvas.yAxis?.[locale] ?? "";
+    return `<g class="chart-backdrop" aria-hidden="true"><rect class="chart-frame" x="${x}" y="${y}" width="${width}" height="${height}"/><line class="chart-guide" x1="${x + width / 2}" y1="${y}" x2="${x + width / 2}" y2="${y + height}"/><line class="chart-guide" x1="${x}" y1="${y + height / 2}" x2="${x + width}" y2="${y + height / 2}"/>${xAxis ? `<text class="chart-axis-label" x="${x + width / 2}" y="${y + height + 28}" text-anchor="middle">${escapeXml(xAxis)}</text>` : ""}${yAxis ? `<text class="chart-axis-label" x="${x - 18}" y="${y + height / 2}" text-anchor="middle" transform="rotate(-90 ${x - 18} ${y + height / 2})">${escapeXml(yAxis)}</text>` : ""}</g>`;
+  }
+  if (spec.kind === "radar") {
+    const centerX = offsetX + layout.width / 2;
+    const centerY = offsetY + layout.height / 2;
+    const radius = Math.min(layout.width, layout.height) * 0.34;
+    return `<g class="chart-backdrop" aria-hidden="true">${[0.25, 0.5, 0.75, 1].map((scale) => `<circle class="chart-guide-ring" cx="${centerX}" cy="${centerY}" r="${radius * scale}"/>`).join("")}</g>`;
+  }
+  return "";
 }
 
 export async function renderSvg(
@@ -546,7 +580,7 @@ export async function renderSvg(
     )
   ).join("");
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="diagram-title diagram-description" data-diagram-id="${spec.id}" data-locale="${locale}" data-profile="${spec.canvas.profile ?? "default"}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="diagram-title diagram-description" data-diagram-id="${spec.id}" data-kind="${spec.kind}" data-locale="${locale}" data-profile="${spec.canvas.profile ?? "default"}">
   <title id="diagram-title">${escapeXml(spec.locales[locale].title)}</title>
   <desc id="diagram-description">${escapeXml(spec.locales[locale].alt)}</desc>
   <metadata>${escapeXml(JSON.stringify({ id: spec.id, version: spec.version, updated: spec.updated }))}</metadata>
@@ -558,7 +592,7 @@ export async function renderSvg(
         --fdai-diagram-canvas: #111315; --fdai-diagram-surface: #1b1f23; --fdai-diagram-node: #20252a; --fdai-diagram-label-surface: #1b1f23; --fdai-diagram-text: #f3f5f7; --fdai-diagram-muted: #c5cbd2; --fdai-diagram-border: #69737d; --fdai-diagram-border-strong: #aab2bb; --fdai-diagram-neutral-header: #30363d; --fdai-diagram-control-surface: #10283d; --fdai-diagram-control-header: #153d5c; --fdai-diagram-delivery-surface: #102d32; --fdai-diagram-delivery-header: #134148; --fdai-diagram-azure: #63d9ff; --fdai-diagram-azure-dark: #8bc8ff; --fdai-diagram-cyan-dark: #63d9ff;
         --fdai-diagram-tone-input-fill: #10243a; --fdai-diagram-tone-input-stroke: #6cb8ff; --fdai-diagram-tone-interpretation-fill: #102a3a; --fdai-diagram-tone-interpretation-stroke: #50c8ff; --fdai-diagram-tone-model-fill: #0e2d28; --fdai-diagram-tone-model-stroke: #5ee0bd; --fdai-diagram-tone-policy-fill: #17331d; --fdai-diagram-tone-policy-stroke: #73d17c; --fdai-diagram-tone-decision-fill: #3a2a0b; --fdai-diagram-tone-decision-stroke: #f3c969; --fdai-diagram-tone-execution-fill: #2b2040; --fdai-diagram-tone-execution-stroke: #c7a0ff; --fdai-diagram-tone-feedback-fill: #261f42; --fdai-diagram-tone-feedback-stroke: #b9a1ff; --fdai-diagram-tone-store-fill: #25292e; --fdai-diagram-tone-store-stroke: #b8c2cc; --fdai-diagram-tone-neutral-fill: #20252a; --fdai-diagram-tone-neutral-stroke: #b8c2cc;
         --fdai-diagram-edge-request: #6cb8ff; --fdai-diagram-edge-event: #50c8ff; --fdai-diagram-edge-approval: #c7a0ff; --fdai-diagram-edge-mutation: #ff9d72; --fdai-diagram-edge-audit: #73d17c; --fdai-diagram-edge-rollback: #ff8b91; --fdai-diagram-edge-read: #5ee0bd; --fdai-diagram-edge-write: #d6a8ff; --fdai-diagram-edge-feedback: #b9a1ff; --fdai-diagram-edge-sequence: #6cb8ff; --fdai-diagram-edge-transition: #c7a0ff; --fdai-diagram-edge-association: #c5cbd2; --fdai-diagram-edge-dependency: #aab2bb; --fdai-diagram-edge-timeline: #f3c969;
-        --fdai-diagram-group-lane-fill: #1b1f23; --fdai-diagram-group-lane-stroke: #7890a8; --fdai-diagram-group-sidebar-fill: #25203a; --fdai-diagram-group-sidebar-stroke: #b9a1ff; --fdai-diagram-group-feedback-fill: #211d35; --fdai-diagram-group-feedback-stroke: #b9a1ff; --fdai-diagram-group-datastore-fill: #20252a; --fdai-diagram-group-datastore-stroke: #aab2bb; --fdai-diagram-badge-fill: #6cb8ff; --fdai-diagram-badge-text: #07131f; --fdai-diagram-gantt-planned: #313840; --fdai-diagram-gantt-planned-stroke: #aab2bb; --fdai-diagram-gantt-planned-text: #f3f5f7; --fdai-diagram-gantt-active: #237bc2; --fdai-diagram-gantt-active-stroke: #8bc8ff; --fdai-diagram-gantt-done: #267a35; --fdai-diagram-gantt-done-stroke: #73d17c; --fdai-diagram-gantt-critical: #b94a2f; --fdai-diagram-gantt-critical-stroke: #ff9d72; --fdai-diagram-gantt-milestone: #7655bd; --fdai-diagram-gantt-milestone-stroke: #c7a0ff; --fdai-diagram-gantt-progress: #ffffff; --fdai-diagram-gantt-text: #ffffff;
+        --fdai-diagram-group-lane-fill: #1b1f23; --fdai-diagram-group-lane-stroke: #7890a8; --fdai-diagram-group-sidebar-fill: #25203a; --fdai-diagram-group-sidebar-stroke: #b9a1ff; --fdai-diagram-group-feedback-fill: #211d35; --fdai-diagram-group-feedback-stroke: #b9a1ff; --fdai-diagram-group-datastore-fill: #20252a; --fdai-diagram-group-datastore-stroke: #aab2bb; --fdai-diagram-badge-fill: #6cb8ff; --fdai-diagram-badge-text: #07131f; --fdai-diagram-gantt-planned: #313840; --fdai-diagram-gantt-planned-stroke: #aab2bb; --fdai-diagram-gantt-planned-text: #f3f5f7; --fdai-diagram-gantt-active: #237bc2; --fdai-diagram-gantt-active-stroke: #8bc8ff; --fdai-diagram-gantt-done: #267a35; --fdai-diagram-gantt-done-stroke: #73d17c; --fdai-diagram-gantt-critical: #b94a2f; --fdai-diagram-gantt-critical-stroke: #ff9d72; --fdai-diagram-gantt-milestone: #7655bd; --fdai-diagram-gantt-milestone-stroke: #c7a0ff; --fdai-diagram-gantt-progress: #ffffff; --fdai-diagram-gantt-text: #ffffff; --fdai-diagram-chart-surface: #1b1f23; --fdai-diagram-chart-1: #6cb8ff; --fdai-diagram-chart-2: #5ee0bd; --fdai-diagram-chart-3: #c7a0ff; --fdai-diagram-chart-4: #ff9d72; --fdai-diagram-chart-5: #f3c969; --fdai-diagram-chart-6: #ff8b91; --fdai-diagram-chart-7: #50c8ff; --fdai-diagram-chart-8: #d6a8ff; --fdai-diagram-pie-text: #07131f;
       }
     }
     .diagram-title { font-size: 26px; font-weight: 700; fill: var(--fdai-diagram-text, #323130); }
@@ -603,6 +637,24 @@ export async function renderSvg(
     .diagram-node[data-shape="bar"][data-status="done"] .node-label,
     .diagram-node[data-shape="bar"][data-status="critical"] .node-label,
     .diagram-node[data-shape="bar"][data-status="milestone"] .node-label { fill: var(--fdai-diagram-gantt-text, #ffffff); }
+    .diagram-node[data-shape="pie-slice"] > .node-surface { filter: none; stroke: var(--fdai-diagram-surface, #ffffff); stroke-width: 2; }
+    .diagram-node[data-shape="pie-slice"] .node-label { fill: var(--fdai-diagram-pie-text, #ffffff); font-size: 12px; }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="0"] > .node-surface { fill: var(--fdai-diagram-chart-1, #0f6cbd); }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="1"] > .node-surface { fill: var(--fdai-diagram-chart-2, #008272); }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="2"] > .node-surface { fill: var(--fdai-diagram-chart-3, #6b46c1); }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="3"] > .node-surface { fill: var(--fdai-diagram-chart-4, #c43501); }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="4"] > .node-surface { fill: var(--fdai-diagram-chart-5, #9a6500); }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="5"] > .node-surface { fill: var(--fdai-diagram-chart-6, #a4262c); }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="6"] > .node-surface { fill: var(--fdai-diagram-chart-7, #187ea8); }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="7"] > .node-surface { fill: var(--fdai-diagram-chart-8, #5c2d91); }
+    svg[data-kind="venn"] .diagram-node > .node-surface { fill-opacity: 0.34; }
+    svg[data-kind="venn"] .diagram-node[data-palette-index="0"] > .node-surface { fill: var(--fdai-diagram-chart-1, #0f6cbd); stroke: var(--fdai-diagram-chart-1, #0f6cbd); }
+    svg[data-kind="venn"] .diagram-node[data-palette-index="1"] > .node-surface { fill: var(--fdai-diagram-chart-2, #008272); stroke: var(--fdai-diagram-chart-2, #008272); }
+    svg[data-kind="venn"] .diagram-node[data-palette-index="2"] > .node-surface { fill: var(--fdai-diagram-chart-3, #6b46c1); stroke: var(--fdai-diagram-chart-3, #6b46c1); }
+    .chart-frame { fill: var(--fdai-diagram-chart-surface, #ffffff); stroke: var(--fdai-diagram-border-strong, #605e5c); stroke-width: 1.5; }
+    .chart-guide { stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1; stroke-dasharray: 5 5; }
+    .chart-guide-ring { fill: none; stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1; stroke-dasharray: 4 5; }
+    .chart-axis-label { fill: var(--fdai-diagram-muted, #605e5c); font-size: 12px; font-weight: 600; }
     .edge-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
     .edge-path { pointer-events: stroke; transition: stroke-width 140ms ease, opacity 140ms ease; }
     .diagram-edge[data-edge-route="orthogonal-above"][data-edge-step] > .edge-path { opacity: 0.52; stroke-width: 2; }
@@ -651,6 +703,6 @@ export async function renderSvg(
   <rect class="diagram-background" width="${width}" height="${height}" fill="${spec.canvas.profile === "azure-reference" ? "#ffffff" : "var(--fdai-diagram-canvas, #faf9f8)"}"/>
   <text class="diagram-title" x="48" y="45">${escapeXml(spec.locales[locale].title)}</text>
   <text class="diagram-subtitle" x="48" y="72">${escapeXml(spec.locales[locale].description)}</text>
-  <g data-diagram-viewport="">${groups}${edges}${nodes}${renderLegend(spec, locale, height - 30)}</g>
+  <g data-diagram-viewport="">${renderChartBackdrop(spec, layout, locale, offsetX, offsetY)}${groups}${edges}${nodes}${renderLegend(spec, locale, height - 30)}</g>
 </svg>`;
 }

@@ -13,7 +13,10 @@ export type DiagramLayoutStrategy =
   | "tree"
   | "domain"
   | "timeline"
-  | "gantt";
+  | "gantt"
+  | "coordinate"
+  | "radial"
+  | "grid";
 
 export interface DiagramDefinition {
   kind: DiagramKind;
@@ -151,6 +154,81 @@ const diagramDefinitions: Record<DiagramKind, DiagramDefinition> = {
     layoutStrategy: "gantt",
     hierarchyHandling: "SEPARATE_CHILDREN",
     direction: "RIGHT",
+  },
+  "class-diagram": {
+    kind: "class-diagram", layoutStrategy: "domain", hierarchyHandling: "SEPARATE_CHILDREN", direction: "RIGHT", edgeRouting: "POLYLINE",
+  },
+  "user-journey": {
+    kind: "user-journey", layoutStrategy: "swimlane", hierarchyHandling: "SEPARATE_CHILDREN", direction: "RIGHT", groupDirection: "DOWN", rootLayout: "row",
+  },
+  pie: {
+    kind: "pie", layoutStrategy: "radial", hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  quadrant: {
+    kind: "quadrant", layoutStrategy: "coordinate", hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  requirement: {
+    kind: "requirement", layoutStrategy: "domain", hierarchyHandling: "SEPARATE_CHILDREN", direction: "RIGHT", edgeRouting: "POLYLINE",
+  },
+  "git-graph": {
+    kind: "git-graph", layoutStrategy: "timeline", hierarchyHandling: "SEPARATE_CHILDREN", direction: "RIGHT", edgeRouting: "ORTHOGONAL",
+  },
+  "c4-context": {
+    kind: "c4-context", layoutStrategy: "layered", hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  "c4-container": {
+    kind: "c4-container", layoutStrategy: "layered", hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  "c4-component": {
+    kind: "c4-component", layoutStrategy: "layered", hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  "c4-deployment": {
+    kind: "c4-deployment", layoutStrategy: "layered", hierarchyHandling: "INCLUDE_CHILDREN",
+  },
+  mindmap: {
+    kind: "mindmap", layoutStrategy: "tree", hierarchyHandling: "SEPARATE_CHILDREN", direction: "RIGHT", edgeRouting: "POLYLINE",
+  },
+  sankey: {
+    kind: "sankey", layoutStrategy: "layered", hierarchyHandling: "SEPARATE_CHILDREN", direction: "RIGHT", edgeRouting: "POLYLINE",
+  },
+  "xy-chart": {
+    kind: "xy-chart", layoutStrategy: "coordinate", hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  block: {
+    kind: "block", layoutStrategy: "grid", hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  packet: {
+    kind: "packet", layoutStrategy: "grid", hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  kanban: {
+    kind: "kanban", layoutStrategy: "grid", hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  architecture: {
+    kind: "architecture", layoutStrategy: "layered", hierarchyHandling: "INCLUDE_CHILDREN",
+  },
+  radar: {
+    kind: "radar", layoutStrategy: "radial", hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  venn: {
+    kind: "venn", layoutStrategy: "coordinate", hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  wardley: {
+    kind: "wardley", layoutStrategy: "coordinate", hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  cynefin: {
+    kind: "cynefin", layoutStrategy: "grid", hierarchyHandling: "SEPARATE_CHILDREN",
+  },
+  railroad: {
+    kind: "railroad", layoutStrategy: "sequence", hierarchyHandling: "SEPARATE_CHILDREN", direction: "RIGHT", edgeRouting: "ORTHOGONAL",
+  },
+  ishikawa: {
+    kind: "ishikawa", layoutStrategy: "tree", hierarchyHandling: "SEPARATE_CHILDREN", direction: "RIGHT", edgeRouting: "POLYLINE",
+  },
+  "event-modeling": {
+    kind: "event-modeling", layoutStrategy: "timeline", hierarchyHandling: "SEPARATE_CHILDREN", direction: "RIGHT", edgeRouting: "ORTHOGONAL",
+  },
+  "tree-view": {
+    kind: "tree-view", layoutStrategy: "tree", hierarchyHandling: "SEPARATE_CHILDREN", direction: "DOWN", edgeRouting: "ORTHOGONAL",
   },
 };
 

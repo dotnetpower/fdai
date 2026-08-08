@@ -1,0 +1,32 @@
+id: fdai-decision-mix
+version: 1
+kind: pie
+updated: 2026-08-08
+locales:
+  en:
+    title: FDAI decision mix
+    description: The decision workload is divided into deterministic rules, verified reuse, and grounded reasoning.
+    alt: A pie chart assigns 62 percent to deterministic rules, 25 percent to verified reuse, and 13 percent to grounded reasoning.
+  ko:
+    title: FDAI 결정 구성
+    description: 결정 작업을 결정적 규칙, 검증된 재사용 및 근거 기반 추론으로 구분합니다.
+    alt: 원형 차트에서 결정적 규칙은 62퍼센트, 검증된 재사용은 25퍼센트, 근거 기반 추론은 13퍼센트를 차지합니다.
+canvas: { width: 1000, height: 720, direction: RIGHT }
+groups: []
+nodes:
+  - id: deterministic-rules
+    kind: process
+    shape: pie-slice
+    value: 62
+    label: { en: Rules 62%, ko: 규칙 62% }
+  - id: verified-reuse
+    kind: process
+    shape: pie-slice
+    value: 25
+    label: { en: Reuse 25%, ko: 재사용 25% }
+  - id: grounded-reasoning
+    kind: process
+    shape: pie-slice
+    value: 13
+    label: { en: Reasoning 13%, ko: 추론 13% }
+edges: []

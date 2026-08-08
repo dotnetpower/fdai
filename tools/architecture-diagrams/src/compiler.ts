@@ -65,6 +65,7 @@ export async function compileDiagram(spec: DiagramSpec): Promise<DiagramArtifact
   }
   const manifest = {
     id: spec.id,
+    kind: spec.kind,
     version: spec.version,
     updated: spec.updated ?? null,
     locales: spec.locales,
@@ -90,6 +91,12 @@ export async function compileDiagram(spec: DiagramSpec): Promise<DiagramArtifact
       ...(node.after ? { after: node.after } : {}),
       ...(node.status ? { status: node.status } : {}),
       ...(node.progress !== undefined ? { progress: node.progress } : {}),
+      ...(node.value !== undefined ? { value: node.value } : {}),
+      ...(node.xValue !== undefined ? { xValue: node.xValue } : {}),
+      ...(node.yValue !== undefined ? { yValue: node.yValue } : {}),
+      ...(node.size !== undefined ? { size: node.size } : {}),
+      ...(node.row !== undefined ? { row: node.row } : {}),
+      ...(node.column !== undefined ? { column: node.column } : {}),
       label: node.label,
       description: node.description ?? node.label,
       ...(node.content ? { content: node.content } : {}),
@@ -100,6 +107,7 @@ export async function compileDiagram(spec: DiagramSpec): Promise<DiagramArtifact
       to: edge.to.split(":", 1)[0],
       kind: edge.kind,
       label: edge.label ?? null,
+      ...(edge.weight !== undefined ? { weight: edge.weight } : {}),
       ...(edge.step ? { step: edge.step } : {}),
     })),
   };

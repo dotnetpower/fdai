@@ -60,6 +60,27 @@ function validateGantt(spec: DiagramSpec): void {
   }
 }
 
+function validateSpecializedDiagram(spec: DiagramSpec): void {
+  if (spec.kind === "pie") {
+    if (spec.nodes.length < 2 || spec.nodes.some((node) => !node.value)) {
+      throw new Error("Pie diagrams require at least two positive node values");
+    }
+  }
+  if (spec.kind === "radar") {
+    if (spec.nodes.length < 3 || spec.nodes.some((node) => node.value === undefined)) {
+      throw new Error("Radar diagrams require at least three node values");
+    }
+  }
+  if (["quadrant", "xy-chart", "venn", "wardley"].includes(spec.kind)) {
+    if (spec.nodes.some((node) => node.xValue === undefined || node.yValue === undefined)) {
+      throw new Error(`Diagram kind '${spec.kind}' requires xValue and yValue on every node`);
+    }
+  }
+  if (spec.kind === "sankey" && spec.edges.some((edge) => edge.weight === undefined)) {
+    throw new Error("Sankey diagrams require weight on every edge");
+  }
+}
+
 export function validateDiagram(value: unknown): DiagramSpec {
   if (!validateSchema(value)) {
     throw new Error(`Diagram schema validation failed: ${formatSchemaErrors(validateSchema.errors)}`);
@@ -67,6 +88,7 @@ export function validateDiagram(value: unknown): DiagramSpec {
 
   const spec = value as DiagramSpec;
   if (spec.kind === "gantt") validateGantt(spec);
+  validateSpecializedDiagram(spec);
   const definition = diagramDefinition(spec.kind);
   if (
     definition.requiredEdgeKind &&

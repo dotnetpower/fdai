@@ -1,5 +1,6 @@
 {
   "id": "fdai-system-overview",
+  "kind": "container",
   "version": 1,
   "updated": "2026-07-20",
   "locales": {

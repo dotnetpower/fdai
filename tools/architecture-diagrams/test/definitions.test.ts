@@ -25,6 +25,31 @@ test("registers every supported diagram kind", () => {
     "entity-relationship",
     "timeline",
     "gantt",
+    "class-diagram",
+    "user-journey",
+    "pie",
+    "quadrant",
+    "requirement",
+    "git-graph",
+    "c4-context",
+    "c4-container",
+    "c4-component",
+    "c4-deployment",
+    "mindmap",
+    "sankey",
+    "xy-chart",
+    "block",
+    "packet",
+    "kanban",
+    "architecture",
+    "radar",
+    "venn",
+    "wardley",
+    "cynefin",
+    "railroad",
+    "ishikawa",
+    "event-modeling",
+    "tree-view",
   ]);
 });
 
@@ -36,19 +61,18 @@ test("assigns specialized layout strategies to non-topology diagrams", () => {
   assert.equal(diagramDefinition("domain").requiredEdgeKind, "association");
   assert.equal(diagramDefinition("timeline").direction, "RIGHT");
   assert.equal(diagramDefinition("gantt").layoutStrategy, "gantt");
+  assert.equal(diagramDefinition("pie").layoutStrategy, "radial");
+  assert.equal(diagramDefinition("quadrant").layoutStrategy, "coordinate");
+  assert.equal(diagramDefinition("kanban").layoutStrategy, "grid");
+  assert.equal(diagramDefinition("sankey").layoutStrategy, "layered");
 });
 
-test("keeps deployment compound-edge handling isolated", () => {
-  assert.equal(
-    diagramDefinition("deployment").hierarchyHandling,
-    "INCLUDE_CHILDREN",
-  );
-  for (const kind of supportedDiagramKinds().filter(
-    (candidate) => candidate !== "deployment",
-  )) {
+test("keeps compound-edge handling isolated to deployment views", () => {
+  const compoundKinds = new Set(["deployment", "c4-deployment", "architecture"]);
+  for (const kind of supportedDiagramKinds()) {
     assert.equal(
       diagramDefinition(kind).hierarchyHandling,
-      "SEPARATE_CHILDREN",
+      compoundKinds.has(kind) ? "INCLUDE_CHILDREN" : "SEPARATE_CHILDREN",
     );
   }
 });

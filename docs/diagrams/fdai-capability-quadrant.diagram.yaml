@@ -1,0 +1,54 @@
+id: fdai-capability-quadrant
+version: 1
+kind: quadrant
+updated: 2026-08-08
+locales:
+  en:
+    title: FDAI capability decision quadrant
+    description: Candidate capabilities are compared by operational evidence and change impact.
+    alt: Four capabilities are plotted on evidence confidence from low to high and change impact from low to high.
+  ko:
+    title: FDAI 기능 결정 사분면
+    description: 후보 기능을 운영 근거와 변경 영향으로 비교합니다.
+    alt: 네 가지 기능을 낮음에서 높음으로 증가하는 근거 신뢰도와 변경 영향 축에 배치합니다.
+canvas:
+  width: 1100
+  height: 760
+  direction: RIGHT
+  xAxis: { en: Evidence confidence, ko: 근거 신뢰도 }
+  yAxis: { en: Change impact, ko: 변경 영향 }
+groups: []
+nodes:
+  - id: explain
+    kind: process
+    shape: circle
+    tone: input
+    xValue: 84
+    yValue: 18
+    size: 96
+    label: { en: Explain, ko: 설명 }
+  - id: notify
+    kind: process
+    shape: circle
+    tone: model
+    xValue: 72
+    yValue: 42
+    size: 96
+    label: { en: Notify, ko: 알림 }
+  - id: remediate
+    kind: process
+    shape: circle
+    tone: decision
+    xValue: 78
+    yValue: 76
+    size: 100
+    label: { en: Remediate, ko: 수정 }
+  - id: hold
+    kind: process
+    shape: circle
+    tone: policy
+    xValue: 28
+    yValue: 68
+    size: 96
+    label: { en: Hold, ko: 보류 }
+edges: []

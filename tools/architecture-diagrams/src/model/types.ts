@@ -18,7 +18,32 @@ export type DiagramKind =
   | "domain"
   | "entity-relationship"
   | "timeline"
-  | "gantt";
+  | "gantt"
+  | "class-diagram"
+  | "user-journey"
+  | "pie"
+  | "quadrant"
+  | "requirement"
+  | "git-graph"
+  | "c4-context"
+  | "c4-container"
+  | "c4-component"
+  | "c4-deployment"
+  | "mindmap"
+  | "sankey"
+  | "xy-chart"
+  | "block"
+  | "packet"
+  | "kanban"
+  | "architecture"
+  | "radar"
+  | "venn"
+  | "wardley"
+  | "cynefin"
+  | "railroad"
+  | "ishikawa"
+  | "event-modeling"
+  | "tree-view";
 
 export type DiagramNodeShape =
   | "card"
@@ -27,7 +52,8 @@ export type DiagramNodeShape =
   | "database"
   | "document"
   | "circle"
-  | "bar";
+  | "bar"
+  | "pie-slice";
 
 export type DiagramNodeStatus =
   | "planned"
@@ -93,6 +119,12 @@ export interface DiagramNode {
   after?: string;
   status?: DiagramNodeStatus;
   progress?: number;
+  value?: number;
+  xValue?: number;
+  yValue?: number;
+  size?: number;
+  row?: number;
+  column?: number;
   width?: number;
   height?: number;
   ports?: DiagramPort[];
@@ -134,6 +166,7 @@ export interface DiagramEdge {
     | "orthogonal-outer";
   lane?: number;
   step?: number;
+  weight?: number;
 }
 
 export interface DiagramSpec {
@@ -148,6 +181,8 @@ export interface DiagramSpec {
     height: number;
     direction: Direction;
     rootLayout?: "row" | "column";
+    xAxis?: LocalizedText;
+    yAxis?: LocalizedText;
     padding?: number;
     profile?: "default" | "azure-reference" | "conceptual";
   };

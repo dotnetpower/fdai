@@ -1,0 +1,109 @@
+{
+  "id": "fdai-governance-kanban",
+  "kind": "kanban",
+  "version": 1,
+  "updated": "2026-08-08",
+  "locales": {
+    "en": {
+      "title": "FDAI governance Kanban",
+      "description": "Governed capability work advances through candidate, validation, and ready columns.",
+      "alt": "Three Kanban columns contain candidate, validation, and ready work items for policies and automated actions."
+    },
+    "ko": {
+      "title": "FDAI 거버넌스 칸반",
+      "description": "통제된 기능 작업이 후보, 검증 및 준비 열을 거쳐 진행됩니다.",
+      "alt": "정책과 자동화 작업을 위한 항목이 후보, 검증 및 준비의 세 칸반 열에 배치됩니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-governance-kanban.en.svg",
+      "png": "fdai-governance-kanban.en.png"
+    },
+    "ko": {
+      "svg": "fdai-governance-kanban.ko.svg",
+      "png": "fdai-governance-kanban.ko.png"
+    }
+  },
+  "nodes": [
+    {
+      "id": "restart-policy",
+      "kind": "process",
+      "tone": "input",
+      "label": {
+        "en": "Restart policy",
+        "ko": "재시작 정책"
+      },
+      "description": {
+        "en": "Restart policy",
+        "ko": "재시작 정책"
+      }
+    },
+    {
+      "id": "cost-action",
+      "kind": "process",
+      "tone": "input",
+      "label": {
+        "en": "Cost action",
+        "ko": "비용 작업"
+      },
+      "description": {
+        "en": "Cost action",
+        "ko": "비용 작업"
+      }
+    },
+    {
+      "id": "scenario-pack",
+      "kind": "process",
+      "tone": "policy",
+      "label": {
+        "en": "Scenario pack",
+        "ko": "시나리오 팩"
+      },
+      "description": {
+        "en": "Scenario pack",
+        "ko": "시나리오 팩"
+      }
+    },
+    {
+      "id": "rollback-proof",
+      "kind": "process",
+      "tone": "policy",
+      "label": {
+        "en": "Rollback proof",
+        "ko": "롤백 증명"
+      },
+      "description": {
+        "en": "Rollback proof",
+        "ko": "롤백 증명"
+      }
+    },
+    {
+      "id": "notify-action",
+      "kind": "process",
+      "tone": "model",
+      "label": {
+        "en": "Notification action",
+        "ko": "알림 작업"
+      },
+      "description": {
+        "en": "Notification action",
+        "ko": "알림 작업"
+      }
+    },
+    {
+      "id": "read-investigation",
+      "kind": "process",
+      "tone": "model",
+      "label": {
+        "en": "Read investigation",
+        "ko": "읽기 조사"
+      },
+      "description": {
+        "en": "Read investigation",
+        "ko": "읽기 조사"
+      }
+    }
+  ],
+  "edges": []
+}
