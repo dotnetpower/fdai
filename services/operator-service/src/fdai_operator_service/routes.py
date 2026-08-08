@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import AsyncIterator, Sequence
+from dataclasses import dataclass
 from typing import Final, Literal, cast
 
 from fdai_service_contracts import (
@@ -32,6 +33,31 @@ from fdai_operator_service.auth import (
     AuthorizationError,
     OperatorAuthenticator,
 )
+from fdai_operator_service.families.conversation import (
+    CONVERSATION_ROUTE_MANIFEST,
+    ConversationFamilyDependencies,
+    build_conversation_routes,
+)
+from fdai_operator_service.families.iam import (
+    IAM_FAMILY_MANIFEST,
+    IamFamilyBindings,
+    make_iam_family_routes,
+)
+from fdai_operator_service.families.operations import (
+    OPERATIONS_ROUTE_MANIFEST,
+    DurableReplayReader,
+    EventProposalWriter,
+    ProjectionReader,
+    WebhookVerifier,
+    build_operations_routes,
+)
+from fdai_operator_service.families.workflow import (
+    WORKFLOW_FAMILY_ROUTE_MANIFEST,
+    WorkflowPrincipalAuthorizer,
+    WorkflowProposalWriter,
+    WorkflowReadStore,
+    build_workflow_family_routes,
+)
 from fdai_operator_service.projections import ProjectionUnavailableError
 
 DEFAULT_LIMIT: Final = 50
@@ -45,6 +71,44 @@ READER_ROLES: Final = frozenset(
     }
 )
 APPROVAL_ROLES: Final = frozenset({OperatorRole.APPROVER, OperatorRole.OWNER})
+
+
+@dataclass(frozen=True, slots=True)
+class RouteOwnership:
+    """Declare one explicit method/path owner in the aggregate Operator surface."""
+
+    method: str
+    path: str
+    owner: str
+
+
+@dataclass(frozen=True, slots=True)
+class OperatorRouteFamilies:
+    """Hold the four independently extracted family dependency sets."""
+
+    conversation: ConversationFamilyDependencies
+    iam: IamFamilyBindings
+    workflow_authorize: WorkflowPrincipalAuthorizer
+    workflow_read_store: WorkflowReadStore
+    workflow_proposal_writer: WorkflowProposalWriter
+    operations_projection_reader: ProjectionReader
+    operations_proposal_writer: EventProposalWriter
+    operations_replay_reader: DurableReplayReader
+    operations_webhook_verifier: WebhookVerifier
+
+
+MINIMAL_ROUTE_MANIFEST: Final = (
+    RouteOwnership("GET", "/audit", "minimal"),
+    RouteOwnership("GET", "/audit/{correlation_id}/trace", "minimal"),
+    RouteOwnership("GET", "/healthz", "minimal"),
+    RouteOwnership("GET", "/hil-queue", "minimal"),
+    RouteOwnership("GET", "/incidents", "minimal"),
+    RouteOwnership("GET", "/incidents/stream", "minimal"),
+    RouteOwnership("GET", "/kpi", "minimal"),
+    RouteOwnership("GET", "/notification-templates/incident-opened", "minimal"),
+    RouteOwnership("GET", "/rca", "minimal"),
+    RouteOwnership("GET", "/system/data-sources", "minimal"),
+)
 
 
 class SecurityHeadersMiddleware:
@@ -74,10 +138,12 @@ def build_operator_app(
     authenticator: OperatorAuthenticator,
     read_model: OperatorReadModel,
     data_sources: Sequence[ReadDataSource],
+    route_families: OperatorRouteFamilies,
     cors_allow_origins: tuple[str, ...] = (),
 ) -> Starlette:
-    """Build the frozen minimal Operator API without executor or FDAI imports."""
+    """Build the complete Operator API without executor or FDAI imports."""
     _validate_data_sources(data_sources)
+    ownership = aggregate_route_manifest()
 
     def authorize(request: Request) -> OperatorPrincipal:
         return authenticator.require_any(request.headers.get("authorization"), READER_ROLES)
@@ -194,7 +260,7 @@ def build_operator_app(
         authorize(request)
         return JSONResponse(_incident_template_preview())
 
-    routes = [
+    minimal_routes = [
         Route("/audit", get_audit, methods=["GET"], name="get_audit"),
         Route(
             "/audit/{correlation_id}/trace",
@@ -226,13 +292,31 @@ def build_operator_app(
             name="get_data_sources",
         ),
     ]
+    family_routes = [
+        *build_conversation_routes(route_families.conversation),
+        *make_iam_family_routes(route_families.iam),
+        *build_workflow_family_routes(
+            authorize=route_families.workflow_authorize,
+            read_store=route_families.workflow_read_store,
+            proposal_writer=route_families.workflow_proposal_writer,
+        ),
+        *build_operations_routes(
+            authenticator=authenticator,
+            projection_reader=route_families.operations_projection_reader,
+            proposal_writer=route_families.operations_proposal_writer,
+            replay_reader=route_families.operations_replay_reader,
+            webhook_verifier=route_families.operations_webhook_verifier,
+        ),
+    ]
+    routes = [*minimal_routes, *family_routes]
+    _validate_registered_routes(routes, ownership)
     middleware: list[Middleware] = [Middleware(SecurityHeadersMiddleware)]
     if cors_allow_origins:
         middleware.append(
             Middleware(
                 CORSMiddleware,
                 allow_origins=list(cors_allow_origins),
-                allow_methods=["GET"],
+                allow_methods=["GET", "POST", "PUT", "DELETE"],
                 allow_headers=["Authorization", "Content-Type"],
             )
         )
@@ -335,6 +419,48 @@ def _validate_data_sources(sources: Sequence[ReadDataSource]) -> None:
         raise ValueError("read data source routes MUST have unique owners")
 
 
+def aggregate_route_manifest() -> tuple[RouteOwnership, ...]:
+    """Return the exact aggregate ownership manifest and reject duplicates."""
+    ownership = (
+        *MINIMAL_ROUTE_MANIFEST,
+        *(
+            RouteOwnership(item.method, item.path, "conversation")
+            for item in CONVERSATION_ROUTE_MANIFEST
+        ),
+        *(RouteOwnership(item.method, item.path, "iam") for item in IAM_FAMILY_MANIFEST),
+        *(
+            RouteOwnership(item.method, item.path, "workflow")
+            for item in WORKFLOW_FAMILY_ROUTE_MANIFEST
+        ),
+        *(
+            RouteOwnership(item.method, item.path, "operations")
+            for item in OPERATIONS_ROUTE_MANIFEST
+        ),
+    )
+    identities = [(item.method, item.path) for item in ownership]
+    if len(set(identities)) != len(identities):
+        duplicates = sorted(
+            identity for identity in set(identities) if identities.count(identity) > 1
+        )
+        raise ValueError(f"Operator route manifests have duplicate owners: {duplicates!r}")
+    return ownership
+
+
+def _validate_registered_routes(
+    routes: Sequence[Route],
+    ownership: Sequence[RouteOwnership],
+) -> None:
+    registered = {
+        (method, route.path)
+        for route in routes
+        for method in (route.methods or set())
+        if method not in {"HEAD", "OPTIONS"}
+    }
+    expected = {(item.method, item.path) for item in ownership}
+    if registered != expected or len(routes) != len(ownership):
+        raise ValueError("registered Operator routes MUST exactly match unique manifest ownership")
+
+
 def _incident_template_preview() -> JsonObject:
     incident_id = "00000000-0000-0000-0000-000000000000"
     subject = "Incident opened: SEV2"
@@ -348,4 +474,10 @@ def _incident_template_preview() -> JsonObject:
     }
 
 
-__all__ = ["build_operator_app"]
+__all__ = [
+    "MINIMAL_ROUTE_MANIFEST",
+    "OperatorRouteFamilies",
+    "RouteOwnership",
+    "aggregate_route_manifest",
+    "build_operator_app",
+]

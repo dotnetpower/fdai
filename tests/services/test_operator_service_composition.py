@@ -206,8 +206,9 @@ def test_invalid_environment_fails_before_verifier_construction(
     assert not called
 
 
-def test_service_owns_exact_frozen_minimal_routes() -> None:
+def test_service_preserves_exact_frozen_minimal_routes() -> None:
     app = _client(read_model=EmptyReadModel()).app
+    minimal_paths = {item[1] for item in EXPECTED_ROUTES}
     snapshot = tuple(
         sorted(
             (
@@ -216,6 +217,7 @@ def test_service_owns_exact_frozen_minimal_routes() -> None:
                 getattr(route, "name", ""),
             )
             for route in app.router.routes
+            if getattr(route, "path", "") in minimal_paths
         )
     )
     assert snapshot == EXPECTED_ROUTES

@@ -9,7 +9,7 @@ from fdai_service_contracts import OperatorReadModel, ReadDataSource
 from fdai_operator_service.auth import OperatorAuthenticator
 from fdai_operator_service.contracts import AsgiApplication
 from fdai_operator_service.environment import OperatorEnvironment
-from fdai_operator_service.routes import build_operator_app
+from fdai_operator_service.routes import OperatorRouteFamilies, build_operator_app
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,6 +20,7 @@ class OperatorRuntime:
     authenticator: OperatorAuthenticator
     read_model: OperatorReadModel
     data_sources: tuple[ReadDataSource, ...]
+    route_families: OperatorRouteFamilies
 
     def create_app(self) -> AsgiApplication:
         """Create the service-owned Starlette application without privileged identity."""
@@ -27,5 +28,6 @@ class OperatorRuntime:
             authenticator=self.authenticator,
             read_model=self.read_model,
             data_sources=self.data_sources,
+            route_families=self.route_families,
             cors_allow_origins=self.environment.cors_allow_origins,
         )
