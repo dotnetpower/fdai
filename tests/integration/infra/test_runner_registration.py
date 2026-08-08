@@ -35,6 +35,7 @@ def test_registration_supports_bounded_parallel_runner_slots() -> None:
     assert r"runner_home=\"\$base_home-\$slot\"" in script
     assert r"runner_name=\"\$(hostname)-\$slot\"" in script
     assert r"for runner_home in \"\$base_home\"-[2-5]" in script
+    assert r"slot=\"\${runner_home##*-}\"" in script
     assert 'variable "runner_parallelism"' in variables
     assert "var.runner_parallelism >= 1 && var.runner_parallelism <= 5" in variables
     assert "runner_parallelism = var.runner_parallelism" in main

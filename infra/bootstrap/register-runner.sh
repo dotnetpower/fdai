@@ -71,7 +71,7 @@ for slot in \$(seq 1 ${PARALLELISM}); do
 done
 for runner_home in \"\$base_home\"-[2-5]; do
   [ -d \"\$runner_home\" ] || continue
-  slot=\"[${runner_home##*-}\"
+  slot=\"\${runner_home##*-}\"
   if [ \"\$slot\" -le ${PARALLELISM} ]; then
     continue
   fi
