@@ -691,7 +691,7 @@ wheels = [
 
 [[package]]
 name = "fdai"
-version = "0.1.182"
+version = "0.1.183"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
