@@ -14,8 +14,6 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SERVICE_ROOT = REPO_ROOT / "services"
-ROOT_FACADE = REPO_ROOT / "src" / "fdai" / "runtime" / "isolated_executor_cli.py"
-ROOT_DOCKERFILE = REPO_ROOT / "Dockerfile"
 
 EXPECTED = {
     "core-control-plane": ("fdai-core-control-plane", "fdai-core-control-plane"),
@@ -215,41 +213,12 @@ def test_service_contract_sdk_contains_no_fdai_implementation_import() -> None:
     assert "import fdai." not in text
 
 
-def test_root_executor_facade_is_declared_or_removed_with_rollback_preserved(
-    tmp_path: Path,
-) -> None:
+def test_root_cannot_build_or_install_a_monolithic_distribution() -> None:
     project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    dependencies = {_requirement_name(value) for value in project["project"]["dependencies"]}
-    scripts = project["project"]["scripts"]
-    dockerfile = ROOT_DOCKERFILE.read_text(encoding="utf-8")
-
-    if "fdai-isolated-executor" in scripts:
-        assert ROOT_FACADE.exists()
-        assert "fdai-isolated-executor-service" in dependencies
-        assert "COPY services/isolated-executor/ ./services/isolated-executor/" in dockerfile
-    else:
-        assert "fdai-isolated-executor" not in dockerfile
-        assert "RUN rm /app/src/fdai/runtime/isolated_executor_cli.py" in dockerfile
-        uv = shutil.which("uv")
-        assert uv is not None
-        subprocess.run(  # noqa: S603 - resolved uv executable runs fixed build arguments
-            [uv, "build", "--wheel", "--package", "fdai", "--out-dir", str(tmp_path)],
-            cwd=REPO_ROOT,
-            check=True,
-            env={**os.environ, "UV_NO_PROGRESS": "1"},
-            capture_output=True,
-            text=True,
-        )
-        wheel = next(tmp_path.glob("fdai-*.whl"))
-        with zipfile.ZipFile(wheel) as archive:
-            members = set(archive.namelist())
-        assert "fdai/runtime/isolated_executor_cli.py" not in members
-        for path in (
-            "fdai/core/executor/direct_api.py",
-            "fdai/runtime/bootstrap.py",
-            "fdai/runtime/providers.py",
-        ):
-            assert path in members
+    assert project["tool"]["uv"]["package"] is False
+    assert "build-system" not in project
+    assert "scripts" not in project["project"]
+    assert not (REPO_ROOT / "src" / "fdai").exists()
 
 
 def test_installed_contract_wheel_validates_its_bundled_manifest(tmp_path: Path) -> None:

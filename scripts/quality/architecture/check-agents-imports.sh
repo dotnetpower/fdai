@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # check-agents-imports.sh - mirror of check-core-imports.sh, applied to
-# src/fdai/agents/.
+# services/core-control-plane/src/fdai/agents/.
 #
 # Rule: the 15 pantheon agents are policy / decision code, not delivery
 # code. They MUST NOT import:
@@ -15,9 +15,9 @@
 # whose concrete implementations live in fdai.delivery.* and are bound
 # at the composition root (see docs/roadmap/architecture/csp-neutrality.md).
 #
-# The check applies to every file under src/fdai/agents/**, including
+# The check applies to every file under services/core-control-plane/src/fdai/agents/**, including
 # the isolated framework layer that G-7 will create at
-# src/fdai/agents/_framework/.
+# services/core-control-plane/src/fdai/agents/_framework/.
 #
 # Rationale: tracker issue #14 (issue #22).
 #
@@ -30,13 +30,13 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
-if [[ ! -d src/fdai/agents ]]; then
-  echo "check-agents-imports: src/fdai/agents/ absent - skipping."
+if [[ ! -d services/core-control-plane/src/fdai/agents ]]; then
+  echo "check-agents-imports: Core service agents absent - skipping."
   exit 0
 fi
 
 mapfile -t files < <(
-  find src/fdai/agents -type f -name '*.py' \
+  find services/core-control-plane/src/fdai/agents -type f -name '*.py' \
     ! -path '*/__pycache__/*' \
     ! -path '*/.pytest_cache/*' \
     ! -path '*/.mypy_cache/*' \
@@ -149,7 +149,7 @@ if (( fail || stale )); then
   cat >&2 <<'EOF'
 
 Fix by routing the offending call through a Protocol in
-src/fdai/shared/providers/ and binding the concrete adapter at the
+services/core-control-plane/src/fdai/shared/providers/ and binding the concrete adapter at the
 composition root, exactly like the pattern the core layer uses.
 
 Agents are the *judge / responder / auditor* tier of the pantheon

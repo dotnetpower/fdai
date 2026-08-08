@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# check-subsystem-fanout.sh - flag god-orchestrators inside src/fdai/core/
+# check-subsystem-fanout.sh - flag god-orchestrators inside the Core service
 # before they reach control_loop.py scale (1,725 LOC / 30+ sibling
 # subsystem imports).
 #
-# For each file under src/fdai/core/**, count how many *distinct*
+# For each file under services/core-control-plane/src/fdai/core/**, count how many *distinct*
 # sibling core subsystems it imports from. A subsystem is the first
 # path segment under core/ (e.g. `fdai.core.executor.xxx` counts as
 # subsystem `executor`).
@@ -109,7 +109,7 @@ declare -A used_exact=()
 declare -A used_globs=()
 
 mapfile -t files < <(
-  find src/fdai/core -type f -name '*.py' \
+  find services/core-control-plane/src/fdai/core -type f -name '*.py' \
     ! -path '*/__pycache__/*' \
     ! -path '*/.pytest_cache/*' \
     ! -path '*/.mypy_cache/*' \
@@ -138,9 +138,9 @@ for path in "${files[@]}"; do
   fi
 
   # Derive this file's own subsystem so self-imports don't inflate the fan-out.
-  # 'src/fdai/core/<subsystem>/...' or 'src/fdai/core/<subsystem>.py'.
+  # 'services/core-control-plane/src/fdai/core/<subsystem>/...' or a sibling module.
   own=""
-  rel="${path#src/fdai/core/}"
+  rel="${path#services/core-control-plane/src/fdai/core/}"
   case "$rel" in
     */*) own="${rel%%/*}" ;;
     *.py) own="${rel%.py}" ;;

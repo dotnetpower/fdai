@@ -1,22 +1,6 @@
 # Existing decomposition debt tracked by issue #14; growth above each exact cap is blocked.
-1010 src/fdai/agents/forseti.py
+1010 services/core-control-plane/src/fdai/agents/forseti.py
 # HIL resume coordination awaits the approval-lifecycle decomposition tracked by issue #14.
-937 src/fdai/core/hil_resume/coordinator.py
-# Subscription health composition awaits the Azure evidence-family decomposition tracked by issue #14.
-1336 src/fdai/delivery/azure/subscription_health.py
-# JSON chat compatibility routing remains capped after typed turn-service and response-tail extraction; further route-family decomposition is tracked by issue #14.
-1247 src/fdai/delivery/operator_api/routes/chat.py
-# Conversation context awaits the route-family decomposition tracked by issue #14.
-804 src/fdai/delivery/operator_api/routes/chat_conversation_context.py
-# SSE chat compatibility routing remains capped after setup, progress, and terminal extraction; further route-family decomposition is tracked by issue #14.
-1288 src/fdai/delivery/operator_api/routes/chat_stream.py
-# Subscription health chat routing awaits the route-family decomposition tracked by issue #14.
-1630 src/fdai/delivery/operator_api/routes/chat_subscription_health.py
-# Console action delivery awaits the route-family decomposition tracked by issue #14.
-812 src/fdai/delivery/operator_api/routes/console_action.py
-# Model settings routing awaits the route-family decomposition tracked by issue #14.
-840 src/fdai/delivery/operator_api/routes/model_settings.py
-# Deployment CLI command dispatch awaits the command-family decomposition tracked by issue #14.
-864 src/fdai/deployment_cli/cli.py
+937 services/core-control-plane/src/fdai/core/hil_resume/coordinator.py
 # Runtime bootstrap wiring awaits the composition-family decomposition tracked by issue #14.
-1026 src/fdai/runtime/bootstrap.py
+1026 services/core-control-plane/src/fdai/runtime/bootstrap.py

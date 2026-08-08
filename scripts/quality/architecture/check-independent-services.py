@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the independent-services manifest and non-growth baselines."""
+"""Validate final independent-service ownership and package boundaries."""
 
 from __future__ import annotations
 
@@ -104,7 +104,7 @@ def validate() -> None:
         raise ValueError("service ids must be unique")
     for service in services:
         for key in (
-            "current_source_roots",
+            "source_roots",
             "target_package",
             "entrypoint",
             "target_image",
@@ -113,9 +113,10 @@ def validate() -> None:
         ):
             if not service.get(key):
                 raise ValueError(f"{service['id']} is missing {key}")
-        for source_root in service["current_source_roots"]:
-            if not (REPO_ROOT / source_root).exists():
-                raise ValueError(f"missing current source root: {source_root}")
+        for source_root in service["source_roots"]:
+            source_path = REPO_ROOT / source_root
+            if not source_path.is_dir() or not any(source_path.rglob("*.py")):
+                raise ValueError(f"missing service-owned source root: {source_root}")
         target_package = REPO_ROOT / service["target_package"]
         if not (target_package / "pyproject.toml").is_file():
             raise ValueError(f"missing service distribution: {service['target_package']}")
@@ -137,22 +138,10 @@ def validate() -> None:
 
     _validate_graph(manifest["work_packages"])
     baseline = manifest["current_baseline"]
-    measured = {
-        "operator_files_importing_core": _count_files_importing(
-            REPO_ROOT / "src/fdai/delivery/operator_api", "fdai.core"
-        ),
-        "ingestion_files_importing_core": _count_files_importing(
-            REPO_ROOT / "src/fdai/delivery/ingestion_gateway", "fdai.core"
-        ),
-        "executor_files_importing_core": sum(
-            1
-            for path in (REPO_ROOT / "src/fdai/runtime").glob("isolated_executor*.py")
-            if _imports_prefix(path, "fdai.core")
-        ),
-    }
-    for key, value in measured.items():
-        if value > int(baseline[key]):
-            raise ValueError(f"{key} grew from {baseline[key]} to {value}")
+    legacy_source = REPO_ROOT / "src" / "fdai"
+    top_level_source_roots = int(legacy_source.exists())
+    if top_level_source_roots != int(baseline["top_level_production_source_roots"]):
+        raise ValueError("top-level production source root must be retired")
     forbidden_imports = _count_service_forbidden_imports()
     if forbidden_imports > int(baseline["service_forbidden_implementation_import_files"]):
         raise ValueError(
@@ -175,9 +164,7 @@ def validate() -> None:
         raise ValueError("all five service distributions must be present")
     print(
         "check-independent-services: OK "
-        f"(services=5 operator_core={measured['operator_files_importing_core']} "
-        f"ingestion_core={measured['ingestion_files_importing_core']} "
-        f"executor_core={measured['executor_files_importing_core']} "
+        f"(services=5 top_level_source={top_level_source_roots} "
         f"service_forbidden={forbidden_imports})"
     )
 

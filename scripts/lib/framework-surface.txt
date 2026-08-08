@@ -17,11 +17,11 @@
 #   - an entry ending in '/' is a DIRECTORY PREFIX (matches any file beneath it)
 #   - any other entry is matched EXACTLY (so 'composition.py' never matches
 #     'composition.py.bak')
-src/fdai/core/
-src/fdai/composition.py
-src/fdai/composition/
-src/fdai/shared/providers/
-src/fdai/shared/contracts/
-src/fdai/agents/
+services/core-control-plane/src/fdai/core/
+services/core-control-plane/src/fdai/composition.py
+services/core-control-plane/src/fdai/composition/
+services/core-control-plane/src/fdai/shared/providers/
+services/core-control-plane/src/fdai/shared/contracts/
+services/core-control-plane/src/fdai/agents/
 rule-catalog/schema/
 .github/instructions/

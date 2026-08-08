@@ -4,7 +4,7 @@
 # fork MUST replace every `<slot>` value with its tenant's real Entra
 # security-group objectId before deploying. Missing or blank slots cause
 # a fail-fast startup error (see
-# `src/fdai/core/rbac/resolver.py::GroupMapping.from_config`).
+# `services/core-control-plane/src/fdai/core/rbac/resolver.py::GroupMapping.from_config`).
 #
 # Env-var overrides (any one slot may be overridden without editing YAML):
 #

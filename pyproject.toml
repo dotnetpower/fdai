@@ -1,14 +1,5 @@
-# FDAI - autonomous cloud operations control plane
-#
-# Python is the core runtime language for the control plane
-# (see docs/roadmap/architecture/tech-stack.md - OD-1 resolved).
-# All executable code lives under src/fdai/ (Python "src layout").
-# Non-Python trees (rule-catalog/ YAML data, policies/ Rego, infra/ Terraform)
-# live at the repo root - they are data or IaC, not Python packages.
-#
-# Skeleton scope (Phase 0 W1.1): manifest + package layout only.
-# Runtime dependencies land in W1.2-W1.4 (contracts, config loader, OpenTelemetry wiring);
-# CI tooling (ruff / mypy / pytest / coverage gates) lands in W1.7.
+# FDAI workspace orchestration and development tooling.
+# Runtime packages are owned by services/* and packages/* workspace members.
 
 [project]
 name = "fdai"
@@ -159,16 +150,8 @@ azure-mcp = [
 Homepage = "https://github.com/dotnetpower/fdai"
 Documentation = "https://github.com/dotnetpower/fdai/blob/main/docs/roadmap/README.md"
 
-[project.scripts]
-fdaictl = "fdai.deployment_cli.cli:main"
-fdai-catalog-generation = "fdai.delivery.catalog_search.generation_cli:main"
-fdai-evaluation-runner = "fdai.runtime.evaluation_runner_cli:main"
-fdai-executor-authority-probe = "fdai.runtime.executor_authority_probe_cli:main"
-fdai-model-endpoint-discovery = "fdai.delivery.azure.llm.endpoint_discovery_cli:main"
-
-[build-system]
-requires = ["hatchling>=1.24"]
-build-backend = "hatchling.build"
+[tool.uv]
+package = false
 
 [tool.uv.sources]
 fdai-evaluation-sdk = { workspace = true }
@@ -195,14 +178,6 @@ members = [
     "services/isolated-executor",
 ]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/fdai"]
-exclude = ["src/fdai/runtime/isolated_executor_cli.py"]
-
-[tool.hatch.build.targets.sdist]
-include = ["src/fdai", "README.md", "LICENSE", "pyproject.toml"]
-exclude = ["src/fdai/runtime/isolated_executor_cli.py"]
-
 # ---------------------------------------------------------------------------
 # Dev-tool config lives here so it is picked up as soon as the tools are added
 # in W1.7; the actual dependencies are still deferred.
@@ -211,7 +186,7 @@ exclude = ["src/fdai/runtime/isolated_executor_cli.py"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["src", "tests", "extensions/code-assurance/src"]
+src = ["services", "packages", "tests", "extensions/code-assurance/src"]
 # Mock/design assets and design experiments are not part of the shipped
 # monorepo; they live outside the lint gate on purpose.
 extend-exclude = ["mocks", "examples"]
@@ -239,20 +214,34 @@ ignore = []
 # Chat backend embeds a long-form system prompt as a triple-quoted string
 # literal. Breaking the prompt across lines would corrupt the payload the
 # LLM sees; the E501 rule does not apply to prose inside a prompt.
-"src/fdai/delivery/operator_api/routes/chat.py" = ["E501"]
 # Codegen CLI + object-type loader header comments run slightly over the
 # 100-column budget for readability of a single-line docstring / import.
 # These are already committed; opening the doorway to reformat every
 # docstring would exceed the intent of this cleanup.
-"src/fdai/rule_catalog/codegen/**" = ["E501"]
-"src/fdai/rule_catalog/schema/object_type.py" = ["E501"]
+"services/core-control-plane/src/fdai/rule_catalog/codegen/**" = ["E501"]
+"services/core-control-plane/src/fdai/rule_catalog/schema/object_type.py" = ["E501"]
 "tests/delivery/operator_api/test_bitemporal.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src/fdai", "extensions/code-assurance/src/fdai_code_assurance"]
-mypy_path = ["packages/service-contracts/src", "services/isolated-executor/src"]
+files = [
+    "services/core-control-plane/src",
+    "services/operator-service/src",
+    "services/document-ingestion-api/src",
+    "services/document-processing-worker/src",
+    "services/isolated-executor/src",
+    "packages/service-contracts/src",
+    "extensions/code-assurance/src/fdai_code_assurance",
+]
+mypy_path = [
+    "packages/service-contracts/src",
+    "services/core-control-plane/src",
+    "services/operator-service/src",
+    "services/document-ingestion-api/src",
+    "services/document-processing-worker/src",
+    "services/isolated-executor/src",
+]
 
 # aiokafka ships no py.typed marker and no stub package. It is only imported
 # by `delivery/azure/event_bus.py`; the adapter boundary in composition
@@ -269,7 +258,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-testpaths = ["tests", "src/fdai", "extensions/code-assurance/tests"]
+testpaths = ["tests", "services", "packages", "extensions/code-assurance/tests"]
 addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
 pythonpath = [
     ".",
@@ -303,17 +292,17 @@ filterwarnings = [
 # scripts/quality/ci/run-python-tests.sh instead of repeating these paths.
 [tool.coverage.run]
 source = [
-    "src/fdai/core/event_ingest",
-    "src/fdai/core/trust_router",
-    "src/fdai/core/tiers/t0_deterministic",
-    "src/fdai/core/tiers/t1_lightweight",
-    "src/fdai/core/tiers/t2_reasoning",
-    "src/fdai/core/quality_gate",
-    "src/fdai/core/risk_gate",
-    "src/fdai/core/hil_resume",
-    "src/fdai/core/executor",
-    "src/fdai/core/audit",
-    "src/fdai/core/control_loop",
+    "services/core-control-plane/src/fdai/core/event_ingest",
+    "services/core-control-plane/src/fdai/core/trust_router",
+    "services/core-control-plane/src/fdai/core/tiers/t0_deterministic",
+    "services/core-control-plane/src/fdai/core/tiers/t1_lightweight",
+    "services/core-control-plane/src/fdai/core/tiers/t2_reasoning",
+    "services/core-control-plane/src/fdai/core/quality_gate",
+    "services/core-control-plane/src/fdai/core/risk_gate",
+    "services/core-control-plane/src/fdai/core/hil_resume",
+    "services/core-control-plane/src/fdai/core/executor",
+    "services/core-control-plane/src/fdai/core/audit",
+    "services/core-control-plane/src/fdai/core/control_loop",
 ]
 branch = true
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import tomllib
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -47,6 +48,20 @@ def test_manifest_requires_zero_cross_service_implementation_imports() -> None:
 def test_contract_sdk_uses_final_package_layout() -> None:
     assert (REPO_ROOT / "packages" / "service-contracts" / "pyproject.toml").is_file()
     assert not (REPO_ROOT / "service-contracts").exists()
+
+
+def test_core_source_uses_final_service_root() -> None:
+    core_source = REPO_ROOT / "services" / "core-control-plane" / "src" / "fdai"
+    assert (core_source / "runtime" / "bootstrap.py").is_file()
+    assert (core_source / "agents" / "_framework" / "pantheon.py").is_file()
+    assert not (REPO_ROOT / "src" / "fdai").exists()
+
+
+def test_root_is_workspace_orchestration_only() -> None:
+    project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert project["tool"]["uv"]["package"] is False
+    assert "build-system" not in project
+    assert "scripts" not in project["project"]
 
 
 def test_checker_accepts_current_non_growth_baseline() -> None:

@@ -2,7 +2,7 @@
 #
 # check-chaos-scenarios.sh - CI gate for the chaos-scenarios catalog.
 #
-# Runs `load_all()` from `src/fdai/core/chaos/scenario_catalog.py`, which
+# Runs `load_all()` from the Core service's `fdai/core/chaos/scenario_catalog.py`, which
 # fails on:
 #   - schema violations (schema/chaos-scenario.schema.json),
 #   - unknown expected_signal (not in core/detection/signals.py),

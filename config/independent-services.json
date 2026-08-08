@@ -1,10 +1,13 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "target_service_count": 5,
   "services": [
     {
       "id": "core-control-plane",
-      "current_source_roots": ["src/fdai/core", "src/fdai/agents", "src/fdai/runtime/bootstrap.py"],
+      "source_roots": [
+        "services/core-control-plane/src/fdai",
+        "services/core-control-plane/src/fdai_core_service"
+      ],
       "target_package": "services/core-control-plane",
       "distribution": "fdai-core-control-plane",
       "distribution_version": "0.1.0",
@@ -17,7 +20,7 @@
     },
     {
       "id": "operator-service",
-      "current_source_roots": ["src/fdai/delivery/operator_api"],
+      "source_roots": ["services/operator-service/src/fdai_operator_service"],
       "target_package": "services/operator-service",
       "distribution": "fdai-operator-service",
       "distribution_version": "0.1.0",
@@ -30,7 +33,7 @@
     },
     {
       "id": "document-ingestion-api",
-      "current_source_roots": ["src/fdai/delivery/ingestion_gateway"],
+      "source_roots": ["services/document-ingestion-api/src/fdai_ingestion_api_service"],
       "target_package": "services/document-ingestion-api",
       "distribution": "fdai-document-ingestion-api",
       "distribution_version": "0.1.0",
@@ -43,7 +46,9 @@
     },
     {
       "id": "document-processing-worker",
-      "current_source_roots": ["src/fdai/delivery/ingestion_gateway"],
+      "source_roots": [
+        "services/document-processing-worker/src/fdai_document_worker_service"
+      ],
       "target_package": "services/document-processing-worker",
       "distribution": "fdai-document-processing-worker",
       "distribution_version": "0.1.0",
@@ -56,7 +61,7 @@
     },
     {
       "id": "isolated-executor",
-      "current_source_roots": ["services/isolated-executor/src/fdai_executor_service"],
+      "source_roots": ["services/isolated-executor/src/fdai_executor_service"],
       "target_package": "services/isolated-executor",
       "distribution": "fdai-isolated-executor-service",
       "distribution_version": "0.1.0",
@@ -80,15 +85,13 @@
     "independent_upgrade_and_rollback_proofs": 5
   },
   "current_baseline": {
-    "operator_files_importing_core": 140,
-    "ingestion_files_importing_core": 5,
-    "executor_files_importing_core": 2,
     "service_python_distributions": 5,
     "service_images": 5,
     "service_terraform_roots": 5,
     "service_migration_branches": 5,
     "independent_upgrade_and_rollback_proofs": 0,
-    "service_forbidden_implementation_import_files": 0
+    "service_forbidden_implementation_import_files": 0,
+    "top_level_production_source_roots": 0
   },
   "compatibility_retirements": {
     "legacy_isolated_executor_module": "requires-independent-service-entrypoint",
