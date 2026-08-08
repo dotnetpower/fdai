@@ -33,6 +33,7 @@ from fdai_operator_service.auth import (
     AuthorizationError,
     OperatorAuthenticator,
 )
+from fdai_operator_service.contracts import ReadinessProbe
 from fdai_operator_service.families.conversation import (
     CONVERSATION_ROUTE_MANIFEST,
     ConversationFamilyDependencies,
@@ -139,6 +140,7 @@ def build_operator_app(
     read_model: OperatorReadModel,
     data_sources: Sequence[ReadDataSource],
     route_families: OperatorRouteFamilies,
+    readiness_probe: ReadinessProbe,
     cors_allow_origins: tuple[str, ...] = (),
 ) -> Starlette:
     """Build the complete Operator API without executor or FDAI imports."""
@@ -149,7 +151,14 @@ def build_operator_app(
         return authenticator.require_any(request.headers.get("authorization"), READER_ROLES)
 
     async def healthz(_: Request) -> Response:
-        return JSONResponse({"status": "ok"})
+        try:
+            ready = await readiness_probe()
+        except Exception:  # noqa: BLE001 - dependency probes fail closed
+            ready = False
+        return JSONResponse(
+            {"status": "ok" if ready else "not-ready"},
+            status_code=200 if ready else 503,
+        )
 
     async def get_audit(request: Request) -> Response:
         authorize(request)

@@ -10,6 +10,7 @@ from typing import Protocol
 from fdai_service_contracts import OperatorReadModel, OperatorTokenVerifier, ReadDataSource
 
 from fdai_operator_service.auth import EntraJwtVerifier, OperatorAuthenticator
+from fdai_operator_service.contracts import ReadinessProbe
 from fdai_operator_service.environment import OperatorEnvironment
 from fdai_operator_service.families.conversation import ConversationFamilyDependencies
 from fdai_operator_service.families.iam import HilCallbackConfig, IamFamilyBindings
@@ -62,11 +63,13 @@ class ProductionOperatorComposition:
 
     verifier_factory: TokenVerifierFactory = _build_entra_verifier
     read_model: OperatorReadModel | None = None
+    readiness_probe: ReadinessProbe | None = None
 
     def build_runtime(self, environ: Mapping[str, str] | None = None) -> OperatorRuntime:
         """Bind a validated environment snapshot to service-owned HTTP dependencies."""
         environment = OperatorEnvironment.parse(os.environ if environ is None else environ)
         configured_read_model = self.read_model or _postgres_read_model(environment)
+        family_store = _postgres_family_store(environment)
         authenticator = OperatorAuthenticator(
             verifier=self.verifier_factory(environment),
             group_ids=environment.group_ids,
@@ -79,7 +82,10 @@ class ProductionOperatorComposition:
             route_families=_build_route_families(
                 environment=environment,
                 authenticator=authenticator,
+                store=family_store,
             ),
+            readiness_probe=self.readiness_probe
+            or (family_store.probe_readiness if family_store is not None else _unavailable),
         )
 
 
@@ -99,9 +105,9 @@ def _build_route_families(
     *,
     environment: OperatorEnvironment,
     authenticator: OperatorAuthenticator,
+    store: PostgresFamilyStore | None,
 ) -> OperatorRouteFamilies:
     authorizer = OperatorFamilyAuthorizer(authenticator)
-    store = _postgres_family_store(environment)
     role_group_ids = {role.value: group_id for role, group_id in environment.group_ids.items()}
     if store is None:
         unavailable_conversation = UnavailableConversationAdapters()
@@ -225,6 +231,10 @@ def _build_data_sources(*, configured: bool) -> tuple[ReadDataSource, ...]:
             durable=False,
         ),
     )
+
+
+async def _unavailable() -> bool:
+    return False
 
 
 __all__ = [

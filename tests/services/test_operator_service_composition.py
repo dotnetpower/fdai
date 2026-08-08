@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from fdai_operator_service.application import create_app
 from fdai_operator_service.composition import ProductionOperatorComposition
+from fdai_operator_service.contracts import ReadinessProbe
 from fdai_operator_service.environment import (
     AUDIENCE_ENV,
     CORS_ORIGINS_ENV,
@@ -112,10 +113,15 @@ def _verify(token: str) -> Mapping[str, object]:
     return {"oid": "operator", "roles": roles}
 
 
-def _client(*, read_model: OperatorReadModel | None = None) -> TestClient:
+def _client(
+    *,
+    read_model: OperatorReadModel | None = None,
+    readiness_probe: ReadinessProbe | None = None,
+) -> TestClient:
     composition = ProductionOperatorComposition(
         verifier_factory=lambda environment: _verify,
         read_model=read_model,
+        readiness_probe=readiness_probe,
     )
     return TestClient(create_app(BASE_ENV, composition=composition))
 
@@ -223,11 +229,26 @@ def test_service_preserves_exact_frozen_minimal_routes() -> None:
     assert snapshot == EXPECTED_ROUTES
 
 
-def test_health_is_public_and_stable() -> None:
+def test_health_is_public_and_fails_closed_without_postgres() -> None:
     response = _client().get("/healthz")
-    assert (response.status_code, response.json()) == (200, {"status": "ok"})
+    assert (response.status_code, response.json()) == (503, {"status": "not-ready"})
     assert response.headers["cache-control"] == "no-store"
     assert response.headers["x-content-type-options"] == "nosniff"
+
+
+def test_health_reflects_required_dependency_loss_after_startup() -> None:
+    available = True
+
+    async def readiness_probe() -> bool:
+        return available
+
+    client = _client(read_model=EmptyReadModel(), readiness_probe=readiness_probe)
+    response = client.get("/healthz")
+    assert (response.status_code, response.json()) == (200, {"status": "ok"})
+
+    available = False
+    response = client.get("/healthz")
+    assert (response.status_code, response.json()) == (503, {"status": "not-ready"})
 
 
 def test_authenticated_audit_envelopes_are_stable() -> None:

@@ -68,6 +68,11 @@ class PostgresFamilyStore:
     def __init__(self, config: PostgresFamilyStoreConfig) -> None:
         self._config = config
 
+    async def probe_readiness(self) -> bool:
+        """Verify the authoritative projection and proposal database is reachable."""
+        rows = await self._fetch_all("SELECT 1 AS ready", {})
+        return len(rows) == 1 and rows[0].get("ready") == 1
+
     async def read_state(self, key: str) -> dict[str, object] | None:
         """Read one existing authoritative state record by its stable key."""
         rows = await self._fetch_all(

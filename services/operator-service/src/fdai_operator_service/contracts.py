@@ -9,6 +9,7 @@ AsgiScope: TypeAlias = MutableMapping[str, Any]  # noqa: UP040
 AsgiMessage: TypeAlias = MutableMapping[str, Any]  # noqa: UP040
 AsgiReceive: TypeAlias = Callable[[], Awaitable[AsgiMessage]]  # noqa: UP040
 AsgiSend: TypeAlias = Callable[[AsgiMessage], Awaitable[None]]  # noqa: UP040
+ReadinessProbe: TypeAlias = Callable[[], Awaitable[bool]]  # noqa: UP040
 
 
 class AsgiApplication(Protocol):
