@@ -44,11 +44,11 @@ def upgrade() -> None:
 
 
 def _require_no_unpublished_outbox() -> None:
-    count = (
-        op.get_bind()
-        .execute(sa.text("SELECT count(*) FROM executor_receipt_outbox WHERE published_at IS NULL"))
-        .scalar_one()
-    )
+    connection = op.get_bind()
+    connection.execute(sa.text("LOCK TABLE executor_receipt_outbox IN ACCESS EXCLUSIVE MODE"))
+    count = connection.execute(
+        sa.text("SELECT count(*) FROM executor_receipt_outbox WHERE published_at IS NULL")
+    ).scalar_one()
     if int(count) != 0:
         raise RuntimeError(
             "isolated-executor downgrade is blocked while unpublished outbox rows exist"

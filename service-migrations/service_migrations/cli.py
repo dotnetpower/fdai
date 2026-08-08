@@ -14,8 +14,14 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
 
+from service_migrations.adoption import AdoptionManifest
 from service_migrations.inventory import load_legacy_inventory
-from service_migrations.ownership import SERVICE_IDS, load_ownership_manifest
+from service_migrations.ownership import (
+    SERVICE_IDS,
+    OwnershipManifest,
+    load_ownership_manifest,
+    migration_order,
+)
 from service_migrations.schema import fingerprint_owned_schema, load_schema_contract
 from service_migrations.validation import validate_service_branches
 
@@ -114,12 +120,81 @@ def _live_schema_fingerprint(service_id: str, owned_tables: tuple[str, ...]) -> 
         return fingerprint_owned_schema(connection, owned_tables=owned_tables).digest
 
 
+def _revision_contains(config: Config, observed: str, required: str) -> bool:
+    script = ScriptDirectory.from_config(config)
+    return required in {
+        revision.revision for revision in script.iterate_revisions(observed, "base")
+    }
+
+
+def _require_dependency_revisions(
+    service_id: str,
+    ownership: OwnershipManifest,
+    adoptions: dict[str, AdoptionManifest],
+) -> None:
+    for dependency in ownership.migration_dependencies:
+        if dependency.consumer_service != service_id:
+            continue
+        provider = dependency.provider_service
+        versions = _read_versions(adoptions[provider].service_version_table)
+        provider_config = Config(str(MIGRATION_ROOT / "configs" / f"{provider}.ini"))
+        if (
+            versions is None
+            or len(versions) != 1
+            or not _revision_contains(provider_config, versions[0], dependency.provider_revision)
+        ):
+            raise RuntimeError(
+                f"{service_id} migration requires {provider}:{dependency.provider_revision}; "
+                f"observed {versions}"
+            )
+
+
+def _require_dependents_at_baseline(
+    service_id: str,
+    ownership: OwnershipManifest,
+    adoptions: dict[str, AdoptionManifest],
+) -> None:
+    for dependency in ownership.migration_dependencies:
+        if dependency.provider_service != service_id:
+            continue
+        consumer = dependency.consumer_service
+        baseline = adoptions[consumer].baseline_revision
+        versions = _read_versions(adoptions[consumer].service_version_table)
+        if versions != (baseline,):
+            raise RuntimeError(
+                f"{service_id} downgrade requires dependent {consumer} at baseline "
+                f"{baseline}; observed {versions}"
+            )
+
+
+def _upgrade_service(
+    service_id: str,
+    *,
+    revision: str,
+    sql: bool,
+    ownership: OwnershipManifest,
+    adoptions: dict[str, AdoptionManifest],
+) -> None:
+    adoption = adoptions[service_id]
+    config = Config(str(MIGRATION_ROOT / "configs" / f"{service_id}.ini"))
+    if not sql:
+        service_versions = _read_versions(adoption.service_version_table)
+        if (
+            service_versions is None
+            or len(service_versions) != 1
+            or not _revision_contains(config, service_versions[0], adoption.baseline_revision)
+        ):
+            raise RuntimeError(f"{service_id} baseline is not stamped; run stamp-baseline first")
+        _require_dependency_revisions(service_id, ownership, adoptions)
+    command.upgrade(config, revision, sql=sql)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Validate ownership, then dispatch one bounded Alembic command."""
     parser = _parser()
     args = parser.parse_args(argv)
-    if args.service == "all" and args.command != "validate":
-        parser.error("service 'all' is valid only with validate")
+    if args.service == "all" and args.command not in {"validate", "upgrade"}:
+        parser.error("service 'all' is valid only with validate or upgrade")
     if args.service != "all" and args.service not in SERVICE_IDS:
         parser.error(f"unknown service {args.service!r}; expected one of {', '.join(SERVICE_IDS)}")
 
@@ -135,6 +210,18 @@ def main(argv: list[str] | None = None) -> int:
             f"validated {selected} service migration branch(es), "
             f"{len(ownership.table_migrators)} tables, {len(ownership.transitions)} transitions"
         )
+        return 0
+    if args.service == "all":
+        if args.revision != "head" or args.sql:
+            parser.error("service 'all' upgrade requires live revision 'head'")
+        for ordered_service in migration_order(ownership, SERVICE_IDS):
+            _upgrade_service(
+                ordered_service,
+                revision="head",
+                sql=False,
+                ownership=ownership,
+                adoptions=adoptions,
+            )
         return 0
 
     service_id = cast(str, args.service)
@@ -182,13 +269,13 @@ def main(argv: list[str] | None = None) -> int:
                 f"{service_id} baseline stamp did not produce the exact expected head"
             )
     elif args.command == "upgrade":
-        if not args.sql:
-            service_versions = _read_versions(adoption.service_version_table)
-            if service_versions is None or adoption.baseline_revision not in service_versions:
-                raise RuntimeError(
-                    f"{service_id} baseline is not stamped; run stamp-baseline first"
-                )
-        command.upgrade(config, args.revision, sql=args.sql)
+        _upgrade_service(
+            service_id,
+            revision=args.revision,
+            sql=args.sql,
+            ownership=ownership,
+            adoptions=adoptions,
+        )
     elif args.command == "downgrade":
         rollback_reference = args.rollback_reference.resolve()
         if not rollback_reference.is_file():
@@ -206,6 +293,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"{service_id} rollback must start at exact branch head {branch_head}; "
                 f"observed {service_versions}"
             )
+        _require_dependents_at_baseline(service_id, ownership, adoptions)
         command.downgrade(config, args.revision)
         resulting_versions = _read_versions(adoption.service_version_table)
         if resulting_versions != (adoption.baseline_revision,):

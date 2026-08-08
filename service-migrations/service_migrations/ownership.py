@@ -29,12 +29,30 @@ class WriteTransition:
 
 
 @dataclass(frozen=True)
+class MigrationDependency:
+    """One cross-service schema dependency between exact branch revisions."""
+
+    consumer_service: str
+    consumer_revision: str
+    provider_service: str
+    provider_revision: str
+    schema_prerequisites: tuple[str, ...]
+    provider_rollback: str
+
+    @property
+    def provider(self) -> tuple[str, str]:
+        """Return the provider service and minimum required revision."""
+        return self.provider_service, self.provider_revision
+
+
+@dataclass(frozen=True)
 class OwnershipManifest:
     """Validated table migration and write ownership for the five services."""
 
     table_migrators: dict[str, str]
     table_writers: dict[str, str]
     transitions: tuple[WriteTransition, ...]
+    migration_dependencies: tuple[MigrationDependency, ...]
 
 
 def _owned_tables(raw: object, field: str) -> dict[str, str]:
@@ -87,6 +105,97 @@ def _transitions(raw: object) -> tuple[WriteTransition, ...]:
     return tuple(transitions)
 
 
+def _migration_dependencies(raw: object) -> tuple[MigrationDependency, ...]:
+    if not isinstance(raw, list):
+        raise ValueError("migration_dependencies must be a list")
+    required = {
+        "consumer_service",
+        "consumer_revision",
+        "provider_service",
+        "provider_revision",
+        "schema_prerequisites",
+        "provider_rollback",
+    }
+    dependencies: list[MigrationDependency] = []
+    edges: set[tuple[str, str, str, str]] = set()
+    for item in raw:
+        if not isinstance(item, dict) or set(item) != required:
+            raise ValueError(f"migration dependency must contain {sorted(required)}")
+        scalar_fields = required - {"schema_prerequisites"}
+        if not all(isinstance(item[field], str) and item[field] for field in scalar_fields):
+            raise ValueError("migration dependency scalar fields must be non-empty strings")
+        prerequisites = item["schema_prerequisites"]
+        if (
+            not isinstance(prerequisites, list)
+            or not prerequisites
+            or not all(isinstance(value, str) and value for value in prerequisites)
+            or len(set(prerequisites)) != len(prerequisites)
+        ):
+            raise ValueError("migration dependency schema_prerequisites must be unique strings")
+        dependency = MigrationDependency(
+            consumer_service=cast(str, item["consumer_service"]),
+            consumer_revision=cast(str, item["consumer_revision"]),
+            provider_service=cast(str, item["provider_service"]),
+            provider_revision=cast(str, item["provider_revision"]),
+            schema_prerequisites=tuple(cast(list[str], prerequisites)),
+            provider_rollback=cast(str, item["provider_rollback"]),
+        )
+        if dependency.consumer_service not in SERVICE_IDS:
+            raise ValueError(
+                f"unknown migration dependency consumer: {dependency.consumer_service}"
+            )
+        if dependency.provider_service not in SERVICE_IDS:
+            raise ValueError(
+                f"unknown migration dependency provider: {dependency.provider_service}"
+            )
+        if dependency.consumer_service == dependency.provider_service:
+            raise ValueError("cross-service migration dependency cannot reference one service")
+        edge = (
+            dependency.consumer_service,
+            dependency.consumer_revision,
+            dependency.provider_service,
+            dependency.provider_revision,
+        )
+        if edge in edges:
+            raise ValueError(f"duplicate migration dependency: {edge}")
+        edges.add(edge)
+        dependencies.append(dependency)
+    return tuple(dependencies)
+
+
+def migration_order(
+    manifest: OwnershipManifest,
+    service_ids: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Topologically order selected services while preserving stable input order."""
+    if len(set(service_ids)) != len(service_ids) or not set(service_ids) <= set(SERVICE_IDS):
+        raise ValueError("migration order requires unique known service ids")
+    selected = set(service_ids)
+    providers = {
+        service_id: {
+            dependency.provider_service
+            for dependency in manifest.migration_dependencies
+            if dependency.consumer_service == service_id and dependency.provider_service in selected
+        }
+        for service_id in service_ids
+    }
+    ordered: list[str] = []
+    while len(ordered) < len(service_ids):
+        ready = next(
+            (
+                service_id
+                for service_id in service_ids
+                if service_id not in ordered and providers[service_id] <= set(ordered)
+            ),
+            None,
+        )
+        if ready is None:
+            blocked = tuple(service_id for service_id in service_ids if service_id not in ordered)
+            raise ValueError(f"migration dependency cycle detected: {blocked}")
+        ordered.append(ready)
+    return tuple(ordered)
+
+
 def load_ownership_manifest(path: Path, inventory: LegacyInventory) -> OwnershipManifest:
     """Load ownership and reject unknown tables, services, gaps, or overlaps."""
     raw = json.loads(path.read_text(encoding="utf-8"))
@@ -128,8 +237,11 @@ def load_ownership_manifest(path: Path, inventory: LegacyInventory) -> Ownership
         missing = sorted(owned_tables - covered_writes)
         unknown = sorted(covered_writes - owned_tables)
         raise ValueError(f"table write ownership mismatch; missing={missing}, unknown={unknown}")
-    return OwnershipManifest(
+    manifest = OwnershipManifest(
         table_migrators=migrators,
         table_writers=writers,
         transitions=transitions,
+        migration_dependencies=_migration_dependencies(raw.get("migration_dependencies")),
     )
+    migration_order(manifest, SERVICE_IDS)
+    return manifest

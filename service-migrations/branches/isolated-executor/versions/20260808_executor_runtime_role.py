@@ -109,11 +109,11 @@ def upgrade() -> None:
 
 
 def _require_outbox_drained() -> None:
-    count = (
-        op.get_bind()
-        .execute(sa.text("SELECT count(*) FROM executor_receipt_outbox WHERE published_at IS NULL"))
-        .scalar_one()
-    )
+    connection = op.get_bind()
+    connection.execute(sa.text("LOCK TABLE executor_receipt_outbox IN ACCESS EXCLUSIVE MODE"))
+    count = connection.execute(
+        sa.text("SELECT count(*) FROM executor_receipt_outbox WHERE published_at IS NULL")
+    ).scalar_one()
     if int(count) != 0:
         raise RuntimeError(
             "isolated-executor role downgrade is blocked while unpublished receipts exist"

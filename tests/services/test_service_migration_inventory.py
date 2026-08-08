@@ -91,6 +91,25 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
     assert transition_scopes["document-upload-worker-lifecycle"] == worker_scope
     assert transition_scopes["document-version-worker-lifecycle"] == worker_scope
 
+    dependencies = {
+        (item.consumer_service, item.consumer_revision): item
+        for item in manifest.migration_dependencies
+    }
+    assert dependencies[("isolated-executor", "executor_runtime_role_20260808")].provider == (
+        "core-control-plane",
+        "core_shared_data_ownership_20260808",
+    )
+    worker_dependency = dependencies[
+        ("document-processing-worker", "document_worker_outbox_20260808")
+    ]
+    assert worker_dependency.provider == (
+        "document-ingestion-api",
+        "ingestion_api_outbox_20260808",
+    )
+    ordered = ownership_module.migration_order(manifest, SERVICE_IDS)
+    assert ordered.index("core-control-plane") < ordered.index("isolated-executor")
+    assert ordered.index("document-ingestion-api") < ordered.index("document-processing-worker")
+
 
 def test_ownership_manifest_rejects_overlapping_migrators(tmp_path: Path) -> None:
     inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
@@ -101,6 +120,38 @@ def test_ownership_manifest_rejects_overlapping_migrators(tmp_path: Path) -> Non
 
     with pytest.raises(ValueError, match="overlapping table_migrations ownership"):
         ownership_module.load_ownership_manifest(conflicting, inventory)
+
+
+def test_ownership_manifest_rejects_cyclic_migration_dependencies(tmp_path: Path) -> None:
+    inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
+    raw = json.loads((MIGRATION_ROOT / "ownership.json").read_text(encoding="utf-8"))
+    raw["migration_dependencies"].append(
+        {
+            "consumer_service": "core-control-plane",
+            "consumer_revision": "core_shared_data_ownership_20260808",
+            "provider_service": "isolated-executor",
+            "provider_revision": "executor_runtime_role_20260808",
+            "schema_prerequisites": ["executor_state_namespace"],
+            "provider_rollback": "blocked-until-core-baseline",
+        }
+    )
+    conflicting = tmp_path / "ownership.json"
+    conflicting.write_text(json.dumps(raw), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="migration dependency cycle"):
+        ownership_module.load_ownership_manifest(conflicting, inventory)
+
+
+def test_branch_validation_rejects_unknown_dependency_revision(tmp_path: Path) -> None:
+    inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
+    raw = json.loads((MIGRATION_ROOT / "ownership.json").read_text(encoding="utf-8"))
+    raw["migration_dependencies"][0]["provider_revision"] = "missing_provider_revision"
+    invalid = tmp_path / "ownership.json"
+    invalid.write_text(json.dumps(raw), encoding="utf-8")
+    ownership = ownership_module.load_ownership_manifest(invalid, inventory)
+
+    with pytest.raises(ValueError, match="dependency provider revision is absent"):
+        validation_module.validate_service_branches(MIGRATION_ROOT, inventory, ownership)
 
 
 def test_five_configs_have_distinct_heads_and_explicit_adoption() -> None:
@@ -332,6 +383,23 @@ def test_executor_runtime_role_is_guarded_and_least_privileged() -> None:
     assert "GRANT UPDATE, DELETE ON TABLE audit_log" not in source
 
 
+def test_operator_runtime_role_is_reproducible_and_exact() -> None:
+    source = (
+        MIGRATION_ROOT / "branches/operator-service/versions/20260808_operator_runtime_role.py"
+    ).read_text(encoding="utf-8")
+
+    assert "CREATE ROLE fdai_operator" in source
+    assert "NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE" in source
+    assert "NOINHERIT NOREPLICATION NOBYPASSRLS" in source
+    assert "ALTER ROLE fdai_operator" in source
+    assert "FROM PUBLIC, fdai_operator" in source
+    assert "GRANT SELECT ON TABLE audit_log TO fdai_operator" in source
+    assert "GRANT SELECT, INSERT, UPDATE ON TABLE state_kv TO fdai_operator" in source
+    assert "REVOKE CREATE ON SCHEMA public FROM fdai_operator" in source
+    assert "GRANT INSERT, UPDATE, DELETE ON TABLE audit_log" not in source
+    assert "GRANT DELETE ON TABLE state_kv" not in source
+
+
 def test_worker_migration_widens_claim_check_and_blocks_inflight_deletion() -> None:
     revision_path = (
         MIGRATION_ROOT
@@ -451,12 +519,20 @@ def test_outbox_downgrades_reject_unpublished_rows(
         def scalar_one_or_none() -> str:
             return "document_worker_base_20260808"
 
+    class GuardedConnection:
+        statements: list[str] = []
+
+        @classmethod
+        def execute(cls, statement: object) -> PendingResult:
+            cls.statements.append(str(statement))
+            return PendingResult()
+
     class GuardedOp:
         changed: list[str] = []
 
         @staticmethod
-        def get_bind() -> SimpleNamespace:
-            return SimpleNamespace(execute=lambda _statement: PendingResult())
+        def get_bind() -> type[GuardedConnection]:
+            return GuardedConnection
 
         @classmethod
         def execute(cls, statement: str) -> None:
@@ -473,6 +549,27 @@ def test_outbox_downgrades_reject_unpublished_rows(
     with pytest.raises(RuntimeError, match=error_match):
         downgrade()
     assert GuardedOp.changed == []
+    lock_index = next(
+        index
+        for index, statement in enumerate(GuardedConnection.statements)
+        if "ACCESS EXCLUSIVE" in statement
+    )
+    count_index = next(
+        index
+        for index, statement in enumerate(GuardedConnection.statements)
+        if "SELECT count(*)" in statement
+    )
+    assert lock_index < count_index
+
+
+def test_executor_role_downgrade_locks_outbox_before_drain_check() -> None:
+    source = (
+        MIGRATION_ROOT / "branches/isolated-executor/versions/20260808_executor_runtime_role.py"
+    ).read_text(encoding="utf-8")
+
+    lock_index = source.index("LOCK TABLE executor_receipt_outbox IN ACCESS EXCLUSIVE MODE")
+    count_index = source.index("SELECT count(*) FROM executor_receipt_outbox")
+    assert lock_index < count_index
 
 
 def test_ingestion_outboxes_declare_runtime_least_privilege() -> None:
@@ -677,6 +774,19 @@ def test_shared_storage_downgrades_fail_closed_before_restoring_legacy_grants(
     assert UnsafeDowngradeOp.statements == []
 
 
+def test_core_namespace_downgrade_requires_executor_dependency_at_baseline() -> None:
+    migration = runpy.run_path(
+        str(
+            MIGRATION_ROOT
+            / "branches/core-control-plane/versions/20260808_core_shared_data_ownership.py"
+        )
+    )
+    guard_sql = str(migration["_DEPENDENT_RUNTIME_GUARD"])
+
+    assert "alembic_version_isolated_executor" in guard_sql
+    assert "executor_base_20260808" in guard_sql
+
+
 def test_dispatcher_validates_all_and_refuses_unknown_service() -> None:
     valid = subprocess.run(  # noqa: S603 - fixed interpreter and repository script
         [sys.executable, str(MIGRATION_ROOT / "migrate.py"), "all", "validate"],
@@ -695,6 +805,26 @@ def test_dispatcher_validates_all_and_refuses_unknown_service() -> None:
     )
     assert unknown.returncode == 2
     assert "unknown service" in unknown.stderr
+
+
+def test_dispatcher_all_upgrade_uses_manifest_dependency_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def capture_upgrade(service_id: str, **_kwargs: object) -> None:
+        calls.append(service_id)
+
+    monkeypatch.setattr(cli_module, "_upgrade_service", capture_upgrade)
+
+    assert cli_module.main(["all", "upgrade"]) == 0
+    assert tuple(calls) == (
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+    )
 
 
 def test_service_command_wrappers_exist_and_are_executable() -> None:

@@ -22,6 +22,7 @@ def validate_service_branches(
     seen_revisions: set[str] = set()
     declared_table_owners: dict[str, str] = {}
     created_table_owners: dict[str, str] = {}
+    branch_revisions: dict[str, set[str]] = {}
     for service_id in SERVICE_IDS:
         config_path = root / "configs" / f"{service_id}.ini"
         config = Config(str(config_path))
@@ -39,6 +40,7 @@ def validate_service_branches(
         if len(heads) != 1:
             raise ValueError(f"{service_id}: expected one head, found {heads}")
         revisions = {revision.revision for revision in script.walk_revisions()}
+        branch_revisions[service_id] = revisions
         if adoption.baseline_revision not in revisions:
             raise ValueError(f"{service_id}: baseline revision is absent")
 
@@ -70,6 +72,17 @@ def validate_service_branches(
                         f"{prior_creator} and {service_id}"
                     )
         adoptions[service_id] = adoption
+    for dependency in ownership.migration_dependencies:
+        if dependency.consumer_revision not in branch_revisions[dependency.consumer_service]:
+            raise ValueError(
+                f"migration dependency consumer revision is absent: "
+                f"{dependency.consumer_service}:{dependency.consumer_revision}"
+            )
+        if dependency.provider_revision not in branch_revisions[dependency.provider_service]:
+            raise ValueError(
+                f"migration dependency provider revision is absent: "
+                f"{dependency.provider_service}:{dependency.provider_revision}"
+            )
     if len({adoption.service_version_table for adoption in adoptions.values()}) != len(SERVICE_IDS):
         raise ValueError("service version tables must be unique")
     future_tables = set(ownership.table_migrators) - set(inventory.table_sources)

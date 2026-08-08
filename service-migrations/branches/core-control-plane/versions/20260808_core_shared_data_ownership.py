@@ -33,6 +33,10 @@ _DEPENDENT_RUNTIME_GUARD = sa.text(
             SELECT version_num
             FROM alembic_version_document_processing_worker
         ) = 'document_worker_base_20260808'
+        AND (
+            SELECT version_num
+            FROM alembic_version_isolated_executor
+        ) = 'executor_base_20260808'
         AND NOT EXISTS (
             SELECT 1
             FROM pg_stat_activity
@@ -48,8 +52,8 @@ def _require_dependent_runtimes_stopped() -> None:
     safe_to_restore = op.get_bind().execute(_DEPENDENT_RUNTIME_GUARD).scalar_one()
     if safe_to_restore is not True:
         raise RuntimeError(
-            "core shared-data downgrade requires stopped ingestion runtimes at "
-            "their baseline revisions and fdai.dependent_runtimes_stopped=on"
+            "core shared-data downgrade requires stopped ingestion runtimes and Executor "
+            "at their baseline revisions and fdai.dependent_runtimes_stopped=on"
         )
 
 
