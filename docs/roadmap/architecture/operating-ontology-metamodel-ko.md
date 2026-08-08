@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 50f88eb90031f72bfe625441ed3df90d467dfcfa
+translation_source_sha: 765ebbd2b8e2ba47a87d2fd2df5605eedd85bf0d
 translation_revised: 2026-08-08
 ---
 # FDAI 운영 온톨로지 메타모델
@@ -23,7 +23,9 @@ declaration kind를 만드는 방식 없이 견고하게 만듭니다.
 > interface를 공급하지 않으면 `build_ontology_release`는 이전 digest를 유지합니다. Production
 > catalog와 composition root는 아직 Interface declaration을 공급하지 않으므로 M1은 완료되지
 > 않았습니다. State와 context behavior는 typed ObjectType, `OperationalStateTrajectory`,
-> `OperationalContextSnapshot`으로 구현되어 있습니다.
+> `OperationalContextSnapshot`으로 구현되어 있습니다. Link declaration과 record는 이미
+> `from -> to` direction을 저장하지만 catalog와 provider projection은 아래에서 정의하는 direction
+> alignment audit을 아직 완료하지 않았습니다.
 
 ## 한눈에 보는 설계
 
@@ -88,6 +90,57 @@ reference, catalog lifecycle, generated consumer surface가 필요하고 기존 
 `InterfaceType`은 State 또는 Context에 다른 schema를 추가하기 전에 release에 들어가는 것이 좋습니다.
 이를 통해 concrete ObjectType identity를 보존하면서 `Operable`, `Observable`, `Ownable`,
 `Recoverable` 등의 polymorphic query를 사용할 수 있습니다.
+
+## Relationship direction 계약
+
+LinkType은 구조적으로 directed 관계입니다. `from_type -> to_type`은 declaration direction이고,
+`from_id -> to_id`는 이에 대응하는 runtime instance direction입니다. 별도의 generic `direction`
+field를 추가하면 endpoint와 중복되거나 모순될 수 있으므로 현재 metamodel에는 추가하지 않습니다.
+다만 `Resource -> Resource`와 같은 same-type link는 endpoint type만으로 source와 target의 의미를
+설명할 수 없으므로 semantic role을 명시해야 합니다.
+
+| 차원 | 계약 |
+|------|------|
+| Stored endpoint direction | 모든 link를 `from`에서 `to` 방향으로 읽습니다. Cardinality도 이 순서로 해석합니다. |
+| Semantic direction | LinkType name, description 및 reviewed mapping이 source/target role을 정의합니다. Role을 뒤집는 변경은 breaking semantic change입니다. |
+| Traversal direction | Query는 `outgoing`, `incoming`, `both` 중 하나를 선택합니다. Traversal은 저장된 link를 다시 쓰지 않습니다. |
+| Causal direction | `is_causal`이 true이면 source는 candidate cause이고 target은 candidate effect입니다. 이 flag 자체가 causality를 입증하지는 않습니다. |
+| Temporal ordering | `temporal_order`는 matching target을 `order_by_property`로 정렬합니다. Link를 뒤집거나 causality를 주장하지 않습니다. |
+| Symmetry 및 inverse | 하나의 directed record는 reverse를 의미하지 않습니다. Explicit symmetric-link contract가 release되기 전에는 bidirectionality에 verified record 두 개가 필요합니다. |
+
+초기 Resource relationship role은 다음과 같습니다.
+
+| LinkType | Canonical direction | 운영 해석 |
+|----------|---------------------|-----------|
+| `contains` | containing parent -> contained child | Resource group은 VM을 포함하고 VNet은 subnet을 포함합니다. Parent-to-child traversal로 impact descendant를 찾습니다. |
+| `attached_to` | attached resource -> attachment anchor | NIC 또는 disk는 VM에 연결되고 private endpoint는 target에 연결됩니다. |
+| `depends_on` | dependent -> prerequisite | VM은 참조하는 user-assigned identity에 의존하고 workload는 필요한 data service에 의존합니다. |
+
+Provider field ownership은 semantic direction을 결정하지 않습니다. 예를 들어 VM payload가 NIC
+resource id를 포함해도 reviewed `attached_to` link는 NIC -> VM입니다. 따라서 provider mapping은
+source property path, allowed target provider type, semantic LinkType, endpoint orientation, source
+schema digest 및 evidence method를 기록합니다. Complete inventory generation에서 두 endpoint
+identity를 모두 관측하기 전까지는 candidate 상태로 유지합니다. Endpoint 누락, orientation ambiguity
+또는 incomplete coverage가 있으면 link를 만들지 않고 completeness를 낮춥니다.
+
+Inverse traversal은 일반적으로 query concern입니다. FDAI는 inverse가 distinct domain meaning,
+provenance 또는 cardinality를 가질 때만 별도 이름의 inverse LinkType을 추가합니다. Peering과 같은
+symmetric relationship은 현재 schema에서 independently supported directed record 두 개를 사용합니다.
+향후 `is_symmetric` 또는 `inverse_link_type` field를 추가하려면 compatibility design이 필요하며 기존
+record를 retroactive하게 재해석할 수 없습니다.
+
+## Direction 보강 계획
+
+| 단계 | 변경 | 종료 기준 |
+|------|------|-----------|
+| D0 | 이 direction contract와 VM adversarial example을 게시합니다. | Endpoint, semantic, traversal, causal, temporal, inverse 및 symmetric direction을 구분할 수 있습니다. |
+| D1 | 모든 shipped LinkType과 producer를 canonical role/cardinality에 맞춰 audit합니다. | `contains`, `attached_to`, `depends_on` declaration, Azure/Kubernetes projection, ownership rule 및 test가 하나의 orientation에 동의합니다. |
+| D2 | Explicit endpoint orientation과 source-schema provenance가 있는 reviewed provider relationship mapping을 추가합니다. | Provider reference ownership이 ontology direction을 암묵적으로 선택할 수 없습니다. |
+| D3 | Complete, missing-endpoint, reversed-input, duplicate 및 partial-coverage fixture를 추가합니다. | Verified link만 active graph에 들어가며 ambiguous/incomplete path는 absent 상태로 보고됩니다. |
+| D4 | Migration 전에 기존 graph generation과 aligned graph generation을 shadow comparison합니다. | Directional query 및 blast-radius 차이가 측정, 검토, replay 가능하며 rollback pointer를 갖습니다. |
+
+Persist된 link 해석을 바꾸는 direction 또는 cardinality 수정에는 새 LinkType major version이나 explicit
+graph migration이 필요합니다. Historical context snapshot을 제자리에서 수정하지 않습니다.
 
 ## State 모델
 
@@ -195,12 +248,12 @@ audit/outbox path를 유지합니다.
 
 | Wave | 변경 | 종료 기준 |
 |------|------|-----------|
-| M0 | 이 metamodel 결정과 adversarial fixture입니다. | Declaration, runtime, authority, time, ownership layer가 명확합니다. |
+| M0 | 이 metamodel 결정, direction contract 및 adversarial fixture입니다. | Declaration, runtime, direction, authority, time, ownership layer가 명확합니다. |
 | M1 | Semantic InterfaceType을 `OntologyRelease`에 포함합니다. | Interface digest, exact ref, compatibility, empty-input backward-compatibility test가 통과합니다. |
 | M2 | Plan/invocation lineage를 포함해 bounded ObjectSet을 materialize하는 query FunctionType을 추가합니다. | Purpose, release, truncation, evidence receipt가 end-to-end로 보존됩니다. |
 | M3 | 기존 ObjectType 및 function output으로 state-fact field와 link observation metadata를 표준화합니다. | Observed/derived fact가 혼동되지 않고 stale/conflicting fact가 autonomy를 낮춥니다. |
 | M4 | `read_investigation` intent 하나를 shadow verified query profile로 옮깁니다. | 기존 결과와 ontology-native 결과가 일치하거나 차이가 명시적으로 남습니다. |
-| M5 | Competency-driven network 및 telemetry relationship coverage를 추가합니다. | VM connectivity 및 Pod telemetry chain이 verified/unverified segment를 보고합니다. |
+| M5 | D1-D4 이후 competency-driven network 및 telemetry relationship coverage를 추가합니다. | VM connectivity 및 Pod telemetry chain이 올바른 방향의 verified/unverified segment를 보고합니다. |
 
 `StateType` 또는 `ContextType`은 M3/M4에서 ObjectType, InterfaceType, FunctionType, exact release ref,
 immutable snapshot으로 표현할 수 없는 compatibility requirement가 발생한 뒤에만 future
@@ -210,6 +263,8 @@ declaration-kind proposal이 됩니다.
 
 - Interpretation에 영향을 주는 모든 declaration이 release digest에 포함됩니까?
 - 모든 state fact가 authority, provenance, time, freshness, completeness를 식별합니까?
+- 모든 LinkType이 cardinality와 일치하는 하나의 source-to-target semantic reading을 정의합니까?
+- Link를 다시 쓰지 않고 incoming, outgoing, inverse 및 symmetric traversal을 구분할 수 있습니까?
 - Runtime이 external observation, derived interpretation, desired intent, execution progress를 구분합니까?
 - 모든 context가 immutable, bounded, replayable하며 하나의 materializer가 소유합니까?
 - 누락되거나 truncated된 path가 autonomy를 유지하거나 낮출 수만 있습니까?

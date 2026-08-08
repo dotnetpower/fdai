@@ -20,7 +20,9 @@ without turning every view into a new ontology declaration kind.
 > `build_ontology_release` preserves the prior digest when no interfaces are supplied. The
 > production catalog and composition roots do not yet supply Interface declarations, so M1 remains
 > incomplete. State and context behavior exists through typed ObjectTypes,
-> `OperationalStateTrajectory`, and `OperationalContextSnapshot`.
+> `OperationalStateTrajectory`, and `OperationalContextSnapshot`. Link declarations and records
+> already store `from -> to` direction, but the catalog and provider projections have not yet
+> completed the direction-alignment audit defined below.
 
 ## Design at a glance
 
@@ -85,6 +87,58 @@ consumer surfaces that cannot be expressed by the existing kinds.
 `InterfaceType` should enter the release before State or Context receives another schema. This
 unblocks `Operable`, `Observable`, `Ownable`, `Recoverable`, and similar polymorphic queries while
 preserving concrete ObjectType identity.
+
+## Relationship direction contract
+
+A LinkType is directed by construction. `from_type -> to_type` is the declaration direction, and
+`from_id -> to_id` is the matching runtime-instance direction. A separate generic `direction`
+field would duplicate these endpoints and could contradict them, so the current metamodel does not
+add one. Direction still needs explicit semantic roles because same-type links such as
+`Resource -> Resource` cannot explain source and target meaning from their endpoint types alone.
+
+| Dimension | Contract |
+|-----------|----------|
+| Stored endpoint direction | Read every link from `from` to `to`. Cardinality is interpreted in that order. |
+| Semantic direction | The LinkType name, description, and reviewed mapping define source and target roles. Reversing those roles is a breaking semantic change. |
+| Traversal direction | A query chooses `outgoing`, `incoming`, or `both`; traversal never rewrites the stored link. |
+| Causal direction | When `is_causal` is true, the source is the candidate cause and the target is the candidate effect. The flag does not prove causality. |
+| Temporal ordering | `temporal_order` sorts matching targets by `order_by_property`; it does not reverse the link or assert causality. |
+| Symmetry and inverse | One directed record never implies its reverse. Bidirectionality requires two verified records until an explicit symmetric-link contract is released. |
+
+The initial Resource relationship roles are:
+
+| LinkType | Canonical direction | Operational reading |
+|----------|---------------------|---------------------|
+| `contains` | containing parent -> contained child | A resource group contains a VM; a VNet contains a subnet. Parent-to-child traversal finds impact descendants. |
+| `attached_to` | attached resource -> attachment anchor | A NIC or disk is attached to a VM; a private endpoint is attached to its target. |
+| `depends_on` | dependent -> prerequisite | A VM depends on a referenced user-assigned identity; a workload depends on a required data service. |
+
+Provider field ownership does not decide semantic direction. For example, a VM payload may contain
+a NIC resource id, while the reviewed `attached_to` link is still NIC -> VM. A provider mapping
+therefore records the source property path, allowed target provider types, semantic LinkType,
+endpoint orientation, source schema digest, and evidence method. It remains a candidate until a
+complete inventory generation observes both endpoint identities. Missing endpoints, an ambiguous
+orientation, or incomplete coverage produces no link and lowers completeness.
+
+An inverse traversal is normally a query concern. FDAI adds a separately named inverse LinkType
+only when the inverse has distinct domain meaning, provenance, or cardinality. A symmetric
+relationship such as peering uses two independently supported directed records in the current
+schema. A future `is_symmetric` or `inverse_link_type` field requires a compatibility design and
+cannot retroactively reinterpret existing records.
+
+## Direction hardening plan
+
+| Step | Change | Exit criteria |
+|------|--------|---------------|
+| D0 | Publish this direction contract and VM adversarial examples. | Endpoint, semantic, traversal, causal, temporal, inverse, and symmetric direction are distinguishable. |
+| D1 | Audit every shipped LinkType and producer against canonical roles and cardinality. | `contains`, `attached_to`, and `depends_on` declarations, Azure/Kubernetes projections, ownership rules, and tests agree on one orientation. |
+| D2 | Add reviewed provider relationship mappings with explicit endpoint orientation and source-schema provenance. | Provider reference ownership cannot silently choose ontology direction. |
+| D3 | Add complete, missing-endpoint, reversed-input, duplicate, and partial-coverage fixtures. | Only verified links enter the active graph; ambiguous or incomplete paths remain absent and reported. |
+| D4 | Shadow-compare old and aligned graph generations before migration. | Directional query and blast-radius differences are measured, reviewed, replayable, and covered by a rollback pointer. |
+
+A direction or cardinality correction that changes the interpretation of persisted links requires a
+new LinkType major version or an explicit graph migration. It never edits historical context
+snapshots in place.
 
 ## State model
 
@@ -195,12 +249,12 @@ replacement is possible, and a complete audit or outbox path.
 
 | Wave | Change | Exit criteria |
 |------|--------|---------------|
-| M0 | This metamodel decision and adversarial fixtures. | Declaration, runtime, authority, time, and ownership layers are unambiguous. |
+| M0 | This metamodel decision, direction contract, and adversarial fixtures. | Declaration, runtime, direction, authority, time, and ownership layers are unambiguous. |
 | M1 | Include semantic InterfaceTypes in `OntologyRelease`. | Interface digest, exact ref, compatibility, and empty-input backward-compatibility tests pass. |
 | M2 | Add a query FunctionType that materializes bounded ObjectSets with plan and invocation lineage. | Purpose, release, truncation, and evidence receipts survive end to end. |
 | M3 | Standardize state-fact fields and link observation metadata using existing ObjectTypes and function outputs. | Observed and derived facts cannot be confused; stale or conflicting facts lower autonomy. |
 | M4 | Move one `read_investigation` intent through a verified query profile in shadow. | Existing and ontology-native results agree or differences remain explicit. |
-| M5 | Add competency-driven network and telemetry relationship coverage. | VM connectivity and Pod telemetry chains report verified and unverified segments. |
+| M5 | Add competency-driven network and telemetry relationship coverage after D1-D4. | VM connectivity and Pod telemetry chains report correctly oriented verified and unverified segments. |
 
 `StateType` or `ContextType` becomes a future declaration-kind proposal only after M3 or M4
 produces a compatibility requirement that cannot be represented by ObjectType, InterfaceType,
@@ -210,6 +264,8 @@ FunctionType, exact release refs, and immutable snapshots.
 
 - Does every declaration that affects interpretation contribute to the release digest?
 - Does every state fact identify authority, provenance, time, freshness, and completeness?
+- Does every LinkType define one source-to-target semantic reading consistent with its cardinality?
+- Can incoming, outgoing, inverse, and symmetric traversal be distinguished without rewriting links?
 - Can the runtime distinguish external observation, derived interpretation, desired intent, and
   execution progress?
 - Is every context immutable, bounded, replayable, and owned by one materializer?
