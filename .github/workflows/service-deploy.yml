@@ -598,21 +598,10 @@ jobs:
             echo "source plan controls are not an ancestor of current protected main." >&2
             exit 1
           }
-          deployment_inputs=(
-            .github/workflows/service-deploy.yml
-            scripts/deployment/service
-            infra/services
-            alembic
-            alembic.ini
-            service-migrations
-            pyproject.toml
-            uv.lock
-          )
-          git -C "$TRUSTED_CONTROLS" diff --quiet \
-            "$source_head_sha" "$CONTROLS_COMMIT_SHA" -- "${deployment_inputs[@]}" || {
-            echo "source plan deployment inputs differ from current protected main." >&2
-            exit 1
-          }
+          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_inputs.py" \
+            --repository "$TRUSTED_CONTROLS" \
+            --before "$source_head_sha" \
+            --after "$CONTROLS_COMMIT_SHA"
           echo "SOURCE_PLAN_HEAD_SHA=$source_head_sha" >> "$GITHUB_ENV"
 
       - name: Download exact protected service plan
@@ -646,22 +635,10 @@ jobs:
             echo "plan controls checkout is not an ancestor of current protected main." >&2
             exit 1
           }
-          deployment_inputs=(
-            .github/workflows/service-deploy.yml
-            scripts/deployment/service
-            infra/services
-            alembic
-            alembic.ini
-            service-migrations
-            pyproject.toml
-            uv.lock
-          )
-          git -C "$TRUSTED_CONTROLS" diff --quiet \
-            "$plan_controls_commit_sha" "$CONTROLS_COMMIT_SHA" -- \
-            "${deployment_inputs[@]}" || {
-            echo "plan deployment inputs differ from current protected main." >&2
-            exit 1
-          }
+          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_inputs.py" \
+            --repository "$TRUSTED_CONTROLS" \
+            --before "$plan_controls_commit_sha" \
+            --after "$CONTROLS_COMMIT_SHA"
           echo "PLAN_CONTROLS_COMMIT_SHA=$plan_controls_commit_sha" >> "$GITHUB_ENV"
 
       - name: Verify exact plan bundle and action boundary

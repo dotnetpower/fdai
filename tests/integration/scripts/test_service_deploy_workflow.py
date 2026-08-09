@@ -105,18 +105,12 @@ def test_workflow_validates_source_run_and_actual_plan_controls_checkout() -> No
     assert "merge-base --is-ancestor" in _WORKFLOW
     assert '"$source_head_sha" "$CONTROLS_COMMIT_SHA"' in _WORKFLOW
     assert ".github/workflows/service-deploy.yml" in _WORKFLOW
-    assert "scripts/deployment/service" in _WORKFLOW
-    for deployment_input in (
-        "alembic",
-        "alembic.ini",
-        "infra/services",
-        "service-migrations",
-        "pyproject.toml",
-        "uv.lock",
-    ):
-        assert _WORKFLOW.count(deployment_input) >= 2
-    assert "source plan deployment inputs differ" in _WORKFLOW
-    assert "plan deployment inputs differ" in _WORKFLOW
+    comparator = "scripts/deployment/service/deployment_inputs.py"
+    assert _WORKFLOW.count(comparator) == 2
+    assert _WORKFLOW.count('--repository "$TRUSTED_CONTROLS"') == 2
+    assert '--before "$source_head_sha"' in _WORKFLOW
+    assert '--before "$plan_controls_commit_sha"' in _WORKFLOW
+    assert _WORKFLOW.count('--after "$CONTROLS_COMMIT_SHA"') == 2
     assert 'echo "SOURCE_PLAN_HEAD_SHA=$source_head_sha"' in _WORKFLOW
     assert "Verify plan controls checkout provenance" in _WORKFLOW
     assert 'plan_controls_commit_sha="$(jq -er \'.controls_commit_sha\' "$metadata")"' in _WORKFLOW

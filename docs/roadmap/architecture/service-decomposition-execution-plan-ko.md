@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: da806b9d5b3e4792ee090b26072413311971f485
+translation_source_sha: ea0508b0f4933ea38e4cb3f4d512c56aba7ab923
 translation_revised: 2026-08-09
 ---
 # 서비스 분해 실행 계획
@@ -287,12 +287,13 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-09 | IS-09 | Enforced database principal | Round 33 | Plan은 `fdai_operator`, `fdai_executor` 등 service role을 선언하지만 일부 DSN secret은 admin principal로 인증했습니다. Service module 5개는 PostgreSQL `PGOPTIONS=-c role=<declared role>`을 설정해 readiness와 grant가 intended `current_user`를 평가하도록 합니다. |
 | 2026-08-09 | IS-09 | Historical rollback provenance | Round 34 | Privileged workflow guard가 historical image source에 byte-identical deployment control을 요구해 control hardening이 한 번이라도 적용되면 N-1 rollback을 영구 차단했습니다. 이제 historical artifact revision은 protected-main ancestry와 attestation을 요구하고 실행 workflow와 control은 현재 protected `main`에 고정합니다. |
 | 2026-08-09 | IS-09 | Current deployment source | Round 35 | Live preflight에서 `commit_sha`가 image revision과 historical Terraform을 함께 선택해 rollback 중 이후 role 및 recovery hardening을 조용히 제거할 수 있음을 발견했습니다. 이제 이 값은 immutable image provenance만 binding하고 Terraform root, migration, legacy state operation 및 peer capture는 모두 현재 protected `main`을 사용합니다. 취소한 Operator run은 backend validation 중 중단됐고 모든 mutation step은 skip됐습니다. |
-| 2026-08-09 | IS-09 | Complete plan staleness fence | Round 36 | Successful plan 이후 migration dependency fix가 반영됐지만 apply provenance는 workflow와 helper script만 비교했습니다. 이제 exact apply는 workflow, deployment helper, 모든 service Terraform root와 shared module, service migration, root project dependency 또는 `uv.lock` 변경을 거부합니다. 영향받은 plan은 apply 전에 모두 폐기했습니다. |
+| 2026-08-09 | IS-09 | Complete plan staleness fence | Round 36 | Successful plan 이후 migration dependency fix가 반영됐지만 apply provenance는 workflow와 helper script만 비교했습니다. 이제 exact apply는 workflow, deployment helper, 모든 service Terraform root와 shared module, service migration, root project dependency 또는 semantic `uv.lock` graph 변경을 거부합니다. Root release version만 변경되고 나머지가 동일한 경우에는 plan을 무효화하지 않습니다. 영향받은 plan은 apply 전에 모두 폐기했습니다. |
 | 2026-08-09 | IS-09 | Initial migration adoption | Round 37 | Core apply run `31281314437`은 service migration baseline이 stamp되지 않아 snapshot 또는 Terraform mutation 전에 실패했습니다. 이제 initial cutover는 exact legacy head와 owned-schema fingerprint를 관측하고 commit-pinned rollback reference가 포함된 adoption 및 schema evidence를 저장하며 exact baseline만 idempotent하게 stamp한 뒤 service branch를 upgrade합니다. Standard apply는 baseline을 생성하지 않습니다. |
 | 2026-08-09 | IS-09 | Adoption evidence schema parity | Round 38 | Public adoption-evidence schema는 legacy revision 79개를 요구했지만 검증된 adoption manifest는 모두 canonical 81개를 요구했습니다. 이제 schema가 live inventory와 일치하며 regression test가 canonical migration graph에서 required head와 revision count를 모두 도출합니다. |
 | 2026-08-09 | IS-09 | Adoption retry 및 evidence durability | Round 39 | Initial cutover가 service migration branch를 upgrade한 뒤 후속 단계에서 중단되면 retry가 변경된 schema를 대상으로 baseline evidence를 다시 생성하여 스스로 차단할 수 있었습니다. 이제 prepare와 stamp는 exact service lineage가 baseline을 포함할 때만 no-op으로 처리하고 다른 기존 lineage는 모두 차단하며, 후속 migration 단계가 실패해도 portable adoption 및 schema evidence를 90일 동안 보존합니다. |
 | 2026-08-09 | IS-09 | Legacy-head adoption prerequisite | Round 40 | Core apply run `31284637886`은 live legacy lineage가 `20260806_0077`이고 adoption은 `20260808_0079`를 요구하여 snapshot 또는 Terraform mutation 전에 실패했습니다. 이제 initial cutover는 additive ontology-direction migration으로 legacy Alembic lineage를 먼저 전진시킨 뒤 schema evidence 관측, service baseline stamp 및 service branch upgrade를 수행합니다. Legacy migration file과 `alembic.ini`도 exact plan/apply provenance input에 포함됩니다. |
 | 2026-08-09 | IS-09 | Legacy migration working directory | Round 41 | Core apply run `31286708624`는 Alembic이 relative `script_location`을 protected checkout 밖에서 해석하여 snapshot 또는 Terraform mutation 전에 실패했습니다. 이제 legacy upgrade는 exact protected controls checkout을 root로 하는 subshell에서 실행하므로 `alembic.ini`와 tracked migration directory가 동일한 sealed source에서 해석됩니다. |
+| 2026-08-09 | IS-09 | Release-safe plan provenance | Round 42 | Automatic release commit이 root package version만 변경해 dependency와 deployment control이 동일한데도 protected plan을 반복해서 무효화했습니다. 이제 apply는 strict control을 byte-for-byte로 비교하고 `pyproject.toml`과 `uv.lock`에서는 root FDAI release version만 제거한 뒤 semantic content를 비교합니다. Dependency, lock graph, migration, workflow, helper 또는 Terraform 변경은 계속 plan을 무효화합니다. |
 
 ## 관련 문서
 
