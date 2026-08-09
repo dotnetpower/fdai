@@ -22,11 +22,11 @@ _DISTRIBUTIONS = {
     "isolated-executor": "fdai-isolated-executor-service",
 }
 _TRANSITION_RUNS = {
-    "operator-service": ((300, 301), (302, 303)),
-    "document-ingestion-api": ((310, 311), (312, 313)),
-    "document-processing-worker": ((320, 321), (322, 323)),
-    "isolated-executor": ((330, 331), (360, 361)),
-    "core-control-plane": ((340, 341), (342, 343)),
+    "operator-service": ((300, 305), (311, 316)),
+    "document-ingestion-api": ((301, 306), (312, 317)),
+    "document-processing-worker": ((302, 307), (313, 318)),
+    "isolated-executor": ((303, 308), (314, 319)),
+    "core-control-plane": ((304, 309), (310, 315)),
 }
 
 
@@ -394,9 +394,9 @@ def test_rejects_embedded_azure_resource_identifier() -> None:
 def test_rejects_core_rollback_before_executor() -> None:
     evidence = _evidence()
     core = _service(evidence, "core-control-plane")
-    core["stages"][1]["plan"]["workflow_run_id"] = 328
-    core["stages"][1]["apply"]["workflow_run_id"] = 329
-    core["stages"][1]["apply"]["plan_run_id"] = 328
+    core["stages"][1]["plan"]["workflow_run_id"] = 298
+    core["stages"][1]["apply"]["workflow_run_id"] = 299
+    core["stages"][1]["apply"]["plan_run_id"] = 298
 
     with pytest.raises(RemoteEvidenceError, match="Executor must reach N-1"):
         validate_remote_service_evidence(_manifest(), evidence)
@@ -429,6 +429,42 @@ def test_rejects_overlapping_applies() -> None:
     second_apply["completed_at"] = first_apply["completed_at"]
 
     with pytest.raises(RemoteEvidenceError, match="applies must be serial"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_rejects_plan_overlapping_prior_apply() -> None:
+    evidence = _evidence()
+    initial_apply = evidence["services"][0]["stages"][0]["apply"]
+    rollback_plan = evidence["services"][0]["stages"][1]["plan"]
+    rollback_plan["started_at"] = initial_apply["started_at"]
+    rollback_plan["completed_at"] = initial_apply["completed_at"]
+
+    with pytest.raises(RemoteEvidenceError, match="rollback plans must follow all initial applies"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_rejects_restore_before_all_rollbacks() -> None:
+    evidence = _evidence()
+    operator_restore = _service(evidence, "operator-service")["stages"][2]
+    executor = _service(evidence, "isolated-executor")
+    core = _service(evidence, "core-control-plane")
+    operator_restore["plan"]["workflow_run_id"] = 308
+    operator_restore["apply"]["workflow_run_id"] = 309
+    operator_restore["apply"]["plan_run_id"] = 308
+    executor["stages"][1]["plan"]["workflow_run_id"] = 320
+    executor["stages"][1]["apply"]["workflow_run_id"] = 321
+    executor["stages"][1]["apply"]["plan_run_id"] = 320
+    executor["stages"][2]["plan"]["workflow_run_id"] = 322
+    executor["stages"][2]["apply"]["workflow_run_id"] = 323
+    executor["stages"][2]["apply"]["plan_run_id"] = 322
+    core["stages"][1]["plan"]["workflow_run_id"] = 324
+    core["stages"][1]["apply"]["workflow_run_id"] = 325
+    core["stages"][1]["apply"]["plan_run_id"] = 324
+    core["stages"][2]["plan"]["workflow_run_id"] = 326
+    core["stages"][2]["apply"]["workflow_run_id"] = 327
+    core["stages"][2]["apply"]["plan_run_id"] = 326
+
+    with pytest.raises(RemoteEvidenceError, match="restores must follow all rollback"):
         validate_remote_service_evidence(_manifest(), evidence)
 
 

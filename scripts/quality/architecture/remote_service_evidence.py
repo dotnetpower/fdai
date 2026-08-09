@@ -202,6 +202,7 @@ def _validate_stage(
     plan_digests: set[str],
     context_digests: set[str],
     metadata_artifacts: set[str],
+    plan_windows: list[tuple[datetime, datetime, str, str]],
     apply_windows: list[tuple[datetime, datetime, str, str]],
 ) -> tuple[int, int]:
     stage = _object(value, f"{service_id} {expected_name} stage")
@@ -218,7 +219,7 @@ def _validate_stage(
     if stage["image_digest"] != release["images"][service_id]["digest"]:
         raise RemoteEvidenceError(f"{service_id} {expected_name} image digest is invalid")
 
-    plan, plan_id, plan_attempt, _plan_started, plan_completed = _validate_run_common(
+    plan, plan_id, plan_attempt, plan_started, plan_completed = _validate_run_common(
         stage["plan"],
         label=f"{service_id} {expected_name} plan",
         controls_commit_sha=controls_commit_sha,
@@ -315,6 +316,7 @@ def _validate_stage(
         if run_id in run_ids:
             raise RemoteEvidenceError("remote workflow run ids must be unique")
         run_ids.add(run_id)
+    plan_windows.append((plan_started, plan_completed, service_id, expected_name))
     apply_windows.append((apply_started, apply_completed, service_id, expected_name))
     return plan_id, apply_id
 
@@ -390,6 +392,7 @@ def validate_remote_service_evidence(
     plan_digests: set[str] = set()
     context_digests: set[str] = set()
     metadata_artifacts: set[str] = set()
+    plan_windows: list[tuple[datetime, datetime, str, str]] = []
     apply_windows: list[tuple[datetime, datetime, str, str]] = []
     apply_ids: dict[tuple[str, str], int] = {}
     initial_apply_ids: list[int] = []
@@ -430,6 +433,7 @@ def validate_remote_service_evidence(
                 plan_digests=plan_digests,
                 context_digests=context_digests,
                 metadata_artifacts=metadata_artifacts,
+                plan_windows=plan_windows,
                 apply_windows=apply_windows,
             )
             stage_run_ids[expected_name] = (plan_id, apply_id)
@@ -449,6 +453,10 @@ def validate_remote_service_evidence(
         initial_apply_ids
     ):
         raise RemoteEvidenceError("rollback rehearsals must follow all initial N applies")
+    if min(apply_ids[(service_id, "restore")] for service_id in SERVICE_IDS) <= max(
+        apply_ids[(service_id, "rollback")] for service_id in SERVICE_IDS
+    ):
+        raise RemoteEvidenceError("restores must follow all rollback rehearsals")
     if (
         apply_ids[("isolated-executor", "rollback")]
         >= apply_ids[("core-control-plane", "rollback")]
@@ -456,6 +464,22 @@ def validate_remote_service_evidence(
         raise RemoteEvidenceError("Executor must reach N-1 before the Core rollback")
     if apply_ids[("core-control-plane", "restore")] >= apply_ids[("isolated-executor", "restore")]:
         raise RemoteEvidenceError("Core must return to N before the Executor restore")
+    for stage_name in _STAGE_NAMES:
+        stage_plans = [window for window in plan_windows if window[3] == stage_name]
+        stage_applies = [window for window in apply_windows if window[3] == stage_name]
+        if min(window[0] for window in stage_applies) < max(window[1] for window in stage_plans):
+            raise RemoteEvidenceError(
+                f"all {stage_name} plans must complete before {stage_name} applies"
+            )
+    for current_name, following_name in pairwise(_STAGE_NAMES):
+        current_applies = [window for window in apply_windows if window[3] == current_name]
+        following_plans = [window for window in plan_windows if window[3] == following_name]
+        if min(window[0] for window in following_plans) < max(
+            window[1] for window in current_applies
+        ):
+            raise RemoteEvidenceError(
+                f"{following_name} plans must follow all {current_name} applies"
+            )
     ordered_windows = sorted(apply_windows)
     for current, following in pairwise(ordered_windows):
         if following[0] < current[1]:
