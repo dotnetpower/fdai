@@ -469,7 +469,11 @@ def main(argv: list[str] | None = None) -> int:
     inventory = load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
     ownership = load_ownership_manifest(MIGRATION_ROOT / "ownership.json", inventory)
     adoptions = validate_service_branches(MIGRATION_ROOT, inventory, ownership)
-    schema_contract = load_schema_contract(MIGRATION_ROOT / "legacy-schema-contract.json")
+    schema_contract = load_schema_contract(
+        MIGRATION_ROOT / "legacy-schema-contract.json",
+        expected_legacy_head=inventory.heads[0],
+        expected_legacy_revision_count=len(inventory.down_revisions),
+    )
     if set(schema_contract) != set(SERVICE_IDS):
         raise RuntimeError("legacy schema contract must contain exactly five services")
     if args.command == "validate":

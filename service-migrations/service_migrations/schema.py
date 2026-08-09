@@ -23,12 +23,30 @@ class SchemaFingerprint:
     extensions: tuple[str, ...]
 
 
-def load_schema_contract(path: Path) -> dict[str, SchemaFingerprint]:
-    """Load exact checked-in fingerprint expectations for all services."""
+def load_schema_contract(
+    path: Path,
+    *,
+    expected_legacy_head: str | None = None,
+    expected_legacy_revision_count: int | None = None,
+) -> dict[str, SchemaFingerprint]:
+    """Load fingerprints bound to the exact legacy migration revision."""
     raw = json.loads(path.read_text(encoding="utf-8"))
     services = raw.get("services") if isinstance(raw, dict) else None
-    if raw.get("schema_version") != 1 or not isinstance(services, dict):
+    if (
+        raw.get("schema_version") != 1
+        or not isinstance(raw.get("legacy_head"), str)
+        or not isinstance(raw.get("legacy_revision_count"), int)
+        or isinstance(raw.get("legacy_revision_count"), bool)
+        or not isinstance(services, dict)
+    ):
         raise ValueError("legacy schema contract must declare version 1 services")
+    if expected_legacy_head is not None and raw["legacy_head"] != expected_legacy_head:
+        raise ValueError("legacy schema contract head does not match the migration inventory")
+    if (
+        expected_legacy_revision_count is not None
+        and raw["legacy_revision_count"] != expected_legacy_revision_count
+    ):
+        raise ValueError("legacy schema contract revision count does not match the inventory")
     contract: dict[str, SchemaFingerprint] = {}
     for service_id, value in services.items():
         if not isinstance(service_id, str) or not isinstance(value, dict):

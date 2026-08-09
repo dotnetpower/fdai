@@ -918,13 +918,34 @@ def test_independent_service_manifest_references_existing_migration_branches() -
 
 
 def test_schema_contract_covers_exactly_five_services() -> None:
-    contract = schema_module.load_schema_contract(MIGRATION_ROOT / "legacy-schema-contract.json")
+    inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
+    contract = schema_module.load_schema_contract(
+        MIGRATION_ROOT / "legacy-schema-contract.json",
+        expected_legacy_head=inventory.heads[0],
+        expected_legacy_revision_count=len(inventory.down_revisions),
+    )
 
     assert tuple(contract) == SERVICE_IDS
     assert all(value.digest.startswith("sha256:") for value in contract.values())
     assert all(value.table_count > 0 for value in contract.values())
     assert all(value.column_count >= value.table_count for value in contract.values())
     assert all(value.extensions for value in contract.values())
+    assert contract["core-control-plane"].constraint_count == 171
+
+
+def test_schema_contract_rejects_stale_legacy_revision(tmp_path: Path) -> None:
+    contract_path = MIGRATION_ROOT / "legacy-schema-contract.json"
+    stale = json.loads(contract_path.read_text(encoding="utf-8"))
+    stale["legacy_head"] = "20260806_0077"
+    stale_path = tmp_path / "legacy-schema-contract.json"
+    stale_path.write_text(json.dumps(stale), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="head does not match"):
+        schema_module.load_schema_contract(
+            stale_path,
+            expected_legacy_head="20260808_0079",
+            expected_legacy_revision_count=81,
+        )
 
 
 def test_adoption_evidence_schema_matches_canonical_legacy_inventory() -> None:
