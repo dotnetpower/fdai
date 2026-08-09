@@ -948,6 +948,27 @@ def test_schema_contract_rejects_stale_legacy_revision(tmp_path: Path) -> None:
         )
 
 
+def test_core_runtime_role_grants_only_core_owned_tables() -> None:
+    inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
+    ownership = ownership_module.load_ownership_manifest(
+        MIGRATION_ROOT / "ownership.json",
+        inventory,
+    )
+    role_path = (
+        MIGRATION_ROOT / "branches/core-control-plane/versions/20260809_core_runtime_role.py"
+    )
+    role_migration = inventory_module.load_revision_metadata(role_path)
+
+    expected_tables = {
+        table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
+    }
+    assert set(role_migration.owned_tables) == expected_tables
+    source = role_path.read_text(encoding="utf-8")
+    assert "CREATE ROLE fdai_core" in source
+    assert "ON ALL TABLES" not in source
+    assert "ALTER DEFAULT PRIVILEGES" not in source
+
+
 def test_adoption_evidence_schema_matches_canonical_legacy_inventory() -> None:
     inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
     schema = json.loads(
