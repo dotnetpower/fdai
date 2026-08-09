@@ -126,6 +126,8 @@ def _validate_release(
         raise RemoteEvidenceError(f"{label} images must cover the canonical five services")
     for service_id, digest in images.items():
         _require_sha256(digest, f"{label} {service_id} image")
+    if len(set(images.values())) != len(SERVICE_IDS):
+        raise RemoteEvidenceError(f"{label} image digests must be unique")
     return release
 
 
@@ -311,6 +313,9 @@ def validate_remote_service_evidence(
         raise RemoteEvidenceError("N and N-1 source revisions must be distinct")
     if n["supply_chain_run_id"] == n_minus_one["supply_chain_run_id"]:
         raise RemoteEvidenceError("N and N-1 supply-chain runs must be distinct")
+    for release_service_id in SERVICE_IDS:
+        if n["images"][release_service_id] == n_minus_one["images"][release_service_id]:
+            raise RemoteEvidenceError(f"{release_service_id} N and N-1 images must be distinct")
 
     services = _array(evidence["services"], "remote evidence services")
     if len(services) != 5:

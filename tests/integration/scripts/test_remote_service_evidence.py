@@ -253,6 +253,29 @@ def test_rejects_image_not_bound_to_release() -> None:
         validate_remote_service_evidence(_manifest(), evidence)
 
 
+def test_rejects_reused_image_across_services() -> None:
+    evidence = _evidence()
+    reused = evidence["n"]["images"]["core-control-plane"]
+    evidence["n"]["images"]["operator-service"] = reused
+    operator = _service(evidence, "operator-service")
+    operator["stages"][0]["image_digest"] = reused
+    operator["stages"][2]["image_digest"] = reused
+
+    with pytest.raises(RemoteEvidenceError, match="image digests must be unique"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_rejects_same_image_for_n_and_n_minus_one() -> None:
+    evidence = _evidence()
+    reused = evidence["n"]["images"]["core-control-plane"]
+    evidence["n_minus_one"]["images"]["core-control-plane"] = reused
+    core = _service(evidence, "core-control-plane")
+    core["stages"][1]["image_digest"] = reused
+
+    with pytest.raises(RemoteEvidenceError, match="N and N-1 images must be distinct"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
 def test_rejects_reused_stage_context() -> None:
     evidence = _evidence()
     reused = evidence["services"][0]["stages"][0]["plan"]["context_digest"]
