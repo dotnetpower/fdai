@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: ea0508b0f4933ea38e4cb3f4d512c56aba7ab923
+translation_source_sha: 1a2b0e94d602c90a9f07c704f76dbf8ef5f1d605
 translation_revised: 2026-08-09
 ---
 # 서비스 분해 실행 계획
@@ -294,6 +294,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-09 | IS-09 | Legacy-head adoption prerequisite | Round 40 | Core apply run `31284637886`은 live legacy lineage가 `20260806_0077`이고 adoption은 `20260808_0079`를 요구하여 snapshot 또는 Terraform mutation 전에 실패했습니다. 이제 initial cutover는 additive ontology-direction migration으로 legacy Alembic lineage를 먼저 전진시킨 뒤 schema evidence 관측, service baseline stamp 및 service branch upgrade를 수행합니다. Legacy migration file과 `alembic.ini`도 exact plan/apply provenance input에 포함됩니다. |
 | 2026-08-09 | IS-09 | Legacy migration working directory | Round 41 | Core apply run `31286708624`는 Alembic이 relative `script_location`을 protected checkout 밖에서 해석하여 snapshot 또는 Terraform mutation 전에 실패했습니다. 이제 legacy upgrade는 exact protected controls checkout을 root로 하는 subshell에서 실행하므로 `alembic.ini`와 tracked migration directory가 동일한 sealed source에서 해석됩니다. |
 | 2026-08-09 | IS-09 | Release-safe plan provenance | Round 42 | Automatic release commit이 root package version만 변경해 dependency와 deployment control이 동일한데도 protected plan을 반복해서 무효화했습니다. 이제 apply는 strict control을 byte-for-byte로 비교하고 `pyproject.toml`과 `uv.lock`에서는 root FDAI release version만 제거한 뒤 semantic content를 비교합니다. Dependency, lock graph, migration, workflow, helper 또는 Terraform 변경은 계속 plan을 무효화합니다. |
+| 2026-08-09 | IS-09 | Service migration revision capacity | Round 43 | Core apply run `31294369918`은 adopted service baseline까지 진행했지만 Alembic이 service version column을 32자로 생성했고 다음 branch revision id가 더 길어서 Terraform mutation 전에 실패했습니다. 이제 baseline stamp와 모든 service upgrade는 branch history를 기록하기 전에 service-owned version column만 128자로 확장하며 legacy Alembic table은 변경하지 않습니다. |
 
 ## 관련 문서
 
