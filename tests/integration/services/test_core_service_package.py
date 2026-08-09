@@ -150,11 +150,18 @@ def test_core_wheel_cold_imports_without_fdai_distribution(
     tmp_path: Path,
 ) -> None:
     contract_wheel = _build_wheel("fdai-service-contracts", tmp_path)
-    uv = shutil.which("uv")
-    assert uv is not None
-    supported_python = shutil.which("python3.12") or sys.executable
+    wheel_root = tmp_path / "installed-wheels"
+    wheel_root.mkdir()
+    for wheel in (core_wheel, contract_wheel):
+        with zipfile.ZipFile(wheel) as archive:
+            archive.extractall(wheel_root)
     script = """
+import sys
 from importlib.metadata import PackageNotFoundError, distribution
+from pathlib import Path
+
+wheel_root = Path(sys.argv[1]).resolve()
+sys.path.insert(0, str(wheel_root))
 
 try:
     distribution("fdai")
@@ -163,6 +170,7 @@ except PackageNotFoundError:
 else:
     raise AssertionError("monolithic fdai distribution is installed")
 
+import fdai
 import fdai.agents
 import fdai.composition
 import fdai.core.control_loop
@@ -173,28 +181,19 @@ import fdai.shared.contracts
 import fdai_core_service.main
 
 assert distribution("fdai-core-control-plane").version == "0.1.3"
+assert Path(fdai.__file__).resolve().is_relative_to(wheel_root)
+assert Path(fdai_core_service.main.__file__).resolve().is_relative_to(wheel_root)
 """
-    subprocess.run(  # noqa: S603 - resolved uv executable runs fixed import arguments
+    subprocess.run(  # noqa: S603 - current locked Python runs fixed import arguments
         [
-            uv,
-            "run",
-            "--isolated",
-            "--no-project",
-            "--offline",
-            "--python",
-            supported_python,
-            "--with",
-            str(core_wheel),
-            "--with",
-            str(contract_wheel),
-            "python",
+            sys.executable,
             "-I",
             "-c",
             script,
+            str(wheel_root),
         ],
         cwd=tmp_path,
         check=True,
-        env={**os.environ, "UV_NO_PROGRESS": "1"},
         capture_output=True,
         text=True,
     )
