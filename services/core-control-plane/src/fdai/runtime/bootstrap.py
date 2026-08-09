@@ -394,7 +394,7 @@ async def _run() -> int:
                     actor_oid="Thor",
                 )
 
-            runtime_symptom_index = build_from_promoted()
+            runtime_symptom_index = build_from_promoted(_resolve_catalog_root() / "chaos-scenarios")
 
             async def _relay_response_outcome(outcome: Any) -> None:
                 await bus.publish(

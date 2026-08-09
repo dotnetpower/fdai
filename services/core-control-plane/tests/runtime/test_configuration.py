@@ -20,6 +20,14 @@ def test_catalog_candidates_prefer_complete_container_payload() -> None:
     )
 
 
+def test_bootstrap_binds_symptom_index_to_resolved_catalog() -> None:
+    bootstrap = Path("services/core-control-plane/src/fdai/runtime/bootstrap.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'build_from_promoted(_resolve_catalog_root() / "chaos-scenarios")' in bootstrap
+
+
 def test_direct_model_endpoint_resolver_accepts_only_matching_account_ref() -> None:
     endpoint = "https://oai-example.openai.azure.com/"
     resolve = _direct_model_endpoint_resolver(endpoint)

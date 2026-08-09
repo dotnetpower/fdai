@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: fec95eaf92c354c7ceed88a990a4960bd455eacb
+translation_source_sha: 8d05006f7f8fb9ceb0661f97d2e4493b1ff46aee
 translation_revised: 2026-08-09
 ---
 # 서비스 분해 실행 계획
@@ -299,7 +299,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-09 | IS-09 | No-ingress revision activation | Round 45 | Core apply run `31297621282`은 900초 budget 전체를 기다렸지만 internal no-ingress service에는 traffic switch가 없어 새 revision이 healthy 상태이면서도 replica 0의 stopped 및 inactive 상태로 유지되었습니다. 이제 verification은 latest revision이 snapshot과 다르고 exact protected image를 실행하는지 확인한 뒤 bounded Container Apps revision activation을 한 번 수행하고 기존 health 및 rollback check를 계속합니다. |
 | 2026-08-09 | IS-09 | Core runtime database role | Round 46 | Activation-aware Core run `31299720389`은 exact image를 시작했지만 PostgreSQL role `fdai_core`가 없어 반복적으로 exit code 1이 발생한 사실을 Log Analytics에서 확인했습니다. 이제 Core migration branch는 해당 non-login role을 만들고 Core-owned table 34개와 audit sequence에만 권한을 부여하며 schema-wide 및 default privilege는 허용하지 않습니다. |
 | 2026-08-09 | IS-09 | Notification dependency degradation | Round 47 | Core-role run `31301828821`은 database startup을 통과했지만 A2 operational-alert channel 누락이 전체 Core process를 중단한 사실을 Log Analytics에서 확인했습니다. 이제 runtime은 unavailable route를 보고하고 unrelated read, deny, queue 및 shadow path를 유지합니다. 해당 notification route가 필요한 action은 usable delivery channel이 없으므로 delivery 성공을 주장할 수 없습니다. |
-| 2026-08-09 | IS-09 | Complete container catalog selection | Round 48 | Corrected-image Core run `31311862255`은 role과 notification startup을 통과했지만 catalog discovery가 incomplete virtual-environment `rule-catalog`를 선택하여 chaos scenario schema를 찾지 못한 사실을 Log Analytics에서 확인했습니다. 이제 runtime catalog resolution은 package-parent development fallback보다 complete `/app/rule-catalog` payload를 먼저 검사합니다. |
+| 2026-08-09 | IS-09 | Complete container catalog selection | Round 48 | Corrected-image Core run `31311862255`은 role과 notification startup을 통과했지만 catalog discovery가 incomplete virtual-environment `rule-catalog`를 선택하여 chaos scenario schema를 찾지 못한 사실을 Log Analytics에서 확인했습니다. 이제 runtime catalog resolution은 package-parent development fallback보다 complete `/app/rule-catalog` payload를 먼저 검사하며 symptom-index startup은 import-time default 대신 resolved chaos catalog를 명시적으로 받습니다. |
 
 ## 관련 문서
 
