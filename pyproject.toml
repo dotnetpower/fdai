@@ -3,7 +3,7 @@
 
 [project]
 name = "fdai"
-version = "0.1.240"
+version = "0.1.241"
 description = "Autonomous cloud operations control plane"
 readme = "README.md"
 license = { file = "LICENSE" }
