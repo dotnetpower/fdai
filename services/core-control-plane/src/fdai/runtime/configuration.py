@@ -69,6 +69,15 @@ def _new_http_client() -> httpx.AsyncClient:
     )
 
 
+def _catalog_root_candidates(module_path: Path, cwd: Path) -> tuple[Path, ...]:
+    """Order deployed catalog data before package-parent development fallbacks."""
+    return (
+        Path("/app/rule-catalog"),
+        *(parent / "rule-catalog" for parent in [module_path.parent, *module_path.parents]),
+        cwd / "rule-catalog",
+    )
+
+
 def _resolve_catalog_root() -> Path:
     """Locate the rule-catalog/ tree across dev + container layouts.
 
@@ -86,17 +95,10 @@ def _resolve_catalog_root() -> Path:
             return candidate
         raise FileNotFoundError(f"FDAI_CATALOG_ROOT={override!r} is not a directory")
 
-    # Walk up from this module looking for a rule-catalog/ sibling.
     here = Path(__file__).resolve()
-    for parent in [here.parent, *here.parents]:
-        cand = parent / "rule-catalog"
-        if (cand / "catalog").is_dir():
-            return cand
-
-    # Container image default (Dockerfile copies to /app/rule-catalog).
-    for absolute in (Path("/app/rule-catalog"), Path.cwd() / "rule-catalog"):
-        if (absolute / "catalog").is_dir():
-            return absolute
+    for candidate in _catalog_root_candidates(here, Path.cwd()):
+        if (candidate / "catalog").is_dir():
+            return candidate
 
     raise FileNotFoundError("Could not locate the rule-catalog tree. Set FDAI_CATALOG_ROOT.")
 

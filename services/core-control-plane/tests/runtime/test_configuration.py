@@ -2,8 +2,22 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
-from fdai.runtime.configuration import _direct_model_endpoint_resolver
+from fdai.runtime.configuration import _catalog_root_candidates, _direct_model_endpoint_resolver
+
+
+def test_catalog_candidates_prefer_complete_container_payload() -> None:
+    candidates = _catalog_root_candidates(
+        Path("/app/.venv/lib/python3.13/site-packages/fdai/runtime/configuration.py"),
+        Path("/app"),
+    )
+
+    assert candidates[0] == Path("/app/rule-catalog")
+    assert candidates.index(Path("/app/rule-catalog")) < candidates.index(
+        Path("/app/.venv/rule-catalog")
+    )
 
 
 def test_direct_model_endpoint_resolver_accepts_only_matching_account_ref() -> None:
