@@ -199,12 +199,9 @@ def test_initial_cutover_prepares_stamps_and_upgrades_service_migrations() -> No
     assert "migration_dsn_secret_name" in _WORKFLOW
     assert "az keyvault secret show" in _WORKFLOW
     assert 'if [[ "$INITIAL_CUTOVER" == "true" ]]' in _WORKFLOW
-    legacy_upgrade = (
-        "alembic \\\n"
-        '              --config "$TRUSTED_CONTROLS/alembic.ini" \\\n'
-        "              upgrade head"
-    )
+    legacy_upgrade = "alembic upgrade head"
     assert legacy_upgrade in _WORKFLOW
+    assert 'cd "$TRUSTED_CONTROLS"' in _WORKFLOW
     assert "prepare-adoption" in _WORKFLOW
     assert "stamp-baseline" in _WORKFLOW
     service_upgrade = '"$migration_command" upgrade head'

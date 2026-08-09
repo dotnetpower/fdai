@@ -1743,8 +1743,9 @@ def test_apply_runs_service_migrations_from_masked_key_vault_dsn() -> None:
     assert "- name: Apply service-owned database migrations" in workflow
     assert 'echo "::add-mask::$migration_dsn"' in workflow
     assert 'migration_command="$TRUSTED_CONTROLS/service-migrations/bin/$SERVICE"' in workflow
-    assert '--config "$TRUSTED_CONTROLS/alembic.ini"' in workflow
-    assert workflow.index('--config "$TRUSTED_CONTROLS/alembic.ini"') < workflow.index(
+    assert 'cd "$TRUSTED_CONTROLS"' in workflow
+    assert "alembic upgrade head" in workflow
+    assert workflow.index("alembic upgrade head") < workflow.index(
         '"$migration_command" prepare-adoption'
     )
     assert '"$migration_command" prepare-adoption' in workflow

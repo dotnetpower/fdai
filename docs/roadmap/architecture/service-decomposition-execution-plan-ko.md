@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: f10460f90b9efcb756f7e7bb902cc08237068fc6
+translation_source_sha: da806b9d5b3e4792ee090b26072413311971f485
 translation_revised: 2026-08-09
 ---
 # 서비스 분해 실행 계획
@@ -159,7 +159,7 @@ entry point, duplicate contract와 generic ingestion co-host seam은 제거되�
 
 로컬 완료 evidence에는 독립 build wheel 6개, nonroot service image 5개, image health check 5개,
 104개 table과 11개 transition을 포함하는 검증된 migration branch 5개, 로컬에서 validate한 Terraform
-root 5개, cross-service implementation import 0, 그리고 독립 critique-and-hardening 40회와 Medium 이상
+root 5개, cross-service implementation import 0, 그리고 독립 critique-and-hardening 41회와 Medium 이상
 로컬 residual 0이 포함됩니다. IS-06과 IS-07은 local 기준으로 완료됐습니다. Exact remote
 plan/apply와 rolling 확인은 IS-09로 보류하며 최종 service-owned
 input을 사용하고 monolith를 rollback source로 복원하지 않습니다. IS-09는 deployable distribution
@@ -292,6 +292,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-09 | IS-09 | Adoption evidence schema parity | Round 38 | Public adoption-evidence schema는 legacy revision 79개를 요구했지만 검증된 adoption manifest는 모두 canonical 81개를 요구했습니다. 이제 schema가 live inventory와 일치하며 regression test가 canonical migration graph에서 required head와 revision count를 모두 도출합니다. |
 | 2026-08-09 | IS-09 | Adoption retry 및 evidence durability | Round 39 | Initial cutover가 service migration branch를 upgrade한 뒤 후속 단계에서 중단되면 retry가 변경된 schema를 대상으로 baseline evidence를 다시 생성하여 스스로 차단할 수 있었습니다. 이제 prepare와 stamp는 exact service lineage가 baseline을 포함할 때만 no-op으로 처리하고 다른 기존 lineage는 모두 차단하며, 후속 migration 단계가 실패해도 portable adoption 및 schema evidence를 90일 동안 보존합니다. |
 | 2026-08-09 | IS-09 | Legacy-head adoption prerequisite | Round 40 | Core apply run `31284637886`은 live legacy lineage가 `20260806_0077`이고 adoption은 `20260808_0079`를 요구하여 snapshot 또는 Terraform mutation 전에 실패했습니다. 이제 initial cutover는 additive ontology-direction migration으로 legacy Alembic lineage를 먼저 전진시킨 뒤 schema evidence 관측, service baseline stamp 및 service branch upgrade를 수행합니다. Legacy migration file과 `alembic.ini`도 exact plan/apply provenance input에 포함됩니다. |
+| 2026-08-09 | IS-09 | Legacy migration working directory | Round 41 | Core apply run `31286708624`는 Alembic이 relative `script_location`을 protected checkout 밖에서 해석하여 snapshot 또는 Terraform mutation 전에 실패했습니다. 이제 legacy upgrade는 exact protected controls checkout을 root로 하는 subshell에서 실행하므로 `alembic.ini`와 tracked migration directory가 동일한 sealed source에서 해석됩니다. |
 
 ## 관련 문서
 
