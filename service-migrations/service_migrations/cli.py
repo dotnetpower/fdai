@@ -44,6 +44,7 @@ def _lock_key(scope: str) -> int:
 
 
 _COORDINATION_LOCK_KEY = _lock_key("all-services")
+_SERVICE_VERSION_LENGTH = 128
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -129,6 +130,26 @@ def _read_versions_on_connection(
         return None
     rows = connection.execute(text(f"SELECT version_num FROM {table_name}"))  # noqa: S608
     return tuple(sorted(str(row[0]) for row in rows))
+
+
+def _ensure_service_version_capacity(
+    table_name: str,
+    *,
+    connection: Connection | None = None,
+) -> None:
+    """Allow service branch revision ids without modifying legacy history."""
+    if not table_name.replace("_", "").isalnum():
+        raise RuntimeError(f"unsafe version table identifier: {table_name}")
+    statement = text(
+        f"ALTER TABLE {table_name} "  # noqa: S608 - identifier is validated above
+        f"ALTER COLUMN version_num TYPE VARCHAR({_SERVICE_VERSION_LENGTH})"
+    )
+    if connection is not None:
+        connection.execute(statement)
+        return
+    engine = create_engine(_database_url())
+    with engine.begin() as owned_connection:
+        owned_connection.execute(statement)
 
 
 def _validate_evidence(
@@ -291,6 +312,7 @@ def _stamp_service_baseline(
         raise RuntimeError(f"{service_id} schema fingerprint mismatch; refusing baseline stamp")
     config = Config(str(MIGRATION_ROOT / "configs" / f"{service_id}.ini"))
     command.stamp(config, adoption.baseline_revision)
+    _ensure_service_version_capacity(adoption.service_version_table)
     resulting_versions = _read_versions(adoption.service_version_table)
     if resulting_versions != (adoption.baseline_revision,):
         raise RuntimeError(f"{service_id} baseline stamp did not produce the exact expected head")
@@ -370,6 +392,10 @@ def _upgrade_service(
             or not _revision_contains(config, service_versions[0], adoption.baseline_revision)
         ):
             raise RuntimeError(f"{service_id} baseline is not stamped; run stamp-baseline first")
+        _ensure_service_version_capacity(
+            adoption.service_version_table,
+            connection=connection,
+        )
         _require_dependency_revisions(
             service_id,
             ownership,

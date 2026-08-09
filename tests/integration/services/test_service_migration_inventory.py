@@ -1088,6 +1088,30 @@ def test_stamp_baseline_is_idempotent_only_at_exact_baseline(
     )
 
 
+def test_service_version_capacity_allows_long_branch_revisions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executed: list[str] = []
+
+    class Connection:
+        def execute(self, statement: object) -> None:
+            executed.append(str(statement))
+
+    cli_module._ensure_service_version_capacity(
+        "alembic_version_core_control_plane",
+        connection=Connection(),
+    )
+
+    assert executed == [
+        "ALTER TABLE alembic_version_core_control_plane ALTER COLUMN version_num TYPE VARCHAR(128)"
+    ]
+    with pytest.raises(RuntimeError, match="unsafe version table"):
+        cli_module._ensure_service_version_capacity(
+            "alembic_version; DROP TABLE audit_log",
+            connection=Connection(),
+        )
+
+
 def test_prepare_adoption_skips_existing_baseline_descendant(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
