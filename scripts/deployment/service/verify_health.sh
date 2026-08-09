@@ -18,7 +18,8 @@ resource_id="$(jq -er '.target.service_resource_id' "$context_path")"
 resource_group="$(jq -er '.target.resource_group' "$context_path")"
 service_name="$(jq -er '.target.service_name' "$context_path")"
 fqdn="$(jq -r '.fqdn // ""' "$work_dir/service.json")"
-for _attempt in $(seq 1 36); do
+health_deadline=$((SECONDS + 900))
+while ((SECONDS < health_deadline)); do
   timeout 60s az containerapp show \
       --ids "$resource_id" \
       --only-show-errors \
