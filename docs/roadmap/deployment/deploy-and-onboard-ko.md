@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 2fd18c8422457d61d6e0107313273277060c3fb4
+translation_source_sha: 8a99762913c7db36ab37595be4fda500adbb27d1
 translation_revised: 2026-08-09
 ---
 
@@ -327,7 +327,7 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | 1 | **Container Apps environment** | Consumption | 공유 서버리스 컴퓨트 호스트 | 코어 앱과 예약 작업이 하나의 environment를 공유하며 [Runtime 계약](../architecture/csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트)을 구현합니다. |
 | 2 | **Container Apps** (현재 Core와 목표 Executor) | 현재 Core app은 `minReplicas: 1`, 목표는 internal app 1개 추가 | Transition baseline은 Core에서 execution을 구성하고 완료된 5개 service topology는 Executor를 격리합니다. | 모든 graduation gate 통과 후에만 Executor가 effect authority를 받습니다. [Compute Shape](#compute-shape-current-core와-5개-service-목표)를 참조하세요. |
 | 3 | **Container Apps Job** | Consumption | 스케줄 프로브와 out-of-band 변경 감지 | Azure Functions 대체; environment 공유 |
-| 4 | **Event Hubs namespace shard** | Standard 2개 (각 1 TU, auto-inflate off) | Kafka-와이어 이벤트 버스 (`:9093` endpoint) | primary는 governed ingress, DLQ, HIL, stage를 소유합니다. Synthetic startup round-trip은 11번째 entity를 추가하지 않고 dedicated probe consumer를 사용하여 Core의 provisioned event topic을 공유합니다. Operational은 canary + DLQ, raw inventory, Executor command + DLQ 및 Executor receipt entity를 소유합니다. |
+| 4 | **Event Hubs namespace shard** | Standard 2개 (각 1 TU, auto-inflate off) | Kafka-와이어 이벤트 버스 (`:9093` endpoint) | Primary는 governed ingress, DLQ, HIL 및 stage를 소유합니다. Operational은 canary + DLQ, 전용 synthetic startup round-trip, raw inventory, Executor command + DLQ 및 Executor receipt entity를 소유합니다. Core는 deployment configuration을 통해 operational bootstrap endpoint와 startup topic을 받습니다. |
 | 5 | **Event Grid inventory system topic + subscription + Diagnostic Settings** | global subscription event delivery / Log Analytics | Resource write/delete를 `aw.inventory.raw`로 보내고 플랫폼 진단을 workspace로 보냄 | Terraform은 Azure canonical lowercase type으로 tracked topic 하나를 adopt하고 send-only inventory UAMI를 할당하며 dedicated system-topic subscription API를 사용합니다. Discovery가 모호하면 plan을 차단합니다. |
 | 6 | **PostgreSQL Flexible Server** | Dev: Burstable **B1ms**, HA 비활성, 7일 백업; prod: zone-redundant HA, 35일 geo backup | audit + KPI + 패턴 라이브러리 + **pgvector** T1 임베딩, 단일 저장 | Terraform은 `vector`와 `pg_trgm`을 allowlist하며 production은 `ZoneRedundant` HA를 요구합니다. |
 | 7 | **Key Vault** | Standard | **Container Apps native secret + Key Vault reference**로 소비되는 secret backend - [시크릿 계약](../architecture/csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) 구현 | Premium (HSM) 불필요; 앱은 secret SDK 호출 안 함 |

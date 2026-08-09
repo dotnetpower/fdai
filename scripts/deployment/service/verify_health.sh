@@ -33,6 +33,12 @@ while ((SECONDS < health_deadline)); do
       --revision "$revision_name" \
       --only-show-errors \
       --output json >"$work_dir/revision.json"
+  requires_health_state="$(jq -er '
+    if .properties.configuration.ingress == null then "false"
+    elif (.properties.configuration.ingress | type) == "object" then "true"
+    else error("Container App ingress configuration is invalid")
+    end
+  ' "$work_dir/app.json")"
   observed_image="$(jq -er '.properties.template.containers[0].image' "$work_dir/revision.json")"
   [[ "$revision_name" != "$previous_revision" && "$observed_image" == "$expected_image" ]] || {
     echo "latest revision does not match the exact protected service image." >&2
@@ -48,7 +54,20 @@ while ((SECONDS < health_deadline)); do
       --output none
     activation_attempted=true
   fi
-  if jq -e '.properties.provisioningState == "Provisioned" and .properties.healthState == "Healthy" and .properties.active == true' \
+  if jq -e --argjson requires_health_state "$requires_health_state" '
+      .properties.provisioningState == "Provisioned"
+      and .properties.active == true
+      and (
+        .properties.healthState == "Healthy"
+        or (
+          ($requires_health_state | not)
+          and .properties.healthState == null
+          and .properties.runningState == "Running"
+          and (.properties.replicas | type) == "number"
+          and .properties.replicas >= 1
+        )
+      )
+    ' \
       "$work_dir/revision.json" >/dev/null; then
     break
   fi

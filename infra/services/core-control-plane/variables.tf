@@ -6,10 +6,11 @@ variable "name" {
 variable "platform" {
   description = "Shared platform outputs supplied by the platform state owner."
   type = object({
-    resource_group_name          = string
-    container_app_environment_id = string
-    acr_login_server             = string
-    kafka_bootstrap_servers      = string
+    resource_group_name                 = string
+    container_app_environment_id        = string
+    acr_login_server                    = string
+    kafka_bootstrap_servers             = string
+    operational_kafka_bootstrap_servers = optional(string, "")
   })
 }
 
@@ -44,6 +45,7 @@ variable "event_topics" {
     events           = string
     executor_command = string
     executor_receipt = string
+    startup_probe    = optional(string, "runtime.startup.probe")
   })
 }
 

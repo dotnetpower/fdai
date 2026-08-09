@@ -24,7 +24,9 @@ bindings through configuration (see
 > the captured revision and digest-pinned image automatically when immediate post-apply health
 > verification fails. Each plan and successful apply also captures the four peer service states
 > before and after the operation, rejects any canonical state change, and retains only a sealed
-> non-sensitive peer-isolation receipt.
+> non-sensitive peer-isolation receipt. For a no-ingress Container App, Azure may omit
+> `healthState`; verification accepts that state only when the revision is active, reports
+> `runningState=Running`, and has at least one replica.
 > Automated dev -> staging -> prod promotion, Container Apps traffic-split canaries,
 > SLO-driven rollback, and console blue/green remain target designs. The core Container App
 > currently uses `revision_mode = Single`.

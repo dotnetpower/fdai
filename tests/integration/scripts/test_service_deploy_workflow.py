@@ -188,9 +188,13 @@ def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
     assert "terraform destroy" not in _WORKFLOW
 
 
-def test_core_startup_probe_uses_a_provisioned_event_topic() -> None:
+def test_core_startup_probe_uses_the_operational_event_bus() -> None:
     assert (
-        '{ name = "FDAI_STARTUP_KAFKA_PROBE_TOPIC", value = var.event_topics.events }'
+        '{ name = "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS", '
+        "value = var.platform.operational_kafka_bootstrap_servers }" in _CORE_TERRAFORM
+    )
+    assert (
+        '{ name = "FDAI_STARTUP_KAFKA_PROBE_TOPIC", value = var.event_topics.startup_probe }'
         in _CORE_TERRAFORM
     )
 

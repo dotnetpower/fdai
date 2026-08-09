@@ -934,7 +934,26 @@ jobs:
               --revision "$recovery_revision" \
               --only-show-errors \
               --output json >"$rollback_dir/revision-after.json"
-            if jq -e '.properties.provisioningState == "Provisioned" and .properties.healthState == "Healthy" and .properties.active == true' \
+            requires_health_state="$(jq -er '
+              if .properties.configuration.ingress == null then "false"
+              elif (.properties.configuration.ingress | type) == "object" then "true"
+              else error("Container App ingress configuration is invalid")
+              end
+            ' "$rollback_dir/app-after.json")"
+            if jq -e --argjson requires_health_state "$requires_health_state" '
+                .properties.provisioningState == "Provisioned"
+                and .properties.active == true
+                and (
+                  .properties.healthState == "Healthy"
+                  or (
+                    ($requires_health_state | not)
+                    and .properties.healthState == null
+                    and .properties.runningState == "Running"
+                    and (.properties.replicas | type) == "number"
+                    and .properties.replicas >= 1
+                  )
+                )
+              ' \
               "$rollback_dir/revision-after.json" >/dev/null; then
               break
             fi

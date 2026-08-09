@@ -459,7 +459,10 @@ def _health_evidence() -> tuple[dict[str, object], ...]:
         "id": resource_id,
         "name": "example",
         "tags": {"fdai:component": "operator-service"},
-        "properties": {"latestRevisionName": "example--new"},
+        "properties": {
+            "latestRevisionName": "example--new",
+            "configuration": {"ingress": {"external": True}},
+        },
     }
     revision = {
         "name": "example--new",
@@ -554,6 +557,8 @@ def test_core_contract_requires_complete_bootstrap_environment(contract: ModuleT
         "AZURE_REGION",
         "POSTGRES_HOST",
         "POSTGRES_DATABASE",
+        "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS",
+        "FDAI_STARTUP_KAFKA_PROBE_TOPIC",
         "FDAI_START_CONSUMER",
     } <= set(resolved.required_environment)
     assert '{ name = "FDAI_START_CONSUMER", value = "1" }' in _CORE_TERRAFORM
@@ -1643,6 +1648,74 @@ def test_health_verification_uses_azure_latest_revision_not_stale_terraform_outp
         revision=revision,
         previous_revision="example--old",
     )
+
+
+def test_no_ingress_health_accepts_absent_azure_health_state(
+    recovery: ModuleType,
+) -> None:
+    context, service_output, account, app, revision = _health_evidence()
+    app["properties"]["configuration"]["ingress"] = None  # type: ignore[index]
+    revision["properties"]["healthState"] = None  # type: ignore[index]
+    revision["properties"]["runningState"] = "Running"  # type: ignore[index]
+    revision["properties"]["replicas"] = 1  # type: ignore[index]
+
+    recovery.validate_health(
+        context=context,
+        service_output=service_output,
+        account=account,
+        app=app,
+        revision=revision,
+        previous_revision="example--old",
+    )
+
+    snapshot = recovery.capture_snapshot(
+        context=context,
+        account=account,
+        app=app,
+        revision=revision,
+        rollback_contract={"authority_fallback": ""},
+    )
+    app["properties"]["latestRevisionName"] = "example--recovery"  # type: ignore[index]
+    revision["name"] = "example--recovery"
+    recovery.validate_rollback(
+        snapshot=snapshot,
+        account=account,
+        app=app,
+        revision=revision,
+    )
+
+
+def test_ingress_health_rejects_absent_azure_health_state(recovery: ModuleType) -> None:
+    context, service_output, account, app, revision = _health_evidence()
+    revision["properties"]["healthState"] = None  # type: ignore[index]
+
+    with pytest.raises(recovery.DeploymentRecoveryError, match="healthy and active"):
+        recovery.validate_health(
+            context=context,
+            service_output=service_output,
+            account=account,
+            app=app,
+            revision=revision,
+            previous_revision="example--old",
+        )
+
+
+def test_no_ingress_health_rejects_nonrunning_revision(recovery: ModuleType) -> None:
+    context, service_output, account, app, revision = _health_evidence()
+    app["properties"]["configuration"]["ingress"] = None  # type: ignore[index]
+    revision["properties"]["healthState"] = None  # type: ignore[index]
+    revision["properties"]["runningState"] = "Activating"  # type: ignore[index]
+    revision["properties"]["replicas"] = 1  # type: ignore[index]
+
+    with pytest.raises(recovery.DeploymentRecoveryError, match="healthy and active"):
+        recovery.validate_health(
+            context=context,
+            service_output=service_output,
+            account=account,
+            app=app,
+            revision=revision,
+            previous_revision="example--old",
+        )
 
 
 def test_recovery_snapshots_only_restorable_key_vault_references(

@@ -240,6 +240,29 @@ def _target(context: dict[str, Any]) -> dict[str, Any]:
     return target
 
 
+def _health_state_is_accepted(app: dict[str, Any], revision_properties: dict[str, Any]) -> bool:
+    """Accept absent health only for a running no-ingress revision with a replica."""
+    properties = app.get("properties")
+    configuration = properties.get("configuration") if isinstance(properties, dict) else None
+    if not isinstance(configuration, dict):
+        raise DeploymentRecoveryError("Container App configuration is missing")
+    ingress = configuration.get("ingress")
+    if ingress is not None and not isinstance(ingress, dict):
+        raise DeploymentRecoveryError("Container App ingress configuration is invalid")
+    health_state = revision_properties.get("healthState")
+    if health_state == "Healthy":
+        return True
+    replicas = revision_properties.get("replicas")
+    return (
+        ingress is None
+        and health_state is None
+        and revision_properties.get("runningState") == "Running"
+        and isinstance(replicas, int)
+        and not isinstance(replicas, bool)
+        and replicas >= 1
+    )
+
+
 def _key_vault_secrets(app: dict[str, Any]) -> list[dict[str, str]]:
     properties = app.get("properties")
     configuration = properties.get("configuration") if isinstance(properties, dict) else None
@@ -312,7 +335,7 @@ def validate_health(
         raise DeploymentRecoveryError("revision properties are missing")
     if properties.get("provisioningState") != "Provisioned":
         raise DeploymentRecoveryError("new revision is not Provisioned")
-    if properties.get("healthState") != "Healthy" or properties.get("active") is not True:
+    if not _health_state_is_accepted(app, properties) or properties.get("active") is not True:
         raise DeploymentRecoveryError("new revision is not healthy and active")
     containers = _revision_container_contracts(revision, service=service)
     if containers["primary"]["image"] != expected_image:
@@ -441,7 +464,7 @@ def validate_rollback(
         raise DeploymentRecoveryError("rollback evidence is not for the recovery revision")
     if (
         revision_properties.get("provisioningState") != "Provisioned"
-        or revision_properties.get("healthState") != "Healthy"
+        or not _health_state_is_accepted(app, revision_properties)
         or revision_properties.get("active") is not True
     ):
         raise DeploymentRecoveryError("rollback revision is not healthy and active")

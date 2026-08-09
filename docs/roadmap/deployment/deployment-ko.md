@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: a49825e436f9e6d1b10fb6dd5e33225f3d68c21c
+translation_source_sha: ddc4fddee91d1df4a354e944d34dd759d61eb53e
 translation_revised: 2026-08-09
 ---
 
@@ -27,7 +27,9 @@ state binding을 제공합니다.
 > image에 binding합니다. State cutover ownership을 검증하고 immediate post-apply health 검증이
 > 실패하면 capture한 revision과 digest-pinned image를 자동 복원합니다. 각 plan과 성공한
 > apply는 작업 전후 peer service 4개의 state를 capture하고 canonical state 변경을 차단하며,
-> 민감하지 않게 sealed한 peer-isolation receipt만 보존합니다.
+> 민감하지 않게 sealed한 peer-isolation receipt만 보존합니다. Ingress가 없는 Container
+> App에서는 Azure가 `healthState`를 생략할 수 있습니다. Verification은 revision이 active이고
+> `runningState=Running`을 보고하며 replica가 하나 이상일 때만 이 상태를 수락합니다.
 > 자동 dev -> staging -> prod 승격,
 > Container Apps traffic-split canary, SLO 기반 자동 rollback, console blue/green은 아직
 > 목표 설계입니다. Core Container App은 현재 `revision_mode = Single`입니다.

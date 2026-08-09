@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: b2813abe3cea214749f2fcb0a531dd42bce7a24e
+translation_source_sha: 9039061a2376f2e6f63f0df82a6bfaeaa0026ce1
 translation_revised: 2026-08-09
 ---
 # 서비스 분해 실행 계획
@@ -300,7 +300,9 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-09 | IS-09 | Core runtime database role | Round 46 | Activation-aware Core run `31299720389`은 exact image를 시작했지만 PostgreSQL role `fdai_core`가 없어 반복적으로 exit code 1이 발생한 사실을 Log Analytics에서 확인했습니다. 이제 Core migration branch는 해당 non-login role을 만들고 Core-owned table 34개와 audit sequence에만 권한을 부여하며 schema-wide 및 default privilege는 허용하지 않습니다. |
 | 2026-08-09 | IS-09 | Notification dependency degradation | Round 47 | Core-role run `31301828821`은 database startup을 통과했지만 A2 operational-alert channel 누락이 전체 Core process를 중단한 사실을 Log Analytics에서 확인했습니다. 이제 runtime은 unavailable route를 보고하고 unrelated read, deny, queue 및 shadow path를 유지합니다. 해당 notification route가 필요한 action은 usable delivery channel이 없으므로 delivery 성공을 주장할 수 없습니다. |
 | 2026-08-09 | IS-09 | Complete container catalog selection | Round 48 | Corrected-image Core run `31311862255`은 role과 notification startup을 통과했지만 catalog discovery가 incomplete virtual-environment `rule-catalog`를 선택하여 chaos scenario schema를 찾지 못한 사실을 Log Analytics에서 확인했습니다. 이제 runtime catalog resolution은 package-parent development fallback보다 complete `/app/rule-catalog` payload를 먼저 검사하며 symptom-index startup은 import-time default 대신 resolved chaos catalog를 명시적으로 받습니다. |
-| 2026-08-09 | IS-09 | Provisioned startup probe topic | Round 49 | Catalog-corrected Core run `31316016509`은 health server까지 도달했지만 default `runtime.startup.probe` Event Hub가 없고 Standard namespace가 이미 entity 10개 제한에 도달하여 ready가 되지 못했습니다. 이제 Core는 startup round-trip probe를 기존 provisioned event topic에 binding하며 synthetic scope와 dedicated probe consumer를 유지하고 11번째 entity를 요구하지 않습니다. |
+| 2026-08-09 | IS-09 | Provisioned startup probe topic | Round 49 | Catalog-corrected Core run `31316016509`은 health server까지 도달했지만 primary bootstrap endpoint를 사용했고 전용 `runtime.startup.probe` entity는 operational namespace에 속해 있어 ready가 되지 못했습니다. 가득 찬 primary namespace를 재사용하는 bounded 중간 수정을 시험했지만 성공적인 round-trip을 확립하지 못했습니다. |
+| 2026-08-09 | IS-09 | Operational startup probe binding | Round 50 | Canonical Core apply `31318043097`은 primary governed-ingress topic을 공유하면 synthetic consumer가 timeout하고 automatic rollback이 올바르게 시작됨을 증명했습니다. 이제 독립 Core contract는 기존 operational bootstrap endpoint와 전용 startup topic을 받아 synthetic scope, identity isolation 및 두 namespace의 entity 제한을 보존합니다. |
+| 2026-08-09 | IS-09 | No-ingress health evidence | Round 51 | 같은 apply에서 Azure가 internal no-ingress Core app에 `healthState`를 보고하지 않는다는 사실도 확인했습니다. 이제 health 및 rollback verification은 ingress가 disabled이고 exact revision이 active, `Running`, replica 1개 이상일 때만 absent state를 수락합니다. Ingress-enabled app은 계속 `Healthy`를 요구합니다. |
 
 ## 관련 문서
 
