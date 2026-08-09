@@ -197,6 +197,48 @@ def test_completed_program_verification_requires_all_remote_evidence() -> None:
         checker._validate_program_final_verification(manifest)
 
 
+def test_completed_program_verification_requires_persisted_remote_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    checker = _checker_module()
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    manifest["program_final_verification"]["status"] = "completed"
+    manifest["program_final_verification"]["accepted_remote_evidence"] = {
+        "service_plan_apply_receipts": 5,
+        "service_upgrade_and_rollback_proofs": 5,
+    }
+    monkeypatch.setattr(checker, "REMOTE_EVIDENCE_PATH", tmp_path / "missing.json")
+
+    with pytest.raises(ValueError, match="cannot load remote service evidence"):
+        checker._validate_program_final_verification(manifest)
+
+
+def test_completed_program_verification_requires_persisted_live_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    checker = _checker_module()
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    manifest["program_final_verification"]["status"] = "completed"
+    manifest["program_final_verification"]["accepted_remote_evidence"] = {
+        "service_plan_apply_receipts": 5,
+        "service_upgrade_and_rollback_proofs": 5,
+    }
+    remote = tmp_path / "remote.json"
+    remote.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(checker, "REMOTE_EVIDENCE_PATH", remote)
+    monkeypatch.setattr(checker, "LIVE_RECEIPTS_PATH", tmp_path / "missing-receipts.json")
+    monkeypatch.setattr(
+        checker,
+        "validate_remote_service_evidence",
+        lambda _manifest, _evidence: checker.RemoteEvidenceSummary(5, 5, 15, 15, 30),
+    )
+
+    with pytest.raises(ValueError, match="cannot load live service receipts"):
+        checker._validate_program_final_verification(manifest)
+
+
 def _write_final_layout(root: Path) -> None:
     for service_id in (
         "core-control-plane",

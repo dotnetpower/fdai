@@ -5,11 +5,18 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import importlib.util
 import json
 import re
 import tomllib
 from pathlib import Path
+from types import ModuleType
 from typing import Any
+
+from scripts.quality.architecture.remote_service_evidence import (
+    RemoteEvidenceSummary,
+    validate_remote_service_evidence,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = REPO_ROOT / "config" / "independent-services.json"
@@ -33,6 +40,14 @@ UPGRADE_RECEIPTS_PATH = (
     / "services"
     / "upgrade-receipts.json"
 )
+REMOTE_EVIDENCE_PATH = REPO_ROOT / "config" / "independent-service-remote-evidence.json"
+LIVE_RECEIPTS_PATH = REPO_ROOT / "config" / "independent-service-live-receipts.json"
+LIVE_EVIDENCE_MANIFEST_PATH = (
+    REPO_ROOT / "config" / "independent-service-live-evidence-manifest.json"
+)
+COMPATIBILITY_CHECKER_PATH = (
+    REPO_ROOT / "scripts" / "quality" / "architecture" / "check-service-compatibility.py"
+)
 SERVICE_IDS = (
     "core-control-plane",
     "operator-service",
@@ -53,7 +68,11 @@ def _load_json(path: Path, label: str) -> Any:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"cannot load {label}: {path.relative_to(REPO_ROOT)}") from exc
+        try:
+            display_path = path.relative_to(REPO_ROOT)
+        except ValueError:
+            display_path = path
+        raise ValueError(f"cannot load {label}: {display_path}") from exc
 
 
 def _canonical_digest(value: object) -> str:
@@ -184,6 +203,41 @@ def _validate_graph(work_packages: list[dict[str, Any]]) -> None:
         remaining.difference_update(ready)
 
 
+def _load_compatibility_checker() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "check_service_compatibility_for_program_final",
+        COMPATIBILITY_CHECKER_PATH,
+    )
+    if spec is None or spec.loader is None:
+        raise ValueError("cannot load the live service compatibility checker")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _validate_completed_remote_evidence(
+    manifest: dict[str, Any],
+    targets: dict[str, int],
+) -> None:
+    remote = _load_json(REMOTE_EVIDENCE_PATH, "remote service evidence")
+    if not isinstance(remote, dict):
+        raise ValueError("remote service evidence must be an object")
+    summary: RemoteEvidenceSummary = validate_remote_service_evidence(manifest, remote)
+    if (
+        summary.service_plan_apply_receipts != targets["service_plan_apply_receipts"]
+        or summary.service_upgrade_and_rollback_proofs
+        != targets["service_upgrade_and_rollback_proofs"]
+    ):
+        raise ValueError("remote service evidence does not satisfy program-final targets")
+    _load_json(LIVE_RECEIPTS_PATH, "live service receipts")
+    _load_json(LIVE_EVIDENCE_MANIFEST_PATH, "live service evidence manifest")
+    _load_compatibility_checker().validate(
+        mode="live",
+        receipts_path=LIVE_RECEIPTS_PATH,
+        evidence_manifest_path=LIVE_EVIDENCE_MANIFEST_PATH,
+    )
+
+
 def _validate_program_final_verification(manifest: dict[str, Any]) -> None:
     policy = manifest["program_final_verification"]
     if policy["completion_basis"] != "local-executable-evidence":
@@ -204,8 +258,10 @@ def _validate_program_final_verification(manifest: dict[str, Any]) -> None:
         raise ValueError("program-final remote verification targets must cover five services")
     if any(not 0 <= accepted[key] <= targets[key] for key in expected_keys):
         raise ValueError("accepted remote verification evidence count is invalid")
-    if policy["status"] == "completed" and accepted != targets:
-        raise ValueError("completed program-final verification requires all remote evidence")
+    if policy["status"] == "completed":
+        if accepted != targets:
+            raise ValueError("completed program-final verification requires all remote evidence")
+        _validate_completed_remote_evidence(manifest, targets)
     statuses = {item["id"]: item["status"] for item in manifest["work_packages"]}
     if statuses["IS-06"] != "completed":
         raise ValueError("IS-06 local deployment evidence must release IS-07")
