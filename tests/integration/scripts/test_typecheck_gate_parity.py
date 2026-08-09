@@ -27,6 +27,13 @@ def test_strict_mypy_runs_in_ci_fast_verify_and_central_queue() -> None:
     assert '"scripts/**" = ["N999", "S603", "S607"]' in pyproject
 
 
+def test_pre_push_ruff_uses_locked_development_dependencies() -> None:
+    pre_push = (_ROOT / ".githooks" / "pre-push").read_text(encoding="utf-8")
+
+    assert 'uv run --extra dev ruff check "${py[@]}"' in pre_push
+    assert 'uv run --extra dev ruff format --check "${py[@]}"' in pre_push
+
+
 def test_opa_downloads_are_bounded_and_checksum_verified() -> None:
     ci = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 

@@ -133,15 +133,15 @@ done
 if [ "${#py[@]}" -gt 0 ]; then
   echo "pre-push: ruff check on ${#py[@]} changed Python file(s)..."
   if command -v uv >/dev/null 2>&1; then
-    if ! uv run ruff check "${py[@]}"; then
-      echo "pre-push: BLOCKED - ruff check failed. Fix, or run: uv run ruff check --fix ${py[*]}"
+    if ! uv run --extra dev ruff check "${py[@]}"; then
+      echo "pre-push: BLOCKED - ruff check failed. Fix, or run: uv run --extra dev ruff check --fix ${py[*]}"
       exit 1
     fi
     # Format gate: CI runs `ruff format --check src tests` and a single
     # unformatted file fails the whole lint/mypy/pytest job before it even
     # starts. Catch it here so an unformatted file never reaches CI.
-    if ! uv run ruff format --check "${py[@]}"; then
-      echo "pre-push: BLOCKED - ruff format check failed. Run: uv run ruff format ${py[*]}"
+    if ! uv run --extra dev ruff format --check "${py[@]}"; then
+      echo "pre-push: BLOCKED - ruff format check failed. Run: uv run --extra dev ruff format ${py[*]}"
       exit 1
     fi
   else
