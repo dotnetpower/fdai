@@ -324,6 +324,7 @@ def validate_remote_service_evidence(
 ) -> RemoteEvidenceSummary:
     """Validate exact remote N -> N-1 -> N evidence without Azure context."""
 
+    _reject_deployment_context(manifest)
     _reject_deployment_context(evidence)
     _exact_keys(
         evidence,

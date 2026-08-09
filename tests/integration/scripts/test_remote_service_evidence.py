@@ -375,6 +375,14 @@ def test_rejects_customer_azure_context() -> None:
         validate_remote_service_evidence(_manifest(), evidence)
 
 
+def test_rejects_customer_azure_context_in_manifest() -> None:
+    manifest = _manifest()
+    manifest["tenant_id"] = "00000000-0000-0000-0000-000000000123"
+
+    with pytest.raises(RemoteEvidenceError, match="deployment context"):
+        validate_remote_service_evidence(manifest, _evidence())
+
+
 def test_rejects_embedded_azure_resource_identifier() -> None:
     evidence = _evidence()
     evidence["repository"] = "/subscriptions/example/resourceGroups/example"

@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 9039061a2376f2e6f63f0df82a6bfaeaa0026ce1
+translation_source_sha: 51bc1faa4af5f359289c5044e4680519b4c373f4
 translation_revised: 2026-08-09
 ---
 # 서비스 분해 실행 계획
@@ -303,6 +303,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-09 | IS-09 | Provisioned startup probe topic | Round 49 | Catalog-corrected Core run `31316016509`은 health server까지 도달했지만 primary bootstrap endpoint를 사용했고 전용 `runtime.startup.probe` entity는 operational namespace에 속해 있어 ready가 되지 못했습니다. 가득 찬 primary namespace를 재사용하는 bounded 중간 수정을 시험했지만 성공적인 round-trip을 확립하지 못했습니다. |
 | 2026-08-09 | IS-09 | Operational startup probe binding | Round 50 | Canonical Core apply `31318043097`은 primary governed-ingress topic을 공유하면 synthetic consumer가 timeout하고 automatic rollback이 올바르게 시작됨을 증명했습니다. 이제 독립 Core contract는 기존 operational bootstrap endpoint와 전용 startup topic을 받아 synthetic scope, identity isolation 및 두 namespace의 entity 제한을 보존합니다. |
 | 2026-08-09 | IS-09 | No-ingress health evidence | Round 51 | 같은 apply에서 Azure가 internal no-ingress Core app에 `healthState`를 보고하지 않는다는 사실도 확인했습니다. 이제 health 및 rollback verification은 ingress가 disabled이고 exact revision이 active, `Running`, replica 1개 이상일 때만 absent state를 수락합니다. Ingress-enabled app은 계속 `Healthy`를 요구합니다. |
+| 2026-08-09 | IS-09 | Manifest context sanitization | Round 52 | Final-evidence 검토에서 deployment-context rejection이 remote aggregate에는 적용되지만 independent-service manifest input에는 적용되지 않는 문제를 확인했습니다. 이제 validation은 release 또는 distribution field를 읽기 전에 두 input 모두에 같은 recursive identifier, endpoint 및 deployment-key rejection을 적용합니다. |
 
 ## 관련 문서
 
