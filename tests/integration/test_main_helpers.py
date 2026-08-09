@@ -793,14 +793,20 @@ def test_build_notification_registry_rejects_partial_configuration(
         _build_notification_registry(httpx.AsyncClient())
 
 
-def test_incident_notification_route_fails_fast_without_channel(
+def test_incident_notification_route_degrades_without_channel(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.delenv("FDAI_RUNTIME_LOCAL_AZURE_CLI", raising=False)
+    caplog.set_level("WARNING", logger="fdai.startup")
     matrix = load_matrix_from_yaml(Path("config/notifications-matrix.yaml"))
 
-    with pytest.raises(RuntimeError, match="operational_alert.*no registered channel"):
-        _validate_incident_notification_route(matrix, ChannelRegistry())
+    _validate_incident_notification_route(matrix, ChannelRegistry())
+
+    record = next(
+        item for item in caplog.records if item.message == "notification_route_unavailable"
+    )
+    assert record.levelname == "WARNING"
 
 
 def test_incident_notification_route_allows_explicit_local_profile(
@@ -808,7 +814,7 @@ def test_incident_notification_route_allows_explicit_local_profile(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setenv("FDAI_RUNTIME_LOCAL_AZURE_CLI", "1")
-    caplog.set_level("INFO", logger="fdai.startup")
+    caplog.set_level("WARNING", logger="fdai.startup")
     matrix = load_matrix_from_yaml(Path("config/notifications-matrix.yaml"))
 
     _validate_incident_notification_route(matrix, ChannelRegistry())
@@ -817,7 +823,7 @@ def test_incident_notification_route_allows_explicit_local_profile(
     record = next(
         item for item in caplog.records if item.message == "notification_route_unavailable"
     )
-    assert record.levelname == "INFO"
+    assert record.levelname == "WARNING"
 
 
 # ---------------------------------------------------------------------------
