@@ -4,6 +4,7 @@ import importlib.util
 import json
 import tomllib
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -231,8 +232,11 @@ def test_completed_program_verification_requires_persisted_live_evidence(
     monkeypatch.setattr(checker, "LIVE_RECEIPTS_PATH", tmp_path / "missing-receipts.json")
     monkeypatch.setattr(
         checker,
-        "validate_remote_service_evidence",
-        lambda _manifest, _evidence: checker.RemoteEvidenceSummary(5, 5, 15, 15, 30),
+        "_validate_remote_service_evidence",
+        lambda _manifest, _evidence: SimpleNamespace(
+            service_plan_apply_receipts=5,
+            service_upgrade_and_rollback_proofs=5,
+        ),
     )
 
     with pytest.raises(ValueError, match="cannot load live service receipts"):

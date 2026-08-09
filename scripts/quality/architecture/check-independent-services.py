@@ -13,11 +13,6 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-from scripts.quality.architecture.remote_service_evidence import (
-    RemoteEvidenceSummary,
-    validate_remote_service_evidence,
-)
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = REPO_ROOT / "config" / "independent-services.json"
 LOCAL_TRANSITION_EVIDENCE_PATH = (
@@ -47,6 +42,9 @@ LIVE_EVIDENCE_MANIFEST_PATH = (
 )
 COMPATIBILITY_CHECKER_PATH = (
     REPO_ROOT / "scripts" / "quality" / "architecture" / "check-service-compatibility.py"
+)
+REMOTE_EVIDENCE_VALIDATOR_PATH = (
+    REPO_ROOT / "scripts" / "quality" / "architecture" / "remote_service_evidence.py"
 )
 SERVICE_IDS = (
     "core-control-plane",
@@ -203,16 +201,28 @@ def _validate_graph(work_packages: list[dict[str, Any]]) -> None:
         remaining.difference_update(ready)
 
 
-def _load_compatibility_checker() -> ModuleType:
-    spec = importlib.util.spec_from_file_location(
-        "check_service_compatibility_for_program_final",
-        COMPATIBILITY_CHECKER_PATH,
-    )
+def _load_python_module(path: Path, name: str) -> ModuleType:
+    spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
-        raise ValueError("cannot load the live service compatibility checker")
+        raise ValueError(f"cannot load program-final validator: {path.name}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _load_compatibility_checker() -> ModuleType:
+    return _load_python_module(
+        COMPATIBILITY_CHECKER_PATH,
+        "check_service_compatibility_for_program_final",
+    )
+
+
+def _validate_remote_service_evidence(manifest: dict[str, Any], evidence: dict[str, Any]) -> Any:
+    validator = _load_python_module(
+        REMOTE_EVIDENCE_VALIDATOR_PATH,
+        "remote_service_evidence_for_program_final",
+    )
+    return validator.validate_remote_service_evidence(manifest, evidence)
 
 
 def _validate_completed_remote_evidence(
@@ -222,7 +232,7 @@ def _validate_completed_remote_evidence(
     remote = _load_json(REMOTE_EVIDENCE_PATH, "remote service evidence")
     if not isinstance(remote, dict):
         raise ValueError("remote service evidence must be an object")
-    summary: RemoteEvidenceSummary = validate_remote_service_evidence(manifest, remote)
+    summary = _validate_remote_service_evidence(manifest, remote)
     if (
         summary.service_plan_apply_receipts != targets["service_plan_apply_receipts"]
         or summary.service_upgrade_and_rollback_proofs
