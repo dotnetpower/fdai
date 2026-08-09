@@ -199,6 +199,7 @@ def _validate_stage(
     controls_commit_sha: str,
     run_ids: set[int],
     peer_receipts: set[str],
+    plan_digests: set[str],
     context_digests: set[str],
     metadata_artifacts: set[str],
     apply_windows: list[tuple[datetime, datetime, str, str]],
@@ -252,6 +253,10 @@ def _validate_stage(
     expected_mode = "initial-cutover" if expected_name == "initial" else "standard"
     if plan["deployment_mode"] != expected_mode:
         raise RemoteEvidenceError(f"{service_id} {expected_name} deployment mode is invalid")
+    plan_digest = str(plan["plan_digest"])
+    if plan_digest in plan_digests:
+        raise RemoteEvidenceError("remote stage plan digests must be unique")
+    plan_digests.add(plan_digest)
     context_digest = str(plan["context_digest"])
     if context_digest in context_digests:
         raise RemoteEvidenceError("remote stage context digests must be unique")
@@ -381,6 +386,7 @@ def validate_remote_service_evidence(
     seen: set[str] = set()
     run_ids: set[int] = set()
     peer_receipts: set[str] = set()
+    plan_digests: set[str] = set()
     context_digests: set[str] = set()
     metadata_artifacts: set[str] = set()
     apply_windows: list[tuple[datetime, datetime, str, str]] = []
@@ -420,6 +426,7 @@ def validate_remote_service_evidence(
                 controls_commit_sha=controls_commit_sha,
                 run_ids=run_ids,
                 peer_receipts=peer_receipts,
+                plan_digests=plan_digests,
                 context_digests=context_digests,
                 metadata_artifacts=metadata_artifacts,
                 apply_windows=apply_windows,

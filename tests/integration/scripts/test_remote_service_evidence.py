@@ -339,6 +339,17 @@ def test_rejects_reused_stage_context() -> None:
         validate_remote_service_evidence(_manifest(), evidence)
 
 
+def test_rejects_reused_stage_plan_digest() -> None:
+    evidence = _evidence()
+    reused = evidence["services"][0]["stages"][0]["plan"]["plan_digest"]
+    rollback = evidence["services"][1]["stages"][1]
+    rollback["plan"]["plan_digest"] = reused
+    rollback["apply"]["plan_digest"] = reused
+
+    with pytest.raises(RemoteEvidenceError, match="plan digests must be unique"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
 def test_rejects_reused_plan_metadata_artifact() -> None:
     evidence = _evidence()
     reused = evidence["services"][0]["stages"][0]["plan"]["metadata_artifact_sha256"]
