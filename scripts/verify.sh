@@ -178,7 +178,11 @@ run_gate_scoped "ci-contracts" '^(\.github/workflows/|Dockerfile$|\.dockerignore
 run_gate_scoped "issue-lifecycle" '^(\.github/ISSUE_TEMPLATE/|\.github/workflows/issue-lifecycle\.yml$|\.github/copilot-instructions\.md$|CONTRIBUTING\.md$|scripts/quality/repository/check-issue-lifecycle\.py$)' python3 scripts/quality/repository/check-issue-lifecycle.py
 run_gate_scoped "design-routes" '^(\.github/instructions/|scripts/lib/design-routes\.json$|scripts/quality/architecture/check-design-routes\.py$|docs/)' python3 scripts/quality/architecture/check-design-routes.py
 run_gate_scoped "constitution" '^(\.github/|config/constitution-traceability\.json$|docs/roadmap/|scripts/quality/architecture/check-constitution\.py$)' python3 scripts/quality/architecture/check-constitution.py
-run_gate "design-doc-impact" python3 scripts/quality/architecture/check-design-doc-impact.py
+design_doc_impact=(python3 scripts/quality/architecture/check-design-doc-impact.py)
+if [[ -n "$DIFF_RANGE" ]]; then
+    design_doc_impact+=("$DIFF_RANGE")
+fi
+run_gate "design-doc-impact" "${design_doc_impact[@]}"
 run_gate_scoped "fork-runtime-independence" '^(src/|config/|infra/|scripts/quality/architecture/check-fork-runtime-independence\.py$)' python3 scripts/quality/architecture/check-fork-runtime-independence.py
 run_gate_scoped "evaluation-boundaries" '^(evaluation-sdk/|src/|tests/|pyproject\.toml$|scripts/quality/architecture/check-evaluation-boundaries\.py$)' python3 scripts/quality/architecture/check-evaluation-boundaries.py
 run_gate_scoped "independent-services" '^(services/|packages/service-contracts/|tests/integration/|config/independent-services\.json$|scripts/quality/architecture/check-independent-services\.py$)' uv run python scripts/quality/architecture/check-independent-services.py
