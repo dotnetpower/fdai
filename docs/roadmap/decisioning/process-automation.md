@@ -372,6 +372,10 @@ Given a `Workflow`, the planner produces a deterministic, read-only
   Card / Block Kit, HMAC-signed, fail-closed). Email is a send-only alert lane,
   not an A1 approval back-channel.
 
+An unavailable notification route lowers only workflows and incident paths that require that
+route. The runtime reports the gap and keeps unrelated read, deny, queue, and shadow paths
+available; it never treats a missing channel as delivered approval or a successful notification.
+
 The plan supplies the role and channel assignment. In enforcement mode, the approval provider
 parks one HIL slot per quorum member in the shared durable StateStore. A revision compare-and-set
 records the exact Process, step, required role, normalized principal, decision, receipt, and time

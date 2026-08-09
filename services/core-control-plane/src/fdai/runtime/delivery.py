@@ -614,7 +614,7 @@ def _validate_incident_notification_route(
     matrix: NotificationMatrix,
     registry: ChannelRegistry,
 ) -> None:
-    """Require one usable A2 channel outside the explicit local profile."""
+    """Report an unavailable A2 route without disabling unrelated runtime paths."""
 
     route = matrix.resolve("operational_alert")
     eligible = tuple(
@@ -625,20 +625,13 @@ def _validate_incident_notification_route(
     )
     if eligible:
         return
-    if os.environ.get("FDAI_RUNTIME_LOCAL_AZURE_CLI", "").strip() == "1":
-        _LOGGER.info(
-            "notification_route_unavailable",
-            extra={
-                "route": route.category,
-                "required_trust_tier": route.trust_tier.value,
-                "configured_channel_count": len(registry.channels),
-            },
-        )
-        return
-    raise RuntimeError(
-        "notification route 'operational_alert' has no registered channel "
-        "that supports trust tier 'a2_operational_alert'; configure a delivery "
-        "adapter before starting the incident runtime"
+    _LOGGER.warning(
+        "notification_route_unavailable",
+        extra={
+            "route": route.category,
+            "required_trust_tier": route.trust_tier.value,
+            "configured_channel_count": len(registry.channels),
+        },
     )
 
 

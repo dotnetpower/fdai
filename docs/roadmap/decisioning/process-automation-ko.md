@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: cdbfe64d7a76faf979ebf603198dfd05694dfb97
-translation_revised: 2026-08-08
+translation_source_sha: 8002190659f99457a4e07adce2a7cd406dcaaa54
+translation_revised: 2026-08-09
 ---
 
 # 프로세스 자동화(Process Automation)
@@ -362,6 +362,10 @@ HIL 로 라우팅되는 워크플로 스텝은 "누가 승인하고, 어떻게 �
   와 [`SlackHilAdapter`](../../../services/core-control-plane/src/fdai/delivery/chatops/)
   (Adaptive Card / Block Kit, HMAC 서명, fail-closed). email 은 send-only alert
   레인이지 A1 승인 back-channel 이 아니다.
+
+Notification route를 사용할 수 없으면 해당 route가 필요한 Workflow와 incident path만
+authority가 낮아집니다. Runtime은 gap을 보고하고 unrelated read, deny, queue 및 shadow path를
+유지하며 missing channel을 delivered approval 또는 successful notification으로 처리하지 않습니다.
 
 플랜은 role 및 channel assignment를 제공합니다. 적용 모드에서는 approval provider가
 공유 durable StateStore에 quorum 인원별 HIL slot을 park합니다. Revision compare-and-set은
