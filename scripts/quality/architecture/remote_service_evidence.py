@@ -164,6 +164,7 @@ def _validate_stage(
     releases: dict[str, dict[str, Any]],
     controls_commit_sha: str,
     run_ids: set[int],
+    peer_receipts: set[str],
 ) -> tuple[int, int]:
     stage = _object(value, f"{service_id} {expected_name} stage")
     _exact_keys(
@@ -246,6 +247,13 @@ def _validate_stage(
         raise RemoteEvidenceError(
             f"{service_id} {expected_name} plan and apply peer receipts must be distinct"
         )
+    for receipt in (
+        plan["peer_receipt_artifact_sha256"],
+        apply["peer_receipt_artifact_sha256"],
+    ):
+        if receipt in peer_receipts:
+            raise RemoteEvidenceError("remote peer receipt artifacts must be unique")
+        peer_receipts.add(receipt)
     for run_id in (plan_id, apply_id):
         if run_id in run_ids:
             raise RemoteEvidenceError("remote workflow run ids must be unique")
@@ -313,6 +321,7 @@ def validate_remote_service_evidence(
     releases = {"N": n, "N-1": n_minus_one}
     seen: set[str] = set()
     run_ids: set[int] = set()
+    peer_receipts: set[str] = set()
     apply_ids: dict[tuple[str, str], int] = {}
     initial_apply_ids: list[int] = []
     for value in services:
@@ -348,6 +357,7 @@ def validate_remote_service_evidence(
                 releases=releases,
                 controls_commit_sha=controls_commit_sha,
                 run_ids=run_ids,
+                peer_receipts=peer_receipts,
             )
             stage_run_ids[expected_name] = (plan_id, apply_id)
             apply_ids[(service_id, expected_name)] = apply_id

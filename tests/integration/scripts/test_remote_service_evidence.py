@@ -76,7 +76,7 @@ def _stage(
     plan_id: int,
     apply_id: int,
 ) -> dict[str, Any]:
-    seed = service_index * 1000 + plan_id
+    seed = service_index * 10_000 + plan_id * 10
     plan_digest = _digest(seed + 1)
     context_digest = _digest(seed + 2)
     plan = {
@@ -233,6 +233,15 @@ def test_rejects_unverified_peer_receipt() -> None:
     evidence["services"][0]["stages"][1]["apply"]["peer_receipt_status"] = "unknown"
 
     with pytest.raises(RemoteEvidenceError, match="peer isolation is not verified"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_rejects_reused_peer_receipt_artifact() -> None:
+    evidence = _evidence()
+    reused = evidence["services"][0]["stages"][0]["plan"]["peer_receipt_artifact_sha256"]
+    evidence["services"][1]["stages"][0]["plan"]["peer_receipt_artifact_sha256"] = reused
+
+    with pytest.raises(RemoteEvidenceError, match="receipt artifacts must be unique"):
         validate_remote_service_evidence(_manifest(), evidence)
 
 
