@@ -182,6 +182,7 @@ def _validate_stage(
     run_ids: set[int],
     peer_receipts: set[str],
     context_digests: set[str],
+    metadata_artifacts: set[str],
 ) -> tuple[int, int]:
     stage = _object(value, f"{service_id} {expected_name} stage")
     _exact_keys(
@@ -220,10 +221,13 @@ def _validate_stage(
         },
         f"{service_id} {expected_name} plan",
     )
-    _require_sha256(
+    metadata_artifact = _require_sha256(
         plan["metadata_artifact_sha256"],
         f"{service_id} {expected_name} plan metadata artifact",
     )
+    if metadata_artifact in metadata_artifacts:
+        raise RemoteEvidenceError("remote plan metadata artifacts must be unique")
+    metadata_artifacts.add(metadata_artifact)
     expected_mode = "initial-cutover" if expected_name == "initial" else "standard"
     if plan["deployment_mode"] != expected_mode:
         raise RemoteEvidenceError(f"{service_id} {expected_name} deployment mode is invalid")
@@ -350,6 +354,7 @@ def validate_remote_service_evidence(
     run_ids: set[int] = set()
     peer_receipts: set[str] = set()
     context_digests: set[str] = set()
+    metadata_artifacts: set[str] = set()
     apply_ids: dict[tuple[str, str], int] = {}
     initial_apply_ids: list[int] = []
     for value in services:
@@ -387,6 +392,7 @@ def validate_remote_service_evidence(
                 run_ids=run_ids,
                 peer_receipts=peer_receipts,
                 context_digests=context_digests,
+                metadata_artifacts=metadata_artifacts,
             )
             stage_run_ids[expected_name] = (plan_id, apply_id)
             apply_ids[(service_id, expected_name)] = apply_id

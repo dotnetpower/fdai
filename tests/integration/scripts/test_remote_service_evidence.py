@@ -335,6 +335,15 @@ def test_rejects_reused_stage_context() -> None:
         validate_remote_service_evidence(_manifest(), evidence)
 
 
+def test_rejects_reused_plan_metadata_artifact() -> None:
+    evidence = _evidence()
+    reused = evidence["services"][0]["stages"][0]["plan"]["metadata_artifact_sha256"]
+    evidence["services"][0]["stages"][1]["plan"]["metadata_artifact_sha256"] = reused
+
+    with pytest.raises(RemoteEvidenceError, match="metadata artifacts must be unique"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
 def test_rejects_stale_controls_commit() -> None:
     evidence = _evidence()
     evidence["services"][0]["stages"][0]["plan"]["controls_commit_sha"] = "d" * 40
