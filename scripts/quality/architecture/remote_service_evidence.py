@@ -110,6 +110,8 @@ def _validate_release(
             "source_revision",
             "supply_chain_run_id",
             "supply_chain_run_attempt",
+            "workflow_head_sha",
+            "conclusion",
             "images",
         },
         label,
@@ -121,12 +123,24 @@ def _validate_release(
         raise RemoteEvidenceError(f"{label} source revision does not match the release contract")
     _require_positive_int(release["supply_chain_run_id"], f"{label} supply-chain run id")
     _require_positive_int(release["supply_chain_run_attempt"], f"{label} supply-chain run attempt")
+    if _require_commit(release["workflow_head_sha"], f"{label} workflow head") != source_revision:
+        raise RemoteEvidenceError(f"{label} workflow head does not match its source revision")
+    if release["conclusion"] != "success":
+        raise RemoteEvidenceError(f"{label} supply-chain conclusion is not success")
     images = _object(release["images"], f"{label} images")
     if set(images) != set(SERVICE_IDS):
         raise RemoteEvidenceError(f"{label} images must cover the canonical five services")
-    for service_id, digest in images.items():
-        _require_sha256(digest, f"{label} {service_id} image")
-    if len(set(images.values())) != len(SERVICE_IDS):
+    image_digests: list[str] = []
+    for service_id, value in images.items():
+        image = _object(value, f"{label} {service_id} image")
+        _exact_keys(image, {"digest", "attestations"}, f"{label} {service_id} image")
+        image_digests.append(_require_sha256(image["digest"], f"{label} {service_id} image"))
+        expected_attestations = ["provenance", "sbom"]
+        if service_id == "core-control-plane":
+            expected_attestations.append("resolved-models")
+        if image["attestations"] != expected_attestations:
+            raise RemoteEvidenceError(f"{label} {service_id} attestations are incomplete")
+    if len(set(image_digests)) != len(SERVICE_IDS):
         raise RemoteEvidenceError(f"{label} image digests must be unique")
     return release
 
@@ -180,7 +194,7 @@ def _validate_stage(
     release = releases[str(stage["release"])]
     if stage["source_revision"] != release["source_revision"]:
         raise RemoteEvidenceError(f"{service_id} {expected_name} source revision is invalid")
-    if stage["image_digest"] != release["images"][service_id]:
+    if stage["image_digest"] != release["images"][service_id]["digest"]:
         raise RemoteEvidenceError(f"{service_id} {expected_name} image digest is invalid")
 
     plan, plan_id, plan_attempt = _validate_run_common(
@@ -314,7 +328,10 @@ def validate_remote_service_evidence(
     if n["supply_chain_run_id"] == n_minus_one["supply_chain_run_id"]:
         raise RemoteEvidenceError("N and N-1 supply-chain runs must be distinct")
     for release_service_id in SERVICE_IDS:
-        if n["images"][release_service_id] == n_minus_one["images"][release_service_id]:
+        if (
+            n["images"][release_service_id]["digest"]
+            == n_minus_one["images"][release_service_id]["digest"]
+        ):
             raise RemoteEvidenceError(f"{release_service_id} N and N-1 images must be distinct")
 
     services = _array(evidence["services"], "remote evidence services")

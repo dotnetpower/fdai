@@ -110,8 +110,28 @@ def _stage(
 
 
 def _evidence() -> dict[str, Any]:
-    images_n = {_id: _digest(10 + index) for index, _id in enumerate(SERVICE_IDS)}
-    images_n_minus_one = {_id: _digest(20 + index) for index, _id in enumerate(SERVICE_IDS)}
+    images_n = {
+        service_id: {
+            "digest": _digest(10 + index),
+            "attestations": [
+                "provenance",
+                "sbom",
+                *(["resolved-models"] if service_id == "core-control-plane" else []),
+            ],
+        }
+        for index, service_id in enumerate(SERVICE_IDS)
+    }
+    images_n_minus_one = {
+        service_id: {
+            "digest": _digest(20 + index),
+            "attestations": [
+                "provenance",
+                "sbom",
+                *(["resolved-models"] if service_id == "core-control-plane" else []),
+            ],
+        }
+        for index, service_id in enumerate(SERVICE_IDS)
+    }
     services = []
     for index, service_id in enumerate(SERVICE_IDS):
         rollback, restore = _TRANSITION_RUNS[service_id]
@@ -156,6 +176,8 @@ def _evidence() -> dict[str, Any]:
             "source_revision": _N_SOURCE,
             "supply_chain_run_id": 10,
             "supply_chain_run_attempt": 1,
+            "workflow_head_sha": _N_SOURCE,
+            "conclusion": "success",
             "images": images_n,
         },
         "n_minus_one": {
@@ -163,6 +185,8 @@ def _evidence() -> dict[str, Any]:
             "source_revision": _N_MINUS_ONE_SOURCE,
             "supply_chain_run_id": 20,
             "supply_chain_run_attempt": 1,
+            "workflow_head_sha": _N_MINUS_ONE_SOURCE,
+            "conclusion": "success",
             "images": images_n_minus_one,
         },
         "services": services,
@@ -255,8 +279,8 @@ def test_rejects_image_not_bound_to_release() -> None:
 
 def test_rejects_reused_image_across_services() -> None:
     evidence = _evidence()
-    reused = evidence["n"]["images"]["core-control-plane"]
-    evidence["n"]["images"]["operator-service"] = reused
+    reused = evidence["n"]["images"]["core-control-plane"]["digest"]
+    evidence["n"]["images"]["operator-service"]["digest"] = reused
     operator = _service(evidence, "operator-service")
     operator["stages"][0]["image_digest"] = reused
     operator["stages"][2]["image_digest"] = reused
@@ -267,12 +291,36 @@ def test_rejects_reused_image_across_services() -> None:
 
 def test_rejects_same_image_for_n_and_n_minus_one() -> None:
     evidence = _evidence()
-    reused = evidence["n"]["images"]["core-control-plane"]
-    evidence["n_minus_one"]["images"]["core-control-plane"] = reused
+    reused = evidence["n"]["images"]["core-control-plane"]["digest"]
+    evidence["n_minus_one"]["images"]["core-control-plane"]["digest"] = reused
     core = _service(evidence, "core-control-plane")
     core["stages"][1]["image_digest"] = reused
 
     with pytest.raises(RemoteEvidenceError, match="N and N-1 images must be distinct"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_rejects_supply_chain_head_not_bound_to_source() -> None:
+    evidence = _evidence()
+    evidence["n"]["workflow_head_sha"] = "d" * 40
+
+    with pytest.raises(RemoteEvidenceError, match="workflow head does not match"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_rejects_failed_supply_chain_run() -> None:
+    evidence = _evidence()
+    evidence["n_minus_one"]["conclusion"] = "failure"
+
+    with pytest.raises(RemoteEvidenceError, match="conclusion is not success"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_rejects_incomplete_image_attestations() -> None:
+    evidence = _evidence()
+    evidence["n"]["images"]["core-control-plane"]["attestations"].remove("resolved-models")
+
+    with pytest.raises(RemoteEvidenceError, match="attestations are incomplete"):
         validate_remote_service_evidence(_manifest(), evidence)
 
 
