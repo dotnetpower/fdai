@@ -165,6 +165,7 @@ def _validate_stage(
     controls_commit_sha: str,
     run_ids: set[int],
     peer_receipts: set[str],
+    context_digests: set[str],
 ) -> tuple[int, int]:
     stage = _object(value, f"{service_id} {expected_name} stage")
     _exact_keys(
@@ -210,6 +211,10 @@ def _validate_stage(
     expected_mode = "initial-cutover" if expected_name == "initial" else "standard"
     if plan["deployment_mode"] != expected_mode:
         raise RemoteEvidenceError(f"{service_id} {expected_name} deployment mode is invalid")
+    context_digest = str(plan["context_digest"])
+    if context_digest in context_digests:
+        raise RemoteEvidenceError("remote stage context digests must be unique")
+    context_digests.add(context_digest)
 
     apply, apply_id, _apply_attempt = _validate_run_common(
         stage["apply"],
@@ -322,6 +327,7 @@ def validate_remote_service_evidence(
     seen: set[str] = set()
     run_ids: set[int] = set()
     peer_receipts: set[str] = set()
+    context_digests: set[str] = set()
     apply_ids: dict[tuple[str, str], int] = {}
     initial_apply_ids: list[int] = []
     for value in services:
@@ -358,6 +364,7 @@ def validate_remote_service_evidence(
                 controls_commit_sha=controls_commit_sha,
                 run_ids=run_ids,
                 peer_receipts=peer_receipts,
+                context_digests=context_digests,
             )
             stage_run_ids[expected_name] = (plan_id, apply_id)
             apply_ids[(service_id, expected_name)] = apply_id

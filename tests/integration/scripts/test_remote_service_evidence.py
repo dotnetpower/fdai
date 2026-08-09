@@ -253,6 +253,17 @@ def test_rejects_image_not_bound_to_release() -> None:
         validate_remote_service_evidence(_manifest(), evidence)
 
 
+def test_rejects_reused_stage_context() -> None:
+    evidence = _evidence()
+    reused = evidence["services"][0]["stages"][0]["plan"]["context_digest"]
+    rollback = evidence["services"][0]["stages"][1]
+    rollback["plan"]["context_digest"] = reused
+    rollback["apply"]["context_digest"] = reused
+
+    with pytest.raises(RemoteEvidenceError, match="context digests must be unique"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
 def test_rejects_stale_controls_commit() -> None:
     evidence = _evidence()
     evidence["services"][0]["stages"][0]["plan"]["controls_commit_sha"] = "d" * 40
