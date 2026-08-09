@@ -422,6 +422,16 @@ def test_rejects_run_that_completes_before_start() -> None:
         validate_remote_service_evidence(_manifest(), evidence)
 
 
+def test_rejects_apply_starting_before_plan_completed() -> None:
+    evidence = _evidence()
+    stage = evidence["services"][0]["stages"][0]
+    stage["apply"]["started_at"] = stage["plan"]["started_at"]
+    stage["apply"]["completed_at"] = stage["plan"]["completed_at"]
+
+    with pytest.raises(RemoteEvidenceError, match="before its plan completed"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
 def test_validation_does_not_mutate_evidence() -> None:
     evidence = _evidence()
     before = copy.deepcopy(evidence)

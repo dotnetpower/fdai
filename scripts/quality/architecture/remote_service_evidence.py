@@ -217,7 +217,7 @@ def _validate_stage(
     if stage["image_digest"] != release["images"][service_id]["digest"]:
         raise RemoteEvidenceError(f"{service_id} {expected_name} image digest is invalid")
 
-    plan, plan_id, plan_attempt, _plan_started, _plan_completed = _validate_run_common(
+    plan, plan_id, plan_attempt, _plan_started, plan_completed = _validate_run_common(
         stage["plan"],
         label=f"{service_id} {expected_name} plan",
         controls_commit_sha=controls_commit_sha,
@@ -291,6 +291,10 @@ def _validate_stage(
         raise RemoteEvidenceError(f"{service_id} {expected_name} apply is not bound to its plan")
     if apply_id <= plan_id:
         raise RemoteEvidenceError(f"{service_id} {expected_name} apply must follow its plan")
+    if apply_started < plan_completed:
+        raise RemoteEvidenceError(
+            f"{service_id} {expected_name} apply started before its plan completed"
+        )
     if plan["peer_receipt_artifact_sha256"] == apply["peer_receipt_artifact_sha256"]:
         raise RemoteEvidenceError(
             f"{service_id} {expected_name} plan and apply peer receipts must be distinct"
