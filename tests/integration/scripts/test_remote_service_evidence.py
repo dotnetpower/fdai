@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -54,6 +55,7 @@ def _run(
     context_digest: str,
     peer_seed: int,
 ) -> dict[str, Any]:
+    started_at = datetime(2026, 8, 9, tzinfo=UTC) + timedelta(seconds=run_id * 10)
     return {
         "workflow_run_id": run_id,
         "workflow_run_attempt": 1,
@@ -65,6 +67,8 @@ def _run(
         "peer_receipt_status": "verified",
         "peer_count": 4,
         "conclusion": "success",
+        "started_at": started_at.isoformat(),
+        "completed_at": (started_at + timedelta(seconds=5)).isoformat(),
     }
 
 
@@ -395,6 +399,26 @@ def test_rejects_inflated_summary() -> None:
     evidence["summary"]["service_upgrade_and_rollback_proofs"] = 6
 
     with pytest.raises(RemoteEvidenceError, match="summary is invalid"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_rejects_overlapping_applies() -> None:
+    evidence = _evidence()
+    first_apply = evidence["services"][0]["stages"][0]["apply"]
+    second_apply = evidence["services"][1]["stages"][0]["apply"]
+    second_apply["started_at"] = first_apply["started_at"]
+    second_apply["completed_at"] = first_apply["completed_at"]
+
+    with pytest.raises(RemoteEvidenceError, match="applies must be serial"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_rejects_run_that_completes_before_start() -> None:
+    evidence = _evidence()
+    apply = evidence["services"][0]["stages"][0]["apply"]
+    apply["completed_at"] = "2026-08-09T00:00:00+00:00"
+
+    with pytest.raises(RemoteEvidenceError, match="completed before it started"):
         validate_remote_service_evidence(_manifest(), evidence)
 
 

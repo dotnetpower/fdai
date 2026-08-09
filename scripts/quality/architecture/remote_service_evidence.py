@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime
+from itertools import pairwise
 from typing import Any
 
 SERVICE_IDS = (
@@ -79,6 +81,18 @@ def _require_positive_int(value: object, label: str) -> int:
     return value
 
 
+def _require_timestamp(value: object, label: str) -> datetime:
+    if not isinstance(value, str):
+        raise RemoteEvidenceError(f"{label} must be an RFC3339 timestamp")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise RemoteEvidenceError(f"{label} must be an RFC3339 timestamp") from exc
+    if parsed.tzinfo is None:
+        raise RemoteEvidenceError(f"{label} must include a timezone")
+    return parsed
+
+
 def _reject_deployment_context(value: object, *, path: str = "$") -> None:
     if isinstance(value, dict):
         for key, nested in value.items():
@@ -150,7 +164,7 @@ def _validate_run_common(
     *,
     label: str,
     controls_commit_sha: str,
-) -> tuple[dict[str, Any], int, int]:
+) -> tuple[dict[str, Any], int, int, datetime, datetime]:
     run = _object(value, label)
     for key in ("workflow_head_sha", "controls_commit_sha"):
         if _require_commit(run.get(key), f"{label} {key}") != controls_commit_sha:
@@ -159,6 +173,10 @@ def _validate_run_common(
     run_attempt = _require_positive_int(
         run.get("workflow_run_attempt"), f"{label} workflow run attempt"
     )
+    started_at = _require_timestamp(run.get("started_at"), f"{label} started_at")
+    completed_at = _require_timestamp(run.get("completed_at"), f"{label} completed_at")
+    if completed_at < started_at:
+        raise RemoteEvidenceError(f"{label} completed before it started")
     if run.get("conclusion") != "success":
         raise RemoteEvidenceError(f"{label} conclusion is not success")
     if run.get("peer_receipt_status") != "verified" or run.get("peer_count") != 4:
@@ -169,7 +187,7 @@ def _validate_run_common(
         "peer_receipt_artifact_sha256",
     ):
         _require_sha256(run.get(key), f"{label} {key}")
-    return run, run_id, run_attempt
+    return run, run_id, run_attempt, started_at, completed_at
 
 
 def _validate_stage(
@@ -183,6 +201,7 @@ def _validate_stage(
     peer_receipts: set[str],
     context_digests: set[str],
     metadata_artifacts: set[str],
+    apply_windows: list[tuple[datetime, datetime, str, str]],
 ) -> tuple[int, int]:
     stage = _object(value, f"{service_id} {expected_name} stage")
     _exact_keys(
@@ -198,7 +217,7 @@ def _validate_stage(
     if stage["image_digest"] != release["images"][service_id]["digest"]:
         raise RemoteEvidenceError(f"{service_id} {expected_name} image digest is invalid")
 
-    plan, plan_id, plan_attempt = _validate_run_common(
+    plan, plan_id, plan_attempt, _plan_started, _plan_completed = _validate_run_common(
         stage["plan"],
         label=f"{service_id} {expected_name} plan",
         controls_commit_sha=controls_commit_sha,
@@ -218,6 +237,8 @@ def _validate_stage(
             "peer_receipt_status",
             "peer_count",
             "conclusion",
+            "started_at",
+            "completed_at",
         },
         f"{service_id} {expected_name} plan",
     )
@@ -236,7 +257,7 @@ def _validate_stage(
         raise RemoteEvidenceError("remote stage context digests must be unique")
     context_digests.add(context_digest)
 
-    apply, apply_id, _apply_attempt = _validate_run_common(
+    apply, apply_id, _apply_attempt, apply_started, apply_completed = _validate_run_common(
         stage["apply"],
         label=f"{service_id} {expected_name} apply",
         controls_commit_sha=controls_commit_sha,
@@ -256,6 +277,8 @@ def _validate_stage(
             "peer_receipt_status",
             "peer_count",
             "conclusion",
+            "started_at",
+            "completed_at",
         },
         f"{service_id} {expected_name} apply",
     )
@@ -283,6 +306,7 @@ def _validate_stage(
         if run_id in run_ids:
             raise RemoteEvidenceError("remote workflow run ids must be unique")
         run_ids.add(run_id)
+    apply_windows.append((apply_started, apply_completed, service_id, expected_name))
     return plan_id, apply_id
 
 
@@ -355,6 +379,7 @@ def validate_remote_service_evidence(
     peer_receipts: set[str] = set()
     context_digests: set[str] = set()
     metadata_artifacts: set[str] = set()
+    apply_windows: list[tuple[datetime, datetime, str, str]] = []
     apply_ids: dict[tuple[str, str], int] = {}
     initial_apply_ids: list[int] = []
     for value in services:
@@ -393,6 +418,7 @@ def validate_remote_service_evidence(
                 peer_receipts=peer_receipts,
                 context_digests=context_digests,
                 metadata_artifacts=metadata_artifacts,
+                apply_windows=apply_windows,
             )
             stage_run_ids[expected_name] = (plan_id, apply_id)
             apply_ids[(service_id, expected_name)] = apply_id
@@ -418,6 +444,13 @@ def validate_remote_service_evidence(
         raise RemoteEvidenceError("Executor must reach N-1 before the Core rollback")
     if apply_ids[("core-control-plane", "restore")] >= apply_ids[("isolated-executor", "restore")]:
         raise RemoteEvidenceError("Core must return to N before the Executor restore")
+    ordered_windows = sorted(apply_windows)
+    for current, following in pairwise(ordered_windows):
+        if following[0] < current[1]:
+            raise RemoteEvidenceError(
+                "remote applies must be serial: "
+                f"{current[2]} {current[3]} overlaps {following[2]} {following[3]}"
+            )
 
     summary = _object(evidence["summary"], "remote evidence summary")
     expected_summary = {
