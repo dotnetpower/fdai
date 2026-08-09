@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: de579c0f251d761d0bee023e73bcfc729f617f84
+translation_source_sha: 09c315cd7ac51ef35febac1f4598fe5dc0f0792d
 translation_revised: 2026-08-09
 ---
 # 서비스 분해 실행 계획
@@ -296,6 +296,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-09 | IS-09 | Release-safe plan provenance | Round 42 | Automatic release commit이 root package version만 변경해 dependency와 deployment control이 동일한데도 protected plan을 반복해서 무효화했습니다. 이제 apply는 strict control을 byte-for-byte로 비교하고 `pyproject.toml`과 `uv.lock`에서는 root FDAI release version만 제거한 뒤 semantic content를 비교합니다. Dependency, lock graph, migration, workflow, helper 또는 Terraform 변경은 계속 plan을 무효화합니다. |
 | 2026-08-09 | IS-09 | Service migration revision capacity | Round 43 | Core apply run `31294369918`은 adopted service baseline까지 진행했지만 Alembic이 service version column을 32자로 생성했고 다음 branch revision id가 더 길어서 Terraform mutation 전에 실패했습니다. 이제 baseline stamp와 모든 service upgrade는 branch history를 기록하기 전에 service-owned version column만 128자로 확장하며 legacy Alembic table은 변경하지 않습니다. |
 | 2026-08-09 | IS-09 | Bounded slow revision readiness | Round 44 | Core apply run `31295906457`은 migration과 Terraform apply를 완료했지만 새 digest-pinned revision이 기존 nominal 3분 polling window보다 오래 걸렸습니다. Automatic rollback이 prior image를 복원하고 검증한 뒤 해당 revision은 healthy로 관측되었습니다. 이제 post-apply health는 rollback 전에 기존 900초 deployment proof budget까지 기다리며 unhealthy 또는 inactive revision은 계속 fail closed 처리합니다. |
+| 2026-08-09 | IS-09 | No-ingress revision activation | Round 45 | Core apply run `31297621282`은 900초 budget 전체를 기다렸지만 internal no-ingress service에는 traffic switch가 없어 새 revision이 healthy 상태이면서도 replica 0의 stopped 및 inactive 상태로 유지되었습니다. 이제 verification은 latest revision이 snapshot과 다르고 exact protected image를 실행하는지 확인한 뒤 bounded Container Apps revision activation을 한 번 수행하고 기존 health 및 rollback check를 계속합니다. |
 
 ## 관련 문서
 

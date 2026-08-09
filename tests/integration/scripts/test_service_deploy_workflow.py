@@ -214,6 +214,10 @@ def test_initial_cutover_prepares_stamps_and_upgrades_service_migrations() -> No
     assert ".latest_revision_name" not in _HEALTH_SCRIPT
     assert "health_deadline=$((SECONDS + 900))" in _HEALTH_SCRIPT
     assert "while ((SECONDS < health_deadline))" in _HEALTH_SCRIPT
+    assert ".target.image_ref" in _HEALTH_SCRIPT
+    assert '"$revision_name" != "$previous_revision"' in _HEALTH_SCRIPT
+    assert '"$observed_image" == "$expected_image"' in _HEALTH_SCRIPT
+    assert "az containerapp revision activate" in _HEALTH_SCRIPT
 
 
 def test_apply_failure_uses_the_same_verified_rollback_path() -> None:

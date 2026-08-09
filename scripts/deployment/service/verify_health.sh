@@ -17,8 +17,10 @@ az account show --only-show-errors --output json >"$work_dir/account.json"
 resource_id="$(jq -er '.target.service_resource_id' "$context_path")"
 resource_group="$(jq -er '.target.resource_group' "$context_path")"
 service_name="$(jq -er '.target.service_name' "$context_path")"
+expected_image="$(jq -er '.target.image_ref' "$context_path")"
 fqdn="$(jq -r '.fqdn // ""' "$work_dir/service.json")"
 health_deadline=$((SECONDS + 900))
+activation_attempted=false
 while ((SECONDS < health_deadline)); do
   timeout 60s az containerapp show \
       --ids "$resource_id" \
@@ -31,6 +33,21 @@ while ((SECONDS < health_deadline)); do
       --revision "$revision_name" \
       --only-show-errors \
       --output json >"$work_dir/revision.json"
+  observed_image="$(jq -er '.properties.template.containers[0].image' "$work_dir/revision.json")"
+  [[ "$revision_name" != "$previous_revision" && "$observed_image" == "$expected_image" ]] || {
+    echo "latest revision does not match the exact protected service image." >&2
+    exit 1
+  }
+  if [[ "$activation_attempted" == false ]] && ! jq -e '.properties.active == true' \
+      "$work_dir/revision.json" >/dev/null; then
+    timeout 60s az containerapp revision activate \
+      --resource-group "$resource_group" \
+      --name "$service_name" \
+      --revision "$revision_name" \
+      --only-show-errors \
+      --output none
+    activation_attempted=true
+  fi
   if jq -e '.properties.provisioningState == "Provisioned" and .properties.healthState == "Healthy" and .properties.active == true' \
       "$work_dir/revision.json" >/dev/null; then
     break
