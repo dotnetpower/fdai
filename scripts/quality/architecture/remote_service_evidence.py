@@ -302,6 +302,11 @@ def validate_remote_service_evidence(
     services = _array(evidence["services"], "remote evidence services")
     if len(services) != 5:
         raise RemoteEvidenceError("remote evidence must contain five services")
+    service_order = [
+        service.get("id") if isinstance(service, dict) else None for service in services
+    ]
+    if service_order != list(SERVICE_IDS):
+        raise RemoteEvidenceError("remote evidence services must use canonical order")
     manifest_services = {
         str(item["id"]): item for item in _array(manifest.get("services"), "manifest services")
     }

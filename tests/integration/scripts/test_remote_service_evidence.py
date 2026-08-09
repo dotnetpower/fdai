@@ -199,6 +199,17 @@ def test_rejects_missing_service() -> None:
         validate_remote_service_evidence(_manifest(), evidence)
 
 
+def test_rejects_reordered_services() -> None:
+    evidence = _evidence()
+    evidence["services"][0], evidence["services"][1] = (
+        evidence["services"][1],
+        evidence["services"][0],
+    )
+
+    with pytest.raises(RemoteEvidenceError, match="canonical order"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
 def test_rejects_unbound_apply_plan() -> None:
     evidence = _evidence()
     apply = evidence["services"][0]["stages"][0]["apply"]
