@@ -7,11 +7,20 @@ import fnmatch
 import json
 import subprocess
 import sys
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = REPO_ROOT / "scripts/lib/design-routes.json"
+VERSION_METADATA_PATHS = frozenset(
+    {
+        "cli/package-lock.json",
+        "cli/package.json",
+        "console/package-lock.json",
+        "console/package.json",
+    }
+)
 
 
 def _git_paths(args: list[str]) -> set[str]:
@@ -41,6 +50,55 @@ def changed_paths(diff_range: str | None = None, *, cached: bool = False) -> set
         _git_paths(["HEAD"])
         | _git_paths(["--cached", "HEAD"])
         | {line for line in untracked.stdout.splitlines() if line}
+    )
+
+
+def _git_json(revision: str, path: str) -> dict[str, Any] | None:
+    completed = subprocess.run(
+        ["git", "show", f"{revision}:{path}"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        return None
+    try:
+        value = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def _without_package_version(value: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
+    normalized = deepcopy(value)
+    version = normalized.pop("version", None)
+    packages = normalized.get("packages")
+    if isinstance(packages, dict) and isinstance(packages.get(""), dict):
+        package_version = packages[""].pop("version", None)
+        if version is None:
+            version = package_version
+        elif package_version != version:
+            return normalized, None
+    return normalized, version if isinstance(version, str) else None
+
+
+def is_version_only_package_metadata(path: str, diff_range: str) -> bool:
+    """Return true only for a release bump that changes no package behavior."""
+    if path not in VERSION_METADATA_PATHS or ".." not in diff_range:
+        return False
+    before_revision, after_revision = diff_range.rsplit("..", 1)
+    before = _git_json(before_revision, path)
+    after = _git_json(after_revision, path)
+    if before is None or after is None:
+        return False
+    before_without_version, before_version = _without_package_version(before)
+    after_without_version, after_version = _without_package_version(after)
+    return (
+        before_version is not None
+        and after_version is not None
+        and before_version != after_version
+        and before_without_version == after_without_version
     )
 
 
@@ -125,6 +183,8 @@ def main(argv: list[str]) -> int:
         argument if argument != "--cached" else None,
         cached=argument == "--cached",
     )
+    if argument is not None and argument != "--cached":
+        paths = {path for path in paths if not is_version_only_package_metadata(path, argument)}
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     failures = missing_doc_updates(paths, manifest)
     if failures:
