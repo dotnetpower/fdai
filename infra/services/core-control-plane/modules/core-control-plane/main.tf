@@ -26,6 +26,7 @@ module "container_app" {
     { name = "FDAI_MI_CLIENT_ID", value = var.identity.client_id },
     { name = "KAFKA_BOOTSTRAP_SERVERS", value = var.platform.kafka_bootstrap_servers },
     { name = "KAFKA_TOPIC_EVENTS", value = var.event_topics.events },
+    { name = "FDAI_STARTUP_KAFKA_PROBE_TOPIC", value = var.event_topics.events },
     { name = "FDAI_EXECUTOR_COMMAND_TOPIC", value = var.event_topics.executor_command },
     { name = "FDAI_EXECUTOR_RECEIPT_TOPIC", value = var.event_topics.executor_receipt },
     { name = "FDAI_START_CONSUMER", value = "1" },

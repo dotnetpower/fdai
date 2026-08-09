@@ -11,6 +11,9 @@ _WORKFLOW = (_ROOT / ".github" / "workflows" / "service-deploy.yml").read_text(e
 _HEALTH_SCRIPT = (_ROOT / "scripts" / "deployment" / "service" / "verify_health.sh").read_text(
     encoding="utf-8"
 )
+_CORE_TERRAFORM = (
+    _ROOT / "infra/services/core-control-plane/modules/core-control-plane/main.tf"
+).read_text(encoding="utf-8")
 _LEGACY_WORKFLOW = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
 _MATRIX = json.loads(
     (_ROOT / "scripts" / "deployment" / "service" / "service-matrix.json").read_text(
@@ -183,6 +186,13 @@ def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
     assert "authority was unchanged" in _WORKFLOW
     assert "protected platform rollback is required" in _WORKFLOW
     assert "terraform destroy" not in _WORKFLOW
+
+
+def test_core_startup_probe_uses_a_provisioned_event_topic() -> None:
+    assert (
+        '{ name = "FDAI_STARTUP_KAFKA_PROBE_TOPIC", value = var.event_topics.events }'
+        in _CORE_TERRAFORM
+    )
 
 
 def test_initial_cutover_prepares_stamps_and_upgrades_service_migrations() -> None:
