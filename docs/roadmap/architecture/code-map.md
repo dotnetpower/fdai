@@ -97,6 +97,7 @@ The package test tree validates SDK behavior. Cross-service N/N-1 and topology c
 | To learn about | Read |
 |----------------|------|
 | Complete package boundaries and dependency injection | [Project Structure](project-structure.md) |
+| Conversation and ontology query implementation sequencing | [Ontology Query Coverage Implementation Plan](../interfaces/ontology-query-coverage-implementation-plan.md) |
 | IS work packages and local-first sequencing | [Service Decomposition Execution Plan](service-decomposition-execution-plan.md) |
 | Graduation, data ownership, and rollback gates | [Service Graduation and Data Ownership](service-graduation-and-ownership.md) |
 | Control-loop authority | [Architecture instructions](../../../.github/instructions/architecture.instructions.md) |

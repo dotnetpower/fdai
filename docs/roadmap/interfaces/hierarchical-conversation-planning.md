@@ -32,23 +32,23 @@ dependencies, invalid arguments, scope invention, and writes outside a confirmat
 
 ## Implementation status
 
-The Operator API now uses the structured intent graph as its active planner for one-shot and
-streamed turns. Validated read goals execute in dependency waves with bounded concurrency through
-the existing tool, web, and agent provider seams. Goal receipts remain in one evidence ledger, and
-a failed or unavailable goal produces a partial result without dropping successful siblings.
+The structured intent graph is a target contract, not the active server planner. The Console ships
+strict parsers and presentation for bounded `intent_graph` and `intent_graph_evidence` payloads,
+but no Core or Operator Service producer currently emits them. The active Core conversation path
+matches `_VERB_PATTERNS`, optionally asks a narrator for canonical command strings, and can validate
+and execute only a serial two-to-three-step read plan.
 
-Subscription health is a typed capability with server-owned scope. Agent and web capabilities are
-projected at request time only when their providers are ready and enabled. Repeated read capabilities
-can use distinct validated arguments. Failed dependencies skip their descendants, and cancellation
-reaches active providers. Legacy single-tool parsing remains for compatibility tests during removal.
+Exact-release semantic candidates, verified semantic plans, bounded ObjectSets, secured query
+receipts, and typed function registration exist as ontology-platform foundations. They are not
+wired to the conversation coordinator, and `OntologyQueryPlan` is not implemented. The current
+platform manifest lists interface, ActionType, and function names but does not project complete
+ObjectType, Property, LinkType-side, evidence, or availability descriptors.
 
-The terminal response persists a redacted graph and timestamped goal receipts, not raw provider
-payloads. The Console replays goals, dependencies, status, and evidence mode in Observed process.
-Action drafts are checked against the current capability manifest again before confirmation.
-The provider-facing schema uses only the supported structured-output subset; deterministic parsing
-still enforces unique goal dependencies and alternatives. A complete catalog-compiled inventory
-request keeps scope, grouping, projection, and freshness in its typed query and bypasses model
-planning, while incomplete or compound requests continue through the intent graph.
+The target server path will persist a redacted graph and timestamped goal receipts rather than raw
+provider payloads. It will execute validated read goals in bounded dependency waves, skip blocked
+descendants, propagate cancellation, retain successful sibling evidence, and recheck action drafts
+against the current capability manifest. Delivery and sequencing are tracked in
+[Ontology Query Coverage Implementation Plan](ontology-query-coverage-implementation-plan.md).
 
 The current compatibility path still includes catalog token matching and legacy single-tool
 parsers. They are not the target natural-language architecture. Exact identifiers may continue to
@@ -360,6 +360,7 @@ actionability, locale parity, cost, and latency on the same frozen cohort before
 | To learn about | Read |
 |---|---|
 | FDAI Console conversation boundary | [FDAI Console Conversations](operator-console.md) |
+| Audited gaps, sequencing, cutover, and rollback | [Ontology Query Coverage Implementation Plan](ontology-query-coverage-implementation-plan.md) |
 | Rule-specific semantic ranking and generations | [Rule Semantic Retrieval](../rules-and-detection/rule-semantic-retrieval.md) |
 | Exact releases, ObjectSets, and typed functions | [FDAI Ontology Safety Infrastructure](../architecture/operating-ontology-platform.md) |
 | Completed-answer evaluation | [Conversation Assurance](../decisioning/conversation-assurance.md) |

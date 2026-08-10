@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 83f08d7d2647fa8e44cd6b9f425066b0a3248296
-translation_revised: 2026-08-08
+translation_source_sha: 3be1b64258021c7e491315936cdaed3223d76e5a
+translation_revised: 2026-08-10
 ---
 # FDAI 로드맵
 
@@ -108,6 +108,8 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 19k | [operator-console-module-map-ko.md](interfaces/operator-console-module-map-ko.md) | Conversation module ownership, CLI/API route map, channel adapter 및 core/delivery boundary |
 | 19l | [operator-console-progressive-conversations-ko.md](interfaces/operator-console-progressive-conversations-ko.md) | Bounded read branch, ordered reduction, verified revision, cancellation, replay 및 progress metric |
 | 19m | [narrator-routing-and-latency-ko.md](interfaces/narrator-routing-and-latency-ko.md) | T1 narrator deployment routing, multimodal probe, operator preference, TTFT, web-search pool 및 runtime delivery 결정 |
+| 19n | [hierarchical-conversation-planning-ko.md](interfaces/hierarchical-conversation-planning-ko.md) | Non-keyword semantic decomposition, structural ontology query coverage, verified intent graph, evidence join 및 answer boundary |
+| 19o | [ontology-query-coverage-implementation-plan-ko.md](interfaces/ontology-query-coverage-implementation-plan-ko.md) | Manifest, query plan, semantic generation, topology history, causal evidence 및 legacy cutover를 위한 audit된 구현 gap과 dependency 순서 work package |
 | 19j | [console-operations-ko.md](interfaces/console-operations-ko.md) | 기존 Operations 탐색, source별 task projection과 schema, 운영 요청, pantheon ownership, 실행 분리 |
 | 19f | [console-evidence-and-resilience-ko.md](interfaces/console-evidence-and-resilience-ko.md) | 콘솔 evidence provenance, localization, durable replay, stream recovery 및 Architecture map resilience |
 | 19a | [document-ingestion-ko.md](interfaces/document-ingestion-ko.md) | Drop-zone UX, 대용량 및 보호 문서 처리, format extraction, private storage, 공유 가시성, retention, deletion 계약 |

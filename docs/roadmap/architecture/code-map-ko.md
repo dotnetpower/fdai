@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 684114e7bfe1a704811d9819bb69301c9bcdfa15
-translation_revised: 2026-08-09
+translation_source_sha: f0d87d94998a0ea49af13955c40ae0afff7b4600
+translation_revised: 2026-08-10
 ---
 # 코드 맵
 
@@ -100,6 +100,7 @@ Package test tree는 SDK behavior를 검증합니다. Cross-service N/N-1 및 to
 | 알아볼 내용 | 문서 |
 |-------------|------|
 | 전체 package boundary와 dependency injection | [프로젝트 구조](project-structure-ko.md) |
+| Conversation 및 ontology query 구현 sequencing | [Ontology Query Coverage 구현 계획](../interfaces/ontology-query-coverage-implementation-plan-ko.md) |
 | IS work package와 local-first sequencing | [서비스 분해 실행 계획](service-decomposition-execution-plan-ko.md) |
 | Service 승격, data ownership 및 rollback gate | [서비스 승격과 데이터 소유권](service-graduation-and-ownership-ko.md) |
 | Control-loop authority | [Architecture instructions](../../../.github/instructions/architecture.instructions.md) |

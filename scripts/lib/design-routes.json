@@ -1060,6 +1060,46 @@
       ]
     },
     {
+      "id": "ontology-query-coverage",
+      "paths": [
+        "docs/roadmap/interfaces/hierarchical-conversation-planning*.md",
+        "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan*.md",
+        "services/core-control-plane/src/fdai/core/conversation/**",
+        "services/core-control-plane/src/fdai/core/ontology_platform/**",
+        "services/core-control-plane/src/fdai/shared/contracts/models/ontology.py",
+        "services/core-control-plane/src/fdai/shared/ontology/**",
+        "services/core-control-plane/src/fdai/runtime/catalog_ontology.py",
+        "services/operator-service/src/fdai_operator_service/**",
+        "packages/service-contracts/**",
+        "rule-catalog/vocabulary/**",
+        "services/core-control-plane/tests/core/conversation/**",
+        "services/core-control-plane/tests/core/ontology_platform/**",
+        "services/operator-service/tests/**"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
+        "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/architecture/operating-ontology-platform.md",
+        "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md",
+        "docs/roadmap/rules-and-detection/causal-incident-graph.md",
+        "docs/roadmap/interfaces/operator-console.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
+        "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
+        "docs/roadmap/architecture/operating-ontology-platform.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/interfaces/operator-console-module-map.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation services/core-control-plane/tests/core/ontology_platform services/operator-service/tests",
+        "uv run python scripts/quality/architecture/check-independent-services.py"
+      ]
+    },
+    {
       "id": "browser-evidence",
       "paths": [
         "services/core-control-plane/src/fdai/core/browser_evidence/**",

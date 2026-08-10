@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 0618cde7ef1f9777c624a1007a3bdc913e9c7a8a
+translation_source_sha: e2f2c0c9e769dd3f6a5908b273915de6bc1ecde0
 translation_revised: 2026-08-10
 ---
 
@@ -34,23 +34,23 @@ capability만 볼 수 있습니다. Validator는 알 수 없는 capability, cycl
 
 ## 구현 상태
 
-Operator API는 이제 one-shot 및 streamed turn의 active planner로 structured intent graph를 사용합니다.
-검증된 read goal은 기존 tool, web, agent provider seam을 통해 bounded concurrency로 dependency wave별
-실행됩니다. Goal receipt는 하나의 evidence ledger에 유지되며 failed 또는 unavailable goal은 성공한
-sibling을 삭제하지 않고 partial result를 만듭니다.
+Structured intent graph는 목표 contract이며 active server planner가 아닙니다. Console은 bounded
+`intent_graph` 및 `intent_graph_evidence` payload의 strict parser와 presentation을 제공하지만 이를 emit하는
+Core 또는 Operator Service producer는 현재 없습니다. Active Core conversation path는
+`_VERB_PATTERNS`를 match하고 선택적으로 narrator에게 canonical command string을 요청하며 serial 2-3
+step read plan만 validate/execute할 수 있습니다.
 
-Subscription health는 server-owned scope를 사용하는 typed capability입니다. Agent 및 web capability는
-request 시점에 provider가 ready 및 enabled인 경우에만 planner에 표시됩니다. 반복 read capability는 서로
-다른 validated argument를 사용할 수 있습니다. 실패한 dependency는 descendant를 skip하며 cancellation은
-active provider까지 전달됩니다. Legacy single-tool parser는 제거 기간 중 compatibility test에 남습니다.
+Exact-release semantic candidate, verified semantic plan, bounded ObjectSet, secured query receipt 및 typed
+function registration은 ontology-platform foundation으로 존재합니다. Conversation coordinator에 연결되지
+않았고 `OntologyQueryPlan`도 구현되지 않았습니다. 현재 platform manifest는 interface, ActionType 및
+function name을 나열하지만 complete ObjectType, Property, LinkType-side, evidence 또는 availability
+descriptor를 projection하지 않습니다.
 
-Terminal response는 raw provider payload가 아니라 redacted graph와 timestamp가 있는 goal receipt를
-저장합니다. Console은 Observed process에서 goal, dependency, status, evidence mode를 replay합니다. Action
-draft는 confirmation 직전에 현재 capability manifest에 대해 다시 검사합니다.
-Provider-facing schema는 지원되는 structured-output subset만 사용하며 deterministic parsing은 goal
-dependency와 alternative의 uniqueness를 계속 검사합니다. Catalog가 완전하게 compile한 inventory
-request는 typed query에 scope, grouping, projection, freshness를 유지하고 model planning을 건너뜁니다.
-불완전하거나 compound인 request는 intent graph를 계속 사용합니다.
+목표 server path는 raw provider payload 대신 redacted graph와 timestamp가 있는 goal receipt를
+저장합니다. 검증된 read goal을 bounded dependency wave로 실행하고 blocked descendant를 skip하며
+cancellation을 전파하고 성공한 sibling evidence를 보존합니다. Action draft는 현재 capability manifest에
+대해 다시 검사합니다. Delivery와 sequencing은 [Ontology Query Coverage 구현
+계획](ontology-query-coverage-implementation-plan-ko.md)에서 추적합니다.
 
 현재 compatibility path에는 catalog token matching과 legacy single-tool parser가 아직 남아 있습니다.
 이 경로는 목표 자연어 아키텍처가 아닙니다. Exact identifier는 계속 직접 resolve할 수 있지만, 일반
@@ -356,6 +356,7 @@ calibration, actionability, locale parity, cost, latency를 측정합니다.
 | 알아볼 내용 | 문서 |
 |---|---|
 | FDAI Console conversation boundary | [FDAI Console 대화](operator-console-ko.md) |
+| Audit된 gap, sequencing, cutover 및 rollback | [Ontology Query Coverage 구현 계획](ontology-query-coverage-implementation-plan-ko.md) |
 | Rule-specific semantic ranking 및 generation | [Rule 의미 검색](../rules-and-detection/rule-semantic-retrieval-ko.md) |
 | Exact release, ObjectSet 및 typed function | [FDAI Ontology Safety Infrastructure](../architecture/operating-ontology-platform-ko.md) |
 | 완료 answer 평가 | [Conversation Assurance](../decisioning/conversation-assurance-ko.md) |
