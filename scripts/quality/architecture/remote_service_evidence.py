@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from itertools import pairwise
 from typing import Any
+from urllib.parse import unquote
 
 SERVICE_IDS = (
     "core-control-plane",
@@ -21,6 +22,7 @@ WORKFLOW = ".github/workflows/service-deploy.yml"
 _SHA256 = re.compile(r"sha256:[0-9a-f]{64}")
 _COMMIT = re.compile(r"[0-9a-f]{40}")
 _GUID = re.compile(r"(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
+_COMPACT_GUID = re.compile(r"(?i)^[0-9a-f]{32}$")
 _FORBIDDEN_KEYS = re.compile(
     r"(?i)(tenant|subscription|resource[_-]?group|resource[_-]?id|backend|endpoint|hostname)"
 )
@@ -105,7 +107,17 @@ def _reject_deployment_context(value: object, *, path: str = "$") -> None:
         for index, nested in enumerate(value):
             _reject_deployment_context(nested, path=f"{path}[{index}]")
     elif isinstance(value, str):
-        if _GUID.search(value) or _FORBIDDEN_VALUES.search(value):
+        decoded = value
+        for _ in range(2):
+            candidate = unquote(decoded)
+            if candidate == decoded:
+                break
+            decoded = candidate
+        if (
+            _GUID.search(decoded)
+            or _COMPACT_GUID.fullmatch(decoded)
+            or _FORBIDDEN_VALUES.search(decoded)
+        ):
             raise RemoteEvidenceError(f"remote evidence contains a deployment identifier at {path}")
 
 
@@ -351,6 +363,18 @@ def validate_remote_service_evidence(
         evidence["controls_commit_sha"], "remote evidence controls commit"
     )
     transition = _object(manifest.get("release_transition"), "release transition")
+    _exact_keys(
+        transition,
+        {
+            "n_distribution_version",
+            "n_source_revision",
+            "n_minus_one_distribution_version",
+            "n_minus_one_source_revision",
+            "n_contract_set_version",
+            "n_minus_one_contract_set_version",
+        },
+        "release transition",
+    )
     n = _validate_release(
         evidence["n"],
         label="N release",
@@ -382,9 +406,16 @@ def validate_remote_service_evidence(
     ]
     if service_order != list(SERVICE_IDS):
         raise RemoteEvidenceError("remote evidence services must use canonical order")
-    manifest_services = {
-        str(item["id"]): item for item in _array(manifest.get("services"), "manifest services")
-    }
+    raw_manifest_services = _array(manifest.get("services"), "manifest services")
+    manifest_services: dict[str, dict[str, Any]] = {}
+    for value in raw_manifest_services:
+        manifest_service = _object(value, "manifest service")
+        service_id = manifest_service.get("id")
+        if service_id not in SERVICE_IDS or service_id in manifest_services:
+            raise RemoteEvidenceError("manifest service ids are invalid or duplicated")
+        manifest_services[str(service_id)] = manifest_service
+    if set(manifest_services) != set(SERVICE_IDS):
+        raise RemoteEvidenceError("manifest must cover the canonical five services")
     releases = {"N": n, "N-1": n_minus_one}
     seen: set[str] = set()
     run_ids: set[int] = set()

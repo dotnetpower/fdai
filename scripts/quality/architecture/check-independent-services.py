@@ -278,6 +278,10 @@ def _validate_program_final_verification(manifest: dict[str, Any]) -> None:
     statuses = {item["id"]: item["status"] for item in manifest["work_packages"]}
     if statuses["IS-06"] != "completed":
         raise ValueError("IS-06 local deployment evidence must release IS-07")
+    if statuses["IS-09"] == "completed" and (
+        statuses["IS-07"] != "completed" or statuses["IS-08"] != "completed"
+    ):
+        raise ValueError("IS-09 cannot complete before IS-07 and IS-08")
     if statuses["IS-09"] == "completed" and policy["status"] != "completed":
         raise ValueError("IS-09 cannot complete before program-final remote verification")
 

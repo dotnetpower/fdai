@@ -41,6 +41,8 @@ def _manifest() -> dict[str, Any]:
             "n_source_revision": _N_SOURCE,
             "n_minus_one_distribution_version": "0.1.2",
             "n_minus_one_source_revision": _N_MINUS_ONE_SOURCE,
+            "n_contract_set_version": "1.1.0",
+            "n_minus_one_contract_set_version": "1.0.0",
         },
         "services": [
             {"id": service_id, "distribution": distribution}
@@ -399,6 +401,37 @@ def test_rejects_embedded_azure_resource_identifier() -> None:
 
     with pytest.raises(RemoteEvidenceError, match="deployment identifier"):
         validate_remote_service_evidence(_manifest(), evidence)
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+        "%2Fsubscriptions%2F00000000-0000-0000-0000-000000000123",
+        "00000000000000000000000000000123",
+    ),
+)
+def test_rejects_encoded_or_compact_deployment_identifier(value: str) -> None:
+    evidence = _evidence()
+    evidence["repository"] = value
+
+    with pytest.raises(RemoteEvidenceError, match="deployment identifier"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_rejects_missing_manifest_service() -> None:
+    manifest = _manifest()
+    manifest["services"].pop()
+
+    with pytest.raises(RemoteEvidenceError, match="canonical five services"):
+        validate_remote_service_evidence(manifest, _evidence())
+
+
+def test_rejects_unrecognized_transition_field() -> None:
+    manifest = _manifest()
+    manifest["release_transition"]["unexpected"] = "value"
+
+    with pytest.raises(RemoteEvidenceError, match="release transition fields are invalid"):
+        validate_remote_service_evidence(manifest, _evidence())
 
 
 def test_rejects_core_rollback_before_executor() -> None:

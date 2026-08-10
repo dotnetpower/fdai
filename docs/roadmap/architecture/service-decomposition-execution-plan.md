@@ -320,6 +320,10 @@ state. For each transition:
 | 2026-08-10 | IS-09 | Corrected canonical N image source | Round 58 | Supply-chain run `31349808536` successfully built, scanned, and attested all five images from the identity-corrected source. The machine transition contract now pins that source as N, so subsequent plans, restores, and final evidence cannot mix the prior crash-looping document images with corrected peers. |
 | 2026-08-10 | IS-09 | Key Vault secret normalization guard | Round 59 | A post-cutover Operator plan exposed AzureRM refresh drift only at an empty or omitted `secret[*].value` beside an unchanged Key Vault reference. The protected plan guard now accepts only that exact provider normalization shape; a non-empty value, changed secret metadata, or any additional drift remains blocked. |
 
+| 2026-08-10 | IS-09 | Encoded context rejection | Round 60 | Customer-agnostic evidence review found that percent-encoded Azure paths and compact GUID values could bypass literal identifier checks. Validation now performs bounded URL decoding and rejects exact compact GUID values before reading evidence fields. |
+| 2026-08-10 | IS-09 | Exact remote manifest schema | Round 61 | Manifest-shape review found that the remote verifier relied on the outer checker for canonical transition keys and service coverage. The verifier now independently requires the exact transition schema and all five unique canonical service declarations. |
+| 2026-08-10 | IS-09 | Completion dependency join | Round 62 | Work-package review found that the program-final path checked remote completion but did not independently join both IS-09 dependencies. IS-09 completion now requires IS-07 and IS-08 to remain completed. |
+
 ## Related documents
 
 | To learn about | Read |

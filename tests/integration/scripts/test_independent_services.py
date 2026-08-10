@@ -206,6 +206,28 @@ def test_is09_cannot_complete_while_remote_verification_is_deferred(
         checker._validate_program_final_verification(manifest)
 
 
+def test_is09_cannot_complete_before_layout_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checker = _checker_module()
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    next(item for item in manifest["work_packages"] if item["id"] == "IS-08")["status"] = (
+        "in_progress"
+    )
+    next(item for item in manifest["work_packages"] if item["id"] == "IS-09")["status"] = (
+        "completed"
+    )
+    manifest["program_final_verification"]["status"] = "completed"
+    manifest["program_final_verification"]["accepted_remote_evidence"] = {
+        "service_plan_apply_receipts": 5,
+        "service_upgrade_and_rollback_proofs": 5,
+    }
+    monkeypatch.setattr(checker, "_validate_completed_remote_evidence", lambda *_args: None)
+
+    with pytest.raises(ValueError, match="before IS-07 and IS-08"):
+        checker._validate_program_final_verification(manifest)
+
+
 def test_completed_program_verification_requires_all_remote_evidence() -> None:
     checker = _checker_module()
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
