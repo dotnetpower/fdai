@@ -488,7 +488,9 @@ def _worker_health_evidence() -> tuple[dict[str, object], ...]:
         {
             "name": "clamav",
             "image_ref": "docker.io/clamav/clamav@sha256:" + "b" * 64,
-            "config_digest": _canonical_digest({"name": "clamav", "cpu": 0.5, "memory": "1Gi"}),
+            "config_digest": _canonical_digest(
+                {"name": "clamav", "resources": {"cpu": 0.5, "memory": "1Gi"}}
+            ),
             "probe_digest": _canonical_digest(
                 {
                     "startup_probe": {
@@ -515,8 +517,7 @@ def _worker_health_evidence() -> tuple[dict[str, object], ...]:
         {
             "name": "clamav",
             "image": "docker.io/clamav/clamav@sha256:" + "b" * 64,
-            "cpu": 0.5,
-            "memory": "1Gi",
+            "resources": {"cpu": 0.5, "memory": "1Gi"},
             "probes": [
                 {
                     "type": "Startup",
@@ -2020,9 +2021,32 @@ def test_worker_health_rejects_sidecar_drift_from_sealed_plan_context(
     message: str,
 ) -> None:
     context, service_output, account, app, revision = _worker_health_evidence()
-    revision["properties"]["template"]["containers"][1][field] = value  # type: ignore[index]
+    sidecar = revision["properties"]["template"]["containers"][1]  # type: ignore[index]
+    if field == "cpu":
+        sidecar["resources"][field] = value
+    else:
+        sidecar[field] = value
 
     with pytest.raises(recovery.DeploymentRecoveryError, match=message):
+        recovery.validate_health(
+            context=context,
+            service_output=service_output,
+            account=account,
+            app=app,
+            revision=revision,
+            previous_revision="example--old",
+        )
+
+
+def test_worker_health_rejects_unsupported_live_sidecar_configuration(
+    recovery: ModuleType,
+) -> None:
+    context, service_output, account, app, revision = _worker_health_evidence()
+    revision["properties"]["template"]["containers"][1]["env"] = [  # type: ignore[index]
+        {"name": "UNSEALED", "value": "1"}
+    ]
+
+    with pytest.raises(recovery.DeploymentRecoveryError, match="unsupported runtime"):
         recovery.validate_health(
             context=context,
             service_output=service_output,

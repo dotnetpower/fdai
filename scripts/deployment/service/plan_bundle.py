@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from service_contract import ServiceContractError, resolve_service, validate_image_reference
+from sidecar_contract import SidecarContractError, planned_observable_configuration
 
 _SCHEMA_VERSION = "fdai.service-deployment-plan.v5"
 _SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
@@ -105,9 +106,10 @@ def planned_sidecar_contract(container: dict[str, Any], *, name: str) -> dict[st
         or probes["startup_probe"].get("failure_count_threshold") != 30
     ):
         raise PlanBundleError(f"sidecar {name} probe contract changed")
-    configuration = {
-        key: value for key, value in container.items() if key not in {"image", *_PROBE_FIELDS}
-    }
+    try:
+        configuration = planned_observable_configuration(container, name=name)
+    except SidecarContractError as exc:
+        raise PlanBundleError(str(exc)) from exc
     return {
         "name": name,
         "image_ref": image,

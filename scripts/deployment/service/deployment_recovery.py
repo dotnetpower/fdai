@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
+from sidecar_contract import SidecarContractError, observed_configuration
+
 _DIGEST_IMAGE = re.compile(r"[^\s]+@sha256:[0-9a-f]{64}")
 _ALLOWED_SIDECARS = {
     "document-processing-worker": frozenset({"clamav"}),
@@ -74,9 +76,10 @@ def _observed_sidecar_contract(
         name=name,
         allow_legacy_empty=allow_legacy_empty_probes,
     )
-    configuration = {
-        key: value for key, value in container.items() if key not in {"image", "probes"}
-    }
+    try:
+        configuration = observed_configuration(container, name=name)
+    except SidecarContractError as exc:
+        raise DeploymentRecoveryError(str(exc)) from exc
     normalized_probes: dict[str, dict[str, Any]] = {}
     for probe in contract["probes"]:
         probe_type = str(probe.get("type", "")).lower()
