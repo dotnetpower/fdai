@@ -369,7 +369,7 @@ def _validate_stage(
     run_ids: set[int],
     peer_receipts: set[str],
     plan_digests: set[str],
-    context_digests: set[str],
+    context_digests: dict[str, tuple[str, str]],
     metadata_artifacts: set[str],
     live_observation_artifacts: set[str],
     plan_windows: list[tuple[datetime, datetime, str, str]],
@@ -427,9 +427,11 @@ def _validate_stage(
         raise RemoteEvidenceError("remote stage plan digests must be unique")
     plan_digests.add(plan_digest)
     context_digest = str(plan["context_digest"])
-    if context_digest in context_digests:
+    context_binding = (service_id, str(stage["release"]))
+    previous_context_binding = context_digests.get(context_digest)
+    if previous_context_binding is not None and previous_context_binding != context_binding:
         raise RemoteEvidenceError("remote stage context digests must be unique")
-    context_digests.add(context_digest)
+    context_digests[context_digest] = context_binding
 
     apply, apply_id, _apply_attempt, apply_started, apply_completed = _validate_run_common(
         stage["apply"],
@@ -602,7 +604,7 @@ def validate_remote_service_evidence(
     run_ids: set[int] = set()
     peer_receipts: set[str] = set()
     plan_digests: set[str] = set()
-    context_digests: set[str] = set()
+    context_digests: dict[str, tuple[str, str]] = {}
     metadata_artifacts: set[str] = set()
     live_observation_artifacts: set[str] = set()
     plan_windows: list[tuple[datetime, datetime, str, str]] = []

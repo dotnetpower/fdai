@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 4d44bff9cac76905562d9bdb9fc1d259cf932c7c
+translation_source_sha: eb2961ffb7ddf840df75a4db9d56ef1dd22b906e
 translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
@@ -339,6 +339,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-10 | IS-09 | Evidence-only comparator separation | Round 80 | Executable review에서 service-deploy comparator에 exception을 추가하면 comparator 자체가 historical initial controls와 달라져 equivalence 주장이 self-defeating 상태가 되고 apply boundary도 약해지는 문제를 확인했습니다. Service-deploy comparator를 byte-for-byte strict form으로 복원했습니다. 별도 final-evidence comparator는 supply-chain helper만 제외하고 root release version만 normalize하며 그 밖의 workflow, helper, Terraform, migration, dependency 또는 lock 변경을 모두 거부합니다. Focused test가 두 boundary를 증명하며 High 및 Medium severity residual은 계속 0건입니다. |
 | 2026-08-10 | IS-09 | Attestation workflow import path | Round 81 | Clean runner 실행에서 `remote-evidence-attest.yml`의 plain Python entry point 2개가 repository root를 module search path에서 찾지 못해 validation 전에 `ModuleNotFoundError`로 실패하는 문제를 재현했습니다. 이제 exact protected checkout을 job-level Python path로 사용하며 workflow contract test가 이 binding을 고정합니다. Aggregate 및 GitHub binder 동작은 변경하지 않았고 repository import가 없으면 attestation 전에 계속 실패합니다. |
 | 2026-08-10 | IS-09 | Recovery image state alignment | Round 82 | Fresh Ingestion plan `31376583061`은 out-of-band automatic recovery가 live image와 computed revision metadata를 변경했지만 Terraform state는 recovery 전 image를 유지하여 fail closed했습니다. 이제 plan guard는 observed image가 이미 attested된 planned-before image와 같고 나머지 차이가 computed revision name, FQDN 및 suffix뿐인 경우에만 이 shape를 허용합니다. 다른 image 또는 runtime, identity, secret, platform, authority 변경은 계속 차단합니다. |
+| 2026-08-10 | IS-09 | Final evidence contract hardening | Round 83-84 | Round 83은 closed public manifest projection을 remote deployment-context scanning과 분리하여 generic local evidence key가 aggregate 생성을 차단하지 않도록 했습니다. Round 84는 한 service의 initial N plan과 restored N plan이 immutable context를 의도적으로 공유하지만 fresh revision suffix로 서로 다른 plan digest를 생성함을 증명했습니다. 이제 verifier는 동일한 service와 release에서만 context 재사용을 허용하며 cross-service 또는 cross-release 재사용, stale apply binding 및 중복 plan digest는 계속 차단합니다. Focused regression이 통과했고 High 또는 Medium severity residual은 0건입니다. |
 
 ## 관련 문서
 

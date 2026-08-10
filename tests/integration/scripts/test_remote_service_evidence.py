@@ -456,6 +456,16 @@ def test_rejects_reused_stage_context() -> None:
         validate_remote_service_evidence(_manifest(), evidence)
 
 
+def test_accepts_same_service_context_for_initial_and_restore_n() -> None:
+    evidence = _evidence()
+    reused = evidence["services"][0]["stages"][0]["plan"]["context_digest"]
+    restore = evidence["services"][0]["stages"][2]
+    restore["plan"]["context_digest"] = reused
+    restore["apply"]["context_digest"] = reused
+
+    validate_remote_service_evidence(_manifest(), evidence)
+
+
 def test_rejects_reused_stage_plan_digest() -> None:
     evidence = _evidence()
     reused = evidence["services"][0]["stages"][0]["plan"]["plan_digest"]
