@@ -873,6 +873,33 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+      - name: Seal live service observations
+        if: ${{ !inputs.migrate_state && inputs.apply && steps.apply.outcome == 'success' && steps.health.outcome == 'success' }}
+        env:
+          PLAN_DIGEST: ${{ inputs.plan_digest }}
+          CONTEXT_DIGEST: ${{ inputs.context_digest }}
+        run: |
+          set -euo pipefail
+          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/live_observation.py" \
+            --receipt "$RUNNER_TEMP/service-peer-isolation-receipt.json" \
+            --service "${{ inputs.service }}" \
+            --commit-sha "${{ inputs.commit_sha }}" \
+            --image-ref "${{ inputs.image_ref }}" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --plan-digest "$PLAN_DIGEST" \
+            --context-digest "$CONTEXT_DIGEST" \
+            --output "$RUNNER_TEMP/service-live-observations.json"
+
+      - name: Upload live service observations
+        if: ${{ !inputs.migrate_state && inputs.apply && steps.apply.outcome == 'success' && steps.health.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: service-live-observations-${{ inputs.service }}-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/service-live-observations.json
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Roll back unhealthy service revision
         if: ${{ inputs.apply && (steps.apply.outcome == 'failure' || steps.health.outcome == 'failure') }}
         id: rollback
@@ -998,4 +1025,5 @@ jobs:
           rm -rf "$RUNNER_TEMP/service-rollback"
           rm -rf "$RUNNER_TEMP/service-peer-state-before" "$RUNNER_TEMP/service-peer-state-after"
           rm -f "$RUNNER_TEMP/service-peer-isolation-receipt.json"
+          rm -f "$RUNNER_TEMP/service-live-observations.json"
           rm -rf "$RUNNER_TEMP/legacy-terraform-data"

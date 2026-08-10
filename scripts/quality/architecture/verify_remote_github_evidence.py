@@ -127,6 +127,8 @@ def _adoption_run_record(
     service_id: str,
 ) -> None:
     run_id = adoption.get("workflow_run_id")
+    if isinstance(run_id, bool) or not isinstance(run_id, int) or run_id < 1:
+        raise GitHubEvidenceError(f"{service_id} adoption GitHub run id is invalid")
     value = _object(
         client.json(f"repos/{REPOSITORY}/actions/runs/{run_id}"),
         f"{service_id} adoption GitHub run",
@@ -140,21 +142,35 @@ def _adoption_run_record(
     for key, wanted in expected.items():
         if value.get(key) != wanted:
             raise GitHubEvidenceError(f"{service_id} adoption GitHub {key} binding is invalid")
+    _require_run_steps(
+        client,
+        run_id,
+        {
+            "Apply service-owned database migrations": adoption.get("migration_step_conclusion"),
+            "Upload service migration adoption evidence": adoption.get("artifact_step_conclusion"),
+        },
+        label=f"{service_id} adoption",
+    )
+
+
+def _require_run_steps(
+    client: GitHubClient,
+    run_id: int,
+    expected_steps: Mapping[str, object],
+    *,
+    label: str,
+) -> None:
     jobs = _object(
         client.json(f"repos/{REPOSITORY}/actions/runs/{run_id}/jobs?per_page=100"),
-        f"{service_id} adoption GitHub jobs",
+        f"{label} GitHub jobs",
     ).get("jobs")
     if not isinstance(jobs, list):
-        raise GitHubEvidenceError(f"{service_id} adoption GitHub jobs are invalid")
+        raise GitHubEvidenceError(f"{label} GitHub jobs are invalid")
     steps = [step for job in jobs if isinstance(job, dict) for step in job.get("steps", [])]
-    expected_steps = {
-        "Apply service-owned database migrations": adoption.get("migration_step_conclusion"),
-        "Upload service migration adoption evidence": adoption.get("artifact_step_conclusion"),
-    }
     for name, conclusion in expected_steps.items():
         matches = [step for step in steps if isinstance(step, dict) and step.get("name") == name]
         if len(matches) != 1 or matches[0].get("conclusion") != conclusion:
-            raise GitHubEvidenceError(f"{service_id} adoption GitHub step binding is invalid")
+            raise GitHubEvidenceError(f"{label} GitHub step binding is invalid")
 
 
 def _verify_adoptions(
@@ -348,7 +364,6 @@ def _verify_stage(
         mode="plan",
         plan_run=plan,
     )
-
     _run_record(client, apply, f"{service_id} {stage['name']} apply")
     apply_id = int(apply["workflow_run_id"])
     apply_attempt = int(apply["workflow_run_attempt"])
@@ -369,6 +384,42 @@ def _verify_stage(
         mode="apply",
         plan_run=plan,
     )
+    _require_run_steps(
+        client,
+        apply_id,
+        {
+            "Verify immutable service image attestation": "success",
+            "Apply service-owned database migrations": "success",
+            "Verify post-apply service health": "success",
+            "Verify peer isolation and seal receipt": "success",
+            "Seal live service observations": "success",
+            "Upload live service observations": "success",
+        },
+        label=f"{service_id} {stage['name']} apply",
+    )
+    live_name = f"service-live-observations-{service_id}-dev-{apply_id}-{apply_attempt}"
+    live_record = _artifact(
+        client,
+        apply_artifacts,
+        name=live_name,
+        digest=apply["live_observation_artifact_sha256"],
+        basename="service-live-observations.json",
+    )
+    expected_live_record = {
+        "schema_version": "1.0.0",
+        "service_id": service_id,
+        "workflow_run_id": apply_id,
+        "workflow_run_attempt": apply_attempt,
+        "commit_sha": stage["source_revision"],
+        "image_digest": stage["image_digest"],
+        "plan_digest": plan["plan_digest"],
+        "context_digest": plan["context_digest"],
+        "observations": apply["observations"],
+    }
+    if live_record != expected_live_record:
+        raise GitHubEvidenceError(
+            f"{service_id} {stage['name']} live observation binding is invalid"
+        )
 
 
 def validate_github_evidence(

@@ -168,7 +168,7 @@ def test_plan_and_apply_both_verify_image_and_guard_exact_binary_plan() -> None:
         "--controls-commit-sha",
         "--attestation-signer-workflow",
     ):
-        expected_count = 3 if argument == "--workflow-run-attempt" else 2
+        expected_count = 4 if argument == "--workflow-run-attempt" else 2
         assert _WORKFLOW.count(argument) == expected_count
 
 
@@ -288,3 +288,7 @@ def test_plan_and_apply_capture_four_peer_states_and_upload_sealed_receipts() ->
     assert "service-peer-state-before" in _WORKFLOW
     assert "service-peer-state-after" in _WORKFLOW
     assert "service-peer-isolation-receipt.json" in _WORKFLOW
+    assert "Seal live service observations" in _WORKFLOW
+    assert 'live_observation.py"' in _WORKFLOW
+    assert "Upload live service observations" in _WORKFLOW
+    assert "service-live-observations-${{ inputs.service }}" in _WORKFLOW

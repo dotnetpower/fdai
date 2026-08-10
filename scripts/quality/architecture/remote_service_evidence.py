@@ -289,6 +289,39 @@ def _validate_run_common(
     return run, run_id, run_attempt, started_at, completed_at
 
 
+def _validate_live_observations(
+    value: object,
+    *,
+    service_id: str,
+    source_revision: str,
+    image_digest: str,
+    run_id: int,
+    run_attempt: int,
+) -> None:
+    observations = _object(value, f"{service_id} live observations")
+    expected_kinds = {"health", "identity", "image", "offset", "schema", "source", "topology"}
+    if set(observations) != expected_kinds:
+        raise RemoteEvidenceError(f"{service_id} live observation kinds are incomplete")
+    verifications: set[str] = set()
+    for kind in sorted(expected_kinds):
+        observation = _object(observations[kind], f"{service_id} {kind} observation")
+        if (
+            observation.get("kind") != kind
+            or observation.get("service_id") != service_id
+            or observation.get("observed") is not True
+            or observation.get("workflow_run_id") != run_id
+            or observation.get("workflow_run_attempt") != run_attempt
+            or observation.get("commit_sha") != source_revision
+        ):
+            raise RemoteEvidenceError(f"{service_id} {kind} observation binding is invalid")
+        verification = observation.get("verification")
+        if not isinstance(verification, str) or not verification or verification in verifications:
+            raise RemoteEvidenceError(f"{service_id} live observation verification is invalid")
+        verifications.add(verification)
+    if observations["image"].get("image_digest") != image_digest:
+        raise RemoteEvidenceError(f"{service_id} image observation digest is invalid")
+
+
 def _validate_stage(
     value: object,
     *,
@@ -301,6 +334,7 @@ def _validate_stage(
     plan_digests: set[str],
     context_digests: set[str],
     metadata_artifacts: set[str],
+    live_observation_artifacts: set[str],
     plan_windows: list[tuple[datetime, datetime, str, str]],
     apply_windows: list[tuple[datetime, datetime, str, str]],
 ) -> tuple[int, int]:
@@ -378,6 +412,8 @@ def _validate_stage(
             "plan_digest",
             "context_digest",
             "peer_receipt_artifact_sha256",
+            "live_observation_artifact_sha256",
+            "observations",
             "peer_receipt_status",
             "peer_count",
             "conclusion",
@@ -393,6 +429,21 @@ def _validate_stage(
         or apply["context_digest"] != plan["context_digest"]
     ):
         raise RemoteEvidenceError(f"{service_id} {expected_name} apply is not bound to its plan")
+    live_artifact = _require_sha256(
+        apply["live_observation_artifact_sha256"],
+        f"{service_id} {expected_name} live observation artifact",
+    )
+    if live_artifact in live_observation_artifacts:
+        raise RemoteEvidenceError("remote live observation artifacts must be unique")
+    live_observation_artifacts.add(live_artifact)
+    _validate_live_observations(
+        apply["observations"],
+        service_id=service_id,
+        source_revision=str(stage["source_revision"]),
+        image_digest=str(stage["image_digest"]),
+        run_id=apply_id,
+        run_attempt=_apply_attempt,
+    )
     if apply_id <= plan_id:
         raise RemoteEvidenceError(f"{service_id} {expected_name} apply must follow its plan")
     if apply_started < plan_completed:
@@ -511,6 +562,7 @@ def validate_remote_service_evidence(
     plan_digests: set[str] = set()
     context_digests: set[str] = set()
     metadata_artifacts: set[str] = set()
+    live_observation_artifacts: set[str] = set()
     plan_windows: list[tuple[datetime, datetime, str, str]] = []
     apply_windows: list[tuple[datetime, datetime, str, str]] = []
     apply_ids: dict[tuple[str, str], int] = {}
@@ -552,6 +604,7 @@ def validate_remote_service_evidence(
                 plan_digests=plan_digests,
                 context_digests=context_digests,
                 metadata_artifacts=metadata_artifacts,
+                live_observation_artifacts=live_observation_artifacts,
                 plan_windows=plan_windows,
                 apply_windows=apply_windows,
             )

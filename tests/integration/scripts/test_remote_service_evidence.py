@@ -105,12 +105,35 @@ def _stage(
         ),
         "plan_run_id": plan_id,
         "plan_run_attempt": 1,
+        "live_observation_artifact_sha256": _digest(seed + 6),
+    }
+    image_digest = _digest(10 + service_index if release == "N" else 20 + service_index)
+    apply["observations"] = {
+        kind: {
+            "kind": kind,
+            "service_id": SERVICE_IDS[service_index],
+            "observed": True,
+            "workflow_run_id": apply_id,
+            "workflow_run_attempt": 1,
+            "commit_sha": _N_SOURCE if release == "N" else _N_MINUS_ONE_SOURCE,
+            "verification": verification,
+            **({"image_digest": image_digest} if kind == "image" else {}),
+        }
+        for kind, verification in (
+            ("health", "post-apply-health"),
+            ("identity", "sealed-target-identity"),
+            ("image", "attested-and-observed-image"),
+            ("offset", "peer-state-serials-preserved"),
+            ("schema", "service-migration-upgrade"),
+            ("source", "protected-plan-source"),
+            ("topology", "four-peer-isolation"),
+        )
     }
     return {
         "name": name,
         "release": release,
         "source_revision": _N_SOURCE if release == "N" else _N_MINUS_ONE_SOURCE,
-        "image_digest": _digest(10 + service_index if release == "N" else 20 + service_index),
+        "image_digest": image_digest,
         "plan": plan,
         "apply": apply,
     }
@@ -236,6 +259,14 @@ def _service(evidence: dict[str, Any], service_id: str) -> dict[str, Any]:
     return next(item for item in evidence["services"] if item["id"] == service_id)
 
 
+def _set_stage_run_ids(stage: dict[str, Any], plan_id: int, apply_id: int) -> None:
+    stage["plan"]["workflow_run_id"] = plan_id
+    stage["apply"]["workflow_run_id"] = apply_id
+    stage["apply"]["plan_run_id"] = plan_id
+    for observation in stage["apply"]["observations"].values():
+        observation["workflow_run_id"] = apply_id
+
+
 def test_accepts_complete_customer_agnostic_remote_evidence() -> None:
     summary = validate_remote_service_evidence(_manifest(), _evidence())
 
@@ -267,6 +298,15 @@ def test_rejects_unsuccessful_remote_adoption_step() -> None:
     evidence["adoptions"][0]["migration_step_conclusion"] = "failure"
 
     with pytest.raises(RemoteEvidenceError, match="adoption steps are incomplete"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_rejects_relabelled_live_observation() -> None:
+    evidence = _evidence()
+    observation = evidence["services"][0]["stages"][1]["apply"]["observations"]["health"]
+    observation["kind"] = "image"
+
+    with pytest.raises(RemoteEvidenceError, match="health observation binding is invalid"):
         validate_remote_service_evidence(_manifest(), evidence)
 
 
@@ -492,9 +532,7 @@ def test_rejects_unrecognized_transition_field() -> None:
 def test_rejects_core_rollback_before_executor() -> None:
     evidence = _evidence()
     core = _service(evidence, "core-control-plane")
-    core["stages"][1]["plan"]["workflow_run_id"] = 298
-    core["stages"][1]["apply"]["workflow_run_id"] = 299
-    core["stages"][1]["apply"]["plan_run_id"] = 298
+    _set_stage_run_ids(core["stages"][1], 298, 299)
 
     with pytest.raises(RemoteEvidenceError, match="Executor must reach N-1"):
         validate_remote_service_evidence(_manifest(), evidence)
@@ -503,9 +541,7 @@ def test_rejects_core_rollback_before_executor() -> None:
 def test_rejects_executor_restore_before_core() -> None:
     evidence = _evidence()
     core = _service(evidence, "core-control-plane")
-    core["stages"][2]["plan"]["workflow_run_id"] = 362
-    core["stages"][2]["apply"]["workflow_run_id"] = 363
-    core["stages"][2]["apply"]["plan_run_id"] = 362
+    _set_stage_run_ids(core["stages"][2], 362, 363)
 
     with pytest.raises(RemoteEvidenceError, match="Core must return to N"):
         validate_remote_service_evidence(_manifest(), evidence)
@@ -546,21 +582,11 @@ def test_rejects_restore_before_all_rollbacks() -> None:
     operator_restore = _service(evidence, "operator-service")["stages"][2]
     executor = _service(evidence, "isolated-executor")
     core = _service(evidence, "core-control-plane")
-    operator_restore["plan"]["workflow_run_id"] = 308
-    operator_restore["apply"]["workflow_run_id"] = 309
-    operator_restore["apply"]["plan_run_id"] = 308
-    executor["stages"][1]["plan"]["workflow_run_id"] = 320
-    executor["stages"][1]["apply"]["workflow_run_id"] = 321
-    executor["stages"][1]["apply"]["plan_run_id"] = 320
-    executor["stages"][2]["plan"]["workflow_run_id"] = 322
-    executor["stages"][2]["apply"]["workflow_run_id"] = 323
-    executor["stages"][2]["apply"]["plan_run_id"] = 322
-    core["stages"][1]["plan"]["workflow_run_id"] = 324
-    core["stages"][1]["apply"]["workflow_run_id"] = 325
-    core["stages"][1]["apply"]["plan_run_id"] = 324
-    core["stages"][2]["plan"]["workflow_run_id"] = 326
-    core["stages"][2]["apply"]["workflow_run_id"] = 327
-    core["stages"][2]["apply"]["plan_run_id"] = 326
+    _set_stage_run_ids(operator_restore, 308, 309)
+    _set_stage_run_ids(executor["stages"][1], 320, 321)
+    _set_stage_run_ids(executor["stages"][2], 322, 323)
+    _set_stage_run_ids(core["stages"][1], 324, 325)
+    _set_stage_run_ids(core["stages"][2], 326, 327)
 
     with pytest.raises(RemoteEvidenceError, match="restores must follow all rollback"):
         validate_remote_service_evidence(_manifest(), evidence)

@@ -85,32 +85,6 @@ def _peer_versions(
     }
 
 
-def _artifact_content(
-    service_id: str,
-    kind: str,
-    rollback: dict[str, Any],
-    restore: dict[str, Any],
-) -> dict[str, Any]:
-    def transition(stage: dict[str, Any]) -> dict[str, Any]:
-        plan = _object(stage.get("plan"), "remote plan")
-        apply = _object(stage.get("apply"), "remote apply")
-        return {
-            "plan_run_id": plan["workflow_run_id"],
-            "apply_run_id": apply["workflow_run_id"],
-            "plan_digest": plan["plan_digest"],
-            "context_digest": plan["context_digest"],
-            "peer_receipt_artifact_sha256": apply["peer_receipt_artifact_sha256"],
-        }
-
-    return {
-        "kind": kind,
-        "service_id": service_id,
-        "observed": True,
-        "rollback": transition(rollback),
-        "restore": transition(restore),
-    }
-
-
 def build_live_remote_evidence(
     compatibility: dict[str, Any], remote: dict[str, Any]
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -126,24 +100,41 @@ def build_live_remote_evidence(
     source = {"repository": repository, "revision": controls, "workflow": workflow}
     source_digest = canonical_digest(source)
     artifacts: list[dict[str, Any]] = []
-    observation_refs: dict[str, dict[str, str]] = {}
+    observation_refs: dict[str, dict[str, dict[str, str]]] = {}
     for service_id in SERVICE_IDS:
-        rollback = _stage(remote_services[service_id], "rollback")
-        restore = _stage(remote_services[service_id], "restore")
         observation_refs[service_id] = {}
-        for kind in OBSERVATION_KINDS:
-            content = _artifact_content(service_id, kind, rollback, restore)
-            artifact_without_ref = {
-                "kind": kind,
-                "service_id": service_id,
-                "run_id": run_id,
-                "source_digest": source_digest,
-                "content_digest": canonical_digest(content),
-                "content": content,
-            }
-            reference = canonical_digest(artifact_without_ref)
-            observation_refs[service_id][kind] = reference
-            artifacts.append({"ref": reference, **artifact_without_ref})
+        for direction, stage_name in (("rollback", "rollback"), ("migration", "restore")):
+            stage = _stage(remote_services[service_id], stage_name)
+            apply = _object(stage.get("apply"), f"{service_id} {stage_name} apply")
+            observations = _object(
+                apply.get("observations"), f"{service_id} {stage_name} observations"
+            )
+            if set(observations) != set(OBSERVATION_KINDS):
+                raise LiveRemoteEvidenceError(
+                    f"{service_id} {stage_name} observations are incomplete"
+                )
+            observation_refs[service_id][direction] = {}
+            for kind in OBSERVATION_KINDS:
+                content = _object(observations[kind], f"{service_id} {stage_name} {kind}")
+                if (
+                    content.get("kind") != kind
+                    or content.get("service_id") != service_id
+                    or content.get("observed") is not True
+                ):
+                    raise LiveRemoteEvidenceError(
+                        f"{service_id} {stage_name} {kind} observation is invalid"
+                    )
+                artifact_without_ref = {
+                    "kind": kind,
+                    "service_id": service_id,
+                    "run_id": run_id,
+                    "source_digest": source_digest,
+                    "content_digest": canonical_digest(content),
+                    "content": content,
+                }
+                reference = canonical_digest(artifact_without_ref)
+                observation_refs[service_id][direction][kind] = reference
+                artifacts.append({"ref": reference, **artifact_without_ref})
     evidence_manifest = {
         "manifest_version": "1.0.0",
         "run_id": run_id,
@@ -205,7 +196,7 @@ def build_live_remote_evidence(
                     "evidence_manifest_digest": evidence_manifest_digest,
                     "evidence_run_id": run_id,
                     "evidence_source_digest": source_digest,
-                    "observation_refs": observation_refs[service_id],
+                    "observation_refs": observation_refs[service_id][direction],
                     "outcome": "stable",
                 }
             )

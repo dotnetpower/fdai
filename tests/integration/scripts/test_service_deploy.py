@@ -79,6 +79,11 @@ def recovery() -> ModuleType:
 
 
 @pytest.fixture(scope="module")
+def live_observation() -> ModuleType:
+    return _load("live_observation")
+
+
+@pytest.fixture(scope="module")
 def promotion() -> ModuleType:
     return _load("sidecar_promotion")
 
@@ -1535,6 +1540,75 @@ def test_peer_state_receipt_binds_exact_plan_and_unchanged_peers(
     assert receipt["status"] == "verified"
     assert receipt["peer_count"] == 4
     assert receipt["plan_digest"] == "b" * 64
+
+
+def test_live_observations_require_verified_apply_and_distinct_kind_evidence(
+    live_observation: ModuleType,
+    peer_state: ModuleType,
+    tmp_path: Path,
+) -> None:
+    before = _capture_peer_manifest(peer_state, tmp_path, phase="before")
+    after = _capture_peer_manifest(peer_state, tmp_path, phase="after")
+    image_ref = _image("fdai-operator-service")
+    receipt = peer_state.verify_peer_isolation(
+        before=before,
+        after=after,
+        mode="apply",
+        selected_service="operator-service",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="a" * 40,
+        image_ref=image_ref,
+        workflow_run_id="11",
+        workflow_run_attempt="1",
+        plan_run_id="10",
+        plan_run_attempt="1",
+        plan_digest="b" * 64,
+        context_digest="c" * 64,
+    )
+
+    result = live_observation.build_observations(
+        receipt,
+        service_id="operator-service",
+        commit_sha="a" * 40,
+        image_ref=image_ref,
+        workflow_run_id="11",
+        workflow_run_attempt="1",
+        plan_digest="b" * 64,
+        context_digest="c" * 64,
+    )
+
+    observations = result["observations"]
+    assert set(observations) == {
+        "health",
+        "identity",
+        "image",
+        "offset",
+        "schema",
+        "source",
+        "topology",
+    }
+    assert all(value["observed"] is True for value in observations.values())
+    assert len({value["verification"] for value in observations.values()}) == 7
+    assert observations["offset"]["peer_serials"] == {
+        "core-control-plane": 1,
+        "document-ingestion-api": 1,
+        "document-processing-worker": 1,
+        "isolated-executor": 1,
+    }
+
+    receipt["mode"] = "plan"
+    with pytest.raises(live_observation.LiveObservationError, match="verified apply"):
+        live_observation.build_observations(
+            receipt,
+            service_id="operator-service",
+            commit_sha="a" * 40,
+            image_ref=image_ref,
+            workflow_run_id="11",
+            workflow_run_attempt="1",
+            plan_digest="b" * 64,
+            context_digest="c" * 64,
+        )
 
 
 def test_peer_state_receipt_rejects_any_peer_drift(

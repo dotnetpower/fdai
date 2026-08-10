@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
 from fdai_service_contracts.compatibility import validate_peer_upgrade_receipt
 from scripts.quality.architecture.live_remote_evidence import (
     OBSERVATION_KINDS,
@@ -40,6 +41,16 @@ def _remote() -> dict[str, Any]:
                         "peer_receipt_artifact_sha256": _digest(seed + 3),
                         "started_at": f"2026-08-10T00:{service_index}{stage_index}:00Z",
                         "completed_at": f"2026-08-10T00:{service_index}{stage_index}:30Z",
+                        "observations": {
+                            kind: {
+                                "kind": kind,
+                                "service_id": service_id,
+                                "observed": True,
+                                "verification": f"{name}-{kind}",
+                                "workflow_run_id": seed + 5,
+                            }
+                            for kind in OBSERVATION_KINDS
+                        },
                     },
                 }
             )
@@ -68,7 +79,7 @@ def test_live_records_are_deterministic_remote_projections() -> None:
     assert first == second
     receipts, manifest = first
     assert len(receipts) == 10
-    assert len(manifest["artifacts"]) == 35
+    assert len(manifest["artifacts"]) == 70
     for receipt in receipts:
         assert tuple(receipt["observation_refs"]) == OBSERVATION_KINDS
         validate_peer_upgrade_receipt(
@@ -94,8 +105,18 @@ def test_live_records_bind_actual_serial_peer_versions() -> None:
 def test_live_records_change_when_remote_receipt_changes() -> None:
     remote = _remote()
     original = build_live_remote_evidence(_compatibility(), remote)
-    remote["services"][0]["stages"][0]["apply"]["peer_receipt_artifact_sha256"] = _digest(9999)
+    remote["services"][0]["stages"][0]["apply"]["observations"]["health"]["verification"] = (
+        "changed-health-proof"
+    )
 
     changed = build_live_remote_evidence(_compatibility(), remote)
 
     assert changed != original
+
+
+def test_live_records_reject_unobserved_remote_content() -> None:
+    remote = _remote()
+    remote["services"][0]["stages"][0]["apply"]["observations"]["health"]["observed"] = False
+
+    with pytest.raises(ValueError, match="health observation is invalid"):
+        build_live_remote_evidence(_compatibility(), remote)
