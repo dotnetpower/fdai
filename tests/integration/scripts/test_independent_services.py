@@ -332,6 +332,45 @@ def test_completed_program_verification_rechecks_all_remote_counts(
         )
 
 
+def test_completed_program_verification_rejects_unbound_live_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    checker = _checker_module()
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    remote = tmp_path / "remote.json"
+    receipts = tmp_path / "receipts.json"
+    live_manifest = tmp_path / "manifest.json"
+    remote.write_text("{}\n", encoding="utf-8")
+    receipts.write_text("[]\n", encoding="utf-8")
+    live_manifest.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(checker, "REMOTE_EVIDENCE_PATH", remote)
+    monkeypatch.setattr(checker, "LIVE_RECEIPTS_PATH", receipts)
+    monkeypatch.setattr(checker, "LIVE_EVIDENCE_MANIFEST_PATH", live_manifest)
+    monkeypatch.setattr(
+        checker,
+        "_validate_remote_service_evidence",
+        lambda _manifest, _evidence: SimpleNamespace(
+            service_plan_apply_receipts=5,
+            service_upgrade_and_rollback_proofs=5,
+            protected_plan_runs=15,
+            protected_apply_runs=15,
+            peer_isolation_receipts=30,
+        ),
+    )
+    monkeypatch.setattr(
+        checker,
+        "_build_live_remote_evidence",
+        lambda _compatibility, _remote: ([{"expected": True}], {"expected": True}),
+    )
+
+    with pytest.raises(ValueError, match="not bound to remote transitions"):
+        checker._validate_completed_remote_evidence(
+            manifest,
+            manifest["program_final_verification"]["remote_targets"],
+        )
+
+
 def _write_final_layout(root: Path) -> None:
     for service_id in (
         "core-control-plane",

@@ -50,6 +50,9 @@ COMPATIBILITY_CHECKER_PATH = (
 REMOTE_EVIDENCE_VALIDATOR_PATH = (
     REPO_ROOT / "scripts" / "quality" / "architecture" / "remote_service_evidence.py"
 )
+LIVE_REMOTE_EVIDENCE_PATH = (
+    REPO_ROOT / "scripts" / "quality" / "architecture" / "live_remote_evidence.py"
+)
 SERVICE_IDS = (
     "core-control-plane",
     "operator-service",
@@ -229,6 +232,16 @@ def _validate_remote_service_evidence(manifest: dict[str, Any], evidence: dict[s
     return validator.validate_remote_service_evidence(manifest, evidence)
 
 
+def _build_live_remote_evidence(
+    compatibility: dict[str, Any], remote: dict[str, Any]
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    builder = _load_python_module(
+        LIVE_REMOTE_EVIDENCE_PATH,
+        "live_remote_evidence_for_program_final",
+    )
+    return builder.build_live_remote_evidence(compatibility, remote)
+
+
 def _validate_completed_remote_evidence(
     manifest: dict[str, Any],
     targets: dict[str, int],
@@ -246,8 +259,14 @@ def _validate_completed_remote_evidence(
         or summary.peer_isolation_receipts != 30
     ):
         raise ValueError("remote service evidence does not satisfy program-final targets")
-    _load_json(LIVE_RECEIPTS_PATH, "live service receipts")
-    _load_json(LIVE_EVIDENCE_MANIFEST_PATH, "live service evidence manifest")
+    live_receipts = _load_json(LIVE_RECEIPTS_PATH, "live service receipts")
+    live_manifest = _load_json(LIVE_EVIDENCE_MANIFEST_PATH, "live service evidence manifest")
+    compatibility = _load_json(COMPATIBILITY_MANIFEST_PATH, "compatibility manifest")
+    if not isinstance(compatibility, dict):
+        raise ValueError("compatibility manifest must be an object")
+    expected_receipts, expected_manifest = _build_live_remote_evidence(compatibility, remote)
+    if live_receipts != expected_receipts or live_manifest != expected_manifest:
+        raise ValueError("live service evidence is not bound to remote transitions")
     _load_compatibility_checker().validate(
         mode="live",
         receipts_path=LIVE_RECEIPTS_PATH,
