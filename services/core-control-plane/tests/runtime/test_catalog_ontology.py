@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -18,10 +19,44 @@ from fdai.runtime.catalog_ontology import (
     load_diagnostic_catalog_projection,
     project_catalog_ontology,
 )
+from fdai.shared.contracts.models import OntologyLinkType, OntologyObjectType
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai.shared.providers.ontology_instance import OntologyLinkRecord, OntologyObjectRecord
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
 
 _ROOT = Path(__file__).resolve().parents[4]
+
+
+class _SyncRequiredOntologyStore(InMemoryOntologyInstanceStore):
+    """Require declaration synchronization before accepting a projection write."""
+
+    def __init__(
+        self,
+        *,
+        object_types: Sequence[OntologyObjectType],
+        link_types: Sequence[OntologyLinkType],
+    ) -> None:
+        super().__init__(object_types=object_types, link_types=link_types)
+        self.catalog_synced = False
+
+    async def sync_catalog(self) -> None:
+        self.catalog_synced = True
+
+    async def replace_subgraph(
+        self,
+        *,
+        objects: Sequence[OntologyObjectRecord],
+        links: Sequence[OntologyLinkRecord],
+        previous_object_ids: Sequence[str] = (),
+        previous_link_keys: Sequence[tuple[str, str, str]] = (),
+    ) -> None:
+        assert self.catalog_synced is True
+        await super().replace_subgraph(
+            objects=objects,
+            links=links,
+            previous_object_ids=previous_object_ids,
+            previous_link_keys=previous_link_keys,
+        )
 
 
 def test_loads_all_mechanisms_and_independent_validation_receipts() -> None:
@@ -48,7 +83,7 @@ async def test_projects_merged_runtime_catalog_idempotently_to_typed_store(
         schema_registry=PackageResourceSchemaRegistry(),
         probes_root=_ROOT / "rule-catalog/probes",
     )
-    store = InMemoryOntologyInstanceStore(
+    store = _SyncRequiredOntologyStore(
         object_types=catalog.object_types,
         link_types=catalog.link_types,
     )
@@ -79,6 +114,7 @@ async def test_projects_merged_runtime_catalog_idempotently_to_typed_store(
     assert len(graph.objects) == 488
     assert len(graph.links) == 427
     assert all(item.revision == 1 for item in graph.objects)
+    assert store.catalog_synced is True
 
 
 async def test_catalog_refresh_preserves_prior_immutable_validation_receipts() -> None:

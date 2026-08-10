@@ -6,7 +6,7 @@ import json
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 import yaml
 
@@ -31,6 +31,13 @@ from fdai.runtime.configuration import _resolve_catalog_root
 class CatalogOntologyProjectionResult:
     object_count: int
     link_count: int
+
+
+@runtime_checkable
+class _OntologyCatalogSynchronizer(Protocol):
+    """Synchronize durable type declarations before writing graph instances."""
+
+    async def sync_catalog(self) -> None: ...
 
 
 def load_diagnostic_catalog_projection(repo_root: Path) -> CatalogOntologyProjection:
@@ -60,6 +67,8 @@ async def project_catalog_ontology(
     store = control_loop.ontology_instance_store
     if store is None or shutil.which("opa") is None:
         return None
+    if isinstance(store, _OntologyCatalogSynchronizer):
+        await store.sync_catalog()
     catalog_root = _resolve_catalog_root()
     repo_root = catalog_root.parent
     resource_types = load_resource_type_registry_from_mapping(
