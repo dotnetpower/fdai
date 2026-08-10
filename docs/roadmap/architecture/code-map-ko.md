@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: f0d87d94998a0ea49af13955c40ae0afff7b4600
+translation_source_sha: 2f1a97c2be3d81071166ada1635730db22951e9c
 translation_revised: 2026-08-10
 ---
 # 코드 맵
@@ -73,6 +73,10 @@ package는 import하지 않습니다.
 공유하는 versioned wire descriptor, codec, compatibility check, readiness record, document contract,
 operator contract 및 executor contract를 소유합니다. Service composition, provider implementation,
 database access 또는 business workflow는 포함하지 않습니다.
+
+Shared SDK는 Core/Operator boundary에서 사용하는 no-authority ontology-query record도 소유합니다.
+Semantic problem frame, bounded query DAG, intent graph, task receipt 및 structural coverage receipt입니다.
+Provider client, ontology store, planner model 또는 execution handler는 포함하지 않습니다.
 
 Service distribution 5개는 deployable `0.1.2` image를 N-1, `0.1.3`을 N으로 사용합니다. 기존 contract-set
 `1.0.0`/`1.1.0` matrix는 cross-process compatibility boundary로 유지합니다.

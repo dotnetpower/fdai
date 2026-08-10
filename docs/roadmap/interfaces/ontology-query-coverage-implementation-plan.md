@@ -23,6 +23,9 @@ units for 100% structural query coverage.
 > token routing plus an optional serial two-to-three-command read plan. A server-side intent graph,
 > full release-derived query manifest, `OntologyQueryPlan`, complete semantic index adapter,
 > historical topology, and cross-resource temporal query composition have not landed.
+> The OQ-01 implementation-free SDK models for the semantic problem frame, query DAG, intent graph,
+> task receipt, and structural coverage receipt now ship. Producer and consumer projection wiring
+> remains part of OQ-04 and OQ-05.
 
 ## Design at a glance
 

@@ -71,6 +71,11 @@ versioned wire descriptors, codecs, compatibility checks, readiness records, doc
 operator contracts, and executor contracts shared across processes. It contains no service
 composition, provider implementation, database access, or business workflow.
 
+The shared SDK also owns the no-authority ontology-query records used across the Core and Operator
+boundary: semantic problem frames, bounded query DAGs, intent graphs, task receipts, and structural
+coverage receipts. These records contain no provider client, ontology store, planner model, or
+execution handler.
+
 The five service distributions use deployable `0.1.2` images as N-1 and `0.1.3` as N. Their existing contract-set
 `1.0.0`/`1.1.0` matrix remains the cross-process compatibility boundary.
 Content-addressed live evidence also binds the exact service and observation kind and requires
