@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: e2f2c0c9e769dd3f6a5908b273915de6bc1ecde0
+translation_source_sha: c06e6c4c24b6a80aa5afa43d935a077faec5b40e
 translation_revised: 2026-08-10
 ---
 
@@ -40,11 +40,11 @@ Core 또는 Operator Service producer는 현재 없습니다. Active Core conver
 `_VERB_PATTERNS`를 match하고 선택적으로 narrator에게 canonical command string을 요청하며 serial 2-3
 step read plan만 validate/execute할 수 있습니다.
 
-Exact-release semantic candidate, verified semantic plan, bounded ObjectSet, secured query receipt 및 typed
-function registration은 ontology-platform foundation으로 존재합니다. Conversation coordinator에 연결되지
-않았고 `OntologyQueryPlan`도 구현되지 않았습니다. 현재 platform manifest는 interface, ActionType 및
-function name을 나열하지만 complete ObjectType, Property, LinkType-side, evidence 또는 availability
-descriptor를 projection하지 않습니다.
+Exact-release semantic candidate, verified semantic plan, bounded ObjectSet, secured query receipt, typed
+function registration, `OntologyQueryPlan`, deterministic verifier 및 bounded dependency-wave execution이
+ontology-platform foundation으로 존재합니다. Built-in node는 ObjectSet, set algebra, ordering, projection,
+grouped aggregation 및 read-only function을 다룹니다. Conversation coordinator와는 연결되지 않았습니다.
+Temporal, metric-series, evidence-join 및 complete runtime availability descriptor는 남아 있습니다.
 
 목표 server path는 raw provider payload 대신 redacted graph와 timestamp가 있는 goal receipt를
 저장합니다. 검증된 read goal을 bounded dependency wave로 실행하고 blocked descendant를 skip하며
@@ -329,9 +329,9 @@ Compatibility 기간은 일시적입니다. Migration은 하나의 graph contrac
 | 영역 | 현재 상태 | Coverage 영향 |
 |------|-----------|---------------|
 | Intent graph | One-shot 및 streamed turn에서 active | Composition과 replay를 제공하지만 compatibility parser와 함께 존재합니다. |
-| Semantic plan 및 ObjectSet | Exact-release candidate, verification, bounded predicate, traversal, secured receipt가 있습니다. | Whole-release generic query manifest는 아직 production narrator surface가 아닙니다. |
-| Interface | ObjectSet contract에 interface selector가 있습니다. | Production catalog declaration과 polymorphic query binding은 아직 연결되지 않았습니다. |
-| Relationship side | Stored direction과 일부 inverse traversal이 있습니다. | 모든 LinkType이 검토된 semantic query side 두 개를 제공하지는 않습니다. |
+| Semantic plan 및 ObjectSet | Exact-release candidate, principal-manifest verification, bounded predicate/traversal, secured receipt, generic set/order/project/aggregate handler 및 typed function invocation이 있습니다. | Generic query manifest/plan executor는 아직 production narrator surface가 아니며 temporal/evidence-join extension이 남아 있습니다. |
+| Interface | Production loading은 모든 current ObjectType에 대해 reviewed `Identifiable` Interface를 검증하고 compile하며 ObjectSet contract에는 interface selector가 있습니다. | 추가 capability Interface와 production polymorphic ObjectSet query binding은 아직 연결되지 않았습니다. |
+| Relationship side | 모든 directed LinkType이 deterministic outgoing/incoming endpoint-side query id를 제공하며 store는 typed direction을 보존합니다. | Generic verifier와 natural-language planner는 아직 이 side를 사용하지 않습니다. |
 | Semantic generation | Rule retrieval은 complete generation과 candidate-only ranking을 제공합니다. | Declaration 및 runtime object coverage는 전체 ontology로 확장되지 않았습니다. |
 | Historical graph | Current-state inventory projection과 immutable decision snapshot이 있습니다. | 보존된 provider history를 대상으로 한 일반 `graph_at` 및 topology-diff query는 제공되지 않습니다. |
 | Network 및 causal function | Bounded foundation이 있습니다. | Production receipt issuer, complete Azure topology projection 및 cross-resource temporal join은 incomplete합니다. |

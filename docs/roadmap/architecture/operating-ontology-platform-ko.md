@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 8e220e81039b52331031f897b9fc04e1c1d0d9b6
+translation_source_sha: 827f1860b556dffa0a238fa67963e5ebdd9aa58c
 translation_revised: 2026-08-09
 ---
 # FDAI 온톨로지 안전 인프라
@@ -29,9 +29,10 @@ exact schema pinning, generated SDK surface를 추가합니다. 모든 runtime t
 > Pre-migration row는 original release digest를 정직하게 복원할 수 없으므로 명시적으로 unpinned
 > 상태를 유지합니다. 다음 successful write는 완전히 다시 검증한 current-state revision을 새로
 > 만들고 그 새 revision을 해당 시점의 active release로 pin합니다.
-> Semantic Interface declaration은 이제 shared contract를 사용하며 canonical release digest에
-> 포함될 수 있습니다. Production catalog loading과 composition은 아직 Interface declaration을
-> 공급하지 않으므로 polymorphic ObjectSet query는 연결되지 않은 platform capability로 남습니다.
+> Semantic Interface declaration은 이제 shared contract를 사용하며 canonical runtime release에
+> 포함됩니다. Production catalog loading은 reviewed `Identifiable` declaration, provenance 및 모든
+> current ObjectType의 explicit binding을 검증합니다. Composition은 polymorphic catalog를 compile합니다.
+> Production ObjectSet query binding과 추가 capability Interface는 delivery work로 남아 있습니다.
 > Canonical release는 이제 typed function declaration을 포함합니다. Function registry는 caller
 > agent, role, purpose를 검사하고, 선언된 stochastic function을 위해 replay-stable seed를 파생하며,
 > 정확한 release에 고정된 content-addressed invocation receipt를 emit합니다.

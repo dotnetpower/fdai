@@ -1,0 +1,16 @@
+schema_version: "1.0.0"
+name: Identifiable
+version: "1.0.0"
+description: A readable ontology object with a stable opaque identifier.
+properties:
+  id:
+    type: string
+    required: true
+    description: Stable opaque identifier supplied by the authoritative source.
+extends: []
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: interface-type:Identifiable@1.0.0
+  content_hash: sha256:e811165d97d47a099610e80f00af011e343b05e4d9e4e65780339d8d0abd298f
+  license: MIT
+  retrieved_at: "2026-08-10T00:00:00Z"

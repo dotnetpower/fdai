@@ -54,7 +54,16 @@ from .query_execution import (
     QueryNodeResult,
     QueryPlanExecution,
 )
+from .query_handlers import (
+    AggregateNodeHandler,
+    OrderNodeHandler,
+    ProjectNodeHandler,
+    SetOperationNodeHandler,
+)
 from .query_manifest import QueryManifest, build_query_manifest
+from .query_source_handlers import FunctionNodeHandler, SecuredObjectSetNodeHandler
+from .query_values import QueryRow, QueryTable
+from .query_verification import OntologyQueryPlanVerifier
 from .sdk_codegen import GeneratedOntologySdk, generate_ontology_sdk
 from .semantic_plans import (
     ActiveSemanticCatalog,
@@ -72,6 +81,7 @@ __all__ = [
     "ActionArgumentBinding",
     "ActionReadSetReceipt",
     "ActiveSemanticCatalog",
+    "AggregateNodeHandler",
     "CatalogOntologyProjection",
     "CatalogOntologyProjector",
     "CompiledInterfaceCatalog",
@@ -81,6 +91,7 @@ __all__ = [
     "GeneratedOntologySdk",
     "FunctionInvocationContext",
     "FunctionInvocationReceipt",
+    "FunctionNodeHandler",
     "InterfaceImplementation",
     "InterpretationCandidateSource",
     "ObjectPredicate",
@@ -103,16 +114,23 @@ __all__ = [
     "OntologyFunctionType",
     "OntologyInterfaceType",
     "OntologyQueryPlanExecutor",
+    "OntologyQueryPlanVerifier",
+    "OrderNodeHandler",
     "ProjectionBinding",
+    "ProjectNodeHandler",
     "QueryManifest",
     "QueryNodeHandler",
     "QueryNodeResult",
     "QueryPlanExecution",
+    "QueryRow",
+    "QueryTable",
     "ReconciliationReceipt",
     "ReconciliationStatus",
     "SemanticBasisValidator",
     "SemanticInterpretationCandidate",
     "SemanticOperationClass",
+    "SecuredObjectSetNodeHandler",
+    "SetOperationNodeHandler",
     "TargetRevision",
     "VerifiedInterpretationBasis",
     "VerifiedSemanticPlan",

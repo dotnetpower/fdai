@@ -27,6 +27,8 @@ SCHEMA_NAMES = [
     "executor-receipt",
     "ontology/object-type",
     "ontology/link-type",
+    "ontology/interface-type",
+    "ontology/interface-implementation",
     "ontology/action-type",
     "ontology/release-ref",
 ]

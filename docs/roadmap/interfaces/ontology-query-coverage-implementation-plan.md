@@ -27,12 +27,18 @@ units for 100% structural query coverage.
 > task receipt, and structural coverage receipt now ship. Producer and consumer projection wiring
 > remains part of OQ-04 and OQ-05.
 > OQ-02 now includes a content-addressed principal-scoped manifest builder that filters functions by
-> role and purpose and accounts for every supplied release declaration. LinkTypes without reviewed
-> query-side metadata remain typed unavailable, and production Interface catalog loading remains.
+> role and purpose and accounts for every supplied release declaration. Every directed LinkType now
+> projects deterministic outgoing and incoming endpoint query-side identifiers. The production
+> catalog loads the reviewed `Identifiable` Interface, validates explicit bindings for all current
+> ObjectTypes, compiles the polymorphic catalog, and includes the declaration in the exact runtime
+> release. Wiring this manifest into the narrator and generic query surface remains.
 > OQ-03 now includes an exact-release query DAG executor with bounded dependency waves, concurrency,
 > timeout, cancellation, blocked-descendant handling, stable failure reasons, and task receipts.
-> ObjectSet materialization is the first built-in handler; set, aggregation, projection, temporal,
-> and evidence-join handlers remain.
+> Built-in handlers now cover secured ObjectSet materialization, union, intersection, subtraction,
+> ordering, projection, grouped aggregation, and exact-release query/derive/validate function
+> invocation. A deterministic verifier checks the principal manifest, readable properties,
+> LinkTypes, closed node arguments, dependency output kinds, function schemas, and registered
+> extension schemas before I/O. Temporal, metric-series, and evidence-join handlers remain.
 > OQ-07 now projects current connected VNet peering records in the observed direction and private
 > endpoint attachments to their exact private-link service targets. Reverse peering still requires
 > an independent remote-VNet observation. Routes, workload/service mappings, observation receipts,
@@ -63,10 +69,10 @@ objects are selected only by authoritative reads after plan verification.
 | Conversation routing | The local independent Operator Service restores model narration from the resolved Azure candidates; Core `ConversationCoordinator` still uses `_VERB_PATTERNS`, and `ReadPlanNarrator` may propose two or three canonical command strings that `execute_read_plan` runs serially. | Local model narration has no provider-read or execution authority and does not supply a server-side semantic problem frame, intent graph producer, dependency-wave executor, or typed plan bridge. |
 | Console intent graph | The Console strictly parses and renders bounded `intent_graph` and `intent_graph_evidence` payloads. | No Core or Operator Service producer was found; the current implementation is presentation-only. |
 | Semantic interpretation | `SemanticInterpretationCandidate`, `VerifiedSemanticPlan`, exact release checks, and candidate-only authority exist. | The verified plan targets one typed function and is not connected to conversation routing or a generic ontology query algebra. |
-| Object queries | `ObjectSetDefinition`, typed predicates, one bounded traversal, interface selection, ACL projection, purpose checks, and secured receipts exist. | Set operations, ordering, aggregation, projection, multi-stage function composition, and planner descriptors are not one `OntologyQueryPlan`. |
-| Query manifest | `platform_manifest` exposes release identity plus interface, ActionType, and function names. | ObjectType properties, allowed operators, LinkType sides, evidence requirements, availability, and typed unavailable reasons are absent. |
-| Interfaces | Interface compilation and interface-selected ObjectSets are tested. | Runtime catalog projection does not load reviewed Interface declarations. |
-| Relationships | LinkType endpoint, cardinality, causal, transitive, and temporal metadata exist; stores support incoming/outgoing traversal. | LinkTypes do not declare two reviewed query sides, and the planner cannot select inverse meaning without raw direction knowledge. |
+| Object queries | `OntologyQueryPlan` now composes secured ObjectSets, set algebra, ordering, projection, grouped aggregation, and typed read-only functions over immutable content-addressed tables. | Temporal snapshots, metric series, and evidence joins still require registered extension handlers. |
+| Query manifest | A principal-scoped content-addressed builder projects ObjectTypes and filtered properties, both LinkType endpoint sides, Interfaces, read-only functions, and draft-only ActionTypes. | The production narrator does not yet consume the manifest, and complete operator/evidence availability descriptors remain. |
+| Interfaces | Production catalog loading validates `Identifiable`, its provenance, and explicit bindings for all current ObjectTypes; runtime composition compiles it and pins it in the exact release. | Additional capability Interfaces and production ObjectSet query binding remain. |
+| Relationships | Every directed LinkType projects deterministic `<name>.outgoing` and `<name>.incoming` machine query ids with endpoint, cardinality, causal, transitive, and temporal metadata. | The generic plan verifier and planner binding that consume these sides remain. |
 | Semantic generations | Rule semantic schemas, generation contracts, database migrations, and the `CatalogSemanticIndex` Protocol exist. | No concrete index adapter or generation publisher is present in the current service-owned source tree; full-ontology generations are absent. |
 | Current topology | Azure projection emits resource-group and VNet containment, attachment, and a bounded dependency allowlist. | Azure adapters do not emit `peered_with` or `routes_to`; private endpoint, workload, and service dependency coverage is incomplete. |
 | Historical topology | Current graph generations and immutable decision snapshots preserve replay identity. | The instance graph is not bitemporal; general `graph_at` and `topology_diff` functions do not exist. |
@@ -219,9 +225,9 @@ outside the executor boundary or already fail-closed by the existing contract. N
 Medium-or-higher finding remains in the landed contract, manifest, and executor slices.
 
 Residual Low observations are code duplication between terminal receipt builders, multiple bounded
-graph projection passes, and clearer diagnostics for developer-only adapters. Missing LinkType
-query sides, Interface loading, semantic generation, topology history, and temporal joins remain
-planned capabilities, not hidden hardening defects.
+graph projection passes, and clearer diagnostics for developer-only adapters. Additional semantic
+Interfaces, production planner binding, semantic generation, topology history, and temporal joins
+remain planned capabilities, not hidden hardening defects.
 
 ## Related docs
 

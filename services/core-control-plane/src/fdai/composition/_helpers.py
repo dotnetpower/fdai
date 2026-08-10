@@ -31,6 +31,7 @@ from ..core.execution_backend import ExecutionBackendCoordinator
 from ..core.metering.pricing import PricingTable
 from ..core.metering.sink import MeteringSink
 from ..core.mscp_profile import ExpectedEffectProvider, IndependentEffectObserver
+from ..core.ontology_platform import CompiledInterfaceCatalog
 from ..core.quality_gate.critic import CriticModel
 from ..core.quality_gate.debate import DebateOrchestrator
 from ..core.quality_gate.gate import CrossCheckModel
@@ -53,7 +54,13 @@ from ..core.tiers.t2_reasoning import T2Proposer
 from ..core.trajectory import TrajectoryJoinService
 from ..core.working_context import ContextSelectionPolicyAuthority
 from ..shared.config.models import AppConfig
-from ..shared.contracts.models import OntologyLinkType, OntologyObjectType, Workflow
+from ..shared.contracts.models import (
+    OntologyInterfaceImplementation,
+    OntologyInterfaceType,
+    OntologyLinkType,
+    OntologyObjectType,
+    Workflow,
+)
 from ..shared.contracts.registry import SchemaRegistry
 from ..shared.contracts.validation import ContractValidator, EventValidator
 from ..shared.providers.change_feed import ChangeFeed, EmptyChangeFeed
@@ -204,6 +211,9 @@ class Container:
     startup_probes: tuple[StartupProbe[StartupProbeResult], ...] = ()
     ontology_object_types: tuple[OntologyObjectType, ...] = ()
     ontology_link_types: tuple[OntologyLinkType, ...] = ()
+    ontology_interface_types: tuple[OntologyInterfaceType, ...] = ()
+    ontology_interface_implementations: tuple[OntologyInterfaceImplementation, ...] = ()
+    compiled_ontology_interfaces: CompiledInterfaceCatalog | None = None
     workflows: tuple[Workflow, ...] = ()
     llm_bindings: LlmBindings | None = field(default=None)
     metric_provider: MetricProvider = field(default_factory=NoopMetricProvider)

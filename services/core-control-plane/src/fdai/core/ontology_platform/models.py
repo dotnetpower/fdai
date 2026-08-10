@@ -15,7 +15,11 @@ from pydantic import (
     model_validator,
 )
 
-from fdai.shared.contracts.models import ContractBase, OntologyInterfaceType
+from fdai.shared.contracts.models import (
+    ContractBase,
+    OntologyInterfaceImplementation,
+    OntologyInterfaceType,
+)
 from fdai.shared.providers.ontology_instance import (
     OntologyDirection,
     OntologyGraphSnapshot,
@@ -29,9 +33,7 @@ _MAX_ROOT_IDS = 1_000
 _MAX_LINK_TYPES = 64
 
 
-class InterfaceImplementation(ContractBase):
-    object_type: Annotated[str, Field(min_length=1)]
-    interfaces: tuple[Annotated[str, Field(min_length=1)], ...]
+InterfaceImplementation = OntologyInterfaceImplementation
 
 
 class ObjectSelectorKind(StrEnum):

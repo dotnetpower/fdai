@@ -25,7 +25,6 @@ from fdai.shared.contracts.models import (
     OntologyRelease,
 )
 
-_UNAVAILABLE_LINK_QUERY_SIDES = "query_sides_unavailable"
 _MAX_MANIFEST_BYTES = 8_388_608
 
 
@@ -215,9 +214,23 @@ def _descriptor(
                 "to_type": declaration.to_type,
                 "cardinality": declaration.cardinality.value,
                 "stored_direction": "from_to",
-                "traversal_directions": ["outgoing", "incoming", "both"],
+                "query_sides": {
+                    "from": {
+                        "query_id": f"{declaration.name}.outgoing",
+                        "endpoint_type": declaration.from_type,
+                        "direction": "outgoing",
+                    },
+                    "to": {
+                        "query_id": f"{declaration.name}.incoming",
+                        "endpoint_type": declaration.to_type,
+                        "direction": "incoming",
+                    },
+                },
+                "is_transitive": declaration.is_transitive,
+                "is_causal": declaration.is_causal,
+                "temporal_order": declaration.temporal_order,
             },
-            _UNAVAILABLE_LINK_QUERY_SIDES,
+            None,
         )
     if isinstance(declaration, OntologyFunctionType):
         return (

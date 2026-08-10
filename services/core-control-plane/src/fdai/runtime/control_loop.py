@@ -50,6 +50,7 @@ from fdai.core.hil_resume import (
     HumanNonResponseSupervisor,
 )
 from fdai.core.notifications.matrix import load_matrix_from_yaml
+from fdai.core.ontology_platform import compile_interfaces
 from fdai.core.quality_gate import (
     HashedRuleEmbeddingIndex,
     QualityGate,
@@ -350,6 +351,8 @@ def _build_control_loop(
         action_types = ontology_catalog.action_types
         ontology_object_types = ontology_catalog.object_types
         ontology_link_types = ontology_catalog.link_types
+        ontology_interface_types = ontology_catalog.interface_types
+        ontology_interface_implementations = ontology_catalog.interface_implementations
         property_semantics = ontology_catalog.property_semantics
     else:
         action_types = load_action_type_catalog(
@@ -359,6 +362,8 @@ def _build_control_loop(
         )
         ontology_object_types = ()
         ontology_link_types = ()
+        ontology_interface_types = ()
+        ontology_interface_implementations = ()
         property_semantics = empty_property_semantic_registry()
     resource_types = _load_resource_types()
     signal_types = load_signal_type_registry_from_mapping(
@@ -371,11 +376,26 @@ def _build_control_loop(
     # exist but any file is invalid). Missing directories are tolerated
     # so unit tests running against a stub catalog root do not require
     # every fixture to ship the vocabulary tree.
-    if ontology_object_types or ontology_link_types:
+    ontology_release = build_ontology_release(
+        object_types=ontology_object_types,
+        link_types=ontology_link_types,
+        action_types=action_types,
+        interface_types=ontology_interface_types,
+    )
+    compiled_ontology_interfaces = compile_interfaces(
+        interfaces=ontology_interface_types,
+        implementations=ontology_interface_implementations,
+        object_types=ontology_object_types,
+        release=ontology_release,
+    )
+    if ontology_object_types or ontology_link_types or ontology_interface_types:
         container = replace(
             container,
             ontology_object_types=ontology_object_types,
             ontology_link_types=ontology_link_types,
+            ontology_interface_types=ontology_interface_types,
+            ontology_interface_implementations=ontology_interface_implementations,
+            compiled_ontology_interfaces=compiled_ontology_interfaces,
         )
 
     rules = load_rule_catalog(
@@ -430,11 +450,7 @@ def _build_control_loop(
     action_types_by_name = {a.name: a for a in action_types}
     action_builder = ActionBuilder(
         action_types_by_name=action_types_by_name,
-        ontology_release=build_ontology_release(
-            object_types=ontology_object_types,
-            link_types=ontology_link_types,
-            action_types=action_types,
-        ),
+        ontology_release=ontology_release,
     )
 
     audit_store = audit_store or _build_audit_store()

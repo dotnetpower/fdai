@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from fdai.core.ontology_platform import build_query_manifest
+from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.shared.contracts.models import (
     CeilingRole,
     LinkCardinality,
@@ -15,9 +18,11 @@ from fdai.shared.contracts.models import (
     PropertyDecl,
     PropertyType,
 )
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.ontology.release import build_ontology_release
 
 SCOPE_DIGEST = "sha256:" + "f" * 64
+REPO_ROOT = Path(__file__).resolve().parents[5]
 
 
 def _resource() -> OntologyObjectType:
@@ -71,7 +76,7 @@ def _function(*, role: CeilingRole = CeilingRole.READER) -> OntologyFunctionType
     )
 
 
-def test_manifest_accounts_for_descriptors_and_unavailable_link_sides() -> None:
+def test_manifest_accounts_for_descriptors_and_link_query_sides() -> None:
     resource = _resource()
     interface = _observable()
     link = _contains()
@@ -96,10 +101,23 @@ def test_manifest_accounts_for_descriptors_and_unavailable_link_sides() -> None:
 
     assert manifest.coverage_receipt.complete is True
     assert manifest.coverage_receipt.readable_declaration_count == 4
-    assert manifest.coverage_receipt.descriptor_count == 3
-    assert manifest.coverage_receipt.unavailable_declaration_ids == ("link:contains",)
+    assert manifest.coverage_receipt.descriptor_count == 4
+    assert manifest.coverage_receipt.unavailable_declaration_ids == ()
     object_descriptor = next(item for item in manifest.descriptors if item["kind"] == "object")
     assert set(object_descriptor["properties"]) == {"id"}
+    link_descriptor = next(item for item in manifest.descriptors if item["kind"] == "link")
+    assert link_descriptor["query_sides"] == {
+        "from": {
+            "query_id": "contains.outgoing",
+            "endpoint_type": "Resource",
+            "direction": "outgoing",
+        },
+        "to": {
+            "query_id": "contains.incoming",
+            "endpoint_type": "Resource",
+            "direction": "incoming",
+        },
+    }
 
     owner_manifest = build_query_manifest(
         release=release,
@@ -185,3 +203,37 @@ def test_manifest_rejects_supplied_declaration_absent_from_release() -> None:
             principal_scope_digest=SCOPE_DIGEST,
             object_types=(resource,),
         )
+
+
+def test_shipped_catalog_has_complete_structural_manifest() -> None:
+    catalog_root = REPO_ROOT / "rule-catalog"
+    catalog = load_ontology_catalog(
+        catalog_root,
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=catalog_root / "probes",
+    )
+    release = build_ontology_release(
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        action_types=catalog.action_types,
+        interface_types=catalog.interface_types,
+    )
+
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.OWNER,
+        purposes=("operations-review", "security-review"),
+        principal_scope_digest=SCOPE_DIGEST,
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        interfaces=catalog.interface_types,
+        action_types=catalog.action_types,
+    )
+
+    assert manifest.coverage_receipt.complete is True
+    assert manifest.coverage_receipt.readable_declaration_count == len(release.declarations)
+    assert manifest.coverage_receipt.descriptor_count == len(release.declarations)
+    assert manifest.unavailable == ()
+    link_descriptors = [item for item in manifest.descriptors if item["kind"] == "link"]
+    assert len(link_descriptors) == len(catalog.link_types)
+    assert all(set(item["query_sides"]) == {"from", "to"} for item in link_descriptors)

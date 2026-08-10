@@ -39,10 +39,11 @@ matches `_VERB_PATTERNS`, optionally asks a narrator for canonical command strin
 and execute only a serial two-to-three-step read plan.
 
 Exact-release semantic candidates, verified semantic plans, bounded ObjectSets, secured query
-receipts, and typed function registration exist as ontology-platform foundations. They are not
-wired to the conversation coordinator, and `OntologyQueryPlan` is not implemented. The current
-platform manifest lists interface, ActionType, and function names but does not project complete
-ObjectType, Property, LinkType-side, evidence, or availability descriptors.
+receipts, typed function registration, `OntologyQueryPlan`, a deterministic verifier, and bounded
+dependency-wave execution exist as ontology-platform foundations. Built-in nodes cover ObjectSets,
+set algebra, ordering, projection, grouped aggregation, and read-only functions. They are not wired
+to the conversation coordinator. Temporal, metric-series, evidence-join, and complete runtime
+availability descriptors remain.
 
 The target server path will persist a redacted graph and timestamped goal receipts rather than raw
 provider payloads. It will execute validated read goals in bounded dependency waves, skip blocked
@@ -332,9 +333,9 @@ The compatibility period is temporary. Migration ends with one graph contract an
 | Area | Current state | Coverage impact |
 |------|---------------|-----------------|
 | Intent graph | Active for one-shot and streamed turns | Provides composition and replay, but still coexists with compatibility parsers. |
-| Semantic plans and ObjectSets | Exact-release candidates, verification, bounded predicates, traversal, and secured receipts exist | A whole-release generic query manifest is not yet the production narrator surface. |
-| Interfaces | Interface selectors exist in the ObjectSet contract | Production catalog declarations and polymorphic query binding remain unwired. |
-| Relationship sides | Stored direction and selected inverse traversal exist | Every LinkType does not yet expose two reviewed semantic query sides. |
+| Semantic plans and ObjectSets | Exact-release candidates, principal-manifest verification, bounded predicates/traversal, secured receipts, generic set/order/project/aggregate handlers, and typed function invocation exist. | The generic query manifest and plan executor are not yet the production narrator surface; temporal and evidence-join extensions remain. |
+| Interfaces | Production loading validates and compiles the reviewed `Identifiable` Interface for all current ObjectTypes, and Interface selectors exist in the ObjectSet contract. | Additional capability Interfaces and production polymorphic ObjectSet query binding remain unwired. |
+| Relationship sides | Every directed LinkType exposes deterministic outgoing and incoming endpoint-side query ids while stores preserve typed direction. | The generic verifier and natural-language planner do not yet consume those sides. |
 | Semantic generations | Rule retrieval has complete generations and candidate-only ranking | Declaration and runtime-object coverage has not yet expanded to the full ontology. |
 | Historical graph | Current-state inventory projection and immutable decision snapshots exist | General `graph_at` and topology-diff queries over retained provider history are not available. |
 | Network and causal functions | Bounded foundations exist | Production receipt issuers, complete Azure topology projection, and cross-resource temporal joins remain incomplete. |

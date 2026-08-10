@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from fdai.core.ontology_platform import compile_interfaces
 from fdai.rule_catalog.schema.action_type import ActionTypeCatalogError
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.ontology_provenance import ontology_content_hash
@@ -56,6 +57,15 @@ def test_shipped_ontology_catalog_loads_as_one_graph() -> None:
     )
     assert {item.name for item in catalog.link_types} >= {"depends_on", "emits_to"}
     assert {item.name for item in catalog.action_types} >= {"remediate.enable-diagnostic-settings"}
+    assert {item.name for item in catalog.interface_types} == {"Identifiable"}
+    compiled_interfaces = compile_interfaces(
+        interfaces=catalog.interface_types,
+        implementations=catalog.interface_implementations,
+        object_types=catalog.object_types,
+    )
+    assert compiled_interfaces.resolve("Identifiable") == tuple(
+        sorted(item.name for item in catalog.object_types)
+    )
     contains = next(item for item in catalog.link_types if item.name == "contains")
     assert contains.version == "2.0.0"
     assert contains.cardinality is LinkCardinality.ONE_TO_MANY

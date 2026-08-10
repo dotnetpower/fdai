@@ -109,12 +109,24 @@ class OntologyLinkType(_Base):
 class OntologyInterfaceType(_Base):
     """Versioned polymorphic capability shared by ontology object types."""
 
+    schema_version: SemVer = "1.0.0"
     name: Annotated[str, Field(pattern=r"^[A-Z][A-Za-z0-9]{0,63}$")]
     version: SemVer
     properties: dict[str, PropertyDecl] = Field(default_factory=dict)
     required_links: tuple[str, ...] = ()
     supported_actions: tuple[str, ...] = ()
     extends: tuple[str, ...] = ()
+    description: str | None = None
+    provenance: OntologyProvenance | None = None
+
+
+class OntologyInterfaceImplementation(_Base):
+    """Explicitly bind one ObjectType to one or more semantic interfaces."""
+
+    object_type: Annotated[str, Field(pattern=r"^[A-Z][A-Za-z0-9]{0,63}$")]
+    interfaces: tuple[Annotated[str, Field(pattern=r"^[A-Z][A-Za-z0-9]{0,63}$")], ...] = Field(
+        min_length=1
+    )
 
 
 class PromotionGate(_Base):
@@ -213,6 +225,7 @@ __all__ = [
     "OntologyFunctionKind",
     "OntologyFunctionType",
     "OntologyInterfaceType",
+    "OntologyInterfaceImplementation",
     "OntologyLinkType",
     "OntologyObjectType",
     "OntologyProvenance",

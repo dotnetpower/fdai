@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: bcaf42838bb973064bfa6cafb7759e7e5b359b0c
+translation_source_sha: bf55f598af17ee58d34f6de71206f21a042d8dd5
 translation_revised: 2026-08-10
 ---
 
@@ -28,12 +28,18 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > implementation-free SDK model은 이제 제공됩니다. Producer/consumer projection wiring은 OQ-04 및
 > OQ-05에 남아 있습니다.
 > OQ-02에는 이제 function을 role/purpose로 filter하고 supplied release declaration 전체를 account하는
-> content-addressed principal-scoped manifest builder가 포함됩니다. Reviewed query-side metadata가 없는
-> LinkType은 typed unavailable로 유지되며 production Interface catalog loading은 남아 있습니다.
+> content-addressed principal-scoped manifest builder가 포함됩니다. 모든 directed LinkType은 이제
+> deterministic outgoing/incoming endpoint query-side identifier를 projection합니다. Production catalog는
+> reviewed `Identifiable` Interface를 load하고 모든 current ObjectType의 explicit binding을 검증하며
+> polymorphic catalog를 compile하고 exact runtime release에 declaration을 포함합니다. 이 manifest를
+> narrator 및 generic query surface에 연결하는 작업은 남아 있습니다.
 > OQ-03에는 이제 bounded dependency wave, concurrency, timeout, cancellation, blocked-descendant 처리,
-> stable failure reason 및 task receipt를 갖춘 exact-release query DAG executor가 포함됩니다. ObjectSet
-> materialization은 첫 built-in handler이며 set, aggregation, projection, temporal 및 evidence-join
-> handler는 남아 있습니다.
+> stable failure reason 및 task receipt를 갖춘 exact-release query DAG executor가 포함됩니다. Built-in
+> handler는 이제 secured ObjectSet materialization, union, intersection, subtraction, ordering,
+> projection, grouped aggregation 및 exact-release query/derive/validate function invocation을 다룹니다.
+> Deterministic verifier는 I/O 전에 principal manifest, readable property, LinkType, closed node argument,
+> dependency output kind, function schema 및 registered extension schema를 검사합니다. Temporal,
+> metric-series 및 evidence-join handler는 남아 있습니다.
 > OQ-07은 이제 current connected VNet peering record를 observed direction으로 projection하고 private
 > endpoint를 exact private-link service target에 attach합니다. Reverse peering에는 여전히 독립적인
 > remote-VNet observation이 필요합니다. Route, workload/service mapping, observation receipt 및
@@ -64,10 +70,10 @@ plan 검증 이후 authoritative read로만 선택합니다.
 | Conversation routing | Local 독립 Operator Service는 resolved Azure candidate의 model narration을 복구하지만 Core `ConversationCoordinator`는 계속 `_VERB_PATTERNS`를 사용합니다. `ReadPlanNarrator`는 2-3개의 canonical command string을 제안할 수 있으며 `execute_read_plan`이 이를 serial로 실행합니다. | Local model narration에는 provider-read 또는 execution authority가 없으며 server-side semantic problem frame, intent graph producer, dependency-wave executor 및 typed plan bridge를 제공하지 않습니다. |
 | Console intent graph | Console은 bounded `intent_graph` 및 `intent_graph_evidence` payload를 strict하게 parse하고 render합니다. | Core 또는 Operator Service producer가 없습니다. 현재 구현은 presentation-only입니다. |
 | Semantic interpretation | `SemanticInterpretationCandidate`, `VerifiedSemanticPlan`, exact release check 및 candidate-only authority가 있습니다. | Verified plan은 typed function 하나를 target으로 하며 conversation routing 또는 generic ontology query algebra와 연결되지 않았습니다. |
-| Object query | `ObjectSetDefinition`, typed predicate, bounded traversal 하나, interface selection, ACL projection, purpose check 및 secured receipt가 있습니다. | Set operation, ordering, aggregation, projection, multi-stage function composition 및 planner descriptor가 하나의 `OntologyQueryPlan`으로 결합되지 않았습니다. |
-| Query manifest | `platform_manifest`는 release identity와 interface, ActionType, function name을 노출합니다. | ObjectType property, allowed operator, LinkType side, evidence requirement, availability 및 typed unavailable reason이 없습니다. |
-| Interface | Interface compilation과 interface-selected ObjectSet이 test됩니다. | Runtime catalog projection이 reviewed Interface declaration을 load하지 않습니다. |
-| Relationship | LinkType endpoint, cardinality, causal, transitive, temporal metadata가 있고 store는 incoming/outgoing traversal을 지원합니다. | LinkType에 검토된 query side 두 개가 없으며 planner는 raw direction 지식 없이 inverse meaning을 선택할 수 없습니다. |
+| Object query | `OntologyQueryPlan`은 이제 immutable content-addressed table 위에서 secured ObjectSet, set algebra, ordering, projection, grouped aggregation 및 typed read-only function을 구성합니다. | Temporal snapshot, metric series 및 evidence join에는 registered extension handler가 필요합니다. |
+| Query manifest | Principal-scoped content-addressed builder가 ObjectType/filtered property, LinkType 양쪽 endpoint side, Interface, read-only function 및 draft-only ActionType을 projection합니다. | Production narrator는 아직 manifest를 사용하지 않으며 complete operator/evidence availability descriptor가 남아 있습니다. |
+| Interface | Production catalog loading은 `Identifiable`, provenance 및 모든 current ObjectType의 explicit binding을 검증합니다. Runtime composition은 이를 compile하고 exact release에 pin합니다. | 추가 capability Interface와 production ObjectSet query binding은 남아 있습니다. |
+| Relationship | 모든 directed LinkType은 endpoint, cardinality, causal, transitive 및 temporal metadata와 함께 deterministic `<name>.outgoing`/`<name>.incoming` machine query id를 projection합니다. | 이 side를 사용하는 generic plan verifier와 planner binding은 남아 있습니다. |
 | Semantic generation | Rule semantic schema, generation contract, database migration 및 `CatalogSemanticIndex` Protocol이 있습니다. | 현재 service-owned source tree에 concrete index adapter/generation publisher가 없으며 full-ontology generation도 없습니다. |
 | Current topology | Azure projection은 resource-group/VNet containment, attachment 및 bounded dependency allowlist를 emit합니다. | Azure adapter가 `peered_with` 또는 `routes_to`를 emit하지 않으며 private endpoint, workload 및 service dependency coverage가 incomplete합니다. |
 | Historical topology | Current graph generation과 immutable decision snapshot이 replay identity를 보존합니다. | Instance graph는 bitemporal이 아니며 일반 `graph_at` 및 `topology_diff` function이 없습니다. |
@@ -219,9 +225,9 @@ fail-closed하기 때문입니다. Landing한 contract, manifest 및 executor sl
 finding이 남아 있지 않습니다.
 
 Residual Low observation은 terminal receipt builder 사이의 code duplication, 여러 번 수행되는 bounded
-graph projection pass 및 developer-only adapter의 더 명확한 diagnostic입니다. 누락된 LinkType query side,
-Interface loading, semantic generation, topology history 및 temporal join은 숨겨진 hardening defect가 아니라
-계획된 capability로 남아 있습니다.
+graph projection pass 및 developer-only adapter의 더 명확한 diagnostic입니다. 추가 semantic Interface,
+production planner binding, semantic generation, topology history 및 temporal join은 숨겨진 hardening
+defect가 아니라 계획된 capability로 남아 있습니다.
 
 ## 관련 문서
 

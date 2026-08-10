@@ -43,6 +43,7 @@ class QueryNodeKind(StrEnum):
     INTERSECTION = "intersection"
     SUBTRACTION = "subtraction"
     ORDER = "order"
+    PROJECT = "project"
     AGGREGATE = "aggregate"
     FUNCTION = "function"
     TOPOLOGY_AT = "topology_at"

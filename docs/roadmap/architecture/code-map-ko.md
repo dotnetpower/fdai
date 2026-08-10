@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 17ba15b7b203ee75d6bc5d3e3c074d63db1b9d6d
+translation_source_sha: 223280712d9ba6ffaaa00e65ff86182f26eab063
 translation_revised: 2026-08-10
 ---
 # 코드 맵
@@ -43,7 +43,7 @@ Core distribution은 전체 `fdai` namespace를 유지합니다. 내부 module b
 | 영역 | Responsibility | Source | Test |
 |------|----------------|--------|------|
 | Control loop와 decisioning | Event normalization, tier routing, quality, risk, approval, execution coordination, recovery 및 audit | [core](../../../services/core-control-plane/src/fdai/core/) | [core test](../../../services/core-control-plane/tests/core/) |
-| Ontology safety platform | Exact semantic release, principal-scoped query manifest, bounded dependency-wave query execution, mutation plan, independent effect reconciliation 및 durable reconciliation record | [ontology_platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [ontology platform test](../../../services/core-control-plane/tests/core/ontology_platform/) |
+| Ontology safety platform | Exact semantic release, production Interface catalog compilation, deterministic LinkType endpoint side를 포함한 principal-scoped query manifest, verified generic set/order/project/aggregate/function query algebra, bounded dependency-wave query execution, mutation plan, independent effect reconciliation 및 durable reconciliation record | [ontology_platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [ontology platform test](../../../services/core-control-plane/tests/core/ontology_platform/) |
 | Agent pantheon | 고정 agent 15개와 typed event runtime | [agents](../../../services/core-control-plane/src/fdai/agents/) | [agent test](../../../services/core-control-plane/tests/agents/) |
 | Composition | Provider 및 runtime dependency injection | [composition](../../../services/core-control-plane/src/fdai/composition/) | [composition test](../../../services/core-control-plane/tests/composition/) |
 | Core adapter | Core에 남은 provider, persistence, notification 및 platform adapter | [delivery](../../../services/core-control-plane/src/fdai/delivery/) | [delivery test](../../../services/core-control-plane/tests/delivery/) |

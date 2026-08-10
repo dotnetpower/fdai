@@ -79,6 +79,8 @@ def test_registry_names_covers_expected_set(
         "executor-receipt",
         "ontology/object-type",
         "ontology/link-type",
+        "ontology/interface-type",
+        "ontology/interface-implementation",
         "ontology/action-type",
         "ontology/release-ref",
     }

@@ -86,6 +86,11 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("executor-receipt", "1.1.0"): "executor-receipt/schema-1.1.0.json",
     ("ontology/object-type", "1.0.0"): "ontology/object-type.json",
     ("ontology/link-type", "1.0.0"): "ontology/link-type.json",
+    ("ontology/interface-type", "1.0.0"): "ontology/interface-type.json",
+    (
+        "ontology/interface-implementation",
+        "1.0.0",
+    ): "ontology/interface-implementation.json",
     ("ontology/action-type", "1.0.0"): "ontology/action-type.json",
     ("ontology/release-ref", "1.0.0"): "ontology/release-ref.json",
 }
