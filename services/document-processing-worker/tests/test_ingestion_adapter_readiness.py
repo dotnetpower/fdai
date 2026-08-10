@@ -56,6 +56,7 @@ _WORKER_ENV = {
     "FDAI_DATABASE_URL": "postgresql://example.invalid/fdai",
     "FDAI_DATABASE_ROLE": "fdai_ingestion_worker",
     "FDAI_INGESTION_DEPLOYMENT_ROLE": "worker",
+    "FDAI_MI_CLIENT_ID": "identity-client",
     "FDAI_ADLS_ACCOUNT_URL": "https://example.invalid",
     "FDAI_EMBEDDING_ENDPOINT": "https://example.invalid",
     "FDAI_EMBEDDING_DEPLOYMENT": "embedding",
