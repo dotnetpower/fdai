@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2bafb314262b3cf39c6974fc464f1735a1229b96
+translation_source_sha: 10da532d6ad1e34df3dea273d4d2e6c59ecc0c2c
 translation_revised: 2026-08-10
 ---
 
@@ -236,9 +236,10 @@ fdai/
   executor가 유일한 privileged identity를 보유하며 어댑터는 이를 공유하지 않습니다.
 - **console에는 privileged identity가 없음**: 상태, 감사, shadow 결과, HIL 큐를 시각화합니다.
   역할이 할당된 principal의 access는 검증된 App Role에서 직접 도출되며 optional access-request
-  projection에 의존하지 않습니다. Command surface는 인증된 record 또는 typed proposal을 제출할 수
-  있지만 resource executor를 직접 호출하지 않으며 risk, approval, audit, executor 경계는 server-side에
-  유지됩니다([security-and-identity-ko.md](security-and-identity-ko.md) 참조).
+  projection에 의존하지 않습니다. Command surface는 인증된 record 또는 typed proposal을 제출할 수 있고
+  dev-only service adapter는 Azure CLI auth로 narration할 수 있지만 어느 경로도 resource executor를 직접
+  호출하지 않으며 risk, approval, audit, executor 경계는 server-side에 유지됩니다
+  ([security-and-identity-ko.md](security-and-identity-ko.md) 참조).
   Repository Best Practice 정의는 composition root에서 한 번 로드하고 GET 전용 list 및 detail
   route로 노출합니다. 이 정의는 catalog reference data로 유지되며 runtime evidence provider를
   명시적으로 bind하기 전까지 projection은 `Unknown` 및 `not-connected`를 보고합니다.

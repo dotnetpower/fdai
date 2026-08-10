@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: e734087586669bd8c387a6a5219cdf86aefad8e2
+translation_source_sha: f07432d9a666953e99a15201dbe304a707eb1908
 translation_revised: 2026-08-10
 ---
 
@@ -13,7 +13,7 @@ translation_revised: 2026-08-10
 
 Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고,
 운영 view와 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는
-[project-structure.md § console/](../architecture/project-structure-ko.md#console-static-web-app)에 있습니다. Evidence provenance, stream recovery, localization 및 Architecture map resilience는 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Login bootstrap은 역할이 할당된 principal의 access를 검증된 App Role에서 도출하고 optional access-request projection을 요구하지 않으며, 역할이 없을 때 해당 projection이 unavailable이면 access를 계속 차단합니다. 온톨로지 맵은 `rule-catalog`와 `PANTHEON_SPECS`에서 생성된 하나의 카탈로그 지식 그래프를 렌더링하며 Architecture 또는 런타임 인벤토리를 읽지 않습니다.
+[project-structure.md § console/](../architecture/project-structure-ko.md#console-static-web-app)에 있습니다. Evidence provenance, stream recovery, localization 및 Architecture map resilience는 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Login bootstrap은 역할이 할당된 principal의 access를 검증된 App Role에서 도출하고 optional access-request projection을 요구하지 않으며, 역할이 없을 때 해당 projection이 unavailable이면 access를 계속 차단합니다. Local development의 독립 service adapter는 model narration에만 Azure CLI를 사용할 수 있고 provider-read 또는 execution authority는 없습니다. 온톨로지 맵은 `rule-catalog`와 `PANTHEON_SPECS`에서 생성된 하나의 카탈로그 지식 그래프를 렌더링하며 Architecture 또는 런타임 인벤토리를 읽지 않습니다.
 Settings > Integrations에서는 합성 placeholder로 production incident-open email renderer를 미리 볼 수 있습니다. 이 GET-only preview는 email을 보내거나 승인 또는 실행 권한을 부여하지 않습니다.
 인증된 active-incident stream은 idle Command Deck을 incident selector와 함께 열 수 있습니다. 이 selector는 presentation hint일 뿐이며 server는 답변 전에 durable incident와 evidence를 다시 resolve합니다.
 Tab과 Deck이 idle 상태이면 browser에서 incident를 처음 관찰할 때 localized read-only investigation turn을 한 번 제출합니다. Browser-local incident ledger는 reload 뒤 replay를 억제하며, incident badge를 누르면 명시적으로 다시 조사할 수 있습니다.

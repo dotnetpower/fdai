@@ -10,6 +10,7 @@ import type { IncidentConversationBinding } from "./open-deck";
 
 function viewContextWithUser(snapshot: ViewSnapshot | null): Record<string, unknown> {
   const base: Record<string, unknown> = snapshot ? { ...snapshot } : {};
+  if (typeof window !== "undefined") base._screen_path = window.location.pathname;
   const user = getDeckUser();
   if (user) base._user = user;
   if (snapshot?.routeId) {

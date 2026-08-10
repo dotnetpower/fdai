@@ -9,6 +9,7 @@ from typing import Protocol
 
 from fdai_service_contracts import OperatorReadModel, OperatorTokenVerifier, ReadDataSource
 
+from fdai_operator_service.adapters import LocalAzureNarratorAdapters
 from fdai_operator_service.auth import EntraJwtVerifier, OperatorAuthenticator
 from fdai_operator_service.contracts import ReadinessProbe
 from fdai_operator_service.environment import OperatorEnvironment
@@ -145,6 +146,15 @@ def _build_route_families(
         )
 
     postgres_conversation = PostgresConversationAdapters(store)
+    conversation = (
+        LocalAzureNarratorAdapters.from_environment(
+            environment.values,
+            fallback_projections=postgres_conversation,
+            fallback_streams=postgres_conversation,
+        )
+        if environment.local_azure_narrator
+        else postgres_conversation
+    )
     postgres_workflow = PostgresWorkflowAdapters(store)
     iam = PostgresIamAdapters(store)
     postgres_operations = PostgresOperationsAdapters(
@@ -155,9 +165,9 @@ def _build_route_families(
     return OperatorRouteFamilies(
         conversation=ConversationFamilyDependencies(
             authorizer=authorizer,
-            projections=postgres_conversation,
+            projections=conversation,
             outbox=postgres_conversation,
-            streams=postgres_conversation,
+            streams=conversation,
         ),
         iam=IamFamilyBindings(
             authorize=authorizer.iam,

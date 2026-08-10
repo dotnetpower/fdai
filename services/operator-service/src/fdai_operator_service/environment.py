@@ -20,6 +20,7 @@ DATABASE_ROLE_ENV = "FDAI_DATABASE_ROLE"
 DATABASE_STATEMENT_TIMEOUT_ENV = "FDAI_OPERATOR_DATABASE_STATEMENT_TIMEOUT_MS"
 DATABASE_CONNECT_TIMEOUT_ENV = "FDAI_OPERATOR_DATABASE_CONNECT_TIMEOUT_S"
 EXPECTED_DATABASE_ROLE = "fdai_operator"
+LOCAL_AZURE_NARRATOR_ENV = "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR"
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 - Container ingress terminates external HTTPS.
 DEFAULT_PORT = 8000
 DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS = 20_000
@@ -57,6 +58,7 @@ class OperatorEnvironment:
     database_role: str | None
     database_statement_timeout_ms: int
     database_connect_timeout_s: int
+    local_azure_narrator: bool
 
     @classmethod
     def parse(cls, environ: Mapping[str, str]) -> OperatorEnvironment:
@@ -116,6 +118,11 @@ class OperatorEnvironment:
             DATABASE_CONNECT_TIMEOUT_ENV,
             DEFAULT_DATABASE_CONNECT_TIMEOUT_S,
         )
+        local_azure_narrator = _boolean(values, LOCAL_AZURE_NARRATOR_ENV, default=False)
+        if local_azure_narrator and values.get("RUNTIME_ENV", "").strip().lower() != "dev":
+            raise OperatorServiceConfigurationError(
+                f"{LOCAL_AZURE_NARRATOR_ENV} requires RUNTIME_ENV=dev"
+            )
 
         return cls(
             values=MappingProxyType(values),
@@ -131,6 +138,7 @@ class OperatorEnvironment:
             database_role=database_role,
             database_statement_timeout_ms=database_statement_timeout_ms,
             database_connect_timeout_s=database_connect_timeout_s,
+            local_azure_narrator=local_azure_narrator,
         )
 
 
@@ -152,6 +160,15 @@ def _positive_int(environ: Mapping[str, str], key: str, default: int) -> int:
     return value
 
 
+def _boolean(environ: Mapping[str, str], key: str, *, default: bool) -> bool:
+    raw = environ.get(key, str(default)).strip().lower()
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    raise OperatorServiceConfigurationError(f"{key} MUST be a boolean")
+
+
 __all__ = [
     "AUDIENCE_ENV",
     "CORS_ORIGINS_ENV",
@@ -165,6 +182,7 @@ __all__ = [
     "GROUP_ENV",
     "HOST_ENV",
     "ISSUER_ENV",
+    "LOCAL_AZURE_NARRATOR_ENV",
     "JWKS_URI_ENV",
     "PORT_ENV",
     "TENANT_ENV",

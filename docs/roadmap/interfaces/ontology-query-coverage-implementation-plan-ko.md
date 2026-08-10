@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 8a27a558ceed9313188642692ac85a82a2f96b13
+translation_source_sha: 652ec8a288c5be6e970604c204d6c89b7da2d1d4
 translation_revised: 2026-08-10
 ---
 
@@ -57,7 +57,7 @@ plan 검증 이후 authoritative read로만 선택합니다.
 
 | 영역 | 검증된 현재 구현 | 목표를 차단하는 gap |
 |------|------------------|---------------------|
-| Conversation routing | `ConversationCoordinator`가 `_VERB_PATTERNS`를 사용합니다. `ReadPlanNarrator`는 2-3개의 canonical command string을 제안할 수 있으며 `execute_read_plan`이 이를 serial로 실행합니다. | Server-side semantic problem frame, intent graph producer, dependency-wave executor 및 typed plan bridge가 없습니다. |
+| Conversation routing | Local 독립 Operator Service는 resolved Azure candidate의 model narration을 복구하지만 Core `ConversationCoordinator`는 계속 `_VERB_PATTERNS`를 사용합니다. `ReadPlanNarrator`는 2-3개의 canonical command string을 제안할 수 있으며 `execute_read_plan`이 이를 serial로 실행합니다. | Local model narration에는 provider-read 또는 execution authority가 없으며 server-side semantic problem frame, intent graph producer, dependency-wave executor 및 typed plan bridge를 제공하지 않습니다. |
 | Console intent graph | Console은 bounded `intent_graph` 및 `intent_graph_evidence` payload를 strict하게 parse하고 render합니다. | Core 또는 Operator Service producer가 없습니다. 현재 구현은 presentation-only입니다. |
 | Semantic interpretation | `SemanticInterpretationCandidate`, `VerifiedSemanticPlan`, exact release check 및 candidate-only authority가 있습니다. | Verified plan은 typed function 하나를 target으로 하며 conversation routing 또는 generic ontology query algebra와 연결되지 않았습니다. |
 | Object query | `ObjectSetDefinition`, typed predicate, bounded traversal 하나, interface selection, ACL projection, purpose check 및 secured receipt가 있습니다. | Set operation, ordering, aggregation, projection, multi-stage function composition 및 planner descriptor가 하나의 `OntologyQueryPlan`으로 결합되지 않았습니다. |

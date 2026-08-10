@@ -1,8 +1,8 @@
 ---
 title: Narrator Routing and Latency
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 640dd3817882fa2e37417c9d66386b6118a6e22a
-translation_revised: 2026-08-07
+translation_source_sha: 2056bfe6146bd48aa69e94b79f769dfa3a0613a4
+translation_revised: 2026-08-10
 ---
 # Narrator Routing and Latency
 
@@ -11,13 +11,17 @@ pool 동작을 소유합니다. T1 narration과 system-governed T2 reasoning의 
 
 ## Narrator latency routing
 
-Console chat backend
-(`fdai.delivery.operator_api.application.conversation.backend.LatencyRoutedChatBackend`)는 `t1.judge`
-mini-stack deployment를 감싸고 각 turn에서 rolling p50 latency가 가장 낮은 후보를 선택합니다.
-`resolved-models.json`에 `narrator_candidates`가 두 개 이상 있으면 활성화되고, 하나만 있으면
-vision routing에 one-candidate latency wrapper가 필요하지 않은 한 `AzureAdChatBackend`를 직접
-사용합니다. Concrete Azure 및 OpenAI-compatible transport는
-`fdai.delivery.operator_api.adapters.conversation` 뒤에 있습니다.
+독립 Operator Service가 인증된 conversation HTTP boundary를 소유합니다. 표준 local profile에서는
+service-local `LocalAzureNarratorAdapters`가 준비된 resolved model artifact를 읽고 Azure CLI에서
+short-lived Cognitive Services token을 얻어 Core import 또는 execution authority 없이 정렬된
+`narrator_candidates`를 시도합니다. Resolved artifact와 token이 모두 사용 가능할 때만 health를
+available로 보고하며, authoritative evidence 및 claim-verification receipt가 없으면 model-only answer를
+명시적으로 unverified로 유지합니다.
+
+Production conversation delivery에는 injected projection 및 stream adapter가 계속 필요합니다. 이전
+in-process `LatencyRoutedChatBackend`는 top-level Operator implementation과 함께 제거됐으며 rolling
+p50/TTFT 선택과 multimodal routing은 현재 구성된 production capability가 아니라 독립 service의 target
+behavior로 남아 있습니다.
 
 Router는 T1 narrator traffic 전용입니다. T2 capability로 latency routing을 확장하려면 별도 설계
 검토가 필요합니다. `t2.reasoner.primary` slot의 검토된 same-publisher 예외는

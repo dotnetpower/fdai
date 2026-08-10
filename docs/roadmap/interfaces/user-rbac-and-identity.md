@@ -471,7 +471,7 @@ Human users never hold PATs or long-lived secrets:
   interactive development mode. The browser signs in through Entra, and the API
   verifies the JWT signature, issuer, audience, lifetime, and App Roles exactly as
   production does. The server's Azure CLI session supplies short-lived tokens only to
-  Azure adapters such as Microsoft Graph, Azure Resource Graph, and Azure OpenAI; it
+  Azure adapters such as Microsoft Graph, Azure Resource Graph, and local Azure OpenAI narration; it
   never replaces the browser principal. Event Hubs token refreshes are pinned to the prepared runtime tenant
   and subscription rather than the mutable Azure CLI default account. A principal with no App Role sees the
   access-request page, and a missing bearer token fails closed. The full-stack preparation

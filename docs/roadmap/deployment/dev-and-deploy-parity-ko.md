@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: d14fe55c0e998bcf3d32e13ca411a15289f14520
+translation_source_sha: c449d64ac04c39af9688aebc4437ad4f87a03b96
 translation_revised: 2026-08-10
 ---
 
@@ -241,13 +241,13 @@ StateSnapshot을 읽습니다. Interactive local은 local PostgreSQL이 구성�
 보고합니다. Local browser는 Azure CLI inventory로 대체하거나 Heimdall 판정을 다시 계산하지
 않습니다.
 
-Standard full-stack launch는 narrator endpoint reconciliation도 활성 상태로 유지합니다. Operator API는
-Command Deck을 deterministic fallback으로 강제하지 않고 configured Azure OpenAI narrator를 항상
-먼저 시도합니다. Startup 시 local-only hook은 active Azure CLI principal에 권한이 있으면 현재 public
-IP를 account의 restricted firewall에 추가할 수 있습니다. Automated test는
-`FDAI_NARRATOR_AUTO_OPEN_AOAI=0`을 설정하므로 Azure CLI를 호출하거나 firewall을 변경하지 않습니다.
-Model endpoint가 실제로 미구성, 권한 없음 또는 unreachable 상태이면 해당 turn만 deterministic
-answerer로 안전하게 fallback합니다.
+Standard full-stack launch는 narrator endpoint reconciliation을 유지합니다. 독립 Operator Service는
+`RUNTIME_ENV=dev`에서만 local-only narrator adapter를 bind하고 `LLM_RESOLVED_MODELS_PATH`와 short-lived
+Azure CLI token을 사용하며 Core import 또는 executor authority 없이 Azure OpenAI narrator를 시도합니다.
+Health는 endpoint를 redaction하고 model-only answer는 unverified로 유지합니다. Startup hook은 권한이
+있을 때 현재 public IP를 allowlist할 수 있습니다. Automated test는
+`FDAI_NARRATOR_AUTO_OPEN_AOAI=0`을 설정하며 model이 미구성, unauthorized 또는 unreachable이면 해당
+turn만 deterministic answerer로 안전하게 fallback합니다.
 Full-stack 준비는 explicit override, 검증된 `.fdai/resolved-models-vision.json`, repository-local `resolved-models.json` 순서로 `LLM_MODE=azure`와 `LLM_RESOLVED_MODELS_PATH`를 만들고 metering을 read-model PostgreSQL에 bind합니다. Vision artifact는 bind 가능한 T1 embedding과 bind 가능한 primary/secondary T2 쌍 또는 명시적인 top-level `hil-only` mode라는 core composition 하한도 충족할 때만 사용할 수 있습니다. 호환되지 않는 vision artifact는 준비가 성공했다고 보고한 뒤 Core Runtime을 중지시키는 대신 canonical artifact로 fallback합니다. LLM Cost panel과 `query_llm_usage` chat capability는 local 및 deployed profile에서 이 measured reader를 공유합니다. 비용은 명시적
 deployment-to-family binding만 사용하며 누락된 family는 unpriced 상태로 둡니다. Conversation
 Assurance는 배포와 같은 local conversation 및 assessment store를 사용하고 deterministic terminal

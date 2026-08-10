@@ -9,13 +9,17 @@ system-governed T2 reasoning.
 
 ## Narrator latency routing
 
-The console chat backend
-(`fdai.delivery.operator_api.application.conversation.backend.LatencyRoutedChatBackend`) wraps the
-`t1.judge` mini-stack deployments and selects the candidate with the lowest rolling p50 latency for
-each turn. It is enabled when `resolved-models.json` contains two or more
-`narrator_candidates`. A single text candidate uses `AzureAdChatBackend` directly unless vision
-routing requires the one-candidate latency wrapper. Concrete Azure and OpenAI-compatible transports
-live behind `fdai.delivery.operator_api.adapters.conversation`.
+The independent Operator Service owns the authenticated conversation HTTP boundary. In the
+standard local profile, its service-local `LocalAzureNarratorAdapters` reads the prepared resolved
+model artifact, obtains a short-lived Cognitive Services token from Azure CLI, and tries the
+ordered `narrator_candidates` without importing Core or receiving execution authority. Health is
+available only when the resolved artifact and token are usable. Model-only answers remain
+explicitly unverified until an authoritative evidence and claim-verification path supplies receipts.
+
+Production conversation delivery still requires an injected projection and stream adapter. The
+prior in-process `LatencyRoutedChatBackend` was retired with the top-level Operator implementation;
+rolling p50/TTFT selection and multimodal routing remain target behavior for the independent
+service rather than a currently composed production capability.
 
 The router is scoped to T1 narrator traffic. Extending latency routing to a T2 capability requires
 separate design review. The reviewed same-publisher exception for the `t2.reasoner.primary` slot is

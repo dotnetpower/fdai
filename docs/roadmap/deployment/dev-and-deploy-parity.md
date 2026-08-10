@@ -238,13 +238,13 @@ PostgreSQL. Interactive local registers `/detection-readiness` only when local P
 configured; otherwise the route and source manifest report unavailable. The local browser never
 substitutes Azure CLI inventory or recomputes Heimdall's decision.
 
-The standard full-stack launch also leaves narrator endpoint reconciliation enabled. The Operator API
-always tries the configured Azure OpenAI narrator instead of forcing the Command Deck into its
-deterministic fallback. At startup, the local-only hook can add the current public IP to the
-account's restricted firewall when the active Azure CLI principal has permission. Automated tests
-set `FDAI_NARRATOR_AUTO_OPEN_AOAI=0` so they never call Azure CLI or change a firewall. A genuinely
-unconfigured, unauthorized, or unreachable model endpoint still fails safely to the deterministic
-answerer for that turn.
+The standard full-stack launch keeps narrator endpoint reconciliation enabled. Its independent
+Operator Service binds a local-only narrator adapter only for `RUNTIME_ENV=dev`, reads
+`LLM_RESOLVED_MODELS_PATH`, and uses a short-lived Azure CLI token without importing Core or
+receiving executor authority. Health redacts endpoints, and model-only answers remain unverified.
+The startup hook may allowlist the current public IP when permitted. Automated tests set
+`FDAI_NARRATOR_AUTO_OPEN_AOAI=0`, and an unconfigured, unauthorized, or unreachable model safely
+falls back to the deterministic answerer for that turn.
 Full-stack preparation emits `LLM_MODE=azure` and `LLM_RESOLVED_MODELS_PATH` from an explicit override, then a validated `.fdai/resolved-models-vision.json`, then repository-local `resolved-models.json`, and binds metering to the read-model PostgreSQL instance. A vision artifact is eligible only when it also satisfies the core composition floor: a bindable T1 embedding plus either a bindable primary/secondary T2 pair or explicit top-level `hil-only` mode. An incompatible vision artifact falls back to the canonical artifact instead of stopping Core Runtime after preparation reported success. The LLM Cost panel and `query_llm_usage` chat capability share that measured reader in local and deployed profiles. Cost uses only
 explicit deployment-to-family bindings; missing families stay unpriced. Conversation Assurance uses
 the same local PostgreSQL conversation and assessment stores as deployment and always runs

@@ -79,6 +79,13 @@ describe("viewContextWithUser wiring", () => {
     expect(ctx._route_actions).toBeUndefined();
   });
 
+  test("keeps the current screen path when the panel snapshot is unavailable", async () => {
+    vi.stubGlobal("window", { location: { pathname: "/workflow-builder" } });
+    const parsed = await callAskAndCaptureBody(null);
+    const ctx = parsed?.view_context ?? {};
+    expect(ctx._screen_path).toBe("/workflow-builder");
+  });
+
   test("attaches _locale from the active i18n setting", async () => {
     const parsed = await callAskAndCaptureBody(liveSnap());
     const ctx = parsed?.view_context ?? {};

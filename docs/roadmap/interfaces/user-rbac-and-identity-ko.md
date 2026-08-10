@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 7db206474cda5d30a42845e224498de784ad3cd9
+translation_source_sha: 238bb7ebf31f1414b2a747d78f5f51c4678b4f0a
 translation_revised: 2026-08-10
 ---
 
@@ -458,7 +458,7 @@ Teams SSO OBO 승인에 대한 목표 계약은 다음과 같습니다:
 - **Azure-backed 로컬 콘솔**: `FDAI_OPERATOR_API_LOCAL_ENTRA=1`이 canonical interactive 개발
   모드입니다. 브라우저는 Entra로 로그인하고 API는 production과 동일하게 JWT 서명, issuer,
   audience, lifetime, App Role을 검증합니다. 서버의 Azure CLI 세션은 Microsoft Graph, Azure
-  Resource Graph, Azure OpenAI 같은 Azure adapter에만 단기 token을 제공하며 브라우저
+  Resource Graph 및 local Azure OpenAI narration 같은 Azure adapter에만 단기 token을 제공하며 브라우저
   principal을 대체하지 않습니다. Event Hubs token refresh는 변경 가능한 Azure CLI default account가 아니라
   준비된 runtime tenant와 subscription에 고정됩니다. App Role이 없는 principal에는 접근 요청 페이지가 표시되고,
   bearer token이 없으면 fail closed합니다. Full-stack 준비 단계는 두 개의 고정 loopback origin을
