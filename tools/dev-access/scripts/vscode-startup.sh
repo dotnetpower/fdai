@@ -4,6 +4,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 INFRA_DIR="${ROOT_DIR}/infra"
+DIRECT_VNET_MARKER="${FDAI_DEV_ACCESS_DIRECT_VNET_MARKER:-${ROOT_DIR}/.profiles/direct-vnet}"
+
+# A directly peered Azure VM uses Azure-provided DNS through its own VNet and
+# must not open Azure VPN Client. The ignored marker is machine-local and is
+# created only after direct peering, private DNS, and endpoint access pass.
+if [[ -f "${DIRECT_VNET_MARKER}" ]]; then
+  exit 0
+fi
 
 # A checkout without local dev-access state has not opted into this workstation
 # integration. Keep folder-open quiet for every other FDAI developer.

@@ -117,6 +117,22 @@ connected, the task applies WSL DNS without revealing a terminal. When it is dis
 opens Azure VPN Client and exits with an actionable error so VS Code reveals the failed task. The
 task never connects without the developer's Entra sign-in and MFA.
 
+### Use direct VNet access from an Azure VM
+
+An Azure VM can use direct VNet access instead of the P2S VPN after an Azure network operator has
+configured bidirectional peering to the FDAI VNet, linked the required FDAI Private DNS zones to the
+VM VNet, and verified private DNS and endpoint connectivity. On that VM, create the ignored local
+marker before reopening VS Code:
+
+```bash
+mkdir -p tools/dev-access/.profiles
+touch tools/dev-access/.profiles/direct-vnet
+```
+
+The folder-open task then stays quiet and does not open Azure VPN Client or replace WSL DNS. Other
+workstations continue to use the VPN path while the marker is absent. Remove the marker if direct
+peering or Private DNS links are removed.
+
 ## Verify private access
 
 Pass real private hostnames at runtime. Hostnames and endpoints are never stored in this repository.

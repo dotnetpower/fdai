@@ -82,6 +82,9 @@ def test_dev_access_ships_repeatable_client_checks() -> None:
     assert '"runOn": "folderOpen"' in tasks
     assert '"instanceLimit": 1' in tasks
     assert "terraform.tfstate" in startup
+    assert "FDAI_DEV_ACCESS_DIRECT_VNET_MARKER" in startup
+    assert ".profiles/direct-vnet" in startup
+    assert startup.index("DIRECT_VNET_MARKER") < startup.index("terraform.tfstate")
     assert '"${route_line}" == *" via "*' in startup
     assert '"${route_line}" == *" via "*' in wsl_dns
     assert 'wsl-dns.sh" apply' in startup
