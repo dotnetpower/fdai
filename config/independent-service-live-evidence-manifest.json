@@ -1,0 +1,1494 @@
+{
+  "manifest_version": "1.0.0",
+  "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+  "source": {
+    "repository": "dotnetpower/fdai",
+    "revision": "94924cbeade460e61db7e6c777c865b3c86a427c",
+    "workflow": ".github/workflows/service-deploy.yml"
+  },
+  "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+  "artifacts": [
+    {
+      "ref": "sha256:6866c50775666d420554c5648361109b616c23c269e828bc8f06abb038121100",
+      "kind": "health",
+      "service_id": "core-control-plane",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:cb61aeeff619c52d3adad9c0093ce7eb36850278d2ead5a36d402173de59bb25",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "healthy_and_active": true,
+        "kind": "health",
+        "new_revision": true,
+        "observed": true,
+        "service_id": "core-control-plane",
+        "verification": "post-apply-health",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31381600711
+      }
+    },
+    {
+      "ref": "sha256:717f3232078d34bdabd32e7a929c5dec662ab225620064523efba8f6e2a1d925",
+      "kind": "identity",
+      "service_id": "core-control-plane",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:295a5229eef51906ce2e35bab5623a884138d62ab4cd8f5a56e89e475ce6ebcc",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "context_digest": "sha256:0e17df5746461c3af74c0a19e99f08a0f22b39ae46352abe038357c85b2da623",
+        "kind": "identity",
+        "observed": true,
+        "service_id": "core-control-plane",
+        "verification": "sealed-target-identity",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31381600711
+      }
+    },
+    {
+      "ref": "sha256:be725c8a61bc4642046a5e6004e8429f7691ce537aa8c043169940e64f184c7a",
+      "kind": "image",
+      "service_id": "core-control-plane",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:e6516d06e6e79b8e8c27e307880f57610878906319f77c9801968b21ad898c76",
+      "content": {
+        "attestations": [
+          "provenance",
+          "sbom",
+          "resolved-models"
+        ],
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "image_digest": "sha256:a63b0d2975fb29940cb29a15e17c01b3e5e726931ab45cd70c13647bbb16b1fc",
+        "kind": "image",
+        "observed": true,
+        "service_id": "core-control-plane",
+        "verification": "attested-and-observed-image",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31381600711
+      }
+    },
+    {
+      "ref": "sha256:3a68b1820ad0e02569f8229ab897fdc2f2b4a9115073bf41b257228580c840c6",
+      "kind": "offset",
+      "service_id": "core-control-plane",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:57ac9a5bb9c4204219c506fc37c4f4ebcb2ce21e5b53b3835ca98aea08f53c72",
+      "content": {
+        "after_manifest_sha256": "sha256:14681c6e59fc3db5e5908cda16051439c717d59ee58774c27f3b4b9c1419e3d4",
+        "before_manifest_sha256": "sha256:94fbbfba1b502852cdbed3aab88dcd75804053f6d22ea46dde0f497e36ff7da8",
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "kind": "offset",
+        "observed": true,
+        "peer_serials": {
+          "document-ingestion-api": 11,
+          "document-processing-worker": 9,
+          "isolated-executor": 8,
+          "operator-service": 11
+        },
+        "service_id": "core-control-plane",
+        "verification": "peer-state-serials-preserved",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31381600711
+      }
+    },
+    {
+      "ref": "sha256:e43300f05503d41a096e71b774ebeb008cde24642217270cfb05d547afd3f689",
+      "kind": "schema",
+      "service_id": "core-control-plane",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:6cd4ebdc13c12cdfc494a98e87d7e9e5b4b17c064731a9e1b171c0ec1007f9c8",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "kind": "schema",
+        "migration_branch": "core-control-plane",
+        "observed": true,
+        "service_id": "core-control-plane",
+        "verification": "service-migration-upgrade",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31381600711
+      }
+    },
+    {
+      "ref": "sha256:318c81780271ea044be0db81a15383f64b3ce55549a255f9a6893f979d07d757",
+      "kind": "source",
+      "service_id": "core-control-plane",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:ea570771b2f0a6c17d5a523fcdef67ce353e8dd7f5758513f359cd6fc228a7ea",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "context_digest": "sha256:0e17df5746461c3af74c0a19e99f08a0f22b39ae46352abe038357c85b2da623",
+        "kind": "source",
+        "observed": true,
+        "plan_digest": "sha256:eca74e87b1d530b803f11b7e17e898702db03b62d7b234fe702e9415399e30f0",
+        "service_id": "core-control-plane",
+        "verification": "protected-plan-source",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31381600711
+      }
+    },
+    {
+      "ref": "sha256:0f5c7be1c979819511a07562e715302200f2090f8300115ef01e8293f4b0a1ef",
+      "kind": "topology",
+      "service_id": "core-control-plane",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:66f4cc14b829ecfb2a0b511abfbf08a3d4381aaa92591a83857bcbfe0d25a787",
+      "content": {
+        "after_manifest_sha256": "sha256:14681c6e59fc3db5e5908cda16051439c717d59ee58774c27f3b4b9c1419e3d4",
+        "before_manifest_sha256": "sha256:94fbbfba1b502852cdbed3aab88dcd75804053f6d22ea46dde0f497e36ff7da8",
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "kind": "topology",
+        "observed": true,
+        "peer_count": 4,
+        "peer_projection_sha256": "sha256:5bf7fbb4c081ca0143216b2b5a4363f9d60cd2461f98897bd87b58428b04bffe",
+        "peer_services": [
+          "document-ingestion-api",
+          "document-processing-worker",
+          "isolated-executor",
+          "operator-service"
+        ],
+        "service_id": "core-control-plane",
+        "verification": "four-peer-isolation",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31381600711
+      }
+    },
+    {
+      "ref": "sha256:536a87710caa8096cc5f02fe6a6138048a80e497128f9a98c2e9c8c9c83404e8",
+      "kind": "health",
+      "service_id": "core-control-plane",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:819847a40349a70e5640a48ae4f933d80d0b54c3a9e6d41d74af889ba5d502d7",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "healthy_and_active": true,
+        "kind": "health",
+        "new_revision": true,
+        "observed": true,
+        "service_id": "core-control-plane",
+        "verification": "post-apply-health",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31382575780
+      }
+    },
+    {
+      "ref": "sha256:f99b6f8e2320800c3d63f68acccc93719fae3cd6e50c203b62dc80fc1fafee68",
+      "kind": "identity",
+      "service_id": "core-control-plane",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:436d169157011e3690bacc07ce49d5421f5bf39d722b6b124fc174dc866d77e9",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "context_digest": "sha256:a029c7f6cc230b47b4ad8c4c9ab75e3068db354e2e6fe53f0be21281fa13511f",
+        "kind": "identity",
+        "observed": true,
+        "service_id": "core-control-plane",
+        "verification": "sealed-target-identity",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31382575780
+      }
+    },
+    {
+      "ref": "sha256:2b8977e267a28c39fe219b4a2887f9b933d97929350db47acc0548285f278960",
+      "kind": "image",
+      "service_id": "core-control-plane",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:96a12e6e50a5c0b27ce4616932d85806e5a8667b30d82867545da28e1bf7f461",
+      "content": {
+        "attestations": [
+          "provenance",
+          "sbom",
+          "resolved-models"
+        ],
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "image_digest": "sha256:e52d7716b652d5bdd116ad661a2cd403688c601cc5a8323d5fa4ca7a745c81aa",
+        "kind": "image",
+        "observed": true,
+        "service_id": "core-control-plane",
+        "verification": "attested-and-observed-image",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31382575780
+      }
+    },
+    {
+      "ref": "sha256:edee9b0e8cb6f020e5eff1633f5eb833f8adeb026ac826a609a2bae87dfbbea3",
+      "kind": "offset",
+      "service_id": "core-control-plane",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:24c55120933692f1ebbb3ac8010a917734c41561af29f44d937c2b2a50ad7f73",
+      "content": {
+        "after_manifest_sha256": "sha256:14681c6e59fc3db5e5908cda16051439c717d59ee58774c27f3b4b9c1419e3d4",
+        "before_manifest_sha256": "sha256:94fbbfba1b502852cdbed3aab88dcd75804053f6d22ea46dde0f497e36ff7da8",
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "kind": "offset",
+        "observed": true,
+        "peer_serials": {
+          "document-ingestion-api": 11,
+          "document-processing-worker": 9,
+          "isolated-executor": 8,
+          "operator-service": 11
+        },
+        "service_id": "core-control-plane",
+        "verification": "peer-state-serials-preserved",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31382575780
+      }
+    },
+    {
+      "ref": "sha256:b0e918f3b92788549b05929382aef86ef002eaa2e5477e2a309200d0f1384334",
+      "kind": "schema",
+      "service_id": "core-control-plane",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:9cc22289d3fadeb747be6a6bfe3d95e749e58f0046fe05cdb875e3a93393e5f3",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "kind": "schema",
+        "migration_branch": "core-control-plane",
+        "observed": true,
+        "service_id": "core-control-plane",
+        "verification": "service-migration-upgrade",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31382575780
+      }
+    },
+    {
+      "ref": "sha256:0c9595ff5abaac9d9a6d803ad211b58762e8c605fb88155ce08cb613f23136fc",
+      "kind": "source",
+      "service_id": "core-control-plane",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:f578178b6e8ec8132416923dffde4ec29a13a702cff14d5c423063563774b7c4",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "context_digest": "sha256:a029c7f6cc230b47b4ad8c4c9ab75e3068db354e2e6fe53f0be21281fa13511f",
+        "kind": "source",
+        "observed": true,
+        "plan_digest": "sha256:35181faf28380c603777ffb4cc67ad3d3e405afef0d33895d14521e2014789ba",
+        "service_id": "core-control-plane",
+        "verification": "protected-plan-source",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31382575780
+      }
+    },
+    {
+      "ref": "sha256:64e165fdcbf796638e324e64d0e7e38419ee2d7987a0fbbaa96b3cd921d6cc3d",
+      "kind": "topology",
+      "service_id": "core-control-plane",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:5caf4baa4023ab5c833c08a4f1c6ed1031a1ee722cd01f3b4352f3a8402be979",
+      "content": {
+        "after_manifest_sha256": "sha256:14681c6e59fc3db5e5908cda16051439c717d59ee58774c27f3b4b9c1419e3d4",
+        "before_manifest_sha256": "sha256:94fbbfba1b502852cdbed3aab88dcd75804053f6d22ea46dde0f497e36ff7da8",
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "kind": "topology",
+        "observed": true,
+        "peer_count": 4,
+        "peer_projection_sha256": "sha256:5bf7fbb4c081ca0143216b2b5a4363f9d60cd2461f98897bd87b58428b04bffe",
+        "peer_services": [
+          "document-ingestion-api",
+          "document-processing-worker",
+          "isolated-executor",
+          "operator-service"
+        ],
+        "service_id": "core-control-plane",
+        "verification": "four-peer-isolation",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31382575780
+      }
+    },
+    {
+      "ref": "sha256:729ddbcc5908cf59f38769de90c59d93e5eeb5cb45178e99b39ed9833ec528eb",
+      "kind": "health",
+      "service_id": "operator-service",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:38eab6d262b5f97d12a0e5bb0c12aa7bebfa32d79a52f46bde9e9b256eba2c9f",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "healthy_and_active": true,
+        "kind": "health",
+        "new_revision": true,
+        "observed": true,
+        "service_id": "operator-service",
+        "verification": "post-apply-health",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380381608
+      }
+    },
+    {
+      "ref": "sha256:f4c468e8785ce65d824adda4782cc574e66baeb8dddc598511f469868817c3d6",
+      "kind": "identity",
+      "service_id": "operator-service",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:ebef64dc598cb9f29f839ff3ed1c09d18cf6f9b1b249e6ecf28418c9d8457b93",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "context_digest": "sha256:50a23286d8045cdd57133d4f050083d1985f639e32b06604db9ead9b1ef1c09a",
+        "kind": "identity",
+        "observed": true,
+        "service_id": "operator-service",
+        "verification": "sealed-target-identity",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380381608
+      }
+    },
+    {
+      "ref": "sha256:c1d64dae59f24e2e992bbe63c80e5b5de4525c114412524308bb2b6a38e455ae",
+      "kind": "image",
+      "service_id": "operator-service",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:ac11e5c65fe5642fbc0ac1c8287a962619b899c6a4ef1def40dbd11a46e1ba9d",
+      "content": {
+        "attestations": [
+          "provenance",
+          "sbom"
+        ],
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "image_digest": "sha256:b77c8a842323937e5a7864f8b7cf262f6579b95ce0b0336199c4ad057369a1ff",
+        "kind": "image",
+        "observed": true,
+        "service_id": "operator-service",
+        "verification": "attested-and-observed-image",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380381608
+      }
+    },
+    {
+      "ref": "sha256:c74ec76a99e8342aa5ecfc76049019697e0c0944084dfad0be045ee305cf05dd",
+      "kind": "offset",
+      "service_id": "operator-service",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:73a35a2c5d853b35879c494052c48dabff2daf69119adf0612c9e79b0ec1210f",
+      "content": {
+        "after_manifest_sha256": "sha256:97393d53736c713535afa2c9a3ad4bef809bc18ffa89c74604f9e76beeb5563f",
+        "before_manifest_sha256": "sha256:5c146aafc2bd7245ff44976b23b6437cf4146bb7024b07c1d4ec4172b0955b93",
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "kind": "offset",
+        "observed": true,
+        "peer_serials": {
+          "core-control-plane": 25,
+          "document-ingestion-api": 10,
+          "document-processing-worker": 8,
+          "isolated-executor": 7
+        },
+        "service_id": "operator-service",
+        "verification": "peer-state-serials-preserved",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380381608
+      }
+    },
+    {
+      "ref": "sha256:b6baa1aab6c5e26940f37ceedcd8657f744b891a0686cc03fdeb7decedf99dfa",
+      "kind": "schema",
+      "service_id": "operator-service",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:4654b70d5bc42423b4753793c616c9d00df247b016d1e2a1f5da5c53e4917d18",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "kind": "schema",
+        "migration_branch": "operator-service",
+        "observed": true,
+        "service_id": "operator-service",
+        "verification": "service-migration-upgrade",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380381608
+      }
+    },
+    {
+      "ref": "sha256:e8f165913f3e1df5460680ff436ad1f794b8341bbbd65dc17d7eb21c1ba39e8b",
+      "kind": "source",
+      "service_id": "operator-service",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:b94582da65ed6ac6cc3ea7c85b3627d3d5bc84e22d308dbe8ab2cc4f00fc54a8",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "context_digest": "sha256:50a23286d8045cdd57133d4f050083d1985f639e32b06604db9ead9b1ef1c09a",
+        "kind": "source",
+        "observed": true,
+        "plan_digest": "sha256:30209d95f36c2b08f252f22b0639860515a34c09dde61a6a89208a195b70ba95",
+        "service_id": "operator-service",
+        "verification": "protected-plan-source",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380381608
+      }
+    },
+    {
+      "ref": "sha256:be2533b24e94d8c0bd43f962739f25fc9ebf64f01e48d95c63d1e2fcdb699ac3",
+      "kind": "topology",
+      "service_id": "operator-service",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:4be9477a33535e1ff768f28edd37e8e8a0ae5fb4ad5b3227fdd13aa87100c5ff",
+      "content": {
+        "after_manifest_sha256": "sha256:97393d53736c713535afa2c9a3ad4bef809bc18ffa89c74604f9e76beeb5563f",
+        "before_manifest_sha256": "sha256:5c146aafc2bd7245ff44976b23b6437cf4146bb7024b07c1d4ec4172b0955b93",
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "kind": "topology",
+        "observed": true,
+        "peer_count": 4,
+        "peer_projection_sha256": "sha256:d72d78fd1009de43f5eb5c1ec240775d2696660a9a5831d8ca91a129bfce64ea",
+        "peer_services": [
+          "core-control-plane",
+          "document-ingestion-api",
+          "document-processing-worker",
+          "isolated-executor"
+        ],
+        "service_id": "operator-service",
+        "verification": "four-peer-isolation",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380381608
+      }
+    },
+    {
+      "ref": "sha256:db79b43ee0881439575304f71d06db999893014eddc0c1b4814e3d8a093a0879",
+      "kind": "health",
+      "service_id": "operator-service",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:c87364d363efc99432b1613c90850ef80db79092bc17fcae2aa20ba00fe436f5",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "healthy_and_active": true,
+        "kind": "health",
+        "new_revision": true,
+        "observed": true,
+        "service_id": "operator-service",
+        "verification": "post-apply-health",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31382872879
+      }
+    },
+    {
+      "ref": "sha256:5f9a7b1baaee94c86a480885068c9ec97eb4a1e57f2181fe46e34fb5c91c0ff7",
+      "kind": "identity",
+      "service_id": "operator-service",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:3fe7981c39f404b0fe676457d3832f1310e09c767bd928f392a6010dc86d2338",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "context_digest": "sha256:a1143719f18922d39837f987f6f1af128982528ebde7f1ab82d1dfd549fb06df",
+        "kind": "identity",
+        "observed": true,
+        "service_id": "operator-service",
+        "verification": "sealed-target-identity",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31382872879
+      }
+    },
+    {
+      "ref": "sha256:7bd0ac161652f22c9811dd505e4e89881d0ea089dba16bf6f6730d49e3369c31",
+      "kind": "image",
+      "service_id": "operator-service",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:47e739fb1147991775c19059f6f994287fcefdf5463fde784698d21e16352bb9",
+      "content": {
+        "attestations": [
+          "provenance",
+          "sbom"
+        ],
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "image_digest": "sha256:8535f8c99bfe2ccce26d5cf36f87503bf7169ef2c5dcb839ef853fcf9c17854d",
+        "kind": "image",
+        "observed": true,
+        "service_id": "operator-service",
+        "verification": "attested-and-observed-image",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31382872879
+      }
+    },
+    {
+      "ref": "sha256:ed49c70da13128e284feb702466e89c0f6eeb9dc9b08d979a59a03c65f453dec",
+      "kind": "offset",
+      "service_id": "operator-service",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:4f117a709fccbe502644e0146280ec596c1f92dfd51022cd5900955c6cddb586",
+      "content": {
+        "after_manifest_sha256": "sha256:c607e735464009c4bf7765c6bf28563ee6eb82550aaf7a45a8d7e1778c743695",
+        "before_manifest_sha256": "sha256:649643d2d09c93643c064f653c2de7a42c4a5eb68e11e41f74cc1c72c59f6b19",
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "kind": "offset",
+        "observed": true,
+        "peer_serials": {
+          "core-control-plane": 27,
+          "document-ingestion-api": 11,
+          "document-processing-worker": 9,
+          "isolated-executor": 8
+        },
+        "service_id": "operator-service",
+        "verification": "peer-state-serials-preserved",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31382872879
+      }
+    },
+    {
+      "ref": "sha256:493f22d60a1eb22c041e11738c7eaba5a2eb02f185c38aaf5091940534d4c067",
+      "kind": "schema",
+      "service_id": "operator-service",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:94d3ce454e6e94786efb7f83aa3855b10144c9d40da8fbbb2d96f2e922eb3ea0",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "kind": "schema",
+        "migration_branch": "operator-service",
+        "observed": true,
+        "service_id": "operator-service",
+        "verification": "service-migration-upgrade",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31382872879
+      }
+    },
+    {
+      "ref": "sha256:734714aee50257dc2dbe98cf028d9890f6aa7ad1da9648e63edc948f76b7aae7",
+      "kind": "source",
+      "service_id": "operator-service",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:5d5aeed63368fae769d7d740e486168163dd938a3055e1fbc304427814af49eb",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "context_digest": "sha256:a1143719f18922d39837f987f6f1af128982528ebde7f1ab82d1dfd549fb06df",
+        "kind": "source",
+        "observed": true,
+        "plan_digest": "sha256:e28d2a4b9ca60818d4c66dde9bfd52b6f552226ae4f62a6dfdefe76e4c732960",
+        "service_id": "operator-service",
+        "verification": "protected-plan-source",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31382872879
+      }
+    },
+    {
+      "ref": "sha256:c4228f73a54e51ba2aafdfe51298b936ee1059065a50306ee7cf3035025e30e7",
+      "kind": "topology",
+      "service_id": "operator-service",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:93095663f22d94de61f7d1cb755a3180faf01439018647a4a95fbe27ddb4ce22",
+      "content": {
+        "after_manifest_sha256": "sha256:c607e735464009c4bf7765c6bf28563ee6eb82550aaf7a45a8d7e1778c743695",
+        "before_manifest_sha256": "sha256:649643d2d09c93643c064f653c2de7a42c4a5eb68e11e41f74cc1c72c59f6b19",
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "kind": "topology",
+        "observed": true,
+        "peer_count": 4,
+        "peer_projection_sha256": "sha256:e1674c940ad4ded3605eb75e1ef0d959f4ac49bb9db35830d30333c1b4b5a3fd",
+        "peer_services": [
+          "core-control-plane",
+          "document-ingestion-api",
+          "document-processing-worker",
+          "isolated-executor"
+        ],
+        "service_id": "operator-service",
+        "verification": "four-peer-isolation",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31382872879
+      }
+    },
+    {
+      "ref": "sha256:2e7675073951fe4b2f4727f051acc3a1883bb1f48401db2dae5580fb3a89d6ce",
+      "kind": "health",
+      "service_id": "document-ingestion-api",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:28f33a7b21ea9498c1104f1638dec8578906af9d413249a7e0a96544e2c687a7",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "healthy_and_active": true,
+        "kind": "health",
+        "new_revision": true,
+        "observed": true,
+        "service_id": "document-ingestion-api",
+        "verification": "post-apply-health",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380675732
+      }
+    },
+    {
+      "ref": "sha256:a4c091de3f845f1e8812210a1713e64586e6cc08dde7204ac67f0ac1e3eb2053",
+      "kind": "identity",
+      "service_id": "document-ingestion-api",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:858354ab4d23e6673fff2c708f90d88d3ffb9b44ee845535b8fc6e0b12d1580a",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "context_digest": "sha256:eb1e98881d2188eb45f45b7baa5e5e84fa82c5ce10fa15ec4c9983f94b7e1759",
+        "kind": "identity",
+        "observed": true,
+        "service_id": "document-ingestion-api",
+        "verification": "sealed-target-identity",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380675732
+      }
+    },
+    {
+      "ref": "sha256:5f92bf49a2f0d3ba815c9a8fe23c1d47d30e536dda7a6b02a1df9517b885dcaa",
+      "kind": "image",
+      "service_id": "document-ingestion-api",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:d97657105fa2992cf6796bb400d2c852852920f319b5417a9f6a2e4c35bb595c",
+      "content": {
+        "attestations": [
+          "provenance",
+          "sbom"
+        ],
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "image_digest": "sha256:02e0845b0c9903a45e60082a8a3e576fc50ad8c65bb6f92ef3d086bc30fb37c4",
+        "kind": "image",
+        "observed": true,
+        "service_id": "document-ingestion-api",
+        "verification": "attested-and-observed-image",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380675732
+      }
+    },
+    {
+      "ref": "sha256:d1d98c08dbbddc437543a23195aeffe30f60ef40bf8fcfff946d0622c3c201f9",
+      "kind": "offset",
+      "service_id": "document-ingestion-api",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:5d0474153831bb058a2851efce480e0b37bfb870defdf3d5e61020ce02d69d06",
+      "content": {
+        "after_manifest_sha256": "sha256:d5bff458b99eb60e1fa7ad868a9e81324ab8dbd82d6146dafb408ed19c7b3765",
+        "before_manifest_sha256": "sha256:5347db7a17bcbbcfa14dacd439c18189cf48ee4fcdd465414b396ce26a09ebe1",
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "kind": "offset",
+        "observed": true,
+        "peer_serials": {
+          "core-control-plane": 25,
+          "document-processing-worker": 8,
+          "isolated-executor": 7,
+          "operator-service": 11
+        },
+        "service_id": "document-ingestion-api",
+        "verification": "peer-state-serials-preserved",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380675732
+      }
+    },
+    {
+      "ref": "sha256:46ef91cf09e6d830a810eb3fe418ce239a0d52ee921da2981b7c7de6012d0341",
+      "kind": "schema",
+      "service_id": "document-ingestion-api",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:93876275c29ab31acc0b2555b5ed412ff9ba35cdbd184f1e72ff6af530daaf2a",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "kind": "schema",
+        "migration_branch": "document-ingestion-api",
+        "observed": true,
+        "service_id": "document-ingestion-api",
+        "verification": "service-migration-upgrade",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380675732
+      }
+    },
+    {
+      "ref": "sha256:858a583cd88dca6effcedaa742ece2ac188f535984ee941e153d780159e9df9b",
+      "kind": "source",
+      "service_id": "document-ingestion-api",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:c1a04d1ea807cbb4f5bb8e400416432900b9e249548145ef321c467d71c006af",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "context_digest": "sha256:eb1e98881d2188eb45f45b7baa5e5e84fa82c5ce10fa15ec4c9983f94b7e1759",
+        "kind": "source",
+        "observed": true,
+        "plan_digest": "sha256:edc57b1e2092e037c88c9b4cb8f6b389d8f5f072b3a67d15dd9063401f6d03ac",
+        "service_id": "document-ingestion-api",
+        "verification": "protected-plan-source",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380675732
+      }
+    },
+    {
+      "ref": "sha256:5771b90bd85787c5d8788f0073fd2c4727a4a98f55bdeba33575b42e3a446751",
+      "kind": "topology",
+      "service_id": "document-ingestion-api",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:6ffd582db0203dc6bbedf254ac4c0df98f60c6bac3911aaccaaf30e387a29ca6",
+      "content": {
+        "after_manifest_sha256": "sha256:d5bff458b99eb60e1fa7ad868a9e81324ab8dbd82d6146dafb408ed19c7b3765",
+        "before_manifest_sha256": "sha256:5347db7a17bcbbcfa14dacd439c18189cf48ee4fcdd465414b396ce26a09ebe1",
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "kind": "topology",
+        "observed": true,
+        "peer_count": 4,
+        "peer_projection_sha256": "sha256:d1f36ca913fef8849ab06d8068bf992bff975c24dda502c4b7a4f1f753707289",
+        "peer_services": [
+          "core-control-plane",
+          "document-processing-worker",
+          "isolated-executor",
+          "operator-service"
+        ],
+        "service_id": "document-ingestion-api",
+        "verification": "four-peer-isolation",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380675732
+      }
+    },
+    {
+      "ref": "sha256:7e38e88df89d2af05e912974472e9702b1ca9b2b305ace97455292c9fc5cc08d",
+      "kind": "health",
+      "service_id": "document-ingestion-api",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:2b26b286206bf966f3d92f07fb1e2e4d5139f73790bcdf97d77e42f62a45abf6",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "healthy_and_active": true,
+        "kind": "health",
+        "new_revision": true,
+        "observed": true,
+        "service_id": "document-ingestion-api",
+        "verification": "post-apply-health",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383149115
+      }
+    },
+    {
+      "ref": "sha256:84fe54f00c7b18a8973e0fde17f11ff3baf2057eb2f282f106a458f0be98267e",
+      "kind": "identity",
+      "service_id": "document-ingestion-api",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:b6004f004ff7f9827c792235e392347d245df55d9b17d29dcf91fcef45280f87",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "context_digest": "sha256:3ce12e14a1dceaa6697c247364fed7a273485aca9bfc97fdabb909f84e8e55c6",
+        "kind": "identity",
+        "observed": true,
+        "service_id": "document-ingestion-api",
+        "verification": "sealed-target-identity",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383149115
+      }
+    },
+    {
+      "ref": "sha256:ebd24b1237127bb30cfa57ad27dbe582d0adfb29221154e91f0baa7c23c815d3",
+      "kind": "image",
+      "service_id": "document-ingestion-api",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:68743777a7082225e51a831f19853c3602600cb6cd58695fb953b772e2f90eab",
+      "content": {
+        "attestations": [
+          "provenance",
+          "sbom"
+        ],
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "image_digest": "sha256:8ecd3fbe73b8b8ba98218552495f7a9ec267990bdb3add32730d87281991089a",
+        "kind": "image",
+        "observed": true,
+        "service_id": "document-ingestion-api",
+        "verification": "attested-and-observed-image",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383149115
+      }
+    },
+    {
+      "ref": "sha256:6bf55c763bf42bb75ff76659f974aa84682b29fd4dd5c408f58447f1c27657b2",
+      "kind": "offset",
+      "service_id": "document-ingestion-api",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:c131d1bcde203c1ebd64f36dd9a5df0da31ecc71657beefa18f0cd885b073d5d",
+      "content": {
+        "after_manifest_sha256": "sha256:9eb0348e5ea144199781ab17328ad6e8c304d562f47759100f5b2ebad530a217",
+        "before_manifest_sha256": "sha256:b062ec990918df115267f40a04ee992c2d74361d4abe3976fdd98e1b56f68880",
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "kind": "offset",
+        "observed": true,
+        "peer_serials": {
+          "core-control-plane": 27,
+          "document-processing-worker": 9,
+          "isolated-executor": 8,
+          "operator-service": 12
+        },
+        "service_id": "document-ingestion-api",
+        "verification": "peer-state-serials-preserved",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383149115
+      }
+    },
+    {
+      "ref": "sha256:b4adafd2d3b29154894a7b4208df5aac2597173da511aa78df55434f89be8e29",
+      "kind": "schema",
+      "service_id": "document-ingestion-api",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:95ad780b5086bc7d89bb1401abb5f464b6de3c1cb432844fbd77a1611636b1b2",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "kind": "schema",
+        "migration_branch": "document-ingestion-api",
+        "observed": true,
+        "service_id": "document-ingestion-api",
+        "verification": "service-migration-upgrade",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383149115
+      }
+    },
+    {
+      "ref": "sha256:d6a5a9acc78cb5b9cc312477f85c2fb8df9895171013a1e8a41907bc792e41d9",
+      "kind": "source",
+      "service_id": "document-ingestion-api",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:4e07650453b99ae833e656a71d7ce54daeebf56837126fda22ec6228d81b47d9",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "context_digest": "sha256:3ce12e14a1dceaa6697c247364fed7a273485aca9bfc97fdabb909f84e8e55c6",
+        "kind": "source",
+        "observed": true,
+        "plan_digest": "sha256:8fce62ec6023f3b7a1802694ba6c08e80ab4356c0360267f72784d71d6198800",
+        "service_id": "document-ingestion-api",
+        "verification": "protected-plan-source",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383149115
+      }
+    },
+    {
+      "ref": "sha256:c99f2dab52bab32d0a6e04aa3f1b8cd5eefce9f720f9d0f5194423f81bfb2bdf",
+      "kind": "topology",
+      "service_id": "document-ingestion-api",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:091999eff82a5e7808e9cdc8f9b78b1895d1b42aac3b5ccae2099327832de89e",
+      "content": {
+        "after_manifest_sha256": "sha256:9eb0348e5ea144199781ab17328ad6e8c304d562f47759100f5b2ebad530a217",
+        "before_manifest_sha256": "sha256:b062ec990918df115267f40a04ee992c2d74361d4abe3976fdd98e1b56f68880",
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "kind": "topology",
+        "observed": true,
+        "peer_count": 4,
+        "peer_projection_sha256": "sha256:32773fce0a249c12c53622f572e1ea64b3f4c216db3f21547d356a21263e4637",
+        "peer_services": [
+          "core-control-plane",
+          "document-processing-worker",
+          "isolated-executor",
+          "operator-service"
+        ],
+        "service_id": "document-ingestion-api",
+        "verification": "four-peer-isolation",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383149115
+      }
+    },
+    {
+      "ref": "sha256:62aa1c80fb74959fcb2eaa9d163145e1f4a818022a06901d4df8d3aa6f6224e2",
+      "kind": "health",
+      "service_id": "document-processing-worker",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:e6bd7858e34be76287b66d9f2962af889187ec1cde16eb53d83bcca7af3c56e6",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "healthy_and_active": true,
+        "kind": "health",
+        "new_revision": true,
+        "observed": true,
+        "service_id": "document-processing-worker",
+        "verification": "post-apply-health",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380967222
+      }
+    },
+    {
+      "ref": "sha256:3ad2ea3182018ba595e9aea010db33199328a5e4c532b8fbf8ce550ce5f75745",
+      "kind": "identity",
+      "service_id": "document-processing-worker",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:8db30955b207c57b5f773be76c61f2bd32deef16af638bf574fe17f7bd4e0718",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "context_digest": "sha256:f3d08875914ff0c730223c4b57e4cec1b2b6e1e2ab12733b55ab8d64a972f9c9",
+        "kind": "identity",
+        "observed": true,
+        "service_id": "document-processing-worker",
+        "verification": "sealed-target-identity",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380967222
+      }
+    },
+    {
+      "ref": "sha256:dbbc8c28df114f6393de47573112357d0bf751c6ce6de4614a20385388d9cb2b",
+      "kind": "image",
+      "service_id": "document-processing-worker",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:68877692b363a7ab99fa64e9f549d52fe14ce6c1509fcc31dd0504386aee0029",
+      "content": {
+        "attestations": [
+          "provenance",
+          "sbom"
+        ],
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "image_digest": "sha256:d9d0c996fc6426b251f0748230708e35011c25f744a908f7dd155f678a623a84",
+        "kind": "image",
+        "observed": true,
+        "service_id": "document-processing-worker",
+        "verification": "attested-and-observed-image",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380967222
+      }
+    },
+    {
+      "ref": "sha256:a6f10bf1c9775ca1379f0da68d78d1a2d62a2034c19b87bebcf8d19aeb7524e2",
+      "kind": "offset",
+      "service_id": "document-processing-worker",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:8068225bc858c2ca69472e3be417f7012658f1d9142613f354b42f7e617ed57f",
+      "content": {
+        "after_manifest_sha256": "sha256:e012e248be4688ae3004d61c9953e9d29e64d7adfa1661fa128dbcdfee5879e3",
+        "before_manifest_sha256": "sha256:1faf429bc0b01839f5a43f3170754bfe046da0dc0beda73dd78ce7627fb4fe44",
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "kind": "offset",
+        "observed": true,
+        "peer_serials": {
+          "core-control-plane": 25,
+          "document-ingestion-api": 11,
+          "isolated-executor": 7,
+          "operator-service": 11
+        },
+        "service_id": "document-processing-worker",
+        "verification": "peer-state-serials-preserved",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380967222
+      }
+    },
+    {
+      "ref": "sha256:cf00d07f5182546da17c8f823f4a34bae9e92b4aafe7c0b536cbbaa1e30ca5ea",
+      "kind": "schema",
+      "service_id": "document-processing-worker",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:e63c80208e3492b27d637078baa13acb4f4ad38a4a4d2aa43c096a535e95511d",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "kind": "schema",
+        "migration_branch": "document-processing-worker",
+        "observed": true,
+        "service_id": "document-processing-worker",
+        "verification": "service-migration-upgrade",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380967222
+      }
+    },
+    {
+      "ref": "sha256:aee5b4f6bc6fd7584007985078583a219d4ce69edf33dfaa933a1c94911b14eb",
+      "kind": "source",
+      "service_id": "document-processing-worker",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:01e63ac1d64038220094c3468fca08e667e2c47c3741e15482e2beb2c8df9eed",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "context_digest": "sha256:f3d08875914ff0c730223c4b57e4cec1b2b6e1e2ab12733b55ab8d64a972f9c9",
+        "kind": "source",
+        "observed": true,
+        "plan_digest": "sha256:8b5a516821b9707b9a0cde7bd8c52c6b74887131b8077b6abfad8e3ab18828d2",
+        "service_id": "document-processing-worker",
+        "verification": "protected-plan-source",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380967222
+      }
+    },
+    {
+      "ref": "sha256:f8b417ef18d42fd260f6b40c0fc24492ac16937f6a987b7e5d8da038bd9c85d6",
+      "kind": "topology",
+      "service_id": "document-processing-worker",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:8898b1995723d7820df0ab2a67b816c2189f8f2bfb19e688ba85bb07d7d51576",
+      "content": {
+        "after_manifest_sha256": "sha256:e012e248be4688ae3004d61c9953e9d29e64d7adfa1661fa128dbcdfee5879e3",
+        "before_manifest_sha256": "sha256:1faf429bc0b01839f5a43f3170754bfe046da0dc0beda73dd78ce7627fb4fe44",
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "kind": "topology",
+        "observed": true,
+        "peer_count": 4,
+        "peer_projection_sha256": "sha256:addd8c560a7217c9cc4fb1c4c193c95c13e160944333b0eee8fd400732628cbd",
+        "peer_services": [
+          "core-control-plane",
+          "document-ingestion-api",
+          "isolated-executor",
+          "operator-service"
+        ],
+        "service_id": "document-processing-worker",
+        "verification": "four-peer-isolation",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31380967222
+      }
+    },
+    {
+      "ref": "sha256:ca8695803a3d2db1d400d9872799fc7ee6f892836046b79c9d3e6600166b6429",
+      "kind": "health",
+      "service_id": "document-processing-worker",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:e0db243053136253cd69ad7d1d644ef3df26e218d359797dc8af08e3ec6e50f0",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "healthy_and_active": true,
+        "kind": "health",
+        "new_revision": true,
+        "observed": true,
+        "service_id": "document-processing-worker",
+        "verification": "post-apply-health",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383438949
+      }
+    },
+    {
+      "ref": "sha256:8fdd60c83ee5ca93a9a59c98d79c6108308e057db6fe4ed0e108e8e883bc79b3",
+      "kind": "identity",
+      "service_id": "document-processing-worker",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:ca05fb5d15ffeaff4a6c0c30cf4d691683a3946b2258b3fc5e966e8df2115ce5",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "context_digest": "sha256:300ba1f8ebafd9df6c4e195cfefb522d19914fc036ab830cc854a2f3ce590723",
+        "kind": "identity",
+        "observed": true,
+        "service_id": "document-processing-worker",
+        "verification": "sealed-target-identity",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383438949
+      }
+    },
+    {
+      "ref": "sha256:87cc5ede10bd7ba180b1b395e3c64dfe7db6f58b62a933c6780d4fd914ac2032",
+      "kind": "image",
+      "service_id": "document-processing-worker",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:61a261fc084ccee883d8a74f7cef3098372c03d2b8d969274b47f79f8e28fa39",
+      "content": {
+        "attestations": [
+          "provenance",
+          "sbom"
+        ],
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "image_digest": "sha256:7b78bb573b4664ed4632b9c4ab40fb39becd3334705ff22b9d61c499a8120792",
+        "kind": "image",
+        "observed": true,
+        "service_id": "document-processing-worker",
+        "verification": "attested-and-observed-image",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383438949
+      }
+    },
+    {
+      "ref": "sha256:f18c638158190852f6451ba4b3b36d09b14fb81c9ee47738e0c43d420b49b480",
+      "kind": "offset",
+      "service_id": "document-processing-worker",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:79f15ca7ac5d8875db2ac623b652cccf290157e579007c1b665f7162b873a91c",
+      "content": {
+        "after_manifest_sha256": "sha256:1f9e27324307a17ce8ca41cfe77ef05b75a7994acc7670746293c5d898f2638b",
+        "before_manifest_sha256": "sha256:12fd49353d4d39ed29a95b7da4919474859f722cec42e5387d7bf57daa570fb1",
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "kind": "offset",
+        "observed": true,
+        "peer_serials": {
+          "core-control-plane": 27,
+          "document-ingestion-api": 12,
+          "isolated-executor": 8,
+          "operator-service": 12
+        },
+        "service_id": "document-processing-worker",
+        "verification": "peer-state-serials-preserved",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383438949
+      }
+    },
+    {
+      "ref": "sha256:1c44f18d8cfade09ad2206976374078292f088ddfc6fa3dfcd5465d18c5e577d",
+      "kind": "schema",
+      "service_id": "document-processing-worker",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:8d3cfb822658afe7a0b3d035a292f91941294748e09ce3f3a282c884e4308a06",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "kind": "schema",
+        "migration_branch": "document-processing-worker",
+        "observed": true,
+        "service_id": "document-processing-worker",
+        "verification": "service-migration-upgrade",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383438949
+      }
+    },
+    {
+      "ref": "sha256:2b38f5b3c894847a4a91b1f1113422afc5f94add4f23c8d0fc81cf147131e6f0",
+      "kind": "source",
+      "service_id": "document-processing-worker",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:339c0cab4f3fa2118ba4614145b2c26bb0aef028a65d323db39db6b408cb572e",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "context_digest": "sha256:300ba1f8ebafd9df6c4e195cfefb522d19914fc036ab830cc854a2f3ce590723",
+        "kind": "source",
+        "observed": true,
+        "plan_digest": "sha256:0ef1c6728394efc36e44deb040090ef7858c3d1823d457d0f9237dbee8feec77",
+        "service_id": "document-processing-worker",
+        "verification": "protected-plan-source",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383438949
+      }
+    },
+    {
+      "ref": "sha256:7bc2fb19dea23f70071614a17731d3feaa42fb645233dbb9dfec628aa33b0b29",
+      "kind": "topology",
+      "service_id": "document-processing-worker",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:574f76c4cb89b0f7f54350015049dea7c4d300057d5bbbc763f01015a637bd9d",
+      "content": {
+        "after_manifest_sha256": "sha256:1f9e27324307a17ce8ca41cfe77ef05b75a7994acc7670746293c5d898f2638b",
+        "before_manifest_sha256": "sha256:12fd49353d4d39ed29a95b7da4919474859f722cec42e5387d7bf57daa570fb1",
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "kind": "topology",
+        "observed": true,
+        "peer_count": 4,
+        "peer_projection_sha256": "sha256:0a7c16675ae835a489d6898b954cc02efc98893f1dc0b713cd0895981939b7da",
+        "peer_services": [
+          "core-control-plane",
+          "document-ingestion-api",
+          "isolated-executor",
+          "operator-service"
+        ],
+        "service_id": "document-processing-worker",
+        "verification": "four-peer-isolation",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383438949
+      }
+    },
+    {
+      "ref": "sha256:b63b287a804233c21a9f47f961abbc536aec1ee07ce6e6f191c61560e44944fe",
+      "kind": "health",
+      "service_id": "isolated-executor",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:187ce845c704b2f6d31d5059441d13878d4b4342b7eee2534b834bd28e22954d",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "healthy_and_active": true,
+        "kind": "health",
+        "new_revision": true,
+        "observed": true,
+        "service_id": "isolated-executor",
+        "verification": "post-apply-health",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31381301016
+      }
+    },
+    {
+      "ref": "sha256:a0ac3c23d89b5b2a1d453c148276c3e54af6baffa9c58203c7a1851c3230726e",
+      "kind": "identity",
+      "service_id": "isolated-executor",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:ec472e5c613f6def7e79b5de3fe1623a014c8925b29166ce8d27ca47584be50d",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "context_digest": "sha256:7f07117b9238629475fa51fa48d3c1485bdb1890c350424e99aae42ac44e0506",
+        "kind": "identity",
+        "observed": true,
+        "service_id": "isolated-executor",
+        "verification": "sealed-target-identity",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31381301016
+      }
+    },
+    {
+      "ref": "sha256:64132f209090e9e0b8b59197af66385fd87c985533ffb78fee959213e2d8ee99",
+      "kind": "image",
+      "service_id": "isolated-executor",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:7d18ac0020a53ce253776e8db966ca57c0301498e430960efd776799c7f8cf15",
+      "content": {
+        "attestations": [
+          "provenance",
+          "sbom"
+        ],
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "image_digest": "sha256:743dd2907d96269496047fcdd44a8fde23c1ff88a945c17cdcc9ac01bf0357e2",
+        "kind": "image",
+        "observed": true,
+        "service_id": "isolated-executor",
+        "verification": "attested-and-observed-image",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31381301016
+      }
+    },
+    {
+      "ref": "sha256:1aad5efa3bf306c3191029213cb9730dcc121a41ee83982b65f7c01f82515f6f",
+      "kind": "offset",
+      "service_id": "isolated-executor",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:3a1350f0304d406f02a34c70d1fefa13d80a27608752f1e5d8125bc7f58d0b40",
+      "content": {
+        "after_manifest_sha256": "sha256:61424edb42e6fd59a09ac4f148e72014c8d64fed71712edc0d13b2dd204d49be",
+        "before_manifest_sha256": "sha256:3cde681e99832061e2a01474318878d878eefddb5f0c7bd0138943c4f9bc3f03",
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "kind": "offset",
+        "observed": true,
+        "peer_serials": {
+          "core-control-plane": 25,
+          "document-ingestion-api": 11,
+          "document-processing-worker": 9,
+          "operator-service": 11
+        },
+        "service_id": "isolated-executor",
+        "verification": "peer-state-serials-preserved",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31381301016
+      }
+    },
+    {
+      "ref": "sha256:79af20eaa92ff1978b99c3ff9da57c100dc67dc3e8e8bafab3b48e865856bc4a",
+      "kind": "schema",
+      "service_id": "isolated-executor",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:5cc351c720c9c3b75b4697f2592123814f4855263890262f4299943eff01d69b",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "kind": "schema",
+        "migration_branch": "isolated-executor",
+        "observed": true,
+        "service_id": "isolated-executor",
+        "verification": "service-migration-upgrade",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31381301016
+      }
+    },
+    {
+      "ref": "sha256:f0553c6b6ed9371c3d6cdae59dfc738324d1cec1d00001f24e42e102bcfc7134",
+      "kind": "source",
+      "service_id": "isolated-executor",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:45dd39d1b263178bf66992d026a88acac68ae90225d030ebfaf066412c219a53",
+      "content": {
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "context_digest": "sha256:7f07117b9238629475fa51fa48d3c1485bdb1890c350424e99aae42ac44e0506",
+        "kind": "source",
+        "observed": true,
+        "plan_digest": "sha256:486ee2c158c0cea62c2166210d63a64c3156e24d17ddd38ff1fb83e6c63a74c4",
+        "service_id": "isolated-executor",
+        "verification": "protected-plan-source",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31381301016
+      }
+    },
+    {
+      "ref": "sha256:eac7f6833e43e982c73c77c422d7acb084052118d7843009da7600ddb6d7acff",
+      "kind": "topology",
+      "service_id": "isolated-executor",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:10db0c6f7d42afc4ffa16202d8149427ee8198b3da379b78377c5b96c662b7c2",
+      "content": {
+        "after_manifest_sha256": "sha256:61424edb42e6fd59a09ac4f148e72014c8d64fed71712edc0d13b2dd204d49be",
+        "before_manifest_sha256": "sha256:3cde681e99832061e2a01474318878d878eefddb5f0c7bd0138943c4f9bc3f03",
+        "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "kind": "topology",
+        "observed": true,
+        "peer_count": 4,
+        "peer_projection_sha256": "sha256:2cacfdc96d02526a50d18e4f268ee47524d5f49477066bdb3362f25e2131df2a",
+        "peer_services": [
+          "core-control-plane",
+          "document-ingestion-api",
+          "document-processing-worker",
+          "operator-service"
+        ],
+        "service_id": "isolated-executor",
+        "verification": "four-peer-isolation",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31381301016
+      }
+    },
+    {
+      "ref": "sha256:2b6e6087c0588e27ef0b8d05d0719f6a21c597311cf1d67cca8e346c9ab5bd9e",
+      "kind": "health",
+      "service_id": "isolated-executor",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:a030fa654e0b59fff2dc4c7aa23d0ab709ba1d41110ea6471a9d0f56f69282f9",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "healthy_and_active": true,
+        "kind": "health",
+        "new_revision": true,
+        "observed": true,
+        "service_id": "isolated-executor",
+        "verification": "post-apply-health",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383773562
+      }
+    },
+    {
+      "ref": "sha256:875fd2ee0f2670140ba644bca28a2e54b622896df3fec461b0cb227058f73955",
+      "kind": "identity",
+      "service_id": "isolated-executor",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:076c0428bcbd30d6850f5592ece40a1cd0d0aa8b87cbc77a2d43415d46859ad7",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "context_digest": "sha256:e24607a161bb2fa721487f6eb61313bb713f134e70650d73716db2beb26f2e23",
+        "kind": "identity",
+        "observed": true,
+        "service_id": "isolated-executor",
+        "verification": "sealed-target-identity",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383773562
+      }
+    },
+    {
+      "ref": "sha256:9dbc54282ec65b95d3c7cb6993c1f1f7f1fbdf5c599ab333faae229da324c049",
+      "kind": "image",
+      "service_id": "isolated-executor",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:245efd7cd2a8ec23fd221df4e5aadc2a57218037b41f9221e74a956ecff3cfd3",
+      "content": {
+        "attestations": [
+          "provenance",
+          "sbom"
+        ],
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "image_digest": "sha256:f9ef428850f6060ec0fdbd441fe4b7d20e48f6a6a457658d097f1081870dec60",
+        "kind": "image",
+        "observed": true,
+        "service_id": "isolated-executor",
+        "verification": "attested-and-observed-image",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383773562
+      }
+    },
+    {
+      "ref": "sha256:f4bed403d29154081a3e2e7a6a60af9798986ddf544d87deafd2553e25ccaebd",
+      "kind": "offset",
+      "service_id": "isolated-executor",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:21c25c61cdc6107f9071914667acc156c9bf080c6d948b18878c07d1ee0b0395",
+      "content": {
+        "after_manifest_sha256": "sha256:fc4dad3d892d56396e17985eb4d534f7354e96e3070bdb806501e0dcecbb1681",
+        "before_manifest_sha256": "sha256:00961ad02c64c3e7eb3513ed8902c6cd7881c9c0af2dadba6d354df03fdb56f6",
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "kind": "offset",
+        "observed": true,
+        "peer_serials": {
+          "core-control-plane": 27,
+          "document-ingestion-api": 12,
+          "document-processing-worker": 10,
+          "operator-service": 12
+        },
+        "service_id": "isolated-executor",
+        "verification": "peer-state-serials-preserved",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383773562
+      }
+    },
+    {
+      "ref": "sha256:a6c418214e7f6da585fa38067cc745717c720447ad3cd56d964d11a6539343c1",
+      "kind": "schema",
+      "service_id": "isolated-executor",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:91e77d08b1165ff3bee86f6f6b3026d6b67c469ffe060e161605dfe09084ff7e",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "kind": "schema",
+        "migration_branch": "isolated-executor",
+        "observed": true,
+        "service_id": "isolated-executor",
+        "verification": "service-migration-upgrade",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383773562
+      }
+    },
+    {
+      "ref": "sha256:f6cfc06a25b9e2760650b3dd9db5dab29ef2997834c0f27e39155c34ba1d6c8a",
+      "kind": "source",
+      "service_id": "isolated-executor",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:8080c535dc22d123a44e214bd33560434bfe31d987c94d762e68b24c1aac1de7",
+      "content": {
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "context_digest": "sha256:e24607a161bb2fa721487f6eb61313bb713f134e70650d73716db2beb26f2e23",
+        "kind": "source",
+        "observed": true,
+        "plan_digest": "sha256:34881e1c3be5c9958e2c2758944bae3cb379318e8acb13a8aa5a7291a88b09b1",
+        "service_id": "isolated-executor",
+        "verification": "protected-plan-source",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383773562
+      }
+    },
+    {
+      "ref": "sha256:3016e7d91779220945a7438c5b53b68a819c000c40e20402c0902fffba600c30",
+      "kind": "topology",
+      "service_id": "isolated-executor",
+      "run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+      "source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+      "content_digest": "sha256:bbf7879eb51d442dff382868019ff2931184acba5e8228fe0ff85b4960c5987e",
+      "content": {
+        "after_manifest_sha256": "sha256:fc4dad3d892d56396e17985eb4d534f7354e96e3070bdb806501e0dcecbb1681",
+        "before_manifest_sha256": "sha256:00961ad02c64c3e7eb3513ed8902c6cd7881c9c0af2dadba6d354df03fdb56f6",
+        "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+        "kind": "topology",
+        "observed": true,
+        "peer_count": 4,
+        "peer_projection_sha256": "sha256:c45c17a3458bdcb31c445dd53e71a2c715809b0df0bb18decbc3df08e3caf98d",
+        "peer_services": [
+          "core-control-plane",
+          "document-ingestion-api",
+          "document-processing-worker",
+          "operator-service"
+        ],
+        "service_id": "isolated-executor",
+        "verification": "four-peer-isolation",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31383773562
+      }
+    }
+  ]
+}

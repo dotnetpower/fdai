@@ -1,0 +1,502 @@
+[
+  {
+    "receipt_version": "1.0.0",
+    "receipt_id": "00000000-0000-0000-0000-000000000300",
+    "service_id": "core-control-plane",
+    "direction": "migration",
+    "from_version": "1.0.0",
+    "to_version": "1.1.0",
+    "idempotency_key": "service-upgrade:core-control-plane:migration:1.0.0:1.1.0",
+    "matrix_digest": "sha256:ece4b04ad431b64f7dd40dcdeced421fb22ba4b6a11abc915c21680798a4a4b7",
+    "peer_versions_before": {
+      "operator-service": "1.0.0",
+      "document-ingestion-api": "1.0.0",
+      "document-processing-worker": "1.0.0",
+      "isolated-executor": "1.0.0"
+    },
+    "peer_versions_after": {
+      "operator-service": "1.0.0",
+      "document-ingestion-api": "1.0.0",
+      "document-processing-worker": "1.0.0",
+      "isolated-executor": "1.0.0"
+    },
+    "peer_restart_count": 0,
+    "duplicate_terminal_effects": 0,
+    "offsets_preserved": true,
+    "checks": {
+      "additive_fields": true,
+      "duplicate_delivery": true,
+      "health": true,
+      "idempotency": true,
+      "matrix": true,
+      "reordered_delivery": true,
+      "unsupported_major_rejection": true
+    },
+    "started_at": "2026-08-10T11:13:39Z",
+    "completed_at": "2026-08-10T11:17:29Z",
+    "proof_kind": "live",
+    "evidence_manifest_digest": "sha256:0cbdbbb4fa87c5a30a8a59700a7e64b5109ce55530d75baf2f1a977d739f6c3b",
+    "evidence_run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+    "evidence_source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+    "observation_refs": {
+      "health": "sha256:536a87710caa8096cc5f02fe6a6138048a80e497128f9a98c2e9c8c9c83404e8",
+      "identity": "sha256:f99b6f8e2320800c3d63f68acccc93719fae3cd6e50c203b62dc80fc1fafee68",
+      "image": "sha256:2b8977e267a28c39fe219b4a2887f9b933d97929350db47acc0548285f278960",
+      "offset": "sha256:edee9b0e8cb6f020e5eff1633f5eb833f8adeb026ac826a609a2bae87dfbbea3",
+      "schema": "sha256:b0e918f3b92788549b05929382aef86ef002eaa2e5477e2a309200d0f1384334",
+      "source": "sha256:0c9595ff5abaac9d9a6d803ad211b58762e8c605fb88155ce08cb613f23136fc",
+      "topology": "sha256:64e165fdcbf796638e324e64d0e7e38419ee2d7987a0fbbaa96b3cd921d6cc3d"
+    },
+    "outcome": "stable"
+  },
+  {
+    "receipt_version": "1.0.0",
+    "receipt_id": "00000000-0000-0000-0000-000000000301",
+    "service_id": "core-control-plane",
+    "direction": "rollback",
+    "from_version": "1.1.0",
+    "to_version": "1.0.0",
+    "idempotency_key": "service-upgrade:core-control-plane:rollback:1.1.0:1.0.0",
+    "matrix_digest": "sha256:ece4b04ad431b64f7dd40dcdeced421fb22ba4b6a11abc915c21680798a4a4b7",
+    "peer_versions_before": {
+      "operator-service": "1.0.0",
+      "document-ingestion-api": "1.0.0",
+      "document-processing-worker": "1.0.0",
+      "isolated-executor": "1.0.0"
+    },
+    "peer_versions_after": {
+      "operator-service": "1.0.0",
+      "document-ingestion-api": "1.0.0",
+      "document-processing-worker": "1.0.0",
+      "isolated-executor": "1.0.0"
+    },
+    "peer_restart_count": 0,
+    "duplicate_terminal_effects": 0,
+    "offsets_preserved": true,
+    "checks": {
+      "additive_fields": true,
+      "duplicate_delivery": true,
+      "health": true,
+      "idempotency": true,
+      "matrix": true,
+      "reordered_delivery": true,
+      "unsupported_major_rejection": true
+    },
+    "started_at": "2026-08-10T11:00:21Z",
+    "completed_at": "2026-08-10T11:04:17Z",
+    "proof_kind": "live",
+    "evidence_manifest_digest": "sha256:0cbdbbb4fa87c5a30a8a59700a7e64b5109ce55530d75baf2f1a977d739f6c3b",
+    "evidence_run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+    "evidence_source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+    "observation_refs": {
+      "health": "sha256:6866c50775666d420554c5648361109b616c23c269e828bc8f06abb038121100",
+      "identity": "sha256:717f3232078d34bdabd32e7a929c5dec662ab225620064523efba8f6e2a1d925",
+      "image": "sha256:be725c8a61bc4642046a5e6004e8429f7691ce537aa8c043169940e64f184c7a",
+      "offset": "sha256:3a68b1820ad0e02569f8229ab897fdc2f2b4a9115073bf41b257228580c840c6",
+      "schema": "sha256:e43300f05503d41a096e71b774ebeb008cde24642217270cfb05d547afd3f689",
+      "source": "sha256:318c81780271ea044be0db81a15383f64b3ce55549a255f9a6893f979d07d757",
+      "topology": "sha256:0f5c7be1c979819511a07562e715302200f2090f8300115ef01e8293f4b0a1ef"
+    },
+    "outcome": "stable"
+  },
+  {
+    "receipt_version": "1.0.0",
+    "receipt_id": "00000000-0000-0000-0000-000000000302",
+    "service_id": "operator-service",
+    "direction": "migration",
+    "from_version": "1.0.0",
+    "to_version": "1.1.0",
+    "idempotency_key": "service-upgrade:operator-service:migration:1.0.0:1.1.0",
+    "matrix_digest": "sha256:ece4b04ad431b64f7dd40dcdeced421fb22ba4b6a11abc915c21680798a4a4b7",
+    "peer_versions_before": {
+      "core-control-plane": "1.1.0",
+      "document-ingestion-api": "1.0.0",
+      "document-processing-worker": "1.0.0",
+      "isolated-executor": "1.0.0"
+    },
+    "peer_versions_after": {
+      "core-control-plane": "1.1.0",
+      "document-ingestion-api": "1.0.0",
+      "document-processing-worker": "1.0.0",
+      "isolated-executor": "1.0.0"
+    },
+    "peer_restart_count": 0,
+    "duplicate_terminal_effects": 0,
+    "offsets_preserved": true,
+    "checks": {
+      "additive_fields": true,
+      "duplicate_delivery": true,
+      "health": true,
+      "idempotency": true,
+      "matrix": true,
+      "reordered_delivery": true,
+      "unsupported_major_rejection": true
+    },
+    "started_at": "2026-08-10T11:17:40Z",
+    "completed_at": "2026-08-10T11:21:22Z",
+    "proof_kind": "live",
+    "evidence_manifest_digest": "sha256:0cbdbbb4fa87c5a30a8a59700a7e64b5109ce55530d75baf2f1a977d739f6c3b",
+    "evidence_run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+    "evidence_source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+    "observation_refs": {
+      "health": "sha256:db79b43ee0881439575304f71d06db999893014eddc0c1b4814e3d8a093a0879",
+      "identity": "sha256:5f9a7b1baaee94c86a480885068c9ec97eb4a1e57f2181fe46e34fb5c91c0ff7",
+      "image": "sha256:7bd0ac161652f22c9811dd505e4e89881d0ea089dba16bf6f6730d49e3369c31",
+      "offset": "sha256:ed49c70da13128e284feb702466e89c0f6eeb9dc9b08d979a59a03c65f453dec",
+      "schema": "sha256:493f22d60a1eb22c041e11738c7eaba5a2eb02f185c38aaf5091940534d4c067",
+      "source": "sha256:734714aee50257dc2dbe98cf028d9890f6aa7ad1da9648e63edc948f76b7aae7",
+      "topology": "sha256:c4228f73a54e51ba2aafdfe51298b936ee1059065a50306ee7cf3035025e30e7"
+    },
+    "outcome": "stable"
+  },
+  {
+    "receipt_version": "1.0.0",
+    "receipt_id": "00000000-0000-0000-0000-000000000303",
+    "service_id": "operator-service",
+    "direction": "rollback",
+    "from_version": "1.1.0",
+    "to_version": "1.0.0",
+    "idempotency_key": "service-upgrade:operator-service:rollback:1.1.0:1.0.0",
+    "matrix_digest": "sha256:ece4b04ad431b64f7dd40dcdeced421fb22ba4b6a11abc915c21680798a4a4b7",
+    "peer_versions_before": {
+      "core-control-plane": "1.1.0",
+      "document-ingestion-api": "1.1.0",
+      "document-processing-worker": "1.1.0",
+      "isolated-executor": "1.1.0"
+    },
+    "peer_versions_after": {
+      "core-control-plane": "1.1.0",
+      "document-ingestion-api": "1.1.0",
+      "document-processing-worker": "1.1.0",
+      "isolated-executor": "1.1.0"
+    },
+    "peer_restart_count": 0,
+    "duplicate_terminal_effects": 0,
+    "offsets_preserved": true,
+    "checks": {
+      "additive_fields": true,
+      "duplicate_delivery": true,
+      "health": true,
+      "idempotency": true,
+      "matrix": true,
+      "reordered_delivery": true,
+      "unsupported_major_rejection": true
+    },
+    "started_at": "2026-08-10T10:43:39Z",
+    "completed_at": "2026-08-10T10:47:27Z",
+    "proof_kind": "live",
+    "evidence_manifest_digest": "sha256:0cbdbbb4fa87c5a30a8a59700a7e64b5109ce55530d75baf2f1a977d739f6c3b",
+    "evidence_run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+    "evidence_source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+    "observation_refs": {
+      "health": "sha256:729ddbcc5908cf59f38769de90c59d93e5eeb5cb45178e99b39ed9833ec528eb",
+      "identity": "sha256:f4c468e8785ce65d824adda4782cc574e66baeb8dddc598511f469868817c3d6",
+      "image": "sha256:c1d64dae59f24e2e992bbe63c80e5b5de4525c114412524308bb2b6a38e455ae",
+      "offset": "sha256:c74ec76a99e8342aa5ecfc76049019697e0c0944084dfad0be045ee305cf05dd",
+      "schema": "sha256:b6baa1aab6c5e26940f37ceedcd8657f744b891a0686cc03fdeb7decedf99dfa",
+      "source": "sha256:e8f165913f3e1df5460680ff436ad1f794b8341bbbd65dc17d7eb21c1ba39e8b",
+      "topology": "sha256:be2533b24e94d8c0bd43f962739f25fc9ebf64f01e48d95c63d1e2fcdb699ac3"
+    },
+    "outcome": "stable"
+  },
+  {
+    "receipt_version": "1.0.0",
+    "receipt_id": "00000000-0000-0000-0000-000000000304",
+    "service_id": "document-ingestion-api",
+    "direction": "migration",
+    "from_version": "1.0.0",
+    "to_version": "1.1.0",
+    "idempotency_key": "service-upgrade:document-ingestion-api:migration:1.0.0:1.1.0",
+    "matrix_digest": "sha256:ece4b04ad431b64f7dd40dcdeced421fb22ba4b6a11abc915c21680798a4a4b7",
+    "peer_versions_before": {
+      "core-control-plane": "1.1.0",
+      "operator-service": "1.1.0",
+      "document-processing-worker": "1.0.0",
+      "isolated-executor": "1.0.0"
+    },
+    "peer_versions_after": {
+      "core-control-plane": "1.1.0",
+      "operator-service": "1.1.0",
+      "document-processing-worker": "1.0.0",
+      "isolated-executor": "1.0.0"
+    },
+    "peer_restart_count": 0,
+    "duplicate_terminal_effects": 0,
+    "offsets_preserved": true,
+    "checks": {
+      "additive_fields": true,
+      "duplicate_delivery": true,
+      "health": true,
+      "idempotency": true,
+      "matrix": true,
+      "reordered_delivery": true,
+      "unsupported_major_rejection": true
+    },
+    "started_at": "2026-08-10T11:21:31Z",
+    "completed_at": "2026-08-10T11:25:10Z",
+    "proof_kind": "live",
+    "evidence_manifest_digest": "sha256:0cbdbbb4fa87c5a30a8a59700a7e64b5109ce55530d75baf2f1a977d739f6c3b",
+    "evidence_run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+    "evidence_source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+    "observation_refs": {
+      "health": "sha256:7e38e88df89d2af05e912974472e9702b1ca9b2b305ace97455292c9fc5cc08d",
+      "identity": "sha256:84fe54f00c7b18a8973e0fde17f11ff3baf2057eb2f282f106a458f0be98267e",
+      "image": "sha256:ebd24b1237127bb30cfa57ad27dbe582d0adfb29221154e91f0baa7c23c815d3",
+      "offset": "sha256:6bf55c763bf42bb75ff76659f974aa84682b29fd4dd5c408f58447f1c27657b2",
+      "schema": "sha256:b4adafd2d3b29154894a7b4208df5aac2597173da511aa78df55434f89be8e29",
+      "source": "sha256:d6a5a9acc78cb5b9cc312477f85c2fb8df9895171013a1e8a41907bc792e41d9",
+      "topology": "sha256:c99f2dab52bab32d0a6e04aa3f1b8cd5eefce9f720f9d0f5194423f81bfb2bdf"
+    },
+    "outcome": "stable"
+  },
+  {
+    "receipt_version": "1.0.0",
+    "receipt_id": "00000000-0000-0000-0000-000000000305",
+    "service_id": "document-ingestion-api",
+    "direction": "rollback",
+    "from_version": "1.1.0",
+    "to_version": "1.0.0",
+    "idempotency_key": "service-upgrade:document-ingestion-api:rollback:1.1.0:1.0.0",
+    "matrix_digest": "sha256:ece4b04ad431b64f7dd40dcdeced421fb22ba4b6a11abc915c21680798a4a4b7",
+    "peer_versions_before": {
+      "core-control-plane": "1.1.0",
+      "operator-service": "1.0.0",
+      "document-processing-worker": "1.1.0",
+      "isolated-executor": "1.1.0"
+    },
+    "peer_versions_after": {
+      "core-control-plane": "1.1.0",
+      "operator-service": "1.0.0",
+      "document-processing-worker": "1.1.0",
+      "isolated-executor": "1.1.0"
+    },
+    "peer_restart_count": 0,
+    "duplicate_terminal_effects": 0,
+    "offsets_preserved": true,
+    "checks": {
+      "additive_fields": true,
+      "duplicate_delivery": true,
+      "health": true,
+      "idempotency": true,
+      "matrix": true,
+      "reordered_delivery": true,
+      "unsupported_major_rejection": true
+    },
+    "started_at": "2026-08-10T10:47:40Z",
+    "completed_at": "2026-08-10T10:51:26Z",
+    "proof_kind": "live",
+    "evidence_manifest_digest": "sha256:0cbdbbb4fa87c5a30a8a59700a7e64b5109ce55530d75baf2f1a977d739f6c3b",
+    "evidence_run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+    "evidence_source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+    "observation_refs": {
+      "health": "sha256:2e7675073951fe4b2f4727f051acc3a1883bb1f48401db2dae5580fb3a89d6ce",
+      "identity": "sha256:a4c091de3f845f1e8812210a1713e64586e6cc08dde7204ac67f0ac1e3eb2053",
+      "image": "sha256:5f92bf49a2f0d3ba815c9a8fe23c1d47d30e536dda7a6b02a1df9517b885dcaa",
+      "offset": "sha256:d1d98c08dbbddc437543a23195aeffe30f60ef40bf8fcfff946d0622c3c201f9",
+      "schema": "sha256:46ef91cf09e6d830a810eb3fe418ce239a0d52ee921da2981b7c7de6012d0341",
+      "source": "sha256:858a583cd88dca6effcedaa742ece2ac188f535984ee941e153d780159e9df9b",
+      "topology": "sha256:5771b90bd85787c5d8788f0073fd2c4727a4a98f55bdeba33575b42e3a446751"
+    },
+    "outcome": "stable"
+  },
+  {
+    "receipt_version": "1.0.0",
+    "receipt_id": "00000000-0000-0000-0000-000000000306",
+    "service_id": "document-processing-worker",
+    "direction": "migration",
+    "from_version": "1.0.0",
+    "to_version": "1.1.0",
+    "idempotency_key": "service-upgrade:document-processing-worker:migration:1.0.0:1.1.0",
+    "matrix_digest": "sha256:ece4b04ad431b64f7dd40dcdeced421fb22ba4b6a11abc915c21680798a4a4b7",
+    "peer_versions_before": {
+      "core-control-plane": "1.1.0",
+      "operator-service": "1.1.0",
+      "document-ingestion-api": "1.1.0",
+      "isolated-executor": "1.0.0"
+    },
+    "peer_versions_after": {
+      "core-control-plane": "1.1.0",
+      "operator-service": "1.1.0",
+      "document-ingestion-api": "1.1.0",
+      "isolated-executor": "1.0.0"
+    },
+    "peer_restart_count": 0,
+    "duplicate_terminal_effects": 0,
+    "offsets_preserved": true,
+    "checks": {
+      "additive_fields": true,
+      "duplicate_delivery": true,
+      "health": true,
+      "idempotency": true,
+      "matrix": true,
+      "reordered_delivery": true,
+      "unsupported_major_rejection": true
+    },
+    "started_at": "2026-08-10T11:25:28Z",
+    "completed_at": "2026-08-10T11:29:50Z",
+    "proof_kind": "live",
+    "evidence_manifest_digest": "sha256:0cbdbbb4fa87c5a30a8a59700a7e64b5109ce55530d75baf2f1a977d739f6c3b",
+    "evidence_run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+    "evidence_source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+    "observation_refs": {
+      "health": "sha256:ca8695803a3d2db1d400d9872799fc7ee6f892836046b79c9d3e6600166b6429",
+      "identity": "sha256:8fdd60c83ee5ca93a9a59c98d79c6108308e057db6fe4ed0e108e8e883bc79b3",
+      "image": "sha256:87cc5ede10bd7ba180b1b395e3c64dfe7db6f58b62a933c6780d4fd914ac2032",
+      "offset": "sha256:f18c638158190852f6451ba4b3b36d09b14fb81c9ee47738e0c43d420b49b480",
+      "schema": "sha256:1c44f18d8cfade09ad2206976374078292f088ddfc6fa3dfcd5465d18c5e577d",
+      "source": "sha256:2b38f5b3c894847a4a91b1f1113422afc5f94add4f23c8d0fc81cf147131e6f0",
+      "topology": "sha256:7bc2fb19dea23f70071614a17731d3feaa42fb645233dbb9dfec628aa33b0b29"
+    },
+    "outcome": "stable"
+  },
+  {
+    "receipt_version": "1.0.0",
+    "receipt_id": "00000000-0000-0000-0000-000000000307",
+    "service_id": "document-processing-worker",
+    "direction": "rollback",
+    "from_version": "1.1.0",
+    "to_version": "1.0.0",
+    "idempotency_key": "service-upgrade:document-processing-worker:rollback:1.1.0:1.0.0",
+    "matrix_digest": "sha256:ece4b04ad431b64f7dd40dcdeced421fb22ba4b6a11abc915c21680798a4a4b7",
+    "peer_versions_before": {
+      "core-control-plane": "1.1.0",
+      "operator-service": "1.0.0",
+      "document-ingestion-api": "1.0.0",
+      "isolated-executor": "1.1.0"
+    },
+    "peer_versions_after": {
+      "core-control-plane": "1.1.0",
+      "operator-service": "1.0.0",
+      "document-ingestion-api": "1.0.0",
+      "isolated-executor": "1.1.0"
+    },
+    "peer_restart_count": 0,
+    "duplicate_terminal_effects": 0,
+    "offsets_preserved": true,
+    "checks": {
+      "additive_fields": true,
+      "duplicate_delivery": true,
+      "health": true,
+      "idempotency": true,
+      "matrix": true,
+      "reordered_delivery": true,
+      "unsupported_major_rejection": true
+    },
+    "started_at": "2026-08-10T10:51:41Z",
+    "completed_at": "2026-08-10T10:55:58Z",
+    "proof_kind": "live",
+    "evidence_manifest_digest": "sha256:0cbdbbb4fa87c5a30a8a59700a7e64b5109ce55530d75baf2f1a977d739f6c3b",
+    "evidence_run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+    "evidence_source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+    "observation_refs": {
+      "health": "sha256:62aa1c80fb74959fcb2eaa9d163145e1f4a818022a06901d4df8d3aa6f6224e2",
+      "identity": "sha256:3ad2ea3182018ba595e9aea010db33199328a5e4c532b8fbf8ce550ce5f75745",
+      "image": "sha256:dbbc8c28df114f6393de47573112357d0bf751c6ce6de4614a20385388d9cb2b",
+      "offset": "sha256:a6f10bf1c9775ca1379f0da68d78d1a2d62a2034c19b87bebcf8d19aeb7524e2",
+      "schema": "sha256:cf00d07f5182546da17c8f823f4a34bae9e92b4aafe7c0b536cbbaa1e30ca5ea",
+      "source": "sha256:aee5b4f6bc6fd7584007985078583a219d4ce69edf33dfaa933a1c94911b14eb",
+      "topology": "sha256:f8b417ef18d42fd260f6b40c0fc24492ac16937f6a987b7e5d8da038bd9c85d6"
+    },
+    "outcome": "stable"
+  },
+  {
+    "receipt_version": "1.0.0",
+    "receipt_id": "00000000-0000-0000-0000-000000000308",
+    "service_id": "isolated-executor",
+    "direction": "migration",
+    "from_version": "1.0.0",
+    "to_version": "1.1.0",
+    "idempotency_key": "service-upgrade:isolated-executor:migration:1.0.0:1.1.0",
+    "matrix_digest": "sha256:ece4b04ad431b64f7dd40dcdeced421fb22ba4b6a11abc915c21680798a4a4b7",
+    "peer_versions_before": {
+      "core-control-plane": "1.1.0",
+      "operator-service": "1.1.0",
+      "document-ingestion-api": "1.1.0",
+      "document-processing-worker": "1.1.0"
+    },
+    "peer_versions_after": {
+      "core-control-plane": "1.1.0",
+      "operator-service": "1.1.0",
+      "document-ingestion-api": "1.1.0",
+      "document-processing-worker": "1.1.0"
+    },
+    "peer_restart_count": 0,
+    "duplicate_terminal_effects": 0,
+    "offsets_preserved": true,
+    "checks": {
+      "additive_fields": true,
+      "duplicate_delivery": true,
+      "health": true,
+      "idempotency": true,
+      "matrix": true,
+      "reordered_delivery": true,
+      "unsupported_major_rejection": true
+    },
+    "started_at": "2026-08-10T11:30:03Z",
+    "completed_at": "2026-08-10T11:33:20Z",
+    "proof_kind": "live",
+    "evidence_manifest_digest": "sha256:0cbdbbb4fa87c5a30a8a59700a7e64b5109ce55530d75baf2f1a977d739f6c3b",
+    "evidence_run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+    "evidence_source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+    "observation_refs": {
+      "health": "sha256:2b6e6087c0588e27ef0b8d05d0719f6a21c597311cf1d67cca8e346c9ab5bd9e",
+      "identity": "sha256:875fd2ee0f2670140ba644bca28a2e54b622896df3fec461b0cb227058f73955",
+      "image": "sha256:9dbc54282ec65b95d3c7cb6993c1f1f7f1fbdf5c599ab333faae229da324c049",
+      "offset": "sha256:f4bed403d29154081a3e2e7a6a60af9798986ddf544d87deafd2553e25ccaebd",
+      "schema": "sha256:a6c418214e7f6da585fa38067cc745717c720447ad3cd56d964d11a6539343c1",
+      "source": "sha256:f6cfc06a25b9e2760650b3dd9db5dab29ef2997834c0f27e39155c34ba1d6c8a",
+      "topology": "sha256:3016e7d91779220945a7438c5b53b68a819c000c40e20402c0902fffba600c30"
+    },
+    "outcome": "stable"
+  },
+  {
+    "receipt_version": "1.0.0",
+    "receipt_id": "00000000-0000-0000-0000-000000000309",
+    "service_id": "isolated-executor",
+    "direction": "rollback",
+    "from_version": "1.1.0",
+    "to_version": "1.0.0",
+    "idempotency_key": "service-upgrade:isolated-executor:rollback:1.1.0:1.0.0",
+    "matrix_digest": "sha256:ece4b04ad431b64f7dd40dcdeced421fb22ba4b6a11abc915c21680798a4a4b7",
+    "peer_versions_before": {
+      "core-control-plane": "1.1.0",
+      "operator-service": "1.0.0",
+      "document-ingestion-api": "1.0.0",
+      "document-processing-worker": "1.0.0"
+    },
+    "peer_versions_after": {
+      "core-control-plane": "1.1.0",
+      "operator-service": "1.0.0",
+      "document-ingestion-api": "1.0.0",
+      "document-processing-worker": "1.0.0"
+    },
+    "peer_restart_count": 0,
+    "duplicate_terminal_effects": 0,
+    "offsets_preserved": true,
+    "checks": {
+      "additive_fields": true,
+      "duplicate_delivery": true,
+      "health": true,
+      "idempotency": true,
+      "matrix": true,
+      "reordered_delivery": true,
+      "unsupported_major_rejection": true
+    },
+    "started_at": "2026-08-10T10:56:09Z",
+    "completed_at": "2026-08-10T11:00:03Z",
+    "proof_kind": "live",
+    "evidence_manifest_digest": "sha256:0cbdbbb4fa87c5a30a8a59700a7e64b5109ce55530d75baf2f1a977d739f6c3b",
+    "evidence_run_id": "is09-remote-transition:94924cbeade460e61db7e6c777c865b3c86a427c",
+    "evidence_source_digest": "sha256:4a20c6def8e02088405ca722e15f4ea574b78ac9d7c0e1487884b27be19629d8",
+    "observation_refs": {
+      "health": "sha256:b63b287a804233c21a9f47f961abbc536aec1ee07ce6e6f191c61560e44944fe",
+      "identity": "sha256:a0ac3c23d89b5b2a1d453c148276c3e54af6baffa9c58203c7a1851c3230726e",
+      "image": "sha256:64132f209090e9e0b8b59197af66385fd87c985533ffb78fee959213e2d8ee99",
+      "offset": "sha256:1aad5efa3bf306c3191029213cb9730dcc121a41ee83982b65f7c01f82515f6f",
+      "schema": "sha256:79af20eaa92ff1978b99c3ff9da57c100dc67dc3e8e8bafab3b48e865856bc4a",
+      "source": "sha256:f0553c6b6ed9371c3d6cdae59dfc738324d1cec1d00001f24e42e102bcfc7134",
+      "topology": "sha256:eac7f6833e43e982c73c77c422d7acb084052118d7843009da7600ddb6d7acff"
+    },
+    "outcome": "stable"
+  }
+]

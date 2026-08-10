@@ -1,0 +1,2294 @@
+{
+  "schema_version": "1.0.0",
+  "proof_kind": "remote",
+  "repository": "dotnetpower/fdai",
+  "workflow": ".github/workflows/service-deploy.yml",
+  "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+  "n": {
+    "distribution_version": "0.1.3",
+    "source_revision": "396a095a03af87b8d54026218068528059379a5a",
+    "supply_chain_run_id": 31349808536,
+    "supply_chain_run_attempt": 1,
+    "workflow_head_sha": "396a095a03af87b8d54026218068528059379a5a",
+    "conclusion": "success",
+    "images": {
+      "core-control-plane": {
+        "digest": "sha256:e52d7716b652d5bdd116ad661a2cd403688c601cc5a8323d5fa4ca7a745c81aa",
+        "attestations": [
+          "provenance",
+          "sbom",
+          "resolved-models"
+        ]
+      },
+      "operator-service": {
+        "digest": "sha256:8535f8c99bfe2ccce26d5cf36f87503bf7169ef2c5dcb839ef853fcf9c17854d",
+        "attestations": [
+          "provenance",
+          "sbom"
+        ]
+      },
+      "document-ingestion-api": {
+        "digest": "sha256:8ecd3fbe73b8b8ba98218552495f7a9ec267990bdb3add32730d87281991089a",
+        "attestations": [
+          "provenance",
+          "sbom"
+        ]
+      },
+      "document-processing-worker": {
+        "digest": "sha256:7b78bb573b4664ed4632b9c4ab40fb39becd3334705ff22b9d61c499a8120792",
+        "attestations": [
+          "provenance",
+          "sbom"
+        ]
+      },
+      "isolated-executor": {
+        "digest": "sha256:f9ef428850f6060ec0fdbd441fe4b7d20e48f6a6a457658d097f1081870dec60",
+        "attestations": [
+          "provenance",
+          "sbom"
+        ]
+      }
+    }
+  },
+  "n_minus_one": {
+    "distribution_version": "0.1.2",
+    "source_revision": "352c8d1e661a6a53f0958767550fd57c2b975706",
+    "supply_chain_run_id": 31367288968,
+    "supply_chain_run_attempt": 1,
+    "workflow_head_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+    "conclusion": "success",
+    "images": {
+      "core-control-plane": {
+        "digest": "sha256:a63b0d2975fb29940cb29a15e17c01b3e5e726931ab45cd70c13647bbb16b1fc",
+        "attestations": [
+          "provenance",
+          "sbom",
+          "resolved-models"
+        ]
+      },
+      "operator-service": {
+        "digest": "sha256:b77c8a842323937e5a7864f8b7cf262f6579b95ce0b0336199c4ad057369a1ff",
+        "attestations": [
+          "provenance",
+          "sbom"
+        ]
+      },
+      "document-ingestion-api": {
+        "digest": "sha256:02e0845b0c9903a45e60082a8a3e576fc50ad8c65bb6f92ef3d086bc30fb37c4",
+        "attestations": [
+          "provenance",
+          "sbom"
+        ]
+      },
+      "document-processing-worker": {
+        "digest": "sha256:d9d0c996fc6426b251f0748230708e35011c25f744a908f7dd155f678a623a84",
+        "attestations": [
+          "provenance",
+          "sbom"
+        ]
+      },
+      "isolated-executor": {
+        "digest": "sha256:743dd2907d96269496047fcdd44a8fde23c1ff88a945c17cdcc9ac01bf0357e2",
+        "attestations": [
+          "provenance",
+          "sbom"
+        ]
+      }
+    }
+  },
+  "adoptions": [
+    {
+      "service_id": "core-control-plane",
+      "completion": {
+        "workflow_run_id": 31348130903,
+        "workflow_run_attempt": 1,
+        "workflow_head_sha": "7758b0eada86d24c13f8f82f0d9a50953f6813c7",
+        "conclusion": "success",
+        "migration_step_conclusion": "success"
+      },
+      "artifact": {
+        "workflow_run_id": 31294369918,
+        "workflow_run_attempt": 1,
+        "workflow_head_sha": "b98be98a7534a72fce49e2f46a95c6b200e9dfd3",
+        "controls_commit_sha": "b98be98a7534a72fce49e2f46a95c6b200e9dfd3",
+        "conclusion": "failure",
+        "artifact_step_conclusion": "success",
+        "artifact_sha256": "sha256:9ded7305939439fa2a6574a583b0936c2ec7172a16a95bec870ae63416a1427c",
+        "observed_legacy_head": "20260808_0079",
+        "observed_legacy_revision_count": 81,
+        "observed_schema_fingerprint": "sha256:ae6ea9b5520358d7220b9b0c1132f268ee70eeefd62f7dad7c7781aa01a1ec40",
+        "schema_version": 1,
+        "owned_table_count": 34,
+        "verified_at": "2026-08-09T04:23:18.450784+00:00",
+        "rollback_reference": "git:b98be98a7534a72fce49e2f46a95c6b200e9dfd3:service-migrations/branches/core-control-plane/adoption.json#rollback"
+      }
+    },
+    {
+      "service_id": "operator-service",
+      "completion": {
+        "workflow_run_id": 31348586564,
+        "workflow_run_attempt": 1,
+        "workflow_head_sha": "7758b0eada86d24c13f8f82f0d9a50953f6813c7",
+        "conclusion": "success",
+        "migration_step_conclusion": "success"
+      },
+      "artifact": {
+        "workflow_run_id": 31348586564,
+        "workflow_run_attempt": 1,
+        "workflow_head_sha": "7758b0eada86d24c13f8f82f0d9a50953f6813c7",
+        "controls_commit_sha": "7758b0eada86d24c13f8f82f0d9a50953f6813c7",
+        "conclusion": "success",
+        "artifact_step_conclusion": "success",
+        "artifact_sha256": "sha256:3f2b08aa4445e6f6a60f209364166c23b423b60a0e029aaa3b74ba09125a629e",
+        "observed_legacy_head": "20260808_0079",
+        "observed_legacy_revision_count": 81,
+        "observed_schema_fingerprint": "sha256:c33e4d7a7d914994eeded4782663a571690babb3ec16546da8d10bbbe9c2b2f6",
+        "schema_version": 1,
+        "owned_table_count": 61,
+        "verified_at": "2026-08-10T02:02:00.579523+00:00",
+        "rollback_reference": "git:7758b0eada86d24c13f8f82f0d9a50953f6813c7:service-migrations/branches/operator-service/adoption.json#rollback"
+      }
+    },
+    {
+      "service_id": "document-ingestion-api",
+      "completion": {
+        "workflow_run_id": 31348846570,
+        "workflow_run_attempt": 1,
+        "workflow_head_sha": "7758b0eada86d24c13f8f82f0d9a50953f6813c7",
+        "conclusion": "failure",
+        "migration_step_conclusion": "success"
+      },
+      "artifact": {
+        "workflow_run_id": 31348846570,
+        "workflow_run_attempt": 1,
+        "workflow_head_sha": "7758b0eada86d24c13f8f82f0d9a50953f6813c7",
+        "controls_commit_sha": "7758b0eada86d24c13f8f82f0d9a50953f6813c7",
+        "conclusion": "failure",
+        "artifact_step_conclusion": "success",
+        "artifact_sha256": "sha256:bfbec83e36806a1186207cd40a8e6558148b4d2a18c0cfc6069ccc3b533066df",
+        "observed_legacy_head": "20260808_0079",
+        "observed_legacy_revision_count": 81,
+        "observed_schema_fingerprint": "sha256:e7af16bba90b1a14c81a71d00ae4f6d6f0f4ba67d30ea0d4999e4a3b81a041cd",
+        "schema_version": 1,
+        "owned_table_count": 2,
+        "verified_at": "2026-08-10T02:07:49.130288+00:00",
+        "rollback_reference": "git:7758b0eada86d24c13f8f82f0d9a50953f6813c7:service-migrations/branches/document-ingestion-api/adoption.json#rollback"
+      }
+    },
+    {
+      "service_id": "document-processing-worker",
+      "completion": {
+        "workflow_run_id": 31352359688,
+        "workflow_run_attempt": 1,
+        "workflow_head_sha": "6b624b3853a01370b750883995a1bf5d27bee2b4",
+        "conclusion": "failure",
+        "migration_step_conclusion": "success"
+      },
+      "artifact": {
+        "workflow_run_id": 31352359688,
+        "workflow_run_attempt": 1,
+        "workflow_head_sha": "6b624b3853a01370b750883995a1bf5d27bee2b4",
+        "controls_commit_sha": "dc295d112b322e22c66b67a4505d606e1d021aaf",
+        "conclusion": "failure",
+        "artifact_step_conclusion": "success",
+        "artifact_sha256": "sha256:2b15249552cc50624a616b5bb95723f48a271d212e2527b6788a357827a8b8c8",
+        "observed_legacy_head": "20260808_0079",
+        "observed_legacy_revision_count": 81,
+        "observed_schema_fingerprint": "sha256:8e7a05f31e5324c6119a20c921cb2b5e4a492387cba837730b80d1ae3d5074ed",
+        "schema_version": 1,
+        "owned_table_count": 2,
+        "verified_at": "2026-08-10T03:22:58.317406+00:00",
+        "rollback_reference": "git:dc295d112b322e22c66b67a4505d606e1d021aaf:service-migrations/branches/document-processing-worker/adoption.json#rollback"
+      }
+    },
+    {
+      "service_id": "isolated-executor",
+      "completion": {
+        "workflow_run_id": 31353581060,
+        "workflow_run_attempt": 1,
+        "workflow_head_sha": "397a00ebf3e79ac506368ae3a9ef6b32f4998feb",
+        "conclusion": "failure",
+        "migration_step_conclusion": "success"
+      },
+      "artifact": {
+        "workflow_run_id": 31353581060,
+        "workflow_run_attempt": 1,
+        "workflow_head_sha": "397a00ebf3e79ac506368ae3a9ef6b32f4998feb",
+        "controls_commit_sha": "397a00ebf3e79ac506368ae3a9ef6b32f4998feb",
+        "conclusion": "failure",
+        "artifact_step_conclusion": "success",
+        "artifact_sha256": "sha256:6dd038f44f8bfbc14671578ddf50836fc283c7c3a5da38a567034c7f4bc1475b",
+        "observed_legacy_head": "20260808_0079",
+        "observed_legacy_revision_count": 81,
+        "observed_schema_fingerprint": "sha256:71f0bd9e0af5c46508a4e68c3b6abd7bf42ac9c77adbcd019b1b777bbb6fd404",
+        "schema_version": 1,
+        "owned_table_count": 1,
+        "verified_at": "2026-08-10T04:03:03.282683+00:00",
+        "rollback_reference": "git:397a00ebf3e79ac506368ae3a9ef6b32f4998feb:service-migrations/branches/isolated-executor/adoption.json#rollback"
+      }
+    }
+  ],
+  "services": [
+    {
+      "id": "core-control-plane",
+      "distribution": "fdai-core-control-plane",
+      "transition_sequence": [
+        "0.1.3",
+        "0.1.2",
+        "0.1.3"
+      ],
+      "stages": [
+        {
+          "name": "initial",
+          "release": "N",
+          "source_revision": "396a095a03af87b8d54026218068528059379a5a",
+          "image_digest": "sha256:e52d7716b652d5bdd116ad661a2cd403688c601cc5a8323d5fa4ca7a745c81aa",
+          "plan": {
+            "workflow_run_id": 31377578136,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "deployment_mode": "standard",
+            "plan_digest": "sha256:da8b377eddf95b90ca17ea145cf242ae142a66001eb335b032e4d7c00d3a4b03",
+            "context_digest": "sha256:a029c7f6cc230b47b4ad8c4c9ab75e3068db354e2e6fe53f0be21281fa13511f",
+            "metadata_artifact_sha256": "sha256:a228b3d14c58363917eeb0a2c9bb39b7ef3a719a208970ada843abe17d3f7b7a",
+            "peer_receipt_artifact_sha256": "sha256:1d67793312092b6b00b7dae2af22611b38ac29b7acf8e771fca18f001da68a66",
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:05:18Z",
+            "completed_at": "2026-08-10T10:07:01Z"
+          },
+          "apply": {
+            "workflow_run_id": 31378271910,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "plan_run_id": 31377578136,
+            "plan_run_attempt": 1,
+            "plan_digest": "sha256:da8b377eddf95b90ca17ea145cf242ae142a66001eb335b032e4d7c00d3a4b03",
+            "context_digest": "sha256:a029c7f6cc230b47b4ad8c4c9ab75e3068db354e2e6fe53f0be21281fa13511f",
+            "peer_receipt_artifact_sha256": "sha256:b3d9604bf87a43cdf95d57055d1cf254dffa6136cd95f44d5ba53c2e2be2f962",
+            "live_observation_artifact_sha256": "sha256:f775fd456c8f112c34cd3bc618d40f32aa97d7bce59171d542246f8dfa33da4c",
+            "observations": {
+              "health": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "healthy_and_active": true,
+                "kind": "health",
+                "new_revision": true,
+                "observed": true,
+                "service_id": "core-control-plane",
+                "verification": "post-apply-health",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378271910
+              },
+              "identity": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:a029c7f6cc230b47b4ad8c4c9ab75e3068db354e2e6fe53f0be21281fa13511f",
+                "kind": "identity",
+                "observed": true,
+                "service_id": "core-control-plane",
+                "verification": "sealed-target-identity",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378271910
+              },
+              "image": {
+                "attestations": [
+                  "provenance",
+                  "sbom",
+                  "resolved-models"
+                ],
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "image_digest": "sha256:e52d7716b652d5bdd116ad661a2cd403688c601cc5a8323d5fa4ca7a745c81aa",
+                "kind": "image",
+                "observed": true,
+                "service_id": "core-control-plane",
+                "verification": "attested-and-observed-image",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378271910
+              },
+              "offset": {
+                "after_manifest_sha256": "sha256:fd6a44b8af98d94bf47cf3dbc0f95de621ec7c9942b9286da656d67f45288eed",
+                "before_manifest_sha256": "sha256:f979b252e7c381aaf749957f1683c82d330c0a0212dcb9b8b12c32fbe276bff3",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "offset",
+                "observed": true,
+                "peer_serials": {
+                  "document-ingestion-api": 9,
+                  "document-processing-worker": 7,
+                  "isolated-executor": 6,
+                  "operator-service": 9
+                },
+                "service_id": "core-control-plane",
+                "verification": "peer-state-serials-preserved",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378271910
+              },
+              "schema": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "schema",
+                "migration_branch": "core-control-plane",
+                "observed": true,
+                "service_id": "core-control-plane",
+                "verification": "service-migration-upgrade",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378271910
+              },
+              "source": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:a029c7f6cc230b47b4ad8c4c9ab75e3068db354e2e6fe53f0be21281fa13511f",
+                "kind": "source",
+                "observed": true,
+                "plan_digest": "sha256:da8b377eddf95b90ca17ea145cf242ae142a66001eb335b032e4d7c00d3a4b03",
+                "service_id": "core-control-plane",
+                "verification": "protected-plan-source",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378271910
+              },
+              "topology": {
+                "after_manifest_sha256": "sha256:fd6a44b8af98d94bf47cf3dbc0f95de621ec7c9942b9286da656d67f45288eed",
+                "before_manifest_sha256": "sha256:f979b252e7c381aaf749957f1683c82d330c0a0212dcb9b8b12c32fbe276bff3",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "topology",
+                "observed": true,
+                "peer_count": 4,
+                "peer_projection_sha256": "sha256:acb96450d3347853a704d15a49cab838dbeca3069de0abe0d6ec224832d7807d",
+                "peer_services": [
+                  "document-ingestion-api",
+                  "document-processing-worker",
+                  "isolated-executor",
+                  "operator-service"
+                ],
+                "service_id": "core-control-plane",
+                "verification": "four-peer-isolation",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378271910
+              }
+            },
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:14:33Z",
+            "completed_at": "2026-08-10T10:18:21Z"
+          }
+        },
+        {
+          "name": "rollback",
+          "release": "N-1",
+          "source_revision": "352c8d1e661a6a53f0958767550fd57c2b975706",
+          "image_digest": "sha256:a63b0d2975fb29940cb29a15e17c01b3e5e726931ab45cd70c13647bbb16b1fc",
+          "plan": {
+            "workflow_run_id": 31379744075,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "deployment_mode": "standard",
+            "plan_digest": "sha256:eca74e87b1d530b803f11b7e17e898702db03b62d7b234fe702e9415399e30f0",
+            "context_digest": "sha256:0e17df5746461c3af74c0a19e99f08a0f22b39ae46352abe038357c85b2da623",
+            "metadata_artifact_sha256": "sha256:db0bbcd8da4f5c554b36c34e18c3e561399f7e1600781e37cbf00b4a7e6c456d",
+            "peer_receipt_artifact_sha256": "sha256:d76e071406818cee33555583a5d8dac8d01ef679e344686fded9cdab8cc58def",
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:34:46Z",
+            "completed_at": "2026-08-10T10:36:26Z"
+          },
+          "apply": {
+            "workflow_run_id": 31381600711,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "plan_run_id": 31379744075,
+            "plan_run_attempt": 1,
+            "plan_digest": "sha256:eca74e87b1d530b803f11b7e17e898702db03b62d7b234fe702e9415399e30f0",
+            "context_digest": "sha256:0e17df5746461c3af74c0a19e99f08a0f22b39ae46352abe038357c85b2da623",
+            "peer_receipt_artifact_sha256": "sha256:334e526fc8c701d9a52ed2b36e022a61fb2079fad3b3656647007f5e5a9632d9",
+            "live_observation_artifact_sha256": "sha256:bfbff101a258d61dc11e0ab3955aaecc7d46a020b1cce7570fa7c3cf6d620325",
+            "observations": {
+              "health": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "healthy_and_active": true,
+                "kind": "health",
+                "new_revision": true,
+                "observed": true,
+                "service_id": "core-control-plane",
+                "verification": "post-apply-health",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31381600711
+              },
+              "identity": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "context_digest": "sha256:0e17df5746461c3af74c0a19e99f08a0f22b39ae46352abe038357c85b2da623",
+                "kind": "identity",
+                "observed": true,
+                "service_id": "core-control-plane",
+                "verification": "sealed-target-identity",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31381600711
+              },
+              "image": {
+                "attestations": [
+                  "provenance",
+                  "sbom",
+                  "resolved-models"
+                ],
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "image_digest": "sha256:a63b0d2975fb29940cb29a15e17c01b3e5e726931ab45cd70c13647bbb16b1fc",
+                "kind": "image",
+                "observed": true,
+                "service_id": "core-control-plane",
+                "verification": "attested-and-observed-image",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31381600711
+              },
+              "offset": {
+                "after_manifest_sha256": "sha256:14681c6e59fc3db5e5908cda16051439c717d59ee58774c27f3b4b9c1419e3d4",
+                "before_manifest_sha256": "sha256:94fbbfba1b502852cdbed3aab88dcd75804053f6d22ea46dde0f497e36ff7da8",
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "kind": "offset",
+                "observed": true,
+                "peer_serials": {
+                  "document-ingestion-api": 11,
+                  "document-processing-worker": 9,
+                  "isolated-executor": 8,
+                  "operator-service": 11
+                },
+                "service_id": "core-control-plane",
+                "verification": "peer-state-serials-preserved",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31381600711
+              },
+              "schema": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "kind": "schema",
+                "migration_branch": "core-control-plane",
+                "observed": true,
+                "service_id": "core-control-plane",
+                "verification": "service-migration-upgrade",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31381600711
+              },
+              "source": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "context_digest": "sha256:0e17df5746461c3af74c0a19e99f08a0f22b39ae46352abe038357c85b2da623",
+                "kind": "source",
+                "observed": true,
+                "plan_digest": "sha256:eca74e87b1d530b803f11b7e17e898702db03b62d7b234fe702e9415399e30f0",
+                "service_id": "core-control-plane",
+                "verification": "protected-plan-source",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31381600711
+              },
+              "topology": {
+                "after_manifest_sha256": "sha256:14681c6e59fc3db5e5908cda16051439c717d59ee58774c27f3b4b9c1419e3d4",
+                "before_manifest_sha256": "sha256:94fbbfba1b502852cdbed3aab88dcd75804053f6d22ea46dde0f497e36ff7da8",
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "kind": "topology",
+                "observed": true,
+                "peer_count": 4,
+                "peer_projection_sha256": "sha256:5bf7fbb4c081ca0143216b2b5a4363f9d60cd2461f98897bd87b58428b04bffe",
+                "peer_services": [
+                  "document-ingestion-api",
+                  "document-processing-worker",
+                  "isolated-executor",
+                  "operator-service"
+                ],
+                "service_id": "core-control-plane",
+                "verification": "four-peer-isolation",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31381600711
+              }
+            },
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T11:00:21Z",
+            "completed_at": "2026-08-10T11:04:17Z"
+          }
+        },
+        {
+          "name": "restore",
+          "release": "N",
+          "source_revision": "396a095a03af87b8d54026218068528059379a5a",
+          "image_digest": "sha256:e52d7716b652d5bdd116ad661a2cd403688c601cc5a8323d5fa4ca7a745c81aa",
+          "plan": {
+            "workflow_run_id": 31381903869,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "deployment_mode": "standard",
+            "plan_digest": "sha256:35181faf28380c603777ffb4cc67ad3d3e405afef0d33895d14521e2014789ba",
+            "context_digest": "sha256:a029c7f6cc230b47b4ad8c4c9ab75e3068db354e2e6fe53f0be21281fa13511f",
+            "metadata_artifact_sha256": "sha256:b669cc8426619667c28d589023b770801720ceebd49cb0618636ef452d87faf0",
+            "peer_receipt_artifact_sha256": "sha256:a51f9cd5cdbbbe291427e4e00a4019d07b4677d246dc847739b618e085f28b77",
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T11:04:33Z",
+            "completed_at": "2026-08-10T11:06:12Z"
+          },
+          "apply": {
+            "workflow_run_id": 31382575780,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "plan_run_id": 31381903869,
+            "plan_run_attempt": 1,
+            "plan_digest": "sha256:35181faf28380c603777ffb4cc67ad3d3e405afef0d33895d14521e2014789ba",
+            "context_digest": "sha256:a029c7f6cc230b47b4ad8c4c9ab75e3068db354e2e6fe53f0be21281fa13511f",
+            "peer_receipt_artifact_sha256": "sha256:7b663368f700f498d9b5686ab3d6df1bdc27df139f1d4f38c553c33720e9631a",
+            "live_observation_artifact_sha256": "sha256:cfd2c8582742ef48d6d2f68e58d9af527d6f0b78f7c0238cd3fe4f7b8e6ceb1d",
+            "observations": {
+              "health": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "healthy_and_active": true,
+                "kind": "health",
+                "new_revision": true,
+                "observed": true,
+                "service_id": "core-control-plane",
+                "verification": "post-apply-health",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31382575780
+              },
+              "identity": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:a029c7f6cc230b47b4ad8c4c9ab75e3068db354e2e6fe53f0be21281fa13511f",
+                "kind": "identity",
+                "observed": true,
+                "service_id": "core-control-plane",
+                "verification": "sealed-target-identity",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31382575780
+              },
+              "image": {
+                "attestations": [
+                  "provenance",
+                  "sbom",
+                  "resolved-models"
+                ],
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "image_digest": "sha256:e52d7716b652d5bdd116ad661a2cd403688c601cc5a8323d5fa4ca7a745c81aa",
+                "kind": "image",
+                "observed": true,
+                "service_id": "core-control-plane",
+                "verification": "attested-and-observed-image",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31382575780
+              },
+              "offset": {
+                "after_manifest_sha256": "sha256:14681c6e59fc3db5e5908cda16051439c717d59ee58774c27f3b4b9c1419e3d4",
+                "before_manifest_sha256": "sha256:94fbbfba1b502852cdbed3aab88dcd75804053f6d22ea46dde0f497e36ff7da8",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "offset",
+                "observed": true,
+                "peer_serials": {
+                  "document-ingestion-api": 11,
+                  "document-processing-worker": 9,
+                  "isolated-executor": 8,
+                  "operator-service": 11
+                },
+                "service_id": "core-control-plane",
+                "verification": "peer-state-serials-preserved",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31382575780
+              },
+              "schema": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "schema",
+                "migration_branch": "core-control-plane",
+                "observed": true,
+                "service_id": "core-control-plane",
+                "verification": "service-migration-upgrade",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31382575780
+              },
+              "source": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:a029c7f6cc230b47b4ad8c4c9ab75e3068db354e2e6fe53f0be21281fa13511f",
+                "kind": "source",
+                "observed": true,
+                "plan_digest": "sha256:35181faf28380c603777ffb4cc67ad3d3e405afef0d33895d14521e2014789ba",
+                "service_id": "core-control-plane",
+                "verification": "protected-plan-source",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31382575780
+              },
+              "topology": {
+                "after_manifest_sha256": "sha256:14681c6e59fc3db5e5908cda16051439c717d59ee58774c27f3b4b9c1419e3d4",
+                "before_manifest_sha256": "sha256:94fbbfba1b502852cdbed3aab88dcd75804053f6d22ea46dde0f497e36ff7da8",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "topology",
+                "observed": true,
+                "peer_count": 4,
+                "peer_projection_sha256": "sha256:5bf7fbb4c081ca0143216b2b5a4363f9d60cd2461f98897bd87b58428b04bffe",
+                "peer_services": [
+                  "document-ingestion-api",
+                  "document-processing-worker",
+                  "isolated-executor",
+                  "operator-service"
+                ],
+                "service_id": "core-control-plane",
+                "verification": "four-peer-isolation",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31382575780
+              }
+            },
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T11:13:39Z",
+            "completed_at": "2026-08-10T11:17:29Z"
+          }
+        }
+      ]
+    },
+    {
+      "id": "operator-service",
+      "distribution": "fdai-operator-service",
+      "transition_sequence": [
+        "0.1.3",
+        "0.1.2",
+        "0.1.3"
+      ],
+      "stages": [
+        {
+          "name": "initial",
+          "release": "N",
+          "source_revision": "396a095a03af87b8d54026218068528059379a5a",
+          "image_digest": "sha256:8535f8c99bfe2ccce26d5cf36f87503bf7169ef2c5dcb839ef853fcf9c17854d",
+          "plan": {
+            "workflow_run_id": 31377726096,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "deployment_mode": "standard",
+            "plan_digest": "sha256:853123bdc72480e8c346fd3b4dc95e93b14ef83247313e5f387997d28636b616",
+            "context_digest": "sha256:a1143719f18922d39837f987f6f1af128982528ebde7f1ab82d1dfd549fb06df",
+            "metadata_artifact_sha256": "sha256:74ddbc9501a47817cc952aba76a305e92f1efb6f9179fca4a68f6c92b1784ee7",
+            "peer_receipt_artifact_sha256": "sha256:a3eb188c0c48b4597602581da1e4f8e122eeb3d7b9f87a4b326a836906abcefa",
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:07:17Z",
+            "completed_at": "2026-08-10T10:08:57Z"
+          },
+          "apply": {
+            "workflow_run_id": 31378567080,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "plan_run_id": 31377726096,
+            "plan_run_attempt": 1,
+            "plan_digest": "sha256:853123bdc72480e8c346fd3b4dc95e93b14ef83247313e5f387997d28636b616",
+            "context_digest": "sha256:a1143719f18922d39837f987f6f1af128982528ebde7f1ab82d1dfd549fb06df",
+            "peer_receipt_artifact_sha256": "sha256:754845e0c8ff494ad9b993fcf6940e136008a2d340776a0201f70a5e9fa0d39a",
+            "live_observation_artifact_sha256": "sha256:6833ff0fbc4c0acd820906ecc891a001c728f451013d1a690749fb4923875533",
+            "observations": {
+              "health": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "healthy_and_active": true,
+                "kind": "health",
+                "new_revision": true,
+                "observed": true,
+                "service_id": "operator-service",
+                "verification": "post-apply-health",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378567080
+              },
+              "identity": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:a1143719f18922d39837f987f6f1af128982528ebde7f1ab82d1dfd549fb06df",
+                "kind": "identity",
+                "observed": true,
+                "service_id": "operator-service",
+                "verification": "sealed-target-identity",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378567080
+              },
+              "image": {
+                "attestations": [
+                  "provenance",
+                  "sbom"
+                ],
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "image_digest": "sha256:8535f8c99bfe2ccce26d5cf36f87503bf7169ef2c5dcb839ef853fcf9c17854d",
+                "kind": "image",
+                "observed": true,
+                "service_id": "operator-service",
+                "verification": "attested-and-observed-image",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378567080
+              },
+              "offset": {
+                "after_manifest_sha256": "sha256:63ef2983f2fbd3e1101c4ae32795fc883e374ea08e0de0cbacfbe121587b9150",
+                "before_manifest_sha256": "sha256:42c6a739d9e6e7def04e594025bba8a50e9451de78d28ae14129881bbc65927d",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "offset",
+                "observed": true,
+                "peer_serials": {
+                  "core-control-plane": 25,
+                  "document-ingestion-api": 9,
+                  "document-processing-worker": 7,
+                  "isolated-executor": 6
+                },
+                "service_id": "operator-service",
+                "verification": "peer-state-serials-preserved",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378567080
+              },
+              "schema": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "schema",
+                "migration_branch": "operator-service",
+                "observed": true,
+                "service_id": "operator-service",
+                "verification": "service-migration-upgrade",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378567080
+              },
+              "source": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:a1143719f18922d39837f987f6f1af128982528ebde7f1ab82d1dfd549fb06df",
+                "kind": "source",
+                "observed": true,
+                "plan_digest": "sha256:853123bdc72480e8c346fd3b4dc95e93b14ef83247313e5f387997d28636b616",
+                "service_id": "operator-service",
+                "verification": "protected-plan-source",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378567080
+              },
+              "topology": {
+                "after_manifest_sha256": "sha256:63ef2983f2fbd3e1101c4ae32795fc883e374ea08e0de0cbacfbe121587b9150",
+                "before_manifest_sha256": "sha256:42c6a739d9e6e7def04e594025bba8a50e9451de78d28ae14129881bbc65927d",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "topology",
+                "observed": true,
+                "peer_count": 4,
+                "peer_projection_sha256": "sha256:8fe911a7b464d69f2cf5c8a0ce7848c1a3193ccd2b4d69f7bdb8b906bb86b07a",
+                "peer_services": [
+                  "core-control-plane",
+                  "document-ingestion-api",
+                  "document-processing-worker",
+                  "isolated-executor"
+                ],
+                "service_id": "operator-service",
+                "verification": "four-peer-isolation",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378567080
+              }
+            },
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:18:34Z",
+            "completed_at": "2026-08-10T10:21:49Z"
+          }
+        },
+        {
+          "name": "rollback",
+          "release": "N-1",
+          "source_revision": "352c8d1e661a6a53f0958767550fd57c2b975706",
+          "image_digest": "sha256:b77c8a842323937e5a7864f8b7cf262f6579b95ce0b0336199c4ad057369a1ff",
+          "plan": {
+            "workflow_run_id": 31379878161,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "deployment_mode": "standard",
+            "plan_digest": "sha256:30209d95f36c2b08f252f22b0639860515a34c09dde61a6a89208a195b70ba95",
+            "context_digest": "sha256:50a23286d8045cdd57133d4f050083d1985f639e32b06604db9ead9b1ef1c09a",
+            "metadata_artifact_sha256": "sha256:8882e7fcb1888bf62494434d692a2c4721f1e9e74501d0bdf4988bfeb4643bd0",
+            "peer_receipt_artifact_sha256": "sha256:682354f8fecc4d16bebf4122519ed67173d0ffdef174d071f5e1f5ec8e2e99ef",
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:36:35Z",
+            "completed_at": "2026-08-10T10:38:14Z"
+          },
+          "apply": {
+            "workflow_run_id": 31380381608,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "plan_run_id": 31379878161,
+            "plan_run_attempt": 1,
+            "plan_digest": "sha256:30209d95f36c2b08f252f22b0639860515a34c09dde61a6a89208a195b70ba95",
+            "context_digest": "sha256:50a23286d8045cdd57133d4f050083d1985f639e32b06604db9ead9b1ef1c09a",
+            "peer_receipt_artifact_sha256": "sha256:ff6203377218922fa8002d5a24545a53cb1af62b4b620c5f01e5546a5a3f8da0",
+            "live_observation_artifact_sha256": "sha256:c418dccd27c8baa10b51b28face6c01e7596598ead13441302fce8961d106270",
+            "observations": {
+              "health": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "healthy_and_active": true,
+                "kind": "health",
+                "new_revision": true,
+                "observed": true,
+                "service_id": "operator-service",
+                "verification": "post-apply-health",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380381608
+              },
+              "identity": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "context_digest": "sha256:50a23286d8045cdd57133d4f050083d1985f639e32b06604db9ead9b1ef1c09a",
+                "kind": "identity",
+                "observed": true,
+                "service_id": "operator-service",
+                "verification": "sealed-target-identity",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380381608
+              },
+              "image": {
+                "attestations": [
+                  "provenance",
+                  "sbom"
+                ],
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "image_digest": "sha256:b77c8a842323937e5a7864f8b7cf262f6579b95ce0b0336199c4ad057369a1ff",
+                "kind": "image",
+                "observed": true,
+                "service_id": "operator-service",
+                "verification": "attested-and-observed-image",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380381608
+              },
+              "offset": {
+                "after_manifest_sha256": "sha256:97393d53736c713535afa2c9a3ad4bef809bc18ffa89c74604f9e76beeb5563f",
+                "before_manifest_sha256": "sha256:5c146aafc2bd7245ff44976b23b6437cf4146bb7024b07c1d4ec4172b0955b93",
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "kind": "offset",
+                "observed": true,
+                "peer_serials": {
+                  "core-control-plane": 25,
+                  "document-ingestion-api": 10,
+                  "document-processing-worker": 8,
+                  "isolated-executor": 7
+                },
+                "service_id": "operator-service",
+                "verification": "peer-state-serials-preserved",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380381608
+              },
+              "schema": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "kind": "schema",
+                "migration_branch": "operator-service",
+                "observed": true,
+                "service_id": "operator-service",
+                "verification": "service-migration-upgrade",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380381608
+              },
+              "source": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "context_digest": "sha256:50a23286d8045cdd57133d4f050083d1985f639e32b06604db9ead9b1ef1c09a",
+                "kind": "source",
+                "observed": true,
+                "plan_digest": "sha256:30209d95f36c2b08f252f22b0639860515a34c09dde61a6a89208a195b70ba95",
+                "service_id": "operator-service",
+                "verification": "protected-plan-source",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380381608
+              },
+              "topology": {
+                "after_manifest_sha256": "sha256:97393d53736c713535afa2c9a3ad4bef809bc18ffa89c74604f9e76beeb5563f",
+                "before_manifest_sha256": "sha256:5c146aafc2bd7245ff44976b23b6437cf4146bb7024b07c1d4ec4172b0955b93",
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "kind": "topology",
+                "observed": true,
+                "peer_count": 4,
+                "peer_projection_sha256": "sha256:d72d78fd1009de43f5eb5c1ec240775d2696660a9a5831d8ca91a129bfce64ea",
+                "peer_services": [
+                  "core-control-plane",
+                  "document-ingestion-api",
+                  "document-processing-worker",
+                  "isolated-executor"
+                ],
+                "service_id": "operator-service",
+                "verification": "four-peer-isolation",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380381608
+              }
+            },
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:43:39Z",
+            "completed_at": "2026-08-10T10:47:27Z"
+          }
+        },
+        {
+          "name": "restore",
+          "release": "N",
+          "source_revision": "396a095a03af87b8d54026218068528059379a5a",
+          "image_digest": "sha256:8535f8c99bfe2ccce26d5cf36f87503bf7169ef2c5dcb839ef853fcf9c17854d",
+          "plan": {
+            "workflow_run_id": 31382037088,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "deployment_mode": "standard",
+            "plan_digest": "sha256:e28d2a4b9ca60818d4c66dde9bfd52b6f552226ae4f62a6dfdefe76e4c732960",
+            "context_digest": "sha256:a1143719f18922d39837f987f6f1af128982528ebde7f1ab82d1dfd549fb06df",
+            "metadata_artifact_sha256": "sha256:b299a1710af714152bab3b617e45b876db0975c74f7fbe1e1e21e2ab7337d462",
+            "peer_receipt_artifact_sha256": "sha256:e8277ff92d8ac8d69f75e71e9e880d434915bb9854a5767184e6521b0683d524",
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T11:06:22Z",
+            "completed_at": "2026-08-10T11:07:57Z"
+          },
+          "apply": {
+            "workflow_run_id": 31382872879,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "plan_run_id": 31382037088,
+            "plan_run_attempt": 1,
+            "plan_digest": "sha256:e28d2a4b9ca60818d4c66dde9bfd52b6f552226ae4f62a6dfdefe76e4c732960",
+            "context_digest": "sha256:a1143719f18922d39837f987f6f1af128982528ebde7f1ab82d1dfd549fb06df",
+            "peer_receipt_artifact_sha256": "sha256:40a30bc83e7415376e2a5ec09ca2d8b401830bbf6760833b991b46da5443dfb1",
+            "live_observation_artifact_sha256": "sha256:4da621a16a2dd3f9137e13d030ca2932ed81d0def1d1ccdd59ff239f028cc178",
+            "observations": {
+              "health": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "healthy_and_active": true,
+                "kind": "health",
+                "new_revision": true,
+                "observed": true,
+                "service_id": "operator-service",
+                "verification": "post-apply-health",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31382872879
+              },
+              "identity": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:a1143719f18922d39837f987f6f1af128982528ebde7f1ab82d1dfd549fb06df",
+                "kind": "identity",
+                "observed": true,
+                "service_id": "operator-service",
+                "verification": "sealed-target-identity",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31382872879
+              },
+              "image": {
+                "attestations": [
+                  "provenance",
+                  "sbom"
+                ],
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "image_digest": "sha256:8535f8c99bfe2ccce26d5cf36f87503bf7169ef2c5dcb839ef853fcf9c17854d",
+                "kind": "image",
+                "observed": true,
+                "service_id": "operator-service",
+                "verification": "attested-and-observed-image",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31382872879
+              },
+              "offset": {
+                "after_manifest_sha256": "sha256:c607e735464009c4bf7765c6bf28563ee6eb82550aaf7a45a8d7e1778c743695",
+                "before_manifest_sha256": "sha256:649643d2d09c93643c064f653c2de7a42c4a5eb68e11e41f74cc1c72c59f6b19",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "offset",
+                "observed": true,
+                "peer_serials": {
+                  "core-control-plane": 27,
+                  "document-ingestion-api": 11,
+                  "document-processing-worker": 9,
+                  "isolated-executor": 8
+                },
+                "service_id": "operator-service",
+                "verification": "peer-state-serials-preserved",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31382872879
+              },
+              "schema": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "schema",
+                "migration_branch": "operator-service",
+                "observed": true,
+                "service_id": "operator-service",
+                "verification": "service-migration-upgrade",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31382872879
+              },
+              "source": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:a1143719f18922d39837f987f6f1af128982528ebde7f1ab82d1dfd549fb06df",
+                "kind": "source",
+                "observed": true,
+                "plan_digest": "sha256:e28d2a4b9ca60818d4c66dde9bfd52b6f552226ae4f62a6dfdefe76e4c732960",
+                "service_id": "operator-service",
+                "verification": "protected-plan-source",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31382872879
+              },
+              "topology": {
+                "after_manifest_sha256": "sha256:c607e735464009c4bf7765c6bf28563ee6eb82550aaf7a45a8d7e1778c743695",
+                "before_manifest_sha256": "sha256:649643d2d09c93643c064f653c2de7a42c4a5eb68e11e41f74cc1c72c59f6b19",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "topology",
+                "observed": true,
+                "peer_count": 4,
+                "peer_projection_sha256": "sha256:e1674c940ad4ded3605eb75e1ef0d959f4ac49bb9db35830d30333c1b4b5a3fd",
+                "peer_services": [
+                  "core-control-plane",
+                  "document-ingestion-api",
+                  "document-processing-worker",
+                  "isolated-executor"
+                ],
+                "service_id": "operator-service",
+                "verification": "four-peer-isolation",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31382872879
+              }
+            },
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T11:17:40Z",
+            "completed_at": "2026-08-10T11:21:22Z"
+          }
+        }
+      ]
+    },
+    {
+      "id": "document-ingestion-api",
+      "distribution": "fdai-document-ingestion-api",
+      "transition_sequence": [
+        "0.1.3",
+        "0.1.2",
+        "0.1.3"
+      ],
+      "stages": [
+        {
+          "name": "initial",
+          "release": "N",
+          "source_revision": "396a095a03af87b8d54026218068528059379a5a",
+          "image_digest": "sha256:8ecd3fbe73b8b8ba98218552495f7a9ec267990bdb3add32730d87281991089a",
+          "plan": {
+            "workflow_run_id": 31377862891,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "deployment_mode": "standard",
+            "plan_digest": "sha256:281eec205547d4d9e02edbb3589cca3923c4fbf9d9dac39cd3dda60fbc9e8572",
+            "context_digest": "sha256:3ce12e14a1dceaa6697c247364fed7a273485aca9bfc97fdabb909f84e8e55c6",
+            "metadata_artifact_sha256": "sha256:12a0da3225b5e4bc8588b070675d1137f94259914249d4d9fcbfa67ced7725b7",
+            "peer_receipt_artifact_sha256": "sha256:6d4f09476254997ef819159571d1998cd03303d28d7aaeecf42de2e9c2d60098",
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:09:06Z",
+            "completed_at": "2026-08-10T10:10:43Z"
+          },
+          "apply": {
+            "workflow_run_id": 31378817097,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "plan_run_id": 31377862891,
+            "plan_run_attempt": 1,
+            "plan_digest": "sha256:281eec205547d4d9e02edbb3589cca3923c4fbf9d9dac39cd3dda60fbc9e8572",
+            "context_digest": "sha256:3ce12e14a1dceaa6697c247364fed7a273485aca9bfc97fdabb909f84e8e55c6",
+            "peer_receipt_artifact_sha256": "sha256:3ae75cf1e6c952cc4f7cb50dfdc03f9413c1c8888fad1184b0e35eebce22ae3c",
+            "live_observation_artifact_sha256": "sha256:f630354fa679ad01df6e959b822d51b5aa80456cbc64b960e29c70ad39cdf9fb",
+            "observations": {
+              "health": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "healthy_and_active": true,
+                "kind": "health",
+                "new_revision": true,
+                "observed": true,
+                "service_id": "document-ingestion-api",
+                "verification": "post-apply-health",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378817097
+              },
+              "identity": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:3ce12e14a1dceaa6697c247364fed7a273485aca9bfc97fdabb909f84e8e55c6",
+                "kind": "identity",
+                "observed": true,
+                "service_id": "document-ingestion-api",
+                "verification": "sealed-target-identity",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378817097
+              },
+              "image": {
+                "attestations": [
+                  "provenance",
+                  "sbom"
+                ],
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "image_digest": "sha256:8ecd3fbe73b8b8ba98218552495f7a9ec267990bdb3add32730d87281991089a",
+                "kind": "image",
+                "observed": true,
+                "service_id": "document-ingestion-api",
+                "verification": "attested-and-observed-image",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378817097
+              },
+              "offset": {
+                "after_manifest_sha256": "sha256:72a67af31f48f442e496a7eb209876adf266b42e219d46d3c1f6d88b198bb04f",
+                "before_manifest_sha256": "sha256:a856d9b63f550ca3592fab0d69f5bebcafeb5d0a08be0e624b4bed7b9e845774",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "offset",
+                "observed": true,
+                "peer_serials": {
+                  "core-control-plane": 25,
+                  "document-processing-worker": 7,
+                  "isolated-executor": 6,
+                  "operator-service": 10
+                },
+                "service_id": "document-ingestion-api",
+                "verification": "peer-state-serials-preserved",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378817097
+              },
+              "schema": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "schema",
+                "migration_branch": "document-ingestion-api",
+                "observed": true,
+                "service_id": "document-ingestion-api",
+                "verification": "service-migration-upgrade",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378817097
+              },
+              "source": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:3ce12e14a1dceaa6697c247364fed7a273485aca9bfc97fdabb909f84e8e55c6",
+                "kind": "source",
+                "observed": true,
+                "plan_digest": "sha256:281eec205547d4d9e02edbb3589cca3923c4fbf9d9dac39cd3dda60fbc9e8572",
+                "service_id": "document-ingestion-api",
+                "verification": "protected-plan-source",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378817097
+              },
+              "topology": {
+                "after_manifest_sha256": "sha256:72a67af31f48f442e496a7eb209876adf266b42e219d46d3c1f6d88b198bb04f",
+                "before_manifest_sha256": "sha256:a856d9b63f550ca3592fab0d69f5bebcafeb5d0a08be0e624b4bed7b9e845774",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "topology",
+                "observed": true,
+                "peer_count": 4,
+                "peer_projection_sha256": "sha256:b406c06b49f61ce38a71c2379b5ce796d30528fb697874fa19aae54ec8e25224",
+                "peer_services": [
+                  "core-control-plane",
+                  "document-processing-worker",
+                  "isolated-executor",
+                  "operator-service"
+                ],
+                "service_id": "document-ingestion-api",
+                "verification": "four-peer-isolation",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31378817097
+              }
+            },
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:22:03Z",
+            "completed_at": "2026-08-10T10:26:01Z"
+          }
+        },
+        {
+          "name": "rollback",
+          "release": "N-1",
+          "source_revision": "352c8d1e661a6a53f0958767550fd57c2b975706",
+          "image_digest": "sha256:02e0845b0c9903a45e60082a8a3e576fc50ad8c65bb6f92ef3d086bc30fb37c4",
+          "plan": {
+            "workflow_run_id": 31380005984,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "deployment_mode": "standard",
+            "plan_digest": "sha256:edc57b1e2092e037c88c9b4cb8f6b389d8f5f072b3a67d15dd9063401f6d03ac",
+            "context_digest": "sha256:eb1e98881d2188eb45f45b7baa5e5e84fa82c5ce10fa15ec4c9983f94b7e1759",
+            "metadata_artifact_sha256": "sha256:a4c9f6ba36a555d29bdc2e6c4c5d22e257e05a8a970e6934d40fc895ac29fa0a",
+            "peer_receipt_artifact_sha256": "sha256:0f234842e4e01380e74d7e66a3cf4cce94cdcafc16d4f2250917cb98181de7a8",
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:38:24Z",
+            "completed_at": "2026-08-10T10:39:57Z"
+          },
+          "apply": {
+            "workflow_run_id": 31380675732,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "plan_run_id": 31380005984,
+            "plan_run_attempt": 1,
+            "plan_digest": "sha256:edc57b1e2092e037c88c9b4cb8f6b389d8f5f072b3a67d15dd9063401f6d03ac",
+            "context_digest": "sha256:eb1e98881d2188eb45f45b7baa5e5e84fa82c5ce10fa15ec4c9983f94b7e1759",
+            "peer_receipt_artifact_sha256": "sha256:bc766bf43696584b4a065da6b93aa096c1974d60114b9af172a7d67d83b0f3cc",
+            "live_observation_artifact_sha256": "sha256:592c121d51089ccbf0399b770528765600227a9e8c88e7894dd2a30e29fa1148",
+            "observations": {
+              "health": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "healthy_and_active": true,
+                "kind": "health",
+                "new_revision": true,
+                "observed": true,
+                "service_id": "document-ingestion-api",
+                "verification": "post-apply-health",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380675732
+              },
+              "identity": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "context_digest": "sha256:eb1e98881d2188eb45f45b7baa5e5e84fa82c5ce10fa15ec4c9983f94b7e1759",
+                "kind": "identity",
+                "observed": true,
+                "service_id": "document-ingestion-api",
+                "verification": "sealed-target-identity",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380675732
+              },
+              "image": {
+                "attestations": [
+                  "provenance",
+                  "sbom"
+                ],
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "image_digest": "sha256:02e0845b0c9903a45e60082a8a3e576fc50ad8c65bb6f92ef3d086bc30fb37c4",
+                "kind": "image",
+                "observed": true,
+                "service_id": "document-ingestion-api",
+                "verification": "attested-and-observed-image",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380675732
+              },
+              "offset": {
+                "after_manifest_sha256": "sha256:d5bff458b99eb60e1fa7ad868a9e81324ab8dbd82d6146dafb408ed19c7b3765",
+                "before_manifest_sha256": "sha256:5347db7a17bcbbcfa14dacd439c18189cf48ee4fcdd465414b396ce26a09ebe1",
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "kind": "offset",
+                "observed": true,
+                "peer_serials": {
+                  "core-control-plane": 25,
+                  "document-processing-worker": 8,
+                  "isolated-executor": 7,
+                  "operator-service": 11
+                },
+                "service_id": "document-ingestion-api",
+                "verification": "peer-state-serials-preserved",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380675732
+              },
+              "schema": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "kind": "schema",
+                "migration_branch": "document-ingestion-api",
+                "observed": true,
+                "service_id": "document-ingestion-api",
+                "verification": "service-migration-upgrade",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380675732
+              },
+              "source": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "context_digest": "sha256:eb1e98881d2188eb45f45b7baa5e5e84fa82c5ce10fa15ec4c9983f94b7e1759",
+                "kind": "source",
+                "observed": true,
+                "plan_digest": "sha256:edc57b1e2092e037c88c9b4cb8f6b389d8f5f072b3a67d15dd9063401f6d03ac",
+                "service_id": "document-ingestion-api",
+                "verification": "protected-plan-source",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380675732
+              },
+              "topology": {
+                "after_manifest_sha256": "sha256:d5bff458b99eb60e1fa7ad868a9e81324ab8dbd82d6146dafb408ed19c7b3765",
+                "before_manifest_sha256": "sha256:5347db7a17bcbbcfa14dacd439c18189cf48ee4fcdd465414b396ce26a09ebe1",
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "kind": "topology",
+                "observed": true,
+                "peer_count": 4,
+                "peer_projection_sha256": "sha256:d1f36ca913fef8849ab06d8068bf992bff975c24dda502c4b7a4f1f753707289",
+                "peer_services": [
+                  "core-control-plane",
+                  "document-processing-worker",
+                  "isolated-executor",
+                  "operator-service"
+                ],
+                "service_id": "document-ingestion-api",
+                "verification": "four-peer-isolation",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380675732
+              }
+            },
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:47:40Z",
+            "completed_at": "2026-08-10T10:51:26Z"
+          }
+        },
+        {
+          "name": "restore",
+          "release": "N",
+          "source_revision": "396a095a03af87b8d54026218068528059379a5a",
+          "image_digest": "sha256:8ecd3fbe73b8b8ba98218552495f7a9ec267990bdb3add32730d87281991089a",
+          "plan": {
+            "workflow_run_id": 31382168437,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "deployment_mode": "standard",
+            "plan_digest": "sha256:8fce62ec6023f3b7a1802694ba6c08e80ab4356c0360267f72784d71d6198800",
+            "context_digest": "sha256:3ce12e14a1dceaa6697c247364fed7a273485aca9bfc97fdabb909f84e8e55c6",
+            "metadata_artifact_sha256": "sha256:e72c6191b0f0313587a7e9f2208932d480bf7c0eed151d4c592a1395721d1e50",
+            "peer_receipt_artifact_sha256": "sha256:5b0e722a04b7a0ef2b3efeafc962bca5bbf17e29e97d3fb62f071df66c296800",
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T11:08:11Z",
+            "completed_at": "2026-08-10T11:09:43Z"
+          },
+          "apply": {
+            "workflow_run_id": 31383149115,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "plan_run_id": 31382168437,
+            "plan_run_attempt": 1,
+            "plan_digest": "sha256:8fce62ec6023f3b7a1802694ba6c08e80ab4356c0360267f72784d71d6198800",
+            "context_digest": "sha256:3ce12e14a1dceaa6697c247364fed7a273485aca9bfc97fdabb909f84e8e55c6",
+            "peer_receipt_artifact_sha256": "sha256:0846db8172f1ce917fd6d03b4495123a10d683c4d98a176f9983d9ec57d7b0c1",
+            "live_observation_artifact_sha256": "sha256:e17b79a44c1109cdaea6e12ad9c6af9b563b7c4061abacd241dab9a941bc0a00",
+            "observations": {
+              "health": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "healthy_and_active": true,
+                "kind": "health",
+                "new_revision": true,
+                "observed": true,
+                "service_id": "document-ingestion-api",
+                "verification": "post-apply-health",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383149115
+              },
+              "identity": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:3ce12e14a1dceaa6697c247364fed7a273485aca9bfc97fdabb909f84e8e55c6",
+                "kind": "identity",
+                "observed": true,
+                "service_id": "document-ingestion-api",
+                "verification": "sealed-target-identity",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383149115
+              },
+              "image": {
+                "attestations": [
+                  "provenance",
+                  "sbom"
+                ],
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "image_digest": "sha256:8ecd3fbe73b8b8ba98218552495f7a9ec267990bdb3add32730d87281991089a",
+                "kind": "image",
+                "observed": true,
+                "service_id": "document-ingestion-api",
+                "verification": "attested-and-observed-image",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383149115
+              },
+              "offset": {
+                "after_manifest_sha256": "sha256:9eb0348e5ea144199781ab17328ad6e8c304d562f47759100f5b2ebad530a217",
+                "before_manifest_sha256": "sha256:b062ec990918df115267f40a04ee992c2d74361d4abe3976fdd98e1b56f68880",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "offset",
+                "observed": true,
+                "peer_serials": {
+                  "core-control-plane": 27,
+                  "document-processing-worker": 9,
+                  "isolated-executor": 8,
+                  "operator-service": 12
+                },
+                "service_id": "document-ingestion-api",
+                "verification": "peer-state-serials-preserved",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383149115
+              },
+              "schema": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "schema",
+                "migration_branch": "document-ingestion-api",
+                "observed": true,
+                "service_id": "document-ingestion-api",
+                "verification": "service-migration-upgrade",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383149115
+              },
+              "source": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:3ce12e14a1dceaa6697c247364fed7a273485aca9bfc97fdabb909f84e8e55c6",
+                "kind": "source",
+                "observed": true,
+                "plan_digest": "sha256:8fce62ec6023f3b7a1802694ba6c08e80ab4356c0360267f72784d71d6198800",
+                "service_id": "document-ingestion-api",
+                "verification": "protected-plan-source",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383149115
+              },
+              "topology": {
+                "after_manifest_sha256": "sha256:9eb0348e5ea144199781ab17328ad6e8c304d562f47759100f5b2ebad530a217",
+                "before_manifest_sha256": "sha256:b062ec990918df115267f40a04ee992c2d74361d4abe3976fdd98e1b56f68880",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "topology",
+                "observed": true,
+                "peer_count": 4,
+                "peer_projection_sha256": "sha256:32773fce0a249c12c53622f572e1ea64b3f4c216db3f21547d356a21263e4637",
+                "peer_services": [
+                  "core-control-plane",
+                  "document-processing-worker",
+                  "isolated-executor",
+                  "operator-service"
+                ],
+                "service_id": "document-ingestion-api",
+                "verification": "four-peer-isolation",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383149115
+              }
+            },
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T11:21:31Z",
+            "completed_at": "2026-08-10T11:25:10Z"
+          }
+        }
+      ]
+    },
+    {
+      "id": "document-processing-worker",
+      "distribution": "fdai-document-processing-worker",
+      "transition_sequence": [
+        "0.1.3",
+        "0.1.2",
+        "0.1.3"
+      ],
+      "stages": [
+        {
+          "name": "initial",
+          "release": "N",
+          "source_revision": "396a095a03af87b8d54026218068528059379a5a",
+          "image_digest": "sha256:7b78bb573b4664ed4632b9c4ab40fb39becd3334705ff22b9d61c499a8120792",
+          "plan": {
+            "workflow_run_id": 31378002894,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "deployment_mode": "standard",
+            "plan_digest": "sha256:9a1c9050a7846bc4767cc12e34025af3be74c9ecdbf7e1c85611e433ff97c091",
+            "context_digest": "sha256:300ba1f8ebafd9df6c4e195cfefb522d19914fc036ab830cc854a2f3ce590723",
+            "metadata_artifact_sha256": "sha256:bd5e1d5eafe08b2f7b1dcbafd6da43e2764a0c410ae0e0780bc7f9b52e892df0",
+            "peer_receipt_artifact_sha256": "sha256:1934f67a0f338a909bbb8784b46f3ec102fd5a92822ae5e50c66afc4463a5019",
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:10:54Z",
+            "completed_at": "2026-08-10T10:12:29Z"
+          },
+          "apply": {
+            "workflow_run_id": 31379117615,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "plan_run_id": 31378002894,
+            "plan_run_attempt": 1,
+            "plan_digest": "sha256:9a1c9050a7846bc4767cc12e34025af3be74c9ecdbf7e1c85611e433ff97c091",
+            "context_digest": "sha256:300ba1f8ebafd9df6c4e195cfefb522d19914fc036ab830cc854a2f3ce590723",
+            "peer_receipt_artifact_sha256": "sha256:e3c7fea58c05d7db5d242a2816cd977d6efe1b2082a680f552aa393c16d54d6e",
+            "live_observation_artifact_sha256": "sha256:60fb9bc3dcc8d952a2130d2c09cbccc8528f0d15986f49e3661aad93a75b7402",
+            "observations": {
+              "health": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "healthy_and_active": true,
+                "kind": "health",
+                "new_revision": true,
+                "observed": true,
+                "service_id": "document-processing-worker",
+                "verification": "post-apply-health",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31379117615
+              },
+              "identity": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:300ba1f8ebafd9df6c4e195cfefb522d19914fc036ab830cc854a2f3ce590723",
+                "kind": "identity",
+                "observed": true,
+                "service_id": "document-processing-worker",
+                "verification": "sealed-target-identity",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31379117615
+              },
+              "image": {
+                "attestations": [
+                  "provenance",
+                  "sbom"
+                ],
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "image_digest": "sha256:7b78bb573b4664ed4632b9c4ab40fb39becd3334705ff22b9d61c499a8120792",
+                "kind": "image",
+                "observed": true,
+                "service_id": "document-processing-worker",
+                "verification": "attested-and-observed-image",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31379117615
+              },
+              "offset": {
+                "after_manifest_sha256": "sha256:dde1c8a0103018310c8af4e67932bf5f8d1f370ec5b5f05ac07279f5bbb41fb9",
+                "before_manifest_sha256": "sha256:9ca5f11628b2019b4eb9679e66c1b902eac499cdf6d07d4dad3b2163db4e1c62",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "offset",
+                "observed": true,
+                "peer_serials": {
+                  "core-control-plane": 25,
+                  "document-ingestion-api": 10,
+                  "isolated-executor": 6,
+                  "operator-service": 10
+                },
+                "service_id": "document-processing-worker",
+                "verification": "peer-state-serials-preserved",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31379117615
+              },
+              "schema": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "schema",
+                "migration_branch": "document-processing-worker",
+                "observed": true,
+                "service_id": "document-processing-worker",
+                "verification": "service-migration-upgrade",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31379117615
+              },
+              "source": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:300ba1f8ebafd9df6c4e195cfefb522d19914fc036ab830cc854a2f3ce590723",
+                "kind": "source",
+                "observed": true,
+                "plan_digest": "sha256:9a1c9050a7846bc4767cc12e34025af3be74c9ecdbf7e1c85611e433ff97c091",
+                "service_id": "document-processing-worker",
+                "verification": "protected-plan-source",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31379117615
+              },
+              "topology": {
+                "after_manifest_sha256": "sha256:dde1c8a0103018310c8af4e67932bf5f8d1f370ec5b5f05ac07279f5bbb41fb9",
+                "before_manifest_sha256": "sha256:9ca5f11628b2019b4eb9679e66c1b902eac499cdf6d07d4dad3b2163db4e1c62",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "topology",
+                "observed": true,
+                "peer_count": 4,
+                "peer_projection_sha256": "sha256:10a4394e89035a83bb94c97933fcb3dd51605a0873888d15b29d3c157630a531",
+                "peer_services": [
+                  "core-control-plane",
+                  "document-ingestion-api",
+                  "isolated-executor",
+                  "operator-service"
+                ],
+                "service_id": "document-processing-worker",
+                "verification": "four-peer-isolation",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31379117615
+              }
+            },
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:26:15Z",
+            "completed_at": "2026-08-10T10:30:27Z"
+          }
+        },
+        {
+          "name": "rollback",
+          "release": "N-1",
+          "source_revision": "352c8d1e661a6a53f0958767550fd57c2b975706",
+          "image_digest": "sha256:d9d0c996fc6426b251f0748230708e35011c25f744a908f7dd155f678a623a84",
+          "plan": {
+            "workflow_run_id": 31380130936,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "deployment_mode": "standard",
+            "plan_digest": "sha256:8b5a516821b9707b9a0cde7bd8c52c6b74887131b8077b6abfad8e3ab18828d2",
+            "context_digest": "sha256:f3d08875914ff0c730223c4b57e4cec1b2b6e1e2ab12733b55ab8d64a972f9c9",
+            "metadata_artifact_sha256": "sha256:422123874a9c4189015f5761d9fc8726a5dbba5967d73d6685c0f238c73fd645",
+            "peer_receipt_artifact_sha256": "sha256:761bddd3a6803c5addc4bb4438f470f06d8a4351c00453243ce4351413962243",
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:40:12Z",
+            "completed_at": "2026-08-10T10:41:48Z"
+          },
+          "apply": {
+            "workflow_run_id": 31380967222,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "plan_run_id": 31380130936,
+            "plan_run_attempt": 1,
+            "plan_digest": "sha256:8b5a516821b9707b9a0cde7bd8c52c6b74887131b8077b6abfad8e3ab18828d2",
+            "context_digest": "sha256:f3d08875914ff0c730223c4b57e4cec1b2b6e1e2ab12733b55ab8d64a972f9c9",
+            "peer_receipt_artifact_sha256": "sha256:cd5d5b5e63d28c210abdffed048f95f21ab52e2450a55a49066604b75442fed5",
+            "live_observation_artifact_sha256": "sha256:1174875b95fe6b8011372734226b58451a0f6829a4a30d8e3b74fd3b78a2b32d",
+            "observations": {
+              "health": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "healthy_and_active": true,
+                "kind": "health",
+                "new_revision": true,
+                "observed": true,
+                "service_id": "document-processing-worker",
+                "verification": "post-apply-health",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380967222
+              },
+              "identity": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "context_digest": "sha256:f3d08875914ff0c730223c4b57e4cec1b2b6e1e2ab12733b55ab8d64a972f9c9",
+                "kind": "identity",
+                "observed": true,
+                "service_id": "document-processing-worker",
+                "verification": "sealed-target-identity",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380967222
+              },
+              "image": {
+                "attestations": [
+                  "provenance",
+                  "sbom"
+                ],
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "image_digest": "sha256:d9d0c996fc6426b251f0748230708e35011c25f744a908f7dd155f678a623a84",
+                "kind": "image",
+                "observed": true,
+                "service_id": "document-processing-worker",
+                "verification": "attested-and-observed-image",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380967222
+              },
+              "offset": {
+                "after_manifest_sha256": "sha256:e012e248be4688ae3004d61c9953e9d29e64d7adfa1661fa128dbcdfee5879e3",
+                "before_manifest_sha256": "sha256:1faf429bc0b01839f5a43f3170754bfe046da0dc0beda73dd78ce7627fb4fe44",
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "kind": "offset",
+                "observed": true,
+                "peer_serials": {
+                  "core-control-plane": 25,
+                  "document-ingestion-api": 11,
+                  "isolated-executor": 7,
+                  "operator-service": 11
+                },
+                "service_id": "document-processing-worker",
+                "verification": "peer-state-serials-preserved",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380967222
+              },
+              "schema": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "kind": "schema",
+                "migration_branch": "document-processing-worker",
+                "observed": true,
+                "service_id": "document-processing-worker",
+                "verification": "service-migration-upgrade",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380967222
+              },
+              "source": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "context_digest": "sha256:f3d08875914ff0c730223c4b57e4cec1b2b6e1e2ab12733b55ab8d64a972f9c9",
+                "kind": "source",
+                "observed": true,
+                "plan_digest": "sha256:8b5a516821b9707b9a0cde7bd8c52c6b74887131b8077b6abfad8e3ab18828d2",
+                "service_id": "document-processing-worker",
+                "verification": "protected-plan-source",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380967222
+              },
+              "topology": {
+                "after_manifest_sha256": "sha256:e012e248be4688ae3004d61c9953e9d29e64d7adfa1661fa128dbcdfee5879e3",
+                "before_manifest_sha256": "sha256:1faf429bc0b01839f5a43f3170754bfe046da0dc0beda73dd78ce7627fb4fe44",
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "kind": "topology",
+                "observed": true,
+                "peer_count": 4,
+                "peer_projection_sha256": "sha256:addd8c560a7217c9cc4fb1c4c193c95c13e160944333b0eee8fd400732628cbd",
+                "peer_services": [
+                  "core-control-plane",
+                  "document-ingestion-api",
+                  "isolated-executor",
+                  "operator-service"
+                ],
+                "service_id": "document-processing-worker",
+                "verification": "four-peer-isolation",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31380967222
+              }
+            },
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:51:41Z",
+            "completed_at": "2026-08-10T10:55:58Z"
+          }
+        },
+        {
+          "name": "restore",
+          "release": "N",
+          "source_revision": "396a095a03af87b8d54026218068528059379a5a",
+          "image_digest": "sha256:7b78bb573b4664ed4632b9c4ab40fb39becd3334705ff22b9d61c499a8120792",
+          "plan": {
+            "workflow_run_id": 31382299196,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "deployment_mode": "standard",
+            "plan_digest": "sha256:0ef1c6728394efc36e44deb040090ef7858c3d1823d457d0f9237dbee8feec77",
+            "context_digest": "sha256:300ba1f8ebafd9df6c4e195cfefb522d19914fc036ab830cc854a2f3ce590723",
+            "metadata_artifact_sha256": "sha256:7d173650b5324e031b5a6832bcb3be5cbcd0c80b8a059eadeda12f2a662c61d1",
+            "peer_receipt_artifact_sha256": "sha256:9efc7eeb798fb16a91c152b485d2fcbff1066fd6e4e4984b5605d7ee1692c6b3",
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T11:09:59Z",
+            "completed_at": "2026-08-10T11:11:31Z"
+          },
+          "apply": {
+            "workflow_run_id": 31383438949,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "plan_run_id": 31382299196,
+            "plan_run_attempt": 1,
+            "plan_digest": "sha256:0ef1c6728394efc36e44deb040090ef7858c3d1823d457d0f9237dbee8feec77",
+            "context_digest": "sha256:300ba1f8ebafd9df6c4e195cfefb522d19914fc036ab830cc854a2f3ce590723",
+            "peer_receipt_artifact_sha256": "sha256:e908eeff7db3f20bf05b0cce4ca10c0120427c094476f15ee0583c1fb36e5c4d",
+            "live_observation_artifact_sha256": "sha256:ffc7f918a59949f7b2668145885107d1878fc796a7e2da8e630c4e15b60e97fe",
+            "observations": {
+              "health": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "healthy_and_active": true,
+                "kind": "health",
+                "new_revision": true,
+                "observed": true,
+                "service_id": "document-processing-worker",
+                "verification": "post-apply-health",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383438949
+              },
+              "identity": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:300ba1f8ebafd9df6c4e195cfefb522d19914fc036ab830cc854a2f3ce590723",
+                "kind": "identity",
+                "observed": true,
+                "service_id": "document-processing-worker",
+                "verification": "sealed-target-identity",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383438949
+              },
+              "image": {
+                "attestations": [
+                  "provenance",
+                  "sbom"
+                ],
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "image_digest": "sha256:7b78bb573b4664ed4632b9c4ab40fb39becd3334705ff22b9d61c499a8120792",
+                "kind": "image",
+                "observed": true,
+                "service_id": "document-processing-worker",
+                "verification": "attested-and-observed-image",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383438949
+              },
+              "offset": {
+                "after_manifest_sha256": "sha256:1f9e27324307a17ce8ca41cfe77ef05b75a7994acc7670746293c5d898f2638b",
+                "before_manifest_sha256": "sha256:12fd49353d4d39ed29a95b7da4919474859f722cec42e5387d7bf57daa570fb1",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "offset",
+                "observed": true,
+                "peer_serials": {
+                  "core-control-plane": 27,
+                  "document-ingestion-api": 12,
+                  "isolated-executor": 8,
+                  "operator-service": 12
+                },
+                "service_id": "document-processing-worker",
+                "verification": "peer-state-serials-preserved",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383438949
+              },
+              "schema": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "schema",
+                "migration_branch": "document-processing-worker",
+                "observed": true,
+                "service_id": "document-processing-worker",
+                "verification": "service-migration-upgrade",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383438949
+              },
+              "source": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:300ba1f8ebafd9df6c4e195cfefb522d19914fc036ab830cc854a2f3ce590723",
+                "kind": "source",
+                "observed": true,
+                "plan_digest": "sha256:0ef1c6728394efc36e44deb040090ef7858c3d1823d457d0f9237dbee8feec77",
+                "service_id": "document-processing-worker",
+                "verification": "protected-plan-source",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383438949
+              },
+              "topology": {
+                "after_manifest_sha256": "sha256:1f9e27324307a17ce8ca41cfe77ef05b75a7994acc7670746293c5d898f2638b",
+                "before_manifest_sha256": "sha256:12fd49353d4d39ed29a95b7da4919474859f722cec42e5387d7bf57daa570fb1",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "topology",
+                "observed": true,
+                "peer_count": 4,
+                "peer_projection_sha256": "sha256:0a7c16675ae835a489d6898b954cc02efc98893f1dc0b713cd0895981939b7da",
+                "peer_services": [
+                  "core-control-plane",
+                  "document-ingestion-api",
+                  "isolated-executor",
+                  "operator-service"
+                ],
+                "service_id": "document-processing-worker",
+                "verification": "four-peer-isolation",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383438949
+              }
+            },
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T11:25:28Z",
+            "completed_at": "2026-08-10T11:29:50Z"
+          }
+        }
+      ]
+    },
+    {
+      "id": "isolated-executor",
+      "distribution": "fdai-isolated-executor-service",
+      "transition_sequence": [
+        "0.1.3",
+        "0.1.2",
+        "0.1.3"
+      ],
+      "stages": [
+        {
+          "name": "initial",
+          "release": "N",
+          "source_revision": "396a095a03af87b8d54026218068528059379a5a",
+          "image_digest": "sha256:f9ef428850f6060ec0fdbd441fe4b7d20e48f6a6a457658d097f1081870dec60",
+          "plan": {
+            "workflow_run_id": 31378137500,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "deployment_mode": "standard",
+            "plan_digest": "sha256:cc16782e487ecf9b318c6c8feaa547f9abd0e1137d2f74746f76ee2c642d13ee",
+            "context_digest": "sha256:e24607a161bb2fa721487f6eb61313bb713f134e70650d73716db2beb26f2e23",
+            "metadata_artifact_sha256": "sha256:018e885a7e9dbb0c454923307f8329a3bc102cd1dd3a48c86a533d942a631179",
+            "peer_receipt_artifact_sha256": "sha256:934f0cfb826c9504f426c02ce543f5b53cfb4b0aa55531b4746a3c8f1238bc78",
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:12:42Z",
+            "completed_at": "2026-08-10T10:14:14Z"
+          },
+          "apply": {
+            "workflow_run_id": 31379476652,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "plan_run_id": 31378137500,
+            "plan_run_attempt": 1,
+            "plan_digest": "sha256:cc16782e487ecf9b318c6c8feaa547f9abd0e1137d2f74746f76ee2c642d13ee",
+            "context_digest": "sha256:e24607a161bb2fa721487f6eb61313bb713f134e70650d73716db2beb26f2e23",
+            "peer_receipt_artifact_sha256": "sha256:cded5a469ce908affcd789af3a844754a5cd80848a45302b4c4b9860161047fe",
+            "live_observation_artifact_sha256": "sha256:a2ca9ebf3223f98fbe77c06eb2d9465b62c91e79acfe4e87f557cfd125ff59ea",
+            "observations": {
+              "health": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "healthy_and_active": true,
+                "kind": "health",
+                "new_revision": true,
+                "observed": true,
+                "service_id": "isolated-executor",
+                "verification": "post-apply-health",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31379476652
+              },
+              "identity": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:e24607a161bb2fa721487f6eb61313bb713f134e70650d73716db2beb26f2e23",
+                "kind": "identity",
+                "observed": true,
+                "service_id": "isolated-executor",
+                "verification": "sealed-target-identity",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31379476652
+              },
+              "image": {
+                "attestations": [
+                  "provenance",
+                  "sbom"
+                ],
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "image_digest": "sha256:f9ef428850f6060ec0fdbd441fe4b7d20e48f6a6a457658d097f1081870dec60",
+                "kind": "image",
+                "observed": true,
+                "service_id": "isolated-executor",
+                "verification": "attested-and-observed-image",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31379476652
+              },
+              "offset": {
+                "after_manifest_sha256": "sha256:57484d36ee36574c359c4d17f48628b3c059728a5e1a191f857360f3c82847f5",
+                "before_manifest_sha256": "sha256:2eff87d807a343a8056cd8021d1c29c13f6511115e24f6d5721dcbaa358dee34",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "offset",
+                "observed": true,
+                "peer_serials": {
+                  "core-control-plane": 25,
+                  "document-ingestion-api": 10,
+                  "document-processing-worker": 8,
+                  "operator-service": 10
+                },
+                "service_id": "isolated-executor",
+                "verification": "peer-state-serials-preserved",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31379476652
+              },
+              "schema": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "schema",
+                "migration_branch": "isolated-executor",
+                "observed": true,
+                "service_id": "isolated-executor",
+                "verification": "service-migration-upgrade",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31379476652
+              },
+              "source": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:e24607a161bb2fa721487f6eb61313bb713f134e70650d73716db2beb26f2e23",
+                "kind": "source",
+                "observed": true,
+                "plan_digest": "sha256:cc16782e487ecf9b318c6c8feaa547f9abd0e1137d2f74746f76ee2c642d13ee",
+                "service_id": "isolated-executor",
+                "verification": "protected-plan-source",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31379476652
+              },
+              "topology": {
+                "after_manifest_sha256": "sha256:57484d36ee36574c359c4d17f48628b3c059728a5e1a191f857360f3c82847f5",
+                "before_manifest_sha256": "sha256:2eff87d807a343a8056cd8021d1c29c13f6511115e24f6d5721dcbaa358dee34",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "topology",
+                "observed": true,
+                "peer_count": 4,
+                "peer_projection_sha256": "sha256:485cf28989d78f8d85d60fa23f4321520ddf13ccaf462140118123e7be3ac385",
+                "peer_services": [
+                  "core-control-plane",
+                  "document-ingestion-api",
+                  "document-processing-worker",
+                  "operator-service"
+                ],
+                "service_id": "isolated-executor",
+                "verification": "four-peer-isolation",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31379476652
+              }
+            },
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:31:08Z",
+            "completed_at": "2026-08-10T10:34:36Z"
+          }
+        },
+        {
+          "name": "rollback",
+          "release": "N-1",
+          "source_revision": "352c8d1e661a6a53f0958767550fd57c2b975706",
+          "image_digest": "sha256:743dd2907d96269496047fcdd44a8fde23c1ff88a945c17cdcc9ac01bf0357e2",
+          "plan": {
+            "workflow_run_id": 31380260637,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "deployment_mode": "standard",
+            "plan_digest": "sha256:486ee2c158c0cea62c2166210d63a64c3156e24d17ddd38ff1fb83e6c63a74c4",
+            "context_digest": "sha256:7f07117b9238629475fa51fa48d3c1485bdb1890c350424e99aae42ac44e0506",
+            "metadata_artifact_sha256": "sha256:c2bf25a860723d69cfeeb7e384ee5f5bdd955717d58ae2f95c1227cadb932a2c",
+            "peer_receipt_artifact_sha256": "sha256:841655bd3628b6416422efe05da60f45859027875ede461a5556cac4bcf0c94a",
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:42:00Z",
+            "completed_at": "2026-08-10T10:43:30Z"
+          },
+          "apply": {
+            "workflow_run_id": 31381301016,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "plan_run_id": 31380260637,
+            "plan_run_attempt": 1,
+            "plan_digest": "sha256:486ee2c158c0cea62c2166210d63a64c3156e24d17ddd38ff1fb83e6c63a74c4",
+            "context_digest": "sha256:7f07117b9238629475fa51fa48d3c1485bdb1890c350424e99aae42ac44e0506",
+            "peer_receipt_artifact_sha256": "sha256:9ba0d363b349e572f18d50c2bc42254ef6b6fb59fda5bac071501098ff94b23f",
+            "live_observation_artifact_sha256": "sha256:db8c551ff710623b735c0f83946537f7f055adacc9a0d51f6d536ae16b4e1293",
+            "observations": {
+              "health": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "healthy_and_active": true,
+                "kind": "health",
+                "new_revision": true,
+                "observed": true,
+                "service_id": "isolated-executor",
+                "verification": "post-apply-health",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31381301016
+              },
+              "identity": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "context_digest": "sha256:7f07117b9238629475fa51fa48d3c1485bdb1890c350424e99aae42ac44e0506",
+                "kind": "identity",
+                "observed": true,
+                "service_id": "isolated-executor",
+                "verification": "sealed-target-identity",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31381301016
+              },
+              "image": {
+                "attestations": [
+                  "provenance",
+                  "sbom"
+                ],
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "image_digest": "sha256:743dd2907d96269496047fcdd44a8fde23c1ff88a945c17cdcc9ac01bf0357e2",
+                "kind": "image",
+                "observed": true,
+                "service_id": "isolated-executor",
+                "verification": "attested-and-observed-image",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31381301016
+              },
+              "offset": {
+                "after_manifest_sha256": "sha256:61424edb42e6fd59a09ac4f148e72014c8d64fed71712edc0d13b2dd204d49be",
+                "before_manifest_sha256": "sha256:3cde681e99832061e2a01474318878d878eefddb5f0c7bd0138943c4f9bc3f03",
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "kind": "offset",
+                "observed": true,
+                "peer_serials": {
+                  "core-control-plane": 25,
+                  "document-ingestion-api": 11,
+                  "document-processing-worker": 9,
+                  "operator-service": 11
+                },
+                "service_id": "isolated-executor",
+                "verification": "peer-state-serials-preserved",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31381301016
+              },
+              "schema": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "kind": "schema",
+                "migration_branch": "isolated-executor",
+                "observed": true,
+                "service_id": "isolated-executor",
+                "verification": "service-migration-upgrade",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31381301016
+              },
+              "source": {
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "context_digest": "sha256:7f07117b9238629475fa51fa48d3c1485bdb1890c350424e99aae42ac44e0506",
+                "kind": "source",
+                "observed": true,
+                "plan_digest": "sha256:486ee2c158c0cea62c2166210d63a64c3156e24d17ddd38ff1fb83e6c63a74c4",
+                "service_id": "isolated-executor",
+                "verification": "protected-plan-source",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31381301016
+              },
+              "topology": {
+                "after_manifest_sha256": "sha256:61424edb42e6fd59a09ac4f148e72014c8d64fed71712edc0d13b2dd204d49be",
+                "before_manifest_sha256": "sha256:3cde681e99832061e2a01474318878d878eefddb5f0c7bd0138943c4f9bc3f03",
+                "commit_sha": "352c8d1e661a6a53f0958767550fd57c2b975706",
+                "kind": "topology",
+                "observed": true,
+                "peer_count": 4,
+                "peer_projection_sha256": "sha256:2cacfdc96d02526a50d18e4f268ee47524d5f49477066bdb3362f25e2131df2a",
+                "peer_services": [
+                  "core-control-plane",
+                  "document-ingestion-api",
+                  "document-processing-worker",
+                  "operator-service"
+                ],
+                "service_id": "isolated-executor",
+                "verification": "four-peer-isolation",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31381301016
+              }
+            },
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T10:56:09Z",
+            "completed_at": "2026-08-10T11:00:03Z"
+          }
+        },
+        {
+          "name": "restore",
+          "release": "N",
+          "source_revision": "396a095a03af87b8d54026218068528059379a5a",
+          "image_digest": "sha256:f9ef428850f6060ec0fdbd441fe4b7d20e48f6a6a457658d097f1081870dec60",
+          "plan": {
+            "workflow_run_id": 31382436287,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "deployment_mode": "standard",
+            "plan_digest": "sha256:34881e1c3be5c9958e2c2758944bae3cb379318e8acb13a8aa5a7291a88b09b1",
+            "context_digest": "sha256:e24607a161bb2fa721487f6eb61313bb713f134e70650d73716db2beb26f2e23",
+            "metadata_artifact_sha256": "sha256:d22999ce67c795140b76646d4742923704938c3f96f55b9a38df2706a9a764d6",
+            "peer_receipt_artifact_sha256": "sha256:cd8f988ad07d454b720dd82a48ec520764f26113439a3ca7fe872d7dcaf8279e",
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T11:11:48Z",
+            "completed_at": "2026-08-10T11:13:20Z"
+          },
+          "apply": {
+            "workflow_run_id": 31383773562,
+            "workflow_run_attempt": 1,
+            "workflow_head_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "controls_commit_sha": "94924cbeade460e61db7e6c777c865b3c86a427c",
+            "plan_run_id": 31382436287,
+            "plan_run_attempt": 1,
+            "plan_digest": "sha256:34881e1c3be5c9958e2c2758944bae3cb379318e8acb13a8aa5a7291a88b09b1",
+            "context_digest": "sha256:e24607a161bb2fa721487f6eb61313bb713f134e70650d73716db2beb26f2e23",
+            "peer_receipt_artifact_sha256": "sha256:52b36256f018904f1563b2d7878eb0782549840b0b5c0c1e5e1edd27bf5ef303",
+            "live_observation_artifact_sha256": "sha256:93d066ab2c7029f301cf1866d7355709f40b244e67f84b8cd16599574d1eafec",
+            "observations": {
+              "health": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "healthy_and_active": true,
+                "kind": "health",
+                "new_revision": true,
+                "observed": true,
+                "service_id": "isolated-executor",
+                "verification": "post-apply-health",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383773562
+              },
+              "identity": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:e24607a161bb2fa721487f6eb61313bb713f134e70650d73716db2beb26f2e23",
+                "kind": "identity",
+                "observed": true,
+                "service_id": "isolated-executor",
+                "verification": "sealed-target-identity",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383773562
+              },
+              "image": {
+                "attestations": [
+                  "provenance",
+                  "sbom"
+                ],
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "image_digest": "sha256:f9ef428850f6060ec0fdbd441fe4b7d20e48f6a6a457658d097f1081870dec60",
+                "kind": "image",
+                "observed": true,
+                "service_id": "isolated-executor",
+                "verification": "attested-and-observed-image",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383773562
+              },
+              "offset": {
+                "after_manifest_sha256": "sha256:fc4dad3d892d56396e17985eb4d534f7354e96e3070bdb806501e0dcecbb1681",
+                "before_manifest_sha256": "sha256:00961ad02c64c3e7eb3513ed8902c6cd7881c9c0af2dadba6d354df03fdb56f6",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "offset",
+                "observed": true,
+                "peer_serials": {
+                  "core-control-plane": 27,
+                  "document-ingestion-api": 12,
+                  "document-processing-worker": 10,
+                  "operator-service": 12
+                },
+                "service_id": "isolated-executor",
+                "verification": "peer-state-serials-preserved",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383773562
+              },
+              "schema": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "schema",
+                "migration_branch": "isolated-executor",
+                "observed": true,
+                "service_id": "isolated-executor",
+                "verification": "service-migration-upgrade",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383773562
+              },
+              "source": {
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "context_digest": "sha256:e24607a161bb2fa721487f6eb61313bb713f134e70650d73716db2beb26f2e23",
+                "kind": "source",
+                "observed": true,
+                "plan_digest": "sha256:34881e1c3be5c9958e2c2758944bae3cb379318e8acb13a8aa5a7291a88b09b1",
+                "service_id": "isolated-executor",
+                "verification": "protected-plan-source",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383773562
+              },
+              "topology": {
+                "after_manifest_sha256": "sha256:fc4dad3d892d56396e17985eb4d534f7354e96e3070bdb806501e0dcecbb1681",
+                "before_manifest_sha256": "sha256:00961ad02c64c3e7eb3513ed8902c6cd7881c9c0af2dadba6d354df03fdb56f6",
+                "commit_sha": "396a095a03af87b8d54026218068528059379a5a",
+                "kind": "topology",
+                "observed": true,
+                "peer_count": 4,
+                "peer_projection_sha256": "sha256:c45c17a3458bdcb31c445dd53e71a2c715809b0df0bb18decbc3df08e3caf98d",
+                "peer_services": [
+                  "core-control-plane",
+                  "document-ingestion-api",
+                  "document-processing-worker",
+                  "operator-service"
+                ],
+                "service_id": "isolated-executor",
+                "verification": "four-peer-isolation",
+                "workflow_run_attempt": 1,
+                "workflow_run_id": 31383773562
+              }
+            },
+            "peer_receipt_status": "verified",
+            "peer_count": 4,
+            "conclusion": "success",
+            "started_at": "2026-08-10T11:30:03Z",
+            "completed_at": "2026-08-10T11:33:20Z"
+          }
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "service_plan_apply_receipts": 5,
+    "service_upgrade_and_rollback_proofs": 5,
+    "protected_plan_runs": 15,
+    "protected_apply_runs": 15,
+    "peer_isolation_receipts": 30,
+    "outcome": "verified"
+  }
+}
