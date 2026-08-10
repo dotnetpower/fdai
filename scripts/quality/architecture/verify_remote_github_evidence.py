@@ -15,8 +15,8 @@ from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlparse
 
-from scripts.deployment.service.deployment_inputs import verify_unchanged
 from scripts.quality.architecture.remote_service_evidence import SERVICE_IDS
+from scripts.quality.architecture.transition_control_inputs import verify_unchanged
 
 REPOSITORY = "dotnetpower/fdai"
 REPO_ROOT = Path(__file__).resolve().parents[3]

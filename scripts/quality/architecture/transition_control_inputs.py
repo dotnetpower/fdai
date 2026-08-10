@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
-"""Compare exact service deployment controls while ignoring release-only versions."""
+"""Compare final-evidence controls without treating artifact-only builds as deploy inputs."""
 
 from __future__ import annotations
 
 import argparse
 import re
 import subprocess
+import sys
 from pathlib import Path
+
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+from scripts.deployment.service.deployment_inputs import DeploymentInputError
 
 STRICT_INPUTS = (
     ".github/workflows/service-deploy.yml",
@@ -16,11 +22,8 @@ STRICT_INPUTS = (
     "alembic.ini",
     "service-migrations",
 )
+STRICT_EXCLUSIONS = (":(exclude)scripts/deployment/service/apply_image_build_override.py",)
 SEMANTIC_INPUTS = ("pyproject.toml", "uv.lock")
-
-
-class DeploymentInputError(ValueError):
-    """Report changed or unreadable deployment-control inputs."""
 
 
 def _git(repository: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
@@ -35,14 +38,14 @@ def _git(repository: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
 def _require_commit(repository: Path, revision: str) -> str:
     completed = _git(repository, "rev-parse", "--verify", f"{revision}^{{commit}}")
     if completed.returncode != 0:
-        raise DeploymentInputError("deployment input revision is not a commit")
+        raise DeploymentInputError("transition control revision is not a commit")
     return completed.stdout.strip()
 
 
 def _text_at(repository: Path, revision: str, path: str) -> str:
     completed = _git(repository, "show", f"{revision}:{path}")
     if completed.returncode != 0:
-        raise DeploymentInputError(f"cannot read deployment input {path}")
+        raise DeploymentInputError(f"cannot read transition control input {path}")
     return completed.stdout
 
 
@@ -84,7 +87,7 @@ def _normalized_lock(value: str) -> str:
 
 
 def verify_unchanged(repository: Path, before: str, after: str) -> None:
-    """Reject changed deployment controls except root release version metadata."""
+    """Reject changed deployment inputs while excluding one supply-chain-only helper."""
     before_commit = _require_commit(repository, before)
     after_commit = _require_commit(repository, after)
     changed = _git(
@@ -95,11 +98,12 @@ def verify_unchanged(repository: Path, before: str, after: str) -> None:
         after_commit,
         "--",
         *STRICT_INPUTS,
+        *STRICT_EXCLUSIONS,
     )
     if changed.returncode not in {0, 1}:
-        raise DeploymentInputError("cannot compare strict deployment inputs")
+        raise DeploymentInputError("cannot compare strict transition control inputs")
     if changed.returncode == 1:
-        raise DeploymentInputError("strict deployment inputs changed after plan creation")
+        raise DeploymentInputError("strict transition control inputs changed")
 
     normalizers = {
         "pyproject.toml": _normalized_pyproject,
@@ -110,11 +114,11 @@ def verify_unchanged(repository: Path, before: str, after: str) -> None:
         if normalize(_text_at(repository, before_commit, path)) != normalize(
             _text_at(repository, after_commit, path)
         ):
-            raise DeploymentInputError(f"semantic deployment input changed: {path}")
+            raise DeploymentInputError(f"semantic transition control input changed: {path}")
 
 
 def main() -> int:
-    """Compare two protected revisions and fail closed on deployment drift."""
+    """Compare two revisions for final transition-evidence equivalence."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--before", required=True)
@@ -124,7 +128,7 @@ def main() -> int:
         verify_unchanged(args.repository, args.before, args.after)
     except DeploymentInputError as exc:
         parser.error(str(exc))
-    print("deployment-inputs: unchanged")
+    print("transition-control-inputs: unchanged")
     return 0
 
 

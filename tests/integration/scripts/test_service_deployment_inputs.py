@@ -9,6 +9,9 @@ from scripts.deployment.service.deployment_inputs import (
     DeploymentInputError,
     verify_unchanged,
 )
+from scripts.quality.architecture.transition_control_inputs import (
+    verify_unchanged as verify_transition_controls_unchanged,
+)
 
 
 def _git(repository: Path, *arguments: str) -> str:
@@ -115,7 +118,9 @@ def test_accepts_artifact_only_image_build_helper_change(tmp_path: Path) -> None
     helper.write_text("ARTIFACT_ONLY = True\n", encoding="utf-8")
     after = _commit(repository, "artifact helper")
 
-    verify_unchanged(repository, before, after)
+    with pytest.raises(DeploymentInputError, match="strict deployment inputs"):
+        verify_unchanged(repository, before, after)
+    verify_transition_controls_unchanged(repository, before, after)
 
 
 def test_rejects_other_deployment_helper_change(tmp_path: Path) -> None:
@@ -126,6 +131,8 @@ def test_rejects_other_deployment_helper_change(tmp_path: Path) -> None:
 
     with pytest.raises(DeploymentInputError, match="strict deployment inputs"):
         verify_unchanged(repository, before, after)
+    with pytest.raises(DeploymentInputError, match="strict transition control inputs"):
+        verify_transition_controls_unchanged(repository, before, after)
 
 
 def test_rejects_invalid_virtual_package_shape(tmp_path: Path) -> None:
