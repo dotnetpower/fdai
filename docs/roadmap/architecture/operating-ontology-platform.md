@@ -36,8 +36,10 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > reciprocal `peered_with` declarations as an unwired foundation. It consumes a bounded secured
 > query result only through an injected trusted receipt verifier and opaque verification context.
 > The contextual callback binds caller role, singleton purpose, ontology release, and projected
-> result digest to `FunctionInvocationContext`; no production issuer exists, so the function stays
-> unwired and a self-minted receipt is rejected. Evaluation time must exactly equal the receipt's
+> result digest to `FunctionInvocationContext`. Production composition now shares one bounded,
+> process-local HMAC authority between the secured gateway and function verifier. A restart
+> invalidates prior seals and fails closed, and a self-minted receipt is rejected. Evaluation time
+> must exactly equal the receipt's
 > trusted observation cutoff. Link effective, evidence, and recorded times cannot exceed that
 > cutoff, and freshness is capped at one year before timestamp arithmetic. Reciprocal peering needs
 > distinct direction-bound observation and verification receipt lineage; reusing one lineage for
@@ -272,10 +274,12 @@ The network competency foundation declares `query.network_path_segments` as an e
 deterministic `query` function. Its input is one purpose-bound `SecuredObjectSetQueryResult` plus
 explicit source, target, evaluation time, depth, and segment ceilings. It never calls an inventory
 provider. Registration requires a trusted `NetworkQueryReceiptVerifier` and an opaque
-composition-owned verification context. The contextual callback checks that the receipt role,
-singleton purpose, exact release, and result digest match `FunctionInvocationContext`, then asks the
-verifier to authenticate the same tuple. Because no production receipt issuer is available, this
-foundation remains unwired. `evaluated_at` must equal the receipt observation cutoff exactly. Link
+composition-owned verification context. `build_network_path_runtime` creates one shared bounded
+HMAC authority, configures the secured gateway to seal each returned receipt, and registers the
+function with the same authority. The contextual callback checks that the receipt role, singleton
+purpose, exact release, and result digest match `FunctionInvocationContext`, then asks the verifier
+to authenticate the same tuple. A self-minted or prior-process receipt has no matching seal and is
+rejected. `evaluated_at` must equal the receipt observation cutoff exactly. Link
 effective, evidence, and recorded times stay at or before that cutoff, and freshness ceilings above
 one year or overflowing timestamp arithmetic remain unverified. `attached_to` may be traversed
 inversely for a query while retaining its stored direction, `contains` and `routes_to` follow stored

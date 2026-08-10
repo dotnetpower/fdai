@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 43231a675aa7710942db7081632d06fa4ac6717d
+translation_source_sha: 0daa1f22c6b46d9daad043c71d2aa0f86426aa18
 translation_revised: 2026-08-10
 ---
 # FDAI 온톨로지 안전 인프라
@@ -39,8 +39,9 @@ exact schema pinning, generated SDK surface를 추가합니다. 모든 runtime t
 > `peered_with` declaration을 unwired foundation으로 추가합니다. Bounded secured query result는
 > injected trusted receipt verifier와 opaque verification context를 통해서만 사용합니다.
 > Contextual callback은 caller role, singleton purpose, ontology release 및 projected result
-> digest를 `FunctionInvocationContext`에 bind합니다. Production issuer가 없으므로 function은
-> unwired 상태로 유지되고 self-minted receipt는 차단됩니다. Evaluation time은 receipt의 trusted
+> digest를 `FunctionInvocationContext`에 bind합니다. Production composition은 secured gateway와
+> function verifier가 공유하는 bounded process-local HMAC authority를 제공합니다. Restart는 이전 seal을
+> 무효화하고 fail closed하며 self-minted receipt는 차단됩니다. Evaluation time은 receipt의 trusted
 > observation cutoff와 정확히 같아야 합니다. Link의 effective, evidence 및 recorded time은 이
 > cutoff를 넘을 수 없고 freshness는 timestamp 연산 전에 1년으로 제한됩니다. Reciprocal
 > peering에는 방향별로 구분된 observation 및 verification receipt lineage가 필요하며 두 방향에
@@ -274,9 +275,11 @@ Network competency foundation은 `query.network_path_segments`를 exact-release 
 `query` function으로 선언합니다. Input은 purpose-bound `SecuredObjectSetQueryResult` 하나와 명시적인
 source, target, evaluation time, depth 및 segment ceiling입니다. Inventory provider를 호출하지
 않습니다. 등록에는 trusted `NetworkQueryReceiptVerifier`와 composition이 소유한 opaque verification
-context가 필요합니다. Contextual callback은 receipt role, singleton purpose, exact release 및 result
-digest가 `FunctionInvocationContext`와 일치하는지 확인한 후 verifier에 같은 tuple의 인증을
-요청합니다. Production receipt issuer가 없으므로 이 foundation은 unwired 상태로 유지됩니다.
+context가 필요합니다. `build_network_path_runtime`은 shared bounded HMAC authority 하나를 만들고 secured
+gateway가 반환하는 각 receipt를 seal하도록 구성하며 같은 authority로 function을 등록합니다. Contextual
+callback은 receipt role, singleton purpose, exact release 및 result digest가 `FunctionInvocationContext`와
+일치하는지 확인한 후 verifier에 같은 tuple의 인증을 요청합니다. Self-minted 또는 이전 process의
+receipt에는 matching seal이 없으므로 차단됩니다.
 `evaluated_at`은 receipt observation cutoff와 정확히 같아야 합니다. Link effective, evidence 및
 recorded time은 이 cutoff와 같거나 이전이어야 하며 1년을 넘는 freshness ceiling 또는 overflow가
 발생하는 timestamp 연산은 unverified로 남습니다. `attached_to`는 stored direction을 유지하면서

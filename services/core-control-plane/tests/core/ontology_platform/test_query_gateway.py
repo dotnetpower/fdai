@@ -16,6 +16,8 @@ from fdai.core.ontology_platform.models import (
 from fdai.core.ontology_platform.object_sets import ObjectSetService
 from fdai.core.ontology_platform.query_gateway import (
     SecuredObjectSetQueryGateway,
+    SecuredObjectSetQueryReceipt,
+    SecuredObjectSetQueryReceiptIssuer,
     SecuredObjectSetQueryResult,
 )
 from fdai.shared.contracts.models import (
@@ -89,6 +91,7 @@ async def _gateway_with_records(
     object_type: OntologyObjectType,
     *records: OntologyObjectRecord,
     links: tuple[OntologyLinkRecord, ...] = (),
+    receipt_issuer: SecuredObjectSetQueryReceiptIssuer | None = None,
 ) -> SecuredObjectSetQueryGateway:
     link_type = OntologyLinkType(
         schema_version="1.0.0",
@@ -122,7 +125,31 @@ async def _gateway_with_records(
         ),
         evaluation_cutoff=lambda: datetime(2026, 8, 8, tzinfo=UTC),
         max_as_of_skew=timedelta(seconds=1),
+        receipt_issuer=receipt_issuer,
     )
+
+
+async def test_gateway_seals_exact_receipt_with_injected_issuer() -> None:
+    issued: list[SecuredObjectSetQueryReceipt] = []
+
+    class _Issuer:
+        def issue(self, receipt: SecuredObjectSetQueryReceipt) -> None:
+            issued.append(receipt)
+
+    object_type = _object_type()
+    gateway = await _gateway_with_records(
+        object_type,
+        OntologyObjectRecord(
+            id="resource-a",
+            object_type="Resource",
+            properties={"id": "resource-a", "label": "API"},
+        ),
+        receipt_issuer=_Issuer(),
+    )
+
+    result = await gateway.materialize(_definition(), projection_request=_request())
+
+    assert issued == [result.receipt]
 
 
 async def test_gateway_applies_role_redaction_to_every_returned_object() -> None:

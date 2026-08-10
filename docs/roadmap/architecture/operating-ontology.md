@@ -59,8 +59,9 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > and a read-only deterministic `query.network_path_segments` function foundation. The function
 > consumes one bounded, purpose-bound query result only after an injected verifier authenticates
 > its role, purpose, exact release, and projected-result digest against the contextual invocation
-> and an opaque composition-owned trust context. No production issuer is available, so the
-> foundation remains unwired and self-minted receipts are rejected. Evaluation time exactly equals
+> and an opaque composition-owned trust context. Production composition can now share a bounded
+> process-local HMAC issuer and verifier between the secured gateway and function registry;
+> self-minted and prior-process receipts are rejected. Evaluation time exactly equals
 > the trusted receipt cutoff; future effective, evidence, or recorded times and unbounded freshness
 > stay unverified. It preserves stored edge direction and requires two directed peering records with
 > distinct direction-bound observation and verification receipt lineage. Missing endpoints,

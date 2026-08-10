@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 41787fe393282845d6d9c03e60339f35895a0601
-translation_revised: 2026-08-09
+translation_source_sha: 390c761aa0493d916c591e668a0e29de7a252ca0
+translation_revised: 2026-08-10
 ---
 # FDAI 운영 온톨로지
 
@@ -63,8 +63,9 @@ cloud-operations 개념을 소유하고 deployment는 observed instance와 inten
 > 추가하고 read-only deterministic `query.network_path_segments` function foundation을 제공합니다.
 > Function은 injected verifier가 contextual invocation 및 composition 소유의 opaque trust context에
 > 대해 role, purpose, exact release 및 projected-result digest를 인증한 뒤에만 bounded 및
-> purpose-bound query result를 사용합니다. Production issuer가 없으므로 foundation은 unwired 상태로
-> 유지되고 self-minted receipt는 차단됩니다. Evaluation time은 trusted receipt cutoff와 정확히
+> purpose-bound query result를 사용합니다. Production composition은 secured gateway와 function
+> registry가 공유하는 bounded process-local HMAC issuer 및 verifier를 제공할 수 있습니다.
+> Self-minted 및 이전 process의 receipt는 차단됩니다. Evaluation time은 trusted receipt cutoff와 정확히
 > 같으며, future effective, evidence 또는 recorded time과 unbounded freshness는 unverified로
 > 남습니다. Stored edge direction을 보존하고 symmetric peering segment 하나에 방향별로 구분된
 > observation 및 verification receipt lineage를 가진 directed record 두 개를 요구합니다. 누락된

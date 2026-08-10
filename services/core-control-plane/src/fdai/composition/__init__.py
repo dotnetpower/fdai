@@ -94,6 +94,10 @@ from .wire_execution_backends import (  # noqa: E402 - public composition facade
     bind_execution_backends,
     load_execution_backend_registry_file,
 )
+from .wire_network_path import (  # noqa: E402,F401 - public composition facade
+    NetworkPathRuntimeBinding,
+    build_network_path_runtime,
+)
 
 
 def _local_fake_llm_bindings() -> LlmBindings:

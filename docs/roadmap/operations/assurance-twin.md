@@ -57,8 +57,10 @@ is composition of existing parts.
 > ledger, an off-path closure runner, and a durable active/challenger graph-model registry. The
 > closure runner updates only challenger slices from complete matched or mismatched independent
 > observations and audits that it neither mutates active models nor promotes. The control loop
-> accepts an explicitly injected graph coordinator and records shadow evidence only; production
-> graph request, model, and observed-trajectory source adapters remain deployment bindings.
+> accepts an explicitly injected graph coordinator and records shadow evidence only. Strict
+> `FDAI_GRAPH_DYNAMIC_CONFIG_JSON` composition now binds the production Azure graph request adapter,
+> durable active/challenger registry, and causal-receipt allowlist. The independent observed-
+> trajectory source remains a deployment binding.
 
 ## Why not a chatbot
 

@@ -119,6 +119,7 @@ from fdai.runtime.forecast_learning import (
     ForecastLearningRuntime,
     build_forecast_learning_runtime,
 )
+from fdai.runtime.graph_dynamic_evidence import bind_graph_dynamic_evidence_from_env
 from fdai.runtime.health import RuntimeHealthServer
 from fdai.runtime.operating_model import project_operating_model_from_env
 from fdai.runtime.post_turn_review import (
@@ -413,6 +414,11 @@ async def _run() -> int:
                 )
 
             container = await bind_dynamic_evidence_from_env(
+                container,
+                state_store=incident_audit_store,
+                environ=os.environ,
+            )
+            container = await bind_graph_dynamic_evidence_from_env(
                 container,
                 state_store=incident_audit_store,
                 environ=os.environ,

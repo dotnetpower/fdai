@@ -1,7 +1,7 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: ffc206ed30e4bd69f75b753f3706b75452626531
+translation_source_sha: d6bf6e1df40b23f9c7bb6e78a05824ed04861a2e
 translation_revised: 2026-08-10
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
@@ -54,8 +54,9 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 > closure runner 및 durable active/challenger graph-model registry를 추가합니다. Closure runner는
 > complete matched 또는 mismatched independent observation의 challenger slice만 update하고 active
 > model을 mutate하거나 promote하지 않았음을 audit합니다. Control loop는 명시적으로 injected graph
-> coordinator를 받아 shadow evidence만 기록하며 production graph request, model 및 observed-trajectory
-> source adapter는 deployment binding으로 남습니다.
+> coordinator를 받아 shadow evidence만 기록합니다. Strict `FDAI_GRAPH_DYNAMIC_CONFIG_JSON` composition은
+> production Azure graph request adapter, durable active/challenger registry 및 causal-receipt allowlist를
+> 연결합니다. Independent observed-trajectory source는 deployment binding으로 남습니다.
 
 ## 왜 챗봇이 아닌가
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
-from typing import Annotated, Any, Literal, cast
+from typing import Annotated, Any, Literal, Protocol, cast
 
 from pydantic import Field, model_validator
 
@@ -126,6 +126,12 @@ class UnsupportedObjectSetAsOfError(ValueError):
     temporal_support: Literal["current_state_only"] = "current_state_only"
 
 
+class SecuredObjectSetQueryReceiptIssuer(Protocol):
+    """Seal one gateway-created receipt in a composition-owned trust domain."""
+
+    def issue(self, receipt: SecuredObjectSetQueryReceipt) -> None: ...
+
+
 class SecuredObjectSetQueryGateway:
     """Materialize one bounded ObjectSet through shared role and purpose ACLs.
 
@@ -143,6 +149,7 @@ class SecuredObjectSetQueryGateway:
         ontology_release: OntologyRelease,
         evaluation_cutoff: Callable[[], datetime],
         max_as_of_skew: timedelta = timedelta(0),
+        receipt_issuer: SecuredObjectSetQueryReceiptIssuer | None = None,
     ) -> None:
         copied_types: dict[str, OntologyObjectType] = {}
         for name, declaration in object_types.items():
@@ -169,6 +176,7 @@ class SecuredObjectSetQueryGateway:
         self._ontology_release = ontology_release.ref()
         self._evaluation_cutoff = evaluation_cutoff
         self._max_as_of_skew_seconds = skew_seconds
+        self._receipt_issuer = receipt_issuer
 
     async def materialize(
         self,
@@ -228,6 +236,8 @@ class SecuredObjectSetQueryGateway:
             truncation_reason=secured_materialization.truncation_reason,
             redactions=summary,
         )
+        if self._receipt_issuer is not None:
+            self._receipt_issuer.issue(receipt)
         return SecuredObjectSetQueryResult(
             materialization=secured_materialization,
             receipt=receipt,
@@ -430,6 +440,7 @@ __all__ = [
     "ObjectSetRedactionSummary",
     "SecuredObjectSetQueryGateway",
     "SecuredObjectSetQueryReceipt",
+    "SecuredObjectSetQueryReceiptIssuer",
     "SecuredObjectSetQueryResult",
     "UnsupportedObjectSetAsOfError",
 ]
