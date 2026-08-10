@@ -1550,6 +1550,88 @@ def test_extract_attached_to_from_subnet_reference() -> None:
     assert edge.to_type == "network.subnet"
 
 
+def test_extract_attached_to_from_private_endpoint_target() -> None:
+    """A private endpoint points to its exact private-link service target."""
+    from fdai.delivery.azure.arg_query import (
+        _build_arm_to_neutral_map,
+        _extract_attached_to_links_from_row,
+        _to_neutral_id,
+    )
+
+    reverse = _build_arm_to_neutral_map(_vocab())
+    storage_id = (
+        "/subscriptions/example-subscription/resourceGroups/rg-data/providers/"
+        "Microsoft.Storage/storageAccounts/storage-example"
+    )
+    child = ResourceRecord(
+        resource_id="scope-example/resource-group/rg-app/private-endpoint/pe-1",
+        type="network.private-endpoint",
+        provider_ref=(
+            "/subscriptions/example-subscription/resourceGroups/rg-app/providers/"
+            "Microsoft.Network/privateEndpoints/pe-1"
+        ),
+    )
+    row = {
+        "properties": {
+            "privateLinkServiceConnections": [{"properties": {"privateLinkServiceId": storage_id}}]
+        }
+    }
+
+    (edge,) = _extract_attached_to_links_from_row(row, child=child, arm_to_neutral=reverse)
+    assert (edge.from_id, edge.link_type, edge.to_id, edge.to_type) == (
+        child.resource_id,
+        "attached_to",
+        _to_neutral_id(storage_id),
+        "object-storage",
+    )
+
+
+def test_extract_vnet_peering_requires_connected_direct_observation() -> None:
+    """One VNet row emits one direction and never invents its reciprocal."""
+    from fdai.delivery.azure.arg_projection import extract_peered_with_links_from_row
+    from fdai.delivery.azure.arg_query import _build_arm_to_neutral_map, _to_neutral_id
+
+    reverse = _build_arm_to_neutral_map(_vocab())
+    remote_id = (
+        "/subscriptions/example-subscription/resourceGroups/rg-network/providers/"
+        "Microsoft.Network/virtualNetworks/vnet-b"
+    )
+    child = ResourceRecord(
+        resource_id="scope-example/resource-group/rg-network/virtual-network/vnet-a",
+        type="network.vnet",
+    )
+    row = {
+        "properties": {
+            "virtualNetworkPeerings": [
+                {
+                    "properties": {
+                        "peeringState": "Connected",
+                        "remoteVirtualNetwork": {"id": remote_id},
+                    }
+                },
+                {
+                    "properties": {
+                        "peeringState": "Disconnected",
+                        "remoteVirtualNetwork": {"id": remote_id + "-old"},
+                    }
+                },
+            ]
+        }
+    }
+
+    (edge,) = extract_peered_with_links_from_row(
+        row,
+        child=child,
+        arm_to_neutral=reverse,
+    )
+    assert (edge.from_id, edge.link_type, edge.to_id) == (
+        child.resource_id,
+        "peered_with",
+        _to_neutral_id(remote_id),
+    )
+    assert edge.to_type == "network.vnet"
+
+
 def test_reverse_map_reports_shared_arm_type_gap(
     caplog: pytest.LogCaptureFixture,
 ) -> None:

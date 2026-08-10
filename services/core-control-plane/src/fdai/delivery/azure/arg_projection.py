@@ -189,7 +189,9 @@ _ATTACHED_TO_PROPERTY_KEYS: Final[tuple[str, ...]] = (
 _ATTACHED_TO_COLLECTION_KEYS: Final[tuple[str, ...]] = (
     "frontendIPConfigurations",
     "ipConfigurations",
+    "privateLinkServiceConnections",
 )
+_ATTACHED_TO_ARM_ID_STRING_KEYS: Final[tuple[str, ...]] = ("privateLinkServiceId",)
 
 
 def build_arm_to_neutral_map(registry: ResourceTypeRegistry) -> dict[str, str]:
@@ -300,6 +302,60 @@ def _attachment_ids(properties: Mapping[str, Any]) -> Iterable[str]:
             nested = attachment_properties.get(key)
             if isinstance(nested, Mapping) and isinstance(nested.get("id"), str):
                 yield nested["id"]
+        for key in _ATTACHED_TO_ARM_ID_STRING_KEYS:
+            value = attachment_properties.get(key)
+            if isinstance(value, str):
+                yield value
+
+
+def extract_peered_with_links_from_row(
+    row: Mapping[str, Any],
+    *,
+    child: ResourceRecord,
+    arm_to_neutral: Mapping[str, str],
+) -> tuple[LinkRecord, ...]:
+    """Project one directed record for each connected VNet peering observation.
+
+    A symmetric relationship exists only when the remote VNet's own observation
+    supplies the reverse record. A unilateral row never implies reciprocity.
+    """
+
+    if child.type != _VNET_TYPE:
+        return ()
+    properties = row.get("properties")
+    if not isinstance(properties, Mapping):
+        return ()
+    peerings = properties.get("virtualNetworkPeerings")
+    if not isinstance(peerings, Sequence) or isinstance(peerings, (str, bytes)):
+        return ()
+    links: dict[str, LinkRecord] = {}
+    for peering in peerings:
+        if not isinstance(peering, Mapping):
+            continue
+        nested = peering.get("properties")
+        if not isinstance(nested, Mapping):
+            continue
+        state = nested.get("peeringState")
+        if not isinstance(state, str) or state.casefold() != "connected":
+            continue
+        remote = nested.get("remoteVirtualNetwork")
+        remote_id = remote.get("id") if isinstance(remote, Mapping) else None
+        if not isinstance(remote_id, str):
+            continue
+        arm_type = arm_id_to_type(remote_id)
+        if arm_type is None or arm_to_neutral.get(arm_type.casefold()) != _VNET_TYPE:
+            continue
+        target_id = to_neutral_id(remote_id)
+        if target_id == child.resource_id:
+            continue
+        links[target_id] = LinkRecord(
+            from_id=child.resource_id,
+            from_type=child.type,
+            link_type="peered_with",
+            to_id=target_id,
+            to_type=_VNET_TYPE,
+        )
+    return tuple(links[key] for key in sorted(links))
 
 
 def _vm_attachment_ids(properties: Mapping[str, Any]) -> Iterable[str]:

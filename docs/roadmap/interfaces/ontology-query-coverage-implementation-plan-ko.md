@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 87a70a46e8964793f56e2a3d07ad162aab558680
+translation_source_sha: bcaf42838bb973064bfa6cafb7759e7e5b359b0c
 translation_revised: 2026-08-10
 ---
 
@@ -34,6 +34,10 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > stable failure reason 및 task receipt를 갖춘 exact-release query DAG executor가 포함됩니다. ObjectSet
 > materialization은 첫 built-in handler이며 set, aggregation, projection, temporal 및 evidence-join
 > handler는 남아 있습니다.
+> OQ-07은 이제 current connected VNet peering record를 observed direction으로 projection하고 private
+> endpoint를 exact private-link service target에 attach합니다. Reverse peering에는 여전히 독립적인
+> remote-VNet observation이 필요합니다. Route, workload/service mapping, observation receipt 및
+> production network-path issuer는 남아 있습니다.
 
 ## 설계 개요
 

@@ -33,6 +33,10 @@ units for 100% structural query coverage.
 > timeout, cancellation, blocked-descendant handling, stable failure reasons, and task receipts.
 > ObjectSet materialization is the first built-in handler; set, aggregation, projection, temporal,
 > and evidence-join handlers remain.
+> OQ-07 now projects current connected VNet peering records in the observed direction and private
+> endpoint attachments to their exact private-link service targets. Reverse peering still requires
+> an independent remote-VNet observation. Routes, workload/service mappings, observation receipts,
+> and the production network-path issuer remain.
 
 ## Design at a glance
 
