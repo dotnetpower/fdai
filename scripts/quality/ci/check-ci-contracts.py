@@ -304,10 +304,12 @@ def _validate_privileged_workflow_guards() -> list[str]:
                 )
         exact_source_fragments = (
             f"PROTECTED_WORKFLOW_PATH: {relative}",
-            "diff --quiet",
             '"$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH"',
             '"refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"',
         )
+        has_exact_source_guard = all(
+            fragment in content for fragment in exact_source_fragments
+        ) and any(flag in content for flag in ("diff --brief", "diff -q", "diff --quiet"))
         protected_controls_fragments = (
             "path: trusted-controls",
             "ref: main",
@@ -316,7 +318,7 @@ def _validate_privileged_workflow_guards() -> list[str]:
             'controls_commit_sha="$(git -C "$TRUSTED_CONTROLS" rev-parse HEAD)"',
             "deployment controls do not match protected origin/main.",
         )
-        if not all(fragment in content for fragment in exact_source_fragments) and not all(
+        if not has_exact_source_guard and not all(
             fragment in content for fragment in protected_controls_fragments
         ):
             errors.append(
