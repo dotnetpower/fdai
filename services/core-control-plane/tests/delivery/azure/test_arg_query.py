@@ -1231,6 +1231,7 @@ def test_resource_group_query_uses_resource_containers() -> None:
     )
     query = factory._build_query(arm_type="Microsoft.Resources/resourceGroups")
     assert query.startswith("ResourceContainers |")
+    assert "type =~ 'microsoft.resources/subscriptions/resourcegroups'" in query
 
 
 def test_neutral_ids_do_not_collide_across_subscriptions() -> None:

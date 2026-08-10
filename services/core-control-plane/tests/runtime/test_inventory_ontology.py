@@ -84,6 +84,37 @@ async def test_first_generation_writes_owned_objects_and_manifest() -> None:
     assert manifest["generation"] == "snapshot-1"
 
 
+async def test_one_resource_can_retain_multiple_observed_attachments() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    projector = InventoryOntologyProjector(store=store, status_store=status)
+
+    result = await projector.apply(
+        _observation(
+            generation="snapshot-attachments",
+            resource_ids=("vm-1", "network-1", "disk-1"),
+            links=(
+                LinkRecord(
+                    from_id="vm-1",
+                    from_type="compute.vm",
+                    link_type="attached_to",
+                    to_id="network-1",
+                    to_type="compute.vm",
+                ),
+                LinkRecord(
+                    from_id="vm-1",
+                    from_type="compute.vm",
+                    link_type="attached_to",
+                    to_id="disk-1",
+                    to_type="compute.vm",
+                ),
+            ),
+        )
+    )
+
+    assert result.link_count == 2
+
+
 async def test_next_generation_deletes_disappeared_resources() -> None:
     store = _store()
     status = InMemoryStateStore()

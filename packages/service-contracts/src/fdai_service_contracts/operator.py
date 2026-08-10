@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import Literal, Protocol, TypeAlias
 
@@ -184,6 +185,8 @@ class OperatorReadModel(Protocol):
     async def list_audit(self, query: AuditQuery) -> PageProjection: ...
 
     async def dashboard_metrics(self) -> JsonProjection: ...
+
+    async def llm_usage(self, range_start: datetime, range_end: datetime) -> JsonProjection: ...
 
     async def list_hil_queue(self, query: HilQueueQuery) -> HilQueueProjection: ...
 

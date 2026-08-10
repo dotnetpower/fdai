@@ -16,12 +16,16 @@ from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
 )
+from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_operator_service.postgres_sql import (
     AUDIT_PAGE_SQL,
     HIL_COUNT_SQL,
     HIL_PAGE_SQL,
     INCIDENT_PAGE_SQL,
     KPI_SAMPLE_SQL,
+    LLM_USAGE_CONVERSATIONS_SQL,
+    LLM_USAGE_RECORDS_SQL,
+    LLM_USAGE_SUMMARIES_SQL,
 )
 from fdai_operator_service.routes import _sse_frame
 from fdai_service_contracts import (
@@ -54,6 +58,23 @@ class ReadinessPostgresFamilyStore(PostgresFamilyStore):
     ) -> list[dict[str, Any]]:
         self.calls.append((statement, parameters))
         return [self.row]
+
+
+class ProjectionPostgresFamilyStore(PostgresFamilyStore):
+    """Return one Settings projection without opening PostgreSQL."""
+
+    def __init__(self, payload: dict[str, object]) -> None:
+        super().__init__(
+            PostgresFamilyStoreConfig(
+                dsn="postgresql://example.invalid/db",
+                role="fdai_operator",
+            )
+        )
+        self.payload = payload
+
+    async def read_projection(self, *, family: str, operation: str) -> dict[str, object]:
+        assert (family, operation) == ("iam", "model-settings")
+        return self.payload
 
 
 def test_sqlalchemy_psycopg_dsn_is_normalized_for_direct_driver_use() -> None:
@@ -89,6 +110,10 @@ async def test_operator_readiness_verifies_role_and_privileges_without_durable_w
         "NOT has_table_privilege(current_user, 'audit_log', 'INSERT')",
         "NOT has_table_privilege(current_user, 'audit_log', 'UPDATE')",
         "NOT has_table_privilege(current_user, 'state_kv', 'DELETE')",
+        "has_table_privilege(current_user, 'llm_invocation', 'SELECT')",
+        "NOT has_table_privilege(current_user, 'llm_invocation', 'INSERT')",
+        "NOT has_table_privilege(current_user, 'llm_invocation', 'UPDATE')",
+        "NOT has_table_privilege(current_user, 'llm_invocation', 'DELETE')",
         "NOT has_schema_privilege(current_user, 'public', 'CREATE')",
     ):
         assert fragment in statement
@@ -101,6 +126,21 @@ async def test_operator_readiness_rejects_role_or_privilege_failure() -> None:
     store = ReadinessPostgresFamilyStore({"ready": False})
 
     assert await store.probe_readiness() is False
+
+
+@pytest.mark.asyncio
+async def test_model_projection_injects_principal_capability_at_nested_contract() -> None:
+    adapters = PostgresIamAdapters(
+        ProjectionPostgresFamilyStore({"web_search": {"available": True}})
+    )
+
+    projection = await adapters.projection(
+        "principal-1",
+        can_manage_web_search=True,
+    )
+
+    assert projection["web_search"] == {"available": True, "can_manage": True}
+    assert "can_manage_web_search" not in projection
 
 
 def _audit_row(
@@ -133,6 +173,9 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
         self.audit_rows: list[dict[str, object]] = []
         self.hil_rows: list[dict[str, object]] = []
         self.incident_rows: list[dict[str, object]] = []
+        self.llm_summary_rows: list[dict[str, object]] = []
+        self.llm_conversation_rows: list[dict[str, object]] = []
+        self.llm_record_rows: list[dict[str, object]] = []
 
     async def _fetch_all(
         self,
@@ -150,6 +193,12 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
             return self.hil_rows
         if statement == INCIDENT_PAGE_SQL:
             return self.incident_rows
+        if statement == LLM_USAGE_SUMMARIES_SQL:
+            return self.llm_summary_rows
+        if statement == LLM_USAGE_CONVERSATIONS_SQL:
+            return self.llm_conversation_rows
+        if statement == LLM_USAGE_RECORDS_SQL:
+            return self.llm_record_rows
         raise AssertionError("unexpected SQL statement")
 
 
@@ -247,6 +296,72 @@ async def test_kpi_uses_bounded_sample_and_authoritative_hil_count() -> None:
     assert payload["by_tier"] == {"t0": 1}
     kpi_call = next(call for call in model.calls if call[0] == KPI_SAMPLE_SQL)
     assert kpi_call[1]["limit"] == 500
+
+
+@pytest.mark.asyncio
+async def test_llm_usage_projects_measured_tokens_without_price_fields() -> None:
+    model = StubPostgresReadModel()
+    model.llm_summary_rows = [
+        {
+            "group_kind": kind,
+            "group_key": key,
+            "invocations": invocations,
+            "prompt_tokens": prompt,
+            "completion_tokens": completion,
+        }
+        for kind, key, invocations, prompt, completion in (
+            ("total", "total", 2, 30, 12),
+            ("chat", "chat", 1, 10, 5),
+            ("scope", "control_plane", 1, 20, 7),
+            ("scope", "operator_chat", 1, 10, 5),
+            ("model", "model-a", 2, 30, 12),
+            ("chat_model", "model-a", 1, 10, 5),
+            ("mode", "shadow", 2, 30, 12),
+            ("hour", "2026-08-08T00:00:00Z", 2, 30, 12),
+            ("day", "2026-08-08", 2, 30, 12),
+            ("month", "2026-08", 2, 30, 12),
+        )
+    ]
+    model.llm_conversation_rows = [
+        {
+            "group_key": "corr-1",
+            "invocations": 2,
+            "prompt_tokens": 30,
+            "completion_tokens": 12,
+            "conversation_count": 1,
+        }
+    ]
+    model.llm_record_rows = [
+        {
+            "occurred_at": _NOW,
+            "correlation_id": "corr-1",
+            "capability_id": "narrator",
+            "model_key": "model-a",
+            "tier": "narrator",
+            "mode": "shadow",
+            "usage_scope": "operator_chat",
+            "prompt_tokens": 10,
+            "completion_tokens": 5,
+            "record_count": 2,
+        }
+    ]
+
+    payload = (await model.llm_usage(_NOW, _NOW.replace(day=9))).to_dict()
+
+    assert payload["invocations"] == 2
+    assert payload["total"]["total_tokens"] == 42
+    assert payload["chat"]["total_tokens"] == 15
+    assert payload["by_conversation"][0]["key"] == "corr-1"
+    assert payload["records"][0]["total_tokens"] == 15
+    assert payload["record_count"] == 2
+    assert "cost" not in payload["total"]
+    for statement in (
+        LLM_USAGE_SUMMARIES_SQL,
+        LLM_USAGE_CONVERSATIONS_SQL,
+        LLM_USAGE_RECORDS_SQL,
+    ):
+        call = next(item for item in model.calls if item[0] == statement)
+        assert call[1]["range_start"] == _NOW
 
 
 @pytest.mark.asyncio

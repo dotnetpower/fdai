@@ -224,6 +224,7 @@ def _build_data_sources(*, configured: bool) -> tuple[ReadDataSource, ...]:
                 "/incidents",
                 "/incidents/stream",
                 "/kpi",
+                "/kpi/llm-cost",
                 "/rca",
             ),
             availability="unknown" if configured else "unavailable",

@@ -19,6 +19,86 @@ SELECT seq, action_kind, mode, entry, created_at
  LIMIT %(limit)s
 """
 
+LLM_USAGE_SUMMARIES_SQL: Final = """
+WITH filtered AS (
+    SELECT occurred_at, correlation_id, model_key, mode, usage_scope,
+           prompt_tokens, completion_tokens
+      FROM llm_invocation
+     WHERE occurred_at >= %(range_start)s
+       AND occurred_at < %(range_end)s
+), summaries AS (
+    SELECT 'total' AS group_kind, 'total' AS group_key,
+           COUNT(*) AS invocations,
+           COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
+           COALESCE(SUM(completion_tokens), 0) AS completion_tokens
+      FROM filtered
+    UNION ALL
+    SELECT 'chat', 'chat', COUNT(*),
+           COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0)
+      FROM filtered WHERE usage_scope = 'operator_chat'
+    UNION ALL
+    SELECT 'scope', usage_scope, COUNT(*), SUM(prompt_tokens), SUM(completion_tokens)
+      FROM filtered GROUP BY usage_scope
+    UNION ALL
+    SELECT 'model', model_key, COUNT(*), SUM(prompt_tokens), SUM(completion_tokens)
+      FROM filtered GROUP BY model_key
+    UNION ALL
+    SELECT 'chat_model', model_key, COUNT(*), SUM(prompt_tokens), SUM(completion_tokens)
+      FROM filtered WHERE usage_scope = 'operator_chat' GROUP BY model_key
+    UNION ALL
+    SELECT 'mode', mode, COUNT(*), SUM(prompt_tokens), SUM(completion_tokens)
+      FROM filtered GROUP BY mode
+    UNION ALL
+    SELECT 'hour', TO_CHAR(
+               DATE_TRUNC('hour', occurred_at AT TIME ZONE 'UTC'),
+               'YYYY-MM-DD"T"HH24:MI:SS"Z"'
+           ), COUNT(*), SUM(prompt_tokens), SUM(completion_tokens)
+      FROM filtered GROUP BY DATE_TRUNC('hour', occurred_at AT TIME ZONE 'UTC')
+    UNION ALL
+    SELECT 'day', TO_CHAR(
+               DATE_TRUNC('day', occurred_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD'
+           ), COUNT(*), SUM(prompt_tokens), SUM(completion_tokens)
+      FROM filtered GROUP BY DATE_TRUNC('day', occurred_at AT TIME ZONE 'UTC')
+    UNION ALL
+    SELECT 'month', TO_CHAR(
+               DATE_TRUNC('month', occurred_at AT TIME ZONE 'UTC'), 'YYYY-MM'
+           ), COUNT(*), SUM(prompt_tokens), SUM(completion_tokens)
+      FROM filtered GROUP BY DATE_TRUNC('month', occurred_at AT TIME ZONE 'UTC')
+)
+SELECT group_kind, group_key, invocations, prompt_tokens, completion_tokens
+  FROM summaries
+ ORDER BY group_kind, group_key
+"""
+
+LLM_USAGE_CONVERSATIONS_SQL: Final = """
+WITH grouped AS (
+    SELECT correlation_id AS group_key, COUNT(*) AS invocations,
+           SUM(prompt_tokens) AS prompt_tokens,
+           SUM(completion_tokens) AS completion_tokens
+      FROM llm_invocation
+     WHERE occurred_at >= %(range_start)s
+       AND occurred_at < %(range_end)s
+     GROUP BY correlation_id
+), counted AS (
+    SELECT grouped.*, COUNT(*) OVER() AS conversation_count FROM grouped
+)
+SELECT group_key, invocations, prompt_tokens, completion_tokens, conversation_count
+  FROM counted
+ ORDER BY group_key
+ LIMIT %(fetch)s
+"""
+
+LLM_USAGE_RECORDS_SQL: Final = """
+SELECT occurred_at, correlation_id, capability_id, model_key, tier, mode,
+       usage_scope, prompt_tokens, completion_tokens,
+       COUNT(*) OVER() AS record_count
+  FROM llm_invocation
+ WHERE occurred_at >= %(range_start)s
+   AND occurred_at < %(range_end)s
+ ORDER BY occurred_at DESC, invocation_id DESC
+ LIMIT %(fetch)s
+"""
+
 HIL_COUNT_SQL: Final = """
 SELECT COUNT(*) AS total_count
   FROM state_kv
@@ -192,4 +272,7 @@ __all__ = [
     "HIL_PAGE_SQL",
     "INCIDENT_PAGE_SQL",
     "KPI_SAMPLE_SQL",
+    "LLM_USAGE_CONVERSATIONS_SQL",
+    "LLM_USAGE_RECORDS_SQL",
+    "LLM_USAGE_SUMMARIES_SQL",
 ]

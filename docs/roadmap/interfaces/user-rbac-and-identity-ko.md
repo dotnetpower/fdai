@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 238bb7ebf31f1414b2a747d78f5f51c4678b4f0a
+translation_source_sha: f2fcaa5022c10170be9e2fd1645e717165641fac
 translation_revised: 2026-08-10
 ---
 
@@ -500,8 +500,8 @@ Settings activity bar 그룹은 콘솔의 클라우드 권한을 넓히지 않�
 | 경로 | 목적 |
 |------|------|
 | `/settings/general` | 브라우저 로컬 표시, 언어, 모션 및 답변 검증 환경 설정입니다. |
-| `/settings/models` | 해결된 T1/T2 모델, 라이프사이클 및 지연 시간 근거, 로그인 사용자의 T1 narrator 선호, runtime state를 변경하지 않는 distinct-publisher T2 catalog 초안 builder입니다. |
-| `/settings/runtime-policies` | Allowlist된 런타임 정책의 정제된 environment, durable override 및 effective value를 표시합니다. Reader는 조회하고 Owner는 revision 및 audit 검사를 통해 업데이트합니다. |
+| `/settings/models` | 해결된 T1/T2 모델, 라이프사이클 및 지연 시간 근거, 로그인 사용자의 T1 narrator 선호, runtime state를 변경하지 않는 distinct-publisher T2 catalog 초안 builder입니다. Interactive local은 tenant identifier, endpoint 또는 credential을 복사하지 않고 준비된 resolved-model artifact에서 이 view를 materialize합니다. |
+| `/settings/runtime-policies` | Allowlist된 runtime policy의 sanitized environment, durable override 및 effective value를 표시합니다. Interactive local은 readiness를 추론하지 않고 검증된 준비 environment에서 diagnostics와 configured integration state를 materialize합니다. Reader는 조회하고 Owner는 revision 및 audit 검사를 통해 업데이트합니다. |
 | `/settings/memory` | Provider가 등록된 경우 durable operator guidance를 표시하고, 그렇지 않으면 명시적인 unavailable 상태를 표시합니다. |
 | `/settings/iam` | 로그인 principal, App Role, 유효 기능, 참조된 사용자 및 액세스 요청입니다. |
 | `/settings/integrations` | ID, 전달 및 운영자 채널 연결의 읽기 전용 상태입니다. |

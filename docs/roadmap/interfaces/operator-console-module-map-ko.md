@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: ac2cc6c944f0ef03f03b17bc592c3a9d2d22d164
+translation_source_sha: e02050f3447d0828cb1e634c6e0fe2916766527b
 translation_revised: 2026-08-08
 ---
 # Operator Console Module Map and Boundaries
@@ -419,7 +419,7 @@ signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migrati
 | `persistence/` | Operator API read-model 및 conversation-state persistence implementation | 소유된 store contract 뒤에 유지합니다. |
 | `persistence/conversation/` | Principal 범위 transcript, policy receipt, replay metadata 및 conversation-image lifecycle persistence | Explicit facade로 import하고 HTTP, SSE, authentication, status mapping 및 transport는 route에 유지합니다. |
 | `projections/` | HTTP route 밖의 read-only projection ownership | Migrated family의 owner로 유지합니다. |
-| `projections/audit/` | Audit query 및 autonomy/FinOps measurement projection | Explicit facade를 통해 import하고 기존 route module은 shim으로 유지합니다. |
+| `projections/audit/` | Audit query 및 autonomy/FinOps measurement projection | Independent Operator Service가 bounded `GET /kpi/llm-cost`를 포함한 동등한 PostgreSQL read model을 소유합니다. Pricing, executor authority 및 Core implementation import는 해당 service 밖에 유지합니다. |
 | `projections/change_lineage/` | Bounded canonical Change-lineage summary 및 detail view | Explicit facade로 import하고 HTTP, provider I/O, persistence, execution 및 promotion은 package 밖에 유지합니다. |
 | `projections/conversation/` | Screen data, exact document evidence, model trace, trajectory detail, resource response context 및 queue에 수락된 progress metric reduction을 포함하는 request-local conversation read projection | Service-graduation evidence가 준비될 때까지 process 안에 유지합니다. |
 | `projections/conversation/presentation/` | Value-free layout selection 및 검증된 evidence artifact compilation | Explicit facade로 import하고 JSON 및 SSE behavior는 route에 유지합니다. |

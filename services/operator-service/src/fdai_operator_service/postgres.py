@@ -30,13 +30,18 @@ from fdai_operator_service.postgres_sql import (
     HIL_PAGE_SQL,
     INCIDENT_PAGE_SQL,
     KPI_SAMPLE_SQL,
+    LLM_USAGE_CONVERSATIONS_SQL,
+    LLM_USAGE_RECORDS_SQL,
+    LLM_USAGE_SUMMARIES_SQL,
 )
 from fdai_operator_service.projection_logic import (
     KPI_SAMPLE_LIMIT,
+    LLM_USAGE_DETAIL_LIMIT,
     audit_item,
     dashboard_kpi,
     hil_item,
     incident_summary,
+    llm_usage_projection,
     rule_fire_trace,
 )
 from fdai_operator_service.projections import ProjectionUnavailableError
@@ -89,6 +94,31 @@ class PostgresOperatorReadModel:
         )
         pending = int(pending_rows[0]["total_count"]) if pending_rows else 0
         return JsonProjection(dashboard_kpi(rows, hil_pending=pending))
+
+    async def llm_usage(self, range_start: datetime, range_end: datetime) -> JsonProjection:
+        """Read bounded measured invocation facts and exact aggregate summaries."""
+        parameters: dict[str, object] = {
+            "range_start": range_start,
+            "range_end": range_end,
+        }
+        summaries = await self._fetch_all(LLM_USAGE_SUMMARIES_SQL, parameters)
+        conversations = await self._fetch_all(
+            LLM_USAGE_CONVERSATIONS_SQL,
+            {**parameters, "fetch": LLM_USAGE_DETAIL_LIMIT + 1},
+        )
+        records = await self._fetch_all(
+            LLM_USAGE_RECORDS_SQL,
+            {**parameters, "fetch": LLM_USAGE_DETAIL_LIMIT + 1},
+        )
+        return JsonProjection(
+            llm_usage_projection(
+                range_start=range_start,
+                range_end=range_end,
+                summary_rows=summaries,
+                conversation_rows=conversations,
+                record_rows=records,
+            )
+        )
 
     async def list_hil_queue(self, query: HilQueueQuery) -> HilQueueProjection:
         if not query.include_details:

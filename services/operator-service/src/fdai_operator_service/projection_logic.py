@@ -12,6 +12,7 @@ from fdai_service_contracts import JsonObject, JsonValue
 from fdai_operator_service.redaction import redact_projection
 
 KPI_SAMPLE_LIMIT: Final = 500
+LLM_USAGE_DETAIL_LIMIT: Final = 500
 
 
 def audit_item(row: Mapping[str, Any]) -> JsonObject:
@@ -136,6 +137,82 @@ def dashboard_kpi(rows: Sequence[Mapping[str, Any]], *, hil_pending: int) -> Jso
             },
         },
     )
+
+
+def llm_usage_projection(
+    *,
+    range_start: datetime,
+    range_end: datetime,
+    summary_rows: Sequence[Mapping[str, Any]],
+    conversation_rows: Sequence[Mapping[str, Any]],
+    record_rows: Sequence[Mapping[str, Any]],
+) -> JsonObject:
+    """Project bounded measured token usage without exposing configured prices."""
+    grouped: dict[str, list[JsonObject]] = {}
+    for row in summary_rows:
+        grouped.setdefault(str(row["group_kind"]), []).append(_usage_summary(row))
+    if len(grouped.get("total", ())) != 1 or len(grouped.get("chat", ())) != 1:
+        raise ValueError("LLM usage totals are unavailable")
+
+    conversations = [_usage_summary(row) for row in conversation_rows[:LLM_USAGE_DETAIL_LIMIT]]
+    conversation_count = int(conversation_rows[0]["conversation_count"]) if conversation_rows else 0
+    records = [_llm_usage_record(row) for row in record_rows[:LLM_USAGE_DETAIL_LIMIT]]
+    record_count = int(record_rows[0]["record_count"]) if record_rows else 0
+    latest = _isoformat(record_rows[0]["occurred_at"]) if record_rows else None
+    return cast(
+        JsonObject,
+        {
+            "source": "metering",
+            "range_start": range_start.isoformat(),
+            "range_end": range_end.isoformat(),
+            "latest_occurred_at": latest,
+            "invocations": _as_int(grouped["total"][0]["invocations"]),
+            "total": grouped["total"][0],
+            "chat": grouped["chat"][0],
+            "by_scope": grouped.get("scope", []),
+            "by_model": grouped.get("model", []),
+            "chat_by_model": grouped.get("chat_model", []),
+            "by_mode": grouped.get("mode", []),
+            "by_conversation": conversations,
+            "by_conversation_truncated": conversation_count > LLM_USAGE_DETAIL_LIMIT,
+            "conversation_count": conversation_count,
+            "by_hour": grouped.get("hour", []),
+            "by_day": grouped.get("day", []),
+            "by_month": grouped.get("month", []),
+            "records": records,
+            "records_truncated": record_count > LLM_USAGE_DETAIL_LIMIT,
+            "record_count": record_count,
+        },
+    )
+
+
+def _usage_summary(row: Mapping[str, Any]) -> JsonObject:
+    prompt_tokens = int(row["prompt_tokens"])
+    completion_tokens = int(row["completion_tokens"])
+    return {
+        "key": str(row.get("group_key") or ""),
+        "invocations": int(row["invocations"]),
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": prompt_tokens + completion_tokens,
+    }
+
+
+def _llm_usage_record(row: Mapping[str, Any]) -> JsonObject:
+    prompt_tokens = int(row["prompt_tokens"])
+    completion_tokens = int(row["completion_tokens"])
+    return {
+        "occurred_at": _isoformat(row["occurred_at"]),
+        "correlation_id": str(row["correlation_id"]),
+        "capability_id": str(row["capability_id"]),
+        "model_key": str(row["model_key"]),
+        "tier": str(row["tier"]),
+        "mode": str(row["mode"]),
+        "usage_scope": str(row["usage_scope"]),
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": prompt_tokens + completion_tokens,
+    }
 
 
 def rule_fire_trace(correlation_id: str, items: Sequence[JsonObject]) -> JsonObject | None:
@@ -315,10 +392,12 @@ def _as_int(value: object) -> int:
 
 __all__ = [
     "KPI_SAMPLE_LIMIT",
+    "LLM_USAGE_DETAIL_LIMIT",
     "audit_item",
     "dashboard_kpi",
     "hil_item",
     "incident_summary",
+    "llm_usage_projection",
     "redact",
     "rule_fire_trace",
 ]

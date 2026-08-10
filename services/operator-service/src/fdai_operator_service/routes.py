@@ -6,6 +6,7 @@ import asyncio
 import json
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Final, Literal, cast
 
 from fdai_service_contracts import (
@@ -107,6 +108,7 @@ MINIMAL_ROUTE_MANIFEST: Final = (
     RouteOwnership("GET", "/incidents", "minimal"),
     RouteOwnership("GET", "/incidents/stream", "minimal"),
     RouteOwnership("GET", "/kpi", "minimal"),
+    RouteOwnership("GET", "/kpi/llm-cost", "minimal"),
     RouteOwnership("GET", "/notification-templates/incident-opened", "minimal"),
     RouteOwnership("GET", "/rca", "minimal"),
     RouteOwnership("GET", "/system/data-sources", "minimal"),
@@ -178,6 +180,12 @@ def build_operator_app(
     async def get_kpi(request: Request) -> Response:
         authorize(request)
         return JSONResponse(redact_projection((await read_model.dashboard_metrics()).to_dict()))
+
+    async def get_llm_cost(request: Request) -> Response:
+        authorize(request)
+        range_start, range_end = _llm_usage_range(request)
+        projection = await read_model.llm_usage(range_start, range_end)
+        return JSONResponse(redact_projection(projection.to_dict()))
 
     async def get_hil_queue(request: Request) -> Response:
         principal = authorize(request)
@@ -290,6 +298,7 @@ def build_operator_app(
             name="incident_attention_stream",
         ),
         Route("/kpi", get_kpi, methods=["GET"], name="get_kpi"),
+        Route("/kpi/llm-cost", get_llm_cost, methods=["GET"], name="get_llm_cost"),
         Route(
             "/notification-templates/incident-opened",
             get_incident_opened_template,
@@ -394,6 +403,27 @@ def _incident_query(request: Request) -> IncidentQuery:
         vertical=vertical,
         correlation_id=_bounded_query(request, "correlation_id", maximum=256),
     )
+
+
+def _llm_usage_range(request: Request) -> tuple[datetime, datetime]:
+    values: list[datetime] = []
+    for name in ("from", "to"):
+        raw = _bounded_query(request, name, maximum=64)
+        if raw is None:
+            raise _BadQueryError(f"{name} MUST be provided")
+        try:
+            value = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise _BadQueryError(f"{name} MUST be an ISO 8601 timestamp") from exc
+        if value.tzinfo is None:
+            raise _BadQueryError(f"{name} MUST include a timezone")
+        values.append(value.astimezone(UTC))
+    range_start, range_end = values
+    if range_end <= range_start:
+        raise _BadQueryError("to MUST be later than from")
+    if range_end - range_start > timedelta(days=90):
+        raise _BadQueryError("LLM usage range MUST NOT exceed 90 days")
+    return range_start, range_end
 
 
 def _last_event_id(request: Request) -> int | None:

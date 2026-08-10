@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import NoReturn
 
 from fdai_service_contracts import (
@@ -35,6 +36,10 @@ class UnavailableOperatorReadModel:
         self._raise()
 
     async def dashboard_metrics(self) -> JsonProjection:
+        self._raise()
+
+    async def llm_usage(self, range_start: datetime, range_end: datetime) -> JsonProjection:
+        del range_start, range_end
         self._raise()
 
     async def list_hil_queue(self, query: HilQueueQuery) -> HilQueueProjection:

@@ -426,7 +426,7 @@ reverses physical ownership without a wire or caller migration.
 | `persistence/` | Operator API read-model and conversation-state persistence implementations | Retain behind owned store contracts. |
 | `persistence/conversation/` | Principal-scoped transcript, policy-receipt, replay-metadata, and conversation-image lifecycle persistence | Import through the explicit facade and keep HTTP, SSE, authentication, status mapping, and transport in routes. |
 | `projections/` | Read-only projection ownership outside HTTP routes | Retain as the owner of migrated families. |
-| `projections/audit/` | Audit query and autonomy/FinOps measurement projections | Import through its explicit facade; keep old route modules as shims. |
+| `projections/audit/` | Audit query and autonomy/FinOps measurement projections | The independent Operator Service owns its equivalent PostgreSQL read model, including bounded `GET /kpi/llm-cost`; keep pricing, executor authority, and Core implementation imports outside that service. |
 | `projections/change_lineage/` | Bounded canonical Change-lineage summary and detail views | Import through its explicit facade; keep HTTP, provider I/O, persistence, execution, and promotion outside the package. |
 | `projections/conversation/` | Request-local conversation read projections, including screen data, exact document evidence, model traces, trajectory detail, resource response context, and queue-accepted progress metric reduction | Retain in-process until service-graduation evidence exists. |
 | `projections/conversation/presentation/` | Value-free layout selection and verified evidence artifact compilation | Import through its explicit facade; keep JSON and SSE behavior in routes. |

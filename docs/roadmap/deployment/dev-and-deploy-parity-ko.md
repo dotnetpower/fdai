@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: c449d64ac04c39af9688aebc4437ad4f87a03b96
+translation_source_sha: 2934eaffda34033da026c640ec1e2998a69bf990
 translation_revised: 2026-08-10
 ---
 
@@ -83,7 +83,7 @@ site는 인증된 Console full stack과 분리되어 있습니다.
 service-owned Core Control Plane 및 Operator Service distribution을 import하며 제거된 top-level package 또는
 in-process Operator API compatibility path를 복원하지 않고 정적 design mock과 격리된 test ingestion gateway도
 시작하지 않습니다. 신뢰된 workspace에서는 `console: prepare local state`가 한 번 실행되어 local PostgreSQL과
-Redpanda를 시작하고 pending migration과 제한된 grant를 가진 non-login `fdai_operator` role을 적용하며 single-instance limit로 중복을 막습니다.
+Redpanda를 시작하고 고정된 legacy Alembic lineage를 전진시킨 후 Core와 Operator의 service-owned migration branch를 채택하고 upgrade하며 single-instance limit로 중복을 막습니다. 동일한 준비는 read-only Azure Resource Graph inventory를 새로 읽고, tenant identifier, resource endpoint 또는 credential을 복사하지 않은 채 준비된 authoritative input에서 sanitized model 및 runtime Settings projection을 materialize합니다. Provider가 unavailable 상태이거나 권한이 없으면 fixture data로 대체하지 않고 inventory를 명시적으로 unavailable 상태로 유지합니다.
 같은 migration이 local 및 deployed PostgreSQL에 principal 범위 `conversation_image` repository를
 만듭니다. 따라서 두 profile의 Command Deck history는 동일한 인증 Operator API route를 통해 전송된
 image를 복원하며, 어느 profile도 inline base64를 turn metadata 또는 browser transcript cache에

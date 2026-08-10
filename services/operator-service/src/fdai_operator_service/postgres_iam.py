@@ -240,9 +240,16 @@ class PostgresIamAdapters:
         del refresh_model_catalog
         operation = "model-settings" if principal_id is not None else "runtime-settings"
         payload = await self._projection(operation)
+        if principal_id is not None:
+            web_search = payload.get("web_search")
+            if not isinstance(web_search, Mapping):
+                raise IamUnavailableError("model settings projection has no web_search object")
+            return {
+                **payload,
+                "web_search": {**web_search, "can_manage": can_manage_web_search},
+            }
         return {
             **payload,
-            "can_manage_web_search": can_manage_web_search,
             "can_manage": can_manage,
         }
 

@@ -42,6 +42,13 @@ SELECT (
        AND NOT has_table_privilege(current_user, 'state_kv', 'TRUNCATE')
        AND NOT has_table_privilege(current_user, 'state_kv', 'REFERENCES')
        AND NOT has_table_privilege(current_user, 'state_kv', 'TRIGGER')
+    AND has_table_privilege(current_user, 'llm_invocation', 'SELECT')
+    AND NOT has_table_privilege(current_user, 'llm_invocation', 'INSERT')
+    AND NOT has_table_privilege(current_user, 'llm_invocation', 'UPDATE')
+    AND NOT has_table_privilege(current_user, 'llm_invocation', 'DELETE')
+    AND NOT has_table_privilege(current_user, 'llm_invocation', 'TRUNCATE')
+    AND NOT has_table_privilege(current_user, 'llm_invocation', 'REFERENCES')
+    AND NOT has_table_privilege(current_user, 'llm_invocation', 'TRIGGER')
        ) AS ready
   FROM pg_catalog.pg_roles AS login_role
  WHERE login_role.rolname = current_user

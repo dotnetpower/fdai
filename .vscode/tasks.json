@@ -131,6 +131,30 @@
       }
     },
     {
+      "label": "console: refresh authoritative inventory",
+      "type": "shell",
+      "command": "set -a && source .fdai/local-runtime.env && set +a && PYTHONPATH=\"$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src\" .venv/bin/python scripts/deployment/local/refresh-authoritative-inventory.py",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "close": true
+      }
+    },
+    {
+      "label": "console: refresh authoritative settings",
+      "type": "shell",
+      "command": "set -a && source .fdai/local-runtime.env && set +a && PYTHONPATH=\"$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src\" .venv/bin/python scripts/deployment/local/materialize-authoritative-settings.py",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "close": true
+      }
+    },
+    {
       "label": "console: prepare local state",
       "type": "shell",
       "command": "bash scripts/deployment/local/prepare-console-state.sh",
@@ -152,6 +176,8 @@
       "dependsOn": [
         "console: prepare local state",
         "console: prepare local runtime env",
+        "console: refresh authoritative inventory",
+        "console: refresh authoritative settings",
         "console: prepare local Operator Service env",
         "console: sync local Entra redirects"
       ],

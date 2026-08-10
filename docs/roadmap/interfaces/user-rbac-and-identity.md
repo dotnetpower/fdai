@@ -515,8 +515,8 @@ console's cloud permissions:
 | Route | Purpose |
 |-------|---------|
 | `/settings/general` | Browser-local display, language, motion, and answer-verification preferences. |
-| `/settings/models` | Resolved T1/T2 models, lifecycle and latency evidence, the signed-in user's T1 narrator preference, and a distinct-publisher T2 catalog draft builder that never changes runtime state. |
-| `/settings/runtime-policies` | Sanitized environment, durable override, and effective values for allowlisted runtime policy. Readers inspect; Owners update through revision and audit checks. |
+| `/settings/models` | Resolved T1/T2 models, lifecycle and latency evidence, the signed-in user's T1 narrator preference, and a distinct-publisher T2 catalog draft builder that never changes runtime state. Interactive local materializes this view from the prepared resolved-model artifact without copying tenant identifiers, endpoints, or credentials. |
+| `/settings/runtime-policies` | Sanitized environment, durable override, and effective values for allowlisted runtime policy. Interactive local materializes diagnostics and configured integration state from the validated prepared environment without inferring readiness; Readers inspect and Owners update through revision and audit checks. |
 | `/settings/memory` | Durable operator guidance when a provider is registered; otherwise an explicit unavailable state. |
 | `/settings/iam` | Signed-in principal, App Roles, effective capabilities, referenced users, and access requests. |
 | `/settings/integrations` | Read-only identity, delivery, and operator-channel connection status. |

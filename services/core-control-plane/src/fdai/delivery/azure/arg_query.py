@@ -287,13 +287,13 @@ class AzureArgQueryFactory:
         # any embedded single-quote at the boundary.
         if "'" in arm_type:
             raise ArgQueryError(f"illegal character in ARM type {arm_type!r}")
-        table = (
-            "ResourceContainers"
-            if arm_type.lower() == "microsoft.resources/resourcegroups"
-            else "Resources"
+        resource_groups = arm_type.lower() == "microsoft.resources/resourcegroups"
+        table = "ResourceContainers" if resource_groups else "Resources"
+        query_type = (
+            "microsoft.resources/subscriptions/resourcegroups" if resource_groups else arm_type
         )
         return (
-            f"{table} | where type =~ '{arm_type}' "
+            f"{table} | where type =~ '{query_type}' "
             "| order by id asc "
             "| project id, type, name, location, kind, sku, tags, properties, "
             "resourceGroup, subscriptionId"

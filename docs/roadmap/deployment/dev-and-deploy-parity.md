@@ -80,7 +80,7 @@ The `Console Web: Full Stack` compound starts the core runtime, Console SPA, and
 launches import the service-owned Core Control Plane and Operator Service distributions; they don't restore
 the retired top-level package or in-process Operator API compatibility path, and the compound doesn't start
 the static design mocks or isolated test ingestion gateway. Opening the trusted workspace runs `console: prepare local
-state` once to start local PostgreSQL and Redpanda, apply migrations and the bounded non-login `fdai_operator` role, and avoid duplicates through a single-instance limit.
+state` once to start local PostgreSQL and Redpanda, advance the frozen legacy Alembic lineage, adopt and upgrade the Core and Operator service-owned migration branches, and avoid duplicates through a single-instance limit. The same preparation refreshes read-only Azure Resource Graph inventory and materializes sanitized model and runtime Settings projections from prepared authoritative inputs without copying tenant identifiers, resource endpoints, or credentials; an unavailable or unauthorized provider leaves inventory explicitly unavailable instead of substituting fixture data.
 The same migration creates the principal-scoped `conversation_image` repository in local and
 deployed PostgreSQL. Command Deck history therefore restores sent images through the same
 authenticated Operator API route in both profiles; neither profile stores inline base64 in turn

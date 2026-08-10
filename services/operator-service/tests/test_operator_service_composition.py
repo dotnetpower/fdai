@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import tomllib
 from collections.abc import Mapping
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -57,6 +58,7 @@ EXPECTED_ROUTES = (
     (("GET", "HEAD"), "/incidents", "panel:incidents"),
     (("GET", "HEAD"), "/incidents/stream", "incident_attention_stream"),
     (("GET", "HEAD"), "/kpi", "get_kpi"),
+    (("GET", "HEAD"), "/kpi/llm-cost", "get_llm_cost"),
     (
         ("GET", "HEAD"),
         "/notification-templates/incident-opened",
@@ -76,6 +78,15 @@ class EmptyReadModel(OperatorReadModel):
 
     async def dashboard_metrics(self) -> JsonProjection:
         return JsonProjection({"event_count": 0})
+
+    async def llm_usage(self, range_start: datetime, range_end: datetime) -> JsonProjection:
+        return JsonProjection(
+            {
+                "source": "metering",
+                "range_start": range_start.isoformat(),
+                "range_end": range_end.isoformat(),
+            }
+        )
 
     async def list_hil_queue(self, query: HilQueueQuery) -> HilQueueProjection:
         del query
@@ -271,6 +282,30 @@ def test_authenticated_audit_envelopes_are_stable() -> None:
         200,
         {"items": [], "next_cursor": None},
     )
+
+
+def test_llm_usage_requires_one_bounded_timezone_aware_range() -> None:
+    client = _client(read_model=EmptyReadModel())
+    headers = {"Authorization": "Bearer reader"}
+
+    missing = client.get("/kpi/llm-cost", headers=headers)
+    naive = client.get(
+        "/kpi/llm-cost?from=2026-08-01T00:00:00&to=2026-08-02T00:00:00Z",
+        headers=headers,
+    )
+    too_long = client.get(
+        "/kpi/llm-cost?from=2026-01-01T00:00:00Z&to=2026-08-02T00:00:00Z",
+        headers=headers,
+    )
+    success = client.get(
+        "/kpi/llm-cost?from=2026-08-01T00:00:00Z&to=2026-08-02T00:00:00Z",
+        headers=headers,
+    )
+
+    assert missing.status_code == 400
+    assert naive.status_code == 400
+    assert too_long.status_code == 400
+    assert (success.status_code, success.json()["source"]) == (200, "metering")
 
 
 def test_mapping_shaped_roles_claim_does_not_grant_operator_access() -> None:

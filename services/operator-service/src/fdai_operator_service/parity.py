@@ -23,6 +23,7 @@ ROUTE_PARITY: tuple[RouteParity, ...] = (
     RouteParity("/incidents", "service-owned"),
     RouteParity("/incidents/stream", "service-owned"),
     RouteParity("/kpi", "service-owned"),
+    RouteParity("/kpi/llm-cost", "service-owned"),
     RouteParity("/notification-templates/incident-opened", "service-owned"),
     RouteParity("/rca", "service-owned"),
     RouteParity("/system/data-sources", "service-owned"),
