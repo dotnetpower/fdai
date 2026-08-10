@@ -180,7 +180,10 @@ def _require_run_steps(
 def _verify_adoptions(
     client: GitHubClient,
     evidence: Mapping[str, Any],
+    *,
+    controls_equivalent: Callable[[str, str], None],
 ) -> None:
+    controls = str(evidence["controls_commit_sha"])
     adoptions = evidence.get("adoptions")
     if not isinstance(adoptions, list):
         raise GitHubEvidenceError("remote adoptions must be an array")
@@ -203,6 +206,12 @@ def _verify_adoptions(
             step_name="Upload service migration adoption evidence",
             step_conclusion_key="artifact_step_conclusion",
             label="artifact",
+        )
+        _verify_adoption_controls(
+            completion,
+            artifact_record,
+            controls=controls,
+            controls_equivalent=controls_equivalent,
         )
         run_id = int(artifact_record["workflow_run_id"])
         attempt = int(artifact_record["workflow_run_attempt"])
@@ -254,6 +263,22 @@ def _verify_adoptions(
             or len(set(owned_tables)) != len(owned_tables)
         ):
             raise GitHubEvidenceError(f"{service_id} adoption schema binding is invalid")
+
+
+def _verify_adoption_controls(
+    completion: Mapping[str, Any],
+    artifact: Mapping[str, Any],
+    *,
+    controls: str,
+    controls_equivalent: Callable[[str, str], None],
+) -> None:
+    """Require both adoption runs and rollback controls to match final deployment inputs."""
+    for revision in (
+        completion["workflow_head_sha"],
+        artifact["workflow_head_sha"],
+        artifact["controls_commit_sha"],
+    ):
+        controls_equivalent(str(revision), controls)
 
 
 def _artifact_map(client: GitHubClient, run_id: int) -> dict[str, dict[str, Any]]:
@@ -451,7 +476,7 @@ def validate_github_evidence(
     for release_name in ("n", "n_minus_one"):
         release = _object(evidence.get(release_name), f"{release_name} release")
         _supply_chain_record(client, release, f"{release_name} supply chain")
-    _verify_adoptions(client, evidence)
+    _verify_adoptions(client, evidence, controls_equivalent=controls_equivalent)
     services = evidence.get("services")
     if not isinstance(services, list):
         raise GitHubEvidenceError("remote evidence services must be an array")

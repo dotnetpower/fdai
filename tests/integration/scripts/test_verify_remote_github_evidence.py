@@ -12,6 +12,7 @@ from scripts.quality.architecture.verify_remote_github_evidence import (
     _adoption_run_record,
     _artifact,
     _run_record,
+    _verify_adoption_controls,
 )
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -139,6 +140,23 @@ def test_adoption_run_allows_later_failure_only_after_successful_adoption_steps(
             step_conclusion_key="migration_step_conclusion",
             label="completion",
         )
+
+
+def test_split_adoption_revisions_must_match_aggregate_controls() -> None:
+    checked: list[tuple[str, str]] = []
+
+    _verify_adoption_controls(
+        {"workflow_head_sha": "a" * 40},
+        {"workflow_head_sha": "b" * 40, "controls_commit_sha": "c" * 40},
+        controls="d" * 40,
+        controls_equivalent=lambda before, after: checked.append((before, after)),
+    )
+
+    assert checked == [
+        ("a" * 40, "d" * 40),
+        ("b" * 40, "d" * 40),
+        ("c" * 40, "d" * 40),
+    ]
 
 
 def test_artifact_binds_api_digest_and_downloaded_content() -> None:
