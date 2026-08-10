@@ -79,6 +79,58 @@ the exact release, validates endpoint types and arguments, and either produces a
 `VerifiedSemanticPlan` or asks for clarification. Similarity never proves a relationship or grants
 query or action authority.
 
+## Semantic decomposition and plan formation
+
+Natural language is not sent directly to an object search. The planner first creates a bounded
+meaning representation that separates what the operator wants from the objects and evidence that
+may satisfy it. This record is candidate-only and contains no provider query, executable text, or
+object claim.
+
+Plan formation follows five stages:
+
+1. **Decompose the request**: Extract the requested operation, subject constraints, measure,
+    temporal scope, comparison, output shape, and evidence standard from the complete turn and its
+    exact context.
+2. **Ground the schema**: Resolve those roles to candidate ObjectTypes, Interfaces, Properties,
+    LinkType sides, and FunctionTypes in the principal-scoped release-derived manifest.
+3. **Build the intent graph**: Express independent and dependent goals without selecting concrete
+    runtime objects that evidence has not established.
+4. **Verify and compile**: Type-check every schema reference, relationship composition, temporal
+    bound, argument, scope, and capability before compiling a bounded read task DAG.
+5. **Execute and join evidence**: Resolve concrete objects through authoritative providers, follow
+    typed links, run registered functions, align cutoffs, and verify claims before presentation.
+
+For example, the question "Why have requests increased since last week?" may produce this meaning
+representation:
+
+```yaml
+operation: explain_change
+measure_concept: request.volume
+subject_constraint: service
+temporal_scope:
+  current: {from: start_of_last_week, to: now}
+  baseline: {before: start_of_last_week, equal_duration: true}
+requested_result: ranked_causal_hypotheses
+evidence_requirements:
+  - complete_metric_windows
+  - typed_service_identity
+  - dependency_neighborhood
+  - bounded_change_history
+```
+
+This example is a logical form, not a phrase rule. No individual word, including "why", selects
+`explain_change`. The model proposes the operation from the whole turn, selected screen objects,
+prior verified context, locale, and time reference. If "requests" could mean HTTP requests,
+support requests, or deployment requests, or if the calendar boundary is unresolved, the verifier
+returns a clarification before any operational read.
+
+After schema grounding, the intent graph can bind goals such as detecting the metric change,
+selecting affected Service objects, traversing to Workloads and Pods, retrieving Deployments and
+configuration Changes near the change point, and comparing aligned metric windows. The task DAG may
+run independent reads concurrently, but the causal join waits for their receipts. A deployment that
+precedes the increase is a candidate explanation only; dependency, timing, mechanism, completeness,
+and competing-change evidence determine whether it is supported, refuted, or unresolved.
+
 ## Intent graph contract
 
 An intent graph records the operator request without reducing it to one tool. Every graph contains:

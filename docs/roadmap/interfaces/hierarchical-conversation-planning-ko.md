@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 5ad17ffd77a387965df9de6d07409e1bb04f1edf
+translation_source_sha: 0618cde7ef1f9777c624a1007a3bdc913e9c7a8a
 translation_revised: 2026-08-10
 ---
 
@@ -80,6 +80,56 @@ object, relation 및 function candidate를 제안할 수 있습니다. Determini
 exact release에 resolve하고 endpoint type과 argument를 검증한 뒤 `VerifiedSemanticPlan`을 만들거나
 clarification을 요청합니다. Similarity는 relationship을 입증하거나 query/action authority를 부여하지
 않습니다.
+
+## Semantic decomposition 및 plan 형성
+
+자연어를 object search에 바로 전달하지 않습니다. Planner는 먼저 operator가 원하는 것과 이를 충족할
+수 있는 object 및 evidence를 분리한 bounded meaning representation을 만듭니다. 이 record는
+candidate-only이며 provider query, executable text 또는 object claim을 포함하지 않습니다.
+
+Plan은 다음 5단계로 형성합니다.
+
+1. **Request 분해**: 전체 turn과 exact context에서 요청 operation, subject constraint, measure,
+     temporal scope, comparison, output shape 및 evidence standard를 추출합니다.
+2. **Schema grounding**: 해당 role을 principal-scoped release-derived manifest의 ObjectType,
+     Interface, Property, LinkType side 및 FunctionType candidate에 resolve합니다.
+3. **Intent graph 구성**: Evidence가 아직 확립하지 않은 concrete runtime object를 선택하지 않고
+     independent/dependent goal을 표현합니다.
+4. **검증 및 compile**: Bounded read task DAG를 compile하기 전에 모든 schema reference,
+     relationship composition, temporal bound, argument, scope 및 capability를 type-check합니다.
+5. **Evidence 실행 및 join**: Authoritative provider를 통해 concrete object를 resolve하고 typed link를
+     따라가며 등록된 function을 실행합니다. Cutoff를 정렬하고 claim을 검증한 뒤 표현합니다.
+
+예를 들어 "지난주 이후 요청이 왜 많아졌지?"라는 질문은 다음 meaning representation을 만들 수
+있습니다.
+
+```yaml
+operation: explain_change
+measure_concept: request.volume
+subject_constraint: service
+temporal_scope:
+    current: {from: start_of_last_week, to: now}
+    baseline: {before: start_of_last_week, equal_duration: true}
+requested_result: ranked_causal_hypotheses
+evidence_requirements:
+    - complete_metric_windows
+    - typed_service_identity
+    - dependency_neighborhood
+    - bounded_change_history
+```
+
+이 예시는 phrase rule이 아니라 logical form입니다. "왜"를 포함한 어떤 개별 단어도
+`explain_change`를 선택하지 않습니다. Model은 전체 turn, 선택된 screen object, 이전 verified
+context, locale 및 time reference에서 operation을 제안합니다. "요청"이 HTTP request, support request,
+deployment request 중 무엇인지 또는 calendar boundary가 resolve되지 않으면 verifier가 operational
+read 전에 clarification을 반환합니다.
+
+Schema grounding 이후 intent graph는 metric change 탐지, 영향받은 Service object 선택, Workload와
+Pod traversal, change point 근처의 Deployment 및 configuration Change 조회, 정렬된 metric window 비교
+같은 goal을 bind할 수 있습니다. Task DAG는 independent read를 동시에 실행할 수 있지만 causal join은
+각 receipt를 기다립니다. 증가보다 먼저 발생한 deployment는 candidate explanation일 뿐입니다.
+Dependency, timing, mechanism, completeness 및 competing-change evidence에 따라 supported, refuted 또는
+unresolved로 결정합니다.
 
 ## Intent graph 계약
 
