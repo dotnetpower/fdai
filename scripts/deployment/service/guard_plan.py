@@ -573,6 +573,47 @@ def _guard_key_vault_secret_value_normalization_drift(
     return normalized_before == normalized_after
 
 
+def _guard_revision_metadata_drift(
+    resource_drift: Any,
+    *,
+    contract: ServiceContract,
+) -> bool:
+    """Accept only computed revision identifiers changed by out-of-band recovery."""
+    if not isinstance(resource_drift, list) or len(resource_drift) != 1:
+        return False
+    entry = resource_drift[0]
+    if not isinstance(entry, dict) or entry.get("address") != contract.allowed_resource_address:
+        return False
+    change = entry.get("change")
+    if not isinstance(change, dict) or change.get("actions") != ["update"]:
+        return False
+    before = change.get("before")
+    after = change.get("after")
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return False
+    paths = set(_difference_paths(before, after))
+    if not paths or not paths <= {
+        "$.latest_revision_name",
+        "$.template[0].revision_suffix",
+    }:
+        return False
+    expected = copy.deepcopy(before)
+    expected["latest_revision_name"] = after.get("latest_revision_name")
+    expected_templates = expected.get("template")
+    after_templates = after.get("template")
+    if (
+        not isinstance(expected_templates, list)
+        or len(expected_templates) != 1
+        or not isinstance(expected_templates[0], dict)
+        or not isinstance(after_templates, list)
+        or len(after_templates) != 1
+        or not isinstance(after_templates[0], dict)
+    ):
+        return False
+    expected_templates[0]["revision_suffix"] = after_templates[0].get("revision_suffix")
+    return expected == after
+
+
 def validate_plan(
     payload: dict[str, Any],
     *,
@@ -653,11 +694,16 @@ def validate_plan(
         resource_drift,
         contract=contract,
     )
+    allowed_revision_metadata_drift = _guard_revision_metadata_drift(
+        resource_drift,
+        contract=contract,
+    )
     if (
         resource_drift not in (None, [])
         and not allowed_worker_drift
         and not allowed_aligned_drift
         and not allowed_secret_normalization_drift
+        and not allowed_revision_metadata_drift
     ):
         drift_paths: list[str] = []
         if isinstance(resource_drift, list) and len(resource_drift) == 1:
