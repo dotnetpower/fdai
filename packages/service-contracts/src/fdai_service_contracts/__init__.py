@@ -164,10 +164,12 @@ from fdai_service_contracts.operator import (
     ReadDataSource,
 )
 from fdai_service_contracts.ontology_query import (
+    AnswerEvidenceMode,
     GoalEvidenceMode,
     GoalTaskReceipt,
     IntentGoal,
     IntentGraph,
+    IntentGraphEvidence,
     OntologyQueryNode,
     OntologyQueryPlan,
     QueryNodeKind,
@@ -177,6 +179,8 @@ from fdai_service_contracts.ontology_query import (
     TaskStatus,
     canonical_json as canonical_query_json,
     content_digest as query_content_digest,
+    project_intent_graph,
+    project_intent_graph_evidence,
 )
 from fdai_service_contracts.schema import (
     ContractValidationError,
@@ -322,6 +326,7 @@ __all__ = [
     "IncidentQuery",
     "IntentGoal",
     "IntentGraph",
+    "IntentGraphEvidence",
     "JsonObject",
     "JsonProjection",
     "JsonScalar",
@@ -335,6 +340,7 @@ __all__ = [
     "PageProjection",
     "ReadDataSource",
     "GoalEvidenceMode",
+    "AnswerEvidenceMode",
     "GoalTaskReceipt",
     "ResourceLock",
     "RollbackKind",
@@ -387,6 +393,8 @@ __all__ = [
     "next_audit_hash",
     "project_additive_fields",
     "query_content_digest",
+    "project_intent_graph",
+    "project_intent_graph_evidence",
     "run_delivery_transition_harness",
     "validate_delivery_trace",
     "validate_manifest",

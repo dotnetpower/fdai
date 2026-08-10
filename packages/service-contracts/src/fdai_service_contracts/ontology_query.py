@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
@@ -59,6 +60,16 @@ class GoalEvidenceMode(StrEnum):
     WEB = "web"
     MODEL_KNOWLEDGE = "model_knowledge"
     MIXED = "mixed"
+
+
+class AnswerEvidenceMode(StrEnum):
+    SCREEN_GROUNDED = "screen_grounded"
+    OPERATIONAL_GROUNDED = "operational_grounded"
+    WEB_GROUNDED = "web_grounded"
+    MIXED_GROUNDED = "mixed_grounded"
+    MODEL_KNOWLEDGE = "model_knowledge"
+    PARTIAL = "partial"
+    HELD_FOR_REVIEW = "held_for_review"
 
 
 class TaskStatus(StrEnum):
@@ -245,6 +256,13 @@ class IntentGoal(QueryContract):
             raise ValueError("intent goal MUST NOT depend on itself")
         return self
 
+    @property
+    def arguments(self) -> dict[str, Any]:
+        return parse_json_object(
+            self.arguments_json,
+            field_name=f"goal {self.goal_id} arguments_json",
+        )
+
 
 class IntentGraph(QueryContract):
     schema_version: Literal["2.0.0"] = "2.0.0"
@@ -295,6 +313,16 @@ class GoalTaskReceipt(QueryContract):
         return self
 
 
+class IntentGraphEvidence(QueryContract):
+    """Terminal no-authority receipts for one projected intent graph."""
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    status: Literal["completed", "partial", "unavailable", "failed", "cancelled"]
+    evidence_mode: AnswerEvidenceMode
+    goals: Annotated[tuple[GoalTaskReceipt, ...], Field(max_length=8)] = ()
+    execution_authority: Literal[False] = False
+
+
 class StructuralCoverageReceipt(QueryContract):
     schema_version: Literal["1.0.0"] = "1.0.0"
     ontology_release_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
@@ -333,11 +361,114 @@ class StructuralCoverageReceipt(QueryContract):
         return self
 
 
+def project_intent_graph(graph: IntentGraph) -> dict[str, Any]:
+    """Project the internal exact-plan graph to the bounded Console v2 shape."""
+
+    if not 1 <= len(graph.goals) <= 8:
+        raise ValueError("Console intent graph MUST contain 1 to 8 goals")
+    for goal in graph.goals:
+        if re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", goal.goal_id) is None:
+            raise ValueError("Console intent goal id is invalid")
+        if len(goal.depends_on) > 7 or len(goal.alternatives) > 4:
+            raise ValueError("Console intent goal arrays exceed bounds")
+        _validate_console_json(goal.arguments, depth=0, counter=[0])
+    return {
+        "schema_version": 2,
+        "goals": [
+            {
+                "goal_id": goal.goal_id,
+                "intent": goal.intent,
+                "capability": goal.capability,
+                "arguments": parse_json_object(
+                    goal.arguments_json,
+                    field_name=f"goal {goal.goal_id} arguments_json",
+                ),
+                "depends_on": list(goal.depends_on),
+                "evidence_mode": goal.evidence_mode.value,
+                "freshness_required": goal.freshness_required,
+                "confidence": goal.confidence,
+                "alternatives": list(goal.alternatives),
+            }
+            for goal in graph.goals
+        ],
+        "clarification": graph.clarification,
+        "confidence": graph.confidence,
+        "action_posture": graph.action_posture,
+    }
+
+
+def project_intent_graph_evidence(evidence: IntentGraphEvidence) -> dict[str, Any]:
+    """Project internal task receipts to the bounded Console v1 evidence shape."""
+
+    goals: list[dict[str, Any]] = []
+    for receipt in evidence.goals:
+        if re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", receipt.goal_id) is None:
+            raise ValueError("Console intent evidence goal id is invalid")
+        if len(receipt.depends_on) > 7 or len(receipt.blocked_by) > 7:
+            raise ValueError("Console intent evidence dependency arrays exceed bounds")
+        if len(receipt.evidence_refs) > 12:
+            raise ValueError("Console intent evidence references exceed bound")
+        projected = {
+            "task_id": receipt.task_id,
+            "goal_id": receipt.goal_id,
+            "intent": receipt.intent,
+            "capability": receipt.capability,
+            "evidence_mode": receipt.evidence_mode.value,
+            "status": receipt.status.value,
+            "duration_ms": receipt.duration_ms,
+            "depends_on": list(receipt.depends_on),
+            "started_at": receipt.started_at.isoformat(),
+            "completed_at": receipt.completed_at.isoformat(),
+        }
+        if receipt.reason is not None:
+            projected["reason"] = receipt.reason
+        if receipt.blocked_by:
+            projected["blocked_by"] = list(receipt.blocked_by)
+        if receipt.evidence_refs:
+            projected["evidence_refs"] = list(receipt.evidence_refs)
+        goals.append(projected)
+    return {
+        "schema_version": 1,
+        "status": evidence.status,
+        "evidence_mode": evidence.evidence_mode.value,
+        "goals": goals,
+    }
+
+
+def _validate_console_json(value: Any, *, depth: int, counter: list[int]) -> None:
+    counter[0] += 1
+    if counter[0] > 128 or depth > 4:
+        raise ValueError("Console intent arguments exceed structural bounds")
+    if value is None or isinstance(value, bool | int | float):
+        return
+    if isinstance(value, str):
+        if len(value) > 1_024:
+            raise ValueError("Console intent argument string exceeds bound")
+        return
+    if isinstance(value, list):
+        if len(value) > 32:
+            raise ValueError("Console intent argument array exceeds bound")
+        for item in value:
+            _validate_console_json(item, depth=depth + 1, counter=counter)
+        return
+    if isinstance(value, dict):
+        if len(value) > 32:
+            raise ValueError("Console intent argument object exceeds bound")
+        for key, item in value.items():
+            if not key or len(key) > 128:
+                raise ValueError("Console intent argument key exceeds bound")
+            _validate_console_json(item, depth=depth + 1, counter=counter)
+        return
+    raise ValueError("Console intent arguments contain a non-JSON value")
+
+
 __all__ = [
+    "AnswerEvidenceMode",
     "GoalEvidenceMode",
     "GoalTaskReceipt",
     "IntentGoal",
     "IntentGraph",
+    "IntentGraphEvidence",
     "OntologyQueryNode",
     "OntologyQueryPlan",
     "QueryNodeKind",
@@ -347,4 +478,6 @@ __all__ = [
     "TaskStatus",
     "canonical_json",
     "content_digest",
+    "project_intent_graph",
+    "project_intent_graph_evidence",
 ]

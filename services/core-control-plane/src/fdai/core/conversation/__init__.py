@@ -127,6 +127,10 @@ from fdai.core.conversation.identity_verification import (
     ChannelPrincipalAuthorizationMapping,
     PrincipalScopeAuthorization,
 )
+from fdai.core.conversation.intent_graph import (
+    build_intent_graph,
+    build_intent_graph_evidence,
+)
 from fdai.core.conversation.narrator import (
     ClarificationNarrator,
     ContextualNarrator,
@@ -146,6 +150,19 @@ from fdai.core.conversation.principal_binding import (
     PrincipalConversationBindingAuthorizer,
     PrincipalConversationBindingService,
     PrincipalConversationBindingStore,
+)
+from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
+from fdai.core.conversation.semantic_planning import SemanticPlanningService
+from fdai.core.conversation.semantic_planning_models import (
+    CompleteManifestSelector,
+    QueryManifestProvider,
+    QueryNodeProposal,
+    QueryPlanProposal,
+    SemanticDescriptorSelector,
+    SemanticFrameProposal,
+    SemanticPlanningDisposition,
+    SemanticPlanningModel,
+    SemanticPlanningOutcome,
 )
 from fdai.core.conversation.session import (
     ConversationSession,
@@ -239,6 +256,7 @@ __all__ = [
     "ChannelPrincipalAuthorizationMapping",
     "ChannelScopeResolver",
     "ChannelSenderKey",
+    "CatalogQueryManifestProvider",
     "ClarificationNarrator",
     "ContextualNarrator",
     "CrossChannelIdentityLink",
@@ -248,6 +266,7 @@ __all__ = [
     "ConversationCoordinator",
     "ConversationChannelGateway",
     "ConversationSession",
+    "CompleteManifestSelector",
     "CoordinatorConfig",
     "CorrelateIncidentTool",
     "CreateIncidentCommand",
@@ -289,6 +308,9 @@ __all__ = [
     "PairingRequest",
     "PendingBusyInput",
     "QueryAuditTool",
+    "QueryManifestProvider",
+    "QueryNodeProposal",
+    "QueryPlanProposal",
     "QueryDeploymentsTool",
     "QueryInventoryTool",
     "QueryLogTool",
@@ -299,6 +321,12 @@ __all__ = [
     "RunRunbookTool",
     "SearchConversationsTool",
     "SearchRuntimeToolsTool",
+    "SemanticDescriptorSelector",
+    "SemanticFrameProposal",
+    "SemanticPlanningDisposition",
+    "SemanticPlanningModel",
+    "SemanticPlanningOutcome",
+    "SemanticPlanningService",
     "RuntimeToolDiscovery",
     "SessionLoader",
     "SimulateChangeTool",
@@ -311,6 +339,8 @@ __all__ = [
     "VerifiedBindingDeliveryContextResolver",
     "arbitrate_busy_input",
     "assemble_turn_context",
+    "build_intent_graph",
+    "build_intent_graph_evidence",
     "consume_pending_input",
     "default_tool_schemas",
     "format_prompt_tool_list",

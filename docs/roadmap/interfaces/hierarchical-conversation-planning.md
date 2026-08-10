@@ -32,11 +32,13 @@ dependencies, invalid arguments, scope invention, and writes outside a confirmat
 
 ## Implementation status
 
-The structured intent graph is a target contract, not the active server planner. The Console ships
-strict parsers and presentation for bounded `intent_graph` and `intent_graph_evidence` payloads,
-but no Core or Operator Service producer currently emits them. The active Core conversation path
-matches `_VERB_PATTERNS`, optionally asks a narrator for canonical command strings, and can validate
-and execute only a serial two-to-three-step read plan.
+The structured intent graph is not yet the active server planner. Core now has a schema-constrained
+whole-turn semantic model seam, principal-manifest verification, deterministic intent-graph and
+receipt production, and exact Console v2/v1 wire projections. The compatibility coordinator can
+run semantic planning in shadow without changing the visible result. The production turn stream
+does not attach these projections, and no production semantic model or descriptor-index binding is
+enabled. The active Core compatibility path still matches `_VERB_PATTERNS`, optionally asks a
+narrator for canonical command strings, and can execute only a serial two-to-three-step read plan.
 
 Exact-release semantic candidates, verified semantic plans, bounded ObjectSets, secured query
 receipts, typed function registration, `OntologyQueryPlan`, a deterministic verifier, and bounded
@@ -332,7 +334,7 @@ The compatibility period is temporary. Migration ends with one graph contract an
 
 | Area | Current state | Coverage impact |
 |------|---------------|-----------------|
-| Intent graph | Active for one-shot and streamed turns | Provides composition and replay, but still coexists with compatibility parsers. |
+| Intent graph | Verified plans can produce bounded graphs, task evidence, and Console-compatible wire projections. | Production one-shot and streamed turn completion do not yet attach them; compatibility parsers remain active. |
 | Semantic plans and ObjectSets | Exact-release candidates, principal-manifest verification, bounded predicates/traversal, secured receipts, generic set/order/project/aggregate handlers, and typed function invocation exist. | The generic query manifest and plan executor are not yet the production narrator surface; temporal and evidence-join extensions remain. |
 | Interfaces | Production loading validates and compiles the reviewed `Identifiable` Interface for all current ObjectTypes, and Interface selectors exist in the ObjectSet contract. | Additional capability Interfaces and production polymorphic ObjectSet query binding remain unwired. |
 | Relationship sides | Every directed LinkType exposes deterministic outgoing and incoming endpoint-side query ids while stores preserve typed direction. | The generic verifier and natural-language planner do not yet consume those sides. |

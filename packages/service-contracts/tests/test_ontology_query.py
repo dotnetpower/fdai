@@ -6,10 +6,12 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai_service_contracts.ontology_query import (
+    AnswerEvidenceMode,
     GoalEvidenceMode,
     GoalTaskReceipt,
     IntentGoal,
     IntentGraph,
+    IntentGraphEvidence,
     OntologyQueryNode,
     OntologyQueryPlan,
     QueryNodeKind,
@@ -19,6 +21,8 @@ from fdai_service_contracts.ontology_query import (
     TaskStatus,
     canonical_json,
     content_digest,
+    project_intent_graph,
+    project_intent_graph_evidence,
 )
 from pydantic import ValidationError
 
@@ -198,3 +202,69 @@ def test_structural_coverage_receipt_requires_accounted_declarations() -> None:
                 "complete": True,
             }
         )
+
+
+def test_intent_graph_console_projections_are_exact_and_bounded() -> None:
+    frame = _frame()
+    plan = _plan(frame)
+    goal = IntentGoal(
+        goal_id="request_series",
+        intent="explain_change",
+        capability="query.metric_series",
+        arguments_json=canonical_json({"metric_concept": "request.volume"}),
+        evidence_mode=GoalEvidenceMode.OPERATIONAL,
+        freshness_required=True,
+        confidence=0.9,
+    )
+    graph = IntentGraph(
+        problem_frame_digest=frame.frame_digest,
+        plan_digest=plan.plan_digest,
+        goals=(goal,),
+        confidence=0.9,
+        action_posture="advise_only",
+    )
+    receipt = GoalTaskReceipt(
+        task_id="request-1:request_series",
+        goal_id=goal.goal_id,
+        intent=goal.intent,
+        capability=goal.capability,
+        evidence_mode=goal.evidence_mode,
+        status=TaskStatus.COMPLETED,
+        duration_ms=10,
+        evidence_refs=("metric-receipt:1",),
+        started_at=NOW,
+        completed_at=NOW + timedelta(milliseconds=10),
+    )
+    evidence = IntentGraphEvidence(
+        status="completed",
+        evidence_mode=AnswerEvidenceMode.OPERATIONAL_GROUNDED,
+        goals=(receipt,),
+    )
+
+    graph_projection = project_intent_graph(graph)
+    evidence_projection = project_intent_graph_evidence(evidence)
+
+    assert set(graph_projection) == {
+        "schema_version",
+        "goals",
+        "clarification",
+        "confidence",
+        "action_posture",
+    }
+    assert graph_projection["schema_version"] == 2
+    assert graph_projection["goals"][0]["arguments"] == {"metric_concept": "request.volume"}
+    assert evidence_projection["schema_version"] == 1
+    assert evidence_projection["goals"][0]["status"] == "completed"
+    assert "reason" not in evidence_projection["goals"][0]
+
+    invalid_goal = goal.model_copy(update={"goal_id": "request.series"})
+    invalid_graph = graph.model_copy(update={"goals": (invalid_goal,)})
+    with pytest.raises(ValueError, match="goal id"):
+        project_intent_graph(invalid_graph)
+
+    oversized_receipt = receipt.model_copy(
+        update={"evidence_refs": tuple(f"evidence:{index}" for index in range(13))}
+    )
+    oversized_evidence = evidence.model_copy(update={"goals": (oversized_receipt,)})
+    with pytest.raises(ValueError, match="references"):
+        project_intent_graph_evidence(oversized_evidence)

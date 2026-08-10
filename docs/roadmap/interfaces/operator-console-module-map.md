@@ -88,6 +88,20 @@ select provider scope, or receive Thor's identity. HTTP status mapping, SSE sequ
 headers, route names, authorization, and cancellation transport remain route-owned. Bragi remains
 the presentation translator, and authority-bearing agent work continues through typed pub/sub.
 
+### Conversation intent graph projection boundary
+
+The shared ontology-query SDK owns exact-plan `IntentGraph` and `IntentGraphEvidence` records.
+Explicit projection functions remove internal frame and plan digests, parse canonical goal
+arguments, and emit only the bounded Console v2 graph and v1 evidence shapes. The Console parser
+accepts terminal cancellation at both graph and goal-receipt levels, preserving
+`request_cancelled` instead of dropping a valid terminal update. Projection rejects more than
+eight goals, invalid display goal ids, deep or oversized arguments, excess dependencies, and more
+than twelve evidence references. It copies no provider body and grants no execution authority.
+
+Core can produce these records from a principal-manifest-verified query plan, but production JSON
+and SSE turn completion do not yet attach them. Until that binding lands, the parser change is
+additive and the compatibility route remains the visible answer path.
+
 ### Conversation claims application boundary
 
 The SD-01 claims slice owns deterministic answer-claim verification under

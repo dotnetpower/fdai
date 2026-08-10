@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: a353782aa8b16e2814fe56a2da315c1ce7a03fb9
+translation_source_sha: ac2cc6c944f0ef03f03b17bc592c3a9d2d22d164
 translation_revised: 2026-08-08
 ---
 # Operator Console Module Map and Boundaries
@@ -88,6 +88,20 @@ Service는 non-authoritative이며 call 사이에 state를 유지하지 않습�
 provider scope 선택을 수행할 수 없고 Thor identity를 받을 수 없습니다. HTTP status mapping, SSE
 sequence/revision, header, route name, authorization 및 cancellation transport는 route가 계속 소유합니다.
 Bragi는 presentation translator로 유지되고 authority-bearing agent work는 typed pub/sub을 계속 사용합니다.
+
+### Conversation intent graph projection boundary
+
+Shared ontology-query SDK는 exact-plan `IntentGraph` 및 `IntentGraphEvidence` record를 소유합니다.
+Explicit projection function은 internal frame/plan digest를 제거하고 canonical goal argument를 parse하며
+bounded Console v2 graph 및 v1 evidence shape만 emit합니다. Console parser는 graph와 goal receipt
+level 모두에서 terminal cancellation을 수락하여 valid terminal update를 drop하지 않고
+`request_cancelled`를 보존합니다. Projection은 8개를 초과하는 goal, invalid display goal id, deep/oversized
+argument, excess dependency 및 12개를 초과하는 evidence reference를 거부합니다. Provider body를 copy하지
+않고 execution authority를 부여하지 않습니다.
+
+Core는 principal-manifest-verified query plan에서 이 record를 만들 수 있지만 production JSON/SSE turn
+completion은 아직 이를 attach하지 않습니다. 해당 binding 전까지 parser 변경은 additive이고
+compatibility route가 visible answer path로 유지됩니다.
 
 ### Conversation claims application boundary
 

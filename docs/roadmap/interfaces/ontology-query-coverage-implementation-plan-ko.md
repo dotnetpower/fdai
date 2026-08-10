@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: bf55f598af17ee58d34f6de71206f21a042d8dd5
+translation_source_sha: 39f71b7e78f1086c2491eadbd6ec1254ccb6a1c5
 translation_revised: 2026-08-10
 ---
 
@@ -44,6 +44,16 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > endpoint를 exact private-link service target에 attach합니다. Reverse peering에는 여전히 독립적인
 > remote-VNet observation이 필요합니다. Route, workload/service mapping, observation receipt 및
 > production network-path issuer는 남아 있습니다.
+> OQ-04에는 이제 whole bounded turn과 candidate descriptor에서 semantic frame 및 typed node DAG를
+> 제안하는 schema-constrained model seam이 있습니다. Core는 모든 digest/authority field를 다시 만들고
+> exact principal manifest를 검증하며 verified plan, clarification 하나, action-draft handoff,
+> unsupported 또는 unavailable result를 반환합니다. Compatibility coordinator는 이 path를 shadow로
+> 실행하고 disposition/content digest만 기록할 수 있습니다. Production model/composition binding은
+> 아직 enable되지 않았습니다.
+> OQ-05는 이제 deterministic하게 최대 8개 goal의 intent graph를 만들고 executor receipt를 해당 goal에
+> bind하며 internal exact-plan contract를 Console v2/v1 wire shape로 projection합니다. Console은 explicit
+> cancellation receipt도 수락합니다. Semantic plan 실행 및 production turn-completion stream에 이
+> projection을 attach하는 작업은 남아 있습니다.
 
 ## 설계 개요
 
@@ -68,8 +78,8 @@ plan 검증 이후 authoritative read로만 선택합니다.
 | 영역 | 검증된 현재 구현 | 목표를 차단하는 gap |
 |------|------------------|---------------------|
 | Conversation routing | Local 독립 Operator Service는 resolved Azure candidate의 model narration을 복구하지만 Core `ConversationCoordinator`는 계속 `_VERB_PATTERNS`를 사용합니다. `ReadPlanNarrator`는 2-3개의 canonical command string을 제안할 수 있으며 `execute_read_plan`이 이를 serial로 실행합니다. | Local model narration에는 provider-read 또는 execution authority가 없으며 server-side semantic problem frame, intent graph producer, dependency-wave executor 및 typed plan bridge를 제공하지 않습니다. |
-| Console intent graph | Console은 bounded `intent_graph` 및 `intent_graph_evidence` payload를 strict하게 parse하고 render합니다. | Core 또는 Operator Service producer가 없습니다. 현재 구현은 presentation-only입니다. |
-| Semantic interpretation | `SemanticInterpretationCandidate`, `VerifiedSemanticPlan`, exact release check 및 candidate-only authority가 있습니다. | Verified plan은 typed function 하나를 target으로 하며 conversation routing 또는 generic ontology query algebra와 연결되지 않았습니다. |
+| Console intent graph | Core는 verified plan에서 bounded graph/receipt evidence를 만들며 shared SDK projection은 Console v2/v1 parser와 정확히 일치합니다. | Production turn-completion stream은 아직 생성된 graph/evidence를 attach하지 않습니다. |
+| Semantic interpretation | Schema-constrained whole-turn model seam이 `SemanticProblemFrame` 및 typed DAG candidate를 제안합니다. Core가 identity를 부여하고 principal manifest를 검증하며 compatibility routing 옆의 opt-in shadow comparison을 지원합니다. | Production model/descriptor-index binding은 enable되지 않았고 semantic path가 아직 visible answer를 선택하지 않습니다. |
 | Object query | `OntologyQueryPlan`은 이제 immutable content-addressed table 위에서 secured ObjectSet, set algebra, ordering, projection, grouped aggregation 및 typed read-only function을 구성합니다. | Temporal snapshot, metric series 및 evidence join에는 registered extension handler가 필요합니다. |
 | Query manifest | Principal-scoped content-addressed builder가 ObjectType/filtered property, LinkType 양쪽 endpoint side, Interface, read-only function 및 draft-only ActionType을 projection합니다. | Production narrator는 아직 manifest를 사용하지 않으며 complete operator/evidence availability descriptor가 남아 있습니다. |
 | Interface | Production catalog loading은 `Identifiable`, provenance 및 모든 current ObjectType의 explicit binding을 검증합니다. Runtime composition은 이를 compile하고 exact release에 pin합니다. | 추가 capability Interface와 production ObjectSet query binding은 남아 있습니다. |

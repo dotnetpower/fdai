@@ -31,7 +31,7 @@ import re
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from fdai.core.conversation.answer_plan import build_answer_plan
 from fdai.core.conversation.contextual_translation import contextual_arguments_grounded
@@ -49,6 +49,7 @@ from fdai.core.conversation.read_plan import (
     execute_read_plan,
     validate_read_plan,
 )
+from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.session import (
     ConversationSession,
     Principal,
@@ -88,6 +89,16 @@ class CoordinatorConfig:
     """
 
     chat_t0_confidence_threshold: float = 0.75
+    semantic_planning_mode: Literal["disabled", "shadow"] = "disabled"
+    semantic_planning_purpose: str = "operations-review"
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.chat_t0_confidence_threshold <= 1.0:
+            raise ValueError("chat_t0_confidence_threshold MUST be in [0, 1]")
+        if self.semantic_planning_mode not in {"disabled", "shadow"}:
+            raise ValueError("semantic_planning_mode MUST be disabled or shadow")
+        if re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", self.semantic_planning_purpose) is None:
+            raise ValueError("semantic_planning_purpose is invalid")
 
 
 @dataclass(frozen=True)
@@ -197,12 +208,16 @@ class ConversationCoordinator:
         config: CoordinatorConfig | None = None,
         narrator: Narrator | None = None,
         narrator_tool_schemas: Sequence[ToolSchema] | None = None,
+        semantic_planner: SemanticPlanningService | None = None,
     ) -> None:
         self._tools: dict[str, SystemConsoleTool] = {tool.name: tool for tool in tools}
         if not self._tools:
             raise ValueError("ConversationCoordinator MUST have at least one tool")
         self._config = config or CoordinatorConfig()
         self._narrator = narrator
+        self._semantic_planner = semantic_planner
+        if self._config.semantic_planning_mode == "shadow" and semantic_planner is None:
+            raise ValueError("semantic planning shadow mode requires a planner binding")
         self._narrator_tool_schemas: tuple[ToolSchema, ...] = (
             tuple(narrator_tool_schemas) if narrator_tool_schemas is not None else ()
         )
@@ -242,6 +257,11 @@ class ConversationCoordinator:
             tier="T0",
         )
         session.append(inbound)
+        self._record_shadow_semantic_plan(
+            session=session,
+            utterance=message,
+            prior_turns=prior_turns,
+        )
 
         match = self._match_intent(message)
         if match is None or match.confidence < self._config.chat_t0_confidence_threshold:
@@ -372,6 +392,41 @@ class ConversationCoordinator:
             tool_name=tool.name,
             result=result,
             prior_turns=prior_turns,
+        )
+
+    def _record_shadow_semantic_plan(
+        self,
+        *,
+        session: ConversationSession,
+        utterance: str,
+        prior_turns: Sequence[Turn],
+    ) -> None:
+        """Record candidate identities without changing compatibility routing."""
+
+        if self._config.semantic_planning_mode != "shadow":
+            return
+        planner = self._semantic_planner
+        if planner is None:  # pragma: no cover - constructor invariant
+            raise RuntimeError("semantic planning shadow binding is unavailable")
+        outcome = planner.plan(
+            utterance=utterance,
+            prior_turns=prior_turns,
+            principal=session.principal,
+            purpose=self._config.semantic_planning_purpose,
+        )
+        frame_digest = outcome.frame.frame_digest if outcome.frame is not None else "none"
+        plan_digest = outcome.plan.plan_digest if outcome.plan is not None else "none"
+        session.append(
+            Turn(
+                turn_id=str(uuid.uuid4()),
+                direction="system",
+                content=(
+                    "semantic planning shadow: "
+                    f"disposition={outcome.disposition.value} "
+                    f"reason={outcome.reason} frame={frame_digest} plan={plan_digest}"
+                ),
+                tier="system",
+            )
         )
 
     def _render_grounded_answer(

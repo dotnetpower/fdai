@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: c06e6c4c24b6a80aa5afa43d935a077faec5b40e
+translation_source_sha: 8b9bcd97e8748c9abcdcd3aace73302e5f80bb24
 translation_revised: 2026-08-10
 ---
 
@@ -34,11 +34,13 @@ capability만 볼 수 있습니다. Validator는 알 수 없는 capability, cycl
 
 ## 구현 상태
 
-Structured intent graph는 목표 contract이며 active server planner가 아닙니다. Console은 bounded
-`intent_graph` 및 `intent_graph_evidence` payload의 strict parser와 presentation을 제공하지만 이를 emit하는
-Core 또는 Operator Service producer는 현재 없습니다. Active Core conversation path는
-`_VERB_PATTERNS`를 match하고 선택적으로 narrator에게 canonical command string을 요청하며 serial 2-3
-step read plan만 validate/execute할 수 있습니다.
+Structured intent graph는 아직 active server planner가 아닙니다. Core에는 이제 schema-constrained
+whole-turn semantic model seam, principal-manifest verification, deterministic intent-graph/receipt production
+및 정확한 Console v2/v1 wire projection이 있습니다. Compatibility coordinator는 visible result를
+바꾸지 않고 semantic planning을 shadow로 실행할 수 있습니다. Production turn stream은 이 projection을
+attach하지 않으며 production semantic model 또는 descriptor-index binding도 enable되지 않았습니다.
+Active Core compatibility path는 계속 `_VERB_PATTERNS`를 match하고 선택적으로 narrator에게 canonical
+command string을 요청하며 serial 2-3 step read plan만 실행할 수 있습니다.
 
 Exact-release semantic candidate, verified semantic plan, bounded ObjectSet, secured query receipt, typed
 function registration, `OntologyQueryPlan`, deterministic verifier 및 bounded dependency-wave execution이
@@ -328,7 +330,7 @@ Compatibility 기간은 일시적입니다. Migration은 하나의 graph contrac
 
 | 영역 | 현재 상태 | Coverage 영향 |
 |------|-----------|---------------|
-| Intent graph | One-shot 및 streamed turn에서 active | Composition과 replay를 제공하지만 compatibility parser와 함께 존재합니다. |
+| Intent graph | Verified plan에서 bounded graph, task evidence 및 Console-compatible wire projection을 만들 수 있습니다. | Production one-shot/streamed turn completion은 아직 이를 attach하지 않으며 compatibility parser가 active입니다. |
 | Semantic plan 및 ObjectSet | Exact-release candidate, principal-manifest verification, bounded predicate/traversal, secured receipt, generic set/order/project/aggregate handler 및 typed function invocation이 있습니다. | Generic query manifest/plan executor는 아직 production narrator surface가 아니며 temporal/evidence-join extension이 남아 있습니다. |
 | Interface | Production loading은 모든 current ObjectType에 대해 reviewed `Identifiable` Interface를 검증하고 compile하며 ObjectSet contract에는 interface selector가 있습니다. | 추가 capability Interface와 production polymorphic ObjectSet query binding은 아직 연결되지 않았습니다. |
 | Relationship side | 모든 directed LinkType이 deterministic outgoing/incoming endpoint-side query id를 제공하며 store는 typed direction을 보존합니다. | Generic verifier와 natural-language planner는 아직 이 side를 사용하지 않습니다. |

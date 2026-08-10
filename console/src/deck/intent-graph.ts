@@ -16,7 +16,9 @@ const RECEIPT_FIELDS = [
   "depends_on", "reason", "blocked_by", "evidence_refs", "started_at", "completed_at",
 ];
 const GOAL_EVIDENCE_MODES = ["screen", "catalog", "operational", "web", "model_knowledge", "mixed"];
-const RECEIPT_STATUSES = ["completed", "unavailable", "failed", "timed_out", "skipped"];
+const RECEIPT_STATUSES = [
+  "completed", "unavailable", "failed", "timed_out", "skipped", "cancelled",
+];
 const EVIDENCE_MODES: readonly IntentEvidenceMode[] = [
   "screen_grounded",
   "operational_grounded",
@@ -53,7 +55,9 @@ export function parseIntentGraphEvidence(raw: unknown): IntentGraphEvidence | un
   const record = objectRecord(raw);
   if (!record || !hasExactKeys(record, ["schema_version", "status", "evidence_mode", "goals"]) ||
       record.schema_version !== 1 ||
-      !["completed", "partial", "unavailable", "failed"].includes(String(record.status)) ||
+      !["completed", "partial", "unavailable", "failed", "cancelled"].includes(
+        String(record.status),
+      ) ||
       !EVIDENCE_MODES.includes(record.evidence_mode as IntentEvidenceMode) ||
       !Array.isArray(record.goals) || record.goals.length > MAX_GOALS) {
     return undefined;

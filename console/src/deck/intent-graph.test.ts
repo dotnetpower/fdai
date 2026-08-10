@@ -76,6 +76,30 @@ describe("parseIntentGraphEvidence", () => {
     })).toBeUndefined();
   });
 
+  it("preserves explicit cancellation receipts", () => {
+    const parsed = parseIntentGraphEvidence({
+      schema_version: 1,
+      status: "cancelled",
+      evidence_mode: "held_for_review",
+      goals: [{
+        goal_id: "health",
+        intent: "status",
+        capability: "query_subscription_health",
+        evidence_mode: "operational",
+        status: "cancelled",
+        duration_ms: 12,
+        depends_on: [],
+        reason: "request_cancelled",
+        task_id: "request-1:health",
+        started_at: "2026-08-02T03:00:00Z",
+        completed_at: "2026-08-02T03:00:00.012Z",
+      }],
+    });
+
+    expect(parsed?.status).toBe("cancelled");
+    expect(parsed?.goals[0]?.status).toBe("cancelled");
+  });
+
   it("rejects raw provider evidence and oversized receipt references", () => {
     const receipt = {
       goal_id: "health",

@@ -43,6 +43,16 @@ units for 100% structural query coverage.
 > endpoint attachments to their exact private-link service targets. Reverse peering still requires
 > an independent remote-VNet observation. Routes, workload/service mappings, observation receipts,
 > and the production network-path issuer remain.
+> OQ-04 now has a schema-constrained model seam that proposes a semantic frame and typed node DAG
+> from the whole bounded turn and candidate descriptors. Core rebuilds all digests and authority
+> fields, verifies the exact principal manifest, and returns a verified plan, one clarification,
+> action-draft handoff, unsupported result, or unavailable result. The compatibility coordinator
+> can run this path in shadow and records only disposition and content digests. No production model
+> or composition binding is enabled yet.
+> OQ-05 now deterministically derives an eight-goal intent graph, binds executor receipts to those
+> goals, and projects the internal exact-plan contracts to the Console v2/v1 wire shapes. The
+> Console accepts explicit cancellation receipts. Executing the semantic plan and attaching these
+> projections to the production turn-completion stream remain.
 
 ## Design at a glance
 
@@ -67,8 +77,8 @@ objects are selected only by authoritative reads after plan verification.
 | Area | Verified current implementation | Gap that blocks the target |
 |------|---------------------------------|----------------------------|
 | Conversation routing | The local independent Operator Service restores model narration from the resolved Azure candidates; Core `ConversationCoordinator` still uses `_VERB_PATTERNS`, and `ReadPlanNarrator` may propose two or three canonical command strings that `execute_read_plan` runs serially. | Local model narration has no provider-read or execution authority and does not supply a server-side semantic problem frame, intent graph producer, dependency-wave executor, or typed plan bridge. |
-| Console intent graph | The Console strictly parses and renders bounded `intent_graph` and `intent_graph_evidence` payloads. | No Core or Operator Service producer was found; the current implementation is presentation-only. |
-| Semantic interpretation | `SemanticInterpretationCandidate`, `VerifiedSemanticPlan`, exact release checks, and candidate-only authority exist. | The verified plan targets one typed function and is not connected to conversation routing or a generic ontology query algebra. |
+| Console intent graph | Core now derives a bounded graph and receipt evidence from verified plans, and shared SDK projections exactly match the Console v2/v1 parsers. | The production turn-completion stream does not yet attach the produced graph and evidence. |
+| Semantic interpretation | A schema-constrained whole-turn model seam proposes `SemanticProblemFrame` and typed DAG candidates; Core supplies identity, verifies the principal manifest, and supports opt-in shadow comparison beside compatibility routing. | No production model/descriptor-index binding is enabled, and the semantic path does not yet select the visible answer. |
 | Object queries | `OntologyQueryPlan` now composes secured ObjectSets, set algebra, ordering, projection, grouped aggregation, and typed read-only functions over immutable content-addressed tables. | Temporal snapshots, metric series, and evidence joins still require registered extension handlers. |
 | Query manifest | A principal-scoped content-addressed builder projects ObjectTypes and filtered properties, both LinkType endpoint sides, Interfaces, read-only functions, and draft-only ActionTypes. | The production narrator does not yet consume the manifest, and complete operator/evidence availability descriptors remain. |
 | Interfaces | Production catalog loading validates `Identifiable`, its provenance, and explicit bindings for all current ObjectTypes; runtime composition compiles it and pins it in the exact release. | Additional capability Interfaces and production ObjectSet query binding remain. |

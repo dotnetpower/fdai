@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c7b18091b0598f6e4533db3ae79f5972e1aa79eb
+translation_source_sha: 39e7d4daea1becaba795eba3581c483b7917ee47
 translation_revised: 2026-08-10
 ---
 
@@ -72,7 +72,7 @@ fdai/
 │   │   ├── readiness/          # 운영 handoff + startup 및 monitored-target readiness contract, fail-closed reducer, evidence expiry 및 authority ceiling
 │   │   ├── assurance_twin/     # 읽기 전용 온톨로지 트윈: text-to-query, scalar/graph active-challenger model, 필수 invariant, durable trajectory episode, 결정론적 simulation, off-path outcome closure (실행 또는 promotion 안 함)
 │   │   ├── ontology_platform/   # exact release, semantic interface, bounded object set, secured purpose/ACL query receipt, shared exact-number property semantics, cluster-scoped network/Pod telemetry verification, immutable diagnostic ledger/result projection, mutation plan, typed function, authenticated reconciliation과 proposal-only terminal outbox, proposal-only SDK generation
-│   │   ├── conversation/       # Bragi-owned model-free screen T0, operator console intent/tool 조정, conflict-aware read plan, grounded narration, shadow planning qualification receipt, per-turn isolation, durable delivery 및 busy-input arbitration
+│   │   ├── conversation/       # Bragi-owned model-free screen T0, schema-constrained whole-turn semantic frame/query-plan shadowing, principal-manifest verification, intent-graph evidence projection, compatibility intent/tool 조정, grounded narration, per-turn isolation, durable delivery 및 busy-input arbitration
 │   │   ├── user_context_projection.py  # principal context / workflow binding metadata만 runtime ontology에 projection
 │   │   ├── console_request/    # 오퍼레이터 콘솔 write-direction 재요청 정책 (Scenario B deny-override), 순수 함수 `evaluate_operator_rerequest` 하나
 │   │   ├── verticals/          # Resilience / Change Safety / Cost Governance (P3 통합 지점); Resilience는 control-plane recovery plan, record codec, epoch-fenced reducer 및 durable CAS coordinator를 포함하고, 각 vertical 은 sub-package (G-6) 로 자체 orchestrator + 서브모듈 을 가지며 공유 `Vertical` Protocol 은 `base.py`, `VerticalRegistry` seam 도 함께 제공

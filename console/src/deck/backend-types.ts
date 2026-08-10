@@ -366,7 +366,7 @@ export interface IntentGraphMetadata {
 
 export interface IntentGraphEvidence {
   readonly schema_version: 1;
-  readonly status: "completed" | "partial" | "unavailable" | "failed";
+  readonly status: "completed" | "partial" | "unavailable" | "failed" | "cancelled";
   readonly evidence_mode: IntentEvidenceMode;
   readonly goals: readonly {
     readonly task_id: string;
@@ -374,7 +374,7 @@ export interface IntentGraphEvidence {
     readonly intent: string;
     readonly capability: string | null;
     readonly evidence_mode: string;
-    readonly status: "completed" | "unavailable" | "failed" | "timed_out" | "skipped";
+    readonly status: "completed" | "unavailable" | "failed" | "timed_out" | "skipped" | "cancelled";
     readonly duration_ms: number;
     readonly depends_on: readonly string[];
     readonly reason?: string;
