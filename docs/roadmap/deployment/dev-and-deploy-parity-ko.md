@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: b84e166474756b460a1f41f50ac27d60f00ede55
-translation_revised: 2026-08-08
+translation_source_sha: dac6a3636bd563977dd5b955ed478bf9b37450b8
+translation_revised: 2026-08-10
 ---
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
@@ -79,20 +79,20 @@ site는 인증된 Console full stack과 분리되어 있습니다.
 | Operator API | `http://127.0.0.1:8010` | `Console Web: Operator API` |
 | Test ingestion gateway | `http://127.0.0.1:8011` | `Console Web: Ingestion Gateway` |
 
-`Console Web: Full Stack` compound는 core runtime, Console SPA, Operator API를 시작합니다. 정적 design
-mock과 격리된 test ingestion gateway는 시작하지 않습니다.
-신뢰된 workspace를 열면 `console: prepare local state`가 한 번 자동 실행되어 local PostgreSQL과
-Redpanda container를 시작하고 대기 중인 migration을 적용합니다. 커밋된 workspace 설정이 automatic
-task를 허용하고 task의 single-instance limit가 중복 준비를 방지하므로 별도 task 선택이 필요하지
-않습니다.
+`Console Web: Full Stack` compound는 core runtime, Console SPA 및 Operator API를 시작합니다. Backend launch는
+service-owned Core Control Plane 및 Operator Service distribution을 import하며 제거된 top-level package 또는
+in-process Operator API compatibility path를 복원하지 않고 정적 design mock과 격리된 test ingestion gateway도
+시작하지 않습니다. 신뢰된 workspace에서는 `console: prepare local state`가 한 번 실행되어 local PostgreSQL과
+Redpanda를 시작하고 pending migration과 제한된 grant를 가진 non-login `fdai_operator` role을 적용하며 single-instance limit로 중복을 막습니다.
 같은 migration이 local 및 deployed PostgreSQL에 principal 범위 `conversation_image` repository를
 만듭니다. 따라서 두 profile의 Command Deck history는 동일한 인증 Operator API route를 통해 전송된
 image를 복원하며, 어느 profile도 inline base64를 turn metadata 또는 browser transcript cache에
 저장하지 않습니다.
-Compound는 child configuration을 시작하기 전에 `console: prepare full stack`을 한 번 완료합니다.
-따라서 두 backend launch가 PostgreSQL migration, runtime environment 생성, Entra 동기화를 반복하지
-않습니다. Standalone Core Runtime 또는 Operator API debug configuration을 시작할 때는 이 준비 task를
-먼저 실행합니다.
+Compound는 child configuration을 시작하기 전에 `console: prepare full stack`을 완료하므로 migration,
+두 backend environment 및 Entra synchronization이 한 번만 실행됩니다. Operator environment는 browser
+API scope에서 JWT audience를 파생하고 browser와 Azure tenant 일치를 요구하며, 일치할 수 없는 local
+slot으로 raw-group fallback을 비활성화하고 `SET ROLE fdai_operator`로 연결합니다. Standalone Core
+Runtime 또는 Operator API debug launch에서는 이 준비 task를 먼저 실행합니다.
 준비 순서에서는 구성된 Entra SPA 등록에 `http://localhost:5273`과
 `http://127.0.0.1:5273`을 안전하게 재시도할 수 있는 방식으로 동기화합니다. Helper는 기존
 redirect를 보존하고 해당 loopback host에만 HTTP를 허용하며, 활성 tenant가 다르거나 운영자가
@@ -151,9 +151,9 @@ traffic으로 기록되지 않습니다.
 Local 및 deployed console 모두 agent card의 Ask action에서 새 user-scoped conversation key를
 할당하고 submit 전에 선택한 agent를 conversation summary에 저장합니다. Browser는 stable per-agent
 key를 사용해 이전 transcript를 묵시적으로 재개하지 않습니다.
-Core, Operator API, debugger 및 local migration command는 현재 workspace의 `src` directory를 Python
-import path의 첫 위치에 명시합니다. 따라서 다른 worktree가 virtual environment의 editable-install
-metadata를 변경해도 오래된 FDAI source를 시작할 수 없습니다.
+Core, Operator API, debugger 및 local task는 담당 service와 shared contract SDK source directory를
+Python import path의 첫 위치에 둡니다. 따라서 다른 worktree의 editable-install metadata가 오래된
+source를 시작하거나 independent-service implementation boundary를 넘을 수 없습니다.
 
 ### Workspace context 정리
 

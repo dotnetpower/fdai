@@ -22,7 +22,7 @@
       "cwd": "${workspaceFolder}",
       "envFile": "${workspaceFolder}/.fdai/local-runtime.env",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}/src",
+        "PYTHONPATH": "${workspaceFolder}/services/core-control-plane/src:${workspaceFolder}/packages/service-contracts/src",
         "FDAI_RUNTIME_LOCK_FILE": "${workspaceFolder}/.fdai/core-runtime.lock",
         "AZURE_CONFIG_DIR": null
       },
@@ -41,7 +41,7 @@
       "python": "${workspaceFolder}/.venv/bin/python",
       "module": "uvicorn",
       "args": [
-        "fdai.delivery.operator_api.dev.local:server_app",
+        "fdai_operator_service.main:create_app",
         "--factory",
         "--host",
         "127.0.0.1",
@@ -51,17 +51,10 @@
         "--reload"
       ],
       "cwd": "${workspaceFolder}",
-      "envFile": "${workspaceFolder}/.fdai/local-runtime.env",
+      "envFile": "${workspaceFolder}/.fdai/local-operator-service.env",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}/src",
-        "AZURE_CONFIG_DIR": null,
-        "FDAI_OPERATOR_API_LOCAL_ENTRA": "1",
-        "FDAI_OPERATOR_API_DEV_MODE": "0",
-        "FDAI_OPERATOR_API_LOCAL_AZURE_CLI": "0",
-        "FDAI_OPERATOR_API_EMBED_PANTHEON": "0",
-        "FDAI_LOCAL_AZURE_DISCOVERY": "1",
-        "FDAI_LOCAL_SCENARIO_REPLAY": "0",
-        "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS": "http://127.0.0.1:5273,http://localhost:5273"
+        "PYTHONPATH": "${workspaceFolder}/services/operator-service/src:${workspaceFolder}/packages/service-contracts/src",
+        "AZURE_CONFIG_DIR": null
       },
       "console": "integratedTerminal",
       "justMyCode": true,

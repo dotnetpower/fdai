@@ -76,20 +76,20 @@ site is static and separate from the authenticated Console full stack.
 | Operator API | `http://127.0.0.1:8010` | `Console Web: Operator API` |
 | Test ingestion gateway | `http://127.0.0.1:8011` | `Console Web: Ingestion Gateway` |
 
-The `Console Web: Full Stack` compound starts the core runtime, Console SPA, and Operator API. It does
-not start the static design mocks or the isolated test ingestion gateway.
-Opening the trusted workspace automatically runs `console: prepare local state` once, which starts
-the local PostgreSQL and Redpanda containers and applies pending migrations. The committed workspace
-setting allows automatic tasks, and the task's single-instance limit avoids duplicate preparation,
-so no separate task selection is required.
+The `Console Web: Full Stack` compound starts the core runtime, Console SPA, and Operator API. Its backend
+launches import the service-owned Core Control Plane and Operator Service distributions; they don't restore
+the retired top-level package or in-process Operator API compatibility path, and the compound doesn't start
+the static design mocks or isolated test ingestion gateway. Opening the trusted workspace runs `console: prepare local
+state` once to start local PostgreSQL and Redpanda, apply migrations and the bounded non-login `fdai_operator` role, and avoid duplicates through a single-instance limit.
 The same migration creates the principal-scoped `conversation_image` repository in local and
 deployed PostgreSQL. Command Deck history therefore restores sent images through the same
 authenticated Operator API route in both profiles; neither profile stores inline base64 in turn
 metadata or browser transcript caches.
-The compound completes `console: prepare full stack` once before starting any child configuration,
-so PostgreSQL migration, runtime environment generation, and Entra synchronization are not repeated
-by both backend launches. Run that preparation task first when starting the standalone Core Runtime
-or Operator API debug configuration.
+The compound completes `console: prepare full stack` before starting its children, so migration,
+both backend environments, and Entra synchronization run once. The Operator environment derives
+its JWT audience from the browser API scope, requires matching browser and Azure tenants, disables
+raw-group fallback with unmatchable local slots, and connects through `SET ROLE fdai_operator`. Run
+the preparation task first for a standalone Core Runtime or Operator API debug launch.
 The preparation sequence safely retries both fixed loopback origins into the configured Entra SPA
 registration. The helper preserves redirects, permits loopback HTTP only, and stops when the active
 tenant or registration permission is wrong. Local Event Hubs token refreshes stay pinned to prepared
@@ -148,9 +148,9 @@ traffic.
 In both local and deployed consoles, an agent-card Ask action allocates a fresh user-scoped
 conversation key while persisting the selected agent in the conversation summary before submit.
 The browser never uses a stable per-agent key to resume an earlier transcript implicitly.
-Core, Operator API, debugger, and local migration commands explicitly place the current workspace
-`src` directory first on the Python import path. A virtual environment whose editable-install
-metadata was changed by another worktree therefore cannot launch stale FDAI source.
+Core, Operator API, debugger, and local tasks place the owning service and shared contract SDK
+source directories first on the Python import path. Another worktree's editable-install metadata
+therefore can't launch stale source or cross the independent-service implementation boundary.
 
 ### Workspace context hygiene
 
