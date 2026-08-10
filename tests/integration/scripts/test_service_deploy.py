@@ -1150,6 +1150,48 @@ def test_plan_guard_reports_drift_paths_without_values(guard: ModuleType) -> Non
     assert "secret-new" not in message
 
 
+def test_plan_guard_allows_only_empty_key_vault_secret_value_normalization(
+    guard: ModuleType,
+) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    planned_before = plan["resource_changes"][0]["change"]["before"]  # type: ignore[index]
+    drift_before = copy.deepcopy(planned_before)
+    drift_after = copy.deepcopy(planned_before)
+    drift_before["secret"][0]["value"] = ""  # type: ignore[index]
+    plan["resource_drift"] = [
+        {
+            "address": address,
+            "change": {"actions": ["update"], "before": drift_before, "after": drift_after},
+        }
+    ]
+
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+    )
+
+    drift_before["secret"][0]["value"] = "not-empty"  # type: ignore[index]
+    with pytest.raises(guard.PlanGuardError, match="platform or peer resource drift"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+        )
+    drift_before["secret"][0]["value"] = ""  # type: ignore[index]
+    drift_after["secret"][0]["identity"] = "changed"  # type: ignore[index]
+    with pytest.raises(guard.PlanGuardError, match="platform or peer resource drift"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+        )
+
+
 def test_initial_cutover_allows_drift_aligned_with_planned_before(guard: ModuleType) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])

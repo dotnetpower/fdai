@@ -525,6 +525,54 @@ def _guard_aligned_initial_drift(
     )
 
 
+def _guard_key_vault_secret_value_normalization_drift(
+    resource_drift: Any,
+    *,
+    contract: ServiceContract,
+) -> bool:
+    """Accept only empty AzureRM value normalization on unchanged Key Vault secrets."""
+    if not isinstance(resource_drift, list) or len(resource_drift) != 1:
+        return False
+    entry = resource_drift[0]
+    if not isinstance(entry, dict) or entry.get("address") != contract.allowed_resource_address:
+        return False
+    change = entry.get("change")
+    if not isinstance(change, dict) or change.get("actions") != ["update"]:
+        return False
+    before = change.get("before")
+    after = change.get("after")
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return False
+    paths = _difference_paths(before, after)
+    if not paths or not all(re.fullmatch(r"\$\.secret\[\d+\]\.value", path) for path in paths):
+        return False
+    normalized_before = copy.deepcopy(before)
+    normalized_after = copy.deepcopy(after)
+    before_secrets = normalized_before.get("secret")
+    after_secrets = normalized_after.get("secret")
+    if (
+        not isinstance(before_secrets, list)
+        or not isinstance(after_secrets, list)
+        or not before_secrets
+        or len(before_secrets) != len(after_secrets)
+    ):
+        return False
+    for before_secret, after_secret in zip(before_secrets, after_secrets, strict=True):
+        if not isinstance(before_secret, dict) or not isinstance(after_secret, dict):
+            return False
+        before_value = before_secret.pop("value", None)
+        after_value = after_secret.pop("value", None)
+        if before_value not in (None, "") or after_value not in (None, ""):
+            return False
+        if (
+            before_secret != after_secret
+            or not isinstance(before_secret.get("key_vault_secret_id"), str)
+            or not before_secret["key_vault_secret_id"]
+        ):
+            return False
+    return normalized_before == normalized_after
+
+
 def validate_plan(
     payload: dict[str, Any],
     *,
@@ -601,7 +649,16 @@ def validate_plan(
             planned_before=selected_before,
         )
     )
-    if resource_drift not in (None, []) and not allowed_worker_drift and not allowed_aligned_drift:
+    allowed_secret_normalization_drift = _guard_key_vault_secret_value_normalization_drift(
+        resource_drift,
+        contract=contract,
+    )
+    if (
+        resource_drift not in (None, [])
+        and not allowed_worker_drift
+        and not allowed_aligned_drift
+        and not allowed_secret_normalization_drift
+    ):
         drift_paths: list[str] = []
         if isinstance(resource_drift, list) and len(resource_drift) == 1:
             drift_change = resource_drift[0].get("change")
