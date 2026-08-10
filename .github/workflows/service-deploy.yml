@@ -911,7 +911,7 @@ jobs:
             python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_recovery.py" \
               rollback-command \
               --snapshot "$rollback_dir/snapshot.json" \
-              --revision-suffix "rollback-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              --revision-suffix "r${GITHUB_RUN_ID}"
           )
           mapfile -t previous_secrets < <(
             jq -r '.previous_secrets[] | "\(.name)=keyvaultref:\(.key_vault_url),identityref:\(.identity)"' \

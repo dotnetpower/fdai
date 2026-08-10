@@ -188,6 +188,8 @@ def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
     assert "output -json rollback_contract" not in _WORKFLOW
     assert "authority was unchanged" in _WORKFLOW
     assert "protected platform rollback is required" in _WORKFLOW
+    assert '--revision-suffix "r${GITHUB_RUN_ID}"' in _WORKFLOW
+    assert "rollback-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" not in _WORKFLOW
     assert "terraform destroy" not in _WORKFLOW
 
 

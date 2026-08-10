@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: fc5bc03c469dc1bf5ac014af44126b1ebe841c0e
+translation_source_sha: b016bfcce01af670a16cfbe1031588f52dcb373d
 translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
@@ -330,6 +330,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-10 | IS-09 | Split adoption controls equivalence | Round 71 | Follow-up critique에서 split completion run과 artifact run은 각각 GitHub에 bind되지만 aggregate의 deployment controls와 비교되지 않는 문제를 확인했습니다. 이제 attestation verifier는 completion workflow head, artifact workflow head 및 artifact rollback-reference controls commit이 aggregate controls와 deployment-input-equivalent 상태를 유지하도록 요구합니다. 이를 통해 release-only commit은 허용하면서 materially different migration, workflow, infrastructure 또는 dependency controls를 조합한 adoption proof는 거부합니다. |
 | 2026-08-10 | IS-09 | Historical adoption ancestry correction | Round 72 | Executable review에서 final-control equivalence를 요구하면 이후 rollout hardening이 deployment input을 변경했기 때문에 valid one-time adoption도 거부됨을 확인했습니다. 이제 adoption evidence는 cited revision 3개가 모두 final protected-main controls commit의 ancestor일 것을 요구합니다. Exact GitHub run, successful step, artifact digest, schema fingerprint 및 rollback-reference binding은 계속 필수이며 historical controls와 final controls가 equivalent라는 잘못된 주장만 제거합니다. Final transition plan은 계속 deployment-input equivalence를 요구합니다. |
 | 2026-08-10 | IS-09 | Observable sidecar probe normalization | Round 73 | Worker apply `31361034521`은 healthy N revision에 도달했지만 verification이 empty header 및 path와 zero delay 같은 Terraform provider default를 hash했고 Azure Resource Manager는 해당 default를 생략했습니다. 이제 plan sealing은 ARM이 생략하는 exact default value만 제거하고 hashing 전에 unknown probe field를 거부합니다. Non-default threshold, delay, interval, timeout, transport 및 port는 계속 seal되며 observed revision과 정확히 일치해야 합니다. |
+| 2026-08-10 | IS-09 | Bounded rollback revision suffix | Round 74 | 동일한 Worker failure에서 verbose automatic rollback suffix가 가장 긴 service name에 대한 Azure Container App combined 54-character revision-name limit를 초과하여 recovery를 시작할 수 없는 문제를 확인했습니다. 이제 rollback suffix는 lowercase `r` prefix와 unique workflow run id로 구성됩니다. 모든 canonical service name에 맞으면서 deterministic하고 collision-resistant하며, rollback은 계속 exact captured revision만 copy하고 restored image와 sidecar contract를 검증합니다. |
 
 ## 관련 문서
 
