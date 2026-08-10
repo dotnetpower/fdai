@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 944488533b5ad866c449e41bf9ff3c499e3b5140
-translation_revised: 2026-08-08
+translation_source_sha: 7db206474cda5d30a42845e224498de784ad3cd9
+translation_revised: 2026-08-10
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -519,6 +519,7 @@ Access request ID는 Owner에게만 표시됩니다. Reader, Contributor 및 App
 받습니다. Users 및 Access requests 탭은 잠금 아이콘과 함께 계속 표시되며, 탭을 선택하면
 상호 작용을 무시하지 않고 즉시 Access denied surface를 렌더링합니다. 역할이 없는 사용자는
 role-optional `GET /iam/self` projection을 통해 자신의 요청만 봅니다.
+역할이 할당된 principal의 `GET /iam/self`는 검증된 App Role에서 console access를 직접 도출하므로 access-request projection에 의존하지 않습니다. 역할이 없는 principal은 계속 해당 projection이 필요하며, unavailable이면 어떤 access도 얻지 못합니다.
 
 Users 탭은 범위가 제한된 두 원본을 결합합니다. 검증된 로그인 principal과 표시 가능한
 액세스 요청에 참조된 사용자를 보여줍니다. Owner는 `GET /iam/directory/users?q=...`를 통해

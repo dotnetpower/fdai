@@ -1,6 +1,7 @@
 import {
   apiBoolean,
   apiNullableString,
+  apiOptionalNullableString,
   apiRecord,
   apiString,
   contractError,
@@ -105,7 +106,7 @@ function decodeSource(value: unknown, label: string): ReadDataSourceStatus {
     durable: nullableBoolean(item, "durable", label),
     synthetic: apiBoolean(item, "synthetic", label),
     reason: apiNullableString(item, "reason", label),
-    last_observed_at: apiNullableString(item, "last_observed_at", label),
+    last_observed_at: apiOptionalNullableString(item, "last_observed_at", label),
   };
 }
 

@@ -535,6 +535,7 @@ requests receive `403`. The Users and Access requests tabs remain visible with a
 selecting either tab renders an immediate Access denied surface instead of ignoring the
 interaction. An unassigned user sees only their own request through the role-optional
 `GET /iam/self` projection.
+For an assigned principal, `GET /iam/self` derives console access directly from verified App Roles and does not depend on the access-request projection. An unassigned principal still requires that projection and gains no access when it is unavailable.
 
 The Users tab combines two bounded sources. It shows the verified signed-in principal and
 users referenced by visible access requests. An Owner can also search the configured

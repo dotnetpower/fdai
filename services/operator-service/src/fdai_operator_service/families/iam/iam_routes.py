@@ -70,6 +70,8 @@ def make_iam_routes(
 
     async def get_self(request: Request) -> Response:
         principal = await authenticate(request)
+        if principal.roles:
+            return _self_response(principal, request_item=None)
         if outbox is None:
             return error_response(503, "human access request outbox is not configured")
         try:
@@ -78,17 +80,7 @@ def make_iam_routes(
             )
         except IamFamilyError as exc:
             return family_error(exc)
-        return JSONResponse(
-            {
-                "principal": {
-                    "subject_id": principal.oid,
-                    "username": principal.username,
-                    "roles": sorted(role.value for role in principal.roles),
-                },
-                "request": dict(items[0]) if items else None,
-                "can_access_console": bool(principal.roles),
-            }
-        )
+        return _self_response(principal, request_item=items[0] if items else None)
 
     async def search_directory(request: Request) -> Response:
         principal = await authorize(request)
@@ -205,6 +197,21 @@ def make_iam_routes(
             methods=["POST"],
         ),
         Route("/iam/access-requests/self", submit_self_access_request, methods=["POST"]),
+    )
+
+
+def _self_response(principal: Any, *, request_item: Mapping[str, Any] | None) -> JSONResponse:
+    """Render role authority independently from the optional self-service projection."""
+    return JSONResponse(
+        {
+            "principal": {
+                "subject_id": principal.oid,
+                "username": principal.username,
+                "roles": sorted(role.value for role in principal.roles),
+            },
+            "request": dict(request_item) if request_item is not None else None,
+            "can_access_console": bool(principal.roles),
+        }
     )
 
 

@@ -34,6 +34,13 @@ describe("read data sources", () => {
     expect(unavailableSourceReason(decoded, "/models/settings")).toBeNull();
   });
 
+  test("accepts an omitted optional observation timestamp", () => {
+    const { last_observed_at: _lastObservedAt, ...source } = payload.sources[0]!;
+    const decoded = decodeReadDataSources({ ...payload, sources: [source] });
+
+    expect(decoded.sources[0]?.last_observed_at).toBeNull();
+  });
+
   test("rejects malformed and duplicate source contracts", () => {
     expect(() => decodeReadDataSources({ ...payload, surface: "other" })).toThrow();
     expect(() => decodeReadDataSources({

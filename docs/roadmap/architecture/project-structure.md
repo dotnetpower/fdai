@@ -230,10 +230,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   the executor emits an abstract action and the adapter renders it (remediation-pr, Adaptive
   Card). The executor holds the only privileged identity; adapters never share it.
 - **console has no privileged identity**: it visualizes state, audit, shadow results, and the
-  HIL queue. Command surfaces may submit authenticated records or typed proposals to the read
-  API, but they cannot call a resource executor directly; risk, approval, audit, and executor
-  boundaries remain server-side
-  (see [security-and-identity.md](security-and-identity.md)).
+  HIL queue. Assigned-principal access comes directly from verified App Roles and does not depend
+  on the optional access-request projection. Command surfaces may submit authenticated records or
+  typed proposals to the read API, but they cannot call a resource executor directly; risk,
+  approval, audit, and executor boundaries remain server-side (see [security-and-identity.md](security-and-identity.md)).
   Repository Best Practice definitions are loaded once at the composition root and exposed through
   GET-only list and detail routes. They remain catalog reference data; the projection reports
   `Unknown` and `not-connected` until a runtime evidence provider is explicitly bound.

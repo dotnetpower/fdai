@@ -359,6 +359,40 @@ def test_unbound_mutations_fail_closed_and_reader_cannot_cross_owner_ceiling() -
     assert denied.status_code == 403
 
 
+def test_assigned_self_status_does_not_require_access_request_projection() -> None:
+    response = _client().get(
+        "/iam/self",
+        headers={"x-test-role": "Reader", "x-test-oid": "reader-1"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "principal": {
+            "subject_id": "reader-1",
+            "username": "operator@example.com",
+            "roles": ["Reader"],
+        },
+        "request": None,
+        "can_access_console": True,
+    }
+
+
+def test_unassigned_self_status_still_requires_access_request_projection() -> None:
+    unavailable = _client().get(
+        "/iam/self",
+        headers={"x-test-role": "unassigned", "x-test-oid": "new-user-1"},
+    )
+    available = _client(human_access=RecordingHumanAccess()).get(
+        "/iam/self",
+        headers={"x-test-role": "unassigned", "x-test-oid": "new-user-1"},
+    )
+
+    assert unavailable.status_code == 503
+    assert available.status_code == 200
+    assert available.json()["can_access_console"] is False
+    assert available.json()["request"] is None
+
+
 def test_access_grant_decision_keeps_revision_and_never_claims_permission_applied() -> None:
     grants = RecordingAccessGrants()
     response = _client(access_grants=grants).post(
