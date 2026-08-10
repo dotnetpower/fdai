@@ -7,6 +7,7 @@ import argparse
 import io
 import json
 import os
+import re
 import subprocess
 import urllib.request
 import zipfile
@@ -21,10 +22,38 @@ from scripts.quality.architecture.transition_control_inputs import verify_unchan
 REPOSITORY = "dotnetpower/fdai"
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_EVIDENCE = REPO_ROOT / "config" / "independent-service-remote-evidence.json"
+_ACTIONS_ARTIFACT_HOST = re.compile(r"productionresultssa[0-9]+\.blob\.core\.windows\.net")
 
 
 class GitHubEvidenceError(ValueError):
     """Report a mismatch between tracked evidence and GitHub records."""
+
+
+class _ArtifactRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Follow GitHub artifact redirects without forwarding the API bearer token."""
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request:
+        del req, fp, code, msg, headers
+        parsed = urlparse(newurl)
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname is None
+            or _ACTIONS_ARTIFACT_HOST.fullmatch(parsed.hostname) is None
+        ):
+            raise GitHubEvidenceError("GitHub artifact redirect is outside the allowed origin")
+        return urllib.request.Request(  # noqa: S310 - exact HTTPS host checked above.
+            newurl,
+            headers={"Accept": "application/octet-stream"},
+            method="GET",
+        )
 
 
 class GitHubClient(Protocol):
@@ -64,7 +93,8 @@ class ApiClient:
             return json.load(response)
 
     def bytes(self, url: str) -> bytes:
-        with urllib.request.urlopen(  # noqa: S310 - URL origin is constrained above.
+        opener = urllib.request.build_opener(_ArtifactRedirectHandler())
+        with opener.open(  # noqa: S310 - redirect origin is constrained by the handler.
             self._request(url), timeout=60
         ) as response:
             return bytes(response.read())
