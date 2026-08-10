@@ -265,6 +265,7 @@ def test_remote_evidence_workflow_is_read_only_and_pinned() -> None:
     assert "attestations: write" in _WORKFLOW
     assert "id-token: write" in _WORKFLOW
     assert "packages: read" in _WORKFLOW
+    assert "PYTHONPATH: ${{ github.workspace }}" in _WORKFLOW
     assert "verify_remote_github_evidence.py" in _WORKFLOW
     assert "check-remote-service-evidence.py" in _WORKFLOW
     assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in _WORKFLOW

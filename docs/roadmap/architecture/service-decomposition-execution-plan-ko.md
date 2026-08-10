@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: c0448fd25d04538c94d5ee06a0ef96edd9bb1943
+translation_source_sha: 834cd57692fdf8576a14d723d3381262ce69ae4d
 translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
@@ -337,6 +337,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-10 | IS-09 | Per-run deployment controls | Round 78 | Final-proof critique에서 initial N run과 corrected rollback run이 서로 다른 protected-main revision을 사용하므로 aggregate controls SHA 하나만 강제하면 valid evidence를 거부하거나 history를 잘못 표현하는 문제를 확인했습니다. 이제 remote evidence는 각 plan/apply pair에 plan-sealed controls를 기록하고 apply controls가 해당 plan과 일치하도록 요구합니다. GitHub binder는 API-bound workflow head와 artifact-bound controls revision 각각이 aggregate controls와 deployment-input-equivalent임을 증명합니다. Final-evidence equivalence는 artifact-only image-build override helper만 제외하며 모든 service-deploy plan/apply input은 계속 strict하게 검사합니다. |
 | 2026-08-10 | IS-09 | Controls-verifier coverage | Round 79 | Follow-up critique에서 unique transition workflow head와 plan-sealed controls revision이 모두 equivalence verifier에 도달하는 executable check를 추가했습니다. 이 check는 stage별 distinct controls와 중복 제거도 검증합니다. One-time adoption은 adoption 이후 rollout hardening이 deployment input을 의도적으로 변경했으므로 ancestry-bound 상태를 유지합니다. Exact run, successful step, artifact 및 rollback controls는 계속 독립적으로 binding됩니다. High 및 Medium severity residual은 0건입니다. |
 | 2026-08-10 | IS-09 | Evidence-only comparator separation | Round 80 | Executable review에서 service-deploy comparator에 exception을 추가하면 comparator 자체가 historical initial controls와 달라져 equivalence 주장이 self-defeating 상태가 되고 apply boundary도 약해지는 문제를 확인했습니다. Service-deploy comparator를 byte-for-byte strict form으로 복원했습니다. 별도 final-evidence comparator는 supply-chain helper만 제외하고 root release version만 normalize하며 그 밖의 workflow, helper, Terraform, migration, dependency 또는 lock 변경을 모두 거부합니다. Focused test가 두 boundary를 증명하며 High 및 Medium severity residual은 계속 0건입니다. |
+| 2026-08-10 | IS-09 | Attestation workflow import path | Round 81 | Clean runner 실행에서 `remote-evidence-attest.yml`의 plain Python entry point 2개가 repository root를 module search path에서 찾지 못해 validation 전에 `ModuleNotFoundError`로 실패하는 문제를 재현했습니다. 이제 exact protected checkout을 job-level Python path로 사용하며 workflow contract test가 이 binding을 고정합니다. Aggregate 및 GitHub binder 동작은 변경하지 않았고 repository import가 없으면 attestation 전에 계속 실패합니다. |
 
 ## 관련 문서
 
