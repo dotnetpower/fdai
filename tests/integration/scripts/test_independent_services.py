@@ -41,7 +41,8 @@ def test_manifest_names_exactly_five_independent_services() -> None:
         "n_distribution_version": "0.1.3",
         "n_source_revision": "396a095a03af87b8d54026218068528059379a5a",
         "n_minus_one_distribution_version": "0.1.2",
-        "n_minus_one_source_revision": "9f1234f93d356dedbddcb3b88aa7bc4da38b2dc2",
+        "n_minus_one_source_revision": "352c8d1e661a6a53f0958767550fd57c2b975706",
+        "local_n_minus_one_source_revision": "9f1234f93d356dedbddcb3b88aa7bc4da38b2dc2",
         "n_contract_set_version": "1.1.0",
         "n_minus_one_contract_set_version": "1.0.0",
     }

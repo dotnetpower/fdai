@@ -41,6 +41,7 @@ def _manifest() -> dict[str, Any]:
             "n_source_revision": _N_SOURCE,
             "n_minus_one_distribution_version": "0.1.2",
             "n_minus_one_source_revision": _N_MINUS_ONE_SOURCE,
+            "local_n_minus_one_source_revision": "d" * 40,
             "n_contract_set_version": "1.1.0",
             "n_minus_one_contract_set_version": "1.0.0",
         },

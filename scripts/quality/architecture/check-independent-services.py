@@ -372,17 +372,20 @@ def _validate_release_transition(manifest: dict[str, Any]) -> None:
         "n_source_revision": transition.get("n_source_revision"),
         "n_minus_one_distribution_version": "0.1.2",
         "n_minus_one_source_revision": transition.get("n_minus_one_source_revision"),
+        "local_n_minus_one_source_revision": transition.get("local_n_minus_one_source_revision"),
         "n_contract_set_version": "1.1.0",
         "n_minus_one_contract_set_version": "1.0.0",
     }:
         raise ValueError("independent-service release transition contract is invalid")
-    for release in ("n", "n_minus_one"):
-        revision = transition[f"{release}_source_revision"]
+    source_fields = {
+        "N": "n_source_revision",
+        "N-1": "n_minus_one_source_revision",
+        "local N-1": "local_n_minus_one_source_revision",
+    }
+    for label, field in source_fields.items():
+        revision = transition[field]
         if not isinstance(revision, str) or re.fullmatch(r"[0-9a-f]{40}", revision) is None:
-            raise ValueError(
-                f"{release.replace('_', '-').upper()} source revision must be a lowercase "
-                "40-character git SHA"
-            )
+            raise ValueError(f"{label} source revision must be a lowercase 40-character git SHA")
     for service in manifest["services"]:
         if service["distribution_version"] != transition["n_distribution_version"]:
             raise ValueError(f"{service['id']} N distribution version is inconsistent")
@@ -419,7 +422,7 @@ def _validate_local_transition_evidence(manifest: dict[str, Any]) -> None:
         raise ValueError("local N artifact source is invalid")
     if evidence.get("n_minus_one") != {
         "distribution_version": transition["n_minus_one_distribution_version"],
-        "source_revision": transition["n_minus_one_source_revision"],
+        "source_revision": transition["local_n_minus_one_source_revision"],
     }:
         raise ValueError("local N-1 artifact source is invalid")
     compatibility = _load_json(COMPATIBILITY_MANIFEST_PATH, "compatibility manifest")

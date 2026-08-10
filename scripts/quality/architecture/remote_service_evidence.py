@@ -552,6 +552,7 @@ def validate_remote_service_evidence(
             "n_source_revision",
             "n_minus_one_distribution_version",
             "n_minus_one_source_revision",
+            "local_n_minus_one_source_revision",
             "n_contract_set_version",
             "n_minus_one_contract_set_version",
         },
