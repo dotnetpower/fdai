@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 0c1ec2f72f56d1c54c9e94455c2a2ab55fa7a88a
+translation_source_sha: 89b23fb781a28f42eb80813441be4079929e6dc2
 translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
@@ -43,7 +43,7 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 | 계획됨 | 0 | 계획 상태의 service-decomposition work package가 없습니다. |
 | 차단됨 | 0 | 현재 차단된 work package가 없습니다. |
 
-마지막 업데이트: 2026-08-09.
+마지막 업데이트: 2026-08-10.
 
 ## 실행 checklist
 
@@ -159,7 +159,7 @@ entry point, duplicate contract와 generic ingestion co-host seam은 제거되�
 
 로컬 완료 evidence에는 독립 build wheel 6개, nonroot service image 5개, image health check 5개,
 104개 table과 11개 transition을 포함하는 검증된 migration branch 5개, 로컬에서 validate한 Terraform
-root 5개, cross-service implementation import 0, 그리고 독립 critique-and-hardening 41회와 Medium 이상
+root 5개, cross-service implementation import 0, 그리고 독립 critique-and-hardening 108회와 Medium 이상
 로컬 residual 0이 포함됩니다. IS-06과 IS-07은 local 기준으로 완료됐습니다. Exact remote
 plan/apply와 rolling 확인은 IS-09로 보류하며 최종 service-owned
 input을 사용하고 monolith를 rollback source로 복원하지 않습니다. IS-09는 deployable distribution
@@ -344,6 +344,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-10 | IS-09 | Privileged workflow guard compatibility | Round 86 | Central validation은 처음에 portable `diff --brief` exact-source comparison을 거부했습니다. Contract가 GNU diff에서 지원하지 않는 `diff --quiet`만 인식했기 때문입니다. 이제 contract는 protected workflow path, source, ancestry 및 operand check를 유지하면서 portable exact-comparison flag를 허용합니다. Focused validation이 통과했고 High 또는 Medium severity residual은 0건입니다. |
 | 2026-08-10 | IS-09 | Program-final remote proof | Round 87 | Fresh initial N apply 5개, corrected N-1 rollback apply 5개 및 restored N apply 5개가 직렬로 완료되어 protected plan 15개, protected apply 15개, peer-isolation receipt 30개 및 genuine kind-specific live observation을 확보했습니다. GitHub run `31385698545`가 모든 run과 artifact를 binding하고 image attestation과 controls equivalence를 검증한 뒤 exact evidence source `a721d1ae587af73b8f32986fe3b54acaae400b63`를 attest했습니다. Portable bundle이 protected signer에 대해 verify되었고 accepted remote evidence는 5/5이며 IS-09는 completed 상태이고 High 또는 Medium severity residual은 0건입니다. |
 | 2026-08-10 | IS-09 | Strict completion checker typing | Round 88 | Final focused validation에서 dynamically loaded live-evidence builder가 runtime validation으로 exact tuple shape를 이미 요구하지만 completion-checker boundary에서는 `Any`를 반환하는 문제를 확인했습니다. 이제 checker는 검증된 return contract만 cast하며 strict mypy가 통과하고 High 또는 Medium severity residual은 계속 0건입니다. |
+| 2026-08-10 | IS-09 | 완료 후 decomposition assurance | Round 89-108 | 독립 review round 20회에서 physical ownership, 금지된 implementation import, identity와 writer 격리, typed transport, restart 및 idempotency behavior, health boundary, migration, Terraform root 5개, N/N-1 ordering, rollback, peer isolation 및 attestation된 completion evidence를 다시 확인했습니다. 의심된 Executor defect 5건을 다음 근거로 반증했습니다. Core client instance id는 local asyncio task label에만 사용됩니다. 생성되는 모든 shadow receipt는 durable audit ref를 포함하며 enforce-mode `1.0.0` receipt는 effect 없이 reject만 할 수 있습니다. `/live`는 process liveness를 보고하고 `/ready`는 최신 receipt-outbox publication을 포함합니다. Compatibility manifest는 Core rollback 전에 Executor N-1을 요구하고 Executor migration 전에 Core N을 요구합니다. Adoption evidence는 이후 workflow health check가 실패한 경우에도 정확히 성공한 artifact step과 migration step을 별도로 binding합니다. Independent-service 및 focused compatibility gate 통과 후 contract, evidence, service focused test 351개가 통과했습니다. 재현 가능한 Medium 이상 residual은 없습니다. Document service implementation 양쪽을 함께 사용하는 ingestion service-local test module 2개는 Low test-ownership cleanup으로 남습니다. 이 test는 production distribution에 포함되지 않고 runtime dependency를 만들지 않습니다. |
 
 ## 관련 문서
 

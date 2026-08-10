@@ -45,7 +45,7 @@ subscribers inside their owning runtime service.
 | Planned | 0 | No service-decomposition work package remains planned. |
 | Blocked | 0 | No work package is currently blocked. |
 
-Last updated: 2026-08-09.
+Last updated: 2026-08-10.
 
 ## Execution checklist
 
@@ -164,7 +164,7 @@ contracts, and generic ingestion co-host seam are absent.
 Local completion evidence includes six independently built wheels, five nonroot service images,
 five image health checks, five validated migration branches covering 104 tables and 11
 transitions, five locally validated Terraform roots, zero cross-service implementation imports,
-and forty-one independent critique-and-hardening rounds with zero Medium-or-higher local residuals.
+and 108 independent critique-and-hardening rounds with zero Medium-or-higher local residuals.
 IS-06 and IS-07 are locally complete. Exact remote plan/apply and
 rolling confirmation is deferred to IS-09 and uses final service-owned inputs without restoring
 the monolith as a rollback source. IS-09 pins deployable distribution `0.1.2` images as N-1 and
@@ -350,6 +350,7 @@ state. For each transition:
 | 2026-08-10 | IS-09 | Privileged workflow guard compatibility | Round 86 | Central validation initially rejected the portable `diff --brief` exact-source comparison because its contract recognized only `diff --quiet`, which GNU diff does not support. The contract now accepts the portable exact-comparison flags while preserving protected workflow path, source, ancestry, and operand checks. Focused validation passes with zero High- or Medium-severity residuals. |
 | 2026-08-10 | IS-09 | Program-final remote proof | Round 87 | Five fresh initial N applies, five corrected N-1 rollback applies, and five restored N applies completed serially with 15 protected plans, 15 protected applies, 30 peer-isolation receipts, and genuine kind-specific live observations. GitHub run `31385698545` bound every run and artifact, verified image attestations and controls equivalence, and attested exact evidence source `a721d1ae587af73b8f32986fe3b54acaae400b63`. The portable bundle verifies against the protected signer; accepted remote evidence is 5/5, IS-09 is completed, and High- or Medium-severity residuals are zero. |
 | 2026-08-10 | IS-09 | Strict completion checker typing | Round 88 | Final focused validation found that the dynamically loaded live-evidence builder returned `Any` across the completion-checker boundary even though runtime validation already required one exact tuple shape. The checker now casts only that verified return contract, strict mypy passes, and High- or Medium-severity residuals remain zero. |
+| 2026-08-10 | IS-09 | Post-completion decomposition assurance | Rounds 89-108 | Twenty independent review rounds rechecked physical ownership, forbidden implementation imports, identity and writer isolation, typed transport, restart and idempotency behavior, health boundaries, migrations, five Terraform roots, N/N-1 ordering, rollback, peer isolation, and attested completion evidence. Five suspected Executor defects were rejected: the Core client instance id labels only its local asyncio task; every produced shadow receipt carries its durable audit ref and an enforce-mode `1.0.0` receipt can only reject without effect; `/live` reports process liveness while `/ready` includes fresh receipt-outbox publication; and the compatibility manifest requires Executor N-1 before Core rollback and Core N before Executor migration. Adoption evidence separately binds the exact successful artifact and migration steps even when a later workflow health check failed. The independent-service and focused compatibility gates passed, followed by 351 focused contract, evidence, and service tests. No reproducible Medium-or-higher residual remains. Two service-local ingestion test modules still span both document service implementations; this Low test-ownership cleanup does not enter production distributions or create a runtime dependency. |
 
 ## Related documents
 
