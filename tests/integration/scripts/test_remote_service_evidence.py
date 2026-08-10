@@ -178,6 +178,30 @@ def _evidence() -> dict[str, Any]:
         "repository": "dotnetpower/fdai",
         "workflow": ".github/workflows/service-deploy.yml",
         "controls_commit_sha": _CONTROLS,
+        "adoptions": [
+            {
+                "service_id": service_id,
+                "workflow_run_id": 30 + index,
+                "workflow_run_attempt": 1,
+                "workflow_head_sha": _CONTROLS,
+                "controls_commit_sha": _CONTROLS,
+                "conclusion": "success" if index == 0 else "failure",
+                "migration_step_conclusion": "success",
+                "artifact_step_conclusion": "success",
+                "artifact_sha256": _digest(30 + index),
+                "observed_legacy_head": "legacy_head_1",
+                "observed_legacy_revision_count": 10,
+                "observed_schema_fingerprint": _digest(40 + index),
+                "schema_version": 1,
+                "owned_table_count": index + 1,
+                "verified_at": "2026-08-09T00:00:00Z",
+                "rollback_reference": (
+                    f"git:{_CONTROLS}:service-migrations/branches/"
+                    f"{service_id}/adoption.json#rollback"
+                ),
+            }
+            for index, service_id in enumerate(SERVICE_IDS)
+        ],
         "n": {
             "distribution_version": "0.1.3",
             "source_revision": _N_SOURCE,
@@ -227,6 +251,22 @@ def test_rejects_replayed_initial_cutover_in_compatibility_proof() -> None:
     evidence["services"][0]["stages"][0]["plan"]["deployment_mode"] = "initial-cutover"
 
     with pytest.raises(RemoteEvidenceError, match="deployment mode is invalid"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_rejects_missing_remote_adoption() -> None:
+    evidence = _evidence()
+    evidence["adoptions"].pop()
+
+    with pytest.raises(RemoteEvidenceError, match="must contain five services"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_rejects_unsuccessful_remote_adoption_step() -> None:
+    evidence = _evidence()
+    evidence["adoptions"][0]["migration_step_conclusion"] = "failure"
+
+    with pytest.raises(RemoteEvidenceError, match="adoption steps are incomplete"):
         validate_remote_service_evidence(_manifest(), evidence)
 
 

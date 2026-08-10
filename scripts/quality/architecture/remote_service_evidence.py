@@ -171,6 +171,90 @@ def _validate_release(
     return release
 
 
+def _validate_adoptions(value: object) -> None:
+    adoptions = _array(value, "remote adoptions")
+    if len(adoptions) != len(SERVICE_IDS):
+        raise RemoteEvidenceError("remote adoptions must contain five services")
+    run_ids: set[int] = set()
+    artifacts: set[str] = set()
+    for expected_service, value in zip(SERVICE_IDS, adoptions, strict=True):
+        adoption = _object(value, f"{expected_service} adoption")
+        _exact_keys(
+            adoption,
+            {
+                "service_id",
+                "workflow_run_id",
+                "workflow_run_attempt",
+                "workflow_head_sha",
+                "controls_commit_sha",
+                "conclusion",
+                "migration_step_conclusion",
+                "artifact_step_conclusion",
+                "artifact_sha256",
+                "observed_legacy_head",
+                "observed_legacy_revision_count",
+                "observed_schema_fingerprint",
+                "schema_version",
+                "owned_table_count",
+                "verified_at",
+                "rollback_reference",
+            },
+            f"{expected_service} adoption",
+        )
+        if adoption["service_id"] != expected_service:
+            raise RemoteEvidenceError("remote adoptions must use canonical service order")
+        run_id = _require_positive_int(
+            adoption["workflow_run_id"], f"{expected_service} adoption run id"
+        )
+        if run_id in run_ids:
+            raise RemoteEvidenceError("remote adoption workflow run ids must be unique")
+        run_ids.add(run_id)
+        _require_positive_int(
+            adoption["workflow_run_attempt"], f"{expected_service} adoption run attempt"
+        )
+        _require_commit(adoption["workflow_head_sha"], f"{expected_service} adoption head")
+        controls = _require_commit(
+            adoption["controls_commit_sha"], f"{expected_service} adoption controls"
+        )
+        if adoption["conclusion"] not in {"success", "failure"}:
+            raise RemoteEvidenceError(f"{expected_service} adoption run conclusion is invalid")
+        if (
+            adoption["migration_step_conclusion"] != "success"
+            or adoption["artifact_step_conclusion"] != "success"
+        ):
+            raise RemoteEvidenceError(f"{expected_service} adoption steps are incomplete")
+        artifact = _require_sha256(
+            adoption["artifact_sha256"], f"{expected_service} adoption artifact"
+        )
+        if artifact in artifacts:
+            raise RemoteEvidenceError("remote adoption artifacts must be unique")
+        artifacts.add(artifact)
+        legacy_head = adoption["observed_legacy_head"]
+        if not isinstance(legacy_head, str) or re.fullmatch(r"[0-9A-Za-z_]+", legacy_head) is None:
+            raise RemoteEvidenceError(f"{expected_service} observed legacy head is invalid")
+        _require_positive_int(
+            adoption["observed_legacy_revision_count"],
+            f"{expected_service} observed legacy revision count",
+        )
+        _require_sha256(
+            adoption["observed_schema_fingerprint"],
+            f"{expected_service} observed schema fingerprint",
+        )
+        if adoption["schema_version"] != 1:
+            raise RemoteEvidenceError(f"{expected_service} adoption schema version is invalid")
+        _require_positive_int(
+            adoption["owned_table_count"], f"{expected_service} owned table count"
+        )
+        _require_timestamp(adoption["verified_at"], f"{expected_service} adoption verified_at")
+        expected_reference = re.compile(
+            rf"git:{controls}:service-migrations/branches/{re.escape(expected_service)}"
+            r"/adoption\.json#rollback"
+        )
+        reference = adoption["rollback_reference"]
+        if not isinstance(reference, str) or expected_reference.fullmatch(reference) is None:
+            raise RemoteEvidenceError(f"{expected_service} adoption rollback reference is invalid")
+
+
 def _validate_run_common(
     value: object,
     *,
@@ -350,6 +434,7 @@ def validate_remote_service_evidence(
             "repository",
             "workflow",
             "controls_commit_sha",
+            "adoptions",
             "n",
             "n_minus_one",
             "services",
@@ -364,6 +449,7 @@ def validate_remote_service_evidence(
     controls_commit_sha = _require_commit(
         evidence["controls_commit_sha"], "remote evidence controls commit"
     )
+    _validate_adoptions(evidence["adoptions"])
     transition = _object(manifest.get("release_transition"), "release transition")
     _exact_keys(
         transition,

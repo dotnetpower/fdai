@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 from scripts.quality.architecture.verify_remote_github_evidence import (
     GitHubEvidenceError,
+    _adoption_run_record,
     _artifact,
     _run_record,
 )
@@ -79,6 +80,49 @@ def test_run_record_rejects_invented_conclusion() -> None:
 
     with pytest.raises(GitHubEvidenceError, match="conclusion binding is invalid"):
         _run_record(client, _run(), "test run")
+
+
+def test_adoption_run_allows_later_failure_only_after_successful_adoption_steps() -> None:
+    adoption = {
+        "workflow_run_id": 123,
+        "workflow_run_attempt": 2,
+        "workflow_head_sha": "a" * 40,
+        "conclusion": "failure",
+        "migration_step_conclusion": "success",
+        "artifact_step_conclusion": "success",
+    }
+    records = {
+        "repos/dotnetpower/fdai/actions/runs/123": {
+            "id": 123,
+            "run_attempt": 2,
+            "head_sha": "a" * 40,
+            "conclusion": "failure",
+        },
+        "repos/dotnetpower/fdai/actions/runs/123/jobs?per_page=100": {
+            "jobs": [
+                {
+                    "steps": [
+                        {
+                            "name": "Apply service-owned database migrations",
+                            "conclusion": "success",
+                        },
+                        {
+                            "name": "Upload service migration adoption evidence",
+                            "conclusion": "success",
+                        },
+                    ]
+                }
+            ]
+        },
+    }
+
+    _adoption_run_record(_Client(records), adoption, "isolated-executor")
+
+    records["repos/dotnetpower/fdai/actions/runs/123/jobs?per_page=100"]["jobs"][0]["steps"][0][
+        "conclusion"
+    ] = "failure"
+    with pytest.raises(GitHubEvidenceError, match="step binding is invalid"):
+        _adoption_run_record(_Client(records), adoption, "isolated-executor")
 
 
 def test_artifact_binds_api_digest_and_downloaded_content() -> None:
