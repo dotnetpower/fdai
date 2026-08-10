@@ -324,6 +324,8 @@ state. For each transition:
 | 2026-08-10 | IS-09 | Exact remote manifest schema | Round 61 | Manifest-shape review found that the remote verifier relied on the outer checker for canonical transition keys and service coverage. The verifier now independently requires the exact transition schema and all five unique canonical service declarations. |
 | 2026-08-10 | IS-09 | Completion dependency join | Round 62 | Work-package review found that the program-final path checked remote completion but did not independently join both IS-09 dependencies. IS-09 completion now requires IS-07 and IS-08 to remain completed. |
 
+| 2026-08-10 | IS-09 | Trusted GitHub evidence binding | Round 63 | Final-proof critique found that internally consistent run ids, timestamps, artifact digests, and peer status remained self-asserted in tracked JSON. A dedicated read-only workflow now verifies every run against the GitHub API, downloads and checks each plan metadata and peer receipt artifact, rechecks deployment-input equivalence and image attestations, and signs the aggregate. Program-final completion requires the portable bundle to verify against that exact signer and source revision. |
+
 ## Related documents
 
 | To learn about | Read |

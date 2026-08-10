@@ -219,6 +219,7 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
         "issue-lifecycle.yml",
         "pages.yml",
         "release-deployment-bundle.yml",
+        "remote-evidence-attest.yml",
         "service-deploy.yml",
     }
 

@@ -125,6 +125,12 @@
     "accepted_remote_evidence": {
       "service_plan_apply_receipts": 0,
       "service_upgrade_and_rollback_proofs": 0
+    },
+    "remote_attestation": {
+      "state": "pending",
+      "evidence_source_revision": "",
+      "bundle_path": "config/independent-service-remote-evidence.attestation.jsonl",
+      "signer_workflow": "dotnetpower/fdai/.github/workflows/remote-evidence-attest.yml"
     }
   },
   "local_deployment_evidence": {

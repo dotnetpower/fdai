@@ -379,6 +379,13 @@ def test_rejects_stale_controls_commit() -> None:
         validate_remote_service_evidence(_manifest(), evidence)
 
 
+def test_accepts_distinct_dispatch_head_with_same_trusted_controls() -> None:
+    evidence = _evidence()
+    evidence["services"][0]["stages"][0]["plan"]["workflow_head_sha"] = "d" * 40
+
+    validate_remote_service_evidence(_manifest(), evidence)
+
+
 def test_rejects_customer_azure_context() -> None:
     evidence = _evidence()
     evidence["tenant_id"] = "00000000-0000-0000-0000-000000000123"

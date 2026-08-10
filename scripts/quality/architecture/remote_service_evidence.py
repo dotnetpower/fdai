@@ -178,9 +178,12 @@ def _validate_run_common(
     controls_commit_sha: str,
 ) -> tuple[dict[str, Any], int, int, datetime, datetime]:
     run = _object(value, label)
-    for key in ("workflow_head_sha", "controls_commit_sha"):
-        if _require_commit(run.get(key), f"{label} {key}") != controls_commit_sha:
-            raise RemoteEvidenceError(f"{label} does not use the aggregate controls commit")
+    _require_commit(run.get("workflow_head_sha"), f"{label} workflow_head_sha")
+    if (
+        _require_commit(run.get("controls_commit_sha"), f"{label} controls_commit_sha")
+        != controls_commit_sha
+    ):
+        raise RemoteEvidenceError(f"{label} does not use the aggregate controls commit")
     run_id = _require_positive_int(run.get("workflow_run_id"), f"{label} workflow run id")
     run_attempt = _require_positive_int(
         run.get("workflow_run_attempt"), f"{label} workflow run attempt"

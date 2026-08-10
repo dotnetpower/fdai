@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 3f0f3e41ad8cde2573ac02e5dc5a4340c400c74c
+translation_source_sha: 4c23ce731265046585bc9267469c16e86b2dba37
 translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
@@ -316,6 +316,8 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-10 | IS-09 | Encoded context rejection | Round 60 | Customer-agnostic evidence review에서 percent-encoded Azure path와 compact GUID value가 literal identifier check를 우회할 수 있는 문제를 확인했습니다. 이제 validation은 evidence field를 읽기 전에 bounded URL decoding을 수행하고 exact compact GUID value를 거부합니다. |
 | 2026-08-10 | IS-09 | Exact remote manifest schema | Round 61 | Manifest-shape review에서 remote verifier가 canonical transition key와 service coverage를 outer checker에 의존하는 문제를 확인했습니다. 이제 verifier는 exact transition schema와 unique canonical service declaration 5개를 독립적으로 요구합니다. |
 | 2026-08-10 | IS-09 | Completion dependency join | Round 62 | Work-package review에서 program-final path가 remote completion은 검사하지만 IS-09 dependency 2개를 독립적으로 join하지 않는 문제를 확인했습니다. 이제 IS-09 completion은 IS-07과 IS-08이 completed 상태를 유지해야 합니다. |
+
+| 2026-08-10 | IS-09 | Trusted GitHub evidence binding | Round 63 | Final-proof critique에서 tracked JSON의 internally consistent run id, timestamp, artifact digest 및 peer status가 여전히 self-asserted인 문제를 확인했습니다. 이제 dedicated read-only workflow가 모든 run을 GitHub API와 대조하고 각 plan metadata와 peer receipt artifact를 download하여 검사하며 deployment-input equivalence와 image attestation을 다시 검사한 뒤 aggregate에 서명합니다. Program-final completion은 해당 exact signer와 source revision에 대한 portable bundle verification을 요구합니다. |
 
 ## 관련 문서
 

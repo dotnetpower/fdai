@@ -1,0 +1,93 @@
+name: remote-evidence-attest
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: "Protected-main commit containing the final remote evidence aggregate."
+        type: string
+        required: true
+
+permissions:
+  actions: read
+  attestations: write
+  contents: read
+  id-token: write
+  packages: read
+
+jobs:
+  verify-and-attest:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify protected workflow source
+        working-directory: ${{ runner.temp }}
+        env:
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
+          PROTECTED_WORKFLOW_PATH: .github/workflows/remote-evidence-attest.yml
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          guard_repo="$RUNNER_TEMP/fdai-evidence-guard-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
+          rm -rf -- "$guard_repo"
+          git init --bare "$guard_repo" >/dev/null
+          trap 'rm -rf -- "$guard_repo"' EXIT
+          auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraheader \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
+            git -C "$guard_repo" fetch --force --no-tags \
+              "$PROTECTED_ORIGIN_URL" \
+              "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
+          unset auth_header
+          git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
+            refs/remotes/origin/main
+          diff --quiet \
+            <(git -C "$guard_repo" show "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH") \
+            <(git -C "$guard_repo" show "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH")
+
+      - name: Checkout exact evidence source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Verify protected-main ancestry
+        env:
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$TARGET_COMMIT_SHA" origin/main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]]
+
+      - name: Verify customer-agnostic aggregate
+        run: python3 scripts/quality/architecture/check-remote-service-evidence.py
+
+      - name: Authenticate GHCR read access
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1, Node 24
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Bind aggregate to GitHub runs and artifacts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/quality/architecture/verify_remote_github_evidence.py
+
+      - name: Attest final remote evidence aggregate
+        id: attest
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0, Node 24
+        with:
+          subject-path: config/independent-service-remote-evidence.json
+
+      - name: Upload portable attestation bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: independent-service-remote-evidence-attestation-${{ inputs.commit_sha }}
+          path: ${{ steps.attest.outputs.bundle-path }}
+          if-no-files-found: error
+          retention-days: 90

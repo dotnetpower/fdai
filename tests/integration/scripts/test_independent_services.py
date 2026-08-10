@@ -130,6 +130,12 @@ def test_manifest_records_completed_local_layout_assurance() -> None:
         "service_plan_apply_receipts": 0,
         "service_upgrade_and_rollback_proofs": 0,
     }
+    assert final_verification["remote_attestation"] == {
+        "state": "pending",
+        "evidence_source_revision": "",
+        "bundle_path": "config/independent-service-remote-evidence.attestation.jsonl",
+        "signer_workflow": "dotnetpower/fdai/.github/workflows/remote-evidence-attest.yml",
+    }
 
     transition = manifest["local_upgrade_and_rollback_evidence"]
     assert transition["state"] == "completed"
@@ -222,6 +228,7 @@ def test_is09_cannot_complete_before_layout_dependency(
         "service_plan_apply_receipts": 5,
         "service_upgrade_and_rollback_proofs": 5,
     }
+    monkeypatch.setattr(checker, "_validate_remote_attestation", lambda *_args: None)
     monkeypatch.setattr(checker, "_validate_completed_remote_evidence", lambda *_args: None)
 
     with pytest.raises(ValueError, match="before IS-07 and IS-08"):
@@ -248,6 +255,7 @@ def test_completed_program_verification_requires_persisted_remote_evidence(
         "service_plan_apply_receipts": 5,
         "service_upgrade_and_rollback_proofs": 5,
     }
+    monkeypatch.setattr(checker, "_validate_remote_attestation", lambda *_args: None)
     monkeypatch.setattr(checker, "REMOTE_EVIDENCE_PATH", tmp_path / "missing.json")
 
     with pytest.raises(ValueError, match="cannot load remote service evidence"):
@@ -265,6 +273,7 @@ def test_completed_program_verification_requires_persisted_live_evidence(
         "service_plan_apply_receipts": 5,
         "service_upgrade_and_rollback_proofs": 5,
     }
+    monkeypatch.setattr(checker, "_validate_remote_attestation", lambda *_args: None)
     remote = tmp_path / "remote.json"
     remote.write_text("{}\n", encoding="utf-8")
     monkeypatch.setattr(checker, "REMOTE_EVIDENCE_PATH", remote)
@@ -283,6 +292,16 @@ def test_completed_program_verification_requires_persisted_live_evidence(
 
     with pytest.raises(ValueError, match="cannot load live service receipts"):
         checker._validate_program_final_verification(manifest)
+
+
+def test_completed_program_verification_requires_verified_attestation() -> None:
+    checker = _checker_module()
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    policy = manifest["program_final_verification"]
+    policy["status"] = "completed"
+
+    with pytest.raises(ValueError, match="completed program-final attestation is invalid"):
+        checker._validate_remote_attestation(policy)
 
 
 def test_completed_program_verification_rechecks_all_remote_counts(

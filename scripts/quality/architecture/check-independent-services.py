@@ -8,6 +8,7 @@ import hashlib
 import importlib.util
 import json
 import re
+import subprocess
 import tomllib
 from pathlib import Path
 from types import ModuleType
@@ -36,6 +37,9 @@ UPGRADE_RECEIPTS_PATH = (
     / "upgrade-receipts.json"
 )
 REMOTE_EVIDENCE_PATH = REPO_ROOT / "config" / "independent-service-remote-evidence.json"
+REMOTE_EVIDENCE_BUNDLE_PATH = (
+    REPO_ROOT / "config" / "independent-service-remote-evidence.attestation.jsonl"
+)
 LIVE_RECEIPTS_PATH = REPO_ROOT / "config" / "independent-service-live-receipts.json"
 LIVE_EVIDENCE_MANIFEST_PATH = (
     REPO_ROOT / "config" / "independent-service-live-evidence-manifest.json"
@@ -251,6 +255,60 @@ def _validate_completed_remote_evidence(
     )
 
 
+def _validate_remote_attestation(policy: dict[str, Any]) -> None:
+    attestation = policy.get("remote_attestation")
+    if not isinstance(attestation, dict) or set(attestation) != {
+        "state",
+        "evidence_source_revision",
+        "bundle_path",
+        "signer_workflow",
+    }:
+        raise ValueError("program-final remote attestation fields are invalid")
+    expected_bundle = REMOTE_EVIDENCE_BUNDLE_PATH.relative_to(REPO_ROOT).as_posix()
+    if attestation.get("bundle_path") != expected_bundle:
+        raise ValueError("program-final remote attestation bundle path is invalid")
+    if (
+        attestation.get("signer_workflow")
+        != "dotnetpower/fdai/.github/workflows/remote-evidence-attest.yml"
+    ):
+        raise ValueError("program-final remote attestation signer is invalid")
+    if policy["status"] != "completed":
+        if attestation.get("state") != "pending" or attestation.get(
+            "evidence_source_revision"
+        ) not in {"", None}:
+            raise ValueError("deferred program-final attestation must remain pending")
+        return
+    source_revision = attestation.get("evidence_source_revision")
+    if (
+        attestation.get("state") != "verified"
+        or not isinstance(source_revision, str)
+        or re.fullmatch(r"[0-9a-f]{40}", source_revision) is None
+    ):
+        raise ValueError("completed program-final attestation is invalid")
+    try:
+        subprocess.run(
+            [
+                "gh",
+                "attestation",
+                "verify",
+                str(REMOTE_EVIDENCE_PATH),
+                "--bundle",
+                str(REMOTE_EVIDENCE_BUNDLE_PATH),
+                "--repo",
+                "dotnetpower/fdai",
+                "--signer-workflow",
+                str(attestation["signer_workflow"]),
+                "--source-digest",
+                source_revision,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ValueError("program-final remote attestation verification failed") from exc
+
+
 def _validate_program_final_verification(manifest: dict[str, Any]) -> None:
     policy = manifest["program_final_verification"]
     if policy["completion_basis"] != "local-executable-evidence":
@@ -274,6 +332,8 @@ def _validate_program_final_verification(manifest: dict[str, Any]) -> None:
     if policy["status"] == "completed":
         if accepted != targets:
             raise ValueError("completed program-final verification requires all remote evidence")
+    _validate_remote_attestation(policy)
+    if policy["status"] == "completed":
         _validate_completed_remote_evidence(manifest, targets)
     statuses = {item["id"]: item["status"] for item in manifest["work_packages"]}
     if statuses["IS-06"] != "completed":
