@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: 1da556e806a565aa37355c684527227f5dad3800
-translation_revised: 2026-08-04
+translation_source_sha: ffc206ed30e4bd69f75b753f3706b75452626531
+translation_revised: 2026-08-10
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -244,6 +244,46 @@ open 상태로 유지합니다.
 `GET /dynamic-assurance`는 scalar/graph model count, sample/error summary 및 open/closed trajectory
 episode를 제공하는 Reader-only durable projection입니다. Model 등록, promotion, approval 또는 execution
 command를 노출하지 않습니다.
+
+### Operational hypothesis production loop
+
+Production loop는 campaign object 또는 다른 coordinator를 추가하지 않고 기존 ontology record를
+재사용합니다. Prospective hypothesis는 필수 no-action baseline, bounded `ActionOption` intervention 및
+측정 가능한 `ExpectedEffect` range를 포함하는 immutable `DecisionCase` 하나입니다. 실행 후
+`CausalHypothesis`는 independent `ObservedOutcome` 또는 `ResponseOutcome` evidence로만 종료되는 별도의
+retrospective claim입니다. 어느 record도 approval, promotion 또는 execution authority를 부여하지
+않습니다.
+
+Production choreography는 agent ownership과 event-driven 경계를 유지합니다.
+
+| 단계 | Owner 및 durable evidence | 안전한 실패 처리 |
+|------|---------------------------|------------------|
+| Context와 prospective branch 고정 | Muninn context 및 Forseti `DecisionCase` | Stale, conflicting, synthetic, future-cutoff 또는 truncated evidence는 case를 hold합니다. |
+| Graph simulation request 구성 | ACL-projected, issuer-sealed ObjectSet result와 authoritative state fact를 사용하는 read-only production adapter | Exact release, graph revision, inventory generation, target revision, cutoff, baseline identity, authenticated source, freshness 또는 completeness가 없으면 graph simulation을 unavailable로 처리합니다. |
+| Simulation 및 invariant 평가 | Forseti가 verified active model을 사용하며 challenger는 divergence evidence만 만듭니다. | Model 누락, unscorable invariant 또는 divergence는 review를 요구하고 branch 순위를 정할 수 없습니다. |
+| Bounded experiment 실행 | 실제 non-production intervention은 A0 simulation이 종료된 뒤 ordinary Var, Thor, Saga 및 Vidar 경계에 다시 진입합니다. | Simulation 자체는 approval 또는 executor identity를 사용하지 않으며 experiment를 dispatch할 수 없습니다. |
+| Observation 및 reconciliation | Heimdall이 independent evidence를 종료하고 durable reconciliation ledger가 terminal outcome과 proposal-only outbox를 원자적으로 저장합니다. | Provider acceptance는 dispatch evidence일 뿐입니다. Publish 실패 시 outbox record는 retry 가능한 상태로 남습니다. |
+| Learning 및 review | Norns가 challenger를 update하고 Mimir가 model lifecycle을 review하며 Saga가 audit합니다. | Incomplete 또는 censored outcome은 model을 update하지 않습니다. Learning 실패는 execution outcome을 rewrite할 수 없습니다. |
+
+Production graph evidence에는 edge, depth, slice, horizon, byte 및 runtime에 대한 고정 request ceiling을
+적용합니다. Complete하고 fresh하며 독립적으로 verified된 typed link만 topology에 포함합니다.
+Baseline에는 observed 또는 승인된 desired fact만 포함하고 intervention은 exact ActionType, target
+revision 및 experiment reference를 고정합니다. 변경되지 않은 baseline은 필수 no-action branch입니다.
+Adapter에는 provider mutation client, executor identity, approval verifier 또는 promotion writer가 없습니다.
+
+Graph model promotion은 ActionType promotion과 분리합니다. Reviewed governance action은 atomic
+compare-and-set으로 active pointer를 변경하는 exact immutable receipt 하나를 적용합니다. Receipt는 model artifact,
+prior active 및 challenger reference, ontology 및 property-semantics release, causal evidence, frozen
+scenario, live-shadow cohort, sample day, confidence 및 error measure, rollback 및 recurrence outcome,
+policy escape, invariant violation, review rate, cutoff 및 applicability condition을 고정합니다. Versioned
+promotion-receipt contract가 필수 field를 정의하고 collection cutoff와 evidence digest를 replay에
+고정합니다. Promotion에는 Var를 통한 independent Owner-role 사람 승인이 필요하며 requester와 executor는
+승인할 수 없습니다. 또한 최소 `quasi_experimental` evidence가 필요하며, policy는 고위험 model scope에
+`interventional` evidence를 요구할 수 있습니다. Rollback은 보존된 prior active pointer를 복원합니다.
+첫 promotion에서는 expected 및 rollback reference가 null이고 rollback은 active pointer를 지웁니다.
+Concurrent first promotion에는 compare-and-set을 적용하므로 하나만 commit할 수 있습니다. Promoted model은
+이후 simulation에서 Forseti가 사용할 model만 변경합니다. ActionType applicability, scope 또는 permission을
+변경하지 않으며 ActionType을 promote하거나 execution authority를 부여하지 않습니다.
 
 ## Assessment 리포트 (구독 자세, 온디맨드)
 

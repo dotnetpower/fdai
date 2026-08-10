@@ -234,17 +234,35 @@ and the Assurance Twin compares no-action and scale branches. Reliability and re
 filter candidates before Odin considers cost and efficiency. `ops.scale-out` remains shadow-first
 and follows its existing approval and promotion gates.
 
-The frozen scenario pack includes:
+This planning record is the prospective operational hypothesis. It answers which exact workload
+revision, context, intervention, metric range, horizon, uncertainty, and invariants were expected
+before an action. It is not an incident causal conclusion. After the observation window, Forseti can
+revise a separate `CausalHypothesis` from Heimdall's independent evidence. Association or temporal
+precedence alone can update neither an active model nor an ActionType.
+
+The frozen scenario pack contains nine dimensions. Seven are executable production-path evidence;
+the partial-failure recovery and A3-E non-applicability dimensions remain explicit closure-level
+proxies until their runtime evidence chains are connected:
 
 1. successful no-action versus scale-out planning and verified outcome closure;
 2. stale telemetry that produces an explicit hold;
 3. a reliability and cost conflict that requires arbitration;
 4. a sandbox timeout with no selected action;
-5. partial staging failure with compensation and recovery verification;
+5. partial staging failure with compensation and recovery verification (closure-level proxy);
 6. duplicate, reordered, and restart replay;
 7. active and challenger model divergence;
 8. artifact tampering and sandbox escape attempts; and
-9. A3-E non-applicability for A0 planning, plus the referenced ActionType's own authority proof.
+9. A3-E non-applicability for A0 planning, plus the referenced ActionType's own authority proof
+  (proposal-only proxy).
+
+Production completion also requires negative evidence to survive the same chain: no-action already
+optimal, cost-invariant failure, missing topology or active model, provider receipt without an
+independent observation, censored intervention, rollback after mismatch, duplicate or reordered
+replay, and tampered ontology or model identity. These cases remain holds, unscorable outcomes, or
+rollback evidence. They are never rewritten as successful samples. A terminal reconciliation
+aggregate is immutable, challenger learning accepts only the exact eligible terminal statuses, and
+each model update audits the source observation digest. A conflicting replay is rejected instead of
+relabeling a negative outcome.
 
 ## Multi-objective arbitration
 

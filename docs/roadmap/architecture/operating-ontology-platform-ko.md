@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 8e220e81039b52331031f897b9fc04e1c1d0d9b6
-translation_revised: 2026-08-09
+translation_source_sha: 43231a675aa7710942db7081632d06fa4ac6717d
+translation_revised: 2026-08-10
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -366,6 +366,25 @@ state slice를 비교합니다. Terminal status는 `matched`, `mismatched`, `int
 `incomplete`, `unscorable`입니다. Complete하고 post-cutoff이며 독립적으로 관측된 outcome만
 challenger model을 update합니다. Active model은 별도의 reviewed promotion이 exact evidence receipt를
 적용할 때까지 immutable 상태를 유지합니다.
+
+Graph model registry identity는 mutable `status` field보다 강합니다. 새로 작성되는 모든 model
+record는 immutable artifact digest, ontology release digest, property-semantics digest, applicability
+condition 및 learning cutoff를 고정합니다. Mimir가 lifecycle review를 소유하고 approved governance
+action만 lifecycle registry를 작성할 수 있습니다. Registry는 active 및 challenger reference를 별도로
+저장하고 atomic compare-and-set을 통해서만 active reference를 변경합니다.
+Promotion receipt는 expected current active reference와 보존된 rollback reference를 지정하므로 stale
+또는 concurrent promotion이 더 새로운 model을 조용히 대체할 수 없습니다. 이 field보다 오래된 retained
+첫 promotion은 null expected 및 rollback reference를 사용하며 rollback은 pointer를 지워 다음 reviewed
+promotion 전까지 model을 unavailable 상태로 만듭니다. 이 field보다 오래된 retained record는 decode할 수
+있지만 promote할 수 없으며, FDAI는 원래 기록하지 않은 release에 이를 소급해 귀속하지 않습니다.
+
+Reconciliation outbox는 두 번째 execution queue가 아니라 publication state machine입니다. Worker는
+bounded lease로 proposal-only recommendation 하나를 claim하고 stable recommendation idempotency key로
+owning agent topic에 publish한 뒤 broker acknowledgement 이후에만 published 상태를 기록합니다. Process
+loss가 발생하면 lease를 release하여 replay할 수 있습니다. Poison payload는 terminal reconciliation
+outcome을 삭제하지 않고 failed evidence로 보존하고 dead-letter handling으로 보냅니다. Outbox consumer는
+Thor를 직접 호출하지 않습니다. Conflicting publication replay는 aggregate content validation에서
+실패하고 review를 위해 hold됩니다. Ordering은 wall-clock timestamp에 의존하지 않습니다.
 
 Conversation 또는 internal-processing failure는 deterministic attribution 단계가 exact verification
 reason, route, evidence manifest, ontology release, graph revision, freshness, completeness를 보존한

@@ -1,7 +1,7 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: 4ccc2e9ee4e6a0ca6f94eed9e49a38d054282e4c
-translation_revised: 2026-08-05
+translation_source_sha: 3666c39a2c84b626d69227ee7aea12271252036b
+translation_revised: 2026-08-10
 ---
 # 운영 계획
 
@@ -232,17 +232,34 @@ Heimdall은 current observation을 제공하고, Freyr는 제한된 replica coun
 constraint가 cost와 efficiency를 Odin이 검토하기 전에 후보를 filter합니다. `ops.scale-out`은
 shadow-first를 유지하며 기존 approval 및 promotion gate를 따릅니다.
 
-Frozen scenario pack에는 다음이 포함됩니다.
+이 planning record가 prospective operational hypothesis입니다. Action 전에 어떤 exact workload
+revision, context, intervention, metric range, horizon, uncertainty 및 invariant를 예상했는지 답합니다.
+Incident causal conclusion과는 다릅니다. Observation window 이후 Forseti는 Heimdall의 independent
+evidence에서 별도의 `CausalHypothesis`를 revise할 수 있습니다. Association 또는 temporal precedence만으로
+active model 또는 ActionType을 update할 수 없습니다.
+
+Frozen scenario pack에는 9개 dimension이 있습니다. 7개는 executable production-path evidence이며,
+partial-failure recovery와 A3-E non-applicability는 runtime evidence chain이 연결될 때까지 명시적인
+closure-level proxy로 유지합니다.
 
 1. 성공적인 no-action 대 scale-out planning 및 검증된 outcome closure
 2. 명시적 hold를 만드는 stale telemetry
 3. arbitration이 필요한 reliability 및 cost conflict
 4. 선택된 action이 없는 sandbox timeout
-5. compensation과 recovery verification이 있는 partial staging failure
+5. compensation과 recovery verification이 있는 partial staging failure(closure-level proxy)
 6. duplicate, reordered, restart replay
 7. active 및 challenger model divergence
 8. artifact tampering 및 sandbox escape 시도
 9. A0 planning에 대한 A3-E non-applicability와 참조된 ActionType 자체의 authority proof
+  (proposal-only proxy)
+
+Production 완료에는 negative evidence도 같은 chain에서 보존되어야 합니다. No-action이 이미 optimal인
+경우, cost invariant 실패, topology 또는 active model 누락, independent observation이 없는 provider
+receipt, censored intervention, mismatch 이후 rollback, duplicate 또는 reordered replay, 변조된 ontology
+또는 model identity를 포함합니다. 이 case는 hold, unscorable outcome 또는 rollback evidence로 유지하며
+성공 sample로 rewrite하지 않습니다. Terminal reconciliation aggregate는 immutable이고 challenger
+learning은 exact eligible terminal status만 수락하며 각 model update는 source observation digest를
+audit합니다. Conflicting replay는 negative outcome을 relabel하지 않고 차단합니다.
 
 ## 다목적 중재
 

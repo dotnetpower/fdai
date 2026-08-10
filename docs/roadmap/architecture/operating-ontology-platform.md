@@ -365,6 +365,26 @@ and time window. Its terminal status is `matched`, `mismatched`, `intervention_c
 challenger model. Active models remain immutable until a separate reviewed promotion applies an
 exact evidence receipt.
 
+Graph model registry identity is stronger than the mutable `status` field. Every newly written
+model record binds an immutable artifact digest, ontology release digest, property-semantics digest,
+applicability conditions, and learning cutoff. Mimir owns lifecycle review, while the approved
+governance action is the sole writer of the lifecycle registry. The registry stores active and
+challenger references separately and changes the active reference only through an atomic
+compare-and-set. A promotion receipt names the expected current active reference and retained
+rollback reference, so stale or concurrent promotion cannot silently replace a newer model.
+The first promotion uses a null expected and rollback reference; rollback clears the pointer and
+makes the model unavailable until another reviewed promotion.
+Retained records that predate these fields remain decodable but unpromotable; FDAI does not assign
+them to a release that they did not originally record.
+
+The reconciliation outbox is a publication state machine, not a second execution queue. A worker
+claims one proposal-only recommendation with a bounded lease, publishes it to the owning agent
+topic using the stable recommendation idempotency key, and marks it published only after broker
+acknowledgement. Process loss releases the lease for replay. Poison payloads are retained as failed
+evidence and sent to dead-letter handling without deleting the terminal reconciliation outcome.
+No outbox consumer calls Thor directly. Conflicting publication replay fails the aggregate's
+content validation and remains held for review; ordering never relies on wall-clock timestamps.
+
 Conversation or internal-processing failures may open an off-path adequacy review only after a
 deterministic attribution step preserves the exact verification reason, route, evidence manifest,
 ontology release, graph revision, freshness, and completeness. Context, provider, routing,

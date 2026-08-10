@@ -262,6 +262,48 @@ otherwise the episode remains open without a fabricated value.
 counts, sample and error summaries, and open or closed trajectory episodes. It exposes no model
 registration, promotion, approval, or execution command.
 
+### Operational hypothesis production loop
+
+The production loop reuses existing ontology records rather than introducing a campaign object or
+another coordinator. A prospective hypothesis is one immutable `DecisionCase` with its required
+no-action baseline, bounded `ActionOption` interventions, and measurable `ExpectedEffect` ranges.
+After execution, a `CausalHypothesis` is a separate retrospective claim that closes only from
+independent `ObservedOutcome` or `ResponseOutcome` evidence. Neither record grants approval,
+promotion, or execution authority.
+
+The production choreography remains agent-owned and event-driven:
+
+| Stage | Owner and durable evidence | Safe failure |
+|-------|----------------------------|--------------|
+| Freeze context and prospective branches | Muninn context plus Forseti `DecisionCase` | Stale, conflicting, synthetic, future-cutoff, or truncated evidence holds the case. |
+| Build graph simulation request | Read-only production adapter over an ACL-projected, issuer-sealed ObjectSet result and authoritative state facts | Missing exact release, graph revision, inventory generation, target revision, cutoff, baseline identity, authenticated source, freshness, or completeness makes graph simulation unavailable. |
+| Simulate and evaluate invariants | Forseti uses verified active models; challengers emit divergence evidence only | Missing models, unscorable invariants, or divergence requires review and cannot rank a branch. |
+| Execute a bounded experiment | A real non-production intervention re-enters the ordinary Var, Thor, Saga, and Vidar boundaries after A0 simulation closes | Simulation itself uses no approval or executor identity and cannot dispatch the experiment. |
+| Observe and reconcile | Heimdall closes independent evidence; the durable reconciliation ledger atomically stores terminal outcome and proposal-only outbox | Provider acceptance is dispatch evidence only. Publish failure leaves the outbox record retryable. |
+| Learn and review | Norns updates challengers; Mimir reviews model lifecycle; Saga audits | Incomplete or censored outcomes do not update a model. Learning failure cannot rewrite execution outcome. |
+
+Production graph evidence uses fixed request ceilings for edges, depth, slices, horizon, bytes, and
+runtime. Only complete, fresh, independently verified typed links enter topology. The baseline
+contains observed or approved desired facts, while the intervention pins an exact ActionType,
+target revision, and experiment reference. The unchanged baseline is the mandatory no-action
+branch. The adapter has no provider mutation client, executor identity, approval verifier, or
+promotion writer.
+
+Graph model promotion is separate from ActionType promotion. A reviewed governance action applies
+one exact immutable receipt through an atomic compare-and-set of the active pointer. The receipt binds the
+model artifact, prior active and challenger references, ontology and property-semantics releases,
+causal evidence, frozen scenarios, live-shadow cohort, sample days, confidence and error measures,
+rollback and recurrence outcomes, policy escapes, invariant violations, review rate, cutoff, and
+applicability conditions. The versioned promotion-receipt contract defines which fields are
+required and binds their collection cutoffs and evidence digests for replay. Promotion requires an
+independent Owner-role human approval through Var; the requester and executor cannot approve. It
+also requires at least `quasi_experimental` evidence, while policy can require `interventional`
+evidence for higher-risk model scopes. Rollback restores the retained prior active pointer. On the
+first promotion, the expected and rollback references are null; rollback clears the active pointer.
+Concurrent first promotions use compare-and-set, so only one can commit. A promoted model changes
+which model Forseti uses in later simulations. It never changes ActionType applicability, scope, or
+permission, and never promotes an ActionType or grants execution authority.
+
 ## Assessment report (subscription posture, on demand)
 
 The proactive per-change review composes into a full-estate report. Running every
