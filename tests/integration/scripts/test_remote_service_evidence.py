@@ -517,6 +517,13 @@ def test_rejects_customer_azure_context_in_manifest() -> None:
         validate_remote_service_evidence(manifest, _evidence())
 
 
+def test_accepts_local_evidence_section_names_outside_remote_manifest_projection() -> None:
+    manifest = _manifest()
+    manifest["local_deployment_evidence"] = {"state": "completed"}
+
+    validate_remote_service_evidence(manifest, _evidence())
+
+
 def test_rejects_embedded_azure_resource_identifier() -> None:
     evidence = _evidence()
     evidence["repository"] = "/subscriptions/example/resourceGroups/example"

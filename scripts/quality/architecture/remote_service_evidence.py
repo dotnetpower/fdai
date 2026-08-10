@@ -511,7 +511,14 @@ def validate_remote_service_evidence(
 ) -> RemoteEvidenceSummary:
     """Validate exact remote N -> N-1 -> N evidence without Azure context."""
 
-    _reject_deployment_context(manifest)
+    local_evidence_sections = {
+        "local_deployment_evidence",
+        "local_upgrade_and_rollback_evidence",
+        "local_layout_evidence",
+    }
+    _reject_deployment_context(
+        {key: value for key, value in manifest.items() if key not in local_evidence_sections}
+    )
     _reject_deployment_context(evidence)
     _exact_keys(
         evidence,
