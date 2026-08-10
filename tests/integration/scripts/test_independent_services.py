@@ -253,11 +253,42 @@ def test_completed_program_verification_requires_persisted_live_evidence(
         lambda _manifest, _evidence: SimpleNamespace(
             service_plan_apply_receipts=5,
             service_upgrade_and_rollback_proofs=5,
+            protected_plan_runs=15,
+            protected_apply_runs=15,
+            peer_isolation_receipts=30,
         ),
     )
 
     with pytest.raises(ValueError, match="cannot load live service receipts"):
         checker._validate_program_final_verification(manifest)
+
+
+def test_completed_program_verification_rechecks_all_remote_counts(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    checker = _checker_module()
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    remote = tmp_path / "remote.json"
+    remote.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(checker, "REMOTE_EVIDENCE_PATH", remote)
+    monkeypatch.setattr(
+        checker,
+        "_validate_remote_service_evidence",
+        lambda _manifest, _evidence: SimpleNamespace(
+            service_plan_apply_receipts=5,
+            service_upgrade_and_rollback_proofs=5,
+            protected_plan_runs=14,
+            protected_apply_runs=15,
+            peer_isolation_receipts=30,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="does not satisfy program-final targets"):
+        checker._validate_completed_remote_evidence(
+            manifest,
+            manifest["program_final_verification"]["remote_targets"],
+        )
 
 
 def _write_final_layout(root: Path) -> None:

@@ -314,6 +314,7 @@ state. For each transition:
 | 2026-08-09 | IS-09 | Serial transition windows | Round 53 | Temporal critique found that global serialization covered apply windows but not protected plans, and phase ordering did not explicitly require every rollback before the first restore. The verifier now rejects every overlapping plan/apply window and requires complete initial, rollback, and restore phase joins. |
 | 2026-08-10 | IS-09 | Canonical N source binding | Round 54 | Supply-chain critique found that N-1 was bound to its manifest source while N accepted any source revision whose workflow head matched itself. The transition manifest now records the exact N source, and final evidence rejects any N release, image set, or stage chain that is not rooted in that revision. |
 | 2026-08-10 | IS-09 | Closed local evidence schema | Round 55 | Evidence-boundary critique found that local transition services and artifacts were spot-checked but could carry unrecognized fields. The checker now requires exact top-level, service, and artifact key sets before accepting local N -> N-1 -> N evidence. |
+| 2026-08-10 | IS-09 | Complete remote count join | Round 56 | Program-final critique found that the integration gate rechecked the two 5/5 targets but relied on the nested verifier for the 15 plans, 15 applies, and 30 peer receipts. The completion join now independently requires all five derived counts before loading live compatibility evidence. |
 
 ## Related documents
 

@@ -237,6 +237,9 @@ def _validate_completed_remote_evidence(
         summary.service_plan_apply_receipts != targets["service_plan_apply_receipts"]
         or summary.service_upgrade_and_rollback_proofs
         != targets["service_upgrade_and_rollback_proofs"]
+        or summary.protected_plan_runs != 15
+        or summary.protected_apply_runs != 15
+        or summary.peer_isolation_receipts != 30
     ):
         raise ValueError("remote service evidence does not satisfy program-final targets")
     _load_json(LIVE_RECEIPTS_PATH, "live service receipts")
