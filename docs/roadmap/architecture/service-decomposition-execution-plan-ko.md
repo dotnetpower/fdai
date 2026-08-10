@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: ca4daec419778cad0351af93f9e1e11a27ecf767
+translation_source_sha: 01f12f133470dc2f0e30a2abb9cd322c175a78bf
 translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
@@ -129,7 +129,7 @@ fdai/
 | [x] | IS-06 | Shared platform에서 service Terraform root, state 및 deployment workflow를 분리합니다. | IS-04, IS-05 | Local root 5개, 격리된 backend contract, state ownership check 및 peer-isolation mechanics 통과 |
 | [x] | IS-07 | 각 service의 N/N-1 contract와 독립 upgrade/rollback을 증명합니다. | IS-03, IS-06, IS-08 | Local N -> N-1 -> N artifact transition 5개와 peer-stable focused receipt 10개 통과 |
 | [x] | IS-08 | Implementation, unit test, build definition 및 distribution을 5개 service root 아래로 이동하고 최상위 monolith source, 중복 contract, co-host, in-process authority, shared-image 및 shared-migration compatibility path를 제거합니다. | IS-03, IS-05 | 최종 리포지토리 레이아웃이 문서의 tree와 일치하고 최상위 production source 및 topology compatibility path 수가 0 |
-| [ ] | IS-09 | 최종 리포지토리 레이아웃을 enforce하고 독립 critique-and-hardening round를 10회 이상 실행한 뒤 program을 종료합니다. | IS-07, IS-08 | Layout 및 import gate 통과, Medium 이상 residual 0, 보류한 remote verification 통과 |
+| [x] | IS-09 | 최종 리포지토리 레이아웃을 enforce하고 독립 critique-and-hardening round를 10회 이상 실행한 뒤 program을 종료합니다. | IS-07, IS-08 | Layout 및 import gate 통과, Medium 이상 residual 0, 보류한 remote verification 통과 |
 
 Machine source of truth는 `config/independent-services.json`입니다. 각 migration wave는 같은 focused
 commit에서 status와 evidence를 업데이트합니다. Shared Event Hubs, PostgreSQL hosting, ACR, Key Vault,
@@ -341,7 +341,8 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-10 | IS-09 | Recovery image state alignment | Round 82 | Fresh Ingestion plan `31376583061`은 out-of-band automatic recovery가 live image와 computed revision metadata를 변경했지만 Terraform state는 recovery 전 image를 유지하여 fail closed했습니다. 이제 plan guard는 observed image가 이미 attested된 planned-before image와 같고 나머지 차이가 computed revision name, FQDN 및 suffix뿐인 경우에만 이 shape를 허용합니다. 다른 image 또는 runtime, identity, secret, platform, authority 변경은 계속 차단합니다. |
 | 2026-08-10 | IS-09 | Final evidence contract hardening | Round 83-84 | Round 83은 closed public manifest projection을 remote deployment-context scanning과 분리하여 generic local evidence key가 aggregate 생성을 차단하지 않도록 했습니다. Round 84는 한 service의 initial N plan과 restored N plan이 immutable context를 의도적으로 공유하지만 fresh revision suffix로 서로 다른 plan digest를 생성함을 증명했습니다. 이제 verifier는 동일한 service와 release에서만 context 재사용을 허용하며 cross-service 또는 cross-release 재사용, stale apply binding 및 중복 plan digest는 계속 차단합니다. Focused regression이 통과했고 High 또는 Medium severity residual은 0건입니다. |
 | 2026-08-10 | IS-09 | Artifact redirect credential boundary | Round 85 | Live GitHub verification에서 API bearer token이 artifact redirect를 따라 GitHub Actions blob storage로 전달될 때 401이 발생하는 문제를 재현했습니다. 이제 downloader는 정확한 HTTPS Actions artifact host pattern만 허용하고 signed redirect를 따르기 전에 API authorization을 제거합니다. 신뢰할 수 없는 redirect origin은 fail closed하며 focused test에서 High 및 Medium severity residual은 0건을 유지합니다. |
-| 2026-08-10 | IS-09 | Privileged workflow guard compatibility | Round 86 | Central validation에서 의미상 동일한 `diff --brief` workflow-source comparison을 거부했습니다. Privileged-workflow contract가 canonical `diff --quiet` token을 요구하기 때문입니다. 이제 attestation workflow와 focused contract test가 enforced exact-source guard를 사용하여 release eligibility를 복원했고 High 또는 Medium severity residual은 0건입니다. |
+| 2026-08-10 | IS-09 | Privileged workflow guard compatibility | Round 86 | Central validation은 처음에 portable `diff --brief` exact-source comparison을 거부했습니다. Contract가 GNU diff에서 지원하지 않는 `diff --quiet`만 인식했기 때문입니다. 이제 contract는 protected workflow path, source, ancestry 및 operand check를 유지하면서 portable exact-comparison flag를 허용합니다. Focused validation이 통과했고 High 또는 Medium severity residual은 0건입니다. |
+| 2026-08-10 | IS-09 | Program-final remote proof | Round 87 | Fresh initial N apply 5개, corrected N-1 rollback apply 5개 및 restored N apply 5개가 직렬로 완료되어 protected plan 15개, protected apply 15개, peer-isolation receipt 30개 및 genuine kind-specific live observation을 확보했습니다. GitHub run `31385698545`가 모든 run과 artifact를 binding하고 image attestation과 controls equivalence를 검증한 뒤 exact evidence source `a721d1ae587af73b8f32986fe3b54acaae400b63`를 attest했습니다. Portable bundle이 protected signer에 대해 verify되었고 accepted remote evidence는 5/5이며 IS-09는 completed 상태이고 High 또는 Medium severity residual은 0건입니다. |
 
 ## 관련 문서
 

@@ -9,6 +9,7 @@ import importlib.util
 import json
 import re
 import subprocess
+import sys
 import tomllib
 from pathlib import Path
 from types import ModuleType
@@ -213,6 +214,7 @@ def _load_python_module(path: Path, name: str) -> ModuleType:
     if spec is None or spec.loader is None:
         raise ValueError(f"cannot load program-final validator: {path.name}")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 

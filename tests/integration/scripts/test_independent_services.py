@@ -106,7 +106,7 @@ def test_manifest_records_completed_local_layout_assurance() -> None:
     assert statuses["IS-06"] == "completed"
     assert statuses["IS-07"] == "completed"
     assert statuses["IS-08"] == "completed"
-    assert statuses["IS-09"] == "in_progress"
+    assert statuses["IS-09"] == "completed"
 
     deployment = manifest["local_deployment_evidence"]
     assert deployment == {
@@ -121,19 +121,19 @@ def test_manifest_records_completed_local_layout_assurance() -> None:
 
     final_verification = manifest["program_final_verification"]
     assert final_verification["completion_basis"] == "local-executable-evidence"
-    assert final_verification["status"] == "deferred"
+    assert final_verification["status"] == "completed"
     assert final_verification["required_before_work_package"] == "IS-09"
     assert final_verification["remote_targets"] == {
         "service_plan_apply_receipts": 5,
         "service_upgrade_and_rollback_proofs": 5,
     }
     assert final_verification["accepted_remote_evidence"] == {
-        "service_plan_apply_receipts": 0,
-        "service_upgrade_and_rollback_proofs": 0,
+        "service_plan_apply_receipts": 5,
+        "service_upgrade_and_rollback_proofs": 5,
     }
     assert final_verification["remote_attestation"] == {
-        "state": "pending",
-        "evidence_source_revision": "",
+        "state": "verified",
+        "evidence_source_revision": "a721d1ae587af73b8f32986fe3b54acaae400b63",
         "bundle_path": "config/independent-service-remote-evidence.attestation.jsonl",
         "signer_workflow": "dotnetpower/fdai/.github/workflows/remote-evidence-attest.yml",
     }
@@ -208,6 +208,9 @@ def test_is09_cannot_complete_while_remote_verification_is_deferred(
     next(item for item in manifest["work_packages"] if item["id"] == "IS-09")["status"] = (
         "completed"
     )
+    manifest["program_final_verification"]["status"] = "deferred"
+    manifest["program_final_verification"]["remote_attestation"]["state"] = "pending"
+    manifest["program_final_verification"]["remote_attestation"]["evidence_source_revision"] = ""
 
     with pytest.raises(ValueError, match="IS-09 cannot complete"):
         checker._validate_program_final_verification(manifest)
@@ -240,6 +243,10 @@ def test_completed_program_verification_requires_all_remote_evidence() -> None:
     checker = _checker_module()
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     manifest["program_final_verification"]["status"] = "completed"
+    manifest["program_final_verification"]["accepted_remote_evidence"] = {
+        "service_plan_apply_receipts": 0,
+        "service_upgrade_and_rollback_proofs": 0,
+    }
 
     with pytest.raises(ValueError, match="requires all remote evidence"):
         checker._validate_program_final_verification(manifest)
@@ -300,6 +307,8 @@ def test_completed_program_verification_requires_verified_attestation() -> None:
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     policy = manifest["program_final_verification"]
     policy["status"] = "completed"
+    policy["remote_attestation"]["state"] = "pending"
+    policy["remote_attestation"]["evidence_source_revision"] = ""
 
     with pytest.raises(ValueError, match="completed program-final attestation is invalid"):
         checker._validate_remote_attestation(policy)

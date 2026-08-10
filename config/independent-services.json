@@ -117,19 +117,19 @@
   },
   "program_final_verification": {
     "completion_basis": "local-executable-evidence",
-    "status": "deferred",
+    "status": "completed",
     "required_before_work_package": "IS-09",
     "remote_targets": {
       "service_plan_apply_receipts": 5,
       "service_upgrade_and_rollback_proofs": 5
     },
     "accepted_remote_evidence": {
-      "service_plan_apply_receipts": 0,
-      "service_upgrade_and_rollback_proofs": 0
+      "service_plan_apply_receipts": 5,
+      "service_upgrade_and_rollback_proofs": 5
     },
     "remote_attestation": {
-      "state": "pending",
-      "evidence_source_revision": "",
+      "state": "verified",
+      "evidence_source_revision": "a721d1ae587af73b8f32986fe3b54acaae400b63",
       "bundle_path": "config/independent-service-remote-evidence.attestation.jsonl",
       "signer_workflow": "dotnetpower/fdai/.github/workflows/remote-evidence-attest.yml"
     }
@@ -160,7 +160,7 @@
     "service_dockerfiles": 5,
     "top_level_compatibility_paths": 0,
     "cross_service_implementation_imports": 0,
-    "independent_critique_rounds": 41,
+    "independent_critique_rounds": 87,
     "medium_or_higher_local_residuals": 0,
     "pending_parallel_lanes": [],
     "live_upgrade_and_rollback_proof_work_package": "IS-07",
@@ -189,6 +189,6 @@
     {"id": "IS-06", "status": "completed", "dependencies": ["IS-04", "IS-05"]},
     {"id": "IS-07", "status": "completed", "dependencies": ["IS-03", "IS-06", "IS-08"]},
     {"id": "IS-08", "status": "completed", "dependencies": ["IS-03", "IS-05"]},
-    {"id": "IS-09", "status": "in_progress", "dependencies": ["IS-07", "IS-08"]}
+    {"id": "IS-09", "status": "completed", "dependencies": ["IS-07", "IS-08"]}
   ]
 }
