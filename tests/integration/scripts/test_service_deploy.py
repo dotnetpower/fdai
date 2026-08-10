@@ -1260,6 +1260,8 @@ def test_plan_guard_allows_only_recovery_revision_metadata_drift(guard: ModuleTy
     after = copy.deepcopy(before)
     before["latest_revision_name"] = "service--rollback"
     after["latest_revision_name"] = "service--planned"
+    before["latest_revision_fqdn"] = "rollback.example.com"
+    after["latest_revision_fqdn"] = "planned.example.com"
     before["template"][0]["revision_suffix"] = "rollback"  # type: ignore[index]
     after["template"][0]["revision_suffix"] = "planned"  # type: ignore[index]
     plan["resource_drift"] = [
@@ -1274,6 +1276,41 @@ def test_plan_guard_allows_only_recovery_revision_metadata_drift(guard: ModuleTy
     )
 
     after["template"][0]["container"][0]["command"] = ["changed"]  # type: ignore[index]
+    with pytest.raises(guard.PlanGuardError, match="platform or peer resource drift"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+        )
+
+
+def test_plan_guard_allows_recovery_image_aligned_to_attested_plan(guard: ModuleType) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"], image="image")
+    planned_before = plan["resource_changes"][0]["change"]["before"]  # type: ignore[index]
+    planned_before["template"][0]["container"][0]["image"] = "image"  # type: ignore[index]
+    before = copy.deepcopy(planned_before)
+    after = copy.deepcopy(planned_before)
+    before["latest_revision_name"] = "service--terraform-stale"
+    after["latest_revision_name"] = "service--recovered"
+    before["latest_revision_fqdn"] = "stale.example.com"
+    after["latest_revision_fqdn"] = "recovered.example.com"
+    before["template"][0]["revision_suffix"] = "terraform-stale"  # type: ignore[index]
+    after["template"][0]["revision_suffix"] = "recovered"  # type: ignore[index]
+    before["template"][0]["container"][0]["image"] = "old-image"  # type: ignore[index]
+    plan["resource_drift"] = [
+        {"address": address, "change": {"actions": ["update"], "before": before, "after": after}}
+    ]
+
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+    )
+
+    after["template"][0]["container"][0]["image"] = "other-image"  # type: ignore[index]
     with pytest.raises(guard.PlanGuardError, match="platform or peer resource drift"):
         guard.validate_plan(
             plan,

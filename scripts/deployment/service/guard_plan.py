@@ -597,8 +597,9 @@ def _guard_revision_metadata_drift(
     resource_drift: Any,
     *,
     contract: ServiceContract,
+    planned_before: dict[str, Any] | None,
 ) -> bool:
-    """Accept only computed revision identifiers changed by out-of-band recovery."""
+    """Accept only computed revision metadata and an attested-image recovery alignment."""
     if not isinstance(resource_drift, list) or len(resource_drift) != 1:
         return False
     entry = resource_drift[0]
@@ -612,12 +613,17 @@ def _guard_revision_metadata_drift(
     if not isinstance(before, dict) or not isinstance(after, dict):
         return False
     paths = set(_difference_paths(before, after))
-    if not paths or not paths <= {
+    allowed_paths = {
+        "$.latest_revision_fqdn",
         "$.latest_revision_name",
         "$.template[0].revision_suffix",
-    }:
+    }
+    if planned_before is not None:
+        allowed_paths.add("$.template[0].container[0].image")
+    if not paths or not paths <= allowed_paths:
         return False
     expected = copy.deepcopy(before)
+    expected["latest_revision_fqdn"] = after.get("latest_revision_fqdn")
     expected["latest_revision_name"] = after.get("latest_revision_name")
     expected_templates = expected.get("template")
     after_templates = after.get("template")
@@ -631,6 +637,30 @@ def _guard_revision_metadata_drift(
     ):
         return False
     expected_templates[0]["revision_suffix"] = after_templates[0].get("revision_suffix")
+    if "$.template[0].container[0].image" in paths:
+        if planned_before is None:
+            return False
+        try:
+            expected_primary = _container_layout(
+                expected,
+                address=contract.allowed_resource_address,
+                contract=contract,
+            )[0]
+            after_primary = _container_layout(
+                after,
+                address=contract.allowed_resource_address,
+                contract=contract,
+            )[0]
+            planned_primary = _container_layout(
+                planned_before,
+                address=contract.allowed_resource_address,
+                contract=contract,
+            )[0]
+        except PlanGuardError:
+            return False
+        if after_primary.get("image") != planned_primary.get("image"):
+            return False
+        expected_primary["image"] = after_primary["image"]
     return expected == after
 
 
@@ -717,6 +747,7 @@ def validate_plan(
     allowed_revision_metadata_drift = _guard_revision_metadata_drift(
         resource_drift,
         contract=contract,
+        planned_before=selected_before,
     )
     if (
         resource_drift not in (None, [])
