@@ -39,6 +39,7 @@ def test_manifest_names_exactly_five_independent_services() -> None:
     assert len({service["target_terraform_root"] for service in manifest["services"]}) == 5
     assert manifest["release_transition"] == {
         "n_distribution_version": "0.1.3",
+        "n_source_revision": "5e835a1d468a0fbd3ed810b4c58701b1748849b3",
         "n_minus_one_distribution_version": "0.1.2",
         "n_minus_one_source_revision": "9f1234f93d356dedbddcb3b88aa7bc4da38b2dc2",
         "n_contract_set_version": "1.1.0",

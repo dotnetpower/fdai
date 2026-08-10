@@ -355,7 +355,7 @@ def validate_remote_service_evidence(
         evidence["n"],
         label="N release",
         expected_version=str(transition["n_distribution_version"]),
-        expected_source_revision=None,
+        expected_source_revision=str(transition["n_source_revision"]),
     )
     n_minus_one = _validate_release(
         evidence["n_minus_one"],

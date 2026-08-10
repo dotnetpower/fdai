@@ -1,7 +1,7 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: e0072d53731ce52eb7411bbd4f716abe29ff3983
-translation_revised: 2026-08-09
+translation_source_sha: 399c6e57cd0f96b3f45a6eecc2f5c1965c9c6aff
+translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
 
@@ -305,6 +305,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-09 | IS-09 | No-ingress health evidence | Round 51 | 같은 apply에서 Azure가 internal no-ingress Core app에 `healthState`를 보고하지 않는다는 사실도 확인했습니다. 이제 health 및 rollback verification은 ingress가 disabled이고 exact revision이 active, `Running`, replica 1개 이상일 때만 absent state를 수락합니다. Ingress-enabled app은 계속 `Healthy`를 요구합니다. |
 | 2026-08-09 | IS-09 | Manifest context sanitization | Round 52 | Final-evidence 검토에서 deployment-context rejection이 remote aggregate에는 적용되지만 independent-service manifest input에는 적용되지 않는 문제를 확인했습니다. 이제 validation은 release 또는 distribution field를 읽기 전에 두 input 모두에 같은 recursive identifier, endpoint 및 deployment-key rejection을 적용합니다. |
 | 2026-08-09 | IS-09 | Serial transition windows | Round 53 | Temporal critique에서 global serialization이 apply window만 다루고 protected plan은 포함하지 않으며, phase ordering도 첫 restore 전에 모든 rollback 완료를 명시적으로 요구하지 않는 문제를 확인했습니다. 이제 verifier는 겹치는 모든 plan/apply window를 거부하고 complete initial, rollback, restore phase join을 요구합니다. |
+| 2026-08-10 | IS-09 | Canonical N source binding | Round 54 | Supply-chain critique에서 N-1은 manifest source에 binding되지만 N은 workflow head가 자체 source와 일치하기만 하면 임의 source revision을 수락하는 문제를 확인했습니다. 이제 transition manifest는 exact N source를 기록하며 final evidence는 해당 revision에서 시작하지 않은 N release, image set 또는 stage chain을 거부합니다. |
 
 ## 관련 문서
 

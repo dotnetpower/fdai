@@ -312,6 +312,7 @@ state. For each transition:
 | 2026-08-09 | IS-09 | No-ingress health evidence | Round 51 | The same apply exposed that Azure reports no `healthState` for the internal no-ingress Core app. Health and rollback verification now accept an absent state only when ingress is disabled and the exact revision is active, `Running`, and has at least one replica; ingress-enabled apps still require `Healthy`. |
 | 2026-08-09 | IS-09 | Manifest context sanitization | Round 52 | Final-evidence review found that deployment-context rejection covered the remote aggregate but not its independent-service manifest input. Validation now applies the same recursive identifier, endpoint, and deployment-key rejection to both inputs before reading release or distribution fields. |
 | 2026-08-09 | IS-09 | Serial transition windows | Round 53 | Temporal critique found that global serialization covered apply windows but not protected plans, and phase ordering did not explicitly require every rollback before the first restore. The verifier now rejects every overlapping plan/apply window and requires complete initial, rollback, and restore phase joins. |
+| 2026-08-10 | IS-09 | Canonical N source binding | Round 54 | Supply-chain critique found that N-1 was bound to its manifest source while N accepted any source revision whose workflow head matched itself. The transition manifest now records the exact N source, and final evidence rejects any N release, image set, or stage chain that is not rooted in that revision. |
 
 ## Related documents
 

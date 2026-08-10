@@ -38,6 +38,7 @@ def _manifest() -> dict[str, Any]:
     return {
         "release_transition": {
             "n_distribution_version": "0.1.3",
+            "n_source_revision": _N_SOURCE,
             "n_minus_one_distribution_version": "0.1.2",
             "n_minus_one_source_revision": _N_MINUS_ONE_SOURCE,
         },
@@ -309,6 +310,15 @@ def test_rejects_supply_chain_head_not_bound_to_source() -> None:
     evidence["n"]["workflow_head_sha"] = "d" * 40
 
     with pytest.raises(RemoteEvidenceError, match="workflow head does not match"):
+        validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_rejects_n_source_not_bound_to_release_contract() -> None:
+    evidence = _evidence()
+    evidence["n"]["source_revision"] = "d" * 40
+    evidence["n"]["workflow_head_sha"] = "d" * 40
+
+    with pytest.raises(RemoteEvidenceError, match="source revision does not match"):
         validate_remote_service_evidence(_manifest(), evidence)
 
 

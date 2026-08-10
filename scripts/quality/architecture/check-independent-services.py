@@ -283,15 +283,20 @@ def _validate_release_transition(manifest: dict[str, Any]) -> None:
     transition = manifest["release_transition"]
     if transition != {
         "n_distribution_version": "0.1.3",
+        "n_source_revision": transition.get("n_source_revision"),
         "n_minus_one_distribution_version": "0.1.2",
         "n_minus_one_source_revision": transition.get("n_minus_one_source_revision"),
         "n_contract_set_version": "1.1.0",
         "n_minus_one_contract_set_version": "1.0.0",
     }:
         raise ValueError("independent-service release transition contract is invalid")
-    revision = transition["n_minus_one_source_revision"]
-    if not isinstance(revision, str) or re.fullmatch(r"[0-9a-f]{40}", revision) is None:
-        raise ValueError("N-1 source revision must be a lowercase 40-character git SHA")
+    for release in ("n", "n_minus_one"):
+        revision = transition[f"{release}_source_revision"]
+        if not isinstance(revision, str) or re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+            raise ValueError(
+                f"{release.replace('_', '-').upper()} source revision must be a lowercase "
+                "40-character git SHA"
+            )
     for service in manifest["services"]:
         if service["distribution_version"] != transition["n_distribution_version"]:
             raise ValueError(f"{service['id']} N distribution version is inconsistent")
