@@ -47,6 +47,7 @@ EXPECTED_RUNTIME_MODULES = {
     "delivery.py",
     "dynamic_evidence.py",
     "forecast_learning.py",
+    "graph_dynamic_evidence.py",
     "health.py",
     "human_access.py",
     "human_assignment_reconciliation.py",
@@ -56,6 +57,7 @@ EXPECTED_RUNTIME_MODULES = {
     "post_turn_review.py",
     "providers.py",
     "readiness.py",
+    "reconciliation_outbox.py",
     "t2_recovery.py",
     "t2_route_registry.py",
 }
