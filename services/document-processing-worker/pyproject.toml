@@ -1,6 +1,6 @@
 [project]
 name = "fdai-document-processing-worker"
-version = "0.1.3"
+version = "0.1.2"
 description = "FDAI Document Processing Worker service"
 requires-python = ">=3.12"
 dependencies = [
