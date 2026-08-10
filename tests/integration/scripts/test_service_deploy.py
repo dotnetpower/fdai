@@ -28,6 +28,9 @@ _CORE_TERRAFORM = (
     / "core-control-plane"
     / "main.tf"
 ).read_text(encoding="utf-8")
+_SHARED_CONTAINER_APP_TERRAFORM = (
+    _ROOT / "infra" / "services" / "_modules" / "container-app" / "main.tf"
+).read_text(encoding="utf-8")
 sys.path.insert(0, str(_SCRIPTS))
 
 
@@ -1221,6 +1224,36 @@ def test_plan_guard_allows_only_recovery_revision_metadata_drift(guard: ModuleTy
             environment="dev",
             image_ref="image",
         )
+
+
+def test_plan_guard_allows_fresh_bounded_revision_suffix(guard: ModuleType) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    after = plan["resource_changes"][0]["change"]["after"]  # type: ignore[index]
+    after["template"][0]["revision_suffix"] = "p20260810041030"  # type: ignore[index]
+
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+    )
+
+    after["template"][0]["revision_suffix"] = "INVALID_SUFFIX"  # type: ignore[index]
+    with pytest.raises(guard.PlanGuardError, match="revision suffix is invalid"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+        )
+
+
+def test_shared_container_app_seals_fresh_plan_time_revision() -> None:
+    assert (
+        'revision_suffix = "p${formatdate("YYYYMMDDhhmmss", plantimestamp())}"'
+        in _SHARED_CONTAINER_APP_TERRAFORM
+    )
 
 
 def test_initial_cutover_allows_drift_aligned_with_planned_before(guard: ModuleType) -> None:

@@ -392,6 +392,26 @@ def _guard_update(
     _primary_container(image_only_before, address=address, contract=contract)["image"] = (
         _planned_image({"after": after}, address=address, contract=contract)
     )
+    expected_templates = image_only_before.get("template")
+    after_templates = after.get("template")
+    if (
+        not isinstance(expected_templates, list)
+        or len(expected_templates) != 1
+        or not isinstance(expected_templates[0], dict)
+        or not isinstance(after_templates, list)
+        or len(after_templates) != 1
+        or not isinstance(after_templates[0], dict)
+    ):
+        raise PlanGuardError(f"resource at {address} has an invalid template")
+    before_suffix = expected_templates[0].get("revision_suffix")
+    after_suffix = after_templates[0].get("revision_suffix")
+    if before_suffix != after_suffix:
+        if (
+            not isinstance(after_suffix, str)
+            or re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?", after_suffix) is None
+        ):
+            violations.append(f"planned revision suffix is invalid at {address}")
+        expected_templates[0]["revision_suffix"] = after_suffix
     if image_only_before != after:
         violations.append(f"protected update changes fields rollback cannot prove at {address}")
     return violations

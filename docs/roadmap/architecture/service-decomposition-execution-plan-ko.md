@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: a0e0ea3cfef9a9116a1e60e59fc4e86c04661e12
+translation_source_sha: 34da08c1f568d03c62b9efd11ca45090903e855d
 translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
@@ -321,7 +321,9 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-10 | IS-09 | Recovery revision metadata guard | Round 64 | Verified Core rollback이 Terraform state 외부에서 Azure의 computed latest revision name과 revision suffix를 변경하여 runtime 및 authority field가 그대로인데도 다음 standard plan이 차단됐습니다. 이제 guard는 computed identifier 2개만 수락하며 container, identity, secret, platform 또는 authority drift는 계속 부적격입니다. |
 | 2026-08-10 | IS-09 | Observable sidecar contract normalization | Round 65 | Worker apply `31352359688`은 exact reviewed image와 healthy revision을 배포했지만 post-apply verification은 비어 있는 `args`, `env`, `volume_mounts` 및 `ephemeral_storage` 같은 Terraform container field를 해당 default를 생략하고 CPU와 memory를 `resources` 아래에 중첩하는 Azure Resource Manager revision shape와 비교했습니다. 이제 sealed sidecar digest는 ARM에서 관찰 가능한 exact name, CPU 및 memory contract를 포함합니다. Immutable image와 probe digest는 계속 분리되며 reviewed Terraform plan은 관찰할 수 없는 field를 계속 보호합니다. 알 수 없거나 비어 있지 않은 unsupported runtime field는 계속 fail-closed로 처리합니다. |
 | 2026-08-10 | IS-09 | Adoption and compatibility-proof separation | Round 66 | Evidence review에서 positional `initial` N stage가 one-time `initial-cutover` deployment mode를 사용하도록 잘못 요구하는 문제를 확인했습니다. One-time state 및 schema adoption은 preparatory service transition이며 corrected image source마다 반복할 수 없습니다. 이제 final remote N -> N-1 -> N compatibility proof는 service 5개가 모두 adopted 상태가 된 이후에만 시작하고 모든 stage에 standard protected plan을 요구합니다. 이를 통해 repeated adoption을 방지하면서 fresh revision, rollback 및 peer-isolation evidence를 유지합니다. |
+| 2026-08-10 | IS-09 | Durable remote adoption prerequisite | Round 67 | Program-final review에서 one-time adoption evidence가 90일 workflow artifact에만 남고 final attested aggregate에 join되지 않는 문제를 확인했습니다. 이제 aggregate는 adoption run 5개, artifact digest, observed legacy head 및 revision count, schema fingerprint, owned-table count, verification time, commit-pinned rollback reference를 기록합니다. GitHub binder는 final attestation 전에 각 run, 성공한 migration 및 artifact-upload step, API artifact digest와 download한 JSON record 2개를 검증합니다. 이후 health 또는 peer check가 실패해도 완료된 adoption은 지워지지 않지만 adoption step이 누락되거나 실패하면 closure가 차단됩니다. |
 | 2026-08-10 | IS-09 | Deterministic live compatibility binding | Round 67 | Completion-path review에서 schema-valid live receipt와 observation manifest를 trusted remote aggregate와 독립적으로 작성할 수 있는 문제를 확인했습니다. 이제 program-final checker는 exact rollback/restore run, plan, context, peer-receipt, source 및 serial peer-version coordinate에서 migration/rollback receipt 10개와 observation record 35개를 모두 도출하고 compatibility validation 전에 byte-equivalent JSON value를 요구합니다. Self-asserted live record는 더 이상 IS-09를 완료할 수 없습니다. |
+| 2026-08-10 | IS-09 | Plan별 fresh protected revision | Round 68 | Core apply `31353853013`에서 외부 verified rollback 이후 Terraform configuration은 N을 유지하지만 Azure latest active revision은 restored image로 남을 수 있음을 확인했습니다. 이 상태의 fresh plan은 변경 없이 apply되었고 health verification은 old image를 올바르게 거부했습니다. 이제 shared Container App module은 bounded plan-time revision suffix를 모든 saved plan에 seal하고 guard는 exact image change 옆에서 해당 syntax만 허용합니다. 따라서 모든 protected apply는 container, identity, secret, platform 또는 authority check를 약화하지 않고 새로 검증 가능한 revision을 생성합니다. |
 
 ## 관련 문서
 

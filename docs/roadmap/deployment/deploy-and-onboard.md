@@ -118,6 +118,11 @@ The deploy job runs from `infra/`, so a step that invokes a repository-root scri
 and exits 127 on the runner, before Terraform has produced anything to inspect.
 Protected plans store the binary Terraform plan, bounded preflight evidence, and the Function
 source archive with separate SHA-256 digests. Exact apply verifies every artifact; service rollback removes only post-apply secret names absent from the immutable snapshot before restoring its exact Key Vault references.
+Independent-service Container App plans also seal a lowercase plan-time revision suffix into the
+saved Terraform plan. This guarantees that an exact apply creates a fresh revision even after an
+out-of-band verified image rollback left the desired Terraform image unchanged. The protected
+guard permits only that bounded suffix beside the exact image update; health still requires a new
+revision running the attested image before an apply receipt can be recorded.
 Before storing a new plan, the runner selects only allowlisted plan, metadata, source, preflight,
 claim, and receipt blobs older than 24 hours. It scans fewer than 1001, deletes at most 1000 with
 eight workers, and fails the plan if selection is incomplete or any delete fails.

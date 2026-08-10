@@ -43,8 +43,9 @@ resource "azurerm_container_app" "service" {
   }
 
   template {
-    min_replicas = var.scaling.min_replicas
-    max_replicas = var.scaling.max_replicas
+    revision_suffix = "p${formatdate("YYYYMMDDhhmmss", plantimestamp())}"
+    min_replicas    = var.scaling.min_replicas
+    max_replicas    = var.scaling.max_replicas
 
     container {
       name    = var.component
