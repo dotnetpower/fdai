@@ -272,13 +272,46 @@ def _verify_adoption_controls(
     controls: str,
     controls_ancestor: Callable[[str, str], None],
 ) -> None:
-    """Require both historical adoption runs and rollback controls on protected main."""
+    """Require historical adoption revisions to precede final protected controls.
+
+    Adoption is ancestry-bound rather than input-equivalent because later deployment
+    hardening intentionally changed those inputs after one-time schema adoption.
+    """
     for revision in (
         completion["workflow_head_sha"],
         artifact["workflow_head_sha"],
         artifact["controls_commit_sha"],
     ):
         controls_ancestor(str(revision), controls)
+
+
+def _verify_transition_control_equivalence(
+    services: object,
+    *,
+    controls: str,
+    controls_equivalent: Callable[[str, str], None],
+) -> None:
+    """Check each unique transition head and plan-sealed controls revision once."""
+    if not isinstance(services, list):
+        raise GitHubEvidenceError("remote evidence services must be an array")
+    checked_revisions: set[str] = set()
+    for service in services:
+        service_record = _object(service, "remote evidence service")
+        service_id = str(service_record["id"])
+        stages = service_record.get("stages")
+        if not isinstance(stages, list):
+            raise GitHubEvidenceError(f"{service_id} stages must be an array")
+        for stage in stages:
+            stage_record = _object(stage, f"{service_id} stage")
+            for mode in ("plan", "apply"):
+                run = _object(stage_record[mode], f"{service_id} {mode}")
+                for revision in (
+                    str(run["workflow_head_sha"]),
+                    str(run["controls_commit_sha"]),
+                ):
+                    if revision not in checked_revisions:
+                        controls_equivalent(revision, controls)
+                        checked_revisions.add(revision)
 
 
 def _artifact_map(client: GitHubClient, run_id: int) -> dict[str, dict[str, Any]]:
@@ -361,6 +394,10 @@ def _verify_stage(
 ) -> None:
     plan = _object(stage.get("plan"), f"{service_id} plan")
     apply = _object(stage.get("apply"), f"{service_id} apply")
+    if apply.get("controls_commit_sha") != plan.get("controls_commit_sha"):
+        raise GitHubEvidenceError(
+            f"{service_id} {stage['name']} apply controls are not bound to its plan"
+        )
     _run_record(client, plan, f"{service_id} {stage['name']} plan")
     plan_id = int(plan["workflow_run_id"])
     plan_attempt = int(plan["workflow_run_attempt"])
@@ -473,7 +510,6 @@ def validate_github_evidence(
 ) -> None:
     """Verify every claimed remote run and artifact against GitHub records."""
     controls = str(evidence["controls_commit_sha"])
-    checked_heads: set[str] = set()
     for release_name in ("n", "n_minus_one"):
         release = _object(evidence.get(release_name), f"{release_name} release")
         _supply_chain_record(client, release, f"{release_name} supply chain")
@@ -481,6 +517,11 @@ def validate_github_evidence(
     services = evidence.get("services")
     if not isinstance(services, list):
         raise GitHubEvidenceError("remote evidence services must be an array")
+    _verify_transition_control_equivalence(
+        services,
+        controls=controls,
+        controls_equivalent=controls_equivalent,
+    )
     for service in services:
         service_record = _object(service, "remote evidence service")
         service_id = str(service_record["id"])
@@ -491,12 +532,6 @@ def validate_github_evidence(
             raise GitHubEvidenceError(f"{service_id} stages must be an array")
         for stage in stages:
             stage_record = _object(stage, f"{service_id} stage")
-            for mode in ("plan", "apply"):
-                run = _object(stage_record[mode], f"{service_id} {mode}")
-                head = str(run["workflow_head_sha"])
-                if head not in checked_heads:
-                    controls_equivalent(head, controls)
-                    checked_heads.add(head)
             _verify_stage(client, service_id=service_id, stage=stage_record)
 
 

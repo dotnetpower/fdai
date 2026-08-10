@@ -13,6 +13,8 @@ from scripts.quality.architecture.verify_remote_github_evidence import (
     _artifact,
     _run_record,
     _verify_adoption_controls,
+    _verify_stage,
+    _verify_transition_control_equivalence,
 )
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -199,6 +201,62 @@ def test_artifact_rejects_self_asserted_digest() -> None:
             digest="sha256:" + "c" * 64,
             basename="service-plan-metadata.json",
         )
+
+
+def test_stage_rejects_apply_controls_not_bound_to_plan() -> None:
+    stage = {
+        "name": "rollback",
+        "plan": {"controls_commit_sha": "a" * 40},
+        "apply": {"controls_commit_sha": "b" * 40},
+    }
+
+    with pytest.raises(GitHubEvidenceError, match="apply controls are not bound"):
+        _verify_stage(_Client({}), service_id="operator-service", stage=stage)
+
+
+def test_transition_controls_check_each_unique_revision_once() -> None:
+    checked: list[tuple[str, str]] = []
+    services = [
+        {
+            "id": "operator-service",
+            "stages": [
+                {
+                    "plan": {
+                        "workflow_head_sha": "b" * 40,
+                        "controls_commit_sha": "c" * 40,
+                    },
+                    "apply": {
+                        "workflow_head_sha": "d" * 40,
+                        "controls_commit_sha": "c" * 40,
+                    },
+                },
+                {
+                    "plan": {
+                        "workflow_head_sha": "e" * 40,
+                        "controls_commit_sha": "f" * 40,
+                    },
+                    "apply": {
+                        "workflow_head_sha": "e" * 40,
+                        "controls_commit_sha": "f" * 40,
+                    },
+                },
+            ],
+        }
+    ]
+
+    _verify_transition_control_equivalence(
+        services,
+        controls="a" * 40,
+        controls_equivalent=lambda before, after: checked.append((before, after)),
+    )
+
+    assert checked == [
+        ("b" * 40, "a" * 40),
+        ("c" * 40, "a" * 40),
+        ("d" * 40, "a" * 40),
+        ("e" * 40, "a" * 40),
+        ("f" * 40, "a" * 40),
+    ]
 
 
 def test_remote_evidence_workflow_is_read_only_and_pinned() -> None:

@@ -16,6 +16,11 @@ STRICT_INPUTS = (
     "alembic.ini",
     "service-migrations",
 )
+STRICT_EXCLUSIONS = (
+    # This helper mutates only an isolated container-supply-chain build checkout. It is
+    # not invoked by service-deploy and cannot change a saved plan or its apply behavior.
+    ":(exclude)scripts/deployment/service/apply_image_build_override.py",
+)
 SEMANTIC_INPUTS = ("pyproject.toml", "uv.lock")
 
 
@@ -95,6 +100,7 @@ def verify_unchanged(repository: Path, before: str, after: str) -> None:
         after_commit,
         "--",
         *STRICT_INPUTS,
+        *STRICT_EXCLUSIONS,
     )
     if changed.returncode not in {0, 1}:
         raise DeploymentInputError("cannot compare strict deployment inputs")

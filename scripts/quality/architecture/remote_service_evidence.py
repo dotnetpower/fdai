@@ -302,15 +302,10 @@ def _validate_run_common(
     value: object,
     *,
     label: str,
-    controls_commit_sha: str,
 ) -> tuple[dict[str, Any], int, int, datetime, datetime]:
     run = _object(value, label)
     _require_commit(run.get("workflow_head_sha"), f"{label} workflow_head_sha")
-    if (
-        _require_commit(run.get("controls_commit_sha"), f"{label} controls_commit_sha")
-        != controls_commit_sha
-    ):
-        raise RemoteEvidenceError(f"{label} does not use the aggregate controls commit")
+    _require_commit(run.get("controls_commit_sha"), f"{label} controls_commit_sha")
     run_id = _require_positive_int(run.get("workflow_run_id"), f"{label} workflow run id")
     run_attempt = _require_positive_int(
         run.get("workflow_run_attempt"), f"{label} workflow run attempt"
@@ -371,7 +366,6 @@ def _validate_stage(
     service_id: str,
     expected_name: str,
     releases: dict[str, dict[str, Any]],
-    controls_commit_sha: str,
     run_ids: set[int],
     peer_receipts: set[str],
     plan_digests: set[str],
@@ -398,7 +392,6 @@ def _validate_stage(
     plan, plan_id, plan_attempt, plan_started, plan_completed = _validate_run_common(
         stage["plan"],
         label=f"{service_id} {expected_name} plan",
-        controls_commit_sha=controls_commit_sha,
     )
     _exact_keys(
         plan,
@@ -441,7 +434,6 @@ def _validate_stage(
     apply, apply_id, _apply_attempt, apply_started, apply_completed = _validate_run_common(
         stage["apply"],
         label=f"{service_id} {expected_name} apply",
-        controls_commit_sha=controls_commit_sha,
     )
     _exact_keys(
         apply,
@@ -470,6 +462,7 @@ def _validate_stage(
         or apply["plan_run_attempt"] != plan_attempt
         or apply["plan_digest"] != plan["plan_digest"]
         or apply["context_digest"] != plan["context_digest"]
+        or apply["controls_commit_sha"] != plan["controls_commit_sha"]
     ):
         raise RemoteEvidenceError(f"{service_id} {expected_name} apply is not bound to its plan")
     live_artifact = _require_sha256(
@@ -540,9 +533,7 @@ def validate_remote_service_evidence(
         raise RemoteEvidenceError("remote evidence version or proof kind is invalid")
     if evidence["repository"] != REPOSITORY or evidence["workflow"] != WORKFLOW:
         raise RemoteEvidenceError("remote evidence repository or workflow is invalid")
-    controls_commit_sha = _require_commit(
-        evidence["controls_commit_sha"], "remote evidence controls commit"
-    )
+    _require_commit(evidence["controls_commit_sha"], "remote evidence controls commit")
     _validate_adoptions(evidence["adoptions"])
     transition = _object(manifest.get("release_transition"), "release transition")
     _exact_keys(
@@ -642,7 +633,6 @@ def validate_remote_service_evidence(
                 service_id=service_id,
                 expected_name=expected_name,
                 releases=releases,
-                controls_commit_sha=controls_commit_sha,
                 run_ids=run_ids,
                 peer_receipts=peer_receipts,
                 plan_digests=plan_digests,

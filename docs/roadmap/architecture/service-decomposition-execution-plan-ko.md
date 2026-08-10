@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: c051172ed05486d9d77ede8656aa0728ad8cf432
+translation_source_sha: 0b7dd2fff75f6d57a2a52f29575241484648a343
 translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
@@ -334,6 +334,8 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-10 | IS-09 | Corrected N-1 artifact rebuild | Round 75 | Live rollback에서 original 0.1.2 document image가 attached user-assigned identity를 선택할 수 없어 protected topology에서 ready 상태가 될 수 없음을 확인했습니다. 이제 dedicated artifact-only source가 current identity, probe 및 recovery hardening이 적용된 service code에서 distribution 5개의 0.1.2 artifact를 다시 build합니다. Source는 temporary이며 즉시 0.1.3 development line을 복원하는 commit이 이어집니다. Final evidence는 broken image를 relabel하지 않고 exact 0.1.2 source, supply-chain run, image digest 및 attestation을 고정합니다. |
 | 2026-08-10 | IS-09 | N-1 override retirement | Round 76 | Supply-chain run `31367288968`은 tracked override가 active인 exact source `352c8d1e661a6a53f0958767550fd57c2b975706`에서 성공했으므로 immutable artifact는 계속 0.1.2입니다. 이후 run `31367329056`은 automatic release commit에 속하며 override source 이후 실패했습니다. 이제 `main`에서 override는 inactive이며 이후 모든 image build는 committed 0.1.3 service 및 lockfile version을 사용합니다. 이를 통해 patched N-1과 final N에 distinct하고 attributable한 source revision을 만들고 향후 0.1.2 artifact가 실수로 publish되는 것을 방지합니다. |
 | 2026-08-10 | IS-09 | Corrected remote release binding | Round 77 | Release contract는 이제 remote N-1을 corrected source `352c8d1e661a6a53f0958767550fd57c2b975706`에 binding하고 historical local-focused N-1 source `9f1234f93d356dedbddcb3b88aa7bc4da38b2dc2`는 별도 field에 유지합니다. Corrected 0.1.2 SBOM 5개가 intended service package version을 보고하며 provenance, SBOM 및 Core resolved-model attestation이 exact source와 protected supply-chain signer에 대해 verify되었습니다. |
+| 2026-08-10 | IS-09 | Per-run deployment controls | Round 78 | Final-proof critique에서 initial N run과 corrected rollback run이 서로 다른 protected-main revision을 사용하므로 aggregate controls SHA 하나만 강제하면 valid evidence를 거부하거나 history를 잘못 표현하는 문제를 확인했습니다. 이제 remote evidence는 각 plan/apply pair에 plan-sealed controls를 기록하고 apply controls가 해당 plan과 일치하도록 요구합니다. GitHub binder는 API-bound workflow head와 artifact-bound controls revision 각각이 aggregate controls와 deployment-input-equivalent임을 증명합니다. Artifact-only image-build override helper만 service-deploy input에서 명시적으로 제외하며 다른 모든 deployment helper는 계속 strict하게 검사합니다. |
+| 2026-08-10 | IS-09 | Controls-verifier coverage | Round 79 | Follow-up critique에서 unique transition workflow head와 plan-sealed controls revision이 모두 equivalence verifier에 도달하는 executable check를 추가했습니다. 이 check는 stage별 distinct controls와 중복 제거도 검증합니다. One-time adoption은 adoption 이후 rollout hardening이 deployment input을 의도적으로 변경했으므로 ancestry-bound 상태를 유지합니다. Exact run, successful step, artifact 및 rollback controls는 계속 독립적으로 binding됩니다. High 및 Medium severity residual은 0건입니다. |
 
 ## 관련 문서
 

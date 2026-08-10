@@ -476,11 +476,21 @@ def test_rejects_reused_plan_metadata_artifact() -> None:
         validate_remote_service_evidence(_manifest(), evidence)
 
 
-def test_rejects_stale_controls_commit() -> None:
+def test_accepts_distinct_stage_controls_for_online_equivalence_check() -> None:
     evidence = _evidence()
-    evidence["services"][0]["stages"][0]["plan"]["controls_commit_sha"] = "d" * 40
+    stages = evidence["services"][0]["stages"]
+    for stage, controls in zip(stages, ("d" * 40, "e" * 40, "f" * 40), strict=True):
+        stage["plan"]["controls_commit_sha"] = controls
+        stage["apply"]["controls_commit_sha"] = controls
 
-    with pytest.raises(RemoteEvidenceError, match="aggregate controls commit"):
+    validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_rejects_apply_controls_not_bound_to_plan_controls() -> None:
+    evidence = _evidence()
+    evidence["services"][0]["stages"][0]["apply"]["controls_commit_sha"] = "d" * 40
+
+    with pytest.raises(RemoteEvidenceError, match="apply is not bound to its plan"):
         validate_remote_service_evidence(_manifest(), evidence)
 
 

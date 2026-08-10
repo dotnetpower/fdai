@@ -109,6 +109,25 @@ def test_rejects_strict_workflow_change(tmp_path: Path) -> None:
         verify_unchanged(repository, before, after)
 
 
+def test_accepts_artifact_only_image_build_helper_change(tmp_path: Path) -> None:
+    repository, before = _repository(tmp_path)
+    helper = repository / "scripts/deployment/service/apply_image_build_override.py"
+    helper.write_text("ARTIFACT_ONLY = True\n", encoding="utf-8")
+    after = _commit(repository, "artifact helper")
+
+    verify_unchanged(repository, before, after)
+
+
+def test_rejects_other_deployment_helper_change(tmp_path: Path) -> None:
+    repository, before = _repository(tmp_path)
+    helper = repository / "scripts/deployment/service/helper.py"
+    helper.write_text("VALUE = 2\n", encoding="utf-8")
+    after = _commit(repository, "deployment helper")
+
+    with pytest.raises(DeploymentInputError, match="strict deployment inputs"):
+        verify_unchanged(repository, before, after)
+
+
 def test_rejects_invalid_virtual_package_shape(tmp_path: Path) -> None:
     repository, before = _repository(tmp_path)
     lock_path = repository / "uv.lock"
