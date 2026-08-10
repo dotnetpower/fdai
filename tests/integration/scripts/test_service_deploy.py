@@ -559,9 +559,13 @@ def test_core_contract_requires_complete_bootstrap_environment(contract: ModuleT
         "POSTGRES_DATABASE",
         "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS",
         "FDAI_STARTUP_KAFKA_PROBE_TOPIC",
+        "FDAI_STARTUP_KAFKA_SETTLE_SECONDS",
+        "FDAI_STARTUP_PROBE_TIMEOUT_SECONDS",
+        "FDAI_STARTUP_PHASE_TIMEOUT_SECONDS",
         "FDAI_START_CONSUMER",
     } <= set(resolved.required_environment)
     assert '{ name = "FDAI_START_CONSUMER", value = "1" }' in _CORE_TERRAFORM
+    assert "value = tostring(var.startup_readiness.kafka_settle_seconds)" in _CORE_TERRAFORM
 
 
 def test_unknown_service_and_environment_fail_closed(contract: ModuleType) -> None:

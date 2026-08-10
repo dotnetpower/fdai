@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 8a99762913c7db36ab37595be4fda500adbb27d1
-translation_revised: 2026-08-09
+translation_source_sha: c791f9d882c12bbe1347539be0af304ca050e70d
+translation_revised: 2026-08-10
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -425,6 +425,7 @@ Identity를 사용하며 connection string 또는 Storage account key를 만들�
 
 - **Runtime**: `python -m fdai`가 Kafka consumer를 시작하고 routing, quality, risk, audit stage를 구성합니다. `fdai-isolated-executor`는 기본적으로 shadow-only입니다. 명시적 cutover는 stable Core receipt consumer group, versioned command/receipt transport, 기존 guarded direct-API executor 및 전용 gateway caller identity를 사용합니다. Deployment venue와 `RUNTIME_ENV`는 독립적으로 유지합니다.
 - **Health**: Core는 내부 `/live`와 `/ready`, ingestion API는 `/healthz`, internal worker는 `/live`와 `/ready`를 사용합니다. Isolated Executor도 `FDAI_ISOLATED_EXECUTOR_HEALTH_PORT`에서 내부 `/live`와 `/ready` contract를 사용합니다.
+- **Core startup round trip**: Independent Core는 synthetic startup record를 publish하기 전에 고유 operational Event Hubs consumer group의 join을 12초 동안 기다립니다. Probe별 deadline은 30초이고 phase deadline은 60초입니다. Deployment는 이 순서가 보장된 값을 조정할 수 있지만 자신이 publish한 exact record를 consume하지 못하면 probe는 ready 상태가 되지 않습니다.
 - **Replica floor**: 기본값은 replica 하나입니다. 검증된 Kafka scaler 없이 0으로 설정하면 Event Hubs 데이터로 깨어나지 않으므로 Terraform은 scale-to-zero를 주장하지 않습니다.
 - **분리 기준**: 목표는 Core, Operator, Ingestion API, Processing Worker, Isolated Executor이며 authority cutover는 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)의 모든 gate를 따릅니다.
 - **Identity 분리**: Operator API read/command와 ingestion API/worker/migration principal을 분리합니다. Worker는 `aw.pantheon.objects`에서 Saga/Muninn object만 receive하고 `aw.pipeline.stages`로 stage fact를 send합니다. `ingestion_cohost_worker=true`는 두 scope를 API identity로 돌립니다.

@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 69ef64ff0fe0c265e95cf23a4d9a3787b35005c8
+translation_source_sha: c745e7ecd49cd03b7f4daa9c4243689dbbb6a4b5
 translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
@@ -301,6 +301,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-09 | IS-09 | Notification dependency degradation | Round 47 | Core-role run `31301828821`은 database startup을 통과했지만 A2 operational-alert channel 누락이 전체 Core process를 중단한 사실을 Log Analytics에서 확인했습니다. 이제 runtime은 unavailable route를 보고하고 unrelated read, deny, queue 및 shadow path를 유지합니다. 해당 notification route가 필요한 action은 usable delivery channel이 없으므로 delivery 성공을 주장할 수 없습니다. |
 | 2026-08-09 | IS-09 | Complete container catalog selection | Round 48 | Corrected-image Core run `31311862255`은 role과 notification startup을 통과했지만 catalog discovery가 incomplete virtual-environment `rule-catalog`를 선택하여 chaos scenario schema를 찾지 못한 사실을 Log Analytics에서 확인했습니다. 이제 runtime catalog resolution은 package-parent development fallback보다 complete `/app/rule-catalog` payload를 먼저 검사하며 symptom-index startup은 import-time default 대신 resolved chaos catalog를 명시적으로 받습니다. |
 | 2026-08-09 | IS-09 | Provisioned startup probe topic | Round 49 | Catalog-corrected Core run `31316016509`은 health server까지 도달했지만 primary bootstrap endpoint를 사용했고 전용 `runtime.startup.probe` entity는 operational namespace에 속해 있어 ready가 되지 못했습니다. 가득 찬 primary namespace를 재사용하는 bounded 중간 수정을 시험했지만 성공적인 round-trip을 확립하지 못했습니다. |
+| 2026-08-10 | IS-09 | Startup probe consumer readiness | Round 50 | Live Core log에서 고유 Event Hubs consumer group이 join하는 데 약 3초가 필요했지만 independent service는 configured settle budget을 누락하여 runtime 기본값 0.5초 뒤에 publish했습니다. 따라서 consumer가 synthetic record 이후 latest offset에서 시작했고 round trip은 timeout됐습니다. 이제 service는 순서 validation과 함께 12초 settle budget, 30초 probe deadline 및 60초 phase deadline을 주입합니다. Exact round trip을 관측하지 못하면 probe는 계속 fail closed합니다. |
 | 2026-08-09 | IS-09 | Operational startup probe binding | Round 50 | Canonical Core apply `31318043097`은 primary governed-ingress topic을 공유하면 synthetic consumer가 timeout하고 automatic rollback이 올바르게 시작됨을 증명했습니다. 이제 독립 Core contract는 기존 operational bootstrap endpoint와 전용 startup topic을 받아 synthetic scope, identity isolation 및 두 namespace의 entity 제한을 보존합니다. |
 | 2026-08-09 | IS-09 | No-ingress health evidence | Round 51 | 같은 apply에서 Azure가 internal no-ingress Core app에 `healthState`를 보고하지 않는다는 사실도 확인했습니다. 이제 health 및 rollback verification은 ingress가 disabled이고 exact revision이 active, `Running`, replica 1개 이상일 때만 absent state를 수락합니다. Ingress-enabled app은 계속 `Healthy`를 요구합니다. |
 | 2026-08-09 | IS-09 | Manifest context sanitization | Round 52 | Final-evidence 검토에서 deployment-context rejection이 remote aggregate에는 적용되지만 independent-service manifest input에는 적용되지 않는 문제를 확인했습니다. 이제 validation은 release 또는 distribution field를 읽기 전에 두 input 모두에 같은 recursive identifier, endpoint 및 deployment-key rejection을 적용합니다. |

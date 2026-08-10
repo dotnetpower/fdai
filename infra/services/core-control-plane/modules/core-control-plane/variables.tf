@@ -58,6 +58,13 @@ variable "rollback" {
   })
 }
 variable "runtime_env" { type = string }
+variable "startup_readiness" {
+  type = object({
+    kafka_settle_seconds  = number
+    probe_timeout_seconds = number
+    phase_timeout_seconds = number
+  })
+}
 variable "scaling" {
   type = object({
     min_replicas = number

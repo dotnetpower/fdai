@@ -99,6 +99,29 @@ variable "runtime_env" {
   }
 }
 
+variable "startup_readiness" {
+  description = "Bounded Event Hubs consumer-settle and startup probe deadlines."
+  type = object({
+    kafka_settle_seconds  = number
+    probe_timeout_seconds = number
+    phase_timeout_seconds = number
+  })
+  default = {
+    kafka_settle_seconds  = 12
+    probe_timeout_seconds = 30
+    phase_timeout_seconds = 60
+  }
+
+  validation {
+    condition = (
+      var.startup_readiness.kafka_settle_seconds >= 0 &&
+      var.startup_readiness.probe_timeout_seconds > var.startup_readiness.kafka_settle_seconds &&
+      var.startup_readiness.phase_timeout_seconds >= var.startup_readiness.probe_timeout_seconds
+    )
+    error_message = "startup_readiness requires non-negative settle time, a larger probe timeout, and a phase timeout at least as large as the probe timeout."
+  }
+}
+
 variable "scaling" {
   description = "Replica and resource limits for the Core service."
   type = object({
