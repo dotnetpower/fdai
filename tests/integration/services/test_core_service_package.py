@@ -180,7 +180,7 @@ import fdai.runtime.isolated_executor_client
 import fdai.shared.contracts
 import fdai_core_service.main
 
-assert distribution("fdai-core-control-plane").version == "0.1.2"
+assert distribution("fdai-core-control-plane").version == "0.1.3"
 assert Path(fdai.__file__).resolve().is_relative_to(wheel_root)
 assert Path(fdai_core_service.main.__file__).resolve().is_relative_to(wheel_root)
 """

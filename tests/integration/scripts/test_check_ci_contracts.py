@@ -401,6 +401,7 @@ def test_container_supply_chain_builds_only_service_owned_dockerfiles() -> None:
     }
 
     assert "file: ${{ matrix.dockerfile }}" in workflow
+    assert "python3 scripts/deployment/service/apply_image_build_override.py" in workflow
     assert "services/Dockerfile" not in workflow
     assert "          target:" not in workflow
     for dockerfile in dockerfiles:

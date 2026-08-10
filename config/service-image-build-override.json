@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "state": "active",
+  "distribution_version": "0.1.2",
+  "services": [
+    "core-control-plane",
+    "operator-service",
+    "document-ingestion-api",
+    "document-processing-worker",
+    "isolated-executor"
+  ],
+  "purpose": "corrected-n-minus-one-transition-artifacts"
+}

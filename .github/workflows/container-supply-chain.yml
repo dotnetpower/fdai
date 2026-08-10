@@ -135,6 +135,9 @@ jobs:
         with:
           ref: ${{ env.TARGET_COMMIT_SHA }}
 
+      - name: Apply tracked service image build override
+        run: python3 scripts/deployment/service/apply_image_build_override.py
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0, Node 24
 
