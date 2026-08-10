@@ -22,6 +22,9 @@ from fdai.delivery.azure.operational_evidence import (
     AzureDynamicPolicy,
     AzureDynamicSimulationRequestProvider,
 )
+from fdai.runtime.graph_dynamic_evidence import (
+    bind_graph_dynamic_evidence_from_env as bind_graph_dynamic_evidence_from_env,
+)
 from fdai.runtime.providers import _build_inventory_context_provider
 from fdai.shared.providers.state_store import StateStore
 
@@ -282,4 +285,5 @@ __all__ = [
     "ConfiguredCausalEvidenceVerifier",
     "DYNAMIC_CONFIG_ENV",
     "bind_dynamic_evidence_from_env",
+    "bind_graph_dynamic_evidence_from_env",
 ]
