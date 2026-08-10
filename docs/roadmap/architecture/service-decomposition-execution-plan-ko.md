@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: ae2665db7e3b4352f60fd0da571ba47ed2f947a2
+translation_source_sha: 2e6bca8d14aae8b49341a270febf2fdf327b6e53
 translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
@@ -332,6 +332,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-10 | IS-09 | Observable sidecar probe normalization | Round 73 | Worker apply `31361034521`은 healthy N revision에 도달했지만 verification이 empty header 및 path와 zero delay 같은 Terraform provider default를 hash했고 Azure Resource Manager는 해당 default를 생략했습니다. 이제 plan sealing은 ARM이 생략하는 exact default value만 제거하고 hashing 전에 unknown probe field를 거부합니다. Non-default threshold, delay, interval, timeout, transport 및 port는 계속 seal되며 observed revision과 정확히 일치해야 합니다. |
 | 2026-08-10 | IS-09 | Bounded rollback revision suffix | Round 74 | 동일한 Worker failure에서 verbose automatic rollback suffix가 가장 긴 service name에 대한 Azure Container App combined 54-character revision-name limit를 초과하여 recovery를 시작할 수 없는 문제를 확인했습니다. 이제 rollback suffix는 lowercase `r` prefix와 unique workflow run id로 구성됩니다. 모든 canonical service name에 맞으면서 deterministic하고 collision-resistant하며, rollback은 계속 exact captured revision만 copy하고 restored image와 sidecar contract를 검증합니다. |
 | 2026-08-10 | IS-09 | Corrected N-1 artifact rebuild | Round 75 | Live rollback에서 original 0.1.2 document image가 attached user-assigned identity를 선택할 수 없어 protected topology에서 ready 상태가 될 수 없음을 확인했습니다. 이제 dedicated artifact-only source가 current identity, probe 및 recovery hardening이 적용된 service code에서 distribution 5개의 0.1.2 artifact를 다시 build합니다. Source는 temporary이며 즉시 0.1.3 development line을 복원하는 commit이 이어집니다. Final evidence는 broken image를 relabel하지 않고 exact 0.1.2 source, supply-chain run, image digest 및 attestation을 고정합니다. |
+| 2026-08-10 | IS-09 | N-1 override retirement | Round 76 | Supply-chain run `31367329056`은 tracked override가 active인 exact validated source에서 시작했으므로 immutable artifact는 계속 0.1.2입니다. 이제 `main`에서 override는 inactive이며 이후 모든 image build는 committed 0.1.3 service 및 lockfile version을 사용합니다. 이를 통해 patched N-1과 final N에 distinct하고 attributable한 source revision을 만들고 향후 0.1.2 artifact가 실수로 publish되는 것을 방지합니다. |
 
 ## 관련 문서
 
