@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 24b17b47a35038f5b74ae4642df2dc1786e2403b
+translation_source_sha: cfc83dc543eb79a0fee99f33041e092423754590
 translation_revised: 2026-08-10
 ---
 
@@ -122,12 +122,7 @@ Protected request는 `commit_sha`를 명시적으로 checkout하고 `git rev-par
 Terraform이 검사할 결과를 만들기도 전에 runner에서 127로 종료됩니다.
 Protected plan은 binary Terraform plan, bounded preflight evidence, Function source archive를
 각각 별도 SHA-256 digest와 함께 저장합니다. Exact apply는 모든 artifact를 download하고
-검증합니다. Service rollback은 immutable snapshot에 없는 post-apply secret name만 제거한 뒤 exact Key Vault reference를 복원합니다.
-Independent-service Container App plan은 lowercase plan-time revision suffix도 saved Terraform
-plan에 seal합니다. 따라서 out-of-band verified image rollback 이후 desired Terraform image가
-변경되지 않은 상태에서도 exact apply가 fresh revision을 생성합니다. Protected guard는 exact
-image update 옆에서 해당 bounded suffix만 허용하며 apply receipt를 기록하려면 health가 attested
-image를 실행하는 새 revision을 계속 요구합니다. 새 plan 저장 전 runner는 24시간이 지난 allowlisted plan, metadata, source,
+검증합니다. Service rollback은 immutable snapshot에 없는 post-apply secret name만 제거한 뒤 exact Key Vault reference를 복원합니다. Independent-service Container App plan은 lowercase plan-time revision suffix도 saved Terraform plan에 seal하므로 out-of-band verified image rollback 이후 desired Terraform image가 변경되지 않은 상태에서도 exact apply가 fresh revision을 생성합니다. Guard는 exact image update 옆에서 해당 bounded suffix만 허용하며 apply receipt를 기록하려면 health가 attested image를 실행하는 새 revision을 계속 요구합니다. 새 plan 저장 전 runner는 24시간이 지난 allowlisted plan, metadata, source,
 preflight, claim, receipt blob만 선택합니다. 1001개 미만을 scan하고 worker 8개로 최대 1000개를
 삭제하며 selection이 incomplete이거나 delete가 하나라도 실패하면 plan을 중지합니다.
 Development operations gateway를 선택하면 Terraform은 해당 Function, core, Operator API,
