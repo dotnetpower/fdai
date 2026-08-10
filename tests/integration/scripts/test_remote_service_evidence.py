@@ -93,7 +93,7 @@ def _stage(
             context_digest=context_digest,
             peer_seed=seed + 3,
         ),
-        "deployment_mode": "initial-cutover" if name == "initial" else "standard",
+        "deployment_mode": "standard",
         "metadata_artifact_sha256": _digest(seed + 4),
     }
     apply = {
@@ -220,6 +220,14 @@ def test_accepts_complete_customer_agnostic_remote_evidence() -> None:
     assert summary.protected_plan_runs == 15
     assert summary.protected_apply_runs == 15
     assert summary.peer_isolation_receipts == 30
+
+
+def test_rejects_replayed_initial_cutover_in_compatibility_proof() -> None:
+    evidence = _evidence()
+    evidence["services"][0]["stages"][0]["plan"]["deployment_mode"] = "initial-cutover"
+
+    with pytest.raises(RemoteEvidenceError, match="deployment mode is invalid"):
+        validate_remote_service_evidence(_manifest(), evidence)
 
 
 def test_rejects_missing_service() -> None:

@@ -266,8 +266,7 @@ def _validate_stage(
     if metadata_artifact in metadata_artifacts:
         raise RemoteEvidenceError("remote plan metadata artifacts must be unique")
     metadata_artifacts.add(metadata_artifact)
-    expected_mode = "initial-cutover" if expected_name == "initial" else "standard"
-    if plan["deployment_mode"] != expected_mode:
+    if plan["deployment_mode"] != "standard":
         raise RemoteEvidenceError(f"{service_id} {expected_name} deployment mode is invalid")
     plan_digest = str(plan["plan_digest"])
     if plan_digest in plan_digests:
