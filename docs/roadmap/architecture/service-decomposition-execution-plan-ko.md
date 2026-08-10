@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 20e50a36cf4f990627cd0730c573d875c223962a
+translation_source_sha: e273e9be214590e4bb7253580e3f4c75e7645671
 translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
@@ -310,6 +310,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-10 | IS-09 | Closed local evidence schema | Round 55 | Evidence-boundary critique에서 local transition service와 artifact가 일부 field만 검사하여 인식되지 않은 field를 포함할 수 있는 문제를 확인했습니다. 이제 checker는 local N -> N-1 -> N evidence를 수락하기 전에 exact top-level, service 및 artifact key set을 요구합니다. |
 | 2026-08-10 | IS-09 | Complete remote count join | Round 56 | Program-final critique에서 integration gate가 5/5 target 2개는 다시 검사하지만 plan 15개, apply 15개 및 peer receipt 30개는 nested verifier에만 의존하는 문제를 확인했습니다. 이제 completion join은 live compatibility evidence를 load하기 전에 derived count 5개를 모두 독립적으로 요구합니다. |
 | 2026-08-10 | IS-09 | Exact document-service identity selection | Round 57 | Ingestion API run `31348846570`은 새 revision까지 도달했지만 Container App이 exact user-assigned client id를 선언했는데도 Azure SDK client가 selector 없는 Managed Identity credential을 사용하여 crash loop에 진입했습니다. 이제 API와 Worker는 `FDAI_MI_CLIENT_ID`를 요구하고 모든 Azure adapter credential을 해당 exact client id로 생성합니다. Identity selection이 없으면 provider probe 전에 실패합니다. |
+| 2026-08-10 | IS-09 | Corrected canonical N image source | Round 58 | Supply-chain run `31349808536`은 identity-corrected source에서 image 5개를 모두 성공적으로 build, scan 및 attest했습니다. 이제 machine transition contract는 해당 source를 N으로 고정하므로 이후 plan, restore 및 final evidence에서 이전 crash-looping document image와 corrected peer를 섞을 수 없습니다. |
 
 ## 관련 문서
 
