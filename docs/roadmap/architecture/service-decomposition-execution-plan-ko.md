@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 803e5ed3083bfb17c9af120aaed350870197d4ec
+translation_source_sha: ca4daec419778cad0351af93f9e1e11a27ecf767
 translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
@@ -341,6 +341,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-10 | IS-09 | Recovery image state alignment | Round 82 | Fresh Ingestion plan `31376583061`은 out-of-band automatic recovery가 live image와 computed revision metadata를 변경했지만 Terraform state는 recovery 전 image를 유지하여 fail closed했습니다. 이제 plan guard는 observed image가 이미 attested된 planned-before image와 같고 나머지 차이가 computed revision name, FQDN 및 suffix뿐인 경우에만 이 shape를 허용합니다. 다른 image 또는 runtime, identity, secret, platform, authority 변경은 계속 차단합니다. |
 | 2026-08-10 | IS-09 | Final evidence contract hardening | Round 83-84 | Round 83은 closed public manifest projection을 remote deployment-context scanning과 분리하여 generic local evidence key가 aggregate 생성을 차단하지 않도록 했습니다. Round 84는 한 service의 initial N plan과 restored N plan이 immutable context를 의도적으로 공유하지만 fresh revision suffix로 서로 다른 plan digest를 생성함을 증명했습니다. 이제 verifier는 동일한 service와 release에서만 context 재사용을 허용하며 cross-service 또는 cross-release 재사용, stale apply binding 및 중복 plan digest는 계속 차단합니다. Focused regression이 통과했고 High 또는 Medium severity residual은 0건입니다. |
 | 2026-08-10 | IS-09 | Artifact redirect credential boundary | Round 85 | Live GitHub verification에서 API bearer token이 artifact redirect를 따라 GitHub Actions blob storage로 전달될 때 401이 발생하는 문제를 재현했습니다. 이제 downloader는 정확한 HTTPS Actions artifact host pattern만 허용하고 signed redirect를 따르기 전에 API authorization을 제거합니다. 신뢰할 수 없는 redirect origin은 fail closed하며 focused test에서 High 및 Medium severity residual은 0건을 유지합니다. |
+| 2026-08-10 | IS-09 | Privileged workflow guard compatibility | Round 86 | Central validation에서 의미상 동일한 `diff --brief` workflow-source comparison을 거부했습니다. Privileged-workflow contract가 canonical `diff --quiet` token을 요구하기 때문입니다. 이제 attestation workflow와 focused contract test가 enforced exact-source guard를 사용하여 release eligibility를 복원했고 High 또는 Medium severity residual은 0건입니다. |
 
 ## 관련 문서
 
