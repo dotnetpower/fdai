@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 6c31374636bedc11f6d5ca541365af0ead0a3a21
+translation_source_sha: 1ae89df79781b84d5db1482c14b54c3460e5f94b
 translation_revised: 2026-08-10
 ---
 
@@ -421,14 +421,12 @@ Identity를 사용하며 connection string 또는 Storage account key를 만들�
 
 ### Compute Shape (현재 Core와 5개 service 목표)
 현재 control-loop Core는 서명된 이미지와 Python process 하나로 배포됩니다. 5개 service 목표는 internal Isolated Executor를 추가하고 cutover에서 Core의 executor role을 제거합니다. Operator, ingestion API, ingestion worker는 별도이며 이전 topology는 rollback artifact입니다. 모든 gate는 [실행 계획](../architecture/service-decomposition-execution-plan-ko.md)에서 추적합니다.
-
 - **Runtime**: `python -m fdai`가 Kafka consumer를 시작하고 routing, quality, risk, audit stage를 구성합니다. `fdai-isolated-executor`는 기본적으로 shadow-only입니다. 명시적 cutover는 stable Core receipt consumer group, versioned command/receipt transport, 기존 guarded direct-API executor 및 전용 gateway caller identity를 사용합니다. Deployment venue와 `RUNTIME_ENV`는 독립적으로 유지합니다.
 - **Health**: Core는 내부 `/live`와 `/ready`, ingestion API는 `/healthz`, internal worker는 `/live`와 `/ready`를 사용합니다. Isolated Executor도 `FDAI_ISOLATED_EXECUTOR_HEALTH_PORT`에서 내부 `/live`와 `/ready` contract를 사용합니다.
 - **Core startup round trip**: Independent Core는 synthetic startup record를 publish하기 전에 고유 operational Event Hubs consumer group의 join을 12초 동안 기다립니다. Probe별 deadline은 30초이고 phase deadline은 75초이므로 기본 attempt 2회를 위한 bounded headroom을 확보합니다. Deployment는 이 순서가 보장된 값을 조정할 수 있지만 자신이 publish한 exact record를 consume하지 못하면 probe는 ready 상태가 되지 않습니다.
 - **Replica floor**: 기본값은 replica 하나입니다. 검증된 Kafka scaler 없이 0으로 설정하면 Event Hubs 데이터로 깨어나지 않으므로 Terraform은 scale-to-zero를 주장하지 않습니다.
 - **분리 기준**: 목표는 Core, Operator, Ingestion API, Processing Worker, Isolated Executor이며 authority cutover는 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)의 모든 gate를 따릅니다.
 - **Identity 분리**: Operator API read/command와 ingestion API/worker/migration principal을 분리합니다. Worker는 `aw.pantheon.objects`에서 Saga/Muninn object만 receive하고 `aw.pipeline.stages`로 stage fact를 send합니다. `ingestion_cohost_worker=true`는 두 scope를 API identity로 돌립니다.
-- **Document-service identity selection**: Ingestion API와 processing worker는 `FDAI_MI_CLIENT_ID`로 하나의 exact user-assigned identity client id를 받습니다. Azure storage, Event Hubs, embedding 및 optional OCR credential은 모두 해당 client id를 명시적으로 선택하며 ambient 또는 system-assigned fallback은 허용하지 않습니다.
 - **Executor 배포와 cutover**: `enable_isolated_executor=true`는 internal app과 ACR pull, command receive, receipt/DLQ send, state-secret read만 가진 전용 UAMI를 프로비저닝합니다. 기본값은 `false`이며 private-runner workflow는 기본 plan-only를 유지하고 checksum-pinned GitHub CLI를 설치하며 embedded plan-metadata code를 syntax-check하고 attestation을 검증한 뒤 동일한 ACR digest를 binding하고 latest revision을 health check에 포함합니다. `promote_runtime_image=true`는 rebuild 없이 verified digest를 import하지만 exact apply는 promotion을 거부하고 protected plan만 사용하며 convergence에도 같은 runtime digest를 복원합니다. `enable_isolated_executor_authority_cutover=true`는 development operations gateway도 요구하며 Core의 gateway 및 vertical effect access를 제거하고 isolated identity를 승인하며 Core에는 transport/read access만 유지합니다. `verify_executor_effect=true`는 non-interactive runner에서 explicit pseudo-terminal을 통해 reversible NSG rule probe를 실행하고 remote exit status를 보존합니다. Duplicate delivery는 immutable action 및 command identity를 유지하도록 하나의 issued-at timestamp를 공유하고 cleanup은 새 bounded deadline을 받습니다. Azure Resource Manager에서 effect를 확인하고 duplicate write를 차단하며 offset과 terminal receipt를 기록한 뒤 정리합니다. 900초가 지나면 실패합니다.
 
 ## 부트스트랩 순서
