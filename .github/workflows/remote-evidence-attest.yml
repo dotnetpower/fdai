@@ -45,7 +45,7 @@ jobs:
           unset auth_header
           git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
             refs/remotes/origin/main
-          diff --quiet \
+          diff --brief \
             <(git -C "$guard_repo" show "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH") \
             <(git -C "$guard_repo" show "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH")
 

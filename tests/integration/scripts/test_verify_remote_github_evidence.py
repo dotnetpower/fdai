@@ -5,12 +5,14 @@ import json
 import zipfile
 from pathlib import Path
 from typing import Any
+from urllib import request as urllib_request
 
 import pytest
 from scripts.quality.architecture.verify_remote_github_evidence import (
     GitHubEvidenceError,
     _adoption_run_record,
     _artifact,
+    _ArtifactRedirectHandler,
     _run_record,
     _verify_adoption_controls,
     _verify_stage,
@@ -203,6 +205,35 @@ def test_artifact_rejects_self_asserted_digest() -> None:
         )
 
 
+def test_artifact_redirect_removes_api_authorization() -> None:
+    request = _ArtifactRedirectHandler().redirect_request(
+        urllib_request.Request(
+            "https://api.github.com/repos/dotnetpower/fdai/actions/artifacts/1/zip",
+            headers={"Authorization": "Bearer secret"},
+        ),
+        None,
+        302,
+        "Found",
+        {},
+        "https://productionresultssa10.blob.core.windows.net/actions-results/archive.zip?sig=x",
+    )
+
+    assert request.get_header("Authorization") is None
+    assert request.get_header("Accept") == "application/octet-stream"
+
+
+def test_artifact_redirect_rejects_untrusted_origin() -> None:
+    with pytest.raises(GitHubEvidenceError, match="outside the allowed origin"):
+        _ArtifactRedirectHandler().redirect_request(
+            urllib_request.Request("https://api.github.com/artifact"),
+            None,
+            302,
+            "Found",
+            {},
+            "https://example.com/archive.zip",
+        )
+
+
 def test_stage_rejects_apply_controls_not_bound_to_plan() -> None:
     stage = {
         "name": "rollback",
@@ -266,6 +297,8 @@ def test_remote_evidence_workflow_is_read_only_and_pinned() -> None:
     assert "id-token: write" in _WORKFLOW
     assert "packages: read" in _WORKFLOW
     assert "PYTHONPATH: ${{ github.workspace }}" in _WORKFLOW
+    assert "diff --brief" in _WORKFLOW
+    assert "diff --quiet" not in _WORKFLOW
     assert "verify_remote_github_evidence.py" in _WORKFLOW
     assert "check-remote-service-evidence.py" in _WORKFLOW
     assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in _WORKFLOW
