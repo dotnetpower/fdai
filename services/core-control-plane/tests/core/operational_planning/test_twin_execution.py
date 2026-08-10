@@ -473,7 +473,7 @@ def test_partial_failure_keeps_rollback_and_is_not_reusable() -> None:
     assert closure.reusable is False
 
 
-def test_a0_planning_produces_proposal_without_execution_authority() -> None:
+def test_a0_scale_out_planning_has_no_standing_or_execution_authority() -> None:
     plan, target, release = _plan_and_release()
 
     mutation = compile_selected_mutation_plan(
@@ -489,3 +489,5 @@ def test_a0_planning_produces_proposal_without_execution_authority() -> None:
     assert mutation.planner_ref == plan.plan_id
     assert not hasattr(mutation, "approval")
     assert not hasattr(mutation, "executor_identity")
+    assert mutation.action_type_ref.name == "ops.scale-out"
+    assert mutation.irreversible is False

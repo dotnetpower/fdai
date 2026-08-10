@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: 3666c39a2c84b626d69227ee7aea12271252036b
+translation_source_sha: 6a6bfc5b9ea6ac0ab2a533f35cc3193526985f1a
 translation_revised: 2026-08-10
 ---
 # 운영 계획
@@ -25,9 +25,9 @@ DecisionCase, ActionOption, typed ontology function, Assurance Twin을 재사용
 > 실행하고 timeout 또는 malformed output을 unscorable로 처리합니다. P5는 read-only Twin adapter,
 > exact selected-option MutationPlan compilation, independent ResponseOutcome closure를 추가합니다.
 > P6는 기존 Process detail route 안에 strict read-only Planning Room projection을 추가합니다.
-> P7은 durable Process recorder, shadow-only planning Workflow, verified dimension 7개와 명시적인
-> release-evidence proxy 2개를 가진 9개 차원의 frozen scenario manifest, deterministic
-> constitutional constraint check, conditional production runtime binding을
+> P7은 durable Process recorder, shadow-only planning Workflow, verified dimension 9개의 frozen scenario
+> manifest, deterministic constitutional constraint check, production reconciliation command choreography,
+> conditional production runtime binding을
 > 추가합니다. Runtime은 exact ontology release, operational context, Process store, active
 > effect-model reader, causal verifier가 모두 있을 때만 planning을 bind합니다. Staging proof와
 > shadow measurement는 누락된 runtime behavior가 아니라 release evidence로 남습니다.
@@ -238,20 +238,19 @@ Incident causal conclusion과는 다릅니다. Observation window 이후 Forseti
 evidence에서 별도의 `CausalHypothesis`를 revise할 수 있습니다. Association 또는 temporal precedence만으로
 active model 또는 ActionType을 update할 수 없습니다.
 
-Frozen scenario pack에는 9개 dimension이 있습니다. 7개는 executable production-path evidence이며,
-partial-failure recovery와 A3-E non-applicability는 runtime evidence chain이 연결될 때까지 명시적인
-closure-level proxy로 유지합니다.
+Frozen scenario pack에는 executable dimension 9개가 있습니다. Partial failure는 durable reconciliation
+outbox를 통해 proposal-only Vidar command로 종료되며 A0 scale-out proof에는 standing authorization,
+approval, executor identity 또는 direct dispatch가 없습니다.
 
 1. 성공적인 no-action 대 scale-out planning 및 검증된 outcome closure
 2. 명시적 hold를 만드는 stale telemetry
 3. arbitration이 필요한 reliability 및 cost conflict
 4. 선택된 action이 없는 sandbox timeout
-5. compensation과 recovery verification이 있는 partial staging failure(closure-level proxy)
+5. compensation과 recovery verification이 있는 partial staging failure
 6. duplicate, reordered, restart replay
 7. active 및 challenger model divergence
 8. artifact tampering 및 sandbox escape 시도
 9. A0 planning에 대한 A3-E non-applicability와 참조된 ActionType 자체의 authority proof
-  (proposal-only proxy)
 
 Production 완료에는 negative evidence도 같은 chain에서 보존되어야 합니다. No-action이 이미 optimal인
 경우, cost invariant 실패, topology 또는 active model 누락, independent observation이 없는 provider

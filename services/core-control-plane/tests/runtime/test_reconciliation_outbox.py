@@ -63,7 +63,7 @@ async def test_runtime_publishes_matched_recommendation_to_forseti_without_autho
 
 
 async def test_runtime_routes_mismatch_to_vidar_as_proposal_without_rollback() -> None:
-    release, target, plan, action_type = _fixture()
+    release, target, plan, action_type = _fixture(action_type_name="ops.scale-out")
     request = _request(
         release=release,
         target=target,
@@ -88,6 +88,7 @@ async def test_runtime_routes_mismatch_to_vidar_as_proposal_without_rollback() -
     envelope = await _first(bus, RECONCILIATION_RECOVERY_TOPIC)
     assert envelope is not None
     assert envelope.payload["target_agent"] == "vidar"
+    assert envelope.payload["action_type_ref"]["name"] == "ops.scale-out"
     vidar = Vidar(bus=None)
     await vidar.on_typed_message(envelope.topic, dict(envelope.payload))
     await vidar.on_typed_message(envelope.topic, dict(envelope.payload))

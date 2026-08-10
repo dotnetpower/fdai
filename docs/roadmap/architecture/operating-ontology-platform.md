@@ -391,6 +391,8 @@ acknowledgement. Process loss releases the lease for replay. Poison payloads are
 evidence and sent to dead-letter handling without deleting the terminal reconciliation outcome.
 No outbox consumer calls Thor directly. Conflicting publication replay fails the aggregate's
 content validation and remains held for review; ordering never relies on wall-clock timestamps.
+The predictive capacity fixture uses the exact `ops.scale-out` ActionType identity: a mismatch
+publishes only a deduplicated Vidar proposal and does not invoke rollback from the relay.
 
 Conversation or internal-processing failures may open an off-path adequacy review only after a
 deterministic attribution step preserves the exact verification reason, route, evidence manifest,

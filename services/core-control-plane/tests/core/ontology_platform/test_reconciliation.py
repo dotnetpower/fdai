@@ -55,7 +55,7 @@ CREATED_AT = datetime(2026, 8, 8, 10, 0, tzinfo=UTC)
 DEADLINE = CREATED_AT + timedelta(minutes=5)
 
 
-def _fixture():
+def _fixture(*, action_type_name: str = "ops.scale"):
     object_type = OntologyObjectType(
         schema_version="1.0.0",
         name="Workload",
@@ -117,7 +117,7 @@ def _fixture():
     )
     action_type = OntologyActionType(
         schema_version="2.0.0",
-        name="ops.scale",
+        name=action_type_name,
         version="2.0.0",
         operation=Operation.SCALE,
         rollback_contract=RollbackKind.STATE_FORWARD_ONLY,

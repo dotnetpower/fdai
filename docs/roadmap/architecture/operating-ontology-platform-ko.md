@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 6f35a048d5a2820c94606c3c7c626b4ef9378009
+translation_source_sha: 8cd82873ff59f42c236b1b3ffcbdd0b526534897
 translation_revised: 2026-08-10
 ---
 # FDAI 온톨로지 안전 인프라
@@ -391,6 +391,8 @@ loss가 발생하면 lease를 release하여 replay할 수 있습니다. Poison p
 outcome을 삭제하지 않고 failed evidence로 보존하고 dead-letter handling으로 보냅니다. Outbox consumer는
 Thor를 직접 호출하지 않습니다. Conflicting publication replay는 aggregate content validation에서
 실패하고 review를 위해 hold됩니다. Ordering은 wall-clock timestamp에 의존하지 않습니다.
+Predictive capacity fixture는 exact `ops.scale-out` ActionType identity를 사용합니다. Mismatch는
+deduplicated Vidar proposal만 publish하며 relay에서 rollback을 호출하지 않습니다.
 
 Conversation 또는 internal-processing failure는 deterministic attribution 단계가 exact verification
 reason, route, evidence manifest, ontology release, graph revision, freshness, completeness를 보존한

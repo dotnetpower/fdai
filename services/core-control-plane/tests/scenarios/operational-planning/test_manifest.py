@@ -23,15 +23,15 @@ def test_operational_planning_manifest_is_complete_and_schema_valid() -> None:
     )
 
 
-def test_operational_planning_manifest_exposes_release_evidence_gaps() -> None:
+def test_operational_planning_manifest_has_no_proxy_evidence_gaps() -> None:
     proxies = {
         scenario["dimension"]
         for scenario in MANIFEST["scenarios"]
         if scenario["evidence_status"] == "proxy"
     }
 
-    assert MANIFEST["status"] == "partial"
-    assert proxies == {"partial_failure_recovery", "a3e_non_applicability"}
+    assert MANIFEST["status"] == "complete"
+    assert proxies == set()
 
 
 def test_operational_planning_scenarios_reference_executable_tests() -> None:

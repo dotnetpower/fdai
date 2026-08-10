@@ -26,8 +26,8 @@ central planner or another authority surface.
 > adapter, exact selected-option MutationPlan compilation, and independent ResponseOutcome closure.
 > P6 adds a strict, read-only Planning Room projection inside the existing Process detail route.
 > P7 adds a durable Process recorder, a shadow-only planning Workflow, a nine-dimension frozen
-> scenario manifest with seven verified dimensions and two explicit release-evidence proxies,
-> deterministic constitutional constraint checks, and conditional production
+> scenario manifest with nine verified dimensions, deterministic constitutional constraint checks,
+> production reconciliation command choreography, and conditional production
 > runtime binding. The runtime binds planning only when the exact ontology release, operational
 > context, Process store, active effect-model reader, and causal verifier are available. Staging
 > proof and shadow measurement remain release evidence, not missing runtime behavior.
@@ -240,20 +240,19 @@ before an action. It is not an incident causal conclusion. After the observation
 revise a separate `CausalHypothesis` from Heimdall's independent evidence. Association or temporal
 precedence alone can update neither an active model nor an ActionType.
 
-The frozen scenario pack contains nine dimensions. Seven are executable production-path evidence;
-the partial-failure recovery and A3-E non-applicability dimensions remain explicit closure-level
-proxies until their runtime evidence chains are connected:
+The frozen scenario pack contains nine executable dimensions. Partial failure closes through the
+durable reconciliation outbox to a proposal-only Vidar command, and the A0 scale-out proof has no
+standing authorization, approval, executor identity, or direct dispatch:
 
 1. successful no-action versus scale-out planning and verified outcome closure;
 2. stale telemetry that produces an explicit hold;
 3. a reliability and cost conflict that requires arbitration;
 4. a sandbox timeout with no selected action;
-5. partial staging failure with compensation and recovery verification (closure-level proxy);
+5. partial staging failure with compensation and recovery verification;
 6. duplicate, reordered, and restart replay;
 7. active and challenger model divergence;
 8. artifact tampering and sandbox escape attempts; and
-9. A3-E non-applicability for A0 planning, plus the referenced ActionType's own authority proof
-  (proposal-only proxy).
+9. A3-E non-applicability for A0 planning, plus the referenced ActionType's own authority proof.
 
 Production completion also requires negative evidence to survive the same chain: no-action already
 optimal, cost-invariant failure, missing topology or active model, provider receipt without an
