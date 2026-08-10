@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 0daa1f22c6b46d9daad043c71d2aa0f86426aa18
+translation_source_sha: c286bb9d667924fb7a874fc1325476cd3b345c51
 translation_revised: 2026-08-10
 ---
 # FDAI 온톨로지 안전 인프라
@@ -58,8 +58,10 @@ exact schema pinning, generated SDK surface를 추가합니다. 모든 runtime t
 > delivery, conflict detection, unscorable attempt에서 terminal로의 transition을 검증합니다.
 > 각 reconciliation은 최대 8개 attempt를 저장하며 마지막 slot은 terminal closure를 위해
 > 예약합니다. 16 MiB canonical aggregate ceiling은 state 또는 audit write 전에 oversized durable
-> state를 차단합니다. Production composition은 아직 coordinator를 연결하거나 event bus를 통해
-> outbox recommendation을 publish하지 않습니다.
+> state를 차단합니다. Production composition은 coordinator와 lease-based outbox worker가 durable
+> ledger 하나를 공유하도록 연결합니다. Broker acknowledgement, retry release, process-loss replay,
+> bounded attempt 및 dead-letter state를 CAS로 저장합니다. Mechanical relay는 Forseti 또는 Vidar에
+> proposal command만 publish하며 Thor를 호출하지 않습니다.
 > K6-K8은 immutable operational state trajectory, dependency 범위 effect propagation,
 > time-bounded invariant, 독립 관측 trajectory outcome을 포함하는 graph-wide Dynamic evidence를
 > 목표로 합니다. 기존 action/metric Dynamic simulation은 구현되어 있으며 graph-wide propagation과

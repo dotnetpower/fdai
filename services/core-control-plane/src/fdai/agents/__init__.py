@@ -68,9 +68,11 @@ from fdai.agents._framework.topics import (
 )
 from fdai.agents._framework.workflows import WORKFLOWS, WorkflowSpec
 from fdai.agents.bragi import Bragi
+from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
+from fdai.agents.vidar import Vidar
 
 __all__ = [
     "Agent",
@@ -96,6 +98,7 @@ __all__ = [
     "ConversationTool",
     "DeliberationClaim",
     "DeliberationRequest",
+    "Forseti",
     "Heimdall",
     "GitHubIssue",
     "IssueTrackerAdapter",
@@ -111,6 +114,7 @@ __all__ = [
     "StateStoreAuditChainAdapter",
     "SynthesisOutcome",
     "T2ConversationSynthesizer",
+    "Vidar",
     "plan_conversation_tools",
     "load_pantheon",
     "instantiate_pantheon",

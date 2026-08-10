@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 13ccb8f4e0f80d128bc51f305c53d44b1acb95b6
-translation_revised: 2026-08-09
+translation_source_sha: faa5f7afb956014784068f62cbac05d456e9a9c1
+translation_revised: 2026-08-10
 ---
 
 # 에이전트 판테온
@@ -346,15 +346,13 @@ properties:
 
 ## 6. 통신 계약
 
-판테온은 Event Hubs `:9093`의 Kafka 또는 in-process local adapter인 기존 `EventBus` wire를 사용합니다. Heimdall은 한 readiness pass의 6개 dimension이 모두 도착한 뒤 Drift를 게시하며 Muninn은 엄격히 더 새로운 snapshot만 수락합니다.
-Best-effort `AgentHandlerObserver`는 delivery, judgment, execution을 변경하지 않고 handler lifecycle을 보고합니다. Local composition은 SSE로, deployed composition은 shared stage topic으로 게시해 Operator API가 relay합니다.
+판테온은 Event Hubs `:9093`의 Kafka 또는 in-process local adapter인 기존 `EventBus` wire를 사용합니다. Heimdall은 한 readiness pass의 6개 dimension이 모두 도착한 뒤 Drift를 게시하며 Muninn은 엄격히 더 새로운 snapshot만 수락합니다. Best-effort `AgentHandlerObserver`는 delivery, judgment, execution을 변경하지 않고 handler lifecycle을 보고합니다. Local composition은 SSE로, deployed composition은 shared stage topic으로 게시해 Operator API가 relay합니다.
 
 ### 6.1 Typed port
 
-Object type마다 `object.<type>` topic 하나를 사용합니다. 모든 메시지는 `correlation_id`, `idempotency_key`, `producer_principal`을 carry하며 Thor는 `correlation_id:state`로 retry-safe transition을 유지합니다.
-Bus는 인증된 `producer_principal`과 정수 `envelope_schema_version`을 기록하고 payload의 `schema_version`은 보존합니다. Mutation은 비어 있지 않은 `correlation_id`, `resource_id`, `idempotency_key`가 필요합니다.
-Owned-topic producer check는 끌 수 없고 알 수 없는 `object.*` subscription은 등록에 실패합니다. Ordered mutation consumer는 poison record를 보관한 뒤 중지해 후속 mutation의 추월을 막습니다.
-Dead-letter write는 제한된 backoff 후 consumer를 재시작합니다. 오퍼레이터 redrive도 owner, envelope, schema를 다시 검사하고 실패하면 원본 payload만 다시 보관합니다.
+Object type마다 `object.<type>` topic 하나를 사용합니다. 모든 메시지는 `correlation_id`, `idempotency_key`, `producer_principal`을 carry하며 Thor는 `correlation_id:state`로 retry-safe transition을 유지합니다. Bus는 인증된 `producer_principal`과 정수 `envelope_schema_version`을 기록하고 payload의 `schema_version`은 보존합니다. Mutation은 비어 있지 않은 `correlation_id`, `resource_id`, `idempotency_key`가 필요합니다. Owned-topic producer check는 끌 수 없고 알 수 없는 `object.*` subscription은 등록에 실패합니다. Ordered mutation consumer는 poison record를 보관한 뒤 중지해 후속 mutation의 추월을 막습니다. Dead-letter write는 제한된 backoff 후 consumer를 재시작합니다. 오퍼레이터 redrive도 owner, envelope, schema를 다시 검사하고 실패하면 원본 payload만 다시 보관합니다.
+
+Reconciliation은 proposal-only `command.*` topic 두 개를 사용합니다. Mechanical durable-outbox relay가 publisher이며 agent state owner가 아닙니다. Forseti와 Vidar는 recommendation을 검증하고 각자 소유한 next step을 위해 보존합니다. Receipt delivery는 Verdict, Rollback, approval 또는 execution을 만들지 않습니다.
 
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|
@@ -382,6 +380,8 @@ Dead-letter write는 제한된 backoff 후 consumer를 재시작합니다. 오�
 | object.cost-anomaly | Njord | Forseti |
 | object.capacity-forecast | Freyr | Forseti |
 | object.chaos-experiment | Loki | Heimdall |
+| command.reconciliation-decision | durable outbox relay | Forseti |
+| command.reconciliation-recovery | durable outbox relay | Vidar |
 Partitioning:
 
 - Mutation topic (`object.action-run`, `object.rollback`) 은 `resource_id`

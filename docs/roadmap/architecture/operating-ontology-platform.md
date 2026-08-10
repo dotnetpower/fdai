@@ -55,8 +55,10 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > state, and focused tests cover restart replay, concurrent delivery, conflict detection, and an
 > unscorable-attempt-to-terminal transition. Each reconciliation stores at most eight attempts and
 > reserves the final slot for terminal closure. A 16 MiB canonical aggregate ceiling rejects
-> oversized durable state before a state or audit write. Production composition does not yet wire
-> the coordinator or publish its outbox recommendation through the event bus.
+> oversized durable state before a state or audit write. Production composition now shares one
+> durable ledger between the coordinator and a lease-based outbox worker. Broker acknowledgement,
+> retry release, process-loss replay, bounded attempts, and dead-letter state are CAS-persisted.
+> The mechanical relay publishes only proposal commands to Forseti or Vidar and never calls Thor.
 > K6-K8 target graph-wide Dynamic evidence: immutable operational state trajectories,
 > dependency-scoped effect propagation, time-bounded invariants, and independently observed
 > trajectory outcomes. Existing action/metric Dynamic simulation remains implemented; graph-wide

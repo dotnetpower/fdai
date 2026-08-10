@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.ontology_platform.reconciliation import (
@@ -12,6 +12,7 @@ from fdai.core.ontology_platform.reconciliation import (
     ReconciliationAttemptLimitError,
     ReconciliationConflictError,
     ReconciliationLedgerCorruptionError,
+    ReconciliationPublicationStatus,
     StateStoreReconciliationLedger,
 )
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -274,3 +275,152 @@ async def test_aggregate_byte_limit_fails_before_state_or_audit_write() -> None:
 
     assert await store.read_state(f"ontology:reconciliation:{request.reconciliation_id}") is None
     assert tuple(store.audit_entries) == ()
+
+
+async def test_durable_outbox_claim_and_broker_completion_survive_restart() -> None:
+    release, target, plan, action_type = _fixture()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+    )
+    store = InMemoryStateStore()
+    ledger = StateStoreReconciliationLedger(store=store)
+    outcome = await _coordinate(
+        EffectReconciliationCoordinator(ledger=ledger),
+        request,
+        release=release,
+    )
+    now = datetime(2026, 8, 10, tzinfo=UTC)
+
+    claimed = await StateStoreReconciliationLedger(store=store).claim_publications(
+        now=now,
+        limit=10,
+        lease_until=now + timedelta(minutes=1),
+    )
+    assert len(claimed) == 1
+    assert claimed[0].status is ReconciliationPublicationStatus.IN_PROGRESS
+    assert claimed[0].recommendation == outcome.recommendation
+
+    restarted = StateStoreReconciliationLedger(store=store)
+    await restarted.complete_publication(
+        request.reconciliation_id,
+        outcome.recommendation.idempotency_key,
+        published_at=now + timedelta(seconds=1),
+        topic="command.reconciliation-decision",
+        partition=2,
+        offset=17,
+    )
+
+    assert (
+        await restarted.claim_publications(
+            now=now + timedelta(minutes=2),
+            limit=10,
+            lease_until=now + timedelta(minutes=3),
+        )
+        == ()
+    )
+    record = await store.read_state(f"ontology:reconciliation:{request.reconciliation_id}")
+    assert record is not None
+    publication = next(iter(record["publication_state"].values()))
+    assert publication["status"] == "published"
+    assert publication["topic"] == "command.reconciliation-decision"
+    assert publication["offset"] == 17
+
+
+async def test_durable_outbox_lease_prevents_concurrent_claim_and_replays_after_expiry() -> None:
+    release, target, plan, action_type = _fixture()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+    )
+    store = InMemoryStateStore()
+    await _coordinate(
+        EffectReconciliationCoordinator(ledger=StateStoreReconciliationLedger(store=store)),
+        request,
+        release=release,
+    )
+    now = datetime(2026, 8, 10, tzinfo=UTC)
+
+    claims = await asyncio.gather(
+        *(
+            StateStoreReconciliationLedger(store=store).claim_publications(
+                now=now,
+                limit=1,
+                lease_until=now + timedelta(seconds=30),
+            )
+            for _ in range(16)
+        )
+    )
+    assert sum(bool(item) for item in claims) == 1
+
+    replay = await StateStoreReconciliationLedger(store=store).claim_publications(
+        now=now + timedelta(seconds=31),
+        limit=1,
+        lease_until=now + timedelta(seconds=61),
+    )
+    assert len(replay) == 1
+    assert replay[0].attempts == 2
+
+
+async def test_durable_outbox_release_retries_and_conflicting_completion_fails_closed() -> None:
+    release, target, plan, action_type = _fixture()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+    )
+    store = InMemoryStateStore()
+    ledger = StateStoreReconciliationLedger(store=store)
+    outcome = await _coordinate(
+        EffectReconciliationCoordinator(ledger=ledger),
+        request,
+        release=release,
+    )
+    now = datetime(2026, 8, 10, tzinfo=UTC)
+    await ledger.claim_publications(
+        now=now,
+        limit=1,
+        lease_until=now + timedelta(seconds=30),
+    )
+    await ledger.release_publication(
+        request.reconciliation_id,
+        outcome.recommendation.idempotency_key,
+        available_at=now + timedelta(seconds=10),
+        error="TimeoutError",
+    )
+    assert (
+        await ledger.claim_publications(
+            now=now + timedelta(seconds=9),
+            limit=1,
+            lease_until=now + timedelta(seconds=20),
+        )
+        == ()
+    )
+    assert await ledger.claim_publications(
+        now=now + timedelta(seconds=10),
+        limit=1,
+        lease_until=now + timedelta(seconds=20),
+    )
+    await ledger.complete_publication(
+        request.reconciliation_id,
+        outcome.recommendation.idempotency_key,
+        published_at=now + timedelta(seconds=11),
+        topic="command.reconciliation-decision",
+        partition=0,
+        offset=9,
+    )
+
+    with pytest.raises(ReconciliationConflictError, match="conflicting broker evidence"):
+        await ledger.complete_publication(
+            request.reconciliation_id,
+            outcome.recommendation.idempotency_key,
+            published_at=now + timedelta(seconds=12),
+            topic="command.reconciliation-decision",
+            partition=0,
+            offset=10,
+        )

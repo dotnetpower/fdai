@@ -12,10 +12,15 @@ from dataclasses import dataclass
 from typing import Any
 
 from fdai.agents._framework.base import Agent
-from fdai.agents._framework.bounded import BoundedLruSet
+from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import IntrospectionResult, capability_facts
 from fdai.agents._framework.pantheon import _VIDAR
+from fdai.core.ontology_platform.reconciliation_contracts import (
+    RECONCILIATION_RECOVERY_TOPIC,
+    ReconciliationNextStep,
+    ReconciliationRecommendation,
+)
 
 
 @dataclass
@@ -59,11 +64,30 @@ class Vidar(Agent):
         # revert), so a correlation is rolled back at most once. Bounded so
         # the guard cannot leak on a long-lived recovery principal.
         self._rolled_back: BoundedLruSet[str] = BoundedLruSet(self._MAX_RECORDS)
+        self._recovery_recommendations: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
+            self._MAX_RECORDS
+        )
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == RECONCILIATION_RECOVERY_TOPIC:
+            recommendation = ReconciliationRecommendation.model_validate(payload)
+            if (
+                recommendation.next_step is not ReconciliationNextStep.REQUEST_VIDAR_RECOVERY
+                or recommendation.target_agent != "vidar"
+            ):
+                raise ValueError("non-recovery recommendation was routed to Vidar")
+            if recommendation.idempotency_key in self._recovery_recommendations:
+                self.record_behavior("reconciliation_recovery:duplicate")
+                return
+            self._recovery_recommendations.set(
+                recommendation.idempotency_key,
+                recommendation.model_dump(mode="json"),
+            )
+            self.record_behavior("reconciliation_recovery:proposal_received")
+            return
         # Vidar only reacts on failed ActionRuns.
         if topic != "object.action-run":
             return
@@ -140,6 +164,7 @@ class Vidar(Agent):
         facts = {
             **capability_facts(self.spec),
             "rollbacks_recorded": len(recs),
+            "recovery_recommendations_pending": len(self._recovery_recommendations),
         }
         if recs:
             last = recs[-1]

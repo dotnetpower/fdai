@@ -136,6 +136,12 @@ from fdai.runtime.readiness import (
     StartupReadinessRuntime,
     build_startup_readiness_runtime,
 )
+from fdai.runtime.reconciliation_outbox import (
+    RECONCILIATION_DECISION_TOPIC,
+    RECONCILIATION_RECOVERY_TOPIC,
+    ReconciliationRuntimeBinding,
+    build_reconciliation_runtime,
+)
 from fdai.runtime.t2_route_registry import T2RouteRegistry, bind_t2_route_selector
 from fdai.shared.config.models import LlmMode
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
@@ -145,7 +151,15 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 _LOGGER = logging.getLogger("fdai.startup")
 _AUXILIARY_KAFKA_BOOTSTRAP_ENV = "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS"
 _RUNTIME_LOGICAL_TOPICS = (
-    OWNED_OBJECT_TOPICS | AGENT_INTROSPECTION_TOPICS | frozenset({_TRANSITION_TOPIC})
+    OWNED_OBJECT_TOPICS
+    | AGENT_INTROSPECTION_TOPICS
+    | frozenset(
+        {
+            _TRANSITION_TOPIC,
+            RECONCILIATION_DECISION_TOPIC,
+            RECONCILIATION_RECOVERY_TOPIC,
+        }
+    )
 )
 _VERTICAL_IDENTITY_ENV = {
     "identity/change": "FDAI_CHANGE_MI_CLIENT_ID",
@@ -199,6 +213,7 @@ async def _run() -> int:
     startup_readiness_runtime: StartupReadinessRuntime | None = None
     t2_recovery_maintenance: Any = None
     assignment_reconciliation_worker: Any = None
+    reconciliation_runtime: ReconciliationRuntimeBinding | None = None
 
     try:
         telemetry_requested = bool(
@@ -318,6 +333,14 @@ async def _run() -> int:
             )
 
             incident_audit_store = _build_audit_store()
+            reconciliation_runtime = build_reconciliation_runtime(
+                state_store=incident_audit_store,
+                event_bus=operational_bus,
+            )
+            _LOGGER.info(
+                "effect_reconciliation_runtime_ready",
+                extra={"proposal_only": True, "grants_authority": False},
+            )
             if os.environ.get("FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER", "").strip() == "1":
                 if auxiliary_bus is None:
                     raise RuntimeError(
@@ -969,6 +992,7 @@ async def _run() -> int:
             runtime_state_task: asyncio.Task[None] | None = None
             t2_recovery_task: asyncio.Task[None] | None = None
             assignment_reconciliation_task: asyncio.Task[None] | None = None
+            reconciliation_outbox_task: asyncio.Task[None] | None = None
             case_history_retention_task: asyncio.Task[None] | None = None
             if pantheon_runtime is not None:
                 pantheon_task = asyncio.create_task(
@@ -1011,6 +1035,14 @@ async def _run() -> int:
                     ),
                     name="human-assignment-reconciliation",
                 )
+            if reconciliation_runtime is not None:
+                reconciliation_outbox_task = asyncio.create_task(
+                    startup_readiness_runtime.run_when_ready(
+                        stop,
+                        lambda: reconciliation_runtime.publisher.run(stop),
+                    ),
+                    name="effect-reconciliation-outbox",
+                )
             if case_history_retention_publisher is not None:
                 case_history_retention_task = asyncio.create_task(
                     startup_readiness_runtime.run_when_ready(
@@ -1038,6 +1070,7 @@ async def _run() -> int:
                     runtime_state_task,
                     t2_recovery_task,
                     assignment_reconciliation_task,
+                    reconciliation_outbox_task,
                 ),
             )
         else:

@@ -33,6 +33,11 @@ from fdai.agents._framework.pantheon import _FORSETI
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.decision_case import DomainDecisionCoordinator, DomainDecisionProjection
 from fdai.core.impact_analysis import ChangeAssessment
+from fdai.core.ontology_platform.reconciliation_contracts import (
+    RECONCILIATION_DECISION_TOPIC,
+    ReconciliationNextStep,
+    ReconciliationRecommendation,
+)
 from fdai.core.operational_context import OperationalContextMaterializer, SourceFreshness
 from fdai.core.operational_planning import (
     SpecialistPlanningCoordinator,
@@ -149,6 +154,9 @@ class Forseti(Agent):
         self._detection_readiness: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(
             _MAX_RESOURCES
         )
+        self._reconciliation_recommendations: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
+            _MAX_RESOURCES
+        )
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -156,6 +164,19 @@ class Forseti(Agent):
     # ---- typed port ----------------------------------------------------
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == RECONCILIATION_DECISION_TOPIC:
+            recommendation = ReconciliationRecommendation.model_validate(payload)
+            if recommendation.next_step is ReconciliationNextStep.REQUEST_VIDAR_RECOVERY:
+                raise ValueError("recovery recommendation was routed to the decision owner")
+            if recommendation.idempotency_key in self._reconciliation_recommendations:
+                self.record_behavior("reconciliation_recommendation:duplicate")
+                return
+            self._reconciliation_recommendations.set(
+                recommendation.idempotency_key,
+                recommendation.model_dump(mode="json"),
+            )
+            self.record_behavior("reconciliation_recommendation:accepted")
+            return
         if topic == "object.event" and str(payload.get("event_type") or "").startswith(
             "control_plane.t2_proposer_"
         ):
@@ -890,7 +911,12 @@ class Forseti(Agent):
         a decision, so the turn is grounded only once an arbitration, a
         readiness ceiling, or an unresolved conflict has been recorded.
         """
-        return bool(self.arbitrations or self._detection_readiness or self._unresolved_arbitrations)
+        return bool(
+            self.arbitrations
+            or self._detection_readiness
+            or self._unresolved_arbitrations
+            or self._reconciliation_recommendations
+        )
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {
@@ -903,6 +929,7 @@ class Forseti(Agent):
             # that, so they MUST be readable through the judgment tool.
             "unresolved_arbitrations": len(self._unresolved_arbitrations),
             "readiness_limited_resources": len(self._detection_readiness),
+            "reconciliation_recommendations_pending": len(self._reconciliation_recommendations),
             "rca_evidence_available": False,
         }
         normalized_question = question.casefold()

@@ -24,6 +24,9 @@ from fdai.shared.providers.ontology_instance import (
 
 from .kinetics import MutationPlan, ReconciliationReceipt
 
+RECONCILIATION_DECISION_TOPIC = "command.reconciliation-decision"
+RECONCILIATION_RECOVERY_TOPIC = "command.reconciliation-recovery"
+
 _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 _IDENTITY_PATTERN = r"^reconciliation:[a-f0-9]{64}$"
 _ATTEMPT_PATTERN = r"^reconciliation-attempt:[a-f0-9]{64}$"
@@ -544,6 +547,8 @@ __all__ = [
     "EffectReconciliationRequest",
     "ObservedEffectRecord",
     "ObservationVerificationReceipt",
+    "RECONCILIATION_DECISION_TOPIC",
+    "RECONCILIATION_RECOVERY_TOPIC",
     "ReconciliationNextStep",
     "ReconciliationOutcome",
     "ReconciliationRecommendation",

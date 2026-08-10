@@ -139,6 +139,7 @@ _FORSETI = AgentSpec(
             "arbitrations_recorded",
             "unresolved_arbitrations",
             "readiness_limited_resources",
+            "reconciliation_recommendations_pending",
         ),
         conversation_tool(
             "read_rca_evidence",
@@ -157,6 +158,7 @@ _FORSETI = AgentSpec(
         "object.capacity-forecast",
         "object.arbitration-decision",
         "object.rule",  # cache reload on Mimir update
+        "command.reconciliation-decision",
     ),
     question_domains=("why_denied", "why_rca", "verdict_explain"),
     owns_code_paths=("services/core-control-plane/src/fdai/agents/forseti.py",),
@@ -283,11 +285,15 @@ _VIDAR = AgentSpec(
             "read_recovery_safety",
             "Recovery safety dependency status.",
             "hard_dependency",
+            "recovery_recommendations_pending",
         ),
     ),
     executes=(),
     initiates=(),
-    subscribes=("object.action-run",),  # picks up failures
+    subscribes=(
+        "object.action-run",  # picks up failures
+        "command.reconciliation-recovery",
+    ),
     question_domains=("rollback_status", "dr_readiness", "rollback_dependency_health"),
     owns_code_paths=("services/core-control-plane/src/fdai/agents/vidar.py",),
     hard_dependency=True,
