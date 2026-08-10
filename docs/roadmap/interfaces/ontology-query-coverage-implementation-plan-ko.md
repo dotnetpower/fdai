@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 60a00de6f1bb40512b81bb92f89bbc11416eb81c
+translation_source_sha: fd7ad85242f1232404d8cf59562410aee830465b
 translation_revised: 2026-08-10
 ---
 
@@ -27,6 +27,9 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > Semantic problem frame, query DAG, intent graph, task receipt 및 structural coverage receipt의 OQ-01
 > implementation-free SDK model은 이제 제공됩니다. Producer/consumer projection wiring은 OQ-04 및
 > OQ-05에 남아 있습니다.
+> OQ-02에는 이제 function을 role/purpose로 filter하고 supplied release declaration 전체를 account하는
+> content-addressed principal-scoped manifest builder가 포함됩니다. Reviewed query-side metadata가 없는
+> LinkType은 typed unavailable로 유지되며 production Interface catalog loading은 남아 있습니다.
 
 ## 설계 개요
 

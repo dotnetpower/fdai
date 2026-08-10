@@ -26,6 +26,9 @@ units for 100% structural query coverage.
 > The OQ-01 implementation-free SDK models for the semantic problem frame, query DAG, intent graph,
 > task receipt, and structural coverage receipt now ship. Producer and consumer projection wiring
 > remains part of OQ-04 and OQ-05.
+> OQ-02 now includes a content-addressed principal-scoped manifest builder that filters functions by
+> role and purpose and accounts for every supplied release declaration. LinkTypes without reviewed
+> query-side metadata remain typed unavailable, and production Interface catalog loading remains.
 
 ## Design at a glance
 

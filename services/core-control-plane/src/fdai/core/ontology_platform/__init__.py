@@ -47,6 +47,7 @@ from .models import (
 from .object_sets import ObjectSetService
 from .planning import build_mutation_plan, validate_plan_revisions
 from .projection import project_source_records, reconcile_expected_effects
+from .query_manifest import QueryManifest, build_query_manifest
 from .sdk_codegen import GeneratedOntologySdk, generate_ontology_sdk
 from .semantic_plans import (
     ActiveSemanticCatalog,
@@ -94,6 +95,7 @@ __all__ = [
     "OntologyFunctionType",
     "OntologyInterfaceType",
     "ProjectionBinding",
+    "QueryManifest",
     "ReconciliationReceipt",
     "ReconciliationStatus",
     "SemanticBasisValidator",
@@ -103,6 +105,7 @@ __all__ = [
     "VerifiedInterpretationBasis",
     "VerifiedSemanticPlan",
     "build_mutation_plan",
+    "build_query_manifest",
     "compile_action_mutation_plan",
     "build_semantic_candidate",
     "build_catalog_ontology_projection",
