@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 399c6e57cd0f96b3f45a6eecc2f5c1965c9c6aff
+translation_source_sha: f71853f39c3328804740846785b0006706b1cccc
 translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
@@ -306,6 +306,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-09 | IS-09 | Manifest context sanitization | Round 52 | Final-evidence 검토에서 deployment-context rejection이 remote aggregate에는 적용되지만 independent-service manifest input에는 적용되지 않는 문제를 확인했습니다. 이제 validation은 release 또는 distribution field를 읽기 전에 두 input 모두에 같은 recursive identifier, endpoint 및 deployment-key rejection을 적용합니다. |
 | 2026-08-09 | IS-09 | Serial transition windows | Round 53 | Temporal critique에서 global serialization이 apply window만 다루고 protected plan은 포함하지 않으며, phase ordering도 첫 restore 전에 모든 rollback 완료를 명시적으로 요구하지 않는 문제를 확인했습니다. 이제 verifier는 겹치는 모든 plan/apply window를 거부하고 complete initial, rollback, restore phase join을 요구합니다. |
 | 2026-08-10 | IS-09 | Canonical N source binding | Round 54 | Supply-chain critique에서 N-1은 manifest source에 binding되지만 N은 workflow head가 자체 source와 일치하기만 하면 임의 source revision을 수락하는 문제를 확인했습니다. 이제 transition manifest는 exact N source를 기록하며 final evidence는 해당 revision에서 시작하지 않은 N release, image set 또는 stage chain을 거부합니다. |
+| 2026-08-10 | IS-09 | Closed local evidence schema | Round 55 | Evidence-boundary critique에서 local transition service와 artifact가 일부 field만 검사하여 인식되지 않은 field를 포함할 수 있는 문제를 확인했습니다. 이제 checker는 local N -> N-1 -> N evidence를 수락하기 전에 exact top-level, service 및 artifact key set을 요구합니다. |
 
 ## 관련 문서
 

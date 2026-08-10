@@ -177,6 +177,22 @@ def test_checker_rejects_tampered_local_transition_artifact(
         checker._validate_local_transition_evidence(manifest)
 
 
+def test_checker_rejects_extra_local_transition_service_field(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    checker = _checker_module()
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    evidence = json.loads(TRANSITION_EVIDENCE_PATH.read_text(encoding="utf-8"))
+    evidence["services"][0]["backend_resource_group"] = "deployment-specific"
+    tampered = tmp_path / "evidence.json"
+    tampered.write_text(json.dumps(evidence), encoding="utf-8")
+    monkeypatch.setattr(checker, "LOCAL_TRANSITION_EVIDENCE_PATH", tampered)
+
+    with pytest.raises(ValueError, match="service fields are invalid"):
+        checker._validate_local_transition_evidence(manifest)
+
+
 def test_is09_cannot_complete_while_remote_verification_is_deferred(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

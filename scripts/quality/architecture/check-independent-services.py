@@ -313,6 +313,16 @@ def _validate_local_transition_evidence(manifest: dict[str, Any]) -> None:
     evidence = _load_json(LOCAL_TRANSITION_EVIDENCE_PATH, "local transition evidence")
     if not isinstance(evidence, dict) or evidence.get("schema_version") != "1.0.0":
         raise ValueError("local transition evidence schema version is invalid")
+    if set(evidence) != {
+        "schema_version",
+        "proof_kind",
+        "matrix_digest",
+        "n",
+        "n_minus_one",
+        "services",
+        "summary",
+    }:
+        raise ValueError("local transition evidence fields are invalid")
     if evidence.get("proof_kind") != "local":
         raise ValueError("local transition evidence proof kind is invalid")
     transition = manifest["release_transition"]
@@ -348,6 +358,18 @@ def _validate_local_transition_evidence(manifest: dict[str, Any]) -> None:
     for item in raw_services:
         if not isinstance(item, dict) or item.get("id") not in service_map:
             raise ValueError("local transition evidence service identity is invalid")
+        if set(item) != {
+            "id",
+            "distribution",
+            "entrypoint",
+            "n",
+            "n_minus_one",
+            "transition_sequence",
+            "migration_receipt_id",
+            "rollback_receipt_id",
+            "peer_stable",
+        }:
+            raise ValueError("local transition evidence service fields are invalid")
         service_id = str(item["id"])
         if service_id in seen:
             raise ValueError("local transition evidence service ids must be unique")
@@ -361,6 +383,13 @@ def _validate_local_transition_evidence(manifest: dict[str, Any]) -> None:
             artifact = item.get(release)
             if not isinstance(artifact, dict):
                 raise ValueError(f"{service_id} {release} artifact is missing")
+            if set(artifact) != {
+                "wheel_sha256",
+                "image_sha256",
+                "nonroot_user",
+                "healthcheck",
+            }:
+                raise ValueError(f"{service_id} {release} artifact fields are invalid")
             if any(
                 not isinstance(artifact.get(key), str)
                 or digest_pattern.fullmatch(str(artifact[key])) is None
