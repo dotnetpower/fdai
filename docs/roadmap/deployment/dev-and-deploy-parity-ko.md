@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: dac6a3636bd563977dd5b955ed478bf9b37450b8
+translation_source_sha: d14fe55c0e998bcf3d32e13ca411a15289f14520
 translation_revised: 2026-08-10
 ---
 
@@ -113,7 +113,7 @@ Startup probe 중 browser는 initial skeleton을 유지하고 `GET /iam/self`의
 HTTP response, authentication failure, malformed payload 또는 소진된 schedule은 기존 access-recovery surface에 표시합니다.
 IAM bootstrap이 성공하면 Dashboard는 `GET /kpi`를 필수 backbone으로 취급하고 해당 response가
 resolve되는 즉시 route skeleton을 종료합니다. 선택 FinOps, promotion-gate 및 autonomy projection은
-독립적으로 합류하며 전체 Dashboard를 loading 상태로 유지하지 않습니다.
+독립적으로 합류하며 `404`, `501`, `503`이면 unavailable로 표시하고 전체 Dashboard를 실패시키지 않습니다.
 모든 browser Operator API request에도 구성 가능한 기본 30초 timeout을 적용합니다. 정지한 fetch는
 abort되고 영구 skeleton을 남기지 않고 기존 route error surface로 전환됩니다.
 각 long-running Console task는 VS Code instance 하나만 허용합니다. Core task와 debug launch는

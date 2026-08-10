@@ -108,7 +108,7 @@ While startup probes run, the browser keeps the initial skeleton and retries onl
 An HTTP response, authentication failure, malformed payload, or exhausted schedule stops at the existing access-recovery surface.
 After IAM bootstrap succeeds, Dashboard treats `GET /kpi` as its required backbone and leaves the
 route skeleton as soon as that response resolves. Optional FinOps, promotion-gate, and autonomy
-projections join independently and never keep the complete Dashboard in a loading state.
+projections join independently; `404`, `501`, or `503` renders them unavailable and never fails the complete Dashboard.
 Every browser Operator API request also has a configurable 30-second default timeout. A stalled fetch
 is aborted and enters the existing route error surface instead of leaving a permanent skeleton.
 Each long-running Console task permits one VS Code instance. The core task and debug launch also

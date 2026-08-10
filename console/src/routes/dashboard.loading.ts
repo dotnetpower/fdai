@@ -31,7 +31,7 @@ export async function loadDashboardOverview(
     optionalOverview(() => client.finops(), [404]),
     optionalOverview(
       () => client.panel<GatesSummary>("/kpi/promotion-gates"),
-      [404, 501],
+      [404, 501, 503],
     ),
     optionalOverview(() => client.autonomy(), [404, 501, 502]),
   ]);
