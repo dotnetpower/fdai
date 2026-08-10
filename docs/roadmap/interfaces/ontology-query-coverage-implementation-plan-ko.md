@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: fd7ad85242f1232404d8cf59562410aee830465b
+translation_source_sha: 8a27a558ceed9313188642692ac85a82a2f96b13
 translation_revised: 2026-08-10
 ---
 
@@ -30,6 +30,10 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > OQ-02에는 이제 function을 role/purpose로 filter하고 supplied release declaration 전체를 account하는
 > content-addressed principal-scoped manifest builder가 포함됩니다. Reviewed query-side metadata가 없는
 > LinkType은 typed unavailable로 유지되며 production Interface catalog loading은 남아 있습니다.
+> OQ-03에는 이제 bounded dependency wave, concurrency, timeout, cancellation, blocked-descendant 처리,
+> stable failure reason 및 task receipt를 갖춘 exact-release query DAG executor가 포함됩니다. ObjectSet
+> materialization은 첫 built-in handler이며 set, aggregation, projection, temporal 및 evidence-join
+> handler는 남아 있습니다.
 
 ## 설계 개요
 

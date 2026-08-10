@@ -29,6 +29,10 @@ units for 100% structural query coverage.
 > OQ-02 now includes a content-addressed principal-scoped manifest builder that filters functions by
 > role and purpose and accounts for every supplied release declaration. LinkTypes without reviewed
 > query-side metadata remain typed unavailable, and production Interface catalog loading remains.
+> OQ-03 now includes an exact-release query DAG executor with bounded dependency waves, concurrency,
+> timeout, cancellation, blocked-descendant handling, stable failure reasons, and task receipts.
+> ObjectSet materialization is the first built-in handler; set, aggregation, projection, temporal,
+> and evidence-join handlers remain.
 
 ## Design at a glance
 

@@ -47,6 +47,13 @@ from .models import (
 from .object_sets import ObjectSetService
 from .planning import build_mutation_plan, validate_plan_revisions
 from .projection import project_source_records, reconcile_expected_effects
+from .query_execution import (
+    ObjectSetNodeHandler,
+    OntologyQueryPlanExecutor,
+    QueryNodeHandler,
+    QueryNodeResult,
+    QueryPlanExecution,
+)
 from .query_manifest import QueryManifest, build_query_manifest
 from .sdk_codegen import GeneratedOntologySdk, generate_ontology_sdk
 from .semantic_plans import (
@@ -81,6 +88,7 @@ __all__ = [
     "ObjectSelector",
     "ObjectSelectorKind",
     "ObjectSetDefinition",
+    "ObjectSetNodeHandler",
     "ObjectSetMaterialization",
     "ObjectSetTruncationReason",
     "ObjectSetService",
@@ -94,8 +102,12 @@ __all__ = [
     "ontology_function_digest",
     "OntologyFunctionType",
     "OntologyInterfaceType",
+    "OntologyQueryPlanExecutor",
     "ProjectionBinding",
     "QueryManifest",
+    "QueryNodeHandler",
+    "QueryNodeResult",
+    "QueryPlanExecution",
     "ReconciliationReceipt",
     "ReconciliationStatus",
     "SemanticBasisValidator",
