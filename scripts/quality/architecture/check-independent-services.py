@@ -13,7 +13,7 @@ import sys
 import tomllib
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, cast
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = REPO_ROOT / "config" / "independent-services.json"
@@ -241,7 +241,10 @@ def _build_live_remote_evidence(
         LIVE_REMOTE_EVIDENCE_PATH,
         "live_remote_evidence_for_program_final",
     )
-    return builder.build_live_remote_evidence(compatibility, remote)
+    return cast(
+        tuple[list[dict[str, Any]], dict[str, Any]],
+        builder.build_live_remote_evidence(compatibility, remote),
+    )
 
 
 def _validate_completed_remote_evidence(

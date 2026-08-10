@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 01f12f133470dc2f0e30a2abb9cd322c175a78bf
+translation_source_sha: 0c1ec2f72f56d1c54c9e94455c2a2ab55fa7a88a
 translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
@@ -343,6 +343,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-10 | IS-09 | Artifact redirect credential boundary | Round 85 | Live GitHub verification에서 API bearer token이 artifact redirect를 따라 GitHub Actions blob storage로 전달될 때 401이 발생하는 문제를 재현했습니다. 이제 downloader는 정확한 HTTPS Actions artifact host pattern만 허용하고 signed redirect를 따르기 전에 API authorization을 제거합니다. 신뢰할 수 없는 redirect origin은 fail closed하며 focused test에서 High 및 Medium severity residual은 0건을 유지합니다. |
 | 2026-08-10 | IS-09 | Privileged workflow guard compatibility | Round 86 | Central validation은 처음에 portable `diff --brief` exact-source comparison을 거부했습니다. Contract가 GNU diff에서 지원하지 않는 `diff --quiet`만 인식했기 때문입니다. 이제 contract는 protected workflow path, source, ancestry 및 operand check를 유지하면서 portable exact-comparison flag를 허용합니다. Focused validation이 통과했고 High 또는 Medium severity residual은 0건입니다. |
 | 2026-08-10 | IS-09 | Program-final remote proof | Round 87 | Fresh initial N apply 5개, corrected N-1 rollback apply 5개 및 restored N apply 5개가 직렬로 완료되어 protected plan 15개, protected apply 15개, peer-isolation receipt 30개 및 genuine kind-specific live observation을 확보했습니다. GitHub run `31385698545`가 모든 run과 artifact를 binding하고 image attestation과 controls equivalence를 검증한 뒤 exact evidence source `a721d1ae587af73b8f32986fe3b54acaae400b63`를 attest했습니다. Portable bundle이 protected signer에 대해 verify되었고 accepted remote evidence는 5/5이며 IS-09는 completed 상태이고 High 또는 Medium severity residual은 0건입니다. |
+| 2026-08-10 | IS-09 | Strict completion checker typing | Round 88 | Final focused validation에서 dynamically loaded live-evidence builder가 runtime validation으로 exact tuple shape를 이미 요구하지만 completion-checker boundary에서는 `Any`를 반환하는 문제를 확인했습니다. 이제 checker는 검증된 return contract만 cast하며 strict mypy가 통과하고 High 또는 Medium severity residual은 계속 0건입니다. |
 
 ## 관련 문서
 
