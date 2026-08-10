@@ -101,6 +101,24 @@ async def _registries():  # type: ignore[no-untyped-def]
     return store, models, lifecycle, active, challenger
 
 
+async def test_only_mimir_registers_graph_model_artifacts() -> None:
+    registry = StateStoreGraphEffectModelRegistry(InMemoryStateStore())
+
+    with pytest.raises(ValueError, match="only Mimir"):
+        await registry.register(_model(EffectModelStatus.CHALLENGER), registered_by="Norns")
+
+
+async def test_only_norns_records_graph_model_promotion_evidence() -> None:
+    store = StateStoreGraphEffectModelPromotionReceiptStore(InMemoryStateStore())
+    receipt = _receipt(
+        _model(EffectModelStatus.CHALLENGER),
+        active_ref=_model(EffectModelStatus.ACTIVE).ref,
+    )
+
+    with pytest.raises(ValueError, match="only Norns"):
+        await store.store(receipt, producer_principal="Forseti")
+
+
 def test_promotion_receipt_requires_quasi_experimental_complete_evidence() -> None:
     challenger = _model(EffectModelStatus.CHALLENGER)
     receipt = _receipt(challenger, active_ref=_model(EffectModelStatus.ACTIVE).ref)
@@ -129,6 +147,15 @@ def test_promotion_receipt_rejects_tampered_content() -> None:
 
     with pytest.raises(ValueError, match="digest does not match"):
         GraphEffectModelPromotionReceipt.from_json(tampered)
+
+
+async def test_lifecycle_rejects_resealed_receipt_with_forged_model_measurements() -> None:
+    _, _, lifecycle, active, challenger = await _registries()
+    forged_model = replace(challenger, sample_count=400, mean_absolute_error=0.0)
+    forged_receipt = _receipt(forged_model, active_ref=active.ref)
+
+    with pytest.raises(ValueError, match="does not match challenger identity"):
+        await lifecycle.promote(receipt=forged_receipt, actor="Thor", promoted_at=_NOW)
 
 
 async def test_lifecycle_promotes_by_cas_and_rollback_restores_prior_active() -> None:
@@ -216,6 +243,44 @@ async def test_lifecycle_rejects_receipt_with_mismatched_artifact_identity() -> 
 
     with pytest.raises(ValueError, match="does not match challenger identity"):
         await lifecycle.promote(receipt=receipt, actor="Thor", promoted_at=_NOW)
+
+
+async def test_lifecycle_rejects_rollback_to_legacy_ungoverned_active() -> None:
+    store, _, lifecycle, active, challenger = await _registries()
+    receipt = _receipt(challenger, active_ref=active.ref)
+    promoted = await lifecycle.promote(receipt=receipt, actor="Thor", promoted_at=_NOW)
+    active_key = next(  # noqa: SLF001 - corruption fixture exercises retained decoding
+        key for key in store._state if key.startswith("dynamic-graph-effect-model:active:")
+    )
+    await store.write_state(
+        active_key,
+        {
+            **store._state[active_key],  # noqa: SLF001
+            "artifact_digest": None,
+            "ontology_release_digest": None,
+            "property_semantics_digest": None,
+            "applicability_conditions": [],
+        },
+    )
+
+    with pytest.raises(ValueError, match="lacks governed identity"):
+        await lifecycle.rollback(
+            scope_digest=promoted.scope_digest,
+            expected_active_ref=challenger.ref,
+            promotion_receipt_digest=receipt.receipt_digest,
+            actor="Thor",
+            rolled_back_at=_NOW,
+        )
+
+
+async def test_promotion_idempotent_replay_returns_same_record() -> None:
+    _, _, lifecycle, active, challenger = await _registries()
+    receipt = _receipt(challenger, active_ref=active.ref)
+
+    first = await lifecycle.promote(receipt=receipt, actor="Thor", promoted_at=_NOW)
+    replay = await lifecycle.promote(receipt=receipt, actor="Thor", promoted_at=_NOW)
+
+    assert replay == first
 
 
 async def test_legacy_model_without_governed_identity_is_unpromotable() -> None:

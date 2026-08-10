@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 from fdai.agents import Forseti, Vidar
@@ -182,3 +184,117 @@ async def test_poison_publication_dead_letters_without_deleting_terminal_outcome
     publication = next(iter(record["publication_state"].values()))
     assert publication["status"] == ReconciliationPublicationStatus.FAILED.value
     assert await _first(bus, f"{RECONCILIATION_DECISION_TOPIC}.dlq") is not None
+
+
+async def test_publisher_run_loop_drains_and_stops_cleanly() -> None:
+    stop = asyncio.Event()
+
+    class _StopAfterPublishBus(InMemoryEventBus):
+        async def publish(self, topic, key, payload):  # type: ignore[no-untyped-def]
+            receipt = await super().publish(topic, key, payload)
+            stop.set()
+            return receipt
+
+    release, target, plan, action_type = _fixture()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+    )
+    bus = _StopAfterPublishBus()
+    runtime = build_reconciliation_runtime(
+        state_store=InMemoryStateStore(),
+        event_bus=bus,
+        clock=lambda: _NOW,
+    )
+    await runtime.coordinator.coordinate(
+        request,
+        observation_context=_authenticated_context(request),
+        active_release=release,
+    )
+
+    await asyncio.wait_for(runtime.publisher.run(stop), timeout=1.0)
+
+    assert await _first(bus, RECONCILIATION_DECISION_TOPIC) is not None
+
+
+async def test_publish_timeout_releases_current_lease_for_retry() -> None:
+    class _BlockedBus(InMemoryEventBus):
+        async def publish(self, topic, key, payload):  # type: ignore[no-untyped-def]
+            await asyncio.Event().wait()
+            raise AssertionError("unreachable")
+
+    release, target, plan, action_type = _fixture()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+    )
+    store = InMemoryStateStore()
+    runtime = build_reconciliation_runtime(
+        state_store=store,
+        event_bus=_BlockedBus(),
+        clock=lambda: _NOW,
+    )
+    runtime = replace(
+        runtime,
+        publisher=ReconciliationOutboxPublisher(
+            ledger=runtime.ledger,
+            event_bus=_BlockedBus(),
+            clock=lambda: _NOW,
+            publish_timeout_seconds=0.1,
+        ),
+    )
+    await runtime.coordinator.coordinate(
+        request,
+        observation_context=_authenticated_context(request),
+        active_release=release,
+    )
+
+    assert await runtime.publisher.run_once() == 0
+    record = await store.read_state(f"ontology:reconciliation:{request.reconciliation_id}")
+    assert record is not None
+    publication = next(iter(record["publication_state"].values()))
+    assert publication["status"] == "pending"
+    assert "lease_token" not in publication
+    assert publication["lease_token_hash"] is None
+    assert publication["last_error"] == "TimeoutError"
+
+
+async def test_dead_letter_failure_releases_publication_instead_of_stranding_lease() -> None:
+    class _PoisonAndFailingDlqBus(InMemoryEventBus):
+        async def publish(self, topic, key, payload):  # type: ignore[no-untyped-def]
+            return PublishReceipt(topic=topic, partition=-1, offset=0)
+
+        async def dead_letter(self, topic, key, payload, reason):  # type: ignore[no-untyped-def]
+            raise RuntimeError("DLQ unavailable")
+
+    release, target, plan, action_type = _fixture()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+    )
+    store = InMemoryStateStore()
+    runtime = build_reconciliation_runtime(
+        state_store=store,
+        event_bus=_PoisonAndFailingDlqBus(),
+        clock=lambda: _NOW,
+    )
+    await runtime.coordinator.coordinate(
+        request,
+        observation_context=_authenticated_context(request),
+        active_release=release,
+    )
+
+    assert await runtime.publisher.run_once() == 0
+    record = await store.read_state(f"ontology:reconciliation:{request.reconciliation_id}")
+    assert record is not None
+    publication = next(iter(record["publication_state"].values()))
+    assert publication["status"] == "pending"
+    assert "lease_token" not in publication
+    assert publication["lease_token_hash"] is None
+    assert publication["last_error"] == "RuntimeError"

@@ -65,6 +65,8 @@ class GraphEffectModelPromotionReceiptView(Protocol):
     @property
     def receipt_digest(self) -> str: ...
 
+    def verify_model(self, model: GraphEffectModel) -> bool: ...
+
 
 @dataclass(frozen=True, slots=True)
 class GraphEffectModelLifecycleRecord:
@@ -237,6 +239,8 @@ class StateStoreGraphEffectModelLifecycleRegistry:
             )
             if current.rollback_ref is not None and rollback_model is None:
                 raise ValueError("graph model lifecycle rollback artifact is unavailable")
+            if rollback_model is not None and not rollback_model.promotable:
+                raise ValueError("graph model lifecycle rollback artifact lacks governed identity")
             if (
                 rollback_model is not None
                 and graph_model_scope_digest(rollback_model) != scope_digest
@@ -349,7 +353,7 @@ def _validate_receipt_model(
     model: GraphEffectModel,
 ) -> None:
     if (
-        not model.promotable
+        not receipt.verify_model(model)
         or receipt.model_ref != model.ref
         or receipt.challenger_ref != model.ref
         or receipt.model_artifact_digest != model.artifact_digest

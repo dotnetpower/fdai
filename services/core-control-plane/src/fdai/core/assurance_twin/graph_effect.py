@@ -508,13 +508,13 @@ def _follow_path(
                 if edge.target_ref in visited:
                     cycle_detected = True
                     continue
+                if len(next_frontier) >= _MAX_PATH_FRONTIER:
+                    frontier_truncated = True
+                    continue
                 next_frontier.append(
                     (edge.target_ref, edge.target_type, visited | {edge.target_ref})
                 )
         ordered = sorted(next_frontier, key=lambda item: (item[0], item[1], sorted(item[2])))
-        if len(ordered) > _MAX_PATH_FRONTIER:
-            frontier_truncated = True
-            ordered = ordered[:_MAX_PATH_FRONTIER]
         frontier = tuple(ordered)
         if not frontier:
             break

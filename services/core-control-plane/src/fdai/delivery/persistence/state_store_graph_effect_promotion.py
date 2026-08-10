@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from datetime import UTC, datetime
 
+from fdai.core.assurance_twin.graph_effect import GraphEffectModel
 from fdai.core.measurement.graph_effect_promotion import GraphEffectModelPromotionReceipt
 from fdai.shared.providers.state_store import StateStore
 
@@ -23,8 +24,8 @@ class StateStoreGraphEffectModelPromotionReceiptStore:
         *,
         producer_principal: str = "Norns",
     ) -> bool:
-        if not producer_principal:
-            raise ValueError("graph model promotion producer principal MUST be non-empty")
+        if producer_principal != "Norns":
+            raise ValueError("only Norns may record graph model promotion evidence")
         key = _key(receipt)
         created = await self._store.write_state_with_audit_if_absent(
             key,
@@ -56,6 +57,7 @@ class StateStoreGraphEffectModelPromotionReceiptStore:
         fdai_revision: str,
         scenario_set_version: str,
         receipt_digest: str,
+        expected_model: GraphEffectModel | None = None,
     ) -> GraphEffectModelPromotionReceipt | None:
         raw = await self._store.read_state(
             _key_parts(
@@ -65,7 +67,12 @@ class StateStoreGraphEffectModelPromotionReceiptStore:
                 receipt_digest=receipt_digest,
             )
         )
-        return GraphEffectModelPromotionReceipt.from_json(dict(raw)) if raw is not None else None
+        if raw is None:
+            return None
+        receipt = GraphEffectModelPromotionReceipt.from_json(dict(raw))
+        if expected_model is not None and not receipt.verify_model(expected_model):
+            raise ValueError("stored graph model promotion receipt does not match model")
+        return receipt
 
 
 def _key(receipt: GraphEffectModelPromotionReceipt) -> str:

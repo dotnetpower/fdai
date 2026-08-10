@@ -54,6 +54,7 @@ class ReconciliationOutboxPublisher:
         lease_duration: timedelta = timedelta(seconds=60),
         retry_delay: timedelta = timedelta(seconds=30),
         idle_interval_seconds: float = 1.0,
+        publish_timeout_seconds: float = 30.0,
     ) -> None:
         if not 1 <= batch_limit <= 100:
             raise ValueError("reconciliation outbox batch_limit MUST be between 1 and 100")
@@ -63,6 +64,8 @@ class ReconciliationOutboxPublisher:
             raise ValueError("reconciliation outbox retry_delay MUST be positive and bounded")
         if not 0.01 <= idle_interval_seconds <= 300:
             raise ValueError("reconciliation outbox idle interval MUST be bounded")
+        if not 0.1 <= publish_timeout_seconds < lease_duration.total_seconds():
+            raise ValueError("reconciliation publish timeout MUST fit inside its lease")
         self._ledger = ledger
         self._event_bus = event_bus
         self._clock = clock or (lambda: datetime.now(tz=UTC))
@@ -70,6 +73,7 @@ class ReconciliationOutboxPublisher:
         self._lease_duration = lease_duration
         self._retry_delay = retry_delay
         self._idle_interval_seconds = idle_interval_seconds
+        self._publish_timeout_seconds = publish_timeout_seconds
 
     async def run_once(self) -> int:
         """Publish one bounded batch and return broker-acknowledged count."""
@@ -93,16 +97,20 @@ class ReconciliationOutboxPublisher:
         now: datetime,
     ) -> bool:
         recommendation = publication.recommendation
+        lease_token = publication.lease_token
+        if lease_token is None:
+            raise ValueError("claimed reconciliation publication lacks a lease token")
         try:
             validated = ReconciliationRecommendation.model_validate(
                 recommendation.model_dump(mode="json")
             )
             topic = _recommendation_topic(validated)
-            receipt = await self._event_bus.publish(
-                topic,
-                validated.idempotency_key,
-                validated.model_dump(mode="json"),
-            )
+            async with asyncio.timeout(self._publish_timeout_seconds):
+                receipt = await self._event_bus.publish(
+                    topic,
+                    validated.idempotency_key,
+                    validated.model_dump(mode="json"),
+                )
             await self._ledger.complete_publication(
                 validated.reconciliation_id,
                 validated.idempotency_key,
@@ -110,6 +118,7 @@ class ReconciliationOutboxPublisher:
                 topic=topic,
                 partition=receipt.partition,
                 offset=receipt.offset,
+                lease_token=lease_token,
             )
             return True
         except (TypeError, ValueError) as exc:
@@ -125,6 +134,7 @@ class ReconciliationOutboxPublisher:
                     recommendation.idempotency_key,
                     available_at=now + self._retry_delay,
                     error=error,
+                    lease_token=lease_token,
                 )
             return False
 
@@ -136,6 +146,9 @@ class ReconciliationOutboxPublisher:
         error: str,
     ) -> None:
         recommendation = publication.recommendation
+        lease_token = publication.lease_token
+        if lease_token is None:
+            raise ValueError("claimed reconciliation publication lacks a lease token")
         topic = _recommendation_topic(recommendation)
         try:
             await self._event_bus.dead_letter(
@@ -150,6 +163,7 @@ class ReconciliationOutboxPublisher:
                 recommendation.idempotency_key,
                 available_at=now + self._retry_delay,
                 error=type(exc).__name__,
+                lease_token=lease_token,
             )
             return
         await self._ledger.dead_letter_publication(
@@ -157,6 +171,7 @@ class ReconciliationOutboxPublisher:
             recommendation.idempotency_key,
             failed_at=now,
             error=error,
+            lease_token=lease_token,
         )
 
     async def run(self, stop: asyncio.Event) -> None:

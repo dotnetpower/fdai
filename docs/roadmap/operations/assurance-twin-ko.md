@@ -1,7 +1,7 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: 135cee9cdf6ec99b3557be6d38a6e6c29ae589fd
+translation_source_sha: c6985b1cfa8a37aac5b7bac57e101e0b29ce454c
 translation_revised: 2026-08-10
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
@@ -275,6 +275,8 @@ Production graph evidence에는 edge, depth, slice, horizon, byte 및 runtime에
 Baseline에는 observed 또는 승인된 desired fact만 포함하고 intervention은 exact ActionType, target
 revision 및 experiment reference를 고정합니다. 변경되지 않은 baseline은 필수 no-action branch입니다.
 Adapter에는 provider mutation client, executor identity, approval verifier 또는 promotion writer가 없습니다.
+Coordinator는 bounded request-provider timeout을 적용합니다. Timeout은 event task를 멈추거나 authority를
+넓히지 않고 explicit unavailable shadow evidence를 만듭니다.
 
 Graph model promotion은 ActionType promotion과 분리합니다. Reviewed governance action은 atomic
 compare-and-set으로 active pointer를 변경하는 exact immutable receipt 하나를 적용합니다. Receipt는 model artifact,

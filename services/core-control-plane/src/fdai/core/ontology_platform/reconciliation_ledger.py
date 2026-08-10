@@ -55,6 +55,7 @@ class ReconciliationLedger(Protocol):
         topic: str,
         partition: int,
         offset: int | None,
+        lease_token: str,
     ) -> None: ...
 
     async def release_publication(
@@ -64,6 +65,7 @@ class ReconciliationLedger(Protocol):
         *,
         available_at: datetime,
         error: str,
+        lease_token: str,
     ) -> None: ...
 
     async def dead_letter_publication(
@@ -73,6 +75,7 @@ class ReconciliationLedger(Protocol):
         *,
         failed_at: datetime,
         error: str,
+        lease_token: str,
     ) -> None: ...
 
 
@@ -179,6 +182,7 @@ class InMemoryReconciliationLedger:
         topic: str,
         partition: int,
         offset: int | None,
+        lease_token: str,
     ) -> None:
         await self._publication_outbox.complete_publication(
             reconciliation_id,
@@ -187,6 +191,7 @@ class InMemoryReconciliationLedger:
             topic=topic,
             partition=partition,
             offset=offset,
+            lease_token=lease_token,
         )
 
     async def release_publication(
@@ -196,12 +201,14 @@ class InMemoryReconciliationLedger:
         *,
         available_at: datetime,
         error: str,
+        lease_token: str,
     ) -> None:
         await self._publication_outbox.release_publication(
             reconciliation_id,
             idempotency_key,
             available_at=available_at,
             error=error,
+            lease_token=lease_token,
         )
 
     async def dead_letter_publication(
@@ -211,12 +218,14 @@ class InMemoryReconciliationLedger:
         *,
         failed_at: datetime,
         error: str,
+        lease_token: str,
     ) -> None:
         await self._publication_outbox.dead_letter_publication(
             reconciliation_id,
             idempotency_key,
             failed_at=failed_at,
             error=error,
+            lease_token=lease_token,
         )
 
 
@@ -470,6 +479,7 @@ class StateStoreReconciliationLedger:
         topic: str,
         partition: int,
         offset: int | None,
+        lease_token: str,
     ) -> None:
         await self._publication_outbox.complete_publication(
             reconciliation_id,
@@ -478,6 +488,7 @@ class StateStoreReconciliationLedger:
             topic=topic,
             partition=partition,
             offset=offset,
+            lease_token=lease_token,
         )
 
     async def release_publication(
@@ -487,12 +498,14 @@ class StateStoreReconciliationLedger:
         *,
         available_at: datetime,
         error: str,
+        lease_token: str,
     ) -> None:
         await self._publication_outbox.release_publication(
             reconciliation_id,
             idempotency_key,
             available_at=available_at,
             error=error,
+            lease_token=lease_token,
         )
 
     async def dead_letter_publication(
@@ -502,12 +515,14 @@ class StateStoreReconciliationLedger:
         *,
         failed_at: datetime,
         error: str,
+        lease_token: str,
     ) -> None:
         await self._publication_outbox.dead_letter_publication(
             reconciliation_id,
             idempotency_key,
             failed_at=failed_at,
             error=error,
+            lease_token=lease_token,
         )
 
     @staticmethod

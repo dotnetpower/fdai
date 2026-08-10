@@ -294,6 +294,8 @@ contains observed or approved desired facts, while the intervention pins an exac
 target revision, and experiment reference. The unchanged baseline is the mandatory no-action
 branch. The adapter has no provider mutation client, executor identity, approval verifier, or
 promotion writer.
+The coordinator enforces a bounded request-provider timeout. A timeout produces explicit
+unavailable shadow evidence instead of stalling the event task or widening authority.
 
 Graph model promotion is separate from ActionType promotion. A reviewed governance action applies
 one exact immutable receipt through an atomic compare-and-set of the active pointer. The receipt binds the

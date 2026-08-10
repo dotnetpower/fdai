@@ -389,6 +389,9 @@ claims one proposal-only recommendation with a bounded lease, publishes it to th
 topic using the stable recommendation idempotency key, and marks it published only after broker
 acknowledgement. Process loss releases the lease for replay. Poison payloads are retained as failed
 evidence and sent to dead-letter handling without deleting the terminal reconciliation outcome.
+Each claim returns an opaque capability token while durable state stores only its SHA-256 hash.
+Completion, retry release, and dead-letter transitions require that token. Broker publication has a
+timeout shorter than the lease, so a stale worker cannot complete a newer claim.
 No outbox consumer calls Thor directly. Conflicting publication replay fails the aggregate's
 content validation and remains held for review; ordering never relies on wall-clock timestamps.
 The predictive capacity fixture uses the exact `ops.scale-out` ActionType identity: a mismatch

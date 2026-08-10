@@ -19,7 +19,8 @@ and guard evidence for Resilience, Change Safety, and Cost Governance.
 Graph effect model promotion uses the same independent outcome discipline. Its immutable receipt
 binds frozen and live-shadow cohorts, causal grade, error, rollback, recurrence, policy, invariant,
 cutoff, and applicability evidence. Owner approval can select only the model active pointer by CAS;
-it cannot promote an ActionType, authorize execution, or relabel an incomplete outcome.
+the lifecycle writer rebinds model-derived sample and error fields before CAS. It cannot promote an
+ActionType, authorize execution, or relabel an incomplete outcome.
 
 ## Design at a glance
 

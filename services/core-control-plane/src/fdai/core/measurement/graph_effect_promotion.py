@@ -258,6 +258,24 @@ class GraphEffectModelPromotionReceipt:
             schema_version=_required_text(value, "schema_version"),
         )
 
+    def verify_model(self, model: GraphEffectModel) -> bool:
+        """Return whether model-derived fields match the immutable challenger."""
+
+        return (
+            model.promotable
+            and self.model_ref == model.ref
+            and self.challenger_ref == model.ref
+            and self.model_artifact_digest == model.artifact_digest
+            and self.ontology_release_digest == model.ontology_release_digest
+            and self.property_semantics_digest == model.property_semantics_digest
+            and self.causal_evidence_receipt_digest == model.causal_evidence_receipt_digest
+            and self.sample_count == model.sample_count
+            and self.mean_absolute_error == model.mean_absolute_error
+            and self.applicability_conditions == model.applicability_conditions
+            and self.evidence_grade is model.evidence_grade
+            and self.evidence_cutoff >= model.learned_through
+        )
+
     def as_json(self) -> dict[str, object]:
         """Return canonical JSON-compatible receipt content."""
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -221,6 +222,24 @@ async def test_graph_runtime_holds_when_request_is_unavailable() -> None:
 
     assert result.simulation is None
     assert result.reason == "graph_simulation_request_unavailable"
+
+
+async def test_graph_runtime_holds_when_request_provider_times_out() -> None:
+    class _BlockedProvider:
+        async def build(self, *, event: Event, action: LearnedAction):  # type: ignore[no-untyped-def]
+            await asyncio.Event().wait()
+
+    coordinator = GraphDynamicRuntimeCoordinator(
+        request_provider=_BlockedProvider(),
+        model_reader=_Models(),
+        causal_evidence_verifier=_Evidence(),
+        request_timeout_seconds=0.1,
+    )
+
+    result = await coordinator.simulate(event=_event(), action=_action())
+
+    assert result.simulation is None
+    assert result.reason == "graph_simulation_request_timeout"
 
 
 async def test_graph_runtime_rejects_unverified_model_receipt() -> None:

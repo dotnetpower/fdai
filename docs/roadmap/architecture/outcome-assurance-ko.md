@@ -1,7 +1,7 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 5d3e597335eadb0369224bf8831918bdfb5808ed
+translation_source_sha: 4e01aa1cf077a0e18a14b3ff6301b6557117f689
 translation_revised: 2026-08-10
 ---
 # Outcome Assurance
@@ -21,8 +21,9 @@ Cost Governance의 기존 운영 목표, 액션, 결과, 준비도 보고서, gu
 
 Graph effect model promotion도 동일한 independent outcome discipline을 사용합니다. Immutable receipt는
 frozen 및 live-shadow cohort, causal grade, error, rollback, recurrence, policy, invariant, cutoff 및
-applicability evidence를 고정합니다. Owner approval은 CAS로 model active pointer만 선택할 수 있으며
-ActionType을 promote하거나 execution을 authorize하거나 incomplete outcome을 relabel할 수 없습니다.
+applicability evidence를 고정합니다. Lifecycle writer는 CAS 전에 model-derived sample 및 error field를
+다시 bind합니다. Owner approval은 model active pointer만 선택할 수 있으며 ActionType을 promote하거나
+execution을 authorize하거나 incomplete outcome을 relabel할 수 없습니다.
 
 ## 한눈에 보는 설계
 

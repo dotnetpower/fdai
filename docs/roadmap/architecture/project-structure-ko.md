@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b7928c0071dc983832fdf62b4593a34a3063ec6e
+translation_source_sha: b24123f4c553f2d284233d2ffa9bbb0b80cddd7a
 translation_revised: 2026-08-10
 ---
 
@@ -432,7 +432,8 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 - **Operational promotion authority**: `OperationalPromotionReceiptVerifier`와
   `OperationalPromotionUnitVerifier`가 ActionType evidence를 resolve합니다. Graph model은 immutable
   `GraphEffectModelPromotionReceipt`와 `StateStoreGraphEffectModelLifecycleRegistry`로 Owner-approved CAS
-  active pointer 및 rollback을 적용합니다. 어느 경로도 execution authority를 부여하지 않습니다.
+  active pointer 및 rollback을 적용합니다. Receipt는 model-derived measurement를 다시 bind하고 stale
+  worker는 hashed lease capability가 필요하며 어느 경로도 execution authority를 부여하지 않습니다.
 - **Azure operational evidence**: `bind_azure_operational_evidence`는 strict promoted-inventory
   snapshot reader, current safety evaluator, configured Azure metric, bounded branch estimator,
   effect-model reader를 조립합니다. Temporal adapter는 evidence hashing 전에 non-finite metric

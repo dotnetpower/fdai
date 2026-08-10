@@ -441,10 +441,10 @@ clean (see the fork model in
   snapshot, current snapshots use evaluation-clock freshness, and the pure simulator rejects model
   cutoff or finite-arithmetic violations even outside the coordinator. These seams are read-only;
   absent bindings disable shadow paths.
-- **Operational promotion authority**: `OperationalPromotionReceiptVerifier` and
-  `OperationalPromotionUnitVerifier` resolve ActionType evidence. Graph models use immutable
+- **Operational promotion authority**: `OperationalPromotionReceiptVerifier` and `OperationalPromotionUnitVerifier` resolve ActionType evidence. Graph models use immutable
   `GraphEffectModelPromotionReceipt` plus `StateStoreGraphEffectModelLifecycleRegistry` for
-  Owner-approved CAS active pointers and rollback. Neither path grants execution authority.
+  Owner-approved CAS pointers and rollback; receipts rebind model measurements, stale workers use
+  hashed lease capabilities, and neither path grants execution authority.
 - **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-
   inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch
   estimator, and effect-model reader. Temporal adapters reject non-finite metric values before

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
+import secrets
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
@@ -17,6 +19,8 @@ from .reconciliation_contracts import ReconciliationRecommendation
 _MAX_CAS_ATTEMPTS = 64
 _MAX_AGGREGATE_BYTES = 16 * 1_048_576
 _MAX_OUTBOX_SCAN = 1000
+_MAX_OUTBOX_TOTAL = 10_000
+_MAX_PUBLICATION_ATTEMPTS = 32
 
 
 class ReconciliationConflictError(RuntimeError):
@@ -53,6 +57,8 @@ class ReconciliationPublication:
     attempts: int = 0
     available_at: datetime | None = None
     lease_until: datetime | None = None
+    lease_token: str | None = None
+    lease_token_hash: str | None = None
     last_error: str | None = None
     published_at: datetime | None = None
     topic: str | None = None
@@ -63,16 +69,22 @@ class ReconciliationPublication:
         for value in (self.available_at, self.lease_until, self.published_at):
             if value is not None and value.tzinfo is None:
                 raise ValueError("reconciliation publication timestamps MUST be timezone-aware")
-        if self.attempts < 0:
-            raise ValueError("reconciliation publication attempts MUST be non-negative")
+        if not 0 <= self.attempts <= _MAX_PUBLICATION_ATTEMPTS:
+            raise ValueError("reconciliation publication attempts MUST be bounded")
         if self.last_error is not None and (not self.last_error or len(self.last_error) > 128):
             raise ValueError("reconciliation publication error MUST be bounded")
         if self.partition is not None and self.partition < 0:
             raise ValueError("reconciliation publication partition MUST be non-negative")
         if self.offset is not None and self.offset < 0:
             raise ValueError("reconciliation publication offset MUST be non-negative")
-        if self.status is ReconciliationPublicationStatus.IN_PROGRESS and self.lease_until is None:
-            raise ValueError("in-progress reconciliation publication requires a lease")
+        if self.status is ReconciliationPublicationStatus.IN_PROGRESS and (
+            self.lease_until is None or not self.lease_token_hash
+        ):
+            raise ValueError("in-progress reconciliation publication requires a lease token")
+        if self.status is not ReconciliationPublicationStatus.IN_PROGRESS and (
+            self.lease_token or self.lease_token_hash
+        ):
+            raise ValueError("inactive reconciliation publication cannot retain a lease token")
         if self.status is ReconciliationPublicationStatus.PUBLISHED and (
             self.published_at is None or not self.topic or self.partition is None
         ):
@@ -107,11 +119,14 @@ class InMemoryReconciliationPublicationOutbox:
             for key, publication in sorted(self._publications.items()):
                 if len(claimed) >= limit or not publication_claimable(publication, now=now):
                     continue
+                lease_token = secrets.token_urlsafe(24)
                 updated = replace(
                     publication,
                     status=ReconciliationPublicationStatus.IN_PROGRESS,
                     attempts=publication.attempts + 1,
                     lease_until=lease_until,
+                    lease_token=lease_token,
+                    lease_token_hash=_lease_token_hash(lease_token),
                     last_error=None,
                 )
                 self._publications[key] = updated
@@ -127,6 +142,7 @@ class InMemoryReconciliationPublicationOutbox:
         topic: str,
         partition: int,
         offset: int | None,
+        lease_token: str,
     ) -> None:
         del reconciliation_id
         at = aware_publication_time(published_at, "published_at")
@@ -143,11 +159,13 @@ class InMemoryReconciliationPublicationOutbox:
                 raise ReconciliationConflictError(
                     "published reconciliation recommendation has conflicting broker evidence"
                 )
-            _require_active_lease(current, "completion")
+            _require_active_lease(current, "completion", lease_token=lease_token)
             self._publications[idempotency_key] = replace(
                 current,
                 status=ReconciliationPublicationStatus.PUBLISHED,
                 lease_until=None,
+                lease_token=None,
+                lease_token_hash=None,
                 published_at=at,
                 topic=publication_text(topic, "topic"),
                 partition=partition,
@@ -161,16 +179,19 @@ class InMemoryReconciliationPublicationOutbox:
         *,
         available_at: datetime,
         error: str,
+        lease_token: str,
     ) -> None:
         del reconciliation_id
         async with self._lock:
             current = self._require(idempotency_key)
-            _require_active_lease(current, "release")
+            _require_active_lease(current, "release", lease_token=lease_token)
             self._publications[idempotency_key] = replace(
                 current,
                 status=ReconciliationPublicationStatus.PENDING,
                 available_at=aware_publication_time(available_at, "available_at"),
                 lease_until=None,
+                lease_token=None,
+                lease_token_hash=None,
                 last_error=publication_text(error, "error"),
             )
 
@@ -181,16 +202,19 @@ class InMemoryReconciliationPublicationOutbox:
         *,
         failed_at: datetime,
         error: str,
+        lease_token: str,
     ) -> None:
         del reconciliation_id
         aware_publication_time(failed_at, "failed_at")
         async with self._lock:
             current = self._require(idempotency_key)
-            _require_active_lease(current, "dead-letter")
+            _require_active_lease(current, "dead-letter", lease_token=lease_token)
             self._publications[idempotency_key] = replace(
                 current,
                 status=ReconciliationPublicationStatus.FAILED,
                 lease_until=None,
+                lease_token=None,
+                lease_token_hash=None,
                 last_error=publication_text(error, "error"),
             )
 
@@ -217,14 +241,26 @@ class StateStoreReconciliationPublicationOutbox:
         lease_until: datetime,
     ) -> tuple[ReconciliationPublication, ...]:
         publication_claim_bounds(now=now, limit=limit, lease_until=lease_until)
-        rows, total = await self._store.read_state_page(
+        first_page, total = await self._store.read_state_page(
             self._KEY_PREFIX,
             limit=_MAX_OUTBOX_SCAN,
         )
-        if total > _MAX_OUTBOX_SCAN:
+        if total > _MAX_OUTBOX_TOTAL:
             raise ReconciliationOutboxScanLimitError(
                 "reconciliation outbox exceeds its bounded scan ceiling"
             )
+        rows = list(first_page)
+        for offset in range(_MAX_OUTBOX_SCAN, total, _MAX_OUTBOX_SCAN):
+            page, page_total = await self._store.read_state_page(
+                self._KEY_PREFIX,
+                limit=_MAX_OUTBOX_SCAN,
+                offset=offset,
+            )
+            if page_total != total:
+                raise ReconciliationConflictError(
+                    "reconciliation outbox changed during bounded scan"
+                )
+            rows.extend(page)
         reconciliation_ids = sorted(
             str(row.get("reconciliation_id"))
             for row in rows
@@ -261,11 +297,14 @@ class StateStoreReconciliationPublicationOutbox:
             )
             if not publication_claimable(current, now=now):
                 return None
+            lease_token = secrets.token_urlsafe(24)
             updated = replace(
                 current,
                 status=ReconciliationPublicationStatus.IN_PROGRESS,
                 attempts=current.attempts + 1,
                 lease_until=lease_until,
+                lease_token=lease_token,
+                lease_token_hash=_lease_token_hash(lease_token),
                 last_error=None,
             )
             next_revision = revision + 1
@@ -296,6 +335,7 @@ class StateStoreReconciliationPublicationOutbox:
         topic: str,
         partition: int,
         offset: int | None,
+        lease_token: str,
     ) -> None:
         await self._transition(
             reconciliation_id,
@@ -305,6 +345,7 @@ class StateStoreReconciliationPublicationOutbox:
             topic=publication_text(topic, "topic"),
             partition=partition,
             offset=offset,
+            lease_token=lease_token,
         )
 
     async def release_publication(
@@ -314,6 +355,7 @@ class StateStoreReconciliationPublicationOutbox:
         *,
         available_at: datetime,
         error: str,
+        lease_token: str,
     ) -> None:
         await self._transition(
             reconciliation_id,
@@ -321,6 +363,7 @@ class StateStoreReconciliationPublicationOutbox:
             transition="release",
             at=aware_publication_time(available_at, "available_at"),
             error=publication_text(error, "error"),
+            lease_token=lease_token,
         )
 
     async def dead_letter_publication(
@@ -330,6 +373,7 @@ class StateStoreReconciliationPublicationOutbox:
         *,
         failed_at: datetime,
         error: str,
+        lease_token: str,
     ) -> None:
         await self._transition(
             reconciliation_id,
@@ -337,6 +381,7 @@ class StateStoreReconciliationPublicationOutbox:
             transition="fail",
             at=aware_publication_time(failed_at, "failed_at"),
             error=publication_text(error, "error"),
+            lease_token=lease_token,
         )
 
     async def _transition(
@@ -350,6 +395,7 @@ class StateStoreReconciliationPublicationOutbox:
         partition: int | None = None,
         offset: int | None = None,
         error: str | None = None,
+        lease_token: str,
     ) -> None:
         key = f"{self._KEY_PREFIX}{reconciliation_id}"
         for _ in range(_MAX_CAS_ATTEMPTS):
@@ -376,7 +422,7 @@ class StateStoreReconciliationPublicationOutbox:
                 raise ReconciliationConflictError(
                     "published reconciliation recommendation has conflicting broker evidence"
                 )
-            _require_active_lease(current, transition)
+            _require_active_lease(current, transition, lease_token=lease_token)
             if transition == "complete":
                 if topic is None or partition is None:
                     raise ValueError("publication completion requires broker evidence")
@@ -384,6 +430,8 @@ class StateStoreReconciliationPublicationOutbox:
                     current,
                     status=ReconciliationPublicationStatus.PUBLISHED,
                     lease_until=None,
+                    lease_token=None,
+                    lease_token_hash=None,
                     published_at=at,
                     topic=topic,
                     partition=partition,
@@ -396,6 +444,8 @@ class StateStoreReconciliationPublicationOutbox:
                     status=ReconciliationPublicationStatus.PENDING,
                     available_at=at,
                     lease_until=None,
+                    lease_token=None,
+                    lease_token_hash=None,
                     last_error=error,
                 )
                 action_kind = "ontology.reconciliation.publication_released"
@@ -404,6 +454,8 @@ class StateStoreReconciliationPublicationOutbox:
                     current,
                     status=ReconciliationPublicationStatus.FAILED,
                     lease_until=None,
+                    lease_token=None,
+                    lease_token_hash=None,
                     last_error=error,
                 )
                 action_kind = "ontology.reconciliation.publication_dead_lettered"
@@ -435,11 +487,13 @@ def initial_publication_state(
 
 def serialize_publication(publication: ReconciliationPublication) -> dict[str, Any]:
     return {
+        "schema_version": "1.0.0",
         "recommendation": publication.recommendation.model_dump(mode="json"),
         "status": publication.status.value,
         "attempts": publication.attempts,
         "available_at": _optional_timestamp(publication.available_at),
         "lease_until": _optional_timestamp(publication.lease_until),
+        "lease_token_hash": publication.lease_token_hash,
         "last_error": publication.last_error,
         "published_at": _optional_timestamp(publication.published_at),
         "topic": publication.topic,
@@ -450,19 +504,26 @@ def serialize_publication(publication: ReconciliationPublication) -> dict[str, A
 
 def deserialize_publication(value: object) -> ReconciliationPublication:
     expected = {
+        "schema_version",
         "recommendation",
         "status",
         "attempts",
         "available_at",
         "lease_until",
+        "lease_token_hash",
         "last_error",
         "published_at",
         "topic",
         "partition",
         "offset",
     }
-    if not isinstance(value, Mapping) or set(value) != expected:
+    if not isinstance(value, Mapping):
         raise ValueError("reconciliation publication state has unexpected fields")
+    normalized = dict(value)
+    normalized.setdefault("schema_version", "1.0.0")
+    if set(normalized) != expected or normalized["schema_version"] != "1.0.0":
+        raise ValueError("reconciliation publication state has unexpected fields")
+    value = normalized
     attempts = value.get("attempts")
     partition = value.get("partition")
     offset = value.get("offset")
@@ -479,6 +540,11 @@ def deserialize_publication(value: object) -> ReconciliationPublication:
         attempts=attempts,
         available_at=_parse_optional_timestamp(value.get("available_at")),
         lease_until=_parse_optional_timestamp(value.get("lease_until")),
+        lease_token_hash=(
+            publication_text(value.get("lease_token_hash"), "lease_token_hash")
+            if value.get("lease_token_hash") is not None
+            else None
+        ),
         last_error=publication_text(last_error, "last_error") if last_error is not None else None,
         published_at=_parse_optional_timestamp(value.get("published_at")),
         topic=publication_text(topic, "topic") if topic is not None else None,
@@ -593,11 +659,29 @@ def _publication_audit_entry(
     }
 
 
-def _require_active_lease(publication: ReconciliationPublication, transition: str) -> None:
-    if publication.status is not ReconciliationPublicationStatus.IN_PROGRESS:
-        raise ReconciliationConflictError(
-            f"reconciliation publication {transition} requires an active lease"
+def _require_active_lease(
+    publication: ReconciliationPublication,
+    transition: str,
+    *,
+    lease_token: str,
+) -> None:
+    if (
+        publication.status is not ReconciliationPublicationStatus.IN_PROGRESS
+        or not lease_token
+        or not secrets.compare_digest(
+            publication.lease_token_hash or "",
+            _lease_token_hash(lease_token),
         )
+    ):
+        raise ReconciliationConflictError(
+            f"reconciliation publication {transition} requires the active lease token"
+        )
+
+
+def _lease_token_hash(lease_token: str) -> str:
+    if not lease_token:
+        raise ValueError("reconciliation publication lease token MUST be non-empty")
+    return hashlib.sha256(lease_token.encode("utf-8")).hexdigest()
 
 
 def _optional_timestamp(value: datetime | None) -> str | None:

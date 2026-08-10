@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
@@ -78,11 +80,15 @@ class GraphDynamicRuntimeCoordinator:
         model_reader: GraphEffectModelReader,
         causal_evidence_verifier: GraphEffectModelCausalEvidenceVerifier,
         trajectory_ledger: StateStoreTrajectoryEpisodeLedger | None = None,
+        request_timeout_seconds: float = 5.0,
     ) -> None:
+        if not math.isfinite(request_timeout_seconds) or not 0.1 <= request_timeout_seconds <= 30:
+            raise ValueError("graph Dynamic request timeout MUST be finite and bounded")
         self._request_provider = request_provider
         self._model_reader = model_reader
         self._causal_evidence_verifier = causal_evidence_verifier
         self._trajectory_ledger = trajectory_ledger
+        self._request_timeout_seconds = request_timeout_seconds
 
     async def simulate(
         self,
@@ -90,7 +96,11 @@ class GraphDynamicRuntimeCoordinator:
         event: Event,
         action: LearnedAction,
     ) -> GraphDynamicRuntimeResult:
-        request = await self._request_provider.build(event=event, action=action)
+        try:
+            async with asyncio.timeout(self._request_timeout_seconds):
+                request = await self._request_provider.build(event=event, action=action)
+        except TimeoutError:
+            return GraphDynamicRuntimeResult(None, "graph_simulation_request_timeout")
         if request is None:
             return GraphDynamicRuntimeResult(None, "graph_simulation_request_unavailable")
         trigger_refs = tuple(sorted({item.trigger_ref for item in request.interventions}))

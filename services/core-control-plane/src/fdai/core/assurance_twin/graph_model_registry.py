@@ -35,8 +35,8 @@ class StateStoreGraphEffectModelRegistry:
         self._max_retries = max_retries
 
     async def register(self, model: GraphEffectModel, *, registered_by: str) -> bool:
-        if not registered_by:
-            raise ValueError("graph model registered_by MUST be non-empty")
+        if registered_by != "Mimir":
+            raise ValueError("only Mimir may register a graph effect model artifact")
         return await self._store.write_state_with_audit_if_absent(
             _state_key(model),
             _serialize(model),

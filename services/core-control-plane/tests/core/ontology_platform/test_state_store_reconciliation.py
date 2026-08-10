@@ -302,6 +302,11 @@ async def test_durable_outbox_claim_and_broker_completion_survive_restart() -> N
     assert len(claimed) == 1
     assert claimed[0].status is ReconciliationPublicationStatus.IN_PROGRESS
     assert claimed[0].recommendation == outcome.recommendation
+    claimed_record = await store.read_state(f"ontology:reconciliation:{request.reconciliation_id}")
+    assert claimed_record is not None
+    claimed_state = next(iter(claimed_record["publication_state"].values()))
+    assert "lease_token" not in claimed_state
+    assert claimed_state["lease_token_hash"]
 
     restarted = StateStoreReconciliationLedger(store=store)
     await restarted.complete_publication(
@@ -311,6 +316,7 @@ async def test_durable_outbox_claim_and_broker_completion_survive_restart() -> N
         topic="command.reconciliation-decision",
         partition=2,
         offset=17,
+        lease_token=claimed[0].lease_token or "",
     )
 
     assert (
@@ -382,7 +388,7 @@ async def test_durable_outbox_release_retries_and_conflicting_completion_fails_c
         release=release,
     )
     now = datetime(2026, 8, 10, tzinfo=UTC)
-    await ledger.claim_publications(
+    first_claim = await ledger.claim_publications(
         now=now,
         limit=1,
         lease_until=now + timedelta(seconds=30),
@@ -392,6 +398,7 @@ async def test_durable_outbox_release_retries_and_conflicting_completion_fails_c
         outcome.recommendation.idempotency_key,
         available_at=now + timedelta(seconds=10),
         error="TimeoutError",
+        lease_token=first_claim[0].lease_token or "",
     )
     assert (
         await ledger.claim_publications(
@@ -401,11 +408,12 @@ async def test_durable_outbox_release_retries_and_conflicting_completion_fails_c
         )
         == ()
     )
-    assert await ledger.claim_publications(
+    second_claim = await ledger.claim_publications(
         now=now + timedelta(seconds=10),
         limit=1,
         lease_until=now + timedelta(seconds=20),
     )
+    assert second_claim
     await ledger.complete_publication(
         request.reconciliation_id,
         outcome.recommendation.idempotency_key,
@@ -413,6 +421,7 @@ async def test_durable_outbox_release_retries_and_conflicting_completion_fails_c
         topic="command.reconciliation-decision",
         partition=0,
         offset=9,
+        lease_token=second_claim[0].lease_token or "",
     )
 
     with pytest.raises(ReconciliationConflictError, match="conflicting broker evidence"):
@@ -423,4 +432,87 @@ async def test_durable_outbox_release_retries_and_conflicting_completion_fails_c
             topic="command.reconciliation-decision",
             partition=0,
             offset=10,
+            lease_token=second_claim[0].lease_token or "",
         )
+
+
+async def test_stale_publication_worker_cannot_complete_new_lease() -> None:
+    release, target, plan, action_type = _fixture()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+    )
+    store = InMemoryStateStore()
+    ledger = StateStoreReconciliationLedger(store=store)
+    outcome = await _coordinate(
+        EffectReconciliationCoordinator(ledger=ledger),
+        request,
+        release=release,
+    )
+    now = datetime(2026, 8, 10, tzinfo=UTC)
+    first = await ledger.claim_publications(
+        now=now,
+        limit=1,
+        lease_until=now + timedelta(seconds=30),
+    )
+    second = await ledger.claim_publications(
+        now=now + timedelta(seconds=31),
+        limit=1,
+        lease_until=now + timedelta(seconds=61),
+    )
+
+    with pytest.raises(ReconciliationConflictError, match="active lease token"):
+        await ledger.complete_publication(
+            request.reconciliation_id,
+            outcome.recommendation.idempotency_key,
+            published_at=now + timedelta(seconds=32),
+            topic="command.reconciliation-decision",
+            partition=0,
+            offset=3,
+            lease_token=first[0].lease_token or "",
+        )
+    await ledger.complete_publication(
+        request.reconciliation_id,
+        outcome.recommendation.idempotency_key,
+        published_at=now + timedelta(seconds=32),
+        topic="command.reconciliation-decision",
+        partition=0,
+        offset=3,
+        lease_token=second[0].lease_token or "",
+    )
+
+
+async def test_publication_scan_paginates_beyond_first_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "fdai.core.ontology_platform.reconciliation_publication._MAX_OUTBOX_SCAN",
+        2,
+    )
+    release, target, plan, action_type = _fixture()
+    store = InMemoryStateStore()
+    ledger = StateStoreReconciliationLedger(store=store)
+    for index in range(3):
+        request = _request(
+            release=release,
+            target=target,
+            plan=plan,
+            action_type=action_type,
+            correlation_id=f"pagination-{index}",
+        )
+        await _coordinate(
+            EffectReconciliationCoordinator(ledger=ledger),
+            request,
+            release=release,
+        )
+    now = datetime(2026, 8, 10, tzinfo=UTC)
+
+    claimed = await ledger.claim_publications(
+        now=now,
+        limit=3,
+        lease_until=now + timedelta(seconds=30),
+    )
+
+    assert len(claimed) == 3

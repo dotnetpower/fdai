@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 8cd82873ff59f42c236b1b3ffcbdd0b526534897
+translation_source_sha: 309cdbc60846942a1a359fe38d44bca55c420ac8
 translation_revised: 2026-08-10
 ---
 # FDAI 온톨로지 안전 인프라
@@ -379,7 +379,7 @@ condition 및 learning cutoff를 고정합니다. Mimir가 lifecycle review를 �
 action만 lifecycle registry를 작성할 수 있습니다. Registry는 active 및 challenger reference를 별도로
 저장하고 atomic compare-and-set을 통해서만 active reference를 변경합니다.
 Promotion receipt는 expected current active reference와 보존된 rollback reference를 지정하므로 stale
-또는 concurrent promotion이 더 새로운 model을 조용히 대체할 수 없습니다. 이 field보다 오래된 retained
+또는 concurrent promotion이 더 새로운 model을 조용히 대체할 수 없습니다.
 첫 promotion은 null expected 및 rollback reference를 사용하며 rollback은 pointer를 지워 다음 reviewed
 promotion 전까지 model을 unavailable 상태로 만듭니다. 이 field보다 오래된 retained record는 decode할 수
 있지만 promote할 수 없으며, FDAI는 원래 기록하지 않은 release에 이를 소급해 귀속하지 않습니다.
@@ -389,7 +389,10 @@ bounded lease로 proposal-only recommendation 하나를 claim하고 stable recom
 owning agent topic에 publish한 뒤 broker acknowledgement 이후에만 published 상태를 기록합니다. Process
 loss가 발생하면 lease를 release하여 replay할 수 있습니다. Poison payload는 terminal reconciliation
 outcome을 삭제하지 않고 failed evidence로 보존하고 dead-letter handling으로 보냅니다. Outbox consumer는
-Thor를 직접 호출하지 않습니다. Conflicting publication replay는 aggregate content validation에서
+각 claim은 opaque capability token을 반환하고 durable state에는 SHA-256 hash만 저장합니다. Completion,
+retry release 및 dead-letter transition에는 해당 token이 필요합니다. Broker publication timeout은 lease보다
+짧으므로 stale worker가 더 새로운 claim을 complete할 수 없습니다. Outbox consumer는 Thor를 직접
+호출하지 않습니다. Conflicting publication replay는 aggregate content validation에서
 실패하고 review를 위해 hold됩니다. Ordering은 wall-clock timestamp에 의존하지 않습니다.
 Predictive capacity fixture는 exact `ops.scale-out` ActionType identity를 사용합니다. Mismatch는
 deduplicated Vidar proposal만 publish하며 relay에서 rollback을 호출하지 않습니다.
