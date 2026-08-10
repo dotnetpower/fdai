@@ -8,6 +8,9 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
 _WORKFLOW = (_ROOT / ".github" / "workflows" / "service-deploy.yml").read_text(encoding="utf-8")
+_PEER_CAPTURE = (_ROOT / "scripts" / "deployment" / "service" / "capture_peer_states.sh").read_text(
+    encoding="utf-8"
+)
 _HEALTH_SCRIPT = (_ROOT / "scripts" / "deployment" / "service" / "verify_health.sh").read_text(
     encoding="utf-8"
 )
@@ -290,5 +293,13 @@ def test_plan_and_apply_capture_four_peer_states_and_upload_sealed_receipts() ->
     assert "service-peer-isolation-receipt.json" in _WORKFLOW
     assert "Seal live service observations" in _WORKFLOW
     assert 'live_observation.py"' in _WORKFLOW
+
+
+def test_peer_capture_reads_exact_isolated_backend_blobs() -> None:
+    assert "az storage blob download" in _PEER_CAPTURE
+    assert '--name "$backend_key"' in _PEER_CAPTURE
+    assert "--auth-mode login" in _PEER_CAPTURE
+    assert "terraform -chdir" not in _PEER_CAPTURE
+    assert "timeout 60s" in _PEER_CAPTURE
     assert "Upload live service observations" in _WORKFLOW
     assert "service-live-observations-${{ inputs.service }}" in _WORKFLOW

@@ -32,16 +32,18 @@ while IFS=$'\t' read -r peer terraform_root backend_key; do
     exit 1
   }
   peer_root="$target_root/$terraform_root"
-  terraform -chdir="$peer_root" init \
-    -input=false \
-    -lockfile=readonly \
-    -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
-    -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
-    -backend-config="container_name=$STATE_CONTAINER" \
-    -backend-config="key=$backend_key" \
-    -backend-config="use_azuread_auth=true"
-  terraform -chdir="$peer_root" state pull >"$raw_dir/$peer.json"
-  rm -rf -- "$peer_root/.terraform"
+  [[ -d "$peer_root" && "$backend_key" =~ ^[a-z0-9._/-]+$ ]] || {
+    echo "peer state backend coordinate is invalid." >&2
+    exit 1
+  }
+  timeout 60s az storage blob download \
+    --account-name "$STATE_STORAGE_ACCOUNT" \
+    --container-name "$STATE_CONTAINER" \
+    --name "$backend_key" \
+    --file "$raw_dir/$peer.json" \
+    --auth-mode login \
+    --only-show-errors \
+    --output none
 done < <(
   python3 "$control_root/peer_state.py" coordinates \
     --service "$service" \

@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: bd825f8bf0196e455172f57fe4614da3dbc6adfd
+translation_source_sha: b908a45e438346bea0b1e72272a4cd890869cb52
 translation_revised: 2026-08-10
 ---
 # 서비스 분해 실행 계획
@@ -325,6 +325,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-10 | IS-09 | Genuine kind-specific live observations | Round 68 | Safety critique에서 live-evidence builder가 generic transition metadata를 `observed=true`인 kind 7개로 다시 표시하는 문제를 확인했습니다. 이제 successful apply는 image attestation, service migration, exact health 및 identity verification과 four-peer isolation이 성공한 뒤에만 별도 artifact를 seal합니다. Health, identity, image, state-offset, schema, source 및 topology record는 서로 다른 evidence를 포함합니다. Final aggregate는 exact content와 artifact digest를 저장하고 GitHub binder는 attestation 전에 successful step과 download한 artifact를 검사합니다. Builder는 해당 observed record만 복사하며 누락되거나 relabel된 content 및 `observed=false` content를 거부합니다. |
 | 2026-08-10 | IS-09 | Deterministic live compatibility binding | Round 67 | Completion-path review에서 schema-valid live receipt와 observation manifest를 trusted remote aggregate와 독립적으로 작성할 수 있는 문제를 확인했습니다. 이제 program-final checker는 exact rollback/restore run, plan, context, peer-receipt, source 및 serial peer-version coordinate에서 migration/rollback receipt 10개와 observation record 35개를 모두 도출하고 compatibility validation 전에 byte-equivalent JSON value를 요구합니다. Self-asserted live record는 더 이상 IS-09를 완료할 수 없습니다. |
 | 2026-08-10 | IS-09 | Plan별 fresh protected revision | Round 68 | Core apply `31353853013`에서 외부 verified rollback 이후 Terraform configuration은 N을 유지하지만 Azure latest active revision은 restored image로 남을 수 있음을 확인했습니다. 이 상태의 fresh plan은 변경 없이 apply되었고 health verification은 old image를 올바르게 거부했습니다. 이제 shared Container App module은 bounded plan-time revision suffix를 모든 saved plan에 seal하고 guard는 exact image change 옆에서 해당 syntax만 허용합니다. 따라서 모든 protected apply는 container, identity, secret, platform 또는 authority check를 약화하지 않고 새로 검증 가능한 revision을 생성합니다. |
+| 2026-08-10 | IS-09 | Bounded direct peer-state capture | Round 69 | Remote operability review에서 각 evidence run이 isolated backend state를 읽기 위해 full Terraform peer root 4개를 두 번씩 initialize하여 30-run serial proof가 수 시간의 provider 및 backend delay에 취약한 문제를 확인했습니다. 이제 peer capture는 이미 authenticated된 runner identity와 60초 stop condition으로 exact allowlisted backend blob을 Azure CLI를 통해 각각 download합니다. 기존 canonical state projection과 before/after digest verifier는 변경하지 않습니다. |
 
 ## 관련 문서
 
