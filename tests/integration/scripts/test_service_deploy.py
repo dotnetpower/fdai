@@ -244,10 +244,30 @@ def _worker_plan() -> dict[str, object]:
                         "transport": "TCP",
                         "port": 3310,
                         "failure_count_threshold": 30,
+                        "interval_seconds": 5,
+                        "timeout": 3,
                     }
                 ],
-                "liveness_probe": [{"transport": "TCP", "port": 3310}],
-                "readiness_probe": [{"transport": "TCP", "port": 3310}],
+                "liveness_probe": [
+                    {
+                        "transport": "TCP",
+                        "port": 3310,
+                        "failure_count_threshold": 3,
+                        "initial_delay": 1,
+                        "interval_seconds": 30,
+                        "timeout": 3,
+                    }
+                ],
+                "readiness_probe": [
+                    {
+                        "transport": "TCP",
+                        "port": 3310,
+                        "failure_count_threshold": 3,
+                        "interval_seconds": 10,
+                        "success_count_threshold": 3,
+                        "timeout": 3,
+                    }
+                ],
             }
         )
     return plan
@@ -505,9 +525,25 @@ def _worker_health_evidence() -> tuple[dict[str, object], ...]:
                         "transport": "TCP",
                         "port": 3310,
                         "failure_count_threshold": 30,
+                        "interval_seconds": 5,
+                        "timeout": 3,
                     },
-                    "liveness_probe": {"transport": "TCP", "port": 3310},
-                    "readiness_probe": {"transport": "TCP", "port": 3310},
+                    "liveness_probe": {
+                        "transport": "TCP",
+                        "port": 3310,
+                        "failure_count_threshold": 3,
+                        "initial_delay": 1,
+                        "interval_seconds": 30,
+                        "timeout": 3,
+                    },
+                    "readiness_probe": {
+                        "transport": "TCP",
+                        "port": 3310,
+                        "failure_count_threshold": 3,
+                        "interval_seconds": 10,
+                        "success_count_threshold": 3,
+                        "timeout": 3,
+                    },
                 }
             ),
         }
@@ -531,9 +567,25 @@ def _worker_health_evidence() -> tuple[dict[str, object], ...]:
                     "type": "Startup",
                     "tcpSocket": {"port": 3310},
                     "failureThreshold": 30,
+                    "periodSeconds": 5,
+                    "timeoutSeconds": 3,
                 },
-                {"type": "Liveness", "tcpSocket": {"port": 3310}},
-                {"type": "Readiness", "tcpSocket": {"port": 3310}},
+                {
+                    "type": "Liveness",
+                    "tcpSocket": {"port": 3310},
+                    "failureThreshold": 3,
+                    "initialDelaySeconds": 1,
+                    "periodSeconds": 30,
+                    "timeoutSeconds": 3,
+                },
+                {
+                    "type": "Readiness",
+                    "tcpSocket": {"port": 3310},
+                    "failureThreshold": 3,
+                    "periodSeconds": 10,
+                    "successThreshold": 3,
+                    "timeoutSeconds": 3,
+                },
             ],
         },
     ]
@@ -2486,6 +2538,39 @@ def test_initial_worker_bundle_seals_new_sidecar_probe_contract(
     before_sidecar.pop("liveness_probe")
     before_sidecar.pop("readiness_probe")
     change["after"]["template"][0]["container"][0]["image"] = image
+    planned_sidecar = change["after"]["template"][0]["container"][1]
+    for probe_name, values in {
+        "startup_probe": {
+            "header": [],
+            "host": "",
+            "initial_delay": 0,
+            "interval_seconds": 5,
+            "path": "",
+            "termination_grace_period_seconds": 0,
+            "timeout": 3,
+        },
+        "liveness_probe": {
+            "failure_count_threshold": 3,
+            "header": [],
+            "host": "",
+            "initial_delay": 1,
+            "interval_seconds": 30,
+            "path": "",
+            "termination_grace_period_seconds": 0,
+            "timeout": 3,
+        },
+        "readiness_probe": {
+            "failure_count_threshold": 3,
+            "header": [],
+            "host": "",
+            "initial_delay": 0,
+            "interval_seconds": 10,
+            "path": "",
+            "success_count_threshold": 3,
+            "timeout": 3,
+        },
+    }.items():
+        planned_sidecar[probe_name][0].update(values)
     plan_json.write_text(json.dumps(payload) + "\n", encoding="utf-8")
     context = tmp_path / "context.json"
     bundle.create_bundle(

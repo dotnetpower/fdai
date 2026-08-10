@@ -98,23 +98,12 @@ def planned_sidecar_contract(container: dict[str, Any], *, name: str) -> dict[st
             or not isinstance(raw_probe[0], dict)
         ):
             raise PlanBundleError(f"sidecar {name} has invalid {probe_name}")
-        probe = raw_probe[0]
-        normalized = {
-            "transport": probe.get("transport"),
-            "port": probe.get("port"),
-            "failure_count_threshold": probe.get("failure_count_threshold"),
-            "interval_seconds": probe.get("interval_seconds"),
-            "timeout": probe.get("timeout"),
-        }
-        for field in (
-            "initial_delay",
-            "success_count_threshold",
-            "termination_grace_period_seconds",
-        ):
-            value = probe.get(field)
-            if isinstance(value, int) and not isinstance(value, bool) and value > 0:
-                normalized[field] = value
-        probes[probe_name] = normalized
+        try:
+            probes[probe_name] = planned_observable_probes({probe_name: raw_probe[0]}, name=name)[
+                probe_name
+            ]
+        except SidecarContractError as exc:
+            raise PlanBundleError(str(exc)) from exc
     ports = {probe.get("port") for probe in probes.values()}
     if (
         len(ports) != 1
@@ -128,7 +117,6 @@ def planned_sidecar_contract(container: dict[str, Any], *, name: str) -> dict[st
         raise PlanBundleError(f"sidecar {name} probe contract changed")
     try:
         configuration = planned_observable_configuration(container, name=name)
-        probes = planned_observable_probes(probes, name=name)
     except SidecarContractError as exc:
         raise PlanBundleError(str(exc)) from exc
     return {
