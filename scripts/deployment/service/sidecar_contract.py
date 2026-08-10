@@ -4,6 +4,27 @@ from __future__ import annotations
 
 from typing import Any
 
+_PROBE_FIELDS = {
+    "failure_count_threshold",
+    "header",
+    "host",
+    "initial_delay",
+    "interval_seconds",
+    "path",
+    "port",
+    "success_count_threshold",
+    "termination_grace_period_seconds",
+    "timeout",
+    "transport",
+}
+_ARM_OMITTED_DEFAULTS = {
+    "header": [],
+    "host": "",
+    "initial_delay": 0,
+    "path": "",
+    "termination_grace_period_seconds": 0,
+}
+
 
 class SidecarContractError(ValueError):
     """Raised when a sidecar cannot be reduced to the supported observable contract."""
@@ -38,3 +59,23 @@ def observed_configuration(container: dict[str, Any], *, name: str) -> dict[str,
     if not isinstance(cpu, (int, float)) or isinstance(cpu, bool) or not isinstance(memory, str):
         raise SidecarContractError(f"sidecar {name} resources are invalid")
     return {"name": name, "resources": {"cpu": cpu, "memory": memory}}
+
+
+def planned_observable_probes(
+    probes: dict[str, dict[str, Any]], *, name: str
+) -> dict[str, dict[str, Any]]:
+    """Remove only provider defaults that ARM omits from observed TCP probes."""
+    normalized: dict[str, dict[str, Any]] = {}
+    for probe_name, probe in probes.items():
+        unknown = set(probe) - _PROBE_FIELDS
+        if unknown:
+            raise SidecarContractError(f"sidecar {name} {probe_name} has unsupported fields")
+        result: dict[str, Any] = {}
+        for field, value in probe.items():
+            if field in _ARM_OMITTED_DEFAULTS and value == _ARM_OMITTED_DEFAULTS[field]:
+                continue
+            if field == "header":
+                raise SidecarContractError(f"sidecar {name} {probe_name} headers are unsupported")
+            result[field] = value
+        normalized[probe_name] = result
+    return normalized

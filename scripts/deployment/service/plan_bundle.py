@@ -12,7 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from service_contract import ServiceContractError, resolve_service, validate_image_reference
-from sidecar_contract import SidecarContractError, planned_observable_configuration
+from sidecar_contract import (
+    SidecarContractError,
+    planned_observable_configuration,
+    planned_observable_probes,
+)
 
 _SCHEMA_VERSION = "fdai.service-deployment-plan.v5"
 _SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
@@ -94,7 +98,23 @@ def planned_sidecar_contract(container: dict[str, Any], *, name: str) -> dict[st
             or not isinstance(raw_probe[0], dict)
         ):
             raise PlanBundleError(f"sidecar {name} has invalid {probe_name}")
-        probes[probe_name] = raw_probe[0]
+        probe = raw_probe[0]
+        normalized = {
+            "transport": probe.get("transport"),
+            "port": probe.get("port"),
+            "failure_count_threshold": probe.get("failure_count_threshold"),
+            "interval_seconds": probe.get("interval_seconds"),
+            "timeout": probe.get("timeout"),
+        }
+        for field in (
+            "initial_delay",
+            "success_count_threshold",
+            "termination_grace_period_seconds",
+        ):
+            value = probe.get(field)
+            if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+                normalized[field] = value
+        probes[probe_name] = normalized
     ports = {probe.get("port") for probe in probes.values()}
     if (
         len(ports) != 1
@@ -108,6 +128,7 @@ def planned_sidecar_contract(container: dict[str, Any], *, name: str) -> dict[st
         raise PlanBundleError(f"sidecar {name} probe contract changed")
     try:
         configuration = planned_observable_configuration(container, name=name)
+        probes = planned_observable_probes(probes, name=name)
     except SidecarContractError as exc:
         raise PlanBundleError(str(exc)) from exc
     return {

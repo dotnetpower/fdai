@@ -2506,6 +2506,13 @@ def test_initial_worker_bundle_seals_new_sidecar_probe_contract(
     sidecar = json.loads(context.read_text(encoding="utf-8"))["target"]["sidecar_containers"][0]
     assert sidecar["name"] == "clamav"
     assert sidecar["image_ref"].startswith("docker.io/clamav/clamav@sha256:")
+    expected_context = _worker_health_evidence()[0]
+    assert (
+        sidecar["probe_digest"]
+        == expected_context["target"]["sidecar_containers"][0][  # type: ignore[index]
+            "probe_digest"
+        ]
+    )
 
 
 @pytest.mark.parametrize("mutation", ["unknown", "mutable", "changed"])
@@ -2537,6 +2544,44 @@ def test_worker_plan_bundle_rejects_unsealed_sidecar_contract(
     plan_json.write_text(json.dumps(payload) + "\n", encoding="utf-8")
 
     with pytest.raises(bundle.PlanBundleError, match="sidecar|container"):
+        bundle.create_bundle(
+            plan=plan,
+            plan_json=plan_json,
+            context_path=tmp_path / "context.json",
+            metadata_path=tmp_path / "metadata.json",
+            service="document-processing-worker",
+            environment="dev",
+            repository="example/fdai",
+            commit_sha="b" * 40,
+            image_ref=image,
+            workflow_run_id="123",
+            now=datetime(2026, 8, 8, 10, 0, tzinfo=UTC),
+            **_bundle_coordinates(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [("future_field", 1, "unsupported fields"), ("header", [{"name": "x"}], "headers")],
+)
+def test_worker_plan_bundle_rejects_unobservable_probe_fields(
+    bundle: ModuleType,
+    tmp_path: Path,
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    plan = tmp_path / "service.plan"
+    plan.write_bytes(b"binary worker plan")
+    payload = _worker_plan()
+    image = _image("fdai-document-processing-worker")
+    change = payload["resource_changes"][0]["change"]  # type: ignore[index]
+    change["after"]["template"][0]["container"][0]["image"] = image
+    change["after"]["template"][0]["container"][1]["startup_probe"][0][field] = value
+    plan_json = tmp_path / "service-plan.json"
+    plan_json.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    with pytest.raises(bundle.PlanBundleError, match=message):
         bundle.create_bundle(
             plan=plan,
             plan_json=plan_json,
