@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: b8d743a9ba98e6404d02d37dfb17833e57e0bb9f
-translation_revised: 2026-08-08
+translation_source_sha: 42fdfcd3c04c364e0460b59d95f52fd08dd4ca90
+translation_revised: 2026-08-10
 ---
 
 # Action 온톨로지
@@ -357,10 +357,8 @@ landing 해야 하는 compliance-heavy 환경에서 `pr_manual` 을 강제 MAY.
 
 ### 3.3 `governance.*`
 
-온톨로지 / 카탈로그 / 예외 / promotion 변경. 네 entry 가 오늘의
-온톨로지에 authored; **오직 하나만 현재 live dispatcher 를 가짐**
-(나머지 셋은 P2 에서 land 될 PR-native writer 대기 중인
-catalog-as-code artifact):
+Ontology / catalog / exemption / promotion 변경입니다. 6개 entry 중 3개에 live dispatcher가 있고
+3개는 P2 PR-native writer를 기다리는 catalog-as-code artifact입니다.
 
 - `governance.promote-action-type` - 하나의 ActionType에 대한 exact durable
   operational-promotion receipt를 runtime mode registry에 적용합니다. Catalog의 ActionType은
@@ -368,6 +366,8 @@ catalog-as-code artifact):
   evidence digest 및 Owner HIL로 제한됩니다.
   **Dispatcher shipped:** Thor 뒤의 `OperationalPromotionDirectApiExecutor`. Shadow는 mutation
   없이 검증하며 HIL-only authority bootstrap만 enforce mode를 제공합니다.
+- `governance.promote-effect-model` - immutable fidelity 및 causal-evidence receipt로 `GraphEffectModel` active pointer를 atomically 선택합니다. Mimir가 review하고 Var가 Owner approval을 전달하며 Thor가 적용하고 Saga가 audit합니다. `GraphEffectModelPromotionDirectApiExecutor`는 ActionType promotion 또는 execution authority를 만들지 않습니다.
+- `governance.demote-effect-model` - 같은 Thor adapter로 exact receipt의 prior active pointer를 복원하거나 첫-promotion pointer를 지웁니다. Stale active reference 및 conflicting receipt identity는 차단됩니다.
 - `governance.retire-rule` - enforce 집합에서 룰 제거 (shadow-only 또는
   full retire).
   **Dispatcher: not yet implemented (P2 backlog).**
@@ -381,11 +381,9 @@ catalog-as-code artifact):
   **Dispatcher shipped**:
   [`services/core-control-plane/src/fdai/core/risk_gate/override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py).
 
-Governance action은 catalog-as-code 변경이므로 `execution_path: pr_native`를 사용하고 reviewed
-diff로 landing해야 합니다. 닫힌 예외는 하나뿐입니다. `governance.promote-action-type`은 Owner
-HIL과 exact-receipt verification 이후 durable runtime mode registry만 변경하기 위해
-`direct_api`를 사용하며 catalog data나 managed substrate는 변경하지 않습니다. 다른 governance
-action은 이 예외를 사용할 수 없습니다.
+Governance action은 일반적으로 `pr_native`를 사용합니다. 닫힌 `direct_api` 예외는
+`governance.promote-action-type`, `governance.promote-effect-model`, `governance.demote-effect-model`입니다.
+Owner HIL 및 exact-receipt verification 이후 FDAI-owned runtime pointer만 변경합니다.
 
 ### 3.4 `tool.*`
 

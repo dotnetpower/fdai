@@ -60,7 +60,11 @@ is composition of existing parts.
 > accepts an explicitly injected graph coordinator and records shadow evidence only. Strict
 > `FDAI_GRAPH_DYNAMIC_CONFIG_JSON` composition now binds the production Azure graph request adapter,
 > durable active/challenger registry, and causal-receipt allowlist. The independent observed-
-> trajectory source remains a deployment binding.
+> trajectory source remains a deployment binding. Graph-model governance now adds immutable
+> promotion receipts, additive artifact/release/applicability identity, a durable CAS active pointer,
+> retained rollback target, Owner-HIL-only promote/demote ActionTypes, and Thor's direct adapter.
+> The lifecycle reader preserves legacy active fallback but legacy records without governed identity
+> remain unpromotable.
 
 ## Why not a chatbot
 

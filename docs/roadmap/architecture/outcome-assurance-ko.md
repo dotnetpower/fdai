@@ -1,8 +1,8 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 42ad0ccd5dfa636bbea0e07cced675b3314057f0
-translation_revised: 2026-08-02
+translation_source_sha: 5d3e597335eadb0369224bf8831918bdfb5808ed
+translation_revised: 2026-08-10
 ---
 # Outcome Assurance
 
@@ -18,6 +18,11 @@ Cost Governance의 기존 운영 목표, 액션, 결과, 준비도 보고서, gu
 > **계약 위치:** `OutcomeAssuranceProjection`은 read model이며 새로운 ontology object나
 > 결정 권한이 아닙니다. 기존 source가 계속 authority이며, 누락된 evidence는 unavailable로
 > 유지됩니다.
+
+Graph effect model promotion도 동일한 independent outcome discipline을 사용합니다. Immutable receipt는
+frozen 및 live-shadow cohort, causal grade, error, rollback, recurrence, policy, invariant, cutoff 및
+applicability evidence를 고정합니다. Owner approval은 CAS로 model active pointer만 선택할 수 있으며
+ActionType을 promote하거나 execution을 authorize하거나 incomplete outcome을 relabel할 수 없습니다.
 
 ## 한눈에 보는 설계
 

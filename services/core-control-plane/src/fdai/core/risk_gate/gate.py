@@ -297,7 +297,13 @@ class RiskGateConfig:
     max_affected_resources: int = 10
     max_rate_per_minute: int = 30
     max_precondition_age_seconds: int = 900
-    hil_authority_action_types: frozenset[str] = frozenset({"governance.promote-action-type"})
+    hil_authority_action_types: frozenset[str] = frozenset(
+        {
+            "governance.demote-effect-model",
+            "governance.promote-action-type",
+            "governance.promote-effect-model",
+        }
+    )
 
 
 @dataclass(frozen=True, slots=True)

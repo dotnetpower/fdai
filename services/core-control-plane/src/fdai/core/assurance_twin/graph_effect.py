@@ -96,6 +96,10 @@ class GraphEffectModel:
     sample_count: int = 0
     mean_absolute_error: float = 0.0
     applied_observation_digests: tuple[str, ...] = ()
+    artifact_digest: str | None = None
+    ontology_release_digest: str | None = None
+    property_semantics_digest: str | None = None
+    applicability_conditions: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for value in (
@@ -139,11 +143,38 @@ class GraphEffectModel:
             or any(_DIGEST.fullmatch(item) is None for item in self.applied_observation_digests)
         ):
             raise ValueError("graph effect applied observation digests MUST be unique and bounded")
+        governed_identity = (
+            self.artifact_digest,
+            self.ontology_release_digest,
+            self.property_semantics_digest,
+        )
+        if any(item is not None for item in governed_identity) or self.applicability_conditions:
+            if (
+                any(item is None or _DIGEST.fullmatch(item) is None for item in governed_identity)
+                or not self.applicability_conditions
+                or len(self.applicability_conditions) > 32
+                or self.applicability_conditions
+                != tuple(sorted(set(self.applicability_conditions)))
+            ):
+                raise ValueError(
+                    "governed graph effect identity MUST be complete, canonical, and bounded"
+                )
         _aware(self.learned_through, "graph effect learned_through")
 
     @property
     def ref(self) -> str:
         return f"{self.model_id}@{self.version}:r{self.revision}"
+
+    @property
+    def promotable(self) -> bool:
+        """Return whether the model records complete governed artifact identity."""
+
+        return (
+            self.artifact_digest is not None
+            and self.ontology_release_digest is not None
+            and self.property_semantics_digest is not None
+            and bool(self.applicability_conditions)
+        )
 
 
 @dataclass(frozen=True, slots=True)

@@ -363,10 +363,8 @@ reviewable diff.
 
 ### 3.3 `governance.*`
 
-Ontology / catalog / exemption / promotion changes. Four entries are
-authored in the ontology today; **only one currently has a live
-dispatcher** (the other three are catalog-as-code artifacts waiting on
-a PR-native writer to land in P2):
+Ontology / catalog / exemption / promotion changes. Six entries are authored today; three have
+live dispatchers and three are catalog-as-code artifacts waiting on the P2 PR-native writer:
 
 - `governance.promote-action-type` - apply one exact durable operational-promotion receipt to
   the runtime mode registry for one ActionType. The ActionType remains unchanged in catalog;
@@ -374,6 +372,8 @@ a PR-native writer to land in P2):
   evidence digest, and Owner HIL.
   **Dispatcher shipped:** `OperationalPromotionDirectApiExecutor` behind Thor. Shadow validates
   without mutation; only the HIL-only authority bootstrap supplies enforce mode.
+- `governance.promote-effect-model` - apply one immutable fidelity and causal-evidence receipt to atomically select a `GraphEffectModel` active pointer. Mimir reviews, Var carries Owner approval, Thor applies, and Saga audits; `GraphEffectModelPromotionDirectApiExecutor` never promotes an ActionType or grants execution authority.
+- `governance.demote-effect-model` - restore the exact receipt's prior active pointer, or clear a first-promotion pointer, through the same Thor adapter; stale active references and conflicting receipt identity are blocked.
 - `governance.retire-rule` - remove a rule from the enforce set
   (shadow-only or full retire).
   **Dispatcher: not yet implemented (P2 backlog).**
@@ -387,11 +387,9 @@ a PR-native writer to land in P2):
   **Dispatcher shipped** in
   [`services/core-control-plane/src/fdai/core/risk_gate/override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py).
 
-Governance actions use `execution_path: pr_native` because they are catalog-as-code changes and
-MUST land as reviewed diffs, with one closed exception: `governance.promote-action-type` uses
-`direct_api` to mutate only the durable runtime mode registry after Owner HIL and exact-receipt
-verification. It does not edit catalog data or a managed substrate. No other governance action
-may use this exception.
+Governance actions normally use `pr_native`. The closed `direct_api` exceptions are
+`governance.promote-action-type`, `governance.promote-effect-model`, and `governance.demote-effect-model`.
+After Owner HIL and exact-receipt verification, they change only an FDAI-owned runtime pointer.
 
 ### 3.4 `tool.*`
 

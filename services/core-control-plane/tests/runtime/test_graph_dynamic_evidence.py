@@ -58,6 +58,10 @@ def _model(status: str) -> dict[str, object]:
         "sample_count": 40,
         "mean_absolute_error": 0.0001,
         "applied_observation_digests": [],
+        "artifact_digest": "f" * 64,
+        "ontology_release_digest": "b" * 64,
+        "property_semantics_digest": "c" * 64,
+        "applicability_conditions": ["environment=non-production"],
     }
 
 

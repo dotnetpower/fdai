@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: c286bb9d667924fb7a874fc1325476cd3b345c51
+translation_source_sha: 6f35a048d5a2820c94606c3c7c626b4ef9378009
 translation_revised: 2026-08-10
 ---
 # FDAI 온톨로지 안전 인프라
@@ -62,10 +62,11 @@ exact schema pinning, generated SDK surface를 추가합니다. 모든 runtime t
 > ledger 하나를 공유하도록 연결합니다. Broker acknowledgement, retry release, process-loss replay,
 > bounded attempt 및 dead-letter state를 CAS로 저장합니다. Mechanical relay는 Forseti 또는 Vidar에
 > proposal command만 publish하며 Thor를 호출하지 않습니다.
-> K6-K8은 immutable operational state trajectory, dependency 범위 effect propagation,
-> time-bounded invariant, 독립 관측 trajectory outcome을 포함하는 graph-wide Dynamic evidence를
-> 목표로 합니다. 기존 action/metric Dynamic simulation은 구현되어 있으며 graph-wide propagation과
-> failure-attribution wiring은 종료 기준을 통과할 때까지 delivery 작업으로 남습니다.
+> K6-K8 graph-wide Dynamic evidence가 구현되어 있습니다. Immutable operational state trajectory,
+> dependency 범위 effect propagation, time-bounded invariant, independently observed trajectory
+> outcome, challenger-only learning 및 durable model record를 포함합니다. Governed model lifecycle은
+> exact promotion receipt와 CAS로 active ref를 선택하고 rollback target을 보존합니다. Production
+> independent observation은 executor truth가 아니라 deployment evidence로 남습니다.
 >
 > **하드닝 상태(2026-08-01):** Release identity, persistence, interface compatibility, ObjectSet
 > closure, mutation safety, function authority, projection, reconciliation, generated SDK syntax,

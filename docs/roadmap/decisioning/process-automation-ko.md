@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 8002190659f99457a4e07adce2a7cd406dcaaa54
-translation_revised: 2026-08-09
+translation_source_sha: ebfcc9d5b395128e155d42c7121ec873c62b4c20
+translation_revised: 2026-08-10
 ---
 
 # 프로세스 자동화(Process Automation)
@@ -24,6 +24,11 @@ dispatch 한다.
 > 아래의 upstream `ActionType` 카탈로그만 참조하며, 새 mutation primitive 를
 > 선언하지 않는다. 새 capability 가 필요한 프로세스는 먼저 upstream `ActionType`
 > 문서 PR 을 열라는 신호다.
+
+Graph-model promote 및 demote step은 새 workflow executor를 추가하지 않고 기존 direct-API route를
+재사용합니다. Forseti judgment, Var를 통한 Owner approval, Thor execution, Saga audit 및 receipt-bound
+rollback을 계속 통과합니다. Model pointer는 prediction selection만 변경하며 자체적으로 Process 또는
+managed-resource action을 진행하지 않습니다.
 
 ## 1. 혼동하면 안 되는 네 가지 개념
 

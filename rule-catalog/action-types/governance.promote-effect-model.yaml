@@ -1,0 +1,73 @@
+schema_version: 1.0.0
+name: governance.promote-effect-model
+version: 1.0.0
+operation: update
+interfaces:
+- ControlPlane
+rollback_contract: scripted
+irreversible: false
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 7
+  min_samples: 20
+  min_accuracy: 0.9
+  max_policy_escapes: 0
+preconditions:
+- kind: graph_fresh_within_seconds
+  value: 300
+stop_conditions:
+- kind: provider_api_error_streak
+  count: 3
+- kind: time_box_exceeded_seconds
+  seconds: 300
+blast_radius:
+  computation: static_enum
+  static_bucket: resource
+description: Select one immutable GraphEffectModel as active using an exact reviewed evidence receipt.
+category: governance
+trigger_kind:
+  kind: operator_request
+execution_path: direct_api
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: owner
+  t1:
+    max_autonomy: shadow_only
+    min_role: owner
+  t2:
+    max_autonomy: shadow_only
+    min_role: owner
+argument_schema:
+  type: object
+  additionalProperties: false
+  required:
+  - model_ref
+  - fdai_revision
+  - scenario_set_version
+  - receipt_digest
+  - justification
+  properties:
+    model_ref:
+      type: string
+      pattern: ^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+:r[1-9][0-9]*$
+    fdai_revision:
+      type: string
+      pattern: ^(?:[0-9a-f]{40}|[0-9a-f]{64})$
+    scenario_set_version:
+      type: string
+      pattern: ^[A-Za-z0-9._-]{1,160}$
+    receipt_digest:
+      type: string
+      pattern: ^[0-9a-f]{64}$
+    justification:
+      type: string
+      x-fdai-audit-safe: true
+      minLength: 20
+      maxLength: 500
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:governance.promote-effect-model@1.0.0
+  content_hash: sha256:73fba77b598b1f25af7d3ba805d5a3908357d654f0292be3827a02fe370de793
+  license: MIT
+  retrieved_at: "2026-08-10T00:00:00Z"

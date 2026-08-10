@@ -195,6 +195,7 @@ def _build_direct_api_executor(
     human_access_enabled: bool = True,
     promotion_registry: Any = None,
     action_types_by_name: Mapping[str, Any] | None = None,
+    graph_effect_model_reader: Any = None,
     execution_identities: Mapping[str, WorkloadIdentity] | None = None,
 ) -> DirectApiShadowExecutor | None:
     """Select the direct-API executor for this process.
@@ -267,6 +268,27 @@ def _build_direct_api_executor(
                 receipts=StateStoreOperationalPromotionReceiptStore(audit_store),
                 registry=promotion_registry,
             )
+            allow_enforce = True
+
+    if graph_effect_model_reader is not None:
+        from fdai.core.assurance_twin import StateStoreGraphEffectModelLifecycleRegistry
+        from fdai.delivery.graph_model_promotion import (
+            DEMOTE_EFFECT_MODEL_ACTION_TYPE,
+            PROMOTE_EFFECT_MODEL_ACTION_TYPE,
+            GraphEffectModelPromotionDirectApiExecutor,
+        )
+        from fdai.delivery.persistence import StateStoreGraphEffectModelPromotionReceiptStore
+
+        if isinstance(
+            graph_effect_model_reader,
+            StateStoreGraphEffectModelLifecycleRegistry,
+        ):
+            graph_governance = GraphEffectModelPromotionDirectApiExecutor(
+                receipts=StateStoreGraphEffectModelPromotionReceiptStore(audit_store),
+                lifecycle=graph_effect_model_reader,
+            )
+            routes[PROMOTE_EFFECT_MODEL_ACTION_TYPE] = graph_governance
+            routes[DEMOTE_EFFECT_MODEL_ACTION_TYPE] = graph_governance
             allow_enforce = True
 
     human_access = build_human_access_direct_api(

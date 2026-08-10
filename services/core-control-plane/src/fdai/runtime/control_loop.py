@@ -514,6 +514,7 @@ def _build_control_loop(
             human_access_enabled=human_access_enabled,
             promotion_registry=promotion_registry,
             action_types_by_name=action_types_by_name,
+            graph_effect_model_reader=container.graph_effect_model_reader,
             execution_identities=execution_identities,
         )
         tool_executor = _build_tool_executor(

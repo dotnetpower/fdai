@@ -442,9 +442,9 @@ clean (see the fork model in
   cutoff or finite-arithmetic violations even outside the coordinator. These seams are read-only;
   absent bindings disable shadow paths.
 - **Operational promotion authority**: `OperationalPromotionReceiptVerifier` and
-  `OperationalPromotionUnitVerifier` resolve immutable evidence. The production registry remains
-  shadow without them; raw scalar metrics are a test-only legacy fixture mode. A promotion-state
-  refresh failure lowers the unified system-health ceiling instead of reusing stale enforcement.
+  `OperationalPromotionUnitVerifier` resolve ActionType evidence. Graph models use immutable
+  `GraphEffectModelPromotionReceipt` plus `StateStoreGraphEffectModelLifecycleRegistry` for
+  Owner-approved CAS active pointers and rollback. Neither path grants execution authority.
 - **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-
   inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch
   estimator, and effect-model reader. Temporal adapters reject non-finite metric values before

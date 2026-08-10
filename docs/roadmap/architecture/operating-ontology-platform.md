@@ -59,10 +59,11 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > durable ledger between the coordinator and a lease-based outbox worker. Broker acknowledgement,
 > retry release, process-loss replay, bounded attempts, and dead-letter state are CAS-persisted.
 > The mechanical relay publishes only proposal commands to Forseti or Vidar and never calls Thor.
-> K6-K8 target graph-wide Dynamic evidence: immutable operational state trajectories,
-> dependency-scoped effect propagation, time-bounded invariants, and independently observed
-> trajectory outcomes. Existing action/metric Dynamic simulation remains implemented; graph-wide
-> propagation and failure-attribution wiring remain delivery work until their exit criteria pass.
+> K6-K8 graph-wide Dynamic evidence is implemented: immutable operational state trajectories,
+> dependency-scoped effect propagation, time-bounded invariants, independently observed trajectory
+> outcomes, challenger-only learning, and durable model records. Governed model lifecycle now
+> selects active refs through CAS and exact promotion receipts, with a retained rollback target.
+> Production independent observation remains deployment evidence rather than executor truth.
 >
 > **Hardening status (2026-08-01):** Ten adversarial rounds covered release identity, persistence,
 > interface compatibility, ObjectSet closure, mutation safety, function authority, projection,

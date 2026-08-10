@@ -16,6 +16,11 @@ and guard evidence for Resilience, Change Safety, and Cost Governance.
 > decision authority. Existing sources remain authoritative, and missing evidence remains
 > unavailable.
 
+Graph effect model promotion uses the same independent outcome discipline. Its immutable receipt
+binds frozen and live-shadow cohorts, causal grade, error, rollback, recurrence, policy, invariant,
+cutoff, and applicability evidence. Owner approval can select only the model active pointer by CAS;
+it cannot promote an ActionType, authorize execution, or relabel an incomplete outcome.
+
 ## Design at a glance
 
 FDAI already records what a service is expected to protect, what action was considered, what ran,

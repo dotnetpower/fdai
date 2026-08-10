@@ -194,6 +194,9 @@ from fdai.delivery.persistence.read_investigation_latency import (
 from fdai.delivery.persistence.state_store_action_promotion import (
     StateStoreActionPromotionRegistry,
 )
+from fdai.delivery.persistence.state_store_graph_effect_promotion import (
+    StateStoreGraphEffectModelPromotionReceiptStore,
+)
 from fdai.delivery.persistence.state_store_hil_registry import (
     PostgresHilApprovalRegistry,
     StateStoreHilApprovalRegistry,
@@ -310,6 +313,7 @@ __all__ = [
     "PostgresHilApprovalRegistry",
     "StateStoreHilApprovalRegistry",
     "StateStoreActionPromotionRegistry",
+    "StateStoreGraphEffectModelPromotionReceiptStore",
     "StateStoreOpenActionEvidenceProvider",
     "StateStoreOperationalPromotionReceiptStore",
     "StateStoreOntologyAdequacyReviewSink",

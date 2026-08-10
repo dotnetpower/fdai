@@ -1,7 +1,7 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: d6bf6e1df40b23f9c7bb6e78a05824ed04861a2e
+translation_source_sha: 135cee9cdf6ec99b3557be6d38a6e6c29ae589fd
 translation_revised: 2026-08-10
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
@@ -56,7 +56,11 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 > model을 mutate하거나 promote하지 않았음을 audit합니다. Control loop는 명시적으로 injected graph
 > coordinator를 받아 shadow evidence만 기록합니다. Strict `FDAI_GRAPH_DYNAMIC_CONFIG_JSON` composition은
 > production Azure graph request adapter, durable active/challenger registry 및 causal-receipt allowlist를
-> 연결합니다. Independent observed-trajectory source는 deployment binding으로 남습니다.
+> 연결합니다. Independent observed-trajectory source는 deployment binding으로 남습니다. Graph-model
+> governance는 immutable promotion receipt, additive artifact/release/applicability identity, durable CAS
+> active pointer, 보존된 rollback target, Owner-HIL-only promote/demote ActionType 및 Thor direct adapter를
+> 추가합니다. Lifecycle reader는 legacy active fallback을 보존하지만 governed identity가 없는 legacy
+> record는 promote할 수 없습니다.
 
 ## 왜 챗봇이 아닌가
 

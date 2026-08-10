@@ -35,6 +35,10 @@ The six modules here are:
 from __future__ import annotations
 
 from fdai.core.measurement.dora import DeploymentObservation, DoraSummary, compute_dora
+from fdai.core.measurement.graph_effect_promotion import (
+    GraphEffectModelPromotionPolicy,
+    GraphEffectModelPromotionReceipt,
+)
 from fdai.core.measurement.operational_promotion import (
     CausalPromotionReceipt,
     CausalPromotionReceiptVerifier,
@@ -58,6 +62,8 @@ __all__ = [
     "CausalPromotionReceipt",
     "CausalPromotionReceiptVerifier",
     "DoraSummary",
+    "GraphEffectModelPromotionPolicy",
+    "GraphEffectModelPromotionReceipt",
     "OperationalPromotionBatch",
     "OperationalPromotionEvaluator",
     "OperationalPromotionEvidenceSource",

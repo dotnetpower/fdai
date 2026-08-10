@@ -68,6 +68,22 @@ class StateStoreGraphEffectModelRegistry:
         )
         return models
 
+    async def get_by_ref(self, model_ref: str) -> GraphEffectModel | None:
+        """Return one immutable model revision across active and challenger partitions."""
+
+        matches: list[GraphEffectModel] = []
+        for status in EffectModelStatus:
+            rows = await self._store.read_states(
+                f"{_PREFIX}:{status.value}:",
+                limit=self._max_models,
+            )
+            if len(rows) >= self._max_models:
+                raise ValueError("graph effect model registry partition is truncated")
+            matches.extend(model for row in rows if (model := _deserialize(row)).ref == model_ref)
+        if len(matches) > 1:
+            raise ValueError("graph effect model ref is ambiguous across registry partitions")
+        return matches[0] if matches else None
+
     async def update_from_observation(
         self,
         observation: GraphModelLearningObservation,
@@ -151,6 +167,10 @@ def _serialize(model: GraphEffectModel) -> dict[str, object]:
         "sample_count": model.sample_count,
         "mean_absolute_error": model.mean_absolute_error,
         "applied_observation_digests": list(model.applied_observation_digests),
+        "artifact_digest": model.artifact_digest,
+        "ontology_release_digest": model.ontology_release_digest,
+        "property_semantics_digest": model.property_semantics_digest,
+        "applicability_conditions": list(model.applicability_conditions),
     }
 
 
@@ -161,6 +181,9 @@ def _deserialize(raw: Mapping[str, Any]) -> GraphEffectModel:
     applied = raw.get("applied_observation_digests", [])
     if not isinstance(applied, list) or any(not isinstance(item, str) for item in applied):
         raise ValueError("stored graph effect observation digests MUST be a string list")
+    conditions = raw.get("applicability_conditions", [])
+    if not isinstance(conditions, list) or any(not isinstance(item, str) for item in conditions):
+        raise ValueError("stored graph effect applicability conditions MUST be a string list")
     return GraphEffectModel(
         model_id=_text(raw, "model_id"),
         version=_text(raw, "version"),
@@ -181,11 +204,24 @@ def _deserialize(raw: Mapping[str, Any]) -> GraphEffectModel:
         sample_count=int(raw.get("sample_count", 0)),
         mean_absolute_error=float(raw.get("mean_absolute_error", 0.0)),
         applied_observation_digests=tuple(applied),
+        artifact_digest=_optional_text(raw, "artifact_digest"),
+        ontology_release_digest=_optional_text(raw, "ontology_release_digest"),
+        property_semantics_digest=_optional_text(raw, "property_semantics_digest"),
+        applicability_conditions=tuple(conditions),
     )
 
 
 def _text(raw: Mapping[str, Any], key: str) -> str:
     value = raw.get(key)
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"stored graph effect {key} MUST be non-empty")
+    return value
+
+
+def _optional_text(raw: Mapping[str, Any], key: str) -> str | None:
+    value = raw.get(key)
+    if value is None:
+        return None
     if not isinstance(value, str) or not value:
         raise ValueError(f"stored graph effect {key} MUST be non-empty")
     return value

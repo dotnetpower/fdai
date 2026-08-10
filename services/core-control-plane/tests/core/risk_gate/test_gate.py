@@ -174,10 +174,20 @@ def test_matching_hold_recovery_is_capped_at_human_approval() -> None:
     assert decision.reasons == ("target_automation_hold_recovery_requires_hil",)
 
 
-def test_promotion_authority_bootstrap_is_enforce_but_never_auto() -> None:
+@pytest.mark.parametrize(
+    "action_type_name",
+    (
+        "governance.demote-effect-model",
+        "governance.promote-action-type",
+        "governance.promote-effect-model",
+    ),
+)
+def test_registry_authority_bootstrap_is_enforce_but_never_auto(
+    action_type_name: str,
+) -> None:
     registry = ActionPromotionRegistry()
     gate = RiskGate(registry=registry)
-    action_type = _shipped_action_types()["governance.promote-action-type"]
+    action_type = _shipped_action_types()[action_type_name]
     action = _action(action_type=action_type.name, citing_rules=["operator.promotion"])
     rule = _shipped_rules_by_id()["object-storage.owner-tag.required"]
 

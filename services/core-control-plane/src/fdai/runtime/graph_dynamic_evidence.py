@@ -15,6 +15,7 @@ from fdai.core.assurance_twin import (
     EffectModelStatus,
     GraphEffectModel,
     InvariantOperator,
+    StateStoreGraphEffectModelLifecycleRegistry,
     StateStoreGraphEffectModelRegistry,
 )
 from fdai.delivery.azure.graph_operational_evidence import (
@@ -120,13 +121,17 @@ async def bind_graph_dynamic_evidence_from_env(
         ):
             raise ValueError("stored graph Dynamic challenger conflicts with configured lineage")
 
+    lifecycle = StateStoreGraphEffectModelLifecycleRegistry(
+        store=state_store,
+        models=registry,
+    )
     return replace(
         container,
         graph_dynamic_simulation_request_provider=AzureGraphDynamicSimulationRequestProvider(
             snapshots=AzureCachedGraphOperationalSnapshotSource(inventory_context),
             policies=policies,
         ),
-        graph_effect_model_reader=registry,
+        graph_effect_model_reader=lifecycle,
         graph_effect_model_causal_evidence_verifier=verifier,
     )
 
@@ -203,14 +208,21 @@ def _model(value: object) -> GraphEffectModel:
         "sample_count",
         "mean_absolute_error",
         "applied_observation_digests",
+        "artifact_digest",
+        "ontology_release_digest",
+        "property_semantics_digest",
+        "applicability_conditions",
     }:
         raise ValueError("graph Dynamic model has unexpected fields")
     link_path = value.get("link_path")
     applied = value.get("applied_observation_digests")
+    conditions = value.get("applicability_conditions")
     if not isinstance(link_path, list) or any(not isinstance(item, str) for item in link_path):
         raise ValueError("graph Dynamic model link_path MUST be a string array")
     if not isinstance(applied, list) or any(not isinstance(item, str) for item in applied):
         raise ValueError("graph Dynamic model observation digests MUST be a string array")
+    if not isinstance(conditions, list) or any(not isinstance(item, str) for item in conditions):
+        raise ValueError("graph Dynamic model applicability conditions MUST be a string array")
     return GraphEffectModel(
         model_id=_text(value, "model_id"),
         version=_text(value, "version"),
@@ -231,6 +243,10 @@ def _model(value: object) -> GraphEffectModel:
         sample_count=_nonnegative_integer(value, "sample_count"),
         mean_absolute_error=_nonnegative(value, "mean_absolute_error"),
         applied_observation_digests=tuple(applied),
+        artifact_digest=_text(value, "artifact_digest"),
+        ontology_release_digest=_text(value, "ontology_release_digest"),
+        property_semantics_digest=_text(value, "property_semantics_digest"),
+        applicability_conditions=tuple(conditions),
     )
 
 

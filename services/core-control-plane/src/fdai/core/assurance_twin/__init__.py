@@ -61,6 +61,12 @@ from fdai.core.assurance_twin.graph_learning import (
     GraphModelLearningObservation,
     update_graph_challenger,
 )
+from fdai.core.assurance_twin.graph_model_lifecycle import (
+    GraphEffectModelLifecycleConflictError,
+    GraphEffectModelLifecycleRecord,
+    StateStoreGraphEffectModelLifecycleRegistry,
+    graph_model_scope_digest,
+)
 from fdai.core.assurance_twin.graph_model_registry import (
     GraphRegistryUpdate,
     StateStoreGraphEffectModelRegistry,
@@ -164,6 +170,8 @@ __all__ = [
     "GraphDynamicClosureCoordinator",
     "GraphDynamicClosureRunner",
     "GraphEffectModel",
+    "GraphEffectModelLifecycleConflictError",
+    "GraphEffectModelLifecycleRecord",
     "GraphEffectModelCausalEvidenceVerifier",
     "GraphEffectModelReader",
     "GraphModelLearningObservation",
@@ -197,6 +205,7 @@ __all__ = [
     "SimulationSnapshot",
     "StateStoreEffectModelRegistry",
     "StateStoreGraphEffectModelRegistry",
+    "StateStoreGraphEffectModelLifecycleRegistry",
     "StateStoreTrajectoryEpisodeLedger",
     "StateSlice",
     "TrajectoryKind",
@@ -211,6 +220,7 @@ __all__ = [
     "close_trajectory_outcome",
     "execute_query",
     "evaluate_dynamic_invariants",
+    "graph_model_scope_digest",
     "publish_review",
     "simulate_effect_branches",
     "simulate_graph_effects",

@@ -23,6 +23,11 @@ workflow ship as catalog-as-code and run in shadow mode.
 > declares a new mutation primitive. A process that needs a new capability is
 > a signal to open an upstream `ActionType` doc PR first.
 
+Graph-model promote and demote steps reuse the existing direct-API route instead of adding a
+workflow executor. They still pass Forseti judgment, Owner approval through Var, Thor execution,
+Saga audit, and receipt-bound rollback. A model pointer changes prediction selection only and never
+advances a Process or managed-resource action by itself.
+
 ## 1. Four distinct concepts
 
 Process automation composes four concepts that MUST NOT be conflated. Each has

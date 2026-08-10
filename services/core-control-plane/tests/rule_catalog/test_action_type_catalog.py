@@ -578,7 +578,9 @@ _DOC_OPS_ACTION_TYPES: frozenset[str] = frozenset(
 # Sourced from docs/roadmap/decisioning/action-ontology.md 3.3. Same drift guard.
 _DOC_GOVERNANCE_ACTION_TYPES: frozenset[str] = frozenset(
     {
+        "governance.demote-effect-model",
         "governance.promote-action-type",
+        "governance.promote-effect-model",
         "governance.retire-rule",
         "governance.grant-exemption",
         "governance.override-ceiling",
@@ -636,7 +638,12 @@ def test_governance_action_execution_paths_match_authority_contract() -> None:
             continue
         expected = (
             ExecutionPath.DIRECT_API
-            if action.name == "governance.promote-action-type"
+            if action.name
+            in {
+                "governance.demote-effect-model",
+                "governance.promote-action-type",
+                "governance.promote-effect-model",
+            }
             else ExecutionPath.PR_NATIVE
         )
         assert action.execution_path is expected
