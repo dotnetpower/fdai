@@ -70,7 +70,7 @@ _CRITIQUES: tuple[PromptCritique, ...] = (
     ),
     PromptCritique(
         "canonical subscription topics",
-        lambda spec: all(topic.startswith("object.") for topic in spec.subscribes),
+        lambda spec: all(topic.startswith(("object.", "command.")) for topic in spec.subscribes),
     ),
     PromptCritique(
         "unique action execution bindings",

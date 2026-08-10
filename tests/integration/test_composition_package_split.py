@@ -29,6 +29,9 @@ _EXPECTED_FILES = frozenset(
         # Binds strict promoted-inventory, current safety, temporal metric,
         # Dynamic branch, and effect-model providers without adding authority.
         "wire_azure_operational_evidence.py",
+        # Shares one issuer-backed trust authority across the secured
+        # ObjectSet gateway and exact-release network path function.
+        "wire_network_path.py",
         "wire_change_feed.py",
         # Durable execution profile and ledger binding.
         "wire_execution_backends.py",
@@ -78,6 +81,7 @@ _PUBLIC_NAMES = (
     "OperationalReadinessService",
     "bind_browser_evidence",
     "bind_execution_authorization",
+    "build_network_path_runtime",
 )
 
 # Names that MUST also appear in __all__ (subset of _PUBLIC_NAMES). The

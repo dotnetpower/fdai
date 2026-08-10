@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b24123f4c553f2d284233d2ffa9bbb0b80cddd7a
+translation_source_sha: 6204ff129a23c7ca92df18e64800637619b2f998
 translation_revised: 2026-08-10
 ---
 
@@ -408,7 +408,9 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   포크의 엔트리 포인트는 해당 바인딩을 감싸거나 교체하는 자체 팩토리를 호출합니다.
   구체 어댑터 클래스(예: `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`)
   는 public 서브-패키지에서 re-export **되지 않습니다**; 해당 서브모듈에서 직접, 그리고
-  조립 루트에서만 import 되어야 하므로 `core/` 가 실수로 구체에 의존할 수 없습니다.
+  조립 루트에서만 import 되어야 하므로 `core/` 가 실수로 구체에 의존할 수 없습니다. Facade는
+  `build_network_path_runtime`을 export하며 구현은 binder-per-file 및 package LOC contract를 보존하도록
+  `wire_network_path.py`에 유지합니다.
 - **Config-기반 바인딩**: 설정이 각 구현을 선택합니다. `composition/wire_distiller.py`는 exact-version
   endpoint 세 개와 replay-identical prompt 하나로 review-only `Distiller`를 atomic하게 bind합니다.
   Council record가 없으면 abstention을 유지하고 partial record는 execution T2 변경 없이 startup을 실패시킵니다.

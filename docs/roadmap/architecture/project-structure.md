@@ -418,8 +418,8 @@ clean (see the fork model in
   entry point calls its own factory that wraps or replaces those bindings. Concrete adapter
   classes (e.g. `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`) are
   **not** re-exported from public sub-packages; they must be imported directly from their
-  submodule, and only by a composition root, so `core/` cannot depend on a concrete by
-  accident.
+  submodule, and only by a composition root, so `core/` cannot depend on a concrete by accident. The
+  facade exports `build_network_path_runtime` from `wire_network_path.py` under the LOC contract.
 - **Config-driven binding**: configuration selects each implementation. `composition/wire_distiller.py`
   atomically binds the review-only `Distiller` from three exact-version endpoints and one replay-identical
   prompt; zero council records preserve abstention and partial records fail startup without changing execution T2.
