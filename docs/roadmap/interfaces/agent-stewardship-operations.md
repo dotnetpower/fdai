@@ -148,6 +148,8 @@ records the case's ownership effect only when the merged digest matches that pro
 map or mismatched merge remains held and cannot start IAM apply. After the matching receipt is
 stored, the governance service publishes one idempotent `human.assignment.iam_apply_requested`
 origin into typed ingress. The ingestion gateway receives no Graph write identity.
+Its storage, Event Hubs, model, and stewardship adapters use the same exact attached
+`FDAI_MI_CLIENT_ID`; none may resolve an ambient or system-assigned principal.
 
 ### Merge observation
 

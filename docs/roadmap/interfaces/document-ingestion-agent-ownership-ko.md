@@ -1,7 +1,7 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: 11c087b495e0c194a2b64adcb8c4d0d2d8f9e0b3
-translation_revised: 2026-08-06
+translation_source_sha: 4d30e54cbdd9d1e4a7b29dda81be4e92657ea218
+translation_revised: 2026-08-10
 ---
 
 # 문서 인제스트 에이전트 소유권
@@ -112,6 +112,9 @@ subscribe하지 않고 worker는 upload ingress를 노출하지 않으며, 어�
 judgment, approval, audit, memory 또는 executor authority를 얻지 않습니다. Topic-scoped RBAC는
 worker가 `aw.pantheon.objects`에서 Saga와 Muninn object를 receive하고 `aw.pipeline.stages`로 stage
 fact를 send하게 하며, split mode의 API identity에는 worker receive grant를 부여하지 않습니다.
+각 process는 attached user-assigned identity client id도 `FDAI_MI_CLIENT_ID`로 받습니다. Storage,
+Event Hubs, model, optional OCR 및 stewardship adapter는 해당 exact identity를 선택하며 ambient 또는
+system-assigned principal로 fallback하지 않습니다.
 
 ## 관련 문서
 

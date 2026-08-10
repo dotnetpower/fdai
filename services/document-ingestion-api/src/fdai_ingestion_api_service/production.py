@@ -47,6 +47,7 @@ _REQUIRED_ENV = (
     "FDAI_DATABASE_URL",
     "FDAI_DATABASE_ROLE",
     "FDAI_INGESTION_DEPLOYMENT_ROLE",
+    "FDAI_MI_CLIENT_ID",
     "FDAI_ADLS_ACCOUNT_URL",
     "FDAI_EMBEDDING_ENDPOINT",
     "FDAI_EMBEDDING_DEPLOYMENT",
@@ -82,7 +83,7 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
         raise ProductionConfigurationError("FDAI_DATABASE_ROLE MUST be fdai_ingestion_api")
     dsn = env["FDAI_DATABASE_URL"].strip()
     database = PostgresApiConfig(dsn=dsn)
-    credential = ManagedIdentityCredential()
+    credential = _managed_identity_credential(env)
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0))
     storage_config = AzureDataLakeConfig(
         account_url=env["FDAI_ADLS_ACCOUNT_URL"].strip(),
@@ -215,6 +216,11 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
             shutdown_callbacks=(publisher.close, storage.close, http_client.aclose),
         ),
     )
+
+
+def _managed_identity_credential(env: Mapping[str, str]) -> ManagedIdentityCredential:
+    """Select the exact user-assigned identity attached to the API Container App."""
+    return ManagedIdentityCredential(client_id=env["FDAI_MI_CLIENT_ID"].strip())
 
 
 def _positive_int(env: Mapping[str, str], key: str, default: int) -> int:

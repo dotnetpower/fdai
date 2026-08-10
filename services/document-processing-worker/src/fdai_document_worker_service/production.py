@@ -56,6 +56,7 @@ _REQUIRED_ENV = (
     "FDAI_DATABASE_URL",
     "FDAI_DATABASE_ROLE",
     "FDAI_INGESTION_DEPLOYMENT_ROLE",
+    "FDAI_MI_CLIENT_ID",
     "FDAI_ADLS_ACCOUNT_URL",
     "FDAI_EMBEDDING_ENDPOINT",
     "FDAI_EMBEDDING_DEPLOYMENT",
@@ -102,7 +103,7 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             f"FDAI_CLAMAV_PORT MUST be {_CLAMAV_SIDECAR_PORT} for the replica-local sidecar"
         )
     dsn = env["FDAI_DATABASE_URL"].strip()
-    credential = ManagedIdentityCredential()
+    credential = _managed_identity_credential(env)
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0))
     storage_config = AzureDataLakeConfig(
         account_url=env["FDAI_ADLS_ACCOUNT_URL"].strip(),
@@ -281,6 +282,11 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             http_client.aclose,
         ),
     )
+
+
+def _managed_identity_credential(env: Mapping[str, str]) -> ManagedIdentityCredential:
+    """Select the exact user-assigned identity attached to the worker Container App."""
+    return ManagedIdentityCredential(client_id=env["FDAI_MI_CLIENT_ID"].strip())
 
 
 def run_production_worker(environ: Mapping[str, str]) -> int:

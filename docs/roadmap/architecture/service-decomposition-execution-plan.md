@@ -316,6 +316,7 @@ state. For each transition:
 | 2026-08-10 | IS-09 | Canonical N source binding | Round 54 | Supply-chain critique found that N-1 was bound to its manifest source while N accepted any source revision whose workflow head matched itself. The transition manifest now records the exact N source, and final evidence rejects any N release, image set, or stage chain that is not rooted in that revision. |
 | 2026-08-10 | IS-09 | Closed local evidence schema | Round 55 | Evidence-boundary critique found that local transition services and artifacts were spot-checked but could carry unrecognized fields. The checker now requires exact top-level, service, and artifact key sets before accepting local N -> N-1 -> N evidence. |
 | 2026-08-10 | IS-09 | Complete remote count join | Round 56 | Program-final critique found that the integration gate rechecked the two 5/5 targets but relied on the nested verifier for the 15 plans, 15 applies, and 30 peer receipts. The completion join now independently requires all five derived counts before loading live compatibility evidence. |
+| 2026-08-10 | IS-09 | Exact document-service identity selection | Round 57 | Ingestion API run `31348846570` reached the new revision but crash-looped because Azure SDK clients used an unqualified Managed Identity credential even though the Container App declared an exact user-assigned client id. The API and Worker now require `FDAI_MI_CLIENT_ID` and construct every Azure adapter credential with that exact client id; missing identity selection fails before provider probes. |
 
 ## Related documents
 

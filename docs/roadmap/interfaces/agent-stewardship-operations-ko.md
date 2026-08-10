@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: dde6b94d335647ecf48d69c07ca84a0e1991f5ff
-translation_revised: 2026-08-08
+translation_source_sha: da3abe7f0f53b294cd1a8324713e5d5ed98abff9
+translation_revised: 2026-08-10
 title: 에이전트 운영 책임 수명 주기
 ---
 # 에이전트 운영 책임 수명 주기
@@ -151,6 +151,8 @@ merged digest가 proposal과 일치할 때만 case의 ownership effect를 기록
 mismatched merge는 보류되며 IAM apply를 시작할 수 없습니다. 일치하는 receipt를 저장한 뒤
 governance service는 멱등 `human.assignment.iam_apply_requested` origin 하나를 typed ingress에
 게시합니다. Ingestion gateway는 Graph write ID를 받지 않습니다.
+Storage, Event Hubs, model 및 stewardship adapter는 동일한 exact attached `FDAI_MI_CLIENT_ID`를
+사용하며 ambient 또는 system-assigned principal을 resolve할 수 없습니다.
 
 ### Merge observation
 

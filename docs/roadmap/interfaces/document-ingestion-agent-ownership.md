@@ -105,6 +105,9 @@ worker consumer groups, the worker exposes no upload ingress, and neither proces
 approval, audit, memory, or executor authority from its deployment role. Topic-scoped RBAC lets the
 worker receive Saga and Muninn objects from `aw.pantheon.objects` and send stage facts to
 `aw.pipeline.stages`; the API identity has no worker receive grant in split mode.
+Each process also receives its attached user-assigned identity client id through
+`FDAI_MI_CLIENT_ID`. Storage, Event Hubs, model, optional OCR, and stewardship adapters select that
+exact identity and do not fall back to an ambient or system-assigned principal.
 
 ## Related docs
 

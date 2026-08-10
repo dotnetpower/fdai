@@ -8,11 +8,13 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
+from fdai_document_worker_service import production as worker_production
 from fdai_document_worker_service.application import run_worker
 from fdai_document_worker_service.composition import (
     ConfiguredDocumentWorkerComposition,
     DocumentWorkerConfigurationError,
 )
+from fdai_ingestion_api_service import production as api_production
 from fdai_ingestion_api_service.application import create_app
 from fdai_ingestion_api_service.composition import (
     ConfiguredIngestionApiComposition,
@@ -73,6 +75,25 @@ def test_services_do_not_import_each_other() -> None:
         for path in API_SOURCE.rglob("*.py")
         for name in _imports(path)
     )
+
+
+@pytest.mark.parametrize("production", [api_production, worker_production])
+def test_production_azure_credential_uses_exact_attached_identity(
+    monkeypatch: pytest.MonkeyPatch,
+    production: object,
+) -> None:
+    observed: list[str] = []
+
+    def credential(*, client_id: str) -> object:
+        observed.append(client_id)
+        return object()
+
+    monkeypatch.setattr(production, "ManagedIdentityCredential", credential)
+
+    result = production._managed_identity_credential({"FDAI_MI_CLIENT_ID": " identity-client "})
+
+    assert result is not None
+    assert observed == ["identity-client"]
     assert all(
         not name.startswith("fdai_ingestion_api_service")
         for path in WORKER_SOURCE.rglob("*.py")
