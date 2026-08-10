@@ -418,7 +418,6 @@ justifies them):
   [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
 
 ### Compute Shape (current core and five-service target)
-
 The current control-loop Core deploys as one signed image and one Python process. The five-service target adds an internal Isolated Executor and removes executor roles from Core at cutover; Operator, ingestion API, and ingestion worker remain separate. The prior topology is the rollback artifact, and the [execution plan](../architecture/service-decomposition-execution-plan.md) tracks every gate.
 
 - **Runtime**: `python -m fdai` starts the Kafka consumer and composes routing, quality, risk, and audit stages. `fdai-isolated-executor` stays shadow-only by default. The explicit cutover uses a stable Core receipt consumer group, the versioned command/receipt transport, the existing guarded direct-API executor, and a dedicated gateway caller identity. Deployment venue and `RUNTIME_ENV` remain independent.

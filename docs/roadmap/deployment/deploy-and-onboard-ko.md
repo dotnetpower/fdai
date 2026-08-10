@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: c791f9d882c12bbe1347539be0af304ca050e70d
+translation_source_sha: c4edcafe7818c2824c5b9e043859655a412b6654
 translation_revised: 2026-08-10
 ---
 
@@ -420,7 +420,6 @@ Identity를 사용하며 connection string 또는 Storage account key를 만들�
   [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must) 참조).
 
 ### Compute Shape (현재 Core와 5개 service 목표)
-
 현재 control-loop Core는 서명된 이미지와 Python process 하나로 배포됩니다. 5개 service 목표는 internal Isolated Executor를 추가하고 cutover에서 Core의 executor role을 제거합니다. Operator, ingestion API, ingestion worker는 별도이며 이전 topology는 rollback artifact입니다. 모든 gate는 [실행 계획](../architecture/service-decomposition-execution-plan-ko.md)에서 추적합니다.
 
 - **Runtime**: `python -m fdai`가 Kafka consumer를 시작하고 routing, quality, risk, audit stage를 구성합니다. `fdai-isolated-executor`는 기본적으로 shadow-only입니다. 명시적 cutover는 stable Core receipt consumer group, versioned command/receipt transport, 기존 guarded direct-API executor 및 전용 gateway caller identity를 사용합니다. Deployment venue와 `RUNTIME_ENV`는 독립적으로 유지합니다.
