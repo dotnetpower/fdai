@@ -181,7 +181,7 @@ def _verify_adoptions(
     client: GitHubClient,
     evidence: Mapping[str, Any],
     *,
-    controls_equivalent: Callable[[str, str], None],
+    controls_ancestor: Callable[[str, str], None],
 ) -> None:
     controls = str(evidence["controls_commit_sha"])
     adoptions = evidence.get("adoptions")
@@ -211,7 +211,7 @@ def _verify_adoptions(
             completion,
             artifact_record,
             controls=controls,
-            controls_equivalent=controls_equivalent,
+            controls_ancestor=controls_ancestor,
         )
         run_id = int(artifact_record["workflow_run_id"])
         attempt = int(artifact_record["workflow_run_attempt"])
@@ -270,15 +270,15 @@ def _verify_adoption_controls(
     artifact: Mapping[str, Any],
     *,
     controls: str,
-    controls_equivalent: Callable[[str, str], None],
+    controls_ancestor: Callable[[str, str], None],
 ) -> None:
-    """Require both adoption runs and rollback controls to match final deployment inputs."""
+    """Require both historical adoption runs and rollback controls on protected main."""
     for revision in (
         completion["workflow_head_sha"],
         artifact["workflow_head_sha"],
         artifact["controls_commit_sha"],
     ):
-        controls_equivalent(str(revision), controls)
+        controls_ancestor(str(revision), controls)
 
 
 def _artifact_map(client: GitHubClient, run_id: int) -> dict[str, dict[str, Any]]:
@@ -469,6 +469,7 @@ def validate_github_evidence(
     client: GitHubClient,
     *,
     controls_equivalent: Callable[[str, str], None],
+    controls_ancestor: Callable[[str, str], None],
 ) -> None:
     """Verify every claimed remote run and artifact against GitHub records."""
     controls = str(evidence["controls_commit_sha"])
@@ -476,7 +477,7 @@ def validate_github_evidence(
     for release_name in ("n", "n_minus_one"):
         release = _object(evidence.get(release_name), f"{release_name} release")
         _supply_chain_record(client, release, f"{release_name} supply chain")
-    _verify_adoptions(client, evidence, controls_equivalent=controls_equivalent)
+    _verify_adoptions(client, evidence, controls_ancestor=controls_ancestor)
     services = evidence.get("services")
     if not isinstance(services, list):
         raise GitHubEvidenceError("remote evidence services must be an array")
@@ -546,6 +547,16 @@ IMAGE_NAMES = {
 }
 
 
+def _require_git_ancestor(repository: Path, before: str, after: str) -> None:
+    """Require one historical evidence revision to be an ancestor of final controls."""
+    subprocess.run(
+        ["git", "merge-base", "--is-ancestor", before, after],
+        cwd=repository,
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+
+
 def main() -> int:
     """Verify tracked remote evidence against GitHub and image attestations."""
     parser = argparse.ArgumentParser()
@@ -560,6 +571,9 @@ def main() -> int:
             evidence,
             ApiClient(token),
             controls_equivalent=lambda before, after: verify_unchanged(
+                args.repository_root, before, after
+            ),
+            controls_ancestor=lambda before, after: _require_git_ancestor(
                 args.repository_root, before, after
             ),
         )

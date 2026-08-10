@@ -142,14 +142,14 @@ def test_adoption_run_allows_later_failure_only_after_successful_adoption_steps(
         )
 
 
-def test_split_adoption_revisions_must_match_aggregate_controls() -> None:
+def test_split_adoption_revisions_must_ancestry_bind_to_aggregate_controls() -> None:
     checked: list[tuple[str, str]] = []
 
     _verify_adoption_controls(
         {"workflow_head_sha": "a" * 40},
         {"workflow_head_sha": "b" * 40, "controls_commit_sha": "c" * 40},
         controls="d" * 40,
-        controls_equivalent=lambda before, after: checked.append((before, after)),
+        controls_ancestor=lambda before, after: checked.append((before, after)),
     )
 
     assert checked == [
