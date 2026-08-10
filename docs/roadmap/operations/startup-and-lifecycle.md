@@ -154,8 +154,8 @@ You can tune the bounded runner with `FDAI_STARTUP_MAX_CONCURRENCY`,
 `FDAI_STARTUP_MODEL_SAMPLE_COUNT`, and `FDAI_STARTUP_REFRESH_SECONDS`. Enabled optional adapters
 should register a `StartupProbeSpec` and `StartupProbe`; they should not add a blanket connectivity
 flag. The Azure reference profile allows 12 seconds for the Event Hubs consumer-group join,
-30 seconds per probe, and 60 seconds per phase. These are deployment defaults, not changes to the
-provider-neutral runtime defaults.
+30 seconds per probe, and 75 seconds per phase so both default attempts have bounded completion
+headroom. These are deployment defaults, not changes to the provider-neutral runtime defaults.
 
 ### Continuous monitored-target readiness
 

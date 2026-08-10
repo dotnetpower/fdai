@@ -566,6 +566,13 @@ def test_core_contract_requires_complete_bootstrap_environment(contract: ModuleT
     } <= set(resolved.required_environment)
     assert '{ name = "FDAI_START_CONSUMER", value = "1" }' in _CORE_TERRAFORM
     assert "value = tostring(var.startup_readiness.kafka_settle_seconds)" in _CORE_TERRAFORM
+    core_variables = (
+        _ROOT / "infra" / "services" / "core-control-plane" / "variables.tf"
+    ).read_text(encoding="utf-8")
+    assert "phase_timeout_seconds = 75" in core_variables
+    assert (
+        "phase_timeout_seconds > var.startup_readiness.probe_timeout_seconds * 2" in core_variables
+    )
 
 
 def test_unknown_service_and_environment_fail_closed(contract: ModuleType) -> None:
