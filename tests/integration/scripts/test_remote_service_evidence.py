@@ -204,24 +204,32 @@ def _evidence() -> dict[str, Any]:
         "adoptions": [
             {
                 "service_id": service_id,
-                "workflow_run_id": 30 + index,
-                "workflow_run_attempt": 1,
-                "workflow_head_sha": _CONTROLS,
-                "controls_commit_sha": _CONTROLS,
-                "conclusion": "success" if index == 0 else "failure",
-                "migration_step_conclusion": "success",
-                "artifact_step_conclusion": "success",
-                "artifact_sha256": _digest(30 + index),
-                "observed_legacy_head": "legacy_head_1",
-                "observed_legacy_revision_count": 10,
-                "observed_schema_fingerprint": _digest(40 + index),
-                "schema_version": 1,
-                "owned_table_count": index + 1,
-                "verified_at": "2026-08-09T00:00:00Z",
-                "rollback_reference": (
-                    f"git:{_CONTROLS}:service-migrations/branches/"
-                    f"{service_id}/adoption.json#rollback"
-                ),
+                "completion": {
+                    "workflow_run_id": 30 + index,
+                    "workflow_run_attempt": 1,
+                    "workflow_head_sha": _CONTROLS,
+                    "conclusion": "success" if index == 0 else "failure",
+                    "migration_step_conclusion": "success",
+                },
+                "artifact": {
+                    "workflow_run_id": 40 + index,
+                    "workflow_run_attempt": 1,
+                    "workflow_head_sha": _CONTROLS,
+                    "controls_commit_sha": _CONTROLS,
+                    "conclusion": "failure",
+                    "artifact_step_conclusion": "success",
+                    "artifact_sha256": _digest(30 + index),
+                    "observed_legacy_head": "legacy_head_1",
+                    "observed_legacy_revision_count": 10,
+                    "observed_schema_fingerprint": _digest(40 + index),
+                    "schema_version": 1,
+                    "owned_table_count": index + 1,
+                    "verified_at": "2026-08-09T00:00:00Z",
+                    "rollback_reference": (
+                        f"git:{_CONTROLS}:service-migrations/branches/"
+                        f"{service_id}/adoption.json#rollback"
+                    ),
+                },
             }
             for index, service_id in enumerate(SERVICE_IDS)
         ],
@@ -295,10 +303,18 @@ def test_rejects_missing_remote_adoption() -> None:
 
 def test_rejects_unsuccessful_remote_adoption_step() -> None:
     evidence = _evidence()
-    evidence["adoptions"][0]["migration_step_conclusion"] = "failure"
+    evidence["adoptions"][0]["completion"]["migration_step_conclusion"] = "failure"
 
-    with pytest.raises(RemoteEvidenceError, match="adoption steps are incomplete"):
+    with pytest.raises(RemoteEvidenceError, match="adoption completion is incomplete"):
         validate_remote_service_evidence(_manifest(), evidence)
+
+
+def test_accepts_adoption_artifact_before_later_completion() -> None:
+    evidence = _evidence()
+    adoption = evidence["adoptions"][0]
+
+    assert adoption["artifact"]["workflow_run_id"] != adoption["completion"]["workflow_run_id"]
+    validate_remote_service_evidence(_manifest(), evidence)
 
 
 def test_rejects_relabelled_live_observation() -> None:

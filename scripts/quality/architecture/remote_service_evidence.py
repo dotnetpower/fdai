@@ -175,7 +175,8 @@ def _validate_adoptions(value: object) -> None:
     adoptions = _array(value, "remote adoptions")
     if len(adoptions) != len(SERVICE_IDS):
         raise RemoteEvidenceError("remote adoptions must contain five services")
-    run_ids: set[int] = set()
+    completion_run_ids: set[int] = set()
+    artifact_run_ids: set[int] = set()
     artifacts: set[str] = set()
     for expected_service, value in zip(SERVICE_IDS, adoptions, strict=True):
         adoption = _object(value, f"{expected_service} adoption")
@@ -183,12 +184,53 @@ def _validate_adoptions(value: object) -> None:
             adoption,
             {
                 "service_id",
+                "completion",
+                "artifact",
+            },
+            f"{expected_service} adoption",
+        )
+        if adoption["service_id"] != expected_service:
+            raise RemoteEvidenceError("remote adoptions must use canonical service order")
+        completion = _object(adoption["completion"], f"{expected_service} adoption completion")
+        _exact_keys(
+            completion,
+            {
+                "workflow_run_id",
+                "workflow_run_attempt",
+                "workflow_head_sha",
+                "conclusion",
+                "migration_step_conclusion",
+            },
+            f"{expected_service} adoption completion",
+        )
+        run_id = _require_positive_int(
+            completion["workflow_run_id"], f"{expected_service} adoption completion run id"
+        )
+        if run_id in completion_run_ids:
+            raise RemoteEvidenceError("remote adoption completion run ids must be unique")
+        completion_run_ids.add(run_id)
+        _require_positive_int(
+            completion["workflow_run_attempt"],
+            f"{expected_service} adoption completion run attempt",
+        )
+        _require_commit(
+            completion["workflow_head_sha"], f"{expected_service} adoption completion head"
+        )
+        if completion["conclusion"] not in {"success", "failure"}:
+            raise RemoteEvidenceError(
+                f"{expected_service} adoption completion conclusion is invalid"
+            )
+        if completion["migration_step_conclusion"] != "success":
+            raise RemoteEvidenceError(f"{expected_service} adoption completion is incomplete")
+        artifact_record = _object(adoption["artifact"], f"{expected_service} adoption artifact")
+        _exact_keys(
+            artifact_record,
+            {
                 "workflow_run_id",
                 "workflow_run_attempt",
                 "workflow_head_sha",
                 "controls_commit_sha",
                 "conclusion",
-                "migration_step_conclusion",
                 "artifact_step_conclusion",
                 "artifact_sha256",
                 "observed_legacy_head",
@@ -199,58 +241,59 @@ def _validate_adoptions(value: object) -> None:
                 "verified_at",
                 "rollback_reference",
             },
-            f"{expected_service} adoption",
+            f"{expected_service} adoption artifact",
         )
-        if adoption["service_id"] != expected_service:
-            raise RemoteEvidenceError("remote adoptions must use canonical service order")
-        run_id = _require_positive_int(
-            adoption["workflow_run_id"], f"{expected_service} adoption run id"
+        artifact_run_id = _require_positive_int(
+            artifact_record["workflow_run_id"], f"{expected_service} adoption artifact run id"
         )
-        if run_id in run_ids:
-            raise RemoteEvidenceError("remote adoption workflow run ids must be unique")
-        run_ids.add(run_id)
+        if artifact_run_id in artifact_run_ids:
+            raise RemoteEvidenceError("remote adoption artifact run ids must be unique")
+        artifact_run_ids.add(artifact_run_id)
         _require_positive_int(
-            adoption["workflow_run_attempt"], f"{expected_service} adoption run attempt"
+            artifact_record["workflow_run_attempt"],
+            f"{expected_service} adoption artifact run attempt",
         )
-        _require_commit(adoption["workflow_head_sha"], f"{expected_service} adoption head")
+        _require_commit(
+            artifact_record["workflow_head_sha"], f"{expected_service} adoption artifact head"
+        )
         controls = _require_commit(
-            adoption["controls_commit_sha"], f"{expected_service} adoption controls"
+            artifact_record["controls_commit_sha"],
+            f"{expected_service} adoption artifact controls",
         )
-        if adoption["conclusion"] not in {"success", "failure"}:
-            raise RemoteEvidenceError(f"{expected_service} adoption run conclusion is invalid")
-        if (
-            adoption["migration_step_conclusion"] != "success"
-            or adoption["artifact_step_conclusion"] != "success"
-        ):
-            raise RemoteEvidenceError(f"{expected_service} adoption steps are incomplete")
+        if artifact_record["conclusion"] not in {"success", "failure"}:
+            raise RemoteEvidenceError(f"{expected_service} adoption artifact conclusion is invalid")
+        if artifact_record["artifact_step_conclusion"] != "success":
+            raise RemoteEvidenceError(f"{expected_service} adoption artifact is incomplete")
         artifact = _require_sha256(
-            adoption["artifact_sha256"], f"{expected_service} adoption artifact"
+            artifact_record["artifact_sha256"], f"{expected_service} adoption artifact"
         )
         if artifact in artifacts:
             raise RemoteEvidenceError("remote adoption artifacts must be unique")
         artifacts.add(artifact)
-        legacy_head = adoption["observed_legacy_head"]
+        legacy_head = artifact_record["observed_legacy_head"]
         if not isinstance(legacy_head, str) or re.fullmatch(r"[0-9A-Za-z_]+", legacy_head) is None:
             raise RemoteEvidenceError(f"{expected_service} observed legacy head is invalid")
         _require_positive_int(
-            adoption["observed_legacy_revision_count"],
+            artifact_record["observed_legacy_revision_count"],
             f"{expected_service} observed legacy revision count",
         )
         _require_sha256(
-            adoption["observed_schema_fingerprint"],
+            artifact_record["observed_schema_fingerprint"],
             f"{expected_service} observed schema fingerprint",
         )
-        if adoption["schema_version"] != 1:
+        if artifact_record["schema_version"] != 1:
             raise RemoteEvidenceError(f"{expected_service} adoption schema version is invalid")
         _require_positive_int(
-            adoption["owned_table_count"], f"{expected_service} owned table count"
+            artifact_record["owned_table_count"], f"{expected_service} owned table count"
         )
-        _require_timestamp(adoption["verified_at"], f"{expected_service} adoption verified_at")
+        _require_timestamp(
+            artifact_record["verified_at"], f"{expected_service} adoption verified_at"
+        )
         expected_reference = re.compile(
             rf"git:{controls}:service-migrations/branches/{re.escape(expected_service)}"
             r"/adoption\.json#rollback"
         )
-        reference = adoption["rollback_reference"]
+        reference = artifact_record["rollback_reference"]
         if not isinstance(reference, str) or expected_reference.fullmatch(reference) is None:
             raise RemoteEvidenceError(f"{expected_service} adoption rollback reference is invalid")
 

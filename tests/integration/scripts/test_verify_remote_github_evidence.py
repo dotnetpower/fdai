@@ -83,13 +83,12 @@ def test_run_record_rejects_invented_conclusion() -> None:
 
 
 def test_adoption_run_allows_later_failure_only_after_successful_adoption_steps() -> None:
-    adoption = {
+    adoption_run = {
         "workflow_run_id": 123,
         "workflow_run_attempt": 2,
         "workflow_head_sha": "a" * 40,
         "conclusion": "failure",
         "migration_step_conclusion": "success",
-        "artifact_step_conclusion": "success",
     }
     records = {
         "repos/dotnetpower/fdai/actions/runs/123": {
@@ -97,6 +96,9 @@ def test_adoption_run_allows_later_failure_only_after_successful_adoption_steps(
             "run_attempt": 2,
             "head_sha": "a" * 40,
             "conclusion": "failure",
+            "event": "workflow_dispatch",
+            "head_branch": "main",
+            "path": ".github/workflows/service-deploy.yml",
         },
         "repos/dotnetpower/fdai/actions/runs/123/jobs?per_page=100": {
             "jobs": [
@@ -116,13 +118,27 @@ def test_adoption_run_allows_later_failure_only_after_successful_adoption_steps(
         },
     }
 
-    _adoption_run_record(_Client(records), adoption, "isolated-executor")
+    _adoption_run_record(
+        _Client(records),
+        adoption_run,
+        "isolated-executor",
+        step_name="Apply service-owned database migrations",
+        step_conclusion_key="migration_step_conclusion",
+        label="completion",
+    )
 
     records["repos/dotnetpower/fdai/actions/runs/123/jobs?per_page=100"]["jobs"][0]["steps"][0][
         "conclusion"
     ] = "failure"
     with pytest.raises(GitHubEvidenceError, match="step binding is invalid"):
-        _adoption_run_record(_Client(records), adoption, "isolated-executor")
+        _adoption_run_record(
+            _Client(records),
+            adoption_run,
+            "isolated-executor",
+            step_name="Apply service-owned database migrations",
+            step_conclusion_key="migration_step_conclusion",
+            label="completion",
+        )
 
 
 def test_artifact_binds_api_digest_and_downloaded_content() -> None:

@@ -123,10 +123,14 @@ def _supply_chain_record(client: GitHubClient, release: Mapping[str, Any], label
 
 def _adoption_run_record(
     client: GitHubClient,
-    adoption: Mapping[str, Any],
+    run: Mapping[str, Any],
     service_id: str,
+    *,
+    step_name: str,
+    step_conclusion_key: str,
+    label: str,
 ) -> None:
-    run_id = adoption.get("workflow_run_id")
+    run_id = run.get("workflow_run_id")
     if isinstance(run_id, bool) or not isinstance(run_id, int) or run_id < 1:
         raise GitHubEvidenceError(f"{service_id} adoption GitHub run id is invalid")
     value = _object(
@@ -135,9 +139,12 @@ def _adoption_run_record(
     )
     expected = {
         "id": run_id,
-        "run_attempt": adoption.get("workflow_run_attempt"),
-        "head_sha": adoption.get("workflow_head_sha"),
-        "conclusion": adoption.get("conclusion"),
+        "run_attempt": run.get("workflow_run_attempt"),
+        "head_sha": run.get("workflow_head_sha"),
+        "conclusion": run.get("conclusion"),
+        "event": "workflow_dispatch",
+        "head_branch": "main",
+        "path": ".github/workflows/service-deploy.yml",
     }
     for key, wanted in expected.items():
         if value.get(key) != wanted:
@@ -145,11 +152,8 @@ def _adoption_run_record(
     _require_run_steps(
         client,
         run_id,
-        {
-            "Apply service-owned database migrations": adoption.get("migration_step_conclusion"),
-            "Upload service migration adoption evidence": adoption.get("artifact_step_conclusion"),
-        },
-        label=f"{service_id} adoption",
+        {step_name: run.get(step_conclusion_key)},
+        label=f"{service_id} adoption {label}",
     )
 
 
@@ -176,37 +180,49 @@ def _require_run_steps(
 def _verify_adoptions(
     client: GitHubClient,
     evidence: Mapping[str, Any],
-    *,
-    controls_equivalent: Callable[[str, str], None],
 ) -> None:
-    controls = str(evidence["controls_commit_sha"])
     adoptions = evidence.get("adoptions")
     if not isinstance(adoptions, list):
         raise GitHubEvidenceError("remote adoptions must be an array")
     for service_id, raw in zip(SERVICE_IDS, adoptions, strict=True):
         adoption = _object(raw, f"{service_id} adoption")
-        _adoption_run_record(client, adoption, service_id)
-        controls_equivalent(str(adoption["workflow_head_sha"]), controls)
-        controls_equivalent(str(adoption["controls_commit_sha"]), controls)
-        run_id = int(adoption["workflow_run_id"])
-        attempt = int(adoption["workflow_run_attempt"])
+        completion = _object(adoption.get("completion"), f"{service_id} adoption completion")
+        artifact_record = _object(adoption.get("artifact"), f"{service_id} adoption artifact")
+        _adoption_run_record(
+            client,
+            completion,
+            service_id,
+            step_name="Apply service-owned database migrations",
+            step_conclusion_key="migration_step_conclusion",
+            label="completion",
+        )
+        _adoption_run_record(
+            client,
+            artifact_record,
+            service_id,
+            step_name="Upload service migration adoption evidence",
+            step_conclusion_key="artifact_step_conclusion",
+            label="artifact",
+        )
+        run_id = int(artifact_record["workflow_run_id"])
+        attempt = int(artifact_record["workflow_run_attempt"])
         artifacts = _artifact_map(client, run_id)
         name = f"service-migration-adoption-{service_id}-dev-{run_id}-{attempt}"
         adoption_record = _artifact(
             client,
             artifacts,
             name=name,
-            digest=adoption["artifact_sha256"],
+            digest=artifact_record["artifact_sha256"],
             basename="service-migration-adoption.json",
         )
         expected_adoption = {
             "service_id": service_id,
-            "observed_legacy_head": adoption["observed_legacy_head"],
-            "observed_legacy_revision_count": adoption["observed_legacy_revision_count"],
-            "observed_schema_fingerprint": adoption["observed_schema_fingerprint"],
+            "observed_legacy_head": artifact_record["observed_legacy_head"],
+            "observed_legacy_revision_count": artifact_record["observed_legacy_revision_count"],
+            "observed_schema_fingerprint": artifact_record["observed_schema_fingerprint"],
             "schema_reference": "service-migration-schema.json",
-            "verified_at": adoption["verified_at"],
-            "rollback_reference": adoption["rollback_reference"],
+            "verified_at": artifact_record["verified_at"],
+            "rollback_reference": artifact_record["rollback_reference"],
         }
         if adoption_record != expected_adoption:
             raise GitHubEvidenceError(f"{service_id} adoption record binding is invalid")
@@ -214,7 +230,7 @@ def _verify_adoptions(
             client,
             artifacts,
             name=name,
-            digest=adoption["artifact_sha256"],
+            digest=artifact_record["artifact_sha256"],
             basename="service-migration-schema.json",
         )
         if set(schema) != {
@@ -228,11 +244,12 @@ def _verify_adoptions(
         owned_tables = schema.get("owned_tables")
         if (
             schema.get("service_id") != service_id
-            or schema.get("schema_version") != adoption["schema_version"]
-            or schema.get("observed_schema_fingerprint") != adoption["observed_schema_fingerprint"]
-            or schema.get("verified_at") != adoption["verified_at"]
+            or schema.get("schema_version") != artifact_record["schema_version"]
+            or schema.get("observed_schema_fingerprint")
+            != artifact_record["observed_schema_fingerprint"]
+            or schema.get("verified_at") != artifact_record["verified_at"]
             or not isinstance(owned_tables, list)
-            or len(owned_tables) != adoption["owned_table_count"]
+            or len(owned_tables) != artifact_record["owned_table_count"]
             or not all(isinstance(table, str) and table for table in owned_tables)
             or len(set(owned_tables)) != len(owned_tables)
         ):
@@ -434,7 +451,7 @@ def validate_github_evidence(
     for release_name in ("n", "n_minus_one"):
         release = _object(evidence.get(release_name), f"{release_name} release")
         _supply_chain_record(client, release, f"{release_name} supply chain")
-    _verify_adoptions(client, evidence, controls_equivalent=controls_equivalent)
+    _verify_adoptions(client, evidence)
     services = evidence.get("services")
     if not isinstance(services, list):
         raise GitHubEvidenceError("remote evidence services must be an array")
