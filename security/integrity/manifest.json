@@ -452,9 +452,9 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/pod_telemetry.py": "8360992ee93f82eb5196ac823d2a35f556e434ef73c863c3a024e9bb3a8d80dc",
     "services/core-control-plane/src/fdai/core/ontology_platform/pod_telemetry_evidence.py": "2ca3d5edd9152000ea3fedee3d1bb531cab7af17410a29f6743c941cb25b0ae0",
     "services/core-control-plane/src/fdai/core/ontology_platform/projection.py": "c39e903c920dbaea9fe598638fdc3392174d2f73b2925747705410d92e7ee22e",
-    "services/core-control-plane/src/fdai/core/ontology_platform/query_execution.py": "1b3936bf48caf719f5df87ac4dbc1915d8c14986ac4fb62bb42036376ff89340",
+    "services/core-control-plane/src/fdai/core/ontology_platform/query_execution.py": "46806e4cc63cc828180b020a9349dd1492c559fb30804a0206ee398d0bef2b2a",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_gateway.py": "19d9cd471fd4092f3431f644ae830e134f47977ec3352e3abf38f7a0739f2dc9",
-    "services/core-control-plane/src/fdai/core/ontology_platform/query_manifest.py": "44771c002050519cc9481fc8be6110e130d5c2faa128b98dbd2d0a8efdcb4558",
+    "services/core-control-plane/src/fdai/core/ontology_platform/query_manifest.py": "95f645f7025c1b7a46fc62579f956a3521e5b79e337fceae010d35d867202448",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_profiles.py": "6c176498d28302acc102810d49755af34bbf96b4111d8d37d6807bcf0bb6e072",
     "services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py": "76c53530ca2e38afff69c6cc4abd382a912fb9c1226bfd7f05692874fd36b4a5",
     "services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py": "70674f3640190795ec62d24176a41596c1311669017419d32f8455b7485d094b",
@@ -1018,7 +1018,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-10T22:04:36Z",
+  "generated_at": "2026-08-10T22:15:56Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

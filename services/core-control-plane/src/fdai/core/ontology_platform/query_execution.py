@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from types import MappingProxyType
-from typing import Protocol
+from typing import Literal, Protocol
 
 from fdai_service_contracts.ontology_query import (
     GoalEvidenceMode,
@@ -24,6 +25,7 @@ from .object_sets import ObjectSetService
 
 _MAX_CONCURRENCY = 8
 _MAX_NODE_TIMEOUT_SECONDS = 30.0
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,7 +55,7 @@ class QueryPlanExecution:
     results: Mapping[str, QueryNodeResult]
     receipts: tuple[GoalTaskReceipt, ...]
     output_node_ids: tuple[str, ...]
-    execution_authority: bool = False
+    execution_authority: Literal[False] = False
 
     def __post_init__(self) -> None:
         if self.execution_authority:
@@ -89,6 +91,7 @@ class OntologyQueryPlanExecutor:
         plan: OntologyQueryPlan,
         *,
         expected_release_digest: str,
+        expected_manifest_digest: str,
         expected_role: str,
         expected_purpose: str,
         cancelled: asyncio.Event | None = None,
@@ -97,6 +100,8 @@ class OntologyQueryPlanExecutor:
 
         if plan.ontology_release_digest != expected_release_digest:
             raise ValueError("ontology query plan targets a stale release")
+        if plan.semantic_catalog_digest != expected_manifest_digest:
+            raise ValueError("ontology query plan targets a stale query manifest")
         if plan.caller_role != expected_role:
             raise PermissionError("ontology query plan caller role changed")
         if plan.purpose != expected_purpose:
@@ -212,11 +217,27 @@ class OntologyQueryPlanExecutor:
                 ),
             )
         try:
-            async with semaphore:
-                result = await asyncio.wait_for(
-                    handler(node, MappingProxyType(dict(dependencies))),
-                    timeout=self._node_timeout_seconds,
-                )
+            result = await self._invoke_with_deadline(
+                handler,
+                node=node,
+                dependencies=dependencies,
+                semaphore=semaphore,
+                cancelled=cancelled,
+            )
+            if not isinstance(result, QueryNodeResult):
+                raise TypeError("query node handler MUST return QueryNodeResult")
+        except _QueryCancelledError:
+            return (
+                node,
+                None,
+                self._receipt(
+                    node,
+                    status=TaskStatus.CANCELLED,
+                    reason="request_cancelled",
+                    started_at=started_at,
+                    started_monotonic=started,
+                ),
+            )
         except TimeoutError:
             return (
                 node,
@@ -225,6 +246,18 @@ class OntologyQueryPlanExecutor:
                     node,
                     status=TaskStatus.TIMED_OUT,
                     reason="capability_timed_out",
+                    started_at=started_at,
+                    started_monotonic=started,
+                ),
+            )
+        except PermissionError:
+            return (
+                node,
+                None,
+                self._receipt(
+                    node,
+                    status=TaskStatus.UNAVAILABLE,
+                    reason="authorization_denied",
                     started_at=started_at,
                     started_monotonic=started,
                 ),
@@ -241,8 +274,22 @@ class OntologyQueryPlanExecutor:
                     started_monotonic=started,
                 ),
             )
-        if not isinstance(result, QueryNodeResult):
-            raise TypeError("query node handler MUST return QueryNodeResult")
+        except Exception:  # noqa: BLE001 - provider failures become stable typed receipts
+            _LOGGER.exception(
+                "ontology_query_node_failed",
+                extra={"node_id": node.node_id, "node_kind": node.kind.value},
+            )
+            return (
+                node,
+                None,
+                self._receipt(
+                    node,
+                    status=TaskStatus.FAILED,
+                    reason="capability_failed",
+                    started_at=started_at,
+                    started_monotonic=started,
+                ),
+            )
         return (
             node,
             result,
@@ -255,6 +302,45 @@ class OntologyQueryPlanExecutor:
                 started_monotonic=started,
             ),
         )
+
+    async def _invoke_with_deadline(
+        self,
+        handler: QueryNodeHandler,
+        *,
+        node: OntologyQueryNode,
+        dependencies: Mapping[str, QueryNodeResult],
+        semaphore: asyncio.Semaphore,
+        cancelled: asyncio.Event | None,
+    ) -> QueryNodeResult:
+        async def invoke() -> QueryNodeResult:
+            async with semaphore:
+                if cancelled is not None and cancelled.is_set():
+                    raise _QueryCancelledError
+                return await handler(node, MappingProxyType(dict(dependencies)))
+
+        execution = asyncio.create_task(invoke())
+        cancellation = asyncio.create_task(cancelled.wait()) if cancelled is not None else None
+        waiters: set[asyncio.Task[object]] = {execution}
+        if cancellation is not None:
+            waiters.add(cancellation)
+        done, pending = await asyncio.wait(
+            waiters,
+            timeout=self._node_timeout_seconds,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        if cancellation is not None and cancellation in done:
+            execution.cancel()
+            await asyncio.gather(execution, return_exceptions=True)
+            raise _QueryCancelledError
+        if execution not in done:
+            execution.cancel()
+            await asyncio.gather(execution, return_exceptions=True)
+            raise TimeoutError
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+        return execution.result()
 
     def _terminal_receipt(
         self,
@@ -333,6 +419,10 @@ class ObjectSetNodeHandler:
             f"ontology-object-set:{node.node_id}:{len(materialization.graph.objects)}",
         )
         return QueryNodeResult(value=materialization, evidence_refs=evidence_refs)
+
+
+class _QueryCancelledError(Exception):
+    """Internal control signal for one cancelled query node."""
 
 
 __all__ = [

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from fdai.core.ontology_platform import build_query_manifest
 from fdai.shared.contracts.models import (
     CeilingRole,
@@ -98,12 +99,20 @@ def test_manifest_accounts_for_descriptors_and_unavailable_link_sides() -> None:
     assert manifest.coverage_receipt.descriptor_count == 3
     assert manifest.coverage_receipt.unavailable_declaration_ids == ("link:contains",)
     object_descriptor = next(item for item in manifest.descriptors if item["kind"] == "object")
-    assert object_descriptor["properties"]["secret"] == {
-        "type": "string",
-        "required": False,
-        "access_scope": "owner",
-        "purpose_binding": ["security-review"],
-    }
+    assert set(object_descriptor["properties"]) == {"id"}
+
+    owner_manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.OWNER,
+        purposes=("operations-review", "security-review"),
+        principal_scope_digest=SCOPE_DIGEST,
+        object_types=(resource,),
+        link_types=(link,),
+        interfaces=(interface,),
+        functions=(function,),
+    )
+    owner_object = next(item for item in owner_manifest.descriptors if item["kind"] == "object")
+    assert "secret" in owner_object["properties"]
 
 
 def test_manifest_filters_functions_by_role_and_purpose() -> None:
@@ -162,3 +171,17 @@ def test_manifest_is_order_independent_and_content_addressed() -> None:
 
     assert first.manifest_digest == second.manifest_digest
     assert first.coverage_receipt.receipt_digest == second.coverage_receipt.receipt_digest
+
+
+def test_manifest_rejects_supplied_declaration_absent_from_release() -> None:
+    resource = _resource()
+    empty_release = build_ontology_release()
+
+    with pytest.raises(ValueError, match="absent from the release"):
+        build_query_manifest(
+            release=empty_release,
+            principal_role=CeilingRole.READER,
+            purposes=("operations-review",),
+            principal_scope_digest=SCOPE_DIGEST,
+            object_types=(resource,),
+        )

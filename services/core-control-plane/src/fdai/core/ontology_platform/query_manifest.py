@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -24,6 +26,7 @@ from fdai.shared.contracts.models import (
 )
 
 _UNAVAILABLE_LINK_QUERY_SIDES = "query_sides_unavailable"
+_MAX_MANIFEST_BYTES = 8_388_608
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +69,10 @@ def build_query_manifest(
     supplied.update({(OntologyDeclarationKind.INTERFACE, item.name): item for item in interfaces})
     supplied.update({(OntologyDeclarationKind.ACTION, item.name): item for item in action_types})
     supplied.update({(OntologyDeclarationKind.FUNCTION, item.name): item for item in functions})
+    orphaned = sorted(set(supplied) - set(declarations), key=lambda item: (item[0].value, item[1]))
+    if orphaned:
+        rendered = ", ".join(f"{kind.value}:{name}" for kind, name in orphaned[:10])
+        raise ValueError(f"query manifest declarations are absent from the release: {rendered}")
 
     descriptors: list[dict[str, Any]] = []
     unavailable: list[dict[str, str]] = []
@@ -83,7 +90,12 @@ def build_query_manifest(
         ):
             continue
         readable_count += 1
-        descriptor, reason = _descriptor(declaration, declaration_ref.declaration_digest)
+        descriptor, reason = _descriptor(
+            declaration,
+            declaration_ref.declaration_digest,
+            role=principal_role,
+            purposes=normalized_purposes,
+        )
         if reason is None:
             descriptors.append(descriptor)
         else:
@@ -104,7 +116,7 @@ def build_query_manifest(
         "unavailable": unavailable_tuple,
         "mutation_authority": False,
     }
-    manifest_digest = content_digest(manifest_body)
+    manifest_digest = _manifest_digest(manifest_body)
     unavailable_ids = tuple(item["declaration_id"] for item in unavailable_tuple)
     receipt_body = {
         "schema_version": "1.0.0",
@@ -153,6 +165,9 @@ def _function_readable(
 def _descriptor(
     declaration: object,
     declaration_digest: str,
+    *,
+    role: CeilingRole,
+    purposes: tuple[str, ...],
 ) -> tuple[dict[str, Any], str | None]:
     if isinstance(declaration, OntologyObjectType):
         return (
@@ -170,6 +185,7 @@ def _descriptor(
                         "purpose_binding": sorted(prop.purpose_binding),
                     }
                     for name, prop in sorted(declaration.properties.items())
+                    if _property_readable(prop.access_scope, prop.purpose_binding, role, purposes)
                 },
             },
             None,
@@ -238,6 +254,30 @@ def _descriptor(
             None,
         )
     raise TypeError(f"unsupported query manifest declaration {type(declaration).__name__}")
+
+
+def _property_readable(
+    access_scope: CeilingRole,
+    purpose_binding: Sequence[str],
+    role: CeilingRole,
+    purposes: tuple[str, ...],
+) -> bool:
+    if CEILING_ROLE_RANK[role] < CEILING_ROLE_RANK[access_scope]:
+        return False
+    return not purpose_binding or bool(set(purpose_binding).intersection(purposes))
+
+
+def _manifest_digest(value: object) -> str:
+    encoded = json.dumps(
+        value,
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    if len(encoded) > _MAX_MANIFEST_BYTES:
+        raise ValueError(f"query manifest exceeds {_MAX_MANIFEST_BYTES} bytes")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 __all__ = ["QueryManifest", "build_query_manifest"]

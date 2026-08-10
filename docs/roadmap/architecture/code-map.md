@@ -52,6 +52,10 @@ unchanged by the physical move.
 The safety-core coverage floor applies to the deterministic tier and risk gate inside the Core
 package. Their tests remain under the Core-owned test tree.
 
+Ontology query execution rechecks the exact release, manifest, role, and purpose at runtime. Its
+bounded dependency waves include queue wait in each node deadline, propagate in-flight
+cancellation, skip blocked descendants, and emit stable receipts without provider error details.
+
 ## Independent service map
 
 | Service | Package responsibility | Package map |

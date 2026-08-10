@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 8b4f407aa813a1d1aec63f8774f35dd4c60237a1
+translation_source_sha: 17ba15b7b203ee75d6bc5d3e3c074d63db1b9d6d
 translation_revised: 2026-08-10
 ---
 # 코드 맵
@@ -54,6 +54,10 @@ Core distribution은 전체 `fdai` namespace를 유지합니다. 내부 module b
 
 Safety-core coverage floor는 Core package 안의 deterministic tier와 risk gate에 적용됩니다. 해당
 test는 Core 소유 test tree에 유지합니다.
+
+Ontology query execution은 runtime에서 exact release, manifest, role 및 purpose를 다시 검사합니다.
+Bounded dependency wave는 node deadline에 queue wait를 포함하고 in-flight cancellation을 전파하며
+blocked descendant를 skip하고 provider error detail 없는 stable receipt를 emit합니다.
 
 ## 독립 service map
 

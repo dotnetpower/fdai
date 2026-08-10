@@ -189,6 +189,36 @@ not exist or that the peering change caused the symptom.
 | Full vs incremental generation parity | Identical ordered document digests and retrieval cohort outcomes. |
 | Historical replay | Same cutoff resolves the same retained graph and evidence receipts. |
 
+## Twenty-round hardening record
+
+The first three landed slices were reviewed through 20 independent critique lenses covering
+contract digests, bounds, DAGs, concurrency, authority, serialization, error handling, cancellation,
+redaction, replay time, manifest accounting, stale releases, ObjectSets, receipts, performance,
+service boundaries, Operator projection, narrator authority, degradation, and docs-code parity.
+
+Verified Medium-or-higher findings were resolved as follows:
+
+- principal-scoped manifests now remove properties outside the caller role or purpose;
+- declarations absent from the exact release are rejected rather than silently ignored;
+- execution rechecks both ontology release and query-manifest digest;
+- manifest hashing has an explicit 8 MiB ceiling instead of the small per-record JSON ceiling;
+- cancellation is observed before and during handler execution, including semaphore wait;
+- the node deadline covers queueing and handler execution together;
+- authorization denial, unavailable handlers, invalid handler results, timeout, cancellation, and
+  unexpected provider failures produce stable typed receipts without provider details;
+- focused tests cover concurrent waves, blocked descendants, stale authority, cancellation races,
+  total deadlines, property filtering, declaration mismatch, and digest stability.
+
+Rejected findings included handler-internal fan-out, impossible DAG cycles after contract
+validation, timezone-naive receipt acceptance, and candidate-limit truncation. These were either
+outside the executor boundary or already fail-closed by the existing contract. No reproducible
+Medium-or-higher finding remains in the landed contract, manifest, and executor slices.
+
+Residual Low observations are code duplication between terminal receipt builders, multiple bounded
+graph projection passes, and clearer diagnostics for developer-only adapters. Missing LinkType
+query sides, Interface loading, semantic generation, topology history, and temporal joins remain
+planned capabilities, not hidden hardening defects.
+
 ## Related docs
 
 | To learn about | Read |

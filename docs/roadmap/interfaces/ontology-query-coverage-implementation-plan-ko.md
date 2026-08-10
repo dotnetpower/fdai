@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 652ec8a288c5be6e970604c204d6c89b7da2d1d4
+translation_source_sha: 87a70a46e8964793f56e2a3d07ad162aab558680
 translation_revised: 2026-08-10
 ---
 
@@ -188,6 +188,36 @@ Current edge가 없다는 사실만으로 old path가 없었다거나 peering ch
 | Clarification quality | 실질적인 competing interpretation이 남은 경우에만 정확히 질문합니다. |
 | Full/incremental generation parity | Ordered document digest와 retrieval cohort outcome이 동일합니다. |
 | Historical replay | 같은 cutoff가 같은 retained graph 및 evidence receipt를 resolve합니다. |
+
+## 20-round hardening 기록
+
+처음 landing한 세 slice를 contract digest, bound, DAG, concurrency, authority, serialization, error
+handling, cancellation, redaction, replay time, manifest accounting, stale release, ObjectSet,
+receipt, performance, service boundary, Operator projection, narrator authority, degradation 및
+docs-code parity의 독립된 20개 lens로 검토했습니다.
+
+검증된 Medium 이상 finding은 다음과 같이 해결했습니다.
+
+- Principal-scoped manifest가 caller role 또는 purpose 밖의 property를 제거합니다.
+- Exact release에 없는 declaration은 조용히 무시하지 않고 차단합니다.
+- Execution이 ontology release와 query-manifest digest를 모두 다시 검사합니다.
+- Manifest hashing은 작은 per-record JSON ceiling 대신 명시적인 8 MiB ceiling을 사용합니다.
+- Cancellation을 handler 실행 전과 실행 중, semaphore wait 동안에도 관측합니다.
+- Node deadline이 queueing 및 handler execution 전체를 포함합니다.
+- Authorization denial, unavailable handler, invalid handler result, timeout, cancellation 및 unexpected
+  provider failure가 provider detail 없는 stable typed receipt를 만듭니다.
+- Focused test가 concurrent wave, blocked descendant, stale authority, cancellation race, total deadline,
+  property filtering, declaration mismatch 및 digest stability를 검증합니다.
+
+Handler 내부 fan-out, contract validation 이후 불가능한 DAG cycle, timezone-naive receipt 수락 및
+candidate-limit truncation finding은 기각했습니다. Executor boundary 밖이거나 기존 contract가 이미
+fail-closed하기 때문입니다. Landing한 contract, manifest 및 executor slice에는 재현 가능한 Medium 이상
+finding이 남아 있지 않습니다.
+
+Residual Low observation은 terminal receipt builder 사이의 code duplication, 여러 번 수행되는 bounded
+graph projection pass 및 developer-only adapter의 더 명확한 diagnostic입니다. 누락된 LinkType query side,
+Interface loading, semantic generation, topology history 및 temporal join은 숨겨진 hardening defect가 아니라
+계획된 capability로 남아 있습니다.
 
 ## 관련 문서
 

@@ -60,6 +60,7 @@ EXPECTED_DEPENDENCIES = {
     },
     "operator-service": {
         "fdai-service-contracts",
+        "httpx",
         "psycopg",
         "pyjwt",
         "starlette",

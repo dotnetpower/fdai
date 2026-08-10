@@ -93,6 +93,7 @@ async def test_executor_runs_independent_nodes_concurrently_then_joins() -> None
         executor.execute(
             _plan(nodes, ("join",)),
             expected_release_digest=DIGEST_A,
+            expected_manifest_digest=DIGEST_B,
             expected_role="Reader",
             expected_purpose="incident-investigation",
         )
@@ -136,6 +137,7 @@ async def test_executor_skips_descendant_after_stable_failure() -> None:
     ).execute(
         _plan(nodes, ("join",)),
         expected_release_digest=DIGEST_A,
+        expected_manifest_digest=DIGEST_B,
         expected_role="Reader",
         expected_purpose="incident-investigation",
     )
@@ -173,6 +175,7 @@ async def test_executor_rejects_stale_authority_and_cancels_before_calls() -> No
         await executor.execute(
             plan,
             expected_release_digest=DIGEST_B,
+            expected_manifest_digest=DIGEST_B,
             expected_role="Reader",
             expected_purpose="incident-investigation",
         )
@@ -180,7 +183,16 @@ async def test_executor_rejects_stale_authority_and_cancels_before_calls() -> No
         await executor.execute(
             plan,
             expected_release_digest=DIGEST_A,
+            expected_manifest_digest=DIGEST_B,
             expected_role="Owner",
+            expected_purpose="incident-investigation",
+        )
+    with pytest.raises(ValueError, match="stale query manifest"):
+        await executor.execute(
+            plan,
+            expected_release_digest=DIGEST_A,
+            expected_manifest_digest=DIGEST_A,
+            expected_role="Reader",
             expected_purpose="incident-investigation",
         )
 
@@ -189,6 +201,7 @@ async def test_executor_rejects_stale_authority_and_cancels_before_calls() -> No
     execution = await executor.execute(
         plan,
         expected_release_digest=DIGEST_A,
+        expected_manifest_digest=DIGEST_B,
         expected_role="Reader",
         expected_purpose="incident-investigation",
         cancelled=cancelled,
@@ -207,6 +220,7 @@ async def test_executor_reports_unavailable_handler_without_fallback() -> None:
     execution = await OntologyQueryPlanExecutor(handlers={}, now=lambda: NOW).execute(
         _plan((node,), ("history",)),
         expected_release_digest=DIGEST_A,
+        expected_manifest_digest=DIGEST_B,
         expected_role="Reader",
         expected_purpose="incident-investigation",
     )
@@ -214,3 +228,118 @@ async def test_executor_reports_unavailable_handler_without_fallback() -> None:
     assert execution.status == "partial"
     assert execution.receipts[0].status is TaskStatus.UNAVAILABLE
     assert execution.receipts[0].reason == "capability_unavailable"
+
+
+async def test_executor_cancels_handler_during_execution() -> None:
+    started = asyncio.Event()
+    cancelled_by_runtime = asyncio.Event()
+
+    async def handler(node, dependencies):  # type: ignore[no-untyped-def]
+        del node, dependencies
+        started.set()
+        try:
+            await asyncio.Future()
+        except asyncio.CancelledError:
+            cancelled_by_runtime.set()
+            raise
+
+    node = OntologyQueryNode(
+        node_id="source",
+        kind=QueryNodeKind.METRIC_SERIES,
+        output_kind="metric_series",
+    )
+    cancellation = asyncio.Event()
+    task = asyncio.create_task(
+        OntologyQueryPlanExecutor(
+            handlers={QueryNodeKind.METRIC_SERIES: handler},
+            now=lambda: NOW,
+        ).execute(
+            _plan((node,), ("source",)),
+            expected_release_digest=DIGEST_A,
+            expected_manifest_digest=DIGEST_B,
+            expected_role="Reader",
+            expected_purpose="incident-investigation",
+            cancelled=cancellation,
+        )
+    )
+    await asyncio.wait_for(started.wait(), timeout=1)
+    cancellation.set()
+    execution = await asyncio.wait_for(task, timeout=1)
+
+    assert execution.status == "cancelled"
+    assert execution.receipts[0].reason == "request_cancelled"
+    assert cancelled_by_runtime.is_set()
+
+
+async def test_executor_deadline_includes_semaphore_wait() -> None:
+    release = asyncio.Event()
+
+    async def handler(node, dependencies):  # type: ignore[no-untyped-def]
+        del node, dependencies
+        await release.wait()
+        return QueryNodeResult(value={})
+
+    nodes = tuple(
+        OntologyQueryNode(
+            node_id=f"source_{index}",
+            kind=QueryNodeKind.METRIC_SERIES,
+            output_kind="metric_series",
+        )
+        for index in range(2)
+    )
+    execution = await OntologyQueryPlanExecutor(
+        handlers={QueryNodeKind.METRIC_SERIES: handler},
+        max_concurrency=1,
+        node_timeout_seconds=0.01,
+        now=lambda: NOW,
+    ).execute(
+        _plan(nodes, tuple(node.node_id for node in nodes)),
+        expected_release_digest=DIGEST_A,
+        expected_manifest_digest=DIGEST_B,
+        expected_role="Reader",
+        expected_purpose="incident-investigation",
+    )
+
+    assert execution.status == "failed"
+    assert all(item.status is TaskStatus.TIMED_OUT for item in execution.receipts)
+
+
+async def test_executor_types_authorization_and_invalid_handler_results() -> None:
+    async def denied(node, dependencies):  # type: ignore[no-untyped-def]
+        del node, dependencies
+        raise PermissionError("private provider details")
+
+    async def invalid(node, dependencies):  # type: ignore[no-untyped-def]
+        del node, dependencies
+        return {"not": "a QueryNodeResult"}
+
+    node = OntologyQueryNode(
+        node_id="source",
+        kind=QueryNodeKind.METRIC_SERIES,
+        output_kind="metric_series",
+    )
+    plan = _plan((node,), ("source",))
+    denied_execution = await OntologyQueryPlanExecutor(
+        handlers={QueryNodeKind.METRIC_SERIES: denied}, now=lambda: NOW
+    ).execute(
+        plan,
+        expected_release_digest=DIGEST_A,
+        expected_manifest_digest=DIGEST_B,
+        expected_role="Reader",
+        expected_purpose="incident-investigation",
+    )
+    invalid_execution = await OntologyQueryPlanExecutor(
+        handlers={QueryNodeKind.METRIC_SERIES: invalid}, now=lambda: NOW
+    ).execute(
+        plan,
+        expected_release_digest=DIGEST_A,
+        expected_manifest_digest=DIGEST_B,
+        expected_role="Reader",
+        expected_purpose="incident-investigation",
+    )
+
+    assert denied_execution.receipts[0].reason == "authorization_denied"
+    assert denied_execution.receipts[0].status is TaskStatus.UNAVAILABLE
+    assert invalid_execution.receipts[0].reason == "capability_failed"
+    assert invalid_execution.receipts[0].status is TaskStatus.FAILED
+    assert "private provider details" not in str(denied_execution.receipts)
