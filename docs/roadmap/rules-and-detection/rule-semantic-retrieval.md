@@ -298,5 +298,6 @@ generic `503` when its exact function registry or provider is unavailable.
 | Rule lifecycle and human control | [Rule Governance](rule-governance.md) |
 | Typed ontology and time-consistent context | [FDAI Operating Ontology](../architecture/operating-ontology.md) |
 | Proof-carrying semantic plans | [FDAI Ontology Safety Infrastructure](../architecture/operating-ontology-platform.md) |
+| Full-ontology operator question coverage | [Hierarchical Conversation Planning](../interfaces/hierarchical-conversation-planning.md) |
 | Deterministic and model tiering | [LLM Strategy](../architecture/llm-strategy.md) |
 | Console authority boundary | [FDAI Console Conversations](../interfaces/operator-console.md) |

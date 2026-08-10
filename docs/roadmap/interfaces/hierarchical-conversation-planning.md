@@ -50,6 +50,35 @@ still enforces unique goal dependencies and alternatives. A complete catalog-com
 request keeps scope, grouping, projection, and freshness in its typed query and bypasses model
 planning, while incomplete or compound requests continue through the intent graph.
 
+The current compatibility path still includes catalog token matching and legacy single-tool
+parsers. They are not the target natural-language architecture. Exact identifiers may continue to
+resolve directly, but ordinary language must produce a typed semantic candidate from the active
+ontology and capability manifest. No regex, phrase list, or question-specific alias may select the
+capability, relationship path, or answer shape in the target state.
+
+## Ontology query coverage contract
+
+FDAI targets 100% **structural query coverage**, not a guarantee that every question has enough
+evidence for a complete answer. Structural coverage means every declaration readable by the
+current principal in the active ontology release is represented in the planner's query surface or
+has a typed unavailable reason. The covered declarations are ObjectTypes, queryable Properties,
+both query sides of LinkTypes, Interfaces, read-only FunctionTypes, and ActionTypes as draft-only
+targets.
+
+The release gate measures three separate outcomes:
+
+- **Schema coverage**: Every readable active declaration has a content-addressed planner descriptor.
+- **Question disposition**: Every accepted turn ends as a grounded answer, clarification, evidence
+    hold, unsupported goal, or governed action draft.
+- **Answer coverage**: The measured share of competency questions that reach a complete grounded
+    answer. This value depends on deployed data and evidence and is never presented as 100% by design.
+
+Language coverage is not maintained by adding phrases. A model or embedding index may propose
+object, relation, and function candidates. The deterministic verifier resolves each candidate to
+the exact release, validates endpoint types and arguments, and either produces a
+`VerifiedSemanticPlan` or asks for clarification. Similarity never proves a relationship or grants
+query or action authority.
+
 ## Intent graph contract
 
 An intent graph records the operator request without reducing it to one tool. Every graph contains:
@@ -91,6 +120,49 @@ schema, owner, availability, enabled state, authority mode, and unavailable reas
 The planner never receives unavailable capabilities. Subscription health, inventory, screen reads,
 web search, and agent-owned reads use the same contract. Language terms, resource aliases, and
 service names remain catalog or ontology data rather than Python question patterns.
+
+### Release-derived query manifest
+
+One mechanical builder projects the active ontology release and runtime capability registry into a
+principal-scoped query manifest. It does not hand the entire deployment graph or hidden fields to
+the model. Search and describe return bounded descriptors only after role, purpose, availability,
+enabled state, and authority filtering.
+
+Each descriptor includes:
+
+- **Object or interface shape**: Stable identity, properties, value types, units, supported
+    predicates, and freshness requirements.
+- **Relationship sides**: One semantic query name for each endpoint, endpoint types, cardinality,
+    symmetry, causality, temporal ordering, and whether inverse traversal is allowed.
+- **Function contract**: Input and output schema, operation class, evidence requirements, bounds,
+    and side-effect class.
+- **Action boundary**: Draft schema and required authority only. Mutation handlers and executor
+    credentials are never planner-visible.
+
+A release is structurally incomplete when a readable declaration cannot be projected. Adding a
+new resource or relationship then expands the natural-language query surface without adding a
+question pattern. New query-side metadata is versioned ontology data and passes the same release
+and compatibility gates as the declaration it describes.
+
+### Generic ontology query algebra
+
+The planner composes a bounded `OntologyQueryPlan` instead of choosing one question-specific tool.
+The closed algebra supports object or interface selection, typed property predicates, relationship-
+side traversal, set union/intersection/subtraction, ordering, aggregation, projection, and calls to
+registered read-only ontology functions. Raw SQL, KQL, Cypher, SPARQL, provider URLs, and executable
+commands are not plan values.
+
+For example, a question about resources beyond a VM's peered network compiles from exact screen
+context into typed relationship sides: VM to attached interface, interface to subnet, subnet to
+containing virtual network, peer network, then contained or attached resources. The model does not
+invent those steps. The verifier accepts only compositions licensed by endpoint types and the
+active release. If "connected" could mean attachment, network reachability, workload dependency,
+or shared scope, the result is a clarification rather than a union of unrelated links.
+
+Object and declaration embeddings are optional candidate indexes. They help resolve paraphrases
+and omitted names, but the executor reads exact object identities and typed links. Instance
+embeddings are never required for structural coverage and remain deployment-local when derived
+from deployment data.
 
 ## Evidence policy
 
@@ -136,6 +208,26 @@ probability from `0` through `1`. Freshness follow-ups restore the server-genera
 receipt from the prior durable assistant turn. A browser-supplied freshness object never gains
 server evidence authority.
 
+### Temporal and causal questions
+
+A current graph cannot answer "what changed" or "why did this stop today" by itself. These goals
+bind to typed history and time-series functions. They first find a symptom change point, retrieve
+the graph at bounded before/after cutoffs, compute a topology diff, gather changes in the affected
+dependency neighborhood, and compare complete metric windows. Timeline order is supporting
+evidence, not causal proof.
+
+For a storage-write gap, the planner anchors the exact storage object and requested windows. The
+executor may discover an upstream workload, the VM that runs it, both virtual networks, and a
+removed peering through historical typed links. It can rank the peering change as a causal
+hypothesis only when workload dependency, path-before/path-after, write-attempt, write-result, and
+telemetry-completeness evidence support the same cutoff. Missing DNS, route, firewall, credential,
+or application evidence remains a named alternative or limitation.
+
+The current instance graph is a current-state projection, so historical topology and cross-resource
+temporal joins remain delivery work. Until authoritative history bindings exist, these questions
+return partial evidence or an explicit hold rather than reconstructing the past from the latest
+graph.
+
 ## Task DAG compilation
 
 The deterministic compiler converts validated read goals into bounded tasks. Independent tasks run
@@ -168,12 +260,32 @@ route, and the route rechecks draft availability immediately before returning co
 
 ## Migration
 
-1. Persist and replay the active graph with every completed turn.
-2. Compare selection, authority, clarification, latency, and answer quality on bilingual scenarios.
-3. Expand the registry until every supported read path is available through typed planning.
-4. Remove legacy single-tool and question-specific routes after replay confirms coverage.
+1. Generate a content-addressed query manifest from every active ontology release and fail the
+    coverage gate for an unprojected readable declaration.
+2. Add semantic query sides to LinkTypes and load Interface declarations so new implementing types
+    enter existing queries without planner changes.
+3. Bind one generic ObjectSet query capability plus bounded topology, history, metric, and causal
+    functions behind the existing secured query gateway.
+4. Persist and replay the active intent graph with every completed turn, then compare selection,
+    authority, clarification, latency, and answer quality on bilingual scenarios.
+5. Build full inactive semantic generations, reuse unchanged declaration and object digests on
+    incremental builds, validate independently, and atomically activate the new generation.
+6. Remove catalog-token, regex, legacy single-tool, and question-specific routes after replay proves
+    equivalent or better coverage. Exact object and catalog identifiers remain valid direct refs.
 
 The compatibility period is temporary. Migration ends with one graph contract and one registry.
+
+## Current gaps
+
+| Area | Current state | Coverage impact |
+|------|---------------|-----------------|
+| Intent graph | Active for one-shot and streamed turns | Provides composition and replay, but still coexists with compatibility parsers. |
+| Semantic plans and ObjectSets | Exact-release candidates, verification, bounded predicates, traversal, and secured receipts exist | A whole-release generic query manifest is not yet the production narrator surface. |
+| Interfaces | Interface selectors exist in the ObjectSet contract | Production catalog declarations and polymorphic query binding remain unwired. |
+| Relationship sides | Stored direction and selected inverse traversal exist | Every LinkType does not yet expose two reviewed semantic query sides. |
+| Semantic generations | Rule retrieval has complete generations and candidate-only ranking | Declaration and runtime-object coverage has not yet expanded to the full ontology. |
+| Historical graph | Current-state inventory projection and immutable decision snapshots exist | General `graph_at` and topology-diff queries over retained provider history are not available. |
+| Network and causal functions | Bounded foundations exist | Production receipt issuers, complete Azure topology projection, and cross-resource temporal joins remain incomplete. |
 
 ## Verification
 
@@ -181,6 +293,12 @@ The release gate covers simple and compound English and Korean questions, screen
 general knowledge, MTTR benchmark comparison, multi-service diagnosis, text/image/document input,
 web and agent outages, partial evidence, invalid graphs, stable replay, cancellation, and branch
 isolation. The safety target is zero unsupported operational claims and zero unauthorized execution.
+
+Structural coverage fixtures also enumerate every readable declaration in a frozen release. They
+prove descriptor projection, both relationship sides, supported property operators, interface
+expansion, function schema binding, role filtering, typed unavailable reasons, and the absence of a
+question-pattern prerequisite. A new declaration that is invisible to this inventory blocks the
+release.
 
 Conversation Assurance measures intent resolution, completeness, grounding, calibration,
 actionability, locale parity, cost, and latency on the same frozen cohort before activation.
@@ -190,6 +308,8 @@ actionability, locale parity, cost, and latency on the same frozen cohort before
 | To learn about | Read |
 |---|---|
 | FDAI Console conversation boundary | [FDAI Console Conversations](operator-console.md) |
+| Rule-specific semantic ranking and generations | [Rule Semantic Retrieval](../rules-and-detection/rule-semantic-retrieval.md) |
+| Exact releases, ObjectSets, and typed functions | [FDAI Ontology Safety Infrastructure](../architecture/operating-ontology-platform.md) |
 | Completed-answer evaluation | [Conversation Assurance](../decisioning/conversation-assurance.md) |
 | Multimodal evidence custody | [Conversation Attachments](conversation-attachments.md) |
 | Agent and control-loop boundaries | [Project Structure](../architecture/project-structure.md) |

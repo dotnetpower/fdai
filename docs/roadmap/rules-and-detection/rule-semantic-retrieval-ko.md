@@ -1,7 +1,7 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 54930db1e15f900c86c84cedcfd512adf95bd2bb
-translation_revised: 2026-08-07
+translation_source_sha: 2229b82fac036f02053d7282c2fc845a1053826a
+translation_revised: 2026-08-10
 ---
 # Rule 의미 검색
 
@@ -302,5 +302,6 @@ function registry 또는 provider를 사용할 수 없을 때 generic `503`을 �
 | Rule lifecycle 및 human control | [Rule Governance](rule-governance-ko.md) |
 | Typed ontology 및 time-consistent context | [FDAI Operating Ontology](../architecture/operating-ontology-ko.md) |
 | 근거를 포함하는 semantic plan | [FDAI Ontology Safety Infrastructure](../architecture/operating-ontology-platform-ko.md) |
+| 전체 ontology 운영자 질문 coverage | [계층형 대화 계획](../interfaces/hierarchical-conversation-planning-ko.md) |
 | Deterministic 및 model tiering | [LLM Strategy](../architecture/llm-strategy-ko.md) |
 | Console authority boundary | [FDAI Console Conversations](../interfaces/operator-console-ko.md) |

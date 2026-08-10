@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 273ddefddd7a73637e7d62ec452d307506fea8b4
-translation_revised: 2026-08-03
+translation_source_sha: 5ad17ffd77a387965df9de6d07409e1bb04f1edf
+translation_revised: 2026-08-10
 ---
 
 # 계층형 대화 계획
@@ -52,6 +52,35 @@ dependency와 alternative의 uniqueness를 계속 검사합니다. Catalog가 �
 request는 typed query에 scope, grouping, projection, freshness를 유지하고 model planning을 건너뜁니다.
 불완전하거나 compound인 request는 intent graph를 계속 사용합니다.
 
+현재 compatibility path에는 catalog token matching과 legacy single-tool parser가 아직 남아 있습니다.
+이 경로는 목표 자연어 아키텍처가 아닙니다. Exact identifier는 계속 직접 resolve할 수 있지만, 일반
+언어는 active ontology와 capability manifest에서 typed semantic candidate를 만들어야 합니다. 목표
+상태에서는 regex, phrase list 또는 질문별 alias가 capability, relationship path 또는 answer shape를
+선택할 수 없습니다.
+
+## Ontology query coverage 계약
+
+FDAI는 모든 질문에 완전한 답을 제공한다고 보장하는 대신 100% **structural query coverage**를
+목표로 합니다. Structural coverage는 현재 principal이 읽을 수 있는 active ontology release의 모든
+declaration이 planner query surface에 표현되거나 typed unavailable reason을 갖는다는 의미입니다.
+대상 declaration은 ObjectType, query 가능한 Property, LinkType 양쪽 query side, Interface, read-only
+FunctionType 및 draft-only target인 ActionType입니다.
+
+Release gate는 다음 세 결과를 분리해 측정합니다.
+
+- **Schema coverage**: 읽을 수 있는 모든 active declaration에 content-addressed planner descriptor가
+    있습니다.
+- **Question disposition**: 수락한 모든 turn은 grounded answer, clarification, evidence hold,
+    unsupported goal 또는 governed action draft로 끝납니다.
+- **Answer coverage**: Competency question 중 완전한 grounded answer에 도달한 비율입니다. 이 값은
+    배포된 data와 evidence에 따라 달라지며 설계상 100%로 표시하지 않습니다.
+
+Language coverage는 phrase를 추가하는 방식으로 유지하지 않습니다. Model 또는 embedding index는
+object, relation 및 function candidate를 제안할 수 있습니다. Deterministic verifier는 각 candidate를
+exact release에 resolve하고 endpoint type과 argument를 검증한 뒤 `VerifiedSemanticPlan`을 만들거나
+clarification을 요청합니다. Similarity는 relationship을 입증하거나 query/action authority를 부여하지
+않습니다.
+
 ## Intent graph 계약
 
 Intent graph는 operator 요청을 하나의 tool로 축소하지 않고 기록합니다. 모든 graph에는 다음 항목이
@@ -95,6 +124,48 @@ Planner는 unavailable capability를 받지 않습니다. Subscription health, i
 search, agent-owned read는 같은 계약을 사용합니다. Language term, resource alias, service name은 Python
 질문 pattern이 아니라 catalog 또는 ontology data로 유지합니다.
 
+### Release-derived query manifest
+
+하나의 mechanical builder가 active ontology release와 runtime capability registry를 principal-scoped
+query manifest로 projection합니다. 전체 deployment graph나 hidden field를 model에 전달하지 않습니다.
+Search와 describe는 role, purpose, availability, enabled state 및 authority filtering 이후의 bounded
+descriptor만 반환합니다.
+
+각 descriptor에는 다음 항목이 포함됩니다.
+
+- **Object 또는 interface shape**: Stable identity, property, value type, unit, 지원 predicate 및
+    freshness requirement입니다.
+- **Relationship side**: 각 endpoint의 semantic query name, endpoint type, cardinality, symmetry,
+    causality, temporal ordering 및 inverse traversal 허용 여부입니다.
+- **Function contract**: Input/output schema, operation class, evidence requirement, bound 및
+    side-effect class입니다.
+- **Action boundary**: Draft schema와 필요한 authority만 포함합니다. Mutation handler와 executor
+    credential은 planner에 노출하지 않습니다.
+
+읽을 수 있는 declaration을 projection할 수 없으면 해당 release는 structurally incomplete합니다.
+따라서 새 resource나 relationship을 추가하면 질문 pattern을 추가하지 않아도 자연어 query surface가
+확장됩니다. 새 query-side metadata는 versioned ontology data이며 자신이 설명하는 declaration과 같은
+release 및 compatibility gate를 통과합니다.
+
+### Generic ontology query algebra
+
+Planner는 질문별 tool 하나를 선택하는 대신 bounded `OntologyQueryPlan`을 구성합니다. Closed algebra는
+object/interface selection, typed property predicate, relationship-side traversal, set
+union/intersection/subtraction, ordering, aggregation, projection 및 등록된 read-only ontology function
+호출을 지원합니다. Raw SQL, KQL, Cypher, SPARQL, provider URL 및 executable command는 plan value가
+아닙니다.
+
+예를 들어 VM의 peered network 너머에 있는 resource를 묻는 질문은 exact screen context에서 typed
+relationship side로 compile됩니다. VM에서 attached interface, interface에서 subnet, subnet에서
+containing virtual network, peer network, 그 안에 포함되거나 연결된 resource 순서입니다. Model이 이
+단계를 발명하지 않습니다. Verifier는 endpoint type과 active release가 허용한 composition만
+수락합니다. "연결"이 attachment, network reachability, workload dependency 또는 shared scope 중
+무엇인지 모호하면 관련 없는 link를 합치는 대신 clarification을 요청합니다.
+
+Object와 declaration embedding은 선택적인 candidate index입니다. Paraphrase와 생략된 이름을 resolve할
+때 도움을 주지만 executor는 exact object identity와 typed link를 읽습니다. Instance embedding은
+structural coverage에 필요하지 않으며 deployment data에서 파생됐으면 deployment local에 유지합니다.
+
 ## Evidence policy
 
 | 질문 유형 | 선호 경로 | Fallback |
@@ -137,6 +208,25 @@ probability일 때만 표시합니다. Freshness follow-up은 이전 durable ass
 freshness receipt를 복원합니다. Browser가 제공한 freshness object는 server evidence authority를 얻지
 못합니다.
 
+### Temporal 및 causal question
+
+Current graph만으로는 "무엇이 바뀌었나" 또는 "오늘 왜 중단됐나"에 답할 수 없습니다. 이러한 goal은
+typed history 및 time-series function에 bind합니다. 먼저 symptom change point를 찾고 bounded
+before/after cutoff의 graph를 가져온 뒤 topology diff를 계산합니다. 이어서 영향받은 dependency
+neighborhood의 change를 모으고 complete metric window를 비교합니다. Timeline 순서는 supporting
+evidence이며 causal proof가 아닙니다.
+
+Storage write gap 질문에서는 planner가 exact storage object와 요청 window를 anchor로 사용합니다.
+Executor는 historical typed link를 통해 upstream workload, workload가 실행되는 VM, 두 virtual network
+및 제거된 peering을 발견할 수 있습니다. Workload dependency, path-before/path-after, write-attempt,
+write-result 및 telemetry-completeness evidence가 같은 cutoff를 지지할 때만 peering change를 causal
+hypothesis로 ranking할 수 있습니다. 누락된 DNS, route, firewall, credential 또는 application evidence는
+이름이 있는 alternative나 limitation으로 유지합니다.
+
+현재 instance graph는 current-state projection이므로 historical topology와 cross-resource temporal
+join은 delivery work로 남아 있습니다. Authoritative history binding이 제공되기 전에는 latest graph에서
+과거를 재구성하지 않고 partial evidence 또는 explicit hold를 반환합니다.
+
 ## Task DAG 컴파일
 
 Deterministic compiler는 검증된 read goal을 bounded task로 변환합니다. 독립 task는 동시에 실행하고,
@@ -169,12 +259,32 @@ Graph executor는 normal route 밖에서 호출돼도 모든 non-read goal을 �
 
 ## Migration
 
-1. 완료된 모든 turn에 active graph를 저장하고 replay합니다.
-2. Bilingual scenario에서 selection, authority, clarification, latency, answer quality를 비교합니다.
-3. 모든 supported read path가 typed planning을 사용하도록 registry를 확장합니다.
-4. Replay가 coverage를 확인하면 legacy single-tool 및 question-specific route를 제거합니다.
+1. 모든 active ontology release에서 content-addressed query manifest를 생성하고 projection되지 않은
+    readable declaration이 있으면 coverage gate를 실패시킵니다.
+2. LinkType에 semantic query side를 추가하고 Interface declaration을 load하여 새 implementing type이
+    planner 변경 없이 기존 query에 들어오게 합니다.
+3. 하나의 generic ObjectSet query capability와 bounded topology, history, metric 및 causal function을
+    기존 secured query gateway 뒤에 bind합니다.
+4. 완료된 모든 turn에 active intent graph를 저장하고 replay한 뒤 bilingual scenario에서 selection,
+    authority, clarification, latency 및 answer quality를 비교합니다.
+5. 완전한 inactive semantic generation을 build하고 incremental build에서는 변경되지 않은 declaration
+    및 object digest를 재사용합니다. 독립적으로 검증한 뒤 새 generation을 atomic하게 activate합니다.
+6. Replay가 동등하거나 더 나은 coverage를 입증하면 catalog-token, regex, legacy single-tool 및
+    question-specific route를 제거합니다. Exact object/catalog identifier는 valid direct ref로 남습니다.
 
 Compatibility 기간은 일시적입니다. Migration은 하나의 graph contract와 하나의 registry로 끝납니다.
+
+## 현재 gap
+
+| 영역 | 현재 상태 | Coverage 영향 |
+|------|-----------|---------------|
+| Intent graph | One-shot 및 streamed turn에서 active | Composition과 replay를 제공하지만 compatibility parser와 함께 존재합니다. |
+| Semantic plan 및 ObjectSet | Exact-release candidate, verification, bounded predicate, traversal, secured receipt가 있습니다. | Whole-release generic query manifest는 아직 production narrator surface가 아닙니다. |
+| Interface | ObjectSet contract에 interface selector가 있습니다. | Production catalog declaration과 polymorphic query binding은 아직 연결되지 않았습니다. |
+| Relationship side | Stored direction과 일부 inverse traversal이 있습니다. | 모든 LinkType이 검토된 semantic query side 두 개를 제공하지는 않습니다. |
+| Semantic generation | Rule retrieval은 complete generation과 candidate-only ranking을 제공합니다. | Declaration 및 runtime object coverage는 전체 ontology로 확장되지 않았습니다. |
+| Historical graph | Current-state inventory projection과 immutable decision snapshot이 있습니다. | 보존된 provider history를 대상으로 한 일반 `graph_at` 및 topology-diff query는 제공되지 않습니다. |
+| Network 및 causal function | Bounded foundation이 있습니다. | Production receipt issuer, complete Azure topology projection 및 cross-resource temporal join은 incomplete합니다. |
 
 ## 검증
 
@@ -182,6 +292,11 @@ Release gate는 simple 및 compound English/Korean question, screen reference, g
 benchmark comparison, multi-service diagnosis, text/image/document input, web 및 agent outage, partial
 evidence, invalid graph, stable replay, cancellation, branch isolation을 다룹니다. 안전 목표는 unsupported
 operational claim 0건과 unauthorized execution 0건입니다.
+
+Structural coverage fixture는 frozen release에서 읽을 수 있는 모든 declaration도 열거합니다. Descriptor
+projection, relationship 양쪽 side, 지원 property operator, interface expansion, function schema binding,
+role filtering, typed unavailable reason 및 question-pattern prerequisite가 없음을 입증합니다. 이 inventory에
+보이지 않는 새 declaration이 있으면 release를 차단합니다.
 
 Conversation Assurance는 활성화 전에 같은 frozen cohort에서 intent resolution, completeness, grounding,
 calibration, actionability, locale parity, cost, latency를 측정합니다.
@@ -191,6 +306,8 @@ calibration, actionability, locale parity, cost, latency를 측정합니다.
 | 알아볼 내용 | 문서 |
 |---|---|
 | FDAI Console conversation boundary | [FDAI Console 대화](operator-console-ko.md) |
+| Rule-specific semantic ranking 및 generation | [Rule 의미 검색](../rules-and-detection/rule-semantic-retrieval-ko.md) |
+| Exact release, ObjectSet 및 typed function | [FDAI Ontology Safety Infrastructure](../architecture/operating-ontology-platform-ko.md) |
 | 완료 answer 평가 | [Conversation Assurance](../decisioning/conversation-assurance-ko.md) |
 | Multimodal evidence custody | [Conversation Attachments](conversation-attachments-ko.md) |
 | Agent 및 control-loop boundary | [Project Structure](../architecture/project-structure-ko.md) |
