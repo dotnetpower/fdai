@@ -32,6 +32,7 @@ from fdai.core.executor.tool_call import ToolCallShadowExecutor
 from fdai.core.hil_resume import HilResumeCoordinator
 from fdai.core.mscp_profile import ExpectedEffectProvider, IndependentEffectObserver
 from fdai.core.notifications.router import NotificationRouter
+from fdai.core.ontology_platform.metric_semantics import MetricSemanticRegistry
 from fdai.core.rca import CausalRuntimeCoordinator, IncidentMemberSource, RcaCoordinator
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.preconditions import (
@@ -128,6 +129,7 @@ class ControlLoop(
         workflow_outcome_recorder: WorkflowOutcomeRecorder | None = None,
         ontology_instance_store: OntologyInstanceStore | None = None,
         property_semantics: PropertySemanticRegistry | None = None,
+        metric_semantics: MetricSemanticRegistry | None = None,
         execution_authorization_evaluator: ExecutionAuthorizationEvaluator | None = None,
         execution_access_grant_sink: ExecutionAccessGrantSink | None = None,
         execution_authorization_required: bool = False,
@@ -189,6 +191,7 @@ class ControlLoop(
         self._workflow_outcome_recorder = workflow_outcome_recorder
         self._ontology_instance_store = ontology_instance_store
         self._property_semantics = property_semantics
+        self._metric_semantics = metric_semantics
         self._execution_authorization_evaluator = execution_authorization_evaluator
         self._execution_access_grant_sink = execution_access_grant_sink
         self._cost_estimator = cost_estimator
@@ -267,6 +270,12 @@ class ControlLoop(
         """Return the property registry validated with this loop's catalog snapshot."""
 
         return self._property_semantics
+
+    @property
+    def metric_semantics(self) -> MetricSemanticRegistry | None:
+        """Return the exact reviewed metric-concept registry loaded at startup."""
+
+        return self._metric_semantics
 
 
 __all__ = ["ControlLoop"]

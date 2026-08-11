@@ -70,7 +70,9 @@ units for 100% structural query coverage.
 > metric windows, equal-duration comparison that distinguishes zero from missing data, bounded
 > metric-series and evidence-join handlers, and topology-aware temporal support/refutation that
 > retains competing explanations. Production metric provider bindings and reviewed catalog data
-> remain.
+> now include a reviewed alias-free catalog and a concrete `MetricProvider` window adapter that
+> preserves observed zero and reports an empty provider result as incomplete. Runtime semantic-turn
+> composition with the deployed provider remains.
 > OQ-05 now also includes an async server-side semantic turn runtime that terminates every accepted
 > ordinary-language turn as answer, clarification, hold, unsupported, action draft, or cancellation;
 > it executes only verified query DAGs and emits exact Console graph/evidence projections.

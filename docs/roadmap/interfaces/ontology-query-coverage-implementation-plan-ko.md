@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 1a5e38e72265daf18b78665b2173020f8d09fca0
+translation_source_sha: 8f8ec2e52d3c7d3eab17e43dd1e3b9a7cb0b6b02
 translation_revised: 2026-08-10
 ---
 
@@ -69,7 +69,10 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > OQ-09에는 phrase alias가 없는 exact reviewed metric-concept registry, authoritative metric window,
 > zero와 missing data를 구분하는 equal-duration comparison, bounded metric-series/evidence-join handler 및
 > competing explanation을 보존하는 topology-aware temporal support/refutation이 포함됩니다. Production
-> metric provider binding과 reviewed catalog data는 남아 있습니다.
+> metric provider binding과 reviewed catalog data에는 이제 reviewed alias-free catalog와 concrete
+> `MetricProvider` window adapter가 포함됩니다. 이 adapter는 observed zero를 보존하고 empty provider
+> result를 incomplete로 보고합니다. Deployed provider를 사용하는 runtime semantic-turn composition은
+> 남아 있습니다.
 > OQ-05에는 이제 accepted ordinary-language turn을 answer, clarification, hold, unsupported, action draft
 > 또는 cancellation으로 종료하는 async server-side semantic turn runtime도 포함됩니다. Verified query
 > DAG만 실행하며 exact Console graph/evidence projection을 emit합니다.

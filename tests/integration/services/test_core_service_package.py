@@ -52,6 +52,7 @@ EXPECTED_RUNTIME_MODULES = {
     "human_assignment_reconciliation.py",
     "inventory_ontology.py",
     "isolated_executor_client.py",
+    "metric_semantic_catalog.py",
     "operating_model.py",
     "post_turn_review.py",
     "providers.py",

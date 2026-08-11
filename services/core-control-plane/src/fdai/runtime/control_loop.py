@@ -126,6 +126,7 @@ from fdai.runtime.delivery import (
 from fdai.runtime.isolated_executor_client import (
     EventBusDirectApiExecutionClient as EventBusDirectApiExecutionClient,
 )
+from fdai.runtime.metric_semantic_catalog import load_metric_semantic_registry
 from fdai.runtime.providers import (
     _build_audit_store,
     _build_idempotency_store,
@@ -370,6 +371,9 @@ def _build_control_loop(
         yaml.safe_load(
             (catalog_root / "vocabulary" / "signal-types.yaml").read_text(encoding="utf-8")
         )
+    )
+    metric_semantics = load_metric_semantic_registry(
+        catalog_root / "vocabulary" / "metric-semantics.yaml"
     )
 
     # Ontology ObjectType / LinkType catalogs (fail-closed if directories
@@ -764,6 +768,7 @@ def _build_control_loop(
         workflow_outcome_recorder=workflow_outcome_ledger,
         ontology_instance_store=ontology_instance_store,
         property_semantics=property_semantics,
+        metric_semantics=metric_semantics,
         execution_authorization_evaluator=container.execution_authorization_evaluator,
         execution_access_grant_sink=container.execution_access_grant_sink,
         execution_authorization_required=container.execution_authorization_required,

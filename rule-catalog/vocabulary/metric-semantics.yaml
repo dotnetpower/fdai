@@ -1,0 +1,32 @@
+schema_version: "1.0.0"
+definitions:
+  - concept_id: deployment.change
+    provider_metric: fdai.change.event
+    canonical_unit: count
+    aggregation: count
+    description: Observed deployment or configuration change events in the bounded window.
+    monotonic: false
+  - concept_id: network.change
+    provider_metric: fdai.network.change.event
+    canonical_unit: count
+    aggregation: count
+    description: Observed network-topology change events in the bounded window.
+    monotonic: false
+  - concept_id: request.errors
+    provider_metric: http.server.request.error.count
+    canonical_unit: count
+    aggregation: sum
+    description: Completed server requests classified as errors in the bounded window.
+    monotonic: true
+  - concept_id: request.volume
+    provider_metric: http.server.request.count
+    canonical_unit: count
+    aggregation: sum
+    description: Completed server requests in the bounded window.
+    monotonic: true
+  - concept_id: storage.write.success
+    provider_metric: storage.write.success.count
+    canonical_unit: count
+    aggregation: sum
+    description: Successful storage write operations in the bounded window.
+    monotonic: true
