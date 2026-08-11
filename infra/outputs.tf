@@ -19,8 +19,8 @@ output "executor_identity_principal_id" {
 output "isolated_executor_shadow" {
   description = "Shadow-only isolated Executor deployment handles. Null while disabled."
   value = var.enable_isolated_executor ? {
-    app_id                = module.isolated_executor[0].id
-    app_name              = module.isolated_executor[0].name
+    app_id                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${module.resource_group.name}/providers/Microsoft.App/containerApps/ca-${var.workload}${local.full_suffix}-executor"
+    app_name              = "ca-${var.workload}${local.full_suffix}-executor"
     identity_resource_id  = module.isolated_executor_identity[0].resource_id
     identity_principal_id = module.isolated_executor_identity[0].principal_id
   } : null

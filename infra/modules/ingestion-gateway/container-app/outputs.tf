@@ -1,13 +1,13 @@
 output "name" {
-  value = azurerm_container_app.ingestion.name
+  value = var.name
 }
 
 output "fqdn" {
-  value = azurerm_container_app.ingestion.ingress[0].fqdn
+  value = ""
 }
 
 output "id" {
-  value = azurerm_container_app.ingestion.id
+  value = ""
 }
 
 output "migrate_job_name" {
@@ -15,9 +15,9 @@ output "migrate_job_name" {
 }
 
 output "worker_name" {
-  value = length(azurerm_container_app.worker) > 0 ? azurerm_container_app.worker[0].name : ""
+  value = var.cohost_worker ? "" : var.worker_name
 }
 
 output "worker_id" {
-  value = length(azurerm_container_app.worker) > 0 ? azurerm_container_app.worker[0].id : ""
+  value = ""
 }

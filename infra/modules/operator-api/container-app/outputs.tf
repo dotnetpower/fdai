@@ -1,11 +1,11 @@
 output "fqdn" {
-  description = "Operator API Container App ingress FQDN. Wire this into the console build (`VITE_OPERATOR_API_BASE_URL`)."
-  value       = azurerm_container_app.operator_api.ingress[0].fqdn
+  description = "Empty after runtime state migration; deployment verification reads the live FQDN from Azure."
+  value       = ""
 }
 
 output "name" {
   description = "Operator API Container App resource name."
-  value       = azurerm_container_app.operator_api.name
+  value       = var.name
 }
 
 output "migrate_job_name" {

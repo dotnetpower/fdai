@@ -25,6 +25,12 @@ _LEGACY_OUTPUTS = (_ROOT / "infra/modules/compute/container-apps/outputs.tf").re
     encoding="utf-8"
 )
 _LEGACY_ROOT = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
+_LEGACY_OPERATOR_MODULE = (_ROOT / "infra/modules/operator-api/container-app/main.tf").read_text(
+    encoding="utf-8"
+)
+_LEGACY_INGESTION_MODULE = (
+    _ROOT / "infra/modules/ingestion-gateway/container-app/main.tf"
+).read_text(encoding="utf-8")
 _MATRIX = json.loads(
     (_ROOT / "scripts" / "deployment" / "service" / "service-matrix.json").read_text(
         encoding="utf-8"
@@ -71,8 +77,36 @@ def test_legacy_executor_uses_independent_service_distribution() -> None:
 
     assert module_match is not None
     module_body = module_match.group("body")
+    assert re.search(r"^\s*count\s*=\s*0$", module_body, re.MULTILINE)
     assert 'service_distribution         = "fdai-isolated-executor-service"' in module_body
     assert 'service_entrypoint           = "fdai-isolated-executor-service"' in module_body
+
+
+def test_legacy_platform_disables_all_migrated_service_apps() -> None:
+    operator_app = re.search(
+        r'resource "azurerm_container_app" "operator_api" \{(?P<body>.*?)\n\}',
+        _LEGACY_OPERATOR_MODULE,
+        re.DOTALL,
+    )
+    ingestion_app = re.search(
+        r'resource "azurerm_container_app" "ingestion" \{(?P<body>.*?)\n\}',
+        _LEGACY_INGESTION_MODULE,
+        re.DOTALL,
+    )
+    ingestion_worker = re.search(
+        r'resource "azurerm_container_app" "worker" \{(?P<body>.*?)\n\}',
+        _LEGACY_INGESTION_MODULE,
+        re.DOTALL,
+    )
+
+    for resource_match in (operator_app, ingestion_app, ingestion_worker):
+        assert resource_match is not None
+        assert re.search(r"^\s*count\s*=\s*0$", resource_match.group("body"), re.MULTILINE)
+
+    assert 'resource "azurerm_container_app_job" "migrate"' in _LEGACY_OPERATOR_MODULE
+    assert 'resource "azurerm_container_app_job" "migrate"' in _LEGACY_INGESTION_MODULE
+    assert "az containerapp show" in _LEGACY_WORKFLOW
+    assert "properties.configuration.ingress.fqdn" in _LEGACY_WORKFLOW
 
 
 def test_workflow_pins_every_action_to_trusted_immutable_commit() -> None:

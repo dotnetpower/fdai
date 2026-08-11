@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: f639701517253d7615e71c1bf48d7c3d5efa96fc
+translation_source_sha: 990095fb64a6dc92c0da4f7c99fcc526ed09469f
 translation_revised: 2026-08-12
 ---
 # 배포 리소스 규약
@@ -116,7 +116,10 @@ monitoring은 이 이름으로 실제 ARM id를 구성합니다. 과거 source �
 이전 방식 platform 루트는 롤백 호환 배포 표면으로만 격리 Executor wrapper를 유지할 수 있습니다.
 이 wrapper는 `service_distribution`과 `service_entrypoint`를 모두
 `fdai-isolated-executor-service`에 bind합니다. 빈 값이나 Core co-located 값은 플랜 승인 전에
-모듈 precondition에서 실패합니다.
+모듈 precondition에서 실패합니다. 5개 런타임의 상태 이동이 모두 끝나면 이전 방식 Container App
+리소스는 전부 비활성화되고 Operator 및 ingestion migration Job은 이전 방식 상태 소유로 유지됩니다.
+배포 검증은 결정론적 이름으로 Azure에서 독립 App의 실제 FQDN을 읽으며, 해당 리소스를 platform
+상태에 다시 도입하지 않습니다.
 
 ## 리소스 태깅 규약(Resource Tagging Convention)
 

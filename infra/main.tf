@@ -1944,7 +1944,7 @@ module "measurement_runners" {
 # the separate SD-08 authority cutover.
 # -----------------------------------------------------------------------
 module "isolated_executor" {
-  count  = var.enable_isolated_executor ? 1 : 0
+  count  = 0
   source = "./modules/isolated-executor/container-app"
 
   name                         = "ca-${var.workload}${local.full_suffix}-executor"

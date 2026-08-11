@@ -1,4 +1,5 @@
 resource "azurerm_container_app" "ingestion" {
+  count                        = 0
   name                         = var.name
   container_app_environment_id = var.container_app_environment_id
   resource_group_name          = var.resource_group_name
@@ -337,7 +338,7 @@ resource "azurerm_container_app" "ingestion" {
 }
 
 resource "azurerm_container_app" "worker" {
-  count                        = 1
+  count                        = 0
   name                         = var.worker_name
   container_app_environment_id = var.container_app_environment_id
   resource_group_name          = var.resource_group_name

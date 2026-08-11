@@ -20,6 +20,7 @@ moved {
 }
 
 resource "azurerm_container_app" "operator_api" {
+  count                        = 0
   name                         = var.name
   container_app_environment_id = var.container_app_environment_id
   resource_group_name          = var.resource_group_name

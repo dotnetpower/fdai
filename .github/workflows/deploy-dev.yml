@@ -1601,8 +1601,11 @@ jobs:
           apps=("$(terraform output -raw core_app_name)")
           targets=()
           if [ "${{ inputs.deploy_operator_api }}" = "true" ]; then
-            apps+=("$(terraform output -raw operator_api_name)")
-            targets+=("https://$(terraform output -raw operator_api_fqdn)/healthz")
+            operator_app="$(terraform output -raw operator_api_name)"
+            operator_fqdn="$(az containerapp show --name "$operator_app" --resource-group "$rg" \
+              --query properties.configuration.ingress.fqdn -o tsv)"
+            apps+=("$operator_app")
+            targets+=("https://$operator_fqdn/healthz")
           fi
           if [ "${{ inputs.deploy_isolated_executor }}" = "true" ]; then
             executor_app="$(terraform output -json isolated_executor_shadow | python3 -c \
@@ -1610,8 +1613,11 @@ jobs:
             apps+=("$executor_app")
           fi
           if [ "${{ inputs.deploy_document_ingestion }}" = "true" ]; then
-            apps+=("$(terraform output -raw ingestion_gateway_name)")
-            targets+=("https://$(terraform output -raw ingestion_gateway_fqdn)/healthz")
+            ingestion_app="$(terraform output -raw ingestion_gateway_name)"
+            ingestion_fqdn="$(az containerapp show --name "$ingestion_app" --resource-group "$rg" \
+              --query properties.configuration.ingress.fqdn -o tsv)"
+            apps+=("$ingestion_app")
+            targets+=("https://$ingestion_fqdn/healthz")
             worker="$(terraform output -raw ingestion_worker_name)"
             [ -z "$worker" ] || apps+=("$worker")
           fi
@@ -1991,8 +1997,20 @@ jobs:
       - name: Publish console API endpoints
         if: ${{ inputs.apply && inputs.deploy_console }}
         run: |
-          operator_api="$(terraform output -raw operator_api_fqdn)"
-          ingestion="$(terraform output -raw ingestion_gateway_fqdn)"
+          set -euo pipefail
+          rg="$(terraform output -raw resource_group_name)"
+          operator_api=""
+          ingestion=""
+          if [ "${{ inputs.deploy_operator_api }}" = "true" ]; then
+            operator_api="$(az containerapp show \
+              --name "$(terraform output -raw operator_api_name)" --resource-group "$rg" \
+              --query properties.configuration.ingress.fqdn -o tsv)"
+          fi
+          if [ "${{ inputs.deploy_document_ingestion }}" = "true" ]; then
+            ingestion="$(az containerapp show \
+              --name "$(terraform output -raw ingestion_gateway_name)" --resource-group "$rg" \
+              --query properties.configuration.ingress.fqdn -o tsv)"
+          fi
           {
             echo "VITE_OPERATOR_API_BASE_URL=${operator_api:+https://$operator_api}"
             echo "VITE_INGESTION_API_BASE_URL=${ingestion:+https://$ingestion}"

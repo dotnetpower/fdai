@@ -114,7 +114,10 @@ plan that proposes any create, update, replacement, or delete at that address is
 The legacy platform root may retain the isolated Executor wrapper only as a rollback-compatible
 deployment surface. That wrapper binds both `service_distribution` and `service_entrypoint` to
 `fdai-isolated-executor-service`; empty or co-located Core values fail the module precondition before
-a plan can be approved.
+a plan can be approved. After all five runtime state moves, every legacy Container App resource is
+inactive while the Operator and ingestion migration Jobs remain legacy-state owned. Deployment
+verification reads the independent Apps' live FQDNs from Azure by deterministic name; it never
+reintroduces their resources into the platform state.
 
 ## Resource Tagging Convention
 
