@@ -10,6 +10,10 @@ from pathlib import Path
 from typing import Any, cast
 
 import httpx
+from fdai_core_service.semantic_turn_consumer import (
+    SemanticTurnConsumerBinding,
+    semantic_turn_binding_from_config,
+)
 
 from fdai.agents import (
     OWNED_OBJECT_TOPICS,
@@ -198,6 +202,7 @@ async def _run() -> int:
     startup_readiness_runtime: StartupReadinessRuntime | None = None
     t2_recovery_maintenance: Any = None
     assignment_reconciliation_worker: Any = None
+    semantic_turn_binding: SemanticTurnConsumerBinding | None = None
 
     try:
         telemetry_requested = bool(
@@ -317,6 +322,16 @@ async def _run() -> int:
             )
 
             incident_audit_store = _build_audit_store()
+            semantic_turn_binding = semantic_turn_binding_from_config(
+                state_store=incident_audit_store,
+                runtime=None,
+                config=os.environ,
+            )
+            if semantic_turn_binding is not None and not semantic_turn_binding.available:
+                _LOGGER.warning(
+                    "semantic_turn_runtime_unavailable",
+                    extra={"reason": semantic_turn_binding.unavailable_reason},
+                )
             if os.environ.get("FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER", "").strip() == "1":
                 if auxiliary_bus is None:
                     raise RuntimeError(
@@ -914,6 +929,15 @@ async def _run() -> int:
             hil_decision_task: asyncio.Task[None] | None = None
             hil_reminder_task: asyncio.Task[None] | None = None
             hil_escalation_task: asyncio.Task[None] | None = None
+            semantic_turn_task: asyncio.Task[None] | None = None
+            if semantic_turn_binding is not None:
+                semantic_turn_task = asyncio.create_task(
+                    startup_readiness_runtime.run_when_ready(
+                        stop,
+                        lambda: semantic_turn_binding.run(bus=bus, stop=stop),
+                    ),
+                    name="semantic-turn-consumer",
+                )
             if control_loop._hil_resume_coordinator is not None:
                 from fdai.delivery.chatops.hil_decision import DEFAULT_HIL_DECISION_TOPIC
 
@@ -1025,6 +1049,7 @@ async def _run() -> int:
                     hil_reminder_task,
                     hil_escalation_task,
                     case_history_retention_task,
+                    semantic_turn_task,
                 ),
                 background=(
                     pantheon_task,
