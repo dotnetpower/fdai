@@ -2,148 +2,148 @@
 title: ADR-0002 Independent Runtime and Customization Axes
 translation_of: 0002-independent-runtime-axes.md
 translation_source_sha: ba4109e72f05e2aeb703ab7b940aa209458b7296
-translation_revised: 2026-08-02
+translation_revised: 2026-08-11
 ---
-# ADR-0002: 독립적인 Runtime 및 Customization 축
+# ADR-0002: 독립적인 런타임 및 Customization 축
 
-이 record는 FDAI가 어디서 실행되는지, 어떤 evidence를 읽는지, 누가 동작할 수 있는지,
-action을 실행할 수 있는지, downstream distribution을 어떻게 customize하는지를 결정하는
-configuration 축을 분리합니다. `local`, `dev`, `shadow`, `fork`가 서로의 별칭이 되는 것을
+이 기록은 FDAI가 어디서 실행되는지, 어떤 근거를 읽는지, 누가 동작할 수 있는지,
+액션을 실행할 수 있는지, downstream 분포를 어떻게 customize하는지를 결정하는
+구성 축을 분리합니다. `local`, `dev`, `shadow`, `fork`가 서로의 별칭이 되는 것을
 방지합니다.
 
 ## 상태
 
 **Accepted:** 2026-07-20.
 
-## Context
+## 맥락
 
-이전 design text는 여러 독립 concern을 결합했습니다. Local development가 test fake 또는
-shadow-only behavior를 의미하는 경우가 있었습니다. Downstream fork도 production 또는 customer
-environment처럼 설명되는 경우가 많았습니다. Authentication flag는 browser operator, Azure data
-access, privileged executor도 혼합했습니다.
+이전 design 텍스트는 여러 독립 관심사를 결합했습니다. 로컬 개발이 테스트 가짜 또는
+shadow-only 행동을 의미하는 경우가 있었습니다. Downstream 포크도 운영 또는 customer
+환경처럼 설명되는 경우가 많았습니다. Authentication 플래그는 브라우저 운영자, Azure 데이터
+접근, privileged 실행기도 혼합했습니다.
 
-이러한 shortcut은 production-parity debugging을 불가능하게 만들고 authorization defect를
-숨깁니다. 또한 fork가 실제 의미인 capability 제한 또는 확장 distribution이 아니라 실행 위치나
+이러한 shortcut은 production-parity debugging을 불가능하게 만들고 권한 확인 defect를
+숨깁니다. 또한 포크가 실제 의미인 기능 제한 또는 확장 분포가 아니라 실행 위치나
 운영 상태처럼 보이게 합니다.
 
-## Decision
+## 결정
 
-FDAI는 다음 축을 독립 configuration으로 취급합니다.
+FDAI는 다음 축을 독립 구성으로 취급합니다.
 
-| 축 | 대표 값 | Authority |
+| 축 | 대표 값 | 권한 |
 |----|---------|-----------|
-| 실행 위치 | `local`, `deployed` | process launcher |
-| 배포 환경 | `dev`, `staging`, `production` | deployment configuration |
-| Evidence profile | `authoritative`, `fixture` | composition root |
-| Action lifecycle | `shadow`, `enforce` | ActionType 및 Workflow별 promotion registry |
-| 사용자 identity | Entra principal 및 App Role | browser token 및 RBAC policy |
-| Executor identity | managed workload identity | deployed executor boundary |
-| Authorization policy | Signed scoped policy bundle 및 effective-access evidence | execution-authorization resolver |
-| Distribution | `upstream`, `fork` | source 및 customization boundary |
-| Operational safety profile | `mscp-operational-v1` | Versioned core policy, 실행 authority 아님 |
+| 실행 위치 | `local`, `deployed` | 프로세스 launcher |
+| 배포 환경 | `dev`, `staging`, `production` | 배포 구성 |
+| 근거 프로파일 | `authoritative`, `fixture` | 조립 루트 |
+| 액션 수명 주기 | `shadow`, `enforce` | ActionType 및 작업 흐름별 승격 레지스트리 |
+| 사용자 신원 | Entra principal 및 App 역할 | 브라우저 토큰 및 RBAC 정책 |
+| 실행기 신원 | managed 워크로드 신원 | deployed 실행기 경계 |
+| 권한 확인 정책 | Signed scoped 정책 bundle 및 effective-access 근거 | execution-authorization 해석기 |
+| 분포 | `upstream`, `fork` | 출처 및 customization 경계 |
+| Operational 안전성 프로파일 | `mscp-operational-v1` | Versioned 코어 정책, 실행 권한 아님 |
 
 어떤 축의 값도 다른 축의 값을 선택하지 않습니다. 특히 다음 계약을 적용합니다.
 
-- Local 실행은 shadow mode, test fixture, anonymous authorization 또는 local-only business logic을
-  강제하지 않습니다.
-- Development deployment는 production과 같은 risk, approval, blast-radius, rollback, audit gate를
-  통과할 때 promoted action을 enforce mode로 실행할 수 있습니다.
-- Production deployment도 어떤 action이든 shadow mode로 유지할 수 있습니다.
-- Evidence profile은 source limitation 및 truncation reason을 typed value로 보존합니다. Execution
-  venue 또는 environment 변경으로 partial이나 unavailable evidence가 complete evidence로 바뀔 수 없습니다.
-- Conversation route completion은 evidence authority가 아닙니다. Deterministic assurance는 venue,
-  environment 또는 answer source와 무관하게 비어 있지 않은 terminal evidence manifest를 요구합니다.
-- Chat-policy promotion은 통계적으로 양수인 measured gain을 요구합니다. Venue, environment 또는
-  deployment default는 tie를 promotion evidence로 바꿀 수 없습니다.
-- 하나의 immutable read-investigation intent spec이 plan ID, tool 및 lookback을 소유합니다. Catalog
-  ID와 plan ID는 이 spec과 정확히 일치해야 하며 venue 또는 environment가 request 시점에 누락 semantics를 공급할 수 없습니다.
-- Fork는 모든 environment에 deployment가 없거나 여러 개 있을 수 있습니다. Upstream도 직접
-  deploy할 수 있습니다.
-- Fork detection은 upstream framework surface를 보호합니다. Runtime behavior, autonomy, identity,
-  environment를 변경하지 않습니다.
-- Authorization policy와 effective-access evidence는 deployment input입니다. Environment와 fork
-  status는 grant posture를 선택하거나 identity의 접근 권한을 암시하지 않습니다.
-- Operational safety profile은 실행 위치, environment, evidence, lifecycle, identity 및
-  distribution과 독립적입니다. Profile check는 기존 autonomy decision을 유지하거나 낮출 수만
-  있습니다.
+- 로컬 실행은 그림자 모드, 테스트 고정본, anonymous 권한 확인 또는 local-only business logic을
+ 강제하지 않습니다.
+- 개발 배포는 운영과 같은 risk, 승인, blast-radius, 롤백, 감사 게이트를
+ 통과할 때 promoted 액션을 enforce 모드로 실행할 수 있습니다.
+- 운영 배포도 어떤 액션이든 그림자 모드로 유지할 수 있습니다.
+- 근거 프로파일은 출처 한계 및 잘림 사유를 타입이 지정된 값으로 보존합니다. 실행
+ venue 또는 환경 변경으로 부분이나 사용 불가 근거가 완전한 근거로 바뀔 수 없습니다.
+- 대화 경로 완료는 근거 권한이 아닙니다. 결정론적 assurance는 venue,
+ 환경 또는 답변 출처와 무관하게 비어 있지 않은 최종 근거 매니페스트를 요구합니다.
+- Chat-policy 승격은 통계적으로 양수인 measured gain을 요구합니다. Venue, 환경 또는
+ 배포 기본값은 동점을 승격 근거로 바꿀 수 없습니다.
+- 하나의 변경할 수 없는 read-investigation 의도 spec이 계획 ID, 도구 및 조회 구간을 소유합니다. 카탈로그
+ ID와 계획 ID는 이 spec과 정확히 일치해야 하며 venue 또는 환경이 요청 시점에 누락 의미 규칙을 공급할 수 없습니다.
+- 포크는 모든 환경에 배포가 없거나 여러 개 있을 수 있습니다. Upstream도 직접
+ deploy할 수 있습니다.
+- 포크 detection은 upstream framework 표면을 보호합니다. 런타임 행동, 자율성, 신원,
+ 환경을 변경하지 않습니다.
+- 권한 확인 정책과 effective-access 근거는 배포 입력입니다. 환경과 포크
+ 상태는 권한 부여 자세를 선택하거나 신원의 접근 권한을 암시하지 않습니다.
+- Operational 안전성 프로파일은 실행 위치, 환경, 근거, 수명 주기, 신원 및
+ 분포와 독립적입니다. 프로파일 검사는 기존 자율성 결정을 유지하거나 낮출 수만
+ 있습니다.
 
-### Interactive local profile
+### Interactive 로컬 프로파일
 
-기본 interactive local profile은 production-parity control-plane client 및 runtime입니다.
+기본 interactive 로컬 프로파일은 production-parity control-plane 클라이언트 및 런타임입니다.
 
-- Browser는 deployment와 같은 Entra JWT 및 App Role 검사를 사용합니다.
-- Azure CLI credential은 development data plane을 읽는 local Azure provider adapter로 제한합니다.
-  Browser principal 또는 executor identity를 대체하지 않습니다.
-- 동일한 agent pantheon, catalog, promotion registry, risk gate, Process journal, stage event를
-  local에서도 실행합니다.
-- Interactive read investigation은 local과 deployed 환경에서 같은 execution-mode policy를
-  사용합니다. 측정된 provider latency는 선택 mode를 바꿀 수 있지만 execution venue 자체는 바꿀 수
-  없습니다.
-- Pantheon startup은 기본 활성 상태입니다. `FDAI_START_PANTHEON`이 없으면 모든 agent를
-  활성화하고 명시적인 false 값만 비활성화합니다. Event Hubs configuration은 Azure transport를
-  선택하며 runtime 존재 여부를 결정하지 않습니다. Event Hubs가 없으면 local in-process
-  EventBus가 agent message와 status를 전달하고 Azure evidence는 unavailable 상태를 유지합니다.
-- Privileged execution은 Thor의 deployed managed identity 뒤에 유지합니다. Local process는
-  governed command를 development event bus로 publish하며 developer token으로 실행하지 않습니다.
-- Authoritative provider가 없으면 unavailable로 표시하거나 fail closed합니다. Fixture를 선택하지
-  않습니다.
+- 브라우저는 배포와 같은 Entra JWT 및 App 역할 검사를 사용합니다.
+- Azure CLI 자격 증명은 개발 데이터 plane을 읽는 로컬 Azure 프로바이더 어댑터로 제한합니다.
+ 브라우저 principal 또는 실행기 신원을 대체하지 않습니다.
+- 동일한 에이전트 pantheon, 카탈로그, 승격 레지스트리, risk 게이트, 프로세스 journal, 단계 이벤트를
+ 로컬에서도 실행합니다.
+- Interactive 읽기 조사는 로컬과 deployed 환경에서 같은 execution-mode 정책을
+ 사용합니다. 측정된 프로바이더 지연 시간은 선택 모드를 바꿀 수 있지만 실행 venue 자체는 바꿀 수
+ 없습니다.
+- Pantheon 시작은 기본 활성 상태입니다. `FDAI_START_PANTHEON`이 없으면 모든 에이전트를
+ 활성화하고 명시적인 false 값만 비활성화합니다. Event Hubs 구성은 Azure 전송 계층을
+ 선택하며 런타임 존재 여부를 결정하지 않습니다. Event Hubs가 없으면 로컬 프로세스 내
+ EventBus가 에이전트 메시지와 상태를 전달하고 Azure 근거는 사용 불가 상태를 유지합니다.
+- Privileged 실행은 Thor의 deployed managed 신원 뒤에 유지합니다. 로컬 프로세스는
+ 통제된 명령을 개발 이벤트 버스로 publish하며 developer 토큰으로 실행하지 않습니다.
+- 권위 있는 프로바이더가 없으면 사용 불가로 표시하거나 실패 시 차단합니다. 고정본을 선택하지
+ 않습니다.
 
-Automated test와 명시적인 mock application은 `fixture` evidence profile을 선택할 수 있습니다.
-Offline interactive 작업은 repository catalog 및 reference screen으로 제한하며 runtime claim을
+Automated 테스트와 명시적인 mock 애플리케이션은 `fixture` 근거 프로파일을 선택할 수 있습니다.
+Offline interactive 작업은 저장소 카탈로그 및 참조 화면으로 제한하며 런타임 점유를
 만들지 않습니다.
 
-### Shadow 및 promotion
+### 그림자 및 승격
 
-Shadow-first는 development-environment policy가 아니라 capability lifecycle invariant입니다. 새
-ActionType과 Workflow는 모든 위치에서 shadow로 시작합니다. Promotion evidence를 통과한 후 모든
-실행 위치는 같은 authoritative lifecycle state를 관찰합니다. Local flag는 action을 promote할 수
-없으며 local 실행은 risk 또는 approval decision을 낮출 수 없습니다.
+Shadow-first는 development-environment 정책이 아니라 기능 수명 주기 invariant입니다. 새
+ActionType과 작업 흐름은 모든 위치에서 그림자로 시작합니다. 승격 근거를 통과한 후 모든
+실행 위치는 같은 권위 있는 수명 주기 상태를 관찰합니다. 로컬 플래그는 액션을 promote할 수
+없으며 로컬 실행은 risk 또는 승인 결정을 낮출 수 없습니다.
 
-### Fork boundary
+### 포크 경계
 
-Fork는 downstream distribution customization boundary입니다. 다음 작업을 할 수 있습니다.
+포크는 downstream 분포 customization 경계입니다. 다음 작업을 할 수 있습니다.
 
-- upstream provider Protocol에 다른 implementation을 binding합니다.
-- 지원되는 seam을 통해 capability, catalog, policy, presentation overlay를 추가하거나 제거합니다.
-- upstream safety invariant를 유지하면서 더 좁거나 넓은 product profile을 package합니다.
+- upstream 프로바이더 프로토콜에 다른 구현을 연결합니다.
+- 지원되는 경계를 통해 기능, 카탈로그, 정책, 표현 overlay를 추가하거나 제거합니다.
+- upstream 안전성 invariant를 유지하면서 더 좁거나 넓은 product 프로파일을 패키지합니다.
 
-Deployment value, environment name, tenant identifier, secret, runtime promotion state는 deployment
-configuration입니다. Fork가 소유한 deployment repository에서 제공할 수 있지만 이러한 값이
-fork를 정의하지 않으며 fork도 production을 의미하지 않습니다.
+배포 값, 환경 이름, 테넌트 식별자, 시크릿, 런타임 승격 상태는 배포
+구성입니다. 포크가 소유한 배포 저장소에서 제공할 수 있지만 이러한 값이
+포크를 정의하지 않으며 포크도 운영을 의미하지 않습니다.
 
 ## 검토한 대안
 
 | 대안 | 선택하지 않은 이유 |
 |------|---------------------|
-| Local을 shadow-only로 유지 | promoted behavior 및 RBAC의 end-to-end debugging을 막습니다. |
-| Local process에 executor privilege 부여 | operator와 executor identity를 합칩니다. |
-| 모든 customer deployment를 fork로 취급 | source distribution을 tenancy 및 environment와 결합합니다. |
-| Instruction만으로 축 보존 | Prose는 충돌하는 edit를 결정적으로 차단할 수 없습니다. |
+| 로컬을 shadow-only로 유지 | promoted 행동 및 RBAC의 종단 간 debugging을 막습니다. |
+| 로컬 프로세스에 실행기 권한 부여 | 운영자와 실행기 신원을 합칩니다. |
+| 모든 customer 배포를 포크로 취급 | 출처 분포를 tenancy 및 환경과 결합합니다. |
+| Instruction만으로 축 보존 | 산문은 충돌하는 편집을 결정적으로 차단할 수 없습니다. |
 
 ## Consequence
 
-- Local startup은 기본적으로 실제 Entra, Azure data-plane binding, 전용 development consumer
-  identity가 필요합니다.
-- 동일한 input과 promotion state에 대해 local 및 deployed decision snapshot을 비교할 수 있습니다.
-- Test fixture에는 명시적인 pytest 또는 mock profile이 필요합니다.
-- Documentation 및 configuration key는 자신이 제어하는 축을 이름에 나타내야 합니다.
-- Instruction 및 design-document routing에는 machine-readable manifest와 edit-time gate가
-  필요합니다.
-- 기존 `production fork`, `dev-mode fake`, local shadow-only 표현을 migration해야 합니다.
+- 로컬 시작은 기본적으로 실제 Entra, Azure data-plane 연결, 전용 개발 소비자
+ 신원이 필요합니다.
+- 동일한 입력과 승격 상태에 대해 로컬 및 deployed 결정 스냅샷을 비교할 수 있습니다.
+- 테스트 고정본에는 명시적인 pytest 또는 mock 프로파일이 필요합니다.
+- Documentation 및 구성 키는 자신이 제어하는 축을 이름에 나타내야 합니다.
+- Instruction 및 design-document 라우팅에는 기계가 읽는 매니페스트와 edit-time 게이트가
+ 필요합니다.
+- 기존 `production fork`, `dev-mode fake`, 로컬 shadow-only 표현을 이행해야 합니다.
 
-## Evidence
+## 근거
 
-- [Application Shape](../../../../.github/instructions/app-shape.instructions.md)
-- [Dev/Deploy Parity](../../deployment/dev-and-deploy-parity-ko.md)
-- [User RBAC 및 Identity](../../interfaces/user-rbac-and-identity-ko.md)
+- [애플리케이션 형태](../../../../.github/instructions/app-shape.instructions.md)
+- [Dev/Deploy 동등성](../../deployment/dev-and-deploy-parity-ko.md)
+- [User RBAC 및 신원](../../interfaces/user-rbac-and-identity-ko.md)
 - [Operator-Initiated SRE 및 ARB](../../operations/operator-initiated-sre-and-arb-ko.md)
-- [Downstream Fork Guide](../../fork-and-sequencing/downstream-fork-guide-ko.md)
+- [Downstream 포크 Guide](../../fork-and-sequencing/downstream-fork-guide-ko.md)
 - [`design-routes.json`](../../../../scripts/lib/design-routes.json)
 
 ## 다음 단계
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
-| Azure platform baseline | [ADR-0001](0001-azure-day-zero-platform-ko.md) |
-| Runtime composition boundary | [Project Structure](../project-structure-ko.md) |
-| ADR process | [Architecture Decision Record](README-ko.md) |
+| Azure platform 기준선 | [ADR-0001](0001-azure-day-zero-platform-ko.md) |
+| 런타임 조립 경계 | [Project Structure](../project-structure-ko.md) |
+| ADR 프로세스 | [아키텍처 결정 기록](README-ko.md) |
