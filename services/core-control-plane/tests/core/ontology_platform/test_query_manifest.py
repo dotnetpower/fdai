@@ -205,6 +205,19 @@ def test_manifest_rejects_supplied_declaration_absent_from_release() -> None:
         )
 
 
+def test_manifest_rejects_release_declaration_without_runtime_metadata() -> None:
+    resource = _resource()
+    release = build_ontology_release(object_types=(resource,))
+
+    with pytest.raises(ValueError, match="release declarations are unavailable"):
+        build_query_manifest(
+            release=release,
+            principal_role=CeilingRole.READER,
+            purposes=("operations-review",),
+            principal_scope_digest=SCOPE_DIGEST,
+        )
+
+
 def test_shipped_catalog_has_complete_structural_manifest() -> None:
     catalog_root = REPO_ROOT / "rule-catalog"
     catalog = load_ontology_catalog(

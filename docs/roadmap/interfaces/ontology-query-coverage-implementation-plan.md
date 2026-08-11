@@ -53,6 +53,12 @@ units for 100% structural query coverage.
 > goals, and projects the internal exact-plan contracts to the Console v2/v1 wire shapes. The
 > Console accepts explicit cancellation receipts. Executing the semantic plan and attaching these
 > projections to the production turn-completion stream remain.
+> OQ-06 now restores a service-owned concrete in-memory semantic index with atomic stage, activate,
+> stale-generation, typed search, and rollback behavior. A full ontology generation builder emits
+> every principal-manifest declaration plus eligible deployment-local object projections, reuses
+> unchanged document instances by digest on incremental builds, independently recomputes coverage
+> and document roots, and refuses activation until that validation receipt is bound. The durable
+> PostgreSQL adapter, scheduled publisher process, and production descriptor-selector binding remain.
 
 ## Design at a glance
 
@@ -83,7 +89,7 @@ objects are selected only by authoritative reads after plan verification.
 | Query manifest | A principal-scoped content-addressed builder projects ObjectTypes and filtered properties, both LinkType endpoint sides, Interfaces, read-only functions, and draft-only ActionTypes. | The production narrator does not yet consume the manifest, and complete operator/evidence availability descriptors remain. |
 | Interfaces | Production catalog loading validates `Identifiable`, its provenance, and explicit bindings for all current ObjectTypes; runtime composition compiles it and pins it in the exact release. | Additional capability Interfaces and production ObjectSet query binding remain. |
 | Relationships | Every directed LinkType projects deterministic `<name>.outgoing` and `<name>.incoming` machine query ids with endpoint, cardinality, causal, transitive, and temporal metadata. | The generic plan verifier and planner binding that consume these sides remain. |
-| Semantic generations | Rule semantic schemas, generation contracts, database migrations, and the `CatalogSemanticIndex` Protocol exist. | No concrete index adapter or generation publisher is present in the current service-owned source tree; full-ontology generations are absent. |
+| Semantic generations | A concrete service-owned atomic in-memory index and off-path full/incremental ontology generation publisher cover declarations and eligible deployment-local objects with independent validation. | The durable PostgreSQL adapter, scheduled publisher process, and production semantic descriptor selector remain. |
 | Current topology | Azure projection emits resource-group and VNet containment, attachment, and a bounded dependency allowlist. | Azure adapters do not emit `peered_with` or `routes_to`; private endpoint, workload, and service dependency coverage is incomplete. |
 | Historical topology | Current graph generations and immutable decision snapshots preserve replay identity. | The instance graph is not bitemporal; general `graph_at` and `topology_diff` functions do not exist. |
 | Metrics and causality | Routed Prometheus, Azure Metrics, and KQL providers plus deterministic T1 causal and temporal-analysis primitives exist. | No ontology metric-concept registry compiles arbitrary question measures to providers; ad hoc cross-resource temporal joins are not available. |
@@ -238,6 +244,17 @@ Residual Low observations are code duplication between terminal receipt builders
 graph projection passes, and clearer diagnostics for developer-only adapters. Additional semantic
 Interfaces, production planner binding, semantic generation, topology history, and temporal joins
 remain planned capabilities, not hidden hardening defects.
+
+The OQ-04/OQ-05 foundation received an additional 25-lens adversarial review covering authority,
+model trust, digest binding, structural coverage, role and purpose, descriptor mutation, input
+bounds, prompt injection, clarification, action drafts, verifier bypass, graph/receipt mapping,
+cancellation, Console parity, replay, redaction, compatibility routing, service boundaries, agent
+ownership, concurrency, tests, and docs. One reproducible Medium finding was fixed: a release
+declaration whose runtime metadata was omitted can no longer disappear from structural coverage;
+manifest construction now fails closed. The proposed descriptor-mutation finding was rejected
+because the selector is checked as an exact manifest subset and deep-copied before model exposure,
+and the test proves the source manifest remains unchanged. The owning bilingual designs already
+document the new seams. No reproducible Medium-or-higher finding remains in this shadow-only slice.
 
 ## Related docs
 

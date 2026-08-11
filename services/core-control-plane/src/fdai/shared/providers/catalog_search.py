@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ from fdai.shared.providers.knowledge import Embedder
 CatalogSearchMatch = Literal["exact_id", "hybrid"]
 CatalogCorpus = Literal["active", "discovery"]
 CatalogGenerationState = Literal["staged", "active", "retired", "failed"]
+CatalogDocumentKind = Literal["rule", "ontology_declaration", "ontology_object"]
 _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 
 
@@ -125,9 +127,16 @@ class CatalogGenerationRollbackReceipt:
 
 @dataclass(frozen=True, slots=True)
 class CatalogSearchDocument:
+    """One candidate-only semantic projection row.
+
+    ``rule_id`` remains the compatibility identifier. For non-Rule rows it
+    stores a namespaced declaration or deployment-local object reference.
+    """
+
     rule_id: str
     text: str
     neighbor_ids: tuple[str, ...]
+    document_kind: CatalogDocumentKind = "rule"
     embedding: tuple[float, ...] = ()
     corpus: CatalogCorpus = "active"
     generation_id: str | None = None
@@ -139,6 +148,8 @@ class CatalogSearchDocument:
             raise ValueError("catalog search document identity and text MUST be non-empty")
         if len(self.neighbor_ids) != len(set(self.neighbor_ids)):
             raise ValueError("catalog search neighbor ids MUST be unique")
+        if len(self.embedding) > 4096 or any(not math.isfinite(item) for item in self.embedding):
+            raise ValueError("catalog search embedding MUST be finite and bounded")
         for name, value in (
             ("manifest_digest", self.manifest_digest),
             ("surface_digest", self.surface_digest),
@@ -157,6 +168,13 @@ class CatalogSearchResult:
     generation_id: str | None = None
     generation_digest: str | None = None
     catalog_digest: str | None = None
+    document_kind: CatalogDocumentKind = "rule"
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.score):
+            raise ValueError("catalog search result score MUST be finite")
+        if any(not math.isfinite(value) for value in self.components.values()):
+            raise ValueError("catalog search result components MUST be finite")
 
 
 @runtime_checkable
@@ -210,6 +228,7 @@ class CatalogSemanticIndex(Protocol):
 
 
 __all__ = [
+    "CatalogDocumentKind",
     "CatalogSearchDocument",
     "CatalogSearchMatch",
     "CatalogSearchResult",

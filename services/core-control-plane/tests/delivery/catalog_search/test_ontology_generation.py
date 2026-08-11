@@ -1,0 +1,241 @@
+"""Full and incremental ontology semantic generation tests."""
+
+from __future__ import annotations
+
+from dataclasses import replace
+from datetime import UTC, datetime
+
+import pytest
+from fdai.core.ontology_platform import QueryManifest, build_query_manifest
+from fdai.delivery.catalog_search import (
+    InMemoryCatalogSemanticIndex,
+    SemanticGenerationBuild,
+    bind_semantic_generation_validation,
+    build_ontology_semantic_generation,
+    publish_ontology_semantic_generation,
+    validate_ontology_semantic_generation,
+)
+from fdai.shared.contracts.models import (
+    CeilingRole,
+    LinkCardinality,
+    OntologyInterfaceType,
+    OntologyLinkType,
+    OntologyObjectType,
+    PropertyDecl,
+    PropertyType,
+)
+from fdai.shared.ontology.compatibility import OntologyGenerationCompatibilityReceipt
+from fdai.shared.ontology.release import build_ontology_release
+from fdai.shared.providers.catalog_search import CatalogGenerationMetadata, CatalogSearchDocument
+from fdai.shared.providers.ontology_instance import OntologyObjectRecord
+
+DIGEST = "sha256:" + ("a" * 64)
+NOW = datetime(2026, 8, 10, tzinfo=UTC)
+
+
+def _manifest() -> QueryManifest:
+    resource = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    interface = OntologyInterfaceType(
+        name="Identifiable",
+        version="1.0.0",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    link = OntologyLinkType(
+        schema_version="1.0.0",
+        name="contains",
+        version="1.0.0",
+        from_type="Resource",
+        to_type="Resource",
+        cardinality=LinkCardinality.ONE_TO_MANY,
+    )
+    release = build_ontology_release(
+        object_types=(resource,),
+        link_types=(link,),
+        interface_types=(interface,),
+    )
+    return build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(resource,),
+        link_types=(link,),
+        interfaces=(interface,),
+    )
+
+
+def _build(
+    *,
+    objects: tuple[OntologyObjectRecord, ...] = (),
+    previous: tuple[CatalogSearchDocument, ...] = (),
+) -> SemanticGenerationBuild:
+    return build_ontology_semantic_generation(
+        manifest=_manifest(),
+        embedding_space_id="ontology-v1",
+        embedding_model_version="lexical-only-v1",
+        embedding_dimension=1,
+        runtime_objects=objects,
+        previous_documents=previous,
+    )
+
+
+def test_full_generation_covers_every_manifest_descriptor_and_runtime_object() -> None:
+    record = OntologyObjectRecord(
+        id="resource-a",
+        object_type="Resource",
+        properties={"id": "resource-a"},
+    )
+
+    build = _build(objects=(record,))
+
+    assert len(build.documents) == 4
+    assert {item.document_kind for item in build.documents} == {
+        "ontology_declaration",
+        "ontology_object",
+    }
+    assert build.metadata.ontology_release_digest == _manifest().release_digest
+    assert build.metadata.validation_receipt_digest is None
+    assert build.reused_document_count == 0
+
+
+def test_incremental_generation_reuses_unchanged_document_objects() -> None:
+    first = _build()
+
+    second = _build(previous=first.documents)
+
+    assert second.metadata.generation_digest == first.metadata.generation_digest
+    assert second.document_digests == first.document_digests
+    assert second.reused_document_count == len(first.documents)
+    assert all(left is right for left, right in zip(first.documents, second.documents, strict=True))
+
+
+def test_full_generation_accepts_8500_incremental_projection_rows() -> None:
+    records = tuple(
+        OntologyObjectRecord(
+            id=f"resource-{index:05d}",
+            object_type="Resource",
+            properties={"id": f"resource-{index:05d}"},
+        )
+        for index in range(8_500)
+    )
+
+    build = _build(objects=records)
+    receipt = validate_ontology_semantic_generation(
+        build=build,
+        manifest=_manifest(),
+        validator_id="ontology-generation-validator-v1",
+    )
+
+    assert len(build.documents) == 8_503
+    assert receipt.document_count == 8_503
+
+
+async def test_staging_is_invisible_until_atomic_activation_and_search_is_typed() -> None:
+    build = _build()
+    index = InMemoryCatalogSemanticIndex()
+
+    with pytest.raises(ValueError, match="validation receipt"):
+        await publish_ontology_semantic_generation(
+            index=index,
+            build=build,
+            activated_at=NOW,
+        )
+
+    receipt = validate_ontology_semantic_generation(
+        build=build,
+        manifest=_manifest(),
+        validator_id="ontology-generation-validator-v1",
+    )
+    build = bind_semantic_generation_validation(build, receipt)
+    staged = await index.stage_generation(build.metadata, build.documents)
+    assert staged == len(build.documents)
+    assert await index.active_generation() is None
+
+    active = await publish_ontology_semantic_generation(
+        index=index,
+        build=build,
+        activated_at=NOW,
+    )
+    results = await index.search(
+        "Resource",
+        expected_catalog_digest=active.catalog_digest,
+    )
+
+    assert active.state == "active"
+    assert active.validation_receipt_digest == receipt.receipt_digest
+    assert results
+    assert all(item.document_kind == "ontology_declaration" for item in results)
+    assert all(item.generation_digest == active.generation_digest for item in results)
+
+
+async def test_generation_rejects_wrong_embedding_dimension() -> None:
+    build = _build()
+    invalid = build.documents[0]
+    documents = (
+        replace(invalid, embedding=(0.1, 0.2)),
+        *build.documents[1:],
+    )
+
+    with pytest.raises(ValueError, match="embedding dimension"):
+        await InMemoryCatalogSemanticIndex().stage_generation(build.metadata, documents)
+
+
+async def test_retained_generation_rolls_back_atomically() -> None:
+    manifest = _manifest()
+    index = InMemoryCatalogSemanticIndex()
+
+    async def activate(
+        build: SemanticGenerationBuild,
+        at: datetime,
+    ) -> tuple[SemanticGenerationBuild, CatalogGenerationMetadata]:
+        receipt = validate_ontology_semantic_generation(
+            build=build,
+            manifest=manifest,
+            validator_id="ontology-generation-validator-v1",
+        )
+        validated = bind_semantic_generation_validation(build, receipt)
+        metadata = await publish_ontology_semantic_generation(
+            index=index,
+            build=validated,
+            activated_at=at,
+        )
+        return validated, metadata
+
+    first_build, first = await activate(_build(), NOW)
+    changed_record = OntologyObjectRecord(
+        id="resource-new",
+        object_type="Resource",
+        properties={"id": "resource-new"},
+    )
+    second_build, second = await activate(
+        _build(objects=(changed_record,), previous=first_build.documents),
+        datetime(2026, 8, 10, 1, tzinfo=UTC),
+    )
+    compatibility = OntologyGenerationCompatibilityReceipt(
+        previous_release_digest=first.ontology_release_digest,
+        candidate_release_digest=second.ontology_release_digest,
+        checked_declarations=(),
+        added_declarations=(),
+    )
+
+    rollback = await index.rollback_generation(
+        first.generation_id,
+        expected_active_generation_id=second.generation_id,
+        expected_active_generation_digest=second.generation_digest,
+        expected_target_generation_digest=first.generation_digest,
+        expected_validation_receipt_digest=first.validation_receipt_digest or "",
+        ontology_compatibility_receipt=compatibility,
+        rolled_back_at=datetime(2026, 8, 10, 2, tzinfo=UTC),
+    )
+
+    assert rollback.reactivated_generation_id == first.generation_id
+    active = await index.active_generation()
+    assert active is not None
+    assert active.generation_id == first.generation_id
+    assert second_build.metadata.generation_id == second.generation_id

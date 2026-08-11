@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f3c1dd57f65e43b1ad59d5cff696fe07941f094f
+translation_source_sha: ef4819847df5ae491b0196cceead269e1d4ca9b7
 translation_revised: 2026-08-10
 ---
 
@@ -104,7 +104,7 @@ fdai/
 │   │   ├── operating_model/    # bounded JSON deployment operating-model adapter; startup-only, all-before-write
 │   │   ├── runtime_settings.py  # allowlist된 env default + revisioned StateStore override; executor identity 또는 promotion authority 없음
 │   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, built-in behavior seed
-│   │   ├── catalog_search/     # grounded Rule manifest, promoted surface, atomic pgvector generation 및 read-only concept query
+│   │   ├── catalog_search/     # candidate-only concrete semantic index, full/incremental Rule/ontology declaration/eligible deployment-object generation, independent validation, atomic activation, stale detection 및 rollback. Durable pgvector binding은 delivery work로 남습니다.
 │   │   ├── pgvector/           # persistent document 및 behavior vector index
 │   │   ├── azure/              # bounded log/metric/App Insights trace와 promoted inventory 기반 strict operational-learning evidence를 포함한 Azure 전용 adapter
 │   │   │                       #   `case_history_artifacts.py`는 workload identity로 private Blob에 content-addressed case revision 저장

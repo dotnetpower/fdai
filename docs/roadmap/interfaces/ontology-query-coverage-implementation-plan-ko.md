@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 39f71b7e78f1086c2491eadbd6ec1254ccb6a1c5
+translation_source_sha: a57bf87f45adbe083fc23cf475ce3351305b0e2e
 translation_revised: 2026-08-10
 ---
 
@@ -54,6 +54,12 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > bind하며 internal exact-plan contract를 Console v2/v1 wire shape로 projection합니다. Console은 explicit
 > cancellation receipt도 수락합니다. Semantic plan 실행 및 production turn-completion stream에 이
 > projection을 attach하는 작업은 남아 있습니다.
+> OQ-06은 이제 atomic stage/activate, stale-generation, typed search 및 rollback behavior를 가진
+> service-owned concrete in-memory semantic index를 복원했습니다. Full ontology generation builder는 모든
+> principal-manifest declaration과 eligible deployment-local object projection을 emit하고 incremental
+> build에서 변경되지 않은 document instance를 digest로 재사용합니다. Coverage와 document root를
+> 독립적으로 다시 계산하며 해당 validation receipt가 bind되기 전에는 activation을 거부합니다. Durable
+> PostgreSQL adapter, scheduled publisher process 및 production descriptor-selector binding은 남아 있습니다.
 
 ## 설계 개요
 
@@ -84,7 +90,7 @@ plan 검증 이후 authoritative read로만 선택합니다.
 | Query manifest | Principal-scoped content-addressed builder가 ObjectType/filtered property, LinkType 양쪽 endpoint side, Interface, read-only function 및 draft-only ActionType을 projection합니다. | Production narrator는 아직 manifest를 사용하지 않으며 complete operator/evidence availability descriptor가 남아 있습니다. |
 | Interface | Production catalog loading은 `Identifiable`, provenance 및 모든 current ObjectType의 explicit binding을 검증합니다. Runtime composition은 이를 compile하고 exact release에 pin합니다. | 추가 capability Interface와 production ObjectSet query binding은 남아 있습니다. |
 | Relationship | 모든 directed LinkType은 endpoint, cardinality, causal, transitive 및 temporal metadata와 함께 deterministic `<name>.outgoing`/`<name>.incoming` machine query id를 projection합니다. | 이 side를 사용하는 generic plan verifier와 planner binding은 남아 있습니다. |
-| Semantic generation | Rule semantic schema, generation contract, database migration 및 `CatalogSemanticIndex` Protocol이 있습니다. | 현재 service-owned source tree에 concrete index adapter/generation publisher가 없으며 full-ontology generation도 없습니다. |
+| Semantic generation | Concrete service-owned atomic in-memory index와 off-path full/incremental ontology generation publisher가 declaration 및 eligible deployment-local object를 independent validation과 함께 다룹니다. | Durable PostgreSQL adapter, scheduled publisher process 및 production semantic descriptor selector는 남아 있습니다. |
 | Current topology | Azure projection은 resource-group/VNet containment, attachment 및 bounded dependency allowlist를 emit합니다. | Azure adapter가 `peered_with` 또는 `routes_to`를 emit하지 않으며 private endpoint, workload 및 service dependency coverage가 incomplete합니다. |
 | Historical topology | Current graph generation과 immutable decision snapshot이 replay identity를 보존합니다. | Instance graph는 bitemporal이 아니며 일반 `graph_at` 및 `topology_diff` function이 없습니다. |
 | Metric 및 causality | Routed Prometheus, Azure Metrics/KQL provider와 deterministic T1 causal/temporal analysis primitive가 있습니다. | Ontology metric-concept registry가 임의 질문의 measure를 provider로 compile하지 못하며 ad hoc cross-resource temporal join도 없습니다. |
@@ -238,6 +244,16 @@ Residual Low observation은 terminal receipt builder 사이의 code duplication,
 graph projection pass 및 developer-only adapter의 더 명확한 diagnostic입니다. 추가 semantic Interface,
 production planner binding, semantic generation, topology history 및 temporal join은 숨겨진 hardening
 defect가 아니라 계획된 capability로 남아 있습니다.
+
+OQ-04/OQ-05 foundation에는 authority, model trust, digest binding, structural coverage, role/purpose,
+descriptor mutation, input bound, prompt injection, clarification, action draft, verifier bypass,
+graph/receipt mapping, cancellation, Console parity, replay, redaction, compatibility routing, service boundary,
+agent ownership, concurrency, test 및 docs를 다루는 추가 25-lens adversarial review를 수행했습니다.
+재현 가능한 Medium finding 하나를 수정했습니다. Runtime metadata가 누락된 release declaration은 더 이상
+structural coverage에서 사라질 수 없으며 manifest construction이 fail-close합니다. 제안된 descriptor
+mutation finding은 selector가 exact manifest subset으로 검사되고 model 노출 전에 deep copy되며 test가
+source manifest 불변을 입증하므로 기각했습니다. Owning bilingual design은 새 seam을 이미 문서화합니다.
+이 shadow-only slice에는 재현 가능한 Medium 이상 finding이 남아 있지 않습니다.
 
 ## 관련 문서
 

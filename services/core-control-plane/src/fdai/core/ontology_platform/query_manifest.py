@@ -72,6 +72,10 @@ def build_query_manifest(
     if orphaned:
         rendered = ", ".join(f"{kind.value}:{name}" for kind, name in orphaned[:10])
         raise ValueError(f"query manifest declarations are absent from the release: {rendered}")
+    missing = sorted(set(declarations) - set(supplied), key=lambda item: (item[0].value, item[1]))
+    if missing:
+        rendered = ", ".join(f"{kind.value}:{name}" for kind, name in missing[:10])
+        raise ValueError(f"query manifest release declarations are unavailable: {rendered}")
 
     descriptors: list[dict[str, Any]] = []
     unavailable: list[dict[str, str]] = []
@@ -79,9 +83,7 @@ def build_query_manifest(
     for key, declaration_ref in sorted(
         declarations.items(), key=lambda item: (item[0][0].value, item[0][1])
     ):
-        declaration = supplied.get(key)
-        if declaration is None:
-            continue
+        declaration = supplied[key]
         if isinstance(declaration, OntologyFunctionType) and not _function_readable(
             declaration,
             role=principal_role,
