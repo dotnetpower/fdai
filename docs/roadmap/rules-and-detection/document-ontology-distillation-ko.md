@@ -106,7 +106,7 @@ id, 처리 결과 누락, 서로 모순되는 중복 처리 결과 및 알 수 �
 | 권한 등급 | 문서 사용 | 필요한 조정 |
 |-----------------|-----------|-------------------------|
 | `declared_intent` | 목표, 소유권, 제약, 서비스 지도 | 승인된 의도 출처 및 effective 간격 |
-| `procedure` | 룰, 작업 흐름, ActionType 후보 | 카탈로그 스키마, 안전성 불변식, 그림자 재생, 검토 |
+| `procedure` | 룰, 작업 흐름, ActionType 후보 | 카탈로그 스키마, 안전성 불변식, shadow 재생, 검토 |
 | `historical_evidence` | 인시던트, 결과, lesson | 변경할 수 없는 사례 또는 감사 근거 |
 | `provider_observation` | 리소스 및 토폴로지 구문 | fresh 인벤토리 또는 프로바이더 관측 |
 | `telemetry_observation` | 메트릭 및 상태 구문 | 이벤트 시간이 있는 fresh 텔레메트리 근거 |
@@ -425,7 +425,7 @@ release 게이트는 다음과 같습니다.
 책임 있는 검토가 필요합니다.
 
 D4d council 합의는 이 수명 주기 전체에서 inert review-only 제안으로 유지됩니다. Conformance
-또는 그림자 근거와 관계없이 그래프를 변경하거나 실행 권한을 부여하거나 기존
+또는 shadow 근거와 관계없이 그래프를 변경하거나 실행 권한을 부여하거나 기존
 결정론적 검증기와 책임 있는 검토를 우회하지 않습니다.
 
 ## 제공 순서
@@ -440,7 +440,7 @@ D4d council 합의는 이 수명 주기 전체에서 inert review-only 제안으
 | D4b | 묶음 출처 이력 및 cross-format 추출 | 구조화된 위치 지정자가 검토까지 보존되고 synthetic 말뭉치의 정규화된 그래프 차이가 일치함 |
 | D4c | 실제 말뭉치 추출 품질 | 필요한 format/언어 파티션이 프로바이더 conformance와 annotated-corpus 게이트를 통과함 |
 | D4d | T2 온톨로지 모델 council | blind 모델 표결, 결정론적 합의, disagreement 근거, 모델 증적 및 실제 운영 conformance가 권한 추가 없이 통과함 |
-| D5 | 그림자 측정 및 limited 승격 근거 | 권한을 넓히지 않고 statistical 및 zero-violation 게이트를 통과함 |
+| D5 | shadow 측정 및 limited 승격 근거 | 권한을 넓히지 않고 statistical 및 zero-violation 게이트를 통과함 |
 
 ## 하드닝 기록
 

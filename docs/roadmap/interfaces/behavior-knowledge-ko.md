@@ -118,7 +118,7 @@ Built-in seed set은 13개 계약을 포함합니다. 초기 3개에 architectur
 | Odin cross-domain arbitration 및 non-intervention | `Odin`, 트리거 소유자는 `Forseti` | Forseti/Odin 코드, arbitration 코드, arbitration 테스트 |
 | Issue fingerprint deduplication | `Saga` | Saga 코드, governance 테스트, Issue 수명 주기 스키마 |
 | Trust 라우팅 및 T2 quality gate | `TrustRouter`, `QualityGate` | Core 구현과 focused 테스트 |
-| 사람 승인 및 그림자 승격 | `RiskGate`, `Var`, `ActionPromotionRegistry` | Agent/코어 구현과 회귀 테스트 |
+| 사람 승인 및 shadow 승격 | `RiskGate`, `Var`, `ActionPromotionRegistry` | Agent/코어 구현과 회귀 테스트 |
 | 실행기 safety, event deduplication, 롤백 | `ShadowExecutor`, `EventIngest`, `Vidar` | Core/agent 구현과 멱등성 테스트 |
 | Console 신원 경계 및 로컬 근거 parity | Operator API 조립과 `Thor` | 구성 계약과 로컬 Operator API 테스트 |
 | Narrator translator-only 경로 | `Bragi` | Agent 구현, typed-pipeline re-entry 및 기본/기여자 정규화 테스트 |

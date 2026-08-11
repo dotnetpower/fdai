@@ -232,7 +232,7 @@ fdai/
 - **전달은 교체 가능**: `gitops-pr` 와 `chatops` 는 하나의 인터페이스 뒤의 어댑터라,
  실행기는 추상 액션을 발행하고 어댑터가 그것을 렌더링합니다(remediation-pr, Adaptive 카드).
  실행기가 유일한 privileged 신원을 보유하며 어댑터는 이를 공유하지 않습니다.
-- **콘솔에는 privileged 신원이 없음**: 상태, 감사, 그림자 결과, HIL 큐를 시각화하며 접근은 선택적 접근 변환 결과와 무관하게 검증된 App 역할에서 도출됩니다.
+- **콘솔에는 privileged 신원이 없음**: 상태, 감사, shadow 결과, HIL 큐를 시각화하며 접근은 선택적 접근 변환 결과와 무관하게 검증된 App 역할에서 도출됩니다.
  Command 표면은 인증된 기록이나 타입이 지정된 제안을 제출할 수 있지만 dev 서술기를 포함한 어느 경로도 실행기를 호출할 수 없습니다. Risk, 승인, 감사, 실행 경계는 서버 측에 유지됩니다
  ([security-and-identity-ko.md](security-and-identity-ko.md)). 의미 전송 계층이 활성화되면 하나의 어댑터가 변환 결과, 제안, 스트림 포트를 연결합니다.
  발신함은 데이터베이스 `NOW()` 기한을 사용하고 기존 결과는 같은 트랜잭션에서 요청, principal, terminal-result 다이제스트를 검증한 후 재사용합니다.
@@ -426,10 +426,10 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
  가지를 제공합니다. `CausalHypothesisProjection`은 Forseti-owned이며 모델 grade는
  `EffectModelCausalEvidenceVerifier`를 요구합니다. Dynamic 모델은 시뮬레이션 스냅샷 이후 결과를
  사용할 수 없고 현재 스냅샷은 evaluation-clock 최신성을 사용합니다. Pure simulator도 조정기
- 밖에서 모델 기준 시점 또는 finite-arithmetic 위반을 거부합니다. 연결이 없으면 그림자 경로가 비활성화됩니다.
+ 밖에서 모델 기준 시점 또는 finite-arithmetic 위반을 거부합니다. 연결이 없으면 shadow 경로가 비활성화됩니다.
 - **Operational 승격 권한**: `OperationalPromotionReceiptVerifier`와
  `OperationalPromotionUnitVerifier`가 변경할 수 없는 근거를 해석합니다. 운영 레지스트리는
- 이 연결 없이는 그림자를 유지하며 raw scalar 메트릭은 test-only 이전 방식 고정본 모드입니다.
+ 이 연결 없이는 shadow를 유지하며 raw scalar 메트릭은 test-only 이전 방식 고정본 모드입니다.
  Promotion-state 새로 고침 실패는 stale 적용을 재사용하지 않고 unified system-health 상한을 낮춥니다.
 - **Azure operational 근거**: `bind_azure_operational_evidence`는 strict promoted-inventory
  스냅샷 읽기 담당, 현재 안전성 평가기, 구성된 Azure 메트릭, 범위가 제한된 가지 estimator,
@@ -449,7 +449,7 @@ reasoning-tool `ToolProvider` 구현을 함께 묶습니다. 연결은 이미 �
 카탈로그에서 cross-reference를 만들고 검증된 등록을 `capability_runtime`에 포함하는 새
 `Container`를 반환합니다. 대상이 없거나, 프로바이더가 누락 또는 중복되거나, 도구에 선언된
 프로바이더와 번들이 일치하지 않거나, 패키지 도구 또는 프로바이더가 참조되지 않거나, 패키지
-도구 id가 다른 출처를 그림자하면 시작이 차단됩니다. 검증이 실패해도 입력 컨테이너는
+도구 id가 다른 출처를 shadow하면 시작이 차단됩니다. 검증이 실패해도 입력 컨테이너는
 변경되지 않습니다.
 
 `wire_azure_container(...)`는 file-backed 도구 카탈로그와 설치된 런타임의 패키지 도구를
@@ -472,7 +472,7 @@ manifest-to-bundle 기능 동등성을 검증합니다. 검증된 확장은 비�
 이 수명 주기는 dynamic 코드 로더나 공개 패키지 downloader가 아닙니다. 포크 조립
 루트가 이미 검토한 프로바이더 구현과 trust 검증기를 제공합니다. 확장 activation은 타입이 지정된
 메타데이터와 참조만 등록합니다. 모든 변경은 정상 파이프라인을 계속 사용하고 ActionType
-또는 작업 흐름 계약에 따라 그림자 모드에서 시작합니다.
+또는 작업 흐름 계약에 따라 shadow 모드에서 시작합니다.
 
 `core/supply_chain/`은 확장과 스킬이 공유하는 영속 trusted-artifact 계약 및 install
 orchestration을 소유합니다. Install은 먼저 기존 확장 또는 스킬 수명 주기를 통과한 다음 exact
@@ -526,9 +526,9 @@ shared 런타임 스냅샷 publish 전에 exact 구성원 버전과 활성화된
 | Rule / 정책 출처 | rule-catalog + `policies/` 로더 | - | 번들된 범용 규칙 | 고객 규칙 세트 / 임계값 |
 | **기능 번들 런타임** | `core/capability_catalog/`의 `CapabilityRuntime` + `CapabilityBundle` 및 trust-verified `ExtensionManager`; `core/tools/`의 가산 `StaticToolRegistry` / `CompositeToolRegistry`; `composition/`의 `install_capability_bundle(...)` | - | 포크 연결이 없는 기본 발견 카탈로그, 확장은 비활성화된 상태로 설치 | 검토된 reasoning-tool 메타데이터와 프로바이더를 추가하거나 기능을 기존 `ActionType` / `Workflow`에 연결; 중복 id, 다이제스트, trust, 호환성, 매니페스트 동등성, 모든 참조를 activation 전에 검증 |
 | **기능 라이선싱** | `core/licensing/`의 `LicenseVerifier` 프로토콜, 토큰 계약, `resolve_entitlement(...)`; `delivery/trust/ed25519.py`의 `Ed25519LicenseVerifier` | - | 업스트림은 license 없이 배포되므로 전체 카탈로그가 available이고 개발이 막히지 않음 | 분포가 자기 공개 키를 이미지에 packaging하고 서명된 토큰을 시크릿 경로로 주입하며, 실패 시 차단이 필요하면 `require_license`를 설정. License는 `available` 축만 움직이며 승격, RBAC, risk, 승인은 건드리지 않음 ([design](../fork-and-sequencing/capability-licensing-ko.md)) |
-| **맥락 선택 정책** | `core/working_context/`의 `ContextSelectionPolicy`, 필수 불변식 래퍼, revision-safe 권한, 그림자 실행기, 재생, 근거 저장소; `CapabilityRuntime`의 `context_selection_policy` 참조 | - | 불변 `deterministic-tiered-v1@1.0.0`, 후보 설치는 비활성화된, 영속 근거는 `StateStore` 재사용 | 조립에서 검토된 정책 구현을 등록하고 exact id/버전을 `CapabilityRuntime`으로 연결하며, 범위가 제한된 그림자 측정 후 근거 구간과 롤백 대상으로만 promote ([설계](../decisioning/context-selection-policy-ko.md)) |
+| **맥락 선택 정책** | `core/working_context/`의 `ContextSelectionPolicy`, 필수 불변식 래퍼, revision-safe 권한, shadow 실행기, 재생, 근거 저장소; `CapabilityRuntime`의 `context_selection_policy` 참조 | - | 불변 `deterministic-tiered-v1@1.0.0`, 후보 설치는 비활성화된, 영속 근거는 `StateStore` 재사용 | 조립에서 검토된 정책 구현을 등록하고 exact id/버전을 `CapabilityRuntime`으로 연결하며, 범위가 제한된 shadow 측정 후 근거 구간과 롤백 대상으로만 promote ([설계](../decisioning/context-selection-policy-ko.md)) |
 | **브라우저 근거** | `shared/providers/browser_evidence.py`의 `BrowserEvidenceProvider`, 출처 정책, 수집 요청, 산출물 저장소, 보관 싱크와 `core/browser_evidence/`의 정책 및 서비스 | - | 기본 unbound, 선택적 isolated Playwright 전달 어댑터, PostgreSQL 산출물, 추가 전용 보관, 근거 작업 흐름 단계, GET-only 점검 | Exact 서버가 소유한 정책과 실행기 신원이 없는 restricted-egress 런타임을 연결하며 내용은 신뢰할 수 없는 및 shadow-only로 유지합니다. ([설계](../interfaces/browser-evidence-ko.md)) |
-| **MSCP 효과 관측** | `core/mscp_profile/`의 `ExpectedEffectProvider`, `IndependentEffectObserver`; 변경할 수 없는 `Container`의 선택적 쌍 | - | 기본 unbound, headless 런타임이 완전한 쌍을 ControlLoop로 전달해 predict -> 전달 -> observe -> shadow-audit 순서 유지 | `dataclasses.replace`로 두 collaborator를 함께 연결, 일부 연결은 fail fast, 그림자 결과는 자율성을 높이지 않음 ([설계](mscp-operational-profile-ko.md)) |
+| **MSCP 효과 관측** | `core/mscp_profile/`의 `ExpectedEffectProvider`, `IndependentEffectObserver`; 변경할 수 없는 `Container`의 선택적 쌍 | - | 기본 unbound, headless 런타임이 완전한 쌍을 ControlLoop로 전달해 predict -> 전달 -> observe -> shadow-audit 순서 유지 | `dataclasses.replace`로 두 collaborator를 함께 연결, 일부 연결은 fail fast, shadow 결과는 자율성을 높이지 않음 ([설계](mscp-operational-profile-ko.md)) |
 | **타입이 지정된 외부 RPC** | `core/rpc/`의 `RpcRegistry`, `RpcMethod`, 범위, 멱등성 계약, `delivery/rpc/`의 범위가 제한된 HTTP 클라이언트/경로, 결정론적 Python stub codegen, `build_production_rpc_app(...)` | - | 컨트롤 평면은 RPC 경로를 mount하지 않으며 명시적 선택 standalone 앱이 built-in 도구 발견과 PostgreSQL hashed 점유를 연결 | 포크가 identity-aware authorizer와 명시적 additional 메서드를 제공합니다. Side-effect 메서드는 영속 멱등성 점유가 필요하고 실행기를 직접 호출하지 않고 타입이 지정된 제안을 제출합니다. |
 | **온톨로지 ObjectType / LinkType / InterfaceType** | `services/core-control-plane/src/fdai/rule_catalog/schema/`의 실패 시 차단 ObjectType, LinkType, InterfaceType 및 명시적 Interface 구현 로더 | - | `rule-catalog/vocabulary/{object-types,link-types,interface-types,interface-implementations}/` 아래의 shipped 선언을 대응하는 변경할 수 없는 `Container.ontology_*` 튜플로 부하합니다. Interface 연결은 compile되어 exact 런타임 release에 pin됩니다. | 포크는 fork-local vocabulary 디렉터리에 추가 YAML을 제공하고 조립 루트에서 두 루트를 부하하며 combined Interface 연결을 compile한 뒤 concatenated 튜플을 `dataclasses.replace`로 전달합니다. 중복 이름과 dangling 연결은 fail-close합니다. 자세한 절차는 [downstream-fork-seam-recipes-ko.md § 5.8a](../fork-and-sequencing/downstream-fork-seam-recipes-ko.md#58a-ontology-object-type--link-type-additions). |
 | **네트워크 조회 증적 검증** | `services/core-control-plane/src/fdai/core/ontology_platform/network_path.py`의 `NetworkQueryReceiptVerifier`와 조립이 소유한 opaque 검증 맥락 하나 | - | Unbound 상태이며 증적 발급자와 검증기 없이는 `query.network_path_segments`를 인증된 운영 함수로 등록할 수 없습니다. | Secured 증적 역할, singleton 용도, exact 온톨로지 release, projected-result 다이제스트 및 `FunctionInvocationContext`를 인증하는 issuer-backed 검증기를 inject합니다. Opaque 맥락은 함수 인자에 포함되지 않으며 검증은 실행 권한을 부여하지 않습니다. |

@@ -38,12 +38,12 @@ translation_revised: 2026-08-11
 
 승격은 **단방향** (`dev → staging → prod`) 이며 **아티팩트 단위** 입니다: staging을
 통과한 동일한 서명된 이미지가 prod로 승격됩니다 - 절대 환경별로 재빌드하지 않습니다.
-Staging은 prod 토폴로지를 미러링하여 그림자 평가가 대표성을 갖도록 합니다.
+Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 갖도록 합니다.
 
 | 환경 | 목적 | 자율성 수준 |
 |------|------|-------------|
 | `dev` | 개발 및 통합 검증 | 권위 있는 승격 상태, 동일한 risk/HIL 게이트 |
-| `staging` | pre-prod 검증, 신규 규칙/액션 그림자 평가 (prod 미러) | 그림자, 선택적 강제 적용 |
+| `staging` | pre-prod 검증, 신규 규칙/액션 shadow 평가 (prod 미러) | shadow, 선택적 강제 적용 |
 | `prod` | 라이브 운영 | 저위험은 강제 적용; 고위험은 HIL |
 
 - 환경별로 설정이 다름; **소스에 환경 값 없음** - 모두 런타임 주입.
@@ -119,8 +119,8 @@ Staging은 prod 토폴로지를 미러링하여 그림자 평가가 대표성을
  (OIDC 토큰) 로 코어에 노출 - [security-and-identity-ko.md](../architecture/security-and-identity-ko.md)
  및 [csp-neutrality-ko.md § 워크로드 아이덴티티 계약](../architecture/csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰) 참조.
  실행기, 인벤토리, canary, 세 버티컬 신원이 기본 배포되고 읽기/명령/isolated-
- 실행기 그림자 전송 계층/인제스트 API/인제스트 워커/인제스트 이행/알림
- 신원은 기능별 명시적 선택입니다. 그림자 전송 계층 신원에는 효과 역할이 없습니다.
+ 실행기 shadow 전송 계층/인제스트 API/인제스트 워커/인제스트 이행/알림
+ 신원은 기능별 명시적 선택입니다. shadow 전송 계층 신원에는 효과 역할이 없습니다.
  - **Log Analytics workspace + workspace-based Application Insights** (기본 30일 보존).
  - **Azure Container Registry** (Basic) 로 서명된 이미지.
  - 무료 티어 / 비-과금 요소: 명시적 선택 Static Web Apps (콘솔), 워크로드 신원 federation
@@ -171,10 +171,10 @@ flowchart TD
  다이제스트가 동일한지 검증한 뒤 Terraform에 연결합니다. Exact 적용은 protected 계획에 기록된
  이미지를 promote하거나 교체할 수 없습니다.
 - **승격 게이트 체크리스트** (모두 통과 필수): T0-engine과 risk-gate 단위 테스트가 커버리지
- 바에서 green; IaC + 의존성 + 시크릿 스캔 클린; 그림자 평가에서 **정책 위반 escape 0**
+ 바에서 green; IaC + 의존성 + 시크릿 스캔 클린; shadow 평가에서 **정책 위반 escape 0**
  + 회귀 스위트 통과; staging SLO 건강.
 - 새로운 자율 액션의 **강제 적용 승격**은 **별도의 명시적 승인** - 코드 배포가 강제 적용을
- 자동 활성화하지 않음(기본은 그림자 유지,
+ 자동 활성화하지 않음(기본은 shadow 유지,
  [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 참조).
 
 ## 점진 딜리버리(Progressive 전달, 목표 상태)

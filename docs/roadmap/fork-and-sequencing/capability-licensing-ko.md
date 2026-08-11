@@ -53,7 +53,7 @@ translation_revised: 2026-08-11
 
 ## 이 설계를 안전하게 만드는 규칙
 
-**License는 `available` 축만 움직입니다.** 기능을 그림자에서 승격하거나, 역할을 넓히거나,
+**License는 `available` 축만 움직입니다.** 기능을 shadow에서 승격하거나, 역할을 넓히거나,
 risk 결정을 완화하거나, 승인 권한을 부여할 수 없습니다. 그것들은 승격 레지스트리, RBAC,
 risk 게이트가 계속 소유합니다
 ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).

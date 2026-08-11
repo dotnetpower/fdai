@@ -48,7 +48,7 @@ P2에서 딜리버리된 T0/T1/T2 라우터, quality 게이트, 리스크 게이
  [core/verticals/change_safety.py](../../../services/core-control-plane/src/fdai/core/verticals/change_safety/orchestrator.py).
 - **어슈어런스 트윈 (주변 + 시뮬레이션)** - 변경 이벤트에서의 선제적 변경별 리뷰,
  변경 안전성(영향 범위) · 복원력(RPO/RTO 재생) · 비용 거버넌스(비용 델타)가
- 공유하는 그래프 전체 what-if, 그림자 remediation-PR 제안, 그리고 온디맨드
+ 공유하는 그래프 전체 what-if, shadow remediation-PR 제안, 그리고 온디맨드
  `PostureAssessmentReport` 패널. 설계는 [assurance-twin-ko.md](../operations/assurance-twin-ko.md);
  각 시뮬레이션 발견 사항은 강제 적용 전에 shadow-first로 측정.
 
@@ -69,9 +69,9 @@ P2에서 딜리버리된 T0/T1/T2 라우터, quality 게이트, 리스크 게이
 - **멱등**: 모든 P3 액션은 안정 멱등성 키를 사용; 재전달된 이벤트와 재시도된 액션은 이미
  적용된 상태에서 no-op.
 - **감사**: 모든 종단 결과 - auto-apply, HIL approve/거부/시간 초과, defer, abstain, 모든 스케줄
- DR 실행과 FinOps 액션 - 이 이벤트 id, 도메인, 티어, 결정, 아이덴티티, 모드(그림자/강제 적용),
+ DR 실행과 FinOps 액션 - 이 이벤트 id, 도메인, 티어, 결정, 아이덴티티, 모드(shadow/강제 적용),
  롤백 참조 있는 추가 전용 감사 엔트리를 씀.
-- **그림자 first**: 각 새 P3 액션(DR 실험 타입, FinOps 액션, 크로스-도메인 규칙) 은 **그림자
+- **shadow first**: 각 새 P3 액션(DR 실험 타입, FinOps 액션, 크로스-도메인 규칙) 은 **shadow
  모드**(judge-and-log, 변형 없음) 로 출시되고 정책 위반 escape 0으로 측정된 검증 후에만
  액션별로 강제 적용으로 승격.
 
@@ -103,7 +103,7 @@ P2에서 딜리버리된 T0/T1/T2 라우터, quality 게이트, 리스크 게이
 - **Blast-radius 한도**: 스코프, 배치 크기, 동시성 상한; 실험은 범위가 제한된 리소스 세트 대상,
  한 번에 전체 환경 아님.
 - **Rollback**: stop 또는 실패 시 이전 상태 복원하는 테스트된 자동 롤백; 롤백은 강제 적용 전
- 그림자에서 실행.
+ shadow에서 실행.
 - **격리**: 프로덕션은 절대 chaos 대상 아님 - 실험은 non-prod 또는 격리된 복원 환경에 대해
  실행(Deep DB-DR 참조). 프로덕션 리소스의 chaos는 기본 거부, 불가피한 곳에서는 HIL 승인 +
  명시적 격리 필요.
@@ -128,7 +128,7 @@ Stateful 서비스는 stateless처럼 "kill and revive" 될 수 없으므로, DB
  장애 조치 + 무결성 통과 + smoke 통과); median과 p90 보고, RTO 목표와 비교. Large-DB
  복원 RTO는 가정이 아니라 측정.
 - **승격 게이트**: DB-DR은 무결성 검증과 smoke 테스트가 시나리오 세트에서 무결성 mismatch 0으로
- 통과할 때까지 그림자에 유지.
+ 통과할 때까지 shadow에 유지.
 
 ## FinOps
 
@@ -159,7 +159,7 @@ Stateful 서비스는 stateless처럼 "kill and revive" 될 수 없으므로, DB
 ## 테스트 가능성
 
 - 각 도메인의 `risk-gate` 라우팅과 크로스-도메인 우선순위/연기 로직 단위 테스트; 불변식
- "high-risk는 절대 auto-execute 안 함", "그림자 모드는 절대 변형 안 함", "액션 재적용은 no-op",
+ "high-risk는 절대 auto-execute 안 함", "shadow 모드는 절대 변형 안 함", "액션 재적용은 no-op",
  "한 리소스의 동시 액션은 직렬화" 속성 테스트.
 - 모든 P3 액션 경로는 **shadow-mode 테스트**(변형 없이 판단·로그) 와 **롤백 테스트**(롤백이
  이전 상태 복원) 가짐; DB-DR은 픽스처 스냅샷에 **integrity-verification 회귀 테스트** 추가.
@@ -192,7 +192,7 @@ Stateful 서비스는 stateless처럼 "kill and revive" 될 수 없으므로, DB
 ## 의존성
 
 - **P2가 검증되어야 함** ([phase-2-quality-and-t1-ko.md](phase-2-quality-and-t1-ko.md)): LLM
- quality 게이트 (T2 방어), T1 경량 티어, 지속적 규칙-업데이트 파이프라인이 그림자에서 실행되고
+ quality 게이트 (T2 방어), T1 경량 티어, 지속적 규칙-업데이트 파이프라인이 shadow에서 실행되고
  측정되어야 함. P3는 이들을 하나의 루프로 구성하며 신뢰할 만해질 때까지 시작할 수 없음.
 - P3 RPO/RTO, 절감, lead-time 수치가 참조 대비 비교되도록 P0 베이스라인 존재.
 - **P4** ([phase-4-scale-ko.md](phase-4-scale-ko.md)) 로 공급: 통합 자율 MVP가 Azure 베이스라인

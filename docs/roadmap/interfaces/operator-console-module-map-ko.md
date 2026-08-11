@@ -289,7 +289,7 @@ content-policy 재생, 이력, 문서 접근, 답변 계획 및 두 wire 계약�
 
 ### 대화 수명 주기 애플리케이션 경계
 
-SD-01 수명 주기 slice는 그림자 answer-planning 작업 coordination을
+SD-01 수명 주기 slice는 shadow answer-planning 작업 coordination을
 `application.conversation.planning`으로, Korean 서술기 검토를
 `application.conversation.post_generation.quality`로, 입력 content-policy 복구를
 `application.conversation.request_preparation.content_policy`로, request-local steer 및 활성
@@ -529,7 +529,7 @@ known HTTP 실패는 범위가 제한된 상태와 사유를 유지하며, 생�
  선호 설정, 문서 참조, 이력 조립, 검증된 이전 맥락, 리소스와 최신성 맥락,
  후속 조치 범위, 답변 계획 수립 및 target-agent 파생을 소유합니다. 요청, HTTP 상태 대응,
  권한 확인, SSE 순서, 취소 또는 전송 계층 전달은 소유하지 않습니다.
-- `application/conversation/planning.py`는 범위가 제한된 그림자 계획 수립 작업 시작, 메타데이터 및 배출을
+- `application/conversation/planning.py`는 범위가 제한된 shadow 계획 수립 작업 시작, 메타데이터 및 배출을
  소유합니다. `application/conversation/busy_input.py`는 safe-boundary steering과 활성 서술기
  중단만 소유합니다. 두 모듈 모두 연결 취소, 코어 busy-input 권한,
  액션 상태 또는 영속 상태를 소유하지 않습니다.

@@ -59,7 +59,7 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
 - Heimdall은 retained repeated-event 에피소드를 global 및 리소스별로 제한합니다. 한 리소스의
  상관관계 flood는 다른 리소스의 partially accumulated 근거보다 해당 리소스의 가장 오래된
  에피소드를 먼저 축출합니다.
-- 새 감지기는 **그림자 모드** 로 출시되고 그림자→강제 적용 규칙에 따라 승격; 정확도와
+- 새 감지기는 **shadow 모드** 로 출시되고 shadow→강제 적용 규칙에 따라 승격; 정확도와
  false-positive 비율은 단계 0 베이스라인 대비 측정됨.
 
 ### 동결된 구성 기준선 점검
@@ -107,7 +107,7 @@ cross-format 동등성이 성립하지 않습니다.
 - 캠페인 advance 전에 변경할 수 없는 StateStore 보고 원장이 캠페인과 실행 신원 아래에 전체 발견 사항,
  인용, 안전성 counter, measured performance를 기록합니다. Strict codec은 재시작 재생을 지원하고,
  중복 내용은 no-op이며, 다른 근거로 신원을 재사용하면 차단합니다.
-- 준비된 캠페인은 inert 자동화 청사진을 제출합니다. 그림자 weekly 이벤트가 생기기 전에 독립적인
+- 준비된 캠페인은 inert 자동화 청사진을 제출합니다. shadow weekly 이벤트가 생기기 전에 독립적인
  검토와 인증된 스케줄러 명령이 계속 필요합니다. 구성 표류는 스케줄러 저장소 또는
  실행기를 직접 호출하지 않습니다.
 
@@ -161,7 +161,7 @@ cross-format 동등성이 성립하지 않습니다.
  임계(예: z-score 또는 robust percentile 밴드), 신호 클래스별로 계산. 결정론적이며 설명 가능;
  베이스라인, 편차 크기, **방향**(over/under) 이 기록되어 사람이 왜 발동했는지 볼 수 있음.
 - **콜드스타트**: 신뢰할 만하기에 충분한 베이스라인 히스토리가 없는 감지기는 얇은 베이스라인에
- 발동하지 않고 **abstain**(그림자에 머물고 발견 사항 발행 없음); 콜드스타트 억제는 숨겨지지
+ 발동하지 않고 **abstain**(shadow에 머물고 발견 사항 발행 없음); 콜드스타트 억제는 숨겨지지
  않고 메트릭으로 카운트.
 - **카테고리**: 발견 사항은 룰 카탈로그와 공유되는 정본 `category` enum
  (`security | reliability | cost | config-drift`) 으로 정규화 - 성능 신호
@@ -177,7 +177,7 @@ cross-format 동등성이 성립하지 않습니다.
 - **업스트림 구현**: `core/detection/anomaly.py`
  (`MetricAnomalyDetector`) 가 위에 기술한 결정론적 z-score 기준선 을
  ship 한다 - cold-start abstain, flat-baseline 안전 처리, deviation
- 크기 기반 심각도 - 그리고 각 발견 사항 을 `to_event` 로 그림자 모드의
+ 크기 기반 심각도 - 그리고 각 발견 사항 을 `to_event` 로 shadow 모드의
  `Event(event_type="anomaly.finding")` 로 정규화하며, `detector + 메트릭
  + 구간` 로 keying 해 반복 틱 을 dedup 한다.
 - **계절성(Seasonality)**: `core/detection/seasonal.py`
@@ -190,7 +190,7 @@ cross-format 동등성이 성립하지 않습니다.
  z-score, cold-start-abstain, flat-baseline, 이벤트 정규화 로직을 위임한다
  - 두 detector 가 어긋날 수 없다. 단계 별 cold-start 는 독립적이고(얇은
  일요일 기준선 이 월요일 데이터를 빌리지 않는다), 단계 는 발견 사항 의
- `window_bucket` 에 기록되며, 발견 사항 은 여전히 그림자 모드 이벤트다.
+ `window_bucket` 에 기록되며, 발견 사항 은 여전히 shadow 모드 이벤트다.
 - **다변량 fusion**: `core/detection/composite.py`
  (`CompositeAnomalyDetector`) 은 조직의 on-call 이 손으로 읽는
  compound-degradation 신호다 - 진짜 인시던트는 *상관된* 스트림이 함께
@@ -239,7 +239,7 @@ cross-format 동등성이 성립하지 않습니다.
  certificate 만료, 백업 최신성, 네트워크 retransmission을 평가합니다.
 
 임계값과 메트릭 연결은 카탈로그 데이터로 유지되므로 환경별 조정에서
-평가기 코드를 바꿀 필요가 없습니다. 모든 recipe는 기본적으로 그림자 모드를
+평가기 코드를 바꿀 필요가 없습니다. 모든 recipe는 기본적으로 shadow 모드를
 사용하고 엔진, recipe, 리소스, 구간에서 안정 키를 만들며, trust 라우팅
 전에 dedup할 수 있도록 `event-ingest`로 재진입합니다.
 
@@ -265,21 +265,21 @@ Proactive 감지: 발생 **전에** 임계 위반을 예측 - AIOps "용량 병�
  인증서/시크릿 만료, 백업-보존 드리프트. RPO/RTO와 FinOps 대상은
  [phase-3-integrated-loop-ko.md](../phases/phase-3-integrated-loop-ko.md) 가 소유.
 - **승격 전 backtest**: 예보기는 과거 시리즈에 대해 **backtest**(알려진 과거 위반 예측)하고
- 그림자에서 정확도 바를 통과해야 그림자 모드를 떠날 수 있음.
-- **드리프트**: 예보 오차는 시간에 걸쳐 추적; 측정된 저하(드리프트)는 자동으로 예보기를 그림자로
+ shadow에서 정확도 바를 통과해야 shadow 모드를 떠날 수 있음.
+- **드리프트**: 예보 오차는 시간에 걸쳐 추적; 측정된 저하(드리프트)는 자동으로 예보기를 shadow로
  **강등**.
-- **안전**: 예측은 **발견 사항 발동**(기본 그림자 모드) 또는 proactive 교정 PR; 자체로
+- **안전**: 예측은 **발견 사항 발동**(기본 shadow 모드) 또는 proactive 교정 PR; 자체로
  auto-execute 하지 않음. 예보에 액션하는 것은 여전히 리스크 게이트를 통과하고 7개 안전조건을
  운반.
 - **측정**: **lead 시간** = `actual_breach_time − finding_time` 정의(유효한 예측은
  actionable 최소 위의 긍정 lead 시간을 가짐), **정밀도/재현율** 스코어 (true
  긍정 = 예측된 위반의 실제 위반이 지평 내에 발생). 놓친 위반은 false 부정(가드 메트릭);
- 나쁜 예보기는 그림자에 머무름.
+ 나쁜 예보기는 shadow에 머무름.
 - **업스트림 구현**: `core/detection/forecast.py`
  (`LinearForecastDetector`) 가 최소제곱 선형 예보기를 ship 한다 -
  cold-start 와 weak-fit(낮은 R-squared) 입력은 abstain, direction-gated
  rising/falling 위반 변환 결과, 그리고 지평으로 한계 된 긍정 lead
- 시간(위반 ETA). 각 예보는 `to_event` 로 그림자 모드의
+ 시간(위반 ETA). 각 예보는 `to_event` 로 shadow 모드의
  `Event(event_type="forecast.finding")` 로 정규화되며, `detector + 메트릭
  + 구간` 로 keying 해 반복 틱 을 dedup 한다; 심각도 는 임박도
  (lead / horizon)로 스케일. anomaly 감지기와 `MetricSample` series 타입을
@@ -293,7 +293,7 @@ Proactive 감지: 발생 **전에** 임계 위반을 예측 - AIOps "용량 병�
  간선, falling 은 upper 간선)가 구성된 확신도 수준 (`0.80`-`0.99`)
  에서 여전히 crossing 할 때만 **confident** 하다. 이것은 **suppressor 이지
  amplifier 가 아니다**: point-estimate breach 를 "not confident" 로 downgrade
- (그림자 유지 / abstain, false-positive 가드 메트릭 보호)할 수 있지만, 지점
+ (shadow 유지 / abstain, false-positive 가드 메트릭 보호)할 수 있지만, 지점
  예측 가 예측하지 않은 breach 를 절대 manufacture 하지 않는다. perfect fit
  (`residual_std == 0`)은 band 를 지점 추정치 로 collapse 하고, 알 수 없음
  확신도 수준 은 silently 기본값 되지 않고 거부 된다.
@@ -335,13 +335,13 @@ prediction 및 인시던트 키로 결합하므로 at-least-once 전달에서도
 응답 원장의 첫 런타임 구획은 구현되어 있습니다. 컨트롤 루프는 독립적인 효과
 관측 후 strict `ResponseOutcome` 계약을 발행하며 예상 범위, 관찰된 값, 시간 구간,
 검증, 실행 모드, 롤백 결과, 대상 다이제스트 및 명시적 `scorable` 표시를 포함합니다.
-기존 scheduled growth 작업은 독립 watermark로 이 기록을 소비하고 등록된 그림자 challenger
+기존 scheduled growth 작업은 독립 watermark로 이 기록을 소비하고 등록된 shadow challenger
 모델만 갱신합니다. SLO 복구, recurrence 종결, matched 집단 및 `quasi_experimental` 또는
 `interventional` 근거로의 승격은 후속 작업이며 검증된 효과 하나에서 추론하지 않습니다.
 
 **Leakage 없는 평가.** Backtest는 rolling-origin 시간 분리를 사용하고 한 인시던트의 모든 이벤트를
 하나의 분리에 넣습니다. Feature, 토폴로지, maintenance 상태, 라벨은 prediction 기준 시점 시점에 알 수
-있었던 값만 읽습니다. Incumbent와 후보는 같은 고정된 재생과 같은 실제 운영 그림자 이벤트를
+있었던 값만 읽습니다. Incumbent와 후보는 같은 고정된 재생과 같은 실제 운영 shadow 이벤트를
 처리하며 후보는 실행할 수 없습니다. 대상과 horizon별로 샘플 크기와 확신도 간격을
 포함해 정밀도, 재현율, resource-day당 false alert, PR-AUC, Brier 점수 또는 calibration 오류,
 간격 커버리지, actionable lead-time 분포, abstention, cold-start, unscorable 비율을 보고합니다.
@@ -357,7 +357,7 @@ Forseti는 발견 사항을 판단하고 Thor는 액션할 수 있지만 어느 
 
 승격에는 사전 등록된 최소 closed/scorable 에피소드 수와 관측 일, 확신도 간격이
 incumbent를 넘는 후보 개선, 가드 메트릭 무회귀, 정책 escape 0건이 필요합니다. Calibration,
-재현율, 간격 커버리지 또는 actionable lead 시간이 저하되면 detector는 자동으로 그림자로
+재현율, 간격 커버리지 또는 actionable lead 시간이 저하되면 detector는 자동으로 shadow로
 돌아갑니다. 영속 에피소드 원장, event-time 결과 결합, intervention censoring,
 transactional 게시 발신함 및 기계적 틱 배선은 구현되어 있습니다. 승격은 계속
 측정된 배포 근거와 권위 있는 승격 레지스트리에 의존합니다.
@@ -450,7 +450,7 @@ RCA를 암묵적 부작용이 아니라 티어의 일급 출력으로 만듦.
  한다. `RcaCoordinator.analyze_t1_causal_chain` 이 근거에 기반한 진입점이다. 라이브
  배선: `ControlLoop` 이 매 매칭된 인시던트의 멤버를 `IncidentMemberSource`
  시밍(`core/rca/member_source.py`; 포크 의 어댑터가 어떤 멤버가 변경 인지
- 표시)을 통해 공급하고, 이벤트당 하나의 그림자 `rca.hypothesis`(계층 t1)를
+ 표시)을 통해 공급하고, 이벤트당 하나의 shadow `rca.hypothesis`(계층 t1)를
  덧붙이기 한다. 설정된 `causal_chain_window` 와 선택적 resource-dependency 그래프로
  한계 된다. 가설은 transport-safe `causal_chain`(루트/실패 ID, 모호성,
  순서가 있는 홉 근거)을 보존하며 컨트롤 루프는 이를 산문으로 축약하지 않고
@@ -460,7 +460,7 @@ RCA를 암묵적 부작용이 아니라 티어의 일급 출력으로 만듦.
  이벤트로 브리지 하므로, 포크 는 소스를 직접 작성하지 않고도 change-history 기반
  라이브 사슬을 얻는다. 소스가 없으면 T1 인과사슬 RCA 는 dark 로 유지되고 T0(및
  wired 시 T2) RCA 만 실행된다(하위호환).
-- **읽기 전용 콘솔 표면**: 그림자 `rca.hypothesis` 감사 항목은 일급
+- **읽기 전용 콘솔 표면**: shadow `rca.hypothesis` 감사 항목은 일급
  **이력 > RCA** 오퍼레이터 콘솔 패널로 투영된다(`GET /rca?correlation=<id>`,
  순수 투영은 `delivery/operator_api/routes/rca_projection.py`). 인시던트
  `correlation_id`가 주어지면 티어별 가설, 인용, 근거 상태(기권 가설은 신뢰할 수
@@ -556,5 +556,5 @@ Core 런타임에는 job-start 권한을 부여하지 않습니다.
 - [ ] 대상별 예보 모델 패밀리와 기본 지평(용량, lag, 비용, 만료).
 - [ ] 상관관계 키 세트와 시간-윈도우 기본; 퍼지 상관관계를 T1으로 escalate하는 때.
 - [ ] 콜드스타트 정책: 감지기가 발동하기 전 신호 클래스별 최소 베이스라인 히스토리.
-- [ ] Backtest 주기와 예보기가 그림자를 떠나기 위해 통과해야 할 정확도 바.
+- [ ] Backtest 주기와 예보기가 shadow를 떠나기 위해 통과해야 할 정확도 바.
 - [ ] 변경 윈도우 억제: 이상이 in-flight 변경 이벤트와 어떻게 상관되는가.

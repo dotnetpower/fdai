@@ -8,7 +8,7 @@ translation_revised: 2026-08-11
 # 단계 2 - 지속적 규칙 업데이트, Quality 게이트, T1
 
 **목표**: 결정론 레이어를 신선하게 유지, LLM(T2) 출력을 신뢰할 만하고 안전하게, T1 경량 티어
-추가, P0 베이스라인 대비 auto-resolution 비율 검증 - 그다음 특정 액션을 그림자에서 강제 적용으로
+추가, P0 베이스라인 대비 auto-resolution 비율 검증 - 그다음 특정 액션을 shadow에서 강제 적용으로
 승격. 이 단계는
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 의
 티어/게이트 규칙과 [llm-strategy-ko.md](../architecture/llm-strategy-ko.md) 의 모델-티어 설계 확장.
@@ -21,9 +21,9 @@ translation_revised: 2026-08-11
 > Assurance Twin의 model-backed NL 컴파일러와 discovery-loop 연결은 아직 완료되지 않았습니다.
 > 현재 사례, 토폴로지, 소유자, 정책, 예행 실행, 멱등성 및 롤백 근거가 있는 T1 reuse는
 > 이제 타입이 지정된 액션이 되어 실행 권한 확인과 unified risk 게이트를 통과하며, 이 증적이
-> 없는 이전 방식 reuse는 inert 그림자 로그로 남습니다. Quality 게이트를 통과한 T2 후보도 같은
+> 없는 이전 방식 reuse는 inert shadow 로그로 남습니다. Quality 게이트를 통과한 T2 후보도 같은
 > authorization-before-risk 순서를 따르므로 금지되었거나 해결되지 않은 상태인 실행 프로파일은
-> risk evaluation에 도달하지 않습니다. Risk 권한 또는 cited 룰이 없으면 범용 그림자
+> risk evaluation에 도달하지 않습니다. Risk 권한 또는 cited 룰이 없으면 범용 shadow
 > 결과 대신 명시적인 audited HIL 보류를 생성합니다.
 > 준비된 operational-promotion 증적은 상태와 감사를 atomic하게 기록하는 변경할 수 없는 exact-key
 > StateStore 어댑터를 사용합니다. 측정은 계속 승격을 수행하지 않으며, 승인된
@@ -60,7 +60,7 @@ translation_revised: 2026-08-11
  `DeterministicEmbeddingModel` + `InMemoryPatternLibrary` 는
  [`t1_lightweight/testing.py`](../../../services/core-control-plane/src/fdai/core/tiers/t1_lightweight/testing.py)
  에 있어 real 임베딩 모델 / pgvector 없이 재현 가능한 유닛 테스트 가능.
-- **그림자 → 강제 적용 승격**, 액션별, 정책 escape 0으로 측정된 메트릭에 게이팅.
+- **shadow → 강제 적용 승격**, 액션별, 정책 escape 0으로 측정된 메트릭에 게이팅.
  [`services/core-control-plane/src/fdai/core/risk_gate/`](../../../services/core-control-plane/src/fdai/core/risk_gate) 가
  `ActionPromotionRegistry.consider_promotion(metrics)` 를 구현 -
  ActionType 의 `promotion_gate` (min_shadow_days / min_samples / min_accuracy /
@@ -80,7 +80,7 @@ source watcher → collect/normalize → shadow eval → regression gate → pro
 ```
 
 모든 스테이지가 감사 엔트리를 씀; 규칙 변경 자체가 변경이며 **catalog-as-code PR** (out-of-band
-auto-edit 절대 아님) 로 그림자 기본으로 나감.
+auto-edit 절대 아님) 로 shadow 기본으로 나감.
 
 - **출처 watcher**: 피드 존재하면 구독, 아니면 설정된 주기로 폴(소스별); 상류 규칙/정책 소스,
  리소스 프로바이더 스키마 버전, 보안 권고 감시. 규칙 `id` 로 중복제거, `source`/`version`
@@ -90,7 +90,7 @@ auto-edit 절대 아님) 로 그림자 기본으로 나감.
  심각도 다음 출처 priority로 충돌 해결, ties → HIL (
  [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 에
  따라).
-- **그림자 eval**: 후보 규칙 세트를 고정 시나리오 세트와 최근 실제 이벤트에 대해 **judge-and-log**
+- **shadow eval**: 후보 규칙 세트를 고정 시나리오 세트와 최근 실제 이벤트에 대해 **judge-and-log**
  모드로 리플레이(실행 없음); 커버리지 델타, false-positive와 false-negative 비율, 정책 위반
  escape 측정.
 - **회귀 게이트**: 세트가 승격되기 전 P1 회귀 스위트가 **정책 위반 escape 0** 과 가드-메트릭
@@ -131,20 +131,20 @@ T2 입력은 **신뢰할 수 없는** ([security-and-identity-ko.md](../architec
  근거는 reuse 후보가 되지 않고 abstain합니다.
 - 목표: 프론티어 왕복 없이 ~15-20% 이벤트 흡수, **측정으로 검증**.
 
-## 승격 (그림자 → 강제 적용)
+## 승격 (shadow → 강제 적용)
 
 - **액션별** 승격, 명시적·별도 리뷰 - 절대 능력의 첫 PR과 강제 적용 번들링 안 함.
 - Auto-resolution 비율(메트릭 2) 과 **가드-메트릭 회귀 없음** 게이트, 같은 고정 시나리오 세트
  버전에서 측정되고 **표본 크기와 신뢰구간** 과 함께 보고
- ([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)); 그림자에서 **정책 위반 escape 0**
+ ([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)); shadow에서 **정책 위반 escape 0**
  필요.
-- **강등**: 어떤 가드-메트릭 위반 또는 정책 위반 escape는 액션을 강제 적용에서 그림자로 자동 강등;
+- **강등**: 어떤 가드-메트릭 위반 또는 정책 위반 escape는 액션을 강제 적용에서 shadow로 자동 강등;
  선행 지표(disagreement 비율, 검증기 abstain/fail 비율) 는 후행 가드가 회귀하기 전 조사 트리거.
 
 ## 테스트 가능성
 
 - 리스크 게이트와 quality 게이트에 속성 테스트: "high-risk는 절대 auto-execute 안 함",
- "그림자 모드는 절대 변형 안 함", "abstain/disagree/거부는 절대 실행 안 함".
+ "shadow 모드는 절대 변형 안 함", "abstain/disagree/거부는 절대 실행 안 함".
 - 액션별 shadow-mode 테스트가 변형 없이 판단·로그함 증명; 규칙 변경별 회귀 테스트
  ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
 - Quality-gate 회귀가 ungrounded, fabricated-citation, disagreeing 출력이 실행 전에 블록됨
@@ -156,13 +156,13 @@ T2 입력은 **신뢰할 수 없는** ([security-and-identity-ko.md](../architec
  신뢰구간과 함께.
 - Quality 게이트가 실행 전 ungrounded, fabricated-citation, disagreeing T2 출력을 명시적으로 블록
  (회귀 테스트로 증명).
-- 규칙 업데이트가 watcher → 그림자 eval → 회귀 을 통해 감사된, 버전된 롤백과 함께 흐름.
+- 규칙 업데이트가 watcher → shadow eval → 회귀 을 통해 감사된, 버전된 롤백과 함께 흐름.
 - T1이 측정된 이벤트 비율을 흡수하고 임계 아래 T2로 깨끗이 abstain.
 
 ## 의존성
 
 - P0 베이스라인, 원격측정, 가드-메트릭 대시보드
  ([phase-0-instrumentation-ko.md](phase-0-instrumentation-ko.md)).
-- 그림자에서 실행 중인 P1 규칙 카탈로그와 T0 엔진
+- shadow에서 실행 중인 P1 규칙 카탈로그와 T0 엔진
  ([phase-1-rule-catalog-t0-ko.md](phase-1-rule-catalog-t0-ko.md)).
 - 통합 컨트롤 루프로 공급 ([phase-3-integrated-loop-ko.md](phase-3-integrated-loop-ko.md)).

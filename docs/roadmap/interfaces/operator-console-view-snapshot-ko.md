@@ -272,13 +272,13 @@ Phase B는 기존 `UserPreferenceStore` 경계를 통해 명시적이고 princip
 저장된 기본값은 현재 턴에서 충돌하는 응답 형태를 요청하지 않은 경우에만 적용됩니다. `briefly`,
 `step by step`, `짧게`, `표로`와 같은 명시적 modifier가 계속 우선합니다. 일회성 modifier는 범위가 제한된
 턴 메타데이터에 기록되지만 저장 프로파일로 승격되지 않습니다. 자동 선호 설정 learning은 계속
-꺼져 있습니다. 향후 그림자 측정에서 현재 답변을 변경하지 않고 반복된 명시적 신호를 평가할 수
+꺼져 있습니다. 향후 shadow 측정에서 현재 답변을 변경하지 않고 반복된 명시적 신호를 평가할 수
 있습니다. 로케일 결정 동작은 바뀌지 않습니다.
 
-#### 13.4.2.2 그림자 답변 Planning 라운드
+#### 13.4.2.2 shadow 답변 Planning 라운드
 
 Phase C는 전용 프로바이더 경계 뒤에 읽기 전용 `AnswerPlanningRound`를 추가합니다. 조건을 충족한 `why`,
-`comparison`, `diagnosis` 턴과 명시적인 다중 관점 요청에서 그림자로 실행합니다. Brief 요청,
+`comparison`, `diagnosis` 턴과 명시적인 다중 관점 요청에서 shadow로 실행합니다. Brief 요청,
 정의, 상태, 목록, direct 도구 결과 또는 complementary 기여자가 없는 경로에서는 planning
 작업을 만들지 않습니다. 조건을 충족한 계획은 `discuss=shadow`를 전달하고 나머지는 `discuss=skip`을
 유지합니다.
@@ -298,14 +298,14 @@ degraded 메타데이터가 됩니다. 지원 가능한 답변을 차단하거�
 
 JSON 및 SSE 최종 응답, 영속 턴 메타데이터, 브라우저 transcript는 상태, consulted 에이전트,
 근거 참조, 추천 section, 실패 종류, 경과 시간, 토큰 추정치, effective 예산, section
-커버리지, unique 또는 중복 근거 개수가 포함된 동일한 범위가 제한된 그림자 기록을 전달합니다.
+커버리지, unique 또는 중복 근거 개수가 포함된 동일한 범위가 제한된 shadow 기록을 전달합니다.
 프롬프트, free-form 기여자 reasoning 또는 hidden 추론 과정은 전달하지 않습니다. 구조화된
 로그는 개수와 지연 시간만 발행합니다. Answer-plan 커버리지와 기여자 utility는 결정론적 답변
 trust 상태와 분리됩니다.
 
 Phase D selective activation과 Phase E cross-domain conflict handling은 아직 승격하지 않습니다.
 승격하려면 고정된 bilingual evaluation 집합, unsupported-claim escape 및 권한 violation 0건,
-clean-answer 회귀 없음, 그리고 이 그림자 기준선에서 측정한 지연 시간, 토큰 비용, unique-evidence,
+clean-answer 회귀 없음, 그리고 이 shadow 기준선에서 측정한 지연 시간, 토큰 비용, unique-evidence,
 correction-rate, follow-up-rate gate를 통과해야 합니다.
 
 순수 `answer_planning_qualification` evaluator는 버전이 고정된 변경할 수 없는 배치를 입력받아 내용
@@ -333,7 +333,7 @@ correction-rate, follow-up-rate gate를 통과해야 합니다.
  표시합니다. 예산이 없으면 브라우저가 임계값을 만들지 않으며 지연이라고
  단정하지 않습니다.
 - **모드는 추론하지 않고 기록합니다.** 제어 루프는 실제 `Action.mode`를 단계
- 프레임에 게시합니다. `execute` 단계 도달만으로 그림자 모드라고 판단하지
+ 프레임에 게시합니다. `execute` 단계 도달만으로 shadow 모드라고 판단하지
  않습니다.
 - **관측 출처는 기록하며 추론하지 않습니다.** 실제 운영과 에이전트 활동 프레임은
  top-level `source`로 `synthetic-dev`, `replay`, `runtime-observed`, `unknown`을

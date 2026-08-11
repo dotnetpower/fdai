@@ -19,9 +19,9 @@ translation_revised: 2026-08-11
 > signed 병합에서만 소유권 효과를 기록합니다. 일치하는 병합은 이제 멱등 적용 요청을 타입이 지정된
 > 유입에 게시합니다. 전용 관리 ID, 허용 목록 Graph 어댑터, direct-API 경로, 제한된 수렴 검사,
 > 롤백, 두 human-access ActionType이 관찰 모드로 연결되었습니다. 사람 무응답 supervisor는
-> 주기적 그림자 워커로 통합되었습니다. 영구 인계 목표, 피로도 예산, 세션 가용성
+> 주기적 shadow 워커로 통합되었습니다. 영구 인계 목표, 피로도 예산, 세션 가용성
 > event, 제한된 invitation 및 응답 명령, 독립 목표 검토, 통제된 근거 메타데이터,
-> 기능 축, 영속 disablement, 그림자 복구 planning이 구현되었습니다. 적용 모드 승격,
+> 기능 축, 영속 disablement, shadow 복구 planning이 구현되었습니다. 적용 모드 승격,
 > agent-side 공백 생산, 현지화된 Bragi invitation 렌더링, 후보 전달, Azure 권한
 > 탐색, 운영 drill은 롤아웃 작업입니다.
 >
@@ -58,7 +58,7 @@ flowchart LR
 | 디렉터리 | `HumanIdentityDirectory`, Entra 검색, 정확한 주체 조회, App 역할 목록, 허용 목록 Entra 멤버십 어댑터 | 적용 모드 승격 근거와 프로덕션 권한 준비 상태 |
 | 접근 | `AccessRequestService`, 원자적 상태와 감사, Owner 검토, 자기 승인 방지, 할당 케이스 적용 트리거 | 회수용 대체 커버리지 수명 주기와 조정 |
 | 담당 체계 | 담당 체계 v1, 커버리지, 에스컬레이션 순서, 인수인계 PR, 서명된 병합 웹후크 | 명시적인 `primary`, `backup`, `escalation` 임무 슬롯 |
-| 승인 | `HilResumeCoordinator`, 온콜 기본/보조 영수증, 다시 알림, 부하 제어, 주기적 그림자 무응답 관찰 | 운영 승격, 실제 운영 rung-role 검증, urgency 압축 |
+| 승인 | `HilResumeCoordinator`, 온콜 기본/보조 영수증, 다시 알림, 부하 제어, 주기적 shadow 무응답 관찰 | 운영 승격, 실제 운영 rung-role 검증, urgency 압축 |
 | 대화 | 인증된 세션, 영구 턴, Bragi 설명 | 로그인 가용성 이벤트와 선제적 목표 초대 정책 |
 | 문서 | 에이전트 소유 승인, 소스 범위, 청킹, pgvector | 인수인계 근거 목적, ACL 필터 검색, 온톨로지 후보 |
 | 콘솔 | IAM 사용자, 역할, 요청, 디렉터리 검색, 관찰 전용 Assignments 탭 및 편집기 | 수렴 및 활성 목표 프로젝션 |
@@ -217,7 +217,7 @@ add, verify, remove, 복원 훈련 성공을 확인한 후 `main`의 별도 집�
 
 ### 묶음 6 - 사람 무응답 감독자
 
-**상태:** 주기적 그림자 워커로 구현되었습니다. 조정기 park가 범위가 제한된 단계 구조와 전달
+**상태:** 주기적 shadow 워커로 구현되었습니다. 조정기 park가 범위가 제한된 단계 구조와 전달
 증적을 스냅샷하며 최종 결정은 CAS 승자 하나만 수락합니다. 운영 승격은 사용할 수
 없습니다. 최종 점유는 parked 액션, 액션 해시, 요청 fingerprint가 바뀌지 않은 동안에만
 delivery-state 개정 번호 변경을 제한적으로 재시도할 수 있습니다.
@@ -271,7 +271,7 @@ tick, 거절 최종성, 역할 상실, 일정 장애 대체 경로, 전체 만�
 
 ### 묶음 9 - 프로덕션 롤아웃 및 운영
 
-**상태:** 기능 축과 그림자 조정이 구현되었습니다. Settings는 가용성,
+**상태:** 기능 축과 shadow 조정이 구현되었습니다. Settings는 가용성,
 활성화된 선호 설정, 권한 모드를 분리하며 kill 전환 상태는 변경 충족 여부를 낮출 수만
 있습니다. 감사되는 `human_access.enabled` 설정은 재시작 시 적용되며 승격 상태를 바꾸지
 않고 privileged 어댑터를 억제할 수 있습니다. Held 사례는 프로바이더 호출 없이 감사와 함께
@@ -281,7 +281,7 @@ tick, 거절 최종성, 역할 상실, 일정 장애 대체 경로, 전체 만�
 권한 탐색, automatic repair, 대시보드, alert, 배포 복구 drill은 롤아웃 작업입니다.
 
 영속 상태가 구성되면 readiness-gated 런타임 워커가 제한된
-`human_access.reconciliation_interval_seconds` 주기로 held 사례의 그림자 복구 계획을
+`human_access.reconciliation_interval_seconds` 주기로 held 사례의 shadow 복구 계획을
 반복해서 관찰합니다.
 
 **변경:** Settings에 분리된 `available`, `enabled`, `mode` 상태를 표시합니다. 준비도 검사,

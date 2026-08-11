@@ -32,7 +32,7 @@ CSP-neutral wire 계약 는
 
 | 축 | Position | 근거 설명 |
 |------|----------|-----------|
-| **변경 안전성** | 버티컬 유지. Foundational. | Deterministic-first ⇢ policy-gate ⇢ 그림자 → 강제 적용 는 현재 가장 강력한 story. |
+| **변경 안전성** | 버티컬 유지. Foundational. | Deterministic-first ⇢ policy-gate ⇢ shadow → 강제 적용 는 현재 가장 강력한 story. |
 | **복원력 (DR/Chaos)** | 버티컬 유지. Chaos Studio 어댑터 shipped. | Prod-exclusion 불변식 + `chaos:opt-out` 태그는 industry 에서 드문 안전성 하한 제공. |
 | **비용 거버넌스 (FinOps)** | 버티컬 유지. | 확립된 FinOps guardrail 패턴에 align. |
 | **인시던트 수명 주기** | **배포됨.** § 3.1 참조. | 영속 수명 주기, 제안, 알림, SLA, storm coordination 제공. |
@@ -57,7 +57,7 @@ CSP-neutral wire 계약 는
 [architecture.instructions.md § 안전성 Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)
 의 standing 불변식 를 honor MUST: 모든 자율 액션은 stop-condition,
 롤백 경로, blast-radius 한도, 감사 항목 를 carry; 새 기능
-는 그림자 모드 로 먼저 ship.
+는 shadow 모드 로 먼저 ship.
 
 이 절의 `Problem`은 채택 당시 공백이고 `Design`은 현재 landed 계약을 설명합니다. 구체 상태는
 위 구현 상태와 §6 커버리지 표를 따릅니다.
@@ -376,16 +376,16 @@ security 자세, compliance, patch 관리 로 커져야 함을 의미한다. 오
  강제 적용 모드 로 직접 onboard 하려는 서술자. `register_all` 은 첫 실패에서
  abort 하므로 부분 배치 가 half-register 될 수 없다.
 - **구성상 shadow-first.** `default_mode` 는 `Mode.SHADOW` 로 기본값 되고
- onboarding 시 그림자 로 유지되어야 한다 - 강제 적용 로의 승격 은 별도
+ onboarding 시 shadow 로 유지되어야 한다 - 강제 적용 로의 승격 은 별도
  검토된 변경 이므로, onboarding 이 절대 자율 액션 을 silently
  활성화 할 수 없다. Enumeration (`all`, `enabled`)은 id-sorted 이고 결정론적이다.
 
 ## 4. 롤아웃 순서 및 안전성 모드
 
-위 모든 subsystem 은 **그림자 모드** 로 먼저 ship
+위 모든 subsystem 은 **shadow 모드** 로 먼저 ship
 ([architecture.instructions.md § 안전성 Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
 강제 적용 로의 승격 은 모듈 의 `promotion_gate` 가 선언하는
-그림자 accuracy 로 gated 된 별도 변경 (룰 / ActionType 승격
+shadow accuracy 로 gated 된 별도 변경 (룰 / ActionType 승격
 계약을 mirror).
 
 롤아웃 순서는 strict 선행 조건 체인 을 pick:

@@ -38,7 +38,7 @@ Design 계약: [scope-expansion.md § 3](../fork-and-sequencing/scope-expansion-
  settings, 비공개 endpoints, 정리 protection, RBAC, 전체 tag 매트릭스
  추가. 현재 resolved 합계 44 룰.
  - `strict` `extends: [recommended]` - regulated / zero-trust;
- security-critical 룰 을 그림자 에서 `enforce` 로 이동. 현재 resolved 합계 45 룰.
+ security-critical 룰 을 shadow 에서 `enforce` 로 이동. 현재 resolved 합계 45 룰.
 - **업스트림 은 또한 265 개의 auto-imported 프로파일 을 ship**
  `rule-catalog/profiles/collected/` 아래 - Azure Policy built-in
  initiative 당 하나 (CIS Azure Foundations, NIST 800-53, PCI DSS,

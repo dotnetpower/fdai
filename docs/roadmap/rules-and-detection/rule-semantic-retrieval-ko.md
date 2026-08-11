@@ -30,7 +30,7 @@ translation_revised: 2026-08-11
 > `POST /rules/search`를 통해 expose합니다. 응답은 수집 및 함수 호출 증적을
 > 모두 포함하며 항상 `execution_authority: false`를 유지합니다.
 > 재현된 retrieval-owned 실패는 Huginn 유입, Heimdall 검증, Saga 감사 및 Muninn 맥락
-> 구체화를 거칩니다. Norns는 일반 합의 및 Mimir intake 전에 그림자 감사와 함께 inert
+> 구체화를 거칩니다. Norns는 일반 합의 및 Mimir intake 전에 shadow 감사와 함께 inert
 > challenger를 저장합니다.
 
 ## 설계 개요
@@ -68,7 +68,7 @@ flowchart LR
 | 코퍼스 | 내용 | 허용된 사용 | 허용되지 않는 사용 |
 |--------|------|-------------|---------------------|
 | `active` | Git의 검토된 Rule과 승격된 의미 표면 | Operator 검색, 설명, 정확한 T0 평가 라우팅 | 검색 점수를 정책 판정으로 취급 |
-| `discovery` | 아직 승격되지 않은 수집, 정규화 또는 생성 후보 | 카탈로그 큐레이션, 갭 분석, 그림자 검색 평가 | OPA 평가, 발견 사항, 액션 제안 또는 실행 |
+| `discovery` | 아직 승격되지 않은 수집, 정규화 또는 생성 후보 | 카탈로그 큐레이션, 갭 분석, shadow 검색 평가 | OPA 평가, 발견 사항, 액션 제안 또는 실행 |
 
 질의는 기본적으로 `active`를 사용합니다. 후보 자료를 확인하려면 운영자가 발견 범위를
 명시적으로 선택해야 합니다. 각 결과는 코퍼스를 포함하므로 표현에서 이 경계를 숨길

@@ -41,7 +41,7 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 > 자세 보고 조립, publisher-neutral 검토 glue, 시뮬레이션 fidelity 원장,
 > 활성/challenger 효과 모델 및 범위가 제한된 Dynamic 런타임 조정기가 있고 focused tests가 이를
 > 검증합니다. T1 reuse는 injected current-state 요청 프로바이더와 모델 레지스트리를 통해 이를 호출하고
-> 실행 충족 여부를 바꾸지 않는 그림자 감사를 기록합니다. 운영 인벤토리 조립, model-backed NL 컴파일러, ChatOps
+> 실행 충족 여부를 바꾸지 않는 shadow 감사를 기록합니다. 운영 인벤토리 조립, model-backed NL 컴파일러, ChatOps
 > 의도, Checks API 발행기, discovery-loop 훅, twin 전용 ReadPanel은 아직 연결되지 않았습니다.
 > 아래 주변 검토, action-bridging, self-improving 전달 흐름은 목표 설계입니다. 별도의
 > Security 평가 보고 피드와 Azure analyzer는 현재 reporting subsystem에 구현되어 있습니다.
@@ -54,7 +54,7 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 > 종결 실행기 및 영속 활성/challenger graph-model 레지스트리를 추가합니다. 종결 실행기는
 > 완전한 matched 또는 mismatched 독립적인 관측의 challenger 구획만 갱신하고 활성
 > 모델을 mutate하거나 promote하지 않았음을 감사합니다. 컨트롤 루프는 명시적으로 injected 그래프
-> 조정기를 받아 그림자 근거만 기록하며 운영 그래프 요청, 모델 및 observed-trajectory
+> 조정기를 받아 shadow 근거만 기록하며 운영 그래프 요청, 모델 및 observed-trajectory
 > 출처 어댑터는 배포 연결로 남습니다.
 
 ## 왜 챗봇이 아닌가
@@ -67,7 +67,7 @@ retrieval-augmented 챗봇은 다섯 가지 구조적 결함을 안고 리뷰 �
 | **Reactive** - 물어봐야만 답함 | 리뷰 큐 리드타임을 재현(요청 대기, 그다음 사람 대기) | **주변** - 요청이 존재하기 전에 변경 이벤트에서 선제적으로 리뷰 |
 | **Ungrounded** - 산문에 대한 벡터 유사도 | 환각 판정이 배포까지 도달 | **Ontology-grounded** - 답은 규칙 경로가 인용된 결정론적 그래프 질의 |
 | **Stateless** - 실제 estate가 아니라 문서를 읽음 | "왜 non-compliant인가"에 대한 실제 근거 없음 | **Stateful twin** - 인벤토리 delta로 최신화되는 구독의 라이브 투영 |
-| **Inert** - 정보만 반환하고 멈춤 | 사람이 여전히 손으로 고침 | **Action-bridging** - 답이 그림자 remediation-PR 제안을 실을 수 있음 |
+| **Inert** - 정보만 반환하고 멈춤 | 사람이 여전히 손으로 고침 | **Action-bridging** - 답이 shadow remediation-PR 제안을 실을 수 있음 |
 | **Static** - 인덱스가 stale됨 | 정책 변경 후 틀린 답 | **Self-improving** - 답 못한/abstain한 질문이 규칙 발견 루프로 투입 |
 
 ## 다섯 가지 전환
@@ -133,14 +133,14 @@ flowchart LR
 ### 4. Action-bridging (inert에서 제안으로)
 
 답은 제안된 수정을 실을 수 있지만, 트윈은 결코 실행하지 않습니다. 질문이 고칠 수 있는
-발견 사항으로 해소되면, 트윈은 규칙의 `remediates` ActionType로부터 만든 **그림자
+발견 사항으로 해소되면, 트윈은 규칙의 `remediates` ActionType로부터 만든 **shadow
 remediation-PR 제안**을 붙일 수 있습니다. 그것에 대해 행동하는 것은 기존의 gated 경로입니다:
 `risk-gate -> executor -> delivery`, 고위험은 무엇이든 HIL로
 ([risk-classification-ko.md](../decisioning/risk-classification-ko.md) 참조). 챗과 콘솔은 읽기 전용
 표면으로 남습니다; 제안은 PR로의 링크이지 mutate하는 버튼이 아닙니다.
 
 예: "비공개 엔드포인트 없는 저장소 계정을 고쳐줘"는 발견 사항 집합으로 해소됩니다; 트윈은
-리소스당 하나의 그림자 remediation-PR을 엽니다(blast-radius 상한 아래 배치), 각각 롤백
+리소스당 하나의 shadow remediation-PR을 엽니다(blast-radius 상한 아래 배치), 각각 롤백
 계약을 가지며 HIL로 라우팅됩니다. 사람이 승인하기 전에는 아무것도 바뀌지 않습니다.
 
 ### 5. Self-improving (static에서 living으로)
@@ -170,7 +170,7 @@ remediation-PR 제안**을 붙일 수 있습니다. 그것에 대해 행동하�
  감사 저장소는 절대 건드리지 않습니다. 이는 T0 성격의 패스입니다: 정적 그래프 평가가
  대부분을 해결하고, 범위가 제한된 읽기 전용 프로브가 나머지를 확증합니다,
  [deployment-preflight-ko.md](../deployment/deployment-preflight-ko.md) 가 하는 것과 정확히 같습니다.
-- **Shadow-first**: 각 시뮬레이션 파생 발견 사항은 그림자 모드로 배포되고, 정확도와
+- **Shadow-first**: 각 시뮬레이션 파생 발견 사항은 shadow 모드로 배포되고, 정확도와
  false-positive 비율이 고정된 시나리오 세트에서 측정된 후에만 shadow-to-enforce 규칙에
  따라 승격됩니다([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)).
 - **Fidelity 측정**: `core/assurance_twin/fidelity.py`
@@ -178,7 +178,7 @@ remediation-PR 제안**을 붙일 수 있습니다. 그것에 대해 행동하�
  blast-radius 개수, RPO/RTO 공백)를 안정적인 prediction id 로 **실제** 관측 결과와 조인해
  예측기별 MAE, MAPE, within-tolerance 비율을 누적한다. `is_reliable` 은 이를 실패 시 차단
  승격 신호로 바꾼다: 최소 표본 수 미만이거나 MAPE 기준 초과인 예측기는 신뢰할 수 없으므로,
- 호출자는 그것을 그림자 에 유지(또는 강등)한다. 이는 측정되지 않은 what-if 가 oracle 로
+ 호출자는 그것을 shadow 에 유지(또는 강등)한다. 이는 측정되지 않은 what-if 가 oracle 로
  작동하는 것을 막는다 - 실현되지 않는 시뮬레이션은 강제 적용 자격을 자동으로 잃는다.
 - **적응하지만 promotion-gated**: `effect_model.py`는 versioned 활성 모델로 no-op 및 액션
  가지를 평가하고 별도 challenger는 기준 시점 이후의 scorable `ResponseOutcome`에서만 학습합니다.
@@ -358,7 +358,7 @@ Supplemental 프로바이더는 서버 매개변수, diagnostic-setting 상태, 
 | 페이즈 | 착지하는 것 | 게이트 |
 |-------|------------|------|
 | **P2** ([phase-2-quality-and-t1-ko.md](../phases/phase-2-quality-and-t1-ko.md)) | 인벤토리로부터 트윈 투영; 검증된 text-to-query; quality 게이트를 통한 근거 있는 답; abstain-to-discovery 피드백 | 답은 근거가 있거나 abstain; 시나리오 세트에서 근거 없는 답 0 |
-| **P3** ([phase-3-integrated-loop-ko.md](../phases/phase-3-integrated-loop-ko.md)) | 주변 변경별 리뷰; 변경/DR/FinOps에 대한 그래프 전체 시뮬레이션; 그림자 remediation-PR 제안; `PostureAssessmentReport` 패널 | 각 시뮬레이션 발견 사항은 강제 적용 전에 shadow-first로 측정 |
+| **P3** ([phase-3-integrated-loop-ko.md](../phases/phase-3-integrated-loop-ko.md)) | 주변 변경별 리뷰; 변경/DR/FinOps에 대한 그래프 전체 시뮬레이션; shadow remediation-PR 제안; `PostureAssessmentReport` 패널 | 각 시뮬레이션 발견 사항은 강제 적용 전에 shadow-first로 측정 |
 
 ## 다음 단계
 

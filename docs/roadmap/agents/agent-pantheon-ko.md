@@ -218,7 +218,7 @@ self-improvement. **X**-agent 는 [agent-workflows.md](agent-workflows-ko.md)
 | Forseti | rule-cache 리프레시, retrospective what-if 배치, 판정 coherence self-test | 이벤트 판단 (T0/T1/T2), domain_conflict 발행, SecurityEvent 발행 | novelty 표류 감지 (T0 vs T2 mix) | 1, 2, 5 (Security 에스컬레이션), 8 (Judgment coherence), 11, 12 |
 | Huginn | 출처 상태 검사, 발견 커서/backpressure 검사, dedup 구간 유지 | Event 및 정규화된 변경 정규화 + dedup + correlate + publish | 적응형 스키마 학습 (T1 clustering, off-path) | 모든 워크플로우에 피드 |
 | Heimdall | anomaly 기준선 업데이트, 예측 리프레시, 발견 최신성/커버리지 탐색, T2 제안자 상태 증적 reduction, external-actor 리스트 리프레시, agent-health 탐색 | anomaly detect, 표류 detect, 최종 제안자 exhaustion correlate, 발견 성능 저하 correlate, SecurityEvent correlate, notify_admin | multi-signal 다신호 상관 | 1, 2, 3 (DR 훈련), 5, 7 (에이전트 상태), 9 (Rollback 예행 연습) |
-| Vidar | rollback-path 검증, DR 준비 상태 점수, recovery-time SLI | perform_rollback, dr_failover | 롤백 예행 연습 (그림자) | 3, 9 |
+| Vidar | rollback-path 검증, DR 준비 상태 점수, recovery-time SLI | perform_rollback, dr_failover | 롤백 예행 연습 (shadow) | 3, 9 |
 | Var | 승인 SLA 모니터, 승인자 가용성 tracking | HIL 카드 제시, 정족수 강제, 시간 초과 / 에스컬레이션 | 승인 출처 이력 기록 | 4 (재정의 -> 발견), 5, 11, 12 |
 | Bragi | 만료 세션 정리, UserPreference 인덱스 리프레시 | NL 라우팅, multi-agent 집계, NL 렌더링 | 의도 classifier 재학습 (T1, off-path) | 7, 10 (Retrospective what-if), 12 |
 | Saga | audit-chain 무결성 self-check, issue-close 검사, 지문 인덱스 compaction | 덧붙이기 AuditEntry, escalate_to_github_issue, 재생 for reconstruction | 감사 체인 tamper 감지 | 모든 워크플로우 (감사) |
@@ -233,7 +233,7 @@ self-improvement. **X**-agent 는 [agent-workflows.md](agent-workflows-ko.md)
 
 모든 에이전트는 측정 파이프라인
 ([goals-and-metrics.md](../architecture/goals-and-metrics-ko.md)) 에 이 메트릭 을 발행
-해야 그림자 -> 강제 적용 승격 게이트가 결정론적하게 평가할 수 있습니다. 런타임은
+해야 shadow -> 강제 적용 승격 게이트가 결정론적하게 평가할 수 있습니다. 런타임은
 상태 스냅샷마다 모든 declared 메트릭을 보고합니다. 결과 근거가 충분하지
 않은 메트릭은 `value: null`과 명시적 근거 상태를 사용하며 승격 게이트는
 absence를 zero로 해석하지 않고 실패로 처리합니다.
@@ -271,26 +271,26 @@ absence를 zero로 해석하지 않고 실패로 처리합니다.
 
 | 실패한 에이전트 | 영향 | 안전 성능 저하 |
 |---------------|------|-----------------|
-| **Saga** | 감사 불가 | **HARD FAIL**: 새 변경 허용 안 됨; 전체 시스템 그림자 로 강등 |
-| **Vidar** | 롤백 불가 | Thor 가 새 auto 실행 거부; 모든 새 액션 그림자 로 강등 |
+| **Saga** | 감사 불가 | **HARD FAIL**: 새 변경 허용 안 됨; 전체 시스템 shadow 로 강등 |
+| **Vidar** | 롤백 불가 | Thor 가 새 auto 실행 거부; 모든 새 액션 shadow 로 강등 |
 | **Forseti** | 판단 정지 | Huginn / Heimdall 은 계속 publish (Kafka retain); 판정 대체 경로 없음 (판사 없이 판단 불가); 운영자 alert |
 | **Odin** | cross-vertical 중재 누락 | Forseti가 충돌 판정을 HIL로 낮춤 (사람이 arbitrate) |
 | **Thor** | 실행 정지 | 판정 큐잉; 판정 TTL 만료 시 stale 폐기 (republish 시 재판단) |
 | **Huginn** | 인제스트 정지 | Kafka 보존 이 이벤트 보존; Huginn 복구 시 체크포인트 부터 재개 (멱등적) |
-| **Heimdall** | 감지/효과 관측 정지 | 읽기, 거부, 그림자 judgment는 계속; Heimdall 관측이 필요한 새 상태 변경은 차단되고 기존 결과는 pending, RBAC 거부는 감사 |
+| **Heimdall** | 감지/효과 관측 정지 | 읽기, 거부, shadow judgment는 계속; Heimdall 관측이 필요한 새 상태 변경은 차단되고 기존 결과는 pending, RBAC 거부는 감사 |
 | **Var** | HIL 차단 | HIL 큐 보존; 시간 초과 자동 확장; admin alert; 승인 없이 이미 A1/A2 조건을 충족한인 액션만 계속하며 HIL과 A3-E는 실행 불가 |
 | **Bragi** | 대화 차단 | 운영자 는 콘솔 읽기 전용 화면 + 직접 감사 조회 로 대체 경로 |
 | **Mimir** | 룰 업데이트 정지 | 캐시된 룰 계속; Forseti 가 stale-rule 경고; 새 룰 업데이트 지연 |
-| **Muninn** | 맥락 불가 | 읽기, 거부, 그림자 judgment는 계속; context-dependent 상태 변경은 알 수 없음으로 차단하고 "맥락 사용 불가" 감사 |
+| **Muninn** | 맥락 불가 | 읽기, 거부, shadow judgment는 계속; context-dependent 상태 변경은 알 수 없음으로 차단하고 "맥락 사용 불가" 감사 |
 | **Norns** | 학습 정지 | 즉시 영향 없음 (off-path); 장기 미가동 시 발견 velocity 저하 경고 |
 | **Njord / Freyr / Loki** | 도메인 자문 누락 | Forseti 가 해당 도메인 액션 을 HIL 로 강등 |
 
 공통 규칙:
 
-- **Saga와 Vidar는 변경의 필수 의존성**입니다. 최종 소비자/상태 실패는 재시작 전까지 sticky 그림자를 강제합니다. Noncritical 최종 소비자는 해당 에이전트만 degrade하고 형제는 계속 실행하며 상태는 false 하트비트 대신 exact 에이전트/토픽 상태를 기록합니다. Unified 동시성 테스트는 15개 소비자 신원과 same-topic non-stealing 동시 확산을 pin합니다.
+- **Saga와 Vidar는 변경의 필수 의존성**입니다. 최종 소비자/상태 실패는 재시작 전까지 sticky shadow를 강제합니다. Noncritical 최종 소비자는 해당 에이전트만 degrade하고 형제는 계속 실행하며 상태는 false 하트비트 대신 exact 에이전트/토픽 상태를 기록합니다. Unified 동시성 테스트는 15개 소비자 신원과 same-topic non-stealing 동시 확산을 pin합니다.
 - **판단자 / 실행자 / 감사자 triad 중 하나라도 누락** 시 새 변경 을
- 그림자 로 강등.
-- **Noncritical sensing 성능 저하**은 읽기, 거부, 큐 및 그림자 경로만 보존할 수 있습니다.
+ shadow 로 강등.
+- **Noncritical sensing 성능 저하**은 읽기, 거부, 큐 및 shadow 경로만 보존할 수 있습니다.
  Vidar는 변경 필수 의존성이고 Var는 HIL 및 A3-E 충족 여부를 별도로 통제합니다.
 - 모든 성능 저하 은 Odin 의 portfolio 리포트에 surfacing (워크플로우 7).
 
@@ -438,7 +438,7 @@ Tie-break 순서 (결정론적): 합계 점수 > 판테온 precedence
 `contributors`. 모든 라우팅 결정은 사후 검토를 위해 `Turn.score_breakdown` 에
 기록된다.
 
-#### 6.3.1 그림자 답변 계획 수립
+#### 6.3.1 shadow 답변 계획 수립
 
 Command Deck은 동일한 결정론적 점수를 사용해 표현 전용
 `AnswerPlanningRound`의 읽기 전용 기여자를 최대 2명 선택할 수 있습니다. 이
@@ -662,7 +662,7 @@ strict `True` 만 operator-initiated 로 취급한다.
 파일, Rego, 구성, 런타임 오버레이는 기존 ActionType을 강화할 수만 있습니다.
 자율성 상한을 낮추거나, 더 엄격한 precondition/stop 조건을 추가하거나,
 영향 범위를 줄이거나, 승격 게이트를 강화할 수 있습니다. 모든 오버레이는
-downgrade-only이며 감사됩니다. 그림자에서 강제 적용로의 승격은 게이트 통과 후
+downgrade-only이며 감사됩니다. shadow에서 강제 적용로의 승격은 게이트 통과 후
 별도 통제된 ActionType과 검토된 PR로 수행합니다.
 
 역할 연결(`executor`, `judge`, `approver`, `auditor`, `initiators`)과

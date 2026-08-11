@@ -55,7 +55,7 @@ translation_revised: 2026-08-11
 | 상태 / 감사 / KPI | **PostgreSQL** (기본) 또는 **Cosmos DB** | 추가 전용 감사 로그, 패턴 라이브러리, KPI 저장; 런타임 온톨로지 인스턴스 상태도 호스팅 ([llm-strategy-ko.md § 온톨로지 Storage 배치](llm-strategy-ko.md#ontology-storage-layout)) | [데이터 저장소 선택](#data-store-selection-criteria) 참조 |
 | Vector 검색 (T1) | pgvector (PostgreSQL과 co-located) | 임베딩을 감사/상태 옆에 유지; 하나의 datastore로 운영 | 큰 스케일에서는 전용 vector DB (Qdrant/Milvus) - [Vector Search 근거 설명](#vector-search-rationale) 참조 |
 | 시크릿 저장소 | Azure 에서는 **Container Apps native 시크릿 + Key Vault 참조**; 앱은 주입된 `SecretProvider` 를 통해 env 변수만 읽음 - [csp-neutrality-ko.md](csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) 참조 | 앱이 시크릿 SDK 를 가져오기 하지 않음; 비-Azure 대상에서는 **외부 Secrets Operator (ESO)** 가 AWS Secrets Manager / GCP 시크릿 Manager / HashiCorp Vault 를 동일 env 계약으로 이어줌 | ESO + Secrets Manager / GCP 시크릿 Manager / Vault; dev/로컬 에서만 SOPS + age |
-| Feature flags / 그림자 토글 | OSS 플래그 서비스 (OpenFeature + flagd) | 재배포 없이 액션별 shadow-vs-enforce 승격 게이팅 | 상태 저장소의 config-driven 플래그 |
+| Feature flags / shadow 토글 | OSS 플래그 서비스 (OpenFeature + flagd) | 재배포 없이 액션별 shadow-vs-enforce 승격 게이팅 | 상태 저장소의 config-driven 플래그 |
 | DB migrations | 버전된 마이그레이션 (Flyway / Alembic / Prisma Migrate) | 스키마 변경이 리뷰·순서·역방향 가능 | - |
 | CI/CD | GitHub Actions 또는 Azure Pipelines | lint, tests, 커버리지 게이트, 시크릿 검사 (gitleaks), 의존성/SBOM 감사 실행 | GitLab CI |
 | PR 게이트 | **GitHub App** (Checks API) 또는 Azure DevOps 서비스 hooks | 감사/롤백/승인이 이미 git에 존재 | 호스트에 관계없이 교정은 PR로 전달 |

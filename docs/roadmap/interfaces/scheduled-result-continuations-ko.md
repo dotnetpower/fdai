@@ -61,7 +61,7 @@ proposal을 inert 산출물로 생성합니다. 집약기는 작업을 생성하
 되면 FDAI는 세 실행의 fingerprint와 zero 변경 도구를 가진 비활성화된, shadow-only Automation 청사진을
 제출합니다. 이 단계에서도 작업을 만들지 않습니다. 별도 Approver 또는 Owner가 후보를 수용해야
 하며, 같은 검토자가 기존 인증된 `CreateScheduledTaskCommand`를 통해 materialize할 수 있습니다.
-결과 strict weekly 작업은 normal 스케줄러 event 경로를 통해 그림자 모드의
+결과 strict weekly 작업은 normal 스케줄러 event 경로를 통해 shadow 모드의
 `configuration.drift.check.requested`를 발행합니다. 재시도는 보고, campaign, 후보, 작업 신원에서
 collapse됩니다.
 

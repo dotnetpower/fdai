@@ -37,9 +37,9 @@ sources + operational signals ─► observe ─► hypothesize ─► verify �
  엔트리 제안:
  - **new-rule**: 아직 커버되지 않은 컨트롤, 반복되는 인시던트/HIL 패턴 또는 새로 발행된 상류
  컨트롤에 의해 동기.
- - **개정 번호**: 상류 소스가 바뀌었거나(그 `content_hash` 가 이동) 그림자 정확도가 임계
+ - **개정 번호**: 상류 소스가 바뀌었거나(그 `content_hash` 가 이동) shadow 정확도가 임계
  아래로 표류한 기존 규칙.
- - **retirement**: 반복적으로 재정의되거나 그림자 결과가 실제 환경에 poor fit임을 보이는
+ - **retirement**: 반복적으로 재정의되거나 shadow 결과가 실제 환경에 poor fit임을 보이는
  기존 규칙.
 - **verify** - 모든 후보는 표준 **quality 게이트** 통과할 때까지 inert 데이터:
  1. 엄격 JSON 스키마 (`additionalProperties: false`);

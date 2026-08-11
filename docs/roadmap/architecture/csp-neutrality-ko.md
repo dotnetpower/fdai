@@ -107,7 +107,7 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level 기반 +
  `PostgresOutboxStore` 백업)이 닫는다: 변경 *전* 에 쓴 점유 이 있으므로
  crash-suspect 재시도는 `IN_PROGRESS` 마커를 발견해 멱등적 변경 을
  완료까지 재실행하며 잃거나 이중 적용하지 않는다. 발신함 는 액션 이
- mutate 할 때(강제 적용 / P2) 의미가 있다; P1 은 그림자 전용이라 거기서는
+ mutate 할 때(강제 적용 / P2) 의미가 있다; P1 은 shadow 전용이라 거기서는
  아무것도 이중 적용되지 않는다.
 - **복제본 간 per-resource 상호배제** 는 `ResourceLock` 경계
  (`shared/providers/resource_lock.py`)으로 강제한다: 인-프로세스 `asyncio.Lock`
@@ -128,9 +128,9 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level 기반 +
 - **시스템 레벨 fail-toward-safety** 는 `DegradationController`
  (`shared/resilience/degradation.py`)다: circuit 차단기 들을 종합해
  `NORMAL` / `DEGRADED` 모드로 판정하고, 중요 의존성이 열림 이면 자율성 를
- 그림자 로 캡한다 - 망가진 감사 저장소 나 도달 불가 기반 가 강제 적용 변경
+ shadow 로 캡한다 - 망가진 감사 저장소 나 도달 불가 기반 가 강제 적용 변경
  을 몰아선 안 된다. 컨트롤 루프 이 `autonomy_permitted()` 를 참조해 그 결과를
- risk-gate 권한 에 `system_degraded` 로 전달하고, 이는 그림자 로 캡된
+ risk-gate 권한 에 `system_degraded` 로 전달하고, 이는 shadow 로 캡된
  `system_health` 상한 축 를 추가한다 (execution-model.md 2.6a) - 액션
  승격 전에 적용된다.
 - **backpressure** (`shared/resilience/backpressure.py`)는 세마포어로 동시성을
@@ -616,7 +616,7 @@ Foundational 계약과 인접 platform 경계가 코어를 CSP-이식 가능하�
 2. `bootstrap.servers`, `SecretProvider`, `RuntimeAdapter`, `WorkloadIdentity`, `Inventory`,
  `MetricProvider`, `LogQueryProvider`, `TraceQueryProvider` 바인딩을 새 CSP로 지시.
 3. 같은 OCI 이미지 + Knative 호환 매니페스트를 대상 런타임으로 렌더링.
-4. Azure 구현과의 동등성 가 측정될 때까지 **그림자 모드** 로 배송
+4. Azure 구현과의 동등성 가 측정될 때까지 **shadow 모드** 로 배송
  ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
 
 **비-Azure 대상은 TBD 로 남아있음**

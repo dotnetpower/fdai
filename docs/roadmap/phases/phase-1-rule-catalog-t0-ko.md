@@ -8,7 +8,7 @@ translation_revised: 2026-08-11
 # 단계 1 - 규칙 카탈로그와 T0 결정론적 엔진
 
 **목표**: LLM 없이 이벤트의 다수를 해결하는 결정론적 코어(T0) 를 세우고, 첫 자율 버티컬 -
-변경 안전성 - 를 완전히 **그림자 모드**(판정자와 로그, 실행 없음) 로 딜리버리. 이 단계는
+변경 안전성 - 를 완전히 **shadow 모드**(판정자와 로그, 실행 없음) 로 딜리버리. 이 단계는
 커버리지와 측정을 구축, 강제(적용) 아님; 강제 적용 승격은 범위 밖이며
 [phase-2-quality-and-t1-ko.md](phase-2-quality-and-t1-ko.md) 소속.
 
@@ -23,7 +23,7 @@ translation_revised: 2026-08-11
 
 > **구현 상태**: Authored 룰/Rego/교정 seeds, ActionType 카탈로그, T0 엔진, OPA
 > 평가기, control-loop orchestration, GitOps draft-PR 어댑터, Azure 인벤토리 스냅샷/delta
-> primitives 및 frozen-scenario 재생이 구현되어 있습니다. 이 문서의 "그림자 only"는 P1이
+> primitives 및 frozen-scenario 재생이 구현되어 있습니다. 이 문서의 "shadow only"는 P1이
 > 처음 landing할 때의 단계 경계입니다. 현재 저장소에는 이후 단계의 승격,
 > risk/HIL 및 enforce-capable 어댑터도 존재하므로 전체 런타임의 현재 모드를 뜻하지 않습니다.
 > 운영 인벤토리와 GitOps 전달은 배포별 프로바이더/자격 증명 연결이 필요합니다.
@@ -78,7 +78,7 @@ translation_revised: 2026-08-11
  바이너리 부재는 fail-fast, 타임아웃/비정상 종료/non-JSON 은 룰 단위 fail-close 라서
  깨진 정책 하나가 카탈로그 전체를 침묵시킬 수 없음. CI 는 checksum-pinned OPA 를 설치
  ([`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml)).
-- **그림자 remediation-PR** 경로 - GitOps 딜리버리 어댑터 통해(생성되지만 머지 안 됨).
+- **shadow remediation-PR** 경로 - GitOps 딜리버리 어댑터 통해(생성되지만 머지 안 됨).
  5개 Terraform patch 템플릿이
  [`rule-catalog/remediation/`](../../../rule-catalog/remediation) 아래 shipped 룰
  하나당 하나씩 배송; 로더 는 부하 시점에 모든 `remediation.template_ref` 가 디스크에
@@ -94,7 +94,7 @@ translation_revised: 2026-08-11
  [`GitOpsPrAdapter`](../../../services/core-control-plane/src/fdai/delivery/gitops_pr/adapter.py) 를 배송 -
  CSP-중립
  [`RemediationPrPublisher`](../../../services/core-control-plane/src/fdai/shared/providers/remediation_pr.py)
- 프로토콜 의 GitHub REST 구현: Bearer 인증, 쓰기 전 열림 PR 존재 탐색, 그림자 가지
+ 프로토콜 의 GitHub REST 구현: Bearer 인증, 쓰기 전 열림 PR 존재 탐색, shadow 가지
  생성 + Contents API 로 patch 커밋, PR 을 **초안** 로 열림 + `shadow` 라벨 +
  `rule:<id>` + `action:<type>`. 머지 안 함, `shadow` 라벨 제거 안 함; 그 경로는 단계 2
  승격 영역.
@@ -212,9 +212,9 @@ CSP-중립 어휘로 정규화되어 한 프로바이더용으로 작성된 규�
  변경된 속성) 보고.
 
 위반 시 엔진은 직접 실행 대신 **교정 PR** 발행; 감사, 롤백, 승인은 git에서 무료. 단계 1
-에서 모든 판정은 **그림자 only** - PR 머지 안 됨, 상태 변형 안 됨.
+에서 모든 판정은 **shadow only** - PR 머지 안 됨, 상태 변형 안 됨.
 
-## 수정 PR (그림자 모드)
+## 수정 PR (shadow 모드)
 
 단계 1에서 아무것도 머지되지 않지만, 각 생성된 PR은
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
@@ -229,7 +229,7 @@ CSP-중립 어휘로 정규화되어 한 프로바이더용으로 작성된 규�
 - **감사 엔트리** - 모든 생성된 PR(no-op과 abstain 결과 포함) 이 추가 전용 감사 기록을 씀:
  이벤트 id, 티어(`T0`), 결정, 인용 규칙 id, 멱등성 키, 모드(`shadow`), 롤백 참조.
 
-PR은 `shadow` 라벨되고 초안으로(또는 그림자 브랜치에 대해) 오픈되어 리뷰 가능하지만 정상 흐름으로
+PR은 `shadow` 라벨되고 초안으로(또는 shadow 브랜치에 대해) 오픈되어 리뷰 가능하지만 정상 흐름으로
 병합되지 않습니다.
 
 ## Out-of-Band 감지 (변경 안전성)
@@ -244,15 +244,15 @@ PR은 `shadow` 라벨되고 초안으로(또는 그림자 브랜치에 대해) �
  전; 억제 사유 기록.
 - **false 부정**: 신호 피드는 lag하거나 드롭 가능; 감지 완전성은 측정된 가드(Exit 기준 참조),
  가정 아님.
-- **응답 (그림자)**: 정책 위반 리소스의 out-of-band 변경은 *그림자* revert-or-reconcile PR과
+- **응답 (shadow)**: 정책 위반 리소스의 out-of-band 변경은 *shadow* revert-or-reconcile PR과
  알림 생성; 판단·로그만. Auto-revert와 reconcile-to-IaC 실행은 단계 2 검증까지 게이팅 오프.
 
 ## 자율성 레벨
 
-- 모든 것이 **그림자 모드** 로 출시: 엔진은 판단하고 로그; 강제 적용 경로 없음.
+- 모든 것이 **shadow 모드** 로 출시: 엔진은 판단하고 로그; 강제 적용 경로 없음.
 - 저위험 auto-merge/조정과 고위험 HIL 라우팅은 `risk-gate` 를 통해 배선되지만 단계 2 승격
  까지 게이팅 오프.
-- 이 단계에 property-level 불변식 성립: **그림자 모드는 절대 상태 변형 안 함** - PR 머지 안
+- 이 단계에 property-level 불변식 성립: **shadow 모드는 절대 상태 변형 안 함** - PR 머지 안
  됨, 리소스 변경 안 됨, 테스트에서 단언.
 
 ## 테스트 가능성
@@ -265,18 +265,18 @@ PR은 `shadow` 라벨되고 초안으로(또는 그림자 브랜치에 대해) �
  out-of-band 귀속, false-positive 억제.
 - **안전-코어 커버리지**: 결정론 엔진과 `risk-gate` 경로가 coding-conventions가 요구하는 높은
  커버리지 바 충족.
-- **Property 테스트**: "그림자는 절대 변형 안 함", "교정은 멱등(재적용은 no-op)", "미해결
+- **Property 테스트**: "shadow는 절대 변형 안 함", "교정은 멱등(재적용은 no-op)", "미해결
  규칙 충돌은 절대 auto-select 안 함".
 
 ## Exit 기준
 
 각 기준은 서사가 아니라 단계 0 원격측정과 시나리오 세트에 대해 측정 가능:
 
-- 변경 게이트가 고정 단계 0 시나리오 세트에 대해 **그림자** 에서 실행되고 모든 결정 로그됨
+- 변경 게이트가 고정 단계 0 시나리오 세트에 대해 **shadow** 에서 실행되고 모든 결정 로그됨
  (이벤트 id, 티어, 판정, 인용 규칙 id, 모드).
 - 규칙 카탈로그가 정의된 초기 대상 세트(소스별 열거) 를 커버하고 버전 고정; dedup/우선순위가
  픽스처 충돌 케이스를 미해결 auto-select 0으로 해결.
-- 교정 PR이 생성되고, 7개 안전조건을 모두 운반하며, 리뷰 가능; 그림자에서 어떤 PR도
+- 교정 PR이 생성되고, 7개 안전조건을 모두 운반하며, 리뷰 가능; shadow에서 어떤 PR도
  병합되지 않습니다.
 - Out-of-band 감지가 라벨된 픽스처 세트에 대한 **정밀도와 재현율** 을 보고, false-positive
  억제 비율 기록 - 단계 2가 회귀시키면 안 되는 감지 베이스라인 확립.
@@ -292,4 +292,4 @@ PR은 `shadow` 라벨되고 초안으로(또는 그림자 브랜치에 대해) �
 - **단계 0** ([phase-0-instrumentation-ko.md](phase-0-instrumentation-ko.md)): 원격측정 백본
  (이벤트 스키마, 감사/상태/KPI 저장소), 고정 시나리오 세트와 참조 베이스라인, 해결된
  아이덴티티/인가 및 정책-예외 블로커 ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md)).
- T0 그림자 결정은 단계 0 감사 저장소를 통해 로그; 그것 없이 exit 기준은 측정 불가.
+ T0 shadow 결정은 단계 0 감사 저장소를 통해 로그; 그것 없이 exit 기준은 측정 불가.

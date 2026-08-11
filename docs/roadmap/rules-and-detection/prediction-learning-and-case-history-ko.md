@@ -10,7 +10,7 @@ translation_revised: 2026-08-11
 개선을 제안하도록 합니다.
 
 > **구현 범위:** Azure가 구현 대상입니다. Core 계약은 cloud-provider-neutral하게
-> 유지합니다. 새 동작은 그림자 모드에서 시작합니다.
+> 유지합니다. 새 동작은 shadow 모드에서 시작합니다.
 >
 > **에이전트 경계:** Pantheon은 정확히 15개 에이전트로 유지합니다. 머신 작업 흐름 협업은
 > 스키마로 검증한 pub/sub만 사용합니다. 새 에이전트나 직접 에이전트 호출을 추가하지 않습니다.
@@ -20,7 +20,7 @@ translation_revised: 2026-08-11
 예측은 horizon 종료 후 실제 결과와 대조되어야 학습 증거가 됩니다. Heimdall은 예측
 결과를 소유하고, Saga는 변경 불가능한 감사 근거를 기록하고, Muninn은 사례 개정 번호를
 구성하고 색인하며, Norns는 검토된 실패 집단을 off-path에서 분석하고, Mimir는 후보
-재생, 그림자 비교, 승격 및 롤백을 관리합니다.
+재생, shadow 비교, 승격 및 롤백을 관리합니다.
 
 ```mermaid
 flowchart LR
@@ -51,7 +51,7 @@ flowchart LR
 | Saga | 모든 최종 전이 | Tamper-evident 근거 추가 | `AuditEntry` |
 | Muninn | 예측 결과 감사 | Case-history 개정 번호 봉인 및 색인 | `StateSnapshot`, `ContextIndex` |
 | Norns | 종료된 사례 집단 | 실패를 off-path 분석하고 inert improvement 제안 | `PatternObservation`, `RuleCandidate` |
-| Mimir | Rule 후보 | 통제된 재생 및 그림자 승격 실행 | `Rule`, `Policy` |
+| Mimir | Rule 후보 | 통제된 재생 및 shadow 승격 실행 | `Rule`, `Policy` |
 
 구독자는 독립적으로 실행됩니다. 느리거나 실패한 사례 구체화는 결과 감사,
 learning intake 또는 관련 없는 예측을 차단하지 않습니다. 런타임은 transient 구독자
@@ -111,7 +111,7 @@ PostgreSQL은 제한 없는 근거 본문이 아니라 조회 가능한 메타�
  버전, 출처 매니페스트 다이제스트, access-scope 다이제스트 및 deletion 계보
 
 추가 전용 감사 로그가 근거 권위를 유지합니다. 이행 중에는 이전 방식 StateStore
-변환 결과가 읽기 권한을 유지하고 PostgreSQL은 그림자 쓰기를 받습니다. Keyset backfill은
+변환 결과가 읽기 권한을 유지하고 PostgreSQL은 shadow 쓰기를 받습니다. Keyset backfill은
 전체 산출물 체인을 재구성하고 삭제된 신원을 zero-size tombstone으로 보존합니다.
 저장된 zero-mismatch 표시를 런타임에서 확인한 뒤에만 relational 읽기를 시작할 수 있습니다.
 Operational 액션 및 인시던트 개정 번호는 예측 값을 만들지 않고 detector와 메트릭 필드를
@@ -158,9 +158,9 @@ horizon 선택, 임계값 또는 calibration 오류, intervention censoring 및 
 후보만 만들 수 있습니다.
 
 Mimir는 근거에 기반한 출처 이력이 있는 후보만 수락합니다. 후보는 동일 사례에서
-incumbent와 rolling-origin 재생 및 실제 운영 그림자 비교를 수행합니다. 승격에는 최소
+incumbent와 rolling-origin 재생 및 실제 운영 shadow 비교를 수행합니다. 승격에는 최소
 closed 샘플 및 관측 일, confidence-bounded improvement, guard-metric 무회귀 및 정책
-escape 0건이 필요합니다. 회귀는 detector 또는 정책을 자동으로 그림자로 되돌립니다.
+escape 0건이 필요합니다. 회귀는 detector 또는 정책을 자동으로 shadow로 되돌립니다.
 
 ## 보존 및 deletion
 
@@ -182,12 +182,12 @@ retryable 상태로 남고 완료로 표시되지 않습니다. 기계 스케줄
 
 | 기능 | 상태 |
 |------------|--------|
-| 예측 detector 및 그림자 발견 사항 | 구현됨 |
+| 예측 detector 및 shadow 발견 사항 | 구현됨 |
 | 에이전트 pub/sub 런타임 및 single-writer 적용 | 구현됨 |
 | 통제된 trajectory 직렬화, 검사, 체크섬 및 보존 기본 요소 | 구현됨, 재사용 |
 | `ForecastOutcome` 스키마, 에피소드 closer 및 transactional 게시 발신함 | 구현됨 |
 | 긍정, 부정 및 판단 보류 에피소드 원장 | 구현됨 |
-| StateStore 권한과 PostgreSQL 그림자 dual-write | 구현됨 |
+| StateStore 권한과 PostgreSQL shadow dual-write | 구현됨 |
 | PostgreSQL 에피소드, 개정 번호, 조각, migration-marker 및 tombstone 표 | 구현됨 |
 | Operational 증적 컴파일러 및 액션/인시던트 사례 intake | 구현됨 |
 | 전체 체인 keyset backfill 및 zero-mismatch 전환 게이트 | 구현됨 |

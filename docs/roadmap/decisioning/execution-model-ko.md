@@ -37,10 +37,10 @@ FDAI 이 액션 실행 **여부** 와 **방법** 을 결정하는 방식. 이 �
 
 ## 1. 여기서 "execute" 의 의미
 
-이 문서 이전까지, FDAI 이 하는 모든 것은 **그림자** 였음 - 판정자
+이 문서 이전까지, FDAI 이 하는 모든 것은 **shadow** 였음 - 판정자
 하고 로그, mutate 절대 안 함. Execute 는 모든 게이트 통과 후 실행기 가
 변경 표면 (git PR 병합, Azure ARM API, scripted 롤백 실행기)
-를 실제로 호출하는 것. 그림자 모드 는 모든 신규 액션의 기본으로 여전히
+를 실제로 호출하는 것. shadow 모드 는 모든 신규 액션의 기본으로 여전히
 유지; 실행 은 promoted 상태, per-action, measured 근거 로
 gated, 매 전달 에서 re-check.
 
@@ -457,15 +457,15 @@ Best for: 구성 변경, IaC patch, 카탈로그 업데이트, 거버넌스 변�
  멱등성 키 사용 (기존 불변식
  [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md));
  재시도 된 호출 이 double-apply MUST NOT.
-- 그림자 관측은 영속 변경 원장을 채우지 않습니다. Process-local 캐시는
+- shadow 관측은 영속 변경 원장을 채우지 않습니다. Process-local 캐시는
  멱등성 키와 모드를 함께 사용하므로, 이후 검토된 승격은 같은 액션을 강제 적용
- 모드로 실행할 수 있습니다. 이전 방식 그림자 원장 행은 이 shadow-to-enforce 전환에서만
+ 모드로 실행할 수 있습니다. 이전 방식 shadow 원장 행은 이 shadow-to-enforce 전환에서만
  무시되며 강제 적용 변경 증적은 계속 권위 있는하여 페이로드 충돌을 거부합니다.
 - **업스트림 Azure 게이트웨이 연결** - 개발 operations 게이트웨이 URL과 Easy Auth 대상이
  모두 구성되면 headless 런타임은 enforce-capable `AzureGatewayDirectApiExecutor`를 연결합니다.
  이 어댑터는 `ops.start-vm`, `ops.deallocate-vm`, `ops.upsert-network-rule`,
  `ops.delete-network-rule`만 지원합니다. 각 ActionType은 shadow-first를 유지하며 shipped T0
- 상한은 사람 승인을 요구합니다. 그림자는 서버 계획만 수행하고 변경하지 않으며 강제 적용은
+ 상한은 사람 승인을 요구합니다. shadow는 서버 계획만 수행하고 변경하지 않으며 강제 적용은
  일회용 증적이 반환된 후에만 제출합니다.
 - **Long-running 연산 잠금** - ARM `202`는 대상 Blob 임차 기간을 비공개 연산 기록에
  유지합니다. 실행기 상태 polling이 임차 기간을 renew하고 최종 상태를 ETag
@@ -600,7 +600,7 @@ operational-alert 도 발행 한다 - outbound-only, 정보성이며 승인 버�
  연결 은 `RecordingToolExecutor` (실제 함수 실행 없음). 구성된
  `FDAI_JIRA_BASE_URL`은 PostgreSQL 멱등성 원장 및 distributed 리소스
  잠금과 함께 `JiraToolExecutor`를 연결합니다. ActionType 승격 게이트와
- `FDAI_JIRA_ENFORCE=1`이 모두 강제 적용을 허용하기 전까지 그림자를 유지합니다.
+ `FDAI_JIRA_ENFORCE=1`이 모두 강제 적용을 허용하기 전까지 shadow를 유지합니다.
  강제 적용 creation은 결정론적 `fdai-idem-<sha256>` 라벨을 추가합니다. 게시 전에
  영속 pending 점유를 atomically 기록하고 Jira enhanced
  `/rest/api/3/search/jql` 엔드포인트에서 해당 라벨을 검색합니다.
@@ -635,7 +635,7 @@ operational-alert 도 발행 한다 - outbound-only, 정보성이며 승인 버�
  실행기 는 시도당 정확히 하나의 감사 항목 를
  `action_kind=executor.tool_call.<outcome>` 와
  `execution_path=tool_call` 로 쓴다.
-- `tool.open-incident-ticket`은 기본 제공 티켓 ActionType입니다. 그림자 증적은
+- `tool.open-incident-ticket`은 기본 제공 티켓 ActionType입니다. shadow 증적은
  실제 티켓으로 링크되지 않습니다. 성공한 강제 적용 증적은 최종 실행기
  성공 전에 `link_ticket_receipt`를 통과하고 `incident.ticket`을 덧붙이기합니다.
  연결 실패는 retryable하며 성공으로 캐시되지 않습니다.
@@ -728,7 +728,7 @@ ActionType 이행 기록과 일치합니다.
 
 - 스키마 확장만. 로더가 신규 필드 학습; 모든 기존 ActionType 이 validate.
  RiskGate 는 오늘처럼 계속 동작 (shadow-only) - `promotion_state` 가
- 모든 항목 에 대해 그림자 이기 때문.
+ 모든 항목 에 대해 shadow 이기 때문.
 - **Exit 게이트**: 6-axis min-combination 에 대한 속성 테스트; 모든
  기존 shipped 룰이 변경 전과 동일한 shadow-only 결과 을 여전히
  produce.
@@ -760,7 +760,7 @@ ActionType 이행 기록과 일치합니다.
  에서 실제 운영 로 감.
 - `governance.override-ceiling` landing → Owner 가 콘솔로부터 상한
  downgrade 를 time-box 가능 (action-ontology §7.4).
-- **Exit 게이트**: 최소 하나의 실제 운영 탐색 가 운영 그림자 측정에서
+- **Exit 게이트**: 최소 하나의 실제 운영 탐색 가 운영 shadow 측정에서
  최소 한 번 자율성 를 reduce; 그 전달 의 감사 항목 가
  `winning_axis=live_blast` 를 표시.
 
@@ -821,7 +821,7 @@ ActionType 이행 기록과 일치합니다.
 - [operator-console.md](../interfaces/operator-console-ko.md) - RiskGate 는 콘솔의
  채팅 불변식 가 매 write-class 도구 호출 에 요구하는 검증기.
 - [phase-2-quality-and-t1.md](../phases/phase-2-quality-and-t1-ko.md) -
- ActionType 을 그림자 에서 강제 적용 로 flip 하는 승격 파이프라인.
+ ActionType 을 shadow 에서 강제 적용 로 flip 하는 승격 파이프라인.
 - [risk-classification.md](risk-classification-ko.md) - 6-axis 상한 이
  `min()` 으로 결합하는 권위적 first-match auto / HIL / 거부 표 (축 A,
  §2.0); 매트릭스로 대체되지 않음.

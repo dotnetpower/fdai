@@ -89,7 +89,7 @@ RAG grounding(인용 유효성), mixed-model 교차 검사(구조적 합의), �
 2. **Reduce** - 순수 `evaluate_rubric_output` 이 점수를 `RubricDecision`
  (`pass` / `fail` / `abstain`) + `min_score` 로 축약.
 3. **접기** - 강제 적용 모드에서 게이트가 `min(aggregate_confidence, min_score)` 를
- 적용하고 `fail` / `abstain` 시 abstain 이유 추가. 그림자 모드에서는 점수를
+ 적용하고 `fail` / `abstain` 시 abstain 이유 추가. shadow 모드에서는 점수를
  기록하되 결과와 확신도는 건드리지 않음.
 
 ```text
@@ -116,18 +116,18 @@ T2 candidate (+ reasoning_trace)
 - 임계 미달 점수 존재 -> `fail` (실패 기준 나열).
 - 그 외 -> `pass`.
 
-`min_score` 는 `pass` / `fail` 시 기준 전체의 최소값, `abstain` 시 `0.0` - 그림자에서
+`min_score` 는 `pass` / `fail` 시 기준 전체의 최소값, `abstain` 시 `0.0` - shadow에서
 강제 적용으로 전환 시 실패 시 차단 되도록.
 
 **빈 `reasoning_trace`** 는 판정자 호출 전에 short-circuit 된다: faithfulness를 채점할
 추론 대상이 없으므로 강제 적용 모드는 판정자 호출 없이 abstain(`rubric_no_reasoning_trace`)
-하고, 그림자 모드는 결과를 안 바꾸고 abstain을 기록한다.
+하고, shadow 모드는 결과를 안 바꾸고 abstain을 기록한다.
 
 ## 실패 시 차단
 
 평가기 예외(전송 실패, 잘못된 응답)는 절대 조건을 충족한으로 fail-open 하지 않는다. 강제 적용
 모드에서는 `rubric_evaluator_error:<Type>` abstain 이유를 추가하고 `min_score` 를
-`0.0` 으로; 그림자 모드에서는 기록만 하고 결과는 안 바꾼다.
+`0.0` 으로; shadow 모드에서는 기록만 하고 결과는 안 바꾼다.
 
 ## Self-consistency (보완)
 
@@ -155,7 +155,7 @@ T2 candidate (+ reasoning_trace)
 - T2 호출당 **추가 지연 / 토큰 비용**.
 
 승격은 catch 비율이 목표 이상, policy-violation escape 0, false-positive 비율이 허용
-상한 이하일 것을 요구한다. 회귀 시 그림자로 강등한다.
+상한 이하일 것을 요구한다. 회귀 시 shadow로 강등한다.
 
 ## DI 경계
 
@@ -207,7 +207,7 @@ HIL로 보낼 수 있지만, ungrounded 액션을 안전하게 만들 수는 없
  자격을 올릴 수 없다 - 다만 임계값을 튜닝하는 포크는 둘 다 이 값에 들어감을 알아야
  한다.
 - **자동 승격 레지스트리가 없다.** ActionType(=`promotion_gate` 를 `ActionPromotionRegistry`
- 가 평가)과 달리, 루브릭의 그림자 -> 강제 적용 전환은 수동 `QualityGateConfig.rubric_shadow`
+ 가 평가)과 달리, 루브릭의 shadow -> 강제 적용 전환은 수동 `QualityGateConfig.rubric_shadow`
  플립이다. 지표 기반 자동 승격/강등은 향후 작업이다.
 - **실모델 계약은 스키마가 아니라 프롬프트로 강제된다.** 테스트는 httpx mock을 쓰고,
  `response_format=json_object` 는 유효 JSON을 보장하지 유효 루브릭 스키마를 보장하지
@@ -234,7 +234,7 @@ HIL로 보낼 수 있지만, ungrounded 액션을 안전하게 만들 수는 없
 2. `QualityCandidate.reasoning_trace` 를 계속 채웁니다. 배포된 로컬/Azure 제안자 는
  이를 채우며, 빈 추적 를 반환하는 포크 제안자 는 채점 대상이 없어 루브릭을
  abstain시킵니다.
-3. `QualityDecision.rubric_*` 필드를 감사 로그에 직렬화해 그림자 모드 catch /
+3. `QualityDecision.rubric_*` 필드를 감사 로그에 직렬화해 shadow 모드 catch /
  false-positive 지표를 실제로 측정할 수 있게 한다. `quality_decision_audit_fields()`
  헬퍼가 이를 JSON-safe하게 flatten한다; 포크의 제어 루프 감사 쓰기 담당이 그 출력을
  per-decision 엔트리에 병합한다. 모든 필드는 구조화된 id / 점수 / enum / 리소스
@@ -243,7 +243,7 @@ HIL로 보낼 수 있지만, ungrounded 액션을 안전하게 만들 수는 없
  L0 감사는 시크릿/고객값을 기록하지 않습니다). 업스트림 제어 루프는 모든 T2 quality
  결정 에 이 헬퍼를 호출합니다.
 
-루브릭 평가기 가 바인딩되지 않으면 런타임 동작을 바꾸지 않습니다. 바인딩되면 그림자
+루브릭 평가기 가 바인딩되지 않으면 런타임 동작을 바꾸지 않습니다. 바인딩되면 shadow
 측정값을 기록하지만 실행 권한 를 높이지 않습니다. 이 방식은 통합을 shadow-first로
 유지하면서 이후 승격 결정에 필요한 근거 를 생성합니다.
 

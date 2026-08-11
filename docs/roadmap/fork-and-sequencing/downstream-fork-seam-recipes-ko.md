@@ -553,7 +553,7 @@ HIL로 degrade 하도록 이 계약을 준수해야 합니다.
 | `OperatorMemoryStore` | 읽기 시 DB down | Raise; 작성기가 stale/빈 기억으로 조용히 진행하지 않고 현재 요청을 실패 시 차단합니다. |
 | `SecretProvider.get` | 시크릿 누락된 / KV down | `SecretNotFoundError` raise; 시작 시 fail-fast. 누락된 시크릿은 절대 조용히 기본값되지 않음. |
 | `ScopeResolver` | 리소스 참조 파싱 불가 | `None` 반환; materializer는 그 이벤트에 대해 operator-memory 첨부를 건너뜀하지만 액션 자체는 블록되지 않음. |
-| `RemediationPrPublisher` (5.13) | PR 호스트 down | Raise; 실행기가 `execution_failed` 감사 엔트리를 기록하고 액션은 그림자 유지. `PublishReceipt`를 조작하지 말 것. |
+| `RemediationPrPublisher` (5.13) | PR 호스트 down | Raise; 실행기가 `execution_failed` 감사 엔트리를 기록하고 액션은 shadow 유지. `PublishReceipt`를 조작하지 말 것. |
 | `ReadPanel.render` (5.14) | 데이터 소스 down | 빈 패널 본문 반환 + 패널 모델이 지원하면 `reasons=("<source-error>",)` 표시, 아니면 HTTP 503 raise. 패널은 어떤 코드 경로에서도 액션을 실행하지 말 것. |
 
 공통 불변식: **실제 운영 어댑터 에러에서 성공을 조작하지 말 것**.
@@ -715,7 +715,7 @@ phantom ActionType을 도입할 수 없음.
  오버레이.
 - `irreversible: true`만으로 롤백 침묵. `rollback_contract`는
  reversal이 최선 노력일 때도 필수.
-- 측정된 그림자 창 없이 신규 ActionType 카테고리를 `default_mode: enforce`
+- 측정된 shadow 창 없이 신규 ActionType 카테고리를 `default_mode: enforce`
  로 - 포크에서도 마찬가지.
 
 ### 5.13 전달 어댑터 (커스텀 발행기)
@@ -1133,7 +1133,7 @@ in-memory 가짜에 대해 `build_container_with_fork_catalogs`를 실행하고
 이들을 하나의 inert `DistillationPlan`으로 엮는다;
 `python -m fdai.rule_catalog.파이프라인.distill_cli --drop-dir <dir>
 --snapshot <file>`로 한 번의 통과를 실행한다. 계획은 inert하다 - 증류된
-후보는 강제 적용 전에 여전히 grounding / 그림자 / 회귀 / 승격
+후보는 강제 적용 전에 여전히 grounding / shadow / 회귀 / 승격
 게이트를 거친다.
 
 **테스트 방법**: 배포된 distill 테스트를 템플릿으로 재사용
@@ -1181,7 +1181,7 @@ Installer는 알 수 없는 대상, 누락 또는 중복 프로바이더, 도구
 
 **테스트 방법**: 원본 컨테이너에 포크 연결이 없는지, 반환된 컨테이너가
 기능을 해석하는지, 잘못된 참조가 프로바이더 I/O 전에 실패하는지, 프로바이더
-출력이 도구 산출물의 출력 계약을 만족하는지 확인합니다. 변경 기능은 그림자
+출력이 도구 산출물의 출력 계약을 만족하는지 확인합니다. 변경 기능은 shadow
 모드로 유지하고 해석된 대상을 직접 호출하지 말고 일반 risk-gate와 실행기 경로로
 테스트하세요.
 

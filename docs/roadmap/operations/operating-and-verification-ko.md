@@ -115,7 +115,7 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각
 2. **구성 로드** - 배포된 이미지가 자신의 버전, 카탈로그 참조, 구성 해시를 보고; 값들이
  예상 릴리스 매니페스트와 일치.
 3. **카나리 왕복** - 하나의 합성 이벤트 발사, 감사 엔트리가 예산 내에 랜딩 검증.
-4. **그림자 결정 정확성** - 대표 이벤트 픽스처 세트를 그림자 모드로 공급; 판정이 golden 기대와
+4. **shadow 결정 정확성** - 대표 이벤트 픽스처 세트를 shadow 모드로 공급; 판정이 golden 기대와
  일치 (회귀 스위트).
 5. **비상 정지 검사** - 비상 정지 **on** 토글, 윈도우 동안 모든 액션이 abstain 검증
  (카나리로 프로빙); **off** 토글, 정상 결정 재개 검증. 두 상태 모두 감사 엔트리를 남김.
@@ -167,7 +167,7 @@ flowchart LR
 ```
 
 감사 기록은 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 에 따라 추가 전용이며
-hash-chain됨; 같은 워크는 그림자와 강제 적용 이벤트에 대해 동작(모드가 모든 엔트리에 기록됨).
+hash-chain됨; 같은 워크는 shadow와 강제 적용 이벤트에 대해 동작(모드가 모든 엔트리에 기록됨).
 
 ## 런북 세트
 
@@ -216,13 +216,13 @@ fork-local 런북 세트에 유지합니다. 저장소는 아직 ActionType별 �
 
 ## 오픈 전 검증 (성능 + 통합)
 
-서비스 오픈 전, FDAI는 감시할 워크로드의 **성능 / 통합 테스트와 나란히 그림자로**
+서비스 오픈 전, FDAI는 감시할 워크로드의 **성능 / 통합 테스트와 나란히 shadow로**
 실행할 때 가장 유용하다. FDAI가 부하를 생성하지는 않고 - 외부 부하 생성기(Azure 부하
 Testing, k6, JMeter)가 트래픽을 만든다 - 그 트래픽이 도는 동안 제어 평면은 실행 없이
 현실적인 조건에서 감지와 판정을 증명한다:
 
-- **실부하 하 그림자 판정.** 새 룰 과 액션 은 judge-and-log 만 수행하므로
- ([architecture.instructions.md § 그림자 -> 강제 적용](../../../.github/instructions/architecture.instructions.md#safety-invariants)),
+- **실부하 하 shadow 판정.** 새 룰 과 액션 은 judge-and-log 만 수행하므로
+ ([architecture.instructions.md § shadow -> 강제 적용](../../../.github/instructions/architecture.instructions.md#safety-invariants)),
  부하 테스트가 결정론적 계층 와 T2 quality 게이트 를 exercise 하고 모든 판정 는
  기록되되 실행되지 않는다.
 - **예산 대비 감지 지연 측정.** 부하가 만든 이벤트가 계층 별 `LatencyBudgetMonitor`
@@ -235,8 +235,8 @@ Testing, k6, JMeter)가 트래픽을 만든다 - 그 트래픽이 도는 동안 
  ([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)) 를 재생해
  라우팅과 auto-vs-HIL 정확도를 ship 될 바로 그 빌드에서 정량화한다.
 
-결과는 그림자 증거 뭉치 - 정확도, 지연, 정책 위반 escape 0 - 이며, 오퍼레이터는
-어떤 액션 을 그림자 에서 강제 적용 로 승격하기 **전에** 이를 검토한다.
+결과는 shadow 증거 뭉치 - 정확도, 지연, 정책 위반 escape 0 - 이며, 오퍼레이터는
+어떤 액션 을 shadow 에서 강제 적용 로 승격하기 **전에** 이를 검토한다.
 
 ## Azure read-investigation release 근거
 
@@ -269,7 +269,7 @@ release 근거로 남습니다. Dedicated 검증 환경이 Azure 변경 없이 �
 > 상태/표류/deployment-baseline 작업을 등록하거나 `console.recurrent_query`를 publish하지 않습니다.
 > 아래 bullet은 목표 stabilization 조립을 정의합니다.
 
-- **Shadow-first 가 기본 유지.** 새로 도입된 액션 은 윈도우 동안 그림자 로 남고,
+- **Shadow-first 가 기본 유지.** 새로 도입된 액션 은 윈도우 동안 shadow 로 남고,
  아래 안정화 신호가 깨끗해질 때까지 강제 적용 승격을 미룬다 - 불안정한 오픈이 절대
  auto-execute 하지 않는다.
 - **기준선 대비 스케줄 비교.** 스케줄 태스크([`core/scheduler`](../../../services/core-control-plane/src/fdai/core/scheduler))
@@ -281,7 +281,7 @@ release 근거로 남습니다. Dedicated 검증 환경이 Azure 변경 없이 �
  룰 후보로 바꾸어, 오픈이 실제로 드러낸 것으로부터 카탈로그가 성장한다.
 - **guard-metric 밀착 감시.** guard-metric 드리프트
  ([goals-and-metrics-ko.md § 가드 메트릭](../architecture/goals-and-metrics-ko.md#guard-metrics-must-not-regress))
- 를 윈도우 내내 밀착 감시한다; breach 는 자동으로 그림자 로 강등한다. 신호가
+ 를 윈도우 내내 밀착 감시한다; breach 는 자동으로 shadow 로 강등한다. 신호가
  안정되면 정상 주기로 돌아간다.
 
 윈도우는 시끄러운 오픈 구간을 최소한의 사람 개입으로 흡수하고, 안정화 신호가 유지되면

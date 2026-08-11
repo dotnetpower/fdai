@@ -207,7 +207,7 @@ drift할 수 없다. `core/`는 `agents/`를 가져오기하지 않으며(module
 소유하지만 human non-response timer를 소유하지 않습니다. 채널 전달 실패는 notifications
 matrix의 `on_all_fail: hil_escalate`를 사용합니다. 전달 성공 후 human 결정이 없을 때의
 처리는 별도 [에스컬레이션 및 상시 권한](../decisioning/escalation-and-standing-authority-ko.md)
-supervisor가 소유합니다. 주기적 그림자 tick은 recipient 단계 구조를 진행하지 않고 due 관측만
+supervisor가 소유합니다. 주기적 shadow tick은 recipient 단계 구조를 진행하지 않고 due 관측만
 기록합니다.
 
 ### 6.2 사람 -> 채널 브릿지

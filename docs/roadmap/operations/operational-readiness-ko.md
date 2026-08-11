@@ -146,7 +146,7 @@ ORR 은 범위 전체에 대해 적용 가능한 규칙 집합을 실행합니�
 
 ### Shadow-first
 
-모든 ORR 은 **그림자 모드** 로 ship 됩니다: 차단 요인 를 진실되게 보고하지만
+모든 ORR 은 **shadow 모드** 로 ship 됩니다: 차단 요인 를 진실되게 보고하지만
 `blocks_handoff` 는 `false` 로 유지되므로, 검증되지 않은 리뷰가 false 긍정 로
 실제 핸드오프를 잘못 멈추게 할 수 없습니다. `enforce` 로의 승격 은
 환경 별이며 고정된 시나리오 집합 에서 측정된 false-positive 비율 로
@@ -156,7 +156,7 @@ ORR 은 범위 전체에 대해 적용 가능한 규칙 집합을 실행합니�
 ## 액션 bridging
 
 `blocked` ORR 은 단지 문제를 나열하는 데 그치지 않습니다. autofix 가 있는 각
-발견 사항 은 규칙의 교정 ActionType 으로 구축된 **그림자 remediation-PR
+발견 사항 은 규칙의 교정 ActionType 으로 구축된 **shadow remediation-PR
 제안** 을 실으며, assurance twin 과 정확히 동일합니다. 아이덴티티 차원의 경우
 그것은 over-broad 권한 부여 를 최소권한으로 좁히는 `remediate.right-size-role` 이며,
 RBAC 변경은 `resource_group` 영향 범위 와 `AsymmetricRollback` 을 지니므로
@@ -231,7 +231,7 @@ injected `PostureAssessmentProvider`, 기존 `PreflightAnalyzer` 및 선택적
  받지 않으므로 Var 승인은 아직 연결되지 않았습니다.
 - **실패 시 차단**: stale twin (인벤토리 신선도가 `freshness_ttl` 초과) 은 stale
  상태로 certify 하기보다 핸드오프 certify 를 거부합니다; ungroundable 발견 사항 은
- abstain 하고; 검증되지 않은 리뷰는 그림자 로 유지됩니다.
+ abstain 하고; 검증되지 않은 리뷰는 shadow 로 유지됩니다.
 - **감사됨**: 현재 서비스는 ORR 판정, `blocks_handoff`, submitter, 대상 범위,
  환경 및 전달/평가 실패를 추가 전용 state-store 감사 항목으로 기록합니다.
  Approver 신원과 Saga 에이전트 귀속은 향후 승인 작업 흐름 연결에서 추가해야 합니다.

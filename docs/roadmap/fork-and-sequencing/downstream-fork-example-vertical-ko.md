@@ -418,18 +418,18 @@ Recipe 5.15의 골격이 이 순서를 존중.
 
 **`governance.assign-reviewers`에 대한 구체 게이트**:
 
-- 14 그림자 일 관찰된.
+- 14 shadow 일 관찰된.
 - 룰을 통해 라우팅된 제안 최소 30개.
 - 룰이 생성한 검토자 세트가 운영자가 선택한 검토자 세트와
  >= 98% 일치.
-- 제로 policy-violation escape (그림자 룰이 필수 범위가 없는
+- 제로 policy-violation escape (shadow 룰이 필수 범위가 없는
  검토자를 배정하려 했던 제안).
 
 **측정 방법**: 배포된 감사 로그가 모든 shadow-mode 판정을
 would-be 액션과 함께 기록. 포크의 측정 작업 (cron, Container App
-Jobs, 처음 몇 번은 수동 notebook)이 각 그림자 창 끝에 비교 쿼리 실행.
+Jobs, 처음 몇 번은 수동 notebook)이 각 shadow 창 끝에 비교 쿼리 실행.
 4개 기준 모두 green -> 별도 PR이 `default_mode: enforce`로 flip 되고
-그림자 증거에 대해 리뷰됨.
+shadow 증거에 대해 리뷰됨.
 
 **회귀 demote**: 강제 적용 후, 포크의 KPI 대시보드가 룰
 정밀도가 승격 하한 아래로 떨어짐을 보이면, demote 경로는

@@ -175,7 +175,7 @@ Public-network 프로파일에서 운영자가 realtime-inventory Event Grid 구
 전달하며 topic-scoped 데이터 발신자 역할과 영속 멱등성 커서를 사용합니다.
 빈 cron은 해당 작업을 비활성화합니다. 기존 스케줄러 또는 analyzer 작업은 계획 전에 안전하게
 가져오고 이후 이미지와 구성 변경은 같은 계획 및 적용 경로로 수렴합니다.
-Analyzer 작업은 기본 1분 그림자 예약을 사용합니다. 명시적 analyzer 대상이 비어 있으면
+Analyzer 작업은 기본 1분 shadow 예약을 사용합니다. 명시적 analyzer 대상이 비어 있으면
 영속 인벤토리에서 지원 대상을 읽고 Huginn을 통해 AKS 감지 준비도 관측을 발행합니다.
 Analyzer cron을 명시적으로 빈 문자열로 설정하면 작업이 비활성화됩니다.
 
@@ -513,7 +513,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `KAFKA_TOPIC_EVENTS` | env | 배포 | 주 이벤트 ingest 토픽 |
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | 배포 | dead-letter 접미사 (기본 `.dlq`) |
 | `FDAI_EXECUTOR_COMMAND_TOPIC` / `FDAI_EXECUTOR_RECEIPT_TOPIC` | env | 업스트림 / 배포 | Isolated 실행기 명령 및 versioned 최종 증적 토픽입니다. 기본값은 `object.executor-command`, `object.executor-receipt`이며 서로 달라야 합니다. |
-| `FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID` / `FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER` | env | 배포 | 전용 isolated 신원과 정확한 default-off 전환 표시입니다. 그림자에서는 전송 계층/상태 접근만 가지며 전환 후에는 유일한 development-gateway 호출자가 되고 Core는 전송 계층/읽기 접근만 유지합니다. |
+| `FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID` / `FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER` | env | 배포 | 전용 isolated 신원과 정확한 default-off 전환 표시입니다. shadow에서는 전송 계층/상태 접근만 가지며 전환 후에는 유일한 development-gateway 호출자가 되고 Core는 전송 계층/읽기 접근만 유지합니다. |
 | `FDAI_ISOLATED_EXECUTOR_DEPLOYED` | env | 업스트림 / 배포 | 독립 배포 프로세스의 exact 명시적 선택 표시입니다. `1`일 때만 이 entrypoint를 시작하며 환경 이름은 배포 venue 또는 권한을 의미하지 않습니다. |
 | `FDAI_ISOLATED_EXECUTOR_HEALTH_PORT` / `FDAI_ISOLATED_EXECUTOR_INSTANCE_ID` | env | 업스트림 / 배포 | 내부 상태 포트(기본 `8000`)와 증적 귀속용 범위가 제한된 인스턴스 id입니다. 명시적 인스턴스 id가 없으면 Container Apps의 `HOSTNAME`을 사용합니다. |
 | `LLM_MODE` | env | 배포 | 명시적 테스트/mock용 `local-fake` 또는 권위 있는 프로파일용 `azure`. 환경은 연결을 선택하지 않습니다. [dev-and-deploy-parity-ko.md § 동등성 컨트랙트](dev-and-deploy-parity-ko.md#parity-컨트랙트-must) 참조. |
@@ -537,15 +537,15 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | 업스트림 / 배포 | ACS 이메일 A2/A4 채널을 활성화합니다. Terraform이 엔드포인트와 Azure-managed 발신자를 파생하고 전용 알림 MI를 연결한 뒤 클라이언트 id를 주입합니다. 배포 구성은 `NOTIFICATION_EMAIL_RECIPIENTS_JSON`으로 수신자를 공급하며 앱에는 접근 키나 연결 문자열이 들어가지 않습니다. 부분 설정은 시작을 차단합니다. |
 | `FDAI_CONSOLE_BASE_URL` | env | 배포 | 인시던트 이메일의 읽기 전용 근거 링크를 만드는 공개 HTTPS 출처입니다. Console을 활성화하면 Terraform이 Static Web App hostname에서 파생합니다. 값이 없으면 이메일 전달은 계속되며 렌더러는 인시던트 CTA를 생략합니다. |
 | `FDAI_MEASUREMENT_MODE` | env | 업스트림 | `infra/modules/measurement-runners/`의 Container Apps 작업 항목 지점을 선택합니다. `baseline`은 고정된 시나리오 회귀 측정을 실행하고 `growth`는 검토된 결과를 pattern-growth intake로 전달합니다. 액션 권한은 승격 및 risk 게이트가 독립적으로 관리합니다. |
-| `FDAI_DIRECT_API_FAKE` | env | test-only / dev-local | `1`이면 실행기 direct-API 경로를 in-memory 그림자 가짜로 바꿉니다. Automated 테스트는 명시적으로 설정하고, `prepare-local-runtime-env.sh`는 operations 게이트웨이를 찾지 못할 때만 - Terraform 상태에도 없고 리소스 그룹의 실제 운영 Azure CLI 탐색(`func-*-devgw-*`와 해당 App Service Authentication 대상)로도 복구되지 않을 때 - interactive 로컬 dev에서 이를 자동 주입하여 실제 운영 백엔드 없이도 `execution_path: direct_api` 전달을 유지합니다. `FDAI_DEV_OPERATIONS_GATEWAY_URL`과 상호 배타적입니다. |
+| `FDAI_DIRECT_API_FAKE` | env | test-only / dev-local | `1`이면 실행기 direct-API 경로를 in-memory shadow 가짜로 바꿉니다. Automated 테스트는 명시적으로 설정하고, `prepare-local-runtime-env.sh`는 operations 게이트웨이를 찾지 못할 때만 - Terraform 상태에도 없고 리소스 그룹의 실제 운영 Azure CLI 탐색(`func-*-devgw-*`와 해당 App Service Authentication 대상)로도 복구되지 않을 때 - interactive 로컬 dev에서 이를 자동 주입하여 실제 운영 백엔드 없이도 `execution_path: direct_api` 전달을 유지합니다. `FDAI_DEV_OPERATIONS_GATEWAY_URL`과 상호 배타적입니다. |
 | `FDAI_TOOL_CALL_FAKE` | env | test-only | Automated 테스트에서 실행기 tool-call 경로를 `RecordingToolExecutor`로 바꿉니다. Interactive 로컬 시작은 실행기를 연결하지 않습니다. |
-| `FDAI_WORKFLOW_SHADOW` | env | 업스트림 | Event-triggered 카탈로그 작업 흐름은 기본적으로 non-mutating 그림자 모드로 실행됩니다. 명시적 maintenance 비활성화에만 `0`, `false`, `no`, `off`를 설정합니다. |
+| `FDAI_WORKFLOW_SHADOW` | env | 업스트림 | Event-triggered 카탈로그 작업 흐름은 기본적으로 non-mutating shadow 모드로 실행됩니다. 명시적 maintenance 비활성화에만 `0`, `false`, `no`, `off`를 설정합니다. |
 | `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` | env | 배포 / 로컬 | Owner가 `mode=enforce`로 시작할 수 있는 작업 흐름 이름의 comma-separated 목록입니다. Event Hubs 명령 전송 계층이 필요하며 액션 단계는 일반 승격/risk/HIL/실행기 경로로 재진입합니다. |
 | `KAFKA_TOPIC_EVENTS` / `FDAI_STAGE_TOPIC` | env | 업스트림 / 로컬 | Deployed 런타임과 Azure-backed interactive 전송 계층이 공유하는 이벤트 및 단계 토픽입니다. Kafka 초기화와 이벤트 토픽이 모두 없으면 interactive 로컬은 `aw.events`와 범위가 제한된 로컬 EventBus/SSE 어댑터를 사용합니다. |
 | `FDAI_IRP_ENABLED` / `FDAI_IRP_BUDGET_SECONDS` | env | 업스트림 | alert-shaped 이벤트를 budgeted 조사 -> 타입이 지정된 제안 경로로 처리합니다. 제안은 표준 risk/HIL/실행기 루프에 재진입합니다. |
 | `FDAI_CHAOS_CONTEXT_JSON` / `FDAI_CHAOS_ENFORCE` | env | 배포 | promoted chaos injector 런타임 맥락. 명시 플래그가 `1`이고 시나리오가 promoted 상태이며 injector와 탐색이 모두 등록된 경우에만 강제 적용을 허용합니다. |
 | `FDAI_JIRA_BASE_URL` / `FDAI_JIRA_ACCOUNT_EMAIL` / `FDAI_JIRA_API_TOKEN_SECRET` / `FDAI_JIRA_TOOL_MAP_JSON` | env + KV 참조 | 배포 | 운영 `JiraToolExecutor`를 설정합니다. `TOOL_MAP_JSON`은 `tool.open-incident-ticket`을 Jira project 키에 매핑합니다. 토큰 값은 KV-backed `FDAI_SECRET_<API_TOKEN_SECRET>`에서 해석하며 대응에 토큰을 넣지 않습니다. 영속 Jira 원장과 distributed 리소스 잠금을 위해 `FDAI_STATE_STORE_DSN`이 필요합니다. |
-| `FDAI_JIRA_ENFORCE` | env | 배포 | unset/`0` 기본값은 Jira를 shadow-only로 유지합니다. `1`은 ActionType 승격 게이트와 risk/HIL 결정도 강제 적용을 허용한 경우에만 강제 적용 요청을 허용합니다. 그림자 증적은 실제 인시던트 티켓으로 링크되지 않습니다. |
+| `FDAI_JIRA_ENFORCE` | env | 배포 | unset/`0` 기본값은 Jira를 shadow-only로 유지합니다. `1`은 ActionType 승격 게이트와 risk/HIL 결정도 강제 적용을 허용한 경우에만 강제 적용 요청을 허용합니다. shadow 증적은 실제 인시던트 티켓으로 링크되지 않습니다. |
 | `FDAI_PROFILE_ID` | env | 배포 | `rule-catalog/profiles/` 에서 한 프로파일을 선택 ([rule-catalog-profiles-ko.md](../rules-and-detection/rule-catalog-profiles-ko.md) 참조). **2026-07 기준 composition-root 배선 대기.** |
 | `FDAI_NARRATOR_PROVIDER` / `FDAI_NARRATOR_BASE_URL` / `FDAI_NARRATOR_MODEL` / `FDAI_NARRATOR_API_VERSION` / `FDAI_NARRATOR_API_KEY` | env + KV 참조 | 배포 | Operator-console 서술기 translator 설정 ([operator-console-ko.md](../interfaces/operator-console-ko.md) 참조); `API_KEY` 는 반드시 KV 경유. 빈 프로바이더 = 결정론적 폴백. |
 | `FDAI_CHATOPS_APPROVE_CALLBACK_URL` / `FDAI_CHATOPS_REJECT_CALLBACK_URL` / `FDAI_CHATOPS_WEBHOOK_SECRET` / `FDAI_CHATOPS_TIMEOUT_SECONDS` | env + KV 참조 | 배포 | Chatops HIL 콜백 엔드포인트와 공유 웹훅 시크릿입니다. 시크릿 은 반드시 KV를 경유합니다. 시크릿 을 설정하면 운영 콜백 경로 와 영속 Postgres 결정 레지스트리 가 활성화됩니다. |
@@ -596,7 +596,7 @@ backstop으로 계속 필요합니다.
 
 ## 프로비저닝 후 검증
 
-프로비저닝 후 검증(어댑터 도달성, canary 왕복, 그림자 정확성)은
+프로비저닝 후 검증(어댑터 도달성, canary 왕복, shadow 정확성)은
 [operating-and-verification-ko.md](../operations/operating-and-verification-ko.md#post-deploy-smoke-tests)
 에 정의. 실패한 검증은 승격을 중단하고 트래픽 롤백
 ([deployment-ko.md#release-and-rollback](deployment-ko.md#release-and-rollback)).

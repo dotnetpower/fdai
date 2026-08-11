@@ -114,7 +114,7 @@ fdaictl extension validate \
 선택적 `extensions/code-assurance/` workspace 패키지는 FDAI 휠 밖에 유지됩니다. `Pull
 requests: 읽기` 근거만 사용하고 파일 및 patch character를 제한하며 페이지 나누기 뒤 변경할 수 없는 base 및
 헤드 SHA를 다시 확인하고 omitted patch를 불완전한 커버리지로 보고합니다. 두 도구와 스킬은
-그림자 모드에서 시작합니다. Digest-bound `ExtensionPackage`는 비활성화된 상태로 설치되고 atomic
+shadow 모드에서 시작합니다. Digest-bound `ExtensionPackage`는 비활성화된 상태로 설치되고 atomic
 activation 전에 일반 publisher-trust 검사를 요구합니다. Activation은 검토 posting, 승인,
 병합 또는 실행기 권한을 부여하지 않습니다.
 
@@ -172,7 +172,7 @@ mount하고 영속 PostgreSQL 점유 저장소를 기본으로 사용합니다.
 2. release/백업/onboarding, 채널 richness, 확장 및 스킬 UX, 모델 상태, 기억,
  예약, 웹훅, observability, authoring 키트 순으로 P1을 구현합니다.
 3. 각 P2 항목을 측정된 운영자 demand, 비용, threat 모델에 대해 평가합니다.
-4. 모든 새 액션은 자체 승격 게이트를 통과할 때까지 그림자 모드로 유지합니다.
+4. 모든 새 액션은 자체 승격 게이트를 통과할 때까지 shadow 모드로 유지합니다.
 
 ## 검증
 

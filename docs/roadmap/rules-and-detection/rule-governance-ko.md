@@ -55,7 +55,7 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
 | 정책 정의 | **룰** | 하나의 테스트 가능한 컨트롤 ([rule-catalog-collection-ko.md](rule-catalog-collection-ko.md)) |
 | initiative (정책 집합) | **룰 집합** | 이름 있고 버전된 규칙 그룹 (예: 보안 베이스라인) |
 | 배정 | **배정** | 스코프에 적용된 룰/rule-set, 파라미터와 효과 포함 |
-| 배정 `enforcementMode` | **적용 플래그** | `enforce` vs `do-not-enforce` (그림자); 효과와 직교 |
+| 배정 `enforcementMode` | **적용 플래그** | `enforce` vs `do-not-enforce` (shadow); 효과와 직교 |
 | exemption (waiver / mitigated) | **exemption** | 범위가 제한된 Azure 범위에서 규칙을 time-boxed, justified하게 억제; 배정/category 메타데이터는 향후 스키마 작업 |
 | 효과 (감사/거부/...) | **효과 / 모드** | 위반 시 무엇이 일어나는가 (Effects 참조) |
 
@@ -65,18 +65,18 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
 
 ## Effects (모드)
 
-효과는 안전 다이얼. 단순 라벨이 아니라 그림자→강제 적용 라이프사이클에 매핑:
+효과는 안전 다이얼. 단순 라벨이 아니라 shadow→강제 적용 라이프사이클에 매핑:
 
 | 효과 | Azure Policy 유사 | 의미 | 안전 티어 |
 |--------|-------------------|------|-----------|
 | `disabled` | `disabled` | 규칙/할당 오프 | inert |
-| `audit` | `audit` / `auditIfNotExists` | 판단하고 로그만, 변경 없음 (**그림자 모드** 등가) | 안전 기본 |
+| `audit` | `audit` / `auditIfNotExists` | 판단하고 로그만, 변경 없음 (**shadow 모드** 등가) | 안전 기본 |
 | `deny` | `deny` / `denyAction` | PR/admission 게이트에서 비준수 변경 블록 | 강제 적용 (게이팅) |
 | `remediate` | `modify` / `deployIfNotExists` | auto-remediation PR 생성 (auto-merge 절대 아님; 항상 risk 게이트 / HIL 통해) | 강제 적용 (게이팅) |
 
 효과(위반 시 무엇을 할지)는 **적용 모드** (액션할지 여부)와 직교, Azure Policy의
 `enforcementMode` 미러링. 할당은 둘 다 운반: `effect` + `enforcement: enforce | do-not-enforce`.
-`do-not-enforce` 는 검사를 what-if로만 실행하며 `audit`/그림자의 메커니즘; 강제 적용로의 승격이
+`do-not-enforce` 는 검사를 what-if로만 실행하며 `audit`/shadow의 메커니즘; 강제 적용로의 승격이
 승격 게이트 하에 이 플래그를 flip. **룰 집합** 은 규칙별 `default_effect` 를 선언 가능하고
 **할당** 은 규칙별로 오버라이드 가능(`effect_overrides`), 마치 initiative가 effects를 설정하고
 할당이 튠하는 것처럼; 할당의 top-level `effect` 는 오버라이드 없는 규칙의 기본값.
@@ -86,12 +86,12 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
 | From | To | 게이트 |
 |------|----|----|
 | `disabled` | `audit` | 표준 리뷰 |
-| `audit` (그림자) | `deny` / `remediate` (강제 적용) | **별도 enforce-promotion 승인** |
+| `audit` (shadow) | `deny` / `remediate` (강제 적용) | **별도 enforce-promotion 승인** |
 | `deny` / `remediate` | `audit` | 표준 리뷰 (강등은 항상 허용 - 불확실할 때는 안전한 쪽을 선택) |
 | 어떤 활성 상태 | `disabled` | 표준 리뷰 (사유 기록) |
 
-- **새 할당은 `audit` (그림자) + `enforcement: do-not-enforce` 기본.** `deny`/`remediate`
- 으로의 승격은 (1) 최소 그림자 dwell 시간과 표본 크기, (2) 임계 위 측정 그림자 정확도, (3)
+- **새 할당은 `audit` (shadow) + `enforcement: do-not-enforce` 기본.** `deny`/`remediate`
+ 으로의 승격은 (1) 최소 shadow dwell 시간과 표본 크기, (2) 임계 위 측정 shadow 정확도, (3)
  정책 위반 escape 0 을 게이트로 하는 명시적·별도 리뷰된 변경
  ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)).
 - 회귀는 할당을 `audit` 로 **자동 강등**; 강등은 승격 게이트를 절대 필요로 하지 않아 안전 저하는
@@ -141,7 +141,7 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
 > 은 이전과 현재 `GovernanceCatalog` 를 비교해, 허용 테이블을 벗어난 룰 별 유효 효과 전이를
 > 모두 거부함 - 신규 배정/룰 은 강제 기본값 `audit` 에서 전이한 것으로 검증하고, 강제 적용
 > 효과(`deny` / `remediate`)로 올리려면 배정 id 가 `promotions_approved` 에 있어야 함.
-> **적용** `do-not-enforce` -> `enforce` 활성화(enforce-tier 효과 를 그림자 에서 꺼내는
+> **적용** `do-not-enforce` -> `enforce` 활성화(enforce-tier 효과 를 shadow 에서 꺼내는
 > go-live 플립)도 같은 승인이 필요해서, 2단계 `deny(shadow)` 후 `deny(enforce)` 로 미검토 프로덕션
 > 진입이 불가함.
 > 검증기를 감싸는 얇은 `git`-diff CI 스크립트
@@ -280,7 +280,7 @@ Exemption은 Azure Policy exemption처럼 스코프의 할당을 waive:
  차이. Justification은 항상 필수.
 - **별개 승인자**: 요청자는 승인자가 되어선 안 됨 (no self-override), exemption 규칙과
  [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 의 승인≠실행 경계 미러링.
-- **그림자는 계속 실행**: 재정의는 스코프의 *실행* 을 비활성화, 감지 아님. 평가기는 규칙이
+- **shadow는 계속 실행**: 재정의는 스코프의 *실행* 을 비활성화, 감지 아님. 평가기는 규칙이
  플래그했을 것을 계속 기록하고 그 발견 사항을
  [rule-catalog-collection-ko.md](rule-catalog-collection-ko.md#autonomous-rule-discovery) 의
  자율 발견 루프에 공급.
@@ -444,7 +444,7 @@ provenance:
 > 규칙 `version` 을 고정; 각 `parameter_overrides` 값은 대상 규칙이 그 파라미터에 선언한
 > 타입에 대해 검증하는 것은 아직 후속 작업이며 현재 배정 스키마는 문자열 값을 받습니다.
 > Exemption의 `requested_by`는 `approved_by`와 달라야 합니다.
-> 위 할당은 의도적으로 **완전히 그림자에 유지** - 룰 집합의
+> 위 할당은 의도적으로 **완전히 shadow에 유지** - 룰 집합의
 > `object-storage.public-access.deny` 에 대한 `deny` 기본이 `audit` 로 오버라이드되고 별도
 > 승격 승인이 flip할 때까지 `enforcement` 는 `do-not-enforce`.
 

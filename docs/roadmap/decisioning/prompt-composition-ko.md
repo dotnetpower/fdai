@@ -44,7 +44,7 @@ trust 라우팅을 확장합니다.
 > startup-safety 대체 경로 역할을 합니다. Wave 3 단계 B **파이프라인
 > 구획 3** (fork-first second-approval 채널), Wave 5 **T2 통합**
 > (코어 T2 도구 매니페스트로 스니펫 threading)은 문서화되어 있지만 아직
-> 구현되지 않았습니다. 모든 wave는 그림자 게이트를 통과해야만
+> 구현되지 않았습니다. 모든 wave는 shadow 게이트를 통과해야만
 > 승격됩니다. [롤아웃 waves](#rollout-waves) 참조.
 
 ## 한눈에 보는 설계
@@ -351,7 +351,7 @@ PR review comment on rem PR  --/   v
  rule-catalog 발견 루프에 개정 번호 / retirement 후보로 흘러갑니다.
 
 > Working-context 선택은 [컨텍스트 선택 정책](context-selection-policy-ko.md)이 별도로 소유합니다:
-> 불변 `deterministic-tiered-v1@1.0.0`, 필수 검증, 그림자 근거, 재생 및 롤백.
+> 불변 `deterministic-tiered-v1@1.0.0`, 필수 검증, shadow 근거, 재생 및 롤백.
 
 ## 인식 측정
 
@@ -396,15 +396,15 @@ PR review comment on rem PR  --/   v
 
 ## 롤아웃 waves
 
-모든 wave는 그림자 first로 랜딩. 승격은 이전 wave의 승격 게이트가 유지되어야 함.
+모든 wave는 shadow first로 랜딩. 승격은 이전 wave의 승격 게이트가 유지되어야 함.
 
 | Wave | Deliverable | 배포됨 |
 |------|-------------|--------|
 | 1 | Base 프롬프트 카탈로그 외부화 + `PromptRegistry` + 조립 배선 | yes |
 | 2 | `PromptComposer` 비동기 프로토콜 + `DefaultPromptComposer` (Base + 작업 묶음) + `ComposedPrompt` / `LayerRef` 인식 프리미티브 + `AzureOpenAICrossCheckModelConfig`의 `system_prompt` 필수 전환 | yes |
-| 2.5-A | `DefaultPromptComposer`의 shadow-vs-enforce 필터 + 배포된 그림자 모드 작업 묶음 + `tool.schema.json` + `FileSystemToolRegistry` | yes |
-| 2.5-B 단계 1 | 작성기가 선택적 도구 매니페스트 레이어 발행 + 배포된 그림자 모드 도구 YAML (`rule.query` / `state.query` / `audit.query`) + `trusted="false"` 래퍼 강제 | yes |
-| 2.5-B 단계 2a | 비동기 `ToolExecutor` + `ToolProvider` 경계 + 스키마 검증, 그림자 가드, 래퍼 강제, 5개의 타입이 지정된 실패 시 차단 에러 (`UnknownToolError`, `ShadowToolBlockedError`, `ToolArgumentValidationError`, `MissingProviderError`, `ProviderCallError`)를 가진 `DefaultToolExecutor` | yes |
+| 2.5-A | `DefaultPromptComposer`의 shadow-vs-enforce 필터 + 배포된 shadow 모드 작업 묶음 + `tool.schema.json` + `FileSystemToolRegistry` | yes |
+| 2.5-B 단계 1 | 작성기가 선택적 도구 매니페스트 레이어 발행 + 배포된 shadow 모드 도구 YAML (`rule.query` / `state.query` / `audit.query`) + `trusted="false"` 래퍼 강제 | yes |
+| 2.5-B 단계 2a | 비동기 `ToolExecutor` + `ToolProvider` 경계 + 스키마 검증, shadow 가드, 래퍼 강제, 5개의 타입이 지정된 실패 시 차단 에러 (`UnknownToolError`, `ShadowToolBlockedError`, `ToolArgumentValidationError`, `MissingProviderError`, `ProviderCallError`)를 가진 `DefaultToolExecutor` | yes |
 | 2.5-B 단계 2b | `AzureOpenAICrossCheckModel`이 강제 적용 모드 도구에 대해 `tools=[...]`를 발행하고, 범위가 제한된 multi-turn 루프로 모델 발행 `tool_calls`를 실행기로 라우팅하며, 알 수 없는 함수명 / 잘못된 arguments / half-wired 설정을 실패 시 차단으로 거부 | yes |
 | 3 단계 A | `core/operator_memory/` 타입 + 비동기 `OperatorMemoryStore` 프로토콜 + `InMemoryOperatorMemoryStore` + `wrap_operator_note` / `detect_injection_markers` sanitizer + 쓰기 시점 정책 강제(범위 <= resource-group, 서로 다른 승인자, 추가 전용 대체, 선택적 TTL, 주입 마커 거부) | yes |
 | 3 단계 B 저장소 | `PostgresOperatorMemoryStore` + alembic 이행 `20260706_0006_operator_memory` (추가 전용 테이블, Python 정책을 미러링한 검사 제약, `(scope_kind, scope_ref)` scope-lookup 인덱스, `InMemoryOperatorMemoryStore`와 TTL + 대체 시맨틱 동등성, `FDAI_DATABASE_URL` unset 시 스킵되는 통합 테스트) | yes |
@@ -470,7 +470,7 @@ Wave 2는 프롬프트 조립을 정식 작성기로 승격하며 경계를 완�
 
 ## Wave 2.5-A - 무엇이 배포되었나
 
-Wave 2.5-A는 그림자 모드 필터와 tool-catalog 스캐폴딩을 추가합니다.
+Wave 2.5-A는 shadow 모드 필터와 tool-catalog 스캐폴딩을 추가합니다.
 도구 매니페스트 주입과 실행기는 Wave 2.5-B에서 랜딩합니다.
 
 - `DefaultPromptComposer(include_shadow_packs=False)`가 프로덕션 기본값.
@@ -478,7 +478,7 @@ Wave 2.5-A는 그림자 모드 필터와 tool-catalog 스캐폴딩을 추가합�
  프롬프트에 영향을 주지 않습니다. 평가 실행은 `include_shadow_packs=True`로
  명시적 선택.
 - `rule-catalog/prompts/packs/t2-cross-check-output-contract.v1.yaml` -
- 경계를 종단 간으로 증명하는 shipped 그림자 모드 작업 묶음. Wave 3의
+ 경계를 종단 간으로 증명하는 shipped shadow 모드 작업 묶음. Wave 3의
  recognition 탐색이 도움을 확인하면 첫 `enforce` 묶음으로 승격 예정.
 - `rule-catalog/prompts/tools/schema/tool.schema.json` - 도구 아티팩트용
  JSON 스키마. 모든 도구 설명은 레지스트리가 파일을 받아들이기 전에 이를
@@ -499,13 +499,13 @@ Wave 2.5-B 단계 1은 아직 어떤 호출도 디스패치하지 않은 채 도
 파라미터를 배선합니다.
 
 - `DefaultPromptComposer(tool_registry=...)`가 선택적 `ToolRegistry`를
- 받습니다. 제공되고 그림자 필터 이후 최소 하나의 도구가 조건을 충족한하면,
+ 받습니다. 제공되고 shadow 필터 이후 최소 하나의 도구가 조건을 충족한하면,
  작성기가 조립된 프롬프트 끝에 synthetic `tool-manifest` 레이어를
  발행합니다. 없거나 비어 있으면 매니페스트 레이어가 추가되지 않습니다.
  모델은 "no 도구" 표현을 절대 보지 않습니다.
 - `include_shadow_tools=False`가 프로덕션 기본값. ``true``로 설정하면
  평가 실행에서 `include_shadow_packs=True`와 같은 방식으로 미러링됩니다.
-- `rule-catalog/prompts/tools/catalog/`에 세 개의 그림자 모드 도구 YAML이
+- `rule-catalog/prompts/tools/catalog/`에 세 개의 shadow 모드 도구 YAML이
  배포됩니다: `rule.query.v1.yaml`, `state.query.v1.yaml`,
  `audit.query.v1.yaml`. 각각 레지스트리가 강제하는 `trusted="false"` 출력
  래퍼를 가집니다.
@@ -588,7 +588,7 @@ Wave 2.5-B 단계 2b는 실행기를 Azure OpenAI 교차 검증 어댑터로
 - `runtime.configuration._finalize_llm_bindings`가 azure 모드에서
  `FileSystemToolRegistry` + `DefaultToolExecutor(providers={})`를
  빌드합니다. 업스트림은 의도적으로 빈 providers 맵으로 ship합니다:
- 배포된 모든 도구가 그림자이므로 어댑터가 도구를 advertising하지 않고
+ 배포된 모든 도구가 shadow이므로 어댑터가 도구를 advertising하지 않고
  어떤 전달도 실행되지 않습니다. 포크가 자체 providers dict을
  제공하여 함수 calling을 활성화합니다.
 
@@ -889,7 +889,7 @@ emission을 추가합니다.
  `adherence_violation_counts`, `per_layer_canary_echo_rate`,
  `mean_citation_f1`.
 - `summarize_recognition(results)`가 순수 집계 함수. 격리
- 테스트 가능하며 결과가 어떻게 생성되었는지에 무관 - 그림자 모드
+ 테스트 가능하며 결과가 어떻게 생성되었는지에 무관 - shadow 모드
  실행기, 오프라인 고정본 재생, CI 배치 모두 동일한 형태를 소비.
 - **레이어별 측정된 분모**: 레이어의 echo 비율은 실제로 그 레이어를
  측정한 샘플 수(그 id가 `canary_echoes`에 존재)로 계산되며 배치
@@ -1009,7 +1009,7 @@ recognition-probe 챕터를 마무리합니다. Recognition 메트릭 이름을
  기록합니다.
 - `AbstainResponder`는 construction 시점에 JSON 본문을 **한 번만**
  직렬화하므로 모든 `respond` 호출은 byte-identical 텍스트를 반환합니다.
- 시간에 따라 응답을 비교하는 그림자 실행이 허위 variation을 보지
+ 시간에 따라 응답을 비교하는 shadow 실행이 허위 variation을 보지
  않습니다.
 - `services/core-control-plane/src/fdai/core/measurement/prompt_probe_cli.py` -
  `run_from_catalog(catalog_root, responder)`가
@@ -1297,7 +1297,7 @@ Wave 4.5 delta-1은 Judge 어댑터를 조립 루트에 wire하고 두 역할
 
 Wave 4.5 delta-2a는 Wave 4.5 delta-2b가 실제 운영 `QualityGate`에 wire할
 **순수 라우팅 정책**을 랜딩합니다. 술어 + 구성을 먼저 배포 (`QualityGate`
-변경 없음, 실제 운영 wire 없음)하면 포크가 그림자 탐색으로 라우팅 매트릭스를
+변경 없음, 실제 운영 wire 없음)하면 포크가 shadow 탐색으로 라우팅 매트릭스를
 exercise 가능하고, 어떤 이벤트가 실제로 토론을 통과하기 전에 승격
 게이트가 신호를 수집할 수 있음.
 

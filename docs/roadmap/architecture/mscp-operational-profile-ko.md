@@ -45,7 +45,7 @@ vocabulary를 계속 사용합니다.
 | FDAI 메커니즘 | MSCP 출처 이력 | FDAI adaptation | v1 상태 |
 |---------------|-----------------|-----------------|---------|
 | 프로파일 출처 이력 | Cross-level 프로토콜 versioning | 불변 프로파일 id, 출처 개정 번호 및 non-conformance 선언 | 구현됨 |
-| 효과 검증 | 수준 3 prediction gating | 예상 메트릭 범위를 독립적으로 관찰한 상관관계 및 시간 제한 값과 비교 | 선택적 그림자 런타임 배선 및 `ResponseOutcome` 변환 결과 구현됨 |
+| 효과 검증 | 수준 3 prediction gating | 예상 메트릭 범위를 독립적으로 관찰한 상관관계 및 시간 제한 값과 비교 | 선택적 shadow 런타임 배선 및 `ResponseOutcome` 변환 결과 구현됨 |
 | Cycle 가드 | 수준 3 meta-escalation, oscillation 및 cognitive 예산 | 호출자가 소유한 cycle, 경과 시간, 비용, 롤백 또는 sign-change 한도에 도달하면 보류 | Pure 정책 구현, 런타임 배선 연기 |
 | 런타임 무결성 | 수준 3 신원 continuity | 사전 해시된 런타임 컴포넌트의 정본 매니페스트 비교, persona 또는 변경 가능한 신원 모델 없음 | Pure 정책 구현, 런타임 배선 연기 |
 | 결정 맥락 | 수준 2 persistent 세계 모델 | 새로운 system of 기록을 만들지 않고 권위 있는 온톨로지, 인시던트, 작업 흐름 및 감사 상태를 변환 결과 | 계획됨 |
@@ -69,7 +69,7 @@ MSCP에 게시된 수치 임계값은 프로파일에 복사하지 않습니다.
 | Rule 또는 정책 변경 | Norns-to-Mimir 통제된 후보 경로 | Accepted 정책을 직접 갱신하지 않음 |
 
 예상하지 못한 입력, stale 관측, 맞지 않는 상관관계, 소진된 예산, oscillation 및 런타임
-표류는 모두 보류 형태의 결과를 반환합니다. 호출자는 자율성을 그림자 모드로 낮추거나 사람
+표류는 모두 보류 형태의 결과를 반환합니다. 호출자는 자율성을 shadow 모드로 낮추거나 사람
 승인으로 경로할 수 있습니다. 프로파일 결과를 risk 게이트를 우회하는 권한으로 해석할 수
 없습니다.
 
@@ -78,7 +78,7 @@ MSCP에 게시된 수치 임계값은 프로파일에 복사하지 않습니다.
 MSCP 효과 관측은 기본적으로 비활성 상태입니다.
 `Container.mscp_expected_effect_provider`와 `Container.mscp_effect_observer`는 모두 `None`이
 기본값이며, 연결하지 않은 ControlLoop는 추가 호출이나 감사 쓰기를 수행하지 않습니다.
-조립 루트는 두 collaborator를 모두 넣은 새 변경할 수 없는 컨테이너를 만들어 그림자
+조립 루트는 두 collaborator를 모두 넣은 새 변경할 수 없는 컨테이너를 만들어 shadow
 관측을 활성화합니다.
 
 ```python
@@ -103,23 +103,23 @@ tool-side post-condition 또는 권위 있는 기반 메트릭처럼 전달 경�
 선택합니다.
 
 프로바이더 실패, 누락된 prediction 또는 관측, 대상 mismatch, stale 관측 및 값
-mismatch는 `hold` 또는 `mismatch` 그림자 근거를 생성합니다. 실행기 결과, risk 결정,
-최종 ControlLoop 결과는 변경하지 않습니다. 그림자 감사 쓰기 실패도 로그만 남기고 기본
+mismatch는 `hold` 또는 `mismatch` shadow 근거를 생성합니다. 실행기 결과, risk 결정,
+최종 ControlLoop 결과는 변경하지 않습니다. shadow 감사 쓰기 실패도 로그만 남기고 기본
 결과를 유지합니다.
 
 같은 관측은 이제 strict `ResponseOutcome`을 `measurement.action_outcome.v1`로 기록합니다.
 계약은 리소스 참조 대신 대상 다이제스트를 저장하고 누락되거나 stale한 근거를
 `unscorable`로 표시하며 scheduled Dynamic challenger-learning 통과가 소비하는 독립 watermark를
-제공합니다. 이 추가 기록은 계속 그림자 근거입니다. 효과 모델을 promote하거나 실행
+제공합니다. 이 추가 기록은 계속 shadow 근거입니다. 효과 모델을 promote하거나 실행
 권한을 변경할 수 없습니다.
 
 두 영속 감사 기록이 모두 기록된 뒤 선택적 composition-owned 싱크가 strict 계약을 raw
 유입으로 다시 publish합니다. 감사 실패는 중계를 중단하므로 unaudited 결과가 learning에
 진입할 수 없습니다. 이후 Huginn과 Muninn이 통제된 operating-pattern 집단 경로에 공급합니다.
-싱크 실패는 로그에 남지만 실행기 결과를 변경할 수 없습니다. 이 중계는 그림자 결과를
+싱크 실패는 로그에 남지만 실행기 결과를 변경할 수 없습니다. 이 중계는 shadow 결과를
 reusable로 만들지 않으며 집단 projector는 검증된 강제 적용 결과만 긍정 근거로 수락합니다.
 
-그림자 관측에서 gating으로 전환하는 작업은 별도의 향후 통제된 변경입니다. Measured
+shadow 관측에서 gating으로 전환하는 작업은 별도의 향후 통제된 변경입니다. Measured
 근거 구간, 롤백 대상 및 프로파일이 기존 권한 결정을 유지하거나 낮출 수만 있다는
 증명이 필요합니다.
 
@@ -140,7 +140,7 @@ FDAI 권한, MSCP 상한)`을 적용합니다. 변경할 수 없는 결과는 �
 - 로컬 실행은 프로파일 검사를 비활성화하지 않습니다.
 - 운영은 프로파일 결과가 실행 가능함을 의미하지 않습니다.
 - 포크는 프로파일 id를 사용해 자율성을 높이거나 framework 무결성을 우회할 수 없습니다.
-- 그림자 및 강제 적용은 MSCP 상태가 아니라 ActionType 및 작업 흐름 수명 주기 상태입니다.
+- shadow 및 강제 적용은 MSCP 상태가 아니라 ActionType 및 작업 흐름 수명 주기 상태입니다.
 
 ## 검증
 
@@ -151,13 +151,13 @@ FDAI 권한, MSCP 상한)`을 적용합니다. 변경할 수 없는 결과는 �
 - 예상 효과와 관찰 효과의 시간, 대상, 메트릭 및 상관관계 검사
 - Strict `ResponseOutcome` 스키마 동등성 및 privacy-minimized 감사 변환 결과
 - Default-off 조립, pair-only activation 및 predict-execute-observe 순서
-- Mismatch, 프로바이더 실패 또는 그림자 감사 실패에서도 변경되지 않는 실행기 결과
+- Mismatch, 프로바이더 실패 또는 shadow 감사 실패에서도 변경되지 않는 실행기 결과
 - 모든 finite-domain 조합에서 MSCP 상한이 unified 권한을 높이지 않는다는 증명
 - 호출자 소유 cycle 예산 및 범위가 제한된 sign-change detection
 - 순서와 독립적인 런타임 매니페스트 hashing 및 컴포넌트 표류 reporting
 - non-finite 값, malformed 다이제스트 및 잘못된 한도의 실패 시 차단 검증
 
-v1 프로파일은 선택적 그림자 관측으로만 연결됩니다. 강제 적용 결정 경로에는 연결되지
+v1 프로파일은 선택적 shadow 관측으로만 연결됩니다. 강제 적용 결정 경로에는 연결되지
 않았습니다. 향후 gating 변경은 어떤 프로파일 결과도 기존 risk 결정을 높이지 않음을
 입증하는 것이 좋습니다.
 

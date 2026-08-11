@@ -4,10 +4,10 @@ translation_of: agent-workflow-rollout.md
 translation_source_sha: 1cfcee5397c8e80406509d6cee568fe06c214037
 translation_revised: 2026-08-11
 ---
-# 에이전트 작업 흐름 그림자 롤아웃
+# 에이전트 작업 흐름 shadow 롤아웃
 
 이 문서는 cross-agent 작업 흐름의 롤아웃 순서와 공통 exit 게이트를 소유합니다. 각 작업 흐름은
-독립적으로 검토할 수 있으며 적용 모드로 승격하기 전에 그림자 모드에서 시작합니다.
+독립적으로 검토할 수 있으며 적용 모드로 승격하기 전에 shadow 모드에서 시작합니다.
 
 ## 작업 흐름 순서
 
@@ -30,9 +30,9 @@ translation_revised: 2026-08-11
 
 ## 작업 흐름별 exit 게이트
 
-- 모든 참여 에이전트를 포함한 그림자 종단 간 추적을 확보합니다.
+- 모든 참여 에이전트를 포함한 shadow 종단 간 추적을 확보합니다.
 - 승격 게이트를 평가하기 전에 KPI 기준선을 수집합니다.
-- 그림자에서 policy-violation escape가 없어야 합니다.
+- shadow에서 policy-violation escape가 없어야 합니다.
 
 ## 의존성 및 anti-scope
 

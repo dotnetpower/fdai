@@ -21,13 +21,13 @@ translation_revised: 2026-08-11
 > **안전 초점.** 여기의 어떤 것도 *안전을 향한 실패(fail toward 안전성)* 를 약화시키지
 > 않는다. 상시 권한은 **미리 부여된 사람 승인** 이며, 묶음 로 경계가 정해지고 실행
 > 시점에 결정론적으로 재검증된다 - 절대 fail-open 경로가 아니며 LLM 이 실행을 부여하지
-> 못한다. 이 문서의 모든 신규 역량은 **그림자 우선** 으로 ship 된다
+> 못한다. 이 문서의 모든 신규 역량은 **shadow 우선** 으로 ship 된다
 > ([architecture.instructions.md § 안전성 Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
 
-> **구현 상태 (2026-08-01):** 영구 그림자 supervisor 코어와 `HilResumeCoordinator` 단계 구조
+> **구현 상태 (2026-08-01):** 영구 shadow supervisor 코어와 `HilResumeCoordinator` 단계 구조
 > 인계가 구현되었습니다. 전달을 CAS로 점유하고 채널 실패와 사람 무응답을 구분하며,
-> 액션 무결성과 rung 충족 여부를 검증하고 그림자 모드에서는 전송하거나 진행하지 않고 due
-> 관측만 기록합니다. 런타임은 그림자 워커를 시작하며 최종 HIL 결정은 CAS 승자 하나만
+> 액션 무결성과 rung 충족 여부를 검증하고 shadow 모드에서는 전송하거나 진행하지 않고 due
+> 관측만 기록합니다. 런타임은 shadow 워커를 시작하며 최종 HIL 결정은 CAS 승자 하나만
 > 수락합니다. 범위가 제한된 검사는 pending 페이지를 순환하므로 오래된 승인이 starvation되지 않습니다.
 > 부하 개수, 만료, reminder 전달은 완전한 영속 집합을 페이지 단위로 순회합니다. Urgency
 > 압축, standing-authority 카탈로그 및 운영 승격은 아직 구현되지 않았습니다.
@@ -335,13 +335,13 @@ flowchart LR
 no-op 으로 끝난다 - 오늘의 동작 그대로이되, 더 넓고 영향도 계층 별이며 시간 감쇠하는 사람
 집합에게 행동할 기회를 준 뒤일 뿐이다.
 
-## 롤아웃(그림자 우선)
+## 롤아웃(shadow 우선)
 
-1. **사다리를 그림자 로.** 에스컬레이션 사다리를 판단·기록만 하도록 ship 한다:
+1. **사다리를 shadow 로.** 에스컬레이션 사다리를 판단·기록만 하도록 ship 한다:
  *어느 rung 으로 언제 에스컬레이션했을지* 를 기록하고 아무것도 변경하지 않는다. 실제
  무응답 인시던트에 대해 에스컬레이션 타이밍이 검증되면 사다리별로 승격한다.
-2. **상시 권한을 그림자 로.** 모든 상시 권한은 `mode: shadow` 와 측정 가능한 승격
- 게이트(예: "N 회 그림자 trip, 묶음 escape 0, policy-violation escape 0")를
+2. **상시 권한을 shadow 로.** 모든 상시 권한은 `mode: shadow` 와 측정 가능한 승격
+ 게이트(예: "N 회 shadow trip, 묶음 escape 0, policy-violation escape 0")를
  선언한다. 강제 적용 승격은 작성 PR 과 절대 묶이지 않는 별도의 Owner 검토 변경이다
  ([coding-conventions.instructions.md § 안전성](../../../.github/instructions/coding-conventions.instructions.md#safety)).
 3. **메트릭**(기존 KPI 스트림에 접기,

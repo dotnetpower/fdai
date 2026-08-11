@@ -134,7 +134,7 @@ Interrupt는 최종 trace를 발행하지 않고 부분 프롬프트 또는 응�
 Trace 선호 설정은 큐, interrupt, steer 또는 모델 권한을 변경하지 않습니다.
 Semantic-plan rerun은 동일한 범위가 제한된 기능 매니페스트를 strict structured-output 스키마로
 변환 결과하고 selection 검증 또는 전달 전에 nullable optional-argument 자리 표시자를 제거합니다.
-결정론적 근거 fast 경로는 rerun 중 그림자 answer-planning round를 생략하므로 사용하지 않는
+결정론적 근거 fast 경로는 rerun 중 shadow answer-planning round를 생략하므로 사용하지 않는
 기여자 브리지가 최종 전달을 지연시킬 수 없습니다.
 Assistant 턴이 영속 영속성된 뒤 user-context 온톨로지 변환 결과는 2초 기한을 가진
 보조 연산입니다. 변환 결과 시간 초과 또는 실패는 기록되지만 권위 있는 최종

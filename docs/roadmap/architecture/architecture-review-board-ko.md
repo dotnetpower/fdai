@@ -27,7 +27,7 @@ supporting truth 및 안전성 infrastructure이며 에이전트 interpretation�
 
 반복 가능한 이벤트는 T0 결정론적 룰과 T1 검증된 reuse로 해결하고 잔여 모호함만
 T2 근거에 기반한 reasoning으로 보냅니다. 모든 변경은 risk 게이트를 통과하고 stop, 롤백,
-영향, 감사, 독립적인 effect-verification 계약을 가지며 그림자 모드에서 시작합니다.
+영향, 감사, 독립적인 effect-verification 계약을 가지며 shadow 모드에서 시작합니다.
 
 FDAI는 이를 **[Outcome-Driven 토큰 Economics](llm-strategy-ko.md#비용-컨트롤cost-controls)**라고
 부릅니다. Ontology-grounded T0/T1 경로를 기본으로 사용하고, 남은 모호성이나 위험에만 원문
@@ -40,7 +40,7 @@ FDAI는 이를 **[Outcome-Driven 토큰 Economics](llm-strategy-ko.md#비용-컨
 |------|-----------|-----------|
 | 대상 아키텍처 | 조건부 승인 | 시스템 경계, Azure day-zero 선택, 컨트롤 루프, 안전성 모델을 수락합니다. |
 | 운영 배포 | 요청하지 않음 | 운영 근거 게이트 통과가 필요합니다. |
-| Enforce-mode 기능 | 요청하지 않음 | 액션별 그림자 근거와 별도 승인이 필요합니다. |
+| Enforce-mode 기능 | 요청하지 않음 | 액션별 shadow 근거와 별도 승인이 필요합니다. |
 | Hyperscale 계획 B | 참고만 제공 | Hyperscale 설계의 측정 트리거를 넘을 때만 적용됩니다. |
 | Sovereign 프로파일 | 참고만 제공 | 별도 규제 및 residency 검토가 필요합니다. |
 
@@ -225,7 +225,7 @@ Accepted risk는 resolved 차단 요인이 아닙니다. 운영 게이트는 cri
 운영 차단된으로 보고합니다. 근거 또는 승인을 기다리는 프로세스는 `next_action`과
 함께 healthy로 표시하고 `failed`, `timed_out`, `cancelled`는 런타임 unhealthy로 표시합니다.
 
-기여자는 `POST /workflows/run`으로 그림자 검토를 시작하거나 재개할 수 있습니다.
+기여자는 `POST /workflows/run`으로 shadow 검토를 시작하거나 재개할 수 있습니다.
 Owner는 `architecture-review`가 `FDAI_WORKFLOW_ENFORCE_ALLOWLIST`에 있을 때만
 `mode=enforce`를 요청할 수 있습니다. ARB는 control-only이므로 강제 적용은 실제 승인 및
 결정 전이를 저장하지만 리소스를 배포하거나 ActionType을 승격하지 않습니다.

@@ -31,7 +31,7 @@ translation_revised: 2026-08-11
 > 증적 검증기를 연결해야 합니다. Mimir는 owned 룰 토픽으로 검토 결과를 발행하고 Saga는
 > owned 감사 토픽에 이를 seal합니다.
 > 재현된 의미 수집 실패는 Huginn을 통해 들어와 Heimdall-owned 독립적인 검증
-> 근거가 되고 Saga가 감사하며 Muninn이 context-index 토픽으로 materialize합니다. Norns는 그림자
+> 근거가 되고 Saga가 감사하며 Muninn이 context-index 토픽으로 materialize합니다. Norns는 shadow
 > 감사가 포함된 challenger-only StateStore 기록으로 저장한 뒤 일반 합의 및 Mimir 후보
 > 가드를 재사용합니다. Raw 조회 텍스트와 online 순위 변경은 계속 제외됩니다.
 
@@ -39,7 +39,7 @@ translation_revised: 2026-08-11
 
 FDAI는 두 계층으로 학습합니다. **Operational 사례**는 관측, 결정, 시도, 검증, 롤백을
 기록한 불변 레코드입니다. **승격된 운영 패턴**은 기존 카탈로그 관계인
-`Rule -> remediates -> ActionType`이며, 집단 분석, 재생, 그림자 비교, 일반 승격
+`Rule -> remediates -> ActionType`이며, 집단 분석, 재생, shadow 비교, 일반 승격
 게이트를 통과한 후에만 수락됩니다.
 
 ```mermaid
@@ -139,7 +139,7 @@ Norns는 집단을 기존 `RuleCandidate` 객체로 컴파일합니다. 후보 �
 - `Rule -> applies_to -> ResourceType`은 호환 대상을 제한합니다.
 - `Rule -> remediates -> ActionType`은 통제된 응답을 지정합니다.
 - `ActionType`은 precondition, stop 조건, 영향 범위, 롤백, 계층 상한,
- 그림자 승격 게이트를 제공합니다.
+ shadow 승격 게이트를 제공합니다.
 
 별도 벤치마크 룰 형식이나 learned-action 실행기를 도입하지 않습니다. 구현이 이 링크로
 필요한 조회를 표현할 수 없다면 먼저 실패하는 온톨로지 조회 테스트를 추가해야 합니다.
@@ -154,7 +154,7 @@ Norns는 집단을 기존 `RuleCandidate` 객체로 컴파일합니다. 후보 �
 | Saga | 결정, 시도, postcondition, 롤백 근거를 덧붙이기합니다. |
 | Muninn | Access-scoped operational 사례 개정 번호를 seal하고 메타데이터를 인덱싱합니다. |
 | Norns | Balanced 집단을 구성하고 inert `RuleCandidate` 객체를 방출합니다. |
-| Mimir | 후보를 재생하고 활성/challenger 행동을 그림자에서 비교하며 승격 또는 demotion을 통제합니다. |
+| Mimir | 후보를 재생하고 활성/challenger 행동을 shadow에서 비교하며 승격 또는 demotion을 통제합니다. |
 | Forseti | 일반 quality/정책 게이트를 통해 현재 사례와 후보 응답을 판정합니다. |
 | Var | Resolved 상한이 요구할 때 독립적인 사람 승인을 기록합니다. |
 | Thor | 현재 실행 자격이 있는 promoted 액션만 실행합니다. |
@@ -229,7 +229,7 @@ T1은 유사도 순위 전에 결정론적 필터로 이전 사례를 검색합�
 | O0 - 계약 고정본 | 구현됨: 정본 operational-case 및 failure-fingerprint 모델과 고정본입니다. | 이름이 다른 두 환경이 같은 지문을 만들고 방식 또는 토폴로지 변경은 다른 지문을 만듭니다. |
 | O1 - 사례 변환 결과 | 구현됨: 변경할 수 없는 입력, 허용 목록 증적 compilation, 변환 결과, artifact-first 쓰기 담당 intake, 범용 메타데이터 영속성, 개정 번호 backfill입니다. | 정본 다이제스트, 민감정보 제거, 바이트 상한, 중복 전달, negative-outcome, StateStore, PostgreSQL, 이전 방식 예측 호환성 테스트가 통과합니다. 어댑터는 룰/액션 카탈로그를 쓰지 않습니다. |
 | O2 - 집단 컴파일러 | 구현됨: Huginn이 strict operational-case 이벤트를 전달하고 Muninn이 범위가 제한된 지문 집단을 seal 및 저장하며 Norns가 합의와 비율 한도를 거쳐 기존 inert `RuleCandidate` 대응을 발행합니다. | 이름이 다른 같은 지문 사례는 합류하고 다른 방식은 합류하지 않습니다. Success-only 및 raw `ResponseOutcome` 근거는 보류되며 balanced 근거는 변경할 수 없는 개정 번호 인용과 함께 한 번만 발행됩니다. |
-| O3 - 카탈로그 compilation | Core 구현됨: Mimir는 승인된 후보를 초안 Rule, 선택적인 명시적 shadow-first `ActionType`, 스키마, 정책, 재생, 그림자 증적이 포함된 변경할 수 없는 검토 패키지로 컴파일할 수 있습니다. 운영 검증기와 PR 발행기는 배포 작업으로 남고 Norns는 고정된 wire 신원을 제공합니다. | 실패하거나 충돌하는 증적은 후보를 격리 구역합니다. 동시 재시도는 한 번만 publish하고 해결되지 않은 용량은 제거 없이 backpressure하며 successful 게시는 Saga-owned 감사 후 in-memory 패키지 상태를 간결한합니다. Operational 후보는 direct 런타임 승격을 사용할 수 없습니다. |
+| O3 - 카탈로그 compilation | Core 구현됨: Mimir는 승인된 후보를 초안 Rule, 선택적인 명시적 shadow-first `ActionType`, 스키마, 정책, 재생, shadow 증적이 포함된 변경할 수 없는 검토 패키지로 컴파일할 수 있습니다. 운영 검증기와 PR 발행기는 배포 작업으로 남고 Norns는 고정된 wire 신원을 제공합니다. | 실패하거나 충돌하는 증적은 후보를 격리 구역합니다. 동시 재시도는 한 번만 publish하고 해결되지 않은 용량은 제거 없이 backpressure하며 successful 게시는 Saga-owned 감사 후 in-memory 패키지 상태를 간결한합니다. Operational 후보는 direct 런타임 승격을 사용할 수 없습니다. |
 | O4 - T1 reuse | Core 및 영속성 구현됨: T1은 변경할 수 없는 operational-case 맥락을 저장하고 injected current-evidence 검증기를 받아 실패 지문, 리소스 타입, 토폴로지 역할, 그래프, 소유자, precondition, 신원, 영향 범위, 정책, 예행 실행, 멱등성, 롤백 상태를 다시 확인합니다. 서명은 정본 매개변수와 full 사례 맥락을 연결합니다. 구체적인 Kubernetes 및 Azure 수집기는 O5/O6 연결입니다. | 검증기 또는 근거 누락, stale 또는 변경된 맥락, 안전성 검사 실패는 변경 없이 항상 검토 보류됩니다. Azure는 evaluation 시계 기준 범위가 제한된 캐시 age를 평가하면서 이벤트 인제스트 직전 recent 캐시를 허용합니다. 이전 방식 인시던트 pattern은 기존 동작을 유지합니다. |
 | O5 - AKS 전달 | 구현 및 non-production 실제 운영 검증 완료: 기존 Kubernetes 및 Azure 읽기 경계가 현재 reuse, temporal causality, Dynamic 요청에 근거를 제공합니다. One-pod invalid-image fault는 서버 예행 실행, isolated 이름 공간, 45초 관측 구간을 사용했습니다. | Kubernetes는 `ErrImagePull` 및 `ImagePullBackOff`를 보고했고 Azure Monitor는 pod `Pending`, Log Analytics는 pull 실패와 terminating 근거, Activity Log는 클러스터 수명 주기를 보존했습니다. 이름 공간 삭제로 롤백을 완료하고 one-node 클러스터는 `Stopped` / `Succeeded`로 돌아갔습니다. 운영은 사용 불가로 유지했습니다. |
 | O6 - Azure 리소스 absorption | 구현됨: strict promoted-inventory 스냅샷과 구성된 Azure 메트릭이 Kubernetes 및 non-Kubernetes 리소스 타입에 범용 current-reuse, causal, Dynamic 근거 연결을 제공합니다. | 읽기 전용 non-production Container App 훈련에서 healthy 활성 개정 번호 1개, 복제본 1개, 재시작 0회, administrative 쓰기 없이 동일한 pre/게시 상태를 관측했습니다. 단위 근거는 벤치마크 가져오기 없이 정책/precondition/예행 실행 실패 시 차단, 온톨로지 변환 결과, 범위가 제한된 조회, 결정론적 재시작 재생을 증명합니다. |

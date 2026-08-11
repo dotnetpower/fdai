@@ -206,7 +206,7 @@ Operator API는 호출자에게서 작업 흐름, 대상, 트리거, 모드, 상
 반환하고 불완전한 또는 inconsistent 재개 근거는 타입이 지정된 `409` conflict를 반환합니다.
 
 안전한 프로세스 취소는 요청 본문 없이 `POST /workflows/{process_id}/cancel`을
-사용합니다. 기여자는 그림자 작업을 취소할 수 있고 enforce 프로세스에는 Owner가 필요합니다.
+사용합니다. 기여자는 shadow 작업을 취소할 수 있고 enforce 프로세스에는 Owner가 필요합니다.
 Enforce 허용 목록 항목을 제거해도 취소는 새 forward 작업을 시작할 수 없으므로 차단되지
 않습니다. 서버는 영속 `pending` 또는 `waiting` 경계에서만 명령을 수락하고 actor와
 취소 의도를 기록합니다. Pending human-approval slot을 닫고 이미 전달된 액션을
@@ -216,7 +216,7 @@ idle이라고 추측하지 않고 타입이 지정된 `409 process_not_at_safe_b
 safe 취소, 범위가 제한된 재시도를 등록하며 경로 인벤토리 테스트는 누락을 차단합니다.
 
 범위가 제한된 프로세스 재시도는 요청 본문 없이 `POST /workflows/{process_id}/retry`를 사용합니다.
-기여자는 그림자를 재시도할 수 있고 enforce는 새 forward 작업을 시작할 수 있으므로 Owner와 현재
+기여자는 shadow를 재시도할 수 있고 enforce는 새 forward 작업을 시작할 수 있으므로 Owner와 현재
 작업 흐름 허용 목록이 필요합니다. 서버는 명시적인 effect-free 사유가 있는 `failed` 시도를
 수락하고 `timed_out` 시도는 `approval_timed_out`인 경우에만 수락합니다. 전달, 취소,
 compensation 근거는 재시도를 차단하고 승인 근거는 최종 거절 또는 시간 초과에만
@@ -441,7 +441,7 @@ managed-resource 변경은 이후 Thor `ActionRun`으로만 나타납니다. Con
 최신성, request-to-terminal-outcome 지연 시간을 측정하고 기준선에서 alert를 설정합니다.
 
 Exit criteria: 출처별 검토된 기준선 구간과 minimum 샘플 하한을 고정하고 모든 메트릭은 범위가 제한된
-라벨을 사용하며 alert fire/복구를 연습합니다. Optimization은 같은 시나리오 집합에서 먼저 그림자로
+라벨을 사용하며 alert fire/복구를 연습합니다. Optimization은 같은 시나리오 집합에서 먼저 shadow로
 실행하고 대상 메트릭이 개선되면서 denial escape, 중복 application, 롤백,
 unavailable-source 비율이 악화되지 않을 때만 진행합니다.
 

@@ -59,14 +59,14 @@ translation_revised: 2026-08-11
 
 - **Docs-first, docs-after.** 모든 웨이브는 코드 / 카탈로그 변경과 같은 PR
  에 doc 업데이트를 착지시킨다. 문서는 절대 표류 하지 않는다.
-- **그림자 before 강제 적용.** 모든 새 에이전트 동작은 judge-only 로 배포.
+- **shadow before 강제 적용.** 모든 새 에이전트 동작은 judge-only 로 배포.
  강제 적용 승격은 per-behavior 이며 별도 검토.
 - **Single-writer topics.** 소유자 에이전트 만 `object.<type>` 에 publish. 스키마
  레지스트리 가 병합 시점에 강제.
 - **판사는 실행기 가 아니다.** Forseti 는 판정 를 발행; Thor 는
  전달. 어떤 웨이브도 이 역할을 collapse 하지 않는다.
 - **Hard-dependency 존중.** Saga 와 Vidar 는 변경 의 필수 의존성;
- 둘 중 하나가 저하되면 변경 은 그림자 로 강등.
+ 둘 중 하나가 저하되면 변경 은 shadow 로 강등.
 - **LLM 은 Bragi (translator), Forseti (T2 abstain), Norns (off-path 배치)
  에서만.** 다른 모든 에이전트는 hot-path 에서 LLM-free 유지.
 - **포크 경계.** Pantheon 세트 / 역할 바인딩은 upstream-locked; 포크 는
@@ -81,12 +81,12 @@ translation_revised: 2026-08-11
 |------|-------------|-----------|
 | **W0** | Docs 기반: workflows doc, pantheon §4 상세, 온톨로지 YAML 추가 | translation-pair CI + 스키마 lint green; 새 객체 타입 이 `/ontology/graph` (dev) 로 해석됨 |
 | **W1** | Python 스캐폴딩: `agents/` 패키지, base 등급, 15 stub, 토픽 레지스트리, two-port 골격 | 레지스트리 + topic-owner 강제 테스트로 `pytest services/core-control-plane/tests/agents/` 통과 |
-| **W2** | 거버넌스 staff: Saga (감사 + issue), Mimir (룰 담당자), Muninn (기억 / RAG), Norns (learner) 그림자 로 완전 배선 | 종단간 감사 trail: 합성 이벤트가 walk-through, Saga 가 `AuditEntry` 를 쓰기, 재생 가 재구성, Norns 가 pattern 포착 |
-| **W3** | Sensing + judgment + risk: Huginn, Heimdall, Forseti, Var, Vidar, Thor 가 타입이 지정된 포트 로 연결; verdict-to-execute-to-audit 루프 그림자 로 실제 운영 | 100개 합성 이벤트가 유입 -> 판정 -> HIL 또는 auto -> execute (그림자) -> 감사 로 정책 위반 zero 로 흐름 |
+| **W2** | 거버넌스 staff: Saga (감사 + issue), Mimir (룰 담당자), Muninn (기억 / RAG), Norns (learner) shadow 로 완전 배선 | 종단간 감사 trail: 합성 이벤트가 walk-through, Saga 가 `AuditEntry` 를 쓰기, 재생 가 재구성, Norns 가 pattern 포착 |
+| **W3** | Sensing + judgment + risk: Huginn, Heimdall, Forseti, Var, Vidar, Thor 가 타입이 지정된 포트 로 연결; verdict-to-execute-to-audit 루프 shadow 로 실제 운영 | 100개 합성 이벤트가 유입 -> 판정 -> HIL 또는 auto -> execute (shadow) -> 감사 로 정책 위반 zero 로 흐름 |
 | **W4** | Bragi + Odin: 라우팅, per-user 맥락, 중재 이 있는 conversational 포트 | 오퍼레이터 NL 조회 하나가 라우팅 -> 기본 + contributors -> aggregated 응답 로 walk-through; Odin 이 합성 domain_conflict 를 arbitrate |
-| **W5** | 도메인 specialists: Njord, Freyr, Loki 가 Forseti 에 참고용 바인딩 | 비용 / 용량 / chaos advice 가 합성 판정 에 첨부; Loki 실험이 blast-radius 존중하며 그림자 로 실행 |
+| **W5** | 도메인 specialists: Njord, Freyr, Loki 가 Forseti 에 참고용 바인딩 | 비용 / 용량 / chaos advice 가 합성 판정 에 첨부; Loki 실험이 blast-radius 존중하며 shadow 로 실행 |
 | **W6** | 인계 + security 에스컬레이션: Issue dedup, 지문 인덱스, admin-channel 알림 | (a) 합성 unhandled 요청 가 정확히 1개 GitHub issue + repeat 시 comment 생성; (b) RBAC-insufficient 제안 이 정확히 1개 admin 카드 + repeat 시 dedup 생성 |
-| **W7** | Cross-agent workflows: [agent-workflows.md](agent-workflows-ko.md)의 13개 작업 흐름이 한 번에 하나씩 그림자로 동작 | 각 작업 흐름은 executable 그림자 추적 참조를 가지며 어떤 작업 흐름도 강제 적용을 기본값으로 사용하지 않음 |
+| **W7** | Cross-agent workflows: [agent-workflows.md](agent-workflows-ko.md)의 13개 작업 흐름이 한 번에 하나씩 shadow로 동작 | 각 작업 흐름은 executable shadow 추적 참조를 가지며 어떤 작업 흐름도 강제 적용을 기본값으로 사용하지 않음 |
 | **W8** | 승격 gates + 측정: per-agent KPI 수집기, promotion_gate 배선, 성능 저하 훈련 | (a) 각 에이전트가 선언된 KPI 를 리포트; (b) 각 성능 저하 정책 가 주입 실패로 검증; (c) 임의 단일 워크플로우가 게이트 통과 후 별도 PR 로 강제 적용 모드 승격 가능 |
 
 ## 4. Wave 0 - Docs 기반
@@ -263,7 +263,7 @@ Muninn 은 Forseti 가 사유 하기 전에 맥락 를 서브해야 하고; Norn
  `arbitrate` 신호 발행 (Odin 은 W4 에서 착지).
 - **Thor (`services/core-control-plane/src/fdai/agents/thor.py`)** - `object.verdict` 와
  `object.rollback` 을 구독합니다.
- 전달: `auto` -> 기존 실행기 프로바이더 에 대해 그림자 execute;
+ 전달: `auto` -> 기존 실행기 프로바이더 에 대해 shadow execute;
  `hil` -> `object.hil-request` publish (Var 도 여기서 착지); `deny` ->
  Saga 를 위한 폐기 기록 publish. `resource_id` 파티션 에서
  per-resource mutex 강제. 실패 시 롤백 트리거.
@@ -279,19 +279,19 @@ Muninn 은 Forseti 가 사유 하기 전에 맥락 를 서브해야 하고; Norn
 
 강제 적용 모드 런타임 을 구성할 때는 명시적 Thor 실행기, 영속 ActionRun
 저장소, StateStore-backed Saga 감사 체인, 롤백 실행기 레지스트리 가 모두
-필요합니다. 하나라도 없으면 시작 이 차단됩니다. 그림자 모드 는 in-memory
+필요합니다. 하나라도 없으면 시작 이 차단됩니다. shadow 모드 는 in-memory
 기본값 를 유지하며 privileged 실행기 를 호출하지 않습니다.
 
 **테스트**
 
-- `test_wave3_pipeline.py`가 그림자 판정, 전달, 승인, 롤백
+- `test_wave3_pipeline.py`가 shadow 판정, 전달, 승인, 롤백
  경로를 검증.
 - `test_runtime_chain.py`와 `test_thor_durable.py`가 종단 간 라우팅,
  영속 ActionRun, 리소스 잠금, 재시작 복구를 검증.
 
 **Exit 게이트**
 
-- 종단간 그림자 루프: 100개 합성 이벤트, per-resource mutex 관찰, 정책
+- 종단간 shadow 루프: 100개 합성 이벤트, per-resource mutex 관찰, 정책
  escape zero, Saga 감사 trail 완료.
 
 **의존성**
@@ -374,7 +374,7 @@ Muninn 은 Forseti 가 사유 하기 전에 맥락 를 서브해야 하고; Norn
 
 **Exit 게이트**
 
-- 모든 도메인 전문가 가 그림자 의 최소 하나의 워크플로우 판정 에
+- 모든 도메인 전문가 가 shadow 의 최소 하나의 워크플로우 판정 에
  참고용 annotation 을 첨부; Loki 가 `blast_radius` 존중하며
  shadow-mode chaos 실험 완료.
 
@@ -418,10 +418,10 @@ Muninn 은 Forseti 가 사유 하기 전에 맥락 를 서브해야 하고; Norn
 
 - Permission-upgrade HIL 흐름 없음 (판테온 §9.5 언급; 별도 PR).
 
-## 11. Wave 7 - 그림자 로 cross-agent workflows
+## 11. Wave 7 - shadow 로 cross-agent workflows
 
-롤아웃 순서, 작업 흐름별 그림자 게이트, 의존성 및 anti-scope는
-[에이전트 작업 흐름 그림자 롤아웃](agent-workflow-rollout-ko.md)이 소유합니다. 각 작업 흐름은
+롤아웃 순서, 작업 흐름별 shadow 게이트, 의존성 및 anti-scope는
+[에이전트 작업 흐름 shadow 롤아웃](agent-workflow-rollout-ko.md)이 소유합니다. 각 작업 흐름은
 독립적으로 검토하며 이 wave에서는 어떤 작업 흐름도 강제 적용으로 승격하지 않습니다.
 
 ## 12. Wave 8 - 승격 gates, KPIs, 성능 저하 drills
@@ -452,7 +452,7 @@ Muninn 은 Forseti 가 사유 하기 전에 맥락 를 서브해야 하고; Norn
 - **성능 저하 drills** - 에이전트당 합성 실패 주입, 선언된
  성능 저하 정책 활성화 검증:
  - Saga down -> 새 변경 거부
- - Vidar down -> 새 변경 그림자 로 강등
+ - Vidar down -> 새 변경 shadow 로 강등
  - Forseti down -> 큐 증가, alert 발화
  - Var down -> 시간 초과 확장 + admin alert
  - 나머지는 판테온 §11 별 (anti-pattern 은 이미 doc 에 codified; 테스트
@@ -468,7 +468,7 @@ Muninn 은 Forseti 가 사유 하기 전에 맥락 를 서브해야 하고; Norn
 - 15개 에이전트 모두 KPI 를 측정 파이프라인으로 발행.
 - 모든 성능 저하 훈련 통과.
 - 게이트를 통과한 하나의 작업 흐름은 권위 있는 promoted 집합에 포함되어 shared
- 수명 주기가 published로 해석될 수 있습니다. 업스트림 기본값은 그림자로
+ 수명 주기가 published로 해석될 수 있습니다. 업스트림 기본값은 shadow로
  유지되며 배포 권한에는 별도 검토된 승격이 필요합니다.
 
 **의존성**
@@ -491,7 +491,7 @@ Muninn 은 Forseti 가 사유 하기 전에 맥락 를 서브해야 하고; Norn
 - W0 은 workflows 문서와 판테온 §4 상세 착지.
 - W1 - W6 은 에이전트가 online 됨에 따라 판테온 §5 (에이전트 카탈로그) 행을
  업데이트 (`llm_bindings`, `rate_limits` 기본값 반영).
-- W7 은 workflows 문서 항목 를 실제 그림자 추적 참조 로 업데이트.
+- W7 은 workflows 문서 항목 를 실제 shadow 추적 참조 로 업데이트.
 - W8 은 판테온 §4 KPI 블록을 실제 기준선 숫자로 업데이트.
 
 ### 13.2 Bilingual 쌍 규율
@@ -531,7 +531,7 @@ Headless `services/core-control-plane/src/fdai/__main__.py`는 이 초기화에 
 - 원시 유입 이벤트(P1 컨트롤 루프가 소비하는 것과 동일한
  `kafka.topic_events`)는 Event Collector 인 Huginn 으로 라우팅되어
  정규화된 뒤 `object.event` 로 재발행된다. 판테온은 별도 소비자 그룹
- 을 쓰므로 P1 파이프라인의 레코드를 가로채지 않고 그 옆에서 병렬 그림자
+ 을 쓰므로 P1 파이프라인의 레코드를 가로채지 않고 그 옆에서 병렬 shadow
  로 동작한다.
 - `PantheonRuntime.run()` 이 영속 컨슈머다: 실제 브로커에서는 영원히
  블록(구독마다 태스크 하나)하며, `__main__` 이 이를 P1 컨슈머 옆의
@@ -539,16 +539,16 @@ Headless `services/core-control-plane/src/fdai/__main__.py`는 이 초기화에 
  `return_exceptions=True` 로 gather 되고, 죽은 컨슈머는 카운트·로깅 후
  삼켜져 형제 컨슈머는 계속 돈다; 판테온 전체 실패는
  `pantheon_runtime_failed` 로 로깅되지만 P1 wait 세트를 절대 취소하지
- 않는다(그림자 오버레이는 주 파이프라인의 의존성이 아니다). 종료 시
+ 않는다(shadow 오버레이는 주 파이프라인의 의존성이 아니다). 종료 시
  차례로 취소된다.
 
-이 런타임은 **기본 활성화되고 기본 그림자**입니다. `FDAI_START_PANTHEON=0`
+이 런타임은 **기본 활성화되고 기본 shadow**입니다. `FDAI_START_PANTHEON=0`
 (`false`, `no`, `off`도 동일)이 런타임을 비활성화합니다.
 `FDAI_START_CONSUMER`가 필요하며 소비자 버스가 없으면 초기화가
 `pantheon_requested_without_consumer`를 로깅하고 배선을 건너뜁니다.
 
-그림자 는 **가정이 아니라 강제된다**: `PantheonRuntime.build` 가 Thor 를
-그림자 모드로 강제(`enforce=False`, 기본)하므로 판테온 Thor 는
+shadow 는 **가정이 아니라 강제된다**: `PantheonRuntime.build` 가 Thor 를
+shadow 모드로 강제(`enforce=False`, 기본)하므로 판테온 Thor 는
 judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. 강제 적용 로의 승격은
 명시적이고 별도 리뷰되는 명시적 선택(`FDAI_PANTHEON_ENFORCE` /
 `build(enforce=True)`)이며 절대 기본이 아니다. 에이전트는
@@ -585,7 +585,7 @@ judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. 강제 적�
  (`max_consumer_restarts`, `restart_backoff_base`,
  `restart_backoff_max`)로 재시작하고, 상한 초과 시에만 포기(카운트+로깅)
  하며 형제를 끌어내리지 않습니다. 최종 에이전트/토픽 상태는 false 하트비트를
- 억제하고 Saga/Vidar 최종 또는 상태 실패는 sticky 그림자를 강제합니다.
+ 억제하고 Saga/Vidar 최종 또는 상태 실패는 sticky shadow를 강제합니다.
  재시작은 committed 오프셋에서 재개되고 범위가 제한된 `stop()`은 hang하지 않습니다.
 - `EventBusBridge` 는 `BridgeMetrics`(delivered / handler_errors /
  handler_retries / dead_lettered / dead_letter_errors / consumers_crashed /
@@ -643,23 +643,23 @@ judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. 강제 적�
  (`StateStoreActionRunStore` 가 `StateStore` 위에서 백업); `PantheonRuntime.run()`
  이 시작 시 이를 rehydrate 하므로 강제 적용 모드 재시작이 진행 중 변경
  추적이나 per-resource 락을 잃지 않는다. 최종 상태는 삭제되어
- 진행 중인 작업만 복원된다. 업스트림 기본은 in-memory(그림자); 포크 는
+ 진행 중인 작업만 복원된다. 업스트림 기본은 in-memory(shadow); 포크 는
  영속 `Saga` 와 함께 영속 저장소 를 주입한다. Forseti는 모든 Verdict에
  액션 멱등성 키를 보존하고 Thor는 각 수명 주기 이벤트 키와 구분해 저장합니다.
  런타임은 `StateStoreOpenActionEvidenceProvider`를 통해 이 활성 인덱스를 읽습니다.
  Indexed 행이 없거나 malformed이면 충돌로 처리하므로 불완전한 영속성이
  자율성을 높일 수 없습니다.
-- **그림자 관측.** 전용 관찰기 소비자 그룹 이 판테온이 내릴 결정
+- **shadow 관측.** 전용 관찰기 소비자 그룹 이 판테온이 내릴 결정
  (판정 risk 분포 + ActionRun 최종 상태)을 `shadow_decisions` 로
- 집계하고 `health()` 가 표면화한다 - "그림자 before 강제 적용" 에 필요한
+ 집계하고 `health()` 가 표면화한다 - "shadow before 강제 적용" 에 필요한
  측정 가능한 기준선. 별도 그룹 이라 실제 구독자의 레코드를 가로채지
  않는다.
-- **divergence 측정.** `ShadowDivergenceLedger` 가 판테온의 그림자 판정 와
+- **divergence 측정.** `ShadowDivergenceLedger` 가 판테온의 shadow 판정 와
  권위 있는 P1 결정을 `correlation_id` 로 조인해 agreement 비율 와
  방향성 있는 `authoritative->pantheon` divergence breakdown 을 보고한다 -
- 그림자 능력을 강제 적용 로 올리는 실제 승격 게이트. 이 원장 는
+ shadow 능력을 강제 적용 로 올리는 실제 승격 게이트. 이 원장 는
  core-agnostic(순수 결정 문자열, `core` 미가져오기)이다: 판테온 관찰기 가
- 그림자 쪽을, P1 소비자(`_authoritative_decision`)가 권위 있는 쪽을
+ shadow 쪽을, P1 소비자(`_authoritative_decision`)가 권위 있는 쪽을
  먹이며, `ControlLoop` 을 건들지 않고 조립 루트 에서 조인된다.
  매칭은 증분적이고 LRU-bounded 다.
 - **하트비트.** `run(heartbeat_interval=...)` /

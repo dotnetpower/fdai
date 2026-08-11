@@ -25,7 +25,7 @@ risk-gate 우회도 없다. 이는 행동 요청은 타입이 지정된 파이�
 근거 및 컨트롤 단계는 변경 권한이 없고 전용 타입이 지정된 계약을 사용합니다. 실행기는
 재구성을 위한 집계 `runbook.terminal` 감사 행을 추가합니다.
 
-### 4.1 거버넌스가 적용되는 그림자 및 강제 적용 오케스트레이터
+### 4.1 거버넌스가 적용되는 shadow 및 강제 적용 오케스트레이터
 
 [`WorkflowOrchestrator`](../../../services/core-control-plane/src/fdai/core/workflow/orchestrator.py) 가 첫
 라이브 소비자다. 승인을 계획하고 ([6.1절](#61-승인자-할당approver-assignment)),
@@ -59,7 +59,7 @@ Approval 요청은 attempt-scoped입니다. 거부는 완전한 정족수 시도
 [`WorkflowTriggerCoordinator`](../../../services/core-control-plane/src/fdai/core/workflow/coordinator.py) 다:
 `event-ingest` 를 통과한 Event 는 `event_type` 으로
 [`WorkflowTriggerIndex`](../../../services/core-control-plane/src/fdai/core/workflow/trigger_index.py) 에 매칭되고,
-매칭된 모든 작업 흐름 는 그림자 로 실행된다 (이름 순서, 리소스 + 타임스탬프는
+매칭된 모든 작업 흐름 는 shadow 로 실행된다 (이름 순서, 리소스 + 타임스탬프는
 Event 에서). 어떤 작업 흐름 도 매칭하지 않는 이벤트는 아무것도 시작하지 않는다.
 
 코디네이터는 [`ControlLoop`](../../../services/core-control-plane/src/fdai/core/control_loop/orchestrator.py) 에 **기본 활성,
@@ -80,7 +80,7 @@ non-mutating 관측을 활성 상태로 유지한다.
 하지 않는다**: 가드 는 룰 카탈로그에 대해 load-validate 되지만 런타임엔
 `guard_evaluated: false` 로 기록되어 업스트림 은 동작상 중립을 유지한다. 포크 (또는
 향후 강제 적용 경로)가 이 경계 을 통해 구체 OPA-backed 평가기 를 바인딩한다.
-평가기 가 바인딩되고 스텝의 가드 가 false 를 반환하면, 그림자 실행은
+평가기 가 바인딩되고 스텝의 가드 가 false 를 반환하면, shadow 실행은
 `guard_passed: false` 를 기록하고 그 스텝을 judged no-op 로 취급한다 (사유
 `guard_blocked_shadow_noop`) - 실행은 계속되고 아무것도 mutate 하지 않는다. 모든
 `workflow.step` 감사 행 는 `guard_rule_ref` / `guard_evaluated` /
@@ -126,12 +126,12 @@ materialize 합니다. 작업 흐름 전용 projector 는 도메인 객체 와 �
 이 분리 덕분에 온톨로지 저장소 가 잠시 사용 불가 해도 런타임 처리는 계속되고,
 모든 변환 결과 의도 는 복구를 위해 보존됩니다.
 
-### 4.4 수동 그림자 또는 강제 적용 명령
+### 4.4 수동 shadow 또는 강제 적용 명령
 
 프로덕션 신호 을 기다리지 않고 카탈로그 작업 흐름 를 시작하려면 기여자 권한이
 필요한 선택적 `POST /workflows/run` 명령을 사용할 수 있습니다. 이 경로 는 카탈로그
 작업 흐름 이름, 대상 리소스 id, RFC 3339 트리거 시각, 범위가 제한된
-parameter-substitution 맥락 및 `mode`를 받습니다. 기여자는 그림자를 실행할 수
+parameter-substitution 맥락 및 `mode`를 받습니다. 기여자는 shadow를 실행할 수
 있습니다. 강제 적용에는 Owner와 배포 `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` 항목이
 필요합니다. 액션 단계는 일반 타입이 지정된 파이프라인으로 다시 게시되며 작업 흐름이 실행기를
 직접 호출하지 않습니다.
@@ -192,7 +192,7 @@ Authoring 경로는 여섯 연산 을 분리합니다.
  managed-identity object-storage staging 어댑터 가 필요합니다.
 3. `POST /python-tasks/stage` 는 valid 내용 기반 주소를 가진 산출물 를 변경할 수 없는 하게
  저장합니다. 같은 `task_id@version` 을 다른 내용 로 다시 쓰는 것은 차단됩니다.
-4. `POST /python-tasks/test` 는 활성 인벤토리 에서 대상 을 해석 하고 그림자
+4. `POST /python-tasks/test` 는 활성 인벤토리 에서 대상 을 해석 하고 shadow
  계획 을 반환합니다. Operator API 는 실행기 신원 가 없고 파일 copy 또는 코드
  실행이 불가능한 `PlanningVmTaskRunner` 를 바인딩합니다.
 5. `POST /python-tasks/request-run` 은 산출물 참조, 대상 Resource 참조,
@@ -206,7 +206,7 @@ Authoring 경로는 여섯 연산 을 분리합니다.
  타입이 지정된 이벤트 를 기록할 뿐 VM 에 접속하지 않습니다.
 
 Headless 코어 는 `FDAI_VM_TASK_ENABLED=1` 일 때 `VmPythonToolExecutor` 를
-바인딩합니다. 그림자 전달 는 `dry_run=true` 로 실행기 를 호출합니다. 강제 적용
+바인딩합니다. shadow 전달 는 `dry_run=true` 로 실행기 를 호출합니다. 강제 적용
 전달 는 `FDAI_VM_TASK_ENFORCE=1` 도 필요합니다. Azure 어댑터 는 활성
 인벤토리 에서 프로바이더 ARM 참조 를 해석 하고, 실행기 Managed Identity 로
 Managed Run Command 리소스 를 생성하며, base64-encoded 파일 을 단계 합니다.
@@ -242,7 +242,7 @@ scheduled 작업 흐름 에서는 `scheduled_task_from_workflow()` 가 타입이
 보존합니다. 컨트롤 루프 는 제안 을 신뢰하는 대신 활성 인벤토리 에서 대상
 환경 를 로드하고 완전한 액션 및 정책 맥락 를 Owner 승인 용으로
 보류 한 뒤 승인된 요청 를 declared 도구 실행기 로 전달 합니다. 선택적
-Pantheon 런타임 은 같은 토픽 을 그림자 로 관찰하며 두 번째 실행 권한 가
+Pantheon 런타임 은 같은 토픽 을 shadow 로 관찰하며 두 번째 실행 권한 가
 아닙니다. 연결 은 업스트림 YAML 에 환경 값 를 넣지 않고 대상 및
 산출물 하나를 제공합니다.
 

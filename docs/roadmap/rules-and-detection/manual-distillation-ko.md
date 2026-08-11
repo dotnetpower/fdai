@@ -179,7 +179,7 @@ manual (PDF / wiki / docs)
 
 모델 호출은 offline 후보 추출과 source-fidelity 검증(back-translation 및
 mixed-model 비교)에 한정되고 이벤트마다가 아니라 **매뉴얼 리비전당 한 번** 실행됩니다.
-그 뒤 structural, 그림자 및 회귀 게이트는 결정론적 검증 + human 검토입니다.
+그 뒤 structural, shadow 및 회귀 게이트는 결정론적 검증 + human 검토입니다.
 
 ## 증류 검증
 
@@ -214,13 +214,13 @@ mixed-model 비교)에 한정되고 이벤트마다가 아니라 **매뉴얼 리
  로드돼야 하고, 모든 액션은 7개 안전조건(stop-condition, `rollback_contract`, blast-radius,
  예행 실행, 잠금, 멱등성, 감사)을 가져야 한다. 누락은 첫 전달이 아니라 부하에서 실패한다.
 - **Shadow-mode 리플레이 (경험적 증명).** 조각을 회사의 **실제 과거 이벤트와 감사 로그**에
- `default_mode: shadow`로 돌린다. 매뉴얼대로라면 발동했어야 할 때 발동했나? 그림자 판정이
+ `default_mode: shadow`로 돌린다. 매뉴얼대로라면 발동했어야 할 때 발동했나? shadow 판정이
  운영자가 실제로 한 것과 일치하나? 정밀도 / 재현율을 측정한다 - "텍스트가 그럴듯하다"가
  아니라 "실제 데이터에서 옳게 동작한다". 이것이 `promotion_gate`다.
 - **회귀 스위트 (escape 0).** 알려진 매뉴얼 시나리오를 골든 테스트로 만들고, 조각은
  policy-violation escape 0으로 통과해야 하며, 모든 규칙 변경은 회귀 테스트를 추가한다.
 
-강제 적용 승격은 절대 자동이 아니다: 측정된 그림자 정확도 -> 명시적 human 승인 PR,
+강제 적용 승격은 절대 자동이 아니다: 측정된 shadow 정확도 -> 명시적 human 승인 PR,
 [rule-catalog-collection-ko.md](rule-catalog-collection-ko.md) 와
 [phase-2-quality-and-t1-ko.md](../phases/phase-2-quality-and-t1-ko.md) 에 문서화된 동일
 `collect -> shadow -> regression -> promote` 순서를 따른다.
@@ -233,7 +233,7 @@ mixed-model 비교)에 한정되고 이벤트마다가 아니라 **매뉴얼 리
 
 - **구조적 커버리지 차이.** 매뉴얼의 섹션 헤딩과 명령형 진술("must", "must not", "shall")을
  세어, 추출된 조각 수/토픽과 대조하고, 커버 안 된 섹션을 human 리뷰로 플래그한다.
-- **운영 피드백.** 그림자가 규칙 발동 없이 한동안 돌았는데 실제 인시던트가 발생하면, 그 갭은
+- **운영 피드백.** shadow가 규칙 발동 없이 한동안 돌았는데 실제 인시던트가 발생하면, 그 갭은
  발견 루프가 후보로 바꾸는 누락 규칙 신호다
  ([observability-and-detection-ko.md](observability-and-detection-ko.md) 및
  [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 의

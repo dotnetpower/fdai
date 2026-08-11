@@ -30,7 +30,7 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 > constitutional 제약 검사, conditional 운영 런타임 연결을
 > 추가합니다. 런타임은 exact 온톨로지 release, operational 맥락, 프로세스 저장소, 활성
 > effect-model 읽기 담당, causal 검증기가 모두 있을 때만 계획 수립을 연결합니다. Staging 증명과
-> 그림자 측정은 누락된 런타임 행동이 아니라 release 근거로 남습니다.
+> shadow 측정은 누락된 런타임 행동이 아니라 release 근거로 남습니다.
 
 ## 한눈에 보는 설계
 
@@ -115,7 +115,7 @@ Prediction, optimization, 시뮬레이션은 새 실행 경로가 아니라 해�
 - CPU, 기억, 시간 초과, 출력, 네트워크, 자격 증명 상한
 - 필요한 역할, 허용 용도, 호출 가능한 에이전트
 - 모델 또는 algorithm 버전, training 또는 learning 기준 시점, 근거 grade
-- 그림자 근거, 승격 criteria, 롤백에 사용하는 이전 버전
+- shadow 근거, 승격 criteria, 롤백에 사용하는 이전 버전
 
 함수 레지스트리는 입력 및 출력 스키마와 호출자 권한 확인을 검증합니다. 함수는 Thor의
 실행기 신원을 받지 않으며 프로바이더 변경을 호출할 수 없습니다. 호출 증적은
@@ -288,9 +288,9 @@ repeated loser에게 범위가 제한된 가중을 주고 반대편 승리 한 �
 | P2 | 프로세스 하위 이벤트 및 영속 계획 수립 변환 결과입니다. | 중복, reorder, 동시성, 재시작, 보존 테스트를 통과합니다. |
 | P3 | Authorized logic 레지스트리 및 compute 샌드박스입니다. | 같은 입력과 시드가 byte-identical 출력을 만들고 escape 테스트가 실패 시 차단합니다. |
 | P4 | Twin 가지, hard 필터, Pareto pruning, Odin 중재 입력입니다. | Ineligible 옵션을 채점하지 않고 불완전한 검색이 선택할 수 없습니다. |
-| P5 | MutationPlan 및 typed-ingress 브리지입니다. | 선택한 액션과 대상 개정 번호가 정확히 일치하고 그림자는 mutate하지 않습니다. |
+| P5 | MutationPlan 및 typed-ingress 브리지입니다. | 선택한 액션과 대상 개정 번호가 정확히 일치하고 shadow는 mutate하지 않습니다. |
 | P6 | 계획 수립 Room API 및 Console 변환 결과입니다. | RBAC, 민감정보 제거, 출처 이력, 로딩, 사용 불가, responsive UI 테스트를 통과합니다. |
-| P7 | 고정된 시나리오, non-production 훈련, 그림자 측정입니다. | 안전성 escape 없이 완전한 근거 체인, 롤백, 재생, 결과 종결을 통과합니다. |
+| P7 | 고정된 시나리오, non-production 훈련, shadow 측정입니다. | 안전성 escape 없이 완전한 근거 체인, 롤백, 재생, 결과 종결을 통과합니다. |
 
 ## 검증 매트릭스
 

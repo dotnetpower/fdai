@@ -603,7 +603,7 @@ rich format이 필요할 때 의존성 injection으로 프로바이더를 교체
   측정된 용량 대상, manual-distillation consumption
 
 각 slice는 모델 실행 없이 시작하며 승인된 메타데이터 외에는 문서 가시성을
-제공하지 않습니다. 접근 filtering, deletion propagation, adversarial-file 테스트가 그림자에서
+제공하지 않습니다. 접근 filtering, deletion propagation, adversarial-file 테스트가 shadow에서
 통과한 후에만 수집과 정제를 활성화합니다.
 
 ## 결정과 미해결 질문

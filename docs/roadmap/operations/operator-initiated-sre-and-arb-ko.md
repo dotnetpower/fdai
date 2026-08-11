@@ -10,7 +10,7 @@ translation_revised: 2026-08-11
 이 계획은 인시던트가 아닌 운영 작업을 FDAI가 식별하는 방법, 오퍼레이터의 SRE 요청을
 거버넌스가 적용되는 인시던트 대응으로 전환하는 방법, 아키텍처 검토 Board(ARB)
 프로세스를 관찰 가능한 작업 흐름으로 실행하는 방법을 정의합니다. 또한 로컬 환경과 배포
-환경에서 그림자 및 강제 적용 작업에 적용되는 안전 경계를 정의합니다.
+환경에서 shadow 및 강제 적용 작업에 적용되는 안전 경계를 정의합니다.
 
 > **범위:** 이 설계는 기존 인시던트 레지스트리, 타입이 지정된 액션 파이프라인, 프로세스 저널, risk
 > 게이트, 실행기 어댑터를 재사용합니다. Console 소유 실행기 또는 두 번째 판단 경로를
@@ -88,7 +88,7 @@ flowchart LR
  `operator_request` ActionProposal을 게시합니다. 이 표면은 실행기 신원을 가지지
  않습니다.
 4. **판단 및 게이트:** 컨트롤 루프는 T0를 먼저 실행하고 권위 있는 인벤토리로 보강한 후
- 승격과 risk를 평가하여 그림자, auto, human-in-the-loop(HIL), 거부 중 하나를
+ 승격과 risk를 평가하여 shadow, auto, human-in-the-loop(HIL), 거부 중 하나를
  반환합니다.
 5. **실행 또는 대기:** 승격된 low-risk ActionType은 강제 적용 모드에서 실행할 수 있습니다.
  더 높은 risk의 작업은 별도 승인자를 기다린 후 같은 실행기를 통해 재개됩니다.
@@ -145,7 +145,7 @@ CLI와 ChatOps는 기여자 권한이 필요한 `POST /workflows/run` 경로를 
 }
 ```
 
-- 기여자는 그림자 검토를 시작하거나 재개할 수 있습니다.
+- 기여자는 shadow 검토를 시작하거나 재개할 수 있습니다.
 - Owner는 배포가 작업 흐름을 허용 목록하고 ARB structural 평가기가 통과한 경우에만
  `enforce`를 요청할 수 있습니다.
 - 강제 적용은 영속 승인 및 결정 전이에 적용됩니다. ARB 작업 흐름에는 리소스
@@ -154,7 +154,7 @@ CLI와 ChatOps는 기여자 권한이 필요한 `POST /workflows/run` 경로를 
  최초 `trigger_ts`를 그대로 다시 보내야 중복 검토를 만들지 않고 프로세스를 재개합니다.
  `trigger_ts`를 생략하면 서버가 요청 시각을 사용하므로 이후 재시도와 동일성이 보장되지 않습니다.
 
-## 그림자 및 강제 적용 모델
+## shadow 및 강제 적용 모델
 
 작업 흐름 모드와 ActionType 모드는 별도의 게이트입니다.
 
@@ -163,8 +163,8 @@ CLI와 ChatOps는 기여자 권한이 필요한 `POST /workflows/run` 경로를 
 | `shadow` | 평가하고 저널 및 감사에 기록합니다. | 변경 제안을 게시하지 않고 판단 및 기록만 수행합니다. |
 | `enforce` | 실제 wait, 승인, 게이트, 결정 전이를 저장합니다. | 타입이 지정된 제안을 컨트롤 루프로 다시 게시합니다. ActionType은 자체 승격 및 risk 결정을 계속 적용받습니다. |
 
-따라서 강제 적용 작업 흐름은 ActionType을 그림자에서 강제 적용으로 올릴 수 없습니다. ActionType이
-승격되지 않았으면 risk 게이트가 그림자를 기록합니다. HIL이 필요하면 프로세스가 pending
+따라서 강제 적용 작업 흐름은 ActionType을 shadow에서 강제 적용으로 올릴 수 없습니다. ActionType이
+승격되지 않았으면 risk 게이트가 shadow를 기록합니다. HIL이 필요하면 프로세스가 pending
 승인을 기록하고 기다립니다. 강제 적용 가능한 어댑터가 구성되지 않았으면 실행은
 실패 시 차단되고 프로세스가 이유를 노출합니다.
 
@@ -207,7 +207,7 @@ CLI와 ChatOps는 기여자 권한이 필요한 `POST /workflows/run` 경로를 
 - 조사 채팅 요청 하나가 인시던트 하나를 생성하고 멱등적 제안 하나를
  게시하며 모든 단계에 상관관계 하나를 사용합니다.
 - 승격된 low-risk 조사가 강제 적용 가능한 도구 어댑터에 도달할 수 있습니다. 승격되지
- 않았거나 high-risk인 요청은 그림자 또는 HIL로 유지됩니다.
+ 않았거나 high-risk인 요청은 shadow 또는 HIL로 유지됩니다.
 - 업스트림 매니페스트에서 ARB structural 상태는 통과하지만 포크 소유 근거가 제공되기
  전까지 운영 준비 상태는 차단된 상태를 유지합니다.
 - 수동 ARB 시작은 프로세스와 저널을 반환하고 재시도는 이를 재개합니다.
@@ -236,4 +236,4 @@ CLI와 ChatOps는 기여자 권한이 필요한 `POST /workflows/run` 경로를 
 | Conversational 명령 경계 | [Operator Console](../interfaces/operator-console-ko.md) |
 | 작업 흐름 및 프로세스 계약 | [프로세스 자동화](../decisioning/process-automation-ko.md) |
 | ARB 근거 계약 | [아키텍처 검토 Board Packet](../architecture/architecture-review-board-ko.md) |
-| 그림자 및 강제 적용 승격 | [그림자 Then 강제 적용](../../user-guide/concepts/shadow-then-enforce-ko.md) |
+| shadow 및 강제 적용 승격 | [shadow Then 강제 적용](../../user-guide/concepts/shadow-then-enforce-ko.md) |

@@ -366,7 +366,7 @@ catalog-as-code 산출물):
  operational-promotion 증적을 런타임 모드 레지스트리에 적용합니다. 카탈로그의 ActionType은
  변경하지 않으며 증적은 `promotion_gate`, exact 코드/카탈로그 개정 번호, 시나리오 집합,
  근거 다이제스트 및 Owner HIL로 제한됩니다.
- **디스패처 shipped:** Thor 뒤의 `OperationalPromotionDirectApiExecutor`. 그림자는 변경
+ **디스패처 shipped:** Thor 뒤의 `OperationalPromotionDirectApiExecutor`. shadow는 변경
  없이 검증하며 HIL-only 권한 초기화만 강제 적용 모드를 제공합니다.
 - `governance.retire-rule` - 강제 적용 집합에서 룰 제거 (shadow-only 또는
  full retire).
@@ -405,7 +405,7 @@ HIL과 exact-receipt 검증 이후 영속 런타임 모드 레지스트리만 �
  실행합니다. 작업 는 `gpu`, `network`, 파일 시스템 접근, child-process 생성 같은
  호스트 기능 를 선언합니다. 대상 은 필요한 모든 기능 를 제공해야
  합니다. 액션 은 출처 텍스트 또는 arbitrary 셸 명령 가 아니라 산출물
- 참조 만 받습니다. 그림자 모드 는 계획 을 만들고, 강제 적용 모드 는 Owner HIL
+ 참조 만 받습니다. shadow 모드 는 계획 을 만들고, 강제 적용 모드 는 Owner HIL
  이후 Azure Managed Run Command 를 사용합니다. 변경할 수 없는 파일 은 설정된 non-root
  계정 가 범위가 제한된 시간 초과 으로 entrypoint 를 실행하기 전에 게스트 에서 SHA-256
  으로 다시 검증됩니다.
@@ -684,7 +684,7 @@ action_types = (
 ```
 
 두 루트 간 중복 `name` 은 fatal 부하 오류 이므로 추가가 업스트림
-ActionType 을 조용히 그림자 할 수 없다 (shadowing 은 7.1 오버레이 계층의
+ActionType 을 조용히 shadow 할 수 없다 (shadowing 은 7.1 오버레이 계층의
 역할). [../../rule-catalog/action-types-custom/README.md](../../../rule-catalog/action-types-custom/README.md)
 참조.
 

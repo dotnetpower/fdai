@@ -9,7 +9,7 @@ translation_revised: 2026-08-11
 
 판테온이 제품 수준 기능 로 조합하는 13개 cross-agent 워크플로우. 각
 워크플로우는 참여 에이전트, 트리거, 종단간 순서, exit criteria 를
-명명한다. 모든 워크플로우는 그림자 모드로 먼저 배포
+명명한다. 모든 워크플로우는 shadow 모드로 먼저 배포
 ([agent-pantheon-implementation.md § Wave 7](agent-pantheon-implementation-ko.md#11-wave-7---shadow-로-cross-agent-workflows))
 되고 Wave 8 이 KPI 를 측정한 후 per-workflow 로 승격된다.
 
@@ -36,7 +36,7 @@ translation_revised: 2026-08-11
 - **트리거** - 흐름을 시작하는 이벤트 또는 스케줄.
 - **에이전트** - 역할 라벨 이 붙은 기본 + supporting.
 - **순서** - typed-port 메시지를 보여주는 mermaid diagram.
-- **Exit criteria** - 그림자 추적 성공 조건의 측정 가능한 조건.
+- **Exit criteria** - shadow 추적 성공 조건의 측정 가능한 조건.
 - **승격 게이트** - 강제 적용 모드에 필요한 KPI 임계값.
 - **Anti-scope** - 워크플로우가 의도적으로 하지 않는 것.
 
@@ -82,7 +82,7 @@ sequenceDiagram
 - `cost_annotation.monthly_delta_usd > fork_config.cost_ceiling` 인 경우
  HIL 없이 auto 판정 발행 안 됨.
 
-**승격 게이트.** 14일 그림자; 이 워크플로우 감사 샘플 에서 Njord
+**승격 게이트.** 14일 shadow; 이 워크플로우 감사 샘플 에서 Njord
 비용 예측 MAPE < 20%; 교정 에서 cost_annotation 누락 zero.
 
 **Anti-scope.** 예산 강제 아님 (Njord 는 그것을 위해 `CostAnomaly` 를
@@ -129,7 +129,7 @@ sequenceDiagram
 - False-positive 규모 zero (post-hoc 반응적 기준선 이 임계값 breach
  없음 표시로 검증).
 
-**승격 게이트.** 30일 그림자; 이 워크플로우 샘플 에서 Freyr 예측
+**승격 게이트.** 30일 shadow; 이 워크플로우 샘플 에서 Freyr 예측
 MAPE < 15%; false-positive 규모 비율 < 5%.
 
 **Anti-scope.** Autoscale 룰 아님 (기존 플랫폼 autoscale 은 계속 실행);
@@ -174,7 +174,7 @@ sequenceDiagram
 - MTTR 성능 저하 > 20% 시 용량 또는 경로 변경을 위한
  `RuleCandidate` 발생.
 
-**승격 게이트.** 그림자 에서 3회 성공적 훈련; 훈련 소요 시간 < 선언된
+**승격 게이트.** shadow 에서 3회 성공적 훈련; 훈련 소요 시간 < 선언된
 예산; unplanned 프로덕션 side-effect zero (Heimdall 의 blast-radius
 감사 로 측정).
 
@@ -216,7 +216,7 @@ sequenceDiagram
  `RuleCandidate` 생성 (dedup).
 - 후보 가 특정 재정의 를 참조해서 Mimir 가 맥락 리뷰 가능.
 
-**승격 게이트.** 60일 그림자; override-to-candidate 전환율이 예상
+**승격 게이트.** 60일 shadow; override-to-candidate 전환율이 예상
 패턴과 일치 (즉, 모든 재정의 가 후보 가 되지는 않음); false-candidate
 비율 < 10% (Mimir 거부 비율).
 
@@ -265,7 +265,7 @@ sequenceDiagram
 - Alert dedup: 1h 이내 same-user same-action 이 하나의 카드 로 합침.
 - Per-user 비율 한도: >5 카드/시간 다이제스트.
 
-**승격 게이트.** 30일 그림자; 주입된 critical 패턴에서 false 부정
+**승격 게이트.** 30일 shadow; 주입된 critical 패턴에서 false 부정
 zero; high 에서 false-positive 비율 < 5%.
 
 **Anti-scope.** Permission-upgrade 흐름 를 구현하지 않음 (future 작업,
@@ -311,7 +311,7 @@ sequenceDiagram
 - 승격 + 24h 회귀 clean 후 auto-close.
 - 닫는 comment 가 promoting PR 을 링크.
 
-**승격 게이트.** 90일 그림자; 전환율 (인계 -> promoted 룰)
+**승격 게이트.** 90일 shadow; 전환율 (인계 -> promoted 룰)
 기준선 캡처; false-close 비율 < 2%.
 
 **Anti-scope.** Rule 텍스트를 auto-write 하지 않음. 후보 는 근거
@@ -354,7 +354,7 @@ sequenceDiagram
  과 일치 (예: Saga down -> 변경 거부).
 - 감지 후 60초 이내 Bragi 브리핑 배송.
 
-**승격 게이트.** 30일 그림자; 선언된 모든 성능 저하 정책 가 주입된
+**승격 게이트.** 30일 shadow; 선언된 모든 성능 저하 정책 가 주입된
 실패 로 최소 한 번 테스트; briefing 지연 시간 p99 < 60s.
 
 **Anti-scope.** Self-heal 아님 - Heimdall 은 실패한 에이전트 를 재시작 하지
@@ -398,7 +398,7 @@ sequenceDiagram
 - 설명되지 않은 mismatch 가 정확히 하나의 후보 + 하나의 감사 alert
  생성.
 
-**승격 게이트.** 60일 그림자; mismatch 비율 기준선 캡처;
+**승격 게이트.** 60일 shadow; mismatch 비율 기준선 캡처;
 false-drift-alert 비율 < 5%.
 
 **Anti-scope.** Rule 변경을 자동 롤백하지 않음. 모든 alert 는
@@ -442,7 +442,7 @@ sequenceDiagram
  첨부).
 - Deviation 시 `RuleCandidate` 발생 (rollback_contract 업데이트 필요).
 
-**승격 게이트.** 각 ActionType 별 3회 성공적 예행 연습 후 그림자
+**승격 게이트.** 각 ActionType 별 3회 성공적 예행 연습 후 shadow
 밖에서 강제 적용 모드 자격. 예행 연습 cadence 는 Loki 스케줄로 강제.
 
 **Anti-scope.** 프로덕션 롤백 아님 (Vidar 가 실제 실패 에 반응할 때
@@ -484,7 +484,7 @@ sequenceDiagram
 - 오버레이 는 scoped (재생 이벤트만 + 추가된 룰 만).
 - 결과 재현 가능 (같은 입력 + 같은 오버레이 = 같은 출력).
 
-**승격 게이트.** 적용 안 됨 (이 워크플로우는 본질적으로 그림자 - 절대
+**승격 게이트.** 적용 안 됨 (이 워크플로우는 본질적으로 shadow - 절대
 변경을 실행하지 않음).
 
 **Anti-scope.** Saga 감사 로그 를 수정하지 않음. 오버레이 는 read-time
@@ -536,7 +536,7 @@ sequenceDiagram
 - 모든 발견 사항 은 룰 을 인용; ungroundable 발견 사항 은 abstain.
 - stale 인벤토리 는 stale 상태로 certify 하기보다 certify 를 거부.
 
-**승격 게이트.** 환경 당 30일 그림자; 주입된 critical 아이덴티티
+**승격 게이트.** 환경 당 30일 shadow; 주입된 critical 아이덴티티
 패턴에 대해 false 부정 zero; 차단 발견 사항 의 false-positive 비율
 < 5%.
 
@@ -558,7 +558,7 @@ materialize 한 strict five-field cron 예약 입니다.
 승인, Thor 는 Managed Run Command 실행, Saga 는 감사 기록 를 담당합니다.
 현재 런타임 은 이러한 책임을 authoring API, 스케줄러 와 `EventIngest`, unified
 risk 게이트, HIL 재개 조정기, 도구 실행기 에 매핑합니다. 선택적 Pantheon
-소비자 는 그림자 관찰기 로 유지되며 제안 을 실행하지 않습니다.
+소비자 는 shadow 관찰기 로 유지되며 제안 을 실행하지 않습니다.
 
 ```mermaid
 sequenceDiagram
@@ -583,7 +583,7 @@ sequenceDiagram
 재시도 는 같은 Managed Run Command 를 재사용하고 polling 실패 시 원격 취소 을
 시도하며 모든 최종 결과 는 감사 됩니다.
 
-**승격 게이트.** 14일 및 그림자 계획 30개, accuracy >= 99%, 정책 escape zero,
+**승격 게이트.** 14일 및 shadow 계획 30개, accuracy >= 99%, 정책 escape zero,
 `FDAI_VM_TASK_ENFORCE=1` 전에 명시적 Owner 검토 가 필요합니다.
 
 **Anti-scope.** VM 을 provision 하거나 패키지 또는 driver 를 설치하거나 셸
@@ -595,17 +595,17 @@ sequenceDiagram
 |---|------|---------|---------------|-----------------|
 | 1 | Cost-aware 교정 | 표류 / anomaly | Heimdall + Njord | 비용 예측 MAPE < 20% |
 | 2 | Predictive 규모 | Freyr 예측 (hourly) | Freyr | 예측 MAPE < 15%, FP < 5% |
-| 3 | DR 훈련 orchestration | Loki 스케줄 (weekly) | Loki | 3회 그림자 훈련 clean |
+| 3 | DR 훈련 orchestration | Loki 스케줄 (weekly) | Loki | 3회 shadow 훈련 clean |
 | 4 | 재정의 -> 발견 | Var 재정의 이벤트 | Var | 전환율 기준선 |
 | 5 | Security 에스컬레이션 | Forseti RBAC 거부 | Forseti | Critical FN zero, FP < 5% |
 | 6 | 인계 -> 기능 | Saga issue 생성 | Saga | 전환 기준선, FC < 2% |
 | 7 | 에이전트 상태 성능 저하 | Heimdall 탐색 | Heimdall | 모든 성능 저하 테스트 |
 | 8 | Judgment coherence 감사 | Forseti self-test | Forseti | Drift-alert FP < 5% |
 | 9 | Rollback 예행 연습 | Loki 스케줄 (monthly) | Loki | ActionType 당 3회 예행 연습 |
-| 10 | Retrospective what-if | Operator 또는 post-incident | Bragi | (본질적으로 그림자) |
-| 11 | Operational 준비 상태 인계 | `ownership_transfer` 신호 | Forseti | env당 30일 그림자, critical FN zero, FP < 5% |
+| 10 | Retrospective what-if | Operator 또는 post-incident | Bragi | (본질적으로 shadow) |
+| 11 | Operational 준비 상태 인계 | `ownership_transfer` 신호 | Forseti | env당 30일 shadow, critical FN zero, FP < 5% |
 | 12 | Scheduled 통제된 Python 작업 | Strict cron 예약 | Forseti + Thor | 계획 30개, accuracy >= 99%, escape zero, Owner HIL |
-| 13 | Detection 준비 상태 assurance | `detection.readiness.observed` | Heimdall | 대상별 30일 그림자, false-ready zero, stale p99 < 15분 |
+| 13 | Detection 준비 상태 assurance | `detection.readiness.observed` | Heimdall | 대상별 30일 shadow, false-ready zero, stale p99 < 15분 |
 ## Next 단계
 
 | 학습 주제 | 읽기 |

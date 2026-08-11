@@ -169,7 +169,7 @@ hostname을 사용해도 별도 연결을 유지하며 same-publisher 쌍은 계
 자체 호스팅 엔드포인트는 virtual 네트워크 검사 또는 `/v1/models`만 신뢰해 discover하지 않습니다.
 Publisher-keyed domain-separated Ed25519 등록
 (`fdai.model-endpoint-registration.v1`)을 통해 후보 집합에 들어옵니다. 잘못된 서명은
-parse 전에 차단합니다. 등록된 GPU 모델이 그림자 모드를 벗어나기 전 기능 탐색과 quality
+parse 전에 차단합니다. 등록된 GPU 모델이 shadow 모드를 벗어나기 전 기능 탐색과 quality
 재생이 계속 필요합니다.
 
 프로비저닝된 용량 발견은 Azure 모델 Capacities 관리 API를 사용합니다. 실제 운영 해석기는
@@ -367,7 +367,7 @@ return quorum_result(cand_a, cand_b)
 멈추고 HIL로 라우팅할까?"에 답하는 stateless 함수. 정책을 먼저 단독으로 -
 라이브 배선 전에 테스트·감사 가능하게 - 출하하는 것은 debate-router
 delta-2a -> delta-2b 순서를 따른다. `QualityGate`는 `EscalationLadderConfig`가
-배선되면 결정을 **그림자**(`QualityDecision.escalation_route` /
+배선되면 결정을 **shadow**(`QualityDecision.escalation_route` /
 `escalation_reason`, 그리고 읽은 `self_consistency` stability,
 `quality_decision_audit_fields`로 표면화)로 기록한다 - 측정만 하고 행동은 안 함;
 escalated 모델을 실제 호출하는 것은 다음 강제 적용 스텝. `on_self_consistency_below`
@@ -379,7 +379,7 @@ escalated 모델을 실제 호출하는 것은 다음 강제 적용 스텝. `on_
 개수가 필요합니다. 기본 최소는 10입니다. 개수는 모델 후보가 아니라 orchestration에서 오며,
 개수와 구성된 최소 모두 `escalation_metadata`에 기록됩니다. 개수가 없으면 0으로 기본 설정되어
 `ontology_improvement_budget_remaining`으로 안전하게 중단됩니다. 영속 case-history orchestration이
-개수를 공급하고 별도 승격이 호출을 활성화할 때까지 그림자 관측으로 유지됩니다.
+개수를 공급하고 별도 승격이 호출을 활성화할 때까지 shadow 관측으로 유지됩니다.
 
 단계 구조 rung(`EscalationTier`)은 레지스트리 기능과 일대일:
 `PRIMARY` -> `SECONDARY` -> `ESCALATED`. `decide_escalation`은 `ESCALATE`
@@ -492,7 +492,7 @@ collapse" 위험은 *쌍 전체*를 속도로 라우팅할 때의 문제이고, 
 
 - **절대 프로덕션 매핑 auto-swap 안 함.** 하드 폐기라도 초안 PR 오픈. 폐기 날짜가 병합된 대체
  없이 지나면, 그 기능의 티어는 저렴 계열로 조용히 다운그레이드가 아니라 **HIL로 강등**.
-- **모델에도 그림자 before 강제 적용.** 병합된 레지스트리 변경이 해석기를 그림자에서 재실행: 새
+- **모델에도 shadow before 강제 적용.** 병합된 레지스트리 변경이 해석기를 shadow에서 재실행: 새
  배포가 병렬로 프로비저닝되고, quality-measurement 리플레이가 고정 시나리오 세트에서
  스코어링, 클린 리플레이만이 `resolved-models.json` 컷오버 승격.
 - `rule-catalog/llm-registry.yaml` 의 **PR 리뷰어** 는 Owner-티어 - 모델 스왑은 high-blast-radius
@@ -821,7 +821,7 @@ signature = sha256(
 
 - **민감정보 제거가 해시 전 실행** - 그래서 시크릿이 절대 서명에 진입 못함.
 - **`evaluates` 에 명명된 속성만** 참여, 그래서 관련 없는 리소스 churn이 재사용을 무효화하지 않음.
-- **카탈로그 / 모델 버전 bump** 와 **그림자 ↔ 강제 적용 전이** 는 새 서명 강제, 별도 cache-flush
+- **카탈로그 / 모델 버전 bump** 와 **shadow ↔ 강제 적용 전이** 는 새 서명 강제, 별도 cache-flush
  스텝 없이 [비용 통제 수단](#비용-컨트롤cost-controls) 의 무효화 규칙 적용 보장.
 
 ### 재사용 감사 (모든 레이어, 적중 포함)
@@ -833,7 +833,7 @@ signature = sha256(
 - 발동한 `rule_id` 와 `rule_version`
 - `signature` 와 매칭 방법(정확 적중 / cos 유사도 + 스코어 / 캐시 age)
 - `reused_from`: 결과가 재사용된 audit_id로의 back-reference (L2/L4)
-- `mode` (그림자 / 강제 적용) 와 결과 risk-gate 결정
+- `mode` (shadow / 강제 적용) 와 결과 risk-gate 결정
 
 Resolvable `reused_from` 없는 재사용은 결함 - 감사 체인은 원래 그것을 검증한 L5 결과로 어떤
 결정에서든 walkable하고 유효한 규칙/모델 버전으로 forward해야 함.
@@ -860,7 +860,7 @@ Resolvable `reused_from` 없는 재사용은 결함 - 감사 체인은 원래 �
 
 ## 비용 컨트롤(비용 통제 수단)
 
-- **정규화된 이벤트 서명 + 규칙 카탈로그 버전 + 모델-config 버전 + 그림자/강제 적용 모드** 를
+- **정규화된 이벤트 서명 + 규칙 카탈로그 버전 + 모델-config 버전 + shadow/강제 적용 모드** 를
  포함하는 서명으로 T1/T2 결과 **캐시**. 이것이 캐시를 변경에 걸쳐 정확하게 함: 카탈로그나
  모델-config bump가 stale 엔트리 무효화.
 - **무효화**: TTL 적용, 규칙-카탈로그 승격 시 무효화; 신선한 평가가 HIL로 보낼 케이스에 **절대**
@@ -892,8 +892,8 @@ Resolvable `reused_from` 없는 재사용은 결함 - 감사 체인은 원래 �
  오프라인 스코어링, per-model, per-tier 점수표 생산.
 - **Hallucination 비율**: 생성된 후보 중 인용이 grounding-validity 검사 실패하거나 검증기가
  액션 거부한 것의 비율로 측정, 샘플링되고 주기적 human-labeled - 모델의 self-report 아님.
-- 모델별, 티어별 정확도와 hallucination 비율 추적; **회귀는 승격을 자동 블록** (그림자→강제 적용이
- 그림자에 유지) [security-and-identity-ko.md](security-and-identity-ko.md) 에 따라.
+- 모델별, 티어별 정확도와 hallucination 비율 추적; **회귀는 승격을 자동 블록** (shadow→강제 적용이
+ shadow에 유지) [security-and-identity-ko.md](security-and-identity-ko.md) 에 따라.
 - Mixed-model 불일치 비율은 모니터되는 신호; 상승하는 비율은 표류 또는 나쁜 모델 플래그. 이들은
  [goals-and-metrics-ko.md](goals-and-metrics-ko.md) 의 KPI에 공급.
 

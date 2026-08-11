@@ -307,7 +307,7 @@ AgentDuty -> requires_role -> FDAI App Role
 운영 control은 독립적인 가용성, 활성화된, authority-mode 축을 노출합니다. Kill 전환은
 변경 충족 여부를 낮출 수만 있습니다. 감사되는 활성화된 선호 설정은 재시작 시 적용되며
 승격 상태를 바꾸지 않고 privileged 어댑터 조립을 억제할 수 있습니다.
-조정은 현재 held 사례의 audited 그림자 복구 계획만 만들며 IAM 프로바이더를 호출하지
+조정은 현재 held 사례의 audited shadow 복구 계획만 만들며 IAM 프로바이더를 호출하지
 않습니다. 영속 상태가 구성되면 readiness-gated 런타임 워커가 제한된
 `human_access.reconciliation_interval_seconds` 주기로 이 관찰을 반복합니다.
 

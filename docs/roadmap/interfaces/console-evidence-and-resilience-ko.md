@@ -149,7 +149,7 @@ principal 범위 Command Deck 턴과 답변 계획 수립은 대화 이력에 �
 유지합니다. 사용 불가 값도 소유 화면을 열어 누락된 출처 또는 샘플을 확인할 수 있게 합니다.
 상세 목적지가 없는 structural 그룹, 양식, editor 및 범위가 제한된 도구는 카드 style이나 이름 대신 패널
 또는 섹션 의미 규칙을 사용합니다.
-사용 불가 메트릭 카드는 낮은 강조도의 전체 표면 배경, 권한 상승 그림자 없음 및 작고 muted한
+사용 불가 메트릭 카드는 낮은 강조도의 전체 표면 배경, 권한 상승 shadow 없음 및 작고 muted한
 값 텍스트를 사용해 측정 결과처럼 보이지 않게 합니다. 이 카드는 focus 가능한 drill-down 링크를
 유지하고 complete-border focus 또는 hover cue를 제공하며, 시각 표현에 비활성화된 의미 규칙을
 사용하지 않습니다.
@@ -585,7 +585,7 @@ notification 전달을 분당 5건으로 제한하지만 감사 또는 인시던
 그룹을 사용하므로 연결된 모든 콘솔이 완전한 하트비트 집합을 수신합니다. Deployed Pantheon도
 핸들러 `started`, `completed`, `failed` transition을 이 전송 계층으로 게시합니다. Give up 또는 halt된
 소비자는 형제를 유지한 채 health-derived 하트비트에서 빠지고 최종 에이전트/토픽은 런타임
-상태에 남습니다. Saga 또는 Vidar 실패는 sticky 그림자를 강제합니다. 이 transition은 런타임
+상태에 남습니다. Saga 또는 Vidar 실패는 sticky shadow를 강제합니다. 이 transition은 런타임
 활동이며 영속 감사 근거가 아닙니다.
 
 Command Deck은 완전한 또는 pending SSE 프레임이 256 KiB를 넘으면 `data:` 줄 누적이나 JSON parse

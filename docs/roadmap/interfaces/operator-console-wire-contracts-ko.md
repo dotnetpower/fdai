@@ -156,7 +156,7 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도�
 multi-file Python 작업 workbench 를 포함합니다.
 Operator 는 출처 file 을 편집하고 entrypoint 를 선택하며 모듈 및 host
 기능 를 선언한 뒤 validate, 변경할 수 없는 산출물 단계, 인벤토리 Resource 대상
-그림자 계획 을 수행할 수 있습니다.
+shadow 계획 을 수행할 수 있습니다.
 
 기능 응답 는 선택적 연산 별 가용성을 따로 보고합니다. Console 은 경로 가
 없으면 workbench 를 열지 않으며 어댑터, submitter 또는 예약 저장소 가 연결되지 않은
@@ -170,7 +170,7 @@ Workbench 는 콘솔 신원 경계 를 유지합니다.
  모듈 로 injected `PythonTaskAuthor` 를 호출합니다. 초안 는 요청 control 이
  활성화 되기 전에 계속 validate 및 단계 되어야 합니다.
 - **단계 산출물** 는 VM 이 아니라 내용 기반 주소를 가진 산출물 저장소 에 씁니다.
-- **테스트 그림자 계획** 은 `PlanningVmTaskRunner` 를 사용합니다. Operator API 에는 실행
+- **테스트 shadow 계획** 은 `PlanningVmTaskRunner` 를 사용합니다. Operator API 에는 실행
  Command 를 만들 수 있는 Managed Identity가 없습니다.
 - **요청 통제된 실행** 은 타입이 지정된 `ActionProposal` 을 publish 합니다. Console
  프로세스 에서 `VmTaskRunner` 를 호출하거나 file 을 copy 하거나 Python 을 실행하지

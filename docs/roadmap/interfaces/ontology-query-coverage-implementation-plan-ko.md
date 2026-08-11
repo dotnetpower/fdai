@@ -67,7 +67,7 @@ translation_revised: 2026-08-11
 > OQ-04에는 이제 whole 범위가 제한된 턴과 후보 서술자에서 semantic 프레임 및 타입이 지정된 노드 DAG를
 > 제안하는 스키마로 제한한 모델 seam이 있습니다. Core는 모든 다이제스트/권한 필드를 다시 만들고
 > exact principal 매니페스트를 검증하며 검증된 계획, 명확화 하나, action-draft 인계,
-> 지원하지 않는 또는 사용 불가 결과를 반환합니다. Compatibility 조정기는 이 경로를 그림자로
+> 지원하지 않는 또는 사용 불가 결과를 반환합니다. Compatibility 조정기는 이 경로를 shadow로
 > 실행하고 처리 결과/내용 다이제스트만 기록할 수 있습니다. Azure 어댑터는 이제 워크로드 신원을
 > 통해 범위가 제한된 JSON-object 호출 두 개를 실행하고 proposal 스키마 두 개를 검증하며 resolved 후보를
 > 순서대로 시도합니다. Core 조립은 모든 선행 조건을 사용할 수 있을 때 이 어댑터를 exact
@@ -201,13 +201,13 @@ purpose-bound 변경할 수 없는 변환 결과를 사용할 수 있지만 한 
 | OQ-01 | `SemanticProblemFrame`, `OntologyQueryPlan`, 의도 목표, 명확화, 작업 증적 및 structural 커버리지 증적의 versioned shared 계약을 추가합니다. | OQ-00 | N/N-1 codec 테스트가 unknown 권한, unbounded 계획, cycle 및 stale ref를 차단합니다. |
 | OQ-02 | 온톨로지 카탈로그 data에 LinkType 조회 side와 검토된 Interface 선언을 추가하고 exact release에서 완전한 principal 범위로 한정된 매니페스트를 생성합니다. | OQ-01 | 읽을 수 있는 모든 ObjectType, Property, LinkType side, Interface, FunctionType 및 초안 전용 ActionType에 서술자 또는 사용 불가 사유가 있습니다. |
 | OQ-03 | ObjectSet, set 연산, 정렬, 집계, 변환 결과 및 타입이 지정된 function 노드 위에 범용 계획 검증기/실행기를 구현합니다. | OQ-01, OQ-02 | Property 테스트가 한계, 타입 safety, 용도 narrowing, ACL closure, 잘림, 취소 및 고정된 증적을 입증합니다. |
-| OQ-04 | String-command `ReadPlanNarrator` planning을 Bragi-owned 스키마로 제한한 decomposition, 매니페스트 search/describe, 결정론적 검증 및 영속 명확화로 교체합니다. Compatibility 경로 옆에서 그림자로 실행합니다. | OQ-02, OQ-03 | English/Korean 턴이 replay-stable 검증된 계획 또는 범위가 제한된 명확화 하나를 만들며 검증되지 않은 읽기를 호출하지 않습니다. |
+| OQ-04 | String-command `ReadPlanNarrator` planning을 Bragi-owned 스키마로 제한한 decomposition, 매니페스트 search/describe, 결정론적 검증 및 영속 명확화로 교체합니다. Compatibility 경로 옆에서 shadow로 실행합니다. | OQ-02, OQ-03 | English/Korean 턴이 replay-stable 검증된 계획 또는 범위가 제한된 명확화 하나를 만들며 검증되지 않은 읽기를 호출하지 않습니다. |
 | OQ-05 | 범위가 제한된 동시성, 취소, 차단된 descendant, conflict detection, 근거 원장 하나 및 점유 검증을 갖춘 서버 측 의도 그래프와 dependency-wave 작업 실행기를 구현합니다. | OQ-03, OQ-04 | Operator 서비스가 Console이 이미 검증하는 같은 versioned 그래프/증적을 스트림하며 부분 가지가 완전한 답변이 되지 않습니다. |
 | OQ-06 | Owning 서비스에 구체적인 semantic-index 어댑터와 off-path 세대 발행기를 복원한 뒤 세대 문서를 Rule에서 선언 및 조건을 충족한 deployment-local 객체 변환 결과로 확장합니다. | OQ-02 | Full initial 세대, digest-reusing incremental 세대, 독립적인 검증, atomic activation, stale 성능 저하 및 롤백 테스트가 통과합니다. |
 | OQ-07 | VNet 피어링, 경로, 비공개 엔드포인트, 네트워크 구성원, 워크로드 placement 및 서비스 의존성의 현재 Azure topology 변환 결과를 완성하고 network-path 증적 발급자를 연결합니다. | OQ-02, OQ-03 | VM-to-service 및 service-to-data-store 경로 고정본이 direction, reciprocal 피어링 근거, 완전성 및 unknown absence를 보존합니다. |
 | OQ-08 | 추가 전용 topology relationship 개정 번호와 retained provider-generation ref를 추가하고 범위가 제한된 `graph_at`/`topology_diff` function을 구현합니다. 현재 그래프는 fast current-state 변환 결과로 유지합니다. | OQ-03, OQ-07 | Before/after 피어링 고정본이 결정을 다시 쓰지 않고 exact retained 그래프, tombstone, late 근거 및 불완전한 이력을 재구성합니다. |
 | OQ-09 | 검토된 metric-semantic 레지스트리와 메트릭 series, 변경 지점, aligned 구간, cross-resource temporal 상관관계 및 causal support/refutation function을 추가합니다. | OQ-03, OQ-05, OQ-08 | Request-growth 및 storage-write-loss 시나리오가 zero와 누락된 data를 구분하고 chronology를 원인으로 단정하지 않으며 competing explanation을 인용합니다. |
-| OQ-10 | 새 경로를 모든 compatibility 경로와 그림자 재생하고 집단으로 승격한 뒤 ordinary 언어에서 정규식, 키워드 서술기, phrase-based 답변 의도 및 canonical-string 읽기 planning을 제거합니다. 명시적 exact-command 표면은 별도로 유지합니다. | OQ-05, OQ-06, OQ-09 | 새 경로가 집단 quality/지연 시간을 유지하거나 개선하고 이전 방식 ordinary-language 라우팅 share는 0이며 exact technical 명령은 결정론적하게 남습니다. |
+| OQ-10 | 새 경로를 모든 compatibility 경로와 shadow 재생하고 집단으로 승격한 뒤 ordinary 언어에서 정규식, 키워드 서술기, phrase-based 답변 의도 및 canonical-string 읽기 planning을 제거합니다. 명시적 exact-command 표면은 별도로 유지합니다. | OQ-05, OQ-06, OQ-09 | 새 경로가 집단 quality/지연 시간을 유지하거나 개선하고 이전 방식 ordinary-language 라우팅 share는 0이며 exact technical 명령은 결정론적하게 남습니다. |
 | OQ-11 | 모든 온톨로지 release/기능 변경에 continuous structural 커버리지 및 질문 처리 결과 gate를 적용합니다. | OQ-10 | Structural 커버리지와 최종 처리 결과는 100%, 지원하지 않는 점유와 승인되지 않은 실행은 0이며 답변 커버리지는 집단별로 보고합니다. |
 
 ## 병렬 lane 및 병합 지점
@@ -242,7 +242,7 @@ write-attempt 근거를 조회하며 DNS, 경로, firewall, 자격 증명 및 ap
 ## 이행, 롤아웃 및 롤백
 
 - **가산 계약 우선:** 새 필드/표는 현재 읽기 경로를 바꾸지 않고 landing합니다.
-- **그림자 비교:** 새 계획은 compatibility 라우팅 옆에서 읽기 전용으로 실행되며 집단 gate 전에는
+- **shadow 비교:** 새 계획은 compatibility 라우팅 옆에서 읽기 전용으로 실행되며 집단 gate 전에는
  visible 답변을 바꾸지 않습니다.
 - **Atomic 세대:** Semantic 세대는 pointer activation 전에 단계/validate하며 롤백은 retained
  compatible 세대를 다시 activate합니다.

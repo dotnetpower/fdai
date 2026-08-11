@@ -51,7 +51,7 @@ translation_revised: 2026-08-11
 
 1. **원격측정 백본**: OpenTelemetry 배선, 감사/상태/KPI 저장소
  ([tech-stack-ko.md](../architecture/tech-stack-ko.md)), 최소 `event_id`, `tier`, `decision`, `mode`
- (그림자/강제 적용), detect/해석 타임스탬프를 운반하는 `shared/contracts/` 의 버전된
+ (shadow/강제 적용), detect/해석 타임스탬프를 운반하는 `shared/contracts/` 의 버전된
  이벤트 스키마.
 2. **시나리오 세트**: 복원력, 변경 안전성, 비용 거버넌스 시나리오 고정 세트를
  정의하고 **freeze** , 세 버티컬에 걸쳐 균형,
@@ -87,7 +87,7 @@ translation_revised: 2026-08-11
 **L** 1-2주); 실제 경과 시간은 병렬성에 따라 다름.
 
 모든 태스크는 **shadow-first** 로 랜딩
-([architecture.instructions.md § 그림자 → 강제 적용 승격](../../../.github/instructions/architecture.instructions.md#safety-invariants));
+([architecture.instructions.md § shadow → 강제 적용 승격](../../../.github/instructions/architecture.instructions.md#safety-invariants));
 P0에는 enforce-mode 능력이 범위에 없음.
 
 ### WI1 - 원격측정 백본
@@ -256,7 +256,7 @@ gantt
   저장.
 - [ ] **재현 가능한 베이스라인** 존재: 고정 시나리오 세트 버전에서 pinned 참조 에이전트가
   재실행 시 보고된 신뢰구간 내 같은 수치 산출, 표본 크기와 버전 기록.
-- [ ] **베이스라인이 성공 메트릭 1-4와 모든 가드 메트릭 커버** - 이후 그림자 → 강제 적용 승격이
+- [ ] **베이스라인이 성공 메트릭 1-4와 모든 가드 메트릭 커버** - 이후 shadow → 강제 적용 승격이
   성공과 가드 참조 모두 가짐.
 - [ ] **KPI 대시보드가 라이브** - 메트릭 1-4, 가드 메트릭, 선행 지표 표시, 각각 원격측정 소스에
   추적.

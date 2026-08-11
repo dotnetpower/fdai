@@ -26,7 +26,7 @@ translation_revised: 2026-08-11
 > `OperationalContextSnapshot`으로 구현되어 있습니다. 링크 선언과 기록은 이미
 > `from -> to` direction을 저장합니다. D1은 `contains`를 1:M cardinality의 부모 -> 자식 방향으로
 > 정렬하고 Kubernetes 이름 공간 containment 및 VM NIC/disk 첨부를 맞춥니다. D2-D4 프로바이더
-> 대응, adversarial 커버리지 및 그림자 이행 근거는 제공 작업으로 남아 있습니다.
+> 대응, adversarial 커버리지 및 shadow 이행 근거는 제공 작업으로 남아 있습니다.
 
 ## 한눈에 보는 설계
 
@@ -138,7 +138,7 @@ symmetric 관계는 현재 스키마에서 independently supported directed 기�
 | D1 | 모든 shipped LinkType과 생산자를 정본 역할/cardinality에 맞춰 감사합니다. | `contains`, `attached_to`, `depends_on` 선언, Azure/Kubernetes 변환 결과, 소유권 룰 및 테스트가 하나의 orientation에 동의합니다. |
 | D2 | 명시적 엔드포인트 orientation과 source-schema 출처 이력이 있는 검토된 프로바이더 관계 대응을 추가합니다. | 프로바이더 참조 소유권이 온톨로지 direction을 암묵적으로 선택할 수 없습니다. |
 | D3 | 완전한, missing-endpoint, reversed-input, 중복 및 partial-coverage 고정본을 추가합니다. | 검증된 링크만 활성 그래프에 들어가며 모호한/불완전한 경로는 absent 상태로 보고됩니다. |
-| D4 | 이행 전에 기존 그래프 세대와 aligned 그래프 세대를 그림자 비교합니다. | Directional 조회 및 blast-radius 차이가 측정, 검토, 재생 가능하며 롤백 포인터를 갖습니다. |
+| D4 | 이행 전에 기존 그래프 세대와 aligned 그래프 세대를 shadow 비교합니다. | Directional 조회 및 blast-radius 차이가 측정, 검토, 재생 가능하며 롤백 포인터를 갖습니다. |
 
 저장된 링크 해석을 바꾸는 direction 또는 cardinality 수정에는 새 LinkType major 버전이나 명시적
 그래프 이행이 필요합니다. Historical 맥락 스냅샷을 제자리에서 수정하지 않습니다.
@@ -256,7 +256,7 @@ Infrastructure projector는 소유자의 타입이 지정된 출력을 저장할
 | M1 | 의미 InterfaceType을 `OntologyRelease`에 포함합니다. | Interface 다이제스트, exact 참조, 호환성, empty-input backward-compatibility 테스트가 통과합니다. |
 | M2 | 계획/호출 계보를 포함해 범위가 제한된 ObjectSet을 materialize하는 조회 FunctionType을 추가합니다. | 용도, release, 잘림, 근거 증적이 종단 간으로 보존됩니다. |
 | M3 | 기존 ObjectType 및 함수 출력으로 state-fact 필드와 링크 관측 메타데이터를 표준화합니다. | 관찰된/derived 사실이 혼동되지 않고 stale/conflicting 사실이 자율성을 낮춥니다. |
-| M4 | `read_investigation` 의도 하나를 그림자 검증된 조회 프로파일로 옮깁니다. | 기존 결과와 ontology-native 결과가 일치하거나 차이가 명시적으로 남습니다. |
+| M4 | `read_investigation` 의도 하나를 shadow 검증된 조회 프로파일로 옮깁니다. | 기존 결과와 ontology-native 결과가 일치하거나 차이가 명시적으로 남습니다. |
 | M5 | D1-D4 이후 competency-driven 네트워크 및 텔레메트리 관계 커버리지를 추가합니다. | VM connectivity 및 Pod 텔레메트리 체인이 올바른 방향의 검증된/검증되지 않은 구간을 보고합니다. |
 
 `StateType` 또는 `ContextType`은 M3/M4에서 ObjectType, InterfaceType, FunctionType, exact release 참조,

@@ -84,7 +84,7 @@ release 및 그래프 개정 번호가 있으면 함께 보존합니다. 결정�
 하한을 충족하지 않습니다.
 
 Ontology-owned 실패는 별도 `OntologyAdequacyReview`를 열 수 있습니다. 첫 런타임 구획은
-hold-first입니다. StateStore에 멱등적 그림자 검토를 기록하지만 재생 성공을 주장하거나
+hold-first입니다. StateStore에 멱등적 shadow 검토를 기록하지만 재생 성공을 주장하거나
 카탈로그 제안을 만들지 않습니다. 완전한 근거, 검증된 라우팅, resolved 신원, exact
 release 및 그래프 개정 번호, 결정론적 reproduction이 모두 있을 때만 검토가 준비된이 됩니다.
 프로바이더, 맥락, 렌더링, 정책 실패는 온톨로지 검토를 만들지 않습니다. 준비된 검토는
@@ -205,7 +205,7 @@ privacy-preserving `principal_scope`는 클러스터 키와 서명 다이제스�
 적용하며 추가 전용 전이 이력을 기록합니다. 이미 적용된 전이 재생은 no-op이고,
 stale 또는 cross-scope 전이는 거부됩니다.
 실행 가능한 후보는 SHA-256 다이제스트가 `policy_digest`와 정확히 일치하는 제한된 타입이 지정된
-산출물도 포함합니다. 이전 방식 digest-only 후보는 감사를 위해 읽을 수 있지만 그림자를
+산출물도 포함합니다. 이전 방식 digest-only 후보는 감사를 위해 읽을 수 있지만 shadow를
 벗어나거나 런타임 레지스트리에 들어갈 수 없습니다.
 수명 주기 조정기는 scoped 클러스터, 대상 및 정책 다이제스트에서 고정된 후보 신원을
 계산합니다. injected 제안자는 이 제한된 신원만 반환할 수 있고, injected blind trial
@@ -213,7 +213,7 @@ measurer는 모든 승격 메트릭을 제공합니다. 단계 변경 시 발행
 원장이 전이를 두 번째로 커밋합니다. 영속성이 실패하면 오류를 전달하기 전에
 발행기가 incumbent를 복원합니다. 영속성과 복원이 모두 실패하면 최종 오류는
 원래 저장소 실패를 숨기지 않고 복구에 필요한 두 원인을 모두 보존합니다. 제안, 측정
-또는 발행기 근거가 없으면 후보는 그림자에 남습니다.
+또는 발행기 근거가 없으면 후보는 shadow에 남습니다.
 배포된 수명 주기는 서술기 백엔드, 카탈로그 pricing, PostgreSQL 저장소 및 서로 다른 평가기
 계열 두 개 이상을 모두 사용할 수 있을 때만 활성화됩니다. 부분 배포는 assessment-only로 남아
 의미 검토를 `inconclusive`로 보고하며 단일 모델이나 비용 0으로 대체하지 않습니다. 현재
@@ -222,7 +222,7 @@ resolved 로컬 프로파일도 보조 reasoner가 `hil-only`이면 이 보류 �
 ### 블라인드 승격과 롤백
 
 각 후보는 원래 실패 질문, 실패당 최소 세 개의 paraphrase, 고정된 영어 및 한국어 벤치마크,
-숨겨진 holdout에서 실행됩니다. 이후 그림자, 트래픽 1 percent, 5 percent, 25 percent, 100
+숨겨진 holdout에서 실행됩니다. 이후 shadow, 트래픽 1 percent, 5 percent, 25 percent, 100
 percent 단계를 진행합니다.
 Incumbent와 후보는 각각 영어와 한국어에서 검증된 답변을 하나 이상 생성해야 합니다.
 로케일 하나라도 검증된 답변이 없으면 trial은 unmeasured 상태를 유지하고 승격 메트릭을
@@ -238,7 +238,7 @@ r_{next}>r \Longrightarrow d(M_{r_{next}}) \ne d(M_r)
 $$
 
 단계 불일치, 이미 소비된 다이제스트 또는 누락된 측정 신원은 진행을 차단합니다. 반복 intake는
-기록된 전이를 재생할 수 있지만 하나의 그림자 또는 canary 결과를 재사용해 이후 트래픽
+기록된 전이를 재생할 수 있지만 하나의 shadow 또는 canary 결과를 재사용해 이후 트래픽
 단계를 진행할 수 없습니다.
 
 별도의 영속 런타임 레지스트리가 각 `(principal_scope, target)`에 현재 적용된 산출물을

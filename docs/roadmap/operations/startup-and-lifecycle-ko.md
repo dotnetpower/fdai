@@ -9,7 +9,7 @@ translation_revised: 2026-08-11
 
 FDAI가 새로 프로비저닝된 Azure 구독에서 **콜드로 시작해 정상 상태에 도달** 하는 방법.
 답변: 시스템은 언제 "시작"하는가? 첫날 카탈로그에 무엇이 있는가? 자율 발견 루프는 언제
-시작하는가? 그림자 → 강제 적용 라이프사이클은 어떻게 시퀀싱되는가?
+시작하는가? shadow → 강제 적용 라이프사이클은 어떻게 시퀀싱되는가?
 
 [deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md) (프로비저닝 처리) 와
 [operating-and-verification-ko.md](operating-and-verification-ko.md) (지속 관측 처리) 보완.
@@ -124,7 +124,7 @@ Narrator 대상은 TTFT p95 2.5초 이내로 유지합니다
 ### 실패와 권한 규칙
 
 - **Process-critical**: 잘못된 구성, 토큰/시크릿 실패, PostgreSQL/감사 실패, 감사 hash-chain 불일치, 정책 compile 실패 또는 필수 Kafka 실패는 `/ready`를 닫습니다.
-- **Authority-critical**: 읽을 수 없는 비상 정지, 누락된 T2 검증 또는 사용 불가 승인은 그림자나 사람 승인을 강제합니다. 검증되지 않은 자동 액션을 활성화하지 않습니다.
+- **Authority-critical**: 읽을 수 없는 비상 정지, 누락된 T2 검증 또는 사용 불가 승인은 shadow나 사람 승인을 강제합니다. 검증되지 않은 자동 액션을 활성화하지 않습니다.
 - **선택적 기능**: 서술기, 검색, 알림 또는 텔레메트리 실패는 결정론적 대체 경로 또는 비활성화된 상태와 함께 `degraded`로 보고하며 healthy로 가장하지 않습니다.
 - **탐색 안전성**: 검사는 범위가 제한된, safe to 재시도, 정제된이며 전용 synthetic 리소스 외에는 읽기 전용입니다. 부분 필수 탐색은 `ready`가 아니라 `blocked`가 됩니다.
 
@@ -161,7 +161,7 @@ Narrator 대상은 TTFT p95 2.5초 이내로 유지합니다
 
 ### 지속적인 monitored-target 준비 상태
 
-Analyzer Container Apps 작업은 그림자 모드에서 기본 1분마다 실행됩니다. 명시적 대상이 있으면
+Analyzer Container Apps 작업은 shadow 모드에서 기본 1분마다 실행됩니다. 명시적 대상이 있으면
 이를 사용하고, 그렇지 않으면 영속 인벤토리에서 지원 리소스를 읽습니다. 각 AKS 대상에
 대해 정제된 6개 `detection.readiness.observed` 기록을 일반 raw 이벤트 토픽으로 발행합니다.
 이후 Huginn, Heimdall, Muninn, Forseti, Saga가 각각 정규화, 축약, 영속 스냅샷, 권한 상한,
@@ -202,7 +202,7 @@ stopped/deallocated 상태로 되돌렸습니다.
 
 첫날 카탈로그에 적용되는 규칙:
 
-- 모든 규칙은 심각도와 무관하게 **`effect: audit` (그림자)** 기본이어야 함. 강제 적용으로 시작하는
+- 모든 규칙은 심각도와 무관하게 **`effect: audit` (shadow)** 기본이어야 함. 강제 적용으로 시작하는
  규칙을 출시할 방법 없음; 첫날에 강제 적용으로 랜딩할 규칙은 승격 게이트 실패
  ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md)).
 - 모든 규칙은 시드 규칙 포함해서 근거에 기반한 **`provenance`** (출처 URL + resolved 개정 번호 +
@@ -265,14 +265,14 @@ materialize하고 런타임/Operator API는 구성된 파일 시스템 경로를
 
 | 마일스톤 | 초점 | 진행 게이트 |
 |----------|------|-------------|
-| **D+0 → D+7** | 루프가 그림자에서 종단 실행 검증: 이벤트 랜딩 → 티어 결정 → 감사 기록 | 조용한 드롭 0, 미인증 액션 0, canary green |
-| **D+7 → D+14** | 규칙별 그림자 정확도 + false-positive 비율 측정; 저위험 승격 후보 식별 | [goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md) 에 따른 그림자 표본 크기와 정확도 임계 |
-| **D+14 → D+30** | 소수의 첫 저위험 규칙 배치를 `remediate` (PR-only) 로 승격, 모호한 것은 HIL | 그림자 윈도우 내 정책 위반 escape 0 |
+| **D+0 → D+7** | 루프가 shadow에서 종단 실행 검증: 이벤트 랜딩 → 티어 결정 → 감사 기록 | 조용한 드롭 0, 미인증 액션 0, canary green |
+| **D+7 → D+14** | 규칙별 shadow 정확도 + false-positive 비율 측정; 저위험 승격 후보 식별 | [goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md) 에 따른 shadow 표본 크기와 정확도 임계 |
+| **D+14 → D+30** | 소수의 첫 저위험 규칙 배치를 `remediate` (PR-only) 로 승격, 모호한 것은 HIL | shadow 윈도우 내 정책 위반 escape 0 |
 | **D+30 →** | 지속적 승격 사이클, 한 번에 한 규칙, 각각 enforce-promotion 승인 게이트에 따라 | 회귀 스위트 green, 측정된 정확도 안정 |
 
 전 구간 적용되는 규칙:
 
-- 어떤 회귀는 승격된 규칙을 **자동으로 그림자로 강등** - 강등은 승격 승인자를 절대 필요로 하지
+- 어떤 회귀는 승격된 규칙을 **자동으로 shadow로 강등** - 강등은 승격 승인자를 절대 필요로 하지
  않아 안전 방향 저하는 항상 빠름
  ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md#effects-mode)).
 - 강제 적용 승격은 제안한 운영자와 **별도 승인** 필요
@@ -323,7 +323,7 @@ materialize하고 런타임/Operator API는 구성된 파일 시스템 경로를
 > 현재 업스트림에는 이 모든 조건을 평가해 루프를 자동 활성화하는 시작 조정기가
 > 없습니다. 아래 조건은 향후 activation 게이트 계약입니다.
 
-1. 감사 로그가 최소 **`N` 그림자 결정** 을 축적하여 observe 스테이지에 실제 베이스라인 제공.
+1. 감사 로그가 최소 **`N` shadow 결정** 을 축적하여 observe 스테이지에 실제 베이스라인 제공.
  `N` 은 설정 가능; **TBD** - 낮은 수천대 권장.
 2. 최소 하나의 컬렉터가 성공 실행(배선 + 출처 이력 증명).
 3. Mixed-model 교차 검사 대상과 결정론적 검증기가 건강.

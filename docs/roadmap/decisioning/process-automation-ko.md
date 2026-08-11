@@ -15,7 +15,7 @@ translation_revised: 2026-08-11
 
 이 문서는 [agent-workflows.md](../agents/agent-workflows-ko.md) 의 머신-리더블 대응물이다.
 그 문서가 12개 cross-agent 워크플로를 산문과 시퀀스 다이어그램으로 기술한다면,
-이 문서는 워크플로를 catalog-as-code 로 출시하고 그림자 모드로 실행하게 하는
+이 문서는 워크플로를 catalog-as-code 로 출시하고 shadow 모드로 실행하게 하는
 카탈로그 스키마, 온톨로지 추가분, 런타임 배선을 정의한다.
 
 > **범위.** 여기의 모든 것은 customer-agnostic 이다
@@ -119,7 +119,7 @@ anti_scope: >-       # 선택적; 워크플로가 의도적으로 제외하는 �
 - **`on_failure` 는 성공 경로에서도 실행된다.** 컴파일된 런북 러너는 선언된
  모든 스텝을 순서대로 걷는다; `on_failure` 대상은 성공 시에도 실행되는 일반
  스텝이며, 추가로 실패 시 대체 경로 으로도 실행된다. 조건부 분기가 구현되고 테스트되기
- 전까지 `on_failure`가 null이 아닌 워크플로우는 강제 적용 승격 대상이 아니며 그림자에
+ 전까지 `on_failure`가 null이 아닌 워크플로우는 강제 적용 승격 대상이 아니며 shadow에
  남아야 합니다. 제공 워크플로우는 이를 null로 두고 `compensated_by`를 사용합니다. 멱등
  대체 경로를 작성해도 승격 차단이 해제되지 않습니다.
 
@@ -188,7 +188,7 @@ Mine은 비공개 user 정의를 포함한다. **My automations**는 principal �
 
 ## 4. 컨트롤 루프 통합
 
-focused 소유자 문서로 이동했습니다: [workflow-control-loop-integration-ko.md](workflow-control-loop-integration-ko.md). 통제된 그림자/강제 적용 오케스트레이터, 가드 평가 경계, 런타임 저널과 온톨로지 변환 결과, 수동 그림자/강제 적용 명령, 통제된 Python 작업 및 cron 예약, 통제된 명령 및 셸 산출물을 다룹니다.
+focused 소유자 문서로 이동했습니다: [workflow-control-loop-integration-ko.md](workflow-control-loop-integration-ko.md). 통제된 shadow/강제 적용 오케스트레이터, 가드 평가 경계, 런타임 저널과 온톨로지 변환 결과, 수동 shadow/강제 적용 명령, 통제된 Python 작업 및 cron 예약, 통제된 명령 및 셸 산출물을 다룹니다.
 
 런타임 전달에는 카탈로그 기반 도구 전체에 적용되는 하나의 catalog-root 불변식이
 있습니다. 명시적 `catalog_root`로 컨트롤 루프를 구성하면 chaos 실행기(전체 및
@@ -235,7 +235,7 @@ role-group 대응이 구성된 경우에만 허용 목록 기반 Entra 어댑터
 `StateStoreWorkflowOutcomeLedger`를 연결합니다. 컨트롤 루프는 강제 적용 액션과
 `ResponseOutcome`의 실행 신원이 일치할 때만 변경할 수 없는 증적을 기록하며, 성공 증적에는
 독립적으로 검증된 효과 근거도 필요합니다. 해석기는 제안 참조, 프로세스, 단계로
-증적을 읽으므로 재개 시 호출자가 제공한 상태나 증적 맥락을 신뢰하지 않습니다. 그림자,
+증적을 읽으므로 재개 시 호출자가 제공한 상태나 증적 맥락을 신뢰하지 않습니다. shadow,
 알 수 없음, 누락된, mismatched, unscorable 결과는 프로세스를 진행시킬 수 없습니다.
 
 `StateStoreAutomationHoldLedger`는 recovery-incomplete 프로세스가 종료되기 전에 대상 다이제스트 기반
@@ -269,13 +269,13 @@ design이 이 ActionType들을 pin하며 런타임에서 arbitrary 변경을 선
 묶음을 불완전한으로 표시하므로 시크릿을 저장하는 대신 재개를 차단합니다.
 `POST /workflows/{process_id}/resume`은 요청 본문을 허용하지 않습니다. 경로는 프로세스 스냅샷과
 creation 이벤트를 다시 읽고 작업 흐름 이름 및 버전과 derived 프로세스 id를 검증한 뒤 original 대상,
-상관관계, 트리거, 모드, safe 맥락을 재사용합니다. 기여자는 그림자 프로세스를 재개할 수
+상관관계, 트리거, 모드, safe 맥락을 재사용합니다. 기여자는 shadow 프로세스를 재개할 수
 있습니다. 강제 적용 프로세스에는 계속 Owner와 현재 작업 흐름 강제 적용 허용 목록이 필요합니다. 근거가
 누락된, 이전 방식, malformed, 민감정보가 제거된, version-mismatched 또는 identity-mismatched 상태이면 타입이 지정된 충돌을
 반환하고 단계를 전달하지 않습니다.
 
 `POST /workflows/{process_id}/cancel`도 요청 본문을 허용하지 않으며 같은 영속 묶음을
-해석합니다. 기여자는 그림자 프로세스를 취소할 수 있고 강제 적용 프로세스에는 Owner가
+해석합니다. 기여자는 shadow 프로세스를 취소할 수 있고 강제 적용 프로세스에는 Owner가
 필요합니다. 이 명령은 프로세스가 `pending` 또는 `waiting`일 때만
 `process.cancellation-requested`를 기록합니다. `running` 프로세스는 in-flight 디스패처가 idle이라고
 가정할 수 없으므로 `process_not_at_safe_boundary`를 반환합니다. Waiting 액션은 먼저 권위 있는
@@ -294,7 +294,7 @@ creation 이벤트를 다시 읽고 작업 흐름 이름 및 버전과 derived �
 시도에는 허용 목록에 포함된 effect-free 사유가 있어야 하며 액션 전달, 취소,
 보상 근거가 없어야 합니다. Approval 근거는 최종 `approval_rejected` 또는
 `approval_timed_out`에만 허용됩니다. 디스패처 exception은 로컬 전달 이벤트가 없어도
-모호한하므로 `retry_requires_recovery`를 반환합니다. 그림자 재시도에는 기여자가 필요하고
+모호한하므로 `retry_requires_recovery`를 반환합니다. shadow 재시도에는 기여자가 필요하고
 강제 적용 재시도에는 Owner와 현재 강제 적용 허용 목록이 필요합니다. 서버가 소유한 시도 한도의
 기본값은 3이며 호출자가 높일 수 없습니다.
 
@@ -364,7 +364,7 @@ HIL 로 라우팅되는 워크플로 스텝은 "누가 승인하고, 어떻게 �
  레인이지 A1 승인 back-channel 이 아니다.
 
 알림 경로를 사용할 수 없으면 해당 경로가 필요한 작업 흐름과 인시던트 경로만
-권한이 낮아집니다. 런타임은 공백을 보고하고 unrelated 읽기, 거부, 큐 및 그림자 경로를
+권한이 낮아집니다. 런타임은 공백을 보고하고 unrelated 읽기, 거부, 큐 및 shadow 경로를
 유지하며 누락된 채널을 delivered 승인 또는 successful 알림으로 처리하지 않습니다.
 
 플랜은 역할 및 채널 배정을 제공합니다. 적용 모드에서는 승인 프로바이더가
@@ -439,7 +439,7 @@ echo 되는 클릭 가능한 **옵션 칩**입니다. 설계 속성은 다음과
 - 추론된 액션 및 트리거 는 명시적 `confirm_plan` 턴 없이는 진행되지 않습니다.
  범위가 제한된 제안 보다 많은 3개 초과 액션 이 일치하면 확인 에서 추가
  액션 이 생략되었음을 알립니다.
-- `confirm_safety` 는 실패 시 차단 행동, 그림자 자세 및 승격 임계값 를
+- `confirm_safety` 는 실패 시 차단 행동, shadow 자세 및 승격 임계값 를
  보여줍니다. Operator 는 작업 흐름 이름을 정하기 전에 `anti_scope` 경계 를 기록할
  수 있습니다.
 - 워크플로 이름은 목표에서 **자동 제안** (snake_case id) 되고 한 턴에

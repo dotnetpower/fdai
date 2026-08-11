@@ -477,7 +477,7 @@ prompt-composition Wave 3 단계 B 파이프라인 구획 3 잔재
 
 **Exit 게이트**
 
-- Teams의 Approver가 dev 상대로 "감지 -> 채팅 조사 -> 승인 -> 그림자
+- Teams의 Approver가 dev 상대로 "감지 -> 채팅 조사 -> 승인 -> shadow
  PR 오픈"을 완주. 매 턴 / 판정 / PR 링크가 감사 로그에 기록됨.
 
 ### Wave W2 - Ops ActionTypes, direct_api 실행기, 비용 게이트
@@ -611,7 +611,7 @@ W2 뒤. [execution-model.md § 월 1](../decisioning/execution-model.md#month-1)
 
 **Exit 게이트**
 
-- 프로덕션 그림자 측정에서 실제 운영 탐색이 최소 한 번 자율성을 낮춘다;
+- 프로덕션 shadow 측정에서 실제 운영 탐색이 최소 한 번 자율성을 낮춘다;
  감사 엔트리가 `winning_axis=live_blast`를 보인다.
 
 ### Wave A - Assurance Twin (병렬 P2 / P3)

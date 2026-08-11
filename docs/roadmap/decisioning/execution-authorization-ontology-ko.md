@@ -167,12 +167,12 @@ enforcement: do-not-enforce
 아닙니다. `AccessGrant`는 액션 HIL 또는 standing Approval을 충족하지 않고 A3-E Approval은
 프로바이더 권한을 만들지 않습니다. 둘 다 적용되면 두 독립 게이트가 모두 통과해야 합니다.
 
-새 배정은 `enforcement: do-not-enforce`로 시작합니다. 그림자 evaluation은 적용이 생성할
+새 배정은 `enforcement: do-not-enforce`로 시작합니다. shadow evaluation은 적용이 생성할
 결정을 기록합니다. `enforce` 승격은 기존 검토된 카탈로그 전이를 따르며 환경 또는
 포크 표시로 선택할 수 없습니다.
 
 권위 있는 intersection에는 `enforce` 배정만 참여합니다. 일치하는 `do-not-enforce`
-배정은 별도 그림자 비교에 사용할 수 있지만 실제 운영 결정을 prohibit, authorize, narrow 또는
+배정은 별도 shadow 비교에 사용할 수 있지만 실제 운영 결정을 prohibit, authorize, narrow 또는
 widen할 수 없습니다.
 
 ## 정책 합성

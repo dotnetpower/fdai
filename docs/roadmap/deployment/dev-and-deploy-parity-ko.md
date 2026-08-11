@@ -36,7 +36,7 @@ translation_revised: 2026-08-11
 | 서브시스템 | 로컬 백엔드 | 비고 |
 |-----------|-------------|------|
 | T0 결정론 엔진 | `opa` 바이너리 + Rego 정책 + 룰 카탈로그 | 100% 오프라인; CI 동등성 게이트가 증명 |
-| Rule 카탈로그 로더 + 그림자 eval 파이프라인 | 파일시스템 YAML | 클라우드 콜 없음 |
+| Rule 카탈로그 로더 + shadow eval 파이프라인 | 파일시스템 YAML | 클라우드 콜 없음 |
 | Risk 게이트 + 승격 레지스트리 | 인-메모리 `ActionPromotionRegistry` | 경계 스왑 가능 |
 | 실행기 + 리소스 잠금 | 인-프로세스 | 고정본 전용이며 interactive 실행기가 아님 |
 | 감사 + T2 복구 상태 | `InMemoryStateStore` (hash-chain 검증) | prod 백엔드 = Postgres이며 같은 증적/경로 키가 결정론적 채팅 읽기를 제공합니다 |
@@ -108,7 +108,7 @@ Narrator 엔드포인트가 없거나 올바르지 않으면 코어 런타임을
 패널은 요청마다 관측 출처를 실행하고 연결 부재를 사용 불가로 보고하며 고정본나 cached Azure 상태를 대체 근거로 사용하지 않습니다. 가능한 경우 캠페인 상태를 PostgreSQL에 연결합니다.
 캠페인 개정 번호와 감사 증적은 재시작 후에도 유지됩니다. 영속성이 없으면 검토는 not 구성된이고 in-memory 대체 경로를 사용하지 않으며, pinned 산출물만 활성 변경할 수 없는 레지스트리 항목이 되어 이력이 구성되지 않은 버전을 만들지 않습니다.
 배포는 absolute mounted 기준선 JSON/DOCX 경로와 읽기 담당 허용 목록의 `FDAI_CONFIGURATION_BASELINE_RESOURCE_GROUP`을 함께 요구하고 해당 읽기 담당의 Managed Identity와 범위가 제한된 HTTP 클라이언트를 재사용합니다.
-신원 누락, 범위 escape, malformed 파일 또는 무결성 mismatch는 시작을 차단하며 성공 시 읽기 근거, 영속 캠페인/보고 상태, independently 검토된 그림자 예약만 추가합니다.
+신원 누락, 범위 escape, malformed 파일 또는 무결성 mismatch는 시작을 차단하며 성공 시 읽기 근거, 영속 캠페인/보고 상태, independently 검토된 shadow 예약만 추가합니다.
 시작 탐색 중 브라우저는 initial 골격을 유지하고 `GET /iam/self`의 fetch-level 네트워크 실패만 약 28초 동안 재시도합니다.
 HTTP 응답, authentication 실패, malformed 페이로드 또는 소진된 예약은 기존 access-recovery 표면에 표시합니다.
 IAM 초기화가 성공하면 대시보드는 `GET /kpi`를 필수 backbone으로 취급하고 해당 응답이
@@ -254,7 +254,7 @@ Assurance는 배포와 같은 로컬 대화 및 평가 저장소를 사용하고
 검사를 항상 실행합니다. 의미 검토는 서로 다른 resolved 모델 계열이 둘 이상일 때만
 활성화되며 narrator-only 또는 `hil-only` 보조는 단일 모델 대신 inconclusive를 유지합니다.
 산출물이 없으면 모델 및 assurance inference는 사용 불가이며 고정본으로 대체하지 않습니다.
-PostgreSQL StateStore가 구성되면 두 프로파일은 ontology-owned failed-answer 귀속을 그림자
+PostgreSQL StateStore가 구성되면 두 프로파일은 ontology-owned failed-answer 귀속을 shadow
 감사 기록이 있는 멱등적 hold-first adequacy 검토로 저장합니다. 영속 상태가 없는
 interactive 로컬은 선택적 검토 싱크를 사용 불가로 유지합니다. 어느 프로파일도 이 intake
 경로에서 재생을 수행하거나 제안을 만들거나 검토를 promote하지 않습니다.
@@ -474,7 +474,7 @@ auto-open도 비활성화하므로 결정론적 동등성 테스트가 Azure CLI
 변경하지 않습니다.
 
 실행 백엔드 동등성도 같은 규칙을 따릅니다. 자동화 테스트는 in-memory 원장과 mock HTTP
-전송 계층을 연결할 수 있습니다. Interactive 로컬은 비활성화된 프로파일을 그림자 상태 또는 계획
+전송 계층을 연결할 수 있습니다. Interactive 로컬은 비활성화된 프로파일을 shadow 상태 또는 계획
 탐색으로 inspect할 수 있지만 작업을 제출하거나 Thor 신원을 받지 않습니다. 배포는 같은
 프로바이더 중립적인 조정기를 PostgreSQL 및 injected 실행기 `WorkloadIdentity`에 연결하며 Azure
 어댑터는 `delivery/azure/` 아래에 유지합니다.

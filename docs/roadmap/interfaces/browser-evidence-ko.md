@@ -6,12 +6,12 @@ translation_revised: 2026-08-11
 # 브라우저 근거 수집
 
 브라우저 근거 수집은 승인된 대시보드나 레거시 웹 화면에 적절한 API가 없을 때 근거 공백을
-채웁니다. 그림자 모드에서 범위가 제한된 읽기 전용 근거만 수집하며 일반 브라우저 제어, 승인
+채웁니다. shadow 모드에서 범위가 제한된 읽기 전용 근거만 수집하며 일반 브라우저 제어, 승인
 또는 실행 화면을 만들지 않습니다.
 
 > **구현 상태 (2026-07-21):** 프로바이더 중립적인 계약, URL 및 DNS 정책, 마스킹과 보관,
 > 선택적 Playwright 전달 어댑터, PostgreSQL 메타데이터, 타입이 지정된 콘솔 도구, 근거 작업 흐름
-> 단계, 그림자 비교 및 읽기 전용 검사 패널이 구현되었습니다. 실제 격리 브라우저 이미지와
+> 단계, shadow 비교 및 읽기 전용 검사 패널이 구현되었습니다. 실제 격리 브라우저 이미지와
 > 실제 운영 대시보드 시나리오는 승격 검토 전에 배포 근거가 더 필요합니다.
 
 ## 설계 개요
@@ -37,7 +37,7 @@ flowchart LR
 
 | 책임 | 담당 | 계약 |
 |------|------|------|
-| Policy, canonicalization, 민감정보 제거, hashing, 그림자 비교 | `core/browser_evidence/` | Pure and 프로바이더 중립적인 |
+| Policy, canonicalization, 민감정보 제거, hashing, shadow 비교 | `core/browser_evidence/` | Pure and 프로바이더 중립적인 |
 | 공개 수집 facade | `shared/providers/browser_evidence.py` | 비동기 `capture(...)`; 브라우저 handle 없음 |
 | 브라우저 런타임 | `delivery/browser/` | 선택적 비동기 Playwright 어댑터 |
 | 영속 산출물 메타데이터 and 페이로드 | `delivery/persistence/postgres_browser_evidence.py` | Alembic `0050` |
@@ -127,7 +127,7 @@ prompt-injection 검사 상태, 격리 상태, 해시 및 보관 참조를 표�
 패널을 통해 screenshot, visible 텍스트 또는 스냅샷 페이로드를 반환하지 않으며 수집, 승격,
 승인 또는 실행 control도 제공하지 않습니다.
 
-## 그림자 측정 및 승격
+## shadow 측정 및 승격
 
 `BrowserEvidenceShadowComparator`는 브라우저 다이제스트와 사용 가능한 human 및 API 참조를 비교하고
 fidelity, conflict, 사용 불가 개수, abstention 및 정책 escape를 기록합니다. 충돌하거나 사용 불가인
@@ -146,7 +146,7 @@ fidelity, conflict, 사용 불가 개수, abstention 및 정책 escape를 기록
 Operator는 검증되지 않은 격리 증적, 시크릿 canary 발견 사항, DNS 변경, 정책 denial,
 popup/download/file-chooser event 또는 해시 mismatch를 security event로 다루는 것이 좋습니다. 브라우저
 워커를 중지하고 보관 기록과 런타임 로그를 보존하며 영향받은 auth 프로파일을 철회하고 산출물을
-격리 구역한 뒤 egress 및 DNS telemetry를 검사하고 기능을 그림자 모드로 유지합니다. 수집을
+격리 구역한 뒤 egress 및 DNS telemetry를 검사하고 기능을 shadow 모드로 유지합니다. 수집을
 통과시키기 위해 정책을 넓혀 재시도하지 않습니다.
 
 보존은 정책이 소유합니다. 산출물 행은 만료 시각을 가지며

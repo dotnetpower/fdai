@@ -180,7 +180,7 @@ Failback은 장애 조치 명령의 역순이 아니라 새 통제된 복구입�
 - 트래픽 shift, 롤백 또는 failback 증적, 정리 결과 및 잔여 risk.
 
 Reliability 소유자가 numeric 목표를 승인하고 완전한 isolated 복원과 regional
-장애 조치/failback 훈련이 이를 충족할 때까지 운영은 차단됩니다. 세 번의 그림자 또는 예행 실행
+장애 조치/failback 훈련이 이를 충족할 때까지 운영은 차단됩니다. 세 번의 shadow 또는 예행 실행
 계획은 한 번의 substrate-backed exercise를 대체하지 않습니다.
 
 ## 구현 경계

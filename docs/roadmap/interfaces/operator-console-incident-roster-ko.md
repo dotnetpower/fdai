@@ -243,7 +243,7 @@ vertical, 모드, 시각, 이력 개수를 표시합니다. 간결한 response-r
 개요는 자율성 측정이 없거나 malformed여도 모든 필수 분석 section을
 계속 표시합니다. Section을 제거하거나 0으로 추정하지 않고 명시적 사용 불가
 상태를 렌더링합니다. 근거가 있으면 success 표면은 해결 event당 비용,
-mixed-model disagreement, 검증기 실패, 그림자 divergence, 측정 구간,
+mixed-model disagreement, 검증기 실패, shadow divergence, 측정 구간,
 샘플 크기, 확신도, named 출처를 포함합니다. **이력 > 리포트**는 선언형
 reporting 카탈로그와 서버가 소유한 위젯 근거를 렌더링합니다.
 Synthetic 측정은 분석 형태를 설명할 수 있지만 operational 상태를 결정하거나,
@@ -295,7 +295,7 @@ API 계약은 단일 GET 경로입니다:
 분석처럼 표시하게 되기 때문입니다.
 
 이 투영은 기존 감사 데이터를 조합하며 새로운 진실 원천을 도입하지 않습니다.
-컨트롤 루프는 각 가설을 그림자 `rca.hypothesis` 감사 항목으로 기록합니다(참조:
+컨트롤 루프는 각 가설을 shadow `rca.hypothesis` 감사 항목으로 기록합니다(참조:
 [observability-and-detection.md](../rules-and-detection/observability-and-detection.md)
 섹션 4). 패널은 상관관계된 감사 행을 읽어 다음을 투영합니다:
 

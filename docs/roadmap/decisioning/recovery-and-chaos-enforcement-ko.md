@@ -203,7 +203,7 @@ Pre-authorization은 같은 대상 집합, ActionType 버전, 시간 box, 영향
 | Approval | Var가 distinct-principal 승인을 기록합니다. 운영 또는 stateful 범위는 정족수 2입니다. |
 
 업스트림 자세는 모든 chaos 실험을 human-approved로 유지합니다. 배포는 실행
-mechanics를 그림자에서 강제 적용으로 promote할 수 있지만 Loki를 자기 승인으로 promote할 수는
+mechanics를 shadow에서 강제 적용으로 promote할 수 있지만 Loki를 자기 승인으로 promote할 수는
 없습니다.
 
 ## 런타임 상태 머신
@@ -265,7 +265,7 @@ Injector를 중지했다고 복구가 완료된 것은 아닙니다. Heimdall은
 
 Criteria는 구성이며 관측 기간 전에 설정하는 것이 좋습니다. Policy escape,
 out-of-envelope 영향, missed stop, 롤백 실패, stale 그래프 또는 material detector 회귀가
-하나라도 발생하면 시나리오와 affected ActionType을 자동으로 그림자 모드로 되돌립니다.
+하나라도 발생하면 시나리오와 affected ActionType을 자동으로 shadow 모드로 되돌립니다.
 
 ## SRE 시나리오 적용
 
@@ -296,7 +296,7 @@ out-of-envelope 영향, missed stop, 롤백 실패, stale 그래프 또는 mater
 4. Continuous 영향 가드와 타입이 지정된 stop 이벤트를 추가합니다.
 5. Pre-authorized Vidar 복구 컨트롤을 Thor의 등록된 복구 액션에 연결합니다.
 6. 독립적인 복구 검증과 승격/demotion 근거를 추가합니다.
-7. S1-S14 disposable-substrate 캠페인을 그림자, approved 강제 적용, forced-stop 모드로 실행합니다.
+7. S1-S14 disposable-substrate 캠페인을 shadow, approved 강제 적용, forced-stop 모드로 실행합니다.
 
 구획 1-6은 코어에 구현했고 focused 회귀 테스트로 검증합니다. 구획 7은 배포
 근거입니다. Promoted 시나리오와 ActionType 버전, 주입된 Thor, Vidar, Heimdall, 텔레메트리,

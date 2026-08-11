@@ -11,7 +11,7 @@ translation_revised: 2026-08-11
 수명 주기를 정의합니다. 충족 여부, 판단, 사람 승인, 롤백, 감사 소유권은 백엔드 외부에
 유지하면서 모든 제출에 영구적이고 제한된 수명 주기를 제공합니다.
 
-> 새 프로파일은 비활성화된 상태로 시작합니다. 프로파일과 어댑터는 selection 전에 그림자 feasibility
+> 새 프로파일은 비활성화된 상태로 시작합니다. 프로파일과 어댑터는 selection 전에 shadow feasibility
 > 탐색을 실행할 수 있지만, 프로파일 존재만으로 기능이 promote되거나 적용이
 > 활성화되지 않습니다.
 
@@ -153,13 +153,13 @@ Container Apps는 프로바이더 정책에 따라 실행 메타데이터를 유
  제거하며, Container Apps 작업 이력은 프로바이더 보존을 따릅니다.
 - **보존**: 원장은 조정 및 정리 정책을 위한 서버가 소유한 기한을 유지합니다.
 
-## 그림자 탐색 및 승격 residual
+## shadow 탐색 및 승격 residual
 
 비활성화된 프로파일은 `shadow_probe`를 통해 `health`, `capabilities`, `plan`을 실행할 수 있습니다. 탐색은
 원장 제출을 만들지 않고 `submit`을 호출하지 않습니다. 프로파일 selection과 ActionType
 승격은 계속 별도 control입니다.
 
-Azure Container Apps 작업 프로파일이 비활성화된 그림자 observation을 벗어나기 전에 신원 범위, ARM
+Azure Container Apps 작업 프로파일이 비활성화된 shadow observation을 벗어나기 전에 신원 범위, ARM
 reachability, pinned-image health, 중복 시작 행동, 시간 초과 및 stop race, 증적 완전성,
 프로바이더 보존, measured 비용에 대한 실제 운영 근거가 필요합니다. 이 근거는 배포 후속 조치로
 남아 있습니다. 단위 테스트와 mock HTTP 근거는 승격 근거로 계산하지 않습니다.

@@ -86,7 +86,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 20c | [provisioning-execution-profiles-ko.md](deployment/provisioning-execution-profiles-ko.md) | 프로비저닝 프로파일 선택: online/offline 전달, 기존 또는 managed 실행 호스트, 접근 선호 설정, 워크로드 신원, exact-plan 승인 |
 | 20d | [disconnected-deployment-ko.md](deployment/disconnected-deployment-ko.md) | 공용 egress 없는 네트워크 배포: 네트워크 프로파일, 내부 mirror, 서명된 offline 키트, 저하된 증거 대체 경로, 남은 air-gap 공백 |
 | 20e | [network-connectivity-matrix-ko.md](deployment/network-connectivity-matrix-ko.md) | 시나리오별 DNS, IP, 프로토콜, 포트, 비공개 영역, PTU, APIM 및 차단 경로 동작 |
-| 21 | [assurance-twin-ko.md](operations/assurance-twin-ko.md) | 아키텍처 리뷰 / Q&A / 평가를 위한 질의가능 온톨로지 트윈: text-to-query, 선제 리뷰, 그래프 전체 what-if, 그림자 제안 |
+| 21 | [assurance-twin-ko.md](operations/assurance-twin-ko.md) | 아키텍처 리뷰 / Q&A / 평가를 위한 질의가능 온톨로지 트윈: text-to-query, 선제 리뷰, 그래프 전체 what-if, shadow 제안 |
 | 22 | [operational-readiness-ko.md](operations/operational-readiness-ko.md) | dev-to-ops 핸드오프 게이트: ownership-transfer 트리거, 전체 범위 RBAC / 정책 / 신뢰성 리뷰, ReadinessReport, environment-promotion 게이트 |
 | 22a | [operator-initiated-sre-and-arb-ko.md](operations/operator-initiated-sre-and-arb-ko.md) | 비인시던트 신원, 오퍼레이터 시작 SRE 응답, 실제 운영 단계 진행 상황, ARB 상태/수동 시작, 작업 흐름 강제 적용, 로컬/deployed 동등성 |
 
@@ -135,11 +135,11 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 22d | [azure-read-investigations-ko.md](interfaces/azure-read-investigations-ko.md) | Exact 리소스 해석, 타입이 지정된 Azure 읽기 근거, 측정 기반 direct/streamed/detached 실행, dedicated 읽기 담당 신원, 할당량, 영속 완료 전달 |
 | 22e | [azure-resource-discovery-commands-ko.md](interfaces/azure-resource-discovery-commands-ko.md) | Ontology-aligned Azure 리소스 검색, ARG 및 CLI 대체 경로 커버리지, 정제된 reproduction 명령, 계획 비평 및 측정 기반 롤아웃 |
 | 23 | [agent-workflows-ko.md](agents/agent-workflows-ko.md) | 판테온이 제품 기능으로 조합하는 13개 cross-agent 작업 흐름입니다. Cost-aware 교정, predictive 규모, operational 준비 상태 인계, scheduled 통제된 Python 작업, detection 준비 상태 assurance 등을 포함하며 각 작업 흐름은 트리거, 순서 diagram, exit criteria, 승격 게이트를 가집니다. |
-| 23f | [agent-workflow-rollout-ko.md](agents/agent-workflow-rollout-ko.md) | 독립 그림자 롤아웃 순서, 작업 흐름별 exit 게이트, 의존성 및 no-enforcement 경계 |
+| 23f | [agent-workflow-rollout-ko.md](agents/agent-workflow-rollout-ko.md) | 독립 shadow 롤아웃 순서, 작업 흐름별 exit 게이트, 의존성 및 no-enforcement 경계 |
 | 23b | [process-automation-ko.md](decisioning/process-automation-ko.md) | agent-workflows.md 의 머신-리더블 대응물: 작업 흐름 카탈로그 스키마 (`rule-catalog/workflows/` 아래 catalog-as-code), `Process` ObjectType + `targets` / `advances` LinkType, compile-to-Runbook 컨트롤 루프 배선, saga 보상, shadow-first 거버넌스. 비즈니스 프로세스는 trust-router 가 한 번에 하나씩 전달 하는 `ActionType` 스텝의 순서 리스트다 |
 | 23c | [customer-workflow-automation-plan-ko.md](decisioning/customer-workflow-automation-plan-ko.md) | 도입 조직용 제공 계획: 준비도 기준선, 6개 롤아웃 wave, 고객 어댑터 경계, 승인 및 복구 작업, 동작 시뮬레이션, 승격 근거, 검증 매트릭스 및 운영 완료 기준 |
 | 23d | [operational-planning-ko.md](decisioning/operational-planning-ko.md) | 변경할 수 없는 맥락, versioned logic asset, 범위가 제한된 샌드박스 및 twin 시뮬레이션, hard 제약, 중재, 통제된 실행, 효과 종결, 계획 수립 Room 변환 결과를 사용하는 event-driven 전문가 계획 수립 |
-| 23e | [operational-planning-hardening-ko.md](decisioning/operational-planning-hardening-ko.md) | 운영 계획의 구현 근거, 12개 적대적 강화 라운드, 실제 운영 그림자 증명, 잔여 Low release 위험, merge-boundary 검증 |
+| 23e | [operational-planning-hardening-ko.md](decisioning/operational-planning-hardening-ko.md) | 운영 계획의 구현 근거, 12개 적대적 강화 라운드, 실제 운영 shadow 증명, 잔여 Low release 위험, merge-boundary 검증 |
 
 ### 프롬프트 서브시스템
 
@@ -189,7 +189,7 @@ P3에서 복원력과 비용 거버넌스를 제공합니다. 멀티 클라우�
 | 단계 | 목표 | 주요 산출물 | 기본 exit 게이트 |
 |-------|------|-------------|-------------------|
 | **[P0](phases/phase-0-instrumentation-ko.md)** | 측정 기반 마련과 선행 장애 요인 해소 | KPI 대시보드, 기준선 보고서, 신원 및 정책 장애 요인 해소 | 재현 가능한 기준선 확보 |
-| **[P1](phases/phase-1-rule-catalog-t0-ko.md)** | 결정론 코어 | 규칙 카탈로그, T0 엔진, 정책 게이트, 교정 PR | 변경 게이트가 그림자로 동작 |
+| **[P1](phases/phase-1-rule-catalog-t0-ko.md)** | 결정론 코어 | 규칙 카탈로그, T0 엔진, 정책 게이트, 교정 PR | 변경 게이트가 shadow로 동작 |
 | **[P2](phases/phase-2-quality-and-t1-ko.md)** | 품질과 경량 계층 | 규칙 갱신 파이프라인, LLM quality 게이트 (T2 보호), T1 유사 사례 재사용 | P0 기준선 대비 자동 해결 비율 검증 |
 | **[P3](phases/phase-3-integrated-loop-ko.md)** | 통합 자율성 | 통합 루프, DR / chaos 스케줄러, 비용 자동 액션 | 3개 버티컬 전반 자율 MVP |
 | **[P4](phases/phase-4-scale-ko.md)** | Azure 확장 | 지속 측정, 패턴 라이브러리, 모델 추적, 확장성. 멀티 클라우드 어댑터는 추후 검토 | Azure 기준선에서 보호 지표 안정 |
@@ -198,7 +198,7 @@ P3에서 복원력과 비용 거버넌스를 제공합니다. 멀티 클라우�
 
 - **측정 first**: 텔레메트리 없이는 자율성을 허용하지 않습니다. 측정된 기준선
  없이는 향상 배수나 처리 비중을 주장하지 않습니다.
-- **그림자 before 강제 적용**: 모든 신규 액션은 관찰 모드에서 판정과 기록만 수행한 뒤
+- **shadow before 강제 적용**: 모든 신규 액션은 관찰 모드에서 판정과 기록만 수행한 뒤
  개별적으로 승격합니다. 회귀가 발생하면 자동으로 관찰 모드로 돌아갑니다.
 - **Choose the safer 기본값 when the 결과 is uncertain**: 낮은 확신도, 검증 실패, 예산 / 비율 초과는
  HIL로 강등되며, 게이트 없는 자동 액션으로는 절대 강등되지 않음.

@@ -204,7 +204,7 @@ catch-all. First-match wins이므로 가장 엄격한 적용 가능한 규칙이
 
 - **Auto 상한**: 액션당 **$100 / 월**.
 - 근거: 큰 폐기를 승인하지 않으면서 작은 right-sizing / stop-idle / tier-adjust 교정을
- 커버. 단계 1 그림자 측정을 위해 보수적으로 선택; 임계값은 구성 값이며 측정 후 거버넌스
+ 커버. 단계 1 shadow 측정을 위해 보수적으로 선택; 임계값은 구성 값이며 측정 후 거버넌스
  PR로 조정 가능.
 - 추정은 규칙의 `remediation.cost_impact_monthly_usd` 필드에서; 규칙이 추정 못 하면 값은 `unknown` →
  `>= 100`으로 취급 → HIL.
@@ -212,14 +212,14 @@ catch-all. First-match wins이므로 가장 엄격한 적용 가능한 규칙이
 ## Prod-Auto 허용 목록
 
 극소수의 매우 낮은 리스크 규칙은 prod에서 auto 자격 표시될 수 있음(`allowlist_prod_auto: true`).
-초기 허용 목록 후보 (승격 전 그림자에서 평가):
+초기 허용 목록 후보 (승격 전 shadow에서 평가):
 
 - 태그 교정 (누락된 소유자 / cost-center / 환경 태그 추가).
 - 미부착 공개 IP 주소 해제.
 - 데이터 평면 노출 없는 리소스의 NSG allow-any-source 규칙 제거.
 
-**모든 허용 목록 엔트리는 별도 승격된 할당** 이며 표준 그림자 → 강제 적용 게이트를 통과합니다
-([architecture.instructions.md § 그림자 → 강제 적용 승격](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
+**모든 허용 목록 엔트리는 별도 승격된 할당** 이며 표준 shadow → 강제 적용 게이트를 통과합니다
+([architecture.instructions.md § shadow → 강제 적용 승격](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
 허용 목록은 bypass가 아니라 prod 기본의 명시적 선택 감소입니다.
 
 ## 변경 프로세스
@@ -253,7 +253,7 @@ catch-all. First-match wins이므로 가장 엄격한 적용 가능한 규칙이
 
 ## 열림 Decisions
 
-- [ ] 향후 차원으로 `time_of_day` 게이트(업무 시간 vs 비업무 시간)를 추가할지 - 그림자
+- [ ] 향후 차원으로 `time_of_day` 게이트(업무 시간 vs 비업무 시간)를 추가할지 - shadow
   측정이 실제 필요를 보일 때까지 연기.
 - [ ] 결정론적 규칙 테이블에 더해 숫자 `risk_score`를 계산할지 (동점에서만 또는 tie-breaker
   로만 작동 - 결정론 테이블이 여전히 권위).

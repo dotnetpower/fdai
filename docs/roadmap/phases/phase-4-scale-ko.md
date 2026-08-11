@@ -50,7 +50,7 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
  [core/measurement/latency_budget.py](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py).
 - 두 라이브러리-전용 측정 컴포넌트를 Container Apps Jobs로 배선하는 스케줄 러너 -
  automated-baseline 회귀 러너(P0 시나리오 세트를 매일 리플레이, 회귀 시 자동 강등)와
- pattern-growth 인테이크 러너(감사 스트림 드레인, 허용된 패턴을 그림자 로만 인제스트,
+ pattern-growth 인테이크 러너(감사 스트림 드레인, 허용된 패턴을 shadow 로만 인제스트,
  자동 승격 금지).
  모듈:
  [core/measurement/runners.py](../../../services/core-control-plane/src/fdai/core/measurement/runners.py).
@@ -115,7 +115,7 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 - **크로스-CSP 충돌 처리**: 다른 클라우드나 소스의 규칙이 하나의 이벤트에 매칭될 때, `id` 로
  중복제거, 심각도 다음 출처 priority로 우선순위 해결, 동점은 auto-pick 대신 **HIL로
  escalate**. 출처 이력은 출처 소스와 버전을 기록하여 규칙 변경이 추적·역방향 가능.
-- 새 소스는 기존 업데이트 파이프라인(`출처 watcher → collect → 그림자 eval → 회귀 →
+- 새 소스는 기존 업데이트 파이프라인(`출처 watcher → collect → shadow eval → 회귀 →
  promote / 롤백`, [phase-2-quality-and-t1-ko.md](phase-2-quality-and-t1-ko.md)) 을 통해
  흐름; 승격은 정책 위반 escape 0으로 회귀 스위트 통과 필요.
 
@@ -148,17 +148,17 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 
 ## 안전과 Shadow-First 롤아웃
 
-- 새로 추가된 어떤 능력도 그림자 정확도가 정책 위반 escape 0으로 측정될 때까지 **그림자 모드**
+- 새로 추가된 어떤 능력도 shadow 정확도가 정책 위반 escape 0으로 측정될 때까지 **shadow 모드**
  (judge-and-log, 실행 없음) 로 출시; 강제 적용로의 승격은 명시적·액션별,
  [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)
  와 매칭. 비-Azure 어댑터가 결국 스코프될 때(TBD), 같은 shadow-first 규칙이 어댑터의 첫
  액션에 적용.
-- 어떤 회귀는 영향받은 액션을 자동으로 그림자로 강등.
+- 어떤 회귀는 영향받은 액션을 자동으로 shadow로 강등.
 
 ## 지속 측정과 개선
 
 - 고정 버전 시나리오 세트에서 주기적으로 **베이스라인 vs 트리트먼트** 재실행; **회귀** 는
- 가드-메트릭 위반 또는 보고된 신뢰구간 넘는 성공-메트릭 하락, 그리고 자동 그림자 강등 트리거
+ 가드-메트릭 위반 또는 보고된 신뢰구간 넘는 성공-메트릭 하락, 그리고 자동 shadow 강등 트리거
  ([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)).
 - 가드 메트릭(CFR, false-positive/부정, 롤백 비율, **정확히 0** 정책 위반 escape) 는
  성공 메트릭과 같은 측정 윈도우와 시나리오 세트 버전에서 평가, 그래서 이득과 위반이 다른
@@ -172,7 +172,7 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 
 - 패턴 라이브러리는 **auto-resolved, non-rolled-back, 검증된** 프로덕션 결과에서만 공급;
  실패, revert, HIL-override된 액션은 재사용 가능한 패턴이 되어선 안 됨.
-- 새 패턴은 **그림자** 에서 진입하고 T1 액션을 주도할 수 있기 전 shadow-평가됨 - 라이브러리는
+- 새 패턴은 **shadow** 에서 진입하고 T1 액션을 주도할 수 있기 전 shadow-평가됨 - 라이브러리는
  self-promote 할 수 없음.
 - 피드백-루프 오버피팅 방어: 시간적 holdout(기준 시점 전에 학습된 패턴, 이후 테스트) 에서 후보
  패턴 검증, T1 false-positive 비율을 가드로 모니터; 상승하는 비율은 offending 패턴 강등. 성장은

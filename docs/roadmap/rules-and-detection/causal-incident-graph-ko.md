@@ -15,8 +15,8 @@ Event 상관관계와 root-cause analysis(RCA)를 온톨로지 기반의 time-co
 >
 > **구현 상태(2026-08-01):** 타입이 지정된 가설 수명 주기, weakest-link 채점, 범위가 제한된
 > time-consistent 그래프 materializer, support/refutation 및 종결 링크, 변경할 수 없는 온톨로지
-> projector, lagged temporal analyzer, 런타임 조정기, 그림자 control-loop 호출자,
-> 독립적인 종결 classifier 및 회귀 테스트를 구현했습니다. 컨트롤 루프는 그림자에서
+> projector, lagged temporal analyzer, 런타임 조정기, shadow control-loop 호출자,
+> 독립적인 종결 classifier 및 회귀 테스트를 구현했습니다. 컨트롤 루프는 shadow에서
 > 분석하고 감사하지만 Forseti 대신 온톨로지를 쓰지 않습니다. 배포는 범위가 제한된 temporal
 > series, Forseti-owned 변환 결과 발행기, 독립적인 결과 프로바이더, causal 증적 해석기를
 > 연결합니다. Pre-routing temporal analysis에는 범위가 제한된 시간 초과가 있으며 범위와 시간이 일치하는
@@ -175,12 +175,12 @@ FDAI는 기존 `CausalEvidenceGrade` 값을 재사용합니다.
 | Grade | 최소 근거 | 최대 사용 범위 |
 |-------|---------------|----------------|
 | `association` | 상관관계 또는 temporal co-occurrence만 있습니다. | Explanation 및 조사 계획 수립입니다. |
-| `predictive_precedence` | 후보가 효과에 반복적으로 선행하고 direction을 예측합니다. | 그림자 또는 사람 승인을 받는 복구 제안입니다. |
+| `predictive_precedence` | 후보가 효과에 반복적으로 선행하고 direction을 예측합니다. | shadow 또는 사람 승인을 받는 복구 제안입니다. |
 | `quasi_experimental` | Comparable untreated 집단, natural 실험 또는 difference-in-differences 근거가 있습니다. | 다른 안전성 검사가 모두 통과한 범위가 제한된 복구 충족 여부입니다. |
 | `interventional` | 승인된 chaos intervention 또는 복구 reversal이 predicted 효과를 재현하거나 제거합니다. | 승격 근거 입력이며 단독 권한이 아닙니다. |
 
 Refuting 근거가 도착하면 근거 grade가 낮아질 수 있습니다. 낮은 grade는 새 가설
-개정 번호를 만들고 관련 액션 또는 chaos 시나리오를 그림자 모드로 demote할 수 있습니다.
+개정 번호를 만들고 관련 액션 또는 chaos 시나리오를 shadow 모드로 demote할 수 있습니다.
 
 ## 복구 및 chaos를 통한 종결
 
