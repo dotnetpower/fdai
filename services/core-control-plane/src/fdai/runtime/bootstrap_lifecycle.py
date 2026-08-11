@@ -9,18 +9,96 @@ import os
 import signal
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import IO, Any
+
+from fdai_core_service.semantic_turn_consumer import (
+    SemanticTurnConsumerBinding,
+    semantic_turn_binding_from_config,
+)
 
 from fdai.agents import Saga, SemanticRouterConfig, StateStoreAuditChainAdapter
 from fdai.agents.vidar import RollbackExecutor
 from fdai.core.control_loop import ControlLoop
 from fdai.core.executor import MutationDependencyReadiness
+from fdai.core.readiness import (
+    AuthorityCeiling,
+    ProbeCriticality,
+    ProbeStatus,
+    StartupPhase,
+    StartupProbeResult,
+    StartupProbeSpec,
+)
 from fdai.runtime.health import RuntimeHealthServer
 from fdai.runtime.readiness import StartupReadinessRuntime
+from fdai.shared.providers.startup_probe import StartupProbeRequest
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
+_SEMANTIC_TURN_READINESS_PROBE_ID = "semantic-turn.runtime"
+
+
+class SemanticTurnReadinessProbe:
+    """Project the configured semantic runtime binding into startup readiness."""
+
+    probe_id = _SEMANTIC_TURN_READINESS_PROBE_ID
+
+    def __init__(self, binding: SemanticTurnConsumerBinding) -> None:
+        self._binding = binding
+
+    async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
+        observed_at = datetime.now(UTC)
+        expires_at = max(request.deadline, observed_at + timedelta(seconds=1))
+        return StartupProbeResult(
+            probe_id=self.probe_id,
+            status=ProbeStatus.PASSED if self._binding.available else ProbeStatus.FAILED,
+            observed_at=observed_at,
+            expires_at=expires_at,
+            latency_ms=0,
+            failure_class=(
+                None
+                if self._binding.available
+                else self._binding.unavailable_reason or "semantic_runtime_unavailable"
+            ),
+            evidence={"runtime_bound": self._binding.available},
+        )
+
+
+def build_semantic_turn_binding(
+    *,
+    state_store: StateStore,
+    config: Mapping[str, str],
+    runtime: Any = None,
+    unavailable_reason: str | None = None,
+) -> SemanticTurnConsumerBinding | None:
+    """Bind configured transport and its explicit runtime availability state."""
+
+    return semantic_turn_binding_from_config(
+        state_store=state_store,
+        runtime=runtime,
+        config=config,
+        unavailable_reason=unavailable_reason,
+    )
+
+
+def semantic_turn_readiness_registration(
+    binding: SemanticTurnConsumerBinding | None,
+) -> tuple[tuple[StartupProbeSpec, ...], tuple[SemanticTurnReadinessProbe, ...]]:
+    if binding is None:
+        return (), ()
+    return (
+        (
+            StartupProbeSpec(
+                probe_id=_SEMANTIC_TURN_READINESS_PROBE_ID,
+                capability="semantic-query",
+                phase=StartupPhase.CAPABILITY_WARMUP,
+                criticality=ProbeCriticality.OPTIONAL,
+                failure_ceiling=AuthorityCeiling.DISABLED,
+            ),
+        ),
+        (SemanticTurnReadinessProbe(binding),),
+    )
 
 
 def semantic_router_config_from_env() -> SemanticRouterConfig:

@@ -41,6 +41,31 @@ def build_runtime_workload_identity(
     )
 
 
+def build_vertical_execution_identities(
+    http_client: httpx.AsyncClient | None,
+    *,
+    identity_environment: Mapping[str, str],
+) -> dict[str, WorkloadIdentity]:
+    """Build only configured vertical identities through the shared workload-identity seam."""
+    configured = {
+        identity_ref: env_var
+        for identity_ref, env_var in identity_environment.items()
+        if os.environ.get(env_var, "").strip()
+    }
+    if not configured:
+        return {}
+    if http_client is None:
+        raise RuntimeError("vertical execution identities require an HTTP client")
+    return {
+        identity_ref: build_runtime_workload_identity(
+            http_client,
+            client_id_env=env_var,
+            require_client_id=True,
+        )
+        for identity_ref, env_var in configured.items()
+    }
+
+
 def case_history_identity_client_id(environment: Mapping[str, str]) -> str:
     client_id = environment.get("FDAI_CASE_HISTORY_MI_CLIENT_ID", "").strip()
     if not client_id:

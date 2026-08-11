@@ -5,16 +5,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from collections.abc import Mapping
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
 import httpx
-from fdai_core_service.semantic_turn_consumer import (
-    SemanticTurnConsumerBinding,
-    semantic_turn_binding_from_config,
-)
 
 from fdai.agents import (
     OWNED_OBJECT_TOPICS,
@@ -43,11 +38,6 @@ from fdai.core.operational_planning import (
 )
 from fdai.core.readiness import (
     AuthorityCeiling,
-    ProbeCriticality,
-    ProbeStatus,
-    StartupPhase,
-    StartupProbeResult,
-    StartupProbeSpec,
 )
 from fdai.core.readiness.coordinator import _TRANSITION_TOPIC
 from fdai.delivery.agent_activity import (
@@ -67,6 +57,9 @@ from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
 )
 from fdai.runtime.bootstrap_bindings import (
+    build_vertical_execution_identities as _build_vertical_execution_identities,
+)
+from fdai.runtime.bootstrap_bindings import (
     case_history_identity_client_id as _case_history_identity_client_id,
 )
 from fdai.runtime.bootstrap_bindings import (
@@ -79,6 +72,9 @@ from fdai.runtime.bootstrap_lifecycle import (
     build_runtime_saga as _build_runtime_saga,
 )
 from fdai.runtime.bootstrap_lifecycle import (
+    build_semantic_turn_binding as _build_semantic_turn_binding,
+)
+from fdai.runtime.bootstrap_lifecycle import (
     install_shutdown_signals as _install_shutdown_signals,
 )
 from fdai.runtime.bootstrap_lifecycle import (
@@ -89,6 +85,9 @@ from fdai.runtime.bootstrap_lifecycle import (
 )
 from fdai.runtime.bootstrap_lifecycle import (
     semantic_router_config_from_env as _semantic_router_config_from_env,
+)
+from fdai.runtime.bootstrap_lifecycle import (
+    semantic_turn_readiness_registration as _semantic_turn_readiness_registration,
 )
 from fdai.runtime.bootstrap_lifecycle import (
     start_health_server as _start_health_server,
@@ -153,9 +152,6 @@ from fdai.runtime.t2_route_registry import T2RouteRegistry, bind_t2_route_select
 from fdai.shared.config.models import LlmMode
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.event_bus import EventBus
-from fdai.shared.providers.startup_probe import StartupProbeRequest
-from fdai.shared.providers.state_store import StateStore
-from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
 _AUXILIARY_KAFKA_BOOTSTRAP_ENV = "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS"
@@ -167,74 +163,11 @@ _VERTICAL_IDENTITY_ENV = {
     "identity/resilience": "FDAI_RESILIENCE_MI_CLIENT_ID",
     "identity/finops": "FDAI_FINOPS_MI_CLIENT_ID",
 }
-_SEMANTIC_TURN_READINESS_PROBE_ID = "semantic-turn.runtime"
-
-
-class _SemanticTurnReadinessProbe:
-    """Project the configured semantic runtime binding into startup readiness."""
-
-    probe_id = _SEMANTIC_TURN_READINESS_PROBE_ID
-
-    def __init__(self, binding: SemanticTurnConsumerBinding) -> None:
-        self._binding = binding
-
-    async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
-        observed_at = datetime.now(UTC)
-        expires_at = max(request.deadline, observed_at + timedelta(seconds=1))
-        return StartupProbeResult(
-            probe_id=self.probe_id,
-            status=ProbeStatus.PASSED if self._binding.available else ProbeStatus.FAILED,
-            observed_at=observed_at,
-            expires_at=expires_at,
-            latency_ms=0,
-            failure_class=(
-                None
-                if self._binding.available
-                else self._binding.unavailable_reason or "semantic_runtime_unavailable"
-            ),
-            evidence={"runtime_bound": self._binding.available},
-        )
-
-
-def _build_semantic_turn_binding(
-    *,
-    state_store: StateStore,
-    config: Mapping[str, str],
-    runtime: Any = None,
-    unavailable_reason: str | None = None,
-) -> SemanticTurnConsumerBinding | None:
-    """Bind configured transport and its explicit runtime availability state."""
-
-    return semantic_turn_binding_from_config(
-        state_store=state_store,
-        runtime=runtime,
-        config=config,
-        unavailable_reason=unavailable_reason,
-    )
-
-
-def _semantic_turn_readiness_registration(
-    binding: SemanticTurnConsumerBinding | None,
-) -> tuple[tuple[StartupProbeSpec, ...], tuple[_SemanticTurnReadinessProbe, ...]]:
-    if binding is None:
-        return (), ()
-    return (
-        (
-            StartupProbeSpec(
-                probe_id=_SEMANTIC_TURN_READINESS_PROBE_ID,
-                capability="semantic-query",
-                phase=StartupPhase.CAPABILITY_WARMUP,
-                criticality=ProbeCriticality.OPTIONAL,
-                failure_ceiling=AuthorityCeiling.DISABLED,
-            ),
-        ),
-        (_SemanticTurnReadinessProbe(binding),),
-    )
 
 
 def _schedule_semantic_turn_consumer(
     *,
-    binding: SemanticTurnConsumerBinding | None,
+    binding: Any,
     readiness: StartupReadinessRuntime,
     bus: EventBus,
     stop: asyncio.Event,
@@ -250,36 +183,13 @@ def _schedule_semantic_turn_consumer(
     )
 
 
-def _build_vertical_execution_identities(
-    *,
-    http_client: httpx.AsyncClient | None,
-) -> dict[str, WorkloadIdentity]:
-    configured = {
-        identity_ref: env_var
-        for identity_ref, env_var in _VERTICAL_IDENTITY_ENV.items()
-        if os.environ.get(env_var, "").strip()
-    }
-    if not configured:
-        return {}
-    if http_client is None:
-        raise RuntimeError("vertical execution identities require an HTTP client")
-    return {
-        identity_ref: _build_runtime_workload_identity(
-            http_client,
-            client_id_env=env_var,
-            require_client_id=True,
-        )
-        for identity_ref, env_var in configured.items()
-    }
-
-
 async def _run() -> int:
     container = default_container_from_env()
     summary = _summarize_config(container)
     _LOGGER.info("startup_ok", extra={"config": summary})
 
     http_client: httpx.AsyncClient | None = None
-    identity: WorkloadIdentity | None = None
+    identity: Any = None
     bus: EventBus | None = None
     auxiliary_bus: EventBus | None = None
     isolated_executor_client: Any = None
@@ -295,7 +205,7 @@ async def _run() -> int:
     startup_readiness_runtime: StartupReadinessRuntime | None = None
     t2_recovery_maintenance: Any = None
     assignment_reconciliation_worker: Any = None
-    semantic_turn_binding: SemanticTurnConsumerBinding | None = None
+    semantic_turn_binding: Any = None
 
     try:
         telemetry_requested = bool(
@@ -529,7 +439,8 @@ async def _run() -> int:
                 symptom_index=runtime_symptom_index,
                 identity=identity,
                 execution_identities=_build_vertical_execution_identities(
-                    http_client=http_client,
+                    http_client,
+                    identity_environment=_VERTICAL_IDENTITY_ENV,
                 ),
                 direct_api_execution_port=isolated_executor_client,
                 response_outcome_sink=_relay_response_outcome,
