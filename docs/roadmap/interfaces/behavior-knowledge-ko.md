@@ -2,13 +2,13 @@
 title: Command Deck 행동 지식
 translation_of: behavior-knowledge.md
 translation_source_sha: c4d644ace9ba5745c76af40191dff21b2a5387a7
-translation_revised: 2026-08-02
+translation_revised: 2026-08-11
 ---
 
 # Command Deck 행동 지식
 
 이 설계는 Command Deck이 일반 답변에 소스 코드를 포함하지 않고 구조화된 계약을 통해 FDAI
-시스템 동작을 설명하는 방식을 정의합니다. 답변에 사용하는 행동 지식과 권위 및 freshness
+시스템 동작을 설명하는 방식을 정의합니다. 답변에 사용하는 행동 지식과 권위 및 최신성
 확인에만 사용하는 소스 근거를 분리합니다.
 
 > 범위: 행동 검색은 읽기 전용입니다. 검색된 근거는 액션을 승인, 실행, 승격하거나 다른 방식으로
@@ -16,19 +16,19 @@ translation_revised: 2026-08-02
 
 ## 설계 요약
 
-Command Deck은 저장소 소스 chunk가 아니라 `BehaviorKnowledgeIndex`를 검색합니다. 각 결과는
-trigger, preconditions, processing steps, outcomes, exclusions, safety behavior, owner,
-implementation status, 제한된 provenance를 제공합니다. 소스 파일과 테스트는 계약을 검증하고
-stale record를 찾는 두 번째 계층으로 유지합니다.
+Command Deck은 저장소 소스 조각이 아니라 `BehaviorKnowledgeIndex`를 검색합니다. 각 결과는
+트리거, preconditions, processing 단계, outcomes, exclusions, safety 행동, 소유자,
+구현 상태, 제한된 출처 이력을 제공합니다. 소스 파일과 테스트는 계약을 검증하고
+stale 기록을 찾는 두 번째 계층으로 유지합니다.
 
 ```mermaid
 flowchart LR
-    Q[운영자 행동 질문] --> B[행동 지식 인덱스]
-    B --> H[Exact + lexical + semantic 검색]
-    H --> F[소스 freshness 검사]
-    F -->|fresh| A[구조화된 최종 답변]
-    F -->|stale, absent, conflict| X[답변 판단 보류]
-    S[Tracked code, tests, docs, schemas] --> F
+ Q[운영자 행동 질문] --> B[행동 지식 인덱스]
+ B --> H[Exact + lexical + semantic 검색]
+ H --> F[소스 freshness 검사]
+ F -->|fresh| A[구조화된 최종 답변]
+ F -->|stale, absent, conflict| X[답변 판단 보류]
+ S[Tracked code, tests, docs, schemas] --> F
 ```
 
 ## 2계층 계약
@@ -37,148 +37,148 @@ flowchart LR
 
 `BehaviorSpec`은 기본 검색 단위입니다. 다음 정보를 포함합니다.
 
-- **Identity**: `behavior_id`, `subject_kind`, `subject_id`입니다.
-- **Status**: `implemented`, `configured`, `designed`, `not_applicable`입니다.
-- **Answer structure**: 질문 alias, trigger, preconditions, processing steps, outcomes,
-  exclusions, safety behavior입니다.
-- **Localized content**: locale별로 같은 structured field를 제공합니다. 한국어 content도 검색에
-  참여하며 model에 source evidence 번역을 요청하지 않고 렌더링합니다.
-- **Ownership**: 행동을 담당하는 에이전트 또는 서브시스템입니다.
-- **Index metadata**: 384차원 embedding, indexed commit, extractor version, source manifest
-  hash입니다.
+- **신원**: `behavior_id`, `subject_kind`, `subject_id`입니다.
+- **상태**: `implemented`, `configured`, `designed`, `not_applicable`입니다.
+- **답변 structure**: 질문 별칭, 트리거, preconditions, processing 단계, outcomes,
+ exclusions, safety 행동입니다.
+- **Localized 내용**: 로케일별로 같은 구조화된 필드를 제공합니다. 한국어 내용도 검색에
+ 참여하며 모델에 출처 근거 번역을 요청하지 않고 렌더링합니다.
+- **소유권**: 행동을 담당하는 에이전트 또는 서브시스템입니다.
+- **인덱스 메타데이터**: 384차원 임베딩, indexed 커밋, extractor 버전, 출처 매니페스트
+ 해시입니다.
 
 색인된 텍스트는 명령이 아니라 데이터입니다. Command Deck은 서버 소유 경로에서 구조화된 필드를
 렌더링하며 검색 콘텐츠를 승인 또는 실행 권한으로 취급하지 않습니다.
 
 ### 소스 근거
 
-`BehaviorSource`는 다음 citation metadata만 기록합니다.
+`BehaviorSource`는 다음 인용 메타데이터만 기록합니다.
 
-- source kind: `code`, `test`, `doc`, `schema`;
-- 저장소 상대 path와 symbol;
-- line start와 line end;
-- Git blob hash;
-- authority role: implementation, verification, design, configuration.
+- 출처 kind: `code`, `test`, `doc`, `schema`;
+- 저장소 상대 경로와 symbol;
+- 줄 시작과 줄 end;
+- Git 블롭 해시;
+- 권한 역할: 구현, 검증, design, 구성.
 
-소스 본문은 chat evidence에 포함되지 않습니다. 일반 답변은 path, symbol, line range, blob hash,
-indexed commit을 표시할 수 있지만 raw code는 표시하지 않습니다.
+소스 본문은 chat 근거에 포함되지 않습니다. 일반 답변은 경로, symbol, 줄 범위, 블롭 해시,
+indexed 커밋을 표시할 수 있지만 raw 코드는 표시하지 않습니다.
 
-인용한 test가 늘어나거나 이동하면 seed는 같은 변경에서 exact symbol line range를 갱신합니다.
-Line만 이동해도 이 갱신이 필요합니다. Freshness test는 path와 blob이 current여도 stale range를
-reject합니다. 인용된 파일을 고치면서 seed를 갱신하지 않은 변경은 전체 suite를 red로 만들고,
-그 실패는 원인이 된 변경이 아니라 behavior knowledge 아래에서 드러납니다. 그래서 이 갱신은
-line을 옮긴 커밋에 속합니다.
+인용한 테스트가 늘어나거나 이동하면 seed는 같은 변경에서 exact symbol 줄 범위를 갱신합니다.
+줄만 이동해도 이 갱신이 필요합니다. 최신성 테스트는 경로와 블롭이 현재여도 stale 범위를
+거부합니다. 인용된 파일을 고치면서 seed를 갱신하지 않은 변경은 전체 모음을 red로 만들고,
+그 실패는 원인이 된 변경이 아니라 행동 knowledge 아래에서 드러납니다. 그래서 이 갱신은
+줄을 옮긴 커밋에 속합니다.
 
-Range만 유지보수하는 변경은 citation metadata만 바꾸며 answer content나 implementation status는
-바꾸지 않습니다. 한 citation을 고친 뒤 set의 뒤쪽에 있는 다른 stale source를 놓치지 않도록 전체
-seed precision test를 실행합니다.
+범위만 유지보수하는 변경은 인용 메타데이터만 바꾸며 답변 내용나 구현 상태는
+바꾸지 않습니다. 한 인용을 고친 뒤 set의 뒤쪽에 있는 다른 stale 출처를 놓치지 않도록 전체
+seed 정밀도 테스트를 실행합니다.
 
 ## 검색 및 권위
 
-reference index와 PostgreSQL adapter는 같은 정렬 계약을 사용합니다.
+참조 인덱스와 PostgreSQL 어댑터는 같은 정렬 계약을 사용합니다.
 
-1. 정확한 question alias 일치를 가장 먼저 정렬합니다.
-2. 정확한 identifier와 normalized subject-token overlap을 그다음에 정렬합니다. Token
-  normalization은 Latin identifier와 한국어 조사를 분리하고 단순 영문 복수형을 정규화합니다.
-3. Minimum score를 넘은 lexical 검색과 384차원 semantic 검색을 결합합니다.
-4. 같은 match class에서는 implemented 및 test-backed record가 designed-only record보다 먼저 옵니다.
-5. 비교 질문은 하나를 임의 선택하지 않고 fresh contract 두 개를 결합합니다.
-6. Stable `behavior_id`로 결정적 tie-break를 수행합니다.
+1. 정확한 question 별칭 일치를 가장 먼저 정렬합니다.
+2. 정확한 identifier와 정규화된 subject-token overlap을 그다음에 정렬합니다. 토큰
+ 정규화는 Latin identifier와 한국어 조사를 분리하고 단순 영문 복수형을 정규화합니다.
+3. Minimum 점수를 넘은 lexical 검색과 384차원 semantic 검색을 결합합니다.
+4. 같은 일치 등급에서는 implemented 및 test-backed 기록이 designed-only 기록보다 먼저 옵니다.
+5. 비교 질문은 하나를 임의 선택하지 않고 fresh 계약 두 개를 결합합니다.
+6. 고정된 `behavior_id`로 결정적 tie-break를 수행합니다.
 
-PostgreSQL adapter는 `tsvector`, `pg_trgm`, pgvector cosine similarity를 결합합니다. In-memory
-adapter는 exact-class, top-hit 및 authority 순서를 동일하게 유지하고 lexical 및 semantic candidate에
-reciprocal-rank fusion을 사용합니다. In-memory lexical scorer는 normalized token overlap을
-사용하므로 low-confidence hybrid tail 순서는 다를 수 있습니다. OpenSearch는 이 설계에 포함되지 않습니다. 실제 corpus 크기,
-query rate, sharding 또는 aggregation 요구가 PostgreSQL 경계를 넘는다는 측정 결과가 있을 때만
-향후 index adapter를 검토합니다.
+PostgreSQL 어댑터는 `tsvector`, `pg_trgm`, pgvector cosine 유사도를 결합합니다. In-memory
+어댑터는 exact-class, top-hit 및 권한 순서를 동일하게 유지하고 lexical 및 semantic 후보에
+reciprocal-rank fusion을 사용합니다. In-memory lexical scorer는 정규화된 토큰 overlap을
+사용하므로 low-confidence hybrid tail 순서는 다를 수 있습니다. OpenSearch는 이 설계에 포함되지 않습니다. 실제 말뭉치 크기,
+조회 비율, sharding 또는 집계 요구가 PostgreSQL 경계를 넘는다는 측정 결과가 있을 때만
+향후 인덱스 어댑터를 검토합니다.
 
-## Freshness 및 conflict 동작
+## 최신성 및 conflict 동작
 
-저장소 validator는 `git ls-files`에서 allowlist를 만듭니다. Tracked path만 hash하므로 ignored file,
-generated artifact, local environment file, secret, Terraform state 및 plan, log, untracked file은
-source evidence에 들어갈 수 없습니다.
+저장소 검증기는 `git ls-files`에서 허용 목록을 만듭니다. Tracked 경로만 해시하므로 ignored file,
+생성된 산출물, 로컬 환경 file, 시크릿, Terraform 상태 및 plan, 로그, untracked file은
+출처 근거에 들어갈 수 없습니다.
 
 근거가 불확실하면 Command Deck은 더 안전한 결과를 선택합니다.
 
-- **Fresh**: 구조화된 behavior와 citation을 렌더링합니다.
-- **Stale blob hash**: 현재 behavior로 확정하지 않고 재색인을 요청합니다.
+- **Fresh**: 구조화된 행동과 인용을 렌더링합니다.
+- **Stale 블롭 해시**: 현재 행동으로 확정하지 않고 재색인을 요청합니다.
 - **Conflicting exact contracts**: 하나를 임의로 고르지 않고 답변을 검토 대상으로 보류합니다.
-- **No evidence or unavailable index**: 검증 가능한 behavior evidence가 없다고 표시합니다.
-- **Implementation과 design 차이**: implemented 및 test-backed evidence를 우선하고 designed-only
-  record를 별도로 식별합니다.
+- **No 근거 or 사용 불가 인덱스**: 검증 가능한 행동 근거가 없다고 표시합니다.
+- **구현과 design 차이**: implemented 및 test-backed 근거를 우선하고 designed-only
+ 기록을 별도로 식별합니다.
 
 ## 행동 범위
 
-Built-in seed set은 13개 contract를 포함합니다. 초기 3개에 architecture contract 10개를
+Built-in seed set은 13개 계약을 포함합니다. 초기 3개에 architecture 계약 10개를
 추가했습니다.
 
-| Behavior | Owner | Implemented evidence |
+| 행동 | Owner | Implemented 근거 |
 |----------|-------|----------------------|
-| 결정적 Incident ID, member merge, monotonic severity 및 lifecycle notice | `IncidentRegistry` | Incident registry code와 lifecycle test |
-| Odin cross-domain arbitration 및 non-intervention | `Odin`, trigger owner는 `Forseti` | Forseti/Odin code, arbitration code, arbitration test |
-| Issue fingerprint deduplication | `Saga` | Saga code, governance test, Issue lifecycle schema |
-| Trust routing 및 T2 quality gate | `TrustRouter`, `QualityGate` | Core implementation과 focused test |
-| 사람 승인 및 shadow promotion | `RiskGate`, `Var`, `ActionPromotionRegistry` | Agent/core implementation과 regression test |
-| Executor safety, event deduplication, rollback | `ShadowExecutor`, `EventIngest`, `Vidar` | Core/agent implementation과 idempotency test |
-| Console identity boundary 및 local evidence parity | Operator API composition과 `Thor` | Configuration contract와 local Operator API test |
-| Narrator translator-only path | `Bragi` | Agent implementation, typed-pipeline re-entry 및 primary/contributor normalization test |
+| 결정적 인시던트 ID, member 병합, 단조 증가 심각도 및 수명 주기 notice | `IncidentRegistry` | 인시던트 레지스트리 코드와 수명 주기 테스트 |
+| Odin cross-domain arbitration 및 non-intervention | `Odin`, 트리거 소유자는 `Forseti` | Forseti/Odin 코드, arbitration 코드, arbitration 테스트 |
+| Issue fingerprint deduplication | `Saga` | Saga 코드, governance 테스트, Issue 수명 주기 스키마 |
+| Trust 라우팅 및 T2 quality gate | `TrustRouter`, `QualityGate` | Core 구현과 focused 테스트 |
+| 사람 승인 및 그림자 승격 | `RiskGate`, `Var`, `ActionPromotionRegistry` | Agent/코어 구현과 회귀 테스트 |
+| 실행기 safety, event deduplication, 롤백 | `ShadowExecutor`, `EventIngest`, `Vidar` | Core/agent 구현과 멱등성 테스트 |
+| Console 신원 경계 및 로컬 근거 parity | Operator API 조립과 `Thor` | 구성 계약과 로컬 Operator API 테스트 |
+| Narrator translator-only 경로 | `Bragi` | Agent 구현, typed-pipeline re-entry 및 기본/기여자 정규화 테스트 |
 
-Odin 계약은 single-domain 및 unanimous recommendation을 명시적으로 제외합니다. Portfolio review는
-designed-only로, temporal fairness는 선택적 dependency-injected behavior로 표시합니다.
+Odin 계약은 single-domain 및 unanimous 권고를 명시적으로 제외합니다. Portfolio review는
+designed-only로, temporal fairness는 선택적 dependency-injected 행동으로 표시합니다.
 
 ## Command Deck 답변 경로
 
-Repository resolver는 첫 chat evidence lookup에서 한 번 초기화됩니다. Tracked seed source만
-hash하고 process lifetime 동안 in-memory index를 유지합니다. 각 질문에 대해 Operator API는 다음
+Repository 해석기는 첫 chat 근거 조회에서 한 번 초기화됩니다. Tracked seed 출처만
+해시하고 프로세스 lifetime 동안 in-memory 인덱스를 유지합니다. 각 질문에 대해 Operator API는 다음
 단계를 수행합니다.
 
-1. Client가 제공한 behavior evidence를 제거합니다.
-2. Server-owned index를 초기화하거나 검색하기 전에 behavior subject와 behavior-question intent를
-  모두 요구합니다. 관련 없는 data, action, operational prompt는 다음 authority path로 넘기며,
-  runtime Incident state, count, recency 질문은 operational read로 유지하고 bare Issue 또는
-  Incident 정의는 concept query로 유지합니다. Lexical retrieval은 Hangul 2음절 token을 추가해
-  띄어쓰기와 조사 차이가 있는 한국어 paraphrase를 처리하고 exact alias는 hybrid match보다 계속
-  우선합니다. Retrieval floor보다 score가 낮을 때도 다음 authority로 넘깁니다.
-3. 관련 없는 operational, agent, tool, glossary, web evidence 경로를 건너뜁니다.
-4. Narrator backend를 호출하지 않고 deterministic evidence fast path를 사용합니다.
-5. Freshness를 검증하고 question focus를 선택한 다음 localized 필수 section을 렌더링합니다.
-6. Terminal verification metadata에 citation reference를 반환합니다.
+1. 클라이언트가 제공한 행동 근거를 제거합니다.
+2. 서버가 소유한 인덱스를 초기화하거나 검색하기 전에 행동 대상과 behavior-question 의도를
+ 모두 요구합니다. 관련 없는 data, 액션, operational 프롬프트는 다음 권한 경로로 넘기며,
+ 런타임 인시던트 상태, 개수, recency 질문은 operational 읽기로 유지하고 bare Issue 또는
+ 인시던트 정의는 concept 조회로 유지합니다. Lexical 수집은 Hangul 2음절 토큰을 추가해
+ 띄어쓰기와 조사 차이가 있는 한국어 paraphrase를 처리하고 exact 별칭은 hybrid 일치보다 계속
+ 우선합니다. 수집 floor보다 점수가 낮을 때도 다음 권한으로 넘깁니다.
+3. 관련 없는 operational, agent, 도구, glossary, web 근거 경로를 건너뜁니다.
+4. Narrator 백엔드를 호출하지 않고 결정론적 근거 fast 경로를 사용합니다.
+5. 최신성을 검증하고 question focus를 선택한 다음 localized 필수 section을 렌더링합니다.
+6. 최종 검증 메타데이터에 인용 참조를 반환합니다.
 
-답변은 항상 trigger, preconditions, processing steps, outcomes, exclusions, safety and fallback
-behavior, owner, implementation status, citations 또는 provenance 구조를 사용합니다.
+답변은 항상 트리거, preconditions, processing 단계, outcomes, exclusions, safety and 대체 경로
+행동, 소유자, 구현 상태, citations 또는 출처 이력 구조를 사용합니다.
 
 ## 구현 상태
 
 배포된 동작을 정확히 표현하도록 현재 구현을 다음과 같이 구분합니다.
 
 - **Implemented**: shared `BehaviorSpec`, localized `BehaviorContent`, `BehaviorSource`,
-  `BehaviorKnowledgeIndex` 계약; in-memory hybrid index; tracked-source freshness validator;
-  built-in behavior seed 13개;
-  server-owned chat resolver; deterministic terminal renderer 및 verifier; PostgreSQL/pgvector
-  adapter; offline test와 live-database rank parity test.
-- **Designed, not production-bound**: generated PostgreSQL schema migration, production composition
-  binding, incremental index 또는 sync CLI입니다. 이 기능이 구현되기 전에는 Operator API가 tracked
-  checkout의 repository seed를 사용하며 repository metadata를 사용할 수 없으면 답변을 보류합니다.
+ `BehaviorKnowledgeIndex` 계약; in-memory hybrid 인덱스; tracked-source 최신성 검증기;
+ built-in 행동 seed 13개;
+ 서버가 소유한 chat 해석기; 결정론적 최종 렌더러 및 검증기; PostgreSQL/pgvector
+ 어댑터; offline 테스트와 live-database 순위 parity 테스트.
+- **Designed, not production-bound**: 생성된 PostgreSQL 스키마 이행, 운영 조립
+ 연결, incremental 인덱스 또는 sync CLI입니다. 이 기능이 구현되기 전에는 Operator API가 tracked
+ 체크아웃의 repository seed를 사용하며 repository 메타데이터를 사용할 수 없으면 답변을 보류합니다.
 
 ## 검증
 
-Focused test는 exact alias priority, normalized subject ranking, idempotent reindexing, stale hash,
-implemented 및 test-backed authority, source citation shape와 symbol precision, source body
-exclusion, client evidence replacement, prompt-injection isolation, comparison, localization,
-PostgreSQL/in-memory top-hit 및 exact-class parity를 검사합니다. Source-precision validation은 모든
-built-in seed를 검사하므로 agent, lifecycle 또는 local-composition test symbol을 이동시키는 코드는
-영향받은 모든 range를 같은 change에서 갱신합니다. Frozen architecture holdout paraphrase 20개는 routing,
-status, current citation, precise symbol, authority, structure, fact, exclusion 및 safety,
+Focused 테스트는 exact 별칭 priority, 정규화된 대상 ranking, 멱등적 reindexing, stale 해시,
+implemented 및 test-backed 권한, 출처 인용 형태와 symbol 정밀도, 출처 본문
+exclusion, 클라이언트 근거 replacement, prompt-injection 격리, 비교, localization,
+PostgreSQL/in-memory top-hit 및 exact-class parity를 검사합니다. Source-precision 검증은 모든
+built-in seed를 검사하므로 agent, 수명 주기 또는 local-composition 테스트 symbol을 이동시키는 코드는
+영향받은 모든 범위를 같은 변경에서 갱신합니다. 고정된 architecture holdout paraphrase 20개는 라우팅,
+상태, 현재 인용, precise symbol, 권한, structure, fact, exclusion 및 safety,
 localization, directness를 평가합니다. 2026-07-20 측정 결과는 `10.0/10`입니다. 20개 질문이 모두
-정확히 route되었고 cold initialization은 46.6 ms, warm 200 sample은 p50 8.4 ms와 p95 20.5 ms로
-측정되었습니다. 이 수치는 local in-memory checkout 측정이며 deployed pgvector latency 주장이
-아닙니다. `FDAI_DATABASE_URL`이 설정되면 live database parity test를 실행합니다.
+정확히 경로되었고 cold initialization은 46.6 ms, warm 200 샘플은 p50 8.4 ms와 p95 20.5 ms로
+측정되었습니다. 이 수치는 로컬 in-memory 체크아웃 측정이며 deployed pgvector 지연 시간 주장이
+아닙니다. `FDAI_DATABASE_URL`이 설정되면 실제 운영 데이터베이스 parity 테스트를 실행합니다.
 
 ## 관련 문서
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
-| 대화 안전성 및 tool | [Operator Console](operator-console-ko.md) |
-| Provider 및 delivery 경계 | [Project Structure](../architecture/project-structure-ko.md) |
+| 대화 안전성 및 도구 | [Operator Console](operator-console-ko.md) |
+| 프로바이더 및 전달 경계 | [Project Structure](../architecture/project-structure-ko.md) |
 | Odin 및 Forseti 책임 | [Agent Pantheon](../agents/agent-pantheon-ko.md) |
-| Incident lifecycle | [Operator-Initiated SRE and ARB](../operations/operator-initiated-sre-and-arb-ko.md) |
+| 인시던트 수명 주기 | [Operator-Initiated SRE and ARB](../operations/operator-initiated-sre-and-arb-ko.md) |
