@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: ce0d9ccbb16f4380f201be1a72781df91bd5d586
+translation_source_sha: a64289776d92e82c772f7f9d05018ebb8218e474
 translation_revised: 2026-08-11
 ---
 # Operator Console Module Map and Boundaries
@@ -99,9 +99,9 @@ level 모두에서 terminal cancellation을 수락하여 valid terminal update�
 argument, excess dependency 및 12개를 초과하는 evidence reference를 거부합니다. Provider body를 copy하지
 않고 execution authority를 부여하지 않습니다.
 
-Core는 principal-manifest-verified query plan에서 이 record를 만들 수 있지만 production JSON/SSE turn
-completion은 아직 이를 attach하지 않습니다. 해당 binding 전까지 parser 변경은 additive이고
-compatibility route가 visible answer path로 유지됩니다.
+Core는 principal-manifest-verified query plan에서 이 record를 만듭니다. Operator는 durable semantic
+projection을 기존 `done` frame으로 변환하고 production SSE는 Console parser를 변경하지 않은 채 graph,
+evidence, verification counter 및 deterministic answer를 전달합니다.
 
 독립 Operator/Core bridge에는 이제 semantic turn과 terminal projection을 위한 additive version 1.2 wire
 shape가 있습니다. Operator는 authentication, durable outbox acceptance, principal-scoped replay 및 SSE

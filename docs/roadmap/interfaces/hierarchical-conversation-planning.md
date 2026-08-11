@@ -32,16 +32,16 @@ dependencies, invalid arguments, scope invention, and writes outside a confirmat
 
 ## Implementation status
 
-The structured intent graph is not yet the active server planner. Core now has a schema-constrained
-whole-turn semantic model seam, principal-manifest verification, deterministic intent-graph and
-receipt production, and exact Console v2/v1 wire projections. The compatibility coordinator can
-run semantic planning in shadow without changing the visible result. The production turn stream
-does not attach these projections, and no production semantic model or descriptor-index binding is
-enabled. The default Core compatibility path now accepts exact canonical commands only.
+The structured intent graph is now the configured server planner for semantic-turn requests. Core
+binds the Azure planning adapter, principal-manifest verification, deterministic intent-graph and
+receipt production, and exact Console v2/v1 wire projections when its model, release, store, and
+transport prerequisites are available. The Operator bridge converts the evidence-bound result to
+the existing Console `done` frame; missing prerequisites remain a typed limitation. The default
+Core compatibility path now accepts exact canonical commands only.
 Natural-language aliases, keyword narration, and canonical-string read plans require explicit
 temporary `legacy` mode. An async semantic runtime executes verified ordinary-language DAGs and
-emits bounded graph and evidence projections. Production model, provider, descriptor-index, and
-Operator stream composition remain.
+emits bounded graph and evidence projections. Durable descriptor indexing and additional temporal,
+metric, and causal provider bindings remain explicit delivery work.
 
 The cross-service cutover starts with additive `operator-core-request` and
 `core-operator-projection` version 1.2 envelopes. A semantic request carries the authenticated
@@ -50,14 +50,15 @@ and `execution_authority: false`. A terminal semantic result carries one typed d
 exact release, principal-manifest, plan, execution-receipt, and evidence identities when the turn
 is answered. The generic envelope remains compatible with version 1.0 consumers, but a semantic
 payload is never translated into the older shape because that would discard its evidence contract.
-Until the Operator outbox publisher, Core consumer, and durable result projection are composed,
-version 1.2 is a transport contract only and does not change the visible answer path.
-The Operator-side cutover is composed when both publisher and result-source transports are bound.
+The Operator outbox publisher, Core consumer, durable result projection, and Console `done` adapter
+are composed when both publisher and result-source transports are bound. The Operator-side cutover
+uses Terraform-provisioned `operator.semantic-turn.requests` and
+`core.semantic-turn.projections` topics.
 One semantic-aware adapter then owns projection, proposal, and stream routing, while a local Azure
 narrator is excluded from `chat.stream`. PostgreSQL claims use the database clock, held retries use
 a request-and-result-digest projection identity, and duplicate results validate request, principal,
-and digest atomically. Core consumer and deployment transport binding remain required before this
-path becomes the production answer path.
+and digest atomically. Live cross-service and randomized assurance receipts remain required before
+this path can be reported production-ready.
 
 Exact-release semantic candidates, verified semantic plans, bounded ObjectSets, secured query
 receipts, typed function registration, `OntologyQueryPlan`, a deterministic verifier, and bounded
@@ -353,8 +354,8 @@ The compatibility period is temporary. Migration ends with one graph contract an
 
 | Area | Current state | Coverage impact |
 |------|---------------|-----------------|
-| Intent graph | Verified plans can produce bounded graphs, task evidence, and Console-compatible wire projections. | Production one-shot and streamed turn completion do not yet attach them; compatibility parsers remain active. |
-| Semantic plans and ObjectSets | Exact-release candidates, principal-manifest verification, bounded predicates/traversal, secured receipts, generic set/order/project/aggregate handlers, and typed function invocation exist. | The generic query manifest and plan executor are not yet the production narrator surface; temporal and evidence-join extensions remain. |
+| Intent graph | Verified plans produce bounded graphs and task evidence, and Operator attaches both to the Console-compatible `done` frame. | A new authenticated live run must validate the visible browser path. |
+| Semantic plans and ObjectSets | Exact-release candidates, principal-manifest verification, bounded predicates/traversal, secured receipts, and generic set/order/project/aggregate handlers form the production semantic-turn read surface. | Temporal and evidence-join extensions remain unavailable until their authoritative providers are bound. |
 | Interfaces | Production loading validates and compiles the reviewed `Identifiable` Interface for all current ObjectTypes, and Interface selectors exist in the ObjectSet contract. | Additional capability Interfaces and production polymorphic ObjectSet query binding remain unwired. |
 | Relationship sides | Every directed LinkType exposes deterministic outgoing and incoming endpoint-side query ids while stores preserve typed direction. | The generic verifier and natural-language planner do not yet consume those sides. |
 | Semantic generations | Rule retrieval has complete generations and candidate-only ranking | Declaration and runtime-object coverage has not yet expanded to the full ontology. |

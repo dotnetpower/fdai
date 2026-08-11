@@ -22,8 +22,9 @@ units for 100% structural query coverage.
 > Intent recognition was 100%, answer success was 20%, and all 100 cards were unverified with
 > evidence 0/0. Core now composes the semantic runtime when Azure model candidates, the exact
 > ontology release, and the ontology instance store are available. The measured run predates that
-> binding. Production completion remains blocked until the Operator Service publishes semantic
-> turns, consumes evidence-bound projections, and produces live cross-service receipts. See
+> binding. The Operator Service now publishes semantic turns and consumes evidence-bound
+> projections. A production-completion claim remains blocked until a new live cross-service and
+> randomized run produces those receipts through the visible Console path. See
 > [Ontology Query Randomized Assurance](ontology-query-randomized-assurance.md).
 >
 > **Cross-service contract status (2026-08-11):** Additive version 1.2 request and projection
@@ -32,8 +33,8 @@ units for 100% structural query coverage.
 > production routing by themselves. Semantic payloads fail closed instead of being translated to
 > the N-1 shape. Core now consumes configured semantic requests, persists canonical results,
 > publishes terminal projections, and reports exact missing-provider reasons through startup
-> readiness. Operator outbox publication and receipt-backed integration evidence remain the cutover
-> gate.
+> readiness. Operator outbox publication, durable replay, and Console `done` projection are now
+> composed; receipt-backed live integration evidence remains the release gate.
 >
 > **Implementation status (2026-08-10):** Exact ontology releases, semantic candidates, bounded
 > ObjectSets, secured query receipts, typed function registration, current inventory projection,
@@ -135,10 +136,10 @@ objects are selected only by authoritative reads after plan verification.
 
 | Area | Verified current implementation | Gap that blocks the target |
 |------|---------------------------------|----------------------------|
-| Conversation routing | The default compatibility coordinator accepts exact canonical commands only. Configured Core semantic topics now use the Azure planning adapter and execute verified ordinary-language DAGs over the current ontology store, then persist and publish terminal graph/evidence projections. | Operator publication, projection replay/streaming, live cross-service receipts, and a descriptor index for manifests beyond the complete-manifest bound remain. `legacy` exists only as an explicit temporary compatibility mode. |
-| Cross-service semantic wire | Version 1.2 request and projection envelopes carry bounded semantic input and evidence-bound terminal output without execution authority. | Runtime publisher, consumer, durable replay projection, and production readiness remain; semantic records never downgrade to N-1. |
-| Console intent graph | Core now derives a bounded graph and receipt evidence from verified plans, and shared SDK projections exactly match the Console v2/v1 parsers. | The production turn-completion stream does not yet attach the produced graph and evidence. |
-| Semantic interpretation | The Azure OpenAI adapter proposes a `SemanticProblemFrame` and typed DAG as two strict bounded JSON objects through bearer-token authentication and resolved-candidate fallback. Core supplies identity, validates the Pydantic schemas, verifies the principal manifest, and executes with the exact request role. | The complete-manifest selector holds when the descriptor bound is exceeded. The Operator Service still needs to make the evidence-bound projection the visible streamed answer. |
+| Conversation routing | The default compatibility coordinator accepts exact canonical commands only. Configured semantic topics route ordinary language through the Operator outbox, Core Azure planner and verified DAG, durable projection, and Console `done` frame. | Live cross-service receipts and a descriptor index for manifests beyond the complete-manifest bound remain. `legacy` exists only as an explicit temporary compatibility mode. |
+| Cross-service semantic wire | Version 1.2 request and projection envelopes carry bounded semantic input and evidence-bound terminal output without execution authority. Operator and Core use Terraform-provisioned request/projection topics, durable replay, and bounded retry. | Production readiness remains evidence-gated; semantic records never downgrade to N-1. |
+| Console intent graph | Core derives a bounded graph and receipt evidence from verified plans, and Operator streams them through the Console-compatible terminal frame. | A new authenticated randomized run must verify the visible browser path against live evidence. |
+| Semantic interpretation | The Azure OpenAI adapter proposes a `SemanticProblemFrame` and typed DAG as two strict bounded JSON objects through bearer-token authentication and resolved-candidate fallback. Core supplies identity, validates the Pydantic schemas, verifies the principal manifest, executes with the exact request role, and Operator streams the deterministic evidence-bound answer. | The complete-manifest selector holds when the descriptor bound is exceeded. |
 | Object queries | `OntologyQueryPlan` now composes secured ObjectSets, set algebra, ordering, projection, grouped aggregation, and typed read-only functions over immutable content-addressed tables. | Temporal snapshots, metric series, and evidence joins still require registered extension handlers. |
 | Query manifest | A principal-scoped content-addressed builder projects ObjectTypes and filtered properties, both LinkType endpoint sides, Interfaces, read-only functions, and draft-only ActionTypes. | The production narrator does not yet consume the manifest, and complete operator/evidence availability descriptors remain. |
 | Interfaces | Production catalog loading validates `Identifiable`, its provenance, and explicit bindings for all current ObjectTypes; runtime composition compiles it and pins it in the exact release. | Additional capability Interfaces and production ObjectSet query binding remain. |

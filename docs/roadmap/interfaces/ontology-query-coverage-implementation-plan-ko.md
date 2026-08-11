@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 78a427aa39bf703fd838b62d1175a77f8c99bb4a
+translation_source_sha: 4ec249264117de63851dd980c4a01102b11f20d2
 translation_revised: 2026-08-11
 ---
 
@@ -22,9 +22,9 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > 완료했지만 측정된 경로는 로컬 Azure narrator만 사용했습니다. 의도 인식은 100%, 답변 성공은
 > 20%였으며 카드 100개 모두 evidence 0/0의 unverified 상태였습니다. Core는 이제 Azure model
 > candidate, exact ontology release 및 ontology instance store를 사용할 수 있을 때 semantic runtime을
-> 구성합니다. 측정된 실행은 이 binding 이전의 결과입니다. Operator Service가 semantic turn을
-> publish하고 evidence-bound projection을 consume하며 live cross-service receipt를 만들 때까지
-> production completion은 계속 차단됩니다.
+> 구성합니다. 측정된 실행은 이 binding 이전의 결과입니다. Operator Service는 이제 semantic turn을
+> publish하고 evidence-bound projection을 consume합니다. Visible Console path에서 새 live cross-service
+> 및 randomized run receipt를 만들 때까지 production completion 보고는 계속 차단됩니다.
 > [온톨로지 쿼리 무작위 보증](ontology-query-randomized-assurance-ko.md)을 참조하세요.
 >
 > **Cross-service contract 상태(2026-08-11):** Additive version 1.2 request/projection envelope은
@@ -32,8 +32,9 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > exact evidence digest를 정의합니다. 이 계약만으로 production routing이 활성화되지는 않습니다.
 > Semantic payload는 N-1 shape로 translate하지 않고 fail closed합니다. Core는 이제 설정된 semantic
 > request를 consume하고 canonical result를 persist하며 terminal projection을 publish하고 startup
-> readiness에 exact missing-provider reason을 보고합니다. Operator outbox publication과
-> receipt-backed integration evidence가 cutover gate로 남아 있습니다.
+> readiness에 exact missing-provider reason을 보고합니다. Operator outbox publication, durable replay 및
+> Console `done` projection은 이제 compose되며 receipt-backed live integration evidence가 release gate로
+> 남아 있습니다.
 >
 > **구현 상태(2026-08-10):** Exact ontology release, semantic candidate, bounded ObjectSet, secured query
 > receipt, typed function registration, current inventory projection, metric provider 및 causal-analysis
@@ -133,10 +134,10 @@ plan 검증 이후 authoritative read로만 선택합니다.
 
 | 영역 | 검증된 현재 구현 | 목표를 차단하는 gap |
 |------|------------------|---------------------|
-| Conversation routing | Default compatibility coordinator는 exact canonical command만 수락합니다. Configured Core semantic topic은 이제 Azure planning adapter를 사용하고 current ontology store에서 verified ordinary-language DAG를 실행한 다음 terminal graph/evidence projection을 persist/publish합니다. | Operator publication, projection replay/streaming, live cross-service receipt 및 complete-manifest bound를 넘는 manifest를 위한 descriptor index가 남아 있습니다. `legacy`는 explicit temporary compatibility mode로만 존재합니다. |
-| Cross-service semantic wire | Version 1.2 request/projection envelope은 execution authority 없이 bounded semantic input과 evidence-bound terminal output을 전달합니다. | Runtime publisher, consumer, durable replay projection 및 production readiness가 남아 있으며 semantic record는 N-1로 downgrade하지 않습니다. |
-| Console intent graph | Core는 verified plan에서 bounded graph/receipt evidence를 만들며 shared SDK projection은 Console v2/v1 parser와 정확히 일치합니다. | Production turn-completion stream은 아직 생성된 graph/evidence를 attach하지 않습니다. |
-| Semantic interpretation | Azure OpenAI adapter는 bearer-token authentication과 resolved-candidate fallback을 통해 `SemanticProblemFrame` 및 typed DAG를 strict bounded JSON object 두 개로 제안합니다. Core는 identity를 부여하고 Pydantic schema와 principal manifest를 검증하며 exact request role로 실행합니다. | Descriptor bound를 넘으면 complete-manifest selector가 hold합니다. Operator Service는 evidence-bound projection을 visible streamed answer로 연결해야 합니다. |
+| Conversation routing | Default compatibility coordinator는 exact canonical command만 수락합니다. Configured semantic topic은 ordinary language를 Operator outbox, Core Azure planner/verified DAG, durable projection 및 Console `done` frame으로 전달합니다. | Live cross-service receipt와 complete-manifest bound를 넘는 manifest를 위한 descriptor index가 남아 있습니다. `legacy`는 explicit temporary compatibility mode로만 존재합니다. |
+| Cross-service semantic wire | Version 1.2 request/projection envelope은 execution authority 없이 bounded semantic input과 evidence-bound terminal output을 전달합니다. Operator와 Core는 Terraform-provisioned request/projection topic, durable replay 및 bounded retry를 사용합니다. | Production readiness는 evidence-gated로 유지되며 semantic record는 N-1로 downgrade하지 않습니다. |
+| Console intent graph | Core는 verified plan에서 bounded graph/receipt evidence를 만들고 Operator는 Console-compatible terminal frame으로 이를 stream합니다. | 새 authenticated randomized run이 live evidence에 대해 visible browser path를 검증해야 합니다. |
+| Semantic interpretation | Azure OpenAI adapter는 bearer-token authentication과 resolved-candidate fallback을 통해 `SemanticProblemFrame` 및 typed DAG를 strict bounded JSON object 두 개로 제안합니다. Core는 identity를 부여하고 Pydantic schema와 principal manifest를 검증하며 exact request role로 실행하고 Operator는 deterministic evidence-bound answer를 stream합니다. | Descriptor bound를 넘으면 complete-manifest selector가 hold합니다. |
 | Object query | `OntologyQueryPlan`은 이제 immutable content-addressed table 위에서 secured ObjectSet, set algebra, ordering, projection, grouped aggregation 및 typed read-only function을 구성합니다. | Temporal snapshot, metric series 및 evidence join에는 registered extension handler가 필요합니다. |
 | Query manifest | Principal-scoped content-addressed builder가 ObjectType/filtered property, LinkType 양쪽 endpoint side, Interface, read-only function 및 draft-only ActionType을 projection합니다. | Production narrator는 아직 manifest를 사용하지 않으며 complete operator/evidence availability descriptor가 남아 있습니다. |
 | Interface | Production catalog loading은 `Identifiable`, provenance 및 모든 current ObjectType의 explicit binding을 검증합니다. Runtime composition은 이를 compile하고 exact release에 pin합니다. | 추가 capability Interface와 production ObjectSet query binding은 남아 있습니다. |

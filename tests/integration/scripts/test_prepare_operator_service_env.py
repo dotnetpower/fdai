@@ -22,10 +22,10 @@ def _repo(tmp_path: Path, *, semantic: str) -> Path:
     semantic_values = {
         "complete": (
             "FDAI_KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093\n"
-            "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator-core-request\n"
-            "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core-operator-projection\n"
+            "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests\n"
+            "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections\n"
         ),
-        "partial": "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator-core-request\n",
+        "partial": "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests\n",
         "absent": "",
     }[semantic]
     (repo / ".fdai/local-runtime.env").write_text(
@@ -60,8 +60,8 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
     assert "prepared local independent Operator Service environment" in completed.stdout
     if semantic == "complete":
         assert "FDAI_KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093" in rendered
-        assert "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator-core-request" in rendered
-        assert "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core-operator-projection" in rendered
+        assert "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests" in rendered
+        assert "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections" in rendered
         assert "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR=" not in rendered
     else:
         assert "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=" not in rendered

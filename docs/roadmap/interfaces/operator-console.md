@@ -63,7 +63,11 @@ When semantic transport is configured, production composition builds one Operato
 Hubs Kafka adapter for proposal publication and projection consumption. Bootstrap, request topic,
 and projection topic are all-or-none; the adapter uses the command managed identity, idempotent
 bounded JSON publication, manual commit after projection persistence, and sibling-DLQ handling for
-invalid JSON. Explicit injected providers keep precedence, and the local narrator is mutually exclusive.
+invalid JSON. Terraform supplies `operator.semantic-turn.requests` and
+`core.semantic-turn.projections`; the adapter rejects any other publish or subscription topic.
+Core renders verified query-table outputs deterministically, and Operator maps the durable result
+to the existing `done` event with answer, verification, intent graph, and evidence. Explicit
+injected providers keep precedence, and the local narrator is mutually exclusive.
 The Operator API never marks a review ready, creates a catalog proposal, or grants authority. Reporting an incorrect answer adds evidence for autonomous re-evaluation, and every governed transition still requires exact replay evidence plus the existing catalog lifecycle.
 ### 1.1 Vocabulary added to the shared glossary
 

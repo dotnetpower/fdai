@@ -25,6 +25,9 @@ from fdai_operator_service.environment import (
     SEMANTIC_REQUEST_TOPIC_ENV,
     TENANT_ENV,
 )
+from fdai_operator_service.families.conversation import (
+    semantic_turn_runtime as semantic_turn_runtime_module,
+)
 from fdai_operator_service.families.conversation.contracts import (
     ConversationBoundaryError,
     ConversationProposal,
@@ -64,6 +67,15 @@ def _proposal(*, body: JsonObject | None = None) -> ConversationProposal:
         idempotency_key="turn-retry-1",
         body=body or {"prompt": "Show the current incident evidence."},
     )
+
+
+def test_semantic_envelope_defaults_to_core_operations_review_purpose() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+
+    semantic_turn = cast(dict[str, object], envelope["semantic_turn"])
+    assert semantic_turn["purpose"] == "operations-review"
 
 
 class _MemorySemanticStore:
@@ -235,6 +247,7 @@ def _projection(
         "evidence_refs": ["evidence-1"] if answered_evidence else [],
         "checks_completed": 1 if answered_evidence else 0,
         "checks_total": 1 if answered_evidence else 0,
+        "answer": f"Semantic result: {disposition}",
         "execution_authority": False,
     }
     if answered_evidence:
@@ -245,7 +258,6 @@ def _projection(
                 "principal_manifest_digest": digest,
                 "plan_digest": digest,
                 "execution_receipt_digest": digest,
-                "answer": "The verified result is available.",
             }
         )
     request_id = cast(str, envelope["request_id"])
@@ -469,9 +481,12 @@ async def test_missing_transport_projects_typed_held_result() -> None:
     assert cast(dict[str, object], receipt.response.body)["dispatch_status"] == "held"
     assert len(events) == 1
     semantic_result = cast(dict[str, object], events[0].data["semantic_result"])
+    verification = cast(dict[str, object], events[0].data["verification"])
+    assert events[0].event == "done"
     assert semantic_result["disposition"] == "held"
     assert semantic_result["reason_code"] == "semantic_transport_unavailable"
-    assert "answer" not in semantic_result
+    assert "semantic_transport_unavailable" in cast(str, semantic_result["answer"])
+    assert verification["status"] == "unverified"
 
 
 def test_held_projection_identity_binds_request_and_terminal_result_digest() -> None:
@@ -617,7 +632,7 @@ async def test_answered_result_requires_complete_verified_evidence() -> None:
         envelope=envelope,
     )
 
-    with pytest.raises(ValidationError, match="complete verified evidence"):
+    with pytest.raises((ContractValidationError, ValidationError)):
         await SemanticTurnProjectionConsumer(store).consume(
             _projection(envelope, disposition="answered")
         )
@@ -645,6 +660,25 @@ async def test_valid_answered_result_projects_idempotently() -> None:
     assert len(store.results) == 1
 
 
+def test_legacy_semantic_result_without_answer_replays_as_unverified_limitation() -> None:
+    projection = {
+        "semantic_result": {
+            "disposition": "held",
+            "reason_code": "semantic_runtime_unavailable",
+            "evidence_refs": [],
+            "checks_completed": 0,
+            "checks_total": 0,
+        }
+    }
+
+    done = semantic_turn_runtime_module._done_event_data(projection)
+
+    assert "predates terminal presentation support" in cast(str, done["answer"])
+    verification = cast(dict[str, object], done["verification"])
+    assert verification["status"] == "unverified"
+    assert verification["reason_code"] == "semantic_answer_missing"
+
+
 async def test_semantic_bridge_replays_results_in_sequence_order() -> None:
     store = _MemorySemanticStore()
     bridge = SemanticTurnBridge(
@@ -656,20 +690,20 @@ async def test_semantic_bridge_replays_results_in_sequence_order() -> None:
     store.results = {
         "late": StoredSemanticResult(
             2,
-            "semantic_turn_result",
+            "done",
             stored_turn.request_id,
             "operator-1",
             "late",
-            {"status": "answered"},
+            _projection(stored_turn.envelope, disposition="answered", answered_evidence=True),
             False,
         ),
         "early": StoredSemanticResult(
             1,
-            "semantic_turn_result",
+            "done",
             stored_turn.request_id,
             "operator-1",
             "early",
-            {"status": "held"},
+            _projection(stored_turn.envelope, disposition="held"),
             False,
         ),
     }
@@ -738,10 +772,11 @@ async def test_semantic_adapter_delegates_reads_and_exposes_bridge_health() -> N
     assert delegated.body == {"mode": "azure-cli"}
     assert fallback.operations == ["chat.history", "chat.health"]
     assert cast(dict[str, object], health.body)["semantic_bridge"] == {
-        "available": True,
-        "mode": "event-bridge",
-        "request_topic": "operator-core-request",
-        "result_topic": "core-operator-projection",
+        "available": False,
+        "configured": True,
+        "mode": "starting",
+        "request_topic": "operator.semantic-turn.requests",
+        "result_topic": "core.semantic-turn.projections",
     }
 
 
@@ -764,7 +799,7 @@ async def test_injected_result_consumer_starts_and_stops_with_bridge() -> None:
             topic: str,
             group_id: str,
         ) -> AsyncIterator[Mapping[str, object]]:
-            assert topic == "core-operator-projection"
+            assert topic == "core.semantic-turn.projections"
             assert group_id == "operator-semantic-turn-v1"
 
             async def events() -> AsyncIterator[Mapping[str, object]]:
@@ -793,9 +828,12 @@ async def test_injected_result_consumer_starts_and_stops_with_bridge() -> None:
 
     await bridge.start()
     await asyncio.wait_for(consumed.wait(), timeout=1)
+    assert bridge.workers_ready() is True
+    assert bridge.health()["available"] is True
     await bridge.aclose()
 
     assert len(store.results) == 1
+    assert bridge.workers_ready() is False
 
 
 def test_production_composition_activates_semantic_bridge_only_with_transport(
@@ -943,8 +981,9 @@ async def test_production_composition_auto_binds_one_kafka_bus_and_owns_lifecycl
     semantic = runtime.route_families.conversation.projections
     assert isinstance(semantic, SemanticTurnConversationAdapters)
     assert semantic.bridge.health() == {
-        "available": True,
-        "mode": "event-bridge",
+        "available": False,
+        "configured": True,
+        "mode": "starting",
         "request_topic": "semantic.requests",
         "result_topic": "semantic.projections",
     }

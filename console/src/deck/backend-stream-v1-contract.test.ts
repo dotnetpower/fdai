@@ -45,3 +45,74 @@ test("rejects v1 frames with mismatched request ids or missing sequences", async
     expect(reply.verification).toBeUndefined();
   }
 });
+
+test("accepts an evidence-bound ontology query done frame", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(
+      `event: done\ndata: ${JSON.stringify({
+        seq: 1,
+        revision: 0,
+        status: "answered",
+        answer: "Verified ontology query completed.",
+        source: "ontology-query",
+        verification: {
+          status: "verified",
+          authority: "ontology-query",
+          checks_completed: 1,
+          checks_total: 1,
+          evidence_refs: ["inventory:evidence-1"],
+          reason_code: "semantic_answer_verified",
+          claims: [],
+          failed_claim_ids: [],
+        },
+        intent_graph: {
+          schema_version: 2,
+          goals: [{
+            goal_id: "goal-1",
+            intent: "object_set",
+            capability: "query.object_set",
+            arguments: {},
+            depends_on: [],
+            evidence_mode: "operational",
+            freshness_required: true,
+            confidence: 1,
+            alternatives: [],
+          }],
+          clarification: null,
+          confidence: 1,
+          action_posture: "advise_only",
+        },
+        intent_graph_evidence: {
+          schema_version: 1,
+          status: "completed",
+          evidence_mode: "operational_grounded",
+          goals: [{
+            task_id: "query:resources",
+            goal_id: "goal-1",
+            intent: "object_set",
+            capability: "query.object_set",
+            evidence_mode: "operational",
+            status: "completed",
+            duration_ms: 5,
+            depends_on: [],
+            started_at: "2026-08-11T00:00:00Z",
+            completed_at: "2026-08-11T00:00:00Z",
+            evidence_refs: ["inventory:evidence-1"],
+          }],
+        },
+      })}\n\n`,
+    )),
+  );
+  const backend = await import("./backend");
+
+  const reply = await backend.askBackendStream("show resources", null, [], {
+    onToken: () => undefined,
+  });
+
+  expect(reply.text).toBe("Verified ontology query completed.");
+  expect(reply.source).toBe("ontology-query");
+  expect(reply.verification?.status).toBe("verified");
+  expect(reply.verification?.evidence_refs).toEqual(["inventory:evidence-1"]);
+  expect(reply.intentGraphEvidence?.evidence_mode).toBe("operational_grounded");
+});

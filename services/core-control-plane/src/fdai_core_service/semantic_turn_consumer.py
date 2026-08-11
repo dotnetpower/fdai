@@ -167,6 +167,8 @@ async def consume_semantic_turns(
     group_id: str,
     processor: SemanticTurnProcessor,
     stop: asyncio.Event,
+    publish_attempts: int = 3,
+    publish_retry_delay_seconds: float = 0.1,
 ) -> None:
     """Consume at-least-once requests and publish one idempotent projection.
 
@@ -196,19 +198,44 @@ async def consume_semantic_turns(
                 "semantic_turn_process_failed",
             )
             continue
-        try:
-            await bus.publish(
-                projection_topic,
-                str(projection["idempotency_key"]),
-                projection,
-            )
-        except Exception:  # noqa: BLE001 - publisher detail must not enter the DLQ reason
+        if not await _publish_projection(
+            bus=bus,
+            topic=projection_topic,
+            key=str(projection["idempotency_key"]),
+            projection=projection,
+            stop=stop,
+            attempts=publish_attempts,
+            retry_delay_seconds=publish_retry_delay_seconds,
+        ):
             await bus.dead_letter(
                 envelope.topic,
                 envelope.key,
                 envelope.payload,
                 "semantic_turn_publish_failed",
             )
+
+
+async def _publish_projection(
+    *,
+    bus: EventBus,
+    topic: str,
+    key: str,
+    projection: Mapping[str, Any],
+    stop: asyncio.Event,
+    attempts: int,
+    retry_delay_seconds: float,
+) -> bool:
+    if attempts < 1 or retry_delay_seconds < 0:
+        raise ValueError("semantic projection retry bounds are invalid")
+    for attempt in range(attempts):
+        try:
+            await bus.publish(topic, key, projection)
+            return True
+        except Exception:  # noqa: BLE001 - provider detail must not escape the boundary
+            if attempt + 1 == attempts or stop.is_set():
+                return False
+            await asyncio.sleep(retry_delay_seconds * (2**attempt))
+    return False
 
 
 def _projection_mapping(encoded: bytes) -> Mapping[str, Any]:

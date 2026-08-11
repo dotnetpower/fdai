@@ -139,6 +139,33 @@ def test_verifier_accepts_typed_object_projection_and_aggregation() -> None:
     assert verifier.verify(plan, manifest=manifest) is plan
 
 
+def test_verifier_rejects_output_that_does_not_reference_a_declared_node() -> None:
+    release, manifest = _manifest()
+    definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        as_of=NOW,
+        purpose="operations-review",
+        limit=10,
+    )
+    node = OntologyQueryNode(
+        node_id="resources",
+        kind=QueryNodeKind.OBJECT_SET,
+        arguments_json=canonical_json({"definition": definition.model_dump(mode="json")}),
+        output_kind="query.table",
+    )
+    plan = _plan(
+        (node,),
+        release_digest=release.digest,
+        manifest_digest=manifest.manifest_digest,
+    ).model_copy(update={"output_node_ids": ("missing",)})
+
+    with pytest.raises(ValueError, match="output_node_ids MUST reference declared nodes"):
+        OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,)).verify(
+            plan,
+            manifest=manifest,
+        )
+
+
 def test_verifier_rejects_principal_hidden_predicate_property() -> None:
     release, manifest = _manifest()
     definition = ObjectSetDefinition(

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 1994da83df7b5ef055c244d864e6936a3e42fcf6
+translation_source_sha: 387d0420e32e4a23809b01f4af20eecb106e09e0
 translation_revised: 2026-08-11
 ---
 
@@ -62,7 +62,11 @@ Semantic transport가 구성되면 production composition은 proposal publish와
 Operator-owned Event Hubs Kafka adapter를 만듭니다. Bootstrap, request topic 및 projection topic은
 all-or-none이며 adapter는 command managed identity, idempotent bounded JSON publish, projection persistence
 이후 manual commit 및 invalid JSON용 sibling DLQ를 사용합니다. 명시적으로 주입된 provider가 우선하며
-local narrator와 semantic transport는 상호 배타적입니다.
+Terraform은 `operator.semantic-turn.requests` 및 `core.semantic-turn.projections`를 제공하고 adapter는
+다른 publish 또는 subscription topic을 거부합니다. Core는 verified query-table output을
+deterministic하게 render하고 Operator는 durable result를 answer, verification, intent graph 및 evidence를
+포함한 기존 `done` event로 변환합니다. 명시적으로 주입된 provider가 우선하며 local narrator와
+semantic transport는 상호 배타적입니다.
 Operator API는 review를 ready로 표시하거나 catalog proposal을 만들거나 authority를 부여하지 않습니다. 잘못된 답변 보고는 자율 재평가 evidence만 추가하며 governed transition에는 exact replay evidence와 기존 catalog lifecycle이 계속 필요합니다.
 ### 1.1 공유 glossary에 추가된 어휘
 

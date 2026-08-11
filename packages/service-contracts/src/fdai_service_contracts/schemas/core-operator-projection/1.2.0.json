@@ -77,7 +77,24 @@
         "checks_total": {"type": "integer", "minimum": 0, "maximum": 64},
         "answer": {"type": "string", "minLength": 1, "maxLength": 64000},
         "execution_authority": {"const": false}
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"disposition": {"const": "answered"}},
+            "required": ["disposition"]
+          },
+          "then": {
+            "required": [
+              "ontology_release_digest",
+              "principal_manifest_digest",
+              "plan_digest",
+              "execution_receipt_digest",
+              "answer"
+            ]
+          }
+        }
+      ]
     }
   }
 }

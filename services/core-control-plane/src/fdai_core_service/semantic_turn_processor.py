@@ -14,6 +14,7 @@ from fdai.core.conversation.semantic_runtime import (
 )
 from fdai.core.conversation.session import Principal, Role, Turn
 from fdai.core.ontology_platform import QueryPlanExecution
+from fdai.core.ontology_platform.query_values import QueryTable
 from fdai_service_contracts import (
     OperatorRole,
     SemanticTurnDisposition,
@@ -284,8 +285,9 @@ class SemanticTurnProcessor:
         idempotency_key: str,
         request_digest: str,
     ) -> bytes:
+        delay = 0.01
         while True:
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(delay)
             try:
                 winner = await self._results.get(idempotency_key)
             except Exception:  # noqa: BLE001 - persistence detail must not cross the wire
@@ -296,6 +298,7 @@ class SemanticTurnProcessor:
                     reason_code="semantic_result_store_unavailable",
                 )
             if winner is None:
+                delay = min(delay * 2, 0.25)
                 continue
             try:
                 return _canonical_projection(winner, request_digest=request_digest)
@@ -523,6 +526,9 @@ def _project_runtime_result(
         }
     )
     checks_total = len(execution.receipts)
+    answer = _render_query_answer(request, execution)
+    if answer is None:
+        return _terminal_result(request, "held", "semantic_evidence_incomplete")
     return ContractSemanticTurnResult(
         disposition=SemanticTurnDisposition.ANSWERED,
         reason_code="semantic_answer_verified",
@@ -538,6 +544,7 @@ def _project_runtime_result(
         evidence_refs=evidence_refs,
         checks_completed=checks_total,
         checks_total=checks_total,
+        answer=answer,
     )
 
 
@@ -605,7 +612,90 @@ def _terminal_result(
         session_id=request.session_id,
         turn_id=request.turn_id,
         turn_sequence=request.turn_sequence,
+        answer=_terminal_answer(request.locale, disposition, reason_code),
     )
+
+
+def _render_query_answer(
+    request: SemanticTurnRequest,
+    execution: QueryPlanExecution,
+) -> str | None:
+    outputs: list[dict[str, object]] = []
+    for node_id in execution.output_node_ids:
+        result = execution.results.get(node_id)
+        if result is None or not isinstance(result.value, QueryTable):
+            return None
+        table = result.value
+        rows: list[dict[str, object]] = []
+        for row in table.rows[:20]:
+            candidate_rows: list[dict[str, object]] = [
+                *rows,
+                {"row_id": row.row_id, "values": row.values},
+            ]
+            candidate = [
+                *outputs,
+                _answer_output(node_id=node_id, table=table, rows=candidate_rows),
+            ]
+            if len(_answer_json(candidate).encode("utf-8")) > 48_000:
+                break
+            rows = candidate_rows
+        outputs.append(_answer_output(node_id=node_id, table=table, rows=rows))
+    encoded = _answer_json(outputs)
+    heading = (
+        "검증된 온톨로지 쿼리가 완료되었습니다."
+        if request.locale.casefold().startswith("ko")
+        else "Verified ontology query completed."
+    )
+    answer = f"{heading}\n\n```json\n{encoded}\n```"
+    return answer if len(answer) <= 64_000 else None
+
+
+def _answer_output(
+    *,
+    node_id: str,
+    table: QueryTable,
+    rows: list[dict[str, object]],
+) -> dict[str, object]:
+    return {
+        "node_id": node_id,
+        "rows": rows,
+        "returned_rows": len(rows),
+        "total_rows": len(table.rows),
+        "source_complete": table.complete,
+        "source_truncation_reason": table.truncation_reason,
+        "display_truncated": len(rows) < len(table.rows),
+    }
+
+
+def _answer_json(outputs: list[dict[str, object]]) -> str:
+    return json.dumps(
+        {"outputs": outputs},
+        allow_nan=False,
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+    )
+
+
+def _terminal_answer(locale: str, disposition: str, reason_code: str) -> str:
+    messages = {
+        "answered": "The ontology query completed.",
+        "held": "The ontology query was held because verified evidence is unavailable.",
+        "clarification": "The ontology query needs clarification before it can run.",
+        "unsupported": "The requested ontology query is unsupported.",
+        "action_draft": "The request produced a review-only action draft.",
+        "cancelled": "The ontology query was cancelled.",
+    }
+    korean = {
+        "answered": "온톨로지 쿼리가 완료되었습니다.",
+        "held": "검증된 근거를 사용할 수 없어 온톨로지 쿼리를 보류했습니다.",
+        "clarification": "온톨로지 쿼리를 실행하려면 추가 확인이 필요합니다.",
+        "unsupported": "요청한 온톨로지 쿼리는 지원되지 않습니다.",
+        "action_draft": "요청을 검토 전용 작업 초안으로 만들었습니다.",
+        "cancelled": "온톨로지 쿼리가 취소되었습니다.",
+    }
+    selected = korean if locale.casefold().startswith("ko") else messages
+    return f"{selected.get(disposition, selected['held'])} ({reason_code})"
 
 
 def _request_digest(

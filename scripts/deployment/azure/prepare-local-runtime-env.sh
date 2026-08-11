@@ -247,7 +247,7 @@ print(preferred if preferred in topics else topics[0])
 semantic_topics="$(printf '%s' "$topics_json" | "$REPO_ROOT/.venv/bin/python" -c '
 import json, sys
 topics = json.load(sys.stdin)
-required = ("operator-core-request", "core-operator-projection")
+required = ("operator.semantic-turn.requests", "core.semantic-turn.projections")
 if isinstance(topics, list) and all(item in topics for item in required):
   print("\t".join(required))
 else:

@@ -1,19 +1,19 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: e43d3091896db6e3de558794766fa6d8ae330008
+translation_source_sha: 355752a85774a62a5b480d4ec9a2f9de69866b4e
 translation_revised: 2026-08-11
-
 ---
 
 # 계층형 대화 계획
 
-이 설계는 단순, 복합, 다국어, 멀티모달 FDAI Console 질문을 처리하기 위해 단일 tool 의미 turn 계획을
-하나의 범위가 제한된 intent graph로 교체합니다. Graph에는 실행 권한이 없습니다. Deterministic 검증이
-각 read goal을 사용 가능한 capability에 연결하고, Bragi는 evidence와 검증된 제한 사항만 렌더링합니다.
+이 설계는 단순 질문부터 복합 질문, 다국어 질문, 멀티모달 질문까지 FDAI Console의 모든 질문을
+처리하기 위해, 도구 하나로 끝나던 의미 턴 계획을 범위가 제한된 하나의 의도 그래프(intent graph)로
+대체합니다. 이 그래프에는 실행 권한이 없습니다. 결정론적 검증이 각 읽기 목표를 사용할 수 있는
+기능(capability)에 연결하며, Bragi는 근거와 검증된 한계만 서술합니다.
 
-> 범위: 이 경로는 read-first입니다. Write 요청은 typed draft만 만들 수 있습니다. 기존 안전성 검토,
-> 사람 승인, rollback, 영향 범위, audit gate가 계속 authoritative합니다.
+> 범위: 이 경로는 읽기를 우선합니다. 쓰기 요청은 타입이 지정된 초안만 만들 수 있습니다. 기존
+> 안전성 검사, 사람 승인, 롤백, 영향 범위, 감사 게이트가 계속 최종 권한을 가집니다.
 
 ## 설계 개요
 
@@ -29,98 +29,95 @@ flowchart LR
     VERIFY --> BRAGI[Bragi presentation]
 ```
 
-Mini-model은 언어를 해석하고 graph를 제안합니다. 현재 principal과 deployment에서 사용 가능한
-capability만 볼 수 있습니다. Validator는 알 수 없는 capability, cycle, 해결되지 않은 dependency,
-잘못된 argument, scope 날조, confirmation draft 밖의 write를 차단합니다.
+소형 모델은 언어를 해석해 그래프를 제안합니다. 이 모델은 현재 principal과 배포 환경에서 쓸 수 있는
+기능만 볼 수 있습니다. 검증기는 알 수 없는 기능, 순환 참조, 해결되지 않은 의존성, 잘못된 인자,
+지어낸 범위, 확인 초안을 벗어난 쓰기를 차단합니다.
 
 ## 구현 상태
 
-Structured intent graph는 아직 active server planner가 아닙니다. Core에는 이제 schema-constrained
-whole-turn semantic model seam, principal-manifest verification, deterministic intent-graph/receipt production
-및 정확한 Console v2/v1 wire projection이 있습니다. Compatibility coordinator는 visible result를
-바꾸지 않고 semantic planning을 shadow로 실행할 수 있습니다. Production turn stream은 이 projection을
-attach하지 않으며 production semantic model 또는 descriptor-index binding도 enable되지 않았습니다.
-Default Core compatibility path는 이제 exact canonical command만 수락합니다. Natural-language alias,
-keyword narration 및 canonical-string read plan은 explicit temporary `legacy` mode가 필요합니다. Async
-semantic runtime은 verified ordinary-language DAG를 실행하고 bounded graph/evidence projection을 emit합니다.
-Production model, provider, descriptor-index 및 Operator stream composition은 남아 있습니다.
+구조화된 의도 그래프는 이제 semantic-turn 요청을 처리하도록 설정된 서버 플래너입니다. Core는 모델,
+release, 저장소, 전송 계층의 전제 조건을 모두 갖추면 Azure 계획 수립 어댑터, principal 매니페스트
+검증, 결정론적 의도 그래프와 실행 증적 생성, 정확한 Console v2/v1 전송 형식 변환을 연결합니다.
+Operator 브리지는 근거가 결합된 결과를 기존 Console `done` 프레임으로 변환하며, 전제 조건이 빠졌다면
+타입이 지정된 한계로 남깁니다.
+기본 Core 호환 경로는 이제 정확한 정본 명령만 받아들입니다. 자연어 별칭, 키워드 나열식 서술,
+정본 문자열 읽기 계획에는 명시적이고 일시적인 `legacy` 모드가 필요합니다. 비동기 의미 런타임은
+검증된 일상 언어 DAG를 실행하고 범위가 제한된 그래프와 근거 변환 결과를 내보냅니다. 영속적인 서술자
+인덱싱과 추가적인 시계열, 메트릭, 인과 프로바이더 연결은 명시적인 후속 구현 과제로 남아 있습니다.
 
-Cross-service cutover는 additive `operator-core-request` 및 `core-operator-projection` version 1.2
-envelope에서 시작합니다. Semantic request는 인증된 principal role, bounded session/prior-turn context,
-purpose, deadline, idempotency identity 및 `execution_authority: false`를 전달합니다. Terminal semantic
-result는 turn이 답변됐을 때 하나의 typed disposition과 exact release, principal-manifest, plan,
-execution-receipt 및 evidence identity를 전달합니다. Generic envelope는 version 1.0 consumer와
-호환되지만 semantic payload를 이전 shape로 translate하지 않는데, 그렇게 하면 evidence contract가
-손실되기 때문입니다. Operator outbox publisher, Core consumer 및 durable result projection이
-compose되기 전까지 version 1.2는 transport contract일 뿐이며 visible answer path를 변경하지 않습니다.
-Publisher와 result-source transport가 모두 bind되면 Operator-side cutover가 compose됩니다. 이때 하나의
-semantic-aware adapter가 projection, proposal 및 stream routing을 소유하고 local Azure narrator는
-`chat.stream`에서 제외됩니다. PostgreSQL claim은 database clock을 사용하고 held retry는 request와
-result digest를 결합한 projection identity를 사용하며 duplicate result는 request, principal 및 digest를
-atomic하게 검증합니다. 이 path가 production answer path가 되려면 Core consumer와 deployment transport
-binding이 계속 필요합니다.
+서비스 간 전환은 기존 계약에 더해지는 `operator-core-request` 및 `core-operator-projection` 버전 1.2
+메시지 보자기에서 시작합니다. 의미 요청은 인증된 principal 역할, 범위가 제한된 세션 및 직전 턴
+맥락, 목적, 기한, 멱등성 식별자와 `execution_authority: false`를 실어 나릅니다. 턴이 답변되었다면
+최종 의미 결과는 타입이 지정된 처리 결과 하나와 함께 정확한 release, principal 매니페스트, 계획,
+실행 증적, 근거 식별자를 실어 나릅니다. 범용 보자기는 버전 1.0 소비자와 계속 호환되지만, 의미
+페이로드를 이전 형식으로 변환하지는 않습니다. 그렇게 변환하면 근거 계약이 사라지기 때문입니다.
+발행 측과 결과 수신 측 전송 경로가 모두 연결되면 Operator 발신함 발행기, Core 소비자, 영속
+result 투영, Console `done` 어댑터가 함께 구성됩니다. Operator 쪽 전환은 Terraform이 프로비저닝한
+`operator.semantic-turn.requests` 및 `core.semantic-turn.projections` 토픽을 사용합니다. 이때 의미를
+이해하는 어댑터 하나가 변환, 제안, 스트림 라우팅을 모두 맡고, 로컬 Azure 서술기는 `chat.stream`에서
+제외됩니다. PostgreSQL 점유는 데이터베이스 시계를 쓰고, 보류된 재시도는 요청과 결과 다이제스트를
+결합한 변환 식별자를 쓰며, 중복된 결과는 요청과 principal과 다이제스트를 원자적으로 검증합니다. 이
+경로를 운영 준비 완료로 보고하려면 서비스 간 실제 실행 증적과 무작위 보증 증적이 더 필요합니다.
 
-Exact-release semantic candidate, verified semantic plan, bounded ObjectSet, secured query receipt, typed
-function registration, `OntologyQueryPlan`, deterministic verifier 및 bounded dependency-wave execution이
-ontology-platform foundation으로 존재합니다. Built-in node는 ObjectSet, set algebra, ordering, projection,
-grouped aggregation 및 read-only function을 다룹니다. Conversation coordinator와는 연결되지 않았습니다.
-Temporal, metric-series, evidence-join 및 complete runtime availability descriptor는 남아 있습니다.
+정확한 release에 구속된 의미 후보, 검증된 의미 계획, 범위가 제한된 ObjectSet, 보안된 조회 증적,
+타입이 지정된 함수 등록, `OntologyQueryPlan`, 결정론적 검증기, 범위가 제한된 의존성 단계별 실행은
+온톨로지 플랫폼의 기반으로 이미 존재합니다. 내장 노드는 ObjectSet, 집합 연산, 정렬, 투영,
+그룹별 집계, 읽기 전용 함수를 다룹니다. 아직 대화 조정기와는 연결되지 않았습니다. 시계열, 메트릭
+시리즈, 근거 결합, 완전한 런타임 가용성 서술자는 과제로 남아 있습니다.
 
-목표 server path는 raw provider payload 대신 redacted graph와 timestamp가 있는 goal receipt를
-저장합니다. 검증된 read goal을 bounded dependency wave로 실행하고 blocked descendant를 skip하며
-cancellation을 전파하고 성공한 sibling evidence를 보존합니다. Action draft는 현재 capability manifest에
-대해 다시 검사합니다. Delivery와 sequencing은 [Ontology Query Coverage 구현
+목표로 하는 서버 경로는 프로바이더 원본 응답 대신 민감 정보를 가린 그래프와 시각이 찍힌 목표 증적을
+저장합니다. 검증된 읽기 목표를 범위가 제한된 의존성 단계로 실행하고, 막힌 하위 작업은 건너뛰며,
+취소를 전파하고, 성공한 형제 작업의 근거는 보존합니다. 액션 초안은 현재 기능 매니페스트에
+대조해 다시 검사합니다. 전달과 순서는 [Ontology Query Coverage 구현
 계획](ontology-query-coverage-implementation-plan-ko.md)에서 추적합니다.
 
-현재 compatibility path에는 catalog token matching과 legacy single-tool parser가 아직 남아 있습니다.
-이들은 목표 자연어 아키텍처가 아닙니다. Exact identifier는 계속 직접 resolve할 수 있지만, 일반
-언어는 active ontology와 capability manifest에서 typed semantic candidate를 만들어야 합니다. 목표
-상태에서는 regex, phrase list 또는 질문별 alias가 capability, relationship path 또는 answer shape를
-선택할 수 없습니다.
+현재 호환 경로에는 카탈로그 토큰 매칭과 이전 방식의 단일 도구 파서가 아직 남아 있습니다. 이들은
+목표로 하는 자연어 아키텍처가 아닙니다. 정확한 식별자는 계속 직접 해석할 수 있지만, 일상 언어는
+활성 온톨로지와 기능 매니페스트에서 타입이 지정된 의미 후보를 만들어야 합니다. 목표 상태에서는
+정규식, 문구 목록, 질문별 별칭이 기능과 관계 경로, 답변 형태를 선택할 수 없습니다.
 
-## Ontology query coverage 계약
+## 온톨로지 조회 커버리지 계약
 
-FDAI는 모든 질문에 완전한 답을 제공한다고 보장하는 대신 100% **structural query coverage**를
-목표로 합니다. Structural coverage는 현재 principal이 읽을 수 있는 active ontology release의 모든
-declaration이 planner query surface에 표현되거나 typed unavailable reason을 갖는다는 의미입니다.
-대상 declaration은 ObjectType, query 가능한 Property, LinkType 양쪽 query side, Interface, read-only
-FunctionType 및 draft-only target인 ActionType입니다.
+FDAI는 모든 질문에 완전한 답을 준다고 보장하는 대신 100% **구조적 조회 커버리지**를
+목표로 삼습니다. 구조적 커버리지란 현재 principal이 읽을 수 있는 활성 온톨로지 release의 모든
+선언이 플래너의 조회 표면에 드러나거나, 타입이 지정된 미지원 사유를 갖는다는 뜻입니다.
+대상 선언은 ObjectType, 조회 가능한 Property, LinkType의 양쪽 조회 방향, Interface, 읽기 전용
+FunctionType, 그리고 초안 작성 용도로만 쓰이는 ActionType입니다.
 
-Release gate는 다음 세 결과를 분리해 측정합니다.
+Release 게이트는 다음 세 결과를 따로 측정합니다.
 
-- **Schema coverage**: 읽을 수 있는 모든 active declaration에 content-addressed planner descriptor가
+- **스키마 커버리지**: 읽을 수 있는 모든 활성 선언에 내용 기반 주소를 가진 플래너 서술자가
     있습니다.
-- **Question disposition**: 수락한 모든 turn은 grounded answer, clarification, evidence hold,
-    unsupported goal 또는 governed action draft로 끝납니다.
-- **Answer coverage**: Competency question 중 완전한 grounded answer에 도달한 비율입니다. 이 값은
-    배포된 data와 evidence에 따라 달라지며 설계상 100%로 표시하지 않습니다.
+- **질문 처리 결과**: 받아들인 모든 턴은 근거에 기반한 답변, 명확화 요청, 근거 보류,
+    지원하지 않는 목표, 통제된 액션 초안 중 하나로 끝납니다.
+- **답변 커버리지**: 역량 검증 질문 중 근거에 기반한 완전한 답변에 도달한 비율입니다. 이 값은
+    배포된 데이터와 근거에 따라 달라지므로 설계상 100%로 표시하지 않습니다.
 
-Language coverage는 phrase를 추가하는 방식으로 유지하지 않습니다. Model 또는 embedding index는
-object, relation 및 function candidate를 제안할 수 있습니다. Deterministic verifier는 각 candidate를
-exact release에 resolve하고 endpoint type과 argument를 검증한 뒤 `VerifiedSemanticPlan`을 만들거나
-clarification을 요청합니다. Similarity는 relationship을 입증하지도, query나 action authority를
-부여하지도 않습니다.
+언어 커버리지는 문구를 계속 추가하는 방식으로 유지하지 않습니다. 모델이나 임베딩 인덱스는
+객체, 관계, 함수 후보를 제안할 수 있습니다. 결정론적 검증기는 각 후보를 정확한 release에
+대응시키고 종단점 타입과 인자를 검증한 뒤 `VerifiedSemanticPlan`을 만들거나 명확화를 요청합니다.
+유사도는 관계를 입증하지도, 조회나 액션 권한을 부여하지도 않습니다.
 
-## Semantic decomposition 및 plan 형성
+## 의미 분해와 계획 수립
 
-자연어를 object search에 바로 전달하지 않습니다. Planner는 먼저 operator가 원하는 것과 이를 충족할
-수 있는 object 및 evidence를 분리한 bounded meaning representation을 만듭니다. 이 record는
-candidate-only이며 provider query, executable text 또는 object claim을 포함하지 않습니다.
+자연어를 객체 검색에 바로 넘기지 않습니다. 플래너는 먼저 운영자가 원하는 것과 그것을 충족할 수
+있는 객체 및 근거를 분리한, 범위가 제한된 의미 표현을 만듭니다. 이 기록은 후보일 뿐이며
+프로바이더 조회문이나 실행 가능한 텍스트, 객체에 대한 단정을 담지 않습니다.
 
-Plan은 다음 5단계로 형성합니다.
+계획은 다음 5단계로 수립합니다.
 
-1. **Request 분해**: 전체 turn과 exact context에서 요청 operation, subject constraint, measure,
-     temporal scope, comparison, output shape 및 evidence standard를 추출합니다.
-2. **Schema grounding**: 해당 role을 principal-scoped release-derived manifest의 ObjectType,
-     Interface, Property, LinkType side 및 FunctionType candidate에 resolve합니다.
-3. **Intent graph 구성**: Evidence가 아직 확립하지 않은 concrete runtime object를 선택하지 않고
-     independent/dependent goal을 표현합니다.
-4. **검증 및 compile**: Bounded read task DAG를 compile하기 전에 모든 schema reference,
-     relationship composition, temporal bound, argument, scope 및 capability를 type-check합니다.
-5. **Evidence 실행 및 join**: Authoritative provider를 통해 concrete object를 resolve하고 typed link를
-     따라가며 등록된 function을 실행합니다. Cutoff를 정렬하고 claim을 검증한 뒤 표현합니다.
+1. **요청 분해**: 전체 턴과 정확한 맥락에서 요청된 연산, 대상 조건, 측정 대상, 시간 범위,
+     비교 방식, 출력 형태, 근거 기준을 추출합니다.
+2. **스키마 대응**: 추출한 역할을 principal 범위로 한정된 release 기반 매니페스트의 ObjectType,
+     Interface, Property, LinkType 방향, FunctionType 후보에 대응시킵니다.
+3. **의도 그래프 구성**: 근거가 아직 확인하지 못한 구체적인 런타임 객체를 고르지 않은 채로
+     독립 목표와 의존 목표를 표현합니다.
+4. **검증 및 컴파일**: 범위가 제한된 읽기 작업 DAG로 컴파일하기 전에 모든 스키마 참조,
+     관계 조합, 시간 경계, 인자, 범위, 기능을 타입 검사합니다.
+5. **근거 실행 및 결합**: 권위 있는 프로바이더로 구체적인 객체를 해석하고 타입이 지정된 링크를
+     따라가며 등록된 함수를 실행합니다. 기준 시점을 정렬하고 단정을 검증한 뒤 서술합니다.
 
-예를 들어 "지난주 이후 요청이 왜 많아졌지?"라는 질문은 다음 meaning representation을 만들 수
+예를 들어 "지난주 이후 요청이 왜 많아졌지?"라는 질문은 다음과 같은 의미 표현을 만들 수
 있습니다.
 
 ```yaml
@@ -138,144 +135,141 @@ evidence_requirements:
     - bounded_change_history
 ```
 
-이 예시는 phrase rule이 아니라 logical form입니다. "왜"를 포함한 어떤 개별 단어도
-`explain_change`를 선택하지 않습니다. Model은 전체 turn, 선택된 screen object, 이전 verified
-context, locale 및 time reference에서 operation을 제안합니다. "요청"이 HTTP request, support request,
-deployment request 중 무엇인지 또는 calendar boundary가 resolve되지 않으면 verifier가 operational
-read 전에 clarification을 반환합니다.
+이 예시는 문구 규칙이 아니라 논리적 형식입니다. "왜"를 포함해 그 어떤 단어도 단독으로
+`explain_change`를 선택하지 않습니다. 모델은 전체 턴, 선택된 화면 객체, 앞서 검증된 맥락,
+로케일, 시간 기준을 종합해 연산을 제안합니다. "요청"이 HTTP 요청인지, 지원 요청인지,
+배포 요청인지 모호하거나 달력 경계가 확정되지 않으면, 검증기는 운영 데이터를 읽기 전에
+명확화를 요청합니다.
 
-Schema grounding 이후 intent graph는 metric change 탐지, 영향받은 Service object 선택, Workload와
-Pod traversal, change point 근처의 Deployment 및 configuration Change 조회, 정렬된 metric window 비교
-같은 goal을 bind할 수 있습니다. Task DAG는 independent read를 동시에 실행할 수 있지만 causal join은
-각 receipt를 기다립니다. 증가보다 먼저 발생한 deployment는 candidate explanation일 뿐입니다.
-Dependency, timing, mechanism, completeness 및 competing-change evidence에 따라 supported, refuted 또는
-unresolved로 결정합니다.
+스키마 대응을 마치면 의도 그래프는 메트릭 변화 탐지, 영향받은 Service 객체 선택, Workload와
+Pod로의 탐색, 변화 시점 근처의 Deployment 및 구성 Change 조회, 정렬된 메트릭 구간 비교 같은
+목표를 연결할 수 있습니다. 작업 DAG는 서로 독립적인 읽기를 동시에 수행할 수 있지만, 인과 관계
+결합은 각 증적을 기다립니다. 증가보다 먼저 일어난 배포는 설명 후보일 뿐입니다. 의존 관계,
+시점, 작동 기제, 완전성, 경합하는 변경의 근거를 모두 따져 지지됨, 반증됨, 미확정 중
+하나로 판정합니다.
 
-## Intent graph 계약
+## 의도 그래프 계약
 
-Intent graph는 operator 요청을 하나의 tool로 축소하지 않고 기록합니다. 모든 graph에는 다음 항목이
-포함됩니다.
+의도 그래프는 운영자 요청을 도구 하나로 축소하지 않고 그대로 기록합니다. 모든 그래프에는 다음
+항목이 들어갑니다.
 
-- **Goals**: 독립적으로 식별할 수 있는 하나 이상의 outcome입니다.
-- **Dependencies**: Goal 실행 전에 완료되어야 하는 goal identifier입니다.
-- **Intent**: Status, diagnosis, comparison, definition 같은 answer shape입니다.
-- **Capability**: 서버 목록에 있는 read capability 하나이며 presentation-only goal에는 없을 수 있습니다.
-- **Arguments**: Operator 또는 server-owned context가 제공한 schema-validated value입니다.
-- **Evidence policy**: 필수 또는 선호 screen, operational, web, catalog, model-knowledge evidence입니다.
-- **Confidence and alternatives**: 추측 대신 ambiguity를 명확히 하는 bounded value입니다.
-- **Action posture**: Read에는 `advise_only`, 명시적 변경 요청에는 `draft_only`를 사용합니다.
+- **목표**: 독립적으로 식별할 수 있는 하나 이상의 결과입니다.
+- **의존성**: 해당 목표를 실행하기 전에 완료되어야 하는 목표 식별자입니다.
+- **의도**: 상태, 진단, 비교, 정의처럼 답변이 갖추어야 할 형태입니다.
+- **기능**: 서버 목록에 있는 읽기 기능 하나이며, 표시만 하는 목표에는 없을 수도 있습니다.
+- **인자**: 운영자나 서버가 소유한 맥락이 제공한, 스키마로 검증한 값입니다.
+- **근거 정책**: 필수이거나 선호하는 화면, 운영, 웹, 카탈로그, 모델 지식 근거입니다.
+- **확신도와 대안**: 짐작 대신 모호함을 드러내는 데 쓰는, 범위가 제한된 값입니다.
+- **액션 자세**: 읽기에는 `advise_only`를, 명시적인 변경 요청에는 `draft_only`를 씁니다.
 
-Graph는 versioned 및 replayable합니다. Hidden reasoning을 저장하지 않습니다. 관찰 가능한 reasoning
-summary에는 선택한 capability, evidence requirement, assumption, 해결되지 않은 ambiguity, dependency
-순서만 포함합니다.
+그래프는 버전이 부여되고 재생할 수 있습니다. 숨겨진 추론 과정은 저장하지 않습니다. 관찰할 수 있는
+추론 요약에는 선택한 기능, 근거 요구사항, 가정, 해결되지 않은 모호함, 의존 순서만 담깁니다.
 
-## Context 해석
+## 맥락 해석
 
-Planner는 model invocation 전에 조립된 bounded context envelope를 받습니다.
+플래너는 모델을 호출하기 전에 조립된, 범위가 제한된 맥락 묶음을 받습니다.
 
-- 현재 route, 선택한 object, semantic screen fact, unit, measurement window, source age입니다.
-- Principal-scoped conversation history와 operator locale입니다.
-- 검증된 image part와 immutable document evidence reference입니다.
-- Route authorization 이후 availability, enabled state, authority로 필터링한 runtime capability입니다.
-    Draft는 submission route의 현재 RBAC 및 safety gate를 계속 통과해야 합니다.
-- 명시적인 web-search availability와 approved-domain policy입니다.
+- 현재 경로, 선택한 객체, 화면에서 읽은 의미 있는 사실, 단위, 측정 구간, 데이터 경과 시간입니다.
+- principal 범위로 한정된 대화 이력과 운영자 로케일입니다.
+- 검증된 이미지 조각과 변경할 수 없는 문서 근거 참조입니다.
+- 경로 권한 확인을 거친 뒤 가용성, 활성화 상태, 권한으로 걸러낸 런타임 기능입니다.
+    초안은 제출 경로의 현재 RBAC과 안전 게이트를 여전히 통과해야 합니다.
+- 명시적인 웹 검색 가용 여부와 승인된 도메인 정책입니다.
 
-`이 수치`, `여기`, `Bragi` 같은 참조는 typed context에 대해 해석합니다. 모호한 참조는 clarification
-goal 하나를 만듭니다. 내부 agent `Bragi`와 신화 속 인물 Bragi는 namespace가 다르므로 신화 질문이
-agent 요청으로 바뀌지 않습니다.
+`이 수치`, `여기`, `Bragi` 같은 참조는 타입이 지정된 맥락에 비춰 해석합니다. 모호한 참조는
+명확화 목표 하나를 만듭니다. 내부 에이전트 `Bragi`와 신화 속 인물 Bragi는 이름 공간이 다르므로
+신화 질문이 에이전트 요청으로 바뀌지 않습니다.
 
-## Capability registry
+## 기능 레지스트리
 
-하나의 registry가 planner-visible descriptor를 소유하며 composition은 resolver binding을 typed provider
-seam 뒤에 유지합니다. Descriptor에는 stable name, purpose, side-effect class, argument schema, owner,
-availability, enabled state, authority mode, unavailable reason이 포함됩니다.
+레지스트리 하나가 플래너에게 보이는 서술자를 소유하며, 조립 계층은 해석기 연결을 타입이 지정된
+프로바이더 경계 뒤에 숨깁니다. 서술자에는 고정된 이름, 용도, 부수 효과 등급, 인자 스키마,
+소유자, 가용성, 활성화 상태, 권한 모드, 사용 불가 사유가 들어갑니다.
 
-Planner는 unavailable capability를 받지 않습니다. Subscription health, inventory, screen read, web
-search, agent-owned read는 같은 계약을 사용합니다. Language term, resource alias, service name은 Python
-질문 pattern이 아니라 catalog 또는 ontology data로 유지합니다.
+플래너는 쓸 수 없는 기능을 아예 받지 못합니다. 구독 상태, 인벤토리, 화면 읽기, 웹 검색,
+에이전트가 소유한 읽기는 모두 같은 계약을 따릅니다. 언어 용어, 리소스 별칭, 서비스 이름은
+Python 질문 패턴이 아니라 카탈로그나 온톨로지 데이터로 관리합니다.
 
-### Release-derived query manifest
+### release에서 도출한 조회 매니페스트
 
-하나의 mechanical builder가 active ontology release와 runtime capability registry를 principal-scoped
-query manifest로 projection합니다. 전체 deployment graph나 hidden field를 model에 전달하지 않습니다.
-Search와 describe는 role, purpose, availability, enabled state 및 authority filtering 이후의 bounded
-descriptor만 반환합니다.
+기계적인 빌더 하나가 활성 온톨로지 release와 런타임 기능 레지스트리를 principal 범위로 한정된
+조회 매니페스트로 변환합니다. 전체 배포 그래프나 숨겨진 필드를 모델에게 넘기지 않습니다.
+검색과 설명 기능은 역할, 용도, 가용성, 활성화 상태, 권한으로 걸러낸 뒤의 제한된 서술자만
+돌려줍니다.
 
-각 descriptor에는 다음 항목이 포함됩니다.
+각 서술자에는 다음 항목이 들어갑니다.
 
-- **Object 또는 interface shape**: Stable identity, property, value type, unit, 지원 predicate 및
-    freshness requirement입니다.
-- **Relationship side**: 각 endpoint의 semantic query name, endpoint type, cardinality, symmetry,
-    causality, temporal ordering 및 inverse traversal 허용 여부입니다.
-- **Function contract**: Input/output schema, operation class, evidence requirement, bound 및
-    side-effect class입니다.
-- **Action boundary**: Draft schema와 필요한 authority만 포함합니다. Mutation handler와 executor
-    credential은 planner에 노출하지 않습니다.
+- **객체 또는 Interface 형태**: 고정된 식별자, 속성, 값 타입, 단위, 지원하는 조건식, 최신성
+    요구사항입니다.
+- **관계 방향**: 각 종단점의 의미 조회 이름, 종단점 타입, 관계 수, 대칭성, 인과성, 시간 순서,
+    역방향 탐색 허용 여부입니다.
+- **함수 계약**: 입출력 스키마, 연산 등급, 근거 요구사항, 한계치, 부수 효과 등급입니다.
+- **액션 경계**: 초안 스키마와 필요한 권한만 담습니다. 변경 핸들러와 실행 자격 증명은
+    플래너에게 노출하지 않습니다.
 
-읽을 수 있는 declaration을 projection할 수 없으면 해당 release는 structurally incomplete합니다.
-따라서 새 resource나 relationship을 추가하면 질문 pattern을 추가하지 않아도 자연어 query surface가
-확장됩니다. 새 query-side metadata는 versioned ontology data이며 자신이 설명하는 declaration과 같은
-release 및 compatibility gate를 통과합니다.
+읽을 수 있는 선언을 변환할 수 없다면 그 release는 구조적으로 불완전합니다. 따라서 새 리소스나
+관계를 추가하면 질문 패턴을 따로 등록하지 않아도 자연어 조회 표면이 넘혀집니다. 새로 추가된
+조회측 메타데이터는 버전이 부여된 온톨로지 데이터이며, 자신이 설명하는 선언과 동일한 release
+및 호환성 게이트를 통과합니다.
 
-### Generic ontology query algebra
+### 범용 온톨로지 조회 대수
 
-Planner는 질문별 tool 하나를 선택하는 대신 bounded `OntologyQueryPlan`을 구성합니다. Closed algebra는
-object/interface selection, typed property predicate, relationship-side traversal, set
-union/intersection/subtraction, ordering, aggregation, projection 및 등록된 read-only ontology function
-호출을 지원합니다. Raw SQL, KQL, Cypher, SPARQL, provider URL 및 executable command는 plan value가
-아닙니다.
+플래너는 질문마다 전용 도구를 고르는 대신 범위가 제한된 `OntologyQueryPlan`을 구성합니다. 이
+닫힌 대수는 객체나 Interface 선택, 타입이 지정된 속성 조건식, 관계 방향별 탐색, 집합의
+합집합/교집합/차집합, 정렬, 집계, 투영, 등록된 읽기 전용 온톨로지 함수 호출을 지원합니다.
+원본 SQL, KQL, Cypher, SPARQL, 프로바이더 URL, 실행 가능한 명령은 계획의 값이 될 수 없습니다.
 
-예를 들어 VM의 peered network 너머에 있는 resource를 묻는 질문은 exact screen context에서 typed
-relationship side로 compile됩니다. VM에서 attached interface, interface에서 subnet, subnet에서
-containing virtual network, peer network, 그 안에 포함되거나 연결된 resource 순서입니다. Model이 이
-단계를 발명하지 않습니다. Verifier는 endpoint type과 active release가 허용한 composition만
-수락합니다. "연결"이 attachment, network reachability, workload dependency 또는 shared scope 중
-무엇인지 모호하면 관련 없는 link를 합치는 대신 clarification을 요청합니다.
+예를 들어 VM의 피어링된 네트워크 너머에 있는 리소스를 묻는 질문은 정확한 화면 맥락에서
+타입이 지정된 관계 방향으로 컴파일됩니다. VM에서 연결된 인터페이스, 인터페이스에서 서브넷,
+서브넷을 포함하는 가상 네트워크, 피어 네트워크, 그 안에 포함되거나 연결된 리소스 순서입니다.
+모델이 이 단계를 지어내지 않습니다. 검증기는 종단점 타입과 활성 release가 허용한 조합만
+받아들입니다. "연결"이 연결 관계인지, 네트워크 도달 가능성인지, 워크로드 의존성인지, 공유된
+범위인지 모호하면 서로 관계없는 링크를 합치는 대신 명확화를 요청합니다.
 
-Object와 declaration embedding은 선택적인 candidate index입니다. Paraphrase와 생략된 이름을 resolve할
-때 도움을 주지만 executor는 exact object identity와 typed link를 읽습니다. Instance embedding은
-structural coverage에 필요하지 않으며 deployment data에서 파생됐으면 deployment local에 유지합니다.
+객체와 선언 임베딩은 선택적인 후보 인덱스입니다. 달리 표현된 문장과 생략된 이름을 해석하는 데
+도움을 주지만, 실행기는 정확한 객체 식별자와 타입이 지정된 링크를 읽습니다. 인스턴스 임베딩은
+구조적 커버리지에 필요하지 않으며, 배포 데이터에서 파생됐다면 해당 배포 환경 안에만 둘니다.
 
-## Evidence policy
+## 근거 정책
 
-| 질문 유형 | 선호 경로 | Fallback |
+| 질문 유형 | 선호 경로 | 대체 경로 |
 |---|---|---|
-| 현재 screen fact | Screen snapshot | Datum이 없으면 clarification |
-| 현재 operational state | Authoritative read capability | Coverage gap을 포함한 partial answer |
-| Public 또는 현재 external fact | Approved web search | Freshness가 필요하지 않으면 model knowledge |
-| Benchmark comparison | Screen metric과 비교 가능한 web evidence | Benchmark를 날조하지 않는 qualitative analysis |
-| General knowledge | 사용 가능하거나 명시적으로 요청된 web | Calibrated model knowledge |
-| 명시적 변경 | Typed action draft | 필수 argument가 없으면 hold |
+| 현재 화면에 보이는 사실 | 화면 스냅샷 | 해당 값이 없으면 명확화 요청 |
+| 현재 운영 상태 | 권위 있는 읽기 기능 | 미확보 구간을 밝힌 부분 답변 |
+| 공개된 사실이나 최신 외부 정보 | 승인된 웹 검색 | 최신성이 필요 없으면 모델 지식 |
+| 벤치마크 비교 | 화면 메트릭과 비교 가능한 웹 근거 | 기준을 지어내지 않는 정성 분석 |
+| 일반 지식 | 쓸 수 있거나 명시적으로 요청된 경우 웹 | 보정된 모델 지식 |
+| 명시적인 변경 | 타입이 지정된 액션 초안 | 필수 인자가 없으면 보류 |
 
-Web result는 untrusted evidence입니다. Sanitization, approved domain, retrieval time, claim verification이
-계속 필요합니다. Search가 unavailable이면 answer는 model knowledge를 표시하고 freshness 제한을
-설명하며 citation을 날조하지 않습니다. 이 fallback은 validated goal에 fresh evidence가 필요하지 않은
-경우에만 허용됩니다. Raw chain-of-thought는 저장하지도 표시하지도 않습니다. Bragi는 간결한 conclusion,
-evidence, assumption, comparison basis, limitation, uncertainty를 제공합니다.
+웹 검색 결과는 신뢰할 수 없는 근거입니다. 정제, 승인된 도메인, 수집 시각, 단정 검증이 계속
+필요합니다. 검색을 쓸 수 없으면 답변은 모델 지식임을 밝히고 최신성 한계를 설명하며 인용을
+지어내지 않습니다. 이 대체 경로는 검증된 목표에 최신 근거가 필요하지 않을 때만 허용됩니다.
+추론 과정 원문은 저장하지도 표시하지도 않습니다. Bragi는 간결한 결론과 근거, 가정, 비교 기준,
+한계, 불확실성을 제시합니다.
 
-### 컨텍스트 기반 운영 근거 결합
+### 맥락 기반 운영 근거 결합
 
-후속 진단은 검증된 durable turn의 server-owned resource 및 event context만 재사용합니다. Metric 비교는
-기록된 event 전후의 동일한 bounded window를 조회합니다. Database, pod 및 capacity 진단은 정확한
-resource가 선택된 후에만 고정 KQL template을 사용하며, 그렇지 않으면 해당 resource를 요청합니다.
-오류율과 control-plane change 결합은 시간 차이를 보고하고 시간적 일치를 원인 증명으로 표현하지
-않습니다. Row 누락, limit 누락, truncation 또는 unavailable provider는 positive finding이 아니라
-명시적인 제한으로 유지됩니다.
+후속 진단은 검증된 영속 턴에서 서버가 소유한 리소스와 이벤트 맥락만 재사용합니다. 메트릭 비교는
+기록된 이벤트 전후의 동일한 구간을 조회합니다. 데이터베이스, Pod, 용량 진단은 정확한 리소스가
+선택된 뒤에만 고정된 KQL 템플릿을 쓰며, 그렇지 않으면 해당 리소스를 물어봅니다. 오류율과
+제어 평면 변경을 결합할 때는 시간 차이를 보고할 뿐, 시간이 맞는다는 이유로 원인이 증명됐다고
+말하지 않습니다. 행 누락, 한도 누락, 잘림, 프로바이더 사용 불가는 긍정적인 발견이 아니라
+명시적인 한계로 남깁니다.
 
-선택된 incident 질문은 server evidence envelope에 analysis intent를 보존합니다. 하나의 bounded audit 및
-RCA projection이 ordered timeline, citation이 있는 hypothesis 순위, 측정된 impact, 기록된 response
-decision, 사용된 evidence reference, unknown 및 investigation progress를 렌더링합니다. Timeline 순서는
-원인 증명이 아닙니다. Similar incident는 공유 domain signal과 explicit successful recovery receipt를
-요구합니다. Provider failure는 검증된 empty result와 구분됩니다. Response decision은 read-only이며 실행
-권한을 부여하지 않고, investigation progress에는 durable run identifier가 필요합니다.
+선택된 인시던트 질문은 서버 근거 묶음에 분석 의도를 보존합니다. 범위가 제한된 감사 및 RCA
+변환 하나가 시간순 타임라인, 근거가 인용된 가설 순위, 측정된 영향, 기록된 대응 결정,
+사용한 근거 참조, 미확인 사항, 조사 진행 상황을 그려냅니다. 타임라인 순서는 인과의 증명이
+아닙니다. 유사 인시던트로 묶으려면 공유된 도메인 신호와 명시적인 복구 성공 증적이 있어야
+합니다. 프로바이더 장애는 검증된 빈 결과와 구분합니다. 대응 결정은 읽기 전용이므로 실행
+권한을 주지 않으며, 조사 진행 상황에는 영속 실행 식별자가 필요합니다.
 
-Incident-analysis turn에서는 durable 또는 exact screen-selected incident context가 관련 없는 semantic
-plan보다 우선합니다. 관련 없는 deterministic tool, explicit public-web 요청 또는 concrete action draft는
-요청한 authority를 유지하며, context가 intent를 대신하지 않습니다. Audit value는 evidence envelope에 들어가기 전에
-normalize되고 cap이 적용되며, cap이 적용되면 `truncated`가 설정됩니다. Evidence reference는 실제로 사용한
-positive audit sequence 또는 citation을 정확히 가리킵니다. RCA confidence는 `0`부터 `1`까지의 finite
-probability일 때만 표시합니다. Freshness follow-up은 이전 durable assistant turn의 server-generated
-freshness receipt를 복원합니다. Browser가 제공한 freshness object는 server evidence authority를 얻지
+인시던트 분석 턴에서는 영속화된 인시던트 맥락이나 화면에서 정확히 선택한 인시던트 맥락이
+관련 없는 의미 계획보다 우선합니다. 관련 없는 결정론적 도구, 명시적인 공개 웹 요청, 구체적인
+액션 초안은 요청받은 권한을 그대로 유지하며, 맥락이 의도를 대신하지는 않습니다. 감사 값은 근거
+묶음에 들어가기 전에 정규화되고 상한이 적용되며, 상한에 걸리면 `truncated`가 설정됩니다.
+근거 참조는 실제로 사용한 긍정 감사 순서나 인용을 정확히 가리킵니다. RCA 확신도는 `0`부터
+`1`까지의 유한한 확률일 때만 표시합니다. 최신성 후속 질문은 직전 영속 어시스턴트 턴에서 서버가
+생성한 최신성 증적을 복원합니다. 브라우저가 제공한 최신성 객체는 서버 근거로서의 권위를 얻지
 못합니다.
 
 ### Temporal 및 causal question
@@ -348,8 +342,8 @@ Compatibility 기간은 일시적입니다. Migration은 하나의 graph contrac
 
 | 영역 | 현재 상태 | Coverage 영향 |
 |------|-----------|---------------|
-| Intent graph | Verified plan에서 bounded graph, task evidence 및 Console-compatible wire projection을 만들 수 있습니다. | Production one-shot/streamed turn completion은 아직 이를 attach하지 않으며 compatibility parser가 active입니다. |
-| Semantic plan 및 ObjectSet | Exact-release candidate, principal-manifest verification, bounded predicate/traversal, secured receipt, generic set/order/project/aggregate handler 및 typed function invocation이 있습니다. | Generic query manifest/plan executor는 아직 production narrator surface가 아니며 temporal/evidence-join extension이 남아 있습니다. |
+| Intent graph | Verified plan은 bounded graph와 task evidence를 만들고 Operator는 둘 다 Console-compatible `done` frame에 attach합니다. | 새 authenticated live run이 visible browser path를 검증해야 합니다. |
+| Semantic plan 및 ObjectSet | Exact-release candidate, principal-manifest verification, bounded predicate/traversal, secured receipt 및 generic set/order/project/aggregate handler가 production semantic-turn read surface를 구성합니다. | Temporal/evidence-join extension은 authoritative provider가 bind될 때까지 unavailable로 남습니다. |
 | Interface | Production loading은 모든 current ObjectType에 대해 reviewed `Identifiable` Interface를 검증하고 compile하며 ObjectSet contract에는 interface selector가 있습니다. | 추가 capability Interface와 production polymorphic ObjectSet query binding은 아직 연결되지 않았습니다. |
 | Relationship side | 모든 directed LinkType이 deterministic outgoing/incoming endpoint-side query id를 제공하며 store는 typed direction을 보존합니다. | Generic verifier와 natural-language planner는 아직 이 side를 사용하지 않습니다. |
 | Semantic generation | Rule retrieval은 complete generation과 candidate-only ranking을 제공합니다. | Declaration 및 runtime object coverage는 전체 ontology로 확장되지 않았습니다. |

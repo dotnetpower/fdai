@@ -75,6 +75,9 @@ class OntologyQueryPlanVerifier:
                 raise ValueError(f"query node kind {node.kind.value!r} is unavailable")
             self._verify_node(node, nodes_by_id=nodes_by_id, descriptors=descriptors)
             nodes_by_id[node.node_id] = node
+        missing_outputs = set(plan.output_node_ids) - nodes_by_id.keys()
+        if missing_outputs:
+            raise ValueError("query plan output_node_ids MUST reference declared nodes")
         return plan
 
     def _verify_node(

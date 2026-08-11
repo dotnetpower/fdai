@@ -231,6 +231,24 @@ def test_semantic_turn_contract_requires_verified_evidence_for_answer() -> None:
         )
 
 
+def test_semantic_turn_principal_rejects_more_roles_than_wire_schema() -> None:
+    from pydantic import ValidationError
+
+    from fdai_service_contracts import OperatorRole, SemanticTurnPrincipal
+
+    with pytest.raises(ValidationError):
+        SemanticTurnPrincipal(
+            subject_id="operator-1",
+            roles=(
+                OperatorRole.READER,
+                OperatorRole.CONTRIBUTOR,
+                OperatorRole.APPROVER,
+                OperatorRole.OWNER,
+                OperatorRole.BREAK_GLASS,
+            ),
+        )
+
+
 def test_semantic_contracts_cannot_downgrade_to_n_minus_one() -> None:
     from fdai_service_contracts.translators import (
         core_operator_projection_1_2_to_1_0,

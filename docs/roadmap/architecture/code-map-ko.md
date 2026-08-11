@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: e7675308450fe25ecf89edf4cebc5befd6c3446c
+translation_source_sha: ad6564ed1082d073a8c0f580e0310a61b990f1db
 translation_revised: 2026-08-11
 ---
 # 코드 맵
@@ -63,6 +63,9 @@ Bounded dependency wave는 node deadline에 queue wait를 포함하고 in-flight
 blocked descendant를 skip하고 provider error detail 없는 stable receipt를 emit합니다.
 Planner manifest는 ObjectType 및 Interface property에 동일한 role/purpose filtering을 적용합니다. Intent
 evidence는 terminal reason을 보존하면서 bounded evidence-reference truncation도 공개합니다.
+Verifier는 I/O 전에 declared DAG node를 가리키지 않는 output을 거부합니다. Answered turn은 bounded
+verified query table만 render하며 transient projection publication은 dead-letter 전에 같은 durable
+idempotent result를 retry합니다.
 Azure semantic planning은 기존 `httpx` 및 `WorkloadIdentity` adapter를 사용하여 검증된 JSON-object
 proposal 두 개를 만듭니다. Composition은 authoritative provider가 bind된 handler만 노출합니다.
 ObjectSet handler는 각 request role에 맞게 다시 만들어지므로 Reader가 Owner visibility를 상속하지 않고

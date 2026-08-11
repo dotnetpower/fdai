@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 70a53cff1376e3427767f80a27b2fe0ddcc9d4d5
+translation_source_sha: f8fa4103b6e4b181eb9165e3af9cb3a04ce5ebe8
 translation_revised: 2026-08-11
 ---
 # 배포 리소스 규약
@@ -99,7 +99,8 @@ Migration 이후에는 remote bootstrap key가 권위 state입니다. 고유 bac
 Core 및 Operator service root는 semantic-turn request와 projection topic 이름을 환경별 Terraform
 입력으로 받습니다. Terraform은 검토된 이름을 `FDAI_SEMANTIC_TURN_REQUEST_TOPIC`과
 `FDAI_SEMANTIC_TURN_PROJECTION_TOPIC`으로 전달하며, application code는 이 cross-service channel을
-파생하거나 이름을 바꾸거나 다른 channel로 대체하지 않습니다.
+파생하거나 이름을 바꾸거나 다른 channel로 대체하지 않습니다. 각 Container App은 각 이름을 한 번만
+받으므로 legacy literal이 Terraform-selected topic을 가릴 수 없습니다.
 
 ## 리소스 태깅 규약(Resource Tagging Convention)
 

@@ -61,6 +61,9 @@ cancellation, skip blocked descendants, and emit stable receipts without provide
 Planner manifests apply identical role and purpose filtering to ObjectType and Interface
 properties. Intent evidence preserves a terminal reason while also disclosing bounded
 evidence-reference truncation.
+The verifier rejects outputs that don't name declared DAG nodes before I/O. Answered turns render
+only bounded verified query tables, and transient projection publication retries the same durable
+idempotent result before dead-lettering.
 Azure semantic planning uses existing `httpx` and `WorkloadIdentity` adapters for two validated
 JSON-object proposals. Composition exposes only handlers with bound authoritative providers. The
 ObjectSet handler is rebuilt for each request role, so a Reader cannot inherit Owner visibility and

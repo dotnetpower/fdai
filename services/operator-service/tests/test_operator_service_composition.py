@@ -385,8 +385,8 @@ def test_database_url_and_exact_operator_role_must_be_configured_together(
     "overrides",
     [
         {KAFKA_BOOTSTRAP_SERVERS_ENV: "example.servicebus.windows.net:9093"},
-        {SEMANTIC_REQUEST_TOPIC_ENV: "operator-core-request"},
-        {SEMANTIC_PROJECTION_TOPIC_ENV: "core-operator-projection"},
+        {SEMANTIC_REQUEST_TOPIC_ENV: "operator.semantic-turn.requests"},
+        {SEMANTIC_PROJECTION_TOPIC_ENV: "core.semantic-turn.projections"},
     ],
 )
 def test_semantic_kafka_environment_is_all_or_none(overrides: Mapping[str, str]) -> None:
@@ -402,8 +402,8 @@ def test_semantic_kafka_environment_disables_local_narrator() -> None:
                 "RUNTIME_ENV": "dev",
                 LOCAL_AZURE_NARRATOR_ENV: "1",
                 KAFKA_BOOTSTRAP_SERVERS_ENV: "example.servicebus.windows.net:9093",
-                SEMANTIC_REQUEST_TOPIC_ENV: "operator-core-request",
-                SEMANTIC_PROJECTION_TOPIC_ENV: "core-operator-projection",
+                SEMANTIC_REQUEST_TOPIC_ENV: "operator.semantic-turn.requests",
+                SEMANTIC_PROJECTION_TOPIC_ENV: "core.semantic-turn.projections",
             }
         )
 
@@ -413,8 +413,8 @@ def test_semantic_kafka_environment_preserves_optional_transport_ids() -> None:
         {
             **BASE_ENV,
             KAFKA_BOOTSTRAP_SERVERS_ENV: "example.servicebus.windows.net:9093",
-            SEMANTIC_REQUEST_TOPIC_ENV: "operator-core-request",
-            SEMANTIC_PROJECTION_TOPIC_ENV: "core-operator-projection",
+            SEMANTIC_REQUEST_TOPIC_ENV: "operator.semantic-turn.requests",
+            SEMANTIC_PROJECTION_TOPIC_ENV: "core.semantic-turn.projections",
             SEMANTIC_CONSUMER_GROUP_ENV: "operator-group",
             SEMANTIC_KAFKA_CLIENT_ID_ENV: "operator-client",
             MANAGED_IDENTITY_CLIENT_ID_ENV: "command-identity",

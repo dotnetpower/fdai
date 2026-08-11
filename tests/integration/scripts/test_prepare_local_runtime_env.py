@@ -132,8 +132,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         'elif [[ "$*" == *"output -raw event_bus_operational_kafka_bootstrap"* ]]; then\n'
         "  printf 'example-ops.servicebus.windows.net:9093'\n"
         'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
-        '  printf \'["aw.finops.events","aw.change.events","operator-core-request",'
-        '"core-operator-projection"]\'\n'
+        '  printf \'["aw.finops.events","aw.change.events","operator.semantic-turn.requests",'
+        '"core.semantic-turn.projections"]\'\n'
         'elif [[ "$*" == *"output -json event_bus_auxiliary_topics"* ]]; then\n'
         "  printf '[\"aw.pipeline.stages\"]'\n"
         'elif [[ "$*" == *"output -json event_bus_operational_topics"* ]]; then\n'
@@ -200,8 +200,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "AZURE_REGION=example-region",
         "KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093",
         "FDAI_KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093",
-        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator-core-request",
-        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core-operator-projection",
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests",
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections",
         "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS=example-ops.servicebus.windows.net:9093",
         "KAFKA_TOPIC_EVENTS=aw.change.events",
         "FDAI_STAGE_TOPIC=aw.pipeline.stages",

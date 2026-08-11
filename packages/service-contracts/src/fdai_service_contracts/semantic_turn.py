@@ -30,7 +30,7 @@ class SemanticTurnPrincipal(QueryContract):
     """Authenticated Operator identity and server-derived roles."""
 
     subject_id: BoundedId
-    roles: Annotated[tuple[OperatorRole, ...], Field(min_length=1, max_length=5)]
+    roles: Annotated[tuple[OperatorRole, ...], Field(min_length=1, max_length=4)]
 
     @model_validator(mode="after")
     def _roles_are_unique(self) -> SemanticTurnPrincipal:
@@ -100,6 +100,7 @@ class SemanticTurnResult(QueryContract):
             or not self.evidence_refs
             or self.checks_total == 0
             or self.checks_completed != self.checks_total
+            or self.answer is None
         ):
             raise ValueError("answered semantic results MUST carry complete verified evidence")
         return self

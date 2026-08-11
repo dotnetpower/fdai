@@ -33,8 +33,8 @@ from fdai_operator_service.postgres_family_store import (
 )
 from fdai_service_contracts import SemanticTurnDisposition, SemanticTurnResult
 
-SEMANTIC_REQUEST_TOPIC = "operator-core-request"
-SEMANTIC_RESULT_TOPIC = "core-operator-projection"
+SEMANTIC_REQUEST_TOPIC = "operator.semantic-turn.requests"
+SEMANTIC_RESULT_TOPIC = "core.semantic-turn.projections"
 SEMANTIC_RESULT_GROUP = "operator-semantic-turn-v1"
 _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 
@@ -274,9 +274,9 @@ class SemanticTurnBridge:
         return _SemanticEventIterator(
             tuple(
                 StreamEvent(
-                    event=result.event,
+                    event="done",
                     event_id=str(result.sequence),
-                    data=cast(JsonObject, dict(result.data)),
+                    data=_done_event_data(result.data),
                 )
                 for result in results
             )
@@ -284,13 +284,19 @@ class SemanticTurnBridge:
 
     def health(self) -> JsonObject:
         """Return a credential-free projection of semantic transport readiness."""
-        available = self._publisher is not None and self._result_source is not None
+        configured = self._publisher is not None and self._result_source is not None
+        available = configured and self.workers_ready()
         return {
             "available": available,
-            "mode": "event-bridge" if available else "held",
+            "configured": configured,
+            "mode": "event-bridge" if available else ("starting" if configured else "held"),
             "request_topic": self._request_topic,
             "result_topic": self._result_topic,
         }
+
+    def workers_ready(self) -> bool:
+        """Return whether both configured background workers remain active."""
+        return len(self._tasks) == 2 and all(not task.done() for task in self._tasks)
 
     async def start(self) -> None:
         """Start one publisher drainer and one result consumer when transport is injected."""
@@ -371,6 +377,13 @@ def _held_projection(envelope: Mapping[str, object]) -> dict[str, object]:
         session_id=_mapping_text(semantic, "session_id"),
         turn_id=_mapping_text(semantic, "turn_id"),
         turn_sequence=_mapping_int(semantic, "turn_sequence"),
+        answer=(
+            "검증된 semantic transport를 사용할 수 없어 온톨로지 쿼리를 보류했습니다. "
+            "(semantic_transport_unavailable)"
+            if _mapping_text(semantic, "locale").casefold().startswith("ko")
+            else "The ontology query was held because verified semantic transport is unavailable. "
+            "(semantic_transport_unavailable)"
+        ),
     )
     result_payload = result.model_dump(mode="json", exclude_none=True)
     result_digest = _canonical_digest(result_payload)
@@ -386,6 +399,58 @@ def _held_projection(envelope: Mapping[str, object]) -> dict[str, object]:
         "payload": {"reason_code": "semantic_transport_unavailable"},
         "semantic_result": result_payload,
     }
+
+
+def _done_event_data(projection: Mapping[str, object]) -> JsonObject:
+    semantic = projection.get("semantic_result")
+    if not isinstance(semantic, Mapping):
+        raise ValueError("stored semantic projection is missing semantic_result")
+    answer = semantic.get("answer")
+    disposition = semantic.get("disposition")
+    if not isinstance(disposition, str):
+        raise ValueError("stored semantic projection is missing terminal disposition")
+    missing_answer = not isinstance(answer, str) or not answer
+    if missing_answer:
+        answer = (
+            "The stored semantic result predates terminal presentation support. "
+            "Review its evidence record before relying on it."
+        )
+    evidence_refs = semantic.get("evidence_refs", [])
+    checks_completed = semantic.get("checks_completed", 0)
+    checks_total = semantic.get("checks_total", 0)
+    if (
+        not isinstance(evidence_refs, list)
+        or any(not isinstance(item, str) for item in evidence_refs)
+        or not isinstance(checks_completed, int)
+        or not isinstance(checks_total, int)
+    ):
+        raise ValueError("stored semantic verification is malformed")
+    verified = disposition == "answered" and not missing_answer
+    return cast(
+        JsonObject,
+        {
+            "seq": 1,
+            "revision": 0,
+            "status": disposition,
+            "answer": answer,
+            "source": "ontology-query",
+            "verification": {
+                "status": "verified" if verified else "unverified",
+                "authority": "ontology-query",
+                "checks_completed": checks_completed,
+                "checks_total": checks_total,
+                "evidence_refs": evidence_refs,
+                "reason_code": (
+                    "semantic_answer_missing" if missing_answer else semantic.get("reason_code")
+                ),
+                "claims": [],
+                "failed_claim_ids": [],
+            },
+            "intent_graph": semantic.get("intent_graph"),
+            "intent_graph_evidence": semantic.get("intent_graph_evidence"),
+            "semantic_result": dict(semantic),
+        },
+    )
 
 
 def _proposal_digest(proposal: ConversationProposal) -> str:

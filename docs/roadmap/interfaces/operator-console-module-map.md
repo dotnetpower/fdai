@@ -98,9 +98,9 @@ accepts terminal cancellation at both graph and goal-receipt levels, preserving
 eight goals, invalid display goal ids, deep or oversized arguments, excess dependencies, and more
 than twelve evidence references. It copies no provider body and grants no execution authority.
 
-Core can produce these records from a principal-manifest-verified query plan, but production JSON
-and SSE turn completion do not yet attach them. Until that binding lands, the parser change is
-additive and the compatibility route remains the visible answer path.
+Core produces these records from a principal-manifest-verified query plan. Operator adapts the
+durable semantic projection to the existing `done` frame, and production SSE carries the graph,
+evidence, verification counters, and deterministic answer without changing the Console parser.
 
 The independent Operator/Core bridge now has additive version 1.2 wire shapes for a semantic turn
 and its terminal projection. The Operator remains responsible for authentication, durable outbox

@@ -97,7 +97,8 @@ or unreadable; they never omit a registered root and report success.
 The Core and Operator service roots receive the semantic-turn request and projection topic names
 as environment-scoped Terraform inputs. Terraform passes the reviewed names through
 `FDAI_SEMANTIC_TURN_REQUEST_TOPIC` and `FDAI_SEMANTIC_TURN_PROJECTION_TOPIC`; application code does
-not derive, rename, or substitute these cross-service channels.
+not derive, rename, or substitute these cross-service channels. Each Container App receives each
+name once, so a legacy literal cannot shadow the Terraform-selected topic.
 
 ## Resource Tagging Convention
 

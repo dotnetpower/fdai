@@ -50,7 +50,7 @@ class SemanticTurnEnvelopeBuilder:
             turn_id=turn_id,
             turn_sequence=_turn_sequence(proposal.body),
             locale=_optional_text(proposal.body, "locale", default="en"),
-            purpose=_optional_text(proposal.body, "purpose", default="operator_query"),
+            purpose=_optional_text(proposal.body, "purpose", default="operations-review"),
             deadline_at=_deadline(proposal.body, requested_at),
             view_context_digest=_optional_digest(proposal.body.get("view_context")),
             prior_turns=_prior_turns(proposal.body.get("history")),

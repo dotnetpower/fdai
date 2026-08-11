@@ -14,7 +14,8 @@ from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
 )
 from fdai.core.conversation.session import Principal, Role, Turn
-from fdai.core.ontology_platform import QueryPlanExecution
+from fdai.core.ontology_platform import QueryNodeResult, QueryPlanExecution
+from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
 from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -195,7 +196,17 @@ def _runtime_result(disposition: str) -> RuntimeSemanticTurnResult:
     execution = QueryPlanExecution(
         plan_digest=PLAN_DIGEST,
         status="completed",
-        results=MappingProxyType({}),
+        results=MappingProxyType(
+            {
+                "resources": QueryNodeResult(
+                    value=QueryTable(
+                        rows=(QueryRow.from_values("resource-1", {"state": "ready"}),),
+                        complete=True,
+                    ),
+                    evidence_refs=("inventory:evidence-1",),
+                )
+            }
+        ),
         receipts=(receipt,),
         output_node_ids=("resources",),
     )
@@ -529,7 +540,7 @@ async def test_unavailable_and_internal_failure_are_detail_free_holds() -> None:
 
 async def test_consumer_publishes_projection_and_dlqs_publish_failure() -> None:
     class _FailingProjectionBus(InMemoryEventBus):
-        fail_projection = False
+        projection_failures_remaining = 0
 
         async def publish(
             self,
@@ -537,7 +548,8 @@ async def test_consumer_publishes_projection_and_dlqs_publish_failure() -> None:
             key: str,
             payload: Mapping[str, Any],
         ) -> PublishReceipt:
-            if self.fail_projection and topic == "operator.projection":
+            if self.projection_failures_remaining and topic == "operator.projection":
+                self.projection_failures_remaining -= 1
                 raise RuntimeError("synthetic publish failure")
             return await super().publish(topic, key, payload)
 
@@ -554,8 +566,8 @@ async def test_consumer_publishes_projection_and_dlqs_publish_failure() -> None:
     projections = [item async for item in bus.subscribe("operator.projection", "assert")]
     assert projections[0].payload["status"] == "held"
 
-    await bus.publish("operator.request", "two", _request(idempotency_key="two"))
-    bus.fail_projection = True
+    await bus.publish("operator.request", "retry", _request(idempotency_key="retry"))
+    bus.projection_failures_remaining = 2
     await consume_semantic_turns(
         bus=bus,
         request_topic="operator.request",
@@ -563,6 +575,21 @@ async def test_consumer_publishes_projection_and_dlqs_publish_failure() -> None:
         group_id="core-semantic",
         processor=_processor(None),
         stop=asyncio.Event(),
+        publish_retry_delay_seconds=0,
+    )
+    retried = [item async for item in bus.subscribe("operator.projection", "retry-assert")]
+    assert retried[-1].payload["idempotency_key"] == "retry"
+
+    await bus.publish("operator.request", "two", _request(idempotency_key="two"))
+    bus.projection_failures_remaining = 3
+    await consume_semantic_turns(
+        bus=bus,
+        request_topic="operator.request",
+        projection_topic="operator.projection",
+        group_id="core-semantic",
+        processor=_processor(None),
+        stop=asyncio.Event(),
+        publish_retry_delay_seconds=0,
     )
     dlq = [item async for item in bus.subscribe("operator.request.dlq", "assert")]
     assert dlq[-1].payload["reason"] == "semantic_turn_publish_failed"

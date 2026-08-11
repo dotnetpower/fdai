@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+import re
 import ssl
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
@@ -14,7 +15,10 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
 from azure.identity.aio import ManagedIdentityCredential
 
+from fdai_operator_service.contract_codecs import CORE_REQUEST_PRODUCER_V12
+
 MAX_SEMANTIC_MESSAGE_BYTES = 1_000_000
+_TOPIC_PATTERN = re.compile(r"^[a-z0-9._-]+$")
 
 
 class _ManagedIdentityTokenProvider(AbstractTokenProvider):  # type: ignore[misc]
@@ -34,6 +38,8 @@ class OperatorSemanticKafkaConfig:
     """Configure one bounded Kafka producer/consumer pair for semantic turns."""
 
     bootstrap_servers: str
+    request_topic: str = "operator.semantic-turn.requests"
+    projection_topic: str = "core.semantic-turn.projections"
     client_id: str = "fdai-operator-service"
     auto_offset_reset: str = "earliest"
     dlq_suffix: str = ".dlq"
@@ -44,6 +50,12 @@ class OperatorSemanticKafkaConfig:
             raise ValueError("Kafka bootstrap servers MUST NOT be empty")
         if not self.client_id.strip():
             raise ValueError("Kafka client id MUST NOT be empty")
+        if (
+            self.request_topic == self.projection_topic
+            or _TOPIC_PATTERN.fullmatch(self.request_topic) is None
+            or _TOPIC_PATTERN.fullmatch(self.projection_topic) is None
+        ):
+            raise ValueError("semantic Kafka topics MUST be distinct valid topic names")
         if self.auto_offset_reset not in {"earliest", "latest"}:
             raise ValueError("auto_offset_reset MUST be earliest or latest")
         if not self.dlq_suffix:
@@ -94,11 +106,23 @@ class OperatorSemanticKafkaBus:
         payload: Mapping[str, object],
     ) -> object:
         """Publish one canonical bounded JSON object with a stable partition key."""
+        allowed = {
+            self._config.request_topic,
+            f"{self._config.request_topic}{self._config.dlq_suffix}",
+            f"{self._config.projection_topic}{self._config.dlq_suffix}",
+        }
+        if topic not in allowed:
+            raise ValueError("semantic Kafka publish topic is not configured")
         producer = await self._get_producer()
+        encoded = (
+            CORE_REQUEST_PRODUCER_V12.encode(payload)
+            if topic == self._config.request_topic
+            else _encode(payload, maximum=self._config.maximum_message_bytes)
+        )
         return await producer.send_and_wait(
             topic,
             key=key.encode("utf-8"),
-            value=_encode(payload, maximum=self._config.maximum_message_bytes),
+            value=encoded,
         )
 
     def subscribe(
@@ -107,6 +131,8 @@ class OperatorSemanticKafkaBus:
         group_id: str,
     ) -> AsyncIterator[Mapping[str, object]]:
         """Yield valid mappings and commit only after downstream processing resumes."""
+        if topic != self._config.projection_topic:
+            raise ValueError("semantic Kafka subscription topic is not configured")
         return self._iter_consumer(topic, group_id)
 
     async def close(self) -> None:

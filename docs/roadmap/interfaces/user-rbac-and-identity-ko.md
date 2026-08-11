@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 2bd49ddfc398d674d5b0b846389232c3aa4739b7
+translation_source_sha: 7c43ae1c8e82cb786cbc94f8814d4c4a6b442b6f
 translation_revised: 2026-08-11
 ---
 
@@ -44,6 +44,8 @@ principal role을 serialize합니다. Browser payload는 이 role을 제공하�
 인증된 role set을 principal-scoped query manifest에 map하고 ontology read 전에 purpose를 다시
 검사합니다. Semantic Kafka adapter는 broker access에만 별도 command managed identity를 선택하며
 executor authority를 받거나 browser principal을 대체하지 않습니다.
+Semantic request contract는 ordinary role을 최대 4개까지 수락하고 arbitrary Kafka topic을 거부하며,
+두 Operator bridge worker가 모두 active인 동안에만 ready를 보고합니다.
 Semantic result storage는 각 projection id를 request id와 bind합니다. Duplicate key가 발생하면 같은
 transaction에서 owning outbox principal, request identity 및 result digest를 확인한 후에만 기존
 projection을 반환하거나 request를 complete할 수 있습니다. Replay는 authenticated principal과 request를

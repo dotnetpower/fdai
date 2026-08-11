@@ -118,7 +118,8 @@ class ProductionOperatorComposition:
                 store=family_store,
                 semantic_bridge=semantic_bridge,
             ),
-            readiness_probe=self.readiness_probe or _readiness_probe(family_store, semantic_bus),
+            readiness_probe=self.readiness_probe
+            or _readiness_probe(family_store, semantic_bus, semantic_bridge),
             lifecycle=_semantic_lifecycle(semantic_bridge, semantic_bus),
         )
 
@@ -292,6 +293,9 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
     return OperatorSemanticKafkaBus(
         config=OperatorSemanticKafkaConfig(
             bootstrap_servers=bootstrap_servers,
+            request_topic=environment.semantic_request_topic or "operator.semantic-turn.requests",
+            projection_topic=environment.semantic_projection_topic
+            or "core.semantic-turn.projections",
             client_id=environment.semantic_kafka_client_id,
         ),
         credential=credential,
@@ -342,6 +346,7 @@ def _semantic_lifecycle(
 def _readiness_probe(
     store: PostgresFamilyStore | None,
     bus: OperatorSemanticKafkaBus | None,
+    bridge: SemanticTurnBridge | None,
 ) -> ReadinessProbe:
     if store is None:
         return _unavailable
@@ -349,7 +354,11 @@ def _readiness_probe(
         return store.probe_readiness
 
     async def probe() -> bool:
-        return await store.probe_readiness() and await bus.probe_readiness()
+        return (
+            await store.probe_readiness()
+            and await bus.probe_readiness()
+            and (bridge is None or bridge.workers_ready())
+        )
 
     return probe
 

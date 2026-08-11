@@ -21,8 +21,6 @@ module "container_app" {
     { name = "FDAI_MI_CLIENT_ID", value = var.identity.runtime_client_id },
     { name = "FDAI_COMMAND_MI_CLIENT_ID", value = var.identity.command_client_id },
     { name = "FDAI_KAFKA_BOOTSTRAP_SERVERS", value = var.platform.kafka_bootstrap_servers },
-    { name = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC", value = "operator-core-request" },
-    { name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC", value = "core-operator-projection" },
     { name = "KAFKA_TOPIC_EVENTS", value = var.event_topics.events },
     { name = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC", value = var.event_topics.semantic_requests },
     { name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC", value = var.event_topics.semantic_projections },
