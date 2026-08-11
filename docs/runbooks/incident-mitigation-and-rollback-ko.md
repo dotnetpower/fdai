@@ -3,124 +3,124 @@ title: 인시던트 완화와 Rollback Runbook
 description: Governed mitigation을 적용하고 rollback 또는 recovery를 검증하는 템플릿입니다.
 translation_of: incident-mitigation-and-rollback.md
 translation_source_sha: f5d1d8c4d7588b56c422f3eb83db5301e888b50e
-translation_revised: 2026-07-22
+translation_revised: 2026-08-11
 ---
 
-# 인시던트 완화와 Rollback Runbook
+# 인시던트 완화와 Rollback 런북
 
-Investigation이 evidence-backed mitigation proposal을 생성한 뒤 이 runbook을 사용합니다.
-Proposal을 deterministic check, risk 및 approval policy, authorized execution, effect
-verification, 필요한 경우 rollback까지 이동합니다.
+조사가 evidence-backed 완화 제안을 생성한 뒤 이 런북을 사용합니다.
+제안을 결정론적 검사, risk 및 승인 정책, authorized 실행, 효과
+검증, 필요한 경우 롤백까지 이동합니다.
 
-> 이 템플릿은 execution authority를 부여하지 않습니다. 환경별 action, identity, resource
-> scope, rollback implementation은 downstream fork에 두고 등록된 `ActionType`을 따라야 합니다.
+> 이 템플릿은 실행 권한을 부여하지 않습니다. 환경별 액션, 신원, 리소스
+> 범위, 롤백 구현은 다운스트림 포크에 두고 등록된 `ActionType`을 따라야 합니다.
 
 ## 진입 기준
 
 다음 입력이 모두 있을 때만 시작합니다.
 
-- **Incident**: Current state, severity, affected scope, owner, correlation ID입니다.
-- **Proposal**: Intended effect, evidence citation, 완화하려는 condition입니다.
-- **Action contract**: Registered `ActionType`, mode, precondition, stop condition,
-  영향 범위, rollback contract입니다.
-- **Authority**: Expected judge, executor, approver, auditor principal입니다.
-- **Verification plan**: Effect를 입증하는 health, SLO, dependency, configuration check입니다.
+- **인시던트**: 현재 상태, 심각도, affected 범위, 소유자, 상관관계 ID입니다.
+- **제안**: Intended 효과, 근거 인용, 완화하려는 조건입니다.
+- **액션 계약**: 등록된 `ActionType`, 모드, precondition, stop 조건,
+ 영향 범위, 롤백 계약입니다.
+- **권한**: 예상 판정자, 실행기, 승인자, auditor principal입니다.
+- **검증 계획**: 효과를 입증하는 상태, SLO, 의존성, 구성 검사입니다.
 
-Evidence가 여전히 모호하면 실행하지 말고 [RCA evidence
-collection](rca-evidence-collection-ko.md)을 계속합니다.
+근거가 여전히 모호하면 실행하지 말고 [RCA 근거
+수집](rca-evidence-collection-ko.md)을 계속합니다.
 
 ## 역할
 
 | 역할 | 책임 |
 |------|------|
-| Incident owner | Response objective를 확인하고 final incident state를 수락합니다. |
-| Judge | Required verification 후 typed 결정을 발행합니다. |
-| Approver | 사람 승인 action을 검토하며 executor와 구분됩니다. |
-| Executor | 선언된 delivery path를 통해 authorized action을 적용합니다. |
-| Auditor | 모든 decision, attempt, no-op, rollback, terminal outcome을 기록합니다. |
+| 인시던트 소유자 | 응답 목표를 확인하고 최종 인시던트 상태를 수락합니다. |
+| Judge | 필수 검증 후 타입이 지정된 결정을 발행합니다. |
+| Approver | 사람 승인 액션을 검토하며 실행기와 구분됩니다. |
+| 실행기 | 선언된 전달 경로를 통해 authorized 액션을 적용합니다. |
+| Auditor | 모든 결정, 시도, no-op, 롤백, 최종 결과를 기록합니다. |
 
 ## 사전 검사
 
-1. Incident state를 refresh하고 proposal이 여전히 measured impact를 다루는지 확인합니다.
-2. Evidence timestamp, target inventory, dependency, expected current state를 다시 검증합니다.
-3. Policy, what-if, security, 영향 범위 check를 실행합니다.
-4. Action이 예상된 shadow 또는 적용 모드인지 확인합니다.
-5. Per-resource lock을 획득하고 idempotency key가 이전에 완료되지 않았는지 확인합니다.
-6. Stop condition, rollback precondition, rollback owner, recovery check를 확인합니다.
-7. Audit writer와 delivery path를 사용할 수 있는지 확인합니다.
+1. 인시던트 상태를 새로 고침하고 제안이 여전히 measured 영향을 다루는지 확인합니다.
+2. 근거 시각, 대상 인벤토리, 의존성, 예상 현재 상태를 다시 검증합니다.
+3. Policy, what-if, security, 영향 범위 검사를 실행합니다.
+4. 액션이 예상된 shadow 또는 적용 모드인지 확인합니다.
+5. Per-resource 잠금을 획득하고 멱등성 키가 이전에 완료되지 않았는지 확인합니다.
+6. Stop 조건, 롤백 precondition, 롤백 소유자, 복구 검사를 확인합니다.
+7. 감사 쓰기 담당과 전달 경로를 사용할 수 있는지 확인합니다.
 
-Preflight에서 safe execution state를 확정할 수 없으면 no-op을 기록하고 중지합니다.
+Preflight에서 safe 실행 상태를 확정할 수 없으면 no-op을 기록하고 중지합니다.
 
-## Mitigation 절차
+## 완화 절차
 
-1. **Typed proposal을 제출합니다.** Incident, action, target scope, evidence reference,
-	mode, idempotency key, rollback reference를 포함합니다.
-2. **결정을 받습니다.** Registered judge가 verified proposal을 수락할 때만 계속합니다.
-	Deny 또는 hold는 terminal no-op audit record를 생성합니다.
-3. **필요한 approval을 받습니다.** Approver가 authorized 상태이며 separation이 필요한
-	경우 executor 또는 requester가 아닌지 확인합니다.
-4. **한 번 실행합니다.** Authorized executor는 선언된 delivery path만 사용합니다.
-	Retry는 동일한 idempotency key를 재사용합니다.
-5. **Stop condition을 관찰합니다.** Action 전체에서 health, SLO, dependency, scope,
-	delivery state를 모니터링합니다.
-6. **Effect를 검증합니다.** 선언된 observation window에서 post-action check를 기록된
-	baseline과 비교합니다.
-7. **Terminal branch를 선택합니다.** Mitigation 성공을 기록하거나 rollback하거나
-	remaining impact와 evidence를 포함해 escalate합니다.
+1. **타입이 지정된 제안을 제출합니다.** 인시던트, 액션, 대상 범위, 근거 참조,
+	모드, 멱등성 키, 롤백 참조를 포함합니다.
+2. **결정을 받습니다.** 등록된 판정자가 검증된 제안을 수락할 때만 계속합니다.
+	거부 또는 보류는 최종 no-op 감사 기록을 생성합니다.
+3. **필요한 승인을 받습니다.** Approver가 authorized 상태이며 separation이 필요한
+	경우 실행기 또는 요청자가 아닌지 확인합니다.
+4. **한 번 실행합니다.** Authorized 실행기는 선언된 전달 경로만 사용합니다.
+	재시도는 동일한 멱등성 키를 재사용합니다.
+5. **Stop 조건을 관찰합니다.** 액션 전체에서 상태, SLO, 의존성, 범위,
+	전달 상태를 모니터링합니다.
+6. **효과를 검증합니다.** 선언된 관측 구간에서 post-action 검사를 기록된
+	기준선과 비교합니다.
+7. **최종 가지를 선택합니다.** 완화 성공을 기록하거나 롤백하거나
+	remaining 영향과 근거를 포함해 escalate합니다.
 
 ## 결정 분기
 
 | 관찰된 결과 | 필요한 분기 |
 |-------------|-------------|
-| 예상 effect와 모든 guard check가 통과함 | Action을 유지하고 incident state를 갱신합니다. |
-| 새로운 harm은 없지만 material effect가 없음 | 중지하고 no-effect result를 기록한 뒤 investigation으로 돌아갑니다. |
-| Stop condition 또는 예상하지 못한 dependency impact가 나타남 | 즉시 rollback을 시작합니다. |
-| Delivery state를 알 수 없음 | Incident를 open으로 유지하고 retry 전에 delivery를 검증합니다. |
-| Rollback을 실행할 수 없거나 state를 복원하지 못함 | Recovery failure로 escalate합니다. |
+| 예상 효과와 모든 가드 검사가 통과함 | 액션을 유지하고 인시던트 상태를 갱신합니다. |
+| 새로운 harm은 없지만 자료 효과가 없음 | 중지하고 no-effect 결과를 기록한 뒤 조사로 돌아갑니다. |
+| Stop 조건 또는 예상하지 못한 의존성 영향이 나타남 | 즉시 롤백을 시작합니다. |
+| 전달 상태를 알 수 없음 | 인시던트를 열림으로 유지하고 재시도 전에 전달을 검증합니다. |
+| Rollback을 실행할 수 없거나 상태를 복원하지 못함 | 복구 실패로 escalate합니다. |
 
 ## Rollback 절차
 
-1. 추가 attempt를 중지하고 failed action reference를 보존합니다.
-2. Rollback이 정확한 applied version과 scope를 대상으로 하는지 확인합니다.
-3. Typed pipeline을 통해 필요한 rollback 결정과 approval을 받습니다.
-4. Distinct idempotency key로 registered rollback contract를 실행합니다.
-5. Prior configuration, health, dependency, SLO state를 검증합니다.
-6. Rollback이 service를 fully, partially 또는 failed to restore했는지 기록합니다.
+1. 추가 시도를 중지하고 실패한 액션 참조를 보존합니다.
+2. Rollback이 정확한 applied 버전과 범위를 대상으로 하는지 확인합니다.
+3. 타입이 지정된 파이프라인을 통해 필요한 롤백 결정과 승인을 받습니다.
+4. 서로 다른 멱등성 키로 등록된 롤백 계약을 실행합니다.
+5. 이전 구성, 상태, 의존성, SLO 상태를 검증합니다.
+6. Rollback이 서비스를 fully, partially 또는 실패한 to 복원했는지 기록합니다.
 
-Rollback은 original action을 지우지 않습니다. 두 record는 append-only audit trail에서
+Rollback은 original 액션을 지우지 않습니다. 두 기록은 추가 전용 감사 이력에서
 연결된 상태로 유지됩니다.
 
 ## 중지 조건
 
-Mitigation 전이나 중에 stale evidence, lock failure, scope expansion, policy denial,
-missing audit writer, unavailable rollback 또는 unexpected dependency impact가 있으면
-중지합니다. Incident state가 크게 변경되어 proposal이 current condition과 더 이상 일치하지
+완화 전이나 중에 stale 근거, 잠금 실패, 범위 expansion, 정책 denial,
+누락된 감사 쓰기 담당, 사용 불가 롤백 또는 unexpected 의존성 영향이 있으면
+중지합니다. 인시던트 상태가 크게 변경되어 제안이 현재 조건과 더 이상 일치하지
 않는 경우에도 중지합니다.
 
 ## 검증
 
-Verification은 action effect와 system safety를 모두 입증하는 것이 좋습니다.
+검증은 액션 효과와 system 안전성을 모두 입증하는 것이 좋습니다.
 
-- **Effect**: Target error, saturation, drift 또는 unavailable dependency가 개선됩니다.
-- **Scope**: Approved resource와 dependency만 변경됩니다.
-- **Service**: Health, SLO, user-impact indicator가 observation window 동안 통과합니다.
-- **State**: Expected configuration 또는 delivery reference가 active 상태입니다.
-- **Audit**: Proposal, 결정, approval, execution, verification, rollback이 연결됩니다.
+- **효과**: 대상 오류, 포화, 표류 또는 사용 불가 의존성이 개선됩니다.
+- **범위**: Approved 리소스와 의존성만 변경됩니다.
+- **서비스**: Health, SLO, user-impact indicator가 관측 구간 동안 통과합니다.
+- **상태**: 예상 구성 또는 전달 참조가 활성 상태입니다.
+- **감사**: 제안, 결정, 승인, 실행, 검증, 롤백이 연결됩니다.
 
-## Evidence와 완료
+## 근거와 완료
 
-Dry-run output, 결정, approval, executor, delivery reference, health check,
-rollback reference, final incident state를 기록합니다. 비교에 사용한 timestamp와 baseline도
+예행 실행 출력, 결정, 승인, 실행기, 전달 참조, 상태 검사,
+롤백 참조, 최종 인시던트 상태를 기록합니다. 비교에 사용한 시각과 기준선도
 포함합니다.
 
-Action에 terminal state가 있고 lock이 해제되며 remaining user impact가 기록되고 incident가
-monitoring으로 이동했거나 owner와 deadline이 있는 investigation으로 돌아간 경우에만
-runbook을 완료합니다.
+액션에 최종 상태가 있고 잠금이 해제되며 remaining user 영향이 기록되고 인시던트가
+모니터링으로 이동했거나 소유자와 기한이 있는 조사로 돌아간 경우에만
+런북을 완료합니다.
 
-## 관련 runbook
+## 관련 런북
 
 | 다음 작업 | 문서 |
 |-----------|------|
-| Incident scope와 severity 재확인 | [Incident triage](incident-triage-ko.md) |
-| 다음 proposal을 위한 evidence 수집 | [RCA evidence collection](rca-evidence-collection-ko.md) |
-| Recovery 후 response 검토 | [Postmortem workflow](postmortem-workflow-ko.md) |
+| 인시던트 범위와 심각도 재확인 | [인시던트 분류](incident-triage-ko.md) |
+| 다음 제안을 위한 근거 수집 | [RCA 근거 수집](rca-evidence-collection-ko.md) |
+| 복구 후 응답 검토 | [사후 분석 작업 흐름](postmortem-workflow-ko.md) |

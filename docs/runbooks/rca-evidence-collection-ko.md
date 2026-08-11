@@ -3,113 +3,113 @@ title: RCA 증거 수집 Runbook
 description: 근본 원인 가설을 수락하기 전에 범위와 citation이 있는 evidence set을 구성하는 템플릿입니다.
 translation_of: rca-evidence-collection.md
 translation_source_sha: 4480d9b66dab37abfa3f605c47ef74c863a4817d
-translation_revised: 2026-07-22
+translation_revised: 2026-08-11
 ---
 
-# RCA 증거 수집 Runbook
+# RCA 증거 수집 런북
 
-Root-cause analysis (RCA) hypothesis를 수락하거나 게시하기 전에 범위와 citation이 있는
-evidence set을 구성할 때 이 runbook을 사용합니다. Collection과 interpretation을 구분하여
-모든 causal claim을 알려진 source와 time으로 추적할 수 있게 합니다.
+Root-cause analysis (RCA) 가설을 수락하거나 게시하기 전에 범위와 인용이 있는
+근거 집합을 구성할 때 이 런북을 사용합니다. 수집과 interpretation을 구분하여
+모든 causal 점유를 알려진 출처와 시간으로 추적할 수 있게 합니다.
 
-> Incident scope에 authorized된 evidence만 수집하세요. Secret 또는 raw restricted payload
-> 대신 opaque reference와 hash를 저장합니다.
+> 인시던트 범위에 authorized된 근거만 수집하세요. 시크릿 또는 raw restricted 페이로드
+> 대신 opaque 참조와 해시를 저장합니다.
 
 ## 진입 기준
 
-[Incident triage](incident-triage-ko.md)가 incident ID, affected scope, accountable owner,
-evidence time range, next decision deadline을 설정한 뒤 시작합니다. Scope 또는 timeline이
-크게 변경되면 collection을 반복합니다.
+[인시던트 분류](incident-triage-ko.md)가 인시던트 ID, affected 범위, accountable 소유자,
+근거 시간 범위, next 결정 기한을 설정한 뒤 시작합니다. 범위 또는 타임라인이
+크게 변경되면 수집을 반복합니다.
 
-## 역할과 collection boundary
+## 역할과 수집 경계
 
 | 항목 | 필요한 값 |
 |------|-----------|
-| Investigation owner | Scope, budget, final evidence set을 책임지는 사람 |
-| Reviewer | Source identity, citation, unsupported gap을 검증하는 사람 |
-| Time boundary | 정당한 lead-in time을 포함한 start 및 end timestamp |
-| Resource boundary | Included resource, dependency, region, explicit exclusion |
-| Evidence budget | Source, query, volume, retention limit |
-| Access boundary | Authorized identity와 handling requirement |
+| 조사 소유자 | 범위, 예산, 최종 근거 집합을 책임지는 사람 |
+| 검토자 | 출처 신원, 인용, 지원하지 않는 공백을 검증하는 사람 |
+| 시간 경계 | 정당한 lead-in 시간을 포함한 시작 및 end 시각 |
+| Resource 경계 | Included 리소스, 의존성, 지역, 명시적 exclusion |
+| 근거 예산 | 출처, 조회, 양, 보존 한도 |
+| 접근 경계 | Authorized 신원과 처리 요구사항 |
 
-Collection boundary를 조용히 확장하지 않습니다. 추가 resource 또는 time range를 query하기
-전에 수정된 boundary를 기록하고 승인합니다.
+수집 경계를 조용히 확장하지 않습니다. 추가 리소스 또는 시간 범위를 조회하기
+전에 수정된 경계를 기록하고 승인합니다.
 
-## Evidence inventory
+## 근거 인벤토리
 
-| Evidence class | 수집할 내용 | Reliability check |
+| 근거 등급 | 수집할 내용 | Reliability 검사 |
 |----------------|-------------|-------------------|
-| Event와 audit | 발견된 문제, state transition, 결정, approval, action | Producer, sequence, correlation ID, hash |
-| Change | Deployment, configuration, catalog, policy, ownership update | Version, actor, scope, completion state |
-| Metric | SLI, saturation, error, latency, dependency health | Source, aggregation, missing data, timestamp |
-| Log와 trace | Correlated execution 및 request record | Clock, sampling, redaction, trace continuity |
-| Inventory | 관련 시점의 resource state와 relationship | Snapshot time, source, completeness |
-| Knowledge | Rule, runbook, prior incident, architecture reference | Version, approval state, provenance |
+| Event와 감사 | 발견된 문제, 상태 전이, 결정, 승인, 액션 | 생산자, 순서, 상관관계 ID, 해시 |
+| 변경 | 배포, 구성, 카탈로그, 정책, 소유권 갱신 | 버전, 행위자, 범위, 완료 상태 |
+| 메트릭 | SLI, 포화, 오류, 지연 시간, 의존성 상태 | 출처, 집계, 누락된 데이터, 시각 |
+| 로그와 추적 | Correlated 실행 및 요청 기록 | 시계, sampling, 민감정보 제거, 추적 continuity |
+| 인벤토리 | 관련 시점의 리소스 상태와 관계 | 스냅샷 시간, 출처, 완전성 |
+| Knowledge | Rule, 런북, 이전 인시던트, 아키텍처 참조 | 버전, 승인 상태, 출처 이력 |
 
-Source가 해당 record를 생성해야 했고 source health가 absence에 의미가 있음을 입증하는 경우에만
-record가 없다는 사실을 evidence로 사용합니다.
+출처가 해당 기록을 생성해야 했고 출처 상태가 absence에 의미가 있음을 입증하는 경우에만
+기록이 없다는 사실을 근거로 사용합니다.
 
 ## 수집 절차
 
-1. **Boundary를 동결합니다.** Incident, target resource, time range, source allowlist,
-	evidence budget, access scope를 기록합니다.
-2. **Source health를 수집합니다.** Returned data를 해석하기 전에 clock, ingestion delay,
-	retention, sampling, known gap을 검증합니다.
-3. **Immutable reference를 수집합니다.** Correlated event, change, metric, log, trace,
-	inventory, rule, approved knowledge reference를 수집합니다.
-4. **Time을 normalize합니다.** Source timestamp를 보존하고 known clock offset을 기록합니다.
-	Ordering을 강제하기 위해 timestamp를 다시 작성하지 않습니다.
-5. **Chronology를 구성합니다.** Cause를 정렬하기 전에 supported fact를 정렬합니다.
-	Gap과 conflicting record를 명시합니다.
-6. **Hypothesis를 구성합니다.** 각 candidate cause에 supporting evidence, contradicting
-	evidence, claim을 반증할 observation을 기록합니다.
-7. **Citation을 test합니다.** 모든 claim이 supplied reference로 resolve되고 collection
-	boundary 안에서 reference를 사용할 수 있었는지 확인합니다.
-8. **Set을 review합니다.** Reviewer가 scope, handling, freshness, citation integrity,
-	alternative, unresolved ambiguity를 확인합니다.
+1. **경계를 동결합니다.** 인시던트, 대상 리소스, 시간 범위, 출처 허용 목록,
+	근거 예산, 접근 범위를 기록합니다.
+2. **출처 상태를 수집합니다.** Returned 데이터를 해석하기 전에 시계, 인제스트 delay,
+	보존, sampling, known 공백을 검증합니다.
+3. **변경할 수 없는 참조를 수집합니다.** Correlated 이벤트, 변경, 메트릭, 로그, 추적,
+	인벤토리, 룰, approved knowledge 참조를 수집합니다.
+4. **시간을 normalize합니다.** 출처 시각을 보존하고 known 시계 오프셋을 기록합니다.
+	정렬을 강제하기 위해 시각을 다시 작성하지 않습니다.
+5. **시간 순서를 구성합니다.** 원인을 정렬하기 전에 supported 사실을 정렬합니다.
+	공백과 conflicting 기록을 명시합니다.
+6. **가설을 구성합니다.** 각 후보 원인에 supporting 근거, contradicting
+	근거, 점유를 반증할 관측을 기록합니다.
+7. **인용을 테스트합니다.** 모든 점유가 supplied 참조로 해석되고 수집
+	경계 안에서 참조를 사용할 수 있었는지 확인합니다.
+8. **집합을 검토합니다.** 검토자가 범위, 처리, 최신성, 인용 무결성,
+	대안, 해결되지 않은 모호함을 확인합니다.
 
-## Hypothesis record
+## 가설 기록
 
-Leading hypothesis와 alternative에 동일한 field를 사용합니다.
+Leading 가설과 대안에 동일한 필드를 사용합니다.
 
-| Field | Content |
+| 필드 | 내용 |
 |-------|---------|
-| Claim | 하나의 bounded causal statement입니다. |
-| Supporting evidence | Claim confidence를 높이는 reference입니다. |
-| Contradicting evidence | Confidence를 낮추거나 alternative를 지원하는 reference입니다. |
-| Falsifier | Claim을 반증할 observation입니다. |
-| Confidence | Basis가 포함된 configured confidence value입니다. |
-| Gap | Conclusion에 영향을 주는 missing 또는 unreliable evidence입니다. |
+| 점유 | 하나의 범위가 제한된 causal 구문입니다. |
+| Supporting 근거 | 점유 확신도를 높이는 참조입니다. |
+| Contradicting 근거 | 확신도를 낮추거나 대안을 지원하는 참조입니다. |
+| Falsifier | 점유를 반증할 관측입니다. |
+| 확신도 | Basis가 포함된 구성된 확신도 값입니다. |
+| 공백 | Conclusion에 영향을 주는 누락된 또는 unreliable 근거입니다. |
 
-Correlation만으로 causation으로 promote하지 않습니다. Incident 시작과 가까운 change는
-mechanism과 evidence가 causal link를 지원할 때까지 candidate입니다.
+상관관계만으로 causation으로 promote하지 않습니다. 인시던트 시작과 가까운 변경은
+방식과 근거가 causal 링크를 지원할 때까지 후보입니다.
 
 ## 중지 조건
 
-Evidence가 scope를 벗어나거나 citation을 검증할 수 없거나 timestamp가 일치하지 않거나
-source health를 알 수 없거나 provider response에 unvouched data가 포함될 수 있으면
-중지합니다. Collection이 approved handling boundary를 벗어난 secret 또는 restricted
-payload를 노출할 수 있는 경우에도 중지합니다.
+근거가 범위를 벗어나거나 인용을 검증할 수 없거나 시각이 일치하지 않거나
+출처 상태를 알 수 없거나 프로바이더 응답에 unvouched 데이터가 포함될 수 있으면
+중지합니다. 수집이 approved 처리 경계를 벗어난 시크릿 또는 restricted
+페이로드를 노출할 수 있는 경우에도 중지합니다.
 
-Unsupported result는 unresolved hypothesis로 사람 검토에 전달합니다. Execution-eligible
-mitigation으로 만들지 않습니다.
+지원하지 않는 결과는 해결되지 않은 가설로 사람 검토에 전달합니다. Execution-eligible
+완화로 만들지 않습니다.
 
-## Evidence package와 audit
+## 근거 패키지와 감사
 
-Final package는 boundary, source inventory, source-health check, chronology, evidence
-reference와 hash, hypothesis record, reviewer, confidence basis, unresolved gap을 포함합니다.
-Collection start 및 end time을 기록하고 package version을 incident audit trail에 연결합니다.
+최종 패키지는 경계, 출처 인벤토리, source-health 검사, 시간 순서, 근거
+참조와 해시, 가설 기록, 검토자, 확신도 basis, 해결되지 않은 공백을 포함합니다.
+수집 시작 및 end 시간을 기록하고 패키지 버전을 인시던트 감사 이력에 연결합니다.
 
 ## 완료 기준
 
-모든 material claim에 verifiable citation이 있고 credible alternative가 기록되며 handling
-rule이 충족되고 reviewer가 package를 수락하면 collection이 완료됩니다. Outcome은 supported
-cause, disproved cause 또는 explicit unresolved result일 수 있습니다.
+모든 자료 점유에 verifiable 인용이 있고 credible 대안이 기록되며 처리
+룰이 충족되고 검토자가 패키지를 수락하면 수집이 완료됩니다. 결과는 supported
+원인, disproved 원인 또는 명시적 해결되지 않은 결과일 수 있습니다.
 
-## 관련 runbook
+## 관련 런북
 
 | 다음 작업 | 문서 |
 |-----------|------|
-| Incident scope 또는 severity refresh | [Incident triage](incident-triage-ko.md) |
-| Supported mitigation proposal 라우팅 | [Incident mitigation과 rollback](incident-mitigation-and-rollback-ko.md) |
-| Final causal review 보존 | [Postmortem workflow](postmortem-workflow-ko.md) |
+| 인시던트 범위 또는 심각도 새로 고침 | [인시던트 분류](incident-triage-ko.md) |
+| Supported 완화 제안 라우팅 | [인시던트 완화와 롤백](incident-mitigation-and-rollback-ko.md) |
+| 최종 causal 검토 보존 | [사후 분석 작업 흐름](postmortem-workflow-ko.md) |

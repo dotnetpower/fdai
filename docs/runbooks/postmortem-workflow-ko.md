@@ -3,113 +3,113 @@ title: 포스트모템 Workflow Runbook
 description: 해결된 incident를 검토하고 evidence-backed follow-up을 제출하는 템플릿입니다.
 translation_of: postmortem-workflow.md
 translation_source_sha: 92316b0c0ecb205a5adb30be10e5b34995f8ee30
-translation_revised: 2026-07-22
+translation_revised: 2026-08-11
 ---
 
-# 포스트모템 Workflow Runbook
+# 포스트모템 작업 흐름 런북
 
-Service recovery를 검증한 뒤 incident를 최종 종료하기 전에 이 runbook을 사용합니다.
-Incident timeline, decision, action, recovery evidence를 measurable follow-up이 있는 approved
-record로 전환합니다.
+서비스 복구를 검증한 뒤 인시던트를 최종 종료하기 전에 이 런북을 사용합니다.
+인시던트 타임라인, 결정, 액션, 복구 근거를 measurable 후속 조치가 있는 approved
+기록으로 전환합니다.
 
-> Postmortem은 evidence가 지원하는 내용을 설명합니다. Unsupported cause는 hypothesis로
-> 유지하고 timeline을 깔끔하게 만들기 위해 machine record를 다시 작성하지 않습니다.
+> 사후 분석은 근거가 지원하는 내용을 설명합니다. 지원하지 않는 원인은 가설로
+> 유지하고 타임라인을 깔끔하게 만들기 위해 머신 기록을 다시 작성하지 않습니다.
 
 ## 진입 기준과 역할
 
-Service recovery가 observation window를 통과하고 incident owner가 authoritative audit 및
-evidence reference를 식별할 수 있을 때 시작합니다.
+서비스 복구가 관측 구간을 통과하고 인시던트 소유자가 권위 있는 감사 및
+근거 참조를 식별할 수 있을 때 시작합니다.
 
 | 역할 | 책임 |
 |------|------|
-| Incident owner | Impact, chronology, recovery status, closure decision을 책임집니다. |
-| Facilitator | Review를 이끌고 evidence와 interpretation을 구분합니다. |
-| Action owner | Due date와 measurable completion evidence가 있는 follow-up을 수락합니다. |
-| Reviewer | Record가 supported, complete, 공유 가능한 상태인지 확인합니다. |
+| 인시던트 소유자 | 영향, 시간 순서, 복구 상태, 종결 결정을 책임집니다. |
+| Facilitator | 검토를 이끌고 근거와 interpretation을 구분합니다. |
+| 액션 소유자 | Due date와 measurable 완료 근거가 있는 후속 조치를 수락합니다. |
+| 검토자 | 기록이 supported, 완전한, 공유 가능한 상태인지 확인합니다. |
 
-Facilitator는 review를 개인에게 책임을 돌리는 데 사용하지 않는 것이 좋습니다. 분석 단위는
-system, decision context, 작동했거나 작동하지 않은 control입니다.
+Facilitator는 검토를 개인에게 책임을 돌리는 데 사용하지 않는 것이 좋습니다. 분석 단위는
+system, 결정 맥락, 작동했거나 작동하지 않은 컨트롤입니다.
 
 ## 필수 입력
 
-- **Incident record**: Scope, severity history, member, owner, state transition입니다.
-- **Audit trail**: 발견된 문제, 결정, approval, action, no-op, retry, rollback입니다.
-- **Evidence set**: Metric, log, trace, change, notification, cited knowledge입니다.
-- **Impact record**: Affected capability, duration, population, SLO effect입니다.
-- **Recovery proof**: Restored state, verification window, residual risk입니다.
+- **인시던트 기록**: 범위, 심각도 이력, 구성원, 소유자, 상태 전이입니다.
+- **감사 이력**: 발견된 문제, 결정, 승인, 액션, no-op, 재시도, 롤백입니다.
+- **근거 집합**: 메트릭, 로그, 추적, 변경, 알림, cited knowledge입니다.
+- **영향 기록**: Affected 기능, 소요 시간, population, SLO 효과입니다.
+- **복구 증명**: Restored 상태, 검증 구간, 잔여 risk입니다.
 
-Authoritative record가 있으면 chat recollection에서 시작하지 않습니다. Recollection은 context를
-추가할 수 있지만 participant statement로 표시하는 것이 좋습니다.
+권위 있는 기록이 있으면 채팅 recollection에서 시작하지 않습니다. Recollection은 맥락을
+추가할 수 있지만 participant 구문으로 표시하는 것이 좋습니다.
 
-## Review 구성
+## 검토 구성
 
-1. **Draft를 만듭니다.** Timestamp 또는 content를 변경하지 않고 incident 및 append-only
-	audit record에서 initial chronology를 생성합니다.
-2. **Impact를 검증합니다.** Start, detection, mitigation, recovery, end time과 affected
-	capability, measured SLO effect를 확인합니다.
-3. **Decision을 재구성합니다.** 각 key decision에 당시 사용할 수 있던 evidence,
-	selected branch, resulting outcome을 기록합니다.
-4. **Cause를 구분합니다.** Root cause, contributing condition, detection gap, response gap,
-	recovery gap을 구분합니다.
-5. **Claim을 test합니다.** 각 causal statement를 evidence에 연결하고 disproved되지 않은
-	credible alternative를 유지합니다.
-6. **Control을 평가합니다.** 작동하거나 실패한 detector, rule, approval, stop condition,
-	rollback, notification, audit control을 기록합니다.
-7. **Follow-up을 정의합니다.** Owner, due date, priority, measurable completion evidence가
-	있는 corrective 및 preventive action을 생성합니다.
-8. **Review하고 승인합니다.** Unsupported claim을 해결하고 sensitive data가 제외됐는지
-	확인하며 required reviewer approval을 받습니다.
-9. **연결하고 종료합니다.** Approved postmortem을 incident에 첨부하고 unresolved risk와
-	action ownership이 명확한 경우에만 종료합니다.
+1. **초안을 만듭니다.** 시각 또는 내용을 변경하지 않고 인시던트 및 추가 전용
+	감사 기록에서 initial 시간 순서를 생성합니다.
+2. **영향을 검증합니다.** 시작, detection, 완화, 복구, end 시간과 affected
+	기능, measured SLO 효과를 확인합니다.
+3. **결정을 재구성합니다.** 각 키 결정에 당시 사용할 수 있던 근거,
+	선택된 가지, resulting 결과를 기록합니다.
+4. **원인을 구분합니다.** 루트 원인, contributing 조건, detection 공백, 응답 공백,
+	복구 공백을 구분합니다.
+5. **점유를 테스트합니다.** 각 causal 구문을 근거에 연결하고 disproved되지 않은
+	credible 대안을 유지합니다.
+6. **컨트롤을 평가합니다.** 작동하거나 실패한 detector, 룰, 승인, stop 조건,
+	롤백, 알림, 감사 컨트롤을 기록합니다.
+7. **후속 조치를 정의합니다.** Owner, due date, priority, measurable 완료 근거가
+	있는 corrective 및 preventive 액션을 생성합니다.
+8. **검토하고 승인합니다.** 지원하지 않는 점유를 해결하고 민감한 데이터가 제외됐는지
+	확인하며 필수 검토자 승인을 받습니다.
+9. **연결하고 종료합니다.** Approved 사후 분석을 인시던트에 첨부하고 해결되지 않은 risk와
+	액션 소유권이 명확한 경우에만 종료합니다.
 
-## Timeline checkpoint
+## 타임라인 체크포인트
 
-| Checkpoint | 수집할 내용 |
+| 체크포인트 | 수집할 내용 |
 |------------|-------------|
-| First impact | 지원되는 최초 user 또는 operation impact입니다. |
-| Detection | First 발견된 문제와 durable route에 도달한 시점입니다. |
-| Triage | Severity, owner, scope, first decision deadline입니다. |
-| Mitigation | Proposal, 결정, approval, execution, observed effect입니다. |
-| Rollback 또는 recovery | Trigger, action, verification, residual impact입니다. |
-| Stable service | Recovery observation window의 시작과 종료입니다. |
+| First 영향 | 지원되는 최초 user 또는 연산 영향입니다. |
+| Detection | First 발견된 문제와 영속 경로에 도달한 시점입니다. |
+| 분류 | 심각도, 소유자, 범위, first 결정 기한입니다. |
+| 완화 | 제안, 결정, 승인, 실행, 관찰된 효과입니다. |
+| Rollback 또는 복구 | 트리거, 액션, 검증, 잔여 영향입니다. |
+| 고정된 서비스 | 복구 관측 구간의 시작과 종료입니다. |
 
-## Follow-up 품질
+## 후속 조치 품질
 
-유용한 follow-up은 control을 변경하거나 evidence gap을 해소합니다. Owner 또는 test가 없는
-"더 주의하기" 같은 action은 피합니다.
+유용한 후속 조치는 컨트롤을 변경하거나 근거 공백을 해소합니다. Owner 또는 테스트가 없는
+"더 주의하기" 같은 액션은 피합니다.
 
-| 필수 field | Evidence target 예시 |
+| 필수 필드 | 근거 대상 예시 |
 |------------|----------------------|
-| Owner와 due date | Named accountable role과 review date입니다. |
-| 변경된 control | Rule, runbook, test, alert, rollback 또는 provider reference입니다. |
-| Completion proof | Passing scenario, drill record 또는 measured production signal입니다. |
-| Safety mode | Enforcement change 전에 확보한 shadow evidence입니다. |
-| Closure condition | Action을 종료할 수 있는 objective result입니다. |
+| Owner와 due date | Named accountable 역할과 검토 date입니다. |
+| 변경된 컨트롤 | Rule, 런북, 테스트, 경보, 롤백 또는 프로바이더 참조입니다. |
+| 완료 증명 | Passing 시나리오, 훈련 기록 또는 measured 운영 신호입니다. |
+| 안전성 모드 | 적용 변경 전에 확보한 shadow 근거입니다. |
+| 종결 조건 | 액션을 종료할 수 있는 목표 결과입니다. |
 
-재사용 가능한 rule, runbook 또는 knowledge improvement는 normal review와 promotion path가
-수락할 때까지 inert candidate로 유지됩니다.
+재사용 가능한 룰, 런북 또는 knowledge improvement는 normal 검토와 승격 경로가
+수락할 때까지 inert 후보로 유지됩니다.
 
 ## 중지 조건
 
-Impact, recovery, unresolved risk, owner, required follow-up이 없으면 종료하지 않습니다.
-Evidence set이 크게 변경되거나 timestamp가 충돌하거나 cited record를 검증할 수 없거나
-sensitive data가 draft에 들어가면 review를 일시 중지합니다. Unsupported cause는 hypothesis로
+영향, 복구, 해결되지 않은 risk, 소유자, 필수 후속 조치가 없으면 종료하지 않습니다.
+근거 집합이 크게 변경되거나 시각이 충돌하거나 cited 기록을 검증할 수 없거나
+민감한 데이터가 초안에 들어가면 검토를 일시 중지합니다. 지원하지 않는 원인은 가설로
 유지합니다.
 
-## Evidence와 완료
+## 근거와 완료
 
-Approved record는 incident, evidence-set version, timeline, RCA claim, response action,
-approval, rollback, recovery proof, reviewer, follow-up item을 연결하는 것이 좋습니다.
-Postmortem version과 approval을 incident audit trail에 기록합니다.
+Approved 기록은 인시던트, evidence-set 버전, 타임라인, RCA 점유, 응답 액션,
+승인, 롤백, 복구 증명, 검토자, 후속 조치 항목을 연결하는 것이 좋습니다.
+사후 분석 버전과 승인을 인시던트 감사 이력에 기록합니다.
 
-Reviewed postmortem이 연결되고 적절한 owner가 residual risk를 수락하며 모든 required
-follow-up에 owner, due date, evidence target이 지정되면 workflow를 완료합니다. Follow-up은
-incident 종료 후 완료할 수 있습니다.
+검토된 사후 분석이 연결되고 적절한 소유자가 잔여 risk를 수락하며 모든 필수
+후속 조치에 소유자, due date, 근거 대상이 지정되면 작업 흐름을 완료합니다. 후속 조치는
+인시던트 종료 후 완료할 수 있습니다.
 
-## 관련 runbook
+## 관련 런북
 
 | 다음 작업 | 문서 |
 |-----------|------|
-| Source evidence와 causal claim 재검사 | [RCA evidence collection](rca-evidence-collection-ko.md) |
-| Frozen scenario로 detector 개선 | [Alert tuning](alert-tuning-ko.md) |
-| Corrective resilience control 검증 | [Chaos game day](chaos-game-day-ko.md) |
+| 출처 근거와 causal 점유 재검사 | [RCA 근거 수집](rca-evidence-collection-ko.md) |
+| 고정된 시나리오로 detector 개선 | [경보 튜닝](alert-tuning-ko.md) |
+| Corrective 복원력 컨트롤 검증 | [Chaos game 일](chaos-game-day-ko.md) |

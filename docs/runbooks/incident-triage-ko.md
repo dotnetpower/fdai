@@ -3,113 +3,113 @@ title: 인시던트 분류 Runbook
 description: Incident scope, severity, ownership, investigation readiness를 확인하는 customer-neutral 템플릿입니다.
 translation_of: incident-triage.md
 translation_source_sha: 96e3fd9447f463962906d33fe02f02e03d8061cf
-translation_revised: 2026-07-22
+translation_revised: 2026-08-11
 ---
 
-# 인시던트 분류 Runbook
+# 인시던트 분류 런북
 
-Incident가 생성되거나 severity, scope 또는 ownership이 크게 변경될 때 이 runbook을
-사용합니다. Triage는 영향을 받는 대상, impact의 긴급도, 다음 decision을 책임지는 사람,
-bounded investigation을 시작할 만큼 evidence가 최신인지 확정합니다.
+인시던트가 생성되거나 심각도, 범위 또는 소유권이 크게 변경될 때 이 런북을
+사용합니다. 분류는 영향을 받는 대상, 영향의 긴급도, 다음 결정을 책임지는 사람,
+범위가 제한된 조사를 시작할 만큼 근거가 최신인지 확정합니다.
 
-> Triage는 root cause를 확정하지 않으며 mitigation을 authorize하지 않습니다. 신뢰할 수
-> 있는 incident boundary와 next decision deadline을 만듭니다.
+> 분류는 루트 원인을 확정하지 않으며 완화를 authorize하지 않습니다. 신뢰할 수
+> 있는 인시던트 경계와 next 결정 기한을 만듭니다.
 
-## Triage를 시작하거나 반복하는 경우
+## 분류를 시작하거나 반복하는 경우
 
-다음 event에서 triage를 실행합니다.
+다음 이벤트에서 분류를 실행합니다.
 
-- **New incident**: Correlation이 하나 이상의 발견된 문제에서 incident를 생성합니다.
-- **Material update**: Affected resource, user impact 또는 SLO burn이 변경됩니다.
-- **Ownership failure**: Delivery가 실패하거나 assigned responder가 incident를 수락할 수 없습니다.
-- **Merged 또는 split evidence**: Correlation membership이 scope를 바꿀 만큼 변경됩니다.
-- **Recovery signal**: Impact가 해결된 것으로 보이며 incident를 monitoring으로 이동할 수 있습니다.
+- **New 인시던트**: 상관관계가 하나 이상의 발견된 문제에서 인시던트를 생성합니다.
+- **자료 갱신**: Affected 리소스, user 영향 또는 SLO burn이 변경됩니다.
+- **소유권 실패**: 전달이 실패하거나 assigned 응답자가 인시던트를 수락할 수 없습니다.
+- **Merged 또는 분리 근거**: 상관관계 구성원이 범위를 바꿀 만큼 변경됩니다.
+- **복구 신호**: 영향이 해결된 것으로 보이며 인시던트를 모니터링으로 이동할 수 있습니다.
 
 ## 전제 조건
 
-- **Identity**: Incident ID, correlation key, current state, member count입니다.
-- **Freshness**: Telemetry, inventory, deployment, notification timestamp입니다.
-- **Ownership**: 최종 책임자 owner와 사용된 on-call schedule 또는 route입니다.
-- **Impact input**: Affected user 또는 operation, SLO state, duration, bounded scope입니다.
-- **Concurrency**: 모든 incident transition의 expected current state입니다.
+- **신원**: 인시던트 ID, 상관관계 키, 현재 상태, 구성원 개수입니다.
+- **최신성**: 텔레메트리, 인벤토리, 배포, 알림 시각입니다.
+- **소유권**: 최종 책임자 소유자와 사용된 on-call 예약 또는 경로입니다.
+- **영향 입력**: Affected user 또는 연산, SLO 상태, 소요 시간, 범위가 제한된 범위입니다.
+- **동시성**: 모든 인시던트 전이의 예상 현재 상태입니다.
 
-Source를 사용할 수 없으면 unavailable로 표시합니다. Missing data에서 healthy state를
+출처를 사용할 수 없으면 사용 불가로 표시합니다. 누락된 데이터에서 healthy 상태를
 추론하지 않습니다.
 
 ## 역할
 
 | 역할 | 책임 |
 |------|------|
-| Triage owner | Scope, severity basis, unknown, next decision time을 유지합니다. |
-| Responder | Notification을 수락하고 bounded investigation을 시작합니다. |
-| Service owner | 가능한 경우 service context와 business impact를 확인합니다. |
-| Auditor | Membership, severity, ownership, state transition을 기록합니다. |
+| 분류 소유자 | 범위, 심각도 basis, 알 수 없음, next 결정 시간을 유지합니다. |
+| 응답자 | 알림을 수락하고 범위가 제한된 조사를 시작합니다. |
+| 서비스 소유자 | 가능한 경우 서비스 맥락과 business 영향을 확인합니다. |
+| Auditor | 구성원, 심각도, 소유권, 상태 전이를 기록합니다. |
 
-## Severity 설정
+## 심각도 설정
 
-Measured impact와 repository에 설정된 severity policy를 사용합니다. 다음 표는 evidence
-수집을 안내하지만 해당 policy를 대체하지 않습니다.
+Measured 영향과 저장소에 설정된 심각도 정책을 사용합니다. 다음 표는 근거
+수집을 안내하지만 해당 정책을 대체하지 않습니다.
 
-| Signal | 기록할 evidence |
+| 신호 | 기록할 근거 |
 |--------|-----------------|
-| User 또는 operation impact | 사용할 수 없거나 저하된 capability와 observed population |
-| SLO impact | Objective, window, burn value, remaining error budget |
-| Scope | Affected resource, region, dependency, exclusion |
-| Duration | First observed time, confirmation time, impact 진행 여부 |
-| Recoverability | Known workaround, rollback readiness, protected dependency |
+| User 또는 연산 영향 | 사용할 수 없거나 저하된 기능과 관찰된 population |
+| SLO 영향 | 목표, 구간, burn 값, remaining 오류 예산 |
+| 범위 | Affected 리소스, 지역, 의존성, exclusion |
+| 소요 시간 | First 관찰된 시간, 확인 시간, 영향 진행 여부 |
+| Recoverability | Known workaround, 롤백 준비 상태, protected 의존성 |
 
 ## 절차
 
-1. **Incident record를 확인합니다.** Identity, correlation key, current state, member
-	count, newest member timestamp를 검증합니다.
-2. **Membership을 검증합니다.** Affected resource를 확인하고 reason이 있는 audited
-	correction으로만 member를 추가하거나 제거합니다.
-3. **Impact 범위를 정합니다.** Affected capability, resource scope, start time, SLO
-	state, dependency, known exclusion을 기록합니다.
-4. **Severity를 설정합니다.** Configured policy를 measured impact에 적용합니다.
-	Uncertainty를 포함해 사용된 evidence와 rule을 기록합니다.
-5. **Ownership을 지정합니다.** Configured route에서 responder를 선택하고 next decision
-	deadline을 설정하며 가능한 경우 service owner를 식별합니다.
-6. **안전하게 transition합니다.** Concurrent update를 덮어쓰지 않도록 expected current
-	state를 사용해 incident를 `triaging`으로 이동합니다.
-7. **Investigation을 시작합니다.** Time range, resource scope, evidence budget, 먼저
+1. **인시던트 기록을 확인합니다.** 신원, 상관관계 키, 현재 상태, 구성원
+	개수, newest 구성원 시각을 검증합니다.
+2. **구성원을 검증합니다.** Affected 리소스를 확인하고 사유가 있는 audited
+	correction으로만 구성원을 추가하거나 제거합니다.
+3. **영향 범위를 정합니다.** Affected 기능, 리소스 범위, 시작 시간, SLO
+	상태, 의존성, known exclusion을 기록합니다.
+4. **심각도를 설정합니다.** 구성된 정책을 measured 영향에 적용합니다.
+	Uncertainty를 포함해 사용된 근거와 룰을 기록합니다.
+5. **소유권을 지정합니다.** 구성된 경로에서 응답자를 선택하고 next 결정
+	기한을 설정하며 가능한 경우 서비스 소유자를 식별합니다.
+6. **안전하게 전이합니다.** 동시 갱신을 덮어쓰지 않도록 예상 현재
+	상태를 사용해 인시던트를 `triaging`으로 이동합니다.
+7. **조사를 시작합니다.** 시간 범위, 리소스 범위, 근거 예산, 먼저
 	답할 질문을 정의합니다.
-8. **알리고 검증합니다.** Durable notification을 보내고 성공으로 가정하지 말고
-	accepted, failed 또는 fallback delivery를 확인합니다.
+8. **알리고 검증합니다.** 영속 알림을 보내고 성공으로 가정하지 말고
+	accepted, 실패한 또는 대체 경로 전달을 확인합니다.
 
 ## 결정 분기
 
-| Condition | 다음 단계 |
+| 조건 | 다음 단계 |
 |-----------|-----------|
-| Scope와 severity가 확정됨 | [RCA evidence collection](rca-evidence-collection-ko.md)을 시작합니다. |
-| Known, verified mitigation이 준비됨 | [Incident mitigation과 rollback](incident-mitigation-and-rollback-ko.md)으로 라우팅합니다. |
-| Evidence source를 사용할 수 없음 | Severity를 보수적으로 유지하고 source recovery를 escalate합니다. |
-| 관련 없는 여러 cause가 있음 | Audited correlation correction으로 split합니다. |
-| Impact는 없지만 recovery가 아직 안정적이지 않음 | Review deadline이 있는 monitoring으로 이동합니다. |
-| Notification이 수락되지 않음 | Configured fallback을 사용하고 모든 attempt를 기록합니다. |
+| 범위와 심각도가 확정됨 | [RCA 근거 수집](rca-evidence-collection-ko.md)을 시작합니다. |
+| Known, 검증된 완화가 준비됨 | [인시던트 완화와 롤백](incident-mitigation-and-rollback-ko.md)으로 라우팅합니다. |
+| 근거 출처를 사용할 수 없음 | 심각도를 보수적으로 유지하고 출처 복구를 escalate합니다. |
+| 관련 없는 여러 원인이 있음 | Audited 상관관계 correction으로 분리합니다. |
+| 영향은 없지만 복구가 아직 안정적이지 않음 | 검토 기한이 있는 모니터링으로 이동합니다. |
+| 알림이 수락되지 않음 | 구성된 대체 경로를 사용하고 모든 시도를 기록합니다. |
 
 ## 중지 조건
 
-Identity, ownership, scope, evidence freshness를 확정할 수 없으면 중지하고 에스컬레이션합니다.
-Expected incident state가 변경되면 transition을 중지하고 refresh한 뒤 triage를 반복합니다.
-데이터가 없다는 이유로 severity를 낮추지 않습니다.
+신원, 소유권, 범위, 근거 최신성을 확정할 수 없으면 중지하고 에스컬레이션합니다.
+예상 인시던트 상태가 변경되면 전이를 중지하고 새로 고침한 뒤 분류를 반복합니다.
+데이터가 없다는 이유로 심각도를 낮추지 않습니다.
 
-## Evidence와 audit
+## 근거와 감사
 
-Transition audit ID, owner, severity basis, member reference, investigation ID,
-notification result, next review time을 기록합니다. Source freshness, unknown, exclusion,
-모든 membership correction도 기록합니다.
+전이 감사 ID, 소유자, 심각도 basis, 구성원 참조, 조사 ID,
+알림 결과, next 검토 시간을 기록합니다. 출처 최신성, 알 수 없음, exclusion,
+모든 구성원 correction도 기록합니다.
 
 ## 완료 기준
 
-Incident에 validated boundary, severity basis, accountable owner, accepted notification 또는
-소진된 fallback, bounded investigation, next decision deadline이 있으면 triage가 완료됩니다.
-이러한 사실 중 하나가 크게 변경될 때마다 triage를 반복합니다.
+인시던트에 검증된 경계, 심각도 basis, accountable 소유자, accepted 알림 또는
+소진된 대체 경로, 범위가 제한된 조사, next 결정 기한이 있으면 분류가 완료됩니다.
+이러한 사실 중 하나가 크게 변경될 때마다 분류를 반복합니다.
 
-## 관련 runbook
+## 관련 런북
 
 | 다음 작업 | 문서 |
 |-----------|------|
-| Burn-rate trigger 검증 | [SLO burn 대응](slo-burn-response-ko.md) |
-| Evidence-backed chronology 구성 | [RCA evidence collection](rca-evidence-collection-ko.md) |
-| Governed response 실행 또는 rollback | [Incident mitigation과 rollback](incident-mitigation-and-rollback-ko.md) |
+| Burn-rate 트리거 검증 | [SLO burn 대응](slo-burn-response-ko.md) |
+| Evidence-backed 시간 순서 구성 | [RCA 근거 수집](rca-evidence-collection-ko.md) |
+| 통제된 응답 실행 또는 롤백 | [인시던트 완화와 롤백](incident-mitigation-and-rollback-ko.md) |
