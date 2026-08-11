@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce shipped ontology structural coverage and terminal question cohorts."""
+"""Enforce structural coverage and receipt-backed deterministic question fixtures."""
 
 from __future__ import annotations
 
@@ -28,12 +28,32 @@ def _questions() -> tuple[QuestionDispositionRecord, ...]:
     payload = json.loads(
         (ROOT / "config/ontology-query-competency.json").read_text(encoding="utf-8")
     )
-    if not isinstance(payload, dict) or payload.get("schema_version") != "1.0.0":
+    if not isinstance(payload, dict) or payload.get("schema_version") != "2.0.0":
         raise ValueError("ontology query competency schema_version is invalid")
     raw_questions = payload.get("questions")
     if not isinstance(raw_questions, list):
         raise ValueError("ontology query competency questions MUST be an array")
-    return tuple(QuestionDispositionRecord(**item) for item in raw_questions)
+    questions: list[QuestionDispositionRecord] = []
+    for item in raw_questions:
+        if not isinstance(item, dict):
+            raise ValueError("ontology query competency question MUST be an object")
+        evidence_refs = item.get("evidence_refs", ())
+        if not isinstance(evidence_refs, list | tuple):
+            raise ValueError("ontology query competency evidence_refs MUST be an array")
+        questions.append(
+            QuestionDispositionRecord(
+                **{
+                    **item,
+                    "evidence_refs": tuple(evidence_refs),
+                }
+            )
+        )
+    if any(item.receipt_source != "cross_service_e2e" for item in questions):
+        raise ValueError(
+            "shipped competency fixtures MUST use cross_service_e2e; "
+            "live_assurance requires external receipts"
+        )
+    return tuple(questions)
 
 
 def _structural_receipts() -> tuple[StructuralCoverageReceipt, ...]:
@@ -88,9 +108,11 @@ def main() -> int:
         print(f"ontology-query-coverage: ERROR: {exc}", file=sys.stderr)
         return 1
     print(
-        "ontology-query-coverage: OK "
-        f"(questions={receipt.accepted_question_count}, "
-        f"principal_manifests={len(receipt.principal_receipt_digests)})"
+        "ontology-query-coverage: OK (receipt-backed fixture; "
+        "source=cross_service_e2e; not live assurance proof; "
+        f"questions={receipt.accepted_question_count}, "
+        f"principal_manifests={len(receipt.principal_receipt_digests)}, "
+        f"question_receipts={len(receipt.question_receipt_digests)})"
     )
     return 0
 

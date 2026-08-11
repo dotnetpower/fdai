@@ -1,55 +1,165 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "questions": [
     {
       "question_id": "exact-resource-en",
       "cohort": "exact-en",
-      "disposition": "answered"
+      "disposition": "answered",
+      "receipt_id": "cross-service-e2e:exact-resource-en",
+      "receipt_source": "cross_service_e2e",
+      "reason_code": "semantic_execution_completed",
+      "semantic_route": "verified_query_plan",
+      "ontology_release_digest": "sha256:1b9bd256a930404d848ac96e351332809c5424ab2eb3a8719f257dbdf98f9f3e",
+      "principal_manifest_digest": "sha256:b1da22bb0d9a5079ac7b514f4e3053fb3d632b59c12f9ea286e0c411d8a8e062",
+      "plan_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "execution_receipt_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "evidence_refs": [
+        "semantic-plan:exact-resource-en",
+        "query-execution:exact-resource-en"
+      ],
+      "checks_completed": 2,
+      "checks_total": 2,
+      "unsupported_claim_count": 0,
+      "unauthorized_execution_count": 0,
+      "used_legacy_ordinary_language_route": false
     },
     {
       "question_id": "exact-resource-ko",
       "cohort": "exact-ko",
-      "disposition": "answered"
+      "disposition": "answered",
+      "receipt_id": "cross-service-e2e:exact-resource-ko",
+      "receipt_source": "cross_service_e2e",
+      "reason_code": "semantic_execution_completed",
+      "semantic_route": "verified_query_plan",
+      "ontology_release_digest": "sha256:1b9bd256a930404d848ac96e351332809c5424ab2eb3a8719f257dbdf98f9f3e",
+      "principal_manifest_digest": "sha256:b1da22bb0d9a5079ac7b514f4e3053fb3d632b59c12f9ea286e0c411d8a8e062",
+      "plan_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "execution_receipt_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "evidence_refs": [
+        "semantic-plan:exact-resource-ko",
+        "query-execution:exact-resource-ko"
+      ],
+      "checks_completed": 2,
+      "checks_total": 2,
+      "unsupported_claim_count": 0,
+      "unauthorized_execution_count": 0,
+      "used_legacy_ordinary_language_route": false
     },
     {
       "question_id": "ambiguous-measure-en",
       "cohort": "ambiguous-en",
-      "disposition": "clarification"
+      "disposition": "clarification",
+      "receipt_id": "cross-service-e2e:ambiguous-measure-en",
+      "receipt_source": "cross_service_e2e",
+      "reason_code": "semantic_ambiguity_requires_clarification",
+      "semantic_route": "semantic_clarification",
+      "unsupported_claim_count": 0,
+      "unauthorized_execution_count": 0,
+      "used_legacy_ordinary_language_route": false
     },
     {
       "question_id": "ambiguous-measure-ko",
       "cohort": "ambiguous-ko",
-      "disposition": "clarification"
+      "disposition": "clarification",
+      "receipt_id": "cross-service-e2e:ambiguous-measure-ko",
+      "receipt_source": "cross_service_e2e",
+      "reason_code": "semantic_ambiguity_requires_clarification",
+      "semantic_route": "semantic_clarification",
+      "unsupported_claim_count": 0,
+      "unauthorized_execution_count": 0,
+      "used_legacy_ordinary_language_route": false
     },
     {
       "question_id": "unsupported-domain-en",
       "cohort": "unsupported-en",
-      "disposition": "unsupported"
+      "disposition": "unsupported",
+      "receipt_id": "cross-service-e2e:unsupported-domain-en",
+      "receipt_source": "cross_service_e2e",
+      "reason_code": "unsupported_domain",
+      "semantic_route": "semantic_unsupported",
+      "unsupported_claim_count": 0,
+      "unauthorized_execution_count": 0,
+      "used_legacy_ordinary_language_route": false
     },
     {
       "question_id": "unsupported-domain-ko",
       "cohort": "unsupported-ko",
-      "disposition": "unsupported"
+      "disposition": "unsupported",
+      "receipt_id": "cross-service-e2e:unsupported-domain-ko",
+      "receipt_source": "cross_service_e2e",
+      "reason_code": "unsupported_domain",
+      "semantic_route": "semantic_unsupported",
+      "unsupported_claim_count": 0,
+      "unauthorized_execution_count": 0,
+      "used_legacy_ordinary_language_route": false
     },
     {
       "question_id": "request-change-temporal",
       "cohort": "temporal-causal",
-      "disposition": "answered"
+      "disposition": "answered",
+      "receipt_id": "cross-service-e2e:request-change-temporal",
+      "receipt_source": "cross_service_e2e",
+      "reason_code": "semantic_execution_completed",
+      "semantic_route": "verified_query_plan",
+      "ontology_release_digest": "sha256:1b9bd256a930404d848ac96e351332809c5424ab2eb3a8719f257dbdf98f9f3e",
+      "principal_manifest_digest": "sha256:b1da22bb0d9a5079ac7b514f4e3053fb3d632b59c12f9ea286e0c411d8a8e062",
+      "plan_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "execution_receipt_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "evidence_refs": [
+        "semantic-plan:request-change-temporal",
+        "query-execution:request-change-temporal"
+      ],
+      "checks_completed": 3,
+      "checks_total": 3,
+      "unsupported_claim_count": 0,
+      "unauthorized_execution_count": 0,
+      "used_legacy_ordinary_language_route": false
     },
     {
       "question_id": "storage-network-causal",
       "cohort": "temporal-causal",
-      "disposition": "answered"
+      "disposition": "answered",
+      "receipt_id": "cross-service-e2e:storage-network-causal",
+      "receipt_source": "cross_service_e2e",
+      "reason_code": "semantic_execution_completed",
+      "semantic_route": "verified_query_plan",
+      "ontology_release_digest": "sha256:1b9bd256a930404d848ac96e351332809c5424ab2eb3a8719f257dbdf98f9f3e",
+      "principal_manifest_digest": "sha256:b1da22bb0d9a5079ac7b514f4e3053fb3d632b59c12f9ea286e0c411d8a8e062",
+      "plan_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "execution_receipt_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "evidence_refs": [
+        "semantic-plan:storage-network-causal",
+        "query-execution:storage-network-causal"
+      ],
+      "checks_completed": 4,
+      "checks_total": 4,
+      "unsupported_claim_count": 0,
+      "unauthorized_execution_count": 0,
+      "used_legacy_ordinary_language_route": false
     },
     {
       "question_id": "missing-history-hold",
       "cohort": "evidence-gap",
-      "disposition": "held"
+      "disposition": "held",
+      "receipt_id": "cross-service-e2e:missing-history-hold",
+      "receipt_source": "cross_service_e2e",
+      "reason_code": "historical_evidence_unavailable",
+      "unavailable_reason": "historical_evidence_unavailable",
+      "unsupported_claim_count": 0,
+      "unauthorized_execution_count": 0,
+      "used_legacy_ordinary_language_route": false
     },
     {
       "question_id": "explicit-action-draft",
       "cohort": "action-boundary",
-      "disposition": "action_draft"
+      "disposition": "action_draft",
+      "receipt_id": "cross-service-e2e:explicit-action-draft",
+      "receipt_source": "cross_service_e2e",
+      "reason_code": "semantic_action_draft_ready",
+      "semantic_route": "semantic_action_draft",
+      "unsupported_claim_count": 0,
+      "unauthorized_execution_count": 0,
+      "used_legacy_ordinary_language_route": false
     }
   ]
 }
