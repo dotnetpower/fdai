@@ -3,7 +3,7 @@ title: 회복탄력성
 description: FDAI가 필요해지기 전에 복구를 증명하는 방법입니다. 예약된 DR 훈련, 범위가 제한된 카오스 실험, 알려진 실패 패턴에 대한 자가 치유를 다룹니다.
 translation_of: resilience.md
 translation_source_sha: 93b09b5000c991d81fca299829a7de4d03bef3b6
-translation_revised: 2026-08-09
+translation_revised: 2026-08-11
 ---
 
 # 회복탄력성
@@ -17,7 +17,7 @@ FDAI는 워크로드를 복구 가능한 상태로 유지하고, 실제 장애�
 ## 무엇을 얻나요
 
 - **예약된 DR 훈련.** 재해 복구 예행 연습은 비정기적으로 수행하지 않고 지정된 훈련
-  시간대(exercise window)에 실행하며 결과를 기록합니다.
+  시간대(exercise 구간)에 실행하며 결과를 기록합니다.
 - **복구 목표 검증.** 데이터베이스 복원 훈련은 목표 RPO와 RTO를 기준으로 복원을
   수행하고, 문제가 되기 전에 `point-in-time-restore` 미지원 구간 같은 차이를 식별합니다.
 - **범위가 제한된 카오스 실험.** 실패는 엄격한 영향 범위 한도 안에서 주입되므로,
@@ -27,10 +27,10 @@ FDAI는 워크로드를 복구 가능한 상태로 유지하고, 실제 장애�
 
 ## 에이전트가 회복탄력성을 제공하는 방법
 
-Huginn은 signal을 normalize하고 Heimdall은 gap을 감지하고 outcome을 독립 검증합니다. Loki는
-bounded experiment를 제안하고 Forseti는 판단하며 Odin은 objective conflict를 중재합니다. Var는
-필수 사람 승인을 소유하고 Thor는 실행하며 Vidar는 rollback과 recovery를 통제하고 Saga는 immutable
-trace를 기록합니다. Norns는 closure 뒤 inert learning candidate만 제안하며 policy를 변경하지 못합니다.
+Huginn은 신호를 normalize하고 Heimdall은 공백을 감지하고 결과를 독립 검증합니다. Loki는
+범위가 제한된 실험을 제안하고 Forseti는 판단하며 Odin은 목표 충돌을 중재합니다. Var는
+필수 사람 승인을 소유하고 Thor는 실행하며 Vidar는 롤백과 복구를 통제하고 Saga는 변경할 수 없는
+추적을 기록합니다. Norns는 종결 뒤 inert learning 후보만 제안하며 정책을 변경하지 못합니다.
 
 ## FDAI가 복구를 증명하는 방법
 
@@ -44,7 +44,7 @@ trace를 기록합니다. Norns는 closure 뒤 inert learning candidate만 제�
    자율 작업에 적용되는 것과 같은 안전 장치를 따릅니다.
 4. **목표 대비 검증.** 복원 결과를 목표 RPO와 RTO에 따라 확인하고, 성공과 실패를 모두
   기록합니다.
-5. **증거 감사.** 결과는 복구 경로가 작동한다는 증거로 추가 전용(append-only) 감사
+5. **증거 감사.** 결과는 복구 경로가 작동한다는 증거로 추가 전용(추가 전용) 감사
   로그에 기록됩니다.
 
 ## 약속이 아니라 증거

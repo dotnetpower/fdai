@@ -131,7 +131,7 @@ Rollback은 exact 서비스 가지 헤드에서만 시작하고 exact 기준선�
 
 | 배포 역할 | 신원과 권한 | 실행기 권한 | Ingress / 형태 |
 |-----------------|-----------------------|--------------------|-----------------|
-| Core 컨트롤 평면 | 결정, audit-intent, 복구, event-transport 역할. 현재 배포는 전환 전까지 실행기 UAMI를 임시로 보유 | 전환 후 없음 | 내부 headless Container App |
+| Core 컨트롤 플레인 | 결정, audit-intent, 복구, event-transport 역할. 현재 배포는 전환 전까지 실행기 UAMI를 임시로 보유 | 전환 후 없음 | 내부 headless Container App |
 | Isolated 실행기 | 실행기 UAMI와 등록된 action-specific 역할 | 전환 후 유일한 보유자 | 내부 event-driven Container App |
 | Operator API 읽기 역할 | 읽기 UAMI, 변환 결과 저장소, 명령 전송 계층 없음 | 없음 | 인증된 공개 API |
 | Operator API 명령 역할 | 통제된 요청의 event-transport 전송/수신만 허용 | 없음, 요청은 타입이 지정된 게이트로 재진입 | Operator API 조립에 연결된 |

@@ -3,10 +3,10 @@ title: 대화로 FDAI에 묻기(Ask FDAI in conversation)
 description: FDAI가 복합 질문을 제한된 부분으로 나누는 방식, 부분 답변이 뜻하는 것, 챗으로 요청한 변경이 초안으로 돌아오는 이유를 설명합니다.
 translation_of: use-operator-conversations.md
 translation_source_sha: 5d4af6c1d583d5b71e40b83c3ae8929fcaac7bdc
-translation_revised: 2026-08-06
+translation_revised: 2026-08-11
 ---
 
-# 대화로 FDAI에 묻기(Ask FDAI in conversation)
+# 대화로 FDAI에 묻기(Ask FDAI in 대화)
 
 실제 운영 질문은 한 덩어리인 경우가 드뭅니다. 결제가 왜 느린지와 그게 비용을 얼마나 쓰는지를 한
 문장에 같이 묻게 됩니다. FDAI는 그런 질문을 범위가 제한된 하위 질문들의 작은 그래프로 계획하고,

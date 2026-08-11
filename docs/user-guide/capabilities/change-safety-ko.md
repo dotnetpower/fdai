@@ -3,12 +3,12 @@ title: 변경 안전성
 description: FDAI가 제안된 모든 변경을 안전하게 유지하는 방법 - 정책 게이트, 리스크 분류, 감사 가능한 pull request 전달.
 translation_of: change-safety.md
 translation_source_sha: 4dce4930a806c4ef422fbe960eb95136860d8c0d
-translation_revised: 2026-08-09
+translation_revised: 2026-08-11
 ---
 
 # 변경 안전성
 
-IaC(코드형 인프라) pull request, 드리프트된 구성, 정책 위반 등 클라우드에 적용되는
+IaC(코드형 인프라) pull 요청, 드리프트된 구성, 정책 위반 등 클라우드에 적용되는
 모든 변경은 프로덕션에 도달하기 전에 평가됩니다. FDAI는 변경 안전성을 먼저 결정론적
 게이트로 다루고, 결정론적 티어가 판단할 수 없을 때만 별도의 판단 경로로 넘깁니다. 따라서
 반복 가능한 대다수 변경은 사람도 모델도 없이 해소됩니다.
@@ -16,20 +16,20 @@ IaC(코드형 인프라) pull request, 드리프트된 구성, 정책 위반 등
 ## 무엇을 얻나요
 
 - **모든 변경에 정책 게이트.** 제안된 각 변경은 적용되기 전에 policy-as-code에
-  대한 dry-run(what-if 평가)을 거칩니다.
+  대한 예행 실행(what-if 평가)을 거칩니다.
 - **드리프트 감지와 교정.** 선언된 상태에서 벗어난 구성은 감지 및 분류된 뒤 자동
   교정되거나 검토 대상으로 전달됩니다.
 - **고위험 변경은 사람 승인을 기다립니다.** 안전성 검토가 저위험 변경을 자동 병합으로,
   고위험 변경을 사람 승인으로 라우팅합니다.
-- **감사와 롤백은 기본 제공됩니다.** 액션은 수정 pull request로 전달되므로,
+- **감사와 롤백은 기본 제공됩니다.** 액션은 수정 pull 요청으로 전달되므로,
   변경 기록과 롤백 경로가 이미 Git 안에 있습니다.
 
 ## 에이전트가 변경을 안전하게 유지하는 방법
 
-Huginn은 change signal을 normalize하고 Heimdall은 drift를 감지합니다. Forseti가 decision을 소유하고
-Odin은 reliability, capacity, cost objective conflict를 중재합니다. Var는 필수 사람 승인을 소유하고
-Thor만 실행하며 Heimdall은 observed effect를 검증하고 Vidar는 recovery를 통제하며 Saga는 모든 terminal
-path를 기록합니다. Ontology declaration이나 conversation은 이 owner를 우회할 수 없습니다.
+Huginn은 변경 신호를 normalize하고 Heimdall은 표류를 감지합니다. Forseti가 결정을 소유하고
+Odin은 reliability, 용량, 비용 목표 충돌을 중재합니다. Var는 필수 사람 승인을 소유하고
+Thor만 실행하며 Heimdall은 관찰된 효과를 검증하고 Vidar는 복구를 통제하며 Saga는 모든 최종
+경로를 기록합니다. 온톨로지 선언이나 대화는 이 소유자를 우회할 수 없습니다.
 
 ## FDAI가 변경을 안전하게 유지하는 방법
 
@@ -37,14 +37,14 @@ path를 기록합니다. Ontology declaration이나 conversation은 이 owner를
 
 1. **감지.** 리소스 변경, 활동 로그 이벤트, 드리프트 신호가 하나의 정규화된
    이벤트로 컨트롤 루프에 들어옵니다.
-2. **정책 대비 dry-run.** 결정론적 티어가 policy-as-code에 대해 what-if로 변경을
+2. **정책 대비 예행 실행.** 결정론적 티어가 policy-as-code에 대해 what-if로 변경을
   평가합니다. 이 단계에서는 아직 변경을 적용하지 않습니다.
 3. **위험 분류.** 안전성 검토가 변경을
    [위험 분류](../../roadmap/decisioning/risk-classification-ko.md) 표에 따라 자동 실행,
    사람 승인, 거부 중 하나로 분류합니다.
 4. **자동 병합 또는 승인 요청.** 저위험 변경은 자동 병합되고, 고위험 변경은 설정된
   채널을 통한 [승인](../guides/approve-change-ko.md)을 기다립니다.
-5. **전달과 감사.** 변경은 롤백 참조를 담은 pull request로 전달되고, 거부와 미실행을
+5. **전달과 감사.** 변경은 롤백 참조를 담은 pull 요청으로 전달되고, 거부와 미실행을
    포함한 모든 결정이 기록됩니다.
 
 ## 약속이 아니라 증거
@@ -70,7 +70,7 @@ path를 기록합니다. Ontology declaration이나 conversation은 이 owner를
 
 - [결정론 우선](../concepts/deterministic-first-ko.md) - 반복 가능한 대다수가 규칙 기반으로 남는 이유.
 - [리스크 티어](../concepts/risk-tiers-ko.md) - 변경이 자동 실행, 사람 승인, 거부로 갈리는 방식.
-- [에이전트 기반 자동화](../concepts/ontology-driven-automation-ko.md) - 에이전트가 변경에 typed safety contract를 사용하는 방식.
+- [에이전트 기반 자동화](../concepts/ontology-driven-automation-ko.md) - 에이전트가 변경에 타입이 지정된 안전성 계약을 사용하는 방식.
 - [구성 드리프트 탐지](../sre/observability-detection-and-forecasting-ko.md) - 고정된 기준선이 드리프트를 계획되지 않은 변경으로 커지기 전에 잡아내는 방식.
 - [변경 승인](../guides/approve-change-ko.md) - 사람 승인의 운영자 측면.
 - [배포와 온보딩](../../roadmap/deployment/deploy-and-onboard-ko.md) - FDAI를 환경에 도입하는 방법.

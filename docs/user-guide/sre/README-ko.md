@@ -3,18 +3,18 @@ title: 사이트 신뢰성 엔지니어링
 description: 신호와 인시던트부터 대응, 복구, 학습까지 이어지는 FDAI의 SRE 운영 모델입니다.
 translation_of: README.md
 translation_source_sha: 982a74ca85f5a3c24245eac3035278022b16355c
-translation_revised: 2026-08-01
+translation_revised: 2026-08-11
 ---
 
 # 사이트 신뢰성 엔지니어링
 
 사이트 신뢰성 엔지니어링(Site Reliability Engineering, SRE)은 FDAI의 세 초기
-버티컬을 연결하는 운영 discipline입니다. Change Safety는 변경 리스크를 낮추고, Cost
-Governance는 효율성을 관리하며, Resilience는 복구 가능성을 증명합니다. SRE는 이
+버티컬을 연결하는 운영 discipline입니다. 변경 안전성은 변경 리스크를 낮추고, 비용
+거버넌스는 효율성을 관리하며, 복원력은 복구 가능성을 증명합니다. SRE는 이
 기능들을 관찰, 대응, 학습, 대비로 이어지는 하나의 증거 기반 라이프사이클로 묶습니다.
 
 이 섹션은 운영자를 위한 지도입니다. FDAI가 구현한 기능, 사람 승인이 필요한 지점,
-배포 환경이나 downstream fork가 제공해야 하는 통합을 설명합니다.
+배포 환경이나 다운스트림 포크가 제공해야 하는 통합을 설명합니다.
 
 ## 무엇을 할 수 있나요?
 
@@ -40,16 +40,16 @@ Governance는 효율성을 관리하며, Resilience는 복구 가능성을 증�
 추가 전용 감사 이력, 포스트모템 초안, 관찰 모드 결과, 롤백 근거를 사용해 룰과 런북을
 개선합니다. 학습 구성 요소가 정책을 직접 바꾸도록 두지는 않습니다.
 
-예시: 해결된 인시던트 -> 포스트모템이 타임라인과 액션 결과를 추출 -> provenance가
+예시: 해결된 인시던트 -> 포스트모템이 타임라인과 액션 결과를 추출 -> 출처 이력이
 있는 카탈로그 후보 제안 -> 일반 검토 및 승격 게이트를 그대로 통과.
 
 ## 연동 대상
 
 - **Azure 신호**: Activity Log 이벤트, 리소스 인벤토리, 배포 이력, 서비스 메트릭이
-  provider 어댑터를 통해 들어옵니다.
-- **관측 시스템**: 메트릭, 로그, 트레이스 provider는 근거를 공급할 뿐 두 번째 실행
+  프로바이더 어댑터를 통해 들어옵니다.
+- **관측 시스템**: 메트릭, 로그, 트레이스 프로바이더는 근거를 공급할 뿐 두 번째 실행
   경로가 되지 않습니다.
-- **Git과 ChatOps**: 수정 pull request가 변경을 전달하고, Teams나 Slack이 승인과 운영
+- **Git과 ChatOps**: 수정 pull 요청이 변경을 전달하고, Teams나 Slack이 승인과 운영
   알림을 전달합니다.
 - **감사와 보고**: 모든 최종 결과는 추가 전용 감사 기록과 상관관계 참조로 다시
   재구성할 수 있습니다.
@@ -84,11 +84,11 @@ signals -> finding -> incident -> investigation -> RCA
 
 T0 일치가 변경 권한을 자동으로 주지 않고, T2 제안이 스스로 권한을 만들 수도 없습니다.
 실행 가능한 모든 작업에는 여전히 사전 검증, 중단 조건, 롤백 경로, 영향 범위 제한, 최신
-인벤토리, 리소스별 잠금, idempotency key, 권한 있는 자격 증명, 감사 기록이 필요합니다.
+인벤토리, 리소스별 잠금, 멱등성 키, 권한 있는 자격 증명, 감사 기록이 필요합니다.
 
 ## 성능 저하도 명시적인 상태입니다
 
-FDAI는 근거가 없다고 해서 정상이라고 보지 않습니다. provider 장애는 그에 의존하는 근거를
+FDAI는 근거가 없다고 해서 정상이라고 보지 않습니다. 프로바이더 장애는 그에 의존하는 근거를
 사용 불가로 표시합니다. 오래된 인벤토리, 감사 기록 실패, 잠금 획득 실패, 검증되지 않은
 롤백 경로는 영향을 받는 작업을 관찰 모드나 거부로 낮춥니다. 알림 실패는 지속적으로
 재시도하거나 에스컬레이션합니다. 알림 실패가 승인이 되는 일은 없고, 이미 유효했던 인시던트
@@ -99,10 +99,10 @@ FDAI는 근거가 없다고 해서 정상이라고 보지 않습니다. provider
 | 영역 | 문서 | 상위 프로젝트 상태 |
 |------|------|--------------------|
 | 관측성, 상관관계, 이상 감지, 예측 | [관측성, 감지, 예측](observability-detection-and-forecasting-ko.md) | 지원됩니다. 실제 관측 어댑터는 배포 환경에서 연결합니다. |
-| 워크로드 목표와 예산 소진 속도 | [SLO와 오류 예산](slos-and-error-budgets-ko.md) | 실제 지표 provider와 예약 실행이 연결될 때까지는 부분 지원입니다. |
+| 워크로드 목표와 예산 소진 속도 | [SLO와 오류 예산](slos-and-error-budgets-ko.md) | 실제 지표 프로바이더와 예약 실행이 연결될 때까지는 부분 지원입니다. |
 | 용량과 성능 | [용량과 성능](capacity-and-performance-ko.md) | 지원됩니다. 자율 작업은 여전히 승격 기준을 따릅니다. |
 | 인시던트 생애주기 | [인시던트 관리](incident-management-ko.md) | 지원됩니다. |
-| 범위를 정한 근거 수집 | [분류와 조사](triage-and-investigation-ko.md) | 지원됩니다. 근거의 깊이는 provider에 따라 달라집니다. |
+| 범위를 정한 근거 수집 | [분류와 조사](triage-and-investigation-ko.md) | 지원됩니다. 근거의 깊이는 프로바이더에 따라 달라집니다. |
 | 근본 원인 가설 | [근본 원인 분석](root-cause-analysis-ko.md) | 지원됩니다. T2는 설정된 모델과 지식 연결에 좌우됩니다. |
 | 대응 계획과 완화 | [대응 계획과 완화](response-plans-and-mitigation-ko.md) | 지원됩니다. 계획은 제안하고 전달할 뿐 승인을 우회하지 않습니다. |
 | 온콜과 에스컬레이션 | [온콜과 에스컬레이션](on-call-and-escalation-ko.md) | 페이징 어댑터와 개인 메시지 지정이 연결될 때까지는 부분 지원입니다. |
@@ -112,32 +112,32 @@ FDAI는 근거가 없다고 해서 정상이라고 보지 않습니다. provider
 | 재해 복구 | [재해 복구와 훈련](disaster-recovery-and-drills-ko.md) | 제공되는 훈련과 어댑터 범위에서 지원됩니다. |
 | 카오스 엔지니어링 | [카오스 엔지니어링](chaos-engineering-ko.md) | 지원됩니다. 모든 시나리오는 관찰 모드에서 시작합니다. |
 
-> 상태 페이지 공지와 DORA 배포 지표는 아직 미구현입니다. provider와 데이터 계약을 구현하기
+> 상태 페이지 공지와 DORA 배포 지표는 아직 미구현입니다. 프로바이더와 데이터 계약을 구현하기
 > 전까지는 사용 가능한 SRE 기능으로 소개하지 않습니다.
 
 ## 환경과 함께 확장
 
 - **Day 1**: 관찰 모드로 신호를 수집하고 인시던트 묶음을 확인하며 변경 없이 근거를
   검토합니다.
-- **Week 1**: 워크로드 메트릭을 연결하고 초기 SLO를 정의하며 온콜 라우팅을 연결하고,
+- **주 1**: 워크로드 메트릭을 연결하고 초기 SLO를 정의하며 온콜 라우팅을 연결하고,
   대응 계획을 합성 또는 과거 사례에 대해 사전 테스트합니다.
-- **Month 1**: 측정된 저위험 액션을 개별 승격하고 복구 훈련을 예약하며, 포스트모템
-  증거를 사용해 규칙과 runbook을 개선합니다.
+- **월 1**: 측정된 저위험 액션을 개별 승격하고 복구 훈련을 예약하며, 포스트모템
+  증거를 사용해 규칙과 런북을 개선합니다.
 
 ## 시작하기
 
 - [관측성, 감지, 예측](observability-detection-and-forecasting-ko.md)부터 시작하세요.
 - [인시던트 관리](incident-management-ko.md)에서 이벤트의 흐름을 따라가세요.
-- [근본 원인 분석](root-cause-analysis-ko.md)이 grounded 상태를 유지하는 방법을 확인하세요.
-- 모든 [scenario validation set](scenario-validation-inventory-ko.md)을 검토하세요.
-- [SRE runbook 세트](../../runbooks/README-ko.md)로 운영자 절차를 준비하세요.
+- [근본 원인 분석](root-cause-analysis-ko.md)이 근거에 기반한 상태를 유지하는 방법을 확인하세요.
+- 모든 [시나리오 검증 집합](scenario-validation-inventory-ko.md)을 검토하세요.
+- [SRE 런북 세트](../../runbooks/README-ko.md)로 운영자 절차를 준비하세요.
 
 ## 다음 단계
 
 | 학습 대상 | 문서 |
 |-----------|------|
 | FDAI가 T0, T1, T2를 선택하는 방법 | [신뢰 티어](../concepts/risk-tiers-ko.md) |
-| 에이전트가 action safety contract를 적용하는 방법 | [에이전트 기반 자동화](../concepts/ontology-driven-automation-ko.md) |
+| 에이전트가 액션 안전성 계약을 적용하는 방법 | [에이전트 기반 자동화](../concepts/ontology-driven-automation-ko.md) |
 | 복구가 제품 기능이 되는 방법 | [회복탄력성](../capabilities/resilience-ko.md) |
 | 증거 추적을 검사하는 방법 | [감사 로그 읽기](../guides/read-audit-log-ko.md) |
 | 승인 요청에 응답이 없을 때의 동작 | [에스컬레이션과 상시 권한](../../roadmap/decisioning/escalation-and-standing-authority-ko.md) |

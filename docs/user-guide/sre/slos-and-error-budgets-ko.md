@@ -3,12 +3,12 @@ title: SLO와 오류 예산
 description: FDAI가 워크로드 목표를 평가하고, 예산 소진 근거를 관리되는 인시던트 신호로 바꾸는 방법입니다.
 translation_of: slos-and-error-budgets.md
 translation_source_sha: 6f3a560bf322a07ae13a7f8c45b01336879e9653
-translation_revised: 2026-07-27
+translation_revised: 2026-08-11
 ---
 
 # SLO와 오류 예산
 
-서비스 수준 목표(Service Level Objective, SLO)는 기술 신호를 사용자 영향과 이어 줍니다.
+서비스 수준 목표(서비스 수준 목표, SLO)는 기술 신호를 사용자 영향과 이어 줍니다.
 FDAI는 워크로드의 서비스 수준 지표(SLI), 목표, 오류 예산, 여러 구간의 소진 속도를 평가해서,
 인시던트 우선순위와 변경 판단에 측정된 신뢰성 근거를 사용합니다.
 
@@ -55,7 +55,7 @@ FDAI는 짧은 구간과 긴 구간을 함께 봅니다. 짧은 급등만 보면
 
 ## 위반에서 대응까지
 
-1. 지표 provider가 범위와 시각이 붙은 표본을 돌려줍니다.
+1. 지표 프로바이더가 범위와 시각이 붙은 표본을 돌려줍니다.
 2. 소진 속도 평가기가 설정된 구간을 계산합니다.
 3. `SloBurnRunner`가 `slo.error_budget_burn` 이벤트를 발행합니다.
 4. 이벤트 수집이 중복을 걸러 내고 진행 중인 변경이나 인시던트와 연결합니다.

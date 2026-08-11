@@ -3,10 +3,10 @@ title: 규칙에 override 적용
 description: 규칙 카탈로그 자체를 편집하지 않고 특정 범위에서 승인된 규칙의 적용 범위를 좁히거나, 심각도를 낮추거나, 비활성화하는 방법.
 translation_of: override-a-rule.md
 translation_source_sha: ff86d9bf913096a94f389559d36b23598efbdd66
-translation_revised: 2026-07-27
+translation_revised: 2026-08-11
 ---
 
-# 규칙에 override 적용
+# 규칙에 재정의 적용
 
 승인된 룰이 전체적으로는 맞지만 특정 범위에는 맞지 않을 때가 있습니다. 임계값을 더
 넓게 잡아야 하는 프로덕션 티어나, 엄격한 가드레일이 도움보다 불편이 큰 개발 샌드박스가
@@ -47,9 +47,9 @@ translation_revised: 2026-07-27
 - 단일 리소스 - OK.
 - 서브스크립션 전체 - 거부.
 
-## Override가 항상 필요로 하는 것
+## 재정의가 항상 필요로 하는 것
 
-모드와 무관하게 모든 override는 기록합니다:
+모드와 무관하게 모든 재정의는 기록합니다:
 
 - **요청자**: 오버라이드를 등록하는 운영자입니다.
 - **승인자**: 요청자와 다른 주체여야 합니다. 자기 승인은 허용되지 않습니다.
@@ -75,28 +75,28 @@ translation_revised: 2026-07-27
 1. 룰 ID와 현재 결정을 확인합니다. 감사 로그에 둘 다 있습니다.
 2. 룰을 편집하는 것과 같은 저장소에서 오버라이드 아티팩트, 즉 모드와 범위와 사유를
    작성합니다.
-3. pull request를 엽니다. 검토자는 요청자와 달라야 합니다.
+3. pull 요청을 엽니다. 검토자는 요청자와 달라야 합니다.
 4. 병합되면 다음번 해당 이벤트가 발생할 때 적용됩니다. 감사 로그는 원래 탐지 결과와
    이를 가로챈 오버라이드를 모두 보여 줍니다.
 
-## Override 적용 확인
+## 재정의 적용 확인
 
 PR이 병합된 뒤 대상 범위에서 새 평가 결과 하나를 확인하세요:
 
-1. 감사 항목에 예상한 규칙 ID, override ID, 모드, 제한된 범위가 기록되었는지
+1. 감사 항목에 예상한 규칙 ID, 재정의 ID, 모드, 제한된 범위가 기록되었는지
   확인합니다.
-2. `disabled` override에서도 원래 탐지 결과가 계속 기록되는지 확인합니다.
-3. 결과 severity, 매개 변수, 실행 억제가 override와 일치하며 자율성을 높이지 않았는지
+2. `disabled` 재정의에서도 원래 탐지 결과가 계속 기록되는지 확인합니다.
+3. 결과 심각도, 매개 변수, 실행 억제가 재정의와 일치하며 자율성을 높이지 않았는지
   확인합니다.
 4. 범위 밖의 인접 리소스에는 일반 규칙 동작이 계속 적용되는지 확인합니다.
 
-Override 적용 결과가 예상과 다르면 별도 override 아티팩트를 제거하거나 수정하세요. 로컬
+재정의 적용 결과가 예상과 다르면 별도 재정의 아티팩트를 제거하거나 수정하세요. 로컬
 예외가 동작하는 것처럼 보이게 하려고 원본 규칙을 편집하지 마세요.
 
 ## 대신 규칙을 사용 중지해야 할 때
 
 여러 범위에서 같은 룰에 같은 오버라이드를 반복해 적용하고 있다면, 룰 자체를 고쳐야
-한다는 신호입니다. 오버라이드를 쌓지 말고 룰 카탈로그에 수정된 매개 변수로 pull request를
+한다는 신호입니다. 오버라이드를 쌓지 말고 룰 카탈로그에 수정된 매개 변수로 pull 요청을
 열어, 다른 룰 변경과 똑같이 품질 검토를 통과하게 하세요.
 
 ## 다음 단계
@@ -106,4 +106,4 @@ Override 적용 결과가 예상과 다르면 별도 override 아티팩트를 �
 | 심각도와 자동 실행, 사람 승인, 거부가 실행 시점에 뜻하는 것 | [../concepts/risk-tiers-ko.md](../concepts/risk-tiers-ko.md) |
 | 오버라이드가 실제로 적용되는지 확인하는 방법 | [read-audit-log-ko.md](read-audit-log-ko.md) |
 | 소유자가 승인하고 기간이 정해진 예외 워크플로 | [../../runbooks/exemption-workflow-ko.md](../../runbooks/exemption-workflow-ko.md) |
-| 전체 Human Override 설계 | [../../../.github/instructions/architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) |
+| 전체 Human 재정의 설계 | [../../../.github/instructions/architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) |

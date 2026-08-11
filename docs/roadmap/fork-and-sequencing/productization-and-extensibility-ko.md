@@ -12,7 +12,7 @@ conversational 채널, 기능 번들, 모델 라우팅, 예약, security 진단,
 developer 인터페이스를 아우르는 작업의 중앙 상태 매트릭스입니다.
 
 > **아키텍처 경계:** FDAI는 thin 읽기 전용 콘솔과 통제된 ChatOps를 사용하는 headless
-> cloud-operations 컨트롤 평면으로 유지됩니다. 새 인터페이스는 실행기 신원을 받지 않으며
+> cloud-operations 컨트롤 플레인으로 유지됩니다. 새 인터페이스는 실행기 신원을 받지 않으며
 > 모든 변경은 타입이 지정된 trust-router, risk-gate, 승인, 실행기, 감사 경로로 다시 들어갑니다.
 >
 > **구현 초점:** Azure가 유일한 구현 cloud 대상으로 유지됩니다. 프로바이더 중립적인 계약은
@@ -160,7 +160,7 @@ mount하고 영속 PostgreSQL 점유 저장소를 기본으로 사용합니다.
   통제된 명령 카탈로그, 범위가 제한된 작업 실행기를 사용합니다. Operator의 로그인된 브라우저
   프로파일을 자동화하지 않습니다.
 - **Arbitrary dynamic 코드/플러그인 로딩:** 확장은 검토된 타입이 지정된 번들을 등록합니다.
-  컨트롤 평면 안에서 검토되지 않은 패키지를 download하고 실행하지 않습니다.
+  컨트롤 플레인 안에서 검토되지 않은 패키지를 download하고 실행하지 않습니다.
 - **서로 신뢰하지 않는 테넌트를 위한 shared 게이트웨이 하나:** 각 customer 포크와 배포가
   자체 신원, 상태, 정책, 감사 경계를 유지합니다.
 - **Console-issued privileged 액션:** Console은 읽기 전용으로 유지됩니다. Command는 CLI, ChatOps,

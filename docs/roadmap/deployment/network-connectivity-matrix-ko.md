@@ -182,7 +182,7 @@ firewall이 FDAI egress 출처를 허용해야 합니다. Container Apps 환경�
 | DNS 해석기 | UDP 및 TCP 53 | 컨트롤, 데이터 및 비공개 엔드포인트 이름 확인 | conditional forwarding을 사용하는 비공개 해석기 |
 | Azure 인스턴스 메타데이터 서비스 `169.254.169.254` | TCP 80 | 실행기 VM managed-identity 토큰 초기화 | Azure VM에는 대안 없음, link-local 트래픽은 Azure 내부 유지 |
 | `login.microsoftonline.com` 및 필요한 테넌트/federation 호스트 | TCP 443 | Azure CLI 및 Terraform 토큰 획득 | 승인된 Entra 경로, Entra에는 테넌트 비공개 엔드포인트 equivalent가 없음 |
-| `management.azure.com` | TCP 443 | Terraform 및 Azure CLI 컨트롤 평면 | 현재 제한을 수용할 수 있을 때 Resource Manager 비공개 링크 |
+| `management.azure.com` | TCP 443 | Terraform 및 Azure CLI 컨트롤 플레인 | 현재 제한을 수용할 수 있을 때 Resource Manager 비공개 링크 |
 | 상태 Blob, Key Vault, ACR login/데이터 | TCP 443 | Terraform 상태, 시크릿 쓰기, 이미지 push/pull | 위의 비공개 엔드포인트 및 영역 |
 | GitHub 실행기 엔드포인트 | TCP 443 | 체크아웃, Actions 브로커, API, 산출물 및 release | 수동 jumpbox 전송 계층 또는 내부 출처/산출물 mirror |
 | Terraform 레지스트리, Python 인덱스, base-image 레지스트리 | TCP 443 | 최초 도구 및 의존성 획득 | signed offline 키트 및 내부 mirror |

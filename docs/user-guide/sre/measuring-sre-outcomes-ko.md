@@ -3,7 +3,7 @@ title: SRE 성과 측정
 description: 자동화한 양을 신뢰성과 혼동하지 않고, 짝을 이룬 기준선과 비교해 FDAI의 SRE 성과를 측정하는 방법입니다.
 translation_of: measuring-sre-outcomes.md
 translation_source_sha: b0fa546247f5409d2b24e8243e9c8152321f82a8
-translation_revised: 2026-07-27
+translation_revised: 2026-08-11
 ---
 
 # SRE 성과 측정

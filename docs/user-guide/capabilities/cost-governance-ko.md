@@ -3,7 +3,7 @@ title: 비용 거버넌스
 description: FDAI가 지출 이상을 감지하고, 라이트사이징을 권장하고, 저위험 정리를 스스로 실행하는 방법입니다. 위험한 비용 변경은 승인을 기다립니다.
 translation_of: cost-governance.md
 translation_source_sha: eb8fea1c652688b56157588c1ced788c6d8890c6
-translation_revised: 2026-08-09
+translation_revised: 2026-08-11
 ---
 
 # 비용 거버넌스
@@ -19,17 +19,17 @@ FDAI는 다른 운영 신호를 관찰할 때와 같은 방식으로 클라우�
   감지는 관찰 모드로 수행되며, 탐지 결과만으로 작업을 자동 실행하지 않습니다.
 - **라이트사이징 권장.** 과다 프로비저닝된 리소스를 구체적이고 되돌릴 수 있는 수정
   대상으로 표시합니다.
-- **안전한 정리는 자동으로.** 유휴 디스크 정리, 미사용 public IP 해제, 고아 NIC 제거
+- **안전한 정리는 자동으로.** 유휴 디스크 정리, 미사용 공개 IP 해제, 고아 NIC 제거
   같은 저위험 작업은 롤백 경로와 함께 스스로 실행됩니다.
 - **위험한 비용 변경은 여러분을 기다립니다.** 안전 임계값을 넘는 작업은 모두 사람
   승인으로 가며 자동 적용되지 않습니다.
 
 ## 에이전트가 비용을 통제하는 방법
 
-Njord는 cost anomaly와 recommendation을 소유하지만 advisory로 유지됩니다. Forseti가 proposed
-response를 판단하고 Odin은 cost를 reliability 및 capacity objective와 중재합니다. Var는 필수 사람
-승인을 소유하고 Thor만 실행하며 Heimdall은 realized utilization과 cost effect를 독립 검증하고 Vidar는
-recovery를 통제하며 Saga는 outcome을 기록합니다. Cost evidence는 스스로 execution authority를 만들지
+Njord는 비용 anomaly와 권고를 소유하지만 참고용으로 유지됩니다. Forseti가 proposed
+응답을 판단하고 Odin은 비용을 reliability 및 용량 목표와 중재합니다. Var는 필수 사람
+승인을 소유하고 Thor만 실행하며 Heimdall은 realized 사용률과 비용 효과를 독립 검증하고 Vidar는
+복구를 통제하며 Saga는 결과를 기록합니다. 비용 근거는 스스로 실행 권한을 만들지
 못합니다.
 
 ## 비용 작업이 적용 모드에 도달하는 방법
@@ -46,7 +46,7 @@ recovery를 통제하며 Saga는 outcome을 기록합니다. Cost evidence는 �
 4. **적용 모드로 승격.** 측정한 정확도가 기준을 충족한 뒤에야 작업이 스스로 실행될 수
    있습니다.
 5. **롤백과 함께 전달.** 라이트사이징 또는 정리 변경은 자체 롤백 참조와 감사 항목을
-  담은 수정 pull request로 전달됩니다.
+  담은 수정 pull 요청으로 전달됩니다.
 
 ## 약속이 아니라 증거
 

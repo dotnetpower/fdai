@@ -80,7 +80,7 @@ site는 인증된 Console full stack과 분리되어 있습니다.
 | 테스트 인제스트 게이트웨이 | `http://127.0.0.1:8011` | `Console Web: Ingestion Gateway` |
 
 `Console Web: Full Stack` compound는 코어 런타임, Console SPA 및 Operator API를 시작합니다. 백엔드 launch는
-service-owned Core 컨트롤 평면 및 Operator 서비스 분포를 가져오기하며 제거된 top-level 패키지 또는
+service-owned Core 컨트롤 플레인 및 Operator 서비스 분포를 가져오기하며 제거된 top-level 패키지 또는
 프로세스 내 Operator API 호환성 경로를 복원하지 않고 정적 design mock과 격리된 테스트 인제스트 게이트웨이도
 시작하지 않습니다. 신뢰된 workspace에서는 `console: prepare local state`가 한 번 실행되어 로컬 PostgreSQL과
 Redpanda를 시작하고 고정된 이전 방식 Alembic 계보를 전진시킨 후 Core와 Operator의 service-owned 이행 가지를 채택하고 업그레이드하며 single-instance 한도로 중복을 막습니다. 동일한 준비는 읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고, 테넌트 식별자, 리소스 엔드포인트 또는 자격 증명을 복사하지 않은 채 준비된 권위 있는 입력에서 정제된 모델 및 런타임 Settings 변환 결과를 materialize합니다. 프로바이더가 사용 불가 상태이거나 권한이 없으면 고정본 데이터로 대체하지 않고 인벤토리를 명시적으로 사용 불가 상태로 유지합니다.

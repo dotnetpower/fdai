@@ -5,7 +5,7 @@ sidebar:
   order: 2
 translation_of: architecture.md
 translation_source_sha: 62ce6d7dbec9ecaec2bf88320a46a55307ff3dbe
-translation_revised: 2026-08-08
+translation_revised: 2026-08-11
 ---
 
 # FDAI 아키텍처
@@ -13,14 +13,14 @@ translation_revised: 2026-08-08
 FDAI는 독립적인 에이전트로 구성됩니다. 각 에이전트는 한 가지 역할만 맡고 스키마가 검증된
 이벤트로만 서로 대화합니다. 그래서 관찰, 판단, 승인, 실행, 감사가 하나의 컴포넌트로
 뭉치지 않습니다. 컨트롤 플레인은 화면 없이 동작하고, 콘솔은 읽기 전용이며, 수정은 pull
-request로 도착하고, 승인은 채팅에서 이루어집니다.
+요청으로 도착하고, 승인은 채팅에서 이루어집니다.
 
 15개로 고정된 에이전트 조직이 이 책임 분담을 명확하게 만듭니다. 각 에이전트는 컨트롤
 플레인 안에서 타입이 정의된 객체와 생애주기 역할을 소유합니다. 에이전트는 컨트롤 루프
 위에 소유권을 더할 뿐입니다. 컨트롤 루프를 대신하지도, 결정론적 안전성 검토를 건너뛰지도
 않습니다.
 
-> 구현 대상은 Azure입니다. 모든 클라우드 호출은 provider 계약을 거치므로 core는 Azure
+> 구현 대상은 Azure입니다. 모든 클라우드 호출은 프로바이더 계약을 거치므로 코어는 Azure
 > SDK를 직접 가져오지 않고, 나중에 다른 호스트로 옮겨도 판단 로직을 다시 쓸 필요가
 > 없습니다.
 
@@ -40,25 +40,25 @@ Azure 리소스 배치와 분리해서 보여 줍니다.
 
 ## 참조 아키텍처
 
-개별 event를 추적하기 전에 참조 보기에서 시스템 범위, 권한 경계 및 통제된 의존 서비스를
-확인하세요. Headless control plane에는 typed event 협업과 15개 agent가 소유하는 제어
-단계가 있습니다. Model provider, tool, policy 및 query engine, knowledge, evidence와
-Azure deployment foundation은 이 내부 경계 밖에 유지됩니다.
+개별 이벤트를 추적하기 전에 참조 보기에서 시스템 범위, 권한 경계 및 통제된 의존 서비스를
+확인하세요. Headless 컨트롤 플레인에는 타입이 지정된 이벤트 협업과 15개 에이전트가 소유하는 제어
+단계가 있습니다. 모델 프로바이더, 도구, 정책 및 조회 엔진, 지식, 근거와
+Azure 배포 기반은 이 내부 경계 밖에 유지됩니다.
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-reference-architecture.manifest.json" locale="ko" style="display:block">
   <img src="../../diagrams/generated/fdai-reference-architecture.ko.svg" alt="연결된 Azure resource, telemetry, repository 및 enterprise connector가 typed signal을 headless FDAI control plane에 publish합니다. 운영자는 Web Console, CLI 및 ChatOps interface를 사용합니다. 15개 독립 실행 agent가 모든 제어 단계를 소유하고 schema-validated event bus로 협업합니다. Event는 ingest와 trust routing을 거쳐 T0 deterministic rule, T1 verified reuse 또는 T2 grounded reasoning으로 전달됩니다. T2만 mixed-model quality gate를 통과한 뒤 모든 tier가 공통 risk 및 authority gate로 들어갑니다. 영향이 큰 작업은 독립적인 사람 권한을 요청하고, typed approval event는 executor를 직접 호출하지 않고 agent runtime으로 다시 들어갑니다. 실행 가능한 작업은 privileged executor에 도달하여 remediation pull request 또는 범위가 제한된 direct action을 생성합니다. 실행할 수 없는 작업은 hold, deny 또는 no-op으로 종료됩니다. Microsoft Foundry, Azure OpenAI, provider tool, OPA 및 Rego policy evaluation, IQL inventory query, operating ontology, governed catalog 및 PostgreSQL은 headless control-plane 경계 밖에서 통제된 capability를 제공합니다. Azure Container Apps, Microsoft Entra ID, managed identity, Key Vault 및 Azure Monitor는 deployment foundation을 구성합니다. 모든 terminal result는 추적하고 replay할 수 있습니다." loading="eager" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
-Pantheon 통합 표시는 고정된 15개 agent 조직을 나타내며 16번째 agent가 아닙니다. T2만
-quality gate를 사용하고 모든 tier가 공통 risk 및 authority gate를 사용합니다. 사람 승인은
-executor를 직접 호출하지 않고 typed event로 돌아옵니다. OPA와 Rego는 결정론적 policy를
-평가하고 IQL은 범위가 제한된 inventory query를 수행합니다. 단일 event 흐름은 전체 구조를,
-배포 및 resource 수준 연결은 Azure 보기를 사용하여 확인하세요.
+Pantheon 통합 표시는 고정된 15개 에이전트 조직을 나타내며 16번째 에이전트가 아닙니다. T2만
+quality 게이트를 사용하고 모든 계층이 공통 risk 및 권한 게이트를 사용합니다. 사람 승인은
+실행기를 직접 호출하지 않고 타입이 지정된 이벤트로 돌아옵니다. OPA와 Rego는 결정론적 정책을
+평가하고 IQL은 범위가 제한된 인벤토리 조회를 수행합니다. 단일 이벤트 흐름은 전체 구조를,
+배포 및 리소스 수준 연결은 Azure 보기를 사용하여 확인하세요.
 
 ## 전체 구조
 
 FDAI는 느슨하게 결합된 5개 레이어로 이루어집니다. 레이어끼리는 타입이 정의된 이벤트,
-버전이 관리되는 contract, Git을 공유합니다. 하나의 프로세스나 하나의 자격 증명을 공유하지는
+버전이 관리되는 계약, Git을 공유합니다. 하나의 프로세스나 하나의 자격 증명을 공유하지는
 않습니다.
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-system-overview.manifest.json" locale="ko" style="display:block">
@@ -70,24 +70,24 @@ FDAI는 느슨하게 결합된 5개 레이어로 이루어집니다. 레이어�
 
 ## Azure 배포 토폴로지
 
-논리적인 컨트롤 루프 책임 대신 production private-network baseline을 추적하려면 배포
+논리적인 컨트롤 루프 책임 대신 운영 private-network 기준선을 추적하려면 배포
 다이어그램을 사용하세요. 번호가 지정된 연결선은 주요 신호, 결정, 근거, 승인 및 전달
-경로를 보여 줍니다. 중첩된 경계는 Azure region, virtual network 및 delegated subnet을
+경로를 보여 줍니다. 중첩된 경계는 Azure 지역, virtual 네트워크 및 delegated 서브넷을
 나타냅니다.
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-azure-deployment-topology.manifest.json" locale="ko" style="display:block">
   <img src="../../diagrams/generated/fdai-azure-deployment-topology.ko.svg" alt="Azure 플랫폼 신호와 예약 점검이 Kafka endpoint를 통해 Azure Event Hubs로 들어갑니다. VNet에 통합된 Container Apps 환경에서 FDAI core, 예약 job, 별도 identity를 사용하는 Operator API가 실행됩니다. Core는 managed identity로 Azure Resource Graph를 읽고, 선택적인 Azure OpenAI 모델을 호출하며, Key Vault 참조를 가져오고, 통제된 상태와 추가 전용 감사 근거를 PostgreSQL에 기록합니다. Private endpoint와 private DNS는 지원되는 data plane 트래픽을 virtual network 안에 유지합니다. 운영자는 Microsoft Entra ID로 인증하고 읽기 전용 콘솔을 확인하며, Teams에서 고위험 작업을 승인하고 Git pull request로 통제된 변경을 전달받습니다. Application Insights와 Log Analytics는 의사 결정에 개입하지 않고 모든 runtime 경로를 관찰합니다." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
-이 다이어그램은 특정 tenant의 resource name이 아니라 parameterized Terraform 배포를
-나타냅니다. Azure OpenAI와 일부 private endpoint는 선택 사항입니다. 사람 App Role과
-권한 있는 executor managed identity는 모든 profile에서 분리됩니다.
+이 다이어그램은 특정 테넌트의 리소스 이름이 아니라 parameterized Terraform 배포를
+나타냅니다. Azure OpenAI와 일부 비공개 엔드포인트는 선택 사항입니다. 사람 App 역할과
+권한 있는 실행기 managed 신원은 모든 프로파일에서 분리됩니다.
 
-## Azure resource network flow
+## Azure 리소스 네트워크 흐름
 
-현재 및 target-state 연결을 Azure resource 수준에서 추적하려면 이 보기를 사용하세요.
-Private Application Gateway, Container Apps infrastructure 및 private endpoint subnet을
-분리하고, 각 private endpoint를 해당 managed service backend에 연결합니다.
+현재 및 target-state 연결을 Azure 리소스 수준에서 추적하려면 이 보기를 사용하세요.
+비공개 애플리케이션 게이트웨이, Container Apps infrastructure 및 비공개 엔드포인트 서브넷을
+분리하고, 각 비공개 엔드포인트를 해당 managed 서비스 백엔드에 연결합니다.
 이 다이어그램은 FDAI Web Console 경로를 표시합니다. FDAI CLI는 동일한 Operator API를
 사용하지만 가독성을 위해 이 보기에서는 생략합니다.
 
@@ -95,55 +95,55 @@ Private Application Gateway, Container Apps infrastructure 및 private endpoint 
   <img src="../../diagrams/generated/fdai-azure-resource-network-flow.ko.svg" alt="운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. WAF policy로 보호되는 private Application Gateway가 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API와 optional Ingestion Gateway로 요청을 전달합니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL 및 optional ADLS Gen2 storage는 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Azure Managed Grafana는 monitoring data를 읽습니다. Email, Teams 및 Slack은 사람 승인을 전달합니다. GitHub, GitLab 및 Azure DevOps는 통제된 수정 pull request를 받습니다." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
-Baseline 영역은 `enable_private_postgres=false`일 때 `postgresqlServer` private endpoint를
-추가하는 기본 private-networking profile을 표시합니다. `enable_private_postgres=true`로
-설정하면 이 경로 대신 PostgreSQL Flexible Server를 delegated subnet에 배치하고 endpoint를
+기준선 영역은 `enable_private_postgres=false`일 때 `postgresqlServer` 비공개 엔드포인트를
+추가하는 기본 private-networking 프로파일을 표시합니다. `enable_private_postgres=true`로
+설정하면 이 경로 대신 PostgreSQL Flexible Server를 delegated 서브넷에 배치하고 엔드포인트를
 생성하지 않습니다.
-Optional document-ingestion 경로는 Ingestion Gateway, Blob 및 DFS private endpoint와 ADLS
-Gen2 account를 표시합니다. Primary와 operational namespace는 같은 Azure resource 및
+선택적 document-ingestion 경로는 인제스트 게이트웨이, Blob 및 DFS 비공개 엔드포인트와 ADLS
+Gen2 계정을 표시합니다. 기본과 operational 이름 공간은 같은 Azure 리소스 및
 private-link pattern을 사용하므로 하나의 Event Hubs symbol로 나타냅니다. Case-history
-storage는 문서로 설명하고, 동일한 Storage Account 및 private endpoint pair를 반복하지
-않습니다. Development operations gateway와 APIM은 각각의 feature-specific profile에
+저장소는 문서로 설명하고, 동일한 Storage Account 및 비공개 엔드포인트 쌍을 반복하지
+않습니다. 개발 operations 게이트웨이와 APIM은 각각의 feature-specific 프로파일에
 남아 있습니다.
 
-같은 보기에는 의도한 gateway, model platform, observability 및 delivery provider topology도
-겹쳐서 표시합니다. Product 및 network label을 안정적으로 유지하기 위해 상태는 다이어그램이
+같은 보기에는 의도한 게이트웨이, 모델 platform, observability 및 전달 프로바이더 토폴로지도
+겹쳐서 표시합니다. Product 및 네트워크 라벨을 안정적으로 유지하기 위해 상태는 다이어그램이
 아니라 이 문서에서 관리합니다.
 
 | Target-state 요소 | Terraform 상태 | 문서화 결정 |
 |-------------------|----------------|-------------|
-| Application Gateway와 WAF policy가 있는 private Application Gateway subnet | 프로비전되지 않음 | 계획된 topology로 그림에 유지합니다. 배포 가능한 경로로 취급하기 전에 Terraform profile을 추가합니다. |
-| Microsoft Foundry account, project 및 private endpoint | Opt-in feature profile | 그림에 유지합니다. 사용 가능 여부는 LLM 및 web-search 설정에 따라 달라집니다. |
-| Azure Managed Grafana | 프로비전되지 않음 | 계획된 observability topology로 그림에 유지합니다. |
-| Email, Teams 및 Slack 승인 채널 | Email은 opt-in이고 Teams와 Slack은 deployment adapter입니다. | Provider 선택지로 유지합니다. 각 배포에서 credential, callback identity 및 fallback policy를 선택합니다. |
-| GitHub, GitLab 및 Azure DevOps 전달 provider | Deployment adapter | Provider 선택지로 유지합니다. 각 배포에서 Git host와 review binding을 선택합니다. |
+| 애플리케이션 게이트웨이와 WAF 정책이 있는 비공개 애플리케이션 게이트웨이 서브넷 | 프로비전되지 않음 | 계획된 토폴로지로 그림에 유지합니다. 배포 가능한 경로로 취급하기 전에 Terraform 프로파일을 추가합니다. |
+| Microsoft Foundry 계정, project 및 비공개 엔드포인트 | 명시적 선택 feature 프로파일 | 그림에 유지합니다. 사용 가능 여부는 LLM 및 웹 검색 설정에 따라 달라집니다. |
+| Azure Managed Grafana | 프로비전되지 않음 | 계획된 observability 토폴로지로 그림에 유지합니다. |
+| 이메일, Teams 및 Slack 승인 채널 | 이메일은 명시적 선택이고 Teams와 Slack은 배포 어댑터입니다. | 프로바이더 선택지로 유지합니다. 각 배포에서 자격 증명, 콜백 신원 및 대체 경로 정책을 선택합니다. |
+| GitHub, GitLab 및 Azure DevOps 전달 프로바이더 | 배포 어댑터 | 프로바이더 선택지로 유지합니다. 각 배포에서 Git 호스트와 검토 연결을 선택합니다. |
 
-모든 Terraform resource를 별도 node로 표시할 필요는 없습니다. Network boundary를 바꾸거나,
-별도 data path를 만들거나, 사용자가 보는 전달 endpoint인 resource만 직접 표시합니다. 해당
-경로를 지원하기만 하는 resource는 묶어서 표시하거나 문서로 설명합니다.
+모든 Terraform 리소스를 별도 노드로 표시할 필요는 없습니다. 네트워크 경계를 바꾸거나,
+별도 데이터 경로를 만들거나, 사용자가 보는 전달 엔드포인트인 리소스만 직접 표시합니다. 해당
+경로를 지원하기만 하는 리소스는 묶어서 표시하거나 문서로 설명합니다.
 
-| Terraform resource 또는 resource group | 그림 처리 | 이유 |
+| Terraform 리소스 또는 리소스 그룹 | 그림 처리 | 이유 |
 |-----------------------------------------|-----------|------|
-| Operational Event Hubs namespace와 private endpoint | Event Hubs에 aggregate | 동일한 Event Hubs 및 private-link symbol을 사용하며 node description이 primary 및 operational topic을 포괄합니다. |
-| Case-history Blob account와 private endpoint | 문서로 유지 | 동일한 Storage Account 및 Blob private-endpoint symbol을 사용하므로 pair를 반복하면 새 interaction pattern 없이 복잡도만 늘어납니다. |
-| Container Apps environment | Aggregate로 유지 | Container Apps subnet boundary와 app/job node가 hosting 역할을 이미 전달합니다. |
-| Private DNS zone과 VNet link | Private endpoint 경로에 암시적으로 포함 | 각 zone과 link를 그리면 workload flow를 바꾸지 않으면서 모든 private endpoint를 중복 표시하게 됩니다. |
-| Action group, metric alert 및 diagnostic setting | App Insights 및 Logs에 aggregate | 별도 workload data path가 아니라 observability routing을 구현합니다. |
-| Event Grid realtime inventory topic | 이 private profile에서 제외 | Terraform은 private networking이 비활성화된 경우에만 이를 활성화합니다. |
+| Operational Event Hubs 이름 공간과 비공개 엔드포인트 | Event Hubs에 집계 | 동일한 Event Hubs 및 private-link symbol을 사용하며 노드 description이 기본 및 operational 토픽을 포괄합니다. |
+| Case-history Blob 계정과 비공개 엔드포인트 | 문서로 유지 | 동일한 Storage Account 및 Blob private-endpoint symbol을 사용하므로 쌍을 반복하면 새 interaction pattern 없이 복잡도만 늘어납니다. |
+| Container Apps 환경 | 집계로 유지 | Container Apps 서브넷 경계와 앱/작업 노드가 hosting 역할을 이미 전달합니다. |
+| 비공개 DNS 영역과 VNet 링크 | 비공개 엔드포인트 경로에 암시적으로 포함 | 각 영역과 링크를 그리면 워크로드 흐름을 바꾸지 않으면서 모든 비공개 엔드포인트를 중복 표시하게 됩니다. |
+| 액션 그룹, 메트릭 경보 및 진단 설정 | App Insights 및 Logs에 집계 | 별도 워크로드 데이터 경로가 아니라 observability 라우팅을 구현합니다. |
+| Event Grid realtime 인벤토리 토픽 | 이 비공개 프로파일에서 제외 | Terraform은 비공개 networking이 비활성화된 경우에만 이를 활성화합니다. |
 
-이 resource를 위한 추가 node는 필요하지 않습니다. 이들과 다른 supporting resource는
-누락된 architecture가 아니라 의도적인 abstraction으로 유지합니다.
+이 리소스를 위한 추가 노드는 필요하지 않습니다. 이들과 다른 supporting 리소스는
+누락된 아키텍처가 아니라 의도적인 abstraction으로 유지합니다.
 
-Azure Resource Graph 조회와 observability 쓰기는 Azure control-plane 및 telemetry contract를
-사용하므로 private data-plane 경로 밖에 표시합니다. Day-zero Terraform baseline은 여전히
-Application Gateway, WAF, Managed Grafana 또는 load balancer를 추가하지 않습니다.
+Azure Resource Graph 조회와 observability 쓰기는 Azure 컨트롤 플레인 및 텔레메트리 계약을
+사용하므로 비공개 데이터 플레인 경로 밖에 표시합니다. Day-zero Terraform 기준선은 여전히
+애플리케이션 게이트웨이, WAF, Managed Grafana 또는 부하 balancer를 추가하지 않습니다.
 
 ## 5개 아키텍처 레이어
 
 | 레이어 | 책임 | 주요 경계 |
 |--------|------|-----------|
 | 화면 없는 컨트롤 플레인 | 이벤트를 정규화하고, 결정 수준을 고르고, 제안을 검증하고, 위험을 분류하고, 실행을 조율합니다. | UI 로직이 없고 클라우드 SDK를 직접 가져오지 않습니다. |
-| 작업 전달 | 승인된 작업을 수정 pull request나 등록된 provider 호출로 바꿉니다. | 모든 작업이 안전성 계약과 롤백 참조를 그대로 유지합니다. |
+| 작업 전달 | 승인된 작업을 수정 pull 요청나 등록된 프로바이더 호출로 바꿉니다. | 모든 작업이 안전성 계약과 롤백 참조를 그대로 유지합니다. |
 | 운영자 콘솔 | 상태, 근거, 감사 이력, 관찰 모드 결과, 승인 대기 항목을 보여 줍니다. | 실행 권한이 없는 읽기 전용 자격 증명입니다. |
 | 사람 채널 | ChatOps로 승인 요청과 운영 알림을 전달합니다. | 승인자는 절대 실행자가 되지 않습니다. |
 | 룰 카탈로그 | 룰, 정책, 작업 유형, 프롬프트, 승격 근거를 코드로 버전 관리합니다. | 카탈로그 변경은 리뷰, 회귀 테스트, 관찰 모드 평가를 거칩니다. |
@@ -178,7 +178,7 @@ flowchart TD
 ```
 
 1. **수집과 상관관계 연결**: FDAI는 이벤트 스키마를 확인하고, 재시도를 안전하게 만드는
-   idempotency key로 중복을 걸러낸 뒤, 관련된 신호를 하나의 인시던트로 묶습니다.
+   멱등성 키로 중복을 걸러낸 뒤, 관련된 신호를 하나의 인시던트로 묶습니다.
 2. **판단할 수 있는 가장 낮은 수준 선택**: T0(결정론적 룰)은 반복되는 대다수를 처리하고,
    T1(비슷한 과거 사례를 가볍게 재사용)은 이미 알려진 패턴을 처리하며, T2(근거 기반 LLM
    추론)는 새롭거나 모호한 사례만 맡습니다.
@@ -215,7 +215,7 @@ FDAI의 15개 에이전트는 **컨트롤 루프 위에 얹혀진 소유권 레�
 | 도메인 근거 공급 | Njord, Freyr, Loki | 비용, 용량, 카오스 전문 에이전트는 판단에 조언할 뿐 직접 실행하지 않습니다. |
 
 15개 역할은 상위 프로젝트에서 고정되므로, 포크가 서로 충돌하는 역할을 합치거나 권한 경계의
-이름을 바꿀 수 없습니다. 포크는 provider를 연결하고, 임계값을 조정하고, 선택적인 에이전트를
+이름을 바꿀 수 없습니다. 포크는 프로바이더를 연결하고, 임계값을 조정하고, 선택적인 에이전트를
 끄고, 카탈로그 항목을 추가할 수 있습니다. 다만 Saga와 Vidar는 필수 의존 항목이므로 감사와
 롤백은 끕 수 없습니다.
 
@@ -300,7 +300,7 @@ Forseti만 발행합니다. 발행 측 레지스트리가 이 소유권을 검�
 | `RuleCandidate` / `object.rule-candidate` | Norns | 학습은 아직 작동하지 않는 데이터를 제안할 뿐 카탈로그를 직접 고칠 수 없습니다. |
 | `Rule` 및 `Policy` | Mimir | 룰을 켜고 끄는 일은 관리되는 카탈로그 작업으로 남습니다. |
 
-에이전트 모듈은 핸들러를 직접 호출하려고 서로를 import하지 않습니다. 자신이 소유한 객체를
+에이전트 모듈은 핸들러를 직접 호출하려고 서로를 가져오기하지 않습니다. 자신이 소유한 객체를
 발행하고 선언한 토픽을 구독하므로 런타임 구성이 위 권한 표와 항상 일치합니다.
 
 ### ActionType 역할 바인딩
@@ -314,7 +314,7 @@ initiator -> Forseti (judge) -> Thor (executor) -> Var (필요한 경우 approve
 ```
 
 시작 주체는 작업마다 달라집니다. 반면 판단자, 실행자, 승인자, 감사자 역할은 상위
-프로젝트에서 고정됩니다. 바인딩에는 롤백 contract, 비가역성 표시, 보상 작업도 함께
+프로젝트에서 고정됩니다. 바인딩에는 롤백 계약, 비가역성 표시, 보상 작업도 함께
 담깁니다. 덕분에 포크가 도메인 전문 에이전트에게 자기 승인을 허용하거나, 변경을 실행한
 컴포넌트를 그 변경의 감사자로 지정하는 일을 막을 수 있습니다.
 
@@ -338,7 +338,7 @@ Bragi는 타입이 정의된 제안을 만들어 Huginn으로 보냅니다. 그�
 비교합니다.
 
 > **현재 구현 상태:** 에이전트는 컨트롤 플레인과 함께 시작하며, 판단과 기록만 하고 실제
-> 변경은 하지 않는 관찰 모드로 동작합니다. 역할 이름은 권한 contract를 설명할 뿐, 모든
+> 변경은 하지 않는 관찰 모드로 동작합니다. 역할 이름은 권한 계약을 설명할 뿐, 모든
 > 에이전트가 실제 변경 권한을 받았다는 뜻은 아닙니다. 지속 저장 기반 안전 연결이 모두
 > 갖춰질 때까지 적용 모드는 차단됩니다.
 
@@ -392,43 +392,43 @@ flowchart TB
 ```
 
 - **`core/`**에는 판단과 조율 로직이 들어 있습니다. Azure SDK나 UI 컴포넌트가 아니라 공유
-  contract에만 의존합니다.
-- **`shared/`**는 버전이 관리되는 이벤트, 작업, 룰, 워크플로, provider contract를
-  정의합니다. core를 가져오지 않습니다.
-- **`delivery/`**는 contract 뒤에서 영속화, Azure 접근, GitOps, 알림, ChatOps, 조회
+  계약에만 의존합니다.
+- **`shared/`**는 버전이 관리되는 이벤트, 작업, 룰, 워크플로, 프로바이더 계약을
+  정의합니다. 코어를 가져오지 않습니다.
+- **`delivery/`**는 계약 뒤에서 영속화, Azure 접근, GitOps, 알림, ChatOps, 조회
   API를 구현합니다.
 - **`rule-catalog/` 및 `policies/`**에는 관리 대상 데이터가 들어 있습니다. 룰이나 작업
   유형을 추가할 때 컨트롤 루프를 다시 쓸 필요가 없습니다.
-- **컴포지션 루트**는 검증된 설정을 읽고 실제 provider를 골라 시작 시점에 주입합니다.
+- **컴포지션 루트**는 검증된 설정을 읽고 실제 프로바이더를 골라 시작 시점에 주입합니다.
 
 전체 의존 관계 지도는 [Project Structure](../roadmap/architecture/project-structure-ko.md)를
 참조하세요.
 
 ## Azure 구현
 
-첫 번째 구현은 각 이식 가능한 contract를 작은 Azure 리소스 집합에 매핑합니다. provider에
+첫 번째 구현은 각 이식 가능한 계약을 작은 Azure 리소스 집합에 매핑합니다. 프로바이더에
 종속적인 호출은 어댑터 안에만 머물므로, 리소스를 바꿔도 판단 로직은 건들지 않습니다.
 
-| 이식 가능한 요소 | Contract | Azure 구현 |
+| 이식 가능한 요소 | 계약 | Azure 구현 |
 |-------------------|----------|-----------|
-| 이벤트 스트림 | Kafka wire protocol | Kafka endpoint를 통한 Event Hubs |
+| 이벤트 스트림 | Kafka wire 프로토콜 | Kafka 엔드포인트를 통한 Event Hubs |
 | 코어 런타임 | OCI 이미지와 이식 가능한 매니페스트 | Azure Container Apps |
-| 예약 작업 | Job 또는 cron contract | Container Apps Jobs |
-| 상태, 감사, T1 벡터 | PostgreSQL과 pgvector | Azure Database for PostgreSQL Flexible Server |
+| 예약 작업 | 작업 또는 cron 계약 | Container Apps Jobs |
+| 상태, 감사, T1 벡터 | PostgreSQL과 pgvector | Azure 데이터베이스 for PostgreSQL Flexible Server |
 | 시크릿 | 환경 변수 또는 마운트된 시크릿 | Container Apps가 주입하는 Key Vault 참조 |
 | 워크로드 자격 증명 | OIDC 토큰 | 사용자 할당 관리 자격 증명 |
-| 인벤토리 | Resource graph contract | Azure Resource Graph와 활동 로그 변화량 |
+| 인벤토리 | Resource 그래프 계약 | Azure Resource Graph와 활동 로그 변화량 |
 | 관측 | OpenTelemetry 호환 신호 | Log Analytics와 Application Insights |
 | 콘솔 | 정적 읽기 전용 앱 | Azure Static Web Apps |
-| 콘솔 조회 API | HTTP 조회 contract | 자체 읽기 전용 자격 증명을 가진 Container App |
-| 문서 수집 | 업로드와 분할 contract | Container App과 Data Lake Storage |
+| 콘솔 조회 API | HTTP 조회 계약 | 자체 읽기 전용 자격 증명을 가진 Container App |
+| 문서 수집 | 업로드와 분할 계약 | Container App과 데이터 Lake Storage |
 | 사람 승인 | 타입이 정의된 승인 메시지 | Teams 봇과 Adaptive Cards |
 
 코어는 최소 복제본 1개, 최대 3개로 상시 실행됩니다. 0개까지 줄이려면 자격 증명 없이
 동작하는 Kafka 지연 기반 스케일 규칙이 필요합니다. 그 규칙 없이 0으로 내리면 들어오는
 이벤트가 앱을 깨우지 못하므로 최소값을 1로 유지합니다. 예약 작업과 정적 서비스는 0까지
-줄일 수 있습니다. 전체 provider 목록은
-[CSP-neutrality contract](../roadmap/architecture/csp-neutrality-ko.md)를 참조하세요.
+줄일 수 있습니다. 전체 프로바이더 목록은
+[CSP-neutrality 계약](../roadmap/architecture/csp-neutrality-ko.md)를 참조하세요.
 
 ## 모든 작업에 들어 있는 안전장치
 
@@ -440,7 +440,7 @@ flowchart TB
 - **감사 기록**: 이벤트, 결정, 권한을 부여한 주체, 실행 내용, 최종 결과를 다시 구성하는 데
   필요한 근거입니다.
 
-실행에는 정책 검사와 what-if 검사, 리소스별 잠금, idempotency key도 필요합니다. 감사
+실행에는 정책 검사와 what-if 검사, 리소스별 잠금, 멱등성 키도 필요합니다. 감사
 저장소처럼 필수적인 의존 항목을 쓰지 못하면 FDAI는 자율성을 관찰 모드로 낮추거나 작업을
 검토 대기로 둘니다. 위험한 쪽으로 열어 두지 않습니다.
 
@@ -455,7 +455,7 @@ flowchart TB
 4. what-if가 정확한 변경 내용을 확인하고, 안전성 검토는 영향 범위상 승인이 필요하다고
    판단합니다.
 5. ChatOps가 룰, 근거, 영향 범위, 중단 조건, 롤백 참조가 담긴 승인 카드를 보냅니다.
-6. 승인 후 실행기는 콘솔에서 리소스를 직접 바꾸는 대신 수정 pull request를 엽니다.
+6. 승인 후 실행기는 콘솔에서 리소스를 직접 바꾸는 대신 수정 pull 요청을 엽니다.
 7. 전달, 승인, 최종 결과가 추가 전용 감사 기록에서 연결되고 콘솔에 읽기 전용 근거로
    표시됩니다.
 
@@ -468,8 +468,8 @@ flowchart TB
 | 콘솔을 사용할 수 없음 | 코어 처리, Git 전달, ChatOps가 계속 동작합니다. |
 | ChatOps를 사용할 수 없음 | 승인이 필요한 작업은 대기열에 남으며 자동 실행되지 않습니다. |
 | 이벤트 백로그가 늘어남 | 백프레셔가 동시성을 제한하고 재시도 또는 dead-letter 처리를 위해 작업을 보관합니다. |
-| 감사나 핵심 provider를 사용할 수 없음 | 자율성이 관찰 모드로 낮춰지거나 작업이 보류됩니다. |
-| 중복 전달 | idempotency key와 리소스 잠금이 두 번째 변경을 막습니다. |
+| 감사나 핵심 프로바이더를 사용할 수 없음 | 자율성이 관찰 모드로 낮춰지거나 작업이 보류됩니다. |
+| 중복 전달 | 멱등성 키와 리소스 잠금이 두 번째 변경을 막습니다. |
 | T2 모델의 의견이 갈림 | 상반된 근거를 보관하고 사례를 사람 검토로 보냅니다. |
 | 롤백 검증 실패 | 인시던트가 열린 상태로 유지되고 복구가 타입 기반 파이프라인을 통해 에스컬레이션됩니다. |
 | Forseti를 사용할 수 없음 | 새 에이전트 결정이 발행되지 않고 작업은 검토 대기로 보관됩니다. |

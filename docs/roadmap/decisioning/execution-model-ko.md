@@ -202,7 +202,7 @@ ActionType 은 risk-classification env 신호 (축 A) 를 inherit 하므로,
 
 ### 2.6a Fail-safe 축 - System 상태 (성능 저하)
 
-일곱 번째 축 인 `system_health` 는 **컨트롤 평면 이 DEGRADED 일 때만**
+일곱 번째 축 인 `system_health` 는 **컨트롤 플레인 이 DEGRADED 일 때만**
 존재함 - 하나 이상의 critical 의존성 (감사 저장소, 이벤트 버스,
 기반) 의 circuit 차단기 가 trip 된 상태. 자율성 를 `shadow_only`
 로 상한 하므로, 실패한 의존성 가 enforce-mode 변경 을 절대 driving

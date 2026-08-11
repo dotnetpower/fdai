@@ -3,7 +3,7 @@ title: 승인과 알림 채널(Approvals and channels)
 description: FDAI가 고위험 승인과 알림을 위해 사람에게 도달하는 방식. 어떤 채널을 쓰는지, 콘솔이 왜 실행하지 않는지, 아무도 응답하지 않으면 어떻게 되는지 설명합니다.
 translation_of: approvals-and-channels.md
 translation_source_sha: dcedf4816426de33088a6dbf06bb991c32f8c9e9
-translation_revised: 2026-08-06
+translation_revised: 2026-08-11
 sidebar:
   order: 7
 ---
@@ -17,7 +17,7 @@ FDAI는 승격된 저위험 이벤트를 사람 없이 처리하고, 고위험 �
 
 운영자 콘솔은 **읽기 전용**입니다. 상태와 승인 대기 목록을 보여 주지만 권한이 필요한
 호출은 하지 않습니다. 여러분은 콘솔의 버튼을 눌러 승인하지 않습니다. 승인은 여러분이
-이미 쓰는 Teams나 Slack 같은 채널, 또는 수정 pull request로 전달됩니다. 콘솔의 신원은
+이미 쓰는 Teams나 Slack 같은 채널, 또는 수정 pull 요청으로 전달됩니다. 콘솔의 신원은
 쓰지 않습니다.
 
 ## 네 가지 메시지 종류
@@ -46,7 +46,7 @@ A3 명령은 채널이 아니라 명령 단위로 제한됩니다. FDAI는 여�
 역할, 현재 역할을 알려 주고 감사 가능한 시스템 메시지를 남깁니다. 거부를 시스템 오류처럼
 보이게 바꾸거나 명령의 일부만 실행하지 않습니다.
 
-예시: Contributor가 Bragi에게 승인 대기 항목을 승인해 달라고 요청했지만, 이 명령에는 Approver
+예시: 기여자가 Bragi에게 승인 대기 항목을 승인해 달라고 요청했지만, 이 명령에는 Approver
 역할이 필요합니다. FDAI는 다음과 같이 답합니다.
 
 ```text
@@ -89,8 +89,8 @@ flowchart LR
 A1 요청은 여러분의 결정을 바꿀 수 없는 하나의 대기 작업에 연결합니다. 승인 레코드에는
 다음이 들어갑니다.
 
-- 불투명한 `approval_id`, 이벤트 ID, correlation ID
-- 요청을 저장할 때 캡처한 action hash와 idempotency key
+- 불투명한 `approval_id`, 이벤트 ID, 상관관계 ID
+- 요청을 저장할 때 캡처한 액션 해시와 멱등성 키
 - 요청자, 승인 가능한 역할, 자기 승인 금지 검사 결과
 - 필요한 정족수, 현재 결정 수, 요청의 유효 시간
 - 정확한 작업 버전, 대상 범위, 롤백 참조
@@ -101,7 +101,7 @@ A1 요청은 여러분의 결정을 바꿀 수 없는 하나의 대기 작업에
 ## 저장, 결정, 안전한 재개
 
 사람을 기다리는 동안 이벤트 소비자가 멈추지는 않습니다. FDAI는 대기 작업을 저장하고
-이벤트 루프로 돌아갑니다. 유효한 승인이 도착하면 신원, hash, 역할, 정족수, 유효 시간,
+이벤트 루프로 돌아갑니다. 유효한 승인이 도착하면 신원, 해시, 역할, 정족수, 유효 시간,
 재생 방지 검사를 통과한 뒤 저장된 작업을 딱 한 번 재개합니다.
 
 거부와 시간 초과는 요청을 감사되는 미실행으로 닫습니다. 중복 승인 응답은 다시 보내도
@@ -137,7 +137,7 @@ A1 요청은 여러분의 결정을 바꿀 수 없는 하나의 대기 작업에
   넘어갑니다.
 - **모든 A1 채널이 멈추면** 요청은 대기열에 쌓이고 PagerDuty, Opsgenie, SMS 같은 운영
   레인을 호출합니다. 그래도 스스로 실행하지는 않습니다.
-- **kill-switch**는 모든 A1 발송을 즉시 멈추고 열려 있는 승인을 다시 대기열에 넣습니다.
+- **비상 정지**는 모든 A1 발송을 즉시 멈추고 열려 있는 승인을 다시 대기열에 넣습니다.
   흐름을 한 번에 멈춰야 할 때 씁니다.
 
 ## 메시지 수신 대상
@@ -169,6 +169,6 @@ Entra의 신원 매핑, 수신자 멤버십, 마감 시한, 에스컬레이션 �
 | 알고 싶은 것 | 읽을 문서 |
 |--------------|-----------|
 | 승인과 거부 전체 워크스루 | [../guides/approve-change-ko.md](../guides/approve-change-ko.md) |
-| 작업이 AUTO, 사람 승인, DENY로 분류되는 방식 | [risk-tiers-ko.md](risk-tiers-ko.md) |
+| 작업이 AUTO, 사람 승인, 거부로 분류되는 방식 | [risk-tiers-ko.md](risk-tiers-ko.md) |
 | 여러분의 승인을 나르는 에이전트와 실행하는 주체 | [agents-and-self-healing-ko.md](agents-and-self-healing-ko.md) |
 | 전체 채널 추상화, 신뢰 매트릭스, 라우팅 정책 | [../../roadmap/interfaces/channels-and-notifications-ko.md](../../roadmap/interfaces/channels-and-notifications-ko.md) |

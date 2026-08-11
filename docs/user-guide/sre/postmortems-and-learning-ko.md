@@ -3,7 +3,7 @@ title: 포스트모템과 학습
 description: FDAI가 근거에 기반한 포스트모템 초안을 만들고, 거기서 얻은 교훈을 관리되는 개선 후보로 바꾸는 방법입니다.
 translation_of: postmortems-and-learning.md
 translation_source_sha: 14a2532379635094bcd65ac9de26a1d7983be48c
-translation_revised: 2026-07-27
+translation_revised: 2026-08-11
 ---
 
 # 포스트모템과 학습
