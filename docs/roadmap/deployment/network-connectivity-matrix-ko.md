@@ -2,303 +2,303 @@
 title: 네트워크 연결 매트릭스
 translation_of: network-connectivity-matrix.md
 translation_source_sha: d9b016d3774db834fadfc30a6ea1ab55fd6a1855
-translation_revised: 2026-08-09
+translation_revised: 2026-08-11
 ---
 # 네트워크 연결 매트릭스
 
-이 참조 문서는 public, private, provisioned-throughput, API Management 및 완전 단절
-네트워크 프로파일에서 FDAI를 Azure에서 실행하는 데 필요한 DNS, IP, protocol 및 port를
-정의합니다. Firewall, NSG(Network Security Group), Private DNS 및 routing policy를 구성하고
+이 참조 문서는 공개, 비공개, provisioned-throughput, API 관리 및 완전 단절
+네트워크 프로파일에서 FDAI를 Azure에서 실행하는 데 필요한 DNS, IP, 프로토콜 및 포트를
+정의합니다. Firewall, NSG(네트워크 Security 그룹), 비공개 DNS 및 라우팅 정책을 구성하고
 경로가 차단될 때 어떤 FDAI 기능이 사용할 수 없게 되는지 예측하는 데 사용하세요.
 
-> **범위:** 이 문서의 값은 Azure Public Cloud를 대상으로 합니다. Azure Government와 Azure
-> China는 다른 DNS suffix 및 service-tag 주소 집합을 사용합니다. Suffix를 수동으로 변환하지
-> 말고 최신 [Azure private endpoint DNS 표](https://learn.microsoft.com/azure/private-link/private-endpoint-dns)에서
+> **범위:** 이 문서의 값은 Azure 공개 Cloud를 대상으로 합니다. Azure Government와 Azure
+> China는 다른 DNS 접미사 및 service-tag 주소 집합을 사용합니다. 접미사를 수동으로 변환하지
+> 말고 최신 [Azure 비공개 엔드포인트 DNS 표](https://learn.microsoft.com/azure/private-link/private-endpoint-dns)에서
 > 값을 확인하세요.
 >
-> **주소 규칙:** Public Azure service IP를 하드코딩하지 마세요. Private endpoint 주소,
-> deployment output, Azure service tag 또는 FQDN application rule을 사용하세요. Microsoft는
-> service tag 뒤의 public prefix를 갱신합니다. Private endpoint IP와 internal API Management
-> virtual IP도 deployment별로 다릅니다.
+> **주소 규칙:** 공개 Azure 서비스 IP를 하드코딩하지 마세요. 비공개 엔드포인트 주소,
+> 배포 출력, Azure 서비스 tag 또는 FQDN 애플리케이션 룰을 사용하세요. Microsoft는
+> 서비스 tag 뒤의 공개 접두사를 갱신합니다. 비공개 엔드포인트 IP와 내부 API 관리
+> virtual IP도 배포별로 다릅니다.
 
-이 cross-service matrix의 실행 가능한 repository contract는
+이 서비스 간 매트릭스의 실행 가능한 저장소 계약은
 `tests/integration/scripts/test_check_network_connectivity.py`입니다.
 
 ## 한눈에 보는 설계
 
-PTU(Provisioned Throughput Units)는 Azure OpenAI capacity를 바꾸지만 network protocol은
-바꾸지 않습니다. 따라서 Direct PTU와 Standard deployment는 동일한 Azure OpenAI hostname,
-Private DNS zone, Microsoft Entra authentication 경로 및 TCP port를 사용합니다. API
-Management(APIM)는 별도 gateway hop과 자체 platform dependency를 추가합니다.
+PTU(프로비저닝된 처리량 Units)는 Azure OpenAI 용량을 바꾸지만 네트워크 프로토콜은
+바꾸지 않습니다. 따라서 Direct PTU와 Standard 배포는 동일한 Azure OpenAI hostname,
+비공개 DNS 영역, Microsoft Entra authentication 경로 및 TCP 포트를 사용합니다. API
+관리(APIM)는 별도 게이트웨이 홉과 자체 platform 의존성을 추가합니다.
 
-| 프로파일 | Model route | Public internet egress | 지원 결과 |
+| 프로파일 | 모델 경로 | 공개 internet egress | 지원 결과 |
 |----------|-------------|------------------------|-----------|
-| **완전 air gap** | self-hosted adapter가 제공될 때까지 없음 | 없음 | deterministic core만 사용 가능, live Azure evidence와 cloud action 없음 |
-| **Private Azure** | 비활성화 또는 private Azure OpenAI | 승인된 Azure control/identity route를 제외하고 없음 | 전체 deterministic runtime, model route가 있을 때만 adaptive 기능 사용 가능 |
-| **Private Azure + direct PTU** | FDAI -> private Azure OpenAI | 승인된 Azure control/identity route | provisioned model capacity를 사용하는 전체 runtime |
-| **Private Azure + APIM** | FDAI -> private APIM -> private PTU, 선택적 Standard spillover | APIM platform route와 승인된 Azure control/identity route | 두 hop과 APIM evidence header가 모두 동작할 때 전체 runtime |
-| **Public Azure** | public Azure OpenAI 또는 public APIM | allow-list된 HTTPS egress | private endpoint 없이 전체 runtime, service firewall은 caller를 계속 제한 |
+| **완전 air 공백** | 자체 호스팅 어댑터가 제공될 때까지 없음 | 없음 | 결정론적 코어만 사용 가능, 실제 운영 Azure 근거와 cloud 액션 없음 |
+| **비공개 Azure** | 비활성화 또는 비공개 Azure OpenAI | 승인된 Azure 컨트롤/신원 경로를 제외하고 없음 | 전체 결정론적 런타임, 모델 경로가 있을 때만 adaptive 기능 사용 가능 |
+| **비공개 Azure + direct PTU** | FDAI -> 비공개 Azure OpenAI | 승인된 Azure 컨트롤/신원 경로 | 프로비저닝된 모델 용량을 사용하는 전체 런타임 |
+| **비공개 Azure + APIM** | FDAI -> 비공개 APIM -> 비공개 PTU, 선택적 Standard spillover | APIM platform 경로와 승인된 Azure 컨트롤/신원 경로 | 두 홉과 APIM 근거 헤더가 모두 동작할 때 전체 런타임 |
+| **공개 Azure** | 공개 Azure OpenAI 또는 공개 APIM | allow-list된 HTTPS egress | 비공개 엔드포인트 없이 전체 런타임, 서비스 firewall은 호출자를 계속 제한 |
 
-"Public internet 없음"은 "Azure reachability 없음"과 같지 않습니다. Private Azure
-deployment도 해당 작업을 연결된 collector로 옮기지 않는 한 Microsoft Entra token 발급과
-management-plane route가 필요합니다. 진정한 air gap에는 둘 다 없으므로 live cloud 관찰이나
-cloud mutation을 주장할 수 없습니다.
+"공개 internet 없음"은 "Azure 도달 가능성 없음"과 같지 않습니다. 비공개 Azure
+배포도 해당 작업을 연결된 수집기로 옮기지 않는 한 Microsoft Entra 토큰 발급과
+management-plane 경로가 필요합니다. 진정한 air 공백에는 둘 다 없으므로 실제 운영 cloud 관찰이나
+cloud 변경을 주장할 수 없습니다.
 
-## 공통 FDAI runtime 경로
+## 공통 FDAI 런타임 경로
 
-현재 Azure baseline은 `Consumption` workload profile을 사용하는 workload-profile Container
-Apps environment입니다. Source port는 ephemeral입니다. Rule은 destination, protocol 및
-destination port를 제한하는 것이 좋습니다.
+현재 Azure 기준선은 `Consumption` 워크로드 프로파일을 사용하는 workload-profile Container
+Apps 환경입니다. 출처 포트는 일시적인입니다. Rule은 대상, 프로토콜 및
+대상 포트를 제한하는 것이 좋습니다.
 
-| 출발지 | Destination 또는 service tag | Protocol과 port | FDAI에 필요한 이유 | 차단 시 결과 |
+| 출발지 | 대상 또는 서비스 tag | 프로토콜과 포트 | FDAI에 필요한 이유 | 차단 시 결과 |
 |--------|--------------------------------|-----------------|----------------------|--------------|
-| Container Apps subnet | Azure DNS `168.63.129.16` 또는 구성된 resolver | UDP 및 TCP 53 | public 및 private endpoint 이름 확인 | revision과 runtime 호출이 hostname 단계에서 실패하며 private service가 public 주소 또는 `NXDOMAIN`을 반환할 수 있음 |
-| Container Apps platform | `MicrosoftContainerRegistry`, `AzureFrontDoor.FirstParty` | TCP 443 | system image 및 Container Apps platform artifact | environment provisioning 또는 revision 시작 실패 |
-| FDAI identity | `AzureActiveDirectory`, `login.microsoftonline.com` 및 cloud별 login host | TCP 443 | 모든 RBAC 기반 service용 managed-identity 및 Entra token | Event Hubs, ARM, Azure OpenAI, Storage, ACR 및 Monitor 호출의 인증 상실 |
-| FDAI core와 job | `<namespace>.servicebus.windows.net` | TCP 9093 | 필수 Event Hubs Kafka transport | event ingest, derived event publish, canary 및 scheduled producer 중지 |
-| FDAI app과 job | `<server>.postgres.database.azure.com` | TCP 5432 | state, audit, schedule, projection 및 pgvector | startup/readiness 실패 또는 관련 projection 사용 불가 |
-| FDAI model client | `<account>.openai.azure.com` | TCP 443 | direct Standard 또는 PTU inference, embedding, narrator 및 managed web search | adaptive 기능 사용 불가, 관련 작업은 deterministic-only 또는 사람 검토 필요 |
-| Deploy runner 및 FDAI web-search client | `<account>.services.ai.azure.com`, private mode에서는 `privatelink.services.ai.azure.com` | TCP 443 | deployment-owned Foundry prompt agent를 reconcile하고 호출하며 실제 tool readiness probe 실행 | Agent reconcile 또는 startup readiness 실패, web search가 unavailable 보고 |
-| FDAI model client | deployment가 공급한 APIM gateway FQDN | TCP 443 | APIM을 통한 PTU 또는 Standard inference | gateway route 기능 사용 불가 |
-| FDAI storage client | `<account>.blob.core.windows.net` | TCP 443 | case history, document blob 및 deployment state | 관련 artifact, replay 또는 deployment operation 실패 |
-| FDAI document client | `<account>.dfs.core.windows.net` | TCP 443 | ADLS Gen2 rename 및 hierarchical namespace operation | document ingestion이 quarantine content를 governed storage로 승격하지 못함 |
-| Container Apps secret resolver와 deploy host | `<vault>.vault.azure.net` | TCP 443 | Container Apps Key Vault reference 및 Terraform secret write | 새 revision이 secret을 확인하지 못하고 deploy secret 생성 실패 |
-| Container Apps image pull | `<registry>.azurecr.io` 및 `<registry>.<region>.data.azurecr.io` | TCP 443 | image manifest 및 layer download | 기존 revision은 유지될 수 있지만 새 revision은 image-pull 오류로 실패 |
-| Inventory 및 action adapter | `management.azure.com` 또는 승인된 Resource Manager private link | TCP 443 | Resource Graph, ARM read, what-if 및 governed action | inventory가 stale 상태가 되고 cloud action 차단 |
-| Telemetry exporter | Azure Monitor ingestion host 또는 AMPLS(Azure Monitor Private Link Scope) | TCP 443 | log, metric, trace 및 Application Insights | control decision은 계속되지만 telemetry와 operational evidence 사용 불가 |
-| Operator browser | console FQDN, Operator API FQDN 및 `login.microsoftonline.com` | TCP 443 | SPA delivery, read-only evidence 및 interactive Entra sign-in | console 또는 sign-in 사용 불가, headless core는 계속 동작 |
-| 선택적 delivery adapter | 구성된 Teams, Slack, GitHub, email, pager 또는 webhook FQDN | TCP 443 | approval, notification 및 remediation pull request | channel queue 또는 failover, approval 요구사항은 우회하지 않음 |
+| Container Apps 서브넷 | Azure DNS `168.63.129.16` 또는 구성된 해석기 | UDP 및 TCP 53 | 공개 및 비공개 엔드포인트 이름 확인 | 개정 번호와 런타임 호출이 hostname 단계에서 실패하며 비공개 서비스가 공개 주소 또는 `NXDOMAIN`을 반환할 수 있음 |
+| Container Apps platform | `MicrosoftContainerRegistry`, `AzureFrontDoor.FirstParty` | TCP 443 | system 이미지 및 Container Apps platform 산출물 | 환경 프로비저닝 또는 개정 번호 시작 실패 |
+| FDAI 신원 | `AzureActiveDirectory`, `login.microsoftonline.com` 및 cloud별 login 호스트 | TCP 443 | 모든 RBAC 기반 서비스용 managed-identity 및 Entra 토큰 | Event Hubs, ARM, Azure OpenAI, Storage, ACR 및 Monitor 호출의 인증 상실 |
+| FDAI 코어와 작업 | `<namespace>.servicebus.windows.net` | TCP 9093 | 필수 Event Hubs Kafka 전송 계층 | 이벤트 ingest, derived 이벤트 publish, canary 및 scheduled 생산자 중지 |
+| FDAI 앱과 작업 | `<server>.postgres.database.azure.com` | TCP 5432 | 상태, 감사, 예약, 변환 결과 및 pgvector | 시작/준비 상태 실패 또는 관련 변환 결과 사용 불가 |
+| FDAI 모델 클라이언트 | `<account>.openai.azure.com` | TCP 443 | direct Standard 또는 PTU inference, 임베딩, 서술기 및 managed 웹 검색 | adaptive 기능 사용 불가, 관련 작업은 deterministic-only 또는 사람 검토 필요 |
+| Deploy 실행기 및 FDAI 웹 검색 클라이언트 | `<account>.services.ai.azure.com`, 비공개 모드에서는 `privatelink.services.ai.azure.com` | TCP 443 | deployment-owned Foundry 프롬프트 에이전트를 조정하고 호출하며 실제 도구 준비 상태 탐색 실행 | 에이전트 조정 또는 시작 준비 상태 실패, 웹 검색이 사용 불가 보고 |
+| FDAI 모델 클라이언트 | 배포가 공급한 APIM 게이트웨이 FQDN | TCP 443 | APIM을 통한 PTU 또는 Standard inference | 게이트웨이 경로 기능 사용 불가 |
+| FDAI 저장소 클라이언트 | `<account>.blob.core.windows.net` | TCP 443 | 사례 이력, 문서 블롭 및 배포 상태 | 관련 산출물, 재생 또는 배포 연산 실패 |
+| FDAI 문서 클라이언트 | `<account>.dfs.core.windows.net` | TCP 443 | ADLS Gen2 이름 변경 및 hierarchical 이름 공간 연산 | 문서 인제스트가 격리 구역 내용을 통제된 저장소로 승격하지 못함 |
+| Container Apps 시크릿 해석기와 deploy 호스트 | `<vault>.vault.azure.net` | TCP 443 | Container Apps Key Vault 참조 및 Terraform 시크릿 쓰기 | 새 개정 번호가 시크릿을 확인하지 못하고 deploy 시크릿 생성 실패 |
+| Container Apps 이미지 pull | `<registry>.azurecr.io` 및 `<registry>.<region>.data.azurecr.io` | TCP 443 | 이미지 매니페스트 및 계층 download | 기존 개정 번호는 유지될 수 있지만 새 개정 번호는 image-pull 오류로 실패 |
+| 인벤토리 및 액션 어댑터 | `management.azure.com` 또는 승인된 Resource Manager 비공개 링크 | TCP 443 | Resource Graph, ARM 읽기, what-if 및 통제된 액션 | 인벤토리가 stale 상태가 되고 cloud 액션 차단 |
+| Telemetry 내보내기 도구 | Azure Monitor 인제스트 호스트 또는 AMPLS(Azure Monitor Private Link 범위) | TCP 443 | 로그, 메트릭, 추적 및 Application Insights | 컨트롤 결정은 계속되지만 telemetry와 operational 근거 사용 불가 |
+| Operator 브라우저 | 콘솔 FQDN, Operator API FQDN 및 `login.microsoftonline.com` | TCP 443 | SPA 전달, 읽기 전용 근거 및 interactive Entra sign-in | 콘솔 또는 sign-in 사용 불가, headless 코어는 계속 동작 |
+| 선택적 전달 어댑터 | 구성된 Teams, Slack, GitHub, 이메일, pager 또는 웹훅 FQDN | TCP 443 | 승인, 알림 및 교정 pull 요청 | 채널 큐 또는 장애 조치, 승인 요구사항은 우회하지 않음 |
 
-HTTP ingress를 사용하는 internal Container Apps environment에서는 승인된 client에서
-environment의 TCP 443 및 platform internal HTTPS edge port 31443도 허용하세요. TCP
-30000-32767에서 할당된 port로 향하는 Azure Load Balancer probe도 허용하세요. FDAI core
-자체에는 public inbound endpoint가 없습니다. 이 rule은 활성화된 read, ingestion 또는 command
+HTTP 유입을 사용하는 내부 Container Apps 환경에서는 승인된 클라이언트에서
+환경의 TCP 443 및 platform 내부 HTTPS 간선 포트 31443도 허용하세요. TCP
+30000-32767에서 할당된 포트로 향하는 Azure Load Balancer 탐색도 허용하세요. FDAI 코어
+자체에는 공개 인바운드 엔드포인트가 없습니다. 이 룰은 활성화된 읽기, 인제스트 또는 명령
 API에 적용됩니다.
 
-Closed-network console에는 SPA와 Operator API의 private ingress, operator에서 오는 VPN 또는
-ExpressRoute routing, browser host operating system에서 볼 수 있는 Private DNS도 필요합니다.
-현재 root Terraform은 Static Web Apps private endpoint를 provision하지 않습니다. 추가
-deployment-owned 경로가 없으면 core는 private으로 실행되지만 console에는 접근할 수 없습니다.
+Closed-network 콘솔에는 SPA와 Operator API의 비공개 유입, 운영자에서 오는 VPN 또는
+ExpressRoute 라우팅, 브라우저 호스트 operating system에서 볼 수 있는 비공개 DNS도 필요합니다.
+현재 루트 Terraform은 Static Web Apps 비공개 엔드포인트를 provision하지 않습니다. 추가
+deployment-owned 경로가 없으면 코어는 비공개로 실행되지만 콘솔에는 접근할 수 없습니다.
 
-Legacy Consumption-only Container Apps environment에는 더 넓은 platform contract가 있습니다.
+이전 방식 Consumption-only Container Apps 환경에는 더 넓은 platform 계약이 있습니다.
 `AzureCloud.<region>`에 UDP 1194 및 TCP 9000, `AzureCloud`에 TCP 443,
-`EventHub.<region>`에 TCP 5671-5672, NTP에 UDP 123이 필요합니다. 배포된 environment type이
-요구하지 않으면 이 rule을 현재 workload-profile baseline에 복사하지 마세요. 최신
+`EventHub.<region>`에 TCP 5671-5672, NTP에 UDP 123이 필요합니다. 배포된 환경 타입이
+요구하지 않으면 이 룰을 현재 workload-profile 기준선에 복사하지 마세요. 최신
 [Container Apps NSG 표](https://learn.microsoft.com/azure/container-apps/firewall-integration)를
 기준으로 사용하세요.
 
-## Private DNS zone
+## 비공개 DNS 영역
 
-Application은 계속 public service FQDN을 사용합니다. Azure DNS는 연결된 private zone의
-CNAME을 따라 private endpoint 주소를 반환합니다. Query를 수행하는 모든 VNet, peering된
-deploy-runner VNet, VPN DNS resolver 및 on-premises conditional forwarder가 같은 record에
+애플리케이션은 계속 공개 서비스 FQDN을 사용합니다. Azure DNS는 연결된 비공개 영역의
+CNAME을 따라 비공개 엔드포인트 주소를 반환합니다. 조회를 수행하는 모든 VNet, 피어링된
+deploy-runner VNet, VPN DNS 해석기 및 on-premises conditional forwarder가 같은 기록에
 도달할 수 있어야 합니다.
 
-| FDAI service | Query suffix | Private DNS zone | Port | 현재 `infra/`가 provision |
+| FDAI 서비스 | 조회 접미사 | 비공개 DNS 영역 | 포트 | 현재 `infra/`가 provision |
 |--------------|--------------|------------------|------|---------------------------|
-| Key Vault | `vault.azure.net`, `vaultcore.azure.net`을 통한 CNAME chase 포함 | `privatelink.vaultcore.azure.net` | TCP 443 | private mode에서 예 |
-| Event Hubs, 두 shard | `servicebus.windows.net` | `privatelink.servicebus.windows.net` | TCP 9093 | private mode에서 예 |
-| PostgreSQL Flexible Server | `postgres.database.azure.com` | `privatelink.postgres.database.azure.com` | TCP 5432 | private mode에서 예 |
-| Azure OpenAI, Standard 또는 PTU | `openai.azure.com` | `privatelink.openai.azure.com` | TCP 443 | LLM 및 private mode 활성화 시 예 |
-| ACR login 및 regional data record | `azurecr.io`, `<region>.data.azurecr.io` | `privatelink.azurecr.io` | TCP 443 | private mode의 Premium ACR에서 예 |
-| Blob, state, document 및 case | `blob.core.windows.net` | `privatelink.blob.core.windows.net` | TCP 443 | 활성화된 각 storage 경로에서 예 |
-| ADLS Gen2 document | `dfs.core.windows.net` | `privatelink.dfs.core.windows.net` | TCP 443 | document ingestion 및 private mode 활성화 시 예 |
-| Container Apps private ingress | `azurecontainerapps.io` | `privatelink.<region>.azurecontainerapps.io` | TCP 443 | 현재 root module에는 없음 |
-| APIM private endpoint gateway | `azure-api.net` | `privatelink.azure-api.net` | TCP 443 | 기존 APIM owner가 공급 |
-| Azure Monitor | Monitor, OMS, ODS, automation 및 Blob suffix | 아래 5개 AMPLS zone | TCP 443 | 현재 root module에는 없음 |
-| Azure Resource Manager | `management.azure.com` | `privatelink.azure.com` | TCP 443 | 현재 root module에는 없음 |
-| Static Web Apps private ingress | `azurestaticapps.net` 및 partition suffix | `privatelink.azurestaticapps.net` 및 partition zone | TCP 443 | 현재 root module에는 없음 |
+| Key Vault | `vault.azure.net`, `vaultcore.azure.net`을 통한 CNAME chase 포함 | `privatelink.vaultcore.azure.net` | TCP 443 | 비공개 모드에서 예 |
+| Event Hubs, 두 샤드 | `servicebus.windows.net` | `privatelink.servicebus.windows.net` | TCP 9093 | 비공개 모드에서 예 |
+| PostgreSQL Flexible Server | `postgres.database.azure.com` | `privatelink.postgres.database.azure.com` | TCP 5432 | 비공개 모드에서 예 |
+| Azure OpenAI, Standard 또는 PTU | `openai.azure.com` | `privatelink.openai.azure.com` | TCP 443 | LLM 및 비공개 모드 활성화 시 예 |
+| ACR login 및 regional 데이터 기록 | `azurecr.io`, `<region>.data.azurecr.io` | `privatelink.azurecr.io` | TCP 443 | 비공개 모드의 Premium ACR에서 예 |
+| Blob, 상태, 문서 및 사례 | `blob.core.windows.net` | `privatelink.blob.core.windows.net` | TCP 443 | 활성화된 각 저장소 경로에서 예 |
+| ADLS Gen2 문서 | `dfs.core.windows.net` | `privatelink.dfs.core.windows.net` | TCP 443 | 문서 인제스트 및 비공개 모드 활성화 시 예 |
+| Container Apps 비공개 유입 | `azurecontainerapps.io` | `privatelink.<region>.azurecontainerapps.io` | TCP 443 | 현재 루트 모듈에는 없음 |
+| APIM 비공개 엔드포인트 게이트웨이 | `azure-api.net` | `privatelink.azure-api.net` | TCP 443 | 기존 APIM 소유자가 공급 |
+| Azure Monitor | Monitor, OMS, ODS, 자동화 및 Blob 접미사 | 아래 5개 AMPLS 영역 | TCP 443 | 현재 루트 모듈에는 없음 |
+| Azure Resource Manager | `management.azure.com` | `privatelink.azure.com` | TCP 443 | 현재 루트 모듈에는 없음 |
+| Static Web Apps 비공개 유입 | `azurestaticapps.net` 및 파티션 접미사 | `privatelink.azurestaticapps.net` 및 파티션 영역 | TCP 443 | 현재 루트 모듈에는 없음 |
 
 AMPLS에는 `privatelink.monitor.azure.com`, `privatelink.oms.opinsights.azure.com`,
 `privatelink.ods.opinsights.azure.com`, `privatelink.agentsvc.azure-automation.net`,
-`privatelink.blob.core.windows.net`의 5개 linked zone이 모두 필요합니다. 하나만 누락되어도
-ingestion은 동작하지만 query, live metric 또는 agent configuration이 실패할 수 있습니다.
+`privatelink.blob.core.windows.net`의 5개 linked 영역이 모두 필요합니다. 하나만 누락되어도
+인제스트는 동작하지만 조회, 실제 운영 메트릭 또는 에이전트 구성이 실패할 수 있습니다.
 
-ACR private endpoint 하나는 registry 주소와 replica별 data 주소 하나를 할당합니다. 두 record
+ACR 비공개 엔드포인트 하나는 레지스트리 주소와 복제본별 데이터 주소 하나를 할당합니다. 두 기록
 모두 `privatelink.azurecr.io`에 속합니다. 별도
-`<region>.data.privatelink.azurecr.io` zone을 만들지 마세요. Image pull에 사용되는 모든
-replica data endpoint를 허용하세요.
+`<region>.data.privatelink.azurecr.io` 영역을 만들지 마세요. 이미지 pull에 사용되는 모든
+복제본 데이터 엔드포인트를 허용하세요.
 
-VNet이 같은 Azure service type의 private 및 public resource를 모두 사용해야 한다면 Private
-DNS link에 fallback-to-public resolution을 적용하세요. 요청된 A record가 없는 private zone은
-`NXDOMAIN`을 반환할 수 있습니다. Azure가 주소를 바꿀 수 있으므로 public A record를 수동으로
+VNet이 같은 Azure 서비스 타입의 비공개 및 공개 리소스를 모두 사용해야 한다면 비공개
+DNS 링크에 fallback-to-public 해석을 적용하세요. 요청된 A 기록이 없는 비공개 영역은
+`NXDOMAIN`을 반환할 수 있습니다. Azure가 주소를 바꿀 수 있으므로 공개 A 기록을 수동으로
 고정하는 방식은 안전하지 않습니다.
-각 CNAME 뒤에 routing을 다시 평가하는 VPN split-DNS client는 public query suffix와 CNAME
-target suffix를 모두 route해야 합니다. 예를 들어 Key Vault에는 `vault.azure.net`과
+각 CNAME 뒤에 라우팅을 다시 평가하는 VPN split-DNS 클라이언트는 공개 조회 접미사와 CNAME
+대상 접미사를 모두 경로해야 합니다. 예를 들어 Key Vault에는 `vault.azure.net`과
 `vaultcore.azure.net`이 모두 필요합니다.
 
-## Model routing scenario
+## 모델 라우팅 시나리오
 
 ### Direct Standard 또는 PTU
 
-FDAI는 `<account>.openai.azure.com`을 확인하고 Entra token으로 TCP 443을 호출합니다. Private
-mode에서는 이름이 `privatelink.openai.azure.com`을 통해 endpoint private IP로 확인되어야
-합니다. Token 경로에는 여전히 TCP 443의 `AzureActiveDirectory`가 필요합니다. PTU는 port,
-DNS zone 또는 두 번째 endpoint를 추가하지 않습니다.
+FDAI는 `<account>.openai.azure.com`을 확인하고 Entra 토큰으로 TCP 443을 호출합니다. 비공개
+모드에서는 이름이 `privatelink.openai.azure.com`을 통해 엔드포인트 비공개 IP로 확인되어야
+합니다. 토큰 경로에는 여전히 TCP 443의 `AzureActiveDirectory`가 필요합니다. PTU는 포트,
+DNS 영역 또는 두 번째 엔드포인트를 추가하지 않습니다.
 
 ### APIM을 통한 PTU 및 Standard spillover
 
-완전한 private flow는 다음과 같습니다.
+완전한 비공개 흐름은 다음과 같습니다.
 
 ```text
 FDAI subnet -> APIM private VIP:443 -> Azure OpenAI private endpoint:443
-             -> PTU first; one same-family Standard retry only after HTTP 429
+       -> PTU first; one same-family Standard retry only after HTTP 429
 ```
 
-- **첫 번째 hop:** FDAI는 deployment가 공급한 APIM gateway FQDN을 APIM private endpoint 또는
-  internal VNet-injection VIP로 확인하고 TCP 443을 호출합니다.
-- **두 번째 hop:** APIM에는 outbound VNet integration 또는 injection, 두 Azure OpenAI account의
-  Private DNS resolution, 두 private endpoint에 대한 TCP 443이 필요합니다. APIM managed
-  identity에는 두 backend의 `Cognitive Services OpenAI User`가 필요합니다.
-- **Private endpoint는 inbound 전용:** APIM 앞에 private endpoint를 배치해도 APIM에서 Azure
-  OpenAI로 가는 traffic이 자동으로 private이 되지 않습니다. 두 번째 hop을 명시적으로
-  구성하세요.
-- **Evidence contract:** APIM은 `x-fdai-model-backend`, `x-fdai-capacity-unit`,
-  `x-fdai-spillover`를 반환해야 합니다. FDAI는 이 값이 없거나 잘못된 경우 성공한 T2
-  response도 수락하지 않습니다.
+- **첫 번째 홉:** FDAI는 배포가 공급한 APIM 게이트웨이 FQDN을 APIM 비공개 엔드포인트 또는
+ 내부 VNet-injection VIP로 확인하고 TCP 443을 호출합니다.
+- **두 번째 홉:** APIM에는 아웃바운드 VNet 통합 또는 주입, 두 Azure OpenAI 계정의
+ 비공개 DNS 해석, 두 비공개 엔드포인트에 대한 TCP 443이 필요합니다. APIM managed
+ 신원에는 두 백엔드의 `Cognitive Services OpenAI User`가 필요합니다.
+- **비공개 엔드포인트는 인바운드 전용:** APIM 앞에 비공개 엔드포인트를 배치해도 APIM에서 Azure
+ OpenAI로 가는 트래픽이 자동으로 비공개가 되지 않습니다. 두 번째 홉을 명시적으로
+ 구성하세요.
+- **근거 계약:** APIM은 `x-fdai-model-backend`, `x-fdai-capacity-unit`,
+ `x-fdai-spillover`를 반환해야 합니다. FDAI는 이 값이 없거나 잘못된 경우 성공한 T2
+ 응답도 수락하지 않습니다.
 
-Premium v2 VNet injection에서는 APIM outbound에서 `Storage` 및 `AzureKeyVault` service tag로
-TCP 443, 두 model backend로 TCP 443, 구성된 resolver로 DNS를 허용하세요. Classic
-Developer/Premium VNet injection의 platform contract에는 inbound `ApiManagement` TCP 3443,
-inbound `AzureLoadBalancer` TCP 6390, outbound `Storage` TCP 443, `Sql` TCP 1433,
+Premium v2 VNet 주입에서는 APIM 아웃바운드에서 `Storage` 및 `AzureKeyVault` 서비스 tag로
+TCP 443, 두 모델 백엔드로 TCP 443, 구성된 해석기로 DNS를 허용하세요. Classic
+Developer/Premium VNet 주입의 platform 계약에는 인바운드 `ApiManagement` TCP 3443,
+인바운드 `AzureLoadBalancer` TCP 6390, 아웃바운드 `Storage` TCP 443, `Sql` TCP 1433,
 `AzureKeyVault` TCP 443, `AzureMonitor` TCP 1886 및 443, DNS TCP/UDP 53, NTP UDP 123,
-certificate validation용 TCP 80/443도 포함됩니다. 배포된 APIM tier의 최신 표를 적용하세요.
-이 platform port를 FDAI application port로 취급하지 마세요.
+certificate 검증용 TCP 80/443도 포함됩니다. 배포된 APIM 계층의 최신 표를 적용하세요.
+이 platform 포트를 FDAI 애플리케이션 포트로 취급하지 마세요.
 
-### Public model 또는 public APIM
+### 공개 모델 또는 공개 APIM
 
-동일한 TCP 443 application 경로를 사용하지만 public DNS가 service 주소를 반환하고 각 service
-firewall이 FDAI egress source를 허용해야 합니다. Container Apps environment에 안정적인 NAT
-또는 firewall egress IP를 부여한 후 IP allow-list에 추가하세요. Service firewall 또는 identity
-control이 없는 unrestricted public endpoint는 production profile로 적합하지 않습니다.
+동일한 TCP 443 애플리케이션 경로를 사용하지만 공개 DNS가 서비스 주소를 반환하고 각 서비스
+firewall이 FDAI egress 출처를 허용해야 합니다. Container Apps 환경에 안정적인 NAT
+또는 firewall egress IP를 부여한 후 IP allow-list에 추가하세요. 서비스 firewall 또는 신원
+컨트롤이 없는 unrestricted 공개 엔드포인트는 운영 프로파일로 적합하지 않습니다.
 
-## Deployment 및 operator 경로
+## 배포 및 운영자 경로
 
-Runtime allow rule만으로는 deployment host가 동작하지 않습니다. VNet runner 또는 jumpbox에는
+런타임 allow 룰만으로는 배포 호스트가 동작하지 않습니다. VNet 실행기 또는 jumpbox에는
 다음 추가 경로가 필요합니다.
 
-| Destination | Protocol과 port | 목적 | Closed-network 대안 |
+| 대상 | 프로토콜과 포트 | 목적 | Closed-network 대안 |
 |-------------|-----------------|------|---------------------|
-| DNS resolver | UDP 및 TCP 53 | control, data 및 private endpoint 이름 확인 | conditional forwarding을 사용하는 private resolver |
-| Azure Instance Metadata Service `169.254.169.254` | TCP 80 | runner VM managed-identity token bootstrap | Azure VM에는 대안 없음, link-local traffic은 Azure 내부 유지 |
-| `login.microsoftonline.com` 및 필요한 tenant/federation host | TCP 443 | Azure CLI 및 Terraform token 획득 | 승인된 Entra route, Entra에는 tenant private endpoint equivalent가 없음 |
-| `management.azure.com` | TCP 443 | Terraform 및 Azure CLI control plane | 현재 제한을 수용할 수 있을 때 Resource Manager private link |
-| state Blob, Key Vault, ACR login/data | TCP 443 | Terraform state, secret write, image push/pull | 위의 private endpoint 및 zone |
-| GitHub runner endpoint | TCP 443 | checkout, Actions broker, API, artifact 및 release | manual jumpbox transport 또는 internal source/artifact mirror |
-| Terraform registry, Python index, base-image registry | TCP 443 | 최초 tool 및 dependency 획득 | signed offline kit 및 internal mirror |
+| DNS 해석기 | UDP 및 TCP 53 | 컨트롤, 데이터 및 비공개 엔드포인트 이름 확인 | conditional forwarding을 사용하는 비공개 해석기 |
+| Azure Instance 메타데이터 서비스 `169.254.169.254` | TCP 80 | 실행기 VM managed-identity 토큰 초기화 | Azure VM에는 대안 없음, link-local 트래픽은 Azure 내부 유지 |
+| `login.microsoftonline.com` 및 필요한 테넌트/federation 호스트 | TCP 443 | Azure CLI 및 Terraform 토큰 획득 | 승인된 Entra 경로, Entra에는 테넌트 비공개 엔드포인트 equivalent가 없음 |
+| `management.azure.com` | TCP 443 | Terraform 및 Azure CLI 컨트롤 plane | 현재 제한을 수용할 수 있을 때 Resource Manager 비공개 링크 |
+| 상태 Blob, Key Vault, ACR login/데이터 | TCP 443 | Terraform 상태, 시크릿 쓰기, 이미지 push/pull | 위의 비공개 엔드포인트 및 영역 |
+| GitHub 실행기 엔드포인트 | TCP 443 | 체크아웃, Actions 브로커, API, 산출물 및 release | 수동 jumpbox 전송 계층 또는 내부 출처/산출물 mirror |
+| Terraform 레지스트리, Python 인덱스, base-image 레지스트리 | TCP 443 | 최초 도구 및 의존성 획득 | signed offline kit 및 내부 mirror |
 
-Connected GitHub runner에는 일반적으로 최소한 `github.com`, `api.github.com`,
-`*.actions.githubusercontent.com`, `objects.githubusercontent.com` 및 repository가 선택한 release와
-package host의 TCP 443이 필요합니다. GitHub는 공개 allow list를 변경합니다. FDAI 문서에 IP를
-고정하지 말고 GitHub의 최신 runner communication reference 또는 manual transport를 사용하세요.
-Resource Manager private link는 root management-group association에서 tenant 전체에 적용되며
-AKS를 포함한 모든 resource provider를 지원하지는 않습니다. 이 경로만 management route로
-사용하기 전에 FDAI의 정확한 inventory 및 action set을 검증하세요.
+Connected GitHub 실행기에는 일반적으로 최소한 `github.com`, `api.github.com`,
+`*.actions.githubusercontent.com`, `objects.githubusercontent.com` 및 저장소가 선택한 release와
+패키지 호스트의 TCP 443이 필요합니다. GitHub는 공개 allow 목록을 변경합니다. FDAI 문서에 IP를
+고정하지 말고 GitHub의 최신 실행기 communication 참조 또는 수동 전송 계층을 사용하세요.
+Resource Manager 비공개 링크는 루트 management-group association에서 테넌트 전체에 적용되며
+AKS를 포함한 모든 리소스 프로바이더를 지원하지는 않습니다. 이 경로만 관리 경로로
+사용하기 전에 FDAI의 정확한 인벤토리 및 액션 집합을 검증하세요.
 
 ## 실패 및 기능 저하 매트릭스
 
 | 차단된 경로 | 관찰 가능한 실패 | FDAI 동작 |
 |-------------|------------------|-----------|
-| DNS 53 또는 잘못된 private-zone link | timeout, public IP 또는 `NXDOMAIN` | 필수 service의 startup/readiness 실패, 승인되지 않은 public endpoint로 fallback하지 않음 |
-| Entra 443 | token timeout, `401` 또는 credential unavailable | 영향을 받는 모든 RBAC 기반 adapter가 fail-closed |
-| Event Hubs 9093 | Kafka connection timeout | governed ingest 또는 publication 없음, core는 healthy event processing을 주장할 수 없음 |
-| PostgreSQL 5432 | connection timeout | durable state, audit, schedule 및 projection 사용 불가, autonomous work 중지 |
-| Azure OpenAI 또는 APIM 443 | model timeout 또는 unavailable binding | deterministic 경로 계속, T1/T2, narrator 및 managed web search는 unavailable 또는 사람 검토 필요 |
-| APIM evidence header | 잘못된 gateway evidence를 포함한 HTTP success | T2 result를 거부하고 audit, direct-endpoint fallback 없음 |
-| ACR login 또는 data 443 | manifest 또는 layer pull timeout | 새 Container Apps revision 실패, 이미 실행 중인 revision은 계속될 수 있음 |
-| Key Vault 443 | Container Apps secret resolution 또는 Terraform 403/timeout | revision 활성화 또는 deployment 실패, secret value fallback 없음 |
-| ARM/Resource Graph 443 | inventory query timeout | 마지막 complete inventory를 stale 상태로 유지, evidence-dependent action 차단 |
-| Blob/DFS 443 | upload, rename, replay 또는 state 실패 | 관련 document, case-history 또는 deployment workflow만 중지, evidence를 생성하지 않음 |
-| Azure Monitor 443 | telemetry 누락 | runtime decision은 계속되지만 health와 observability를 unavailable로 표시 |
-| Approval/delivery host 443 | channel delivery 실패 | queue 또는 구성된 fallback channel 사용, 자동 승인하지 않음 |
-| Container Apps platform tag | revision stuck 또는 environment unhealthy | FDAI endpoint가 열려 있어도 platform이 workload를 시작하거나 관리하지 못함 |
-| APIM platform port | APIM deployment, health, management 또는 gateway 실패 | 모든 APIM route model 기능 사용 불가 |
+| DNS 53 또는 잘못된 private-zone 링크 | 시간 초과, 공개 IP 또는 `NXDOMAIN` | 필수 서비스의 시작/준비 상태 실패, 승인되지 않은 공개 엔드포인트로 대체 경로하지 않음 |
+| Entra 443 | 토큰 시간 초과, `401` 또는 자격 증명 사용 불가 | 영향을 받는 모든 RBAC 기반 어댑터가 실패 시 차단 |
+| Event Hubs 9093 | Kafka 연결 시간 초과 | 통제된 ingest 또는 게시 없음, 코어는 healthy 이벤트 처리를 주장할 수 없음 |
+| PostgreSQL 5432 | 연결 시간 초과 | 영속 상태, 감사, 예약 및 변환 결과 사용 불가, 자율 작업 중지 |
+| Azure OpenAI 또는 APIM 443 | 모델 시간 초과 또는 사용 불가 연결 | 결정론적 경로 계속, T1/T2, 서술기 및 managed 웹 검색은 사용 불가 또는 사람 검토 필요 |
+| APIM 근거 헤더 | 잘못된 게이트웨이 근거를 포함한 HTTP 성공 | T2 결과를 거부하고 감사, direct-endpoint 대체 경로 없음 |
+| ACR login 또는 데이터 443 | 매니페스트 또는 계층 pull 시간 초과 | 새 Container Apps 개정 번호 실패, 이미 실행 중인 개정 번호는 계속될 수 있음 |
+| Key Vault 443 | Container Apps 시크릿 해석 또는 Terraform 403/시간 초과 | 개정 번호 활성화 또는 배포 실패, 시크릿 값 대체 경로 없음 |
+| ARM/Resource Graph 443 | 인벤토리 조회 시간 초과 | 마지막 완전한 인벤토리를 stale 상태로 유지, evidence-dependent 액션 차단 |
+| Blob/DFS 443 | 업로드, 이름 변경, 재생 또는 상태 실패 | 관련 문서, case-history 또는 배포 작업 흐름만 중지, 근거를 생성하지 않음 |
+| Azure Monitor 443 | telemetry 누락 | 런타임 결정은 계속되지만 상태와 observability를 사용 불가로 표시 |
+| Approval/전달 호스트 443 | 채널 전달 실패 | 큐 또는 구성된 대체 경로 채널 사용, 자동 승인하지 않음 |
+| Container Apps platform tag | 개정 번호 stuck 또는 환경 unhealthy | FDAI 엔드포인트가 열려 있어도 platform이 워크로드를 시작하거나 관리하지 못함 |
+| APIM platform 포트 | APIM 배포, 상태, 관리 또는 게이트웨이 실패 | 모든 APIM 경로 모델 기능 사용 불가 |
 
 ## 자동 연결 검사
 
-실제 workload가 있는 network에서 checker를 실행하세요. 알려진 environment variable에서 primary
-및 auxiliary Kafka endpoint, PostgreSQL, Azure OpenAI, Prometheus, email, development gateway를
-찾습니다. 그런 다음 각 DNS 이름을 확인하고 resolved address class를 검증하며 구성된 TCP port를
+실제 워크로드가 있는 네트워크에서 검사기를 실행하세요. 알려진 환경 variable에서 기본
+및 auxiliary Kafka 엔드포인트, PostgreSQL, Azure OpenAI, Prometheus, 이메일, 개발 게이트웨이를
+찾습니다. 그런 다음 각 DNS 이름을 확인하고 resolved 주소 등급을 검증하며 구성된 TCP 포트를
 연 뒤 필요한 조치를 출력합니다.
 
 ```bash
 python3 scripts/deployment/azure/check-network-connectivity.py \
-   --profile runtime-private \
-   --env-file .fdai/local-runtime.env \
-   --output tmp/network-connectivity.json
+  --profile runtime-private \
+  --env-file .fdai/local-runtime.env \
+  --output tmp/network-connectivity.json
 ```
 
-Public runtime network에서는 `runtime-public`, deployment host에서는 `deploy-runner`를 사용하세요.
-Environment variable로 표현되지 않는 APIM, ACR data endpoint, storage, Key Vault 또는
-deployment별 route에는 `custom`과 하나 이상의 manifest를 사용하세요.
+공개 런타임 네트워크에서는 `runtime-public`, 배포 호스트에서는 `deploy-runner`를 사용하세요.
+환경 variable로 표현되지 않는 APIM, ACR 데이터 엔드포인트, 저장소, Key Vault 또는
+배포별 경로에는 `custom`과 하나 이상의 매니페스트를 사용하세요.
 
-Environment에서 찾은 endpoint 값은 origin 또는 `host:port` 형식이어야 합니다. 마지막 root `/`는
-허용하지만, root가 아닌 path, query, fragment 또는 user information은 잘못된 입력입니다. Checker는
-DNS와 TCP reachability만 검사하므로 다른 target을 조용히 검사해서는 안 됩니다. 명시적 port는
-`[1, 65535]` 범위여야 합니다. 빈 port 또는 port `0`은 잘못된 입력이며 profile 기본값으로
-대체하지 않습니다. 잘못된 URL은 exit code `2`의 invalid input으로 보고하며 parser 세부 정보가
-처리되지 않은 failure로 노출되지 않습니다.
+환경에서 찾은 엔드포인트 값은 출처 또는 `host:port` 형식이어야 합니다. 마지막 루트 `/`는
+허용하지만, 루트가 아닌 경로, 조회, fragment 또는 user information은 잘못된 입력입니다. 검사기는
+DNS와 TCP 도달 가능성만 검사하므로 다른 대상을 조용히 검사해서는 안 됩니다. 명시적 포트는
+`[1, 65535]` 범위여야 합니다. 빈 포트 또는 포트 `0`은 잘못된 입력이며 프로파일 기본값으로
+대체하지 않습니다. 잘못된 URL은 exit 코드 `2`의 잘못된 입력으로 보고하며 파서 세부 정보가
+처리되지 않은 실패로 노출되지 않습니다.
 
 ```json
 {
-   "schema_version": "fdai.network-connectivity-manifest.v1",
-   "checks": [
-      {"id": "apim-model-gateway", "host": "replace.example.com", "port": 443,
-       "required": true, "expected_ip": "private"}
-   ]
+  "schema_version": "fdai.network-connectivity-manifest.v1",
+  "checks": [
+   {"id": "apim-model-gateway", "host": "replace.example.com", "port": 443,
+    "required": true, "expected_ip": "private"}
+  ]
 }
 ```
 
-`--manifest <path>`로 파일을 전달하세요. 각 check의 `expected_ip`에는 `private`, `public`, `any`를
-사용할 수 있습니다. 필수 check가 실패하면 command는 `1`, input이 잘못되면 `2`로 종료합니다.
-Optional 실패는 warning을 만들고 `0`으로 종료합니다. 일반 report에는 실제 hostname과 resolved
-address가 있으므로 `tmp/` 같은 ignore된 local storage에 보관하세요. Report를 공유하기 전에는
-`--redact`를 추가하세요. Host는 hash로 바뀌고 address는 제거됩니다.
+`--manifest <path>`로 파일을 전달하세요. 각 검사의 `expected_ip`에는 `private`, `public`, `any`를
+사용할 수 있습니다. 필수 검사가 실패하면 명령은 `1`, 입력이 잘못되면 `2`로 종료합니다.
+선택적 실패는 경고를 만들고 `0`으로 종료합니다. 일반 보고에는 실제 hostname과 resolved
+주소가 있으므로 `tmp/` 같은 ignore된 로컬 저장소에 보관하세요. 보고를 공유하기 전에는
+`--redact`를 추가하세요. 호스트는 해시로 바뀌고 주소는 제거됩니다.
 
-Action summary는 누락된 configuration, DNS/private-zone 오류, 잘못된 public 또는 private address
-resolution, 차단된 TCP port를 구분합니다.
+액션 요약은 누락된 구성, DNS/private-zone 오류, 잘못된 공개 또는 비공개 주소
+해석, 차단된 TCP 포트를 구분합니다.
 
-Protected plan은 Terraform planning 전에 VNet deployment runner에서 checker를 자동으로
-실행합니다. `PREFLIGHT_EGRESS_HOSTS_JSON`은 기존 TLS check를 계속 제어합니다. Workflow는 기존
-Terraform output에서 두 Event Hubs shard, PostgreSQL, Key Vault, ACR 및 Azure OpenAI를 자동으로
-읽고 profile의 private 또는 public address expectation을 적용합니다. APIM backend 또는 ACR
-replica data endpoint 같은 추가 route에는 optional repository variable
-`PREFLIGHT_NETWORK_CHECKS_JSON`에 complete manifest를 설정하세요. Workflow는 모든 input을
-결합하고 required 실패 시 차단하며 temporary manifest를 제거합니다. 기존
-`preflight-evidence.json` digest contract에는 redacted network report만 병합합니다. 최초
-deployment에서는 아직 존재하지 않는 Terraform output을 건너뜁니다.
+Protected 계획은 Terraform 계획 수립 전에 VNet 배포 실행기에서 검사기를 자동으로
+실행합니다. `PREFLIGHT_EGRESS_HOSTS_JSON`은 기존 TLS 검사를 계속 제어합니다. 작업 흐름은 기존
+Terraform 출력에서 두 Event Hubs 샤드, PostgreSQL, Key Vault, ACR 및 Azure OpenAI를 자동으로
+읽고 프로파일의 비공개 또는 공개 주소 expectation을 적용합니다. APIM 백엔드 또는 ACR
+복제본 데이터 엔드포인트 같은 추가 경로에는 선택적 저장소 variable
+`PREFLIGHT_NETWORK_CHECKS_JSON`에 완전한 매니페스트를 설정하세요. 작업 흐름은 모든 입력을
+결합하고 필수 실패 시 차단하며 temporary 매니페스트를 제거합니다. 기존
+`preflight-evidence.json` 다이제스트 계약에는 민감정보가 제거된 네트워크 보고만 병합합니다. 최초
+배포에서는 아직 존재하지 않는 Terraform 출력을 건너뜁니다.
 
-Positive endpoint checker로 full air gap을 증명할 수는 없습니다. Route와 DNS가 없는
-namespace에서 network-free release 경로를 검증하려면
+긍정 엔드포인트 검사기로 full air 공백을 증명할 수는 없습니다. 경로와 DNS가 없는
+이름 공간에서 network-free release 경로를 검증하려면
 `bash scripts/deployment/release/airgap-drill.sh`를 사용하세요.
 
 ## 검증 체크리스트
 
-실제 Container Apps subnet, APIM subnet 및 deploy-host subnet에서 probe를 실행하세요. Laptop
+실제 Container Apps 서브넷, APIM 서브넷 및 deploy-host 서브넷에서 탐색을 실행하세요. Laptop
 결과는 이러한 실행 경로를 증명하지 않습니다.
 
-1. 모든 public query FQDN을 확인하고 private profile에서 의도한 private endpoint 또는
-   internal VIP subnet의 주소를 반환하는지 확인합니다.
-2. 해당하는 port 443, 9093 및 5432에 bounded TCP connection을 엽니다. Private endpoint가
-   ICMP에 응답하지 않을 수 있으므로 TLS 또는 protocol authentication 오류가 ping보다 더
-   유효한 증거입니다.
-3. 정확한 workload identity로 Entra token을 획득한 다음 service별 read-only 요청 하나를
-   수행합니다.
-4. Pinned image digest를 pull하여 ACR login과 data endpoint를 모두 검증합니다.
-5. APIM model route를 호출하고 PTU 및 forced-429 spillover 경로에서 FDAI evidence header 3개를
-   모두 검증합니다.
-6. Dependency를 한 번에 하나씩 차단하고 stale evidence 및 direct-endpoint fallback 없음까지
-   실패 매트릭스의 해당 행과 일치하는지 확인합니다.
+1. 모든 공개 조회 FQDN을 확인하고 비공개 프로파일에서 의도한 비공개 엔드포인트 또는
+  내부 VIP 서브넷의 주소를 반환하는지 확인합니다.
+2. 해당하는 포트 443, 9093 및 5432에 범위가 제한된 TCP 연결을 엽니다. 비공개 엔드포인트가
+  ICMP에 응답하지 않을 수 있으므로 TLS 또는 프로토콜 authentication 오류가 ping보다 더
+  유효한 증거입니다.
+3. 정확한 워크로드 신원으로 Entra 토큰을 획득한 다음 서비스별 읽기 전용 요청 하나를
+  수행합니다.
+4. Pinned 이미지 다이제스트를 pull하여 ACR login과 데이터 엔드포인트를 모두 검증합니다.
+5. APIM 모델 경로를 호출하고 PTU 및 forced-429 spillover 경로에서 FDAI 근거 헤더 3개를
+  모두 검증합니다.
+6. 의존성을 한 번에 하나씩 차단하고 stale 근거 및 direct-endpoint 대체 경로 없음까지
+  실패 매트릭스의 해당 행과 일치하는지 확인합니다.
 
 ## 관련 문서
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
-| FDAI private endpoint, VNet runner 및 deployment inventory | [배포 및 온보딩](deploy-and-onboard-ko.md) |
-| Public egress 없음 및 full-air-gap 동작 | [단절 환경 배포](disconnected-deployment-ko.md) |
-| Direct, APIM, PTU 및 mixed-model binding contract | [LLM 전략](../architecture/llm-strategy-ko.md) |
-| Azure private endpoint DNS suffix | [Azure Private Endpoint DNS](https://learn.microsoft.com/azure/private-link/private-endpoint-dns) |
-| Container Apps platform NSG rule | [Container Apps NSG reference](https://learn.microsoft.com/azure/container-apps/firewall-integration) |
-| APIM classic VNet platform port | [APIM VNet reference](https://learn.microsoft.com/azure/api-management/virtual-network-reference) |
-| APIM Premium v2 VNet injection | [Inject APIM Premium v2](https://learn.microsoft.com/azure/api-management/inject-vnet-v2) |
-| Event Hubs protocol port | [Event Hubs connectivity 문제 해결](https://learn.microsoft.com/azure/event-hubs/troubleshooting-guide#troubleshoot-permanent-connectivity-issues) |
+| FDAI 비공개 엔드포인트, VNet 실행기 및 배포 인벤토리 | [배포 및 온보딩](deploy-and-onboard-ko.md) |
+| 공개 egress 없음 및 full-air-gap 동작 | [단절 환경 배포](disconnected-deployment-ko.md) |
+| Direct, APIM, PTU 및 mixed-model 연결 계약 | [LLM 전략](../architecture/llm-strategy-ko.md) |
+| Azure 비공개 엔드포인트 DNS 접미사 | [Azure Private Endpoint DNS](https://learn.microsoft.com/azure/private-link/private-endpoint-dns) |
+| Container Apps platform NSG 룰 | [Container Apps NSG 참조](https://learn.microsoft.com/azure/container-apps/firewall-integration) |
+| APIM classic VNet platform 포트 | [APIM VNet 참조](https://learn.microsoft.com/azure/api-management/virtual-network-reference) |
+| APIM Premium v2 VNet 주입 | [Inject APIM Premium v2](https://learn.microsoft.com/azure/api-management/inject-vnet-v2) |
+| Event Hubs 프로토콜 포트 | [Event Hubs connectivity 문제 해결](https://learn.microsoft.com/azure/event-hubs/troubleshooting-guide#troubleshoot-permanent-connectivity-issues) |
