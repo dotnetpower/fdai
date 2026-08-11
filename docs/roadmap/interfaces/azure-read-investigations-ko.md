@@ -211,7 +211,7 @@ Active-view 인벤토리 요청에는 아키텍처 화면에서 선택된 범위
 | 도구 | 기본 프로바이더 | 목적 |
 |------|------------------|------|
 | `resolve_resource` | Resource Graph 또는 promoted 인벤토리 | 이름, 타입, 리소스 그룹 및 구성된 범위를 리소스 참조 하나로 해석합니다. |
-| `get_resource_state` | Resource 프로바이더 instance 화면 | 현재 리소스 상태와 관측 시간을 확인합니다. |
+| `get_resource_state` | Resource Provider 인스턴스 화면 | 현재 리소스 상태와 관측 시간을 확인합니다. |
 | `query_resource_activity` | Azure 활동 로그 REST 또는 구성된 `AzureActivity` 변환 결과 | 범위가 제한된 control-plane 연산 및 호출자 귀속을 반환합니다. |
 | `query_resource_health` | Resource Health 또는 ARG `HealthResources` | Platform 가용성 이벤트와 customer 연산을 구분합니다. |
 | `query_guest_shutdown_events` | 로그 Analytics guest-log 변환 결과 | 진단 collection이 구성된 경우 operating-system 종료 근거를 찾습니다. |

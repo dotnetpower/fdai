@@ -114,7 +114,7 @@ Operations에는 Muninn의 영속 StateSnapshot만 사용하는 감지 준비도
 
 Server-pinned drift 맥락이 있으면 GET-only 구성 기준선 경로가 신원, 수명 주기, drift, Knowledge 인용, topology, 지연 시간, 예약 검토, 네 안전성 counter를 fresh 읽기로 표시합니다.
 연결 또는 campaign 부재는 사용 불가이나 `not-configured`로 보고하며 진행 상황을 만들지 않고 malformed 데이터를 strict하게 거부하며 in-scope 변경할 수 없는 버전 비교와 failed-attempt 개수를 읽습니다. SPA는 activation, 재개, 예약 생성, 승인, 완화, 리소스 변경을 노출하지 않고 evidence-run, 재개, 청사진 검토, 구체화는 별도 인증된 경로를 사용합니다.
-운영은 mounted JSON/DOCX 쌍, 읽기 전용 Managed 신원, exact resource-group 허용 목록을 시작에서 검증한 뒤 패널을 노출합니다. Operator API는 실행기 신원을 받지 않습니다.
+운영은 mounted JSON/DOCX 쌍, 읽기 전용 Managed Identity, exact resource-group 허용 목록을 시작에서 검증한 뒤 패널을 노출합니다. Operator API는 실행기 신원을 받지 않습니다.
 
 Processes 상세 경로는 동일한 권위 있는 프로세스 journal에서 계획 수립 Room을 조건부로
 렌더링합니다. Strict decoder는 모순된 phase 개수, 중복 후보, 잘못된 선택,
@@ -635,7 +635,7 @@ Factual 개수와 점검 인덱스는 계속 완전한 권위 있는 인벤토�
 않고 direct auxiliary 하위와 semantic neighbor를 표시합니다. 개요는 표시된 리소스만 packing하고
 하위를 계층 및 타입 순서로 정렬하며 접힌 소유자 옆에 최대 두 개의 satellite 자리를 예약합니다. 큰
 resource-group 패널을 wide 행에 먼저 배치하므로 숨겨진 auxiliary가 빈 grid hole을 만들거나 세계를
-부풀리지 않습니다. Virtual 네트워크와 subnet은 낮은 하한
+부풀리지 않습니다. Virtual Network와 subnet은 낮은 하한
 레인으로 렌더링하므로 compute, 데이터 및 게이트웨이 노드를 네트워크 plane 위에서 읽을 수 있습니다. 하한
 레인은 reflection을 렌더링하지 않습니다. Azure 인벤토리는 VNet 페이로드 안에서 관찰된 subnet만
 `network.subnet` 기록으로 승격하고 관찰된 VNet-to-subnet containment 간선을 생성합니다. Console은

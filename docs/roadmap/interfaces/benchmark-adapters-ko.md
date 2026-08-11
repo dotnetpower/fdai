@@ -177,7 +177,7 @@ SREGym package는 이 그룹에 `sregym`을 등록합니다.
 근거는 별도 observe-only 기능입니다. 노드 신원, 준비 상태, schedulability 및 검증된
 CPU와 기억 allocatable quantity만 변환 결과하고 주소, 라벨 및 extended 리소스는 제외합니다.
 Kubectl 어댑터는 fixed 읽기 전용 명령, no shell, 최대 30초 시간 초과, 출력 및 item 한도를
-사용합니다. Diagnostic 변환 결과는 시크릿 객체와 검토되지 않은 필드를 제외합니다. 위임된
+사용합니다. 진단 변환 결과는 시크릿 객체와 검토되지 않은 필드를 제외합니다. 위임된
 신원이 대상 이름 공간의 `metrics.k8s.io` pod를
 읽을 수 있으면 어댑터는 `observe.metrics.query`를 통해 정규화된 컨테이너 CPU 및 기억 사용량을
 변환 결과합니다. Metrics, admission, 소유자, 인벤토리, 이벤트, 노드, 용량 및 의존성

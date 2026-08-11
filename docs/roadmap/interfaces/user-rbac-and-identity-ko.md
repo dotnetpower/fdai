@@ -9,10 +9,10 @@ translation_revised: 2026-08-11
 
 **사람 사용자** 가 콘솔, ChatOps, catalog-as-code 저장소에서 어떻게 인증되고 인가되고
 감사되는가. 이 문서는 사람 아이덴티티 모델의 진실 원본입니다; 비-사람 아이덴티티(실행기
-Managed 신원, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 와
+Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 와
 [deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md) 가 관장.
 
-*사람* 측면의 P0 blocker "최종 아이덴티티 매핑 (외부 IdP ↔ Entra ↔ Managed 신원)"
+*사람* 측면의 P0 blocker "최종 아이덴티티 매핑 (외부 IdP ↔ Entra ↔ Managed Identity)"
 ([security-and-identity-ko.md#open-decisions](../architecture/security-and-identity-ko.md#open-decisions))
 을 해결; executor-측 매핑은 거기 선언된 대로 유지.
 
@@ -32,7 +32,7 @@ Managed 신원, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.md
 
 1. **자기승인 없음** - 거버넌스 변경 요청자(PR 저자, HIL 트리거)는 승인자가 되어선 안 됨.
  CI + GitHub CODEOWNERS로 강제, 롤 분리로 아님.
-2. **승인 ≠ 실행** - 어떤 사람 롤도 실행기 Managed 신원을 보유하지 않음. 사람은 작성·
+2. **승인 ≠ 실행** - 어떤 사람 롤도 실행기 Managed Identity를 보유하지 않음. 사람은 작성·
  리뷰·승인; MI가 실행.
 3. **콘솔은 비특권 표면** - 콘솔은 범위가 제한된 운영 요청을 제출할 수 있지만
  실행기 신원을 받거나 managed 리소스를 변경하지 않습니다
@@ -102,7 +102,7 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 | 제한된 런타임 설정 관리 | | | | ✓ | |
 | `aw-*` 그룹 멤버십 관리 | | | | ✓ | |
 | 인프라 IaC 적용 (deployer) | | | | ✓ | |
-| 실행기 Managed 신원 보유 | (절대) - MI는 비-사람 |||||
+| 실행기 Managed Identity 보유 | (절대) - MI는 비-사람 |||||
 
 운영 API는 영속 명령 서비스가 연결된 경우에만 `POST /system/kill-switch`를
 노출합니다. Owner 또는 externally activated BreakGlass 역할은 기능 검사를 통과하지만,

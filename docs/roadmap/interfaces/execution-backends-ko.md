@@ -125,7 +125,7 @@ Command 카탈로그와 샌드박스 프로파일이 타입이 지정된 `Comman
 ### 통제된 VM 작업
 
 `VmTaskExecutionBackend`는 내용 기반 주소를 가진 Python 작업 검증, declared 기능 검사, 대상
-명시적 선택, Managed 실행 Command 수명 주기 동작을 보존합니다. 작업 시간 초과와 서버가 소유한 실행
+명시적 선택, Managed Run Command 수명 주기 동작을 보존합니다. 작업 시간 초과와 서버가 소유한 실행
 묶음만 낮출 수 있습니다.
 
 ### Azure Container Apps 작업

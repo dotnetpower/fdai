@@ -63,7 +63,7 @@ translation_revised: 2026-08-11
 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
 의 "콘솔 never executes" 규칙을 깨지 **않음**: 이 엔드포인트는 기존 HIL
 큐에 *승인 결정을 기록* (시그널) 할 뿐이며, 별도 실행기 principal이
-나중에 그것을 실행. API 프로세스는 실행기 Managed 신원을 절대
+나중에 그것을 실행. API 프로세스는 실행기 Managed Identity를 절대
 보유하지 않고 변경 표면을 직접 호출하지 않음; 승인과 실행은
 별개 principal 유지.
 
@@ -146,7 +146,7 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도�
  execute, Saga 감사 순서로 갱신합니다. 감사가 최종이며 시간 초과 또는 스트림 실패 시
  영속 Trace 상관관계가 복구 출처로 남습니다.
 - **이것은 13.3 승인 콜백과 나란한 두 번째 문서화된 쓰기 경로**;
- 둘 다 시그널을 기록할 뿐 실행기 Managed 신원을 갖지 않는다.
+ 둘 다 시그널을 기록할 뿐 실행기 Managed Identity를 갖지 않는다.
 
 ### 13.7 Python VM 작업 workbench
 
@@ -171,7 +171,7 @@ Workbench 는 콘솔 신원 경계 를 유지합니다.
  활성화 되기 전에 계속 validate 및 단계 되어야 합니다.
 - **단계 산출물** 는 VM 이 아니라 내용 기반 주소를 가진 산출물 저장소 에 씁니다.
 - **테스트 그림자 계획** 은 `PlanningVmTaskRunner` 를 사용합니다. Operator API 에는 실행
- Command 를 만들 수 있는 Managed 신원 가 없습니다.
+ Command 를 만들 수 있는 Managed Identity가 없습니다.
 - **요청 통제된 실행** 은 타입이 지정된 `ActionProposal` 을 publish 합니다. Console
  프로세스 에서 `VmTaskRunner` 를 호출하거나 file 을 copy 하거나 Python 을 실행하지
  않습니다.

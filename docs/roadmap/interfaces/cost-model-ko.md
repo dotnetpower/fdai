@@ -65,7 +65,7 @@ translation_revised: 2026-08-11
 | 5 | Event Grid 인벤토리 구독 + Diagnostic Settings | Event Grid 전달 연산 + 목적지 서비스 사용량 | **현재 계획으로 재산정** | variable | 별도 custom 토픽은 없고 인벤토리 event는 Event Hubs로, 진단은 로그 Analytics로 전달 |
 | 6 | PostgreSQL Flexible **Burstable B1ms** (1 vCore, 2 GB) | 컴퓨트 + 저장소 + 백업 | **≈ $20 - $25** | fixed | 컴퓨트 ≈$15, 32 GB SSD ≈$4, 7일 백업 ≈$3-5 |
 | 7 | Key Vault Standard | 10k 작업당 ~$0.03 | **≈ $1** | variable (범위가 제한된) | 베이스라인에서 낮음 |
-| 8 | User-assigned Managed 신원 | 무료 | **$0** | - | |
+| 8 | User-assigned Managed Identity | 무료 | **$0** | - | |
 | 9 | 로그 Analytics workspace | 인제스트 ~$2.30/GB (Analytics 로그); 30일 이내 보존 무료 | **$5 - $15** | variable | 인제스트 볼륨이 주 드라이버 |
 | 10 | Azure Container 레지스트리 (Basic) | 고정 일 요금(~$0.167) + 10 GB 저장소 포함 | **≈ $5** | fixed | 후에 geo-replication이나 더 많은 저장소 필요 시 Standard ≈$20 |
 
