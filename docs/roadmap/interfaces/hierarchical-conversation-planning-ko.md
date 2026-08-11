@@ -3,13 +3,14 @@ title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
 translation_source_sha: e43d3091896db6e3de558794766fa6d8ae330008
 translation_revised: 2026-08-11
+
 ---
 
 # 계층형 대화 계획
 
-이 설계는 단순, 복합, 다국어, 멀티모달 FDAI Console 질문을 처리하기 위해 단일 tool 의미 계획을
-하나의 범위 제한 intent graph로 교체합니다. Graph에는 실행 권한이 없습니다. Deterministic 검증이
-각 read goal을 사용 가능한 capability에 연결하고, Bragi는 evidence와 검증된 제한 사항만 표현합니다.
+이 설계는 단순, 복합, 다국어, 멀티모달 FDAI Console 질문을 처리하기 위해 단일 tool 의미 turn 계획을
+하나의 범위가 제한된 intent graph로 교체합니다. Graph에는 실행 권한이 없습니다. Deterministic 검증이
+각 read goal을 사용 가능한 capability에 연결하고, Bragi는 evidence와 검증된 제한 사항만 렌더링합니다.
 
 > 범위: 이 경로는 read-first입니다. Write 요청은 typed draft만 만들 수 있습니다. 기존 안전성 검토,
 > 사람 승인, rollback, 영향 범위, audit gate가 계속 authoritative합니다.
@@ -46,17 +47,17 @@ Production model, provider, descriptor-index 및 Operator stream composition은 
 
 Cross-service cutover는 additive `operator-core-request` 및 `core-operator-projection` version 1.2
 envelope에서 시작합니다. Semantic request는 인증된 principal role, bounded session/prior-turn context,
-purpose, deadline, idempotency identity 및 `execution_authority: false`를 전달합니다. Answered semantic
-result는 하나의 typed disposition과 exact release, principal-manifest, plan, execution-receipt 및 evidence
-identity를 전달합니다. Generic envelope는 version 1.0 consumer와 호환되지만 semantic payload를 이전
-shape로 translate하지 않습니다. 그렇게 하면 evidence contract가 손실되기 때문입니다. Operator outbox
-publisher, Core consumer 및 durable result projection이 compose되기 전까지 version 1.2는 transport
-contract일 뿐이며 visible answer path를 변경하지 않습니다.
+purpose, deadline, idempotency identity 및 `execution_authority: false`를 전달합니다. Terminal semantic
+result는 turn이 답변됐을 때 하나의 typed disposition과 exact release, principal-manifest, plan,
+execution-receipt 및 evidence identity를 전달합니다. Generic envelope는 version 1.0 consumer와
+호환되지만 semantic payload를 이전 shape로 translate하지 않는데, 그렇게 하면 evidence contract가
+손실되기 때문입니다. Operator outbox publisher, Core consumer 및 durable result projection이
+compose되기 전까지 version 1.2는 transport contract일 뿐이며 visible answer path를 변경하지 않습니다.
 Publisher와 result-source transport가 모두 bind되면 Operator-side cutover가 compose됩니다. 이때 하나의
 semantic-aware adapter가 projection, proposal 및 stream routing을 소유하고 local Azure narrator는
 `chat.stream`에서 제외됩니다. PostgreSQL claim은 database clock을 사용하고 held retry는 request와
 result digest를 결합한 projection identity를 사용하며 duplicate result는 request, principal 및 digest를
-atomically 검증합니다. 이 path가 production answer path가 되려면 Core consumer와 deployment transport
+atomic하게 검증합니다. 이 path가 production answer path가 되려면 Core consumer와 deployment transport
 binding이 계속 필요합니다.
 
 Exact-release semantic candidate, verified semantic plan, bounded ObjectSet, secured query receipt, typed
@@ -72,7 +73,7 @@ cancellation을 전파하고 성공한 sibling evidence를 보존합니다. Acti
 계획](ontology-query-coverage-implementation-plan-ko.md)에서 추적합니다.
 
 현재 compatibility path에는 catalog token matching과 legacy single-tool parser가 아직 남아 있습니다.
-이 경로는 목표 자연어 아키텍처가 아닙니다. Exact identifier는 계속 직접 resolve할 수 있지만, 일반
+이들은 목표 자연어 아키텍처가 아닙니다. Exact identifier는 계속 직접 resolve할 수 있지만, 일반
 언어는 active ontology와 capability manifest에서 typed semantic candidate를 만들어야 합니다. 목표
 상태에서는 regex, phrase list 또는 질문별 alias가 capability, relationship path 또는 answer shape를
 선택할 수 없습니다.
@@ -97,8 +98,8 @@ Release gate는 다음 세 결과를 분리해 측정합니다.
 Language coverage는 phrase를 추가하는 방식으로 유지하지 않습니다. Model 또는 embedding index는
 object, relation 및 function candidate를 제안할 수 있습니다. Deterministic verifier는 각 candidate를
 exact release에 resolve하고 endpoint type과 argument를 검증한 뒤 `VerifiedSemanticPlan`을 만들거나
-clarification을 요청합니다. Similarity는 relationship을 입증하거나 query/action authority를 부여하지
-않습니다.
+clarification을 요청합니다. Similarity는 relationship을 입증하지도, query나 action authority를
+부여하지도 않습니다.
 
 ## Semantic decomposition 및 plan 형성
 
@@ -249,7 +250,7 @@ structural coverage에 필요하지 않으며 deployment data에서 파생됐으
 Web result는 untrusted evidence입니다. Sanitization, approved domain, retrieval time, claim verification이
 계속 필요합니다. Search가 unavailable이면 answer는 model knowledge를 표시하고 freshness 제한을
 설명하며 citation을 날조하지 않습니다. 이 fallback은 validated goal에 fresh evidence가 필요하지 않은
-경우에만 허용됩니다. Raw chain-of-thought는 저장하거나 표시하지 않습니다. Bragi는 간결한 conclusion,
+경우에만 허용됩니다. Raw chain-of-thought는 저장하지도 표시하지도 않습니다. Bragi는 간결한 conclusion,
 evidence, assumption, comparison basis, limitation, uncertainty를 제공합니다.
 
 ### 컨텍스트 기반 운영 근거 결합
