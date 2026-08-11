@@ -75,7 +75,7 @@
     "services/core-control-plane/src/fdai/agents/thor.py": "9e19ba3390674be85a54cd5e083021952d24d43df41eb94c272a9d757229dff4",
     "services/core-control-plane/src/fdai/agents/var.py": "d4af6b0a58d477311b43c2dd4dd19d097ac5110c4bbbcbf496802c1a0039982a",
     "services/core-control-plane/src/fdai/agents/vidar.py": "9a15df6fef9f5db74c90201c44088c38b20d8fb60f1476a622be01aa73007800",
-    "services/core-control-plane/src/fdai/composition/__init__.py": "86bed9c64d6839b355b83b33686bc474a3b5fe3ee674c39a88ba6e13b402af52",
+    "services/core-control-plane/src/fdai/composition/__init__.py": "c9fce67b942f5511eded5c6ee63ee097c873da6b73e95a0e78052b89a263eeb3",
     "services/core-control-plane/src/fdai/composition/_helpers.py": "1eb3f9f1ba603d2b0800f7d838a2bbd978d27b708bd7ee4ccf87a10dc85d4842",
     "services/core-control-plane/src/fdai/composition/readiness.py": "3e34b598b95aad397f23f3ebf9847c7c77ea396216a32533925eae9bd6dd25ba",
     "services/core-control-plane/src/fdai/composition/readiness_evidence.py": "44484b30cbb3989385f7f3a69f0164cf6aabeda32a71f57a40484d30a4fd8479",
@@ -1035,7 +1035,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-11T07:57:59Z",
+  "generated_at": "2026-08-11T08:07:03Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

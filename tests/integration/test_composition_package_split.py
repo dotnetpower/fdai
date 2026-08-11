@@ -54,6 +54,8 @@ _EXPECTED_FILES = frozenset(
         # Binds the evidence-only browser provider, exact origin policies,
         # immutable artifact store, and custody sink as one fail-closed seam.
         "wire_browser_evidence.py",
+        # Binds exact-release semantic planning and request-role query executors.
+        "wire_semantic_query.py",
     }
 )
 

@@ -1,26 +1,12 @@
-"""Composition root - the ONE place that instantiates concrete implementations.
+"""Composition root for concrete FDAI implementations.
 
-``core/`` modules never construct adapters; they receive :class:`Container`
-instances (or the individual seam Protocols) via arguments. Only entry points
-(``__main__``, CLIs, tests) call :func:`default_container` /
-:func:`default_container_from_env`. A per-customer fork registers its own
-bindings by exposing its own container factory in its composition root -
-it MUST NOT edit ``core/`` or patch upstream defaults.
+``core/`` receives provider Protocols and never constructs adapters. Entry points call
+``default_container`` with explicit validated config or ``default_container_from_env`` at the
+process boundary. A fork wraps these factories instead of editing upstream Core.
 
-Fail-fast contract
-------------------
-:func:`default_container` **requires an explicit** :class:`AppConfig`. There
-is no implicit env-var read in the primary factory. That way, unit tests
-build a config in code (no environment surprises), and only the operator's
-entry point calls :func:`default_container_from_env`, which does read the
-process environment.
-
-LLM bindings use deterministic in-memory fakes in local mode. Azure mode starts
-unbound and requires :func:`bind_azure_llm_bindings`; accessing it earlier raises
-:class:`LlmBindingsUnavailableError` rather than silently falling back.
-
-See ``docs/roadmap/architecture/project-structure.md`` and
-``docs/roadmap/deployment/deploy-and-onboard.md`` for the binding contracts.
+Local mode may bind deterministic model fakes. Azure model access remains unavailable until
+``bind_azure_llm_bindings`` succeeds; missing bindings never fall back silently. The detailed
+binding contracts live in the project-structure and deploy-and-onboard design documents.
 """
 
 from __future__ import annotations
