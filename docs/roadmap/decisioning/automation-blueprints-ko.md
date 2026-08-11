@@ -1,110 +1,110 @@
 ---
 translation_of: automation-blueprints.md
 translation_source_sha: 1861c29b174423382916d0b637ed3455177bcf69
-translation_revised: 2026-08-04
+translation_revised: 2026-08-11
 ---
-# Reviewable Automation Blueprints
+# Reviewable 자동화 Blueprints
 
-Automation blueprint는 반복해서 성공한 operator work를 inert schedule suggestion으로 바꿉니다.
-Candidate는 evidence-backed, disabled, shadow-only, reviewable 상태이며 authorized operator가
-accept하고 명시적으로 materialize하기 전에는 scheduled task를 만들 수 없습니다.
+자동화 청사진은 반복해서 성공한 운영자 작업을 inert 예약 suggestion으로 바꿉니다.
+후보는 evidence-backed, 비활성화된, shadow-only, reviewable 상태이며 authorized 운영자가
+수용하고 명시적으로 materialize하기 전에는 scheduled 작업을 만들 수 없습니다.
 
-> **범위:** Version 1은 scheduler task만 제안합니다. Schedule auto-activation, broad scope 추론,
-> scheduled run 또는 review conversation의 recursive schedule suggestion은 지원하지 않습니다.
+> **범위:** 버전 1은 스케줄러 작업만 제안합니다. 예약 auto-activation, broad 범위 추론,
+> scheduled 실행 또는 검토 대화의 재귀 예약 suggestion은 지원하지 않습니다.
 
 ## Design at a glance
 
-Deterministic aggregator는 completed-turn evidence를 normalized intent, principal, resource scope,
-schedule class로 group합니다. Recurrence threshold를 충족하고 authority field가 동일하며 모든
-outcome이 성공하고 같은 key의 scheduler history에 unresolved failure가 없어야 합니다.
+결정론적 aggregator는 completed-turn 근거를 정규화된 의도, principal, 리소스 범위,
+예약 등급으로 그룹합니다. Recurrence 임계값을 충족하고 권한 필드가 동일하며 모든
+결과가 성공하고 같은 키의 스케줄러 이력에 해결되지 않은 실패가 없어야 합니다.
 
-Candidate는 source text 대신 evidence fingerprint를 저장하고 narrow scope, schedule, event type,
-delivery intent, tool, default-deny isolation, estimated cost, confidence, proposer, expiry를 가집니다.
-Optional off-path drafting은 bounded display text만 변경할 수 있습니다.
+후보는 출처 텍스트 대신 근거 fingerprint를 저장하고 narrow 범위, 예약, 이벤트 타입,
+전달 의도, 도구, default-deny 격리, estimated 비용, 확신도, 제안자, 만료를 가집니다.
+선택적 off-path drafting은 범위가 제한된 display 텍스트만 변경할 수 있습니다.
 
-## Evidence and recurrence
+## 근거 and recurrence
 
-`AutomationBlueprintEvidence`는 identity, schedule, event type, resource scope, delivery, tool,
-isolation, outcome, cost, occurrence time, source를 기록합니다. `operator_turn` evidence만 count하고
-`scheduled_run`과 `blueprint_review`는 count하지 않습니다. Scheduled failure는 matching key를 veto합니다.
+`AutomationBlueprintEvidence`는 신원, 예약, 이벤트 타입, 리소스 범위, 전달, 도구,
+격리, 결과, 비용, occurrence 시간, 출처를 기록합니다. `operator_turn` 근거만 개수하고
+`scheduled_run`과 `blueprint_review`는 개수하지 않습니다. Scheduled 실패는 matching 키를 veto합니다.
 
-Default threshold는 unique fingerprint 3개입니다. Mixed scope는 별도 group입니다. Candidate ID는
-dedup key와 frozen evidence set을 bind하므로 order와 무관하고 rejection/expiry 후 실제 new evidence가
-생기면 후속 candidate를 만들 수 있습니다.
+기본값 임계값은 unique fingerprint 3개입니다. Mixed 범위는 별도 그룹입니다. 후보 ID는
+dedup 키와 고정된 근거 집합을 연결하므로 순서와 무관하고 거절/만료 후 실제 new 근거가
+생기면 후속 후보를 만들 수 있습니다.
 
-## Inert contract
+## Inert 계약
 
-모든 candidate는 `state=draft`, `enabled=false`, `shadow_only=true`, mutation tool 없음, narrowest
-observed scope, default-deny isolation, 30-day expiry로 시작합니다. Policy는 expiry를 1 hour부터
-90 days로 제한합니다. Control character, unsafe ID, duplicate tool, negative cost, naive timestamp,
-authority drift는 aggregation 전에 실패합니다.
+모든 후보는 `state=draft`, `enabled=false`, `shadow_only=true`, 변경 도구 없음, narrowest
+관찰된 범위, default-deny 격리, 30-day 만료로 시작합니다. Policy는 만료를 1 시간부터
+90 days로 제한합니다. 컨트롤 character, unsafe ID, 중복 도구, 부정 비용, naive 시각,
+권한 표류는 집계 전에 실패합니다.
 
-## Review and materialization
+## 검토 and 구체화
 
 ```text
 draft -> accepted -> materialized
-  |          |
-  +-> rejected
-  +-> expired <-+
+ |     |
+ +-> rejected
+ +-> expired <-+
 ```
 
-Review에는 authorized principal, reason, proposer와 다른 reviewer가 필요합니다. Reject와 expiry는
-terminal입니다. Same-evidence 재제출은 terminal record를 반환하고 새 candidate에는 strict fingerprint
+검토에는 authorized principal, 사유, 제안자와 다른 검토자가 필요합니다. 거부와 만료는
+최종입니다. Same-evidence 재제출은 최종 기록을 반환하고 새 후보에는 strict fingerprint
 superset이 필요합니다.
 
-Materialization은 reviewing principal로 `CreateScheduledTaskCommand`를 호출하며 scheduler store를
-직접 쓰지 않습니다. Stable task ID가 retry idempotency를 제공하고 conflicting content는 실패합니다.
-결과 task는 existing trust/risk path로 shadow-only event를 보냅니다.
+구체화는 reviewing principal로 `CreateScheduledTaskCommand`를 호출하며 스케줄러 저장소를
+직접 쓰지 않습니다. 고정된 작업 ID가 재시도 멱등성을 제공하고 conflicting 내용은 실패합니다.
+결과 작업은 기존 trust/risk 경로로 shadow-only 이벤트를 보냅니다.
 
-Configuration review campaign도 같은 path를 사용합니다. Exact cited run 세 개는 run별 fingerprint와
-zero mutation tool을 가진 disabled, shadow-only candidate를 제출합니다. 별도 Approver 또는 Owner가
-accept한 뒤에만 reviewing principal이 strict weekly task를 materialize할 수 있습니다. Drift evidence는
-scheduler store를 직접 쓰지 않습니다.
+구성 검토 캠페인도 같은 경로를 사용합니다. Exact cited 실행 세 개는 실행별 fingerprint와
+zero 변경 도구를 가진 비활성화된, shadow-only 후보를 제출합니다. 별도 Approver 또는 Owner가
+수용한 뒤에만 reviewing principal이 strict weekly 작업을 materialize할 수 있습니다. 표류 근거는
+스케줄러 저장소를 직접 쓰지 않습니다.
 
-## Text drafting
+## 텍스트 drafting
 
-`AutomationBlueprintTextDrafter`는 2000-character budget에서 `name`과 `prompt`만 반환합니다. Typed
-output은 control character와 empty/oversized text를 거부합니다. Scope, tool, schedule, isolation,
-delivery, autonomy, risk는 deterministic field로 유지됩니다.
+`AutomationBlueprintTextDrafter`는 2000-character 예산에서 `name`과 `prompt`만 반환합니다. 타입이 지정된
+출력은 컨트롤 character와 빈/oversized 텍스트를 거부합니다. 범위, 도구, 예약, 격리,
+전달, 자율성, risk는 결정론적 필드로 유지됩니다.
 
-## Durability, expiry, and retention
+## 내구성, 만료, and 보존
 
-Migration `20260720_0043`은 active-dedup partial unique index가 있는
-`automation_blueprint_candidate`를 생성합니다. PostgreSQL은 authority field, fingerprint, state,
-review reason, task ID, realized usage count를 저장하며 state change는 compare-and-swap입니다.
+이행 `20260720_0043`은 active-dedup 부분 unique 인덱스가 있는
+`automation_blueprint_candidate`를 생성합니다. PostgreSQL은 권한 필드, fingerprint, 상태,
+검토 사유, 작업 ID, realized 사용량 개수를 저장하며 상태 변경은 compare-and-swap입니다.
 
-Expiry는 state를 바꾸고 evidence를 삭제하지 않습니다. Terminal row는 audit와 suppression을 위해
-남고 source conversation이 아니라 hash와 bounded metadata만 포함합니다. Source turn은 별도
-conversation retention을 따르며 deployment는 aggregate metric 보존 후 terminal row를 archive할 수 있습니다.
+만료는 상태를 바꾸고 근거를 삭제하지 않습니다. 최종 행은 감사와 suppression을 위해
+남고 출처 대화가 아니라 해시와 범위가 제한된 메타데이터만 포함합니다. 출처 턴은 별도
+대화 보존을 따르며 배포는 집계 메트릭 보존 후 최종 행을 보관할 수 있습니다.
 
-## Review surfaces and metrics
+## 검토 surfaces and metrics
 
-`GET /automation-blueprints`는 evidence, cost, scope, tool, isolation, confidence, expiry, state를
-read-only card로 반환하며 review/materialize control이 없습니다. 별도 ChatOps route factory가 injected
-principal authorizer 뒤에서 accept/reject 및 materialize를 제공합니다.
+`GET /automation-blueprints`는 근거, 비용, 범위, 도구, 격리, 확신도, 만료, 상태를
+읽기 전용 카드로 반환하며 검토/materialize 컨트롤이 없습니다. 별도 ChatOps 경로 factory가 injected
+principal authorizer 뒤에서 수용/거부 및 materialize를 제공합니다.
 
-Metric은 proposed, accepted, rejected, expired, materialized, candidate precision, acceptance rate,
-rejection reason, actual realized usage를 보고합니다. Usage는 materialized candidate의 scheduled
+메트릭은 proposed, accepted, rejected, 만료된, materialized, 후보 정밀도, acceptance 비율,
+거절 사유, actual realized 사용량을 보고합니다. 사용량은 materialized 후보의 scheduled
 occurrence가 관찰된 뒤에만 증가합니다.
 
-## Failure behavior
+## 실패 행동
 
-- Below-threshold, mixed-scope, unstable, unresolved, authority-drift group은 아무것도 만들지 않습니다.
-- Scheduled run과 review conversation은 suggestion으로 recurse하지 않습니다.
-- Unauthorized 또는 self-review는 state change 전에 실패합니다.
-- Candidate는 accepted review와 explicit materialization 전에 task를 만들지 않습니다.
-- Duplicate materialization은 existing candidate와 task를 반환합니다.
+- Below-threshold, mixed-scope, unstable, 해결되지 않은, authority-drift 그룹은 아무것도 만들지 않습니다.
+- Scheduled 실행과 검토 대화는 suggestion으로 recurse하지 않습니다.
+- 승인되지 않은 또는 self-review는 상태 변경 전에 실패합니다.
+- 후보는 accepted 검토와 명시적 구체화 전에 작업을 만들지 않습니다.
+- 중복 구체화는 기존 후보와 작업을 반환합니다.
 
-## Verification
+## 검증
 
-Coverage는 recurrence, dedup, scope, outcome stability, scheduler veto, recursion, injection,
-suppression/new evidence, authorization, no-self-review, expiry, text bounds, idempotent
-materialization, PostgreSQL codec/CAS, review API, console decoding, metrics를 포함합니다.
+커버리지는 recurrence, dedup, 범위, 결과 stability, 스케줄러 veto, 재귀, 주입,
+suppression/new 근거, 권한 확인, no-self-review, 만료, 텍스트 한계치, 멱등적
+구체화, PostgreSQL codec/CAS, 검토 API, 콘솔 디코딩, metrics를 포함합니다.
 
 ## Related docs
 
-| To learn about | Read |
+| To learn about | 읽기 |
 |----------------|------|
-| Scheduler execution과 isolation | [Process Automation](process-automation-ko.md) |
-| Console 및 ChatOps boundary | [Operator Console](../interfaces/operator-console-ko.md) |
-| Post-turn proposal eligibility | [Post-turn Improvement Review](post-turn-improvement-review-ko.md) |
+| 스케줄러 실행과 격리 | [프로세스 자동화](process-automation-ko.md) |
+| Console 및 ChatOps 경계 | [Operator Console](../interfaces/operator-console-ko.md) |
+| Post-turn 제안 충족 여부 | [Post-turn Improvement 검토](post-turn-improvement-review-ko.md) |

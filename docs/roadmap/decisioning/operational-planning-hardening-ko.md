@@ -2,93 +2,93 @@
 title: 운영 계획 하드닝 근거
 translation_of: operational-planning-hardening.md
 translation_source_sha: b16cd234f8d35c52d17e5aabee5f8b46e6fbbf7e
-translation_revised: 2026-08-03
+translation_revised: 2026-08-11
 ---
 # 운영 계획 하드닝 근거
 
-이 문서는 운영 계획의 구현 및 적대적 검토 근거를 기록합니다. 구현된 shadow 동작과 enforcement
-승격 전에 필요한 release evidence를 구분합니다.
+이 문서는 운영 계획의 구현 및 적대적 검토 근거를 기록합니다. 구현된 그림자 동작과 적용
+승격 전에 필요한 release 근거를 구분합니다.
 
-> **범위:** 검토 대상은 typed logic asset, 결정론적 선택, specialist evidence, sandbox 및 twin
-> simulation, durable Process 기록, execution handoff, Planning Room, runtime availability, bounded
-> input입니다.
+> **범위:** 검토 대상은 타입이 지정된 logic asset, 결정론적 선택, 전문가 근거, 샌드박스 및 twin
+> 시뮬레이션, 영속 프로세스 기록, 실행 인계, 계획 수립 Room, 런타임 가용성, 범위가 제한된
+> 입력입니다.
 >
 > **결과:** 12개의 독립적인 검토 라운드 이후 알려진 Medium, High 또는 Critical 결함은 없습니다.
-> 남은 항목은 Low release-readiness gap이며 planning이 shadow mode에 머물기 때문에 authority를
+> 남은 항목은 Low release-readiness 공백이며 계획 수립이 그림자 모드에 머물기 때문에 권한을
 > 높일 수 없습니다.
 
 ## 한눈에 보는 설계
 
-캠페인은 구현된 contract에서 재현되는 finding만 인정했습니다. 확인된 Medium 이상 finding에는
-focused regression test와 별도 hardening commit을 추가했습니다. Proposal evidence를 execution
-authority로 오해한 finding은 불필요한 code를 추가하지 않고 기각했습니다.
+캠페인은 구현된 계약에서 재현되는 발견 사항만 인정했습니다. 확인된 Medium 이상 발견 사항에는
+focused 회귀 테스트와 별도 강화 커밋을 추가했습니다. 제안 근거를 실행
+권한으로 오해한 발견 사항은 불필요한 코드를 추가하지 않고 기각했습니다.
 
 ## 구현 근거
 
-| Capability | 근거 |
+| 기능 | 근거 |
 |------------|------|
-| Logic identity 및 authorization | Canonical release가 typed function을 고정하고 invocation은 agent, role, purpose, input schema, artifact digest, deterministic seed를 검사합니다. |
-| Decision planning | Hard constraint가 Pareto pruning 및 기존 weighted arbitration보다 먼저 적용됩니다. No-action baseline과 rejected reason은 immutable 상태를 유지합니다. |
-| Agent collaboration | 기존 specialist topic이 optional Forseti coordinator에 evidence를 제공합니다. Direct agent call, 새 agent 또는 shared mutable workflow state를 추가하지 않았습니다. |
-| Simulation | 검토된 programmatic pipeline과 active/challenger twin model이 typed receipt를 생성합니다. 누락, malformed, stale 또는 divergent evidence는 plan을 보류합니다. |
-| Durability | 기존 Workflow 및 Process snapshot과 append-only child event가 idempotent replay로 planning phase를 기록합니다. |
-| Execution handoff | 선택한 option은 exact target 및 release identity를 가진 proposal-only MutationPlan으로 compile됩니다. Risk, approval, execution, recovery, audit은 분리되어 있습니다. |
-| Effect closure | 성공을 닫기 전에 selected option, MutationPlan, ResponseOutcome prediction id가 하나의 exact chain을 구성합니다. |
-| Product surface | 기존 Process route가 strict read-only Planning Room projection을 제공합니다. Mutation route 또는 executor identity를 추가하지 않습니다. |
-| Runtime operation | Startup은 하나의 immutable capability status에서 availability, enablement, shadow mode, reason, 누락 prerequisite를 기록합니다. |
+| Logic 신원 및 권한 확인 | 정본 release가 타입이 지정된 함수를 고정하고 호출은 에이전트, 역할, 용도, 입력 스키마, 산출물 다이제스트, 결정론적 시드를 검사합니다. |
+| 결정 계획 수립 | Hard 제약이 Pareto pruning 및 기존 weighted 중재보다 먼저 적용됩니다. No-action 기준선과 rejected 사유는 변경할 수 없는 상태를 유지합니다. |
+| 에이전트 collaboration | 기존 전문가 토픽이 선택적 Forseti 조정기에 근거를 제공합니다. Direct 에이전트 호출, 새 에이전트 또는 shared 변경 가능한 작업 흐름 상태를 추가하지 않았습니다. |
+| 시뮬레이션 | 검토된 programmatic 파이프라인과 활성/challenger twin 모델이 타입이 지정된 증적을 생성합니다. 누락, malformed, stale 또는 divergent 근거는 계획을 보류합니다. |
+| 내구성 | 기존 작업 흐름 및 프로세스 스냅샷과 추가 전용 하위 이벤트가 멱등적 재생으로 계획 수립 phase를 기록합니다. |
+| 실행 인계 | 선택한 옵션은 exact 대상 및 release 신원을 가진 proposal-only MutationPlan으로 compile됩니다. Risk, 승인, 실행, 복구, 감사는 분리되어 있습니다. |
+| 효과 종결 | 성공을 닫기 전에 선택된 옵션, MutationPlan, ResponseOutcome prediction id가 하나의 exact 체인을 구성합니다. |
+| Product 표면 | 기존 프로세스 경로가 strict 읽기 전용 계획 수립 Room 변환 결과를 제공합니다. 변경 경로 또는 실행기 신원을 추가하지 않습니다. |
+| 런타임 연산 | 시작은 하나의 변경할 수 없는 기능 상태에서 가용성, 활성화, 그림자 모드, 사유, 누락 선행 조건을 기록합니다. |
 
 ## 검토 라운드
 
 | 라운드 | 초점 | 결과 |
 |-------:|------|------|
-| 1 | Agent authority 및 separation of duties | Authority bypass가 없습니다. MutationPlan compilation은 proposal-only artifact이므로 action execution이라는 주장을 기각했습니다. |
-| 2 | Deterministic replay | Candidate, effect, receipt 순서를 고정해 동등한 input이 byte-identical case와 plan을 생성합니다. |
-| 3 | Constitutional constraint | 누락, stale, conflict 또는 review-required context가 ineligible이 되어 arbitration에 도달하지 못함을 확인했습니다. |
-| 4 | Fan-out 및 candidate enumeration | Specialist domain set을 제한하고 hard cap 초과 candidate는 truncation하지 않고 실패하도록 확인했습니다. |
-| 5 | Compute sandbox isolation | Reviewed source digest, generated client, capability token, tool allowlist, timeout, byte ceiling, credential 없음, 일반 network 없음을 확인했습니다. |
-| 6 | Twin evidence 및 model replay | 동등한 active/challenger input이 하나의 stable simulation receipt를 만들도록 effect ordering을 수정했습니다. |
-| 7 | Process durability 및 concurrency | PostgreSQL child-event replay를 atomic idempotency conflict 처리와 하나의 outbox winner로 수정했습니다. |
-| 8 | Execution 및 outcome lineage | Closure를 exact selected plan, ActionType, MutationPlan, prediction id에 결속했습니다. |
-| 9 | Planning Room security 및 responsive layout | Strict decoding, correlation check, read-only routing, action control 없음 여부를 확인하고 좁은 화면의 cell wrapping을 추가했습니다. |
-| 10 | Frozen scenario truthfulness | Manifest를 partial로 낮추고 두 release-evidence proxy를 명시했습니다. |
-| 11 | Runtime observability 및 degradation | Structured capability status를 추가했습니다. 누락된 optional evidence binding은 표시되며 관련 없는 agent work를 차단하지 않습니다. |
-| 12 | Target binding 및 adversarial bound | Plan을 frozen target에 결속하고 objective, effect, constraint, simulation, text, 전체 nested evidence manifest에 artifact 생성 전 limit을 적용했습니다. |
+| 1 | 에이전트 권한 및 separation of duties | 권한 bypass가 없습니다. MutationPlan compilation은 proposal-only 산출물이므로 액션 실행이라는 주장을 기각했습니다. |
+| 2 | 결정론적 재생 | 후보, 효과, 증적 순서를 고정해 동등한 입력이 byte-identical 사례와 계획을 생성합니다. |
+| 3 | Constitutional 제약 | 누락, stale, 충돌 또는 review-required 맥락이 ineligible이 되어 중재에 도달하지 못함을 확인했습니다. |
+| 4 | 동시 확산 및 후보 enumeration | 전문가 domain 집합을 제한하고 hard 상한 초과 후보는 잘림하지 않고 실패하도록 확인했습니다. |
+| 5 | Compute 샌드박스 격리 | 검토된 출처 다이제스트, 생성된 클라이언트, 기능 토큰, 도구 허용 목록, 시간 초과, 바이트 상한, 자격 증명 없음, 일반 네트워크 없음을 확인했습니다. |
+| 6 | Twin 근거 및 모델 재생 | 동등한 활성/challenger 입력이 하나의 고정된 시뮬레이션 증적을 만들도록 효과 정렬을 수정했습니다. |
+| 7 | 프로세스 내구성 및 동시성 | PostgreSQL child-event 재생을 atomic 멱등성 충돌 처리와 하나의 발신함 winner로 수정했습니다. |
+| 8 | 실행 및 결과 계보 | 종결을 exact 선택된 계획, ActionType, MutationPlan, prediction id에 결속했습니다. |
+| 9 | 계획 수립 Room security 및 responsive 배치 | Strict 디코딩, 상관관계 검사, 읽기 전용 라우팅, 액션 컨트롤 없음 여부를 확인하고 좁은 화면의 cell wrapping을 추가했습니다. |
+| 10 | 고정된 시나리오 truthfulness | 매니페스트를 부분으로 낮추고 두 release-evidence proxy를 명시했습니다. |
+| 11 | 런타임 observability 및 성능 저하 | 구조화된 기능 상태를 추가했습니다. 누락된 선택적 근거 연결은 표시되며 관련 없는 에이전트 작업을 차단하지 않습니다. |
+| 12 | 대상 연결 및 adversarial 한계 | 계획을 고정된 대상에 결속하고 objective, 효과, 제약, 시뮬레이션, 텍스트, 전체 중첩된 근거 매니페스트에 산출물 생성 전 한도를 적용했습니다. |
 
-## Live shadow 증명
+## 실제 운영 그림자 증명
 
-2026-08-03에 generic non-production Azure Container App을 대상으로 read-only observation을
-수행했습니다. Allowlist에 포함된 state field만 canonicalize했으며 resource name, account identifier,
-endpoint, identity, secret reference 또는 raw deployment payload는 repository에 포함하지 않았습니다.
+2026-08-03에 범용 non-production Azure Container App을 대상으로 읽기 전용 관측을
+수행했습니다. 허용 목록에 포함된 상태 필드만 canonicalize했으며 리소스 이름, 계정 식별자,
+엔드포인트, 신원, 시크릿 참조 또는 raw 배포 페이로드는 저장소에 포함하지 않았습니다.
 
-관측 대상에는 current revision과 ready revision이 충돌하는 evidence가 있었습니다. 따라서 운영 계획은
-`held_no_eligible_option` 사유의 `ineligible` assessment를 생성했고 selected option과 execution attempt는
-없었습니다. 두 번째 read는 같은 allowlisted state digest를 생성했습니다. 이 증명은 fail-closed live
-evidence 처리와 Azure mutation 0건을 보여 주며 성공적인 enforcement drill을 주장하지 않습니다.
+관측 대상에는 현재 개정 번호와 준비된 개정 번호가 충돌하는 근거가 있었습니다. 따라서 운영 계획은
+`held_no_eligible_option` 사유의 `ineligible` 평가를 생성했고 선택된 옵션과 실행 시도는
+없었습니다. 두 번째 읽기는 같은 허용 목록에 있는 상태 다이제스트를 생성했습니다. 이 증명은 실패 시 차단 실제 운영
+근거 처리와 Azure 변경 0건을 보여 주며 성공적인 적용 drill을 주장하지 않습니다.
 
 ## 잔여 위험
 
-Frozen scenario manifest는 두 개의 명시적 proxy 때문에 `partial` 상태를 유지합니다.
+고정된 시나리오 매니페스트는 두 개의 명시적 proxy 때문에 `partial` 상태를 유지합니다.
 
-- **Partial execution recovery:** Contract test는 mismatched outcome을 verified rollback으로 닫지만,
-  전용 non-production partial-execution drill은 release evidence로 남아 있습니다.
-- **Standing emergency authority:** A0 proposal-only 동작을 검증했습니다. Standing emergency authority의
-  명시적 non-applicability evidence는 release evidence로 남아 있습니다.
+- **부분 실행 복구:** 계약 테스트는 mismatched 결과를 검증된 롤백으로 닫지만,
+ 전용 non-production partial-execution drill은 release 근거로 남아 있습니다.
+- **Standing emergency 권한:** A0 proposal-only 동작을 검증했습니다. Standing emergency 권한의
+ 명시적 non-applicability 근거는 release 근거로 남아 있습니다.
 
-두 gap은 execution을 활성화할 수 없으므로 제공되는 shadow capability에서는 Low입니다. Verified
-scenario evidence로 교체되기 전까지 향후 enforcement promotion을 차단합니다. Capability status,
-shadow mode, 기존 risk path, policy escape 0건 요구 사항은 계속 authority를 가집니다.
+두 공백은 실행을 활성화할 수 없으므로 제공되는 그림자 기능에서는 Low입니다. 검증된
+시나리오 근거로 교체되기 전까지 향후 적용 승격을 차단합니다. 기능 상태,
+그림자 모드, 기존 risk 경로, 정책 escape 0건 요구 사항은 계속 권한을 가집니다.
 
 ## 검증
 
-Focused validation은 전체 operational-planning subsystem, frozen manifest, runtime bootstrap status,
-strict Python typing, Console model test, 전체 Console typecheck 및 build, translation freshness,
-punctuation, diff hygiene를 포함했습니다. 중앙 integration validation은 `main` 병합 전에 전체 구현 및
-hardening 범위를 통과했습니다.
+Focused 검증은 전체 operational-planning subsystem, 고정된 매니페스트, 런타임 초기화 상태,
+strict Python typing, Console 모델 테스트, 전체 Console typecheck 및 빌드, translation 최신성,
+punctuation, diff hygiene를 포함했습니다. 중앙 통합 검증은 `main` 병합 전에 전체 구현 및
+강화 범위를 통과했습니다.
 
 ## 관련 문서
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | 운영 계획 설계 | [운영 계획](operational-planning-ko.md) |
-| Agent ownership 및 arbitration | [Agent Pantheon](../agents/agent-pantheon-ko.md) |
-| 읽기 전용 graph simulation | [Assurance Twin](../operations/assurance-twin-ko.md) |
+| 에이전트 소유권 및 중재 | [에이전트 Pantheon](../agents/agent-pantheon-ko.md) |
+| 읽기 전용 그래프 시뮬레이션 | [Assurance Twin](../operations/assurance-twin-ko.md) |

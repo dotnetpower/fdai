@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
 translation_source_sha: 242498b752fce09fe2fc08a63427379035867f49
-translation_revised: 2026-08-06
+translation_revised: 2026-08-11
 ---
 # 대화 품질 보증
 
@@ -15,27 +15,27 @@ translation_revised: 2026-08-06
 
 ## 설계 요약
 
-Bragi는 최종 turn을 저장합니다. Norns는 응답 경로 밖에서 이를 평가하고, Saga는 각 평가와
+Bragi는 최종 턴을 저장합니다. Norns는 응답 경로 밖에서 이를 평가하고, Saga는 각 평가와
 정책 전환을 기록하며, Mimir는 고정 루브릭을 관리합니다. 이 루프는 RBAC, 승인, 위험, 정책,
-agent 역할 또는 executor 권한을 변경할 수 없습니다.
+에이전트 역할 또는 실행기 권한을 변경할 수 없습니다.
 
 ```mermaid
 flowchart LR
-    TURN[최종 turn] --> CHECK[결정론적 검사]
-    CHECK -->|판정 가능| LEDGER[평가 원장]
-    CHECK -->|의미 평가| A[독립 평가자 A]
-    CHECK -->|의미 평가| B[독립 평가자 B]
-    A --> REDUCE[결정론적 reducer]
-    B --> REDUCE
-    REDUCE -->|불일치| TIE[독립 중재자]
-    TIE --> LEDGER
-    LEDGER --> CLUSTER[Norns 실패 군집화]
-    CLUSTER --> CANDIDATE[제한된 정책 후보]
-    CANDIDATE --> REPLAY[블라인드 이중 언어 재실행]
-    REPLAY --> SHADOW[shadow 및 canary]
-    SHADOW -->|보호 지표 통과| PROMOTE[자동 승격]
-    SHADOW -->|회귀| ROLLBACK[자동 롤백]
-    HUMAN[운영자 이의 제기] --> LEDGER
+  TURN[최종 turn] --> CHECK[결정론적 검사]
+  CHECK -->|판정 가능| LEDGER[평가 원장]
+  CHECK -->|의미 평가| A[독립 평가자 A]
+  CHECK -->|의미 평가| B[독립 평가자 B]
+  A --> REDUCE[결정론적 reducer]
+  B --> REDUCE
+  REDUCE -->|불일치| TIE[독립 중재자]
+  TIE --> LEDGER
+  LEDGER --> CLUSTER[Norns 실패 군집화]
+  CLUSTER --> CANDIDATE[제한된 정책 후보]
+  CANDIDATE --> REPLAY[블라인드 이중 언어 재실행]
+  REPLAY --> SHADOW[shadow 및 canary]
+  SHADOW -->|보호 지표 통과| PROMOTE[자동 승격]
+  SHADOW -->|회귀| ROLLBACK[자동 롤백]
+  HUMAN[운영자 이의 제기] --> LEDGER
 ```
 
 ## 구독마다 학습 결과가 다른 이유
@@ -59,7 +59,7 @@ $$
 
 전역 사전 분포는 근거가 적은 구독의 과적합을 제한합니다. 검증된 로컬 근거가 늘어나면 사후
 분산이 줄고 로컬 추정치의 비중이 커집니다. 따라서 FDAI는 해당 환경에서 잘 작동한 근거 소스,
-route 및 응답 정책을 학습할 수 있습니다. 블라인드 재실행과 canary 보호 지표를 통과한 변경만
+경로 및 응답 정책을 학습할 수 있습니다. 블라인드 재실행과 canary 보호 지표를 통과한 변경만
 유지합니다.
 
 예상 오류 곡선은 다음과 같이 모델링하지만 보장하지는 않습니다.
@@ -73,23 +73,23 @@ $$
 
 ## 평가 계약
 
-각 평가는 제한된 메타데이터, content digest, 모델 식별자, 기준별 점수, 근거 참조, 비용 및
+각 평가는 제한된 메타데이터, 내용 다이제스트, 모델 식별자, 기준별 점수, 근거 참조, 비용 및
 생명주기 상태를 저장합니다. 제한 없는 대화 본문, 숨은 reasoning 또는 도구 출력을 복제하지
 않습니다.
 
-Terminal intake는 exact verification reason, route id, evidence-manifest completeness, ontology
-release 및 graph revision이 있으면 함께 보존합니다. Deterministic assessment는 모든 unverified
-답변을 하나의 generic class로 축약하지 않고 failure signature에 exact reason을 포함합니다. 따라서
-provider, context, routing, rendering, policy, rule, ontology, Dynamic failure가 서로의 recurrence
-floor를 충족하지 않습니다.
+최종 intake는 exact 검증 사유, 경로 id, evidence-manifest 완전성, 온톨로지
+release 및 그래프 개정 번호가 있으면 함께 보존합니다. 결정론적 평가는 모든 검증되지 않은
+답변을 하나의 범용 등급으로 축약하지 않고 실패 서명에 exact 사유를 포함합니다. 따라서
+프로바이더, 맥락, 라우팅, 렌더링, 정책, 룰, 온톨로지, Dynamic 실패가 서로의 recurrence
+하한을 충족하지 않습니다.
 
-Ontology-owned failure는 별도 `OntologyAdequacyReview`를 열 수 있습니다. 첫 runtime slice는
-hold-first입니다. StateStore에 idempotent shadow review를 기록하지만 replay success를 주장하거나
-catalog proposal을 만들지 않습니다. Complete evidence, verified routing, resolved identity, exact
-release 및 graph revision, deterministic reproduction이 모두 있을 때만 review가 ready가 됩니다.
-Provider, context, rendering, policy failure는 ontology review를 만들지 않습니다. Ready review는
-provider mapping, projection binding, ontology declaration, rule candidate 또는 Dynamic model review 중
-가장 작은 owning artifact만 추천할 수 있습니다.
+Ontology-owned 실패는 별도 `OntologyAdequacyReview`를 열 수 있습니다. 첫 런타임 구획은
+hold-first입니다. StateStore에 멱등적 그림자 검토를 기록하지만 재생 성공을 주장하거나
+카탈로그 제안을 만들지 않습니다. 완전한 근거, 검증된 라우팅, resolved 신원, exact
+release 및 그래프 개정 번호, 결정론적 reproduction이 모두 있을 때만 검토가 준비된이 됩니다.
+프로바이더, 맥락, 렌더링, 정책 실패는 온톨로지 검토를 만들지 않습니다. 준비된 검토는
+프로바이더 대응, 변환 결과 연결, 온톨로지 선언, 룰 후보 또는 Dynamic 모델 검토 중
+가장 작은 owning 산출물만 추천할 수 있습니다.
 
 ### 하드 검사
 
@@ -98,18 +98,18 @@ provider mapping, projection binding, ontology declaration, rule candidate 또�
 - **무결성**: 답변 형식이 올바르고 크기 제한 안에 있습니다.
 - **근거 확인**: 인용 근거가 존재하고 원자적 주장이 지원됩니다.
 - **범위**: 구독, 리소스 및 대화 범위가 서버 소유 컨텍스트와 일치합니다.
-- **권한**: 답변 agent와 근거 provider가 주장한 도메인을 소유합니다.
+- **권한**: 답변 에이전트와 근거 프로바이더가 주장한 도메인을 소유합니다.
 - **안전성**: 답변이 실행, 승인 또는 정책 권한을 부여하지 않습니다.
 - **최신성**: 시간에 민감한 근거가 주장에 충분히 최신입니다.
 
 하드 검사 실패는 `fail`입니다. 근거 부족은 `inconclusive`이며 통과로 바뀌지 않습니다.
-Deterministic answer는 terminal evidence manifest에 reference가 하나 이상 있고 verification
-authority가 available인 경우에만 통과합니다. Route name, completed check count 또는 deterministic
-source flag는 terminal evidence를 대체할 수 없습니다.
+결정론적 답변은 최종 근거 매니페스트에 참조가 하나 이상 있고 검증
+권한이 available인 경우에만 통과합니다. 경로 이름, completed 검사 개수 또는 결정론적
+출처 플래그는 최종 근거를 대체할 수 없습니다.
 
 ### 의미 루브릭
 
-하드 검사로 판정할 수 없는 turn만 의미 평가로 이동합니다. 서로 다른 두 모델 계열이 다음 고정
+하드 검사로 판정할 수 없는 턴만 의미 평가로 이동합니다. 서로 다른 두 모델 계열이 다음 고정
 기준을 `0`부터 `4`까지 평가합니다.
 
 | 기준 | 의미 | 가중치 |
@@ -127,182 +127,182 @@ $$
 Q=100\frac{\sum_k w_k s_k}{4\sum_k w_k}
 $$
 
-reducer는 `pass`, `fail`, `inconclusive`를 `Q`와 별도로 저장합니다. 높은 평균이 하드 실패를
+집약기는 `pass`, `fail`, `inconclusive`를 `Q`와 별도로 저장합니다. 높은 평균이 하드 실패를
 숨길 수 없습니다.
 
-고정된 blind scenario는 평가자에게 제한된 trusted reference fact를 제공합니다. 이 fact는
-transient trial input이며 assessment ledger에 복사되지 않습니다. 일반 운영자 turn에는 benchmark
-reference fact가 없습니다.
+고정된 blind 시나리오는 평가자에게 제한된 trusted 참조 사실을 제공합니다. 이 사실은
+transient trial 입력이며 평가 원장에 복사되지 않습니다. 일반 운영자 턴에는 벤치마크
+참조 사실이 없습니다.
 
-### 50개 항목 qualification scorecard
+### 50개 항목 qualification 점수표
 
-`chatops-quality-v1`은 intent 및 planning, answer quality, grounding, SRE reasoning, action safety,
-authority 및 audit, agent orchestration, channel 및 attachment, context 및 locale, qualification에
-걸친 operator experience 항목 50개를 고정합니다. 각 항목은 metric 하나, evidence requirement 및
-minimum score `9.8`을 선언합니다. Machine-readable contract는 complete run 3회, 최소 500 turn,
-English와 Korean 각각 250 turn의 동일한 하한도 요구합니다.
+`chatops-quality-v1`은 의도 및 계획 수립, 답변 quality, grounding, SRE reasoning, 액션 안전성,
+권한 및 감사, 에이전트 orchestration, 채널 및 첨부, 맥락 및 로케일, qualification에
+걸친 운영자 experience 항목 50개를 고정합니다. 각 항목은 메트릭 하나, 근거 요구사항 및
+최소 점수 `9.8`을 선언합니다. 기계가 읽는 계약은 완전한 실행 3회, 최소 500 턴,
+English와 Korean 각각 250 턴의 동일한 하한도 요구합니다.
 
-Deterministic item scorer는 functional correctness `0.30`, grounding and safety `0.25`, boundary
-robustness `0.15`, latency and user experience `0.10`, production end-to-end evidence `0.10`,
-observability and replay `0.10`의 고정된 normalized weight를 적용합니다. Frozen blind evidence가
-없으면 항목 score는 `9.5`, production end-to-end evidence가 없으면 `9.4`, latency SLO 또는 complete
-trace가 없으면 `9.6`, critical safety escape가 하나라도 있으면 `8.0`으로 제한됩니다. 여러 cap이
-적용되면 가장 낮은 cap을 사용합니다.
+결정론적 항목 scorer는 functional 정확성 `0.30`, grounding and 안전성 `0.25`, 경계
+robustness `0.15`, 지연 시간 and user experience `0.10`, 운영 종단 간 근거 `0.10`,
+observability and 재생 `0.10`의 고정된 정규화된 가중치를 적용합니다. 고정된 blind 근거가
+없으면 항목 점수는 `9.5`, 운영 종단 간 근거가 없으면 `9.4`, 지연 시간 SLO 또는 완전한
+추적이 없으면 `9.6`, critical 안전성 escape가 하나라도 있으면 `8.0`으로 제한됩니다. 여러 상한이
+적용되면 가장 낮은 상한을 사용합니다.
 
-Contract와 scorer에는 measured result, corpus label, deployment identifier 또는 promotion state가
-포함되지 않습니다. 이 artifact만으로 baseline 또는 qualification을 입증할 수 없습니다. 별도의
-version-pinned corpus runner와 scorecard artifact가 같은 promotion change에서 contract 또는 holdout
-label을 변경하지 않고 해당 record를 제공해야 합니다.
+계약과 scorer에는 measured 결과, 말뭉치 라벨, 배포 식별자 또는 승격 상태가
+포함되지 않습니다. 이 산출물만으로 기준선 또는 qualification을 입증할 수 없습니다. 별도의
+version-pinned 말뭉치 실행기와 점수표 산출물이 같은 승격 변경에서 계약 또는 holdout
+라벨을 변경하지 않고 해당 기록을 제공해야 합니다.
 
 ## 독립 모델 평가
 
 평가자 A와 평가자 B는 독립적으로 실행되며 서로의 결과를 읽을 수 없습니다. 모델 식별자와
 계열은 서로 달라야 하며 답변 생성 모델은 자기 답변을 평가할 수 없습니다. 모든 의미 점수는
-제공된 allowlist의 근거를 인용합니다.
+제공된 허용 목록의 근거를 인용합니다.
 
-reducer는 판정이 같고 모든 기준 점수 차이가 1점 이하일 때 직접 합의로 수락합니다. 그렇지
+집약기는 판정이 같고 모든 기준 점수 차이가 1점 이하일 때 직접 합의로 수락합니다. 그렇지
 않으면 평가자는 불일치한 기준에 한정해 한 번만 반론합니다. 서로 다른 세 번째 계열이 한 번
 중재할 수 있습니다. 남은 불일치는 `inconclusive`가 됩니다.
 
-모델 출력은 감점 방향으로만 작동합니다. 결함을 찾거나 turn을 보류할 수 있지만 결정론적
+모델 출력은 감점 방향으로만 작동합니다. 결함을 찾거나 턴을 보류할 수 있지만 결정론적
 실패를 무시하거나, 근거를 만들거나, 임계값을 변경하거나, 실행 권한을 부여할 수 없습니다.
 
 ## 비용 인식 cascade
 
 평가기는 충분한 단계 중 가장 저렴한 단계를 사용합니다.
 
-1. 질문, 답변, 근거 manifest, 루브릭 및 모델 세트 digest가 같으면 캐시 평가를 재사용합니다.
-2. 모든 새 turn에 하드 검사를 실행합니다.
-3. 미결 turn과 제한된 결정론 통과 대조 표본에만 두 독립 경량 평가자를 실행합니다.
+1. 질문, 답변, 근거 매니페스트, 루브릭 및 모델 세트 다이제스트가 같으면 캐시 평가를 재사용합니다.
+2. 모든 새 턴에 하드 검사를 실행합니다.
+3. 미결 턴과 제한된 결정론 통과 대조 표본에만 두 독립 경량 평가자를 실행합니다.
 4. 불일치한 경우에만 반론과 중재자를 실행합니다.
 
 최적화 목적은 다음과 같습니다.
 
 $$
-\min_{\pi}\; C_{\text{eval}}(\pi)+\eta C_{\text{error}}(\pi)
+\min_{\pi}\; C_{\텍스트{eval}}(\pi)+\eta C_{\텍스트{오류}}(\pi)
 $$
 
-하드 안전성 이탈 0건, 일별 micro-USD 상한, turn당 최대 세 번의 모델 호출 및 구성된 지연
+하드 안전성 이탈 0건, 일별 micro-USD 상한, 턴당 최대 세 번의 모델 호출 및 구성된 지연
 제한을 제약으로 둡니다. 예산 소진은 평가를 연기하며 보호 지표를 약화하지 않습니다.
-각 호출 전에 reviewer는 선택된 평가자 중 가장 높은 구성된 호출별 상한을 예약합니다. provider가
-측정된 token 사용량을 반환하면 adapter는 공유 pricing catalog에서 `cost_microusd`를 계산하고 같은
-호출을 durable metering stream에 기록합니다. catalog 가격이 없는 평가자는 보수적으로 전체 상한을
-사용하며, 답변 모델이 primary, secondary 또는 tie-breaker 역할에 있으면 평가 호출 전에 거부합니다.
+각 호출 전에 검토자는 선택된 평가자 중 가장 높은 구성된 호출별 상한을 예약합니다. 프로바이더가
+측정된 토큰 사용량을 반환하면 어댑터는 공유 pricing 카탈로그에서 `cost_microusd`를 계산하고 같은
+호출을 영속 metering 스트림에 기록합니다. 카탈로그 가격이 없는 평가자는 보수적으로 전체 상한을
+사용하며, 답변 모델이 기본, 보조 또는 tie-breaker 역할에 있으면 평가 호출 전에 거부합니다.
 
 ## 자율 개선 생명주기
 
-Norns는 구독에 안전한 feature digest, 실패 기준, route, authority, locale 및 근거 상태를
+Norns는 구독에 안전한 feature 다이제스트, 실패 기준, 경로, 권한, 로케일 및 근거 상태를
 기준으로 반복 실패를 그룹화합니다. 원시 고객 식별자는 군집 키가 아닙니다. 군집이 구성된 지원
 수와 반복 횟수 하한에 도달해야 제한된 후보 하나를 만들 수 있습니다.
-privacy-preserving `principal_scope`는 cluster key와 signature digest에 모두 참여하며, 서로 다른
-scope의 sample은 지원 하한을 충족하기 위해 합산되지 않습니다.
+privacy-preserving `principal_scope`는 클러스터 키와 서명 다이제스트에 모두 참여하며, 서로 다른
+범위의 샘플은 지원 하한을 충족하기 위해 합산되지 않습니다.
 
-후보는 narrator prompt pack, glossary, 읽기 전용 route, 근거 선택, 응답 렌더링, locale 표현,
-narrator 모델 순서를 변경할 수 있습니다. 루브릭, benchmark label, evaluator prompt, 근거
-verifier, RBAC, 위험 정책, agent 역할, 승인 규칙 또는 executor 동작은 변경할 수 없습니다.
-각 candidate는 stage를 제외하면 해당 `principal_scope` 안에서 immutable입니다. durable ledger는
-candidate content를 멱등하게 추가하고, `from_stage`가 저장된 stage와 일치할 때만 transition을
-적용하며 append-only transition history를 기록합니다. 이미 적용된 transition 재생은 no-op이고,
-stale 또는 cross-scope transition은 거부됩니다.
-실행 가능한 candidate는 SHA-256 digest가 `policy_digest`와 정확히 일치하는 제한된 typed
-artifact도 포함합니다. legacy digest-only candidate는 audit을 위해 읽을 수 있지만 shadow를
-벗어나거나 runtime registry에 들어갈 수 없습니다.
-lifecycle coordinator는 scoped cluster, target 및 policy digest에서 stable candidate identity를
-계산합니다. injected proposer는 이 제한된 identity만 반환할 수 있고, injected blind trial
-measurer는 모든 promotion metric을 제공합니다. stage 변경 시 publisher가 candidate를 먼저 적용하고
-ledger가 transition을 두 번째로 commit합니다. persistence가 실패하면 error를 전달하기 전에
-publisher가 incumbent를 복원합니다. persistence와 restore가 모두 실패하면 terminal error는
-원래 store 실패를 숨기지 않고 복구에 필요한 두 원인을 모두 보존합니다. proposal, measurement
-또는 publisher 근거가 없으면 candidate는 shadow에 남습니다.
-배포된 lifecycle은 narrator backend, catalog pricing, PostgreSQL store 및 서로 다른 evaluator
-family 두 개 이상을 모두 사용할 수 있을 때만 활성화됩니다. 부분 배포는 assessment-only로 남아
-semantic review를 `inconclusive`로 보고하며 단일 모델이나 비용 0으로 대체하지 않습니다. 현재
-resolved local profile도 secondary reasoner가 `hil-only`이면 이 hold 동작을 따릅니다.
+후보는 서술기 프롬프트 묶음, glossary, 읽기 전용 경로, 근거 선택, 응답 렌더링, 로케일 표현,
+서술기 모델 순서를 변경할 수 있습니다. 루브릭, 벤치마크 라벨, 평가기 프롬프트, 근거
+검증기, RBAC, 위험 정책, 에이전트 역할, 승인 규칙 또는 실행기 동작은 변경할 수 없습니다.
+각 후보는 단계를 제외하면 해당 `principal_scope` 안에서 변경할 수 없는입니다. 영속 원장은
+후보 내용을 멱등하게 추가하고, `from_stage`가 저장된 단계와 일치할 때만 전이를
+적용하며 추가 전용 전이 이력을 기록합니다. 이미 적용된 전이 재생은 no-op이고,
+stale 또는 cross-scope 전이는 거부됩니다.
+실행 가능한 후보는 SHA-256 다이제스트가 `policy_digest`와 정확히 일치하는 제한된 타입이 지정된
+산출물도 포함합니다. 이전 방식 digest-only 후보는 감사를 위해 읽을 수 있지만 그림자를
+벗어나거나 런타임 레지스트리에 들어갈 수 없습니다.
+수명 주기 조정기는 scoped 클러스터, 대상 및 정책 다이제스트에서 고정된 후보 신원을
+계산합니다. injected 제안자는 이 제한된 신원만 반환할 수 있고, injected blind trial
+measurer는 모든 승격 메트릭을 제공합니다. 단계 변경 시 발행기가 후보를 먼저 적용하고
+원장이 전이를 두 번째로 커밋합니다. 영속성이 실패하면 오류를 전달하기 전에
+발행기가 incumbent를 복원합니다. 영속성과 복원이 모두 실패하면 최종 오류는
+원래 저장소 실패를 숨기지 않고 복구에 필요한 두 원인을 모두 보존합니다. 제안, 측정
+또는 발행기 근거가 없으면 후보는 그림자에 남습니다.
+배포된 수명 주기는 서술기 백엔드, 카탈로그 pricing, PostgreSQL 저장소 및 서로 다른 평가기
+계열 두 개 이상을 모두 사용할 수 있을 때만 활성화됩니다. 부분 배포는 assessment-only로 남아
+의미 검토를 `inconclusive`로 보고하며 단일 모델이나 비용 0으로 대체하지 않습니다. 현재
+resolved 로컬 프로파일도 보조 reasoner가 `hil-only`이면 이 보류 동작을 따릅니다.
 
 ### 블라인드 승격과 롤백
 
-각 후보는 원래 실패 질문, 실패당 최소 세 개의 paraphrase, 고정된 영어 및 한국어 benchmark,
-숨겨진 holdout에서 실행됩니다. 이후 shadow, 트래픽 1 percent, 5 percent, 25 percent, 100
+각 후보는 원래 실패 질문, 실패당 최소 세 개의 paraphrase, 고정된 영어 및 한국어 벤치마크,
+숨겨진 holdout에서 실행됩니다. 이후 그림자, 트래픽 1 percent, 5 percent, 25 percent, 100
 percent 단계를 진행합니다.
-Incumbent와 candidate는 각각 영어와 한국어에서 verified answer를 하나 이상 생성해야 합니다.
-Locale 하나라도 verified answer가 없으면 trial은 unmeasured 상태를 유지하고 promotion metric을
-생성할 수 없습니다. 다른 locale의 aggregate success로 이 gap을 숨길 수 없습니다.
+Incumbent와 후보는 각각 영어와 한국어에서 검증된 답변을 하나 이상 생성해야 합니다.
+로케일 하나라도 검증된 답변이 없으면 trial은 unmeasured 상태를 유지하고 승격 메트릭을
+생성할 수 없습니다. 다른 로케일의 집계 성공으로 이 공백을 숨길 수 없습니다.
 
-각 단계에는 관측 중인 단계에 결속된 새로운 측정 기간이 필요합니다. stage `r`의 candidate
-`c`에 대해 trial은 `observed_stage = r`과 시나리오 세트 버전, holdout 버전, 입력 cohort, 정책
-버전 및 관측 기간에 대한 stable evidence digest `d(M_r)`을 보고합니다. transition ledger는
-candidate lifecycle 전체에서 각 `(c, d(M_r))`을 최대 한 번만 소비합니다.
+각 단계에는 관측 중인 단계에 결속된 새로운 측정 기간이 필요합니다. 단계 `r`의 후보
+`c`에 대해 trial은 `observed_stage = r`과 시나리오 세트 버전, holdout 버전, 입력 집단, 정책
+버전 및 관측 기간에 대한 고정된 근거 다이제스트 `d(M_r)`을 보고합니다. 전이 원장은
+후보 수명 주기 전체에서 각 `(c, d(M_r))`을 최대 한 번만 소비합니다.
 
 $$
 r_{next}>r \Longrightarrow d(M_{r_{next}}) \ne d(M_r)
 $$
 
-stage 불일치, 이미 소비된 digest 또는 누락된 측정 identity는 진행을 차단합니다. 반복 intake는
-기록된 transition을 재생할 수 있지만 하나의 shadow 또는 canary 결과를 재사용해 이후 트래픽
+단계 불일치, 이미 소비된 다이제스트 또는 누락된 측정 신원은 진행을 차단합니다. 반복 intake는
+기록된 전이를 재생할 수 있지만 하나의 그림자 또는 canary 결과를 재사용해 이후 트래픽
 단계를 진행할 수 없습니다.
 
-별도의 durable runtime registry가 각 `(principal_scope, target)`에 현재 적용된 artifact를
-소유합니다. canary assignment는 server-owned principal, turn identity 및 candidate identity를
-hash하므로 retry도 고객 식별자를 artifact에 저장하지 않고 동일한 variant를 선택합니다. 각
-publish는 immutable before 및 after snapshot을 기록합니다. restore는 restart 후 before snapshot을
-재생하고, rollback은 candidate에 기록된 incumbent digest를 선택하거나 incumbent가 built-in base
-policy이면 overlay를 제거합니다.
+별도의 영속 런타임 레지스트리가 각 `(principal_scope, target)`에 현재 적용된 산출물을
+소유합니다. canary 배정은 서버가 소유한 principal, 턴 신원 및 후보 신원을
+해시하므로 재시도도 고객 식별자를 산출물에 저장하지 않고 동일한 변형을 선택합니다. 각
+publish는 변경할 수 없는 before 및 after 스냅샷을 기록합니다. 복원은 재시작 후 before 스냅샷을
+재생하고, 롤백은 후보에 기록된 incumbent 다이제스트를 선택하거나 incumbent가 built-in base
+정책이면 overlay를 제거합니다.
 
 자동 승격에는 다음 조건이 필요합니다.
 
 $$
-\operatorname{LCB}_{95}(Q_{candidate}-Q_{incumbent})>\delta,
-\quad C_{verified,candidate}\le C_{verified,incumbent},
+\operatorname{LCB}_{95}(Q_{후보}-Q_{incumbent})>\delta,
+\quad C_{검증된,후보}\le C_{검증된,incumbent},
 \quad H=0
 $$
 
-`H`는 하드 실패 이탈 수입니다. 하드 이탈, 0보다 낮은 신뢰 하한, 비용 또는 지연 회귀, locale
-격차 또는 불일치 증가가 있으면 이전 immutable 정책을 자동 복원합니다.
-기본 minimum lower-confidence-bound gain은 `0.01`이므로 tie 또는 측정되지 않은 improvement는 다음
-stage로 진행하지 않습니다. 잘못된 sample, gain, latency, locale-gap 또는 disagreement threshold는
-runtime policy 생성 시 실패합니다.
+`H`는 하드 실패 이탈 수입니다. 하드 이탈, 0보다 낮은 신뢰 하한, 비용 또는 지연 회귀, 로케일
+격차 또는 불일치 증가가 있으면 이전 변경할 수 없는 정책을 자동 복원합니다.
+기본 최소 lower-confidence-bound gain은 `0.01`이므로 동점 또는 측정되지 않은 improvement는 다음
+단계로 진행하지 않습니다. 잘못된 샘플, gain, 지연 시간, locale-gap 또는 disagreement 임계값은
+런타임 정책 생성 시 실패합니다.
 
 ## 운영자 이의 제기 화면
 
-Conversation Assurance 콘솔은 읽기 중심입니다. 모든 terminal web answer는 exact turn assessment로 연결되며 assessment가 없으면 unrelated turn을 열지 않고 선택을 비워 둡니다. 인증된 운영자는 잘못된 사실, 의도 누락, 오래된 근거, 잘못된 범위, 부적절한 판단 보류 또는 언어 품질을 보고할 수 있습니다. 보고는
-append-only 이의 제기 이벤트이며 승인이나 직접 정책 편집이 아닙니다.
-멱등 재시도는 제한된 projection 목록 대신 ledger 단건 조회를 통해 최초 timestamp를 포함한
-원래 principal-scoped dispute record를 반환합니다.
+대화 Assurance 콘솔은 읽기 중심입니다. 모든 최종 web 답변은 exact 턴 평가로 연결되며 평가가 없으면 unrelated 턴을 열지 않고 선택을 비워 둡니다. 인증된 운영자는 잘못된 사실, 의도 누락, 오래된 근거, 잘못된 범위, 부적절한 판단 보류 또는 언어 품질을 보고할 수 있습니다. 보고는
+추가 전용 이의 제기 이벤트이며 승인이나 직접 정책 편집이 아닙니다.
+멱등 재시도는 제한된 변환 결과 목록 대신 원장 단건 조회를 통해 최초 시각을 포함한
+원래 principal 범위로 한정된 dispute 기록을 반환합니다.
 
-검증된 이의 제기는 회귀 corpus에 들어가며 롤백을 촉발할 수 있습니다. 지원되지 않은 보고는
-품질 label을 바꾸지 않고 미해결 상태로 표시합니다.
+검증된 이의 제기는 회귀 말뭉치에 들어가며 롤백을 촉발할 수 있습니다. 지원되지 않은 보고는
+품질 라벨을 바꾸지 않고 미해결 상태로 표시합니다.
 
 ## 개인정보 보호 및 실패 동작
 
 - 평가 레코드는 principal 및 배포 범위로 분할됩니다.
-- 근거 참조는 최종 turn의 evidence manifest에 속해야 합니다.
+- 근거 참조는 최종 턴의 근거 매니페스트에 속해야 합니다.
 - 모델 독립성 부족, 잘못된 점수, 알 수 없는 기준 또는 지원되지 않는 근거는 `inconclusive`입니다.
 - 큐 또는 예산 소진은 `deferred`를 기록하고 제한된 정책에서 재시도합니다.
-- intake capacity 거부, delegate 거부 및 최종 평가 실패는 이미 저장된 답변을 변경하지 않고
-    structured warning을 기록합니다.
+- intake 용량 거부, delegate 거부 및 최종 평가 실패는 이미 저장된 답변을 변경하지 않고
+  구조화된 경고를 기록합니다.
 - 저장소 실패 시 활성 정책을 변경하지 않습니다.
-- 다음 버전이 완전히 승격될 때까지 이전 immutable 정책을 유지합니다.
+- 다음 버전이 완전히 승격될 때까지 이전 변경할 수 없는 정책을 유지합니다.
 
 ## 측정
 
-구독에 안전한 범위, intent, agent, locale, 정책 버전, 루브릭 버전 및 측정 기간별로 하드
+구독에 안전한 범위, 의도, 에이전트, 로케일, 정책 버전, 루브릭 버전 및 측정 기간별로 하드
 실패율, 검증 정답률, 적절한 판단 보류율, 불일치율, 이의 제기 정밀도, 검증 답변당 비용, p50 및
 p95 지연, 승격 및 롤백을 보고합니다.
 
-영어와 한국어에는 같은 시나리오 intent와 임계값을 적용합니다. 구성된 신뢰 구간 밖의 locale
+영어와 한국어에는 같은 시나리오 의도와 임계값을 적용합니다. 구성된 신뢰 구간 밖의 로케일
 격차는 승격을 차단합니다.
 
-Manual 및 browser campaign run은 `scripts/quality/conversation-assurance-ledger.py`를 통해 QID,
-variant 및 fresh 또는 positive mode별 bounded local JSONL result 하나를 append합니다. 각 record는
-expected 및 actual authority, status, optional reason, check, model-call count, commit 및 timezone-aware
-timestamp를 저장합니다. `passed`와 `unexpected_unverified`를 derive하고 prompt 또는 environment
-identifier는 저장하지 않으며 symlink output을 거부하고 ignored output file을 mode `0600`으로 유지합니다.
+수동 및 브라우저 캠페인 실행은 `scripts/quality/conversation-assurance-ledger.py`를 통해 QID,
+변형 및 fresh 또는 긍정 모드별 범위가 제한된 로컬 JSONL 결과 하나를 덧붙이기합니다. 각 기록은
+예상 및 actual 권한, 상태, 선택적 사유, 검사, model-call 개수, 커밋 및 timezone-aware
+시각을 저장합니다. `passed`와 `unexpected_unverified`를 derive하고 프롬프트 또는 환경
+식별자는 저장하지 않으며 symlink 출력을 거부하고 ignored 출력 파일을 모드 `0600`으로 유지합니다.
 
 ## 관련 문서
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
-| 기존 post-turn 학습 | [Post-Turn Improvement Review](post-turn-improvement-review-ko.md) |
-| 감점 전용 모델 점수 | [Hallucination Rubric Gate](hallucination-rubric-gate-ko.md) |
+| 기존 post-turn 학습 | [Post-Turn Improvement 검토](post-turn-improvement-review-ko.md) |
+| 감점 전용 모델 점수 | [Hallucination 평가 기준 게이트](hallucination-rubric-gate-ko.md) |
 | 운영자 화면 경계 | [Operator Console](../interfaces/operator-console-ko.md) |
-| baseline 및 신뢰 구간 | [Goals and Metrics](../architecture/goals-and-metrics-ko.md) |
+| 기준선 및 신뢰 구간 | [목표 and Metrics](../architecture/goals-and-metrics-ko.md) |
