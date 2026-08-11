@@ -193,10 +193,11 @@ run serially so each service receipt can prove that all four peer states remaine
 
 ## Parallel session collision guard
 
-Every session reserves its work package, branch or worktree, owned paths, and release condition
-before editing. A second session must inspect the active reservations and the target worktree's
-dirty and unmerged paths. It waits for a handoff when any owned path overlaps, even when the two
-sessions use different branches.
+When two or more writing sessions are active, each concurrent session reserves its work package,
+branch or worktree, owned paths, and release condition before editing. A second session must
+inspect the active reservations and the target worktree's dirty and unmerged paths. It waits for a
+handoff when any owned path overlaps, even when the two sessions use different branches. A single
+interactive writer or serial integration owner works in the primary `main` worktree by default.
 
 - **Exclusive paths:** A session edits only its reserved paths. Dirty, untracked, renamed, or
   unmerged files in another session's reservation are not available for cleanup, formatting,
@@ -210,9 +211,10 @@ sessions use different branches.
   and dependency release; worker sessions do not race those joins.
 - **Validation isolation:** A worker validates only its committed diff or reserved worktree. It
   does not run a changed-file selector over another session's dirty tree.
-- **Persistent worktrees:** Every active worker uses a path under
-  `/home/moonchoi/dev/fdai-worktrees/`. New reservations cannot use `/tmp` because host restart or
-  cleanup can remove a worktree before its handoff evidence is integrated.
+- **Persistent worktrees:** Concurrent implementation workers use paths under
+  `/home/moonchoi/dev/fdai-worktrees/`. Historical registrations alone do not indicate an active
+  session and never require a new worktree. New concurrent reservations cannot use `/tmp` because
+  host restart or cleanup can remove a worktree before its handoff evidence is integrated.
 
 | Reservation | Current owner | Reserved paths | Release condition |
 |-------------|---------------|----------------|-------------------|

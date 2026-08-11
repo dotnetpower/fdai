@@ -1,7 +1,7 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 89b23fb781a28f42eb80813441be4079929e6dc2
-translation_revised: 2026-08-10
+translation_source_sha: 390391d70a6d07d014da8ad8cf9160077ad00190
+translation_revised: 2026-08-11
 ---
 # 서비스 분해 실행 계획
 
@@ -187,10 +187,11 @@ peer state 4개가 그대로였음을 증명할 수 있도록 직렬 실행합�
 
 ## 병렬 session 충돌 방지
 
-각 session은 편집 전에 work package, branch 또는 worktree, owned path, 해제 조건을
-예약합니다. 두 번째 session은 현재 예약과 대상 worktree의 dirty 및 미병합 path를 먼저
-확인합니다. 서로 다른 branch를 사용하더라도 owned path가 하나라도 겹치면 handoff를
-기다립니다.
+2개 이상의 writing session이 활성 상태일 때 각 concurrent session은 편집 전에 work package,
+branch 또는 worktree, owned path, 해제 조건을 예약합니다. 두 번째 session은 현재 예약과 대상
+worktree의 dirty 및 미병합 path를 먼저 확인합니다. 서로 다른 branch를 사용하더라도 owned path가
+하나라도 겹치면 handoff를 기다립니다. 단일 interactive writer 또는 serial integration owner는
+기본적으로 primary `main` worktree에서 작업합니다.
 
 - **독점 path:** Session은 예약한 path만 편집합니다. 다른 session 예약에 포함된 dirty,
   untracked, renamed 또는 미병합 파일은 정리, format, conflict resolution 또는 부수적인
@@ -204,9 +205,11 @@ peer state 4개가 그대로였음을 증명할 수 있도록 직렬 실행합�
   수행하며 worker session은 이 join과 경쟁하지 않습니다.
 - **Validation 격리:** Worker는 자신이 commit한 diff 또는 예약한 worktree만 검증합니다.
   다른 session의 dirty tree에서 changed-file selector를 실행하지 않습니다.
-- **Persistent worktree:** 모든 active worker는 `/home/moonchoi/dev/fdai-worktrees/` 아래의
-  경로를 사용합니다. Host 재시작이나 cleanup으로 handoff evidence 통합 전에 worktree가 제거될 수
-  있으므로 새 예약에 `/tmp`를 사용할 수 없습니다.
+- **Persistent worktree:** Concurrent implementation worker는
+  `/home/moonchoi/dev/fdai-worktrees/` 아래의 경로를 사용합니다. 과거 registration만으로 active
+  session이라고 판단하거나 새 worktree를 만들지 않습니다. Host 재시작이나 cleanup으로 handoff
+  evidence 통합 전에 worktree가 제거될 수 있으므로 새 concurrent 예약에 `/tmp`를 사용할 수
+  없습니다.
 
 | 예약 | 현재 owner | 예약 path | 해제 조건 |
 |------|------------|-----------|-----------|
