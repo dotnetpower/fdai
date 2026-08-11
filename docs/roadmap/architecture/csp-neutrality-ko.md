@@ -21,7 +21,7 @@ translation_revised: 2026-08-11
 
 코어가 클라우드 프로바이더에서 접근하는 모든 것은 벤더 SDK 가 아니라 **관심사당 하나의
 와이어 수준 계약** 을 통해야 합니다. 각 계약의 Azure 구현이 오늘 우리가 만드는 것이며,
-포크 나 미래 phase 는 `core/` 를 편집하지 않고 **같은 계약** 의 새 구현을 등록해서 다른 CSP 를 추가합니다.
+포크 나 미래 단계 는 `core/` 를 편집하지 않고 **같은 계약** 의 새 구현을 등록해서 다른 CSP 를 추가합니다.
 
 **동시성(동시성)**: I/O를 수행하는 프로바이더 경계는 **기본 비동기** 입니다 (Kafka poll
 루프, Postgres asyncpg, Key Vault HTTP, OIDC 토큰 교환, inventory-graph 쿼리, 그리고
@@ -31,7 +31,7 @@ translation_revised: 2026-08-11
 [project-structure-ko.md § 주입 가능한 Seams](project-structure-ko.md#주입-가능한-seams)
 참조.
 
-CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level foundation +
+CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level 기반 +
 [scope-expansion-ko.md § 3.2](../fork-and-sequencing/scope-expansion-ko.md) 로 추가된 세 telemetry-ingestion
 경계):
 
@@ -42,9 +42,9 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level foundation
 | 3 | **시크릿** | 환경변수 (또는 K8s 시크릿 마운트) - 앱에서 CSP 시크릿 SDK 호출 안 함 | Container Apps native 시크릿 + Key Vault 참조 |
 | 4 | **워크로드 아이덴티티** | OIDC 토큰 (federated) | User-assigned Managed Identity + 워크로드 신원 federation |
 | 5 | **인벤토리** | HTTP + OIDC-bearer 와이어로 `(Resource, Link[])` 배치를 반환하는 리소스-그래프 쿼리 표면 | Azure Resource Graph (ARG) + Activity Log delta |
-| 6 | **메트릭 인제스트** | `MetricProvider.query(MetricQuery) -> AsyncIterator[MetricPoint]` (CSP-neutral 이름 + 라벨) | Azure Monitor Logs (KQL) - upstream 은 `FDAI_MONITOR_WORKSPACE_ID` 가 세팅되면 `AzureMonitorLogsMetricProvider` 를 자동 바인딩, 아니면 `NoopMetricProvider` 유지 |
-| 7 | **로그 인제스트** | `LogQueryProvider.query(LogQuery) -> AsyncIterator[LogRecord]` (벤더 `expression` + CSP-neutral 라벨 필터) | Log Analytics (KQL) - upstream 은 `NoopLogQueryProvider` ship |
-| 8 | **추적 인제스트** | `TraceQueryProvider.query(TraceQuery) -> AsyncIterator[Span]` (`trace_id`, `service`, `operation`, `min_duration`) | Application Insights - upstream 은 `NoopTraceQueryProvider` ship |
+| 6 | **메트릭 인제스트** | `MetricProvider.query(MetricQuery) -> AsyncIterator[MetricPoint]` (CSP-neutral 이름 + 라벨) | Azure Monitor Logs (KQL) - 업스트림 은 `FDAI_MONITOR_WORKSPACE_ID` 가 세팅되면 `AzureMonitorLogsMetricProvider` 를 자동 바인딩, 아니면 `NoopMetricProvider` 유지 |
+| 7 | **로그 인제스트** | `LogQueryProvider.query(LogQuery) -> AsyncIterator[LogRecord]` (벤더 `expression` + CSP-neutral 라벨 필터) | Log Analytics (KQL) - 업스트림 은 `NoopLogQueryProvider` ship |
+| 8 | **추적 인제스트** | `TraceQueryProvider.query(TraceQuery) -> AsyncIterator[Span]` (`trace_id`, `service`, `operation`, `min_duration`) | Application Insights - 업스트림 은 `NoopTraceQueryProvider` ship |
 
 여덟 개 모두 `core/` 에 프로바이더 특이를 누출하지 MUST NOT.
 거부해야 하는 구체적 위반은 [Anti-Patterns](#anti-patterns) 참조.
@@ -107,13 +107,13 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level foundation
  `PostgresOutboxStore` 백업)이 닫는다: 변경 *전* 에 쓴 점유 이 있으므로
  crash-suspect 재시도는 `IN_PROGRESS` 마커를 발견해 멱등적 변경 을
  완료까지 재실행하며 잃거나 이중 적용하지 않는다. 발신함 는 액션 이
- mutate 할 때(enforce / P2) 의미가 있다; P1 은 그림자 전용이라 거기서는
+ mutate 할 때(강제 적용 / P2) 의미가 있다; P1 은 그림자 전용이라 거기서는
  아무것도 이중 적용되지 않는다.
 - **복제본 간 per-resource 상호배제** 는 `ResourceLock` 경계
  (`shared/providers/resource_lock.py`)으로 강제한다: 인-프로세스 `asyncio.Lock`
  (`ResourceLockManager`)이 단일 복제본 기본값이고,
  `PostgresAdvisoryResourceLock`(`hashtextextended(resource_id)` 로 키잉된 Postgres
- 세션 참고용 lock)이 실행기 가 복제본 하나를 넘어 스케일아웃하면 복제본 간
+ 세션 참고용 잠금)이 실행기 가 복제본 하나를 넘어 스케일아웃하면 복제본 간
  상호배제를 준다. partition-key 순서는 *스트림* 을 직렬화하고, 락은 같은 리소스의
  동시 *액션* 을 직렬화한다 - 스케일아웃에선 둘 다 필요하다. 락은 crash-safe
  (연결이 끊기면 세션 락 해제)이며 `lock_timeout` 으로 한계 되어 stuck 보유자 가
@@ -128,7 +128,7 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level foundation
 - **시스템 레벨 fail-toward-safety** 는 `DegradationController`
  (`shared/resilience/degradation.py`)다: circuit 차단기 들을 종합해
  `NORMAL` / `DEGRADED` 모드로 판정하고, 중요 의존성이 열림 이면 자율성 를
- 그림자 로 캡한다 - 망가진 감사 저장소 나 도달 불가 기반 가 enforce 변경
+ 그림자 로 캡한다 - 망가진 감사 저장소 나 도달 불가 기반 가 강제 적용 변경
  을 몰아선 안 된다. 컨트롤 루프 이 `autonomy_permitted()` 를 참조해 그 결과를
  risk-gate 권한 에 `system_degraded` 로 전달하고, 이는 그림자 로 캡된
  `system_health` 상한 축 를 추가한다 (execution-model.md 2.6a) - 액션
@@ -254,7 +254,7 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level foundation
  프로바이더의 native 변경 스트림이 구동합니다. 운영에서는 리소스 생성,
  갱신, 삭제 신호가 정본 Kafka 유입으로 계속 들어옵니다. Huginn은 실시간
  발견 유입을 소유하고 정규화된 `Event` 기록을 publish하며, 주입된 인벤토리
- projector는 순서가 보장된 리소스, 링크, tombstone delta를 영속 overlay에
+ projector는 순서가 보장된 리소스, 링크, tombstone delta를 영속 오버레이에
  적용합니다. Azure 어댑터는 범위가 제한된 복구 출처로 direct Activity Log REST factory
  (`AzureActivityLogFactory`)도 유지합니다. 주기적 full 스냅샷은 조정의
  권위 있는 출처로 남으며 누락된 신호를 복구한 뒤 base 세대를 원자적으로
@@ -267,7 +267,7 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level foundation
 직접 호출하지 않으며 실행자 ID를 전달받지 않습니다.
 
 리소스 중심 요청은 `root=<resource-id>`, `depth=1..8`, `limit=1..1000`을 지정합니다.
-프로바이더는 활성 스냅샷과 순서가 보장된 실시간 overlay에서 허용된 들어오는 및
+프로바이더는 활성 스냅샷과 순서가 보장된 실시간 오버레이에서 허용된 들어오는 및
 나가는 링크를 하나의 repeatable-read, 읽기 전용 데이터베이스 트랜잭션 안에서 모두
 탐색합니다. 경계가 제한된 neighborhood만 반환하며 리소스 또는 관계 상한에
 도달하면 `truncated=true`로 표시합니다. 알 수 없는 루트는 named 화면나
@@ -315,7 +315,7 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level foundation
 
 | CSP / 서브스트레이트 | 인벤토리 소스 | Delta 소스 | 와이어 |
 |---|---|---|---|
-| Azure | **Azure Resource Graph** (ARM 위 Kusto) | [이벤트버스](#1-이벤트버스-계약--kafka-와이어-프로토콜)를 통한 Activity Log 리소스 변경, Huginn 정규화, ordered overlay 변환 결과 | HTTPS + `Authorization: Bearer <OIDC>` |
+| Azure | **Azure Resource Graph** (ARM 위 Kusto) | [이벤트버스](#1-이벤트버스-계약--kafka-와이어-프로토콜)를 통한 Activity Log 리소스 변경, Huginn 정규화, ordered 오버레이 변환 결과 | HTTPS + `Authorization: Bearer <OIDC>` |
 | AWS *(TBD)* | AWS 구성 + Resource Explorer | 구성 configuration-item 스트림이 Kafka 로 포워드 | HTTPS + SigV4 |
 | GCP *(TBD)* | Cloud Asset 인벤토리 | Asset 피드 가 Kafka 로 포워드 | HTTPS + Google IAM |
 | Any K8s | 리소스-모델 번역기를 통한 `apiserver` list-watch | `watch` 스트림이 Kafka 로 포워드 | HTTPS + service-account 토큰 |
@@ -358,14 +358,14 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level foundation
  `(from_id, link_type, to_id)`를 키로 사용합니다. 완전한 fence가 `inventory_active`
  포인터를 원자적으로 교체합니다. 순서가 보장된 변경은 다음 세대가 포함할 때까지
  `inventory_realtime_resource`와 `inventory_realtime_link`에 저장됩니다. 읽기 담당은 활성
- 세대와 overlay를 하나의 유효한 온톨로지 형태 리소스 그래프로 병합하며, 스캔된
- 리소스를 범용 `ontology_resource` 및 `ontology_link` instance 저장소에 이중 기록하지
+ 세대와 오버레이를 하나의 유효한 온톨로지 형태 리소스 그래프로 병합하며, 스캔된
+ 리소스를 범용 `ontology_resource` 및 `ontology_link` 인스턴스 저장소에 이중 기록하지
  않습니다. 스냅샷 staging은 리소스와 링크를 기본 1,000-row 조각으로 변환하고 기록하며,
  검증된 상한은 10,000입니다. 하나의 입력 배치에 속한 모든 조각은 같은 데이터베이스
  트랜잭션 안에서 처리합니다. 검증과 엔드포인트 locking 이후 하나의 delta 이벤트는
  reconciled realtime 링크 upsert 전체를 한 번의 batched `executemany` 파이프라인으로 보내며,
  집계 applied-row 개수를 유지합니다. 엔드포인트 리소스 id는 deduplicate 및 sort한 뒤
- 하나의 ordered PostgreSQL 구문으로 lock하므로, 엔드포인트마다 클라이언트 왕복을 만들지
+ 하나의 ordered PostgreSQL 구문으로 잠금하므로, 엔드포인트마다 클라이언트 왕복을 만들지
  않으면서 deadlock-safe 순서를 보존합니다.
 - **실패 시 차단**: 부분 스냅샷 은 stale 그래프가 자율 결정을 구동하는 상태에 절대
  런딩하지 않음. 스냅샷 이 완료되고 원자적으로 승격되거나, 이전 그래프가 유지되고
@@ -384,7 +384,7 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level foundation
  관찰하며 cloud 인벤토리를 직접 조회하지 않습니다.
 - **주기적 조정은 계속 필요합니다.** 인벤토리 sync 작업은 기본 6시간 주기로
  완전한 ARG/ARM 세대를 만들고 원자적으로 promote하며, 해당 세대에 이미
- 반영된 overlay 항목을 정리합니다. Delta 스트림만으로 완전성을 증명하지 않습니다.
+ 반영된 오버레이 항목을 정리합니다. Delta 스트림만으로 완전성을 증명하지 않습니다.
  작업은 10분마다 영속 시도 상태를 확인하지만 6시간 간격이 due이거나 newer 시도가
  실패 또는 포기된 경우에만 검사합니다. 읽기 전용 인벤토리 신원을 유지하며 Heimdall은 프로바이더를
  직접 조회하거나 작업을 시작하지 않습니다.
@@ -438,33 +438,33 @@ Azure 엔드포인트와 클라이언트 trust 모델을 명시적으로 검증�
 방식이 바뀌어도 `Inventory` 계약은 바뀌지 않습니다.
 
 1. **런타임 서브넷의 ARG** - 명시적으로 허용된 ARM 관리 경로에서 managed 신원으로
-  샤딩된 `Resources` 쿼리를 실행합니다. 광범위한 리소스 간 디스커버리와 제한된 페이지
-  처리를 제공하므로 기본값으로 유지합니다.
+ 샤딩된 `Resources` 쿼리를 실행합니다. 광범위한 리소스 간 디스커버리와 제한된 페이지
+ 처리를 제공하므로 기본값으로 유지합니다.
 2. **연결된 디스커버리 작업의 ARG** - 애플리케이션 서브넷에 의도적으로 관리 평면 egress가
-  없다면 동일한 읽기 전용 어댑터를 VNet 통합 Container Apps 작업 또는 자체 호스팅 ops
-  실행기로 이동합니다. 배치를 비공개 상태 저장소 또는 Kafka 유입에 게시합니다.
-  이 작업에 콘솔 또는 코어 실행기 신원을 부여하지 않습니다.
+ 없다면 동일한 읽기 전용 어댑터를 VNet 통합 Container Apps 작업 또는 자체 호스팅 ops
+ 실행기로 이동합니다. 배치를 비공개 상태 저장소 또는 Kafka 유입에 게시합니다.
+ 이 작업에 콘솔 또는 코어 실행기 신원을 부여하지 않습니다.
 3. **Resource 관리 Private Link 경로** - Azure가 필요한 ARG 호출을 지원하는 곳에서는
-  연결된 작업을 승인된 비공개 엔드포인트 및 비공개 DNS를 통해 라우팅합니다. 비공개 DNS
-  해석만으로 작업 지원을 증명할 수 없으므로 preflight에서 실제 제한된 ARG 쿼리를
-  실행합니다.
+ 연결된 작업을 승인된 비공개 엔드포인트 및 비공개 DNS를 통해 라우팅합니다. 비공개 DNS
+ 해석만으로 작업 지원을 증명할 수 없으므로 preflight에서 실제 제한된 ARG 쿼리를
+ 실행합니다.
 4. **직접 ARM 목록 어댑터** - ARG를 사용할 수 없거나 최신성 예산을 초과하면 등록된 각
-  리소스 프로바이더 및 리소스 타입을 제한된 페이지 단위 샤드로 나열합니다. 어댑터는
-  동일한 리소스 및 링크 기록으로 정규화하고 지원되지 않는 타입을 커버리지 공백으로
-  보고합니다. Azure CLI와 Azure SDK 클라이언트는 이 방법의 전송 수단이며 독립 인벤토리 소스가
-  아닙니다.
+ 리소스 프로바이더 및 리소스 타입을 제한된 페이지 단위 샤드로 나열합니다. 어댑터는
+ 동일한 리소스 및 링크 기록으로 정규화하고 지원되지 않는 타입을 커버리지 공백으로
+ 보고합니다. Azure CLI와 Azure SDK 클라이언트는 이 방법의 전송 수단이며 독립 인벤토리 소스가
+ 아닙니다.
 5. **범위가 명시된 권위 있는 인벤토리** - 커버리지 매니페스트가 권위 있는으로 선언한
-  리소스 타입 및 구독에만 Microsoft Defender for Cloud 인벤토리 또는 승인된
-  다른 Azure 인벤토리 변환 결과를 사용합니다. 보조 발견 사항은 전체 estate 커버리지를
-  의미하지 않습니다.
+ 리소스 타입 및 구독에만 Microsoft Defender for Cloud 인벤토리 또는 승인된
+ 다른 Azure 인벤토리 변환 결과를 사용합니다. 보조 발견 사항은 전체 estate 커버리지를
+ 의미하지 않습니다.
 6. **변경 스트림 연속성** - full-snapshot 출처를 일시적으로 사용할 수 없는 동안 Event
-  Hubs를 통해 전달된 Activity Log 변경을 계속 소비합니다. Delta는 알려진 리소스의
-  최신성을 유지하지만 그래프를 초기화하거나 보이지 않는 리소스가 없음을 증명할 수
-  없습니다.
+ Hubs를 통해 전달된 Activity Log 변경을 계속 소비합니다. Delta는 알려진 리소스의
+ 최신성을 유지하지만 그래프를 초기화하거나 보이지 않는 리소스가 없음을 증명할 수
+ 없습니다.
 7. **선언적 복구 스냅샷** - 실제 운영 관리 경로를 사용할 수 없으면 승인된 Terraform
-  상태/계획 내보내기, Azure 배포 내보내기 또는 서명된 declarative 인벤토리 파일을
-  가져옵니다. 이를 `observed`가 아닌 `expected`로 표시하고 생성 시간과 범위를
-  첨부하며 읽기 전용 맥락에만 사용합니다. 자율 교정을 승인할 수 없습니다.
+ 상태/계획 내보내기, Azure 배포 내보내기 또는 서명된 declarative 인벤토리 파일을
+ 가져옵니다. 이를 `observed`가 아닌 `expected`로 표시하고 생성 시간과 범위를
+ 첨부하며 읽기 전용 맥락에만 사용합니다. 자율 교정을 승인할 수 없습니다.
 
 이 단계는 "모든 소스를 시도하고 행을 합치는 방식"이 아닙니다. 각 시도는 출처,
 구독 또는 management-group 범위, 리소스 타입, 시작 및 완료 시간, 페이지 수,
@@ -511,7 +511,7 @@ FDAI는 이전 그래프를 유지하고 stale로 표시하며 blast-radius 종�
 ([`shared/providers/metric.py`](../../../services/core-control-plane/src/fdai/shared/providers/metric.py))
 로 소비. `MetricQuery` 는 벤더 중립적인 (`metric_name`, `labels`, `since`, `until`,
 `aggregation` 힌트); 어댑터는 CSP-neutral 이름을 벤더 이름 공간 로 매핑하고 힌트를
-최선 노력 로 honor. Upstream 은 `NoopMetricProvider` (빈 결과) + `StaticMetricProvider`
+최선 노력 로 honor. 업스트림 은 `NoopMetricProvider` (빈 결과) + `StaticMetricProvider`
 (테스트 double) 를 ship; Azure 어댑터 는 `delivery/azure/` 아래 land.
 
 **Design 룰:**
@@ -544,10 +544,10 @@ CSP-neutral 필터 와 vendor-specific tail 을 compose 할 수 있도록 분리
 **§ 6 - § 8 공통 Design 룰:**
 
 - 세 telemetry-ingestion 프로토콜 은 anomaly detection, SLO burn-rate evaluation, RCA
- 가 룰 / 정책 인용 뿐만 아니라 real telemetry 에 ground 하도록 존재. Design
+ 가 룰 / 정책 인용 뿐만 아니라 real 텔레메트리 에 ground 하도록 존재. Design
  계약 는 [scope-expansion-ko.md § 3.2](../fork-and-sequencing/scope-expansion-ko.md) 에.
-- Upstream 기본값 는 no-op 프로바이더 - 어떤 구체적인 어댑터 도 wire 되기 전에
- downstream 소비자 가 안정된 인터페이스 로 작성자 가능.
+- 업스트림 기본값 는 no-op 프로바이더 - 어떤 구체적인 어댑터 도 wire 되기 전에
+ 다운스트림 소비자 가 안정된 인터페이스 로 작성자 가능.
 - 벤더 SDK 가져오기 는 `delivery/<vendor>/` 에 confined; `core/` 는 프로토콜 만 가져오기 -
  [`scripts/quality/architecture/check-core-imports.sh`](../../../scripts/quality/architecture/check-core-imports.sh) 에 의해 강제.
 
@@ -582,7 +582,7 @@ Foundational 계약과 인접 platform 경계가 코어를 CSP-이식 가능하�
 |------|--------------|-------------------|-------------|-------------------|
 | Event 버스 | Event Hubs Standard (Kafka `:9093`) | **Strimzi** 통한 AKS 위 Kafka; **Confluent Cloud** (멀티 클라우드 관리형); AKS 위 **Redpanda** | 브로커 엔드포인트, 인증 메커니즘, 비용 프로파일 | Kafka 와이어 프로토콜, 토픽 + DLQ 명명(`<topic>.dlq`), 멱등성 키, partition-key로 순서 |
 | 런타임 | Container Apps (Consumption + KEDA) | **AKS** + Knative Serving + KEDA; 버스트/바인딩용 **Azure Functions** (Premium 계획); 공개 HTTPS 표면 필요 시 **App Service** | 스케일 트리거 렌더링, 프로브 배선, 사이드카 레이아웃 | OCI 이미지, Knative 호환 매니페스트 서브셋, `/healthz` + `/readyz` 계약, `scale-on:kafka-lag` 신호 |
-| 상태 저장소 | PostgreSQL Flexible + `pgvector` | RU-미터링과 지역 쓰기가 단일 기본을 초과할 때 **Cosmos DB** (SQL API); TDE / SQL-Server 호환이 필수일 때 **Azure SQL Managed Instance** | SQL 방언, 마이그레이션 도구, RU 비용 모델 | 감사 hash-chain 스키마, 버전된 이벤트/액션/룰 계약, `SchemaRegistry`+`ContractValidator` 경계 |
+| 상태 저장소 | PostgreSQL Flexible + `pgvector` | RU-미터링과 지역 쓰기가 단일 기본을 초과할 때 **Cosmos DB** (SQL API); TDE / SQL-Server 호환이 필수일 때 **Azure SQL Managed 인스턴스** | SQL 방언, 마이그레이션 도구, RU 비용 모델 | 감사 hash-chain 스키마, 버전된 이벤트/액션/룰 계약, `SchemaRegistry`+`ContractValidator` 경계 |
 | Vector 저장소 | `pgvector` (상태 저장소와 co-located) | **Azure AI Search** 벡터 인덱스; AKS 위 **Qdrant** / **Milvus** | 인덱스 타입(HNSW/IVFFlat), 거리 메트릭, 새로 고침 경로 | 임베딩 차원, 모델 선택(설정), T1 유사도 임계값 |
 | 시크릿 | Container Apps native `secret` + Key Vault 참조 | Key Vault 를 가리키는 `SecretStore` CRD 로 **AKS + 외부 Secrets Operator**; FIPS-규제 데이터용 **Key Vault Premium** (HSM-backed) | 주입 레이어(Container Apps native ↔ ESO) | env-var-only 읽기, upper-snake env 이름, 시작 시 실패 시 차단, `core/` 에 SDK 호출 없음 |
 | 워크로드 신원 | User-assigned MI | **Federated 워크로드 신원** (GH Actions OIDC ↔ Entra federated 자격 증명; AKS 워크로드 신원 federation); 리소스 principal 이 단일-소유자일 때 **System-assigned MI** | trust 설정과 토큰 대상 | `WorkloadIdentity` 인터페이스, JIT-스코프 롤, cross-domain assumption 거부 |
@@ -595,7 +595,7 @@ Foundational 계약과 인접 platform 경계가 코어를 CSP-이식 가능하�
 **전체 표에 걸친 규칙 (MUST):**
 
 - 모든 대안은 기본 모듈이 노출하는 **같은 출력 계약** 을 사용 (`endpoint`,
- `identity_resource_id`, `secret_ref_envelope`, `event_topic_names`, ...) 하므로 downstream
+ `identity_resource_id`, `secret_ref_envelope`, `event_topic_names`, ...) 하므로 다운스트림
  Terraform / `main.tf` 조립 이 대안에 따라 분기하지 않음.
 - 대안은 **별도 Terraform 서브-모듈** 로 `infra/modules/<seam>/` 아래 배송, 최상위
  `var.<seam>_kind` (예: `var.runtime_kind = "container_apps"`) 로 선택.
@@ -612,12 +612,12 @@ Foundational 계약과 인접 platform 경계가 코어를 CSP-이식 가능하�
 다른 CSP 를 추가하는 것은 **포크 수준 구성 작업** 이며 코어 변경이 아닙니다:
 
 1. 조립 루트 에서 `shared/providers/` 의 여덟 프로바이더 인터페이스 새 구현을
-  등록 ([project-structure-ko.md](project-structure-ko.md#customization-via-dependency-injection)).
+ 등록 ([project-structure-ko.md](project-structure-ko.md#customization-via-dependency-injection)).
 2. `bootstrap.servers`, `SecretProvider`, `RuntimeAdapter`, `WorkloadIdentity`, `Inventory`,
-  `MetricProvider`, `LogQueryProvider`, `TraceQueryProvider` 바인딩을 새 CSP로 지시.
+ `MetricProvider`, `LogQueryProvider`, `TraceQueryProvider` 바인딩을 새 CSP로 지시.
 3. 같은 OCI 이미지 + Knative 호환 매니페스트를 대상 런타임으로 렌더링.
 4. Azure 구현과의 동등성 가 측정될 때까지 **그림자 모드** 로 배송
-  ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
+ ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
 
 **비-Azure 대상은 TBD 로 남아있음**
 ([구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must));

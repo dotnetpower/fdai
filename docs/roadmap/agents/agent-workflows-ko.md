@@ -37,13 +37,13 @@ translation_revised: 2026-08-11
 - **에이전트** - 역할 라벨 이 붙은 기본 + supporting.
 - **순서** - typed-port 메시지를 보여주는 mermaid diagram.
 - **Exit criteria** - 그림자 추적 성공 조건의 측정 가능한 조건.
-- **승격 게이트** - enforce 모드에 필요한 KPI 임계값.
+- **승격 게이트** - 강제 적용 모드에 필요한 KPI 임계값.
 - **Anti-scope** - 워크플로우가 의도적으로 하지 않는 것.
 
 워크플로우는 새 온톨로지 타입 이나 ActionType 을 추가하지 않는다;
 `rule-catalog/action-types/` 의 기존 카탈로그와
 `rule-catalog/vocabulary/object-types/` 의 객체 타입 을 소비한다. 새
-타입 이 필요한 워크플로우는 upstream doc PR 을 먼저 열라는 신호이다.
+타입 이 필요한 워크플로우는 업스트림 doc PR 을 먼저 열라는 신호이다.
 
 ## 1. Cost-aware 수정
 
@@ -59,19 +59,19 @@ Thor (실행기), Saga (auditor).
 
 ```mermaid
 sequenceDiagram
-  participant H as Heimdall
-  participant Nj as Njord
-  participant F as Forseti
-  participant T as Thor
-  participant S as Saga
-  H->>F: object.drift {resource, delta}
-  F->>Nj: typed query {proposed_action, target_resource}
-  Nj-->>F: cost_estimate {monthly_delta_usd, confidence}
-  F->>F: verdict = auto|hil|deny + cost_annotation
-  F->>T: object.verdict {risk_verdict, cost_annotation}
-  T->>T: dispatch by risk_verdict
-  T->>S: object.action-run {result, cost_actual (post-execute)}
-  S->>Nj: attribution event (async)
+ participant H as Heimdall
+ participant Nj as Njord
+ participant F as Forseti
+ participant T as Thor
+ participant S as Saga
+ H->>F: object.drift {resource, delta}
+ F->>Nj: typed query {proposed_action, target_resource}
+ Nj-->>F: cost_estimate {monthly_delta_usd, confidence}
+ F->>F: verdict = auto|hil|deny + cost_annotation
+ F->>T: object.verdict {risk_verdict, cost_annotation}
+ T->>T: dispatch by risk_verdict
+ T->>S: object.action-run {result, cost_actual (post-execute)}
+ S->>Nj: attribution event (async)
 ```
 
 **Exit criteria.**
@@ -102,23 +102,23 @@ Freyr 예측 가 임계값 를 trip 하기 전에 사전에 규모.
 
 ```mermaid
 sequenceDiagram
-  participant Fr as Freyr
-  participant H as Heimdall
-  participant Nj as Njord
-  participant O as Odin
-  participant F as Forseti
-  participant T as Thor
-  Fr->>F: proposed_action {scale_out, target, size}
-  F->>H: typed query {resource, recent_signals}
-  H-->>F: signal_confirm {leading_indicators, confidence}
-  F->>Nj: cost_impact query
-  Nj-->>F: cost_estimate
-  alt cost > fork_config.scale_cost_ceiling
-    F->>O: arbitration_request {sre_intent, cost_block}
-    O-->>F: arbitration_response
-  end
-  F->>T: verdict {scale_out, size}
-  T->>T: dispatch (auto if under ceiling)
+ participant Fr as Freyr
+ participant H as Heimdall
+ participant Nj as Njord
+ participant O as Odin
+ participant F as Forseti
+ participant T as Thor
+ Fr->>F: proposed_action {scale_out, target, size}
+ F->>H: typed query {resource, recent_signals}
+ H-->>F: signal_confirm {leading_indicators, confidence}
+ F->>Nj: cost_impact query
+ Nj-->>F: cost_estimate
+ alt cost > fork_config.scale_cost_ceiling
+  F->>O: arbitration_request {sre_intent, cost_block}
+  O-->>F: arbitration_response
+ end
+ F->>T: verdict {scale_out, size}
+ T->>T: dispatch (auto if under ceiling)
 ```
 
 **Exit criteria.**
@@ -135,7 +135,7 @@ MAPE < 15%; false-positive 규모 비율 < 5%.
 **Anti-scope.** Autoscale 룰 아님 (기존 플랫폼 autoscale 은 계속 실행);
 이는 Freyr 예측 에 attributable 한 *의도적* 규모 액션 을 트리거.
 
-## 3. DR drill orchestration
+## 3. DR 훈련 orchestration
 
 **용도.** 실제 인시던트 을 기다리지 않고 정기적인 재해복구 예행 연습.
 Vidar 의 롤백 경로, DR 장애 조치 메커니즘, observability 가 모두
@@ -148,33 +148,33 @@ Heimdall (관측), Norns (learning), Saga.
 
 ```mermaid
 sequenceDiagram
-  participant L as Loki
-  participant F as Forseti
-  participant Va as Var
-  participant V as Vidar
-  participant H as Heimdall
-  participant N as Norns
-  participant S as Saga
-  L->>F: proposed_action {dr_drill, scope, blast_radius}
-  F->>Va: verdict = hil (drills are always HIL)
-  Va-->>F: approval
-  F->>V: verdict {execute_drill}
-  V->>V: execute rollback / failover in shadow env
-  V->>H: observe_request
-  H-->>V: observations
-  V->>S: object.rollback {result, observations, recovery_time}
-  S->>N: audit signal
-  N->>N: compare to baseline, emit drift signal if MTTR degraded
+ participant L as Loki
+ participant F as Forseti
+ participant Va as Var
+ participant V as Vidar
+ participant H as Heimdall
+ participant N as Norns
+ participant S as Saga
+ L->>F: proposed_action {dr_drill, scope, blast_radius}
+ F->>Va: verdict = hil (drills are always HIL)
+ Va-->>F: approval
+ F->>V: verdict {execute_drill}
+ V->>V: execute rollback / failover in shadow env
+ V->>H: observe_request
+ H-->>V: observations
+ V->>S: object.rollback {result, observations, recovery_time}
+ S->>N: audit signal
+ N->>N: compare to baseline, emit drift signal if MTTR degraded
 ```
 
 **Exit criteria.**
 
-- Drill 이 Loki 선언 blast_radius 안에서 완료.
-- Post-drill MTTR 리포트; 이전 drill 기준선 과 비교 저장.
+- 훈련 이 Loki 선언 blast_radius 안에서 완료.
+- Post-drill MTTR 리포트; 이전 훈련 기준선 과 비교 저장.
 - MTTR 성능 저하 > 20% 시 용량 또는 경로 변경을 위한
  `RuleCandidate` 발생.
 
-**승격 게이트.** 그림자 에서 3회 성공적 drill; drill 소요 시간 < 선언된
+**승격 게이트.** 그림자 에서 3회 성공적 훈련; 훈련 소요 시간 < 선언된
 예산; unplanned 프로덕션 side-effect zero (Heimdall 의 blast-radius
 감사 로 측정).
 
@@ -196,17 +196,17 @@ over-scoped 되었거나, critical exception 이 누락됨을 의미.
 
 ```mermaid
 sequenceDiagram
-  participant Va as Var
-  participant S as Saga
-  participant N as Norns
-  participant M as Mimir
-  Va->>S: object.approval {rule_id, override_signal}
-  S->>N: signal (batched)
-  N->>N: rolling count per rule_id, threshold check
-  alt count > threshold
-    N->>M: object.rule-candidate {rule_id, override_pattern, proposed_revision}
-    M->>M: shadow evaluation on override cases
-  end
+ participant Va as Var
+ participant S as Saga
+ participant N as Norns
+ participant M as Mimir
+ Va->>S: object.approval {rule_id, override_signal}
+ S->>N: signal (batched)
+ N->>N: rolling count per rule_id, threshold check
+ alt count > threshold
+  N->>M: object.rule-candidate {rule_id, override_pattern, proposed_revision}
+  M->>M: shadow evaluation on override cases
+ end
 ```
 
 **Exit criteria.**
@@ -238,24 +238,24 @@ formalize.
 
 ```mermaid
 sequenceDiagram
-  participant F as Forseti
-  participant H as Heimdall
-  participant O as Odin
-  participant V as Var
-  participant S as Saga
-  F->>H: object.security-event {initiator, action, severity_hint}
-  F->>S: audit
-  H->>H: correlate with recent events (rolling window)
-  H->>H: classify severity: low|medium|high|critical
-  alt severity >= high
-    H->>F: propose notify_admin_privilege_violation
-    F-->>V: verdict = auto (governance notification)
-    V->>S: audit (card sent)
-  end
-  alt severity == critical
-    H->>O: escalate {evidence}
-    O->>V: page on-call security channel
-  end
+ participant F as Forseti
+ participant H as Heimdall
+ participant O as Odin
+ participant V as Var
+ participant S as Saga
+ F->>H: object.security-event {initiator, action, severity_hint}
+ F->>S: audit
+ H->>H: correlate with recent events (rolling window)
+ H->>H: classify severity: low|medium|high|critical
+ alt severity >= high
+  H->>F: propose notify_admin_privilege_violation
+  F-->>V: verdict = auto (governance notification)
+  V->>S: audit (card sent)
+ end
+ alt severity == critical
+  H->>O: escalate {evidence}
+  O->>V: page on-call security channel
+ end
 ```
 
 **Exit criteria.**
@@ -274,40 +274,40 @@ pantheon § 9.5 참고).
 ## 6. 인계 -> 기능
 
 **용도.** 모든 unhandled 요청 (인계) 는 기능 공백. 같은
-fingerprint 의 반복 인계 는 새 룰 또는 새 에이전트 기능 로
+지문 의 반복 인계 는 새 룰 또는 새 에이전트 기능 로
 전환되어야 함.
 
 **트리거.** Saga 가 (`escalate_to_github_issue` 액션 을 통해)
-`object.issue` 쓰기. Norns 가 fingerprint 로 집계.
+`object.issue` 쓰기. Norns 가 지문 로 집계.
 
 **에이전트.** Saga (initiator), Norns (aggregator), Mimir (룰 담당자),
 Bragi (기능 전달 시 업데이트).
 
 ```mermaid
 sequenceDiagram
-  participant S as Saga
-  participant N as Norns
-  participant M as Mimir
-  participant Br as Bragi
-  S->>N: object.issue (open)
-  N->>N: aggregate by fingerprint (rolling)
-  alt fingerprint occurrence >= threshold
-    N->>M: object.rule-candidate {source: handoff, evidence}
-    M->>M: shadow evaluation
-    alt promotion passes
-      M-->>N: rule promoted
-      N->>S: close_issue signal
-      S->>S: comment on GitHub issue + close
-      S->>Br: capability update (visible in operator briefing)
-    end
+ participant S as Saga
+ participant N as Norns
+ participant M as Mimir
+ participant Br as Bragi
+ S->>N: object.issue (open)
+ N->>N: aggregate by fingerprint (rolling)
+ alt fingerprint occurrence >= threshold
+  N->>M: object.rule-candidate {source: handoff, evidence}
+  M->>M: shadow evaluation
+  alt promotion passes
+   M-->>N: rule promoted
+   N->>S: close_issue signal
+   S->>S: comment on GitHub issue + close
+   S->>Br: capability update (visible in operator briefing)
   end
+ end
 ```
 
 **Exit criteria.**
 
-- 인계 fingerprint 발생 개수 를 monotonically tracking.
+- 인계 지문 발생 개수 를 monotonically tracking.
 - 임계값 초과 시 RuleCandidate 발행 (dedup: rolling 구간 당
- fingerprint 당 하나의 후보).
+ 지문 당 하나의 후보).
 - 승격 + 24h 회귀 clean 후 auto-close.
 - 닫는 comment 가 promoting PR 을 링크.
 
@@ -332,19 +332,19 @@ KPI 비교 vs 기준선). 하트비트 공백, high 오류 비율, 또는 KPI �
 
 ```mermaid
 sequenceDiagram
-  participant H as Heimdall
-  participant O as Odin
-  participant Br as Bragi
-  participant C as Admin channel
-  participant S as Saga
-  H->>H: probe each agent (heartbeat + KPI)
-  alt degradation detected
-    H->>S: audit event
-    H->>O: agent_health_signal {agent, severity, evidence}
-    O->>O: apply degradation policy per pantheon 11
-    O->>Br: briefing_update {impact, mitigation_active}
-    Br->>C: proactive card to admins
-  end
+ participant H as Heimdall
+ participant O as Odin
+ participant Br as Bragi
+ participant C as Admin channel
+ participant S as Saga
+ H->>H: probe each agent (heartbeat + KPI)
+ alt degradation detected
+  H->>S: audit event
+  H->>O: agent_health_signal {agent, severity, evidence}
+  O->>O: apply degradation policy per pantheon 11
+  O->>Br: briefing_update {impact, mitigation_active}
+  Br->>C: proactive card to admins
+ end
 ```
 
 **Exit criteria.**
@@ -374,21 +374,21 @@ Mimir (표류가 룰 변경으로 인한 것인 경우 리뷰), Saga.
 
 ```mermaid
 sequenceDiagram
-  participant F as Forseti
-  participant Mu as Muninn
-  participant N as Norns
-  participant M as Mimir
-  participant S as Saga
-  F->>Mu: fetch recent audit sample (N=1000)
-  F->>F: re-run judgment on same inputs
-  F->>N: coherence_report {mismatches}
-  N->>N: classify: rule_change | model_drift | non_determinism
-  alt classification == rule_change
-    N->>M: confirm rule delta explains mismatch
-  else classification == model_drift or non_determinism
-    N->>M: object.rule-candidate {type: coherence_alert}
-    N->>S: audit alert
-  end
+ participant F as Forseti
+ participant Mu as Muninn
+ participant N as Norns
+ participant M as Mimir
+ participant S as Saga
+ F->>Mu: fetch recent audit sample (N=1000)
+ F->>F: re-run judgment on same inputs
+ F->>N: coherence_report {mismatches}
+ N->>N: classify: rule_change | model_drift | non_determinism
+ alt classification == rule_change
+  N->>M: confirm rule delta explains mismatch
+ else classification == model_drift or non_determinism
+  N->>M: object.rule-candidate {type: coherence_alert}
+  N->>S: audit alert
+ end
 ```
 
 **Exit criteria.**
@@ -418,21 +418,21 @@ Heimdall (관찰기), Saga.
 
 ```mermaid
 sequenceDiagram
-  participant L as Loki
-  participant F as Forseti
-  participant Va as Var
-  participant V as Vidar
-  participant H as Heimdall
-  participant S as Saga
-  L->>F: proposed_action {rehearse_rollback, action_type_id}
-  F->>Va: verdict = hil (all rehearsals HIL)
-  Va-->>F: approval
-  F->>V: verdict {execute}
-  V->>V: apply mutation in shadow env
-  V->>V: invoke rollback per rollback_contract
-  V->>H: observe post-rollback state
-  H-->>V: state matches pre-mutation baseline?
-  V->>S: audit {rehearsal_result, deviation}
+ participant L as Loki
+ participant F as Forseti
+ participant Va as Var
+ participant V as Vidar
+ participant H as Heimdall
+ participant S as Saga
+ L->>F: proposed_action {rehearse_rollback, action_type_id}
+ F->>Va: verdict = hil (all rehearsals HIL)
+ Va-->>F: approval
+ F->>V: verdict {execute}
+ V->>V: apply mutation in shadow env
+ V->>V: invoke rollback per rollback_contract
+ V->>H: observe post-rollback state
+ H-->>V: state matches pre-mutation baseline?
+ V->>S: audit {rehearsal_result, deviation}
 ```
 
 **Exit criteria.**
@@ -443,7 +443,7 @@ sequenceDiagram
 - Deviation 시 `RuleCandidate` 발생 (rollback_contract 업데이트 필요).
 
 **승격 게이트.** 각 ActionType 별 3회 성공적 예행 연습 후 그림자
-밖에서 enforce 모드 자격. 예행 연습 cadence 는 Loki 스케줄로 강제.
+밖에서 강제 적용 모드 자격. 예행 연습 cadence 는 Loki 스케줄로 강제.
 
 **Anti-scope.** 프로덕션 롤백 아님 (Vidar 가 실제 실패 에 반응할 때
 실제 경로 사용).
@@ -462,32 +462,32 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-  participant Op as Operator
-  participant Br as Bragi
-  participant S as Saga
-  participant F as Forseti
-  participant N as Norns
-  participant M as Mimir
-  Op->>Br: "if rule X existed on 2026-07-01, what would have happened?"
-  Br->>S: fetch audit slice
-  Br->>M: fetch rule X (shadow overlay)
-  Br->>F: replay with overlay
-  F-->>Br: what-if verdicts
-  Br->>N: delta analysis
-  N-->>Br: diff summary
-  Br-->>Op: report
+ participant Op as Operator
+ participant Br as Bragi
+ participant S as Saga
+ participant F as Forseti
+ participant N as Norns
+ participant M as Mimir
+ Op->>Br: "if rule X existed on 2026-07-01, what would have happened?"
+ Br->>S: fetch audit slice
+ Br->>M: fetch rule X (shadow overlay)
+ Br->>F: replay with overlay
+ F-->>Br: what-if verdicts
+ Br->>N: delta analysis
+ N-->>Br: diff summary
+ Br-->>Op: report
 ```
 
 **Exit criteria.**
 
 - 재생 는 judge-only (절대 재실행 안 함).
-- Overlay 는 scoped (재생 이벤트만 + 추가된 룰 만).
-- 결과 재현 가능 (같은 입력 + 같은 overlay = 같은 출력).
+- 오버레이 는 scoped (재생 이벤트만 + 추가된 룰 만).
+- 결과 재현 가능 (같은 입력 + 같은 오버레이 = 같은 출력).
 
 **승격 게이트.** 적용 안 됨 (이 워크플로우는 본질적으로 그림자 - 절대
 변경을 실행하지 않음).
 
-**Anti-scope.** Saga 감사 로그 를 수정하지 않음. Overlay 는 read-time
+**Anti-scope.** Saga 감사 로그 를 수정하지 않음. 오버레이 는 read-time
 변환 결과.
 
 ## 11. Operational 준비 상태 인계
@@ -496,7 +496,7 @@ sequenceDiagram
 전에, 누적된 거버넌스, security, RBAC, reliability 자세 를 리뷰하고 하나의
 판정 (`clear` / `needs_review` / `blocked`) 를 반환. per-change 리뷰가
 놓치는 공백 - over-privileged 워크로드 아이덴티티, Owner 를 가진 게스트, 누락된
-백업 - 을 잡음(어떤 단일 diff 도 그 전체 공백 을 만들지 않았음). 전체 설계:
+백업 - 을 잡음(어떤 단일 차이 도 그 전체 공백 을 만들지 않았음). 전체 설계:
 [operational-readiness-ko.md](../operations/operational-readiness-ko.md).
 
 **트리거.** Huginn 이 `ownership_transfer` 신호 (인계 PR 라벨,
@@ -509,29 +509,29 @@ Thor (승인된 fix 의 실행기), Saga (auditor).
 
 ```mermaid
 sequenceDiagram
-  participant Hu as Huginn
-  participant M as Mimir
-  participant F as Forseti
-  participant V as Var
-  participant T as Thor
-  participant S as Saga
-  Hu->>F: object.ownership-transfer {scope, submitter, environment}
-  F->>M: applicable rules for scope
-  M-->>F: rule set (+ profile mode)
-  F->>F: run assurance-twin + deploy-preflight over scope
-  F->>F: compose ReadinessReport (clear|needs_review|blocked)
-  F->>S: audit {verdict, blocks_handoff}
-  alt blocked and enforce mode
-    F->>V: request approval + shadow remediation-PR proposals
-    V-->>T: approved fixes
-    T->>S: object.action-run {result}
-  end
+ participant Hu as Huginn
+ participant M as Mimir
+ participant F as Forseti
+ participant V as Var
+ participant T as Thor
+ participant S as Saga
+ Hu->>F: object.ownership-transfer {scope, submitter, environment}
+ F->>M: applicable rules for scope
+ M-->>F: rule set (+ profile mode)
+ F->>F: run assurance-twin + deploy-preflight over scope
+ F->>F: compose ReadinessReport (clear|needs_review|blocked)
+ F->>S: audit {verdict, blocks_handoff}
+ alt blocked and enforce mode
+  F->>V: request approval + shadow remediation-PR proposals
+  V-->>T: approved fixes
+  T->>S: object.action-run {result}
+ end
 ```
 
 **Exit criteria.**
 
 - 모든 `ownership_transfer` 신호 은 정확히 하나의 `ReadinessReport` 를 생성.
-- 판정 는 truthful; `blocks_handoff` 는 enforce 모드에서만 true.
+- 판정 는 truthful; `blocks_handoff` 는 강제 적용 모드에서만 true.
 - `prod` 로의 승격 은 어떤 `critical` 발견 사항 도 차단 으로 취급.
 - 모든 발견 사항 은 룰 을 인용; ungroundable 발견 사항 은 abstain.
 - stale 인벤토리 는 stale 상태로 certify 하기보다 certify 를 거부.
@@ -562,20 +562,20 @@ risk 게이트, HIL 재개 조정기, 도구 실행기 에 매핑합니다. 선�
 
 ```mermaid
 sequenceDiagram
-  participant B as Bragi
-  participant I as EventIngest
-  participant F as Forseti
-  participant V as Var
-  participant T as Thor
-  participant S as Saga
-  B->>I: raw operator_request {artifact_ref, target}
-  I->>F: canonical Event plus trusted inventory context
-  F->>F: validate ActionType, capability, freshness, blast radius
-  F->>V: Owner HIL request
-  V-->>F: approval
-  F->>T: tool.run-python-on-vm
-  T->>T: stage, rehash cache, preflight, bounded execute
-  T->>S: VmTaskRun receipt
+ participant B as Bragi
+ participant I as EventIngest
+ participant F as Forseti
+ participant V as Var
+ participant T as Thor
+ participant S as Saga
+ B->>I: raw operator_request {artifact_ref, target}
+ I->>F: canonical Event plus trusted inventory context
+ F->>F: validate ActionType, capability, freshness, blast radius
+ F->>V: Owner HIL request
+ V-->>F: approval
+ F->>T: tool.run-python-on-vm
+ T->>T: stage, rehash cache, preflight, bounded execute
+ T->>S: VmTaskRun receipt
 ```
 
 **Exit criteria.** 모든 게스트 호출 에서 산출물 파일 을 다시 검사하고 대상 이
@@ -591,11 +591,11 @@ sequenceDiagram
 
 ## 13. 워크플로우 카탈로그 요약
 
-| # | 이름 | 트리거 | 기본 에이전트 | Enforce 전제조건 |
+| # | 이름 | 트리거 | 기본 에이전트 | 강제 적용 전제조건 |
 |---|------|---------|---------------|-----------------|
 | 1 | Cost-aware 교정 | 표류 / anomaly | Heimdall + Njord | 비용 예측 MAPE < 20% |
 | 2 | Predictive 규모 | Freyr 예측 (hourly) | Freyr | 예측 MAPE < 15%, FP < 5% |
-| 3 | DR drill orchestration | Loki 스케줄 (weekly) | Loki | 3회 그림자 drill clean |
+| 3 | DR 훈련 orchestration | Loki 스케줄 (weekly) | Loki | 3회 그림자 훈련 clean |
 | 4 | 재정의 -> 발견 | Var 재정의 이벤트 | Var | 전환율 기준선 |
 | 5 | Security 에스컬레이션 | Forseti RBAC 거부 | Forseti | Critical FN zero, FP < 5% |
 | 6 | 인계 -> 기능 | Saga issue 생성 | Saga | 전환 기준선, FC < 2% |

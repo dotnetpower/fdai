@@ -58,16 +58,16 @@ T2는 신규 또는 모호 케이스만 처리(~5-10%). 그 출력은 실행 전
  프로바이더/가중치 - 같은 base 모델을 서비스하는 두 엔드포인트는 **세지 않음** , correlated
  에러가 검사 무력화.
  - **합의 조건식**: 합의는 자유 텍스트가 아니라 **정규화 구조화 액션** (대상 리소스, 작업,
-  파라미터) 에 대해. 정본 액션 객체를 문자열 아이덴티티가 아니라 의미 등가로 비교.
- - **N 모델과 quorum**: N ≥ 3 인 경우 설정된 quorum(예: majority) 요구; quorum 없음 → escalate.
-  2-of-2 동점(불일치) 는 HIL로 escalate, 절대 auto-resolve 아님.
+ 파라미터) 에 대해. 정본 액션 객체를 문자열 아이덴티티가 아니라 의미 등가로 비교.
+ - **N 모델과 정족수**: N ≥ 3 인 경우 설정된 정족수(예: majority) 요구; 정족수 없음 → escalate.
+ 2-of-2 동점(불일치) 는 HIL로 escalate, 절대 auto-resolve 아님.
  - **비용 컨트롤**: **cascade** 선호 - 더 저렴한 reasoner 먼저 실행하고 self-consistency나
-  grounding 신호가 약할 때만 두 번째 호출 - 그래서 전체 N-모델 동시 확산은 진짜 어려운 케이스에만
-  지출.
+ grounding 신호가 약할 때만 두 번째 호출 - 그래서 전체 N-모델 동시 확산은 진짜 어려운 케이스에만
+ 지출.
  - **출처 이력 (재현성)**: 결정은 **각 모델의 투표**
-  (`QualityDecision.model_votes`: `model_id`, 제안 액션 타입, agreed)를 - 단순 동의
-  카운트가 아니라 - 기록해, T2 판정을 추가 전용 감사 에서 재구성할 수 있게 한다(로그가
-  약속하는 재생 속성).
+ (`QualityDecision.model_votes`: `model_id`, 제안 액션 타입, agreed)를 - 단순 동의
+ 카운트가 아니라 - 기록해, T2 판정을 추가 전용 감사 에서 재구성할 수 있게 한다(로그가
+ 약속하는 재생 속성).
 - **검증기**: 어떤 모델과도 독립적인 **결정론** 검사가 후보 액션을 policy-as-code와 what-if/
  예행 실행에 대해 재검증 후 execution-eligible. 검증기 - 모델 텍스트 아님 - 가 권위.
 - **Grounding (RAG)**: 판단을 정당화하는 규칙/정책/문서 인용 강제, **각 인용 항목이 규칙 카탈로그
@@ -81,23 +81,23 @@ T2는 신규 또는 모호 케이스만 처리(~5-10%). 그 출력은 실행 전
 
 - **조건을 충족한** - 모든 게이트 통과; 리스크 게이트로.
 - **abstain** - 근거에 기반한, 지지된 답 없음; 자율 액션 없음, HIL로 라우팅.
-- **disagree/escalate** - 모델이 quorum 실패; HIL로 라우팅.
+- **disagree/escalate** - 모델이 정족수 실패; HIL로 라우팅.
 - **거부** - 검증기 또는 정책이 후보 거부; no-op, 감사됨.
 
 네 개 모두 타입된, 감사된 결과; **조건을 충족한** 만 실행으로 진행 가능.
 
 ```mermaid
 flowchart TD
-  CASE[novel or ambiguous case] --> POOL[mixed-model pool: 2+ independent models]
-  POOL --> CMP{quorum agreement?}
-  CMP -->|no| HOLD[escalate to HIL]
-  CMP -->|yes| VER[deterministic verifier: policy-as-code and what-if]
-  VER -->|fail| DENY[deny: no-op, audited]
-  VER -->|pass| GRD{grounded and citations valid?}
-  GRD -->|no| ABST[abstain to HIL]
-  GRD -->|yes| THR{confidence over threshold?}
-  THR -->|no| HOLD
-  THR -->|yes| ELIG[execution-eligible to risk gate]
+ CASE[novel or ambiguous case] --> POOL[mixed-model pool: 2+ independent models]
+ POOL --> CMP{quorum agreement?}
+ CMP -->|no| HOLD[escalate to HIL]
+ CMP -->|yes| VER[deterministic verifier: policy-as-code and what-if]
+ VER -->|fail| DENY[deny: no-op, audited]
+ VER -->|pass| GRD{grounded and citations valid?}
+ GRD -->|no| ABST[abstain to HIL]
+ GRD -->|yes| THR{confidence over threshold?}
+ THR -->|no| HOLD
+ THR -->|yes| ELIG[execution-eligible to risk gate]
 ```
 
 ## 프롬프트 인젝션 방어
@@ -158,8 +158,8 @@ Azure API 관리(APIM)을 경유하는 Azure OpenAI, APIM을 경유하는 OpenAI
 
 엔드포인트 URL과 자격 증명은 운영자 변환 결과에 serialize하지 않습니다. 연결은 opaque
 `endpoint_ref`를 저장하고 조립 루트가 protected 배포 구성에서 HTTPS URL로
-해석합니다. 해석기가 주입되지 않은 연결은 시작에 실패합니다. 임베딩, proposer,
-기본 및 보조 교차 검증, Critic, Judge, RCA, 서술기 경로가 같은 request-target 빌더를
+해석합니다. 해석기가 주입되지 않은 연결은 시작에 실패합니다. 임베딩, 제안자,
+기본 및 보조 교차 검증, 비평자, Judge, RCA, 서술기 경로가 같은 request-target 빌더를
 사용합니다. `endpoint_bindings`가 없는 이전 방식 파일은 direct Azure OpenAI 경로를 유지합니다.
 
 APIM은 경로 및 거버넌스 경계이며 모델 발행기가 아닙니다. Mixed-model quality 게이트는
@@ -180,12 +180,12 @@ SKU로 필터하고 범위가 제한된 `management.azure.com` 페이지 나누�
 `hil-only`로 실패 시 차단 처리합니다.
 
 APIM 경로는 `x-fdai-model-backend`, `x-fdai-capacity-unit`, `x-fdai-spillover` 응답 헤더를
-반환해야 합니다. T2 proposer 및 교차 검증 클라이언트는 근거가 누락되거나 malformed이면 성공
+반환해야 합니다. T2 제안자 및 교차 검증 클라이언트는 근거가 누락되거나 malformed이면 성공
 응답도 거부합니다. 수락된 근거는 영속 model-health 싱크를 통해 민감정보가 제거된 `selected`
 전이를 덧붙이기하고 실제 백엔드, TPM/PTU/GPU 단위, spillover 결정, 연결 id를 기록합니다.
 엔드포인트 URL, APIM 요청 id, 프로바이더 오류 텍스트는 저장하지 않습니다.
 
-`infra/modules/llm/apim-ai-gateway`의 선택적 Terraform 패키지는 기존 APIM instance에 하나의
+`infra/modules/llm/apim-ai-gateway`의 선택적 Terraform 패키지는 기존 APIM 인스턴스에 하나의
 기능을 연결합니다. FDAI 호출자의 Entra 대상을 검증하고 managed 신원으로 APIM을 두
 Azure OpenAI 백엔드에 인증하며 첫 요청을 PTU로 보내고 HTTP 429에서 same-family Standard
 배포로 정확히 한 번 재시도한 뒤 mandatory 근거 헤더를 발행합니다. APIM 서비스는
@@ -220,32 +220,32 @@ catalog-as-code(경로 `rule-catalog/llm-registry.yaml`).
 # rule-catalog/llm-registry.yaml (상류 기본; 포크는 오버라이드 가능)
 models:
  t1.embedding:
-  preferences:
-   - { publisher: OpenAI, family: text-embedding-3-small }
-   - { publisher: OpenAI, family: text-embedding-3-large }
-  sku: Standard
-  capacity_tpm: 100_000
- t1.judge:            # 소형/저렴 기본 (mini 티어)
-  preferences:
-   - { publisher: OpenAI, family: gpt-4o-mini }
-  capacity_tpm: 40_000
- t2.reasoner.primary:      # 첫 프론티어 reasoner
-  preferences:
-   - { publisher: OpenAI, family: gpt-4o }
-   - { publisher: OpenAI, family: gpt-4.1 }
-   - { publisher: OpenAI, family: gpt-4-turbo }
-  capacity_tpm: 20_000
- t2.reasoner.secondary:     # mixed-model peer - 별개 publisher여야 함
-  preferences:
-   - { publisher: Anthropic, family: claude-opus-4 }
-   - { publisher: MistralAI, family: mistral-large-2 }
-  capacity_tpm: 10_000
- t2.reasoner.escalated:     # Opus-급 천장, on-demand 전용
-  preferences:
-   - { publisher: OpenAI, family: o1 }
-   - { publisher: Anthropic, family: claude-opus-4 }
-  invocation: on_disagreement        # 모든 T2 호출에 아님
-  capacity_tpm: 5_000
+ preferences:
+  - { publisher: OpenAI, family: text-embedding-3-small }
+  - { publisher: OpenAI, family: text-embedding-3-large }
+ sku: Standard
+ capacity_tpm: 100_000
+ t1.judge:      # 소형/저렴 기본 (mini 티어)
+ preferences:
+  - { publisher: OpenAI, family: gpt-4o-mini }
+ capacity_tpm: 40_000
+ t2.reasoner.primary:   # 첫 프론티어 reasoner
+ preferences:
+  - { publisher: OpenAI, family: gpt-4o }
+  - { publisher: OpenAI, family: gpt-4.1 }
+  - { publisher: OpenAI, family: gpt-4-turbo }
+ capacity_tpm: 20_000
+ t2.reasoner.secondary:   # mixed-model peer - 별개 publisher여야 함
+ preferences:
+  - { publisher: Anthropic, family: claude-opus-4 }
+  - { publisher: MistralAI, family: mistral-large-2 }
+ capacity_tpm: 10_000
+ t2.reasoner.escalated:   # Opus-급 천장, on-demand 전용
+ preferences:
+  - { publisher: OpenAI, family: o1 }
+  - { publisher: Anthropic, family: claude-opus-4 }
+ invocation: on_disagreement    # 모든 T2 호출에 아님
+ capacity_tpm: 5_000
 ```
 
 레지스트리가 강제하는 규칙(MUST, 구성 로드에서):
@@ -264,7 +264,7 @@ models:
  근거에 기반한 되지 않으면 그 출력은 거부됨 (observability-and-detection.md 섹션 4 참조).
 - **도구 기능은 독립적으로 해석합니다.** `tool_calling_required`는 일반 함수
  도구를 게이트합니다. 공개 수집은 전용 `t1.web_search` 선호 설정을 사용하며 해당
- 배포만 `web_search_candidates`로 serialize합니다. Protected 적용은 정확한 domain
+ 배포만 `web_search_candidates`로 serialize합니다. Protected 적용은 정확한 도메인
  허용 목록으로 Foundry 프롬프트 에이전트를 조정하고 Operator API는 시작에 실제 managed-tool
  요청을 전송합니다. 모델, project, 에이전트, 권한 또는 도구 준비 상태가 없으면 서술기
  풀을 빌리지 않고 검색만 사용 불가로 전환합니다. 대화 권한은 바뀌지 않습니다.
@@ -283,16 +283,16 @@ models:
 
 ```mermaid
 flowchart LR
-  IAC[Terraform / Bicep: azd up] --> AOAI[Azure OpenAI or Foundry resource]
-  AOAI --> RES[resolver]
-  REG[llm-registry.yaml] --> RES
-  RES --> CAT[query catalog:<br/>available families + versions in region]
-  CAT --> PICK{for each capability:<br/>first preference available}
-  PICK -->|none available| HIL[capability를 hil-only로 표시<br/>completeness impact 보고]
-  PICK -->|resolved| DEPLOY[create deployment<br/>with TPM or PTU capacity]
-  DEPLOY --> INV[verify mixed-model invariant:<br/>primary.publisher ≠ secondary.publisher]
-  INV -->|violated| FAIL
-  INV -->|ok| MAP[write resolved-models.json to Key Vault<br/>+ audit entry]
+ IAC[Terraform / Bicep: azd up] --> AOAI[Azure OpenAI or Foundry resource]
+ AOAI --> RES[resolver]
+ REG[llm-registry.yaml] --> RES
+ RES --> CAT[query catalog:<br/>available families + versions in region]
+ CAT --> PICK{for each capability:<br/>first preference available}
+ PICK -->|none available| HIL[capability를 hil-only로 표시<br/>completeness impact 보고]
+ PICK -->|resolved| DEPLOY[create deployment<br/>with TPM or PTU capacity]
+ DEPLOY --> INV[verify mixed-model invariant:<br/>primary.publisher ≠ secondary.publisher]
+ INV -->|violated| FAIL
+ INV -->|ok| MAP[write resolved-models.json to Key Vault<br/>+ audit entry]
 ```
 
 **부트스트랩 불변식 (MUST)**
@@ -310,7 +310,7 @@ flowchart LR
 해석기는 프로비저닝 불가능한 기능을 `hil-only`로 강등시키고 계속한다 -
 하나의 누락된 계열 때문에 전체 부트스트랩을 막지 않으므로 **부분 배포가
 조용하다**: `resolved-models.json`이 T1 쌍 + `t2.reasoner.primary`만 담고 있는데
-레지스트리는 보조 reasoner, critic, RCA reasoner, 에스컬레이션 상한까지
+레지스트리는 보조 reasoner, 비평자, RCA reasoner, 에스컬레이션 상한까지
 선언할 수 있다. 그러면 조립 루트는 조용히 forced-disagree 교차 검증으로
 대체 경로 하고 모든 T2 케이스가 HIL로 라우팅되며, reasoning 계층이 사실상 꺼졌다는
 신호가 배포 시점에 없다.
@@ -324,8 +324,8 @@ flowchart LR
 - `quorum_ok`는 mixed-model T2 교차 검증이 형성 가능한지(두 reasoner 가용 + 다른
  발행기) 보고 - `hil-only` 모드에서는 기대하지 않음;
 - `ProvisioningSeverity`가 `ok`(전부 resolved), `degraded`(선택적 기능만
- 누락 - debate / RCA / 에스컬레이션 / 평가 기준 off는 허용), `critical`(코어 기능
- 누락 또는 quorum 미형성 - T2가 사실상 off)로 롤업.
+ 누락 - 토론 / RCA / 에스컬레이션 / 평가 기준 off는 허용), `critical`(코어 기능
+ 누락 또는 정족수 미형성 - T2가 사실상 off)로 롤업.
 
 배포 파이프라인은 심각도로 게이팅하고 리포트를 감사 로그에 기록(`critical` 시 A2
 운영 알림)하므로, 반쪽만 프로비저닝된 reasoning 계층이 런타임 HIL storm으로 숨지
@@ -343,13 +343,13 @@ stale 참조(배포 삭제 또는 404) 는 다른 기능이 아니라 **HIL로 f
 
 ```python
 # core/tiers/t2-reasoning/reasoner.py (illustrative)
-primary  = client.for_capability("t2.reasoner.primary")
+primary = client.for_capability("t2.reasoner.primary")
 secondary = client.for_capability("t2.reasoner.secondary")
 cand_a = primary.chat(...)
 cand_b = secondary.chat(...)
 if not agree(cand_a, cand_b):
-  escalated = client.for_capability("t2.reasoner.escalated")  # cost-capped
-  return arbitrate(cand_a, cand_b, escalated.chat(...))
+ escalated = client.for_capability("t2.reasoner.escalated") # cost-capped
+ return arbitrate(cand_a, cand_b, escalated.chat(...))
 return quorum_result(cand_a, cand_b)
 ```
 
@@ -370,7 +370,7 @@ delta-2a -> delta-2b 순서를 따른다. `QualityGate`는 `EscalationLadderConf
 배선되면 결정을 **그림자**(`QualityDecision.escalation_route` /
 `escalation_reason`, 그리고 읽은 `self_consistency` stability,
 `quality_decision_audit_fields`로 표면화)로 기록한다 - 측정만 하고 행동은 안 함;
-escalated 모델을 실제 호출하는 것은 다음 enforce 스텝. `on_self_consistency_below`
+escalated 모델을 실제 호출하는 것은 다음 강제 적용 스텝. `on_self_consistency_below`
 트리거는 조립 루트의 self-consistency cascade가 후보에 얹은
 `action_stability` 신호를 읽는다 - 게이트는 모델을 직접 샘플링하지 않는다(샘플러의
 "cascade 트리거는 조립 관심사" 계약).
@@ -388,7 +388,7 @@ HIL로 라우팅)을 반환하며, 다음 하드닝 불변식을 지킨다:
 
 - **단계 구조는 실행 자격을 절대 부여하지 않는다.** *더 강한 모델을 쓸지*만
  결정한다. escalated 모델의 제안도 신뢰할 수 없는 이며 같은 quality 게이트(검증기 +
- grounding + quorum)로 재진입한다; disagreement는 단계 구조를 오른다고 auto-resolve
+ grounding + 정족수)로 재진입한다; disagreement는 단계 구조를 오른다고 auto-resolve
  되지 않으며 - 결정론 검증기가 유일한 권위로 남는다.
 - **실패 시 차단.** `escalated_available=False`(`t2.reasoner.escalated`를 해석
  하지 않은 포크)는 `STOP`을 반환하며, precedence에서 deny-list보다 위.
@@ -398,14 +398,14 @@ HIL로 라우팅)을 반환하며, 다음 하드닝 불변식을 지킨다:
  `minimum_ontology_improvement_attempts`에 도달하기 전에는 중단됩니다.
 - **Triggers.** `cross_check_disagreement`(주 트리거, 레지스트리의
  `invocation: on_disagreement` 반영) + 선택적 `on_self_consistency_below`
- 임계값(self-consistency 샘플러가 흔들리는 proposer를 보고하면 nominal agreement
+ 임계값(self-consistency 샘플러가 흔들리는 제안자를 보고하면 nominal agreement
  에서도 escalate). ActionType별 `never`/`always` 리스트로 튜닝하며 거부가 allow
  우선.
 
 Resolved 모델 계열은 배포 별칭과 별도로 각 T2 어댑터에 전달됩니다. GPT-5 및 o-series
 채팅 계열은 `max_completion_tokens`를 보내고 custom `temperature`를 생략합니다. Classic 채팅
 계열은 `max_tokens`와 `temperature`를 유지합니다. 이 규칙은 기본 latency-pool 구성원을 포함한
-RCA, proposer 및 교차 검증 요청에 동일하게 적용되므로 friendly 배포 별칭이 잘못된 wire
+RCA, 제안자 및 교차 검증 요청에 동일하게 적용되므로 friendly 배포 별칭이 잘못된 wire
 필드를 선택할 수 없습니다.
 
 ### Narrator 라우팅 및 지연 시간
@@ -423,7 +423,7 @@ Narrator 배포 선택, 멀티모달 탐색, 사용자별 선호 설정, TTFT, �
 *발행기* 는 절대 바뀌지 않고, 같은 발행기 의 어느 배포 가 특정 호출에
 답하느냐만 달라지기 때문이다.
 
-**왜 안전한가.** Mixed-model invariant 는 *배포* 가 아니라 *발행기* 를
+**왜 안전한가.** Mixed-model 불변식 는 *배포* 가 아니라 *발행기* 를
 제약한다(`t2.reasoner.primary.publisher != t2.reasoner.secondary.publisher`).
 기본 풀 이 `{gpt-4o, gpt-5.4, gpt-4.1}` - 전부 OpenAI - 라면 어느 배포
 가 지연 경쟁에서 이기든 기본 발행기 는 `OpenAI` 로 유지되어, 교차 검증 는
@@ -435,24 +435,24 @@ collapse" 위험은 *쌍 전체*를 속도로 라우팅할 때의 문제이고, 
 
 - **동일 발행기 만.** 기본 지연 시간 풀 의 모든 배포 는 하나의
  발행기 를 공유해야 한다. 리졸버는 후보가 두 발행기 에 걸친 풀 을
- 거부하고, 확장된 mixed-model invariant 는 풀 의 단일 발행기 가 여전히
+ 거부하고, 확장된 mixed-model 불변식 는 풀 의 단일 발행기 가 여전히
  `t2.reasoner.secondary` 와 다른지 재검증한다. cross-publisher 기본 풀 은
  설정 선택이 아니라 quality-gate 결함이다.
-- **기본 슬롯만.** 풀 은 기본 proposer 만 라우팅한다. `secondary`,
+- **기본 슬롯만.** 풀 은 기본 제안자 만 라우팅한다. `secondary`,
  `t2.critic`, `t2.rubric.judge`, 에스컬레이션 단계 구조 는 절대 지연 라우팅되지
  않는다 - 결정성과 distinct-publisher 역할은 그대로다.
-- **기본 enforce on.** `llm.t2_primary_latency_routing` 기본값 `true`.
+- **기본 강제 적용 on.** `llm.t2_primary_latency_routing` 기본값 `true`.
  리졸버가 동일 발행기 `t2.reasoner.primary` 후보를 2개 이상
  발행(`--emit-primary-pool`) 할 때만 활성화되며, 1개 풀은 단일 기본
  를 그대로 바인딩한다. 포크는 플래그를 `false` 로 설정해 단일
  최선호 기본 를 pin 할 수 있다. 라우터는 구조적으로 invariant-safe
  (동일 발행기 풀)라 켜도 quality 게이트 를 약화시키지 않는다.
 - **감사 에 pick 기록.** 라우팅된 모든 호출은 선택된 배포 를 감사 항목에
- 기록하므로, 라이브 pick 이 측정된 p50 에 따라 달라져도 재생(judge 전용, 재실행
+ 기록하므로, 라이브 pick 이 측정된 p50 에 따라 달라져도 재생(판정자 전용, 재실행
  안 함)는 결정론적으로 유지된다.
 - **범위가 제한된 in-call 장애 조치.** 선택된 기본 배포가 raise하면 라우터는 penalty를
  기록하고 남은 동일 발행기 기본을 각각 최대 한 번 시도합니다. 보조 발행기로
- 넘어가거나 critic 및 judge 연결을 변경하지 않습니다. 모든 기본 후보가 실패하면
+ 넘어가거나 비평자 및 판정자 연결을 변경하지 않습니다. 모든 기본 후보가 실패하면
  마지막 오류가 전파되고 quality 게이트는 더 약한 judgment를 조용히 수락하지 않고 사람 검토로
  경로합니다.
 - **실패 상태 및 cooldown.** 라우터는 프로바이더 오류 텍스트를 보존하지 않고 auth,
@@ -465,13 +465,13 @@ collapse" 위험은 *쌍 전체*를 속도로 라우팅할 때의 문제이고, 
  `ModelHealthTransitionSink`를 통해 덧붙이기됩니다. 기록에는 모델 역할, 배포, 민감정보가 제거된
  실패 등급, 범위가 제한된 cooldown, 고정된 선택 사유가 포함되며 프로바이더 오류 텍스트는 포함되지
  않습니다. PostgreSQL 영속성은 프로세스 재시작 후에도 유지되고 같은 계약이 서술기,
- T1, 다른 T2 역할 이벤트를 받을 수 있습니다. Telemetry 영속성 실패는 로그되지만 모델
+ T1, 다른 T2 역할 이벤트를 받을 수 있습니다. 텔레메트리 영속성 실패는 로그되지만 모델
  장애 조치 또는 successful 제안을 차단하지 않습니다.
 - **Operator 가시성.** Operator API는 최신 선택된 배포, 장애 조치 사유,
  unhealthy/recovered 후보, cooldown을 Settings > Models에 project합니다. Console은 읽기 전용을
  유지하며 라우팅 변경, cooldown 해제, 배포 승격을 수행할 수 없습니다.
 
-**해석기 + wiring.** 리졸버는 `collect_narrator` 가 `narrator_candidates` 를
+**해석기 + 배선.** 리졸버는 `collect_narrator` 가 `narrator_candidates` 를
 발행 하는 것과 동일하게 `t2.reasoner.primary` 후보 풀(선호 순서의 viable 동일
 발행기 계열)을 발행 한다; 조립 은 플래그가 on 이고 풀 이 2개 이상일
 때 기본 `CrossCheckModel` 을 `LatencyRoutedCrossCheckModel` 로 감싸고, 그렇지
@@ -492,7 +492,7 @@ collapse" 위험은 *쌍 전체*를 속도로 라우팅할 때의 문제이고, 
 
 - **절대 프로덕션 매핑 auto-swap 안 함.** 하드 폐기라도 초안 PR 오픈. 폐기 날짜가 병합된 대체
  없이 지나면, 그 기능의 티어는 저렴 계열로 조용히 다운그레이드가 아니라 **HIL로 강등**.
-- **모델에도 그림자 before enforce.** 병합된 레지스트리 변경이 해석기를 그림자에서 재실행: 새
+- **모델에도 그림자 before 강제 적용.** 병합된 레지스트리 변경이 해석기를 그림자에서 재실행: 새
  배포가 병렬로 프로비저닝되고, quality-measurement 리플레이가 고정 시나리오 세트에서
  스코어링, 클린 리플레이만이 `resolved-models.json` 컷오버 승격.
 - `rule-catalog/llm-registry.yaml` 의 **PR 리뷰어** 는 Owner-티어 - 모델 스왑은 high-blast-radius
@@ -537,20 +537,20 @@ interfaces` 와 `submission_criteria` 통해 액션에 통합된 함수) 로부�
 
 ### 온톨로지 기반
 
-저수준 rule-dispatch foundation은 네 **ObjectType**으로 시작하며 [FDAI 운영 온톨로지](operating-ontology-ko.md)가 서비스, objective, 결정, 효과 의미를 소유함.
+저수준 rule-dispatch 기반은 네 **ObjectType**으로 시작하며 [FDAI 운영 온톨로지](operating-ontology-ko.md)가 서비스, 목표, 결정, 효과 의미를 소유함.
 확장 가능한 레지스트리는 프로세스, 대화, ReviewCase 같은 product 객체와 ResourceType, SignalType, Property, ActionType 같은 meta 객체를 일급으로 둠.
-선언은 `rule-catalog/vocabulary/`에 있고 런타임 instance는 shared 온톨로지 저장소를 사용함.
+선언은 `rule-catalog/vocabulary/`에 있고 런타임 인스턴스는 shared 온톨로지 저장소를 사용함.
 
 | ObjectType | 의미 | 백업 |
 |------------|------|------|
 | `Resource` | 거버넌스 아래의 대상(Azure 리소스; CSP-중립 스키마, 프로바이더 어댑터가 채움) | `shared/providers/` |
 | `Rule` | 의도 있는 결정론 컨트롤(`applies_to`, `evaluates`, `remediates`) | `rule-catalog/` |
-| `Signal` | 타입된 관찰(Activity Log 라인, 표류 diff, 비용 이상, canary 결과) - `event-ingest` 에 진입하는 기본형 | `shared/contracts/event` |
+| `Signal` | 타입된 관찰(Activity Log 라인, 표류 차이, 비용 이상, canary 결과) - `event-ingest` 에 진입하는 기본형 | `shared/contracts/event` |
 | `Finding` | 시점의 리소스에 대한 규칙 매칭, 컨텍스트와 심각도 포함 | 런타임에 파생; 감사 저장소에 지속 |
 
 meta ObjectType은 LinkType 엔드포인트를 정직하게 만듦. `applies_to`는 `ResourceType`,
 `triggered_by`는 `SignalType`, `evaluates`는 `Property`, `remediates`는 `ActionType`을 대상으로
-함. 해당 카탈로그를 직접 읽는 배포에서는 런타임 instance가 0개일 수 있지만, 선언 자체가
+함. 해당 카탈로그를 직접 읽는 배포에서는 런타임 인스턴스가 0개일 수 있지만, 선언 자체가
 ActionType을 Rule로 모델링하는 엔드포인트 별칭을 방지함.
 
 shipped ObjectType, LinkType, ActionType 선언은 모두 evidence-governed임. 출처 URL과
@@ -561,9 +561,9 @@ resolved 선언 버전을 인용하고 license와 수집 시간을 기록하며 
 O(인덱스 조회). 각 선언은 `is_transitive`, `is_causal`, `temporal_order` 플래그도 함께
 운반하므로 탐색 엔진이 재귀 확장이 안전한 시점과 쿼리가 시간을 존중해야 하는 시점을
 알 수 있음. 시간 LinkType은 대상 ObjectType의 정렬 가능한 속성으로 해석해야 하는
-`order_by_property`도 선언함. instance 저장소는 모든 링크 쓰기 전에 cardinality를 강제하고,
+`order_by_property`도 선언함. 인스턴스 저장소는 모든 링크 쓰기 전에 cardinality를 강제하고,
 `is_transitive`가 true일 때만 같은 LinkType을 반복해서 순회하며, 시간 링크를 대상 속성
-순서로 반환함. 이 값들은 시각화 힌트가 아니라 런타임 invariant임.
+순서로 반환함. 이 값들은 시각화 힌트가 아니라 런타임 불변식임.
 
 | LinkType | Cardinality | Transitive | 의미 |
 |----------|-------------|:---------:|------|
@@ -627,19 +627,19 @@ source: authored
 severity: high
 category: security
 resource_type: object-storage
-check_logic: <opa-package-ref>      # 결정론 평가기
-remediation: <action-ref>         # 온톨로지 ActionType 인스턴스 가리킴
+check_logic: <opa-package-ref>   # 결정론 평가기
+remediation: <action-ref>     # 온톨로지 ActionType 인스턴스 가리킴
 
 # ── ontology fields (new; CI-validated) ──
-applies_to:  [object-storage]
+applies_to: [object-storage]
 triggered_by: [property.public_access.changed, config.public_access.enabled]
-evaluates:   [object-storage.public_access]
-scope_predicates: {}             # 선택 labels/tags/scope filter
-remediates:  remediate.disable-public-access
-required_interfaces: [Evaluable, Remediable]  # submission_criteria enforced at load
+evaluates:  [object-storage.public_access]
+scope_predicates: {}       # 선택 labels/tags/scope filter
+remediates: remediate.disable-public-access
+required_interfaces: [Evaluable, Remediable] # submission_criteria enforced at load
 submission_criteria:
  - kind: resource_type_registered
-  value: object-storage
+ value: object-storage
 provenance: { ... }
 ```
 
@@ -650,7 +650,7 @@ CI가 거부.
 
 `resource_type`은 기존 정책과 교정 코드가 사용하는 정본 단일 대상으로
 유지하며 `applies_to`에 반드시 포함해야 함. `scope_predicates`는 이전 라벨/tag 범위 지도를
-담아 타입 축과 혼동되지 않게 함. upstream 출처가 더 좁은 메타데이터를 제공하지 않을 때만 기존
+담아 타입 축과 혼동되지 않게 함. 업스트림 출처가 더 좁은 메타데이터를 제공하지 않을 때만 기존
 및 신규 수집 룰을 `triggered_by: ["*"]`, `evaluates: ["*"]`로 backfill함. 와일드카드는 명시적
 catch-all이지 추론된 신호가 아님. TrustRouter와 T0는 같은 `applies_to` x (`triggered_by` exact
 또는 `*`) 교집합을 사용함.
@@ -701,13 +701,13 @@ catch-all이지 추론된 신호가 아님. TrustRouter와 T0는 같은 `applies
  구성.
 - `rollback_contract` - 인스턴스를 되돌리는 방법. **`none` 은 유효 값 아님**; 모든 ActionType 은
  최선 노력 라도 undo 경로를 선언해야 함. 정말로 되돌릴 수 없는 변경 은
- `irreversible: true` (아래) 를 설정하고 risk-classification 이 HIL+quorum 으로 라우팅 -
+ `irreversible: true` (아래) 를 설정하고 risk-classification 이 HIL+정족수 으로 라우팅 -
  롤백 을 침묵시키는 방식이 아님.
 - `irreversible` - 액션 이전 상태가 완전히 복원 불가능할 때만 true (예: soft-delete 된 리소스의
  `purge`). Rollback_contract 은 여전히 필수이며 최선 노력 복구를 기술.
-- `default_mode` - 모든 upstream ActionType은 반드시 `shadow`로 출시합니다. Enforce로의
+- `default_mode` - 모든 업스트림 ActionType은 반드시 `shadow`로 출시합니다. 강제 적용로의
  승격은 승격 게이트 통과 후 별도 통제된 액션으로 수행합니다.
-- `promotion_gate` - 어사인먼트가 shadow-mode ActionType 을 enforce 로 승격시키기 전에 고정
+- `promotion_gate` - 어사인먼트가 shadow-mode ActionType 을 강제 적용 로 승격시키기 전에 고정
  시나리오 세트에서 통과해야 할 측정 기준 (`min_shadow_days`, `min_samples`, `min_accuracy`,
  `max_policy_escapes`). Rule 배정 는 이 값을 tighten 만 가능, loosen 불가.
 - `preconditions[]` - 액션이 risk-gate 에 도달하기 **전에** T0 검증기 가 결정론적으로 평가하는
@@ -728,7 +728,7 @@ catch-all이지 추론된 신호가 아님. TrustRouter와 T0는 같은 `applies
 | 동사 | 의미 | 기본 롤백 |
 |------|-----|---------------|
 | `create` | 새 Resource 프로비저닝 | `pr_revert` (같은 PR에서 destroy) |
-| `update` | in-place 속성 변경 (non-destructive) | `pr_revert` (diff 에 이전 속성값) |
+| `update` | in-place 속성 변경 (non-destructive) | `pr_revert` (차이 에 이전 속성값) |
 | `delete` | CSP 수준 Resource 제거 | `snapshot_restore` (삭제 전 스냅샷) |
 | `disable` | 삭제 없이 끄기 | `state_forward_only` via `enable` |
 | `enable` | `disable` 의 역 | `state_forward_only` via `disable` |
@@ -766,19 +766,19 @@ ActionType 의 `interfaces` 집합은 실행기 가 지켜야 하는 런타임 �
 
 ```mermaid
 flowchart TD
-  E[Signal arrives] --> L0["L0. event-ingest<br/>normalize + dedup + correlate into incident"]
-  L0 -->|replay / duplicate| DROP[no-op, audited]
-  L0 --> L1["L1. T0 rule match<br/>ontology traversal: applies_to ∩ triggered_by<br/>run each rule's evaluate action (OPA/Rego, in-memory)"]
-  L1 -->|verdict| RG1[risk-gate]
-  L1 -->|no rule verdict| L2["L2. Learned-action lookup<br/>(signature, rule_id, catalog_version) → verified action"]
-  L2 -->|hit| RG2[risk-gate]
-  L2 -->|miss| L3["L3. Embedding similarity (T1)<br/>1 embedding call → pgvector kNN<br/>reuse neighbor.action iff cos > threshold and context compatible"]
-  L3 -->|hit| RG3[risk-gate]
-  L3 -->|below threshold| L4["L4. T2 result cache<br/>signature includes catalog_version + model_config_version + mode"]
-  L4 -->|hit| RG4[risk-gate]
-  L4 -->|miss| L5["L5. T2 cascade<br/>primary → agree? → done / disagree? → escalated<br/>quality-gate authoritative"]
-  L5 --> WRITE["writeback: promote verified outcome<br/>into L2 (learned action) + L4 (result cache)"]
-  WRITE --> RG5[risk-gate]
+ E[Signal arrives] --> L0["L0. event-ingest<br/>normalize + dedup + correlate into incident"]
+ L0 -->|replay / duplicate| DROP[no-op, audited]
+ L0 --> L1["L1. T0 rule match<br/>ontology traversal: applies_to ∩ triggered_by<br/>run each rule's evaluate action (OPA/Rego, in-memory)"]
+ L1 -->|verdict| RG1[risk-gate]
+ L1 -->|no rule verdict| L2["L2. Learned-action lookup<br/>(signature, rule_id, catalog_version) → verified action"]
+ L2 -->|hit| RG2[risk-gate]
+ L2 -->|miss| L3["L3. Embedding similarity (T1)<br/>1 embedding call → pgvector kNN<br/>reuse neighbor.action iff cos > threshold and context compatible"]
+ L3 -->|hit| RG3[risk-gate]
+ L3 -->|below threshold| L4["L4. T2 result cache<br/>signature includes catalog_version + model_config_version + mode"]
+ L4 -->|hit| RG4[risk-gate]
+ L4 -->|miss| L5["L5. T2 cascade<br/>primary → agree? → done / disagree? → escalated<br/>quality-gate authoritative"]
+ L5 --> WRITE["writeback: promote verified outcome<br/>into L2 (learned action) + L4 (result cache)"]
+ WRITE --> RG5[risk-gate]
 ```
 
 **예상 적중 분포** (설계 목표, [goals-and-metrics-ko.md](goals-and-metrics-ko.md) 에 따라 측정
@@ -809,19 +809,19 @@ L2와 L4를 키하는 서명은 온톨로지-타입된 필드에 대한 정본 �
 ```text
 signature = sha256(
  Signal.type,
- canonical(Signal.params),        # sorted, redacted, typed
+ canonical(Signal.params),    # sorted, redacted, typed
  Resource.type,
- canonical(Resource.props),        # only props referenced by evaluates
+ canonical(Resource.props),    # only props referenced by evaluates
  Rule.id, Rule.version,
  Catalog.version,
- Model.config.version,          # L4 only; L2 omits (model-independent reuse)
- Mode                   # shadow | enforce
+ Model.config.version,     # L4 only; L2 omits (model-independent reuse)
+ Mode          # shadow | enforce
 )
 ```
 
 - **민감정보 제거가 해시 전 실행** - 그래서 시크릿이 절대 서명에 진입 못함.
 - **`evaluates` 에 명명된 속성만** 참여, 그래서 관련 없는 리소스 churn이 재사용을 무효화하지 않음.
-- **카탈로그 / 모델 버전 bump** 와 **그림자 ↔ enforce 전이** 는 새 서명 강제, 별도 cache-flush
+- **카탈로그 / 모델 버전 bump** 와 **그림자 ↔ 강제 적용 전이** 는 새 서명 강제, 별도 cache-flush
  스텝 없이 [비용 통제 수단](#비용-컨트롤cost-controls) 의 무효화 규칙 적용 보장.
 
 ### 재사용 감사 (모든 레이어, 적중 포함)
@@ -833,7 +833,7 @@ signature = sha256(
 - 발동한 `rule_id` 와 `rule_version`
 - `signature` 와 매칭 방법(정확 적중 / cos 유사도 + 스코어 / 캐시 age)
 - `reused_from`: 결과가 재사용된 audit_id로의 back-reference (L2/L4)
-- `mode` (그림자 / enforce) 와 결과 risk-gate 결정
+- `mode` (그림자 / 강제 적용) 와 결과 risk-gate 결정
 
 Resolvable `reused_from` 없는 재사용은 결함 - 감사 체인은 원래 그것을 검증한 L5 결과로 어떤
 결정에서든 walkable하고 유효한 규칙/모델 버전으로 forward해야 함.
@@ -842,7 +842,7 @@ Resolvable `reused_from` 없는 재사용은 결함 - 감사 체인은 원래 �
 
 온톨로지는 **코어에서 도메인-비종속** 이며 **포크별 확장 가능**합니다. 포크는 자체 패키지에
 `ObjectType`과 `LinkType` 카탈로그 항목을 추가하고 해당 정의를 따르는 기록을 발행하는
-프로바이더를 연결합니다. `core/`나 upstream 계약 패키지는 편집하지 않습니다.
+프로바이더를 연결합니다. `core/`나 업스트림 계약 패키지는 편집하지 않습니다.
 - 새 `Resource` 하위타입은 검토된 카탈로그 항목으로 등록하고 파이프라인을 자동 상속 -
  `evaluate`, `reuse`, `similarity` 가 `core/` 의 코드 변경 없이 그들 위에서 작동.
 - 새 `LinkType` (예: 포크-특이 causal 관계) 은 자체 cardinality, transitivity, 추론 메타데이터
@@ -860,7 +860,7 @@ Resolvable `reused_from` 없는 재사용은 결함 - 감사 체인은 원래 �
 
 ## 비용 컨트롤(비용 통제 수단)
 
-- **정규화된 이벤트 서명 + 규칙 카탈로그 버전 + 모델-config 버전 + 그림자/enforce 모드** 를
+- **정규화된 이벤트 서명 + 규칙 카탈로그 버전 + 모델-config 버전 + 그림자/강제 적용 모드** 를
  포함하는 서명으로 T1/T2 결과 **캐시**. 이것이 캐시를 변경에 걸쳐 정확하게 함: 카탈로그나
  모델-config bump가 stale 엔트리 무효화.
 - **무효화**: TTL 적용, 규칙-카탈로그 승격 시 무효화; 신선한 평가가 HIL로 보낼 케이스에 **절대**
@@ -869,7 +869,7 @@ Resolvable `reused_from` 없는 재사용은 결함 - 감사 체인은 원래 �
 - **예산 가드**: 티어별 토큰 예산과 비율 한도; 초과분은 HIL로 강등, 게이트 없는 auto-action
  이 되지 않음.
 - **프로바이더 실패 처리**: 시간 초과, rate-limit, 장애 시 **실패 시 차단** - 범위가 제한된 백오프로 재시도하고 보조 프로바이더로 대체 경로한 뒤 circuit 차단기로 HIL 강등.
- 실제 proposer 후보마다 shared 예산에서 호출 하나를 reserve하며 정제된 시도 증적에는 경로 역할, 실패 등급, 상태, 추적 신원만 유지합니다.
+ 실제 제안자 후보마다 shared 예산에서 호출 하나를 reserve하며 정제된 시도 증적에는 경로 역할, 실패 등급, 상태, 추적 신원만 유지합니다.
  최종 exhaustion은 Huginn, Heimdall, Forseti로 전달되어 실제 HIL ActionRun을 만들고 복구 성공은 관측으로만 남아 새 승인을 열지 않습니다. 절대 무한 재시도하거나 검증되지 않은 후보를 auto-execute하지 않음.
 - **Outcome-Driven 토큰 Economics**: 모델 호출, 토큰, 지연 시간, 비용을 최소화하면서 검증된 운영 가치를 최대화합니다. 원문 문서를 모든 판단에서 RAG로 직접 검색하기 전에 출처가 연결된 온톨로지 사실과 T0/T1 reuse를 사용합니다. 남은 사례에는 최소 근거에 기반한 맥락과 충분함이 입증된 가장 작은 모델을 제공하고, 모호성이나 위험에는 원문 검색, 더 강한 모델, 교차 검증, 사람 승인을 사용합니다. 정확도, 근거 품질, 안전성은 비용보다 우선하는 제약입니다.
 
@@ -892,7 +892,7 @@ Resolvable `reused_from` 없는 재사용은 결함 - 감사 체인은 원래 �
  오프라인 스코어링, per-model, per-tier 점수표 생산.
 - **Hallucination 비율**: 생성된 후보 중 인용이 grounding-validity 검사 실패하거나 검증기가
  액션 거부한 것의 비율로 측정, 샘플링되고 주기적 human-labeled - 모델의 self-report 아님.
-- 모델별, 티어별 정확도와 hallucination 비율 추적; **회귀는 승격을 자동 블록** (그림자→enforce가
+- 모델별, 티어별 정확도와 hallucination 비율 추적; **회귀는 승격을 자동 블록** (그림자→강제 적용이
  그림자에 유지) [security-and-identity-ko.md](security-and-identity-ko.md) 에 따라.
 - Mixed-model 불일치 비율은 모니터되는 신호; 상승하는 비율은 표류 또는 나쁜 모델 플래그. 이들은
  [goals-and-metrics-ko.md](goals-and-metrics-ko.md) 의 KPI에 공급.
@@ -902,12 +902,12 @@ Resolvable `reused_from` 없는 재사용은 결함 - 감사 체인은 원래 �
 각각 시나리오 세트에서 **측정된 비용/quality** 로 결정, 가정 아님.
 
 - [ ] 포크-측 레지스트리 오버라이드: 특정 포크가 리전과 컴플라이언스 자세에 대해
-   `rule-catalog/llm-registry.yaml` 에 어떤 선호를 pin하는가.
+  `rule-catalog/llm-registry.yaml` 에 어떤 선호를 pin하는가.
 - [ ] 기본 **mixed-model 계열 전략** (`azure-foundry` vs `external` vs `hil-only`) - 상류는
-   셋 다 제공; 각 포크가 부트스트랩에서 하나 선택.
+  셋 다 제공; 각 포크가 부트스트랩에서 하나 선택.
 - [ ] 조정기 주기와 Azure OpenAI / Foundry의 구체 폐기-피드 소스(주간이 기본 권장).
 - [ ] 임베딩 모델: hosted vs 로컬(데이터 잔류지, 비용).
-- [ ] Mixed-model의 Quorum 크기 / N과 불일치-escalation 정책.
+- [ ] Mixed-model의 정족수 크기 / N과 불일치-escalation 정책.
 - [ ] 버티컬별 신뢰-임계 값(복원력, 변경 안전성, 비용 거버넌스).
 - [ ] 이벤트 클래스별 민감정보 제거 ruleset과 잔류지 라우팅.
 - [ ] 캐시 TTL과 카탈로그-버전 무효화 트리거.

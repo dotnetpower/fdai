@@ -35,14 +35,14 @@ translation_revised: 2026-08-11
 | **Mixed-model disagreement 비율** | 교차 검사 불일치 | 모델 저하 |
 | **Rollback 비율** | 나중에 되돌린 액션 | 잘못 조정된 규칙이나 액션 |
 | **재정의 비율** | 규칙당 재정의 생성/수정 | 잘 맞지 않는 규칙 (발견 루프에 공급) |
-| **발견 루프 pass 비율** | 후보 → quality 게이트 통과 % | 루프 드리프트 |
+| **발견 루프 통과 비율** | 후보 → quality 게이트 통과 % | 루프 드리프트 |
 | **비상 정지 상태** | on / off | 억제된 비상 자세 |
 | **Canary 결과** | 합성 루프 왕복 | 조용한 유입 사망 |
 | **시간 since last successful canary** | 신선도 | 모니터의 모니터 |
 
-> **구현 상태**: 전이 telemetry와 synthetic canary 발행기, 소비자, 감사 경로,
+> **구현 상태**: 전이 텔레메트리와 synthetic canary 발행기, 소비자, 감사 경로,
 > deploy-time 발행기 smoke가 구현되어 있습니다. 전체 신호 내보내기 도구, alert-rule 대응,
-> audit-freshness SLO 및 scheduled operational drill은 운영 준비 상태 작업으로 남아 있습니다.
+> audit-freshness SLO 및 scheduled operational 훈련은 운영 준비 상태 작업으로 남아 있습니다.
 > 이 표는 필요한 상태 계약이며 모든 alert가 현재 provision되었다는 뜻은 아닙니다.
 
 ### 시작 준비 상태 대응
@@ -72,12 +72,12 @@ translation_revised: 2026-08-11
 ([deployment-ko.md#observability-slos-and-alerting](../deployment/deployment-ko.md#observability-slos-and-alerting)).
 
 `OTEL_EXPORTER_OTLP_ENDPOINT`는 OTLP/gRPC 추적 및 메트릭 내보내기를 활성화합니다. Loopback 밖에서는
-HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, fragment는 거부됩니다. 엔드포인트가 없으면
+HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각은 거부됩니다. 엔드포인트가 없으면
 로컬 콘솔 구간 및 in-memory 메트릭이 기본값으로 유지됩니다.
 
 채널, 확장, 모델, 스케줄러, security 수명 주기 컴포넌트는 process-singleton emitter를 통해
 같은 `fdai.transition` 구간 및 `fdai.transition.count` 메트릭을 발행합니다. 속성은 범위가 제한된
-허용 목록에 있는 domain, 이름, 결과, component-specific scalar 키를 사용하며 프로바이더 오류 텍스트,
+허용 목록에 있는 도메인, 이름, 결과, component-specific scalar 키를 사용하며 프로바이더 오류 텍스트,
 페이로드, 자격 증명, arbitrary 라벨은 허용되지 않습니다. Emission은 최선 노력이므로 내보내기 도구
 실패가 라우팅 또는 안전성 결정을 차단할 수 없습니다.
 
@@ -100,7 +100,7 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, fragme
  발행기 실행을 120초로 제한하고 감사 행은 측정된 지연 시간을 기록합니다.
 
 > 배포 작업 흐름은 즉시 실행한 canary 발행기가 실패하면 차단됩니다. 감사 최신성 차단
-> 조회, 수치형 왕복 SLO, 예약된 비상 정지 on/off drill은 production-readiness 근거로
+> 조회, 수치형 왕복 SLO, 예약된 비상 정지 on/off 훈련은 production-readiness 근거로
 > 남아 있습니다.
 
 ## Post-Deploy Smoke 테스트 계약
@@ -110,20 +110,20 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, fragme
 ([deployment-ko.md#release-and-rollback](../deployment/deployment-ko.md#release-and-rollback)).
 
 1. **어댑터 도달성** - Kafka 왕복 (Event Hubs `:9093` 프로브 토픽에 produce + consume),
-  Key Vault 참조 해석, 탐색 테이블에 DB 쓰기 + 삭제,
-  T2 모델 엔드포인트 저비용 ping (모델별, 교차 검사 대상 포함).
+ Key Vault 참조 해석, 탐색 테이블에 DB 쓰기 + 삭제,
+ T2 모델 엔드포인트 저비용 ping (모델별, 교차 검사 대상 포함).
 2. **구성 로드** - 배포된 이미지가 자신의 버전, 카탈로그 참조, 구성 해시를 보고; 값들이
-  예상 릴리스 매니페스트와 일치.
+ 예상 릴리스 매니페스트와 일치.
 3. **카나리 왕복** - 하나의 합성 이벤트 발사, 감사 엔트리가 예산 내에 랜딩 검증.
 4. **그림자 결정 정확성** - 대표 이벤트 픽스처 세트를 그림자 모드로 공급; 판정이 golden 기대와
-  일치 (회귀 스위트).
+ 일치 (회귀 스위트).
 5. **비상 정지 검사** - 비상 정지 **on** 토글, 윈도우 동안 모든 액션이 abstain 검증
-  (카나리로 프로빙); **off** 토글, 정상 결정 재개 검증. 두 상태 모두 감사 엔트리를 남김.
+ (카나리로 프로빙); **off** 토글, 정상 결정 재개 검증. 두 상태 모두 감사 엔트리를 남김.
 6. **HIL 예행 실행** - 합성 고위험 발견 사항이 HIL 채널로 라우팅, 승인자가 승인(실행하지 않는
-  예행 실행 실행 장치에서), 감사 트레일이 두 홉 모두 기록.
+ 예행 실행 실행 장치에서), 감사 트레일이 두 홉 모두 기록.
 
 현재 적용 작업 흐름은 스키마 이행, 선택적 HTTP 상태 엔드포인트, 성공한 canary 발행기
-작업을 검증합니다. 전체 감사 round-trip, 고정본 재생, 비상 정지 drill, HIL 예행 실행은 운영
+작업을 검증합니다. 전체 감사 round-trip, 고정본 재생, 비상 정지 훈련, HIL 예행 실행은 운영
 승격 전에 여전히 필요합니다.
 
 ## Alert 라우팅
@@ -157,17 +157,17 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, fragme
 
 ```mermaid
 flowchart LR
-  A[Audit id or correlation id] --> B[Event lookup]
-  B --> C[Tier decision plus confidence]
-  C --> D[Cited rules and their versions]
-  D --> E[Risk-gate decision auto or HIL]
-  E --> F[Approver identity when HIL]
-  F --> G[Action outcome plus idempotency key]
-  G --> H[Rollback reference when applicable]
+ A[Audit id or correlation id] --> B[Event lookup]
+ B --> C[Tier decision plus confidence]
+ C --> D[Cited rules and their versions]
+ D --> E[Risk-gate decision auto or HIL]
+ E --> F[Approver identity when HIL]
+ F --> G[Action outcome plus idempotency key]
+ G --> H[Rollback reference when applicable]
 ```
 
 감사 기록은 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 에 따라 추가 전용이며
-hash-chain됨; 같은 워크는 그림자와 enforce 이벤트에 대해 동작(모드가 모든 엔트리에 기록됨).
+hash-chain됨; 같은 워크는 그림자와 강제 적용 이벤트에 대해 동작(모드가 모든 엔트리에 기록됨).
 
 ## 런북 세트
 
@@ -179,7 +179,7 @@ fork-local 런북 세트에 유지합니다. 저장소는 아직 ActionType별 �
 
 | 런북 | 목적 | 트리거 |
 |------|------|--------|
-| **비상 정지 drill** | 모든 auto-execution 중단, 모든 경로가 abstain 검증 | 운영 인시던트, 스케줄 드릴 |
+| **비상 정지 훈련** | 모든 auto-execution 중단, 모든 경로가 abstain 검증 | 운영 인시던트, 스케줄 드릴 |
 | **DLQ 배출** | dead-lettered 이벤트 검사, 리플레이, 또는 폐기 (idempotency-key 가드 포함) | DLQ 깊이 알림 |
 | **표류 조정** | IaC 표류를 PR로 조정 (조용한 적용 없음) | 스케줄 표류 알림 |
 | **애플리케이션 롤백** | 이전 컨테이너 개정 번호로 트래픽 시프트 | SLO burn, 에러 스파이크, smoke-test 실패 |
@@ -206,7 +206,7 @@ fork-local 런북 세트에 유지합니다. 저장소는 아직 ActionType별 �
 - 배포된 이미지 **다이제스트** 와 의미 버전 태그.
 - 규칙 카탈로그 **버전 태그 + 컨텐트 해시**.
 - **구성 해시** (라이브 런타임 설정에 대한 안정 합; 시크릿 제외).
-- 규칙별 **효과 + 적용 플래그** - 각 규칙/스코프에 대해 "지금 무엇이 enforce 되는가".
+- 규칙별 **효과 + 적용 플래그** - 각 규칙/스코프에 대해 "지금 무엇이 강제 적용 되는가".
 - 스코프별 **재정의 카운트** (리스트 뷰에 링크).
 - **자율 발견 루프 상태** (활성/비활성, 마지막 사이클 타임스탬프, 마지막 사이클 통과율).
 - **마지막 성공 카나리** 이후 경과 시간.
@@ -222,7 +222,7 @@ Testing, k6, JMeter)가 트래픽을 만든다 - 그 트래픽이 도는 동안 
 현실적인 조건에서 감지와 판정을 증명한다:
 
 - **실부하 하 그림자 판정.** 새 룰 과 액션 은 judge-and-log 만 수행하므로
- ([architecture.instructions.md § 그림자 -> Enforce](../../../.github/instructions/architecture.instructions.md#safety-invariants)),
+ ([architecture.instructions.md § 그림자 -> 강제 적용](../../../.github/instructions/architecture.instructions.md#safety-invariants)),
  부하 테스트가 결정론적 계층 와 T2 quality 게이트 를 exercise 하고 모든 판정 는
  기록되되 실행되지 않는다.
 - **예산 대비 감지 지연 측정.** 부하가 만든 이벤트가 계층 별 `LatencyBudgetMonitor`
@@ -236,7 +236,7 @@ Testing, k6, JMeter)가 트래픽을 만든다 - 그 트래픽이 도는 동안 
  라우팅과 auto-vs-HIL 정확도를 ship 될 바로 그 빌드에서 정량화한다.
 
 결과는 그림자 증거 뭉치 - 정확도, 지연, 정책 위반 escape 0 - 이며, 오퍼레이터는
-어떤 액션 을 그림자 에서 enforce 로 승격하기 **전에** 이를 검토한다.
+어떤 액션 을 그림자 에서 강제 적용 로 승격하기 **전에** 이를 검토한다.
 
 ## Azure read-investigation release 근거
 
@@ -265,15 +265,15 @@ release 근거로 남습니다. Dedicated 검증 환경이 Azure 변경 없이 �
 [측정 윈도우](../architecture/goals-and-metrics-ko.md#definitions) 의 선단이며, 기존
 프리미티브를 조합한다:
 
-> **구현 상태**: 스케줄러와 측정 기본 요소는 존재하지만 upstream은 현재 daily
+> **구현 상태**: 스케줄러와 측정 기본 요소는 존재하지만 업스트림은 현재 daily
 > 상태/표류/deployment-baseline 작업을 등록하거나 `console.recurrent_query`를 publish하지 않습니다.
 > 아래 bullet은 목표 stabilization 조립을 정의합니다.
 
 - **Shadow-first 가 기본 유지.** 새로 도입된 액션 은 윈도우 동안 그림자 로 남고,
- 아래 안정화 신호가 깨끗해질 때까지 enforce 승격을 미룬다 - 불안정한 오픈이 절대
+ 아래 안정화 신호가 깨끗해질 때까지 강제 적용 승격을 미룬다 - 불안정한 오픈이 절대
  auto-execute 하지 않는다.
 - **기준선 대비 스케줄 비교.** 스케줄 태스크([`core/scheduler`](../../../services/core-control-plane/src/fdai/core/scheduler))
- 가 daily 상태 검사, 구성 드리프트 diff, 배포 검증을 문서화된 기준선(지식
+ 가 daily 상태 검사, 구성 드리프트 차이, 배포 검증을 문서화된 기준선(지식
  베이스에 업로드된 **리소스 플랜** 포함) 대비 수행한다 - 오픈 직후 오퍼레이터가 원하는
  "기준선 과 비교" 검사 그대로다.
 - **실트래픽에서 패턴 승격.** Month-1 관찰 도구와 `console.recurrent_query` 신호
@@ -296,8 +296,8 @@ release 근거로 남습니다. Dedicated 검증 환경이 Azure 변경 없이 �
 - [ ] 런북 템플릿 - 필수 섹션, 포맷, 모든 자동 액션에 런북 존재 여부 CI 검사.
 - [ ] 감사 조사 흐름을 위한 보존 윈도우와 쿼리 모델.
 - [ ] Cold-start 데드라인 값
-   ([startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md#cold-start-scale-to-zero-specifics) 와 공유).
+  ([startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md#cold-start-scale-to-zero-specifics) 와 공유).
 - [ ] 오픈 후 안정화 윈도우 길이(기본 "며칠") 와 이를 종료시키는 구체적 안정화 신호
-   (guard-metric 정지, canary 연속 성공, 시나리오 재생 통과).
+  (guard-metric 정지, canary 연속 성공, 시나리오 재생 통과).
 - [ ] 오픈 전 부하 테스트 통합 표면(어느 부하 생성기, 부하 하에서 assert 할 계층 별
-   지연 예산).
+  지연 예산).

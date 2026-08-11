@@ -19,7 +19,7 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 >
 > **구현 상태:** P1-P4 코어 경로가 구현되었습니다. 정본 release가 함수 선언을
 > 고정하고, authorized 호출이 replay-stable 증적을 발행하며, operational 계획 수립은 Pareto
-> pruning 및 weighted 선택 전에 hard 제약을 적용하고, ordered 계획 수립 phase는 기존
+> pruning 및 weighted 선택 전에 hard 제약을 적용하고, ordered 계획 수립 단계는 기존
 > 프로세스 저널에 덧붙이기합니다. Forseti는 선택적 조정기로 기존 비용 및 용량 토픽을
 > enrich할 수 있습니다. Programmatic simulator는 exact 검토된 출처를 범위가 제한된 파이프라인 샌드박스에서
 > 실행하고 시간 초과 또는 malformed 출력을 unscorable로 처리합니다. P5는 읽기 전용 Twin 어댑터,
@@ -34,24 +34,24 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 
 ## 한눈에 보는 설계
 
-운영 계획 실행은 버전이 고정된 작업 흐름 instance입니다. 프로세스 저널이 진행 상태를 기록하고,
+운영 계획 실행은 버전이 고정된 작업 흐름 인스턴스입니다. 프로세스 저널이 진행 상태를 기록하고,
 DecisionCase와 ActionOption은 변경할 수 없는 의미 기반 결정 산출물로 유지됩니다.
 
 ```mermaid
 flowchart LR
-  R[Typed planning request] --> P[Workflow and Process]
-  P --> C[Muninn context snapshot]
-  C --> F[Forseti DecisionCase]
-  F --> S[Specialist evidence]
-  S --> L[Versioned logic assets]
-  L --> X[Compute and twin simulation]
-  X --> H[Heimdall verification]
-  H --> O[Odin arbitration]
-  O --> V[Forseti verdict]
-  V --> A[Var approval when required]
-  A --> T[Thor execution]
-  T --> E[Observed outcome]
-  E --> N[Muninn and Norns learning]
+ R[Typed planning request] --> P[Workflow and Process]
+ P --> C[Muninn context snapshot]
+ C --> F[Forseti DecisionCase]
+ F --> S[Specialist evidence]
+ S --> L[Versioned logic assets]
+ L --> X[Compute and twin simulation]
+ X --> H[Heimdall verification]
+ H --> O[Odin arbitration]
+ O --> V[Forseti verdict]
+ V --> A[Var approval when required]
+ A --> T[Thor execution]
+ T --> E[Observed outcome]
+ E --> N[Muninn and Norns learning]
 ```
 
 ## 재사용하는 권위 원천
@@ -60,12 +60,12 @@ flowchart LR
 
 | 관심사 | 기존 권위 원천 | 계획에서의 용도 |
 |--------|----------------|-----------------|
-| 지속 가능한 진행 상태 | 작업 흐름 선언과 프로세스 스냅샷 및 저널 | 하나의 shadow-first 계획 수립 작업 흐름이 제한된 phase와 최종 상태를 기록합니다. |
+| 지속 가능한 진행 상태 | 작업 흐름 선언과 프로세스 스냅샷 및 저널 | 하나의 shadow-first 계획 수립 작업 흐름이 제한된 단계와 최종 상태를 기록합니다. |
 | 시점이 일치하는 사실 | Muninn `OperationalContextSnapshot` | 모든 후보가 하나의 기준 시점, release 집합, 최신성 증적, 맥락 다이제스트를 사용합니다. |
 | 옵션과 효과 | Forseti `DecisionCase`, `ActionOption`, `ExpectedEffect` | 사례는 no-action, 보류, 실행 가능한 후보를 포함합니다. |
 | 목표 간 중재 | Odin `ArbitrationDecision` | Odin은 모든 hard 제약을 통과한 후보만 순위를 정합니다. |
 | 승인 | Var `Approval` | 승인은 계획 텍스트나 시뮬레이션 점수에서 나오지 않습니다. |
-| 실행 | Thor `ActionRun` | 선택된 ActionType은 일반 risk, lock, 예행 실행, 감사 경로에 다시 진입합니다. |
+| 실행 | Thor `ActionRun` | 선택된 ActionType은 일반 risk, 잠금, 예행 실행, 감사 경로에 다시 진입합니다. |
 | 효과 종결 | Heimdall 관측과 `ObservedOutcome` | 프로바이더 수락과 관측된 수렴을 구분합니다. |
 | 감사 및 학습 | Saga, Muninn, Norns | 거절된 옵션과 실패한 시뮬레이션도 증거로 남으며 스스로 승격하지 않습니다. |
 
@@ -74,7 +74,7 @@ DecisionCase를 만들거나 옵션을 선택하거나 실행을 승인하거나
 
 ## 프로세스 수명 주기
 
-작업 흐름 런타임은 기존 프로세스 상태를 유지합니다. 계획 수립 phase는 추가 전용 하위 이벤트로
+작업 흐름 런타임은 기존 프로세스 상태를 유지합니다. 계획 수립 단계는 추가 전용 하위 이벤트로
 기록하므로 새 기능이 또 다른 변경 가능한 상태 머신을 만들지 않습니다.
 
 ```text
@@ -142,19 +142,19 @@ ActionOption은 proposing 에이전트, logic 호출 증적, 시뮬레이션 증
 후보 선택에는 세 개의 결정론적 단계가 있습니다.
 
 1. **Hard-constraint 충족 여부:** 순수 정책 및 온톨로지 검사가 안전성, security, 신원,
-  데이터 무결성, 복구, 승인된 SLO, RTO, RPO, 영향 또는 변경 제약을 위반하는 후보를
-  제거합니다. 누락, stale, 충돌, 잘림 근거는 pass가 아니라 ineligible입니다.
-2. **Pareto pruning:** 적격 후보 중 다른 후보가 선언된 모든 soft objective에서 같거나 더 좋고
-  하나 이상에서 더 좋은 옵션만 제거합니다. Pareto pruning은 winner를 선택하지 않습니다.
+ 데이터 무결성, 복구, 승인된 SLO, RTO, RPO, 영향 또는 변경 제약을 위반하는 후보를
+ 제거합니다. 누락, stale, 충돌, 잘림 근거는 통과가 아니라 ineligible입니다.
+2. **Pareto pruning:** 적격 후보 중 다른 후보가 선언된 모든 soft 목표에서 같거나 더 좋고
+ 하나 이상에서 더 좋은 옵션만 제거합니다. Pareto pruning은 winner를 선택하지 않습니다.
 3. **Odin 중재:** 기존 weighted arbiter가 남은 soft-objective tradeoff의 순위를 정합니다.
-  가까운 margin, non-finite 점수, 미지원 domain 또는 활성/challenger divergence는 사람 검토가
-  필요합니다.
+ 가까운 margin, non-finite 점수, 미지원 도메인 또는 활성/challenger divergence는 사람 검토가
+ 필요합니다.
 
 초기 optimizer는 schema-valid 후보를 결정론적 순서로 최대 32개 열거합니다. 상한을 초과하는 입력은
 분해하거나 검토를 위해 보류하며 조용히 자르지 않습니다. 고정된 고정본이 범위가 제한된 enumeration으로
 필요한 문제를 표현할 수 없음을 증명한 뒤에만 solver 어댑터를 추가합니다.
 
-산출물 검증은 objective 또는 효과 항목을 32개, 제약을 64개, 후보별 시뮬레이션을
+산출물 검증은 목표 또는 효과 항목을 32개, 제약을 64개, 후보별 시뮬레이션을
 8개, 항목별 근거 참조를 64개, 전체 중첩된 근거 매니페스트를 unique 참조 256개로
 제한합니다. 이 검사는 시뮬레이션 또는 산출물 생성 전에 실행됩니다. 호출자는 더 작은 읽기
 변환 결과 뒤에 초과 계보를 숨길 수 없습니다.
@@ -235,7 +235,7 @@ shadow-first를 유지하며 기존 승인 및 승격 게이트를 따릅니다.
 고정된 시나리오 묶음에는 다음이 포함됩니다.
 
 1. 성공적인 no-action 대 확장 계획 수립 및 검증된 결과 종결
-2. 명시적 보류를 만드는 stale telemetry
+2. 명시적 보류를 만드는 stale 텔레메트리
 3. 중재가 필요한 reliability 및 비용 충돌
 4. 선택된 액션이 없는 샌드박스 시간 초과
 5. 보상과 복구 검증이 있는 부분 staging 실패
@@ -249,7 +249,7 @@ shadow-first를 유지하며 기존 승인 및 승격 게이트를 따릅니다.
 전문가가 같은 리소스에 대해 충돌하면 각 소유자가 raw 신호를 정규화하고 `[0, 1]`의 `impact`를
 추가합니다. Njord는 비용 anomaly에 `clamp(ratio - 1.0, 0, 1)`을 사용하고 Freyr는 용량 예측에
 `clamp(forecast_util, 0, 1)`을 사용합니다. Forseti는 비교 가능한 magnitude를 소유 토픽인
-`object.arbitration-request`로 전달하며 domain 메트릭을 다시 해석하지 않습니다.
+`object.arbitration-request`로 전달하며 도메인 메트릭을 다시 해석하지 않습니다.
 
 Odin은 다음 규칙에 따라 결정론적 `MultiObjectiveArbiter`를 적용합니다.
 
@@ -257,13 +257,13 @@ Odin은 다음 규칙에 따라 결정론적 `MultiObjectiveArbiter`를 적용�
  service-objective 제약을 위반하는 옵션을 제거합니다.
 - 초기 실행 버티컬의 충돌은 먼저
  `resilience_safety_hold > resilience > change_safety > cost`를 적용합니다. 알 수 없음, 중복,
- security 또는 용량 domain은 weighted 중재로 이어집니다.
+ security 또는 용량 도메인은 weighted 중재로 이어집니다.
 - 조건을 충족한 soft-objective 점수는 `weight * impact`를 사용합니다. 기본 priority는
  `resilience > security > change_safety > cost > capacity`입니다. 포크는 `1.0`과 `0.4`에 기준점된
  convex/concave curve를 포함한 static 가중치 또는 결정론적 `weight_fn`을 공급할 수 있습니다.
-- 같은 영향은 이전 방식 priority winner를 재현합니다. 낮은 priority objective는 조건을 충족한 soft tradeoff
+- 같은 영향은 이전 방식 priority winner를 재현합니다. 낮은 priority 목표는 조건을 충족한 soft tradeoff
  안에서 measured 영향이 더 큰 경우에만 이길 수 있습니다.
-- Top-two margin이 구성된 human-approval band(기본 `0.10`) 이내이거나 domain이 알 수 없음이면
+- Top-two margin이 구성된 human-approval band(기본 `0.10`) 이내이거나 도메인이 알 수 없음이면
  `escalate_hil`을 설정합니다. 모든 결정은 `objective_scores`와 `margin`을
  `object.arbitration-decision`에 기록합니다.
 
@@ -276,7 +276,7 @@ Temporal 정책은 명시적 선택이며 결정론적합니다. `AlternatingFai
 repeated loser에게 범위가 제한된 가중을 주고 반대편 승리 한 번이 streak를 reset합니다.
 `HysteresisPolicy`는 최근 `window` 라운드가 실제로 flapping할 때만 most recent winner를 가중합니다. 둘 다
 `(base_weights, domains, history)`의 pure 함수이며 human-approval margin과 non-finite 검사를 유지하고
-같은 감사 이력에서 재생됩니다. Upstream은 stateless 행동을 유지하는 `NoopDecisionHistory`를
+같은 감사 이력에서 재생됩니다. 업스트림은 stateless 행동을 유지하는 `NoopDecisionHistory`를
 사용합니다.
 
 ## 전달 및 exit criteria
@@ -290,7 +290,7 @@ repeated loser에게 범위가 제한된 가중을 주고 반대편 승리 한 �
 | P4 | Twin 가지, hard 필터, Pareto pruning, Odin 중재 입력입니다. | Ineligible 옵션을 채점하지 않고 불완전한 검색이 선택할 수 없습니다. |
 | P5 | MutationPlan 및 typed-ingress 브리지입니다. | 선택한 액션과 대상 개정 번호가 정확히 일치하고 그림자는 mutate하지 않습니다. |
 | P6 | 계획 수립 Room API 및 Console 변환 결과입니다. | RBAC, 민감정보 제거, 출처 이력, 로딩, 사용 불가, responsive UI 테스트를 통과합니다. |
-| P7 | 고정된 시나리오, non-production drill, 그림자 측정입니다. | 안전성 escape 없이 완전한 근거 체인, 롤백, 재생, 결과 종결을 통과합니다. |
+| P7 | 고정된 시나리오, non-production 훈련, 그림자 측정입니다. | 안전성 escape 없이 완전한 근거 체인, 롤백, 재생, 결과 종결을 통과합니다. |
 
 ## 검증 매트릭스
 
@@ -300,7 +300,7 @@ repeated loser에게 범위가 제한된 가중을 주고 반대편 승리 한 �
 | 결정성 | 같은 release, 맥락, 입력, 시드, 증적이 같은 사례와 선택을 만듭니다. |
 | Constraints | 제외된 모든 옵션이 하나 이상의 실패한 hard 제약을 인용하고 조건을 충족한 survivor만 Odin에 도달합니다. |
 | 격리 | Compute 및 twin 실행에는 프로바이더 자격 증명 또는 managed-resource 변경 경로가 없습니다. |
-| 재생 | 프로세스 저널 및 고정된 release로 같은 phase, 옵션, 점수, 최종 사유를 재구성합니다. |
+| 재생 | 프로세스 저널 및 고정된 release로 같은 단계, 옵션, 점수, 최종 사유를 재구성합니다. |
 | 안전성 | 계획 수립은 권한을 높이지 않으며 선택된 액션은 승인과 일곱 safeguard를 계속 충족합니다. |
 | 효과 종결 | Prediction, 시뮬레이션, 액션 성공은 독립적으로 관측되거나 명시적으로 unscorable이 될 때까지 pending입니다. |
 | Learning | 실패한, refused, no-op, 롤백, recurrence 컨트롤을 balanced 근거 집단에 유지합니다. |

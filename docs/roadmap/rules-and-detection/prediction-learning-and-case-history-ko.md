@@ -24,17 +24,17 @@ translation_revised: 2026-08-11
 
 ```mermaid
 flowchart LR
-  H[Huginn observations] --> HD[Heimdall forecast and outcome]
-  HD -->|object.forecast| S[Saga audit]
-  HD -->|object.forecast-outcome| S
-  HD -->|object.forecast-outcome| MU[Muninn case revision]
-  MU --> CH[Case history storage]
-  MU -->|object.context-index| N[Norns failure analysis]
-  N -->|object.rule-candidate| M[Mimir replay and shadow gate]
-  M -->|object.rule or policy| HD
-  HD --> F[Forseti judgment]
-  F --> T[Thor execution]
-  T --> V[Vidar rollback]
+ H[Huginn observations] --> HD[Heimdall forecast and outcome]
+ HD -->|object.forecast| S[Saga audit]
+ HD -->|object.forecast-outcome| S
+ HD -->|object.forecast-outcome| MU[Muninn case revision]
+ MU --> CH[Case history storage]
+ MU -->|object.context-index| N[Norns failure analysis]
+ N -->|object.rule-candidate| M[Mimir replay and shadow gate]
+ M -->|object.rule or policy| HD
+ HD --> F[Forseti judgment]
+ F --> T[Thor execution]
+ T --> V[Vidar rollback]
 ```
 
 ## 에이전트 소유 액션
@@ -44,7 +44,7 @@ flowchart LR
 | Huginn | 메트릭, 인시던트 또는 breach 입력 | 실제 관측을 normalize하고 deduplicate | `Event` |
 | Heimdall | 관측 또는 horizon 만료 | 예측을 만들고 예측 결과를 결정론적으로 종료 | `Forecast`, `ForecastOutcome`, `Drift` |
 | Forseti | Proactive 발견 사항 | 제안된 대응을 판단하고 필요하면 중재 요청 | `Verdict`, `ArbitrationRequest` |
-| Odin | 충돌하는 objective | 제한된 대응을 선택하거나 보류 | `ArbitrationDecision` |
+| Odin | 충돌하는 목표 | 제한된 대응을 선택하거나 보류 | `ArbitrationDecision` |
 | Thor | 적격 판정 | 승격된 액션만 실행 | `ActionRun`, `ActionAttempt` |
 | Var | 사람 승인 필요 | 독립적인 승인 결과 기록 | `Approval` |
 | Vidar | 실패한 액션 | 선언된 롤백 실행 | `Rollback` |
@@ -58,10 +58,10 @@ learning intake 또는 관련 없는 예측을 차단하지 않습니다. 런타
 실패를 dead-letter 처리하기 전에 두 번 재시도합니다. 안정적인 상관관계 및 멱등성
 키로 재생을 안전하게 유지합니다.
 
-배포된 루프는 기계적인 tick 발행기가 구동합니다. Huginn은 raw tick을 `object.event`로
+배포된 루프는 기계적인 틱 발행기가 구동합니다. Huginn은 raw 틱을 `object.event`로
 정규화하고, Heimdall은 설정된 대상과 메트릭 조합을 평가해 긍정, 부정 또는 판단 보류
-평가를 변경 불가능한 episode로 기록합니다. 또한 telemetry grace 기간 이후 due episode를
-종료하고 transactional 게시 발신함을 비웁니다. Poison 게시는 다른 episode를
+평가를 변경 불가능한 에피소드로 기록합니다. 또한 텔레메트리 grace 기간 이후 due 에피소드를
+종료하고 transactional 게시 발신함을 비웁니다. Poison 게시는 다른 에피소드를
 막지 않도록 격리하고 dead-letter 처리합니다.
 
 ## 예측 결과 계약
@@ -76,15 +76,15 @@ learning intake 또는 관련 없는 예측을 차단하지 않습니다. 런타
 - 가능한 경우 관찰된 값 및 actual breach 시간
 - 최종 라벨: `true_positive`, `false_positive`, `false_negative`, `late_breach`,
  `magnitude_error`, `intervention_censored` 또는 `unscorable`
-- intervention 및 근거 참조, telemetry 완전성 및 close 시간
+- intervention 및 근거 참조, 텔레메트리 완전성 및 close 시간
 
-Episode 원장은 `predicted_breach`, `predicted_no_breach`, `abstained` 평가도 기록합니다. 세
+에피소드 원장은 `predicted_breach`, `predicted_no_breach`, `abstained` 평가도 기록합니다. 세
 상태를 모두 저장해 재현율 denominator를 보존하고 모델 miss와 파이프라인 miss를 구분합니다.
 Horizon 채점은 이벤트 시간을 사용합니다. Horizon 이후 breach는 해당 horizon의 false 부정이
 아니며 magnitude는 첫 breach 샘플이 아니라 horizon 시점 관찰된 값을 간격과 비교합니다.
 
 적격한 선행 prediction이 없는 실제 breach는 prediction id 없는 false-negative 결과를
-만듭니다. At-least-once 전달은 안정 결과 id로 deduplicate합니다. 누락 telemetry,
+만듭니다. At-least-once 전달은 안정 결과 id로 deduplicate합니다. 누락 텔레메트리,
 maintenance overlap 및 리소스 deletion은 성공한 prediction으로 바꾸지 않습니다.
 경계 검증은 JSON 스키마와 타입이 지정된 모델 모두에서 라벨별 breach, intervention,
 관측 및 간격 근거를 요구합니다. 타입이 지정된 모델은 breach가 선언된 예측 horizon
@@ -152,7 +152,7 @@ bias와 과도하게 보수적인 임계값 변경을 방지합니다. 모든 �
 
 ## Learning 및 승격
 
-Norns는 먼저 telemetry quality, 기준선 또는 seasonality 표류, 토폴로지 또는 개념 표류,
+Norns는 먼저 텔레메트리 quality, 기준선 또는 seasonality 표류, 토폴로지 또는 개념 표류,
 horizon 선택, 임계값 또는 calibration 오류, intervention censoring 및 detector-version
 회귀를 결정론적으로 분류합니다. Off-path 모델은 모호한 잔여만 분석하며 inert
 후보만 만들 수 있습니다.
@@ -171,11 +171,11 @@ Deletion pending 상태에서는 새 개정 번호와 분석을 차단합니다.
 체인, 조각 및 임베딩을 제거한 뒤 hot 인덱스를 tombstone합니다. 감사에는 non-sensitive
 deletion 기록과 다이제스트를 유지합니다. 산출물 또는 최종 메타데이터 단계가 실패하면 의도는
 retryable 상태로 남고 완료로 표시되지 않습니다. 기계 스케줄러는 기본 이벤트 버스에 제한된 raw
-보존 tick을 publish합니다. Huginn이 이를 정규화하고 Muninn만 타입이 지정된 `object.event` 보존
+보존 틱을 publish합니다. Huginn이 이를 정규화하고 Muninn만 타입이 지정된 `object.event` 보존
 신호를 소비해 due deletion을 적용합니다. `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS`는 cadence를
-제어하며 기본값은 1일입니다. 중복되거나 재생된 tick은 멱등적합니다. Raw 이벤트가 전달하는
+제어하며 기본값은 1일입니다. 중복되거나 재생된 틱은 멱등적합니다. Raw 이벤트가 전달하는
 시각은 진단용일 뿐입니다. Muninn은 trusted UTC 시계로 due date를 평가하므로 유입
-발행기가 deletion을 앞당길 수 없습니다. 보존 발행기 작업이 실패하면 이후 tick을
+발행기가 deletion을 앞당길 수 없습니다. 보존 발행기 작업이 실패하면 이후 틱을
 조용히 비활성화하지 않고 런타임이 unsuccessful exit로 종료됩니다.
 
 ## 구현 상태
@@ -185,15 +185,15 @@ retryable 상태로 남고 완료로 표시되지 않습니다. 기계 스케줄
 | 예측 detector 및 그림자 발견 사항 | 구현됨 |
 | 에이전트 pub/sub 런타임 및 single-writer 적용 | 구현됨 |
 | 통제된 trajectory 직렬화, 검사, 체크섬 및 보존 기본 요소 | 구현됨, 재사용 |
-| `ForecastOutcome` 스키마, episode closer 및 transactional 게시 발신함 | 구현됨 |
-| 긍정, 부정 및 판단 보류 episode 원장 | 구현됨 |
+| `ForecastOutcome` 스키마, 에피소드 closer 및 transactional 게시 발신함 | 구현됨 |
+| 긍정, 부정 및 판단 보류 에피소드 원장 | 구현됨 |
 | StateStore 권한과 PostgreSQL 그림자 dual-write | 구현됨 |
-| PostgreSQL episode, 개정 번호, 조각, migration-marker 및 tombstone 표 | 구현됨 |
+| PostgreSQL 에피소드, 개정 번호, 조각, migration-marker 및 tombstone 표 | 구현됨 |
 | Operational 증적 컴파일러 및 액션/인시던트 사례 intake | 구현됨 |
 | 전체 체인 keyset backfill 및 zero-mismatch 전환 게이트 | 구현됨 |
 | Azure 비공개 산출물 어댑터 | 구현됨, 배포는 명시적 선택 |
 | Muninn 사례 구체화, scheduled 보존, fingerprint-keyed operational 집단 및 inert Norns 후보 choreography | O2까지 구현됨, raw 응답 결과는 방식 근거 부족으로 유지 |
-| 기계적 예측 tick 작업 및 읽기 전용 콘솔 상태 화면 | 구현됨, 배포는 명시적 선택 |
+| 기계적 예측 틱 작업 및 읽기 전용 콘솔 상태 화면 | 구현됨, 배포는 명시적 선택 |
 
 ## 검증
 

@@ -13,9 +13,9 @@ translation_revised: 2026-08-11
 > 않습니다. 범위 정책이 기능을 허용하고, 선택된 워크로드 신원의 유효 접근이 확인되며,
 > 기존 risk 게이트가 허용한 경우에만 액션이 진행됩니다.
 >
-> **고객 경계:** Upstream은 metamodel과 결정론적 해석기를 소유합니다. Downstream 배포판은
+> **고객 경계:** 업스트림은 metamodel과 결정론적 해석기를 소유합니다. 다운스트림 배포판은
 > 지원되는 카탈로그 및 프로바이더 경계를 통해 정책과 프로바이더 대응을 추가합니다. 배포 신원,
-> 범위, 관측은 upstream 출처 컨트롤 외부에 둡니다.
+> 범위, 관측은 업스트림 출처 컨트롤 외부에 둡니다.
 
 > **구현 상태(2026-07-31):** Strict 요구사항 및 배정 로더, resolver-backed 평가기,
 > hierarchical 범위 해석기, effective-access 탐색 assembly, exact-plan 권한 부여 검증,
@@ -30,18 +30,18 @@ translation_revised: 2026-08-11
 
 ```mermaid
 flowchart LR
-  AT[ActionType] -->|requires| AR[AuthorizationRequirement]
-  AR -->|demands| AC[AuthorizationCapability]
-  AR -->|targets| RT[ResourceType]
-  PA[AuthorizationPolicyAssignment] -->|governs| AC
-  PA -->|permits| EP[ExecutionProfile]
-  PM[ProviderPermissionSet] -->|implements| AC
-  EP --> IR[Deployment identity binding]
-  PM --> OP[Provider operations]
-  IR --> EO[Effective-access observation]
-  OP --> EO
-  EO --> AD[AuthorizationDecision]
-  AD --> RG[Risk gate]
+ AT[ActionType] -->|requires| AR[AuthorizationRequirement]
+ AR -->|demands| AC[AuthorizationCapability]
+ AR -->|targets| RT[ResourceType]
+ PA[AuthorizationPolicyAssignment] -->|governs| AC
+ PA -->|permits| EP[ExecutionProfile]
+ PM[ProviderPermissionSet] -->|implements| AC
+ EP --> IR[Deployment identity binding]
+ PM --> OP[Provider operations]
+ IR --> EO[Effective-access observation]
+ OP --> EO
+ EO --> AD[AuthorizationDecision]
+ AD --> RG[Risk gate]
 ```
 
 | 계층 | 질문 | 권한 |
@@ -82,7 +82,7 @@ flowchart LR
 | `attests_grant` | AuthorizationObservation -> AccessGrant | 적용된 권한 부여의 effective 탐색 근거입니다. |
 
 기능 id는 프로바이더 중립적인 dotted 이름을 사용합니다. 프로바이더 연산 문자열, 테넌트
-식별자, 리소스 id, 워크로드 신원 id는 upstream 기능 선언에 포함하지 않습니다.
+식별자, 리소스 id, 워크로드 신원 id는 업스트림 기능 선언에 포함하지 않습니다.
 
 ## 요구사항 확인
 
@@ -107,7 +107,7 @@ flowchart LR
 기능과 연결하여 공통 의미를 표현합니다. 이 방식은 circular inheritance를 방지하고 액션
 evolution을 독립적으로 유지합니다.
 
-요구사항은 배포 또는 downstream 분포의 catalog-as-code 항목으로 관리합니다. Strict
+요구사항은 배포 또는 다운스트림 분포의 catalog-as-code 항목으로 관리합니다. Strict
 로더는 시작 전에 알 수 없음 필드, 중복 id, 지원되지 않는 범위 표현식 및 알 수 없는 액션
 타입, 리소스 타입, 기능 또는 실행 프로파일 참조를 차단합니다.
 
@@ -142,7 +142,7 @@ execution_profiles: [change-executor]
 scope:
  include: [scope://example/account/prod]
  selectors:
-  resource_types: [object-storage]
+ resource_types: [object-storage]
 posture: request_jit
 constraints:
  allowed_grant_modes: [action_bound, time_bound]
@@ -201,7 +201,7 @@ widen할 수 없습니다.
 Core는 프로바이더 자격 증명을 받거나 리소스 이름을 계산하지 않습니다.
 
 주입된 `ProviderPermissionMapper`는 기능을 atomic 프로바이더 연산, 토큰 대상,
-권한 확인 plane, 탐색 strategy 및 대응 버전으로 확인합니다. Azure 대응은 Resource
+권한 확인 평면, 탐색 strategy 및 대응 버전으로 확인합니다. Azure 대응은 Resource
 Manager 액션, RBAC `DataActions`, service-local RBAC 또는 Kubernetes 동사를 포함할 수 있습니다.
 Azure 어댑터가 해당 값을 소유합니다.
 
@@ -218,7 +218,7 @@ Azure 어댑터가 해당 값을 소유합니다.
  호출합니다.
 6. 모든 요구사항 결정을 보수적으로 축소합니다. 모든 결과가 `AUTHORIZED`인 경우에만 risk
  게이트로 진행합니다.
-  Authorized 요구사항은 정확히 하나의 `executor_identity_ref`로 수렴해야 하며 신원이
+ Authorized 요구사항은 정확히 하나의 `executor_identity_ref`로 수렴해야 하며 신원이
  없거나 여러 개면 risk evaluation 전에 실패 시 차단합니다. 이 참조는 타입이 지정된 액션과 모든
  실행기 감사로 복사됩니다. DirectApiRequest 메타데이터는 코어가 프로바이더 클라이언트 id를 알지
  않고도 한계 워크로드 신원을 선택하는 데 사용하며, PR-native 메타데이터는 귀속만
@@ -268,20 +268,20 @@ Azure 어댑터가 해당 값을 소유합니다.
 
 ```mermaid
 sequenceDiagram
-  participant F as Forseti
-  participant V as Var
-  participant D as Protected deployer
-  participant H as Heimdall
-  participant T as Thor
-  participant S as Saga
-  F->>S: AuthorizationDecision(GRANT_REQUIRED)
-  F->>V: AccessGrantRequest
-  V->>S: independently approved exact request
-  V->>D: exact-plan governance change
-  D->>S: apply receipt and expiry
-  H->>S: fresh-token effective-access observation
-  H->>F: re-evaluate original action from the beginning
-  F->>T: authorized verdict only after all gates pass
+ participant F as Forseti
+ participant V as Var
+ participant D as Protected deployer
+ participant H as Heimdall
+ participant T as Thor
+ participant S as Saga
+ F->>S: AuthorizationDecision(GRANT_REQUIRED)
+ F->>V: AccessGrantRequest
+ V->>S: independently approved exact request
+ V->>D: exact-plan governance change
+ D->>S: apply receipt and expiry
+ H->>S: fresh-token effective-access observation
+ H->>F: re-evaluate original action from the beginning
+ F->>T: authorized verdict only after all gates pass
 ```
 
 실행기 신원은 자체 역할을 부여할 수 없습니다. Protected deployer가 승인된 exact 계획을 적용합니다.
@@ -306,7 +306,7 @@ Pre-dispatch 근거는 defense in 깊이이며 프로바이더 호출 성공을 
 - `authentication_failed`: 토큰 또는 신원이 인증되지 않았습니다.
 - `permission_denied`: 인증된 신원에 effective 접근이 없습니다.
 - `policy_denied`: 명시적 프로바이더 정책 또는 거부 배정이 호출을 차단했습니다.
-- `network_denied`: 정책으로 권한 확인 엔드포인트 또는 데이터 plane에 접근할 수 없습니다.
+- `network_denied`: 정책으로 권한 확인 엔드포인트 또는 데이터 평면에 접근할 수 없습니다.
 - `provider_failed`: 다른 프로바이더 실패가 발생했습니다.
 
 모든 등급은 실패 시 차단하며 감사됩니다. `permission_denied`는 일치하는 cached 근거를 무효화하고,
@@ -328,14 +328,14 @@ Saga는 요구사항 id, 일치 및 losing 배정 id, intersection 결과, 신�
 
 | 소유자 | 산출물 |
 |--------|----------|
-| Upstream | Metamodel, 해석기, 검증, base 기능, 감사 형태, 프로바이더 프로토콜입니다. |
-| Downstream 분포 | 추가 기능, 요구사항, 정책 템플릿, 대응, 어댑터입니다. |
+| 업스트림 | Metamodel, 해석기, 검증, base 기능, 감사 형태, 프로바이더 프로토콜입니다. |
+| 다운스트림 분포 | 추가 기능, 요구사항, 정책 템플릿, 대응, 어댑터입니다. |
 | 배포 구성 | Signed 정책 번들 참조, 신원 연결, 실제 범위 id입니다. |
 | 런타임 저장소 | 관측, 결정, 요청, 권한 부여, 만료 및 철회 증적입니다. |
 
-포크 표시는 권한 확인 행동을 선택하지 않습니다. 하나의 downstream 분포는 서로 다른
+포크 표시는 권한 확인 행동을 선택하지 않습니다. 하나의 다운스트림 분포는 서로 다른
 signed 정책 번들을 가진 여러 배포를 지원할 수 있습니다. 포크 addition은 제약을 추가할
-수 있지만 upstream 기능 id를 재정의하거나 upstream 최대를 높일 수 없습니다.
+수 있지만 업스트림 기능 id를 재정의하거나 업스트림 최대를 높일 수 없습니다.
 
 ## 검증 매트릭스
 
@@ -355,7 +355,7 @@ signed 정책 번들을 가진 여러 배포를 지원할 수 있습니다. 포�
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
-| 액션 의미 및 고객 overlay | [액션 온톨로지](action-ontology-ko.md) |
+| 액션 의미 및 고객 오버레이 | [액션 온톨로지](action-ontology-ko.md) |
 | 위험 및 전달 권한 | [실행 모델](execution-model-ko.md) |
 | 워크로드 신원 및 최소 권한 | [Security and 신원](../architecture/security-and-identity-ko.md) |
 | 공유 의미 그래프 경계 | [Operating 온톨로지](../architecture/operating-ontology-ko.md) |

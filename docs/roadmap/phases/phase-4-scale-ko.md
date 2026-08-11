@@ -5,11 +5,11 @@ translation_source_sha: 7f3a9b5359f1503dc899a04e407b3f3abb8e8a6a
 translation_revised: 2026-08-11
 ---
 
-# Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
+# 단계 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
 
 **목표**: 시스템이 스케일할 때 Azure 베이스라인을 정직하게 유지 - 지속 측정, 패턴-라이브러리
 성장, 모델 비용/quality 추적, 성능/확장성 - 그래서 목표 배수가 assert되지 않고 **측정된 베이스라인
-대비 검증** 유지. 여기서 어떤 배수도 주장되지 않음; Phase 4는 시스템이 스케일할 때 Phase 0 증거를
+대비 검증** 유지. 여기서 어떤 배수도 주장되지 않음; 단계 4는 시스템이 스케일할 때 단계 0 증거를
 현재하게 유지. **멀티 클라우드 확장은 연기(TBD)** ; 아래 *TBD (deferred)* 표시된 섹션은
 전방-지향 설계로 보존되며 비-Azure 대상이 명시적으로 스코프될 때까지 이 로드맵에서 구축되지 않음
 ([Always-On 룰](../../../.github/copilot-instructions.md#always-on-rules-must)
@@ -17,12 +17,12 @@ translation_revised: 2026-08-11
 
 > **구현 상태**: 회귀, pattern-growth, model-tracking, latency-budget library와 두
 > 측정 실행기, 실행기 CLI 및 Terraform 작업 모듈은 구현되어 있습니다. 운영
-> 예약의 지속 실행 결과, statistical Phase 4 exit 근거 및 dedicated vector-store/AKS
+> 예약의 지속 실행 결과, statistical 단계 4 exit 근거 및 dedicated vector-store/AKS
 > 런타임은 완료되지 않았습니다. 참조 Container Apps는 현재 `min_replicas = 1`이고 KEDA
 > 규모 룰이 없습니다. Scale-to-zero는 포크가 lag-based 룰을 추가한 뒤에만 사용할 수 있는
 > 목표 토폴로지입니다.
 
-이 phase는 Phase 0-3 코어 위에 구축되고 변경하지 않음.
+이 단계는 단계 0-3 코어 위에 구축되고 변경하지 않음.
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 와
 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) 의
 CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마) 로 실현하여 향후 비-Azure 어댑터가
@@ -59,7 +59,7 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
  작업 은 library-only 코어 모듈 이 아니라 `fdai.delivery.measurement_runner_cli`을
  호출합니다. 기준선 모드 는 배포된 enriched 고정된 시나리오 를 재생 하고 회귀
  demotion 을 shared `StateStore`에 저장 하며 모든 실행 을 감사 합니다. Growth 모드 는
- enforce 실행, 결정론적 검증, 롤백 상태, 임베딩 변환 결과, exact
+ 강제 적용 실행, 결정론적 검증, 롤백 상태, 임베딩 변환 결과, exact
  매개변수, 인시던트 출처 이력 를 증명하는 명시적 `measurement.action_outcome.v1` 감사
  기록 만 읽습니다. 결과 및 영속 감사 시각은 timezone-aware여야 합니다. 감사
  시각보다 5분 넘게 미래인 결과는 intake 전에 거부됩니다. 각 범위가 제한된 intake 배치에서는
@@ -75,7 +75,7 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 
 ## 프로바이더 어댑터 경계 (TBD - deferred)
 
-> 이 섹션은 향후 비-Azure 대상을 위한 **설계 불변식** 으로 보존. 이 phase에서 **구축되지 않음** ;
+> 이 섹션은 향후 비-Azure 대상을 위한 **설계 불변식** 으로 보존. 이 단계에서 **구축되지 않음** ;
 > [Always-On 룰](../../../.github/copilot-instructions.md#always-on-rules-must)
 > 참조.
 
@@ -86,7 +86,7 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 - **Policy 어댑터** - 프로바이더-파라미터화된 입력으로 같은 OPA/Rego 정책 평가; per-cloud 정책
  포크 없음.
 - **IaC / 실행기 어댑터** - Terraform/OpenTofu 프로바이더로 교정 적용; 교정 PR
- 발행, CSP당 7개 안전조건(stop-condition, 롤백, blast-radius, 예행 실행, 리소스 lock,
+ 발행, CSP당 7개 안전조건(stop-condition, 롤백, blast-radius, 예행 실행, 리소스 잠금,
  멱등성, 감사) 준수.
 - **신원 어댑터** - 범위된 실행 principal 공급(아래 참조).
 - **Event-source / 버스 어댑터** - 프로바이더 이벤트를 인그레스에서 버전된 내부 스키마로 정규화.
@@ -149,7 +149,7 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 ## 안전과 Shadow-First 롤아웃
 
 - 새로 추가된 어떤 능력도 그림자 정확도가 정책 위반 escape 0으로 측정될 때까지 **그림자 모드**
- (judge-and-log, 실행 없음) 로 출시; enforce로의 승격은 명시적·액션별,
+ (judge-and-log, 실행 없음) 로 출시; 강제 적용로의 승격은 명시적·액션별,
  [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)
  와 매칭. 비-Azure 어댑터가 결국 스코프될 때(TBD), 같은 shadow-first 규칙이 어댑터의 첫
  액션에 적용.
@@ -183,7 +183,7 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 - [goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md) 의 비용/사용량과 원격측정 소스에서
  모델별 비용과 품질을 시간에 걸쳐 추적; T2 reasoner 모델을 **측정된 결과로 스왑, 가정 아님**,
  모델 ID와 임계값을 [llm-strategy-ko.md](../architecture/llm-strategy-ko.md) 에 따라 구성으로 유지.
-- 모델 폐기/가격 변경 플래그, enforce에 도달하는 어떤 스왑 전에 시나리오 세트에서 mixed-model
+- 모델 폐기/가격 변경 플래그, 강제 적용에 도달하는 어떤 스왑 전에 시나리오 세트에서 mixed-model
  교차 검사 재검증.
 
 ## 확장성과 성능
@@ -231,7 +231,7 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
  시나리오 세트 버전) - 배수와 절대값으로 보고, 절대 assert 아님.
 - 패턴-라이브러리 성장이 시간적 holdout에서 가드 메트릭을 회귀시키지 **않고** auto-resolution
  을 올림.
-- **멀티 클라우드 이식성은 이 phase의 exit 기준이 아님** - 연기(TBD) 되며 향후 phase에서
+- **멀티 클라우드 이식성은 이 단계의 exit 기준이 아님** - 연기(TBD) 되며 향후 단계에서
  스코프될 예정
  ([Always-On 룰](../../../.github/copilot-instructions.md#always-on-rules-must)
  참조).

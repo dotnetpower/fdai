@@ -20,13 +20,13 @@ reliability 규칙에 대해 평가하고, 각 발견 사항 을 그것을 만�
 이것은 per-change 리뷰가 놓치는 실패 부류를 막습니다: 워크로드가 모든 머지에서
 개별적으로는 준수하더라도, over-privileged 매니지드 아이덴티티, Owner 를 가진
 게스트 principal, 진단 설정 없음, 백업 없음 상태로 운영팀에 도착할 수 있습니다 -
-어떤 단일 변경도 그 공백 전체를 도입하지 않았기 때문입니다. ORR 은 하나의 diff 가
+어떤 단일 변경도 그 공백 전체를 도입하지 않았기 때문입니다. ORR 은 하나의 차이 가
 아니라 **핸드오프 시점의 범위 의 누적된 자세** 를 리뷰합니다.
 
 > **구현 상태**: `core/readiness/`의 pure 보고 조정기와
 > `composition/readiness.py`의 audited orchestration 서비스가 구현되어 있습니다. 서비스는
 > injected `ChecklistEvidenceProvider`를 통해 타입이 지정된 Best Practice 요구사항도 평가할 수 있습니다.
-> 현재 upstream 런타임은 `ownership_transfer`를 event-ingest에 등록하거나 실제 운영 자세 프로바이더,
+> 현재 업스트림 런타임은 `ownership_transfer`를 event-ingest에 등록하거나 실제 운영 자세 프로바이더,
 > checklist 근거 프로바이더, `ReadinessReportPublisher`, 교정 제안, 승인
 > 작업 흐름을 연결하지 않습니다. 아래
 > 자동 트리거, 인계 차단, 액션 bridging 및 Var 승인은 목표 작업 흐름이며, 현재 서비스는
@@ -53,7 +53,7 @@ reliability 규칙에 대해 평가하고, 각 발견 사항 을 그것을 만�
 | 기존 표면 | 무엇을 리뷰하는가 | 왜 핸드오프 게이트가 아닌가 |
 |-----------|-------------------|-----------------------------|
 | [deployment-preflight](../deployment/deployment-preflight-ko.md) | 하나의 배포: 이 변경이 대상 범위 에 착지할 수 있는가 | 단일 `terraform apply` / 교정 PR 로 한정, 누적 자세 아님 |
-| [assurance-twin](assurance-twin-ko.md) 선제 리뷰 | 하나의 변경 이벤트: 이 diff 가 규칙을 위반하는가 | per-diff; 범위 가 모든 diff 를 통과하고도 전체로는 실패 가능 |
+| [assurance-twin](assurance-twin-ko.md) 선제 리뷰 | 하나의 변경 이벤트: 이 차이 가 규칙을 위반하는가 | per-diff; 범위 가 모든 차이 를 통과하고도 전체로는 실패 가능 |
 | [assurance-twin](assurance-twin-ko.md) `PostureAssessmentReport` | 온디맨드로 estate 전체 | ownership-transfer 이벤트에 묶이지 않음; 운영 인수 전에 실행이 강제되지 않음 |
 
 ORR 은 전체 범위 평가 를 ownership-transfer 이벤트에 묶고, 그것을 필수,
@@ -105,7 +105,7 @@ ORR 은 범위 전체에 대해 적용 가능한 규칙 집합을 실행합니�
 | `identity_rbac` | over-privileged 워크로드 아이덴티티, Owner 를 가진 게스트, standing 특권 액세스, wildcard-action 역할, 한도 초과 Owner 수 | 워크로드 RBAC 최소권한 규칙 팩(`managed-identity.role-assignment.*`, `subscription.role-assignment.*`, `resource-group.role-assignment.*`) |
 | `reliability` | 백업 / PITR 없음, 진단 설정 없음, 존 이중화 없음 | 카탈로그 reliability 규칙 |
 | `dependency_ordering` | 핸드오프 전 필수 링크(비공개 엔드포인트, NSG, 진단 설정) 존재 | [deployment-preflight](../deployment/deployment-preflight-ko.md) 프로브 |
-| `best_practice` | 명시적인 룰, 탐색, 산출물, 메트릭, drill 및 승인 요구사항이 있는 framework 컨트롤 | `rule-catalog/best-practices/` 및 ARB 연결 |
+| `best_practice` | 명시적인 룰, 탐색, 산출물, 메트릭, 훈련 및 승인 요구사항이 있는 framework 컨트롤 | `rule-catalog/best-practices/` 및 ARB 연결 |
 
 `identity_rbac` 차원은 preflight 도 per-change 리뷰도 이전에 커버하지 않던, ORR 이
 추가하는 것입니다: preflight 의 `identity_rbac` 프로브는 배포할 **실행기 의**
@@ -146,7 +146,7 @@ ORR 은 범위 전체에 대해 적용 가능한 규칙 집합을 실행합니�
 
 ### Shadow-first
 
-모든 ORR 은 **그림자 모드** 로 ship 됩니다: blocker 를 진실되게 보고하지만
+모든 ORR 은 **그림자 모드** 로 ship 됩니다: 차단 요인 를 진실되게 보고하지만
 `blocks_handoff` 는 `false` 로 유지되므로, 검증되지 않은 리뷰가 false 긍정 로
 실제 핸드오프를 잘못 멈추게 할 수 없습니다. `enforce` 로의 승격 은
 환경 별이며 고정된 시나리오 집합 에서 측정된 false-positive 비율 로
@@ -187,7 +187,7 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 | `ownership_transfer` 신호 | 리뷰를 트리거하는 정규화된 이벤트(범위 + submitter + 대상 환경); 포크 가 연결한 핸드오프 순간에 발행 |
 | `core/assurance_twin/report` | 범위 변환 결과 에 대해 적용 가능한 모든 규칙 실행 (재사용) |
 | `core/deploy_preflight` | 범위 에 대해 feasibility 프로브 실행 (재사용) |
-| `core/readiness/checklist` | 누락 근거를 pass로 취급하지 않고 명시적인 요구사항 결과 조합 |
+| `core/readiness/checklist` | 누락 근거를 통과로 취급하지 않고 명시적인 요구사항 결과 조합 |
 | ORR 조정기 | 자세, preflight 및 checklist 결과를 `ReadinessReport`로 조합하고 환경 게이트와 `blocks_handoff` 적용 |
 | `composition/readiness.py` | 자세, preflight 및 선택적 checklist 근거를 동시에 실행하고 성공/실패를 감사한 뒤 serialized 보고 publish |
 | `composition/readiness_evidence.py` | ARB 산출물, 근거 만료 및 소유자 연결을 타입이 지정된 결과로 변환 결과 |
@@ -204,18 +204,18 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 `ReadinessFinding` 형태, pure Best Practice 평가기, 그리고 자세, preflight 및 checklist
 발견 사항을 하나의 판정으로 접기하고 환경 게이트(`prod` 타깃은 `critical` 발견 사항 을
 차단 으로 강제)를 적용하며 `blocks_handoff` 를 설정하는 순수
-`compose_readiness_report` 조정기 (shadow-first: enforce 모드로 실행됐을
+`compose_readiness_report` 조정기 (shadow-first: 강제 적용 모드로 실행됐을
 때만 `true`)를 제공합니다. `shared/` 타입만 가져옵니다.
 
 [`OperationalReadinessService`](../../../services/core-control-plane/src/fdai/composition/readiness.py)는 이제 신호를
 injected `PostureAssessmentProvider`, 기존 `PreflightAnalyzer` 및 선택적
-`ChecklistEvidenceProvider`에 연결하고 pass를 동시에 실행합니다. 이후 보고를 compose하고
+`ChecklistEvidenceProvider`에 연결하고 통과를 동시에 실행합니다. 이후 보고를 compose하고
 추가 전용 감사 항목을 쓴 다음 injected
 `ReadinessReportPublisher`를 호출합니다. 부분 평가는 `abstain` 감사를 쓰고 오류를
 전파하며 전달 실패는 두 번째 실패 감사를 쓰고 전파합니다. 누락 checklist 근거는
 `unknown`, 컨트롤 최신성 구간을 벗어난 근거는 `stale`, 만료된 ARB 연결은
-`failed`이며 모두 pass가 아닙니다. 실제 운영 자세 또는 preflight 실패는 충돌하는 supplied
-pass보다 우선합니다. 남은 포크 작업은 전송 계층 연결입니다.
+`failed`이며 모두 통과가 아닙니다. 실제 운영 자세 또는 preflight 실패는 충돌하는 supplied
+통과보다 우선합니다. 남은 포크 작업은 전송 계층 연결입니다.
 선택한 인계 moment에서 정규화된 신호를 발행하고 자세, checklist 근거 및 보고
 발행기 어댑터를 연결합니다.
 
@@ -223,7 +223,7 @@ pass보다 우선합니다. 남은 포크 작업은 전송 계층 연결입니�
 
 - **읽기 전용 리뷰, 게이트 된 실행**: ORR 과 모든 발견 사항 은 읽기 전용입니다;
  변경 으로의 유일한 경로는 `risk-gate -> executor` 에 진입하는 제안이며, 7개
- 안전조건(stop-condition, 롤백, blast-radius 한도, 예행 실행, 리소스 lock,
+ 안전조건(stop-condition, 롤백, blast-radius 한도, 예행 실행, 리소스 잠금,
  멱등성, 감사 항목)이 거기서 강제됩니다.
 - **승인과 실행은 구별 유지**: 핸드오프는 submitter 가 요청하고 구별된
  principal이 승인하고 절대 self-approve하지 않는 것이 목표 작업 흐름 계약입니다. 현재

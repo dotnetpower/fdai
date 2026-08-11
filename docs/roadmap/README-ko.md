@@ -18,7 +18,7 @@ FDAI의 엔지니어링 계획입니다. [FDAI 헌법](architecture/fdai-constit
 > [site/](../../site/README.md)을 참조하세요.
 
 > **범위:** 이 저장소는 범용이며 특정 고객에 종속되지 않습니다. 배포 값은 환경 구성 또는
-> 비밀 저장소에서 관리하고, 선택적 downstream 배포판은 지원되는 확장 지점을 통해 기능을
+> 비밀 저장소에서 관리하고, 선택적 다운스트림 배포판은 지원되는 확장 지점을 통해 기능을
 > 제한하거나 확장합니다.
 > ([generic-scope.instructions.md](../../.github/instructions/generic-scope.instructions.md)).
 >
@@ -50,7 +50,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 3 | [tech-stack-ko.md](architecture/tech-stack-ko.md) | 언어, 프레임워크, 데이터 스토어, 이벤트 버스 |
 | 4 | [csp-neutrality-ko.md](architecture/csp-neutrality-ko.md) | 코어를 CSP-neutral로 유지하는 wire-level 계약 |
 | 5 | [llm-strategy-ko.md](architecture/llm-strategy-ko.md) | 계층별 모델 선택, mixed-model 게이트, 추상화 |
-| 5a | [operating-ontology-ko.md](architecture/operating-ontology-ko.md) | 서비스, 워크로드, objective, 결정, 효과, 에이전트 소유권, 통제된 확장을 위한 공유 cloud-operations 의미 |
+| 5a | [operating-ontology-ko.md](architecture/operating-ontology-ko.md) | 서비스, 워크로드, 목표, 결정, 효과, 에이전트 소유권, 통제된 확장을 위한 공유 cloud-operations 의미 |
 | 5b | [outcome-assurance-ko.md](architecture/outcome-assurance-ko.md) | FDAI의 세 버티컬을 대상으로 하는 운영 준비도, 목표 정렬, 통제 보증 변환 결과 |
 | 5c | [operating-ontology-platform-ko.md](architecture/operating-ontology-platform-ko.md) | Agent-supporting 온톨로지 안전성 infrastructure: exact release, 범위가 제한된 객체 집합, 변경 계획, 타입이 지정된 함수, 조정, SDK |
 | 5d | [operating-ontology-metamodel-ko.md](architecture/operating-ontology-metamodel-ko.md) | Operational 관점, 정본 선언 종류, 상태/맥락 경계, 권한, 시간, 소유권 및 가산 이행 |
@@ -61,7 +61,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 7c | [아키텍처 결정 기록](architecture/decisions/README-ko.md) | ADR register와 승인된 Azure day-zero platform 기준선 |
 | 7d | [mscp-operational-profile-ko.md](architecture/mscp-operational-profile-ko.md) | 전체 conformance 주장 없이 선택적으로 차용한 MSCP 효과, cycle 및 runtime-integrity 정책 |
 | 7e | [service-graduation-and-ownership-ko.md](architecture/service-graduation-and-ownership-ko.md) | 측정된 서비스 분리 게이트, single-writer 데이터 소유권, 계약, 신원, 롤백, 경계 docstring |
-| 7f | [service-decomposition-execution-plan-ko.md](architecture/service-decomposition-execution-plan-ko.md) | 5개 서비스 목표, 의존성 순서 작업 패키지, 병렬 레인, 진행 상태, blocker, 근거 증적 |
+| 7f | [service-decomposition-execution-plan-ko.md](architecture/service-decomposition-execution-plan-ko.md) | 5개 서비스 목표, 의존성 순서 작업 패키지, 병렬 레인, 진행 상태, 차단 요인, 근거 증적 |
 
 ### 규칙, 탐지, 운영
 
@@ -71,7 +71,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 9 | [rule-governance-ko.md](rules-and-detection/rule-governance-ko.md) | 관리자가 규칙을 작성하고 범위를 지정하며 활성화하거나 예외 처리하는 방식 (Azure Policy 유사) |
 | 10 | [observability-and-detection-ko.md](rules-and-detection/observability-and-detection-ko.md) | 이벤트 상관, 이상 탐지, 예측, 근본 원인 분석 |
 | 10a | [manual-distillation-ko.md](rules-and-detection/manual-distillation-ko.md) | 도입 회사의 운영 / 배포 매뉴얼을 결정론적 규칙 / 워크플로우 / 정책으로 컴파일(런타임 RAG 대비)하고 증류를 검증 |
-| 10b | [operational-learning-ontology-ko.md](rules-and-detection/operational-learning-ontology-ko.md) | 벤치마크 및 실제 운영 인시던트 결과를 변경할 수 없는 사례, 결정론적 실패 fingerprint, 통제된 룰 후보, 재사용 가능한 promoted operating pattern으로 전환 |
+| 10b | [operational-learning-ontology-ko.md](rules-and-detection/operational-learning-ontology-ko.md) | 벤치마크 및 실제 운영 인시던트 결과를 변경할 수 없는 사례, 결정론적 실패 지문, 통제된 룰 후보, 재사용 가능한 promoted operating pattern으로 전환 |
 | 10c | [causal-incident-graph-ko.md](rules-and-detection/causal-incident-graph-ko.md) | 온톨로지 기반 causal 가설, support/refutation 근거, 근거 grade, 결과 종결 |
 | 10d | [document-ontology-distillation-ko.md](rules-and-detection/document-ontology-distillation-ko.md) | 승인된 운영 문서를 결정론적으로 검증되는 근거에 기반한 review-only 온톨로지 객체/링크 제안으로 compile |
 | 11 | [deploy-and-onboard-ko.md](deployment/deploy-and-onboard-ko.md) | 구체적인 Azure 리소스 인벤토리, 부트스트랩 순서, 포크 vs 코어 분리 |
@@ -81,14 +81,14 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 12 | [startup-and-lifecycle-ko.md](operations/startup-and-lifecycle-ko.md) | 콜드 스타트, day-zero 카탈로그, shadow-first 롤아웃, discovery-loop 킥오프 |
 | 13 | [operating-and-verification-ko.md](operations/operating-and-verification-ko.md) | 자체 헬스 신호, canary 이벤트, 스모크 테스트, 알림 라우팅, 런북 |
 | 20 | [deployment-preflight-ko.md](deployment/deployment-preflight-ko.md) | 배포 가능성과 선행 장애 요인 점검: 프로브 분류, 준비 상태 보고서, 장애 요인과 Terraform 설정의 매핑 |
-| 20a | [preflight-active-reassembly-ko.md](deployment/preflight-active-reassembly-ko.md) | 능동 플랜 재조립: 정책 blocker를 capability-mode 토글로 재렌더된 terraform 플랜으로 바꿔 실행기를 통해 교정 PR로 전달 (수렴 루프, stop-condition, 한계) |
+| 20a | [preflight-active-reassembly-ko.md](deployment/preflight-active-reassembly-ko.md) | 능동 플랜 재조립: 정책 차단 요인을 capability-mode 토글로 재렌더된 terraform 플랜으로 바꿔 실행기를 통해 교정 PR로 전달 (수렴 루프, stop-condition, 한계) |
 | 20b | [installable-deployment-cli-ko.md](deployment/installable-deployment-cli-ko.md) | 설치형 `fdaictl` 파사드: 격리된 `uv` 설치, 읽기 전용 preflight, 서명된 배포 번들, 비공개 실행기로 exact-plan 제출 |
 | 20c | [provisioning-execution-profiles-ko.md](deployment/provisioning-execution-profiles-ko.md) | 프로비저닝 프로파일 선택: online/offline 전달, 기존 또는 managed 실행 호스트, 접근 선호 설정, 워크로드 신원, exact-plan 승인 |
-| 20d | [disconnected-deployment-ko.md](deployment/disconnected-deployment-ko.md) | 공용 egress 없는 네트워크 배포: 네트워크 프로파일, 내부 mirror, 서명된 offline kit, 저하된 증거 대체 경로, 남은 air-gap 공백 |
+| 20d | [disconnected-deployment-ko.md](deployment/disconnected-deployment-ko.md) | 공용 egress 없는 네트워크 배포: 네트워크 프로파일, 내부 mirror, 서명된 offline 키트, 저하된 증거 대체 경로, 남은 air-gap 공백 |
 | 20e | [network-connectivity-matrix-ko.md](deployment/network-connectivity-matrix-ko.md) | 시나리오별 DNS, IP, 프로토콜, 포트, 비공개 영역, PTU, APIM 및 차단 경로 동작 |
 | 21 | [assurance-twin-ko.md](operations/assurance-twin-ko.md) | 아키텍처 리뷰 / Q&A / 평가를 위한 질의가능 온톨로지 트윈: text-to-query, 선제 리뷰, 그래프 전체 what-if, 그림자 제안 |
 | 22 | [operational-readiness-ko.md](operations/operational-readiness-ko.md) | dev-to-ops 핸드오프 게이트: ownership-transfer 트리거, 전체 범위 RBAC / 정책 / 신뢰성 리뷰, ReadinessReport, environment-promotion 게이트 |
-| 22a | [operator-initiated-sre-and-arb-ko.md](operations/operator-initiated-sre-and-arb-ko.md) | 비인시던트 신원, 오퍼레이터 시작 SRE 응답, 실제 운영 단계 진행 상황, ARB 상태/수동 시작, 작업 흐름 enforce, 로컬/deployed 동등성 |
+| 22a | [operator-initiated-sre-and-arb-ko.md](operations/operator-initiated-sre-and-arb-ko.md) | 비인시던트 신원, 오퍼레이터 시작 SRE 응답, 실제 운영 단계 진행 상황, ARB 상태/수동 시작, 작업 흐름 강제 적용, 로컬/deployed 동등성 |
 
 ### 비용, 사용자, 채널, 위험, 패리티
 
@@ -159,7 +159,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | # | 문서 | 다루는 내용 |
 |---|------|-------------|
 | 25 | [implementation-plan-ko.md](fork-and-sequencing/implementation-plan-ko.md) | 2026-07-06 트랜치 문서 전반에 걸친 순서 확정. 여섯 개의 표준 세트 설계 결정(R1 축 파생, R2 ConsoleTool = ActionType 프로젝션, R3 통합 LlmBinding, R4 공유 변환 결과 프리미티브, R6 operator_memory = 감사 로그 화면, R7 pr_manual = 플래그)과 웨이브 플랜 (F -> D1 -> W1 -> W2 -> M1, Twin과 Preflight 병렬 트랙 포함) |
-| 26 | [agent-pantheon-implementation-ko.md](agents/agent-pantheon-implementation-ko.md) | 판테온 롤아웃 웨이브 계획 (W0 docs -> W1 scaffolding -> W2 거버넌스 -> W3 파이프라인 -> W4 인터페이스 -> W5 specialists -> W6 인계 / security -> W7 workflows -> W8 KPI + 승격 + 성능 저하 drill); 모든 웨이브는 측정 가능한 exit 게이트 를 가지며 판테온 invariant (single-writer 토픽, 판정자 != 실행기, Saga / Vidar 필수 의존성) 를 유지 |
+| 26 | [agent-pantheon-implementation-ko.md](agents/agent-pantheon-implementation-ko.md) | 판테온 롤아웃 웨이브 계획 (W0 docs -> W1 scaffolding -> W2 거버넌스 -> W3 파이프라인 -> W4 인터페이스 -> W5 specialists -> W6 인계 / security -> W7 workflows -> W8 KPI + 승격 + 성능 저하 훈련); 모든 웨이브는 측정 가능한 exit 게이트 를 가지며 판테온 불변식 (single-writer 토픽, 판정자 != 실행기, Saga / Vidar 필수 의존성) 를 유지 |
 | 27 | [productization-and-extensibility-ko.md](fork-and-sequencing/productization-and-extensibility-ko.md) | Install 및 진단, bidirectional 채널, trusted 확장 및 MCP, 모델 및 스케줄러 복원력, security 감사, 타입이 지정된 API와 FDAI 앱 형태 밖에 의도적으로 유지하는 기능의 prioritized P0/P1/P2 상태 매트릭스 |
 | 28 | [capability-licensing-ko.md](fork-and-sequencing/capability-licensing-ko.md) | 이미지로 전달되는 분포를 위한 서명된 기능 권한: 이미지 안의 공개 키, 배포 설정의 서명된 토큰, available 축 전용 권한, 안전 저하, 정직한 tamper-evidence 한계 |
 
@@ -167,12 +167,12 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 
 ```mermaid
 timeline
-  title FDAI Delivery Phases
-  P0 Instrumentation : KPI telemetry : Baseline vs reference agent : Unblock identity and policy
-  P1 Rule Catalog and T0 : Normalize checklists : Policy-as-code gate : Auto remediation PR : Out-of-band detection
-  P2 Quality and T1 : Continuous rule update : LLM quality gate and mixed-model : Embedding pattern reuse : Shadow to enforce
-  P3 Integrated Loop : Unified control loop : DR-Chaos scheduler and DB DR : FinOps auto-actions
-  P4 Scale : Continuous measurement : Pattern-library and model tracking : Scalability : Multi-cloud expansion (TBD)
+ title FDAI Delivery Phases
+ P0 Instrumentation : KPI telemetry : Baseline vs reference agent : Unblock identity and policy
+ P1 Rule Catalog and T0 : Normalize checklists : Policy-as-code gate : Auto remediation PR : Out-of-band detection
+ P2 Quality and T1 : Continuous rule update : LLM quality gate and mixed-model : Embedding pattern reuse : Shadow to enforce
+ P3 Integrated Loop : Unified control loop : DR-Chaos scheduler and DB DR : FinOps auto-actions
+ P4 Scale : Continuous measurement : Pattern-library and model tracking : Scalability : Multi-cloud expansion (TBD)
 ```
 
 단계는 P0 -> P1 -> P2 -> P3 -> P4 순서로 진행하며, 각 단계 문서는 *의존성* 절에
@@ -186,7 +186,7 @@ P3에서 복원력과 비용 거버넌스를 제공합니다. 멀티 클라우�
 종료 조건 열은 각 단계의 주요 통과 기준입니다. 각 단계 문서에는 전체 종료 기준과
 의존성이 정리되어 있습니다.
 
-| Phase | 목표 | 주요 산출물 | 기본 exit 게이트 |
+| 단계 | 목표 | 주요 산출물 | 기본 exit 게이트 |
 |-------|------|-------------|-------------------|
 | **[P0](phases/phase-0-instrumentation-ko.md)** | 측정 기반 마련과 선행 장애 요인 해소 | KPI 대시보드, 기준선 보고서, 신원 및 정책 장애 요인 해소 | 재현 가능한 기준선 확보 |
 | **[P1](phases/phase-1-rule-catalog-t0-ko.md)** | 결정론 코어 | 규칙 카탈로그, T0 엔진, 정책 게이트, 교정 PR | 변경 게이트가 그림자로 동작 |
@@ -198,7 +198,7 @@ P3에서 복원력과 비용 거버넌스를 제공합니다. 멀티 클라우�
 
 - **측정 first**: 텔레메트리 없이는 자율성을 허용하지 않습니다. 측정된 기준선
  없이는 향상 배수나 처리 비중을 주장하지 않습니다.
-- **그림자 before enforce**: 모든 신규 액션은 관찰 모드에서 판정과 기록만 수행한 뒤
+- **그림자 before 강제 적용**: 모든 신규 액션은 관찰 모드에서 판정과 기록만 수행한 뒤
  개별적으로 승격합니다. 회귀가 발생하면 자동으로 관찰 모드로 돌아갑니다.
 - **Choose the safer 기본값 when the 결과 is uncertain**: 낮은 확신도, 검증 실패, 예산 / 비율 초과는
  HIL로 강등되며, 게이트 없는 자동 액션으로는 절대 강등되지 않음.

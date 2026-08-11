@@ -25,7 +25,7 @@ choice로 설명하던 이전 lightweight 결정을 종료합니다.
 
 FDAI에는 코어의 cloud-provider-neutral 계약을 유지하면서 idle 비용이 낮은 Azure
 배포가 필요합니다. Ordered replayable 이벤트, transactional 감사/상태, vector reuse,
-시크릿 injection, 수명이 짧은 신원, correlated telemetry, scale-to-zero, Terraform 검토를
+시크릿 주입, 수명이 짧은 신원, correlated 텔레메트리, scale-to-zero, Terraform 검토를
 지원해야 합니다.
 
 ## 결정
@@ -55,7 +55,7 @@ Azure day-zero 기준선은 다음과 같습니다.
 | 상태 | Cosmos DB | Initial 규모에는 RU와 geo-distribution이 필요하지 않고 pgvector co-location이 단순합니다. |
 | Vector 검색 | Dedicated vector 데이터베이스 | 측정된 말뭉치/지연 시간 요구 전에 독립 저장소를 추가합니다. |
 | IaC | Bicep 또는 권한로서 `azd up` | Terraform이 검토된 모듈과 프로바이더 중립적인 모듈 경계를 이미 정의합니다. |
-| Telemetry | 자체 호스팅 LGTM | 최소 배포에 always-on operations 표면을 추가합니다. |
+| 텔레메트리 | 자체 호스팅 LGTM | 최소 배포에 always-on operations 표면을 추가합니다. |
 
 ## Consequence
 

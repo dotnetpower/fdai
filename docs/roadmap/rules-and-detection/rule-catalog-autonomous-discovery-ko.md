@@ -25,34 +25,34 @@ Long-horizon 루프가 무한 반복; 모든 사이클이 같은 공유 세계 �
 
 ```text
 sources + operational signals ─► observe ─► hypothesize ─► verify ─► integrate
-                              (quality gate)
+               (quality gate)
 ```
 
 - **observe** - 루프는 하나씩이 아니라 세 피드를 나란히 읽음:
  1. **상류 소스** 위 컬렉터 파이프라인 경유(새/변경 컨트롤).
  2. **운영 신호** - 최근 감사 로그 엔트리, HIL 승인 패턴, shadow-mode 결과, 롤백, **재정의
-   이벤트** ([rule-governance-ko.md](rule-governance-ko.md)).
+  이벤트** ([rule-governance-ko.md](rule-governance-ko.md)).
  3. **현재 카탈로그** - 기존 규칙, 출처 이력, 측정된 정확도.
 - **hypothesize** - 추론 스테이지(LLM 스테이지, 어떤 T2 출력처럼 취급) 가 세 형상의 **후보**
  엔트리 제안:
  - **new-rule**: 아직 커버되지 않은 컨트롤, 반복되는 인시던트/HIL 패턴 또는 새로 발행된 상류
-  컨트롤에 의해 동기.
+ 컨트롤에 의해 동기.
  - **개정 번호**: 상류 소스가 바뀌었거나(그 `content_hash` 가 이동) 그림자 정확도가 임계
-  아래로 표류한 기존 규칙.
+ 아래로 표류한 기존 규칙.
  - **retirement**: 반복적으로 재정의되거나 그림자 결과가 실제 환경에 poor fit임을 보이는
-  기존 규칙.
+ 기존 규칙.
 - **verify** - 모든 후보는 표준 **quality 게이트** 통과할 때까지 inert 데이터:
  1. 엄격 JSON 스키마 (`additionalProperties: false`);
  2. 출처 이력 검사 - `source_url`, `resolved_ref`, `content_hash`, `license`,
-   `redistribution` 모두 존재하고 검증 가능 (근거에 기반한 출처 이력 없는 후보는 즉시 거부);
+  `redistribution` 모두 존재하고 검증 가능 (근거에 기반한 출처 이력 없는 후보는 즉시 거부);
  3. **Mixed-model 교차 검사** - 두 번째 모델(다른 패밀리/벤더) 이 같은 후보를 재도출하거나 재
-   승인; 불일치는 HIL로 escalate, 절대 auto-resolve 아님
-   ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md));
+  승인; 불일치는 HIL로 escalate, 절대 auto-resolve 아님
+  ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md));
  4. 결정론 검증기 - Rego 파싱, 중복 `id` 없음, 더 엄격한 컨트롤을 조용히 약화시킬 기존 규칙과
-   충돌 없음;
+  충돌 없음;
  5. 회귀 스위트 - 기존 픽스처가 여전히 통과;
  6. Shadow-mode dwell - 후보가 설정된 최소 기간과 표본 크기 동안 실제 트래픽에 judge-and-log-only
-   실행, 임계 위 정확도와 정책 위반 escape 0.
+  실행, 임계 위 정확도와 정책 위반 escape 0.
 - **integrate** - 게이트 통과한 후보는 [rule-governance-ko.md](rule-governance-ko.md) 의 할당/
  효과 라이프사이클에 따라 승격(new-rule/개정 번호는 먼저 감사 효과로 랜딩; retirement는
  tombstone으로 랜딩). 카탈로그는 오직 머지된 catalog-as-code PR로만 변형, 절대 루프에 의해
@@ -79,7 +79,7 @@ sources + operational signals ─► observe ─► hypothesize ─► verify �
 
 ## 안전과 신뢰
 
-- 루프는 **후보 생성기** , 실행기 아님. 라이브 카탈로그를 변형할 수 없고, 할당을 enforce로
+- 루프는 **후보 생성기** , 실행기 아님. 라이브 카탈로그를 변형할 수 없고, 할당을 강제 적용으로
  flip할 수 없으며, [rule-governance-ko.md](rule-governance-ko.md) 의 승격 승인을 우회할 수
  없음.
 - 이 루프의 어떤 LLM 스테이지도 T2 호출이며
@@ -103,5 +103,5 @@ sources + operational signals ─► observe ─► hypothesize ─► verify �
  ("모델이 그렇게 생각했다"는 근거 가 아니다).
 - **범위 sanity** - 수치 근거 는 범위 안이어야 한다(`rollback_rate` 가 `[0, 1]` 밖이거나
  개수 가 비양수면 손상되거나 위조된 신호다).
-- **Flood 감지** - 동일 후보 fingerprint 가 반복 상한을 넘으면 poisoning flood 의심으로
+- **Flood 감지** - 동일 후보 지문 가 반복 상한을 넘으면 poisoning flood 의심으로
  격리 구역 된다(Norns 가 정당한 제안은 이미 dedup 하므로 반복 burst 는 이상이다).

@@ -87,64 +87,64 @@ owner_group: aw-owners
 rules:
  # ── DENY (절대 실행 안 함) ──
  - id: deny-policy-violation
-  if: { policy_violation: true }
-  decision: deny
-  reason: "policy-as-code verifier rejected the action"
+ if: { policy_violation: true }
+ decision: deny
+ reason: "policy-as-code verifier rejected the action"
  - id: deny-subscription-blast
-  if: { blast_radius: subscription }
-  decision: deny
-  reason: "no autonomous change spans a full subscription"
+ if: { blast_radius: subscription }
+ decision: deny
+ reason: "no autonomous change spans a full subscription"
  - id: deny-graph-stale
-  if: { graph_stale: true }
-  decision: deny
-  reason: "inventory graph is stale; refuse to act on a possibly-ghost resource"
+ if: { graph_stale: true }
+ decision: deny
+ reason: "inventory graph is stale; refuse to act on a possibly-ghost resource"
 
  # ── HIL (사람 승인 필요) ──
  - id: hil-irreversible
-  if: { irreversible: true }
-  decision: hil
-  reason: "irreversible mutation always requires an approver quorum >= 2"
-  quorum: 2
+ if: { irreversible: true }
+ decision: hil
+ reason: "irreversible mutation always requires an approver quorum >= 2"
+ quorum: 2
  - id: hil-destructive
-  if: { destructive: true }
-  decision: hil
-  reason: "delete/drop/purge/detach always requires an approver"
+ if: { destructive: true }
+ decision: hil
+ reason: "delete/drop/purge/detach always requires an approver"
  - id: hil-prod
-  if: { environment: prod, allowlist_prod_auto: false }
-  decision: hil
-  reason: "prod defaults to HIL unless the rule is on the prod-auto allowlist"
+ if: { environment: prod, allowlist_prod_auto: false }
+ decision: hil
+ reason: "prod defaults to HIL unless the rule is on the prod-auto allowlist"
  - id: hil-data-plane
-  if: { data_plane_touched: true }
-  decision: hil
-  reason: "data-plane mutations always require an approver"
+ if: { data_plane_touched: true }
+ decision: hil
+ reason: "data-plane mutations always require an approver"
  - id: hil-cost
-  if: { cost_impact_monthly: '>= 100' }
-  decision: hil
-  reason: "cost impact above the auto threshold"
+ if: { cost_impact_monthly: '>= 100' }
+ decision: hil
+ reason: "cost impact above the auto threshold"
  - id: hil-resource-group-blast
-  if: { blast_radius: resource_group }
-  decision: hil
-  reason: "RG-wide changes require an approver"
+ if: { blast_radius: resource_group }
+ decision: hil
+ reason: "RG-wide changes require an approver"
  - id: hil-low-confidence
-  if: { verifier_confidence: '< 0.85' }
-  decision: hil
-  reason: "T2 quality-gate confidence below auto threshold"
+ if: { verifier_confidence: '< 0.85' }
+ decision: hil
+ reason: "T2 quality-gate confidence below auto threshold"
 
  # ── AUTO (승인 없이 실행) ──
  - id: auto-low-risk
-  if:
-   all:
-    - reversible: true
-    - blast_radius: resource
-    - cost_impact_monthly: '< 100'
-    - data_plane_touched: false
-  decision: auto
-  reason: "reversible, resource-scoped, low cost, control-plane only"
+ if:
+  all:
+  - reversible: true
+  - blast_radius: resource
+  - cost_impact_monthly: '< 100'
+  - data_plane_touched: false
+ decision: auto
+ reason: "reversible, resource-scoped, low cost, control-plane only"
 
  # ── FAIL-CLOSE ──
  - id: default-hil
-  default: hil
-  reason: "no matching rule - fail toward safety"
+ default: hil
+ reason: "no matching rule - fail toward safety"
 ```
 
 **규칙 순서 (MUST)**: `deny` 규칙이 먼저, 다음 `hil`, 다음 `auto`, 다음 `default: hil`
@@ -172,7 +172,7 @@ catch-all. First-match wins이므로 가장 엄격한 적용 가능한 규칙이
 
 강제: Azure Policy 할당이 `fdai:env` 태그 없이 리소스 그룹 생성을 거부해야 하며, 그래서
 거버넌스된 환경에서는 fail-safe 경로가 절대 적용되지 않습니다. 정책 할당은
-[phase-1-rule-catalog-t0-ko.md](../phases/phase-1-rule-catalog-t0-ko.md)의 Phase 1 산출물입니다.
+[phase-1-rule-catalog-t0-ko.md](../phases/phase-1-rule-catalog-t0-ko.md)의 단계 1 산출물입니다.
 
 ## 환경 승격(환경 승격, 핸드오프 대상)
 
@@ -204,7 +204,7 @@ catch-all. First-match wins이므로 가장 엄격한 적용 가능한 규칙이
 
 - **Auto 상한**: 액션당 **$100 / 월**.
 - 근거: 큰 폐기를 승인하지 않으면서 작은 right-sizing / stop-idle / tier-adjust 교정을
- 커버. Phase 1 그림자 측정을 위해 보수적으로 선택; 임계값은 구성 값이며 측정 후 거버넌스
+ 커버. 단계 1 그림자 측정을 위해 보수적으로 선택; 임계값은 구성 값이며 측정 후 거버넌스
  PR로 조정 가능.
 - 추정은 규칙의 `remediation.cost_impact_monthly_usd` 필드에서; 규칙이 추정 못 하면 값은 `unknown` →
  `>= 100`으로 취급 → HIL.
@@ -218,8 +218,8 @@ catch-all. First-match wins이므로 가장 엄격한 적용 가능한 규칙이
 - 미부착 공개 IP 주소 해제.
 - 데이터 평면 노출 없는 리소스의 NSG allow-any-source 규칙 제거.
 
-**모든 허용 목록 엔트리는 별도 승격된 할당** 이며 표준 그림자 → enforce 게이트를 통과합니다
-([architecture.instructions.md § 그림자 → Enforce 승격](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
+**모든 허용 목록 엔트리는 별도 승격된 할당** 이며 표준 그림자 → 강제 적용 게이트를 통과합니다
+([architecture.instructions.md § 그림자 → 강제 적용 승격](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
 허용 목록은 bypass가 아니라 prod 기본의 명시적 선택 감소입니다.
 
 ## 변경 프로세스
@@ -254,8 +254,8 @@ catch-all. First-match wins이므로 가장 엄격한 적용 가능한 규칙이
 ## 열림 Decisions
 
 - [ ] 향후 차원으로 `time_of_day` 게이트(업무 시간 vs 비업무 시간)를 추가할지 - 그림자
-   측정이 실제 필요를 보일 때까지 연기.
+  측정이 실제 필요를 보일 때까지 연기.
 - [ ] 결정론적 규칙 테이블에 더해 숫자 `risk_score`를 계산할지 (동점에서만 또는 tie-breaker
-   로만 작동 - 결정론 테이블이 여전히 권위).
+  로만 작동 - 결정론 테이블이 여전히 권위).
 - [ ] 포크 오버라이드 정책: 포크가 상류 기본을 *완화* (예: 비용 임계 상승)할 수 있는가, 아니면
-   강화만 가능한가? 권장 기본: 강화는 무료, 완화는 감사된 Owner 재정의 필요.
+  강화만 가능한가? 권장 기본: 강화는 무료, 완화는 감사된 Owner 재정의 필요.

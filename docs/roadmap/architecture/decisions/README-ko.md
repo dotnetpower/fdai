@@ -11,7 +11,7 @@ translation_revised: 2026-08-11
 상태, replacement 이력을 한 곳에서 검토할 수 있게 합니다.
 
 > **범위:** Customer의 RPO/RTO, 보존 기간, 지역, 예산, named 소유자 같은 환경 값은
-> upstream ADR이 아니라 운영 근거 연결입니다. 포크는 upstream 기록을
+> 업스트림 ADR이 아니라 운영 근거 연결입니다. 포크는 업스트림 기록을
 > 다시 작성하지 않고 자체 ADR을 추가할 수 있습니다.
 
 ## Register

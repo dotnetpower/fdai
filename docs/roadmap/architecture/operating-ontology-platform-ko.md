@@ -33,7 +33,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > 포함됩니다. 운영 카탈로그 로딩은 검토된 `Identifiable` 선언, 출처 이력 및 모든
 > 현재 ObjectType의 명시적 연결을 검증합니다. 조립은 polymorphic 카탈로그를 compile합니다.
 > 운영 ObjectSet 조회 연결과 추가 기능 Interface는 전달 작업으로 남아 있습니다.
-> Bitemporal 토폴로지 foundation은 provider-generation 신원, 이벤트/기록 시간, 완전한 스냅샷,
+> Bitemporal 토폴로지 기반은 provider-generation 신원, 이벤트/기록 시간, 완전한 스냅샷,
 > delta 및 tombstone을 보존합니다. Pure `graph_at`/`topology_diff` 함수는 late 근거가 도착해도
 > pinned `known_at` 재생을 보존하며 불완전한 이력은 absence를 입증할 수 없습니다. 타입이 지정된 조회
 > 핸들러와 검증기 스키마는 프로바이더 텍스트 없이 이 함수를 노출합니다. Core-owned 이행은
@@ -48,7 +48,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > 에이전트, 역할, 용도를 검사하고, 선언된 stochastic 함수를 위해 replay-stable 시드를 파생하며,
 > 정확한 release에 고정된 내용 기반 주소를 가진 호출 증적을 발행합니다.
 > M5는 결정론적 `query.network_path_segments` FunctionType과 `routes_to` 및 reciprocal
-> `peered_with` 선언을 unwired foundation으로 추가합니다. 범위가 제한된 secured 조회 결과는
+> `peered_with` 선언을 unwired 기반으로 추가합니다. 범위가 제한된 secured 조회 결과는
 > injected trusted 증적 검증기와 opaque 검증 맥락을 통해서만 사용합니다.
 > Contextual 콜백은 호출자 역할, singleton 용도, 온톨로지 release 및 projected 결과
 > 다이제스트를 `FunctionInvocationContext`에 연결합니다. 운영 발급자가 없으므로 함수는
@@ -72,9 +72,9 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > 상태를 차단합니다. 운영 조립은 아직 조정기를 연결하거나 이벤트 버스를 통해
 > 발신함 권고를 publish하지 않습니다.
 > K6-K8은 변경할 수 없는 operational 상태 trajectory, 의존성 범위 효과 propagation,
-> time-bounded invariant, 독립 관측 trajectory 결과를 포함하는 graph-wide Dynamic 근거를
+> time-bounded 불변식, 독립 관측 trajectory 결과를 포함하는 graph-wide Dynamic 근거를
 > 목표로 합니다. 기존 액션/메트릭 Dynamic 시뮬레이션은 구현되어 있으며 graph-wide propagation과
-> failure-attribution wiring은 종료 기준을 통과할 때까지 전달 작업으로 남습니다.
+> failure-attribution 배선은 종료 기준을 통과할 때까지 전달 작업으로 남습니다.
 >
 > **하드닝 상태(2026-08-01):** release 신원, 영속성, 인터페이스 호환성, ObjectSet
 > 종결, 변경 안전성, 함수 권한, 변환 결과, 조정, 생성된 SDK 구문,
@@ -84,15 +84,15 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > 라운드 13에서는 successful 갱신이 새로 검증한 current-state 개정 번호를 생성하고 pin하는 것을
 > 확인했습니다.
 
-## Catalog-owned instance 변환 결과
+## Catalog-owned 인스턴스 변환 결과
 
 Core 런타임 시작은 이제 Rule, PolicyArtifact, ResourceType, SignalType, Property 및
-ActionType instance를 하나의 catalog-owned subgraph에 변환 결과합니다. Pure 빌더는 누락된
+ActionType 인스턴스를 하나의 catalog-owned subgraph에 변환 결과합니다. Pure 빌더는 누락된
 정책 의미 규칙과 ID 충돌을 차단합니다. Projector는 이전의 범위가 제한된 subgraph를 읽고
 원자적으로 교체하며, 동일한 재생은 no-op이므로 시작이 거짓 그래프 개정 번호를 만들지 않습니다.
 
 이 변환 결과는 카탈로그 관계를 조회 가능하게 만들지만 권위를 변경하지 않습니다. Git
-catalog-as-code가 계속 권위 원천이고 instance 그래프는 읽기 모델로 유지됩니다. 선택적 로컬
+catalog-as-code가 계속 권위 원천이고 인스턴스 그래프는 읽기 모델로 유지됩니다. 선택적 로컬
 프로파일에서 OPA 또는 온톨로지 저장소를 사용할 수 없으면 synthetic 상태로 대체하지 않고 변환 결과를
 사용 불가로 유지합니다. 배포 프로파일은 T0 평가를 위해 계속 OPA를 요구합니다.
 
@@ -101,12 +101,12 @@ Shared property-semantics 레지스트리는 정본 속성마다 meaning, 단위
 검증하고 float 강제 변환 없이 finite numeric 값을 보존하므로 서비스와 재생이 같은 속성을
 조용히 다르게 해석할 수 없습니다.
 
-## Pod telemetry 경로 foundation
+## Pod 텔레메트리 경로 기반
 
 `evaluate_pod_telemetry_path`는 `SecuredObjectSetQueryResult`와 state-evidence 대상에서
 `StateFactMetadata`로 이어지는 변경할 수 없는 대응을 사용하는 pure A0 읽기입니다. 검토된 물리 링크인
 `kubernetes_selects`, `kubernetes_exposes_endpoints`, `observation_targets_resource`만 따라갑니다.
-탐색은 secured ObjectSet 게이트웨이에서 이미 범위가 제한된 및 용도 checked 상태이며 evaluator는
+탐색은 secured ObjectSet 게이트웨이에서 이미 범위가 제한된 및 용도 checked 상태이며 평가기는
 프로바이더, Kubernetes, 네트워크, 레지스트리 또는 저장소 I/O를 수행하지 않습니다.
 
 결과는 Pod 선택된 by 서비스, 서비스 exposing Endpoints, 관측 targeting the Pod,
@@ -119,7 +119,7 @@ Cross-cluster 서비스 또는 Endpoints 기록이 있으면 관계 근거가 �
 `unverified`로 유지됩니다. 재생을 위해 exact secured 그래프 증적 다이제스트와 보존된 모든 근거
 참조를 반환합니다.
 
-이 foundation은 조립을 통해 내보내기되거나 온톨로지 함수 레지스트리에 등록되지 않습니다.
+이 기반은 조립을 통해 내보내기되거나 온톨로지 함수 레지스트리에 등록되지 않습니다.
 Health 값을 derive하거나 발견 사항 또는 예측 객체를 만들지 않으며 액션 권한을 부여하거나
 기존 Kubernetes 전달 모듈을 변경하지 않습니다.
 
@@ -132,17 +132,17 @@ judgment, 권한 확인, 실행, 독립적인 효과 검증을 완료할 때까�
 
 ```mermaid
 flowchart LR
-  S[Authority sources] --> PB[ProjectionBinding]
-  PB --> G[Observed object graph]
-  G --> Q[ObjectSet query]
-  Q --> D[Decision context]
-  D --> MP[MutationPlan]
-  MP --> R[Risk and approval]
-  R --> A[ActionRun]
-  A --> X[Provider, Git, ledger, or FDAI store]
-  X --> RC[ReconciliationReceipt]
-  RC --> G
-  RC --> O[ObservedOutcome]
+ S[Authority sources] --> PB[ProjectionBinding]
+ PB --> G[Observed object graph]
+ G --> Q[ObjectSet query]
+ Q --> D[Decision context]
+ D --> MP[MutationPlan]
+ MP --> R[Risk and approval]
+ R --> A[ActionRun]
+ A --> X[Provider, Git, ledger, or FDAI store]
+ X --> RC[ReconciliationReceipt]
+ RC --> G
+ RC --> O[ObservedOutcome]
 ```
 
 ## 정확한 타입 신원
@@ -218,7 +218,7 @@ LinkType 선언은 아직 속성 ACL을 정의하지 않습니다. 따라서 sec
 
 Property 조건식은 `equals`, `not_equals`, `in`, `exists`, `absent`, `at_least`, `at_most`,
 `contains`를 지원합니다. Single-value 운영자는 `equals`를 사용하고, `in`은 비어 있지 않은
-`values` tuple을 사용하며, single-value operand는 null일 수 없고, presence 운영자는 operand를
+`values` 튜플을 사용하며, single-value operand는 null일 수 없고, presence 운영자는 operand를
 받지 않습니다. 저장소에는 인덱스 pushdown을 위해 `equals` 조건식만 전달합니다. Direct 조회와
 탐색은 모두 범위가 제한된 후보 그래프에 모든 조건식을 다시 적용하고 필터된 엔드포인트가 있는
 링크를 제거합니다. 조건식 operand는 finite number, 최대 32 중첩 수준, 최대 64 KiB encoded
@@ -247,11 +247,11 @@ Property 조건식은 `equals`, `not_equals`, `in`, `exists`, `absent`, `at_leas
 - **효과:** 예상 내부 쓰기, 카탈로그 pull 요청, 프로바이더 명령, 알림 또는
  예약입니다.
 - **Postcondition:** 액션 결과를 종료하는 독립적인 관측입니다.
-- **트랜잭션 정책:** 내부 atomicity 또는 외부 saga 의미, lock 범위, 최대
+- **트랜잭션 정책:** 내부 atomicity 또는 외부 saga 의미, 잠금 범위, 최대
  affected 객체 개수입니다.
 
 계획 수립은 변경할 수 없는 `MutationPlan`을 만듭니다. Exact 대상 개정 번호, computed 쓰기 집합, 명령,
-영향 근거, 롤백 또는 compensation 단계, 예상 효과, 다이제스트를 포함합니다. Approval과
+영향 근거, 롤백 또는 보상 단계, 예상 효과, 다이제스트를 포함합니다. Approval과
 실행은 다이제스트와 현재 개정 번호를 다시 검증합니다. Stale 계획은 계획 수립 또는 사람 검토로
 돌아가며 넓어진 범위로 실행되지 않습니다.
 
@@ -282,13 +282,13 @@ Property 조건식은 `equals`, `not_equals`, `in`, `exists`, `absent`, `at_leas
 호출 신원, 입력 다이제스트 및 출력 다이제스트가 모두 일치할 때만 발견 사항을 수락합니다. 이러한
 증적은 읽기 전용 출처 이력이며 진단 함수를 액션으로 바꾸지 않습니다.
 
-네트워크 competency foundation은 `query.network_path_segments`를 exact-release 결정론적
+네트워크 competency 기반은 `query.network_path_segments`를 exact-release 결정론적
 `query` 함수로 선언합니다. 입력은 purpose-bound `SecuredObjectSetQueryResult` 하나와 명시적인
 출처, 대상, evaluation 시간, 깊이 및 구간 상한입니다. 인벤토리 프로바이더를 호출하지
 않습니다. 등록에는 trusted `NetworkQueryReceiptVerifier`와 조립이 소유한 opaque 검증
 맥락이 필요합니다. Contextual 콜백은 증적 역할, singleton 용도, exact release 및 결과
-다이제스트가 `FunctionInvocationContext`와 일치하는지 확인한 후 검증기에 같은 tuple의 인증을
-요청합니다. 운영 증적 발급자가 없으므로 이 foundation은 unwired 상태로 유지됩니다.
+다이제스트가 `FunctionInvocationContext`와 일치하는지 확인한 후 검증기에 같은 튜플의 인증을
+요청합니다. 운영 증적 발급자가 없으므로 이 기반은 unwired 상태로 유지됩니다.
 `evaluated_at`은 증적 관측 기준 시점과 정확히 같아야 합니다. 링크 effective, 근거 및
 기록된 시간은 이 기준 시점과 같거나 이전이어야 하며 1년을 넘는 최신성 상한 또는 초과분이
 발생하는 시각 연산은 검증되지 않은으로 남습니다. `attached_to`는 stored direction을 유지하면서
@@ -335,7 +335,7 @@ proposal-only next-step 이벤트는 atomic하게 커밋되며 증적과 발신�
 
 관찰된 인벤토리 관계는 변경할 수 없는 state-fact 및 검증 메타데이터를 운반할 수
 있습니다. 변환 결과는 이를 권한으로 취급하지 않고 묶음을 보존하며 불완전한 관측의
-관계 점유를 억제합니다. Stale, synthetic, conflicting, 검증되지 않은 근거는 downstream
+관계 점유를 억제합니다. Stale, synthetic, conflicting, 검증되지 않은 근거는 다운스트림
 자율성을 낮출 수만 있습니다.
 
 `ProjectionBinding`은 source-to-ontology 대응을 검토 가능하게 만듭니다. 출처 신원, 타입
@@ -350,14 +350,14 @@ Platform은 서로 권한을 부여하면 안 되는 세 계층을 분리합니�
 |-------|------|------------------|
 | **의미** | 무엇이 존재하고 어떤 의미이며 어떤 관계가 유효합니까? | 타입, 단위, 신원, cardinality, 호환성만 제공합니다. |
 | **Kinetic** | 어떤 등록 연산이 어떤 안전성 계약에서 exact 대상을 변경할 수 있습니까? | Proposal-only `MutationPlan`이며 judgment, 승인, 실행은 외부 경계에 남습니다. |
-| **Dynamic** | Intervention 또는 외부 이벤트에서 상태가 시간에 따라 어떻게 변할 수 있고 prediction이 reality와 얼마나 일치했습니까? | 읽기 전용 prediction, invariant, propagation, fidelity 근거만 제공합니다. |
+| **Dynamic** | Intervention 또는 외부 이벤트에서 상태가 시간에 따라 어떻게 변할 수 있고 prediction이 reality와 얼마나 일치했습니까? | 읽기 전용 prediction, 불변식, propagation, fidelity 근거만 제공합니다. |
 
 `OperationalStateTrajectory`는 기존 통제된 대화 및 실행 `TrajectoryEnvelope`와
 구별됩니다. 온톨로지 release, 기준선 그래프 개정 번호, 인벤토리 세대, event-time 기준 시점,
 horizon, affected 객체 개정 번호, predicted 또는 관찰된 상태 구획, intervention 참조,
 출처 watermark, 완전성, 잘림 및 replay-stable 다이제스트를 고정합니다. Raw cloud 페이로드를
 저장하지 않고 정규화된 값과 opaque 근거 참조만 저장합니다. Predicted trajectory는
-프로바이더 truth를 주장할 수 없으며 관찰된 trajectory에는 권위 있는 프로바이더 또는 telemetry
+프로바이더 truth를 주장할 수 없으며 관찰된 trajectory에는 권위 있는 프로바이더 또는 텔레메트리
 증적이 필요합니다.
 
 `GraphEffectModel`은 현재 action-and-metric 효과 모델을 대체하지 않고 확장합니다. 출처 객체
@@ -369,7 +369,7 @@ learning 기준 시점, 활성 또는 challenger 상태를 선언합니다. Simu
 
 `DynamicInvariant`는 SLO, RTO, RPO, 용량 하한, 비용 묶음, data-integrity 조건식 또는
 affected-set 상한처럼 완전한 trajectory 전체에서 유지되어야 하는 machine-evaluable 한계를
-기술합니다. Predicted violation은 arbitration 전에 가지를 제거합니다. 실행 중 관찰된 violation은
+기술합니다. Predicted violation은 중재 전에 가지를 제거합니다. 실행 중 관찰된 violation은
 forward 전달을 중지하고 기존 타입이 지정된 복구 경로에 다시 진입하며 simulator가 실행 중 계획을
 변경하도록 허용하지 않습니다.
 
@@ -405,11 +405,11 @@ Security는 객체, 속성, 링크, 객체 집합, 액션 발견, 액션 제출,
 | K4 | 변환 결과 연결과 스키마 이행입니다. | 스냅샷/delta 동등성, watermark 복구, 충돌, 이행 고정본이 통과합니다. |
 | K5 | 생성된 SDK와 온톨로지 애플리케이션 표면입니다. | Python/TypeScript compile 테스트와 proposal-only 쓰기 테스트가 통과합니다. |
 | K6 | Operational 상태 trajectory와 결정론적 그래프 propagation입니다. | 동일 release, 그래프, 기준 시점, 모델, intervention은 하나의 다이제스트를 만들며 stale, 잘린, cyclic 또는 unmodeled 경로는 검토를 요구합니다. |
-| K7 | Dynamic invariant와 trajectory 결과 종결입니다. | Invariant 위반 가지는 arbitration에 도달하지 않고 프로바이더 acceptance는 결과를 종료할 수 없으며 불완전한 관측은 unscorable로 유지됩니다. |
+| K7 | Dynamic 불변식과 trajectory 결과 종결입니다. | 불변식 위반 가지는 중재에 도달하지 않고 프로바이더 acceptance는 결과를 종료할 수 없으며 불완전한 관측은 unscorable로 유지됩니다. |
 | K8 | 실패 귀속과 통제된 Dynamic learning입니다. | Exact 검증 사유가 intake에서 보존되고 non-ontology 실패는 온톨로지 제안을 만들지 않으며 challenger만 학습하고 검토 없이 권한을 높이지 않습니다. |
 
 새 필드는 디코딩에서 선택적으로 시작하지만 새로 만든 런타임 기록에는 필수입니다. Retained 감사
-및 instance 고정본이 exact release에서 재생된 뒤에만 이전 방식 디코딩을 제거합니다.
+및 인스턴스 고정본이 exact release에서 재생된 뒤에만 이전 방식 디코딩을 제거합니다.
 
 ## 검증 매트릭스
 
@@ -418,14 +418,14 @@ Security는 객체, 속성, 링크, 객체 집합, 액션 발견, 액션 제출,
 | 재생 | Historical 기록이 같은 선언과 계획 다이제스트를 해석합니다. |
 | 권한 | Graph 쓰기가 권한을 부여하거나 외부 상태를 주장할 수 없습니다. |
 | 조회 안전성 | 모든 객체 집합은 범위가 제한된, 용도 checked, 잘림 명시 상태입니다. |
-| 액션 안전성 | Stop, 롤백, 영향, 예행 실행, lock, 멱등성, 감사가 필수로 유지됩니다. |
+| 액션 안전성 | Stop, 롤백, 영향, 예행 실행, 잠금, 멱등성, 감사가 필수로 유지됩니다. |
 | 함수 안전성 | 조회 및 계획 수립 코드에 실행기 신원 또는 direct 변경 경로가 없습니다. |
 | 네트워크 경로 안전성 | Directed 저장소, reciprocal 피어링, 구간별 근거, cycle detection, 깊이/구간 상한이 증적에 연결되며 absence는 unreachable 점유로 바뀌지 않습니다. |
 | 조정 | 프로바이더 acceptance와 관찰된 convergence가 별도 상태로 유지됩니다. |
-| Dynamic 재생 | 동일한 범위가 제한된 입력이 동일한 predicted trajectory와 invariant 판정을 만듭니다. |
+| Dynamic 재생 | 동일한 범위가 제한된 입력이 동일한 predicted trajectory와 불변식 판정을 만듭니다. |
 | Dynamic 권한 | Prediction, 모델 agreement 또는 모델 승격 근거가 액션을 승인하거나 실행할 수 없습니다. |
 | Dynamic 종결 | 완전한 독립적인 관측만 trajectory fidelity를 점수하거나 challenger를 갱신합니다. |
-| Pod telemetry | 용도 범위가 지정된 secured 그래프와 상태 근거가 프로바이더 I/O 또는 상태 inference 없이 결정론적 `verified`, `unverified`, `stale`, `missing` 구간을 만듭니다. |
+| Pod 텔레메트리 | 용도 범위가 지정된 secured 그래프와 상태 근거가 프로바이더 I/O 또는 상태 inference 없이 결정론적 `verified`, `unverified`, `stale`, `missing` 구간을 만듭니다. |
 
 ## 관련 문서
 

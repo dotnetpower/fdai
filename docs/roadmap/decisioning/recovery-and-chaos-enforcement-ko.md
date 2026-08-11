@@ -32,18 +32,18 @@ compile하며 주입, stop, 롤백, 검증을 함께 다루는 하나의 결정�
 
 ```mermaid
 flowchart LR
-  H[Grounded causal hypothesis] --> D[DecisionCase]
-  G[Fresh ontology graph] --> I[ImpactEnvelope]
-  D --> R[RecoveryPlan]
-  I --> R
-  R --> P[Dry run 및 approval]
-  P --> X[Thor executes]
-  X --> M[Continuous impact guard]
-  M -->|envelope 내부| V[Expected effect verification]
-  M -->|bound 초과| B[Vidar recovery control]
-  B --> C[Thor compensation action]
-  C --> V
-  V --> O[ObservedOutcome 및 audit]
+ H[Grounded causal hypothesis] --> D[DecisionCase]
+ G[Fresh ontology graph] --> I[ImpactEnvelope]
+ D --> R[RecoveryPlan]
+ I --> R
+ R --> P[Dry run 및 approval]
+ P --> X[Thor executes]
+ X --> M[Continuous impact guard]
+ M -->|envelope 내부| V[Expected effect verification]
+ M -->|bound 초과| B[Vidar recovery control]
+ B --> C[Thor compensation action]
+ C --> V
+ V --> O[ObservedOutcome 및 audit]
 ```
 
 ## 온톨로지 계약
@@ -92,7 +92,7 @@ Vidar가 계획과 준비 상태 상태를 소유합니다. 모든 변경은 계
 | `action_type_refs` | json | Ordered 복구 ActionType과 pinned 버전입니다. |
 | `compensation_order` | json | 이미 적용한 단계의 reverse 의존성 순서입니다. |
 | `impact_envelope_id` | 문자열 | 주입과 복구를 모두 제한하는 묶음입니다. |
-| `recovery_objective_ref` | 문자열 | 계획이 만족해야 하는 RTO/RPO objective입니다. |
+| `recovery_objective_ref` | 문자열 | 계획이 만족해야 하는 RTO/RPO 목표입니다. |
 | `verification_probes` | json | 독립적인 상태, SLI, 상태 검사입니다. |
 | `last_rehearsed_at` | datetime | 같은 방식 버전으로 성공한 최신 예행 연습 시간입니다. |
 | `expires_at` | datetime | 토폴로지 및 프로바이더 표류에 따른 준비 상태 만료입니다. |
@@ -107,7 +107,7 @@ Vidar가 계획과 준비 상태 상태를 소유합니다. 모든 변경은 계
 |----------|----------|------|
 | `envelope_bounds_experiment` | ImpactEnvelope -> 실험 | Chaos 실행에 승인된 영향 경계입니다. |
 | `envelope_bounds_action_option` | ImpactEnvelope -> ActionOption | 일반 복구 옵션에 승인된 경계입니다. |
-| `envelope_protects_objective` | ImpactEnvelope -> ServiceObjective | 성능 저하를 제한하는 objective입니다. |
+| `envelope_protects_objective` | ImpactEnvelope -> ServiceObjective | 성능 저하를 제한하는 목표입니다. |
 | `recovery_addresses_hypothesis` | RecoveryPlan -> CausalHypothesis | 계획이 되돌리려는 근거에 기반한 원인입니다. |
 | `recovery_targets_resource` | RecoveryPlan -> Resource | Direct 복구 대상입니다. |
 | `recovery_realized_as_process` | RecoveryPlan -> 프로세스 | 계획의 영속 실행 저널입니다. |
@@ -127,10 +127,10 @@ radius 탐색에서 시작하고 operating 맥락을 추가합니다.
 
 1. **Direct 대상:** 실행기가 mutate할 수 있는 Resource입니다.
 2. **런타임 dependent:** 변경을 관측할 수 있는 reverse `depends_on`, `runs_on`,
-  `implemented_by` 경로입니다.
-3. **Protected 서비스:** 해당 워크로드에서 도달 가능한 BusinessService와 objective입니다.
-4. **컨트롤 의존성:** 실행을 안전하게 유지하는 데 필요한 telemetry, 신원, 감사, lock,
-  복구 리소스입니다.
+ `implemented_by` 경로입니다.
+3. **Protected 서비스:** 해당 워크로드에서 도달 가능한 BusinessService와 목표입니다.
+4. **컨트롤 의존성:** 실행을 안전하게 유지하는 데 필요한 텔레메트리, 신원, 감사, 잠금,
+ 복구 리소스입니다.
 
 탐색은 링크 허용 목록, 깊이, 노드 개수, 간선 개수, 바이트 크기, 기한으로 제한합니다.
 Stale, conflicted 또는 잘린 그래프에서는 묶음이 불완전한하므로 chaos 적용을
@@ -145,10 +145,10 @@ Stale, conflicted 또는 잘린 그래프에서는 묶음이 불완전한하므�
 | 환경 및 서비스 criticality | Operating 온톨로지 | Approval과 정족수 요구사항을 높입니다. |
 | Direct/indirect 리소스 개수 | Graph 탐색 | Hard affected-set 상한을 적용합니다. |
 | 의존성 동시 확산 및 critical-path position | 타입이 지정된 링크 | Cascade 가능성을 찾습니다. |
-| Error-budget 및 objective headroom | ServiceObjective 관측 | 허용 성능 저하와 소요 시간을 제한합니다. |
+| Error-budget 및 목표 headroom | ServiceObjective 관측 | 허용 성능 저하와 소요 시간을 제한합니다. |
 | Data-plane 및 stateful-resource exposure | ActionType과 Resource 인터페이스 | 더 강한 복구와 승인을 요구합니다. |
 | 복구 준비 상태 및 예행 연습 age | RecoveryPlan | 복구가 stale이면 실행을 차단합니다. |
-| Telemetry 완전성 및 lag | 근거 프로바이더 | 가드 관측이 stop 예산 안에 도착하지 못하면 차단합니다. |
+| 텔레메트리 완전성 및 lag | 근거 프로바이더 | 가드 관측이 stop 예산 안에 도착하지 못하면 차단합니다. |
 | 동시 변경, 인시던트, 실험 | Operating 맥락 | 모호한하거나 compounding intervention을 막습니다. |
 | Graph 최신성 및 탐색 잘림 | 인벤토리 변환 결과 | 권한을 낮추거나 실행을 차단합니다. |
 | Prediction uncertainty | Impact-model 증적 | Uncertainty가 높아질수록 권한을 낮춥니다. |
@@ -164,7 +164,7 @@ Vidar는 선택한 ActionOption 하나와 근거에 기반한 가설로 계획�
 - 정확한 ActionType 및 작업 흐름 버전
 - Rollback 계약에 필요한 pre-action 상태 또는 스냅샷 참조
 - Forward 및 보상 의존성
-- 단계별 멱등성 키와 리소스 lock
+- 단계별 멱등성 키와 리소스 잠금
 - Stop 조건 및 최대 실행 시간
 - 검증 탐색, 예상 범위, 관측 구간
 - 기본 복구가 RTO/RPO를 충족하지 못할 때 에스컬레이션 대상
@@ -195,15 +195,15 @@ Pre-authorization은 같은 대상 집합, ActionType 버전, 시간 box, 영향
 | Causal 용도 | Named 가설, 방식, 예상 신호, refutation 조회가 있습니다. |
 | 대상 | 명시적 인벤토리 대상, supported 환경, 소유자, maintenance 구간이 있습니다. |
 | Graph | Fresh, 완전한, 범위가 제한된 영향 탐색이며 해결되지 않은 critical 링크가 없습니다. |
-| Objective | Error-budget 및 recovery-objective headroom이 충분합니다. |
+| 목표 | Error-budget 및 recovery-objective headroom이 충분합니다. |
 | 복구 | `RecoveryPlan.status=ready`, 예행 연습 fresh, 롤백 근거 available입니다. |
-| Telemetry | 기준선 샘플이 있고 continuous 가드 지연 시간이 stop 예산보다 짧습니다. |
+| 텔레메트리 | 기준선 샘플이 있고 continuous 가드 지연 시간이 stop 예산보다 짧습니다. |
 | 동시성 | Conflicting 액션, 인시던트 응답, 실험, protected 변경이 없습니다. |
-| 안전성 | 예행 실행 증적, lock, 멱등성, kill 전환, stop 조건, 감사가 준비됐습니다. |
+| 안전성 | 예행 실행 증적, 잠금, 멱등성, kill 전환, stop 조건, 감사가 준비됐습니다. |
 | Approval | Var가 distinct-principal 승인을 기록합니다. 운영 또는 stateful 범위는 정족수 2입니다. |
 
-Upstream 자세는 모든 chaos 실험을 human-approved로 유지합니다. 배포는 실행
-mechanics를 그림자에서 enforce로 promote할 수 있지만 Loki를 자기 승인으로 promote할 수는
+업스트림 자세는 모든 chaos 실험을 human-approved로 유지합니다. 배포는 실행
+mechanics를 그림자에서 강제 적용으로 promote할 수 있지만 Loki를 자기 승인으로 promote할 수는
 없습니다.
 
 ## 런타임 상태 머신
@@ -226,8 +226,8 @@ keying합니다. 프로세스 재시작은 마지막 committed 상태에서 재�
 Heimdall은 주입과 복구 동안 approved 묶음을 평가합니다. 다음을 확인합니다.
 
 - 관찰된 affected 리소스가 approved 집합의 subset으로 유지됩니다.
-- 필수 telemetry가 stop 예산을 적용할 만큼 fresh합니다.
-- Objective burn, 지연 시간, 오류 비율, 포화, 가용성이 한계 안에 있습니다.
+- 필수 텔레메트리가 stop 예산을 적용할 만큼 fresh합니다.
+- 목표 burn, 지연 시간, 오류 비율, 포화, 가용성이 한계 안에 있습니다.
 - Forbidden 신호, unexpected 의존성 실패, security 이벤트가 나타나지 않습니다.
 - Injector와 복구 백엔드에 도달할 수 있습니다.
 - 경과 시간이 hard 소요 시간 아래에 있습니다.
@@ -243,13 +243,13 @@ Injector를 중지했다고 복구가 완료된 것은 아닙니다. Heimdall은
 
 1. 변경 또는 injected fault가 없어졌습니다.
 2. Direct 대상 상태가 accepted 범위로 돌아왔습니다.
-3. Protected 서비스 objective가 declared 구간 안에서 회복됐습니다.
+3. Protected 서비스 목표가 declared 구간 안에서 회복됐습니다.
 4. Indirect affected 리소스에서 predicted propagated symptom이 더 이상 나타나지 않습니다.
 5. 보상 또는 롤백 단계가 부분으로 남지 않았습니다.
-6. Recurrence 구간이 같은 causal fingerprint 없이 종료됐습니다.
+6. Recurrence 구간이 같은 causal 지문 없이 종료됐습니다.
 
 최종 결과는 `recovered`, `partially_recovered`, `not_recovered`, `unscorable` 중 하나입니다.
-완전한 telemetry가 있는 `recovered`만 긍정 승격 근거로 사용할 수 있습니다.
+완전한 텔레메트리가 있는 `recovered`만 긍정 승격 근거로 사용할 수 있습니다.
 
 ## 승격 및 automatic demotion
 
@@ -258,7 +258,7 @@ Injector를 중지했다고 복구가 완료된 것은 아닙니다. Heimdall은
 | Measure | Acceptance criterion 예시 |
 |---------|---------------------------|
 | Detection | 예상 신호가 declared 지연 시간 예산 안에서 관측됩니다. |
-| Containment | 묶음 밖 리소스와 forbidden objective breach가 모두 0입니다. |
+| Containment | 묶음 밖 리소스와 forbidden 목표 breach가 모두 0입니다. |
 | 복구 | RTO 안에서 복구가 끝나고 모든 검증 탐색이 통과합니다. |
 | Repeatability | 고정된 시나리오 집합에서 최소 샘플과 일을 충족합니다. |
 | 결정 quality | False-positive, missed-stop, policy-escape 비율이 구성된 한도 안에 있습니다. |
@@ -271,7 +271,7 @@ out-of-envelope 영향, missed stop, 롤백 실패, stale 그래프 또는 mater
 
 이 설계는 코어에 S1-S14 식별자를 hard-code하지 않고 시나리오 묶음을 지원합니다.
 
-- **Kubernetes fault:** 묶음은 워크로드, 서비스, 유입, objective 링크를 따라갑니다.
+- **Kubernetes fault:** 묶음은 워크로드, 서비스, 유입, 목표 링크를 따라갑니다.
  복구는 복제본, 롤아웃, 엔드포인트, service-level 신호를 확인합니다.
 - **VM stress 및 네트워크 delay:** 묶음은 호스트 dependent와 control-plane 접근을 포함합니다.
  복구는 프로세스 exit, 큐 discipline, 기억, CPU, 의존성 지연 시간을 확인합니다.
@@ -279,8 +279,8 @@ out-of-envelope 영향, missed stop, 롤백 실패, stale 그래프 또는 mater
  뒤 credit, 처리량, 지연 시간, 연결 복구를 확인합니다.
 - **비율 limiting:** 가설은 demand, 할당량, 프로바이더, 배포 변경을 구분합니다. 복구는
  부하 stop, 재시도 대기, promoted 경로 전환 또는 할당량 액션 요청을 수행할 수 있습니다.
-- **게이트웨이 cascade:** Graph는 downstream propagation을 예측하고 백엔드 상태와 외부 서비스
- objective를 모두 확인합니다.
+- **게이트웨이 cascade:** Graph는 다운스트림 propagation을 예측하고 백엔드 상태와 외부 서비스
+ 목표를 모두 확인합니다.
 - **Bad 배포:** 복구는 이전 개정 번호를 pin하고 forward 롤백을 실행한 뒤 롤아웃과
  dependent 서비스 상태를 확인합니다.
 - **표류 및 alert 트리거:** Non-fault 시나리오는 같은 가설과 복구 계약을 사용하지만
@@ -296,10 +296,10 @@ out-of-envelope 영향, missed stop, 롤백 실패, stale 그래프 또는 mater
 4. Continuous 영향 가드와 타입이 지정된 stop 이벤트를 추가합니다.
 5. Pre-authorized Vidar 복구 컨트롤을 Thor의 등록된 복구 액션에 연결합니다.
 6. 독립적인 복구 검증과 승격/demotion 근거를 추가합니다.
-7. S1-S14 disposable-substrate 캠페인을 그림자, approved enforce, forced-stop 모드로 실행합니다.
+7. S1-S14 disposable-substrate 캠페인을 그림자, approved 강제 적용, forced-stop 모드로 실행합니다.
 
 구획 1-6은 코어에 구현했고 focused 회귀 테스트로 검증합니다. 구획 7은 배포
-근거입니다. Promoted 시나리오와 ActionType 버전, 주입된 Thor, Vidar, Heimdall, telemetry,
+근거입니다. Promoted 시나리오와 ActionType 버전, 주입된 Thor, Vidar, Heimdall, 텔레메트리,
 인벤토리, 감사 연결이 필요합니다. 환경 플래그 활성화는 이 연결을 대신하지 않습니다.
 
 ## 관련 문서
@@ -307,7 +307,7 @@ out-of-envelope 영향, missed stop, 롤백 실패, stale 그래프 또는 mater
 | 알아볼 내용 | 문서 |
 |-------------|------|
 | Causal 가설 및 근거 grade | [인과 인시던트 그래프](../rules-and-detection/causal-incident-graph-ko.md) |
-| 공유 서비스, objective, 결과 의미 | [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md) |
+| 공유 서비스, 목표, 결과 의미 | [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md) |
 | 액션 안전성 선언 | [액션 온톨로지](action-ontology-ko.md) |
 | 작업 흐름 저널 및 보상 | [프로세스 자동화](process-automation-ko.md) |
 | 기준선 안전성 분류 | [위험 분류](risk-classification-ko.md) |

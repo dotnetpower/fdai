@@ -11,13 +11,13 @@ translation_revised: 2026-08-11
 않고 FDAI 배포를 지역 장애에서 복구하는 방법을 정의합니다. 복구 프로파일, 상태 순서, platform
 제약, failback 계약 및 컨트롤 플레인 DR을 주장하기 전에 필요한 근거를 다룹니다.
 
-> **범위:** Upstream은 재사용 가능한 복구 계약을 정의합니다. Downstream 배포는 지역, numeric
-> 복구 지점 objective(RPO)와 복구 시간 objective(RTO), 신원, 리소스 참조,
+> **범위:** 업스트림은 재사용 가능한 복구 계약을 정의합니다. 다운스트림 배포는 지역, numeric
+> 복구 지점 목표(RPO)와 복구 시간 목표(RTO), 신원, 리소스 참조,
 > 소유자, 승인 및 측정된 훈련 근거를 제공합니다.
 >
 > **구현 상태:** 단일 지역 기준선, 운영 백업과 availability-zone 게이트, 변경할 수 없는
 > recovery-plan 집약기, 영속 compare-and-set 조정기, action-bound approval-verification
-> 경계, DR 어댑터, 데이터베이스 복원 검증기 및 예약된 drill 작업은 제공됩니다. 스케줄러는 활성
+> 경계, DR 어댑터, 데이터베이스 복원 검증기 및 예약된 훈련 작업은 제공됩니다. 스케줄러는 활성
 > handle을 추적하고 한 프로세스 안에서 용량을 원자적으로 예약합니다. 대체 지역
 > infrastructure, 프로세스 간 실험 reservation, event-data 연속성, 프로바이더 액션
 > 연결, 트래픽 장애 조치 및 측정된 장애 조치/failback 근거는 게이트를 통과하기 전까지 배포
@@ -30,12 +30,12 @@ FDAI는 쓰기 권한을 가진 복구 epoch가 정확히 하나인 active-passi
 fencing합니다. Event 복구 전에 상태를 복원하고 검증하며, 감사 재생은 judge-only이고,
 의존성, 신원, 무결성 및 canary 검사가 통과한 후에만 트래픽을 전환합니다.
 
-배포는 측정된 objective에 따라 하나의 프로파일을 선택합니다.
+배포는 측정된 목표에 따라 하나의 프로파일을 선택합니다.
 
 | 프로파일 | 상시 보조 | 사용 목적 | 승격 조건 |
 |---------|----------------|-----------|-----------|
-| `restore` | 백업, 이미지, Terraform 상태 및 복구 구성만 유지 | Regional reprovisioning과 데이터베이스 복원을 허용하는 RTO | 전체 복원이 승인된 RTO 안에 완료됨을 drill로 입증 |
-| `warm` | 보조 네트워크, 신원, event-bus 메타데이터, 레지스트리 복제본 및 비활성 런타임 | `restore` 프로파일로 달성할 수 없는 RTO | Fencing, 상태 복구, activation 및 용량이 승인된 RTO 안에 완료됨을 drill로 입증 |
+| `restore` | 백업, 이미지, Terraform 상태 및 복구 구성만 유지 | Regional reprovisioning과 데이터베이스 복원을 허용하는 RTO | 전체 복원이 승인된 RTO 안에 완료됨을 훈련으로 입증 |
+| `warm` | 보조 네트워크, 신원, event-bus 메타데이터, 레지스트리 복제본 및 비활성 런타임 | `restore` 프로파일로 달성할 수 없는 RTO | Fencing, 상태 복구, activation 및 용량이 승인된 RTO 안에 완료됨을 훈련으로 입증 |
 
 Active-active 실행은 지원되지 않습니다. 읽기 전용 서비스는 multi-region일 수 있지만 Thor의
 privileged 실행기와 event-consumption 권한은 single-writer로 유지합니다.
@@ -45,7 +45,7 @@ privileged 실행기와 event-consumption 권한은 single-writer로 유지합�
 운영 복구 계획은 변경할 수 없는하고 versioned입니다. 다음을 기록합니다.
 
 - **신원:** 계획 id, 개정 번호, 배포 프로파일, 기본 지역, 복구 지역 및 범위.
-- **Business objective:** 승인된 RPO, RTO, 최대 degraded 소요 시간 및 장애 시나리오.
+- **Business 목표:** 승인된 RPO, RTO, 최대 degraded 소요 시간 및 장애 시나리오.
 - **권한:** 요청자, reliability 소유자, operations 소유자, 승인자, 실행기 신원 및
  break-glass 정책. 요청자는 같은 activation을 승인할 수 없습니다.
 - **안전성:** stop 조건, 롤백 또는 state-forward 복구, 최대 영향 리소스 수,
@@ -83,7 +83,7 @@ CSP-neutral 계획은 기능을 기록합니다. Azure 어댑터와 Terraform �
 | Key Vault | Microsoft-managed regional 장애 조치는 지연될 수 있고 읽기 전용일 수 있습니다. 더 짧은 RTO에는 승인된 synchronization 및 교대 프로세스를 가진 별도 regional vault를 사용합니다. Soft 삭제와 정리 protection은 계속 필요합니다. |
 | Azure Container Registry | Geo-replication은 Premium이 필요하고 eventually consistent입니다. Compute를 시작하기 전에 복구 지역에서 정확한 이미지 다이제스트를 검증합니다. Tag는 근거가 아닙니다. |
 | Storage | 복구 산출물은 승인된 지역과 residency 룰을 충족하는 replication 프로파일을 사용합니다. Blob 가용성만으로 산출물 다이제스트나 최신성을 입증할 수 없습니다. |
-| Terraform 백엔드 | 상태, lock, 프로바이더 버전 및 승인된 계획은 장애가 난 애플리케이션 지역 밖에서 사용할 수 있어야 합니다. 적용을 성공시키기 위해 상태를 수동 편집하지 않습니다. |
+| Terraform 백엔드 | 상태, 잠금, 프로바이더 버전 및 승인된 계획은 장애가 난 애플리케이션 지역 밖에서 사용할 수 있어야 합니다. 적용을 성공시키기 위해 상태를 수동 편집하지 않습니다. |
 
 현재 platform 참고 문서:
 
@@ -100,10 +100,10 @@ CSP-neutral 계획은 기능을 기록합니다. Azure 어댑터와 Terraform �
 
 ```text
 draft -> ready -> approved -> activating -> primary_fenced
-   -> state_restored -> runtime_started -> audit_verified
-   -> event_recovery_ready -> traffic_shifted -> service_verified
-   -> active_recovery -> failback_ready -> failing_back
-   -> primary_verified -> closed
+  -> state_restored -> runtime_started -> audit_verified
+  -> event_recovery_ready -> traffic_shifted -> service_verified
+  -> active_recovery -> failback_ready -> failing_back
+  -> primary_verified -> closed
 ```
 
 `halted`는 해당 계획 개정 번호에서 최종입니다. `activating`부터 `primary_verified`까지 어떤
@@ -112,27 +112,27 @@ draft -> ready -> approved -> activating -> primary_fenced
 
 ### Activation 순서
 
-1. **인시던트와 계획 확인:** 장애 시작, 계획 개정 번호, objective, 권한 및 fresh 근거를
-  연결합니다. Drill은 같은 순서를 사용하지만 운영 트래픽을 받을 수 없습니다.
+1. **인시던트와 계획 확인:** 장애 시작, 계획 개정 번호, 목표, 권한 및 fresh 근거를
+ 연결합니다. 훈련은 같은 순서를 사용하지만 운영 트래픽을 받을 수 없습니다.
 2. **기본 fencing:** kill 전환을 활성화하고 이전 실행기 경로를 철회 또는 isolate한 뒤
-  단조 증가하는 복구 epoch를 획득합니다. Fence가 독립적으로 관측되기 전까지 보조
-  실행은 비활성 상태를 유지합니다.
+ 단조 증가하는 복구 epoch를 획득합니다. Fence가 독립적으로 관측되기 전까지 보조
+ 실행은 비활성 상태를 유지합니다.
 3. **의존성 준비:** Terraform 상태와 이미지 다이제스트를 검증하고 복구 네트워크, 신원,
-  비공개 DNS, RBAC, Key Vault strategy, Event Hubs 이름 공간 및 observability 경로를
-  provision하거나 검증합니다.
+ 비공개 DNS, RBAC, Key Vault strategy, Event Hubs 이름 공간 및 observability 경로를
+ provision하거나 검증합니다.
 4. **상태 복원:** PostgreSQL과 변경할 수 없는 산출물을 복원한 후 스키마, hash-chain, 무결성,
-  보존 및 애플리케이션 smoke 검사를 실행합니다. 검증할 수 없는 복원은 halt합니다.
+ 보존 및 애플리케이션 smoke 검사를 실행합니다. 검증할 수 없는 복원은 halt합니다.
 5. **권한 없이 시작:** 소비자와 privileged 실행을 비활성화한 복구 모드로
-  런타임을 시작합니다. 준비 상태는 상태, 이벤트 버스, 신원, 카탈로그 및 감사 쓰기 담당을
-  입증해야 합니다.
+ 런타임을 시작합니다. 준비 상태는 상태, 이벤트 버스, 신원, 카탈로그 및 감사 쓰기 담당을
+ 입증해야 합니다.
 6. **감사 재생 검증:** 복원된 결정을 judge-only 모드로 재생합니다. 재생은 실행기를
-  호출하지 않으며 해시 또는 스키마 공백 없이 선언된 체크포인트에서 멈춰야 합니다.
+ 호출하지 않으며 해시 또는 스키마 공백 없이 선언된 체크포인트에서 멈춰야 합니다.
 7. **Event 복구:** 선언된 이벤트 출처와 범위가 제한된 시간 구간을 선택합니다. Causal 및 per-resource
-  정렬을 보존하고 original 멱등성 키를 유지하며 모호함은 human 검토로 보냅니다.
+ 정렬을 보존하고 original 멱등성 키를 유지하며 모호함은 human 검토로 보냅니다.
 8. **권한과 트래픽 전환:** Canary와 용량 검사가 통과한 후 복구 epoch, 소비자 및
-  필요한 경로만 활성화합니다. Stale epoch는 계속 쓰기할 수 없어야 합니다.
-9. **서비스 검증:** RPO와 RTO를 측정해 승인된 objective와 비교하고 영향 범위 및 잔여
-  공백을 기록합니다. Objective breach는 실패한 복구 exercise입니다.
+ 필요한 경로만 활성화합니다. Stale epoch는 계속 쓰기할 수 없어야 합니다.
+9. **서비스 검증:** RPO와 RTO를 측정해 승인된 목표와 비교하고 영향 범위 및 잔여
+ 공백을 기록합니다. 목표 breach는 실패한 복구 exercise입니다.
 
 ## Event 복구 계약
 
@@ -156,19 +156,19 @@ DLQ 재생만으로는 완전한 regional 복구 strategy가 되지 않습니다
 Failback은 장애 조치 명령의 역순이 아니라 새 통제된 복구입니다.
 
 1. 활성 복구 지역을 현재 정본으로 간주합니다.
-2. 대상, objective 또는 procedure가 바뀌면 새 계획 개정 번호를 만듭니다. 별도 failback
-  승인을 기록한 후 `failing_back` 시작 시 새 epoch를 할당합니다.
+2. 대상, 목표 또는 procedure가 바뀌면 새 계획 개정 번호를 만듭니다. 별도 failback
+ 승인을 기록한 후 `failing_back` 시작 시 새 epoch를 할당합니다.
 3. 활성 출처에서 상태를 재구축 또는 resynchronize합니다. Stale 기본 저장소를 재시작하지
-  않습니다.
+ 않습니다.
 4. 신원, 네트워크, 이미지 다이제스트, 상태 무결성, 이벤트 체크포인트 및 용량을 검증합니다.
 5. 소비자나 privileged 실행을 전환하기 전에 활성 복구 epoch를 fencing합니다.
 6. 트래픽을 전환하고 canary와 smoke 검사를 실행하며 검증 구간이 닫힐 때까지 이전
-  활성 지역으로 롤백할 수 있게 유지합니다.
+ 활성 지역으로 롤백할 수 있게 유지합니다.
 7. 선택한 복구 프로파일을 다시 수립하고 정리와 근거 보존 후에만 종료합니다.
 
 ## 근거와 승격
 
-각 activation과 drill은 정제된 변경할 수 없는 근거를 저장합니다.
+각 activation과 훈련은 정제된 변경할 수 없는 근거를 저장합니다.
 
 - 계획 id와 개정 번호, 복구 epoch, 트리거, 장애 구간, 행위자와 승인 참조;
 - 승인된 RPO/RTO와 달성한 RPO/RTO 및 측정 시각;
@@ -179,20 +179,20 @@ Failback은 장애 조치 명령의 역순이 아니라 새 통제된 복구입�
 - 신원, RBAC, 비공개 DNS, 시크릿, event-bus, 준비 상태, canary 및 용량 결과;
 - 트래픽 shift, 롤백 또는 failback 증적, 정리 결과 및 잔여 risk.
 
-Reliability 소유자가 numeric objective를 승인하고 완전한 isolated 복원과 regional
-장애 조치/failback drill이 이를 충족할 때까지 운영은 차단됩니다. 세 번의 그림자 또는 예행 실행
+Reliability 소유자가 numeric 목표를 승인하고 완전한 isolated 복원과 regional
+장애 조치/failback 훈련이 이를 충족할 때까지 운영은 차단됩니다. 세 번의 그림자 또는 예행 실행
 계획은 한 번의 substrate-backed exercise를 대체하지 않습니다.
 
 ## 구현 경계
 
 - `core/`는 변경할 수 없는 계획 검증과 legal 전이를 소유하고 Azure를 호출하지 않습니다.
 - 영속 조정기는 승인 authenticity, 예상 개정 번호/상태, 단조 증가 전이 시간
-  및 compare-and-set 소유권을 검증한 후 `StateStore`를 통해 계획 변환 결과와 감사 행을
-  원자적으로 저장합니다. Exact 재전달은 커밋된 기록을 반환하고 변경된 근거는
-  충돌입니다. 멱등성 다이제스트가 근거, 승인 및 epoch를 커밋하기 때문입니다.
+ 및 compare-and-set 소유권을 검증한 후 `StateStore`를 통해 계획 변환 결과와 감사 행을
+ 원자적으로 저장합니다. Exact 재전달은 커밋된 기록을 반환하고 변경된 근거는
+ 충돌입니다. 멱등성 다이제스트가 근거, 승인 및 epoch를 커밋하기 때문입니다.
 - 프로바이더 프로토콜은 fencing, 상태 복원, 이벤트 복구, 트래픽 shift 및 탐색을 소유합니다.
 - Azure 어댑터는 managed 신원과 범위가 제한된 연산으로 해당 프로토콜을 구현합니다.
-- Terraform은 선택된 프로파일을 렌더링하며 배포 값은 upstream 출처 밖에 둡니다.
+- Terraform은 선택된 프로파일을 렌더링하며 배포 값은 업스트림 출처 밖에 둡니다.
 - 프로세스 저널과 추가 전용 감사 체인이 영속 전이 권한입니다.
 - Console은 읽기 전용이며 액션을 활성화하지 않고 사용 불가 또는 recovering 상태를 보고합니다.
 
@@ -202,7 +202,7 @@ Reliability 소유자가 numeric objective를 승인하고 완전한 isolated �
 |-------------|-----------|
 | Regional 장애 조치 및 failback 절차 | [컨트롤 플레인 장애 조치 런북](../../runbooks/control-plane-failover-ko.md) |
 | 단일 지역 배포와 release 롤백 | [배포](deployment-ko.md) |
-| 예약된 워크로드 DR과 데이터베이스 복원 drill | [Phase 3 integrated 루프](../phases/phase-3-integrated-loop-ko.md) |
+| 예약된 워크로드 DR과 데이터베이스 복원 훈련 | [단계 3 integrated 루프](../phases/phase-3-integrated-loop-ko.md) |
 | 런타임 시작 및 준비 상태 게이트 | [시작 and 수명 주기](../operations/startup-and-lifecycle-ko.md) |
 | Operational 신호와 런북 요구사항 | [Operating and 검증](../operations/operating-and-verification-ko.md) |
 | 운영 아키텍처 승인 근거 | [아키텍처 검토 Board packet](../architecture/architecture-review-board-ko.md) |

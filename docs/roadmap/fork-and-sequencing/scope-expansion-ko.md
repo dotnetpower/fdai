@@ -23,7 +23,7 @@ CSP-neutral wire 계약 는
 컨트롤 루프 은
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md).
 
-> **구현 상태 (2026-07-21).** §3에서 제안한 인시던트, 8개 telemetry wire 계약, 워크로드
+> **구현 상태 (2026-07-21).** §3에서 제안한 인시던트, 8개 텔레메트리 wire 계약, 워크로드
 > SLO, 런북, on-call, 사후 분석, 버티컬 레지스트리는 배포됐습니다. §3의 `Problem` 문단은
 > 채택 당시 historical 공백을 보존합니다. T2 후보의 액션 빌드와 unified risk/HIL 라우팅도
 > 배포됐고, risk-eligible T2 액션을 실행기로 넘기는 최종 단계만 남았습니다.
@@ -32,30 +32,30 @@ CSP-neutral wire 계약 는
 
 | 축 | Position | 근거 설명 |
 |------|----------|-----------|
-| **변경 안전성** | 버티컬 유지. Foundational. | Deterministic-first ⇢ policy-gate ⇢ 그림자 → enforce 는 현재 가장 강력한 story. |
-| **복원력 (DR/Chaos)** | 버티컬 유지. Chaos Studio 어댑터 shipped. | Prod-exclusion invariant + `chaos:opt-out` 태그는 industry 에서 드문 안전성 하한 제공. |
+| **변경 안전성** | 버티컬 유지. Foundational. | Deterministic-first ⇢ policy-gate ⇢ 그림자 → 강제 적용 는 현재 가장 강력한 story. |
+| **복원력 (DR/Chaos)** | 버티컬 유지. Chaos Studio 어댑터 shipped. | Prod-exclusion 불변식 + `chaos:opt-out` 태그는 industry 에서 드문 안전성 하한 제공. |
 | **비용 거버넌스 (FinOps)** | 버티컬 유지. | 확립된 FinOps guardrail 패턴에 align. |
 | **인시던트 수명 주기** | **배포됨.** § 3.1 참조. | 영속 수명 주기, 제안, 알림, SLA, storm coordination 제공. |
-| **Telemetry 인제스트** | **Layer-0 경계 8개 및 Azure 어댑터 배포됨.** § 3.2 참조. | 메트릭/로그/추적이 SLO, detection, RCA를 grounding. |
+| **텔레메트리 인제스트** | **Layer-0 경계 8개 및 Azure 어댑터 배포됨.** § 3.2 참조. | 메트릭/로그/추적이 SLO, detection, RCA를 grounding. |
 | **워크로드 SLO / 오류 예산** | **배포됨.** § 3.3 참조. | 워크로드 SLI/SLO/burn을 control-plane SLO와 분리 유지. |
 | **런북 orchestration** | **배포됨.** § 3.4 참조. | 범위가 제한된 단계/롤백 orchestration 제공. |
 | **On-call 예약** | **배포됨.** § 3.5 참조. | Static + PagerDuty 예약과 역할 대체 경로 제공. |
 | **사후 분석 초안** | **배포됨.** § 3.6 참조. | Template-first 초안과 근거에 기반한 learning 후보 제공. |
-| **Full T1/T2 wiring into ControlLoop** | **액션 빌드 + risk/HIL 경로 배포, 조건을 충족한 실행 pending.** § 3.7 참조. | Quality-gated T2 후보는 액션으로 빌드되어 unified risk 게이트에 도달합니다. |
+| **Full T1/T2 배선 into ControlLoop** | **액션 빌드 + risk/HIL 경로 배포, 조건을 충족한 실행 pending.** § 3.7 참조. | Quality-gated T2 후보는 액션으로 빌드되어 unified risk 게이트에 도달합니다. |
 
 ## 2. 명시적으로 deferred 된 axes (이 확장에 포함되지 않음)
 
 | 축 | Position | 근거 설명 |
 |------|----------|-----------|
-| Multi-cloud (AWS / GCP) | 이후 phase 로 deferred. | 구현 focus 는 Azure 유지; wire-contract 경계 (§ 3.2) 이 AWS 어댑터 를 가산 로 유지. |
-| Predictive 용량 / autoscaling | Deferred. | Telemetry 인제스트 (§ 3.2) 이 stub 이 아니라 real 이어야 depend 가능. § 3.2 먼저 ship 후 이것을 이후 phase 에서. |
+| Multi-cloud (AWS / GCP) | 이후 단계 로 deferred. | 구현 focus 는 Azure 유지; wire-contract 경계 (§ 3.2) 이 AWS 어댑터 를 가산 로 유지. |
+| Predictive 용량 / autoscaling | Deferred. | 텔레메트리 인제스트 (§ 3.2) 이 stub 이 아니라 real 이어야 depend 가능. § 3.2 먼저 ship 후 이것을 이후 단계 에서. |
 | 공개 status-page 엔드포인트 | Deferred. | Stakeholder briefing과 다중 채널 전달은 배포됐고 공개 엔드포인트 연결만 외부입니다. |
 
 ## 3. 구조적 변경 (design 계약)
 
 아래 모든 subsystem 은
 [architecture.instructions.md § 안전성 Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)
-의 standing invariant 를 honor MUST: 모든 자율 액션은 stop-condition,
+의 standing 불변식 를 honor MUST: 모든 자율 액션은 stop-condition,
 롤백 경로, blast-radius 한도, 감사 항목 를 carry; 새 기능
 는 그림자 모드 로 먼저 ship.
 
@@ -95,7 +95,7 @@ CSP-neutral wire 계약 는
  (see [security-and-identity.md § Auditability](../architecture/security-and-identity-ko.md)),
  추가 전용 보장을 어느 것도 bypass 하지 않음. 덧붙이기는 `applied` 또는
  `duplicate`를 반환하며 stale 예상 상태는 `IncidentWriteConflictError`를
- 발생시킵니다. PostgreSQL은 per-incident 참고용 lock을 잡고 저장된 현재
+ 발생시킵니다. PostgreSQL은 per-incident 참고용 잠금을 잡고 저장된 현재
  상태를 확인한 뒤 global 감사 해시 체인에 한 트랜잭션으로 덧붙이기합니다.
  Losing 복제본은 충돌을 반환하기 전에 정본 감사 변환 결과를 reload합니다.
 - **소유권**: `core/incident/` (신규 패키지). 버티컬 은 후보
@@ -173,31 +173,31 @@ incident-command 플래너다:
  않게 한다.
 
 이 조정기 는 참고용 다 - risk 게이트 와 실행기 가 그
-`StormPolicy` 와 정렬된 계획을 소비한다; 스스로 실행하거나 lock 을 잡거나
+`StormPolicy` 와 정렬된 계획을 소비한다; 스스로 실행하거나 잠금 을 잡거나
 모델 을 호출하지 않으므로 `core/` 가져오기 규칙 아래 머문다.
 
-### 3.2 Telemetry 인제스트 경계 (Layer-0 확장)
+### 3.2 텔레메트리 인제스트 경계 (Layer-0 확장)
 
 **Problem.** [csp-neutrality.md](../architecture/csp-neutrality-ko.md) 는 다섯 개의
 wire-level 계약 를 선언 (이벤트 버스, 상태 저장소, 시크릿, 워크로드
 신원, 인벤토리). OpenTelemetry 는 컨트롤 플레인 트레이스를 발행
 하지만 외부 메트릭, 로그, 추적 를 consume 하는 것이 없다. 이는
 `observability-and-detection.md` design 을 상관관계 only 로 상한 -
-anomaly, 예측, RCA 는 real telemetry 위에 ground 할 수 없음.
+anomaly, 예측, RCA 는 real 텔레메트리 위에 ground 할 수 없음.
 
 **Design.**
 
 - **`shared/providers/` 아래 세 개의 새로운 비동기 프로토콜**:
  - `MetricProvider.query(query: MetricQuery) -> AsyncIterator[MetricPoint]`
-  (Prometheus PromQL, Azure Monitor Logs, 또는 CloudWatch 로 backed;
-  upstream 은 로컬 no-op + 문서화된 형태 ship).
+ (Prometheus PromQL, Azure Monitor Logs, 또는 CloudWatch 로 backed;
+ 업스트림 은 로컬 no-op + 문서화된 형태 ship).
  - `LogQueryProvider.query(query: LogQuery) -> AsyncIterator[LogRecord]`
-  (Log Analytics KQL, Loki LogQL 등으로 backed).
+ (Log Analytics KQL, Loki LogQL 등으로 backed).
  - `TraceQueryProvider.query(query: TraceQuery) -> AsyncIterator[Span]`
-  (App Insights, Tempo, Jaeger 로 backed).
+ (App Insights, Tempo, Jaeger 로 backed).
 - Wire 계약 수가 **5 → 8** 로 증가; [csp-neutrality.md](../architecture/csp-neutrality-ko.md)
  는 경계 을 introduce 하는 동일 PR 에서 갱신.
-- **기본값 upstream 연결**: 빈 iterator 를 반환하는 로컬 no-op
+- **기본값 업스트림 연결**: 빈 iterator 를 반환하는 로컬 no-op
  프로바이더. 첫 실제 운영 `MetricProvider` 어댑터 가 land 했다 -
  `delivery/azure/metric_logs.py` (`AzureMonitorLogsMetricProvider`,
  조회 REST API 위의 Log Analytics KQL). 조립 루트 에서
@@ -223,7 +223,7 @@ SLO** - 사용자가 보는 인시던트 우선순위를 순위 하고 error-bud
 
 - **스키마**: `shared/contracts/slo/schema.json` - `SLI` (조회 +
  임계값 + 종류={가용성, 지연 시간, 정확성, 최신성}),
- `SLO` (objective ratio + 구간), `ErrorBudget` (derived),
+ `SLO` (목표 ratio + 구간), `ErrorBudget` (derived),
  `BurnRate` (short + long 구간).
 - **모듈**: `core/slo/` 와 `SloRegistry` (`rule-catalog/slo/` 로부터
  YAML SLO 부하) 그리고 `BurnRateEvaluator` (Google SRE Chapter 5 의
@@ -271,7 +271,7 @@ SLO** - 사용자가 보는 인시던트 우선순위를 순위 하고 error-bud
 - **프로토콜**: `shared/providers/oncall_schedule.py` 의
  `OnCallSchedule.current(rotation: str) -> OnCallShift`, `OnCallShift(rotation, primary_oid, secondary_oid, until)`
  반환.
-- **기본값 upstream 구현**: 구성 로부터 shift 의 JSON 목록 를
+- **기본값 업스트림 구현**: 구성 로부터 shift 의 JSON 목록 를
  reading 하는 `StaticOnCallSchedule`. 포크 모델 은 PagerDuty /
  OpsGenie 어댑터 를 wire.
 - **통합**: `HilChannel.dispatch(...)` 는 선택적
@@ -347,11 +347,11 @@ T1 reuse는 **shadow-only**입니다. T2는 후보를 액션/risk 경로까지 �
 **시나리오 재생.** [services/core-control-plane/tests/scenarios/v2026.07/](../../../services/core-control-plane/tests/scenarios/v2026.07)
 의 고정된 시나리오는 shipped 룰이 매핑되는 곳마다
 [services/core-control-plane/tests/scenarios/enrichment/v2026.07/](../../../services/core-control-plane/tests/scenarios/enrichment/v2026.07)
-overlay 로 T0 에서 enrich 됨 - 예:
+오버레이 로 T0 에서 enrich 됨 - 예:
 `finops.stop-idle-dev-vm-off-hours.003` 은 `compute.vm.idle-detected` 발화,
 `dr.replica-lag-degraded.001` 은 `postgresql-server.high-availability` 발화
 (risk-gate 경유 HIL).
-overlay 가 아직 없는 시나리오는 `xfail` 유지:
+오버레이 가 아직 없는 시나리오는 `xfail` 유지:
 `dr.chaos-experiment-novel.003`(T2 필요),
 `dr.backup-vault-restore-rehearsal.002` /
 `change.drift-manual-portal-edit.003`(shipped 룰 작성자 필요).
@@ -373,10 +373,10 @@ security 자세, compliance, patch 관리 로 커져야 함을 의미한다. 오
 - **Validating, 플러그인 로더 아님.** 등록은 misconfigured onboarding 을
  즉시 거부 한다: 중복이거나 non-ASCII 인 `vertical_id`, 룰 출처 를
  명명하지 않은 **활성화된** 버티컬 (아무것도 감지하지 않는 도메인), 또는
- enforce 모드 로 직접 onboard 하려는 서술자. `register_all` 은 첫 실패에서
+ 강제 적용 모드 로 직접 onboard 하려는 서술자. `register_all` 은 첫 실패에서
  abort 하므로 부분 배치 가 half-register 될 수 없다.
 - **구성상 shadow-first.** `default_mode` 는 `Mode.SHADOW` 로 기본값 되고
- onboarding 시 그림자 로 유지되어야 한다 - enforce 로의 승격 은 별도
+ onboarding 시 그림자 로 유지되어야 한다 - 강제 적용 로의 승격 은 별도
  검토된 변경 이므로, onboarding 이 절대 자율 액션 을 silently
  활성화 할 수 없다. Enumeration (`all`, `enabled`)은 id-sorted 이고 결정론적이다.
 
@@ -384,30 +384,30 @@ security 자세, compliance, patch 관리 로 커져야 함을 의미한다. 오
 
 위 모든 subsystem 은 **그림자 모드** 로 먼저 ship
 ([architecture.instructions.md § 안전성 Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
-Enforce 로의 승격 은 모듈 의 `promotion_gate` 가 선언하는
+강제 적용 로의 승격 은 모듈 의 `promotion_gate` 가 선언하는
 그림자 accuracy 로 gated 된 별도 변경 (룰 / ActionType 승격
 계약을 mirror).
 
 롤아웃 순서는 strict 선행 조건 체인 을 pick:
 
-1. **§ 3.1 인시던트** 와 **§ 3.2 Telemetry** 는 독립적 - 둘 다 동일
-  phase 에서 ship, 순서 무관.
-2. **§ 3.7 T1/T2 wiring** - T1 은 이미 shipped; T2 는 `t2_reasoning` 계층 라이브러리 구축이 선행.
+1. **§ 3.1 인시던트** 와 **§ 3.2 텔레메트리** 는 독립적 - 둘 다 동일
+ 단계 에서 ship, 순서 무관.
+2. **§ 3.7 T1/T2 배선** - T1 은 이미 shipped; T2 는 `t2_reasoning` 계층 라이브러리 구축이 선행.
 3. **§ 3.3 SLO** 는 § 3.2 depend (real burn-rate 는 메트릭 인제스트
-  필요).
+ 필요).
 4. **§ 3.6 사후 분석** 은 § 3.1 depend.
 5. **§ 3.5 On-call** 은 독립적.
 6. **§ 3.4 런북** 은 독립적 - 기존 ActionType 을 compose.
 
 ## 5. 이 문서가 아닌 것
 
-- Phase 계획 아님. Phase 는 [docs/roadmap/phases/](../phases) 아래 존재
+- 단계 계획 아님. 단계 는 [docs/roadmap/phases/](../phases) 아래 존재
  하며 이러한 subsystem 을 관리자 의 예약 에 따라 자리.
 - Customer-facing spec 아님. FDAI 는 customer-agnostic 유지; § 3.2 의
  wire 계약 는 포크 모델
  ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md))
  intact 유지.
-- 완전한 운영 커버리지 점유 아님. § 2 의 deferred 축 는 phase 가
+- 완전한 운영 커버리지 점유 아님. § 2 의 deferred 축 는 단계 가
  명시적으로 집을 때까지 의도적으로 범위 밖 유지.
 
 ## 6. SRE 에이전트 임무 커버리지
@@ -437,7 +437,7 @@ SRE 에이전트 가 커버하리라 기대되는 기준선 의무를, 그것을
 | **Dev-to-ops 핸드오프 (정책 + RBAC 리뷰)** | Covered | [operational-readiness.md](../operations/operational-readiness-ko.md) (ORR) |
 | **신원 / RBAC 최소권한 자세** | Covered | 워크로드 RBAC 규칙 팩(`*.role-assignment.*`) + `remediate.right-size-role` |
 | SLO / 오류 예산 | Covered | `core/slo/`와 routed Prometheus, Azure Monitor Metrics, KQL 프로바이더를 사용하며 `SloBurnRunner`는 데이터 누락 시 실패 시 차단합니다. |
-| Monitoring / alerting (외부 신호 인제스트) | Covered | 메트릭, 범위가 제한된 KQL, App Insights 추적, Activity Log, 진단 스트림, anomaly, 예측, RCA telemetry grounding을 제공합니다. |
+| Monitoring / alerting (외부 신호 인제스트) | Covered | 메트릭, 범위가 제한된 KQL, App Insights 추적, Activity Log, 진단 스트림, anomaly, 예측, RCA 텔레메트리 grounding을 제공합니다. |
 | On-call 스케줄 / paging | Covered | fail-safe `OnCallResolver`, 명시적 Entra 대응을 사용하는 PagerDuty 명단 어댑터, PagerDuty 이벤트 v2 paging, 역할 대체 경로를 제공합니다. |
 | 상태 페이지 / stakeholder broadcast | Covered | Stakeholder briefing과 Teams, Slack, 이메일, 웹훅, PagerDuty, SMS 채널을 제공합니다. 공개 status-page 엔드포인트는 외부 연결입니다. |
 | DORA change-failure-rate / deploy-frequency | Covered | `core/measurement/dora.py`가 정규화된 배포 관측에서 네 가지 DORA measure와 잘못된/커버리지 개수를 계산합니다. |
@@ -445,4 +445,4 @@ SRE 에이전트 가 커버하리라 기대되는 기준선 의무를, 그것을
 배포 자격 증명과 엔드포인트는 저장소 공백이 아니라 외부 구성입니다.
 설정되지 않은 어댑터는 사용 불가를 보고하거나 문서화된 역할 대체 경로를 사용하며 고정본을
 대체하거나 자율성을 승격하지 않습니다. Direct 쓰기 CLI와 global auto-approval은 FDAI의 타입이 지정된
-액션, 정책, risk, 승인, 롤백, lock, 멱등성, 감사 경로로 의도적으로 대체합니다.
+액션, 정책, risk, 승인, 롤백, 잠금, 멱등성, 감사 경로로 의도적으로 대체합니다.

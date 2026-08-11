@@ -40,16 +40,16 @@ FDAI는 Rule 순위를 정하기 전에 의미를 해석합니다. 정확한 카
 
 ```mermaid
 flowchart LR
-  Q[Operator question] --> I[Interpretation candidate]
-  I --> C[Ontology concepts]
-  C --> G[Bounded graph expansion]
-  G --> R[Hybrid Rule retrieval]
-  R --> V[Catalog and generation verification]
-  V --> D{Operation class}
-  D -->|discover or explain| A[Read-only answer]
-  D -->|evaluate| T[Existing T0 and OPA path]
-  D -->|action draft| P[Governed ActionType proposal]
-  V -->|ambiguous| H[Clarification or hold]
+ Q[Operator question] --> I[Interpretation candidate]
+ I --> C[Ontology concepts]
+ C --> G[Bounded graph expansion]
+ G --> R[Hybrid Rule retrieval]
+ R --> V[Catalog and generation verification]
+ V --> D{Operation class}
+ D -->|discover or explain| A[Read-only answer]
+ D -->|evaluate| T[Existing T0 and OPA path]
+ D -->|action draft| P[Governed ActionType proposal]
+ V -->|ambiguous| H[Clarification or hold]
 ```
 
 이 흐름은 다음 세 가지 구분을 유지합니다.
@@ -118,14 +118,14 @@ flowchart LR
 코퍼스마다 하나의 세대만 활성화됩니다. 워커는 비활성 세대를 만들고 검증한
 다음 활성 포인터를 원자적으로 변경합니다. 빌드가 실패하면 이전 세대는 변경되지
 않습니다.
-PostgreSQL activation은 말뭉치마다 하나의 transaction-scoped lock도 유지하므로 동시
+PostgreSQL activation은 말뭉치마다 하나의 transaction-scoped 잠금도 유지하므로 동시
 발행기는 포인터를 retire하거나 activate하기 전에 serialize됩니다.
 
 Rollback은 보존된 이전 세대만 다시 활성화합니다. 호출자는 예상 활성 및 대상
 세대 개정 번호와 다이제스트, 대상 검증 증적을 고정합니다. 두 세대는 같은
 말뭉치에 속해야 합니다. 온톨로지 호환성 증적은 대상을 previous release로, 현재
 활성 세대를 후보 release로 고정하며 정본 호환성 게이트를 통과한 exact
-신원 또는 가산 N/N-1 전이를 허용합니다. 저장소는 같은 말뭉치 lock 안에서 이 값을
+신원 또는 가산 N/N-1 전이를 허용합니다. 저장소는 같은 말뭉치 잠금 안에서 이 값을
 확인하고 현재 세대 retire와 대상 reactivation을 하나의 atomic 전이로
 수행합니다. 같은 롤백 시간을 가진 exact 재시도는 추가 상태 변경 없이 동일한
 내용 기반 주소를 가진 증적을 반환합니다. Stale 개정 번호 또는 호환성 mismatch가 있으면

@@ -22,14 +22,14 @@ translation_revised: 2026-08-11
 
 ```mermaid
 flowchart LR
-  PLAN[기존 answer plan] --> REQUEST[Typed worker 요청]
-  REQUEST --> ATTENUATE[Capability 교집합]
-  ATTENUATE -->|읽기 도구 없음| DENY[차단된 terminal result]
-  ATTENUATE -->|제한된 읽기 도구| RUN[격리된 worker runtime]
-  RUN --> STORE[영구 snapshot 및 branch event]
-  STORE --> SYNTHESIS[신뢰되지 않은 부모 합성]
-  STORE --> VIEW[읽기 전용 projection]
-  STORE --> SINK[완료 인계]
+ PLAN[기존 answer plan] --> REQUEST[Typed worker 요청]
+ REQUEST --> ATTENUATE[Capability 교집합]
+ ATTENUATE -->|읽기 도구 없음| DENY[차단된 terminal result]
+ ATTENUATE -->|제한된 읽기 도구| RUN[격리된 worker runtime]
+ RUN --> STORE[영구 snapshot 및 branch event]
+ STORE --> SYNTHESIS[신뢰되지 않은 부모 합성]
+ STORE --> VIEW[읽기 전용 projection]
+ STORE --> SINK[완료 인계]
 ```
 
 ## 워커 신원 및 소유권
@@ -87,7 +87,7 @@ Detached `background.read-only` 프로파일은 정확히 `resolve_resource`, `g
 
 ```text
 pending -> running -> succeeded | abstained | cancelled | timed_out |
-           budget_exhausted | denied | failed
+      budget_exhausted | denied | failed
 ```
 
 - Semaphore가 동시 워커 수를 제한합니다.

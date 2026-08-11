@@ -19,7 +19,7 @@ translation_revised: 2026-08-11
 [phase-0-instrumentation-ko.md](../phases/phase-0-instrumentation-ko.md) 에서 운영으로
 구현됩니다.
 
-## 주요 목표(기본 Objective)
+## 주요 목표(기본 목표)
 
 3개 초기 버티컬(복원력, 변경 안전성, 비용 거버넌스)을 가진 AIOps 접근에서 클라우드
 운영의 사람 검토를 최소화 - 대부분의 이벤트를 결정론적(T0/T1)으로 해결하고 LLM 추론(T2)은
@@ -60,15 +60,15 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 - **Event**: `event-ingest` 이후 컨트롤 루프에 들어가는 정규화·중복제거된 한 항목. 안정적인
  멱등성 키로 식별됩니다. 이벤트당(비율) 계산은 모두 이 단위 위에서 이루어집니다.
 - **시나리오 집합**: SRE, ARB / 변경 안전성, FinOps / 비용 거버넌스, DR 및 Chaos Engineering
- 기능 pack을 포괄하며 기준선과 treatment에 동일하게 사용하는 고정된, versioned
- 수집입니다. 각 release는 시나리오 집합 및 pack별 버전을 기록합니다(예: `v2026.07`).
+ 기능 묶음을 포괄하며 기준선과 treatment에 동일하게 사용하는 고정된, versioned
+ 수집입니다. 각 release는 시나리오 집합 및 묶음별 버전을 기록합니다(예: `v2026.07`).
 
 > **현재 커버리지 공백:** `services/core-control-plane/tests/scenarios/manifests/v2026.07.json`은 모든 고정본을 SRE, ARB /
-> 변경 안전성, FinOps, DR 또는 Chaos에 할당합니다. 커버리지 dimension은 해당 pack이 소유한
+> 변경 안전성, FinOps, DR 또는 Chaos에 할당합니다. 커버리지 dimension은 해당 묶음이 소유한
 > 시나리오와 실제 실행 가능한 테스트를 함께 인용할 때만 계산됩니다. 집합은 `incomplete`입니다.
-> SRE 시나리오가 없고 모든 기존 pack이 하나 이상의 필수 사례를 누락합니다. 다섯 pack이 모두
-> 완전한일 때까지 완전한 domain 커버리지를 주장하면 안 됩니다.
-- **참조 에이전트**: Phase 0에서 측정된 고정 비교 시스템(문서화됨, 단일 모델, 티어링 없음).
+> SRE 시나리오가 없고 모든 기존 묶음이 하나 이상의 필수 사례를 누락합니다. 다섯 묶음이 모두
+> 완전한일 때까지 완전한 도메인 커버리지를 주장하면 안 됩니다.
+- **참조 에이전트**: 단계 0에서 측정된 고정 비교 시스템(문서화됨, 단일 모델, 티어링 없음).
  버전은 베이스라인 실행마다 고정됩니다.
 - **Human touchpoint**: 사람의 결정 또는 입력이 필요한 모든 액션(HIL 승인, 수동 편집, 수동
  롤백). 고유하게 식별된 액션 또는 승인은 각각 한 번 계산하며, 같은 액션 또는 승인의
@@ -76,7 +76,7 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
  제공할 수 있습니다. 콘솔의 읽기 전용 조회는 touchpoint가 **아닙니다**.
 - **Auto-resolved 이벤트**: 측정 윈도우 내에서 사람 터치포인트 0회, 사후 롤백 없이 종단의
  올바른 결과에 도달한 이벤트. 실행기 전달은 명시적인 `measurement.action_outcome.v1`
- 기록이 enforce 모드, 검증 통과, auto 결정 및 롤백 없음으로 관측을 닫을
+ 기록이 강제 적용 모드, 검증 통과, auto 결정 및 롤백 없음으로 관측을 닫을
  때까지 resolved가 아니라 pending입니다.
 - **측정 구간**: 실행당 고정된 관측 기간(기본값: 30일 롤링, 또는 전체 시나리오 세트
  1회 리플레이). 보고되는 모든 수치와 함께 명시됩니다.
@@ -107,7 +107,7 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 
 ## 가드 메트릭(회귀 금지)
 
-가드 메트릭은 승격을 거부합니다: 위반이 발생하면 액션은 enforce에서 그림자로 강등됩니다. 각
+가드 메트릭은 승격을 거부합니다: 위반이 발생하면 액션은 강제 적용에서 그림자로 강등됩니다. 각
 메트릭은 방향이 아니라 명시적 임계값(임계값)을 갖습니다.
 
 | 가드 메트릭 | 정의 | 임계값 |
@@ -116,7 +116,7 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 | False-positive 비율 | 잘못된 액션 ÷ 실행된 액션 | ≤ 베이스라인. > 베이스라인 + 1pp면 알림 |
 | False-negative 비율 | 놓친 진짜 이벤트 ÷ 진짜 이벤트 | ≤ 베이스라인. > 베이스라인 + 1pp면 알림 |
 | Rollback 비율 | 롤백된 액션 ÷ 실행된 액션 | ≤ 베이스라인 롤백률 |
-| Policy-violation escapes | 정책을 위반하고 enforce에 도달한 자율 액션 | **정확히 0**(모든 escape은 release-blocking) |
+| Policy-violation escapes | 정책을 위반하고 강제 적용에 도달한 자율 액션 | **정확히 0**(모든 escape은 release-blocking) |
 | Wrong-target 또는 stale-revision 실행 | 승인 계획과 다른 객체 또는 개정 번호에 적용된 액션 | **정확히 0** |
 | 승인되지 않은 실행 | 등록 타입, 신원, standing 권한 또는 영향 범위 밖의 액션 | **정확히 0** |
 | 검증되지 않은 성공 점유 | 독립적인 expected-effect 종결 없이 성공으로 보고된 액션 | **정확히 0** |
@@ -139,7 +139,7 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 ## Measurement-First 규칙
 
 - 자율성은 자신의 효과를 측정할 원격측정(metrics 1-4 + 모든 가드 메트릭) 없이는 출시되지 않습니다.
-- Phase 0가 KPI 대시보드와 레퍼런스 베이스라인을 **어떤 티어도 라이브 가기 전에** 확립합니다
+- 단계 0가 KPI 대시보드와 레퍼런스 베이스라인을 **어떤 티어도 라이브 가기 전에** 확립합니다
  ([phase-0-instrumentation-ko.md](../phases/phase-0-instrumentation-ko.md)).
 - 배수 주장(2-4)은 베이스라인과 트리트먼트가 **동일한 고정 시나리오 세트 버전에서** 모두
  측정된 후에만 언급됩니다.
@@ -161,7 +161,7 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 모든 메트릭은 대시보드가 구축 가능하도록(열망만이 아닌) 구체적인 원격측정 소스에 매핑됩니다:
 
 - **구조화된 이벤트 + 트레이스** (OpenTelemetry)가 `event_id`, `tier`, `decision`,
- `mode`(그림자/enforce), 타임스탬프를 운반 - 메트릭 2, 3a/3b, 선행 지표의 소스.
+ `mode`(그림자/강제 적용), 타임스탬프를 운반 - 메트릭 2, 3a/3b, 선행 지표의 소스.
 - **추가 전용 감사 로그**가 사람 터치포인트(메트릭 4), 롤백, 정책 escape의 소스.
 - **결과 finalization 기록**(`measurement.action_outcome.v1`)가 auto-resolution의 권한입니다.
  Dispatch-only 이벤트는 pending으로 유지되고, 검증된 non-rollback 결과만 finalized denominator에
@@ -184,7 +184,7 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 
 ## 리뷰 주기(검토 Cadence)
 
-- **승격마다**: 메트릭 + 가드 리뷰가 통과하지 않으면 그림자 → enforce로 이동하는 액션은 없음.
+- **승격마다**: 메트릭 + 가드 리뷰가 통과하지 않으면 그림자 → 강제 적용으로 이동하는 액션은 없음.
 - **주간**: 선행 지표와 가드-메트릭 드리프트 대시보드 리뷰.
 - **시나리오 세트 버전 갱신마다**: 목표가 오래된 것이 아닌 현재의 공정한 레퍼런스를 추적하도록
  전체 베이스라인 재측정.
@@ -203,7 +203,7 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 | 비용 per 단위 ↓ | 이벤트의 ~5-10%만 프론티어 모델에 도달; OSS/CSP-중립 스택; 이벤트-기반 scale-to-zero. |
 
 > 핵심 통찰: 이득은 더 똑똑한 LLM이 아니라 **LLM을 덜 쓰는** 구조에서 온다는 가설이며 - 이
-> 주장은 Phase 0 측정으로 살거나 죽습니다.
+> 주장은 단계 0 측정으로 살거나 죽습니다.
 
 ## 다음 단계
 

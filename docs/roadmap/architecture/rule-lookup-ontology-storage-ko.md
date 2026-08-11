@@ -39,90 +39,90 @@ PostgreSQL Flexible + pgvector는 하나의 저장소, 하나의 백업 경로, 
 데이터베이스(Neo4j / AGE) 는 **프로비저닝 안 됨** - 우리가 필요한 런타임 탐색
 (`Signal → Rule` via `triggered_by ∩ applies_to`) 은 B-tree + GIN 인덱스로 커버되는 두 인덱스
 교집합. 측정이 같은 시나리오 세트에서 multi-hop causal 쿼리가 관계형 지연 예산 초과함을 보일 때만
-Phase 4에서 재평가.
+단계 4에서 재평가.
 
 **스키마 스케치** (illustrative - 컬럼 이름은 안정; 정확한 타입은 인벤토리 PR에서 튠):
 
 ```sql
 CREATE TABLE ontology_object_type (
- type_id      text PRIMARY KEY,
- schema_version   text NOT NULL,
- schema       jsonb NOT NULL
+ type_id   text PRIMARY KEY,
+ schema_version  text NOT NULL,
+ schema    jsonb NOT NULL
 );
 
 CREATE TABLE ontology_link_type (
- link_type_id    text PRIMARY KEY,
- source_type    text NOT NULL,
- target_type    text NOT NULL,
- cardinality    text NOT NULL,
- is_transitive   boolean DEFAULT false,
- is_causal     boolean DEFAULT false,
- temporal_order   boolean DEFAULT false
+ link_type_id  text PRIMARY KEY,
+ source_type  text NOT NULL,
+ target_type  text NOT NULL,
+ cardinality  text NOT NULL,
+ is_transitive  boolean DEFAULT false,
+ is_causal   boolean DEFAULT false,
+ temporal_order  boolean DEFAULT false
 );
 
 CREATE TABLE ontology_resource (
- resource_id    text PRIMARY KEY,
- type        text NOT NULL REFERENCES ontology_object_type(type_id),
- props       jsonb NOT NULL,    -- redacted before write
- first_seen     timestamptz NOT NULL,
- last_seen     timestamptz NOT NULL
+ resource_id  text PRIMARY KEY,
+ type    text NOT NULL REFERENCES ontology_object_type(type_id),
+ props    jsonb NOT NULL,  -- redacted before write
+ first_seen   timestamptz NOT NULL,
+ last_seen   timestamptz NOT NULL
 );
-CREATE INDEX ix_resource_type    ON ontology_resource(type);
+CREATE INDEX ix_resource_type  ON ontology_resource(type);
 CREATE INDEX ix_resource_props_gin ON ontology_resource USING gin(props jsonb_path_ops);
 
 CREATE TABLE ontology_finding (
- finding_id     text PRIMARY KEY,
- rule_id      text NOT NULL,
- rule_version    text NOT NULL,
- resource_id    text NOT NULL REFERENCES ontology_resource(resource_id),
- signal_id     text NOT NULL,
- verdict      text NOT NULL,
- severity      text NOT NULL,
- context      jsonb NOT NULL,
- audit_id      text NOT NULL,
- created_at     timestamptz NOT NULL
+ finding_id   text PRIMARY KEY,
+ rule_id   text NOT NULL,
+ rule_version  text NOT NULL,
+ resource_id  text NOT NULL REFERENCES ontology_resource(resource_id),
+ signal_id   text NOT NULL,
+ verdict   text NOT NULL,
+ severity   text NOT NULL,
+ context   jsonb NOT NULL,
+ audit_id   text NOT NULL,
+ created_at   timestamptz NOT NULL
 );
 CREATE INDEX ix_finding_rule_resource ON ontology_finding(rule_id, resource_id);
 
 CREATE TABLE ontology_link (
- from_id      text NOT NULL,
- from_type     text NOT NULL,
- link_type     text NOT NULL REFERENCES ontology_link_type(link_type_id),
- to_id       text NOT NULL,
- to_type      text NOT NULL,
- link_props     jsonb DEFAULT '{}',
- created_at     timestamptz NOT NULL,
+ from_id   text NOT NULL,
+ from_type   text NOT NULL,
+ link_type   text NOT NULL REFERENCES ontology_link_type(link_type_id),
+ to_id    text NOT NULL,
+ to_type   text NOT NULL,
+ link_props   jsonb DEFAULT '{}',
+ created_at   timestamptz NOT NULL,
  PRIMARY KEY (from_id, link_type, to_id)
 );
 CREATE INDEX ix_link_out ON ontology_link(from_type, from_id, link_type);
 CREATE INDEX ix_link_in ON ontology_link(to_type, to_id, link_type);
 
-CREATE TABLE learned_action (       -- L2
- signature     text PRIMARY KEY,
- rule_id      text NOT NULL,
- rule_version    text NOT NULL,
- catalog_version  text NOT NULL,    -- partition key candidate
- action       jsonb NOT NULL,
- reused_from    text NOT NULL,    -- back-reference to origin audit_id
- created_at     timestamptz NOT NULL
+CREATE TABLE learned_action (    -- L2
+ signature   text PRIMARY KEY,
+ rule_id   text NOT NULL,
+ rule_version  text NOT NULL,
+ catalog_version text NOT NULL,  -- partition key candidate
+ action    jsonb NOT NULL,
+ reused_from  text NOT NULL,  -- back-reference to origin audit_id
+ created_at   timestamptz NOT NULL
 );
 CREATE INDEX ix_learned_by_rule ON learned_action(rule_id, catalog_version);
 
-CREATE TABLE ontology_embedding (     -- L3
- embedding_id    text PRIMARY KEY,
- kind        text NOT NULL,
- ref_id       text NOT NULL,
- vec        vector(384) NOT NULL
+CREATE TABLE ontology_embedding (   -- L3
+ embedding_id  text PRIMARY KEY,
+ kind    text NOT NULL,
+ ref_id    text NOT NULL,
+ vec    vector(384) NOT NULL
 );
 CREATE INDEX ix_emb_hnsw ON ontology_embedding USING hnsw (vec vector_cosine_ops);
 
-CREATE TABLE t2_cache (          -- L4
- signature     text PRIMARY KEY,
- catalog_version  text NOT NULL,
- model_config_ver  text NOT NULL,
- mode        text NOT NULL,    -- 'shadow' | 'enforce'
- outcome      jsonb NOT NULL,
- expires_at     timestamptz NOT NULL
+CREATE TABLE t2_cache (     -- L4
+ signature   text PRIMARY KEY,
+ catalog_version text NOT NULL,
+ model_config_ver text NOT NULL,
+ mode    text NOT NULL,  -- 'shadow' | 'enforce'
+ outcome   jsonb NOT NULL,
+ expires_at   timestamptz NOT NULL
 );
 CREATE INDEX ix_t2_cache_expiry ON t2_cache(expires_at);
 ```

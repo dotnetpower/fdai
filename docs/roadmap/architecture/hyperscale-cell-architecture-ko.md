@@ -17,7 +17,7 @@ deterministic-first 제어 루프는 그대로 두고, **셀 기반 스트리밍
 > 토폴로지(Event Hubs Standard 1 TU, modular 코어 Container App 하나,
 > 분리된 Operator API와 인제스트 게이트웨이 앱, 범위가 제한된 Container Apps 작업,
 > Postgres B1ms)가 기본으로 유지된다. 이 청사진은 테넌트가 아래 초대규모
-> 트리거를 넘을 때만 진입하며 Phase 4
+> 트리거를 넘을 때만 진입하며 단계 4
 > ([phases/phase-4-scale-ko.md](../phases/phase-4-scale-ko.md)) 아래에 놓인다.
 
 > **구현 초점:** Azure 가 유일한 구현 타깃이다. 설계는
@@ -46,10 +46,10 @@ deterministic-first 제어 루프는 그대로 두고, **셀 기반 스트리밍
 ```mermaid
 flowchart TB
  subgraph MG["Management group 계층"]
-  POL["Azure Policy DeployIfNotExists<br/>(AMBA 패턴) - fan-in as code"]
+ POL["Azure Policy DeployIfNotExists<br/>(AMBA 패턴) - fan-in as code"]
  end
  subgraph Subs["300 구독 / 수십 랜딩존"]
-  S["Activity Log + resource events"]
+ S["Activity Log + resource events"]
  end
  POL -.diagnostic settings 자동 배포.-> S
  S -->|Kafka :9093 로 포워딩| EH["셀별 Event Hubs (샤딩)"]
@@ -413,40 +413,40 @@ AKS 노드 비용 + 하드웨어 기반 키 보관으로 바꾼다. 표준 엔�
 - **deterministic-first 가 여기서도 비용 레버:** 높은 T0/T1 커버리지는 리전 내
  LLM 풋프린트를 줄인다 - GPU 모델을 self-host 할 때 가장 비싼 소버린 항목이다.
 
-## 롤아웃 계획 (Phase 4 아래)
+## 롤아웃 계획 (단계 4 아래)
 
 순차적이고, 각 단계는 게이트되며 되돌릴 수 있다. 1-2 단계는 최소비용
 토폴로지에도 이득이라 먼저 착지한다.
 
 1. **쓰기-경로 해소(단일-셀에도 도움):** `psycopg_pool` 커넥션 풀 +
-  `audit_log` 시간-파티셔닝 + BRIN. 가장 싸고 즉효.
+ `audit_log` 시간-파티셔닝 + BRIN. 가장 싸고 즉효.
 2. **감사 CQRS 경계:** `AuditLedger`(쓰기)를 `AuditQueryStore`(읽기)에서
-  분리; 경계 뒤에서 파티션별 Merkle 앵커링 도입.
+ 분리; 경계 뒤에서 파티션별 Merkle 앵커링 도입.
 3. **텔레메트리 인덱스 평면:** ADX(또는 `sovereign` 에선 OSS LGTM 스택)를 세우고,
-  `audit-indexer` projector 와 텔레메트리 인제스트 계약(6-8)을 배선.
+ `audit-indexer` projector 와 텔레메트리 인제스트 계약(6-8)을 배선.
 4. **셀 라우팅:** `CellRouter` + 셀 토폴로지 매니페스트 추가; 첫 추가 셀 렌더.
 5. **정책 fan-in:** 자동 온보딩용 MG 계층 + `DeployIfNotExists` initiatives.
 6. **이벤트 버스 샤딩:** 셀별 네임스페이스; 측정된 필요가 나타나면 Dedicated CU
-  승급.
+ 승급.
 7. **프로파일 하드닝(`sovereign`):** `allowedLocations` 단일-리전 잠금, CMK /
-  Managed HSM, Private Endpoints + 폐쇄 VNet, confidential 노드, AKS 런타임
-  렌더(self-host 가 요구), self-host LGTM / ClickHouse, 리전 내 LLM, WORM 감사 보존.
+ Managed HSM, Private Endpoints + 폐쇄 VNet, confidential 노드, AKS 런타임
+ 렌더(self-host 가 요구), self-host LGTM / ClickHouse, 리전 내 LLM, WORM 감사 보존.
 
 ## 열림 questions
 
 - **셀 granularity:** 리전당 셀 1개인가, 리전 내 랜딩존 그룹당인가? 측정된
-  그룹별 이벤트율에 달림. 리전-거칠게 시작해 증거로 쪼갬.
+ 그룹별 이벤트율에 달림. 리전-거칠게 시작해 증거로 쪼갬.
 - **ADX vs Log Analytics 분할:** 어떤 텔레메트리 클래스가 ADX(커스텀 분석)에,
-  어떤 것이 Log Analytics dedicated 클러스터(네이티브 Azure 신호)에 사나?
-  채택 시점에 비용 / 조회 패턴 재확인.
+ 어떤 것이 Log Analytics dedicated 클러스터(네이티브 Azure 신호)에 사나?
+ 채택 시점에 비용 / 조회 패턴 재확인.
 - **Merkle 앵커 cadence:** epoch 길이가 tamper-evidence 지연과 앵커 쓰기
-  볼륨을 트레이드. 측정된 감사율로 설정.
+ 볼륨을 트레이드. 측정된 감사율로 설정.
 - **Warm-티어 포맷:** ADLS warm 티어에 Parquet-only vs Iceberg / Delta 테이블
-  포맷; 페더레이션-조회 필요가 구체화될 때 결정(C안 영역).
+ 포맷; 페더레이션-조회 필요가 구체화될 때 결정(C안 영역).
 - **소버린 LLM:** Azure OpenAI KC vs AKS GPU 위 self-host 오픈모델 - 선택은
-  비용과 운영부담을 가장 엄격한 레지던시 보장과 트레이드한다.
+ 비용과 운영부담을 가장 엄격한 레지던시 보장과 트레이드한다.
 - **소버린 아이덴티티:** Entra ID 는 글로벌 서비스다; 그 메타데이터 처리가 특정
-  국방 / 금융 명령을 만족하는지, 또는 더 엄격한 아이덴티티 자세가 필요한지 확인.
+ 국방 / 금융 명령을 만족하는지, 또는 더 엄격한 아이덴티티 자세가 필요한지 확인.
 
 ## Next 단계
 

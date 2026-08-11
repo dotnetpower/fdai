@@ -5,11 +5,11 @@ translation_source_sha: 280a4ee5ce0ce1530bc04c8e4a12738e4d1a64fb
 translation_revised: 2026-08-11
 ---
 
-# Phase 3 - 통합 컨트롤 루프 (복원력 · 변경 안전성 · 비용 거버넌스)
+# 단계 3 - 통합 컨트롤 루프 (복원력 · 변경 안전성 · 비용 거버넌스)
 
 **목표**: 세 초기 버티컬을 하나의 컨트롤 루프 아래 통합하고 자율-운영 MVP 딜리버리 - 복원력,
 변경 안전성, 비용 거버넌스를 단일 리스크-게이팅 루프를 통해 종단으로 실행하는 첫 릴리스 -
-스케줄된 DR/chaos 테스트와 비용 auto-actions 포함. 이 phase는 새 티어를 추가하지 않음;
+스케줄된 DR/chaos 테스트와 비용 auto-actions 포함. 이 단계는 새 티어를 추가하지 않음;
 P2에서 딜리버리된 T0/T1/T2 라우터, quality 게이트, 리스크 게이트
 ([phase-2-quality-and-t1-ko.md](phase-2-quality-and-t1-ko.md) 참조) 를 하나의 루프로
 구성하고, [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)
@@ -50,7 +50,7 @@ P2에서 딜리버리된 T0/T1/T2 라우터, quality 게이트, 리스크 게이
  변경 안전성(영향 범위) · 복원력(RPO/RTO 재생) · 비용 거버넌스(비용 델타)가
  공유하는 그래프 전체 what-if, 그림자 remediation-PR 제안, 그리고 온디맨드
  `PostureAssessmentReport` 패널. 설계는 [assurance-twin-ko.md](../operations/assurance-twin-ko.md);
- 각 시뮬레이션 발견 사항은 enforce 전에 shadow-first로 측정.
+ 각 시뮬레이션 발견 사항은 강제 적용 전에 shadow-first로 측정.
 
 ## 통합 컨트롤 루프
 
@@ -69,11 +69,11 @@ P2에서 딜리버리된 T0/T1/T2 라우터, quality 게이트, 리스크 게이
 - **멱등**: 모든 P3 액션은 안정 멱등성 키를 사용; 재전달된 이벤트와 재시도된 액션은 이미
  적용된 상태에서 no-op.
 - **감사**: 모든 종단 결과 - auto-apply, HIL approve/거부/시간 초과, defer, abstain, 모든 스케줄
- DR 실행과 FinOps 액션 - 이 이벤트 id, 도메인, 티어, 결정, 아이덴티티, 모드(그림자/enforce),
+ DR 실행과 FinOps 액션 - 이 이벤트 id, 도메인, 티어, 결정, 아이덴티티, 모드(그림자/강제 적용),
  롤백 참조 있는 추가 전용 감사 엔트리를 씀.
 - **그림자 first**: 각 새 P3 액션(DR 실험 타입, FinOps 액션, 크로스-도메인 규칙) 은 **그림자
  모드**(judge-and-log, 변형 없음) 로 출시되고 정책 위반 escape 0으로 측정된 검증 후에만
- 액션별로 enforce로 승격.
+ 액션별로 강제 적용으로 승격.
 
 ## DR / Chaos - 스케줄된 주기 테스트
 
@@ -83,7 +83,7 @@ P2에서 딜리버리된 T0/T1/T2 라우터, quality 게이트, 리스크 게이
 - **실행 예약**: 하나의 스케줄러 프로세스는 시작 전에 용량을 원자적으로 예약하고
  `RUNNING` handle을 이후 polling을 위해 유지하며 최종 성공 또는 검증된 롤백 후에만
  용량을 해제합니다. Rollback 실패는 자리를 계속 점유합니다. 둘 이상의 스케줄러 프로세스를
- 사용하는 배포는 enforce 전에 영속 프로세스 간 reservation을 연결해야 하며 호출자가
+ 사용하는 배포는 강제 적용 전에 영속 프로세스 간 reservation을 연결해야 하며 호출자가
  제공한 개수만으로는 충분하지 않습니다.
 - **시간 box**: 모든 실험은 finite 긍정 `max_duration_seconds`를 가집니다. 경과 시간이
  해당 한계에 도달하면 스케줄러는 polling을 중단하고 롤백을 호출합니다. Rollback 실패는
@@ -102,7 +102,7 @@ P2에서 딜리버리된 T0/T1/T2 라우터, quality 게이트, 리스크 게이
  임계, 실행 시간 박스 초과).
 - **Blast-radius 한도**: 스코프, 배치 크기, 동시성 상한; 실험은 범위가 제한된 리소스 세트 대상,
  한 번에 전체 환경 아님.
-- **Rollback**: stop 또는 실패 시 이전 상태 복원하는 테스트된 자동 롤백; 롤백은 enforce 전
+- **Rollback**: stop 또는 실패 시 이전 상태 복원하는 테스트된 자동 롤백; 롤백은 강제 적용 전
  그림자에서 실행.
 - **격리**: 프로덕션은 절대 chaos 대상 아님 - 실험은 non-prod 또는 격리된 복원 환경에 대해
  실행(Deep DB-DR 참조). 프로덕션 리소스의 chaos는 기본 거부, 불가피한 곳에서는 HIL 승인 +
@@ -117,15 +117,15 @@ Stateful 서비스는 stateless처럼 "kill and revive" 될 수 없으므로, DB
  (활성 geo-replication / 읽기 복제본), 주기 backup-restore 예행 연습.
 - **테스트 방법** (모든 스텝 필요, 순서대로):
  1. **격리 환경으로 복원** - 복제본/스냅샷을 프로덕션으로 쓰기 경로 없는 네트워크-격리
-   환경으로 복원; 테스트 후 환경 tear down.
+  환경으로 복원; 테스트 후 환경 tear down.
  2. **결정론적으로 무결성 검증** - 검증기가 소스 스냅샷 대비 행/기록 카운트, 암호화 컨텐트
-   체크섬, referential/제약 일관성 검사; 어떤 mismatch도 실행 실패.
+  체크섬, referential/제약 일관성 검사; 어떤 mismatch도 실행 실패.
  3. **앱-레벨 smoke 테스트** - 복원된 사본에 대해 대표 읽기와 쓰기 작업 실행하여 애플리케이션-
-   레벨 복구 가능성 확인.
+  레벨 복구 가능성 확인.
 - **RPO 방법론**: replication lag를 지속 측정(p50/p95/max 보고), forced-failover 예행 연습에서
  장애 조치 시점의 **실제 데이터 손실** 측정; 둘 다 같은 윈도우에서 RPO 목표와 비교.
 - **RTO 방법론**: **장애 조치 트리거부터 검증된 복원 서비스까지 wall-clock** 측정(복원 +
- 장애 조치 + 무결성 pass + smoke pass); median과 p90 보고, RTO 목표와 비교. Large-DB
+ 장애 조치 + 무결성 통과 + smoke 통과); median과 p90 보고, RTO 목표와 비교. Large-DB
  복원 RTO는 가정이 아니라 측정.
 - **승격 게이트**: DB-DR은 무결성 검증과 smoke 테스트가 시나리오 세트에서 무결성 mismatch 0으로
  통과할 때까지 그림자에 유지.
@@ -140,7 +140,7 @@ Stateful 서비스는 stateless처럼 "kill and revive" 될 수 없으므로, DB
  out-of-band API 변형 아님.
 - **가드레일** (모든 FinOps 액션에 필요):
  - **exclusion/opt-out 태그** 존중, 자동 scale-down이나 종료으로부터 **프로덕션** 리소스
-  보호;
+ 보호;
  - **최소-용량 하한** 와 **의존성 검사** 준수 - 종료가 의존 워크로드를 고아로 만들 수 없음;
  - **멱등** 이고 **가역** (shut-down된 리소스는 재시작 가능; rightsizing PR은 revert 가능);
  - **stop-condition**(예상치 못한 영향 시 abort) 과 **감사 엔트리** 운반.

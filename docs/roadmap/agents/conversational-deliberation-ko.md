@@ -49,7 +49,7 @@ composition-bound T2 synthesizer에 범위가 제한된 점유 렌더링을 요�
 | `action_intent` | 요청이 명령으로 읽힙니다. |
 | `locale_<tag>` | Operator 로케일이 English가 아닙니다. |
 
-두 가지 invariant가 이 동적 경로를 포트 계약 안에 붙잡아 둡니다.
+두 가지 불변식이 이 동적 경로를 포트 계약 안에 붙잡아 둡니다.
 
 - **가산만 허용.** Situation은 제약을 더할 수 있을 뿐 기준선 계층을 제거하거나 고쳐
  쓸 수 없습니다. 조립된 모든 프롬프트는 기준선의 superset이므로 어떤 situation도 권한,
@@ -95,7 +95,7 @@ tool-scope 계층에 free-form 텍스트를 넣을 수 없습니다. Charter 선
 
 - 긍정 mandate와 role-specific prohibition을 명시합니다.
 - 변경할 수 없는 `AgentSpec`의 계층, reporting 줄, owned/subscribed 토픽, 액션 연결, 라우팅
- domain, 모델 정책, hard-dependency 상태 및 제안 예산을 정확히 포함합니다.
+ 도메인, 모델 정책, hard-dependency 상태 및 제안 예산을 정확히 포함합니다.
 - Owned 상태 및 allowed 도구에서만 답합니다.
 - 근거 참조를 인용하고 사실, inference 및 알 수 없음을 구분합니다.
 - Uncertainty를 보존하고 근거가 부족하거나 오래되면 abstain합니다.
@@ -263,7 +263,7 @@ Discussion 경로는 clear T0 경로를 재사용하지 않습니다. T1 임베�
 | 한계 | 값 |
 |-------|----|
 | Participant | 에이전트 2-3개 |
-| Phase | 기본 position, peer 비평 |
+| 단계 | 기본 position, peer 비평 |
 | 질문 | 최대 2,000자 |
 | 상관관계 id | 최대 256자 |
 | 종합에 전달하는 점유 | 최대 3개 |
@@ -276,7 +276,7 @@ Discussion 경로는 clear T0 경로를 재사용하지 않습니다. T1 임베�
 ## 에스컬레이션 경제성
 
 T0 답변과 T1 라우팅은 결정론적하며 모델 호출이 없습니다. 라우팅은 요청을 소유자가
-선언한 질문 domain에 매칭하고, 에이전트 간 인계는 요청자, 상관관계 추적, 이미
+선언한 질문 도메인에 매칭하고, 에이전트 간 인계는 요청자, 상관관계 추적, 이미
 보유한 근거를 그대로 실어 나릅니다. 모델을 호출하는 것은 T2 종합뿐입니다.
 
 Operator 경로의 기여자는 사람과의 대화가 아니라 인계입니다. Bragi가 자신을 요청자로,
@@ -305,17 +305,17 @@ uncapped inference로 가지 않습니다. `EscalationBudget`은 그 천장을 m
 하나이며, 그것은 deliberator가 아닙니다.
 
 1. **호출 전 시도 예약.** 라운드는 프로바이더에게 묻기 전에 호출 1건만 가져가고 금액은 차감하지
-  않습니다. 이 예약은 읽고 나서 쓰는 두 단계가 아니라 단일 원자적 단계입니다. 같은 상관관계의
-  두 턴이 남은 허용량을 각각 읽으면 둘 다 통과해버려서, 호출 1건짜리 천장이 겹친 수만큼
-  허용됩니다. 이후 실패한 프로바이더도 부여받은 시도를 소모한 것이 되므로, 실패한 프로바이더를
-  무제한 재시도할 수 없습니다.
+ 않습니다. 이 예약은 읽고 나서 쓰는 두 단계가 아니라 단일 원자적 단계입니다. 같은 상관관계의
+ 두 턴이 남은 허용량을 각각 읽으면 둘 다 통과해버려서, 호출 1건짜리 천장이 겹친 수만큼
+ 허용됩니다. 이후 실패한 프로바이더도 부여받은 시도를 소모한 것이 되므로, 실패한 프로바이더를
+ 무제한 재시도할 수 없습니다.
 2. **호출이 기록되는 곳에서 금액 차감.** `SynthesisOutcome`이 실측 `TokenUsage`와 모델 키를
-  보고합니다. 프로바이더가 알려주지 않는 것을 예산이 계량할 수는 없기 때문입니다. 가격이 매겨진
-  `LlmInvocation`이 `usage_scope: operator_chat`으로, 가정한 통화가 아니라 가격표가 정한 통화를
-  명시해 metering에 기록되고, `BudgetChargingMeteringSink`가 방금 기록한 그 비용을 원장에
-  차감합니다. 원장은 microUSD로 계산하므로 다른 통화로 매겨진 기록은 기록만 되고 차감되지
-  않습니다. 환산하려면 아무도 선언하지 않은 환율이 필요하고, 그 숫자를 달러로 차감하면 원화
-  가격을 달러 가격이라고 말하는 셈이기 때문입니다.
+ 보고합니다. 프로바이더가 알려주지 않는 것을 예산이 계량할 수는 없기 때문입니다. 가격이 매겨진
+ `LlmInvocation`이 `usage_scope: operator_chat`으로, 가정한 통화가 아니라 가격표가 정한 통화를
+ 명시해 metering에 기록되고, `BudgetChargingMeteringSink`가 방금 기록한 그 비용을 원장에
+ 차감합니다. 원장은 microUSD로 계산하므로 다른 통화로 매겨진 기록은 기록만 되고 차감되지
+ 않습니다. 환산하려면 아무도 선언하지 않은 환율이 필요하고, 그 숫자를 달러로 차감하면 원화
+ 가격을 달러 가격이라고 말하는 셈이기 때문입니다.
 
 따라서 비용은 추정되지도, 두 번 차감되지도 않습니다. 예산이 쓴 금액이 곧 감사 기록에 남은
 금액이므로 천장이 주장이 아니라 감사 가능해집니다. 사용량을 보고하지 않는 프로바이더는 정직하게
@@ -353,7 +353,7 @@ Synthesized conclusion은 presentation-only입니다. 4,000자로 제한하며 �
 검사합니다. 프로바이더 오류, 빈 출력, oversized 출력 또는 민감한 출력은 T1 결과를
 보존하고 범위가 제한된 T2 상태를 기록합니다.
 
-Upstream은 이 프로토콜의 기본값 Azure 어댑터를 제공하지 않습니다. 연결이 없으면 런타임은
+업스트림은 이 프로토콜의 기본값 Azure 어댑터를 제공하지 않습니다. 연결이 없으면 런타임은
 T1에 머뭅니다. 어댑터 추가에는 프로바이더 선택, metering, 배포 검증 및 focused
 실패 테스트가 필요합니다.
 
@@ -393,7 +393,7 @@ T1 discussion과 T2 종합은 다음을 발행하거나 변경할 수 없습니�
 
 | 영역 | 비평 수 | 예시 |
 |------|--------:|------|
-| 신원과 organization | 6 | 정본 신원, fixed 명단, mandate, 계층, reporting 줄, 라우팅 domain |
+| 신원과 organization | 6 | 정본 신원, fixed 명단, mandate, 계층, reporting 줄, 라우팅 도메인 |
 | 권한과 소유권 | 8 | Single 쓰기 담당, derived publish 토픽, 구독, execute/initiate 연결, 타입이 지정된 권한 |
 | 도구와 근거 | 8 | Unique 소유자, declared id, 범위가 제한된 용도, exact 사실 범위, bilingual 기준점, 근거 참조 |
 | Peer와 인계 | 5 | Closed peer 이름, no self peer, 결정론적 소유자, 요청자/추적 보존, no impersonation |
@@ -412,7 +412,7 @@ T1 discussion과 T2 종합은 다음을 발행하거나 변경할 수 없습니�
  다이제스트에 포함되므로 라우팅 권한 변경이 기록됩니다.
 
 실행 후 세 의심 항목은 기각했습니다. `RCA` acronym 토픽 실패는 테스트 보조 로직 오류였습니다.
-독립적인 phase/계층 파싱은 권한을 높이지 않고 운영 숙의가 정본 쌍을
+독립적인 단계/계층 파싱은 권한을 높이지 않고 운영 숙의가 정본 쌍을
 공급합니다. Saga 또는 Vidar 성능 저하는 변경을 게이트하며 읽기 전용 대화 전체를
 막지 않으므로 모든 답변 차단은 성능 저하 design과 충돌합니다.
 
@@ -477,7 +477,7 @@ charter가 같은 participant에 귀속되도록 유지합니다.
 ## 검증
 
 `services/core-control-plane/tests/agents/test_prompt_deliberation.py`는 에이전트마다 33개 기준을 적용해 기준선 judgment
-495개를 검증합니다. T1-required 라우팅, two 범위가 제한된 phase, 선택적 T2 종합,
+495개를 검증합니다. T1-required 라우팅, two 범위가 제한된 단계, 선택적 T2 종합,
 presentation-only 권한, exact 역할 계약, 예산 denial 및 action-intent 거절도 검증합니다.
 또한 기본 소유자, 서로 다른 점유 소유자 또는 participant 프롬프트 정렬이 일치하지 않는 cross-field
 T2 요청을 차단합니다.

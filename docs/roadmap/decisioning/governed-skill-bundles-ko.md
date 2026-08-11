@@ -16,7 +16,7 @@ translation_revised: 2026-08-11
 
 정본 JSON 매니페스트는 exact 구성원 버전, bundle-level 선행 조건, 선택적 범위가 제한된
 instruction, 출처 이력, self-digest를 선언합니다. Detached 서명은 single-skill 및 확장
-서명과 분리된 `fdai.skill-bundle-signature.v1` domain을 사용합니다. Install은 disabled-first입니다.
+서명과 분리된 `fdai.skill-bundle-signature.v1` 도메인을 사용합니다. Install은 disabled-first입니다.
 
 해석은 atomic합니다. FDAI는 번들 서명과 모든 구성원의 활성화된 상태, exact 버전,
 발행기 trust, 본문 다이제스트, 도구 선행 조건, 에이전트 충족 여부를 다시 확인합니다. 하나라도 실패하면
@@ -26,7 +26,7 @@ instruction, 출처 이력, self-digest를 선언합니다. Detached 서명은 s
 
 공개 스키마는
 [`rule-catalog/schema/skill-bundle.schema.json`](../../../rule-catalog/schema/skill-bundle.schema.json)입니다.
-정본 파서와 domain 모델은
+정본 파서와 도메인 모델은
 [`core/skills/bundle_manifest.py`](../../../services/core-control-plane/src/fdai/core/skills/bundle_manifest.py)에 있습니다.
 
 | 필드 | 계약 |

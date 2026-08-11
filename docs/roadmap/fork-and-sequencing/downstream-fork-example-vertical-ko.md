@@ -26,10 +26,10 @@ incident-postmortem 작업 흐름.
 아래 §8은 제안 흐름을 프로덕션 자율성으로 취급하기 전에 포크가
 반드시 내려야 하는 설계 결정을 다룹니다.
 
-**upstream의 작동 참조**: 이 walkthrough는 풀-lifecycle 패턴 (검토자와
+**업스트림의 작동 참조**: 이 walkthrough는 풀-lifecycle 패턴 (검토자와
 결정을 가진 제안 흐름). **최소 작동 shipped 예제**는 더 작고
 single-shot: 오퍼레이터가 이름으로 요청하는 on-demand `resource-group`
-**변경 요약**. 전체 아티팩트 세트가 이미 upstream 트리에 있고
+**변경 요약**. 전체 아티팩트 세트가 이미 업스트림 트리에 있고
 [`services/core-control-plane/tests/verticals/test_change_summary_example.py`](../../../services/core-control-plane/tests/verticals/test_change_summary_example.py)
 가 검증:
 
@@ -56,7 +56,7 @@ single-shot: 오퍼레이터가 이름으로 요청하는 on-demand `resource-gr
 5. [Rule 카탈로그](#5-rule-카탈로그)
 6. [전달 어댑터 (결정 발행기)](#6-delivery-adapter-결정-publisher)
 7. [읽기 패널](#7-read-panel)
-8. [`entry.py`에서 wiring](#8-entrypy에서-wiring)
+8. [`entry.py`에서 배선](#8-entrypy에서-wiring)
 9. [Shadow-first 승격 경로](#9-shadow-first-승격-경로)
 10. [Anti-pattern](#10-anti-pattern)
 
@@ -105,7 +105,7 @@ Recipe 참조:
  `affected_components`, `submitted_at`, `decision_ref` (nullable) 보유.
  `key: id`.
 - `Reviewer` - 투표할 MAY 하는 신원. `key: id`. 포크의 IdP sync가
- populate (Entra 그룹 -> 검토자 instance).
+ populate (Entra 그룹 -> 검토자 인스턴스).
 - `ApprovalDecision` - 한 검토자 투표의 변경할 수 없는 레코드. `key: id`.
  여러 `ApprovalDecision` 인스턴스가 제안 결과로 집계;
  집계는 T0 룰이지 `GovernanceProposal`의 변경 가능한 필드가 아님.
@@ -136,7 +136,7 @@ Recipe 참조:
  `reject`), 자유 텍스트 정당화를 반드시 포함.
 
 **신호가 컨트롤 루프에 도달하는 방법**: 배포된 `EventBus` 경계의
-포크 Kafka 토픽에 publish. Upstream의 `event-ingest` 모듈이 배포된
+포크 Kafka 토픽에 publish. 업스트림의 `event-ingest` 모듈이 배포된
 `event/1.0.0` 스키마에 대해 페이로드를 정규화하므로 커스텀 ingest 코드는
 불필요 - 포크의 생산자는 스키마에 매칭되는 JSON만 게시.
 
@@ -146,7 +146,7 @@ Recipe 참조:
 
 **스키마 note**: 배포된 `event/1.0.0` 스키마는 범용 (페이로드는 열림
 객체). 포크 편집 불필요. 포크는 어댑터 테스트 안에서 페이로드 형태에
-대한 자체 JSON 스키마 fragment를 등록 MAY 하지만 코어는 그것들을
+대한 자체 JSON 스키마 조각을 등록 MAY 하지만 코어는 그것들을
 검증하지 않음.
 
 ## 4. ActionType 카탈로그
@@ -175,15 +175,15 @@ promotion_gate:
  max_policy_escapes: 0
 preconditions:
  - kind: graph_fresh_within_seconds
-  value: 300
+ value: 300
  - kind: link_exists
-  link_type: affects
+ link_type: affects
  - kind: no_conflicting_open_action_on_resource
 stop_conditions:
  - kind: provider_api_error_streak
-  count: 3
+ count: 3
  - kind: time_box_exceeded_seconds
-  seconds: 300
+ seconds: 300
 blast_radius:
  computation: static_enum
  static_bucket: resource
@@ -224,16 +224,16 @@ promotion_gate:
  max_policy_escapes: 0
 preconditions:
  - kind: graph_fresh_within_seconds
-  value: 300
+ value: 300
  - kind: resource_property_equals
-  property: state
-  value: approved
+ property: state
+ value: approved
  - kind: no_conflicting_open_action_on_resource
 stop_conditions:
  - kind: provider_api_error_streak
-  count: 3
+ count: 3
  - kind: time_box_exceeded_seconds
-  seconds: 300
+ seconds: 300
 blast_radius:
  computation: static_enum
  static_bucket: resource
@@ -274,7 +274,7 @@ version: "1.0.0"
 source: custom
 severity: medium
 category: compliance
-resource_type: governance.proposal  # 아래 caveat 참조
+resource_type: governance.proposal # 아래 caveat 참조
 check_logic:
  kind: rego
  reference: policies/fork-x/governance/assign_reviewers.rego
@@ -293,20 +293,20 @@ provenance:
 
 **`resource_type` caveat**: 배포된 룰 로더는 `resource_type`을
 ResourceType 레지스트리 (built-in `Resource` ObjectType의 subtype
-레지스트리)에 대해 검증. Upstream 로더가 등록된 어떤 ObjectType이든
+레지스트리)에 대해 검증. 업스트림 로더가 등록된 어떤 ObjectType이든
 받도록 일반화되기 전까지 포크는 두 옵션:
 
 1. **포크의 자체 vocabulary 확장에서 제안 subtype을 ResourceType
-  엔트리로 모델링** (`fork/vocabulary/resource-types-fork.yaml`를
-  별도 `load_resource_type_registry_from_mapping` 호출로 로드해서
-  upstream과 concatenate). 이름이 오도적이지만 (클라우드 리소스가
-  아님) 메커니즘은 작동.
-2. **Upstream issue를 열어 `Rule.target_object_type` 필드 추가**.
-  Rule 로더를 fork-patch 하지 말 것; cross-reference는 load-time
-  오타 가드.
+ 엔트리로 모델링** (`fork/vocabulary/resource-types-fork.yaml`를
+ 별도 `load_resource_type_registry_from_mapping` 호출로 로드해서
+ 업스트림과 concatenate). 이름이 오도적이지만 (클라우드 리소스가
+ 아님) 메커니즘은 작동.
+2. **업스트림 issue를 열어 `Rule.target_object_type` 필드 추가**.
+ Rule 로더를 fork-patch 하지 말 것; cross-reference는 load-time
+ 오타 가드.
 
 옵션 1은 첫 번째 shipping; 옵션 2가 cleaner long-term 방향이고
-upstream 설계 pass를 블록.
+업스트림 설계 통과를 블록.
 
 ### 5.2 결정 발행 (T0)
 
@@ -357,8 +357,8 @@ Recipe 참조:
  에서 옴: 제안 요약, 영향 컴포넌트 리스트, 검토자 투표, 최종
  결과, 정당화. **모든 필드는 결정론적 온톨로지 데이터** - 배포된
  템플릿에 LLM narrative 없음.
-- `diff` - 문서 발행기에는 미사용; upstream이 `RemediationPr`
- 페이로드의 빈 diff를 tolerate.
+- `diff` - 문서 발행기에는 미사용; 업스트림이 `RemediationPr`
+ 페이로드의 빈 차이를 tolerate.
 - `labels` - `("governance", "decision", proposal.state)`.
 
 **Narrative 필드 (선택)**: 포크가 LLM-생성 executive 요약을
@@ -384,7 +384,7 @@ N개 제안을 다음과 함께 리스트:
 실제 운영 Confluence API나 실행 중인 컨트롤 루프에서 읽지 않음. mount +
 레지스트리 편집은 recipe 5.14 참조.
 
-## 8. `entry.py`에서 wiring
+## 8. `entry.py`에서 배선
 
 Recipe 참조:
 [seam-recipes 5.15](downstream-fork-seam-recipes-ko.md#515-fork-진입점-entrypy).
@@ -393,14 +393,14 @@ Recipe 참조:
 
 1. Base 경계를 위해 `default_container_from_env()`.
 2. 온톨로지 concatenation (ObjectType + LinkType) - recipe 5.8a.
-3. ActionType concatenation (upstream + `fork/action-types/`) -
-  recipe 5.12.
-4. Rule concatenation (upstream + `fork/rules/`) - recipe 5.8.
+3. ActionType concatenation (업스트림 + `fork/action-types/`) -
+ recipe 5.12.
+4. Rule concatenation (업스트림 + `fork/rules/`) - recipe 5.8.
 5. `_finalize_llm_bindings`를 통한 `wire_azure_container` - recipe 5.1.
 6. 포크 발행기 (`ConfluencePagePublisher`) - recipe 5.13.
 7. 포크 HIL 채널 (`TeamsHilChannel`) - recipe 5.5.
 8. 포크 읽기 패널 (`GovernanceDecisionsPanel`) - recipe 5.14.
-9. Kafka 이벤트 루프 실행을 위한 upstream의 `_consume`.
+9. Kafka 이벤트 루프 실행을 위한 업스트림의 `_consume`.
 
 Entry-point recipe (5.15)가 골격을 제공; 포크는 위 7 항목을
 순서대로 그 골격에 wire.
@@ -412,7 +412,7 @@ Recipe 5.15의 골격이 이 순서를 존중.
 
 ## 9. Shadow-first 승격 경로
 
-두 포크 ActionType 모두 `default_mode: shadow` 배포. Enforce로 승격은
+두 포크 ActionType 모두 `default_mode: shadow` 배포. 강제 적용으로 승격은
 `promotion_gate` 블록이 green인 것을 게이트로 하는 **별도 PR**이고 한
 필드를 flip.
 
@@ -431,7 +431,7 @@ Jobs, 처음 몇 번은 수동 notebook)이 각 그림자 창 끝에 비교 쿼�
 4개 기준 모두 green -> 별도 PR이 `default_mode: enforce`로 flip 되고
 그림자 증거에 대해 리뷰됨.
 
-**회귀 demote**: enforce 후, 포크의 KPI 대시보드가 룰
+**회귀 demote**: 강제 적용 후, 포크의 KPI 대시보드가 룰
 정밀도가 승격 하한 아래로 떨어짐을 보이면, demote 경로는
 모드를 다시 `shadow`로 flip 하는 same-shape PR. 오늘 auto-demote 없음;
 포크의 on-call이 회귀 alert를 읽고 PR 제출.
@@ -455,7 +455,7 @@ Jobs, 처음 몇 번은 수동 notebook)이 각 그림자 창 끝에 비교 쿼�
  통과하는 테스트 슬라이스를 carry.
 - **포크의 스크립트 진입점을 `fdai` 이외로 이름 변경 하고 컨테이너 CMD
  업데이트 잊음**. Recipe 5.15가 이를 커버; 실패 모드가 silent -
- 컨테이너 이미지가 upstream의 `__main__`을 실행하고 포크 wiring은
+ 컨테이너 이미지가 업스트림의 `__main__`을 실행하고 포크 배선은
  하나도 실행되지 않음.
 - **측정된 증거 없이 ActionType 자동-승격**. 모든 승격 PR은
  shadow-window 리포트를 참조; 증거 없는 승격 PR은 리뷰어가 반드시

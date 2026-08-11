@@ -141,8 +141,8 @@ MCSB v1과 v2는 독립 버전으로 유지되며, v1 매핑을 v2 커버리지�
 노트:
 
 - **신선도**: 취약성 소스(NVD/CVE, KEV, OSV, EPSS) 는 시간-민감 - 매일 변경되고 KEV 엔트리는
- 교정 due-date 운반 - 그래서 그 매니페스트는 가장 짧은 watcher 주기를 설정하고 Phase 2
- watcher의 동기 케이스. Phase 1 on-demand fetch는 잠재적으로 stale로 취급, 현재성에 대해 권위
+ 교정 due-date 운반 - 그래서 그 매니페스트는 가장 짧은 watcher 주기를 설정하고 단계 2
+ watcher의 동기 케이스. 단계 1 on-demand fetch는 잠재적으로 stale로 취급, 현재성에 대해 권위
  아님.
 - **심각도 파생은 결정론적** , ad hoc 아님: 취약성 규칙의 경우 `severity` 는 고정된 **CVSS base
  점수** 의 순수 함수 (`>= 9.0` → `critical`, `>= 7.0` → `high`, `>= 4.0` → `medium`, else
@@ -269,7 +269,7 @@ provenance:
 
 ```text
 source manifest ─► fetch ─► verify ─► parse ─► map to schema ─► provenance stamp ─► validate ─► dedupe ─► catalog
-          (pin+auth) (hash/sig) (parser plugin)            (strict JSON Schema) (by id)
+     (pin+auth) (hash/sig) (parser plugin)      (strict JSON Schema) (by id)
 ```
 
 - **fetch**: 어댑터가 소스에서 pull(REST, `git clone`, 패키지 레지스트리, licensed download).
@@ -277,7 +277,7 @@ source manifest ─► fetch ─► verify ─► parse ─► map to schema ─
  SHA 또는 아티팩트 다이제스트, 변경 가능한 태그/브랜치 아님) 에 고정하고 resolved 개정 번호 기록; REST
  소스의 페이지 나누기와 비율 한도 처리(`Retry-After` 존중, 백오프); 범위가 제한된 재시도 있는 시간 초과
  적용. Fetch 실패 시 **실패 시 차단** - 부분 fetch는 절대 부분 카탈로그를 산출하지 않음. 주기는
- Phase 1에서 on-demand; Phase 2에서 스케줄된 watcher.
+ 단계 1에서 on-demand; 단계 2에서 스케줄된 watcher.
 - **verify**: fetch된 아티팩트의 무결성 검사(소스가 제공하는 곳에서 체크섬/서명) 및 계산된
  `content_hash` 기록; mismatch는 그 소스 abort.
 - **parse**: 매니페스트 `parser` 키로 선택된 포맷-특이 리더(Rego, YAML, JSON, 정책 정의,
@@ -355,10 +355,10 @@ YAML 키는 **snake_case** ;
 
  ```yaml
  # 예시 프래그먼트
- remediates: remediate.disable-public-access     # 기본, 결정론적
+ remediates: remediate.disable-public-access   # 기본, 결정론적
  alternatives:
-  - remediate.add-firewall-rule            # 태그로 "keep-public" 이면 T2 선호
-  - remediate.add-private-endpoint
+ - remediate.add-firewall-rule      # 태그로 "keep-public" 이면 T2 선호
+ - remediate.add-private-endpoint
  ```
 - `provenance` 는 모든 rule-like 종류의 공유 객체:
  `{ source_url, source_version, resolved_ref, content_hash, license, redistribution, retrieved_at, mapped_by }`.
@@ -439,13 +439,13 @@ category: reliability
 requirement_mode: all
 requirements:
  - kind: artifact
-  ref: disaster-recovery-plan
-  freshness_days: 180
+ ref: disaster-recovery-plan
+ freshness_days: 180
  - kind: drill
-  ref: restore-failover-drill
-  freshness_days: 180
+ ref: restore-failover-drill
+ freshness_days: 180
  - kind: approval
-  ref: reliability-owner
+ ref: reliability-owner
 provenance:
  source_url: https://example.com/waf/reliability/checklist
  source_version: "2026-05-29"
@@ -459,7 +459,7 @@ provenance:
 
 요구사항 종류는 `rule`, `probe`, `artifact`, `metric`, `drill`, `approval`입니다. Strict
 카탈로그 부하는 컨트롤이 사용하는 모든 종류에 known-reference 레지스트리를 요구합니다. 누락,
-알 수 없음, stale 또는 실패한 근거는 암묵적인 pass가 되지 않습니다. `not_applicable`은 근거
+알 수 없음, stale 또는 실패한 근거는 암묵적인 통과가 되지 않습니다. `not_applicable`은 근거
 부재가 아니라 명시적으로 평가된 결과입니다.
 
 ### 구성 기준선 (하드닝된 참조 세트)
@@ -512,35 +512,35 @@ provenance:
 
 ```
 fdai/
-├── policies/       # authored check-logic (OPA/Rego), T0 + verifier가 소비;
-│             #  check_logic.ref로 참조 (top-level, project-structure에 따라)
-└── rule-catalog/     # catalog-as-code (YAML)
-  ├── schema/      # extension-kit/skill-bundle 같은 catalog-adjacent schema
-  ├── vocabulary/    # canonical CSP-중립 어휘 (resource-types.yaml, ...)
-  ├── action-types/   # 규칙의 `remediates` 필드가 인용하는 ActionType 인스턴스
-  ├── best-practices/  # framework provenance가 있는 다중-evidence checklist control
-  ├── rule-sets/     # atomic rule을 버전 고정한 governance initiative
-  ├── sources/      # 소스당 하나의 폴더: manifest (.yaml) + collector + parser
-  │  └── <source>/
-  ├── remediation/    # remediation.ref로 참조되는 remediation 템플릿
-  ├── catalog/      # 정규화, 버전-고정 YAML 출력 (catalog-as-code)
-  ├── exemptions/    # 시간-바운드 감사된 예외 아티팩트
-  └── baselines/     # measurement 베이스라인 (YAML; 규칙과 별도 네임스페이스 + 저장소)
+├── policies/    # authored check-logic (OPA/Rego), T0 + verifier가 소비;
+│       # check_logic.ref로 참조 (top-level, project-structure에 따라)
+└── rule-catalog/   # catalog-as-code (YAML)
+ ├── schema/   # extension-kit/skill-bundle 같은 catalog-adjacent schema
+ ├── vocabulary/  # canonical CSP-중립 어휘 (resource-types.yaml, ...)
+ ├── action-types/  # 규칙의 `remediates` 필드가 인용하는 ActionType 인스턴스
+ ├── best-practices/ # framework provenance가 있는 다중-evidence checklist control
+ ├── rule-sets/   # atomic rule을 버전 고정한 governance initiative
+ ├── sources/   # 소스당 하나의 폴더: manifest (.yaml) + collector + parser
+ │ └── <source>/
+ ├── remediation/  # remediation.ref로 참조되는 remediation 템플릿
+ ├── catalog/   # 정규화, 버전-고정 YAML 출력 (catalog-as-code)
+ ├── exemptions/  # 시간-바운드 감사된 예외 아티팩트
+ └── baselines/   # measurement 베이스라인 (YAML; 규칙과 별도 네임스페이스 + 저장소)
 
  services/core-control-plane/src/fdai/rule_catalog/
- ├── schema/        # rule, source-manifest, ActionType runtime loader/schema
- └── pipeline/       # watch → collect → parse → shadow-eval → promote/rollback
+ ├── schema/    # rule, source-manifest, ActionType runtime loader/schema
+ └── pipeline/    # watch → collect → parse → shadow-eval → promote/rollback
 ```
 
 Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 검증기가 소비하는 top-level
 `policies/` 에 존재, [project-structure-ko.md](../architecture/project-structure-ko.md) 와 정확히 같음.
-`pipeline/` 은 Phase 2 지속 업데이터.
+`pipeline/` 은 단계 2 지속 업데이터.
 
 - `vocabulary/resource-types.yaml` - 모든 규칙이 인용하는 CSP-중립 `resource_type` 식별자
  집합. 이름 변경 → 카탈로그 전역 마이그레이션; 추가 → 거버넌스 PR. 로더:
  `services/core-control-plane/src/fdai/rule_catalog/schema/resource_type.py`, JSON 스키마:
  `services/core-control-plane/src/fdai/rule_catalog/schema/resource_types.schema.json`.
-- `action-types/*.yaml` - 온톨로지 `ActionType` 인스턴스 파일당 하나. Upstream 에서 `default_mode`
+- `action-types/*.yaml` - 온톨로지 `ActionType` 인스턴스 파일당 하나. 업스트림 에서 `default_mode`
  는 **반드시** `shadow` 여야 하고 `promotion_gate` 필수. 로더:
  `services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py`; JSON 스키마 는 공유 온톨로지 스키마
  `services/core-control-plane/src/fdai/shared/contracts/ontology/action-type.json`.
@@ -588,18 +588,18 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 검�
 - [ ] 어떤 소스가 reference-only vs embeddable, 각 라이선스에 대해 확인.
 - [ ] 남은 소스를 위한 파서 플러그인(docs, Checkov/tfsec/KICS/Trivy 및 추가 벤더 format).
 - [ ] 컴플라이언스-프레임워크 매핑(컨트롤 → NIST/PCI/ISO 태그): 매니페스트 필드 또는 별도 crosswalk
-   아티팩트.
+  아티팩트.
 - [ ] MITRE ATT&CK technique / D3FEND 컨트롤 매핑 저장: 컴플라이언스 crosswalk 아티팩트 재사용
-   또는 규칙에 전용 매핑-태그 필드 추가.
+  또는 규칙에 전용 매핑-태그 필드 추가.
 - [ ] 결정론 CVSS+KEV → `severity` 매핑과 CVSS 버전 정책(v3.1 vs v4.0), 그리고 버전 태그가
-   규칙에 어디에 운반되는지.
+  규칙에 어디에 운반되는지.
 - [ ] Per-DB-엔진 컨트롤 granularity: 엔진이 `resource_type` 에 인코딩 vs 공유 중립 타입의
-   `parameters.engine` discriminator.
+  `parameters.engine` discriminator.
 - [ ] 상류 컨트롤이 제거될 때 tombstone/retirement 기록 포맷.
 - [ ] 어떤 소스가 무결성 검증을 위해 체크섬/서명을 노출하고 그것이 없을 때 대체 경로.
 - [ ] 루프-생성 후보가 그림자를 떠날 수 있기 전 최소 shadow-dwell 시간과 표본 크기, 승격을
-   게이트하는 정확도 임계.
+  게이트하는 정확도 임계.
 - [ ] 자율 발견 루프의 주기(이벤트-트리거 vs 스케줄) 와 사이클당 후보/토큰 예산.
-- [ ] Phase 2와 Phase 3에서 observe 스테이지에 어떤 운영 신호가 공급되는지(재정의 이벤트와
-   HIL 패턴은 재정의 아티팩트가 존재하는 순간부터 범위 내; 롤백 상관관계는 나중에 랜딩
-   가능).
+- [ ] 단계 2와 단계 3에서 observe 스테이지에 어떤 운영 신호가 공급되는지(재정의 이벤트와
+  HIL 패턴은 재정의 아티팩트가 존재하는 순간부터 범위 내; 롤백 상관관계는 나중에 랜딩
+  가능).

@@ -12,7 +12,7 @@ translation_revised: 2026-08-11
 
 - **자동화 테스트 truth**: pytest와 committed mock은 결정론적 가짜를 사용할 수 있습니다. 명시적 test-fixture 빌더를 사용하며 Azure 관측 상태로 표현하지 않습니다.
 - **Full-stack 로컬 truth**: `Console Web: Full Stack`은 배포와 같은 App 역할 검사를 적용하는 브라우저 Entra sign-in을 사용합니다. 서버의 Azure CLI 세션은 Azure 개발
- 데이터 plane 프로바이더 자격 증명만 제공합니다. 인벤토리, 모델 가용성, 에이전트 활동,
+ 데이터 평면 프로바이더 자격 증명만 제공합니다. 인벤토리, 모델 가용성, 에이전트 활동,
  프로세스 상태, 승격 근거, 감사 데이터는 권위 있는 프로바이더에서만 표시합니다.
  출처가 없으면 사용 불가 또는 명시적 빈으로 표시하며 생성 예제로 대체하지 않습니다.
 - **Deploy truth**: `terraform apply` 가 CSP-neutral 컨트랙트의 Azure 측 실현체를 생성.
@@ -38,7 +38,7 @@ translation_revised: 2026-08-11
 | T0 결정론 엔진 | `opa` 바이너리 + Rego 정책 + 룰 카탈로그 | 100% 오프라인; CI 동등성 게이트가 증명 |
 | Rule 카탈로그 로더 + 그림자 eval 파이프라인 | 파일시스템 YAML | 클라우드 콜 없음 |
 | Risk 게이트 + 승격 레지스트리 | 인-메모리 `ActionPromotionRegistry` | 경계 스왑 가능 |
-| 실행기 + 리소스 lock | 인-프로세스 | 고정본 전용이며 interactive 실행기가 아님 |
+| 실행기 + 리소스 잠금 | 인-프로세스 | 고정본 전용이며 interactive 실행기가 아님 |
 | 감사 + T2 복구 상태 | `InMemoryStateStore` (hash-chain 검증) | prod 백엔드 = Postgres이며 같은 증적/경로 키가 결정론적 채팅 읽기를 제공합니다 |
 | Event ingest + trust 라우터 | 인-프로세스 | 버스 미배선 |
 | Verticals (복원력 / FinOps / 변경 안전성) | 순수 결정 모듈 | 클라우드 없음 |
@@ -80,7 +80,7 @@ site는 인증된 Console full stack과 분리되어 있습니다.
 | 테스트 인제스트 게이트웨이 | `http://127.0.0.1:8011` | `Console Web: Ingestion Gateway` |
 
 `Console Web: Full Stack` compound는 코어 런타임, Console SPA 및 Operator API를 시작합니다. 백엔드 launch는
-service-owned Core 컨트롤 Plane 및 Operator 서비스 분포를 가져오기하며 제거된 top-level 패키지 또는
+service-owned Core 컨트롤 평면 및 Operator 서비스 분포를 가져오기하며 제거된 top-level 패키지 또는
 프로세스 내 Operator API 호환성 경로를 복원하지 않고 정적 design mock과 격리된 테스트 인제스트 게이트웨이도
 시작하지 않습니다. 신뢰된 workspace에서는 `console: prepare local state`가 한 번 실행되어 로컬 PostgreSQL과
 Redpanda를 시작하고 고정된 이전 방식 Alembic 계보를 전진시킨 후 Core와 Operator의 service-owned 이행 가지를 채택하고 업그레이드하며 single-instance 한도로 중복을 막습니다. 동일한 준비는 읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고, 테넌트 식별자, 리소스 엔드포인트 또는 자격 증명을 복사하지 않은 채 준비된 권위 있는 입력에서 정제된 모델 및 런타임 Settings 변환 결과를 materialize합니다. 프로바이더가 사용 불가 상태이거나 권한이 없으면 고정본 데이터로 대체하지 않고 인벤토리를 명시적으로 사용 불가 상태로 유지합니다.
@@ -116,14 +116,14 @@ IAM 초기화가 성공하면 대시보드는 `GET /kpi`를 필수 backbone으�
 독립적으로 합류하며 `404`, `501`, `503`이면 사용 불가로 표시하고 전체 대시보드를 실패시키지 않습니다.
 모든 브라우저 Operator API 요청에도 구성 가능한 기본 30초 시간 초과를 적용합니다. 정지한 fetch는
 abort되고 영구 골격을 남기지 않고 기존 경로 오류 표면으로 전환됩니다.
-각 long-running Console 작업은 VS 코드 instance 하나만 허용합니다. Core 작업과 debug launch는
+각 long-running Console 작업은 VS 코드 인스턴스 하나만 허용합니다. Core 작업과 debug launch는
 `.fdai/core-runtime.lock`도 공유하므로 두 번째 프로세스는 Kafka 소비자 그룹에 참여하기 전에
 실패합니다. 따라서 작업/debug overlap이 중복 Pantheon 소비자와 지속적인 rebalance를 만들지 않습니다.
 Core 런타임, Operator API 및 프런트엔드 작업은 각각 별도의 dedicated 최종 그룹을 사용하며 재시작할 때 자신의 이전 출력만 지웁니다. Operator API 시작은 조용히 유지되며 editor focus를 가져가지 않습니다.
 VS 코드는 Pantheon 브리지 시작, Uvicorn 애플리케이션 시작 완료 또는
 Vite 로컬 주소 게시를 각각 확인한 뒤에만 background 작업을 준비된으로 표시합니다. 따라서 프로세스가
 생성되기만 한 상태를 준비된 서비스로 표시하지 않습니다.
-표준 로컬 Azure 프로파일은 `FDAI_RUNTIME_LOCK_FILE`이 설정되지 않아도 같은 lock을 기본값으로 사용하므로, `python -m fdai`를 직접 실행해도 singleton 가드를 우회할 수 없습니다. 운영 런타임은 배포에서 명시적으로 구성한 경우에만 프로세스 lock을 계속 사용합니다.
+표준 로컬 Azure 프로파일은 `FDAI_RUNTIME_LOCK_FILE`이 설정되지 않아도 같은 잠금을 기본값으로 사용하므로, `python -m fdai`를 직접 실행해도 singleton 가드를 우회할 수 없습니다. 운영 런타임은 배포에서 명시적으로 구성한 경우에만 프로세스 잠금을 계속 사용합니다.
 Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽기는 같은 execution-mode 정책을 사용하고 의도 ID, Heimdall 소유권 또는 계획 연결 표류 시 시작을 차단합니다. Embedded direct Pantheon 채팅 위임은 fixture-only입니다. `FDAI_OPERATOR_API_EMBED_PANTHEON=0`일 때 Operator API는 기존 `aw.pantheon.objects` 전송 계층의 범위가 제한된 요청/응답 logical 토픽을 통해 Bragi conversational
 포트에 접근합니다. 시작 탐색으로 응답 소비자 준비를 확인한 후 트래픽을 받습니다. 클라이언트는 재시도 중 joining 소비자를 재사용하고 최초 Event Hubs 그룹 결합을 최대 20초 허용합니다.
 운영 복제본은 서버 소비자 그룹을 공유하므로 요청마다 복제본 하나만 응답합니다. Singleton 로컬 코어는 process-scoped 서버 그룹을 사용하므로 재시작할 때 이전 프로세스의 관련 없는 Pantheon 트래픽을 재생하지 않고 physical 토픽의 현재 오프셋에서 시작합니다.
@@ -203,7 +203,7 @@ Azure 인벤토리 결과와 일치해야 합니다. 세 값이 모두 없으면
 없는 rooted 모드는 `root=<resource-id>`, `depth=1..8`, `limit=1..1000`으로 하나의 양방향
 neighborhood를 반환합니다. 알 수 없는 루트는 `404`를 반환하고 상한에 도달하면
 `truncated=true`로 표시합니다. 로컬 Azure CLI 프로바이더는 권위 있는 cached 스냅샷에
-동일한 제한을 적용하며 deployed PostgreSQL 프로바이더는 활성 스냅샷과 real-time overlay
+동일한 제한을 적용하며 deployed PostgreSQL 프로바이더는 활성 스냅샷과 real-time 오버레이
 내부에 적용합니다. 어느 프로파일도 rooted 요청을 완전한 인벤토리로 확장하지 않습니다.
 Deployed 프로바이더는 유효 그래프를 하나의 repeatable-read, 읽기 전용 트랜잭션에서 읽으며,
 두 프로파일 모두 같은 깊이의 frontier 리소스를 결정론적 순서로 round-robin 확장합니다.
@@ -227,7 +227,7 @@ Command Deck 인벤토리 턴은 해당 스냅샷에 IQL을 적용하며 질문�
 저장소를 사용 불가 또는 non-durable로 표시합니다. 읽기 담당은 정제된 환경, 영속 재정의 및
 effective 값 변환 결과를 확인합니다. Owner는 optimistic 개정 번호 및 원자적 감사 검사를 통해
 허용 목록만 업데이트할 수 있습니다. IRP 변경은 다음 조건을 충족한 alert에 적용되고 analyzer, 인벤토리 및
-보존 cadence 변경은 다음 작업 또는 tick에 적용됩니다. 로깅 수준과 사례 보존/deletion 일
+보존 cadence 변경은 다음 작업 또는 틱에 적용됩니다. 로깅 수준과 사례 보존/deletion 일
 변경은 재시작 필수로 표시되며 headless 런타임이 시작될 때 로드됩니다. 어떤 설정도 로컬 읽기
 API에 실행기 신원을 부여하거나 ActionType 및 작업 흐름 승격 상태를 변경하지 않습니다.
 
@@ -261,9 +261,9 @@ interactive 로컬은 선택적 검토 싱크를 사용 불가로 유지합니�
 
 `FDAI_MONITOR_WORKSPACE_ID`가 설정되면 명시적 Command Deck `query_log` 명령은 두 프로파일에서
 같은 범위가 제한된 Azure Monitor Logs 프로바이더를 사용합니다. Interactive 로컬은 현재 Azure CLI
-맥락에서 데이터 plane 토큰을 얻고 배포는 `FDAI_MI_CLIENT_ID`가 선택한 전용 Operator API
+맥락에서 데이터 평면 토큰을 얻고 배포는 `FDAI_MI_CLIENT_ID`가 선택한 전용 Operator API
 managed 신원을 사용합니다. Workspace는 서버 구성으로 정하며 브라우저가 변경할 수 없습니다.
-Workspace, 신원, 권한 또는 telemetry를 사용할 수 없으면 고정본나 모델 대체 경로 없이
+Workspace, 신원, 권한 또는 텔레메트리를 사용할 수 없으면 고정본나 모델 대체 경로 없이
 사용 불가로 보류합니다.
 로컬 준비는 applied Terraform의 `log_workspace_customer_id` 출력에서 workspace customer GUID를 읽습니다. 이전 상태 또는 targeted 상태가 해당 출력을 노출하지 않으면 applied 리소스 그룹 안의 workspace만 나열하고 정확히 하나가 있을 때만 대체 경로를 수락합니다. Workspace가 0개이면 프로바이더를 사용 불가로 유지하고 여러 개이면 암시적으로 하나를 선택하지 않고 준비를 중지합니다. 재생성할 때 stale 로컬 workspace id는 제거합니다.
 로컬 런타임 환경 generator는 applied 구독 및 리소스 그룹도 범위가 제한된 Azure
@@ -272,10 +272,10 @@ Easy Auth 대상을 모두 출력하면 NSG 및 VNet 피어링 질문은 로컬 
 등록된 읽기 연산만 호출합니다. 쌍이 없으면 래퍼를 비활성화하고 구성된 게이트웨이가
 실패하면 direct ARM 대체 경로 없이 사용 불가를 보고합니다. 게이트웨이는 읽기 담당/실행기 managed
 신원을 분리하며 로컬 Operator API에 실행 신원을 제공하지 않습니다. 변경은 target-scoped
-Blob 임차 기간과 영속 멱등성 점유를 사용하며 upstream Terraform은 구성된 실행기
+Blob 임차 기간과 영속 멱등성 점유를 사용하며 업스트림 Terraform은 구성된 실행기
 principal에 development-only 변경 연산을 활성화하고 게이트웨이 URL과 대상은 headless 코어
 Container App에만 전달합니다. 해당 런타임은 `AzureGatewayDirectApiExecutor`를 연결하며 Operator API는
-읽기 전용 게이트웨이 전송 계층을 유지하고 enforce 기능을 받지 않습니다. 실행기는 정확한 등록된
+읽기 전용 게이트웨이 전송 계층을 유지하고 강제 적용 기능을 받지 않습니다. 실행기는 정확한 등록된
 연산, arguments, 멱등성, 감사, stop-condition, 롤백 및 영향 근거에 대해
 server-issued 예행 실행 증적을 먼저 요청해야 합니다. 게이트웨이는 범위가 제한된 reader-identity ARM GET으로
 대상을 확인하고 해당 증적을 비공개 Blob 저장소에 5분 동안 저장한 다음 target-scoped 리소스
@@ -289,8 +289,8 @@ Stale pending 점유는 계속 차단된 상태로 남지 않고 범위가 제�
 멱등성 키가 필요합니다. ARM throttling은 최대 3회까지 범위가 제한된 `Retry-After`를 따르며 변경
 `5xx` 응답은 결과가 모호한할 수 있으므로 자동으로 반복하지 않습니다.
 
-동일한 read-investigation wiring이 범위가 제한된 Azure subscription-health 프로바이더를 구성합니다. 기본값은 resource-group 허용 목록이며, interactive 로컬은 권위 있는 인벤토리가 전체 구독을 이미 읽으므로 서버가 소유한 `subscription` 모드와 1,000개 리소스 상한을 선택하고 배포는 적절한 범위의 읽기 담당 신원으로 의도적으로 연결하지 않으면 `resource_groups`를 유지합니다.
-브라우저와 모델 입력은 모드를 변경할 수 없습니다. 로컬 factory는 read-investigation wiring이 있을 때만
+동일한 read-investigation 배선이 범위가 제한된 Azure subscription-health 프로바이더를 구성합니다. 기본값은 resource-group 허용 목록이며, interactive 로컬은 권위 있는 인벤토리가 전체 구독을 이미 읽으므로 서버가 소유한 `subscription` 모드와 1,000개 리소스 상한을 선택하고 배포는 적절한 범위의 읽기 담당 신원으로 의도적으로 연결하지 않으면 `resource_groups`를 유지합니다.
+브라우저와 모델 입력은 모드를 변경할 수 없습니다. 로컬 factory는 read-investigation 배선이 있을 때만
 프로바이더를 주입하여 읽기 전용 data-plane 경계를 유지합니다.
 
 Direct Command Deck 읽기도 두 프로파일에서 동일한 owner-scoped run-ledger 실행기를 사용합니다.
@@ -313,23 +313,23 @@ Event Hubs가 설정되면 에이전트는 전용 로컬 소비자 그룹으로 
 제공합니다. 이 어댑터는 Azure 근거, 영속 상태 또는 실행 권한을 만들지 않습니다.
 Kafka가 구성된 토픽을 시작 중 거부하면 Event Hubs 어댑터는 오류를 전달하기 전에 실패한 소비자를 닫습니다.
 
-예측 learning은 두 프로파일에서 동일한 PostgreSQL episode 저장소와 Heimdall 핸들러를
+예측 learning은 두 프로파일에서 동일한 PostgreSQL 에피소드 저장소와 Heimdall 핸들러를
 사용합니다. `FDAI_FORECAST_TARGETS_JSON`이 설정된 경우에만 활성화됩니다. 배포는 명시적 선택
-Container Apps 작업으로 raw tick을 제공하고 로컬 개발은 synthetic 메트릭을 만들거나
-콘솔에 쓰기 경로를 주지 않고 동일한 기계적 tick CLI를 호출할 수 있습니다.
+Container Apps 작업으로 raw 틱을 제공하고 로컬 개발은 synthetic 메트릭을 만들거나
+콘솔에 쓰기 경로를 주지 않고 동일한 기계적 틱 CLI를 호출할 수 있습니다.
 
 로컬 런타임 환경 generator는 applied Terraform 출력에서 전송 계층 설정을 읽습니다.
 Terraform 실행기 신원 리소스 ID에 포함된 구독과 활성 Azure CLI 구독을
 비교하고 둘이 다르면 리소스 조회나 파일 생성 전에 중단합니다.
-또한 로컬 user와 호스트에서 식별 정보를 노출하지 않는 소비자 instance 해시를 파생하므로 동시에
+또한 로컬 user와 호스트에서 식별 정보를 노출하지 않는 소비자 인스턴스 해시를 파생하므로 동시에
 실행하는 개발자가 같은 Event Hubs Kafka 소비자 그룹에 참여하지 않습니다. 자동화에서
 명시적으로 안정된 이름이 필요하면 `FDAI_LOCAL_CONSUMER_INSTANCE`에 최대 20자의 lowercase
 alphanumeric 및 hyphen 식별자를 설정할 수 있습니다. 생성된 코어, Pantheon, Operator API 그룹은
-이 instance를 사용하고 deployed Operator API 복제본은 런타임 hostname을 사용합니다. 따라서 각
+이 인스턴스를 사용하고 deployed Operator API 복제본은 런타임 hostname을 사용합니다. 따라서 각
 콘솔 스트림은 다른 developer 또는 복제본과 파티션을 나누지 않고 모든 프레임을 수신합니다.
 
-작업 흐름 정의는 배포 enforce 허용 목록을 사용하며 ActionType은 승격 및 risk 게이트를 유지합니다.
-Enforce에는 Azure 이벤트 전송 계층과 작업 흐름 승인 근거를 공유하는 영속 데이터베이스가 필요합니다.
+작업 흐름 정의는 배포 강제 적용 허용 목록을 사용하며 ActionType은 승격 및 risk 게이트를 유지합니다.
+강제 적용에는 Azure 이벤트 전송 계층과 작업 흐름 승인 근거를 공유하는 영속 데이터베이스가 필요합니다.
 두 프로파일은 영속 프로세스 상태에서 본문 없는 재개, safe 취소, effect-free 재시도를 제공합니다.
 App 역할 및 허용 목록을 다시 검사하고 시도 상한을 공유하며 unsafe 재시도 또는 취소를 차단합니다.
 Thor는 developer 자격 증명을 받지 않으며 실행은 deployed Managed Identity 런타임에 남습니다.
@@ -357,7 +357,7 @@ PostgreSQL read-model 어댑터가 로컬 pgvector를 사용합니다. 로컬 Op
 선택합니다. 둘을 함께 구성하면 프로바이더를 만들기 전에 시작을 중단하므로 매니페스트가 로컬
 PostgreSQL을 설명하면서 허용 목록 요청을 원격 API가 처리하는 상태를 허용하지 않습니다.
 원격 forwarding은 decoded 정본 허용 목록에 있는 경로만 일치시키며 정규화된, encoded, 중복
-구분자 및 control-character 변형은 로컬에 유지합니다. Upstream 캐시 directive를 폐기하고
+구분자 및 control-character 변형은 로컬에 유지합니다. 업스트림 캐시 directive를 폐기하고
 모든 proxy 응답에 `Cache-Control: no-store`를 보내므로 인증된 operational 근거가 브라우저
 또는 shared 캐시에 저장되지 않습니다. 응답 헤더 전에 발생한 원격 실패는 범위가 제한된 JSON
 `503`으로 변환하고, 헤더 이후 실패는 두 번째 ASGI 응답 시작 없이 응답 본문을 닫습니다.
@@ -401,7 +401,7 @@ Interactive 로컬은 승인자를 만들어 내거나 signed 콜백 auth를 우
 
 Headless Bragi 의미 라우팅은 T1과 같은 한계 임베딩 기능을 사용합니다. 배포는
 `FDAI_AGENT_SEMANTIC_COSINE_THRESHOLD`, `FDAI_AGENT_SEMANTIC_MARGIN_THRESHOLD`를 설정할 수 있으며
-잘못된 값은 시작을 실패시킵니다. 임베딩 연결이 없으면 명시적, read-intent, domain
+잘못된 값은 시작을 실패시킵니다. 임베딩 연결이 없으면 명시적, read-intent, 도메인
 라우팅을 결정론적하게 유지합니다. 임베딩은 conversational 대체 경로이며 타입이 지정된 액션
 트래픽에 들어가지 않습니다.
 
@@ -409,7 +409,7 @@ Headless Bragi 의미 라우팅은 T1과 같은 한계 임베딩 기능을 사�
 
 | 서브시스템 | 상태 | 갭 |
 |-----------|------|-----|
-| Azure Resource Graph 인벤토리 | 운영은 promoted PostgreSQL 스냅샷과 Huginn의 real-time delta overlay를 읽습니다. | Full-stack 로컬은 읽기 전용 `AzureCliInventory`를 통해 등록된 모든 Azure ARM 타입을 매핑하고 관계와 VM power 상태에 범위가 제한된 `az graph query` 속성을 사용하므로 별도 `az vm list --show-details`를 호출하지 않습니다. 스냅샷은 구독 및 Azure CLI 프로파일 fingerprint로 격리한 `.fdai/cache/inventory`에 저장하고 synthetic opt-out은 거부합니다. |
+| Azure Resource Graph 인벤토리 | 운영은 promoted PostgreSQL 스냅샷과 Huginn의 real-time delta 오버레이를 읽습니다. | Full-stack 로컬은 읽기 전용 `AzureCliInventory`를 통해 등록된 모든 Azure ARM 타입을 매핑하고 관계와 VM power 상태에 범위가 제한된 `az graph query` 속성을 사용하므로 별도 `az vm list --show-details`를 호출하지 않습니다. 스냅샷은 구독 및 Azure CLI 프로파일 지문으로 격리한 `.fdai/cache/inventory`에 저장하고 synthetic opt-out은 거부합니다. |
 | Azure Monitor Logs KQL | 운영과 로컬 어댑터가 `AzureLogAnalyticsQueryProvider`를 공유합니다. | 서버가 소유한 `FDAI_MONITOR_WORKSPACE_ID`가 필요하며 명시적 `query_log`는 사용 불가일 때 실패 시 차단합니다. |
 | Managed Identity 토큰 (`WorkloadIdentity`) | Deployed 어댑터 존재 | interactive 로컬은 deployed 실행기로 publish하며 고정본 테스트만 로컬 발급자 사용 |
 | 통제된 실행 백엔드 | 프로바이더 중립적인 프로토콜, 프로파일 레지스트리, 영속 PostgreSQL 원장, bubblewrap/VM 어댑터, Azure Container Apps 작업 어댑터가 존재합니다. | 프로파일은 기본적으로 비활성화된이고 로컬 interactive에는 실행기 연결이 없으며 승격 전에 실제 운영 Azure 작업 근거가 필요합니다. |
@@ -451,8 +451,8 @@ Resource Graph CLI 확장 또는 ARG 요청을 사용할 수 없으면 로컬 �
 out-of-process 의존을 건드리는 모든 경계는 다음을 갖춰야:
 
 1. **`shared/providers/` 의 프로토콜** - 중립 wire 계약. `core/` 는 프로토콜만 가져오기.
-  `EventBus`, `StateStore`, `SecretProvider`, `WorkloadIdentity`, `Inventory` 및 LLM 경계
-  (`EmbeddingModel`, `CrossCheckModel`, `VerifierPolicy`, `GroundingSource`) 이미 준수.
+ `EventBus`, `StateStore`, `SecretProvider`, `WorkloadIdentity`, `Inventory` 및 LLM 경계
+ (`EmbeddingModel`, `CrossCheckModel`, `VerifierPolicy`, `GroundingSource`) 이미 준수.
 2. **테스트 가짜 구현** - 결정론적, 프로세스 내, secret-free입니다. 자동화 테스트 또는
  committed mock/예시 앱이 명시적 고정본 빌더로만 선택하며 interactive 로컬
  Console은 사용하지 않습니다.
@@ -462,8 +462,8 @@ out-of-process 의존을 건드리는 모든 경계는 다음을 갖춰야:
 4. **Mismatch 시 fail-fast 또는 사용 불가** - interactive/deployed 런타임은 테스트 가짜로
  대체 경로하지 않습니다. 필수 시작 출처는 시작을 실패시키고 선택적 읽기 패널은
  사용 불가로 표시합니다. 조용한 대체 경로는 **금지**
-  ([llm-strategy.md § 초기화 Provisioner](../architecture/llm-strategy-ko.md#bootstrap-provisioner) 의
-  "no HIL-silent 대체 경로" 룰과 일치).
+ ([llm-strategy.md § 초기화 Provisioner](../architecture/llm-strategy-ko.md#bootstrap-provisioner) 의
+ "no HIL-silent 대체 경로" 룰과 일치).
 
 파이프라인을 exercise하는 모든 테스트는 (1)+(2) 모드로 실행 → CI 동등성 게이트가 Azure 토큰
 필요 없음.
@@ -486,22 +486,22 @@ auto-open도 비활성화하므로 결정론적 동등성 테스트가 Azure CLI
 
 ```mermaid
 flowchart LR
-  START([terraform apply]) --> WHOAMI["az account show<br/>+ 배포자 principal 해결"]
-  WHOAMI --> AUDIT[Bootstrap audit entry:<br/>deployer_object_id, sub, region]
-  AUDIT --> REG[rule-catalog/llm-registry.yaml 읽기]
-  REG --> CAT["Azure 카탈로그 조회:<br/>var.region 에서<br/>사용가능한 Foundry / AOAI SKU"]
-  CAT --> RBAC{배포자가<br/>Cognitive Services Contributor<br/>대상 subscription에 있음?}
-  RBAC -->|no| SKIP1[경고 emit:<br/>LLM 프로비저닝 스킵<br/>T2 capability = HIL-only]
-  RBAC -->|yes| MATCH{"preferred family 사용가능<br/>AND 배포자 sub 쿼터 있음?"}
-  MATCH -->|no for capability| SKIP2["이 capability HIL-only 마킹<br/>나머지는 계속"]
-  MATCH -->|yes| DEPLOY["deployment 프로비저닝<br/>cap_tpm 은 registry에서"]
-  DEPLOY --> INV{"mixed-model 불변식:<br/>primary.publisher != secondary.publisher?"}
-  INV -->|violated| ABORT["명확한 에러로 abort<br/>(fork가 preference 확장)"]
-  INV -->|ok| WRITE[resolved-models.json 파일 또는 inline JSON emit]
-  SKIP1 --> WRITE
-  SKIP2 --> WRITE
-  WRITE --> ROLE[executor MI에 role-assign:<br/>Cognitive Services OpenAI User]
-  ROLE --> DONE([done])
+ START([terraform apply]) --> WHOAMI["az account show<br/>+ 배포자 principal 해결"]
+ WHOAMI --> AUDIT[Bootstrap audit entry:<br/>deployer_object_id, sub, region]
+ AUDIT --> REG[rule-catalog/llm-registry.yaml 읽기]
+ REG --> CAT["Azure 카탈로그 조회:<br/>var.region 에서<br/>사용가능한 Foundry / AOAI SKU"]
+ CAT --> RBAC{배포자가<br/>Cognitive Services Contributor<br/>대상 subscription에 있음?}
+ RBAC -->|no| SKIP1[경고 emit:<br/>LLM 프로비저닝 스킵<br/>T2 capability = HIL-only]
+ RBAC -->|yes| MATCH{"preferred family 사용가능<br/>AND 배포자 sub 쿼터 있음?"}
+ MATCH -->|no for capability| SKIP2["이 capability HIL-only 마킹<br/>나머지는 계속"]
+ MATCH -->|yes| DEPLOY["deployment 프로비저닝<br/>cap_tpm 은 registry에서"]
+ DEPLOY --> INV{"mixed-model 불변식:<br/>primary.publisher != secondary.publisher?"}
+ INV -->|violated| ABORT["명확한 에러로 abort<br/>(fork가 preference 확장)"]
+ INV -->|ok| WRITE[resolved-models.json 파일 또는 inline JSON emit]
+ SKIP1 --> WRITE
+ SKIP2 --> WRITE
+ WRITE --> ROLE[executor MI에 role-assign:<br/>Cognitive Services OpenAI User]
+ ROLE --> DONE([done])
 ```
 
 **배포자 권한 게이트** (해석기가 카탈로그 건드리기 전 확인):
@@ -520,7 +520,7 @@ flowchart LR
 
 ## 작업 계획 (phased, 가산)
 
-각 phase는 헤드에서 빌드/테스트 가능한 상태 유지. 멀티 클라우드는 **TBD**
+각 단계는 헤드에서 빌드/테스트 가능한 상태 유지. 멀티 클라우드는 **TBD**
 ([copilot-instructions § 구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
 
 **2026-07-21 기준 상태**: W-A에서 W-G까지 **배포됨**; W-H (문서 동기화)는
@@ -531,16 +531,16 @@ flowchart LR
 
 - `services/core-control-plane/src/fdai/shared/config/schema.json` + `models.py` 에 `LlmConfig` 추가:
  - `mode`: `local-fake` | `azure`. `local-fake`는 명시적 테스트/mock 연결이며 배포
-  환경이 선택하지 않습니다.
+ 환경이 선택하지 않습니다.
  - `resolved_models_path`: 옵셔널 KV 시크릿 이름 또는 파일시스템 경로.
  - `capabilities`: 기능 이름 리스트 (`t1.embedding`, `t1.judge`,
-  `t2.reasoner.primary`, `t2.reasoner.secondary`) - 레지스트리를 미러.
+ `t2.reasoner.primary`, `t2.reasoner.secondary`) - 레지스트리를 미러.
  - `t2_primary_latency_routing`: bool, 기본값 `true`. T2 기본
-  제안자를 동일 발행기 후보 풀 내에서 지연 라우팅(invariant-safe;
-  enforce on). 리졸버가 >= 2 풀 을 발행(`--emit-primary-pool`) 할 때만
-  적용; 단일 기본 로 pin 하려면 `false`.
-  [llm-strategy-ko.md](../architecture/llm-strategy-ko.md) 의
-  "T2 기본 지연 시간 풀" 참조.
+ 제안자를 동일 발행기 후보 풀 내에서 지연 라우팅(invariant-safe;
+ 강제 적용 on). 리졸버가 >= 2 풀 을 발행(`--emit-primary-pool`) 할 때만
+ 적용; 단일 기본 로 pin 하려면 `false`.
+ [llm-strategy-ko.md](../architecture/llm-strategy-ko.md) 의
+ "T2 기본 지연 시간 풀" 참조.
 - Fail-fast 검증기: `mode == "azure"` 는 `resolved_models_path` 필수.
 - 테스트: 스키마 + pydantic 검증기.
 
@@ -568,9 +568,9 @@ flowchart LR
 
 - 신규: `infra/modules/llm/azure-openai/`.
  - `main.tf`: `azurerm_cognitive_account` (종류=`OpenAI`) + 입력 변수의
-  `resolved_capabilities` 로부터 N개 `azurerm_cognitive_deployment`.
+ `resolved_capabilities` 로부터 N개 `azurerm_cognitive_deployment`.
  - `variables.tf`: `enable_llm` (기본값 `false` - 최소 배포도 성공하도록),
-  `resolved_capabilities` (해석기 로부터의 객체 목록).
+ `resolved_capabilities` (해석기 로부터의 객체 목록).
  - `outputs.tf`: `endpoint`, `deployments` 지도, `resource_id`.
 - 역할 배정: 실행기 MI → 계정의 `Cognitive Services OpenAI User`.
 - 루트 `infra/main.tf` 에서 `var.enable_llm` 조건부로 모듈 wire.
@@ -586,7 +586,7 @@ flowchart LR
  - [llm-strategy.md § 프로바이더 Abstraction](../architecture/llm-strategy-ko.md#provider-abstraction) 참조.
 - 테스트: `httpx.MockTransport` + 녹화 고정본 - 라이브 네트워크 없음.
 
-### W-F: Composition-root wiring ✅ *(연결, 배포)*
+### W-F: Composition-root 배선 ✅ *(연결, 배포)*
 
 - `Container` 확장: `embedding_model: EmbeddingModel`, `cross_check_models`,
  `verifier_policy`, `grounding_source` 필드.
@@ -605,7 +605,7 @@ flowchart LR
 - `FileFixtureInventory` - 포크 가 생성자에 넘긴 어떤 YAML 고정본 든 (`fixture=Path(...)`) 에서 `Resource` 레코드를 읽는다. 업스트림은 시드 고정본 를 배송하지 않으며, 권장 컨벤션은 `services/core-control-plane/tests/scenarios/inventory/*.yaml` (고정된 시나리오 재생 옆) 이라 verticals 가 ARG 없이 예행 실행 가능.
 - 테스트 + docstring이 정확한 fork-side 패턴 시연.
 
-### W-H: 문서 동기화 *(이 phase)*
+### W-H: 문서 동기화 *(이 단계)*
 
 - ✅ 이 문서 자체.
 - [deploy-and-onboard.md § 런타임 구성 매트릭스](deploy-and-onboard-ko.md#runtime-configuration-matrix)
@@ -617,7 +617,7 @@ flowchart LR
 - [llm-strategy.md § 초기화 Provisioner](../architecture/llm-strategy-ko.md#bootstrap-provisioner) 를
  배포자-권한 게이트에 대해 이 문서 참조로.
 
-### W-I: 조정기 weekly 작업 *(later phase - deferred)*
+### W-I: 조정기 weekly 작업 *(later 단계 - deferred)*
 
 Future 작업으로 유지. 전체 설계는 이미
 [llm-strategy.md § 조정기 작업](../architecture/llm-strategy-ko.md#reconciler-job) 에 있음;

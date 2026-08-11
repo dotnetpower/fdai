@@ -21,21 +21,21 @@ Bragi는 최종 턴을 저장합니다. Norns는 응답 경로 밖에서 이를 
 
 ```mermaid
 flowchart LR
-  TURN[최종 turn] --> CHECK[결정론적 검사]
-  CHECK -->|판정 가능| LEDGER[평가 원장]
-  CHECK -->|의미 평가| A[독립 평가자 A]
-  CHECK -->|의미 평가| B[독립 평가자 B]
-  A --> REDUCE[결정론적 reducer]
-  B --> REDUCE
-  REDUCE -->|불일치| TIE[독립 중재자]
-  TIE --> LEDGER
-  LEDGER --> CLUSTER[Norns 실패 군집화]
-  CLUSTER --> CANDIDATE[제한된 정책 후보]
-  CANDIDATE --> REPLAY[블라인드 이중 언어 재실행]
-  REPLAY --> SHADOW[shadow 및 canary]
-  SHADOW -->|보호 지표 통과| PROMOTE[자동 승격]
-  SHADOW -->|회귀| ROLLBACK[자동 롤백]
-  HUMAN[운영자 이의 제기] --> LEDGER
+ TURN[최종 turn] --> CHECK[결정론적 검사]
+ CHECK -->|판정 가능| LEDGER[평가 원장]
+ CHECK -->|의미 평가| A[독립 평가자 A]
+ CHECK -->|의미 평가| B[독립 평가자 B]
+ A --> REDUCE[결정론적 reducer]
+ B --> REDUCE
+ REDUCE -->|불일치| TIE[독립 중재자]
+ TIE --> LEDGER
+ LEDGER --> CLUSTER[Norns 실패 군집화]
+ CLUSTER --> CANDIDATE[제한된 정책 후보]
+ CANDIDATE --> REPLAY[블라인드 이중 언어 재실행]
+ REPLAY --> SHADOW[shadow 및 canary]
+ SHADOW -->|보호 지표 통과| PROMOTE[자동 승격]
+ SHADOW -->|회귀| ROLLBACK[자동 롤백]
+ HUMAN[운영자 이의 제기] --> LEDGER
 ```
 
 ## 구독마다 학습 결과가 다른 이유
@@ -246,7 +246,7 @@ $$
 해시하므로 재시도도 고객 식별자를 산출물에 저장하지 않고 동일한 변형을 선택합니다. 각
 publish는 변경할 수 없는 before 및 after 스냅샷을 기록합니다. 복원은 재시작 후 before 스냅샷을
 재생하고, 롤백은 후보에 기록된 incumbent 다이제스트를 선택하거나 incumbent가 built-in base
-정책이면 overlay를 제거합니다.
+정책이면 오버레이를 제거합니다.
 
 자동 승격에는 다음 조건이 필요합니다.
 
@@ -279,7 +279,7 @@ $$
 - 모델 독립성 부족, 잘못된 점수, 알 수 없는 기준 또는 지원되지 않는 근거는 `inconclusive`입니다.
 - 큐 또는 예산 소진은 `deferred`를 기록하고 제한된 정책에서 재시도합니다.
 - intake 용량 거부, delegate 거부 및 최종 평가 실패는 이미 저장된 답변을 변경하지 않고
-  구조화된 경고를 기록합니다.
+ 구조화된 경고를 기록합니다.
 - 저장소 실패 시 활성 정책을 변경하지 않습니다.
 - 다음 버전이 완전히 승격될 때까지 이전 변경할 수 없는 정책을 유지합니다.
 

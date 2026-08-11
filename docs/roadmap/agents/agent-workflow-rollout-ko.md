@@ -16,7 +16,7 @@ translation_revised: 2026-08-11
 
 1. Cost-aware 교정 (Njord + Forseti + Thor)
 2. Predictive 규모 (Freyr + Heimdall + Njord)
-3. DR drill orchestration (Loki + Vidar + Heimdall + Norns)
+3. DR 훈련 orchestration (Loki + Vidar + Heimdall + Norns)
 4. 재정의 -> 발견 (Var + Saga + Norns + Mimir)
 5. Security 에스컬레이션 (Wave 6 이후 작업 흐름 객체로 formalize)
 6. 인계 -> 기능 (Saga + Norns + Mimir)
@@ -36,7 +36,7 @@ translation_revised: 2026-08-11
 
 ## 의존성 및 anti-scope
 
-Wave 6가 완료되어야 합니다. 이 롤아웃 wave에서는 작업 흐름을 enforce로 승격하지 않습니다.
+Wave 6가 완료되어야 합니다. 이 롤아웃 wave에서는 작업 흐름을 강제 적용으로 승격하지 않습니다.
 승격은 Wave 8 이후 각 작업 흐름별로 측정된 KPI 임계값을 통과한 경우에만 진행합니다.
 
 ## 관련 문서
@@ -44,5 +44,5 @@ Wave 6가 완료되어야 합니다. 이 롤아웃 wave에서는 작업 흐름�
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | 작업 흐름 정의와 에이전트 참여 | [에이전트 workflows](agent-workflows-ko.md) |
-| 구현 wave와 공통 invariant | [에이전트 Pantheon 구현](agent-pantheon-implementation-ko.md) |
+| 구현 wave와 공통 불변식 | [에이전트 Pantheon 구현](agent-pantheon-implementation-ko.md) |
 | 승격 메트릭과 가드 임계값 | [목표 및 메트릭](../architecture/goals-and-metrics-ko.md) |

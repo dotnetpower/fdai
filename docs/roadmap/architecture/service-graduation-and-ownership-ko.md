@@ -45,7 +45,7 @@ translation_revised: 2026-08-11
 | 실패 트리거 | 후보가 90일 동안 독립 검토된 인시던트 2개 이상 또는 상위 서비스 error-budget burn의 10% 이상 유발 | 인시던트 원장, SLO burn 보고, post-incident 검토 |
 | 타입이 지정된 전송 계층 | 모든 프로세스 간 메시지에 소유자, versioned 스키마, 생산자, 소비자, 고정된 파티션 키, 가산 호환성 정책, 재시도/DLQ, 멱등성 룰, 보존 존재 | 계약 레지스트리, 호환성 테스트, event-bus 구성 |
 | 내구성 | 프로세스 loss, 중복, reorder, 확장, 축소 테스트에서 중복 최종 효과 0건이며 권한 게이트를 건너뛰지 않음 | 영속 저장소/CAS 테스트와 재시작 smoke |
-| Observability | 독립 생존/준비 상태와 지연 시간, 큐/lag, 오류, 재시도, DLQ, ownership-conflict 신호가 있고 필수 alert가 책임 소유자에게 경로 | Health 탐색, telemetry 카탈로그, alert 룰, 런북 |
+| Observability | 독립 생존/준비 상태와 지연 시간, 큐/lag, 오류, 재시도, DLQ, ownership-conflict 신호가 있고 필수 alert가 책임 소유자에게 경로 | Health 탐색, 텔레메트리 카탈로그, alert 룰, 런북 |
 | 비용 | 월별 incremental 비용을 측정하고 승인된 환경 예산 안에 유지. 상위 서비스 비용의 20%를 넘는 delta는 FinOps 승인 필요 | Terraform 비용 추정치와 측정된 청구 기준선 |
 | Rollback | Staging 예행 연습에서 오프셋 reset, 데이터 loss, 중복 최종 효과, 권한 변경 없이 15분 안에 이전 토폴로지 복원 | Timed 롤백 증적과 post-rollback smoke |
 | 신원 상한 | 권한이 다르면 새 역할에 전용 신원을 사용하고 non-executor 역할은 Thor 신원 또는 실행기 역할을 획득할 수 없음 | Terraform 신원/RBAC assertion과 effective-access 탐색 |
@@ -60,7 +60,7 @@ translation_revised: 2026-08-11
 
 | 후보 | 현재 결정 | 이유와 다음 근거 |
 |-----------|-----------|----------------------|
-| Isolated 실행기 | 필수 프로그램 목표, 전환은 게이트 적용 | 권한 격리가 forcing 트리거입니다. 효과 권한을 Core에서 이동하기 전에 versioned 명령/증적 전송 계층, 영속 중복/reorder/재시작 행동, 독립적인 telemetry, 비용, effective 접근, exact-topology smoke, timed 롤백을 통과해야 합니다. |
+| Isolated 실행기 | 필수 프로그램 목표, 전환은 게이트 적용 | 권한 격리가 forcing 트리거입니다. 효과 권한을 Core에서 이동하기 전에 versioned 명령/증적 전송 계층, 영속 중복/reorder/재시작 행동, 독립적인 텔레메트리, 비용, effective 접근, exact-topology smoke, timed 롤백을 통과해야 합니다. |
 | Operator API `application` 서비스 | 보류 | 타입이 지정된 프로세스 내 경계가 있지만 독립 규모, 권한, 실패 트리거가 측정되지 않았습니다. |
 | Operator API 읽기 변환 결과 | 보류 | 읽기 전용 패키지 소유권은 명확하지만 규모 트리거 또는 독립 저장소가 정당화되지 않았습니다. |
 | Operator API SSE 스트리밍 | 보류 | Versioned 중계/재생 계약과 측정된 연결 격리 benefit이 필요합니다. |
@@ -122,16 +122,16 @@ DLQ를 [Event Hubs 모듈](../../../infra/modules/event-bus/event-hubs-kafka/mai
 
 서비스 기준선 도입은 이전 방식 Alembic 헤드만 확인하지 않습니다. 이행 디스패처는 각
 서비스가 소유한 표, 순서가 고정된 열, 제약, 필수 PostgreSQL 확장의 checked-in
-fingerprint를 제출된 근거 및 실제 운영 데이터베이스 카탈로그와 비교한 후 서비스 기준선을 각인합니다.
+지문을 제출된 근거 및 실제 운영 데이터베이스 카탈로그와 비교한 후 서비스 기준선을 각인합니다.
 Rollback은 exact 서비스 가지 헤드에서만 시작하고 exact 기준선을 대상으로 사용합니다.
-완료 후 resulting 스키마 fingerprint와 헤드를 다시 확인하고, 해석 가능한 저장된 롤백
+완료 후 resulting 스키마 지문과 헤드를 다시 확인하고, 해석 가능한 저장된 롤백
 산출물을 가리키는 시각 포함 JSON 증적을 기록합니다.
 
 ## 신원과 배포 매트릭스
 
 | 배포 역할 | 신원과 권한 | 실행기 권한 | Ingress / 형태 |
 |-----------------|-----------------------|--------------------|-----------------|
-| Core 컨트롤 Plane | 결정, audit-intent, 복구, event-transport 역할. 현재 배포는 전환 전까지 실행기 UAMI를 임시로 보유 | 전환 후 없음 | 내부 headless Container App |
+| Core 컨트롤 평면 | 결정, audit-intent, 복구, event-transport 역할. 현재 배포는 전환 전까지 실행기 UAMI를 임시로 보유 | 전환 후 없음 | 내부 headless Container App |
 | Isolated 실행기 | 실행기 UAMI와 등록된 action-specific 역할 | 전환 후 유일한 보유자 | 내부 event-driven Container App |
 | Operator API 읽기 역할 | 읽기 UAMI, 변환 결과 저장소, 명령 전송 계층 없음 | 없음 | 인증된 공개 API |
 | Operator API 명령 역할 | 통제된 요청의 event-transport 전송/수신만 허용 | 없음, 요청은 타입이 지정된 게이트로 재진입 | Operator API 조립에 연결된 |
@@ -157,8 +157,8 @@ AST 검사기는 exact 검토된 architectural 모듈에만 적용합니다. 의
 - **배포:** 프로세스 또는 패키지 역할과 네트워크 경계 생성 여부입니다.
 
 범위 구성은 `report` 또는 `enforce`를 선택합니다. 보고 발견 사항은 표시되지만 차단하지
-않습니다. Accountable 소유자가 가져오기, 상태 쓰기, 신원, 프로세스 wiring과 대조해 다섯 섹션을
-확인하고 exclusion이 남지 않은 범위만 enforce로 이동합니다. Exact justification이 있는 exclusion은 기존
+않습니다. Accountable 소유자가 가져오기, 상태 쓰기, 신원, 프로세스 배선과 대조해 다섯 섹션을
+확인하고 exclusion이 남지 않은 범위만 강제 적용으로 이동합니다. Exact justification이 있는 exclusion은 기존
 공백을 suppress할 수 있습니다. 누락된 파일, 범위 밖 exclusion, compliance 후 남은 exclusion은
 stale로 처리되어 검사기가 실패합니다. AST 검사기 통과는 structure와 비어 있지 않은 텍스트만
 증명합니다. 의미 accuracy는 아키텍처 검토와 executable 테스트가 계속 담당합니다.

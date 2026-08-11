@@ -13,10 +13,10 @@ FDAI의 2026-07-06 작업 tranche를 조정한 historical 기록입니다. 당�
 
 - **표준 세트**: 2026-07-06에 추가된 설계 문서들에서 겹쳐 있던 추상을
  하나로 모으는 여섯 개의 설계 결정(R1, R2, R3, R4, R6, R7).
-- **웨이브 플랜**: Foundation -> Console Day 1 -> 쓰기 집합 -> Ops
+- **웨이브 플랜**: 기반 -> Console Day 1 -> 쓰기 집합 -> Ops
  ActionTypes -> 실제 운영 probes에, Assurance Twin과 Preflight의 병렬 트랙 둘.
 
-> 고객 비종속 범위: 아래의 모든 모듈 이름과 phase 라벨은 일반명이다.
+> 고객 비종속 범위: 아래의 모든 모듈 이름과 단계 라벨은 일반명이다.
 > 포크는 `core/` 편집 없이
 > [project-structure.md](../architecture/project-structure.md)의 DI 경계으로만 조정한다.
 >
@@ -115,7 +115,7 @@ prompt-composition 확장, db-dr-drill 런북). 나란히 놓고 보면 같은 �
  ActionType 카탈로그에서 `trigger_kind`로 필터한 **프로젝션**으로
  열거된다. 어떤 principal에 대한 `list_tools()`는
  `ActionTypeCatalog.필터(trigger_kind in {operator_request, both},
-  principal_role >= min_role) union SystemConsoleTools`.
+ principal_role >= min_role) union SystemConsoleTools`.
 - 읽기 계열 툴(`describe_event`, `explain_verdict`, `explore_catalog`,
  `query_audit`, `query_inventory`)은 변경에 매핑되지 않으므로
  작지만 별도의 셋(`SystemConsoleTool`, 다섯 개)으로 남는다. 각자
@@ -159,7 +159,7 @@ prompt-composition 확장, db-dr-drill 런북). 나란히 놓고 보면 같은 �
  `resolved-models.json`에서 배포 id를 룩업한다. 기존
  role-specific 클래스는 공유 연결을 올바른 역할로 호출하는 **얇은
  팩토리**가 된다 (하위호환용으로 한 릴리스 유지 후 제거).
-- 컴포지션 루트 wiring은 하나의 프로토콜 -> 하나의 어댑터. 포크는
+- 컴포지션 루트 배선은 하나의 프로토콜 -> 하나의 어댑터. 포크는
  대체 구현 하나를 바인딩해서 모든 LLM 역할을 교체한다.
 - 프롬프트 컴포저
  ([prompts/composer.py](../../../services/core-control-plane/src/fdai/core/prompts/composer.py))
@@ -169,7 +169,7 @@ prompt-composition 확장, db-dr-drill 런북). 나란히 놓고 보면 같은 �
 **효과**
 
 - 역할 추가 = `Enum.append + resolved-models.json 항목`. 새 어댑터
- 클래스가 아니다. upstream은 다섯 번째 Azure OpenAI 어댑터를 도입하지
+ 클래스가 아니다. 업스트림은 다섯 번째 Azure OpenAI 어댑터를 도입하지
  않고 `narrator_t1`과 `narrator_t2`를 배송한다.
 - 비용 텔레메트리(prompt_tokens, completion_tokens,
  model_deployment_id)가 모든 역할에서 공통 모양으로 나온다. 역할
@@ -185,7 +185,7 @@ prompt-composition 확장, db-dr-drill 런북). 나란히 놓고 보면 같은 �
 ### 2.4 R4 - Twin과 Preflight가 공유하는 `Projection` 프리미티브
 
 Assurance Twin(구독 전체)과 배포 Preflight(단일 배포)는
-둘 다 인벤토리 위에 읽기 전용 변환 결과를 만들어 diff를 적용하고 T0
+둘 다 인벤토리 위에 읽기 전용 변환 결과를 만들어 차이를 적용하고 T0
 룰을 평가한다. R4는 그 프리미티브를 뽑아낸다.
 
 **계약 변경**
@@ -194,22 +194,22 @@ Assurance Twin(구독 전체)과 배포 Preflight(단일 배포)는
 
  ```python
  등급 ScratchProjection(프로토콜):
-   def apply_diff(self, diff: InventoryDiff) -> ScratchProjection: ...
-   def evaluate(self, 룰: RuleSet) -> Findings: ...
-   # 읽기 전용, 변경할 수 없는, 결정론적
+  def apply_diff(self, 차이: InventoryDiff) -> ScratchProjection: ...
+  def evaluate(self, 룰: RuleSet) -> Findings: ...
+  # 읽기 전용, 변경할 수 없는, 결정론적
  ```
 
-- `core/deploy_preflight/analyzer.py`는 단일 타깃 diff로 프리미티브를
+- `core/deploy_preflight/analyzer.py`는 단일 타깃 차이로 프리미티브를
  소비한다.
 - `core/assurance_twin/projection.py`는 구독 전체 스냅샷을
- 베이스라인으로 두고 리뷰용 per-change diff로 같은 프리미티브를
+ 베이스라인으로 두고 리뷰용 per-change 차이로 같은 프리미티브를
  소비한다.
 - 두 소비자는 자체 outer 타입(`DeploymentReadinessReport`,
  `PostureAssessmentReport`)을 유지한다. 변환 결과 커널만 공유.
 
 **효과**
 
-- 결정성, 불변성, diff 리플레이를 테스트할 곳이 하나.
+- 결정성, 불변성, 차이 리플레이를 테스트할 곳이 하나.
 - Twin의 3-vertical 시뮬레이션 표면(§Twin as simulator)이
  `ScratchProjection.apply_diff(...).evaluate(vertical_rules)`가 된다 -
  같은 프리미티브, 세 소비자.
@@ -297,11 +297,11 @@ R7은 이 둘을 평평하게 만든다.
 PR이 아래 중 어느 것이라도 바뀐 것으로 읽는다면 그 독해가 잘못된 것이다.
 
 - 자율 액션마다의 7개 안전조건(stop-condition, 롤백, blast-radius 한도, 예행 실행,
- 리소스 lock, 멱등성, 감사 항목). 채팅 특별예외 없음, direct-API
+ 리소스 잠금, 멱등성, 감사 항목). 채팅 특별예외 없음, direct-API
  완화 없음.
  [coding-conventions.instructions.md § 안전성](../../../.github/instructions/coding-conventions.instructions.md#safety)
  참조.
-- 새 액션은 shadow-first. enforce로의 승격은 액션별, `promotion_gate`
+- 새 액션은 shadow-first. 강제 적용로의 승격은 액션별, `promotion_gate`
  측정, 별도 리뷰.
 - LLM은 판사가 아니라 통역사. 실행 자격은 결정적 검증이 부여하며
  모델의 신뢰도가 부여하지 않는다
@@ -314,7 +314,7 @@ PR이 아래 중 어느 것이라도 바뀐 것으로 읽는다면 그 독해가
 아래 웨이브는 의존관계 순이다. 각 웨이브는 명시적 exit 게이트를 가지며,
 모든 게이트가 측정 가능하고 초록으로 켜질 때까지 웨이브는 완료가 아니다.
 
-### Wave F - Foundation
+### Wave F - 기반
 
 모든 다른 웨이브의 사전조건. 스키마와 risk-gate 통합을 건드리며 새로운
 자율성을 추가하지 않는다.
@@ -339,8 +339,8 @@ PR이 아래 중 어느 것이라도 바뀐 것으로 읽는다면 그 독해가
  Axes D와 G의 기여가 축 A 룰 id를 참조하는지 확인 (R1 파생
  불변식).
 - **F5** [action-ontology.md § 7.5](../decisioning/action-ontology.md#75-precedence)
- 의 4-tier 우선순위를 가진 overlay 로더: 런타임 > Rego > 파일 overlay
- > upstream. 감사 엔트리는 이긴 계층을 명명한다.
+ 의 4-tier 우선순위를 가진 오버레이 로더: 런타임 > Rego > 파일 오버레이
+ > 업스트림. 감사 엔트리는 이긴 계층을 명명한다.
 - **F6** `RiskDecision` 마이그레이션: `quorum`, `matched_rule_id`,
  `catalog_version`, `resolved_ceiling`, `execution_path`,
  `require_manual_merge` 필드를 안전 기본값과 함께 추가. `outcome`은
@@ -429,7 +429,7 @@ prompt-composition Wave 3 단계 B 파이프라인 구획 3 잔재
  이름으로 라우팅; 모든 최종 경로 (unknown-name, 레지스트리 오류,
  dry/실제 운영 성공 또는 실패)가 `dry_run` boolean과
  `mode=shadow|enforce`를 담은 `console.run_runbook` 감사 엔트리를
- 기록. `activate_break_glass`는 채팅 invariant 7
+ 기록. `activate_break_glass`는 채팅 불변식 7
  (operator-console.md 7.2)을 강제: 방어적-다층 시크릿 scrub
  (Azure/AWS/PEM/GH/Slack 패턴) 이후 사유가 반드시 20자 이상,
  TTL은 [60s, 4h] 범위로 한계 (ctor 시점에 상한 강제), 새
@@ -497,17 +497,17 @@ W1 뒤.
  CSP-중립 :등급:`DirectApiExecutor` 프로토콜 + 가짜
  (`shared/providers/direct_api.py` +
  `shared/providers/testing/direct_api.py`)의 idempotency-by-key,
- ``enforce`` 프로모션 레이블 체크, 5-value 결과 enum
+ ``강제 적용`` 프로모션 레이블 체크, 5-value 결과 enum
  (`SUCCEEDED / ALREADY_APPLIED / PRECONDITION_FAILED / STOPPED /
  실패한`) 뿐 아니라, `core/executor/direct_api.py` 글루
  (:등급:`DirectApiShadowExecutor`)까지 shipping - 이는
  :등급:`~fdai.core.executor.executor.ShadowExecutor`를 미러링:
- 동일한 per-resource lock, 동일한 blast-radius 상한, 동일한 7-safeguard
+ 동일한 per-resource 잠금, 동일한 blast-radius 상한, 동일한 7-safeguard
  fail-close, 동일한 enforce-mode 액션 거부 (shadow-only).
  모든 최종 경로가 정확히 하나의
  ``action_kind = "실행기.direct_api.<outcome>"`` 감사 엔트리 (8개
  서로 다른 결과) + ``execution_path = "direct_api"``를 기록하여
- PR-native 경로와 필터 가능. Composition-root wiring +
+ PR-native 경로와 필터 가능. Composition-root 배선 +
  `mutation_target=direct` HIL 큐에 추가는 후속 작업.
 - **W2.4** 배송되는 ops 액션용 Azure ARM 어댑터.
 - **W2.5** 비용 거버넌스 버티컬이 축 A에 estimator를 노출
@@ -550,7 +550,7 @@ W2 뒤. [execution-model.md § 월 1](../decisioning/execution-model.md#month-1)
 
 - **M1.1** `LiveBlastProbe` 프로토콜, `NoOpBlastProbe`,
  `AzureMonitorBlastProbe` (KQL과 Metrics API 어댑터).
- **Upstream 배송 완료**: CSP-중립 :등급:`LiveBlastProbe` 프로토콜 +
+ **업스트림 배송 완료**: CSP-중립 :등급:`LiveBlastProbe` 프로토콜 +
  :등급:`NoOpBlastProbe` 가짜 (`shared/providers/blast_probe.py` +
  `shared/providers/testing/blast_probe.py`)에 네 값 enum
  (`quiet / active / overloaded / no_opinion`),
@@ -574,7 +574,7 @@ W2 뒤. [execution-model.md § 월 1](../decisioning/execution-model.md#month-1)
  탐색 카탈로그에서 hard-fail (`probes:` 이슈 키를 표면, silent 건너뜀
  없음). `__main__` + `collect_cli`에 배선.
 - **M1.4** `governance.override-ceiling` 런타임 (`policies/action_types/`
- 하의 Rego fragment 작성기), exemption 워크플로우를 통해 시간-상자화.
+ 하의 Rego 조각 작성기), exemption 워크플로우를 통해 시간-상자화.
  **Shipped**: `core/risk_gate/override_writer.py`는 순수 렌더러 -
  `OverrideRequest -> RegoOverlay(path, content)`이며 파일시스템 I/O 없음
  (호출자가 PR로 파일 씀). 실패 시 차단: `target_level`이
@@ -588,7 +588,7 @@ W2 뒤. [execution-model.md § 월 1](../decisioning/execution-model.md#month-1)
  통과.
 - **M1.5** 관측 심도 툴(`query_log`, `query_metric`,
  `query_deployments`, `correlate_incident`)을 `AzureMonitorAdapter`와
- `DeploymentHistoryAdapter`로. **Upstream shipped**를 세 계층으로:
+ `DeploymentHistoryAdapter`로. **업스트림 shipped**를 세 계층으로:
  (1) `shared/providers/observation.py` +
  `shared/providers/testing/observation.py` - 네 개 CSP-neutral
  프로토콜 (`LogQueryProvider` / `MetricQueryProvider` /
@@ -626,7 +626,7 @@ Wave F 배송 이후에는 Waves D1..M1과 독립.
 - **A.3** `core/assurance_twin/query.py`가 NL -> 타입드 온톨로지
  쿼리를 컴파일. T2 quality 게이트가 권위
  ([assurance-twin.md § 3](../operations/assurance-twin.md#3-verifiable-text-to-query-not-text-to-answer)).
- Upstream은 `TypedQuery` / `Predicate` 타입, `QueryVerifier` (알
+ 업스트림은 `TypedQuery` / `Predicate` 타입, `QueryVerifier` (알
  수 없는 resource_type, 비-read-only op, 변환 결과와 결합된
  개수 쿼리를 거부), T0 문법을 다루는 결정론적
  `DeterministicPatternCompiler` (`list` / `count` /
@@ -636,7 +636,7 @@ Wave F 배송 이후에는 Waves D1..M1과 독립.
  quality 게이트로 라우팅하는 자체 `NlQueryCompiler`를 설치하며,
  그 출력은 반드시 동일한 shipped `QueryVerifier`를 통과해야 한다.
 - **A.4** `core/assurance_twin/review.py`가 GitHub Checks API
- 어댑터로 IaC PR에 주변 리뷰 게시. **Upstream shipped**:
+ 어댑터로 IaC PR에 주변 리뷰 게시. **업스트림 shipped**:
  `shared/providers/iac_review.py` (`IacReviewPublisher` 프로토콜 +
  `IacReview` + `ReviewReceipt` + `IacReviewPublishError`)는
  `review_key`로 멱등적; `shared/providers/testing/iac_review.py`가
@@ -647,7 +647,7 @@ Wave F 배송 이후에는 Waves D1..M1과 독립.
  포크 territory.
 - **A.5** `core/assurance_twin/report.py`가
  `PostureAssessmentReport` 조립; 콘솔 SPA가 읽기 전용 패널 획득.
- **Upstream shipped**: `PostureAssessmentReport`는 findings로부터
+ **업스트림 shipped**: `PostureAssessmentReport`는 findings로부터
  파생된 whole-estate 판정 (`CLEAR / NEEDS_REVIEW / BLOCKED`)를
  생성; 호출자가 판정을 spoof 못 함. Shadow-first: `blocks_action`은
  `ENFORCE + BLOCKED`일 때만 `True`. 집계 통계: `resource_count`,
@@ -669,7 +669,7 @@ Wave F 배송 이후에는 Waves D1..M1과 독립.
  어댑터(Policy Insights, Resource Graph, Firewall/NSG, 할당량).
  스크래치 평가에 R4 프리미티브 소비.
 - **P.2**
- [deployment-preflight.md § Blocker to Terraform 토글 대응](../deployment/deployment-preflight.md#blocker-to-terraform-toggle-mapping)
+ [deployment-preflight.md § 차단 요인 to Terraform 토글 대응](../deployment/deployment-preflight.md#blocker-to-terraform-toggle-mapping)
  의 `infra/modules/` capability-mode 토글. **배송 완료**:
  `infra/modules/preflight-toggles/` 아래 5개 data-only Terraform
  서브 모듈 (`disk_provisioning`, `nsg_provisioning`,
@@ -681,7 +681,7 @@ Wave F 배송 이후에는 Waves D1..M1과 독립.
  읽어 실제 리소스 형태를 결정 - 토글 모듈 자체는 실제 운영
  리소스를 발행하지 않으므로 Preflight 분석기의
  `terraform_toggle` 발견 사항이 단일 변수 재정의에 1:1로 매핑.
-- **P.3** 인프라 PR에 리포트를 게시하는 GitHub 검사. **Upstream
+- **P.3** 인프라 PR에 리포트를 게시하는 GitHub 검사. **업스트림
  shipped**: `shared/providers/preflight_check.py`가 A.4 경계를
  미러링 - `PreflightCheckPublisher` 프로토콜 + `PreflightCheck`
  의도 + `ReviewReceipt` + `PreflightCheckPublishError`,
@@ -733,7 +733,7 @@ flowchart LR
  아래 콘솔에 자동 노출된다.
 - **R3**는 LLM DI 표면을 단순화한다. 포크는 `LlmBinding`을 한 번
  구현하고 모든 역할을 얻는다.
-- **R4**는 포크가 자체 그래프나 자체 diff applier를 가져오고 싶을 때
+- **R4**는 포크가 자체 그래프나 자체 차이 applier를 가져오고 싶을 때
  확장할 프로토콜 하나(`ScratchProjection`)를 준다.
 - **R6**는 포크의 감사 로그 보존 정책이 곧 유일한 operator_memory
  보존 정책이라는 뜻이다. 감사 로그의 짧은 TTL은 자동으로 기억

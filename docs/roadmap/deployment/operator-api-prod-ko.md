@@ -49,7 +49,7 @@ pytest의 `test_fixtures=True`에서만 `UnsafeClaimsExtractor`와 synthetic 화
  없으므로 콘솔은 인증된 fetch 스트리밍으로 이를 소비합니다.
 - **영속 에이전트 초기화.** 에이전트 페이지는 서버에서 참여 에이전트를 도출한
  Postgres 기반 인시던트 명단을 먼저 로드한 다음 `/agents/stream`의 더 새로운
- 단계 이벤트를 overlay합니다. Audit-stage 프레임은 기록된 교정 결과가
+ 단계 이벤트를 오버레이합니다. Audit-stage 프레임은 기록된 교정 결과가
  있을 때만 티켓을 해석합니다. HIL, 거부, abstain은 활성으로 유지되고 완료된
  단계 소유자는 idle로 돌아갑니다.
 
@@ -88,7 +88,7 @@ pytest의 `test_fixtures=True`에서만 `UnsafeClaimsExtractor`와 synthetic 화
 | `FDAI_WEB_SEARCH_ENABLED` | `false` | 조건을 충족한 Chat T2 턴에서 통제된 Azure Responses 웹 검색을 활성화합니다. Resolved 웹 검색 후보와 allowed-domain 목록이 필요합니다. |
 | `FDAI_WEB_SEARCH_ALLOWED_DOMAINS` | 비어 있음 | 콤마로 구분된 공개 출처 도메인입니다. 웹 검색을 활성화할 때 필요하며 최대 100개까지 설정할 수 있습니다. 각 항목은 DNS 하위 도메인도 허용합니다. |
 | `FDAI_WEB_SEARCH_FOUNDRY_PROJECT_ENDPOINT` | 비어 있음 | 선택적 Foundry project HTTPS 엔드포인트입니다. 정확한 allowed-domain 목록을 가진 웹 검색 도구의 프롬프트 에이전트를 사용하려면 `FDAI_WEB_SEARCH_FOUNDRY_AGENT_NAME`과 함께 구성합니다. |
-| `FDAI_WEB_SEARCH_FOUNDRY_AGENT_NAME` | 비어 있음 | 선택적 Foundry prompt-agent 이름입니다. Foundry 구성이 불완전하면 시작이 실패합니다. Provision된 에이전트와 일치하지 않는 런타임 domain 변경은 실패 시 차단합니다. |
+| `FDAI_WEB_SEARCH_FOUNDRY_AGENT_NAME` | 비어 있음 | 선택적 Foundry prompt-agent 이름입니다. Foundry 구성이 불완전하면 시작이 실패합니다. Provision된 에이전트와 일치하지 않는 런타임 도메인 변경은 실패 시 차단합니다. |
 | `FDAI_WEB_SEARCH_FOUNDRY_MODEL_DEPLOYMENT` | resolved direct 후보 | Foundry 프롬프트 에이전트가 참조하고 Settings가 표시하는 정제된 모델 배포입니다. Foundry 검색을 활성화하면 Terraform이 deployment-owned 값을 공급합니다. |
 | `FDAI_WEB_SEARCH_MAX_RESULTS` | `3` | 한 검색에서 유지할 인용 수입니다. `1`부터 `10`까지 허용합니다. |
 | `FDAI_WEB_SEARCH_BUDGET_MS` | `15000` | 검색별 엔드포인트 시간 초과(ms)입니다. |
@@ -115,7 +115,7 @@ Entra 디렉터리 어댑터는 Operator API managed 신원을 통해
 
 ```bash
 uvicorn fdai.delivery.operator_api.prod:app \
-  --factory --host 0.0.0.0 --port 8000
+ --factory --host 0.0.0.0 --port 8000
 ```
 
 `app` 팩토리는 워커당 한 번 호출된다. 위 모든 env가 프로세스 스코프에 있어야
@@ -131,8 +131,8 @@ uvicorn fdai.delivery.operator_api.prod:app \
  Postgres/Entra/프로바이더 조립의 실제 소유자.
 - [`postgres_read_model.py`](../../../services/operator-service/src/fdai_operator_service/)
  - `audit_log` + `state_kv` 위의 구체 :등급:`ConsoleReadModel`. 행 -> 데이터 클래스
-  매퍼와 경계가 정해진 KPI 집계는 같은 모듈의 순수함수로 분리되어 있어
-  라이브 DB 없이 유닛테스트가 가능하다.
+ 매퍼와 경계가 정해진 KPI 집계는 같은 모듈의 순수함수로 분리되어 있어
+ 라이브 DB 없이 유닛테스트가 가능하다.
 - [`main.py`](../../../services/operator-service/src/fdai_operator_service/) - 공용 `build_app`
  글루 (라우트 등록, `_authorize` 게이트, staging/prod 트립와이어).
 - [`streaming/live_stage_broadcaster.py`](../../../services/operator-service/src/fdai_operator_service/)

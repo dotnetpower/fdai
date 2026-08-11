@@ -25,14 +25,14 @@ risk-gate 우회도 없다. 이는 행동 요청은 타입이 지정된 파이�
 근거 및 컨트롤 단계는 변경 권한이 없고 전용 타입이 지정된 계약을 사용합니다. 실행기는
 재구성을 위한 집계 `runbook.terminal` 감사 행을 추가합니다.
 
-### 4.1 거버넌스가 적용되는 그림자 및 enforce 오케스트레이터
+### 4.1 거버넌스가 적용되는 그림자 및 강제 적용 오케스트레이터
 
 [`WorkflowOrchestrator`](../../../services/core-control-plane/src/fdai/core/workflow/orchestrator.py) 가 첫
 라이브 소비자다. 승인을 계획하고 ([6.1절](#61-승인자-할당approver-assignment)),
 `(workflow, target_resource_id, trigger_ts)` 에서 멱등적 `Process` id 를
 파생하고, 워크플로를 컴파일한 뒤
 [`ShadowWorkflowStepExecutor`](../../../services/core-control-plane/src/fdai/core/workflow/orchestrator.py) 로
-걷는다 - 이 `StepExecutor` 는 발행기 도, direct-API 실행기 도, 리소스 lock
+걷는다 - 이 `StepExecutor` 는 발행기 도, direct-API 실행기 도, 리소스 잠금
 도 없어서 **구조적으로 변경 이 불가능**하다. 각 스텝은 (해결된 승인자 할당과
 함께) judge-and-log 되어 `SUCCESS` 로 보고되고, 실행은 `workflow.process-plan`
 감사 행 하나, 스텝마다 `workflow.step` 행 하나, 러너의 `runbook.terminal` 을
@@ -40,7 +40,7 @@ risk-gate 우회도 없다. 이는 행동 요청은 타입이 지정된 파이�
 스냅샷 하나와 추가 전용 전이 저널 이 있습니다. PostgreSQL 어댑터 는
 optimistic 개정 번호 을 검사하면서 스냅샷 갱신과 타입이 지정된 `ProcessEvent` 덧붙이기 를
 한 트랜잭션 에서 처리합니다. In-memory 저장소 는 테스트와 로컬 개발에 같은
-계약 를 구현합니다. 명시적 enforce 실행은 `WorkflowActionDispatcher`를 사용합니다.
+계약 를 구현합니다. 명시적 강제 적용 실행은 `WorkflowActionDispatcher`를 사용합니다.
 각 액션 단계는 멱등적 `operator_request`를 타입이 지정된 유입으로 다시 게시하므로
 ActionType 승격, risk, HIL, Thor 실행을 계속 통과합니다. 명시적인 긍정 `attempt`는
 `1`이 기본값이며 제안 멱등성 키와 모든 단계 전이 id를 범위하므로 서로 다른
@@ -76,10 +76,10 @@ non-mutating 관측을 활성 상태로 유지한다.
 스텝의 `guard_rule_ref` 는 스텝의 결정론적 "언제"다 - policy-as-code 술어이지,
 모델 텍스트가 아니다. 오케스트레이터는
 [`WorkflowGuardEvaluator`](../../../services/core-control-plane/src/fdai/core/workflow/orchestrator.py) 경계 을
-노출한다 (비동기, 결정론적, side-effect 없음). upstream 기본값은 평가기 를 **주입
+노출한다 (비동기, 결정론적, side-effect 없음). 업스트림 기본값은 평가기 를 **주입
 하지 않는다**: 가드 는 룰 카탈로그에 대해 load-validate 되지만 런타임엔
-`guard_evaluated: false` 로 기록되어 upstream 은 동작상 중립을 유지한다. 포크 (또는
-향후 enforce 경로)가 이 경계 을 통해 구체 OPA-backed 평가기 를 바인딩한다.
+`guard_evaluated: false` 로 기록되어 업스트림 은 동작상 중립을 유지한다. 포크 (또는
+향후 강제 적용 경로)가 이 경계 을 통해 구체 OPA-backed 평가기 를 바인딩한다.
 평가기 가 바인딩되고 스텝의 가드 가 false 를 반환하면, 그림자 실행은
 `guard_passed: false` 를 기록하고 그 스텝을 judged no-op 로 취급한다 (사유
 `guard_blocked_shadow_noop`) - 실행은 계속되고 아무것도 mutate 하지 않는다. 모든
@@ -106,7 +106,7 @@ CAS를 재시도합니다. 만료 전에 완성된 정족수는 delayed 재개�
 
 온톨로지 그래프 는 정본 가 아니라 읽기 모델 입니다. 각 이벤트 가 커밋 된
 후 `ProcessOntologyProjector` 가 현재 `Process` 객체 와 `targets` 링크 를
-materialize 합니다. 작업 흐름 전용 projector 는 domain 객체 와 링크 를 추가할 수
+materialize 합니다. 작업 흐름 전용 projector 는 도메인 객체 와 링크 를 추가할 수
 있습니다. 예를 들어 architecture-review projector 는 같은 스냅샷 과 이벤트 에서
 검토 사례, 검사, 근거, principal, 승인, 결정 을 materialize 합니다.
 
@@ -126,13 +126,13 @@ materialize 합니다. 작업 흐름 전용 projector 는 domain 객체 와 링�
 이 분리 덕분에 온톨로지 저장소 가 잠시 사용 불가 해도 런타임 처리는 계속되고,
 모든 변환 결과 의도 는 복구를 위해 보존됩니다.
 
-### 4.4 수동 그림자 또는 enforce 명령
+### 4.4 수동 그림자 또는 강제 적용 명령
 
 프로덕션 신호 을 기다리지 않고 카탈로그 작업 흐름 를 시작하려면 기여자 권한이
 필요한 선택적 `POST /workflows/run` 명령을 사용할 수 있습니다. 이 경로 는 카탈로그
 작업 흐름 이름, 대상 리소스 id, RFC 3339 트리거 시각, 범위가 제한된
 parameter-substitution 맥락 및 `mode`를 받습니다. 기여자는 그림자를 실행할 수
-있습니다. Enforce에는 Owner와 배포 `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` 항목이
+있습니다. 강제 적용에는 Owner와 배포 `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` 항목이
 필요합니다. 액션 단계는 일반 타입이 지정된 파이프라인으로 다시 게시되며 작업 흐름이 실행기를
 직접 호출하지 않습니다.
 
@@ -159,13 +159,13 @@ uv run python scripts/automation/run-workflow.py \
 응답에는 프로세스 id 와 스냅샷, 저널, 콘솔 경로 링크가 포함됩니다.
 `POST /workflows/{process_id}/resume`과 CLI `--resume-process-id` 모드는 본문을 보내지
 않습니다. 서버는 프로세스 저널에서 original 대상, 트리거, 모드, 상관관계,
-audit-safe 매개변수 맥락을 다시 읽고 현재 역할과 enforce 허용 목록을 다시 확인합니다.
+audit-safe 매개변수 맥락을 다시 읽고 현재 역할과 강제 적용 허용 목록을 다시 확인합니다.
 `POST /workflows/{process_id}/cancel`과 CLI `--cancel-process-id`도 본문을 보내지 않습니다.
-Pending 또는 waiting safe 경계만 수락하고 enforce 프로세스에는 Owner를 요구하며 pending
+Pending 또는 waiting safe 경계만 수락하고 강제 적용 프로세스에는 Owner를 요구하며 pending
 승인 자리를 닫습니다. Outstanding 액션 결과를 조정한 뒤 취소 또는
 보상을 진행합니다. Running 프로세스는 in-flight 디스패처가 idle이라고 가정하지 않고 타입이 지정된
 충돌을 반환합니다. `POST /workflows/{process_id}/retry`와 CLI `--retry-process-id`는 effect-free
-실패한 시도 또는 최종 승인 시간 초과만 수락하고 현재 enforce 권한을 다시 검사하며
+실패한 시도 또는 최종 승인 시간 초과만 수락하고 현재 강제 적용 권한을 다시 검사하며
 서버가 소유한 시도 상한을 적용합니다. 모호한 전달 실패는 복구 작업으로 유지합니다.
 운영 조립은
 `WorkflowExecutionConfig`를 주입해 명시적 선택 합니다.
@@ -206,7 +206,7 @@ Authoring 경로는 여섯 연산 을 분리합니다.
  타입이 지정된 이벤트 를 기록할 뿐 VM 에 접속하지 않습니다.
 
 Headless 코어 는 `FDAI_VM_TASK_ENABLED=1` 일 때 `VmPythonToolExecutor` 를
-바인딩합니다. 그림자 전달 는 `dry_run=true` 로 실행기 를 호출합니다. Enforce
+바인딩합니다. 그림자 전달 는 `dry_run=true` 로 실행기 를 호출합니다. 강제 적용
 전달 는 `FDAI_VM_TASK_ENFORCE=1` 도 필요합니다. Azure 어댑터 는 활성
 인벤토리 에서 프로바이더 ARM 참조 를 해석 하고, 실행기 Managed Identity 로
 Managed Run Command 리소스 를 생성하며, base64-encoded 파일 을 단계 합니다.
@@ -224,7 +224,7 @@ Reusable [`vm-task-host`](../../../infra/modules/vm-task-host) Terraform 모듈 
 VM cloud-init 프로파일 을 생성합니다. 별도
 [`vm-task-rbac`](../../../infra/modules/vm-task-rbac) 모듈 은 대상 VM 범위 에
 VM 읽기 및 Managed Run Command 읽기/쓰기/삭제 만 부여합니다. 어느 모듈 도 VM 을
-생성하거나 시작하지 않습니다. Downstream 조립 은 Python, driver, CUDA,
+생성하거나 시작하지 않습니다. 다운스트림 조립 은 Python, driver, CUDA,
 approved 모듈 이 이미 포함된 승인 GPU VM 이미지 에 호스트 프로파일 을 전달하고 VM 생성
 후 RBAC 을 바인딩합니다.
 호스트 모듈 의 `inventory_tags` 출력 은 `fdai:vm-task-ready=true` 및 declared
@@ -243,7 +243,7 @@ scheduled 작업 흐름 에서는 `scheduled_task_from_workflow()` 가 타입이
 환경 를 로드하고 완전한 액션 및 정책 맥락 를 Owner 승인 용으로
 보류 한 뒤 승인된 요청 를 declared 도구 실행기 로 전달 합니다. 선택적
 Pantheon 런타임 은 같은 토픽 을 그림자 로 관찰하며 두 번째 실행 권한 가
-아닙니다. 연결 은 upstream YAML 에 환경 값 를 넣지 않고 대상 및
+아닙니다. 연결 은 업스트림 YAML 에 환경 값 를 넣지 않고 대상 및
 산출물 하나를 제공합니다.
 
 Scheduled 작업은 `interval`, `one-shot`, `cron`, `event-exit` 네 종류 중 하나를 선언합니다.
@@ -256,7 +256,7 @@ occurrence id가 재시도, 재시작, cross-kind 중복 게시를 방지합니�
 모든 작업은 영속 `ScheduledRunIsolationProfile`도 가집니다. 기본값 프로파일은 주변 도구를
 모두 거부하고 세션 소요 시간 및 맥락 크기를 제한합니다. 명시적 선택 프로파일은 allowed 도구를 모두
 명시하고 합계 도구 호출을 상한하며 서버가 소유한 명령 샌드박스 프로파일을 참조할 수 있습니다.
-`ScheduledRunIsolationGuard`는 downstream 실행 경계에서 맥락, 경과 시간, 도구 id,
+`ScheduledRunIsolationGuard`는 다운스트림 실행 경계에서 맥락, 경과 시간, 도구 id,
 이전 호출 개수를 다시 검사합니다. 모든 synthetic 이벤트 및 액션 제안이 변경할 수 없는 프로파일을
 포함하며 scheduled 실행은 creating 운영자의 더 넓은 세션, 자격 증명, workspace, 도구
 권한을 상속하지 않습니다.
@@ -270,7 +270,7 @@ occurrence id가 재시도, 재시작, cross-kind 중복 게시를 방지합니�
 조정하며 `lost` 행도 다시 점유할 수 있습니다. 시도 counter와 task-scoped 이력은
 PostgreSQL에서 프로세스 재시작 이후에도 유지됩니다.
 
-`published`는 synthetic 이벤트가 이벤트 버스에 도달했다는 뜻만 가집니다. Downstream 컨트롤 루프
+`published`는 synthetic 이벤트가 이벤트 버스에 도달했다는 뜻만 가집니다. 다운스트림 컨트롤 루프
 또는 요청된 액션이 성공했다는 뜻은 아닙니다. 이후 결과는 기존 이벤트, 프로세스, 액션,
 감사 기록에 유지됩니다.
 
@@ -304,7 +304,7 @@ Command 기반은 의도, 해석, 실행 을 분리합니다.
  서버가 소유한 trusted 값 를 받아 고정된 `CommandPlan` 을 생성합니다. 요청 는
  executable, raw argv, 환경, 자격 증명 프로파일, 네트워크 프로파일, working 디렉터리,
  구독 또는 project 를 선택할 수 없습니다.
-- **실행기 경계**: `CommandRunner` 는 해석 된 계획 만 받습니다. Upstream 기본값 는
+- **실행기 경계**: `CommandRunner` 는 해석 된 계획 만 받습니다. 업스트림 기본값 는
  예행 실행 을 실제 no-op 으로 유지하는 `RecordingCommandRunner` 입니다. 명시적 선택
  `BubblewrapCommandRunner` 는 `local_read` 계획 만 실행합니다. Opaque 참조 를 비공개
  workspace 루트 아래에서 해석하고 해당 workspace 및 구성된 런타임 을 읽기 전용
@@ -339,14 +339,14 @@ Command 기반은 의도, 해석, 실행 을 분리합니다.
 - **비공개 workspace patch**: `CodePatchSet` 은 내용 기반 주소를 가진 `workspace_ref` 만
  대상으로 하며 base 개정 번호, repository-relative 경로 당 연산 하나, 예상
  before 해시, after-content 해시 를 포함합니다. 검증 은 탐색, 중복
- 연산, 런타임/생성된 파일, binary 텍스트, oversized 변경 를 차단합니다. Upstream
+ 연산, 런타임/생성된 파일, binary 텍스트, oversized 변경 를 차단합니다. 업스트림
  프로바이더 는 활성 런타임 체크아웃 에 patch 를 적용하지 않습니다.
  `GitCodeWorkspaceProvider` 는 hardlink 없이 committed 개정 번호 을 clone하고 출처 을
  제거하며 source-checkout WIP 를 보존합니다. 검증된 patch 마다 새 copy-on-write
  workspace 를 materialize합니다. 적용 경계 에서 stale 해시, symlink 탐색,
  protected 경로 를 다시 검사합니다.
 
-Upstream 명령 카탈로그 는 처음에 `local.git.status`, scoped `local.git.diff`, targeted
+업스트림 명령 카탈로그 는 처음에 `local.git.status`, scoped `local.git.diff`, targeted
 `local.python.pytest`, targeted `local.python.ruff`, Azure 읽기 연산
 `azure.resource.list` 만 노출합니다. 로컬 명령 는 비공개 workspace 참조 를
 요구합니다. Azure 명령 의 구독 및 자격 증명 프로파일 은 모델 인자 가
@@ -356,7 +356,7 @@ Upstream 명령 카탈로그 는 처음에 `local.git.status`, scoped `local.git
 `AZURE_CONFIG_DIR` 을 만들고 구성된 user-assigned Managed Identity 로 login하며
 dynamic 확장 설치를 끄고 활성 구독 을 다시 확인합니다. Azure CLI 호출
 전에 exact argv 형태 도 검증합니다. 예행 실행 은 login 하지 않습니다. 어댑터 는
-조립 에 사용할 수 있지만 upstream 앱 은 연결 하지 않습니다.
+조립 에 사용할 수 있지만 업스트림 앱 은 연결 하지 않습니다.
 
 이 계약은 기존 실행 경로 를 재사용합니다. 로컬 검사 및 읽기 전용 결과
 산출물 는 `tool_call`, cloud 기반 변경 은 `direct_api`, fixed operating

@@ -22,10 +22,10 @@ shadow-before-enforce 및 안전 불변식을 준수.
 > [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) 에
 > 따라 합성 자리 표시자.
 
-> **구현 상태**: 효과/범위/배정/rule-set domain 모델, strict YAML loaders, 디렉터리
+> **구현 상태**: 효과/범위/배정/rule-set 도메인 모델, strict YAML loaders, 디렉터리
 > 카탈로그 로더 및 효과/적용 전이 CI가 구현되어 있습니다. Resolved 배정을
 > T0 런타임이 소비하는 조립은 아직 남아 있습니다. Exemption은 별도 Azure-shaped
-> 스키마/로더와 CLI가 있지만 거버넌스 디렉터리 로더, 만료 작업 및 알림 wiring에는
+> 스키마/로더와 CLI가 있지만 거버넌스 디렉터리 로더, 만료 작업 및 알림 배선에는
 > 포함되지 않습니다. 재정의 스키마/로더/런타임 해석과 거버넌스 PR OID/정족수 CI는
 > 아직 목표 설계입니다.
 
@@ -65,18 +65,18 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
 
 ## Effects (모드)
 
-효과는 안전 다이얼. 단순 라벨이 아니라 그림자→enforce 라이프사이클에 매핑:
+효과는 안전 다이얼. 단순 라벨이 아니라 그림자→강제 적용 라이프사이클에 매핑:
 
 | 효과 | Azure Policy 유사 | 의미 | 안전 티어 |
 |--------|-------------------|------|-----------|
 | `disabled` | `disabled` | 규칙/할당 오프 | inert |
 | `audit` | `audit` / `auditIfNotExists` | 판단하고 로그만, 변경 없음 (**그림자 모드** 등가) | 안전 기본 |
-| `deny` | `deny` / `denyAction` | PR/admission 게이트에서 비준수 변경 블록 | enforce (게이팅) |
-| `remediate` | `modify` / `deployIfNotExists` | auto-remediation PR 생성 (auto-merge 절대 아님; 항상 risk 게이트 / HIL 통해) | enforce (게이팅) |
+| `deny` | `deny` / `denyAction` | PR/admission 게이트에서 비준수 변경 블록 | 강제 적용 (게이팅) |
+| `remediate` | `modify` / `deployIfNotExists` | auto-remediation PR 생성 (auto-merge 절대 아님; 항상 risk 게이트 / HIL 통해) | 강제 적용 (게이팅) |
 
 효과(위반 시 무엇을 할지)는 **적용 모드** (액션할지 여부)와 직교, Azure Policy의
 `enforcementMode` 미러링. 할당은 둘 다 운반: `effect` + `enforcement: enforce | do-not-enforce`.
-`do-not-enforce` 는 검사를 what-if로만 실행하며 `audit`/그림자의 메커니즘; enforce로의 승격이
+`do-not-enforce` 는 검사를 what-if로만 실행하며 `audit`/그림자의 메커니즘; 강제 적용로의 승격이
 승격 게이트 하에 이 플래그를 flip. **룰 집합** 은 규칙별 `default_effect` 를 선언 가능하고
 **할당** 은 규칙별로 오버라이드 가능(`effect_overrides`), 마치 initiative가 effects를 설정하고
 할당이 튠하는 것처럼; 할당의 top-level `effect` 는 오버라이드 없는 규칙의 기본값.
@@ -86,7 +86,7 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
 | From | To | 게이트 |
 |------|----|----|
 | `disabled` | `audit` | 표준 리뷰 |
-| `audit` (그림자) | `deny` / `remediate` (enforce) | **별도 enforce-promotion 승인** |
+| `audit` (그림자) | `deny` / `remediate` (강제 적용) | **별도 enforce-promotion 승인** |
 | `deny` / `remediate` | `audit` | 표준 리뷰 (강등은 항상 허용 - 불확실할 때는 안전한 쪽을 선택) |
 | 어떤 활성 상태 | `disabled` | 표준 리뷰 (사유 기록) |
 
@@ -102,7 +102,7 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
  따라 HIL로 라우팅.
 - `deny`/`remediate` 액션은
  [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
- 의 7개 안전조건(stop-condition, 롤백, blast-radius 한도, 예행 실행, 리소스 lock,
+ 의 7개 안전조건(stop-condition, 롤백, blast-radius 한도, 예행 실행, 리소스 잠금,
  멱등성, 감사 항목) 운반. 오발동
  `deny` 는 글로벌 비상 정지 또는 time-boxed exemption으로 복구 가능(그 영향 범위는
  *정당한 변경을 블록* ); `remediate` PR은 멱등 - 재평가된 발견 사항은 중복 오픈이 아니라 열린
@@ -113,7 +113,7 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
 > `Effect` (`disabled` / `audit` / `deny` / `remediate`) 와 `Enforcement`
 > (`enforce` / `do-not-enforce`) enum, 충돌하는 배정 를 해소하는 strictest-effect 우선순위
 > (`deny` > `remediate` > `audit` > `disabled`), 그리고 위 전이 표를 강제하는
-> `validate_effect_transition` (enforce 효과 로의 상향은 별도 승격 승인 필요). 범위 선택
+> `validate_effect_transition` (강제 적용 효과 로의 상향은 별도 승격 승인 필요). 범위 선택
 > 계층도 [`rule_catalog/schema/scope.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/scope.py) 에 함께
 > ship 됨 - `ScopeLevel` 계층, `ScopeSelector` (resource-type / tag / resource-id, 선언된 것들의
 > AND), exclusions, `Scope.covers`, 그리고 `most_specific` 우선순위 헬퍼. `Assignment` 산출물 와
@@ -139,7 +139,7 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
 > 로 동작함; 해석되지 않는 참조는 로드 경계에서 실패. CI 전이 게이트 핵심도 ship 됨: `validate_catalog_transition`
 > ([`governance_transitions.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/governance_transitions.py))
 > 은 이전과 현재 `GovernanceCatalog` 를 비교해, 허용 테이블을 벗어난 룰 별 유효 효과 전이를
-> 모두 거부함 - 신규 배정/룰 은 강제 기본값 `audit` 에서 전이한 것으로 검증하고, enforce
+> 모두 거부함 - 신규 배정/룰 은 강제 기본값 `audit` 에서 전이한 것으로 검증하고, 강제 적용
 > 효과(`deny` / `remediate`)로 올리려면 배정 id 가 `promotions_approved` 에 있어야 함.
 > **적용** `do-not-enforce` -> `enforce` 활성화(enforce-tier 효과 를 그림자 에서 꺼내는
 > go-live 플립)도 같은 승인이 필요해서, 2단계 `deny(shadow)` 후 `deny(enforce)` 로 미검토 프로덕션
@@ -188,21 +188,21 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
 
 ```mermaid
 flowchart LR
-  ADMIN[administrator] -->|authoring UI or edit| DRAFT["draft change: rule / assignment / exemption"]
-  DRAFT --> PR[catalog-as-code PR]
-  PR --> VAL["CI: schema + policy-as-code + shadow eval"]
-  VAL -->|pass| REV[review + approval]
-  VAL -->|fail| BLOCK[blocked]
-  REV -->|effect raises enforce?| GATE[separate enforce-promotion approval]
-  REV -->|audit only| MERGE[merge → catalog]
-  GATE --> MERGE
-  MERGE --> LOAD[T0 loads at runtime]
+ ADMIN[administrator] -->|authoring UI or edit| DRAFT["draft change: rule / assignment / exemption"]
+ DRAFT --> PR[catalog-as-code PR]
+ PR --> VAL["CI: schema + policy-as-code + shadow eval"]
+ VAL -->|pass| REV[review + approval]
+ VAL -->|fail| BLOCK[blocked]
+ REV -->|effect raises enforce?| GATE[separate enforce-promotion approval]
+ REV -->|audit only| MERGE[merge → catalog]
+ GATE --> MERGE
+ MERGE --> LOAD[T0 loads at runtime]
 ```
 
 - 콘솔은 **authoring UI** 를 제공할 수 있지만 **초안 PR을 생산** 만 할 뿐 - 라이브 카탈로그를
  절대 직접 실행/변형하지 않음(콘솔 읽기 전용 유지).
 - 모든 거버넌스 변경(룰, 배정, exemption 생성/수정, 효과 변경)은 저자, 리뷰어, 감사
- 트레일 있는 PR. Enforce 방향으로 효과를 올리는 것은 추가 승격 승인 필요.
+ 트레일 있는 PR. 강제 적용 방향으로 효과를 올리는 것은 추가 승격 승인 필요.
 - 초안 PR은 authoring UI의 로컬 뷰가 아니라 **현재 머지된 카탈로그** 에 대해 검증; stale
  초안은 rebase해야 하므로 라이브 카탈로그가 단일 진실 원본 유지, 동시 편집이 조용히 서로를
  덮어쓸 수 없음. 승인은 git(또는 ChatOps)에서 발생, 콘솔 버튼 아님 - 콘솔은 상태 렌더링과
@@ -292,7 +292,7 @@ Exemption은 Azure Policy exemption처럼 스코프의 할당을 waive:
 
 - 재정의는 자신이 커버하는 스코프에서 할당의 효과보다 승리. 규칙이 승격 승인에서
  `effect: deny` 를 갖지만 resource-group `R` 의 재정의가 `mode: disabled` 를 설정하면
- 규칙은 `R` 에서 inert이고 다른 곳에서 enforce.
+ 규칙은 `R` 에서 inert이고 다른 곳에서 강제 적용.
 - 재정의 스코프 밖에서는 [범위](#스코프scope) 의 표준 스코프 우선순위가 변경 없이 적용
  (most-specific 범위 wins, strictest 효과 wins, ties → HIL).
 - 재정의는 **stack 되지 않음**: (룰, 범위) 쌍마다 최대 하나의 활성 재정의. 같은 쌍의
@@ -322,13 +322,13 @@ CI로 강제, 고위험 승인(`audit → deny / remediate`, exemption, 재정�
 |---------|-----------|------|------|
 | Rule 저자 | `aw-contributors` | 규칙/룰셋 제안 (초안 PR) | 자신의 변경 승인 또는 할당 |
 | Approver | `aw-approvers` | 거버넌스 PR 리뷰/승인 | 승인하는 변경 저자 |
-| 배정 운영자 | `aw-contributors` | 규칙을 스코프에 바인딩, 파라미터/효과 설정 (PR 경유) | 단독으로 enforce 승격 승인 |
+| 배정 운영자 | `aw-contributors` | 규칙을 스코프에 바인딩, 파라미터/효과 설정 (PR 경유) | 단독으로 강제 적용 승격 승인 |
 | Enforce-promotion 승인자 | `aw-approvers` (quorum-2) | `audit`→`deny`/`remediate` 승격 승인 | 승격을 제안한 운영자 |
 | Exemption 승인자 | `aw-approvers` (quorum-2) | Time-boxed exemption 승인 | 영구 exemption 부여, 자신의 요청 승인 |
 | 재정의 승인자 | `aw-approvers` (quorum-2) | Resource-group-스코프 재정의 승인 (permanent 가능) | resource-group-equivalent 밖 재정의 승인, 자신의 요청 승인 |
 
 이들 거버넌스 롤 중 어느 것도 **실행기의** 아이덴티티를 보유하지 않음; 규칙 작성/승인은
-액션 실행 능력을 절대 부여하지 않음. Enforce 승격, exemption, 재정의는 가장 높은 특권
+액션 실행 능력을 절대 부여하지 않음. 강제 적용 승격, exemption, 재정의는 가장 높은 특권
 거버넌스 행위이며 `aw-approvers` 와 `aw-owners` 에 대한 Conditional 접근을 통해 강제되는
 MFA / phishing-resistant, 액션-바인딩 승인 필요
 ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md),
@@ -350,7 +350,7 @@ MFA / phishing-resistant, 액션-바인딩 승인 필요
  Rule 집합은 각 멤버 규칙의 `version` 을 **고정** 하여 규칙 변경이 승격된 세트를 조용히 바꿀 수
  없음.
 - **테스트 가능성**: 모든 할당/exemption PR은 픽스처와 함께 나감 - 예상 매칭 세트(스코프가
- 어떤 합성 리소스 선택) 와 enforce 승격의 경우 승격 게이트가 스코어한 shadow-eval 표본 -
+ 어떤 합성 리소스 선택) 와 강제 적용 승격의 경우 승격 게이트가 스코어한 shadow-eval 표본 -
  거버넌스 변경이 규칙 변경처럼 회귀 테스트되도록
  ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
 
@@ -382,18 +382,18 @@ version: 1.0.0
 rule_set: ruleset.security-baseline
 scope:
  include:
-  - scope://org/account-000/prod
+ - scope://org/account-000/prod
  exclude:
-  - scope://org/account-000/prod/sandbox
+ - scope://org/account-000/prod/sandbox
  selector:
-  resource_types: [sql-database, postgresql-server, object-storage]
+ resource_types: [sql-database, postgresql-server, object-storage]
 effect: audit
 enforcement: do-not-enforce
 effect_overrides:
  object-storage.public-access.deny: audit
 parameter_overrides:
  postgresql-server.point-in-time-restore:
-  min_retention_days: "14"
+ min_retention_days: "14"
 provenance:
  created_at: 2026-07-03T00:00:00Z
  created_by: assignment-operator
@@ -454,12 +454,12 @@ provenance:
  (비-Azure 해석은 TBD; [Always-On 룰](../../../.github/copilot-instructions.md#always-on-rules-must) 참조).
 - [ ] 저작 UI가 콘솔에 draft-PR only로 P1에 실릴지 P3에 실릴지.
 - [ ] 구체적 파라미터 **타입 어휘** (int/문자열/enum/bool/array + 범위/pattern 제약)
-   - CI가 `parameter_overrides` 를 이에 대해 검증.
+  - CI가 `parameter_overrides` 를 이에 대해 검증.
 - [ ] 설정된 **최대 exemption 기간** 과 만료 사전 알림 lead 시간.
 - [ ] "재정의 범위 is resource-group-equivalent or narrower" 를 스코프 URI 문법에 대해
-   강제하는 정확한 CI 검사(organization/계정/구독 스코프를 결정론적으로 거부해야
-   함).
+  강제하는 정확한 CI 검사(organization/계정/구독 스코프를 결정론적으로 거부해야
+  함).
 - [ ] 규칙별 허용 `parameter-relaxation` 범위 - 규칙이 자체 스키마에 완화 범위를 선언 vs
-   재정의가 초과할 수 없는 거버넌스 레벨 상한.
+  재정의가 초과할 수 없는 거버넌스 레벨 상한.
 - [ ] 발견 루프가 "over-overridden" 규칙 플래그에 사용하는 신호 임계값(활성 재정의 있는
-   서로 다른 스코프 수, dwell 시간, shadow-hit 비율) - 개정 번호/retirement 제안 전.
+  서로 다른 스코프 수, dwell 시간, shadow-hit 비율) - 개정 번호/retirement 제안 전.

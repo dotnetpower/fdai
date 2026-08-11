@@ -8,7 +8,7 @@ translation_revised: 2026-08-11
 
 이 문서는 FDAI의 데이터 분류, minimization, 수명 주기, residency, privacy 근거
 계약을 정의합니다. 재사용 가능한 컨트롤 모델을 제공하며 각 배포는 customer
-데이터를 upstream에 커밋하지 않고 승인 값과 근거를 기록합니다.
+데이터를 업스트림에 커밋하지 않고 승인 값과 근거를 기록합니다.
 
 > **범위:** 이 문서는 certification 또는 완료된 privacy 영향 평가가 아닙니다.
 > 포크가 privacy 소유자, 데이터 소유자, 보존 값, model-provider 조건, 승인 평가를
@@ -28,7 +28,7 @@ at-rest encryption이 필요합니다. 모델로 보내는 내용은 trust 경�
 | Event 메타데이터 | Event id, 리소스 타입, 상관관계 id, 정규화된 속성 | 최소화하고 유입에서 시크릿을 거부합니다. | Event 버스, 이후 감사/상태 저장소 |
 | 도구와 인벤토리 출력 | Resource 그래프 사실, 정책 결과, deployment-plan 사실 | 결정과 근거에 필요한 필드만 유지합니다. | 상태 저장소 또는 수명이 짧은 버퍼 |
 | 감사 기록 | 결정, 행위자 id, 계층, 룰 인용, 멱등성/롤백 참조 | 추가 전용, tamper-evident, legal-hold capable | 감사 원장 |
-| Telemetry | 로그, 메트릭, 추적, 상태/performance 측정 | Telemetry는 샘플/집계할 수 있지만 필수 감사 항목은 샘플하지 않습니다. | Log Analytics 또는 구성된 백엔드 |
+| 텔레메트리 | 로그, 메트릭, 추적, 상태/performance 측정 | 텔레메트리는 샘플/집계할 수 있지만 필수 감사 항목은 샘플하지 않습니다. | Log Analytics 또는 구성된 백엔드 |
 | 임베딩과 pattern | 해결 인시던트와 승인 knowledge에서 파생한 vector | 모델과 출처를 versioning하고 시크릿/raw personal 데이터 임베딩을 피합니다. | PostgreSQL + pgvector |
 | Operator 대화 | 질문, 검증된 도구 호출, 근거에 기반한 답변, 제안 참조 | 표현 텍스트와 머신 결정을 분리하고 승인 세션 보존을 적용합니다. | Operator-memory 저장소 |
 | 거버넌스 산출물 | Rule, 배정, exemption, 재정의, ADR | 코드로 versioning하고 검토합니다. | Git |
@@ -36,7 +36,7 @@ at-rest encryption이 필요합니다. 모델로 보내는 내용은 trust 경�
 ## 분류와 접근
 
 포크는 각 등급을 공개, 내부, confidential, restricted 같은 organization taxonomy에
-대응합니다. 데이터 소유자, 허용 principal, 승인 지역, encryption 프로파일, downstream
+대응합니다. 데이터 소유자, 허용 principal, 승인 지역, encryption 프로파일, 다운스트림
 processor를 기록합니다. 분류가 없으면 가장 제한적인 구성된 등급으로 처리하고
 모델 프로바이더 내보내기를 차단합니다.
 
@@ -59,11 +59,11 @@ processor를 기록합니다. 분류가 없으면 가장 제한적인 구성된 
 | 활성 보존 | 기본 저장소에서 조회 가능한 기간 |
 | 보관 보존 | 기간, 보관 계층, 복원 expectation |
 | Legal 보류 | 권한, 보류 표시, release 프로세스, 변경할 수 없는 근거 |
-| Deletion | 트리거, 메서드, 검증, downstream propagation |
+| Deletion | 트리거, 메서드, 검증, 다운스트림 propagation |
 | 백업 inheritance | 백업 만료를 기다리는지 승인 키 destruction을 사용하는지 |
 | 검토 cadence | Owner와 다음 검토 date |
 
-Azure day-zero telemetry 기본값은 30일입니다. 감사, 대화, 임베딩, customer 기록
+Azure day-zero 텔레메트리 기본값은 30일입니다. 감사, 대화, 임베딩, customer 기록
 보존은 이 값을 자동 상속하지 않습니다. 포크에서 값을 승인하고 운영 근거
 연결에 첨부해야 합니다.
 
@@ -73,7 +73,7 @@ Privacy 영향 평가는 다음을 기록합니다.
 
 1. 시스템에 들어올 수 있는 데이터 대상과 personal/customer-identifying 필드;
 2. 용도, lawful basis, necessity, proportionality, minimization 컨트롤;
-3. 이벤트, 상태, telemetry, Git, ChatOps, model-provider 경계의 데이터 흐름;
+3. 이벤트, 상태, 텔레메트리, Git, ChatOps, model-provider 경계의 데이터 흐름;
 4. 지역과 cross-border transfer 제약;
 5. processor 조건, 보존, training-use restriction, 인시던트 알림 조건;
 6. 적용 가능한 접근, correction, 내보내기, deletion, legal-hold 처리;
@@ -93,7 +93,7 @@ Privacy 영향 평가는 다음을 기록합니다.
 
 ## Compliance 근거
 
-Upstream 카탈로그는 MCSB, CIS 또는 다른 standard 컨트롤을 인용할 수 있지만 certification을
+업스트림 카탈로그는 MCSB, CIS 또는 다른 standard 컨트롤을 인용할 수 있지만 certification을
 증명하지는 않습니다. 배포 소유자는 컨트롤 id, 구현, automated/수동 근거,
 소유자, frequency, exception, 잔여 risk가 포함된 crosswalk를 만듭니다. 지원하지 않는 또는
 not-applicable 컨트롤은 명시적으로 남기며 조용히 누락하지 않습니다.
@@ -111,8 +111,8 @@ not-applicable 컨트롤은 명시적으로 남기며 조용히 누락하지 않
 - 선택한 customer 프로파일의 compliance crosswalk;
 - 접근 검토, deletion, incident-response 테스트 근거.
 
-이 산출물은 customer 기록이므로 포크 또는 통제된 근거 저장소에 둡니다. Upstream
-매니페스트에는 필수 근거 키와 범용 blocker 상태만 기록합니다.
+이 산출물은 customer 기록이므로 포크 또는 통제된 근거 저장소에 둡니다. 업스트림
+매니페스트에는 필수 근거 키와 범용 차단 요인 상태만 기록합니다.
 
 ## 다음 단계
 
@@ -121,4 +121,4 @@ not-applicable 컨트롤은 명시적으로 남기며 조용히 누락하지 않
 | ARB 결정과 근거 연결 | [아키텍처 검토 Board 패킷](architecture-review-board-ko.md) |
 | Security와 threat 모델 | [Security and 신원](security-and-identity-ko.md) |
 | Human 권한 확인 | [User RBAC and Entra 신원](../interfaces/user-rbac-and-identity-ko.md) |
-| 감사와 telemetry 규모 | [Hyperscale Cell 아키텍처](hyperscale-cell-architecture-ko.md) |
+| 감사와 텔레메트리 규모 | [Hyperscale Cell 아키텍처](hyperscale-cell-architecture-ko.md) |

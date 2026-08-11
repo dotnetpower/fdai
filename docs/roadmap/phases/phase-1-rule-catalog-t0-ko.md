@@ -5,14 +5,14 @@ translation_source_sha: db577396011ed2182aa3904f2c334090df83f473
 translation_revised: 2026-08-11
 ---
 
-# Phase 1 - 규칙 카탈로그와 T0 결정론적 엔진
+# 단계 1 - 규칙 카탈로그와 T0 결정론적 엔진
 
 **목표**: LLM 없이 이벤트의 다수를 해결하는 결정론적 코어(T0) 를 세우고, 첫 자율 버티컬 -
-변경 안전성 - 를 완전히 **그림자 모드**(판정자와 로그, 실행 없음) 로 딜리버리. 이 phase는
-커버리지와 측정을 구축, 강제(적용) 아님; enforce 승격은 범위 밖이며
+변경 안전성 - 를 완전히 **그림자 모드**(판정자와 로그, 실행 없음) 로 딜리버리. 이 단계는
+커버리지와 측정을 구축, 강제(적용) 아님; 강제 적용 승격은 범위 밖이며
 [phase-2-quality-and-t1-ko.md](phase-2-quality-and-t1-ko.md) 소속.
 
-이 phase는
+이 단계는
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 에
 정의된 T0 티어와 규칙 카탈로그를,
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
@@ -24,7 +24,7 @@ translation_revised: 2026-08-11
 > **구현 상태**: Authored 룰/Rego/교정 seeds, ActionType 카탈로그, T0 엔진, OPA
 > 평가기, control-loop orchestration, GitOps draft-PR 어댑터, Azure 인벤토리 스냅샷/delta
 > primitives 및 frozen-scenario 재생이 구현되어 있습니다. 이 문서의 "그림자 only"는 P1이
-> 처음 landing할 때의 phase 경계입니다. 현재 저장소에는 이후 phase의 승격,
+> 처음 landing할 때의 단계 경계입니다. 현재 저장소에는 이후 단계의 승격,
 > risk/HIL 및 enforce-capable 어댑터도 존재하므로 전체 런타임의 현재 모드를 뜻하지 않습니다.
 > 운영 인벤토리와 GitOps 전달은 배포별 프로바이더/자격 증명 연결이 필요합니다.
 
@@ -33,7 +33,7 @@ translation_revised: 2026-08-11
 - **범위 내**: 규칙 카탈로그 스키마와 컬렉터, T0 결정론 엔진(policy-as-code + what-if + 표류),
  shadow-mode remediation-PR 생성, 변경 안전성을 위한 out-of-band 변경 감지.
 - **범위 밖**: 어떤 enforce-mode 실행, auto-revert, T1/T2 티어, LLM quality 게이트, 지속적 규칙-
- 업데이트 파이프라인 - 모두 Phase 2로 연기.
+ 업데이트 파이프라인 - 모두 단계 2로 연기.
 
 ## 산출물
 
@@ -84,7 +84,7 @@ translation_revised: 2026-08-11
  하나당 하나씩 배송; 로더 는 부하 시점에 모든 `remediation.template_ref` 가 디스크에
  존재하는지 교차 검증 (실패 시 차단, `check_logic.reference` 게이트 와 대칭). 실행기
  ([`services/core-control-plane/src/fdai/core/executor/`](../../../services/core-control-plane/src/fdai/core/executor))
- 가 나갈 때 모든 안전성 invariant 를 강제:
+ 가 나갈 때 모든 안전성 불변식 를 강제:
  `ResourceLockManager` 로 per-resource 직렬화, `Action.idempotency_key` 로 프로세스 내
  dedup, blast-radius 상한 (`ExecutorConfig.max_affected_resources` /
  `max_rate_per_minute`), shadow-only 모드 불변식 (`enforce` 모드 액션 은 변경 없이
@@ -96,7 +96,7 @@ translation_revised: 2026-08-11
  [`RemediationPrPublisher`](../../../services/core-control-plane/src/fdai/shared/providers/remediation_pr.py)
  프로토콜 의 GitHub REST 구현: Bearer 인증, 쓰기 전 열림 PR 존재 탐색, 그림자 가지
  생성 + Contents API 로 patch 커밋, PR 을 **초안** 로 열림 + `shadow` 라벨 +
- `rule:<id>` + `action:<type>`. 머지 안 함, `shadow` 라벨 제거 안 함; 그 경로는 Phase 2
+ `rule:<id>` + `action:<type>`. 머지 안 함, `shadow` 라벨 제거 안 함; 그 경로는 단계 2
  승격 영역.
 - **파이프라인 오케스트레이터** -
  [`ControlLoop`](../../../services/core-control-plane/src/fdai/core/control_loop/orchestrator.py) 이 P1 스테이지를 종단 간
@@ -160,7 +160,7 @@ translation_revised: 2026-08-11
 | `category` | enum | 도메인 그룹(예: `security`, `reliability`, `cost`, `config-drift`) |
 | `resource-type` | CSP-중립 문자열 | 벤더 특이 ARM 경로가 아닌 정규화된 대상 타입 |
 | `check-logic` | 참조/expr | 결정론적 조건식 (OPA/Rego 모듈 참조 또는 표현식) |
-| `remediation` | 참조 | IaC/PR diff 생산하는 교정 템플릿 |
+| `remediation` | 참조 | IaC/PR 차이 생산하는 교정 템플릿 |
 | `remediates` | ActionType id (M:1) | 온톨로지 전달: 매치 시 이 규칙이 제안하는 `ActionType`. 부하 시점에 [`rule-catalog/action-types/`](../../../rule-catalog/action-types) 와 교차 검증; 선택적 `alternatives[]` 는 T2 quality 게이트 만 swap 가능한 대안을 우선순위대로 나열 |
 | `provenance` | 객체 | 소스 URL/커밋, imported-at 타임스탬프, 매핑 저자 |
 
@@ -185,18 +185,18 @@ CSP-중립 어휘로 정규화되어 한 프로바이더용으로 작성된 규�
 여러 소스가 하나의 이벤트에 대해 겹치는 규칙을 발행하는 것은 흔함. 해결은 결정론적:
 
 1. **`id` 로 중복제거** ; 여러 소스로부터의 동일 로직은 병합된 `provenance` 있는 하나의 규칙으로
-  접힘.
+ 접힘.
 2. **우선순위** - 서로 다른 규칙이 같은 이벤트에 매칭될 때: `severity` 순으로, 다음 `source`
-  priority 랭크로; 남은 동점은 더 높은 `version` 으로.
+ priority 랭크로; 남은 동점은 더 높은 `version` 으로.
 3. **미해결 동점 또는 모순 교정** (한 규칙이 다른 규칙이 적용한 것을 되돌림) 은 auto-select
-  대신 **abstain 후 HIL로 escalate** - 불확실할 때는 안전한 쪽을 선택.
+ 대신 **abstain 후 HIL로 escalate** - 불확실할 때는 안전한 쪽을 선택.
 
 충돌 결과는 경쟁 규칙 id와 함께 로그되어 우선순위 결정이 감사 가능.
 
 ### 버전 관리
 
 카탈로그는 **catalog-as-code** 로 저장; 각 승격은 rule-set 버전을 고정, 나쁜 세트는 버전으로
-되돌릴 수 있음. (*지속적* 수집 → shadow-eval → 회귀 → 승격 파이프라인은 Phase 2; Phase 1은
+되돌릴 수 있음. (*지속적* 수집 → shadow-eval → 회귀 → 승격 파이프라인은 단계 2; 단계 1은
 버전된 수동 리뷰 카탈로그를 로드.)
 
 ## T0 엔진
@@ -211,16 +211,16 @@ CSP-중립 어휘로 정규화되어 한 프로바이더용으로 작성된 규�
 - **표류 감지** - 관측된 리소스 상태를 선언된 IaC/desired 상태와 비교; 표류 델타(추가/제거/
  변경된 속성) 보고.
 
-위반 시 엔진은 직접 실행 대신 **교정 PR** 발행; 감사, 롤백, 승인은 git에서 무료. Phase 1
+위반 시 엔진은 직접 실행 대신 **교정 PR** 발행; 감사, 롤백, 승인은 git에서 무료. 단계 1
 에서 모든 판정은 **그림자 only** - PR 머지 안 됨, 상태 변형 안 됨.
 
 ## 수정 PR (그림자 모드)
 
-Phase 1에서 아무것도 머지되지 않지만, 각 생성된 PR은
+단계 1에서 아무것도 머지되지 않지만, 각 생성된 PR은
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
-의 7개 안전조건을 이미 운반해야 함 - Phase 2가 승격할 때 아티팩트가 enforce-ready:
+의 7개 안전조건을 이미 운반해야 함 - 단계 2가 승격할 때 아티팩트가 enforce-ready:
 
-- **멱등** - 이벤트의 안정 멱등성 키에 keyed; 같은 이벤트에 재생성은 같은 diff, 절대 중복
+- **멱등** - 이벤트의 안정 멱등성 키에 keyed; 같은 이벤트에 재생성은 같은 차이, 절대 중복
  변경 아님.
 - **롤백 경로** - PR이 이전 desired-state 개정 번호를 참조하여 변경이 단일 후속 PR로 되돌릴 수
  있음.
@@ -245,14 +245,14 @@ PR은 `shadow` 라벨되고 초안으로(또는 그림자 브랜치에 대해) �
 - **false 부정**: 신호 피드는 lag하거나 드롭 가능; 감지 완전성은 측정된 가드(Exit 기준 참조),
  가정 아님.
 - **응답 (그림자)**: 정책 위반 리소스의 out-of-band 변경은 *그림자* revert-or-reconcile PR과
- 알림 생성; 판단·로그만. Auto-revert와 reconcile-to-IaC 실행은 Phase 2 검증까지 게이팅 오프.
+ 알림 생성; 판단·로그만. Auto-revert와 reconcile-to-IaC 실행은 단계 2 검증까지 게이팅 오프.
 
 ## 자율성 레벨
 
-- 모든 것이 **그림자 모드** 로 출시: 엔진은 판단하고 로그; enforce 경로 없음.
-- 저위험 auto-merge/조정과 고위험 HIL 라우팅은 `risk-gate` 를 통해 배선되지만 Phase 2 승격
+- 모든 것이 **그림자 모드** 로 출시: 엔진은 판단하고 로그; 강제 적용 경로 없음.
+- 저위험 auto-merge/조정과 고위험 HIL 라우팅은 `risk-gate` 를 통해 배선되지만 단계 2 승격
  까지 게이팅 오프.
-- 이 phase에 property-level 불변식 성립: **그림자 모드는 절대 상태 변형 안 함** - PR 머지 안
+- 이 단계에 property-level 불변식 성립: **그림자 모드는 절대 상태 변형 안 함** - PR 머지 안
  됨, 리소스 변경 안 됨, 테스트에서 단언.
 
 ## 테스트 가능성
@@ -270,26 +270,26 @@ PR은 `shadow` 라벨되고 초안으로(또는 그림자 브랜치에 대해) �
 
 ## Exit 기준
 
-각 기준은 서사가 아니라 Phase 0 원격측정과 시나리오 세트에 대해 측정 가능:
+각 기준은 서사가 아니라 단계 0 원격측정과 시나리오 세트에 대해 측정 가능:
 
-- 변경 게이트가 고정 Phase 0 시나리오 세트에 대해 **그림자** 에서 실행되고 모든 결정 로그됨
+- 변경 게이트가 고정 단계 0 시나리오 세트에 대해 **그림자** 에서 실행되고 모든 결정 로그됨
  (이벤트 id, 티어, 판정, 인용 규칙 id, 모드).
 - 규칙 카탈로그가 정의된 초기 대상 세트(소스별 열거) 를 커버하고 버전 고정; dedup/우선순위가
  픽스처 충돌 케이스를 미해결 auto-select 0으로 해결.
 - 교정 PR이 생성되고, 7개 안전조건을 모두 운반하며, 리뷰 가능; 그림자에서 어떤 PR도
  병합되지 않습니다.
 - Out-of-band 감지가 라벨된 픽스처 세트에 대한 **정밀도와 재현율** 을 보고, false-positive
- 억제 비율 기록 - Phase 2가 회귀시키면 안 되는 감지 베이스라인 확립.
+ 억제 비율 기록 - 단계 2가 회귀시키면 안 되는 감지 베이스라인 확립.
 - 모든 종단 경로(위반, no-op, abstain, HIL-route) 가 감사 엔트리를 씀; 감사 완전성 단언.
 - 어떤 T0 판정도 발사되기 전에 **인벤토리 그래프가 채워짐**: 병렬 full-scan 이 원자적으로
  완료되고 (부분 실패 시 실패 시 차단), 링크는 CSP-중립 어휘 하에 런딩, 검사 재실행은 멱등
  upsert 로 no-op. 검사 사이에는 Azure 리소스 변경이 Huginn을 통해 들어오고 ordered 영속
- overlay가 리소스, 링크, tombstone delta를 적용합니다. Graph-dependent 액션은 RiskGate에서
- 스냅샷과 overlay 최신성을 읽고 최신성 또는 커버리지가 알 수 없음, degraded, stale이면 HIL로
+ 오버레이가 리소스, 링크, tombstone delta를 적용합니다. Graph-dependent 액션은 RiskGate에서
+ 스냅샷과 오버레이 최신성을 읽고 최신성 또는 커버리지가 알 수 없음, degraded, stale이면 HIL로
  경로합니다.
 ## 의존성
 
-- **Phase 0** ([phase-0-instrumentation-ko.md](phase-0-instrumentation-ko.md)): 원격측정 백본
+- **단계 0** ([phase-0-instrumentation-ko.md](phase-0-instrumentation-ko.md)): 원격측정 백본
  (이벤트 스키마, 감사/상태/KPI 저장소), 고정 시나리오 세트와 참조 베이스라인, 해결된
  아이덴티티/인가 및 정책-예외 블로커 ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md)).
- T0 그림자 결정은 Phase 0 감사 저장소를 통해 로그; 그것 없이 exit 기준은 측정 불가.
+ T0 그림자 결정은 단계 0 감사 저장소를 통해 로그; 그것 없이 exit 기준은 측정 불가.

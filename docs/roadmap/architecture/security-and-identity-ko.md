@@ -17,10 +17,10 @@ translation_revised: 2026-08-11
 
 ## 심각도 어휘
 
-- **P0 blocker** - auto-execution이 활성화되기 전에 해결·검증되어야 함; 그림자 모드에서의
+- **P0 차단 요인** - auto-execution이 활성화되기 전에 해결·검증되어야 함; 그림자 모드에서의
  승격을 블록.
-- **P1** - 능력이 프로덕션(enforce 모드) 이벤트를 처리하기 전 필요.
-- **P2** - 첫 enforce 이후 진행될 수 있는 하드닝; 소유자와 함께 열림 Decisions에서 추적.
+- **P1** - 능력이 프로덕션(강제 적용 모드) 이벤트를 처리하기 전 필요.
+- **P2** - 첫 강제 적용 이후 진행될 수 있는 하드닝; 소유자와 함께 열림 Decisions에서 추적.
 
 ## 실행 아이덴티티
 
@@ -55,11 +55,11 @@ ChatOps에 로그인하는 사람, 존재하는 Entra 그룹, 콘솔이 GitHub A
 
 P0 열림 결정 *"Executor-side 신원 대응"*을 해결합니다. 현재 Terraform 형태는
 집계 action-router 신원 하나와 버티컬 신원 세 개를 유지하므로 전달 어댑터는
-`core/` 변경 없이 domain별 principal을 선택할 수 있습니다.
+`core/` 변경 없이 도메인별 principal을 선택할 수 있습니다.
 
 | 신원 | 현재 목적 | Azure 역할 전략 | 범위 |
 |----------|----------|----------------|-------|
-| `id-<workload><suffix>-executor` | 집계 control-loop 전송 계층과 액션 라우팅 | upstream은 topic-scoped Event Hubs 접근, Key Vault 시크릿 읽기 같은 런타임 platform 역할만 부여 | 리소스 또는 서비스 범위, subscription-wide 금지 |
+| `id-<workload><suffix>-executor` | 집계 control-loop 전송 계층과 액션 라우팅 | 업스트림은 topic-scoped Event Hubs 접근, Key Vault 시크릿 읽기 같은 런타임 platform 역할만 부여 | 리소스 또는 서비스 범위, subscription-wide 금지 |
 | `id-<workload><suffix>-change` | 변경 안전성 전달 principal | fork-owned 액션 whitelist 또는 측정된 custom 역할 | 변경 안전성이 관리하는 리소스 그룹 |
 | `id-<workload><suffix>-resilience` | 복원력 및 복구 전달 principal | fork-owned 액션 whitelist 또는 측정된 custom 역할 | 관리되는 복구 범위 |
 | `id-<workload><suffix>-finops` | 비용 거버넌스 전달 principal | fork-owned 액션 whitelist 또는 측정된 custom 역할 | 관리되는 cost-optimization 범위 |
@@ -74,20 +74,20 @@ P0 열림 결정 *"Executor-side 신원 대응"*을 해결합니다. 현재 Terr
 버티컬 신원 생성 자체는 리소스 권한을 부여하지 않으며 역할 배정은 명시적
 포크 배포 정책입니다.
 
-모든 phase에 적용되는 규칙 (MUST):
+모든 단계에 적용되는 규칙 (MUST):
 
 - **RG-스코프, 절대 subscription-wide 아님.** 새 RG는 포크가 명시적으로 할당 IaC에 추가할
  때만 거버넌스에 들어감 - 자동 확장 없음.
 - **보완적 Azure Policy `deny`** 가 선언된 화이트리스트 밖의 MI 액션을 두 번째 방어선으로
  블록하여, 잘못 할당된 롤이 조용히 표면을 넓히지 못하게 함.
 - **모든 액션 화이트리스트 변경은 거버넌스 PR** with `Justification:` 및 Managed
- 신원 롤 할당을 만지는 모든 변경에 Owner-티어 quorum
+ 신원 롤 할당을 만지는 모든 변경에 Owner-티어 정족수
  ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md)).
 - **그림자 로그 캡처** 는 그림자 모드의 실행기 MI가 발행하는 모든 액션이
- 호출할 정확한 Azure resource-provider 작업을 기록하여, Phase 2 Custom 역할 파생이 결정론적
+ 호출할 정확한 Azure resource-provider 작업을 기록하여, 단계 2 Custom 역할 파생이 결정론적
  이고 감사 가능하게 함.
 
-전달 계층은 액션 domain에서 버티컬 MI를 선택하며 코어 코드 변경은 필요 없습니다.
+전달 계층은 액션 도메인에서 버티컬 MI를 선택하며 코어 코드 변경은 필요 없습니다.
 
 ## 인가 모델(권한 확인 모델)
 
@@ -103,7 +103,7 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
  policy-as-code(OPA/Rego) 이며, 권한 있는 스코프는 상시 개방이 아니라 **just-in-time과
  time-bound** 로 부여되어 액션 윈도우 후 만료.
 - 조직의 계정/아이덴티티 표준을 클라우드 인가 경로와 조화(예: Keycloak 같은 외부 IdP ↔ Entra
- ↔ Managed Identity). 이 매핑을 **P0 blocker** 로 취급; 종단 경로가 프로비저닝되고
+ ↔ Managed Identity). 이 매핑을 **P0 차단 요인** 로 취급; 종단 경로가 프로비저닝되고
  최소권한 프로브로 테스트되고 접근 재인증이 스케줄될 때만 해결됨.
 - **접근 재인증**: 롤 할당은 고정 주기로 리뷰; 미사용/과광범위 부여는 취소. 재인증 결과는 감사.
 - 자율 배포는 플랫폼 정책(예: Azure Policy `deny`) 을 존중해야 함; 컨트롤을 우회하는 대신
@@ -154,23 +154,23 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
 - 의존성은 lockfile로 고정; CI는 lockfile에서만 설치하고 취약성 스캔이 high-severity 발견을
  블록.
 - 룰 카탈로그와 IaC는 **protected 브랜치 + 서명 커밋/PR 리뷰** 뒤의 catalog-as-code;
- enforce 브랜치로의 직접 push 없음.
+ 강제 적용 브랜치로의 직접 push 없음.
 - 빌드 아티팩트(컨테이너 이미지)는 서명되고 출처 이력/SBOM 기록됨; 실행기는 검증된 고정
  다이제스트만 pull, 절대 변경 가능한 `latest` 태그 아님.
 
 ## 7개 안전조건 (모든 자율 상태 변경 액션)
 
 1. **Stop-condition** - 액션을 중단시키는 정의된 halt 상태. ActionType 별로 `stop_conditions[]`
-  에 선언되고 실행기 가 적용 도중·이후에 평가.
+ 에 선언되고 실행기 가 적용 도중·이후에 평가.
 2. **Rollback 경로** - 되돌리는 테스트된 방법. 온톨로지 `ActionType.rollback_contract` 는
-  `pr_revert` / `scripted` / `pitr` / `snapshot_restore` / `state_forward_only` 중 하나여야
-  함; **`none` 은 유효 값 아님**. 정말로 되돌릴 수 없는 변경 은
-  `ActionType.irreversible: true` 로 설정되어 risk-gate 가 HIL+quorum 라우팅; 롤백 은
-  여전히 최선 노력 복구로 선언.
+ `pr_revert` / `scripted` / `pitr` / `snapshot_restore` / `state_forward_only` 중 하나여야
+ 함; **`none` 은 유효 값 아님**. 정말로 되돌릴 수 없는 변경 은
+ `ActionType.irreversible: true` 로 설정되어 risk-gate 가 HIL+정족수 라우팅; 롤백 은
+ 여전히 최선 노력 복구로 선언.
 3. **Blast-radius 한도** - 스코프 상한(non-prod 우선, 배치 크기, 속도) + 리소스별
-  직렬화로 한 리소스에 대한 동시 액션은 상호 배제. `ActionType.blast_radius.computation =
-  graph_derived` 는 risk-gate 가 Resource → Resource 그래프(`contains` + 역방향
-  `depends_on`, 깊이 2) 로 실제 영향 집합을 계산하게 함 - 3-값 enum 은 상한이 아니라 버킷.
+ 직렬화로 한 리소스에 대한 동시 액션은 상호 배제. `ActionType.blast_radius.computation =
+ graph_derived` 는 risk-gate 가 Resource → Resource 그래프(`contains` + 역방향
+ `depends_on`, 깊이 2) 로 실제 영향 집합을 계산하게 함 - 3-값 enum 은 상한이 아니라 버킷.
 4. **What-if 또는 예행 실행** - 변경 전에 성공한 버전 고정 예측 증명.
 5. **Logical-target 잠금** - 영향을 받는 모든 대상의 잠금과 인과 순서. 관리 리소스 변경에는
  정확한 리소스 ID를 사용합니다.
@@ -182,7 +182,7 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
 수 있습니다**. Shadow-mode 테스트는 변경이 없음을 증명하고 롤백 테스트는 이전 상태
 복원을 증명합니다. 속성 기반 테스트는 영향이 큰 실행에 현재 또는 상시 사람 승인이 있고,
 침묵은 권한을 부여하지 않으며, 비가역 작업은 상시 권한을 사용하지 않고, 재시도는 no-op임을
-단언합니다. 순수 A0 읽기는 변경 롤백, 예행 실행 및 lock 대신 제한된 읽기 권한과 증거
+단언합니다. 순수 A0 읽기는 변경 롤백, 예행 실행 및 잠금 대신 제한된 읽기 권한과 증거
 계약을 따릅니다. 독립적인 효과 검증이 모든 성공 주장을 게이트합니다.
 
 ## 비율 Limiting과 비상 정지 (DoS와 억제)
@@ -199,23 +199,23 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
 - **Break-glass** 절차는 필수 감사와 사후 리뷰 하에 범위된 비상 접근을 부여; break-glass
  사용은 알림을 발동하고 자동 만료.
 
-## 그림자 → Enforce 승격
+## 그림자 → 강제 적용 승격
 
-- 새 능력은 **그림자 모드** 로 출시: judge와 로그만, 실행 없음.
-- Enforce로의 승격은 명시적, 액션별이며 **최소 그림자 기간과 표본 크기**, 임계 위 측정 정확도,
+- 새 능력은 **그림자 모드** 로 출시: 판정자와 로그만, 실행 없음.
+- 강제 적용로의 승격은 명시적, 액션별이며 **최소 그림자 기간과 표본 크기**, 임계 위 측정 정확도,
  그림자에서 **정책 위반 escape 0** 을 게이트로 함
  ([goals-and-metrics-ko.md](goals-and-metrics-ko.md)의 메트릭).
 - 회귀는 자동으로 그림자로 강등; 모든 승격과 강등은 감사 엔트리를 씀.
 - Working-context 정책 후보는 액션 기능을 얻지 않고 같은 기능 권한을
  사용합니다. 비활성화된 상태로 설치되고 범위가 제한된 off-path 비교를 실행하며, 승격에는
- 정확한 버전, 근거 구간, 롤백 대상이 필요합니다. Invariant 위반 시 정책별 kill
+ 정확한 버전, 근거 구간, 롤백 대상이 필요합니다. 불변식 위반 시 정책별 kill
  전환이 engage됩니다. [컨텍스트 선택 정책](../decisioning/context-selection-policy-ko.md)을
  참고하세요.
 
 ## 사람 승인 무결성
 
 - 승인과 실행은 별개 principal; **자기승인 없음**, 그리고 고-blast-radius 액션은 단일 승인자가
- 아니라 **quorum(멀티 승인자)** 필요.
+ 아니라 **정족수(멀티 승인자)** 필요.
 - 승인자는 MFA/phishing-resistant 자격증명으로 인증; 각 승인은 특정 액션 + 멱등성 키에
  바인딩되어 **다른 액션에 대해 재생될 수 없음**.
 - **시간 초과는 실패 시 차단입니다**: 현재 승인 또는 유효한 기존 상시 승인이 없는 HIL 항목은
@@ -228,7 +228,7 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
 - 감사 저장소는 추가 전용이며 자율성의 신뢰 기반.
 - **Tamper-evidence**: 엔트리는 hash-chain(각 기록이 이전을 커밋)되고 주기적으로 기준점/서명
  되어 삭제나 편집이 감지 가능; 가능한 곳에서 한 번만 쓰는/WORM 저장.
-- **부인 방지**: 각 엔트리는 인증된 행위자 아이덴티티(실행기 또는 승인자)와 모드(그림자/enforce)
+- **부인 방지**: 각 엔트리는 인증된 행위자 아이덴티티(실행기 또는 승인자)와 모드(그림자/강제 적용)
  를 기록하여 액션을 나중에 부인할 수 없음.
 - 모든 액션은 다음에 링크: 트리거 이벤트, 결정한 티어, 인용된 규칙/정책, 리스크 결정(auto/HIL),
  승인자(HIL인 경우), 멱등성 키, 롤백 참조.
@@ -256,7 +256,7 @@ GET/헤드 interception, visual 및 텍스트 민감정보 제거, 시크릿 can
 | **Info 공개** | 로그 또는 LLM 프롬프트를 통한 시크릿/PII 유출 | 민감정보 제거, no-secret-in-prompt, 암호화, egress allow-list |
 | **DoS** | 이벤트 홍수 / 폭주 루프 / 예산 소진 | 비율/예산 상한, HIL로 circuit-break, 비상 정지 |
 | **권한 상승** | 과광범위 또는 cross-domain 액션 | Per-domain 아이덴티티, JIT time-bound 스코프, cross-assumption 거부, no 자기 승인 |
-| **프롬프트 injection** | 악성 페이로드가 T2 조종 | T2는 신뢰할 수 없는 취급; 검증기 + 정책 재검사가 권위 |
+| **프롬프트 주입** | 악성 페이로드가 T2 조종 | T2는 신뢰할 수 없는 취급; 검증기 + 정책 재검사가 권위 |
 
 ## 열림 Decisions
 
@@ -267,5 +267,5 @@ GET/헤드 interception, visual 및 텍스트 민감정보 제거, 시크릿 can
 | P1 | 정책 예외 워크플로 소유자와 SLA | TBD | 프로덕션 전 |
 | P1 | 감사 tamper-evidence 스킴(hash-chain + anchoring 주기) | TBD | 프로덕션 전 |
 | P1 | 비상 정지와 break-glass 런북과 드릴 스케줄 | TBD | 프로덕션 전 |
-| P2 | 컴플라이언스 컨트롤 매핑(MCSB / CIS / SOC 2) 과 증거 수집 | TBD | 첫 enforce 이후 |
-| P2 | 아이덴티티별 시크릿 로테이션 간격과 federation 커버리지 | TBD | 첫 enforce 이후 |
+| P2 | 컴플라이언스 컨트롤 매핑(MCSB / CIS / SOC 2) 과 증거 수집 | TBD | 첫 강제 적용 이후 |
+| P2 | 아이덴티티별 시크릿 로테이션 간격과 federation 커버리지 | TBD | 첫 강제 적용 이후 |

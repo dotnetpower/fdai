@@ -21,8 +21,8 @@ translation_revised: 2026-08-11
 > **범위.** 여기의 모든 것은 customer-agnostic 이다
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 > 워크플로는 [`rule-catalog/action-types/`](../../../rule-catalog/action-types)
-> 아래의 upstream `ActionType` 카탈로그만 참조하며, 새 변경 기본 요소 를
-> 선언하지 않는다. 새 기능 가 필요한 프로세스는 먼저 upstream `ActionType`
+> 아래의 업스트림 `ActionType` 카탈로그만 참조하며, 새 변경 기본 요소 를
+> 선언하지 않는다. 새 기능 가 필요한 프로세스는 먼저 업스트림 `ActionType`
 > 문서 PR 을 열라는 신호다.
 
 ## 1. 혼동하면 안 되는 네 가지 개념
@@ -32,14 +32,14 @@ translation_revised: 2026-08-11
 
 | 개념 | 책임 | 백킹 |
 |------|------|------|
-| **ActionType** | 7개 안전조건(stop, 롤백, 영향 상한, 예행 실행, lock, 멱등성, 감사)을 가진 CSP-중립 변경 카테고리 | [`rule-catalog/action-types/`](../../../rule-catalog/action-types), [action-ontology.md](action-ontology-ko.md) |
+| **ActionType** | 7개 안전조건(stop, 롤백, 영향 상한, 예행 실행, 잠금, 멱등성, 감사)을 가진 CSP-중립 변경 카테고리 | [`rule-catalog/action-types/`](../../../rule-catalog/action-types), [action-ontology.md](action-ontology-ko.md) |
 | **작업 흐름** | 비즈니스 프로세스의 *선언*: 각각 하나의 `ActionType` 을 참조하는 스텝의 순서 리스트 + 트리거 + 승격 게이트 + 기본 모드 | [`rule-catalog/workflows/`](../../../rule-catalog/workflows), 아래 스키마 |
 | **프로세스** | 실행 중 워크플로의 *런타임 인스턴스와 상태*: 현재 스텝, 대상 리소스, 진행한 발견 사항 | `Process` ObjectType (온톨로지) |
 | **런북** | *실행 메커니즘*: 스텝 리스트를 걷고, `on_failure` 를 존중하며, 집계 감사 행 를 기록 | [`services/core-control-plane/src/fdai/core/runbook/`](../../../services/core-control-plane/src/fdai/core/runbook) |
 
 분리가 중요합니다. `Workflow`는 *무엇*이 *언제* 실행되는지 선언하고 `Runbook`은 compiled
 `Workflow`의 thin 실행기이며 `Process`는 한 번의 실행에 대한 audited 상태입니다. 변경
-단계는 `ActionType`에 위임하여 안전성 invariant를 상속합니다. 읽기 전용 `evidence` 단계는 대신
+단계는 `ActionType`에 위임하여 안전성 불변식을 상속합니다. 읽기 전용 `evidence` 단계는 대신
 `WorkflowEvidenceDispatcher`를 사용하고 액션 권한이 없으며 브라우저 근거가 사용 불가이면
 실패 시 차단됩니다. ([설계](../interfaces/browser-evidence-ko.md))
 
@@ -53,16 +53,16 @@ catalog-as-code 이며, 로드 시
 
 ```yaml
 schema_version: "1.0.0"
-name: cost-aware-remediation     # 안정 dotted id; audit 키
+name: cost-aware-remediation   # 안정 dotted id; audit 키
 version: "1.0.0"
-description: >-            # <= 200 자, 영어, 마케팅 없음
+description: >-      # <= 200 자, 영어, 마케팅 없음
  Attach a cost impact to every SRE remediation so the verdict reflects
  reliability and finance together.
 trigger:
- kind: signal             # signal | schedule
- signal_type: object.drift      # kind == signal 일 때 필수
- schedule: null            # kind == schedule 일 때 RFC-5545 형태 cron
-default_mode: shadow          # NEW 워크플로는 shadow 기본값 MUST
+ kind: signal       # signal | schedule
+ signal_type: object.drift   # kind == signal 일 때 필수
+ schedule: null      # kind == schedule 일 때 RFC-5545 형태 cron
+default_mode: shadow     # NEW 워크플로는 shadow 기본값 MUST
 promotion_gate:
  min_shadow_days: 14
  min_samples: 100
@@ -70,22 +70,22 @@ promotion_gate:
  max_policy_escapes: 0
 steps:
  - id: estimate_cost
-  action_type_ref: remediate.right-size  # ActionType name 으로 resolve MUST
-  guard_rule_ref: null           # 스텝을 gate 하는 선택적 Rule id
-  compensated_by: null           # 이 스텝을 되돌리는 선택적 ActionType
-  on_failure: null             # 실패 시 실행할 선택적 step id
-  params:                 # 선택적 scalar 인자; 문자열은 템플릿 가능
-   reason: "drift on ${event.resource_ref}"
+ action_type_ref: remediate.right-size # ActionType name 으로 resolve MUST
+ guard_rule_ref: null      # 스텝을 gate 하는 선택적 Rule id
+ compensated_by: null      # 이 스텝을 되돌리는 선택적 ActionType
+ on_failure: null       # 실패 시 실행할 선택적 step id
+ params:         # 선택적 scalar 인자; 문자열은 템플릿 가능
+  reason: "drift on ${event.resource_ref}"
  - id: apply_rightsize
-  action_type_ref: remediate.right-size
-  on_failure: null
-anti_scope: >-             # 선택적; 워크플로가 의도적으로 제외하는 것
+ action_type_ref: remediate.right-size
+ on_failure: null
+anti_scope: >-       # 선택적; 워크플로가 의도적으로 제외하는 것
  Not a budget enforcement path; it only annotates SRE actions with cost.
 ```
 
 로더가 강제하는 필드 규칙:
 
-- `name` 은 안정 dotted id (`^[a-z][a-z0-9_.-]{0,79}$`); 로더는 upstream 과 모든
+- `name` 은 안정 dotted id (`^[a-z][a-z0-9_.-]{0,79}$`); 로더는 업스트림 과 모든
  포크 추가분에 걸쳐 이 값으로 dedupe 한다.
 - `steps` 는 최소 하나; 단계 `id` 는 워크플로 내에서 유일하다.
 - 모든 `action_type_ref` 는
@@ -102,8 +102,8 @@ anti_scope: >-             # 선택적; 워크플로가 의도적으로 제외�
 - `guard_rule_ref` 는 설정 시 로드된 룰 카탈로그의 Rule id 로 해석 MUST.
  가드 는 스텝의 결정론적 "언제"다 - policy-as-code 술어이지, 모델 텍스트가
  아니다.
-- upstream 워크플로는 `default_mode: shadow` MUST. `enforce` 로 출시되는
- 워크플로는 upstream 스키마 위반이다; enforce 승격은 별도의 gated 거버넌스 PR.
+- 업스트림 워크플로는 `default_mode: shadow` MUST. `enforce` 로 출시되는
+ 워크플로는 업스트림 스키마 위반이다; 강제 적용 승격은 별도의 gated 거버넌스 PR.
 - `params` 는 설정 시 스텝의 scalar (문자열 / number / boolean) 인자 맵이다.
  문자열 값은 `${event.resource_ref}` / `${event.trigger_ts}` /
  `${event.event_type}` 토큰을 담을 MAY 하며 오케스트레이터가 런타임에 트리거
@@ -113,13 +113,13 @@ anti_scope: >-             # 선택적; 워크플로가 의도적으로 제외�
 ### 2.1 알려진 한계 (P1)
 
 - **`signal_type` 는 자유 문자열이다.** 트리거 `signal_type` 은 signal-type
- 레지스트리에 대해 cross-reference 되지 않으므로 (upstream 에 아직 없음) 오타가
+ 레지스트리에 대해 cross-reference 되지 않으므로 (업스트림 에 아직 없음) 오타가
  로드 시 잡히지 않는다. `SignalType` 온톨로지 승격이 도착하기 전까지는 문서로
  취급하라.
 - **`on_failure` 는 성공 경로에서도 실행된다.** 컴파일된 런북 러너는 선언된
  모든 스텝을 순서대로 걷는다; `on_failure` 대상은 성공 시에도 실행되는 일반
  스텝이며, 추가로 실패 시 대체 경로 으로도 실행된다. 조건부 분기가 구현되고 테스트되기
- 전까지 `on_failure`가 null이 아닌 워크플로우는 enforce 승격 대상이 아니며 그림자에
+ 전까지 `on_failure`가 null이 아닌 워크플로우는 강제 적용 승격 대상이 아니며 그림자에
  남아야 합니다. 제공 워크플로우는 이를 null로 두고 `compensated_by`를 사용합니다. 멱등
  대체 경로를 작성해도 승격 차단이 해제되지 않습니다.
 
@@ -137,7 +137,7 @@ anti_scope: >-             # 선택적; 워크플로가 의도적으로 제외�
  scalar로 제한되며 새 액션을 정의할 수 없다.
 
 콘솔은 정의를 **Built-in**, **Shared**, **Mine**으로 그룹화한다. Built-in은
-upstream git 카탈로그에서 오고, Shared는 검토를 통과한 테넌트 카탈로그 산출물다.
+업스트림 git 카탈로그에서 오고, Shared는 검토를 통과한 테넌트 카탈로그 산출물다.
 Mine은 비공개 user 정의를 포함한다. **My automations**는 principal 연결을
 별도로 표시하므로 새 트리거나 표준 시간대가 단계 그래프를 복제하지 않고 기존
 정의를 재사용한다.
@@ -188,7 +188,7 @@ Mine은 비공개 user 정의를 포함한다. **My automations**는 principal �
 
 ## 4. 컨트롤 루프 통합
 
-focused 소유자 문서로 이동했습니다: [workflow-control-loop-integration-ko.md](workflow-control-loop-integration-ko.md). 통제된 그림자/enforce 오케스트레이터, 가드 평가 경계, 런타임 저널과 온톨로지 변환 결과, 수동 그림자/enforce 명령, 통제된 Python 작업 및 cron 예약, 통제된 명령 및 셸 산출물을 다룹니다.
+focused 소유자 문서로 이동했습니다: [workflow-control-loop-integration-ko.md](workflow-control-loop-integration-ko.md). 통제된 그림자/강제 적용 오케스트레이터, 가드 평가 경계, 런타임 저널과 온톨로지 변환 결과, 수동 그림자/강제 적용 명령, 통제된 Python 작업 및 cron 예약, 통제된 명령 및 셸 산출물을 다룹니다.
 
 런타임 전달에는 카탈로그 기반 도구 전체에 적용되는 하나의 catalog-root 불변식이
 있습니다. 명시적 `catalog_root`로 컨트롤 루프를 구성하면 chaos 실행기(전체 및
@@ -231,8 +231,8 @@ role-group 대응이 구성된 경우에만 허용 목록 기반 Entra 어댑터
 됩니다. 근거가 없거나 거부되거나 malformed이면 waiting 상태를 유지하거나
 `recovery_incomplete`로 끝나며 성공이 되지 않습니다.
 
-Upstream headless 런타임과 운영 Operator API는 shared 영속 상태 저장소에
-`StateStoreWorkflowOutcomeLedger`를 연결합니다. 컨트롤 루프는 enforce 액션과
+업스트림 headless 런타임과 운영 Operator API는 shared 영속 상태 저장소에
+`StateStoreWorkflowOutcomeLedger`를 연결합니다. 컨트롤 루프는 강제 적용 액션과
 `ResponseOutcome`의 실행 신원이 일치할 때만 변경할 수 없는 증적을 기록하며, 성공 증적에는
 독립적으로 검증된 효과 근거도 필요합니다. 해석기는 제안 참조, 프로세스, 단계로
 증적을 읽으므로 재개 시 호출자가 제공한 상태나 증적 맥락을 신뢰하지 않습니다. 그림자,
@@ -270,12 +270,12 @@ design이 이 ActionType들을 pin하며 런타임에서 arbitrary 변경을 선
 `POST /workflows/{process_id}/resume`은 요청 본문을 허용하지 않습니다. 경로는 프로세스 스냅샷과
 creation 이벤트를 다시 읽고 작업 흐름 이름 및 버전과 derived 프로세스 id를 검증한 뒤 original 대상,
 상관관계, 트리거, 모드, safe 맥락을 재사용합니다. 기여자는 그림자 프로세스를 재개할 수
-있습니다. Enforce 프로세스에는 계속 Owner와 현재 작업 흐름 enforce 허용 목록이 필요합니다. 근거가
+있습니다. 강제 적용 프로세스에는 계속 Owner와 현재 작업 흐름 강제 적용 허용 목록이 필요합니다. 근거가
 누락된, 이전 방식, malformed, 민감정보가 제거된, version-mismatched 또는 identity-mismatched 상태이면 타입이 지정된 충돌을
 반환하고 단계를 전달하지 않습니다.
 
 `POST /workflows/{process_id}/cancel`도 요청 본문을 허용하지 않으며 같은 영속 묶음을
-해석합니다. 기여자는 그림자 프로세스를 취소할 수 있고 enforce 프로세스에는 Owner가
+해석합니다. 기여자는 그림자 프로세스를 취소할 수 있고 강제 적용 프로세스에는 Owner가
 필요합니다. 이 명령은 프로세스가 `pending` 또는 `waiting`일 때만
 `process.cancellation-requested`를 기록합니다. `running` 프로세스는 in-flight 디스패처가 idle이라고
 가정할 수 없으므로 `process_not_at_safe_boundary`를 반환합니다. Waiting 액션은 먼저 권위 있는
@@ -295,7 +295,7 @@ creation 이벤트를 다시 읽고 작업 흐름 이름 및 버전과 derived �
 보상 근거가 없어야 합니다. Approval 근거는 최종 `approval_rejected` 또는
 `approval_timed_out`에만 허용됩니다. 디스패처 exception은 로컬 전달 이벤트가 없어도
 모호한하므로 `retry_requires_recovery`를 반환합니다. 그림자 재시도에는 기여자가 필요하고
-enforce 재시도에는 Owner와 현재 enforce 허용 목록이 필요합니다. 서버가 소유한 시도 한도의
+강제 적용 재시도에는 Owner와 현재 강제 적용 허용 목록이 필요합니다. 서버가 소유한 시도 한도의
 기본값은 3이며 호출자가 높일 수 없습니다.
 
 작업 흐름 승인 상태와 HIL 자리 신원은 프로세스, 단계, 시도에 연결됩니다. 시도 1은
@@ -315,7 +315,7 @@ contention 한계 대신 변경할 수 없는 자리 정족수에 따라 확장�
 
 작업 흐름 감사는 각 ActionType의 `x-fdai-redact` 경로를 사용합니다. 민감정보가 제거된 필드는
 `[REDACTED]`로 표시되며 프로세스 저널에 들어가지 않습니다. 작업 흐름 런타임에는 시크릿 보관
-프로바이더가 없으므로 resolved params에 민감정보가 제거된 필드가 있는 enforce 액션은 타입이 지정된 전달 전에
+프로바이더가 없으므로 resolved params에 민감정보가 제거된 필드가 있는 강제 적용 액션은 타입이 지정된 전달 전에
 실패합니다. Secret-bearing 작업 흐름 단계는 값을 감사 또는 재생 상태에 저장하지 않고 공급할
 전용 보관 경계가 생길 때까지 사용 불가 상태를 유지합니다.
 
@@ -326,7 +326,7 @@ out-of-range, 잘린 근거는 계속 차단됩니다.
 ## 6. 거버넌스
 
 - **Shadow-first.** 모든 워크플로는 `default_mode: shadow` 로 출시된다: 각 스텝을
- 변경 없이 judge-and-log 한다. enforce 승격은 고정된 시나리오 세트에서
+ 변경 없이 judge-and-log 한다. 강제 적용 승격은 고정된 시나리오 세트에서
  워크플로의 `promotion_gate` 를 측정하는 명시적, 별도 리뷰된 거버넌스 PR 이다.
 - **HIL 은 Var 통해, 감사 은 Saga 통해.** `ActionType` 이 HIL 로 라우팅되는
  스텝은 승인자 principal (Var) 을 거친다; 모든 최종 결과는 Saga 가 감사
@@ -360,7 +360,7 @@ HIL 로 라우팅되는 워크플로 스텝은 "누가 승인하고, 어떻게 �
  어댑터는 [`HilChannel`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py) 경계 을
  구현한다: [`TeamsHilAdapter`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py)
  와 [`SlackHilAdapter`](../../../services/core-control-plane/src/fdai/delivery/chatops/)
- (Adaptive 카드 / 블록 Kit, HMAC 서명, 실패 시 차단). 이메일 은 send-only alert
+ (Adaptive 카드 / 블록 키트, HMAC 서명, 실패 시 차단). 이메일 은 send-only alert
  레인이지 A1 승인 back-channel 이 아니다.
 
 알림 경로를 사용할 수 없으면 해당 경로가 필요한 작업 흐름과 인시던트 경로만
@@ -386,7 +386,7 @@ Azure 이벤트 전송 계층도 요구합니다. 구체적인 on-call OID와 �
 I/O + 검증이며, `ActionType` 및 ObjectType 로더를 미러한다. 실패 시 차단 다: 어느
 파일의 어느 이슈든 모든 파일의 모든 이슈를 담은 하나의 집계 에러를 raise 한다.
 각 `action_type_ref` 와 `compensated_by` 를 `ActionType` 카탈로그에 대해, 각
-`guard_rule_ref` 를 룰 카탈로그에 대해 cross-reference 하며, upstream
+`guard_rule_ref` 를 룰 카탈로그에 대해 cross-reference 하며, 업스트림
 shadow-default 정책을 강제한다. 엔트리 포인트는 시작 시 카탈로그를 로드하므로
 malformed 워크플로는 첫 전달 가 아니라 부팅을 막는다.
 
@@ -510,7 +510,7 @@ echo 되는 클릭 가능한 **옵션 칩**입니다. 설계 속성은 다음과
 세 라우트는
 [`OperatorApiConfig.workflow_authoring`](../../../services/operator-service/src/fdai_operator_service/)
 (로드된 팔레트, 빌트인 워크플로, 룰 id, 스키마 레지스트리 를 담은
-`WorkflowAuthoringConfig`) 를 통해 명시적 선택 이다; upstream 에선 unset 이라 콘솔이
+`WorkflowAuthoringConfig`) 를 통해 명시적 선택 이다; 업스트림 에선 unset 이라 콘솔이
 minimal 로 유지되고, 로컬 dev 하네스에는 배선되어 뷰가 곧바로 렌더된다.
 
 Console 은 privileged 읽기 전용 불변식을 유지합니다
@@ -519,26 +519,26 @@ Palette 및 카탈로그 는 GET-only `OperatorApiClient` 를 통한 GET이고 �
 save 는 principal 소유 비공개 authoring 기록 만 씁니다. Save 경로 는 실행기
 신원 를 받지 않으며 정의 을 publish, 연결, 활성화 또는 실행 할 수 없습니다.
 유효한 초안 는 `rule-catalog/workflows/<name>.yaml` 에 제안할 YAML 도 제공합니다.
-새 카탈로그 항목 는 `shadow` 로 잠기며 enforce 승격은 [6절](#6-거버넌스) 의 별도
+새 카탈로그 항목 는 `shadow` 로 잠기며 강제 적용 승격은 [6절](#6-거버넌스) 의 별도
 거버넌스 PR 로 유지됩니다.
 
 ### 8.2 동적 런타임 뷰
 
 **Processes** 콘솔 경로 는 프런트엔드 에 architecture-review 로직을 넣지 않고
-실행 중이거나 완료된 작업 흐름 instance 를 렌더합니다. 변환 결과 경로는 다음과
+실행 중이거나 완료된 작업 흐름 인스턴스 를 렌더합니다. 변환 결과 경로는 다음과
 같습니다.
 
 ```text
 Workflow -> Process snapshot + journal -> ontology projection
-     -> ontology datasource -> ReportSpec -> ViewSpec
-     -> RenderedView API -> generic console widgets
+   -> ontology datasource -> ReportSpec -> ViewSpec
+   -> RenderedView API -> generic console widgets
 ```
 
 각 산출물 는 하나의 책임을 가집니다.
 
 - **작업 흐름** 는 실행과 컨트롤 흐름 를 선언합니다. UI 배치 을 포함하지 않습니다.
 - **프로세스 스냅샷 및 저널** 은 권위 있는 변경 가능한 상태 와 이력 입니다.
-- **온톨로지 변환 결과** 은 런타임 상태 에 타입이 지정된 domain meaning 과 링크 를 제공합니다.
+- **온톨로지 변환 결과** 은 런타임 상태 에 타입이 지정된 도메인 meaning 과 링크 를 제공합니다.
 - **ReportSpec** 은 변환 결과 에서 범위가 제한된 데이터셋 및 위젯 데이터 를 선택합니다.
 - **ViewSpec** 은 작업 흐름 참조 를 보고 지역 및 열 구간 에 매핑합니다.
  [`rule-catalog/views/`](../../../rule-catalog/views/) 아래 catalog-as-code 입니다.
@@ -565,7 +565,7 @@ Operational-planning 프로세스는 추가 전용 `planning.phase.recorded` 하
 컨트롤을 포함하지 않습니다.
 
 아키텍처 지도 은 별도입니다. 인벤토리 그래프 가 반환한 실제 infrastructure
-토폴로지 를 시각화합니다. 프로세스 화면 는 작업 흐름 상태 및 domain 변환 결과 을
+토폴로지 를 시각화합니다. 프로세스 화면 는 작업 흐름 상태 및 도메인 변환 결과 을
 시각화합니다. 어느 표면 도 다른 표면 의 정본 가 아닙니다.
 
 ### 8.3 작업 흐름 앱 및 메뉴 노출
@@ -574,7 +574,7 @@ Operational-planning 프로세스는 추가 전용 `planning.phase.recorded` 하
 **WorkflowApp** 매니페스트 를 등록합니다. 매니페스트 는 검색 가능성만 제어합니다. 실행
 logic, 액션 버튼, JavaScript 또는 임의 백엔드 경로 를 추가하지 않습니다.
 
-Console 은 Operations domain 에 하나의 안정적인 **작업 흐름 apps** 항목을
+Console 은 Operations 도메인 에 하나의 안정적인 **작업 흐름 apps** 항목을
 노출합니다. 이 허브 는 현재 principal 에게 보이는 published 매니페스트 를 나열합니다.
 각 앱 은 `/workflow-apps/{app_id}` 를 사용하며 `workflow_ref` 로 필터링된 범용
 프로세스 목록, 저널, ViewSpec, ReportSpec 및 위젯 렌더러 를 재사용합니다. 생성된
@@ -609,14 +609,14 @@ interaction 모델이나 executable 프런트엔드 코드는 build-time `EXTRA_
 ## 10. 안티패턴
 
 - **새 변경 기본 요소 를 선언하는 워크플로.** 스텝은 기존 `ActionType`
- 카탈로그를 참조한다; 빠진 기능 는 inline 스텝 본문 가 아니라 upstream
+ 카탈로그를 참조한다; 빠진 기능 는 inline 스텝 본문 가 아니라 업스트림
  `ActionType` PR 이다.
 - **Risk-gate를 우회하는 상태 변경 단계.** 모든 액션 단계는 타입이 지정된 파이프라인에 재진입합니다.
  근거 및 컨트롤 단계는 실행기를 호출할 수 없습니다.
 - **상시 구동 프로세스 오케스트레이터.** 프로세스는 event-driven, scale-to-zero 다;
  polling 데몬은 앱 형태 와 모순된다
  ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
-- **`enforce` 로 출시되는 워크플로.** upstream 워크플로는 shadow-first 다;
- enforce 는 별도 gated 승격이다.
+- **`enforce` 로 출시되는 워크플로.** 업스트림 워크플로는 shadow-first 다;
+ 강제 적용 는 별도 gated 승격이다.
 - **보상 없는 실패 시 부분 상태.** `compensated_by` 없는 non-reversible 스텝은
  대상을 절반만 바꾼 채 두지 말고 실패를 HIL 로 라우팅 MUST.

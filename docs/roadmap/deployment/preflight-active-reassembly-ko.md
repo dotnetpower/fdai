@@ -4,17 +4,17 @@ translation_of: preflight-active-reassembly.md
 translation_source_sha: a06b01451999e51de370c52c4eab6e7647bc34f4
 translation_revised: 2026-08-11
 ---
-# 프리플라이트 능동 플랜 재조립 (정책 blocker에서 재렌더된 terraform으로)
+# 프리플라이트 능동 플랜 재조립 (정책 차단 요인에서 재렌더된 terraform으로)
 
 [deployment-preflight](deployment-preflight-ko.md)가 등록된 capability-mode 토글을
-가진 `policy_guardrail` 또는 `supply_chain_egress` blocker를 보고할 때, 시스템은
+가진 `policy_guardrail` 또는 `supply_chain_egress` 차단 요인을 보고할 때, 시스템은
 shipped pure 루프는 **terraform 플랜을 능동적으로 재렌더**할 재정의를 계산하고 재검증할 수
 있습니다. 지원되는 대체 형태는 애초에 거부되는 연산을 발행하지 않습니다. 기존
 [실행기](../architecture/project-structure-ko.md)를 통한 교정 PR 전달은 실제 운영 조립
-wiring이 완료된 뒤 활성화됩니다.
+배선이 완료된 뒤 활성화됩니다.
 
 이 문서는 **능동 재조립 루프, 그 수렴과 stop-condition, 그것을 실어 나르는 ActionType,
-그리고 무엇이 재조립될 수 있는지에 대한 정직한 한계**에 대해 권위를 가집니다. blocker
+그리고 무엇이 재조립될 수 있는지에 대한 정직한 한계**에 대해 권위를 가집니다. 차단 요인
 분류법, 토글 매핑 표, 리포트 형태는
 [deployment-preflight-ko.md](deployment-preflight-ko.md)에 남습니다. 토글 모듈 자체는
 [infra/modules/preflight-toggles/](../../../infra/modules/preflight-toggles/README.md)에
@@ -34,41 +34,41 @@ wiring이 완료된 뒤 활성화됩니다.
 레일은 이미 존재합니다. 능동 재조립은 그것들을 끝에서 끝까지 잇습니다:
 
 1. **탐지** - `FeasibilityProbe`가 근거 있는 `ProbeFinding`을 발행합니다
-  ([feasibility_probe.py](../../../services/core-control-plane/src/fdai/shared/providers/feasibility_probe.py)).
+ ([feasibility_probe.py](../../../services/core-control-plane/src/fdai/shared/providers/feasibility_probe.py)).
 2. **매핑** - 발견 사항이 정확한 infra 서브 모듈과 배포를 준수하게 만드는 변수 재정의를
-  지명하는 `ProbeResolution(kind=TERRAFORM_TOGGLE, autofix, module, set_vars)`를
-  실어 나릅니다.
+ 지명하는 `ProbeResolution(kind=TERRAFORM_TOGGLE, autofix, module, set_vars)`를
+ 실어 나릅니다.
 3. **대체 렌더링** -
-  [preflight-toggles](../../../infra/modules/preflight-toggles/README.md) 모듈이 준수하는
-  형태(`disk_provisioning=attach_existing`, `registry_source=acr_mirror`, ...)를
-  data-only Terraform으로 인코딩합니다.
+ [preflight-toggles](../../../infra/modules/preflight-toggles/README.md) 모듈이 준수하는
+ 형태(`disk_provisioning=attach_existing`, `registry_source=acr_mirror`, ...)를
+ data-only Terraform으로 인코딩합니다.
 
 설계가 추가한 두 조각의 현재 상태는 다음과 같습니다:
 
 - **토글 제안 빌더(완료)**: cleared 결과의 `autofix` 토글을 토글별 타입이 지정된 제안으로
- 렌더합니다. 실제 운영 싱크/발행기 wiring은 아직 없어 교정 PR을 열지는 않습니다
+ 렌더합니다. 실제 운영 싱크/발행기 배선은 아직 없어 교정 PR을 열지는 않습니다
  ([check_publish.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/check_publish.py)).
 - **수렴 루프(완료)**: 호출자가 제공한 계획 렌더러와 reanalyzer를 통해 재조립된 플랜을
- 다시 검사하여 한 blocker의 수정이 다른 blocker를 조용히 도입하지 못하게 합니다.
+ 다시 검사하여 한 차단 요인의 수정이 다른 차단 요인을 조용히 도입하지 못하게 합니다.
 
 ## 재조립 루프
 
 재조립은 단발이 아니라 범위가 제한된·결정론적 루프입니다 - 재렌더된 플랜은 토글이
-blocker를 제거하는 대신 이동시킬 수 있으므로 다시 확인되어야 합니다.
+차단 요인을 제거하는 대신 이동시킬 수 있으므로 다시 확인되어야 합니다.
 
 ```text
 terraform plan (JSON)
  -> preflight.analyze
-    -> CLEAR       -> 플랜 전달 / 머지
-    -> BLOCKED + 모든 blocking finding에 autofix 토글 있음
-              -> tfvars override 렌더 (재조립)
-              -> 재-plan -> preflight.analyze로 복귀  (bounded)
-    -> BLOCKED + 어떤 blocking finding에 autofix 토글 없음
-              -> hil (부분 autofix는 절대 적용 안 함)
+  -> CLEAR    -> 플랜 전달 / 머지
+  -> BLOCKED + 모든 blocking finding에 autofix 토글 있음
+       -> tfvars override 렌더 (재조립)
+       -> 재-plan -> preflight.analyze로 복귀 (bounded)
+  -> BLOCKED + 어떤 blocking finding에 autofix 토글 없음
+       -> hil (부분 autofix는 절대 적용 안 함)
 ```
 
 - **패스당 all-or-nothing**: 재조립은 *모든* 차단 발견 사항이 `autofix` 토글을 가질
- 때만 진행됩니다. 단 하나의 manual-resolution blocker가 전체 패스를 `hil`로
+ 때만 진행됩니다. 단 하나의 manual-resolution 차단 요인이 전체 패스를 `hil`로
  라우팅합니다 - 루프는 여전히 적용을 실패시킬 부분 수정을 절대 적용하지 않습니다.
 - **검증기가 권한**: 재조립된 플랜은 토글이 적용되었다는 이유로 신뢰되는 것이
  아니라 동일한 결정론적 preflight(OPA 재검증 + what-if)에 의해 다시 확인됩니다.
@@ -112,7 +112,7 @@ terraform plan (JSON)
  완전히 되돌릴 수 있으므로 `irreversible: false`.
 - `default_mode: shadow` - 첫 출시는 판단하고 PR을 `shadow` 라벨의 초안으로 렌더하며,
  절대 자동 머지하지 않습니다.
-- `promotion_gate` - enforce로의 카테고리별 승격 전에 고정된 시나리오 셋에서 측정됨
+- `promotion_gate` - 강제 적용로의 카테고리별 승격 전에 고정된 시나리오 셋에서 측정됨
  (토글 매핑의 false-positive 비율).
 - `preconditions` - `graph_fresh_within_seconds`(플랜과 환경 프로파일이 최신이어야 함)
  및 `no_conflicting_open_action_on_resource`.
@@ -131,8 +131,8 @@ terraform plan (JSON)
 3. 재조립된 플랜이 preflight를 다시 통과한다 (검증기 재검증);
 4. 재정의가 선언된 `blast_radius` 안에 머문다.
 
-`autofix: false` 토글은 제안이나 diff를 제출하지 않습니다. 보고의 수동 지침으로
-남고 전체 pass는 에스컬레이션되며, 오퍼레이터가 변수를 검토해 적용합니다.
+`autofix: false` 토글은 제안이나 차이를 제출하지 않습니다. 보고의 수동 지침으로
+남고 전체 통과는 에스컬레이션되며, 오퍼레이터가 변수를 검토해 적용합니다.
 
 ### 액션 입도: 토글당 액션 1개
 
@@ -151,7 +151,7 @@ escalate된 결과는 제안을 내지 않습니다 - 호출자가 `hil`로 라�
 
 경계에 대한 정직함은 부수 조건이 아니라 안전 속성입니다:
 
-- **재조립 가능** - 등록된 대체 렌더링을 가진 blocker: 인라인 disk 거부 ->
+- **재조립 가능** - 등록된 대체 렌더링을 가진 차단 요인: 인라인 disk 거부 ->
  `attach_existing`; 차단된 `docker.io` egress -> `acr_mirror`; NSG 생성 거부 ->
  `byo`; PyPI egress 거부 -> 내부 `python_index_url`; 순서 위반 ->
  `dependency_ordering=strict`.
@@ -161,7 +161,7 @@ escalate된 결과는 제안을 내지 않습니다 - 호출자가 `hil`로 라�
  않습니다.
 
 Preflight 조립은 범위가 제한된 발견 사항 id, category, 근거 출처, 범위와 함께 반복되는
-`MANUAL` blocker를 Norns에 보고할 수 있습니다. Norns는 범위 다이제스트를 deduplicate하고 기본
+`MANUAL` 차단 요인을 Norns에 보고할 수 있습니다. Norns는 범위 다이제스트를 deduplicate하고 기본
 세 개의 서로 다른 범위 이후 inert `preflight-toggle-gap` 후보 하나를 제안합니다. 후보는
 **새로운** 검토된 alternate 렌더링을 제안하고 표준 quality 게이트에 진입하지만 토글을
 만들거나 배포 권한을 높이지 않습니다
@@ -182,7 +182,7 @@ Preflight 조립은 범위가 제한된 발견 사항 id, category, 근거 출�
  현재 unwired 코어 기본 요소 자체는 감사 저장소를 호출하지 않습니다.
 
 재조립은 **shadow-first**로 출시됩니다: 토글 매핑의 false-positive 비율이 측정되고
-카테고리가 enforce로 명시적으로 승격되기 전까지, PR은 판단·렌더되지만 머지되지 않는
+카테고리가 강제 적용으로 명시적으로 승격되기 전까지, PR은 판단·렌더되지만 머지되지 않는
 초안입니다.
 
 ## 서브시스템 레이아웃
@@ -196,7 +196,7 @@ Preflight 조립은 범위가 제한된 발견 사항 id, category, 근거 출�
 | 수렴 루프 + stop-condition | [core/deploy_preflight/reassemble.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/reassemble.py) | 완료 |
 | `remediate.apply-preflight-toggle` ActionType | [rule-catalog/action-types/](../../../rule-catalog/action-types/remediate.apply-preflight-toggle.yaml) | 완료 |
 | overrides -> 액션 제안 (토글당 하나) | [core/deploy_preflight/reassembly_proposals.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py) | 완료 |
-| 반복 수동 blocker -> inert 후보 | [agents/norns.py](../../../services/core-control-plane/src/fdai/agents/norns.py) | 완료 (caller-supplied 관측) |
+| 반복 수동 차단 요인 -> inert 후보 | [agents/norns.py](../../../services/core-control-plane/src/fdai/agents/norns.py) | 완료 (caller-supplied 관측) |
 | 참조 소비자 배선 (토글 하나) | [infra/modules/preflight-toggles/reference-disk-consumer/](../../../infra/modules/preflight-toggles/reference-disk-consumer/README.md) | 완료 (포크가 복사) |
 | **조립 배선: `ProposalSink` + 라이브 트리거** | 조립 루트 + `delivery/azure/preflight/` | **남음** |
 
@@ -211,16 +211,16 @@ Preflight 조립은 범위가 제한된 발견 사항 id, category, 근거 출�
 1. **Docs-first** (이 문서) - 루프, ActionType, 한계. *(완료)*
 2. `remediate.apply-preflight-toggle` ActionType YAML + 스키마 검증. *(완료)*
 3. 범위가 제한된 수렴 루프, shadow-mode, 속성 테스트와 함께: "동일 토글은 절대 두 번
-  적용 안 함", "부분 blocker -> hil", "재조립된 플랜은 재검증됨", "회귀 -> hil",
-  "raise하는 reanalyze에 실패 시 차단". *(완료)*
+ 적용 안 함", "부분 차단 요인 -> hil", "재조립된 플랜은 재검증됨", "회귀 -> hil",
+ "raise하는 reanalyze에 실패 시 차단". *(완료)*
 4. `infra/` 아래 참조 소비자 배선 하나(`disk_provisioning` 토글)로 포크가 복사-붙여넣기
-  시작점을 갖게 함. *(완료)*
+ 시작점을 갖게 함. *(완료)*
 5. overrides-to-executor 단계: 적용된 각 토글을 `remediate.apply-preflight-toggle`
-  제안으로 렌더하고(토글당 액션 1개, granularity A) 타입드 파이프라인 경계를 통해
-  제출합니다. *(완료)*
+ 제안으로 렌더하고(토글당 액션 1개, granularity A) 타입드 파이프라인 경계를 통해
+ 제출합니다. *(완료)*
 6. 조립 배선(`ProposalSink`을 Huginn ingest에 연결) + 실제 정책 발견 사항을
-  루프에 공급하고 tfvars-override PR을 여는 라이브 Azure 어댑터 (preflight 라이브
-  어댑터 착지 후, shadow-first). *(남음)*
+ 루프에 공급하고 tfvars-override PR을 여는 라이브 Azure 어댑터 (preflight 라이브
+ 어댑터 착지 후, shadow-first). *(남음)*
 
 ## 참조
 

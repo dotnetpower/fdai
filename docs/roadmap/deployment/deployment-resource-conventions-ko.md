@@ -8,7 +8,7 @@ translation_revised: 2026-08-11
 
 이 문서는 FDAI가 프로비저닝하는 인프라의 리소스 명명 및 태깅 규약을 정의합니다.
 Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질의 가능하게 만들며, 배포별 값을
-upstream 분포 외부에 두는 데 사용하세요.
+업스트림 분포 외부에 두는 데 사용하세요.
 
 > 이 계약은 프로비저닝된 인프라에 적용됩니다. 런타임 코드는 설정을 통해 리소스 식별자를
 > 사용하며 이름이나 소유권 태그를 계산하지 않습니다.
@@ -17,7 +17,7 @@ upstream 분포 외부에 두는 데 사용하세요.
 
 이 리포지토리가 프로비저닝하는 모든 Azure 리소스는 **Microsoft Cloud 도입 Framework
 (CAF)** 축약 규약을 따릅니다. 이름은 결정론적이고 배포에 종속되지 않으며 grep할 수 있습니다.
-이름 변경은 Terraform diff로 처리하고 손으로 편집하지 않습니다.
+이름 변경은 Terraform 차이로 처리하고 손으로 편집하지 않습니다.
 
 패턴:
 
@@ -32,7 +32,7 @@ upstream 분포 외부에 두는 데 사용하세요.
  `ca-fdai-core`와 향후 `ca-fdai-worker`를 구분합니다.
 - **env** (`dev`/`staging`/`prod`)와 **지역** (`krc`/`weu`/`eus`): 리소스를 나란히
  배포할 때만 접미사로 추가합니다. Day-zero 배포는 접미사를 사용하지 않습니다.
-- **instance** (`01`, `02`, ...): 한 환경에 여러 복사본이 있을 때만 추가합니다.
+- **인스턴스** (`01`, `02`, ...): 한 환경에 여러 복사본이 있을 때만 추가합니다.
 
 기본 **리소스 그룹**은 `rg-fdai`입니다. 구독 범위 배치가 필요한 리소스 종류를 제외하면
 시스템이 프로비저닝하는 모든 리소스가 이 리소스 그룹에 속합니다. 현재 해당 예외는 없습니다.
@@ -67,7 +67,7 @@ upstream 분포 외부에 두는 데 사용하세요.
  `design-mocks` 컴포넌트와 Static Web Apps 지역을 포함합니다. 예를 들면
  `stapp-fdai-design-mocks-dev-ea`입니다. Static Web Apps는 모든 Azure 지역에서 제공되지
  않으므로 이 지역은 control-plane 지역과 다를 수 있습니다.
-- env/지역/instance를 추가한 합법적 이름이 문자 제한을 넘으면 해당 리소스 종류에만
+- env/지역/인스턴스를 추가한 합법적 이름이 문자 제한을 넘으면 해당 리소스 종류에만
  문서화된 짧은 이름 `aip`를 `fdai` 대신 사용합니다. 전체 이름이 제한 안에 있으면
  `aip`를 사용하지 않습니다.
 
@@ -124,7 +124,7 @@ Terraform의 `infra/main.tf` `base_tags`에서 결정하며 Python에서 계산�
 ### `fdai:managed`가 중요한 이유
 
 실행기는 FDAI가 소유하지 않는 리소스도 호스팅하는 구독 안에서 실행될 수 있습니다.
-소유권 마커를 사용하면 컨트롤 plane이 이 경계를 그을 수 있습니다. 이 마커는 한 스크립트에
+소유권 마커를 사용하면 컨트롤 평면이 이 경계를 그을 수 있습니다. 이 마커는 한 스크립트에
 하드코딩한 동작이 아니라 다음 기능이 사용하는 질의 키입니다.
 
 - **영향 범위 제한**: 자율 액션이 대상 집합을 제한해야 한다는 안전 불변식을
@@ -143,9 +143,9 @@ Terraform의 `infra/main.tf` `base_tags`에서 결정하며 Python에서 계산�
 
 ```hcl
 additional_tags = {
- "fdai:cost-center"     = "cc-1234"
- "fdai:owner"        = "team-platform"
- "fdai:criticality"     = "high"
+ "fdai:cost-center"   = "cc-1234"
+ "fdai:owner"    = "team-platform"
+ "fdai:criticality"   = "high"
  "fdai:data-classification" = "internal"
 }
 ```

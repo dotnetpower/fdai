@@ -65,7 +65,7 @@ Apps 환경입니다. 출처 포트는 일시적인입니다. Rule은 대상, �
 | Container Apps 시크릿 해석기와 deploy 호스트 | `<vault>.vault.azure.net` | TCP 443 | Container Apps Key Vault 참조 및 Terraform 시크릿 쓰기 | 새 개정 번호가 시크릿을 확인하지 못하고 deploy 시크릿 생성 실패 |
 | Container Apps 이미지 pull | `<registry>.azurecr.io` 및 `<registry>.<region>.data.azurecr.io` | TCP 443 | 이미지 매니페스트 및 계층 download | 기존 개정 번호는 유지될 수 있지만 새 개정 번호는 image-pull 오류로 실패 |
 | 인벤토리 및 액션 어댑터 | `management.azure.com` 또는 승인된 Resource Manager 비공개 링크 | TCP 443 | Resource Graph, ARM 읽기, what-if 및 통제된 액션 | 인벤토리가 stale 상태가 되고 cloud 액션 차단 |
-| Telemetry 내보내기 도구 | Azure Monitor 인제스트 호스트 또는 AMPLS(Azure Monitor Private Link 범위) | TCP 443 | 로그, 메트릭, 추적 및 Application Insights | 컨트롤 결정은 계속되지만 telemetry와 operational 근거 사용 불가 |
+| 텔레메트리 내보내기 도구 | Azure Monitor 인제스트 호스트 또는 AMPLS(Azure Monitor Private Link 범위) | TCP 443 | 로그, 메트릭, 추적 및 Application Insights | 컨트롤 결정은 계속되지만 텔레메트리와 operational 근거 사용 불가 |
 | Operator 브라우저 | 콘솔 FQDN, Operator API FQDN 및 `login.microsoftonline.com` | TCP 443 | SPA 전달, 읽기 전용 근거 및 interactive Entra sign-in | 콘솔 또는 sign-in 사용 불가, headless 코어는 계속 동작 |
 | 선택적 전달 어댑터 | 구성된 Teams, Slack, GitHub, 이메일, pager 또는 웹훅 FQDN | TCP 443 | 승인, 알림 및 교정 pull 요청 | 채널 큐 또는 장애 조치, 승인 요구사항은 우회하지 않음 |
 
@@ -142,7 +142,7 @@ DNS 영역 또는 두 번째 엔드포인트를 추가하지 않습니다.
 
 ```text
 FDAI subnet -> APIM private VIP:443 -> Azure OpenAI private endpoint:443
-       -> PTU first; one same-family Standard retry only after HTTP 429
+    -> PTU first; one same-family Standard retry only after HTTP 429
 ```
 
 - **첫 번째 홉:** FDAI는 배포가 공급한 APIM 게이트웨이 FQDN을 APIM 비공개 엔드포인트 또는
@@ -180,12 +180,12 @@ firewall이 FDAI egress 출처를 허용해야 합니다. Container Apps 환경�
 | 대상 | 프로토콜과 포트 | 목적 | Closed-network 대안 |
 |-------------|-----------------|------|---------------------|
 | DNS 해석기 | UDP 및 TCP 53 | 컨트롤, 데이터 및 비공개 엔드포인트 이름 확인 | conditional forwarding을 사용하는 비공개 해석기 |
-| Azure Instance 메타데이터 서비스 `169.254.169.254` | TCP 80 | 실행기 VM managed-identity 토큰 초기화 | Azure VM에는 대안 없음, link-local 트래픽은 Azure 내부 유지 |
+| Azure 인스턴스 메타데이터 서비스 `169.254.169.254` | TCP 80 | 실행기 VM managed-identity 토큰 초기화 | Azure VM에는 대안 없음, link-local 트래픽은 Azure 내부 유지 |
 | `login.microsoftonline.com` 및 필요한 테넌트/federation 호스트 | TCP 443 | Azure CLI 및 Terraform 토큰 획득 | 승인된 Entra 경로, Entra에는 테넌트 비공개 엔드포인트 equivalent가 없음 |
-| `management.azure.com` | TCP 443 | Terraform 및 Azure CLI 컨트롤 plane | 현재 제한을 수용할 수 있을 때 Resource Manager 비공개 링크 |
+| `management.azure.com` | TCP 443 | Terraform 및 Azure CLI 컨트롤 평면 | 현재 제한을 수용할 수 있을 때 Resource Manager 비공개 링크 |
 | 상태 Blob, Key Vault, ACR login/데이터 | TCP 443 | Terraform 상태, 시크릿 쓰기, 이미지 push/pull | 위의 비공개 엔드포인트 및 영역 |
 | GitHub 실행기 엔드포인트 | TCP 443 | 체크아웃, Actions 브로커, API, 산출물 및 release | 수동 jumpbox 전송 계층 또는 내부 출처/산출물 mirror |
-| Terraform 레지스트리, Python 인덱스, base-image 레지스트리 | TCP 443 | 최초 도구 및 의존성 획득 | signed offline kit 및 내부 mirror |
+| Terraform 레지스트리, Python 인덱스, base-image 레지스트리 | TCP 443 | 최초 도구 및 의존성 획득 | signed offline 키트 및 내부 mirror |
 
 Connected GitHub 실행기에는 일반적으로 최소한 `github.com`, `api.github.com`,
 `*.actions.githubusercontent.com`, `objects.githubusercontent.com` 및 저장소가 선택한 release와
@@ -209,7 +209,7 @@ AKS를 포함한 모든 리소스 프로바이더를 지원하지는 않습니�
 | Key Vault 443 | Container Apps 시크릿 해석 또는 Terraform 403/시간 초과 | 개정 번호 활성화 또는 배포 실패, 시크릿 값 대체 경로 없음 |
 | ARM/Resource Graph 443 | 인벤토리 조회 시간 초과 | 마지막 완전한 인벤토리를 stale 상태로 유지, evidence-dependent 액션 차단 |
 | Blob/DFS 443 | 업로드, 이름 변경, 재생 또는 상태 실패 | 관련 문서, case-history 또는 배포 작업 흐름만 중지, 근거를 생성하지 않음 |
-| Azure Monitor 443 | telemetry 누락 | 런타임 결정은 계속되지만 상태와 observability를 사용 불가로 표시 |
+| Azure Monitor 443 | 텔레메트리 누락 | 런타임 결정은 계속되지만 상태와 observability를 사용 불가로 표시 |
 | Approval/전달 호스트 443 | 채널 전달 실패 | 큐 또는 구성된 대체 경로 채널 사용, 자동 승인하지 않음 |
 | Container Apps platform tag | 개정 번호 stuck 또는 환경 unhealthy | FDAI 엔드포인트가 열려 있어도 platform이 워크로드를 시작하거나 관리하지 못함 |
 | APIM platform 포트 | APIM 배포, 상태, 관리 또는 게이트웨이 실패 | 모든 APIM 경로 모델 기능 사용 불가 |
@@ -223,9 +223,9 @@ AKS를 포함한 모든 리소스 프로바이더를 지원하지는 않습니�
 
 ```bash
 python3 scripts/deployment/azure/check-network-connectivity.py \
-  --profile runtime-private \
-  --env-file .fdai/local-runtime.env \
-  --output tmp/network-connectivity.json
+ --profile runtime-private \
+ --env-file .fdai/local-runtime.env \
+ --output tmp/network-connectivity.json
 ```
 
 공개 런타임 네트워크에서는 `runtime-public`, 배포 호스트에서는 `deploy-runner`를 사용하세요.
@@ -233,7 +233,7 @@ python3 scripts/deployment/azure/check-network-connectivity.py \
 배포별 경로에는 `custom`과 하나 이상의 매니페스트를 사용하세요.
 
 환경에서 찾은 엔드포인트 값은 출처 또는 `host:port` 형식이어야 합니다. 마지막 루트 `/`는
-허용하지만, 루트가 아닌 경로, 조회, fragment 또는 user information은 잘못된 입력입니다. 검사기는
+허용하지만, 루트가 아닌 경로, 조회, 조각 또는 user information은 잘못된 입력입니다. 검사기는
 DNS와 TCP 도달 가능성만 검사하므로 다른 대상을 조용히 검사해서는 안 됩니다. 명시적 포트는
 `[1, 65535]` 범위여야 합니다. 빈 포트 또는 포트 `0`은 잘못된 입력이며 프로파일 기본값으로
 대체하지 않습니다. 잘못된 URL은 exit 코드 `2`의 잘못된 입력으로 보고하며 파서 세부 정보가
@@ -241,11 +241,11 @@ DNS와 TCP 도달 가능성만 검사하므로 다른 대상을 조용히 검사
 
 ```json
 {
-  "schema_version": "fdai.network-connectivity-manifest.v1",
-  "checks": [
-   {"id": "apim-model-gateway", "host": "replace.example.com", "port": 443,
-    "required": true, "expected_ip": "private"}
-  ]
+ "schema_version": "fdai.network-connectivity-manifest.v1",
+ "checks": [
+  {"id": "apim-model-gateway", "host": "replace.example.com", "port": 443,
+  "required": true, "expected_ip": "private"}
+ ]
 }
 ```
 
@@ -278,17 +278,17 @@ Terraform 출력에서 두 Event Hubs 샤드, PostgreSQL, Key Vault, ACR 및 Azu
 결과는 이러한 실행 경로를 증명하지 않습니다.
 
 1. 모든 공개 조회 FQDN을 확인하고 비공개 프로파일에서 의도한 비공개 엔드포인트 또는
-  내부 VIP 서브넷의 주소를 반환하는지 확인합니다.
+ 내부 VIP 서브넷의 주소를 반환하는지 확인합니다.
 2. 해당하는 포트 443, 9093 및 5432에 범위가 제한된 TCP 연결을 엽니다. 비공개 엔드포인트가
-  ICMP에 응답하지 않을 수 있으므로 TLS 또는 프로토콜 authentication 오류가 ping보다 더
-  유효한 증거입니다.
+ ICMP에 응답하지 않을 수 있으므로 TLS 또는 프로토콜 authentication 오류가 ping보다 더
+ 유효한 증거입니다.
 3. 정확한 워크로드 신원으로 Entra 토큰을 획득한 다음 서비스별 읽기 전용 요청 하나를
-  수행합니다.
+ 수행합니다.
 4. Pinned 이미지 다이제스트를 pull하여 ACR login과 데이터 엔드포인트를 모두 검증합니다.
 5. APIM 모델 경로를 호출하고 PTU 및 forced-429 spillover 경로에서 FDAI 근거 헤더 3개를
-  모두 검증합니다.
+ 모두 검증합니다.
 6. 의존성을 한 번에 하나씩 차단하고 stale 근거 및 direct-endpoint 대체 경로 없음까지
-  실패 매트릭스의 해당 행과 일치하는지 확인합니다.
+ 실패 매트릭스의 해당 행과 일치하는지 확인합니다.
 
 ## 관련 문서
 

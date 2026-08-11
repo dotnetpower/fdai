@@ -16,7 +16,7 @@ translation_revised: 2026-08-11
 코어는 **CSP-중립 설계** 입니다: 클라우드 접근은 프로바이더 어댑터 뒤에 있으므로, 아래 Azure
 매핑이 유일한 구현 대상입니다. **비-Azure 프로바이더는 TBD** 입니다
 ([구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
-어댑터 표면은 보존되어 향후 대상은 추가적입니다. Downstream 분포는 코어를 편집하지
+어댑터 표면은 보존되어 향후 대상은 추가적입니다. 다운스트림 분포는 코어를 편집하지
 않고 프로바이더 구현을 제공할 수 있으며, 각 배포는 구성으로 신원과
 상태 연결을 제공합니다.
 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
@@ -43,8 +43,8 @@ Staging은 prod 토폴로지를 미러링하여 그림자 평가가 대표성을
 | 환경 | 목적 | 자율성 수준 |
 |------|------|-------------|
 | `dev` | 개발 및 통합 검증 | 권위 있는 승격 상태, 동일한 risk/HIL 게이트 |
-| `staging` | pre-prod 검증, 신규 규칙/액션 그림자 평가 (prod 미러) | 그림자, 선택적 enforce |
-| `prod` | 라이브 운영 | 저위험은 enforce; 고위험은 HIL |
+| `staging` | pre-prod 검증, 신규 규칙/액션 그림자 평가 (prod 미러) | 그림자, 선택적 강제 적용 |
+| `prod` | 라이브 운영 | 저위험은 강제 적용; 고위험은 HIL |
 
 - 환경별로 설정이 다름; **소스에 환경 값 없음** - 모두 런타임 주입.
 - 배포는 코어 편집 없이 환경 구성을 제공합니다. 환경은 기능을
@@ -88,68 +88,68 @@ Staging은 prod 토폴로지를 미러링하여 그림자 평가가 대표성을
  [deploy-and-onboard-ko.md](deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set);
  인벤토리는 [csp-neutrality-ko.md](../architecture/csp-neutrality-ko.md) 의 CSP-중립 계약을 렌더링):
  - **Container Apps 환경** (Consumption) 에서 실행되는 **하나의 control-loop 코어
-  Container App** 으로 `event-ingest` + `trust-router` + `executor`
-  + `audit-writer`, 런타임이 이식 가능하도록 **OCI 이미지 + Knative 호환 매니페스트 서브셋**
-  에서 배포 ([csp-neutrality-ko.md § 런타임 계약](../architecture/csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트)).
-  Core에는 sidecar/유입이 없습니다. 명시적 선택 Operator API, 공개 인제스트 API, ClamAV
-  sidecar를 가진 내부 인제스트 워커 및 Isolated 실행기는 별도 Container App입니다.
-  실행기 앱은 유입이 없고 기본 배포는 shadow-only를 유지합니다. 명시적 SD-08
-  전환이 게이트웨이 호출자 권한과 액션 신원을 Core에서 이동합니다.
+ Container App** 으로 `event-ingest` + `trust-router` + `executor`
+ + `audit-writer`, 런타임이 이식 가능하도록 **OCI 이미지 + Knative 호환 매니페스트 서브셋**
+ 에서 배포 ([csp-neutrality-ko.md § 런타임 계약](../architecture/csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트)).
+ Core에는 sidecar/유입이 없습니다. 명시적 선택 Operator API, 공개 인제스트 API, ClamAV
+ sidecar를 가진 내부 인제스트 워커 및 Isolated 실행기는 별도 Container App입니다.
+ 실행기 앱은 유입이 없고 기본 배포는 shadow-only를 유지합니다. 명시적 SD-08
+ 전환이 게이트웨이 호출자 권한과 액션 신원을 Core에서 이동합니다.
  - **Container Apps Jobs** (같은 환경) 로 스케줄 프로브와 경량 트리거를 실행하며 런타임
-  예약에서 Azure Functions를 대체합니다. 명시적 선택 개발 전용 FC1 Function App은 예외이며,
-  비공개 리소스에 등록된 연산을 중계할 뿐 스케줄러나 control-loop 런타임이 아닙니다.
+ 예약에서 Azure Functions를 대체합니다. 명시적 선택 개발 전용 FC1 Function App은 예외이며,
+ 비공개 리소스에 등록된 연산을 중계할 뿐 스케줄러나 control-loop 런타임이 아닙니다.
  - **Event Hubs** (Standard 1-TU 이름 공간 샤드 2개, auto-inflate off) 를 **`:9093` 의
-  Kafka 엔드포인트 로만** 소비 - CSP-중립 이벤트 버스 계약
-  ([csp-neutrality-ko.md § 이벤트버스 계약](../architecture/csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜)).
-  기본 샤드는 통제된 유입, 해당 DLQ, HIL, 파이프라인 단계를 소유합니다. Operational
-  샤드는 canary + DLQ, 시작 round-trip, raw 인벤토리, 실행기 명령 + DLQ 및 실행기
-  증적 개체를 소유하며 Standard 계층의 이름 공간당 개체 10개 제한을 지킵니다.
-  구독 리소스 쓰기/삭제는 managed-identity Event Grid 구독이
-  `aw.inventory.raw`로 forward합니다. 독립 Service Bus와 custom Event Grid 토픽은 없습니다.
+ Kafka 엔드포인트 로만** 소비 - CSP-중립 이벤트 버스 계약
+ ([csp-neutrality-ko.md § 이벤트버스 계약](../architecture/csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜)).
+ 기본 샤드는 통제된 유입, 해당 DLQ, HIL, 파이프라인 단계를 소유합니다. Operational
+ 샤드는 canary + DLQ, 시작 round-trip, raw 인벤토리, 실행기 명령 + DLQ 및 실행기
+ 증적 개체를 소유하며 Standard 계층의 이름 공간당 개체 10개 제한을 지킵니다.
+ 구독 리소스 쓰기/삭제는 managed-identity Event Grid 구독이
+ `aw.inventory.raw`로 forward합니다. 독립 Service Bus와 custom Event Grid 토픽은 없습니다.
  - **PostgreSQL Flexible Server** (Burstable B1ms, 1 영역, 7일 백업) 을 감사 + KPI +
-  패턴 라이브러리 + **pgvector** T1 임베딩의 단일 저장소로.
+ 패턴 라이브러리 + **pgvector** T1 임베딩의 단일 저장소로.
  - **비공개 StorageV2 case-history 계정**에 Shared Key 비활성화, Blob versioning,
-  soft 삭제, 범위가 제한된 버전 수명 주기, 전용 non-executor 워크로드 신원, 비공개 엔드포인트를
-  적용합니다. 내용 기반 주소를 가진 사례 개정 번호를 저장하고 PostgreSQL에는 rebuildable hot
-  인덱스만 유지합니다.
+ soft 삭제, 범위가 제한된 버전 수명 주기, 전용 non-executor 워크로드 신원, 비공개 엔드포인트를
+ 적용합니다. 내용 기반 주소를 가진 사례 개정 번호를 저장하고 PostgreSQL에는 rebuildable hot
+ 인덱스만 유지합니다.
  - **Key Vault** 를 시크릿 백엔드 로, 앱은 **Container Apps native 시크릿 + Key Vault
-  참조** 를 통해 소비 - 앱은 env vars 만 읽고 시크릿 SDK 를 가져오기 하지 않음
-  ([csp-neutrality-ko.md § 시크릿 계약](../architecture/csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret)).
+ 참조** 를 통해 소비 - 앱은 env vars 만 읽고 시크릿 SDK 를 가져오기 하지 않음
+ ([csp-neutrality-ko.md § 시크릿 계약](../architecture/csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret)).
  - **여러 User-assigned Managed Identity** + 범위된 롤 할당, `WorkloadIdentity` 인터페이스
-  (OIDC 토큰) 로 코어에 노출 - [security-and-identity-ko.md](../architecture/security-and-identity-ko.md)
-  및 [csp-neutrality-ko.md § 워크로드 아이덴티티 계약](../architecture/csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰) 참조.
-  실행기, 인벤토리, canary, 세 버티컬 신원이 기본 배포되고 읽기/명령/isolated-
-  실행기 그림자 전송 계층/인제스트 API/인제스트 워커/인제스트 이행/알림
-  신원은 기능별 명시적 선택입니다. 그림자 전송 계층 신원에는 효과 역할이 없습니다.
+ (OIDC 토큰) 로 코어에 노출 - [security-and-identity-ko.md](../architecture/security-and-identity-ko.md)
+ 및 [csp-neutrality-ko.md § 워크로드 아이덴티티 계약](../architecture/csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰) 참조.
+ 실행기, 인벤토리, canary, 세 버티컬 신원이 기본 배포되고 읽기/명령/isolated-
+ 실행기 그림자 전송 계층/인제스트 API/인제스트 워커/인제스트 이행/알림
+ 신원은 기능별 명시적 선택입니다. 그림자 전송 계층 신원에는 효과 역할이 없습니다.
  - **Log Analytics workspace + workspace-based Application Insights** (기본 30일 보존).
  - **Azure Container Registry** (Basic) 로 서명된 이미지.
  - 무료 티어 / 비-과금 요소: 명시적 선택 Static Web Apps (콘솔), 워크로드 신원 federation
-  (CI/CD), 콘솔 SPA + API + 승인 봇의 앱 등록. Azure Bot은 downstream Teams 채널이
-  선택적으로 제공하며 upstream Terraform은 프로비저닝하지 않습니다
-  ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md)).
+ (CI/CD), 콘솔 SPA + API + 승인 봇의 앱 등록. Azure Bot은 다운스트림 Teams 채널이
+ 선택적으로 제공하며 업스트림 Terraform은 프로비저닝하지 않습니다
+ ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md)).
 - 명시적으로 연기: 별도 vector DB, 독립 Service Bus / 커스텀 Event Grid 토픽,
- Front Door / API 관리, secondary-region DR 리소스 (Phase 4 - TBD).
+ Front Door / API 관리, secondary-region DR 리소스 (단계 4 - TBD).
 - IaC는 CI에서 Terraform validate + pinned Trivy + Checkov로 스캔됩니다.
 
 ## CI/CD 파이프라인
 
 ```mermaid
 flowchart TD
-  PR[Pull Request] --> LINT[lint + repository gates]
-  LINT --> UNIT[unit tests: T0 engine + risk gate]
-  UNIT -->|fail| STOP[block merge/promotion]
-  UNIT -->|pass| SCAN[IaC + dependency + secret scan]
-  SCAN -->|fail| STOP
-  SCAN -->|pass| BUILD[build + SBOM + sign + attest]
-  BUILD --> STAGE[deploy same artifact to staging]
-  STAGE --> SHADOW[shadow evaluation + regression]
-  SHADOW -->|escape or regression| STOP
-  SHADOW -->|clean| GATE{promote code?}
-  GATE -->|manual approve| PRODCD[deploy same image to prod]
-  GATE -->|reject| STOP
-  PRODCD --> ENFORCE{enable enforce?}
-  ENFORCE -->|separate manual approve| ON[enforce per action]
-  ENFORCE -->|default| SHADOWMODE[stay in shadow]
+ PR[Pull Request] --> LINT[lint + repository gates]
+ LINT --> UNIT[unit tests: T0 engine + risk gate]
+ UNIT -->|fail| STOP[block merge/promotion]
+ UNIT -->|pass| SCAN[IaC + dependency + secret scan]
+ SCAN -->|fail| STOP
+ SCAN -->|pass| BUILD[build + SBOM + sign + attest]
+ BUILD --> STAGE[deploy same artifact to staging]
+ STAGE --> SHADOW[shadow evaluation + regression]
+ SHADOW -->|escape or regression| STOP
+ SHADOW -->|clean| GATE{promote code?}
+ GATE -->|manual approve| PRODCD[deploy same image to prod]
+ GATE -->|reject| STOP
+ PRODCD --> ENFORCE{enable enforce?}
+ ENFORCE -->|separate manual approve| ON[enforce per action]
+ ENFORCE -->|default| SHADOWMODE[stay in shadow]
 ```
 
 - **CI 신원**: 파이프라인은 **단명, OIDC-federated** 신원으로 인증(장기 클라우드 키 CI에
@@ -162,7 +162,7 @@ flowchart TD
  증명과 다이제스트를 검증하며 unattested 이미지를 차단합니다.
 - **아티팩트 레지스트리**: 이미지와 그 SBOM/증명을 명시적 보존 정책으로 유지하여 어떤
  prod 개정 번호도 추적·재검증 가능.
-- **ACR 인계**: Upstream GHCR은 범용 build-evidence 레지스트리입니다. ACR이 필요한 포크는
+- **ACR 인계**: 업스트림 GHCR은 범용 build-evidence 레지스트리입니다. ACR이 필요한 포크는
  재구축 없이 검증된 이미지를 copy하여 다이제스트를 유지하고 target-registry 증명을
  생성하거나 복사한 뒤 해당 ACR 다이제스트를 ARB 근거 매니페스트의
  `signed-image-provenance`로 연결합니다. ACR용 두 번째 빌드는 다른 대상을 만들기 때문에
@@ -173,7 +173,7 @@ flowchart TD
 - **승격 게이트 체크리스트** (모두 통과 필수): T0-engine과 risk-gate 단위 테스트가 커버리지
  바에서 green; IaC + 의존성 + 시크릿 스캔 클린; 그림자 평가에서 **정책 위반 escape 0**
  + 회귀 스위트 통과; staging SLO 건강.
-- 새로운 자율 액션의 **enforce 승격**은 **별도의 명시적 승인** - 코드 배포가 enforce를
+- 새로운 자율 액션의 **강제 적용 승격**은 **별도의 명시적 승인** - 코드 배포가 강제 적용을
  자동 활성화하지 않음(기본은 그림자 유지,
  [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 참조).
 
@@ -193,7 +193,7 @@ Traffic-split canary 전략은 아직 자동 배선되지 않았습니다. Platf
 - **DB 마이그레이션**: **expand/계약**, 전방향 전용. 추가 스키마 먼저 배포, 양쪽 형태를
  허용하는 코드 배포, 이후 릴리스에서 옛 형태 제거. 마이그레이션은 앱 개정 번호가 트래픽 받기
  **전에** 게이트된 스텝으로 실행되고, 개정 번호 롤백이 스키마를 깨지 않도록 하위 호환되는
- 상태를 유지합니다. Online Alembic 실행은 database-scoped 트랜잭션 lock으로 개정 번호 확인,
+ 상태를 유지합니다. Online Alembic 실행은 database-scoped 트랜잭션 잠금으로 개정 번호 확인,
  DDL 및 version-row 갱신을 직렬화하므로 동시 시작 또는 테스트 워커가 같은 개정 번호를
  두 번 적용하지 않습니다.
 
@@ -201,7 +201,7 @@ Traffic-split canary 전략은 아직 자동 배선되지 않았습니다. Platf
 
 모든 자율 액션은
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 의
-7개 안전조건(stop-condition, 롤백 경로, blast-radius 한도, 예행 실행, 리소스 lock,
+7개 안전조건(stop-condition, 롤백 경로, blast-radius 한도, 예행 실행, 리소스 잠금,
 멱등성, 감사 항목)을
 운반합니다; 배포 롤백은 액션당 롤백을 대체하지 않고 보완합니다.
 
@@ -227,7 +227,7 @@ single-writer 복구 epoch, 기본 fencing, 상태와 이벤트 복구, failback
 Dead-letter 큐만으로 regional 이벤트 복구를 수행할 수 없습니다. Event Hubs 메타데이터
 disaster 복구는 이벤트 데이터를 복제하지 않으며 PostgreSQL geo-redundant 백업은 원격
 point-in-time 복원이 아닙니다. 각 운영 배포는 명시적 이벤트 출처, 데이터 복구
-방법, numeric RPO/RTO, 트래픽 strategy 및 측정된 장애 조치/failback drill 근거를
+방법, numeric RPO/RTO, 트래픽 strategy 및 측정된 장애 조치/failback 훈련 근거를
 연결합니다.
 
 ## 관측성, SLO, 알림
@@ -259,8 +259,8 @@ point-in-time 복원이 아닙니다. 각 운영 배포는 명시적 이벤트 �
  `infra/` HCL이 소유합니다([tech-stack-ko.md](../architecture/tech-stack-ko.md) 참조).
 - [x] Compute 대상 - **해결: Azure Container Apps + Jobs**. AKS는 custom networking,
  DaemonSet, GPU 같은 측정된 요구가 생길 때만 재검토합니다.
-- [ ] Enforce 승격을 위한 canary 스텝 함수와 자동 롤백 임계값.
+- [ ] 강제 적용 승격을 위한 canary 스텝 함수와 자동 롤백 임계값.
 - [x] Azure 원격 상태와 신원 - **해결: 비공개 Storage 백엔드 + VNet 자체 호스팅
  실행기 MI**, 환경별 상태 키. 비-Azure 대상의 per-CSP 신원은 TBD;
-   [구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)
-   와 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 참조).
+  [구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)
+  와 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 참조).

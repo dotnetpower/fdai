@@ -32,34 +32,34 @@ translation_revised: 2026-08-11
 
 ```mermaid
 flowchart TB
-  subgraph L[Operational lenses]
-    O[Object]
-    R[Relationship]
-    S[State]
-    C[Context]
-    A[Action]
-  end
+ subgraph L[Operational lenses]
+  O[Object]
+  R[Relationship]
+  S[State]
+  C[Context]
+  A[Action]
+ end
 
-  subgraph D[Versioned declarations]
-    OT[ObjectType]
-    LT[LinkType]
-    IT[InterfaceType]
-    FT[FunctionType]
-    AT[ActionType]
-  end
+ subgraph D[Versioned declarations]
+  OT[ObjectType]
+  LT[LinkType]
+  IT[InterfaceType]
+  FT[FunctionType]
+  AT[ActionType]
+ end
 
-  subgraph X[Runtime artifacts]
-    OI[Object and Link instances]
-    SF[Observed and derived facts]
-    CS[Immutable context snapshot]
-    MP[MutationPlan and ActionRun]
-  end
+ subgraph X[Runtime artifacts]
+  OI[Object and Link instances]
+  SF[Observed and derived facts]
+  CS[Immutable context snapshot]
+  MP[MutationPlan and ActionRun]
+ end
 
-  L --> D
-  D --> X
+ L --> D
+ D --> X
 ```
 
-두 그룹은 서로 다른 질문에 답합니다. Operational 관점은 운영자에게 domain을 설명합니다.
+두 그룹은 서로 다른 질문에 답합니다. Operational 관점은 운영자에게 도메인을 설명합니다.
 선언 종류는 exact 내용 기반 주소를 가진 계약을 정의합니다. 런타임 산출물은 해당 계약
 아래 값, 근거, 결정을 전달합니다.
 
@@ -69,7 +69,7 @@ flowchart TB
 |------|------|-----------|
 | 객체 | 무엇이 존재합니까? | `OntologyObjectType` 및 `OntologyObjectRecord`입니다. |
 | 관계 | 객체가 어떻게 연결됩니까? | `OntologyLinkType` 및 `OntologyLinkRecord`입니다. |
-| 상태 | 무엇이 관측, 파생, 의도 또는 실행되었습니까? | 명시적 권한이 있는 타입이 지정된 객체, 관측, trajectory, journal입니다. |
+| 상태 | 무엇이 관측, 파생, 의도 또는 실행되었습니까? | 명시적 권한이 있는 타입이 지정된 객체, 관측, trajectory, 저널입니다. |
 | 맥락 | 이 질문 또는 결정에 어떤 범위가 제한된 근거를 사용했습니까? | Versioned 조회 프로파일 및 변경할 수 없는 맥락 스냅샷입니다. |
 | 액션 | 어떤 safeguard에서 어떤 변경을 제안할 수 있습니까? | `OntologyActionType`, `MutationPlan`, `ActionRun`입니다. |
 
@@ -78,7 +78,7 @@ flowchart TB
 참조, 카탈로그 수명 주기, 생성된 소비자 표면이 필요하고 기존 종류로 표현할 수 없을 때만
 정당화됩니다.
 
-## 정본 선언 plane
+## 정본 선언 평면
 
 | 종류 | 계약 | 현재 상태 |
 |------|----------|-----------|
@@ -95,7 +95,7 @@ flowchart TB
 ## 관계 direction 계약
 
 LinkType은 구조적으로 directed 관계입니다. `from_type -> to_type`은 선언 direction이고,
-`from_id -> to_id`는 이에 대응하는 런타임 instance direction입니다. 별도의 범용 `direction`
+`from_id -> to_id`는 이에 대응하는 런타임 인스턴스 direction입니다. 별도의 범용 `direction`
 필드를 추가하면 엔드포인트와 중복되거나 모순될 수 있으므로 현재 metamodel에는 추가하지 않습니다.
 다만 `Resource -> Resource`와 같은 same-type 링크는 엔드포인트 타입만으로 출처와 대상의 의미를
 설명할 수 없으므로 의미 역할을 명시해야 합니다.
@@ -124,7 +124,7 @@ LinkType은 구조적으로 directed 관계입니다. `from_type -> to_type`은 
 신원을 모두 관측하기 전까지는 후보 상태로 유지합니다. 엔드포인트 누락, orientation 모호함
 또는 불완전한 커버리지가 있으면 링크를 만들지 않고 완전성을 낮춥니다.
 
-Inverse 탐색은 일반적으로 조회 관심사입니다. FDAI는 inverse가 서로 다른 domain meaning,
+Inverse 탐색은 일반적으로 조회 관심사입니다. FDAI는 inverse가 서로 다른 도메인 meaning,
 출처 이력 또는 cardinality를 가질 때만 별도 이름의 inverse LinkType을 추가합니다. 피어링과 같은
 symmetric 관계는 현재 스키마에서 independently supported directed 기록 두 개를 사용합니다.
 향후 `is_symmetric` 또는 `inverse_link_type` 필드를 추가하려면 호환성 design이 필요하며 기존
@@ -149,10 +149,10 @@ FDAI는 하나의 변경 가능한 `state` bag을 저장하지 않고 권한에 
 
 | 상태 레인 | 예 | 권한 및 표현 |
 |------------|----|-------------------|
-| 관찰된 | 프로바이더 power 상태, 프로비저닝 결과, 메트릭 샘플입니다. | 권위 있는 프로바이더/telemetry 증적 이후 owned 변환 결과 또는 `Observation`입니다. |
+| 관찰된 | 프로바이더 power 상태, 프로비저닝 결과, 메트릭 샘플입니다. | 권위 있는 프로바이더/텔레메트리 증적 이후 owned 변환 결과 또는 `Observation`입니다. |
 | Derived operational | Healthy, degraded, 리소스 pressure, 예측 risk입니다. | Versioned derive 함수와 변경할 수 없는 근거/uncertainty입니다. |
-| Desired | SLO, RTO, 예산, 검토된 구성입니다. | Approved 정책, 구성 또는 effective-time objective입니다. |
-| 실행 | Planned, dispatched, 검증된, rolled back입니다. | 프로세스 journal, `ActionRun`, 결과, 감사 원장입니다. |
+| Desired | SLO, RTO, 예산, 검토된 구성입니다. | Approved 정책, 구성 또는 effective-time 목표입니다. |
+| 실행 | Planned, dispatched, 검증된, rolled back입니다. | 프로세스 저널, `ActionRun`, 결과, 감사 원장입니다. |
 
 모든 decision-relevant 상태 사실은 다음 필드를 기록하거나 해석합니다.
 
@@ -163,7 +163,7 @@ FDAI는 하나의 변경 가능한 `state` bag을 저장하지 않고 권한에 
 - derived 값의 algorithm 또는 함수 버전
 - 변경할 수 없는 근거 참조 및 충돌 상태
 
-High-frequency telemetry는 샘플마다 Resource 객체를 다시 쓰지 않습니다. 권위 있는 근거
+High-frequency 텔레메트리는 샘플마다 Resource 객체를 다시 쓰지 않습니다. 권위 있는 근거
 출처에 유지합니다. Owning 변환 결과가 위 필드를 보존할 수 있을 때만 범위가 제한된 관측 또는
 derived 평가가 그래프에 들어갑니다. Late 근거는 새 산출물을 만들며 historical 결정이
 사용한 맥락을 다시 쓰지 않습니다.
@@ -173,11 +173,11 @@ derived 평가가 그래프에 들어갑니다. Late 근거는 새 산출물을 
 맥락에는 서로 다른 두 형태가 있습니다.
 
 1. **조회 프로파일:** 조회 FunctionType, ObjectSet 정의, 필수 링크 경로, historical
-  근거 함수, 최신성 룰, 완전성 정책, 리소스 상한을 선택하는 검토된/versioned
-  읽기 pattern입니다.
+ 근거 함수, 최신성 룰, 완전성 정책, 리소스 상한을 선택하는 검토된/versioned
+ 읽기 pattern입니다.
 2. **맥락 스냅샷:** 기준 시점에서 프로파일을 한 번 변경할 수 없는/내용 기반 주소를 가진 구체화한
-  결과입니다. Exact 객체/링크 개정 번호, 상태 사실, 근거 경로, 출처 watermark, temporal
-  exclusion, 충돌, 잘림 사유, 자율성 상한을 포함합니다.
+ 결과입니다. Exact 객체/링크 개정 번호, 상태 사실, 근거 경로, 출처 watermark, temporal
+ exclusion, 충돌, 잘림 사유, 자율성 상한을 포함합니다.
 
 조회 프로파일은 catalog-as-code와 `query` FunctionType으로 표현합니다. 변경 가능한 맥락 객체가 아니며
 `CONTEXT` 선언 종류가 필요하지 않습니다. 기존 `OperationalContextSnapshot`은 첫 맥락
@@ -191,13 +191,13 @@ derived 평가가 그래프에 들어갑니다. Late 근거는 새 산출물을 
 
 ```mermaid
 flowchart LR
-  N[Natural language] --> C[Candidate interpretation]
-  C --> V[Verified semantic plan]
-  V --> F[Query FunctionType]
-  F --> Q[ObjectSet and evidence functions]
-  Q --> S[Context snapshot]
-  S --> P[Policy input when needed]
-  P --> D[Decision pipeline]
+ N[Natural language] --> C[Candidate interpretation]
+ C --> V[Verified semantic plan]
+ V --> F[Query FunctionType]
+ F --> Q[ObjectSet and evidence functions]
+ Q --> S[Context snapshot]
+ S --> P[Policy input when needed]
+ P --> D[Decision pipeline]
 ```
 
 Lexical matching, 임베딩, 모델은 후보만 만듭니다. 후보는
@@ -206,7 +206,7 @@ Lexical matching, 임베딩, 모델은 후보만 만듭니다. 후보는
 
 Current-state 그래프 읽기와 historical 근거는 서로 다른 연산입니다. `ObjectSetDefinition`은
 현재 그래프를 선택합니다. 메트릭, 로그, 활동, 감사, retained trajectory는 동일 조회 계획의 범위가 제한된
-함수입니다. `as_of` 값이 현재 instance 저장소를 bitemporal 데이터베이스로 바꾸지 않습니다. 저장소
+함수입니다. `as_of` 값이 현재 인스턴스 저장소를 bitemporal 데이터베이스로 바꾸지 않습니다. 저장소
 계약이 권위 있는 관측 기준 시점 또는 watermark를 제공하기 전까지 secured 게이트웨이는 최대
 5초로 구성한 skew 안의 trusted 현재 evaluation 기준 시점만 허용합니다. 그 밖의 과거 또는 미래 값은
 historical 완전성 점유로 취급하지 않고 명시적으로 지원하지 않는으로 차단합니다.
@@ -221,10 +221,10 @@ historical 완전성 점유로 취급하지 않고 명시적으로 지원하지 
 | 프로바이더 관측 및 토폴로지 유입 | Huginn이며 권위 있는 인벤토리 변환 결과는 mechanical 쓰기 담당입니다. |
 | 런타임 관측, 발견 사항, 예측, 독립적인 결과 근거 | Heimdall입니다. |
 | 비용 및 용량 상태 사실 | Owned 참고용 객체에 대해 Njord 및 Freyr입니다. |
-| Chaos experiment 상태 | Loki입니다. |
+| Chaos 실험 상태 | Loki입니다. |
 | 변경할 수 없는 operational 맥락 스냅샷 | Muninn입니다. |
 | 결정 사례 및 판정 | Forseti입니다. |
-| Cross-objective arbitration | Odin입니다. |
+| Cross-objective 중재 | Odin입니다. |
 | Human 승인 기록 | Var입니다. |
 | 액션 실행 및 시도 | Thor입니다. |
 | 복구 및 롤백 결과 | Vidar입니다. |
@@ -242,8 +242,8 @@ Infrastructure projector는 소유자의 타입이 지정된 출력을 저장할
 - 에이전트가 공유하는 변경 가능한 `Context` 캐시
 - 자율성을 직접 높이거나 권한을 부여하는 상태 값
 - Command 또는 graph-write 증적에서 provider-observed 상태를 갱신하는 동작
-- 한계/최신성 증적 없이 high-frequency telemetry를 instance 그래프에 복사하는 동작
-- 질문 예시를 배포 객체 instance로 저장하는 동작. 검토된 의미 언어 카탈로그에
+- 한계/최신성 증적 없이 high-frequency 텔레메트리를 인스턴스 그래프에 복사하는 동작
+- 질문 예시를 배포 객체 인스턴스로 저장하는 동작. 검토된 의미 언어 카탈로그에
  속하며 검증 전에는 후보 전용입니다.
 - Competency 고정본이 ObjectType, InterfaceType, 조회 FunctionType으로 필요한 호환성 계약을
  표현할 수 없음을 입증하기 전에 `STATE` 또는 `CONTEXT` 선언 종류를 추가하는 동작
@@ -257,7 +257,7 @@ Infrastructure projector는 소유자의 타입이 지정된 출력을 저장할
 | M2 | 계획/호출 계보를 포함해 범위가 제한된 ObjectSet을 materialize하는 조회 FunctionType을 추가합니다. | 용도, release, 잘림, 근거 증적이 종단 간으로 보존됩니다. |
 | M3 | 기존 ObjectType 및 함수 출력으로 state-fact 필드와 링크 관측 메타데이터를 표준화합니다. | 관찰된/derived 사실이 혼동되지 않고 stale/conflicting 사실이 자율성을 낮춥니다. |
 | M4 | `read_investigation` 의도 하나를 그림자 검증된 조회 프로파일로 옮깁니다. | 기존 결과와 ontology-native 결과가 일치하거나 차이가 명시적으로 남습니다. |
-| M5 | D1-D4 이후 competency-driven 네트워크 및 telemetry 관계 커버리지를 추가합니다. | VM connectivity 및 Pod telemetry 체인이 올바른 방향의 검증된/검증되지 않은 구간을 보고합니다. |
+| M5 | D1-D4 이후 competency-driven 네트워크 및 텔레메트리 관계 커버리지를 추가합니다. | VM connectivity 및 Pod 텔레메트리 체인이 올바른 방향의 검증된/검증되지 않은 구간을 보고합니다. |
 
 `StateType` 또는 `ContextType`은 M3/M4에서 ObjectType, InterfaceType, FunctionType, exact release 참조,
 변경할 수 없는 스냅샷으로 표현할 수 없는 호환성 요구사항이 발생한 뒤에만 future
@@ -280,7 +280,7 @@ declaration-kind 제안이 됩니다.
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
-| Domain 객체, 관계, 시간, 소유권 | [FDAI 운영 온톨로지](operating-ontology-ko.md) |
+| 도메인 객체, 관계, 시간, 소유권 | [FDAI 운영 온톨로지](operating-ontology-ko.md) |
 | ObjectSet, 함수, 액션, writeback 경계 | [온톨로지 안전 인프라](operating-ontology-platform-ko.md) |
 | Constitutional 권한 | [FDAI 헌법](fdai-constitution-ko.md) |
 | Natural-language 및 모델 경계 | [LLM 전략](llm-strategy-ko.md) |

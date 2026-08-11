@@ -11,7 +11,7 @@ translation_revised: 2026-08-11
 그런 분포가 비밀을 배포하지 않고, 네트워크 호출 없이, 그리고 결코 자율성을 높이는 경로가
 되지 않으면서 권한을 활성화하는 방법을 정의합니다.
 
-> **범위:** 메커니즘은 upstream 소유이며 모든 분포에서 동일합니다. 공개 키와 토큰은
+> **범위:** 메커니즘은 업스트림 소유이며 모든 분포에서 동일합니다. 공개 키와 토큰은
 > 배포 설정입니다. 이 문서는 상업 조건, 가격, 철회 서비스를 정의하지 않습니다.
 
 ## 한눈에 보는 설계
@@ -21,7 +21,7 @@ translation_revised: 2026-08-11
 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md)의 시크릿 계약와도
 충돌합니다. 비밀은 환경변수 또는 마운트된 시크릿으로만 들어와야 합니다.
 
-그래서 라이선싱은 비대칭을 뒤집습니다. 리포지토리가 framework-surface 매니페스트와 offline kit에
+그래서 라이선싱은 비대칭을 뒤집습니다. 리포지토리가 framework-surface 매니페스트와 offline 키트에
 이미 적용 중인 패턴을 그대로 재사용합니다.
 
 | 위치 | 무엇 | 왜 안전한가 |
@@ -102,7 +102,7 @@ License의 유효한 표기는 정확히 하나입니다. 대부분의 표준 �
 | 상태 | 원인 | 가용성 |
 |------|------|--------|
 | `active` | 서명 검증 통과, 기간 내, 연결 일치 | 카탈로그에 존재하는 나열된 기능과 모든 읽기 전용 기능 |
-| `absent` | 토큰 미설정 | Upstream은 전체 카탈로그, 분포가 `require_license`를 켜면 읽기 전용 |
+| `absent` | 토큰 미설정 | 업스트림은 전체 카탈로그, 분포가 `require_license`를 켜면 읽기 전용 |
 | `untrusted` | 형식 오류 토큰, 비정규 토큰, packaged 키가 거부한 서명, 또는 실행되지 못한 검증기 | 읽기 전용 |
 | `not-yet-valid` / `expired` | 유효 기간 밖 | 읽기 전용 |
 | `misbound` | 이미지 다이제스트 또는 배포 연결 불일치 | 읽기 전용 |
@@ -126,7 +126,7 @@ crypto 백엔드, 전송 계층, `fdai.delivery`를 가져오기하지 않습니
 
 ## 이 리포지토리에서 검증하기
 
-Upstream은 license 없이 배포되지만 라이선싱은 upstream에서도 테스트 가능합니다. Key를 만들고,
+업스트림은 license 없이 배포되지만 라이선싱은 업스트림에서도 테스트 가능합니다. Key를 만들고,
 토큰을 발급하고, inspect합니다.
 
 ```bash
@@ -157,7 +157,7 @@ tamper-proof가 아닙니다**. 이미지를 받은 고객은 그 런타임을 �
 따라서 강제력 있는 부분은 binary가 아니라 배포 채널입니다.
 
 - `license_id`를 감사 trail에 기록해 권한을 사후에 귀속 가능하게 합니다.
-- 업데이트, 지원, 새로 서명된 offline kit을 현재 license에 묶어, 다음 릴리스를 잃는 것이 실제
+- 업데이트, 지원, 새로 서명된 offline 키트를 현재 license에 묶어, 다음 릴리스를 잃는 것이 실제
  결과가 되게 합니다.
 - 폐쇄망에는 철회 경로가 없고 호스트 시계가 게시자 통제 밖이므로, 짧은 유효 기간과 갱신을
  선호합니다.
@@ -169,4 +169,4 @@ tamper-proof가 아닙니다**. 이미지를 받은 고객은 그 런타임을 �
 | 포크가 편집할 수 있는 것과 주입해야 하는 것 | [downstream-fork-guide-ko.md](downstream-fork-guide-ko.md) |
 | 기능 번들, 확장, 신뢰 검사 | [project-structure-ko.md](../architecture/project-structure-ko.md#capability-bundles) |
 | 시크릿 처리와 네트워크 경계 | [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) |
-| 폐쇄망으로 이미지와 kit 전달 | [disconnected-deployment-ko.md](../deployment/disconnected-deployment-ko.md) |
+| 폐쇄망으로 이미지와 키트 전달 | [disconnected-deployment-ko.md](../deployment/disconnected-deployment-ko.md) |

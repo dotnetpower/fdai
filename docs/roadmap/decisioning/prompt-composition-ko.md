@@ -68,7 +68,7 @@ Azure OpenAI 어댑터에 넘깁니다. 런타임 레이어(rule-catalog 인용,
 | Base (역할 스켈레톤) | `base/t2-proposer.v1.yaml` | `base/t2-critic.v1.yaml` | `base/t2-judge.v1.yaml` |
 | 작업 스킬 묶음 | `packs/<capability>.proposer.vN.yaml` | `packs/<capability>.critic.vN.yaml` | (보통 제안자 묶음과 공유) |
 | 도구 매니페스트 | 도구 + 선택적 `web.search` | 도구(읽기 전용) | 없음 (Judge는 툴 호출 금지) |
-| Domain 맥락 (RAG) | 룰 / 과거 인시던트 인용 | 동일 | 동일 |
+| 도메인 맥락 (RAG) | 룰 / 과거 인시던트 인용 | 동일 | 동일 |
 | Web Snippets | 제안자가 가져온 경우 | 읽기 전용 | 읽기 전용 |
 | Operator Memory | 범위 제한 | 범위 제한 | 범위 제한 |
 | 토론 대화 기록 | (첫 턴엔 비어 있음) | 제안자 출력 | 제안자 + 비평자 출력 |
@@ -76,7 +76,7 @@ Azure OpenAI 어댑터에 넘깁니다. 런타임 레이어(rule-catalog 인용,
 2-model 검토자가 기본 T2 경로입니다. 제안자 / 비평자 / Judge 토론은 설정된
 disagreement에서만 라우터를 통해 실행됩니다.
 
-네 번째 역할인 **평가 기준** 판정자는 Base 레이어(`base/t2-rubric.vN.yaml`)와 Domain
+네 번째 역할인 **평가 기준** 판정자는 Base 레이어(`base/t2-rubric.vN.yaml`)와 도메인
 맥락 레이어를 재사용합니다; 제안자의 추론을 고정 기준으로 채점하며 툴을 호출할 수
 없습니다. 권위가 아니라 빼기 전용 환각 필터입니다 -
 [hallucination-rubric-gate-ko.md](hallucination-rubric-gate-ko.md) 참조.
@@ -91,7 +91,7 @@ disagreement에서만 라우터를 통해 실행됩니다.
  novelty 분류). 각 묶음은 기능이 참조할 수 있는 rule-catalog 항목을 인용합니다.
 - **도구 매니페스트** - 이 역할이 호출할 수 있는 툴의 부분집합. base 프롬프트 밖에서
  선언하는 이유는 base를 짧고 캐시 친화적으로 유지하기 위함입니다.
-- **Domain 맥락 (RAG)** - 이벤트별로 선택된 룰 발췌와 과거 인시던트 참조.
+- **도메인 맥락 (RAG)** - 이벤트별로 선택된 룰 발췌와 과거 인시던트 참조.
  프롬프트 옆에 영구 저장하지 않고, 감사에는 인용된 id와 vector-hit 점수만 기록.
 - **Web Snippets** - [웹 검색 정책](#web-search-policy) 하에서만 가져옵니다.
  `<web_snippet trusted="false" url="..." hash="...">...</web_snippet>`로 wrap.
@@ -107,16 +107,16 @@ disagreement에서만 라우터를 통해 실행됩니다.
 ```text
 rule-catalog/
  prompts/
-  schema/
-   prompt.schema.json     # 모든 아티팩트가 검증되는 JSON Schema
-  base/
-   t2-cross-check.v1.yaml   # Wave 1 (배포됨)
-   t2-proposer.v1.yaml     # Wave 3 (배포됨, shadow)
-   t2-critic.v1.yaml      # 배포됨, shadow
-   t2-judge.v1.yaml      # 배포됨, shadow
-   t2-rubric.v1.yaml      # 루브릭 환각 필터 (배포됨, shadow)
-  packs/            # Wave 2+
-  tools/            # Wave 2.5+
+ schema/
+  prompt.schema.json   # 모든 아티팩트가 검증되는 JSON Schema
+ base/
+  t2-cross-check.v1.yaml  # Wave 1 (배포됨)
+  t2-proposer.v1.yaml   # Wave 3 (배포됨, shadow)
+  t2-critic.v1.yaml   # 배포됨, shadow
+  t2-judge.v1.yaml   # 배포됨, shadow
+  t2-rubric.v1.yaml   # 루브릭 환각 필터 (배포됨, shadow)
+ packs/      # Wave 2+
+ tools/      # Wave 2.5+
 ```
 
 ### 런타임 데이터 (Postgres, 해시 주소 블롭)
@@ -127,40 +127,40 @@ rule-catalog/
 
 ```sql
 CREATE TABLE operator_memory (
- id      uuid PRIMARY KEY,
- scope_kind  text NOT NULL,   -- 'resource-group' | 'resource' | 'vertical'
- scope_ref   text NOT NULL,
- category   text NOT NULL,
- body     text NOT NULL,   -- 주입 시 <operator_note>로 wrap
- source_event text NOT NULL,   -- 'hil.reject' | 'override.create' | ...
- source_ref  text NOT NULL,   -- audit id / PR url / message id
- author    text NOT NULL,
- approved_by  text NOT NULL,   -- self-approval 금지
- created_at  timestamptz NOT NULL,
+ id   uuid PRIMARY KEY,
+ scope_kind text NOT NULL,  -- 'resource-group' | 'resource' | 'vertical'
+ scope_ref  text NOT NULL,
+ category  text NOT NULL,
+ body   text NOT NULL,  -- 주입 시 <operator_note>로 wrap
+ source_event text NOT NULL,  -- 'hil.reject' | 'override.create' | ...
+ source_ref text NOT NULL,  -- audit id / PR url / message id
+ author  text NOT NULL,
+ approved_by text NOT NULL,  -- self-approval 금지
+ created_at timestamptz NOT NULL,
  superseded_by uuid,
- ttl      interval
+ ttl   interval
 );
 
 CREATE TABLE agent_transcript (
- id       uuid PRIMARY KEY,
- event_id    text NOT NULL,
- round     smallint NOT NULL,
- role      text NOT NULL,  -- 'proposer' | 'critic' | 'judge'
- model_id    text NOT NULL,
- prompt_hash  text NOT NULL,
- layer_manifest jsonb NOT NULL,  -- 정렬된 layer ref + version + token 수
- tool_calls   jsonb NOT NULL,
+ id    uuid PRIMARY KEY,
+ event_id  text NOT NULL,
+ round   smallint NOT NULL,
+ role   text NOT NULL, -- 'proposer' | 'critic' | 'judge'
+ model_id  text NOT NULL,
+ prompt_hash text NOT NULL,
+ layer_manifest jsonb NOT NULL, -- 정렬된 layer ref + version + token 수
+ tool_calls  jsonb NOT NULL,
  response_hash text NOT NULL,
- cost_usd    numeric NOT NULL,
- latency_ms   integer NOT NULL,
- created_at   timestamptz NOT NULL
+ cost_usd  numeric NOT NULL,
+ latency_ms  integer NOT NULL,
+ created_at  timestamptz NOT NULL
 );
 
 CREATE TABLE web_evidence (
- content_hash  text PRIMARY KEY,
- url       text NOT NULL,
- fetched_at   timestamptz NOT NULL,
- intent     text NOT NULL,
+ content_hash text PRIMARY KEY,
+ url    text NOT NULL,
+ fetched_at  timestamptz NOT NULL,
+ intent   text NOT NULL,
  sanitized_text text NOT NULL,
  injection_flags jsonb NOT NULL
 );
@@ -304,16 +304,16 @@ Compaction은 역할, 도구, 액션, 실행 권한을 부여하지 않습니다
 
 ```text
 Proposer -- candidate + citation + confidence
-  |
-  v
-Critic  -- objection: [{severity, cited_rule_id, alt_action?}]
-  |
-  v
-Judge   -- decision in {accept, revise_and_retry (<=1), escalate_hil}
-  |
-  +--> accept    -> 결정론적 verifier -> risk gate
-  +--> revise    -> Proposer 1회 재시도 (total round <= 2)
-  +--> escalate_hil -> 종료
+ |
+ v
+Critic -- objection: [{severity, cited_rule_id, alt_action?}]
+ |
+ v
+Judge  -- decision in {accept, revise_and_retry (<=1), escalate_hil}
+ |
+ +--> accept  -> 결정론적 verifier -> risk gate
+ +--> revise  -> Proposer 1회 재시도 (total round <= 2)
+ +--> escalate_hil -> 종료
 ```
 
 이벤트당 하드 리밋: `debate.max_rounds <= 2`, `debate.max_wall_seconds`,
@@ -323,7 +323,7 @@ Judge   -- decision in {accept, revise_and_retry (<=1), escalate_hil}
 Judge는 더 작고 저렴한 모델이어도 됩니다.
 
 비평자의 역할은 "다른 의견"이 아니라, 7개 안전조건(stop-condition, 롤백, blast-radius,
-예행 실행, lock, 멱등성, audit-log)에 대한 체크리스트 + 인용 validity + 운영자 기억
+예행 실행, 잠금, 멱등성, audit-log)에 대한 체크리스트 + 인용 validity + 운영자 기억
 와의 모순 여부입니다.
 
 ## Operator 기억 파이프라인
@@ -333,12 +333,12 @@ Operator 피드백은 두 단계 게이트를 거쳐 기억이 됩니다:
 ```text
 HIL reject / approve reason -----\\
 Override create / modify event --+--> operator-memory 후보
-ChatOps preference message   --|     |
-PR review comment on rem PR   --/     v
-                   HIL 2차 승인 (self-approval 금지)
-                       |
-                       v
-                 operator_memory 행 (append-only)
+ChatOps preference message  --|   |
+PR review comment on rem PR  --/   v
+          HIL 2차 승인 (self-approval 금지)
+            |
+            v
+         operator_memory 행 (append-only)
 ```
 
 - **범위는 resource-group 이하여야 합니다.** 더 넓은 범위는 재정의가 아닌
@@ -356,7 +356,7 @@ PR review comment on rem PR   --/     v
 ## 인식 측정
 
 긴 프롬프트는 조용히 지시를 흘립니다. "모델이 우리가 보낸 것을 실제로 읽었는가"를
-1급 KPI로 다루며, 프롬프트를 enforce로 승격하기 전에 게이트합니다.
+1급 KPI로 다루며, 프롬프트를 강제 적용으로 승격하기 전에 게이트합니다.
 
 - **하드 토큰 예산** - 작성기가 조립된 프롬프트당 토큰을 추정. 초과 시 HIL로
  abort하고 `prompt.token_budget.exceeded_rate`를 증가. 우선순위가 낮은 레이어
@@ -387,12 +387,12 @@ PR review comment on rem PR   --/     v
 1. 웹 검색 출력은 **절대** `cited_rule_id`가 아님.
 2. 도구 결과와 web 스니펫은 **항상** `trusted="false"` XML로 wrap.
 3. 토론 루프는 하드 `max_rounds`, `max_wall_seconds`, `max_cost_usd`
-  상한을 가지며, 초과 시 HIL로 abort.
+ 상한을 가지며, 초과 시 HIL로 abort.
 4. 비평자와 제안자의 발행기는 **달라야** 하며, 같은 발행기 쌍은 단일
-  voter로 붕괴함.
+ voter로 붕괴함.
 5. Judge는 툴을 호출**해서는 안 됨**. Judgment와 세대는 분리.
 6. Web 근거는 해시 주소 변경할 수 없는이며, 재생은 스냅샷을 읽고 다시 fetch
-  하지 않음.
+ 하지 않음.
 
 ## 롤아웃 waves
 
@@ -405,17 +405,17 @@ PR review comment on rem PR   --/     v
 | 2.5-A | `DefaultPromptComposer`의 shadow-vs-enforce 필터 + 배포된 그림자 모드 작업 묶음 + `tool.schema.json` + `FileSystemToolRegistry` | yes |
 | 2.5-B 단계 1 | 작성기가 선택적 도구 매니페스트 레이어 발행 + 배포된 그림자 모드 도구 YAML (`rule.query` / `state.query` / `audit.query`) + `trusted="false"` 래퍼 강제 | yes |
 | 2.5-B 단계 2a | 비동기 `ToolExecutor` + `ToolProvider` 경계 + 스키마 검증, 그림자 가드, 래퍼 강제, 5개의 타입이 지정된 실패 시 차단 에러 (`UnknownToolError`, `ShadowToolBlockedError`, `ToolArgumentValidationError`, `MissingProviderError`, `ProviderCallError`)를 가진 `DefaultToolExecutor` | yes |
-| 2.5-B 단계 2b | `AzureOpenAICrossCheckModel`이 enforce 모드 도구에 대해 `tools=[...]`를 발행하고, 범위가 제한된 multi-turn 루프로 모델 발행 `tool_calls`를 실행기로 라우팅하며, 알 수 없는 함수명 / 잘못된 arguments / half-wired 설정을 실패 시 차단으로 거부 | yes |
+| 2.5-B 단계 2b | `AzureOpenAICrossCheckModel`이 강제 적용 모드 도구에 대해 `tools=[...]`를 발행하고, 범위가 제한된 multi-turn 루프로 모델 발행 `tool_calls`를 실행기로 라우팅하며, 알 수 없는 함수명 / 잘못된 arguments / half-wired 설정을 실패 시 차단으로 거부 | yes |
 | 3 단계 A | `core/operator_memory/` 타입 + 비동기 `OperatorMemoryStore` 프로토콜 + `InMemoryOperatorMemoryStore` + `wrap_operator_note` / `detect_injection_markers` sanitizer + 쓰기 시점 정책 강제(범위 <= resource-group, 서로 다른 승인자, 추가 전용 대체, 선택적 TTL, 주입 마커 거부) | yes |
 | 3 단계 B 저장소 | `PostgresOperatorMemoryStore` + alembic 이행 `20260706_0006_operator_memory` (추가 전용 테이블, Python 정책을 미러링한 검사 제약, `(scope_kind, scope_ref)` scope-lookup 인덱스, `InMemoryOperatorMemoryStore`와 TTL + 대체 시맨틱 동등성, `FDAI_DATABASE_URL` unset 시 스킵되는 통합 테스트) | yes |
 | 3 단계 B 파이프라인 구획 1 | `HilResponse(decision=REJECT, reason=...)` + 별개의 `second_approver`를 주입된 `OperatorMemoryStore`를 통해 저장된 `OperatorMemoryEntry`로 변환하는 `HilRejectMaterializer` 코어 모듈; 5개의 pipeline-level 오류 코드 (`wrong_decision`, `empty_reason`, `missing_first_approver`, `missing_second_approver`, `same_principal`)가 저장소 접근 전에 fail-fast, store-side 정책 오류(중복 id, 주입 표시)는 그대로 표면 | yes |
 | 3 단계 B 파이프라인 구획 2 | Composition-root wire: `_build_operator_memory_store()`가 `FDAI_OPERATOR_MEMORY_DSN`으로 Postgres를 선택하거나 기본값으로 in-memory 가짜를 사용하고, `_finalize_llm_bindings`가 저장소를 `DefaultPromptComposer`에 인계하므로 operator-memory 레이어가 데이터베이스 없이도 종단 간으로 도달 가능 (포크가 `HilRejectMaterializer`로 덧붙이기한 항목이 즉시 작성기에 보임) | yes |
-| 3 단계 B 파이프라인 구획 3 | 실제로 materializer를 invoke하는 second-approval 채널 (Teams Adaptive 카드 / git PR / fork-authored CLI). 승인 채널은 배포마다 다르므로 fork-first 유지; upstream은 `HilRejectMaterializer` 경계와 operator-memory 저장소만 배포하고 특정 UI는 배포하지 않음 | 계획됨 |
+| 3 단계 B 파이프라인 구획 3 | 실제로 materializer를 invoke하는 second-approval 채널 (Teams Adaptive 카드 / git PR / fork-authored CLI). 승인 채널은 배포마다 다르므로 fork-first 유지; 업스트림은 `HilRejectMaterializer` 경계와 operator-memory 저장소만 배포하고 특정 UI는 배포하지 않음 | 계획됨 |
 | 3 단계 C-1 | `DefaultPromptComposer`가 선택적 `operator_memory_store` + `scope`를 받고 operator-memory 레이어를 발행. 각 항목은 `wrap_operator_note`로 wrap. 계층 해석은 resource-group note를 리소스 note 앞에 배치 | yes |
 | 3 단계 C-2 | `AzureOpenAICrossCheckModel`이 시작 시 한 번이 아니라 per-event로 작성기를 호출 (포크가 제공하는 선택적 `ScopeResolver`가 후보에서 `OperatorScope`를 도출)하므로 운영자 기억이 실제로 모델에 도달 | yes |
 | 3 단계 D-1 | Recognition-probe 프리미티브 (`RequiredField`, `ExpectedResponse`, `CitationScores`, `RecognitionResult`) + 순수 평가기 함수 (`evaluate_adherence`, `evaluate_canary_echoes`, `evaluate_citations`, `score_recognition`) - `core/measurement/prompt_probe.py` | yes |
 | 3 단계 D-2a | `CanaryGenerator` 프로토콜 + `SecretsCanaryGenerator` / `DeterministicCanaryGenerator` + `ComposedPrompt.canary_tokens` 필드 + 작성기 레이어별 head-marker 주입 (`canary_generator=` 파라미터 명시적 선택. 기본값은 빈 대응이므로 프로덕션 동작 무변화) | yes |
-| 3 단계 D-2b-i | `RecognitionKpiSummary` 데이터 클래스 + `summarize_recognition` 집계 (adherence pass 비율, per-code violation counts, per-layer canary echo 비율 - measured denominator 사용, 스코어된 샘플만 대상으로 하는 인용 F1 mean) | yes |
+| 3 단계 D-2b-i | `RecognitionKpiSummary` 데이터 클래스 + `summarize_recognition` 집계 (adherence 통과 비율, per-code violation counts, per-layer canary echo 비율 - measured denominator 사용, 스코어된 샘플만 대상으로 하는 인용 F1 mean) | yes |
 | 3 단계 D-2b-ii-alpha | `RecognitionScenario` / `RecognitionSample` / `RecognitionRunReport` + `ScenarioResponder` 프로토콜 + `score_batch` (순수) + `run_scenarios` (작성기 + 응답자 오케스트레이션. 작성기 canary가 자동으로 스코어링에 승격) | yes |
 | 3 단계 D-2b-ii-beta | `rule-catalog/prompts/scenarios/` scaffold + `scenario.schema.json` + `load_scenarios(catalog_root)` 파일시스템 로더 (aggregate-error 표면, 파일명 `<id>.v<version>.yaml`, 빈 카탈로그 합법) | yes |
 | 3 단계 D-2b-ii-gamma-1 | `emit_kpi_rows(report)` target-neutral KPI 행 emitter + `KpiRow` / `RowUnit` 타입 + 안정된 메트릭 이름 상수 (`prompt.recognition.*`) | yes |
@@ -430,7 +430,7 @@ PR review comment on rem PR   --/     v
 | 4.5 delta-2a | `core/quality_gate/debate_router.py`의 `DebateRouter` 순수 정책 모듈: `DebateRoutingDecision` + `DebateRouterConfig` (`enabled` 킬스위치, `on_cross_check_disagreement` 축, `always_for_action_types` / `never_for_action_types` 허용/거부 리스트) + `decide_debate_route()` 실패 시 차단 술어. 오케스트레이터 미이용 시 건너뜀 short-circuit; 킬스위치가 허용 목록 지배; denylist가 허용 목록 이김 | yes |
 | 4.5 delta-2b | `QualityGate`가 선택적 `debate_orchestrator` + `debate_router_config` 수용. 교차 검증 disagreement 시 `decide_debate_route()` 호출; `DEBATE`면 기본 교차 검증 모델을 재호출하는 no-directive `retry_proposer`와 함께 오케스트레이터 실행. `DebateOutcome.PROCEED`가 disagreement를 `ELIGIBLE`로 flip (다른 soft issue가 없는 한); `ABORT`는 `DISAGREE` 유지. Half-wiring (두 파라미터 중 하나만) 은 construction 시점에 raise | yes |
 | 5 alpha | `core/web_search/`의 웹 검색 경계: `WebSearchQuery` / `WebSnippet` / `WebSearchResult` 타입, `WebSearchProvider` 비동기 프로토콜, `NoOpWebSearchProvider` 기본 비활성 가짜 (모든 쿼리에서 zero snippets + `reasons=("no_op_provider",)` 반환), 그리고 off-allowlist 도메인과 주입 표시를 거부한 후 `<web_snippet trusted="false" ...>...</web_snippet>` 묶음을 생성하는 sanitizer 헬퍼 (`validate_snippet_domain`, `detect_snippet_injection_markers`, `wrap_web_snippet`) | yes |
-| 5 beta-A | Azure Responses 프로바이더 + latency-routed 모델 풀 + Operator API 채팅 명시적 선택 wiring | yes |
+| 5 beta-A | Azure Responses 프로바이더 + latency-routed 모델 풀 + Operator API 채팅 명시적 선택 배선 | yes |
 | 5 beta-B | 정책에 따라 정제된 스니펫을 도구 매니페스트에 threading하는 코어 T2 조립 wire | 계획됨 |
 
 ## Wave 1 - 무엇이 배포되었나
@@ -496,7 +496,7 @@ Wave 2.5-A는 그림자 모드 필터와 tool-catalog 스캐폴딩을 추가합�
 
 Wave 2.5-B 단계 1은 아직 어떤 호출도 디스패치하지 않은 채 도구 설명을
 작성기에 스레딩합니다. 단계 2가 실행기와 OpenAI function-calling
-파라미터를 wiring합니다.
+파라미터를 배선합니다.
 
 - `DefaultPromptComposer(tool_registry=...)`가 선택적 `ToolRegistry`를
  받습니다. 제공되고 그림자 필터 이후 최소 하나의 도구가 조건을 충족한하면,
@@ -511,7 +511,7 @@ Wave 2.5-B 단계 1은 아직 어떤 호출도 디스패치하지 않은 채 도
  래퍼를 가집니다.
 - 프롬프트 레지스트리는 이제 `prompts/` 아래의 형제 subsystem을 건너뜀합니다
  (현재는 `tools/`만). 따라서 `FileSystemPromptRegistry`가 도구 YAML을
- malformed 프롬프트 fragment로 오해할 수 없습니다.
+ malformed 프롬프트 조각으로 오해할 수 없습니다.
 
 ## Wave 2.5-B 단계 2a - 무엇이 배포되었나
 
@@ -520,7 +520,7 @@ Wave 2.5-B 단계 2a는 Azure OpenAI 어댑터를 아직 건드리지 않은 채
 단계 2b가 모델 발행 `tool_calls`를 이 실행기로 스레딩합니다.
 
 - `services/core-control-plane/src/fdai/core/tools/executor.py` - `ToolExecutor` 비동기 프로토콜
- + `DefaultToolExecutor` upstream 구현 + 포크가 도구 그룹별로 구현하는
+ + `DefaultToolExecutor` 업스트림 구현 + 포크가 도구 그룹별로 구현하는
  `ToolProvider` 경계. 모든 실패는 `ToolExecutorError`의 다섯 개
  타입이 지정된 서브클래스 (`UnknownToolError`, `ShadowToolBlockedError`,
  `ToolArgumentValidationError`, `MissingProviderError`,
@@ -529,18 +529,18 @@ Wave 2.5-B 단계 2a는 Azure OpenAI 어댑터를 아직 건드리지 않은 채
 - `services/core-control-plane/src/fdai/core/tools/testing.py` - `InMemoryToolProvider`
  (도구 id + 정렬된 arguments 튜플로 keying된 canned 응답, 호출
  기록 저장) 및 `NoOpToolProvider` (모든 호출 거부. 포크가 프로바이더
- wiring 없이 도구를 승격했을 때의 upstream 기본값).
+ 배선 없이 도구를 승격했을 때의 업스트림 기본값).
 - 전달 시점 실패 시 차단 보장:
  1. 알 수 없는 도구 id -> `UnknownToolError`,
  2. `default_mode: shadow`이며 `allow_shadow_dispatch=False` ->
-   `ShadowToolBlockedError` (작성기의 매니페스트 레이어 필터
-   뒤편의 belt-and-braces 방어),
+  `ShadowToolBlockedError` (작성기의 매니페스트 레이어 필터
+  뒤편의 belt-and-braces 방어),
  3. 아티팩트의 `input_schema` (`additionalProperties=False` 포함)를
-   위반한 arguments -> `ToolArgumentValidationError`,
+  위반한 arguments -> `ToolArgumentValidationError`,
  4. 아티팩트가 declare한 `provider` 이름이 조립 시점에
-   wiring되지 않음 -> `MissingProviderError`,
+  배선되지 않음 -> `MissingProviderError`,
  5. 프로바이더가 raise -> `ProviderCallError` (원본 예외는
-   `__cause__`에 보존).
+  `__cause__`에 보존).
 - `ToolResult`는 `wrapped_text` (다음 턴에 주입 준비 완료), `raw`
  (감사 쓰기 담당용), `cost_usd`, `latency_ms`를 기록하여 Wave 4.5의
  토론 오케스트레이터가 이벤트별 예산을 강제할 수 있게 합니다.
@@ -553,14 +553,14 @@ Wave 2.5-B 단계 2a는 Azure OpenAI 어댑터를 아직 건드리지 않은 채
 
 Wave 2.5-B 단계 2b는 실행기를 Azure OpenAI 교차 검증 어댑터로
 스레딩하여 모델 발행 도구 콜이 실제로 프로바이더 round-trip에 도달하게
-합니다. 배포된 도구 세 개는 모두 `default_mode: shadow`이므로 upstream
+합니다. 배포된 도구 세 개는 모두 `default_mode: shadow`이므로 업스트림
 기본 상태에서는 어댑터가 도구를 하나도 advertising 하지 않습니다.
 프로덕션 동작은 포크가 실제 프로바이더를 등록하고 도구를 승격하기 전까지
 동일하게 유지됩니다.
 
 - `AzureOpenAICrossCheckModel.__init__`이 선택적 `tool_registry` +
  `tool_executor`를 받습니다 (둘 다 또는 둘 다 없음. half-wired 설정은
- fail-fast). 어댑터는 생성 시점에 모든 enforce 모드 도구를 스냅샷하고
+ fail-fast). 어댑터는 생성 시점에 모든 강제 적용 모드 도구를 스냅샷하고
  OpenAI 호환 `tools=[...]` 배열을 한 번 빌드합니다. `propose()` 실행
  중에 매니페스트가 표류할 수 없습니다.
 - `AzureOpenAICrossCheckModelConfig.max_tool_iterations` (기본 3)이 도구
@@ -576,18 +576,18 @@ Wave 2.5-B 단계 2b는 실행기를 Azure OpenAI 교차 검증 어댑터로
  컨텍스트를 갖게 합니다.
 - 어댑터 경계에서의 실패 시 차단 보장:
  1. 알 수 없는 함수명 -> `RuntimeError` (실행기가 실행되기 전),
- 2. 실행기 wiring 없이 tool_calls -> `RuntimeError`,
+ 2. 실행기 배선 없이 tool_calls -> `RuntimeError`,
  3. non-JSON arguments -> `RuntimeError`,
  4. `max_tool_iterations` 도달 -> `RuntimeError`,
  5. 실행기 실패는 그대로 전파되어 호출자가 다섯 개의
-   `ToolExecutorError` 서브클래스를 구분할 수 있게 합니다.
+  `ToolExecutorError` 서브클래스를 구분할 수 있게 합니다.
 - `bind_azure_llm_bindings`가 선택적 `tool_registry` + `tool_executor`를
  받아 세 개의 교차 검증 생성 사이트(hil-only 기본, 기본
  reasoner, 보조 reasoner)에 모두 스레딩하므로 mixed-model
  교차 검증이 동일한 도구 매니페스트를 봅니다.
 - `runtime.configuration._finalize_llm_bindings`가 azure 모드에서
  `FileSystemToolRegistry` + `DefaultToolExecutor(providers={})`를
- 빌드합니다. Upstream은 의도적으로 빈 providers 맵으로 ship합니다:
+ 빌드합니다. 업스트림은 의도적으로 빈 providers 맵으로 ship합니다:
  배포된 모든 도구가 그림자이므로 어댑터가 도구를 advertising하지 않고
  어떤 전달도 실행되지 않습니다. 포크가 자체 providers dict을
  제공하여 함수 calling을 활성화합니다.
@@ -604,7 +604,7 @@ Wave 3 단계 A는 HIL 파이프라인과 작성기가 안정된 표면 위에 �
  비활성화하는 것은 재정의가 아니라 룰 폐기이기 때문), `MemorySource`,
  `MemoryCategory`.
 - `services/core-control-plane/src/fdai/core/operator_memory/store.py` - `OperatorMemoryStore`
- 비동기 프로토콜 + `InMemoryOperatorMemoryStore` upstream 기본값. 모든
+ 비동기 프로토콜 + `InMemoryOperatorMemoryStore` 업스트림 기본값. 모든
  쓰기는 동일한 정책 검증기를 실행하므로, 호출자가 저장소를 직접
  건드려서 Human 재정의 계약을 우회할 수 없습니다. 정책 코드는
  `OperatorMemoryPolicyError.code`로 노출되어 구조화된 텔레메트리를
@@ -646,7 +646,7 @@ Wave 3 단계 B는 `OperatorMemoryStore`의 영속 Postgres 백엔드를
  `lower(btrim(author)) <> lower(btrim(approved_by))`. Python-side
  검증기를 우회하는 호출자도 리뷰되지 않은 또는 self-approved
  항목을 랜딩할 수 없습니다.
-- `superseded_by`는 self-referential FK. 추가 전용 invariant는
+- `superseded_by`는 self-referential FK. 추가 전용 불변식은
  `UPDATE ... SET body = ...`를 절대 issue하지 않음으로써 강제됩니다.
  유일한 갱신은 `FOR UPDATE`-locked 트랜잭션 내부의 `superseded_by`
  뿐이며, 저장소는 포인터를 덮어쓰는 대신 `already_superseded`를
@@ -761,7 +761,7 @@ Wave 3 단계 C-1은 전달 어댑터를 아직 건드리지 않은 채 운영�
 - `PromptLayer.OPERATOR_MEMORY` - 작성기의 기억 레이어가 사용하는
  새로운 synthetic 계층 값. 프롬프트 아티팩트의 JSON 스키마는 이 값을
  의도적으로 나열하지 않습니다: operator-memory 콘텐츠는 저장소에서
- materialize되는 데이터 레이어이지 YAML fragment로 저작되지 않습니다.
+ materialize되는 데이터 레이어이지 YAML 조각으로 저작되지 않습니다.
 - `OperatorScope(resource_group_ref, resource_ref=None)` - 작성기가
  해석하는 튜플. ``None`` 범위는 "이번 호출엔 운영자 기억 없음"을
  의미합니다. 프로덕션 per-event 전달은 정규화된 이벤트 페이로드에서
@@ -772,7 +772,7 @@ Wave 3 단계 C-1은 전달 어댑터를 아직 건드리지 않은 채 운영�
  concatenate하여 가장 구체적인 지침이 사용자 턴에 가장 가까이
  위치하게 합니다.
 - 조회된 각 항목은 `wrap_operator_note`로 wrap되어 `trusted="false"`
- invariant를 보존합니다. 대체된 / 만료된 항목은 저장소의
+ 불변식을 보존합니다. 대체된 / 만료된 항목은 저장소의
  `list_active_for_scope`가 필터링합니다. 작성기는 수명 주기 상태를
  재검사하지 않습니다.
 - `StaticPromptComposer` (테스트 가짜)가 모든 호출에서 `(capability_id,
@@ -798,7 +798,7 @@ Wave 3 단계 C-2는 프롬프트 조립을 startup-only에서 per-event로 이�
 - 생성 시점에 cross-consistency 강제: `prompt_composer`와
  `capability_id`는 함께 제공되어야 하며, `capability_id`는 비어있지
  않아야 하고, `scope_resolver`는 작성기 없이 나타날 수 없음(먹일
- 대상이 없는 해석기는 wiring 버그).
+ 대상이 없는 해석기는 배선 버그).
 - `_resolve_system_prompt(candidate)`가 모든 `propose()` 턴에서 먼저
  호출됩니다. 작성기가 wire되어 있으면
  `await composer.compose(capability_id=..., scope=resolver(candidate))`로
@@ -813,10 +813,10 @@ Wave 3 단계 C-2는 프롬프트 조립을 startup-only에서 per-event로 이�
  role-specific 기능 id (`t2.reasoner.primary` /
  `t2.reasoner.secondary`)로 생성합니다. 교차 검증 정족수가 역할별로
  일관된 instruction 맥락을 보게 되며 단일 공유 프롬프트가 아닙니다.
-- `runtime.configuration._finalize_llm_bindings`가 이제 upstream 작성기를
+- `runtime.configuration._finalize_llm_bindings`가 이제 업스트림 작성기를
  `scope_resolver=None`으로 전달합니다. `QualityCandidate.target_resource_ref`를
  `OperatorScope`로 매핑하는 ARM-id 파서는 포크의 조립 루트에
- 있습니다. Upstream 저장소는 CSP-neutral을 유지합니다.
+ 있습니다. 업스트림 저장소는 CSP-neutral을 유지합니다.
 - 시작 `composer.compose(capability_id="t2.reasoner.primary")` 호출은
  유지됩니다: 프로세스 시작 시 카탈로그 + 스키마를 검증하고
  observability용 `prompt_composed` 구조화 로그를 발행합니다. 실제 운영
@@ -827,7 +827,7 @@ Wave 3 단계 C-2는 프롬프트 조립을 startup-only에서 per-event로 이�
 
 Wave 3 단계 D-1은 recognition-probe KPI의 순수 평가기 부분을
 랜딩합니다. 단계 D-2가 작성기에게 레이어별 canary 토큰 삽입을
-가르치고, 숫자를 시나리오 실행기를 통해 대시보드에 wiring합니다.
+가르치고, 숫자를 시나리오 실행기를 통해 대시보드에 배선합니다.
 
 - `services/core-control-plane/src/fdai/core/measurement/prompt_probe.py` - 네 개의 타입이 지정된
  입력/출력 데이터 클래스 (`RequiredField`, `ExpectedResponse`,
@@ -933,7 +933,7 @@ emission은 ``beta`` / ``gamma`` 서브 스텝에서 랜딩합니다.
  응답자를 대기한 뒤 `score_batch`로 위임. 범위는 그대로
  스레딩되므로 범위 바운드 operator-memory 레이어가 실제로
  recognition 실행에서 도달 가능.
-- I/O 프로바이더와 YAML 고정본은 아직 배포되지 않음 - upstream은
+- I/O 프로바이더와 YAML 고정본은 아직 배포되지 않음 - 업스트림은
  런타임 경계를 순수하게 유지하여 포크 테스트가 Azure 의존성 없이
  어떤 작성기와 응답자로도 driver할 수 있게 합니다.
 
@@ -980,17 +980,17 @@ gamma-2가 CLI를 wire하여 이 rows를 소비합니다.
  publish.
 - 테스트로 baked in된 emission 규칙:
  - **빈 배치**도 여전히 `sample_count = 0` 발행 - 항상 샘플 개수를
-  publish하는 대시보드 시리즈가 조용히 사라지지 않음;
- - **Adherence pass 비율**는 `sample_count > 0`일 때만 발행
-  (misleading `0/0` 회피);
+ publish하는 대시보드 시리즈가 조용히 사라지지 않음;
+ - **Adherence 통과 비율**는 `sample_count > 0`일 때만 발행
+ (misleading `0/0` 회피);
  - **위반 개수**는 코드별 행 하나씩. `code`로 dimension되며
-  알파벳 순으로 정렬되어 안정된 대시보드 순서를 생산자;
+ 알파벳 순으로 정렬되어 안정된 대시보드 순서를 생산자;
  - **레이어별 echo 비율**는 layer_id별 행 하나씩. 집계의
-  measured denominator 사용 → 배치의 절반만 측정된 레이어가
-  조용히 dilute되지 않음;
+ measured denominator 사용 → 배치의 절반만 측정된 레이어가
+ 조용히 dilute되지 않음;
  - **인용 F1**은 적어도 하나의 샘플이 스코어되었을 때만 발행
-  (`mean_citation_f1 is not None`) - 인용 스코어링 opt-out
-  배치가 misleading `0.0`을 publish하지 않음.
+ (`mean_citation_f1 is not None`) - 인용 스코어링 opt-out
+ 배치가 misleading `0.0`을 publish하지 않음.
 - 메트릭 별 라벨 (`code`, `layer_id`)이 메트릭 계열 간 절대 leak되지
  않음 - 각 행의 dimension 집합은 자신의 메트릭에만 범위됨.
 
@@ -1003,7 +1003,7 @@ recognition-probe 챕터를 마무리합니다. Recognition 메트릭 이름을
 
 - `services/core-control-plane/src/fdai/core/measurement/prompt_probe_testing.py` -
  `AbstainResponder`는 매 호출마다 canned `hil.escalate` JSON 액션을
- 반환하므로 upstream CLI가 실제 운영 모델 없이 smoke-run 가능하며,
+ 반환하므로 업스트림 CLI가 실제 운영 모델 없이 smoke-run 가능하며,
  `RecordingResponder`는 큐에서 canned 답변을 pop하면서
  `(capability_id, composed_system_text)` 쌍을 assertion용으로
  기록합니다.
@@ -1030,7 +1030,7 @@ recognition-probe 챕터를 마무리합니다. Recognition 메트릭 이름을
 ## Wave 4 alpha - 무엇이 배포되었나
 
 Wave 4 alpha는 비평자 역할의 타입이 지정된 형태와 shadow-mode 프롬프트 시드를
-랜딩합니다 - 실제 운영 wiring 없는 비평자의 "brain". Wave 4 beta가 Azure
+랜딩합니다 - 실제 운영 배선 없는 비평자의 "brain". Wave 4 beta가 Azure
 어댑터를 배포하고 Wave 4.5가 제안자 / 비평자 / Judge 루프를
 orchestration합니다. 이 alpha 단계는 의도적으로 dormant이므로 타입 +
 평가기가 현재 T2 흐름에 위험 없이 fork-authored 탐색과 미래
@@ -1050,15 +1050,15 @@ orchestration합니다. 이 alpha 단계는 의도적으로 dormant이므로 타
  `CriticOutput`을 하나의 판정으로 reduce합니다. 테스트로 baked-in된
  규칙:
  - `ABSTAIN` stance는 `ABSTAIN` 판정으로 short-circuit (이의
-  검사 없음);
+ 검사 없음);
  - `AGREE` + 어떤 HIGH-severity 이의이라도 있으면 `ABORT` -
-  self-contradiction은 절대 honor하지 않음;
+ self-contradiction은 절대 honor하지 않음;
  - 그 외 `AGREE`는 `ENDORSE` (AGREE와 함께 있는 LOW-severity nit도
-  여전히 endorsement);
+ 여전히 endorsement);
  - 빈 이의 리스트를 가진 `CHALLENGE`는 `ABSTAIN` (증거 없는
-  도전자는 defect);
+ 도전자는 defect);
  - 알 수 없음 룰 id를 인용하는 이의가 있는 `CHALLENGE`는
-  `ABSTAIN` (ungrounded 이의는 감사 trail을 깨뜨림);
+ `ABSTAIN` (ungrounded 이의는 감사 trail을 깨뜨림);
  - 어떤 HIGH-severity 이의이라도 있는 `CHALLENGE`는 `ABORT`;
  - 그 외 `CHALLENGE`는 `RETRY`.
 - `rule-catalog/prompts/base/t2-critic.v1.yaml` - `layer: critic`,
@@ -1112,7 +1112,7 @@ Wave 4 beta-1은 Azure OpenAI를 상대로 실제 비평자 호출을 하는 Azu
  - `CriticSeverity` enum 밖의 `severity`;
  - non-string `cited_rule_id` / `description`;
  - non-string / non-null `alt_action_type` (빈 문자열은 `None`으로
-  정규화되어 downstream 코드가 단일 "no alternate" 표현을 갖도록);
+ 정규화되어 다운스트림 코드가 단일 "no alternate" 표현을 갖도록);
  - non-string / blank 인용 항목.
 - `CriticObjection.__post_init__`가 두 번째 방어선 - 파서가 whitespace-
  only description을 놓쳐도 데이터 클래스가 객체가 어댑터를 escape하기
@@ -1170,11 +1170,11 @@ Judge의 per-event 비용을 한계.
  `JudgeOutput`을 하나의 판정으로 reduce합니다. 규칙:
  - `ACCEPT`와 known 인용만 -> `PROCEED`;
  - `ACCEPT`와 알 수 없음 인용 -> `ESCALATE`
-  (ungrounded acceptance는 honor 안 함);
+ (ungrounded acceptance는 honor 안 함);
  - `REVISE_AND_RETRY` + non-blank `retry_directive` + known
-  인용만 -> `RETRY`;
+ 인용만 -> `RETRY`;
  - `REVISE_AND_RETRY`와 누락된 / blank directive ->
-  `ESCALATE` (제안자가 뭘 바꿀지 모름);
+ `ESCALATE` (제안자가 뭘 바꿀지 모름);
  - `ESCALATE_HIL` -> `ESCALATE`.
 - `rule-catalog/prompts/base/t2-judge.v1.yaml` - `layer: judge`,
  `applies_to: [t1.judge]`, `default_mode: shadow`. 본문이
@@ -1234,16 +1234,16 @@ wire.
  대화 기록 필드 + rounds counter + `error_class`).
 - 하나의 `async run(...)` 메서드가 전체 루프 드라이브:
  1. 비평자 턴 1 -> ABORT 또는 ABSTAIN이면 **Judge 호출을 소비하지
-   않고** `DebateVerdict.ABORT`로 short-circuit (token-cost 가드가
-   테스트 스위트에 baked-in);
+  않고** `DebateVerdict.ABORT`로 short-circuit (token-cost 가드가
+  테스트 스위트에 baked-in);
  2. Judge 턴 1 -> `PROCEED` 즉시 반환; `ESCALATE` abort;
-   `RETRY` 두 번째 라운드 실행;
+  `RETRY` 두 번째 라운드 실행;
  3. 재시도 -> `retry_proposer(candidate, directive)` invoke
-   (`max_rounds >= 1`일 때 필수 파라미터; 누락 시 호출 시점에
-   `ValueError` raise하여 포크 구성 버그가 fail-fast);
+  (`max_rounds >= 1`일 때 필수 파라미터; 누락 시 호출 시점에
+  `ValueError` raise하여 포크 구성 버그가 fail-fast);
  4. 비평자 턴 2 -> ABORT / ABSTAIN 모두 abort;
  5. Judge 턴 2 -> `PROCEED`는 `rounds=2`로 반환; 나머지는 모두
-   abort (라운드 2의 `RETRY`는 `max_rounds` 초과이므로 refused).
+  abort (라운드 2의 `RETRY`는 `max_rounds` 초과이므로 refused).
 - 모든 어댑터 예외에 **실패 시 차단**. `except Exception` 브랜치가
  두 라운드 모두에서 비평자 / Judge / 제안자 실패를 catch하여
  `error_class`가 보존된 `DebateVerdict.ABORT` 생산. 지금까지 누적된
@@ -1312,19 +1312,19 @@ exercise 가능하고, 어떤 이벤트가 실제로 토론을 통과하기 전�
  `__post_init__`, 그리고 순수 `decide_debate_route(...)` 술어.
 - 테스트에 baked-in된 6-rule precedence:
  1. `orchestrator_available=False` -> 건너뜀 with 사유
-   `orchestrator_unavailable` (실패 시 차단 - 허용 목록 포함
-   모든 다른 축 지배);
+  `orchestrator_unavailable` (실패 시 차단 - 허용 목록 포함
+  모든 다른 축 지배);
  2. `config.enabled=False` -> 건너뜀 with 사유 `disabled`
-   (킬스위치 - 허용 목록 지배);
+  (킬스위치 - 허용 목록 지배);
  3. 후보 `action_type` in `never_for_action_types` -> 건너뜀
-   with 사유 `never_list` (denylist가 허용 목록 이김; 포크의
-   가드레일이 다른 포크의 명시적 선택 리스트에 조용히 오버라이드되지
-   않도록);
+  with 사유 `never_list` (denylist가 허용 목록 이김; 포크의
+  가드레일이 다른 포크의 명시적 선택 리스트에 조용히 오버라이드되지
+  않도록);
  4. 후보 `action_type` in `always_for_action_types` ->
-   토론 with 사유 `always_list`;
+  토론 with 사유 `always_list`;
  5. 교차 검증 disagreed AND
-   `on_cross_check_disagreement=True` -> 토론 with 사유
-   `cross_check_disagreement` (기본 트리거);
+  `on_cross_check_disagreement=True` -> 토론 with 사유
+  `cross_check_disagreement` (기본 트리거);
  6. 그 외 -> 건너뜀 with 사유 `default_skip`.
 - `core/`-safe 유지: `fdai.core.quality_gate.gate`와 stdlib
  에서만 가져오기; `delivery.*` 또는 LLM SDK 없음.
@@ -1366,12 +1366,12 @@ historical 형태를 유지하므로 모든 기존 `QualityGate` 호출자가 �
  더 기회"로 동작. Directive는 감사용 토론 대화 기록에 남음.
 - 결과 로직:
  - `PROCEED`가 **disagreement를 flip** - 다른 soft issue (검증기
-  abstain, 누락된 / ungrounded 인용, low 확신도)가 없는
-  한 게이트가 `ELIGIBLE` 반환;
+ abstain, 누락된 / ungrounded 인용, low 확신도)가 없는
+ 한 게이트가 `ELIGIBLE` 반환;
  - `ABORT`가 **disagreement 유지** - 게이트가 `DISAGREE` 반환하고
-  오케스트레이터의 사유가 감사 trail에 threading;
+ 오케스트레이터의 사유가 감사 trail에 threading;
  - `PROCEED` + 다른 soft issue -> **`ABSTAIN`로 degrade** - 토론은
-  하나의 축; 다른 모든 검사가 여전히 적용.
+ 하나의 축; 다른 모든 검사가 여전히 적용.
 - Deferred 가져오기 (`from fdai.코어.quality_gate.토론
  가져오기 DebateVerdict`, `from
  fdai.코어.quality_gate.debate_router 가져오기 DebateRoute,
@@ -1388,20 +1388,20 @@ historical 형태를 유지하므로 모든 기존 `QualityGate` 호출자가 �
 
 ## Wave 5 alpha - 무엇이 배포되었나
 
-Wave 5 alpha는 웹 검색을 위한 upstream **경계**을 랜딩합니다: 타입,
+Wave 5 alpha는 웹 검색을 위한 업스트림 **경계**을 랜딩합니다: 타입,
 프로토콜, 기본 비활성 가짜, sanitizer 방어. 이후 검토된 Azure Responses
-어댑터와 Operator API 채팅 wiring이 배포됐고 코어 T2 프롬프트 조립은
+어댑터와 Operator API 채팅 배선이 배포됐고 코어 T2 프롬프트 조립은
 아직 이 경계에서 멈춥니다.
 
 - `services/core-control-plane/src/fdai/core/web_search/types.py` -
  `WebSearchQuery` (`__post_init__`가 blank 텍스트, zero max_results,
  zero budget_ms를 거부하는 고정된 데이터 클래스; 호출자가 공급하는
- `allowed_domains` tuple + `metadata`),
+ `allowed_domains` 튜플 + `metadata`),
  `WebSnippet` (`url` / `domain` / `title` / `text` /
  `content_hash` / `fetched_at`를 가진 불변 기록; blank url /
- domain / content_hash는 construction 시 거부),
+ 도메인 / content_hash는 construction 시 거부),
  `WebSearchResult` (originating 조회, retrieved 스니펫,
- audit-friendly `reasons` tuple을 운반하는 고정된 묶음 -
+ audit-friendly `reasons` 튜플을 운반하는 고정된 묶음 -
  운영자가 검색이 왜 degrade했는지 볼 수 있게).
 - `services/core-control-plane/src/fdai/core/web_search/provider.py` -
  하나의 비동기 `search(query) -> WebSearchResult` 메서드를 가진
@@ -1426,7 +1426,7 @@ Wave 5 alpha는 웹 검색을 위한 upstream **경계**을 랜딩합니다: 타
  (공유 표시 리스트용)에서만 가져오기. LLM SDK 없음, `delivery.*`
  없음. `scripts/quality/architecture/check-core-imports.sh` 계속 통과.
 - `services/core-control-plane/tests/core/web_search/test_web_search.py`의 19개 테스트가 모든
- 생성자 invariant (4 + 3), NoOp 프로바이더 동작 + 프로토콜
+ 생성자 불변식 (4 + 3), NoOp 프로바이더 동작 + 프로토콜
  runtime-check (2), 도메인 허용 목록 강제 (3), 주입 탐지 (2),
  `wrap_web_snippet` (5 - 본문 + url XML-escape, off-allowlist
  거부, 주입 표시 거부 포함) 커버.

@@ -10,15 +10,15 @@ translation_revised: 2026-08-11
 결정론적 검증과 책임 있는 검토만 온톨로지 개정 번호 반영 여부를 결정합니다.
 
 > **권위 경계:** 문서는 승인된 출처 권한 범위 안에서 의도, 담당 체계, 절차 및 과거 증거를
-> 선언할 수 있습니다. 현재 프로바이더 상태, telemetry, 실행 권한 또는 외부 효과 성공을 증명할 수는
+> 선언할 수 있습니다. 현재 프로바이더 상태, 텔레메트리, 실행 권한 또는 외부 효과 성공을 증명할 수는
 > 없습니다.
 >
 > **안전 경계:** 증류는 그래프, 카탈로그, 정책 또는 프로바이더를 직접 변경하지 않습니다.
 > `OntologyChangeProposal`을 생성하며, 모호하거나 근거가 없거나 오래되거나 충돌하거나 불완전한
 > 제안은 검토 대기 상태가 됩니다.
 >
-> **고객 경계:** 업로드된 문서, 추출된 텍스트, 배포 신원 및 제안된 instance는 승인된
-> 배포 저장소에만 남습니다. Upstream은 범용 계약, 결정론적 게이트 및 프로바이더 경계만
+> **고객 경계:** 업로드된 문서, 추출된 텍스트, 배포 신원 및 제안된 인스턴스는 승인된
+> 배포 저장소에만 남습니다. 업스트림은 범용 계약, 결정론적 게이트 및 프로바이더 경계만
 > 제공합니다.
 >
 > **구현 상태(2026-08-03):** D0-D4 계약, 점유 인벤토리, strict 제안 compilation,
@@ -35,19 +35,19 @@ translation_revised: 2026-08-11
 
 파이프라인은 추출 전에 점유 인벤토리를 만들어 누락된 문장을 측정할 수 있게 합니다. 그런 다음 각
 점유를 기존 온톨로지 선언에 대응하고, 정확한 출처 근거와 권위 있는 외부
-근거를 검증한 뒤 검토 가능한 그래프 diff를 단계합니다. 승인된 제안은 새로운 변경할 수 없는
+근거를 검증한 뒤 검토 가능한 그래프 차이를 단계합니다. 승인된 제안은 새로운 변경할 수 없는
 개정 번호를 만들며, 조정은 승인된 의도와 관측된 외부 사실을 분리합니다.
 
 ```mermaid
 flowchart LR
-  D[승인된 문서] --> I[Claim inventory]
-  I --> E[Typed extraction]
-  E --> V[결정론적 검증]
-  V --> P[Ontology change proposal]
-  P --> H[책임 있는 검토]
-  H --> R[Immutable ontology revision]
-  R --> C[Authority reconciliation]
-  C --> S[Shadow measurement]
+ D[승인된 문서] --> I[Claim inventory]
+ I --> E[Typed extraction]
+ E --> V[결정론적 검증]
+ V --> P[Ontology change proposal]
+ P --> H[책임 있는 검토]
+ H --> R[Immutable ontology revision]
+ R --> C[Authority reconciliation]
+ C --> S[Shadow measurement]
 ```
 
 ## 제안 계약
@@ -68,8 +68,8 @@ flowchart LR
 
 ```text
 candidate -> validated -> review_required -> approved -> projected -> reconciled
-         |       |
-         +-> denied   +-> rejected
+     |    |
+     +-> denied  +-> rejected
 projected -> superseded | rolled_back
 ```
 
@@ -94,7 +94,7 @@ id, 처리 결과 누락, 서로 모순되는 중복 처리 결과 및 알 수 �
 결정론적 원장이 완전성 accounting을 수행합니다.
 
 하위 호환성을 위해 각 점유는 `kind`에 하나의 기본 `ClaimKind`를 유지하고, 감지된 모든 의미
-등급을 순서가 있는 `signals` tuple에 기록합니다. 인벤토리는 제한된 영어와 한국어 normative,
+등급을 순서가 있는 `signals` 튜플에 기록합니다. 인벤토리는 제한된 영어와 한국어 normative,
 관계, 임계값 및 imperative 표현을 인식합니다. Technical 버전과 URL 주변의 sentence
 경계를 보존하고 분류 전에 tag, comment 및 출처 shortcode를 제거하므로 markup이 점유
 텍스트가 되지 않습니다.
@@ -105,11 +105,11 @@ id, 처리 결과 누락, 서로 모순되는 중복 처리 결과 및 알 수 �
 
 | 권한 등급 | 문서 사용 | 필요한 조정 |
 |-----------------|-----------|-------------------------|
-| `declared_intent` | objective, 소유권, 제약, 서비스 지도 | 승인된 의도 출처 및 effective 간격 |
-| `procedure` | 룰, 작업 흐름, ActionType 후보 | 카탈로그 스키마, 안전성 invariant, 그림자 재생, 검토 |
+| `declared_intent` | 목표, 소유권, 제약, 서비스 지도 | 승인된 의도 출처 및 effective 간격 |
+| `procedure` | 룰, 작업 흐름, ActionType 후보 | 카탈로그 스키마, 안전성 불변식, 그림자 재생, 검토 |
 | `historical_evidence` | 인시던트, 결과, lesson | 변경할 수 없는 사례 또는 감사 근거 |
 | `provider_observation` | 리소스 및 토폴로지 구문 | fresh 인벤토리 또는 프로바이더 관측 |
-| `telemetry_observation` | 메트릭 및 상태 구문 | 이벤트 시간이 있는 fresh telemetry 근거 |
+| `telemetry_observation` | 메트릭 및 상태 구문 | 이벤트 시간이 있는 fresh 텔레메트리 근거 |
 | `execution_authority` | 권한 또는 자율성 구문 | 문서로 부여하지 않으며 approved 정책이 계속 권위 있는함 |
 
 출처 precedence는 모델 확신도가 아니라 권한 등급과 범위로 구성합니다. 낮은 권한
@@ -125,7 +125,7 @@ id, 처리 결과 누락, 서로 모순되는 중복 처리 결과 및 알 수 �
 2. Pinned 온톨로지 release의 정확한 기존 ObjectType 또는 LinkType만 matching합니다.
 3. 식별자, 값, 단위, polarity, 비교 및 effective 시간을 normalize합니다.
 4. Fuzzy 후보를 사용하기 전에 고정된 id와 구성된 별칭으로 개체를 해석합니다.
-5. Unique 신원이 없으면 범위가 제한된 모호한 집합을 반환하며 instance id를 만들지 않습니다.
+5. Unique 신원이 없으면 범위가 제한된 모호한 집합을 반환하며 인스턴스 id를 만들지 않습니다.
 6. 기존 타입으로 supported 점유를 표현할 수 없으면 inert 스키마 변경을 제안합니다.
 
 Exact stable-id 일치는 우선 적용되며 자동으로 해석합니다. 구성된 별칭은
@@ -141,7 +141,7 @@ matching은 신원을 자동 해석하지 않으며 향후 review-only 후보 �
 온톨로지 정제는 안전성 검사를 통과한 `DocumentEnvelope`를 소비하며 uploaded 바이트를 다시
 parse하지 않습니다. 브리지는 비어 있지 않은 structural 단위 하나를 정규화된 수동 줄 하나로
 만들고 해당 줄의 출처 format, 단위 id 및 위치 지정자를 기록합니다. 점유 근거, 제안 근거,
-review-package 다이제스트 및 재생 다이제스트가 이 tuple을 모두 보존하므로 인용이 다른 paragraph, 형태,
+review-package 다이제스트 및 재생 다이제스트가 이 튜플을 모두 보존하므로 인용이 다른 paragraph, 형태,
 표 cell, 페이지 블록 또는 speaker note로 이동할 수 없습니다.
 
 위치 지정자는 결정론적 grammar와 1-based ordinal을 사용합니다.
@@ -186,7 +186,7 @@ quality 근거를 분리합니다.
 
 - **구조:** Markdown, HTML-like 출처, Office, native PDF 및 OCR 입력은 범위가 제한된 paragraph,
  heading, 목록, 표, slide, 페이지 또는 코드 단위를 만듭니다. Markup은 점유 텍스트가 되지 않습니다.
-- **프로바이더:** Upstream 기본값은 안전하게 abstain할 수 있지만, 연결된 `Distiller`가 동일 말뭉치
+- **프로바이더:** 업스트림 기본값은 안전하게 abstain할 수 있지만, 연결된 `Distiller`가 동일 말뭉치
  계약을 통과하기 전에는 배포가 온톨로지 추출을 available로 보고할 수 없습니다.
 - **말뭉치:** Versioned 매니페스트는 공개 출처 URL, 내용 다이제스트, license, format, 언어,
  annotated critical 점유 및 예상 객체/링크 변환 결과를 고정합니다. License가 재배포를
@@ -284,7 +284,7 @@ mixed-publisher quality 게이트를 충족하거나 완화하지 않습니다. 
 런타임 연결에는 resolved 기능 세 개와 structured-output 엔드포인트 연결 세 개가 모두
 필요합니다. 각 엔드포인트 연결은 null이 아닌 exact 모델 버전, 배포, Entra authentication,
 경로, API style 및 검증된 resource-reference 다이제스트를 고정합니다. 이 다이제스트가 모델 신원의 fault
-domain이 됩니다. 다이제스트가 같으면 계정 또는 게이트웨이 fault domain을 공유하므로 infrastructure risk가
+도메인이 됩니다. 다이제스트가 같으면 계정 또는 게이트웨이 fault 도메인을 공유하므로 infrastructure risk가
 correlated되었음을 나타냅니다. Council 기록이 하나도 없으면 backward 호환성을 위해 기본
 abstaining distiller를 유지합니다. 부분, `hil-only`, mismatched, unversioned, non-Entra 또는 그 밖의
 잘못된 council 구성은 온톨로지 추출을 사용 불가로 만들고 시작 연결을
@@ -315,7 +315,7 @@ Council 결과는 다음과 같습니다.
 
 | 결과 | 의미 | 후보 동작 |
 |---------|------|----------------|
-| `consensus` | 필요한 모든 blind 표결의 의미 fingerprint가 같음 | Inert 후보 하나를 만들고 기존 결정론적 게이트 실행 |
+| `consensus` | 필요한 모든 blind 표결의 의미 지문이 같음 | Inert 후보 하나를 만들고 기존 결정론적 게이트 실행 |
 | `contested` | Majority가 있지만 하나 이상의 valid 표결이 다름 | Accepted 후보를 만들지 않고 범위가 제한된 필드 difference를 검토에 보존 |
 | `unsupported` | 모든 모델이 pinned 온톨로지에 대응할 수 없다고 판단함 | 점유를 `needs_review`로 유지하고 covered로 계산하지 않음 |
 | `unresolved` | 정족수 없음, malformed 출력, 시간 초과, 예산 exhaustion 또는 불완전한 맥락 | 점유를 `needs_review`로 유지함 |
@@ -336,7 +336,7 @@ hidden 추론 과정은 요청하거나 저장하지 않습니다. 비평 packet
 프롬프트, 스키마, 온톨로지 또는 council 정책이 바뀌면 이전 conformance 근거는 무효가 됩니다.
 Distiller conformance `binding_version`은 정책과 세 모델 신원의 결정론적 다이제스트이며 정책
 다이제스트에는 프롬프트와 스키마 다이제스트가 포함됩니다. 따라서 모델, 프롬프트, 스키마 또는 정책이 바뀌면
-이전 conformance pass를 재사용할 수 없습니다.
+이전 conformance 통과를 재사용할 수 없습니다.
 가용성은 format/언어 파티션별로 해석하며 council unbound, same-family-only, over 예산,
 stale 또는 말뭉치 임계값 미달이면 false를 유지합니다.
 
@@ -353,7 +353,7 @@ stale 또는 말뭉치 임계값 미달이면 false를 유지합니다.
 | 신원 | 정본 대상 하나가 증명됨 | `review_required` |
 | 권한 | 출처가 해당 범위에서 이 사실 등급을 주장할 수 있음 | `denied` 또는 `review_required` |
 | 충돌 | precedence가 결정론적이고 해결되지 않은 동점이 보임 | `review_required` |
-| 외부 truth | 프로바이더 또는 telemetry 구문에 fresh 권위 있는 근거가 있음 | `review_required` |
+| 외부 truth | 프로바이더 또는 텔레메트리 구문에 fresh 권위 있는 근거가 있음 | `review_required` |
 | 안전성 | 룰, 작업 흐름 및 액션이 완전한 안전성 계약을 충족함 | `denied` |
 | 커버리지 | 모든 점유에 처리 결과가 있고 critical 재현율이 release 게이트를 통과함 | `review_required` |
 
@@ -405,7 +405,7 @@ truth가 됩니다.
 
 ## 평가 및 승격
 
-평가는 licensed 또는 synthetic 문서, annotated 점유, 예상 그래프 diff, adversarial instruction,
+평가는 licensed 또는 synthetic 문서, annotated 점유, 예상 그래프 차이, adversarial instruction,
 검사, 표, conflicting 개정 번호, deletion 및 출처 장애를 포함하는 고정된 versioned 말뭉치를
 사용합니다. Human annotation은 검토자 신원과 disagreement 해석을 기록합니다.
 
@@ -415,12 +415,12 @@ release 게이트는 다음과 같습니다.
 - critical 점유의 number, 단위, polarity 또는 비교 변경 0건
 - critical 점유 처리 결과 accounting 100%
 - 고정된 말뭉치에서 critical-claim 재현율 0.98 이상 및 개체/링크 정밀도 0.98 이상
-- competency-query, 재생, 롤백, deletion 및 ACL 회귀 pass 비율 100%
+- competency-query, 재생, 롤백, deletion 및 ACL 회귀 통과 비율 100%
 - 권한 violation, 정책 escape, wrong-target 변환 결과 및 검증되지 않은 truth 점유 0건
 
 초기 기능은 review-only입니다. 이후 승격은 최소 30일의 서로 다른 live-shadow 일과 500개의
 조건을 충족한 검토된 제안, 가드 violation 0건 및 0.99 이상의 Wilson 95% 정밀도 lower 한계를
-충족한 low-risk 대응에만 적용을 검토할 수 있습니다. 소유권, objective, 제약, 룰,
+충족한 low-risk 대응에만 적용을 검토할 수 있습니다. 소유권, 목표, 제약, 룰,
 정책, 작업 흐름, ActionType, 권한, 자율성, 스키마 변경, 충돌 및 모호한 신원은 항상
 책임 있는 검토가 필요합니다.
 
@@ -436,8 +436,8 @@ D4d council 합의는 이 수명 주기 전체에서 inert review-only 제안으
 | D1 | 점유 인벤토리 및 타입이 지정된 추출 어댑터 | 모든 detected 점유가 정확히 하나의 처리 결과를 받음 |
 | D2 | Grounding, 의미, 신원, 권한, 충돌 및 커버리지 게이트 | adversarial 및 모호함 고정본이 거부 또는 검토로만 종료함 |
 | D3 | Incremental 개정 번호, deletion, ACL, supersession 및 롤백 계획 수립 | 장애가 mass deletion을 만들 수 없고 재생이 exact 개정 번호를 복원함 |
-| D4 | 검토 패키지 및 evaluation 보고 | 검토자가 그래프 diff, 출처 근거, 게이트 증적 및 해결되지 않은 점유를 확인함 |
-| D4b | 묶음 출처 이력 및 cross-format 추출 | 구조화된 위치 지정자가 검토까지 보존되고 synthetic 말뭉치의 정규화된 그래프 diff가 일치함 |
+| D4 | 검토 패키지 및 evaluation 보고 | 검토자가 그래프 차이, 출처 근거, 게이트 증적 및 해결되지 않은 점유를 확인함 |
+| D4b | 묶음 출처 이력 및 cross-format 추출 | 구조화된 위치 지정자가 검토까지 보존되고 synthetic 말뭉치의 정규화된 그래프 차이가 일치함 |
 | D4c | 실제 말뭉치 추출 품질 | 필요한 format/언어 파티션이 프로바이더 conformance와 annotated-corpus 게이트를 통과함 |
 | D4d | T2 온톨로지 모델 council | blind 모델 표결, 결정론적 합의, disagreement 근거, 모델 증적 및 실제 운영 conformance가 권한 추가 없이 통과함 |
 | D5 | 그림자 측정 및 limited 승격 근거 | 권한을 넓히지 않고 statistical 및 zero-violation 게이트를 통과함 |
@@ -458,7 +458,7 @@ council을 검토했습니다.
 | 7 | 검토 privacy | 출처 access-policy 계보, exact 내용 다이제스트, 패키지 한계 |
 | 8 | 수명 주기 및 롤백 | projection-only 개정 번호 변경, exact 롤백, 중복 retirement 거절 |
 | 9 | 승격 통계 | 타입이 지정된 risk 등급, as-of 기준 시점, unique 근거, future-observation 거절 |
-| 10 | 통합 경계 | 패키지 invariant, 맥락 한계, correct mixed fence 처리 |
+| 10 | 통합 경계 | 패키지 불변식, 맥락 한계, correct mixed fence 처리 |
 | 11 | 조정 격리 | proposal-bound 증적 및 restored 현재 그래프 개정 번호 |
 | 12 | 경계 format | 온톨로지 release 다이제스트, RFC 3339 UTC 근거, 범위가 제한된 참조 |
 | 13 | executable 종결 | focused 테스트 156개, 가지 커버리지 90.62%, Ruff 및 strict mypy 통과 |
@@ -468,14 +468,14 @@ council을 검토했습니다.
 | 26 | 운영 PDF | strict `pypdf`가 페이지, 객체, 스트림, 단위 및 character 상한 아래에서 xref와 객체 스트림을 지원함 |
 | 27 | Office 및 OCR 출처 이력 | heading 맥락, slide paragraph, 표 역할, XLSX cell 및 exact OCR 페이지/블록 위치 지정자가 추출을 통과함 |
 | 28 | 개체 해석 | exact/unique 구성된 별칭만 해석하며 알 수 없음, 타입 mismatch 및 모호한 별칭은 범위가 제한된 unselected 상태로 남음 |
-| 29 | 파티션 게이트 | zero-candidate, zero-citation, zero-prediction, missing-format, weak-language, 의미, 인용 및 재생 근거가 vacuous pass할 수 없음 |
+| 29 | 파티션 게이트 | zero-candidate, zero-citation, zero-prediction, missing-format, weak-language, 의미, 인용 및 재생 근거가 vacuous 통과할 수 없음 |
 | 30 | 공개 말뭉치 | HTTPS 출처 11개를 SHA-256, license, format, 언어, 크기 및 내용이 없는 annotation 22개로 고정하고 출처 본문은 저장소 밖에 유지함 |
 | 31 | 프로바이더 conformance | 실제 연결을 사례마다 두 번 호출하고 파티션별로 측정하며 사용 불가/abstaining 연결은 추출 available을 보고할 수 없음 |
 | 32 | 파서 security | shared 한도가 입력, 중첩, XML, 보관, PDF, OCR, 단위 및 character를 제한하고 오류는 내용이 없는 상태를 유지함 |
 | 33 | 독립적인 종결 | 독립 adversarial 감사 3개로 범위가 제한된 별칭, 캐시, SGML 깊이, vacuous 게이트, 기억 정규화 및 고정본 escaping 발견 사항을 닫음. Annotation 22/22, 파서 거절 0, 재생 mismatch 0, focused 테스트 372개 및 가지 커버리지 93.51% 통과 |
 | 34-43 | 모델 council 종결 | 부분 시간 초과, stale conformance 신원, 명시적 모델/사용량 증적, 개정 번호 실패와 필드 범위, malformed 값, 계열/발행기 independence, compromised 신원, digest-verified 비평, 정본 링크 대상 및 실제 운영 말뭉치 재생을 검증함. Focused 테스트 290개 및 가지 커버리지 90.62% 통과 |
 
-D4c 방식과 공개 인벤토리 말뭉치는 검증된 Medium 이상 발견 사항 없이 닫혔습니다. Upstream
+D4c 방식과 공개 인벤토리 말뭉치는 검증된 Medium 이상 발견 사항 없이 닫혔습니다. 업스트림
 `AbstainingDistiller`는 11개 수동 모두에서 후보 0개를 반환하므로 연결된 프로바이더가
 conformance 말뭉치를 통과할 때까지 온톨로지 추출 가용성은 false입니다. Checked-in 공개
 말뭉치는 현재 English Markdown과 SGML을 다룹니다. 배포가 PDF, Office, OCR 및 Korean 프로바이더
@@ -503,7 +503,7 @@ D4d 실제 운영 검사는 세 pinned 배포 모두에서 Entra-authenticated s
 | Security | 신뢰할 수 없는 텍스트가 프롬프트, 도구, 정책 또는 실행 신원을 바꿀 수 없음 |
 | 재생 | 같은 입력과 release가 같은 제안 및 게이트 다이제스트를 생성함 |
 | 수명 주기 | 개정 번호, deletion, 장애, ACL, supersession 및 롤백이 범위가 제한된되고 audited됨 |
-| Customer 격리 | Upstream 코드, 고정본 및 docs에 배포 문서 내용이 없음 |
+| Customer 격리 | 업스트림 코드, 고정본 및 docs에 배포 문서 내용이 없음 |
 
 ## 관련 문서
 

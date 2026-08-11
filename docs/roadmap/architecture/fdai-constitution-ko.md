@@ -2,18 +2,19 @@
 title: FDAI 헌법
 translation_of: fdai-constitution.md
 translation_source_sha: 0146a323b16611f7b0e0a413ef8a9613f9ed7126
-translation_revised: 2026-08-01
+translation_revised: 2026-08-11
+---
 # FDAI 헌법
 
 이 문서는 FDAI의 최상위 설계 권위입니다. 모든 상세 설계, 기계 계약, 구현, 워크플로우 및
 배포가 보존해야 하는 목적, 보장, 권한 경계 및 개정 규칙을 정의합니다.
 
-> **규범 범위:** 이 헌법은 목표 동작을 정의합니다. 구현 상태는 capability 및 제공 문서에
+> **규범 범위:** 이 헌법은 목표 동작을 정의합니다. 구현 상태는 기능 및 제공 문서에
 > 기록하며 헌법 요구사항을 약화해서는 안 됩니다.
 >
 > **구현 증거:** [`config/constitution-traceability.json`](../../../config/constitution-traceability.json)은
-> requirement-to-code/test/evidence machine register입니다. `partial` 또는 `planned` entry는 완전한
-> constitutional runtime conformance 주장을 차단하며 이 목표를 약화하지 않습니다.
+> requirement-to-code/테스트/근거 머신 register입니다. `partial` 또는 `planned` 항목은 완전한
+> constitutional 런타임 conformance 주장을 차단하며 이 목표를 약화하지 않습니다.
 >
 > **정확성 범위:** FDAI는 모든 새로운 상황에서 정확한 진단이나 성공적인 외부 결과를
 > 보장하지 않습니다. 계약을 준수하는 동작을 보장합니다. 불확실하면 지원되지 않는 작업을
@@ -55,43 +56,43 @@ Azure가 구현된 공급자입니다. 공급자 계약은 클라우드 공급�
 - 권위 있는 관측 대신 온톨로지 또는 카탈로그 쓰기에서 추론한 외부 사실
 - 검토 및 승격 증거 없이 권한을 높인 학습 결과
 
-모든 decision-critical evidence receipt는 authority class, 인증된 source identity, scope,
-purpose, query 또는 detector version, event/recorded time, freshness policy, coverage 또는
-completeness, provenance digest 및 synthetic status를 명시합니다. Synthetic 또는 fixture evidence는
-mechanics를 검증할 수 있지만 live readiness, production approval 또는 promotion evidence를
-충족하지 못합니다. Absence claim에는 positive coverage와 completeness proof가 필요하며 missing,
-censored, inaccessible 또는 unobserved data는 healthy가 아니라 unknown으로 남습니다.
+모든 decision-critical 근거 증적은 권한 등급, 인증된 출처 신원, 범위,
+용도, 조회 또는 detector 버전, 이벤트/기록된 시간, 최신성 정책, 커버리지 또는
+완전성, 출처 이력 다이제스트 및 synthetic 상태를 명시합니다. Synthetic 또는 고정본 근거는
+mechanics를 검증할 수 있지만 실제 운영 준비 상태, 운영 승인 또는 승격 근거를
+충족하지 못합니다. Absence 점유에는 긍정 커버리지와 완전성 증명이 필요하며 누락된,
+censored, inaccessible 또는 unobserved 데이터는 healthy가 아니라 알 수 없음으로 남습니다.
 
-Effect verification은 executor 및 command channel과 독립적입니다. Broker, provider 또는 API
-receipt는 dispatch만 증명합니다. 별도 observer가 authoritative effect source로 expected observation
-window를 닫습니다. 충돌하는 authoritative source는 명시적 conflict로 남아 자율성을 낮추며
-aggregation으로 평균 내어 숨기지 않습니다.
+효과 검증은 실행기 및 명령 채널과 독립적입니다. 브로커, 프로바이더 또는 API
+증적은 전달만 증명합니다. 별도 관찰기가 권위 있는 효과 출처로 예상 관측
+구간을 닫습니다. 충돌하는 권위 있는 출처는 명시적 충돌로 남아 자율성을 낮추며
+집계로 평균 내어 숨기지 않습니다.
 
 ## 제3조: 에이전트 주도 권한
 
-**FDAI-CONST-003 - 독립적인 책임 에이전트.** 모든 capability와 상태 전이에는 고정된 15개
+**FDAI-CONST-003 - 독립적인 책임 에이전트.** 모든 기능과 상태 전이에는 고정된 15개
 에이전트 판테온의 책임 에이전트가 하나 있습니다. 에이전트는 독립적으로 스케줄할 수 있고
 동시에 실행할 수 있습니다. 권한이 있는 협업과 모든 상태 전이에는 스키마로 검증된 이벤트 버스
-게시 및 구독만 사용합니다. 직접 에이전트 호출, RPC 체인, 에이전트 간 구현 import 및 공유 가변
-워크플로우 상태는 지원하지 않습니다. 제한된 peer deliberation은 presentation 목적으로만
-composition-owned registry를 통해 소유된 변경 불가능한 projection을 읽을 수 있습니다. 상태를
+게시 및 구독만 사용합니다. 직접 에이전트 호출, RPC 체인, 에이전트 간 구현 가져오기 및 공유 가변
+워크플로우 상태는 지원하지 않습니다. 제한된 peer 숙의는 표현 목적으로만
+composition-owned 레지스트리를 통해 소유된 변경 불가능한 변환 결과를 읽을 수 있습니다. 상태를
 게시하거나 판단, 승인, 실행 또는 권한 부여를 수행할 수 없습니다.
 
 단일 작성자 소유권과 직무 분리는 절대적입니다.
 
 - Forseti가 판단하고, Var가 사람 승인을 전달하며, Thor만 실행하고, Saga가 감사하며,
-  Vidar가 복구합니다.
+ Vidar가 복구합니다.
 - 어떤 principal도 판단과 실행, 승인과 실행을 함께 수행하거나 자신에게 권한을 부여하지
-  않습니다.
+ 않습니다.
 - Bragi는 자연어와 형식화된 도구 사이를 번역하며 판단, 승인 또는 실행하지 않습니다.
-- Saga와 Vidar는 변경 작업의 필수 의존성입니다. 사용할 수 없으면 capability를 shadow 또는
-  무작업으로 낮추며 실패 시 권한을 열지 않습니다.
+- Saga와 Vidar는 변경 작업의 필수 의존성입니다. 사용할 수 없으면 기능을 그림자 또는
+ 무작업으로 낮추며 실패 시 권한을 열지 않습니다.
 
-Dependency loss는 필요한 계약 전체가 독립적으로 계속 사용 가능한 경로만 보존합니다. Read,
-deny, queue 및 shadow evaluation은 계속할 수 있습니다. Judge, executor, auditor, recovery path,
-필수 observer, context materializer 또는 적용되는 approval lane이 unavailable이면 state change를
-차단합니다. 한 component의 heartbeat 또는 cached output이 누락된 authority나 fresh evidence
-receipt를 대체하지 않습니다.
+의존성 loss는 필요한 계약 전체가 독립적으로 계속 사용 가능한 경로만 보존합니다. 읽기,
+거부, 큐 및 그림자 evaluation은 계속할 수 있습니다. Judge, 실행기, auditor, 복구 경로,
+필수 관찰기, 맥락 materializer 또는 적용되는 승인 레인이 사용 불가이면 상태 변경을
+차단합니다. 한 컴포넌트의 하트비트 또는 cached 출력이 누락된 권한나 fresh 근거
+증적을 대체하지 않습니다.
 
 ## 제4조: 의미, 정책 및 학습 경계
 
@@ -109,59 +110,59 @@ receipt를 대체하지 않습니다.
 | 활성 사용으로 승격 | 독립적으로 검토된 승격 레지스트리 |
 | 현재 외부 상태 | 권위 있는 인벤토리, 원격 분석, 공급자 및 감사 관측 |
 
-강제 안전 경계는 적응형이 아닙니다. 관리되는 정책 임계값은 증거, 검증, shadow 평가 및
+강제 안전 경계는 적응형이 아닙니다. 관리되는 정책 임계값은 증거, 검증, 그림자 평가 및
 승격을 거친 후 선언된 경계 안에서 변경할 수 있습니다. 상황별 값은 승인되고 버전이 지정된
 알고리즘만 의사결정 시점에 계산할 수 있습니다. 누락되거나 오래되거나 충돌하거나 입증되지
 않은 컨텍스트는 자율성 수준을 유지하거나 낮출 수만 있습니다.
 
 모든 활성, 후보 또는 계산된 임계값은 의미 형식, 단위, 범위, 허용 구간, 정확한 버전 또는
-digest, 유효 구간, 증거 cutoff, 알고리즘 또는 모델 버전, 승격 증거 및 롤백 대상을 기록합니다.
-Replay는 원래 결정 cutoff의 정확한 값을 해석하며 최신 값이 과거 결정을 다시 쓰지 않습니다.
+다이제스트, 유효 구간, 증거 기준 시점, 알고리즘 또는 모델 버전, 승격 증거 및 롤백 대상을 기록합니다.
+재생은 원래 결정 기준 시점의 정확한 값을 해석하며 최신 값이 과거 결정을 다시 쓰지 않습니다.
 
-모든 decision context는 event time, recorded time, 각 fact의 effective interval, evidence cutoff,
-source별 freshness receipt 및 trusted UTC clock source를 고정합니다. 늦은 evidence는 새 revision을
-만들며 원래 context를 다시 쓰지 않습니다. Deadline은 persisted instant에 trusted UTC를 사용하고
-process 내부 경과시간에는 monotonic time을 사용합니다. Time authority 누락, 과도한 clock skew,
-future-effective fact 또는 expired fact는 자율성을 낮추고 replay에 계속 표시됩니다.
+모든 결정 맥락은 이벤트 시간, 기록된 시간, 각 사실의 effective 간격, 근거 기준 시점,
+출처별 최신성 증적 및 trusted UTC 시계 출처를 고정합니다. 늦은 근거는 새 개정 번호를
+만들며 원래 맥락을 다시 쓰지 않습니다. 기한은 저장된 instant에 trusted UTC를 사용하고
+프로세스 내부 경과시간에는 단조 증가 시간을 사용합니다. 시간 권한 누락, 과도한 시계 skew,
+future-effective 사실 또는 만료된 사실은 자율성을 낮추고 재생에 계속 표시됩니다.
 
 ## 제5조: 운영 도메인
 
-**FDAI-CONST-005 - 하나의 제어 평면과 여러 운영 도메인.** 도메인 capability는 도메인별
+**FDAI-CONST-005 - 하나의 제어 평면과 여러 운영 도메인.** 도메인 기능은 도메인별
 슈퍼 에이전트를 만들지 않습니다. 안정적인 책임 에이전트가 다음 운영 도메인에 동일한 제어
 루프와 온톨로지를 적용합니다.
 
 | 도메인 | 헌법적 범위 |
 |--------|-------------|
 | SRE 운영 | SLO, 오류 예산, 관측 가능성, 인시던트, 용량, 성능 및 운영 자동화 |
-| Resilience Engineering | 재해 복구, 백업, 복원, 장애 조치, 연속성 및 Chaos Engineering |
-| 변경 및 아키텍처 거버넌스 | Architecture Review Board 증거, 아키텍처 제약, 드리프트, 배포 및 변경 안전성 |
+| 복원력 Engineering | 재해 복구, 백업, 복원, 장애 조치, 연속성 및 Chaos Engineering |
+| 변경 및 아키텍처 거버넌스 | 아키텍처 검토 Board 증거, 아키텍처 제약, 드리프트, 배포 및 변경 안전성 |
 | FinOps | 비용 가시성, 할당, 예측, 효율성 및 검증된 최적화 |
 
-SRE는 전체 운영 모델입니다. Resilience, Change Safety 및 Cost Governance는 초기 제품
-vertical로 유지합니다. 재해 복구와 Chaos Engineering은 서로 구분되는 Resilience
-capability이며 Architecture Review Board 거버넌스는 모든 도메인에 적용됩니다.
+SRE는 전체 운영 모델입니다. 복원력, 변경 안전성 및 비용 거버넌스는 초기 제품
+버티컬로 유지합니다. 재해 복구와 Chaos Engineering은 서로 구분되는 복원력
+기능이며 아키텍처 검토 Board 거버넌스는 모든 도메인에 적용됩니다.
 
 | 도메인 상세 | 소유 문서 |
 |-------------|-----------|
 | SRE 운영 | [관측 가능성 및 탐지](../rules-and-detection/observability-and-detection-ko.md), [운영자 시작 SRE 및 ARB](../operations/operator-initiated-sre-and-arb-ko.md) |
-| Resilience Engineering | [복구 및 Chaos 적용](../decisioning/recovery-and-chaos-enforcement-ko.md) |
-| 변경 및 아키텍처 거버넌스 | [Architecture Review Board 패킷](architecture-review-board-ko.md), [Action Ontology](../decisioning/action-ontology-ko.md) |
+| 복원력 Engineering | [복구 및 Chaos 적용](../decisioning/recovery-and-chaos-enforcement-ko.md) |
+| 변경 및 아키텍처 거버넌스 | [아키텍처 검토 Board 패킷](architecture-review-board-ko.md), [액션 온톨로지](../decisioning/action-ontology-ko.md) |
 | FinOps | [비용 모델](../interfaces/cost-model-ko.md), [에이전트 워크플로우](../agents/agent-workflows-ko.md) |
 
 도메인 적용 범위에는 관측, 정규화, 증거 수집, 결정, 계획, 권한 확인, 실행, 검증 및 학습의
-전체 루프가 필요합니다. Target, Implemented 및 Planned 상태는 항상 명시적으로 구분합니다.
+전체 루프가 필요합니다. 대상, Implemented 및 Planned 상태는 항상 명시적으로 구분합니다.
 
-각 도메인 capability는 frozen scenario pack에 성공적인 전체 루프, 명시적 unknown 또는 deny,
-cross-objective conflict, 부분 실패 및 복구, A3-E 또는 문서화된 non-applicability, 인용된 runtime
-evidence를 가진 결정론적 replay가 모두 있을 때만 covered입니다. 최소 outcome은 다음과 같습니다.
+각 도메인 기능은 고정된 시나리오 묶음에 성공적인 전체 루프, 명시적 알 수 없음 또는 거부,
+cross-objective 충돌, 부분 실패 및 복구, A3-E 또는 문서화된 non-applicability, 인용된 런타임
+근거를 가진 결정론적 재생이 모두 있을 때만 covered입니다. 최소 결과는 다음과 같습니다.
 
-| Capability | 필수 outcome proof |
+| 기능 | 필수 결과 증명 |
 |------------|--------------------|
-| SRE | SLO 또는 incident detection부터 독립적으로 검증된 recovery 및 recurrence closure까지 |
-| ARB / Change Safety | graph diff 및 constraint부터 approval condition 및 post-change verification까지 |
-| FinOps | forecast 또는 finding부터 protected reliability objective를 유지한 realized savings까지 |
-| DR | failover 또는 restore부터 data-integrity check 및 측정된 RTO/RPO까지 |
-| Chaos Engineering | 명시적인 사람 승인 injection부터 continuous stop guard 및 verified recovery까지. A3-E injection은 적용되지 않음 |
+| SRE | SLO 또는 인시던트 detection부터 독립적으로 검증된 복구 및 recurrence 종결까지 |
+| ARB / 변경 안전성 | 그래프 차이 및 제약부터 승인 조건 및 post-change 검증까지 |
+| FinOps | 예측 또는 발견 사항부터 protected reliability 목표를 유지한 realized 절감까지 |
+| DR | 장애 조치 또는 복원부터 data-integrity 검사 및 측정된 RTO/RPO까지 |
+| Chaos Engineering | 명시적인 사람 승인 주입부터 continuous stop 가드 및 검증된 복구까지. A3-E 주입은 적용되지 않음 |
 
 ## 제6조: 목표 우선순위
 
@@ -184,22 +185,22 @@ evidence를 가진 결정론적 replay가 모두 있을 때만 covered입니다.
 ## 제7조: 자율 작업 안전조건
 
 **FDAI-CONST-007 - 모든 자율 상태 변경의 7개 안전조건.** 관리 리소스, 외부 시스템, 내구성
-artifact, 승인 상태 또는 알림 상태를 변경하는 작업은 7개 안전조건을 모두 선언하고 dispatch
+산출물, 승인 상태 또는 알림 상태를 변경하는 작업은 7개 안전조건을 모두 선언하고 전달
 전 검사를 통과해야 합니다.
 
 1. 기계가 평가할 수 있는 중단 조건
 2. 테스트된 롤백 또는 제한된 복구 경로
 3. 계산된 영향 범위 및 장애 반경 제한
-4. 성공한 what-if 또는 dry-run 증명
+4. 성공한 what-if 또는 예행 실행 증명
 5. 인과 순서를 적용해 획득한 logical-target 잠금. 관리 리소스 변경에는 리소스 ID를 사용
 6. 중복 억제를 포함한 안정적인 멱등성 키
-7. Side effect 전에 내구화한 append-only audit intent와 실행 후 execution/outcome closure
+7. Side 효과 전에 내구화한 추가 전용 감사 의도와 실행 후 실행/결과 종결
 
-잠금은 side-effect commit까지 유지합니다. 긴 관측 window는 잠금을 무기한 유지하는 대신 고정된
-대상 revision을 사용합니다. 순수 A0 read와 설명은 mutation rollback, dry-run 또는 mutation
-lock을 요구하지 않지만 read 계약의 권한, 제한된 증거, redaction, correlation 및 audit를
-유지합니다. 성공을 보고하기 전에 독립적인 효과 검증이 필요합니다. 새 capability는 shadow 모드에서
-시작합니다. 승격은 명시적이고 capability별로 수행되며 증거로 제한됩니다. 런타임, 환경,
+잠금은 side-effect 커밋까지 유지합니다. 긴 관측 구간은 잠금을 무기한 유지하는 대신 고정된
+대상 개정 번호를 사용합니다. 순수 A0 읽기와 설명은 변경 롤백, 예행 실행 또는 변경
+잠금을 요구하지 않지만 읽기 계약의 권한, 제한된 증거, 민감정보 제거, 상관관계 및 감사를
+유지합니다. 성공을 보고하기 전에 독립적인 효과 검증이 필요합니다. 새 기능은 그림자 모드에서
+시작합니다. 승격은 명시적이고 기능별로 수행되며 증거로 제한됩니다. 런타임, 환경,
 활성화 상태 및 포크 상태와 독립적입니다. 회귀 또는 필수 의존성의 사용 불가는 권한을
 자동으로 낮춥니다.
 
@@ -207,12 +208,12 @@ lock을 요구하지 않지만 read 계약의 권한, 제한된 증거, redactio
 
 **FDAI-CONST-008 - 위험으로 제한된 자율성.** FDAI는 작업 위험에 따라 권한을 분류합니다.
 
-표시 label은 A0-A4를 유지합니다. Machine record는 namespace가 있는 값(`autonomy.a0`,
+표시 라벨은 A0-A4를 유지합니다. 머신 기록은 이름 공간이 있는 값(`autonomy.a0`,
 `autonomy.a1`, `autonomy.a2`, `autonomy.a3_h`, `autonomy.a3_e`, `autonomy.a4`)을 사용합니다.
-이는 채널 및 알림의 A1-A4 메시지 카테고리와 무관하며 구현은 숫자 suffix로 두 enum family를
-비교, join 또는 변환하면 안 됩니다.
+이는 채널 및 알림의 A1-A4 메시지 카테고리와 무관하며 구현은 숫자 접미사로 두 enum 계열을
+비교, 결합 또는 변환하면 안 됩니다.
 
-| 표시 등급 | Machine value | 권한 |
+| 표시 등급 | 머신 값 | 권한 |
 |-----------|---------------|------|
 | A0 | `autonomy.a0` | 변경 없이 관측, 설명 및 시뮬레이션 |
 | A1 | `autonomy.a1` | 현재 정책 안에서 가역적이고 리소스 범위인 저위험 작업 실행 |
@@ -224,30 +225,30 @@ lock을 요구하지 않지만 read 계약의 권한, 제한된 증거, redactio
 A3-E는 응답 없음에서 추론한 승인이 아니라 미리 받은 승인입니다. 다음 조건을 모두 만족할
 때만 유효합니다.
 
-- 최소 2명의 normalized distinct human이 승인하며 accountable service owner와 Owner-level
-  authority를 포함합니다. 요청자와 실행자는 승인자가 될 수 없습니다.
+- 최소 2명의 정규화된 서로 다른 human이 승인하며 accountable 서비스 소유자와 Owner-level
+ 권한을 포함합니다. 요청자와 실행자는 승인자가 될 수 없습니다.
 - 승인은 서비스, 인시던트 분류, ActionType, 범위, 트리거, 에스컬레이션 기한, 영향 경계,
-  중단 조건, 롤백, 유효 구간 및 현재 주 담당자와 백업 담당자를 명시합니다.
-- 권한은 리소스 그룹과 동등하거나 더 좁은 범위이며 자체 리비전, 정책 digest, ActionType 및
-  워크플로우 버전, 대상 리비전 및 증거 리비전을 고정합니다. 변경 또는 취소가 발생하면 독립적인
-  재승인 전까지 적용할 수 없습니다.
+ 중단 조건, 롤백, 유효 구간 및 현재 주 담당자와 백업 담당자를 명시합니다.
+- 권한은 리소스 그룹과 동등하거나 더 좁은 범위이며 자체 리비전, 정책 다이제스트, ActionType 및
+ 워크플로우 버전, 대상 리비전 및 증거 리비전을 고정합니다. 변경 또는 취소가 발생하면 독립적인
+ 재승인 전까지 적용할 수 없습니다.
 - 적용 가능한 서비스 로그, 인시던트 및 감사 이력을 검토하고 선례의 존재 여부를 기록했습니다.
-  충분한 선례가 없으면 현재 DR 훈련, 제한된 Chaos 실험 또는 시뮬레이션이 동등한 시나리오
-  증거를 제공합니다.
+ 충분한 선례가 없으면 현재 DR 훈련, 제한된 Chaos 실험 또는 시뮬레이션이 동등한 시나리오
+ 증거를 제공합니다.
 - 모든 담당자 인수인계에서 위임을 다시 확인합니다. 확인이 누락되거나 오래되거나 거절되면
-  위임을 일시 중단합니다.
-- 취소는 즉시 적용되고 renewal은 기존 레코드를 연장하지 않고 새로운 immutable revision과
-  fresh quorum, evidence, responder confirmation 및 validity를 생성합니다.
-- 사람의 침묵을 측정하기 전에 선언된 채널 fallback으로 전달을 확인합니다. 모든 연락, 전달 및
-  에스컬레이션 시도를 감사합니다.
+ 위임을 일시 중단합니다.
+- 취소는 즉시 적용되고 갱신은 기존 레코드를 연장하지 않고 새로운 변경할 수 없는 개정 번호와
+ fresh 정족수, 근거, 응답자 확인 및 validity를 생성합니다.
+- 사람의 침묵을 측정하기 전에 선언된 채널 대체 경로로 전달을 확인합니다. 모든 연락, 전달 및
+ 에스컬레이션 시도를 감사합니다.
 - 기한 만료 시 작업이 가역적이고 정확한 경계 안에 계속 있습니다.
 - 선언된 최대 실행시간 전체가 `valid_until` 전에 들어가야 합니다. 그렇지 않으면 실행 중
-  만료되는 권한으로 시작하지 않고 현재 사람 승인으로 돌아갑니다.
+ 만료되는 권한으로 시작하지 않고 현재 사람 승인으로 돌아갑니다.
 - 감독자가 형식화된 위험 파이프라인으로 다시 진입하며 실행자를 직접 호출하지 않습니다.
 - 실행 직후 알림과 기한이 있는 사후 검토를 수행합니다.
 
 상시 권한은 A4에 적용되지 않습니다. 비가역적이거나 더 넓은 범위의 복구에는 구성된 정족수를
-충족하는 새로운 사람 승인이 필요합니다. A3-E는 Chaos fault injection을 승인하지 않습니다.
+충족하는 새로운 사람 승인이 필요합니다. A3-E는 Chaos fault 주입을 승인하지 않습니다.
 별도로 사람이 승인한 실험은 제한된 중단 및 복구 시퀀스만 사전승인할 수 있습니다.
 
 ## 제9조: 워크플로우 거버넌스
@@ -258,22 +259,22 @@ A3-E는 응답 없음에서 추론한 승인이 아니라 미리 받은 승인�
 실행자, 복구 또는 감사 경로를 우회할 수 없습니다.
 
 모든 워크플로우는 목표, 트리거, 전제조건, 보호할 목표, 제한된 단계, 기한, 중단 조건, 예상
-효과, 실패 동작, 보상, 완료 기준 및 제외 범위를 선언합니다. 책임 담당자 하나가 revision이 있는
-내구성 Process snapshot과 append-only journal을 진행합니다. Ontology 및 console projection은
-재구성 가능한 read model이며 에이전트는 가변 Process 상태를 공유하여 조정하지 않습니다.
+효과, 실패 동작, 보상, 완료 기준 및 제외 범위를 선언합니다. 책임 담당자 하나가 개정 번호가 있는
+내구성 프로세스 스냅샷과 추가 전용 저널을 진행합니다. 온톨로지 및 콘솔 변환 결과는
+재구성 가능한 읽기 모델이며 에이전트는 가변 프로세스 상태를 공유하여 조정하지 않습니다.
 
-새 워크플로우 또는 실질적으로 변경된 워크플로우는 shadow 모드에서 시작하며 구조 검증,
-시뮬레이션 또는 dry-run, 시나리오 회귀 및 명시적 승격을 통과합니다. 승격된 워크플로우
-인스턴스는 활성 경계 안에서 선언된 매개 변수만 변경할 수 있습니다. Step, ActionType, guard,
-순서, 실패 edge 또는 보상을 바꾸면 새 immutable workflow version이 되어 shadow로 돌아갑니다.
-승인된 primitive를 사용해도 새 조합이 사전승인되지는 않습니다.
+새 워크플로우 또는 실질적으로 변경된 워크플로우는 그림자 모드에서 시작하며 구조 검증,
+시뮬레이션 또는 예행 실행, 시나리오 회귀 및 명시적 승격을 통과합니다. 승격된 워크플로우
+인스턴스는 활성 경계 안에서 선언된 매개 변수만 변경할 수 있습니다. 단계, ActionType, 가드,
+순서, 실패 간선 또는 보상을 바꾸면 새 변경할 수 없는 작업 흐름 버전이 되어 그림자로 돌아갑니다.
+승인된 기본 요소를 사용해도 새 조합이 사전승인되지는 않습니다.
 
-Failure, cancellation 또는 timeout 이후 Process는 새 forward dispatch를 중단하고 정확한 partial
-state를 기록하며 적용된 step을 reverse dependency order로 normal typed pipeline을 통해
-compensate합니다. Compensation 및 독립적인 recovery verification 전에는 success를 보고할 수
-없습니다. Missing, failed 또는 unscorable compensation은 recovery-incomplete failure로 닫고 영향
-대상에 durable automation hold를 둡니다. Hold는 read 및 별도로 승인된 recovery만 허용하며 사람
-검토가 partial state를 recovered로 다시 표시할 수 없습니다.
+실패, 취소 또는 시간 초과 이후 프로세스는 새 forward 전달을 중단하고 정확한 부분
+상태를 기록하며 적용된 단계를 reverse 의존성 순서로 normal 타입이 지정된 파이프라인을 통해
+compensate합니다. 보상 및 독립적인 복구 검증 전에는 성공을 보고할 수
+없습니다. 누락된, 실패한 또는 unscorable 보상은 recovery-incomplete 실패로 닫고 영향
+대상에 영속 자동화 보류를 둡니다. 보류는 읽기 및 별도로 승인된 복구만 허용하며 사람
+검토가 부분 상태를 recovered로 다시 표시할 수 없습니다.
 
 ## 제10조: 증거, 추적성 및 개정
 
@@ -282,21 +283,21 @@ compensate합니다. Compensation 및 독립적인 recovery verification 전에�
 
 ```text
 purpose -> constitutional requirement -> ontology or schema -> policy -> agent responsibility
-        -> workflow or ActionType -> implementation -> test -> runtime evidence
+    -> workflow or ActionType -> implementation -> test -> runtime evidence
 ```
 
 | 조항 | 상세 소유자 | 필수 검증 증거 |
 |------|-------------|----------------|
-| 001 | App Shape, Generic Scope | 범위 gate, provider 경계 테스트, 배포 상태 |
-| 002 | Goals and Metrics, Outcome Assurance | 0 임계값 guard, outcome receipt, replay |
-| 003 | Agent Pantheon | 역할 parity, topic ownership, 동시성, 필수 의존성 테스트 |
-| 004 | Operating Ontology, Rule Governance | 스키마, provenance, freshness, 승격, replay 테스트 |
+| 001 | App 형태, 범용 범위 | 범위 게이트, 프로바이더 경계 테스트, 배포 상태 |
+| 002 | 목표 and Metrics, 결과 Assurance | 0 임계값 가드, 결과 증적, 재생 |
+| 003 | 에이전트 Pantheon | 역할 동등성, 토픽 소유권, 동시성, 필수 의존성 테스트 |
+| 004 | Operating 온톨로지, Rule 거버넌스 | 스키마, 출처 이력, 최신성, 승격, 재생 테스트 |
 | 005 | 제5조의 도메인 소유 문서 | 도메인별 전체 루프 시나리오 및 상태 증거 |
-| 006 | Agent Pantheon arbitration, Risk Classification | hard constraint 및 arbitration 속성 테스트 |
-| 007 | Security and Identity, Action Ontology | shadow, dry-run, lock, idempotency, rollback, audit 테스트 |
-| 008 | Risk Classification, Escalation and Standing Authority | 승인, 만료, 인수인계, 경계, 차단 테스트 |
-| 009 | Process Automation, Workflow Control-Loop Integration | loader, 버전 고정, guard, 보상, 승격 테스트 |
-| 010 | Design Routes, Constitution Checker | 양언어, 링크, route, 추적성 및 CI 검사 |
+| 006 | 에이전트 Pantheon 중재, Risk 분류 | hard 제약 및 중재 속성 테스트 |
+| 007 | Security and 신원, 액션 온톨로지 | 그림자, 예행 실행, 잠금, 멱등성, 롤백, 감사 테스트 |
+| 008 | Risk 분류, 에스컬레이션 and Standing 권한 | 승인, 만료, 인수인계, 경계, 차단 테스트 |
+| 009 | 프로세스 자동화, 작업 흐름 Control-Loop 통합 | 로더, 버전 고정, 가드, 보상, 승격 테스트 |
+| 010 | Design Routes, Constitution 검사기 | 양언어, 링크, 경로, 추적성 및 CI 검사 |
 
 권위는 다음 순서로 내려갑니다.
 

@@ -21,7 +21,7 @@ translation_revised: 2026-08-11
 
 `ContextSelectionInput`은 후보 항목, trust 등급, 토큰 예산, 모델 기능 메타데이터를
 고정합니다. `ContextSelectionPolicy`는 정렬된 선택 항목 id와 `ContextManifest`만 반환할 수
-있습니다. 필수 래퍼는 정확히 같은 입력으로 정책을 두 번 실행하고 모든 invariant를 검증한
+있습니다. 필수 래퍼는 정확히 같은 입력으로 정책을 두 번 실행하고 모든 불변식을 검증한
 뒤, 선택된 불변 항목을 재구성합니다. 어떤 정책도 저장소, retriever, summarizer, 렌더러,
 모델 클라이언트, 도구 또는 실행기를 받지 않습니다.
 
@@ -35,13 +35,13 @@ Core 계약은 `services/core-control-plane/src/fdai/core/working_context/`에 �
 | `ContextSelectionOutput` | 정렬된 선택 id와 기존 매니페스트 |
 | `ContextSelectionPolicy` | 순수 `select(input) -> output` 프로토콜 |
 | `DeterministicTieredPolicy` | 기존 tiered 작성기 어댑터 |
-| `execute_context_selection_policy` | 필수 결정론적 재생 및 invariant 래퍼 |
+| `execute_context_selection_policy` | 필수 결정론적 재생 및 불변식 래퍼 |
 
 호출자가 계속 모든 I/O를 소유합니다. `assemble_turn_context`는 기존 수집 및
 operator-memory 경계로 항목을 준비하고 하나의 입력을 고정하며, 권위 있는 선택을
 얻은 뒤 활성 결과가 완료된 후 후보 평가를 예약할 수 있습니다.
 
-## 필수 invariant
+## 필수 불변식
 
 모든 활성 또는 그림자 결과는 같은 검증기를 통과합니다. 검증기는 다음을 거부합니다:
 
@@ -53,7 +53,7 @@ operator-memory 경계로 항목을 준비하고 하나의 입력을 고정하�
 - 같은 고정된 입력의 두 번째 실행에서 달라진 출력;
 - 모든 정책 exception.
 
-Invariant 오류는 현재 요청을 실패 시 차단합니다. 승격된 후보가 원인이면 정책 권한이 해당
+불변식 오류는 현재 요청을 실패 시 차단합니다. 승격된 후보가 원인이면 정책 권한이 해당
 정책의 kill 전환을 engage하고 이후 요청을 위해 명시된 롤백 대상을 복원합니다. 실패
 출력은 프롬프트 렌더링이나 모델에 절대 도달하지 않습니다.
 
@@ -64,14 +64,14 @@ Invariant 오류는 현재 요청을 실패 시 차단합니다. 승격된 후�
 권한으로 유지됩니다. 정확한 정책 참조만 등록하며 Python을 부하하거나 패키지를 download하거나
 도구 또는 실행 기능을 부여하지 않습니다.
 
-`ContextSelectionPolicyAuthority`는 프로세스 lock 아래 개정 번호 compare-and-set을 적용합니다:
+`ContextSelectionPolicyAuthority`는 프로세스 잠금 아래 개정 번호 compare-and-set을 적용합니다:
 
 1. **비활성화된 설치.** 정확한 기능 연결과 정책 참조가 이미 활성여야 합니다.
 2. **그림자 활성화.** 후보는 측정 가능해지지만 활성 출력에는 영향을 줄 수 없습니다.
-3. **명시적 승격.** 승격은 정확한 후보 버전, 하나 이상의 샘플과 invariant 실패 0을
-  가진 timezone-aware 근거 구간, 그리고 현재 활성 정책을 롤백 대상으로 지정합니다.
-4. **Demote 또는 kill.** 검토된 회귀는 demote할 수 있습니다. Invariant 위반은 정책별 kill
-  전환을 자동 engage하고 롤백합니다. stale 개정 번호는 갱신 race에서 패배합니다.
+3. **명시적 승격.** 승격은 정확한 후보 버전, 하나 이상의 샘플과 불변식 실패 0을
+ 가진 timezone-aware 근거 구간, 그리고 현재 활성 정책을 롤백 대상으로 지정합니다.
+4. **Demote 또는 kill.** 검토된 회귀는 demote할 수 있습니다. 불변식 위반은 정책별 kill
+ 전환을 자동 engage하고 롤백합니다. stale 개정 번호는 갱신 race에서 패배합니다.
 
 권한은 자동 승격하지 않습니다. 또한 도구, 역할, ActionType, 작업 흐름, 모델 권한 또는
 실행기 신원을 넓힐 수 없습니다.
@@ -86,9 +86,9 @@ Invariant 오류는 현재 요청을 실패 시 차단합니다. 승격된 후�
 각 영속 비교는 다음을 기록합니다:
 
 - 기준선/후보 정책 참조, 매니페스트 및 토큰 사용량;
-- 입력 fingerprint, 선택 id overlap, omission 및 pinned preservation;
+- 입력 지문, 선택 id overlap, omission 및 pinned preservation;
 - 선택 관련성 평균과 선택적인 answer-quality evaluation 연결;
-- 측정 지연 시간과 정확한 exception, 시간 초과 또는 invariant 실패 사유.
+- 측정 지연 시간과 정확한 exception, 시간 초과 또는 불변식 실패 사유.
 
 운영 어댑터는 기존 `StateStore` tracked-state 접두사 아래에 이 기록을 저장합니다. PostgreSQL
 내구성과 atomic 생성 의미 규칙을 재사용하므로 새 표이나 Alembic 이행이 필요하지
@@ -97,7 +97,7 @@ Invariant 오류는 현재 요청을 실패 시 차단합니다. 승격된 후�
 ## 재생 및 콘솔
 
 `replay_approved_context_fixtures`는 approved 표시된 고정본만 실행하고 전체 ordered 출력과
-매니페스트를 비교합니다. 재생은 실제 운영 선택과 같은 double-execution invariant 검증을
+매니페스트를 비교합니다. 재생은 실제 운영 선택과 같은 double-execution 불변식 검증을
 수행하므로 unreplayable 정책은 offline 근거를 통과할 수 없습니다.
 
 Console 경로 `GET /context-selection-comparisons`는 Reader-gated `ReadPanel`입니다. 토큰 사용량,
@@ -111,7 +111,7 @@ overlap, omission, pinned preservation, 지연 시간, 정확한 실패를 표�
 - 후보 exception 또는 시간 초과는 근거일 뿐 활성 선택을 바꾸지 않습니다.
 - 레지스트리 갱신 race는 새 개정 번호를 요구하며 last-writer-wins를 지원하지 않습니다.
 - Killed 정책은 별도로 구현된 검토된 복구 경로 없이는 그림자에 다시 진입할 수 없습니다.
-- Built-in 결정론적 정책은 대체 경로 롤백 대상으로 유지됩니다. 이 정책이 invariant를
+- Built-in 결정론적 정책은 대체 경로 롤백 대상으로 유지됩니다. 이 정책이 불변식을
  위반하더라도 검증을 우회하지 않고 선택이 실패 시 차단합니다.
 
 ## 관련 문서

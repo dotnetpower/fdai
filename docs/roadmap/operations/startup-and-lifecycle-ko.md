@@ -9,7 +9,7 @@ translation_revised: 2026-08-11
 
 FDAI가 새로 프로비저닝된 Azure 구독에서 **콜드로 시작해 정상 상태에 도달** 하는 방법.
 답변: 시스템은 언제 "시작"하는가? 첫날 카탈로그에 무엇이 있는가? 자율 발견 루프는 언제
-시작하는가? 그림자 → enforce 라이프사이클은 어떻게 시퀀싱되는가?
+시작하는가? 그림자 → 강제 적용 라이프사이클은 어떻게 시퀀싱되는가?
 
 [deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md) (프로비저닝 처리) 와
 [operating-and-verification-ko.md](operating-and-verification-ko.md) (지속 관측 처리) 보완.
@@ -38,7 +38,7 @@ lag 기반 규모 룰을 추가한 뒤에만 `min_replicas = 0`으로 낮춰 sca
 2. Core 프로세스가 구성을 로드하고 상태, 감사, event-bus 어댑터 및 룰 카탈로그를 구성합니다.
 3. HTTP 시작/준비 상태 탐색이 `/ready`를 확인한 뒤 복제본이 traffic-ready가 됩니다.
 4. 소비자가 이벤트를 `event-ingest → correlation → trust-router → tier → risk-gate → audit`
-  프로세스 내 경로로 처리합니다.
+ 프로세스 내 경로로 처리합니다.
 
 향후 scale-to-zero를 활성화한 배포의 콜드 스타트에는 다음 규칙이 적용됩니다:
 
@@ -52,8 +52,8 @@ lag 기반 규모 룰을 추가한 뒤에만 `min_replicas = 0`으로 낮춰 sca
 - **콜드-스타트 순서**: 콜드 시작된 복제본은 리소스별 순서 / 멱등성 보장을 존중해야 함;
  올라오는 복제본이 "같은 이벤트 두 번 = 하나의 효과" 불변식을 위반할 수 없음.
 - **향후 sidecar 준비 상태 게이팅**: Sidecar 토폴로지를 실제로 추가하는 경우 주 컨테이너는
-  모든 sidecar의 준비 상태가 green일 때까지 이벤트를 받지 않는 것이 좋습니다. 현재 단일
-  컨테이너 토폴로지에는 적용되지 않습니다.
+ 모든 sidecar의 준비 상태가 green일 때까지 이벤트를 받지 않는 것이 좋습니다. 현재 단일
+ 컨테이너 토폴로지에는 적용되지 않습니다.
 
 **TBD**: 구체적 콜드-스타트 데드라인과 정확한 콜드-스타트-메트릭 이름/정의.
 
@@ -74,7 +74,7 @@ lag 기반 규모 룰을 추가한 뒤에만 `min_replicas = 0`으로 낮춰 sca
 |------|------|-----------|
 | Static 부하 | release 매니페스트, 구성 해시, 카탈로그 버전, 모델 연결, 이행 expectation | 네트워크와 변경 없음 |
 | 필수 도달 가능성 | 신원 토큰, 비공개 DNS, TLS, PostgreSQL, Kafka, 카탈로그와 정책 엔진 | 범위가 제한된 읽기 전용 |
-| 기능 예열 | 활성화된 각 모델, 임베딩, 검색, 알림 및 telemetry 어댑터 | 명시적 비용 한도가 있는 최소 요청 |
+| 기능 예열 | 활성화된 각 모델, 임베딩, 검색, 알림 및 텔레메트리 어댑터 | 명시적 비용 한도가 있는 최소 요청 |
 | 활성 smoke | Kafka 탐색 토픽 왕복, 데이터베이스 탐색 트랜잭션, canary, 사람 승인 dry 실행 | 전용 synthetic 범위만 사용 |
 
 Kafka 왕복은 operational Event Hubs 이름 공간의 전용 `runtime.startup.probe` 개체를
@@ -125,7 +125,7 @@ Narrator 대상은 TTFT p95 2.5초 이내로 유지합니다
 
 - **Process-critical**: 잘못된 구성, 토큰/시크릿 실패, PostgreSQL/감사 실패, 감사 hash-chain 불일치, 정책 compile 실패 또는 필수 Kafka 실패는 `/ready`를 닫습니다.
 - **Authority-critical**: 읽을 수 없는 비상 정지, 누락된 T2 검증 또는 사용 불가 승인은 그림자나 사람 승인을 강제합니다. 검증되지 않은 자동 액션을 활성화하지 않습니다.
-- **선택적 기능**: 서술기, 검색, 알림 또는 telemetry 실패는 결정론적 대체 경로 또는 비활성화된 상태와 함께 `degraded`로 보고하며 healthy로 가장하지 않습니다.
+- **선택적 기능**: 서술기, 검색, 알림 또는 텔레메트리 실패는 결정론적 대체 경로 또는 비활성화된 상태와 함께 `degraded`로 보고하며 healthy로 가장하지 않습니다.
 - **탐색 안전성**: 검사는 범위가 제한된, safe to 재시도, 정제된이며 전용 synthetic 리소스 외에는 읽기 전용입니다. 부분 필수 탐색은 `ready`가 아니라 `blocked`가 됩니다.
 
 ### 제공되는 런타임 경계
@@ -155,7 +155,7 @@ Narrator 대상은 TTFT p95 2.5초 이내로 유지합니다
 `FDAI_STARTUP_COST_LIMIT_USD`, `FDAI_STARTUP_MODEL_SAMPLE_COUNT` 및
 `FDAI_STARTUP_REFRESH_SECONDS`로 조정할 수 있습니다. 활성화된 선택적 어댑터는 blanket connectivity
 플래그를 추가하지 말고 `StartupProbeSpec`과 `StartupProbe`를 등록하는 것이 좋습니다. Azure 참조
-프로파일은 Event Hubs consumer-group 결합에 12초, 탐색마다 30초, phase마다 75초를 허용하여 기본
+프로파일은 Event Hubs consumer-group 결합에 12초, 탐색마다 30초, 단계마다 75초를 허용하여 기본
 시도 2회가 완료될 범위가 제한된 headroom을 확보합니다. 이 값은 배포 기본값이며 프로바이더 중립적인
 런타임 기본값을 변경하지 않습니다.
 
@@ -168,7 +168,7 @@ Analyzer Container Apps 작업은 그림자 모드에서 기본 1분마다 실�
 감사를 담당합니다. 콘솔은 Muninn 스냅샷을 읽으며 Azure를 탐색하거나 판정을 다시 계산하지
 않습니다.
 
-`analyzer_tick_cron_expression`을 명시적으로 빈 값으로 설정하면 작업이 비활성화됩니다. Telemetry
+`analyzer_tick_cron_expression`을 명시적으로 빈 값으로 설정하면 작업이 비활성화됩니다. 텔레메트리
 또는 이전 파이프라인 스냅샷이 누락되면 `ready`가 아니라 `partial`이 됩니다. 완전한 스냅샷도
 준비 상태 작업 흐름의 초기 `shadow` 상한 아래에 유지되며 액션을 승격할 수 없습니다.
 
@@ -191,19 +191,19 @@ stopped/deallocated 상태로 되돌렸습니다.
 상류 리포는 **고객 특이 규칙 없음**. 포크 배포의 첫날 카탈로그는 두 소스에서 채워짐 - 순서:
 
 1. **부트스트랩 시드 세트** (포크 책임) - `content_hash` 와 버전으로 고정된 초기 카탈로그
-  스냅샷, 포크가 자체 catalog-as-code 리포에 커밋.
+ 스냅샷, 포크가 자체 catalog-as-code 리포에 커밋.
 2. **자율 컬렉터** (상류) - 첫 성공 컬렉터 실행 후, 상류 소스가
-  [rule-catalog-collection-ko.md](../rules-and-detection/rule-catalog-collection-ko.md) 에 따라 설정된 주기로 수집.
+ [rule-catalog-collection-ko.md](../rules-and-detection/rule-catalog-collection-ko.md) 에 따라 설정된 주기로 수집.
 
-현재 upstream은 `rule-catalog/catalog/`, 범용 profiles, 출처 매니페스트 및
+현재 업스트림은 `rule-catalog/catalog/`, 범용 profiles, 출처 매니페스트 및
 `tools/seed_p1_manifest.yaml`을 함께 제공합니다. 포크는 이를 customer-specific 값 없이 그대로
-사용하거나 fork-owned overlay/시드를 추가할 수 있습니다. Collector 예약은 배포가 별도로
+사용하거나 fork-owned 오버레이/시드를 추가할 수 있습니다. Collector 예약은 배포가 별도로
 연결해야 합니다.
 
 첫날 카탈로그에 적용되는 규칙:
 
-- 모든 규칙은 심각도와 무관하게 **`effect: audit` (그림자)** 기본이어야 함. enforce로 시작하는
- 규칙을 출시할 방법 없음; 첫날에 enforce로 랜딩할 규칙은 승격 게이트 실패
+- 모든 규칙은 심각도와 무관하게 **`effect: audit` (그림자)** 기본이어야 함. 강제 적용으로 시작하는
+ 규칙을 출시할 방법 없음; 첫날에 강제 적용으로 랜딩할 규칙은 승격 게이트 실패
  ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md)).
 - 모든 규칙은 시드 규칙 포함해서 근거에 기반한 **`provenance`** (출처 URL + resolved 개정 번호 +
  내용 해시 + license + `redistribution` 플래그) 를 운반해야 함. 출처 이력 없는 규칙은
@@ -211,7 +211,7 @@ stopped/deallocated 상태로 되돌렸습니다.
 - **LLM-생성 후보** 는 자율 발견 루프가 활성화되고 그 quality 게이트가 사용 가능해지기 전에는
  카탈로그에 진입하지 않음.
 
-**TBD**: 첫날 시드 세트에 어떤 소스가 실리고 정확한 규칙 id - Phase 1의 "소스별 초기 대상 세트
+**TBD**: 첫날 시드 세트에 어떤 소스가 실리고 정확한 규칙 id - 단계 1의 "소스별 초기 대상 세트
 열거"와 동일한 열림 항목
 ([phase-1-rule-catalog-t0-ko.md](../phases/phase-1-rule-catalog-t0-ko.md)).
 
@@ -220,16 +220,16 @@ stopped/deallocated 상태로 되돌렸습니다.
 이벤트가 판단되기 전에 유입은 Azure 신호에 부착되어야 함:
 
 1. **Diagnostic Settings** - 대상 구독과 각 in-scope 리소스 그룹에서, Activity Log(과 리소스별
-  로그)을 **Event Hubs Kafka 토픽** 으로 forward 하는 Diagnostic Settings 활성화 - 이것이
-  CSP-중립 이벤트 버스 계약
-  ([csp-neutrality-ko.md § 이벤트버스 계약](../architecture/csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜)).
+ 로그)을 **Event Hubs Kafka 토픽** 으로 forward 하는 Diagnostic Settings 활성화 - 이것이
+ CSP-중립 이벤트 버스 계약
+ ([csp-neutrality-ko.md § 이벤트버스 계약](../architecture/csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜)).
 2. **Kafka 토픽 + 컨슈머 그룹** - Event Hubs 네임스페이스에 첫날 토픽들을 생성
-  (`aw.change.events`, `aw.dr.events`, `aw.finops.events`, 그리고 그들의 `<topic>.dlq`
-  형제) 하고 `event-ingest` 를 위한 컨슈머 그룹 등록.
+ (`aw.change.events`, `aw.dr.events`, `aw.finops.events`, 그리고 그들의 `<topic>.dlq`
+ 형제) 하고 `event-ingest` 를 위한 컨슈머 그룹 등록.
 3. **멱등성 prime** - event-ingest 레이어가 처음 수신 시 모든 들어오는 이벤트에
-  **멱등성 키** 를 스탬프하여 리플레이가 종단 no-op.
+ **멱등성 키** 를 스탬프하여 리플레이가 종단 no-op.
 4. **DLQ 도달 가능성 검증** - dead-letter 목적지 (Kafka `<topic>.dlq`) 가 어디에서든
-  enforce가 활성화되기 전에 실행됨 (poison-pill 프로브).
+ 강제 적용이 활성화되기 전에 실행됨 (poison-pill 프로브).
 
 구체적 이벤트 타입과 필터 표현식은 **TBD** 이며
 [deploy-and-onboard-ko.md#event-source-subscription](../deployment/deploy-and-onboard-ko.md#event-source-subscription)
@@ -243,18 +243,18 @@ T2가 실행되기 전에 기능→배포 매핑을 해결해야 합니다. 해�
 materialize하고 런타임/Operator API는 구성된 파일 시스템 경로를 읽습니다.
 
 1. **해석기가 `rule-catalog/llm-registry.yaml` 에서 실행** - 기능별 선호를 읽고,
-  대상 리전의 Azure OpenAI / Foundry 카탈로그를 쿼리, `capacity_tpm` 상한과 함께 기능당
-  하나의 배포 프로비저닝.
+ 대상 리전의 Azure OpenAI / Foundry 카탈로그를 쿼리, `capacity_tpm` 상한과 함께 기능당
+ 하나의 배포 프로비저닝.
 2. **Mixed-model 불변식 검증** - `t2.reasoner.primary.publisher` 는 `t2.reasoner.보조.
-  발행기` 와 달라야 함, 아니면 부트스트랩 중단 (조용한 same-vendor 대체 경로 없음). 포크의
-  `llm.mixed_model_mode` (`azure-foundry` / `external` / `hil-only`) 가 전략 선택.
+ 발행기` 와 달라야 함, 아니면 부트스트랩 중단 (조용한 same-vendor 대체 경로 없음). 포크의
+ `llm.mixed_model_mode` (`azure-foundry` / `external` / `hil-only`) 가 전략 선택.
 3. **`resolved-models.json`을 protected 배포 산출물로 제공** - 기능 →
-  `{deployment, family, version, publisher}`를 기록합니다. 현재 Terraform은 이 매니페스트를 Key
-  Vault 시크릿으로 저장하지 않으며 경로/CI variable이 배포 경계입니다.
+ `{deployment, family, version, publisher}`를 기록합니다. 현재 Terraform은 이 매니페스트를 Key
+ Vault 시크릿으로 저장하지 않으며 경로/CI variable이 배포 경계입니다.
 4. **주간 조정기는 후속 increment로 연기** -
-  [dev-and-deploy-parity-ko.md](../deployment/dev-and-deploy-parity-ko.md)의 W-I가 완료되기
-  전에는 명시적인 레지스트리 PR로 모델 변경을 검토합니다. 조정기는 새 계열과 폐기
-  공지를 감시하고 초안 PR을 열지만 실제 운영 대응을 자동 교체하지 않습니다.
+ [dev-and-deploy-parity-ko.md](../deployment/dev-and-deploy-parity-ko.md)의 W-I가 완료되기
+ 전에는 명시적인 레지스트리 PR로 모델 변경을 검토합니다. 조정기는 새 계열과 폐기
+ 공지를 감시하고 초안 PR을 열지만 실제 운영 대응을 자동 교체하지 않습니다.
 
 전체 설계: [llm-strategy-ko.md § 모델 프로비저닝 and 수명 주기](../architecture/llm-strategy-ko.md#model-provisioning-and-lifecycle).
 
@@ -275,7 +275,7 @@ materialize하고 런타임/Operator API는 구성된 파일 시스템 경로를
 - 어떤 회귀는 승격된 규칙을 **자동으로 그림자로 강등** - 강등은 승격 승인자를 절대 필요로 하지
  않아 안전 방향 저하는 항상 빠름
  ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md#effects-mode)).
-- Enforce 승격은 제안한 운영자와 **별도 승인** 필요
+- 강제 적용 승격은 제안한 운영자와 **별도 승인** 필요
  ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md)).
 - 비상 정지는 D+7 종료 전에 도달 가능성 검증.
 
@@ -293,42 +293,42 @@ materialize하고 런타임/Operator API는 구성된 파일 시스템 경로를
 단계 (포크 책임):
 
 1. HIL A1 트래픽과 다이제스트를 위해 `aw-approvers` 로 백업된 Teams **그룹-연결 팀** 생성;
-  멤버십은 이후 Entra 그룹을 자동 추종
-  ([channels-and-notifications-ko.md#51-audience-derivation-channel-as-audience](../interfaces/channels-and-notifications-ko.md#51-audience-derivation-channel-as-audience)).
+ 멤버십은 이후 Entra 그룹을 자동 추종
+ ([channels-and-notifications-ko.md#51-audience-derivation-channel-as-audience](../interfaces/channels-and-notifications-ko.md#51-audience-derivation-channel-as-audience)).
 2. 5개 Entra 보안 그룹 (`aw-readers`, `aw-contributors`, `aw-approvers`, `aw-owners`,
-  `aw-break-glass`) 프로비저닝, 구성 자리에 objectId 주입
-  ([user-rbac-and-identity-ko.md#42-security-groups-slots](../interfaces/user-rbac-and-identity-ko.md#42-security-groups-slots)).
+ `aw-break-glass`) 프로비저닝, 구성 자리에 objectId 주입
+ ([user-rbac-and-identity-ko.md#42-security-groups-slots](../interfaces/user-rbac-and-identity-ko.md#42-security-groups-slots)).
 3. `aw-approvers`/`aw-owners` 에 Conditional 접근 적용: phishing-resistant MFA 필수,
-  이전 방식 auth 블록; `aw-owners` 에 compliant-device 추가
-  ([user-rbac-and-identity-ko.md#43-conditional-access](../interfaces/user-rbac-and-identity-ko.md#43-conditional-access)).
-4. enforce 승격, 예외, 재정의에 **quorum-2** 규칙을 유지하는 데 필요한 최소 멤버 수로
-  `aw-approvers` 채움
-  ([user-rbac-and-identity-ko.md#51-codeowners-single-approver-group-path-based-reviewer-count](../interfaces/user-rbac-and-identity-ko.md#51-codeowners-single-approver-group-path-based-reviewer-count)).
+ 이전 방식 auth 블록; `aw-owners` 에 compliant-device 추가
+ ([user-rbac-and-identity-ko.md#43-conditional-access](../interfaces/user-rbac-and-identity-ko.md#43-conditional-access)).
+4. 강제 적용 승격, 예외, 재정의에 **quorum-2** 규칙을 유지하는 데 필요한 최소 멤버 수로
+ `aw-approvers` 채움
+ ([user-rbac-and-identity-ko.md#51-codeowners-single-approver-group-path-based-reviewer-count](../interfaces/user-rbac-and-identity-ko.md#51-codeowners-single-approver-group-path-based-reviewer-count)).
 5. 실행기의 Chat 어댑터 구성에 승인자 그룹 id 등록하여 Adaptive 카드 승인이 롤 점유를
-  검증할 수 있게 함.
+ 검증할 수 있게 함.
 6. **Slack 워크스페이스 프로비저닝** (P1 A1 채널): FDAI Slack 앱 설치, `chat:write`
-  부여, 필수 Slack userId ↔ Entra OID 매핑 저장소 채움; 매핑이 비어 있지 않을 때까지 Slack
-  어댑터는 A1 트래픽 거부
-  ([channels-and-notifications-ko.md#7-channel-specific-notes](../interfaces/channels-and-notifications-ko.md#7-channel-specific-notes)).
+ 부여, 필수 Slack userId ↔ Entra OID 매핑 저장소 채움; 매핑이 비어 있지 않을 때까지 Slack
+ 어댑터는 A1 트래픽 거부
+ ([channels-and-notifications-ko.md#7-channel-specific-notes](../interfaces/channels-and-notifications-ko.md#7-channel-specific-notes)).
 7. `rule-catalog/channel-routing/` 구성 (기본/대체 경로 채널, 다이제스트 스케줄, 오디언스)
-  를 규칙과 같은 리뷰 엄격도로 커밋; A1 라우팅을 만지는 모든 변경은 Owner-티어 리뷰어 필요.
+ 를 규칙과 같은 리뷰 엄격도로 커밋; A1 라우팅을 만지는 모든 변경은 Owner-티어 리뷰어 필요.
 8. 카나리 경로를 통해 **예행 실행 HIL** 실행하여 승인이 랜딩하고 `justification` 이 요구되고
-  시간 초과가 실패 시 차단이고 모든 승인이 `correlation_id` 있는 감사 엔트리를 씀을 확인.
+ 시간 초과가 실패 시 차단이고 모든 승인이 `correlation_id` 있는 감사 엔트리를 씀을 확인.
 
 ## 자율 발견 루프 시동
 
 [자율 규칙 발견 루프](../rules-and-detection/rule-catalog-collection-ko.md#autonomous-rule-discovery) 는
 **첫날에 비활성**. 다음 모두 이전에 실행되어선 안 됨:
 
-> 현재 upstream에는 이 모든 조건을 평가해 루프를 자동 활성화하는 시작 조정기가
+> 현재 업스트림에는 이 모든 조건을 평가해 루프를 자동 활성화하는 시작 조정기가
 > 없습니다. 아래 조건은 향후 activation 게이트 계약입니다.
 
 1. 감사 로그가 최소 **`N` 그림자 결정** 을 축적하여 observe 스테이지에 실제 베이스라인 제공.
-  `N` 은 설정 가능; **TBD** - 낮은 수천대 권장.
+ `N` 은 설정 가능; **TBD** - 낮은 수천대 권장.
 2. 최소 하나의 컬렉터가 성공 실행(배선 + 출처 이력 증명).
 3. Mixed-model 교차 검사 대상과 결정론적 검증기가 건강.
 4. Post-deploy smoke 테스트가 green
-  ([operating-and-verification-ko.md](operating-and-verification-ko.md#post-deploy-smoke-테스트-계약)).
+ ([operating-and-verification-ko.md](operating-and-verification-ko.md#post-deploy-smoke-테스트-계약)).
 
 활성화되면 루프는 설정된 주기로 실행. 루프의 후보 규칙은 전체 quality 게이트를 통과할 때까지
 inert - 루프는 카탈로그를 직접 변형할 수 없음.
@@ -357,9 +357,9 @@ inert - 루프는 카탈로그를 직접 변형할 수 없음.
 ## 열림 Decisions
 
 - [ ] 콜드-스타트 데드라인 값과 정확한 콜드-스타트-메트릭 이름.
-- [ ] 첫날 시드 규칙 세트(어떤 소스, 어떤 규칙 id) - Phase 1과 교차 링크.
+- [ ] 첫날 시드 규칙 세트(어떤 소스, 어떤 규칙 id) - 단계 1과 교차 링크.
 - [ ] Discovery-루프 시동 임계 `N` (shadow-decision 카운트) 과 그 회귀-안전 근거.
 - [ ] Kafka 토픽 레이아웃 + Diagnostic-Settings 포워더 필터 형상과 소스별 속도 상한.
 - [ ] 부트스트랩 런북: 포크가 D+0에 도달하기 위한 정확한 명령 시퀀스 (
-   [operating-and-verification-ko.md](operating-and-verification-ko.md#runbook-set) 소유).
+  [operating-and-verification-ko.md](operating-and-verification-ko.md#runbook-set) 소유).
 - [ ] 예행 실행 HIL 절차: 카나리 페이로드, 예상 타이밍, 정리.

@@ -4,7 +4,7 @@ translation_of: deployment-preflight.md
 translation_source_sha: 8b24a3434f5b120386cdd8da1f90615b57bc54c9
 translation_revised: 2026-08-11
 ---
-# 배포 프리플라이트 (배포 가능성 및 blocker 수집)
+# 배포 프리플라이트 (배포 가능성 및 차단 요인 수집)
 
 배포가 실행되기 전에(`terraform apply`, 또는 컨트롤 플레인 교정 PR),
 **deploy-preflight** 패스는 대상 환경에서 배포를 막거나 저하시킬 수 있는 모든 요소를
@@ -49,7 +49,7 @@ translation_revised: 2026-08-11
 *프로브*는 `PreflightTarget`(범위에 더해 배포가 건드리려는 리소스 타입, egress 호스트,
 필요한 링크)을 검사하고 한 카테고리의 근거 있는 발견 사항을 반환합니다. 제네릭 카탈로그:
 
-| 카테고리 | 대표 blocker | 탐지 (deterministic-first) |
+| 카테고리 | 대표 차단 요인 | 탐지 (deterministic-first) |
 |----------|------------------------|---------------------------------|
 | `policy_guardrail` | disallowed 리소스 types, NSG 필수, 인라인 디스크 거부, 공개 IP 거부 | `terraform plan` JSON을 `policies/`(OPA)에 재검증 + Azure Policy 거부 시뮬레이션 (정적) |
 | `supply_chain_egress` | `docker.io` 차단, PyPI / npm / apt 차단, 외부 base 이미지 pull 거부 | NSG / Firewall / UDR 규칙 분석 (정적) + 범위가 제한된 egress 도달성 프로브 (라이브) |
@@ -71,9 +71,9 @@ translation_revised: 2026-08-11
 
 - **근거** - 그것을 만들어낸 규칙의 CSP-neutral 인용
  (`policy:<neutral-id>`, `nsg:<neutral-id>/rule:<name>`). 출처를 인용할 수 없는
- 프로브는 발견 사항을 발행해서는 안 됩니다; 근거 없는 blocker는 결함이며, T2 검증기가
+ 프로브는 발견 사항을 발행해서는 안 됩니다; 근거 없는 차단 요인은 결함이며, T2 검증기가
  따르는 규칙과 동일합니다.
-- **심각도** - `blocking`(enforce 모드 배포를 게이팅) 또는 `warning`(표면화하지만 절대
+- **심각도** - `blocking`(강제 적용 모드 배포를 게이팅) 또는 `warning`(표면화하지만 절대
  게이팅하지 않음).
 - **해석** - 어떻게 해소하는지, 가능하면 구체적인 레버에 매핑됨 (아래 토글 표 참조).
 
@@ -90,13 +90,13 @@ translation_revised: 2026-08-11
 
 ### Shadow-First
 
-모든 새 프로브는 **그림자 모드**로 출시됩니다: blocker를 진실하게 보고하지만
+모든 새 프로브는 **그림자 모드**로 출시됩니다: 차단 요인을 진실하게 보고하지만
 `blocks_deploy`는 `false`로 유지되어, 검증되지 않은 프로브가 false 긍정으로 사람 배포를
 잘못 막을 수 없습니다. 프로브는 고정된 시나리오 세트에서 false-positive율이 측정된 후에만
 카테고리별로 `enforce`로 승격됩니다 - 자율 액션에
 [ActionType 계약](../architecture/llm-strategy-ko.md)가 적용하는 것과 동일한 승격 규율입니다.
 
-## Blocker에서 Terraform 토글로의 매핑
+## 차단 요인에서 Terraform 토글로의 매핑
 
 리포트는 단순한 문제 목록이 아닙니다; 각 `terraform_toggle` 발견 사항은 배포를 준수시키는
 인프라 서브모듈과 변수 오버라이드를 지목합니다. 이것은 기존 `infra/modules/<seam>/` +
@@ -139,7 +139,7 @@ translation_revised: 2026-08-11
 - **멱등적** - 발견 사항은 결정론적으로 정렬되어(차단 먼저, 그 다음 id 순), 같은
  입력에 대한 재실행은 바이트-동일한 리포트를 생성합니다.
 - **근거 있음** - 출처 규칙을 인용하는 근거 없이는 발견 사항이 없습니다.
-- **발견 피드백** - 여러 환경에 걸친 반복 blocker(예: 모든 범위가 `docker.io` 차단)는
+- **발견 피드백** - 여러 환경에 걸친 반복 차단 요인(예: 모든 범위가 `docker.io` 차단)는
  발견 루프가 새 기본 토글이나 규칙을 제안하도록 하는 신호입니다
  ([architecture.instructions.md § Rule 카탈로그](../../../.github/instructions/architecture.instructions.md#rule-catalog)).
 
@@ -149,13 +149,13 @@ translation_revised: 2026-08-11
 `fdaictl` 진입점, deploy 작업 흐름의 protected-plan 근거 연결, 테스트.
 
 1. **Azure 탐색과 protected-plan 근거(배포됨)**: `delivery/azure/preflight/`의 공유 읽기 전용 ARM
-  클라이언트(`AzureArmClient`, 주입된 `httpx.AsyncClient` + `WorkloadIdentity` bearer
-  토큰, 실패 시 차단)와 `AzurePolicyGuardrailProbe`(실제 Azure Policy `deny` 가드레일 -
-  `Not allowed` / `Allowed resource types`), `AzureQuotaProbe`(구독 + 위치별 Compute
+ 클라이언트(`AzureArmClient`, 주입된 `httpx.AsyncClient` + `WorkloadIdentity` bearer
+ 토큰, 실패 시 차단)와 `AzurePolicyGuardrailProbe`(실제 Azure Policy `deny` 가드레일 -
+ `Not allowed` / `Allowed resource types`), `AzureQuotaProbe`(구독 + 위치별 Compute
  사용량)가 mock-HTTP 유닛 테스트와 함께 landed. Policy 파서는 모든 형제가 정본
  type-exists 가드인 경우에만 built-in `allOf` 타입 제약을 허용하며 알 수 없음 형제는
  실패 시 차단으로 유지합니다. 격리된 실제 운영 검증에서 RG-scoped disk 거부는
- `disk_provisioning=attach_existing`로 매핑됐고 실제 할당량 부족은 수동 blocker로 남았으며,
+ `disk_provisioning=attach_existing`로 매핑됐고 실제 할당량 부족은 수동 차단 요인으로 남았으며,
  temporary 배정은 검토된 롤백으로 제거됐습니다. `fdaictl deploy preflight
  --environment-config`는 Azure CLI 워크로드 신원, 범위가 제한된 읽기 전용 ARM 전송 계층,
  neutral-to-ARM 타입 대응, 정제된 실패 시 차단 오류와 함께 두 탐색을 같은 analyzer에
@@ -164,23 +164,23 @@ translation_revised: 2026-08-11
  실행기 역할을 보고합니다. `AzureSecretConfigProbe`는 상태만으로 필수 Key Vault
  참조를 검사하고 응답 본문 또는 시크릿 값을 읽지 않으며 hashed 참조를
  출력합니다. 보고는 clear인 경우에도 정제된 per-category 검사 커버리지를 기록합니다.
- 비공개 실행기는 enforce 모드에서 Azure category 네 개를 모두 요구하고 범위가 제한된 TLS egress
+ 비공개 실행기는 강제 적용 모드에서 Azure category 네 개를 모두 요구하고 범위가 제한된 TLS egress
  근거와 결합합니다. 정제된 보고만 비공개 Blob 저장소에 저장하고 두 근거 다이제스트를
  exact-plan 검증에 연결합니다. Firewall / NSG 토폴로지 어댑터는 별도 future
  enhancement이며 direct 실행기 도달 가능성 근거에는 필요하지 않습니다.
  2. **Capability-mode 토글 scaffold(배포됨)**: `infra/modules/preflight-toggles/`와 disk
-  참조 소비자가 계약을 검증합니다. 루트 앱 그래프의 실제 소비자 wiring은 계획됨.
+ 참조 소비자가 계약을 검증합니다. 루트 앱 그래프의 실제 소비자 배선은 계획됨.
  3. **검사 발행 기본 요소(배포됨)**: 코어 함수, 프로바이더 프로토콜, in-memory
-  발행기가 있습니다. GitHub 검사 어댑터와 infra PR 작업 흐름 wiring은 계획됨.
+ 발행기가 있습니다. GitHub 검사 어댑터와 infra PR 작업 흐름 배선은 계획됨.
  4. **배포 환경 프로파일 기본 요소(배포됨)**: 범위가 제한된 in-memory 캐시, TTL,
-  Inventory-delta invalidation 보조 로직이 있습니다. 조립 새로 고침 작업과 영속 캐시
-  wiring은 계획됨.
+ Inventory-delta invalidation 보조 로직이 있습니다. 조립 새로 고침 작업과 영속 캐시
+ 배선은 계획됨.
  5. **Control-loop pre-PR 게이트(계획됨)**: 실행기가 교정 PR을 만들기 전에 같은
-  analyzer를 호출하고 차단 발견 사항을 `hil`로 낮추는 실제 운영 경로.
+ analyzer를 호출하고 차단 발견 사항을 `hil`로 낮추는 실제 운영 경로.
 
 ## 참조
 
-- [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) - 컨트롤 루프, quality 게이트, 안전성 invariant
+- [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) - 컨트롤 루프, quality 게이트, 안전성 불변식
 - [project-structure-ko.md](../architecture/project-structure-ko.md) - 모듈 경계, 인프라 서브모듈 패턴
 - [risk-classification-ko.md](../decisioning/risk-classification-ko.md) - 차단 발견 사항이 `hil`로 라우팅되는 방식
 - [rule-catalog-collection-ko.md](../rules-and-detection/rule-catalog-collection-ko.md) - 기저 가드레일 규칙의 출처

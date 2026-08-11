@@ -39,7 +39,7 @@ translation_revised: 2026-08-11
  막으므로, 은퇴가 dangling 참조 를 남길 수 없음.
 - **자기수정 거버넌스 는 범위가 제한된** (#24). `governance.*` ActionType
  (promote, retire, override-ceiling) 은 안전성 묶음 자체를 바꾸므로
- 가장 strict 한 기본값 를 carry: `pr_native` 실행 (검토된 diff),
+ 가장 strict 한 기본값 를 carry: `pr_native` 실행 (검토된 차이),
  `default_mode: shadow`, 서로 다른 승인자 (자기 승인 없음 - 승격
  PR 을 작성자 한 행위자 는 절대 그 승인자 아님). `governance.override-ceiling`
  은 downgrade-only 이고 time-boxed. 묶음 는 이 경로로 *narrow* 될 수
@@ -49,7 +49,7 @@ translation_revised: 2026-08-11
  `traversal_depth` (기본값 2, max 5) 까지 walk. depth-2 walk 는 깊이 2
  초과 transitive 체인 을 under-count; `RequiresInventoryFresh` 인터페이스
  와 `graph_fresh_within_seconds` precondition 이 stale 그래프 데이터 로 act
- 하는 것을 막고, `max_affected_resources` 초과 instance 는 HIL 로 escalate.
+ 하는 것을 막고, `max_affected_resources` 초과 인스턴스 는 HIL 로 escalate.
  deep 의존성 그래프 를 다루는 포크 는 ActionType 별로 `traversal_depth`
  를 raise.
 
@@ -62,12 +62,12 @@ translation_revised: 2026-08-11
 인지와 무관하게 성립하므로, declare 됐지만 아직 전달 되지 않는
 ActionType 은 act 할 수 없다.
 
-- **Inert-by-default 는 assume 이 아니라 enforce 된다** (#5, #8, #9).
+- **Inert-by-default 는 assume 이 아니라 강제 적용 된다** (#5, #8, #9).
  shipped `ops.*` 와 `governance.*` ActionType 은 모두
  `default_mode: shadow` 로 ship 된다
  (`test_every_shipped_action_type_defaults_to_shadow` 로 검증). 실제 운영
  디스패처 가 없는 declare 된 ActionType 은 judge-and-log 만; 절대
- mutate 하지 않음. enforce 로의 승격 은 별도 gated 거버넌스 PR.
+ mutate 하지 않음. 강제 적용 로의 승격 은 별도 gated 거버넌스 PR.
 - **`rule_violation` (교정) 이 실제 운영 경로.** T0Engine ->
  ActionBuilder -> RiskGate -> 실행기 루프 (§4.1) 이 오늘 교정
  ActionType 을 전달 한다. 이것이 기본 자율성 표면 이며 완전히

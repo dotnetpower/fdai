@@ -60,26 +60,26 @@ translation_revised: 2026-08-11
 기존 판테온 컨트롤 루프는 이미 OODA 에 깔끔하게 매핑된다
 ([architecture.instructions.md § Trust 라우팅](../../../.github/instructions/architecture.instructions.md#trust-routing-3-tier)
 의 매핑 참조). 여기서 추가하는 것은 *하나의 보류 결정* 을 감독하며 종단 상태에 이를
-때까지 tick 하는 **두 번째, 더 느린 루프** 다.
+때까지 틱 하는 **두 번째, 더 느린 루프** 다.
 
 ```mermaid
 flowchart LR
  subgraph OBSERVE["Observe (per tick)"]
-  O1["approval still pending?"]
-  O2["forecast ETA now?<br/>(lead time recomputed)"]
-  O3["inaction blast radius?"]
+ O1["approval still pending?"]
+ O2["forecast ETA now?<br/>(lead time recomputed)"]
+ O3["inaction blast radius?"]
  end
  subgraph ORIENT["Orient"]
-  R1["recompute urgency<br/>= f(impact, ETA, rung age)"]
-  R2["which ladder rung<br/>should hold this now?"]
+ R1["recompute urgency<br/>= f(impact, ETA, rung age)"]
+ R2["which ladder rung<br/>should hold this now?"]
  end
  subgraph DECIDE["Decide"]
-  D1{"standing authorization<br/>matches + envelope holds<br/>+ deadline passed?"}
+ D1{"standing authorization<br/>matches + envelope holds<br/>+ deadline passed?"}
  end
  subgraph ACT["Act"]
-  A1["escalate to next rung"]
-  A2["trip standing action<br/>-> re-enter typed pipeline"]
-  A3["terminal no-op<br/>(ladder exhausted)"]
+ A1["escalate to next rung"]
+ A2["trip standing action<br/>-> re-enter typed pipeline"]
+ A3["terminal no-op<br/>(ladder exhausted)"]
  end
  OBSERVE --> ORIENT --> DECIDE
  D1 -->|no, rung TTL left| A1
@@ -96,7 +96,7 @@ flowchart LR
  ([architecture.instructions.md § 에이전트 Pantheon](../../../.github/instructions/architecture.instructions.md#agent-pantheon)
  의 conversational 포트 규칙과 동일).
 - 루프는 **경계가 정해져 있다**: 최대 rung 수와 하드한 전체 데드라인을 갖는다. 영원히
- tick 할 수 없다.
+ 틱 할 수 없다.
 
 ## 에스컬레이션 사다리
 
@@ -121,40 +121,40 @@ commander 를 빠르게 소집한다.
 # rule-catalog/escalation-ladders/<name>.yaml
 version: 1
 id: prod-outage-imminent
-select_when:           # first-match, evaluated by the risk gate
+select_when:      # first-match, evaluated by the risk gate
  environment: prod
  finding_class: forecast.breach
  impact_at_least: resource_group
 rungs:
  - rung: on_call_primary
-  audience_group: aw-oncall-primary  # placeholder; fork supplies real group
-  ttl: 5m
-  category: a1_hil_approval
+ audience_group: aw-oncall-primary # placeholder; fork supplies real group
+ ttl: 5m
+ category: a1_hil_approval
  - rung: on_call_secondary
-  audience_group: aw-oncall-secondary
-  ttl: 5m
-  category: a1_hil_approval
-  also_page: [pagerduty-primary]   # A2 awareness, non-deciding
+ audience_group: aw-oncall-secondary
+ ttl: 5m
+ category: a1_hil_approval
+ also_page: [pagerduty-primary]  # A2 awareness, non-deciding
  - rung: incident_commander
-  audience_group: aw-incident-commander
-  ttl: 10m
-  category: a1_hil_approval
-  also_page: [pagerduty-primary, sms-oncall]
-overall_deadline: 25m      # hard cap; on expiry -> terminal no-op unless
-                 # a standing authorization trips first
+ audience_group: aw-incident-commander
+ ttl: 10m
+ category: a1_hil_approval
+ also_page: [pagerduty-primary, sms-oncall]
+overall_deadline: 25m   # hard cap; on expiry -> terminal no-op unless
+         # a standing authorization trips first
 ```
 
 - **에스컬레이션을 거쳐도 자기 승인 은 성립하지 않는다.** 이후 rung 은 *다른*
  principal 이다; approver-of-record 는 실제로 결정한 사람이고, 실행기 는 여전히 별개
  principal 이다(Var 가 승인, Thor 가 실행 - [agent-pantheon-ko.md](../agents/agent-pantheon-ko.md)).
-- **모든 rung 전이는 감사** 되며, fingerprint 가 반복되면 기존 `HandoffEscalation` ->
+- **모든 rung 전이는 감사** 되며, 지문 가 반복되면 기존 `HandoffEscalation` ->
  GitHub issue 경로로 흘러 만성적 무응답이 조용한 손실이 아니라 추적되는 신호가 된다
  ([agent-pantheon-ko.md § 6.4 인계 에스컬레이션 프로토콜](../agents/agent-pantheon-ko.md)).
 
 ## 시간 감쇠 긴급도
 
 위 사다리는 명료함을 위해 *고정* TTL 을 쓰지만, 위반이 예보될 때 긴급도는 고정이 아니다.
-감독자는 매 tick 마다 **긴급도(urgency)** 신호를 재계산해 rung TTL 을 **압축** 하고 **시작
+감독자는 매 틱 마다 **긴급도(urgency)** 신호를 재계산해 rung TTL 을 **압축** 하고 **시작
 rung 을 올린다**:
 
 - **입력**(모두 이미 업스트림에서 생산됨, 신규 수집 없음): 리스크 게이트의 `impact` /
@@ -191,13 +191,13 @@ version: 1
 id: sa-scale-out-before-quota-breach
 authorization_revision: <content-digest>
 requested_by: <normalized-human-principal>
-approved_by:          # distinct normalized human principals; min 2
+approved_by:     # distinct normalized human principals; min 2
  - <accountable-service-owner>
  - <owner-level-approver>
 quorum_required: 2
 valid_from: <rfc3339-timestamp>
 valid_until: <rfc3339-timestamp> # expires unless renewed by the accountable owner
-status: active         # active | revoked | expired | superseded
+status: active     # active | revoked | expired | superseded
 revocation_ref: null
 service_ref: <service-id>
 target_revision: <inventory-and-operating-model-revision>
@@ -212,22 +212,22 @@ evidence:
  history_review_ref: <governed-evidence-ref>
  scenario_evidence_ref: <dr-chaos-or-simulation-ref>
  handover_confirmation_ref: <current-owner-confirmation-ref>
-scope:              # MUST be resource-group-equivalent or narrower
- environment: prod       # (same bound as a human override)
- resource_group: <rg-name>   # placeholder; fork supplies real scope
-precondition:           # all must hold, deterministically checked
+scope:       # MUST be resource-group-equivalent or narrower
+ environment: prod    # (same bound as a human override)
+ resource_group: <rg-name>  # placeholder; fork supplies real scope
+precondition:      # all must hold, deterministically checked
  finding_class: forecast.breach
  min_forecast_confidence: 0.90
- min_lead_time: 3m       # do not act on a breach already upon us
-envelope:             # the action MUST fall entirely inside this
+ min_lead_time: 3m    # do not act on a breach already upon us
+envelope:       # the action MUST fall entirely inside this
  action_types: [remediate.scale-out.compute]
  max_blast_radius: resource_group
  max_duration_seconds: <bounded-duration>
- reversible: true        # only reversible actions may be pre-authorized
- rollback_contract: scripted  # a tested undo path is mandatory
+ reversible: true    # only reversible actions may be pre-authorized
+ rollback_contract: scripted # a tested undo path is mandatory
 trigger:
- after: ladder_unanswered    # only after the ladder deadline, never before
-mode: shadow           # judge-and-log until explicitly promoted
+ after: ladder_unanswered  # only after the ladder deadline, never before
+mode: shadow      # judge-and-log until explicitly promoted
 ```
 
 **무엇이 이것을 안전하게 하는가(협상 불가 항목):**
@@ -329,7 +329,7 @@ flowchart LR
 | **approved** | 어떤 rung 이 `approve` 결정 | Thor 로 실행, 감사 |
 | **rejected** | 어떤 rung 이 `reject` 결정 | no-op, 감사 |
 | **standing-authority executed** | 사다리 데드라인 경과, SA 유효, 묶음 성립 | 재결정 -> 상시 Approval -> 실행, SA id로 감사 |
-| **최종 no-op** | 사다리 소진, 유효 SA 없음 | 무행동, A2 alert, 감사, fingerprint 반복 시 `HandoffEscalation` |
+| **최종 no-op** | 사다리 소진, 유효 SA 없음 | 무행동, A2 alert, 감사, 지문 반복 시 `HandoffEscalation` |
 
 **실패 시 차단 가 여전히 기본값이다.** 유효한 상시 권한이 없으면 응답 없는 사다리는 여전히
 no-op 으로 끝난다 - 오늘의 동작 그대로이되, 더 넓고 영향도 계층 별이며 시간 감쇠하는 사람
@@ -338,16 +338,16 @@ no-op 으로 끝난다 - 오늘의 동작 그대로이되, 더 넓고 영향도 
 ## 롤아웃(그림자 우선)
 
 1. **사다리를 그림자 로.** 에스컬레이션 사다리를 판단·기록만 하도록 ship 한다:
-  *어느 rung 으로 언제 에스컬레이션했을지* 를 기록하고 아무것도 변경하지 않는다. 실제
-  무응답 인시던트에 대해 에스컬레이션 타이밍이 검증되면 사다리별로 승격한다.
+ *어느 rung 으로 언제 에스컬레이션했을지* 를 기록하고 아무것도 변경하지 않는다. 실제
+ 무응답 인시던트에 대해 에스컬레이션 타이밍이 검증되면 사다리별로 승격한다.
 2. **상시 권한을 그림자 로.** 모든 상시 권한은 `mode: shadow` 와 측정 가능한 승격
-  게이트(예: "N 회 그림자 trip, 묶음 escape 0, policy-violation escape 0")를
-  선언한다. enforce 승격은 작성 PR 과 절대 묶이지 않는 별도의 Owner 검토 변경이다
-  ([coding-conventions.instructions.md § 안전성](../../../.github/instructions/coding-conventions.instructions.md#safety)).
+ 게이트(예: "N 회 그림자 trip, 묶음 escape 0, policy-violation escape 0")를
+ 선언한다. 강제 적용 승격은 작성 PR 과 절대 묶이지 않는 별도의 Owner 검토 변경이다
+ ([coding-conventions.instructions.md § 안전성](../../../.github/instructions/coding-conventions.instructions.md#safety)).
 3. **메트릭**(기존 KPI 스트림에 접기,
-  [goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)): rung 응답 지연, 에스컬레이션 깊이
-  분포, 사다리 소진(no-op) 비율, 상시 권한 trip 비율, 그리고 - 가드 메트릭 - **반드시
-  0 을 유지해야 하는 envelope-escape 개수**.
+ [goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)): rung 응답 지연, 에스컬레이션 깊이
+ 분포, 사다리 소진(no-op) 비율, 상시 권한 trip 비율, 그리고 - 가드 메트릭 - **반드시
+ 0 을 유지해야 하는 envelope-escape 개수**.
 
 ## 미해결 질문
 
@@ -355,7 +355,7 @@ no-op 으로 끝난다 - 오늘의 동작 그대로이되, 더 넓고 영향도 
  on-call 스케줄 연동(PagerDuty/Opsgenie 스케줄 읽기)을 도입해 "누가 기본 인가" 가
  시간 인식적이게 할지. 업스트림은 그룹 우선, 스케줄 연동은 포크 경계 으로 기운다.
 - **긴급도 함수 형태.** `k * remaining_lead_time` 압축은 시작 휴리스틱이다; 정확한 곡선은
- enforce 전에 과거 예보-대-위반 시리즈로 backtest 할 튜닝 파라미터다.
+ 강제 적용 전에 과거 예보-대-위반 시리즈로 backtest 할 튜닝 파라미터다.
 
 ## 다음 단계
 

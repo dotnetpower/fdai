@@ -17,9 +17,9 @@ translation_revised: 2026-08-11
 > 전달, exact-plan 적용 가드도 구현되었습니다. 범위가 제한된 실제 운영 Azure Policy, Compute 할당량,
 > Resource Graph 신원, value-blind Key Vault 시크릿 탐색과 실행기 TLS egress 근거를
 > 사용할 수 있습니다. 읽기 전용 `provision inspect`, signed 번들 빌드/verify/release
-> 작업 흐름, 운영 exact-plan 적용 wiring, 프로파일 영속성, PyPI Trusted 발행도
+> 작업 흐름, 운영 exact-plan 적용 배선, 프로파일 영속성, PyPI Trusted 발행도
 > 구현됐습니다. Offline 점검은 composition-injected pinned 검증기로 trusted 또는 rejected
-> kit 근거를 보고하며 운영자 trust-root 재정의를 노출하지 않습니다. Offline-kit 빌드, signing,
+> 키트 근거를 보고하며 운영자 trust-root 재정의를 노출하지 않습니다. Offline-kit 빌드, signing,
 > 검증도 구현됐습니다. `provision plan` 은 검증된 킷에서 disconnected 앱 계층 계획 을
 > 오케스트레이션합니다. 첫 PyPI 게시, pinned offline 루트 packaging,
 > 내부 mirror/disconnected 전달, 적용 orchestration, 정리는 남았습니다.
@@ -42,7 +42,7 @@ translation_revised: 2026-08-11
 | 인프라 엔진 | `infra/` 아래 Terraform |
 | 기본 동작 | 읽기 전용 preflight 또는 계획 |
 | 적용 위치 | VNet-integrated 자체 호스팅 실행기 |
-| 패키지 내용 | Python CLI wheel과 서명된 배포 번들 |
+| 패키지 내용 | Python CLI 휠과 서명된 배포 번들 |
 | 머신 출력 | 안정적인 JSON 스키마와 문서화된 exit 코드 |
 | 제품 언어 | 로케일 대체 경로가 있는 영어 출처 카탈로그 |
 
@@ -74,7 +74,7 @@ fdaictl version
 fdaictl doctor
 ```
 
-출처 체크아웃에서는 `uv run fdaictl`을 사용합니다. 게시된 wheel은 위의 pinned 설치를
+출처 체크아웃에서는 `uv run fdaictl`을 사용합니다. 게시된 휠은 위의 pinned 설치를
 사용합니다.
 
 일회성 실행 또는 CI 작업에는 임시 환경을 사용합니다.
@@ -103,14 +103,14 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 | `fdaictl version` | CLI, 번들, 스키마, 호환성 버전 표시 | 없음 |
 | `fdaictl doctor` | Python, Azure CLI, Terraform, GitHub CLI, 인증, 로컬 구성 검사 | 없음 |
 | `fdaictl provision inspect` | Online/offline, signed-kit trust, 기존/managed 호스트, 전송 계층, 접근, workload-identity 준비 상태 검사 | 없음 |
-| `fdaictl provision plan` | 검증된 offline kit 의 pinned Terraform 바이너리와 프로바이더 mirror 로 앱 계층 를 계획 | 없음 |
+| `fdaictl provision plan` | 검증된 offline 키트 의 pinned Terraform 바이너리와 프로바이더 mirror 로 앱 계층 를 계획 | 없음 |
 | `fdaictl onboard init` | 스키마로 검증한, untracked 환경 구성 생성 | 없음 |
 | `fdaictl onboard guided` | Doctor, 비공개 구성 생성, 실제 운영 preflight, plan-only 실행기 제출, 정제된 상태 post-check를 순서대로 실행 | 없음 |
 | `fdaictl security audit` | 런타임 플래그 조합, 로컬 구성 hygiene, 요청된 샌드박스 가용성 검사 | 없음, `--fix-permissions`를 명시한 경우 제외 |
 | `fdaictl bundle verify` | 번들 서명, 호환성, 파일 집합, 다이제스트, SBOM, 크기 검사 | 없음 |
 | `fdaictl backup create` | 검증된 구성, 참조, 감사 메타데이터, user 맥락으로 비공개 portable 보관 생성 | 없음 |
 | `fdaictl backup restore` | Portable 보관을 검증하고 새로운 로컬 디렉터리에 atomic 복원 | 없음 |
-| `fdaictl deploy preflight` | Static 및 실제 운영 읽기 전용 배포 blocker 수집 | 없음 |
+| `fdaictl deploy preflight` | Static 및 실제 운영 읽기 전용 배포 차단 요인 수집 | 없음 |
 | `fdaictl deploy plan` | 승인된 실행기에 plan-only 작업 흐름 제출 | 없음 |
 | `fdaictl deploy apply --plan-id <id>` | 정확히 승인된 계획을 원격 적용에 제출 | 있음, 실행기에서 실행 |
 | `fdaictl deploy status` | 정제된 계획 다이제스트, 만료, 상태, 작업 흐름 URL 조회 | 없음 |
@@ -124,7 +124,7 @@ C1 명령은 자동화를 위해 안정적인 JSON 스키마를 사용합니다.
 및 테넌트 식별자, 환경, 지역, remote-runner 경계, shadow-mode 기본값만 gitignored
 mode-`0600` 파일에 기록합니다. 사람용 출력에는 계정 식별자가 표시되지 않습니다.
 
-`license inspect`는 번들 및 kit 검증과 같은 의미에서 오프라인입니다. 공개 키가 분포와
+`license inspect`는 번들 및 키트 검증과 같은 의미에서 오프라인입니다. 공개 키가 분포와
 함께 배포되므로 네트워크 호출, 철회 조회, 인증서 체인이 관여하지 않습니다. 상태와 비밀이
 아닌 메타데이터만 보고하며 토큰, 문서, 서명을 절대 출력하지 않습니다. 권한 계약
 자체는 [capability-licensing-ko.md](../fork-and-sequencing/capability-licensing-ko.md)에 있습니다.
@@ -233,7 +233,7 @@ fdaictl onboard guided \
 GitHub installation 토큰은 `FDAI_GITHUB_TOKEN`에 유지하며 명령 인자로 전달하지 않습니다.
 머신 출력은 대상 식별자 또는 자격 증명 값 없이 완료된 단계 id, 계획 id, 상태,
 작업 흐름 URL을 보고합니다. 실패 시 실패한 단계와 정제된 사유만 보고합니다. 이전 단계가
-실패하면 이후 단계를 호출하지 않으므로 doctor 또는 preflight blocker가 실행기 제출에
+실패하면 이후 단계를 호출하지 않으므로 doctor 또는 preflight 차단 요인이 실행기 제출에
 도달할 수 없습니다.
 
 초기 구현은 임의의 Terraform 인자를 노출하지 않는 것이 좋습니다. 지원되는 환경과
@@ -285,16 +285,16 @@ fdaictl deploy preflight \
 
 명령은 다음 단계를 순서대로 실행합니다.
 
-1. **Toolchain 및 산출물 검사:** 지원 버전, lock 파일, CLI-to-bundle 호환성,
-  체크섬, 서명, 선택된 환경을 확인합니다.
+1. **Toolchain 및 산출물 검사:** 지원 버전, 잠금 파일, CLI-to-bundle 호환성,
+ 체크섬, 서명, 선택된 환경을 확인합니다.
 2. **신원 및 대상 검사:** 활성 Azure 구독, deployer 역할 배정, 프로바이더
-  등록, 대상 지역, 실행기 신원을 확인합니다.
+ 등록, 대상 지역, 실행기 신원을 확인합니다.
 3. **Static infrastructure 검사:** 제공된 `terraform show -json` 계획을 검증합니다. 실제
  fmt/init/validate/계획 생성은 approved 실행기의 `deploy plan` 작업 흐름이 소유합니다.
 4. **범위가 제한된 실제 운영 검사:** 읽기 전용 어댑터를 통해 Azure Policy, Resource Graph, 할당량, 네트워크
-  구성, 필요한 시크릿의 존재 여부를 조회합니다.
-5. **준비 상태 결정:** 하나의 근거에 기반한 보고를 만들고, 각 발견 사항이 enforce 상태인지 아직
-  그림자 모드인지 기록하고, 다음 안전한 작업을 출력합니다.
+ 구성, 필요한 시크릿의 존재 여부를 조회합니다.
+5. **준비 상태 결정:** 하나의 근거에 기반한 보고를 만들고, 각 발견 사항이 강제 적용 상태인지 아직
+ 그림자 모드인지 기록하고, 다음 안전한 작업을 출력합니다.
 
 실패하거나 생략된 탐색은 `clear` 결과를 만들지 않습니다. 보고는 실행을 불완전한으로
 표시하고 고객 값이나 자격 증명을 노출하지 않고 실패한 탐색 이름을 제공합니다.
@@ -306,7 +306,7 @@ CLI는 배포 preflight에 이미 정의된 category를 표시합니다.
 - **Policy guardrail:** 거부된 리소스 타입, 필수 네트워크 컨트롤, public-access restriction.
 - **Supply-chain egress:** 승인된 mirror가 필요한 패키지, 이미지, operating-system 저장소.
 - **신원 및 RBAC:** 의도한 범위에 누락된 deployer 또는 실행기 권한.
-- **할당량 및 용량:** 지역, SKU, 서비스 할당량 blocker.
+- **할당량 및 용량:** 지역, SKU, 서비스 할당량 차단 요인.
 - **의존성 정렬:** 선행 조건 배포 단계가 필요한 리소스.
 - **시크릿 구성:** 시크릿 값을 읽거나 출력하지 않는 누락된 참조 또는 도달할 수
  없는 시크릿 프로바이더.
@@ -319,9 +319,9 @@ CLI는 배포 preflight에 이미 정의된 category를 표시합니다.
 
 | Exit 코드 | 의미 |
 |-----------|------|
-| `0` | 실행이 완료되고 검토 또는 enforced blocker가 남아 있지 않음 |
-| `2` | Shadow-mode 탐색이 보고한 blocker를 포함하여 검토 필요 |
-| `3` | Enforce-mode blocker가 계획 또는 적용을 차단함 |
+| `0` | 실행이 완료되고 검토 또는 enforced 차단 요인이 남아 있지 않음 |
+| `2` | Shadow-mode 탐색이 보고한 차단 요인을 포함하여 검토 필요 |
+| `3` | Enforce-mode 차단 요인이 계획 또는 적용을 차단함 |
 | `4` | 필수 탐색 또는 의존성 실패로 실행이 불완전한 상태임 |
 | `64` | Command 사용량 또는 환경 구성이 올바르지 않음 |
 
@@ -369,15 +369,15 @@ fdaictl bootstrap probe-policy --allow-probe-resources
 
 ## 배포 산출물 모델
 
-런타임은 이제 5개 서비스 wheel과 versioned service-contract SDK로 제공됩니다. 이 런타임
+런타임은 이제 5개 서비스 휠과 versioned service-contract SDK로 제공됩니다. 이 런타임
 분포에는 계획된 `fdaictl` 배포 명령이 포함되지 않습니다. 배포에는 Terraform
 모듈, 정책, 스키마, 선택된 rule-catalog 데이터도 필요합니다. 변경 가능한 모든 infrastructure
 파일을 가져오기 가능한 Python 리소스로 packaging하면 버전 alignment와 점검이
-어려워집니다. 대신 전용 CLI wheel과 버전이 일치하는 배포 번들을 사용합니다.
+어려워집니다. 대신 전용 CLI 휠과 버전이 일치하는 배포 번들을 사용합니다.
 
-### 계획된 배포 CLI wheel
+### 계획된 배포 CLI 휠
 
-전용 wheel에는 다음이 포함될 예정입니다.
+전용 휠에는 다음이 포함될 예정입니다.
 
 - `fdaictl` 항목 지점과 명령 파서.
 - 구성 및 출력 스키마.
@@ -386,7 +386,7 @@ fdaictl bootstrap probe-policy --allow-probe-resources
 - 작업 흐름 제출 및 상태 클라이언트.
 
 배포 전용 통합은 모든 서비스 런타임 가져오기 경로 밖에 유지합니다. 폐기된 최상위
-`fdai.deployment_cli` 패키지를 런타임 wheel에 복원하지 마세요. 이 계획된 인터페이스를 구현할
+`fdai.deployment_cli` 패키지를 런타임 휠에 복원하지 마세요. 이 계획된 인터페이스를 구현할
 때 명령 표면은 전용 lightweight CLI 분포으로만 제공합니다.
 
 ### 서명된 배포 번들
@@ -432,7 +432,7 @@ Approval-gated `release-deployment-bundle` 작업 흐름은 `release` GitHub 환
 `release` 환경이 signing 키를 노출하기 전에 exact clean 체크아웃에서 두 독립적인
 작업이 통과해야 합니다. 검증 작업은 locked Python 및 콘솔 의존성을 설치하고
 disposable pgvector PostgreSQL 서비스를 시작해 single Alembic 헤드로 업그레이드합니다. 이어서 실제 운영
-통합 테스트를 포함한 `scripts/verify.sh --all`과 productization, 콘솔, wheel 빌드,
+통합 테스트를 포함한 `scripts/verify.sh --all`과 productization, 콘솔, 휠 빌드,
 isolated CLI 검사를 실행합니다. 마지막 `git diff --exit-code`는 generator가 tracked 출처를
 다시 쓰는 경우를 차단합니다. Dependency-audit 작업은 pinned Python vulnerability scanner를
 실행합니다. 번들 작업은 두 작업을 `needs`로 선언하고 pinned Ubuntu 실행기 이미지를 사용하며,
@@ -481,8 +481,8 @@ fdaictl release rollback \
 `fdaictl deploy plan`은 plan-only 작업 흐름을 제출하고 현재 작업 흐름 실행 id와 URL을 반환합니다.
 같은 환경 구성이 `doctor`를 통과해야 하고 GitHub 자격 증명은
 `FDAI_GITHUB_TOKEN`에서만 읽습니다. 전달 본문에는 `apply=false`, 환경, exact 커밋,
-SHA-256 deployment-context fingerprint를 전달합니다. Console, design mocks, Operator API,
-개발 게이트웨이, document-ingestion 플래그는 fingerprint에 포함되며 계획과 적용에 동일하게
+SHA-256 deployment-context 지문을 전달합니다. Console, design mocks, Operator API,
+개발 게이트웨이, document-ingestion 플래그는 지문에 포함되며 계획과 적용에 동일하게
 전달됩니다. 플래그가 달라지면 계획은 무효입니다. 테넌트, 구독, 백엔드, 실행기
 식별자는 전달하지 않습니다. 작업 흐름은 계획 전에 범위가 제한된 요청 id, 맥락 다이제스트,
 exact checked-out 커밋을 검증합니다.
@@ -519,7 +519,7 @@ OCI 다이제스트도 기록합니다. `deploy plan`은 derived 계획 id를 �
 
 - 계획이 동일한 구독, 환경, 번들 다이제스트, 커밋에 대해 생성됨.
 - 계획이 만료되지 않았고 이미 적용되지 않음.
-- Preflight 보고에 enforce-mode blocker가 없음.
+- Preflight 보고에 enforce-mode 차단 요인이 없음.
 - 호출자가 적용을 명시적으로 요청했고 작업 흐름 승인 정책을 충족함.
 - 실행기 신원과 백엔드 구성이 기록된 계획 맥락과 일치함.
 
@@ -536,7 +536,7 @@ Terraform 적용 성공 뒤 신원, 이행, 상태 또는 canary 검사가 실�
 기존 점유와 증적 부재를 검증하고 Terraform 적용을 건너뛰며 convergence와 post-apply
 검사를 다시 수행한 뒤 증적을 기록합니다. 맥락 변경, 누락된 점유, 기존 증적은
 재개를 차단합니다. Targeted 계획이 콘솔 hostname 출력을 비워 두면 Entra sync는 Terraform
-상태의 exact Static Web App id를 사용해 Azure 관리 plane에서 hostname을 읽습니다.
+상태의 exact Static Web App id를 사용해 Azure 관리 평면에서 hostname을 읽습니다.
 
 Post-apply 이행은 같은 작업 흐름 문서가 서로 다른 action-catalog 다이제스트를 pin할 때 변경할 수 없는
 built-in 작업 흐름 정의가 coexist하도록 허용합니다. Unique 데이터베이스 신원은 작업 흐름 이름,
@@ -557,7 +557,7 @@ FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy apply \
 다이제스트, 만료만 노출합니다. 계획 파일, 상태, 자격 증명 또는 시크릿 값은 노출하지 않습니다.
 Physical 정리가 아직 블롭을 제거하지 않았더라도 적용은 logical 만료를 차단해야 합니다.
 
-Transport-neutral foundation은 `fdai.deployment_cli.remote`에 구현되었습니다. `PlanRecord`는 opaque
+Transport-neutral 기반은 `fdai.deployment_cli.remote`에 구현되었습니다. `PlanRecord`는 opaque
 메타데이터만 포함하며 `RemoteDeploymentService`는 적용 전에 이를 다시 부하합니다. 로컬 가드는
 `ready` 상태, 유효한 보존, 정확한 테넌트/구독/환경/번들/커밋/백엔드/
 실행기 맥락, clear enforced preflight, approved 실행기 가용성을 요구합니다. 이후
@@ -579,7 +579,7 @@ plan-only 전송 계층은 현재 전달 실행 상세를 반환하고 실행기
 
 실행기는 managed 신원을 계속 사용합니다. `fdaictl`은 service-principal 시크릿, Terraform
 상태, 생성된 데이터베이스 password 또는 Key Vault 값을 로컬 머신으로 복사하지 않습니다.
-실행기를 사용할 수 없으면 CLI는 로컬 적용으로 대체 경로하지 않고 blocker를 보고합니다.
+실행기를 사용할 수 없으면 CLI는 로컬 적용으로 대체 경로하지 않고 차단 요인을 보고합니다.
 
 ## 구성 및 시크릿 처리
 
@@ -589,7 +589,7 @@ plan-only 전송 계층은 현재 전달 실행 상세를 반환하고 실행기
 - **허용:** 환경 이름, 지역, feature 플래그, 백엔드 참조, 저장소 이름, approved
  산출물 출처.
 - **허용되지 않음:** Password, 접근 토큰, 연결 문자열, Terraform 상태, binary 계획,
- upstream 저장소의 populated customer 구성.
+ 업스트림 저장소의 populated customer 구성.
 - **Command 이력:** 시크릿 값을 command-line 인자로 받지 않습니다.
 - **로그:** 구조화된 로그는 상관관계 ID를 포함하며 구성된 민감한 필드를 redact합니다.
 - **머신 출력:** JSON은 안정적인 영어 필드 이름을 사용하며 시크릿 material을 포함하지
@@ -633,7 +633,7 @@ plan-only 전송 계층은 현재 전달 실행 상세를 반환하고 실행기
 - [x] 서명/증명 - detached Ed25519 매니페스트 서명 + 결정론적 CycloneDX
  파일 SBOM + GitHub 빌드 출처 이력/SBOM 증명.
 - [x] Saved-plan 보존 - 1시간 logical 만료, 24시간 뒤 범위가 제한된 physical 정리 대상.
-- `fdaictl deploy teardown`을 첫 적용 release에 포함할까요? 아니면 정리 drill이 측정될
+- `fdaictl deploy teardown`을 첫 적용 release에 포함할까요? 아니면 정리 훈련이 측정될
  때까지 별도의 guarded 스크립트로 유지할까요?
 
 ## 관련 문서
@@ -643,6 +643,6 @@ plan-only 전송 계층은 현재 전달 실행 상세를 반환하고 실행기
 | 구체적인 Azure 인벤토리 및 onboarding | [deploy-and-onboard-ko.md](deploy-and-onboard-ko.md) |
 | 배포 수명 주기 및 롤백 | [deployment-ko.md](deployment-ko.md) |
 | 준비 상태 발견 사항 및 탐색 계약 | [deployment-preflight-ko.md](deployment-preflight-ko.md) |
-| Blocker를 Terraform 토글로 전환 | [preflight-active-reassembly-ko.md](preflight-active-reassembly-ko.md) |
+| 차단 요인을 Terraform 토글로 전환 | [preflight-active-reassembly-ko.md](preflight-active-reassembly-ko.md) |
 | 비공개 실행기 초기화 | [../../../infra/bootstrap/README.md](../../../infra/bootstrap/README.md) |
 | Product localization 규칙 | [../../../.github/instructions/language.instructions.md](../../../.github/instructions/language.instructions.md) |

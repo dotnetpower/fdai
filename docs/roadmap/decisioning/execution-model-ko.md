@@ -7,7 +7,7 @@ translation_revised: 2026-08-11
 
 # 실행 모델
 
-FDAI 이 액션 실행 **여부** 와 **방법** 을 결정하는 방식. 이 문서는 통합 RiskGate, 권위적 [risk-classification.md](risk-classification-ko.md) first-match 표가 **6-axis** ActionType 상한 과 결합하는 방식, 4개의 실행기 경로 (PR-native / direct API / PR-manual / 도구 호출), live-blast 탐색 combinator, 그리고 실제 운영 변경이 만족해야 하는 안전성 invariant 를 권위적으로 정의한다.
+FDAI 이 액션 실행 **여부** 와 **방법** 을 결정하는 방식. 이 문서는 통합 RiskGate, 권위적 [risk-classification.md](risk-classification-ko.md) first-match 표가 **6-axis** ActionType 상한 과 결합하는 방식, 4개의 실행기 경로 (PR-native / direct API / PR-manual / 도구 호출), live-blast 탐색 combinator, 그리고 실제 운영 변경이 만족해야 하는 안전성 불변식 를 권위적으로 정의한다.
 
 > 결정-엔진 관계 (권위적): FDAI 은 **하나의** 결정을 가지며, 그것은 **두** 입력을 결합해 생성된다. [risk-classification.md](risk-classification-ko.md)
 > first-match 표가 **권위적 기준선** - 발견 사항 feature vector
@@ -57,8 +57,8 @@ gated, 매 전달 에서 re-check.
 - **도구 호출** - 새 실행기 bypass 없이 `ToolExecutor` 계약을 통해 등록된
  capability-bounded 함수를 호출.
 
-단일 ActionType이 경로를 선언하고 포크는 온톨로지 overlay로 재정의합니다. 백엔드는 경로나 역할을
-추가하지 않으며 risk, Var 승인, lock, Vidar 롤백, Saga 감사는 외부에 남고 프로파일은 낮출 수만 있습니다.
+단일 ActionType이 경로를 선언하고 포크는 온톨로지 오버레이로 재정의합니다. 백엔드는 경로나 역할을
+추가하지 않으며 risk, Var 승인, 잠금, Vidar 롤백, Saga 감사는 외부에 남고 프로파일은 낮출 수만 있습니다.
 
 ## 2. 6-axis 상한 + risk-classification 표
 
@@ -71,13 +71,13 @@ RiskGate 는 **6개 직교 상한 축** 와 권위적 risk-classification 표를
 
 ```
 authority = min(
- A_risk_table  # risk-classification.md first-match 표 (권위적 baseline; quorum 도 산출)
- A_tier     # T0 | T1 | T2
- A_ceiling    # ActionType.ceiling_by_tier[tier]
+ A_risk_table # risk-classification.md first-match 표 (권위적 baseline; quorum 도 산출)
+ A_tier   # T0 | T1 | T2
+ A_ceiling  # ActionType.ceiling_by_tier[tier]
  A_static_blast # ActionType.blast_radius (선언됨)
- A_live_blast  # live probe -> quiet | active | overloaded (Month 1+)
- A_role     # min_role vs principal role (RBAC)
- A_env      # prod -> ActionType.prod_downgrade 별 downgrade
+ A_live_blast # live probe -> quiet | active | overloaded (Month 1+)
+ A_role   # min_role vs principal role (RBAC)
+ A_env   # prod -> ActionType.prod_downgrade 별 downgrade
 )
 ```
 
@@ -124,9 +124,9 @@ Trust 라우터 로부터.
 
 | Tier | 기본 자세 |
 |------|-----------------|
-| T0 (결정론적) | `enforce_auto` 허용 - T0 판정은 policy-as-code pass |
-| T1 (lightweight 유사도) | Upstream 카탈로그 상한은 보수적이며 overlay는 자율성을 낮출 수만 있습니다. 권한 상향은 별도 통제된 승격 경로를 사용하며 dispatch-time 재정의가 아닙니다. |
-| T2 (frontier reasoning) | 카탈로그 로더가 T2를 `shadow_only`로 hard-cap합니다. Hard 상한 변경은 검토된 upstream 정책 변경이며 포크 overlay가 아닙니다. |
+| T0 (결정론적) | `enforce_auto` 허용 - T0 판정은 policy-as-code 통과 |
+| T1 (lightweight 유사도) | 업스트림 카탈로그 상한은 보수적이며 오버레이는 자율성을 낮출 수만 있습니다. 권한 상향은 별도 통제된 승격 경로를 사용하며 dispatch-time 재정의가 아닙니다. |
+| T2 (frontier reasoning) | 카탈로그 로더가 T2를 `shadow_only`로 hard-cap합니다. Hard 상한 변경은 검토된 업스트림 정책 변경이며 포크 오버레이가 아닙니다. |
 
 ### 2.2 축 C - ActionType 상한
 
@@ -144,7 +144,7 @@ ActionType 의 `blast_radius` 블록. 두 계산 모드:
  - `resource` -> 자체적으로 자율성 를 낮추지 않음.
  - `resource_group` -> `enforce_hil` 에 상한.
  - `subscription` -> `deny` (어떤 자율 변경도 전체 구독 에
-  걸치지 않음; risk-classification 거부 룰과 일치).
+ 걸치지 않음; risk-classification 거부 룰과 일치).
 - `graph_derived` - 전달 시간 에 인벤토리 그래프로부터 computed.
  `max_affected_resources` 초과 값은 다른 축 와 관계없이 `enforce_hil`
  에 상한.
@@ -202,7 +202,7 @@ ActionType 은 risk-classification env 신호 (축 A) 를 inherit 하므로,
 
 ### 2.6a Fail-safe 축 - System 상태 (성능 저하)
 
-일곱 번째 축 인 `system_health` 는 **컨트롤 plane 이 DEGRADED 일 때만**
+일곱 번째 축 인 `system_health` 는 **컨트롤 평면 이 DEGRADED 일 때만**
 존재함 - 하나 이상의 critical 의존성 (감사 저장소, 이벤트 버스,
 기반) 의 circuit 차단기 가 trip 된 상태. 자율성 를 `shadow_only`
 로 상한 하므로, 실패한 의존성 가 enforce-mode 변경 을 절대 driving
@@ -283,30 +283,30 @@ RiskGate 는
 
 ```python
 class RiskGate(Protocol):
-  def evaluate(
-    self,
-    *,
-    action_type: OntologyActionType,
-    action: Action,
-    trigger_kind: TriggerKind,
-    tier: TrustTier,
-    principal: Principal,
-    env: EnvClassification,
-    risk_table_result: RiskTableResult,  # Axis A, 사전 계산 (§2.0)
-    live_probe_result: ProbeResult | None, # Axis E, 사전 fetch (§4)
-    promotion_state: ActionModeRecord,
-  ) -> RiskDecision: ...
+ def evaluate(
+  self,
+  *,
+  action_type: OntologyActionType,
+  action: Action,
+  trigger_kind: TriggerKind,
+  tier: TrustTier,
+  principal: Principal,
+  env: EnvClassification,
+  risk_table_result: RiskTableResult, # Axis A, 사전 계산 (§2.0)
+  live_probe_result: ProbeResult | None, # Axis E, 사전 fetch (§4)
+  promotion_state: ActionModeRecord,
+ ) -> RiskDecision: ...
 
 @dataclass(frozen=True)
 class RiskDecision:
-  decision: Literal["auto", "hil", "abstain", "deny"]
-  mode: Literal["shadow", "enforce"]
-  quorum: int              # Axis A 로부터; 기본 1, irreversible 은 2
-  matched_rule_id: str          # risk-classification 룰 id (또는 "default")
-  catalog_version: str          # 결정 시점 risk-classification.yaml 버전
-  execution_path: ExecutionPath     # ActionType 로부터 inherit, lower 강제 MAY
-  resolved_ceiling: ResolvedCeiling   # audit-friendly breakdown (§8)
-  hil_queue_id: str | None        # decision == "hil" 시 populated
+ decision: Literal["auto", "hil", "abstain", "deny"]
+ mode: Literal["shadow", "enforce"]
+ quorum: int       # Axis A 로부터; 기본 1, irreversible 은 2
+ matched_rule_id: str     # risk-classification 룰 id (또는 "default")
+ catalog_version: str     # 결정 시점 risk-classification.yaml 버전
+ execution_path: ExecutionPath   # ActionType 로부터 inherit, lower 강제 MAY
+ resolved_ceiling: ResolvedCeiling  # audit-friendly breakdown (§8)
+ hil_queue_id: str | None    # decision == "hil" 시 populated
 ```
 
 - **RiskGate 는 pure, 동기 함수로 유지.** 모든 I/O (실제 운영 탐색,
@@ -336,7 +336,7 @@ class RiskDecision:
 
 콘솔의 조정기 는 매 write-class 도구 호출 에서 RiskGate 를 재실행
 ([operator-console.md § 7.2](../interfaces/operator-console-ko.md#72-chat-특화-3-invariant),
-invariant 5). 콘솔은 이 경로를 절대 우회하지 않음; "trusted 서술기
+불변식 5). 콘솔은 이 경로를 절대 우회하지 않음; "trusted 서술기
 shortcut" 없음.
 
 ### 3.2 `ActionPromotionRegistry` 와의 상호작용
@@ -364,17 +364,17 @@ Static `blast_radius` 는 "이 ActionType 은 리소스 그룹 까지 영향 MAY
 schema_version: "1.0.0"
 id: vm_traffic_last_5m
 description: "지난 5분 VM 네트워크 throughput 기반 quiet/active/overloaded 반환."
-adapter_ref: probe-adapters/azure-monitor    # DI seam id
-adapter_payload:                # adapter-특화; 코어 probe 스키마의
- kql: |                    # 일부가 아니므로 코어가 CSP-neutral 유지
-  AzureMetrics
-  | where ResourceId == '{{ target_ref }}'
-  | where MetricName == 'Network In Total'
-  | where TimeGenerated > ago(5m)
-  | summarize p = percentile(Total, 95)
+adapter_ref: probe-adapters/azure-monitor  # DI seam id
+adapter_payload:        # adapter-특화; 코어 probe 스키마의
+ kql: |          # 일부가 아니므로 코어가 CSP-neutral 유지
+ AzureMetrics
+ | where ResourceId == '{{ target_ref }}'
+ | where MetricName == 'Network In Total'
+ | where TimeGenerated > ago(5m)
+ | summarize p = percentile(Total, 95)
 interpretation:
- quiet:   p < 1000000      # <1 MB/5min
- active:   p < 100000000     # <100 MB/5min
+ quiet:  p < 1000000   # <1 MB/5min
+ active:  p < 100000000   # <100 MB/5min
  overloaded: p >= 100000000
 timeout_seconds: 5
 cache_ttl_seconds: 60
@@ -409,16 +409,16 @@ judge-only 이고 결정론적으로 유지
 
 ```python
 class LiveBlastProbe(Protocol):
-  async def measure(
-    self,
-    *,
-    probe_id: str,
-    target_ref: str,
-    deadline_seconds: float,
-  ) -> ProbeResult: ...
+ async def measure(
+  self,
+  *,
+  probe_id: str,
+  target_ref: str,
+  deadline_seconds: float,
+ ) -> ProbeResult: ...
 ```
 
-Upstream Day-1 는 가짜 `NoOpBlastProbe` (returns "no opinion") ship;
+업스트림 Day-1 는 가짜 `NoOpBlastProbe` (returns "no opinion") ship;
 Month-1 은 `AzureMonitorBlastProbe` 추가. 포크 는 프로토콜 을 구현하는
 어떤 어댑터 든 연결 MAY.
 
@@ -446,28 +446,28 @@ Best for: 구성 변경, IaC patch, 카탈로그 업데이트, 거버넌스 변�
 ### 5.2 Direct API (`direct_api`)
 
 - 실행기 가 기반 API 를 직접 호출 (Azure ARM, kubectl, `services/core-control-plane/src/fdai/delivery/` 아래 해당 전달 어댑터 를 통한 Redis).
-- `auto` 결정 시, 호출 이 HIL 없이 진행되고 ActionType 의 `stop_conditions` 와 `preconditions` 가 호출 전후로 실행기 에 의해 enforce.
- 어댑터는 모든 임계값, 구간, seconds, 개수 매개변수를 포함한 완전한 ordered stop-condition tuple을 받으며 singular 문자열은 호환성 shorthand로만 유지.
+- `auto` 결정 시, 호출 이 HIL 없이 진행되고 ActionType 의 `stop_conditions` 와 `preconditions` 가 호출 전후로 실행기 에 의해 강제 적용.
+ 어댑터는 모든 임계값, 구간, seconds, 개수 매개변수를 포함한 완전한 ordered stop-condition 튜플을 받으며 singular 문자열은 호환성 shorthand로만 유지.
 - `hil` 결정 시, 실행기 가 HIL 항목 을 큐에 추가 (PR-manual 큐와 동일
  하지만 항목 에 `mutation_target=direct` 로); 승인자 가 콘솔로
  수용; 그 후 실행기 가 전달.
 - Rollback 은 ActionType 의 `rollback_contract` 로부터 (`scripted`,
  `pitr`, `snapshot_restore`).
-- **멱등성 invariant** - 매 direct-API 호출 은 액션의 안정된
- 멱등성 키 사용 (기존 invariant
+- **멱등성 불변식** - 매 direct-API 호출 은 액션의 안정된
+ 멱등성 키 사용 (기존 불변식
  [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md));
  재시도 된 호출 이 double-apply MUST NOT.
 - 그림자 관측은 영속 변경 원장을 채우지 않습니다. Process-local 캐시는
- 멱등성 키와 모드를 함께 사용하므로, 이후 검토된 승격은 같은 액션을 enforce
+ 멱등성 키와 모드를 함께 사용하므로, 이후 검토된 승격은 같은 액션을 강제 적용
  모드로 실행할 수 있습니다. 이전 방식 그림자 원장 행은 이 shadow-to-enforce 전환에서만
- 무시되며 enforce 변경 증적은 계속 권위 있는하여 페이로드 충돌을 거부합니다.
-- **Upstream Azure 게이트웨이 연결** - 개발 operations 게이트웨이 URL과 Easy Auth 대상이
+ 무시되며 강제 적용 변경 증적은 계속 권위 있는하여 페이로드 충돌을 거부합니다.
+- **업스트림 Azure 게이트웨이 연결** - 개발 operations 게이트웨이 URL과 Easy Auth 대상이
  모두 구성되면 headless 런타임은 enforce-capable `AzureGatewayDirectApiExecutor`를 연결합니다.
  이 어댑터는 `ops.start-vm`, `ops.deallocate-vm`, `ops.upsert-network-rule`,
  `ops.delete-network-rule`만 지원합니다. 각 ActionType은 shadow-first를 유지하며 shipped T0
- 상한은 사람 승인을 요구합니다. 그림자는 서버 계획만 수행하고 변경하지 않으며 enforce는
+ 상한은 사람 승인을 요구합니다. 그림자는 서버 계획만 수행하고 변경하지 않으며 강제 적용은
  일회용 증적이 반환된 후에만 제출합니다.
-- **Long-running 연산 lock** - ARM `202`는 대상 Blob 임차 기간을 비공개 연산 기록에
+- **Long-running 연산 잠금** - ARM `202`는 대상 Blob 임차 기간을 비공개 연산 기록에
  유지합니다. 실행기 상태 polling이 임차 기간을 renew하고 최종 상태를 ETag
  compare-and-swap으로 기록한 후 release합니다. 알 수 없는 상태 URL 조회 필드는 차단합니다.
 
@@ -480,7 +480,7 @@ Best for: 지연 시간 가 중요한 ops 액션 (재시작, 규모, 캐시 플�
 - 축 와 관계없이 사람 검토 필수; 모든 축 에서 `enforce_auto` 라도
  여전히 manual-merge PR 로 landing.
 - 매우 high-risk 액션 또는 자동화와 관계없이 모든 변경 이
- reviewable diff MUST 인 compliance-heavy 환경에 사용.
+ reviewable 차이 MUST 인 compliance-heavy 환경에 사용.
 
 Best for: scripted 롤백 있는 irreversible 변경, 포크 가 자동화와
 관계없이 두 번째 쌍 of eyes 를 원하는 거버넌스 변경.
@@ -491,20 +491,20 @@ Best for: scripted 롤백 있는 irreversible 변경, 포크 가 자동화와
 requested_path = ActionType.execution_path
 forced_path = RiskGate.resolved_ceiling.forced_execution_path # 옵션 axis 출력
 final_path = strictest(requested_path, forced_path)
-        # 엄격 순서 (속도가 아닌 리뷰-엄격성 기준):
-        #  pr_manual > pr_native > direct_api
+    # 엄격 순서 (속도가 아닌 리뷰-엄격성 기준):
+    # pr_manual > pr_native > direct_api
 ```
 
 여기서 "strictest" 는 가장 빠른이 아니라 **가장 사람-리뷰-gated** 를 의미:
 `pr_manual` (필수 사람 병합) 이 `pr_native` (정책 auto-merge) 보다
-엄격하고, 그것이 `direct_api` (diff 없음) 보다 엄격. 축 는 전달 를 이
+엄격하고, 그것이 `direct_api` (차이 없음) 보다 엄격. 축 는 전달 를 이
 사다리에서 **위로** (더 많은 리뷰 쪽으로) 만 이동 가능; 지연 시간 를 위해
 아래로 절대 이동 못 함. 포크 는 env 축 를 통해 prod 의 모든 전달 를
-`pr_manual` 로 강제 가능. Upstream 은 절대 아래로부터 강제 안 함 (속도를
+`pr_manual` 로 강제 가능. 업스트림 은 절대 아래로부터 강제 안 함 (속도를
 위해 `pr_manual` 을 `direct_api` 로 lift 안 함).
 
 **대체 경로 멱등성.** `direct_api`는 side-effect 전 또는 권위 있는 no-effect 증적 후에만 고정된 멱등성 키로 `pr_manual` 대체 경로할 수 있습니다. 시간 초과, lost 응답 또는 accepted
-비동기 요청은 연산 기록, 대상 lock 및 pending 결과를 유지하며 권위 있는 상태를
+비동기 요청은 연산 기록, 대상 잠금 및 pending 결과를 유지하며 권위 있는 상태를
 조정합니다. 최종 증적 전에는 다른 변경 경로를 열지 않고 exhaustion은 자동화 보류로 escalate합니다.
 
 ### 5.5 사람 승인 왕복 (보류 and 재개)
@@ -514,12 +514,12 @@ RiskGate 가 `hil` 을 반환하면 실행기 는 실행되지 않고 컨트롤 
 (`core/hil_resume`) 는 **보류 and return** 모델을 적용한다:
 
 1. **보류** - 전체 `Action` (+ 룰 id, submitter, 상관관계 id) 을
-  opaque `approval_id` 하에 `status=pending` 으로 `StateStore` 에
-  직렬화;
+ opaque `approval_id` 하에 `status=pending` 으로 `StateStore` 에
+ 직렬화;
 2. **push** - `HilChannel` (Teams / Slack) 로 A1 승인 카드 전달;
-  배달 실패는 액션을 parked + 복구 가능 상태로 남기며 실행하지 않음;
+ 배달 실패는 액션을 parked + 복구 가능 상태로 남기며 실행하지 않음;
 3. **감사** - `hil.requested` 엔트리 기록 후
-  `ControlLoop.process(...)` 는 블록 없이 `hil` 반환.
+ `ControlLoop.process(...)` 는 블록 없이 `hil` 반환.
 
 이후 결정(ChatOps 콜백 또는 poll)이
 `HilResumeCoordinator.resolve(approval_id, decision, approver_oid)` 를
@@ -599,9 +599,9 @@ operational-alert 도 발행 한다 - outbound-only, 정보성이며 승인 버�
  (네이티브 Python 레지스트리, MCP 클라이언트, HTTP callout) 를 연결. 기본값
  연결 은 `RecordingToolExecutor` (실제 함수 실행 없음). 구성된
  `FDAI_JIRA_BASE_URL`은 PostgreSQL 멱등성 원장 및 distributed 리소스
- lock과 함께 `JiraToolExecutor`를 연결합니다. ActionType 승격 게이트와
- `FDAI_JIRA_ENFORCE=1`이 모두 enforce를 허용하기 전까지 그림자를 유지합니다.
- Enforce creation은 결정론적 `fdai-idem-<sha256>` 라벨을 추가합니다. 게시 전에
+ 잠금과 함께 `JiraToolExecutor`를 연결합니다. ActionType 승격 게이트와
+ `FDAI_JIRA_ENFORCE=1`이 모두 강제 적용을 허용하기 전까지 그림자를 유지합니다.
+ 강제 적용 creation은 결정론적 `fdai-idem-<sha256>` 라벨을 추가합니다. 게시 전에
  영속 pending 점유를 atomically 기록하고 Jira enhanced
  `/rest/api/3/search/jql` 엔드포인트에서 해당 라벨을 검색합니다.
  Create-before-ledger 비정상 종료 이후 재시도는 기존 issue를 조정하고
@@ -617,17 +617,17 @@ operational-alert 도 발행 한다 - outbound-only, 정보성이며 승인 버�
  점유를 release하고 실패한 감사 항목을 기록한 뒤 다시 raise합니다. Core는 영속
  실행 결과를 기록한 뒤에만 in-memory dedupe 캐시를 채우므로 transient 영속
  쓰기 실패는 retryable 상태로 남습니다.
-- `auto` 결정 시, HIL 없이 호출 진행하며 실행기가 ActionType 의 `preconditions` 와 `stop_conditions` 를 enforce.
- 도구 어댑터는 첫 조건 이름만이 아니라 authored 매개변수를 모두 포함한 완전한 ordered stop-condition tuple을 받음.
+- `auto` 결정 시, HIL 없이 호출 진행하며 실행기가 ActionType 의 `preconditions` 와 `stop_conditions` 를 강제 적용.
+ 도구 어댑터는 첫 조건 이름만이 아니라 authored 매개변수를 모두 포함한 완전한 ordered stop-condition 튜플을 받음.
  범용 MCP 어댑터는 `time_box_exceeded_seconds`를 outer 전송 계층 기한으로 적용합니다.
  시간 초과는 롤백 미확인 상태의 `stopped`를 반환합니다. 다른 dynamic stop 조건을 가진
- enforce 요청은 한계 어댑터가 해당 평가기를 제공하지 않으면 네트워크 I/O 전에 거부됩니다.
+ 강제 적용 요청은 한계 어댑터가 해당 평가기를 제공하지 않으면 네트워크 I/O 전에 거부됩니다.
  어댑터는 평가하지 않은 조건을 무시하지 않습니다.
 - `hil` 결정 시, 실행기 가 액션을 보류 하고 `direct_api` 와 동일한 HIL
  왕복 (§5.5) 으로 승인 후 재개.
 - Rollback 은 ActionType 의 `rollback_contract` 로부터 - 보통
  `state_forward_only` (생산된 아티팩트 삭제) 또는 `scripted`.
-- **멱등성 invariant** - 매 도구 호출 은 액션의 안정된 멱등성
+- **멱등성 불변식** - 매 도구 호출 은 액션의 안정된 멱등성
  키 를 사용; 재시도 호출 은 도구 을 재실행 MUST NOT (같은 키 의 두 번째
  호출 은 `already_applied` 반환).
 - 7개 안전조건은 그대로 적용. `tool.*` ActionType 은 변경
@@ -636,7 +636,7 @@ operational-alert 도 발행 한다 - outbound-only, 정보성이며 승인 버�
  `action_kind=executor.tool_call.<outcome>` 와
  `execution_path=tool_call` 로 쓴다.
 - `tool.open-incident-ticket`은 기본 제공 티켓 ActionType입니다. 그림자 증적은
- 실제 티켓으로 링크되지 않습니다. 성공한 enforce 증적은 최종 실행기
+ 실제 티켓으로 링크되지 않습니다. 성공한 강제 적용 증적은 최종 실행기
  성공 전에 `link_ticket_receipt`를 통과하고 `incident.ticket`을 덧붙이기합니다.
  연결 실패는 retryable하며 성공으로 캐시되지 않습니다.
 
@@ -648,19 +648,19 @@ Best for: 문서 생성, 알림, 티켓팅, 그리고 워크플로 스텝이 PR 
 
 모든 executed 액션은 이미
 [coding-conventions.instructions.md § 안전성](../../../.github/instructions/coding-conventions.instructions.md#safety)
-의 7개 안전조건(stop-condition, 롤백, blast-radius 한도, 예행 실행, 리소스 lock,
+의 7개 안전조건(stop-condition, 롤백, blast-radius 한도, 예행 실행, 리소스 잠금,
 멱등성, 감사)을 carry. 이 문서는 재생 요구사항 하나를 추가:
 
 - **매 전달 는 `resolved_ceiling` 을 쓰기.** 감사 항목 는
-  결정을 생성한 완전한 6-axis breakdown (`risk_table` 축 포함) 을
-  carry MUST -> 향후 overlay 변경이 과거 결정의 재현성을 절대 break 안 함.
+ 결정을 생성한 완전한 6-axis breakdown (`risk_table` 축 포함) 을
+ carry MUST -> 향후 오버레이 변경이 과거 결정의 재현성을 절대 break 안 함.
 
 안전조건은 정확히 이전과 같이 적용 - chat-specific carve-out
 없음, direct-API relaxation 없음.
 
-### 6.1 오퍼레이터-콘솔 invariant 와의 상호작용
+### 6.1 오퍼레이터-콘솔 불변식 와의 상호작용
 
-Chat-특화 invariant ([operator-console.md § 7.2](../interfaces/operator-console-ko.md#72-chat-특화-3-invariant))
+Chat-특화 불변식 ([operator-console.md § 7.2](../interfaces/operator-console-ko.md#72-chat-특화-3-invariant))
 는 가산:
 
 - **Chat safeguard 8 (검증기 re-check)** = "매 write-class 도구 호출
@@ -680,7 +680,7 @@ Chat-특화 invariant ([operator-console.md § 7.2](../interfaces/operator-conso
  든 탐색 의 `cache_ttl_seconds` 로 범위가 제한된 → TTL 내 재생 가
  identical 결정 yield.
 - `resolved_ceiling` 블록은 결정의 완전한 self-explanation - 전달
- 시점에 in 효과 였던 상한 이 기록 of truth 이므로 향후 overlay
+ 시점에 in 효과 였던 상한 이 기록 of truth 이므로 향후 오버레이
  변경이 과거 감사 항목 를 절대 invalidate 안 함.
 
 ## 8. `resolved_ceiling` 감사 블록
@@ -690,22 +690,22 @@ Chat-특화 invariant ([operator-console.md § 7.2](../interfaces/operator-conso
 ```json
 {
  "resolved_ceiling": {
-  "tier": "T0",
-  "action_type_id": "ops.restart-service",
-  "axes": {
-   "risk_table":   {"level": "enforce_hil", "reason": "cost_impact_monthly >= 100", "matched_rule_id": "cost-threshold", "catalog_version": "1.0.0", "quorum": 1},
-   "tier":      {"level": "enforce_auto", "reason": "shadow-promoted ActionType 의 T0 판정"},
-   "ceiling":    {"level": "enforce_hil", "reason": "ceiling_by_tier.t0.max_autonomy"},
-   "static_blast":  {"level": "enforce_auto", "reason": "static_bucket=resource"},
-   "live_blast":   {"level": "enforce_hil", "reason": "probe=vm_traffic_last_5m returned active", "probe_result": "active"},
-   "role":      {"level": "enforce_hil", "reason": "principal=contributor >= min_role=contributor"},
-   "env":      {"level": "enforce_auto", "reason": "not-prod"}
-  },
-  "winning_axis": "risk_table",
-  "final_level": "enforce_hil",
-  "final_quorum": 1,
-  "final_path":  "direct_api",
-  "overlay_layers_applied": ["upstream", "rego"]
+ "tier": "T0",
+ "action_type_id": "ops.restart-service",
+ "axes": {
+  "risk_table":  {"level": "enforce_hil", "reason": "cost_impact_monthly >= 100", "matched_rule_id": "cost-threshold", "catalog_version": "1.0.0", "quorum": 1},
+  "tier":   {"level": "enforce_auto", "reason": "shadow-promoted ActionType 의 T0 판정"},
+  "ceiling":  {"level": "enforce_hil", "reason": "ceiling_by_tier.t0.max_autonomy"},
+  "static_blast": {"level": "enforce_auto", "reason": "static_bucket=resource"},
+  "live_blast":  {"level": "enforce_hil", "reason": "probe=vm_traffic_last_5m returned active", "probe_result": "active"},
+  "role":   {"level": "enforce_hil", "reason": "principal=contributor >= min_role=contributor"},
+  "env":   {"level": "enforce_auto", "reason": "not-prod"}
+ },
+ "winning_axis": "risk_table",
+ "final_level": "enforce_hil",
+ "final_quorum": 1,
+ "final_path": "direct_api",
+ "overlay_layers_applied": ["upstream", "rego"]
  }
 }
 ```
@@ -773,7 +773,7 @@ ActionType 이행 기록과 일치합니다.
  short-circuit, irreversible-quorum, prod downgrade, BreakGlass-eligible)
  를 사용; 각 생성 행 는 `min()` 의미 규칙 와 어느 입력도 자율성 를
  raise 하지 않음을 assert.
-- **Overlay 우선순위 + resolved_ceiling** - 동일 축 에 모든 네 overlay
+- **오버레이 우선순위 + resolved_ceiling** - 동일 축 에 모든 네 오버레이
  계층 가 활성 인 고정본; higher-precedence 계층 승리 및
  `overlay_layers_applied` 아래 이름 등장 assert.
 - **Live-probe 가짜** - `NoOpBlastProbe` 가 `quiet / 활성 /
@@ -782,8 +782,8 @@ ActionType 이행 기록과 일치합니다.
  forced_path; strict-order winner assert.
 - **Direct-API 멱등성** - 동일 키로 전달을 두 번 호출해도 기반 어댑터는
  변경을 하나만 기록합니다.
-- **멱등성 충돌** - 각 키는 액션 fingerprint에 연결됩니다. 다른 액션,
- 대상, 룰 또는 안전성 입력은 충돌이고 같은 키 요청은 리소스 lock 전에 직렬화됩니다.
+- **멱등성 충돌** - 각 키는 액션 지문에 연결됩니다. 다른 액션,
+ 대상, 룰 또는 안전성 입력은 충돌이고 같은 키 요청은 리소스 잠금 전에 직렬화됩니다.
 - **PR-native + PR-manual auto-merge 정책** - 어댑터 가 발행 하는
  라벨 집합 에 대한 계약 테스트; 라벨 매트릭스 assert.
 - **RiskDecision 은 권한 를 업그레이드 할 수 없음** - 속성 테스트:
@@ -795,13 +795,13 @@ ActionType 이행 기록과 일치합니다.
 - **탐색 시간 초과 / 오류** -> 단발 실패는 `active`, 반복 실패는
  `shadow_only` 반환 (§4.2); `probe.degraded` 로그; 전체 루프 를
  fail-close 하지 않음.
-- **Overlay 로드 오류** (Rego 구문 오류, 누락된 파일 overlay
- 대상) -> **upstream 이 아니라 더 안전한 값으로 fail.** 실패한
- overlay 가 *tightening* overlay (포크 가 자율성 다운그레이드) 였으면
- RiskGate 는 더 느슨한 upstream 기본으로 되돌리는 대신 last-known 조인
- 상한 을 유지 (실패 시 차단); 실패한 loosening overlay 는 단지 더 엄격한
- upstream 값을 그대로 둠. 어느 쪽든 `overlay.load_failed` 감사 를 쓰기
- 하고 `overlay_layers_applied` 를 mark 하여 overlay 가 applied 인 척 절대
+- **오버레이 로드 오류** (Rego 구문 오류, 누락된 파일 오버레이
+ 대상) -> **업스트림 이 아니라 더 안전한 값으로 fail.** 실패한
+ 오버레이 가 *tightening* 오버레이 (포크 가 자율성 다운그레이드) 였으면
+ RiskGate 는 더 느슨한 업스트림 기본으로 되돌리는 대신 last-known 조인
+ 상한 을 유지 (실패 시 차단); 실패한 loosening 오버레이 는 단지 더 엄격한
+ 업스트림 값을 그대로 둠. 어느 쪽든 `overlay.load_failed` 감사 를 쓰기
+ 하고 `overlay_layers_applied` 를 mark 하여 오버레이 가 applied 인 척 절대
  안 함.
 - **실행기 경로 도달 불가** (side-effect 시도 전 direct_api 어댑터 down) -> 저-긴급 액션은
  `pr_manual` 로 대체 경로 하고 `executor.path.degraded` 쓰기. **latency-
@@ -819,9 +819,9 @@ ActionType 이행 기록과 일치합니다.
 - [action-ontology.md](action-ontology-ko.md) - 이 문서가 소비하는
  ActionType 스키마 + 포크 가 매트릭스를 tune 하는 재정의 경계.
 - [operator-console.md](../interfaces/operator-console-ko.md) - RiskGate 는 콘솔의
- 채팅 invariant 가 매 write-class 도구 호출 에 요구하는 검증기.
+ 채팅 불변식 가 매 write-class 도구 호출 에 요구하는 검증기.
 - [phase-2-quality-and-t1.md](../phases/phase-2-quality-and-t1-ko.md) -
- ActionType 을 그림자 에서 enforce 로 flip 하는 승격 파이프라인.
+ ActionType 을 그림자 에서 강제 적용 로 flip 하는 승격 파이프라인.
 - [risk-classification.md](risk-classification-ko.md) - 6-axis 상한 이
  `min()` 으로 결합하는 권위적 first-match auto / HIL / 거부 표 (축 A,
  §2.0); 매트릭스로 대체되지 않음.

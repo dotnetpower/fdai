@@ -21,10 +21,10 @@ RAG grounding(인용 유효성), mixed-model 교차 검사(구조적 합의), �
 토론. 두 가지 빈틈이 남아 있었다:
 
 1. **추론 채점 대상이 없음.** `QualityCandidate` 는 제안 액션과 인용은 들고 있었지만
-  모델의 자연어 정당화는 없었다. 그래서 faithfulness(모든 주장이 인용 근거에서
-  도출되는가?)를 채점할 수 없었다.
+ 모델의 자연어 정당화는 없었다. 그래서 faithfulness(모든 주장이 인용 근거에서
+ 도출되는가?)를 채점할 수 없었다.
 2. **다차원 점수화가 없음.** 비평자는 이의를, Judge는 판정을 내지만, 임계로
-  거를 수 있는 차원별 점수를 산출하는 장치는 없었다.
+ 거를 수 있는 차원별 점수를 산출하는 장치는 없었다.
 
 루브릭 게이트는 기존 불변식을 하나도 약화하지 않고 이 둘을 메운다.
 
@@ -33,7 +33,7 @@ RAG grounding(인용 유효성), mixed-model 교차 검사(구조적 합의), �
 루브릭은 **빼기만** 할 수 있는 필터다. 이것이 "검증기가 권위, 절대 모델이 아님"과
 정합성을 유지하는 불변식이다:
 
-- 게이트는 enforce 모드에서 `확신도 = min(aggregate_confidence,
+- 게이트는 강제 적용 모드에서 `확신도 = min(aggregate_confidence,
  rubric_min_score)` 로 루브릭을 반영한다. `min()` 이므로 루브릭은 확신도를 **아래로**
  만 밀 수 있고 절대 위로 올리지 못한다.
 - 루브릭 실패는 abstain 이유를 추가한다(HIL로 라우팅); 조건을 충족한 이유는 절대 추가하지
@@ -85,12 +85,12 @@ RAG grounding(인용 유효성), mixed-model 교차 검사(구조적 합의), �
 확신도 임계 전에 실행된다:
 
 1. **점수** - 판정자가 후보의 `reasoning_trace` 를 각 기준으로 채점하고, 각 점수를
-  supporting 규칙 id에 grounding.
+ supporting 규칙 id에 grounding.
 2. **Reduce** - 순수 `evaluate_rubric_output` 이 점수를 `RubricDecision`
-  (`pass` / `fail` / `abstain`) + `min_score` 로 축약.
-3. **접기** - enforce 모드에서 게이트가 `min(aggregate_confidence, min_score)` 를
-  적용하고 `fail` / `abstain` 시 abstain 이유 추가. 그림자 모드에서는 점수를
-  기록하되 결과와 확신도는 건드리지 않음.
+ (`pass` / `fail` / `abstain`) + `min_score` 로 축약.
+3. **접기** - 강제 적용 모드에서 게이트가 `min(aggregate_confidence, min_score)` 를
+ 적용하고 `fail` / `abstain` 시 abstain 이유 추가. 그림자 모드에서는 점수를
+ 기록하되 결과와 확신도는 건드리지 않음.
 
 ```text
 T2 candidate (+ reasoning_trace)
@@ -98,14 +98,14 @@ T2 candidate (+ reasoning_trace)
  -> grounding (citation validity)
  -> cross-check + debate
  -> rubric judge (score) -> evaluate_rubric_output -> RubricDecision
- -> confidence = min(aggregate, rubric_min_score)  [enforce only]
+ -> confidence = min(aggregate, rubric_min_score) [enforce only]
  -> verifier is still the sole execution authority
 ```
 
 ### 축약 규칙
 
 `evaluate_rubric_output` 은 신뢰할 판정을 낼 수 없을 때 abstain(HIL 라우팅), 임계
-미달 기준이 있으면 fail, 그 외엔 pass:
+미달 기준이 있으면 fail, 그 외엔 통과:
 
 - 점수 없음 -> `abstain`.
 - 같은 기준이 두 번 이상 채점됨 -> `abstain` (자기모순 응답은 신뢰 신호가 아님).
@@ -117,15 +117,15 @@ T2 candidate (+ reasoning_trace)
 - 그 외 -> `pass`.
 
 `min_score` 는 `pass` / `fail` 시 기준 전체의 최소값, `abstain` 시 `0.0` - 그림자에서
-enforce로 전환 시 실패 시 차단 되도록.
+강제 적용으로 전환 시 실패 시 차단 되도록.
 
 **빈 `reasoning_trace`** 는 판정자 호출 전에 short-circuit 된다: faithfulness를 채점할
-추론 대상이 없으므로 enforce 모드는 판정자 호출 없이 abstain(`rubric_no_reasoning_trace`)
+추론 대상이 없으므로 강제 적용 모드는 판정자 호출 없이 abstain(`rubric_no_reasoning_trace`)
 하고, 그림자 모드는 결과를 안 바꾸고 abstain을 기록한다.
 
 ## 실패 시 차단
 
-평가기 예외(전송 실패, 잘못된 응답)는 절대 조건을 충족한으로 fail-open 하지 않는다. enforce
+평가기 예외(전송 실패, 잘못된 응답)는 절대 조건을 충족한으로 fail-open 하지 않는다. 강제 적용
 모드에서는 `rubric_evaluator_error:<Type>` abstain 이유를 추가하고 `min_score` 를
 `0.0` 으로; 그림자 모드에서는 기록만 하고 결과는 안 바꾼다.
 
@@ -144,7 +144,7 @@ enforce로 전환 시 실패 시 차단 되도록.
 카탈로그 시드가 `default_mode: shadow` 라, 배선된 평가기는 judge-and-log만 한다:
 `rubric_scores`, `rubric_verdict`, `rubric_min_score` 가 매 `QualityDecision` 에
 측정용으로 기록되지만 결과와 확신도는 건드리지 않는다. 포크는 라벨된 시나리오
-세트에서 승격 게이트를 충족한 뒤에만 enforce로 승격한다.
+세트에서 승격 게이트를 충족한 뒤에만 강제 적용으로 승격한다.
 
 ### 승격 지표
 
@@ -207,7 +207,7 @@ HIL로 보낼 수 있지만, ungrounded 액션을 안전하게 만들 수는 없
  자격을 올릴 수 없다 - 다만 임계값을 튜닝하는 포크는 둘 다 이 값에 들어감을 알아야
  한다.
 - **자동 승격 레지스트리가 없다.** ActionType(=`promotion_gate` 를 `ActionPromotionRegistry`
- 가 평가)과 달리, 루브릭의 그림자 -> enforce 전환은 수동 `QualityGateConfig.rubric_shadow`
+ 가 평가)과 달리, 루브릭의 그림자 -> 강제 적용 전환은 수동 `QualityGateConfig.rubric_shadow`
  플립이다. 지표 기반 자동 승격/강등은 향후 작업이다.
 - **실모델 계약은 스키마가 아니라 프롬프트로 강제된다.** 테스트는 httpx mock을 쓰고,
  `response_format=json_object` 는 유효 JSON을 보장하지 유효 루브릭 스키마를 보장하지
@@ -217,30 +217,30 @@ HIL로 보낼 수 있지만, ungrounded 액션을 안전하게 만들 수는 없
 
 ## 통합 상태
 
-Upstream 제어 루프는 이제 T1, shadow-only T2 제안자, mixed-model
+업스트림 제어 루프는 이제 T1, shadow-only T2 제안자, mixed-model
 `QualityGate`, 결정론적 룰 검증기, 카탈로그 grounding 을 조립합니다. 조건을 충족한 T2
-후보 는 감사 되지만 실행 가능한 `Action` 으로 변환되지 않습니다. 해당 downstream
+후보 는 감사 되지만 실행 가능한 `Action` 으로 변환되지 않습니다. 해당 다운스트림
 브리지 는 계속 게이트 된 작업입니다. 포크가 `LlmBindings.rubric_evaluator` 를 바인딩하면
 루브릭 leg 가 실행됩니다. 이를 활성화하려면 포크에서 다음을 권장합니다.
 
 1. `QualityGate` 를 조립하고 바인딩된 `RubricEvaluator` 를 전달한다(`t2.rubric.judge`
-  기능에서 해석해 `LlmBindings.rubric_evaluator` 에 바인딩). 판정자의 시스템
-  프롬프트는 `t2-rubric` 카탈로그 시드에서 오며, 이는 `rubric` 역할 레이어로 배포된다 -
-  작성기의 BASE/묶음 조립 경로가 다루지 않는 레이어다(`get_base` 는 `PromptLayer.BASE`
-  만 필터). 그래서 포크가 비평자/Judge 배선이 `t2-critic` / `t2-judge` 를 로드하듯 id/계층으로
-  직접 로드한다. CI 게이트(`services/core-control-plane/tests/rule_catalog/test_prompt_registry_consistency.py`)가 모든
-  프롬프트 `applies_to` 기능이 `llm-registry.yaml` 에 존재함을 단언하므로, 오타난
-  `t2.rubric.judge` 가 프롬프트를 조용히 고아시킬 수 없다.
+ 기능에서 해석해 `LlmBindings.rubric_evaluator` 에 바인딩). 판정자의 시스템
+ 프롬프트는 `t2-rubric` 카탈로그 시드에서 오며, 이는 `rubric` 역할 레이어로 배포된다 -
+ 작성기의 BASE/묶음 조립 경로가 다루지 않는 레이어다(`get_base` 는 `PromptLayer.BASE`
+ 만 필터). 그래서 포크가 비평자/Judge 배선이 `t2-critic` / `t2-judge` 를 로드하듯 id/계층으로
+ 직접 로드한다. CI 게이트(`services/core-control-plane/tests/rule_catalog/test_prompt_registry_consistency.py`)가 모든
+ 프롬프트 `applies_to` 기능이 `llm-registry.yaml` 에 존재함을 단언하므로, 오타난
+ `t2.rubric.judge` 가 프롬프트를 조용히 고아시킬 수 없다.
 2. `QualityCandidate.reasoning_trace` 를 계속 채웁니다. 배포된 로컬/Azure 제안자 는
  이를 채우며, 빈 추적 를 반환하는 포크 제안자 는 채점 대상이 없어 루브릭을
  abstain시킵니다.
 3. `QualityDecision.rubric_*` 필드를 감사 로그에 직렬화해 그림자 모드 catch /
-  false-positive 지표를 실제로 측정할 수 있게 한다. `quality_decision_audit_fields()`
-  헬퍼가 이를 JSON-safe하게 flatten한다; 포크의 제어 루프 감사 쓰기 담당이 그 출력을
-  per-decision 엔트리에 병합한다. 모든 필드는 구조화된 id / 점수 / enum / 리소스
-  참조이며, 예외는 루브릭 `rationale`(신뢰할 수 없는 LLM 자유텍스트)로 기본 제외된다
-  (`include_rationale=True` 로 명시적 선택, 길이 제한, 포크는 저장 전 반드시 secret-scan -
- L0 감사는 시크릿/고객값을 기록하지 않습니다). Upstream 제어 루프는 모든 T2 quality
+ false-positive 지표를 실제로 측정할 수 있게 한다. `quality_decision_audit_fields()`
+ 헬퍼가 이를 JSON-safe하게 flatten한다; 포크의 제어 루프 감사 쓰기 담당이 그 출력을
+ per-decision 엔트리에 병합한다. 모든 필드는 구조화된 id / 점수 / enum / 리소스
+ 참조이며, 예외는 루브릭 `rationale`(신뢰할 수 없는 LLM 자유텍스트)로 기본 제외된다
+ (`include_rationale=True` 로 명시적 선택, 길이 제한, 포크는 저장 전 반드시 secret-scan -
+ L0 감사는 시크릿/고객값을 기록하지 않습니다). 업스트림 제어 루프는 모든 T2 quality
  결정 에 이 헬퍼를 호출합니다.
 
 루브릭 평가기 가 바인딩되지 않으면 런타임 동작을 바꾸지 않습니다. 바인딩되면 그림자

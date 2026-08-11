@@ -5,11 +5,11 @@ translation_source_sha: 0c0a341432af30d261a0b05e5c6be84ee8d7f03b
 translation_revised: 2026-08-11
 ---
 
-# Phase 2 - 지속적 규칙 업데이트, Quality 게이트, T1
+# 단계 2 - 지속적 규칙 업데이트, Quality 게이트, T1
 
 **목표**: 결정론 레이어를 신선하게 유지, LLM(T2) 출력을 신뢰할 만하고 안전하게, T1 경량 티어
-추가, P0 베이스라인 대비 auto-resolution 비율 검증 - 그다음 특정 액션을 그림자에서 enforce로
-승격. 이 phase는
+추가, P0 베이스라인 대비 auto-resolution 비율 검증 - 그다음 특정 액션을 그림자에서 강제 적용으로
+승격. 이 단계는
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 의
 티어/게이트 규칙과 [llm-strategy-ko.md](../architecture/llm-strategy-ko.md) 의 모델-티어 설계 확장.
 커버리지 수치(T1 ~15-20%) 는 보장이 아니라 **검증할 목표**
@@ -60,16 +60,16 @@ translation_revised: 2026-08-11
  `DeterministicEmbeddingModel` + `InMemoryPatternLibrary` 는
  [`t1_lightweight/testing.py`](../../../services/core-control-plane/src/fdai/core/tiers/t1_lightweight/testing.py)
  에 있어 real 임베딩 모델 / pgvector 없이 재현 가능한 유닛 테스트 가능.
-- **그림자 → enforce 승격**, 액션별, 정책 escape 0으로 측정된 메트릭에 게이팅.
+- **그림자 → 강제 적용 승격**, 액션별, 정책 escape 0으로 측정된 메트릭에 게이팅.
  [`services/core-control-plane/src/fdai/core/risk_gate/`](../../../services/core-control-plane/src/fdai/core/risk_gate) 가
  `ActionPromotionRegistry.consider_promotion(metrics)` 를 구현 -
  ActionType 의 `promotion_gate` (min_shadow_days / min_samples / min_accuracy /
  max_policy_escapes) 를 측정된 `PromotionMetrics` 에 대해 평가하고 결정된 모드 를 기록.
  `RiskGate.evaluate` 는 그 레지스트리를 읽기 - shadow-mode ActionType 은 `hil` 반환,
- enforce-mode + clean invariants 면 `auto`, 어떤 invariant miss (blast-radius over 상한,
+ enforce-mode + clean invariants 면 `auto`, 어떤 불변식 miss (blast-radius over 상한,
  stale precondition, irreversible ActionType) 든 모드 에 관계없이 `hil` 강제.
 - **어슈어런스 트윈 (조회 슬라이스)**: 인벤토리로부터 투영된 읽기 전용 온톨로지 트윈으로,
- 계층과 이 phase의 quality 게이트를 거치는 검증된 text-to-query 응답; 근거 댓 수 없는 질문은
+ 계층과 이 단계의 quality 게이트를 거치는 검증된 text-to-query 응답; 근거 댓 수 없는 질문은
  abstain하고 규칙 발견 루프로 투입. 전체 설계는 [assurance-twin-ko.md](../operations/assurance-twin-ko.md);
  주변 리뷰와 그래프 전체 시뮬레이션은 P3에 랜딩.
 
@@ -131,14 +131,14 @@ T2 입력은 **신뢰할 수 없는** ([security-and-identity-ko.md](../architec
  근거는 reuse 후보가 되지 않고 abstain합니다.
 - 목표: 프론티어 왕복 없이 ~15-20% 이벤트 흡수, **측정으로 검증**.
 
-## 승격 (그림자 → enforce)
+## 승격 (그림자 → 강제 적용)
 
-- **액션별** 승격, 명시적·별도 리뷰 - 절대 능력의 첫 PR과 enforce 번들링 안 함.
+- **액션별** 승격, 명시적·별도 리뷰 - 절대 능력의 첫 PR과 강제 적용 번들링 안 함.
 - Auto-resolution 비율(메트릭 2) 과 **가드-메트릭 회귀 없음** 게이트, 같은 고정 시나리오 세트
  버전에서 측정되고 **표본 크기와 신뢰구간** 과 함께 보고
  ([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)); 그림자에서 **정책 위반 escape 0**
  필요.
-- **강등**: 어떤 가드-메트릭 위반 또는 정책 위반 escape는 액션을 enforce에서 그림자로 자동 강등;
+- **강등**: 어떤 가드-메트릭 위반 또는 정책 위반 escape는 액션을 강제 적용에서 그림자로 자동 강등;
  선행 지표(disagreement 비율, 검증기 abstain/fail 비율) 는 후행 가드가 회귀하기 전 조사 트리거.
 
 ## 테스트 가능성

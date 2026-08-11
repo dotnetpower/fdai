@@ -23,20 +23,20 @@ Norns는 결정론적 충족 여부를 적용하고 선택적으로 서로 다�
 
 ```mermaid
 flowchart LR
-  CHAT[완료 turn 저장] --> QUEUE[Bounded non-blocking queue]
-  QUEUE --> BRAGI[Bragi가 object.turn 발행]
-  BRAGI --> NORNS[Norns eligibility 검사]
-  NORNS -->|대상 아님| LEDGER[Durable terminal record]
-  NORNS -->|대상| MODELS[서로 다른 두 model family]
-  MODELS --> VERIFY[완전한 합의와 결정론적 검사]
-  VERIFY -->|보류| LEDGER
-  VERIFY -->|memory| MEMORY[Operator-memory draft]
-  VERIFY -->|skill| SKILL[Runtime-skill draft]
-  VERIFY -->|rule hint| RULE[Norns RuleCandidate 경로]
-  MEMORY --> PANEL[Read-only projection]
-  SKILL --> PANEL
-  RULE --> PANEL
-  LEDGER --> PANEL
+ CHAT[완료 turn 저장] --> QUEUE[Bounded non-blocking queue]
+ QUEUE --> BRAGI[Bragi가 object.turn 발행]
+ BRAGI --> NORNS[Norns eligibility 검사]
+ NORNS -->|대상 아님| LEDGER[Durable terminal record]
+ NORNS -->|대상| MODELS[서로 다른 두 model family]
+ MODELS --> VERIFY[완전한 합의와 결정론적 검사]
+ VERIFY -->|보류| LEDGER
+ VERIFY -->|memory| MEMORY[Operator-memory draft]
+ VERIFY -->|skill| SKILL[Runtime-skill draft]
+ VERIFY -->|rule hint| RULE[Norns RuleCandidate 경로]
+ MEMORY --> PANEL[Read-only projection]
+ SKILL --> PANEL
+ RULE --> PANEL
+ LEDGER --> PANEL
 ```
 
 ## 입력 계약
@@ -48,11 +48,11 @@ flowchart LR
 - 완료 시간과 safe 근거 참조.
 - 각 도구 증적의 도구 이름, 상태, 근거 참조. Raw 도구 출력은 제외합니다.
 - 검증 결과, 명시적 correction, recovered-failure 상태, 선택적 repeated procedure
- fingerprint.
+ 지문.
 - principal이 `share_with_learner: true`로 설정한 경우에만 선택적 운영자 및 assistant 본문.
 - 범위 종류와 범위 참조를 모두 아는 경우에만 선택적 operator-memory 범위.
 
-식별자, 본문 길이, tuple 개수, 시각, 범위 쌍은 생성 시 검증합니다. Raw 자격 증명,
+식별자, 본문 길이, 튜플 개수, 시각, 범위 쌍은 생성 시 검증합니다. Raw 자격 증명,
 hidden reasoning, unrestricted 프로세스 상태, unrestricted 도구 출력은 계약에 포함하지 않습니다.
 
 ## 소유권 및 전송 계층
@@ -80,7 +80,7 @@ logical-to-physical 대응을 사용합니다. Process-local 전송 계층도 Az
 | Complex procedure | Tool-receipt 개수가 구성된 최소에 도달합니다. |
 | 명시적 correction | 범위가 제한된 correction이 하나 이상 있습니다. |
 | Recovered 실패 | Failure-to-success 전이가 기록됩니다. |
-| Repeated procedure | 고정된 fingerprint가 구성된 repetition 임계값에 도달합니다. |
+| Repeated procedure | 고정된 지문이 구성된 repetition 임계값에 도달합니다. |
 
 동의가 없으면 `opted_out`, 주입 표시가 있으면 `unsafe_content`가 됩니다. Qualifying 신호가
 없는 safe 턴은 `ineligible`이 됩니다. 이 결과는 검토자를 호출하지 않고 저장합니다.
@@ -121,7 +121,7 @@ Mimir quality 및 승격 게이트를 통과해야 합니다.
 
 PostgreSQL은 검토 원장, 제안 점유, operator-memory 초안, runtime-skill 초안을 저장합니다.
 고정된 검토 id는 재전달 후 중복 모델 호출을 차단합니다. principal 범위, 제안 종류,
-procedure fingerprint, 근거 다이제스트로 만든 제안 키는 복제본 두 개가 같은 초안을 만드는
+procedure 지문, 근거 다이제스트로 만든 제안 키는 복제본 두 개가 같은 초안을 만드는
 것을 차단합니다.
 
 검토 상태는 `pending`에서 다음 최종 값 중 하나로 이동합니다:

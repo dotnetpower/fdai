@@ -177,7 +177,7 @@ translation_revised: 2026-08-11
  선택합니다. Cosmos DB는 측정된 확장 요구가 생길 때 `StateStore` 프로바이더 뒤에서
  검토하는 대안이며 day-zero 인벤토리에는 포함되지 않습니다.
 
-### OD-3: 멀티 클라우드 이벤트 버스 (Phase 4 - TBD)
+### OD-3: 멀티 클라우드 이벤트 버스 (단계 4 - TBD)
 
 - **컨텍스트**: Azure 이벤트 서비스를 넘는 이식성. 비-Azure 대상은 TBD
  ([구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must));

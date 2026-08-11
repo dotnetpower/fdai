@@ -41,14 +41,14 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
  anomaly를 항상 기록하지만 정규화된 Event가 `incident_correlation=correlate`를 선언하고,
  비어 있지 않은 상관관계 ID와 근거 키를 가지며, 설정된 최소 심각도를 만족할 때만
  인시던트 후보를 전달할 수 있습니다. 하나의 repeated-event burst에 속한 모든 Event는 동일한
- 비어 있지 않은 상관관계 episode에 속해야 하며 독립 episode의 Event는 서로의 임계값을
+ 비어 있지 않은 상관관계 에피소드에 속해야 하며 독립 에피소드의 Event는 서로의 임계값을
  충족하거나 독립적인 누적을 방해하지 않습니다. Burst 심각도는 마지막에 도착한 Event 값이 아니라
  범위가 제한된 구간에 기록된
  값 중 가장 심각한 값입니다. 임계값을 충족한 모든 Event의 고정된 근거 키는 후보와
  결과 인시던트 구성원 집합에 포함됩니다. 인벤토리 및 발견 변경을 포함해
  `incident_correlation=none`인 Event는 인시던트를 열지 않습니다. 자동 생성 최소 기본값은
  `high`이며 분류되지 않은 burst는 `medium` anomaly로 남습니다. Anomaly publish 또는 수명 주기
- 인계가 실패하면 Heimdall은 범위가 제한된 episode 구간을 유지하고 다음 matching Event가 도착할 때만
+ 인계가 실패하면 Heimdall은 범위가 제한된 에피소드 구간을 유지하고 다음 matching Event가 도착할 때만
  재시도하며 unbounded background 재시도 루프를 만들지 않습니다. 인계는 `accepted` 또는 `held`를
  반환하며 Heimdall은 정책 보류를 성공한 인시던트 후보로 계산하지 않습니다.
  열림 인시던트에 더 심각한 recurrence가 들어오면 추가 전용 `incident.severity` 행으로 심각도를
@@ -56,11 +56,11 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
  에스컬레이션은 deduplicated A2 수명 주기 notice를 발행합니다.
  Direct 후보 텍스트와 근거 키는 512자로 제한되고 후보 하나는 근거 키를 최대 100개
  포함하며 oversized 입력은 수명 주기 또는 감사 쓰기 전에 보류됩니다.
-- Heimdall은 retained repeated-event episode를 global 및 리소스별로 제한합니다. 한 리소스의
+- Heimdall은 retained repeated-event 에피소드를 global 및 리소스별로 제한합니다. 한 리소스의
  상관관계 flood는 다른 리소스의 partially accumulated 근거보다 해당 리소스의 가장 오래된
- episode를 먼저 축출합니다.
-- 새 감지기는 **그림자 모드** 로 출시되고 그림자→enforce 규칙에 따라 승격; 정확도와
- false-positive 비율은 Phase 0 베이스라인 대비 측정됨.
+ 에피소드를 먼저 축출합니다.
+- 새 감지기는 **그림자 모드** 로 출시되고 그림자→강제 적용 규칙에 따라 승격; 정확도와
+ false-positive 비율은 단계 0 베이스라인 대비 측정됨.
 
 ### 동결된 구성 기준선 점검
 
@@ -179,17 +179,17 @@ cross-format 동등성이 성립하지 않습니다.
  ship 한다 - cold-start abstain, flat-baseline 안전 처리, deviation
  크기 기반 심각도 - 그리고 각 발견 사항 을 `to_event` 로 그림자 모드의
  `Event(event_type="anomaly.finding")` 로 정규화하며, `detector + 메트릭
- + 구간` 로 keying 해 반복 tick 을 dedup 한다.
+ + 구간` 로 keying 해 반복 틱 을 dedup 한다.
 - **계절성(Seasonality)**: `core/detection/seasonal.py`
  (`SeasonalAnomalyDetector`) 는 주기적 형태를 가진 메트릭 을 처리해,
- 정상적인 phase 별 peak(월요일 아침 트래픽 스파이크, 야간 배치 작업)이
- 24x7 통합 평균 대비 발화하지 않도록 한다. 이력 를 설정된 **phase**
+ 정상적인 단계 별 peak(월요일 아침 트래픽 스파이크, 야간 배치 작업)이
+ 24x7 통합 평균 대비 발화하지 않도록 한다. 이력 를 설정된 **단계**
  (`hour_of_day`, `day_of_week`, `hour_of_week`, 또는 커스텀 함수)로
- 버킷팅하고, 관측 샘플을 *같은* phase 의 과거 샘플하고만 비교한다. base
- detector 를 감싸는 얇은 래퍼 로 - 이력 를 phase 로 필터링하고
+ 버킷팅하고, 관측 샘플을 *같은* 단계 의 과거 샘플하고만 비교한다. base
+ detector 를 감싸는 얇은 래퍼 로 - 이력 를 단계 로 필터링하고
  z-score, cold-start-abstain, flat-baseline, 이벤트 정규화 로직을 위임한다
- - 두 detector 가 어긋날 수 없다. phase 별 cold-start 는 독립적이고(얇은
- 일요일 기준선 이 월요일 데이터를 빌리지 않는다), phase 는 발견 사항 의
+ - 두 detector 가 어긋날 수 없다. 단계 별 cold-start 는 독립적이고(얇은
+ 일요일 기준선 이 월요일 데이터를 빌리지 않는다), 단계 는 발견 사항 의
  `window_bucket` 에 기록되며, 발견 사항 은 여전히 그림자 모드 이벤트다.
 - **다변량 fusion**: `core/detection/composite.py`
  (`CompositeAnomalyDetector`) 은 조직의 on-call 이 손으로 읽는
@@ -227,7 +227,7 @@ cross-format 동등성이 성립하지 않습니다.
 - **변경과 애플리케이션 성능(9)**: 배포 지연 시간, 오류, 처리량, 요청
  오류, tail 지연 시간, 애플리케이션 성능 점수, 의존성 amplification, 추적
  critical 경로, 구간 오류를 평가합니다.
-- **데이터와 능동 검사(9)**: slow 조회, lock wait, 소비자 lag, dead-letter
+- **데이터와 능동 검사(9)**: slow 조회, 잠금 wait, 소비자 lag, dead-letter
  증가, synthetic 가용성과 지연 시간, 로그 양, 새 로그 pattern, rare
  오류를 평가합니다.
 - **SLO, alert 품질, 소유권(8)**: fast/slow burn, 오류 예산, alert storm,
@@ -281,7 +281,7 @@ Proactive 감지: 발생 **전에** 임계 위반을 예측 - AIOps "용량 병�
  rising/falling 위반 변환 결과, 그리고 지평으로 한계 된 긍정 lead
  시간(위반 ETA). 각 예보는 `to_event` 로 그림자 모드의
  `Event(event_type="forecast.finding")` 로 정규화되며, `detector + 메트릭
- + 구간` 로 keying 해 반복 tick 을 dedup 한다; 심각도 는 임박도
+ + 구간` 로 keying 해 반복 틱 을 dedup 한다; 심각도 는 임박도
  (lead / horizon)로 스케일. anomaly 감지기와 `MetricSample` series 타입을
  공유한다 (`core/detection/series.py`).
 - **예측구간 band (false-positive suppression)**:
@@ -313,13 +313,13 @@ horizon, 예상 breach 시간, 지점 추정치, uncertainty 간격, 모드를 �
 확정합니다. Grace 기간은 측정된 인제스트 delay 분포를 기준으로 설정합니다. 라벨은 처리
 시간이 아니라 이벤트 시간을 사용하고 다음 규칙을 따릅니다.
 
-| 관측된 episode | Prediction 라벨 | 처리 |
+| 관측된 에피소드 | Prediction 라벨 | 처리 |
 |----------------|------------------|------|
 | 선언된 breach가 horizon 안에 발생하고 preventive 액션이 대상을 바꾸지 않음 | true 긍정 | 발견 사항부터 breach까지 lead 시간을 측정합니다. |
-| Horizon 안에 선언된 breach가 없고 telemetry가 완전하며 preventive 액션이 실행되지 않음 | false 긍정 | 해당 정확한 horizon의 정밀도에 반영합니다. |
-| 적격한 선행 prediction 없이 선언된 breach가 발생함 | false 부정 | 발행된 예측만이 아니라 실제 breach episode에서 denominator를 만듭니다. |
+| Horizon 안에 선언된 breach가 없고 텔레메트리가 완전하며 preventive 액션이 실행되지 않음 | false 긍정 | 해당 정확한 horizon의 정밀도에 반영합니다. |
+| 적격한 선행 prediction 없이 선언된 breach가 발생함 | false 부정 | 발행된 예측만이 아니라 실제 breach 에피소드에서 denominator를 만듭니다. |
 | Prediction 후 preventive 액션이 실행되고 breach가 발생하지 않음 | intervention-censored | 예측 정밀도에서 제외하고 응답 원장에서 액션을 평가합니다. |
-| Telemetry가 누락되거나 stale이고, 리소스가 삭제되거나 제외된 maintenance 구간이 겹침 | unscorable | 별도로 집계하고 보고하며 true 부정으로 바꾸지 않습니다. |
+| 텔레메트리가 누락되거나 stale이고, 리소스가 삭제되거나 제외된 maintenance 구간이 겹침 | unscorable | 별도로 집계하고 보고하며 true 부정으로 바꾸지 않습니다. |
 
 선언한 horizon 뒤의 breach는 해당 horizon의 true 긍정이 아닙니다. 대신 horizon 선택의
 증거로 사용하며 별도의 더 긴 horizon prediction과 매칭할 수 있습니다. 중복 관측은 안정적인
@@ -327,10 +327,10 @@ prediction 및 인시던트 키로 결합하므로 at-least-once 전달에서도
 
 **두 개의 원장.** Prediction-fidelity 원장은 예측과 결과의 결합을 저장합니다.
 응답 원장은 intervention, precondition, 예상 효과, 관찰된 효과, 검증,
-롤백, SLO 복구, recurrence 구간을 저장합니다. Intervention이 발생한 episode는 untreated
+롤백, SLO 복구, recurrence 구간을 저장합니다. Intervention이 발생한 에피소드는 untreated
 예측 라벨로 사용하지 않습니다. 안전에 중요한 액션에서는 컨트롤 그룹을 만들기 위해 입증된
 대응을 보류하지 않습니다. Counterfactual 근거에는 shadow-only prediction, 자연적으로 untreated인
-episode, 매칭된 historical 집단 또는 검토된 단계적 롤아웃을 사용합니다.
+에피소드, 매칭된 historical 집단 또는 검토된 단계적 롤아웃을 사용합니다.
 
 응답 원장의 첫 런타임 구획은 구현되어 있습니다. 컨트롤 루프는 독립적인 효과
 관측 후 strict `ResponseOutcome` 계약을 발행하며 예상 범위, 관찰된 값, 시간 구간,
@@ -355,11 +355,11 @@ Forseti는 발견 사항을 판단하고 Thor는 액션할 수 있지만 어느 
 없습니다. 이 에이전트들은 타입이 지정된 이벤트를 독립적으로 소비하고 병렬로 실행할 수 있으며 채점 경로에는
 직접 에이전트 호출이 없습니다.
 
-승격에는 사전 등록된 최소 closed/scorable episode 수와 관측 일, 확신도 간격이
+승격에는 사전 등록된 최소 closed/scorable 에피소드 수와 관측 일, 확신도 간격이
 incumbent를 넘는 후보 개선, 가드 메트릭 무회귀, 정책 escape 0건이 필요합니다. Calibration,
 재현율, 간격 커버리지 또는 actionable lead 시간이 저하되면 detector는 자동으로 그림자로
-돌아갑니다. 영속 episode 원장, event-time 결과 결합, intervention censoring,
-transactional 게시 발신함 및 기계적 tick 배선은 구현되어 있습니다. 승격은 계속
+돌아갑니다. 영속 에피소드 원장, event-time 결과 결합, intervention censoring,
+transactional 게시 발신함 및 기계적 틱 배선은 구현되어 있습니다. 승격은 계속
 측정된 배포 근거와 권위 있는 승격 레지스트리에 의존합니다.
 
 ## 4. 근본원인 분석(Root-Cause Analysis)
@@ -389,12 +389,12 @@ RCA를 암묵적 부작용이 아니라 티어의 일급 출력으로 만듦.
  ungrounded 이거나 확신도 미만인 가설 는 HIL 로 abstain) 를
  ship 한다. **T2** reasoner 는 `RcaReasoner` 프로토콜 경계 - 포크 가
  mixed-model, RAG-grounded 생산자 (via `core/quality_gate`) 를 그
- 뒤에 plug 한다. Upstream 은 `core/rca/llm.py` (`LlmRcaReasoner` + the
+ 뒤에 plug 한다. 업스트림 은 `core/rca/llm.py` (`LlmRcaReasoner` + the
  `RcaModel` 경계) 를 ship 하며, 그 결정론적 파서 는 malformed 답변,
  fabricated 인용 (프롬프트 주입), ungrounded 답변을 거부한다 -
  모델은 제안하고, 파서 와 grounding 게이트 가 결정한다. Azure T2
  연결 은 `delivery/azure/llm/rca_model.py` (`AzureOpenAIRcaModel`)
- 로, managed-identity 토큰 으로 Azure OpenAI 를 호출하고 upstream
+ 로, managed-identity 토큰 으로 Azure OpenAI 를 호출하고 업스트림
  파서 가 검증할 raw JSON 을 반환하는 `RcaModel` 어댑터다. 조립
  루트 가 이것을 `resolved-models.json` 의 `t2.rca` 기능 로
  바인드한다 (`bind_azure_llm_bindings`, 비평자 / Judge 바인딩과
@@ -480,15 +480,15 @@ out-of-band 감지 참조) 로 발견 사항을 버스에 publish; 그 발견 �
 
 ```text
 telemetry / metrics
- -> anomaly / forecast detectors emit findings ---.        # sections 2-3
+ -> anomaly / forecast detectors emit findings ---.    # sections 2-3
  raw events -------------------------------------- +-> event-ingest
-                            (normalize + dedup + correlate)  # section 1
- -> trust-router -> T0 | T1 | (T2 -> quality-gate)                    # RCA per tier, section 4
+              (normalize + dedup + correlate) # section 1
+ -> trust-router -> T0 | T1 | (T2 -> quality-gate)          # RCA per tier, section 4
  -> risk-gate -> auto -> executor -> delivery (PR) | HIL | abstain/deny -> audit
 ```
 
 - **발견 사항** 은 `shared/contracts` 의 일급, 버전된 이벤트 타입이며 안정 멱등성
- 키(예: `detector-id + metric + window-bucket`, 또는 인시던트 id) 를 가짐 - 반복 평가 tick이
+ 키(예: `detector-id + metric + window-bucket`, 또는 인시던트 id) 를 가짐 - 반복 평가 틱이
  쌓이지 않고 dedup.
 - 감지기는 설정 주도(베이스라인, 임계, 지평, 상관관계 키, 모델 바인딩이 구성, 하드코딩 아님),
  shadow-before-enforce 준수, 모든 발견 사항과 결정이 감사됨.
@@ -541,13 +541,13 @@ shared trust-router 및 risk-gate 로 다시 진입합니다. Publish 실패 시
 Azure 리소스 생성, 갱신, 삭제 신호는 정본 Event Hubs 유입을 통해 계속
 흐릅니다. Huginn은 이 실시간 발견 유입을 소유하고 정규화된 Event에 리소스 신원,
 변경 종류, 범위가 제한된 속성을 보존합니다. Dedicated projector는 파티션 순서에 따라 리소스,
-링크, tombstone delta를 영속 인벤토리 overlay에 적용합니다. 인벤토리 작업은 별도로 기본 6시간마다
-완전한 ARG/ARM 조정 스냅샷을 promote하고 새 세대에 포함된 overlay 항목을
+링크, tombstone delta를 영속 인벤토리 오버레이에 적용합니다. 인벤토리 작업은 별도로 기본 6시간마다
+완전한 ARG/ARM 조정 스냅샷을 promote하고 새 세대에 포함된 오버레이 항목을
 정리합니다. Heimdall은 stale 스냅샷, 커서 lag, 대체 경로 spike, 커버리지 loss를 감지합니다.
 최신성 조회가 없거나 degraded 또는 stale이면 graph-dependent 액션을 사람 검토로 보냅니다.
 인벤토리 기반 준비 상태 탐색은 발견 성공을 단정하지 않고 해당 최신성 상태를
 보존하며 Heimdall은 관찰기로 유지됩니다. 인벤토리 작업은 10분마다 영속 시도 상태를
-확인하고 due일 때만 정상 6시간 검사를 실행하며, newer 실패한/abandoned 시도는 다음 tick에 재시도합니다.
+확인하고 due일 때만 정상 6시간 검사를 실행하며, newer 실패한/abandoned 시도는 다음 틱에 재시도합니다.
 Core 런타임에는 job-start 권한을 부여하지 않습니다.
 
 ## 열림 Decisions

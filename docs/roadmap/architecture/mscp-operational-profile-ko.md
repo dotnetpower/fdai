@@ -37,7 +37,7 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 | Full conformance | `false` | FDAI는 완전한 MSCP 구현 또는 인증을 주장하지 않음 |
 
 프로파일 id는 구조화된 근거에서 `safety_profile`로 나타날 수 있습니다. FDAI 액션 종류, 이벤트
-토픽, 온톨로지 타입, API 경로, 데이터베이스 표 및 product 라벨은 MSCP 용어가 아니라 운영 domain
+토픽, 온톨로지 타입, API 경로, 데이터베이스 표 및 product 라벨은 MSCP 용어가 아니라 운영 도메인
 vocabulary를 계속 사용합니다.
 
 ## 차용한 메커니즘
@@ -45,9 +45,9 @@ vocabulary를 계속 사용합니다.
 | FDAI 메커니즘 | MSCP 출처 이력 | FDAI adaptation | v1 상태 |
 |---------------|-----------------|-----------------|---------|
 | 프로파일 출처 이력 | Cross-level 프로토콜 versioning | 불변 프로파일 id, 출처 개정 번호 및 non-conformance 선언 | 구현됨 |
-| 효과 검증 | 수준 3 prediction gating | 예상 메트릭 범위를 독립적으로 관찰한 상관관계 및 시간 제한 값과 비교 | 선택적 그림자 런타임 wiring 및 `ResponseOutcome` 변환 결과 구현됨 |
-| Cycle 가드 | 수준 3 meta-escalation, oscillation 및 cognitive 예산 | 호출자가 소유한 cycle, 경과 시간, 비용, 롤백 또는 sign-change 한도에 도달하면 보류 | Pure 정책 구현, 런타임 wiring 연기 |
-| 런타임 무결성 | 수준 3 신원 continuity | 사전 해시된 런타임 컴포넌트의 정본 매니페스트 비교, persona 또는 변경 가능한 신원 모델 없음 | Pure 정책 구현, 런타임 wiring 연기 |
+| 효과 검증 | 수준 3 prediction gating | 예상 메트릭 범위를 독립적으로 관찰한 상관관계 및 시간 제한 값과 비교 | 선택적 그림자 런타임 배선 및 `ResponseOutcome` 변환 결과 구현됨 |
+| Cycle 가드 | 수준 3 meta-escalation, oscillation 및 cognitive 예산 | 호출자가 소유한 cycle, 경과 시간, 비용, 롤백 또는 sign-change 한도에 도달하면 보류 | Pure 정책 구현, 런타임 배선 연기 |
+| 런타임 무결성 | 수준 3 신원 continuity | 사전 해시된 런타임 컴포넌트의 정본 매니페스트 비교, persona 또는 변경 가능한 신원 모델 없음 | Pure 정책 구현, 런타임 배선 연기 |
 | 결정 맥락 | 수준 2 persistent 세계 모델 | 새로운 system of 기록을 만들지 않고 권위 있는 온톨로지, 인시던트, 작업 흐름 및 감사 상태를 변환 결과 | 계획됨 |
 
 MSCP에 게시된 수치 임계값은 프로파일에 복사하지 않습니다. FDAI 호출자는 통제된 구성
@@ -109,7 +109,7 @@ mismatch는 `hold` 또는 `mismatch` 그림자 근거를 생성합니다. 실행
 
 같은 관측은 이제 strict `ResponseOutcome`을 `measurement.action_outcome.v1`로 기록합니다.
 계약은 리소스 참조 대신 대상 다이제스트를 저장하고 누락되거나 stale한 근거를
-`unscorable`로 표시하며 scheduled Dynamic challenger-learning pass가 소비하는 독립 watermark를
+`unscorable`로 표시하며 scheduled Dynamic challenger-learning 통과가 소비하는 독립 watermark를
 제공합니다. 이 추가 기록은 계속 그림자 근거입니다. 효과 모델을 promote하거나 실행
 권한을 변경할 수 없습니다.
 
@@ -117,7 +117,7 @@ mismatch는 `hold` 또는 `mismatch` 그림자 근거를 생성합니다. 실행
 유입으로 다시 publish합니다. 감사 실패는 중계를 중단하므로 unaudited 결과가 learning에
 진입할 수 없습니다. 이후 Huginn과 Muninn이 통제된 operating-pattern 집단 경로에 공급합니다.
 싱크 실패는 로그에 남지만 실행기 결과를 변경할 수 없습니다. 이 중계는 그림자 결과를
-reusable로 만들지 않으며 집단 projector는 검증된 enforce 결과만 긍정 근거로 수락합니다.
+reusable로 만들지 않으며 집단 projector는 검증된 강제 적용 결과만 긍정 근거로 수락합니다.
 
 그림자 관측에서 gating으로 전환하는 작업은 별도의 향후 통제된 변경입니다. Measured
 근거 구간, 롤백 대상 및 프로파일이 기존 권한 결정을 유지하거나 낮출 수만 있다는
@@ -140,7 +140,7 @@ FDAI 권한, MSCP 상한)`을 적용합니다. 변경할 수 없는 결과는 �
 - 로컬 실행은 프로파일 검사를 비활성화하지 않습니다.
 - 운영은 프로파일 결과가 실행 가능함을 의미하지 않습니다.
 - 포크는 프로파일 id를 사용해 자율성을 높이거나 framework 무결성을 우회할 수 없습니다.
-- 그림자 및 enforce는 MSCP 상태가 아니라 ActionType 및 작업 흐름 수명 주기 상태입니다.
+- 그림자 및 강제 적용은 MSCP 상태가 아니라 ActionType 및 작업 흐름 수명 주기 상태입니다.
 
 ## 검증
 
@@ -157,7 +157,7 @@ FDAI 권한, MSCP 상한)`을 적용합니다. 변경할 수 없는 결과는 �
 - 순서와 독립적인 런타임 매니페스트 hashing 및 컴포넌트 표류 reporting
 - non-finite 값, malformed 다이제스트 및 잘못된 한도의 실패 시 차단 검증
 
-v1 프로파일은 선택적 그림자 관측으로만 연결됩니다. Enforce 결정 경로에는 연결되지
+v1 프로파일은 선택적 그림자 관측으로만 연결됩니다. 강제 적용 결정 경로에는 연결되지
 않았습니다. 향후 gating 변경은 어떤 프로파일 결과도 기존 risk 결정을 높이지 않음을
 입증하는 것이 좋습니다.
 
@@ -166,6 +166,6 @@ v1 프로파일은 선택적 그림자 관측으로만 연결됩니다. Enforce 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | Control-loop 및 모듈 경계 | [프로젝트 구조](project-structure-ko.md) |
-| 안전 및 신원 invariant | [보안과 아이덴티티](security-and-identity-ko.md) |
+| 안전 및 신원 불변식 | [보안과 아이덴티티](security-and-identity-ko.md) |
 | 승격 근거 및 가드 메트릭 | [목표와 메트릭](goals-and-metrics-ko.md) |
 | 독립적인 런타임 축 | [ADR-0002](decisions/0002-independent-runtime-axes-ko.md) |

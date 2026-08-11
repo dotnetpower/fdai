@@ -18,7 +18,7 @@ translation_revised: 2026-08-11
 예약 등급으로 그룹합니다. Recurrence 임계값을 충족하고 권한 필드가 동일하며 모든
 결과가 성공하고 같은 키의 스케줄러 이력에 해결되지 않은 실패가 없어야 합니다.
 
-후보는 출처 텍스트 대신 근거 fingerprint를 저장하고 narrow 범위, 예약, 이벤트 타입,
+후보는 출처 텍스트 대신 근거 지문을 저장하고 narrow 범위, 예약, 이벤트 타입,
 전달 의도, 도구, default-deny 격리, estimated 비용, 확신도, 제안자, 만료를 가집니다.
 선택적 off-path drafting은 범위가 제한된 display 텍스트만 변경할 수 있습니다.
 
@@ -28,7 +28,7 @@ translation_revised: 2026-08-11
 격리, 결과, 비용, occurrence 시간, 출처를 기록합니다. `operator_turn` 근거만 개수하고
 `scheduled_run`과 `blueprint_review`는 개수하지 않습니다. Scheduled 실패는 matching 키를 veto합니다.
 
-기본값 임계값은 unique fingerprint 3개입니다. Mixed 범위는 별도 그룹입니다. 후보 ID는
+기본값 임계값은 unique 지문 3개입니다. Mixed 범위는 별도 그룹입니다. 후보 ID는
 dedup 키와 고정된 근거 집합을 연결하므로 순서와 무관하고 거절/만료 후 실제 new 근거가
 생기면 후속 후보를 만들 수 있습니다.
 
@@ -43,20 +43,20 @@ dedup 키와 고정된 근거 집합을 연결하므로 순서와 무관하고 �
 
 ```text
 draft -> accepted -> materialized
- |     |
+ |   |
  +-> rejected
  +-> expired <-+
 ```
 
 검토에는 authorized principal, 사유, 제안자와 다른 검토자가 필요합니다. 거부와 만료는
-최종입니다. Same-evidence 재제출은 최종 기록을 반환하고 새 후보에는 strict fingerprint
+최종입니다. Same-evidence 재제출은 최종 기록을 반환하고 새 후보에는 strict 지문
 superset이 필요합니다.
 
 구체화는 reviewing principal로 `CreateScheduledTaskCommand`를 호출하며 스케줄러 저장소를
 직접 쓰지 않습니다. 고정된 작업 ID가 재시도 멱등성을 제공하고 conflicting 내용은 실패합니다.
 결과 작업은 기존 trust/risk 경로로 shadow-only 이벤트를 보냅니다.
 
-구성 검토 캠페인도 같은 경로를 사용합니다. Exact cited 실행 세 개는 실행별 fingerprint와
+구성 검토 캠페인도 같은 경로를 사용합니다. Exact cited 실행 세 개는 실행별 지문과
 zero 변경 도구를 가진 비활성화된, shadow-only 후보를 제출합니다. 별도 Approver 또는 Owner가
 수용한 뒤에만 reviewing principal이 strict weekly 작업을 materialize할 수 있습니다. 표류 근거는
 스케줄러 저장소를 직접 쓰지 않습니다.
@@ -70,7 +70,7 @@ zero 변경 도구를 가진 비활성화된, shadow-only 후보를 제출합니
 ## 내구성, 만료, and 보존
 
 이행 `20260720_0043`은 active-dedup 부분 unique 인덱스가 있는
-`automation_blueprint_candidate`를 생성합니다. PostgreSQL은 권한 필드, fingerprint, 상태,
+`automation_blueprint_candidate`를 생성합니다. PostgreSQL은 권한 필드, 지문, 상태,
 검토 사유, 작업 ID, realized 사용량 개수를 저장하며 상태 변경은 compare-and-swap입니다.
 
 만료는 상태를 바꾸고 근거를 삭제하지 않습니다. 최종 행은 감사와 suppression을 위해

@@ -23,12 +23,12 @@ translation_revised: 2026-08-11
 ## 한눈에 보는 설계
 
 프로비저닝은 네 가지 선택을 독립된 축으로 취급합니다. 명령은 먼저 근거를 평가하며,
-`dev` 같은 환경 이름 또는 운영자가 wheel을 설치한 머신에서 권한을 추론하지
+`dev` 같은 환경 이름 또는 운영자가 휠을 설치한 머신에서 권한을 추론하지
 않습니다.
 
 | 축 | 지원 값 | 선택 규칙 |
 |----|---------|-----------|
-| Connectivity | `online`, `offline` | 제한된 TLS 검사를 통과한 후에만 online 출처를 사용하고, 그렇지 않으면 signed offline kit를 요구합니다. |
+| Connectivity | `online`, `offline` | 제한된 TLS 검사를 통과한 후에만 online 출처를 사용하고, 그렇지 않으면 signed offline 키트를 요구합니다. |
 | 실행 호스트 | `existing-host`, `managed-vm` | 적합한 private-network 호스트를 재사용하고, 적합한 호스트가 없으면 managed VM을 생성합니다. |
 | 전송 계층 | `manual`, `github-actions` | 사람이 exact-plan 흐름을 직접 시작하거나 GitHub Actions를 통해 같은 흐름을 제출합니다. |
 | 소유권 | `fdai-managed` | 승인 후 Terraform이 선언된 리소스와 역할 배정을 관리합니다. |
@@ -51,8 +51,8 @@ offline-kit 후보, Azure 워크로드 신원 엔드포인트를 검사합니다
 
 | 상태 | 의미 |
 |------|------|
-| `ready` | 기존 호스트에 toolchain, 워크로드 신원, online 접근 또는 검증된 offline kit가 있습니다. |
-| `review` | Managed VM 또는 pinned 검증기가 없는 offline kit에 운영자 검토가 필요합니다. |
+| `ready` | 기존 호스트에 toolchain, 워크로드 신원, online 접근 또는 검증된 offline 키트가 있습니다. |
+| `review` | Managed VM 또는 pinned 검증기가 없는 offline 키트에 운영자 검토가 필요합니다. |
 | `incomplete` | 명시적으로 요청한 프로파일에 필수 의존성 또는 접근 경로가 없습니다. |
 
 파일 존재만으로 trust가 성립하지 않습니다. Composition-injected pinned 검증기가 있으면 점검은
@@ -67,10 +67,10 @@ offline 디렉터리를 `candidate` / `review`로 유지합니다.
 
 ```bash
 fdaictl provision init \
-    --connectivity online \
-    --host existing-host \
-    --transport manual \
-    --access-method internal_ssh
+  --connectivity online \
+  --host existing-host \
+  --transport manual \
+  --access-method internal_ssh
 ```
 
 명령은 모든 `auto` 값을 거부하고 `.fdai/provisioning/profile.json`을 mode-`0700` 디렉터리
@@ -129,7 +129,7 @@ persistent 공개 IP는 허용되지 않습니다. 정리는 연산 성공 기�
 Online 전달은 PyPI의 공개 `fdai` 패키지와 version-matched signed 배포 번들을
 사용합니다. 실행기는 허용 목록 TLS 검사를 통과한 후에만 공개 출처를 사용할 수 있습니다.
 
-release 작업 흐름은 읽기 전용 작업에서 wheel과 출처 분포를 한 번만 빌드하고 Python과
+release 작업 흐름은 읽기 전용 작업에서 휠과 출처 분포를 한 번만 빌드하고 Python과
 번들 버전이 일치하는지 검사합니다. 일치하는 signed 번들을 게시한 후에만 같은 산출물을
 PyPI Trusted 발행으로 게시합니다. Publish 작업만 GitHub OIDC 권한을 받으며 장기
 PyPI 토큰은 저장하지 않습니다.
@@ -140,10 +140,10 @@ PyPI 토큰은 저장하지 않습니다.
 상태가 있는 installation은 fresh 공개 release 상태 또는 명시적 이행을 사용합니다.
 `0.1.0`으로 semantic-version 업그레이드하는 것으로 처리하지 않습니다.
 
-Disconnected 전달은 platform별 offline kit에서 같은 `fdai` wheel과 명령 계약을
-사용합니다. Kit에는 다음 항목이 포함됩니다.
+Disconnected 전달은 platform별 offline 키트에서 같은 `fdai` 휠과 명령 계약을
+사용합니다. 키트에는 다음 항목이 포함됩니다.
 
-- FDAI wheel과 모든 transitive Python wheel.
+- FDAI 휠과 모든 transitive Python 휠.
 - Signed 배포 번들.
 - Pinned Terraform binary와 프로바이더 mirror.
 - OPA와 필요한 보조 로직 binary.
@@ -154,32 +154,32 @@ Offline 모드는 PyPI, GitHub, 공개 Terraform 레지스트리 대체 경로�
 경우 모두 같은 pinned release 루트를 검증합니다.
 
 `verify_offline_kit`은 매니페스트 파싱 전에 Ed25519 서명을 검사하고 exact CLI 및 platform
-버전을 연결하며 symlink와 extra 파일을 거부합니다. 모든 파일 다이제스트를 스트리밍하고 wheel,
+버전을 연결하며 symlink와 extra 파일을 거부합니다. 모든 파일 다이제스트를 스트리밍하고 휠,
 signed 배포 번들, Terraform binary 및 프로바이더 mirror, OPA, SBOM을 요구합니다. release
 루트 주입은 테스트, release construction, pinned 점검 조립에서만 사용합니다.
 산출물 hashing은 no-follow 서술자 열림으로 경로 swap redirect를 막습니다. `fdaictl`은 `--release-root`
-재정의를 제공하지 않습니다. 공개 루트가 wheel에 pin될 때까지 점검은 `review`로
+재정의를 제공하지 않습니다. 공개 루트가 휠에 pin될 때까지 점검은 `review`로
 유지됩니다.
 
-Kit 내용을 **실행**하는 일은 그것을 **보고**하는 일보다 강한 증거를 요구합니다. `provision plan`은
-kit의 Terraform 바이너리를 실행하므로, 운영자가 공급한 release 루트로 kit을 검증하고 검증이 실패하면
+키트 내용을 **실행**하는 일은 그것을 **보고**하는 일보다 강한 증거를 요구합니다. `provision plan`은
+키트의 Terraform 바이너리를 실행하므로, 운영자가 공급한 release 루트로 키트를 검증하고 검증이 실패하면
 계획을 거부합니다. 두 경로 모두 산출물을 디렉터리 관례가 아니라 서명된 매니페스트에서 해석합니다.
 Pinned 루트가 배포되면 `--release-root`는 계획 수립은 수락하고 점검은 여전히 수락하지 않는
 재정의가 됩니다.
 
-`build_offline_kit_manifest`는 그 검증기의 release-side 역방향입니다. Staged kit을 검증기와
+`build_offline_kit_manifest`는 그 검증기의 release-side 역방향입니다. Staged 키트를 검증기와
 동일한 검사로 읽으므로 symlink, 비정규 파일, 한계 초과 트리를 기술하는 대신 거부하며, 파일
 목록을 운영자 입력이 아니라 단계에서 도출합니다. 단계에 없는 산출물 역할은 서명 이전에
 실패하며, 동일한 내용을 두 번 빌드하면 서명 대상 바이트가 정확히 같습니다.
 `scripts/deployment/release/build-offline-kit.py`가 서명을 담당합니다. Operator가 보관한 Ed25519
 비공개 키를 로드하고, 새 매니페스트를 쓰기 전에 오래된 서명을 제거해 중단된 실행이
-그럴듯한 kit이 아니라 검증 불가 kit을 남기게 하며, 보고 전에 공개 release 루트로 재검증합니다.
-비공개 키는 kit, 저장소, 로그 어느 곳에도 들어가지 않습니다.
+그럴듯한 키트가 아니라 검증 불가 키트를 남기게 하며, 보고 전에 공개 release 루트로 재검증합니다.
+비공개 키는 키트, 저장소, 로그 어느 곳에도 들어가지 않습니다.
 
 ### Trust 루트 및 교대
 
 최종 offline 권한은 Python-TUF 7을 통해 The 갱신 Framework (TUF) 1.0을 사용합니다.
-Wheel은 out-of-band trust 초기화로 initial signed `root.json`을 제공합니다. 루트 비공개
+휠은 out-of-band trust 초기화로 initial signed `root.json`을 제공합니다. 루트 비공개
 키는 offline에 보관합니다. CI는 targets, 스냅샷, 시각 메타데이터용 delegated online 키를
 사용할 수 있지만 루트 비공개 키는 받지 않습니다.
 
@@ -208,7 +208,7 @@ one-approver 프로비저닝 정책을 사용합니다. 이 배포 정책은 hig
 
 ```text
 inspect -> profile init -> bootstrap plan -> human approval -> exact apply
-    -> access cleanup -> post-provision verification
+  -> access cleanup -> post-provision verification
 ```
 
 ## 관련 문서

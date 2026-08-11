@@ -7,7 +7,7 @@ translation_revised: 2026-08-11
 
 # 액션 온톨로지
 
-FDAI 의 모든 액션 - 룰이 발화시킨 교정 이든 오퍼레이터가 요청한 ops 작업 든 - 는 shipped 온톨로지의 **`ActionType`** 항목 하나의 instance 이다. 이 문서는 스키마, 트리거 축 (`rule_violation` vs `operator_request`), 계층 및 역할 상한, live-probe 참조, 그리고 `core/` 편집 없이 고객이 재정의 가능하게 하는 **fork-override 경계** 을 권위적으로 정의한다.
+FDAI 의 모든 액션 - 룰이 발화시킨 교정 이든 오퍼레이터가 요청한 ops 작업 든 - 는 shipped 온톨로지의 **`ActionType`** 항목 하나의 인스턴스 이다. 이 문서는 스키마, 트리거 축 (`rule_violation` vs `operator_request`), 계층 및 역할 상한, live-probe 참조, 그리고 `core/` 편집 없이 고객이 재정의 가능하게 하는 **fork-override 경계** 을 권위적으로 정의한다.
 
 이 온톨로지의 소비자:
 
@@ -37,9 +37,9 @@ FDAI 의 모든 액션 - 룰이 발화시킨 교정 이든 오퍼레이터가 �
 ```yaml
 trigger_kind:
  kind: rule_violation | operator_request | both
- # rule_violation  - T0/T1/T2 엔진이 룰 매치 -> 자동 proposal
+ # rule_violation - T0/T1/T2 엔진이 룰 매치 -> 자동 proposal
  # operator_request - 콘솔의 사람 -> 명시적 ops
- # both       - 어느 경로든 사용 가능한 동일 ActionType
+ # both    - 어느 경로든 사용 가능한 동일 ActionType
 ```
 
 - **`rule_violation`** - ControlLoop 이 매치된 룰 + 발견 사항 로부터 액션을
@@ -58,36 +58,36 @@ RiskGate, 감사 계약은 둘 다 동일.
 
 ```yaml
 schema_version: "1.0.0"
-name: string              # 안정된 UNIQUE 식별자, snake+dot: "ops.restart-service"
-                    # 이것이 온토로지 id. audit 는 action_type_id
-                    # 로 참조; 로더가 이것으로 dedupe; override overlay
-                    # 파일은 <name>.yaml (7.1 참조).
-                    # (별도 `id` 필드 없음 - 모든 shipped YAML 에
-                    # `name` 이 이미 있고 마이그레이션-safe 키).
+name: string       # 안정된 UNIQUE 식별자, snake+dot: "ops.restart-service"
+          # 이것이 온토로지 id. audit 는 action_type_id
+          # 로 참조; 로더가 이것으로 dedupe; override overlay
+          # 파일은 <name>.yaml (7.1 참조).
+          # (별도 `id` 필드 없음 - 모든 shipped YAML 에
+          # `name` 이 이미 있고 마이그레이션-safe 키).
 version: semver
-category:                # 최상위 bucket - 리스트가 아니라 단일 값
-                    # remediation | ops | governance | tool 중 하나
-                    #  remediation - 룰 발화, config-drift 스타일
-                    #  ops     - 오퍼레이터 요청 runtime 액션
-                    #  governance - 정책 / 예외 / promotion 변경
-description: string           # <= 200 자, 영어, 마케팅 없음
+category:        # 최상위 bucket - 리스트가 아니라 단일 값
+          # remediation | ops | governance | tool 중 하나
+          # remediation - 룰 발화, config-drift 스타일
+          # ops   - 오퍼레이터 요청 runtime 액션
+          # governance - 정책 / 예외 / promotion 변경
+description: string      # <= 200 자, 영어, 마케팅 없음
 
 # --- Operation + interfaces (기존, 유지 - risk-classification 이 읽음) ---
-operation: enum             # tag | delete | drop | purge | detach | rotate | ...
-                    # risk-classification `destructive` = operation in
-                    # {delete, drop, purge, detach}
-interfaces:               # ActionType 의 capability flag
- - ControlPlane | DataPlaneMutating  # risk-classification `data_plane_touched`
- - RequiresInventoryFresh       # risk-classification `graph_stale` 입력
+operation: enum       # tag | delete | drop | purge | detach | rotate | ...
+          # risk-classification `destructive` = operation in
+          # {delete, drop, purge, detach}
+interfaces:        # ActionType 의 capability flag
+ - ControlPlane | DataPlaneMutating # risk-classification `data_plane_touched`
+ - RequiresInventoryFresh    # risk-classification `graph_stale` 입력
  - IdempotentByKey | GraphTraversalRequired
 
 # --- 트리거 축 (§1) ------------------------------------------------------
-trigger_kind:              # rule_violation | operator_request | both 중 하나
+trigger_kind:       # rule_violation | operator_request | both 중 하나
  kind: enum
  restrict_to_scenarios: [string, ...] # 옵션; 어느 시나리오가 이걸 fire MAY 인지 narrow
 
 # --- Autonomy + safety (기존, phase-1 그대로 유지) -----------------------
-default_mode: shadow          # 신규 ActionType 은 shadow MUST
+default_mode: shadow     # 신규 ActionType 은 shadow MUST
 promotion_gate:
  min_shadow_days: int
  min_samples: int
@@ -96,71 +96,71 @@ promotion_gate:
 
 # --- Execution path (execution-model.md 상세) ----------------------------
 execution_path: pr_native | direct_api | pr_manual | tool_call
-                    # pr_native → shipped GitOpsPrAdapter (기본)
-                    # direct_api → ops-fast-path (Azure ARM call)
-                    # pr_manual → hil label PR, auto-merge 없음
+          # pr_native → shipped GitOpsPrAdapter (기본)
+          # direct_api → ops-fast-path (Azure ARM call)
+          # pr_manual → hil label PR, auto-merge 없음
 
 # --- Rollback contract (기존) --------------------------------------------
 rollback_contract: pr_revert | scripted | pitr | snapshot_restore | state_forward_only
-irreversible: bool            # true 면 tier 무관 HIL 필수
+irreversible: bool      # true 면 tier 무관 HIL 필수
 
 # --- Preconditions + stop conditions (기존) -----------------------------
 preconditions:
  - kind: graph_fresh_within_seconds
-  value: int
+ value: int
  - kind: resource_tag_present
-  tag: string
- - ...                 # 기존 카탈로그 재사용
+ tag: string
+ - ...         # 기존 카탈로그 재사용
 
 stop_conditions:
  - kind: provider_api_error_streak
-  count: int
+ count: int
  - kind: time_box_exceeded_seconds
-  seconds: int
+ seconds: int
  - ...
 
 # --- Blast radius (기존 static) ---------------------------------------
 blast_radius:
  computation: static_enum | graph_derived
  static_bucket: resource | resource_group | subscription
-                    # CSP-neutral bucket, risk-classification.md 와 공유
- max_affected_resources: int      # graph_derived 만
+          # CSP-neutral bucket, risk-classification.md 와 공유
+ max_affected_resources: int   # graph_derived 만
 
 # --- 신규: live-blast probe pointer (TOP-LEVEL; Month 1+; §6 참조) -------
-live_probe_ref: string          # 옵션; 예: "probes/vm_traffic_last_5m"
-                     # RiskGate 가 ActionType.live_probe_ref 로 read
+live_probe_ref: string     # 옵션; 예: "probes/vm_traffic_last_5m"
+           # RiskGate 가 ActionType.live_probe_ref 로 read
 
 # --- 신규: tier × role 상한 (execution-model.md §3) ---------------------
 ceiling_by_tier:
  t0:
-  max_autonomy: enforce_auto | enforce_hil | shadow_only
-  min_role: reader | contributor | approver | owner
+ max_autonomy: enforce_auto | enforce_hil | shadow_only
+ min_role: reader | contributor | approver | owner
  t1:
-  max_autonomy: enforce_auto | enforce_hil | shadow_only
-                     # shipped YAML은 catalog loader가 제한하며
-                     # overlay는 autonomy를 낮출 수만 있음
-  min_role: contributor | approver | owner
+ max_autonomy: enforce_auto | enforce_hil | shadow_only
+           # shipped YAML은 catalog loader가 제한하며
+           # overlay는 autonomy를 낮출 수만 있음
+ min_role: contributor | approver | owner
  t2:
-  max_autonomy: shadow_only      # catalog loader가 shadow-only를 요구하며
-                     # hard-cap 변경은 reviewed policy change가 소유
-  min_role: approver | owner
+ max_autonomy: shadow_only   # catalog loader가 shadow-only를 요구하며
+           # hard-cap 변경은 reviewed policy change가 소유
+ min_role: approver | owner
 # NOTE: min_role 은 통상 ladder reader<contributor<approver<owner 만 사용.
 # BreakGlass 는 OFF-LADDER (Owner 에 nested 안 된 별도 Entra 그룹) 이며 절대
 # min_role 값이 아니고; dispatch 시 승인 자격에만 영향 (execution-model 2.5).
 
 # --- 신규: prod-vs-non-prod downgrade -----------------------------------
-env_scope: prod | non_prod | any    # 기본: any. `non_prod` = dev-only ActionType
-                    # (prod_downgrade 생략 MAY). `any`/`prod` 는
-                    # prod_downgrade 를 carry 하거나 risk-table env
-                    # 신호를 inherit MUST - 누락된 블록이 prod auto 로 fail open 안 함.
+env_scope: prod | non_prod | any  # 기본: any. `non_prod` = dev-only ActionType
+          # (prod_downgrade 생략 MAY). `any`/`prod` 는
+          # prod_downgrade 를 carry 하거나 risk-table env
+          # 신호를 inherit MUST - 누락된 블록이 prod auto 로 fail open 안 함.
 prod_downgrade:
- mode: enforce_hil | shadow_only    # "prod" 가 collapse 되는 값
- detection_ref: string         # risk-classification.md (Environment Detection) 에
-                     # 정의된 동일 env classifier 로 resolve; 여기서
-                     # 두 번째 prod-감지 룰을 정의하지 말 것
+ mode: enforce_hil | shadow_only  # "prod" 가 collapse 되는 값
+ detection_ref: string     # risk-classification.md (Environment Detection) 에
+           # 정의된 동일 env classifier 로 resolve; 여기서
+           # 두 번째 prod-감지 룰을 정의하지 말 것
 
 # --- Arguments (operator_request 또는 both 만) --------------------------
-argument_schema:             # JSON Schema; 콘솔이 렌더 + 검증
+argument_schema:       # JSON Schema; 콘솔이 렌더 + 검증
  type: object
  properties: {...}
  required: [...]
@@ -168,50 +168,50 @@ argument_schema:             # JSON Schema; 콘솔이 렌더 + 검증
 # --- 의미 계획 계약 (레거시 디코딩에서는 선택 사항) --------------------
 semantic:
  target:
-  type_ref:              # 정확한 ObjectType 또는 InterfaceType 선언
-   kind: object | interface
-   name: Workload
-   version: 1.0.0
-   declaration_digest: sha256:<hex>
-  cardinality: one | set
- parameters:              # 각 항목은 inline_schema 또는 schema_ref 사용
-  - name: replicas
-   required: true
-   inline_schema: {type: integer, minimum: 1, maximum: 100}
-   redaction: audit_safe | redact
- read_sets:               # 범위가 제한된 query FunctionType 참조
-  - function_ref: {kind: function, name: query.workloads,
-           version: 1.0.0, declaration_digest: sha256:<hex>}
-   properties: [replicas]
-   max_objects: 100
+ type_ref:       # 정확한 ObjectType 또는 InterfaceType 선언
+  kind: object | interface
+  name: Workload
+  version: 1.0.0
+  declaration_digest: sha256:<hex>
+ cardinality: one | set
+ parameters:       # 각 항목은 inline_schema 또는 schema_ref 사용
+ - name: replicas
+  required: true
+  inline_schema: {type: integer, minimum: 1, maximum: 100}
+  redaction: audit_safe | redact
+ read_sets:        # 범위가 제한된 query FunctionType 참조
+ - function_ref: {kind: function, name: query.workloads,
+      version: 1.0.0, declaration_digest: sha256:<hex>}
+  properties: [replicas]
+  max_objects: 100
  submission_criteria:
-  - criterion_ref: capacity-within-policy
-  - function_ref: {kind: function, name: validate.capacity,
-           version: 1.0.0, declaration_digest: sha256:<hex>}
+ - criterion_ref: capacity-within-policy
+ - function_ref: {kind: function, name: validate.capacity,
+      version: 1.0.0, declaration_digest: sha256:<hex>}
  planner_ref: {kind: function, name: plan.scale,
-        version: 1.0.0, declaration_digest: sha256:<hex>}
+    version: 1.0.0, declaration_digest: sha256:<hex>}
  effects:
-  - effect_id: scale-command
-   kind: provider_command
-   operation_ref: provider.scale
-   rollback_operation_ref: provider.scale.rollback
-   grants_authority: false
+ - effect_id: scale-command
+  kind: provider_command
+  operation_ref: provider.scale
+  rollback_operation_ref: provider.scale.rollback
+  grants_authority: false
  postconditions:
-  - postcondition_id: replicas-converged
-   kind: property
-   observation_ref: property.replicas
-   evidence_required: true
-   grants_authority: false
+ - postcondition_id: replicas-converged
+  kind: property
+  observation_ref: property.replicas
+  evidence_required: true
+  grants_authority: false
  transaction_policy:
-  mode: atomic | saga
-  lock_scope: target | target_set
-  max_affected_objects: 100
+ mode: atomic | saga
+ lock_scope: target | target_set
+ max_affected_objects: 100
 
 # --- Provenance (기존) ---------------------------------------------------
 provenance:
  source_url: string
- resolved_ref: string          # git sha / registry version
- content_hash: string          # sha256
+ resolved_ref: string     # git sha / registry version
+ content_hash: string     # sha256
  license: string
  retrieved_at: RFC3339
 ```
@@ -222,7 +222,7 @@ Pydantic-normalized 선언에서 `provenance`를 제외하고 정본 JSON으로 
 `resolved_ref`는 authored 선언 버전을, `source_url`은 검토 가능한 출처를 식별합니다.
 
 Precondition 매개 변수는 자유 형식 레이블이 아니라 타입이 지정된 참조입니다. 카탈로그 부하 시 `link_exists`와
-`link_absent`의 `link_type`은 upstream 및 포크 LinkType을 합친 레지스트리에서 확인하며 알 수 없는 이름은 시작을 차단합니다.
+`link_absent`의 `link_type`은 업스트림 및 포크 LinkType을 합친 레지스트리에서 확인하며 알 수 없는 이름은 시작을 차단합니다.
 각 종류는 정의된 매개 변수만 사용하며, 필수 매개 변수가 없거나 관련 없는 매개 변수가 있으면 risk 게이트 전에 차단됩니다.
 
 런타임 `Action` 기록은 `threshold`, `window_seconds`, `seconds`, `count`를 포함한 전체 ordered `stop_conditions` 목록을 보존합니다.
@@ -253,7 +253,7 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 - 선언된 읽기 집합마다 내용 기반 주소를 가진 증적 하나가 있어야 하고 제출 criterion마다
  내용 기반 주소를 가진 `CriterionResult` 하나가 있어야 합니다. 컴파일러는 누락, 중복, undeclared,
  불완전한, 잘린, future-observed, stale 또는 다이제스트 mismatch 증적을 차단합니다. Criterion은
- 계획을 제안하기 전에 pass해야 합니다.
+ 계획을 제안하기 전에 통과해야 합니다.
 - Forward 효과는 선언된 `effect_id`와 선택된 대상 id의 정확한 Cartesian 집합과 일치해야 합니다.
  예상 효과는 정확한 `postcondition_id` 집합 및 해당 속성, 관측 또는 함수
  참조와 일치해야 합니다. 프로바이더 명령에는 `command_ref`가 필요하며 forward와 롤백
@@ -261,8 +261,8 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 - Reversible 액션은 모든 forward 효과에 `rollback_operation_ref`를 선언하고 롤백 효과가
  모든 `(effect_id, target_id)` 쌍을 포함해야 합니다. Irreversible 액션은 계획에 표시되며,
  복구 연산이 선언되지 않은 효과에 가짜 롤백을 만들지 않습니다.
-- 계획은 트랜잭션 모드, lock 범위, 정렬된 결정론적 대상 lock 키, 선언된 최대 affected
- 객체 수를 결합합니다. Set-cardinality 대상에는 `target_set` lock이 필요합니다.
+- 계획은 트랜잭션 모드, 잠금 범위, 정렬된 결정론적 대상 잠금 키, 선언된 최대 affected
+ 객체 수를 결합합니다. Set-cardinality 대상에는 `target_set` 잠금이 필요합니다.
 
 컴파일러는 선택된 ObjectType 또는 컴파일된 InterfaceType 대상과 정확한 대상 개정 번호도
 검증합니다. 기존 버전 2 계획을 받으면 제안을 다시 빌드하고 다이제스트와 내용을 비교한 뒤 같은
@@ -315,7 +315,7 @@ decode되지만 의미 compilation은 항상 버전 2를 생성합니다. 컴파
 오퍼레이터 요청 런타임 액션. Day 1 shipping:
 
 - `ops.restart-service` - AKS pod 재시작, App Service 재시작, Container App 개정 번호 재시작.
-- `ops.scale-out` - 복제본 / instance 개수 증가. 지출-증가이므로 `cost_impact_monthly` 를 선언 MUST ->
+- `ops.scale-out` - 복제본 / 인스턴스 개수 증가. 지출-증가이므로 `cost_impact_monthly` 를 선언 MUST ->
  risk-classification 비용 게이트 적용 ([execution-model.md § 2.8](execution-model-ko.md#28-비용-증가-ops-액션)).
 - `ops.scale-in` - 복제본 개수 감소 (Approver + 실제 운영 탐색).
 - `ops.flush-cache` - Redis / CDN 캐시 플러시.
@@ -348,11 +348,11 @@ decode되지만 의미 compilation은 항상 버전 2를 생성합니다. 컴파
 -> 복원력; `ops.scale-in` / `ops.scale-out` -> 비용 거버넌스;
 `ops.drain-connection` / `ops.rotate-cert` -> 변경 안전성.
 `ops.flush-cache` 와 `ops.publish-change-summary` 는 cross-vertical
-(오퍼레이터-트리거). VM 및 network-rule 게이트웨이 연산은 upstream 운영자 액션을 위한 Azure
+(오퍼레이터-트리거). VM 및 network-rule 게이트웨이 연산은 업스트림 운영자 액션을 위한 Azure
 전달 연결이며 버티컬 소유권을 변경하지 않습니다.
 
 기본 `execution_path: direct_api` (ops 는 latency-sensitive; PR overhead
-는 목적을 defeat). 포크 는 모든 런타임 변경 가 reviewable diff 로
+는 목적을 defeat). 포크 는 모든 런타임 변경 가 reviewable 차이 로
 landing 해야 하는 compliance-heavy 환경에서 `pr_manual` 을 강제 MAY.
 
 ### 3.3 `governance.*`
@@ -367,8 +367,8 @@ catalog-as-code 산출물):
  변경하지 않으며 증적은 `promotion_gate`, exact 코드/카탈로그 개정 번호, 시나리오 집합,
  근거 다이제스트 및 Owner HIL로 제한됩니다.
  **디스패처 shipped:** Thor 뒤의 `OperationalPromotionDirectApiExecutor`. 그림자는 변경
- 없이 검증하며 HIL-only 권한 초기화만 enforce 모드를 제공합니다.
-- `governance.retire-rule` - enforce 집합에서 룰 제거 (shadow-only 또는
+ 없이 검증하며 HIL-only 권한 초기화만 강제 적용 모드를 제공합니다.
+- `governance.retire-rule` - 강제 적용 집합에서 룰 제거 (shadow-only 또는
  full retire).
  **디스패처: not yet implemented (P2 적체).**
 - `governance.grant-exemption` - time-boxed 예외 생성
@@ -382,7 +382,7 @@ catalog-as-code 산출물):
  [`services/core-control-plane/src/fdai/core/risk_gate/override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py).
 
 거버넌스 액션은 catalog-as-code 변경이므로 `execution_path: pr_native`를 사용하고 검토된
-diff로 landing해야 합니다. 닫힌 예외는 하나뿐입니다. `governance.promote-action-type`은 Owner
+차이로 landing해야 합니다. 닫힌 예외는 하나뿐입니다. `governance.promote-action-type`은 Owner
 HIL과 exact-receipt 검증 이후 영속 런타임 모드 레지스트리만 변경하기 위해
 `direct_api`를 사용하며 카탈로그 데이터나 managed 기반은 변경하지 않습니다. 다른 거버넌스
 액션은 이 예외를 사용할 수 없습니다.
@@ -405,7 +405,7 @@ HIL과 exact-receipt 검증 이후 영속 런타임 모드 레지스트리만 �
  실행합니다. 작업 는 `gpu`, `network`, 파일 시스템 접근, child-process 생성 같은
  호스트 기능 를 선언합니다. 대상 은 필요한 모든 기능 를 제공해야
  합니다. 액션 은 출처 텍스트 또는 arbitrary 셸 명령 가 아니라 산출물
- 참조 만 받습니다. 그림자 모드 는 계획 을 만들고, enforce 모드 는 Owner HIL
+ 참조 만 받습니다. 그림자 모드 는 계획 을 만들고, 강제 적용 모드 는 Owner HIL
  이후 Azure Managed Run Command 를 사용합니다. 변경할 수 없는 파일 은 설정된 non-root
  계정 가 범위가 제한된 시간 초과 으로 entrypoint 를 실행하기 전에 게스트 에서 SHA-256
  으로 다시 검증됩니다.
@@ -421,7 +421,7 @@ ActionType 과 동일한 7개 안전조건을 carry 하므로, 워크플로 스�
 
 `tool.*` ActionType 은 `ceiling_by_tier` 를 declare SHOULD. reversible,
 resource-scoped, control-plane, low-cost 인 도구 은 risk-classification
-테이블의 `auto-low-risk` 행에 매칭되므로, **상한 이 없으면 enforce 승격 후
+테이블의 `auto-low-risk` 행에 매칭되므로, **상한 이 없으면 강제 적용 승격 후
 `auto` 로 분류될 수 있다** - 멱등적 리포트 렌더엔 괜찮지만 알림/티켓 도구
 엔 잘못된 것이다. 상한 은 테이블과 무관하게 자율성 를 `enforce_hil` 로
 캡한다; shipped `tool.generate-pdf` 는 이 이유로 `t0.max_autonomy: enforce_hil`
@@ -502,9 +502,9 @@ ActionType **실행** 은 의도적으로 `purpose_binding` 을 carry 하지
 
 1. `list_tools()` 에서 기계가 읽는 형태 로 도구 렌더.
 2. 액션 호출 전 조정기 경계에서 arguments validate
-  ([operator-console.md § 5.2](../interfaces/operator-console-runtime-model-ko.md#52-consoletool)).
+ ([operator-console.md § 5.2](../interfaces/operator-console-runtime-model-ko.md#52-consoletool)).
 3. 감사-write 경계에서 민감한 필드 (`x-fdai-redact: true` mark)
-  redact.
+ redact.
 
 ### 5.1 예시 - `ops.restart-service`
 
@@ -514,22 +514,22 @@ argument_schema:
  additionalProperties: false
  required: [target_resource_ref, restart_reason]
  properties:
-  target_resource_ref:
-   type: string
-   description: >-
-    CSP-중립 리소스 id, 예 "example-rg/aks/cluster/pod-name".
-    문법은 csp-neutrality.md (Inventory 계약) 에 정의된 CSP-중립
-    inventory 리소스 id; coordinator 가 dispatch 전 그 문법으로 ref 검증.
-  restart_reason:
-   type: string
-   minLength: 10
-   maxLength: 200
-   description: Human-readable justification; audit trail 에 기록.
-  grace_period_seconds:
-   type: integer
-   default: 30
-   minimum: 0
-   maximum: 300
+ target_resource_ref:
+  type: string
+  description: >-
+  CSP-중립 리소스 id, 예 "example-rg/aks/cluster/pod-name".
+  문법은 csp-neutrality.md (Inventory 계약) 에 정의된 CSP-중립
+  inventory 리소스 id; coordinator 가 dispatch 전 그 문법으로 ref 검증.
+ restart_reason:
+  type: string
+  minLength: 10
+  maxLength: 200
+  description: Human-readable justification; audit trail 에 기록.
+ grace_period_seconds:
+  type: integer
+  default: 30
+  minimum: 0
+  maximum: 300
 ```
 
 ### 5.2 민감정보 제거 힌트
@@ -552,12 +552,12 @@ argument_schema:
 ```yaml
 properties:
  temp_admin_password:
-  type: string
-  x-fdai-redact: true    # verbatim 저장 절대 안 됨
+ type: string
+ x-fdai-redact: true  # verbatim 저장 절대 안 됨
  restart_reason:
-  type: string
-  minLength: 10
-  x-fdai-audit-safe: true  # justification 은 저장 안전
+ type: string
+ minLength: 10
+ x-fdai-audit-safe: true # justification 은 저장 안전
 ```
 
 로더는 모든 `x-fdai-redact` 경로 를 집합 으로 수집해
@@ -585,24 +585,24 @@ live_probe_ref: probes/vm_traffic_last_5m
  [execution-model.md § 4](execution-model-ko.md#4-live-blast-probe)).
 
 탐색 는 ActionType 및 환경 별로 명시적 선택. 포크 가 자체 탐색 를 ship;
-upstream 카탈로그는 small starter 집합 을 ship (VM 트래픽, 저장소
+업스트림 카탈로그는 small starter 집합 을 ship (VM 트래픽, 저장소
 접근 로그, load-balancer 백엔드 상태).
 
 ## 7. 포크 재정의 경계
 
-위의 모든 것은 데이터. 포크 는 `core/` 또는 upstream YAML 을 편집하지
+위의 모든 것은 데이터. 포크 는 `core/` 또는 업스트림 YAML 을 편집하지
 않고 어느 축이든 재정의 MUST 가능해야 함. 온톨로지는 네 재정의 채널을
 노출한다.
 
-### 7.1 파일 기반 overlay
+### 7.1 파일 기반 오버레이
 
-- Upstream 은 `rule-catalog/action-types/<name>.yaml` ship.
+- 업스트림 은 `rule-catalog/action-types/<name>.yaml` ship.
 - 포크 는 `rule-catalog/action-types-overrides/<name>.yaml` 을 재정의
  할 필드 의 strict subset 으로 배치.
-- 로더는 시작 시 upstream + overrides 를 **key-by-key 우선순위**
- 로 병합 (overrides 승리); 누락된 overrides 필드 는 upstream 으로
- 대체 경로. `name` 이 매칭되는 upstream ActionType 이 없는 overlay 는
- fatal 부하 오류 - overlay 계층은 기존 ActionType 을 *tighten* 만
+- 로더는 시작 시 업스트림 + overrides 를 **key-by-key 우선순위**
+ 로 병합 (overrides 승리); 누락된 overrides 필드 는 업스트림 으로
+ 대체 경로. `name` 이 매칭되는 업스트림 ActionType 이 없는 오버레이 는
+ fatal 부하 오류 - 오버레이 계층은 기존 ActionType 을 *tighten* 만
  하며 새로 도입할 수는 없음. **새** ActionType 을 추가하는 포크 는
  `rule-catalog/action-types-custom/` 아래에 ship 하고 그 루트 를
  concat 한다 (7.6 참조).
@@ -616,26 +616,26 @@ upstream 카탈로그는 small starter 집합 을 ship (VM 트래픽, 저장소
 name: remediate.tag-add
 ceiling_by_tier:
  t0:
-  max_autonomy: enforce_hil   # upstream 은 enforce_auto; fork downgrade
+ max_autonomy: enforce_hil  # upstream 은 enforce_auto; fork downgrade
 prod_downgrade:
  mode: shadow_only
 ```
 
-### 7.2 Policy-as-code overlay
+### 7.2 Policy-as-code 오버레이
 
 - `policies/action_types/` 아래 Rego 정책이 per-invocation 재정의 를
  compute MAY, 예: "금요일 오후에 모든 enforce_auto 를 enforce_hil 로
  downgrade" (변경 freeze).
-- RiskGate 는 파일 overlay 후 정책 evaluate - 둘 다 같은 축에 대해
+- RiskGate 는 파일 오버레이 후 정책 evaluate - 둘 다 같은 축에 대해
  something 을 express 하면 Rego 승리.
 
-### 7.3 Config-driven overlay
+### 7.3 Config-driven 오버레이
 
 - Coarse 전환 (feature-flag 스타일) 를 위한 env-var 토글:
  `FDAI_OVERRIDE_ACTION_TYPE_<id>_MAX_AUTONOMY=shadow_only`.
 - **Downgrade-only**: 값은 `shadow_only` 또는 `enforce_hil` MUST, 절대
  `enforce_auto` 아님 - 구성 토글 은 자율성 를 낮추기만 할 수 있고
- 절대 올릴 수 없음 (모든 overlay 와 동일한 never-raise 규칙).
+ 절대 올릴 수 없음 (모든 오버레이 와 동일한 never-raise 규칙).
 - **항상 감사됨**: 구성 재정의 적용은 env-var 이름과 resolved 값을
  담은 감사 항목 (`action_kind=catalog.override.config`) 를 쓰기하므로
  emergency downgrade 가 절대 silent 하지 않음.
@@ -646,26 +646,26 @@ prod_downgrade:
 - 오퍼레이터 콘솔의 Approver / Owner 가 범위가 제한된 범위
  (`resource_group=X, until=YYYY-MM-DDT..Z`) 로
  `governance.override-ceiling` 호출 MAY. 이는 `pr_native` 로 (감사됨)
- `policies/action_types/` 아래 Rego 정책 fragment 를 쓰기.
+ `policies/action_types/` 아래 Rego 정책 조각 를 쓰기.
 - Time-boxed; 자동 만료는 기존 exemption 작업 흐름 와 함께 ship
  ([rule-governance.md](../rules-and-detection/rule-governance-ko.md)).
 
 ### 7.5 우선순위
 
-여러 overlay 가 같은 축에 대해 speak 하면 우선순위는:
+여러 오버레이 가 같은 축에 대해 speak 하면 우선순위는:
 
 1. Config-driven 재정의 (env var, §7.3) - emergency break-glass, 가장
-  specific 하고 가장 urgent; downgrade-only 이고 항상 감사됨.
-2. 런타임 재정의 (Rego fragment, chat-authored, time-boxed) - 가장
-  specific 한 steady-state, 가장 recent.
+ specific 하고 가장 urgent; downgrade-only 이고 항상 감사됨.
+2. 런타임 재정의 (Rego 조각, chat-authored, time-boxed) - 가장
+ specific 한 steady-state, 가장 recent.
 3. Rego 정책 (`policies/action_types/`) - operator-authored steady 상태.
-4. 파일 overlay (`rule-catalog/action-types-overrides/`) - 포크
-  compile-time.
-5. Upstream YAML (`rule-catalog/action-types/`) - 저장소 기본값.
+4. 파일 오버레이 (`rule-catalog/action-types-overrides/`) - 포크
+ compile-time.
+5. 업스트림 YAML (`rule-catalog/action-types/`) - 저장소 기본값.
 
 모든 계층 는 downgrade-only (자율성 절대 안 올림) 이므로 우선순위는
 *어느* downgrade 가 이기는지를 정할 뿐, 자율성 가 올라가는지는 결코
-아님. RiskGate 는 그 순서로 해석 하고 winning overlay 계층 를 감사
+아님. RiskGate 는 그 순서로 해석 하고 winning 오버레이 계층 를 감사
 항목 에 기록.
 
 ### 7.6 새 ActionType 추가 (별도 루트)
@@ -673,76 +673,76 @@ prod_downgrade:
 위 네 채널은 shipped ActionType 을 *수정*만 함. **새** ActionType 추가는
 재정의 가 아니며 7.5 우선순위 체인에 참여하지 않는다. 포크 는 새
 ActionType 을 `rule-catalog/action-types-custom/` 아래에 ship 하고
-(upstream 은 `.yaml.example` 템플릿을 제외하면 이 디렉토리를 비워둠) 두
-번째 카탈로그 루트 로 로드해 upstream 카탈로그 와 concat 한다:
+(업스트림 은 `.yaml.example` 템플릿을 제외하면 이 디렉토리를 비워둠) 두
+번째 카탈로그 루트 로 로드해 업스트림 카탈로그 와 concat 한다:
 
 ```python
 action_types = (
-  load_action_type_catalog(Path("rule-catalog/action-types"), ...)
-  + load_action_type_catalog(Path("fork/action-types-custom"), ...)
+ load_action_type_catalog(Path("rule-catalog/action-types"), ...)
+ + load_action_type_catalog(Path("fork/action-types-custom"), ...)
 )
 ```
 
-두 루트 간 중복 `name` 은 fatal 부하 오류 이므로 추가가 upstream
-ActionType 을 조용히 그림자 할 수 없다 (shadowing 은 7.1 overlay 계층의
+두 루트 간 중복 `name` 은 fatal 부하 오류 이므로 추가가 업스트림
+ActionType 을 조용히 그림자 할 수 없다 (shadowing 은 7.1 오버레이 계층의
 역할). [../../rule-catalog/action-types-custom/README.md](../../../rule-catalog/action-types-custom/README.md)
 참조.
 
 ## 8. 로더 + 검증
 
 - 로더 ([`rule_catalog/schema/action_type.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py))
- 는 시작 시 upstream + overrides + Rego 참조 를 부하.
+ 는 시작 시 업스트림 + overrides + Rego 참조 를 부하.
 - 교차 검증 (기존 shipping):
  - 모든 룰의 `remediates:` 는 로딩된 ActionType 을 pointing.
  - 모든 `check_logic.reference` 는 `policies/` 아래 실제 파일로 해석.
 - 신규 Day-1 교차 검증:
  - `trigger_kind = rule_violation | both` → 적어도 하나의 shipped 룰이
-  참조, 그렇지 않으면 로더는 "dangling remediation-only ActionType"
-  경고 로그 (fatal 아님 - 포크 가 나중에 활성화 MAY).
+ 참조, 그렇지 않으면 로더는 "dangling remediation-only ActionType"
+ 경고 로그 (fatal 아님 - 포크 가 나중에 활성화 MAY).
  - `trigger_kind = operator_request | both` → `argument_schema` 는
-  비어 있지 않은 MUST. 누락된 스키마는 fatal 부하 오류.
+ 비어 있지 않은 MUST. 누락된 스키마는 fatal 부하 오류.
  - `ceiling_by_tier.t2.max_autonomy` 는 카탈로그에서 `shadow_only` MUST
-  (로더 강제, 아니면 fatal). T2 는 상한 모듈 내부에서도
-  shadow-only 로 hard-cap (`_TIER_HARD_CAP`) 되므로 stray YAML 값은 어차피
-  런타임 에 상한 됨; 로드 시 거부 하는 것은 저자 의도를 정직하게 유지.
-  T2 상향은 hard 상한 을 lift 하는 operator-authored **Rego overlay**
-  (`policies/action_types/`) 이지 YAML 상한 이 아님 - 로드 시 Rego
-  텍스트 의 brittle name-scan 을 피함.
+ (로더 강제, 아니면 fatal). T2 는 상한 모듈 내부에서도
+ shadow-only 로 hard-cap (`_TIER_HARD_CAP`) 되므로 stray YAML 값은 어차피
+ 런타임 에 상한 됨; 로드 시 거부 하는 것은 저자 의도를 정직하게 유지.
+ T2 상향은 hard 상한 을 lift 하는 operator-authored **Rego 오버레이**
+ (`policies/action_types/`) 이지 YAML 상한 이 아님 - 로드 시 Rego
+ 텍스트 의 brittle name-scan 을 피함.
  - `live_probe_ref` -> 참조된 탐색 는 `rule-catalog/probes/` 아래 (또는
-  fork-only 경로 아래) 존재 MUST. 누락된 탐색 는 fatal. Upstream 탐색 카탈로그는
-  VM 트래픽, 저장소 접근, load-balancer 상태, blast-radius 서술자를 ship하며
-  `ops.restart-service`와 `ops.scale-in`은 `vm_traffic_last_5m`을 연결합니다.
+ fork-only 경로 아래) 존재 MUST. 누락된 탐색 는 fatal. 업스트림 탐색 카탈로그는
+ VM 트래픽, 저장소 접근, load-balancer 상태, blast-radius 서술자를 ship하며
+ `ops.restart-service`와 `ops.scale-in`은 `vm_traffic_last_5m`을 연결합니다.
  - `x-fdai-redact: true` 로 플래그 된 모든 `argument_schema` 속성 는
-  leaf `string`/`number` MUST; 로더가 민감정보 제거 경로 집합 을 수집해 감사
-  redactor 에 전달해 값이 verbatim landing 안 함 (§5.2). 알 수 없는
-  `x-fdai-*` 확장 키 는 fatal 부하 오류 (오타 가드, 오철자
-  redact 힌트가 시크릿 을 silently leak 못 하게).
+ leaf `string`/`number` MUST; 로더가 민감정보 제거 경로 집합 을 수집해 감사
+ redactor 에 전달해 값이 verbatim landing 안 함 (§5.2). 알 수 없는
+ `x-fdai-*` 확장 키 는 fatal 부하 오류 (오타 가드, 오철자
+ redact 힌트가 시크릿 을 silently leak 못 하게).
 - 카탈로그 엔트리 정책 (fatal, `load_action_type_catalog` 에서만): Day-1
  backfill (§10) 을 위해 JSON 스키마 가 선택적 로 남긴 안전-핵심 필드 는
  실제 카탈로그 엔트리에 존재 MUST. 누락된 필드 는 permissive 기본값 를
  silently 상속하는 게 아니라 fatal 부하 오류:
  - `category`, `trigger_kind`, `execution_path`, `blast_radius` 는
-  선언 MUST.
+ 선언 MUST.
  - `ceiling_by_tier` 는 세 계층 (`t0`, `t1`, `t2`) 모두 선언 MUST.
  - `argument_schema` 는 존재 시 `type: object` 와
-  `additionalProperties: false` 설정 MUST - 콘솔이 명시되지 않은 인자
-  를 절대 전달 못 하도록.
+ `additionalProperties: false` 설정 MUST - 콘솔이 명시되지 않은 인자
+ 를 절대 전달 못 하도록.
  - `operation: drop` 또는 `operation: purge` (둘 다 데이터/스키마 파괴) 는
-  `DataPlaneMutating` 인터페이스 선언 MUST - risk 게이트 가 data-plane HIL
-  게이트 를 적용하도록. 누락 시 risk 분류가 silently 하향됨.
+ `DataPlaneMutating` 인터페이스 선언 MUST - risk 게이트 가 data-plane HIL
+ 게이트 를 적용하도록. 누락 시 risk 분류가 silently 하향됨.
  - 구분자 나 사례 만 다른 두 ActionType 이름 (`ops.restart-service` vs
-  `ops.restart_service`) 은 typo-squatting hazard 로 거부: file-overlay
-  계층 가 exact 이름 으로 매칭하므로 near-miss 가 silently phantom
-  custom ActionType 가 됨.
+ `ops.restart_service`) 은 typo-squatting hazard 로 거부: file-overlay
+ 계층 가 exact 이름 으로 매칭하므로 near-miss 가 silently phantom
+ custom ActionType 가 됨.
  - 모든 `trigger_kind.restrict_to_scenarios` 항목 는 비어 있지 않은 시나리오
-  id MUST.
+ id MUST.
 - Risk-table fail-close (`load_risk_table`): `risk-classification.yaml` 의
  단일 `default` 룰 은 `auto` MUST NOT. 매칭 안 된 이벤트 는 안전성 쪽으로
  fail (`hil` 또는 `deny`) - 이것이 `env_scope: any` ActionType 가 prod
  처리를 표 에 defer 해도 안전한 이유 (§2). `hil-prod` 룰 과 이
  non-auto 기본값 이 함께 prod 이벤트 가 ActionType 의 `prod_downgrade`
  누락 때문에 auto-execute 되는 일을 막음.
- 이 게이트 는 실제 카탈로그 루트 (upstream + `action-types-custom/`) 에서만
+ 이 게이트 는 실제 카탈로그 루트 (업스트림 + `action-types-custom/`) 에서만
  동작; `load_action_type_from_mapping` 은 permissive 하게 유지되어 unit-test
  모델 고정본 는 pydantic-required 필드 만 있으면 됨. `blast_radius` 없이
  RiskGate 에 도달한 ActionType (테스트나 포크 어댑터 의 hand-built 모델
@@ -777,7 +777,7 @@ ActionType 을 조용히 그림자 할 수 없다 (shadowing 은 7.1 overlay 계
 `resolved_ceiling` 블록은 risk-classification 표 + 6 축 가 결정에 도달한
 방식의 readable 증명; 그 정확한 형태 (risk_table 축 와 정족수 포함) 은
 [execution-model.md § 8](execution-model-ko.md#8-resolved_ceiling-audit-블록)
-에서 권위적. 향후 overlay 변경은 전달 시점에 in 효과 였던 상한 이
+에서 권위적. 향후 오버레이 변경은 전달 시점에 in 효과 였던 상한 이
 verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
 
 ## 10. 이행 기록
@@ -787,10 +787,10 @@ verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
 
 1. **스키마 확장** - 로더가 신규 필드를 safe 기본값으로 학습.
 2. **Backfill** - `trigger_kind = rule_violation` 이 모든 기존 항목 에
-  집합; `ceiling_by_tier` 는 pre-existing 암묵적 상한 (`default_mode`,
-  `promotion_gate.max_policy_escapes`) 로부터 populate.
+ 집합; `ceiling_by_tier` 는 pre-existing 암묵적 상한 (`default_mode`,
+ `promotion_gate.max_policy_escapes`) 로부터 populate.
 3. **Ops 카탈로그** - shipped ops.* 집합 (§3.2) 이 `argument_schema`,
-  `direct_api` 경로, appropriate 상한 과 함께 landing.
+ `direct_api` 경로, appropriate 상한 과 함께 landing.
 
 세 단계는 완료되었습니다. 현재 카탈로그 항목은 로더가 검증하며 운영자 제안은
 정상 ControlLoop로 다시 진입합니다.
@@ -798,21 +798,21 @@ verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
 ## 11. Testability
 
 - **스키마** - 매 YAML 로드에서 JSON 스키마 검증 (기존).
-- **Overlay 우선순위** - 모든 축 + 계층 조합에 대한 table-driven 테스트
+- **오버레이 우선순위** - 모든 축 + 계층 조합에 대한 table-driven 테스트
  (§7.5).
 - **인자 스키마** - 속성 테스트: 스키마 밖의 어느 입력이든 전달
  전 거부; redact 된 필드 는 감사 페이로드 에 절대 등장 안 함.
 - **Live-probe 훅** - 가짜 `LiveBlastProbe` 가 `quiet / 활성 /
  overloaded` 각각 반환; 상한 adjustment table-driven.
-- **Rego overlay** - 금요일에 downgrade 하는 정책을 exercise 하는 통합
- 테스트; 시간 고정된; 감사 항목 가 overlay 계층 를 이름 함을 assert.
+- **Rego 오버레이** - 금요일에 downgrade 하는 정책을 exercise 하는 통합
+ 테스트; 시간 고정된; 감사 항목 가 오버레이 계층 를 이름 함을 assert.
 - **교차 검증 로드 오류** - `operator_request` 에 `argument_schema`
  누락한 고정본 ActionType 가 특정 오류 로 로드 실패.
 - **의미 컴파일러** - 집중 테스트가 레거시 ActionType 및 `MutationPlan` decode를 유지하고,
  exact 참조를 수락하며, stale 참조를 차단하고, 정본 및 민감정보가 제거된 인자를 검증하며, 완전한하고
  fresh한 내용 기반 주소를 가진 읽기 및 criterion 증적을 요구합니다. 또한 일대일 효과 및
  postcondition 연결을 강제하고, reversible 및 irreversible 복구 의미 규칙을 보존하며,
- 결정론적 target-set lock과 트랜잭션 한도를 결합하고, `plan` 플래너를 요구하고, 기존
+ 결정론적 target-set 잠금과 트랜잭션 한도를 결합하고, `plan` 플래너를 요구하고, 기존
  계획 다이제스트와 개정 번호를 검증하며, 효과와 postcondition이 권한을 부여할 수 없음을
  입증합니다.
 
@@ -832,4 +832,4 @@ verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
 - [phase-1-rule-catalog-t0.md](../phases/phase-1-rule-catalog-t0-ko.md) -
  원본 ActionType 도입과 룰 → ActionType 전달.
 - [security-and-identity.md](../architecture/security-and-identity-ko.md) - 모든 액션이
- 상속하는 안전성 invariant 와 신원 계약.
+ 상속하는 안전성 불변식 와 신원 계약.

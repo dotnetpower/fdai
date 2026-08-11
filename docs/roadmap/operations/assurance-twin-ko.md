@@ -45,11 +45,11 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 > 의도, Checks API 발행기, discovery-loop 훅, twin 전용 ReadPanel은 아직 연결되지 않았습니다.
 > 아래 주변 검토, action-bridging, self-improving 전달 흐름은 목표 설계입니다. 별도의
 > Security 평가 보고 피드와 Azure analyzer는 현재 reporting subsystem에 구현되어 있습니다.
-> Operational 계획 수립에는 이제 objective별로 검증된 활성 및 challenger 효과 모델을 적용하는
+> Operational 계획 수립에는 이제 목표별로 검증된 활성 및 challenger 효과 모델을 적용하는
 > 읽기 전용 Twin 어댑터가 있습니다. 누락되거나 future-cutoff인 모델은 unscorable이며 divergence는
 > 후보를 검토 대상으로 표시합니다. 어댑터는 근거만 만들고 실행을 선택하지 않습니다.
 > Dynamic V2는 변경할 수 없는 operational 상태 trajectory, 범위가 제한된 typed-path propagation,
-> interaction 용어, 활성 trajectory에서 평가되는 필수 trajectory-wide invariant, 독립적인
+> interaction 용어, 활성 trajectory에서 평가되는 필수 trajectory-wide 불변식, 독립적인
 > 결과 종결, 그래프 런타임 조정기, StateStore trajectory-episode 원장, off-path
 > 종결 실행기 및 영속 활성/challenger graph-model 레지스트리를 추가합니다. 종결 실행기는
 > 완전한 matched 또는 mismatched 독립적인 관측의 challenger 구획만 갱신하고 활성
@@ -75,8 +75,8 @@ retrieval-augmented 챗봇은 다섯 가지 구조적 결함을 안고 리뷰 �
 ### 1. 주변 (reactive에서 proactive로)
 
 트윈은 요청이 아니라 이벤트에서 변경을 리뷰합니다. 변경 신호가 도착하면(IaC pull 요청
-열림, Activity Log 리소스 쓰기, 표류 diff), `event-ingest` 가 정규화하고, 트윈이 scratch
-투영에 diff를 적용하며, T0가 영향받는 규칙을 평가하고, 결과가 리뷰로 되돌아 게시됩니다 -
+열림, Activity Log 리소스 쓰기, 표류 차이), `event-ingest` 가 정규화하고, 트윈이 scratch
+투영에 차이를 적용하며, T0가 영향받는 규칙을 평가하고, 결과가 리뷰로 되돌아 게시됩니다 -
 PR의 Checks API 주석 또는 인시던트의 발견 사항. "요청 시 배포 후 평가" 케이스가 "변경 시,
 요청 없이 평가됨"이 됩니다.
 
@@ -108,14 +108,14 @@ Finding: storage-x violates rule:object-storage.private-endpoint.required
 
 ```mermaid
 flowchart LR
-  Q[NL 질문] --> C["모델: NL을 타입 있는<br/>온톨로지 질의로 컴파일"]
-  C --> V["verifier: 질의가<br/>well-typed하고 읽기 전용인지"]
-  V --> T0Q["T0: 트윈 위에서 질의 실행<br/>(결정론적)"]
-  TWIN[(어슈어런스 트윈<br/>온톨로지 그래프)] --> T0Q
-  T0Q --> R[근거 있는 결과 집합]
-  R --> EXP["모델: 결과 설명<br/>+ 규칙 경로 인용"]
-  EXP --> A["답 + provenance<br/>+ confidence + what-if"]
-  R -->|비어있음 / 낮은 confidence| AB[abstain: '모름']
+ Q[NL 질문] --> C["모델: NL을 타입 있는<br/>온톨로지 질의로 컴파일"]
+ C --> V["verifier: 질의가<br/>well-typed하고 읽기 전용인지"]
+ V --> T0Q["T0: 트윈 위에서 질의 실행<br/>(결정론적)"]
+ TWIN[(어슈어런스 트윈<br/>온톨로지 그래프)] --> T0Q
+ T0Q --> R[근거 있는 결과 집합]
+ R --> EXP["모델: 결과 설명<br/>+ 규칙 경로 인용"]
+ EXP --> A["답 + provenance<br/>+ confidence + what-if"]
+ R -->|비어있음 / 낮은 confidence| AB[abstain: '모름']
 ```
 
 - **컴파일이 검증됨**: 컴파일된 질의는 온톨로지 스키마에 대해 well-typed여야 하고 읽기
@@ -179,7 +179,7 @@ remediation-PR 제안**을 붙일 수 있습니다. 그것에 대해 행동하�
  예측기별 MAE, MAPE, within-tolerance 비율을 누적한다. `is_reliable` 은 이를 실패 시 차단
  승격 신호로 바꾼다: 최소 표본 수 미만이거나 MAPE 기준 초과인 예측기는 신뢰할 수 없으므로,
  호출자는 그것을 그림자 에 유지(또는 강등)한다. 이는 측정되지 않은 what-if 가 oracle 로
- 작동하는 것을 막는다 - 실현되지 않는 시뮬레이션은 enforce 자격을 자동으로 잃는다.
+ 작동하는 것을 막는다 - 실현되지 않는 시뮬레이션은 강제 적용 자격을 자동으로 잃는다.
 - **적응하지만 promotion-gated**: `effect_model.py`는 versioned 활성 모델로 no-op 및 액션
  가지를 평가하고 별도 challenger는 기준 시점 이후의 scorable `ResponseOutcome`에서만 학습합니다.
  Scheduled growth 작업은 optimistic 동시성으로 challenger 개정 번호를 저장하며 활성 키를
@@ -195,7 +195,7 @@ remediation-PR 제안**을 붙일 수 있습니다. 그것에 대해 행동하�
 ### 운영 연결 및 가드
 
 `FDAI_DYNAMIC_CONFIG_JSON`은 배포된 코어 런타임에서 scalar Dynamic을 활성화합니다. Strict
-객체는 ActionType별 메트릭, objective, 효과 delta, uncertainty, divergence 및 최신성 설정,
+객체는 ActionType별 메트릭, 목표, 효과 delta, uncertainty, divergence 및 최신성 설정,
 exact 활성/challenger 모델 기록, causal 증적 다이제스트 허용 목록을 포함합니다. 시작은 부분
 필드, 알 수 없음 필드, 누락된 모델 쌍, 충돌하는 영속 모델 또는 허용 목록에 없는 증적을 가진
 모델을 차단합니다. 이 설정이 없으면 Dynamic은 명시적으로 사용 불가 상태를 유지하고 기존
@@ -204,7 +204,7 @@ exact 활성/challenger 모델 기록, causal 증적 다이제스트 허용 목�
 Azure 어댑터는 promoted 인벤토리 근거의 `operational_context.metric_values`를 읽고 범위가 제한된
 액션 가지 하나를 만듭니다. 활성/challenger 모델은 영속 StateStore 레지스트리에서 가져옵니다.
 구성된 Dynamic 시뮬레이션은 T1 reuse가 안전성 검토에 들어가기 전 lower-only 가드가 됩니다.
-사용 불가 요청, 누락된 모델, divergence, 그래프 검토 사유, invariant 실패 또는 누락된
+사용 불가 요청, 누락된 모델, divergence, 그래프 검토 사유, 불변식 실패 또는 누락된
 Dynamic 감사 근거는 사람 검토로 라우팅됩니다. Prediction은 액션을 승인하거나 자율성
 상한을 높일 수 없습니다.
 
@@ -223,26 +223,26 @@ Graph propagation은 fixed 간선, 깊이, 구획, horizon 한계 아래 선언�
 기준선, 잘림, 낮은 causal grade 또는 활성/challenger divergence는 검토를 요구합니다.
 Challenger prediction은 가지 순위를 정하지 않습니다.
 
-모든 그래프 시뮬레이션 요청은 비어 있지 않고 범위가 제한된인 invariant tuple을 전달합니다. Simulator는
-각 invariant를 활성 trajectory에서 평가하고 정확한 invariant별 결과를 반환합니다. Violation 또는
-unscorable invariant는 고정된 검토 사유를 추가하며 권한을 높일 수 없습니다. 실행 중 관찰된
-invariant violation은 실행 중 계획을 rewrite할 수 없으며 forward 전달을 중지하고 기존 타입이 지정된
+모든 그래프 시뮬레이션 요청은 비어 있지 않고 범위가 제한된인 불변식 튜플을 전달합니다. Simulator는
+각 불변식을 활성 trajectory에서 평가하고 정확한 불변식별 결과를 반환합니다. Violation 또는
+unscorable 불변식은 고정된 검토 사유를 추가하며 권한을 높일 수 없습니다. 실행 중 관찰된
+불변식 violation은 실행 중 계획을 rewrite할 수 없으며 forward 전달을 중지하고 기존 타입이 지정된
 복구 경로에 다시 진입합니다.
 
 Graph 런타임은 시뮬레이션 근거를 반환하기 전에 predicted 다이제스트, exact trajectory 및 challenger
 모델 참조를 StateStore trajectory 원장에 기록합니다. Heimdall의 완전한 독립적인 관측은 `close_trajectory_outcome`을
-통해 episode를 matched 또는 mismatched로 종료합니다. 신원 mismatch, censoring, incompleteness 및
-unscorable 비교는 episode를 열림 상태로 두며 모델을 갱신하지 않습니다. 동일한 종결 재생은
+통해 에피소드를 matched 또는 mismatched로 종료합니다. 신원 mismatch, censoring, incompleteness 및
+unscorable 비교는 에피소드를 열림 상태로 두며 모델을 갱신하지 않습니다. 동일한 종결 재생은
 no-op이고 conflicting 재생은 실패 시 차단됩니다. Off-path 그래프 종결 실행기는 완전한 comparable
 challenger 구획에 대해서만 learning 관측을 만들고 `StateStoreGraphEffectModelRegistry`를 통해
 적용합니다. 활성 그래프 모델은 별도의 검토된 승격 근거가 적용될 때까지 변경할 수 없는 상태를
-유지합니다. Scheduled growth 작업은 telemetry grace 구간 이후 구성된 메트릭 프로바이더를 통해 due 열림
-episode를 관측하는 `MetricGraphTrajectoryOutcomeSource`를 사용합니다. 모든 predicted 구획에 독립적인
-finite 근거가 있을 때만 종결 명령을 생성하며, 그렇지 않으면 값을 날조하지 않고 episode를
+유지합니다. Scheduled growth 작업은 텔레메트리 grace 구간 이후 구성된 메트릭 프로바이더를 통해 due 열림
+에피소드를 관측하는 `MetricGraphTrajectoryOutcomeSource`를 사용합니다. 모든 predicted 구획에 독립적인
+finite 근거가 있을 때만 종결 명령을 생성하며, 그렇지 않으면 값을 날조하지 않고 에피소드를
 열림 상태로 유지합니다.
 
 `GET /dynamic-assurance`는 scalar/그래프 모델 개수, 샘플/오류 요약 및 열림/closed trajectory
-episode를 제공하는 Reader-only 영속 변환 결과입니다. 모델 등록, 승격, 승인 또는 실행
+에피소드를 제공하는 Reader-only 영속 변환 결과입니다. 모델 등록, 승격, 승인 또는 실행
 명령을 노출하지 않습니다.
 
 ## 평가 리포트 (구독 자세, 온디맨드)
@@ -296,8 +296,8 @@ Supplemental 프로바이더는 서버 매개변수, diagnostic-setting 상태, 
 다음을 파생합니다.
 
 - 발견 사항, 룰, 리소스, 리소스 타입, 컨트롤, 근거 개수
-- pass, fail, 경고, not-applicable, 알 수 없음 컨트롤 개수
-- 컨트롤 pass 비율, 근거 커버리지, 출처 커버리지
+- 통과, fail, 경고, not-applicable, 알 수 없음 컨트롤 개수
+- 컨트롤 통과 비율, 근거 커버리지, 출처 커버리지
 - category 및 리소스 타입 분포
 - 긍정 컨트롤과 알 수 없음 컨트롤
 - due 시각과 검증 단계를 포함한 우선순위별 권고
@@ -321,13 +321,13 @@ Supplemental 프로바이더는 서버 매개변수, diagnostic-setting 상태, 
 
 | 컴포넌트 | 책임 |
 |-----------|----------------|
-| `projection` | 변경할 수 없는 in-memory 기준선을 만들고 scratch diff를 적용합니다. 운영 `Inventory.full_snapshot()` + `delta()` 유지는 목표 연결입니다. |
+| `projection` | 변경할 수 없는 in-memory 기준선을 만들고 scratch 차이를 적용합니다. 운영 `Inventory.full_snapshot()` + `delta()` 유지는 목표 연결입니다. |
 | `query` | 결정론적 pattern 컴파일러로 well-typed 읽기 전용 조회를 검증하고 실행합니다. Model-backed 컴파일러는 프로토콜 목표입니다. |
 | `review` | Precomputed 발견 사항을 `IacReviewPublisher`로 게시합니다. Change-signal 평가와 운영 발행기는 목표 연결입니다. |
 | `report` | 발견 사항으로부터 `PostureAssessmentReport` 를 조립 |
 | `chat` | 변경할 수 없는 근거에 기반한 chat-session 값과 영속성 프로토콜을 제공합니다. 브라우저 또는 전달 연결은 없습니다. |
-| `graph_effect` / `graph_runtime` | 범위가 제한된 그래프 효과를 전파하고 필수 active-trajectory invariant를 평가하며 review-only 시뮬레이션 근거를 반환합니다. |
-| `trajectory_ledger` | Predicted trajectory episode를 저장하고 완전한 comparable 결과만 StateStore를 통해 atomically close합니다. |
+| `graph_effect` / `graph_runtime` | 범위가 제한된 그래프 효과를 전파하고 필수 active-trajectory 불변식을 평가하며 review-only 시뮬레이션 근거를 반환합니다. |
+| `trajectory_ledger` | Predicted trajectory 에피소드를 저장하고 완전한 comparable 결과만 StateStore를 통해 atomically close합니다. |
 | `graph_closure` | 독립적인 관측을 off-path로 배출하고 challenger 구획을 갱신하며 활성 변경과 승격이 없었음을 감사합니다. |
 
 목표 전달은 기존 `chatops` 어댑터에 인텐트 하나를 추가하고(질문 입력, 근거 있는 답 출력)
@@ -339,7 +339,7 @@ Supplemental 프로바이더는 서버 매개변수, diagnostic-setting 상태, 
 
 - **읽기 전용 트윈, gated 실행**: 트윈과 모든 답은 읽기 전용입니다; 변경으로의 유일한
  경로는 `risk-gate -> executor` 로 진입하는 제안이며, 7개 안전조건(stop-condition, 롤백,
- blast-radius 제한, 예행 실행, 리소스 lock, 멱등성, 감사 항목)은 거기서 강제됩니다.
+ blast-radius 제한, 예행 실행, 리소스 잠금, 멱등성, 감사 항목)은 거기서 강제됩니다.
 - **실패 시 차단**: 근거 댈 수 없는 답은 abstain하고; 잘못 타입되거나 읽기 전용이 아닌 컴파일된
  질의는 거부되며; stale된 트윈(`Inventory` 최신성이 `freshness_ttl` 초과)은 ghost 데이터로
  답하는 대신 estate 상태 질문에 답하기를 거부합니다, `RequiresInventoryFresh`
@@ -358,7 +358,7 @@ Supplemental 프로바이더는 서버 매개변수, diagnostic-setting 상태, 
 | 페이즈 | 착지하는 것 | 게이트 |
 |-------|------------|------|
 | **P2** ([phase-2-quality-and-t1-ko.md](../phases/phase-2-quality-and-t1-ko.md)) | 인벤토리로부터 트윈 투영; 검증된 text-to-query; quality 게이트를 통한 근거 있는 답; abstain-to-discovery 피드백 | 답은 근거가 있거나 abstain; 시나리오 세트에서 근거 없는 답 0 |
-| **P3** ([phase-3-integrated-loop-ko.md](../phases/phase-3-integrated-loop-ko.md)) | 주변 변경별 리뷰; 변경/DR/FinOps에 대한 그래프 전체 시뮬레이션; 그림자 remediation-PR 제안; `PostureAssessmentReport` 패널 | 각 시뮬레이션 발견 사항은 enforce 전에 shadow-first로 측정 |
+| **P3** ([phase-3-integrated-loop-ko.md](../phases/phase-3-integrated-loop-ko.md)) | 주변 변경별 리뷰; 변경/DR/FinOps에 대한 그래프 전체 시뮬레이션; 그림자 remediation-PR 제안; `PostureAssessmentReport` 패널 | 각 시뮬레이션 발견 사항은 강제 적용 전에 shadow-first로 측정 |
 
 ## 다음 단계
 
