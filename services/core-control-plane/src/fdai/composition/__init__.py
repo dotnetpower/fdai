@@ -1,6 +1,6 @@
 """Composition root for concrete FDAI implementations.
 
-``core/`` receives provider Protocols and never constructs adapters. Entry points call
+``core/`` receives provider Protocol seams and never constructs adapters. Entry points call
 ``default_container`` with explicit validated config or ``default_container_from_env`` at the
 process boundary. A fork wraps these factories instead of editing upstream Core.
 

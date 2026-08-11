@@ -52,7 +52,7 @@ Operator 브리지는 근거가 결합된 결과를 기존 Console `done` 프레
 실행 증적, 근거 식별자를 실어 나릅니다. 범용 보자기는 버전 1.0 소비자와 계속 호환되지만, 의미
 페이로드를 이전 형식으로 변환하지는 않습니다. 그렇게 변환하면 근거 계약이 사라지기 때문입니다.
 발행 측과 결과 수신 측 전송 경로가 모두 연결되면 Operator 발신함 발행기, Core 소비자, 영속
-result 투영, Console `done` 어댑터가 함께 구성됩니다. Operator 쪽 전환은 Terraform이 프로비저닝한
+결과 변환, Console `done` 어댑터가 함께 구성됩니다. Operator 쪽 전환은 Terraform이 프로비저닝한
 `operator.semantic-turn.requests` 및 `core.semantic-turn.projections` 토픽을 사용합니다. 이때 의미를
 이해하는 어댑터 하나가 변환, 제안, 스트림 라우팅을 모두 맡고, 로컬 Azure 서술기는 `chat.stream`에서
 제외됩니다. PostgreSQL 점유는 데이터베이스 시계를 쓰고, 보류된 재시도는 요청과 결과 다이제스트를
@@ -272,107 +272,107 @@ Python 질문 패턴이 아니라 카탈로그나 온톨로지 데이터로 관�
 생성한 최신성 증적을 복원합니다. 브라우저가 제공한 최신성 객체는 서버 근거로서의 권위를 얻지
 못합니다.
 
-### Temporal 및 causal question
+### 시간과 인과에 관한 질문
 
-Current graph만으로는 "무엇이 바뀌었나" 또는 "오늘 왜 중단됐나"에 답할 수 없습니다. 이러한 goal은
-typed history 및 time-series function에 bind합니다. 먼저 symptom change point를 찾고 bounded
-before/after cutoff의 graph를 가져온 뒤 topology diff를 계산합니다. 이어서 영향받은 dependency
-neighborhood의 change를 모으고 complete metric window를 비교합니다. Timeline 순서는 supporting
-evidence이며 causal proof가 아닙니다.
+현재 그래프만으로는 "무엇이 바뀌었나" 또는 "오늘 왜 중단됐나"에 답할 수 없습니다. 이러한 목표는
+타입이 지정된 이력 및 시계열 함수에 연결합니다. 먼저 증상이 바뀐 시점을 찾고, 범위가 제한된
+전후 기준 시점의 그래프를 가져온 뒤 토폴로지 차이를 계산합니다. 이어서 영향받은 의존 관계
+주변의 변경을 모으고 완전한 메트릭 구간을 비교합니다. 타임라인 순서는 보조 근거일 뿐 인과의
+증명이 아닙니다.
 
-Storage write gap 질문에서는 planner가 exact storage object와 요청 window를 anchor로 사용합니다.
-Executor는 historical typed link를 통해 upstream workload, workload가 실행되는 VM, 두 virtual network
-및 제거된 peering을 발견할 수 있습니다. Workload dependency, path-before/path-after, write-attempt,
-write-result 및 telemetry-completeness evidence가 같은 cutoff를 지지할 때만 peering change를 causal
-hypothesis로 ranking할 수 있습니다. 누락된 DNS, route, firewall, credential 또는 application evidence는
-이름이 있는 alternative나 limitation으로 유지합니다.
+스토리지 쓰기가 끊긴 구간을 묻는 질문에서는 플래너가 정확한 스토리지 객체와 요청된 구간을
+기준점으로 삼습니다. 실행기는 과거 시점의 타입이 지정된 링크를 통해 상위 워크로드, 그 워크로드가
+돌아가는 VM, 두 가상 네트워크, 제거된 피어링을 찾아낼 수 있습니다. 워크로드 의존성, 변경 전후
+경로, 쓰기 시도, 쓰기 결과, 텔레메트리 완전성 근거가 모두 같은 기준 시점을 가리킬 때만 피어링
+변경을 인과 가설로 순위에 올릴 수 있습니다. 빠진 DNS, 라우트, 방화벽, 자격 증명, 애플리케이션
+근거는 이름을 밝힌 대안이나 한계로 남깁니다.
 
-현재 instance graph는 current-state projection이므로 historical topology와 cross-resource temporal
-join은 delivery work로 남아 있습니다. Authoritative history binding이 제공되기 전에는 latest graph에서
-과거를 재구성하지 않고 partial evidence 또는 explicit hold를 반환합니다.
+현재 인스턴스 그래프는 현재 상태만 보여주므로, 과거 토폴로지와 리소스 간 시간 결합은 앞으로
+구현할 과제로 남아 있습니다. 권위 있는 이력 연결이 생기기 전까지는 최신 그래프로 과거를
+재구성하지 않고 부분 근거나 명시적인 보류를 돌려줍니다.
 
-## Task DAG 컴파일
+## 작업 DAG 컴파일
 
-Deterministic compiler는 검증된 read goal을 bounded task로 변환합니다. 독립 task는 동시에 실행하고,
-dependent task는 선언된 prerequisite를 기다립니다. 각 task에는 stable identity, capability, validated
-argument, deadline, evidence key, authority, dependency, correlation, UTC lifecycle timestamp가 포함됩니다.
-Browser persistence는 bounded reference만 유지하고 provider body를 제거합니다.
+결정론적 컴파일러는 검증된 읽기 목표를 범위가 제한된 작업으로 바꿉니다. 독립적인 작업은 동시에
+실행하고, 의존성이 있는 작업은 선언된 선행 조건을 기다립니다. 각 작업은 고정된 식별자, 기능,
+검증된 인자, 기한, 근거 키, 권한, 의존성, 상관관계 식별자, UTC 수명 주기 시각을 갖습니다.
+브라우저에 남기는 기록은 제한된 참조만 유지하고 프로바이더 응답 본문은 지웁니다.
 
-복합 subscription diagnosis는 inventory, Resource Health, metric, approved web benchmark read를 fan-out한
-후 시간 정렬과 correlation을 위해 join할 수 있습니다. unavailable branch 하나는 false success나 전체
-investigation failure가 아니라 partial result를 만듭니다. 지원되지 않는 goal은 unavailable reason과 함께
-표시됩니다.
+복합적인 구독 진단은 인벤토리, Resource Health, 메트릭, 승인된 웹 벤치마크 읽기를 동시에 퍼뜨린
+뒤 시간 정렬과 상관관계 분석을 위해 다시 모을 수 있습니다. 한 가지쯤을 쓸 수 없다고 해서 거짓
+성공이나 전체 조사 실패가 되지는 않고 부분 결과가 나옵니다. 지원하지 않는 목표는 사용 불가
+사유와 함께 그대로 드러냅니다.
 
 ## 멀티모달 질문
 
-Image attachment는 bounded validated input으로 유지합니다. Vision-capable model은 text, entity, time
-range, requested comparison을 같은 context envelope로 추출할 수 있습니다. 추출 결과는 evidence
-authority를 만들지 않습니다. Operational claim에는 여전히 screen, tool, agent, document 또는 web
-evidence가 필요하며, 낮은 extraction confidence는 clarification을 요청합니다.
+첨부된 이미지는 범위가 제한된 검증 입력으로 다룹니다. 시각 처리가 가능한 모델은 텍스트, 개체,
+시간 범위, 요청된 비교를 같은 맥락 묶음으로 추출할 수 있습니다. 추출 결과 자체는 근거로서의
+권위를 갖지 못합니다. 운영상의 단정에는 여전히 화면, 도구, 에이전트, 문서, 웹 근거가
+필요하며, 추출 확신도가 낮으면 명확화를 요청합니다.
 
-## Answer 및 action 경계
+## 답변과 액션의 경계
 
-Bragi는 evidence collection과 verification 이후 presentation을 streaming합니다. Answer envelope은
-`screen_grounded`, `operational_grounded`, `web_grounded`, `mixed_grounded`, `model_knowledge`, `partial`,
-`held_for_review` 중 하나의 evidence mode를 사용합니다.
+Bragi는 근거를 모으고 검증한 뒤에 서술을 스트리밍합니다. 답변 묶음은 `screen_grounded`,
+`operational_grounded`, `web_grounded`, `mixed_grounded`, `model_knowledge`, `partial`,
+`held_for_review` 중 하나의 근거 모드를 씁니다.
 
-Recommendation은 executable action이 아닙니다. 명시적인 변경 요청은 기존 안전성과 승인 경로로
-들어가는 typed draft를 만듭니다. Planner는 실행, 승인, promotion, policy 변경을 할 수 없습니다.
-Graph executor는 normal route 밖에서 호출돼도 모든 non-read goal을 거부하며, route는 confirmation data를
-반환하기 직전에 draft availability를 다시 검사합니다.
+권고는 실행 가능한 액션이 아닙니다. 명시적인 변경 요청은 기존 안전성 및 승인 경로로 들어가는
+타입이 지정된 초안을 만듭니다. 플래너는 실행, 승인, 승격, 정책 변경을 할 수 없습니다. 그래프
+실행기는 정상 경로 밖에서 호출되더라도 읽기가 아닌 모든 목표를 거부하며, 경로는 확인
+데이터를 돌려주기 직전에 초안 가용 여부를 다시 검사합니다.
 
-## Migration
+## 이행 계획
 
-1. 모든 active ontology release에서 content-addressed query manifest를 생성하고 projection되지 않은
-    readable declaration이 있으면 coverage gate를 실패시킵니다.
-2. LinkType에 semantic query side를 추가하고 Interface declaration을 load하여 새 implementing type이
-    planner 변경 없이 기존 query에 들어오게 합니다.
-3. 하나의 generic ObjectSet query capability와 bounded topology, history, metric 및 causal function을
-    기존 secured query gateway 뒤에 bind합니다.
-4. 완료된 모든 turn에 active intent graph를 저장하고 replay한 뒤 bilingual scenario에서 selection,
-    authority, clarification, latency 및 answer quality를 비교합니다.
-5. 완전한 inactive semantic generation을 build하고 incremental build에서는 변경되지 않은 declaration
-    및 object digest를 재사용합니다. 독립적으로 검증한 뒤 새 generation을 atomic하게 activate합니다.
-6. Replay가 동등하거나 더 나은 coverage를 입증하면 catalog-token, regex, legacy single-tool 및
-    question-specific route를 제거합니다. Exact object/catalog identifier는 valid direct ref로 남습니다.
+1. 모든 활성 온톨로지 release에서 내용 기반 주소를 가진 조회 매니페스트를 생성하고, 변환되지 않은
+    읽기 가능 선언이 있으면 커버리지 게이트를 실패시킵니다.
+2. LinkType에 의미 조회 방향을 추가하고 Interface 선언을 불러들여, 새로 구현된 타입이 플래너를
+    고치지 않아도 기존 조회에 들어오게 합니다.
+3. 범용 ObjectSet 조회 기능 하나와 범위가 제한된 토폴로지, 이력, 메트릭, 인과 함수를 기존 보안
+    조회 게이트웨이 뒤에 연결합니다.
+4. 완료된 모든 턴에 활성 의도 그래프를 저장하고 재생한 뒤, 한국어와 영어 시나리오에서 선택,
+    권한, 명확화, 지연 시간, 답변 품질을 비교합니다.
+5. 비활성 의미 세대를 통째로 빌드하되 증분 빌드에서는 변경되지 않은 선언과 객체 다이제스트를
+    재사용합니다. 독립적으로 검증한 뒤 새 세대를 원자적으로 활성화합니다.
+6. 재생 결과가 같거나 더 나은 커버리지를 입증하면 카탈로그 토큰, 정규식, 이전 단일 도구,
+    질문별 전용 경로를 제거합니다. 정확한 객체 및 카탈로그 식별자는 유효한 직접 참조로 남습니다.
 
-Compatibility 기간은 일시적입니다. Migration은 하나의 graph contract와 하나의 registry로 끝납니다.
+호환 기간은 일시적입니다. 이행은 그래프 계약 하나와 레지스트리 하나로 끝납니다.
 
-## 현재 gap
+## 현재 미비점
 
-| 영역 | 현재 상태 | Coverage 영향 |
+| 영역 | 현재 상태 | 커버리지 영향 |
 |------|-----------|---------------|
-| Intent graph | Verified plan은 bounded graph와 task evidence를 만들고 Operator는 둘 다 Console-compatible `done` frame에 attach합니다. | 새 authenticated live run이 visible browser path를 검증해야 합니다. |
-| Semantic plan 및 ObjectSet | Exact-release candidate, principal-manifest verification, bounded predicate/traversal, secured receipt 및 generic set/order/project/aggregate handler가 production semantic-turn read surface를 구성합니다. | Temporal/evidence-join extension은 authoritative provider가 bind될 때까지 unavailable로 남습니다. |
-| Interface | Production loading은 모든 current ObjectType에 대해 reviewed `Identifiable` Interface를 검증하고 compile하며 ObjectSet contract에는 interface selector가 있습니다. | 추가 capability Interface와 production polymorphic ObjectSet query binding은 아직 연결되지 않았습니다. |
-| Relationship side | 모든 directed LinkType이 deterministic outgoing/incoming endpoint-side query id를 제공하며 store는 typed direction을 보존합니다. | Generic verifier와 natural-language planner는 아직 이 side를 사용하지 않습니다. |
-| Semantic generation | Rule retrieval은 complete generation과 candidate-only ranking을 제공합니다. | Declaration 및 runtime object coverage는 전체 ontology로 확장되지 않았습니다. |
-| Historical graph | Append-only bitemporal revision contract, tombstone, late-evidence replay, `graph_at`, `topology_diff` 및 typed handler가 있습니다. | PostgreSQL reader/writer composition과 inventory-promotion publishing은 남아 있습니다. |
-| Network 및 causal function | Current peering, private-link target, exact-resource next-hop projection과 metric concept, aligned window 및 topology-aware temporal support/refutation foundation이 있습니다. | Production receipt issuer, provider metric binding 및 남은 Azure workload/service relationship은 incomplete합니다. |
+| 의도 그래프 | 검증된 계획이 범위가 제한된 그래프와 작업 근거를 만들고, Operator가 둘 다 Console 호환 `done` 프레임에 붙입니다. | 인증된 실제 실행으로 브라우저에 보이는 경로를 새로 검증해야 합니다. |
+| 의미 계획과 ObjectSet | 정확한 release에 구속된 후보, principal 매니페스트 검증, 범위가 제한된 조건식과 탐색, 보안된 증적, 범용 집합/정렬/투영/집계 핸들러가 운영 semantic-turn 읽기 표면을 이룹니다. | 시계열 및 근거 결합 확장은 권위 있는 프로바이더가 연결될 때까지 사용할 수 없습니다. |
+| Interface | 운영 로딩이 현재의 모든 ObjectType에 대해 검토된 `Identifiable` Interface를 검증하고 컴파일하며, ObjectSet 계약에 Interface 선택자가 있습니다. | 추가 기능 Interface와 운영용 다형 ObjectSet 조회 연결은 아직 붙지 않았습니다. |
+| 관계 방향 | 방향이 있는 모든 LinkType이 결정론적인 나가는/들어오는 종단점별 조회 식별자를 제공하며, 저장소는 타입이 지정된 방향을 보존합니다. | 범용 검증기와 자연어 플래너는 아직 이 방향을 쓰지 않습니다. |
+| 의미 세대 | 룰 검색은 완전한 세대와 후보 전용 순위를 제공합니다. | 선언과 런타임 객체 커버리지가 아직 온톨로지 전체로 넓어지지 않았습니다. |
+| 과거 그래프 | 추가 전용 양방향 시간 리비전 계약, 툼스톤, 늦게 도착한 근거 재생, `graph_at`, `topology_diff`, 타입이 지정된 핸들러가 있습니다. | PostgreSQL 읽기/쓰기 구성과 인벤토리 승격 발행이 남아 있습니다. |
+| 네트워크 및 인과 함수 | 현재 피어링, 프라이빗 링크 대상, 정확한 리소스의 다음 홉 변환과 메트릭 개념, 정렬된 구간, 토폴로지를 아는 시간적 지지/반증 기반이 있습니다. | 운영 증적 발급기, 프로바이더 메트릭 연결, 남은 Azure 워크로드/서비스 관계가 아직 불완전합니다. |
 
 ## 검증
 
-Release gate는 simple 및 compound English/Korean question, screen reference, general knowledge, MTTR
-benchmark comparison, multi-service diagnosis, text/image/document input, web 및 agent outage, partial
-evidence, invalid graph, stable replay, cancellation, branch isolation을 다룹니다. 안전 목표는 unsupported
-operational claim 0건과 unauthorized execution 0건입니다.
+Release 게이트는 한국어와 영어의 단순 및 복합 질문, 화면 참조, 일반 지식, MTTR 벤치마크 비교,
+다중 서비스 진단, 텍스트/이미지/문서 입력, 웹 및 에이전트 장애, 부분 근거, 잘못된 그래프, 안정적인
+재생, 취소, 가지치기 격리를 모두 다룹니다. 안전 목표는 근거 없는 운영상 단정 0건, 승인되지 않은
+실행 0건입니다.
 
-Structural coverage fixture는 frozen release에서 읽을 수 있는 모든 declaration도 열거합니다. Descriptor
-projection, relationship 양쪽 side, 지원 property operator, interface expansion, function schema binding,
-role filtering, typed unavailable reason 및 question-pattern prerequisite가 없음을 입증합니다. 이 inventory에
-보이지 않는 새 declaration이 있으면 release를 차단합니다.
+구조적 커버리지 픽스처는 고정된 release에서 읽을 수 있는 모든 선언도 열거합니다. 이를 통해 서술자
+변환, 관계의 양쪽 방향, 지원하는 속성 연산자, Interface 확장, 함수 스키마 연결, 역할 필터링, 타입이
+지정된 사용 불가 사유가 갖춰졌고 질문 패턴이라는 전제 조건이 없음을 입증합니다. 이 목록에 잡히지
+않는 새 선언이 있으면 release를 막습니다.
 
-Conversation Assurance는 활성화 전에 같은 frozen cohort에서 intent resolution, completeness, grounding,
-calibration, actionability, locale parity, cost, latency를 측정합니다.
+Conversation Assurance는 활성화 전에 같은 고정 집단에서 의도 해석, 완전성, 근거 충실도, 확신도
+보정, 실행 가능성, 로케일 간 동등성, 비용, 지연 시간을 측정합니다.
 
 ## 관련 문서
 
 | 알아볼 내용 | 문서 |
 |---|---|
-| FDAI Console conversation boundary | [FDAI Console 대화](operator-console-ko.md) |
-| Audit된 gap, sequencing, cutover 및 rollback | [Ontology Query Coverage 구현 계획](ontology-query-coverage-implementation-plan-ko.md) |
-| Rule-specific semantic ranking 및 generation | [Rule 의미 검색](../rules-and-detection/rule-semantic-retrieval-ko.md) |
-| Exact release, ObjectSet 및 typed function | [FDAI Ontology Safety Infrastructure](../architecture/operating-ontology-platform-ko.md) |
-| 완료 answer 평가 | [Conversation Assurance](../decisioning/conversation-assurance-ko.md) |
-| Multimodal evidence custody | [Conversation Attachments](conversation-attachments-ko.md) |
-| Agent 및 control-loop boundary | [Project Structure](../architecture/project-structure-ko.md) |
+| FDAI Console 대화의 경계 | [FDAI Console 대화](operator-console-ko.md) |
+| 감사된 미비점, 순서, 전환, 롤백 | [Ontology Query Coverage 구현 계획](ontology-query-coverage-implementation-plan-ko.md) |
+| 룰에 특화된 의미 순위와 세대 | [Rule 의미 검색](../rules-and-detection/rule-semantic-retrieval-ko.md) |
+| 정확한 release, ObjectSet, 타입이 지정된 함수 | [FDAI Ontology Safety Infrastructure](../architecture/operating-ontology-platform-ko.md) |
+| 완료된 답변 평가 | [Conversation Assurance](../decisioning/conversation-assurance-ko.md) |
+| 멀티모달 근거 보관 | [Conversation Attachments](conversation-attachments-ko.md) |
+| 에이전트와 제어 루프의 경계 | [Project Structure](../architecture/project-structure-ko.md) |

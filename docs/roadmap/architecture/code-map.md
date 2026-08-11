@@ -67,9 +67,10 @@ idempotent result before dead-lettering.
 Azure semantic planning uses existing `httpx` and `WorkloadIdentity` adapters for two validated
 JSON-object proposals. Composition exposes only handlers with bound authoritative providers. The
 public composition facade re-exports the dedicated semantic query binder while remaining below its
-400-line structural ceiling. The ObjectSet handler is rebuilt for each request role, so a Reader
-cannot inherit Owner visibility and
-an Owner is not silently reduced to Reader. Missing model, release, store, or transport prerequisites
+400-line structural ceiling. Its module contract retains the `composition`, `seam`, and `container`
+anchors enforced by the package layout gate. The ObjectSet handler is rebuilt for each request role,
+so a Reader cannot inherit Owner visibility and an Owner is not silently reduced to Reader. Missing
+model, release, store, or transport prerequisites
 remain explicit startup-readiness failures rather than an implicit `runtime=None`.
 Continuous coverage receipts separate deterministic fixture structural validation from production
 readiness. Only externally produced `cross_service_e2e` or `live_assurance` question receipts can

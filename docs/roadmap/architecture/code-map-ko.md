@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: f11d95324ff05e185c9c82ead9f51d672d92b548
+translation_source_sha: eca3cc9043d12ddb02742678a91a727f579e87b9
 translation_revised: 2026-08-11
 ---
 # 코드 맵
@@ -69,7 +69,8 @@ idempotent result를 retry합니다.
 Azure semantic planning은 기존 `httpx` 및 `WorkloadIdentity` adapter를 사용하여 검증된 JSON-object
 proposal 두 개를 만듭니다. Composition은 authoritative provider가 bind된 handler만 노출합니다. Public
 composition facade는 dedicated semantic query binder를 re-export하면서 400-line structural ceiling 아래를
-유지합니다.
+유지합니다. Module contract는 package layout gate가 강제하는 `composition`, `seam` 및 `container`
+anchor를 보존합니다.
 ObjectSet handler는 각 request role에 맞게 다시 만들어지므로 Reader가 Owner visibility를 상속하지 않고
 Owner도 Reader로 조용히 축소되지 않습니다. Model, release, store 또는 transport prerequisite가 없으면
 암시적 `runtime=None` 대신 explicit startup-readiness failure로 유지됩니다.
