@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: f8fa4103b6e4b181eb9165e3af9cb3a04ce5ebe8
-translation_revised: 2026-08-11
+translation_source_sha: 15a06d9d27e2ffbd2c9ea191dd96eec5c331372d
+translation_revised: 2026-08-12
 ---
 # 배포 리소스 규약
 
@@ -101,6 +101,10 @@ Core 및 Operator 서비스 루트는 semantic-turn 요청과 변환 결과 토�
 `FDAI_SEMANTIC_TURN_PROJECTION_TOPIC`으로 전달하며, 애플리케이션 코드는 이 서비스 간 채널을
 파생하거나 이름을 바꾸거나 다른 채널로 대체하지 않습니다. 각 Container App은 각 이름을 한 번만
 받으므로 이전 방식 리터럴이 Terraform-selected 토픽을 가릴 수 없습니다.
+루트 변수와 하위 서비스 모듈은 동일한 optional `semantic_requests` 및
+`semantic_projections` 필드를 선언합니다. 상태 이행 또는 보호된 플랜 전에 두 독립 루트 모두
+`terraform validate`를 통과해야 합니다. 루트에만 있고 하위 모듈에서 빠진 필드는 선택적인 런타임
+성능 저하가 아니라 배포 계약 실패입니다.
 
 ## 리소스 태깅 규약(Resource Tagging Convention)
 

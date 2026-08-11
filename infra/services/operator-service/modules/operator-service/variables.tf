@@ -2,7 +2,13 @@ variable "name" { type = string }
 variable "platform" { type = object({ resource_group_name = string, container_app_environment_id = string, acr_login_server = string, kafka_bootstrap_servers = string }) }
 variable "image" { type = string }
 variable "identity" { type = object({ runtime_resource_id = string, runtime_client_id = string, command_resource_id = string, command_client_id = string }) }
-variable "event_topics" { type = object({ events = string }) }
+variable "event_topics" {
+  type = object({
+    events               = string
+    semantic_requests    = optional(string, "")
+    semantic_projections = optional(string, "")
+  })
+}
 variable "database" {
   type      = object({ dsn_secret_id = string, role = string })
   sensitive = true

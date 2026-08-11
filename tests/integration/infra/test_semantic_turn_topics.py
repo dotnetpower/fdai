@@ -36,6 +36,16 @@ def test_core_and_operator_service_roots_export_exact_semantic_env_vars() -> Non
         assert "var.event_topics.semantic_projections" in text
 
 
+def test_independent_service_child_modules_type_semantic_topic_inputs() -> None:
+    for relative in (
+        "infra/services/core-control-plane/modules/core-control-plane/variables.tf",
+        "infra/services/operator-service/modules/operator-service/variables.tf",
+    ):
+        text = (_ROOT / relative).read_text(encoding="utf-8")
+        assert 'semantic_requests    = optional(string, "")' in text
+        assert 'semantic_projections = optional(string, "")' in text
+
+
 def test_legacy_container_modules_export_exact_semantic_env_vars() -> None:
     modules = (
         _ROOT / "infra/modules/compute/container-apps/main.tf",

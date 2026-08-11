@@ -99,6 +99,10 @@ as environment-scoped Terraform inputs. Terraform passes the reviewed names thro
 `FDAI_SEMANTIC_TURN_REQUEST_TOPIC` and `FDAI_SEMANTIC_TURN_PROJECTION_TOPIC`; application code does
 not derive, rename, or substitute these cross-service channels. Each Container App receives each
 name once, so a legacy literal cannot shadow the Terraform-selected topic.
+The root variable and its child service module declare the same optional `semantic_requests` and
+`semantic_projections` fields. Both independent roots must pass `terraform validate` before state
+migration or a protected plan; a root-only field that the child module drops is a deployment
+contract failure, not an optional runtime degradation.
 
 ## Resource Tagging Convention
 
