@@ -59,6 +59,8 @@ EXPECTED_DEPENDENCIES = {
         "sqlalchemy",
     },
     "operator-service": {
+        "aiokafka",
+        "azure-identity",
         "fdai-service-contracts",
         "httpx",
         "psycopg",
