@@ -43,6 +43,16 @@ temporary `legacy` mode. An async semantic runtime executes verified ordinary-la
 emits bounded graph and evidence projections. Production model, provider, descriptor-index, and
 Operator stream composition remain.
 
+The cross-service cutover starts with additive `operator-core-request` and
+`core-operator-projection` version 1.2 envelopes. A semantic request carries the authenticated
+principal roles, bounded session and prior-turn context, purpose, deadline, idempotency identity,
+and `execution_authority: false`. A terminal semantic result carries one typed disposition plus
+exact release, principal-manifest, plan, execution-receipt, and evidence identities when the turn
+is answered. The generic envelope remains compatible with version 1.0 consumers, but a semantic
+payload is never translated into the older shape because that would discard its evidence contract.
+Until the Operator outbox publisher, Core consumer, and durable result projection are composed,
+version 1.2 is a transport contract only and does not change the visible answer path.
+
 Exact-release semantic candidates, verified semantic plans, bounded ObjectSets, secured query
 receipts, typed function registration, `OntologyQueryPlan`, a deterministic verifier, and bounded
 dependency-wave execution exist as ontology-platform foundations. Built-in nodes cover ObjectSets,

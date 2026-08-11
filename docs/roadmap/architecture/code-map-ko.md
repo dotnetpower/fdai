@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 21d7d44e0c2096dc63f0d02b21854aaf90bf5b53
-translation_revised: 2026-08-10
+translation_source_sha: fbec5ec4453ee99f139e162fee6a581b8352a2b9
+translation_revised: 2026-08-11
 ---
 # 코드 맵
 
@@ -86,6 +86,12 @@ database access 또는 business workflow는 포함하지 않습니다.
 Shared SDK는 Core/Operator boundary에서 사용하는 no-authority ontology-query record도 소유합니다.
 Semantic problem frame, bounded query DAG, intent graph, task receipt 및 structural coverage receipt입니다.
 Provider client, ontology store, planner model 또는 execution handler는 포함하지 않습니다.
+
+기존 Operator/Core envelope의 version 1.2는 bounded semantic-turn request 하나와 evidence-bound terminal
+result 하나를 추가합니다. Request는 인증된 role, session ordering, purpose, deadline 및 idempotency를
+pin합니다. Answered result에는 exact release, manifest, plan, execution receipt 및 evidence reference가
+필요합니다. SDK는 해당 field를 drop하는 대신 semantic downgrade to N-1을 거부합니다. Runtime
+publication과 consumption은 service-owned implementation으로 유지됩니다.
 
 Service distribution 5개는 deployable `0.1.2` image를 N-1, `0.1.3`을 N으로 사용합니다. 기존 contract-set
 `1.0.0`/`1.1.0` matrix는 cross-process compatibility boundary로 유지합니다.

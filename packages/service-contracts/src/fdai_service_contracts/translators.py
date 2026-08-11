@@ -25,6 +25,14 @@ def operator_core_request_1_1_to_1_0(payload: Mapping[str, Any]) -> dict[str, An
     )
 
 
+def operator_core_request_1_2_to_1_0(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Project a non-semantic 1.2 request for an older Core consumer."""
+
+    if payload.get("request_kind") == "semantic_query" or "semantic_turn" in payload:
+        raise CompatibilityError("semantic query requests cannot be downgraded to version 1.0.0")
+    return operator_core_request_1_1_to_1_0(payload)
+
+
 def core_operator_projection_1_1_to_1_0(payload: Mapping[str, Any]) -> dict[str, Any]:
     """Drop the optional 1.1 evidence digest for an Operator 1.0 consumer."""
 
@@ -41,6 +49,14 @@ def core_operator_projection_1_1_to_1_0(payload: Mapping[str, Any]) -> dict[str,
             "payload",
         ),
     )
+
+
+def core_operator_projection_1_2_to_1_0(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Project a non-semantic 1.2 projection for an older Operator consumer."""
+
+    if "semantic_result" in payload:
+        raise CompatibilityError("semantic results cannot be downgraded to version 1.0.0")
+    return core_operator_projection_1_1_to_1_0(payload)
 
 
 def document_ingestion_activity_1_1_to_1_0(
@@ -75,6 +91,8 @@ def _project(payload: Mapping[str, Any], fields: tuple[str, ...]) -> dict[str, A
 
 __all__ = [
     "core_operator_projection_1_1_to_1_0",
+    "core_operator_projection_1_2_to_1_0",
     "document_ingestion_activity_1_1_to_1_0",
     "operator_core_request_1_1_to_1_0",
+    "operator_core_request_1_2_to_1_0",
 ]

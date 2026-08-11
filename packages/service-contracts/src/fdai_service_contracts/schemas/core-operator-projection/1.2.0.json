@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/core-operator-projection/1.2.0",
+  "title": "CoreOperatorProjectionEnvelope",
+  "description": "Transport-facing bounded projection metadata with an optional verified semantic result. It carries no Core implementation object or authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "projection_id",
+    "request_id",
+    "correlation_id",
+    "idempotency_key",
+    "status",
+    "recorded_at",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^1\\.\\d+\\.\\d+$"},
+    "projection_id": {"type": "string", "format": "uuid"},
+    "request_id": {"type": "string", "format": "uuid"},
+    "correlation_id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 512},
+    "status": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "available",
+        "unavailable",
+        "answered",
+        "held",
+        "clarification",
+        "unsupported",
+        "action_draft",
+        "cancelled"
+      ]
+    },
+    "recorded_at": {"type": "string", "format": "date-time"},
+    "payload": {"type": "object", "additionalProperties": true},
+    "evidence_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "semantic_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "disposition",
+        "reason_code",
+        "session_id",
+        "turn_id",
+        "turn_sequence",
+        "evidence_refs",
+        "checks_completed",
+        "checks_total",
+        "execution_authority"
+      ],
+      "properties": {
+        "disposition": {
+          "type": "string",
+          "enum": ["answered", "held", "clarification", "unsupported", "action_draft", "cancelled"]
+        },
+        "reason_code": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-z0-9_]+$"},
+        "session_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "turn_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "turn_sequence": {"type": "integer", "minimum": 0},
+        "ontology_release_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "principal_manifest_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "plan_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "execution_receipt_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "intent_graph": {"type": "object", "additionalProperties": true},
+        "intent_graph_evidence": {"type": "object", "additionalProperties": true},
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 512}
+        },
+        "checks_completed": {"type": "integer", "minimum": 0, "maximum": 64},
+        "checks_total": {"type": "integer", "minimum": 0, "maximum": 64},
+        "answer": {"type": "string", "minLength": 1, "maxLength": 64000},
+        "execution_authority": {"const": false}
+      }
+    }
+  }
+}

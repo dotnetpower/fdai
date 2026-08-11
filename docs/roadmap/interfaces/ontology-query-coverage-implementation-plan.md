@@ -24,6 +24,13 @@ units for 100% structural query coverage.
 > the semantic runtime. See
 > [Ontology Query Randomized Assurance](ontology-query-randomized-assurance.md).
 >
+> **Cross-service contract status (2026-08-11):** Additive version 1.2 request and projection
+> envelopes now define the bounded semantic turn, authenticated principal roles, deadline,
+> idempotency identity, terminal disposition, and exact evidence digests. They do not activate
+> production routing by themselves. Semantic payloads fail closed instead of being translated to
+> the N-1 shape. Operator outbox publication, Core consumption, durable projection, and receipt-backed
+> integration evidence remain the cutover gate.
+>
 > **Implementation status (2026-08-10):** Exact ontology releases, semantic candidates, bounded
 > ObjectSets, secured query receipts, typed function registration, current inventory projection,
 > metric providers, and causal-analysis primitives exist. The production path still uses regex and
@@ -114,6 +121,7 @@ objects are selected only by authoritative reads after plan verification.
 | Area | Verified current implementation | Gap that blocks the target |
 |------|---------------------------------|----------------------------|
 | Conversation routing | The default compatibility coordinator accepts exact canonical commands only; the async semantic runtime plans and executes verified ordinary-language DAGs and emits terminal graph/evidence projections. | Production model, descriptor-index, provider, and Operator stream composition remain; `legacy` exists only as an explicit temporary compatibility mode. |
+| Cross-service semantic wire | Version 1.2 request and projection envelopes carry bounded semantic input and evidence-bound terminal output without execution authority. | Runtime publisher, consumer, durable replay projection, and production readiness remain; semantic records never downgrade to N-1. |
 | Console intent graph | Core now derives a bounded graph and receipt evidence from verified plans, and shared SDK projections exactly match the Console v2/v1 parsers. | The production turn-completion stream does not yet attach the produced graph and evidence. |
 | Semantic interpretation | A schema-constrained whole-turn model seam proposes `SemanticProblemFrame` and typed DAG candidates; Core supplies identity, verifies the principal manifest, and supports opt-in shadow comparison beside compatibility routing. | No production model/descriptor-index binding is enabled, and the semantic path does not yet select the visible answer. |
 | Object queries | `OntologyQueryPlan` now composes secured ObjectSets, set algebra, ordering, projection, grouped aggregation, and typed read-only functions over immutable content-addressed tables. | Temporal snapshots, metric series, and evidence joins still require registered extension handlers. |

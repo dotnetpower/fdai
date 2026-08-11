@@ -191,6 +191,13 @@ from fdai_service_contracts.schema import (
     SchemaRegistry,
     ValidationIssue,
 )
+from fdai_service_contracts.semantic_turn import (
+    SemanticPriorTurn,
+    SemanticTurnDisposition,
+    SemanticTurnPrincipal,
+    SemanticTurnRequest,
+    SemanticTurnResult,
+)
 from fdai_service_contracts.transition import (
     CommitFailedError,
     DeliveryReceipt,
@@ -347,6 +354,11 @@ __all__ = [
     "RollbackRef",
     "SchemaNotFoundError",
     "SchemaRegistry",
+    "SemanticPriorTurn",
+    "SemanticTurnDisposition",
+    "SemanticTurnPrincipal",
+    "SemanticTurnRequest",
+    "SemanticTurnResult",
     "SemVer",
     "SemanticOperation",
     "SemanticProblemFrame",

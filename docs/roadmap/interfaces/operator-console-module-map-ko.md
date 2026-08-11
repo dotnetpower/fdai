@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 7de8c8cfe6166c9e6cf46dee64b78312f92f37a5
-translation_revised: 2026-08-08
+translation_source_sha: e06e2abb6a3252bd071192e1f90531fc08d4e3dc
+translation_revised: 2026-08-11
 ---
 # Operator Console Module Map and Boundaries
 
@@ -102,6 +102,12 @@ argument, excess dependency 및 12개를 초과하는 evidence reference를 거�
 Core는 principal-manifest-verified query plan에서 이 record를 만들 수 있지만 production JSON/SSE turn
 completion은 아직 이를 attach하지 않습니다. 해당 binding 전까지 parser 변경은 additive이고
 compatibility route가 visible answer path로 유지됩니다.
+
+독립 Operator/Core bridge에는 이제 semantic turn과 terminal projection을 위한 additive version 1.2 wire
+shape가 있습니다. Operator는 authentication, durable outbox acceptance, principal-scoped replay 및 SSE
+sequencing을 계속 담당합니다. Core는 exact release/principal manifest 선택, verified plan 실행 및 evidence
+receipt 생성을 계속 담당합니다. 이 계약은 service implementation의 direct import 또는 semantic payload의
+older peer downgrade를 허용하지 않습니다.
 
 Core semantic runtime은 이제 planning, dependency-wave execution 및 이 projection을 하나의 async server
 result로 구성합니다. 모든 accepted turn은 answer, clarification, hold, unsupported, action draft 또는

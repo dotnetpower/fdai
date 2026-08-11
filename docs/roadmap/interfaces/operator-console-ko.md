@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: c6e846f186b46cec4f8456f0ace0f4a08faa524b
-translation_revised: 2026-08-10
+translation_source_sha: dfa8dd299724121fc0d34fae6e34c806d0acea2f
+translation_revised: 2026-08-11
 ---
 
 # FDAI Console 대화
@@ -54,6 +54,10 @@ quality gate (T2 verifier), risk gate, shipped Rego policy. 콘솔은
 
 완료된 답변은 off-path [Conversation Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. JSON과 SSE adapter는 typed conversation-turn service와 분리된 request setup, evidence, progress, verification 및 terminal-delivery helper를 공유하면서 기존 wire contract를 유지합니다.
 Terminal intake는 exact verification reason과 evidence-manifest completeness를 보존합니다. Outcome summary, context selection, Azure investigation, durable delivery 및 attachment evidence는 typed provider가 계속 소유하고 adapter module은 presentation과 persistence만 조정합니다.
+Version 1.2 semantic projection은 독립 service split 전반에서 이 boundary를 보존합니다. `answered`
+disposition은 exact release, principal-manifest, plan, execution receipt 및 evidence reference가 있을 때만
+수락됩니다. Dependency가 없거나 unavailable이면 typed limitation을 반환합니다. Operator Service는 이를
+narrator knowledge로 대체하거나 turn을 verified로 표시할 수 없습니다.
 Operator API는 review를 ready로 표시하거나 catalog proposal을 만들거나 authority를 부여하지 않습니다. 잘못된 답변 보고는 자율 재평가 evidence만 추가하며 governed transition에는 exact replay evidence와 기존 catalog lifecycle이 계속 필요합니다.
 ### 1.1 공유 glossary에 추가된 어휘
 

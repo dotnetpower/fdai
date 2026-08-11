@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: b9a2561bade679207b0417b0dc32433acbc75636
+translation_source_sha: 8a34ae06a9d9614de17dc9bbfe8999b485f95b02
 translation_revised: 2026-08-11
 ---
 
@@ -23,6 +23,13 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > 20%였으며 카드 100개 모두 evidence 0/0의 unverified 상태였습니다. Operator Service가 의미
 > 런타임을 구성하지 않으므로 프로덕션 완료 상태는 계속 차단됩니다.
 > [온톨로지 쿼리 무작위 보증](ontology-query-randomized-assurance-ko.md)을 참조하세요.
+>
+> **Cross-service contract 상태(2026-08-11):** Additive version 1.2 request/projection envelope은
+> bounded semantic turn, 인증된 principal role, deadline, idempotency identity, terminal disposition 및
+> exact evidence digest를 정의합니다. 이 계약만으로 production routing이 활성화되지는 않습니다.
+> Semantic payload는 N-1 shape로 translate하지 않고 fail closed합니다. Operator outbox publication,
+> Core consumption, durable projection 및 receipt-backed integration evidence가 cutover gate로 남아
+> 있습니다.
 >
 > **구현 상태(2026-08-10):** Exact ontology release, semantic candidate, bounded ObjectSet, secured query
 > receipt, typed function registration, current inventory projection, metric provider 및 causal-analysis
@@ -113,6 +120,7 @@ plan 검증 이후 authoritative read로만 선택합니다.
 | 영역 | 검증된 현재 구현 | 목표를 차단하는 gap |
 |------|------------------|---------------------|
 | Conversation routing | Default compatibility coordinator는 exact canonical command만 수락합니다. Async semantic runtime은 verified ordinary-language DAG를 plan/execute하고 terminal graph/evidence projection을 emit합니다. | Production model, descriptor-index, provider 및 Operator stream composition은 남아 있으며 `legacy`는 explicit temporary compatibility mode로만 존재합니다. |
+| Cross-service semantic wire | Version 1.2 request/projection envelope은 execution authority 없이 bounded semantic input과 evidence-bound terminal output을 전달합니다. | Runtime publisher, consumer, durable replay projection 및 production readiness가 남아 있으며 semantic record는 N-1로 downgrade하지 않습니다. |
 | Console intent graph | Core는 verified plan에서 bounded graph/receipt evidence를 만들며 shared SDK projection은 Console v2/v1 parser와 정확히 일치합니다. | Production turn-completion stream은 아직 생성된 graph/evidence를 attach하지 않습니다. |
 | Semantic interpretation | Schema-constrained whole-turn model seam이 `SemanticProblemFrame` 및 typed DAG candidate를 제안합니다. Core가 identity를 부여하고 principal manifest를 검증하며 compatibility routing 옆의 opt-in shadow comparison을 지원합니다. | Production model/descriptor-index binding은 enable되지 않았고 semantic path가 아직 visible answer를 선택하지 않습니다. |
 | Object query | `OntologyQueryPlan`은 이제 immutable content-addressed table 위에서 secured ObjectSet, set algebra, ordering, projection, grouped aggregation 및 typed read-only function을 구성합니다. | Temporal snapshot, metric series 및 evidence join에는 registered extension handler가 필요합니다. |

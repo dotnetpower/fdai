@@ -36,6 +36,12 @@ Three safety principles govern this design; every choice below preserves them:
   ([console-operations.md](console-operations.md)). Draft catalog
   changes use PRs authored by a GitHub App on behalf of the console user.
 
+The independent Operator Service serializes semantic-turn principal roles only after token
+verification and server-owned App Role resolution. Browser payloads cannot supply or widen those
+roles. Core maps the authenticated role set to the principal-scoped query manifest and rechecks the
+purpose before any ontology read. Local and deployed paths use the same record; Azure CLI identity
+can provide model credentials locally but never replaces the browser principal.
+
 ## 2. Role Model (4 tiers + Break-Glass)
 
 Modeled on Azure RBAC (Reader / Contributor / Owner). Four everyday roles plus one

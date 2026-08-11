@@ -102,6 +102,12 @@ Core can produce these records from a principal-manifest-verified query plan, bu
 and SSE turn completion do not yet attach them. Until that binding lands, the parser change is
 additive and the compatibility route remains the visible answer path.
 
+The independent Operator/Core bridge now has additive version 1.2 wire shapes for a semantic turn
+and its terminal projection. The Operator remains responsible for authentication, durable outbox
+acceptance, principal-scoped replay, and SSE sequencing. Core remains responsible for selecting the
+exact release and principal manifest, executing the verified plan, and producing evidence receipts.
+The contract does not permit direct service imports or semantic downgrade to an older peer.
+
 The Core semantic runtime now composes planning, dependency-wave execution, and these projections
 as one async server result. Every accepted turn terminates as answer, clarification, hold,
 unsupported, action draft, or cancellation. The synchronous compatibility coordinator defaults to

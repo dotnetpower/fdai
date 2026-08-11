@@ -211,6 +211,38 @@ def test_matrix_covers_every_release_pair_for_every_contract() -> None:
     ]
 
 
+def test_semantic_turn_contract_requires_verified_evidence_for_answer() -> None:
+    from fdai_service_contracts import (
+        OperatorRole,
+        SemanticTurnDisposition,
+        SemanticTurnPrincipal,
+        SemanticTurnResult,
+    )
+
+    principal = SemanticTurnPrincipal(subject_id="operator-1", roles=(OperatorRole.READER,))
+    assert principal.roles == (OperatorRole.READER,)
+    with pytest.raises(ValueError, match="complete verified evidence"):
+        SemanticTurnResult(
+            disposition=SemanticTurnDisposition.ANSWERED,
+            reason_code="semantic_execution_completed",
+            session_id="session-1",
+            turn_id="turn-1",
+            turn_sequence=1,
+        )
+
+
+def test_semantic_contracts_cannot_downgrade_to_n_minus_one() -> None:
+    from fdai_service_contracts.translators import (
+        core_operator_projection_1_2_to_1_0,
+        operator_core_request_1_2_to_1_0,
+    )
+
+    with pytest.raises(CompatibilityError, match="cannot be downgraded"):
+        operator_core_request_1_2_to_1_0({"request_kind": "semantic_query", "semantic_turn": {}})
+    with pytest.raises(CompatibilityError, match="cannot be downgraded"):
+        core_operator_projection_1_2_to_1_0({"semantic_result": {}})
+
+
 def test_missing_pair_without_explicit_unsupported_rollout_fails_closed() -> None:
     manifest = _manifest()
     matrix = manifest["producer_consumer_matrix"]

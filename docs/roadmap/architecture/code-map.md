@@ -86,6 +86,12 @@ boundary: semantic problem frames, bounded query DAGs, intent graphs, task recei
 coverage receipts. These records contain no provider client, ontology store, planner model, or
 execution handler.
 
+Version 1.2 of the existing Operator/Core envelopes adds one bounded semantic-turn request and one
+evidence-bound terminal result. The request pins authenticated roles, session ordering, purpose,
+deadline, and idempotency. An answered result requires exact release, manifest, plan, execution
+receipt, and evidence references. The SDK rejects semantic downgrade to N-1 instead of dropping
+those fields. Runtime publication and consumption remain service-owned implementations.
+
 The five service distributions use deployable `0.1.2` images as N-1 and `0.1.3` as N. Their existing contract-set
 `1.0.0`/`1.1.0` matrix remains the cross-process compatibility boundary.
 Content-addressed live evidence also binds the exact service and observation kind and requires

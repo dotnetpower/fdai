@@ -30,6 +30,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("document-deletion-request", "1.0.0"): "schemas/document-deletion-request/1.0.0.json",
     ("core-operator-projection", "1.0.0"): "schemas/core-operator-projection/1.0.0.json",
     ("core-operator-projection", "1.1.0"): "schemas/core-operator-projection/1.1.0.json",
+    ("core-operator-projection", "1.2.0"): "schemas/core-operator-projection/1.2.0.json",
     ("document-ingestion-activity", "1.0.0"): "schemas/document-ingestion-activity/1.0.0.json",
     ("document-ingestion-activity", "1.1.0"): "schemas/document-ingestion-activity/1.1.0.json",
     ("document-worker-audit", "1.0.0"): "schemas/document-worker-audit/1.0.0.json",
@@ -39,6 +40,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("executor-receipt", "1.1.0"): "schemas/executor-receipt/1.1.0.json",
     ("operator-core-request", "1.0.0"): "schemas/operator-core-request/1.0.0.json",
     ("operator-core-request", "1.1.0"): "schemas/operator-core-request/1.1.0.json",
+    ("operator-core-request", "1.2.0"): "schemas/operator-core-request/1.2.0.json",
     ("service-upgrade-receipt", "1.0.0"): "schemas/service-upgrade-receipt/1.0.0.json",
 }
 

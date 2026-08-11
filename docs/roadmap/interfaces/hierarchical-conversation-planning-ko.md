@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 627828aee6f977dd22cae2eb821a481db3de0122
-translation_revised: 2026-08-10
+translation_source_sha: 356969851c31238343e135737ef6f105a283653c
+translation_revised: 2026-08-11
 ---
 
 # 계층형 대화 계획
@@ -43,6 +43,15 @@ Default Core compatibility path는 이제 exact canonical command만 수락합�
 keyword narration 및 canonical-string read plan은 explicit temporary `legacy` mode가 필요합니다. Async
 semantic runtime은 verified ordinary-language DAG를 실행하고 bounded graph/evidence projection을 emit합니다.
 Production model, provider, descriptor-index 및 Operator stream composition은 남아 있습니다.
+
+Cross-service cutover는 additive `operator-core-request` 및 `core-operator-projection` version 1.2
+envelope에서 시작합니다. Semantic request는 인증된 principal role, bounded session/prior-turn context,
+purpose, deadline, idempotency identity 및 `execution_authority: false`를 전달합니다. Answered semantic
+result는 하나의 typed disposition과 exact release, principal-manifest, plan, execution-receipt 및 evidence
+identity를 전달합니다. Generic envelope는 version 1.0 consumer와 호환되지만 semantic payload를 이전
+shape로 translate하지 않습니다. 그렇게 하면 evidence contract가 손실되기 때문입니다. Operator outbox
+publisher, Core consumer 및 durable result projection이 compose되기 전까지 version 1.2는 transport
+contract일 뿐이며 visible answer path를 변경하지 않습니다.
 
 Exact-release semantic candidate, verified semantic plan, bounded ObjectSet, secured query receipt, typed
 function registration, `OntologyQueryPlan`, deterministic verifier 및 bounded dependency-wave execution이

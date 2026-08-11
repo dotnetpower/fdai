@@ -55,6 +55,10 @@ Three properties follow directly:
 
 Completed answers also enter the off-path [Conversation Assurance](../decisioning/conversation-assurance.md) loop. JSON and SSE adapters share the typed conversation-turn service and extracted request setup, evidence, progress, verification, and terminal-delivery helpers while preserving their existing wire contracts.
 Terminal intake preserves the exact verification reason and evidence-manifest completeness. Outcome summaries, context selection, Azure investigations, durable delivery, and attachment evidence remain owned by their typed providers; adapter modules only coordinate presentation and persistence.
+The version 1.2 semantic projection preserves that boundary across the independent service split.
+An `answered` disposition is accepted only with exact release, principal-manifest, plan, execution
+receipt, and evidence references. Missing or unavailable dependencies produce a typed limitation;
+the Operator Service cannot replace them with narrator knowledge or mark the turn verified.
 The Operator API never marks a review ready, creates a catalog proposal, or grants authority. Reporting an incorrect answer adds evidence for autonomous re-evaluation, and every governed transition still requires exact replay evidence plus the existing catalog lifecycle.
 ### 1.1 Vocabulary added to the shared glossary
 

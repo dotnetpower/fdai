@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: f2fcaa5022c10170be9e2fd1645e717165641fac
-translation_revised: 2026-08-10
+translation_source_sha: 00cb349e029419a1ed6d315a2bb0843b774036ad
+translation_revised: 2026-08-11
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -38,6 +38,12 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
   executor identity를 받거나 managed resource를 변경하지 않습니다
   ([console-operations-ko.md](console-operations-ko.md)). Catalog draft
   변경은 콘솔 사용자를 대신해 GitHub App이 작성하는 PR을 사용합니다.
+
+독립 Operator Service는 token verification과 server-owned App Role resolution 이후에만 semantic-turn
+principal role을 serialize합니다. Browser payload는 이 role을 제공하거나 넓힐 수 없습니다. Core는
+인증된 role set을 principal-scoped query manifest에 map하고 ontology read 전에 purpose를 다시
+검사합니다. Local/deployed path는 같은 record를 사용합니다. Azure CLI identity는 local에서 model
+credential을 제공할 수 있지만 browser principal을 대체하지 않습니다.
 
 ## 2. 롤 모델 (4티어 + Break-Glass)
 
