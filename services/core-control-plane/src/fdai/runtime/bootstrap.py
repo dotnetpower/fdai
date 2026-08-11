@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from datetime import UTC, datetime
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -39,7 +40,14 @@ from fdai.core.operational_planning import (
     SpecialistPlanningCoordinator,
     operational_planning_capability_status,
 )
-from fdai.core.readiness import AuthorityCeiling
+from fdai.core.readiness import (
+    AuthorityCeiling,
+    ProbeCriticality,
+    ProbeStatus,
+    StartupPhase,
+    StartupProbeResult,
+    StartupProbeSpec,
+)
 from fdai.core.readiness.coordinator import _TRANSITION_TOPIC
 from fdai.delivery.agent_activity import (
     DEFAULT_STAGE_TOPIC,
@@ -143,6 +151,8 @@ from fdai.runtime.t2_route_registry import T2RouteRegistry, bind_t2_route_select
 from fdai.shared.config.models import LlmMode
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.startup_probe import StartupProbeRequest
+from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
@@ -155,6 +165,84 @@ _VERTICAL_IDENTITY_ENV = {
     "identity/resilience": "FDAI_RESILIENCE_MI_CLIENT_ID",
     "identity/finops": "FDAI_FINOPS_MI_CLIENT_ID",
 }
+_SEMANTIC_TURN_READINESS_PROBE_ID = "semantic-turn.runtime"
+
+
+class _SemanticTurnReadinessProbe:
+    """Project the configured semantic runtime binding into startup readiness."""
+
+    probe_id = _SEMANTIC_TURN_READINESS_PROBE_ID
+
+    def __init__(self, binding: SemanticTurnConsumerBinding) -> None:
+        self._binding = binding
+
+    async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
+        observed_at = datetime.now(UTC)
+        expires_at = max(request.deadline, observed_at + timedelta(seconds=1))
+        return StartupProbeResult(
+            probe_id=self.probe_id,
+            status=ProbeStatus.PASSED if self._binding.available else ProbeStatus.FAILED,
+            observed_at=observed_at,
+            expires_at=expires_at,
+            latency_ms=0,
+            failure_class=(
+                None
+                if self._binding.available
+                else self._binding.unavailable_reason or "semantic_runtime_unavailable"
+            ),
+            evidence={"runtime_bound": self._binding.available},
+        )
+
+
+def _build_semantic_turn_binding(
+    *,
+    state_store: StateStore,
+    config: Mapping[str, str],
+) -> SemanticTurnConsumerBinding | None:
+    """Bind configured transport without pretending a production runtime exists."""
+
+    return semantic_turn_binding_from_config(
+        state_store=state_store,
+        runtime=None,
+        config=config,
+    )
+
+
+def _semantic_turn_readiness_registration(
+    binding: SemanticTurnConsumerBinding | None,
+) -> tuple[tuple[StartupProbeSpec, ...], tuple[_SemanticTurnReadinessProbe, ...]]:
+    if binding is None:
+        return (), ()
+    return (
+        (
+            StartupProbeSpec(
+                probe_id=_SEMANTIC_TURN_READINESS_PROBE_ID,
+                capability="semantic-query",
+                phase=StartupPhase.CAPABILITY_WARMUP,
+                criticality=ProbeCriticality.OPTIONAL,
+                failure_ceiling=AuthorityCeiling.DISABLED,
+            ),
+        ),
+        (_SemanticTurnReadinessProbe(binding),),
+    )
+
+
+def _schedule_semantic_turn_consumer(
+    *,
+    binding: SemanticTurnConsumerBinding | None,
+    readiness: StartupReadinessRuntime,
+    bus: EventBus,
+    stop: asyncio.Event,
+) -> asyncio.Task[None] | None:
+    if binding is None:
+        return None
+    return asyncio.create_task(
+        readiness.run_when_ready(
+            stop,
+            lambda: binding.run(bus=bus, stop=stop),
+        ),
+        name="semantic-turn-consumer",
+    )
 
 
 def _build_vertical_execution_identities(
@@ -322,9 +410,8 @@ async def _run() -> int:
             )
 
             incident_audit_store = _build_audit_store()
-            semantic_turn_binding = semantic_turn_binding_from_config(
+            semantic_turn_binding = _build_semantic_turn_binding(
                 state_store=incident_audit_store,
-                runtime=None,
                 config=os.environ,
             )
             if semantic_turn_binding is not None and not semantic_turn_binding.available:
@@ -478,6 +565,9 @@ async def _run() -> int:
                     ),
                 },
             )
+            semantic_readiness_specs, semantic_readiness_probes = (
+                _semantic_turn_readiness_registration(semantic_turn_binding)
+            )
             startup_readiness_runtime = build_startup_readiness_runtime(
                 state_store=incident_audit_store,
                 event_bus=operational_bus,
@@ -490,8 +580,8 @@ async def _run() -> int:
                 ),
                 cross_check_models=container.require_llm_bindings().cross_check_models,
                 environment=os.environ,
-                registered_specs=container.startup_probe_specs,
-                registered_probes=container.startup_probes,
+                registered_specs=(*container.startup_probe_specs, *semantic_readiness_specs),
+                registered_probes=(*container.startup_probes, *semantic_readiness_probes),
             )
             startup_report = await startup_readiness_runtime.evaluate()
             _LOGGER.info(
@@ -929,15 +1019,12 @@ async def _run() -> int:
             hil_decision_task: asyncio.Task[None] | None = None
             hil_reminder_task: asyncio.Task[None] | None = None
             hil_escalation_task: asyncio.Task[None] | None = None
-            semantic_turn_task: asyncio.Task[None] | None = None
-            if semantic_turn_binding is not None:
-                semantic_turn_task = asyncio.create_task(
-                    startup_readiness_runtime.run_when_ready(
-                        stop,
-                        lambda: semantic_turn_binding.run(bus=bus, stop=stop),
-                    ),
-                    name="semantic-turn-consumer",
-                )
+            semantic_turn_task = _schedule_semantic_turn_consumer(
+                binding=semantic_turn_binding,
+                readiness=startup_readiness_runtime,
+                bus=bus,
+                stop=stop,
+            )
             if control_loop._hil_resume_coordinator is not None:
                 from fdai.delivery.chatops.hil_decision import DEFAULT_HIL_DECISION_TOPIC
 

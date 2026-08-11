@@ -13,6 +13,7 @@ from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
 )
 from fdai.core.conversation.session import Principal, Role, Turn
+from fdai.core.ontology_platform import QueryPlanExecution
 from fdai_service_contracts import (
     OperatorRole,
     SemanticTurnDisposition,
@@ -65,6 +66,8 @@ class SemanticTurnResultStore(Protocol):
 
     async def get(self, idempotency_key: str) -> bytes | None: ...
 
+    async def claim(self, idempotency_key: str, request_digest: str) -> bool: ...
+
     async def put_if_absent(self, idempotency_key: str, projection: bytes) -> bool: ...
 
 
@@ -104,23 +107,131 @@ class SemanticTurnProcessor:
             raise SemanticTurnRejectedError("semantic_purpose_not_allowed")
 
         idempotency_key = str(envelope["idempotency_key"])
+        request_digest = _request_digest(envelope, request)
+        if request.cancelled or (cancelled is not None and cancelled.is_set()):
+            return self._held_projection(
+                envelope,
+                request,
+                request_digest=request_digest,
+                reason_code="semantic_request_cancelled",
+                disposition="cancelled",
+            )
+        now = _aware_utc(self._now(), field="semantic processor clock")
+        deadline = _aware_utc(request.deadline_at, field="semantic deadline_at")
+        remaining = (deadline - now).total_seconds()
+        if remaining <= 0:
+            return self._held_projection(
+                envelope,
+                request,
+                request_digest=request_digest,
+                reason_code="semantic_deadline_exceeded",
+            )
+
+        operation_task = asyncio.create_task(
+            self._process_idempotent(
+                envelope=envelope,
+                request=request,
+                requested_at=requested_at,
+                principal=principal,
+                idempotency_key=idempotency_key,
+                request_digest=request_digest,
+                cancelled=cancelled,
+            )
+        )
+        cancellation_task = asyncio.create_task(cancelled.wait()) if cancelled is not None else None
+        waiters: set[asyncio.Task[object]] = {operation_task}
+        if cancellation_task is not None:
+            waiters.add(cancellation_task)
+        try:
+            done, pending = await asyncio.wait(
+                waiters,
+                timeout=remaining,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if cancellation_task is not None and cancellation_task in done:
+                operation_task.cancel()
+                await asyncio.gather(operation_task, return_exceptions=True)
+                return self._held_projection(
+                    envelope,
+                    request,
+                    request_digest=request_digest,
+                    reason_code="semantic_request_cancelled",
+                    disposition="cancelled",
+                )
+            if operation_task not in done:
+                operation_task.cancel()
+                await asyncio.gather(operation_task, return_exceptions=True)
+                return self._held_projection(
+                    envelope,
+                    request,
+                    request_digest=request_digest,
+                    reason_code="semantic_deadline_exceeded",
+                )
+            for task in pending:
+                task.cancel()
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)
+            return operation_task.result()
+        except asyncio.CancelledError:
+            operation_task.cancel()
+            await asyncio.gather(operation_task, return_exceptions=True)
+            raise
+        finally:
+            if cancellation_task is not None and not cancellation_task.done():
+                cancellation_task.cancel()
+                await asyncio.gather(cancellation_task, return_exceptions=True)
+
+    async def _process_idempotent(
+        self,
+        *,
+        envelope: Mapping[str, Any],
+        request: SemanticTurnRequest,
+        requested_at: datetime,
+        principal: Principal,
+        idempotency_key: str,
+        request_digest: str,
+        cancelled: asyncio.Event | None,
+    ) -> bytes:
         try:
             prior = await self._results.get(idempotency_key)
         except Exception:  # noqa: BLE001 - persistence detail must not cross the wire
             return self._held_projection(
                 envelope,
                 request,
+                request_digest=request_digest,
                 reason_code="semantic_result_store_unavailable",
             )
         if prior is not None:
             try:
-                return _canonical_projection(prior)
+                return _canonical_projection(prior, request_digest=request_digest)
+            except SemanticTurnRejectedError:
+                raise
             except Exception:  # noqa: BLE001 - corrupt persistence fails closed
                 return self._held_projection(
                     envelope,
                     request,
+                    request_digest=request_digest,
                     reason_code="semantic_result_store_unavailable",
                 )
+
+        try:
+            claimed = await self._results.claim(idempotency_key, request_digest)
+        except SemanticTurnRejectedError:
+            raise
+        except Exception:  # noqa: BLE001 - persistence detail must not cross the wire
+            return self._held_projection(
+                envelope,
+                request,
+                request_digest=request_digest,
+                reason_code="semantic_result_store_unavailable",
+            )
+        if not claimed:
+            return await self._wait_for_claimed_projection(
+                envelope=envelope,
+                request=request,
+                idempotency_key=idempotency_key,
+                request_digest=request_digest,
+            )
 
         result = await self._execute(
             request=request,
@@ -128,7 +239,12 @@ class SemanticTurnProcessor:
             principal=principal,
             cancelled=cancelled,
         )
-        projection = self._projection(envelope, request, result)
+        projection = self._projection(
+            envelope,
+            request,
+            result,
+            request_digest=request_digest,
+        )
         try:
             created = await self._results.put_if_absent(idempotency_key, projection)
             if created:
@@ -138,22 +254,60 @@ class SemanticTurnProcessor:
             return self._held_projection(
                 envelope,
                 request,
+                request_digest=request_digest,
                 reason_code="semantic_result_store_unavailable",
             )
         if winner is None:
             return self._held_projection(
                 envelope,
                 request,
+                request_digest=request_digest,
                 reason_code="semantic_result_store_unavailable",
             )
         try:
-            return _canonical_projection(winner)
+            return _canonical_projection(winner, request_digest=request_digest)
+        except SemanticTurnRejectedError:
+            raise
         except Exception:  # noqa: BLE001 - corrupt persistence fails closed
             return self._held_projection(
                 envelope,
                 request,
+                request_digest=request_digest,
                 reason_code="semantic_result_store_unavailable",
             )
+
+    async def _wait_for_claimed_projection(
+        self,
+        *,
+        envelope: Mapping[str, Any],
+        request: SemanticTurnRequest,
+        idempotency_key: str,
+        request_digest: str,
+    ) -> bytes:
+        while True:
+            await asyncio.sleep(0.01)
+            try:
+                winner = await self._results.get(idempotency_key)
+            except Exception:  # noqa: BLE001 - persistence detail must not cross the wire
+                return self._held_projection(
+                    envelope,
+                    request,
+                    request_digest=request_digest,
+                    reason_code="semantic_result_store_unavailable",
+                )
+            if winner is None:
+                continue
+            try:
+                return _canonical_projection(winner, request_digest=request_digest)
+            except SemanticTurnRejectedError:
+                raise
+            except Exception:  # noqa: BLE001 - corrupt persistence fails closed
+                return self._held_projection(
+                    envelope,
+                    request,
+                    request_digest=request_digest,
+                    reason_code="semantic_result_store_unavailable",
+                )
 
     async def _execute(
         self,
@@ -225,6 +379,8 @@ class SemanticTurnProcessor:
         envelope: Mapping[str, Any],
         request: SemanticTurnRequest,
         result: ContractSemanticTurnResult,
+        *,
+        request_digest: str,
     ) -> bytes:
         semantic_result = result.model_dump(mode="json", exclude_none=True)
         evidence_digest = content_digest(semantic_result)
@@ -242,7 +398,10 @@ class SemanticTurnProcessor:
             "idempotency_key": envelope["idempotency_key"],
             "status": result.disposition.value,
             "recorded_at": _aware_utc(self._now(), field="semantic processor clock").isoformat(),
-            "payload": {"request_kind": "semantic_query"},
+            "payload": {
+                "request_kind": "semantic_query",
+                "request_digest": request_digest,
+            },
             "evidence_digest": evidence_digest,
             "semantic_result": semantic_result,
         }
@@ -253,12 +412,15 @@ class SemanticTurnProcessor:
         envelope: Mapping[str, Any],
         request: SemanticTurnRequest,
         *,
+        request_digest: str,
         reason_code: str,
+        disposition: str = "held",
     ) -> bytes:
         return self._projection(
             envelope,
             request,
-            _terminal_result(request, "held", reason_code),
+            _terminal_result(request, disposition, reason_code),
+            request_digest=request_digest,
         )
 
 
@@ -342,6 +504,7 @@ def _project_runtime_result(
         or execution.status != "completed"
         or not execution.receipts
         or any(receipt.status is not TaskStatus.COMPLETED for receipt in execution.receipts)
+        or not _projected_answer_evidence_is_complete(result, execution)
     ):
         return _terminal_result(request, "held", "semantic_evidence_incomplete")
     evidence_refs = tuple(
@@ -378,6 +541,59 @@ def _project_runtime_result(
     )
 
 
+def _projected_answer_evidence_is_complete(
+    result: RuntimeSemanticTurnResult,
+    execution: QueryPlanExecution,
+) -> bool:
+    graph = result.intent_graph
+    evidence = result.intent_graph_evidence
+    if not isinstance(graph, dict) or not isinstance(evidence, dict):
+        return False
+    graph_goals = graph.get("goals")
+    evidence_goals = evidence.get("goals")
+    if (
+        graph.get("schema_version") != 2
+        or graph.get("action_posture") != "advise_only"
+        or evidence.get("schema_version") != 1
+        or evidence.get("status") != "completed"
+        or evidence.get("evidence_mode") != "operational_grounded"
+        or not isinstance(graph_goals, list)
+        or not isinstance(evidence_goals, list)
+        or not 1 <= len(graph_goals) <= 8
+        or len(graph_goals) != len(evidence_goals)
+        or len(evidence_goals) != len(execution.receipts)
+    ):
+        return False
+
+    projected_refs: list[str] = []
+    executed_refs: list[str] = []
+    for graph_goal, evidence_goal, receipt in zip(
+        graph_goals,
+        evidence_goals,
+        execution.receipts,
+        strict=True,
+    ):
+        if not isinstance(graph_goal, dict) or not isinstance(evidence_goal, dict):
+            return False
+        goal_id = graph_goal.get("goal_id")
+        evidence_refs = evidence_goal.get("evidence_refs", [])
+        if (
+            not isinstance(goal_id, str)
+            or evidence_goal.get("goal_id") != goal_id
+            or evidence_goal.get("intent") != graph_goal.get("intent")
+            or evidence_goal.get("capability") != graph_goal.get("capability")
+            or evidence_goal.get("task_id") != receipt.task_id
+            or evidence_goal.get("status") != "completed"
+            or not isinstance(evidence_refs, list)
+            or any(not isinstance(item, str) for item in evidence_refs)
+            or tuple(evidence_refs) != receipt.evidence_refs
+        ):
+            return False
+        projected_refs.extend(evidence_refs)
+        executed_refs.extend(receipt.evidence_refs)
+    return tuple(dict.fromkeys(projected_refs)) == tuple(dict.fromkeys(executed_refs))
+
+
 def _terminal_result(
     request: SemanticTurnRequest,
     disposition: str,
@@ -392,10 +608,30 @@ def _terminal_result(
     )
 
 
-def _canonical_projection(encoded: bytes) -> bytes:
+def _request_digest(
+    envelope: Mapping[str, Any],
+    request: SemanticTurnRequest,
+) -> str:
+    return content_digest(
+        {
+            "request_id": envelope["request_id"],
+            "correlation_id": envelope["correlation_id"],
+            "resource_ref": envelope.get("resource_ref"),
+            "requested_at": envelope["requested_at"],
+            "semantic_turn": request.model_dump(mode="json"),
+        }
+    )
+
+
+def _canonical_projection(encoded: bytes, *, request_digest: str) -> bytes:
     loaded = json.loads(encoded)
     if not isinstance(loaded, dict):
         raise ValueError("stored semantic projection MUST be an object")
+    projection_payload = loaded.get("payload")
+    if not isinstance(projection_payload, dict):
+        raise ValueError("stored semantic projection payload MUST be an object")
+    if projection_payload.get("request_digest") != request_digest:
+        raise SemanticTurnRejectedError("semantic_idempotency_conflict")
     return OPERATOR_PROJECTION_PRODUCER_V12.encode(loaded)
 
 

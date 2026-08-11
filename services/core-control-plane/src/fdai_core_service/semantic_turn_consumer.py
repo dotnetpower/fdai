@@ -20,6 +20,7 @@ from .semantic_turn_processor import (
 )
 
 _STATE_PREFIX = "semantic-turn-result:"
+_CLAIM_PREFIX = "semantic-turn-claim:"
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +64,23 @@ class StateStoreSemanticTurnResultStore:
             return base64.b64decode(encoded, validate=True)
         except ValueError as exc:
             raise RuntimeError("semantic result state is malformed") from exc
+
+    async def claim(self, idempotency_key: str, request_digest: str) -> bool:
+        key = _claim_key(idempotency_key)
+        created = await self._state_store.write_state_if_absent(
+            key,
+            {
+                "schema_version": "1.0.0",
+                "idempotency_key": idempotency_key,
+                "request_digest": request_digest,
+            },
+        )
+        if created:
+            return True
+        existing = await self._state_store.read_state(key)
+        if existing is None or existing.get("request_digest") != request_digest:
+            raise SemanticTurnRejectedError("semantic_idempotency_conflict")
+        return False
 
     async def put_if_absent(self, idempotency_key: str, projection: bytes) -> bool:
         return await self._state_store.write_state_if_absent(
@@ -200,6 +218,11 @@ def _projection_mapping(encoded: bytes) -> Mapping[str, Any]:
 def _state_key(idempotency_key: str) -> str:
     digest = hashlib.sha256(idempotency_key.encode()).hexdigest()
     return f"{_STATE_PREFIX}{digest}"
+
+
+def _claim_key(idempotency_key: str) -> str:
+    digest = hashlib.sha256(idempotency_key.encode()).hexdigest()
+    return f"{_CLAIM_PREFIX}{digest}"
 
 
 __all__ = [

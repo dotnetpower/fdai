@@ -75,6 +75,44 @@ class _Runtime:
         return self.result
 
 
+class _ContendedRuntime(_Runtime):
+    def __init__(self) -> None:
+        super().__init__(_runtime_result("answered"))
+        self.entered = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def handle(
+        self,
+        *,
+        utterance: str,
+        prior_turns: tuple[Turn, ...],
+        principal: Principal,
+        cancelled: asyncio.Event | None = None,
+    ) -> RuntimeSemanticTurnResult:
+        self.calls += 1
+        self.principals.append(principal)
+        self.prior_turns = prior_turns
+        self.entered.set()
+        await self.release.wait()
+        return self.result
+
+
+class _BlockingResultStore:
+    def __init__(self) -> None:
+        self.entered = asyncio.Event()
+
+    async def get(self, idempotency_key: str) -> bytes | None:
+        self.entered.set()
+        await asyncio.Event().wait()
+        raise AssertionError("unreachable")
+
+    async def claim(self, idempotency_key: str, request_digest: str) -> bool:
+        raise AssertionError("blocked get MUST prevent claim")
+
+    async def put_if_absent(self, idempotency_key: str, projection: bytes) -> bool:
+        raise AssertionError("blocked get MUST prevent put")
+
+
 def _request(
     *,
     roles: list[str] | None = None,
@@ -166,8 +204,45 @@ def _runtime_result(disposition: str) -> RuntimeSemanticTurnResult:
         reason="semantic_execution_completed",
         planning=cast(Any, planning),
         execution=execution,
-        intent_graph={"schema_version": 2, "goals": []},
-        intent_graph_evidence={"status": "completed", "goals": []},
+        intent_graph={
+            "schema_version": 2,
+            "goals": [
+                {
+                    "goal_id": "goal-1",
+                    "intent": "object_set",
+                    "capability": "query.object_set",
+                    "arguments": {},
+                    "depends_on": [],
+                    "evidence_mode": "operational",
+                    "freshness_required": True,
+                    "confidence": 1.0,
+                    "alternatives": [],
+                }
+            ],
+            "clarification": None,
+            "confidence": 1.0,
+            "action_posture": "advise_only",
+        },
+        intent_graph_evidence={
+            "schema_version": 1,
+            "status": "completed",
+            "evidence_mode": "operational_grounded",
+            "goals": [
+                {
+                    "task_id": "query:resources",
+                    "goal_id": "goal-1",
+                    "intent": "object_set",
+                    "capability": "query.object_set",
+                    "evidence_mode": "operational",
+                    "status": "completed",
+                    "duration_ms": 5,
+                    "depends_on": [],
+                    "started_at": NOW.isoformat(),
+                    "completed_at": NOW.isoformat(),
+                    "evidence_refs": ["inventory:evidence-1"],
+                }
+            ],
+        },
     )
 
 
@@ -281,6 +356,45 @@ async def test_deadline_and_cancellation_interrupt_inflight_runtime() -> None:
     assert _projection(cancelled)["status"] == "cancelled"
 
 
+async def test_deadline_bounds_result_store_wait() -> None:
+    store = _BlockingResultStore()
+    realtime = datetime.now(UTC)
+    processor = SemanticTurnProcessor(
+        runtime=_Runtime(),
+        results=store,
+        now=lambda: datetime.now(UTC),
+    )
+
+    encoded = await asyncio.wait_for(
+        processor.process(_request(deadline_at=realtime + timedelta(milliseconds=20))),
+        timeout=0.2,
+    )
+
+    assert _projection(encoded)["semantic_result"]["reason_code"] == ("semantic_deadline_exceeded")
+
+
+async def test_cancellation_interrupts_result_store_wait() -> None:
+    store = _BlockingResultStore()
+    cancelled = asyncio.Event()
+    processor = SemanticTurnProcessor(
+        runtime=_Runtime(),
+        results=store,
+        now=lambda: datetime.now(UTC),
+    )
+    pending = asyncio.create_task(
+        processor.process(
+            _request(deadline_at=datetime.now(UTC) + timedelta(seconds=1)),
+            cancelled=cancelled,
+        )
+    )
+    await store.entered.wait()
+
+    cancelled.set()
+    encoded = await asyncio.wait_for(pending, timeout=0.2)
+
+    assert _projection(encoded)["status"] == "cancelled"
+
+
 async def test_duplicate_returns_exact_prior_projection_without_reexecution() -> None:
     runtime = _Runtime(_runtime_result("answered"))
     processor = _processor(runtime)
@@ -290,6 +404,47 @@ async def test_duplicate_returns_exact_prior_projection_without_reexecution() ->
     second = await processor.process(request)
 
     assert second == first
+    assert runtime.calls == 1
+
+
+async def test_concurrent_duplicate_executes_runtime_once() -> None:
+    runtime = _ContendedRuntime()
+    state_store = InMemoryStateStore()
+    first_processor = SemanticTurnProcessor(
+        runtime=runtime,
+        results=StateStoreSemanticTurnResultStore(state_store),
+        now=lambda: NOW,
+    )
+    second_processor = SemanticTurnProcessor(
+        runtime=runtime,
+        results=StateStoreSemanticTurnResultStore(state_store),
+        now=lambda: NOW,
+    )
+    request = _request()
+
+    first = asyncio.create_task(first_processor.process(request))
+    await runtime.entered.wait()
+    second = asyncio.create_task(second_processor.process(request))
+    await asyncio.sleep(0)
+    runtime.release.set()
+
+    first_projection, second_projection = await asyncio.gather(first, second)
+
+    assert second_projection == first_projection
+    assert runtime.calls == 1
+
+
+async def test_reused_idempotency_key_for_different_turn_is_rejected() -> None:
+    runtime = _Runtime(_runtime_result("answered"))
+    processor = _processor(runtime)
+    await processor.process(_request())
+    conflicting = _request()
+    semantic_turn = cast(dict[str, object], conflicting["semantic_turn"])
+    semantic_turn["turn_id"] = "turn-2"
+
+    with pytest.raises(SemanticTurnRejectedError, match="semantic_idempotency_conflict"):
+        await processor.process(conflicting)
+
     assert runtime.calls == 1
 
 
@@ -332,6 +487,28 @@ async def test_answered_runtime_without_evidence_is_held() -> None:
     )
 
     projection = _projection(await _processor(_Runtime(incomplete)).process(_request()))
+
+    assert projection["status"] == "held"
+    assert projection["semantic_result"]["reason_code"] == "semantic_evidence_incomplete"
+
+
+async def test_answered_runtime_with_inconsistent_projected_evidence_is_held() -> None:
+    runtime_result = _runtime_result("answered")
+    assert runtime_result.intent_graph_evidence is not None
+    inconsistent_evidence = {
+        **runtime_result.intent_graph_evidence,
+        "status": "partial",
+    }
+    inconsistent = RuntimeSemanticTurnResult(
+        disposition="answered",
+        reason=runtime_result.reason,
+        planning=runtime_result.planning,
+        execution=runtime_result.execution,
+        intent_graph=runtime_result.intent_graph,
+        intent_graph_evidence=inconsistent_evidence,
+    )
+
+    projection = _projection(await _processor(_Runtime(inconsistent)).process(_request()))
 
     assert projection["status"] == "held"
     assert projection["semantic_result"]["reason_code"] == "semantic_evidence_incomplete"

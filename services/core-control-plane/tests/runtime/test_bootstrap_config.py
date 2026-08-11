@@ -1,24 +1,41 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
 import pytest
+from fdai.core.readiness import (
+    AuthorityCeiling,
+    ReadinessDecision,
+    reduce_startup_readiness,
+)
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.runtime.bootstrap import (
     _RUNTIME_LOGICAL_TOPICS,
-    _build_runtime_saga,
-    _build_runtime_workload_identity,
-    _case_history_identity_client_id,
-    _run_main,
+    _build_semantic_turn_binding,
+    _schedule_semantic_turn_consumer,
+    _semantic_turn_readiness_registration,
+)
+from fdai.runtime.bootstrap_bindings import (
+    build_runtime_workload_identity as _build_runtime_workload_identity,
+)
+from fdai.runtime.bootstrap_bindings import (
+    case_history_identity_client_id as _case_history_identity_client_id,
+)
+from fdai.runtime.bootstrap_lifecycle import (
+    build_runtime_saga as _build_runtime_saga,
 )
 from fdai.runtime.bootstrap_lifecycle import (
     raise_required_task_failure as _raise_required_task_failure,
 )
+from fdai.runtime.bootstrap_lifecycle import run_main as _run_main
 from fdai.runtime.bootstrap_lifecycle import runtime_process_lock
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
+from fdai.shared.providers.local.event_bus import LocalEventBus
+from fdai.shared.providers.startup_probe import StartupProbeRequest
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
@@ -28,6 +45,66 @@ def test_pantheon_starts_by_default() -> None:
 
 def test_runtime_multiplexes_startup_readiness_transitions() -> None:
     assert "runtime.readiness.transitions" in _RUNTIME_LOGICAL_TOPICS
+
+
+async def test_semantic_turn_bootstrap_exposes_missing_runtime_in_readiness() -> None:
+    binding = _build_semantic_turn_binding(
+        state_store=InMemoryStateStore(),
+        config={
+            "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.request",
+            "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "operator.projection",
+            "FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID": "core-semantic",
+        },
+    )
+
+    assert binding is not None
+    assert binding.request_topic == "operator.request"
+    assert binding.projection_topic == "operator.projection"
+    assert binding.group_id == "core-semantic"
+    assert binding.available is False
+    assert binding.unavailable_reason == "semantic_runtime_unavailable"
+
+    specs, probes = _semantic_turn_readiness_registration(binding)
+    now = datetime.now(UTC)
+    result = await probes[0].run(
+        StartupProbeRequest(
+            deadline=now + timedelta(seconds=5),
+            cost_limit_usd=0,
+            model_sample_count=2,
+            synthetic_scope=False,
+        )
+    )
+    report = reduce_startup_readiness(specs, (result,), generated_at=now)
+
+    assert report.decision is ReadinessDecision.DEGRADED
+    assert report.authority_ceilings["semantic-query"] is AuthorityCeiling.DISABLED
+    assert result.failure_class == "semantic_runtime_unavailable"
+
+
+async def test_semantic_turn_bootstrap_schedules_configured_binding() -> None:
+    calls: list[tuple[LocalEventBus, asyncio.Event]] = []
+
+    class _Binding:
+        async def run(self, *, bus: LocalEventBus, stop: asyncio.Event) -> None:
+            calls.append((bus, stop))
+
+    class _Ready:
+        async def run_when_ready(self, stop: asyncio.Event, operation: object) -> None:
+            await operation()  # type: ignore[operator]
+
+    bus = LocalEventBus()
+    stop = asyncio.Event()
+    task = _schedule_semantic_turn_consumer(
+        binding=_Binding(),  # type: ignore[arg-type]
+        readiness=_Ready(),  # type: ignore[arg-type]
+        bus=bus,
+        stop=stop,
+    )
+
+    assert task is not None
+    assert task.get_name() == "semantic-turn-consumer"
+    await task
+    assert calls == [(bus, stop)]
 
 
 @pytest.mark.parametrize("value", ["0", "false", "NO", "off"])
