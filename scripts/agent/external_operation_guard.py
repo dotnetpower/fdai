@@ -10,8 +10,10 @@ from pathlib import Path
 from typing import Any
 
 DEFERRED_EXTERNAL_PATTERNS = (
-    re.compile(r"(?:^|\s)gh\s+(?:run|workflow)\b"),
-    re.compile(r"(?:^|\s)gh\s+pr\s+checks\b"),
+    re.compile(r"(?:^|\s)gh\s+run\s+(?:watch|rerun|cancel|delete)\b"),
+    re.compile(r"(?:^|\s)gh\s+run\s+view\b[^\n]*--log(?:-failed)?\b"),
+    re.compile(r"(?:^|\s)gh\s+workflow\s+(?:run|enable|disable)\b"),
+    re.compile(r"(?:^|\s)gh\s+pr\s+checks\b[^\n]*--watch\b"),
     re.compile(r"(?:^|\s)(?:terraform|tofu)\s+(?:plan|apply|destroy|import|refresh)\b"),
     re.compile(r"(?:^|\s)azd\s+(?:up|deploy|provision)\b"),
     re.compile(
@@ -60,8 +62,8 @@ def enforce_external_operation_order(
     reason = (
         "Slow external FDAI work must follow completed, tested code. Finish the local slice, run "
         "focused checks, commit it, and obtain a centralized validation receipt before watching "
-        "or rerunning GitHub Actions, deploying or provisioning Azure, or building and pushing "
-        "container images. Check readiness with "
+        "or mutating GitHub Actions, downloading run logs, deploying or provisioning Azure, or "
+        "building and pushing container images. Check readiness with "
         "'python3 scripts/automation/validation_queue.py check-commit HEAD'."
     )
     return {

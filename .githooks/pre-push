@@ -23,28 +23,43 @@ fi
 
 remote_name="${1:-origin}"
 branch="$(git symbolic-ref --short HEAD 2>/dev/null || echo "")"
+local_sha=""
+remote_sha=""
+remote_ref=""
+
+while IFS=' ' read -r candidate_local_ref candidate_local_sha candidate_remote_ref candidate_remote_sha; do
+  if [[ "$candidate_local_ref" == "refs/heads/$branch" ]]; then
+    local_sha="$candidate_local_sha"
+    remote_ref="$candidate_remote_ref"
+    remote_sha="$candidate_remote_sha"
+  fi
+done
 
 echo "pre-push: lightweight checks (branch: ${branch:-detached})..."
 
 # ---------------------------------------------------------------------------
-# 1. Sync guard - block the push when local is behind the remote branch.
+# 1. Sync guard - use the remote ref Git already negotiated for this push.
 # ---------------------------------------------------------------------------
 range=""
-if [ -n "$branch" ]; then
-  if git fetch --quiet "$remote_name" "$branch" 2>/dev/null; then
-    behind="$(git rev-list --count HEAD..FETCH_HEAD 2>/dev/null || echo 0)"
-    if [ "$behind" -gt 0 ]; then
-      echo "pre-push: BLOCKED - local '$branch' is $behind commit(s) behind $remote_name/$branch."
-      echo "  Run:  git pull --rebase        (then push again)"
-      echo "  Skip: FDAI_SKIP_PUSH_CHECKS=1 git push   (or: git push --no-verify)"
-      exit 1
-    fi
-    remote_head="$(git rev-parse FETCH_HEAD)"
-    local_head="$(git rev-parse HEAD)"
-    range="$remote_head..$local_head"
-  else
-    echo "pre-push: note - '$branch' not on $remote_name yet (new branch); skipping sync + diff checks."
+zero_sha="0000000000000000000000000000000000000000"
+if [[ -n "$branch" && -n "$local_sha" && "$remote_sha" != "$zero_sha" ]]; then
+  if ! git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
+    echo "pre-push: BLOCKED - $remote_name/${remote_ref#refs/heads/} has commits missing locally."
+    echo "  Run:  git pull --rebase        (then push again)"
+    exit 1
   fi
+  if ! git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+    behind="$(git rev-list --count "$local_sha..$remote_sha" 2>/dev/null || echo 0)"
+    echo "pre-push: BLOCKED - local '$branch' is not based on current $remote_name/${remote_ref#refs/heads/} (${behind} remote commit(s) missing)."
+    echo "  Run:  git pull --rebase        (then push again)"
+    echo "  Skip: FDAI_SKIP_PUSH_CHECKS=1 git push   (or: git push --no-verify)"
+    exit 1
+  fi
+  range="$remote_sha..$local_sha"
+elif [[ -n "$branch" && -n "$local_sha" ]]; then
+  echo "pre-push: note - '${remote_ref#refs/heads/}' is new; skipping sync + diff checks."
+else
+  echo "pre-push: note - current branch is not part of this push; skipping sync + diff checks."
 fi
 
 # Nothing more to check for a brand-new branch with no remote counterpart.
@@ -75,6 +90,10 @@ fi
 structural_evidence=0
 if python3 "$validation_queue" check-structural-gates HEAD; then
   structural_evidence=1
+fi
+if [[ $structural_evidence -eq 1 ]]; then
+  echo "pre-push: OK (exact centralized validation and structural evidence reused)"
+  exit 0
 fi
 
 # Files changed in the commits being pushed (skip deletions).
@@ -196,18 +215,13 @@ if [ -f scripts/quality/architecture/check-document-size.py ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 6. Structural gates. A central receipt for this exact HEAD and exact gate
-#    digest avoids repeating the same checks. Missing or stale evidence falls
-#    back to the shared runner in this isolated committed snapshot.
+# 6. Structural gates. Exact evidence exits before the isolated worktree is
+#    created. Missing or stale evidence reaches this fallback runner.
 # ---------------------------------------------------------------------------
-if [[ $structural_evidence -eq 1 ]]; then
-  echo "pre-push: structural gates reused from centralized validation receipt"
-else
-  echo "pre-push: structural receipt missing or stale; running fallback gates..."
-  if ! bash scripts/automation/run-pre-push-structural-gates.sh; then
-    echo "pre-push: BLOCKED - structural gates failed."
-    exit 1
-  fi
+echo "pre-push: structural receipt missing or stale; running fallback gates..."
+if ! bash scripts/automation/run-pre-push-structural-gates.sh; then
+  echo "pre-push: BLOCKED - structural gates failed."
+  exit 1
 fi
 
 echo "pre-push: OK"

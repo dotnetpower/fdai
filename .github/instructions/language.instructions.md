@@ -1,6 +1,6 @@
 ---
-description: "Use when editing prose, identifiers, serialized records, localization catalogs, docs, or user-facing strings. Covers bilingual content and ASCII tooling rules."
-applyTo: "**/*.{md,py,ts,tsx,js,json,yaml,yml,sh,tf}"
+description: "Use when editing Markdown, structured records, configuration, or localization catalogs. Covers bilingual docs, catalogs, and ASCII tooling rules."
+applyTo: "**/*.{md,json,yaml,yml}"
 ---
 
 # Language Policy

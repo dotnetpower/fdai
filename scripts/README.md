@@ -31,6 +31,8 @@ entry point; place other scripts in the domain directories below.
   whenever a script path moves.
 - Keep shell scripts executable and cover behavior-bearing Python scripts with
   focused tests under `tests/integration/scripts/`.
+- The background Git auto-pull checks local dirty, rebase, and centralized-validation
+  state before contacting the remote. It fetches only when the checkout can safely rebase.
 
 ## Run changed tests
 
@@ -126,7 +128,12 @@ Central validation also runs the complete pre-push structural gate set and
 binds its input digest to each receipt. Pre-push reuses that evidence only for
 the exact current `HEAD` when the shared runner, every structural gate,
 `pyproject.toml`, and `uv.lock` still match. Missing or stale evidence falls
-back to the same shared gate runner in an isolated committed worktree.
+back to the same shared gate runner in an isolated committed worktree. Exact
+evidence skips isolated-worktree creation and the duplicate committed-snapshot
+checks entirely.
+The hook uses the remote ref that Git already negotiated for the push to check
+fast-forward ancestry and the outgoing range. It doesn't issue a duplicate
+network fetch before validation.
 
 When changed tests fail and a descendant fix commit is queued, the runner keeps
 the failed pytest node IDs outside the detached worktree. The next run combines
@@ -204,7 +211,12 @@ content hashes only for high-risk edits. Treat documentation synchronization as 
 read the routed context once, iterate on code with focused checks, then update the affected design
 documents once after behavior stabilizes and run the final focused validation. Docs-first requires
 current design context before implementation; it does not require rewriting a document before each
-code edit. Docs-after is evaluated against the completed diff, not each intermediate tool call.
+code edit. The dispatcher can inspect nested parallel payloads, but current VS Code builds do not
+invoke workspace hooks for wrapper-contained reads. Route-required documents therefore still use
+individual `read_file` calls until the host forwards those payloads. Nested edits and commands are
+checked before reads when a host does forward a batch, so a concurrent read cannot satisfy an edit
+in the same batch. Docs-after is evaluated against the completed diff, not each intermediate tool
+call.
 
 ## Roadmap implementation verification
 

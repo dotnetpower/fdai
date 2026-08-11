@@ -1424,6 +1424,24 @@
       ]
     },
     {
+      "id": "source-language",
+      "paths": [
+        "**/*.py",
+        "**/*.ts",
+        "**/*.tsx",
+        "**/*.js",
+        "**/*.sh",
+        "**/*.tf"
+      ],
+      "must_read": [
+        ".github/instructions/source-language.instructions.md"
+      ],
+      "validate": [
+        "scripts/quality/repository/check-punctuation.sh",
+        "uv run python scripts/quality/localization/check-readable-hangul.py"
+      ]
+    },
+    {
       "id": "repository-language",
       "paths": [
         "**/*.md",

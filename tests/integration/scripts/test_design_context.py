@@ -108,6 +108,108 @@ def test_dispatcher_skips_policy_import_for_unrelated_tools(
     assert module.dispatch(
         {"tool_name": "read_file", "tool_input": {"filePath": "service.py"}}
     ) == {"continue": True}
+    assert module.dispatch(
+        {"tool_name": "run_in_terminal", "tool_input": {"command": "git status --short"}}
+    ) == {"continue": True}
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv run pytest tests/integration/scripts/test_design_context.py",
+        "make validation-run",
+        "gh run watch 123",
+        "terraform plan",
+        "az account show",
+        "docker build .",
+    ],
+)
+def test_dispatcher_routes_policy_candidate_terminal_commands(
+    monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    module = _load_dispatcher()
+    expected = {"routed": command}
+    monkeypatch.setattr(module, "_run_policy", lambda payload: expected)
+
+    assert (
+        module.dispatch({"tool_name": "run_in_terminal", "tool_input": {"command": command}})
+        == expected
+    )
+
+
+def test_dispatcher_records_policy_relevant_parallel_reads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_dispatcher()
+    routed: list[str] = []
+    monkeypatch.setattr(
+        module,
+        "_run_policy",
+        lambda payload: routed.append(payload["tool_input"]["filePath"]) or {"continue": True},
+    )
+    payload = {
+        "session_id": "parallel-session",
+        "tool_name": "multi_tool_use.parallel",
+        "tool_input": {
+            "tool_uses": [
+                {
+                    "recipient_name": "functions.read_file",
+                    "parameters": {"filePath": "docs/design.md"},
+                },
+                {
+                    "recipient_name": "functions.read_file",
+                    "parameters": {"filePath": "src/service.py"},
+                },
+                {
+                    "recipient_name": "functions.read_file",
+                    "parameters": {"filePath": "config/policy.json"},
+                },
+            ]
+        },
+    }
+
+    assert module.dispatch(payload) == {"continue": True}
+    assert routed == ["docs/design.md", "config/policy.json"]
+
+
+def test_dispatcher_checks_parallel_edits_before_recording_reads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_dispatcher()
+    routed: list[str] = []
+
+    def run_policy(payload: dict[str, object]) -> dict[str, object]:
+        tool_name = module._tool_name(payload)
+        routed.append(tool_name)
+        if tool_name == "apply_patch":
+            return {
+                "hookSpecificOutput": {
+                    "permissionDecision": "deny",
+                }
+            }
+        return {"continue": True}
+
+    monkeypatch.setattr(module, "_run_policy", run_policy)
+    payload = {
+        "tool_name": "multi_tool_use.parallel",
+        "tool_input": {
+            "tool_uses": [
+                {
+                    "recipient_name": "functions.read_file",
+                    "parameters": {"filePath": "docs/design.md"},
+                },
+                {
+                    "recipient_name": "functions.apply_patch",
+                    "parameters": {"input": "*** Begin Patch\n*** End Patch"},
+                },
+            ]
+        },
+    }
+
+    result = module.dispatch(payload)
+
+    assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert routed == ["apply_patch"]
 
 
 def test_dispatcher_recognizes_every_routed_context_document_type() -> None:
@@ -118,6 +220,54 @@ def test_dispatcher_recognizes_every_routed_context_document_type() -> None:
     context_documents = {path for route in manifest["routes"] for path in route["must_read"]}
 
     assert all(path.endswith(module.CONTEXT_DOCUMENT_SUFFIXES) for path in context_documents)
+
+
+def test_language_instructions_use_narrow_non_overlapping_source_scope() -> None:
+    detailed = (REPO_ROOT / ".github" / "instructions" / "language.instructions.md").read_text(
+        encoding="utf-8"
+    )
+    source = (REPO_ROOT / ".github" / "instructions" / "source-language.instructions.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'applyTo: "**/*.{md,json,yaml,yml}"' in detailed
+    assert 'applyTo: "**/*.{py,ts,tsx,js,sh,tf}"' in source
+    for required_rule in (
+        "Identifiers, filenames, and branch names MUST stay ASCII",
+        "Commit Korean literals as readable NFC UTF-8",
+        "Runtime errors MUST be English, actionable",
+        "GitHub issue titles, bodies, and comments MUST be English",
+    ):
+        assert required_rule in source
+
+    routed = _load_module().required_context(("scripts/agent/pre_tool_dispatch.py",))
+    assert ".github/instructions/source-language.instructions.md" in routed
+    assert ".github/instructions/language.instructions.md" not in routed
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh run list --limit 1",
+        "gh run view 123 --json status,conclusion",
+        "gh workflow list",
+        "gh workflow view deploy-dev.yml",
+        "gh pr checks 123",
+    ],
+)
+def test_dispatcher_skips_policy_import_for_one_shot_github_reads(
+    monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    module = _load_dispatcher()
+    monkeypatch.setattr(
+        module,
+        "_run_policy",
+        lambda payload: pytest.fail("one-shot GitHub reads must stay on the fast path"),
+    )
+
+    assert module.dispatch(
+        {"tool_name": "run_in_terminal", "tool_input": {"command": command}}
+    ) == {"continue": True}
 
 
 def test_pre_tool_use_records_read_without_tool_response(
@@ -332,7 +482,10 @@ def test_pre_tool_use_denies_only_unscoped_test_tool() -> None:
     "command",
     [
         "gh run watch 123",
+        "gh run view 123 --log-failed",
+        "gh run rerun 123",
         "gh workflow run deploy-dev.yml",
+        "gh pr checks 123 --watch",
         "terraform plan",
         "azd provision --preview",
         "docker build -t example/fdai .",
@@ -382,6 +535,10 @@ def test_pre_tool_use_allows_slow_external_work_for_validated_head(
         "az account show",
         "docker version",
         "gh issue view 123",
+        "gh run list --limit 1",
+        "gh run view 123 --json status,conclusion",
+        "gh workflow list",
+        "gh pr checks 123",
         "git fetch origin main",
     ],
 )

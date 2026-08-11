@@ -19,22 +19,32 @@ if [ -z "$toplevel" ]; then
   exit 0
 fi
 cd "$toplevel" || exit 0
+git_common_dir="$(git rev-parse --git-common-dir 2>/dev/null || echo .git)"
+if [[ "$git_common_dir" != /* ]]; then
+  git_common_dir="$toplevel/$git_common_dir"
+fi
+validation_lock="$git_common_dir/fdai-validation-queue/lock"
 
 echo "[auto-pull] watching '$toplevel' every ${interval}s (safe: clean tree only)."
 
 while true; do
   branch="$(git symbolic-ref --short HEAD 2>/dev/null || echo "")"
-  if [ -n "$branch" ] && git fetch --quiet origin "$branch" 2>/dev/null; then
+  git_dir="$(git rev-parse --git-dir 2>/dev/null || echo .git)"
+  if [ -z "$branch" ]; then
+    :
+  elif [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+    echo "[auto-pull] working tree is dirty - skipping remote fetch."
+  elif [ -d "$git_dir/rebase-merge" ] || [ -d "$git_dir/rebase-apply" ]; then
+    echo "[auto-pull] rebase in progress - skipping remote fetch."
+  elif [ -f "$validation_lock" ] && command -v flock >/dev/null 2>&1 \
+    && ! flock -n "$validation_lock" -c true; then
+    echo "[auto-pull] centralized validation is active - skipping remote fetch."
+  elif git fetch --quiet origin "$branch" 2>/dev/null; then
     behind="$(git rev-list --count HEAD..FETCH_HEAD 2>/dev/null || echo 0)"
     ahead="$(git rev-list --count FETCH_HEAD..HEAD 2>/dev/null || echo 0)"
     if [ "$behind" -gt 0 ]; then
-      git_dir="$(git rev-parse --git-dir 2>/dev/null || echo .git)"
       if [ "$ahead" -gt 0 ]; then
         echo "[auto-pull] $branch has diverged ($ahead ahead, $behind behind) - skipping. Rebase manually after reviewing local commits."
-      elif [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-        echo "[auto-pull] $branch is $behind behind origin, but the working tree is dirty - skipping. Commit or stash, then: git pull --rebase"
-      elif [ -d "$git_dir/rebase-merge" ] || [ -d "$git_dir/rebase-apply" ]; then
-        echo "[auto-pull] rebase in progress - skipping."
       else
         echo "[auto-pull] $branch is $behind behind origin - pulling (rebase)..."
         if git pull --rebase --quiet origin "$branch"; then

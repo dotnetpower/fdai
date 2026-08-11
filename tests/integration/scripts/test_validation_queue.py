@@ -21,6 +21,7 @@ QUEUE_RUNNER = REPO_ROOT / "scripts" / "automation" / "validation_queue_runner.p
 QUEUE_SUPPORT = REPO_ROOT / "scripts" / "automation" / "validation_queue_support.py"
 POST_COMMIT_HOOK = REPO_ROOT / ".githooks" / "post-commit"
 PRE_PUSH_HOOK = REPO_ROOT / ".githooks" / "pre-push"
+AUTO_PULL_SCRIPT = REPO_ROOT / "scripts" / "automation" / "git-auto-pull.sh"
 VALIDATOR_AGENT = REPO_ROOT / ".github" / "agents" / "integration-validator.agent.md"
 
 
@@ -458,11 +459,36 @@ def test_pre_push_requires_central_validation_receipts() -> None:
 
     ensure_offset = hook.index('ensure-range "$range"')
     check_offset = hook.index('check-range "$range"')
+    evidence_offset = hook.index("exact centralized validation and structural evidence reused")
     worktree_offset = hook.index("git worktree add")
 
-    assert ensure_offset < check_offset < worktree_offset
+    assert ensure_offset < check_offset < evidence_offset < worktree_offset
+    assert "git fetch" not in hook
+    assert "while IFS=' ' read -r candidate_local_ref" in hook
+    assert 'git merge-base --is-ancestor "$remote_sha" "$local_sha"' in hook
+    assert "if [[ $structural_evidence -eq 1 ]]" in hook
     assert 'gate_command=(uv run python "$gate_path")' in structural_runner
     assert 'gate_command=(python3 "$gate_path")' not in structural_runner
+
+
+def test_pre_push_hook_has_valid_shell_syntax() -> None:
+    checked = _run(REPO_ROOT, "bash", "-n", str(PRE_PUSH_HOOK))
+
+    assert checked.returncode == 0, checked.stderr
+
+
+def test_auto_pull_checks_local_blockers_before_fetching() -> None:
+    script = AUTO_PULL_SCRIPT.read_text(encoding="utf-8")
+
+    status_offset = script.index("git status --porcelain")
+    validation_offset = script.index("centralized validation is active")
+    fetch_offset = script.index("git fetch --quiet")
+
+    assert status_offset < fetch_offset
+    assert validation_offset < fetch_offset
+    assert 'flock -n "$validation_lock" -c true' in script
+    checked = _run(REPO_ROOT, "bash", "-n", str(AUTO_PULL_SCRIPT))
+    assert checked.returncode == 0, checked.stderr
 
 
 def test_validator_agent_is_read_execute_only_and_uses_make_facade() -> None:
