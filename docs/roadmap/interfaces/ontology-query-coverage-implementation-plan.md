@@ -17,6 +17,13 @@ units for 100% structural query coverage.
 > have no execution authority. An explicit change request can create only a typed draft that re-enters
 > the existing judgment, safety, human approval, execution, recovery, and audit path.
 >
+> **Randomized assurance status (2026-08-11):** The authenticated Console completed 100/100
+> generated English and Korean turns, but the measured path used only the local Azure narrator.
+> Intent recognition was 100%, answer success was 20%, and all 100 cards were unverified with
+> evidence 0/0. Production completion remains blocked because the Operator Service does not compose
+> the semantic runtime. See
+> [Ontology Query Randomized Assurance](ontology-query-randomized-assurance.md).
+>
 > **Implementation status (2026-08-10):** Exact ontology releases, semantic candidates, bounded
 > ObjectSets, secured query receipts, typed function registration, current inventory projection,
 > metric providers, and causal-analysis primitives exist. The production path still uses regex and
@@ -295,6 +302,7 @@ provider and durable adapter bindings are explicit delivery gaps and fail closed
 
 | To learn about | Read |
 |----------------|------|
+| Randomized Console evidence and the current release blocker | [Ontology Query Randomized Assurance](ontology-query-randomized-assurance.md) |
 | Target question planning and coverage contract | [Hierarchical Conversation Planning](hierarchical-conversation-planning.md) |
 | Exact releases, ObjectSets, and typed functions | [FDAI Ontology Safety Infrastructure](../architecture/operating-ontology-platform.md) |
 | Operating objects, relationships, identity, and time | [FDAI Operating Ontology](../architecture/operating-ontology.md) |

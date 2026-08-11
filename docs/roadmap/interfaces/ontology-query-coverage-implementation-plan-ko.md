@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 8f8ec2e52d3c7d3eab17e43dd1e3b9a7cb0b6b02
-translation_revised: 2026-08-10
+translation_source_sha: b9a2561bade679207b0417b0dc32433acbc75636
+translation_revised: 2026-08-11
 ---
 
 # Ontology Query Coverage 구현 계획
@@ -17,6 +17,12 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > **Authority boundary:** 자연어 및 embedding output은 candidate-only로 유지합니다. Read plan에는
 > 실행 권한이 없습니다. 명시적 변경 요청은 기존 judgment, safety, 사람 승인, execution, recovery 및
 > audit path로 다시 들어가는 typed draft만 만들 수 있습니다.
+>
+> **무작위 보증 상태(2026-08-11):** 인증된 Console은 생성된 영어 및 한국어 turn 100/100개를
+> 완료했지만 측정된 경로는 로컬 Azure narrator만 사용했습니다. 의도 인식은 100%, 답변 성공은
+> 20%였으며 카드 100개 모두 evidence 0/0의 unverified 상태였습니다. Operator Service가 의미
+> 런타임을 구성하지 않으므로 프로덕션 완료 상태는 계속 차단됩니다.
+> [온톨로지 쿼리 무작위 보증](ontology-query-randomized-assurance-ko.md)을 참조하세요.
 >
 > **구현 상태(2026-08-10):** Exact ontology release, semantic candidate, bounded ObjectSet, secured query
 > receipt, typed function registration, current inventory projection, metric provider 및 causal-analysis
@@ -293,6 +299,7 @@ fail-close합니다.
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 무작위 Console 근거와 현재 릴리스 차단 항목 | [온톨로지 쿼리 무작위 보증](ontology-query-randomized-assurance-ko.md) |
 | 목표 question planning 및 coverage contract | [계층형 대화 계획](hierarchical-conversation-planning-ko.md) |
 | Exact release, ObjectSet 및 typed function | [FDAI Ontology Safety Infrastructure](../architecture/operating-ontology-platform-ko.md) |
 | Operating object, relationship, identity 및 time | [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md) |
