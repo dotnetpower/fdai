@@ -14,6 +14,12 @@ from fdai_operator_service.auth import EntraJwtVerifier, OperatorAuthenticator
 from fdai_operator_service.contracts import ReadinessProbe
 from fdai_operator_service.environment import OperatorEnvironment
 from fdai_operator_service.families.conversation import ConversationFamilyDependencies
+from fdai_operator_service.families.conversation.semantic_turn_runtime import (
+    SemanticTurnBridge,
+    SemanticTurnConversationAdapters,
+    SemanticTurnEventPublisher,
+    SemanticTurnResultSource,
+)
 from fdai_operator_service.families.iam import HilCallbackConfig, IamFamilyBindings
 from fdai_operator_service.family_adapters import (
     PostgresConversationAdapters,
@@ -65,12 +71,19 @@ class ProductionOperatorComposition:
     verifier_factory: TokenVerifierFactory = _build_entra_verifier
     read_model: OperatorReadModel | None = None
     readiness_probe: ReadinessProbe | None = None
+    semantic_event_publisher: SemanticTurnEventPublisher | None = None
+    semantic_result_source: SemanticTurnResultSource | None = None
 
     def build_runtime(self, environ: Mapping[str, str] | None = None) -> OperatorRuntime:
         """Bind a validated environment snapshot to service-owned HTTP dependencies."""
         environment = OperatorEnvironment.parse(os.environ if environ is None else environ)
         configured_read_model = self.read_model or _postgres_read_model(environment)
         family_store = _postgres_family_store(environment)
+        semantic_bridge = _semantic_bridge(
+            family_store,
+            publisher=self.semantic_event_publisher,
+            result_source=self.semantic_result_source,
+        )
         authenticator = OperatorAuthenticator(
             verifier=self.verifier_factory(environment),
             group_ids=environment.group_ids,
@@ -84,9 +97,11 @@ class ProductionOperatorComposition:
                 environment=environment,
                 authenticator=authenticator,
                 store=family_store,
+                semantic_bridge=semantic_bridge,
             ),
             readiness_probe=self.readiness_probe
             or (family_store.probe_readiness if family_store is not None else _unavailable),
+            lifecycle=semantic_bridge,
         )
 
 
@@ -107,6 +122,7 @@ def _build_route_families(
     environment: OperatorEnvironment,
     authenticator: OperatorAuthenticator,
     store: PostgresFamilyStore | None,
+    semantic_bridge: SemanticTurnBridge | None,
 ) -> OperatorRouteFamilies:
     authorizer = OperatorFamilyAuthorizer(authenticator)
     role_group_ids = {role.value: group_id for role, group_id in environment.group_ids.items()}
@@ -155,6 +171,15 @@ def _build_route_families(
         if environment.local_azure_narrator
         else postgres_conversation
     )
+    semantic_adapters = (
+        SemanticTurnConversationAdapters(
+            bridge=semantic_bridge,
+            fallback_outbox=postgres_conversation,
+            fallback_streams=conversation,
+        )
+        if semantic_bridge is not None
+        else None
+    )
     postgres_workflow = PostgresWorkflowAdapters(store)
     iam = PostgresIamAdapters(store)
     postgres_operations = PostgresOperationsAdapters(
@@ -166,8 +191,8 @@ def _build_route_families(
         conversation=ConversationFamilyDependencies(
             authorizer=authorizer,
             projections=conversation,
-            outbox=postgres_conversation,
-            streams=conversation,
+            outbox=semantic_adapters or postgres_conversation,
+            streams=semantic_adapters or conversation,
         ),
         iam=IamFamilyBindings(
             authorize=authorizer.iam,
@@ -208,6 +233,25 @@ def _postgres_family_store(environment: OperatorEnvironment) -> PostgresFamilySt
             statement_timeout_ms=environment.database_statement_timeout_ms,
             connect_timeout_s=environment.database_connect_timeout_s,
         )
+    )
+
+
+def _semantic_bridge(
+    store: PostgresFamilyStore | None,
+    *,
+    publisher: SemanticTurnEventPublisher | None,
+    result_source: SemanticTurnResultSource | None,
+) -> SemanticTurnBridge | None:
+    if publisher is None and result_source is None:
+        return None
+    if publisher is None or result_source is None:
+        raise RuntimeError("semantic publisher and result source MUST be configured together")
+    if store is None:
+        raise RuntimeError("semantic transport requires the authoritative PostgreSQL store")
+    return SemanticTurnBridge(
+        store=store,
+        publisher=publisher,
+        result_source=result_source,
     )
 
 

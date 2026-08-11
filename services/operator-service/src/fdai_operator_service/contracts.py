@@ -23,6 +23,14 @@ class AsgiApplication(Protocol):
     ) -> Awaitable[None]: ...
 
 
+class ApplicationLifecycle(Protocol):
+    """Start and close optional injected application background services."""
+
+    async def start(self) -> None: ...
+
+    async def aclose(self) -> None: ...
+
+
 class ApplicationFactory(Protocol):
     """Build one Operator ASGI application from an environment snapshot."""
 

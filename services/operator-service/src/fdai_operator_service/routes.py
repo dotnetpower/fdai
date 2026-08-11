@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Final, Literal, cast
@@ -34,7 +35,7 @@ from fdai_operator_service.auth import (
     AuthorizationError,
     OperatorAuthenticator,
 )
-from fdai_operator_service.contracts import ReadinessProbe
+from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
 from fdai_operator_service.families.conversation import (
     CONVERSATION_ROUTE_MANIFEST,
     ConversationFamilyDependencies,
@@ -145,6 +146,7 @@ def build_operator_app(
     route_families: OperatorRouteFamilies,
     readiness_probe: ReadinessProbe,
     cors_allow_origins: tuple[str, ...] = (),
+    lifecycle: ApplicationLifecycle | None = None,
 ) -> Starlette:
     """Build the complete Operator API without executor or FDAI imports."""
     _validate_data_sources(data_sources)
@@ -341,9 +343,21 @@ def build_operator_app(
                 allow_headers=["Authorization", "Content-Type"],
             )
         )
+
+    @asynccontextmanager
+    async def lifespan(_: Starlette) -> AsyncIterator[None]:
+        if lifecycle is not None:
+            await lifecycle.start()
+        try:
+            yield
+        finally:
+            if lifecycle is not None:
+                await lifecycle.aclose()
+
     return Starlette(
         routes=routes,
         middleware=middleware,
+        lifespan=lifespan,
         exception_handlers={
             AuthenticationError: _authentication_error,
             AuthorizationError: _authorization_error,

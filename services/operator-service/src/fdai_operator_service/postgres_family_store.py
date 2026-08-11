@@ -13,6 +13,14 @@ import psycopg
 from psycopg.rows import dict_row
 
 from fdai_operator_service.environment import EXPECTED_DATABASE_ROLE
+from fdai_operator_service.postgres_semantic_turn_store import (
+    PostgresSemanticTurnRepository,
+    SemanticTurnClaim,
+    SemanticTurnConflictError,
+    SemanticTurnStoreError,
+    StoredSemanticResult,
+    StoredSemanticTurn,
+)
 
 _PROJECTION_PREFIX: Final = "operator-projection:"
 _PROPOSAL_PREFIX: Final = "operator-proposal:"
@@ -65,6 +73,7 @@ class PostgresProposalConflictError(RuntimeError):
 
 PostgresFamilyStoreUnavailable = PostgresFamilyStoreUnavailableError
 PostgresProposalConflict = PostgresProposalConflictError
+PostgresSemanticTurnConflict = SemanticTurnConflictError
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +118,10 @@ class PostgresFamilyStore:
 
     def __init__(self, config: PostgresFamilyStoreConfig) -> None:
         self._config = config
+        self._semantic_turn_store = PostgresSemanticTurnRepository(
+            fetch_all=self._fetch_all,
+            insert_if_absent=self._insert_if_absent,
+        )
 
     async def probe_readiness(self) -> bool:
         """Verify required projection tables, columns, grants, and connectivity."""
@@ -240,6 +253,105 @@ class PostgresFamilyStore:
             duplicate=not inserted,
             record=stored,
         )
+
+    async def append_semantic_turn(
+        self,
+        *,
+        principal_id: str,
+        idempotency_key: str,
+        request_digest: str,
+        envelope: Mapping[str, object],
+    ) -> StoredSemanticTurn:
+        """Persist one v1.2 semantic request without publishing it in the transaction."""
+        try:
+            return await self._semantic_turn_store.append(
+                principal_id=principal_id,
+                idempotency_key=idempotency_key,
+                request_digest=request_digest,
+                envelope=envelope,
+            )
+        except SemanticTurnStoreError as exc:
+            raise PostgresFamilyStoreUnavailable(
+                "authoritative semantic turn outbox is unavailable"
+            ) from exc
+
+    async def claim_semantic_turn(
+        self,
+        *,
+        worker_id: str,
+        lease_seconds: int,
+        now: datetime | None = None,
+    ) -> SemanticTurnClaim | None:
+        """Atomically lease the oldest eligible turn with replica-safe row locking."""
+        try:
+            return await self._semantic_turn_store.claim(
+                worker_id=worker_id,
+                lease_seconds=lease_seconds,
+                now=now,
+            )
+        except SemanticTurnStoreError as exc:
+            raise PostgresFamilyStoreUnavailable(
+                "authoritative semantic turn outbox is unavailable"
+            ) from exc
+
+    async def mark_semantic_turn_published(self, *, key: str, claim_id: str) -> bool:
+        """Compare-and-set one active claim to published after transport acceptance."""
+        return await self._semantic_turn_store.mark_published(key=key, claim_id=claim_id)
+
+    async def release_semantic_turn_claim(self, *, key: str, claim_id: str) -> bool:
+        """Compare-and-set one failed claim back to pending for bounded retry."""
+        return await self._semantic_turn_store.release_claim(key=key, claim_id=claim_id)
+
+    async def read_semantic_turn(
+        self,
+        *,
+        principal_id: str,
+        proposal_id: str,
+    ) -> StoredSemanticTurn | None:
+        """Read an accepted semantic turn only for its authenticated principal."""
+        try:
+            return await self._semantic_turn_store.read(
+                principal_id=principal_id,
+                proposal_id=proposal_id,
+            )
+        except SemanticTurnStoreError as exc:
+            raise PostgresFamilyStoreUnavailable(
+                "authoritative semantic turn outbox is unavailable"
+            ) from exc
+
+    async def project_semantic_turn_result(
+        self,
+        *,
+        projection: Mapping[str, object],
+    ) -> StoredSemanticResult:
+        """Idempotently project a validated result against its owning durable request."""
+        try:
+            return await self._semantic_turn_store.project(projection=projection)
+        except SemanticTurnStoreError as exc:
+            raise PostgresFamilyStoreUnavailable(
+                "authoritative semantic result projection is unavailable"
+            ) from exc
+
+    async def replay_semantic_turn(
+        self,
+        *,
+        principal_id: str,
+        request_id: str,
+        after_sequence: int | None,
+        limit: int = 100,
+    ) -> tuple[StoredSemanticResult, ...]:
+        """Replay ordered terminal events isolated by authenticated principal and request."""
+        try:
+            return await self._semantic_turn_store.replay(
+                principal_id=principal_id,
+                request_id=request_id,
+                after_sequence=after_sequence,
+                limit=limit,
+            )
+        except SemanticTurnStoreError as exc:
+            raise PostgresFamilyStoreUnavailable(
+                "authoritative semantic result replay is unavailable"
+            ) from exc
 
     async def replay(
         self,
@@ -398,6 +510,63 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
         del family, operation, principal_id, idempotency_key, payload
         raise PostgresFamilyStoreUnavailable("proposal outbox is unavailable")
 
+    async def append_semantic_turn(
+        self,
+        *,
+        principal_id: str,
+        idempotency_key: str,
+        request_digest: str,
+        envelope: Mapping[str, object],
+    ) -> StoredSemanticTurn:
+        del principal_id, idempotency_key, request_digest, envelope
+        raise PostgresFamilyStoreUnavailable("semantic turn outbox is unavailable")
+
+    async def claim_semantic_turn(
+        self,
+        *,
+        worker_id: str,
+        lease_seconds: int,
+        now: datetime | None = None,
+    ) -> SemanticTurnClaim | None:
+        del worker_id, lease_seconds, now
+        raise PostgresFamilyStoreUnavailable("semantic turn outbox is unavailable")
+
+    async def mark_semantic_turn_published(self, *, key: str, claim_id: str) -> bool:
+        del key, claim_id
+        raise PostgresFamilyStoreUnavailable("semantic turn outbox is unavailable")
+
+    async def release_semantic_turn_claim(self, *, key: str, claim_id: str) -> bool:
+        del key, claim_id
+        raise PostgresFamilyStoreUnavailable("semantic turn outbox is unavailable")
+
+    async def read_semantic_turn(
+        self,
+        *,
+        principal_id: str,
+        proposal_id: str,
+    ) -> StoredSemanticTurn | None:
+        del principal_id, proposal_id
+        raise PostgresFamilyStoreUnavailable("semantic turn outbox is unavailable")
+
+    async def project_semantic_turn_result(
+        self,
+        *,
+        projection: Mapping[str, object],
+    ) -> StoredSemanticResult:
+        del projection
+        raise PostgresFamilyStoreUnavailable("semantic result projection is unavailable")
+
+    async def replay_semantic_turn(
+        self,
+        *,
+        principal_id: str,
+        request_id: str,
+        after_sequence: int | None,
+        limit: int = 100,
+    ) -> tuple[StoredSemanticResult, ...]:
+        del principal_id, request_id, after_sequence, limit
+        raise PostgresFamilyStoreUnavailable("semantic result replay is unavailable")
+
     async def replay(
         self,
         *,
@@ -460,7 +629,11 @@ __all__ = [
     "PostgresFamilyStoreConfig",
     "PostgresFamilyStoreUnavailable",
     "PostgresProposalConflict",
+    "PostgresSemanticTurnConflict",
+    "SemanticTurnClaim",
     "StoredProposal",
     "StoredReplayEvent",
+    "StoredSemanticResult",
+    "StoredSemanticTurn",
     "UnavailablePostgresFamilyStore",
 ]
