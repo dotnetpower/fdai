@@ -3,7 +3,7 @@
     "PreToolUse": [
       {
         "type": "command",
-        "command": "python3 scripts/agent/design_context.py pre-tool-use",
+        "command": "python3 -S -m scripts.agent.pre_tool_dispatch",
         "timeout": 10
       }
     ]

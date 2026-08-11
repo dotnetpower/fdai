@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -14,6 +17,15 @@ HOOK_CONFIG_PATH = REPO_ROOT / ".github/hooks/design-context.json"
 def _load_module() -> ModuleType:
     path = REPO_ROOT / "scripts/agent/design_context.py"
     spec = importlib.util.spec_from_file_location("design_context", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_dispatcher() -> ModuleType:
+    path = REPO_ROOT / "scripts/agent/pre_tool_dispatch.py"
+    spec = importlib.util.spec_from_file_location("pre_tool_dispatch", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -60,7 +72,52 @@ def test_hook_avoids_post_tool_response_payloads() -> None:
     hooks = json.loads(HOOK_CONFIG_PATH.read_text(encoding="utf-8"))["hooks"]
 
     assert set(hooks) == {"PreToolUse"}
-    assert hooks["PreToolUse"][0]["command"].endswith("design_context.py pre-tool-use")
+    assert hooks["PreToolUse"][0]["command"] == "python3 -S -m scripts.agent.pre_tool_dispatch"
+
+
+def test_hook_command_runs_without_pythonpath() -> None:
+    environment = os.environ.copy()
+    environment.pop("PYTHONPATH", None)
+
+    completed = subprocess.run(
+        [sys.executable, "-S", "-m", "scripts.agent.pre_tool_dispatch"],
+        cwd=REPO_ROOT,
+        input=json.dumps({"tool_name": "grep_search", "tool_input": {"query": "x"}}),
+        check=True,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+
+    assert json.loads(completed.stdout) == {"continue": True}
+
+
+def test_dispatcher_skips_policy_import_for_unrelated_tools(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_dispatcher()
+    monkeypatch.setattr(
+        module,
+        "_run_policy",
+        lambda payload: pytest.fail("unrelated tools must not import the policy module"),
+    )
+
+    assert module.dispatch(
+        {"tool_name": "grep_search", "tool_input": {"query": "design context"}}
+    ) == {"continue": True}
+    assert module.dispatch(
+        {"tool_name": "read_file", "tool_input": {"filePath": "service.py"}}
+    ) == {"continue": True}
+
+
+def test_dispatcher_recognizes_every_routed_context_document_type() -> None:
+    module = _load_dispatcher()
+    manifest = json.loads(
+        (REPO_ROOT / "scripts/lib/design-routes.json").read_text(encoding="utf-8")
+    )
+    context_documents = {path for route in manifest["routes"] for path in route["must_read"]}
+
+    assert all(path.endswith(module.CONTEXT_DOCUMENT_SUFFIXES) for path in context_documents)
 
 
 def test_pre_tool_use_records_read_without_tool_response(
@@ -122,6 +179,11 @@ def test_pre_tool_use_does_not_record_ordinary_source_reads(
     module = _load_module()
     state_path = tmp_path / "receipt.json"
     monkeypatch.setattr(module, "_state_path", lambda payload: state_path)
+    monkeypatch.setattr(
+        module,
+        "_context_documents",
+        lambda: pytest.fail("source reads must not load design routes"),
+    )
     payload = {
         "session_id": "session-source-read",
         "tool_name": "read_file",
@@ -130,6 +192,26 @@ def test_pre_tool_use_does_not_record_ordinary_source_reads(
 
     assert module.pre_tool_use(payload) == {"continue": True}
     assert not state_path.exists()
+
+
+def test_pre_tool_use_skips_policy_checks_for_unrelated_tools(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "enforce_edit",
+        lambda payload: pytest.fail("unrelated tools must not run edit policy"),
+    )
+    monkeypatch.setattr(
+        module,
+        "enforce_validation_route",
+        lambda payload: pytest.fail("unrelated tools must not run validation policy"),
+    )
+
+    assert module.pre_tool_use(
+        {"tool_name": "grep_search", "tool_input": {"query": "design context"}}
+    ) == {"continue": True}
 
 
 def test_recorded_current_reads_allow_edit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

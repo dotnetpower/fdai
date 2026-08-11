@@ -26,6 +26,7 @@ HIGH_RISK_EXACT_PATHS = frozenset(
         ".github/hooks/design-context.json",
         "scripts/agent/design_context.py",
         "scripts/agent/external_operation_guard.py",
+        "scripts/agent/pre_tool_dispatch.py",
         "scripts/lib/design-routes.json",
         "scripts/lib/framework-surface.txt",
     }
@@ -42,6 +43,7 @@ PATCH_PATH = re.compile(
     r"^\*\*\* (?:Add|Update|Delete) File: (?P<path>.+?)(?: -> .+)?$",
     re.MULTILINE,
 )
+CONTEXT_DOCUMENT_SUFFIXES = frozenset({".json", ".md", ".yaml", ".yml"})
 
 
 def _payload_value(payload: dict[str, Any], *names: str) -> Any:
@@ -124,7 +126,11 @@ def _read_target(payload: dict[str, Any]) -> str | None:
 
 def record_read(payload: dict[str, Any]) -> dict[str, Any]:
     relative = _read_target(payload)
-    if relative is None or relative not in _context_documents():
+    if (
+        relative is None
+        or Path(relative).suffix not in CONTEXT_DOCUMENT_SUFFIXES
+        or relative not in _context_documents()
+    ):
         return {"continue": True}
     path = REPO_ROOT / relative
     if not path.is_file():
@@ -354,16 +360,18 @@ def enforce_validation_route(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def pre_tool_use(payload: dict[str, Any]) -> dict[str, Any]:
-    if _tool_name(payload) == "read_file":
+    tool_name = _tool_name(payload)
+    if tool_name == "read_file":
         return record_read(payload)
-    edit_result = enforce_edit(payload)
-    if edit_result.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
-        return edit_result
+    if tool_name in EDIT_TOOL_NAMES:
+        return enforce_edit(payload)
+    if tool_name not in TERMINAL_TOOL_NAMES and tool_name != "runTests":
+        return {"continue": True}
     validation_result = enforce_validation_route(payload)
     if validation_result.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
         return validation_result
     return external_operation_guard.enforce_external_operation_order(
-        tool_name=_tool_name(payload),
+        tool_name=tool_name,
         tool_input=_tool_input(payload),
         repo_root=REPO_ROOT,
     )

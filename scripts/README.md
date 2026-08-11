@@ -199,6 +199,13 @@ the centralized load. The pre-push hook runs Python structural gates with the
 project interpreter selected by `uv`, so those gates parse the same supported
 language version as centralized validation.
 
+The same hook records route-selected design documents once per agent session and checks their
+content hashes only for high-risk edits. Treat documentation synchronization as a batch boundary:
+read the routed context once, iterate on code with focused checks, then update the affected design
+documents once after behavior stabilizes and run the final focused validation. Docs-first requires
+current design context before implementation; it does not require rewriting a document before each
+code edit. Docs-after is evaluated against the completed diff, not each intermediate tool call.
+
 ## Roadmap implementation verification
 
 The roadmap verification pipeline treats each canonical English document and its
