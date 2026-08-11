@@ -50,6 +50,20 @@ def _observable() -> OntologyInterfaceType:
     )
 
 
+def _secured_interface() -> OntologyInterfaceType:
+    return OntologyInterfaceType(
+        name="Secured",
+        version="1.0.0",
+        properties={
+            "visible": PropertyDecl(type=PropertyType.STRING),
+            "owner_only": PropertyDecl(
+                type=PropertyType.STRING,
+                access_scope=CeilingRole.OWNER,
+            ),
+        },
+    )
+
+
 def _contains() -> OntologyLinkType:
     return OntologyLinkType(
         schema_version="1.0.0",
@@ -163,6 +177,29 @@ def test_manifest_filters_functions_by_role_and_purpose() -> None:
     assert wrong_purpose.coverage_receipt.readable_declaration_count == 0
     assert owner.coverage_receipt.readable_declaration_count == 1
     assert owner.descriptors[0]["name"] == "query.resources"
+
+
+def test_manifest_filters_interface_properties_by_role() -> None:
+    interface = _secured_interface()
+    release = build_ontology_release(interface_types=(interface,))
+
+    reader = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=SCOPE_DIGEST,
+        interfaces=(interface,),
+    )
+    owner = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.OWNER,
+        purposes=("operations-review",),
+        principal_scope_digest=SCOPE_DIGEST,
+        interfaces=(interface,),
+    )
+
+    assert reader.descriptors[0]["properties"] == ["visible"]
+    assert owner.descriptors[0]["properties"] == ["owner_only", "visible"]
 
 
 def test_manifest_is_order_independent_and_content_addressed() -> None:

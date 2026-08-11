@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 9825070da1048a16b18b675cd0f0433008a6a3aa
+translation_source_sha: 1a5e38e72265daf18b78665b2173020f8d09fca0
 translation_revised: 2026-08-10
 ---
 
@@ -274,6 +274,17 @@ structural coverage에서 사라질 수 없으며 manifest construction이 fail-
 mutation finding은 selector가 exact manifest subset으로 검사되고 model 노출 전에 deep copy되며 test가
 source manifest 불변을 입증하므로 기각했습니다. Owning bilingual design은 새 seam을 이미 문서화합니다.
 이 shadow-only slice에는 재현 가능한 Medium 이상 finding이 남아 있지 않습니다.
+
+OQ-06부터 OQ-11까지 landing한 후 전체 program을 대상으로 8,500-row generation parity, activation 및
+rollback, embedding bound, Interface ACL, LinkType side, query typing, cutover escape path, total
+disposition, evidence truncation, cancellation, bitemporal time, tombstone, migration/grant,
+`routes_to`, zero-vs-missing metric, causal refutation, provider identity, continuous-gate honesty,
+boundary, docs 및 test blind spot을 다루는 추가 25-lens review를 수행했습니다. 재현 가능한 Medium
+finding 두 개를 수정했습니다. Interface property는 이제 ObjectType property와 같은 role/purpose filtering을
+받으며 goal receipt는 existing terminal reason과 evidence-reference truncation을 모두 보존합니다. Focused
+regression이 두 수정 사항을 입증합니다. 구현된 ontology-query program에는 재현 가능한 Medium 이상
+finding이 남아 있지 않습니다. 남은 production provider/durable adapter binding은 명시적인 delivery gap이며
+fail-close합니다.
 
 ## 관련 문서
 

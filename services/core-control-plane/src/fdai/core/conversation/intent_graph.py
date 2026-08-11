@@ -88,8 +88,10 @@ def build_intent_graph_evidence(
             raise ValueError("query task receipt order does not match plan")
         evidence_refs = receipt.evidence_refs[:12]
         reason = receipt.reason
-        if len(receipt.evidence_refs) > len(evidence_refs) and reason is None:
-            reason = "evidence_refs_truncated"
+        if len(receipt.evidence_refs) > len(evidence_refs):
+            reason = (
+                "evidence_refs_truncated" if reason is None else f"{reason}+evidence_refs_truncated"
+            )
         receipts.append(
             GoalTaskReceipt.model_validate(
                 {

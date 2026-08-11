@@ -257,6 +257,46 @@ def test_execution_receipts_bind_to_intent_goal_ids() -> None:
     assert evidence.goals[0].evidence_refs == receipt.evidence_refs
 
 
+def test_execution_evidence_preserves_failure_and_truncation_reasons() -> None:
+    manifest, definition = _fixture()
+    outcome = _service(_Model(frame=_frame(), plan=_plan(definition)), manifest).plan(
+        utterance="Show matching resources",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+    assert outcome.plan is not None and outcome.intent_graph is not None
+    receipt = GoalTaskReceipt(
+        task_id="query:resources",
+        goal_id="resources",
+        intent="object_set",
+        capability="query.object_set",
+        evidence_mode=GoalEvidenceMode.OPERATIONAL,
+        status=TaskStatus.FAILED,
+        duration_ms=1,
+        reason="capability_failed",
+        evidence_refs=tuple(f"evidence:{index}" for index in range(13)),
+        started_at=NOW,
+        completed_at=NOW,
+    )
+    execution = QueryPlanExecution(
+        plan_digest=outcome.plan.plan_digest,
+        status="failed",
+        results=MappingProxyType({}),
+        receipts=(receipt,),
+        output_node_ids=("resources",),
+    )
+
+    evidence = build_intent_graph_evidence(
+        graph=outcome.intent_graph,
+        plan=outcome.plan,
+        execution=execution,
+    )
+
+    assert evidence.goals[0].reason == "capability_failed+evidence_refs_truncated"
+    assert len(evidence.goals[0].evidence_refs) == 12
+
+
 def test_coordinator_shadow_plan_does_not_change_compatibility_result() -> None:
     manifest, definition = _fixture()
     planner = _service(_Model(frame=_frame(), plan=_plan(definition)), manifest)

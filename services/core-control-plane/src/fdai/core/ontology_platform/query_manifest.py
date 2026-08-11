@@ -198,7 +198,16 @@ def _descriptor(
                 "name": declaration.name,
                 "version": str(declaration.version),
                 "declaration_digest": declaration_digest,
-                "properties": sorted(declaration.properties),
+                "properties": [
+                    name
+                    for name, prop in sorted(declaration.properties.items())
+                    if _property_readable(
+                        prop.access_scope,
+                        prop.purpose_binding,
+                        role,
+                        purposes,
+                    )
+                ],
                 "required_links": sorted(declaration.required_links),
                 "supported_actions": sorted(declaration.supported_actions),
                 "extends": sorted(declaration.extends),

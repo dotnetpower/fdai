@@ -278,6 +278,17 @@ because the selector is checked as an exact manifest subset and deep-copied befo
 and the test proves the source manifest remains unchanged. The owning bilingual designs already
 document the new seams. No reproducible Medium-or-higher finding remains in this shadow-only slice.
 
+After OQ-06 through OQ-11 landed, the complete program received another 25-lens review covering
+8,500-row generation parity, activation and rollback, embedding bounds, Interface ACLs, LinkType
+sides, query typing, cutover escape paths, total disposition, evidence truncation, cancellation,
+bitemporal time, tombstones, migrations and grants, `routes_to`, zero-vs-missing metrics, causal
+refutation, provider identity, continuous-gate honesty, boundaries, docs, and test blind spots. Two
+reproducible Medium findings were fixed: Interface properties now receive the same role/purpose
+filtering as ObjectType properties, and goal receipts preserve both an existing terminal reason and
+evidence-reference truncation. Focused regressions prove both fixes. No reproducible
+Medium-or-higher finding remains in the implemented ontology-query program; remaining production
+provider and durable adapter bindings are explicit delivery gaps and fail closed.
+
 ## Related docs
 
 | To learn about | Read |

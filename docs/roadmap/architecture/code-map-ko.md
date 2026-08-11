@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 9410ab68dc2b50efac8620daed1bb145e1e2882a
+translation_source_sha: f3618c4207d23bde56fb32178485292060efec2e
 translation_revised: 2026-08-10
 ---
 # 코드 맵
@@ -60,6 +60,8 @@ test는 Core 소유 test tree에 유지합니다.
 Ontology query execution은 runtime에서 exact release, manifest, role 및 purpose를 다시 검사합니다.
 Bounded dependency wave는 node deadline에 queue wait를 포함하고 in-flight cancellation을 전파하며
 blocked descendant를 skip하고 provider error detail 없는 stable receipt를 emit합니다.
+Planner manifest는 ObjectType 및 Interface property에 동일한 role/purpose filtering을 적용합니다. Intent
+evidence는 terminal reason을 보존하면서 bounded evidence-reference truncation도 공개합니다.
 
 ## 독립 service map
 
