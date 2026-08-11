@@ -3,282 +3,282 @@ title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
 translation_source_sha: d8692afbb13932b7c7aafccccb0137b3054ead3e
-translation_revised: 2026-08-06
+translation_revised: 2026-08-11
 ---
 
-# 처리 중인 Conversation 입력 모드
+# 처리 중인 대화 입력 모드
 
-이 설계는 operator conversation turn이 진행되는 동안 도착한 후속 입력을 위해 JSON과 SSE route
-adapter가 공유하는 하나의 channel-neutral state machine을 정의합니다. 분리된 planning, evidence,
-verification 및 terminal helper는 동일한 queue, interrupt, steer contract를 유지합니다.
+이 설계는 운영자 대화 턴이 진행되는 동안 도착한 후속 입력을 위해 JSON과 SSE 경로
+어댑터가 공유하는 하나의 채널 중립적인 상태 머신을 정의합니다. 분리된 planning, 근거,
+검증 및 최종 보조 로직은 동일한 큐, interrupt, steer 계약을 유지합니다.
 
-> **범위:** Busy-input cancellation은 conversational model 및 tool 작업만 중지합니다. Action,
-> approval, resource lock, idempotency key, execution scope, rollback을 취소하거나 변경하지 않습니다.
+> **범위:** Busy-input 취소는 conversational 모델 및 도구 작업만 중지합니다. 액션,
+> 승인, 리소스 lock, 멱등성 키, 실행 범위, 롤백을 취소하거나 변경하지 않습니다.
 
 ## 설계 요약
 
-수락된 모든 후속 입력은 acknowledgement 전에 저장됩니다. Shared coordinator는 session mode에서
-하나의 disposition을 선택하고 active conversational turn에만 signal을 보내며, 선언된 model 또는 tool
-boundary에서 steer 입력을 consume합니다.
+수락된 모든 후속 입력은 확인 응답 전에 저장됩니다. Shared 조정기는 세션 모드에서
+하나의 처리 결과를 선택하고 활성 conversational 턴에만 신호를 보내며, 선언된 모델 또는 도구
+경계에서 steer 입력을 consume합니다.
 
 ```mermaid
 flowchart LR
-    INPUT[인증된 후속 입력] --> STORE[영구 CAS arbitration]
-    STORE -->|queue| QUEUE[다음 turn queue]
-    STORE -->|interrupt| CANCEL[Conversation cancel event]
-    STORE -->|steer| BOUNDARY[Safe boundary]
-    BOUNDARY --> RERUN[제한된 narrator rerun]
-    TURN[Turn이 먼저 종료] --> FALLBACK[Steer가 queued로 변경]
+  INPUT[인증된 후속 입력] --> STORE[영구 CAS arbitration]
+  STORE -->|queue| QUEUE[다음 turn queue]
+  STORE -->|interrupt| CANCEL[Conversation cancel event]
+  STORE -->|steer| BOUNDARY[Safe boundary]
+  BOUNDARY --> RERUN[제한된 narrator rerun]
+  TURN[Turn이 먼저 종료] --> FALLBACK[Steer가 queued로 변경]
 ```
 
-## Contract
+## 계약
 
-`BusySessionState`는 session owner, 설정된 mode, active turn ID, revision, 다음 sequence, 제한된 pending
-projection을 포함합니다. `BusyInput`은 안정적인 input 및 idempotency ID, session 및 principal ID,
-제한된 content, input kind, received time, expiry를 포함합니다. 각 pending record에는 하나의 sequence,
-disposition, lifecycle status, 선택적인 consumed time이 있습니다.
+`BusySessionState`는 세션 소유자, 설정된 모드, 활성 턴 ID, 개정 번호, 다음 순서, 제한된 pending
+변환 결과를 포함합니다. `BusyInput`은 안정적인 입력 및 멱등성 ID, 세션 및 principal ID,
+제한된 내용, 입력 kind, received 시간, 만료를 포함합니다. 각 pending 기록에는 하나의 순서,
+처리 결과, 수명 주기 상태, 선택적인 consumed 시간이 있습니다.
 
-지원하는 mode는 다음과 같습니다.
+지원하는 모드는 다음과 같습니다.
 
-| Mode | 영구 disposition | 동작 |
+| 모드 | 영구 처리 결과 | 동작 |
 |------|------------------|------|
-| `queue` | `queued` | Active turn이 끝난 후 이후 turn으로 실행합니다. |
-| `interrupt` | `interrupting` | Active conversational run에 cancellation signal을 보냅니다. |
-| `steer` | `steered` | 다음 safe boundary에서 한 번 consume하고 narrator를 다시 실행합니다. |
+| `queue` | `queued` | 활성 턴이 끝난 후 이후 턴으로 실행합니다. |
+| `interrupt` | `interrupting` | 활성 conversational 실행에 취소 신호를 보냅니다. |
+| `steer` | `steered` | 다음 safe 경계에서 한 번 consume하고 서술기를 다시 실행합니다. |
 
-거부된 입력은 영구 rejected record와 reason을 받지만 accepted sequence를 진행하거나 이전 pending
+거부된 입력은 영구 rejected 기록과 사유를 받지만 accepted 순서를 진행하거나 이전 pending
 입력을 제거하지 않습니다.
 
-## 제한 및 idempotency
+## 제한 및 멱등성
 
-Session 하나는 최대 32개의 pending input과 32,000 bytes의 pending content를 수락합니다. 입력 body 하나는
-4,000 bytes로 제한됩니다. Expiry는 한 시간으로 제한됩니다. Overflow는 `queue_capacity_exceeded`를
-반환하며 이전에 수락한 record를 버리지 않습니다.
+세션 하나는 최대 32개의 pending 입력과 32,000 바이트의 pending 내용을 수락합니다. 입력 본문 하나는
+4,000 바이트로 제한됩니다. 만료는 한 시간으로 제한됩니다. 초과분은 `queue_capacity_exceeded`를
+반환하며 이전에 수락한 기록을 버리지 않습니다.
 
-Idempotency는 session 안에서 unique합니다. 같은 전체 입력을 replay하면 원래 record와 sequence를
-반환합니다. Input 또는 idempotency ID를 다른 content와 함께 재사용하면 conflict입니다.
+멱등성은 세션 안에서 unique합니다. 같은 전체 입력을 재생하면 원래 기록과 순서를
+반환합니다. 입력 또는 멱등성 ID를 다른 내용과 함께 재사용하면 conflict입니다.
 
-Agent-targeted active turn은 Operator API가 bounded cross-process conversational bridge를 기다리는 동안
-선택한 agent를 유지합니다. Interrupt cancellation은 pending response future를 제거하며 agent action 또는
-typed pipeline event를 취소하지 않습니다. Bridge timeout은 명시적인 agent-to-Bragi handoff를 반환하고,
-queued input은 자체 idempotency identity를 가진 새 request를 시작합니다.
-Agent evidence branch가 bridge 응답 전에 실패하거나 timeout되면 branch join은 성공한 sibling
-operational evidence를 제거하지 않고 동일한 명시적 handoff를 materialize합니다.
-Queue, interrupt 및 steer는 active conversational identity를 유지합니다. Dedicated target session은
-선택된 agent voice를 유지하고 unbound conversation은 Bragi를 유지합니다. Versioned agent-charter
-metadata는 provenance로만 유지되며 rerun 중 evidence 또는 authority가 되지 않습니다. 각 rerun은
-fresh exact policy match 후에만 selected charter를 주입하고 global safety를 먼저 유지합니다.
-Atomic-claim verification도 생성된 agent narration을 제외하고 queued 또는 steered rerun 전반에서
-agent의 durable evidence ref에 rooted된 고유 fact leaf pointer를 유지합니다.
+Agent-targeted 활성 턴은 Operator API가 범위가 제한된 프로세스 간 conversational 브리지를 기다리는 동안
+선택한 agent를 유지합니다. Interrupt 취소는 pending 응답 future를 제거하며 agent 액션 또는
+타입이 지정된 파이프라인 event를 취소하지 않습니다. 브리지 시간 초과는 명시적인 agent-to-Bragi 인계를 반환하고,
+대기 중 입력은 자체 멱등성 신원을 가진 새 요청을 시작합니다.
+Agent 근거 가지가 브리지 응답 전에 실패하거나 시간 초과되면 가지 결합은 성공한 형제
+operational 근거를 제거하지 않고 동일한 명시적 인계를 materialize합니다.
+큐, interrupt 및 steer는 활성 conversational 신원을 유지합니다. Dedicated 대상 세션은
+선택된 agent voice를 유지하고 unbound 대화는 Bragi를 유지합니다. Versioned agent-charter
+메타데이터는 출처 이력로만 유지되며 rerun 중 근거 또는 권한이 되지 않습니다. 각 rerun은
+fresh exact 정책 일치 후에만 선택된 charter를 주입하고 global safety를 먼저 유지합니다.
+Atomic-claim 검증도 생성된 agent 서술을 제외하고 대기 중 또는 steered rerun 전반에서
+agent의 영속 근거 ref에 rooted된 고유 fact leaf 포인터를 유지합니다.
 
 ## 영구 arbitration
 
-PostgreSQL은 session state와 pending input을 분리해 저장합니다. Submit, mode 및 active-turn update,
-turn finish, consume, expiry는 session row를 lock하고 revision compare-and-swap 의미를 사용합니다.
-수락한 input row와 session sequence update는 하나의 transaction으로 commit됩니다.
+PostgreSQL은 세션 상태와 pending 입력을 분리해 저장합니다. 제출, 모드 및 active-turn 갱신,
+턴 finish, consume, 만료는 세션 행을 lock하고 개정 번호 compare-and-swap 의미를 사용합니다.
+수락한 입력 행과 세션 순서 갱신은 하나의 트랜잭션으로 커밋됩니다.
 
-동시에 발생한 steer submit과 turn finish는 두 가지 안전한 결과만 가집니다. Steer를 safe boundary에서
-consume하거나 `queued` disposition의 pending 상태로 유지합니다. 사라질 수 없습니다. Restart 후에도
-같은 revision, mode, active-turn marker, pending record를 load합니다.
+동시에 발생한 steer 제출과 턴 finish는 두 가지 안전한 결과만 가집니다. Steer를 safe 경계에서
+consume하거나 `queued` 처리 결과의 pending 상태로 유지합니다. 사라질 수 없습니다. 재시작 후에도
+같은 개정 번호, 모드, active-turn 표시, pending 기록을 load합니다.
 
 ## Interrupt 동작
 
-Web one-shot 및 stream route는 인증과 제한된 request validation 후 active turn을 등록합니다. Backend
-model call은 conversation-local cancellation event와 경쟁합니다. Interrupt가 발생하면 다음을
+Web one-shot 및 스트림 경로는 인증과 제한된 요청 검증 후 활성 턴을 등록합니다. 백엔드
+모델 호출은 conversation-local 취소 event와 경쟁합니다. Interrupt가 발생하면 다음을
 수행합니다.
 
-- Backend task를 cancel하고 await합니다.
-- Bounded post-generation narrator quality review는 같은 conversational task의 일부이며 동일한
-    active-turn signal에 따라 cancel하고 await합니다.
-- One-shot route는 assistant turn을 append하기 전에 interrupted response를 반환합니다.
-- Stream은 `interrupted`를 emit하고 `done`을 emit하지 않으며 upstream iteration을 닫습니다.
-- Planning helper를 cancel하고 await합니다.
-- 실행 중인 모든 read-evidence branch를 bounded task group을 통해 cancel하고 await합니다. Cancel된
-    branch는 terminal answer를 emit하거나 turn 종료 후 provider 작업을 계속할 수 없습니다.
-- Optional cancelled lifecycle frame 보고가 실패하면 log하고 격리합니다. 원래 cancellation signal을
-    대체하거나 interrupted turn outcome을 변경하지 않습니다.
-- Interrupted turn은 `confirmed` 또는 `done` frame을 emit하지 않습니다. Draft text는 partial로
-    유지되며 verified conversation history로 복원되지 않습니다.
-- Interrupted turn은 terminal turn-timing envelope를 emit하지 않습니다. Partial phase timing은
-    완료된 작업으로 저장하거나 복원하지 않습니다.
-- Active-turn marker를 `finally`에서 finish합니다.
+- 백엔드 작업을 취소하고 대기합니다.
+- 범위가 제한된 post-generation 서술기 quality review는 같은 conversational 작업의 일부이며 동일한
+  active-turn 신호에 따라 취소하고 대기합니다.
+- One-shot 경로는 assistant 턴을 덧붙이기하기 전에 interrupted 응답을 반환합니다.
+- 스트림은 `interrupted`를 발행하고 `done`을 발행하지 않으며 upstream 반복을 닫습니다.
+- Planning 보조 로직을 취소하고 대기합니다.
+- 실행 중인 모든 read-evidence 가지를 범위가 제한된 작업 그룹을 통해 취소하고 대기합니다. 취소된
+  가지는 최종 답변을 발행하거나 턴 종료 후 프로바이더 작업을 계속할 수 없습니다.
+- 선택적 취소된 수명 주기 프레임 보고가 실패하면 로그하고 격리합니다. 원래 취소 신호를
+  대체하거나 interrupted 턴 결과를 변경하지 않습니다.
+- Interrupted 턴은 `confirmed` 또는 `done` 프레임을 발행하지 않습니다. 초안 텍스트는 부분으로
+  유지되며 검증된 대화 이력으로 복원되지 않습니다.
+- Interrupted 턴은 최종 turn-timing 묶음을 발행하지 않습니다. 부분 phase timing은
+  완료된 작업으로 저장하거나 복원하지 않습니다.
+- Active-turn 표시를 `finally`에서 finish합니다.
 
-Active turn 중 신뢰할 수 없는 planner 또는 provider input을 `ValueError`로 수락하지 않는 branch는
-`capability_invalid_arguments` reason의 `unavailable`로 종료하고 traceback 없이 구조화된 info event
-한 건을 내보냅니다. 거부된 value를 노출하거나 provider outage로 분류하지 않습니다. 예상하지 못한
-exception은 `failed`로 종료하고 traceback을 포함한 warning을 유지합니다. 이 구분은 cancellation
-authority를 변경하지 않습니다.
+활성 턴 중 신뢰할 수 없는 플래너 또는 프로바이더 입력을 `ValueError`로 수락하지 않는 가지는
+`capability_invalid_arguments` 사유의 `unavailable`로 종료하고 스택 추적 없이 구조화된 info event
+한 건을 내보냅니다. 거부된 값을 노출하거나 프로바이더 장애로 분류하지 않습니다. 예상하지 못한
+exception은 `failed`로 종료하고 스택 추적을 포함한 경고를 유지합니다. 이 구분은 취소
+권한을 변경하지 않습니다.
 
-정상 terminal answer에서는 stream이 남아 있는 planning을 cancel하고 active-turn marker를 finish한
-후 `done`을 emit하므로 terminal frame 이후 coordinator 작업이 실행되지 않습니다. Busy store cleanup
-error는 session 및 request 식별자와 함께 log하지만, 이미 검증되어 저장된 answer 또는 HTTP body
-completion을 손상시키지 않습니다.
+정상 최종 답변에서는 스트림이 남아 있는 planning을 취소하고 active-turn 표시를 finish한
+후 `done`을 발행하므로 최종 프레임 이후 조정기 작업이 실행되지 않습니다. Busy 저장소 정리
+오류는 세션 및 요청 식별자와 함께 로그하지만, 이미 검증되어 저장된 답변 또는 HTTP 본문
+완료를 손상시키지 않습니다.
 
-Cancellation event는 Thor, action bus, approval state, resource lock, executor identity와 연결되지 않습니다.
+취소 event는 Thor, 액션 버스, 승인 상태, 리소스 lock, 실행기 신원과 연결되지 않습니다.
 
 ## Steer 동작
 
-Steer는 prose input에만 사용할 수 있습니다. Approval, denial, emergency-stop 및 다른 control input을
-steer prose와 결합할 수 없습니다. Steer는 acknowledgement가 반환되기 전에 저장됩니다.
+Steer는 산문 입력에만 사용할 수 있습니다. Approval, denial, emergency-stop 및 다른 control 입력을
+steer 산문과 결합할 수 없습니다. Steer는 확인 응답이 반환되기 전에 저장됩니다.
 
-Safe model 또는 tool boundary에서 coordinator는 principal을 다시 확인하고 record 하나를 정확히 한 번
-consume하며 content를 in-memory user guidance로 append한 후 narrator를 다시 실행합니다. Turn 하나는
-최대 네 번의 steer rerun을 수락합니다. Consume 전에 turn이 끝나면 `finish_turn`이 unconsumed steer
-disposition을 `queued`로 원자적으로 변경합니다.
-Terminal quality review는 최종 steered draft 뒤에 실행됩니다. 추가 steer를 consume하거나 다른 operator
-turn을 시작하지 않으며, review 중 도착한 input은 기존 queue, interrupt 또는 steer race outcome의
-governance를 그대로 따릅니다.
-Active request에서 redacted model tracing을 명시적으로 활성화하면 request-local trace가 semantic-plan,
-steered narrator rerun, terminal answer 및 quality-review model call을 관찰된 시작 순서로 유지합니다.
-Interrupt는 terminal trace를 emit하지 않고 partial prompt 또는 response copy를 저장하지 않습니다.
-Trace preference는 queue, interrupt, steer 또는 model authority를 변경하지 않습니다.
-Semantic-plan rerun은 동일한 bounded capability manifest를 strict structured-output schema로
-projection하고 selection validation 또는 dispatch 전에 nullable optional-argument placeholder를 제거합니다.
-Deterministic evidence fast path는 rerun 중 shadow answer-planning round를 생략하므로 사용하지 않는
-contributor bridge가 terminal delivery를 지연시킬 수 없습니다.
-Assistant turn이 durable persistence된 뒤 user-context ontology projection은 2초 deadline을 가진
-secondary operation입니다. Projection timeout 또는 실패는 기록되지만 authoritative terminal
-response를 보류할 수 없습니다.
-Terminal `done` frame은 web client의 authoritative signal입니다. Socket closure와 best-effort
-reader cancellation은 cleanup일 뿐이며, final answer 또는 status transition을 지연시킬 수 없습니다.
-Queued 및 steered follow-up은 active incident conversation binding과 conversational identity를
-유지하며 rerun은 fuzzy incident selection으로 돌아가지 않습니다. 명시적 handoff는 Bragi로 돌아갑니다.
-Exact selected-incident turn은 direct correlation-filtered lookup을 유지하며 rerun 중 관련 없는
-inventory, agent 또는 public-web branch를 시작하지 않습니다.
-결정론적 answer는 감지된 workload 상태, workload failure reason 및 notification delivery failure를
-별도 section으로 유지합니다. Rerun은 delivery failure를 workload 또는 root-cause evidence로
+Safe 모델 또는 도구 경계에서 조정기는 principal을 다시 확인하고 기록 하나를 정확히 한 번
+consume하며 내용을 in-memory user guidance로 덧붙이기한 후 서술기를 다시 실행합니다. Turn 하나는
+최대 네 번의 steer rerun을 수락합니다. Consume 전에 턴이 끝나면 `finish_turn`이 unconsumed steer
+처리 결과를 `queued`로 원자적으로 변경합니다.
+최종 quality review는 최종 steered 초안 뒤에 실행됩니다. 추가 steer를 consume하거나 다른 운영자
+턴을 시작하지 않으며, review 중 도착한 입력은 기존 큐, interrupt 또는 steer race 결과의
+거버넌스를 그대로 따릅니다.
+활성 요청에서 민감정보가 제거된 모델 tracing을 명시적으로 활성화하면 request-local trace가 semantic-plan,
+steered 서술기 rerun, 최종 답변 및 quality-review 모델 호출을 관찰된 시작 순서로 유지합니다.
+Interrupt는 최종 trace를 발행하지 않고 부분 프롬프트 또는 응답 copy를 저장하지 않습니다.
+Trace 선호 설정은 큐, interrupt, steer 또는 모델 권한을 변경하지 않습니다.
+Semantic-plan rerun은 동일한 범위가 제한된 기능 매니페스트를 strict structured-output 스키마로
+변환 결과하고 selection 검증 또는 전달 전에 nullable optional-argument 자리 표시자를 제거합니다.
+결정론적 근거 fast 경로는 rerun 중 그림자 answer-planning round를 생략하므로 사용하지 않는
+기여자 브리지가 최종 전달을 지연시킬 수 없습니다.
+Assistant 턴이 영속 영속성된 뒤 user-context 온톨로지 변환 결과는 2초 기한을 가진
+보조 연산입니다. 변환 결과 시간 초과 또는 실패는 기록되지만 권위 있는 최종
+응답을 보류할 수 없습니다.
+최종 `done` 프레임은 web 클라이언트의 권위 있는 신호입니다. 소켓 closure와 최선 노력
+읽기 담당 취소는 정리일 뿐이며, 최종 답변 또는 상태 transition을 지연시킬 수 없습니다.
+대기 중 및 steered 후속 조치는 활성 인시던트 대화 연결과 conversational 신원을
+유지하며 rerun은 fuzzy 인시던트 selection으로 돌아가지 않습니다. 명시적 인계는 Bragi로 돌아갑니다.
+Exact selected-incident 턴은 direct correlation-filtered 조회를 유지하며 rerun 중 관련 없는
+인벤토리, agent 또는 공개 웹 가지를 시작하지 않습니다.
+결정론적 답변은 감지된 워크로드 상태, 워크로드 실패 사유 및 notification 전달 실패를
+별도 section으로 유지합니다. Rerun은 전달 실패를 워크로드 또는 root-cause 근거로
 승격하지 않습니다.
-영어 또는 한국어 current-screen explanation intent와 120단어 walkthrough bound도 유지합니다. Steer
-guidance는 해당 turn을 제한 없는 snapshot 반복으로 확장할 수 없습니다.
-Bragi가 선택한 current-screen data scope도 유지합니다. Steer rerun은 screen fact 질문을 inventory,
-incident, agent 또는 public-web evidence로 넓힐 수 없습니다.
-Intent scope도 유지합니다. Steer rerun은 active turn의 structured `web`, `local` 또는 `none` search
-route를 유지하고, queued next turn은 자신의 content를 분류합니다. Incident collection-summary 후속
-입력은 operator에게 incident 하나를 선택하도록 요청하지 않고 bounded matching set을 결정론적으로
-렌더링합니다. Cause analysis처럼 incident 하나가 필요한 질문은 ambiguous-selection 동작을 유지합니다.
-Terminal payload는 initial turn과 같은 bounded incident-candidate artifact를 유지합니다. Button 선택은
-별도의 exact incident-bound conversation을 시작하고 localized read-only investigation turn을 즉시
-제출합니다. 명시적인 선택은 완료된 turn을 mutate, interrupt 또는 steer하지 않습니다.
-일반적인 service-outage 질문은 initial 또는 queued turn에서 server-scoped subscription-health read를
-결정론적으로 선택합니다. Steer rerun은 해당 read authority를 유지하며 configured subscription 또는
-resource-group allowlist를 operator text로 바꿀 수 없습니다.
-Current-subscription identity 질문도 queued 및 steer rerun에서 server-configured scope를 유지하고
-narrator generation을 생략하며 deterministic verification이 반환한 masked subscription ID만 렌더링합니다.
-Deterministic local inventory intent는 semantic plan이 public web을 선택했더라도 rerun에서 local로
-유지합니다. 여기에는 `중지된 db` 같은 구어체 database state filter도 포함되며 server-owned
-inventory branch를 유지하고 agent 또는 public-web branch를 시작하지 않습니다. 명시적인 web-search
-표현만 예외입니다. Observed activity는 verifier가 승인한 전체 inventory query를 rerun과 durable
-replay에서 유지합니다. Query로 표시하며 provider-specific command text로 재구성하지 않습니다.
-Result는 명시적인 collection omission count를 포함하는 유효한 JSON으로 bounded, redacted detailed
-projection을 유지합니다.
-명시적인 subscription-scoped inventory 질문은 새로운 server-owned cross-screen
-read이므로 관련 없는 current-screen fact가 이를 대체하거나 차단할 수 없습니다. Status facet은 선택된
-resource type 범위에 유지되므로 AKS 질문이 VM status를
-가져오거나 요청한 state가 관측되지 않았을 때 조용히 넓어지지 않습니다. 명시적인 name-list 표현은
-structured evidence를 제거하지 않고 presentation만 matched name으로 좁힙니다. Partial AKS cluster
-inventory는 cluster 내부 Deployment 또는 Pod의 proof가 되지 않습니다.
-`in the subscription` 또는 `구독에서` 같은 queued scope-only fragment는 최신 user inventory
-question을 다시 compile하고 provider scope만 subscription root로 변경합니다. Resource type, status
-predicate 및 projection을 유지하고 client가 제공한 tool evidence는 무시하며 semantic 및 public-web
-planning을 생략합니다. 최신 user turn이 없거나 inventory 질문이 아니면 더 오래된 intent를 가져오지
-않고 fragment를 unresolved 상태로 유지합니다.
-Queued terminal follow-up도 이전 server inventory answer가 선택한 bounded resource 하나를 유지합니다.
-Browser는 name, type 및 inventory evidence reference만 persist합니다. "언제부터 중지되어 있었어?" 같은
-history 표현은 semantic 및 public-web planning을 우회하지만, server가 selector를 검증하고 exact
-resource를 다시 resolve한 후에만 Heimdall이 Activity Log evidence를 읽습니다. Client context는 resource
-또는 evidence authority가 되지 않습니다.
-`latest`, `recent`, `최신` 같은 generic public freshness term은 incident, issue, outage, failure,
-problem 또는 cause 의미가 명시되지 않으면 incident scope를 만들지 않습니다. Steer rerun도 원래의
-public-web와 operational 경계를 유지합니다.
-Current-time steer rerun은 safe rerun boundary에서 injected server clock을 샘플링합니다. Queued
-current-time turn은 해당 turn이 시작될 때 샘플링하며 어느 경로도 이전 timestamp를 재사용하지 않습니다.
-Runbook, knowledge-source, memory 및 learning continuation은 rerun 전에 선택된 exact durable prior
-assistant turn을 유지합니다. JSON과 SSE에서 동일한 read-only knowledge provider를 사용하고 다른 incident
-또는 resource로 범위를 넓히지 않으며 queued 또는 steered prose를 memory, review, proposal, approval 또는
-skill lifecycle write로 바꾸지 않습니다.
-정확한 configured configuration-baseline 파일 이름은 idle, queued 또는 steered turn에서도
-action-context term보다 deterministic precedence를 유지합니다. Mutation 또는 mitigation을
-금지하는 부정 표현은 이 read-only route를 바꾸지 않습니다. Rerun은 server-pinned baseline과 DOCX
-citation을 다시 읽고 사용할 수 없는 structured topology는 unknown으로 유지합니다.
-Verified fresh inventory answer는 최대 40개의 bounded selector로 구성된 versioned result set도 유지할 수
-있습니다. Replay는 source, snapshot, scope, query digest, freshness 및 truncation을 저장하지만 raw
-resource ID는 저장하지 않습니다. Client는 이 result set을 제공하거나 확장할 수 없습니다.
-Ordinal follow-up은 저장된 순서에서 selector를 선택한 다음 exact name, type 및 resource group을 fresh
-inventory evidence로 다시 query합니다. Ambiguity follow-up은 complete result set의 equal-name
-candidate만 렌더링합니다. 짧거나 truncated 또는 malformed인 set과 non-unique requery는 screen state를
-가져오거나 추측하지 않고 unavailable 상태를 유지합니다.
-Unavailable 또는 unknown entry가 있는 verified read-source manifest는 versioned source-failure
-receipt를 저장합니다. Partial-source follow-up은 available source fact와 exact gap을 분리하고 reason과
-last observation이 있으면 함께 표시하며 다른 authority로 대체하지 않습니다.
-Queued analytical refinement는 verified server-issued `analysis_context`만 재사용할 수 있습니다. 구현된 LLM usage anchor는 token measure, grouping, `usage_scope` 및 week/month 변환을 포함한 numeric 1-90일 lookback을 보존합니다. Panel이 `conversation_tool`을 선언하면 chat-enabled 구성에서 해당 registered capability가 필요하며 mismatch는 startup을 차단합니다.
-검증된 current-turn image attachment는 prompt-only semantic tool planning과 주어가 생략된 LLM 사용량 refinement를 우회하므로 queued 및 steered image turn도 vision narration을 유지합니다. Terminal verification은 해당 해석을 현재 `conversation-image` ref가 있는 unverified 답변으로 보존합니다. 측정된 LLM 사용량을 명시한 요청은 deterministic tool request로 유지됩니다.
-기간, grouping, table 또는 chart만 바꾸는 follow-up은 측정된 metering record를 다시 읽습니다. Verified chart는 evidence reference가 포함된 `chart_artifact` v1을 전달하고 fenced chart text는 compatibility fallback으로 유지합니다. Comparison, export, missing-anchor 및 client-supplied-anchor 요청은 context-required hold를 반환하며 subscription health 또는 inventory로 넓히지 않습니다.
+영어 또는 한국어 current-screen explanation 의도와 120단어 walkthrough 한계도 유지합니다. Steer
+guidance는 해당 턴을 제한 없는 스냅샷 반복으로 확장할 수 없습니다.
+Bragi가 선택한 current-screen data 범위도 유지합니다. Steer rerun은 화면 fact 질문을 인벤토리,
+인시던트, agent 또는 공개 웹 근거로 넓힐 수 없습니다.
+의도 범위도 유지합니다. Steer rerun은 활성 턴의 구조화된 `web`, `local` 또는 `none` search
+경로를 유지하고, 대기 중 next 턴은 자신의 내용을 분류합니다. 인시던트 collection-summary 후속
+입력은 운영자에게 인시던트 하나를 선택하도록 요청하지 않고 범위가 제한된 matching set을 결정론적으로
+렌더링합니다. Cause analysis처럼 인시던트 하나가 필요한 질문은 ambiguous-selection 동작을 유지합니다.
+최종 페이로드는 initial 턴과 같은 범위가 제한된 incident-candidate 산출물을 유지합니다. 버튼 선택은
+별도의 exact incident-bound 대화를 시작하고 localized 읽기 전용 조사 턴을 즉시
+제출합니다. 명시적인 선택은 완료된 턴을 mutate, interrupt 또는 steer하지 않습니다.
+일반적인 service-outage 질문은 initial 또는 대기 중 턴에서 server-scoped subscription-health 읽기를
+결정론적으로 선택합니다. Steer rerun은 해당 읽기 권한을 유지하며 구성된 구독 또는
+resource-group 허용 목록을 운영자 텍스트로 바꿀 수 없습니다.
+Current-subscription 신원 질문도 대기 중 및 steer rerun에서 server-configured 범위를 유지하고
+서술기 세대를 생략하며 결정론적 검증이 반환한 masked 구독 ID만 렌더링합니다.
+결정론적 로컬 인벤토리 의도는 semantic 계획이 공개 웹을 선택했더라도 rerun에서 로컬로
+유지합니다. 여기에는 `중지된 db` 같은 구어체 데이터베이스 상태 필터도 포함되며 서버가 소유한
+인벤토리 가지를 유지하고 agent 또는 공개 웹 가지를 시작하지 않습니다. 명시적인 웹 검색
+표현만 예외입니다. 관찰된 활동은 검증기가 승인한 전체 인벤토리 조회를 rerun과 영속
+재생에서 유지합니다. 조회로 표시하며 provider-specific 명령 텍스트로 재구성하지 않습니다.
+결과는 명시적인 collection omission 개수를 포함하는 유효한 JSON으로 범위가 제한된, 민감정보가 제거된 detailed
+변환 결과를 유지합니다.
+명시적인 subscription-scoped 인벤토리 질문은 새로운 서버가 소유한 화면 간
+읽기이므로 관련 없는 current-screen fact가 이를 대체하거나 차단할 수 없습니다. 상태 분류 기준은 선택된
+리소스 타입 범위에 유지되므로 AKS 질문이 VM 상태를
+가져오거나 요청한 상태가 관측되지 않았을 때 조용히 넓어지지 않습니다. 명시적인 name-list 표현은
+구조화된 근거를 제거하지 않고 표현만 matched name으로 좁힙니다. 부분 AKS 클러스터
+인벤토리는 클러스터 내부 배포 또는 Pod의 증명이 되지 않습니다.
+`in the subscription` 또는 `구독에서` 같은 대기 중 scope-only fragment는 최신 user 인벤토리
+질문을 다시 compile하고 프로바이더 범위만 구독 루트로 변경합니다. Resource 타입, 상태
+조건식 및 변환 결과를 유지하고 클라이언트가 제공한 도구 근거는 무시하며 semantic 및 공개 웹
+planning을 생략합니다. 최신 user 턴이 없거나 인벤토리 질문이 아니면 더 오래된 의도를 가져오지
+않고 fragment를 해결되지 않은 상태로 유지합니다.
+대기 중 최종 후속 조치도 이전 서버 인벤토리 답변이 선택한 범위가 제한된 리소스 하나를 유지합니다.
+브라우저는 name, 타입 및 인벤토리 근거 참조만 저장합니다. "언제부터 중지되어 있었어?" 같은
+이력 표현은 semantic 및 공개 웹 planning을 우회하지만, 서버가 선택자를 검증하고 exact
+리소스를 다시 해석한 후에만 Heimdall이 활동 로그 근거를 읽습니다. 클라이언트 맥락은 리소스
+또는 근거 권한이 되지 않습니다.
+`latest`, `recent`, `최신` 같은 범용 공개 최신성 term은 인시던트, issue, outage, 실패,
+problem 또는 cause 의미가 명시되지 않으면 인시던트 범위를 만들지 않습니다. Steer rerun도 원래의
+공개 웹과 operational 경계를 유지합니다.
+Current-time steer rerun은 safe rerun 경계에서 injected 서버 시계를 샘플링합니다. 대기 중
+current-time 턴은 해당 턴이 시작될 때 샘플링하며 어느 경로도 이전 시각을 재사용하지 않습니다.
+런북, knowledge-source, 기억 및 learning 이어가기는 rerun 전에 선택된 exact 영속 이전
+assistant 턴을 유지합니다. JSON과 SSE에서 동일한 읽기 전용 knowledge 프로바이더를 사용하고 다른 인시던트
+또는 리소스로 범위를 넓히지 않으며 대기 중 또는 steered 산문을 기억, review, proposal, 승인 또는
+skill 수명 주기 쓰기로 바꾸지 않습니다.
+정확한 구성된 configuration-baseline 파일 이름은 idle, 대기 중 또는 steered 턴에서도
+action-context term보다 결정론적 우선순위를 유지합니다. 변경 또는 완화를
+금지하는 부정 표현은 이 읽기 전용 경로를 바꾸지 않습니다. Rerun은 server-pinned 기준선과 DOCX
+인용을 다시 읽고 사용할 수 없는 구조화된 topology는 unknown으로 유지합니다.
+검증된 fresh 인벤토리 답변은 최대 40개의 범위가 제한된 선택자로 구성된 versioned 결과 set도 유지할 수
+있습니다. 재생은 출처, 스냅샷, 범위, 조회 다이제스트, 최신성 및 잘림을 저장하지만 raw
+리소스 ID는 저장하지 않습니다. 클라이언트는 이 결과 set을 제공하거나 확장할 수 없습니다.
+Ordinal 후속 조치는 저장된 순서에서 선택자를 선택한 다음 exact name, 타입 및 리소스 그룹을 fresh
+인벤토리 근거로 다시 조회합니다. Ambiguity 후속 조치는 완전한 결과 set의 equal-name
+후보만 렌더링합니다. 짧거나 잘린 또는 malformed인 set과 non-unique 재조회는 화면 상태를
+가져오거나 추측하지 않고 사용 불가 상태를 유지합니다.
+사용 불가 또는 unknown 항목이 있는 검증된 read-source 매니페스트는 versioned source-failure
+증적을 저장합니다. Partial-source 후속 조치는 available 출처 fact와 exact 공백을 분리하고 사유와
+last 관측이 있으면 함께 표시하며 다른 권한으로 대체하지 않습니다.
+대기 중 analytical 구체화는 검증된 server-issued `analysis_context`만 재사용할 수 있습니다. 구현된 LLM 사용량 anchor는 토큰 measure, 그룹화, `usage_scope` 및 주/월 변환을 포함한 numeric 1-90일 lookback을 보존합니다. 패널이 `conversation_tool`을 선언하면 chat-enabled 구성에서 해당 등록된 기능이 필요하며 mismatch는 시작을 차단합니다.
+검증된 current-turn 이미지 첨부는 prompt-only semantic 도구 계획 수립과 주어가 생략된 LLM 사용량 구체화를 우회하므로 대기 중 및 steered 이미지 턴도 vision 서술을 유지합니다. 최종 검증은 해당 해석을 현재 `conversation-image` ref가 있는 검증되지 않은 답변으로 보존합니다. 측정된 LLM 사용량을 명시한 요청은 결정론적 도구 요청으로 유지됩니다.
+기간, 그룹화, 표 또는 chart만 바꾸는 후속 조치는 측정된 metering 기록을 다시 읽습니다. 검증된 chart는 근거 참조가 포함된 `chart_artifact` v1을 전달하고 fenced chart 텍스트는 compatibility 대체 경로로 유지합니다. 비교, 내보내기, missing-anchor 및 client-supplied-anchor 요청은 context-required 보류를 반환하며 구독 health 또는 인벤토리로 넓히지 않습니다.
 
-## Queue 동작
+## 큐 동작
 
-Queued input은 다음 turn을 위해 영구 저장됩니다. Inspection은 정렬된 pending entry와 expiry를
-표시합니다. Consumption은 현재 principal을 다시 확인하고 sequence 하나를 정확히 한 번 consumed로
-표시합니다. Expired entry는 idempotent history에 남지만 pending projection에서는 제외됩니다.
-다음 turn은 인증된 principal 및 conversation id 범위의 전체 durable transcript에서 이전 context를
-다시 구성합니다. Context 예산 안에서는 exact history를 보존하고, 필요한 경우 bounded compaction을
-재시도하며, store 또는 compaction 성능 실패로 degradation이 필요할 때만 동일 principal 범위의 최신
-20개 turn을 사용합니다. Durable store가 구성된 경우 client가 제공한 history로 fallback하지 않습니다.
-Queued 또는 steered follow-up에서 이전 history 때문에 content-policy block이 발생하면 bounded
-isolation이 blocked turn만 model context에서 제외하고 durable turn은 변경하지 않습니다. 같은 policy
-receipt를 모든 rerun에 적용하므로 steer가 omitted text를 다시 넣거나 model route를 넓힐 수 없습니다.
-Output-policy block은 다른 model을 시도하지 않고 turn을 중단합니다.
+대기 중 입력은 다음 턴을 위해 영구 저장됩니다. 점검은 정렬된 pending 항목과 만료를
+표시합니다. Consumption은 현재 principal을 다시 확인하고 순서 하나를 정확히 한 번 consumed로
+표시합니다. 만료된 항목은 멱등적 이력에 남지만 pending 변환 결과에서는 제외됩니다.
+다음 턴은 인증된 principal 및 대화 id 범위의 전체 영속 transcript에서 이전 맥락을
+다시 구성합니다. 맥락 예산 안에서는 exact 이력을 보존하고, 필요한 경우 범위가 제한된 compaction을
+재시도하며, 저장소 또는 compaction 성능 실패로 성능 저하가 필요할 때만 동일 principal 범위의 최신
+20개 턴을 사용합니다. 영속 저장소가 구성된 경우 클라이언트가 제공한 이력으로 대체 경로하지 않습니다.
+대기 중 또는 steered 후속 조치에서 이전 이력 때문에 content-policy 블록이 발생하면 범위가 제한된
+격리가 차단된 턴만 모델 맥락에서 제외하고 영속 턴은 변경하지 않습니다. 같은 정책
+증적을 모든 rerun에 적용하므로 steer가 omitted 텍스트를 다시 넣거나 모델 경로를 넓힐 수 없습니다.
+Output-policy 블록은 다른 모델을 시도하지 않고 턴을 중단합니다.
 
-## Web 및 channel surface
+## Web 및 채널 표면
 
-인증된 web surface는 다음을 제공합니다.
+인증된 web 표면은 다음을 제공합니다.
 
-- `POST /chat/busy-input`: 후속 입력 하나를 submit합니다.
-- `GET /chat/busy-input?session_id=...`: mode, active state, revision, pending input을 inspect합니다.
+- `POST /chat/busy-input`: 후속 입력 하나를 제출합니다.
+- `GET /chat/busy-input?session_id=...`: 모드, 활성 상태, 개정 번호, pending 입력을 inspect합니다.
 - `PUT /chat/busy-input/mode`: `queue`, `interrupt`, `steer`를 설정합니다.
-- `POST /chat/busy-input/cancel-current`: active conversational turn에만 signal을 보냅니다.
+- `POST /chat/busy-input/cancel-current`: 활성 conversational 턴에만 신호를 보냅니다.
 
-Acknowledgement는 disposition, session ID, input ID, sequence, reason, duplicate status를 포함합니다.
+확인 응답은 처리 결과, 세션 ID, 입력 ID, 순서, 사유, 중복 상태를 포함합니다.
 
-Slack과 Teams는 `ConversationChannelGateway`를 사용합니다. Gateway는 같은 영구 session ID를 resolve하고
-turn이 active인지 확인한 후 같은 coordinator를 호출합니다. Busy input은 concurrent turn을 시작하는
-대신 같은 channel-neutral acknowledgement를 반환합니다. Idle channel input은 shared begin/finish
-의미로 감쌉니다. Vendor adapter는 자체 state machine을 구현하지 않습니다.
-Busy acknowledgement는 progressive snapshot을 전달하지 않습니다. Idle 상태에서 완료된 tool result는
-실제 redacted activity를 monotonic presentation update로 표시할 수 있지만, 이 update는 두 번째 active
-turn을 만들거나 queue, interrupt, steer arbitration을 변경하지 않습니다.
+Slack과 Teams는 `ConversationChannelGateway`를 사용합니다. 게이트웨이는 같은 영구 세션 ID를 해석하고
+턴이 활성인지 확인한 후 같은 조정기를 호출합니다. Busy 입력은 동시 턴을 시작하는
+대신 같은 채널 중립적인 확인 응답을 반환합니다. Idle 채널 입력은 shared begin/finish
+의미로 감쌉니다. 벤더 어댑터는 자체 상태 머신을 구현하지 않습니다.
+Busy 확인 응답은 progressive 스냅샷을 전달하지 않습니다. Idle 상태에서 완료된 도구 결과는
+실제 민감정보가 제거된 활동을 단조 증가 표현 갱신으로 표시할 수 있지만, 이 갱신은 두 번째 활성
+턴을 만들거나 큐, interrupt, steer arbitration을 변경하지 않습니다.
 
-## Metric 및 운영
+## 메트릭 및 운영
 
-Runtime은 queued, interrupting, steered, rejected, duplicate, overflow, expiry, steer fallback,
-race-recovery counter를 기록합니다. Pending inspection은 cross-owner state를 노출하지 않습니다.
-Authorization은 입력 도착 시점과 consume 시점에 모두 확인합니다.
-별도 progressive-conversation collector는 aggregate branch, confirmation, correction, truncation,
-terminal, saturation, replay 및 latency metric을 기록합니다. Busy-input mode를 변경하거나 input
-content를 보관하지 않습니다.
-Queue가 accept한 progress만 해당 metric에 포함되며 cancellation만으로 first-progress latency sample을
+런타임은 대기 중, interrupting, steered, rejected, 중복, 초과분, 만료, steer 대체 경로,
+race-recovery counter를 기록합니다. Pending 점검은 cross-owner 상태를 노출하지 않습니다.
+권한 확인은 입력 도착 시점과 consume 시점에 모두 확인합니다.
+별도 progressive-conversation 수집기는 집계 가지, 확인, correction, 잘림,
+최종, 포화, 재생 및 지연 시간 메트릭을 기록합니다. Busy-input 모드를 변경하거나 입력
+내용을 보관하지 않습니다.
+큐가 수용한 진행 상황만 해당 메트릭에 포함되며 취소만으로 first-progress 지연 시간 샘플을
 만들지 않습니다.
-Terminal replay는 다른 active turn을 만들지 않고 confirmation latency를 기록합니다.
+최종 재생은 다른 활성 턴을 만들지 않고 확인 지연 시간을 기록합니다.
 
 ## 실패 동작
 
-- Queue overflow와 expired input은 명시적으로 거부됩니다.
-- 중복 webhook delivery는 원래 disposition을 반환합니다.
-- Stale revision은 write에 실패하고 영구 state에서 retry합니다.
-- 존재하지 않거나 cross-owner인 session은 같은 not-found shape을 반환합니다.
-- Process restart 후에도 수락한 input과 mode preference가 유지됩니다.
-- Busy-input runtime이 구성되지 않으면 기존 chat 동작이 변경되지 않습니다.
+- 큐 초과분과 만료된 입력은 명시적으로 거부됩니다.
+- 중복 webhook 전달은 원래 처리 결과를 반환합니다.
+- Stale 개정 번호는 쓰기에 실패하고 영구 상태에서 재시도합니다.
+- 존재하지 않거나 cross-owner인 세션은 같은 not-found 형태를 반환합니다.
+- 프로세스 재시작 후에도 수락한 입력과 모드 선호 설정이 유지됩니다.
+- Busy-input 런타임이 구성되지 않으면 기존 chat 동작이 변경되지 않습니다.
 
 ## 검증
 
-Coverage는 세 mode, duplicate 및 conflicting ID, capacity, expiry, authorization, exactly-once consume,
-turn-end와 steer race, restart persistence, one-shot 및 stream cleanup, partial assistant history 방지,
-제한된 steer rerun, mode 및 inspection route, shared Slack 및 Teams gateway acknowledgement를 포함합니다.
+커버리지는 세 모드, 중복 및 conflicting ID, 용량, 만료, 권한 확인, exactly-once consume,
+turn-end와 steer race, 재시작 영속성, one-shot 및 스트림 정리, 부분 assistant 이력 방지,
+제한된 steer rerun, 모드 및 점검 경로, shared Slack 및 Teams 게이트웨이 확인 응답을 포함합니다.
 
 ## 관련 문서
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
-| Operator conversation 및 history | [Operator Console](operator-console-ko.md) |
-| Detached 조사 | [Background Task Session](background-task-sessions-ko.md) |
-| Typed action safety boundary | [Execution Model](../decisioning/execution-model-ko.md) |
-| Channel identity 및 role | [User RBAC 및 Entra Identity](user-rbac-and-identity-ko.md) |
+| Operator 대화 및 이력 | [Operator Console](operator-console-ko.md) |
+| Detached 조사 | [Background 작업 세션](background-task-sessions-ko.md) |
+| 타입이 지정된 액션 safety 경계 | [실행 모델](../decisioning/execution-model-ko.md) |
+| 채널 신원 및 역할 | [User RBAC 및 Entra 신원](user-rbac-and-identity-ko.md) |
