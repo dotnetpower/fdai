@@ -1951,6 +1951,8 @@ module "isolated_executor" {
   container_app_environment_id = module.compute.environment_id
   resource_group_name          = module.resource_group.name
   image                        = var.core_image
+  service_distribution         = "fdai-isolated-executor-service"
+  service_entrypoint           = "fdai-isolated-executor-service"
   identity_id                  = module.isolated_executor_identity[0].resource_id
   identity_client_id           = module.isolated_executor_identity[0].client_id
   extra_identity_ids           = local.isolated_executor_vertical_identity_ids

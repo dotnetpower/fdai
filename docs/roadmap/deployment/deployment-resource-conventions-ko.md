@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: d83cf8b1333bd36536a9c31cf27eee974fe9acc3
+translation_source_sha: f639701517253d7615e71c1bf48d7c3d5efa96fc
 translation_revised: 2026-08-12
 ---
 # 배포 리소스 규약
@@ -112,6 +112,11 @@ platform 루트는 공유 Container Apps 환경과 예약된 Job을 유지하지
 monitoring은 이 이름으로 실제 ARM id를 구성합니다. 과거 source 주소는 상태 이행 manifest와 이전
 방식 플랜 guard에만 남습니다. 이 주소에서 생성, 업데이트, 교체 또는 삭제를 제안하는 platform
 플랜은 차단됩니다.
+
+이전 방식 platform 루트는 롤백 호환 배포 표면으로만 격리 Executor wrapper를 유지할 수 있습니다.
+이 wrapper는 `service_distribution`과 `service_entrypoint`를 모두
+`fdai-isolated-executor-service`에 bind합니다. 빈 값이나 Core co-located 값은 플랜 승인 전에
+모듈 precondition에서 실패합니다.
 
 ## 리소스 태깅 규약(Resource Tagging Convention)
 

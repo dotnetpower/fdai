@@ -62,6 +62,19 @@ def test_legacy_platform_cannot_recreate_migrated_core() -> None:
     assert "providers/Microsoft.App/containerApps/${module.compute.core_app_name}" in _LEGACY_ROOT
 
 
+def test_legacy_executor_uses_independent_service_distribution() -> None:
+    module_match = re.search(
+        r'module "isolated_executor" \{(?P<body>.*?)\n\}',
+        _LEGACY_ROOT,
+        re.DOTALL,
+    )
+
+    assert module_match is not None
+    module_body = module_match.group("body")
+    assert 'service_distribution         = "fdai-isolated-executor-service"' in module_body
+    assert 'service_entrypoint           = "fdai-isolated-executor-service"' in module_body
+
+
 def test_workflow_pins_every_action_to_trusted_immutable_commit() -> None:
     uses = re.findall(r"^\s*uses:\s+([^\s#]+)", _WORKFLOW, re.MULTILINE)
 

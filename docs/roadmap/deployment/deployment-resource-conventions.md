@@ -111,6 +111,11 @@ health and effect checks, and monitoring constructs the live ARM id from that na
 source address remains only in the state-migration manifest and the legacy-plan guard. A platform
 plan that proposes any create, update, replacement, or delete at that address is blocked.
 
+The legacy platform root may retain the isolated Executor wrapper only as a rollback-compatible
+deployment surface. That wrapper binds both `service_distribution` and `service_entrypoint` to
+`fdai-isolated-executor-service`; empty or co-located Core values fail the module precondition before
+a plan can be approved.
+
 ## Resource Tagging Convention
 
 Naming makes a resource readable; tagging makes a fleet queryable. Every resource this
