@@ -77,6 +77,23 @@ def test_one_owning_doc_satisfies_route() -> None:
     assert failures == []
 
 
+def test_localized_owning_doc_satisfies_route() -> None:
+    module = _load_module()
+    manifest = {
+        "routes": [
+            {
+                "id": "localized",
+                "paths": ["docs/**"],
+                "docs_update": ["docs/parity.md"],
+            }
+        ]
+    }
+
+    failures = module.missing_doc_updates({"docs/parity-ko.md"}, manifest)
+
+    assert failures == []
+
+
 def test_unrouted_change_needs_no_doc_churn() -> None:
     module = _load_module()
 

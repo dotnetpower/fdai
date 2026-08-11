@@ -145,10 +145,17 @@ def _route_paths(path: str) -> tuple[str, ...]:
     return (path,)
 
 
+def _canonical_doc_path(path: str) -> str:
+    if path.endswith("-ko.md"):
+        return f"{path.removesuffix('-ko.md')}.md"
+    return path
+
+
 def missing_doc_updates(
     paths: set[str], manifest: dict[str, Any]
 ) -> list[tuple[str, tuple[str, ...], tuple[str, ...]]]:
     failures: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = []
+    canonical_paths = {_canonical_doc_path(path) for path in paths}
     for route in manifest["routes"]:
         required_docs = tuple(str(path) for path in route.get("docs_update", ()))
         if not required_docs:
@@ -165,7 +172,7 @@ def missing_doc_updates(
                 )
             )
         )
-        if not impacted or any(doc in paths for doc in required_docs):
+        if not impacted or any(doc in canonical_paths for doc in required_docs):
             continue
         failures.append((str(route["id"]), impacted, required_docs))
     return failures
