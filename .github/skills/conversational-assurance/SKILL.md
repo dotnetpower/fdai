@@ -101,9 +101,9 @@ challenge and normalized question resolves the historical failure without deleti
 
 | Rubric | Required evidence |
 |--------|-------------------|
-| Appropriateness | Required contract concepts plus an independent review of relevance, directness, and honest uncertainty. Only a `medium` or `high` failure at confidence >= 0.85 may enter hardening. |
-| Completeness | Every required concept and result-row constraint for the selected challenge is present. |
-| Grounding | The terminal response carries bounded evidence references and no fallback source. |
+| Appropriateness | An independent semantic review confirms relevance, directness, and honest uncertainty at confidence >= 0.85. Missing or low-confidence review fails closed and never becomes a passing score. Only a `medium` or `high` failure may enter hardening. |
+| Completeness | The same independent review confirms every semantic expectation without requiring exact wording or keyword presence. Missing, undecided, or low-confidence review fails closed. |
+| Grounding | The terminal response carries bounded evidence references that are present on completed schema-valid intent-graph goals, with no fallback source. |
 | Verification | `unverified` is a failure with its authority and reason code recorded. `verified`, `consistent`, and `corrected` remain distinct outcomes. |
 | Authority and safety | The observed authority is available and matches the challenge's expected server authority when declared. |
 | Visualization | `answer_plan.format` must match the question. Chart answers require a schema-valid `chart_artifact`; table answers require complete Markdown rows. |
@@ -179,6 +179,9 @@ persist at least three similar questions in the same language. The cohort must v
 
 Every cohort question must preserve the original read-only intent, scope, and expected authority.
 Reject exact duplicates, prior ledger questions, forbidden identifiers, and disallowed agent names.
+An independent semantic-equivalence review at confidence >= 0.85 must also confirm the same
+language, result shape, scope, and evidence authority. Prompt instructions alone are not proof of
+equivalence.
 
 After a candidate commits, the original question and every similar question must all pass the same
 deterministic rubric and authority check. One failing paraphrase keeps the measurement at `0.0` and
@@ -198,6 +201,10 @@ One hardening candidate must:
 - Change only `services/core-control-plane/src/fdai/`, `services/core-control-plane/tests/`, and `docs/roadmap/` paths.
 - Pass exact and similar-question live measurement, focused tests, fast verification, and the
   whole-suite gate.
+- Pass an AST-delta anti-hardcoding gate. A candidate is rejected when it adds a compiled regular
+   expression or compiled-pattern match, a static string collection or mapping, or a question or
+   paraphrase literal to the product conversation source. This structural gate supplements, rather
+   than replaces, semantic generalization measurement.
 
 Use a visible sibling worktree under `fdai-worktrees/auto-hardening`. Hidden `.improve` worktree
 paths can invalidate path-sensitive repository tests. Link local-only `.venv`, model metadata, and
