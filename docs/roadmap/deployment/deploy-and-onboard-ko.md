@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: fe223c5c3aecf8a78e1876b3e127105f80e04d1c
+translation_source_sha: 4922d670e12ca7dee495db5b597e4e0cb5d0f9a8
 translation_revised: 2026-08-11
 ---
 
@@ -101,7 +101,9 @@ GitHub에 등록된 실행기가 GitHub, 관리 평면, 신원 평면에 도달�
  저장소에 설정된 exact 구독과 테넌트를 증명합니다.
 체크아웃 전 실행기는 이전 방식 생성된 `infra/None` 캐시 경로만 제거해 root-owned 액션
 residue가 exact-commit clean을 막지 않게 합니다. 해당 단계는 Azure CLI 구성을
-`RUNNER_TEMP` 아래에 만들고 subsequent 단계용 `GITHUB_ENV`로 내보내기합니다.
+`RUNNER_TEMP` 아래에 만들고 subsequent 단계용 `GITHUB_ENV`로 내보내기합니다. 배포 작업의
+기본 경로가 `infra/`이므로 이 pre-checkout 단계도 `RUNNER_TEMP`에서 실행합니다. Fresh slot에는
+아직 저장소 디렉터리가 없으며 이전 checkout residue에 의존하지 않습니다.
 앱 구성 는 spoke VNet 을 ops 허브 에 (양방향) 피어링 하고 비공개 DNS 영역 을
 `extra_vnet_links` 경계 으로 ops VNet 에 링크해, 러너가 앱 Key Vault 를 비공개 로 해석하게
 한다. 러너가 terraform 적용 주체이므로 기존 `kv_officer_self` 부여가 러너를 앱 vault 의

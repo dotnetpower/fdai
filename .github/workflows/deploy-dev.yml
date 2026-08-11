@@ -253,6 +253,7 @@ jobs:
           fi
 
       - name: Prepare self-hosted runner workspace
+        working-directory: ${{ runner.temp }}
         run: |
           set -euo pipefail
           legacy_cache="$GITHUB_WORKSPACE/infra/None"

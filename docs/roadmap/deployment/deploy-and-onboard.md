@@ -98,7 +98,9 @@ jumpbox rather than a registered runner, and the tenant supplies its own approve
   repository-configured subscription and tenant before any storage, plan, or apply step.
   Before checkout, the runner removes only the legacy generated `infra/None` cache path so
   root-owned action residue cannot block the exact-commit clean step. That step creates the Azure
-  CLI config under `RUNNER_TEMP` and exports it through `GITHUB_ENV` for subsequent steps.
+  CLI config under `RUNNER_TEMP` and exports it through `GITHUB_ENV` for subsequent steps. Because
+  the job default is `infra/`, this pre-checkout step also runs from `RUNNER_TEMP`; a fresh slot has
+  no repository directory yet and never depends on residue from an earlier checkout.
 The app config peers its spoke VNet to the ops hub (both directions) and links its private
 DNS zones to the ops VNet via the `extra_vnet_links` seam, so the runner resolves the app's
 Key Vault privately. The runner is the terraform apply principal, so the existing

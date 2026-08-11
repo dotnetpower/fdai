@@ -9,6 +9,8 @@ from types import ModuleType
 
 import pytest
 
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+
 
 def _load_contract_module() -> ModuleType:
     script = (
@@ -85,6 +87,15 @@ def test_workflow_accepts_reviewed_immutable_action_ref(
     monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
 
     assert module._validate_action_runtime_versions() == []
+
+
+def test_deploy_workspace_preparation_runs_before_checkout() -> None:
+    workflow = (_REPO_ROOT / ".github/workflows/deploy-dev.yml").read_text(encoding="utf-8")
+    prepare_start = workflow.index("- name: Prepare self-hosted runner workspace")
+    checkout_start = workflow.index("- name: Checkout", prepare_start)
+    prepare_step = workflow[prepare_start:checkout_start]
+
+    assert "working-directory: ${{ runner.temp }}" in prepare_step
 
 
 @pytest.mark.parametrize(
