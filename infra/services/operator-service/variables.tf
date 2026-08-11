@@ -26,7 +26,11 @@ variable "identity" {
 }
 variable "event_topics" {
   description = "Event Hub entities used for typed operator requests."
-  type        = object({ events = string })
+  type = object({
+    events               = string
+    semantic_requests    = optional(string, "")
+    semantic_projections = optional(string, "")
+  })
 }
 variable "database" {
   description = "Role-scoped Operator database secret reference."

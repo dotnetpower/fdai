@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 services_root="$repo_root/infra/services"
 
 services=(
@@ -100,6 +100,7 @@ for service in document-ingestion-api document-processing-worker; do
   rg -Fq '{ name = "FDAI_EMBEDDING_ENDPOINT"' "$module_main"
   rg -Fq '{ name = "FDAI_EMBEDDING_DEPLOYMENT"' "$module_main"
 done
+
 worker_main="$services_root/document-processing-worker/modules/document-processing-worker/main.tf"
 rg -Fq '{ name = "FDAI_INGESTION_WORKER_HEALTH_PORT", value = tostring(var.health.port) }' \
   "$worker_main"

@@ -117,6 +117,7 @@ def semantic_turn_binding_from_config(
     state_store: StateStore,
     runtime: SemanticConversationRuntime | None,
     config: Mapping[str, str],
+    unavailable_reason: str | None = None,
 ) -> SemanticTurnConsumerBinding | None:
     """Build the consumer only when both transport topics are configured.
 
@@ -152,7 +153,9 @@ def semantic_turn_binding_from_config(
             purpose=purpose,
         ),
         available=runtime is not None,
-        unavailable_reason=None if runtime is not None else "semantic_runtime_unavailable",
+        unavailable_reason=(
+            None if runtime is not None else unavailable_reason or "semantic_runtime_unavailable"
+        ),
     )
 
 

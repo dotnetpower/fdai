@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 963afddf6ea6b7ec0f6d56b141e21f598349dd19
+translation_source_sha: e0d828cea40cfff44fa0a320252ec42ad1838abc
 translation_revised: 2026-08-11
 ---
 
@@ -129,8 +129,8 @@ fdai/
 │   ├── agents/                # 판테온 런타임 - 15개 agent, typed topic, v2 conversation charter 및 bounded T1/T2 deliberation; [agent-pantheon-ko.md](../agents/agent-pantheon-ko.md) 참조
 │   ├── evaluation/            # public EvaluationHost 구현, capability attenuation, workspace policy, artifact custody, typed ingress 및 judgment 전 diagnostic ontology observation
 │   ├── benchmarking/          # legacy benchmark contract와 runner를 위한 임시 0.1.x compatibility facade
-│   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings(optional conversation T2 synthesis 포함) + focused `wire_*` binder
-│   ├── runtime/               # reviewed alias-free metric-semantic catalog loading, versioned isolated Executor shadow/effect handling, stable-offset remote client, EventBus/DLQ/health supervision, production entry point, reversible authority probe, operating-model 및 diagnostic-catalog startup projection/status, durable T2 recovery observation/backfill, Thor/Vidar 실행과 rollback을 사용하는 StateStore-backed proposer route selection, transport/identity binding, startup readiness, worker gating 및 Norns post-turn review를 포함한 headless lifecycle/composition
+│   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings(optional conversation T2 synthesis 포함) + request-role executor를 사용하는 exact-release semantic query assembly를 포함한 focused `wire_*` binder
+│   ├── runtime/               # reviewed alias-free metric-semantic catalog loading, versioned isolated Executor shadow/effect handling, stable-offset remote client, EventBus/DLQ/health supervision, production entry point, reversible authority probe, operating-model 및 diagnostic-catalog startup projection/status, durable T2 recovery observation/backfill, Thor/Vidar 실행과 rollback을 사용하는 StateStore-backed proposer route selection, semantic runtime availability/readiness binding, transport/identity binding, startup readiness, worker gating 및 Norns post-turn review를 포함한 headless lifecycle/composition
 │   └── __main__.py            # 진입점 (P1 컨트롤 루프 기동)
 ├── services/core-control-plane/{src/fdai_core_service,tests}/ # Core entry point와 test
 ├── services/{operator-service,document-ingestion-api,document-processing-worker,isolated-executor}/와 packages/service-contracts/ # 독립 package, shared SDK, test

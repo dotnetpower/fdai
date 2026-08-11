@@ -20,16 +20,20 @@ units for 100% structural query coverage.
 > **Randomized assurance status (2026-08-11):** The authenticated Console completed 100/100
 > generated English and Korean turns, but the measured path used only the local Azure narrator.
 > Intent recognition was 100%, answer success was 20%, and all 100 cards were unverified with
-> evidence 0/0. Production completion remains blocked because the Operator Service does not compose
-> the semantic runtime. See
+> evidence 0/0. Core now composes the semantic runtime when Azure model candidates, the exact
+> ontology release, and the ontology instance store are available. The measured run predates that
+> binding. Production completion remains blocked until the Operator Service publishes semantic
+> turns, consumes evidence-bound projections, and produces live cross-service receipts. See
 > [Ontology Query Randomized Assurance](ontology-query-randomized-assurance.md).
 >
 > **Cross-service contract status (2026-08-11):** Additive version 1.2 request and projection
 > envelopes now define the bounded semantic turn, authenticated principal roles, deadline,
 > idempotency identity, terminal disposition, and exact evidence digests. They do not activate
 > production routing by themselves. Semantic payloads fail closed instead of being translated to
-> the N-1 shape. Operator outbox publication, Core consumption, durable projection, and receipt-backed
-> integration evidence remain the cutover gate.
+> the N-1 shape. Core now consumes configured semantic requests, persists canonical results,
+> publishes terminal projections, and reports exact missing-provider reasons through startup
+> readiness. Operator outbox publication and receipt-backed integration evidence remain the cutover
+> gate.
 >
 > **Implementation status (2026-08-10):** Exact ontology releases, semantic candidates, bounded
 > ObjectSets, secured query receipts, typed function registration, current inventory projection,
@@ -63,8 +67,11 @@ units for 100% structural query coverage.
 > from the whole bounded turn and candidate descriptors. Core rebuilds all digests and authority
 > fields, verifies the exact principal manifest, and returns a verified plan, one clarification,
 > action-draft handoff, unsupported result, or unavailable result. The compatibility coordinator
-> can run this path in shadow and records only disposition and content digests. No production model
-> or composition binding is enabled yet.
+> can run this path in shadow and records only disposition and content digests. The Azure adapter now
+> issues two bounded JSON-object calls through workload identity, validates both proposal schemas,
+> and tries resolved candidates in order. Core composition binds that adapter to the exact release,
+> current instance store, principal-scoped manifest, deterministic verifier, and request-role-specific
+> secured executor when every prerequisite is available.
 > OQ-05 now deterministically derives an eight-goal intent graph, binds executor receipts to those
 > goals, and projects the internal exact-plan contracts to the Console v2/v1 wire shapes. The
 > Console accepts explicit cancellation receipts. Executing the semantic plan and attaching these
@@ -86,7 +93,9 @@ units for 100% structural query coverage.
 > retains competing explanations. Production metric provider bindings and reviewed catalog data
 > now include a reviewed alias-free catalog and a concrete `MetricProvider` window adapter that
 > preserves observed zero and reports an empty provider result as incomplete. Runtime semantic-turn
-> composition with the deployed provider remains.
+> composition currently exposes only ObjectSet and pure set/order/project/aggregate handlers.
+> Metric-series and evidence-join handlers remain unavailable until their authoritative providers
+> are explicitly bound.
 > OQ-05 now also includes an async server-side semantic turn runtime that terminates every accepted
 > ordinary-language turn as answer, clarification, hold, unsupported, action draft, or cancellation;
 > it executes only verified query DAGs and emits exact Console graph/evidence projections.
@@ -126,10 +135,10 @@ objects are selected only by authoritative reads after plan verification.
 
 | Area | Verified current implementation | Gap that blocks the target |
 |------|---------------------------------|----------------------------|
-| Conversation routing | The default compatibility coordinator accepts exact canonical commands only; the async semantic runtime plans and executes verified ordinary-language DAGs and emits terminal graph/evidence projections. | Production model, descriptor-index, provider, and Operator stream composition remain; `legacy` exists only as an explicit temporary compatibility mode. |
+| Conversation routing | The default compatibility coordinator accepts exact canonical commands only. Configured Core semantic topics now use the Azure planning adapter and execute verified ordinary-language DAGs over the current ontology store, then persist and publish terminal graph/evidence projections. | Operator publication, projection replay/streaming, live cross-service receipts, and a descriptor index for manifests beyond the complete-manifest bound remain. `legacy` exists only as an explicit temporary compatibility mode. |
 | Cross-service semantic wire | Version 1.2 request and projection envelopes carry bounded semantic input and evidence-bound terminal output without execution authority. | Runtime publisher, consumer, durable replay projection, and production readiness remain; semantic records never downgrade to N-1. |
 | Console intent graph | Core now derives a bounded graph and receipt evidence from verified plans, and shared SDK projections exactly match the Console v2/v1 parsers. | The production turn-completion stream does not yet attach the produced graph and evidence. |
-| Semantic interpretation | A schema-constrained whole-turn model seam proposes `SemanticProblemFrame` and typed DAG candidates; Core supplies identity, verifies the principal manifest, and supports opt-in shadow comparison beside compatibility routing. | No production model/descriptor-index binding is enabled, and the semantic path does not yet select the visible answer. |
+| Semantic interpretation | The Azure OpenAI adapter proposes a `SemanticProblemFrame` and typed DAG as two strict bounded JSON objects through bearer-token authentication and resolved-candidate fallback. Core supplies identity, validates the Pydantic schemas, verifies the principal manifest, and executes with the exact request role. | The complete-manifest selector holds when the descriptor bound is exceeded. The Operator Service still needs to make the evidence-bound projection the visible streamed answer. |
 | Object queries | `OntologyQueryPlan` now composes secured ObjectSets, set algebra, ordering, projection, grouped aggregation, and typed read-only functions over immutable content-addressed tables. | Temporal snapshots, metric series, and evidence joins still require registered extension handlers. |
 | Query manifest | A principal-scoped content-addressed builder projects ObjectTypes and filtered properties, both LinkType endpoint sides, Interfaces, read-only functions, and draft-only ActionTypes. | The production narrator does not yet consume the manifest, and complete operator/evidence availability descriptors remain. |
 | Interfaces | Production catalog loading validates `Identifiable`, its provenance, and explicit bindings for all current ObjectTypes; runtime composition compiles it and pins it in the exact release. | Additional capability Interfaces and production ObjectSet query binding remain. |

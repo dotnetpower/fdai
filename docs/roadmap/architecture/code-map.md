@@ -45,9 +45,9 @@ unchanged by the physical move.
 | Ontology semantic generations | Candidate-only concrete index, full/incremental declaration and deployment-object documents, independent validation receipts, atomic activation, stale detection, and rollback | [catalog_search](../../../services/core-control-plane/src/fdai/delivery/catalog_search/) | [catalog search tests](../../../services/core-control-plane/tests/delivery/catalog_search/) |
 | Metric semantic provider binding | Alias-free reviewed metric concepts and exact `MetricProvider` windows that distinguish observed zero from provider gaps | [metric_window.py](../../../services/core-control-plane/src/fdai/delivery/metric_window.py) and [metric_semantic_catalog.py](../../../services/core-control-plane/src/fdai/runtime/metric_semantic_catalog.py) | [metric semantic catalog tests](../../../services/core-control-plane/tests/runtime/test_metric_semantic_catalog.py) |
 | Agent pantheon | Fifteen fixed agents and their typed event runtime | [agents](../../../services/core-control-plane/src/fdai/agents/) | [agent tests](../../../services/core-control-plane/tests/agents/) |
-| Composition | Provider and runtime dependency injection | [composition](../../../services/core-control-plane/src/fdai/composition/) | [composition tests](../../../services/core-control-plane/tests/composition/) |
+| Composition | Provider and runtime dependency injection, including exact-release semantic query assembly and request-role executor factories | [composition](../../../services/core-control-plane/src/fdai/composition/) | [composition tests](../../../services/core-control-plane/tests/composition/) |
 | Core adapters | Provider, persistence, notification, and platform adapters retained by Core | [delivery](../../../services/core-control-plane/src/fdai/delivery/) | [delivery tests](../../../services/core-control-plane/tests/delivery/) |
-| Runtime | Core process lifecycle, readiness, event transport, and supervision | [runtime](../../../services/core-control-plane/src/fdai/runtime/) | [runtime tests](../../../services/core-control-plane/tests/runtime/) |
+| Runtime | Core process lifecycle, readiness, event transport, supervision, and semantic runtime availability binding | [runtime](../../../services/core-control-plane/src/fdai/runtime/) | [runtime tests](../../../services/core-control-plane/tests/runtime/) |
 | Core contracts and provider seams | Core-only types, provider Protocols, configuration, streaming, and telemetry | [shared](../../../services/core-control-plane/src/fdai/shared/) | [shared tests](../../../services/core-control-plane/tests/shared/) |
 | Rule Catalog pipeline | Catalog schema loading, collection, validation, distillation, and promotion support | [rule_catalog](../../../services/core-control-plane/src/fdai/rule_catalog/) | [Rule Catalog tests](../../../services/core-control-plane/tests/rule_catalog/) |
 | Core service entry point | Core distribution startup and service composition | [fdai_core_service](../../../services/core-control-plane/src/fdai_core_service/) | [Core package tests](../../../services/core-control-plane/tests/) |
@@ -61,6 +61,11 @@ cancellation, skip blocked descendants, and emit stable receipts without provide
 Planner manifests apply identical role and purpose filtering to ObjectType and Interface
 properties. Intent evidence preserves a terminal reason while also disclosing bounded
 evidence-reference truncation.
+Azure semantic planning uses existing `httpx` and `WorkloadIdentity` adapters for two validated
+JSON-object proposals. Composition exposes only handlers with bound authoritative providers. The
+ObjectSet handler is rebuilt for each request role, so a Reader cannot inherit Owner visibility and
+an Owner is not silently reduced to Reader. Missing model, release, store, or transport prerequisites
+remain explicit startup-readiness failures rather than an implicit `runtime=None`.
 Continuous coverage receipts separate deterministic fixture structural validation from production
 readiness. Only externally produced `cross_service_e2e` or `live_assurance` question receipts can
 set `production_ready`; a committed `deterministic_fixture` keeps it false.

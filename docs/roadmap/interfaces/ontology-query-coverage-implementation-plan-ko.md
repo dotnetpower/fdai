@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 390e083c616f8a310021272abef4f4cfdcc65cad
+translation_source_sha: 78a427aa39bf703fd838b62d1175a77f8c99bb4a
 translation_revised: 2026-08-11
 ---
 
@@ -20,16 +20,20 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 >
 > **무작위 보증 상태(2026-08-11):** 인증된 Console은 생성된 영어 및 한국어 turn 100/100개를
 > 완료했지만 측정된 경로는 로컬 Azure narrator만 사용했습니다. 의도 인식은 100%, 답변 성공은
-> 20%였으며 카드 100개 모두 evidence 0/0의 unverified 상태였습니다. Operator Service가 의미
-> 런타임을 구성하지 않으므로 프로덕션 완료 상태는 계속 차단됩니다.
+> 20%였으며 카드 100개 모두 evidence 0/0의 unverified 상태였습니다. Core는 이제 Azure model
+> candidate, exact ontology release 및 ontology instance store를 사용할 수 있을 때 semantic runtime을
+> 구성합니다. 측정된 실행은 이 binding 이전의 결과입니다. Operator Service가 semantic turn을
+> publish하고 evidence-bound projection을 consume하며 live cross-service receipt를 만들 때까지
+> production completion은 계속 차단됩니다.
 > [온톨로지 쿼리 무작위 보증](ontology-query-randomized-assurance-ko.md)을 참조하세요.
 >
 > **Cross-service contract 상태(2026-08-11):** Additive version 1.2 request/projection envelope은
 > bounded semantic turn, 인증된 principal role, deadline, idempotency identity, terminal disposition 및
 > exact evidence digest를 정의합니다. 이 계약만으로 production routing이 활성화되지는 않습니다.
-> Semantic payload는 N-1 shape로 translate하지 않고 fail closed합니다. Operator outbox publication,
-> Core consumption, durable projection 및 receipt-backed integration evidence가 cutover gate로 남아
-> 있습니다.
+> Semantic payload는 N-1 shape로 translate하지 않고 fail closed합니다. Core는 이제 설정된 semantic
+> request를 consume하고 canonical result를 persist하며 terminal projection을 publish하고 startup
+> readiness에 exact missing-provider reason을 보고합니다. Operator outbox publication과
+> receipt-backed integration evidence가 cutover gate로 남아 있습니다.
 >
 > **구현 상태(2026-08-10):** Exact ontology release, semantic candidate, bounded ObjectSet, secured query
 > receipt, typed function registration, current inventory projection, metric provider 및 causal-analysis
@@ -63,8 +67,11 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > 제안하는 schema-constrained model seam이 있습니다. Core는 모든 digest/authority field를 다시 만들고
 > exact principal manifest를 검증하며 verified plan, clarification 하나, action-draft handoff,
 > unsupported 또는 unavailable result를 반환합니다. Compatibility coordinator는 이 path를 shadow로
-> 실행하고 disposition/content digest만 기록할 수 있습니다. Production model/composition binding은
-> 아직 enable되지 않았습니다.
+> 실행하고 disposition/content digest만 기록할 수 있습니다. Azure adapter는 이제 workload identity를
+> 통해 bounded JSON-object call 두 개를 실행하고 proposal schema 두 개를 검증하며 resolved candidate를
+> 순서대로 시도합니다. Core composition은 모든 prerequisite를 사용할 수 있을 때 이 adapter를 exact
+> release, current instance store, principal-scoped manifest, deterministic verifier 및
+> request-role-specific secured executor에 bind합니다.
 > OQ-05는 이제 deterministic하게 최대 8개 goal의 intent graph를 만들고 executor receipt를 해당 goal에
 > bind하며 internal exact-plan contract를 Console v2/v1 wire shape로 projection합니다. Console은 explicit
 > cancellation receipt도 수락합니다. Semantic plan 실행 및 production turn-completion stream에 이
@@ -84,8 +91,9 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > competing explanation을 보존하는 topology-aware temporal support/refutation이 포함됩니다. Production
 > metric provider binding과 reviewed catalog data에는 이제 reviewed alias-free catalog와 concrete
 > `MetricProvider` window adapter가 포함됩니다. 이 adapter는 observed zero를 보존하고 empty provider
-> result를 incomplete로 보고합니다. Deployed provider를 사용하는 runtime semantic-turn composition은
-> 남아 있습니다.
+> result를 incomplete로 보고합니다. Runtime semantic-turn composition은 현재 ObjectSet과 pure
+> set/order/project/aggregate handler만 노출합니다. Metric-series 및 evidence-join handler는
+> authoritative provider가 명시적으로 bind될 때까지 unavailable 상태로 남습니다.
 > OQ-05에는 이제 accepted ordinary-language turn을 answer, clarification, hold, unsupported, action draft
 > 또는 cancellation으로 종료하는 async server-side semantic turn runtime도 포함됩니다. Verified query
 > DAG만 실행하며 exact Console graph/evidence projection을 emit합니다.
@@ -125,10 +133,10 @@ plan 검증 이후 authoritative read로만 선택합니다.
 
 | 영역 | 검증된 현재 구현 | 목표를 차단하는 gap |
 |------|------------------|---------------------|
-| Conversation routing | Default compatibility coordinator는 exact canonical command만 수락합니다. Async semantic runtime은 verified ordinary-language DAG를 plan/execute하고 terminal graph/evidence projection을 emit합니다. | Production model, descriptor-index, provider 및 Operator stream composition은 남아 있으며 `legacy`는 explicit temporary compatibility mode로만 존재합니다. |
+| Conversation routing | Default compatibility coordinator는 exact canonical command만 수락합니다. Configured Core semantic topic은 이제 Azure planning adapter를 사용하고 current ontology store에서 verified ordinary-language DAG를 실행한 다음 terminal graph/evidence projection을 persist/publish합니다. | Operator publication, projection replay/streaming, live cross-service receipt 및 complete-manifest bound를 넘는 manifest를 위한 descriptor index가 남아 있습니다. `legacy`는 explicit temporary compatibility mode로만 존재합니다. |
 | Cross-service semantic wire | Version 1.2 request/projection envelope은 execution authority 없이 bounded semantic input과 evidence-bound terminal output을 전달합니다. | Runtime publisher, consumer, durable replay projection 및 production readiness가 남아 있으며 semantic record는 N-1로 downgrade하지 않습니다. |
 | Console intent graph | Core는 verified plan에서 bounded graph/receipt evidence를 만들며 shared SDK projection은 Console v2/v1 parser와 정확히 일치합니다. | Production turn-completion stream은 아직 생성된 graph/evidence를 attach하지 않습니다. |
-| Semantic interpretation | Schema-constrained whole-turn model seam이 `SemanticProblemFrame` 및 typed DAG candidate를 제안합니다. Core가 identity를 부여하고 principal manifest를 검증하며 compatibility routing 옆의 opt-in shadow comparison을 지원합니다. | Production model/descriptor-index binding은 enable되지 않았고 semantic path가 아직 visible answer를 선택하지 않습니다. |
+| Semantic interpretation | Azure OpenAI adapter는 bearer-token authentication과 resolved-candidate fallback을 통해 `SemanticProblemFrame` 및 typed DAG를 strict bounded JSON object 두 개로 제안합니다. Core는 identity를 부여하고 Pydantic schema와 principal manifest를 검증하며 exact request role로 실행합니다. | Descriptor bound를 넘으면 complete-manifest selector가 hold합니다. Operator Service는 evidence-bound projection을 visible streamed answer로 연결해야 합니다. |
 | Object query | `OntologyQueryPlan`은 이제 immutable content-addressed table 위에서 secured ObjectSet, set algebra, ordering, projection, grouped aggregation 및 typed read-only function을 구성합니다. | Temporal snapshot, metric series 및 evidence join에는 registered extension handler가 필요합니다. |
 | Query manifest | Principal-scoped content-addressed builder가 ObjectType/filtered property, LinkType 양쪽 endpoint side, Interface, read-only function 및 draft-only ActionType을 projection합니다. | Production narrator는 아직 manifest를 사용하지 않으며 complete operator/evidence availability descriptor가 남아 있습니다. |
 | Interface | Production catalog loading은 `Identifiable`, provenance 및 모든 current ObjectType의 explicit binding을 검증합니다. Runtime composition은 이를 compile하고 exact release에 pin합니다. | 추가 capability Interface와 production ObjectSet query binding은 남아 있습니다. |

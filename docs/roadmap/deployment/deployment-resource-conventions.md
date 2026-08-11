@@ -94,6 +94,11 @@ migration, the remote bootstrap key is authoritative. Adding a production root w
 backend key and drift-plan coordinate is not supported. Drift checks fail when evidence is missing
 or unreadable; they never omit a registered root and report success.
 
+The Core and Operator service roots receive the semantic-turn request and projection topic names
+as environment-scoped Terraform inputs. Terraform passes the reviewed names through
+`FDAI_SEMANTIC_TURN_REQUEST_TOPIC` and `FDAI_SEMANTIC_TURN_PROJECTION_TOPIC`; application code does
+not derive, rename, or substitute these cross-service channels.
+
 ## Resource Tagging Convention
 
 Naming makes a resource readable; tagging makes a fleet queryable. Every resource this

@@ -59,6 +59,10 @@ from fdai.delivery.azure.llm.rubric import (
     AzureOpenAIRubricEvaluator,
     AzureOpenAIRubricEvaluatorConfig,
 )
+from fdai.delivery.azure.llm.semantic_planning import (
+    AzureOpenAISemanticPlanningModel,
+    AzureOpenAISemanticPlanningModelConfig,
+)
 
 __all__ = [
     "AzureOpenAICriticModel",
@@ -77,4 +81,6 @@ __all__ = [
     "AzureOpenAIRcaModelConfig",
     "AzureOpenAIRubricEvaluator",
     "AzureOpenAIRubricEvaluatorConfig",
+    "AzureOpenAISemanticPlanningModel",
+    "AzureOpenAISemanticPlanningModelConfig",
 ]

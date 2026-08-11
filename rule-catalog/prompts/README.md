@@ -34,6 +34,10 @@ for the full design.
 `PromptRegistry` Protocol. The composition root passes resolved bodies into the
 Azure OpenAI adapters; `core/` never opens these files directly.
 
+`semantic.query.frame` and `semantic.query.plan` are prompt-only lookup keys.
+They reuse the resolved primary and secondary T2 reasoner candidates for two
+sequential schema-validated calls and do not provision separate deployments.
+
 The operator-console narrator is not loaded from this catalog. Pull-direction
 channels call the shared Operator API, whose chat coordinator owns its grounded
 prompt and verification flow. Keep channel-specific presentation instructions

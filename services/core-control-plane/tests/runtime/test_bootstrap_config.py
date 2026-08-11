@@ -47,7 +47,7 @@ def test_runtime_multiplexes_startup_readiness_transitions() -> None:
     assert "runtime.readiness.transitions" in _RUNTIME_LOGICAL_TOPICS
 
 
-async def test_semantic_turn_bootstrap_exposes_missing_runtime_in_readiness() -> None:
+async def test_semantic_turn_bootstrap_exposes_exact_missing_runtime_reason() -> None:
     binding = _build_semantic_turn_binding(
         state_store=InMemoryStateStore(),
         config={
@@ -55,6 +55,7 @@ async def test_semantic_turn_bootstrap_exposes_missing_runtime_in_readiness() ->
             "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "operator.projection",
             "FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID": "core-semantic",
         },
+        unavailable_reason="semantic_ontology_store_unavailable",
     )
 
     assert binding is not None
@@ -62,7 +63,7 @@ async def test_semantic_turn_bootstrap_exposes_missing_runtime_in_readiness() ->
     assert binding.projection_topic == "operator.projection"
     assert binding.group_id == "core-semantic"
     assert binding.available is False
-    assert binding.unavailable_reason == "semantic_runtime_unavailable"
+    assert binding.unavailable_reason == "semantic_ontology_store_unavailable"
 
     specs, probes = _semantic_turn_readiness_registration(binding)
     now = datetime.now(UTC)
@@ -78,7 +79,36 @@ async def test_semantic_turn_bootstrap_exposes_missing_runtime_in_readiness() ->
 
     assert report.decision is ReadinessDecision.DEGRADED
     assert report.authority_ceilings["semantic-query"] is AuthorityCeiling.DISABLED
-    assert result.failure_class == "semantic_runtime_unavailable"
+    assert result.failure_class == "semantic_ontology_store_unavailable"
+
+
+async def test_semantic_turn_bootstrap_reports_bound_runtime_available() -> None:
+    binding = _build_semantic_turn_binding(
+        state_store=InMemoryStateStore(),
+        config={
+            "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.request",
+            "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "operator.projection",
+        },
+        runtime=object(),
+    )
+
+    assert binding is not None
+    assert binding.available is True
+    assert binding.unavailable_reason is None
+    specs, probes = _semantic_turn_readiness_registration(binding)
+    now = datetime.now(UTC)
+    result = await probes[0].run(
+        StartupProbeRequest(
+            deadline=now + timedelta(seconds=5),
+            cost_limit_usd=0,
+            model_sample_count=2,
+            synthetic_scope=False,
+        )
+    )
+    report = reduce_startup_readiness(specs, (result,), generated_at=now)
+
+    assert result.status.value == "passed"
+    assert report.decision is ReadinessDecision.READY
 
 
 async def test_semantic_turn_bootstrap_schedules_configured_binding() -> None:

@@ -384,6 +384,18 @@ variable "kafka_topic_events" {
   default     = "aw.change.events"
 }
 
+variable "semantic_turn_request_topic" {
+  description = "Existing Kafka topic carrying bounded semantic-turn requests. Empty disables semantic turn consumption."
+  type        = string
+  default     = ""
+}
+
+variable "semantic_turn_projection_topic" {
+  description = "Existing Kafka topic carrying semantic-turn terminal projections. Empty disables semantic turn consumption."
+  type        = string
+  default     = ""
+}
+
 variable "postgres_host" {
   description = "Postgres Flexible Server FQDN (`POSTGRES_HOST`) - non-secret label used for the startup log summary."
   type        = string

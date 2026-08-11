@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 9ae6817ec73ffc1a5b22d5103663602a45f564d5
+translation_source_sha: e7675308450fe25ecf89edf4cebc5befd6c3446c
 translation_revised: 2026-08-11
 ---
 # 코드 맵
@@ -48,9 +48,9 @@ Core distribution은 전체 `fdai` namespace를 유지합니다. 내부 module b
 | Ontology semantic generation | Candidate-only concrete index, full/incremental declaration 및 deployment-object document, independent validation receipt, atomic activation, stale detection 및 rollback | [catalog_search](../../../services/core-control-plane/src/fdai/delivery/catalog_search/) | [catalog search test](../../../services/core-control-plane/tests/delivery/catalog_search/) |
 | Metric semantic provider binding | Alias-free reviewed metric concept와 observed zero를 provider gap과 구분하는 exact `MetricProvider` window | [metric_window.py](../../../services/core-control-plane/src/fdai/delivery/metric_window.py) 및 [metric_semantic_catalog.py](../../../services/core-control-plane/src/fdai/runtime/metric_semantic_catalog.py) | [metric semantic catalog test](../../../services/core-control-plane/tests/runtime/test_metric_semantic_catalog.py) |
 | Agent pantheon | 고정 agent 15개와 typed event runtime | [agents](../../../services/core-control-plane/src/fdai/agents/) | [agent test](../../../services/core-control-plane/tests/agents/) |
-| Composition | Provider 및 runtime dependency injection | [composition](../../../services/core-control-plane/src/fdai/composition/) | [composition test](../../../services/core-control-plane/tests/composition/) |
+| Composition | Exact-release semantic query assembly와 request-role executor factory를 포함한 provider/runtime dependency injection | [composition](../../../services/core-control-plane/src/fdai/composition/) | [composition test](../../../services/core-control-plane/tests/composition/) |
 | Core adapter | Core에 남은 provider, persistence, notification 및 platform adapter | [delivery](../../../services/core-control-plane/src/fdai/delivery/) | [delivery test](../../../services/core-control-plane/tests/delivery/) |
-| Runtime | Core process lifecycle, readiness, event transport 및 supervision | [runtime](../../../services/core-control-plane/src/fdai/runtime/) | [runtime test](../../../services/core-control-plane/tests/runtime/) |
+| Runtime | Core process lifecycle, readiness, event transport, supervision 및 semantic runtime availability binding | [runtime](../../../services/core-control-plane/src/fdai/runtime/) | [runtime test](../../../services/core-control-plane/tests/runtime/) |
 | Core contract와 provider seam | Core 전용 type, provider Protocol, configuration, streaming 및 telemetry | [shared](../../../services/core-control-plane/src/fdai/shared/) | [shared test](../../../services/core-control-plane/tests/shared/) |
 | Rule Catalog pipeline | Catalog schema loading, collection, validation, distillation 및 promotion support | [rule_catalog](../../../services/core-control-plane/src/fdai/rule_catalog/) | [Rule Catalog test](../../../services/core-control-plane/tests/rule_catalog/) |
 | Core service entry point | Core distribution startup과 service composition | [fdai_core_service](../../../services/core-control-plane/src/fdai_core_service/) | [Core package test](../../../services/core-control-plane/tests/) |
@@ -63,6 +63,11 @@ Bounded dependency wave는 node deadline에 queue wait를 포함하고 in-flight
 blocked descendant를 skip하고 provider error detail 없는 stable receipt를 emit합니다.
 Planner manifest는 ObjectType 및 Interface property에 동일한 role/purpose filtering을 적용합니다. Intent
 evidence는 terminal reason을 보존하면서 bounded evidence-reference truncation도 공개합니다.
+Azure semantic planning은 기존 `httpx` 및 `WorkloadIdentity` adapter를 사용하여 검증된 JSON-object
+proposal 두 개를 만듭니다. Composition은 authoritative provider가 bind된 handler만 노출합니다.
+ObjectSet handler는 각 request role에 맞게 다시 만들어지므로 Reader가 Owner visibility를 상속하지 않고
+Owner도 Reader로 조용히 축소되지 않습니다. Model, release, store 또는 transport prerequisite가 없으면
+암시적 `runtime=None` 대신 explicit startup-readiness failure로 유지됩니다.
 Continuous coverage receipt는 deterministic fixture structural validation과 production readiness를
 분리합니다. 외부에서 생성된 `cross_service_e2e` 또는 `live_assurance` question receipt만
 `production_ready`를 설정할 수 있으며 committed `deterministic_fixture`는 false로 유지합니다.

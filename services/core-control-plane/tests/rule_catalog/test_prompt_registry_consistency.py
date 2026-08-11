@@ -8,11 +8,10 @@ sides, so this gate does: every ``applies_to`` capability MUST be either
 a real ``llm-registry.yaml`` capability OR an explicitly allowlisted
 prompt-only capability.
 
-The only prompt-only capability today is the console narrator, which
-reuses a T1 deployment and has no registry entry of its own (see
-``rule-catalog/prompts/README.md``). Discovered while adding the rubric
-judge: the narrator prompt already referenced a capability absent from
-the registry, undetected because no gate existed.
+Prompt-only capabilities reuse resolved deployment slots and have no registry
+entry of their own (see ``rule-catalog/prompts/README.md``). Discovered while
+adding the rubric judge: the narrator prompt already referenced a capability
+absent from the registry, undetected because no gate existed.
 """
 
 from __future__ import annotations
@@ -28,9 +27,18 @@ _CATALOG = _REPO / "rule-catalog"
 
 # Capabilities that intentionally have NO llm-registry entry. The console
 # narrator reuses t1.judge, t2.proposer selects the reasoner pair, and the
-# Norns review prompt selects t2.reasoner.primary/secondary off-path. Adding
-# to this set requires a stated reason (a new prompt-only lookup key).
-_PROMPT_ONLY_CAPABILITIES = frozenset({"console.narrator", "norns.post-turn-review", "t2.proposer"})
+# Norns review prompt selects t2.reasoner.primary/secondary off-path. Semantic
+# frame/plan prompts use the same resolved reasoner candidates as two strict
+# calls. Adding to this set requires a stated reason (a prompt-only lookup key).
+_PROMPT_ONLY_CAPABILITIES = frozenset(
+    {
+        "console.narrator",
+        "norns.post-turn-review",
+        "semantic.query.frame",
+        "semantic.query.plan",
+        "t2.proposer",
+    }
+)
 
 
 def _registry_capabilities() -> set[str]:

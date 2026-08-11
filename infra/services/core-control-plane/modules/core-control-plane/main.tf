@@ -33,6 +33,8 @@ module "container_app" {
     { name = "FDAI_STARTUP_PHASE_TIMEOUT_SECONDS", value = tostring(var.startup_readiness.phase_timeout_seconds) },
     { name = "FDAI_EXECUTOR_COMMAND_TOPIC", value = var.event_topics.executor_command },
     { name = "FDAI_EXECUTOR_RECEIPT_TOPIC", value = var.event_topics.executor_receipt },
+    { name = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC", value = var.event_topics.semantic_requests },
+    { name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC", value = var.event_topics.semantic_projections },
     { name = "FDAI_START_CONSUMER", value = "1" },
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
   ]

@@ -25,6 +25,7 @@ from fdai.agents import (
 from fdai.agents.vidar import RollbackExecutor
 from fdai.composition import (
     LlmBindings,
+    compose_azure_semantic_query_runtime,
     default_container_from_env,
 )
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
@@ -106,6 +107,7 @@ from fdai.runtime.configuration import (
     _attach_runtime_github_change_feed,
     _attach_runtime_knowledge_source,
     _attach_runtime_metric_provider,
+    _direct_model_endpoint_resolver,
     _finalize_llm_bindings,
     _new_http_client,
     _resolve_catalog_root,
@@ -198,13 +200,16 @@ def _build_semantic_turn_binding(
     *,
     state_store: StateStore,
     config: Mapping[str, str],
+    runtime: Any = None,
+    unavailable_reason: str | None = None,
 ) -> SemanticTurnConsumerBinding | None:
-    """Bind configured transport without pretending a production runtime exists."""
+    """Bind configured transport and its explicit runtime availability state."""
 
     return semantic_turn_binding_from_config(
         state_store=state_store,
-        runtime=None,
+        runtime=runtime,
         config=config,
+        unavailable_reason=unavailable_reason,
     )
 
 
@@ -410,15 +415,6 @@ async def _run() -> int:
             )
 
             incident_audit_store = _build_audit_store()
-            semantic_turn_binding = _build_semantic_turn_binding(
-                state_store=incident_audit_store,
-                config=os.environ,
-            )
-            if semantic_turn_binding is not None and not semantic_turn_binding.available:
-                _LOGGER.warning(
-                    "semantic_turn_runtime_unavailable",
-                    extra={"reason": semantic_turn_binding.unavailable_reason},
-                )
             if os.environ.get("FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER", "").strip() == "1":
                 if auxiliary_bus is None:
                     raise RuntimeError(
@@ -547,6 +543,35 @@ async def _run() -> int:
                 link_types=container.ontology_link_types,
                 status_store=incident_audit_store,
             )
+            semantic_purpose = os.environ.get(
+                "FDAI_SEMANTIC_TURN_PURPOSE", "operations-review"
+            ).strip()
+            endpoint = os.environ.get("FDAI_LLM_ENDPOINT", "").strip() or None
+            semantic_composition = compose_azure_semantic_query_runtime(
+                container=container,
+                ontology_release=control_loop.ontology_release,
+                ontology_store=control_loop.ontology_instance_store,
+                identity=identity,
+                http_client=http_client,
+                endpoint=endpoint,
+                endpoint_resolver=(
+                    _direct_model_endpoint_resolver(endpoint) if endpoint is not None else None
+                ),
+                catalog_root=_resolve_catalog_root(),
+                owner_loop=asyncio.get_running_loop(),
+                purpose=semantic_purpose,
+            )
+            semantic_turn_binding = _build_semantic_turn_binding(
+                state_store=incident_audit_store,
+                config=os.environ,
+                runtime=semantic_composition.runtime,
+                unavailable_reason=semantic_composition.unavailable_reason,
+            )
+            if semantic_turn_binding is not None and not semantic_turn_binding.available:
+                _LOGGER.warning(
+                    "semantic_turn_runtime_unavailable",
+                    extra={"reason": semantic_turn_binding.unavailable_reason},
+                )
             _LOGGER.info(
                 "control_loop_ready",
                 extra={

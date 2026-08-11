@@ -255,6 +255,18 @@ variable "kafka_topic_events" {
   default     = ""
 }
 
+variable "semantic_turn_request_topic" {
+  description = "Existing Kafka topic used to publish bounded semantic-turn requests."
+  type        = string
+  default     = ""
+}
+
+variable "semantic_turn_projection_topic" {
+  description = "Existing Kafka topic used to consume semantic-turn terminal projections."
+  type        = string
+  default     = ""
+}
+
 variable "azure_subscription_id" {
   description = "Subscription inspected by the onboarding ResourceProbe."
   type        = string

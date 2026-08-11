@@ -193,6 +193,20 @@ resource "azurerm_container_app" "operator_api" {
           value = env.value
         }
       }
+      dynamic "env" {
+        for_each = var.semantic_turn_request_topic == "" ? [] : [var.semantic_turn_request_topic]
+        content {
+          name  = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"
+          value = env.value
+        }
+      }
+      dynamic "env" {
+        for_each = var.semantic_turn_projection_topic == "" ? [] : [var.semantic_turn_projection_topic]
+        content {
+          name  = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC"
+          value = env.value
+        }
+      }
       env {
         name  = "AZURE_SUBSCRIPTION_ID"
         value = var.azure_subscription_id

@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 865b1f2a63057763696d617131437670b3988342
-translation_revised: 2026-08-09
+translation_source_sha: 70a53cff1376e3427767f80a27b2fe0ddcc9d4d5
+translation_revised: 2026-08-11
 ---
 # 배포 리소스 규약
 
@@ -95,6 +95,11 @@ upstream distribution 외부에 두는 데 사용하세요.
 Migration 이후에는 remote bootstrap key가 권위 state입니다. 고유 backend key와 drift-plan
 좌표 없이 production root를 추가하는 방식은 지원되지 않습니다. Drift check는 evidence가 없거나
 읽을 수 없으면 실패하며, 등록된 root를 생략한 채 성공으로 보고하지 않습니다.
+
+Core 및 Operator service root는 semantic-turn request와 projection topic 이름을 환경별 Terraform
+입력으로 받습니다. Terraform은 검토된 이름을 `FDAI_SEMANTIC_TURN_REQUEST_TOPIC`과
+`FDAI_SEMANTIC_TURN_PROJECTION_TOPIC`으로 전달하며, application code는 이 cross-service channel을
+파생하거나 이름을 바꾸거나 다른 channel로 대체하지 않습니다.
 
 ## 리소스 태깅 규약(Resource Tagging Convention)
 

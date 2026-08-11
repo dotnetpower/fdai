@@ -42,10 +42,12 @@ variable "identity" {
 variable "event_topics" {
   description = "Event Hub entity names owned by the shared event-bus state."
   type = object({
-    events           = string
-    executor_command = string
-    executor_receipt = string
-    startup_probe    = optional(string, "runtime.startup.probe")
+    events               = string
+    executor_command     = string
+    executor_receipt     = string
+    startup_probe        = optional(string, "runtime.startup.probe")
+    semantic_requests    = optional(string, "")
+    semantic_projections = optional(string, "")
   })
 }
 

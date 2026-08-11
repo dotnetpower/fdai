@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -55,11 +56,20 @@ class SemanticConversationRuntime:
         self,
         *,
         planner: SemanticPlanningService,
-        executor: OntologyQueryPlanExecutor,
+        executor: OntologyQueryPlanExecutor | None = None,
+        executor_factory: Callable[[Principal], OntologyQueryPlanExecutor] | None = None,
         purpose: str = "operations-review",
     ) -> None:
+        if (executor is None) == (executor_factory is None):
+            raise ValueError("semantic runtime requires exactly one executor binding")
         self._planner = planner
-        self._executor = executor
+        if executor_factory is not None:
+            self._executor_factory = executor_factory
+        else:
+            if executor is None:  # pragma: no cover - constructor invariant
+                raise RuntimeError("semantic executor binding is unavailable")
+            bound_executor = executor
+            self._executor_factory = lambda _principal: bound_executor
         self._purpose = purpose
 
     async def handle(
@@ -72,7 +82,8 @@ class SemanticConversationRuntime:
     ) -> SemanticTurnResult:
         """Terminate every accepted turn without invoking a compatibility parser."""
 
-        planning = self._planner.plan(
+        planning = await asyncio.to_thread(
+            self._planner.plan,
             utterance=utterance,
             prior_turns=prior_turns,
             principal=principal,
@@ -88,7 +99,10 @@ class SemanticConversationRuntime:
             return _terminal("held", planning.reason, planning)
         if planning.plan is None or planning.intent_graph is None:
             raise RuntimeError("verified semantic planning result is incomplete")
-        execution = await self._executor.execute(
+        executor = self._executor_factory(principal)
+        if executor is None:  # pragma: no cover - constructor invariant
+            raise RuntimeError("semantic executor binding is unavailable")
+        execution = await executor.execute(
             planning.plan,
             expected_release_digest=planning.plan.ontology_release_digest,
             expected_manifest_digest=planning.plan.semantic_catalog_digest,
