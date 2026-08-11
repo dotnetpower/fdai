@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 0a67d0ff9471e7fa8fcfa37907f3c35da0b36f32
-translation_revised: 2026-08-10
+translation_source_sha: 963afddf6ea6b7ec0f6d56b141e21f598349dd19
+translation_revised: 2026-08-11
 ---
 
 # 프로젝트 구조
@@ -240,6 +240,12 @@ fdai/
   dev-only service adapter는 Azure CLI auth로 narration할 수 있지만 어느 경로도 resource executor를 직접
   호출하지 않으며 risk, approval, audit, executor 경계는 server-side에 유지됩니다
   ([security-and-identity-ko.md](security-and-identity-ko.md) 참조).
+  독립 Operator Service는 semantic transport가 활성화되면 하나의 semantic-aware adapter를 통해
+  projection, proposal 및 stream port를 함께 bind합니다. PostgreSQL outbox는 claim eligibility와 lease
+  deadline에 database `NOW()` 값을 사용합니다. Held projection identity는 request identity와 canonical
+  terminal-result digest를 결합하고 durable result key는 request와 projection identity를 결합합니다.
+  기존 result를 재사용할 때는 같은 transaction에서 request, principal 및 digest를 검증한 후 outbox row를
+  complete합니다.
   Repository Best Practice 정의는 composition root에서 한 번 로드하고 GET 전용 list 및 detail
   route로 노출합니다. 이 정의는 catalog reference data로 유지되며 runtime evidence provider를
   명시적으로 bind하기 전까지 projection은 `Unknown` 및 `not-connected`를 보고합니다.

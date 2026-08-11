@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: dfa8dd299724121fc0d34fae6e34c806d0acea2f
+translation_source_sha: a95f8757f801b938ee7a8b73567698962bed7d04
 translation_revised: 2026-08-11
 ---
 
@@ -58,6 +58,11 @@ Version 1.2 semantic projection은 독립 service split 전반에서 이 boundar
 disposition은 exact release, principal-manifest, plan, execution receipt 및 evidence reference가 있을 때만
 수락됩니다. Dependency가 없거나 unavailable이면 typed limitation을 반환합니다. Operator Service는 이를
 narrator knowledge로 대체하거나 turn을 verified로 표시할 수 없습니다.
+Semantic transport가 활성화되면 하나의 semantic-aware adapter가 conversation projection, proposal 및
+stream routing을 함께 소유합니다. Non-semantic read는 기존 projection으로 위임하고 `chat.health`에는
+semantic readiness를 추가하며, `chat.stream` append와 replay는 durable bridge에 유지합니다. Local Azure
+narrator는 자체 health projection을 제공할 수 있지만 bridge가 활성화된 동안 `chat.stream`을 제공하지
+않습니다.
 Operator API는 review를 ready로 표시하거나 catalog proposal을 만들거나 authority를 부여하지 않습니다. 잘못된 답변 보고는 자율 재평가 evidence만 추가하며 governed transition에는 exact replay evidence와 기존 catalog lifecycle이 계속 필요합니다.
 ### 1.1 공유 glossary에 추가된 어휘
 

@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 356969851c31238343e135737ef6f105a283653c
+translation_source_sha: e43d3091896db6e3de558794766fa6d8ae330008
 translation_revised: 2026-08-11
 ---
 
@@ -52,6 +52,12 @@ identity를 전달합니다. Generic envelope는 version 1.0 consumer와 호환�
 shape로 translate하지 않습니다. 그렇게 하면 evidence contract가 손실되기 때문입니다. Operator outbox
 publisher, Core consumer 및 durable result projection이 compose되기 전까지 version 1.2는 transport
 contract일 뿐이며 visible answer path를 변경하지 않습니다.
+Publisher와 result-source transport가 모두 bind되면 Operator-side cutover가 compose됩니다. 이때 하나의
+semantic-aware adapter가 projection, proposal 및 stream routing을 소유하고 local Azure narrator는
+`chat.stream`에서 제외됩니다. PostgreSQL claim은 database clock을 사용하고 held retry는 request와
+result digest를 결합한 projection identity를 사용하며 duplicate result는 request, principal 및 digest를
+atomically 검증합니다. 이 path가 production answer path가 되려면 Core consumer와 deployment transport
+binding이 계속 필요합니다.
 
 Exact-release semantic candidate, verified semantic plan, bounded ObjectSet, secured query receipt, typed
 function registration, `OntologyQueryPlan`, deterministic verifier 및 bounded dependency-wave execution이

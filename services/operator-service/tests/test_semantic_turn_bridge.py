@@ -2,8 +2,10 @@
 
 import asyncio
 import hashlib
+import json
 from collections.abc import AsyncIterator, Mapping
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, cast
 from uuid import UUID, uuid5
 
@@ -14,11 +16,14 @@ from fdai_operator_service.environment import (
     DATABASE_ROLE_ENV,
     DATABASE_URL_ENV,
     GROUP_ENV,
+    LOCAL_AZURE_NARRATOR_ENV,
     TENANT_ENV,
 )
 from fdai_operator_service.families.conversation.contracts import (
     ConversationBoundaryError,
     ConversationProposal,
+    ConversationQuery,
+    ConversationResponse,
     ConversationStreamRequest,
     JsonObject,
     PrincipalScope,
@@ -26,8 +31,10 @@ from fdai_operator_service.families.conversation.contracts import (
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SemanticTurnBridge,
+    SemanticTurnConversationAdapters,
     SemanticTurnOutboxDrainer,
     SemanticTurnProjectionConsumer,
+    _held_projection,
 )
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
@@ -37,6 +44,7 @@ from fdai_operator_service.postgres_family_store import (
     StoredSemanticResult,
     StoredSemanticTurn,
 )
+from fdai_operator_service.postgres_semantic_turn_store import PostgresSemanticTurnRepository
 from fdai_service_contracts import ContractValidationError
 from pydantic import ValidationError
 
@@ -314,7 +322,7 @@ async def test_semantic_turn_concurrent_claim_uses_one_replica_safe_lease(
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
         _proposal()
     )
-    statements: list[str] = []
+    captured: list[tuple[str, Mapping[str, object]]] = []
     lock = asyncio.Lock()
     already_claimed = False
 
@@ -325,7 +333,7 @@ async def test_semantic_turn_concurrent_claim_uses_one_replica_safe_lease(
     ) -> list[dict[str, object]]:
         del self
         nonlocal already_claimed
-        statements.append(statement)
+        captured.append((statement, parameters))
         async with lock:
             if already_claimed:
                 return []
@@ -352,7 +360,42 @@ async def test_semantic_turn_concurrent_claim_uses_one_replica_safe_lease(
     )
 
     assert sum(claim is not None for claim in claims) == 1
-    assert all("FOR UPDATE SKIP LOCKED" in statement for statement in statements)
+    assert all("FOR UPDATE SKIP LOCKED" in statement for statement, _ in captured)
+    assert all("NOW()" in statement for statement, _ in captured)
+    assert all(parameters["test_now"] is None for _, parameters in captured)
+
+
+async def test_claim_test_clock_controls_eligibility_and_lease() -> None:
+    captured: list[tuple[str, Mapping[str, object]]] = []
+    test_now = datetime(2026, 8, 11, 12, 30, tzinfo=UTC)
+
+    async def fetch_all(
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        captured.append((statement, parameters))
+        return []
+
+    repository = PostgresSemanticTurnRepository(
+        fetch_all=fetch_all,
+        insert_if_absent=cast(Any, object()),
+    )
+
+    assert (
+        await repository.claim(
+            worker_id="replica-a",
+            lease_seconds=30,
+            test_now=test_now,
+        )
+        is None
+    )
+
+    statement, parameters = captured[0]
+    assert statement.count("COALESCE(%(test_now)s::timestamptz, NOW())") == 2
+    assert "make_interval(secs => %(lease_seconds)s)" in statement
+    assert statement.count("NOW()") == 3
+    assert parameters["test_now"] == test_now
+    assert parameters["lease_seconds"] == 30
 
 
 async def test_semantic_turn_replay_is_ordered_and_principal_request_scoped(
@@ -423,6 +466,79 @@ async def test_missing_transport_projects_typed_held_result() -> None:
     assert semantic_result["disposition"] == "held"
     assert semantic_result["reason_code"] == "semantic_transport_unavailable"
     assert "answer" not in semantic_result
+
+
+def test_held_projection_identity_binds_request_and_terminal_result_digest() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+
+    first = _held_projection(envelope)
+    retried = _held_projection(envelope)
+    semantic_result = cast(dict[str, object], first["semantic_result"])
+    encoded = json.dumps(
+        semantic_result,
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    result_digest = hashlib.sha256(encoded).hexdigest()
+
+    assert first == retried
+    assert first["projection_id"] == str(
+        uuid5(_TEST_NAMESPACE, f"held\0{envelope['request_id']}\0{result_digest}")
+    )
+
+
+async def test_held_retry_reuses_one_terminal_projection() -> None:
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(
+        store=store,
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)),
+    )
+
+    first = await bridge.append(_proposal())
+    retried = await bridge.append(_proposal())
+
+    assert retried.proposal_id == first.proposal_id
+    assert retried.duplicate is True
+    assert len(store.results) == 1
+
+
+async def test_result_collision_binds_request_principal_and_digest() -> None:
+    captured: list[tuple[str, Mapping[str, object]]] = []
+
+    async def fetch_all(
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        captured.append((statement, parameters))
+        record = json.loads(cast(str, parameters["record"]))
+        return [{"inserted": True, "value": {**record, "principal_id": "operator-1"}}]
+
+    repository = PostgresSemanticTurnRepository(
+        fetch_all=fetch_all,
+        insert_if_absent=cast(Any, object()),
+    )
+    first = _projection(
+        SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+            _proposal()
+        )
+    )
+    second = {**first, "request_id": "request-for-another-principal"}
+
+    await repository.project(projection=first)
+    await repository.project(projection=second)
+
+    first_statement, first_parameters = captured[0]
+    _, second_parameters = captured[1]
+    normalized_statement = " ".join(first_statement.split())
+    assert first_parameters["result_key"] != second_parameters["result_key"]
+    assert "existing.value ->> 'request_id' = %(request_id)s" in normalized_statement
+    assert "existing.value ->> 'principal_id' = owned_request.principal_id" in normalized_statement
+    assert "existing.value ->> 'projection_digest' = %(projection_digest)s" in normalized_statement
+    assert "EXISTS (SELECT 1 FROM accepted)" in normalized_statement
 
 
 async def test_semantic_replay_rejects_another_principal() -> None:
@@ -563,6 +679,66 @@ async def test_semantic_bridge_replays_results_in_sequence_order() -> None:
     assert [event.event_id async for event in stream] == ["1", "2"]
 
 
+async def test_semantic_adapter_delegates_reads_and_exposes_bridge_health() -> None:
+    class ProjectionReader:
+        def __init__(self) -> None:
+            self.operations: list[str] = []
+
+        async def read(self, query: ConversationQuery) -> ConversationResponse:
+            self.operations.append(query.operation)
+            return ConversationResponse(body={"mode": "azure-cli"})
+
+    class Publisher:
+        async def publish(
+            self,
+            topic: str,
+            key: str,
+            payload: Mapping[str, object],
+        ) -> object:
+            del topic, key, payload
+            return object()
+
+    class Source:
+        def subscribe(
+            self,
+            topic: str,
+            group_id: str,
+        ) -> AsyncIterator[Mapping[str, object]]:
+            del topic, group_id
+
+            async def empty() -> AsyncIterator[Mapping[str, object]]:
+                if False:
+                    yield {}
+
+            return empty()
+
+    fallback = ProjectionReader()
+    bridge = SemanticTurnBridge(
+        store=_MemorySemanticStore(),
+        publisher=Publisher(),
+        result_source=Source(),
+    )
+    adapters = SemanticTurnConversationAdapters(
+        bridge=bridge,
+        fallback_projections=fallback,
+        fallback_outbox=cast(Any, object()),
+        fallback_streams=cast(Any, object()),
+    )
+    scope = PrincipalScope("operator-1", frozenset({"Reader"}))
+
+    delegated = await adapters.read(ConversationQuery(operation="chat.history", scope=scope))
+    health = await adapters.read(ConversationQuery(operation="chat.health", scope=scope))
+
+    assert delegated.body == {"mode": "azure-cli"}
+    assert fallback.operations == ["chat.history", "chat.health"]
+    assert cast(dict[str, object], health.body)["semantic_bridge"] == {
+        "available": True,
+        "mode": "event-bridge",
+        "request_topic": "operator-core-request",
+        "result_topic": "core-operator-projection",
+    }
+
+
 async def test_injected_result_consumer_starts_and_stops_with_bridge() -> None:
     store = _MemorySemanticStore()
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
@@ -616,12 +792,23 @@ async def test_injected_result_consumer_starts_and_stops_with_bridge() -> None:
     assert len(store.results) == 1
 
 
-def test_production_composition_activates_semantic_bridge_only_with_transport() -> None:
+def test_production_composition_activates_semantic_bridge_only_with_transport(
+    tmp_path: Path,
+) -> None:
+    model_path = tmp_path / "models.json"
+    model_path.write_text(
+        '{"narrator":{"endpoint":"https://example.openai.azure.com",'
+        '"deployment":"narrator","api_version":"2024-08-01-preview"}}',
+        encoding="utf-8",
+    )
     environment = {
         TENANT_ENV: "tenant",
         AUDIENCE_ENV: "audience",
         DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
         DATABASE_ROLE_ENV: "fdai_operator",
+        LOCAL_AZURE_NARRATOR_ENV: "1",
+        "RUNTIME_ENV": "dev",
+        "LLM_RESOLVED_MODELS_PATH": str(model_path),
         **{key: f"group-{index}" for index, key in enumerate(GROUP_ENV.values())},
     }
 
@@ -670,6 +857,10 @@ def test_production_composition_activates_semantic_bridge_only_with_transport() 
 
     assert default_runtime.lifecycle is None
     assert isinstance(semantic_runtime.lifecycle, SemanticTurnBridge)
-    assert semantic_runtime.route_families.conversation.outbox.__class__.__name__ == (
-        "SemanticTurnConversationAdapters"
+    semantic_conversation = semantic_runtime.route_families.conversation
+    assert isinstance(semantic_conversation.projections, SemanticTurnConversationAdapters)
+    assert semantic_conversation.projections is semantic_conversation.outbox
+    assert semantic_conversation.projections is semantic_conversation.streams
+    assert semantic_conversation.projections.fallback_streams.__class__.__name__ == (
+        "PostgresConversationAdapters"
     )

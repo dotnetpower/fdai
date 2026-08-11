@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 00cb349e029419a1ed6d315a2bb0843b774036ad
+translation_source_sha: 6087042dfe6206c581a1f028edda1822b8f65931
 translation_revised: 2026-08-11
 ---
 
@@ -44,6 +44,10 @@ principal role을 serialize합니다. Browser payload는 이 role을 제공하�
 인증된 role set을 principal-scoped query manifest에 map하고 ontology read 전에 purpose를 다시
 검사합니다. Local/deployed path는 같은 record를 사용합니다. Azure CLI identity는 local에서 model
 credential을 제공할 수 있지만 browser principal을 대체하지 않습니다.
+Semantic result storage는 각 projection id를 request id와 bind합니다. Duplicate key가 발생하면 같은
+transaction에서 owning outbox principal, request identity 및 result digest를 확인한 후에만 기존
+projection을 반환하거나 request를 complete할 수 있습니다. Replay는 authenticated principal과 request를
+함께 filter하므로 projection-id collision이 다른 principal의 result를 노출하지 않습니다.
 
 ## 2. 롤 모델 (4티어 + Break-Glass)
 

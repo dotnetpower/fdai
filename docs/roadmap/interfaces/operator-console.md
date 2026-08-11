@@ -59,6 +59,11 @@ The version 1.2 semantic projection preserves that boundary across the independe
 An `answered` disposition is accepted only with exact release, principal-manifest, plan, execution
 receipt, and evidence references. Missing or unavailable dependencies produce a typed limitation;
 the Operator Service cannot replace them with narrator knowledge or mark the turn verified.
+When semantic transport is active, one semantic-aware adapter owns conversation projection,
+proposal, and stream routing. It delegates non-semantic reads, adds semantic readiness to
+`chat.health`, and keeps `chat.stream` append and replay on the durable bridge. A local Azure
+narrator can still supply its health projection, but it does not serve `chat.stream` while the
+bridge is active.
 The Operator API never marks a review ready, creates a catalog proposal, or grants authority. Reporting an incorrect answer adds evidence for autonomous re-evaluation, and every governed transition still requires exact replay evidence plus the existing catalog lifecycle.
 ### 1.1 Vocabulary added to the shared glossary
 

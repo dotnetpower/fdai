@@ -41,6 +41,10 @@ verification and server-owned App Role resolution. Browser payloads cannot suppl
 roles. Core maps the authenticated role set to the principal-scoped query manifest and rechecks the
 purpose before any ontology read. Local and deployed paths use the same record; Azure CLI identity
 can provide model credentials locally but never replaces the browser principal.
+Semantic result storage binds each projection id to its request id. On a duplicate key, the same
+transaction checks the owning outbox principal, request identity, and result digest before it can
+return the existing projection or complete the request. Replay then filters by both authenticated
+principal and request, so a projection-id collision cannot expose another principal's result.
 
 ## 2. Role Model (4 tiers + Break-Glass)
 

@@ -52,6 +52,12 @@ is answered. The generic envelope remains compatible with version 1.0 consumers,
 payload is never translated into the older shape because that would discard its evidence contract.
 Until the Operator outbox publisher, Core consumer, and durable result projection are composed,
 version 1.2 is a transport contract only and does not change the visible answer path.
+The Operator-side cutover is composed when both publisher and result-source transports are bound.
+One semantic-aware adapter then owns projection, proposal, and stream routing, while a local Azure
+narrator is excluded from `chat.stream`. PostgreSQL claims use the database clock, held retries use
+a request-and-result-digest projection identity, and duplicate results validate request, principal,
+and digest atomically. Core consumer and deployment transport binding remain required before this
+path becomes the production answer path.
 
 Exact-release semantic candidates, verified semantic plans, bounded ObjectSets, secured query
 receipts, typed function registration, `OntologyQueryPlan`, a deterministic verifier, and bounded

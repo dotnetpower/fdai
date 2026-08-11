@@ -234,6 +234,12 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   typed proposals to the read API, and a dev-only service adapter may narrate with Azure CLI auth;
   neither path can call a resource executor directly. Risk, approval, audit, and executor boundaries
   remain server-side (see [security-and-identity.md](security-and-identity.md)).
+  The independent Operator Service binds semantic projection, proposal, and stream ports through
+  one semantic-aware adapter when transport is active. Its PostgreSQL outbox uses the database
+  `NOW()` value for claim eligibility and lease deadlines. Held projection identity combines the
+  request identity with the canonical terminal-result digest, and durable result keys combine the
+  request and projection identities. Existing-result reuse validates request, principal, and digest
+  in the same transaction before completing the outbox row.
   Repository Best Practice definitions are loaded once at the composition root and exposed through
   GET-only list and detail routes. They remain catalog reference data; the projection reports
   `Unknown` and `not-connected` until a runtime evidence provider is explicitly bound.

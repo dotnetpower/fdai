@@ -14,8 +14,10 @@ from fdai_operator_service.contract_codecs import CORE_PROJECTION_CONSUMER_V12
 from fdai_operator_service.families.conversation.contracts import (
     ConversationBoundaryError,
     ConversationEventStream,
+    ConversationProjectionReader,
     ConversationProposal,
     ConversationProposalOutbox,
+    ConversationQuery,
     ConversationResponse,
     ConversationStreamReader,
     ConversationStreamRequest,
@@ -271,6 +273,16 @@ class SemanticTurnBridge:
             )
         )
 
+    def health(self) -> JsonObject:
+        """Return a credential-free projection of semantic transport readiness."""
+        available = self._publisher is not None and self._result_source is not None
+        return {
+            "available": available,
+            "mode": "event-bridge" if available else "held",
+            "request_topic": SEMANTIC_REQUEST_TOPIC,
+            "result_topic": SEMANTIC_RESULT_TOPIC,
+        }
+
     async def start(self) -> None:
         """Start one publisher drainer and one result consumer when transport is injected."""
         if self._tasks or self._drainer is None or self._result_source is None:
@@ -310,8 +322,21 @@ class SemanticTurnConversationAdapters:
     """Route only chat.stream through semantic transport and preserve other family adapters."""
 
     bridge: SemanticTurnBridge
+    fallback_projections: ConversationProjectionReader
     fallback_outbox: ConversationProposalOutbox
     fallback_streams: ConversationStreamReader
+
+    async def read(self, query: ConversationQuery) -> ConversationResponse:
+        """Delegate authoritative reads and add semantic readiness to chat health."""
+        response = await self.fallback_projections.read(query)
+        if query.operation != "chat.health" or not isinstance(response.body, dict):
+            return response
+        return ConversationResponse(
+            body={**response.body, "semantic_bridge": self.bridge.health()},
+            status_code=response.status_code,
+            media_type=response.media_type,
+            headers=response.headers,
+        )
 
     async def append(self, proposal: ConversationProposal) -> OutboxReceipt:
         """Select semantic acceptance only for chat.stream proposals."""
@@ -338,7 +363,9 @@ def _held_projection(envelope: Mapping[str, object]) -> dict[str, object]:
         turn_id=_mapping_text(semantic, "turn_id"),
         turn_sequence=_mapping_int(semantic, "turn_sequence"),
     )
-    projection_id = str(uuid5(_IDENTITY_NAMESPACE, f"held\0{request_id}"))
+    result_payload = result.model_dump(mode="json", exclude_none=True)
+    result_digest = _canonical_digest(result_payload)
+    projection_id = str(uuid5(_IDENTITY_NAMESPACE, f"held\0{request_id}\0{result_digest}"))
     return {
         "schema_version": "1.2.0",
         "projection_id": projection_id,
@@ -348,7 +375,7 @@ def _held_projection(envelope: Mapping[str, object]) -> dict[str, object]:
         "status": "held",
         "recorded_at": _mapping_text(envelope, "requested_at"),
         "payload": {"reason_code": "semantic_transport_unavailable"},
-        "semantic_result": result.model_dump(mode="json", exclude_none=True),
+        "semantic_result": result_payload,
     }
 
 
@@ -364,6 +391,17 @@ def _proposal_digest(proposal: ConversationProposal) -> str:
         "confirmed": proposal.confirmed,
         "cancellation": proposal.cancellation,
     }
+    encoded = json.dumps(
+        value,
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _canonical_digest(value: Mapping[str, object]) -> str:
     encoded = json.dumps(
         value,
         allow_nan=False,

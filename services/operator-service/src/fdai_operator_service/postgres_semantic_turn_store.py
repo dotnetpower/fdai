@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any, Final
 from uuid import uuid4
 
@@ -107,14 +107,20 @@ class PostgresSemanticTurnRepository:
         *,
         worker_id: str,
         lease_seconds: int,
-        now: datetime | None = None,
+        test_now: datetime | None = None,
     ) -> SemanticTurnClaim | None:
-        """Atomically lease the oldest eligible turn with replica-safe row locking."""
+        """Lease one eligible turn using the database clock unless a test clock is explicit."""
         _bounded_component("worker_id", worker_id)
         if not 1 <= lease_seconds <= 300:
             raise ValueError("lease_seconds MUST be in [1, 300]")
-        claimed_at = _aware_utc(now or datetime.now(UTC))
         claim_id = str(uuid4())
+        parameters: dict[str, object] = {
+            "prefix": f"{_OUTBOX_PREFIX}%",
+            "claim_id": claim_id,
+            "worker_id": worker_id,
+            "lease_seconds": lease_seconds,
+            "test_now": _aware_utc(test_now) if test_now is not None else None,
+        }
         rows = await self._fetch_all(
             """
             WITH candidate AS (
@@ -126,7 +132,8 @@ class PostgresSemanticTurnRepository:
                         value ->> 'state' = 'pending'
                         OR (
                             value ->> 'state' = 'claimed'
-                            AND (value ->> 'lease_until')::timestamptz <= %(claimed_at)s
+                            AND (value ->> 'lease_until')::timestamptz
+                                <= COALESCE(%(test_now)s::timestamptz, NOW())
                         )
                    )
                  ORDER BY value ->> 'accepted_at', key
@@ -138,7 +145,9 @@ class PostgresSemanticTurnRepository:
                        'state', 'claimed',
                        'claim_id', %(claim_id)s,
                        'lease_owner', %(worker_id)s,
-                       'lease_until', %(lease_until)s,
+                       'lease_until',
+                           COALESCE(%(test_now)s::timestamptz, NOW())
+                               + make_interval(secs => %(lease_seconds)s),
                        'attempt', COALESCE((target.value ->> 'attempt')::integer, 0) + 1
                    ),
                    updated_at = NOW()
@@ -146,13 +155,7 @@ class PostgresSemanticTurnRepository:
              WHERE target.key = candidate.key
              RETURNING target.key, target.value
             """,
-            {
-                "prefix": f"{_OUTBOX_PREFIX}%",
-                "claimed_at": claimed_at,
-                "claim_id": claim_id,
-                "worker_id": worker_id,
-                "lease_until": claimed_at + timedelta(seconds=lease_seconds),
-            },
+            parameters,
         )
         if not rows:
             return None
@@ -236,7 +239,7 @@ class PostgresSemanticTurnRepository:
         ):
             raise ValueError("semantic result turn identity is malformed")
         projection_digest = _digest(dict(projection))
-        key = f"{_RESULT_PREFIX}{projection_id}"
+        key = _result_key(request_id, projection_id)
         record = {
             "kind": "operator.semantic_result",
             "projection_id": projection_id,
@@ -253,6 +256,7 @@ class PostgresSemanticTurnRepository:
             turn_id=turn_id,
             turn_sequence=turn_sequence,
             result_key=key,
+            projection_digest=projection_digest,
             record=record,
             recorded_at=recorded_at,
         )
@@ -263,7 +267,12 @@ class PostgresSemanticTurnRepository:
             raise SemanticTurnConflictError(
                 "projection id conflicts with a different semantic result"
             )
-        return _stored_result(stored, duplicate=rows[0].get("inserted") is not True)
+        result = _stored_result(stored, duplicate=rows[0].get("inserted") is not True)
+        if result.request_id != request_id or result.projection_id != projection_id:
+            raise SemanticTurnConflictError(
+                "semantic result identity conflicts with the durable request"
+            )
+        return result
 
     async def replay(
         self,
@@ -337,6 +346,7 @@ class PostgresSemanticTurnRepository:
         turn_id: str,
         turn_sequence: int,
         result_key: str,
+        projection_digest: str,
         record: Mapping[str, object],
         recorded_at: str,
     ) -> list[dict[str, Any]]:
@@ -353,6 +363,18 @@ class PostgresSemanticTurnRepository:
                        = %(turn_sequence)s
                  LIMIT 1
                  FOR UPDATE
+            ), existing AS (
+                SELECT existing.value
+                  FROM state_kv AS existing
+                  CROSS JOIN owned_request
+                 WHERE existing.key = %(result_key)s
+                   AND existing.value ->> 'request_id' = %(request_id)s
+                   AND existing.value ->> 'projection_id' = %(projection_id)s
+                   AND existing.value ->> 'principal_id'
+                       = owned_request.principal_id
+                   AND existing.value ->> 'projection_digest'
+                       = %(projection_digest)s
+                 FOR UPDATE OF existing
             ), inserted AS (
                 INSERT INTO state_kv (key, value)
                 SELECT %(result_key)s,
@@ -362,6 +384,10 @@ class PostgresSemanticTurnRepository:
                   FROM owned_request
                 ON CONFLICT (key) DO NOTHING
                 RETURNING value
+            ), accepted AS (
+                SELECT TRUE AS inserted, value FROM inserted
+                UNION ALL
+                SELECT FALSE AS inserted, value FROM existing
             ), completed AS (
                 UPDATE state_kv AS target
                    SET value = target.value || jsonb_build_object(
@@ -371,14 +397,10 @@ class PostgresSemanticTurnRepository:
                        updated_at = NOW()
                   FROM owned_request
                  WHERE target.key = owned_request.key
+                   AND EXISTS (SELECT 1 FROM accepted)
                 RETURNING target.key
             )
-            SELECT TRUE AS inserted, value FROM inserted
-            UNION ALL
-            SELECT FALSE AS inserted, existing.value
-              FROM state_kv AS existing
-             WHERE existing.key = %(result_key)s
-               AND NOT EXISTS (SELECT 1 FROM inserted)
+            SELECT inserted, value FROM accepted
             """,
             {
                 "outbox_prefix": f"{_OUTBOX_PREFIX}%",
@@ -387,6 +409,8 @@ class PostgresSemanticTurnRepository:
                 "turn_id": turn_id,
                 "turn_sequence": turn_sequence,
                 "result_key": result_key,
+                "projection_id": record["projection_id"],
+                "projection_digest": projection_digest,
                 "record": json.dumps(dict(record), separators=(",", ":"), sort_keys=True),
                 "recorded_at": recorded_at,
             },
@@ -397,6 +421,13 @@ def _outbox_key(idempotency_key: str) -> str:
     if not idempotency_key.strip() or len(idempotency_key) > 256:
         raise ValueError("idempotency_key MUST be a bounded non-empty string")
     return f"{_OUTBOX_PREFIX}{hashlib.sha256(idempotency_key.encode()).hexdigest()}"
+
+
+def _result_key(request_id: str, projection_id: str) -> str:
+    _bounded_component("request_id", request_id)
+    _bounded_component("projection_id", projection_id)
+    identity = f"{request_id}\0{projection_id}".encode()
+    return f"{_RESULT_PREFIX}{hashlib.sha256(identity).hexdigest()}"
 
 
 def _bounded_component(name: str, value: str) -> None:

@@ -280,14 +280,12 @@ class PostgresFamilyStore:
         *,
         worker_id: str,
         lease_seconds: int,
-        now: datetime | None = None,
     ) -> SemanticTurnClaim | None:
         """Atomically lease the oldest eligible turn with replica-safe row locking."""
         try:
             return await self._semantic_turn_store.claim(
                 worker_id=worker_id,
                 lease_seconds=lease_seconds,
-                now=now,
             )
         except SemanticTurnStoreError as exc:
             raise PostgresFamilyStoreUnavailable(
@@ -526,9 +524,8 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
         *,
         worker_id: str,
         lease_seconds: int,
-        now: datetime | None = None,
     ) -> SemanticTurnClaim | None:
-        del worker_id, lease_seconds, now
+        del worker_id, lease_seconds
         raise PostgresFamilyStoreUnavailable("semantic turn outbox is unavailable")
 
     async def mark_semantic_turn_published(self, *, key: str, claim_id: str) -> bool:

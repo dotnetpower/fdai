@@ -174,8 +174,9 @@ def _build_route_families(
     semantic_adapters = (
         SemanticTurnConversationAdapters(
             bridge=semantic_bridge,
+            fallback_projections=conversation,
             fallback_outbox=postgres_conversation,
-            fallback_streams=conversation,
+            fallback_streams=postgres_conversation,
         )
         if semantic_bridge is not None
         else None
@@ -190,7 +191,7 @@ def _build_route_families(
     return OperatorRouteFamilies(
         conversation=ConversationFamilyDependencies(
             authorizer=authorizer,
-            projections=conversation,
+            projections=semantic_adapters or conversation,
             outbox=semantic_adapters or postgres_conversation,
             streams=semantic_adapters or conversation,
         ),
