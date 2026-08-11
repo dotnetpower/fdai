@@ -85,7 +85,7 @@ flowchart LR
 
 ## No-widening intersection
 
-기존 `SandboxProfileCatalog`와 `VmTaskSandboxCatalog`는 계속 권위 있는합니다. 어댑터는 먼저 기존
+기존 `SandboxProfileCatalog`와 `VmTaskSandboxCatalog`는 계속 권위를 가집니다. 어댑터는 먼저 기존
 `constrain` 연산을 호출한 다음 `intersect_execution_profile`을 적용합니다. 백엔드 프로파일은
 워크로드 id, 네트워크, 자격 증명 참조, 지역, 범위에서 검증된 권한의 subset이어야 합니다.
 Workspace 순위와 모든 numeric 상한은 같거나 낮아야 합니다.

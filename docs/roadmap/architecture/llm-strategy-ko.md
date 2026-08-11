@@ -458,7 +458,7 @@ collapse" 위험은 *쌍 전체*를 속도로 라우팅할 때의 문제이고, 
 - **실패 상태 및 cooldown.** 라우터는 프로바이더 오류 텍스트를 보존하지 않고 auth,
   rate-limit, overloaded, 시간 초과, 전송 계층, 알 수 없음 실패를 분류합니다. 각 실패는 capped
   multiplier를 사용하는 범위가 제한된 per-deployment cooldown을 설정합니다. Healthy 후보는 계속
-  조건을 충족한하며 만료된 후보는 복구 탐색으로 예열에 다시 들어가고 성공은 실패
+  조건을 충족하며 만료된 후보는 복구 탐색으로 예열에 다시 들어가고 성공은 실패
   상태를 clear합니다. 모든 기본이 cooling 중이면 라우터는 fail fast하고 사례는 사람 검토로
   이동합니다. Cooldown은 보조 발행기를 replacement 기본으로 선택하지 않습니다.
 - **영속 라우팅 전이.** 실패, 복구, selected-deployment 이벤트는 role-agnostic

@@ -151,7 +151,7 @@ Compare-and-swap 전이는 첫 최종 결과를 보존합니다. 검토자 및 �
 ## 실패 행동
 
 - 큐 포화는 응답을 바꾸지 않고 검토 작업을 폐기하며 큐 메트릭을 기록합니다.
-- 재시도는 범위가 제한된하며 asynchronous intake 실패에만 적용합니다.
+- 재시도는 범위를 제한하며 asynchronous intake 실패에만 적용합니다.
 - 검토자 연결이 없으면 `reviewer_unavailable`을 기록합니다.
 - 잘못된 또는 non-Bragi 묶음은 Norns 경계에서 실패 시 차단합니다.
 - 데이터베이스 충돌은 winning 검토 또는 제안 점유를 보존합니다.

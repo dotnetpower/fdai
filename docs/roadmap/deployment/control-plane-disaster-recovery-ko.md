@@ -42,7 +42,7 @@ privileged 실행기와 event-consumption 권한은 single-writer로 유지합�
 
 ## 필수 계획 입력
 
-운영 복구 계획은 변경할 수 없는하고 versioned입니다. 다음을 기록합니다.
+운영 복구 계획은 변경할 수 없고 versioned입니다. 다음을 기록합니다.
 
 - **신원:** 계획 id, 개정 번호, 배포 프로파일, 기본 지역, 복구 지역 및 범위.
 - **Business 목표:** 승인된 RPO, RTO, 최대 degraded 소요 시간 및 장애 시나리오.

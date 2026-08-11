@@ -34,7 +34,7 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
   이상은 절대 자체로 auto-remediate 하지 않음 - 리스크 게이트와 HIL이 관장하는 shadow-mode
   발견 사항 또는 교정 PR을 발동.
 - Routine 모니터링은 인시던트가 아닙니다. Healthy 하트비트, 성공한 탐색,
-  within-threshold 샘플은 관측 근거만 기록합니다. Detector가 범위가 제한된하고
+  within-threshold 샘플은 관측 근거만 기록합니다. Detector가 범위를 제한하고
   근거에 기반한된 발견 사항을 발행하고 `IncidentLifecycleWorkflow`가 allowed 에이전트 principal,
   상관관계 키, 사유, member-event 근거를 다시 확인한 뒤에만 인시던트가 열립니다.
 - Repeated-event burst는 anomaly이며 자동 인시던트 권한이 아닙니다. Heimdall은 범위가 제한된

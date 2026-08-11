@@ -166,7 +166,7 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 - **결과 finalization 기록**(`measurement.action_outcome.v1`)가 auto-resolution의 권한입니다.
   Dispatch-only 이벤트는 pending으로 유지되고, 검증된 non-rollback 결과만 finalized denominator에
   들어가며, 롤백/adverse 결과는 성공이 되지 않고 계속 표시됩니다. 하나의 액션에
-  correction finalization 행이 있으면 가장 높은 감사 순서만 권위 있는하며, 명시적
+  correction finalization 행이 있으면 가장 높은 감사 순서만 권위 있으며, 명시적
   검증 실패는 사라지지 않고 rejected 관측으로 유지됩니다.
 - **명시적 메트릭 관측값**은 각 `event_id` 및 메트릭 키의 최신 행을 사용합니다. 하나의 이벤트에
   대한 재시도 또는 correction은 통계 가중치를 추가하지 않고 이전 값을 대체하며, 서로 다른 이벤트의

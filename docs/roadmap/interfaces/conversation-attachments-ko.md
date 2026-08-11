@@ -125,7 +125,7 @@ Operator API는 multipart 파일, raw 바이트, 저장소 URL 또는 채널 첨
 향후 SPA 흐름은 다음과 같습니다.
 
 1. 인증된 인제스트 업로드 세션을 만듭니다.
-2. 인제스트 게이트웨이를 통해 파일을 업로드하고 완전한합니다.
+2. 인제스트 게이트웨이를 통해 파일을 업로드하고 완료합니다.
 3. 버전이 `ready` 또는 `ready_with_warnings`가 될 때까지 poll합니다.
 4. Chat 턴에 `document_refs`를 보냅니다.
 

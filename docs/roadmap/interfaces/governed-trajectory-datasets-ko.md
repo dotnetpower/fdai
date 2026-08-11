@@ -116,7 +116,7 @@ Data와 매니페스트는 둘 다 완료된 후에만 최종 위치로 rename�
 전에 요청의 용도 및 authorized 범위 다이제스트와 일치해야 합니다.
 
 Scanner는 기록에서 불확실한 시크릿 pattern, 자리 표시자가 아닌 identifier, 리소스 id,
-예시가 아닌 email 주소, prompt-injection 표시를 찾으면 데이터셋을 격리 구역합니다.
+예시가 아닌 email 주소, prompt-injection 표시를 찾으면 데이터셋을 격리합니다.
 격리 구역 저장소에는 발견 사항 코드와 trajectory 신원만 저장하며 일치한 민감 값을 반복하지
 않습니다.
 

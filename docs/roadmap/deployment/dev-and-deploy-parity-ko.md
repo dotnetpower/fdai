@@ -168,7 +168,7 @@ Workspace는 `.github/workflows/deploy-dev.yml` 하나만 plain YAML 언어 모�
 GitHub Actions 확장은 참조한 액션 tag가 존재하고 다음 단계에서 `GITHUB_ENV` 값을 사용할 수
 있는 경우에도 이 작업 흐름에 unresolved-action 및 dynamic 맥락 오류를 표시할 수 있습니다. Plain
 YAML 검증은 계속 활성 상태입니다. 원격 action-tag 확인, 저장소 작업 흐름 계약 테스트 및
-GitHub Actions 런타임 검증이 권위 있는하며 다른 작업 흐름의 GitHub Actions 언어 support는
+GitHub Actions 런타임 검증이 권위 있으며 다른 작업 흐름의 GitHub Actions 언어 support는
 유지됩니다.
 
 공유 FDAI 프로파일과 확장 목록은 HashiCorp Terraform만 언어 서버로 유지합니다.

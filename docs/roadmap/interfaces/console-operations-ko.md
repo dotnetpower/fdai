@@ -258,7 +258,7 @@ Acceptance는 항상 아래의 타입이 지정된 발신함 증적을 만듭니
 HIL 콜백은 조정기 또는 레지스트리 경로가 결정을 기록하기 전에 `approve-runtime-hil`을
 부여하는 signed 역할 집합을 요구합니다. 누락된 역할은 권한을 부여하지 않습니다. Pending 조회는 exact
 승인 id를 사용하고 결정 기록은 범위가 제한된 큐 검사 대신 exact idempotency-key 보류를 사용합니다.
-No-self-approval 및 separation-of-duty 검사는 계속 권위 있는합니다.
+No-self-approval 및 separation-of-duty 검사는 계속 권위를 가집니다.
 
 Human 연산의 `actor`와 `initiator_principal`은 해당 요청 Entra 토큰에서 검증한 운영자 OID입니다.
 Console 서비스 principal, 중계 신원 또는 Thor 워크로드 신원이 사람을 대신할 수 없습니다.

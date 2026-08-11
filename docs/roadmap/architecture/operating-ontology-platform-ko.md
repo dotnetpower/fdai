@@ -111,7 +111,7 @@ Shared property-semantics 레지스트리는 정본 속성마다 meaning, 단위
 
 결과는 Pod 선택된 by 서비스, 서비스 exposing Endpoints, 관측 targeting the Pod,
 관측 샘플의 순서가 고정된 네 구간을 포함합니다. 구간 상태 사실이 supplied 기준 시점에서
-완전한하고 현재하며 non-synthetic 및 conflict-free일 때만 근거를 검증된으로 판단합니다.
+완료하고 현재하며 non-synthetic 및 conflict-free일 때만 근거를 검증된으로 판단합니다.
 Pod, 선택된 서비스, exposed Endpoints는 모두 예상 클러스터 범위의 신원을 가져야 합니다.
 Cross-cluster 서비스 또는 Endpoints 기록이 있으면 관계 근거가 현재하고 완전한해도
 해당 구간은 검증되지 않은이 됩니다.
@@ -208,7 +208,7 @@ trusted evaluation 기준 시점과 최대 5초로 명시적으로 구성한 ske
 벗어난 과거 또는 미래 기준 시점은 지원하지 않는으로 차단하고, historical 완전성을 주장하지 않은 채
 `current_state_only`, 기준 시점 및 허용된 skew를 기록합니다. 각 secured 증적은 exact 온톨로지
 release, 호출자 역할, singleton 용도, 정본 projected-result 다이제스트, 완전성/잘림
-상태 및 내용이 없는 민감정보 제거 요약을 결합합니다. 반환된 그래프 속성은 재귀적으로 변경할 수 없는하며
+상태 및 내용이 없는 민감정보 제거 요약을 결합합니다. 반환된 그래프 속성은 재귀적으로 변경할 수 없으며
 의미 조회 경계는 사용 전에 result-receipt 연결을 다시 검증합니다.
 
 LinkType 선언은 아직 속성 ACL을 정의하지 않습니다. 따라서 secured 변환 결과는 모든 링크
@@ -375,7 +375,7 @@ forward 전달을 중지하고 기존 타입이 지정된 복구 경로에 다�
 
 `TrajectoryOutcome`은 객체, 메트릭, 시간 구간별 predicted 상태 구획과 independently 관찰된
 상태 구획을 비교합니다. 최종 상태는 `matched`, `mismatched`, `intervention_censored`,
-`incomplete`, `unscorable`입니다. 완전한하고 post-cutoff이며 독립적으로 관측된 결과만
+`incomplete`, `unscorable`입니다. 완료하고 post-cutoff이며 독립적으로 관측된 결과만
 challenger 모델을 갱신합니다. 활성 모델은 별도의 검토된 승격이 exact 근거 증적을
 적용할 때까지 변경할 수 없는 상태를 유지합니다.
 

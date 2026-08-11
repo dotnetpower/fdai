@@ -153,7 +153,7 @@ Stale, conflicted 또는 잘린 그래프에서는 묶음이 불완전한하므�
 | Graph 최신성 및 탐색 잘림 | 인벤토리 변환 결과 | 권한을 낮추거나 실행을 차단합니다. |
 | Prediction uncertainty | Impact-model 증적 | Uncertainty가 높아질수록 권한을 낮춥니다. |
 
-기존 risk 표가 계속 권위 있는합니다. 이 feature는 never-raising 상한 축과
+기존 risk 표가 계속 권위를 가집니다. 이 feature는 never-raising 상한 축과
 precondition에 입력되며 두 번째 결정 엔진을 만들지 않습니다.
 
 ## 복구 계획 compilation

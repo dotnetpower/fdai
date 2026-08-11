@@ -809,7 +809,7 @@ verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
 - **교차 검증 로드 오류** - `operator_request` 에 `argument_schema`
   누락한 고정본 ActionType 가 특정 오류 로 로드 실패.
 - **의미 컴파일러** - 집중 테스트가 레거시 ActionType 및 `MutationPlan` decode를 유지하고,
-  exact 참조를 수락하며, stale 참조를 차단하고, 정본 및 민감정보가 제거된 인자를 검증하며, 완전한하고
+  exact 참조를 수락하며, stale 참조를 차단하고, 정본 및 민감정보가 제거된 인자를 검증하며, 완료하고
   fresh한 내용 기반 주소를 가진 읽기 및 criterion 증적을 요구합니다. 또한 일대일 효과 및
   postcondition 연결을 강제하고, reversible 및 irreversible 복구 의미 규칙을 보존하며,
   결정론적 target-set 잠금과 트랜잭션 한도를 결합하고, `plan` 플래너를 요구하고, 기존

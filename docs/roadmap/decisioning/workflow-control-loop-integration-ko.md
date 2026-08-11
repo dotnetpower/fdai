@@ -255,7 +255,7 @@ occurrence id가 재시도, 재시작, cross-kind 중복 게시를 방지합니�
 
 모든 작업은 영속 `ScheduledRunIsolationProfile`도 가집니다. 기본값 프로파일은 주변 도구를
 모두 거부하고 세션 소요 시간 및 맥락 크기를 제한합니다. 명시적 선택 프로파일은 allowed 도구를 모두
-명시하고 합계 도구 호출을 상한하며 서버가 소유한 명령 샌드박스 프로파일을 참조할 수 있습니다.
+명시하고 합계 도구 호출을 상한을 두며 서버가 소유한 명령 샌드박스 프로파일을 참조할 수 있습니다.
 `ScheduledRunIsolationGuard`는 다운스트림 실행 경계에서 맥락, 경과 시간, 도구 id,
 이전 호출 개수를 다시 검사합니다. 모든 synthetic 이벤트 및 액션 제안이 변경할 수 없는 프로파일을
 포함하며 scheduled 실행은 creating 운영자의 더 넓은 세션, 자격 증명, workspace, 도구

@@ -13,7 +13,7 @@ translation_revised: 2026-08-11
 > summarization, 수집, 토큰 추정, 프롬프트 렌더링, 모델 호출, 답변 세대는 이 경계
 > 밖에 유지됩니다.
 >
-> **기본값.** `deterministic-tiered-v1@1.0.0`은 불변이며 권위 있는합니다. 승격된 후보가
+> **기본값.** `deterministic-tiered-v1@1.0.0`은 불변이며 권위를 가집니다. 승격된 후보가
 > 없으면 선택 항목과 `ContextManifest`는 이전 `compose_working_context` 동작과 byte-for-byte로
 > 동일하게 유지됩니다.
 

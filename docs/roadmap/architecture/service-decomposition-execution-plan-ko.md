@@ -24,7 +24,7 @@ Core에서 분리하여 Isolated 실행기만 mutation-capable 워크로드 신�
 
 | # | 런타임 서비스 | 목표 responsibility | Ingress | 실행기 권한 |
 |---|-----------------|---------------------|---------|--------------------|
-| 1 | Core 컨트롤 평면 | 에이전트 런타임, decisioning, 승인 결합, 감사 의도, 복구 coordination | 내부 이벤트 버스 | 전환 후 없음 |
+| 1 | Core 컨트롤 플레인 | 에이전트 런타임, decisioning, 승인 결합, 감사 의도, 복구 coordination | 내부 이벤트 버스 | 전환 후 없음 |
 | 2 | Operator 서비스 | 인증된 조회, 대화, 변환 결과, 통제된 요청 제출 | 외부 HTTPS와 이벤트 버스 | 없음 |
 | 3 | 문서 인제스트 API | 인증된 업로드 intake와 API 소유 문서 전이 | 외부 HTTPS와 이벤트 버스 | 없음 |
 | 4 | 문서 처리 워커 | 영속 점검, 추출, 인덱싱, 점유, 조정 | 내부 이벤트 버스와 탐색 | 없음 |
@@ -54,7 +54,7 @@ Core에서 분리하여 Isolated 실행기만 mutation-capable 워크로드 신�
 | [x] | SD-02 | Core 조립, Thor 실행, Saga 감사 의도와 종결, Vidar 복구를 명시적으로 주입된 포트 뒤로 분리합니다. | SD-00 | A | 권한 회귀와 import-boundary 증적 |
 | [x] | SD-03 | 인제스트 API와 워커 신원, 데이터베이스 권한 부여, 점유, 중복/reorder 행동, 재시작 복구, 탐색, co-host 롤백을 강화합니다. | SD-00 | A | 역할 테스트와 15분 이내 롤백 예행 연습 |
 | [x] | SD-04 | 정본 온톨로지 release 배포, exact 참조 pinning, N/N-1 호환성, projection-writer 소유권, mismatch 거절, 재생, 롤백을 추가합니다. | SD-00 | B | 서비스 간 온톨로지 호환성과 의미 회귀 증적 |
-| [x] | SD-05 | 정본 AST analysis부터 카탈로그 빌드, 의미 검증, 온톨로지/vector 세대, incremental 동등성, exact applicability, evaluation, 통제된 feedback까지 Rego knowledge 경로를 구축합니다. | SD-04 | B | Query-to-exact-Rego 계약 테스트와 세대 롤백 증적 |
+| [x] | SD-05 | 정본 AST analysis부터 카탈로그 빌드, 의미 검증, 온톨로지/vector 세대, incremental 동등성, exact applicability, evaluation, 통제된 feedback까지 Rego 지식 경로를 구축합니다. | SD-04 | B | Query-to-exact-Rego 계약 테스트와 세대 롤백 증적 |
 | [x] | SD-06 | 정본 변경 계보, 프로바이더 어댑터, 결정 추적, 전달/결과 결합, 복원력 커버리지, 후보 전용 learning, 읽기 전용 Operator 변환 결과를 추가합니다. | SD-02, SD-04, SD-05 | C | 재생 가능한 계보와 권한 non-escalation 증적 |
 | [x] | SD-07 | 효과 권한 없이 Isolated 실행기 명령과 증적 계약, 영속 시도 mechanics, shadow 소비자, 상태, 텔레메트리, 신원, Container App을 구현합니다. | SD-02, SD-04 | C | 중복, reorder, 재시작, 기한, 잠금, shadow 증적 |
 | [x] | SD-08 | 변경 권한을 Isolated 실행기로 전환하고 Core에서 실행기 역할을 제거하며 독립적인 효과를 검증하고 프로세스 내 토폴로지 복귀를 예행 연습합니다. | SD-07 | 직렬 | Effective-access 증명, exact-topology smoke, timed 롤백 증적 |
@@ -78,45 +78,45 @@ IS 프로그램은 리포지토리 소유권이 런타임 소유권과 일치해
 ```text
 fdai/
 ├── services/
-│ ├── core-control-plane/
-│ │ ├── docker/Dockerfile
-│ │ ├── services/core-control-plane/src/fdai/
-│ │ ├── src/fdai_core_service/
-│ │ ├── services/core-control-plane/tests/
-│ │ └── pyproject.toml
-│ ├── operator-service/
-│ │ ├── docker/Dockerfile
-│ │ ├── src/fdai_operator_service/
-│ │ ├── services/core-control-plane/tests/
-│ │ └── pyproject.toml
-│ ├── document-ingestion-api/src/fdai_ingestion_api_service/
-│ ├── document-processing-worker/src/fdai_document_worker_service/
-│ └── isolated-executor/src/fdai_executor_service/
+│   ├── core-control-plane/
+│   │   ├── docker/Dockerfile
+│   │   ├── services/core-control-plane/src/fdai/
+│   │   ├── src/fdai_core_service/
+│   │   ├── services/core-control-plane/tests/
+│   │   └── pyproject.toml
+│   ├── operator-service/
+│   │   ├── docker/Dockerfile
+│   │   ├── src/fdai_operator_service/
+│   │   ├── services/core-control-plane/tests/
+│   │   └── pyproject.toml
+│   ├── document-ingestion-api/src/fdai_ingestion_api_service/
+│   ├── document-processing-worker/src/fdai_document_worker_service/
+│   └── isolated-executor/src/fdai_executor_service/
 ├── packages/
-│ └── service-contracts/
-│  ├── src/fdai_service_contracts/
-│  ├── services/core-control-plane/tests/
-│  └── pyproject.toml
+│   └── service-contracts/
+│       ├── src/fdai_service_contracts/
+│       ├── services/core-control-plane/tests/
+│       └── pyproject.toml
 ├── services/core-control-plane/tests/
-│ └── integration/
+│   └── integration/
 └── pyproject.toml
 ```
 
 - **서비스 루트:** `services/<service>/`는 5개 런타임 서비스의 유일한 구현 및 unit-test
- 소유자입니다. 서비스별 Dockerfile은 해당 서비스 분포만 빌드합니다.
+  소유자입니다. 서비스별 Dockerfile은 해당 서비스 분포만 빌드합니다.
 - **Shared 패키지:** `packages/service-contracts/`에는 versioned wire 계약, 프로바이더 프로토콜 및
- 텔레메트리 기본 요소만 둡니다. Business logic, 조립, 데이터 접근 또는 다른 서비스의 어댑터는
- 포함하지 않습니다.
+  텔레메트리 기본 요소만 둡니다. Business logic, 조립, 데이터 접근 또는 다른 서비스의 어댑터는
+  포함하지 않습니다.
 - **루트 workspace:** 루트 `pyproject.toml`은 workspace 구성원과 개발 tooling을 조정합니다.
- `package = false`로 설정되며 monolithic FDAI 애플리케이션 분포를 publish하거나
- install하지 않습니다.
+  `package = false`로 설정되며 monolithic FDAI 애플리케이션 분포를 publish하거나
+  install하지 않습니다.
 - **서비스 간 테스트:** 루트 `tests/integration/`은 wire 호환성과 deployed 작업 흐름을
- 검증합니다. 단위 테스트와 컴포넌트 테스트는 소유 서비스로 이동합니다.
+  검증합니다. 단위 테스트와 컴포넌트 테스트는 소유 서비스로 이동합니다.
 - **폐기할 호환성 트리:** 최상위 `src/fdai/`, shared multi-target 서비스 Dockerfile, 이전 방식
- 서비스 항목 지점 및 중복 계약 정의는 이행 전용 산출물입니다. IS-08에서 먼저 로컬로
- 제거한 뒤, 최종 service-owned 출처를 사용해 IS-07의 이미지 기반 N/N-1 롤백을 증명합니다.
- Checked-in 이전 방식 출처 트리 대신 Git 이력과 변경 불가능한 이전 이미지를 롤백 방식으로
- 사용합니다.
+  서비스 항목 지점 및 중복 계약 정의는 이행 전용 산출물입니다. IS-08에서 먼저 로컬로
+  제거한 뒤, 최종 service-owned 출처를 사용해 IS-07의 이미지 기반 N/N-1 롤백을 증명합니다.
+  Checked-in 이전 방식 출처 트리 대신 Git 이력과 변경 불가능한 이전 이미지를 롤백 방식으로
+  사용합니다.
 
 | 완료 | ID | 작업 패키지 | 의존성 | Exit 근거 |
 |------|----|--------------|------------|---------------|
@@ -176,14 +176,14 @@ peer 상태 4개가 그대로였음을 증명할 수 있도록 직렬 실행합�
 ## 병렬 실행 규칙
 
 - **레인 A:** SD-00 후 owned 경로가 겹치지 않으면 Operator, Core 경계, 인제스트 작업을
- 별도 워크트리에서 실행할 수 있습니다.
+  별도 워크트리에서 실행할 수 있습니다.
 - **레인 B:** 온톨로지 경계 강화는 패키지 작업과 겹쳐 실행할 수 있습니다. Rego
- 세대는 정본 온톨로지 release와 의미 검증을 기다립니다.
+  세대는 정본 온톨로지 release와 의미 검증을 기다립니다.
 - **레인 C:** 변경 계보와 실행기 shadow 구현은 shared 계약, pantheon 역할 파일,
- 조립, infrastructure 신원 파일을 하나의 serial 통합 소유자가 관리할 때만
- 겹쳐 실행할 수 있습니다.
+  조립, infrastructure 신원 파일을 하나의 serial 통합 소유자가 관리할 때만
+  겹쳐 실행할 수 있습니다.
 - **Serial 결합:** Shared 계약, 쓰기 담당 전환, 운영 조립, 신원 전환,
- 롤백 예행 연습, stable-batch 검증은 경쟁 세션에서 실행하지 않습니다.
+  롤백 예행 연습, stable-batch 검증은 경쟁 세션에서 실행하지 않습니다.
 
 ## 병렬 세션 충돌 방지
 
@@ -194,22 +194,22 @@ peer 상태 4개가 그대로였음을 증명할 수 있도록 직렬 실행합�
 기본적으로 기본 `main` 워크트리에서 작업합니다.
 
 - **독점 경로:** 세션은 예약한 경로만 편집합니다. 다른 세션 예약에 포함된 dirty,
- untracked, renamed 또는 미병합 파일은 정리, format, 충돌 해석 또는 부수적인
- refactoring 대상으로 사용하지 않습니다.
+  untracked, renamed 또는 미병합 파일은 정리, format, 충돌 해석 또는 부수적인
+  refactoring 대상으로 사용하지 않습니다.
 - **통합 소유자:** 한 명의 serial 통합 소유자가 이 계획 문서 쌍,
- `config/service-decomposition.json`, 패키지 간 shared 계약, pantheon 역할 파일,
- 운영 조립, 신원 전환을 관리합니다. 패키지 전용 infrastructure는
- 인계 전까지 해당 패키지 소유자가 관리합니다.
+  `config/service-decomposition.json`, 패키지 간 shared 계약, pantheon 역할 파일,
+  운영 조립, 신원 전환을 관리합니다. 패키지 전용 infrastructure는
+  인계 전까지 해당 패키지 소유자가 관리합니다.
 - **인계:** Owner는 focused 커밋, 검증 증적, 잔여 작업을 기록한 후에만 경로
- 예약을 해제합니다. 통합 소유자가 cherry-pick, 병합, 상태 변경, 의존성 해제를
- 수행하며 워커 세션은 이 결합과 경쟁하지 않습니다.
+  예약을 해제합니다. 통합 소유자가 cherry-pick, 병합, 상태 변경, 의존성 해제를
+  수행하며 워커 세션은 이 결합과 경쟁하지 않습니다.
 - **검증 격리:** 워커는 자신이 커밋한 차이 또는 예약한 워크트리만 검증합니다.
- 다른 세션의 dirty 트리에서 changed-file 선택자를 실행하지 않습니다.
+  다른 세션의 dirty 트리에서 changed-file 선택자를 실행하지 않습니다.
 - **Persistent 워크트리:** 동시 구현 워커는
- `/home/moonchoi/dev/fdai-worktrees/` 아래의 경로를 사용합니다. 과거 등록만으로 활성
- 세션이라고 판단하거나 새 워크트리를 만들지 않습니다. 호스트 재시작이나 정리로 인계
- 근거 통합 전에 워크트리가 제거될 수 있으므로 새 동시 예약에 `/tmp`를 사용할 수
- 없습니다.
+  `/home/moonchoi/dev/fdai-worktrees/` 아래의 경로를 사용합니다. 과거 등록만으로 활성
+  세션이라고 판단하거나 새 워크트리를 만들지 않습니다. 호스트 재시작이나 정리로 인계
+  근거 통합 전에 워크트리가 제거될 수 있으므로 새 동시 예약에 `/tmp`를 사용할 수
+  없습니다.
 
 | 예약 | 현재 소유자 | 예약 경로 | 해제 조건 |
 |------|------------|-----------|-----------|
@@ -326,14 +326,14 @@ peer 상태 4개가 그대로였음을 증명할 수 있도록 직렬 실행합�
 | 2026-08-10 | IS-09 | Observable sidecar 계약 정규화 | 라운드 65 | 워커 적용 `31352359688`은 exact 검토된 이미지와 healthy 개정 번호를 배포했지만 post-apply 검증은 비어 있는 `args`, `env`, `volume_mounts` 및 `ephemeral_storage` 같은 Terraform 컨테이너 필드를 해당 기본값을 생략하고 CPU와 기억을 `resources` 아래에 중첩하는 Azure Resource Manager 개정 번호 형태와 비교했습니다. 이제 sealed sidecar 다이제스트는 ARM에서 관찰 가능한 exact 이름, CPU 및 기억 계약을 포함합니다. 변경할 수 없는 이미지와 탐색 다이제스트는 계속 분리되며 검토된 Terraform 계획은 관찰할 수 없는 필드를 계속 보호합니다. 알 수 없거나 비어 있지 않은 지원하지 않는 런타임 필드는 계속 실패 시 차단으로 처리합니다. |
 | 2026-08-10 | IS-09 | 도입 and compatibility-proof separation | 라운드 66 | 근거 검토에서 positional `initial` N 단계가 one-time `initial-cutover` 배포 모드를 사용하도록 잘못 요구하는 문제를 확인했습니다. One-time 상태 및 스키마 도입은 preparatory 서비스 전이이며 corrected 이미지 출처마다 반복할 수 없습니다. 이제 최종 원격 N -> N-1 -> N 호환성 증명은 서비스 5개가 모두 adopted 상태가 된 이후에만 시작하고 모든 단계에 standard protected 계획을 요구합니다. 이를 통해 repeated 도입을 방지하면서 fresh 개정 번호, 롤백 및 peer-isolation 근거를 유지합니다. |
 | 2026-08-10 | IS-09 | 영속 원격 도입 선행 조건 | 라운드 67 | Program-final 검토에서 one-time 도입 근거가 90일 작업 흐름 산출물에만 남고 최종 attested 집계에 결합되지 않는 문제를 확인했습니다. 이제 집계는 도입 실행 5개, 산출물 다이제스트, 관찰된 이전 방식 헤드 및 개정 번호 개수, 스키마 지문, owned-table 개수, 검증 시간, commit-pinned 롤백 참조를 기록합니다. GitHub 연결기는 최종 증명 전에 각 실행, 성공한 이행 및 artifact-upload 단계, API 산출물 다이제스트와 download한 JSON 기록 2개를 검증합니다. 이후 상태 또는 peer 검사가 실패해도 완료된 도입은 지워지지 않지만 도입 단계가 누락되거나 실패하면 종결이 차단됩니다. |
-| 2026-08-10 | IS-09 | Genuine kind-specific 실제 운영 observations | 라운드 68 | 안전성 비평에서 live-evidence 빌더가 범용 전이 메타데이터를 `observed=true`인 종류 7개로 다시 표시하는 문제를 확인했습니다. 이제 successful 적용은 이미지 증명, 서비스 이행, exact 상태 및 신원 검증과 four-peer 격리가 성공한 뒤에만 별도 산출물을 seal합니다. Health, 신원, 이미지, state-offset, 스키마, 출처 및 토폴로지 기록은 서로 다른 근거를 포함합니다. 최종 집계는 exact 내용과 산출물 다이제스트를 저장하고 GitHub 연결기는 증명 전에 successful 단계와 download한 산출물을 검사합니다. 빌더는 해당 관찰된 기록만 복사하며 누락되거나 relabel된 내용 및 `observed=false` 내용을 거부합니다. |
+| 2026-08-10 | IS-09 | Genuine kind-specific 실제 운영 observations | 라운드 68 | 안전성 비평에서 live-evidence 빌더가 범용 전이 메타데이터를 `observed=true`인 종류 7개로 다시 표시하는 문제를 확인했습니다. 이제 successful 적용은 이미지 증명, 서비스 이행, exact 상태 및 신원 검증과 four-peer 격리가 성공한 뒤에만 별도 산출물을 봉인합니다. Health, 신원, 이미지, state-offset, 스키마, 출처 및 토폴로지 기록은 서로 다른 근거를 포함합니다. 최종 집계는 exact 내용과 산출물 다이제스트를 저장하고 GitHub 연결기는 증명 전에 successful 단계와 download한 산출물을 검사합니다. 빌더는 해당 관찰된 기록만 복사하며 누락되거나 relabel된 내용 및 `observed=false` 내용을 거부합니다. |
 | 2026-08-10 | IS-09 | 결정론적 실제 운영 호환성 연결 | 라운드 67 | Completion-path 검토에서 schema-valid 실제 운영 증적과 관측 매니페스트를 trusted 원격 집계와 독립적으로 작성할 수 있는 문제를 확인했습니다. 이제 program-final 검사기는 exact 롤백/복원 실행, 계획, 맥락, peer-receipt, 출처 및 serial peer-version coordinate에서 이행/롤백 증적 10개와 관측 기록 35개를 모두 도출하고 호환성 검증 전에 byte-equivalent JSON 값을 요구합니다. Self-asserted 실제 운영 기록은 더 이상 IS-09를 완료할 수 없습니다. |
-| 2026-08-10 | IS-09 | 계획별 fresh protected 개정 번호 | 라운드 68 | Core 적용 `31353853013`에서 외부 검증된 롤백 이후 Terraform 구성은 N을 유지하지만 Azure 최신 활성 개정 번호는 restored 이미지로 남을 수 있음을 확인했습니다. 이 상태의 fresh 계획은 변경 없이 적용되었고 상태 검증은 old 이미지를 올바르게 거부했습니다. 이제 shared Container App 모듈은 범위가 제한된 plan-time 개정 번호 접미사를 모든 saved 계획에 seal하고 가드는 exact 이미지 변경 옆에서 해당 구문만 허용합니다. 따라서 모든 protected 적용은 컨테이너, 신원, 시크릿, platform 또는 권한 검사를 약화하지 않고 새로 검증 가능한 개정 번호를 생성합니다. |
+| 2026-08-10 | IS-09 | 계획별 fresh protected 개정 번호 | 라운드 68 | Core 적용 `31353853013`에서 외부 검증된 롤백 이후 Terraform 구성은 N을 유지하지만 Azure 최신 활성 개정 번호는 restored 이미지로 남을 수 있음을 확인했습니다. 이 상태의 fresh 계획은 변경 없이 적용되었고 상태 검증은 old 이미지를 올바르게 거부했습니다. 이제 shared Container App 모듈은 범위가 제한된 plan-time 개정 번호 접미사를 모든 saved 계획에 봉인하고 가드는 exact 이미지 변경 옆에서 해당 구문만 허용합니다. 따라서 모든 protected 적용은 컨테이너, 신원, 시크릿, platform 또는 권한 검사를 약화하지 않고 새로 검증 가능한 개정 번호를 생성합니다. |
 | 2026-08-10 | IS-09 | 범위가 제한된 direct peer-state 수집 | 라운드 69 | 원격 operability 검토에서 각 근거 실행이 isolated 백엔드 상태를 읽기 위해 full Terraform peer 루트 4개를 두 번씩 initialize하여 30-run serial 증명이 수 시간의 프로바이더 및 백엔드 delay에 취약한 문제를 확인했습니다. 이제 peer 수집은 이미 인증된된 실행기 신원과 60초 stop 조건으로 exact 허용 목록에 있는 백엔드 블롭을 Azure CLI를 통해 각각 download합니다. 기존 정본 상태 변환 결과와 before/after 다이제스트 검증기는 변경하지 않습니다. |
 | 2026-08-10 | IS-09 | 도입 관측과 완료 분리 | 라운드 70 | 도입 재생 검토에서 Core의 영속 스키마 관측은 이후 이행 실패 전에 업로드되었고, 후속 protected 실행은 동일 이행을 완료했지만 one-time 산출물을 다시 생성하지 않은 사실을 확인했습니다. 도입 이후 `initial-cutover` 재생은 올바르게 차단됩니다. 이제 원격 근거는 exact 산출물 실행과 exact later 완료 실행을 별도로 연결하고 두 실행의 GitHub 작업 흐름 단계를 모두 검증하며, original 변경할 수 없는 스키마 및 롤백 기록과 결합된 protected-main 이행 성공만 허용합니다. |
 | 2026-08-10 | IS-09 | 분리 도입 통제 수단 동등성 | 라운드 71 | 후속 조치 비평에서 분리 완료 실행과 산출물 실행은 각각 GitHub에 연결되지만 집계의 배포 통제 수단과 비교되지 않는 문제를 확인했습니다. 이제 증명 검증기는 완료 작업 흐름 헤드, 산출물 작업 흐름 헤드 및 산출물 rollback-reference 통제 수단 커밋이 집계 통제 수단과 deployment-input-equivalent 상태를 유지하도록 요구합니다. 이를 통해 release-only 커밋은 허용하면서 materially different 이행, 작업 흐름, infrastructure 또는 의존성 통제 수단을 조합한 도입 증명은 거부합니다. |
 | 2026-08-10 | IS-09 | Historical 도입 ancestry correction | 라운드 72 | Executable 검토에서 final-control 동등성을 요구하면 이후 롤아웃 강화가 배포 입력을 변경했기 때문에 valid one-time 도입도 거부됨을 확인했습니다. 이제 도입 근거는 cited 개정 번호 3개가 모두 최종 protected-main 통제 수단 커밋의 ancestor일 것을 요구합니다. Exact GitHub 실행, successful 단계, 산출물 다이제스트, 스키마 지문 및 rollback-reference 연결은 계속 필수이며 historical 통제 수단과 최종 통제 수단이 equivalent라는 잘못된 주장만 제거합니다. 최종 전이 계획은 계속 deployment-input 동등성을 요구합니다. |
-| 2026-08-10 | IS-09 | Observable sidecar 탐색 정규화 | 라운드 73 | 워커 적용 `31361034521`은 healthy N 개정 번호에 도달했지만 검증이 빈 헤더 및 경로와 zero delay 같은 Terraform 프로바이더 기본값을 해시했고 Azure Resource Manager는 해당 기본값을 생략했습니다. 이제 계획 봉인은 ARM이 생략하는 exact 기본값 값만 제거하고 hashing 전에 알 수 없음 탐색 필드를 거부합니다. Non-default 임계값, delay, 간격, 시간 초과, 전송 계층 및 포트는 계속 seal되며 관찰된 개정 번호와 정확히 일치해야 합니다. |
+| 2026-08-10 | IS-09 | Observable sidecar 탐색 정규화 | 라운드 73 | 워커 적용 `31361034521`은 healthy N 개정 번호에 도달했지만 검증이 빈 헤더 및 경로와 zero delay 같은 Terraform 프로바이더 기본값을 해시했고 Azure Resource Manager는 해당 기본값을 생략했습니다. 이제 계획 봉인은 ARM이 생략하는 exact 기본값 값만 제거하고 hashing 전에 알 수 없음 탐색 필드를 거부합니다. Non-default 임계값, delay, 간격, 시간 초과, 전송 계층 및 포트는 계속 봉인되며 관찰된 개정 번호와 정확히 일치해야 합니다. |
 | 2026-08-10 | IS-09 | 범위가 제한된 롤백 개정 번호 접미사 | 라운드 74 | 동일한 워커 실패에서 verbose automatic 롤백 접미사가 가장 긴 서비스 이름에 대한 Azure Container App combined 54-character revision-name 한도를 초과하여 복구를 시작할 수 없는 문제를 확인했습니다. 이제 롤백 접미사는 lowercase `r` 접두사와 unique 작업 흐름 실행 id로 구성됩니다. 모든 정본 서비스 이름에 맞으면서 결정론적하고 collision-resistant하며, 롤백은 계속 exact captured 개정 번호만 copy하고 restored 이미지와 sidecar 계약을 검증합니다. |
 | 2026-08-10 | IS-09 | Corrected N-1 산출물 재구축 | 라운드 75 | 실제 운영 롤백에서 original 0.1.2 문서 이미지가 연결된 user-assigned 신원을 선택할 수 없어 protected 토폴로지에서 준비된 상태가 될 수 없음을 확인했습니다. 이제 dedicated artifact-only 출처가 현재 신원, 탐색 및 복구 강화가 적용된 서비스 코드에서 분포 5개의 0.1.2 산출물을 다시 빌드합니다. 출처는 temporary이며 즉시 0.1.3 개발 줄을 복원하는 커밋이 이어집니다. 최종 근거는 broken 이미지를 relabel하지 않고 exact 0.1.2 출처, supply-chain 실행, 이미지 다이제스트 및 증명을 고정합니다. |
 | 2026-08-10 | IS-09 | N-1 재정의 retirement | 라운드 76 | Supply-chain 실행 `31367288968`은 tracked 재정의가 활성인 exact 출처 `352c8d1e661a6a53f0958767550fd57c2b975706`에서 성공했으므로 변경할 수 없는 산출물은 계속 0.1.2입니다. 이후 실행 `31367329056`은 automatic release 커밋에 속하며 재정의 출처 이후 실패했습니다. 이제 `main`에서 재정의는 inactive이며 이후 모든 이미지 빌드는 committed 0.1.3 서비스 및 lockfile 버전을 사용합니다. 이를 통해 patched N-1과 최종 N에 서로 다른하고 attributable한 출처 개정 번호를 만들고 향후 0.1.2 산출물이 실수로 publish되는 것을 방지합니다. |

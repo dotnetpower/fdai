@@ -391,8 +391,8 @@ Global DNS 변경에는 independently 관찰된 서비스 해석, CoreDNS 롤아
 영향 범위 및 스냅샷 복원 결과가 필요합니다. 모든 safeguard를 검증할 때까지 실제 운영
 실행기는 `remediate.coredns-nxdomain-template`를 미등록 상태로 유지하고 기반 호출을 수행하지
 않습니다.
-프로바이더 중립적인 서비스 의미는 엔드포인트 근거가 완전한하고 빈이며 서비스 선택자가
-완전한하고, same-namespace 워크로드 하나의 완전한 템플릿 라벨이 exact 일치하며 desired
+프로바이더 중립적인 서비스 의미는 엔드포인트 근거가 완료하고 빈이며 서비스 선택자가
+완료하고, same-namespace 워크로드 하나의 완전한 템플릿 라벨이 exact 일치하며 desired
 복제본이 0일 때만 hold-only scaled-to-zero 후보를 생성합니다. 준비된, nonzero, 모호한,
 selector-mismatched, 불완전한 또는 잘린 근거는 abstain합니다. 구체적인 엔드포인트 및 라벨
 변환 결과는 별도 프로바이더 작업입니다.
