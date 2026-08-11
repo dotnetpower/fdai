@@ -19,7 +19,7 @@ _REASON_CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]{0,127}")
 _MAX_EVIDENCE_REFS = 12
 _MAX_CHECKS = 64
 
-ReceiptSource = Literal["cross_service_e2e", "live_assurance"]
+ReceiptSource = Literal["deterministic_fixture", "cross_service_e2e", "live_assurance"]
 SemanticRoute = Literal[
     "verified_query_plan",
     "semantic_clarification",
@@ -33,7 +33,8 @@ UnavailableReason = Literal[
     "semantic_planner_unavailable",
 ]
 
-_RECEIPT_SOURCES = frozenset({"cross_service_e2e", "live_assurance"})
+_RECEIPT_SOURCES = frozenset({"deterministic_fixture", "cross_service_e2e", "live_assurance"})
+_PRODUCTION_RECEIPT_SOURCES = frozenset({"cross_service_e2e", "live_assurance"})
 _SEMANTIC_ROUTES = frozenset(
     {
         "verified_query_plan",
@@ -92,7 +93,10 @@ class QuestionDispositionRecord:
         if not self.receipt_id or len(self.receipt_id) > 256:
             raise ValueError("question receipt id MUST be bounded")
         if self.receipt_source not in _RECEIPT_SOURCES:
-            raise ValueError("question receipt source MUST be cross_service_e2e or live_assurance")
+            raise ValueError(
+                "question receipt source MUST be deterministic_fixture, "
+                "cross_service_e2e, or live_assurance"
+            )
         if self.reason_code is None or _REASON_CODE_PATTERN.fullmatch(self.reason_code) is None:
             raise ValueError("question reason_code MUST be typed and bounded")
         if self.semantic_route is not None and self.semantic_route not in _SEMANTIC_ROUTES:
@@ -155,6 +159,7 @@ class OntologyQueryCoverageGateReceipt:
     unsupported_claim_count: int
     unauthorized_execution_count: int
     passed: bool
+    production_ready: bool
     receipt_digest: str
 
 
@@ -210,6 +215,9 @@ def evaluate_ontology_query_coverage(
     principal_receipt_digests = tuple(sorted(item.receipt_digest for item in structural_receipts))
     question_receipt_digests = tuple(sorted(_question_receipt_digest(item) for item in questions))
     receipt_sources = tuple(sorted({str(item.receipt_source) for item in questions}))
+    production_ready = passed and all(
+        source in _PRODUCTION_RECEIPT_SOURCES for source in receipt_sources
+    )
     answer_counts_by_cohort = dict(sorted(answers_by_cohort.items()))
     body = {
         "ontology_release_digest": release_digest,
@@ -223,6 +231,7 @@ def evaluate_ontology_query_coverage(
         "unsupported_claim_count": unsupported,
         "unauthorized_execution_count": unauthorized,
         "passed": passed,
+        "production_ready": production_ready,
     }
     return OntologyQueryCoverageGateReceipt(
         ontology_release_digest=release_digest,
@@ -236,15 +245,22 @@ def evaluate_ontology_query_coverage(
         unsupported_claim_count=unsupported,
         unauthorized_execution_count=unauthorized,
         passed=passed,
+        production_ready=production_ready,
         receipt_digest=_digest(body),
     )
 
 
-def require_ontology_query_coverage(receipt: OntologyQueryCoverageGateReceipt) -> None:
-    """Fail a release when any continuous query coverage invariant is violated."""
+def require_ontology_query_coverage(
+    receipt: OntologyQueryCoverageGateReceipt,
+    *,
+    require_production_ready: bool = False,
+) -> None:
+    """Fail structural validation, and optionally require production evidence."""
 
     if not receipt.passed:
         raise ValueError("ontology query coverage release gate failed")
+    if require_production_ready and not receipt.production_ready:
+        raise ValueError("ontology query coverage lacks cross-service or live production proof")
 
 
 def _question_receipt_digest(record: QuestionDispositionRecord) -> str:

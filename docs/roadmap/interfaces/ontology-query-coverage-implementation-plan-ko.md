@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 8a34ae06a9d9614de17dc9bbfe8999b485f95b02
+translation_source_sha: 390e083c616f8a310021272abef4f4cfdcc65cad
 translation_revised: 2026-08-11
 ---
 
@@ -96,6 +96,12 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > 추가합니다. Complete structural accounting, terminal disposition 100%, legacy ordinary-language route 0,
 > unsupported claim 0 및 unauthorized execution 0을 요구합니다. Answer count는 universal complete로
 > 주장하지 않고 cohort별로 보고합니다.
+> Committed competency cohort는 `receipt_source=deterministic_fixture`를 사용합니다. Gate receipt는
+> local structural validation 결과를 `passed`에 유지하고 질문 하나라도 deterministic fixture evidence를
+> 사용하면 `production_ready=false`로 보고합니다. Production 완료를 주장하는 caller는
+> `require_production_ready=True`를 설정하고 외부에서 생성된 `cross_service_e2e` 또는
+> `live_assurance` receipt를 제공해야 합니다. 따라서 일반 fast gate는 local CI에서 계속 실행할 수
+> 있으며 hand-authored fixture를 cross-service 또는 live proof로 취급하지 않습니다.
 
 ## 설계 개요
 

@@ -64,6 +64,14 @@ def _answered(question_id: str, marker: str) -> QuestionDispositionRecord:
     )
 
 
+def _fixture_answered(question_id: str, marker: str) -> QuestionDispositionRecord:
+    return replace(
+        _answered(question_id, marker),
+        receipt_id=f"deterministic-fixture:{question_id}",
+        receipt_source="deterministic_fixture",
+    )
+
+
 def _nonanswered(
     question_id: str,
     cohort: str,
@@ -106,6 +114,7 @@ def test_gate_reports_answer_coverage_by_cohort_without_requiring_universal_answ
 
     require_ontology_query_coverage(receipt)
     assert receipt.passed is True
+    assert receipt.production_ready is True
     assert receipt.answer_counts_by_cohort == {
         "ambiguous-en": 0,
         "evidence-gap": 0,
@@ -150,6 +159,19 @@ def test_held_question_may_omit_execution_receipts() -> None:
     require_ontology_query_coverage(receipt)
     assert receipt.passed is True
     assert held.execution_receipt_digest is None
+
+
+def test_fixture_receipts_pass_structure_without_claiming_production_readiness() -> None:
+    receipt = evaluate_ontology_query_coverage(
+        structural_receipts=(_structural(),),
+        questions=(_fixture_answered("fixture", "b"),),
+    )
+
+    require_ontology_query_coverage(receipt)
+    assert receipt.passed is True
+    assert receipt.production_ready is False
+    with pytest.raises(ValueError, match="lacks cross-service or live production proof"):
+        require_ontology_query_coverage(receipt, require_production_ready=True)
 
 
 def test_answered_question_rejects_malformed_execution_receipt() -> None:

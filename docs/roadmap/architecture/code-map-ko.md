@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: fbec5ec4453ee99f139e162fee6a581b8352a2b9
+translation_source_sha: e6479a7c12a00855794d2cf8ed1f7c4b77b429dd
 translation_revised: 2026-08-11
 ---
 # 코드 맵
@@ -63,6 +63,9 @@ Bounded dependency wave는 node deadline에 queue wait를 포함하고 in-flight
 blocked descendant를 skip하고 provider error detail 없는 stable receipt를 emit합니다.
 Planner manifest는 ObjectType 및 Interface property에 동일한 role/purpose filtering을 적용합니다. Intent
 evidence는 terminal reason을 보존하면서 bounded evidence-reference truncation도 공개합니다.
+Continuous coverage receipt는 deterministic fixture structural validation과 production readiness를
+분리합니다. 외부에서 생성된 `cross_service_e2e` 또는 `live_assurance` question receipt만
+`production_ready`를 설정할 수 있으며 committed `deterministic_fixture`는 false로 유지합니다.
 
 ## 독립 service map
 

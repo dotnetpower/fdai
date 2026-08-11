@@ -97,6 +97,12 @@ units for 100% structural query coverage.
 > cohort. It requires complete structural accounting, 100% terminal disposition, zero legacy
 > ordinary-language routes, zero unsupported claims, and zero unauthorized executions. Answer
 > counts remain reported by cohort rather than asserted as universally complete.
+> The committed competency cohort uses `receipt_source=deterministic_fixture`. The gate receipt
+> keeps local structural validation in `passed` and reports `production_ready=false` whenever any
+> question uses deterministic fixture evidence. A caller that claims production completion must
+> set `require_production_ready=True` and supply externally produced `cross_service_e2e` or
+> `live_assurance` receipts. This keeps the ordinary fast gate runnable in local CI without turning
+> a hand-authored fixture into cross-service or live proof.
 
 ## Design at a glance
 

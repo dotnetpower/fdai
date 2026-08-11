@@ -61,6 +61,9 @@ cancellation, skip blocked descendants, and emit stable receipts without provide
 Planner manifests apply identical role and purpose filtering to ObjectType and Interface
 properties. Intent evidence preserves a terminal reason while also disclosing bounded
 evidence-reference truncation.
+Continuous coverage receipts separate deterministic fixture structural validation from production
+readiness. Only externally produced `cross_service_e2e` or `live_assurance` question receipts can
+set `production_ready`; a committed `deterministic_fixture` keeps it false.
 
 ## Independent service map
 

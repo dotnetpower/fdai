@@ -48,10 +48,10 @@ def _questions() -> tuple[QuestionDispositionRecord, ...]:
                 }
             )
         )
-    if any(item.receipt_source != "cross_service_e2e" for item in questions):
+    if any(item.receipt_source != "deterministic_fixture" for item in questions):
         raise ValueError(
-            "shipped competency fixtures MUST use cross_service_e2e; "
-            "live_assurance requires external receipts"
+            "shipped competency fixtures MUST use deterministic_fixture; "
+            "cross-service and live sources require external receipts"
         )
     return tuple(questions)
 
@@ -104,12 +104,16 @@ def main() -> int:
             questions=_questions(),
         )
         require_ontology_query_coverage(receipt)
+        if receipt.production_ready:
+            raise ValueError(
+                "deterministic competency fixtures MUST NOT prove production readiness"
+            )
     except (KeyError, TypeError, ValueError) as exc:
         print(f"ontology-query-coverage: ERROR: {exc}", file=sys.stderr)
         return 1
     print(
-        "ontology-query-coverage: OK (receipt-backed fixture; "
-        "source=cross_service_e2e; not live assurance proof; "
+        "ontology-query-coverage: OK (deterministic fixture structural validation; "
+        "source=deterministic_fixture; production_ready=false; "
         f"questions={receipt.accepted_question_count}, "
         f"principal_manifests={len(receipt.principal_receipt_digests)}, "
         f"question_receipts={len(receipt.question_receipt_digests)})"
