@@ -7,14 +7,21 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
+from azure.identity.aio import ManagedIdentityCredential
 from fdai_service_contracts import OperatorReadModel, OperatorTokenVerifier, ReadDataSource
 
-from fdai_operator_service.adapters import LocalAzureNarratorAdapters
+from fdai_operator_service.adapters import (
+    LocalAzureNarratorAdapters,
+    OperatorSemanticKafkaBus,
+    OperatorSemanticKafkaConfig,
+)
 from fdai_operator_service.auth import EntraJwtVerifier, OperatorAuthenticator
-from fdai_operator_service.contracts import ReadinessProbe
+from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
 from fdai_operator_service.environment import OperatorEnvironment
 from fdai_operator_service.families.conversation import ConversationFamilyDependencies
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
+    SEMANTIC_REQUEST_TOPIC,
+    SEMANTIC_RESULT_TOPIC,
     SemanticTurnBridge,
     SemanticTurnConversationAdapters,
     SemanticTurnEventPublisher,
@@ -79,10 +86,22 @@ class ProductionOperatorComposition:
         environment = OperatorEnvironment.parse(os.environ if environ is None else environ)
         configured_read_model = self.read_model or _postgres_read_model(environment)
         family_store = _postgres_family_store(environment)
+        semantic_bus: OperatorSemanticKafkaBus | None = None
+        publisher = self.semantic_event_publisher
+        result_source = self.semantic_result_source
+        if publisher is None and result_source is None and environment.kafka_bootstrap_servers:
+            if family_store is None:
+                raise RuntimeError("semantic transport requires the authoritative PostgreSQL store")
+            semantic_bus = _build_semantic_bus(environment)
+            publisher = semantic_bus
+            result_source = semantic_bus
         semantic_bridge = _semantic_bridge(
             family_store,
-            publisher=self.semantic_event_publisher,
-            result_source=self.semantic_result_source,
+            publisher=publisher,
+            result_source=result_source,
+            request_topic=environment.semantic_request_topic or SEMANTIC_REQUEST_TOPIC,
+            result_topic=environment.semantic_projection_topic or SEMANTIC_RESULT_TOPIC,
+            result_group=environment.semantic_consumer_group_id,
         )
         authenticator = OperatorAuthenticator(
             verifier=self.verifier_factory(environment),
@@ -99,9 +118,8 @@ class ProductionOperatorComposition:
                 store=family_store,
                 semantic_bridge=semantic_bridge,
             ),
-            readiness_probe=self.readiness_probe
-            or (family_store.probe_readiness if family_store is not None else _unavailable),
-            lifecycle=semantic_bridge,
+            readiness_probe=self.readiness_probe or _readiness_probe(family_store, semantic_bus),
+            lifecycle=_semantic_lifecycle(semantic_bridge, semantic_bus),
         )
 
 
@@ -242,6 +260,9 @@ def _semantic_bridge(
     *,
     publisher: SemanticTurnEventPublisher | None,
     result_source: SemanticTurnResultSource | None,
+    request_topic: str,
+    result_topic: str,
+    result_group: str,
 ) -> SemanticTurnBridge | None:
     if publisher is None and result_source is None:
         return None
@@ -253,7 +274,84 @@ def _semantic_bridge(
         store=store,
         publisher=publisher,
         result_source=result_source,
+        request_topic=request_topic,
+        result_topic=result_topic,
+        result_group=result_group,
     )
+
+
+def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKafkaBus:
+    bootstrap_servers = environment.kafka_bootstrap_servers
+    if bootstrap_servers is None:
+        raise RuntimeError("validated semantic Kafka bootstrap servers are missing")
+    credential = (
+        ManagedIdentityCredential(client_id=environment.managed_identity_client_id)
+        if environment.managed_identity_client_id is not None
+        else ManagedIdentityCredential()
+    )
+    return OperatorSemanticKafkaBus(
+        config=OperatorSemanticKafkaConfig(
+            bootstrap_servers=bootstrap_servers,
+            client_id=environment.semantic_kafka_client_id,
+        ),
+        credential=credential,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _CompositeLifecycle:
+    services: tuple[ApplicationLifecycle, ...]
+
+    async def start(self) -> None:
+        """Start dependencies in order and close every acquired resource on failure."""
+        started: list[ApplicationLifecycle] = []
+        for service in self.services:
+            try:
+                await service.start()
+            except BaseException:
+                await service.aclose()
+                for prior in reversed(started):
+                    await prior.aclose()
+                raise
+            started.append(service)
+
+    async def aclose(self) -> None:
+        """Close dependencies in reverse order so bridge consumers stop before Kafka."""
+        first_error: BaseException | None = None
+        for service in reversed(self.services):
+            try:
+                await service.aclose()
+            except BaseException as exc:
+                if first_error is None:
+                    first_error = exc
+        if first_error is not None:
+            raise first_error
+
+
+def _semantic_lifecycle(
+    bridge: SemanticTurnBridge | None,
+    bus: OperatorSemanticKafkaBus | None,
+) -> ApplicationLifecycle | None:
+    if bridge is None:
+        return None
+    if bus is None:
+        return bridge
+    return _CompositeLifecycle((bus, bridge))
+
+
+def _readiness_probe(
+    store: PostgresFamilyStore | None,
+    bus: OperatorSemanticKafkaBus | None,
+) -> ReadinessProbe:
+    if store is None:
+        return _unavailable
+    if bus is None:
+        return store.probe_readiness
+
+    async def probe() -> bool:
+        return await store.probe_readiness() and await bus.probe_readiness()
+
+    return probe
 
 
 def _build_data_sources(*, configured: bool) -> tuple[ReadDataSource, ...]:

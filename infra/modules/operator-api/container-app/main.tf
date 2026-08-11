@@ -173,6 +173,20 @@ resource "azurerm_container_app" "operator_api" {
         }
       }
       dynamic "env" {
+        for_each = var.kafka_bootstrap_servers == "" ? [] : ["operator-core-request"]
+        content {
+          name  = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"
+          value = env.value
+        }
+      }
+      dynamic "env" {
+        for_each = var.kafka_bootstrap_servers == "" ? [] : ["core-operator-projection"]
+        content {
+          name  = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC"
+          value = env.value
+        }
+      }
+      dynamic "env" {
         for_each = var.kafka_topic_events == "" ? [] : [var.kafka_topic_events]
         content {
           name  = "KAFKA_TOPIC_EVENTS"

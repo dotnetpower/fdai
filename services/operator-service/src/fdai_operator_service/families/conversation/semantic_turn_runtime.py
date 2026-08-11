@@ -148,6 +148,7 @@ class SemanticTurnOutboxDrainer:
     store: SemanticTurnStore
     publisher: SemanticTurnEventPublisher
     worker_id: str
+    request_topic: str = SEMANTIC_REQUEST_TOPIC
     lease_seconds: int = 30
 
     async def run_once(self) -> bool:
@@ -160,7 +161,7 @@ class SemanticTurnOutboxDrainer:
             return False
         try:
             await self.publisher.publish(
-                SEMANTIC_REQUEST_TOPIC,
+                self.request_topic,
                 claim.request_id,
                 claim.envelope,
             )
@@ -190,22 +191,30 @@ class SemanticTurnBridge:
         result_source: SemanticTurnResultSource | None = None,
         builder: SemanticTurnEnvelopeBuilder | None = None,
         worker_id: str = "operator-semantic-turn",
+        request_topic: str = SEMANTIC_REQUEST_TOPIC,
+        result_topic: str = SEMANTIC_RESULT_TOPIC,
+        result_group: str = SEMANTIC_RESULT_GROUP,
         retry_seconds: float = 1.0,
     ) -> None:
         if (publisher is None) != (result_source is None):
             raise ValueError("semantic publisher and result source MUST be bound together")
         if retry_seconds <= 0:
             raise ValueError("semantic retry_seconds MUST be positive")
+        if not request_topic or not result_topic or not result_group:
+            raise ValueError("semantic transport topics and consumer group MUST be non-empty")
         self._store = store
         self._publisher = publisher
         self._result_source = result_source
         self._builder = builder or SemanticTurnEnvelopeBuilder()
         self._consumer = SemanticTurnProjectionConsumer(store)
         self._drainer = (
-            SemanticTurnOutboxDrainer(store, publisher, worker_id)
+            SemanticTurnOutboxDrainer(store, publisher, worker_id, request_topic)
             if publisher is not None
             else None
         )
+        self._request_topic = request_topic
+        self._result_topic = result_topic
+        self._result_group = result_group
         self._retry_seconds = retry_seconds
         self._tasks: tuple[asyncio.Task[None], ...] = ()
 
@@ -279,8 +288,8 @@ class SemanticTurnBridge:
         return {
             "available": available,
             "mode": "event-bridge" if available else "held",
-            "request_topic": SEMANTIC_REQUEST_TOPIC,
-            "result_topic": SEMANTIC_RESULT_TOPIC,
+            "request_topic": self._request_topic,
+            "result_topic": self._result_topic,
         }
 
     async def start(self) -> None:
@@ -311,8 +320,8 @@ class SemanticTurnBridge:
         if self._result_source is None:
             return
         async for payload in self._result_source.subscribe(
-            SEMANTIC_RESULT_TOPIC,
-            SEMANTIC_RESULT_GROUP,
+            self._result_topic,
+            self._result_group,
         ):
             await self._consumer.consume(payload)
 

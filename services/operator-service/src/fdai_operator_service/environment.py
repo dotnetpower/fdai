@@ -21,10 +21,18 @@ DATABASE_STATEMENT_TIMEOUT_ENV = "FDAI_OPERATOR_DATABASE_STATEMENT_TIMEOUT_MS"
 DATABASE_CONNECT_TIMEOUT_ENV = "FDAI_OPERATOR_DATABASE_CONNECT_TIMEOUT_S"
 EXPECTED_DATABASE_ROLE = "fdai_operator"
 LOCAL_AZURE_NARRATOR_ENV = "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR"
+KAFKA_BOOTSTRAP_SERVERS_ENV = "FDAI_KAFKA_BOOTSTRAP_SERVERS"
+SEMANTIC_REQUEST_TOPIC_ENV = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"
+SEMANTIC_PROJECTION_TOPIC_ENV = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC"
+SEMANTIC_CONSUMER_GROUP_ENV = "FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID"
+SEMANTIC_KAFKA_CLIENT_ID_ENV = "FDAI_SEMANTIC_TURN_KAFKA_CLIENT_ID"
+MANAGED_IDENTITY_CLIENT_ID_ENV = "FDAI_COMMAND_MI_CLIENT_ID"
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 - Container ingress terminates external HTTPS.
 DEFAULT_PORT = 8000
 DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS = 20_000
 DEFAULT_DATABASE_CONNECT_TIMEOUT_S = 10
+DEFAULT_SEMANTIC_CONSUMER_GROUP = "operator-semantic-turn-v1"
+DEFAULT_SEMANTIC_KAFKA_CLIENT_ID = "fdai-operator-service"
 
 GROUP_ENV: Mapping[OperatorRole, str] = MappingProxyType(
     {
@@ -59,6 +67,12 @@ class OperatorEnvironment:
     database_statement_timeout_ms: int
     database_connect_timeout_s: int
     local_azure_narrator: bool
+    kafka_bootstrap_servers: str | None
+    semantic_request_topic: str | None
+    semantic_projection_topic: str | None
+    semantic_consumer_group_id: str
+    semantic_kafka_client_id: str
+    managed_identity_client_id: str | None
 
     @classmethod
     def parse(cls, environ: Mapping[str, str]) -> OperatorEnvironment:
@@ -123,6 +137,31 @@ class OperatorEnvironment:
             raise OperatorServiceConfigurationError(
                 f"{LOCAL_AZURE_NARRATOR_ENV} requires RUNTIME_ENV=dev"
             )
+        kafka_bootstrap_servers = values.get(KAFKA_BOOTSTRAP_SERVERS_ENV, "").strip() or None
+        semantic_request_topic = values.get(SEMANTIC_REQUEST_TOPIC_ENV, "").strip() or None
+        semantic_projection_topic = values.get(SEMANTIC_PROJECTION_TOPIC_ENV, "").strip() or None
+        semantic_transport = (
+            kafka_bootstrap_servers,
+            semantic_request_topic,
+            semantic_projection_topic,
+        )
+        if any(semantic_transport) and not all(semantic_transport):
+            raise OperatorServiceConfigurationError(
+                f"{KAFKA_BOOTSTRAP_SERVERS_ENV}, {SEMANTIC_REQUEST_TOPIC_ENV}, and "
+                f"{SEMANTIC_PROJECTION_TOPIC_ENV} MUST be configured together"
+            )
+        if local_azure_narrator and kafka_bootstrap_servers is not None:
+            raise OperatorServiceConfigurationError(
+                f"{LOCAL_AZURE_NARRATOR_ENV} MUST be disabled when semantic Kafka transport "
+                "is configured"
+            )
+        semantic_consumer_group_id = (
+            values.get(SEMANTIC_CONSUMER_GROUP_ENV, "").strip() or DEFAULT_SEMANTIC_CONSUMER_GROUP
+        )
+        semantic_kafka_client_id = (
+            values.get(SEMANTIC_KAFKA_CLIENT_ID_ENV, "").strip() or DEFAULT_SEMANTIC_KAFKA_CLIENT_ID
+        )
+        managed_identity_client_id = values.get(MANAGED_IDENTITY_CLIENT_ID_ENV, "").strip() or None
 
         return cls(
             values=MappingProxyType(values),
@@ -139,6 +178,12 @@ class OperatorEnvironment:
             database_statement_timeout_ms=database_statement_timeout_ms,
             database_connect_timeout_s=database_connect_timeout_s,
             local_azure_narrator=local_azure_narrator,
+            kafka_bootstrap_servers=kafka_bootstrap_servers,
+            semantic_request_topic=semantic_request_topic,
+            semantic_projection_topic=semantic_projection_topic,
+            semantic_consumer_group_id=semantic_consumer_group_id,
+            semantic_kafka_client_id=semantic_kafka_client_id,
+            managed_identity_client_id=managed_identity_client_id,
         )
 
 
@@ -182,9 +227,15 @@ __all__ = [
     "GROUP_ENV",
     "HOST_ENV",
     "ISSUER_ENV",
+    "KAFKA_BOOTSTRAP_SERVERS_ENV",
     "LOCAL_AZURE_NARRATOR_ENV",
+    "MANAGED_IDENTITY_CLIENT_ID_ENV",
     "JWKS_URI_ENV",
     "PORT_ENV",
+    "SEMANTIC_CONSUMER_GROUP_ENV",
+    "SEMANTIC_KAFKA_CLIENT_ID_ENV",
+    "SEMANTIC_PROJECTION_TOPIC_ENV",
+    "SEMANTIC_REQUEST_TOPIC_ENV",
     "TENANT_ENV",
     "OperatorEnvironment",
     "OperatorServiceConfigurationError",

@@ -109,6 +109,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "LLM_RESOLVED_MODELS_PATH=/stale/resolved-models.json\n"
         "FDAI_METERING_DSN=postgresql://stale\n"
         "FDAI_KAFKA_BOOTSTRAP_SERVERS=stale.example.com:9093\n"
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=stale.requests\n"
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=stale.projections\n"
         "KAFKA_TOPIC_EVENTS=stale.topic\n"
         "FDAI_CANARY_TOPIC=stale.canary\n"
         "FDAI_INVENTORY_RAW_TOPIC=stale.inventory\n"
@@ -130,7 +132,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         'elif [[ "$*" == *"output -raw event_bus_operational_kafka_bootstrap"* ]]; then\n'
         "  printf 'example-ops.servicebus.windows.net:9093'\n"
         'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
-        '  printf \'["aw.finops.events","aw.change.events"]\'\n'
+        '  printf \'["aw.finops.events","aw.change.events","operator-core-request",'
+        '"core-operator-projection"]\'\n'
         'elif [[ "$*" == *"output -json event_bus_auxiliary_topics"* ]]; then\n'
         "  printf '[\"aw.pipeline.stages\"]'\n"
         'elif [[ "$*" == *"output -json event_bus_operational_topics"* ]]; then\n'
@@ -197,6 +200,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "AZURE_REGION=example-region",
         "KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093",
         "FDAI_KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093",
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator-core-request",
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core-operator-projection",
         "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS=example-ops.servicebus.windows.net:9093",
         "KAFKA_TOPIC_EVENTS=aw.change.events",
         "FDAI_STAGE_TOPIC=aw.pipeline.stages",
@@ -338,7 +343,9 @@ def test_omits_inventory_invalidation_topic_until_provisioned(tmp_path: Path) ->
     (repo / ".venv/bin").mkdir(parents=True)
     (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
     (repo / "console/.env.local").write_text(
-        "FDAI_INVENTORY_RAW_TOPIC=stale.inventory\n",
+        "FDAI_INVENTORY_RAW_TOPIC=stale.inventory\n"
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=stale.requests\n"
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=stale.projections\n",
         encoding="utf-8",
     )
     terraform = tmp_path / "terraform"
@@ -393,6 +400,8 @@ def test_omits_inventory_invalidation_topic_until_provisioned(tmp_path: Path) ->
     )
 
     assert "FDAI_INVENTORY_RAW_TOPIC=" not in output.read_text(encoding="utf-8")
+    assert "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=" not in output.read_text(encoding="utf-8")
+    assert "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=" not in output.read_text(encoding="utf-8")
     assert "FDAI_CORE_CONSUMER_GROUP_ID=fdai-local-developer-b-core" in output.read_text(
         encoding="utf-8"
     )

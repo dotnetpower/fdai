@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import UUID, uuid5
 
+import fdai_operator_service.composition as composition_module
 import pytest
 from fdai_operator_service.composition import ProductionOperatorComposition
 from fdai_operator_service.environment import (
@@ -16,7 +17,12 @@ from fdai_operator_service.environment import (
     DATABASE_ROLE_ENV,
     DATABASE_URL_ENV,
     GROUP_ENV,
+    KAFKA_BOOTSTRAP_SERVERS_ENV,
     LOCAL_AZURE_NARRATOR_ENV,
+    SEMANTIC_CONSUMER_GROUP_ENV,
+    SEMANTIC_KAFKA_CLIENT_ID_ENV,
+    SEMANTIC_PROJECTION_TOPIC_ENV,
+    SEMANTIC_REQUEST_TOPIC_ENV,
     TENANT_ENV,
 )
 from fdai_operator_service.families.conversation.contracts import (
@@ -864,3 +870,140 @@ def test_production_composition_activates_semantic_bridge_only_with_transport(
     assert semantic_conversation.projections.fallback_streams.__class__.__name__ == (
         "PostgresConversationAdapters"
     )
+
+
+async def test_production_composition_auto_binds_one_kafka_bus_and_owns_lifecycle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class Bus:
+        async def start(self) -> None:
+            events.append("bus-start")
+
+        async def aclose(self) -> None:
+            events.append("bus-close")
+
+        async def probe_readiness(self) -> bool:
+            return True
+
+        async def publish(
+            self,
+            topic: str,
+            key: str,
+            payload: Mapping[str, object],
+        ) -> object:
+            del topic, key, payload
+            return object()
+
+        def subscribe(
+            self,
+            topic: str,
+            group_id: str,
+        ) -> AsyncIterator[Mapping[str, object]]:
+            del topic, group_id
+
+            async def empty() -> AsyncIterator[Mapping[str, object]]:
+                if False:
+                    yield {}
+
+            return empty()
+
+    bus = Bus()
+    monkeypatch.setattr(composition_module, "_build_semantic_bus", lambda _environment: bus)
+
+    async def bridge_start(self: SemanticTurnBridge) -> None:
+        events.append("bridge-start")
+
+    async def bridge_close(self: SemanticTurnBridge) -> None:
+        events.append("bridge-close")
+
+    monkeypatch.setattr(SemanticTurnBridge, "start", bridge_start)
+    monkeypatch.setattr(SemanticTurnBridge, "aclose", bridge_close)
+    runtime = ProductionOperatorComposition(
+        verifier_factory=lambda _environment: (
+            lambda _token: {"oid": "operator-1", "roles": ["Reader"]}
+        )
+    ).build_runtime(
+        {
+            TENANT_ENV: "tenant",
+            AUDIENCE_ENV: "audience",
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+            KAFKA_BOOTSTRAP_SERVERS_ENV: "example.servicebus.windows.net:9093",
+            SEMANTIC_REQUEST_TOPIC_ENV: "semantic.requests",
+            SEMANTIC_PROJECTION_TOPIC_ENV: "semantic.projections",
+            SEMANTIC_CONSUMER_GROUP_ENV: "semantic-group",
+            SEMANTIC_KAFKA_CLIENT_ID_ENV: "semantic-client",
+            **{key: f"group-{index}" for index, key in enumerate(GROUP_ENV.values())},
+        }
+    )
+
+    assert runtime.lifecycle is not None
+    semantic = runtime.route_families.conversation.projections
+    assert isinstance(semantic, SemanticTurnConversationAdapters)
+    assert semantic.bridge.health() == {
+        "available": True,
+        "mode": "event-bridge",
+        "request_topic": "semantic.requests",
+        "result_topic": "semantic.projections",
+    }
+
+    await runtime.lifecycle.start()
+    await runtime.lifecycle.aclose()
+
+    assert events == ["bus-start", "bridge-start", "bridge-close", "bus-close"]
+
+
+def test_production_composition_rejects_semantic_transport_before_bus_without_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        composition_module,
+        "_build_semantic_bus",
+        lambda _environment: pytest.fail("bus MUST NOT be built without the durable store"),
+    )
+
+    with pytest.raises(RuntimeError, match="requires the authoritative PostgreSQL store"):
+        ProductionOperatorComposition(
+            verifier_factory=lambda _environment: (
+                lambda _token: {"oid": "operator-1", "roles": ["Reader"]}
+            )
+        ).build_runtime(
+            {
+                TENANT_ENV: "tenant",
+                AUDIENCE_ENV: "audience",
+                KAFKA_BOOTSTRAP_SERVERS_ENV: "example.servicebus.windows.net:9093",
+                SEMANTIC_REQUEST_TOPIC_ENV: "semantic.requests",
+                SEMANTIC_PROJECTION_TOPIC_ENV: "semantic.projections",
+                **{key: f"group-{index}" for index, key in enumerate(GROUP_ENV.values())},
+            }
+        )
+
+
+async def test_semantic_lifecycle_closes_kafka_when_bridge_close_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class Bus:
+        async def start(self) -> None:
+            return None
+
+        async def aclose(self) -> None:
+            events.append("bus-close")
+
+    class Bridge:
+        async def start(self) -> None:
+            return None
+
+        async def aclose(self) -> None:
+            events.append("bridge-close")
+            raise RuntimeError("bridge close failed")
+
+    lifecycle = composition_module._CompositeLifecycle((Bus(), Bridge()))
+
+    with pytest.raises(RuntimeError, match="bridge close failed"):
+        await lifecycle.aclose()
+
+    assert events == ["bridge-close", "bus-close"]

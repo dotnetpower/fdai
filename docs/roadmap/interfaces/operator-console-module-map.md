@@ -114,6 +114,15 @@ unsupported, action draft, or cancellation. The synchronous compatibility coordi
 exact canonical commands and does not apply natural-language regex, keyword narration, or
 canonical-string read planning unless an explicit temporary caller selects `legacy` mode.
 
+The independent Operator package owns its concrete Event Hubs Kafka adapter under `adapters/`.
+Production composition builds one adapter for both ports only after the bootstrap, request topic,
+and projection topic pass all-or-none validation. The producer is idempotent and the consumer uses
+manual commit: a valid mapping is committed only after the semantic bridge processes it, while
+malformed or oversized JSON is written to the sibling DLQ and then committed. The adapter owns its
+managed-identity credential and closes it with the application lifecycle. Explicit injected
+publisher/source pairs remain the test and downstream override seam. Semantic Kafka and the
+dev-only local narrator are mutually exclusive.
+
 ### Conversation claims application boundary
 
 The SD-01 claims slice owns deterministic answer-claim verification under

@@ -196,11 +196,11 @@ mypy_path = [
     "services/isolated-executor/src",
 ]
 
-# aiokafka ships no py.typed marker and no stub package. It is only imported
-# by `delivery/azure/event_bus.py`; the adapter boundary in composition
-# wraps every call, so the untyped surface is narrow.
+# aiokafka and the async Azure identity surface ship without complete typing.
+# Imports remain isolated to concrete service-owned transport adapters, which
+# validate payload and credential boundaries before exposing typed protocols.
 [[tool.mypy.overrides]]
-module = ["aiokafka", "aiokafka.abc"]
+module = ["aiokafka", "aiokafka.abc", "azure.identity.aio"]
 ignore_missing_imports = true
 
 # WeasyPrint is isolated to the optional delivery/reporting adapter and ships

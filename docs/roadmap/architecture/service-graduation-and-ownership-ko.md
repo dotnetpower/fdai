@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 3817591f2797b2b6b958886fe41f05251a212a9f
-translation_revised: 2026-08-08
+translation_source_sha: bbd487981ae055a4047a8799eba1c6c1b7c6a854
+translation_revised: 2026-08-11
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -113,6 +113,7 @@ row, 이름이 없는 migration path는 승격을 차단합니다.
 | Document deletion request `1.0.0` | `fdai-service-contracts` packaged JSON Schema | Document ingestion API | Document processing worker | `document_id` | Additive field, unsupported version은 fail closed | Transactional API outbox, exact upload/version revision fence, worker stage-claim dedupe, invalid record는 sibling DLQ |
 | Document lifecycle activity | [Document service contract](../../../packages/service-contracts/src/fdai_service_contracts/document.py) | Owned transition의 ingestion API 또는 worker | Audit/progress consumer와 Huginn ingress bridge | `document_id` | Content-free additive event envelope | Stable action/version idempotency, reconciliation이 persisted fact 재발행, event 1일/DLQ 7일 |
 | Operator command/proposal event | [Event](../../../services/core-control-plane/src/fdai/shared/contracts/event/schema.json)와 [Action](../../../services/core-control-plane/src/fdai/shared/contracts/action/schema.json) contract | Operator API command identity | Huginn/Forseti typed pipeline | normalized `resource_id` | Registry semver와 additive compatibility | At-least-once, catalog idempotency key, normal event/DLQ retention 1일/7일 |
+| Operator semantic turn `1.2.0` | `fdai-service-contracts` semantic request 및 projection codec | Operator API durable outbox / Core semantic runtime | Core semantic consumer / Operator projection consumer | `request_id` | N은 `1.0.0`, `1.1.0`, `1.2.0`을 수락하며 `1.2.0` payload를 downgrade하지 않음 | At-least-once, idempotent producer, projection persistence 이후 manual commit, malformed JSON은 sibling DLQ, durable request/projection dedupe |
 | Agent introspection request/reply | [Agent-introspection transport](../../../services/core-control-plane/src/fdai/delivery/agent_introspection_bus.py) | Bragi/Operator API bridge | Addressed agent와 bounded reply consumer | correlation id | Process split 전 versioned request/reply envelope | Bounded timeout/retry, authority 없음, content-redacted failure, broker retention 1일 |
 | Executor command `1.0.0` 및 receipt `1.0.0` / `1.1.0` | [Executor transport](../../../services/core-control-plane/src/fdai/shared/contracts/models/executor_transport.py) | Core Thor execution port | Isolated Executor와 Core receipt client | exact target resource ref | `1.0.0` receipt는 effect가 없고 additive `1.1.0`은 dispatch를 보고하지만 independent verification을 주장할 수 없음 | At-least-once, poison DLQ, stable Core consumer group, provider와 executor idempotency, normal/DLQ retention 1일/7일 |
 

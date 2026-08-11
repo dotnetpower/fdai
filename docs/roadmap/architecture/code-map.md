@@ -69,7 +69,7 @@ set `production_ready`; a committed `deterministic_fixture` keeps it false.
 
 | Service | Package responsibility | Package map |
 |---------|------------------------|-------------|
-| Operator Service | Authenticated operator route families and process-local composition | [families](../../../services/operator-service/src/fdai_operator_service/families/) and [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
+| Operator Service | Authenticated route families, durable semantic bridge, and managed-identity Kafka transport | [families](../../../services/operator-service/src/fdai_operator_service/families/), [adapters](../../../services/operator-service/src/fdai_operator_service/adapters/), and [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
 | Document Ingestion API | Upload intake, API-owned transitions, and service adapters | [package](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | Document Processing Worker | Durable document processing and worker-owned adapters | [package](../../../services/document-processing-worker/src/fdai_document_worker_service/) |
 | Isolated Executor | Thor-owned command handling, provider effects, receipts, and executor adapters | [package](../../../services/isolated-executor/src/fdai_executor_service/) |

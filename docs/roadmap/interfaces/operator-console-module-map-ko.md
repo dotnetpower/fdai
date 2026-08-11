@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: e06e2abb6a3252bd071192e1f90531fc08d4e3dc
+translation_source_sha: ce0d9ccbb16f4380f201be1a72781df91bd5d586
 translation_revised: 2026-08-11
 ---
 # Operator Console Module Map and Boundaries
@@ -114,6 +114,14 @@ result로 구성합니다. 모든 accepted turn은 answer, clarification, hold, 
 cancellation으로 종료됩니다. Synchronous compatibility coordinator는 exact canonical command를 default로
 사용하며 explicit temporary caller가 `legacy` mode를 선택하지 않으면 natural-language regex, keyword
 narration 또는 canonical-string read planning을 적용하지 않습니다.
+
+독립 Operator package는 `adapters/` 아래에 concrete Event Hubs Kafka adapter를 소유합니다. Production
+composition은 bootstrap, request topic 및 projection topic이 all-or-none validation을 통과한 경우에만 두
+port에 하나의 adapter를 구성합니다. Producer는 idempotent이고 consumer는 manual commit을 사용합니다.
+Valid mapping은 semantic bridge가 처리한 뒤에만 commit하고 malformed 또는 oversized JSON은 sibling
+DLQ에 쓴 다음 commit합니다. Adapter는 managed-identity credential을 소유하고 application lifecycle에서
+이를 닫습니다. 명시적으로 주입된 publisher/source pair는 test 및 downstream override seam으로 유지됩니다.
+Semantic Kafka와 dev-only local narrator는 상호 배타적입니다.
 
 ### Conversation claims application boundary
 

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: e6479a7c12a00855794d2cf8ed1f7c4b77b429dd
+translation_source_sha: 9ae6817ec73ffc1a5b22d5103663602a45f564d5
 translation_revised: 2026-08-11
 ---
 # 코드 맵
@@ -71,7 +71,7 @@ Continuous coverage receipt는 deterministic fixture structural validation과 pr
 
 | Service | Package responsibility | Package map |
 |---------|------------------------|-------------|
-| Operator Service | 인증된 operator route family와 process-local composition | [families](../../../services/operator-service/src/fdai_operator_service/families/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
+| Operator Service | 인증된 route family, durable semantic bridge 및 managed-identity Kafka transport | [families](../../../services/operator-service/src/fdai_operator_service/families/), [adapters](../../../services/operator-service/src/fdai_operator_service/adapters/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
 | Document Ingestion API | Upload intake, API 소유 transition 및 service adapter | [package](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | Document Processing Worker | Durable document processing과 worker 소유 adapter | [package](../../../services/document-processing-worker/src/fdai_document_worker_service/) |
 | Isolated Executor | Thor 소유 command handling, provider effect, receipt 및 executor adapter | [package](../../../services/isolated-executor/src/fdai_executor_service/) |

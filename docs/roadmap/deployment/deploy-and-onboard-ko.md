@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: e82c51c31d0281713a525ddb0b4abf72e8d0fda1
-translation_revised: 2026-08-10
+translation_source_sha: fe223c5c3aecf8a78e1876b3e127105f80e04d1c
+translation_revised: 2026-08-11
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -548,6 +548,7 @@ promotion 및 test-only key는 editable surface에 포함되지 않습니다.
 | `FDAI_NARRATOR_PROVIDER` / `FDAI_NARRATOR_BASE_URL` / `FDAI_NARRATOR_MODEL` / `FDAI_NARRATOR_API_VERSION` / `FDAI_NARRATOR_API_KEY` | env + KV ref | deployment | Operator-console narrator translator 설정 ([operator-console-ko.md](../interfaces/operator-console-ko.md) 참조); `API_KEY` 는 반드시 KV 경유. 빈 provider = 결정론적 폴백. |
 | `FDAI_CHATOPS_APPROVE_CALLBACK_URL` / `FDAI_CHATOPS_REJECT_CALLBACK_URL` / `FDAI_CHATOPS_WEBHOOK_SECRET` / `FDAI_CHATOPS_TIMEOUT_SECONDS` | env + KV ref | deployment | Chatops HIL 콜백 엔드포인트와 공유 webhook secret입니다. Secret 은 반드시 KV를 경유합니다. Secret 을 설정하면 production callback route 와 durable Postgres decision registry 가 활성화됩니다. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_HIL_DECISION_TOPIC` | env | deployment / upstream | Operator API 가 durable HIL decision receipt 를 publish 하는 Event Hubs Kafka endpoint 입니다. Topic 기본값은 `aw.hil.decisions`이며 core 가 같은 topic 을 소비하고 resume/execution 을 소유합니다. |
+| `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_SEMANTIC_TURN_REQUEST_TOPIC` / `FDAI_SEMANTIC_TURN_PROJECTION_TOPIC` | env | deployment / upstream | Operator semantic transport 구성입니다. 세 값은 모두 함께 설정하며 부분 구성은 startup을 차단합니다. Request와 projection 값은 provisioned `operator-core-request` 및 `core-operator-projection` entity를 지정합니다. 선택 항목인 `FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID`와 `FDAI_SEMANTIC_TURN_KAFKA_CLIENT_ID`는 안정적인 service default를 override합니다. `FDAI_COMMAND_MI_CLIENT_ID`는 `OAUTHBEARER`용 command identity를 선택하며 connection string 또는 shared key는 지원하지 않습니다. Local preparation은 Terraform output에 같은 topic이 이미 있을 때만 값을 복사하고 해당 실행에서는 dev-only narrator를 비활성화합니다. |
 | `FDAI_GITOPS_API_BASE` / `FDAI_GITOPS_DEFAULT_BRANCH` / `FDAI_GITOPS_BRANCH_PREFIX` / `FDAI_GITOPS_TIMEOUT_SECONDS` | env | deployment | `gitops-pr` 어댑터 target repo 설정 (GitHub App / Azure DevOps). 인증 secret 은 플랫폼 App installation 을 통해 흐르고 env var 아님. |
 | `FDAI_GITOPS_TOKEN` / `FDAI_GITOPS_OWNER` / `FDAI_GITOPS_REPO` / `FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE` | KV ref + env | deployment | fix/release/security/incident/IRP artifact용 GitHub change feed 및 workflow tool binding. enforce flag는 ActionType promotion 및 risk/HIL gate를 우회하지 않습니다. |
 | `FDAI_RBAC_READERS_GROUP_ID` / `FDAI_RBAC_CONTRIBUTORS_GROUP_ID` / `FDAI_RBAC_APPROVERS_GROUP_ID` / `FDAI_RBAC_OWNERS_GROUP_ID` / `FDAI_RBAC_BREAK_GLASS_GROUP_ID` | env | deployment | 5개 human role 의 Entra ID group object id ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md) 참조). 미설정 group = role 미할당. |

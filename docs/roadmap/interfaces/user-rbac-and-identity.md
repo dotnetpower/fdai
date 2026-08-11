@@ -39,8 +39,8 @@ Three safety principles govern this design; every choice below preserves them:
 The independent Operator Service serializes semantic-turn principal roles only after token
 verification and server-owned App Role resolution. Browser payloads cannot supply or widen those
 roles. Core maps the authenticated role set to the principal-scoped query manifest and rechecks the
-purpose before any ontology read. Local and deployed paths use the same record; Azure CLI identity
-can provide model credentials locally but never replaces the browser principal.
+purpose before any ontology read. The semantic Kafka adapter selects the separate command managed
+identity only for broker access; it never receives executor authority or replaces the browser principal.
 Semantic result storage binds each projection id to its request id. On a duplicate key, the same
 transaction checks the owning outbox principal, request identity, and result digest before it can
 return the existing projection or complete the request. Replay then filters by both authenticated
