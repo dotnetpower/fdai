@@ -2,81 +2,82 @@
 title: 오퍼레이터 콘솔 공개 웹 근거
 translation_of: operator-console-web-evidence.md
 translation_source_sha: 42206ada02c1122137d6c1b13e70cb91b424ed3d
-translation_revised: 2026-07-30
+translation_revised: 2026-08-11
 ---
 
 # 오퍼레이터 콘솔 공개 웹 근거
 
-이 Tier B companion 문서는 오퍼레이터 콘솔의 공개 웹 검색 routing, retrieval, 대안 탐색,
-안전 경계 및 회귀 coverage를 소유합니다.
+이 Tier B 보조 문서는 오퍼레이터 콘솔의 공개 웹 검색 라우팅, 수집, 대안 탐색, 안전 경계,
+회귀 커버리지를 소유합니다.
 
 ## 공개 웹 근거
 
-공개 웹 근거는 배포 수준의 read-only capability입니다. 배포에서
-`FDAI_WEB_SEARCH_ENABLED`를 활성화하고 승인된 domain allowlist를 구성하기 전에는 사용할 수
+공개 웹 근거는 배포 수준의 읽기 전용 기능입니다. 배포 환경에서
+`FDAI_WEB_SEARCH_ENABLED`를 켜고 승인된 도메인 허용 목록을 구성하기 전까지는 쓸 수
 없습니다.
 
 - **대상 판별:** `search`, `find`, `look up`, `검색해줘`, `찾아봐`, `구글링해줘` 같은 명시적인
-  operator 요청은 특정 subject noun 없이도 공개 웹 검색을 선택합니다. 이 high-confidence pattern은
-  T0 fast path입니다. T0가 대상 open, list, comparison, proposal 또는 status 질문에 `none`을 반환하면
-  검색 가능한 model이 `web` / `local` / `none`, confidence, reason code 및 normalized query를 strict
-  JSON으로 반환합니다. Low-confidence, malformed 또는 unavailable classification은 `none`을 유지합니다.
-  Current-screen, audit, inventory, catalog 및 sensitive-data 경계는 semantic fallback 전에 적용됩니다.
-  `AKS에`처럼 ASCII resource token 뒤에 한국어 조사가 붙은 경우와 `중지된 db` 같은 database status
-  filter를 포함한 deterministic local inventory intent는 operator가 web search를 명시적으로 요청하지
-  않는 한 semantic public-web plan보다 우선합니다. Coordinator는 local tool branch만 실행합니다. Scope-only next turn은 최신 user inventory question만 재사용하고 server provider scope만 변경하며 typed facet과 projection을 유지하고 client tool evidence는 무시하며 최신 turn이 inventory가 아니면 unresolved 상태를 유지합니다. Cluster inventory만 연결된 상태의 AKS 앱
-  배포 질문은 partial로 유지하고 관찰된 cluster resource와 Kubernetes workload evidence 누락을 함께
-  표시합니다.
-  Deterministic evidence fast path는 contributor prose를 사용하지 않으므로 shadow answer-planning
-  round를 시작하지 않습니다. 따라서 verification과 terminal delivery는 관련 없는 agent bridge를
+  운영자 요청은 특정 대상 명사가 없어도 공개 웹 검색을 선택합니다. 확신도가 높은 이러한 패턴은
+  T0 빠른 경로입니다. 대상이 되는 개방형, 목록, 비교, 제안, 상태 질문에 T0가 `none`을
+  돌려주면, 검색이 가능한 모델이 `web` / `local` / `none`과 확신도, 사유 코드, 정규화된
+  조회문을 엄격한 JSON으로 돌려줍니다. 확신도가 낮거나 형식이 깨졌거나 분류를 쓸 수 없으면
+  `none`을 유지합니다. 현재 화면, 감사, 인벤토리, 카탈로그, 민감 데이터 경계는 이 의미적 대체
+  경로보다 먼저 적용합니다. `AKS에`처럼 ASCII 리소스 토큰 뒤에 한국어 조사가 붙은 경우와
+  `중지된 db` 같은 데이터베이스 상태 필터를 포함한 결정론적 로컬 인벤토리 의도는, 운영자가 웹
+  검색을 명시적으로 요청하지 않는 한 의미 기반 공개 웹 계획보다 우선합니다. 조정기는 로컬 도구
+  가지만 실행합니다. 범위만 바꾸는 다음 턴은 가장 최근의 사용자 인벤토리 질문만 재사용하고
+  서버 프로바이더 범위만 바꾸며, 타입이 지정된 분류 기준과 출력 형태를 유지하고, 클라이언트
+  도구 근거는 무시하며, 그 최근 턴이 인벤토리가 아니면 미해결 상태로 남습니다. 클러스터
+  인벤토리만 연결된 상태의 AKS 앱 배포 질문은 부분 답변으로 남기고, 관찰된 클러스터
+  리소스와 Kubernetes 워크로드 근거가 없다는 사실을 함께 밝힙니다.
+  결정론적 근거 빠른 경로는 기여 에이전트의 서술문을 쓸 수 없기 때문에 그림자 답변 계획
+  라운드를 시작하지 않습니다. 따라서 검증과 최종 전달은 관련 없는 에이전트 브리지를
   기다리지 않습니다.
-  현재 화면에 명시적으로 빈 projection을 포함한 turn의 facts 또는 records projection이 있으면
-  Bragi는 data question을 해당 화면 범위에 결정론적으로 유지합니다. 이 scope는 behavior, tool,
-  incident, agent, concept 및 web resolver보다 먼저 선택합니다. Specialist delegation, semantic web
-  classification 및 shadow contributor planning은 생략합니다. 요청한 field가 없으면 일반 model
-  knowledge로 채우지 않고 부재를 알립니다.
-  `bragi-screen-t0` renderer는 지원하는 fact, record, latest audit, action summary 및 promotion row
-  질문을 narrator model 호출 없이 답합니다. JSON과 SSE는 동일한 renderer와 verifier를 사용합니다.
-  Incidents route에서 prompt가 단일 selected incident를 title, correlation id 또는 "이 인시던트" 같은
-  표현으로 참조하면 fuzzy recent window 대신 direct correlation-filtered read를 사용합니다. Lifecycle
-  incident id가 없는 projection은 `INC-<correlation>` lookup hint를 파생하지만 server result만
-  evidence로 사용합니다. Coordinator는 해당 turn에서 관련 없는 inventory, agent 또는 public-web
-  branch를 시작하지 않습니다. `query_inventory` 같은 명시적 canonical tool command는 tool authority를
-  유지합니다.
-  Agent를 지정한 turn과 server-owned agent evidence가 있는 turn은 speculative semantic public-web
-  fallback을 건너뜁니다. 명시적 또는 planned web-search request는 selected agent의 response ownership을
-  바꾸지 않고 agent branch와 함께 bounded public-web branch를 추가할 수 있습니다.
-  Semantic classification을 실행하면 progress에 선택된 classifier deployment를 route source로
-  표시합니다. 완료된 reply는 generation model, response owner, contributor, 명시적인 agent-to-Bragi
-  handoff, verification result 및 기록된 모든 evidence reference를 유지합니다. Unverified evidence도
-  숨기지 않고 attention state로 확인할 수 있습니다.
-  Incomplete로 표시된 evidence manifest도 attention 상태를 사용하고 retained source와 declared
-  manifest source 수를 함께 보여주며, 접힌 source summary에 일부 근거임을 표시합니다.
-  Browser는 고정 Pantheon 이름만 delegation attribution으로 허용합니다. Replay 전에 primary,
-  contributor 및 handoff identity는 64자, contributor는 8개, trace reference는 256자, handoff reason은
-  128자로 제한합니다.
-  Cross-process failure는 잘못된 attribution 없이 attention 상태 handoff로 표시합니다. 초기 timeout
-  이후 bounded background probe가 core bridge의 준비를 감지하면 자동으로 복구합니다.
-- **검색:** 대상 turn은 검색 가능한 Azure Responses model candidate로 route됩니다. Provider는
-  multilingual public-search 요청을 bounded English query로 변환합니다. Search provider는 해당 query와
-  domain allowlist만 받고 정제된 evidence snapshot을 반환합니다. Bragi는 source URL과 함께 답변하며
-  검색을 사용할 수 없을 때 대체 내용을 만들어 내지 않습니다. Bragi answer-generation system prompt는
-  search-intent authority가 아닙니다.
-- **대안 탐색:** Classifier가 comparison subject와 2-8개 capability를 식별하고 coordinator는 subject
-  이름을 제외한 capability-based query를 결정론적으로 다시 구성합니다. Alternative search는 medium
-  context를 사용하고 서로 다른 direct product를 최소 3개 요청하여 결정론적 filtering 후 2개를
-  유지할 여유를 확보합니다. 결과에서 self reference,
-  generic vendor homepage, conceptual framework 또는 strategy guide, editorial 또는 blog page, generic
-  documentation index, 동일 product identity의 중복 page를 제외합니다. 서로 다른 product source가
-  2개 미만이면 search를 unavailable로 처리합니다. Bragi는
-  citation으로 확인된 capability overlap만 비교하고 unsupported criterion은 unknown으로 표시하며,
-  functional equivalence 또는 winner를 주장하지 않고 partial comparison임을 밝힙니다.
-- **안전 경계:** 민감한 identifier가 있으면 provider 호출 전에 검색을 차단합니다. Web snippet은
-  계속 untrusted data로 취급되며 execution eligibility를 부여하거나 action의 rule-catalog evidence
-  요구를 충족할 수 없습니다.
-- **회귀 rubric:** 고정된 영어 및 한국어 10개 corpus가 명시적, 구어체, 최신성, 웹 context, local
-  scope 및 no-search intent를 확인합니다. 각 case는 structured route와 provider-call behavior가 모두
-  예상 결과와 일치할 때만 통과합니다. 별도의 live held-out check는 T0 pattern set에 없는 영어,
-  스페인어, 프랑스어 및 일본어 prompt로 semantic classification과 query normalization을 측정합니다.
-  Alternative discovery는 goal, subject, capability, candidate count와 diversity, self exclusion, direct
-  page 및 conceptual-content exclusion에 대한 관측 가능한 relevance check 10개를 추가합니다.
+  현재 화면이 해당 턴에 대한 사실 또는 레코드 출력을 담고 있으면, 그 출력이 명시적으로 비어
+  있더라도 Bragi는 데이터 질문을 그 화면 범위 안에 결정론적으로 둘니다. 이 범위는 행동,
+  도구, 인시던트, 에이전트, 개념, 웹 해석기보다 먼저 선택합니다. 전문 에이전트 위임, 의미
+  기반 웹 분류, 그림자 기여자 계획은 생략합니다. 요청한 항목이 없으면 일반 모델 지식으로
+  채우지 않고 없다고 알립니다.
+  `bragi-screen-t0` 렌더러는 지원하는 사실, 레코드, 최신 감사 기록, 액션 요약, 승격 항목
+  질문을 서술 모델 호출 없이 답합니다. JSON과 SSE는 동일한 렌더러와 검증기를 씁니다.
+  Incidents 경로에서 프롬프트가 선택된 인시던트 하나를 제목이나 상관관계 식별자, 또는
+  "이 인시던트" 같은 표현으로 가리키면, 느슨한 최근 구간 대신 상관관계로 걸러낸 직접 조회를
+  씁니다. 수명 주기 인시던트 식별자가 없는 출력은 `INC-<correlation>` 조회 힌트를 도출하지만
+  근거로 쓰는 것은 서버 결과뿐입니다. 조정기는 그 턴에서 관련 없는 인벤토리, 에이전트,
+  공개 웹 가지를 시작하지 않습니다. `query_inventory` 같은 명시적인 정본 도구 명령은 도구
+  권한을 그대로 유지합니다.
+  에이전트를 지명한 턴과 서버가 소유한 에이전트 근거가 있는 턴은 추측성 의미 기반 공개 웹
+  대체 경로를 건너뜁니다. 명시적이거나 계획된 웹 검색 요청은 선택된 에이전트의 답변 소유권을
+  바꾸지 않은 채로 에이전트 가지 옆에 범위가 제한된 공개 웹 가지를 더할 수 있습니다.
+  의미 기반 분류를 실제로 실행하면 진행 상황에 선택된 분류기 배포를 경로 출처로 표시합니다.
+  완료된 답변은 생성 모델, 답변 소유자, 기여자, 명시적인 에이전트-Bragi 인계, 검증 결과,
+  기록된 모든 근거 참조를 그대로 유지합니다. 검증되지 않은 근거도 숨기지 않고 주의 표시를
+  붙여 확인할 수 있게 둘니다.
+  불완전으로 표시된 근거 목록도 같은 주의 표시를 쓰며, 보관한 출처 수와 선언된 목록의
+  출처 수를 함께 보여주고, 접어둔 출처 요약에 일부 근거임을 표시합니다.
+  브라우저는 고정된 Pantheon 이름만 위임 귀속으로 허용합니다. 재생 전에 주 담당자, 기여자,
+  인계 식별자는 64자, 기여자는 8개, 추적 참조는 256자, 인계 사유는 128자로 제한합니다.
+  프로세스 간 실패는 잘못된 귀속 없이 주의 상태 인계로 표시합니다. 초기 시간 초과 이후에도
+  범위가 제한된 백그라운드 탐색이 핵심 브리지의 준비를 감지하면 자동으로 복구합니다.
+- **수집:** 대상이 되는 턴은 검색이 가능한 Azure Responses 모델 후보로 라우팅됩니다.
+  분류기는 다국어 공개 검색 요청을 범위가 제한된 영어 조회문으로 바꿉니다. 검색 프로바이더는
+  그 조회문과 도메인 허용 목록만 받고 정제된 근거 스냅샷을 돌려줍니다. Bragi는 출처 URL과
+  함께 답하며, 검색을 쓸 수 없을 때 대체 내용을 지어내지 않습니다. Bragi의 답변 생성 시스템
+  프롬프트는 검색 의도에 대한 권한을 갖지 않습니다.
+- **대안 탐색:** 분류기가 비교 대상과 2~8개 기능을 식별하고, 조정기는 대상 이름을 뺀 기능 기반
+  조회문을 결정론적으로 다시 구성합니다. 대안 검색은 중간 크기의 검색 맥락을 쓰고 서로 다른
+  직접적인 제품을 최소 3개 요청해, 결정론적으로 걸러낸 뒤에도 2개를 남길 여유를 확보합니다.
+  결과에서는 자기 참조, 일반 벤더 홈페이지, 개념적인 프레임워크나 전략 가이드, 사설이나
+  블로그 페이지, 일반 문서 색인, 같은 제품의 중복 페이지를 제외합니다. 서로 다른 제품 출처가
+  2개 미만이면 검색을 쓸 수 없는 것으로 처리합니다. Bragi는 인용으로 확인된 기능 공통부분만
+  비교하고 뒷받침하지 못하는 기준은 알 수 없음으로 표시하며, 기능이 동등하다거나 어느 쪽이
+  낙다고 주장하지 않고 부분적인 비교임을 밝힙니다.
+- **안전 경계:** 민감한 식별자가 있으면 프로바이더를 호출하기 전에 수집을 차단합니다. 웹
+  스니펫은 계속 신뢰할 수 없는 데이터로 취급하며, 실행 자격을 주거나 액션에 대한 룰 카탈로그의
+  근거 요구를 충족할 수 없습니다.
+- **회귀 평가 기준:** 고정된 영어 및 한국어 10개 말뭉치가 명시적 요청, 구어체, 최신성, 웹 맥락,
+  로컬 범위, 검색 불필요 의도를 확인합니다. 각 사례는 구조화된 경로와 프로바이더 호출
+  동작이 모두 예상 결과와 일치할 때만 통과합니다. 별도의 실제 실행 검사는 T0 패턴 집합에
+  없는 영어, 스페인어, 프랑스어, 일본어 프롬프트로 의미 기반 분류와 조회문 정규화를
+  측정합니다. 대안 탐색은 목표, 대상, 기능, 후보 수와 다양성, 자기 제외, 직접적인 페이지
+  여부, 개념성 콘텐츠 제외에 대한 관찰 가능한 관련성 검사 10개를 더합니다.
