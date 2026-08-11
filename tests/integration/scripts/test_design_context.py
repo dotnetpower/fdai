@@ -463,6 +463,33 @@ def test_pre_tool_use_allows_focused_cli_checks(command: str) -> None:
     assert module.pre_tool_use(payload) == {"continue": True}
 
 
+def test_pre_tool_use_does_not_parse_quoted_message_as_shell_commands() -> None:
+    module = _load_module()
+    payload = {
+        "tool_name": "run_in_terminal",
+        "tool_input": {
+            "command": (
+                "notify '[FDAI] done' "
+                "'Validation: tests passed; strict mypy 1480 sources; gates green.'"
+            )
+        },
+    }
+
+    assert module.pre_tool_use(payload) == {"continue": True}
+
+
+def test_pre_tool_use_still_denies_chained_unscoped_check() -> None:
+    module = _load_module()
+    payload = {
+        "tool_name": "run_in_terminal",
+        "tool_input": {"command": "echo ready; uv run mypy"},
+    }
+
+    result = module.pre_tool_use(payload)
+
+    assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
 def test_pre_tool_use_denies_only_unscoped_test_tool() -> None:
     module = _load_module()
     broad = {

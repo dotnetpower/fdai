@@ -314,11 +314,20 @@ def _has_focused_path(arguments: list[str]) -> bool:
 
 
 def _is_unscoped_cli_check(command: str) -> bool:
-    for segment in re.split(r"&&|;|\|\|?", command):
-        try:
-            tokens = shlex.split(segment)
-        except ValueError:
-            continue
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        command_tokens = list(lexer)
+    except ValueError:
+        return False
+    segments: list[list[str]] = [[]]
+    for token in command_tokens:
+        if token in {";", "&", "&&", "|", "||"}:
+            segments.append([])
+        else:
+            segments[-1].append(token)
+    for tokens in segments:
         for executable in ("pytest", "mypy"):
             if executable in tokens:
                 arguments = tokens[tokens.index(executable) + 1 :]
