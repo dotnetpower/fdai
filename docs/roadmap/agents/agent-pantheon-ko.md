@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 13ccb8f4e0f80d128bc51f305c53d44b1acb95b6
-translation_revised: 2026-08-11
+translation_source_sha: 97cfa003fb399c90196323a55b20448d8706bc09
+translation_revised: 2026-08-12
 ---
 
 # 에이전트 판테온
@@ -141,6 +141,7 @@ Norns는 inert `RuleCandidate` 제안의 sole 쓰기 담당으로 유지됩니�
 > [`services/core-control-plane/tests/agents/test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py)
 > 는 영어/한국어 문서의 15개 이름, 카탈로그 계층, 소유권을 `PANTHEON_SPECS`와
 > exact 비교하여 CI에서 표류를 감지합니다.
+> 소유 객체 타입은 canonical machine token이므로 두 언어 표에서 번역하지 않습니다.
 
 계층: `1` = 도메인 전문가, `2` = 파이프라인 (sensing / judgment /
 operations / 인터페이스), `3` = 거버넌스 staff.
@@ -150,16 +151,16 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | Odin | Master 플래너 | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
 | Thor | 응답자 | 2 | ActionRun, ActionAttempt | (전달 만; 직접 소유 없음 - §7.1) | no |
 | Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | 판정 생성; 선택적 맥락은 자율성을 낮출 수만 있음; 실행기 역할 없음 | yes (T2 abstain 시만) |
-| Huginn | Event Collector / 실시간 Resource 발견 | 2 | Event, 변경 | ingest_event, normalize_change | no |
-| Heimdall | Observer | 2 | Anomaly, 표류, 예측, ForecastOutcome, RetrievalValidation | detect_anomaly, detect_drift, 예측, close_forecast_outcome, validate_retrieval_failure, notify_admin_privilege_violation | no |
+| Huginn | Event Collector / 실시간 Resource 발견 | 2 | Event, Change | ingest_event, normalize_change | no |
+| Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation | detect_anomaly, detect_drift, 예측, close_forecast_outcome, validate_retrieval_failure, notify_admin_privilege_violation | no |
 | Vidar | 복구 | 2 | Rollback | perform_rollback, dr_failover | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
-| Bragi | Narrator | 2 | 대화, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent | yes (translator 만) |
+| Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent | yes (translator 만) |
 | Saga | Auditor | 3 | AuditEntry, Issue | append_audit (누락 추적 정규화), escalate_to_github_issue | no |
 | Mimir | Rule 담당자 | 3 | Rule, Policy | promote_rule, revoke_rule | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
 | Norns | Learner | 3 | RuleCandidate, PatternObservation | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path 배치 만) |
-| Njord | 비용 | 1 | CostAnomaly, 예산 | propose_cost_action | no |
+| Njord | 비용 | 1 | CostAnomaly, Budget | propose_cost_action | no |
 | Freyr | 용량 | 1 | CapacityForecast, SizingRecommendation | propose_capacity_action | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
 

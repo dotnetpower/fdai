@@ -142,6 +142,7 @@ Norns remains the sole writer of inert `RuleCandidate` proposals. Its three-pers
 > [`services/core-control-plane/tests/agents/test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py)
 > pins all 15 names plus catalog layer and ownership against `PANTHEON_SPECS`
 > in both English and Korean so drift is caught in CI.
+> Ownership object types are canonical machine tokens and remain untranslated in both locale tables.
 
 Layer: `1` = domain specialist, `2` = pipeline (sensing / judgment /
 operations / interface), `3` = governance staff.
