@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 827f1860b556dffa0a238fa67963e5ebdd9aa58c
+translation_source_sha: 8fb3d49875a527f518987572e4bb46570305dbd3
 translation_revised: 2026-08-09
 ---
 # FDAI 온톨로지 안전 인프라
@@ -33,6 +33,17 @@ exact schema pinning, generated SDK surface를 추가합니다. 모든 runtime t
 > 포함됩니다. Production catalog loading은 reviewed `Identifiable` declaration, provenance 및 모든
 > current ObjectType의 explicit binding을 검증합니다. Composition은 polymorphic catalog를 compile합니다.
 > Production ObjectSet query binding과 추가 capability Interface는 delivery work로 남아 있습니다.
+> Bitemporal topology foundation은 provider-generation identity, event/record time, complete snapshot,
+> delta 및 tombstone을 보존합니다. Pure `graph_at`/`topology_diff` function은 late evidence가 도착해도
+> pinned `known_at` replay를 보존하며 incomplete history는 absence를 입증할 수 없습니다. Typed query
+> handler와 verifier schema는 provider text 없이 이 function을 노출합니다. Core-owned migration은
+> insert/read-only runtime grant를 가진 append-only history table을 만듭니다. PostgreSQL reader/writer
+> composition과 inventory-promotion publishing은 남아 있습니다.
+> Metric semantic은 phrase alias 없이 exact reviewed concept id를 provider metric, unit 및 aggregation으로
+> resolve합니다. Equal-duration window는 observed zero와 missing data를 구분합니다. Bounded causal join은
+> complete metric/topology evidence를 요구하고 leakage-safe temporal analyzer를 재사용하며 falsifier와
+> competing explanation을 보존하고 execution authority를 부여하지 않습니다. Production provider
+> binding과 catalog entry는 남아 있습니다.
 > Canonical release는 이제 typed function declaration을 포함합니다. Function registry는 caller
 > agent, role, purpose를 검사하고, 선언된 stochastic function을 위해 replay-stable seed를 파생하며,
 > 정확한 release에 고정된 content-addressed invocation receipt를 emit합니다.

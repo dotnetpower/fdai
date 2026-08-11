@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 
 import pytest
 from fdai.core.ontology_platform import (
+    METRIC_ARGUMENT_SCHEMAS,
+    TOPOLOGY_ARGUMENT_SCHEMAS,
     ObjectPredicate,
     ObjectSelector,
     ObjectSelectorKind,
@@ -193,7 +195,7 @@ def test_extension_kind_requires_and_applies_registered_schema() -> None:
         node_id="metrics",
         kind=QueryNodeKind.METRIC_SERIES,
         arguments_json=canonical_json({"metric": 42}),
-        output_kind="metric.series",
+        output_kind="metric.window",
     )
     plan = _plan(
         (node,),
@@ -214,3 +216,74 @@ def test_extension_kind_requires_and_applies_registered_schema() -> None:
 
     with pytest.raises(ValueError, match="registered schema"):
         verifier.verify(plan, manifest=manifest)
+
+
+def test_verifier_accepts_typed_temporal_metric_causal_dag() -> None:
+    release, manifest = _manifest()
+    nodes = (
+        OntologyQueryNode(
+            node_id="before",
+            kind=QueryNodeKind.TOPOLOGY_AT,
+            arguments_json=canonical_json({"as_of": NOW.isoformat(), "known_at": NOW.isoformat()}),
+            output_kind="topology.graph",
+        ),
+        OntologyQueryNode(
+            node_id="after",
+            kind=QueryNodeKind.TOPOLOGY_AT,
+            arguments_json=canonical_json({"as_of": NOW.isoformat(), "known_at": NOW.isoformat()}),
+            output_kind="topology.graph",
+        ),
+        OntologyQueryNode(
+            node_id="topology-change",
+            kind=QueryNodeKind.TOPOLOGY_DIFF,
+            depends_on=("before", "after"),
+            output_kind="topology.diff",
+        ),
+        OntologyQueryNode(
+            node_id="cause",
+            kind=QueryNodeKind.METRIC_SERIES,
+            arguments_json=canonical_json(
+                {
+                    "concept_id": "network.change",
+                    "resource_id": "resource-a",
+                    "start": NOW.isoformat(),
+                    "end": NOW.isoformat(),
+                }
+            ),
+            output_kind="metric.window",
+        ),
+        OntologyQueryNode(
+            node_id="effect",
+            kind=QueryNodeKind.METRIC_SERIES,
+            arguments_json=canonical_json(
+                {
+                    "concept_id": "storage.write.success",
+                    "resource_id": "resource-a",
+                    "start": NOW.isoformat(),
+                    "end": NOW.isoformat(),
+                }
+            ),
+            output_kind="metric.window",
+        ),
+        OntologyQueryNode(
+            node_id="causal-join",
+            kind=QueryNodeKind.EVIDENCE_JOIN,
+            depends_on=("cause", "effect", "topology-change"),
+            arguments_json=canonical_json(
+                {"feature_cutoff": NOW.isoformat(), "competing_explanations": ["dns"]}
+            ),
+            output_kind="causal.join",
+        ),
+    )
+    plan = _plan(
+        nodes,
+        release_digest=release.digest,
+        manifest_digest=manifest.manifest_digest,
+    )
+    schemas = {**TOPOLOGY_ARGUMENT_SCHEMAS, **METRIC_ARGUMENT_SCHEMAS}
+    verifier = OntologyQueryPlanVerifier(
+        available_kinds=tuple(schemas),
+        extension_argument_schemas=schemas,
+    )
+
+    assert verifier.verify(plan, manifest=manifest) is plan

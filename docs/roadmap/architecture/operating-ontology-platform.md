@@ -31,6 +31,17 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > its provenance, and explicit bindings for every current ObjectType. Composition compiles the
 > polymorphic catalog. Production ObjectSet query binding and additional capability Interfaces
 > remain delivery work.
+> Bitemporal topology foundations retain provider-generation identity, event and record time,
+> complete snapshots, deltas, and tombstones. Pure `graph_at` and `topology_diff` functions preserve
+> pinned `known_at` replay when late evidence arrives, and incomplete history cannot prove absence.
+> Typed query handlers and verifier schemas expose these functions without provider text. A
+> Core-owned migration creates append-only history tables with insert/read-only runtime grants.
+> PostgreSQL reader/writer composition and inventory-promotion publishing remain.
+> Metric semantics resolve exact reviewed concept ids to provider metrics, units, and aggregations
+> without phrase aliases. Equal-duration windows distinguish observed zero from missing data.
+> Bounded causal joins require complete metric and topology evidence, reuse the leakage-safe
+> temporal analyzer, retain falsifiers and competing explanations, and grant no execution authority.
+> Production provider bindings and catalog entries remain.
 > Canonical releases now include typed function declarations. The function registry checks the
 > caller agent, role, and purpose, derives replay-stable seeds for declared stochastic functions,
 > and emits content-addressed invocation receipts pinned to the exact release.

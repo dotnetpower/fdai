@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: a57bf87f45adbe083fc23cf475ce3351305b0e2e
+translation_source_sha: 6e4e2790a149e1230229533845372f9875bb917d
 translation_revised: 2026-08-10
 ---
 
@@ -60,6 +60,14 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > build에서 변경되지 않은 document instance를 digest로 재사용합니다. Coverage와 document root를
 > 독립적으로 다시 계산하며 해당 validation receipt가 bind되기 전에는 activation을 거부합니다. Durable
 > PostgreSQL adapter, scheduled publisher process 및 production descriptor-selector binding은 남아 있습니다.
+> OQ-08에는 이제 retained provider generation, object/link revision 및 tombstone을 위한 append-only
+> bitemporal topology contract와 Core-owned migration, deterministic `graph_at`/`topology_diff`, `known_at`에
+> 따른 late-evidence replay, incomplete-history semantics 및 verifier schema를 가진 typed query handler가
+> 포함됩니다. PostgreSQL reader/writer binding과 inventory-promotion revision publisher는 남아 있습니다.
+> OQ-09에는 phrase alias가 없는 exact reviewed metric-concept registry, authoritative metric window,
+> zero와 missing data를 구분하는 equal-duration comparison, bounded metric-series/evidence-join handler 및
+> competing explanation을 보존하는 topology-aware temporal support/refutation이 포함됩니다. Production
+> metric provider binding과 reviewed catalog data는 남아 있습니다.
 
 ## 설계 개요
 
@@ -92,8 +100,8 @@ plan 검증 이후 authoritative read로만 선택합니다.
 | Relationship | 모든 directed LinkType은 endpoint, cardinality, causal, transitive 및 temporal metadata와 함께 deterministic `<name>.outgoing`/`<name>.incoming` machine query id를 projection합니다. | 이 side를 사용하는 generic plan verifier와 planner binding은 남아 있습니다. |
 | Semantic generation | Concrete service-owned atomic in-memory index와 off-path full/incremental ontology generation publisher가 declaration 및 eligible deployment-local object를 independent validation과 함께 다룹니다. | Durable PostgreSQL adapter, scheduled publisher process 및 production semantic descriptor selector는 남아 있습니다. |
 | Current topology | Azure projection은 resource-group/VNet containment, attachment 및 bounded dependency allowlist를 emit합니다. | Azure adapter가 `peered_with` 또는 `routes_to`를 emit하지 않으며 private endpoint, workload 및 service dependency coverage가 incomplete합니다. |
-| Historical topology | Current graph generation과 immutable decision snapshot이 replay identity를 보존합니다. | Instance graph는 bitemporal이 아니며 일반 `graph_at` 및 `topology_diff` function이 없습니다. |
-| Metric 및 causality | Routed Prometheus, Azure Metrics/KQL provider와 deterministic T1 causal/temporal analysis primitive가 있습니다. | Ontology metric-concept registry가 임의 질문의 measure를 provider로 compile하지 못하며 ad hoc cross-resource temporal join도 없습니다. |
+| Historical topology | Bitemporal append-only revision contract, migration, retained generation ref, tombstone, `graph_at`, `topology_diff`, late-evidence replay 및 typed query handler가 있습니다. | PostgreSQL reader/writer composition과 inventory-promotion publishing은 남아 있습니다. |
+| Metric 및 causality | Exact metric-concept registry, complete/incomplete window, aligned comparison 및 topology-aware temporal support/refutation handler가 있습니다. | Production provider binding과 reviewed metric catalog entry는 남아 있습니다. |
 
 ## Ownership 및 service boundary
 

@@ -32,6 +32,18 @@ from .kinetics import (
     ReconciliationStatus,
     TargetRevision,
 )
+from .metric_semantics import (
+    CausalEvidenceJoin,
+    CausalJoinStatus,
+    MetricAggregation,
+    MetricSemanticDefinition,
+    MetricSemanticRegistry,
+    MetricWindow,
+    MetricWindowComparison,
+    MetricWindowProvider,
+    compare_aligned_windows,
+    join_causal_evidence,
+)
 from .models import (
     InterfaceImplementation,
     ObjectPredicate,
@@ -61,7 +73,17 @@ from .query_handlers import (
     SetOperationNodeHandler,
 )
 from .query_manifest import QueryManifest, build_query_manifest
+from .query_metric_handlers import (
+    METRIC_ARGUMENT_SCHEMAS,
+    EvidenceJoinNodeHandler,
+    MetricSeriesNodeHandler,
+)
 from .query_source_handlers import FunctionNodeHandler, SecuredObjectSetNodeHandler
+from .query_topology_handlers import (
+    TOPOLOGY_ARGUMENT_SCHEMAS,
+    TopologyAtNodeHandler,
+    TopologyDiffNodeHandler,
+)
 from .query_values import QueryRow, QueryTable
 from .query_verification import OntologyQueryPlanVerifier
 from .sdk_codegen import GeneratedOntologySdk, generate_ontology_sdk
@@ -76,6 +98,16 @@ from .semantic_plans import (
     build_semantic_candidate,
     verify_semantic_candidate,
 )
+from .topology_history import (
+    TopologyDiff,
+    TopologyGraphAt,
+    TopologyHistoryReader,
+    TopologyLinkRevision,
+    TopologyObjectRevision,
+    TopologyRevisionBatch,
+    graph_at,
+    topology_diff,
+)
 
 __all__ = [
     "ActionArgumentBinding",
@@ -87,11 +119,14 @@ __all__ = [
     "CompiledInterfaceCatalog",
     "AuthorityClass",
     "CriterionResult",
+    "CausalEvidenceJoin",
+    "CausalJoinStatus",
     "ContextualOntologyFunction",
     "GeneratedOntologySdk",
     "FunctionInvocationContext",
     "FunctionInvocationReceipt",
     "FunctionNodeHandler",
+    "EvidenceJoinNodeHandler",
     "InterfaceImplementation",
     "InterpretationCandidateSource",
     "ObjectPredicate",
@@ -107,6 +142,14 @@ __all__ = [
     "MutationEffect",
     "MutationEffectKind",
     "MutationPlan",
+    "MetricAggregation",
+    "METRIC_ARGUMENT_SCHEMAS",
+    "MetricSemanticDefinition",
+    "MetricSemanticRegistry",
+    "MetricWindow",
+    "MetricWindowComparison",
+    "MetricWindowProvider",
+    "MetricSeriesNodeHandler",
     "OntologyFunction",
     "OntologyFunctionKind",
     "OntologyFunctionRegistry",
@@ -132,6 +175,15 @@ __all__ = [
     "SecuredObjectSetNodeHandler",
     "SetOperationNodeHandler",
     "TargetRevision",
+    "TopologyDiff",
+    "TopologyDiffNodeHandler",
+    "TopologyGraphAt",
+    "TopologyHistoryReader",
+    "TopologyAtNodeHandler",
+    "TOPOLOGY_ARGUMENT_SCHEMAS",
+    "TopologyLinkRevision",
+    "TopologyObjectRevision",
+    "TopologyRevisionBatch",
     "VerifiedInterpretationBasis",
     "VerifiedSemanticPlan",
     "build_mutation_plan",
@@ -141,11 +193,15 @@ __all__ = [
     "build_catalog_ontology_projection",
     "merge_catalog_ontology_projections",
     "compile_interfaces",
+    "compare_aligned_windows",
     "generate_ontology_sdk",
+    "graph_at",
+    "join_causal_evidence",
     "platform_manifest",
     "project_source_records",
     "reconcile_expected_effects",
     "validate_plan_revisions",
     "validate_action_plan_semantics",
+    "topology_diff",
     "verify_semantic_candidate",
 ]

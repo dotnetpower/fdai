@@ -68,6 +68,9 @@
       "scheduled_task",
       "state_kv",
       "t1_pattern_library",
+      "topology_link_revision",
+      "topology_object_revision",
+      "topology_revision_batch",
       "t2_cache",
       "t2_cache_default"
     ],
@@ -182,6 +185,9 @@
       "schedule_dispatch_run",
       "scheduled_task",
       "t1_pattern_library",
+      "topology_link_revision",
+      "topology_object_revision",
+      "topology_revision_batch",
       "t2_cache",
       "t2_cache_default"
     ],

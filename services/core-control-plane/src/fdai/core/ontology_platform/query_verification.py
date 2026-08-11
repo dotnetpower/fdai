@@ -155,12 +155,41 @@ class OntologyQueryPlanVerifier:
         if node.kind is QueryNodeKind.FUNCTION:
             self._verify_function(node, arguments=arguments, descriptors=descriptors)
             return
+        self._verify_temporal_dependencies(node, nodes_by_id=nodes_by_id)
         schema = self._extension_schemas.get(node.kind)
         if schema is None:
             raise ValueError(f"query node kind {node.kind.value!r} has no verifier schema")
         errors = list(Draft202012Validator(dict(schema)).iter_errors(arguments))
         if errors:
             raise ValueError("query extension arguments violate their registered schema")
+
+    @staticmethod
+    def _verify_temporal_dependencies(
+        node: OntologyQueryNode,
+        *,
+        nodes_by_id: Mapping[str, OntologyQueryNode],
+    ) -> None:
+        if node.kind is QueryNodeKind.TOPOLOGY_AT:
+            if node.depends_on or node.output_kind != "topology.graph":
+                raise ValueError("topology_at MUST be a topology.graph source")
+        elif node.kind is QueryNodeKind.TOPOLOGY_DIFF:
+            if len(node.depends_on) != 2 or node.output_kind != "topology.diff":
+                raise ValueError("topology_diff MUST join two topology.graph nodes")
+            if any(nodes_by_id[item].output_kind != "topology.graph" for item in node.depends_on):
+                raise ValueError("topology_diff dependencies MUST output topology.graph")
+        elif node.kind is QueryNodeKind.METRIC_SERIES:
+            if node.depends_on or node.output_kind != "metric.window":
+                raise ValueError("metric_series MUST be a metric.window source")
+        elif node.kind is QueryNodeKind.EVIDENCE_JOIN:
+            if len(node.depends_on) not in {2, 3} or node.output_kind != "causal.join":
+                raise ValueError("evidence_join MUST join two metrics and optional topology")
+            first, second, *remaining = node.depends_on
+            if nodes_by_id[first].output_kind != "metric.window":
+                raise ValueError("evidence_join cause MUST output metric.window")
+            if nodes_by_id[second].output_kind != "metric.window":
+                raise ValueError("evidence_join effect MUST output metric.window")
+            if remaining and nodes_by_id[remaining[0]].output_kind != "topology.diff":
+                raise ValueError("evidence_join third dependency MUST output topology.diff")
 
     def _verify_object_set(
         self,

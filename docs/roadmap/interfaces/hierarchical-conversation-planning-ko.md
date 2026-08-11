@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 8b9bcd97e8748c9abcdcd3aace73302e5f80bb24
+translation_source_sha: 9cdfd1e42faf14dac0305a0a458ccfc872433787
 translation_revised: 2026-08-10
 ---
 
@@ -335,8 +335,8 @@ Compatibility 기간은 일시적입니다. Migration은 하나의 graph contrac
 | Interface | Production loading은 모든 current ObjectType에 대해 reviewed `Identifiable` Interface를 검증하고 compile하며 ObjectSet contract에는 interface selector가 있습니다. | 추가 capability Interface와 production polymorphic ObjectSet query binding은 아직 연결되지 않았습니다. |
 | Relationship side | 모든 directed LinkType이 deterministic outgoing/incoming endpoint-side query id를 제공하며 store는 typed direction을 보존합니다. | Generic verifier와 natural-language planner는 아직 이 side를 사용하지 않습니다. |
 | Semantic generation | Rule retrieval은 complete generation과 candidate-only ranking을 제공합니다. | Declaration 및 runtime object coverage는 전체 ontology로 확장되지 않았습니다. |
-| Historical graph | Current-state inventory projection과 immutable decision snapshot이 있습니다. | 보존된 provider history를 대상으로 한 일반 `graph_at` 및 topology-diff query는 제공되지 않습니다. |
-| Network 및 causal function | Bounded foundation이 있습니다. | Production receipt issuer, complete Azure topology projection 및 cross-resource temporal join은 incomplete합니다. |
+| Historical graph | Append-only bitemporal revision contract, tombstone, late-evidence replay, `graph_at`, `topology_diff` 및 typed handler가 있습니다. | PostgreSQL reader/writer composition과 inventory-promotion publishing은 남아 있습니다. |
+| Network 및 causal function | Current network projection, exact metric concept, aligned window 및 topology-aware temporal support/refutation foundation이 있습니다. | Production receipt issuer, provider metric binding 및 남은 Azure route/workload relationship은 incomplete합니다. |
 
 ## 검증
 

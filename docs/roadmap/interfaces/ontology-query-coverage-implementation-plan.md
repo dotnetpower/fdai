@@ -59,6 +59,16 @@ units for 100% structural query coverage.
 > unchanged document instances by digest on incremental builds, independently recomputes coverage
 > and document roots, and refuses activation until that validation receipt is bound. The durable
 > PostgreSQL adapter, scheduled publisher process, and production descriptor-selector binding remain.
+> OQ-08 now includes append-only bitemporal topology contracts, a Core-owned migration for retained
+> provider generations, object/link revisions and tombstones, deterministic `graph_at` and
+> `topology_diff`, late-evidence replay by `known_at`, incomplete-history semantics, and typed query
+> handlers with verifier schemas. The PostgreSQL reader/writer binding and inventory-promotion
+> revision publisher remain.
+> OQ-09 now includes an exact reviewed metric-concept registry without phrase aliases, authoritative
+> metric windows, equal-duration comparison that distinguishes zero from missing data, bounded
+> metric-series and evidence-join handlers, and topology-aware temporal support/refutation that
+> retains competing explanations. Production metric provider bindings and reviewed catalog data
+> remain.
 
 ## Design at a glance
 
@@ -91,8 +101,8 @@ objects are selected only by authoritative reads after plan verification.
 | Relationships | Every directed LinkType projects deterministic `<name>.outgoing` and `<name>.incoming` machine query ids with endpoint, cardinality, causal, transitive, and temporal metadata. | The generic plan verifier and planner binding that consume these sides remain. |
 | Semantic generations | A concrete service-owned atomic in-memory index and off-path full/incremental ontology generation publisher cover declarations and eligible deployment-local objects with independent validation. | The durable PostgreSQL adapter, scheduled publisher process, and production semantic descriptor selector remain. |
 | Current topology | Azure projection emits resource-group and VNet containment, attachment, and a bounded dependency allowlist. | Azure adapters do not emit `peered_with` or `routes_to`; private endpoint, workload, and service dependency coverage is incomplete. |
-| Historical topology | Current graph generations and immutable decision snapshots preserve replay identity. | The instance graph is not bitemporal; general `graph_at` and `topology_diff` functions do not exist. |
-| Metrics and causality | Routed Prometheus, Azure Metrics, and KQL providers plus deterministic T1 causal and temporal-analysis primitives exist. | No ontology metric-concept registry compiles arbitrary question measures to providers; ad hoc cross-resource temporal joins are not available. |
+| Historical topology | Bitemporal append-only revision contracts, migration, retained generation refs, tombstones, `graph_at`, `topology_diff`, late-evidence replay, and typed query handlers exist. | PostgreSQL reader/writer composition and inventory-promotion publishing remain. |
+| Metrics and causality | An exact metric-concept registry, complete/incomplete windows, aligned comparison, and topology-aware temporal support/refutation handlers exist. | Production provider bindings and reviewed metric catalog entries remain. |
 
 ## Ownership and service boundaries
 

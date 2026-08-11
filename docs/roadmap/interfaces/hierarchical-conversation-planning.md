@@ -339,8 +339,8 @@ The compatibility period is temporary. Migration ends with one graph contract an
 | Interfaces | Production loading validates and compiles the reviewed `Identifiable` Interface for all current ObjectTypes, and Interface selectors exist in the ObjectSet contract. | Additional capability Interfaces and production polymorphic ObjectSet query binding remain unwired. |
 | Relationship sides | Every directed LinkType exposes deterministic outgoing and incoming endpoint-side query ids while stores preserve typed direction. | The generic verifier and natural-language planner do not yet consume those sides. |
 | Semantic generations | Rule retrieval has complete generations and candidate-only ranking | Declaration and runtime-object coverage has not yet expanded to the full ontology. |
-| Historical graph | Current-state inventory projection and immutable decision snapshots exist | General `graph_at` and topology-diff queries over retained provider history are not available. |
-| Network and causal functions | Bounded foundations exist | Production receipt issuers, complete Azure topology projection, and cross-resource temporal joins remain incomplete. |
+| Historical graph | Append-only bitemporal revision contracts, tombstones, late-evidence replay, `graph_at`, `topology_diff`, and typed handlers exist. | PostgreSQL reader/writer composition and inventory-promotion publishing remain. |
+| Network and causal functions | Current network projection, exact metric concepts, aligned windows, and topology-aware temporal support/refutation foundations exist. | Production receipt issuers, provider metric bindings, and remaining Azure route/workload relationships remain incomplete. |
 
 ## Verification
 

@@ -65,6 +65,9 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "document_worker_effect",
         "document_worker_outbox",
         "executor_receipt_outbox",
+        "topology_link_revision",
+        "topology_object_revision",
+        "topology_revision_batch",
     }
     assert set(manifest.table_writers) | transition_tables == set(manifest.table_migrators)
     assert not set(manifest.table_writers) & transition_tables
@@ -948,7 +951,7 @@ def test_schema_contract_rejects_stale_legacy_revision(tmp_path: Path) -> None:
         )
 
 
-def test_core_runtime_role_grants_only_core_owned_tables() -> None:
+def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> None:
     inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
     ownership = ownership_module.load_ownership_manifest(
         MIGRATION_ROOT / "ownership.json",
@@ -958,11 +961,16 @@ def test_core_runtime_role_grants_only_core_owned_tables() -> None:
         MIGRATION_ROOT / "branches/core-control-plane/versions/20260809_core_runtime_role.py"
     )
     role_migration = inventory_module.load_revision_metadata(role_path)
+    topology_path = (
+        MIGRATION_ROOT / "branches/core-control-plane/versions/20260810_core_topology_history.py"
+    )
+    topology_migration = inventory_module.load_revision_metadata(topology_path)
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
     }
-    assert set(role_migration.owned_tables) == expected_tables
+    granted_tables = set(role_migration.owned_tables) | set(topology_migration.owned_tables)
+    assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")
     assert "CREATE ROLE fdai_core" in source
     assert "ON ALL TABLES" not in source
