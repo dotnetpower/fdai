@@ -201,17 +201,11 @@ fdai/
 └── .github/                   # instructions/ and workflows/ (CI: lint, secret-scan, coverage)
 ```
 
-Runtime bootstrap keeps provider construction bounded by delegating semantic-turn readiness to
-`bootstrap_lifecycle.py` and vertical workload identities to `bootstrap_bindings.py`. Its thin
-wrapper retains the injectable identity-builder boundary used by tests and forks.
+Runtime bootstrap delegates semantic-turn readiness to `bootstrap_lifecycle.py` and vertical workload identities to `bootstrap_bindings.py`, preserving bounded provider construction and the injectable identity-builder boundary used by tests and forks.
 
-> Directory names are the canonical vocabulary. Keep module names aligned with the domain
-> terms in [language.instructions.md](../../../.github/instructions/language.instructions.md)
-> (`trust-router`, `deterministic-engine`, `rule-catalog`, `risk-gate`, `remediation-pr`,
-> `shadow-mode`, `HIL`). Python identifier rules require `snake_case` on disk
-> (`event_ingest`, `trust_router`, `rule_catalog`); the kebab-case names above are the
-> **logical vocabulary** used in docs, rule ids, config keys, and audit records. Each service and
-> shared package owns its tests; only cross-service and repository checks remain in `tests/integration/`.
+> Directory names follow the canonical vocabulary in [language.instructions.md](../../../.github/instructions/language.instructions.md):
+> `trust-router`, `deterministic-engine`, `rule-catalog`, `risk-gate`, `remediation-pr`, `shadow-mode`, and `HIL`.
+> Disk identifiers use `snake_case`; each package owns its tests, while cross-service and repository checks remain in `tests/integration/`.
 
 ## Module Boundaries
 
@@ -233,17 +227,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
 - **delivery is swappable**: `gitops-pr` and `chatops` are adapters behind one interface, so
   the executor emits an abstract action and the adapter renders it (remediation-pr, Adaptive
   Card). The executor holds the only privileged identity; adapters never share it.
-- **console has no privileged identity**: it visualizes state, audit, shadow results, and the HIL queue. Assigned-principal access comes directly from verified App Roles and does not depend
-  on the optional access-request projection. Command surfaces may submit authenticated records or
-  typed proposals to the read API, and a dev-only service adapter may narrate with Azure CLI auth;
-  neither path can call a resource executor directly. Risk, approval, audit, and executor boundaries
-  remain server-side (see [security-and-identity.md](security-and-identity.md)).
-  The independent Operator Service binds semantic projection, proposal, and stream ports through
-  one semantic-aware adapter when transport is active. Its PostgreSQL outbox uses the database
-  `NOW()` value for claim eligibility and lease deadlines. Held projection identity combines the
-  request identity with the canonical terminal-result digest, and durable result keys combine the
-  request and projection identities. Existing-result reuse validates request, principal, and digest
-  in the same transaction before completing the outbox row.
+- **console has no privileged identity**: it visualizes state, audit, shadow results, and the HIL queue. Access comes from verified App Roles, independent of the optional access projection.
+  Command surfaces may submit authenticated records or typed proposals, but neither they nor the dev narrator can call an executor; risk, approval, audit, and execution remain server-side
+  ([security-and-identity.md](security-and-identity.md)). With transport active, one semantic-aware adapter binds projection, proposal, and stream ports.
+  Its outbox uses database `NOW()` deadlines, while transactional result reuse validates the request, principal, and terminal-result digest.
   Repository Best Practice definitions are loaded once at the composition root and exposed through
   GET-only list and detail routes. They remain catalog reference data; the projection reports
   `Unknown` and `not-connected` until a runtime evidence provider is explicitly bound.
