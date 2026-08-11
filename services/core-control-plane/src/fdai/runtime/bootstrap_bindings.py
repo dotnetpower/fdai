@@ -4,11 +4,22 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from typing import Protocol
 
 import httpx
 
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.workload_identity import WorkloadIdentity
+
+
+class WorkloadIdentityBuilder(Protocol):
+    def __call__(
+        self,
+        http_client: httpx.AsyncClient,
+        *,
+        client_id_env: str,
+        require_client_id: bool,
+    ) -> WorkloadIdentity: ...
 
 
 def operational_event_bus(primary: EventBus, auxiliary: EventBus | None) -> EventBus:
@@ -45,6 +56,7 @@ def build_vertical_execution_identities(
     http_client: httpx.AsyncClient | None,
     *,
     identity_environment: Mapping[str, str],
+    identity_builder: WorkloadIdentityBuilder = build_runtime_workload_identity,
 ) -> dict[str, WorkloadIdentity]:
     """Build only configured vertical identities through the shared workload-identity seam."""
     configured = {
@@ -57,7 +69,7 @@ def build_vertical_execution_identities(
     if http_client is None:
         raise RuntimeError("vertical execution identities require an HTTP client")
     return {
-        identity_ref: build_runtime_workload_identity(
+        identity_ref: identity_builder(
             http_client,
             client_id_env=env_var,
             require_client_id=True,

@@ -202,7 +202,8 @@ fdai/
 ```
 
 Runtime bootstrap keeps provider construction bounded by delegating semantic-turn readiness to
-`bootstrap_lifecycle.py` and vertical workload identities to `bootstrap_bindings.py`.
+`bootstrap_lifecycle.py` and vertical workload identities to `bootstrap_bindings.py`. Its thin
+wrapper retains the injectable identity-builder boundary used by tests and forks.
 
 > Directory names are the canonical vocabulary. Keep module names aligned with the domain
 > terms in [language.instructions.md](../../../.github/instructions/language.instructions.md)

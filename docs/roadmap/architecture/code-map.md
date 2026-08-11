@@ -77,7 +77,7 @@ readiness. Only externally produced `cross_service_e2e` or `live_assurance` ques
 set `production_ready`; a committed `deterministic_fixture` keeps it false.
 Runtime bootstrap delegates semantic readiness and vertical workload-identity construction to its
 existing lifecycle and binding helpers, keeping the primary composition root below the reviewed
-fanout ceiling.
+fanout ceiling. A thin bootstrap wrapper preserves the injected identity-builder test and fork seam.
 
 ## Independent service map
 

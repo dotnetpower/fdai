@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b424de9a9d18dcf8eadab6688b994b1cc01412d6
+translation_source_sha: f8680785216fc73f225c28610974089943f44904
 translation_revised: 2026-08-11
 ---
 
@@ -207,7 +207,8 @@ fdai/
 ```
 
 Runtime bootstrap은 semantic-turn readiness를 `bootstrap_lifecycle.py`에, vertical workload identity를
-`bootstrap_bindings.py`에 위임하여 provider construction을 bounded하게 유지합니다.
+`bootstrap_bindings.py`에 위임하여 provider construction을 bounded하게 유지합니다. Thin wrapper는 test와
+fork가 사용하는 injectable identity-builder boundary를 보존합니다.
 
 > 디렉토리 이름은 정본 어휘(canonical vocabulary)입니다. 모듈 이름은
 > [language.instructions.md](../../../.github/instructions/language.instructions.md) 의 도메인

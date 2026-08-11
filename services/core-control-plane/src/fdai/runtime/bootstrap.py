@@ -57,7 +57,7 @@ from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
 )
 from fdai.runtime.bootstrap_bindings import (
-    build_vertical_execution_identities as _build_vertical_execution_identities,
+    build_vertical_execution_identities as _build_vertical_execution_identities_impl,
 )
 from fdai.runtime.bootstrap_bindings import (
     case_history_identity_client_id as _case_history_identity_client_id,
@@ -180,6 +180,18 @@ def _schedule_semantic_turn_consumer(
             lambda: binding.run(bus=bus, stop=stop),
         ),
         name="semantic-turn-consumer",
+    )
+
+
+def _build_vertical_execution_identities(
+    *,
+    http_client: httpx.AsyncClient | None,
+) -> dict[str, Any]:
+    """Preserve the bootstrap test seam while delegating provider construction."""
+    return _build_vertical_execution_identities_impl(
+        http_client,
+        identity_environment=_VERTICAL_IDENTITY_ENV,
+        identity_builder=_build_runtime_workload_identity,
     )
 
 
@@ -439,8 +451,7 @@ async def _run() -> int:
                 symptom_index=runtime_symptom_index,
                 identity=identity,
                 execution_identities=_build_vertical_execution_identities(
-                    http_client,
-                    identity_environment=_VERTICAL_IDENTITY_ENV,
+                    http_client=http_client,
                 ),
                 direct_api_execution_port=isolated_executor_client,
                 response_outcome_sink=_relay_response_outcome,

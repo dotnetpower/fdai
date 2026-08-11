@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: f88b7d3f9c1072d15747d4dab94a465dee82126d
+translation_source_sha: 4444bc1f8c224bafe21202ea9dbb4848e2b9bbc0
 translation_revised: 2026-08-11
 ---
 # 코드 맵
@@ -78,7 +78,8 @@ Continuous coverage receipt는 deterministic fixture structural validation과 pr
 분리합니다. 외부에서 생성된 `cross_service_e2e` 또는 `live_assurance` question receipt만
 `production_ready`를 설정할 수 있으며 committed `deterministic_fixture`는 false로 유지합니다.
 Runtime bootstrap은 semantic readiness와 vertical workload-identity construction을 기존 lifecycle 및
-binding helper에 위임하여 primary composition root를 reviewed fanout ceiling 아래로 유지합니다.
+binding helper에 위임하여 primary composition root를 reviewed fanout ceiling 아래로 유지합니다. Thin
+bootstrap wrapper는 injected identity-builder test 및 fork seam을 보존합니다.
 
 ## 독립 service map
 
