@@ -132,17 +132,17 @@ judgment, 권한 확인, 실행, 독립적인 효과 검증을 완료할 때까�
 
 ```mermaid
 flowchart LR
- S[Authority sources] --> PB[ProjectionBinding]
- PB --> G[Observed object graph]
- G --> Q[ObjectSet query]
- Q --> D[Decision context]
- D --> MP[MutationPlan]
- MP --> R[Risk and approval]
- R --> A[ActionRun]
- A --> X[Provider, Git, ledger, or FDAI store]
- X --> RC[ReconciliationReceipt]
- RC --> G
- RC --> O[ObservedOutcome]
+    S[Authority sources] --> PB[ProjectionBinding]
+    PB --> G[Observed object graph]
+    G --> Q[ObjectSet query]
+    Q --> D[Decision context]
+    D --> MP[MutationPlan]
+    MP --> R[Risk and approval]
+    R --> A[ActionRun]
+    A --> X[Provider, Git, ledger, or FDAI store]
+    X --> RC[ReconciliationReceipt]
+    RC --> G
+    RC --> O[ObservedOutcome]
 ```
 
 ## 정확한 타입 신원
@@ -152,9 +152,9 @@ flowchart LR
 
 ```yaml
 type_ref:
- name: Resource
- version: 2.1.0
- catalog_digest: sha256:<digest>
+  name: Resource
+  version: 2.1.0
+  catalog_digest: sha256:<digest>
 ```
 
 `Action`, `ActionRun`, 온톨로지 객체, 온톨로지 링크, 감사 기록, 생성된 계획은 exact 참조를
@@ -240,15 +240,15 @@ Property 조건식은 `equals`, `not_equals`, `in`, `exists`, `absent`, `at_leas
 
 - **대상:** Exact ObjectType 또는 InterfaceType 참조와 one-or-set cardinality입니다.
 - **매개변수:** 검증 및 민감정보 제거 메타데이터가 있는 기본 요소, enum, struct, object-reference
- 또는 object-set 입력입니다.
+  또는 object-set 입력입니다.
 - **읽기 집합:** 액션 계획 및 검증에 필요한 객체 집합과 속성입니다.
 - **제출 criteria:** 결정론적 criterion 또는 `validate` 함수 참조입니다.
 - **플래너:** Declarative 효과 룰 또는 하나의 signed `plan` 함수입니다.
 - **효과:** 예상 내부 쓰기, 카탈로그 pull 요청, 프로바이더 명령, 알림 또는
- 예약입니다.
+  예약입니다.
 - **Postcondition:** 액션 결과를 종료하는 독립적인 관측입니다.
 - **트랜잭션 정책:** 내부 atomicity 또는 외부 saga 의미, 잠금 범위, 최대
- affected 객체 개수입니다.
+  affected 객체 개수입니다.
 
 계획 수립은 변경할 수 없는 `MutationPlan`을 만듭니다. Exact 대상 개정 번호, computed 쓰기 집합, 명령,
 영향 근거, 롤백 또는 보상 단계, 예상 효과, 다이제스트를 포함합니다. Approval과

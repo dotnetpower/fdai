@@ -177,20 +177,20 @@ authority-bearing 결정 경로를 변경하지 않습니다.
 
 ```mermaid
 flowchart LR
- BC[BusinessCapability] -->|delivered_by| BS[BusinessService]
- BS -->|implemented_by| W[Workload]
- W -->|runs_on| R[Resource]
- W -->|depends_on| W2[Workload]
- BS -->|governed_by| O[Operational objectives]
- S[Signal] -->|observes| R
- F[Forecast] -->|predicts_breach_of| O
- C[Change] -->|affects| W
- D[DecisionCase] -->|protects| O
- D -->|considers| AO[ActionOption]
- AO -->|expects| EE[ExpectedEffect]
- AO -->|executed_as| AR[ActionRun]
- AR -->|resulted_in| OO[ObservedOutcome]
- OO -->|learned_as| P[Pattern]
+    BC[BusinessCapability] -->|delivered_by| BS[BusinessService]
+    BS -->|implemented_by| W[Workload]
+    W -->|runs_on| R[Resource]
+    W -->|depends_on| W2[Workload]
+    BS -->|governed_by| O[Operational objectives]
+    S[Signal] -->|observes| R
+    F[Forecast] -->|predicts_breach_of| O
+    C[Change] -->|affects| W
+    D[DecisionCase] -->|protects| O
+    D -->|considers| AO[ActionOption]
+    AO -->|expects| EE[ExpectedEffect]
+    AO -->|executed_as| AR[ActionRun]
+    AR -->|resulted_in| OO[ObservedOutcome]
+    OO -->|learned_as| P[Pattern]
 ```
 
 ## 도메인 관점
@@ -293,7 +293,7 @@ Saga, 재생 소비자가 같은 사실을 참조하게 하는 변경할 수 없
 | `observation_targets_resource` | 관측 -> Resource | 범위가 제한된 텔레메트리 검증에 사용하는 물리 measured-evidence 대상입니다. |
 | `affects` | 변경/인시던트/실험 -> 서비스/워크로드/Resource | 에피소드가 영향을 주는 범위입니다. |
 | `predicts_breach_of` | 예측 -> 목표 | 선언된 horizon 안에서 위험한 목표입니다. |
-| `considers` | DecisionCase -> ActionOption | 함께 평가한 범위가 제한된 alternative입니다. |
+| `considers` | DecisionCase -> ActionOption | 함께 평가한 범위가 제한된 대안입니다. |
 | `protects` | DecisionCase/ActionOption -> 목표 | 결정이 보존하려는 목표입니다. |
 | `expects` | ActionOption -> ExpectedEffect | 실행 전 predicted 효과입니다. |
 | `executed_as` | ActionOption -> ActionRun | 선택된 옵션의 통제된 실행입니다. |
@@ -326,18 +326,18 @@ FDAI가 기록한 시간을 모두 포함합니다.
 
 - **고정된 신원:** 서비스 및 워크로드 id는 리소스 replacement와 배포를 지나도 유지됩니다.
 - **Effective 시간:** 목표, 소유권, 예산, 제약은 `effective_from`과 선택적인
- `effective_to`를 포함합니다.
+  `effective_to`를 포함합니다.
 - **Event 시간:** 관측, 변경, 예측, 인시던트, 결과는 출처 시간과 근거 기준 시점을 포함합니다.
 - **기록된 시간:** 모든 변환 결과는 FDAI가 수락한 시간과 출처 개정 번호를 기록합니다.
 - **변경할 수 없는 결정 맥락:** 늦게 도착한 사실은 과거 결정이 사용한 맥락을 다시 쓰지
- 않습니다. 결정 맥락은 내용 기반 주소를 가진이며 자신의 기준 시점에 pin되므로, 이후 관측은
- 기록된 맥락을 수정하지 않고 새 맥락을 만듭니다.
+  않습니다. 결정 맥락은 내용 기반 주소를 가진이며 자신의 기준 시점에 pin되므로, 이후 관측은
+  기록된 맥락을 수정하지 않고 새 맥락을 만듭니다.
 - **Current-state 인스턴스 저장소:** 인스턴스 그래프는 subgraph별 단일 쓰기 담당 아래에서 현재 관찰된
- 상태를 보관합니다. Bitemporal 저장소가 아닙니다. 갱신은 이전 속성 값을 대체하고, 사라진
- 객체는 소유 변환 결과가 삭제합니다. 과거 인스턴스 값은 인스턴스 그래프가 아니라 그것을 만든
- 권위 있는 출처 세대에 남습니다.
+  상태를 보관합니다. Bitemporal 저장소가 아닙니다. 갱신은 이전 속성 값을 대체하고, 사라진
+  객체는 소유 변환 결과가 삭제합니다. 과거 인스턴스 값은 인스턴스 그래프가 아니라 그것을 만든
+  권위 있는 출처 세대에 남습니다.
 - **최신성:** 모든 결정 맥락은 출처별 최신성을 기록합니다. 하나의 fresh 출처가
- 오래된 목표, 토폴로지 간선, 비용 관측을 숨길 수 없습니다.
+  오래된 목표, 토폴로지 간선, 비용 관측을 숨길 수 없습니다.
 
 Decision-relevant 상태 사실은 권한이 분리된 `observed`, `derived`, `desired`, `execution`의 네
 레인에서 하나의 변경할 수 없는 메타데이터 형태를 사용합니다. 메타데이터는 권한 등급, 출처 신원과
@@ -455,8 +455,8 @@ clock-skew allowance의 합을 넘는 경우에도 상한을 낮춥니다.
 레인은 검증된 출처 증적을 독립적으로 보존합니다.
 
 - **온톨로지 근거:** Operational 그래프에서 가져온 secured 타입이 지정된 사실과 closed, acyclic
- 결정론적 경로입니다. Secured ObjectSet 스냅샷 증적이 권장 입력이며, 모든 중첩된 링크의
- 검증, 최신성, 완전성, 충돌 및 synthetic 상태를 검사합니다.
+  결정론적 경로입니다. Secured ObjectSet 스냅샷 증적이 권장 입력이며, 모든 중첩된 링크의
+  검증, 최신성, 완전성, 충돌 및 synthetic 상태를 검사합니다.
 - **상태 근거:** 원래의 관찰된, derived, desired 또는 실행 `StateFactMetadata`입니다.
 - **카탈로그 근거:** 검토된 catalog-as-code의 exact 룰 또는 카탈로그 참조입니다.
 - **문서 근거:** Instruction 권한 없이 신뢰할 수 없는 데이터로 저장되는 통제된 excerpt입니다.
@@ -545,7 +545,7 @@ ActionType, risk, 승인, Thor 실행, Heimdall 검증, Vidar 복구 경계에 �
 ### 결과 learning 루프
 
 Huginn은 범위가 제한된 `case_history.operational_case.v1` 이벤트를 정규화합니다. Muninn은 O1
-case-history materializer를 요구하고 strict 입력을 seal한 뒤 실패 지문별 변경할 수 없는 사례를
+case-history materializer를 요구하고 strict 입력을 봉인한 뒤 실패 지문별 변경할 수 없는 사례를
 최대 100개 영속하게 보존하여 `operational_case_fingerprint_cohort` 맥락을 publish합니다.
 Norns는 하나의 실패 지문과 ActionType, 최소 하나의 검증된 reusable 성공, 최소 하나의
 실패, 거절, no-op, 롤백 또는 recurrence 컨트롤을 요구한 뒤 기존 합의 및 비율 한도
@@ -561,9 +561,9 @@ Norns는 하나의 실패 지문과 ActionType, 최소 하나의 검증된 reusa
 1. **Operating kernel:** 모든 배포가 공유하는 업스트림 ObjectType 및 LinkType입니다.
 2. **버티컬 묶음:** 업스트림 reliability, 아키텍처 검토, cost-governance 프로파일입니다.
 3. **포크 확장:** Kernel을 따르는 검토된 industry 또는 organization-specific 타입, 링크,
- 목표, 어댑터입니다.
+   목표, 어댑터입니다.
 4. **배포 인스턴스:** 업스트림 출처 컨트롤 외부에 유지하는 customer 서비스 대응,
- 목표, 예산, 소유자, 리소스, 근거입니다.
+   목표, 예산, 소유자, 리소스, 근거입니다.
 
 확장은 meaning을 추가할 수 있지만 kernel 신원을 다시 정의하거나 cardinality를 약화하거나
 owning 에이전트를 교체하거나 자율성을 높일 수 없습니다. 알 수 없음 관찰된 타입은 self-register하지 않고
@@ -580,13 +580,13 @@ deprecation 구간, 재생 테스트를 사용합니다.
 3. 어떤 활성 변경 또는 실험이 현재 서비스 성능 저하를 설명할 수 있습니까?
 4. 비용 묶음 안에서 reliability 및 복구 목표를 보존하는 응답 옵션은 무엇입니까?
 5. FDAI가 아무 액션도 취하지 않으면 어떻게 됩니까?
-6. Odin이 한 목표를 선호한 이유와 alternative와의 차이는 얼마입니까?
+6. Odin이 한 목표를 선호한 이유와 대안와의 차이는 얼마입니까?
 7. 선택한 액션이 가드 메트릭 회귀 없이 예상 효과를 냈습니까?
 8. 현재 토폴로지, 목표, 정책 버전에서 이전 사례를 계속 재사용할 수 있습니까?
 9. 두 리소스를 연결하는 evidence-backed 네트워크 구간은 무엇이며 어느 구간이 stale,
- 검증되지 않은, 누락된, cyclic 또는 조회 한계 밖에 있습니까?
+   검증되지 않은, 누락된, cyclic 또는 조회 한계 밖에 있습니까?
 10. 누락 샘플에서 상태를 추론하지 않으면서 Pod의 서비스, Endpoints 및 관측 근거
- 경로가 완전한하고 현재한지 확인할 수 있습니까?
+  경로가 완전한하고 현재한지 확인할 수 있습니까?
 
 각 질문은 긍정, 부정, stale, conflicting, 알 수 없음 사례를 가진 versioned 조회 고정본이 됩니다.
 새 타입 또는 링크는 실패하는 고정본으로 필요성을 입증한 후 회귀로 유지합니다.

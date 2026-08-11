@@ -12,13 +12,13 @@ translation_revised: 2026-08-11
 
 - **자동화 테스트 truth**: pytest와 committed mock은 결정론적 가짜를 사용할 수 있습니다. 명시적 test-fixture 빌더를 사용하며 Azure 관측 상태로 표현하지 않습니다.
 - **Full-stack 로컬 truth**: `Console Web: Full Stack`은 배포와 같은 App 역할 검사를 적용하는 브라우저 Entra sign-in을 사용합니다. 서버의 Azure CLI 세션은 Azure 개발
- 데이터 평면 프로바이더 자격 증명만 제공합니다. 인벤토리, 모델 가용성, 에이전트 활동,
- 프로세스 상태, 승격 근거, 감사 데이터는 권위 있는 프로바이더에서만 표시합니다.
- 출처가 없으면 사용 불가 또는 명시적 빈으로 표시하며 생성 예제로 대체하지 않습니다.
+  데이터 평면 프로바이더 자격 증명만 제공합니다. 인벤토리, 모델 가용성, 에이전트 활동,
+  프로세스 상태, 승격 근거, 감사 데이터는 권위 있는 프로바이더에서만 표시합니다.
+  출처가 없으면 사용 불가 또는 명시적 빈으로 표시하며 생성 예제로 대체하지 않습니다.
 - **Deploy truth**: `terraform apply` 가 CSP-neutral 컨트랙트의 Azure 측 실현체를 생성.
- **LLM 부분은 배포자-스코프**: 초기화 해석기가 배포자 아이덴티티를 대상 리전
- 카탈로그와 대조해 **배포자가 만들 권한이 있는 것만** 프로비저닝하고, resolved
- `{capability → deployment}` 매핑과 해석기 입력 출처 이력을 산출물에 기록합니다.
+  **LLM 부분은 배포자-스코프**: 초기화 해석기가 배포자 아이덴티티를 대상 리전
+  카탈로그와 대조해 **배포자가 만들 권한이 있는 것만** 프로비저닝하고, resolved
+  `{capability → deployment}` 매핑과 해석기 입력 출처 이력을 산출물에 기록합니다.
 
 모든 프로파일은 **하나의 컨트롤 경로**를 공유하며 composition-root 어댑터와 자격 증명만 다릅니다.
 ([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나
@@ -226,7 +226,7 @@ Command Deck 인벤토리 턴은 해당 스냅샷에 IQL을 적용하며 질문�
 사용합니다. 영속 로컬 상태가 없으면 출처 매니페스트는 영속성을 주장하지 않고 settings
 저장소를 사용 불가 또는 non-durable로 표시합니다. 읽기 담당은 정제된 환경, 영속 재정의 및
 effective 값 변환 결과를 확인합니다. Owner는 optimistic 개정 번호 및 원자적 감사 검사를 통해
-허용 목록만 업데이트할 수 있습니다. IRP 변경은 다음 조건을 충족한 alert에 적용되고 analyzer, 인벤토리 및
+허용 목록만 업데이트할 수 있습니다. IRP 변경은 다음 조건을 충족한 경보에 적용되고 analyzer, 인벤토리 및
 보존 cadence 변경은 다음 작업 또는 틱에 적용됩니다. 로깅 수준과 사례 보존/deletion 일
 변경은 재시작 필수로 표시되며 headless 런타임이 시작될 때 로드됩니다. 어떤 설정도 로컬 읽기
 API에 실행기 신원을 부여하거나 ActionType 및 작업 흐름 승격 상태를 변경하지 않습니다.
@@ -451,19 +451,19 @@ Resource Graph CLI 확장 또는 ARG 요청을 사용할 수 없으면 로컬 �
 out-of-process 의존을 건드리는 모든 경계는 다음을 갖춰야:
 
 1. **`shared/providers/` 의 프로토콜** - 중립 wire 계약. `core/` 는 프로토콜만 가져오기.
- `EventBus`, `StateStore`, `SecretProvider`, `WorkloadIdentity`, `Inventory` 및 LLM 경계
- (`EmbeddingModel`, `CrossCheckModel`, `VerifierPolicy`, `GroundingSource`) 이미 준수.
+   `EventBus`, `StateStore`, `SecretProvider`, `WorkloadIdentity`, `Inventory` 및 LLM 경계
+   (`EmbeddingModel`, `CrossCheckModel`, `VerifierPolicy`, `GroundingSource`) 이미 준수.
 2. **테스트 가짜 구현** - 결정론적, 프로세스 내, secret-free입니다. 자동화 테스트 또는
- committed mock/예시 앱이 명시적 고정본 빌더로만 선택하며 interactive 로컬
- Console은 사용하지 않습니다.
+  committed mock/예시 앱이 명시적 고정본 빌더로만 선택하며 interactive 로컬
+  Console은 사용하지 않습니다.
 3. **런타임 어댑터** - interactive 프로파일은 전송 계층 및 SSE에 범위가 제한된 로컬 어댑터를 사용할
- 수 있습니다. Azure 어댑터는 `delivery/azure/` 하위에 두며 `core/`에는 두지 않습니다.
- 어댑터 선택은 Pantheon을 활성화하거나 비활성화하지 않습니다.
+  수 있습니다. Azure 어댑터는 `delivery/azure/` 하위에 두며 `core/`에는 두지 않습니다.
+  어댑터 선택은 Pantheon을 활성화하거나 비활성화하지 않습니다.
 4. **Mismatch 시 fail-fast 또는 사용 불가** - interactive/deployed 런타임은 테스트 가짜로
- 대체 경로하지 않습니다. 필수 시작 출처는 시작을 실패시키고 선택적 읽기 패널은
- 사용 불가로 표시합니다. 조용한 대체 경로는 **금지**
- ([llm-strategy.md § 초기화 Provisioner](../architecture/llm-strategy-ko.md#bootstrap-provisioner) 의
- "no HIL-silent 대체 경로" 룰과 일치).
+  대체 경로하지 않습니다. 필수 시작 출처는 시작을 실패시키고 선택적 읽기 패널은
+  사용 불가로 표시합니다. 조용한 대체 경로는 **금지**
+   ([llm-strategy.md § 초기화 Provisioner](../architecture/llm-strategy-ko.md#bootstrap-provisioner) 의
+   "no HIL-silent 대체 경로" 룰과 일치).
 
 파이프라인을 exercise하는 모든 테스트는 (1)+(2) 모드로 실행 → CI 동등성 게이트가 Azure 토큰
 필요 없음.
@@ -486,22 +486,22 @@ auto-open도 비활성화하므로 결정론적 동등성 테스트가 Azure CLI
 
 ```mermaid
 flowchart LR
- START([terraform apply]) --> WHOAMI["az account show<br/>+ 배포자 principal 해결"]
- WHOAMI --> AUDIT[Bootstrap audit entry:<br/>deployer_object_id, sub, region]
- AUDIT --> REG[rule-catalog/llm-registry.yaml 읽기]
- REG --> CAT["Azure 카탈로그 조회:<br/>var.region 에서<br/>사용가능한 Foundry / AOAI SKU"]
- CAT --> RBAC{배포자가<br/>Cognitive Services Contributor<br/>대상 subscription에 있음?}
- RBAC -->|no| SKIP1[경고 emit:<br/>LLM 프로비저닝 스킵<br/>T2 capability = HIL-only]
- RBAC -->|yes| MATCH{"preferred family 사용가능<br/>AND 배포자 sub 쿼터 있음?"}
- MATCH -->|no for capability| SKIP2["이 capability HIL-only 마킹<br/>나머지는 계속"]
- MATCH -->|yes| DEPLOY["deployment 프로비저닝<br/>cap_tpm 은 registry에서"]
- DEPLOY --> INV{"mixed-model 불변식:<br/>primary.publisher != secondary.publisher?"}
- INV -->|violated| ABORT["명확한 에러로 abort<br/>(fork가 preference 확장)"]
- INV -->|ok| WRITE[resolved-models.json 파일 또는 inline JSON emit]
- SKIP1 --> WRITE
- SKIP2 --> WRITE
- WRITE --> ROLE[executor MI에 role-assign:<br/>Cognitive Services OpenAI User]
- ROLE --> DONE([done])
+    START([terraform apply]) --> WHOAMI["az account show<br/>+ 배포자 principal 해결"]
+    WHOAMI --> AUDIT[Bootstrap audit entry:<br/>deployer_object_id, sub, region]
+    AUDIT --> REG[rule-catalog/llm-registry.yaml 읽기]
+    REG --> CAT["Azure 카탈로그 조회:<br/>var.region 에서<br/>사용가능한 Foundry / AOAI SKU"]
+    CAT --> RBAC{배포자가<br/>Cognitive Services Contributor<br/>대상 subscription에 있음?}
+    RBAC -->|no| SKIP1[경고 emit:<br/>LLM 프로비저닝 스킵<br/>T2 capability = HIL-only]
+    RBAC -->|yes| MATCH{"preferred family 사용가능<br/>AND 배포자 sub 쿼터 있음?"}
+    MATCH -->|no for capability| SKIP2["이 capability HIL-only 마킹<br/>나머지는 계속"]
+    MATCH -->|yes| DEPLOY["deployment 프로비저닝<br/>cap_tpm 은 registry에서"]
+    DEPLOY --> INV{"mixed-model 불변식:<br/>primary.publisher != secondary.publisher?"}
+    INV -->|violated| ABORT["명확한 에러로 abort<br/>(fork가 preference 확장)"]
+    INV -->|ok| WRITE[resolved-models.json 파일 또는 inline JSON emit]
+    SKIP1 --> WRITE
+    SKIP2 --> WRITE
+    WRITE --> ROLE[executor MI에 role-assign:<br/>Cognitive Services OpenAI User]
+    ROLE --> DONE([done])
 ```
 
 **배포자 권한 게이트** (해석기가 카탈로그 건드리기 전 확인):
@@ -527,20 +527,20 @@ flowchart LR
 이 문서 초안과 함께 배포된 상태; W-I (매주 조정기 작업)는 연기. 각 작업 항목은
 실제 럭딩된 범위(코드, 테스트, 게이트 커버리지)를 반영.
 
-### W-A: LLM용 구성 스키마 + dev-mode 플래그 ✅ *(기준선, 배포)*
+### W-A: LLM용 구성 스키마 + dev-mode 플래그 ✅  *(기준선, 배포)*
 
 - `services/core-control-plane/src/fdai/shared/config/schema.json` + `models.py` 에 `LlmConfig` 추가:
- - `mode`: `local-fake` | `azure`. `local-fake`는 명시적 테스트/mock 연결이며 배포
- 환경이 선택하지 않습니다.
- - `resolved_models_path`: 옵셔널 KV 시크릿 이름 또는 파일시스템 경로.
- - `capabilities`: 기능 이름 리스트 (`t1.embedding`, `t1.judge`,
- `t2.reasoner.primary`, `t2.reasoner.secondary`) - 레지스트리를 미러.
- - `t2_primary_latency_routing`: bool, 기본값 `true`. T2 기본
- 제안자를 동일 발행기 후보 풀 내에서 지연 라우팅(invariant-safe;
- 강제 적용 on). 리졸버가 >= 2 풀 을 발행(`--emit-primary-pool`) 할 때만
- 적용; 단일 기본 로 pin 하려면 `false`.
- [llm-strategy-ko.md](../architecture/llm-strategy-ko.md) 의
- "T2 기본 지연 시간 풀" 참조.
+  - `mode`: `local-fake` | `azure`. `local-fake`는 명시적 테스트/mock 연결이며 배포
+    환경이 선택하지 않습니다.
+  - `resolved_models_path`: 옵셔널 KV 시크릿 이름 또는 파일시스템 경로.
+  - `capabilities`: 기능 이름 리스트 (`t1.embedding`, `t1.judge`,
+    `t2.reasoner.primary`, `t2.reasoner.secondary`) - 레지스트리를 미러.
+  - `t2_primary_latency_routing`: bool, 기본값 `true`. T2 기본
+    제안자를 동일 발행기 후보 풀 내에서 지연 라우팅(invariant-safe;
+    강제 적용 on). 리졸버가 >= 2 풀 을 발행(`--emit-primary-pool`) 할 때만
+    적용; 단일 기본 로 pin 하려면 `false`.
+    [llm-strategy-ko.md](../architecture/llm-strategy-ko.md) 의
+    "T2 기본 지연 시간 풀" 참조.
 - Fail-fast 검증기: `mode == "azure"` 는 `resolved_models_path` 필수.
 - 테스트: 스키마 + pydantic 검증기.
 
@@ -549,7 +549,7 @@ flowchart LR
 - 신규 파일: 업스트림 기본값 있는 `rule-catalog/llm-registry.yaml` (mini → Opus 계층).
 - JSON 스키마: `rule-catalog/schema/llm-registry.schema.json`.
 - Python 로더: `fdai.rule_catalog.schema.llm_registry` - 다른 곳에서 쓰는 aggregating
- fail-close 패턴 사용 (`exemption.py` 참고).
+  fail-close 패턴 사용 (`exemption.py` 참고).
 - 테스트: 스키마 검증, mixed-model 불변식 체크.
 
 ### W-C: 초기화 해석기 CLI ✅ *(배포자-스코프, 배포)*
@@ -558,20 +558,20 @@ flowchart LR
 - 입력: `--registry`, `--region`, `--subscription-id`, `--dry-run`, `--out`.
 - 기본 고정본 모드는 카탈로그/권한/할당량 JSON 세 개를 요구해 offline CI를 지원합니다.
 - `--use-azure-cli` 모드는 기존 `az login` 맥락과 선택적 `AZURE_CONFIG_DIR`을 사용해
- 모델 카탈로그, 역할 배정, 사용량/할당량, 프로비저닝된 용량을 읽기 전용 조회합니다.
+  모델 카탈로그, 역할 배정, 사용량/할당량, 프로비저닝된 용량을 읽기 전용 조회합니다.
 - `resolved-models.json` 발행 (또는 `--dry-run` 은 stdout).
 - [배포자-스코프 LLM 프로비저닝](#배포자-스코프-llm-프로비저닝) 의 모든 체크 강제.
 - 테스트: 두 SDK 클라이언트 mock; precedence + mixed-model 불변식 + `hil-only` 대체 경로 +
- 동일 입력 멱등적 출력 assert.
+  동일 입력 멱등적 출력 assert.
 
 ### W-D: Azure OpenAI Terraform 모듈 + preflight ✅ *(infra, 배포)*
 
 - 신규: `infra/modules/llm/azure-openai/`.
- - `main.tf`: `azurerm_cognitive_account` (종류=`OpenAI`) + 입력 변수의
- `resolved_capabilities` 로부터 N개 `azurerm_cognitive_deployment`.
- - `variables.tf`: `enable_llm` (기본값 `false` - 최소 배포도 성공하도록),
- `resolved_capabilities` (해석기 로부터의 객체 목록).
- - `outputs.tf`: `endpoint`, `deployments` 지도, `resource_id`.
+  - `main.tf`: `azurerm_cognitive_account` (종류=`OpenAI`) + 입력 변수의
+    `resolved_capabilities` 로부터 N개 `azurerm_cognitive_deployment`.
+  - `variables.tf`: `enable_llm` (기본값 `false` - 최소 배포도 성공하도록),
+    `resolved_capabilities` (해석기 로부터의 객체 목록).
+  - `outputs.tf`: `endpoint`, `deployments` 지도, `resource_id`.
 - 역할 배정: 실행기 MI → 계정의 `Cognitive Services OpenAI User`.
 - 루트 `infra/main.tf` 에서 `var.enable_llm` 조건부로 모듈 wire.
 - `infra/README.md` 갱신: 해석기 먼저 → `enable_llm=true` 로 `terraform apply`.
@@ -579,45 +579,45 @@ flowchart LR
 ### W-E: Azure OpenAI 어댑터 클래스 ✅ *(전달, 배포)*
 
 - `services/core-control-plane/src/fdai/delivery/azure/llm/embeddings.py` - `EmbeddingModel` 을 구현하는
- `AzureOpenAIEmbeddingModel`, injected 비동기 `httpx` + `WorkloadIdentity`.
+  `AzureOpenAIEmbeddingModel`, injected 비동기 `httpx` + `WorkloadIdentity`.
 - `services/core-control-plane/src/fdai/delivery/azure/llm/cross_check.py` - `CrossCheckModel` 구현
- `AzureOpenAICrossCheckModel`.
+  `AzureOpenAICrossCheckModel`.
 - 타임아웃, retry-after honouring, 구조화된 출력 (`response_format={"type":"json_object"}`)
- - [llm-strategy.md § 프로바이더 Abstraction](../architecture/llm-strategy-ko.md#provider-abstraction) 참조.
+  - [llm-strategy.md § 프로바이더 Abstraction](../architecture/llm-strategy-ko.md#provider-abstraction) 참조.
 - 테스트: `httpx.MockTransport` + 녹화 고정본 - 라이브 네트워크 없음.
 
 ### W-F: Composition-root 배선 ✅ *(연결, 배포)*
 
 - `Container` 확장: `embedding_model: EmbeddingModel`, `cross_check_models`,
- `verifier_policy`, `grounding_source` 필드.
+  `verifier_policy`, `grounding_source` 필드.
 - `default_container(config)`는 `local-fake`에 결정론적 연결을 넣고 `azure`에는
- 아직 연결되지 않은 컨테이너를 반환합니다. 런타임 초기화가
- `bind_azure_llm_bindings`/`wire_azure_container`를 호출해 `resolved-models.json`을 로드하고
- 기능별 어댑터를 연결합니다. 누락 항목은 fail fast합니다.
+  아직 연결되지 않은 컨테이너를 반환합니다. 런타임 초기화가
+  `bind_azure_llm_bindings`/`wire_azure_container`를 호출해 `resolved-models.json`을 로드하고
+  기능별 어댑터를 연결합니다. 누락 항목은 fail fast합니다.
 - 테스트: 양쪽 가지; `local-fake` 가 `delivery.azure.llm` 을 가져오기 안 함 assert.
 
 ### W-G: 고정본 신원 + 시크릿 + 인벤토리 어댑터 ✅ *(테스트 지원, 배포)*
 
 - `shared/providers/testing/` 의 `EnvSecretProvider` (dev 사용 반영해
- `shared/providers/local/` 로 이름 변경).
+  `shared/providers/local/` 로 이름 변경).
 - `LocalWorkloadIdentity` - 고정본 어댑터만 수락하는 인-메모리 OIDC 토큰을 발급합니다.
- Interactive 로컬은 이를 Thor 신원으로 사용하지 않습니다.
+  Interactive 로컬은 이를 Thor 신원으로 사용하지 않습니다.
 - `FileFixtureInventory` - 포크 가 생성자에 넘긴 어떤 YAML 고정본 든 (`fixture=Path(...)`) 에서 `Resource` 레코드를 읽는다. 업스트림은 시드 고정본 를 배송하지 않으며, 권장 컨벤션은 `services/core-control-plane/tests/scenarios/inventory/*.yaml` (고정된 시나리오 재생 옆) 이라 verticals 가 ARG 없이 예행 실행 가능.
 - 테스트 + docstring이 정확한 fork-side 패턴 시연.
 
-### W-H: 문서 동기화 *(이 단계)*
+### W-H: 문서 동기화  *(이 단계)*
 
 - ✅ 이 문서 자체.
 - [deploy-and-onboard.md § 런타임 구성 매트릭스](deploy-and-onboard-ko.md#runtime-configuration-matrix)
- 에 `LLM_MODE`, `LLM_RESOLVED_MODELS_PATH` 추가.
+  에 `LLM_MODE`, `LLM_RESOLVED_MODELS_PATH` 추가.
 - [deploy-and-onboard.md § Azure Resource 인벤토리](deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set)
- 에 행 11 (Azure OpenAI, 명시적 선택) 추가.
+  에 행 11 (Azure OpenAI, 명시적 선택) 추가.
 - [tech-stack.md § 로컬 개발](../architecture/tech-stack-ko.md#local-development) 에서
- 권위 있는 interactive 어댑터와 명시적 고정본을 구분합니다.
+  권위 있는 interactive 어댑터와 명시적 고정본을 구분합니다.
 - [llm-strategy.md § 초기화 Provisioner](../architecture/llm-strategy-ko.md#bootstrap-provisioner) 를
- 배포자-권한 게이트에 대해 이 문서 참조로.
+  배포자-권한 게이트에 대해 이 문서 참조로.
 
-### W-I: 조정기 weekly 작업 *(later 단계 - deferred)*
+### W-I: 조정기 weekly 작업  *(later 단계 - deferred)*
 
 Future 작업으로 유지. 전체 설계는 이미
 [llm-strategy.md § 조정기 작업](../architecture/llm-strategy-ko.md#reconciler-job) 에 있음;
@@ -629,22 +629,22 @@ Future 작업으로 유지. 전체 설계는 이미
 
 - 리전/컴플라이언스 오버라이드 있는 자체 `llm-registry.yaml` 제공.
 - 포크의 구독을 가리키는 `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` env 제공.
- **이 리포는 그 값들을 절대 저장 안 함.**
+  **이 리포는 그 값들을 절대 저장 안 함.**
 - 추가 LLM 프로바이더 (예: Anthropic 직접 API) 등록: 조립 루트에서 포크 소유
- `CrossCheckModel` 구현 바인딩 - [llm-strategy.md § Mixed-Model 계열 Strategies](../architecture/llm-strategy-ko.md#mixed-model-family-strategies)
- 의 `azure-foundry` / `external` / `hil-only` 토글.
+  `CrossCheckModel` 구현 바인딩 - [llm-strategy.md § Mixed-Model 계열 Strategies](../architecture/llm-strategy-ko.md#mixed-model-family-strategies)
+  의 `azure-foundry` / `external` / `hil-only` 토글.
 
 ## 검증 게이트
 
 각 작업 항목은 CI에서 증명 가능해야:
 
 - 명시적 고정본 프로파일은 `delivery.azure.*` 모듈을 가져오기하지 않습니다. Interactive 로컬은
- 권위 있는 프로파일이 선택한 Azure 어댑터를 사용합니다.
+  권위 있는 프로파일이 선택한 Azure 어댑터를 사용합니다.
 - 동일한 입력, App 역할, 승격 상태, risk 구성은 로컬 및 deployed에서 같은 판정과
- 프로세스 전이를 만듭니다.
+  프로세스 전이를 만듭니다.
 - Interactive 로컬은 15개 에이전트를 기본 시작합니다. Event Hubs가 있으면 Azure 전송 계층을,
- 없으면 범위가 제한된 프로세스 내 EventBus/SSE를 사용하며 recording/in-memory 실행기는 연결하지 않습니다.
+  없으면 범위가 제한된 프로세스 내 EventBus/SSE를 사용하며 recording/in-memory 실행기는 연결하지 않습니다.
 - `Reader` 롤만 있는 fresh 구독에서 `enable_llm=false` 로 Terraform 계획 성공 →
- LLM 모듈이 정말 명시적 선택 임을 증명.
+  LLM 모듈이 정말 명시적 선택 임을 증명.
 - 녹화된 리전 카탈로그에 대한 해석기 예행 실행이 고정된 `resolved-models.json` 해시 →
- 멱등성 증명.
+  멱등성 증명.

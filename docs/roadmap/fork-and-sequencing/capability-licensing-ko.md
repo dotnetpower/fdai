@@ -133,15 +133,15 @@ crypto 백엔드, 전송 계층, `fdai.delivery`를 가져오기하지 않습니
 openssl genpkey -algorithm ed25519 -out /tmp/license-key.pem
 openssl pkey -in /tmp/license-key.pem -pubout -out /tmp/license-key.pub
 PYTHONPATH=src python3 scripts/deployment/release/issue-license.py \
- --private-key /tmp/license-key.pem --public-key /tmp/license-key.pub \
- --license-id lic-0001 --distribution-id example-distribution \
- --capability cost.metering --capability incident.restart \
- --output /tmp/license.token
+  --private-key /tmp/license-key.pem --public-key /tmp/license-key.pub \
+  --license-id lic-0001 --distribution-id example-distribution \
+  --capability cost.metering --capability incident.restart \
+  --output /tmp/license.token
 PYTHONPATH=src python3 -m fdai.deployment_cli license inspect \
- --token /tmp/license.token --public-key /tmp/license-key.pub --output json
+  --token /tmp/license.token --public-key /tmp/license-key.pub --output json
 ```
 
-`issue-license.py`는 출력 전에 자신의 결과를 supplied 공개 키로 재검증하므로, 교대된 signing
+`issue-license.py`는 출력 전에 자신의 결과를 supplied 공개 키로 재검증하므로, 교대된 서명
 키는 고객 현장이 아니라 발급 시점에 실패합니다. `license inspect`는 상태와 비밀이 아닌 메타데이터만
 보고하며 토큰, 문서, 서명을 절대 출력하지 않습니다.
 
@@ -156,11 +156,11 @@ tamper-proof가 아닙니다**. 이미지를 받은 고객은 그 런타임을 �
 
 따라서 강제력 있는 부분은 binary가 아니라 배포 채널입니다.
 
-- `license_id`를 감사 trail에 기록해 권한을 사후에 귀속 가능하게 합니다.
+- `license_id`를 감사 이력에 기록해 권한을 사후에 귀속 가능하게 합니다.
 - 업데이트, 지원, 새로 서명된 offline 키트를 현재 license에 묶어, 다음 릴리스를 잃는 것이 실제
- 결과가 되게 합니다.
+  결과가 되게 합니다.
 - 폐쇄망에는 철회 경로가 없고 호스트 시계가 게시자 통제 밖이므로, 짧은 유효 기간과 갱신을
- 선호합니다.
+  선호합니다.
 
 ## 관련 문서
 

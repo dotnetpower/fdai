@@ -113,15 +113,15 @@ materialize 합니다. 작업 흐름 전용 projector 는 도메인 객체 와 �
 변환 결과 전달 는 영속 재시도 발신함 를 사용합니다.
 
 - PostgreSQL 런타임 어댑터 는 `process_event` 와 그
- `process_projection_outbox` 작업 을 같은 트랜잭션 에 삽입 합니다.
+  `process_projection_outbox` 작업 을 같은 트랜잭션 에 삽입 합니다.
 - Immediate projector 는 best effort 입니다. 변환 결과 실패는 프로세스 상관관계 id 와
- 함께 로그 하지만 커밋 된 런타임 결과를 바꾸거나 가리지 않습니다.
+  함께 로그 하지만 커밋 된 런타임 결과를 바꾸거나 가리지 않습니다.
 - `ProcessProjectionWorker.run_once()` 는 `FOR UPDATE SKIP LOCKED` 로 범위가 제한된 배치 를
- 임차 기간 하고, 멱등적 변환 결과 을 재시도하며, 실패한 작업 은 설정된 지연 후
- release 합니다. 새 변환 결과 성공 시에도 due 배치 하나를 배출 합니다.
+  임차 기간 하고, 멱등적 변환 결과 을 재시도하며, 실패한 작업 은 설정된 지연 후
+  release 합니다. 새 변환 결과 성공 시에도 due 배치 하나를 배출 합니다.
 - 워커 는 always-on polling daemon 이 아니라 one-shot 이벤트/작업 기본 요소 입니다.
- Container Apps 작업 또는 시작 훅 이 `retry_pending()` 을 호출해 적체 를
- 복구할 수 있습니다.
+  Container Apps 작업 또는 시작 훅 이 `retry_pending()` 을 호출해 적체 를
+  복구할 수 있습니다.
 
 이 분리 덕분에 온톨로지 저장소 가 잠시 사용 불가 해도 런타임 처리는 계속되고,
 모든 변환 결과 의도 는 복구를 위해 보존됩니다.
@@ -141,19 +141,19 @@ parameter-substitution 맥락 및 `mode`를 받습니다. 기여자는 shadow를
 
 ```bash
 FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 uv run uvicorn \
- 'fdai.delivery.operator_api.dev.local:app' --factory --port 8000
+  'fdai.delivery.operator_api.dev.local:app' --factory --port 8000
 
 uv run python scripts/automation/run-workflow.py architecture-review \
- --target fdai-control-plane
+  --target fdai-control-plane
 
 uv run python scripts/automation/run-workflow.py \
- --resume-process-id <process-id-from-start-response>
+  --resume-process-id <process-id-from-start-response>
 
 uv run python scripts/automation/run-workflow.py \
- --cancel-process-id <process-id-from-start-response>
+  --cancel-process-id <process-id-from-start-response>
 
 uv run python scripts/automation/run-workflow.py \
- --retry-process-id <process-id-from-start-response>
+  --retry-process-id <process-id-from-start-response>
 ```
 
 응답에는 프로세스 id 와 스냅샷, 저널, 콘솔 경로 링크가 포함됩니다.
@@ -183,30 +183,30 @@ ChatOps가 명령 채널이고 콘솔은 읽기 전용 상태 표면으로 유�
 Authoring 경로는 여섯 연산 을 분리합니다.
 
 1. `POST /python-tasks/generate` 는 injected `PythonTaskAuthor` 에게 선택된 대상
- 기능 및 허용 목록에 있는 모듈 에 근거에 기반한 된 editable JSON 출처 번들 을
- 요청합니다. Returned 초안 는 static 검증 을 거치며 auto-stage 되지 않습니다.
+  기능 및 허용 목록에 있는 모듈 에 근거에 기반한 된 editable JSON 출처 번들 을
+  요청합니다. Returned 초안 는 static 검증 을 거치며 auto-stage 되지 않습니다.
 2. `POST /python-tasks/validate` 는 코드를 실행하지 않고 AST 를 parse 및 compile
- 합니다. 탐색, embedded 시크릿 표시, dynamic `eval` / `exec`, 선언하지 않은
- 외부 모듈, 선언하지 않은 호스트 기능, 64 KiB 를 초과한 inline 산출물 를
- 차단합니다. 더 큰 번들 은 Run Command 본문 를 늘리는 대신 future
- managed-identity object-storage staging 어댑터 가 필요합니다.
+  합니다. 탐색, embedded 시크릿 표시, dynamic `eval` / `exec`, 선언하지 않은
+  외부 모듈, 선언하지 않은 호스트 기능, 64 KiB 를 초과한 inline 산출물 를
+  차단합니다. 더 큰 번들 은 Run Command 본문 를 늘리는 대신 future
+  managed-identity object-storage staging 어댑터 가 필요합니다.
 3. `POST /python-tasks/stage` 는 valid 내용 기반 주소를 가진 산출물 를 변경할 수 없는 하게
- 저장합니다. 같은 `task_id@version` 을 다른 내용 로 다시 쓰는 것은 차단됩니다.
+  저장합니다. 같은 `task_id@version` 을 다른 내용 로 다시 쓰는 것은 차단됩니다.
 4. `POST /python-tasks/test` 는 활성 인벤토리 에서 대상 을 해석 하고 shadow
- 계획 을 반환합니다. Operator API 는 실행기 신원 가 없고 파일 copy 또는 코드
- 실행이 불가능한 `PlanningVmTaskRunner` 를 바인딩합니다.
+  계획 을 반환합니다. Operator API 는 실행기 신원 가 없고 파일 copy 또는 코드
+  실행이 불가능한 `PlanningVmTaskRunner` 를 바인딩합니다.
 5. `POST /python-tasks/request-run` 은 산출물 참조, 대상 Resource 참조,
- 사유 만 `ActionProposal` 로 publish 합니다. 일반 컨트롤 루프 는 제안 을
- 정본 Event 로 normalize 하고 referenced ActionType 에 따라 트리거 및 인자 를
- validate 하며 활성 인벤토리 에서 신뢰할 수 있는 대상 속성 를 로드한 뒤 unified
- risk 게이트 를 적용합니다. Owner HIL 상한 과 `ToolCallShadowExecutor` 가 실제 운영 작업 를
- 제어합니다.
+  사유 만 `ActionProposal` 로 publish 합니다. 일반 컨트롤 루프 는 제안 을
+  정본 Event 로 normalize 하고 referenced ActionType 에 따라 트리거 및 인자 를
+  validate 하며 활성 인벤토리 에서 신뢰할 수 있는 대상 속성 를 로드한 뒤 unified
+  risk 게이트 를 적용합니다. Owner HIL 상한 과 `ToolCallShadowExecutor` 가 실제 운영 작업 를
+  제어합니다.
 6. `POST /python-tasks/schedule` 은 staged 산출물, 인벤토리 대상, 카탈로그
- 작업 흐름, strict cron 표현식 을 persistent 스케줄러 에 바인딩합니다. Future
- 타입이 지정된 이벤트 를 기록할 뿐 VM 에 접속하지 않습니다.
+  작업 흐름, strict cron 표현식 을 persistent 스케줄러 에 바인딩합니다. Future
+  타입이 지정된 이벤트 를 기록할 뿐 VM 에 접속하지 않습니다.
 
 Headless 코어 는 `FDAI_VM_TASK_ENABLED=1` 일 때 `VmPythonToolExecutor` 를
-바인딩합니다. shadow 전달 는 `dry_run=true` 로 실행기 를 호출합니다. 강제 적용
+바인딩합니다. Shadow 전달 는 `dry_run=true` 로 실행기 를 호출합니다. 강제 적용
 전달 는 `FDAI_VM_TASK_ENFORCE=1` 도 필요합니다. Azure 어댑터 는 활성
 인벤토리 에서 프로바이더 ARM 참조 를 해석 하고, 실행기 Managed Identity 로
 Managed Run Command 리소스 를 생성하며, base64-encoded 파일 을 단계 합니다.
@@ -214,7 +214,7 @@ Cached 산출물 를 포함한 모든 호출 에서 VM 의 모든 SHA-256 다이
 검사하고 GPU 및 필수 모듈 을 확인한 뒤, 미리 생성된 `fdai-task` user 로
 entrypoint 를 실행합니다. Run Command 는 root-owned
 launcher 를 호출해 transient systemd 단위 을 생성합니다. 출처 는 읽기 전용 이고,
-출력 은 per-run 디렉터리 로 제한되며 네트워크/프로세스/device 접근 는 declared
+출력 은 per-run 디렉터리 로 제한되며 네트워크/프로세스/장치 접근 는 declared
 기능 를 따릅니다. 권한 에스컬레이션 은 비활성화된 이고 호스트 자격 증명 경로 는
 inaccessible 합니다. 패키지 는 설치하지 않습니다. Run Command 리소스 를 삭제하면
 in-flight 실행 이 취소됩니다. 내용 기반 주소를 가진 산출물 는 변경할 수 없는 캐시 로
@@ -301,50 +301,50 @@ Python 이 작업 호스트 `PATH` 의 임의 binary 를 호출하지 못하게 
 Command 기반은 의도, 해석, 실행 을 분리합니다.
 
 - **타입이 지정된 카탈로그**: `CommandCatalog` 는 등록된 `command_id`, 타입이 지정된 요청 인자,
- 서버가 소유한 trusted 값 를 받아 고정된 `CommandPlan` 을 생성합니다. 요청 는
- executable, raw argv, 환경, 자격 증명 프로파일, 네트워크 프로파일, working 디렉터리,
- 구독 또는 project 를 선택할 수 없습니다.
+  서버가 소유한 trusted 값 를 받아 고정된 `CommandPlan` 을 생성합니다. 요청 는
+  executable, raw argv, 환경, 자격 증명 프로파일, 네트워크 프로파일, working 디렉터리,
+  구독 또는 project 를 선택할 수 없습니다.
 - **실행기 경계**: `CommandRunner` 는 해석 된 계획 만 받습니다. 업스트림 기본값 는
- 예행 실행 을 실제 no-op 으로 유지하는 `RecordingCommandRunner` 입니다. 명시적 선택
- `BubblewrapCommandRunner` 는 `local_read` 계획 만 실행합니다. Opaque 참조 를 비공개
- workspace 루트 아래에서 해석하고 해당 workspace 및 구성된 런타임 을 읽기 전용
- mount하며 네트워크 를 unshare하고 기능 를 폐기합니다. 비공개 tmpfs 만 노출하고
- 새 프로세스 그룹, 시간 초과, stdout/stderr 바이트 상한 을 적용합니다. Workspace-write,
- cloud, credentialed 계획 은 프로세스 생성 전에 거부합니다.
+  예행 실행 을 실제 no-op 으로 유지하는 `RecordingCommandRunner` 입니다. 명시적 선택
+  `BubblewrapCommandRunner` 는 `local_read` 계획 만 실행합니다. Opaque 참조 를 비공개
+  workspace 루트 아래에서 해석하고 해당 workspace 및 구성된 런타임 을 읽기 전용
+  mount하며 네트워크 를 unshare하고 기능 를 폐기합니다. 비공개 tmpfs 만 노출하고
+  새 프로세스 그룹, 시간 초과, stdout/stderr 바이트 상한 을 적용합니다. Workspace-write,
+  cloud, credentialed 계획 은 프로세스 생성 전에 거부합니다.
 - **샌드박스 프로파일 게이트**: `SandboxProfileCatalog`은 각 명령 id에 정확히 하나의 서버가 소유한
- 격리 프로파일을 부여합니다. 프로파일이 없는 명령은 차단됩니다. 프로파일은 백엔드,
- allowed 실행 등급 및 네트워크 프로파일, workspace 접근, 자격 증명 정책, 시간 초과,
- 출력 상한을 고정합니다. `ProfiledCommandRunner`는 구체적인 실행기 직전에 최종
- `CommandPlan`을 검증하고 requested 한도를 프로파일 상한으로 낮춥니다. Bubblewrap 프로파일은
- 구조적으로 읽기 전용, offline, credential-free이며 이를 넓히려는 프로파일은 등록에서
- 차단됩니다.
+  격리 프로파일을 부여합니다. 프로파일이 없는 명령은 차단됩니다. 프로파일은 백엔드,
+  allowed 실행 등급 및 네트워크 프로파일, workspace 접근, 자격 증명 정책, 시간 초과,
+  출력 상한을 고정합니다. `ProfiledCommandRunner`는 구체적인 실행기 직전에 최종
+  `CommandPlan`을 검증하고 requested 한도를 프로파일 상한으로 낮춥니다. Bubblewrap 프로파일은
+  구조적으로 읽기 전용, offline, credential-free이며 이를 넓히려는 프로파일은 등록에서
+  차단됩니다.
 - **Cross-adapter 샌드박스 적용**: VM 작업, 외부 도구, binary 문서 converter는 구체적인
- 어댑터 경계에서 같은 default-deny pattern을 사용합니다. `ProfiledVmTaskRunner`는 작업
- 기능, 입력 개수와 바이트, 시간 초과를 제한하며 프로파일은 `process` 기능을 허용하지
- 않습니다. `McpServerCatalog.build_routes(...)`는 활성화된 ActionType마다 `ToolSandboxCatalog`을
- 요구하고 `ProfiledToolExecutor`는 호출 전에 모드, 인자 개수와 바이트, 도구 참조
- 크기를 다시 검사합니다. Binary knowledge 인제스트는 `DocumentConverterSandboxCatalog`과
- 결합된 injected `DocumentConverter`만 받습니다. 프로파일은 converter id, 접미사, 입력/출력
- 바이트 상한을 소유하고 요청은 호스트 경로나 executable 대신 relative 출처 이력과 내용
- 바이트만 노출합니다. 프로파일이 없거나 위반되면 실패 시 차단합니다.
+  어댑터 경계에서 같은 default-deny pattern을 사용합니다. `ProfiledVmTaskRunner`는 작업
+  기능, 입력 개수와 바이트, 시간 초과를 제한하며 프로파일은 `process` 기능을 허용하지
+  않습니다. `McpServerCatalog.build_routes(...)`는 활성화된 ActionType마다 `ToolSandboxCatalog`을
+  요구하고 `ProfiledToolExecutor`는 호출 전에 모드, 인자 개수와 바이트, 도구 참조
+  크기를 다시 검사합니다. Binary knowledge 인제스트는 `DocumentConverterSandboxCatalog`과
+  결합된 injected `DocumentConverter`만 받습니다. 프로파일은 converter id, 접미사, 입력/출력
+  바이트 상한을 소유하고 요청은 호스트 경로나 executable 대신 relative 출처 이력과 내용
+  바이트만 노출합니다. 프로파일이 없거나 위반되면 실패 시 차단합니다.
 - **셸 산출물**: `ShellTaskSpec` 은 내용 기반 주소를 가진 credential-free Bash 번들 을
- 저장합니다. Structural 검증 은 루프, pipe, heredoc 같은 로컬 construct 를
- 허용하면서 cloud CLI, privilege-escalation 도구, protected 호스트 경로, 메타데이터 엔드포인트,
- embedded 시크릿 표시, `eval`, `exec`, `source`, xtrace, offline 이 아닌 네트워크
- 프로파일 을 차단합니다.
+  저장합니다. Structural 검증 은 루프, pipe, heredoc 같은 로컬 construct 를
+  허용하면서 cloud CLI, privilege-escalation 도구, protected 호스트 경로, 메타데이터 엔드포인트,
+  embedded 시크릿 표시, `eval`, `exec`, `source`, xtrace, offline 이 아닌 네트워크
+  프로파일 을 차단합니다.
 - **No-exec 구문 검사**: `BashSyntaxChecker` 는 출처 를 stdin 으로 전달하고 pinned
- absolute Bash 경로 를 `--noprofile --norc -n` 으로 호출합니다. Minimal 환경,
- 시간 초과, stderr 상한 으로 구문 검사 를 제한합니다. `-n` 은 명령 를 parse 하지만
- 실행하지 않습니다. Future 실제 운영 실행기 전에는 ShellCheck 도 계속 필요합니다.
+  absolute Bash 경로 를 `--noprofile --norc -n` 으로 호출합니다. Minimal 환경,
+  시간 초과, stderr 상한 으로 구문 검사 를 제한합니다. `-n` 은 명령 를 parse 하지만
+  실행하지 않습니다. Future 실제 운영 실행기 전에는 ShellCheck 도 계속 필요합니다.
 - **비공개 workspace patch**: `CodePatchSet` 은 내용 기반 주소를 가진 `workspace_ref` 만
- 대상으로 하며 base 개정 번호, repository-relative 경로 당 연산 하나, 예상
- before 해시, after-content 해시 를 포함합니다. 검증 은 탐색, 중복
- 연산, 런타임/생성된 파일, binary 텍스트, oversized 변경 를 차단합니다. 업스트림
- 프로바이더 는 활성 런타임 체크아웃 에 patch 를 적용하지 않습니다.
- `GitCodeWorkspaceProvider` 는 hardlink 없이 committed 개정 번호 을 clone하고 출처 을
- 제거하며 source-checkout WIP 를 보존합니다. 검증된 patch 마다 새 copy-on-write
- workspace 를 materialize합니다. 적용 경계 에서 stale 해시, symlink 탐색,
- protected 경로 를 다시 검사합니다.
+  대상으로 하며 base 개정 번호, repository-relative 경로 당 연산 하나, 예상
+  before 해시, after-content 해시 를 포함합니다. 검증 은 탐색, 중복
+  연산, 런타임/생성된 파일, binary 텍스트, oversized 변경 를 차단합니다. 업스트림
+  프로바이더 는 활성 런타임 체크아웃 에 patch 를 적용하지 않습니다.
+  `GitCodeWorkspaceProvider` 는 hardlink 없이 committed 개정 번호 을 clone하고 출처 을
+  제거하며 source-checkout WIP 를 보존합니다. 검증된 patch 마다 새 copy-on-write
+  workspace 를 materialize합니다. 적용 경계 에서 stale 해시, symlink 탐색,
+  protected 경로 를 다시 검사합니다.
 
 업스트림 명령 카탈로그 는 처음에 `local.git.status`, scoped `local.git.diff`, targeted
 `local.python.pytest`, targeted `local.python.ruff`, Azure 읽기 연산

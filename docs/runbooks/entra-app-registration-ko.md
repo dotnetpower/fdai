@@ -34,42 +34,42 @@ FDAI 콘솔에 필요한 두 개의 Entra ID 앱 등록 - `fdai-api` (Operator A
 
 - `az` 가 **대상 테넌트** 에 로그인. 매 단계 전에 확인:
 
- ```sh
- az 계정 show --query "{sub:id, 테넌트:tenantId, user:user.이름}" -o json
- ```
+  ```sh
+  az 계정 show --query "{sub:id, 테넌트:tenantId, user:user.이름}" -o json
+  ```
 
 - 앱 등록을 만들고 admin consent를 부여할 수 있는 디렉터리 롤 (애플리케이션
- Administrator 또는 Cloud 애플리케이션 Administrator, 또는 Global
- Administrator).
+  Administrator 또는 Cloud 애플리케이션 Administrator, 또는 Global
+  Administrator).
 
 - 자동 배포를 사용하는 경우 자체 호스팅 실행기 Managed Identity를
- `fdai-console-spa`의 소유자로 지정하고, Microsoft Graph
- `Application.ReadWrite.OwnedBy` 애플리케이션 권한에 admin consent를
- 부여합니다. 그러면 작업 흐름은 해당 신원이 소유한 앱만 업데이트할 수 있습니다.
+  `fdai-console-spa`의 소유자로 지정하고, Microsoft Graph
+  `Application.ReadWrite.OwnedBy` 애플리케이션 권한에 admin consent를
+  부여합니다. 그러면 작업 흐름은 해당 신원이 소유한 앱만 업데이트할 수 있습니다.
 
 ## 1. `fdai-api` 생성
 
 ```sh
 # Single-tenant API app.
 API_APPID=$(az ad app create \
- --display-name "fdai-api" \
- --sign-in-audience AzureADMyOrg \
- --query appId -o tsv)
+  --display-name "fdai-api" \
+  --sign-in-audience AzureADMyOrg \
+  --query appId -o tsv)
 
 # Five App Roles (values MUST equal the Role enum in core/rbac/roles.py:
 # Reader / Contributor / Approver / Owner / BreakGlass).
 python3 - <<'PY' > /tmp/fdai_approles.json
 import json, uuid
 roles = [
- ("Reader", "View the operator console"),
- ("Contributor", "Reader plus author draft governance PRs"),
- ("Approver", "Contributor plus review and approve governance PRs and HIL"),
- ("Owner", "Full administration of the fork's control plane"),
- ("BreakGlass", "Segregated emergency access (never auto-activated)"),
+    ("Reader", "View the operator console"),
+    ("Contributor", "Reader plus author draft governance PRs"),
+    ("Approver", "Contributor plus review and approve governance PRs and HIL"),
+    ("Owner", "Full administration of the fork's control plane"),
+    ("BreakGlass", "Segregated emergency access (never auto-activated)"),
 ]
 print(json.dumps([{
- "allowedMemberTypes": ["User"], "description": d, "displayName": n,
- "id": str(uuid.uuid4()), "isEnabled": True, "value": n,
+    "allowedMemberTypes": ["User"], "description": d, "displayName": n,
+    "id": str(uuid.uuid4()), "isEnabled": True, "value": n,
 } for n, d in roles]))
 PY
 az ad app update --id "$API_APPID" --app-roles @/tmp/fdai_approles.json
@@ -85,50 +85,50 @@ SCOPE_GUID=$(python3 -c "import uuid; print(uuid.uuid4())")
 python3 - "$SCOPE_GUID" <<'PY' > /tmp/fdai_api_scope.json
 import json, sys
 print(json.dumps({"api": {
- "requestedAccessTokenVersion": 2,
- "oauth2PermissionScopes": [{
- "id": sys.argv[1],
- "adminConsentDescription": "Allow the console to call the fdai Operator API on behalf of the signed-in operator",
- "adminConsentDisplayName": "Access the fdai Operator API",
- "userConsentDescription": "Allow the console to call the fdai Operator API on your behalf",
- "userConsentDisplayName": "Access the fdai Operator API",
- "isEnabled": True, "type": "User", "value": "access",
- }],
+  "requestedAccessTokenVersion": 2,
+  "oauth2PermissionScopes": [{
+    "id": sys.argv[1],
+    "adminConsentDescription": "Allow the console to call the fdai Operator API on behalf of the signed-in operator",
+    "adminConsentDisplayName": "Access the fdai Operator API",
+    "userConsentDescription": "Allow the console to call the fdai Operator API on your behalf",
+    "userConsentDisplayName": "Access the fdai Operator API",
+    "isEnabled": True, "type": "User", "value": "access",
+  }],
 }}))
 PY
 az rest --method PATCH \
- --uri "https://graph.microsoft.com/v1.0/applications/$API_OBJID" \
- --headers "Content-Type=application/json" \
- --body @/tmp/fdai_api_scope.json
+  --uri "https://graph.microsoft.com/v1.0/applications/$API_OBJID" \
+  --headers "Content-Type=application/json" \
+  --body @/tmp/fdai_api_scope.json
 ```
 
 ## 2. `fdai-console-spa` 생성
 
 ```sh
 SPA_APPID=$(az ad app create \
- --display-name "fdai-console-spa" \
- --sign-in-audience AzureADMyOrg \
- --query appId -o tsv)
+  --display-name "fdai-console-spa" \
+  --sign-in-audience AzureADMyOrg \
+  --query appId -o tsv)
 SPA_OBJID=$(az ad app show --id "$SPA_APPID" --query id -o tsv)
 
 # Seed local Vite origins here. The deploy workflow adds the deployed console
 # HTTPS origin after Terraform creates the Static Web App.
 SCOPE_GUID=$(az ad app show --id "$API_APPID" \
- --query "api.oauth2PermissionScopes[?value=='access'].id | [0]" -o tsv)
+  --query "api.oauth2PermissionScopes[?value=='access'].id | [0]" -o tsv)
 python3 - "$API_APPID" "$SCOPE_GUID" <<'PY' > /tmp/fdai_spa.json
 import json, sys
 print(json.dumps({
- "spa": {"redirectUris": ["http://localhost:5273", "http://127.0.0.1:5273"]},
- "requiredResourceAccess": [{
- "resourceAppId": sys.argv[1],
- "resourceAccess": [{"id": sys.argv[2], "type": "Scope"}],
- }],
+  "spa": {"redirectUris": ["http://localhost:5273", "http://127.0.0.1:5273"]},
+  "requiredResourceAccess": [{
+    "resourceAppId": sys.argv[1],
+    "resourceAccess": [{"id": sys.argv[2], "type": "Scope"}],
+  }],
 }))
 PY
 az rest --method PATCH \
- --uri "https://graph.microsoft.com/v1.0/applications/$SPA_OBJID" \
- --headers "Content-Type=application/json" \
- --body @/tmp/fdai_spa.json
+  --uri "https://graph.microsoft.com/v1.0/applications/$SPA_OBJID" \
+  --headers "Content-Type=application/json" \
+  --body @/tmp/fdai_spa.json
 ```
 
 ### 로컬 redirect URI 동기화 유지
@@ -155,7 +155,7 @@ az rest --method PATCH \
 
 1. 활성 Azure CLI 테넌트가 `AZURE_TENANT_ID`와 같은지 확인합니다.
 2. 기존 SPA redirect URI를 모두 보존하고, 배포된 HTTPS 출처가 없을 때만
- 추가합니다.
+   추가합니다.
 3. 앱 등록을 다시 읽고 새 URI가 보이지 않으면 배포를 실패 처리합니다.
 
 이 작업은 안전하게 재시도할 수 있습니다. 같은 테넌트의 다른 구독은 같은
@@ -172,18 +172,18 @@ az ad sp create --id "$API_APPID"
 az ad sp create --id "$SPA_APPID"
 
 # Assign a user the Reader App Role on fdai-api (repeat per user/role).
-USER_OBJID=$(az ad signed-in-user show --query id -o tsv) # or another user's id
+USER_OBJID=$(az ad signed-in-user show --query id -o tsv)   # or another user's id
 API_SP_OBJID=$(az ad sp show --id "$API_APPID" --query id -o tsv)
 READER_ROLE_ID=$(az ad app show --id "$API_APPID" \
- --query "appRoles[?value=='Reader'].id | [0]" -o tsv)
+  --query "appRoles[?value=='Reader'].id | [0]" -o tsv)
 python3 - "$USER_OBJID" "$API_SP_OBJID" "$READER_ROLE_ID" <<'PY' > /tmp/fdai_assign.json
 import json, sys
 print(json.dumps({"principalId": sys.argv[1], "resourceId": sys.argv[2], "appRoleId": sys.argv[3]}))
 PY
 az rest --method POST \
- --uri "https://graph.microsoft.com/v1.0/servicePrincipals/$API_SP_OBJID/appRoleAssignedTo" \
- --headers "Content-Type=application/json" \
- --body @/tmp/fdai_assign.json
+  --uri "https://graph.microsoft.com/v1.0/servicePrincipals/$API_SP_OBJID/appRoleAssignedTo" \
+  --headers "Content-Type=application/json" \
+  --body @/tmp/fdai_assign.json
 
 # One-time admin consent so a signed-in user gets no consent prompt.
 az ad app permission admin-consent --id "$SPA_APPID"
@@ -212,10 +212,10 @@ Operator API 검증기 env: [deploy-and-onboard.md](../roadmap/deployment/deploy
 
 ```sh
 az ad app show --id "$API_APPID" \
- --query "{uri:identifierUris, tokenVer:api.requestedAccessTokenVersion, \
-   scopes:api.oauth2PermissionScopes[].value, roles:appRoles[].value}" -o json
+  --query "{uri:identifierUris, tokenVer:api.requestedAccessTokenVersion, \
+            scopes:api.oauth2PermissionScopes[].value, roles:appRoles[].value}" -o json
 az ad app show --id "$SPA_APPID" \
- --query "{spa:spa.redirectUris, perms:requiredResourceAccess[].resourceAppId}" -o json
+  --query "{spa:spa.redirectUris, perms:requiredResourceAccess[].resourceAppId}" -o json
 ```
 
 그런 다음 [console/README.md](../../console/README.md) 의 로컬 사인인 테스트를

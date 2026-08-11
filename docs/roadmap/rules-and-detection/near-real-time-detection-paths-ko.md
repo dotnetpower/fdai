@@ -27,7 +27,7 @@ translation_revised: 2026-08-11
 | Event-driven Kafka (KubeEvents, Activity Log, forwarded 진단) | **Kafka 수신 후 보통 서브초**; 출처 emission/forwarding 지연은 별도 | `FDAI_START_CONSUMER=1` 이면 소비자 on | push |
 | AKS Managed Prometheus (`RoutedMetricProvider` 경로 #1) | **~15~60s** | `FDAI_PROMETHEUS_ENDPOINT` | pull (틱) |
 | Diagnostic Setting -> Event 허브 -> Kafka | **~15~60s** | [`modules/observability/diagnostic-eventhub-route`](../../../infra/modules/observability/diagnostic-eventhub-route/main.tf) | **push (스트림)** |
-| 메트릭 Alert Rule -> 액션 그룹 -> 웹훅 | **~30~90s** | [`modules/observability/metric-alert-rules`](../../../infra/modules/observability/metric-alert-rules/main.tf) | **push (웹훅)** |
+| 메트릭 경보 Rule -> 액션 그룹 -> 웹훅 | **~30~90s** | [`modules/observability/metric-alert-rules`](../../../infra/modules/observability/metric-alert-rules/main.tf) | **push (웹훅)** |
 | Azure Monitor Metrics REST API (`RoutedMetricProvider` 경로 #2) | **~1~3분** | `FDAI_MONITOR_WORKSPACE_ID` 세트되면 자동 | pull (틱) |
 | Azure Monitor Logs KQL (`RoutedMetricProvider` 경로 #3) | **~2~5분** | `FDAI_MONITOR_WORKSPACE_ID` 세트되면 자동 | pull (틱) |
 
@@ -38,17 +38,17 @@ translation_revised: 2026-08-11
 참조. 두 push 경로는 포크가 리소스별로 인스턴스화하는 Terraform 모듈;
 명시적으로 배선하지 않으면 업스트림에선 아무것도 안 돌아감.
 
-## Push 경로 #1 - 메트릭 Alert Rule -> 웹훅 (~30~90s)
+## Push 경로 #1 - 메트릭 경보 Rule -> 웹훅 (~30~90s)
 
 ```mermaid
 flowchart LR
- R[Azure Resource] -->|metric| M[Azure Monitor Metrics store]
- M -->|rule window 매치| A[Metric Alert Rule]
- A --> G[Action Group webhook receiver]
- G -->|HTTPS POST| W[FDAI /webhook/azure-monitor]
- W --> N[normalize_common_alert_schema]
- N --> E[ingest topic 의 Event]
- E --> T[trust-router + risk-gate]
+    R[Azure Resource] -->|metric| M[Azure Monitor Metrics store]
+    M -->|rule window 매치| A[Metric Alert Rule]
+    A --> G[Action Group webhook receiver]
+    G -->|HTTPS POST| W[FDAI /webhook/azure-monitor]
+    W --> N[normalize_common_alert_schema]
+    N --> E[ingest topic 의 Event]
+    E --> T[trust-router + risk-gate]
 ```
 
 **언제 고를까**: 포크가 소수의 잘 알려진 알람을 자율 액션에 1:1로
@@ -59,31 +59,31 @@ flowchart LR
 **Seams**
 
 - [정규화기](../../../services/core-control-plane/src/fdai/delivery/azure/) -
- Common Alert 스키마 v2 -> `Event`. Pure 함수, fired /
- resolved / malformed 페이로드에 대한 단위 테스트.
+  Common 경보 스키마 v2 -> `Event`. Pure 함수, fired /
+  resolved / malformed 페이로드에 대한 단위 테스트.
 - [웹훅 경로](../../../services/operator-service/src/fdai_operator_service/) -
- Starlette 게시 `/webhook/azure-monitor`. Bearer-token 인증 (constant-time
- 비교), 256 KiB 본문 상한, 소문자화된 ARM id를 키로 ingest 토픽에 publish.
+  Starlette 게시 `/webhook/azure-monitor`. Bearer-token 인증 (constant-time
+  비교), 256 KiB 본문 상한, 소문자화된 ARM id를 키로 ingest 토픽에 publish.
 - [Terraform 모듈](../../../infra/modules/observability/metric-alert-rules/main.tf) -
- 재사용 가능한 메트릭 alert 룰; 포크가 (리소스, 메트릭) 페어마다 하나씩 인스턴스화.
+  재사용 가능한 메트릭 경보 룰; 포크가 (리소스, 메트릭) 페어마다 하나씩 인스턴스화.
 
 **배포 패턴**
 
 ```hcl
 module "aks_cpu_alert" {
- source    = "../../modules/observability/metric-alert-rules"
- name     = "alert-aks-cpu-over-80"
- resource_group_name = var.resource_group_name
- scopes    = [module.aks.id]
- description   = "AKS node CPU sustained above 80 percent"
- severity    = 2
- metric_namespace  = "Microsoft.ContainerService/managedClusters"
- metric_name   = "node_cpu_usage_percentage"
- aggregation   = "Average"
- operator    = "GreaterThan"
- threshold   = 80
- action_group_ids  = [module.alert_action_group.id]
- tags     = local.tags
+  source               = "../../modules/observability/metric-alert-rules"
+  name                 = "alert-aks-cpu-over-80"
+  resource_group_name  = var.resource_group_name
+  scopes               = [module.aks.id]
+  description          = "AKS node CPU sustained above 80 percent"
+  severity             = 2
+  metric_namespace     = "Microsoft.ContainerService/managedClusters"
+  metric_name          = "node_cpu_usage_percentage"
+  aggregation          = "Average"
+  operator             = "GreaterThan"
+  threshold            = 80
+  action_group_ids     = [module.alert_action_group.id]
+  tags                 = local.tags
 }
 ```
 
@@ -96,12 +96,12 @@ trusted proxy 또는 Entra-authenticated secure-webhook 어댑터를 액션 그�
 
 ```mermaid
 flowchart LR
- R[Azure Resource] -->|AllMetrics + AllLogs| D[Diagnostic Setting]
- D -->|stream| H[Azure Event Hub]
- H -->|Kafka :9093| C[FDAI Kafka consumer]
- C --> N[normalize_diagnostic_records]
- N --> E[ingest topic 의 Event]
- E --> T[trust-router + risk-gate]
+    R[Azure Resource] -->|AllMetrics + AllLogs| D[Diagnostic Setting]
+    D -->|stream| H[Azure Event Hub]
+    H -->|Kafka :9093| C[FDAI Kafka consumer]
+    C --> N[normalize_diagnostic_records]
+    N --> E[ingest topic 의 Event]
+    E --> T[trust-router + risk-gate]
 ```
 
 **언제 고를까**: 포크가 FDAI 안에서 중앙 집중식으로 임계값 권한을
@@ -114,18 +114,18 @@ per-alert-rule Terraform 반복 작업을 피하고 싶을 때. 리소스당 진
 **Seams**
 
 - [정규화기](../../../services/core-control-plane/src/fdai/delivery/azure/) -
- 진단 AllMetrics 배치 -> 튜플 of `Event`. Pure 함수,
- 형태 mismatch에 실패 시 차단, whitelist miss는 조용히 건너뜀해서
- firehose가 틱을 저하시키지 않음.
+  진단 AllMetrics 배치 -> 튜플 of `Event`. Pure 함수,
+  형태 mismatch에 실패 시 차단, whitelist miss는 조용히 건너뜀해서
+  firehose가 틱을 저하시키지 않음.
 - [Terraform 모듈](../../../infra/modules/observability/diagnostic-eventhub-route/main.tf) -
- 대상 리소스에 Diagnostic Setting을 첨부하고 포크의 Event 허브로
- 경로. 메트릭 / 로그 category는 명시적 선택.
+  대상 리소스에 Diagnostic Setting을 첨부하고 포크의 Event 허브로
+  경로. 메트릭 / 로그 category는 명시적 선택.
 - **Kafka 소비자 배선**이 Event 허브의 Kafka 엔드포인트를 읽고
- `normalize_diagnostic_records`를 호출하는 것은 포크 작업 -
- [`delivery/azure/event_bus.py`](../../../services/core-control-plane/src/fdai/delivery/azure/event_bus.py)의
- 표준 `AIOKafkaConsumer`가 이미 토픽을 읽으니, 포크의 조립
- 루트가 두 번째 소비자 인스턴스를 진단 허브에 붙이고 각 배치를
- 정규화기로 흘려주면 됨.
+  `normalize_diagnostic_records`를 호출하는 것은 포크 작업 -
+  [`delivery/azure/event_bus.py`](../../../services/core-control-plane/src/fdai/delivery/azure/event_bus.py)의
+  표준 `AIOKafkaConsumer`가 이미 토픽을 읽으니, 포크의 조립
+  루트가 두 번째 소비자 인스턴스를 진단 허브에 붙이고 각 배치를
+  정규화기로 흘려주면 됨.
 
 ## Pull 기준선 - `analyzer_tick_cli` + `RoutedMetricProvider`
 
@@ -171,29 +171,29 @@ Stale 스냅샷 또는 degraded 커버리지는 passed가 아니라 사용 불�
 ## 조합 규칙
 
 - **모든 push 정규화기는 별개의 `event_type`을 발행**해서 trust
- 라우터 (와 다운스트림 대시보드)가 분명하게 필터 가능:
- `azure.metric_alert.fired`, `azure.metric_alert.resolved`,
- `azure.metric_sample`.
+  라우터 (와 다운스트림 대시보드)가 분명하게 필터 가능:
+  `azure.metric_alert.fired`, `azure.metric_alert.resolved`,
+  `azure.metric_sample`.
 - **모든 발행 이벤트는 기본값이 `Mode.SHADOW`**. 첫 배선에서 실제 운영 push
- 신호에 자동 실행되지 않고, `Mode.ENFORCE`로의 승격은 분리된
- 검토를 거친 명시적 변경.
-- **멱등성 키는 소스 이벤트마다 결정적**. alert 정규화기는
- `alertId + monitorCondition + firedDateTime`으로 접기; 진단
- 정규화기는 `resourceId + metricName + timeStamp`로 접기. 액션
- 그룹 재전송이나 Event Hubs at-least-once 의미 규칙으로 인한 재-delivery도
- 중복 처리 안 함.
-- **상관관계 id는 series당 / 룰당 접기**. 한 alert 룰의 모든
- fire / resolved 쌍은 하나의 상관관계 id (`azure_alert:<alertId>`)를
- 공유; `(resource, metric)` series의 모든 샘플도 하나의 상관관계
- id (`azure_metric_stream:<resource>:<metric>`)를 공유. trust 라우터는
- 그룹화 키로 전달하고 인시던트 수명 주기 소비자가 상태 전이를 별도로 결정합니다.
+  신호에 자동 실행되지 않고, `Mode.ENFORCE`로의 승격은 분리된
+  검토를 거친 명시적 변경.
+- **멱등성 키는 소스 이벤트마다 결정적**. 경보 정규화기는
+  `alertId + monitorCondition + firedDateTime`으로 접기; 진단
+  정규화기는 `resourceId + metricName + timeStamp`로 접기. 액션
+  그룹 재전송이나 Event Hubs at-least-once 의미 규칙으로 인한 재-delivery도
+  중복 처리 안 함.
+- **상관관계 id는 series당 / 룰당 접기**. 한 경보 룰의 모든
+  fire / resolved 쌍은 하나의 상관관계 id (`azure_alert:<alertId>`)를
+  공유; `(resource, metric)` series의 모든 샘플도 하나의 상관관계
+  id (`azure_metric_stream:<resource>:<metric>`)를 공유. trust 라우터는
+  그룹화 키로 전달하고 인시던트 수명 주기 소비자가 상태 전이를 별도로 결정합니다.
 
 ## 포크 픽 가이드
 
 | 포크 프로파일 | 추천 조합 |
 |---------------|-----------|
 | 첫 배포, 일반 AKS | Pull 기준선만 (Prom + Metrics API + Logs). Push 배선 없음. |
-| 큐레이션된 alert 카탈로그를 가진 prod | Pull 기준선 + 포크가 신경 쓰는 alert들에 대해 push 경로 #1. |
+| 큐레이션된 경보 카탈로그를 가진 prod | Pull 기준선 + 포크가 신경 쓰는 경보들에 대해 push 경로 #1. |
 | FDAI 안에 메트릭 권한이 무거운 prod | Pull 기준선 + 가장 중요한 리소스들에 push 경로 #2; push #1는 피함. |
 | Event Hubs 비용 엄격 상한 | Push 경로 #1만 (범위가 제한된 양) + pull 기준선. |
 
@@ -203,14 +203,14 @@ Stale 스냅샷 또는 degraded 커버리지는 passed가 아니라 사용 불�
 ## 아직 배송 안 됨
 
 - **경로 #1 인증된 액션 그룹 브리지.** 경로와 alert-rule 모듈은 존재하지만 shipped
- 액션 그룹 웹훅은 Bearer 헤더를 추가하지 않습니다. 포크는 토큰을 주입하는 trusted
- proxy 또는 Entra-authenticated secure 웹훅 연결을 제공해야 합니다.
+  액션 그룹 웹훅은 Bearer 헤더를 추가하지 않습니다. 포크는 토큰을 주입하는 trusted
+  proxy 또는 Entra-authenticated secure 웹훅 연결을 제공해야 합니다.
 
 - **경로 #2의 Kafka-consumer glue** (위 "포크 작업" 노트 참조). 소비자
- 라이브러리와 정규화기 둘 다 존재; 진단 허브를 읽고 기록을
- 정규화기로 흘리는 composition-root 배선만 업스트림에 안 씀.
+  라이브러리와 정규화기 둘 다 존재; 진단 허브를 읽고 기록을
+  정규화기로 흘리는 composition-root 배선만 업스트림에 안 씀.
 - **관리형 alert-rule authoring 파이프라인**. 경로 #1의 Terraform
- 모듈은 기본 요소; shipped 룰 카탈로그에서 룰을 materialize하는
- rule-catalog-driven generator는 별개 스코프.
+  모듈은 기본 요소; shipped 룰 카탈로그에서 룰을 materialize하는
+  rule-catalog-driven generator는 별개 스코프.
 
 세 항목 모두 포크가 형태를 정한 뒤 추가할 수 있는 준비 상태입니다.

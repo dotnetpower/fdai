@@ -32,31 +32,31 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 ### 배포자 아이덴티티 (Azure)
 
 - 대상 리소스 그룹에 대한 subscription-scoped **Owner** 또는 **기여자 + User 접근
- Administrator** - 실행기 Managed Identity와 그 범위된 롤 할당 생성에 필요.
+  Administrator** - 실행기 Managed Identity와 그 범위된 롤 할당 생성에 필요.
 - 실행기의 **액션 화이트리스트**에 매칭되는 subscription-scoped 롤 부여 능력
- ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md)).
+  ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md)).
 - **TBD**: 목적별 custom 롤이 배포자 권한을 패키징할지.
 
 ### Azure 전제조건
 
 - 아래 인벤토리의 모든 서비스 가용성이 확인된 리전.
 - 확인된 쿼터 헤드룸 (Container Apps 코어, Event Hubs 처리량 단위, PostgreSQL vCore,
- Key Vault 작업).
+  Key Vault 작업).
 - Diagnostic Settings 목적지 (Log Analytics workspace) - 신규 또는 기존; 소유권 TBD.
 - **비공개 networking (정책 잠금 테난트).** 비공개 데이터 서비스를 강제하는 테난트는
- `enable_private_networking = true`로 설정합니다. 배포는 Key Vault, 두 Event Hubs 이름 공간
- 샤드 및 public-mode PostgreSQL에 VNet, 비공개 엔드포인트, linked 비공개 DNS를 provision합니다.
- Event Hubs 공개 접근은 비활성화됩니다. Public-mode PostgreSQL 엔드포인트는 가산이므로 기존
- 서버를 유지하며, `enable_private_postgres = true`는 별도 delegated-subnet 모드로 남습니다.
- 배포는 Container App 환경도 위임 infra 서브넷에 연결하고 vault를 비공개 접근으로
- 잠급니다. Private-only vault는
- 운영자 laptop 에서 도달 불가능하므로, `terraform apply` 는 엔드포인트 에 VNet 시야가
- 확보된 호스트 - VNet 내 CI 러너 또는 점프박스 - 에서 실행해야 합니다(실행기가 거기서
- DSN 시크릿을 쓰기). `acr_sku = "Premium"`이면 ACR도 같은 방식으로 잠깁니다. 레지스트리는 공개
- 네트워크 접근을 잃고 `privatelink.azurecr.io` 엔드포인트를 받으며, 영역 그룹이 login-server와
- data-endpoint 기록을 등록합니다. 비공개 링크는 Premium 전용이므로 Basic 또는 Standard
- 레지스트리는 의도적으로 공개로 남습니다. 비공개 경로 없이 닫으면 모든 이미지 pull이
- 깨지기 때문입니다. Prod는 이미 Premium을 요구합니다.
+  `enable_private_networking = true`로 설정합니다. 배포는 Key Vault, 두 Event Hubs 이름 공간
+  샤드 및 public-mode PostgreSQL에 VNet, 비공개 엔드포인트, linked 비공개 DNS를 provision합니다.
+  Event Hubs 공개 접근은 비활성화됩니다. Public-mode PostgreSQL 엔드포인트는 가산이므로 기존
+  서버를 유지하며, `enable_private_postgres = true`는 별도 delegated-subnet 모드로 남습니다.
+  배포는 Container App 환경도 위임 infra 서브넷에 연결하고 금고를 비공개 접근으로
+  잠급니다. Private-only 금고는
+  운영자 laptop 에서 도달 불가능하므로, `terraform apply` 는 엔드포인트 에 VNet 시야가
+  확보된 호스트 - VNet 내 CI 러너 또는 점프박스 - 에서 실행해야 합니다(실행기가 거기서
+  DSN 시크릿을 쓰기). `acr_sku = "Premium"`이면 ACR도 같은 방식으로 잠깁니다. 레지스트리는 공개
+  네트워크 접근을 잃고 `privatelink.azurecr.io` 엔드포인트를 받으며, 영역 그룹이 login-server와
+  data-endpoint 기록을 등록합니다. 비공개 링크는 Premium 전용이므로 Basic 또는 Standard
+  레지스트리는 의도적으로 공개로 남습니다. 비공개 경로 없이 닫으면 모든 이미지 pull이
+  깨지기 때문입니다. Prod는 이미 Premium을 요구합니다.
 
 #### Terraform이 만들지 않는 것
 
@@ -64,14 +64,14 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 하나라도 없으면 계획 시점이 아니라 실행 도중에 실패합니다.
 
 - **Deployer 신원과 역할 배정 권한.** 실행기 신원과 scoped 역할을 만들려면 User 접근
- Administrator가 필요합니다. 기여자만 있으면 계획은 통과하고 적용에서 실패합니다.
+  Administrator가 필요합니다. 기여자만 있으면 계획은 통과하고 적용에서 실패합니다.
 - **Terraform 상태 저장소 계정.** `infra/bootstrap/create-state-account.sh`가 `az`로
- 만듭니다. 비공개 + key-disabled 계정은 운영자 워크스테이션에서 Terraform의 data-plane 준비 상태
- poll을 끝낼 수 없기 때문입니다. Terraform은 데이터 출처로 읽기만 합니다.
+  만듭니다. 비공개 + key-disabled 계정은 운영자 워크스테이션에서 Terraform의 data-plane 준비 상태
+  poll을 끝낼 수 없기 때문입니다. Terraform은 데이터 출처로 읽기만 합니다.
 - **초기화 계층이 실행기 VM을 만들 때의 앱 리소스 그룹.** 그 계층은 실행기의 기여자
- 권한 부여 범위를 정하려고 이 그룹을 데이터 출처로 읽는데, 정작 그룹을 만드는 것은 앱 계층입니다.
- 빈 구독에서는 빈 그룹을 먼저 만들거나, `create_runner_vm = false`로 초기화를 한 번 적용한
- 뒤 앱 계층을 돌리고 실행기를 켜서 다시 적용합니다.
+  권한 부여 범위를 정하려고 이 그룹을 데이터 출처로 읽는데, 정작 그룹을 만드는 것은 앱 계층입니다.
+  빈 구독에서는 빈 그룹을 먼저 만들거나, `create_runner_vm = false`로 초기화를 한 번 적용한
+  뒤 앱 계층을 돌리고 실행기를 켜서 다시 적용합니다.
 - **실행기용 SSH 공개 키**, 그리고 위에 적은 쿼터 헤드룸과 Log Analytics 목적지.
 
 Azure Policy가 인벤토리 일부를 거부하는 테난트는 계획이 수렴하기 전에 예외 또는 대응하는
@@ -90,15 +90,15 @@ GitHub에 등록된 실행기가 GitHub, 관리 평면, 신원 평면에 도달�
 실행기가 아니라 점프박스가 되며, 테난트가 자체 승인 경로를 공급합니다.
 
 - 앱 RG 와 분리된 **ops 리소스 그룹 + 허브 VNet**(`rg-fdai-ops-<region_short>` /
- `vnet-fdai-ops-...`), 러너 서브넷과 private-endpoint 서브넷 포함;
+  `vnet-fdai-ops-...`), 러너 서브넷과 private-endpoint 서브넷 포함;
 - 비공개 로 잠긴 **terraform remote-state 저장소 계정**, ops VNet 에 링크된
- `privatelink.blob.core.windows.net` 블롭 비공개 엔드포인트 로 프론트;
+  `privatelink.blob.core.windows.net` 블롭 비공개 엔드포인트 로 프론트;
 - 공개 IP 없이 독립 실행기 자리를 1-5개 등록하는 **자체 호스팅 배포 실행기 VM**. 자리마다
- VM-side Bash에서 경로를 확장하고 필수 성공 표시를 내보냅니다. 작업 디렉터리는 분리하고 managed 신원은 공유합니다. 이 신원은 앱 RG에
- `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`, 상태 계정에
- `Storage Blob Data Contributor`, 구독 범위에 `EventGrid Contributor`만 보유합니다.
- 각 실행은 managed 신원 login 전에 Azure CLI 계정 캐시를 지운 뒤 저장소, 계획, 적용 전에
- 저장소에 설정된 exact 구독과 테넌트를 증명합니다.
+  VM-side Bash에서 경로를 확장하고 필수 성공 표시를 내보냅니다. 작업 디렉터리는 분리하고 managed 신원은 공유합니다. 이 신원은 앱 RG에
+  `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`, 상태 계정에
+  `Storage Blob Data Contributor`, 구독 범위에 `EventGrid Contributor`만 보유합니다.
+  각 실행은 managed 신원 login 전에 Azure CLI 계정 캐시를 지운 뒤 저장소, 계획, 적용 전에
+  저장소에 설정된 exact 구독과 테넌트를 증명합니다.
 체크아웃 전 실행기는 이전 방식 생성된 `infra/None` 캐시 경로만 제거해 root-owned 액션
 residue가 exact-commit clean을 막지 않게 합니다. 해당 단계는 Azure CLI 구성을
 `RUNNER_TEMP` 아래에 만들고 subsequent 단계용 `GITHUB_ENV`로 내보내기합니다. 배포 작업의
@@ -106,7 +106,7 @@ residue가 exact-commit clean을 막지 않게 합니다. 해당 단계는 Azure
 아직 저장소 디렉터리가 없으며 이전 checkout residue에 의존하지 않습니다.
 앱 구성 는 spoke VNet 을 ops 허브 에 (양방향) 피어링 하고 비공개 DNS 영역 을
 `extra_vnet_links` 경계 으로 ops VNet 에 링크해, 러너가 앱 Key Vault 를 비공개 로 해석하게
-한다. 러너가 terraform 적용 주체이므로 기존 `kv_officer_self` 부여가 러너를 앱 vault 의
+한다. 러너가 terraform 적용 주체이므로 기존 `kv_officer_self` 부여가 러너를 앱 금고 의
 `Key Vault Secrets Officer` 로 만든다 - 적용 중 DSN 시크릿을 쓰기 한다. 배포는
 `[self-hosted, fdai-deploy]` 러너 위에서 [`deploy-dev` 워크플로](../../../.github/workflows/deploy-dev.yml)
 로 실행한다(기본 plan-only; `apply` 입력이 강제 적용).
@@ -124,7 +124,7 @@ Protected 요청은 `commit_sha`를 명시적으로 체크아웃하고 `git rev-
 Terraform이 검사할 결과를 만들기도 전에 실행기에서 127로 종료됩니다.
 Protected 계획은 binary Terraform 계획, 범위가 제한된 preflight 근거, 함수 출처 보관을
 각각 별도 SHA-256 다이제스트와 함께 저장합니다. Exact 적용은 모든 산출물을 download하고
-검증합니다. Peer 증적은 인증된 실행기 신원과 범위가 제한된 시간 초과로 허용 목록에 있는 isolated 백엔드 블롭을 각각 직접 download하여 상태 바이트를 변경하지 않으면서 반복 프로바이더 initialization을 제거합니다. 서비스 롤백은 변경할 수 없는 스냅샷에 없는 post-apply 시크릿 이름만 제거한 뒤 exact Key Vault 참조를 복원합니다. Independent-service Container App 계획은 lowercase plan-time 개정 번호 접미사도 saved Terraform 계획에 seal하므로 out-of-band 검증된 이미지 롤백 이후 desired Terraform 이미지가 변경되지 않은 상태에서도 exact 적용이 fresh 개정 번호를 생성합니다. 가드는 exact 이미지 갱신 옆에서 해당 범위가 제한된 접미사만 허용하며 적용 증적을 기록하려면 상태가 attested 이미지를 실행하는 새 개정 번호를 계속 요구합니다. 새 계획 저장 전 실행기는 24시간이 지난 허용 목록에 있는 계획, 메타데이터, 출처,
+검증합니다. Peer 증적은 인증된 실행기 신원과 범위가 제한된 시간 초과로 허용 목록에 있는 isolated 백엔드 블롭을 각각 직접 download하여 상태 바이트를 변경하지 않으면서 반복 프로바이더 initialization을 제거합니다. 서비스 롤백은 변경할 수 없는 스냅샷에 없는 post-apply 시크릿 이름만 제거한 뒤 exact Key Vault 참조를 복원합니다. Independent-service Container App 계획은 lowercase plan-time 개정 번호 접미사도 saved Terraform 계획에 봉인하므로 out-of-band 검증된 이미지 롤백 이후 desired Terraform 이미지가 변경되지 않은 상태에서도 exact 적용이 fresh 개정 번호를 생성합니다. 가드는 exact 이미지 갱신 옆에서 해당 범위가 제한된 접미사만 허용하며 적용 증적을 기록하려면 상태가 attested 이미지를 실행하는 새 개정 번호를 계속 요구합니다. 새 계획 저장 전 실행기는 24시간이 지난 허용 목록에 있는 계획, 메타데이터, 출처,
 preflight, 점유, 증적 블롭만 선택합니다. 1001개 미만을 검사하고 워커 8개로 최대 1000개를
 삭제하며 선택이 불완전한이거나 삭제가 하나라도 실패하면 계획을 중지합니다.
 개발 operations 게이트웨이를 선택하면 Terraform은 해당 함수, 코어, Operator API,
@@ -206,21 +206,21 @@ Analyzer cron을 명시적으로 빈 문자열로 설정하면 작업이 비활�
 exact 쌍에 접근할 수 없으면 변경 전에 fail합니다.
 
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 Azure
- CLI와 `azd` 항목 지점을 approved 구독/테넌트 쌍에 연결합니다.
+  CLI와 `azd` 항목 지점을 approved 구독/테넌트 쌍에 연결합니다.
 
 - [`preflight-policy-check.sh`](../../../infra/bootstrap/preflight-policy-check.sh) 는 throwaway
- KV + 저장소 를 프로브해 테난트가 private-everything 를 강제하는지(러너 경로 필수 여부)
- 사전에 알려준다.
+  KV + 저장소 를 프로브해 테난트가 private-everything 를 강제하는지(러너 경로 필수 여부)
+  사전에 알려준다.
 - [`onboard.sh`](../../../infra/bootstrap/onboard.sh) 는 create-state-account -> 초기화
- 적용 -> GitHub Actions 설정 출력을 한 번에 수행(멱등적).
+  적용 -> GitHub Actions 설정 출력을 한 번에 수행(멱등적).
 - [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh) 는 초기화 출력 에서
- repo Variables + Secrets 를 설정(비번은 생성 후 파이프, 절대 출력 안 함).
+  repo Variables + Secrets 를 설정(비번은 생성 후 파이프, 절대 출력 안 함).
 - [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh) 는 러너 토큰을 발급하고
- `run-command` 로 VNet 러너를 등록합니다. 다시 실행하면 기존 서비스를 중지하고 uninstall한
- 뒤 수명이 짧은 제거 토큰으로 stale 로컬 및 GitHub 등록을 제거하고 fresh 서비스를
- 설치합니다. 따라서 토큰을 보관하지 않고 broker-session 손상을 복구합니다.
+  `run-command` 로 VNet 러너를 등록합니다. 다시 실행하면 기존 서비스를 중지하고 uninstall한
+  뒤 수명이 짧은 제거 토큰으로 stale 로컬 및 GitHub 등록을 제거하고 fresh 서비스를
+  설치합니다. 따라서 토큰을 보관하지 않고 broker-session 손상을 복구합니다.
 - [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh) 는 러너 deallocate/시작(비용) 와 ops 허브
- + 상태 계정 를 절대 건드리지 않는 env 별 `terraform destroy` 가드를 제공.
+  + 상태 계정 를 절대 건드리지 않는 env 별 `terraform destroy` 가드를 제공.
 
 #### 프로덕션 하드닝 knob
 
@@ -251,7 +251,7 @@ exact 쌍에 접근할 수 없으면 변경 전에 fail합니다.
 VNet에 비공개 DNS 영역을 연결하며 공개 접근과 `AllowAllAzureServices` firewall 룰을
 비활성화합니다. 기존 공개 서버에서 활성화하면 서버가 교체될 수 있으므로 승격 전에
 계획을 검토하고 백업/복원을 예행 연습하는 것이 좋습니다. `infra/production-gates.tf`의
-assertion은 signed 이미지 다이제스트, 비공개 networking, 내구성, alert 대상, 비용 예산
+assertion은 signed 이미지 다이제스트, 비공개 networking, 내구성, 경보 대상, 비용 예산
 최소값이 제공될 때까지 운영 계획을 차단합니다.
 
 `enable_private_networking = true`이고 delegated-subnet PostgreSQL이 꺼져 있으면 Terraform은
@@ -272,42 +272,42 @@ CI는 자격증명 없는 가드 2개를 추가합니다. [`infra-lint.yml`](../
 [`infra-drift.yml`](../../../.github/workflows/infra-drift.yml)은 실행기에서 이전 방식, 독립 서비스 5개,
 초기화 상태 루트에 대해 스케줄된 `plan -detailed-exitcode`를 실행합니다. 루트가 없거나 읽을 수 없거나
 변경되면 닫힌 상태로 실패하므로 green 실행은 루트 7개를 모두 확인했다는 뜻입니다. 모니터링은 활성화 시 액션 그룹 +
-메트릭 alert(Postgres / Key Vault / Event Hubs / Container App) + Log Analytics 진단설정을
-provision 하며, alert 는 인간 신호일 뿐 자율 액션이 아니다.
+메트릭 경보(Postgres / Key Vault / Event Hubs / Container App) + Log Analytics 진단설정을
+provision 하며, 경보 는 인간 신호일 뿐 자율 액션이 아니다.
 
 ### 비-Azure 전제조건
 
 - 카탈로그 + 포크 리포에 범위된 설치된 GitHub App 또는 서비스 커넥션을 가진 **GitOps 호스트**
- (GitHub 또는 Azure DevOps 조직).
+  (GitHub 또는 Azure DevOps 조직).
 - 사람 승인(`hil` 경로)을 위한 그룹-연결 팀이 있는 **Teams 테넌트**. Teams가 기본 A1
- 기본입니다. 자세한 내용은
- [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md)를 참조하세요.
+  기본입니다. 자세한 내용은
+  [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md)를 참조하세요.
 - FDAI Slack 앱이 설치되고 필수 Slack userId ↔ Entra OID 매핑 저장소가 프로비저닝된
- **Slack 워크스페이스**; P1 Slack A1 채널에 필요
- ([channels-and-notifications-ko.md#7-channel-specific-notes](../interfaces/channels-and-notifications-ko.md#7-channel-specific-notes)).
+  **Slack 워크스페이스**; P1 Slack A1 채널에 필요
+  ([channels-and-notifications-ko.md#7-channel-specific-notes](../interfaces/channels-and-notifications-ko.md#7-channel-specific-notes)).
 - 서명 + 증명 저장을 지원하는 **컨테이너 레지스트리** (ACR 또는 외부 레지스트리).
 - **OpenTelemetry 백엔드**: Log Analytics workspace에 Application Insights를 바인딩합니다.
- 포크는 텔레메트리 프로바이더 계약을 통해 백엔드를 교체할 수 있지만 Azure day-zero
- 인벤토리에서는 이 선택을 열어 두지 않습니다.
+  포크는 텔레메트리 프로바이더 계약을 통해 백엔드를 교체할 수 있지만 Azure day-zero
+  인벤토리에서는 이 선택을 열어 두지 않습니다.
 
 ## 배포 아티팩트
 
 - `infra/`의 IaC ([project-structure-ko.md](../architecture/project-structure-ko.md) 참조)가 엔트리 포인트.
- 모든 환경은 환경별 파라미터와 환경별 격리된 상태로 같은 코드에서 동일하게 프로비저닝합니다.
- Terraform은 기본 Event 허브 이름을 `event_bus_topics`로, 단계, 승인, 인벤토리 유입
- auxiliary 이름을 `event_bus_auxiliary_topics`로 제공해 로컬 런타임 준비가 provision된 토픽만 연결합니다.
+  모든 환경은 환경별 파라미터와 환경별 격리된 상태로 같은 코드에서 동일하게 프로비저닝합니다.
+  Terraform은 기본 Event 허브 이름을 `event_bus_topics`로, 단계, 승인, 인벤토리 유입
+  auxiliary 이름을 `event_bus_auxiliary_topics`로 제공해 로컬 런타임 준비가 provision된 토픽만 연결합니다.
 - **엔트리 명령**: `infra/`의 Terraform (HCL) 모듈에 대해 `terraform apply` - 이전 OD
- (`azd up` vs `terraform apply` vs 래퍼 스크립트) 해결. 환경 값은 **깃에 커밋되지 않는**
- `*.tfvars` 파일로 공급 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)
- 준수). [`fdaictl`](installable-deployment-cli-ko.md) 래퍼와 실행기는
- `request 검증 -> init -> plan -> live preflight -> exact remote apply -> post-provision 체크`를
- 순서대로 실행합니다. Protected 계획에 완전한 non-secret preflight 프로파일이 없으면 Azure
- login 또는 Terraform initialization 전에 중단합니다. 실제 운영 탐색이 차단되면 작업 흐름은
- 중단하기 전에 정제된 검사와 발견 사항만 출력합니다. Terraform은 실행 엔진이자
- infrastructure 정본으로 유지됩니다. Bicep과 OpenTofu는
- [tech-stack-ko.md](../architecture/tech-stack-ko.md)에 따른 호환 대안으로 남습니다.
+  (`azd up` vs `terraform apply` vs 래퍼 스크립트) 해결. 환경 값은 **깃에 커밋되지 않는**
+  `*.tfvars` 파일로 공급 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)
+  준수). [`fdaictl`](installable-deployment-cli-ko.md) 래퍼와 실행기는
+  `request 검증 -> init -> plan -> live preflight -> exact remote apply -> post-provision 체크`를
+  순서대로 실행합니다. Protected 계획에 완전한 non-secret preflight 프로파일이 없으면 Azure
+  login 또는 Terraform initialization 전에 중단합니다. 실제 운영 탐색이 차단되면 작업 흐름은
+  중단하기 전에 정제된 검사와 발견 사항만 출력합니다. Terraform은 실행 엔진이자
+  infrastructure 정본으로 유지됩니다. Bicep과 OpenTofu는
+  [tech-stack-ko.md](../architecture/tech-stack-ko.md)에 따른 호환 대안으로 남습니다.
 - 같은 서명 이미지가 `dev → staging → prod` 승격; 환경별 재빌드 없음
- ([deployment-ko.md](deployment-ko.md)).
+  ([deployment-ko.md](deployment-ko.md)).
 
 ## 리소스 명명 규약(Resource Naming Convention)
 
@@ -345,42 +345,42 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 추가 신원/채널/콘솔 요소는 배포 또는 명시적 선택 기능이 소유합니다:
 
 - **App 등록 × 3** - 오디언스 분리
- ([user-rbac-and-identity-ko.md#41-app-registrations](../interfaces/user-rbac-and-identity-ko.md#41-app-registrations)):
- `fdai-console-spa` (SPA 사인인, PKCE), `fdai-api` (콘솔 + ChatOps 백엔드용
- Web API 오디언스), `fdai-approval-bot` (Teams SSO). 어느 것도 실행기 아이덴티티
- 보유 안 함. 단계별 `az` 생성:
- [../runbooks/entra-app-registration-ko.md](../../runbooks/entra-app-registration-ko.md).
- 콘솔 적용 후 deploy 작업 흐름은 Terraform이 출력한 Static Web App 출처를 대상
- 테넌트의 SPA redirect URI에 안전하게 재시도 가능한 방식으로 동기화합니다. 테넌트가
- 일치하지 않거나 Graph 권한이 없으면, 사인인할 수 없는 콘솔을 배포하지 않도록
- 배포를 차단합니다.
+  ([user-rbac-and-identity-ko.md#41-app-registrations](../interfaces/user-rbac-and-identity-ko.md#41-app-registrations)):
+  `fdai-console-spa` (SPA 사인인, PKCE), `fdai-api` (콘솔 + ChatOps 백엔드용
+  Web API 오디언스), `fdai-approval-bot` (Teams SSO). 어느 것도 실행기 아이덴티티
+  보유 안 함. 단계별 `az` 생성:
+  [../runbooks/entra-app-registration-ko.md](../../runbooks/entra-app-registration-ko.md).
+  콘솔 적용 후 deploy 작업 흐름은 Terraform이 출력한 Static Web App 출처를 대상
+  테넌트의 SPA redirect URI에 안전하게 재시도 가능한 방식으로 동기화합니다. 테넌트가
+  일치하지 않거나 Graph 권한이 없으면, 사인인할 수 없는 콘솔을 배포하지 않도록
+  배포를 차단합니다.
 - **Entra 보안 그룹 × 5** - `aw-readers`, `aw-contributors`, `aw-approvers`, `aw-owners`,
- `aw-break-glass`. 배포 소유이며 objectId는 구성으로 주입되고 시작 시 검증
- ([user-rbac-and-identity-ko.md#42-security-groups-slots](../interfaces/user-rbac-and-identity-ko.md#42-security-groups-slots)).
+  `aw-break-glass`. 배포 소유이며 objectId는 구성으로 주입되고 시작 시 검증
+  ([user-rbac-and-identity-ko.md#42-security-groups-slots](../interfaces/user-rbac-and-identity-ko.md#42-security-groups-slots)).
 - **Conditional 접근 정책** - `aw-approvers`/`aw-owners`에 phishing-resistant MFA,
- `aw-owners`에 compliant-device, `aw-break-glass`에 전용 하드웨어 토큰 + 사인인 알림.
- Entra ID P1에서 이용 가능
- ([user-rbac-and-identity-ko.md#43-conditional-access](../interfaces/user-rbac-and-identity-ko.md#43-conditional-access)).
+  `aw-owners`에 compliant-device, `aw-break-glass`에 전용 하드웨어 토큰 + 사인인 알림.
+  Entra ID P1에서 이용 가능
+  ([user-rbac-and-identity-ko.md#43-conditional-access](../interfaces/user-rbac-and-identity-ko.md#43-conditional-access)).
 - **Azure Bot (Free 계층, 미프로비저닝)** - Teams Adaptive 카드 채널을 선택한 다운스트림
- 배포가 별도로 제공합니다. 업스트림 Terraform은 signed 웹훅 경계만 배포합니다.
+  배포가 별도로 제공합니다. 업스트림 Terraform은 signed 웹훅 경계만 배포합니다.
 - **서명된 HIL 웹훅** - 운영은 CI 시크릿으로 URL과 32자 이상의 HMAC 시크릿을
- 제공합니다. Terraform은 둘 다 Key Vault에 저장하며, 코어는 URL과 시크릿을 읽고 Operator API에는
- 콜백 시크릿만 전달합니다.
+  제공합니다. Terraform은 둘 다 Key Vault에 저장하며, 코어는 URL과 시크릿을 읽고 Operator API에는
+  콜백 시크릿만 전달합니다.
 - **Topic-scoped Event Hubs 역할** - 실행기는 이름 공간이 아니라 현재 프로비저닝된 각 허브
- 개체에 데이터 Owner를 받습니다. 인벤토리와 canary는 각자의 토픽에만 전송할 수 있습니다.
- Operator API 명령 신원은 제안, HIL 결정, pantheon 객체 메시지를 전송하고
- 단계 토픽을 수신합니다. 문서 인제스트는 `aw.pipeline.stages`로 제한됩니다.
+  개체에 데이터 Owner를 받습니다. 인벤토리와 canary는 각자의 토픽에만 전송할 수 있습니다.
+  Operator API 명령 신원은 제안, HIL 결정, pantheon 객체 메시지를 전송하고
+  단계 토픽을 수신합니다. 문서 인제스트는 `aw.pipeline.stages`로 제한됩니다.
 - **Static Web Apps (Free 계층, 명시적 선택)** - `enable_console=true`일 때 읽기 전용 콘솔을 호스팅합니다.
 - **Design-mocks Static Web App (Free 계층, 명시적 선택)** - `enable_design_mocks=true`일 때 격리된
- 정적 디자인 검토 아티팩트를 호스팅합니다. 아티팩트 빌더는 `index.html`, `mocks/`,
- `examples/`, 공유 에이전트 icon에서 허용된 브라우저 자산만 복사합니다. Static Web Apps
- 인증은 익명 요청을 Microsoft Entra ID로 리디렉션하고 초대된 `reviewer` 역할 구성원만
- 허용합니다. 보호된 exact-apply 작업 흐름은 Terraform 소유 리소스에서 배포 토큰을 읽고
- 마스킹한 다음 exact-version Static Web Apps CLI에 `SWA_CLI_DEPLOYMENT_TOKEN` 환경변수로만
- 전달합니다. 작업 흐름은 허용 목록 아티팩트를 게시하고 인증 리디렉션을 확인합니다. 토큰은
- 커밋하거나 저장소 시크릿으로 저장하지 않습니다. 이 경로는 `module.design_mocks`만
- 대상으로 하며, 해당 모듈 외부의 리소스 변경이 계획되면 차단하고 코어 canary와 다른 런타임
- 조정을 건너뜁니다.
+  정적 디자인 검토 아티팩트를 호스팅합니다. 아티팩트 빌더는 `index.html`, `mocks/`,
+  `examples/`, 공유 에이전트 icon에서 허용된 브라우저 자산만 복사합니다. Static Web Apps
+  인증은 익명 요청을 Microsoft Entra ID로 리디렉션하고 초대된 `reviewer` 역할 구성원만
+  허용합니다. 보호된 exact-apply 작업 흐름은 Terraform 소유 리소스에서 배포 토큰을 읽고
+  마스킹한 다음 exact-version Static Web Apps CLI에 `SWA_CLI_DEPLOYMENT_TOKEN` 환경변수로만
+  전달합니다. 작업 흐름은 허용 목록 아티팩트를 게시하고 인증 리디렉션을 확인합니다. 토큰은
+  커밋하거나 저장소 시크릿으로 저장하지 않습니다. 이 경로는 `module.design_mocks`만
+  대상으로 하며, 해당 모듈 외부의 리소스 변경이 계획되면 차단하고 코어 canary와 다른 런타임
+  조정을 건너뜁니다.
 - **워크로드 신원 federation** - CI/CD 단명 OIDC 토큰; 리소스 아님, 비용 없음.
 
 ### 문서 인제스트 배포
@@ -390,12 +390,12 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 Terraform은 다음 항목을 프로비저닝합니다.
 
 - 별도 API, 워커, 이행 UAMI와 role-scoped PostgreSQL DSN. API는 단계를 publish하지만
- consume하지 않으며 워커만 단계 수신과 선택적 문서 Intelligence OCR 권한을 가집니다.
+  consume하지 않으며 워커만 단계 수신과 선택적 문서 Intelligence OCR 권한을 가집니다.
 - HNS, `documents`와 `derived` 파일 시스템, 수명 주기 컨트롤, Shared Key 비활성화와
- Terraform-owned Defender scanner private-link 접근을 적용한 StorageV2 계정
+  Terraform-owned Defender scanner private-link 접근을 적용한 StorageV2 계정
 - `blob` 및 `dfs` 비공개 엔드포인트. App VNet은 엔드포인트 영역에 링크하고, ops 실행기는 기존
- central Blob 영역의 A 기록으로 Blob을 해석합니다. DFS 영역은 두 VNet에 링크합니다.
- 이 방식은 한 VNet을 같은 이름 공간의 중복 영역에 링크하지 않습니다.
+  central Blob 영역의 A 기록으로 Blob을 해석합니다. DFS 영역은 두 VNet에 링크합니다.
+  이 방식은 한 VNet을 같은 이름 공간의 중복 영역에 링크하지 않습니다.
 - 공개 인제스트 API Container App과 replica-local ClamAV를 포함한 내부 워커 앱. Initial 전환은 롤백용 exact 빈 이전 방식 sidecar 탐색만 스냅샷할 수 있고 새 개정 번호는 계속 strict 탐색 3개를 요구합니다.
 - 트래픽 전에 문서 메타데이터와 pgvector 스키마를 적용하는 수동 이행 작업
 
@@ -412,14 +412,14 @@ networking과 digest-pinned FDAI 및 ClamAV 이미지를 요구합니다.
 첫날에 **프로비저닝되지 않음** (측정된 필요가 정당화할 때 후속 단계로 연기):
 
 - **Service Bus 이름 공간과 Event Grid 커스텀 토픽** - 이벤트 버스는 Event Hubs의 Kafka
- 엔드포인트 ([csp-neutrality-ko.md § 이벤트버스 계약](../architecture/csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜));
- 인벤토리 쓰기/삭제용 subscription-scoped Event Grid 구독은 기본 배포되지만
- 별도 custom 토픽은 만들지 않습니다.
+  엔드포인트 ([csp-neutrality-ko.md § 이벤트버스 계약](../architecture/csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜));
+  인벤토리 쓰기/삭제용 subscription-scoped Event Grid 구독은 기본 배포되지만
+  별도 custom 토픽은 만들지 않습니다.
 - 전용 vector 데이터베이스 (PostgreSQL 내부 pgvector가 초기 스케일에서 충분).
 - Front Door, 애플리케이션 게이트웨이, API 관리 (공개 인바운드 엔드포인트 없음; 콘솔은
- 읽기 전용 정적 호스팅).
+  읽기 전용 정적 호스팅).
 - DR용 secondary-region 리소스 (단계 4 - TBD;
- [구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must) 참조).
+  [구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must) 참조).
 
 ### Compute 형태 (현재 Core와 5개 서비스 목표)
 현재 control-loop Core는 서명된 이미지와 Python 프로세스 하나로 배포됩니다. 5개 서비스 목표는 내부 Isolated 실행기를 추가하고 전환에서 Core의 실행기 역할을 제거합니다. Operator, 인제스트 API, 인제스트 워커는 별도이며 이전 토폴로지는 롤백 산출물입니다. 모든 게이트는 [실행 계획](../architecture/service-decomposition-execution-plan-ko.md)에서 추적합니다.
@@ -438,27 +438,27 @@ networking과 digest-pinned FDAI 및 ClamAV 이미지를 요구합니다.
 
 ```mermaid
 flowchart TD
- A[Prerequisites resolved] --> B[IaC provision core resources]
- B --> C[Create executor MI plus scoped role assignments]
- C --> D[Deploy signed image to Container Apps in shadow-only]
- D --> D1[Run alembic upgrade head against the provisioned Postgres]
- D1 --> E[Attach Diagnostic Settings and Kafka topic forwarders]
- E --> F[Seed rule catalog with day-zero rule set]
- F --> G[Register HIL approvers and ChatOps channel]
- G --> H[Run post-deploy smoke tests]
- H --> I[System is warm; first real event may arrive]
+    A[Prerequisites resolved] --> B[IaC provision core resources]
+    B --> C[Create executor MI plus scoped role assignments]
+    C --> D[Deploy signed image to Container Apps in shadow-only]
+    D --> D1[Run alembic upgrade head against the provisioned Postgres]
+    D1 --> E[Attach Diagnostic Settings and Kafka topic forwarders]
+    E --> F[Seed rule catalog with day-zero rule set]
+    F --> G[Register HIL approvers and ChatOps channel]
+    G --> H[Run post-deploy smoke tests]
+    H --> I[System is warm; first real event may arrive]
 ```
 
 - **첫 배포에서 shadow-only**: 어떤 규칙/액션도 절대 강제 적용 모드로 시작하지 않음. 승격은
- 별개의 행위 ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md)).
+  별개의 행위 ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md)).
 - **첫 컨트롤 루프 틱 전에 마이그레이션이 반드시 실행되어야 함**. Container App 은
- 시작 시 마이그레이션을 실행하지 않음 (복제본 간 일관성 유지 + race 방지).
- 프로비저닝된 Postgres FQDN 에 admin DSN 으로 접속 가능한 워크스테이션 또는 CI 잡에서
- `alembic upgrade head` 를 실행. `alembic/versions/`의 모든 tracked 이행은
- `downgrade()`를 정의하지만, 스키마/데이터 롤백은 파괴적일 수 있으므로 백업/복원과
- 이행별 downgrade를 staging에서 예행 연습한 뒤 실행합니다.
+  시작 시 마이그레이션을 실행하지 않음 (복제본 간 일관성 유지 + race 방지).
+  프로비저닝된 Postgres FQDN 에 admin DSN 으로 접속 가능한 워크스테이션 또는 CI 잡에서
+  `alembic upgrade head` 를 실행. `alembic/versions/`의 모든 tracked 이행은
+  `downgrade()`를 정의하지만, 스키마/데이터 롤백은 파괴적일 수 있으므로 백업/복원과
+  이행별 downgrade를 staging에서 예행 연습한 뒤 실행합니다.
 - Post-deploy smoke 테스트와 합성 카나리는
- [operating-and-verification-ko.md](../operations/operating-and-verification-ko.md)에 정의.
+  [operating-and-verification-ko.md](../operations/operating-and-verification-ko.md)에 정의.
 
 ## 분포 및 배포 책임 매트릭스
 
@@ -513,7 +513,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `KAFKA_TOPIC_EVENTS` | env | 배포 | 주 이벤트 ingest 토픽 |
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | 배포 | dead-letter 접미사 (기본 `.dlq`) |
 | `FDAI_EXECUTOR_COMMAND_TOPIC` / `FDAI_EXECUTOR_RECEIPT_TOPIC` | env | 업스트림 / 배포 | Isolated 실행기 명령 및 versioned 최종 증적 토픽입니다. 기본값은 `object.executor-command`, `object.executor-receipt`이며 서로 달라야 합니다. |
-| `FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID` / `FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER` | env | 배포 | 전용 isolated 신원과 정확한 default-off 전환 표시입니다. shadow에서는 전송 계층/상태 접근만 가지며 전환 후에는 유일한 development-gateway 호출자가 되고 Core는 전송 계층/읽기 접근만 유지합니다. |
+| `FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID` / `FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER` | env | 배포 | 전용 isolated 신원과 정확한 default-off 전환 표시입니다. Shadow에서는 전송 계층/상태 접근만 가지며 전환 후에는 유일한 development-gateway 호출자가 되고 Core는 전송 계층/읽기 접근만 유지합니다. |
 | `FDAI_ISOLATED_EXECUTOR_DEPLOYED` | env | 업스트림 / 배포 | 독립 배포 프로세스의 exact 명시적 선택 표시입니다. `1`일 때만 이 entrypoint를 시작하며 환경 이름은 배포 venue 또는 권한을 의미하지 않습니다. |
 | `FDAI_ISOLATED_EXECUTOR_HEALTH_PORT` / `FDAI_ISOLATED_EXECUTOR_INSTANCE_ID` | env | 업스트림 / 배포 | 내부 상태 포트(기본 `8000`)와 증적 귀속용 범위가 제한된 인스턴스 id입니다. 명시적 인스턴스 id가 없으면 Container Apps의 `HOSTNAME`을 사용합니다. |
 | `LLM_MODE` | env | 배포 | 명시적 테스트/mock용 `local-fake` 또는 권위 있는 프로파일용 `azure`. 환경은 연결을 선택하지 않습니다. [dev-and-deploy-parity-ko.md § 동등성 컨트랙트](dev-and-deploy-parity-ko.md#parity-컨트랙트-must) 참조. |
@@ -545,7 +545,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_IRP_ENABLED` / `FDAI_IRP_BUDGET_SECONDS` | env | 업스트림 | alert-shaped 이벤트를 budgeted 조사 -> 타입이 지정된 제안 경로로 처리합니다. 제안은 표준 risk/HIL/실행기 루프에 재진입합니다. |
 | `FDAI_CHAOS_CONTEXT_JSON` / `FDAI_CHAOS_ENFORCE` | env | 배포 | promoted chaos injector 런타임 맥락. 명시 플래그가 `1`이고 시나리오가 promoted 상태이며 injector와 탐색이 모두 등록된 경우에만 강제 적용을 허용합니다. |
 | `FDAI_JIRA_BASE_URL` / `FDAI_JIRA_ACCOUNT_EMAIL` / `FDAI_JIRA_API_TOKEN_SECRET` / `FDAI_JIRA_TOOL_MAP_JSON` | env + KV 참조 | 배포 | 운영 `JiraToolExecutor`를 설정합니다. `TOOL_MAP_JSON`은 `tool.open-incident-ticket`을 Jira project 키에 매핑합니다. 토큰 값은 KV-backed `FDAI_SECRET_<API_TOKEN_SECRET>`에서 해석하며 대응에 토큰을 넣지 않습니다. 영속 Jira 원장과 distributed 리소스 잠금을 위해 `FDAI_STATE_STORE_DSN`이 필요합니다. |
-| `FDAI_JIRA_ENFORCE` | env | 배포 | unset/`0` 기본값은 Jira를 shadow-only로 유지합니다. `1`은 ActionType 승격 게이트와 risk/HIL 결정도 강제 적용을 허용한 경우에만 강제 적용 요청을 허용합니다. shadow 증적은 실제 인시던트 티켓으로 링크되지 않습니다. |
+| `FDAI_JIRA_ENFORCE` | env | 배포 | unset/`0` 기본값은 Jira를 shadow-only로 유지합니다. `1`은 ActionType 승격 게이트와 risk/HIL 결정도 강제 적용을 허용한 경우에만 강제 적용 요청을 허용합니다. Shadow 증적은 실제 인시던트 티켓으로 링크되지 않습니다. |
 | `FDAI_PROFILE_ID` | env | 배포 | `rule-catalog/profiles/` 에서 한 프로파일을 선택 ([rule-catalog-profiles-ko.md](../rules-and-detection/rule-catalog-profiles-ko.md) 참조). **2026-07 기준 composition-root 배선 대기.** |
 | `FDAI_NARRATOR_PROVIDER` / `FDAI_NARRATOR_BASE_URL` / `FDAI_NARRATOR_MODEL` / `FDAI_NARRATOR_API_VERSION` / `FDAI_NARRATOR_API_KEY` | env + KV 참조 | 배포 | Operator-console 서술기 translator 설정 ([operator-console-ko.md](../interfaces/operator-console-ko.md) 참조); `API_KEY` 는 반드시 KV 경유. 빈 프로바이더 = 결정론적 폴백. |
 | `FDAI_CHATOPS_APPROVE_CALLBACK_URL` / `FDAI_CHATOPS_REJECT_CALLBACK_URL` / `FDAI_CHATOPS_WEBHOOK_SECRET` / `FDAI_CHATOPS_TIMEOUT_SECONDS` | env + KV 참조 | 배포 | Chatops HIL 콜백 엔드포인트와 공유 웹훅 시크릿입니다. 시크릿 은 반드시 KV를 경유합니다. 시크릿 을 설정하면 운영 콜백 경로 와 영속 Postgres 결정 레지스트리 가 활성화됩니다. |
@@ -568,9 +568,9 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 아니라 필요한 기준선임을 의미합니다.
 
 - 시작 시 누락/파싱 불가 구성에 대해 **fail fast**
- ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
+  ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
 - 시크릿은 Key Vault refs로, 절대 plain env가 아님; plain env의 시크릿은 CI secret-scan 게이트
- 실패.
+  실패.
 - 환경별 값이 다름; 같은 이미지가 주입된 환경에서 값을 읽음.
 
 ## 이벤트 소스 구독
@@ -581,12 +581,12 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 | 버티컬 | Azure 신호 후보 | 딜리버리 |
 |--------|----------------|---------|
 | 변경 | Activity Log (resource-write / 삭제), 변경 Analysis, Resource Health | 정본 Event Hubs Kafka 유입으로 push하며 Huginn이 실시간 발견 정규화를 소유하고 인벤토리 sync 작업이 전체 그래프를 조정합니다. |
-| DR / Chaos | Resource Health, 백업 vault 이벤트, PostgreSQL / SQL replication-lag 메트릭, restore-rehearsal 결과 | Diagnostic Settings + 스케줄 Container Apps 작업 프로브 → Kafka 토픽 (`aw.dr.events`) |
+| DR / Chaos | Resource Health, 백업 금고 이벤트, PostgreSQL / SQL replication-lag 메트릭, restore-rehearsal 결과 | Diagnostic Settings + 스케줄 Container Apps 작업 프로브 → Kafka 토픽 (`aw.dr.events`) |
 | FinOps | 비용 이상 알림, 예산 알림, Advisor 비용 권고 | 비용 관리 pull → Kafka 토픽 (`aw.finops.events`); 이상 알림은 같은 Diagnostic-Settings 경로로 fan in |
 
 모든 이벤트는 유입에서 **멱등성 키가 스탬프** 되어 리플레이는 no-op; DLQ는 도달 가능
 해야 하며 어디에서든 강제 적용이 활성화되기 전에
-[alert 라우팅](../operations/operating-and-verification-ko.md#alert-routing)이 커버해야 함.
+[경보 라우팅](../operations/operating-and-verification-ko.md#alert-routing)이 커버해야 함.
 
 Azure forwarding 방식은 shared 시크릿이 없는 경계를 유지하는 것이 좋습니다. 진단
 Settings 내보내기를 위해 Event Hubs 로컬 authentication만 다시 활성화하지 않습니다. 선택한 Azure
@@ -607,45 +607,45 @@ backstop으로 계속 필요합니다.
 나오는 **예시 월간 비용 묶음**은 [cost-model-ko.md](../interfaces/cost-model-ko.md)에 있음.
 
 1. **이벤트 기반 우선** - 예약 Container Apps 작업은 실행 사이에 scale-to-zero됩니다. 코어는
- 자격 증명 없는 Event Hubs Kafka-lag scaler가 검증되지 않았으므로 현재 복제본 하나를
- 유지합니다. 이 하한을 바꾸려면 측정되고 검증된 scaler가 필요합니다.
+  자격 증명 없는 Event Hubs Kafka-lag scaler가 검증되지 않았으므로 현재 복제본 하나를
+  유지합니다. 이 하한을 바꾸려면 측정되고 검증된 scaler가 필요합니다.
 2. **하루 첫날 한 리전, 한 존, non-HA** - 멀티 존과 멀티 리전은 단계 4 (TBD). 초기 배포는
- 단일 지리적 footprint.
+   단일 지리적 footprint.
 3. **관리 서비스 축소** - PostgreSQL 내부 pgvector가 vector 저장소; App Insights가 공유 로그
- Analytics workspace에 바인딩; 별도 vector DB 또는 APM 리소스 프로비저닝 없음.
+   Analytics workspace에 바인딩; 별도 vector DB 또는 APM 리소스 프로비저닝 없음.
 4. **기본으로 Basic / Standard 티어** - Premium 티어는 명시된 측정 필요. HA 변형, geo-
- replication, private-endpoint premium 기능은 연기.
+   replication, private-endpoint premium 기능은 연기.
 5. **사용 사례를 커버하는 곳에서 Free 티어** - Static Web Apps (콘솔), Azure Bot (HIL
- Adaptive Cards), 워크로드 신원 federation (CI/CD) 모두 Free 티어.
+   Adaptive Cards), 워크로드 신원 federation (CI/CD) 모두 Free 티어.
 6. **단계적 5개 서비스 목표** - 실행기 근거를 구축하는 동안 Core는 modular 상태를
- 유지합니다. 완료 토폴로지는 둘을 분리하며 다른 패키지는 자체 게이트 없이는 프로세스 내입니다.
+  유지합니다. 완료 토폴로지는 둘을 분리하며 다른 패키지는 자체 게이트 없이는 프로세스 내입니다.
 7. **모델 예산 상한** - T2 추론은 이벤트의 ~5-10%에 도달하도록 설계; 토큰/spend 예산은 강제
- 되고 초과분은 uncapped inference가 아니라 HIL로 강등.
+   되고 초과분은 uncapped inference가 아니라 HIL로 강등.
 8. **카탈로그는 git-hosted, 서비스가 아님** - 룰 카탈로그는 관리 저장소가 아니라 git 저장소에
- 있으므로 카탈로그 저장에 추가 Azure 리소스 불필요.
+   있으므로 카탈로그 저장에 추가 Azure 리소스 불필요.
 9. **공개 인바운드 엔드포인트 없음** - 첫날에 애플리케이션 게이트웨이 / Front Door / API
- 관리 없음; 유입은 이벤트 버스, egress는 allow-list.
+   관리 없음; 유입은 이벤트 버스, egress는 allow-list.
 10. **연기된 DR 리소스** - secondary-region 리소스는 초기에 **프로비저닝되지 않음** ;
- 컨트롤 플레인 DR은 IaC + 상태 백업을 통해 계획됨
- ([deployment-ko.md](deployment-ko.md#control-plane-disaster-recovery)).
+    컨트롤 플레인 DR은 IaC + 상태 백업을 통해 계획됨
+    ([deployment-ko.md](deployment-ko.md#control-plane-disaster-recovery)).
 
 ## 열림 Decisions
 
 - [x] 배포 인터페이스 - **해결: Terraform은 실행 엔진이고 계획된 운영자 인터페이스는
- `fdaictl`**. 설치형 CLI는 읽기 전용 preflight를 실행하고 Terraform을 대체하지
- 않으면서 exact-plan 작업을 승인된 실행기에 제출합니다.
- [설치형 배포 CLI](installable-deployment-cli-ko.md)를 참조하세요.
+  `fdaictl`**. 설치형 CLI는 읽기 전용 preflight를 실행하고 Terraform을 대체하지
+  않으면서 exact-plan 작업을 승인된 실행기에 제출합니다.
+  [설치형 배포 CLI](installable-deployment-cli-ko.md)를 참조하세요.
 - [ ] 최소 세트 내 구체적 티어 값(PostgreSQL 저장소 크기, Log Analytics daily 상한, ACR
-  보존 윈도우, Event Hubs 처리량-단위 상한).
+      보존 윈도우, Event Hubs 처리량-단위 상한).
 - [ ] 리전 선택과 single-zone 배포 자세(멀티 존은 단계 4로 연기).
 - [ ] 배포자 아이덴티티를 위한 커스텀 Azure 롤 패키징.
 - [ ] Log Analytics daily-cap과 쿼리 비용 예산 (보존 기본 30일은 **콘솔 UI에서 설정 가능**;
-  알림 임계값 TBD).
+      알림 임계값 TBD).
 - [ ] Kafka 토픽 명명 + Diagnostic-Settings forwarding 필터, 도메인별 fan-in 형상.
 - [x] 운영 networking 기준선 - **해결: VNet-integrated Container Apps, 비공개 Key
- Vault, delegated-subnet 비공개 PostgreSQL**. 개발은 공개 PostgreSQL 경로를
- 유지할 수 있으며 ACR/Event Hubs 비공개 엔드포인트는 테넌트 정책에 따라 추가합니다.
+  Vault, delegated-subnet 비공개 PostgreSQL**. 개발은 공개 PostgreSQL 경로를
+  유지할 수 있으며 ACR/Event Hubs 비공개 엔드포인트는 테넌트 정책에 따라 추가합니다.
 - [ ] 완전한 런타임 구성 키 리스트 (값 매트릭스 확장).
 - [ ] 첫날 시드 규칙 세트(어떤 소스, 어떤 규칙 id) - 단계 1과 교차 링크.
 - [x] Core -> Isolated 실행기 **목표 경계** - 5개 서비스 프로그램에 필수이며 권한
- 전환은 모든 binary 게이트와 롤백 증적을 기다립니다.
+  전환은 모든 binary 게이트와 롤백 증적을 기다립니다.

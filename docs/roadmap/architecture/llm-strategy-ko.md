@@ -36,17 +36,17 @@ translation_revised: 2026-08-11
 
 - 결정론 판정을 산출하는 규칙 없고 케이스가 신규는 아닐 때 **T0 → T1**.
 - T1이 **abstain** 할 때만 **T1 → T2**: 정확한 규칙 매칭 없음, 이전 해결된 인시던트에 대한
- 임베딩 유사도가 설정 스코어 임계 아래, 적용 가능한 학습된 액션 없음.
+  임베딩 유사도가 설정 스코어 임계 아래, 적용 가능한 학습된 액션 없음.
 - 유사도 임계와 abstain 조건은 **설정** , 하드코딩 아님.
 
 ## T1 - 경량 티어
 
 - **임베딩**: 인시던트를 벡터화하고 과거 패턴에 매칭할 작은 임베딩 모델. 비용 효율 hosted 임베딩
- 모델 선호, 또는 데이터 잔류지나 비용이 요구할 때 로컬 sentence-transformer
- ([데이터 Privacy](#data-privacy-and-residency) 참조). 벡터를 상태 옆에 저장(예: pgvector).
+  모델 선호, 또는 데이터 잔류지나 비용이 요구할 때 로컬 sentence-transformer
+  ([데이터 Privacy](#data-privacy-and-residency) 참조). 벡터를 상태 옆에 저장(예: pgvector).
 - **소형 판단 모델**: 루틴 케이스 분류와 학습된 액션 선택을 위한 소형/저렴 지시 모델. 프롬프트
- 짧고 근거에 기반한 유지; 입력은 신뢰할 수 없는 취급
- ([Prompt-Injection Defense](#prompt-injection-defense) 참조).
+  짧고 근거에 기반한 유지; 입력은 신뢰할 수 없는 취급
+  ([Prompt-Injection Defense](#prompt-injection-defense) 참조).
 - 목표: 프론티어 왕복 없이 이벤트의 ~15-20% 흡수.
 
 ## T2 - 추론 티어 (Quality 게이트 필수)
@@ -55,27 +55,27 @@ T2는 신규 또는 모호 케이스만 처리(~5-10%). 그 출력은 실행 전
 모델은 **후보를 생성** ; 결정론 검증기가 자격을 결정.
 
 - **Mixed-model 교차 검사**: 같은 판단에 대해 **2개 이상 독립 모델** 실행. 독립은 진짜 별개
- 프로바이더/가중치 - 같은 base 모델을 서비스하는 두 엔드포인트는 **세지 않음** , correlated
- 에러가 검사 무력화.
- - **합의 조건식**: 합의는 자유 텍스트가 아니라 **정규화 구조화 액션** (대상 리소스, 작업,
- 파라미터) 에 대해. 정본 액션 객체를 문자열 아이덴티티가 아니라 의미 등가로 비교.
- - **N 모델과 정족수**: N ≥ 3 인 경우 설정된 정족수(예: majority) 요구; 정족수 없음 → escalate.
- 2-of-2 동점(불일치) 는 HIL로 escalate, 절대 auto-resolve 아님.
- - **비용 컨트롤**: **cascade** 선호 - 더 저렴한 reasoner 먼저 실행하고 self-consistency나
- grounding 신호가 약할 때만 두 번째 호출 - 그래서 전체 N-모델 동시 확산은 진짜 어려운 케이스에만
- 지출.
- - **출처 이력 (재현성)**: 결정은 **각 모델의 투표**
- (`QualityDecision.model_votes`: `model_id`, 제안 액션 타입, agreed)를 - 단순 동의
- 카운트가 아니라 - 기록해, T2 판정을 추가 전용 감사 에서 재구성할 수 있게 한다(로그가
- 약속하는 재생 속성).
+  프로바이더/가중치 - 같은 base 모델을 서비스하는 두 엔드포인트는 **세지 않음** , correlated
+  에러가 검사 무력화.
+  - **합의 조건식**: 합의는 자유 텍스트가 아니라 **정규화 구조화 액션** (대상 리소스, 작업,
+    파라미터) 에 대해. 정본 액션 객체를 문자열 아이덴티티가 아니라 의미 등가로 비교.
+  - **N 모델과 정족수**: N ≥ 3 인 경우 설정된 정족수(예: majority) 요구; 정족수 없음 → escalate.
+    2-of-2 동점(불일치) 는 HIL로 escalate, 절대 auto-resolve 아님.
+  - **비용 컨트롤**: **cascade** 선호 - 더 저렴한 reasoner 먼저 실행하고 self-consistency나
+    grounding 신호가 약할 때만 두 번째 호출 - 그래서 전체 N-모델 동시 확산은 진짜 어려운 케이스에만
+    지출.
+  - **출처 이력 (재현성)**: 결정은 **각 모델의 투표**
+    (`QualityDecision.model_votes`: `model_id`, 제안 액션 타입, agreed)를 - 단순 동의
+    카운트가 아니라 - 기록해, T2 판정을 추가 전용 감사 에서 재구성할 수 있게 한다(로그가
+    약속하는 재생 속성).
 - **검증기**: 어떤 모델과도 독립적인 **결정론** 검사가 후보 액션을 policy-as-code와 what-if/
- 예행 실행에 대해 재검증 후 execution-eligible. 검증기 - 모델 텍스트 아님 - 가 권위.
+  예행 실행에 대해 재검증 후 execution-eligible. 검증기 - 모델 텍스트 아님 - 가 권위.
 - **Grounding (RAG)**: 판단을 정당화하는 규칙/정책/문서 인용 강제, **각 인용 항목이 규칙 카탈로그
- 에 존재하고 실제로 주장을 지지하는지 검증**(fabricated 인용 방어). Ungrounded 시 **abstain**.
+  에 존재하고 실제로 주장을 지지하는지 검증**(fabricated 인용 방어). Ungrounded 시 **abstain**.
 - **임계 게이팅**: 스키마, 정책, what-if, 보안-스캔 검사가 모두 통과해야 하고 계산된 **신뢰도**
- 가 임계 통과해야 함. 신뢰도는 검증기와 교차-검사 신호(합의, grounding 유효성, 역사적 성공)
- 에서 파생 - **절대 모델의 self-reported 신뢰도가 아님** , 신뢰할 수 없음. 임계 아래는 HIL로
- 라우팅.
+  가 임계 통과해야 함. 신뢰도는 검증기와 교차-검사 신호(합의, grounding 유효성, 역사적 성공)
+  에서 파생 - **절대 모델의 self-reported 신뢰도가 아님** , 신뢰할 수 없음. 임계 아래는 HIL로
+  라우팅.
 
 ### 결과 시맨틱
 
@@ -88,16 +88,16 @@ T2는 신규 또는 모호 케이스만 처리(~5-10%). 그 출력은 실행 전
 
 ```mermaid
 flowchart TD
- CASE[novel or ambiguous case] --> POOL[mixed-model pool: 2+ independent models]
- POOL --> CMP{quorum agreement?}
- CMP -->|no| HOLD[escalate to HIL]
- CMP -->|yes| VER[deterministic verifier: policy-as-code and what-if]
- VER -->|fail| DENY[deny: no-op, audited]
- VER -->|pass| GRD{grounded and citations valid?}
- GRD -->|no| ABST[abstain to HIL]
- GRD -->|yes| THR{confidence over threshold?}
- THR -->|no| HOLD
- THR -->|yes| ELIG[execution-eligible to risk gate]
+    CASE[novel or ambiguous case] --> POOL[mixed-model pool: 2+ independent models]
+    POOL --> CMP{quorum agreement?}
+    CMP -->|no| HOLD[escalate to HIL]
+    CMP -->|yes| VER[deterministic verifier: policy-as-code and what-if]
+    VER -->|fail| DENY[deny: no-op, audited]
+    VER -->|pass| GRD{grounded and citations valid?}
+    GRD -->|no| ABST[abstain to HIL]
+    GRD -->|yes| THR{confidence over threshold?}
+    THR -->|no| HOLD
+    THR -->|yes| ELIG[execution-eligible to risk gate]
 ```
 
 ## 프롬프트 인젝션 방어
@@ -106,33 +106,33 @@ flowchart TD
 ([security-and-identity-ko.md](security-and-identity-ko.md)).
 
 - 모든 페이로드와 도구-출력 텍스트를 **지시가 아니라 데이터** 로 취급; 모델은 거기 임베드된 지시를
- 따르면 안 됨. 프롬프트에서 신뢰할 수 없는 구간을 delimit하고 격리.
+  따르면 안 됨. 프롬프트에서 신뢰할 수 없는 구간을 delimit하고 격리.
 - **간접 인젝션**: 도구/RAG에서 반환된 출력이 모델에 재공급 - 같은 격리 적용, retrieved 텍스트가
- 액션 계약을 변경하지 못하게.
+  액션 계약을 변경하지 못하게.
 - **검증기와 정책 재검사가 권위** ; 오직 "sound"만 승인되고 결정론 검사를 실패하는 후보는 거부.
 - 어떤 모델 호출 **전에** 시크릿과 식별자 redact - 인젝션이 생성 출력으로 exfiltrate 못하도록.
 
 ## 데이터 프라이버시와 잔류지
 
 - **최소화와 redact**: 모델 호출 전 프롬프트에서 시크릿, 연결 문자열, 어떤 고객/테넌트/구독
- 식별자도 제거; 필요한 최소 페이로드 전송.
+  식별자도 제거; 필요한 최소 페이로드 전송.
 - **잔류지 라우팅**: 민감 이벤트를 설정으로 로컬/in-region 모델(예: 로컬 임베딩) 로 라우팅;
- 제한된 데이터를 외부 엔드포인트로 보내지 않음.
+  제한된 데이터를 외부 엔드포인트로 보내지 않음.
 - **No-train / 보존**: 제출된 프롬프트에 대한 **no-training** 보장과 최소 보존 있는
- 엔드포인트 선호; 기능별 선택된 자세를 구성에 기록.
+  엔드포인트 선호; 기능별 선택된 자세를 구성에 기록.
 
 ## 프로바이더 추상화
 
 - 모든 모델 호출은 `shared/` 의 **프로바이더 중립적인 클라이언트** 를 통해 감 - 모델이 `core/tiers`
- 를 만지지 않고 스왑 가능.
+  를 만지지 않고 스왑 가능.
 - 모델을 하드코딩 이름이 아니라 기능으로 설정: `t1.embedding`, `t1.judge`, `t1.vision`,
- `t2.reasoner.primary`, `t2.reasoner.secondary`, `t2.rca`.
+  `t2.reasoner.primary`, `t2.reasoner.secondary`, `t2.rca`.
 - **클라이언트 계약**: 요청 시간 초과, 구조화/JSON-schema 출력, 토큰 회계, 재현 가능 설정
- (지원되는 곳에서 temperature 0 + 고정 시드) 강제 - 그래서 교차 검사와 리플레이가 비교 가능.
+  (지원되는 곳에서 temperature 0 + 고정 시드) 강제 - 그래서 교차 검사와 리플레이가 비교 가능.
 - **버전된 매핑**: 기능→구체-모델 매핑은 버전됨; 결정에 사용된 정확한 모델 ID와 구성
- 버전은 리플레이를 위해 감사 로그에 기록.
+  버전은 리플레이를 위해 감사 로그에 기록.
 - Azure OpenAI, 다른 Azure Foundry 모델, 또는 서드파티 엔드포인트로 순전히 구성으로 라우팅,
- 코어를 CSP-중립 유지.
+  코어를 CSP-중립 유지.
 
 ### Heterogeneous 엔드포인트 및 게이트웨이 계약
 
@@ -145,16 +145,16 @@ Azure API 관리(APIM)을 경유하는 Azure OpenAI, APIM을 경유하는 OpenAI
 선언합니다.
 
 - **프로바이더 및 경로:** `azure-openai` 또는 `self-hosted`를 `direct` 또는 `apim-gateway`와
- 독립적으로 선언합니다.
+  독립적으로 선언합니다.
 - **Wire 프로토콜:** Azure 배포 경로(`azure-openai`) 또는 요청 본문 모델 id를 사용하는
- `/v1` 경로(`openai-v1`)를 선언합니다.
+  `/v1` 경로(`openai-v1`)를 선언합니다.
 - **Authentication:** Entra 대상 또는 자격 증명 참조를 선언합니다. 현재 런타임 T1/T2
- 연결은 Entra를 요구하며 지원되지 않는 auth 종류는 direct 엔드포인트 대체 경로 대신 시작을
- 차단합니다.
+  연결은 Entra를 요구하며 지원되지 않는 auth 종류는 direct 엔드포인트 대체 경로 대신 시작을
+  차단합니다.
 - **용량:** 하나의 양수 값과 함께 `tpm`, `ptu`, `gpu`를 선언합니다. PTU와 GPU 값은 TPM처럼
- 변환하지 않습니다.
+  변환하지 않습니다.
 - **Feature 및 출처 이력:** 스트리밍, embeddings, 구조화된 출력, 도구 calling, 발견
- 출처, resource-reference 다이제스트, 검증 시간을 포함합니다.
+  출처, resource-reference 다이제스트, 검증 시간을 포함합니다.
 
 엔드포인트 URL과 자격 증명은 운영자 변환 결과에 serialize하지 않습니다. 연결은 opaque
 `endpoint_ref`를 저장하고 조립 루트가 protected 배포 구성에서 HTTPS URL로
@@ -219,55 +219,55 @@ catalog-as-code(경로 `rule-catalog/llm-registry.yaml`).
 ```yaml
 # rule-catalog/llm-registry.yaml (상류 기본; 포크는 오버라이드 가능)
 models:
- t1.embedding:
- preferences:
-  - { publisher: OpenAI, family: text-embedding-3-small }
-  - { publisher: OpenAI, family: text-embedding-3-large }
- sku: Standard
- capacity_tpm: 100_000
- t1.judge:      # 소형/저렴 기본 (mini 티어)
- preferences:
-  - { publisher: OpenAI, family: gpt-4o-mini }
- capacity_tpm: 40_000
- t2.reasoner.primary:   # 첫 프론티어 reasoner
- preferences:
-  - { publisher: OpenAI, family: gpt-4o }
-  - { publisher: OpenAI, family: gpt-4.1 }
-  - { publisher: OpenAI, family: gpt-4-turbo }
- capacity_tpm: 20_000
- t2.reasoner.secondary:   # mixed-model peer - 별개 publisher여야 함
- preferences:
-  - { publisher: Anthropic, family: claude-opus-4 }
-  - { publisher: MistralAI, family: mistral-large-2 }
- capacity_tpm: 10_000
- t2.reasoner.escalated:   # Opus-급 천장, on-demand 전용
- preferences:
-  - { publisher: OpenAI, family: o1 }
-  - { publisher: Anthropic, family: claude-opus-4 }
- invocation: on_disagreement    # 모든 T2 호출에 아님
- capacity_tpm: 5_000
+  t1.embedding:
+    preferences:
+      - { publisher: OpenAI, family: text-embedding-3-small }
+      - { publisher: OpenAI, family: text-embedding-3-large }
+    sku: Standard
+    capacity_tpm: 100_000
+  t1.judge:                       # 소형/저렴 기본 (mini 티어)
+    preferences:
+      - { publisher: OpenAI, family: gpt-4o-mini }
+    capacity_tpm: 40_000
+  t2.reasoner.primary:            # 첫 프론티어 reasoner
+    preferences:
+      - { publisher: OpenAI, family: gpt-4o }
+      - { publisher: OpenAI, family: gpt-4.1 }
+      - { publisher: OpenAI, family: gpt-4-turbo }
+    capacity_tpm: 20_000
+  t2.reasoner.secondary:          # mixed-model peer - 별개 publisher여야 함
+    preferences:
+      - { publisher: Anthropic, family: claude-opus-4 }
+      - { publisher: MistralAI, family: mistral-large-2 }
+    capacity_tpm: 10_000
+  t2.reasoner.escalated:          # Opus-급 천장, on-demand 전용
+    preferences:
+      - { publisher: OpenAI, family: o1 }
+      - { publisher: Anthropic, family: claude-opus-4 }
+    invocation: on_disagreement                # 모든 T2 호출에 아님
+    capacity_tpm: 5_000
 ```
 
 레지스트리가 강제하는 규칙(MUST, 구성 로드에서):
 
 - **버전이 아니라 계열.** 선호는 모델 *계열* 를 pin(예: `gpt-4o-mini`); 부트스트랩 해석기
- 가 프로비저닝 시점에 최신 안정 버전 선택하고 resolved 매핑에 기록. 레지스트리에 절대 dated
- 버전 pin 안 함 - 폐기를 숨김.
+  가 프로비저닝 시점에 최신 안정 버전 선택하고 resolved 매핑에 기록. 레지스트리에 절대 dated
+  버전 pin 안 함 - 폐기를 숨김.
 - **용량 단위는 명시적입니다.** Standard 및 Global Standard는 `capacity_tpm`을 요청 천장으로
- 사용합니다. Azure 사용량 `Count`는 1K TPM 단위에서 변환하며 배치 및 fine-tune 할당량은 제외합니다.
- `ProvisionedManaged`, `GlobalProvisionedManaged`, `DataZoneProvisionedManaged`는 `capacity_ptu`를 사용합니다.
- 프로비저닝된 SKU에 TPM을 공급하거나 standard SKU에 PTU를 공급하면 잘못된이며 초과분은 HIL로 강등됩니다.
+  사용합니다. Azure 사용량 `Count`는 1K TPM 단위에서 변환하며 배치 및 fine-tune 할당량은 제외합니다.
+  `ProvisionedManaged`, `GlobalProvisionedManaged`, `DataZoneProvisionedManaged`는 `capacity_ptu`를 사용합니다.
+  프로비저닝된 SKU에 TPM을 공급하거나 standard SKU에 PTU를 공급하면 잘못된이며 초과분은 HIL로 강등됩니다.
 - **Escalated 기능은 호출별 명시적 선택** (`invocation: on_disagreement`); 모든 T2
- 요청에 호출되지 않고 절대 quality 게이트를 우회하지 않음.
+  요청에 호출되지 않고 절대 quality 게이트를 우회하지 않음.
 - **RCA reasoner는 호출별 명시적 선택** (`invocation: on_novel_case`, 기능
- `t2.rca`); 결정론적 계층이 해결하지 못한 novel 인시던트에만 발화하며, 제공된 근거에
- 근거에 기반한 되지 않으면 그 출력은 거부됨 (observability-and-detection.md 섹션 4 참조).
+  `t2.rca`); 결정론적 계층이 해결하지 못한 novel 인시던트에만 발화하며, 제공된 근거에
+  근거에 기반한 되지 않으면 그 출력은 거부됨 (observability-and-detection.md 섹션 4 참조).
 - **도구 기능은 독립적으로 해석합니다.** `tool_calling_required`는 일반 함수
- 도구를 게이트합니다. 공개 수집은 전용 `t1.web_search` 선호 설정을 사용하며 해당
- 배포만 `web_search_candidates`로 serialize합니다. Protected 적용은 정확한 도메인
- 허용 목록으로 Foundry 프롬프트 에이전트를 조정하고 Operator API는 시작에 실제 managed-tool
- 요청을 전송합니다. 모델, project, 에이전트, 권한 또는 도구 준비 상태가 없으면 서술기
- 풀을 빌리지 않고 검색만 사용 불가로 전환합니다. 대화 권한은 바뀌지 않습니다.
+  도구를 게이트합니다. 공개 수집은 전용 `t1.web_search` 선호 설정을 사용하며 해당
+  배포만 `web_search_candidates`로 serialize합니다. Protected 적용은 정확한 도메인
+  허용 목록으로 Foundry 프롬프트 에이전트를 조정하고 Operator API는 시작에 실제 managed-tool
+  요청을 전송합니다. 모델, project, 에이전트, 권한 또는 도구 준비 상태가 없으면 서술기
+  풀을 빌리지 않고 검색만 사용 불가로 전환합니다. 대화 권한은 바뀌지 않습니다.
 
 ### 부트스트랩 Provisioner
 
@@ -283,27 +283,27 @@ models:
 
 ```mermaid
 flowchart LR
- IAC[Terraform / Bicep: azd up] --> AOAI[Azure OpenAI or Foundry resource]
- AOAI --> RES[resolver]
- REG[llm-registry.yaml] --> RES
- RES --> CAT[query catalog:<br/>available families + versions in region]
- CAT --> PICK{for each capability:<br/>first preference available}
- PICK -->|none available| HIL[capability를 hil-only로 표시<br/>completeness impact 보고]
- PICK -->|resolved| DEPLOY[create deployment<br/>with TPM or PTU capacity]
- DEPLOY --> INV[verify mixed-model invariant:<br/>primary.publisher ≠ secondary.publisher]
- INV -->|violated| FAIL
- INV -->|ok| MAP[write resolved-models.json to Key Vault<br/>+ audit entry]
+    IAC[Terraform / Bicep: azd up] --> AOAI[Azure OpenAI or Foundry resource]
+    AOAI --> RES[resolver]
+    REG[llm-registry.yaml] --> RES
+    RES --> CAT[query catalog:<br/>available families + versions in region]
+    CAT --> PICK{for each capability:<br/>first preference available}
+    PICK -->|none available| HIL[capability를 hil-only로 표시<br/>completeness impact 보고]
+    PICK -->|resolved| DEPLOY[create deployment<br/>with TPM or PTU capacity]
+    DEPLOY --> INV[verify mixed-model invariant:<br/>primary.publisher ≠ secondary.publisher]
+    INV -->|violated| FAIL
+    INV -->|ok| MAP[write resolved-models.json to Key Vault<br/>+ audit entry]
 ```
 
 **부트스트랩 불변식 (MUST)**
 - 누락된 역할, 선호 계열 부재, zero 할당량 같은 환경 실패는 영향을 받은 기능을
- `hil-only`로 표시하고 계속합니다. 프로비저닝 평가가 이 성능 저하를 표시하며
- 배포는 `--assess-fail-on critical`로 차단하도록 선택할 수 있습니다.
+  `hil-only`로 표시하고 계속합니다. 프로비저닝 평가가 이 성능 저하를 표시하며
+  배포는 `--assess-fail-on critical`로 차단하도록 선택할 수 있습니다.
 - 두 T2 reasoner가 명시적 `hil-only` 모드 밖에서 모두 해석되면
- `t2.reasoner.primary.publisher`와 `t2.reasoner.secondary.publisher`는 달라야 합니다.
- Same-publisher 쌍은 hard 해석기 오류입니다.
+  `t2.reasoner.primary.publisher`와 `t2.reasoner.secondary.publisher`는 달라야 합니다.
+  Same-publisher 쌍은 hard 해석기 오류입니다.
 - Resolved 매핑은 기능당 `{deployment, family, version, publisher}` 를 기록하여 감사
- 로그가 어떤 케이스를 결정한 정확한 모델을 이름 지을 수 있음.
+  로그가 어떤 케이스를 결정한 정확한 모델을 이름 지을 수 있음.
 
 ### 프로비저닝 완결성 게이트
 
@@ -320,12 +320,12 @@ flowchart LR
 을 비교해 결정론적 `ProvisioningReport`를 반환한다:
 
 - 선언된 각 기능을 `resolved` / `capacity-reduced` / `hil-only` / `missing`
- 으로 분류하고 `core` / `quorum` / `optional`로 태깅하며, 부재 시 런타임 영향을 명시;
+  으로 분류하고 `core` / `quorum` / `optional`로 태깅하며, 부재 시 런타임 영향을 명시;
 - `quorum_ok`는 mixed-model T2 교차 검증이 형성 가능한지(두 reasoner 가용 + 다른
- 발행기) 보고 - `hil-only` 모드에서는 기대하지 않음;
+  발행기) 보고 - `hil-only` 모드에서는 기대하지 않음;
 - `ProvisioningSeverity`가 `ok`(전부 resolved), `degraded`(선택적 기능만
- 누락 - 토론 / RCA / 에스컬레이션 / 평가 기준 off는 허용), `critical`(코어 기능
- 누락 또는 정족수 미형성 - T2가 사실상 off)로 롤업.
+  누락 - 토론 / RCA / 에스컬레이션 / 평가 기준 off는 허용), `critical`(코어 기능
+  누락 또는 정족수 미형성 - T2가 사실상 off)로 롤업.
 
 배포 파이프라인은 심각도로 게이팅하고 리포트를 감사 로그에 기록(`critical` 시 A2
 운영 알림)하므로, 반쪽만 프로비저닝된 reasoning 계층이 런타임 HIL storm으로 숨지
@@ -343,19 +343,19 @@ stale 참조(배포 삭제 또는 404) 는 다른 기능이 아니라 **HIL로 f
 
 ```python
 # core/tiers/t2-reasoning/reasoner.py (illustrative)
-primary = client.for_capability("t2.reasoner.primary")
+primary   = client.for_capability("t2.reasoner.primary")
 secondary = client.for_capability("t2.reasoner.secondary")
 cand_a = primary.chat(...)
 cand_b = secondary.chat(...)
 if not agree(cand_a, cand_b):
- escalated = client.for_capability("t2.reasoner.escalated") # cost-capped
- return arbitrate(cand_a, cand_b, escalated.chat(...))
+    escalated = client.for_capability("t2.reasoner.escalated")   # cost-capped
+    return arbitrate(cand_a, cand_b, escalated.chat(...))
 return quorum_result(cand_a, cand_b)
 ```
 
 - `core/` 에 모델 id가 나타나지 않음.
 - 누락 배포는 장애로 취급: 요청은 HIL로 라우팅되고 운영 알림 발행(A2, [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md#3-categories-a1a4)
- 에 따라). 다른 기능로의 조용한 스위치는 금지.
+  에 따라). 다른 기능로의 조용한 스위치는 금지.
 
 ### 에스컬레이션 단계 구조 정책
 
@@ -387,20 +387,20 @@ escalated 모델을 실제 호출하는 것은 다음 강제 적용 스텝. `on_
 HIL로 라우팅)을 반환하며, 다음 하드닝 불변식을 지킨다:
 
 - **단계 구조는 실행 자격을 절대 부여하지 않는다.** *더 강한 모델을 쓸지*만
- 결정한다. escalated 모델의 제안도 신뢰할 수 없는 이며 같은 quality 게이트(검증기 +
- grounding + 정족수)로 재진입한다; disagreement는 단계 구조를 오른다고 auto-resolve
- 되지 않으며 - 결정론 검증기가 유일한 권위로 남는다.
+  결정한다. escalated 모델의 제안도 신뢰할 수 없는 이며 같은 quality 게이트(검증기 +
+  grounding + 정족수)로 재진입한다; disagreement는 단계 구조를 오른다고 auto-resolve
+  되지 않으며 - 결정론 검증기가 유일한 권위로 남는다.
 - **실패 시 차단.** `escalated_available=False`(`t2.reasoner.escalated`를 해석
- 하지 않은 포크)는 `STOP`을 반환하며, precedence에서 deny-list보다 위.
+  하지 않은 포크)는 `STOP`을 반환하며, precedence에서 deny-list보다 위.
 - **Cost-bounded.** 한 번의 호출은 최대 한 rung만 오르고 `ESCALATED` 천장을
- 넘지 않는다; `enabled=False`는 비용 spike용 killswitch.
+  넘지 않는다; `enabled=False`는 비용 spike용 killswitch.
 - **Ontology-first.** 구성된 트리거가 있어도 trusted validated-improvement 개수가
- `minimum_ontology_improvement_attempts`에 도달하기 전에는 중단됩니다.
+  `minimum_ontology_improvement_attempts`에 도달하기 전에는 중단됩니다.
 - **Triggers.** `cross_check_disagreement`(주 트리거, 레지스트리의
- `invocation: on_disagreement` 반영) + 선택적 `on_self_consistency_below`
- 임계값(self-consistency 샘플러가 흔들리는 제안자를 보고하면 nominal agreement
- 에서도 escalate). ActionType별 `never`/`always` 리스트로 튜닝하며 거부가 allow
- 우선.
+  `invocation: on_disagreement` 반영) + 선택적 `on_self_consistency_below`
+  임계값(self-consistency 샘플러가 흔들리는 제안자를 보고하면 nominal agreement
+  에서도 escalate). ActionType별 `never`/`always` 리스트로 튜닝하며 거부가 allow
+  우선.
 
 Resolved 모델 계열은 배포 별칭과 별도로 각 T2 어댑터에 전달됩니다. GPT-5 및 o-series
 채팅 계열은 `max_completion_tokens`를 보내고 custom `temperature`를 생략합니다. Classic 채팅
@@ -434,42 +434,42 @@ collapse" 위험은 *쌍 전체*를 속도로 라우팅할 때의 문제이고, 
 **하드 규칙(MUST).**
 
 - **동일 발행기 만.** 기본 지연 시간 풀 의 모든 배포 는 하나의
- 발행기 를 공유해야 한다. 리졸버는 후보가 두 발행기 에 걸친 풀 을
- 거부하고, 확장된 mixed-model 불변식 는 풀 의 단일 발행기 가 여전히
- `t2.reasoner.secondary` 와 다른지 재검증한다. cross-publisher 기본 풀 은
- 설정 선택이 아니라 quality-gate 결함이다.
+  발행기 를 공유해야 한다. 리졸버는 후보가 두 발행기 에 걸친 풀 을
+  거부하고, 확장된 mixed-model 불변식 는 풀 의 단일 발행기 가 여전히
+  `t2.reasoner.secondary` 와 다른지 재검증한다. cross-publisher 기본 풀 은
+  설정 선택이 아니라 quality-gate 결함이다.
 - **기본 슬롯만.** 풀 은 기본 제안자 만 라우팅한다. `secondary`,
- `t2.critic`, `t2.rubric.judge`, 에스컬레이션 단계 구조 는 절대 지연 라우팅되지
- 않는다 - 결정성과 distinct-publisher 역할은 그대로다.
+  `t2.critic`, `t2.rubric.judge`, 에스컬레이션 단계 구조 는 절대 지연 라우팅되지
+  않는다 - 결정성과 distinct-publisher 역할은 그대로다.
 - **기본 강제 적용 on.** `llm.t2_primary_latency_routing` 기본값 `true`.
- 리졸버가 동일 발행기 `t2.reasoner.primary` 후보를 2개 이상
- 발행(`--emit-primary-pool`) 할 때만 활성화되며, 1개 풀은 단일 기본
- 를 그대로 바인딩한다. 포크는 플래그를 `false` 로 설정해 단일
- 최선호 기본 를 pin 할 수 있다. 라우터는 구조적으로 invariant-safe
- (동일 발행기 풀)라 켜도 quality 게이트 를 약화시키지 않는다.
+  리졸버가 동일 발행기 `t2.reasoner.primary` 후보를 2개 이상
+  발행(`--emit-primary-pool`) 할 때만 활성화되며, 1개 풀은 단일 기본
+  를 그대로 바인딩한다. 포크는 플래그를 `false` 로 설정해 단일
+  최선호 기본 를 pin 할 수 있다. 라우터는 구조적으로 invariant-safe
+  (동일 발행기 풀)라 켜도 quality 게이트 를 약화시키지 않는다.
 - **감사 에 pick 기록.** 라우팅된 모든 호출은 선택된 배포 를 감사 항목에
- 기록하므로, 라이브 pick 이 측정된 p50 에 따라 달라져도 재생(판정자 전용, 재실행
- 안 함)는 결정론적으로 유지된다.
+  기록하므로, 라이브 pick 이 측정된 p50 에 따라 달라져도 재생(판정자 전용, 재실행
+  안 함)는 결정론적으로 유지된다.
 - **범위가 제한된 in-call 장애 조치.** 선택된 기본 배포가 raise하면 라우터는 penalty를
- 기록하고 남은 동일 발행기 기본을 각각 최대 한 번 시도합니다. 보조 발행기로
- 넘어가거나 비평자 및 판정자 연결을 변경하지 않습니다. 모든 기본 후보가 실패하면
- 마지막 오류가 전파되고 quality 게이트는 더 약한 judgment를 조용히 수락하지 않고 사람 검토로
- 경로합니다.
+  기록하고 남은 동일 발행기 기본을 각각 최대 한 번 시도합니다. 보조 발행기로
+  넘어가거나 비평자 및 판정자 연결을 변경하지 않습니다. 모든 기본 후보가 실패하면
+  마지막 오류가 전파되고 quality 게이트는 더 약한 judgment를 조용히 수락하지 않고 사람 검토로
+  경로합니다.
 - **실패 상태 및 cooldown.** 라우터는 프로바이더 오류 텍스트를 보존하지 않고 auth,
- rate-limit, overloaded, 시간 초과, 전송 계층, 알 수 없음 실패를 분류합니다. 각 실패는 capped
- multiplier를 사용하는 범위가 제한된 per-deployment cooldown을 설정합니다. Healthy 후보는 계속
- 조건을 충족한하며 만료된 후보는 복구 탐색으로 예열에 다시 들어가고 성공은 실패
- 상태를 clear합니다. 모든 기본이 cooling 중이면 라우터는 fail fast하고 사례는 사람 검토로
- 이동합니다. Cooldown은 보조 발행기를 replacement 기본으로 선택하지 않습니다.
+  rate-limit, overloaded, 시간 초과, 전송 계층, 알 수 없음 실패를 분류합니다. 각 실패는 capped
+  multiplier를 사용하는 범위가 제한된 per-deployment cooldown을 설정합니다. Healthy 후보는 계속
+  조건을 충족한하며 만료된 후보는 복구 탐색으로 예열에 다시 들어가고 성공은 실패
+  상태를 clear합니다. 모든 기본이 cooling 중이면 라우터는 fail fast하고 사례는 사람 검토로
+  이동합니다. Cooldown은 보조 발행기를 replacement 기본으로 선택하지 않습니다.
 - **영속 라우팅 전이.** 실패, 복구, selected-deployment 이벤트는 role-agnostic
- `ModelHealthTransitionSink`를 통해 덧붙이기됩니다. 기록에는 모델 역할, 배포, 민감정보가 제거된
- 실패 등급, 범위가 제한된 cooldown, 고정된 선택 사유가 포함되며 프로바이더 오류 텍스트는 포함되지
- 않습니다. PostgreSQL 영속성은 프로세스 재시작 후에도 유지되고 같은 계약이 서술기,
- T1, 다른 T2 역할 이벤트를 받을 수 있습니다. 텔레메트리 영속성 실패는 로그되지만 모델
- 장애 조치 또는 successful 제안을 차단하지 않습니다.
+  `ModelHealthTransitionSink`를 통해 덧붙이기됩니다. 기록에는 모델 역할, 배포, 민감정보가 제거된
+  실패 등급, 범위가 제한된 cooldown, 고정된 선택 사유가 포함되며 프로바이더 오류 텍스트는 포함되지
+  않습니다. PostgreSQL 영속성은 프로세스 재시작 후에도 유지되고 같은 계약이 서술기,
+  T1, 다른 T2 역할 이벤트를 받을 수 있습니다. 텔레메트리 영속성 실패는 로그되지만 모델
+  장애 조치 또는 successful 제안을 차단하지 않습니다.
 - **Operator 가시성.** Operator API는 최신 선택된 배포, 장애 조치 사유,
- unhealthy/recovered 후보, cooldown을 Settings > Models에 project합니다. Console은 읽기 전용을
- 유지하며 라우팅 변경, cooldown 해제, 배포 승격을 수행할 수 없습니다.
+  unhealthy/recovered 후보, cooldown을 Settings > Models에 project합니다. Console은 읽기 전용을
+  유지하며 라우팅 변경, cooldown 해제, 배포 승격을 수행할 수 없습니다.
 
 **해석기 + 배선.** 리졸버는 `collect_narrator` 가 `narrator_candidates` 를
 발행 하는 것과 동일하게 `t2.reasoner.primary` 후보 풀(선호 순서의 viable 동일
@@ -491,12 +491,12 @@ collapse" 위험은 *쌍 전체*를 속도로 라우팅할 때의 문제이고, 
 조정기가 준수하는 규칙(MUST):
 
 - **절대 프로덕션 매핑 auto-swap 안 함.** 하드 폐기라도 초안 PR 오픈. 폐기 날짜가 병합된 대체
- 없이 지나면, 그 기능의 티어는 저렴 계열로 조용히 다운그레이드가 아니라 **HIL로 강등**.
-- **모델에도 shadow before 강제 적용.** 병합된 레지스트리 변경이 해석기를 shadow에서 재실행: 새
- 배포가 병렬로 프로비저닝되고, quality-measurement 리플레이가 고정 시나리오 세트에서
- 스코어링, 클린 리플레이만이 `resolved-models.json` 컷오버 승격.
+  없이 지나면, 그 기능의 티어는 저렴 계열로 조용히 다운그레이드가 아니라 **HIL로 강등**.
+- **모델에도 Shadow before 강제 적용.** 병합된 레지스트리 변경이 해석기를 shadow에서 재실행: 새
+  배포가 병렬로 프로비저닝되고, quality-measurement 리플레이가 고정 시나리오 세트에서
+  스코어링, 클린 리플레이만이 `resolved-models.json` 컷오버 승격.
 - `rule-catalog/llm-registry.yaml` 의 **PR 리뷰어** 는 Owner-티어 - 모델 스왑은 high-blast-radius
- 거버넌스 변경.
+  거버넌스 변경.
 
 ### Mixed-Model 계열 전략
 
@@ -627,19 +627,19 @@ source: authored
 severity: high
 category: security
 resource_type: object-storage
-check_logic: <opa-package-ref>   # 결정론 평가기
-remediation: <action-ref>     # 온톨로지 ActionType 인스턴스 가리킴
+check_logic: <opa-package-ref>            # 결정론 평가기
+remediation: <action-ref>                 # 온톨로지 ActionType 인스턴스 가리킴
 
 # ── ontology fields (new; CI-validated) ──
-applies_to: [object-storage]
-triggered_by: [property.public_access.changed, config.public_access.enabled]
-evaluates:  [object-storage.public_access]
-scope_predicates: {}       # 선택 labels/tags/scope filter
-remediates: remediate.disable-public-access
-required_interfaces: [Evaluable, Remediable] # submission_criteria enforced at load
+applies_to:    [object-storage]
+triggered_by:  [property.public_access.changed, config.public_access.enabled]
+evaluates:     [object-storage.public_access]
+scope_predicates: {}                         # 선택 labels/tags/scope filter
+remediates:    remediate.disable-public-access
+required_interfaces: [Evaluable, Remediable]   # submission_criteria enforced at load
 submission_criteria:
- - kind: resource_type_registered
- value: object-storage
+  - kind: resource_type_registered
+    value: object-storage
 provenance: { ... }
 ```
 
@@ -660,12 +660,12 @@ catch-all이지 추론된 신호가 아님. TrustRouter와 T0는 같은 `applies
 이 시스템에서 "액션" 이라 불리는 두 가지는 **혼동 금지**:
 
 - **PipelineStage** - 계층적 조회에서 결정이 이뤄진 위치. **감사 어휘** 이지 스키마 아티팩트가
- 아님. 모든 audit-log 엔트리는 `pipeline_stage` 필드를 기록해서 결정 경로가 종단 간 로
- 재구성 가능. `remediate` 제외 모든 스테이지는 실행기 관점에서 읽기 전용 (CSP 변경
- 없음).
+  아님. 모든 audit-log 엔트리는 `pipeline_stage` 필드를 기록해서 결정 경로가 종단 간 로
+  재구성 가능. `remediate` 제외 모든 스테이지는 실행기 관점에서 읽기 전용 (CSP 변경
+  없음).
 - **ActionType** - 롤백 계약 있는 **CSP-중립 변경 카테고리**. `shared/contracts/ontology/action-type.json`
- 에 선언; 인스턴스(예: `remediate.disable-public-access`) 는 카탈로그에 존재하며 규칙의
- `remediates` 필드에서 참조됨. 이게 스키마 아티팩트.
+  에 선언; 인스턴스(예: `remediate.disable-public-access`) 는 카탈로그에 존재하며 규칙의
+  `remediates` 필드에서 참조됨. 이게 스키마 아티팩트.
 
 `remediate` 만이 둘을 커플링: PipelineStage(실행기 스텝) 이면서 그 출력이 Resource에
 적용되는 ActionType **인스턴스**. `escalate` / `abstain` / `deny` 는 ActionType을 절대
@@ -698,27 +698,27 @@ catch-all이지 추론된 신호가 아님. TrustRouter와 T0는 같은 `applies
 - `name` - 안정 id (예: `remediate.disable-public-access`).
 - `operation` - 아래 enum의 CSP-중립 동사.
 - `interfaces` - 실행기 가 지켜야 하는 런타임 계약; risk-gate 는 이 집합으로 feature 벡터
- 구성.
+  구성.
 - `rollback_contract` - 인스턴스를 되돌리는 방법. **`none` 은 유효 값 아님**; 모든 ActionType 은
- 최선 노력 라도 undo 경로를 선언해야 함. 정말로 되돌릴 수 없는 변경 은
- `irreversible: true` (아래) 를 설정하고 risk-classification 이 HIL+정족수 으로 라우팅 -
- 롤백 을 침묵시키는 방식이 아님.
+  최선 노력 라도 undo 경로를 선언해야 함. 정말로 되돌릴 수 없는 변경 은
+  `irreversible: true` (아래) 를 설정하고 risk-classification 이 HIL+정족수 으로 라우팅 -
+  롤백 을 침묵시키는 방식이 아님.
 - `irreversible` - 액션 이전 상태가 완전히 복원 불가능할 때만 true (예: soft-delete 된 리소스의
- `purge`). Rollback_contract 은 여전히 필수이며 최선 노력 복구를 기술.
+  `purge`). Rollback_contract 은 여전히 필수이며 최선 노력 복구를 기술.
 - `default_mode` - 모든 업스트림 ActionType은 반드시 `shadow`로 출시합니다. 강제 적용로의
- 승격은 승격 게이트 통과 후 별도 통제된 액션으로 수행합니다.
+  승격은 승격 게이트 통과 후 별도 통제된 액션으로 수행합니다.
 - `promotion_gate` - 어사인먼트가 shadow-mode ActionType 을 강제 적용 로 승격시키기 전에 고정
- 시나리오 세트에서 통과해야 할 측정 기준 (`min_shadow_days`, `min_samples`, `min_accuracy`,
- `max_policy_escapes`). Rule 배정 는 이 값을 tighten 만 가능, loosen 불가.
+  시나리오 세트에서 통과해야 할 측정 기준 (`min_shadow_days`, `min_samples`, `min_accuracy`,
+  `max_policy_escapes`). Rule 배정 는 이 값을 tighten 만 가능, loosen 불가.
 - `preconditions[]` - 액션이 risk-gate 에 도달하기 **전에** T0 검증기 가 결정론적으로 평가하는
- 검사. 실패하는 전제조건은 abstain, 부분 적용 절대 금지.
+  검사. 실패하는 전제조건은 abstain, 부분 적용 절대 금지.
 - `stop_conditions[]` - 적용 **도중 또는 이후에** 실행기 가 결정론적으로 평가하는 조건. 참
- 값이 하나라도 나오면 자동 halt + `rollback_contract` 로 롤백 트리거.
+  값이 하나라도 나오면 자동 halt + `rollback_contract` 로 롤백 트리거.
 - `blast_radius` - risk-gate 가 이 ActionType 인스턴스의 blast-radius 분류 차원을 계산하는
- 방법. `static_enum` 은 고정 버킷; `graph_derived` 는 Resource → Resource 링크 (기본:
- `contains` + 역방향 `depends_on`, 깊이 2) 를 walk 하여 영향받는 Resource 수를 개수. 인스턴스가
- `max_affected_resources` 초과 시 abstain + escalate. 실제 탐색 구현은 risk-gate 와
- 함께 P2 에 랜딩; P1 은 선언만 기록.
+  방법. `static_enum` 은 고정 버킷; `graph_derived` 는 Resource → Resource 링크 (기본:
+  `contains` + 역방향 `depends_on`, 깊이 2) 를 walk 하여 영향받는 Resource 수를 개수. 인스턴스가
+  `max_affected_resources` 초과 시 abstain + escalate. 실제 탐색 구현은 risk-gate 와
+  함께 P2 에 랜딩; P1 은 선언만 기록.
 
 #### 연산 동사
 
@@ -766,19 +766,19 @@ ActionType 의 `interfaces` 집합은 실행기 가 지켜야 하는 런타임 �
 
 ```mermaid
 flowchart TD
- E[Signal arrives] --> L0["L0. event-ingest<br/>normalize + dedup + correlate into incident"]
- L0 -->|replay / duplicate| DROP[no-op, audited]
- L0 --> L1["L1. T0 rule match<br/>ontology traversal: applies_to ∩ triggered_by<br/>run each rule's evaluate action (OPA/Rego, in-memory)"]
- L1 -->|verdict| RG1[risk-gate]
- L1 -->|no rule verdict| L2["L2. Learned-action lookup<br/>(signature, rule_id, catalog_version) → verified action"]
- L2 -->|hit| RG2[risk-gate]
- L2 -->|miss| L3["L3. Embedding similarity (T1)<br/>1 embedding call → pgvector kNN<br/>reuse neighbor.action iff cos > threshold and context compatible"]
- L3 -->|hit| RG3[risk-gate]
- L3 -->|below threshold| L4["L4. T2 result cache<br/>signature includes catalog_version + model_config_version + mode"]
- L4 -->|hit| RG4[risk-gate]
- L4 -->|miss| L5["L5. T2 cascade<br/>primary → agree? → done / disagree? → escalated<br/>quality-gate authoritative"]
- L5 --> WRITE["writeback: promote verified outcome<br/>into L2 (learned action) + L4 (result cache)"]
- WRITE --> RG5[risk-gate]
+    E[Signal arrives] --> L0["L0. event-ingest<br/>normalize + dedup + correlate into incident"]
+    L0 -->|replay / duplicate| DROP[no-op, audited]
+    L0 --> L1["L1. T0 rule match<br/>ontology traversal: applies_to ∩ triggered_by<br/>run each rule's evaluate action (OPA/Rego, in-memory)"]
+    L1 -->|verdict| RG1[risk-gate]
+    L1 -->|no rule verdict| L2["L2. Learned-action lookup<br/>(signature, rule_id, catalog_version) → verified action"]
+    L2 -->|hit| RG2[risk-gate]
+    L2 -->|miss| L3["L3. Embedding similarity (T1)<br/>1 embedding call → pgvector kNN<br/>reuse neighbor.action iff cos > threshold and context compatible"]
+    L3 -->|hit| RG3[risk-gate]
+    L3 -->|below threshold| L4["L4. T2 result cache<br/>signature includes catalog_version + model_config_version + mode"]
+    L4 -->|hit| RG4[risk-gate]
+    L4 -->|miss| L5["L5. T2 cascade<br/>primary → agree? → done / disagree? → escalated<br/>quality-gate authoritative"]
+    L5 --> WRITE["writeback: promote verified outcome<br/>into L2 (learned action) + L4 (result cache)"]
+    WRITE --> RG5[risk-gate]
 ```
 
 **예상 적중 분포** (설계 목표, [goals-and-metrics-ko.md](goals-and-metrics-ko.md) 에 따라 측정
@@ -796,10 +796,10 @@ flowchart TD
 두 구조적 결과:
 
 - **LLM 사용은 시간에 걸쳐 감소** , 증가 아님. 모든 L5 검증된 결과가 L2에 writeback, 그래서 지난
- 주 전체 T2 cascade가 든 반복 케이스는 이번 주 해시 조회. 이것이 "LLM을 덜 쓴다" 원칙 뒤의
- 구체 메커니즘.
+  주 전체 T2 cascade가 든 반복 케이스는 이번 주 해시 조회. 이것이 "LLM을 덜 쓴다" 원칙 뒤의
+  구체 메커니즘.
 - **규칙 변경이 올바른 행을 자동으로 무효화** (아래 참조). 수동 캐시 bust 없음; stale 재사용은
- 승격이나 강등에서 살아남지 않음.
+  승격이나 강등에서 살아남지 않음.
 
 ### 서명 구성
 
@@ -808,21 +808,21 @@ L2와 L4를 키하는 서명은 온톨로지-타입된 필드에 대한 정본 �
 
 ```text
 signature = sha256(
- Signal.type,
- canonical(Signal.params),    # sorted, redacted, typed
- Resource.type,
- canonical(Resource.props),    # only props referenced by evaluates
- Rule.id, Rule.version,
- Catalog.version,
- Model.config.version,     # L4 only; L2 omits (model-independent reuse)
- Mode          # shadow | enforce
+  Signal.type,
+  canonical(Signal.params),                # sorted, redacted, typed
+  Resource.type,
+  canonical(Resource.props),               # only props referenced by evaluates
+  Rule.id, Rule.version,
+  Catalog.version,
+  Model.config.version,                    # L4 only; L2 omits (model-independent reuse)
+  Mode                                     # shadow | enforce
 )
 ```
 
 - **민감정보 제거가 해시 전 실행** - 그래서 시크릿이 절대 서명에 진입 못함.
 - **`evaluates` 에 명명된 속성만** 참여, 그래서 관련 없는 리소스 churn이 재사용을 무효화하지 않음.
 - **카탈로그 / 모델 버전 bump** 와 **shadow ↔ 강제 적용 전이** 는 새 서명 강제, 별도 cache-flush
- 스텝 없이 [비용 통제 수단](#비용-컨트롤cost-controls) 의 무효화 규칙 적용 보장.
+  스텝 없이 [비용 통제 수단](#비용-컨트롤cost-controls) 의 무효화 규칙 적용 보장.
 
 ### 재사용 감사 (모든 레이어, 적중 포함)
 
@@ -844,14 +844,14 @@ Resolvable `reused_from` 없는 재사용은 결함 - 감사 체인은 원래 �
 `ObjectType`과 `LinkType` 카탈로그 항목을 추가하고 해당 정의를 따르는 기록을 발행하는
 프로바이더를 연결합니다. `core/`나 업스트림 계약 패키지는 편집하지 않습니다.
 - 새 `Resource` 하위타입은 검토된 카탈로그 항목으로 등록하고 파이프라인을 자동 상속 -
- `evaluate`, `reuse`, `similarity` 가 `core/` 의 코드 변경 없이 그들 위에서 작동.
+  `evaluate`, `reuse`, `similarity` 가 `core/` 의 코드 변경 없이 그들 위에서 작동.
 - 새 `LinkType` (예: 포크-특이 causal 관계) 은 자체 cardinality, transitivity, 추론 메타데이터
- 선언; 미사용 링크는 inert 유지.
+  선언; 미사용 링크는 inert 유지.
 - 새 `ActionType` (예: 포크-특이 딜리버리 어댑터) 은 자체 `required_interfaces` 와
- `submission_criteria` 선언; 미등록 액션을 참조하는 규칙은 런타임이 아니라 카탈로그 로드에서
- 실패.
+  `submission_criteria` 선언; 미등록 액션을 참조하는 규칙은 런타임이 아니라 카탈로그 로드에서
+  실패.
 - Autoprovisioning: 신호에서 관찰된 인식되지 않은 ResourceType은 이슈 오픈(절대 auto-register
- 아님), 그래서 온톨로지는 표류가 아니라 리뷰로 확장.
+  아님), 그래서 온톨로지는 표류가 아니라 리뷰로 확장.
 
 ### 온톨로지 저장 레이아웃
 
@@ -861,16 +861,16 @@ Resolvable `reused_from` 없는 재사용은 결함 - 감사 체인은 원래 �
 ## 비용 컨트롤(비용 통제 수단)
 
 - **정규화된 이벤트 서명 + 규칙 카탈로그 버전 + 모델-config 버전 + shadow/강제 적용 모드** 를
- 포함하는 서명으로 T1/T2 결과 **캐시**. 이것이 캐시를 변경에 걸쳐 정확하게 함: 카탈로그나
- 모델-config bump가 stale 엔트리 무효화.
+  포함하는 서명으로 T1/T2 결과 **캐시**. 이것이 캐시를 변경에 걸쳐 정확하게 함: 카탈로그나
+  모델-config bump가 stale 엔트리 무효화.
 - **무효화**: TTL 적용, 규칙-카탈로그 승격 시 무효화; 신선한 평가가 HIL로 보낼 케이스에 **절대**
- `auto` 결과를 서비스하지 않음, shadow-mode 결과를 enforce-mode 결정 충족에 절대 재사용하지
- 않음.
+  `auto` 결과를 서비스하지 않음, shadow-mode 결과를 enforce-mode 결정 충족에 절대 재사용하지
+  않음.
 - **예산 가드**: 티어별 토큰 예산과 비율 한도; 초과분은 HIL로 강등, 게이트 없는 auto-action
- 이 되지 않음.
+  이 되지 않음.
 - **프로바이더 실패 처리**: 시간 초과, rate-limit, 장애 시 **실패 시 차단** - 범위가 제한된 백오프로 재시도하고 보조 프로바이더로 대체 경로한 뒤 circuit 차단기로 HIL 강등.
- 실제 제안자 후보마다 shared 예산에서 호출 하나를 reserve하며 정제된 시도 증적에는 경로 역할, 실패 등급, 상태, 추적 신원만 유지합니다.
- 최종 exhaustion은 Huginn, Heimdall, Forseti로 전달되어 실제 HIL ActionRun을 만들고 복구 성공은 관측으로만 남아 새 승인을 열지 않습니다. 절대 무한 재시도하거나 검증되지 않은 후보를 auto-execute하지 않음.
+  실제 제안자 후보마다 shared 예산에서 호출 하나를 reserve하며 정제된 시도 증적에는 경로 역할, 실패 등급, 상태, 추적 신원만 유지합니다.
+  최종 exhaustion은 Huginn, Heimdall, Forseti로 전달되어 실제 HIL ActionRun을 만들고 복구 성공은 관측으로만 남아 새 승인을 열지 않습니다. 절대 무한 재시도하거나 검증되지 않은 후보를 auto-execute하지 않음.
 - **Outcome-Driven 토큰 Economics**: 모델 호출, 토큰, 지연 시간, 비용을 최소화하면서 검증된 운영 가치를 최대화합니다. 원문 문서를 모든 판단에서 RAG로 직접 검색하기 전에 출처가 연결된 온톨로지 사실과 T0/T1 reuse를 사용합니다. 남은 사례에는 최소 근거에 기반한 맥락과 충분함이 입증된 가장 작은 모델을 제공하고, 모호성이나 위험에는 원문 검색, 더 강한 모델, 교차 검증, 사람 승인을 사용합니다. 정확도, 근거 품질, 안전성은 비용보다 우선하는 제약입니다.
 
 ## T1 개선(정제)
@@ -880,31 +880,31 @@ Resolvable `reused_from` 없는 재사용은 결함 - 감사 체인은 원래 �
 
 - **학습된-액션 재사용**: 검증된 T2 결과를 T1이 매칭할 수 있는 학습된 액션으로 승격.
 - **정제 / fine-tuning**: 수용된, 검증된 T2 판단을 소형 T1 모델로 distill하여 커버리지
- 올림.
+  올림.
 - **제약**: 훈련 데이터와 fine-tuned 아티팩트는 **고객-비종속** 이어야 하고 상류에 절대 커밋되지
- 않고 하류 포크에 유지
- ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
- Distilled 모델은 게이트에 대해 아무것도 변경하지 않음: 그 출력도 여전히 검증기 통과.
+  않고 하류 포크에 유지
+  ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+  Distilled 모델은 게이트에 대해 아무것도 변경하지 않음: 그 출력도 여전히 검증기 통과.
 
 ## 품질 측정(Quality 측정)
 
 - **평가 실행 장치**: 예상 판정이 있는 버전된 golden 시나리오 세트; 모델은 승격 전 리플레이로
- 오프라인 스코어링, per-model, per-tier 점수표 생산.
+  오프라인 스코어링, per-model, per-tier 점수표 생산.
 - **Hallucination 비율**: 생성된 후보 중 인용이 grounding-validity 검사 실패하거나 검증기가
- 액션 거부한 것의 비율로 측정, 샘플링되고 주기적 human-labeled - 모델의 self-report 아님.
+  액션 거부한 것의 비율로 측정, 샘플링되고 주기적 human-labeled - 모델의 self-report 아님.
 - 모델별, 티어별 정확도와 hallucination 비율 추적; **회귀는 승격을 자동 블록** (shadow→강제 적용이
- shadow에 유지) [security-and-identity-ko.md](security-and-identity-ko.md) 에 따라.
+  shadow에 유지) [security-and-identity-ko.md](security-and-identity-ko.md) 에 따라.
 - Mixed-model 불일치 비율은 모니터되는 신호; 상승하는 비율은 표류 또는 나쁜 모델 플래그. 이들은
- [goals-and-metrics-ko.md](goals-and-metrics-ko.md) 의 KPI에 공급.
+  [goals-and-metrics-ko.md](goals-and-metrics-ko.md) 의 KPI에 공급.
 
 ## 열림 Decisions
 
 각각 시나리오 세트에서 **측정된 비용/quality** 로 결정, 가정 아님.
 
 - [ ] 포크-측 레지스트리 오버라이드: 특정 포크가 리전과 컴플라이언스 자세에 대해
-  `rule-catalog/llm-registry.yaml` 에 어떤 선호를 pin하는가.
+      `rule-catalog/llm-registry.yaml` 에 어떤 선호를 pin하는가.
 - [ ] 기본 **mixed-model 계열 전략** (`azure-foundry` vs `external` vs `hil-only`) - 상류는
-  셋 다 제공; 각 포크가 부트스트랩에서 하나 선택.
+      셋 다 제공; 각 포크가 부트스트랩에서 하나 선택.
 - [ ] 조정기 주기와 Azure OpenAI / Foundry의 구체 폐기-피드 소스(주간이 기본 권장).
 - [ ] 임베딩 모델: hosted vs 로컬(데이터 잔류지, 비용).
 - [ ] Mixed-model의 정족수 크기 / N과 불일치-escalation 정책.

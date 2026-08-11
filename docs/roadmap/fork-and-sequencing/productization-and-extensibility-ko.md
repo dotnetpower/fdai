@@ -47,7 +47,7 @@ Install과 진단은 단순해지고, 채널은 실행 권한 없이 bidirection
 | P0-05 | Static 배포 preflight | 구현됨 | 결정론적 입력, Terraform 계획 JSON, 실제 운영 Azure Policy/할당량/신원/시크릿, hash-only 근거 및 실패 시 차단 오류를 사용하는 범위가 제한된 실행기 TLS egress 통과 |
 | P0-06 | 원격 계획 제출 | 구현됨 | 대상 id를 전송 계층 산출물에 넣지 않는 doctor-gated plan-only 전달, exact-commit 가드, 비공개 변경할 수 없는 binary 계획, 정제된 메타데이터 상태, 다이제스트/만료, 범위가 제한된 정리 통과 |
 | P0-07 | Exact-plan 적용 | 구현됨 | Protected 계획이 완전한 enforce-mode Policy/할당량/신원/시크릿 검사 커버리지 및 범위가 제한된 egress 근거를 요구하며 separate 변경할 수 없는 근거 다이제스트를 점유, approval-gated 적용, convergence, 이행, 상태, 증적 전에 복원하고 verify |
-| P0-08 | Signed 배포 번들 | 구현됨 | Tracked 허용 목록, 결정론적 CycloneDX 빌드/보관, 외부 Ed25519 signing, double-build 바이트 비교, 검증기 round-trip, approval-gated 산출물, 선택적 GitHub release 게시 통과 |
+| P0-08 | Signed 배포 번들 | 구현됨 | Tracked 허용 목록, 결정론적 CycloneDX 빌드/보관, 외부 Ed25519 서명, double-build 바이트 비교, 검증기 round-trip, approval-gated 산출물, 선택적 GitHub release 게시 통과 |
 | P0-09 | 로컬 security 감사 | 구현됨 | 고정된 발견 사항이 auth bypass, Entra 구성, 실행 플래그, 샌드박스 준비 상태, 구성 hygiene 포함 |
 | P0-10 | Narrow security auto-fix | 구현됨 | Regular 파일 `0600` 및 상위 디렉터리 `0700` 변경만 허용 |
 | P0-11 | Bidirectional 채널 계약 | 구현됨 | 범위가 제한된 `InboundTurn` 및 thread-preserving `OutboundResponse` 프로토콜 테스트 통과 |
@@ -101,9 +101,9 @@ Install과 진단은 단순해지고, 채널은 실행 권한 없이 bidirection
 
 ```bash
 fdaictl extension validate \
- --manifest extension-kit.json \
- --archive extension.zip \
- --host-version 1.0.0
+  --manifest extension-kit.json \
+  --archive extension.zip \
+  --host-version 1.0.0
 ```
 
 검증은 offline입니다. Strict 매니페스트, 보관 SHA-256, 호스트 semantic-version 범위, unique
@@ -153,24 +153,24 @@ mount하고 영속 PostgreSQL 점유 저장소를 기본으로 사용합니다.
 들어가지 않습니다.
 
 - **일반 desktop 또는 mobile personal-assistant 애플리케이션:** Operator 콘솔은 thin 읽기
- 표면으로 유지하고 ChatOps가 기존 업무 채널에서 운영자에게 도달합니다.
+  표면으로 유지하고 ChatOps가 기존 업무 채널에서 운영자에게 도달합니다.
 - **Wake-word, continuous 어조, camera, 위치, SMS-device, screen-control 노드:** Cloud-operations
- 컨트롤과 관계없는 device-trust 도메인을 만듭니다.
+  컨트롤과 관계없는 device-trust 도메인을 만듭니다.
 - **일반 브라우저 또는 full-host computer 컨트롤:** FDAI는 프로바이더 API, policy-as-code,
- 통제된 명령 카탈로그, 범위가 제한된 작업 실행기를 사용합니다. Operator의 로그인된 브라우저
- 프로파일을 자동화하지 않습니다.
+  통제된 명령 카탈로그, 범위가 제한된 작업 실행기를 사용합니다. Operator의 로그인된 브라우저
+  프로파일을 자동화하지 않습니다.
 - **Arbitrary dynamic 코드/플러그인 로딩:** 확장은 검토된 타입이 지정된 번들을 등록합니다.
- 컨트롤 평면 안에서 검토되지 않은 패키지를 download하고 실행하지 않습니다.
+  컨트롤 평면 안에서 검토되지 않은 패키지를 download하고 실행하지 않습니다.
 - **서로 신뢰하지 않는 테넌트를 위한 shared 게이트웨이 하나:** 각 customer 포크와 배포가
- 자체 신원, 상태, 정책, 감사 경계를 유지합니다.
+  자체 신원, 상태, 정책, 감사 경계를 유지합니다.
 - **Console-issued privileged 액션:** Console은 읽기 전용으로 유지됩니다. Command는 CLI, ChatOps,
- PR 또는 인증된 제안 API로 들어와 standard 컨트롤 루프를 따릅니다.
+  PR 또는 인증된 제안 API로 들어와 standard 컨트롤 루프를 따릅니다.
 
 ## 제공 순서
 
 1. P1 확장 중에도 모든 P0 배포 및 release 게이트를 강제 적용 상태로 유지합니다.
 2. release/백업/onboarding, 채널 richness, 확장 및 스킬 UX, 모델 상태, 기억,
- 예약, 웹훅, observability, authoring 키트 순으로 P1을 구현합니다.
+   예약, 웹훅, observability, authoring 키트 순으로 P1을 구현합니다.
 3. 각 P2 항목을 측정된 운영자 demand, 비용, threat 모델에 대해 평가합니다.
 4. 모든 새 액션은 자체 승격 게이트를 통과할 때까지 shadow 모드로 유지합니다.
 
@@ -190,7 +190,7 @@ bash scripts/quality/repository/check-punctuation.sh
 release 배치는 clean 체크아웃에서 `scripts/verify.sh --all`도 실행하고 휠 및 배포
 번들을 빌드하고 isolated 환경에 휠을 설치하고 서명을 검증하고 disposable
 PostgreSQL 데이터베이스에서 이행 업그레이드 검사를 실행합니다. release 작업 흐름은 환경이
-signing 키를 노출하기 전에 이 순서를 적용합니다. 별도 의존성 감사도 통과해야 하며
+서명 키를 노출하기 전에 이 순서를 적용합니다. 별도 의존성 감사도 통과해야 하며
 gated 번들 작업만 저장소 쓰기 권한을 받습니다.
 
 Executable productization 게이트에는 `scripts/deployment/release/verify-productization.sh`를 실행합니다. 이 계획의

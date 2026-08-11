@@ -9,17 +9,17 @@ translation_revised: 2026-08-11
 FDAI 룰 카탈로그 는 세 계층 의 콘텐츠를 갖는다:
 
 1. **Hand-authored 룰** [`rule-catalog/catalog/`](../../../rule-catalog/catalog)
- 아래 - curated, T0-ready, real Rego 검사 와 PR-native 교정
- 템플릿 을 ship. T0 엔진이 non-recursively 로드.
+   아래 - curated, T0-ready, real Rego 검사 와 PR-native 교정
+   템플릿 을 ship. T0 엔진이 non-recursively 로드.
 2. **Machine-imported 룰** [`rule-catalog/collected/`](../../../rule-catalog/collected)
- 아래 - 수집기 파이프라인이 공개 업스트림 소스 (Azure Policy
- built-in library, kube-bench 등) 로부터 자동 생성. 각 항목 는
- `check_logic.kind: expression` 과 업스트림 정의로의 `reference:`
- 를 carry; 포크 또는 업스트림 curator 가 real Rego 를 authoring
- 하여 `catalog/` 아래에 re-land 할 때까지 *reference-only*.
+   아래 - 수집기 파이프라인이 공개 업스트림 소스 (Azure Policy
+   built-in library, kube-bench 등) 로부터 자동 생성. 각 항목 는
+   `check_logic.kind: expression` 과 업스트림 정의로의 `reference:`
+   를 carry; 포크 또는 업스트림 curator 가 real Rego 를 authoring
+   하여 `catalog/` 아래에 re-land 할 때까지 *reference-only*.
 3. **Profiles** [`rule-catalog/profiles/`](../../../rule-catalog/profiles)
- 아래 - 두 계층 중 어디에서든 룰 id 를 참조하는 named 번들.
- Operator / 포크 가 curated subset 을 한 단계로 활성화하는 방법.
+   아래 - 두 계층 중 어디에서든 룰 id 를 참조하는 named 번들.
+   Operator / 포크 가 curated subset 을 한 단계로 활성화하는 방법.
 
 이 문서는 [scope-expansion.md § 3](../fork-and-sequencing/scope-expansion-ko.md) 의 전략적
 결정에 따른 프로파일 계층 및 업스트림 이 ship 하는 모든 수집기 의
@@ -32,24 +32,24 @@ Design 계약: [scope-expansion.md § 3](../fork-and-sequencing/scope-expansion-
 [`shared/contracts/profile/schema.json`](../../../services/core-control-plane/src/fdai/shared/contracts/profile/schema.json).
 
 - **업스트림 은 세 개의 정본 프로파일 을 ship**:
- - `baseline` - 최소 안전 자세, 10 룰, zero customization 으로
- 어느 Azure 테넌트 에든 ship.
- - `recommended` `extends: [baseline]` - 표준 best-practice; 진단
- settings, 비공개 endpoints, 정리 protection, RBAC, 전체 tag 매트릭스
- 추가. 현재 resolved 합계 44 룰.
- - `strict` `extends: [recommended]` - regulated / zero-trust;
- security-critical 룰 을 shadow 에서 `enforce` 로 이동. 현재 resolved 합계 45 룰.
+  - `baseline` - 최소 안전 자세, 10 룰, zero customization 으로
+    어느 Azure 테넌트 에든 ship.
+  - `recommended` `extends: [baseline]` - 표준 best-practice; 진단
+    settings, 비공개 endpoints, 정리 protection, RBAC, 전체 tag 매트릭스
+    추가. 현재 resolved 합계 44 룰.
+  - `strict` `extends: [recommended]` - regulated / zero-trust;
+    security-critical 룰 을 shadow 에서 `enforce` 로 이동. 현재 resolved 합계 45 룰.
 - **업스트림 은 또한 265 개의 auto-imported 프로파일 을 ship**
- `rule-catalog/profiles/collected/` 아래 - Azure Policy built-in
- initiative 당 하나 (CIS Azure Foundations, NIST 800-53, PCI DSS,
- HIPAA HITRUST, ISO 27001, FedRAMP High / Moderate, GDPR, DORA,
- EU NIS2, CMMC 및 Microsoft 가 정책 집합 으로 publish 하는 모든
- regulatory framework). 각각 imported 룰 을 FDAI id 로 참조.
+  `rule-catalog/profiles/collected/` 아래 - Azure Policy built-in
+  initiative 당 하나 (CIS Azure Foundations, NIST 800-53, PCI DSS,
+  HIPAA HITRUST, ISO 27001, FedRAMP High / Moderate, GDPR, DORA,
+  EU NIS2, CMMC 및 Microsoft 가 정책 집합 으로 publish 하는 모든
+  regulatory framework). 각각 imported 룰 을 FDAI id 로 참조.
 - **포크 overrides** 는
- [`rule-catalog/profiles-overrides/`](../../../rule-catalog/profiles-overrides)
- 아래 (업스트림 은 빈). 포크 는 `extends: [strict]` 와 자신의
- 재정의 를 갖는 YAML 을 추가하고, fork-owned id 를 부여하고,
- composition-root 구성 를 그 id 로 가리킴.
+  [`rule-catalog/profiles-overrides/`](../../../rule-catalog/profiles-overrides)
+  아래 (업스트림 은 빈). 포크 는 `extends: [strict]` 와 자신의
+  재정의 를 갖는 YAML 을 추가하고, fork-owned id 를 부여하고,
+  composition-root 구성 를 그 id 로 가리킴.
 
 ### 해석
 
@@ -58,14 +58,14 @@ Design 계약: [scope-expansion.md § 3](../fork-and-sequencing/scope-expansion-
 
 - **모드**: 하위 재정의 승; 누락된 = inherit; 기본값 = `shadow`.
 - **Parameters**: `profile.parameters` <- 상위 룰 params <- 하위
- 룰 params 순서의 shallow 병합.
+  룰 params 순서의 shallow 병합.
 - **심각도 재정의**: 하위 승; 룰 의 authored 하한 아래로의
- downgrade 는 `ProfileResolutionError` 발생 (실패 시 차단 at 부하,
- not at 런타임).
+  downgrade 는 `ProfileResolutionError` 발생 (실패 시 차단 at 부하,
+  not at 런타임).
 - **비활성화된**: 하위 `disabled: true` 는 resolved 집합 에서 룰 제거.
 - `extends` 그래프 의 **cycles** 는 `ProfileResolutionError` 발생.
 - **알 수 없음 상위** 또는 **알 수 없음 룰 id** (`known_rule_ids` 가
- supplied 될 때) 는 `ProfileResolutionError` 발생.
+  supplied 될 때) 는 `ProfileResolutionError` 발생.
 
 Resolved 룰 목록 는 룰 id 로 정렬되어 두 해석 간 차이 가
 byte-stable.
@@ -108,15 +108,15 @@ declared 되어 매니페스트 가 이를 참조하면 clear 한
 **하지 않는다**. 대신 점유 하는 것:
 
 1. **모든 공개 참조 framework 를 가져오기 할 수 있음**: 수집기
- 파이프라인은 source-agnostic 이며 하나의 파서 플러그인 만으로 어떤
- well-formed JSON/YAML 말뭉치 도 추가 가능.
+   파이프라인은 source-agnostic 이며 하나의 파서 플러그인 만으로 어떤
+   well-formed JSON/YAML 말뭉치 도 추가 가능.
 2. **가져오기 된 참조 가 업스트림 에 ship** 되어 포크 가 일 one
- 에 full 말뭉치 를 inherit - 어떤 룰 이 있는지 확인하기 위한
- 외부 tooling 불필요.
+   에 full 말뭉치 를 inherit - 어떤 룰 이 있는지 확인하기 위한
+   외부 tooling 불필요.
 3. **Curation 은 수집 과 분리**: 가져오기 된 룰 은 curator 가
- real Rego 를 작성자 하기까지 `shadow`-only 유지되며 실패 시 차단
- `remediate.azure-policy-managed` ActionType 을 지점. 이것이 한
- 번에 수천 룰 을 가져오기 해도 OK 하게 하는 안전성 불변식.
+   real Rego 를 작성자 하기까지 `shadow`-only 유지되며 실패 시 차단
+   `remediate.azure-policy-managed` ActionType 을 지점. 이것이 한
+   번에 수천 룰 을 가져오기 해도 OK 하게 하는 안전성 불변식.
 
 이 문서 시점의 커버리지:
 
@@ -137,15 +137,15 @@ Compliance 자세 활성화를 위한 포크 의 일반 흐름:
 id: customer-a
 title: (Customer A) posture
 extends:
- - strict            # upstream base
- - compliance.regulatory-compliance.cis-azure-foundations-v3-0-0
+  - strict                                              # upstream base
+  - compliance.regulatory-compliance.cis-azure-foundations-v3-0-0
 parameters:
- tag.mandatory: [Environment, Owner, CostCenter, Confidentiality]
+  tag.mandatory: [Environment, Owner, CostCenter, Confidentiality]
 rules:
- - id: azure-builtin.object-storage.storage-account-should-require-secure-transfer
- mode: enforce
- - id: azure-builtin.sql-server.deprecated-audit-sql-servers-with-auditing-enabled
- disabled: true          # customer-specific exemption
+  - id: azure-builtin.object-storage.storage-account-should-require-secure-transfer
+    mode: enforce
+  - id: azure-builtin.sql-server.deprecated-audit-sql-servers-with-auditing-enabled
+    disabled: true                                      # customer-specific exemption
 ```
 
 목표 조립 계약은 `FDAI_PROFILE_ID=customer-a`를 읽고 resolved 프로파일을 시작 시
@@ -164,9 +164,9 @@ rules:
 ## 5. 이 문서가 아닌 것
 
 - Rule authoring guide 아님 - 그것은
- [`rule-catalog/RULE_AUTHORING_GUIDE.md`](../../../rule-catalog/RULE_AUTHORING_GUIDE.md)
- 에 존재.
+  [`rule-catalog/RULE_AUTHORING_GUIDE.md`](../../../rule-catalog/RULE_AUTHORING_GUIDE.md)
+  에 존재.
 - 단계 계획 아님 - 단계 는
- [`docs/roadmap/phases/`](../phases) 아래 존재.
+  [`docs/roadmap/phases/`](../phases) 아래 존재.
 - 포크 템플릿 아님 - 포크 scaffolding 은
- [`downstream-fork-guide.md`](../fork-and-sequencing/downstream-fork-guide-ko.md) 아래 존재.
+  [`downstream-fork-guide.md`](../fork-and-sequencing/downstream-fork-guide-ko.md) 아래 존재.

@@ -40,14 +40,14 @@ translation_revised: 2026-08-11
 
 ```mermaid
 flowchart LR
- D[승인된 문서] --> I[Claim inventory]
- I --> E[Typed extraction]
- E --> V[결정론적 검증]
- V --> P[Ontology change proposal]
- P --> H[책임 있는 검토]
- H --> R[Immutable ontology revision]
- R --> C[Authority reconciliation]
- C --> S[Shadow measurement]
+    D[승인된 문서] --> I[Claim inventory]
+    I --> E[Typed extraction]
+    E --> V[결정론적 검증]
+    V --> P[Ontology change proposal]
+    P --> H[책임 있는 검토]
+    H --> R[Immutable ontology revision]
+    R --> C[Authority reconciliation]
+    C --> S[Shadow measurement]
 ```
 
 ## 제안 계약
@@ -68,8 +68,8 @@ flowchart LR
 
 ```text
 candidate -> validated -> review_required -> approved -> projected -> reconciled
-     |    |
-     +-> denied  +-> rejected
+                  |              |
+                  +-> denied     +-> rejected
 projected -> superseded | rolled_back
 ```
 
@@ -147,15 +147,15 @@ review-package 다이제스트 및 재생 다이제스트가 이 튜플을 모�
 위치 지정자는 결정론적 grammar와 1-based ordinal을 사용합니다.
 
 - **DOCX:** `docx/paragraph:{n}`, `docx/heading:{level}:{n}` 또는
- `docx/table:{table}/row:{row}/cell:{cell}`. Heading 아래 paragraph 내용에는
- `/context:heading:{level}:{ordinal}` ancestry 접미사를 추가합니다.
+  `docx/table:{table}/row:{row}/cell:{cell}`. Heading 아래 paragraph 내용에는
+  `/context:heading:{level}:{ordinal}` ancestry 접미사를 추가합니다.
 - **PPTX:** `pptx/slide:{slide}/shape:{shape}`, multi-paragraph 형태의 선택적
- `/paragraph:{paragraph}` 접미사, `/table:{table}/row:{row}/cell:{cell}` 접미사 또는
- `pptx/slide:{slide}/notes:{paragraph}`. Single-paragraph 형태 위치 지정자는 변경하지 않습니다.
+  `/paragraph:{paragraph}` 접미사, `/table:{table}/row:{row}/cell:{cell}` 접미사 또는
+  `pptx/slide:{slide}/notes:{paragraph}`. Single-paragraph 형태 위치 지정자는 변경하지 않습니다.
 - **XLSX:** `xlsx/sheet:{sheet}/cell:{address}`는 출처 cell 주소를 보존하고 범위가 제한된
- shared-string 참조를 해석합니다.
+  shared-string 참조를 해석합니다.
 - **PDF:** native 텍스트는 `pdf/page:{page}/block:{block}`, OCR 대체 경로는
- `pdf/page:{page}/ocr:{block}`
+  `pdf/page:{page}/ocr:{block}`
 
 `StructuralUnit.table_cell_role`은 선택적이며 하위 호환됩니다. DOCX와 PPTX cell은 OOXML 표
 메타데이터가 헤더 행을 선언한 경우에만 `header`를 사용하고 다른 표 행은 `body`를 사용합니다.
@@ -185,17 +185,17 @@ Synthetic 고정본은 결정론적 계약과 인용 전달을 증명합니다. 
 quality 근거를 분리합니다.
 
 - **구조:** Markdown, HTML-like 출처, Office, native PDF 및 OCR 입력은 범위가 제한된 paragraph,
- heading, 목록, 표, slide, 페이지 또는 코드 단위를 만듭니다. Markup은 점유 텍스트가 되지 않습니다.
+  heading, 목록, 표, slide, 페이지 또는 코드 단위를 만듭니다. Markup은 점유 텍스트가 되지 않습니다.
 - **프로바이더:** 업스트림 기본값은 안전하게 abstain할 수 있지만, 연결된 `Distiller`가 동일 말뭉치
- 계약을 통과하기 전에는 배포가 온톨로지 추출을 available로 보고할 수 없습니다.
+  계약을 통과하기 전에는 배포가 온톨로지 추출을 available로 보고할 수 없습니다.
 - **말뭉치:** Versioned 매니페스트는 공개 출처 URL, 내용 다이제스트, license, format, 언어,
- annotated critical 점유 및 예상 객체/링크 변환 결과를 고정합니다. License가 재배포를
- 허용하지 않으면 출처 텍스트는 패키지와 저장소 밖에 둡니다.
+  annotated critical 점유 및 예상 객체/링크 변환 결과를 고정합니다. License가 재배포를
+  허용하지 않으면 출처 텍스트는 패키지와 저장소 밖에 둡니다.
 - **메트릭:** 보고는 detected-claim accounting과 mapped-claim 재현율, 개체/링크 정밀도,
- 인용 accuracy, abstention, 파서 거절, 지연 시간 및 비용을 구분합니다. 후보 0개의
- 결정론적 재생은 안전하지만 추출 성공으로 계산하지 않습니다.
+  인용 accuracy, abstention, 파서 거절, 지연 시간 및 비용을 구분합니다. 후보 0개의
+  결정론적 재생은 안전하지만 추출 성공으로 계산하지 않습니다.
 - **release:** 필요한 format/언어 파티션이 각각 임계값을 통과합니다. 집계 점수로
- 지원하지 않는 PDF 파서, unbound 프로바이더 또는 weak Korean 파티션을 숨길 수 없습니다.
+  지원하지 않는 PDF 파서, unbound 프로바이더 또는 weak Korean 파티션을 숨길 수 없습니다.
 
 `ontology_corpus_gate.py`는 비율을 계산하기 전에 정수 근거를 기록합니다. 필요한 각
 `(source_format, language)` 파티션은 사례와 extraction-success 개수, detected/accounted 점유,
@@ -326,7 +326,7 @@ Council 결과는 다음과 같습니다.
 Blind 비교 뒤 disputed 점유는 field-difference 비평 한 라운드에 들어갈 수 있습니다. 각
 모델은 `keep`, `revise`, `abstain`만 선택하며 original 점유만 인용할 수 있습니다. Raw reasoning과
 hidden 추론 과정은 요청하거나 저장하지 않습니다. 비평 packet은 disputed 필드에 대해서만
-정본 digest-verified alternative를 포함하고, 세 blind 표결이 이미 합의한 필드에는 정본
+정본 digest-verified 대안을 포함하고, 세 blind 표결이 이미 합의한 필드에는 정본
 기준선을 포함합니다. Critical 점유는 최종 3-of-3 exact agreement가 필요합니다. 2-of-3 결과는
 `contested`로 남으며 Judge 모델이 합의로 바꿀 수 없습니다.
 
@@ -368,15 +368,15 @@ stale 또는 말뭉치 임계값 미달이면 false를 유지합니다.
 
 - **개정 번호:** 내용 또는 curation 변경은 영향받은 점유와 제안만 다시 처리합니다.
 - **Deletion:** 확인된 출처 deletion은 범위가 제한된 tombstone 제안을 생성합니다. 비어 있지 않은 스냅샷에
- 대한 빈 listing은 suspected 출처 장애이며 그래프 상태를 대량 삭제할 수 없습니다.
+  대한 빈 listing은 suspected 출처 장애이며 그래프 상태를 대량 삭제할 수 없습니다.
 - **접근 변경:** 더 좁아진 출처 ACL은 derived 읽기를 즉시 차단하고 영향받은 산출물의 제거 또는
- 재보호를 예약합니다.
+  재보호를 예약합니다.
 - **충돌:** 나중의 conflicting 출처는 accepted 이력을 다시 쓰지 않습니다. 이전 개정 번호와
- 충돌 증적에 연결된 새 제안을 만듭니다.
+  충돌 증적에 연결된 새 제안을 만듭니다.
 - **Supersession:** Approved 의도는 historical 결정 맥락을 변경하지 않고 이전 effective
- 간격을 교체합니다.
+  간격을 교체합니다.
 - **Rollback:** 변환 결과 실패 또는 later 거절은 exact 이전 그래프 개정 번호를 복원하고 실패한
- 제안 다이제스트를 기록합니다.
+  제안 다이제스트를 기록합니다.
 
 변환 결과와 조정은 별개입니다. Declared 의도를 수락하면 통제된 의도 변환 결과를
 갱신할 수 있습니다. Provider-observed 구문은 fresh 외부 관측과 일치한 뒤에만 현재
@@ -440,7 +440,7 @@ D4d council 합의는 이 수명 주기 전체에서 inert review-only 제안으
 | D4b | 묶음 출처 이력 및 cross-format 추출 | 구조화된 위치 지정자가 검토까지 보존되고 synthetic 말뭉치의 정규화된 그래프 차이가 일치함 |
 | D4c | 실제 말뭉치 추출 품질 | 필요한 format/언어 파티션이 프로바이더 conformance와 annotated-corpus 게이트를 통과함 |
 | D4d | T2 온톨로지 모델 council | blind 모델 표결, 결정론적 합의, disagreement 근거, 모델 증적 및 실제 운영 conformance가 권한 추가 없이 통과함 |
-| D5 | shadow 측정 및 limited 승격 근거 | 권한을 넓히지 않고 statistical 및 zero-violation 게이트를 통과함 |
+| D5 | Shadow 측정 및 limited 승격 근거 | 권한을 넓히지 않고 statistical 및 zero-violation 게이트를 통과함 |
 
 ## 하드닝 기록
 

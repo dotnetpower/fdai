@@ -24,17 +24,17 @@ translation_revised: 2026-08-11
 
 ```mermaid
 flowchart LR
- H[Huginn observations] --> HD[Heimdall forecast and outcome]
- HD -->|object.forecast| S[Saga audit]
- HD -->|object.forecast-outcome| S
- HD -->|object.forecast-outcome| MU[Muninn case revision]
- MU --> CH[Case history storage]
- MU -->|object.context-index| N[Norns failure analysis]
- N -->|object.rule-candidate| M[Mimir replay and shadow gate]
- M -->|object.rule or policy| HD
- HD --> F[Forseti judgment]
- F --> T[Thor execution]
- T --> V[Vidar rollback]
+    H[Huginn observations] --> HD[Heimdall forecast and outcome]
+    HD -->|object.forecast| S[Saga audit]
+    HD -->|object.forecast-outcome| S
+    HD -->|object.forecast-outcome| MU[Muninn case revision]
+    MU --> CH[Case history storage]
+    MU -->|object.context-index| N[Norns failure analysis]
+    N -->|object.rule-candidate| M[Mimir replay and shadow gate]
+    M -->|object.rule or policy| HD
+    HD --> F[Forseti judgment]
+    F --> T[Thor execution]
+    T --> V[Vidar rollback]
 ```
 
 ## 에이전트 소유 액션
@@ -75,7 +75,7 @@ learning intake 또는 관련 없는 예측을 차단하지 않습니다. 런타
 - predicted 값 및 uncertainty 간격
 - 가능한 경우 관찰된 값 및 actual breach 시간
 - 최종 라벨: `true_positive`, `false_positive`, `false_negative`, `late_breach`,
- `magnitude_error`, `intervention_censored` 또는 `unscorable`
+  `magnitude_error`, `intervention_censored` 또는 `unscorable`
 - intervention 및 근거 참조, 텔레메트리 완전성 및 close 시간
 
 에피소드 원장은 `predicted_breach`, `predicted_no_breach`, `abstained` 평가도 기록합니다. 세
@@ -102,13 +102,13 @@ reopen되거나 늦은 trusted 근거가 도착하면 이력을 덮어쓰지 않
 PostgreSQL은 제한 없는 근거 본문이 아니라 조회 가능한 메타데이터를 저장합니다.
 
 - `case_history`: 신원, 종류, 상관관계 및 인시던트 참조, 수명 주기 상태, 최신
- 개정 번호, 라벨, 범위가 제한된 범용 메타데이터, 선택적 예측 detector 및 메트릭 필드,
- 보존, legal 보류 및 최신 매니페스트 참조
+  개정 번호, 라벨, 범위가 제한된 범용 메타데이터, 선택적 예측 detector 및 메트릭 필드,
+  보존, legal 보류 및 최신 매니페스트 참조
 - `case_history_revision`: 개정 번호 number, 상위 다이제스트, 매니페스트 다이제스트, 저장소 참조,
- 감사 순서 범위, event-time 기준 시점, 스키마 및 민감정보 제거 버전, 라벨, censoring 사유,
- owning 에이전트 및 seal 시간
+  감사 순서 범위, event-time 기준 시점, 스키마 및 민감정보 제거 버전, 라벨, censoring 사유,
+  owning 에이전트 및 봉인 시간
 - `case_history_chunk`: 제한되고 민감정보 제거된 텍스트, 조각 종류, 임베딩, 임베딩 모델
- 버전, 출처 매니페스트 다이제스트, access-scope 다이제스트 및 deletion 계보
+  버전, 출처 매니페스트 다이제스트, access-scope 다이제스트 및 deletion 계보
 
 추가 전용 감사 로그가 근거 권위를 유지합니다. 이행 중에는 이전 방식 StateStore
 변환 결과가 읽기 권한을 유지하고 PostgreSQL은 shadow 쓰기를 받습니다. Keyset backfill은
@@ -124,7 +124,7 @@ null로 유지합니다. 허용 목록 메타데이터는 StateStore와 PostgreS
 기록합니다. 각 개정 번호는 prediction-time 사실, 버전, 관측, intervention, 결정,
 승인, 액션, 롤백, RCA 인용, SLO 복구, recurrence 및 source-record 다이제스트를
 포함합니다. Raw cloud 페이로드, 자격 증명, 제한 없는 도구 출력, 프롬프트 및 hidden reasoning은
-저장하지 않습니다. Seal 경계는 중립적인 필드 이름 아래에 있는 일반적인 plain-text 및
+저장하지 않습니다. 봉인 경계는 중립적인 필드 이름 아래에 있는 일반적인 plain-text 및
 percent-encoded 자격 증명 형태, 자격 증명을 포함한 URI user information, 대소문자나 구분자
 형식이 다른 일반 시크릿 키도 거부합니다.
 

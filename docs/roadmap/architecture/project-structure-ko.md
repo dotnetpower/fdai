@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: fe5cfa816e9577d24c1b0159a95153ec2184c498
+translation_source_sha: e0d828cea40cfff44fa0a320252ec42ad1838abc
 translation_revised: 2026-08-11
 ---
 
@@ -18,331 +18,341 @@ translation_revised: 2026-08-11
 ```text
 fdai/
 ├── services/core-control-plane/src/fdai/ # 전체 headless control-plane implementation
-│ ├── core/     # headless 컨트롤 플레인 (UI 없음, 클라우드 SDK 직접 import 없음). G-1 phase 1 (트래커 #14) 이 core 서브시스템 위에 도메인 그룹 파사드를 도입했다: `pipeline/` (event_ingest, trust_router, tiers, quality_gate, risk_gate, hil_resume, executor, audit, control_loop), `incident/` (rca, slo, runbook, postmortem, oncall, irp, investigation, chaos, capacity), `operator/` (conversation, operator_memory, working_context, rbac, notifications, report_feed), `knowledge/` (prompts, tools, web_search, capability_catalog, rule_catalog_profiles, ontology_explorer), `platform/` (scheduler, metering, measurement, security, reporting, onboarding, workflow, detection, deploy_preflight, assurance_twin), 그리고 `verticals/` (G-6). Phase 1 은 additive - `from fdai.core.<subsystem> import X` 와 `from fdai.core.<domain> import <subsystem>` 둘 다 resolve. Phase 2 (연기) 는 물리적 `git mv` 대량 이동.
-│ │ ├── event_ingest/  # 버스 컨슈머; 이벤트 스키마로 정규화; idempotency key로 dedup; 관련 이벤트를 인시던트로 상관 연결
-│ │ ├── trust_router/  # 계산된 신뢰도로 각 이벤트를 T0 | T1 | T2 로 라우팅
-│ │ ├── tiers/
-│ │ │ ├── t0_deterministic/ # deterministic-engine: policy, checklist, what-if, drift eval
-│ │ │ ├── t1_lightweight/  # 임베딩 유사도 및 learned-action 재사용; operational case는 persisted immutable context와 fresh graph, owner, policy, dry-run, safety evidence를 요구
-│ │ │ └── t2_reasoning/  # 프론티어 모델 추론과 budgeted proposer failover, durable route selection 및 sanitized attempt receipt
-│ │ ├── prompts/   # catalog-as-code 프롬프트 컴포저 (`rule-catalog/prompts/` 로드, T2에 공급)
-│ │ ├── tools/    # T2 툴 카탈로그 레지스트리 + `ToolExecutor` (shadow-mode 게이팅)
-│ │ ├── web_search/   # 최후 수단 웹 검색 seam (`NoOpWebSearchProvider` 기본; 도메인 allowlist + sanitizer)
-│ │ ├── browser_evidence/ # 읽기 전용 origin/DNS policy, redaction, immutable artifact, custody, shadow comparison
-│ │ ├── operator_memory/ # HIL 승인된 오퍼레이터 메모리를 untrusted `<operator_note>` 데이터로 주입
-│ │ ├── learning/   # 동의 기반 off-path turn eligibility, consensus, dedup ledger, 비활성 proposal routing
-│ │ ├── conversation_assurance/ # deterministic-first 완료 turn 점수, exact failure attribution, hold-first ontology adequacy review, mixed-family 평가, 범위 제한 이의 제기, 구독별 학습, chat-policy 승격 및 롤백, versioned 50-item hard-cap quality scorecard
-│ │ ├── trajectory/   # authorization-first observable trajectory projection, version policy, reviewed aggregate, offline validation
-│ │ ├── case_history/  # canonical revision, strict operational receipt, artifact-first intake, scoped retrieval, backfill 및 retention
-│ │ ├── task_worker/  # 격리된 depth-one 읽기 전용 worker: capability 축소, lifecycle, 영구 state, parent synthesis
-│ │ ├── background_task/ # 영구 detached read: lease/CAS, atomic completion outbox, bounded retry, process-loss, retention purge
-│ │ ├── read_investigation/ # Exact-resource VM/network planning, evidence, immutable provider-vs-graph shadow comparison, latency policy, owner-scoped direct/stream replay, honest cost usage, SSE heartbeat, stream-close cancellation. Cloud SDK와 execution authority 없음
-│ │ ├── briefing/   # report-feed evidence 기반 결정적 opening/scheduled briefing
-│ │ ├── scheduler/   # create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprint, 범위 제한 continuation
-│ │ ├── document_ingestion/ # upload lifecycle + split inspect/index worker; Forseti/Saga/Var/Muninn gate, durable stage lease/CAS claim, replay-only gated-state recovery
-│ │ ├── working_context/ # 턴당 경계 프롬프트 조립: 불변 selection policy + 필수 validator + shadow evidence/replay + planner/orchestrator fold + summarizer/retriever seam
-│ │ ├── operational_context/ # atomic owned-subgraph replacement, time-consistent snapshot, cutoff-bound graph+document evidence bundle과 typed path, provenance, source-freshness receipt, fail-closed truncation
-│ │ ├── decision_case/  # protected-objective option, deterministic selection, response closure
-│ │ ├── change_lineage/  # 변경 불가능하고 replay-stable한 Change -> assessment -> decision -> action -> outcome join. Execution 또는 promotion authority 없음
-│ │ ├── operational_planning/ # hard-constraint eligibility, Pareto pruning, Process planning phase, replay-stable plan identity. Execution authority 없음
-│ │ ├── operational_learning/ # sealed-case classification, fingerprint/action cohort gate, immutable citation, inert candidate mapping
-│ │ ├── quality_gate/  # mixed-model 교차 검사, verifier, grounding; 실패한 fan-out은 sibling을 cancel+drain (T2 방어)
-│ │ ├── rca/    # 루트 원인 분석 (T0 deterministic + seam 뒤의 T2 reasoner; grounding-gated)
-│ │ ├── risk_gate/   # 통합 authority: 리스크 스코어 + auto vs HIL vs deny; malformed promotion metric 거부 + 7개 안전조건 강제
-│ │ ├── execution_authorization/ # 온톨로지 기반 pre-dispatch capability policy, grant lifecycle, replay-stable decision
-│ │ ├── rbac/    # Operator API 를 위한 사람 RBAC (5개 롤 매트릭스, resolver, enforcer)
-│ │ ├── human_assignment/ # 변경 불가능한 역할/임무 의도, 정규화된 검토 정족수, 리비전 기반 StateStore lifecycle, 결과 영수증
-│ │ ├── hil_resume/   # HIL park/resume, no-drop grouping, bounded reminder, CAS 소유 shadow non-response supervision
-│ │ ├── executor/   # logical-target lock, 멱등성, dry-run receipt, pre-effect/terminal audit, delivery adapter
-│ │ ├── execution_backend/ # profile intersection, durable lifecycle coordination, shadow probe; 판단 authority 없음
-│ │ ├── audit/    # append-only 해시 체인 감사 로그 + KPI/메트릭 발행
-│ │ ├── notifications/  # notifications matrix 위에 얹은 채널 라우팅 레이어
-│ │ ├── detection/   # anomaly/forecast 평가, 변경 불가능한 episode, event-time closure 및 outbox contract
-│ │ ├── incident/   # lifecycle + 32-key/1024-char identity, evidence, severity 및 notice
-│ │ ├── slo/    # 워크로드 SLO / burn-rate 평가기 (컨트롤 플레인 SLO 와는 구분)
-│ │ ├── runbook/   # 런북 오케스트레이터 (선형 시퀀스 + on-failure 브랜치)
-│ │ ├── workflow/   # version-pinned WorkflowDefinition + principal WorkflowBinding 컴파일; 승인 플래너 + shadow 오케스트레이터 + 트리거 인덱스 + 이벤트 코디네이터
-│ │ ├── python_task/   # generated multi-file PythonTask artifact 및 reviewed programmatic pipeline static validation; task code 를 import 또는 실행하지 않음
-│ │ ├── programmatic_pipeline/ # capability-scoped read-only tool loop: immutable contract, broker, receipt, compact result, deterministic benchmark
-│ │ ├── postmortem/   # LLM 옵션 postmortem / PIR 드래프트 생성기
-│ │ ├── rule_catalog_profiles/ # 프로파일 / 팩 레이어 - 이름 붙은 룰 번들 (`extends` 체인 + overrides)
-│ │ ├── measurement/  # 지속 측정 및 confidence/guard gate를 포함한 immutable revision/scenario operational-promotion receipt
-│ │ ├── mscp_profile/  # 실행 authority 없는 순수 mscp-operational-v1 provenance, effect verification, cycle guard, runtime-integrity policy 및 never-raising authority ceiling
-│ │ ├── deploy_preflight/ # 배포 전 feasibility 프로브 → grounded readiness 리포트
-│ │ ├── readiness/   # 운영 handoff + startup 및 monitored-target readiness contract, fail-closed reducer, evidence expiry 및 authority ceiling
-│ │ ├── assurance_twin/  # 읽기 전용 온톨로지 트윈: text-to-query, scalar/graph active-challenger model, 필수 invariant, durable trajectory episode, 결정론적 simulation, off-path outcome closure (실행 또는 promotion 안 함)
-│ │ ├── ontology_platform/ # exact release, semantic interface, bounded object set, secured purpose/ACL query receipt, shared exact-number property semantics, cluster-scoped network/Pod telemetry verification, immutable diagnostic ledger/result projection, mutation plan, typed function, authenticated reconciliation과 proposal-only terminal outbox, proposal-only SDK generation
-│ │ ├── conversation/  # Bragi-owned model-free screen T0, schema-constrained whole-turn semantic frame/query-plan shadowing, principal-manifest verification, intent-graph evidence projection, compatibility intent/tool 조정, grounded narration, per-turn isolation, durable delivery 및 busy-input arbitration
-│ │ ├── user_context_projection.py # principal context / workflow binding metadata만 runtime ontology에 projection
-│ │ ├── console_request/ # 오퍼레이터 콘솔 write-direction 재요청 정책 (Scenario B deny-override), 순수 함수 `evaluate_operator_rerequest` 하나
-│ │ ├── verticals/   # Resilience / Change Safety / Cost Governance (P3 통합 지점); Resilience는 control-plane recovery plan, record codec, epoch-fenced reducer 및 durable CAS coordinator를 포함하고, 각 vertical 은 sub-package (G-6) 로 자체 orchestrator + 서브모듈 을 가지며 공유 `Vertical` Protocol 은 `base.py`, `VerticalRegistry` seam 도 함께 제공
-│ │ ├── control_loop/  # P1 파이프라인: `orchestrator.py` (ControlLoop 조립과 exact property-semantics injection), `_process.py` (순서가 보존된 이벤트 단계), `_fallback.py` (T1/T2), `_execution.py` (거버넌스/리스크/디스패치), `_rca.py` (shadow RCA), `_boundary.py` (감사/알림/stage 어댑터), `models.py` (typed result), `operator_request.py` (authoritative proposal lifecycle), `_helpers.py` (순수 유틸), `stages/` (Stage Protocol 스캐폴드). Semantic metadata는 authority를 높이지 않음
-│ │ └── ontology_explorer.py # 로드된 ObjectType / LinkType 카탈로그를 결정론적 Mermaid 로 렌더
-│ ├── shared/    # 크로스컷팅; core/ 로부터 import 금지
-│ │ ├── contracts/   # domain별 model + 공유 safety value + versioned isolated-Executor command/receipt schema + registry.py + validation.py
-│ │ │ ├── event/   # event/schema.json
-│ │ │ ├── action/   # action/schema.json
-│ │ │ ├── response-outcome/ # expected-versus-observed action effect outcome
-│ │ │ ├── rule/   # rule/schema.json
-│ │ │ ├── ontology/  # object/link/action 스키마; ObjectType은 lifecycle 기준 + provenance 선언 가능
-│ │ │ └── workflow/  # workflow/schema.json (프로세스 자동화 카탈로그)
-│ │ ├── ontology/   # 런타임 온톨로지 헬퍼 (ACL, 감사 purposes, purpose taxonomy)
-│ │ ├── providers/   # OperatingModelProvider, 하위 호환 Distiller conformance 및 action-bound control-plane recovery approval verification을 포함한 CSP-중립 클라우드 provider interface (adapter가 구현)
-│ │ │      # event_bus.py, secret_provider.py, state_store.py, execution_backend.py,
-│ │ │      # workload_identity.py, inventory.py, log_query.py, trace_query.py, incident_platform.py, behavior_knowledge.py, programmatic_pipeline.py + LLM / 채널 / RBAC seam
-│ │ │      # `providers/local/` = process-local transport adapter, bounded document format adapter(immutable ceiling `document_limits.py`, Markdown/SGML `document_text.py`, OOXML `document_structure.py`, pypdf/OCR `document_pdf.py`) 및 명시적 offline helper;
-│ │ │      # `providers/testing/` = 테스트 스위트 전반에서 쓰이는 인-메모리 페이크 (prod 에서는 바인딩 안 됨)
-│ │ ├── streaming/   # `SseBroadcaster` + `StagePublisher`: EventBus 토픽을 SSE 채널로 릴레이
-│ │ ├── telemetry/   # 구조화 로깅, 트레이싱, 메트릭 헬퍼
-│ │ └── config/    # config 스키마 + 시작 시 검증 (fail-fast)
-│ ├── delivery/    # 액션 딜리버리 어댑터 (공유 인터페이스 뒤)
-│ │ ├── agent_introspection_bus.py # shared EventBus를 사용하는 bounded cross-process Bragi request/reply; executor identity 없음
-│ │ ├── gitops_pr/   # remediation-pr 어댑터: GitHub App / Azure DevOps, Checks API
-│ │ ├── chatops/   # 채널 어댑터 (Teams / Slack / email / webhook / pager / SMS)
-│ │ ├── notifications/  # 채널별 sender; sibling `incident_platform/`은 PagerDuty/ServiceNow lifecycle 및 PagerDuty roster adapter 제공
-│ │ ├── persistence/  # Forecast episode/outbox 및 relational case-history backfill을 포함한 Postgres / pgvector store
-│ │ ├── operating_model/ # bounded JSON deployment operating-model adapter; startup-only, all-before-write
-│ │ ├── runtime_settings.py # allowlist된 env default + revisioned StateStore override; executor identity 또는 promotion authority 없음
-│ │ ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, built-in behavior seed
-│ │ ├── catalog_search/  # candidate-only concrete semantic index, full/incremental Rule/ontology declaration/eligible deployment-object generation, independent validation, atomic activation, stale detection 및 rollback. Durable pgvector binding은 delivery work로 남습니다.
-│ │ ├── pgvector/   # persistent document 및 behavior vector index
-│ │ ├── azure/    # bounded log/metric/App Insights trace와 promoted inventory 기반 strict operational-learning evidence를 포함한 Azure 전용 adapter
-│ │ │      # `case_history_artifacts.py`는 workload identity로 private Blob에 content-addressed case revision 저장
-│ │ │      # `vm_task.py` 는 Managed Run Command 사용; `container_apps_job_backend.py` 는 pinned Job template만 시작; `llm/python_task_author.py` 는 inert draft 생성
-│ │ ├── vm_task/   # planning-only read adapter + ontology ToolExecutor bridge; cloud SDK import 없음
-│ │ ├── execution_backend/ # 기존 sandbox authority 위의 bubblewrap 및 VM-task lifecycle adapter
-│ │ ├── programmatic_pipeline/ # local isolated child runner; Azure strict submission adapter는 delivery/azure 아래 유지
-│ │ ├── browser/    # 선택적 isolated async Playwright evidence capture; GET/HEAD 전용, page handle 없음
-│ │ ├── trajectory/   # deterministic JSONL streaming export, quarantine, atomic partial-file cleanup
-│ │ ├── kubernetes/   # evaluation/runtime evidence가 공유하는 exact quantity, cluster-scoped topology, UID-grounded owner, exact-release diagnostic function 및 hold-only finding
-│ │ ├── chaos/    # `Chaos` runbook 단계가 enforce로 갈 때 쓰는 라이브 카오스 주입 어댑터: `live_injectors.py` (CSP-중립 프리미티브 fan-out) + `chaos_mesh.py` (Chaos Mesh CRD) + `mysql_load.py` (MySQL 벤치마크 부하)
-│ │ ├── remediation/  # 직접 API 리메디에이션용 구체 `DirectApiExecutor` (`live_direct_api.py`); Protocol 은 `shared/providers/`에 있음
-│ │ ├── operator_api/   # 얇은 ASGI - `main.py`가 principal 범위 complete-history 및 read-only knowledge-context 조립과 IAM 옆의 Owner 전용 관찰 assignment case를 포함한 route module을 조립. GET route는 bounded state를 projection하고 POST command route는 governed record 또는 typed proposal을 제출하며 privileged executor 또는 human-access provisioner를 직접 호출하지 않음
-│ │ ├── ingestion_gateway/ # 독립 public upload API + internal durable worker process; scoped ref, deletion, optional handover governance
-│ │ ├── provisioning/  # surface-A Genesis 부트스트랩: 순수 `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O 주입, subprocess 없음)
-│ │ └── scheduler_tick_cli.py # cron / Container Apps Job에서 스케줄러 tick을 구동하는 독립 엔트리 포인트
-│ ├── rule_catalog/   # rule-catalog 파이프라인 코드
-│ │ ├── schema/    # Rule, Best Practice, governance, ontology 및 semantic retrieval schema + validation
-│ │ ├── sources/   # 소스별 컬렉터 (WAF, CIS, OPA, IaC scanners, ...)
-│ │ ├── pipeline/   # watch -> collect -> shadow/regression; distill은 DocumentEnvelope provenance bridge, cross-format equivalence 및 review-only ontology gate 추가
-│ │ └── codegen/   # 저작 헬퍼 (`new_action_type`, `new_object_type`) - 스캐폴드 생성만, 라이브 카탈로그 변경 안 함
-│ ├── agents/    # 판테온 런타임 - 15개 agent, typed topic, v2 conversation charter 및 bounded T1/T2 deliberation; [agent-pantheon-ko.md](../agents/agent-pantheon-ko.md) 참조
-│ ├── evaluation/   # public EvaluationHost 구현, capability attenuation, workspace policy, artifact custody, typed ingress 및 judgment 전 diagnostic ontology observation
-│ ├── benchmarking/   # legacy benchmark contract와 runner를 위한 임시 0.1.x compatibility facade
-│ ├── composition/   # composition root 패키지 (G-3, 트래커 #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings(optional conversation T2 synthesis 포함) + request-role executor를 사용하는 exact-release semantic query assembly를 포함한 focused `wire_*` binder
-│ ├── runtime/    # reviewed alias-free metric-semantic catalog loading, versioned isolated Executor shadow/effect handling, stable-offset remote client, EventBus/DLQ/health supervision, production entry point, reversible authority probe, operating-model 및 diagnostic-catalog startup projection/status, durable T2 recovery observation/backfill, Thor/Vidar 실행과 rollback을 사용하는 StateStore-backed proposer route selection, semantic runtime availability/readiness binding, transport/identity binding, startup readiness, worker gating 및 Norns post-turn review를 포함한 headless lifecycle/composition
-│ └── __main__.py   # 진입점 (P1 컨트롤 루프 기동)
+│   ├── core/                  # headless 컨트롤 플레인 (UI 없음, 클라우드 SDK 직접 import 없음). G-1 phase 1 (트래커 #14) 이 core 서브시스템 위에 도메인 그룹 파사드를 도입했다: `pipeline/` (event_ingest, trust_router, tiers, quality_gate, risk_gate, hil_resume, executor, audit, control_loop), `incident/` (rca, slo, runbook, postmortem, oncall, irp, investigation, chaos, capacity), `operator/` (conversation, operator_memory, working_context, rbac, notifications, report_feed), `knowledge/` (prompts, tools, web_search, capability_catalog, rule_catalog_profiles, ontology_explorer), `platform/` (scheduler, metering, measurement, security, reporting, onboarding, workflow, detection, deploy_preflight, assurance_twin), 그리고 `verticals/` (G-6). Phase 1 은 additive - `from fdai.core.<subsystem> import X` 와 `from fdai.core.<domain> import <subsystem>` 둘 다 resolve. Phase 2 (연기) 는 물리적 `git mv` 대량 이동.
+│   │   ├── event_ingest/       # 버스 컨슈머; 이벤트 스키마로 정규화; idempotency key로 dedup; 관련 이벤트를 인시던트로 상관 연결
+│   │   ├── trust_router/       # 계산된 신뢰도로 각 이벤트를 T0 | T1 | T2 로 라우팅
+│   │   ├── tiers/
+│   │   │   ├── t0_deterministic/    # deterministic-engine: policy, checklist, what-if, drift eval
+│   │   │   ├── t1_lightweight/      # 임베딩 유사도 및 learned-action 재사용; operational case는 persisted immutable context와 fresh graph, owner, policy, dry-run, safety evidence를 요구
+│   │   │   └── t2_reasoning/        # 프론티어 모델 추론과 budgeted proposer failover, durable route selection 및 sanitized attempt receipt
+│   │   ├── prompts/            # catalog-as-code 프롬프트 컴포저 (`rule-catalog/prompts/` 로드, T2에 공급)
+│   │   ├── tools/              # T2 툴 카탈로그 레지스트리 + `ToolExecutor` (shadow-mode 게이팅)
+│   │   ├── web_search/         # 최후 수단 웹 검색 seam (`NoOpWebSearchProvider` 기본; 도메인 allowlist + sanitizer)
+│   │   ├── browser_evidence/   # 읽기 전용 origin/DNS policy, redaction, immutable artifact, custody, shadow comparison
+│   │   ├── operator_memory/    # HIL 승인된 오퍼레이터 메모리를 untrusted `<operator_note>` 데이터로 주입
+│   │   ├── learning/           # 동의 기반 off-path turn eligibility, consensus, dedup ledger, 비활성 proposal routing
+│   │   ├── conversation_assurance/ # deterministic-first 완료 turn 점수, exact failure attribution, hold-first ontology adequacy review, mixed-family 평가, 범위 제한 이의 제기, 구독별 학습, chat-policy 승격 및 롤백, versioned 50-item hard-cap quality scorecard
+│   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, offline validation
+│   │   ├── case_history/       # canonical revision, strict operational receipt, artifact-first intake, scoped retrieval, backfill 및 retention
+│   │   ├── task_worker/        # 격리된 depth-one 읽기 전용 worker: capability 축소, lifecycle, 영구 state, parent synthesis
+│   │   ├── background_task/    # 영구 detached read: lease/CAS, atomic completion outbox, bounded retry, process-loss, retention purge
+│   │   ├── read_investigation/ # Exact-resource VM/network planning, evidence, immutable provider-vs-graph shadow comparison, latency policy, owner-scoped direct/stream replay, honest cost usage, SSE heartbeat, stream-close cancellation. Cloud SDK와 execution authority 없음
+│   │   ├── briefing/           # report-feed evidence 기반 결정적 opening/scheduled briefing
+│   │   ├── scheduler/          # create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprint, 범위 제한 continuation
+│   │   ├── document_ingestion/ # upload lifecycle + split inspect/index worker; Forseti/Saga/Var/Muninn gate, durable stage lease/CAS claim, replay-only gated-state recovery
+│   │   ├── working_context/    # 턴당 경계 프롬프트 조립: 불변 selection policy + 필수 validator + shadow evidence/replay + planner/orchestrator fold + summarizer/retriever seam
+│   │   ├── operational_context/ # atomic owned-subgraph replacement, time-consistent snapshot, cutoff-bound graph+document evidence bundle과 typed path, provenance, source-freshness receipt, fail-closed truncation
+│   │   ├── decision_case/      # protected-objective option, deterministic selection, response closure
+│   │   ├── change_lineage/     # 변경 불가능하고 replay-stable한 Change -> assessment -> decision -> action -> outcome join. Execution 또는 promotion authority 없음
+│   │   ├── operational_planning/ # hard-constraint eligibility, Pareto pruning, Process planning phase, replay-stable plan identity. Execution authority 없음
+│   │   ├── operational_learning/ # sealed-case classification, fingerprint/action cohort gate, immutable citation, inert candidate mapping
+│   │   ├── quality_gate/       # mixed-model 교차 검사, verifier, grounding; 실패한 fan-out은 sibling을 cancel+drain (T2 방어)
+│   │   ├── rca/                # 루트 원인 분석 (T0 deterministic + seam 뒤의 T2 reasoner; grounding-gated)
+│   │   ├── risk_gate/          # 통합 authority: 리스크 스코어 + auto vs HIL vs deny; malformed promotion metric 거부 + 7개 안전조건 강제
+│   │   ├── execution_authorization/ # 온톨로지 기반 pre-dispatch capability policy, grant lifecycle, replay-stable decision
+│   │   ├── rbac/               # Operator API 를 위한 사람 RBAC (5개 롤 매트릭스, resolver, enforcer)
+│   │   ├── human_assignment/   # 변경 불가능한 역할/임무 의도, 정규화된 검토 정족수, 리비전 기반 StateStore lifecycle, 결과 영수증
+│   │   ├── hil_resume/         # HIL park/resume, no-drop grouping, bounded reminder, CAS 소유 shadow non-response supervision
+│   │   ├── executor/           # logical-target lock, 멱등성, dry-run receipt, pre-effect/terminal audit, delivery adapter
+│   │   ├── execution_backend/  # profile intersection, durable lifecycle coordination, shadow probe; 판단 authority 없음
+│   │   ├── audit/              # append-only 해시 체인 감사 로그 + KPI/메트릭 발행
+│   │   ├── notifications/      # notifications matrix 위에 얹은 채널 라우팅 레이어
+│   │   ├── detection/          # anomaly/forecast 평가, 변경 불가능한 episode, event-time closure 및 outbox contract
+│   │   ├── incident/           # lifecycle + 32-key/1024-char identity, evidence, severity 및 notice
+│   │   ├── slo/                # 워크로드 SLO / burn-rate 평가기 (컨트롤 플레인 SLO 와는 구분)
+│   │   ├── runbook/            # 런북 오케스트레이터 (선형 시퀀스 + on-failure 브랜치)
+│   │   ├── workflow/           # version-pinned WorkflowDefinition + principal WorkflowBinding 컴파일; 승인 플래너 + shadow 오케스트레이터 + 트리거 인덱스 + 이벤트 코디네이터
+│   │   ├── python_task/         # generated multi-file PythonTask artifact 및 reviewed programmatic pipeline static validation; task code 를 import 또는 실행하지 않음
+│   │   ├── programmatic_pipeline/ # capability-scoped read-only tool loop: immutable contract, broker, receipt, compact result, deterministic benchmark
+│   │   ├── postmortem/         # LLM 옵션 postmortem / PIR 드래프트 생성기
+│   │   ├── rule_catalog_profiles/  # 프로파일 / 팩 레이어 - 이름 붙은 룰 번들 (`extends` 체인 + overrides)
+│   │   ├── measurement/        # 지속 측정 및 confidence/guard gate를 포함한 immutable revision/scenario operational-promotion receipt
+│   │   ├── mscp_profile/       # 실행 authority 없는 순수 mscp-operational-v1 provenance, effect verification, cycle guard, runtime-integrity policy 및 never-raising authority ceiling
+│   │   ├── deploy_preflight/   # 배포 전 feasibility 프로브 → grounded readiness 리포트
+│   │   ├── readiness/          # 운영 handoff + startup 및 monitored-target readiness contract, fail-closed reducer, evidence expiry 및 authority ceiling
+│   │   ├── assurance_twin/     # 읽기 전용 온톨로지 트윈: text-to-query, scalar/graph active-challenger model, 필수 invariant, durable trajectory episode, 결정론적 simulation, off-path outcome closure (실행 또는 promotion 안 함)
+│   │   ├── ontology_platform/   # exact release, semantic interface, bounded object set, secured purpose/ACL query receipt, shared exact-number property semantics, cluster-scoped network/Pod telemetry verification, immutable diagnostic ledger/result projection, mutation plan, typed function, authenticated reconciliation과 proposal-only terminal outbox, proposal-only SDK generation
+│   │   ├── conversation/       # Bragi-owned model-free screen T0, schema-constrained whole-turn semantic frame/query-plan shadowing, principal-manifest verification, intent-graph evidence projection, compatibility intent/tool 조정, grounded narration, per-turn isolation, durable delivery 및 busy-input arbitration
+│   │   ├── user_context_projection.py  # principal context / workflow binding metadata만 runtime ontology에 projection
+│   │   ├── console_request/    # 오퍼레이터 콘솔 write-direction 재요청 정책 (Scenario B deny-override), 순수 함수 `evaluate_operator_rerequest` 하나
+│   │   ├── verticals/          # Resilience / Change Safety / Cost Governance (P3 통합 지점); Resilience는 control-plane recovery plan, record codec, epoch-fenced reducer 및 durable CAS coordinator를 포함하고, 각 vertical 은 sub-package (G-6) 로 자체 orchestrator + 서브모듈 을 가지며 공유 `Vertical` Protocol 은 `base.py`, `VerticalRegistry` seam 도 함께 제공
+│   │   ├── control_loop/       # P1 파이프라인: `orchestrator.py` (ControlLoop 조립과 exact property-semantics injection), `_process.py` (순서가 보존된 이벤트 단계), `_fallback.py` (T1/T2), `_execution.py` (거버넌스/리스크/디스패치), `_rca.py` (shadow RCA), `_boundary.py` (감사/알림/stage 어댑터), `models.py` (typed result), `operator_request.py` (authoritative proposal lifecycle), `_helpers.py` (순수 유틸), `stages/` (Stage Protocol 스캐폴드). Semantic metadata는 authority를 높이지 않음
+│   │   └── ontology_explorer.py    # 로드된 ObjectType / LinkType 카탈로그를 결정론적 Mermaid 로 렌더
+│   ├── shared/                # 크로스컷팅; core/ 로부터 import 금지
+│   │   ├── contracts/          # domain별 model + 공유 safety value + versioned isolated-Executor command/receipt schema + registry.py + validation.py
+│   │   │   ├── event/          # event/schema.json
+│   │   │   ├── action/         # action/schema.json
+│   │   │   ├── response-outcome/ # expected-versus-observed action effect outcome
+│   │   │   ├── rule/           # rule/schema.json
+│   │   │   ├── ontology/       # object/link/action 스키마; ObjectType은 lifecycle 기준 + provenance 선언 가능
+│   │   │   └── workflow/       # workflow/schema.json (프로세스 자동화 카탈로그)
+│   │   ├── ontology/           # 런타임 온톨로지 헬퍼 (ACL, 감사 purposes, purpose taxonomy)
+│   │   ├── providers/          # OperatingModelProvider, 하위 호환 Distiller conformance 및 action-bound control-plane recovery approval verification을 포함한 CSP-중립 클라우드 provider interface (adapter가 구현)
+│   │   │                       #   event_bus.py, secret_provider.py, state_store.py, execution_backend.py,
+│   │   │                       #   workload_identity.py, inventory.py, log_query.py, trace_query.py, incident_platform.py, behavior_knowledge.py, programmatic_pipeline.py + LLM / 채널 / RBAC seam
+│   │   │                       # `providers/local/` = process-local transport adapter, bounded document format adapter(immutable ceiling `document_limits.py`, Markdown/SGML `document_text.py`, OOXML `document_structure.py`, pypdf/OCR `document_pdf.py`) 및 명시적 offline helper;
+│   │   │                       # `providers/testing/` = 테스트 스위트 전반에서 쓰이는 인-메모리 페이크 (prod 에서는 바인딩 안 됨)
+│   │   ├── streaming/          # `SseBroadcaster` + `StagePublisher`: EventBus 토픽을 SSE 채널로 릴레이
+│   │   ├── telemetry/          # 구조화 로깅, 트레이싱, 메트릭 헬퍼
+│   │   └── config/             # config 스키마 + 시작 시 검증 (fail-fast)
+│   ├── delivery/              # 액션 딜리버리 어댑터 (공유 인터페이스 뒤)
+│   │   ├── agent_introspection_bus.py # shared EventBus를 사용하는 bounded cross-process Bragi request/reply; executor identity 없음
+│   │   ├── gitops_pr/          # remediation-pr 어댑터: GitHub App / Azure DevOps, Checks API
+│   │   ├── chatops/            # 채널 어댑터 (Teams / Slack / email / webhook / pager / SMS)
+│   │   ├── notifications/      # 채널별 sender; sibling `incident_platform/`은 PagerDuty/ServiceNow lifecycle 및 PagerDuty roster adapter 제공
+│   │   ├── persistence/        # Forecast episode/outbox 및 relational case-history backfill을 포함한 Postgres / pgvector store
+│   │   ├── operating_model/    # bounded JSON deployment operating-model adapter; startup-only, all-before-write
+│   │   ├── runtime_settings.py  # allowlist된 env default + revisioned StateStore override; executor identity 또는 promotion authority 없음
+│   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, built-in behavior seed
+│   │   ├── catalog_search/     # candidate-only concrete semantic index, full/incremental Rule/ontology declaration/eligible deployment-object generation, independent validation, atomic activation, stale detection 및 rollback. Durable pgvector binding은 delivery work로 남습니다.
+│   │   ├── pgvector/           # persistent document 및 behavior vector index
+│   │   ├── azure/              # bounded log/metric/App Insights trace와 promoted inventory 기반 strict operational-learning evidence를 포함한 Azure 전용 adapter
+│   │   │                       #   `case_history_artifacts.py`는 workload identity로 private Blob에 content-addressed case revision 저장
+│   │   │                       #   `vm_task.py` 는 Managed Run Command 사용; `container_apps_job_backend.py` 는 pinned Job template만 시작; `llm/python_task_author.py` 는 inert draft 생성
+│   │   ├── vm_task/            # planning-only read adapter + ontology ToolExecutor bridge; cloud SDK import 없음
+│   │   ├── execution_backend/  # 기존 sandbox authority 위의 bubblewrap 및 VM-task lifecycle adapter
+│   │   ├── programmatic_pipeline/ # local isolated child runner; Azure strict submission adapter는 delivery/azure 아래 유지
+│   │   ├── browser/             # 선택적 isolated async Playwright evidence capture; GET/HEAD 전용, page handle 없음
+│   │   ├── trajectory/         # deterministic JSONL streaming export, quarantine, atomic partial-file cleanup
+│   │   ├── kubernetes/         # evaluation/runtime evidence가 공유하는 exact quantity, cluster-scoped topology, UID-grounded owner, exact-release diagnostic function 및 hold-only finding
+│   │   ├── chaos/              # `Chaos` runbook 단계가 enforce로 갈 때 쓰는 라이브 카오스 주입 어댑터: `live_injectors.py` (CSP-중립 프리미티브 fan-out) + `chaos_mesh.py` (Chaos Mesh CRD) + `mysql_load.py` (MySQL 벤치마크 부하)
+│   │   ├── remediation/        # 직접 API 리메디에이션용 구체 `DirectApiExecutor` (`live_direct_api.py`); Protocol 은 `shared/providers/`에 있음
+│   │   ├── operator_api/           # 얇은 ASGI - `main.py`가 principal 범위 complete-history 및 read-only knowledge-context 조립과 IAM 옆의 Owner 전용 관찰 assignment case를 포함한 route module을 조립. GET route는 bounded state를 projection하고 POST command route는 governed record 또는 typed proposal을 제출하며 privileged executor 또는 human-access provisioner를 직접 호출하지 않음
+│   │   ├── ingestion_gateway/  # 독립 public upload API + internal durable worker process; scoped ref, deletion, optional handover governance
+│   │   ├── provisioning/       # surface-A Genesis 부트스트랩: 순수 `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O 주입, subprocess 없음)
+│   │   └── scheduler_tick_cli.py  # cron / Container Apps Job에서 스케줄러 tick을 구동하는 독립 엔트리 포인트
+│   ├── rule_catalog/          # rule-catalog 파이프라인 코드
+│   │   ├── schema/             # Rule, Best Practice, governance, ontology 및 semantic retrieval schema + validation
+│   │   ├── sources/            # 소스별 컬렉터 (WAF, CIS, OPA, IaC scanners, ...)
+│   │   ├── pipeline/           # watch -> collect -> shadow/regression; distill은 DocumentEnvelope provenance bridge, cross-format equivalence 및 review-only ontology gate 추가
+│   │   └── codegen/            # 저작 헬퍼 (`new_action_type`, `new_object_type`) - 스캐폴드 생성만, 라이브 카탈로그 변경 안 함
+│   ├── agents/                # 판테온 런타임 - 15개 agent, typed topic, v2 conversation charter 및 bounded T1/T2 deliberation; [agent-pantheon-ko.md](../agents/agent-pantheon-ko.md) 참조
+│   ├── evaluation/            # public EvaluationHost 구현, capability attenuation, workspace policy, artifact custody, typed ingress 및 judgment 전 diagnostic ontology observation
+│   ├── benchmarking/          # legacy benchmark contract와 runner를 위한 임시 0.1.x compatibility facade
+│   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings(optional conversation T2 synthesis 포함) + request-role executor를 사용하는 exact-release semantic query assembly를 포함한 focused `wire_*` binder
+│   ├── runtime/               # reviewed alias-free metric-semantic catalog loading, versioned isolated Executor shadow/effect handling, stable-offset remote client, EventBus/DLQ/health supervision, production entry point, reversible authority probe, operating-model 및 diagnostic-catalog startup projection/status, durable T2 recovery observation/backfill, Thor/Vidar 실행과 rollback을 사용하는 StateStore-backed proposer route selection, semantic runtime availability/readiness binding, transport/identity binding, startup readiness, worker gating 및 Norns post-turn review를 포함한 headless lifecycle/composition
+│   └── __main__.py            # 진입점 (P1 컨트롤 루프 기동)
 ├── services/core-control-plane/{src/fdai_core_service,tests}/ # Core entry point와 test
 ├── services/{operator-service,document-ingestion-api,document-processing-worker,isolated-executor}/와 packages/service-contracts/ # 독립 package, shared SDK, test
-├── evaluation-sdk/   # 독립적으로 package할 수 있는 neutral evaluation contract와 runner; FDAI implementation import 없음
-├── benchmarks/    # 독립적으로 package된 external-harness driver; FDAI wheel에 포함되지 않음
-├── extensions/    # 독립적으로 package된 optional capability; FDAI wheel에 포함되지 않음
-│ └── code-assurance/   # read-only bounded GitHub PR code/security review + governed skill asset
-├── rule-catalog/    # catalog-as-code 데이터 (YAML) - Python 아님; 파이프라인은 services/core-control-plane/src/fdai/rule_catalog/ 에
-│ ├── schema/     # JSON Schema 정의 (데이터)
-│ ├── vocabulary/    # canonical CSP-중립 어휘: resource-types.yaml, object-types/, link-types/, interface-types/, interface-implementations/
-│ ├── action-types/   # 업스트림 온톨로지 ActionType 인스턴스 (shadow-default, promotion_gate 필수)
-│ ├── action-types-custom/ # 포크 전용 ActionType 추가 (업스트림 CI 에서 deny-list)
-│ ├── action-types-overrides/ # 업스트림 ActionType 의 스코프 오버라이드 (≤ resource-group 스코프)
-│ ├── profiles/    # 이름 붙은 룰 팩 (업스트림)
-│ ├── profiles-overrides/  # profiles 의 포크 오버레이
-│ ├── best-practices/   # typed evidence requirement가 있는 framework checklist control
-│ ├── rule-sets/    # atomic rule을 버전 고정한 governance initiative
-│ ├── prompts/    # catalog-as-code 프롬프트 조각 (태스크 팩, 툴, 페르소나)
-│ ├── remediation/   # remediation-plan 아티팩트
-│ ├── operator-console/  # `SystemConsoleTool` descriptor 번들
-│ ├── probes/     # deploy-preflight feasibility 프로브 descriptor
-│ ├── catalog/    # 정규화된 룰 (promotion 후, catalog-of-record)
-│ ├── collected/    # 정규화 전 원본 업스트림 소스 스냅샷
-│ ├── exemptions/    # 시간-바운드 감사된 예외 아티팩트
-│ ├── sources/    # 소스별 룰 스냅샷 + provenance
-│ ├── llm-registry.yaml  # capability 별 LLM 바인딩 레지스트리 (데이터, composition 시점에 해석)
-│ └── risk-classification.yaml # authoritative first-match 리스크 분류 테이블 (risk-classification-ko.md 참조)
-├── policies/     # T0와 verifier가 소비하는 OPA/Rego policy-as-code
-├── infra/      # IaC: Terraform (HCL); 엔트리 커맨드 `terraform apply`
-│ ├── modules/
-│ │ ├── resource-group/   # rg-fdai; deploy-and-onboard-ko.md 에 따라 CAF 명명
-│ │ ├── identity/    # executor 를 위한 user-assigned Managed Identity
-│ │ ├── compute/     # runtime seam - 대안은 형제 폴더에
-│ │ │ └── container-apps/  # 기본 (Consumption + KEDA)
-│ │ ├── isolated-executor/  # opt-in internal shadow Container App; 전용 transport identity, effect role 없음
-│ │ ├── container-registry/  # compute 이미지용 ACR
-│ │ ├── state-store/    # audit + KPI + pgvector
-│ │ │ └── postgres-flex/  # 기본
-│ │ ├── event-bus/    # Kafka 와이어
-│ │ │ └── event-hubs-kafka/ # 기본 (Event Hubs, :9093)
-│ │ ├── secret-store/   # env + Key Vault reference 브릿지
-│ │ │ └── key-vault/   # 기본
-│ │ ├── observability/   # Log Analytics + 여기 바인딩된 App Insights
-│ │ │ └── log-analytics/  # 기본
-│ │ ├── llm/      # 배포자 스코프 LLM 프로비저닝 (dev-and-deploy parity 계약)
-│ │ │ └── azure-openai/  # 기본 Azure OpenAI 디플로이먼트 세트
-│ │ ├── measurement-runners/  # 자동 regression + pattern-growth 러너용 Container Apps Jobs
-│ │ ├── vm-task-host/    # custom Linux/GPU VM용 cloud-init profile
-│ │ ├── vm-task-rbac/    # target-VM-scoped Managed Run Command RBAC
-│ │ ├── preflight-toggles/  # preflight blocker 를 Terraform 토글로 매핑하는 피처 플래그 표면
-│ │ └── console/     # 읽기 전용 SPA 를 호스팅하는 Static Web App
-│ │  └── static-web-app/  # 기본
-│ ├── local/      # 로컬 개발용 IaC (docker-compose, testcontainers 배선; Azure 에 apply 안 함)
-│ └── envs/      # 환경별 tfvars (git-ignored; 커밋 금지)
-│  ├── dev/
-│  ├── staging/
-│  └── prod/
-├── console/     # 얇은 SPA (Vite + Preact) - 운영자 보기, 제한된 governed command, 로컬 표시 설정, 관찰 전용 IAM Assignments
-│ ├── src/     # 셸, 패널 레지스트리, GET 전용 클라이언트, 라우트, 브라우저 로컬 환경 설정
-│ ├── index.html    # Vite 진입점
-│ ├── package.json   # 의존: preact, @azure/msal-browser
-│ └── vite.config.ts   # 빌드 → console/dist/ (git-ignored)
-├── cli/      # operator-console CLI (Ink) - 뷰모델 하나, 렌더러 여럿
-│ ├── src/view-model/   # 표현 중립 브리핑 계약 + 블록 IR + 빌더
-│ ├── src/renderers/   # ink (터미널) / text / slack (Block Kit) / teams (Adaptive Card)
-│ ├── src/cli.tsx    # 진입점: 브리핑을 한 번 빌드하고 --surface 별로 렌더
-│ └── package.json   # 의존: ink, react (tsx로 실행, 빌드 단계 없음)
-├── site/      # Astro / Starlight 문서 사이트 (docs/**/*.md 를 i18n + 검색으로 렌더)
-├── ui/      # (미래) 정적 UI 킷 (Calm Slate 테마) - placeholder
-├── tests/integration/   # cross-service compatibility와 repository check만 유지
-├── docs/roadmap/    # 이 로드맵과 설계 문서
-├── pyproject.toml    # virtual uv workspace root (`package = false`)
-└── .github/     # instructions/ 와 workflows/ (CI: lint, secret-scan, coverage)
+├── evaluation-sdk/            # 독립적으로 package할 수 있는 neutral evaluation contract와 runner; FDAI implementation import 없음
+├── benchmarks/                # 독립적으로 package된 external-harness driver; FDAI wheel에 포함되지 않음
+├── extensions/                # 독립적으로 package된 optional capability; FDAI wheel에 포함되지 않음
+│   └── code-assurance/         # read-only bounded GitHub PR code/security review + governed skill asset
+├── rule-catalog/              # catalog-as-code 데이터 (YAML) - Python 아님; 파이프라인은 services/core-control-plane/src/fdai/rule_catalog/ 에
+│   ├── schema/                 # JSON Schema 정의 (데이터)
+│   ├── vocabulary/             # canonical CSP-중립 어휘: resource-types.yaml, object-types/, link-types/, interface-types/, interface-implementations/
+│   ├── action-types/           # 업스트림 온톨로지 ActionType 인스턴스 (shadow-default, promotion_gate 필수)
+│   ├── action-types-custom/    # 포크 전용 ActionType 추가 (업스트림 CI 에서 deny-list)
+│   ├── action-types-overrides/ # 업스트림 ActionType 의 스코프 오버라이드 (≤ resource-group 스코프)
+│   ├── profiles/               # 이름 붙은 룰 팩 (업스트림)
+│   ├── profiles-overrides/     # profiles 의 포크 오버레이
+│   ├── best-practices/         # typed evidence requirement가 있는 framework checklist control
+│   ├── rule-sets/              # atomic rule을 버전 고정한 governance initiative
+│   ├── prompts/                # catalog-as-code 프롬프트 조각 (태스크 팩, 툴, 페르소나)
+│   ├── remediation/            # remediation-plan 아티팩트
+│   ├── operator-console/       # `SystemConsoleTool` descriptor 번들
+│   ├── probes/                 # deploy-preflight feasibility 프로브 descriptor
+│   ├── catalog/                # 정규화된 룰 (promotion 후, catalog-of-record)
+│   ├── collected/              # 정규화 전 원본 업스트림 소스 스냅샷
+│   ├── exemptions/             # 시간-바운드 감사된 예외 아티팩트
+│   ├── sources/                # 소스별 룰 스냅샷 + provenance
+│   ├── llm-registry.yaml       # capability 별 LLM 바인딩 레지스트리 (데이터, composition 시점에 해석)
+│   └── risk-classification.yaml # authoritative first-match 리스크 분류 테이블 (risk-classification-ko.md 참조)
+├── policies/                  # T0와 verifier가 소비하는 OPA/Rego policy-as-code
+├── infra/                     # IaC: Terraform (HCL); 엔트리 커맨드 `terraform apply`
+│   ├── modules/
+│   │   ├── resource-group/          # rg-fdai; deploy-and-onboard-ko.md 에 따라 CAF 명명
+│   │   ├── identity/                # executor 를 위한 user-assigned Managed Identity
+│   │   ├── compute/                 # runtime seam - 대안은 형제 폴더에
+│   │   │   └── container-apps/      # 기본 (Consumption + KEDA)
+│   │   ├── isolated-executor/       # opt-in internal shadow Container App; 전용 transport identity, effect role 없음
+│   │   ├── container-registry/      # compute 이미지용 ACR
+│   │   ├── state-store/             # audit + KPI + pgvector
+│   │   │   └── postgres-flex/       # 기본
+│   │   ├── event-bus/               # Kafka 와이어
+│   │   │   └── event-hubs-kafka/    # 기본 (Event Hubs, :9093)
+│   │   ├── secret-store/            # env + Key Vault reference 브릿지
+│   │   │   └── key-vault/           # 기본
+│   │   ├── observability/           # Log Analytics + 여기 바인딩된 App Insights
+│   │   │   └── log-analytics/       # 기본
+│   │   ├── llm/                     # 배포자 스코프 LLM 프로비저닝 (dev-and-deploy parity 계약)
+│   │   │   └── azure-openai/        # 기본 Azure OpenAI 디플로이먼트 세트
+│   │   ├── measurement-runners/     # 자동 regression + pattern-growth 러너용 Container Apps Jobs
+│   │   ├── vm-task-host/             # custom Linux/GPU VM용 cloud-init profile
+│   │   ├── vm-task-rbac/             # target-VM-scoped Managed Run Command RBAC
+│   │   ├── preflight-toggles/       # preflight blocker 를 Terraform 토글로 매핑하는 피처 플래그 표면
+│   │   └── console/                 # 읽기 전용 SPA 를 호스팅하는 Static Web App
+│   │       └── static-web-app/      # 기본
+│   ├── local/                       # 로컬 개발용 IaC (docker-compose, testcontainers 배선; Azure 에 apply 안 함)
+│   └── envs/                        # 환경별 tfvars (git-ignored; 커밋 금지)
+│       ├── dev/
+│       ├── staging/
+│       └── prod/
+├── console/                   # 얇은 SPA (Vite + Preact) - 운영자 보기, 제한된 governed command, 로컬 표시 설정, 관찰 전용 IAM Assignments
+│   ├── src/                    # 셸, 패널 레지스트리, GET 전용 클라이언트, 라우트, 브라우저 로컬 환경 설정
+│   ├── index.html              # Vite 진입점
+│   ├── package.json            # 의존: preact, @azure/msal-browser
+│   └── vite.config.ts          # 빌드 → console/dist/ (git-ignored)
+├── cli/                       # operator-console CLI (Ink) - 뷰모델 하나, 렌더러 여럿
+│   ├── src/view-model/         # 표현 중립 브리핑 계약 + 블록 IR + 빌더
+│   ├── src/renderers/          # ink (터미널) / text / slack (Block Kit) / teams (Adaptive Card)
+│   ├── src/cli.tsx             # 진입점: 브리핑을 한 번 빌드하고 --surface 별로 렌더
+│   └── package.json            # 의존: ink, react (tsx로 실행, 빌드 단계 없음)
+├── site/                      # Astro / Starlight 문서 사이트 (docs/**/*.md 를 i18n + 검색으로 렌더)
+├── ui/                        # (미래) 정적 UI 킷 (Calm Slate 테마) - placeholder
+├── tests/integration/         # cross-service compatibility와 repository check만 유지
+├── docs/roadmap/              # 이 로드맵과 설계 문서
+├── pyproject.toml             # virtual uv workspace root (`package = false`)
+└── .github/                   # instructions/ 와 workflows/ (CI: lint, secret-scan, coverage)
 ```
 
-런타임 초기화는 semantic-turn 준비 상태를 `bootstrap_lifecycle.py`에, 버티컬 워크로드 신원을 `bootstrap_bindings.py`에 위임해 프로바이더 construction을 제한하고 테스트와 포크가 사용하는 injectable identity-builder 경계를 보존합니다.
-
-> 디렉토리 이름은 [language.instructions.md](../../../.github/instructions/language.instructions.md)의 정본 어휘인
-> `trust-router`, `deterministic-engine`, `rule-catalog`, `risk-gate`, `remediation-pr`, `shadow-mode`, `HIL`을 따릅니다.
-> 디스크 식별자는 `snake_case`를 사용하고 각 패키지가 테스트를 소유하며 서비스 간 및 저장소 검사는 `tests/integration/`에 유지합니다.
+> 디렉토리 이름은 정본 어휘(정본 vocabulary)입니다. 모듈 이름은
+> [language.instructions.md](../../../.github/instructions/language.instructions.md) 의 도메인
+> 용어 (`trust-router`, `deterministic-engine`, `rule-catalog`, `risk-gate`,
+> `remediation-pr`, `shadow-mode`, `HIL`) 와 정렬해서 유지하세요. Core 테스트는
+> `services/core-control-plane/tests/` 아래에서 출처 배치를 미러링합니다. 독립 서비스와
+> shared SDK는 각 패키지 옆의 테스트를 소유합니다. 서비스 간 및 repository-wide 검사만
+> `tests/integration/`에 유지합니다.
 
 ## 모듈 경계(모듈 Boundaries)
 
 의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다.
 
 - **코어는 이식 가능**: 어떤 클라우드 SDK도 직접 가져오기 하지 **않습니다**. 클라우드 특이성은
- `shared/providers/` 의 CSP-중립 인터페이스로만 진입하며, 구현은 `delivery/` 와 `infra/`
- 에 있고 조립 시점에 주입됩니다. 이렇게 두 번째 클라우드는 어댑터 추가일 뿐이며 `core/` 편집이
- 아닙니다.
+  `shared/providers/` 의 CSP-중립 인터페이스로만 진입하며, 구현은 `delivery/` 와 `infra/`
+  에 있고 조립 시점에 주입됩니다. 이렇게 두 번째 클라우드는 어댑터 추가일 뿐이며 `core/` 편집이
+  아닙니다.
 - **허용된 가져오기**: `shared/`는 `core/`를 가져오기하지 않습니다. `core/`는 `shared/`의
- 계약, 프로바이더, 텔레메트리, 구성만 가져옵니다. `delivery/`는 어댑터 경계 뒤에서
- `core/`와 `shared/`를 조립할 수 있고 `composition/`이 모든 계층을 연결합니다. `core/`는
- `delivery/`를 가져오기하지 않으며 브라우저 코드는 Python 구현 모듈을 가져오기하지 않습니다.
+  계약, 프로바이더, 텔레메트리, 구성만 가져옵니다. `delivery/`는 어댑터 경계 뒤에서
+  `core/`와 `shared/`를 조립할 수 있고 `composition/`이 모든 계층을 연결합니다. `core/`는
+  `delivery/`를 가져오기하지 않으며 브라우저 코드는 Python 구현 모듈을 가져오기하지 않습니다.
 - **정책과 규칙은 코드 경로가 아닌 데이터**: T0가 런타임에 `rule-catalog/` 엔트리와 `policies/`
- 를 로드하므로 규칙/정책 추가에 엔진 변경이 필요 없습니다. 규칙은 의도와 교정을
- 기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·
- 정규화되는 방법은
- [rule-catalog-collection-ko.md](../rules-and-detection/rule-catalog-collection-ko.md) 에 있습니다.
+  를 로드하므로 규칙/정책 추가에 엔진 변경이 필요 없습니다. 규칙은 의도와 교정을
+  기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·
+  정규화되는 방법은
+  [rule-catalog-collection-ko.md](../rules-and-detection/rule-catalog-collection-ko.md) 에 있습니다.
 - **전달은 교체 가능**: `gitops-pr` 와 `chatops` 는 하나의 인터페이스 뒤의 어댑터라,
- 실행기는 추상 액션을 발행하고 어댑터가 그것을 렌더링합니다(remediation-pr, Adaptive 카드).
- 실행기가 유일한 privileged 신원을 보유하며 어댑터는 이를 공유하지 않습니다.
-- **콘솔에는 privileged 신원이 없음**: 상태, 감사, shadow 결과, HIL 큐를 시각화하며 접근은 선택적 접근 변환 결과와 무관하게 검증된 App 역할에서 도출됩니다.
- Command 표면은 인증된 기록이나 타입이 지정된 제안을 제출할 수 있지만 dev 서술기를 포함한 어느 경로도 실행기를 호출할 수 없습니다. Risk, 승인, 감사, 실행 경계는 서버 측에 유지됩니다
- ([security-and-identity-ko.md](security-and-identity-ko.md)). 의미 전송 계층이 활성화되면 하나의 어댑터가 변환 결과, 제안, 스트림 포트를 연결합니다.
- 발신함은 데이터베이스 `NOW()` 기한을 사용하고 기존 결과는 같은 트랜잭션에서 요청, principal, terminal-result 다이제스트를 검증한 후 재사용합니다.
- 저장소 Best Practice 정의는 조립 루트에서 한 번 로드하고 GET 전용 목록 및 상세
- 경로로 노출합니다. 이 정의는 카탈로그 참조 데이터로 유지되며 런타임 근거 프로바이더를
- 명시적으로 연결하기 전까지 변환 결과는 `Unknown` 및 `not-connected`를 보고합니다.
- 탐색 셸은 아이콘 전용 활동 Bar와 다섯 개의 안정적인 영역인 `전체 현황`, `운영`,
- `에이전트`, `거버넌스`, `감사·증적`을 사용합니다. 인접한 Explorer는 선택한 영역에 등록된
- 패널을 렌더링합니다. 영역을 선택하면 Explorer를 열고 운영자의 로컬 패널 순서 및 표시
- 설정에 따라 첫 번째 visible 패널로 이동합니다. 영어가 기본 표시 언어이며, 한국어 카탈로그는 그룹 id, 패널 id,
- 경로를 바꾸지 않고 한국어 레이블을 제공합니다. 운영자는 브라우저 로컬의 계정별 설정에서
- 패널 순서를 바꾸거나 숨길 수 있습니다. 아이콘 전용 셸 컨트롤은 키보드 focus에서 즉시
- 열리고 포인터 hover에서는 잠시 지연되는 공통 툴팁으로 현지화된 레이블을 표시합니다.
- 이 툴팁은 문서 본문 portal에 렌더링되고 뷰포트 안에 머물도록 방향이나 위치를
- 조정하며 reduced-motion 설정을 따르므로 브라우저 기본 `title` 표시에 의존하지 않습니다.
- 숨김은 탐색 표시에만 적용되므로 직접 경로와 검색은
- 계속 사용할 수 있고, 현재 활성 패널은 숨길 수 없습니다. 세부 경로는 공통 페이지 제목 안에
- 간결한 영역 / 패널 계층을 렌더링하여 Explorer를 접어도 맥락을 유지합니다. 대시보드는
- `전체 현황 / Dashboard`를 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립
- 유틸리티는 단일 제목을 유지합니다. 에이전트 영역은 명단,
- Organization, 활동, 인계 패널 전체에 표시되는 작업 공간 탭 행도 유지합니다. 명단은
- 기본 에이전트 보기이며 Operator API가 반환하지 않은 지표를 만들지 않고 현재 스트림 상태, 현재 작업,
- 인시던트 연결, 보고선, 증적 링크를 투영합니다. 필터와 검색은 브라우저 로컬 표시 제어이며,
- 또한 런타임 연결을 별도로 표시합니다. 11개의 타입이 지정된 EventBus 구독자와 Huginn의 raw-ingress
- 구독자는 대기 상태를 유지하고, Njord와 Freyr는 외부 어댑터를 기다리며 Loki는 scheduled
- 트리거를 기다립니다. Huginn은 실시간 리소스 발견 유입을 소유합니다. Azure 생성,
- 갱신, 삭제 신호는 정본 이벤트 토픽으로 들어오고, 주입된 전달 projector가 Azure
- I/O를 에이전트 내부에 넣지 않은 채 enrichment와 ordered 인벤토리 delta 적용을 담당합니다. 전용
- 범용 인벤토리 delta forwarder는 각 `InventoryBatch.links` patch를 보존합니다. `contains`는
- 대상 리소스에, 다른 관계 타입은 출처 리소스에 할당합니다. 같은 배치에 관계 소유자 리소스가
- 없으면 커서 진행을 차단하여 그래프 데이터를 조용히 버리지 않고 페이지를 재시도합니다. Event
- 멱등성 신원은 범위, 리소스, 관계 페이로드의 범위가 제한된 SHA-256 다이제스트입니다. 따라서 긴
- 리소스 id 때문에 구분용 다이제스트가 잘리거나 이벤트 계약 길이를 초과하지 않습니다. Delta 리소스에는
- 표준 시간대가 포함된 RFC 3339 `last_seen`이 필요합니다. 정렬 시간이 없거나 잘못되면 프로세스 wall
- 시계로 대체하지 않고 발행과 커서 진행을 차단합니다. 하나의 배치에는 각 `resource_id`가 한
- 번만 포함될 수 있으며 중복이 있으면 이벤트를 발행하기 전에 배치 전체를 차단합니다.
- 리소스 및 관계 속성은 finite 숫자 값으로 정본 JSON 직렬화가 가능해야 합니다. 지원되지
- 않는 객체와 `NaN`은 신원 계산, 발행 또는 PostgreSQL 연결 전에 거부됩니다. Projector는 사전
- 검증된 정본 JSON 문서만 저장합니다. Realtime projector와 변경할 수 없는 스냅샷 staging은 모두 사전 검증된 정본 JSON 문서만 저장하며 스냅샷 커버리지 메타데이터도 begin 또는
- 승격 전에 같은 규칙을 적용합니다. 인벤토리 링크는 출처 권한, 개정 번호, 기준 시점, 최신성, 완전성, 검증 근거를 고정하는 변경할 수 없는 관측 메타데이터도 운반할 수 있습니다.
- 불완전한 인벤토리 관측은 관계 점유를 project하지 않으며 stale 또는 conflicting 링크 근거는 operational-context 자율성을 낮출 수만 있습니다.
- 범위가 제한된 배치의 모든 이벤트는 첫 발행 전에 생성 및 검증되므로 뒤쪽의 잘못된 리소스 때문에 앞쪽
- 이벤트가 검증 단계에서 부분 발행되지 않습니다.
- `has_more`로 표시된 모든 delta 페이지는 기록을 방출하기 전에 새로운 이어가기 커서를 제공해야
- 합니다. 커서가 없거나 변경되지 않으면 최종 fence 없이 pull이 실패합니다. 정상적으로 진행하는
- 스트림이 설정된 페이지 상한에 도달하면 최신 커서를 반환하여 다음 pull이 그 위치에서 재개됩니다.
- 최종 `final=True` 배치에는 리소스와 관계가 포함될 수 있으며 forwarder는 커서를 커밋하기
- 전에 해당 페이로드를 발행합니다. 최종 fence 뒤에 배치가 나오면 스트림을 실패시키고 이전 영속
- 커서를 유지합니다. 최종 배치가 커서를 생략하면 forwarder는 pull 시작 시점의 커서로
- 되돌리지 않고 마지막 non-null 페이지 커서를 커밋합니다.
- Azure Activity Log 어댑터는 대응된 각 ARM 리소스 id에서 resource-group `contains` 관계를
- 생성하고 같은 delta 페이지에 포함합니다. 실제 운영 리소스 읽기가 필요한 의존성은 ARG 또는 ARM
- hydration 어댑터가 제공할 때까지 불완전한 상태로 유지됩니다. 리소스 삭제의 권한은 Event
- Grid에 유지됩니다. Upsert 전용 Activity Log 어댑터는 리소스를 되살리지 않도록 삭제 연산을
- 건너뛰지만, filtered 기록이 스트림을 멈추지 않도록 모든 유효 이벤트 시각으로 페이지 커서를
- 진행합니다. 한 리소스의 기록이 여러 개이면 이벤트 시간과 정본 리소스 문서 순서로
- 결정론적으로 선택하며 각 페이지는 `resource_id` 순서로 리소스를 방출합니다. 재개 커서와 페이지의
- 모든 객체 이벤트에는 tracked 리소스로 대응되지 않는 이벤트까지 timezone-aware RFC 3339 시각이
- 필요합니다. 잘못된 이벤트 시각은 폐기하거나
- UTC로 간주하지 않고 페이지를 실패시켜 정렬 권한을 보존합니다. Activity Log non-2xx 오류는
- HTTP 상태만 보고하며 응답 본문은 exception 또는 로그 텍스트에 포함하지 않습니다.
- In-flight 커서에는 유효한 running 시각과 비어 있지 않은 next 링크가 모두 필요합니다. 초기
- lower 한계는 비어 있는 intermediate 페이지에서도 유지되므로 페이지 나누기가 최종 재개 커서를
- 지우거나 뒤로 이동시킬 수 없습니다. 단일 구독 Activity Log 어댑터는 정본 hyphenated
- 구독 UUID만 허용하여 범위 텍스트가 요청 경로 또는 조회를 변경하지 못하게 합니다. Bearer
- 토큰 엔드포인트는 userinfo, 경로, 조회, 조각이 없는 HTTPS 출처 URL이어야 합니다.
- 각 Activity Log 응답은 `max_events_per_page`(기본값 1000)로 제한되며 상한을 초과한 페이지는 대응
- 또는 커서 진행 전에 실패합니다. 모든 `value` 항목은 객체여야 하며 malformed 항목은 정렬
- 위치를 안전하게 확인할 수 없으므로 페이지를 실패시킵니다.
- PostgreSQL projector는 각 리소스와 관계 변경을 하나의 트랜잭션으로 적용합니다. 쓰기 담당은
- 스냅샷 승격 shared 게이트, 그래프 조정 게이트, 변경 리소스 및 모든 관계 엔드포인트의
- 정렬된 잠금 순서로 획득합니다. Resource 잠금은 음수 키 범위의 seeded 63-bit 참고용 키를
- 사용하므로 양수 global 승격 및 조정 게이트와 키 범위가 분리됩니다. 일반 patch는 그래프 게이트를 공유하므로 관련 없는 리소스는 동시에
- 처리할 수 있습니다. 리소스 삭제와 `links_complete: true` 관계 교체는 그래프 게이트를 독점하고,
- 유효 관계 집합을 읽은 뒤 누락된 관계를 커밋 전에 tombstone으로 기록합니다.
- 모든 관계 upsert는 effective 리소스 그래프에서 양쪽 엔드포인트를 확인하고 선언된 엔드포인트
- 타입이 해당 리소스와 일치해야 합니다. 엔드포인트가 없거나 모순되면 리소스와 관계 변경을 함께
- 롤백합니다. 각 인벤토리 변경에는 `(from_id, link_type, to_id)` 키별 항목이 최대 하나만
- 포함되며 중복 키는 데이터베이스 I/O 전에 거부됩니다.
- 모든 들어오는 관계 patch는 변경된 리소스가 소유해야 합니다. `contains`는 대상이
- 소유하고 다른 관계 타입은 출처가 소유합니다. 소유하지 않은 patch는 관련 없는 그래프 간선을
- 변경할 수 없습니다. 변경별 `max_links` 상한은 항상 양수이며 0은 관계를 가진 모든 삭제를
- 조정할 수 없게 하므로 시작에서 거부됩니다. 데이터베이스에서 파생된 tombstone은 별도
- `max_reconciled_links` 상한(기본값 4096)을 사용하며 이 값은 `max_links` 이상이어야 합니다. 따라서
- 신뢰할 수 없는 페이로드 한도를 넓히지 않고도 관계가 많은 리소스를 원자적으로 삭제할 수 있습니다.
- 기존 effective `resource_id`의 리소스 타입도 realtime 갱신 전체에서 유지됩니다. 모순된 타입은
- 리소스 행 또는 관계가 변경되기 전에 거부됩니다.
- realtime 리소스 오버레이가 하나라도 pending 상태이면 base 스냅샷이 최신성 예산 안에 있어도
- 그래프 최신성은 `unknown`이고 읽기 변환 결과는 degraded 상태입니다. 완전한 조정
- 승격이 포함된 오버레이를 정리하면 스냅샷 기반 최신성이 복원됩니다.
- 각 projector 결과에는 `applied`, `not_applicable`, `snapshot_covered`, `ordering_rejected` 타입이 지정된
- 결과가 포함됩니다. 스냅샷 및 정렬 suppression은 이벤트 id와 범위가 제한된 사유를 포함한
- `inventory_delta_ignored`도 방출하여 안전한 no-op와 적용된 갱신을 구분할 수 있게 합니다. 기존
- two-field 결과 생성은 생략된 결과를 `applied`로 기본 설정하여 호환성을 유지합니다.
- Event 타입을 명시한 페이로드는 `inventory.resource_changed`인 경우에만 변환 결과됩니다. 다른 도메인
- 이벤트에 `inventory_change` 필드가 있어도 `not_applicable`입니다. Direct 이전 방식 호출자를 위해
- `event_type` 생략은 계속 지원합니다.
- `links_complete`가 없거나 false이면 관찰하지 못한 관계를 제거하지 않습니다. 스냅샷 승격은
- exclusive 승격 게이트를 유지하므로 어떤 delta 트랜잭션과도 동시에 실행되지 않습니다. 전용
- 인벤토리 sync 작업은 기본 6시간마다 Azure Resource Graph를 조회하고 ARM 대체 경로를 사용해 완전한
- 조정 스냅샷을 원자적으로 promote합니다. Heimdall은 발견 최신성, lag,
- 커버리지를 관찰하며 복구를 시작하지 않습니다. 작업은 10분마다 영속 시도 상태를 확인하고
- 정상 6시간 검사 간격을 유지하며 newer 실패한/abandoned 시도는 다음 틱에 재시도합니다. 로컬 실행 장치는
- Azure 발견을 실행하지 않습니다.
- Organization은 디렉터리와 Org chart 보기를 제공하며, `?view=org`는 실시간 보고 계층의 직접
- 링크를 유지하고 각 노드는 해당 에이전트의 런타임 상세 포커스를 엽니다.
- 활동 링크는 선택한 에이전트를 경로 조회에 유지합니다. 활동은 영구 감사 타임라인보다
- 먼저 해당 에이전트의 현재 스트림 상태와 최근 실제 운영 인시던트를 표시하므로 감사 귀속이
- 지연되거나 없어도 활성 에이전트가 빈 화면으로 보이지 않습니다. 로컬 dev 모드는 Settings
- 바로 위에 `Labs` 영역도 표시하며, 운영 탐색에서는 이 개발 전용 영역을 생략합니다.
+  실행기는 추상 액션을 발행하고 어댑터가 그것을 렌더링합니다(remediation-pr, Adaptive 카드).
+  실행기가 유일한 privileged 신원을 보유하며 어댑터는 이를 공유하지 않습니다.
+- **콘솔에는 privileged 신원이 없음**: 상태, 감사, shadow 결과, HIL 큐를 시각화합니다.
+  역할이 할당된 principal의 접근은 검증된 App 역할에서 직접 도출되며 선택적 access-request
+  변환 결과에 의존하지 않습니다. Command 표면은 인증된 기록 또는 타입이 지정된 제안을 제출할 수 있고
+  dev-only 서비스 어댑터는 Azure CLI auth로 서술할 수 있지만 어느 경로도 리소스 실행기를 직접
+  호출하지 않으며 risk, 승인, 감사, 실행기 경계는 서버 측에 유지됩니다
+  ([security-and-identity-ko.md](security-and-identity-ko.md) 참조).
+  독립 Operator 서비스는 의미 전송 계층이 활성화되면 하나의 semantic-aware 어댑터를 통해
+  변환 결과, 제안 및 스트림 포트를 함께 연결합니다. PostgreSQL 발신함은 점유 충족 여부와 임차 기간
+  기한에 데이터베이스 `NOW()` 값을 사용합니다. Held 변환 결과 신원은 요청 신원과 정본
+  terminal-result 다이제스트를 결합하고 영속 결과 키는 요청과 변환 결과 신원을 결합합니다.
+  기존 결과를 재사용할 때는 같은 트랜잭션에서 요청, principal 및 다이제스트를 검증한 후 발신함 행을
+  완전한합니다.
+  저장소 Best Practice 정의는 조립 루트에서 한 번 로드하고 GET 전용 목록 및 상세
+  경로로 노출합니다. 이 정의는 카탈로그 참조 데이터로 유지되며 런타임 근거 프로바이더를
+  명시적으로 연결하기 전까지 변환 결과는 `Unknown` 및 `not-connected`를 보고합니다.
+  탐색 셸은 아이콘 전용 활동 Bar와 다섯 개의 안정적인 영역인 `전체 현황`, `운영`,
+  `에이전트`, `거버넌스`, `감사·증적`을 사용합니다. 인접한 Explorer는 선택한 영역에 등록된
+  패널을 렌더링합니다. 영역을 선택하면 Explorer를 열고 운영자의 로컬 패널 순서 및 표시
+  설정에 따라 첫 번째 visible 패널로 이동합니다. 영어가 기본 표시 언어이며, 한국어 카탈로그는 그룹 id, 패널 id,
+  경로를 바꾸지 않고 한국어 레이블을 제공합니다. 운영자는 브라우저 로컬의 계정별 설정에서
+  패널 순서를 바꾸거나 숨길 수 있습니다. 아이콘 전용 셸 컨트롤은 키보드 focus에서 즉시
+  열리고 포인터 hover에서는 잠시 지연되는 공통 툴팁으로 현지화된 레이블을 표시합니다.
+  이 툴팁은 문서 본문 portal에 렌더링되고 뷰포트 안에 머물도록 방향이나 위치를
+  조정하며 reduced-motion 설정을 따르므로 브라우저 기본 `title` 표시에 의존하지 않습니다.
+  숨김은 탐색 표시에만 적용되므로 직접 경로와 검색은
+  계속 사용할 수 있고, 현재 활성 패널은 숨길 수 없습니다. 세부 경로는 공통 페이지 제목 안에
+  간결한 영역 / 패널 계층을 렌더링하여 Explorer를 접어도 맥락을 유지합니다. 대시보드는
+  `전체 현황 / Dashboard`를 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립
+  유틸리티는 단일 제목을 유지합니다. 에이전트 영역은 명단,
+  Organization, 활동, 인계 패널 전체에 표시되는 작업 공간 탭 행도 유지합니다. 명단은
+  기본 에이전트 보기이며 Operator API가 반환하지 않은 지표를 만들지 않고 현재 스트림 상태, 현재 작업,
+  인시던트 연결, 보고선, 증적 링크를 투영합니다. 필터와 검색은 브라우저 로컬 표시 제어이며,
+  또한 런타임 연결을 별도로 표시합니다. 11개의 타입이 지정된 EventBus 구독자와 Huginn의 raw-ingress
+  구독자는 대기 상태를 유지하고, Njord와 Freyr는 외부 어댑터를 기다리며 Loki는 scheduled
+  트리거를 기다립니다. Huginn은 실시간 리소스 발견 유입을 소유합니다. Azure 생성,
+  갱신, 삭제 신호는 정본 이벤트 토픽으로 들어오고, 주입된 전달 projector가 Azure
+  I/O를 에이전트 내부에 넣지 않은 채 enrichment와 ordered 인벤토리 delta 적용을 담당합니다. 전용
+  범용 인벤토리 delta forwarder는 각 `InventoryBatch.links` patch를 보존합니다. `contains`는
+  대상 리소스에, 다른 관계 타입은 출처 리소스에 할당합니다. 같은 배치에 관계 소유자 리소스가
+  없으면 커서 진행을 차단하여 그래프 데이터를 조용히 버리지 않고 페이지를 재시도합니다. Event
+  멱등성 신원은 범위, 리소스, 관계 페이로드의 범위가 제한된 SHA-256 다이제스트입니다. 따라서 긴
+  리소스 id 때문에 구분용 다이제스트가 잘리거나 이벤트 계약 길이를 초과하지 않습니다. Delta 리소스에는
+  표준 시간대가 포함된 RFC 3339 `last_seen`이 필요합니다. 정렬 시간이 없거나 잘못되면 프로세스 wall
+  시계로 대체하지 않고 발행과 커서 진행을 차단합니다. 하나의 배치에는 각 `resource_id`가 한
+  번만 포함될 수 있으며 중복이 있으면 이벤트를 발행하기 전에 배치 전체를 차단합니다.
+  리소스 및 관계 속성은 finite 숫자 값으로 정본 JSON 직렬화가 가능해야 합니다. 지원되지
+  않는 객체와 `NaN`은 신원 계산, 발행 또는 PostgreSQL 연결 전에 거부됩니다. Projector는 사전
+  검증된 정본 JSON 문서만 저장합니다. Realtime projector와 변경할 수 없는 스냅샷 staging은 모두 사전 검증된 정본 JSON 문서만 저장하며 스냅샷 커버리지 메타데이터도 begin 또는
+  승격 전에 같은 규칙을 적용합니다. 인벤토리 링크는 출처 권한, 개정 번호, 기준 시점, 최신성, 완전성, 검증 근거를 고정하는 변경할 수 없는 관측 메타데이터도 운반할 수 있습니다.
+  불완전한 인벤토리 관측은 관계 점유를 project하지 않으며 stale 또는 conflicting 링크 근거는 operational-context 자율성을 낮출 수만 있습니다.
+  범위가 제한된 배치의 모든 이벤트는 첫 발행 전에 생성 및 검증되므로 뒤쪽의 잘못된 리소스 때문에 앞쪽
+  이벤트가 검증 단계에서 부분 발행되지 않습니다.
+  `has_more`로 표시된 모든 delta 페이지는 기록을 방출하기 전에 새로운 이어가기 커서를 제공해야
+  합니다. 커서가 없거나 변경되지 않으면 최종 fence 없이 pull이 실패합니다. 정상적으로 진행하는
+  스트림이 설정된 페이지 상한에 도달하면 최신 커서를 반환하여 다음 pull이 그 위치에서 재개됩니다.
+  최종 `final=True` 배치에는 리소스와 관계가 포함될 수 있으며 forwarder는 커서를 커밋하기
+  전에 해당 페이로드를 발행합니다. 최종 fence 뒤에 배치가 나오면 스트림을 실패시키고 이전 영속
+  커서를 유지합니다. 최종 배치가 커서를 생략하면 forwarder는 pull 시작 시점의 커서로
+  되돌리지 않고 마지막 non-null 페이지 커서를 커밋합니다.
+  Azure Activity Log 어댑터는 대응된 각 ARM 리소스 id에서 resource-group `contains` 관계를
+  생성하고 같은 delta 페이지에 포함합니다. 실제 운영 리소스 읽기가 필요한 의존성은 ARG 또는 ARM
+  hydration 어댑터가 제공할 때까지 불완전한 상태로 유지됩니다. 리소스 삭제의 권한은 Event
+  Grid에 유지됩니다. Upsert 전용 Activity Log 어댑터는 리소스를 되살리지 않도록 삭제 연산을
+  건너뛰지만, filtered 기록이 스트림을 멈추지 않도록 모든 유효 이벤트 시각으로 페이지 커서를
+  진행합니다. 한 리소스의 기록이 여러 개이면 이벤트 시간과 정본 리소스 문서 순서로
+  결정론적으로 선택하며 각 페이지는 `resource_id` 순서로 리소스를 방출합니다. 재개 커서와 페이지의
+  모든 객체 이벤트에는 tracked 리소스로 대응되지 않는 이벤트까지 timezone-aware RFC 3339 시각이
+  필요합니다. 잘못된 이벤트 시각은 폐기하거나
+  UTC로 간주하지 않고 페이지를 실패시켜 정렬 권한을 보존합니다. Activity Log non-2xx 오류는
+  HTTP 상태만 보고하며 응답 본문은 exception 또는 로그 텍스트에 포함하지 않습니다.
+  In-flight 커서에는 유효한 running 시각과 비어 있지 않은 next 링크가 모두 필요합니다. 초기
+  lower 한계는 비어 있는 intermediate 페이지에서도 유지되므로 페이지 나누기가 최종 재개 커서를
+  지우거나 뒤로 이동시킬 수 없습니다. 단일 구독 Activity Log 어댑터는 정본 hyphenated
+  구독 UUID만 허용하여 범위 텍스트가 요청 경로 또는 조회를 변경하지 못하게 합니다. Bearer
+  토큰 엔드포인트는 userinfo, 경로, 조회, 조각이 없는 HTTPS 출처 URL이어야 합니다.
+  각 Activity Log 응답은 `max_events_per_page`(기본값 1000)로 제한되며 상한을 초과한 페이지는 대응
+  또는 커서 진행 전에 실패합니다. 모든 `value` 항목은 객체여야 하며 malformed 항목은 정렬
+  위치를 안전하게 확인할 수 없으므로 페이지를 실패시킵니다.
+  PostgreSQL projector는 각 리소스와 관계 변경을 하나의 트랜잭션으로 적용합니다. 쓰기 담당은
+  스냅샷 승격 shared 게이트, 그래프 조정 게이트, 변경 리소스 및 모든 관계 엔드포인트의
+  정렬된 잠금 순서로 획득합니다. Resource 잠금은 음수 키 범위의 seeded 63-bit 참고용 키를
+  사용하므로 양수 global 승격 및 조정 게이트와 키 범위가 분리됩니다. 일반 patch는 그래프 게이트를 공유하므로 관련 없는 리소스는 동시에
+  처리할 수 있습니다. 리소스 삭제와 `links_complete: true` 관계 교체는 그래프 게이트를 독점하고,
+  유효 관계 집합을 읽은 뒤 누락된 관계를 커밋 전에 tombstone으로 기록합니다.
+  모든 관계 upsert는 effective 리소스 그래프에서 양쪽 엔드포인트를 확인하고 선언된 엔드포인트
+  타입이 해당 리소스와 일치해야 합니다. 엔드포인트가 없거나 모순되면 리소스와 관계 변경을 함께
+  롤백합니다. 각 인벤토리 변경에는 `(from_id, link_type, to_id)` 키별 항목이 최대 하나만
+  포함되며 중복 키는 데이터베이스 I/O 전에 거부됩니다.
+  모든 들어오는 관계 patch는 변경된 리소스가 소유해야 합니다. `contains`는 대상이
+  소유하고 다른 관계 타입은 출처가 소유합니다. 소유하지 않은 patch는 관련 없는 그래프 간선을
+  변경할 수 없습니다. 변경별 `max_links` 상한은 항상 양수이며 0은 관계를 가진 모든 삭제를
+  조정할 수 없게 하므로 시작에서 거부됩니다. 데이터베이스에서 파생된 tombstone은 별도
+  `max_reconciled_links` 상한(기본값 4096)을 사용하며 이 값은 `max_links` 이상이어야 합니다. 따라서
+  신뢰할 수 없는 페이로드 한도를 넓히지 않고도 관계가 많은 리소스를 원자적으로 삭제할 수 있습니다.
+  기존 effective `resource_id`의 리소스 타입도 realtime 갱신 전체에서 유지됩니다. 모순된 타입은
+  리소스 행 또는 관계가 변경되기 전에 거부됩니다.
+  realtime 리소스 오버레이가 하나라도 pending 상태이면 base 스냅샷이 최신성 예산 안에 있어도
+  그래프 최신성은 `unknown`이고 읽기 변환 결과는 degraded 상태입니다. 완전한 조정
+  승격이 포함된 오버레이를 정리하면 스냅샷 기반 최신성이 복원됩니다.
+  각 projector 결과에는 `applied`, `not_applicable`, `snapshot_covered`, `ordering_rejected` 타입이 지정된
+  결과가 포함됩니다. 스냅샷 및 정렬 suppression은 이벤트 id와 범위가 제한된 사유를 포함한
+  `inventory_delta_ignored`도 방출하여 안전한 no-op와 적용된 갱신을 구분할 수 있게 합니다. 기존
+  two-field 결과 생성은 생략된 결과를 `applied`로 기본 설정하여 호환성을 유지합니다.
+  Event 타입을 명시한 페이로드는 `inventory.resource_changed`인 경우에만 변환 결과됩니다. 다른 도메인
+  이벤트에 `inventory_change` 필드가 있어도 `not_applicable`입니다. Direct 이전 방식 호출자를 위해
+  `event_type` 생략은 계속 지원합니다.
+  `links_complete`가 없거나 false이면 관찰하지 못한 관계를 제거하지 않습니다. 스냅샷 승격은
+  exclusive 승격 게이트를 유지하므로 어떤 delta 트랜잭션과도 동시에 실행되지 않습니다. 전용
+  인벤토리 sync 작업은 기본 6시간마다 Azure Resource Graph를 조회하고 ARM 대체 경로를 사용해 완전한
+  조정 스냅샷을 원자적으로 promote합니다. Heimdall은 발견 최신성, lag,
+  커버리지를 관찰하며 복구를 시작하지 않습니다. 작업은 10분마다 영속 시도 상태를 확인하고
+  정상 6시간 검사 간격을 유지하며 newer 실패한/abandoned 시도는 다음 틱에 재시도합니다. 로컬 실행 장치는
+  Azure 발견을 실행하지 않습니다.
+  Organization은 디렉터리와 Org chart 보기를 제공하며, `?view=org`는 실시간 보고 계층의 직접
+  링크를 유지하고 각 노드는 해당 에이전트의 런타임 상세 포커스를 엽니다.
+  활동 링크는 선택한 에이전트를 경로 조회에 유지합니다. 활동은 영구 감사 타임라인보다
+  먼저 해당 에이전트의 현재 스트림 상태와 최근 실제 운영 인시던트를 표시하므로 감사 귀속이
+  지연되거나 없어도 활성 에이전트가 빈 화면으로 보이지 않습니다. 로컬 dev 모드는 Settings
+  바로 위에 `Labs` 영역도 표시하며, 운영 탐색에서는 이 개발 전용 영역을 생략합니다.
 
 ## 리포지토리 스크립트 레이아웃
 
@@ -369,14 +379,14 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 ### 새 게이트 추가
 
 1. 기존 스크립트 패턴을 따라 `scripts/quality/architecture/check-<name>.sh` 를 작성합니다 (환경변수로 warn/fail
- 임계값, 앞선 `#` 정당성 코멘트를 요구하는 허용 목록, stale 엔트리 거부,
- GitHub Actions 어노테이션, `CHECK_QUIET=1` 요약 모드).
+   임계값, 앞선 `#` 정당성 코멘트를 요구하는 허용 목록, stale 엔트리 거부,
+   GitHub Actions 어노테이션, `CHECK_QUIET=1` 요약 모드).
 2. 현재 트리를 깨지 않도록 **warn-only** 로 배포합니다.
 3. `.github/workflows/ci.yml` 에 잡을 추가하고 `.githooks/pre-push` 에 호출을 추가합니다.
 4. `services/core-control-plane/tests/test_check_structural_gates.py` 에 warn / 강제 적용 / 임계값 재정의 /
- 허용 목록 / stale 항목 / 경계 조건 을 커버하는 회귀 테스트를 추가합니다.
+   허용 목록 / stale 항목 / 경계 조건 을 커버하는 회귀 테스트를 추가합니다.
 5. `services/core-control-plane/tests/test_structural_gates_drift.py` 에 CI 잡과 pre-push 배선 이 드리프트로 사라지지
- 않도록 가드를 추가합니다.
+   않도록 가드를 추가합니다.
 
 ### 게이트 warn -> 강제 적용 승격
 
@@ -384,7 +394,7 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 2. CI 잡에서 게이트의 모드 환경변수를 뒤집습니다 (`FILE_LOC_MODE=enforce` 등).
 3. 정당한 예외가 있으면 게이트 허용 목록 파일에 H3 규칙 (앞선 `#` 코멘트) 을 지켜 넣습니다.
 4. 트리를 통과시키기 위해 임계값을 약화하지 **않습니다**. 파일을 쪼개거나 허용 목록에
- 기록하세요. 붉은 파이프라인을 풀려고 임계값을 낮추는 것은 거버넌스 회귀입니다.
+   기록하세요. 붉은 파이프라인을 풀려고 임계값을 낮추는 것은 거버넌스 회귀입니다.
 
 ## 의존성 주입을 통한 커스터마이제이션
 
@@ -400,41 +410,41 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 > 그 가이드가 operational 화하는 경계 카탈로그입니다.
 
 - **조립 루트**: `core/` 는 `shared/` 의 CSP-중립 인터페이스에만 의존합니다.
- 얇은 조립 루트(`core/` 밖)가 시작 시 구체 구현을 바인딩합니다. `core/` 는 절대 구체
- 어댑터를 new-up 하지 않고 의존성을 주입받습니다. 상류 기본 바인더는
- [`fdai.composition.default_container`](../../../services/core-control-plane/src/fdai/composition/__init__.py) 이며,
- 포크의 엔트리 포인트는 해당 바인딩을 감싸거나 교체하는 자체 팩토리를 호출합니다.
- 구체 어댑터 클래스(예: `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`)
- 는 공개 서브-패키지에서 re-export **되지 않습니다**; 해당 서브모듈에서 직접, 그리고
- 조립 루트에서만 가져오기 되어야 하므로 `core/` 가 실수로 구체에 의존할 수 없습니다.
+  얇은 조립 루트(`core/` 밖)가 시작 시 구체 구현을 바인딩합니다. `core/` 는 절대 구체
+  어댑터를 new-up 하지 않고 의존성을 주입받습니다. 상류 기본 바인더는
+  [`fdai.composition.default_container`](../../../services/core-control-plane/src/fdai/composition/__init__.py) 이며,
+  포크의 엔트리 포인트는 해당 바인딩을 감싸거나 교체하는 자체 팩토리를 호출합니다.
+  구체 어댑터 클래스(예: `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`)
+  는 공개 서브-패키지에서 re-export **되지 않습니다**; 해당 서브모듈에서 직접, 그리고
+  조립 루트에서만 가져오기 되어야 하므로 `core/` 가 실수로 구체에 의존할 수 없습니다.
 - **Config-기반 바인딩**: 설정이 각 구현을 선택합니다. `composition/wire_distiller.py`는 exact-version
- 엔드포인트 세 개와 replay-identical 프롬프트 하나로 review-only `Distiller`를 atomic하게 연결합니다.
- Council 기록이 없으면 abstention을 유지하고 부분 기록은 실행 T2 변경 없이 시작을 실패시킵니다.
+  엔드포인트 세 개와 replay-identical 프롬프트 하나로 review-only `Distiller`를 atomic하게 연결합니다.
+  Council 기록이 없으면 abstention을 유지하고 부분 기록은 실행 T2 변경 없이 시작을 실패시킵니다.
 - **상류의 기본 구현**: 메인 저장소는 모든 경계에 대해 동작하는 범용 기본 구현을 제공하여
- 독립 실행 가능합니다. 포크는 필요한 경계만 교체합니다.
+  독립 실행 가능합니다. 포크는 필요한 경계만 교체합니다.
 - **현재 T1 reuse 근거**: `CurrentReuseVerifier`는 변경할 수 없는 operational 사례를 위해 fresh
- 리소스, 토폴로지, 그래프, 소유자, 정책, 예행 실행, 안전성 사실을 수집합니다. Azure 캐시 최신성은
- 범위가 제한된 age와 future skew를 사용해 현재 evaluation 시계 기준으로 평가하므로 이벤트 직전의 recent
- 캐시는 통과할 수 있지만 historical 재생이 stale 근거를 되살릴 수는 없습니다. Learned 서명은
- 정본 매개변수와 완전한 operational-case 맥락을 연결합니다. Growth 및 pgvector 조회/쓰기
- 경계는 데이터베이스 I/O 전에 non-finite 임베딩 값을 거부합니다. 검증기는 실행 권한을
- 부여하지 않습니다. 연결이 없으면 operational reuse는 abstain하고 이전 방식 pattern은 계속됩니다.
- Pantheon 조립은 `OperatingPatternCompiler`를 inject할 수 있으며 Norns는 타입이 지정된 learning을
- serialize하고 Mimir 검토 전에 범위가 제한된 제안 backpressure를 적용합니다.
+  리소스, 토폴로지, 그래프, 소유자, 정책, 예행 실행, 안전성 사실을 수집합니다. Azure 캐시 최신성은
+  범위가 제한된 age와 future skew를 사용해 현재 evaluation 시계 기준으로 평가하므로 이벤트 직전의 recent
+  캐시는 통과할 수 있지만 historical 재생이 stale 근거를 되살릴 수는 없습니다. Learned 서명은
+  정본 매개변수와 완전한 operational-case 맥락을 연결합니다. Growth 및 pgvector 조회/쓰기
+  경계는 데이터베이스 I/O 전에 non-finite 임베딩 값을 거부합니다. 검증기는 실행 권한을
+  부여하지 않습니다. 연결이 없으면 operational reuse는 abstain하고 이전 방식 pattern은 계속됩니다.
+  Pantheon 조립은 `OperatingPatternCompiler`를 inject할 수 있으며 Norns는 타입이 지정된 learning을
+  serialize하고 Mimir 검토 전에 범위가 제한된 제안 backpressure를 적용합니다.
 - **Causal 및 Dynamic 런타임 근거**: `TemporalCausalEvidenceProvider`는 범위가 제한된 pre-cutoff
- series와 그래프 사실을 제공하고 `DynamicSimulationRequestProvider`는 최대 32개 current-state
- 가지를 제공합니다. `CausalHypothesisProjection`은 Forseti-owned이며 모델 grade는
- `EffectModelCausalEvidenceVerifier`를 요구합니다. Dynamic 모델은 시뮬레이션 스냅샷 이후 결과를
- 사용할 수 없고 현재 스냅샷은 evaluation-clock 최신성을 사용합니다. Pure simulator도 조정기
- 밖에서 모델 기준 시점 또는 finite-arithmetic 위반을 거부합니다. 연결이 없으면 shadow 경로가 비활성화됩니다.
+  series와 그래프 사실을 제공하고 `DynamicSimulationRequestProvider`는 최대 32개 current-state
+  가지를 제공합니다. `CausalHypothesisProjection`은 Forseti-owned이며 모델 grade는
+  `EffectModelCausalEvidenceVerifier`를 요구합니다. Dynamic 모델은 시뮬레이션 스냅샷 이후 결과를
+  사용할 수 없고 현재 스냅샷은 evaluation-clock 최신성을 사용합니다. Pure simulator도 조정기
+  밖에서 모델 기준 시점 또는 finite-arithmetic 위반을 거부합니다. 연결이 없으면 shadow 경로가 비활성화됩니다.
 - **Operational 승격 권한**: `OperationalPromotionReceiptVerifier`와
- `OperationalPromotionUnitVerifier`가 변경할 수 없는 근거를 해석합니다. 운영 레지스트리는
- 이 연결 없이는 shadow를 유지하며 raw scalar 메트릭은 test-only 이전 방식 고정본 모드입니다.
- Promotion-state 새로 고침 실패는 stale 적용을 재사용하지 않고 unified system-health 상한을 낮춥니다.
+  `OperationalPromotionUnitVerifier`가 변경할 수 없는 근거를 해석합니다. 운영 레지스트리는
+  이 연결 없이는 shadow를 유지하며 raw scalar 메트릭은 test-only 이전 방식 고정본 모드입니다.
+  Promotion-state 새로 고침 실패는 stale 적용을 재사용하지 않고 unified system-health 상한을 낮춥니다.
 - **Azure operational 근거**: `bind_azure_operational_evidence`는 strict promoted-inventory
- 스냅샷 읽기 담당, 현재 안전성 평가기, 구성된 Azure 메트릭, 범위가 제한된 가지 estimator,
- effect-model 읽기 담당을 조립합니다. Temporal 어댑터는 근거 hashing 전에 non-finite 메트릭
- 값을 거부합니다. 부분 연결은 컨테이너 construction에서 실패합니다.
+  스냅샷 읽기 담당, 현재 안전성 평가기, 구성된 Azure 메트릭, 범위가 제한된 가지 estimator,
+  effect-model 읽기 담당을 조립합니다. Temporal 어댑터는 근거 hashing 전에 non-finite 메트릭
+  값을 거부합니다. 부분 연결은 컨테이너 construction에서 실패합니다.
 
 ### 기능 번들
 
@@ -570,67 +580,67 @@ grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱�
 
 ```mermaid
 flowchart LR
- EV[events] --> NORM["event-ingest<br/>normalize + dedup"]
- NORM --> ROUTER[trust-router]
- ROUTER -->|rule match| T0[t0-deterministic]
- ROUTER -->|similar| T1[t1-lightweight]
- ROUTER -->|novel| T2[t2-reasoning]
- T2 --> QG[quality-gate]
- T0 --> RG[risk-gate]
- T1 --> RG
- QG --> RG
- RG -->|low risk| EX[executor]
- RG -->|high risk| HIL["HIL approval<br/>via chatops"]
- RG -->|abstain / deny| NOOP[no-op]
- HIL -->|approve| EX
- HIL -->|reject / timeout| NOOP
- EX --> DEL["delivery: gitops-pr / chatops"]
- EX --> AUD[audit]
- DEL --> AUD
- NOOP --> AUD
- AUD --> LIB[(pattern library)]
- LIB --> T1
+    EV[events] --> NORM["event-ingest<br/>normalize + dedup"]
+    NORM --> ROUTER[trust-router]
+    ROUTER -->|rule match| T0[t0-deterministic]
+    ROUTER -->|similar| T1[t1-lightweight]
+    ROUTER -->|novel| T2[t2-reasoning]
+    T2 --> QG[quality-gate]
+    T0 --> RG[risk-gate]
+    T1 --> RG
+    QG --> RG
+    RG -->|low risk| EX[executor]
+    RG -->|high risk| HIL["HIL approval<br/>via chatops"]
+    RG -->|abstain / deny| NOOP[no-op]
+    HIL -->|approve| EX
+    HIL -->|reject / timeout| NOOP
+    EX --> DEL["delivery: gitops-pr / chatops"]
+    EX --> AUD[audit]
+    DEL --> AUD
+    NOOP --> AUD
+    AUD --> LIB[(pattern library)]
+    LIB --> T1
 ```
 
 ## 구성 모델
 
 - 환경 특이 정보는 모두 **설정** 이며 런타임에 주입됩니다(환경 변수, 시크릿 저장소 참조,
- 설정 파일). 소스에는 어떤 고객·테넌트·환경 값도 없습니다.
+  설정 파일). 소스에는 어떤 고객·테넌트·환경 값도 없습니다.
 - 설정은 시작 시 `shared/config/` 스키마로 검증되며, 잘못되거나 누락된 필수 설정에 대해 **fail
- fast** - degraded 상태로 시작하지 않습니다.
+  fast** - degraded 상태로 시작하지 않습니다.
 - 시크릿은 주입된 프로바이더를 통해 읽으며, 가져오기 시점 전역 읽기 절대 금지, 로그·감사·에러
- 메시지에 절대 쓰지 않습니다.
+  메시지에 절대 쓰지 않습니다.
 - 포크는 `core/` 편집 없이 자체 설정과 secret-store 레이어를 공급합니다.
 - 기능 플래그는 신규 능력이 **shadow-mode** (judge-and-log only)로 출시되도록 게이팅하고,
- 액션별 강제 적용 승격은 별도의 리뷰된 변경으로 진행합니다.
+  액션별 강제 적용 승격은 별도의 리뷰된 변경으로 진행합니다.
 
 ## 저장소 관례(저장소 Conventions)
 
 - **Python (3.12+)이 모노레포 전체의 단일 코어 런타임 언어입니다**. 실행 애플리케이션 코드는
- 5개 `services/*/src/` 패키지 루트에 있고 versioned shared SDK는
- `packages/service-contracts/src/`에 있습니다. 근거와 선택 필기는
- [tech-stack-ko.md § OD-1](tech-stack-ko.md#od-1-core-런타임-언어) 에 있습니다. Python이
- 아닌 트리: [rule-catalog/](../../../rule-catalog) (YAML 데이터), [policies/](../../../policies)
- (Rego), [infra/](../../../infra) (Terraform HCL).
+  5개 `services/*/src/` 패키지 루트에 있고 versioned shared SDK는
+  `packages/service-contracts/src/`에 있습니다. 근거와 선택 필기는
+  [tech-stack-ko.md § OD-1](tech-stack-ko.md#od-1-core-런타임-언어) 에 있습니다. Python이
+  아닌 트리: [rule-catalog/](../../../rule-catalog) (YAML 데이터), [policies/](../../../policies)
+  (Rego), [infra/](../../../infra) (Terraform HCL).
 - 리포 루트에 **하나의 lockfile** (`uv.lock` 또는 동등물)을 두고 루트 `pyproject.toml`은
- `package = false`인 virtual workspace입니다. 런타임 서비스와 shared 계약 SDK는 각각
- 분포 매니페스트를 소유하지만 의존성 해석은 workspace 전체에서 수행합니다.
+  `package = false`인 virtual workspace입니다. 런타임 서비스와 shared 계약 SDK는 각각
+  분포 매니페스트를 소유하지만 의존성 해석은 workspace 전체에서 수행합니다.
 - 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있습니다.
- Core 전용 이벤트, 액션, 룰 및 온톨로지 타입은
- `services/core-control-plane/src/fdai/shared/contracts/`에 남고 카탈로그 스키마는 `rule-catalog/schema/` (종류별
- JSON 스키마)에 있으며 **semver** 버전을 갖고, 메이저 안에서는 하위 호환되는
- 하게만 변경됩니다; breaking 변경은 메이저를 올리고 마이그레이션 노트를 제공합니다. 이들
- 타입의 런타임 인스턴스 저장은
- [llm-strategy-ko.md § 온톨로지 Storage 배치](llm-strategy-ko.md#ontology-storage-layout)
- 에서 다룹니다.
+  Core 전용 이벤트, 액션, 룰 및 온톨로지 타입은
+  `services/core-control-plane/src/fdai/shared/contracts/`에 남고 카탈로그 스키마는 `rule-catalog/schema/` (종류별
+  JSON 스키마)에 있으며 **semver** 버전을 갖고, 메이저 안에서는 하위 호환되는
+  하게만 변경됩니다; breaking 변경은 메이저를 올리고 마이그레이션 노트를 제공합니다. 이들
+  타입의 런타임 인스턴스 저장은
+  [llm-strategy-ko.md § 온톨로지 Storage 배치](llm-strategy-ko.md#ontology-storage-layout)
+  에서 다룹니다.
 - `services/core-control-plane/src/fdai/core/tiers/t0_deterministic` (deterministic-engine)과
- `services/core-control-plane/src/fdai/core/risk_gate`의 테스트는 안전 코어입니다. >= 90% 커버리지 게이트를
- 유지하고 "high-risk는 절대 auto-execute 하지 않는다", "shadow-mode는 절대 변형하지 않는다",
- "액션 재적용은 no-op이다"를 단언하는 property-based 테스트를 포함합니다. 모든 액션
- 경로는 shadow-mode 테스트와 롤백 테스트를 갖습니다.
+  `services/core-control-plane/src/fdai/core/risk_gate`의 테스트는 안전 코어입니다. >= 90% 커버리지 게이트를
+  유지하고 "high-risk는 절대 auto-execute 하지 않는다", "shadow-mode는 절대 변형하지 않는다",
+  "액션 재적용은 no-op이다"를 단언하는 property-based 테스트를 포함합니다. 모든 액션
+  경로는 shadow-mode 테스트와 롤백 테스트를 갖습니다.
 - 규칙과 정책 변경은 회귀 테스트와 함께 나갑니다. `services/core-control-plane/src/fdai/rule_catalog/pipeline/`
- 승격 게이트는 실패한 회귀 스위트나 정책 위반 escape가 있으면 블록됩니다.
+  승격 게이트는 실패한 회귀 스위트나 정책 위반 escape가 있으면 블록됩니다.
 - CI는 위에서 참조된 게이트(포매터/린터, 시크릿 검사, 의존성 감사, 커버리지, 회귀)
- 를 리뷰 전에 강제합니다;
- [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
- 참조.
+  를 리뷰 전에 강제합니다;
+  [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
+  참조.

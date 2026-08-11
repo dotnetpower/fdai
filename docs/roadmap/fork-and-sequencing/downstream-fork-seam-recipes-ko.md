@@ -54,25 +54,25 @@ synthetic 생성된 기준선이며 hand-edit하지 않습니다. Direct Key Vau
 # fork/composition_root.py
 from pathlib import Path
 from fdai.composition import (
- AzureWireOverrides, default_container, wire_azure_container,
+    AzureWireOverrides, default_container, wire_azure_container,
 )
 from fdai.core.operator_memory import InMemoryOperatorMemoryStore
 from fork.adapters.scope_resolver import resolve_azure_scope
 
 async def build_container(config, *, identity, http_client):
- container = default_container(config)
- return await wire_azure_container(
-  container,
-  http_client=http_client,
-  identity=identity,
-  overrides=AzureWireOverrides(
-   endpoint="https://oai-customer-x.openai.azure.com",
-   catalog_root=Path("rule-catalog"),
-   operator_memory_store=InMemoryOperatorMemoryStore(),
-   scope_resolver=resolve_azure_scope, # fork 소유 (5.6 참조)
-   # tool_providers=... 로 function calling 활성화 (아래)
-  ),
- )
+    container = default_container(config)
+    return await wire_azure_container(
+        container,
+        http_client=http_client,
+        identity=identity,
+        overrides=AzureWireOverrides(
+            endpoint="https://oai-customer-x.openai.azure.com",
+            catalog_root=Path("rule-catalog"),
+            operator_memory_store=InMemoryOperatorMemoryStore(),
+            scope_resolver=resolve_azure_scope,   # fork 소유 (5.6 참조)
+            # tool_providers=... 로 function calling 활성화 (아래)
+        ),
+    )
 ```
 
 `AzureWireOverrides`의 `__post_init__`는 빈 `endpoint`나 `None`
@@ -94,8 +94,8 @@ env var (`FDAI_LLM_ENDPOINT`, `FDAI_CATALOG_ROOT`,
 
 ```python
 new_bindings = LlmBindings(
- embedding_model=MyBedrockEmbeddings(),
- cross_check_models=(MyProposer(), MyDoubleChecker()),
+    embedding_model=MyBedrockEmbeddings(),
+    cross_check_models=(MyProposer(), MyDoubleChecker()),
 )
 return replace(container, llm_bindings=new_bindings)
 ```
@@ -150,29 +150,29 @@ Teams 웹훅은 Python `HilResponse` 객체가 아니라 raw JSON을
 from datetime import UTC, datetime
 
 from fdai.core.operator_memory import (
- HilRejectMaterial, HilRejectMaterializer, MemoryCategory, ScopeKind,
+    HilRejectMaterial, HilRejectMaterializer, MemoryCategory, ScopeKind,
 )
 from fdai.shared.providers.hil_channel import HilDecision, HilResponse
 
 async def handle_teams_approval_click(payload, *, materializer, second_approver_oid):
- hil_response = HilResponse(
-  approval_id=payload["approval_id"],
-  decision=HilDecision.REJECT,  # 거부된 이유만 materialise
-  approver_id=payload["first_approver_oid"],
-  received_at=datetime.now(tz=UTC),
-  reason=payload["reject_reason"], # upstream에서 pre-redacted
- )
- material = HilRejectMaterial(
-  scope_kind=ScopeKind.RESOURCE_GROUP,
-  scope_ref=payload["resource_group_ref"],
-  category=MemoryCategory.PREFERENCE,
-  source_ref=f"hil.reject:{payload['approval_id']}",
- )
- return await materializer.materialize(
-  hil_response=hil_response,
-  second_approver=second_approver_oid,
-  material=material,
- )
+    hil_response = HilResponse(
+        approval_id=payload["approval_id"],
+        decision=HilDecision.REJECT,        # 거부된 이유만 materialise
+        approver_id=payload["first_approver_oid"],
+        received_at=datetime.now(tz=UTC),
+        reason=payload["reject_reason"],    # upstream에서 pre-redacted
+    )
+    material = HilRejectMaterial(
+        scope_kind=ScopeKind.RESOURCE_GROUP,
+        scope_ref=payload["resource_group_ref"],
+        category=MemoryCategory.PREFERENCE,
+        source_ref=f"hil.reject:{payload['approval_id']}",
+    )
+    return await materializer.materialize(
+        hil_response=hil_response,
+        second_approver=second_approver_oid,
+        material=material,
+    )
 ```
 
 **테스트 방법**: `InMemoryOperatorMemoryStore` + 합성 `HilResponse`로
@@ -202,37 +202,37 @@ Bing API 키는 실제 운영 시크릿 입니다: 체크인된 리터럴이 아
 ```python
 # fork/adapters/web_search.py
 from fdai.core.web_search import (
- WebSearchProvider, WebSearchQuery, WebSearchResult, WebSnippet
+    WebSearchProvider, WebSearchQuery, WebSearchResult, WebSnippet
 )
 from fdai.shared.providers.secret_provider import SecretProvider
 
 class BingWebSearchProvider(WebSearchProvider):
- def __init__(
-  self,
-  *,
-  secret_provider: SecretProvider,
-  secret_name: str,
-  deploy_allowlist: frozenset[str],
- ) -> None:
-  self._secret_provider = secret_provider
-  self._secret_name = secret_name
-  self._deploy_allowlist = deploy_allowlist # curated primary source
+    def __init__(
+        self,
+        *,
+        secret_provider: SecretProvider,
+        secret_name: str,
+        deploy_allowlist: frozenset[str],
+    ) -> None:
+        self._secret_provider = secret_provider
+        self._secret_name = secret_name
+        self._deploy_allowlist = deploy_allowlist  # curated primary source
 
- async def search(self, query: WebSearchQuery) -> WebSearchResult:
-  api_key = await self._secret_provider.get(self._secret_name)
-  # `api_key`는 이 호출에 scoped; 절대 로그 금지, `self`에 저장 금지,
-  # WebSearchResult reasons tuple에 포함 금지.
-  effective = self._deploy_allowlist & set(query.allowed_domains)
-  if not effective:
-   return WebSearchResult(
-    query=query, reasons=("allowlist_intersection_empty",),
-   )
-  # 1. query.text를 self._api_key와 함께 Bing API에 POST.
-  # 2. domain이 ``effective``에 없는 hit는 모두 drop.
-  # 3. WebSnippet tuple 빌드, query.max_results와
-  # query.budget_ms를 soft deadline으로 존중.
-  # 4. WebSearchResult(query=query, snippets=(...)) 반환.
-  return WebSearchResult(query=query, snippets=()) # fork가 body 채움
+    async def search(self, query: WebSearchQuery) -> WebSearchResult:
+        api_key = await self._secret_provider.get(self._secret_name)
+        # `api_key`는 이 호출에 scoped; 절대 로그 금지, `self`에 저장 금지,
+        # WebSearchResult reasons tuple에 포함 금지.
+        effective = self._deploy_allowlist & set(query.allowed_domains)
+        if not effective:
+            return WebSearchResult(
+                query=query, reasons=("allowlist_intersection_empty",),
+            )
+        # 1. query.text를 self._api_key와 함께 Bing API에 POST.
+        # 2. domain이 ``effective``에 없는 hit는 모두 drop.
+        # 3. WebSnippet tuple 빌드, query.max_results와
+        #    query.budget_ms를 soft deadline으로 존중.
+        # 4. WebSearchResult(query=query, snippets=(...)) 반환.
+        return WebSearchResult(query=query, snippets=())  # fork가 body 채움
 ```
 
 **모든 스니펫은 모델 턴에 주입되기 전
@@ -289,25 +289,25 @@ from fdai.core.operator_memory import OperatorScope
 from fdai.core.quality_gate.gate import QualityCandidate
 
 _ARM_RE = re.compile(
- r"^/subscriptions/[^/]+/resourceGroups/(?P<rg>[^/]+)"
- r"(?:/providers/[^/]+/[^/]+/(?P<name>[^/]+))?"
+    r"^/subscriptions/[^/]+/resourceGroups/(?P<rg>[^/]+)"
+    r"(?:/providers/[^/]+/[^/]+/(?P<name>[^/]+))?"
 )
 
 def resolve_azure_scope(candidate: QualityCandidate) -> OperatorScope | None:
- match = _ARM_RE.match(candidate.target_resource_ref)
- if match is None:
-  return None
- return OperatorScope(
-  resource_group_ref=match.group("rg"),
-  resource_ref=match.group("name"), # ARM id가 RG에서 끝나면 None
- )
+    match = _ARM_RE.match(candidate.target_resource_ref)
+    if match is None:
+        return None
+    return OperatorScope(
+        resource_group_ref=match.group("rg"),
+        resource_ref=match.group("name"),  # ARM id가 RG에서 끝나면 None
+    )
 ```
 
 그 후 조립 루트에서:
 
 ```python
 return bind_azure_llm_bindings(
- ..., scope_resolver=resolve_azure_scope,
+    ..., scope_resolver=resolve_azure_scope,
 )
 ```
 
@@ -361,21 +361,21 @@ YAML 파일. 포크는 자체 디렉터리 (예: `fork/rules/`)를 배포하고
 `id`가 전역적으로 유일함에 의존합니다. 이것이 의미하는 바:
 
 - Rule 추가: 포크 고유 id 부여 (예: 포크 이름 공간으로 접두사,
- `customer-x.storage.owner-tag.required`)하고 `fork/rules/`에 배포.
- 이것이 유일한 지원 케이스.
- **여러 포크를 유지관리하는 managed-service 팀**은 두 레벨 convention을
- 채택 SHOULD: `<tenant-code>.<domain>.<name>` - 여기서
- `<tenant-code>`는 짧은 opaque 코드 (고객 이름 절대 아님), 포크
- 룰 카탈로그 최상단에 예약된 이름 공간으로 한 번 등록. 두 포크가 같은
- `<tenant-code>`를 선택하면 merge-time id 충돌 - 이래서 코드는 의미
- 라벨이 아니라 짧은 랜덤 문자열이어야 합니다.
+  `customer-x.storage.owner-tag.required`)하고 `fork/rules/`에 배포.
+  이것이 유일한 지원 케이스.
+  **여러 포크를 유지관리하는 managed-service 팀**은 두 레벨 convention을
+  채택 SHOULD: `<tenant-code>.<domain>.<name>` - 여기서
+  `<tenant-code>`는 짧은 opaque 코드 (고객 이름 절대 아님), 포크
+  룰 카탈로그 최상단에 예약된 이름 공간으로 한 번 등록. 두 포크가 같은
+  `<tenant-code>`를 선택하면 merge-time id 충돌 - 이래서 코드는 의미
+  라벨이 아니라 짧은 랜덤 문자열이어야 합니다.
 - 업스트림 룰 비활성화: 동일-id 재정의를 배포하지 말 것.
- Exemption 작업 흐름 ([`rule-catalog/exemptions/`](../../../rule-catalog/exemptions)
- + [`docs/runbooks/exemption-workflow-ko.md`](../../runbooks/exemption-workflow-ko.md))
- 를 사용 - 범위에 대해 룰을 억제하는 감사된, time-boxed 방식.
+  Exemption 작업 흐름 ([`rule-catalog/exemptions/`](../../../rule-catalog/exemptions)
+  + [`docs/runbooks/exemption-workflow-ko.md`](../../runbooks/exemption-workflow-ko.md))
+  를 사용 - 범위에 대해 룰을 억제하는 감사된, time-boxed 방식.
 - 업스트림 룰의 동작 변경: fork-patch 하지 말고 업스트림 issue를
- 열 것. 업스트림 룰 카탈로그는 customer-agnostic; 그 동작에 대한
- customer-specific 변경은 업스트림에 구성 knob이 필요하다는 신호.
+  열 것. 업스트림 룰 카탈로그는 customer-agnostic; 그 동작에 대한
+  customer-specific 변경은 업스트림에 구성 knob이 필요하다는 신호.
 
 **바인딩 방법**: 두 카탈로그를 부하하고 concatenate하도록 조립
 루트 확장. `load_rule_catalog`는 `tuple[Rule, ...]` 반환:
@@ -386,18 +386,18 @@ from fdai.core.tiers.t0_deterministic.index import RuleIndex
 from fdai.rule_catalog.schema.rule import load_rule_catalog
 
 upstream_rules = load_rule_catalog(
- Path("rule-catalog/catalog"),
- schema_registry=registry,
- action_types=action_types,
- resource_types=resource_types,
- policies_root=Path("policies"),
- remediation_root=Path("rule-catalog/remediation"),
+    Path("rule-catalog/catalog"),
+    schema_registry=registry,
+    action_types=action_types,
+    resource_types=resource_types,
+    policies_root=Path("policies"),
+    remediation_root=Path("rule-catalog/remediation"),
 )
 fork_rules = load_rule_catalog(
- Path("fork/rules"),
- schema_registry=registry,
- action_types=action_types,
- resource_types=resource_types,
+    Path("fork/rules"),
+    schema_registry=registry,
+    action_types=action_types,
+    resource_types=resource_types,
 )
 index = RuleIndex.build(upstream_rules + fork_rules)
 ```
@@ -428,67 +428,67 @@ cross-root `name` uniqueness를 별도로 검사해야 합니다.
 **새 ObjectType 추가 방법**:
 
 1. ObjectType당 YAML 하나를 fork-local 디렉터리에 배치 (예:
- `fork/vocabulary/object-types/GovernanceProposal.yaml`). 형태는 배포된
- [`rule-catalog/vocabulary/object-types/`](../../../rule-catalog/vocabulary/object-types)
- built-in들을 참고. `name`은 PascalCase (`^[A-Z][A-Za-z0-9]{0,63}$`);
- `key`는 declared 속성 이름이어야 함.
+   `fork/vocabulary/object-types/GovernanceProposal.yaml`). 형태는 배포된
+   [`rule-catalog/vocabulary/object-types/`](../../../rule-catalog/vocabulary/object-types)
+   built-in들을 참고. `name`은 PascalCase (`^[A-Z][A-Za-z0-9]{0,63}$`);
+   `key`는 declared 속성 이름이어야 함.
 2. LinkType당 YAML 하나를 `fork/vocabulary/link-types/`에 배치 (예:
- `assigned_reviewer.yaml`). `from_type` / `to_type`은 결합된
- ObjectType 레지스트리 (업스트림 + 포크)에서 해석되어야 함;
- 오타면 로더가 fail-close. `name`은 snake_case
- (`^[a-z][a-z0-9_]{0,63}$`).
+   `assigned_reviewer.yaml`). `from_type` / `to_type`은 결합된
+   ObjectType 레지스트리 (업스트림 + 포크)에서 해석되어야 함;
+   오타면 로더가 fail-close. `name`은 snake_case
+   (`^[a-z][a-z0-9_]{0,63}$`).
 3. 조립 루트에서 두 루트를 로드하고 `dataclasses.replace`로 주입:
 
- ```python
- from dataclasses 가져오기 replace
- from pathlib 가져오기 경로
+   ```python
+   from dataclasses 가져오기 replace
+   from pathlib 가져오기 경로
 
- from fdai.rule_catalog.스키마.object_type 가져오기 load_object_type_catalog
- from fdai.rule_catalog.스키마.link_type 가져오기 load_link_type_catalog
+   from fdai.rule_catalog.스키마.object_type 가져오기 load_object_type_catalog
+   from fdai.rule_catalog.스키마.link_type 가져오기 load_link_type_catalog
 
- upstream_objects = load_object_type_catalog(
-  경로("rule-catalog/vocabulary/object-types"),
-  schema_registry=레지스트리,
- )
- fork_objects = load_object_type_catalog(
-  경로("포크/vocabulary/object-types"),
-  schema_registry=레지스트리,
- )
- objects = upstream_objects + fork_objects
-  object_names = [항목.이름 for 항목 in objects]
-  if len(object_names) != len(집합(object_names)):
-  raise ValueError("중복 ObjectType 이름 across 업스트림 and 포크 roots")
+   upstream_objects = load_object_type_catalog(
+       경로("rule-catalog/vocabulary/object-types"),
+       schema_registry=레지스트리,
+   )
+   fork_objects = load_object_type_catalog(
+       경로("포크/vocabulary/object-types"),
+       schema_registry=레지스트리,
+   )
+   objects = upstream_objects + fork_objects
+     object_names = [항목.이름 for 항목 in objects]
+     if len(object_names) != len(집합(object_names)):
+       raise ValueError("중복 ObjectType 이름 across 업스트림 and 포크 roots")
 
- upstream_links = load_link_type_catalog(
-  경로("rule-catalog/vocabulary/link-types"),
-  schema_registry=레지스트리,
-  object_types=objects,
- )
- fork_links = load_link_type_catalog(
-  경로("포크/vocabulary/link-types"),
-  schema_registry=레지스트리,
-  object_types=objects,
- )
-  links = upstream_links + fork_links
-  link_names = [항목.이름 for 항목 in links]
-  if len(link_names) != len(집합(link_names)):
-  raise ValueError("중복 LinkType 이름 across 업스트림 and 포크 roots")
- 컨테이너 = replace(
-  컨테이너,
-  ontology_object_types=objects,
-  ontology_link_types=links,
- )
- ```
+   upstream_links = load_link_type_catalog(
+       경로("rule-catalog/vocabulary/link-types"),
+       schema_registry=레지스트리,
+       object_types=objects,
+   )
+   fork_links = load_link_type_catalog(
+       경로("포크/vocabulary/link-types"),
+       schema_registry=레지스트리,
+       object_types=objects,
+   )
+     links = upstream_links + fork_links
+     link_names = [항목.이름 for 항목 in links]
+     if len(link_names) != len(집합(link_names)):
+       raise ValueError("중복 LinkType 이름 across 업스트림 and 포크 roots")
+   컨테이너 = replace(
+       컨테이너,
+       ontology_object_types=objects,
+       ontology_link_types=links,
+   )
+   ```
 
 **Rule 전달 주의**: 배포된 `Rule.resource_type` 필드는 로드 시
 `ResourceType` 레지스트리 (`Resource` ObjectType의 subtype 레지스트리)
 와 교차 검증됨. 비-Resource ObjectType을 대상하는 규칙이 필요하면:
 
 - business 객체의 subtype들을 ResourceType 항목으로 modeling해서
- 기존 전달을 그대로 씀 (많은 거버넌스 흐름에는 충분), 또는
+  기존 전달을 그대로 씀 (많은 거버넌스 흐름에는 충분), 또는
 - `Rule.applies_to`를 Resource ObjectType 너머로 일반화하는 업스트림
- issue를 열림. 룰 로더를 fork-patch하지 말 것; cross-reference는
- 로드 타이밍에 오타를 잡는 안전성 경계.
+  issue를 열림. 룰 로더를 fork-patch하지 말 것; cross-reference는
+  로드 타이밍에 오타를 잡는 안전성 경계.
 
 **테스트 방법**: `services/core-control-plane/tests/rule_catalog/test_object_type_catalog.py`와
 `services/core-control-plane/tests/rule_catalog/test_link_type_catalog.py`를 mirror. 포크
@@ -507,11 +507,11 @@ cross-root `name` uniqueness를 별도로 검사해야 합니다.
 
 **Anti-pattern**:
 - 배포된 `rule-catalog/vocabulary/object-types/*.yaml` 편집 -
- built-in ObjectType 변경은 포크가 아닌 업스트림으로.
+  built-in ObjectType 변경은 포크가 아닌 업스트림으로.
 - 포크 루트만 로드 - LinkType 로더는 결합된 레지스트리로 엔드포인트를
- 검증하므로, built-in ObjectType을 가리키는 포크 LinkType (예:
- `assigned_reviewer: Reviewer -> Resource`)은 업스트림이 빠지면
- fail-close.
+  검증하므로, built-in ObjectType을 가리키는 포크 LinkType (예:
+  `assigned_reviewer: Reviewer -> Resource`)은 업스트림이 빠지면
+  fail-close.
 
 ### 5.9 Risk 오버레이 (Rego)
 
@@ -547,7 +547,7 @@ HIL로 degrade 하도록 이 계약을 준수해야 합니다.
 | `EmbeddingModel` / `CrossCheckModel` | HTTP 에러, 시간 초과 | Raise; 업스트림이 catch하고 quality 후보를 abstain (HIL). 합성 빈 응답을 절대 반환하지 말 것. |
 | `CriticModel` / `JudgeModel` | HTTP 에러, 할당량 | Raise; `DebateOrchestrator`가 `DebateVerdict.ABORT`와 `error_class`를 반환 -> HIL. |
 | `WebSearchProvider` | HTTP 에러, 시간 초과 | Raise하거나 빈 결과를 반환할 수 있습니다. 호출자가 exception을 정제된 `provider_error` 근거로 변환하며 액션 권한을 높이지 않습니다. |
-| `HilChannel.send` | 배달 실패 | Raise; 업스트림이 로그하고 감사 trail이 승인을 `dispatch_failed`로 표시. 액션은 pending 유지; auto-execute 없음. |
+| `HilChannel.send` | 배달 실패 | Raise; 업스트림이 로그하고 감사 이력이 승인을 `dispatch_failed`로 표시. 액션은 pending 유지; auto-execute 없음. |
 | `HilChannel.poll` | 백엔드 unreachable | Raise; 업스트림이 다음 틱에서 승인을 `pending`으로 유지. |
 | `OperatorMemoryStore` | 쓰기 시 DB down | Raise; 항목이 저장되지 않으며 호출자가 승인 작업 흐름을 실패 시 차단합니다. |
 | `OperatorMemoryStore` | 읽기 시 DB down | Raise; 작성기가 stale/빈 기억으로 조용히 진행하지 않고 현재 요청을 실패 시 차단합니다. |
@@ -564,17 +564,17 @@ HIL로 degrade 하도록 이 계약을 준수해야 합니다.
 
 포크의 테스트 스위트는 두 역할을 갖습니다: (a) 포크의 실제 운영 어댑터가
 프로토콜을 준수함을 증명, (b) composition-root 변경 후에도 업스트림
-계약이 여전히 유지됨을 증명. CI가 어느 쪽이 깨졌는지 triage 하도록
+계약이 여전히 유지됨을 증명. CI가 어느 쪽이 깨졌는지 분류 하도록
 둘을 분리하세요.
 
 **권장 레이아웃**:
 
 ```
 fork/
- services/core-control-plane/tests/
- adapters/  # live 어댑터의 wire-level 테스트
- composition/  # composition_root를 end-to-end로 실행하는 테스트
- contract/  # 얇은 Protocol 준수 테스트 (아래 참조)
+  services/core-control-plane/tests/
+    adapters/        # live 어댑터의 wire-level 테스트
+    composition/     # composition_root를 end-to-end로 실행하는 테스트
+    contract/        # 얇은 Protocol 준수 테스트 (아래 참조)
 ```
 
 **프로토콜 준수 테스트 패턴** - 포크가 대체하는 모든 경계에 대해, 테스트
@@ -585,20 +585,20 @@ assert 하는 한 페이지짜리 테스트를 작성:
 from fdai.core.web_search import WebSearchProvider
 
 def test_bing_provider_is_websearch_protocol():
- provider = BingWebSearchProvider(
-  secret_provider=StubSecretProvider({"bing": "test"}),
-  secret_name="bing",
-  deploy_allowlist=frozenset({"example.com"}),
- )
- assert isinstance(provider, WebSearchProvider) # runtime_checkable
+    provider = BingWebSearchProvider(
+        secret_provider=StubSecretProvider({"bing": "test"}),
+        secret_name="bing",
+        deploy_allowlist=frozenset({"example.com"}),
+    )
+    assert isinstance(provider, WebSearchProvider)  # runtime_checkable
 ```
 
 **양쪽 스위트 실행**:
 
 ```bash
-uv run pytest -q services/core-control-plane/tests/ fork/services/core-control-plane/tests/  # 전체 CI 실행
-uv run pytest -q services/core-control-plane/tests/     # upstream 계약 회귀만
-uv run pytest -q fork/services/core-control-plane/tests/    # fork 어댑터 검사만
+uv run pytest -q services/core-control-plane/tests/ fork/services/core-control-plane/tests/       # 전체 CI 실행
+uv run pytest -q services/core-control-plane/tests/                   # upstream 계약 회귀만
+uv run pytest -q fork/services/core-control-plane/tests/              # fork 어댑터 검사만
 ```
 
 **포크의 `pyproject.toml`에서 pytest-asyncio auto-mode 상속**
@@ -627,34 +627,34 @@ ActionType을 조정할 때는 형제 디렉터리에 same-name 오버레이를 
 통해 승격하는 포크 ActionType 모두에 `default_mode=shadow` 강제):
 
 - `name` - 안정된 id, snake / dot / dash 토큰 (예:
- `governance.assign-reviewers`). 모든 카탈로그 루트에서 전역 유일.
+  `governance.assign-reviewers`). 모든 카탈로그 루트에서 전역 유일.
 - `operation` - `fdai.shared.contracts.models`의 `Operation` enum에
- 있는 CSP-neutral 동사 (`tag`, `create`, `update`, `delete`, `scale`,
- `restart`, `rotate`, `revert`, ...). `configure`는 현재 enum에 없습니다. 존재하지 않는
- 동사가 필요하면 업스트림 issue 열 것 - enum은 감사 어휘라서
- 포크되지 않아야 함.
+  있는 CSP-neutral 동사 (`tag`, `create`, `update`, `delete`, `scale`,
+  `restart`, `rotate`, `revert`, ...). `configure`는 현재 enum에 없습니다. 존재하지 않는
+  동사가 필요하면 업스트림 issue 열 것 - enum은 감사 어휘라서
+  포크되지 않아야 함.
 - `interfaces` - 실행기가 존중하는 `ActionInterface` 이름 리스트
- (예: `ControlPlane`, `DataPlaneMutating`, `IdempotentByKey`,
- `RequiresInventoryFresh`). `DataPlane`과 `Governance`는 현재 enum이 아닙니다. Risk-gate가 이
- 세트로 feature vector를 구성.
+  (예: `ControlPlane`, `DataPlaneMutating`, `IdempotentByKey`,
+  `RequiresInventoryFresh`). `DataPlane`과 `Governance`는 현재 enum이 아닙니다. Risk-gate가 이
+  세트로 feature vector를 구성.
 - `rollback_contract` - `pr_revert`, `scripted`, `pitr`,
- `snapshot_restore`, `state_forward_only` 중 하나. 레거시 `none`
- 값은 사라짐; 진짜로 one-way 변경은 `irreversible: true`를
- 세팅하고 risk-gate가 HIL+정족수로 라우팅하지만, 여전히
- 최선 노력 롤백 설명을 반드시 선언해야 함.
+  `snapshot_restore`, `state_forward_only` 중 하나. 레거시 `none`
+  값은 사라짐; 진짜로 one-way 변경은 `irreversible: true`를
+  세팅하고 risk-gate가 HIL+정족수로 라우팅하지만, 여전히
+  최선 노력 롤백 설명을 반드시 선언해야 함.
 - `default_mode` - 업스트림과 포크의 모든 새 카탈로그 항목은 반드시 `shadow`입니다.
- 로더가 `enforce`를 거부하며 승격 상태는 권위 있는 레지스트리가 별도로 소유합니다.
+  로더가 `enforce`를 거부하며 승격 상태는 권위 있는 레지스트리가 별도로 소유합니다.
 - `promotion_gate` - `min_shadow_days`, `min_samples`, `min_accuracy`,
- `max_policy_escapes`. Rule 배정은 이 값들을 조일 MAY 하지만
- 느슨하게 하지 말 것.
+  `max_policy_escapes`. Rule 배정은 이 값들을 조일 MAY 하지만
+  느슨하게 하지 말 것.
 - `preconditions[]` / `stop_conditions[]` - T0 검증기가 risk-gate
- 전에 평가하는 결정론적 검사. 빈 리스트는 실행기가 독립 불변식을
- 가질 때만 허용 (예: 멱등적 tag 집합); 대부분의 `governance.*`
- ActionType은 최소 하나를 선언.
+  전에 평가하는 결정론적 검사. 빈 리스트는 실행기가 독립 불변식을
+  가질 때만 허용 (예: 멱등적 tag 집합); 대부분의 `governance.*`
+  ActionType은 최소 하나를 선언.
 - `trigger_kind` (선택) - `{kind: rule_violation}`, `{kind: operator_request}`, 또는
- `{kind: both}` 객체. `operator_request` 또는 `both`일 때는 콘솔이 조정기
- 경계에서 인자를 검증하도록 `argument_schema` (JSON 스키마)
- 도 반드시 선언.
+  `{kind: both}` 객체. `operator_request` 또는 `both`일 때는 콘솔이 조정기
+  경계에서 인자를 검증하도록 `argument_schema` (JSON 스키마)
+  도 반드시 선언.
 
 **바인딩 방법 (concatenation)**:
 
@@ -665,19 +665,19 @@ from dataclasses import replace
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 
 upstream_actions = load_action_type_catalog(
- Path("rule-catalog/action-types"),
- schema_registry=registry,
- probes_root=Path("rule-catalog/probes"),
+    Path("rule-catalog/action-types"),
+    schema_registry=registry,
+    probes_root=Path("rule-catalog/probes"),
 )
 fork_actions = load_action_type_catalog(
- Path("fork/action-types"),
- schema_registry=registry,
- probes_root=None, # fork는 자체 probe 배포 MAY; None이면 cross-check skip
+    Path("fork/action-types"),
+    schema_registry=registry,
+    probes_root=None,   # fork는 자체 probe 배포 MAY; None이면 cross-check skip
 )
 action_types = upstream_actions + fork_actions
 action_names = [item.name for item in action_types]
 if len(action_names) != len(set(action_names)):
- raise ValueError("duplicate ActionType name across upstream and fork roots")
+  raise ValueError("duplicate ActionType name across upstream and fork roots")
 ```
 
 Rule 로더 (5.8)는 `action_types=action_types`를 받아서 결합된 세트에
@@ -697,7 +697,7 @@ phantom ActionType을 도입할 수 없음.
 템플릿으로 재사용. 포크 테스트는 다음을 assert SHOULD:
 
 - 모든 포크 ActionType이 오류 없이 `load_action_type_from_mapping`을
- round-trip,
+  round-trip,
 - `default_mode`가 포크의 shadow-first 정책과 일치,
 - `promotion_gate` 값이 non-degenerate,
 - `trigger_kind`가 operator-request를 허용할 때 `argument_schema` 존재.
@@ -711,12 +711,12 @@ phantom ActionType을 도입할 수 없음.
 **Anti-pattern**:
 
 - 배포된 `rule-catalog/action-types/*.yaml` 편집 - ObjectType 편집과
- 동일 규칙: 배포된 ActionType은 업스트림으로, 포크는 새로 배포하거나
- 오버레이.
+  동일 규칙: 배포된 ActionType은 업스트림으로, 포크는 새로 배포하거나
+  오버레이.
 - `irreversible: true`만으로 롤백 침묵. `rollback_contract`는
- reversal이 최선 노력일 때도 필수.
+  reversal이 최선 노력일 때도 필수.
 - 측정된 shadow 창 없이 신규 ActionType 카테고리를 `default_mode: enforce`
- 로 - 포크에서도 마찬가지.
+  로 - 포크에서도 마찬가지.
 
 ### 5.13 전달 어댑터 (커스텀 발행기)
 
@@ -732,7 +732,7 @@ publish. 대표 포크 예시: 거버넌스 결정용 Confluence 페이지 발�
 
 ```python
 class RemediationPrPublisher(Protocol):
- async def publish(self, pr: RemediationPr) -> PublishReceipt: ...
+    async def publish(self, pr: RemediationPr) -> PublishReceipt: ...
 ```
 
 `RemediationPr`은 완전히 렌더된 페이로드 (제목, 본문, patch, patch_path, labels,
@@ -750,38 +750,38 @@ ServiceNow 티켓을 대상하는 포크 어댑터는 일급 구현이지 workar
 ```python
 # fork/adapters/confluence_publisher.py
 from fdai.shared.providers.remediation_pr import (
- PublishReceipt, RemediationPr, RemediationPrPublisher,
+    PublishReceipt, RemediationPr, RemediationPrPublisher,
 )
 from fdai.shared.providers.secret_provider import SecretProvider
 
 class ConfluencePagePublisher(RemediationPrPublisher):
- """렌더된 governance-decision 페이지를 Confluence space에 publish."""
+    """렌더된 governance-decision 페이지를 Confluence space에 publish."""
 
- def __init__(
-  self,
-  *,
-  secret_provider: SecretProvider,
-  api_token_secret: str,
-  base_url: str,
-  space_key: str,
- ) -> None:
-  self._secret_provider = secret_provider
-  self._api_token_secret = api_token_secret
-  self._base_url = base_url
-  self._space_key = space_key
+    def __init__(
+        self,
+        *,
+        secret_provider: SecretProvider,
+        api_token_secret: str,
+        base_url: str,
+        space_key: str,
+    ) -> None:
+        self._secret_provider = secret_provider
+        self._api_token_secret = api_token_secret
+        self._base_url = base_url
+        self._space_key = space_key
 
- async def publish(self, pr: RemediationPr) -> PublishReceipt:
-  token = await self._secret_provider.get(self._api_token_secret)
-  # 1. pr.title / pr.body / pr.patch를 Confluence body로 번역.
-  # 2. self._space_key와 함께 <base_url>/wiki/rest/api/content에 POST.
-  # 3. 응답에서 page id와 self-link 추출.
-  # 4. audit log가 정확한 revision을 back-link 하도록 pr_ref가
-  # page id를 인용하는 PublishReceipt 반환.
-  return PublishReceipt(
-   pr_ref="confluence:page:<id>",
-   url="<page-url>",
-   already_existed=False,
-  )
+    async def publish(self, pr: RemediationPr) -> PublishReceipt:
+        token = await self._secret_provider.get(self._api_token_secret)
+        # 1. pr.title / pr.body / pr.patch를 Confluence body로 번역.
+        # 2. self._space_key와 함께 <base_url>/wiki/rest/api/content에 POST.
+        # 3. 응답에서 page id와 self-link 추출.
+        # 4. audit log가 정확한 revision을 back-link 하도록 pr_ref가
+        #    page id를 인용하는 PublishReceipt 반환.
+        return PublishReceipt(
+          pr_ref="confluence:page:<id>",
+            url="<page-url>",
+          already_existed=False,
+        )
 ```
 
 **Composition-root 배선** (기본 발행기 대체):
@@ -793,16 +793,16 @@ from fdai.core.executor import ShadowExecutor
 # ... build_control_loop() 안에서 ...
 
 publisher = ConfluencePagePublisher(
- secret_provider=secret_provider, # fork composition이 별도로 구성
- api_token_secret="confluence.api.token",
- base_url="https://example.atlassian.net",
- space_key="ARB",
+  secret_provider=secret_provider,  # fork composition이 별도로 구성
+    api_token_secret="confluence.api.token",
+    base_url="https://example.atlassian.net",
+    space_key="ARB",
 )
 executor = ShadowExecutor(
- publisher=publisher,
- audit_store=audit_store,
- renderer=renderer,
- resource_lock=resource_lock,
+    publisher=publisher,
+    audit_store=audit_store,
+    renderer=renderer,
+    resource_lock=resource_lock,
 )
 ```
 
@@ -822,14 +822,14 @@ Wire 테스트는 벤더 API에 대해 `httpx.MockTransport` 사용; 계약
 **Anti-pattern**:
 
 - 발행기가 Resource 자체에 변경을 실행. 전달은 변환 결과
- 표면; 실행기 + risk-gate가 변경 계약을 소유. 발행기가
- Resource에 side-effect를 내면 정책 bypass.
+  표면; 실행기 + risk-gate가 변경 계약을 소유. 발행기가
+  Resource에 side-effect를 내면 정책 bypass.
 - 해결된 시크릿을 로그하거나 저장. `SecretProvider.get`은 실제 운영
- 문자열 반환; 요청 lifetime 이상 `self`에 두지 말고 호출-scoped로
- 유지.
+  문자열 반환; 요청 lifetime 이상 `self`에 두지 말고 호출-scoped로
+  유지.
 - 전달 어댑터를 포크 소유 룰 로직과 번들링. 어댑터는
- `fork/adapters/` 아래, 룰 카탈로그는 `fork/rules/` 아래로 분리해서
- 각 side에 격리된 테스트 표면 유지.
+  `fork/adapters/` 아래, 룰 카탈로그는 `fork/rules/` 아래로 분리해서
+  각 side에 격리된 테스트 표면 유지.
 
 ### 5.14 Console ReadPanel 추가
 
@@ -848,13 +848,13 @@ GET-only 라우트로 mount 하며 경로는 빌드 시 검증 (`/`로 시작, `
 **읽기 전용 계약 (MUST)**:
 
 - `ReadPanel.render`는 상태를 mutate 하거나 어떤 액션도 트리거해서는
- 안 됨 - 변환 결과 표면 전용. 작업 흐름을 트리거하려는 패널은
- 이벤트 버스에 `Signal`을 발행 하는 방식으로 하지 실행기 호출로
- 하지 말 것.
+  안 됨 - 변환 결과 표면 전용. 작업 흐름을 트리거하려는 패널은
+  이벤트 버스에 `Signal`을 발행 하는 방식으로 하지 실행기 호출로
+  하지 말 것.
 - [`panels.py`](../../../services/operator-service/src/fdai_operator_service/) 아래
- 업스트림 `ExampleFinOpsPanel`은 참조 구현이며 기본으로
- **등록되지 않음**. 그 형태를 복사하되 가져오기해서 재등록하지 말 것 -
- 업스트림은 의도적으로 UI를 최소로 유지.
+  업스트림 `ExampleFinOpsPanel`은 참조 구현이며 기본으로
+  **등록되지 않음**. 그 형태를 복사하되 가져오기해서 재등록하지 말 것 -
+  업스트림은 의도적으로 UI를 최소로 유지.
 
 **바인딩 방법 (포크 패널 예시)**:
 
@@ -868,19 +868,19 @@ from fdai.delivery.operator_api.routes.panels import ReadPanel
 
 @dataclass(frozen=True)
 class GovernanceDecisionsPanel(ReadPanel):
- """리뷰어 세트 + outcome을 가진 최근 governance 결정."""
+    """리뷰어 세트 + outcome을 가진 최근 governance 결정."""
 
- path: str = "/panels/governance/decisions"
- name: str = "governance-decisions"
+    path: str = "/panels/governance/decisions"
+    name: str = "governance-decisions"
 
- async def render(self, *, params: Mapping[str, str]) -> dict[str, Any]:
-  # 1. fork의 projection store 조회 (Postgres 뷰, read model, ...).
-  # 2. 콘솔에 안전하지 않은 identity 값은 redact.
-  # 3. JSON-serialisable dict 반환; Operator API가 직렬화.
-  return {
-   "items": [],   # {proposal_id, decided_at, reviewers, outcome} 리스트
-   "generated_at": "...",
-  }
+    async def render(self, *, params: Mapping[str, str]) -> dict[str, Any]:
+        # 1. fork의 projection store 조회 (Postgres 뷰, read model, ...).
+        # 2. 콘솔에 안전하지 않은 identity 값은 redact.
+        # 3. JSON-serialisable dict 반환; Operator API가 직렬화.
+        return {
+            "items": [],           # {proposal_id, decided_at, reviewers, outcome} 리스트
+            "generated_at": "...",
+        }
 ```
 
 **Composition-root 배선** (포크의 `entry.py`에 등록):
@@ -891,11 +891,11 @@ from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fork.adapters.read_panels import GovernanceDecisionsPanel
 
 app = build_app(
- authenticator=authenticator,
- read_model=read_model,
- config=OperatorApiConfig(
-  extra_panels=(GovernanceDecisionsPanel(),),
- ),
+  authenticator=authenticator,
+  read_model=read_model,
+    config=OperatorApiConfig(
+        extra_panels=(GovernanceDecisionsPanel(),),
+    ),
 )
 ```
 
@@ -910,22 +910,22 @@ mount / path-validation 로직을 커버. 포크는 다음을 추가:
 
 1. 스텁된 데이터 소스로 패널의 `render()`에 대한 단위 테스트.
 2. Starlette 테스트 클라이언트로 `build_app(authenticator=..., read_model=...,
- 구성=OperatorApiConfig(extra_panels=(YourPanel(),)))`
- 를 부팅하고 패널이 선언된 경로의 GET으로 도달 가능한지 assert 하는
- HTTP-level 테스트.
+   구성=OperatorApiConfig(extra_panels=(YourPanel(),)))`
+   를 부팅하고 패널이 선언된 경로의 GET으로 도달 가능한지 assert 하는
+   HTTP-level 테스트.
 3. 패널이 non-GET 동사를 거부하는지 assert 하는 부정 테스트
- (mount 코드가 강제하지만 포크 표류에 대한 방어).
+   (mount 코드가 강제하지만 포크 표류에 대한 방어).
 
 **Anti-pattern**:
 
 - 패널에서 액션 실행 (실행기 메서드를 호출하는 양식 게시). 콘솔은
- 읽기 표면; 승인은 ChatOps나 PR로 흐르지 패널 버튼으로 흐르지
- 않음.
+  읽기 표면; 승인은 ChatOps나 PR로 흐르지 패널 버튼으로 흐르지
+  않음.
 - 실제 운영 클라우드 SDK를 읽는 패널. 배포된 인벤토리 / 변환 결과 저장소
- 사용; 벤더 API에 직접 talk 하는 패널은 상태를 중복하고
- split-brain 표류 유발.
+  사용; 벤더 API에 직접 talk 하는 패널은 상태를 중복하고
+  split-brain 표류 유발.
 - 프론트엔드 레지스트리 편집 건너뛰기. UI 엔트리 없는 백엔드-전용 패널은
- 문서화되지 않은 HTTP 표면 - 추적 가능하지만 사용 불가.
+  문서화되지 않은 HTTP 표면 - 추적 가능하지만 사용 불가.
 
 ### 5.15 포크 진입점 (`entry.py`)
 
@@ -945,22 +945,22 @@ mount / path-validation 로직을 커버. 포크는 다음을 추가:
 **호환성 보조 로직으로 재사용** (업스트림에서 가져오기, 재정의 금지):
 
 - `_resolve_catalog_root` / `_resolve_policies_root` -
- 환경 / 파일시스템 발견.
+  환경 / 파일시스템 발견.
 - `_finalize_llm_bindings` - env-driven 업스트림 항목을 위한 호환성 래퍼.
- Programmatic 포크 조립은 공개 `wire_azure_container` + `AzureWireOverrides`를
- 직접 사용하는 것이 기본입니다.
+  Programmatic 포크 조립은 공개 `wire_azure_container` + `AzureWireOverrides`를
+  직접 사용하는 것이 기본입니다.
 - `_consume` / `_run` - Kafka 이벤트 루프와 최상위 signal-handling
- scaffolding.
+  scaffolding.
 
 **교체** (포크가 각각 소유):
 
 - `_build_publisher` - 포크가 전달 어댑터 (5.13)를 배포하면 이
- 헬퍼를 발행기 반환하는 것으로 대체.
+  헬퍼를 발행기 반환하는 것으로 대체.
 - `_build_hil_channel` - 포크가 HilChannel 어댑터 (5.5)를 배포하면
- 이 헬퍼 대체.
+  이 헬퍼 대체.
 - `_build_control_loop` - 카탈로그, ActionType, 온톨로지 (5.8a),
- 룰의 조립. 포크는 보통 업스트림 헬퍼를 호출하고 반환값을
- wrap 하거나, 본문을 복사해서 fork-카탈로그 concatenation을 추가.
+  룰의 조립. 포크는 보통 업스트림 헬퍼를 호출하고 반환값을
+  wrap 하거나, 본문을 복사해서 fork-카탈로그 concatenation을 추가.
 
 **골격**:
 
@@ -970,7 +970,7 @@ mount / path-validation 로직을 커버. 포크는 다음을 추가:
 
 추가:
 - fork rule catalog + ActionType catalog + ObjectType/LinkType catalog
- concatenation,
+  concatenation,
 - Confluence publisher (5.13),
 - Teams HilChannel 어댑터 (5.5),
 - Governance 대시보드 (5.14).
@@ -989,11 +989,11 @@ from pathlib import Path
 import httpx
 
 from fdai.__main__ import (
- _consume,
- _finalize_llm_bindings,
- _resolve_catalog_root,
- _resolve_policies_root,
- _run,
+    _consume,
+    _finalize_llm_bindings,
+    _resolve_catalog_root,
+    _resolve_policies_root,
+    _run,
 )
 from fdai.composition import Container, default_container_from_env
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
@@ -1008,60 +1008,60 @@ _LOGGER = logging.getLogger("fork.startup")
 
 
 async def build_container_with_fork_catalogs(
- *, http_client: httpx.AsyncClient,
+    *, http_client: httpx.AsyncClient,
 ) -> Container:
- container = default_container_from_env()
+    container = default_container_from_env()
 
- catalog_root = _resolve_catalog_root()
- fork_root = Path("fork")
- registry = container.schema_registry
+    catalog_root = _resolve_catalog_root()
+    fork_root = Path("fork")
+    registry = container.schema_registry
 
- # ObjectType / LinkType concatenation (recipe 5.8a).
- upstream_objects = load_object_type_catalog(
-  catalog_root / "vocabulary" / "object-types", schema_registry=registry,
- )
- fork_objects = load_object_type_catalog(
-  fork_root / "vocabulary" / "object-types", schema_registry=registry,
- )
- objects = upstream_objects + fork_objects
- upstream_links = load_link_type_catalog(
-  catalog_root / "vocabulary" / "link-types",
-  schema_registry=registry, object_types=objects,
- )
- fork_links = load_link_type_catalog(
-  fork_root / "vocabulary" / "link-types",
-  schema_registry=registry, object_types=objects,
- )
- container = replace(
-  container,
-  ontology_object_types=objects,
-  ontology_link_types=upstream_links + fork_links,
- )
+    # ObjectType / LinkType concatenation (recipe 5.8a).
+    upstream_objects = load_object_type_catalog(
+        catalog_root / "vocabulary" / "object-types", schema_registry=registry,
+    )
+    fork_objects = load_object_type_catalog(
+        fork_root / "vocabulary" / "object-types", schema_registry=registry,
+    )
+    objects = upstream_objects + fork_objects
+    upstream_links = load_link_type_catalog(
+        catalog_root / "vocabulary" / "link-types",
+        schema_registry=registry, object_types=objects,
+    )
+    fork_links = load_link_type_catalog(
+        fork_root / "vocabulary" / "link-types",
+        schema_registry=registry, object_types=objects,
+    )
+    container = replace(
+        container,
+        ontology_object_types=objects,
+        ontology_link_types=upstream_links + fork_links,
+    )
 
- # ActionType concatenation (recipe 5.12) 후 Rule concatenation (5.8)은
- # 아래에서 자체 _build_control_loop wrapper 안에서 발생.
+    # ActionType concatenation (recipe 5.12) 후 Rule concatenation (5.8)은
+    # 아래에서 자체 _build_control_loop wrapper 안에서 발생.
 
- return await _finalize_llm_bindings(container, http_client=http_client)
+    return await _finalize_llm_bindings(container, http_client=http_client)
 
 
 async def _fork_run() -> int:
- async with httpx.AsyncClient(timeout=30.0) as http:
-  container = await build_container_with_fork_catalogs(http_client=http)
-  # ... 여기에 fork publisher + HIL channel 빌드 후 _consume에 handoff.
-  # 전체 wiring은 fork/composition_root.py 참조.
-  return await _consume(container=container, http_client=http)
+    async with httpx.AsyncClient(timeout=30.0) as http:
+        container = await build_container_with_fork_catalogs(http_client=http)
+        # ... 여기에 fork publisher + HIL channel 빌드 후 _consume에 handoff.
+        # 전체 wiring은 fork/composition_root.py 참조.
+        return await _consume(container=container, http_client=http)
 
 
 def main() -> int:
- logging.basicConfig(level=logging.INFO)
- try:
-  return asyncio.run(_fork_run())
- except KeyboardInterrupt:
-  return 130
+    logging.basicConfig(level=logging.INFO)
+    try:
+        return asyncio.run(_fork_run())
+    except KeyboardInterrupt:
+        return 130
 
 
 if __name__ == "__main__":
- sys.exit(main())
+    sys.exit(main())
 ```
 
 **pyproject.toml 스크립트 엔트리** (`uv run` / 컨테이너 CMD가 여기로
@@ -1081,23 +1081,23 @@ in-memory 가짜에 대해 `build_container_with_fork_catalogs`를 실행하고
 다음을 assert SHOULD:
 
 1. `container.ontology_object_types`가 업스트림과 포크 이름을 모두
- 포함.
+   포함.
 2. `local-fake` 모드에서 `_finalize_llm_bindings` 후
- `container.llm_bindings`가 non-None.
+   `container.llm_bindings`가 non-None.
 3. 잘못된 구성 env가 조용히 degrade 된 컨테이너가 아니라 fail-fast
- 시작을 생성.
+   시작을 생성.
 
 **Anti-pattern**:
 
 - 전체 `__main__.py`를 copy-paste 해서 in-place 편집. 업스트림 sync
- 방어선을 잃음. Wrap 하거나 가져오기; 전체 파일을 fork-clone 하지 말
- 것.
+  방어선을 잃음. Wrap 하거나 가져오기; 전체 파일을 fork-clone 하지 말
+  것.
 - Azure 모드에서 env-driven `_finalize_llm_bindings`와 programmatic
- `wire_azure_container`를 섞어 두 번 연결. 둘 중 하나를 선택하고 공개
- `AzureWireOverrides` 검증을 우회하지 마세요.
+  `wire_azure_container`를 섞어 두 번 연결. 둘 중 하나를 선택하고 공개
+  `AzureWireOverrides` 검증을 우회하지 마세요.
 - 포크의 `entry.py`를 `fdai` 이외의 스크립트 이름으로 등록하고 컨테이너
- CMD 업데이트 잊음. 결과: 이미지가 업스트림의 `__main__`을 실행하고
- 포크 배선은 하나도 실행되지 않음.
+  CMD 업데이트 잊음. 결과: 이미지가 업스트림의 `__main__`을 실행하고
+  포크 배선은 하나도 실행되지 않음.
 
 ### 5.16 매뉴얼 증류 (`ManualSource` / `ManualClassifier` / `Distiller`)
 
@@ -1110,23 +1110,23 @@ in-memory 가짜에 대해 `build_container_with_fork_catalogs`를 실행하고
 날조하지 않고 아무것도 증류하지 않는다):
 
 - `fdai.shared.providers.manual_source.ManualSource` - 매뉴얼을
- 발견하고 각각을 `ManualDocument`로 전달. 기본 `EmptyManualSource`는
- 아무것도 제공하지 않는다. 업스트림 제네릭 `DropDirectoryManualSource`는
- 로컬 폐기 디렉토리를 읽어 크레덴셜-프리 접근 모드 전부를 한 번에
- 커버한다(운영자 폐기, 콘솔 업로드, email-in, iPaaS / Power Automate
- 웹훅). `bind_drop_directory_manual_source(container, root=...)`로
- 배선한다. SharePoint / Confluence / Notion 커넥터나 위임-토큰 fetch는
- 고객 데이터이며 동일 프로토콜 뒤에서 포크에 산다.
+  발견하고 각각을 `ManualDocument`로 전달. 기본 `EmptyManualSource`는
+  아무것도 제공하지 않는다. 업스트림 제네릭 `DropDirectoryManualSource`는
+  로컬 폐기 디렉토리를 읽어 크레덴셜-프리 접근 모드 전부를 한 번에
+  커버한다(운영자 폐기, 콘솔 업로드, email-in, iPaaS / Power Automate
+  웹훅). `bind_drop_directory_manual_source(container, root=...)`로
+  배선한다. SharePoint / Confluence / Notion 커넥터나 위임-토큰 fetch는
+  고객 데이터이며 동일 프로토콜 뒤에서 포크에 산다.
 - `fdai.shared.providers.manual_classifier.ManualClassifier` - 값싼
- "이것이 운영 절차인가?" 호출. 기본 `AbstainingManualClassifier`는 모든
- 후보를 `UNCERTAIN`으로 표시해 자동 증류 대신 HIL 선별로 라우팅한다.
- 포크는 `replace(container, manual_classifier=...)`로 소형 모델 분류기를
- 배선한다.
+  "이것이 운영 절차인가?" 호출. 기본 `AbstainingManualClassifier`는 모든
+  후보를 `UNCERTAIN`으로 표시해 자동 증류 대신 HIL 선별로 라우팅한다.
+  포크는 `replace(container, manual_classifier=...)`로 소형 모델 분류기를
+  배선한다.
 - `fdai.shared.providers.distiller.Distiller` - LLM 추출기. 기본
- `AbstainingDistiller`는 아무것도 추출하지 않는다. 포크는
- `replace(container, distiller=...)`로 LLM 기반 distiller를 배선한다.
+  `AbstainingDistiller`는 아무것도 추출하지 않는다. 포크는
+  `replace(container, distiller=...)`로 LLM 기반 distiller를 배선한다.
 
-결정론적 단계(triage 필터, exact dedupe, 민감도 시크릿 / PII 가드,
+결정론적 단계(분류 필터, exact dedupe, 민감도 시크릿 / PII 가드,
 최신성 차이, 커버리지)는 업스트림이며 포크 작업이 필요 없다. 빌드
 타임 오케스트레이터
 `fdai.rule_catalog.pipeline.distill.orchestrator.build_distillation_plan`가
@@ -1146,12 +1146,12 @@ in-memory 가짜에 대해 `build_container_with_fork_catalogs`를 실행하고
 **안티패턴**:
 
 - 테넌트 전체에 대한 광범위 상시 서비스-프린시펄 읽기 크레덴셜 보유.
- 증류는 빌드 타임이고 매뉴얼 리비전당 한 번 실행되므로, push / 위임으로
- 뒤집고 상시 크레덴셜을 보유하지 않는다(설계 문서의 접근 표 참조).
+  증류는 빌드 타임이고 매뉴얼 리비전당 한 번 실행되므로, push / 위임으로
+  뒤집고 상시 크레덴셜을 보유하지 않는다(설계 문서의 접근 표 참조).
 - 민감도 가드를 건드리는 매뉴얼을 자동 증류. `HOLD` 처리 결과는 반드시
- HIL로 라우팅해야 하며, distiller로 직행해선 안 된다.
+  HIL로 라우팅해야 하며, distiller로 직행해선 안 된다.
 - 매뉴얼이나 증류된 규칙을 업스트림에 커밋. 이들은 고객 데이터이며 5.8의
- 규칙 카탈로그 추가와 똑같이 포크에만 산다.
+  규칙 카탈로그 추가와 똑같이 포크에만 산다.
 
 ### 5.17 기능 번들 등록
 
@@ -1171,7 +1171,7 @@ in-memory 가짜에 대해 `build_container_with_fork_catalogs`를 실행하고
 2. 포크 소유 프로바이더와 `CapabilityBundle`을 구성합니다.
 3. 로드한 카탈로그 객체를 `install_capability_bundle`에 전달합니다.
 4. Azure 모드에서는 반환된 컨테이너를 `wire_azure_container`에 전달합니다.
- 설치된 reasoning-tool 프로바이더는 자동으로 포함됩니다.
+   설치된 reasoning-tool 프로바이더는 자동으로 포함됩니다.
 
 Installer는 알 수 없는 대상, 누락 또는 중복 프로바이더, 도구 산출물에 선언된
 프로바이더와 번들의 불일치, 참조되지 않은 프로바이더가 있으면 시작을 차단합니다.
@@ -1188,6 +1188,6 @@ Installer는 알 수 없는 대상, 누락 또는 중복 프로바이더, 도구
 **Anti-pattern**:
 
 - 동일 프로바이더를 번들과 `AzureWireOverrides.tool_providers` 양쪽에 등록합니다.
- 중복 id는 시작 오류입니다.
+  중복 id는 시작 오류입니다.
 - 번들을 변경 작업용 범용 함수 디스패처로 사용합니다. 변경은 컨트롤 루프가
- 관리하는 `ActionType` 호출로 유지합니다.
+  관리하는 `ActionType` 호출로 유지합니다.

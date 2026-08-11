@@ -35,10 +35,10 @@ translation_revised: 2026-08-11
 배포됐고 control-plane 경로는 경계만 있습니다:
 
 - **컨트롤 플레인(계획됨)**: [실행기](../architecture/project-structure-ko.md)가 교정 PR을 발행하기
- 전에, analyzer는 그 변경이 실제로 대상 범위에 착지할 수 있는지 확인합니다. 차단
- 발견 사항은 정책을 실패시킬 PR을 여는 대신 액션을 `hil`로 격하시킵니다.
+  전에, analyzer는 그 변경이 실제로 대상 범위에 착지할 수 있는지 확인합니다. 차단
+  발견 사항은 정책을 실패시킬 PR을 여는 대신 액션을 `hil`로 격하시킵니다.
 - **사람 배포(배포됨)**: 비공개 실행기 작업 흐름이 계획 전에 리포트를 생성하고 exact-plan
- 메타데이터에 근거 다이제스트를 연결합니다. PR comment/GitHub 검사 전송은 후속입니다.
+  메타데이터에 근거 다이제스트를 연결합니다. PR comment/GitHub 검사 전송은 후속입니다.
 
 두 경로 모두 **deterministic-first**(T0 성격)입니다: 클라우드 호출 없는 정적 분석이 대부분의
 발견 사항을 해결하고, 범위가 제한된·읽기 전용 라이브 프로브가 나머지(egress 도달성, 쿼터)를
@@ -70,11 +70,11 @@ translation_revised: 2026-08-11
 로 조립됩니다. 각 발견 사항은 세 개의 필수 부분을 가집니다:
 
 - **근거** - 그것을 만들어낸 규칙의 CSP-neutral 인용
- (`policy:<neutral-id>`, `nsg:<neutral-id>/rule:<name>`). 출처를 인용할 수 없는
- 프로브는 발견 사항을 발행해서는 안 됩니다; 근거 없는 차단 요인은 결함이며, T2 검증기가
- 따르는 규칙과 동일합니다.
+  (`policy:<neutral-id>`, `nsg:<neutral-id>/rule:<name>`). 출처를 인용할 수 없는
+  프로브는 발견 사항을 발행해서는 안 됩니다; 근거 없는 차단 요인은 결함이며, T2 검증기가
+  따르는 규칙과 동일합니다.
 - **심각도** - `blocking`(강제 적용 모드 배포를 게이팅) 또는 `warning`(표면화하지만 절대
- 게이팅하지 않음).
+  게이팅하지 않음).
 - **해석** - 어떻게 해소하는지, 가능하면 구체적인 레버에 매핑됨 (아래 토글 표 참조).
 
 ### 결정 의미론
@@ -133,15 +133,15 @@ translation_revised: 2026-08-11
 ## 안전 자세
 
 - **실패 시 차단** - raise하는 프로브는 전파됩니다; 패스는 부분 실행에서 `clear`를 절대
- 보고하지 않습니다. 차단 발견 사항은 컨트롤 플레인 액션을 게이팅되지 않은 auto-action이
- 아니라 `hil`로 격하시킵니다.
+  보고하지 않습니다. 차단 발견 사항은 컨트롤 플레인 액션을 게이팅되지 않은 auto-action이
+  아니라 `hil`로 격하시킵니다.
 - **읽기 전용** - 프로브는 절대 mutate하지 않습니다; 패스는 모든 배포에서 실행해도 안전합니다.
 - **멱등적** - 발견 사항은 결정론적으로 정렬되어(차단 먼저, 그 다음 id 순), 같은
- 입력에 대한 재실행은 바이트-동일한 리포트를 생성합니다.
+  입력에 대한 재실행은 바이트-동일한 리포트를 생성합니다.
 - **근거 있음** - 출처 규칙을 인용하는 근거 없이는 발견 사항이 없습니다.
 - **발견 피드백** - 여러 환경에 걸친 반복 차단 요인(예: 모든 범위가 `docker.io` 차단)는
- 발견 루프가 새 기본 토글이나 규칙을 제안하도록 하는 신호입니다
- ([architecture.instructions.md § Rule 카탈로그](../../../.github/instructions/architecture.instructions.md#rule-catalog)).
+  발견 루프가 새 기본 토글이나 규칙을 제안하도록 하는 신호입니다
+  ([architecture.instructions.md § Rule 카탈로그](../../../.github/instructions/architecture.instructions.md#rule-catalog)).
 
 ## 전달 상태
 
@@ -149,34 +149,34 @@ translation_revised: 2026-08-11
 `fdaictl` 진입점, deploy 작업 흐름의 protected-plan 근거 연결, 테스트.
 
 1. **Azure 탐색과 protected-plan 근거(배포됨)**: `delivery/azure/preflight/`의 공유 읽기 전용 ARM
- 클라이언트(`AzureArmClient`, 주입된 `httpx.AsyncClient` + `WorkloadIdentity` bearer
- 토큰, 실패 시 차단)와 `AzurePolicyGuardrailProbe`(실제 Azure Policy `deny` 가드레일 -
- `Not allowed` / `Allowed resource types`), `AzureQuotaProbe`(구독 + 위치별 Compute
- 사용량)가 mock-HTTP 유닛 테스트와 함께 landed. Policy 파서는 모든 형제가 정본
- type-exists 가드인 경우에만 built-in `allOf` 타입 제약을 허용하며 알 수 없음 형제는
- 실패 시 차단으로 유지합니다. 격리된 실제 운영 검증에서 RG-scoped disk 거부는
- `disk_provisioning=attach_existing`로 매핑됐고 실제 할당량 부족은 수동 차단 요인으로 남았으며,
- temporary 배정은 검토된 롤백으로 제거됐습니다. `fdaictl deploy preflight
- --environment-config`는 Azure CLI 워크로드 신원, 범위가 제한된 읽기 전용 ARM 전송 계층,
- neutral-to-ARM 타입 대응, 정제된 실패 시 차단 오류와 함께 두 탐색을 같은 analyzer에
- 조립합니다. 기존 Resource Graph 역할 관찰기도 `AzureIdentityRbacProbe`를 통해 조립되어
- principal 또는 role-definition id를 출력하지 않고 누락된 event-bus 및 secret-reader
- 실행기 역할을 보고합니다. `AzureSecretConfigProbe`는 상태만으로 필수 Key Vault
- 참조를 검사하고 응답 본문 또는 시크릿 값을 읽지 않으며 hashed 참조를
- 출력합니다. 보고는 clear인 경우에도 정제된 per-category 검사 커버리지를 기록합니다.
- 비공개 실행기는 강제 적용 모드에서 Azure category 네 개를 모두 요구하고 범위가 제한된 TLS egress
- 근거와 결합합니다. 정제된 보고만 비공개 Blob 저장소에 저장하고 두 근거 다이제스트를
- exact-plan 검증에 연결합니다. Firewall / NSG 토폴로지 어댑터는 별도 future
- enhancement이며 direct 실행기 도달 가능성 근거에는 필요하지 않습니다.
- 2. **Capability-mode 토글 scaffold(배포됨)**: `infra/modules/preflight-toggles/`와 disk
- 참조 소비자가 계약을 검증합니다. 루트 앱 그래프의 실제 소비자 배선은 계획됨.
- 3. **검사 발행 기본 요소(배포됨)**: 코어 함수, 프로바이더 프로토콜, in-memory
- 발행기가 있습니다. GitHub 검사 어댑터와 infra PR 작업 흐름 배선은 계획됨.
- 4. **배포 환경 프로파일 기본 요소(배포됨)**: 범위가 제한된 in-memory 캐시, TTL,
- Inventory-delta invalidation 보조 로직이 있습니다. 조립 새로 고침 작업과 영속 캐시
- 배선은 계획됨.
- 5. **Control-loop pre-PR 게이트(계획됨)**: 실행기가 교정 PR을 만들기 전에 같은
- analyzer를 호출하고 차단 발견 사항을 `hil`로 낮추는 실제 운영 경로.
+   클라이언트(`AzureArmClient`, 주입된 `httpx.AsyncClient` + `WorkloadIdentity` bearer
+   토큰, 실패 시 차단)와 `AzurePolicyGuardrailProbe`(실제 Azure Policy `deny` 가드레일 -
+   `Not allowed` / `Allowed resource types`), `AzureQuotaProbe`(구독 + 위치별 Compute
+  사용량)가 mock-HTTP 유닛 테스트와 함께 landed. Policy 파서는 모든 형제가 정본
+  type-exists 가드인 경우에만 built-in `allOf` 타입 제약을 허용하며 알 수 없음 형제는
+  실패 시 차단으로 유지합니다. 격리된 실제 운영 검증에서 RG-scoped disk 거부는
+  `disk_provisioning=attach_existing`로 매핑됐고 실제 할당량 부족은 수동 차단 요인으로 남았으며,
+  temporary 배정은 검토된 롤백으로 제거됐습니다. `fdaictl deploy preflight
+  --environment-config`는 Azure CLI 워크로드 신원, 범위가 제한된 읽기 전용 ARM 전송 계층,
+  neutral-to-ARM 타입 대응, 정제된 실패 시 차단 오류와 함께 두 탐색을 같은 analyzer에
+  조립합니다. 기존 Resource Graph 역할 관찰기도 `AzureIdentityRbacProbe`를 통해 조립되어
+  principal 또는 role-definition id를 출력하지 않고 누락된 event-bus 및 secret-reader
+  실행기 역할을 보고합니다. `AzureSecretConfigProbe`는 상태만으로 필수 Key Vault
+  참조를 검사하고 응답 본문 또는 시크릿 값을 읽지 않으며 hashed 참조를
+  출력합니다. 보고는 clear인 경우에도 정제된 per-category 검사 커버리지를 기록합니다.
+  비공개 실행기는 강제 적용 모드에서 Azure category 네 개를 모두 요구하고 범위가 제한된 TLS egress
+  근거와 결합합니다. 정제된 보고만 비공개 Blob 저장소에 저장하고 두 근거 다이제스트를
+  exact-plan 검증에 연결합니다. Firewall / NSG 토폴로지 어댑터는 별도 future
+  enhancement이며 direct 실행기 도달 가능성 근거에는 필요하지 않습니다.
+  2. **Capability-mode 토글 scaffold(배포됨)**: `infra/modules/preflight-toggles/`와 disk
+    참조 소비자가 계약을 검증합니다. 루트 앱 그래프의 실제 소비자 배선은 계획됨.
+  3. **검사 발행 기본 요소(배포됨)**: 코어 함수, 프로바이더 프로토콜, in-memory
+    발행기가 있습니다. GitHub 검사 어댑터와 infra PR 작업 흐름 배선은 계획됨.
+  4. **배포 환경 프로파일 기본 요소(배포됨)**: 범위가 제한된 in-memory 캐시, TTL,
+    Inventory-delta invalidation 보조 로직이 있습니다. 조립 새로 고침 작업과 영속 캐시
+    배선은 계획됨.
+  5. **Control-loop pre-PR 게이트(계획됨)**: 실행기가 교정 PR을 만들기 전에 같은
+    analyzer를 호출하고 차단 발견 사항을 `hil`로 낮추는 실제 운영 경로.
 
 ## 참조
 

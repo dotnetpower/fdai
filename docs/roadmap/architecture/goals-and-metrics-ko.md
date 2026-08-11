@@ -58,10 +58,10 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 메트릭 전반에서 사용되는 용어를 여기서 고정해 모호성을 없앱니다:
 
 - **Event**: `event-ingest` 이후 컨트롤 루프에 들어가는 정규화·중복제거된 한 항목. 안정적인
- 멱등성 키로 식별됩니다. 이벤트당(비율) 계산은 모두 이 단위 위에서 이루어집니다.
+  멱등성 키로 식별됩니다. 이벤트당(비율) 계산은 모두 이 단위 위에서 이루어집니다.
 - **시나리오 집합**: SRE, ARB / 변경 안전성, FinOps / 비용 거버넌스, DR 및 Chaos Engineering
- 기능 묶음을 포괄하며 기준선과 treatment에 동일하게 사용하는 고정된, versioned
- 수집입니다. 각 release는 시나리오 집합 및 묶음별 버전을 기록합니다(예: `v2026.07`).
+  기능 묶음을 포괄하며 기준선과 처리에 동일하게 사용하는 고정된, versioned
+  수집입니다. 각 release는 시나리오 집합 및 묶음별 버전을 기록합니다(예: `v2026.07`).
 
 > **현재 커버리지 공백:** `services/core-control-plane/tests/scenarios/manifests/v2026.07.json`은 모든 고정본을 SRE, ARB /
 > 변경 안전성, FinOps, DR 또는 Chaos에 할당합니다. 커버리지 dimension은 해당 묶음이 소유한
@@ -69,20 +69,20 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 > SRE 시나리오가 없고 모든 기존 묶음이 하나 이상의 필수 사례를 누락합니다. 다섯 묶음이 모두
 > 완전한일 때까지 완전한 도메인 커버리지를 주장하면 안 됩니다.
 - **참조 에이전트**: 단계 0에서 측정된 고정 비교 시스템(문서화됨, 단일 모델, 티어링 없음).
- 버전은 베이스라인 실행마다 고정됩니다.
+  버전은 베이스라인 실행마다 고정됩니다.
 - **Human touchpoint**: 사람의 결정 또는 입력이 필요한 모든 액션(HIL 승인, 수동 편집, 수동
- 롤백). 고유하게 식별된 액션 또는 승인은 각각 한 번 계산하며, 같은 액션 또는 승인의
- 반복 수명 주기 행은 touchpoint를 추가하지 않습니다. 하나의 이벤트가 둘 이상의 touchpoint를
- 제공할 수 있습니다. 콘솔의 읽기 전용 조회는 touchpoint가 **아닙니다**.
+  롤백). 고유하게 식별된 액션 또는 승인은 각각 한 번 계산하며, 같은 액션 또는 승인의
+  반복 수명 주기 행은 touchpoint를 추가하지 않습니다. 하나의 이벤트가 둘 이상의 touchpoint를
+  제공할 수 있습니다. 콘솔의 읽기 전용 조회는 touchpoint가 **아닙니다**.
 - **Auto-resolved 이벤트**: 측정 윈도우 내에서 사람 터치포인트 0회, 사후 롤백 없이 종단의
- 올바른 결과에 도달한 이벤트. 실행기 전달은 명시적인 `measurement.action_outcome.v1`
- 기록이 강제 적용 모드, 검증 통과, auto 결정 및 롤백 없음으로 관측을 닫을
- 때까지 resolved가 아니라 pending입니다.
+  올바른 결과에 도달한 이벤트. 실행기 전달은 명시적인 `measurement.action_outcome.v1`
+  기록이 강제 적용 모드, 검증 통과, auto 결정 및 롤백 없음으로 관측을 닫을
+  때까지 resolved가 아니라 pending입니다.
 - **측정 구간**: 실행당 고정된 관측 기간(기본값: 30일 롤링, 또는 전체 시나리오 세트
- 1회 리플레이). 보고되는 모든 수치와 함께 명시됩니다.
+  1회 리플레이). 보고되는 모든 수치와 함께 명시됩니다.
 - **Contract-conformant 결과**: 대상, 근거, 권한, 액션, 효과 검증, 감사
- 기록이 exact versioned 계약을 충족하는 최종 결과입니다. 명시적 알 수 없음 또는 safe
- no-op은 conformant하지만 지원하지 않는 성공은 아닙니다.
+  기록이 exact versioned 계약을 충족하는 최종 결과입니다. 명시적 알 수 없음 또는 safe
+  no-op은 conformant하지만 지원하지 않는 성공은 아닙니다.
 
 ## 성공 메트릭(성공 Metrics)
 
@@ -99,11 +99,11 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 
 주의:
 - 메트릭 1의 비용은 처리에 귀속되는 모델 추론, 컴퓨트, 저장소, 이벤트 버스 지출을 포함합니다.
- FDAI가 아닌 워크로드와 공유되는 고정 플랫폼 오버헤드는 제외합니다.
+  FDAI가 아닌 워크로드와 공유되는 고정 플랫폼 오버헤드는 제외합니다.
 - MTTR과 lead 시간은 mean과 함께 **median과 p90**을 보고합니다. 지연 분포가 편향돼 있어 평균만
- 으로는 꼬리(회귀)를 감춥니다.
+  으로는 꼬리(회귀)를 감춥니다.
 - 비율(메트릭 2)에서의 `5×` 목표는 상한이 있습니다 - 배수와 절대 비율을 함께 보고합니다.
- 베이스라인이 이미 높으면 배수는 의미가 없어지기 때문입니다.
+  베이스라인이 이미 높으면 배수는 의미가 없어지기 때문입니다.
 
 ## 가드 메트릭(회귀 금지)
 
@@ -140,46 +140,46 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 
 - 자율성은 자신의 효과를 측정할 원격측정(metrics 1-4 + 모든 가드 메트릭) 없이는 출시되지 않습니다.
 - 단계 0가 KPI 대시보드와 레퍼런스 베이스라인을 **어떤 티어도 라이브 가기 전에** 확립합니다
- ([phase-0-instrumentation-ko.md](../phases/phase-0-instrumentation-ko.md)).
+  ([phase-0-instrumentation-ko.md](../phases/phase-0-instrumentation-ko.md)).
 - 배수 주장(2-4)은 베이스라인과 트리트먼트가 **동일한 고정 시나리오 세트 버전에서** 모두
- 측정된 후에만 언급됩니다.
+  측정된 후에만 언급됩니다.
 - **통계적 타당성**: 각 배수는 표본 크기(이벤트 수), 신뢰구간, 시나리오 세트 버전과 함께
- 보고합니다. 신뢰구간 안의 차이는 개선이 아니라 "측정된 변화 없음"으로 보고합니다. Zero-sample
- Wilson 간격은 accuracy가 정확히 0이라는 근거가 아니라 `[0, 1]` 알 수 없음입니다.
+  보고합니다. 신뢰구간 안의 차이는 개선이 아니라 "측정된 변화 없음"으로 보고합니다. Zero-sample
+  Wilson 간격은 accuracy가 정확히 0이라는 근거가 아니라 `[0, 1]` 알 수 없음입니다.
 - **Operational 승격 근거**: 고정된 벤치마크와 live-shadow 샘플을 하나의 full FDAI
- 개정 번호, ActionType 다이제스트, 시나리오 사례, 권위 있는 측정 단위에 연결하고 최신
- correction이 집단, 시나리오, 관측 시간, causal 계보를 바꾸지 않고 이전 행을
- 대체합니다. Separate 고정된/실제 운영 Wilson 95% lower 한계, 서로 다른 실제 운영 일, zero escape,
- executed-action 롤백과 완전한 recurrence 구간, 검증된 causal 증적, Dynamic 검토가
- 모두 통과해야 합니다. Closed causal 증적은 confirmed 종결일 때만 계산합니다. Raw 메트릭은
- promote할 수 없고 검증된 증적은 별도 검토만 허용합니다.
+  개정 번호, ActionType 다이제스트, 시나리오 사례, 권위 있는 측정 단위에 연결하고 최신
+  correction이 집단, 시나리오, 관측 시간, causal 계보를 바꾸지 않고 이전 행을
+  대체합니다. Separate 고정된/실제 운영 Wilson 95% lower 한계, 서로 다른 실제 운영 일, zero escape,
+  executed-action 롤백과 완전한 recurrence 구간, 검증된 causal 증적, Dynamic 검토가
+  모두 통과해야 합니다. Closed causal 증적은 confirmed 종결일 때만 계산합니다. Raw 메트릭은
+  promote할 수 없고 검증된 증적은 별도 검토만 허용합니다.
 - **공정성**: 베이스라인과 트리트먼트는 동일한 시나리오, 동일한 입력 분포, 동일한 측정
- 윈도우에서 실행합니다. 레퍼런스 에이전트를 의도적으로 불리하게 만들지 않습니다.
+  윈도우에서 실행합니다. 레퍼런스 에이전트를 의도적으로 불리하게 만들지 않습니다.
 
 ## 데이터 수집과 원격측정
 
 모든 메트릭은 대시보드가 구축 가능하도록(열망만이 아닌) 구체적인 원격측정 소스에 매핑됩니다:
 
 - **구조화된 이벤트 + 트레이스** (OpenTelemetry)가 `event_id`, `tier`, `decision`,
- `mode`(shadow/강제 적용), 타임스탬프를 운반 - 메트릭 2, 3a/3b, 선행 지표의 소스.
+  `mode`(shadow/강제 적용), 타임스탬프를 운반 - 메트릭 2, 3a/3b, 선행 지표의 소스.
 - **추가 전용 감사 로그**가 사람 터치포인트(메트릭 4), 롤백, 정책 escape의 소스.
 - **결과 finalization 기록**(`measurement.action_outcome.v1`)가 auto-resolution의 권한입니다.
- Dispatch-only 이벤트는 pending으로 유지되고, 검증된 non-rollback 결과만 finalized denominator에
- 들어가며, 롤백/adverse 결과는 성공이 되지 않고 계속 표시됩니다. 하나의 액션에
- correction finalization 행이 있으면 가장 높은 감사 순서만 권위 있는하며, 명시적
- 검증 실패는 사라지지 않고 rejected 관측으로 유지됩니다.
+  Dispatch-only 이벤트는 pending으로 유지되고, 검증된 non-rollback 결과만 finalized denominator에
+  들어가며, 롤백/adverse 결과는 성공이 되지 않고 계속 표시됩니다. 하나의 액션에
+  correction finalization 행이 있으면 가장 높은 감사 순서만 권위 있는하며, 명시적
+  검증 실패는 사라지지 않고 rejected 관측으로 유지됩니다.
 - **명시적 메트릭 관측값**은 각 `event_id` 및 메트릭 키의 최신 행을 사용합니다. 하나의 이벤트에
- 대한 재시도 또는 correction은 통계 가중치를 추가하지 않고 이전 값을 대체하며, 서로 다른 이벤트의
- 관측값은 독립 표본으로 유지합니다.
+  대한 재시도 또는 correction은 통계 가중치를 추가하지 않고 이전 값을 대체하며, 서로 다른 이벤트의
+  관측값은 독립 표본으로 유지합니다.
 - **MTTR(메트릭 3a)** 은 순수 집계기
- [`core/measurement/mttr.py`](../../../services/core-control-plane/src/fdai/core/measurement/mttr.py) 가 계산합니다. 해결된
- 인시던트(`resolved_at - opened_at`)를 **mean, median, p90** 초로 접습니다. 미해결/무결성
- 위반 인시던트는 카운트하되 계산에서 제외하며, 절대 `0` 이나 음수 소요 시간을 기여하지 않습니다.
- 라이브 인시던트를 공급해 `/kpi/autonomy` 패널의 synthetic 데모값을 대체하는 전달 레이어
- 배선은 후속 작업으로 추적합니다.
+  [`core/measurement/mttr.py`](../../../services/core-control-plane/src/fdai/core/measurement/mttr.py) 가 계산합니다. 해결된
+  인시던트(`resolved_at - opened_at`)를 **mean, median, p90** 초로 접습니다. 미해결/무결성
+  위반 인시던트는 카운트하되 계산에서 제외하며, 절대 `0` 이나 음수 소요 시간을 기여하지 않습니다.
+  라이브 인시던트를 공급해 `/kpi/autonomy` 패널의 synthetic 데모값을 대체하는 전달 레이어
+  배선은 후속 작업으로 추적합니다.
 - **비용/사용 기록**(모델 토큰, 컴퓨트 시간, 저장소, 버스 처리량)이 메트릭 1의 소스.
- 귀속 키는 지출을 발생 `event_id`에 연결합니다. 하나의 액션에 반복된 수명 주기 행이 있으면
- 재시도를 가중하거나 합산하지 않고 최신 관측 절감 값을 한 번만 반영합니다.
+  귀속 키는 지출을 발생 `event_id`에 연결합니다. 하나의 액션에 반복된 수명 주기 행이 있으면
+  재시도를 가중하거나 합산하지 않고 최신 관측 절감 값을 한 번만 반영합니다.
 - 모든 메트릭 입력은 영문, 시크릿 없음, 고객-비종속 - 저장소 범위 규칙 준수.
 
 ## 리뷰 주기(검토 Cadence)
@@ -187,7 +187,7 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 - **승격마다**: 메트릭 + 가드 리뷰가 통과하지 않으면 shadow → 강제 적용으로 이동하는 액션은 없음.
 - **주간**: 선행 지표와 가드-메트릭 드리프트 대시보드 리뷰.
 - **시나리오 세트 버전 갱신마다**: 목표가 오래된 것이 아닌 현재의 공정한 레퍼런스를 추적하도록
- 전체 베이스라인 재측정.
+  전체 베이스라인 재측정.
 
 ## 목표 배수가 어디서 오는가
 

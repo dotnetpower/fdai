@@ -32,18 +32,18 @@ FDAI는 하나의 근거 기준 시점을 기준으로 인시던트 subgraph를 
 
 ```mermaid
 flowchart LR
- E[Event 및 observation] --> C[Correlated incident]
- T[Dependency topology] --> G[Time-consistent incident graph]
- C --> G
- G --> H[CausalHypothesis candidate]
- H --> S[Supporting evidence]
- H --> R[Refuting evidence]
- S --> V[Deterministic causal verifier]
- R --> V
- V --> D[DecisionCase]
- D --> P[Recovery plan]
- P --> O[Observed outcome]
- O --> H
+    E[Event 및 observation] --> C[Correlated incident]
+    T[Dependency topology] --> G[Time-consistent incident graph]
+    C --> G
+    G --> H[CausalHypothesis candidate]
+    H --> S[Supporting evidence]
+    H --> R[Refuting evidence]
+    S --> V[Deterministic causal verifier]
+    R --> V
+    V --> D[DecisionCase]
+    D --> P[Recovery plan]
+    P --> O[Observed outcome]
+    O --> H
 ```
 
 ## 역량 질문
@@ -134,11 +134,11 @@ Late 이벤트는 새 그래프 개정 번호를 만듭니다. 재생은 항상 
 
 1. **T0 direct 원인:** Matched 룰이 declared 방식과 교정을 제공합니다.
 2. **T1 temporal 경로:** 같은 리소스 또는 의존성 경로의 preceding 변경이 구성된
- 방식 구간 안에 있으면 후보가 됩니다.
+   방식 구간 안에 있으면 후보가 됩니다.
 3. **T1 resolved-case reuse:** 이전 인시던트는 리소스 타입, 신호 지문, 토폴로지 역할,
- 방식이 여전히 일치할 때만 후보를 제공합니다.
+   방식이 여전히 일치할 때만 후보를 제공합니다.
 4. **T2 근거에 기반한 제안:** T0와 T1이 계속 모호한하면 reasoner는 범위가 제한된 그래프 안에 있는
- 후보와 인용만 순위할 수 있습니다. 객체, 링크 또는 액션을 새로 만들 수 없습니다.
+   후보와 인용만 순위할 수 있습니다. 객체, 링크 또는 액션을 새로 만들 수 없습니다.
 
 모든 경로는 `no_known_cause` 옵션을 유지합니다. 후보 생성은 구성된 개수에서
 중지합니다. 초과분에서는 결정론적 점수가 높은 항목만 유지하고 잘림을 기록합니다.
@@ -151,7 +151,7 @@ Late 이벤트는 새 그래프 개정 번호를 만듭니다. 재생은 항상 
 - **Topological 도달 가능성:** 타입이 지정된 의존성 경로가 원인과 효과를 연결합니다.
 - **방식 fit:** 관측된 direction과 symptom pattern이 검토된 방식과 일치합니다.
 - **Intervention 일관성:** 이전 또는 현재 액션이 prediction과 같은 방향으로 효과를
- 바꿨습니다.
+  바꿨습니다.
 
 체인 점수는 가장 약한 홉 점수에 근거 완전성과 모호함 penalty를 곱합니다. 높은
 평균으로 지원하지 않는 홉 하나를 숨길 수 없습니다. 임계값과 가중치는 versioned 구성이며
@@ -175,7 +175,7 @@ FDAI는 기존 `CausalEvidenceGrade` 값을 재사용합니다.
 | Grade | 최소 근거 | 최대 사용 범위 |
 |-------|---------------|----------------|
 | `association` | 상관관계 또는 temporal co-occurrence만 있습니다. | Explanation 및 조사 계획 수립입니다. |
-| `predictive_precedence` | 후보가 효과에 반복적으로 선행하고 direction을 예측합니다. | shadow 또는 사람 승인을 받는 복구 제안입니다. |
+| `predictive_precedence` | 후보가 효과에 반복적으로 선행하고 direction을 예측합니다. | Shadow 또는 사람 승인을 받는 복구 제안입니다. |
 | `quasi_experimental` | Comparable untreated 집단, natural 실험 또는 difference-in-differences 근거가 있습니다. | 다른 안전성 검사가 모두 통과한 범위가 제한된 복구 충족 여부입니다. |
 | `interventional` | 승인된 chaos intervention 또는 복구 reversal이 predicted 효과를 재현하거나 제거합니다. | 승격 근거 입력이며 단독 권한이 아닙니다. |
 
@@ -192,7 +192,7 @@ Refuting 근거가 도착하면 근거 grade가 낮아질 수 있습니다. 낮�
 
 - **Confirmed:** 필수 효과가 일치하고 prohibited 효과가 발생하지 않았습니다.
 - **Refuted:** 완전한 텔레메트리에서 필수 효과가 반대 방향으로 움직이거나 나타나지
- 않았습니다.
+  않았습니다.
 - **Inconclusive:** 근거가 stale, 불완전한, censored이거나 declared 구간 밖에 있습니다.
 - **Unsafe:** 관찰된 affected 집합 또는 목표 성능 저하가 approved 묶음을 넘었습니다.
 
@@ -223,7 +223,7 @@ Synchronous 에이전트 호출은 도입하지 않습니다. 각 쓰기는 타�
 Causal 경로는 불확실할 때 더 안전한 결과를 선택합니다.
 
 - Stale 토폴로지, 누락된 목표, 잘린 탐색, conflicting 소유권 또는 불완전한
- 텔레메트리는 근거 grade를 낮추고 automatic 복구를 차단합니다.
+  텔레메트리는 근거 grade를 낮추고 automatic 복구를 차단합니다.
 - 충분한 support를 가진 후보가 없으면 `inconclusive`를 반환하고 조사를 요청합니다.
 - Graph 밖의 reasoner 인용은 fabricated 인용으로 차단합니다.
 - 변환 결과 실패는 권위 있는 이벤트 또는 감사 기록을 지울 수 없습니다.
@@ -238,9 +238,9 @@ Causal 경로는 불확실할 때 더 안전한 결과를 선택합니다.
 3. Support/refutation 조회 계약과 evidence-completeness 채점을 추가합니다.
 4. 운영 조립에 `IncidentMemberSource`와 의존성 그래프를 연결합니다.
 5. `ObservedOutcome`의 독립적인 종결과 refutation 또는 unsafe 영향에 따른 demotion을
- 추가합니다.
+   추가합니다.
 6. 자율성을 높이지 않으면서 조건을 충족한 causal 근거를 복구와 chaos 승격에
- 제공합니다.
+   제공합니다.
 
 ## 관련 문서
 

@@ -167,12 +167,12 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 
 ```mermaid
 timeline
- title FDAI Delivery Phases
- P0 Instrumentation : KPI telemetry : Baseline vs reference agent : Unblock identity and policy
- P1 Rule Catalog and T0 : Normalize checklists : Policy-as-code gate : Auto remediation PR : Out-of-band detection
- P2 Quality and T1 : Continuous rule update : LLM quality gate and mixed-model : Embedding pattern reuse : Shadow to enforce
- P3 Integrated Loop : Unified control loop : DR-Chaos scheduler and DB DR : FinOps auto-actions
- P4 Scale : Continuous measurement : Pattern-library and model tracking : Scalability : Multi-cloud expansion (TBD)
+    title FDAI Delivery Phases
+    P0 Instrumentation : KPI telemetry : Baseline vs reference agent : Unblock identity and policy
+    P1 Rule Catalog and T0 : Normalize checklists : Policy-as-code gate : Auto remediation PR : Out-of-band detection
+    P2 Quality and T1 : Continuous rule update : LLM quality gate and mixed-model : Embedding pattern reuse : Shadow to enforce
+    P3 Integrated Loop : Unified control loop : DR-Chaos scheduler and DB DR : FinOps auto-actions
+    P4 Scale : Continuous measurement : Pattern-library and model tracking : Scalability : Multi-cloud expansion (TBD)
 ```
 
 단계는 P0 -> P1 -> P2 -> P3 -> P4 순서로 진행하며, 각 단계 문서는 *의존성* 절에
@@ -197,20 +197,20 @@ P3에서 복원력과 비용 거버넌스를 제공합니다. 멀티 클라우�
 ## 모든 단계에 적용되는 안전 원칙
 
 - **측정 first**: 텔레메트리 없이는 자율성을 허용하지 않습니다. 측정된 기준선
- 없이는 향상 배수나 처리 비중을 주장하지 않습니다.
-- **shadow before 강제 적용**: 모든 신규 액션은 관찰 모드에서 판정과 기록만 수행한 뒤
- 개별적으로 승격합니다. 회귀가 발생하면 자동으로 관찰 모드로 돌아갑니다.
+  없이는 향상 배수나 처리 비중을 주장하지 않습니다.
+- **Shadow before 강제 적용**: 모든 신규 액션은 관찰 모드에서 판정과 기록만 수행한 뒤
+  개별적으로 승격합니다. 회귀가 발생하면 자동으로 관찰 모드로 돌아갑니다.
 - **Choose the safer 기본값 when the 결과 is uncertain**: 낮은 확신도, 검증 실패, 예산 / 비율 초과는
- HIL로 강등되며, 게이트 없는 자동 액션으로는 절대 강등되지 않음.
+  HIL로 강등되며, 게이트 없는 자동 액션으로는 절대 강등되지 않음.
 - **모든 자율 작업의 7개 안전조건**: 중단 조건, 롤백, 장애 반경 제한, 예행 실행, 리소스별
- 잠금, 멱등성 및 감사 레코드
- ([security-and-identity-ko.md](architecture/security-and-identity-ko.md)).
+  잠금, 멱등성 및 감사 레코드
+  ([security-and-identity-ko.md](architecture/security-and-identity-ko.md)).
 - **직무 분리**: 승인과 실행은 서로 다른 주체.
- 콘솔은 비특권 표면이며 실행기 신원을 받지 않습니다
- ([security-and-identity-ko.md](architecture/security-and-identity-ko.md)).
+  콘솔은 비특권 표면이며 실행기 신원을 받지 않습니다
+  ([security-and-identity-ko.md](architecture/security-and-identity-ko.md)).
 - **Bilingual, customer-agnostic 산출물**: English와 Korean은 일급 산문 언어이며
- 식별자와 머신 기록은 언어 계약에 따라 고정된 상태를 유지합니다.
- ([language.instructions.md](../../.github/instructions/language.instructions.md)).
+  식별자와 머신 기록은 언어 계약에 따라 고정된 상태를 유지합니다.
+  ([language.instructions.md](../../.github/instructions/language.instructions.md)).
 
 ## 다음 단계
 

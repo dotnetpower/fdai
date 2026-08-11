@@ -142,20 +142,20 @@ DNS 영역 또는 두 번째 엔드포인트를 추가하지 않습니다.
 
 ```text
 FDAI subnet -> APIM private VIP:443 -> Azure OpenAI private endpoint:443
-    -> PTU first; one same-family Standard retry only after HTTP 429
+             -> PTU first; one same-family Standard retry only after HTTP 429
 ```
 
 - **첫 번째 홉:** FDAI는 배포가 공급한 APIM 게이트웨이 FQDN을 APIM 비공개 엔드포인트 또는
- 내부 VNet-injection VIP로 확인하고 TCP 443을 호출합니다.
+  내부 VNet-injection VIP로 확인하고 TCP 443을 호출합니다.
 - **두 번째 홉:** APIM에는 아웃바운드 VNet 통합 또는 주입, 두 Azure OpenAI 계정의
- 비공개 DNS 해석, 두 비공개 엔드포인트에 대한 TCP 443이 필요합니다. APIM managed
- 신원에는 두 백엔드의 `Cognitive Services OpenAI User`가 필요합니다.
+  비공개 DNS 해석, 두 비공개 엔드포인트에 대한 TCP 443이 필요합니다. APIM managed
+  신원에는 두 백엔드의 `Cognitive Services OpenAI User`가 필요합니다.
 - **비공개 엔드포인트는 인바운드 전용:** APIM 앞에 비공개 엔드포인트를 배치해도 APIM에서 Azure
- OpenAI로 가는 트래픽이 자동으로 비공개가 되지 않습니다. 두 번째 홉을 명시적으로
- 구성하세요.
+  OpenAI로 가는 트래픽이 자동으로 비공개가 되지 않습니다. 두 번째 홉을 명시적으로
+  구성하세요.
 - **근거 계약:** APIM은 `x-fdai-model-backend`, `x-fdai-capacity-unit`,
- `x-fdai-spillover`를 반환해야 합니다. FDAI는 이 값이 없거나 잘못된 경우 성공한 T2
- 응답도 수락하지 않습니다.
+  `x-fdai-spillover`를 반환해야 합니다. FDAI는 이 값이 없거나 잘못된 경우 성공한 T2
+  응답도 수락하지 않습니다.
 
 Premium v2 VNet 주입에서는 APIM 아웃바운드에서 `Storage` 및 `AzureKeyVault` 서비스 tag로
 TCP 443, 두 모델 백엔드로 TCP 443, 구성된 해석기로 DNS를 허용하세요. Classic
@@ -223,9 +223,9 @@ AKS를 포함한 모든 리소스 프로바이더를 지원하지는 않습니�
 
 ```bash
 python3 scripts/deployment/azure/check-network-connectivity.py \
- --profile runtime-private \
- --env-file .fdai/local-runtime.env \
- --output tmp/network-connectivity.json
+   --profile runtime-private \
+   --env-file .fdai/local-runtime.env \
+   --output tmp/network-connectivity.json
 ```
 
 공개 런타임 네트워크에서는 `runtime-public`, 배포 호스트에서는 `deploy-runner`를 사용하세요.
@@ -241,11 +241,11 @@ DNS와 TCP 도달 가능성만 검사하므로 다른 대상을 조용히 검사
 
 ```json
 {
- "schema_version": "fdai.network-connectivity-manifest.v1",
- "checks": [
-  {"id": "apim-model-gateway", "host": "replace.example.com", "port": 443,
-  "required": true, "expected_ip": "private"}
- ]
+   "schema_version": "fdai.network-connectivity-manifest.v1",
+   "checks": [
+      {"id": "apim-model-gateway", "host": "replace.example.com", "port": 443,
+       "required": true, "expected_ip": "private"}
+   ]
 }
 ```
 
@@ -278,17 +278,17 @@ Terraform 출력에서 두 Event Hubs 샤드, PostgreSQL, Key Vault, ACR 및 Azu
 결과는 이러한 실행 경로를 증명하지 않습니다.
 
 1. 모든 공개 조회 FQDN을 확인하고 비공개 프로파일에서 의도한 비공개 엔드포인트 또는
- 내부 VIP 서브넷의 주소를 반환하는지 확인합니다.
+   내부 VIP 서브넷의 주소를 반환하는지 확인합니다.
 2. 해당하는 포트 443, 9093 및 5432에 범위가 제한된 TCP 연결을 엽니다. 비공개 엔드포인트가
- ICMP에 응답하지 않을 수 있으므로 TLS 또는 프로토콜 authentication 오류가 ping보다 더
- 유효한 증거입니다.
+   ICMP에 응답하지 않을 수 있으므로 TLS 또는 프로토콜 authentication 오류가 ping보다 더
+   유효한 증거입니다.
 3. 정확한 워크로드 신원으로 Entra 토큰을 획득한 다음 서비스별 읽기 전용 요청 하나를
- 수행합니다.
+   수행합니다.
 4. Pinned 이미지 다이제스트를 pull하여 ACR login과 데이터 엔드포인트를 모두 검증합니다.
 5. APIM 모델 경로를 호출하고 PTU 및 forced-429 spillover 경로에서 FDAI 근거 헤더 3개를
- 모두 검증합니다.
+   모두 검증합니다.
 6. 의존성을 한 번에 하나씩 차단하고 stale 근거 및 direct-endpoint 대체 경로 없음까지
- 실패 매트릭스의 해당 행과 일치하는지 확인합니다.
+   실패 매트릭스의 해당 행과 일치하는지 확인합니다.
 
 ## 관련 문서
 

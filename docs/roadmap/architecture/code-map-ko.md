@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 4444bc1f8c224bafe21202ea9dbb4848e2b9bbc0
+translation_source_sha: e7675308450fe25ecf89edf4cebc5befd6c3446c
 translation_revised: 2026-08-11
 ---
 # 코드 맵
@@ -17,11 +17,11 @@ translation_revised: 2026-08-11
 
 - **서비스 분포 5개:** 각 런타임 프로세스는 `services/` 아래 패키지 하나를 소유합니다.
 - **Shared SDK 1개:** `packages/service-contracts/`는 서비스 구현 없이 서비스 간
- 계약을 포함합니다.
+  계약을 포함합니다.
 - **Service-owned 테스트:** 단위 및 컴포넌트 테스트는 소유 서비스 또는 패키지 옆에 있습니다.
 - **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정합니다.
 - **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및
- 저장소 검사를 소유합니다.
+  저장소 검사를 소유합니다.
 
 ## 물리 서비스 소유권
 
@@ -63,23 +63,14 @@ Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 
 차단된 descendant를 건너뜀하고 프로바이더 오류 상세 없는 고정된 증적을 발행합니다.
 플래너 매니페스트는 ObjectType 및 Interface 속성에 동일한 역할/용도 filtering을 적용합니다. 의도
 근거는 최종 사유를 보존하면서 범위가 제한된 evidence-reference 잘림도 공개합니다.
-검증기는 I/O 전에 declared DAG 노드를 가리키지 않는 출력을 거부합니다. Answered 턴은 범위가 제한된
-검증된 조회 표만 렌더링하며 transient 변환 결과 게시는 dead-letter 전에 같은 영속
-멱등적 결과를 재시도합니다.
 Azure 의미 계획 수립은 기존 `httpx` 및 `WorkloadIdentity` 어댑터를 사용하여 검증된 JSON-object
-제안 두 개를 만듭니다. 조립은 권위 있는 프로바이더가 연결된 핸들러만 노출합니다. 공개
-조립 파사드는 dedicated 의미 조회 연결기를 re-export하면서 400-line structural 상한 아래를
-유지합니다. 모듈 계약은 패키지 배치 게이트가 강제하는 `composition`, `seam` 및 `container`
-기준점을 보존합니다.
+제안 두 개를 만듭니다. 조립은 권위 있는 프로바이더가 연결된 핸들러만 노출합니다.
 ObjectSet 핸들러는 각 요청 역할에 맞게 다시 만들어지므로 읽기 담당이 Owner 가시성을 상속하지 않고
 Owner도 읽기 담당으로 조용히 축소되지 않습니다. 모델, release, 저장소 또는 전송 계층 선행 조건이 없으면
 암시적 `runtime=None` 대신 명시적 startup-readiness 실패로 유지됩니다.
 Continuous 커버리지 증적은 결정론적 고정본 structural 검증과 운영 준비 상태를
 분리합니다. 외부에서 생성된 `cross_service_e2e` 또는 `live_assurance` 질문 증적만
 `production_ready`를 설정할 수 있으며 committed `deterministic_fixture`는 false로 유지합니다.
-런타임 초기화는 의미 준비 상태와 버티컬 workload-identity construction을 기존 수명 주기 및
-연결 보조 로직에 위임하여 기본 조립 루트를 검토된 fanout 상한 아래로 유지합니다. Thin
-초기화 래퍼는 injected identity-builder 테스트 및 포크 경계를 보존합니다.
 
 ## 독립 서비스 지도
 

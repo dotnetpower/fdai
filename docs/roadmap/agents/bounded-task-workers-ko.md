@@ -22,14 +22,14 @@ translation_revised: 2026-08-11
 
 ```mermaid
 flowchart LR
- PLAN[기존 answer plan] --> REQUEST[Typed worker 요청]
- REQUEST --> ATTENUATE[Capability 교집합]
- ATTENUATE -->|읽기 도구 없음| DENY[차단된 terminal result]
- ATTENUATE -->|제한된 읽기 도구| RUN[격리된 worker runtime]
- RUN --> STORE[영구 snapshot 및 branch event]
- STORE --> SYNTHESIS[신뢰되지 않은 부모 합성]
- STORE --> VIEW[읽기 전용 projection]
- STORE --> SINK[완료 인계]
+    PLAN[기존 answer plan] --> REQUEST[Typed worker 요청]
+    REQUEST --> ATTENUATE[Capability 교집합]
+    ATTENUATE -->|읽기 도구 없음| DENY[차단된 terminal result]
+    ATTENUATE -->|제한된 읽기 도구| RUN[격리된 worker runtime]
+    RUN --> STORE[영구 snapshot 및 branch event]
+    STORE --> SYNTHESIS[신뢰되지 않은 부모 합성]
+    STORE --> VIEW[읽기 전용 projection]
+    STORE --> SINK[완료 인계]
 ```
 
 ## 워커 신원 및 소유권
@@ -87,7 +87,7 @@ Detached `background.read-only` 프로파일은 정확히 `resolve_resource`, `g
 
 ```text
 pending -> running -> succeeded | abstained | cancelled | timed_out |
-      budget_exhausted | denied | failed
+                      budget_exhausted | denied | failed
 ```
 
 - Semaphore가 동시 워커 수를 제한합니다.
@@ -97,7 +97,7 @@ pending -> running -> succeeded | abstained | cancelled | timed_out |
 - 하트비트는 제한된 간격으로 현재 도구 사용량을 기록합니다.
 - 지원되지 않은 근거 또는 출력의 주입 표시는 `denied`를 생성합니다.
 - 재시작은 해결되지 않은 `pending` 또는 `running` 기록을
- `failed(runtime_restart_interrupted)`로 전환합니다. 모호한 작업을 다시 실행하지 않습니다.
+  `failed(runtime_restart_interrupted)`로 전환합니다. 모호한 작업을 다시 실행하지 않습니다.
 
 모든 전이는 compare-and-swap 상태 검사를 사용합니다. 중복 워커 ID는 전체 요청이
 일치할 때만 안전하게 재시도할 수 있습니다.
@@ -152,7 +152,7 @@ execute 경로가 없습니다.
 - Completion-sink 실패는 영구 완료 뒤에 이벤트를 추가합니다.
 - 변환 결과 권한 확인은 넓은 읽기 뒤가 아니라 저장소 조회에서 수행됩니다.
 - PostgreSQL 또는 프로바이더 의존성이 없으면 기능을 사용 불가로 유지하며 synthetic
- 워커 근거로 대체하지 않습니다.
+  워커 근거로 대체하지 않습니다.
 
 ## 검증
 

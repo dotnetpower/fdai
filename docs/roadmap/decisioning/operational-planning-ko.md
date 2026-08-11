@@ -39,19 +39,19 @@ DecisionCase와 ActionOption은 변경할 수 없는 의미 기반 결정 산출
 
 ```mermaid
 flowchart LR
- R[Typed planning request] --> P[Workflow and Process]
- P --> C[Muninn context snapshot]
- C --> F[Forseti DecisionCase]
- F --> S[Specialist evidence]
- S --> L[Versioned logic assets]
- L --> X[Compute and twin simulation]
- X --> H[Heimdall verification]
- H --> O[Odin arbitration]
- O --> V[Forseti verdict]
- V --> A[Var approval when required]
- A --> T[Thor execution]
- T --> E[Observed outcome]
- E --> N[Muninn and Norns learning]
+    R[Typed planning request] --> P[Workflow and Process]
+    P --> C[Muninn context snapshot]
+    C --> F[Forseti DecisionCase]
+    F --> S[Specialist evidence]
+    S --> L[Versioned logic assets]
+    L --> X[Compute and twin simulation]
+    X --> H[Heimdall verification]
+    H --> O[Odin arbitration]
+    O --> V[Forseti verdict]
+    V --> A[Var approval when required]
+    A --> T[Thor execution]
+    T --> E[Observed outcome]
+    E --> N[Muninn and Norns learning]
 ```
 
 ## 재사용하는 권위 원천
@@ -91,13 +91,13 @@ context_frozen
 
 - **중복 전달:** 같은 멱등성 키는 no-op입니다.
 - **순서가 뒤바뀐 전달:** 필요한 predecessor가 없는 하위 이벤트는 감사하고 dead-letter
- 처리로 보냅니다. 프로세스 스냅샷을 진행하지 않습니다.
+  처리로 보냅니다. 프로세스 스냅샷을 진행하지 않습니다.
 - **늦은 증거:** 선택된 DecisionCase를 수정하지 않습니다. 실질적으로 새로운 증거는 새 프로세스
- 개정 번호와 새 DecisionCase를 엽니다.
+  개정 번호와 새 DecisionCase를 엽니다.
 - **오래된 대상:** 대상 개정 번호가 변경된 선택 계획은 계획 수립 또는 사람 검토로 돌아갑니다.
- 새 개정 번호에 실행하지 않습니다.
+  새 개정 번호에 실행하지 않습니다.
 - **예산 소진:** 완료되지 않은 필수 가지는 `held`로 닫습니다. 완료된 가지를 전체 검색으로
- 간주하지 않습니다.
+  간주하지 않습니다.
 
 ## Logic asset
 
@@ -142,13 +142,13 @@ ActionOption은 proposing 에이전트, logic 호출 증적, 시뮬레이션 증
 후보 선택에는 세 개의 결정론적 단계가 있습니다.
 
 1. **Hard-constraint 충족 여부:** 순수 정책 및 온톨로지 검사가 안전성, security, 신원,
- 데이터 무결성, 복구, 승인된 SLO, RTO, RPO, 영향 또는 변경 제약을 위반하는 후보를
- 제거합니다. 누락, stale, 충돌, 잘림 근거는 통과가 아니라 ineligible입니다.
+   데이터 무결성, 복구, 승인된 SLO, RTO, RPO, 영향 또는 변경 제약을 위반하는 후보를
+   제거합니다. 누락, stale, 충돌, 잘림 근거는 통과가 아니라 ineligible입니다.
 2. **Pareto pruning:** 적격 후보 중 다른 후보가 선언된 모든 soft 목표에서 같거나 더 좋고
- 하나 이상에서 더 좋은 옵션만 제거합니다. Pareto pruning은 winner를 선택하지 않습니다.
+   하나 이상에서 더 좋은 옵션만 제거합니다. Pareto pruning은 winner를 선택하지 않습니다.
 3. **Odin 중재:** 기존 weighted arbiter가 남은 soft-objective tradeoff의 순위를 정합니다.
- 가까운 margin, non-finite 점수, 미지원 도메인 또는 활성/challenger divergence는 사람 검토가
- 필요합니다.
+   가까운 margin, non-finite 점수, 미지원 도메인 또는 활성/challenger divergence는 사람 검토가
+   필요합니다.
 
 초기 optimizer는 schema-valid 후보를 결정론적 순서로 최대 32개 열거합니다. 상한을 초과하는 입력은
 분해하거나 검토를 위해 보류하며 조용히 자르지 않습니다. 고정된 고정본이 범위가 제한된 enumeration으로
@@ -254,18 +254,18 @@ shadow-first를 유지하며 기존 승인 및 승격 게이트를 따릅니다.
 Odin은 다음 규칙에 따라 결정론적 `MultiObjectiveArbiter`를 적용합니다.
 
 - Forseti와 risk 게이트는 점수 계산 전에 안전성, security, 신원, 데이터 무결성, 복구 또는
- service-objective 제약을 위반하는 옵션을 제거합니다.
+  service-objective 제약을 위반하는 옵션을 제거합니다.
 - 초기 실행 버티컬의 충돌은 먼저
- `resilience_safety_hold > resilience > change_safety > cost`를 적용합니다. 알 수 없음, 중복,
- security 또는 용량 도메인은 weighted 중재로 이어집니다.
+  `resilience_safety_hold > resilience > change_safety > cost`를 적용합니다. 알 수 없음, 중복,
+  security 또는 용량 도메인은 weighted 중재로 이어집니다.
 - 조건을 충족한 soft-objective 점수는 `weight * impact`를 사용합니다. 기본 priority는
- `resilience > security > change_safety > cost > capacity`입니다. 포크는 `1.0`과 `0.4`에 기준점된
- convex/concave curve를 포함한 static 가중치 또는 결정론적 `weight_fn`을 공급할 수 있습니다.
+  `resilience > security > change_safety > cost > capacity`입니다. 포크는 `1.0`과 `0.4`에 기준점된
+  convex/concave curve를 포함한 static 가중치 또는 결정론적 `weight_fn`을 공급할 수 있습니다.
 - 같은 영향은 이전 방식 priority winner를 재현합니다. 낮은 priority 목표는 조건을 충족한 soft tradeoff
- 안에서 measured 영향이 더 큰 경우에만 이길 수 있습니다.
+  안에서 measured 영향이 더 큰 경우에만 이길 수 있습니다.
 - Top-two margin이 구성된 human-approval band(기본 `0.10`) 이내이거나 도메인이 알 수 없음이면
- `escalate_hil`을 설정합니다. 모든 결정은 `objective_scores`와 `margin`을
- `object.arbitration-decision`에 기록합니다.
+  `escalate_hil`을 설정합니다. 모든 결정은 `objective_scores`와 `margin`을
+  `object.arbitration-decision`에 기록합니다.
 
 Arbiter는 I/O 또는 모델 호출을 수행하지 않습니다. 선택적 읽기 전용
 `SpecialistPlanningCoordinator`는 DecisionCase에 logic, 시뮬레이션 및 hard-constraint 증적을 추가하고

@@ -45,84 +45,84 @@ PostgreSQL Flexible + pgvector는 하나의 저장소, 하나의 백업 경로, 
 
 ```sql
 CREATE TABLE ontology_object_type (
- type_id   text PRIMARY KEY,
- schema_version  text NOT NULL,
- schema    jsonb NOT NULL
+  type_id            text PRIMARY KEY,
+  schema_version     text NOT NULL,
+  schema             jsonb NOT NULL
 );
 
 CREATE TABLE ontology_link_type (
- link_type_id  text PRIMARY KEY,
- source_type  text NOT NULL,
- target_type  text NOT NULL,
- cardinality  text NOT NULL,
- is_transitive  boolean DEFAULT false,
- is_causal   boolean DEFAULT false,
- temporal_order  boolean DEFAULT false
+  link_type_id       text PRIMARY KEY,
+  source_type        text NOT NULL,
+  target_type        text NOT NULL,
+  cardinality        text NOT NULL,
+  is_transitive      boolean DEFAULT false,
+  is_causal          boolean DEFAULT false,
+  temporal_order     boolean DEFAULT false
 );
 
 CREATE TABLE ontology_resource (
- resource_id  text PRIMARY KEY,
- type    text NOT NULL REFERENCES ontology_object_type(type_id),
- props    jsonb NOT NULL,  -- redacted before write
- first_seen   timestamptz NOT NULL,
- last_seen   timestamptz NOT NULL
+  resource_id        text PRIMARY KEY,
+  type               text NOT NULL REFERENCES ontology_object_type(type_id),
+  props              jsonb NOT NULL,        -- redacted before write
+  first_seen         timestamptz NOT NULL,
+  last_seen          timestamptz NOT NULL
 );
-CREATE INDEX ix_resource_type  ON ontology_resource(type);
-CREATE INDEX ix_resource_props_gin ON ontology_resource USING gin(props jsonb_path_ops);
+CREATE INDEX ix_resource_type       ON ontology_resource(type);
+CREATE INDEX ix_resource_props_gin  ON ontology_resource USING gin(props jsonb_path_ops);
 
 CREATE TABLE ontology_finding (
- finding_id   text PRIMARY KEY,
- rule_id   text NOT NULL,
- rule_version  text NOT NULL,
- resource_id  text NOT NULL REFERENCES ontology_resource(resource_id),
- signal_id   text NOT NULL,
- verdict   text NOT NULL,
- severity   text NOT NULL,
- context   jsonb NOT NULL,
- audit_id   text NOT NULL,
- created_at   timestamptz NOT NULL
+  finding_id         text PRIMARY KEY,
+  rule_id            text NOT NULL,
+  rule_version       text NOT NULL,
+  resource_id        text NOT NULL REFERENCES ontology_resource(resource_id),
+  signal_id          text NOT NULL,
+  verdict            text NOT NULL,
+  severity           text NOT NULL,
+  context            jsonb NOT NULL,
+  audit_id           text NOT NULL,
+  created_at         timestamptz NOT NULL
 );
 CREATE INDEX ix_finding_rule_resource ON ontology_finding(rule_id, resource_id);
 
 CREATE TABLE ontology_link (
- from_id   text NOT NULL,
- from_type   text NOT NULL,
- link_type   text NOT NULL REFERENCES ontology_link_type(link_type_id),
- to_id    text NOT NULL,
- to_type   text NOT NULL,
- link_props   jsonb DEFAULT '{}',
- created_at   timestamptz NOT NULL,
- PRIMARY KEY (from_id, link_type, to_id)
+  from_id            text NOT NULL,
+  from_type          text NOT NULL,
+  link_type          text NOT NULL REFERENCES ontology_link_type(link_type_id),
+  to_id              text NOT NULL,
+  to_type            text NOT NULL,
+  link_props         jsonb DEFAULT '{}',
+  created_at         timestamptz NOT NULL,
+  PRIMARY KEY (from_id, link_type, to_id)
 );
 CREATE INDEX ix_link_out ON ontology_link(from_type, from_id, link_type);
-CREATE INDEX ix_link_in ON ontology_link(to_type, to_id, link_type);
+CREATE INDEX ix_link_in  ON ontology_link(to_type, to_id, link_type);
 
-CREATE TABLE learned_action (    -- L2
- signature   text PRIMARY KEY,
- rule_id   text NOT NULL,
- rule_version  text NOT NULL,
- catalog_version text NOT NULL,  -- partition key candidate
- action    jsonb NOT NULL,
- reused_from  text NOT NULL,  -- back-reference to origin audit_id
- created_at   timestamptz NOT NULL
+CREATE TABLE learned_action (             -- L2
+  signature          text PRIMARY KEY,
+  rule_id            text NOT NULL,
+  rule_version       text NOT NULL,
+  catalog_version    text NOT NULL,       -- partition key candidate
+  action             jsonb NOT NULL,
+  reused_from        text NOT NULL,       -- back-reference to origin audit_id
+  created_at         timestamptz NOT NULL
 );
 CREATE INDEX ix_learned_by_rule ON learned_action(rule_id, catalog_version);
 
-CREATE TABLE ontology_embedding (   -- L3
- embedding_id  text PRIMARY KEY,
- kind    text NOT NULL,
- ref_id    text NOT NULL,
- vec    vector(384) NOT NULL
+CREATE TABLE ontology_embedding (         -- L3
+  embedding_id       text PRIMARY KEY,
+  kind               text NOT NULL,
+  ref_id             text NOT NULL,
+  vec                vector(384) NOT NULL
 );
 CREATE INDEX ix_emb_hnsw ON ontology_embedding USING hnsw (vec vector_cosine_ops);
 
-CREATE TABLE t2_cache (     -- L4
- signature   text PRIMARY KEY,
- catalog_version text NOT NULL,
- model_config_ver text NOT NULL,
- mode    text NOT NULL,  -- 'shadow' | 'enforce'
- outcome   jsonb NOT NULL,
- expires_at   timestamptz NOT NULL
+CREATE TABLE t2_cache (                   -- L4
+  signature          text PRIMARY KEY,
+  catalog_version    text NOT NULL,
+  model_config_ver   text NOT NULL,
+  mode               text NOT NULL,       -- 'shadow' | 'enforce'
+  outcome            jsonb NOT NULL,
+  expires_at         timestamptz NOT NULL
 );
 CREATE INDEX ix_t2_cache_expiry ON t2_cache(expires_at);
 ```
@@ -130,28 +130,28 @@ CREATE INDEX ix_t2_cache_expiry ON t2_cache(expires_at);
 스키마 노트:
 
 - `resource.props` 는 **민감정보가 제거된** 저장; 원시 페이로드는
- [security-and-identity-ko.md § 데이터 Protection](security-and-identity-ko.md#데이터-보호) 과
- 같은 아이덴티티와 프라이버시 규칙 하 `audit_log` 에 포인터로 존재.
+  [security-and-identity-ko.md § 데이터 Protection](security-and-identity-ko.md#데이터-보호) 과
+  같은 아이덴티티와 프라이버시 규칙 하 `audit_log` 에 포인터로 존재.
 - `learned_action` 과 `t2_cache` 는 **`catalog_version` 으로 파티션** - 그래서 규칙 승격이
- 버전을 bump하고 stale 파티션이 하나의 작업으로 드롭됨 - per-row cache-flush 명령 불필요.
+  버전을 bump하고 stale 파티션이 하나의 작업으로 드롭됨 - per-row cache-flush 명령 불필요.
 - 모든 기본 키는 **결정론 해시** (`MD5(name)[:12]` 스타일 또는 서명용 SHA256), 그래서
- 리플레이와 크로스-서비스 참조가 같은 id 재현.
+  리플레이와 크로스-서비스 참조가 같은 id 재현.
 
 ## 부트와 리로드
 
 ```mermaid
 flowchart LR
- G[Git: catalog-as-code] -->|azd deploy / config-reload event| P[process start]
- P --> COMP[load ObjectType/LinkType/ActionType + Rule YAMLs]
- COMP --> OPA[compile OPA/Rego]
- COMP --> IDX[build in-memory dispatch indexes<br/>applies_to, triggered_by inverted lookup]
- OPA --> READY[ready]
- IDX --> READY
- P --> DB[(PostgreSQL: instance state)]
- P --> KV[(Key Vault: resolved-models.json)]
+  G[Git: catalog-as-code] -->|azd deploy / config-reload event| P[process start]
+  P --> COMP[load ObjectType/LinkType/ActionType + Rule YAMLs]
+  COMP --> OPA[compile OPA/Rego]
+  COMP --> IDX[build in-memory dispatch indexes<br/>applies_to, triggered_by inverted lookup]
+  OPA --> READY[ready]
+  IDX --> READY
+  P --> DB[(PostgreSQL: instance state)]
+  P --> KV[(Key Vault: resolved-models.json)]
 ```
 
 - **정적 아티팩트 진실 원본은 Git; 인스턴스 상태 진실 원본은 PostgreSQL.** 두 레이어는 절대
- 겹치지 않음.
+  겹치지 않음.
 - 카탈로그 PR 머지 → `catalog_version` bump → 전달 인덱스 재빌드 → 새 버전이 모든 후속
- 서명에 이동. **오래된 L2 / L4 엔트리는 자동으로 도달 불가** ; 명시적 무효화 명령 없음.
+  서명에 이동. **오래된 L2 / L4 엔트리는 자동으로 도달 불가** ; 명시적 무효화 명령 없음.

@@ -38,22 +38,22 @@ lag 기반 규모 룰을 추가한 뒤에만 `min_replicas = 0`으로 낮춰 sca
 2. Core 프로세스가 구성을 로드하고 상태, 감사, event-bus 어댑터 및 룰 카탈로그를 구성합니다.
 3. HTTP 시작/준비 상태 탐색이 `/ready`를 확인한 뒤 복제본이 traffic-ready가 됩니다.
 4. 소비자가 이벤트를 `event-ingest → correlation → trust-router → tier → risk-gate → audit`
- 프로세스 내 경로로 처리합니다.
+   프로세스 내 경로로 처리합니다.
 
 향후 scale-to-zero를 활성화한 배포의 콜드 스타트에는 다음 규칙이 적용됩니다:
 
 - **콜드-스타트 메트릭**: 콜드 경로의 첫 이벤트는 복제본이 warm 되는 동안 T0 지연 예산을
- 초과할 수 있음. 이 지연은 T0 warm 지연 백분위가 오염되지 않도록 별도 **콜드-스타트 메트릭**
- 으로 기록되어야 함. 콜드 vs warm은 KPI 대시보드에 나란히 보고
- ([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)).
+  초과할 수 있음. 이 지연은 T0 warm 지연 백분위가 오염되지 않도록 별도 **콜드-스타트 메트릭**
+  으로 기록되어야 함. 콜드 vs warm은 KPI 대시보드에 나란히 보고
+  ([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)).
 - **콜드-스타트 데드라인**: 설정된 데드라인 초과는 이벤트를 HIL로 강등, 게이트 없는 auto-action
- 이 되지 않음
- ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)).
+  이 되지 않음
+  ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)).
 - **콜드-스타트 순서**: 콜드 시작된 복제본은 리소스별 순서 / 멱등성 보장을 존중해야 함;
- 올라오는 복제본이 "같은 이벤트 두 번 = 하나의 효과" 불변식을 위반할 수 없음.
+  올라오는 복제본이 "같은 이벤트 두 번 = 하나의 효과" 불변식을 위반할 수 없음.
 - **향후 sidecar 준비 상태 게이팅**: Sidecar 토폴로지를 실제로 추가하는 경우 주 컨테이너는
- 모든 sidecar의 준비 상태가 green일 때까지 이벤트를 받지 않는 것이 좋습니다. 현재 단일
- 컨테이너 토폴로지에는 적용되지 않습니다.
+   모든 sidecar의 준비 상태가 green일 때까지 이벤트를 받지 않는 것이 좋습니다. 현재 단일
+   컨테이너 토폴로지에는 적용되지 않습니다.
 
 **TBD**: 구체적 콜드-스타트 데드라인과 정확한 콜드-스타트-메트릭 이름/정의.
 
@@ -191,9 +191,9 @@ stopped/deallocated 상태로 되돌렸습니다.
 상류 리포는 **고객 특이 규칙 없음**. 포크 배포의 첫날 카탈로그는 두 소스에서 채워짐 - 순서:
 
 1. **부트스트랩 시드 세트** (포크 책임) - `content_hash` 와 버전으로 고정된 초기 카탈로그
- 스냅샷, 포크가 자체 catalog-as-code 리포에 커밋.
+   스냅샷, 포크가 자체 catalog-as-code 리포에 커밋.
 2. **자율 컬렉터** (상류) - 첫 성공 컬렉터 실행 후, 상류 소스가
- [rule-catalog-collection-ko.md](../rules-and-detection/rule-catalog-collection-ko.md) 에 따라 설정된 주기로 수집.
+   [rule-catalog-collection-ko.md](../rules-and-detection/rule-catalog-collection-ko.md) 에 따라 설정된 주기로 수집.
 
 현재 업스트림은 `rule-catalog/catalog/`, 범용 profiles, 출처 매니페스트 및
 `tools/seed_p1_manifest.yaml`을 함께 제공합니다. 포크는 이를 customer-specific 값 없이 그대로
@@ -203,13 +203,13 @@ stopped/deallocated 상태로 되돌렸습니다.
 첫날 카탈로그에 적용되는 규칙:
 
 - 모든 규칙은 심각도와 무관하게 **`effect: audit` (shadow)** 기본이어야 함. 강제 적용으로 시작하는
- 규칙을 출시할 방법 없음; 첫날에 강제 적용으로 랜딩할 규칙은 승격 게이트 실패
- ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md)).
+  규칙을 출시할 방법 없음; 첫날에 강제 적용으로 랜딩할 규칙은 승격 게이트 실패
+  ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md)).
 - 모든 규칙은 시드 규칙 포함해서 근거에 기반한 **`provenance`** (출처 URL + resolved 개정 번호 +
- 내용 해시 + license + `redistribution` 플래그) 를 운반해야 함. 출처 이력 없는 규칙은
- 스키마 검증 실패.
+  내용 해시 + license + `redistribution` 플래그) 를 운반해야 함. 출처 이력 없는 규칙은
+  스키마 검증 실패.
 - **LLM-생성 후보** 는 자율 발견 루프가 활성화되고 그 quality 게이트가 사용 가능해지기 전에는
- 카탈로그에 진입하지 않음.
+  카탈로그에 진입하지 않음.
 
 **TBD**: 첫날 시드 세트에 어떤 소스가 실리고 정확한 규칙 id - 단계 1의 "소스별 초기 대상 세트
 열거"와 동일한 열림 항목
@@ -220,16 +220,16 @@ stopped/deallocated 상태로 되돌렸습니다.
 이벤트가 판단되기 전에 유입은 Azure 신호에 부착되어야 함:
 
 1. **Diagnostic Settings** - 대상 구독과 각 in-scope 리소스 그룹에서, Activity Log(과 리소스별
- 로그)을 **Event Hubs Kafka 토픽** 으로 forward 하는 Diagnostic Settings 활성화 - 이것이
- CSP-중립 이벤트 버스 계약
- ([csp-neutrality-ko.md § 이벤트버스 계약](../architecture/csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜)).
+   로그)을 **Event Hubs Kafka 토픽** 으로 forward 하는 Diagnostic Settings 활성화 - 이것이
+   CSP-중립 이벤트 버스 계약
+   ([csp-neutrality-ko.md § 이벤트버스 계약](../architecture/csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜)).
 2. **Kafka 토픽 + 컨슈머 그룹** - Event Hubs 네임스페이스에 첫날 토픽들을 생성
- (`aw.change.events`, `aw.dr.events`, `aw.finops.events`, 그리고 그들의 `<topic>.dlq`
- 형제) 하고 `event-ingest` 를 위한 컨슈머 그룹 등록.
+   (`aw.change.events`, `aw.dr.events`, `aw.finops.events`, 그리고 그들의 `<topic>.dlq`
+   형제) 하고 `event-ingest` 를 위한 컨슈머 그룹 등록.
 3. **멱등성 prime** - event-ingest 레이어가 처음 수신 시 모든 들어오는 이벤트에
- **멱등성 키** 를 스탬프하여 리플레이가 종단 no-op.
+   **멱등성 키** 를 스탬프하여 리플레이가 종단 no-op.
 4. **DLQ 도달 가능성 검증** - dead-letter 목적지 (Kafka `<topic>.dlq`) 가 어디에서든
- 강제 적용이 활성화되기 전에 실행됨 (poison-pill 프로브).
+   강제 적용이 활성화되기 전에 실행됨 (poison-pill 프로브).
 
 구체적 이벤트 타입과 필터 표현식은 **TBD** 이며
 [deploy-and-onboard-ko.md#event-source-subscription](../deployment/deploy-and-onboard-ko.md#event-source-subscription)
@@ -243,18 +243,18 @@ T2가 실행되기 전에 기능→배포 매핑을 해결해야 합니다. 해�
 materialize하고 런타임/Operator API는 구성된 파일 시스템 경로를 읽습니다.
 
 1. **해석기가 `rule-catalog/llm-registry.yaml` 에서 실행** - 기능별 선호를 읽고,
- 대상 리전의 Azure OpenAI / Foundry 카탈로그를 쿼리, `capacity_tpm` 상한과 함께 기능당
- 하나의 배포 프로비저닝.
+   대상 리전의 Azure OpenAI / Foundry 카탈로그를 쿼리, `capacity_tpm` 상한과 함께 기능당
+   하나의 배포 프로비저닝.
 2. **Mixed-model 불변식 검증** - `t2.reasoner.primary.publisher` 는 `t2.reasoner.보조.
- 발행기` 와 달라야 함, 아니면 부트스트랩 중단 (조용한 same-vendor 대체 경로 없음). 포크의
- `llm.mixed_model_mode` (`azure-foundry` / `external` / `hil-only`) 가 전략 선택.
+   발행기` 와 달라야 함, 아니면 부트스트랩 중단 (조용한 same-vendor 대체 경로 없음). 포크의
+   `llm.mixed_model_mode` (`azure-foundry` / `external` / `hil-only`) 가 전략 선택.
 3. **`resolved-models.json`을 protected 배포 산출물로 제공** - 기능 →
- `{deployment, family, version, publisher}`를 기록합니다. 현재 Terraform은 이 매니페스트를 Key
- Vault 시크릿으로 저장하지 않으며 경로/CI variable이 배포 경계입니다.
+   `{deployment, family, version, publisher}`를 기록합니다. 현재 Terraform은 이 매니페스트를 Key
+   Vault 시크릿으로 저장하지 않으며 경로/CI variable이 배포 경계입니다.
 4. **주간 조정기는 후속 increment로 연기** -
- [dev-and-deploy-parity-ko.md](../deployment/dev-and-deploy-parity-ko.md)의 W-I가 완료되기
- 전에는 명시적인 레지스트리 PR로 모델 변경을 검토합니다. 조정기는 새 계열과 폐기
- 공지를 감시하고 초안 PR을 열지만 실제 운영 대응을 자동 교체하지 않습니다.
+   [dev-and-deploy-parity-ko.md](../deployment/dev-and-deploy-parity-ko.md)의 W-I가 완료되기
+   전에는 명시적인 레지스트리 PR로 모델 변경을 검토합니다. 조정기는 새 계열과 폐기
+   공지를 감시하고 초안 PR을 열지만 실제 운영 대응을 자동 교체하지 않습니다.
 
 전체 설계: [llm-strategy-ko.md § 모델 프로비저닝 and 수명 주기](../architecture/llm-strategy-ko.md#model-provisioning-and-lifecycle).
 
@@ -273,10 +273,10 @@ materialize하고 런타임/Operator API는 구성된 파일 시스템 경로를
 전 구간 적용되는 규칙:
 
 - 어떤 회귀는 승격된 규칙을 **자동으로 shadow로 강등** - 강등은 승격 승인자를 절대 필요로 하지
- 않아 안전 방향 저하는 항상 빠름
- ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md#effects-mode)).
+  않아 안전 방향 저하는 항상 빠름
+  ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md#effects-mode)).
 - 강제 적용 승격은 제안한 운영자와 **별도 승인** 필요
- ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md)).
+  ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md)).
 - 비상 정지는 D+7 종료 전에 도달 가능성 검증.
 
 ## 사람 승인 담당자 부트스트랩
@@ -293,27 +293,27 @@ materialize하고 런타임/Operator API는 구성된 파일 시스템 경로를
 단계 (포크 책임):
 
 1. HIL A1 트래픽과 다이제스트를 위해 `aw-approvers` 로 백업된 Teams **그룹-연결 팀** 생성;
- 멤버십은 이후 Entra 그룹을 자동 추종
- ([channels-and-notifications-ko.md#51-audience-derivation-channel-as-audience](../interfaces/channels-and-notifications-ko.md#51-audience-derivation-channel-as-audience)).
+   멤버십은 이후 Entra 그룹을 자동 추종
+   ([channels-and-notifications-ko.md#51-audience-derivation-channel-as-audience](../interfaces/channels-and-notifications-ko.md#51-audience-derivation-channel-as-audience)).
 2. 5개 Entra 보안 그룹 (`aw-readers`, `aw-contributors`, `aw-approvers`, `aw-owners`,
- `aw-break-glass`) 프로비저닝, 구성 자리에 objectId 주입
- ([user-rbac-and-identity-ko.md#42-security-groups-slots](../interfaces/user-rbac-and-identity-ko.md#42-security-groups-slots)).
+   `aw-break-glass`) 프로비저닝, 구성 자리에 objectId 주입
+   ([user-rbac-and-identity-ko.md#42-security-groups-slots](../interfaces/user-rbac-and-identity-ko.md#42-security-groups-slots)).
 3. `aw-approvers`/`aw-owners` 에 Conditional 접근 적용: phishing-resistant MFA 필수,
- 이전 방식 auth 블록; `aw-owners` 에 compliant-device 추가
- ([user-rbac-and-identity-ko.md#43-conditional-access](../interfaces/user-rbac-and-identity-ko.md#43-conditional-access)).
+   이전 방식 auth 블록; `aw-owners` 에 compliant-device 추가
+   ([user-rbac-and-identity-ko.md#43-conditional-access](../interfaces/user-rbac-and-identity-ko.md#43-conditional-access)).
 4. 강제 적용 승격, 예외, 재정의에 **quorum-2** 규칙을 유지하는 데 필요한 최소 멤버 수로
- `aw-approvers` 채움
- ([user-rbac-and-identity-ko.md#51-codeowners-single-approver-group-path-based-reviewer-count](../interfaces/user-rbac-and-identity-ko.md#51-codeowners-single-approver-group-path-based-reviewer-count)).
+   `aw-approvers` 채움
+   ([user-rbac-and-identity-ko.md#51-codeowners-single-approver-group-path-based-reviewer-count](../interfaces/user-rbac-and-identity-ko.md#51-codeowners-single-approver-group-path-based-reviewer-count)).
 5. 실행기의 Chat 어댑터 구성에 승인자 그룹 id 등록하여 Adaptive 카드 승인이 롤 점유를
- 검증할 수 있게 함.
+   검증할 수 있게 함.
 6. **Slack 워크스페이스 프로비저닝** (P1 A1 채널): FDAI Slack 앱 설치, `chat:write`
- 부여, 필수 Slack userId ↔ Entra OID 매핑 저장소 채움; 매핑이 비어 있지 않을 때까지 Slack
- 어댑터는 A1 트래픽 거부
- ([channels-and-notifications-ko.md#7-channel-specific-notes](../interfaces/channels-and-notifications-ko.md#7-channel-specific-notes)).
+   부여, 필수 Slack userId ↔ Entra OID 매핑 저장소 채움; 매핑이 비어 있지 않을 때까지 Slack
+   어댑터는 A1 트래픽 거부
+   ([channels-and-notifications-ko.md#7-channel-specific-notes](../interfaces/channels-and-notifications-ko.md#7-channel-specific-notes)).
 7. `rule-catalog/channel-routing/` 구성 (기본/대체 경로 채널, 다이제스트 스케줄, 오디언스)
- 를 규칙과 같은 리뷰 엄격도로 커밋; A1 라우팅을 만지는 모든 변경은 Owner-티어 리뷰어 필요.
+   를 규칙과 같은 리뷰 엄격도로 커밋; A1 라우팅을 만지는 모든 변경은 Owner-티어 리뷰어 필요.
 8. 카나리 경로를 통해 **예행 실행 HIL** 실행하여 승인이 랜딩하고 `justification` 이 요구되고
- 시간 초과가 실패 시 차단이고 모든 승인이 `correlation_id` 있는 감사 엔트리를 씀을 확인.
+   시간 초과가 실패 시 차단이고 모든 승인이 `correlation_id` 있는 감사 엔트리를 씀을 확인.
 
 ## 자율 발견 루프 시동
 
@@ -324,16 +324,16 @@ materialize하고 런타임/Operator API는 구성된 파일 시스템 경로를
 > 없습니다. 아래 조건은 향후 activation 게이트 계약입니다.
 
 1. 감사 로그가 최소 **`N` shadow 결정** 을 축적하여 observe 스테이지에 실제 베이스라인 제공.
- `N` 은 설정 가능; **TBD** - 낮은 수천대 권장.
+   `N` 은 설정 가능; **TBD** - 낮은 수천대 권장.
 2. 최소 하나의 컬렉터가 성공 실행(배선 + 출처 이력 증명).
 3. Mixed-model 교차 검사 대상과 결정론적 검증기가 건강.
 4. Post-deploy smoke 테스트가 green
- ([operating-and-verification-ko.md](operating-and-verification-ko.md#post-deploy-smoke-테스트-계약)).
+   ([operating-and-verification-ko.md](operating-and-verification-ko.md#post-deploy-smoke-테스트-계약)).
 
 활성화되면 루프는 설정된 주기로 실행. 루프의 후보 규칙은 전체 quality 게이트를 통과할 때까지
 inert - 루프는 카탈로그를 직접 변형할 수 없음.
 
-루프 비활성화는 **정책 토글** , 코드 변경 아님; 반복되는 재정의 신호는 다음 활성화를 위해
+루프 비활성화는 **정책 토글** ,  코드 변경 아님; 반복되는 재정의 신호는 다음 활성화를 위해
 감사 로그에 계속 축적됨.
 
 ## 라이프사이클 상태
@@ -342,17 +342,17 @@ inert - 루프는 카탈로그를 직접 변형할 수 없음.
 감사됨.
 
 - **Rule / rule-set** - `draft → audit(shadow) ⇄ enforce(deny/remediate) → deprecated`,
- `disabled` 은 어떤 활성 상태에서도 도달 가능
- ([rule-governance-ko.md#lifecycle-and-versioning](../rules-and-detection/rule-governance-ko.md#lifecycle-and-versioning)).
+  `disabled` 은 어떤 활성 상태에서도 도달 가능
+  ([rule-governance-ko.md#lifecycle-and-versioning](../rules-and-detection/rule-governance-ko.md#lifecycle-and-versioning)).
 - **배정** - 스코프, `effect`, `enforcement` 플래그에 바인딩. Effects는 승격 게이트 하에
- 전이; 회귀는 자동 강등.
+  전이; 회귀는 자동 강등.
 - **Exemption** - `active → expired` (time-boxed; auto-renew 없음)
- ([rule-governance-ko.md#exemptions](../rules-and-detection/rule-governance-ko.md#exemptions)).
+  ([rule-governance-ko.md#exemptions](../rules-and-detection/rule-governance-ko.md#exemptions)).
 - **재정의** - `active → removed`; 수명이 긴 가능(강제 만료 없음), 스코프는 resource-group-
- equivalent 이하이어야 함
- ([rule-governance-ko.md#overrides](../rules-and-detection/rule-governance-ko.md#overrides)).
+  equivalent 이하이어야 함
+  ([rule-governance-ko.md#overrides](../rules-and-detection/rule-governance-ko.md#overrides)).
 - **액션** - `proposed → risk-gated → executed | rejected → rolled-back (해당 시)`. 모든
- 상태가 멱등성 키를 운반하여 리플레이는 no-op.
+  상태가 멱등성 키를 운반하여 리플레이는 no-op.
 
 ## 열림 Decisions
 
@@ -361,5 +361,5 @@ inert - 루프는 카탈로그를 직접 변형할 수 없음.
 - [ ] Discovery-루프 시동 임계 `N` (shadow-decision 카운트) 과 그 회귀-안전 근거.
 - [ ] Kafka 토픽 레이아웃 + Diagnostic-Settings 포워더 필터 형상과 소스별 속도 상한.
 - [ ] 부트스트랩 런북: 포크가 D+0에 도달하기 위한 정확한 명령 시퀀스 (
-  [operating-and-verification-ko.md](operating-and-verification-ko.md#runbook-set) 소유).
+      [operating-and-verification-ko.md](operating-and-verification-ko.md#runbook-set) 소유).
 - [ ] 예행 실행 HIL 절차: 카나리 페이로드, 예상 타이밍, 정리.

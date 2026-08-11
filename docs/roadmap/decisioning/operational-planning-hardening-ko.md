@@ -70,9 +70,9 @@ focused 회귀 테스트와 별도 강화 커밋을 추가했습니다. 제안 �
 고정된 시나리오 매니페스트는 두 개의 명시적 proxy 때문에 `partial` 상태를 유지합니다.
 
 - **부분 실행 복구:** 계약 테스트는 mismatched 결과를 검증된 롤백으로 닫지만,
- 전용 non-production partial-execution 훈련은 release 근거로 남아 있습니다.
+  전용 non-production partial-execution 훈련은 release 근거로 남아 있습니다.
 - **Standing emergency 권한:** A0 proposal-only 동작을 검증했습니다. Standing emergency 권한의
- 명시적 non-applicability 근거는 release 근거로 남아 있습니다.
+  명시적 non-applicability 근거는 release 근거로 남아 있습니다.
 
 두 공백은 실행을 활성화할 수 없으므로 제공되는 shadow 기능에서는 Low입니다. 검증된
 시나리오 근거로 교체되기 전까지 향후 적용 승격을 차단합니다. 기능 상태,

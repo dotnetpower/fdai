@@ -21,37 +21,37 @@ pytest의 `test_fixtures=True`에서만 `UnsafeClaimsExtractor`와 synthetic 화
 ## 한눈에 보는 설계
 
 - **동일한 `build_app` 글루.** 프로덕션 팩토리는 공용
- [`build_app`](../../../services/operator-service/src/fdai_operator_service/)을
- `dev_mode=False`로 호출합니다. 그 결과 cloud-resource 변경은 API 외부에
- 유지됩니다. 명시적 선택 게시 경로는 제안, 승인 또는 접근 요청을 기록하지만
- 실행기 ID를 보유하지 않습니다. 또한
- staging/prod 트립와이어(CORS `*` 거부, dev-mode 거부)가 그대로 적용된다.
+  [`build_app`](../../../services/operator-service/src/fdai_operator_service/)을
+  `dev_mode=False`로 호출합니다. 그 결과 cloud-resource 변경은 API 외부에
+  유지됩니다. 명시적 선택 게시 경로는 제안, 승인 또는 접근 요청을 기록하지만
+  실행기 ID를 보유하지 않습니다. 또한
+  staging/prod 트립와이어(CORS `*` 거부, dev-mode 거부)가 그대로 적용된다.
 - **환경변수 전용 조립.** 팩토리가 필요로 하는 값은 환경변수로 도착합니다. 데이터베이스 DSN과
- 웹훅 시크릿은 Key Vault 참조를 사용하고 테넌트/대상/그룹/토픽 같은 non-secret
- 값은 IaC가 plain env로 주입합니다. 설정 파일이나 고객 식별자는 이미지에 박히지 않습니다.
+  웹훅 시크릿은 Key Vault 참조를 사용하고 테넌트/대상/그룹/토픽 같은 non-secret
+  값은 IaC가 plain env로 주입합니다. 설정 파일이나 고객 식별자는 이미지에 박히지 않습니다.
 - **누락된 구성은 즉시 실패.** 필수 env가 없으면 시작 시점에
- :등급:`ProdOperatorApiConfigError`(`ValueError`의 서브클래스)가 발생한다.
- 깨진 리비전은 절대 소켓을 바인딩하지 못한다. env가 통째로 비어있는
- 콜드 부트에서는 누락된 슬롯 8개를 순차 실패로 겪는 대신 한 번의
- 에러로 모두 열거되어 보인다.
+  :등급:`ProdOperatorApiConfigError`(`ValueError`의 서브클래스)가 발생한다.
+  깨진 리비전은 절대 소켓을 바인딩하지 못한다. env가 통째로 비어있는
+  콜드 부트에서는 누락된 슬롯 8개를 순차 실패로 겪는 대신 한 번의
+  에러로 모두 열거되어 보인다.
 - **데이터베이스 준비 상태는 즉시 실패.** User 맥락, 스킬, 스트림 또는 다른 런타임 서비스를
- 시작하기 전에 Postgres 읽기 모델이 범위가 제한된 `SELECT 1`을 실행합니다. 연결에 실패하면 lifespan
- 시작을 중단하므로 연결되지 않은 개정 번호가 `/healthz`에서 준비된으로 표시되지 않습니다.
+  시작하기 전에 Postgres 읽기 모델이 범위가 제한된 `SELECT 1`을 실행합니다. 연결에 실패하면 lifespan
+  시작을 중단하므로 연결되지 않은 개정 번호가 `/healthz`에서 준비된으로 표시되지 않습니다.
 - **접근 실패를 관찰할 수 있습니다.** 모든 `401`과 `403`은 요청 경로와 exception 등급만
- 포함하는 구조화된 경고를 기록합니다. 권한 확인 헤더, bearer 토큰, principal id 및
- exception 텍스트는 기록하지 않습니다.
+  포함하는 구조화된 경고를 기록합니다. 권한 확인 헤더, bearer 토큰, principal id 및
+  exception 텍스트는 기록하지 않습니다.
 - **Kafka 기반 실시간 관찰.** Kafka 초기화 엔드포인트가 구성되면 팩토리는
- `/live/stream`과 `/agents/stream`을 등록합니다. 별도 소비자 그룹이 공유
- `aw.pipeline.stages` 토픽을 읽고 검증된 단계 레코드를 프로세스 내부 SSE 싱크로
- 전달합니다. 앱 lifespan은 두 중계를 시작하고 중지하며 공유 EventBus 전송을
- 닫습니다. 이 SSE GET 경로는 스냅샷 GET 경로와 동일한 Entra bearer 인증을
- 사용합니다. 브라우저의 native `EventSource` API는 `Authorization` 헤더를 첨부할 수
- 없으므로 콘솔은 인증된 fetch 스트리밍으로 이를 소비합니다.
+  `/live/stream`과 `/agents/stream`을 등록합니다. 별도 소비자 그룹이 공유
+  `aw.pipeline.stages` 토픽을 읽고 검증된 단계 레코드를 프로세스 내부 SSE 싱크로
+  전달합니다. 앱 lifespan은 두 중계를 시작하고 중지하며 공유 EventBus 전송을
+  닫습니다. 이 SSE GET 경로는 스냅샷 GET 경로와 동일한 Entra bearer 인증을
+  사용합니다. 브라우저의 native `EventSource` API는 `Authorization` 헤더를 첨부할 수
+  없으므로 콘솔은 인증된 fetch 스트리밍으로 이를 소비합니다.
 - **영속 에이전트 초기화.** 에이전트 페이지는 서버에서 참여 에이전트를 도출한
- Postgres 기반 인시던트 명단을 먼저 로드한 다음 `/agents/stream`의 더 새로운
- 단계 이벤트를 오버레이합니다. Audit-stage 프레임은 기록된 교정 결과가
- 있을 때만 티켓을 해석합니다. HIL, 거부, abstain은 활성으로 유지되고 완료된
- 단계 소유자는 idle로 돌아갑니다.
+  Postgres 기반 인시던트 명단을 먼저 로드한 다음 `/agents/stream`의 더 새로운
+  단계 이벤트를 오버레이합니다. Audit-stage 프레임은 기록된 교정 결과가
+  있을 때만 티켓을 해석합니다. HIL, 거부, abstain은 활성으로 유지되고 완료된
+  단계 소유자는 idle로 돌아갑니다.
 
 ## 환경변수 계약
 
@@ -80,7 +80,7 @@ pytest의 `test_fixtures=True`에서만 `UnsafeClaimsExtractor`와 synthetic 화
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` | 비어 있음 | 프로덕션 실제 운영 및 에이전트 SSE 중계를 활성화합니다. `:9093`의 Event Hubs Kafka 엔드포인트를 사용하며, 값이 비어 있으면 두 선택적 경로를 등록하지 않습니다. |
 | `KAFKA_TOPIC_EVENTS` | 비어 있음 | Kafka 초기화와 함께 타입이 지정된 액션 및 confirmed 인시던트 작업 흐름용 `POST /chat/action`을 활성화합니다. Huginn이 consume하는 raw 유입 토픽과 같은 값을 사용합니다. |
 | `FDAI_STAGE_TOPIC` | `aw.pipeline.stages` | 워커가 게시하고 실제 운영 및 에이전트 중계가 소비하는 단계 토픽입니다. 워커와 Operator API는 같은 값을 사용하는 것이 좋습니다. |
-| `FDAI_INCIDENT_SLA_POLICY_JSON` | 비어 있음(비활성화된) | 모든 `sev1`부터 `sev5`까지 긍정 `acknowledge_seconds` 및 `resolve_seconds` 값을 가진 strict JSON 객체입니다. 영속 A2 SLA-breach monitoring을 활성화합니다. |
+| `FDAI_INCIDENT_SLA_POLICY_JSON` | 비어 있음(비활성화된) | 모든 `sev1`부터 `sev5`까지 긍정 `acknowledge_seconds` 및 `resolve_seconds` 값을 가진 strict JSON 객체입니다. 영속 A2 SLA-breach 모니터링을 활성화합니다. |
 | `FDAI_INCIDENT_SLA_INTERVAL_SECONDS` | `60` | 긍정 SLA 검사 간격입니다. Policy JSON이 있을 때만 사용합니다. |
 | `FDAI_IAM_DIRECTORY_PROVIDER` | 비어 있음 (디렉터리 검색 비활성화) | Owner 전용 사용자 디렉터리 검색을 활성화합니다. 구현된 값은 `entra`이며 지원되지 않는 향후 프로바이더 이름은 시작을 차단합니다. |
 | `FDAI_IAM_ENTRA_GRAPH_BASE_URL` | `https://graph.microsoft.com/v1.0` | Sovereign cloud 또는 테스트 재정의용 Microsoft Graph base URL입니다. 디렉터리 프로바이더가 `entra`일 때만 사용합니다. |
@@ -115,7 +115,7 @@ Entra 디렉터리 어댑터는 Operator API managed 신원을 통해
 
 ```bash
 uvicorn fdai.delivery.operator_api.prod:app \
- --factory --host 0.0.0.0 --port 8000
+    --factory --host 0.0.0.0 --port 8000
 ```
 
 `app` 팩토리는 워커당 한 번 호출된다. 위 모든 env가 프로세스 스코프에 있어야
@@ -127,30 +127,30 @@ uvicorn fdai.delivery.operator_api.prod:app \
 
 - [`prod.py`](../../../services/operator-service/src/fdai_operator_service/) - 안정적인 가져오기 파사드와 `app()` 팩토리.
 - [`production/config.py`](../../../services/operator-service/src/fdai_operator_service/) 및
- [`production/factory.py`](../../../services/operator-service/src/fdai_operator_service/) - 환경 검증,
- Postgres/Entra/프로바이더 조립의 실제 소유자.
+  [`production/factory.py`](../../../services/operator-service/src/fdai_operator_service/) - 환경 검증,
+  Postgres/Entra/프로바이더 조립의 실제 소유자.
 - [`postgres_read_model.py`](../../../services/operator-service/src/fdai_operator_service/)
- - `audit_log` + `state_kv` 위의 구체 :등급:`ConsoleReadModel`. 행 -> 데이터 클래스
- 매퍼와 경계가 정해진 KPI 집계는 같은 모듈의 순수함수로 분리되어 있어
- 라이브 DB 없이 유닛테스트가 가능하다.
+  - `audit_log` + `state_kv` 위의 구체 :등급:`ConsoleReadModel`. 행 -> 데이터 클래스
+    매퍼와 경계가 정해진 KPI 집계는 같은 모듈의 순수함수로 분리되어 있어
+    라이브 DB 없이 유닛테스트가 가능하다.
 - [`main.py`](../../../services/operator-service/src/fdai_operator_service/) - 공용 `build_app`
- 글루 (라우트 등록, `_authorize` 게이트, staging/prod 트립와이어).
+  글루 (라우트 등록, `_authorize` 게이트, staging/prod 트립와이어).
 - [`streaming/live_stage_broadcaster.py`](../../../services/operator-service/src/fdai_operator_service/)
- - Kafka 단계 레코드를 검증하고 브라우저가 기대하는 원시 `event: stage` SSE
- 계약을 유지합니다.
+  - Kafka 단계 레코드를 검증하고 브라우저가 기대하는 원시 `event: stage` SSE
+  계약을 유지합니다.
 
 ## 테스트
 
 - `services/operator-service/tests/` - env 파싱 + 조립 가드
- (DB 왕복 없음).
+  (DB 왕복 없음).
 - `services/operator-service/tests/` - 원시 단계
- 중계, 잘못된 프레임 거부, 수명 주기 동작.
+  중계, 잘못된 프레임 거부, 수명 주기 동작.
 - `services/operator-service/tests/` - 행 매퍼,
- 커서 파싱, KPI 집계 (DB 왕복 없음).
+  커서 파싱, KPI 집계 (DB 왕복 없음).
 - `services/core-control-plane/tests/persistence/test_postgres_console_read_model.py` -
- 라이브 Postgres 대상 종단 간 라운드트립. `FDAI_DATABASE_URL`이 없으면
- 스킵. 로컬 `docker-compose` dev 스택 (`bash scripts/deployment/local/dev-up.sh`)이
- `postgresql+psycopg://fdai:devonly@localhost:5432/fdai`로 노출한다.
+  라이브 Postgres 대상 종단 간 라운드트립. `FDAI_DATABASE_URL`이 없으면
+  스킵. 로컬 `docker-compose` dev 스택 (`bash scripts/deployment/local/dev-up.sh`)이
+  `postgresql+psycopg://fdai:devonly@localhost:5432/fdai`로 노출한다.
 
 ## 관련 문서
 

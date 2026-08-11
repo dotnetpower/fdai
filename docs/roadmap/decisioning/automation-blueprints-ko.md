@@ -43,9 +43,9 @@ dedup 키와 고정된 근거 집합을 연결하므로 순서와 무관하고 �
 
 ```text
 draft -> accepted -> materialized
- |   |
- +-> rejected
- +-> expired <-+
+  |          |
+  +-> rejected
+  +-> expired <-+
 ```
 
 검토에는 authorized principal, 사유, 제안자와 다른 검토자가 필요합니다. 거부와 만료는

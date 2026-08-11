@@ -29,37 +29,37 @@ Rule이 일반적으로 틀렸다면 대신 rule-catalog 파이프라인을 통�
 ## 역할
 
 - **요청자** - `aw-contributors` Entra 그룹 (또는 그 이상)의 누구든 예외 PR을 열 수
- 있습니다.
+  있습니다.
 - **승인자** - `aw-owners` 멤버여야 합니다. **승인자 ≠ 요청자** - 브랜치 보호가
- "작성자 ≠ 검토자"를 강제하고, 예외 아티팩트도 CI가 서로 다른 값인지 검사하는
- `requested_by`와 `approved_by` 필드를 담고 있습니다.
+  "작성자 ≠ 검토자"를 강제하고, 예외 아티팩트도 CI가 서로 다른 값인지 검사하는
+  `requested_by`와 `approved_by` 필드를 담고 있습니다.
 - **감사자** - 모든 상태 전환 (활성 / 만료된 / 철회된)은 행위 주체 principal과
- 함께 감사 로그 엔트리를 기록합니다.
+  함께 감사 로그 엔트리를 기록합니다.
 
 ## 절차
 
 1. **`Exemption Request` 템플릿**으로 PR 오픈.
 2. [스키마](../../services/core-control-plane/src/fdai/rule_catalog/schema/exemption.schema.json)에 따라
- `rule-catalog/exemptions/<id>.json`에 **아티팩트 채우기**.
+   `rule-catalog/exemptions/<id>.json`에 **아티팩트 채우기**.
 3. **CI 실행**:
- - 스키마 검증 (`exemption-check` 작업).
- - Author-≠-reviewer 브랜치 보호 규칙 (repo settings).
- - `requested_by` ≠ `approved_by` 모델 불변식.
- - `expires_at > created_at` 모델 불변식.
+   - 스키마 검증 (`exemption-check` 작업).
+   - Author-≠-reviewer 브랜치 보호 규칙 (repo settings).
+   - `requested_by` ≠ `approved_by` 모델 불변식.
+   - `expires_at > created_at` 모델 불변식.
 4. **Owner-tier 리뷰 + 머지**. 머지는 현재 시점에서 라이브 Azure 리소스에 사이드
- 이펙트를 주지 않습니다. 적용 억제는 카탈로그 파이프라인(단계 2)이 예외를
- 인식한 시점에 적용됩니다.
+   이펙트를 주지 않습니다. 적용 억제는 카탈로그 파이프라인(단계 2)이 예외를
+   인식한 시점에 적용됩니다.
 5. **자동 만료**. 스케줄 잡 (`scripts/governance/exemption-expire.py`; W4.1 이후 Container Apps
- 작업)이 `expires_at`이 지나는 순간 각 아티팩트를 `state=expired`로 전환하고 기저
- 룰 배정을 재적용합니다. 이벤트는 감사 로그에 기록됩니다.
+   작업)이 `expires_at`이 지나는 순간 각 아티팩트를 `state=expired`로 전환하고 기저
+   룰 배정을 재적용합니다. 이벤트는 감사 로그에 기록됩니다.
 
 ## 시간 제한
 
 - `expires_at`은 `created_at`보다 **엄격히 이후**여야 합니다.
 - 최대 간격 상한은 여기에 코드화되어 있지 않습니다. 더 긴 창은 PR 본문에서
- 정당화되어야 합니다.
+  정당화되어야 합니다.
 - `expires_at` 14일 전에 `exemption_expiry_lookahead_weekly` 라우트에서 룩어헤드
- 알림이 발송됩니다 (W5.4 - channels 어댑터 의존, 별도 추적).
+  알림이 발송됩니다 (W5.4 - channels 어댑터 의존, 별도 추적).
 
 ## 취소
 
@@ -73,10 +73,10 @@ Owner는 활성 예외를 다음과 같이 취소할 수 있습니다:
 ## 에스컬레이션
 
 - 명백히 스키마를 만족하는 요청에 대해 CI가 flapping하면, 기본 A1 채널로
- `aw-owners`를 호출하고 CI 로그를 첨부합니다.
+  `aw-owners`를 호출하고 CI 로그를 첨부합니다.
 - 예외가 거부됐지만 환경이 실질적으로 위험한 상태이면 `aw-break-glass`로
- 에스컬레이션합니다 - Conditional 접근 아래, 이는 단기·감사된 부여이지 우회는
- 아닙니다.
+  에스컬레이션합니다 - Conditional 접근 아래, 이는 단기·감사된 부여이지 우회는
+  아닙니다.
 
 ## 참조
 

@@ -91,22 +91,22 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
 | 어떤 활성 상태 | `disabled` | 표준 리뷰 (사유 기록) |
 
 - **새 할당은 `audit` (shadow) + `enforcement: do-not-enforce` 기본.** `deny`/`remediate`
- 으로의 승격은 (1) 최소 shadow dwell 시간과 표본 크기, (2) 임계 위 측정 shadow 정확도, (3)
- 정책 위반 escape 0 을 게이트로 하는 명시적·별도 리뷰된 변경
- ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)).
+  으로의 승격은 (1) 최소 shadow dwell 시간과 표본 크기, (2) 임계 위 측정 shadow 정확도, (3)
+  정책 위반 escape 0 을 게이트로 하는 명시적·별도 리뷰된 변경
+  ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)).
 - 회귀는 할당을 `audit` 로 **자동 강등**; 강등은 승격 게이트를 절대 필요로 하지 않아 안전 저하는
- 항상 빠름.
+  항상 빠름.
 - 할당의 **부재** 는 규칙이 그 스코프에서 미강제 (거버넌스는 default-audit, default-deny 아님);
- 이것은 런타임에 fail 열림이 아님 - 매칭되지 않거나 모호한 이벤트는 여전히
- [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 에
- 따라 HIL로 라우팅.
+  이것은 런타임에 fail 열림이 아님 - 매칭되지 않거나 모호한 이벤트는 여전히
+  [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 에
+  따라 HIL로 라우팅.
 - `deny`/`remediate` 액션은
- [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
- 의 7개 안전조건(stop-condition, 롤백, blast-radius 한도, 예행 실행, 리소스 잠금,
- 멱등성, 감사 항목) 운반. 오발동
- `deny` 는 글로벌 비상 정지 또는 time-boxed exemption으로 복구 가능(그 영향 범위는
- *정당한 변경을 블록* ); `remediate` PR은 멱등 - 재평가된 발견 사항은 중복 오픈이 아니라 열린
- PR 업데이트.
+  [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
+  의 7개 안전조건(stop-condition, 롤백, blast-radius 한도, 예행 실행, 리소스 잠금,
+  멱등성, 감사 항목) 운반. 오발동
+  `deny` 는 글로벌 비상 정지 또는 time-boxed exemption으로 복구 가능(그 영향 범위는
+  *정당한 변경을 블록* ); `remediate` PR은 멱등 - 재평가된 발견 사항은 중복 오픈이 아니라 열린
+  PR 업데이트.
 
 > **구현 상태**: 효과 기반은
 > [`rule_catalog/schema/effect.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/effect.py) 에 ship 됨 -
@@ -170,16 +170,16 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
 - **셀렉터**: resource-type별, tag/라벨별, 명시적 resource-id 허용 목록별.
 - **제외**: 스코프는 자식 스코프 제외 가능(예: org-wide 적용하되 샌드박스 제외).
 - 스코프는 데이터; 실행기는 여전히 최소권한 아이덴티티와 액션 화이트리스트만 보유
- ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md)) - 광범위 스코프는 실행 권한을
- 절대 넓히지 않음.
+  ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md)) - 광범위 스코프는 실행 권한을
+  절대 넓히지 않음.
 - **스코프 우선순위**: 중첩된 스코프가 같은 규칙을 바인드할 때, 파라미터는 **가장 구체적인
- 스코프가 승리** ; 충돌하는 *effects* 는 **가장 엄격한 효과가 승리**
- (`deny` > `remediate` > `audit` > `disabled`), 진짜 동점은 HIL로 escalate -
- [phase-1-rule-catalog-t0-ko.md](../phases/phase-1-rule-catalog-t0-ko.md#deduplication-conflict-and-precedence)
- 의 결정론 순서와 일관.
+  스코프가 승리** ; 충돌하는 *effects* 는 **가장 엄격한 효과가 승리**
+  (`deny` > `remediate` > `audit` > `disabled`), 진짜 동점은 HIL로 escalate -
+  [phase-1-rule-catalog-t0-ko.md](../phases/phase-1-rule-catalog-t0-ko.md#deduplication-conflict-and-precedence)
+  의 결정론 순서와 일관.
 - **같은 룰+범위의 충돌 할당** 은 같은 strictest-effect-wins 규칙으로 해결; 지는 할당은
- 감사 트레일에 기록되어 해결이 리뷰 가능하며, time-boxed exemption이 엄격한 결과를 완화하는
- 유일한 승인 방법.
+  감사 트레일에 기록되어 해결이 리뷰 가능하며, time-boxed exemption이 엄격한 결과를 완화하는
+  유일한 승인 방법.
 
 ## 관리자 컨트롤 흐름 (GitOps, 버튼 아님)
 
@@ -188,25 +188,25 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
 
 ```mermaid
 flowchart LR
- ADMIN[administrator] -->|authoring UI or edit| DRAFT["draft change: rule / assignment / exemption"]
- DRAFT --> PR[catalog-as-code PR]
- PR --> VAL["CI: schema + policy-as-code + shadow eval"]
- VAL -->|pass| REV[review + approval]
- VAL -->|fail| BLOCK[blocked]
- REV -->|effect raises enforce?| GATE[separate enforce-promotion approval]
- REV -->|audit only| MERGE[merge → catalog]
- GATE --> MERGE
- MERGE --> LOAD[T0 loads at runtime]
+    ADMIN[administrator] -->|authoring UI or edit| DRAFT["draft change: rule / assignment / exemption"]
+    DRAFT --> PR[catalog-as-code PR]
+    PR --> VAL["CI: schema + policy-as-code + shadow eval"]
+    VAL -->|pass| REV[review + approval]
+    VAL -->|fail| BLOCK[blocked]
+    REV -->|effect raises enforce?| GATE[separate enforce-promotion approval]
+    REV -->|audit only| MERGE[merge → catalog]
+    GATE --> MERGE
+    MERGE --> LOAD[T0 loads at runtime]
 ```
 
 - 콘솔은 **authoring UI** 를 제공할 수 있지만 **초안 PR을 생산** 만 할 뿐 - 라이브 카탈로그를
- 절대 직접 실행/변형하지 않음(콘솔 읽기 전용 유지).
+  절대 직접 실행/변형하지 않음(콘솔 읽기 전용 유지).
 - 모든 거버넌스 변경(룰, 배정, exemption 생성/수정, 효과 변경)은 저자, 리뷰어, 감사
- 트레일 있는 PR. 강제 적용 방향으로 효과를 올리는 것은 추가 승격 승인 필요.
+  트레일 있는 PR. 강제 적용 방향으로 효과를 올리는 것은 추가 승격 승인 필요.
 - 초안 PR은 authoring UI의 로컬 뷰가 아니라 **현재 머지된 카탈로그** 에 대해 검증; stale
- 초안은 rebase해야 하므로 라이브 카탈로그가 단일 진실 원본 유지, 동시 편집이 조용히 서로를
- 덮어쓸 수 없음. 승인은 git(또는 ChatOps)에서 발생, 콘솔 버튼 아님 - 콘솔은 상태 렌더링과
- 초안 PR 발행만.
+  초안은 rebase해야 하므로 라이브 카탈로그가 단일 진실 원본 유지, 동시 편집이 조용히 서로를
+  덮어쓸 수 없음. 승인은 git(또는 ChatOps)에서 발생, 콘솔 버튼 아님 - 콘솔은 상태 렌더링과
+  초안 PR 발행만.
 
 ## 커스텀 규칙과 우선순위
 
@@ -214,33 +214,33 @@ flowchart LR
 옆에 커스텀 정의를 허용하는 것처럼:
 
 - 커스텀 규칙은 같은 스키마 사용, `source: custom` + shipped 전체 `provenance`
- (`source_url`, 변경할 수 없는 참조/해시, license/redistribution, 수집 시간, 선택적 mapper).
+  (`source_url`, 변경할 수 없는 참조/해시, license/redistribution, 수집 시간, 선택적 mapper).
 - 커스텀과 built-in 규칙이 겹칠 때의 **우선순위** 는
- [phase-1-rule-catalog-t0-ko.md](../phases/phase-1-rule-catalog-t0-ko.md#deduplication-conflict-and-precedence)
- 의 결정론 순서 (심각도, 출처 priority, ties → HIL) 따름. 커스텀 소스는 명시적
- `priority_rank` 을 부여받아 오버라이드가 의도적·감사 가능, 우발 아님. 커스텀은 built-in을
- 자동으로 능가하지 **않음** : built-in `deny` 를 *약화* 시킬 커스텀 규칙은 CI에서 플래그되고
- 명시적 리뷰 필요, 컨트롤이 조용히 완화되지 않도록.
+  [phase-1-rule-catalog-t0-ko.md](../phases/phase-1-rule-catalog-t0-ko.md#deduplication-conflict-and-precedence)
+  의 결정론 순서 (심각도, 출처 priority, ties → HIL) 따름. 커스텀 소스는 명시적
+  `priority_rank` 을 부여받아 오버라이드가 의도적·감사 가능, 우발 아님. 커스텀은 built-in을
+  자동으로 능가하지 **않음** : built-in `deny` 를 *약화* 시킬 커스텀 규칙은 CI에서 플래그되고
+  명시적 리뷰 필요, 컨트롤이 조용히 완화되지 않도록.
 - 커스텀 규칙은 같은 shadow-before-enforce 라이프사이클 따름; 커스텀 `deny` 는 승격 게이트에서
- 면제되지 않음.
+  면제되지 않음.
 - **신뢰할 수 없는 authored 입력**: 커스텀 규칙의 `check-logic`, `remediation`, 파라미터 값은 로드
- 시 스키마로 검증되고 sandboxed 정책 엔진(OPA) 을 **통해서만** 평가 - 절대 셸이나 프로바이더
- API 호출로 string-interpolate 되지 않음 - 규칙 텍스트나 파라미터로부터의 주입 경로 폐쇄
- ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
+  시 스키마로 검증되고 sandboxed 정책 엔진(OPA) 을 **통해서만** 평가 - 절대 셸이나 프로바이더
+  API 호출로 string-interpolate 되지 않음 - 규칙 텍스트나 파라미터로부터의 주입 경로 폐쇄
+  ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
 
 ## Exemption
 
 Exemption은 Azure Policy exemption처럼 스코프의 할당을 waive:
 
 - 현재 필수 필드: `rule_id`, resource-group 또는 리소스로 좁혀진 Azure-shaped `scope`,
- **justification**, 서로 다른 `requested_by` / `approved_by` UUID, `state`, `created_at`,
- `expires_at`. 로더는 no self-exemption과 `expires_at > created_at`을 강제합니다.
+  **justification**, 서로 다른 `requested_by` / `approved_by` UUID, `state`, `created_at`,
+  `expires_at`. 로더는 no self-exemption과 `expires_at > created_at`을 강제합니다.
 - 현재 스키마는 배정 참조나 waiver/mitigated category를 저장하지 않고, 설정된 최대
- 기간도 강제하지 않습니다. 이 메타데이터와 maximum-duration 정책은 후속 계약입니다.
+  기간도 강제하지 않습니다. 이 메타데이터와 maximum-duration 정책은 후속 계약입니다.
 - Auto-renew는 지원되지 않습니다. 만료 시 재적용과 사전 ChatOps 알림은 아직 배선되지 않은 운영
- 작업 흐름이며, 현재 산출물 상태는 CLI/검토 프로세스가 갱신해야 합니다.
+  작업 흐름이며, 현재 산출물 상태는 CLI/검토 프로세스가 갱신해야 합니다.
 - 모든 exemption과 만료는 감사; exemption은 기저 발견 사항의 감사 기록을 절대 억제하지 않음 -
- 발생 안 함이 아니라 *왜 수용됐는지* 기록.
+  발생 안 함이 아니라 *왜 수용됐는지* 기록.
 
 ## 재정의
 
@@ -267,46 +267,46 @@ Exemption은 Azure Policy exemption처럼 스코프의 할당을 waive:
 ### 규칙 (MUST)
 
 - **Policy-as-code, 별도 아티팩트.** 재정의는 자체 catalog-as-code 엔트리 (`종류:
- 재정의`); 대상 규칙 텍스트를 절대 편집하지 않음. 재정의 제거는 규칙을 자동 복원, 상류
- 규칙 업데이트는 건드리지 않고 흘러감.
+  재정의`); 대상 규칙 텍스트를 절대 편집하지 않음. 재정의 제거는 규칙을 자동 복원, 상류
+  규칙 업데이트는 건드리지 않고 흘러감.
 - **스코프는 resource-group-equivalent 이하이어야 함** - 위 스코프 계층의 `resource-group`
- 레이어, 또는 특정 `resource`. Organization·계정/subscription-wide 재정의는 CI에서
- 거부; 어디서든 규칙 비활성화는 재정의가 아니라 카탈로그 파이프라인을 통한 **룰
- retirement**.
+  레이어, 또는 특정 `resource`. Organization·계정/subscription-wide 재정의는 CI에서
+  거부; 어디서든 규칙 비활성화는 재정의가 아니라 카탈로그 파이프라인을 통한 **룰
+  retirement**.
 - **허용 모드**: `disabled` (스코프에서 규칙 오프), `severity-downgrade` (예:
- `critical -> medium`), `parameter-relaxation` (규칙 스키마가 선언한 범위 내에서 임계 확대).
- 다른 어떤 확대도 거부.
+  `critical -> medium`), `parameter-relaxation` (규칙 스키마가 선언한 범위 내에서 임계 확대).
+  다른 어떤 확대도 거부.
 - **강제 만료 없음**: 재정의는 수명이 긴 가능; `expires_at` 은 선택. Exemption과의 핵심
- 차이. Justification은 항상 필수.
+  차이. Justification은 항상 필수.
 - **별개 승인자**: 요청자는 승인자가 되어선 안 됨 (no self-override), exemption 규칙과
- [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 의 승인≠실행 경계 미러링.
-- **shadow는 계속 실행**: 재정의는 스코프의 *실행* 을 비활성화, 감지 아님. 평가기는 규칙이
- 플래그했을 것을 계속 기록하고 그 발견 사항을
- [rule-catalog-collection-ko.md](rule-catalog-collection-ko.md#autonomous-rule-discovery) 의
- 자율 발견 루프에 공급.
+  [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 의 승인≠실행 경계 미러링.
+- **Shadow는 계속 실행**: 재정의는 스코프의 *실행* 을 비활성화, 감지 아님. 평가기는 규칙이
+  플래그했을 것을 계속 기록하고 그 발견 사항을
+  [rule-catalog-collection-ko.md](rule-catalog-collection-ko.md#autonomous-rule-discovery) 의
+  자율 발견 루프에 공급.
 - **Audit-first**: 모든 재정의 생성/수정/제거 이벤트는 추가 전용 감사 엔트리(행위자,
- 사유, 대상 룰, 범위, 모드). 재정의는 기저 발견 사항의 감사 기록을 절대 억제하지 않음
- - 실행이 그 스코프에서 왜 억제됐는지 기록.
+  사유, 대상 룰, 범위, 모드). 재정의는 기저 발견 사항의 감사 기록을 절대 억제하지 않음
+  - 실행이 그 스코프에서 왜 억제됐는지 기록.
 
 ### 우선순위
 
 - 재정의는 자신이 커버하는 스코프에서 할당의 효과보다 승리. 규칙이 승격 승인에서
- `effect: deny` 를 갖지만 resource-group `R` 의 재정의가 `mode: disabled` 를 설정하면
- 규칙은 `R` 에서 inert이고 다른 곳에서 강제 적용.
+  `effect: deny` 를 갖지만 resource-group `R` 의 재정의가 `mode: disabled` 를 설정하면
+  규칙은 `R` 에서 inert이고 다른 곳에서 강제 적용.
 - 재정의 스코프 밖에서는 [범위](#스코프scope) 의 표준 스코프 우선순위가 변경 없이 적용
- (most-specific 범위 wins, strictest 효과 wins, ties → HIL).
+  (most-specific 범위 wins, strictest 효과 wins, ties → HIL).
 - 재정의는 **stack 되지 않음**: (룰, 범위) 쌍마다 최대 하나의 활성 재정의. 같은 쌍의
- 두 번째 재정의는 첫 번째를 대체, 생성과 대체 이벤트 모두 감사.
+  두 번째 재정의는 첫 번째를 대체, 생성과 대체 이벤트 모두 감사.
 
 ### 피드백 루프
 
 - 재정의는 발견 루프에 입력
- ([rule-catalog-collection-ko.md](rule-catalog-collection-ko.md#override-feedback)). 규칙이
- 스코프에 걸쳐 반복되거나 수명이 긴 재정의를 누적하면 루프는 **개정 번호** (규칙 좁힘)
- 또는 **retirement** (규칙이 체계적 poor fit) 제안; 어느 제안이든 카탈로그에 진입 전 quality
- 게이트 통과 필요.
+  ([rule-catalog-collection-ko.md](rule-catalog-collection-ko.md#override-feedback)). 규칙이
+  스코프에 걸쳐 반복되거나 수명이 긴 재정의를 누적하면 루프는 **개정 번호** (규칙 좁힘)
+  또는 **retirement** (규칙이 체계적 poor fit) 제안; 어느 제안이든 카탈로그에 진입 전 quality
+  게이트 통과 필요.
 - 콘솔은 운영자에게 "over-overridden 룰" 뷰를 표면화 가능; 읽기 전용 유지, 개정 번호/
- retirement 제안은 여전히 PR.
+  retirement 제안은 여전히 PR.
 
 ## RBAC (누가 무엇을 할 수 있는가)
 
@@ -341,18 +341,18 @@ MFA / phishing-resistant, 액션-바인딩 승인 필요
 ## 라이프사이클과 버전 관리
 
 - 규칙, 룰셋, 할당은 versioned catalog-as-code입니다. Exemption은 고정된 id, 상태,
- creation/만료 시각을 가지지만 현재 스키마에는 산출물 `version`이 없습니다. Tracked 파일
- 변경은 PR 이력으로 revert할 수 있습니다.
+  creation/만료 시각을 가지지만 현재 스키마에는 산출물 `version`이 없습니다. Tracked 파일
+  변경은 PR 이력으로 revert할 수 있습니다.
 - 규칙 상태: `draft → audit(shadow) ⇄ enforce(deny/remediate) → deprecated`, `disabled` 은
- 어떤 활성 상태에서도 도달 가능, `enforce → audit` 강등은 항상 가능. Deprecation은 규칙을
- tombstone (조용한 삭제 절대 아님) 하여 히스토리 재구성 가능.
+  어떤 활성 상태에서도 도달 가능, `enforce → audit` 강등은 항상 가능. Deprecation은 규칙을
+  tombstone (조용한 삭제 절대 아님) 하여 히스토리 재구성 가능.
 - 규칙 로직 변경은 `version` bump; 할당의 파라미터/효과/범위 변경 자체가 감사된 버전 변경.
- Rule 집합은 각 멤버 규칙의 `version` 을 **고정** 하여 규칙 변경이 승격된 세트를 조용히 바꿀 수
- 없음.
+  Rule 집합은 각 멤버 규칙의 `version` 을 **고정** 하여 규칙 변경이 승격된 세트를 조용히 바꿀 수
+  없음.
 - **테스트 가능성**: 모든 할당/exemption PR은 픽스처와 함께 나감 - 예상 매칭 세트(스코프가
- 어떤 합성 리소스 선택) 와 강제 적용 승격의 경우 승격 게이트가 스코어한 shadow-eval 표본 -
- 거버넌스 변경이 규칙 변경처럼 회귀 테스트되도록
- ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
+  어떤 합성 리소스 선택) 와 강제 적용 승격의 경우 승격 게이트가 스코어한 shadow-eval 표본 -
+  거버넌스 변경이 규칙 변경처럼 회귀 테스트되도록
+  ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
 
 ## YAML 형상
 
@@ -364,12 +364,12 @@ kind: rule-set
 id: ruleset.security-baseline
 version: 1.0.0
 members:
- - { rule_id: object-storage.public-access.deny, version: 1.0.0, default_effect: deny }
- - { rule_id: sql-database.tde-required, version: 1.0.0, default_effect: audit }
- - { rule_id: postgresql-server.point-in-time-restore, version: 1.0.0, default_effect: audit }
+  - { rule_id: object-storage.public-access.deny, version: 1.0.0, default_effect: deny }
+  - { rule_id: sql-database.tde-required, version: 1.0.0, default_effect: audit }
+  - { rule_id: postgresql-server.point-in-time-restore, version: 1.0.0, default_effect: audit }
 provenance:
- created_at: 2026-07-03T00:00:00Z
- created_by: governance-team
+  created_at: 2026-07-03T00:00:00Z
+  created_by: governance-team
 ```
 
 ### 배정
@@ -381,22 +381,22 @@ id: assignment.security-baseline.prod
 version: 1.0.0
 rule_set: ruleset.security-baseline
 scope:
- include:
- - scope://org/account-000/prod
- exclude:
- - scope://org/account-000/prod/sandbox
- selector:
- resource_types: [sql-database, postgresql-server, object-storage]
+  include:
+    - scope://org/account-000/prod
+  exclude:
+    - scope://org/account-000/prod/sandbox
+  selector:
+    resource_types: [sql-database, postgresql-server, object-storage]
 effect: audit
 enforcement: do-not-enforce
 effect_overrides:
- object-storage.public-access.deny: audit
+  object-storage.public-access.deny: audit
 parameter_overrides:
- postgresql-server.point-in-time-restore:
- min_retention_days: "14"
+  postgresql-server.point-in-time-restore:
+    min_retention_days: "14"
 provenance:
- created_at: 2026-07-03T00:00:00Z
- created_by: assignment-operator
+  created_at: 2026-07-03T00:00:00Z
+  created_by: assignment-operator
 ```
 
 ### Exemption
@@ -406,8 +406,8 @@ schema_version: 1.0.0
 id: exemption.legacy-store.public-access
 rule_id: object-storage.public-access.deny
 scope:
- subscription_id: 00000000-0000-0000-0000-000000000000
- resource_group: example-resource-group
+  subscription_id: 00000000-0000-0000-0000-000000000000
+  resource_group: example-resource-group
 justification: Documented migration remains in progress with a compensating control.
 requested_by: <requester-entra-oid>
 approved_by: <distinct-approver-entra-oid>
@@ -429,13 +429,13 @@ target_rule: postgresql-server.point-in-time-restore
 scope: scope://org/account-000/prod/rg-analytics
 mode: parameter-relaxation
 parameter_overrides:
- min_retention_days: 3
+  min_retention_days: 3
 justification: Non-critical analytics workloads with 3-day retention accepted by the data owner.
 requested_by: assignment-operator
 approver: override-approver
 provenance:
- created_at: 2026-07-03T00:00:00Z
- created_by: assignment-operator
+  created_at: 2026-07-03T00:00:00Z
+  created_by: assignment-operator
 ```
 
 > `rule-set`과 `assignment`는 거버넌스 카탈로그 로더가 읽는 strict 스키마를 갖고,
@@ -451,15 +451,15 @@ provenance:
 ## 열림 Decisions
 
 - [ ] Implemented `scope://...` 구문을 Azure 리소스 hierarchy로 해석하는 어댑터
- (비-Azure 해석은 TBD; [Always-On 룰](../../../.github/copilot-instructions.md#always-on-rules-must) 참조).
+  (비-Azure 해석은 TBD; [Always-On 룰](../../../.github/copilot-instructions.md#always-on-rules-must) 참조).
 - [ ] 저작 UI가 콘솔에 draft-PR only로 P1에 실릴지 P3에 실릴지.
 - [ ] 구체적 파라미터 **타입 어휘** (int/문자열/enum/bool/array + 범위/pattern 제약)
-  - CI가 `parameter_overrides` 를 이에 대해 검증.
+      - CI가 `parameter_overrides` 를 이에 대해 검증.
 - [ ] 설정된 **최대 exemption 기간** 과 만료 사전 알림 lead 시간.
 - [ ] "재정의 범위 is resource-group-equivalent or narrower" 를 스코프 URI 문법에 대해
-  강제하는 정확한 CI 검사(organization/계정/구독 스코프를 결정론적으로 거부해야
-  함).
+      강제하는 정확한 CI 검사(organization/계정/구독 스코프를 결정론적으로 거부해야
+      함).
 - [ ] 규칙별 허용 `parameter-relaxation` 범위 - 규칙이 자체 스키마에 완화 범위를 선언 vs
-  재정의가 초과할 수 없는 거버넌스 레벨 상한.
+      재정의가 초과할 수 없는 거버넌스 레벨 상한.
 - [ ] 발견 루프가 "over-overridden" 규칙 플래그에 사용하는 신호 임계값(활성 재정의 있는
-  서로 다른 스코프 수, dwell 시간, shadow-hit 비율) - 개정 번호/retirement 제안 전.
+      서로 다른 스코프 수, dwell 시간, shadow-hit 비율) - 개정 번호/retirement 제안 전.

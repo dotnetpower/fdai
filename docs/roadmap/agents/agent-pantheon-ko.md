@@ -20,12 +20,12 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 
 - 이벤트 기반 코어는 §4 와 §6 의 에이전트 / 토픽 소유권 테이블을 읽고 스키마로 검증한 pub/sub 를 wire 한다.
 - 오퍼레이터 콘솔 ([operator-console.md](../interfaces/operator-console-ko.md)) 은 §6.3 과
- §6.5 를 읽고 자연어 질문을 per-user 맥락 로 기본 에이전트 에 라우팅한다.
+  §6.5 를 읽고 자연어 질문을 per-user 맥락 로 기본 에이전트 에 라우팅한다.
 - 룰-카탈로그와 실행기 ([action-ontology.md](../decisioning/action-ontology-ko.md),
- [execution-model.md](../decisioning/execution-model-ko.md)) 는 §7 을 읽고 각 ActionType 을
- initiator / 판정자 / 승인자 / 실행기 / auditor 에 바인딩한다.
+  [execution-model.md](../decisioning/execution-model-ko.md)) 는 §7 을 읽고 각 ActionType 을
+  initiator / 판정자 / 승인자 / 실행기 / auditor 에 바인딩한다.
 - 포크는 §10 을 읽고 어느 경계 이 열려 있고 (토픽 구독, 구성
- 재정의) 어느 것이 잠겨 있는지 (에이전트 추가 금지, 이름 변경 금지) 확인한다.
+  재정의) 어느 것이 잠겨 있는지 (에이전트 추가 금지, 이름 변경 금지) 확인한다.
 ## 1. 설계 원칙
 
 판테온은 기존 FDAI 컨트롤 루프를 명명된 조직 역할로 얇게 재구성한 것이다.
@@ -33,32 +33,32 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 의 안전 봉투는 바꾸지 않고, 역할을 legible + auditable 하게 만든다.
 
 - **Deterministic-first, LLM-capable.** 모든 에이전트는 자기 bindings 로
- LLM 을 호출할 수 있지만, 런타임 hot-path 는 거의 모두 T0 (룰 / 테이블
- 조회) 또는 T1 (유사도) 로 라우팅된다. LLM 호출은 좁고 선언된
- 용도로만 예약된다 (§8). LLM 사용은 기능 이지 기본값 가 아니다.
+  LLM 을 호출할 수 있지만, 런타임 hot-path 는 거의 모두 T0 (룰 / 테이블
+  조회) 또는 T1 (유사도) 로 라우팅된다. LLM 호출은 좁고 선언된
+  용도로만 예약된다 (§8). LLM 사용은 기능 이지 기본값 가 아니다.
 - **Agent-driven, ontology-constrained.** 모든 상태 전이는 에이전트가 소유합니다. 온톨로지는
- 대상 신원, 관계, 근거 최신성, 허용 액션, 예상 효과를 검증하지만 그래프
- 결과는 판단, 승인, 실행 또는 권한 상승을 수행하지 않습니다.
+  대상 신원, 관계, 근거 최신성, 허용 액션, 예상 효과를 검증하지만 그래프
+  결과는 판단, 승인, 실행 또는 권한 상승을 수행하지 않습니다.
 - **Closed-loop 연산.** 수락된 신호는 observe, understand, decide, 계획, authorize,
- execute, verify, recover, learn 전 과정에서 accountable 소유자를 가집니다. 브로커 acceptance나
- API 성공은 운영 결과가 아니며 독립적인 관측이 루프를 종료합니다.
+  execute, verify, recover, learn 전 과정에서 accountable 소유자를 가집니다. 브로커 acceptance나
+  API 성공은 운영 결과가 아니며 독립적인 관측이 루프를 종료합니다.
 - **자율성 before 에스컬레이션.** 근거가 부족하면 사람에게 넘기기 전에 범위가 제한된 reacquisition,
- alternate-source 검사, 결정론적 reevaluation, 더 작은 safe 계획, no-op 또는 롤백을
- 수행합니다. Var는 잔여 모호함, policy-mandated 승인 또는 standing 권한 밖의
- risk에만 사람 검토를 요청합니다.
+  alternate-source 검사, 결정론적 reevaluation, 더 작은 safe 계획, no-op 또는 롤백을
+  수행합니다. Var는 잔여 모호함, policy-mandated 승인 또는 standing 권한 밖의
+  risk에만 사람 검토를 요청합니다.
 - **Two-port 모델.** 모든 에이전트는 권한이 있는 머신 트래픽용 타입이 지정된 pub/sub와
- 운영자 및 제한된 peer 숙의용 읽기 전용 conversational 표현 포트를 제공합니다 (§6).
+  운영자 및 제한된 peer 숙의용 읽기 전용 conversational 표현 포트를 제공합니다 (§6).
 - **Single-writer, multi-reader topics.** 각 객체 타입 은 정확히 하나의
- 소유자 에이전트 만 publish 하고, 누구나 구독 할 수 있다 (§6.1).
+  소유자 에이전트 만 publish 하고, 누구나 구독 할 수 있다 (§6.1).
 - **판사는 실행기 가 아니다.** Forseti 는 판정 를 발행하고, Thor 는
- 판정 를 전달 하며, Var 는 사람 승인을 담당한다. 어떤 에이전트도
- 판단과 실행을 함께 하지 않는다.
+  판정 를 전달 하며, Var 는 사람 승인을 담당한다. 어떤 에이전트도
+  판단과 실행을 함께 하지 않는다.
 - **판테온은 업스트림 에서 고정.** 15개 에이전트 세트, 조직도, 역할 배정은
- 잠겨 있다. 포크는 구성 경계 (§10) 을 통해 동작을 커스터마이즈한다 -
- 에이전트를 추가 / 제거 / 이름 변경 하지 않는다.
+  잠겨 있다. 포크는 구성 경계 (§10) 을 통해 동작을 커스터마이즈한다 -
+  에이전트를 추가 / 제거 / 이름 변경 하지 않는다.
 - **저장소 구조가 경계를 보존.** 명명 에이전트는
- [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents)에 있고 공통 런타임 machinery는 비공개
- `_framework`에 둡니다. 외부 호출자는 `fdai.agents`만 가져오기하며 배치 테스트가 이를 강제합니다.
+  [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents)에 있고 공통 런타임 machinery는 비공개
+  `_framework`에 둡니다. 외부 호출자는 `fdai.agents`만 가져오기하며 배치 테스트가 이를 강제합니다.
 ## 2. 조직도
 
 Odin 에 두 라인이 보고한다: Thor (operations) 와 Forseti (judgment). 4개의
@@ -68,24 +68,24 @@ Odin 에 두 라인이 보고한다: Thor (operations) 와 Forseti (judgment). 4
 
 ```mermaid
 graph TD
- Odin["Odin<br/>(Master Planner)"]
+    Odin["Odin<br/>(Master Planner)"]
 
- Odin --> Thor["Thor<br/>(Responder)"]
- Odin --> Forseti["Forseti<br/>(Judge)"]
- Odin -. staff .-> Mimir["Mimir<br/>(Rule Steward)"]
- Odin -. staff .-> Muninn["Muninn<br/>(Memory)"]
- Odin -. staff .-> Saga["Saga<br/>(Auditor)"]
- Odin -. staff .-> Norns["Norns<br/>(Learner)"]
+    Odin --> Thor["Thor<br/>(Responder)"]
+    Odin --> Forseti["Forseti<br/>(Judge)"]
+    Odin -. staff .-> Mimir["Mimir<br/>(Rule Steward)"]
+    Odin -. staff .-> Muninn["Muninn<br/>(Memory)"]
+    Odin -. staff .-> Saga["Saga<br/>(Auditor)"]
+    Odin -. staff .-> Norns["Norns<br/>(Learner)"]
 
- Thor --> Vidar["Vidar<br/>(Recovery)"]
- Thor --> Bragi["Bragi<br/>(Narrator)"]
- Thor --> Var["Var<br/>(Approver)"]
+    Thor --> Vidar["Vidar<br/>(Recovery)"]
+    Thor --> Bragi["Bragi<br/>(Narrator)"]
+    Thor --> Var["Var<br/>(Approver)"]
 
- Forseti --> Huginn["Huginn<br/>(Event Collector)"]
- Forseti --> Heimdall["Heimdall<br/>(Observer)"]
- Forseti --> Njord["Njord<br/>(Cost)"]
- Forseti --> Freyr["Freyr<br/>(Capacity)"]
- Forseti --> Loki["Loki<br/>(Chaos)"]
+    Forseti --> Huginn["Huginn<br/>(Event Collector)"]
+    Forseti --> Heimdall["Heimdall<br/>(Observer)"]
+    Forseti --> Njord["Njord<br/>(Cost)"]
+    Forseti --> Freyr["Freyr<br/>(Capacity)"]
+    Forseti --> Loki["Loki<br/>(Chaos)"]
 ```
 
 ## 3. 런타임 관계도
@@ -103,23 +103,23 @@ Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 
 ```mermaid
 graph LR
- Huginn["Huginn"] --> Heimdall["Heimdall"]
- Heimdall --> Forseti["Forseti"]
- Mimir["Mimir"] -. rules .-> Forseti
- Muninn["Muninn"] -. context .-> Forseti
- Njord["Njord"] -. advises .-> Forseti
- Freyr["Freyr"] -. advises .-> Forseti
- Loki["Loki"] -. schedules .-> Heimdall
- Forseti -->|verdict: auto/hil/deny| Thor["Thor"]
- Thor -->|auto| Vidar["Vidar"]
- Thor -->|hil| Var["Var"]
- Var --> Thor
- Thor -->|deny| Saga["Saga"]
- Vidar --> Saga
- Bragi["Bragi"] -. queries .-> Muninn
- Odin["Odin"] -. arbitrates .-> Forseti
- Saga -. signals .-> Norns["Norns"]
- Norns -. proposes .-> Mimir
+    Huginn["Huginn"] --> Heimdall["Heimdall"]
+    Heimdall --> Forseti["Forseti"]
+    Mimir["Mimir"] -. rules .-> Forseti
+    Muninn["Muninn"] -. context .-> Forseti
+    Njord["Njord"] -. advises .-> Forseti
+    Freyr["Freyr"] -. advises .-> Forseti
+    Loki["Loki"] -. schedules .-> Heimdall
+    Forseti -->|verdict: auto/hil/deny| Thor["Thor"]
+    Thor -->|auto| Vidar["Vidar"]
+    Thor -->|hil| Var["Var"]
+    Var --> Thor
+    Thor -->|deny| Saga["Saga"]
+    Vidar --> Saga
+    Bragi["Bragi"] -. queries .-> Muninn
+    Odin["Odin"] -. arbitrates .-> Forseti
+    Saga -. signals .-> Norns["Norns"]
+    Norns -. proposes .-> Mimir
 ```
 
 ### 3.1 다목적 중재 (multi-objective 중재)
@@ -225,7 +225,7 @@ self-improvement. **X**-agent 는 [agent-workflows.md](agent-workflows-ko.md)
 | Mimir | rule-source 폴링, 회귀 모음, deprecation cycle | 룰 promote / 철회, cache-invalidation broadcast | freshness-score, stale-rule 감지 | 4, 6 (인계 -> 기능), 8, 11 |
 | Muninn | 스냅샷 교대, RAG 인덱스 재구축, 캐시 제거, case-history 보존 | Forseti 를 위한 맥락 fetch, 변경할 수 없는 변경 개정 번호 저장, Bragi 를 위한 상태 조회, 보존 틱 적용 | trending-query pre-warm, 온톨로지 교차 검증 | 판단을 touch 하는 모든 워크플로우 지원 |
 | Norns | 시간당 배치 감사 분석, 스트리밍 pattern 추출 | pattern 신호, RuleCandidate publish, close_issue 신호 | 모델 성능 표류 감지 | 4, 6, 8 (Judgment coherence), 10 |
-| Njord | 비용 인제스트 (daily), 예산 모니터, 비용 forecasting | 범위가 제한된 비용 샘플 -> anomaly, 예산 breach alert, cost-advisor 조회 | RI / SP 최적화 제안 | 1, 2 |
+| Njord | 비용 인제스트 (daily), 예산 모니터, 비용 forecasting | 범위가 제한된 비용 샘플 -> anomaly, 예산 breach 경보, cost-advisor 조회 | RI / SP 최적화 제안 | 1, 2 |
 | Freyr | 사용률 샘플링, 용량 forecasting, sizing 분석 | 범위가 제한된 사용률 샘플 -> 예측, 규모 제안, 용량 advisor 조회 | 다차원 용량 (CPU + IOPS + net + mem) | 2, 3 |
 | Loki | chaos-experiment 스케줄, resilience-score 리프레시 | 범위가 제한된 예약 트리거 -> 항상-HIL 실험 제안, blast-radius 계산 | adversarial 시나리오 생성 (T2, off-path) | 3, 9 |
 
@@ -259,7 +259,7 @@ absence를 zero로 해석하지 않고 실패로 처리합니다.
 **시스템 수준 KPI** (Odin portfolio 리포트):
 
 - **자율성 ratio** - auto vs HIL vs 거부 분포 (목표: auto 상승, 거부
- 감소).
+  감소).
 - **인계 conversion 비율** - issue -> RuleCandidate -> promoted.
 - **Cross-vertical 액션 ratio** - single vs multi-vertical 액션.
 - **발견 velocity** - 새 룰 / 기능 승격 속도 (weekly).
@@ -273,12 +273,12 @@ absence를 zero로 해석하지 않고 실패로 처리합니다.
 |---------------|------|-----------------|
 | **Saga** | 감사 불가 | **HARD FAIL**: 새 변경 허용 안 됨; 전체 시스템 shadow 로 강등 |
 | **Vidar** | 롤백 불가 | Thor 가 새 auto 실행 거부; 모든 새 액션 shadow 로 강등 |
-| **Forseti** | 판단 정지 | Huginn / Heimdall 은 계속 publish (Kafka retain); 판정 대체 경로 없음 (판사 없이 판단 불가); 운영자 alert |
+| **Forseti** | 판단 정지 | Huginn / Heimdall 은 계속 publish (Kafka retain); 판정 대체 경로 없음 (판사 없이 판단 불가); 운영자 경보 |
 | **Odin** | cross-vertical 중재 누락 | Forseti가 충돌 판정을 HIL로 낮춤 (사람이 arbitrate) |
 | **Thor** | 실행 정지 | 판정 큐잉; 판정 TTL 만료 시 stale 폐기 (republish 시 재판단) |
 | **Huginn** | 인제스트 정지 | Kafka 보존 이 이벤트 보존; Huginn 복구 시 체크포인트 부터 재개 (멱등적) |
 | **Heimdall** | 감지/효과 관측 정지 | 읽기, 거부, shadow judgment는 계속; Heimdall 관측이 필요한 새 상태 변경은 차단되고 기존 결과는 pending, RBAC 거부는 감사 |
-| **Var** | HIL 차단 | HIL 큐 보존; 시간 초과 자동 확장; admin alert; 승인 없이 이미 A1/A2 조건을 충족한인 액션만 계속하며 HIL과 A3-E는 실행 불가 |
+| **Var** | HIL 차단 | HIL 큐 보존; 시간 초과 자동 확장; admin 경보; 승인 없이 이미 A1/A2 조건을 충족한인 액션만 계속하며 HIL과 A3-E는 실행 불가 |
 | **Bragi** | 대화 차단 | 운영자 는 콘솔 읽기 전용 화면 + 직접 감사 조회 로 대체 경로 |
 | **Mimir** | 룰 업데이트 정지 | 캐시된 룰 계속; Forseti 가 stale-rule 경고; 새 룰 업데이트 지연 |
 | **Muninn** | 맥락 불가 | 읽기, 거부, shadow judgment는 계속; context-dependent 상태 변경은 알 수 없음으로 차단하고 "맥락 사용 불가" 감사 |
@@ -289,9 +289,9 @@ absence를 zero로 해석하지 않고 실패로 처리합니다.
 
 - **Saga와 Vidar는 변경의 필수 의존성**입니다. 최종 소비자/상태 실패는 재시작 전까지 sticky shadow를 강제합니다. Noncritical 최종 소비자는 해당 에이전트만 degrade하고 형제는 계속 실행하며 상태는 false 하트비트 대신 exact 에이전트/토픽 상태를 기록합니다. Unified 동시성 테스트는 15개 소비자 신원과 same-topic non-stealing 동시 확산을 pin합니다.
 - **판단자 / 실행자 / 감사자 triad 중 하나라도 누락** 시 새 변경 을
- shadow 로 강등.
+  shadow 로 강등.
 - **Noncritical sensing 성능 저하**은 읽기, 거부, 큐 및 shadow 경로만 보존할 수 있습니다.
- Vidar는 변경 필수 의존성이고 Var는 HIL 및 A3-E 충족 여부를 별도로 통제합니다.
+  Vidar는 변경 필수 의존성이고 Var는 HIL 및 A3-E 충족 여부를 별도로 통제합니다.
 - 모든 성능 저하 은 Odin 의 portfolio 리포트에 surfacing (워크플로우 7).
 
 ### 4.4 작업 계층 분류 (per-task LLM 정책)
@@ -324,20 +324,20 @@ queryable 하다.
 ```yaml
 object_type: Agent
 properties:
- name: string      # "Odin", "Thor", ...
- layer: enum      # domain | pipeline | governance
- reports_to: Agent?    # 조직도 edge
- owns: [ObjectType]    # write 권한 (single-writer)
- executes: [ActionType]   # action-ontology.md 참조
- initiates: [ActionType]   # propose 가능 (§7.1)
- subscribes: [Topic]    # typed-port 구독
- publishes: [Topic]    # typed-port 발행
- question_domains: [string]  # NL query 카테고리 (§6.3)
- owns_code_paths: [glob]   # self-introspection 용 RAG 범위 (§8)
- llm_bindings: [ModelId]   # 이 에이전트가 호출 가능한 모델
- rate_limits:
- proposals_per_minute: int
- proposals_per_hour: int
+  name: string                     # "Odin", "Thor", ...
+  layer: enum                      # domain | pipeline | governance
+  reports_to: Agent?               # 조직도 edge
+  owns: [ObjectType]               # write 권한 (single-writer)
+  executes: [ActionType]           # action-ontology.md 참조
+  initiates: [ActionType]          # propose 가능 (§7.1)
+  subscribes: [Topic]              # typed-port 구독
+  publishes: [Topic]               # typed-port 발행
+  question_domains: [string]       # NL query 카테고리 (§6.3)
+  owns_code_paths: [glob]          # self-introspection 용 RAG 범위 (§8)
+  llm_bindings: [ModelId]          # 이 에이전트가 호출 가능한 모델
+  rate_limits:
+    proposals_per_minute: int
+    proposals_per_hour: int
 ```
 
 더 넓은 온톨로지의 모든 `object_type` 선언은 정확히 하나의 `Agent` 를
@@ -385,9 +385,9 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 Partitioning:
 
 - 변경 토픽 (`object.action-run`, `object.rollback`) 은 `resource_id`
- 로 파티션 되어 같은 리소스에 대한 동시 쓰기 가 serialize.
+  로 파티션 되어 같은 리소스에 대한 동시 쓰기 가 serialize.
 - Judgment 와 감사 토픽 은 `correlation_id` 로 파티션 되어 단일
- 인시던트 가 한 소비자 에 머묾.
+  인시던트 가 한 소비자 에 머묾.
 ### 6.2 Conversational 포트
 
 Bragi를 포함한 15개 에이전트 모두 정본 이름 또는 도메인 라우팅으로 도달할 수 있습니다.
@@ -409,23 +409,23 @@ Owned-state 범위 좁히기는 범위가 제한된 질문 안에서 내부 `.`,
 Bragi는 라우터이지 answerer가 아닙니다. 영어 및 한국어 Azure 읽기 의도는 범용 도메인 채점 전에 Heimdall로 라우팅되며 토픽, 에이전트 신원, 실행 권한을 추가하지 않습니다.
 
 1. **Current-screen 권한.** 활성 화면이 사실 또는 기록을 제공하는 데이터
- 질문은 Bragi T0 범위에 유지합니다. 전문가 위임과 의미 web
- 분류는 실행하지 않습니다. 요청한 필드가 없으면 모델 기억으로
- 채우지 않고 명시적인 absence 답변을 반환합니다.
+  질문은 Bragi T0 범위에 유지합니다. 전문가 위임과 의미 web
+  분류는 실행하지 않습니다. 요청한 필드가 없으면 모델 기억으로
+  채우지 않고 명시적인 absence 답변을 반환합니다.
 2. **정본 glossary 조회.** 공유 온톨로지 또는 control-loop 용어의 직접
- 정의 질문은 에이전트 채점 전에 근거에 기반한 glossary 근거로 답변. 예를 들어
- `ActionType` 또는 한국어 조사가 붙은 `ActionType이`는 단순히 같은 어간을 가진
- 에이전트 도메인으로 delegate하지 않음.
+  정의 질문은 에이전트 채점 전에 근거에 기반한 glossary 근거로 답변. 예를 들어
+  `ActionType` 또는 한국어 조사가 붙은 `ActionType이`는 단순히 같은 어간을 가진
+  에이전트 도메인으로 delegate하지 않음.
 3. **T0 키워드 / 정규식 매칭.** 의도 토큰을 `Agent.question_domains` 와
- owned ObjectType 토큰과 비교합니다. 완전한 multi-token 도메인은 부분 일치보다 우선하며,
- 일반적인 `status`, `history`, `health` 토큰만으로는 경로하지 않습니다. 접두사 matching은
- high-signal word로 제한하며 `actiontype`은 `action`과 매칭하지 않습니다.
+  owned ObjectType 토큰과 비교합니다. 완전한 multi-token 도메인은 부분 일치보다 우선하며,
+  일반적인 `status`, `history`, `health` 토큰만으로는 경로하지 않습니다. 접두사 matching은
+  high-signal word로 제한하며 `actiontype`은 `action`과 매칭하지 않습니다.
 4. **T1 임베딩 유사도.** T0 abstention/동점은 한 번의 질문 임베딩을 cached 영/한
- charter 예시와 비교합니다. 명시적/읽기/single-winner T0는 zero-call이며 임계값, margin,
- 프로바이더 실패는 추측 없이 결정론적 결과를 유지합니다.
+  charter 예시와 비교합니다. 명시적/읽기/single-winner T0는 zero-call이며 임계값, margin,
+  프로바이더 실패는 추측 없이 결정론적 결과를 유지합니다.
 5. **인계.** T0와 T1이 모두 임계값 미만이면
- `HandoffEscalation` 발행 (§6.4). 시스템은 추측 대신 GitHub issue 를
- 생성한다.
+  `HandoffEscalation` 발행 (§6.4). 시스템은 추측 대신 GitHub issue 를
+   생성한다.
 
 여러 에이전트가 매칭될 때 승자 선택은 first-match 가 아니라 점수제:
 
@@ -438,7 +438,7 @@ Tie-break 순서 (결정론적): 합계 점수 > 판테온 precedence
 `contributors`. 모든 라우팅 결정은 사후 검토를 위해 `Turn.score_breakdown` 에
 기록된다.
 
-#### 6.3.1 shadow 답변 계획 수립
+#### 6.3.1 Shadow 답변 계획 수립
 
 Command Deck은 동일한 결정론적 점수를 사용해 표현 전용
 `AnswerPlanningRound`의 읽기 전용 기여자를 최대 2명 선택할 수 있습니다. 이
@@ -448,15 +448,15 @@ Command Deck은 동일한 결정론적 점수를 사용해 표현 전용
 
 - **Bragi**는 최종 답변 계획을 소유하고 표시되는 서술기로 유지됩니다.
 - **기여자**는 소유자, JSON, 크기, 민감도 검사를 거친 owned 사실과 근거 참조를 제공합니다.
- 같은 신원의 상태/상태/판정/모드/상태/결과 충돌은 abstain 및 인계하며 기여자는 재귀, judgment, 승인, 실행을 하지 않습니다.
+  같은 신원의 상태/상태/판정/모드/상태/결과 충돌은 abstain 및 인계하며 기여자는 재귀, judgment, 승인, 실행을 하지 않습니다.
 - **Norns**는 synchronous하게 참여하지 않습니다. Turn 이후 명시적 선택 집계
- 메타데이터를 off-path로 분석할 수 있습니다.
+  메타데이터를 off-path로 분석할 수 있습니다.
 - **Odin**은 routine 수집에서 제외됩니다. 이후 단계 E에서 진짜 cross-domain
- 충돌에만 참여할 수 있으며 실행 권한은 없습니다.
+  충돌에만 참여할 수 있으며 실행 권한은 없습니다.
 - **Saga**는 감사, 이력, issue 또는 인계 질문에만 선택됩니다. Universal 답변
- 검토자 또는 검증기로 사용하지 않습니다.
+  검토자 또는 검증기로 사용하지 않습니다.
 - **Forseti, Var, Thor**는 각각 judgment, 승인, 실행 경계를 유지합니다.
- 답변 style은 이 권한을 바꾸지 않습니다.
+  답변 style은 이 권한을 바꾸지 않습니다.
 
 Shipping 한도는 기여자 2명, 라운드 1회, `1200 ms`, estimated added 토큰
 `800`입니다. 중첩된 라운드는 비활성화합니다. 기여자 실패는 primary-only
@@ -479,8 +479,8 @@ materialize되지 않은 에스컬레이션을 성공으로 표시하지 않습�
 
 ```
 fingerprint = sha1(
- intent_category + resource_type + normalized_selector
- + primary_agent + failure_reason_code
+    intent_category + resource_type + normalized_selector
+  + primary_agent + failure_reason_code
 )
 ```
 
@@ -488,11 +488,11 @@ Saga 는 `fingerprint -> github_issue_number` 로컬 인덱스를 Muninn 에 유
 
 - **최초 발생** 은 라벨 `fdai:fp:<hash>` 로 issue 생성.
 - **반복 발생** 은 같은 issue 에 comment 를 덧붙이기 하고 새 `correlation_id`
- 와 맥락 를 기록. Issue 본문 는 `first_seen`, `last_seen`,
- `occurrence_count` 를 carry; comment 는 각 재발을 기록.
+  와 맥락 를 기록. Issue 본문 는 `first_seen`, `last_seen`,
+  `occurrence_count` 를 carry; comment 는 각 재발을 기록.
 - **Auto-close** 는 Mimir 가 지문 를 해결할 룰 또는 기능 를
- promote 하고 24시간 회귀 테스트 가 clean 통과할 때 발생. 닫는 comment
- 는 promoting PR 을 링크. 수동 close 는 항상 허용.
+  promote 하고 24시간 회귀 테스트 가 clean 통과할 때 발생. 닫는 comment
+  는 promoting PR 을 링크. 수동 close 는 항상 허용.
 
 지문 해시 는 customer 식별자 를 절대 carry 하지 않는다 (라벨 은
 해시 만); 상세 값은 포크 의 issue tracker 에만 존재.
@@ -503,22 +503,22 @@ Bragi는 `Conversation`, `Turn`, `UserPreference`, `PostTurnReview`를
 소유합니다. 상태는 `user_id`로 파티션합니다.
 
 - **세션.** `Conversation` 은 첫 턴 에 시작하고 30분 유휴 후 종료; 매
- 턴 은 `Turn` 으로 변경할 수 없는 하게 덧붙이기합니다. `object.turn`에는 본문
- 참조, SHA-256 다이제스트, 라우팅 메타데이터, 상관관계 추적만 포함하며 raw
- 질문 또는 답변은 포함하지 않습니다.
+  턴 은 `Turn` 으로 변경할 수 없는 하게 덧붙이기합니다. `object.turn`에는 본문
+  참조, SHA-256 다이제스트, 라우팅 메타데이터, 상관관계 추적만 포함하며 raw
+  질문 또는 답변은 포함하지 않습니다.
 - **Multi-turn 맥락.** Bragi 는 요청 `user_id` 로 스코프된 최근 N 개
- 턴 을 `prior_turns_ref` 로 기본 에이전트 에 전달.
+  턴 을 `prior_turns_ref` 로 기본 에이전트 에 전달.
 - **RBAC.** Muninn 은 cross-user 읽기 를 거부; 기본 에이전트 가 다른 사용자
- 대화 읽기 시도하면 빈 결과를 받고 Saga 가 시도를 기록.
+  대화 읽기 시도하면 빈 결과를 받고 Saga 가 시도를 기록.
 - **Learner 경계.** Norns 는 기본적으로 메타데이터 만
- (`UserPreference.share_with_learner: false`). 명시적 선택 하면 pattern
- 추출 을 위해 턴 본문 노출; opt-out 이 기본입니다. 배치 trajectory intake는 검토된
- 집계만 허용하고 raw 턴 또는 trajectory 본문은 허용하지 않습니다.
- 완료된 consent-filtered exchange는 `object.post-turn-review`를 통해 Norns에
- 전달하며 `object.turn`의 두 번째 형태로 인코딩하지 않습니다.
+  (`UserPreference.share_with_learner: false`). 명시적 선택 하면 pattern
+  추출 을 위해 턴 본문 노출; opt-out 이 기본입니다. 배치 trajectory intake는 검토된
+  집계만 허용하고 raw 턴 또는 trajectory 본문은 허용하지 않습니다.
+  완료된 consent-filtered exchange는 `object.post-turn-review`를 통해 Norns에
+  전달하며 `object.turn`의 두 번째 형태로 인코딩하지 않습니다.
 - **보존.** 활성 대화: 30일. Cold 저장소: 60일 추가. 총
- 90일 후 삭제. Aggregated anonymized 메트릭 은 Saga 의 자체 감사 스트림 에
- 살아남음.
+  90일 후 삭제. Aggregated anonymized 메트릭 은 Saga 의 자체 감사 스트림 에
+  살아남음.
 
 ## 7. 온톨로지 액션
 
@@ -554,20 +554,20 @@ AgentSpec 기능 또는 서버가 소유한 운영자 유입을 함께 평가합
 소유자 에이전트 만 유일한 발행기.
 
 ```
-proposed (initiator agent)
- -> verdicted (Forseti: auto | hil | deny)
- -> deny_dropped  (terminal; Saga 기록)
- -> hil    (Var: approved | rejected | expired)
-  -> rejected  (terminal; Saga 기록)
-  -> expired  (terminal; Saga 기록)
-  -> approved
- -> auto    (Thor)
- -> paused    (외부 hold: 유지보수 창)
- -> executing   (Thor)
- -> succeeded  (audit 후 terminal)
- -> failed
-  -> rolled_back (Vidar; audit 후 terminal)
-  -> compensated (Thor + compensating action; audit 후 terminal)
+proposed  (initiator agent)
+  -> verdicted    (Forseti: auto | hil | deny)
+    -> deny_dropped     (terminal; Saga 기록)
+    -> hil              (Var: approved | rejected | expired)
+      -> rejected       (terminal; Saga 기록)
+      -> expired        (terminal; Saga 기록)
+      -> approved
+    -> auto             (Thor)
+  -> paused             (외부 hold: 유지보수 창)
+  -> executing          (Thor)
+    -> succeeded        (audit 후 terminal)
+    -> failed
+      -> rolled_back    (Vidar; audit 후 terminal)
+      -> compensated    (Thor + compensating action; audit 후 terminal)
 ```
 
 모든 최종 상태는 닫히기 전에 `AuditEntry` 를 쓰기. 감사 로그 로부터의
@@ -579,11 +579,11 @@ proposed (initiator agent)
 세 개의 검증 지점, 모두 결정론적:
 
 1. **Propose 시.** Initiator 가 params 가 `argument_schema` 를 만족한다고
- assert; 스키마 레지스트리 는 malformed 제안 을 거부.
+   assert; 스키마 레지스트리 는 malformed 제안 을 거부.
 2. **Verdict 시.** Forseti 는 스키마 + 정책 + what-if / 예행 실행 을 재실행;
- 실패 시 판정 를 `deny` 또는 `hil` 로 downgrade.
+   실패 시 판정 를 `deny` 또는 `hil` 로 downgrade.
 3. **Execute 시.** Params 는 Verdict, `ActionRun`, Approval, 감사에서 그대로
- 유지되며 Thor가 변경 전에 다시 검증해 target-state race를 잡습니다.
+  유지되며 Thor가 변경 전에 다시 검증해 target-state race를 잡습니다.
 
 멱등성 키 는 액션 당 (`action_run_id`) 과 시도 당
 (`attempt_id`) 존재. 같은 키 로 재전송된 publish 는 실행기 에서 no-op;
@@ -662,7 +662,7 @@ strict `True` 만 operator-initiated 로 취급한다.
 파일, Rego, 구성, 런타임 오버레이는 기존 ActionType을 강화할 수만 있습니다.
 자율성 상한을 낮추거나, 더 엄격한 precondition/stop 조건을 추가하거나,
 영향 범위를 줄이거나, 승격 게이트를 강화할 수 있습니다. 모든 오버레이는
-downgrade-only이며 감사됩니다. shadow에서 강제 적용로의 승격은 게이트 통과 후
+downgrade-only이며 감사됩니다. Shadow에서 강제 적용로의 승격은 게이트 통과 후
 별도 통제된 ActionType과 검토된 PR로 수행합니다.
 
 역할 연결(`executor`, `judge`, `approver`, `auditor`, `initiators`)과
@@ -720,8 +720,8 @@ FDAI 는 권한 없는 액션 시도를 일급 보안 신호로 취급한다. �
 
 1. Forseti 는 판정 `deny` 를 `reason: rbac_insufficient` 로 발행.
 2. Forseti 는 동시에 `SecurityEvent` 를
- `type: privilege_escalation_attempt`, initiator id, 시도된 ActionType,
- 대상 리소스, 심각도 점수, 상관관계 id 와 함께 publish.
+   `type: privilege_escalation_attempt`, initiator id, 시도된 ActionType,
+   대상 리소스, 심각도 점수, 상관관계 id 와 함께 publish.
 3. Saga 는 두 이벤트를 모두 기록.
 
 ### 9.2 상관관계와 심각도
@@ -739,7 +739,7 @@ Heimdall 은 `object.security-event` 를 구독하고 분류:
 
 ### 9.3 알림 전달
 
-Heimdall은 `object.security-event`를 분류하고 medium 이상 alert에 범위가 제한된 admin
+Heimdall은 `object.security-event`를 분류하고 medium 이상 경보에 범위가 제한된 admin
 알림 어댑터를 호출합니다. 이 informational 전달은 `governance.*`
 ActionType이 아니며 Thor의 변경 경로로 진입하지 않습니다. Saga는 권위 있는
 `SecurityEvent`를 이미 감사합니다. 어댑터는 지문 dedup, 비율 한도, 별도
@@ -747,8 +747,8 @@ ActionType이 아니며 Thor의 변경 경로로 진입하지 않습니다. Saga
 
 ### 9.4 알림 중복 제거와 비율 한도
 
-1시간 창 내 same-user, same-action alert 는 개수 를 증가시키며 한 카드로
-합침. Per-user 한도는 시간당 5장; 초과분은 alert storm 방지를 위해 다이제스트 로
+1시간 창 내 same-user, same-action 경보 는 개수 를 증가시키며 한 카드로
+합침. Per-user 한도는 시간당 5장; 초과분은 경보 storm 방지를 위해 다이제스트 로
 병합. 지문 스킴은 §6.4 dedup 패턴을 재사용.
 
 ### 9.5 정당한 에스컬레이션
@@ -777,7 +777,7 @@ ActionType이 아니며 Thor의 변경 경로로 진입하지 않습니다. Saga
 - 판테온에 새 에이전트 이름 추가
 - 에이전트 의 역할 이름 변경 또는 재배정
 - ActionType 의 `executor`, `judge`, `approver`, `auditor`, `initiators`
- 재지정
+  재지정
 - 다른 에이전트 가 소유한 토픽 에 publish
 
 새 에이전트 를 요구하는 누락된 기능 는 다른 모든 사람이 따르는 동일 규칙
@@ -786,21 +786,21 @@ ActionType이 아니며 Thor의 변경 경로로 진입하지 않습니다. Saga
 ## 11. Anti-patterns
 
 - **직접 agent-to-agent RPC.** 모든 hot-path 통신은 schema-checked 버스 의
- pub/sub. 에이전트 간 HTTP 호출은 감사 와 재생 를 무력화.
+  pub/sub. 에이전트 간 HTTP 호출은 감사 와 재생 를 무력화.
 - **Conversational 포트 가 타입이 지정된 파이프라인 우회.** 실행기 를 직접 호출하는
- Bragi 는 defect (§7.7).
+  Bragi 는 defect (§7.7).
 - **조직도에서 판사가 실행기 밑.** Forseti 는 Thor 가 아니라 Odin 에
- 보고, 판정 가 실행과 독립적으로 유지.
+  보고, 판정 가 실행과 독립적으로 유지.
 - **Sensing hot-path 에 LLM.** Huginn, Heimdall, 도메인 전문가 는 절대
- LLM 을 동기 호출하지 않는다. 패턴은 결정론적 규칙 (T0) 또는 경량
- 유사도 (T1) 로 컴파일되어야 한다.
-- **Dedup 없는 alert.** 모든 알림 경로 (issue, security 카드, HIL 티켓) 는
- 지문 스킴을 사용해야 한다.
+  LLM 을 동기 호출하지 않는다. 패턴은 결정론적 규칙 (T0) 또는 경량
+  유사도 (T1) 로 컴파일되어야 한다.
+- **Dedup 없는 경보.** 모든 알림 경로 (issue, security 카드, HIL 티켓) 는
+  지문 스킴을 사용해야 한다.
 - **포크 가 에이전트 추가.** 판테온은 업스트림 에서 고정. 새 에이전트 추가는
- 업스트림 변경, 포크 변경 아님.
+  업스트림 변경, 포크 변경 아님.
 - **Rollback 계약 없는 액션.** 모든 ActionType은 유효한
- `rollback_contract`와 함께 배포합니다. Irreversible 액션은 HIL 정족수도
- 추가로 필요합니다.
+  `rollback_contract`와 함께 배포합니다. Irreversible 액션은 HIL 정족수도
+  추가로 필요합니다.
 
 ## Next 단계
 

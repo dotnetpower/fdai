@@ -50,35 +50,35 @@ translation_revised: 2026-08-11
 전 **시작해선 안 됨**; 항목 4는 critical 경로이며 첫날 시작.
 
 1. **원격측정 백본**: OpenTelemetry 배선, 감사/상태/KPI 저장소
- ([tech-stack-ko.md](../architecture/tech-stack-ko.md)), 최소 `event_id`, `tier`, `decision`, `mode`
- (shadow/강제 적용), detect/해석 타임스탬프를 운반하는 `shared/contracts/` 의 버전된
- 이벤트 스키마.
+   ([tech-stack-ko.md](../architecture/tech-stack-ko.md)), 최소 `event_id`, `tier`, `decision`, `mode`
+   (shadow/강제 적용), detect/해석 타임스탬프를 운반하는 `shared/contracts/` 의 버전된
+   이벤트 스키마.
 2. **시나리오 세트**: 복원력, 변경 안전성, 비용 거버넌스 시나리오 고정 세트를
- 정의하고 **freeze** , 세 버티컬에 걸쳐 균형,
- [goals-and-metrics-ko.md#정의definitions](../architecture/goals-and-metrics-ko.md#정의definitions)
- 포맷에 매칭되는 버전(예: `v2026.07`) 태그, 고객-비종속 데이터로 저장. 고정 세트는
- 베이스라인과 트리트먼트에 동일 사용.
+   정의하고 **freeze** , 세 버티컬에 걸쳐 균형,
+  [goals-and-metrics-ko.md#정의definitions](../architecture/goals-and-metrics-ko.md#정의definitions)
+   포맷에 매칭되는 버전(예: `v2026.07`) 태그, 고객-비종속 데이터로 저장. 고정 세트는
+   베이스라인과 트리트먼트에 동일 사용.
 3. **베이스라인 측정**: **pinned** 참조 에이전트(single-model, no tiering)를 명시된 측정
- 윈도우 동안 고정 시나리오 세트에서 실행; 성공 메트릭 1-4 **와** 모든 가드 메트릭(CFR,
- false-positive, false-negative, 롤백, policy-violation escape) 기록하여 이후 단계가
- 성공뿐 아니라 가드 베이스라인도 가짐. 각 수치를 표본 크기, 신뢰구간, 시나리오 세트 버전과
- 함께 보고.
- 관측 기록은 계층, 지연 시간, 모델 호출, 토큰, priced 또는 unpriced 비용, abstention,
- 검증기 결과도 포함합니다. 보고는 T0/T1/T2 economics를 집계합니다.
- `--require-release-eligible`은 measured 시나리오 30개 미만, 불완전한 텔레메트리, 라우팅
- quality 0.98 미만, T2 share 0.15 초과, abstention 또는 검증기 실패 0.15 초과,
- policy-violation escape 발생 중 하나라도 있으면 release를 차단합니다.
+   윈도우 동안 고정 시나리오 세트에서 실행; 성공 메트릭 1-4 **와** 모든 가드 메트릭(CFR,
+   false-positive, false-negative, 롤백, policy-violation escape) 기록하여 이후 단계가
+   성공뿐 아니라 가드 베이스라인도 가짐. 각 수치를 표본 크기, 신뢰구간, 시나리오 세트 버전과
+   함께 보고.
+  관측 기록은 계층, 지연 시간, 모델 호출, 토큰, priced 또는 unpriced 비용, abstention,
+  검증기 결과도 포함합니다. 보고는 T0/T1/T2 economics를 집계합니다.
+  `--require-release-eligible`은 measured 시나리오 30개 미만, 불완전한 텔레메트리, 라우팅
+  quality 0.98 미만, T2 share 0.15 초과, abstention 또는 검증기 실패 0.15 초과,
+  policy-violation escape 발생 중 하나라도 있으면 release를 차단합니다.
 4. **아이덴티티 블로커**: 외부 IdP ↔ Entra ↔ Managed Identity 매핑 프로비저닝 및 테스트;
- 최소권한 프로브로 검증 및 재인증 스케줄. 완료를
- [security-and-identity-ko.md#open-decisions](../architecture/security-and-identity-ko.md#open-decisions)
- 의 P0 행에 연결.
+   최소권한 프로브로 검증 및 재인증 스케줄. 완료를
+   [security-and-identity-ko.md#open-decisions](../architecture/security-and-identity-ko.md#open-decisions)
+   의 P0 행에 연결.
 5. **정책 블로커**: 정책 예외 워크플로(요청 가능, time-boxed, 감사, 소유자 승인) 정의 -
- 자율 배포가 플랫폼 정책을 우회하지 않고 준수 유지; 소유자와 SLA 할당.
+   자율 배포가 플랫폼 정책을 우회하지 않고 준수 유지; 소유자와 SLA 할당.
 6. **로컬 개발 프리셋**: 프로바이더 인터페이스(상태 저장소, 이벤트 버스, 시크릿,
- 워크로드 신원)를 공개하고 각각 **두** 개 구현을 계약 뒤에 함께 출시 - 유닛 테스트/
- 디버거 세션용 in-memory 페이크(Docker 불필요)와 리어-레벨 통합 테스트용 Docker Compose
- 프리셋(pgvector + Redpanda). 동일한 계약-테스트 스위트가 둘 다에 대해 실행되므로 페이크가
- 실제 백엔드에서 표류 불가.
+   워크로드 신원)를 공개하고 각각 **두** 개 구현을 계약 뒤에 함께 출시 - 유닛 테스트/
+   디버거 세션용 in-memory 페이크(Docker 불필요)와 리어-레벨 통합 테스트용 Docker Compose
+   프리셋(pgvector + Redpanda). 동일한 계약-테스트 스위트가 둘 다에 대해 실행되므로 페이크가
+   실제 백엔드에서 표류 불가.
 
 ## 구현 계획
 
@@ -87,7 +87,7 @@ translation_revised: 2026-08-11
 **L** 1-2주); 실제 경과 시간은 병렬성에 따라 다름.
 
 모든 태스크는 **shadow-first** 로 랜딩
-([architecture.instructions.md § shadow → 강제 적용 승격](../../../.github/instructions/architecture.instructions.md#safety-invariants));
+([architecture.instructions.md § Shadow → 강제 적용 승격](../../../.github/instructions/architecture.instructions.md#safety-invariants));
 P0에는 enforce-mode 능력이 범위에 없음.
 
 ### WI1 - 원격측정 백본
@@ -132,7 +132,7 @@ P0에는 enforce-mode 능력이 범위에 없음.
 | **W4.4** | 최소권한 프로브 | W4.2, W4.3 | `tools/lpp-probe` - 허용 액션 성공, 거부 액션 실패 단언; CI에 기록된 실행 | 프로브 업데이트 없이 새 권한 추가하면 CI 실패 | S |
 | **W4.5** | App 등록 (dev) | W4.1 | dev 테넌트의 `fdai-console-spa`, `fdai-api`, `fdai-approval-bot` + [user-rbac-and-identity-ko.md § 4.4](../interfaces/user-rbac-and-identity-ko.md#44-app-roles-token-surface) 에 따라 선언된 App Roles | `Contributor` 에 할당된 dev 사용자가 `roles: ["Contributor"]` 토큰 받음 | M |
 | **W4.6** | Entra 보안 그룹 + App 역할 바인딩 | W4.5 | 5 그룹 (`aw-readers/contributors/approvers/owners/break-glass`), 각각 Enterprise Applications에서 매칭 App 역할에 바인딩 | 미할당 dev 사용자는 protected 경로에서 거부되고 role-optional self-service 변환 결과만 사용 가능 ([user-rbac-and-identity-ko.md § 10.3](../interfaces/user-rbac-and-identity-ko.md#103-first-sign-in-unassigned-users)) | S |
-| **W4.7** | Conditional 접근 정책 | W4.6 | `aw-approvers`/`aw-owners` 에 phishing-resistant MFA; `aw-owners` 에 compliant device; `aw-break-glass` 에 named-location | FIDO2 없이 사인인하는 테스트 승인자가 블록됨 | S |
+| **W4.7** | Conditional 접근 정책 | W4.6 | `aw-approvers`/`aw-owners` 에 phishing-resistant MFA; `aw-owners` 에 compliant 장치; `aw-break-glass` 에 named-location | FIDO2 없이 사인인하는 테스트 승인자가 블록됨 | S |
 | **W4.8** | 재인증 스케줄 | W4.6 | 문서화된 주기(`docs/runbooks/` 의 수동 분기 체크리스트, 또는 P2 라이선스된 경우 Entra 접근 검토) | 소유자 할당; 다음 리뷰 날짜가 감사 로그에 캡처됨 | S |
 
 ### WI5 - 정책 예외 워크플로
@@ -162,113 +162,113 @@ P0에는 enforce-mode 능력이 범위에 없음.
 
 ```mermaid
 gantt
- title Phase 0 - Implementation Sequence
- dateFormat X
- axisFormat %s
+    title Phase 0 - Implementation Sequence
+    dateFormat X
+    axisFormat %s
 
- section WI4 identity (critical path)
- W4.1 Bootstrap modules :w41, 0, 10
- W4.2 Executor MI   :w42, after w41, 4
- W4.3 Policy deny   :w43, after w42, 4
- W4.4 LPP probe   :w44, after w43, 2
- W4.5 App regs    :w45, after w41, 4
- W4.6 Entra groups   :w46, after w45, 2
- W4.7 Conditional access :w47, after w46, 2
- W4.8 Recertification  :w48, after w47, 1
+    section WI4 identity (critical path)
+    W4.1 Bootstrap modules    :w41, 0, 10
+    W4.2 Executor MI          :w42, after w41, 4
+    W4.3 Policy deny          :w43, after w42, 4
+    W4.4 LPP probe            :w44, after w43, 2
+    W4.5 App regs             :w45, after w41, 4
+    W4.6 Entra groups         :w46, after w45, 2
+    W4.7 Conditional access   :w47, after w46, 2
+    W4.8 Recertification      :w48, after w47, 1
 
- section WI1 telemetry
- W1.1 Skeleton    :w11, 0, 1
- W1.2 Ontology contracts :w12, after w11, 4
- W1.3 Config loader  :w13, after w11, 1
- W1.4 OTel wiring   :w14, after w13, 4
- W1.5 DDL instance+audit :w15, after w12, 4
- W1.6 DDL layered cache :w16, after w15, 1
- W1.7 CI baseline   :w17, after w11, 4
- W1.8 Golden fixture  :w18, after w15, 4
- W1.9 KPI dashboard  :w19, after w18, 4
+    section WI1 telemetry
+    W1.1 Skeleton             :w11, 0, 1
+    W1.2 Ontology contracts   :w12, after w11, 4
+    W1.3 Config loader        :w13, after w11, 1
+    W1.4 OTel wiring          :w14, after w13, 4
+    W1.5 DDL instance+audit   :w15, after w12, 4
+    W1.6 DDL layered cache    :w16, after w15, 1
+    W1.7 CI baseline          :w17, after w11, 4
+    W1.8 Golden fixture       :w18, after w15, 4
+    W1.9 KPI dashboard        :w19, after w18, 4
 
- section WI2 scenarios
- W2.1 Schema    :w21, after w12, 1
- W2.2 Author    :w22, after w21, 4
- W2.3 Freeze    :w23, after w22, 1
- W2.4 Coverage tests  :w24, after w22, 1
+    section WI2 scenarios
+    W2.1 Schema               :w21, after w12, 1
+    W2.2 Author               :w22, after w21, 4
+    W2.3 Freeze               :w23, after w22, 1
+    W2.4 Coverage tests       :w24, after w22, 1
 
- section WI3 baseline (blocked by W2.3)
- W3.1 Reference agent  :w31, after w23, 4
- W3.2 Runner CLI   :w32, after w31, 1
- W3.3 Report    :w33, after w32, 1
- W3.4 Repro CI    :w34, after w33, 4
+    section WI3 baseline (blocked by W2.3)
+    W3.1 Reference agent      :w31, after w23, 4
+    W3.2 Runner CLI           :w32, after w31, 1
+    W3.3 Report               :w33, after w32, 1
+    W3.4 Repro CI             :w34, after w33, 4
 
- section WI5 exemption
- W5.1 Schema + template :w51, after w12, 1
- W5.2 CI check    :w52, after w51, 1
- W5.3 Expiry job   :w53, after w51, 4
- W5.4 Lookahead digest  :w54, after w53, 1
- W5.5 Runbook    :w55, after w51, 1
+    section WI5 exemption
+    W5.1 Schema + template    :w51, after w12, 1
+    W5.2 CI check             :w52, after w51, 1
+    W5.3 Expiry job           :w53, after w51, 4
+    W5.4 Lookahead digest     :w54, after w53, 1
+    W5.5 Runbook              :w55, after w51, 1
 
- section WI6 local dev preset
- W6.1 Provider interfaces :w61, after w12, 1
- W6.2 In-memory fakes  :w62, after w61, 4
- W6.3 Docker Compose  :w63, after w61, 3
+    section WI6 local dev preset
+    W6.1 Provider interfaces  :w61, after w12, 1
+    W6.2 In-memory fakes      :w62, after w61, 4
+    W6.3 Docker Compose       :w63, after w61, 3
 ```
 
 ### Critical-Path 규칙
 
 - **W4.1은 첫날 시작, 의존성 없음.** 클라우드 프로비저닝 지연(구독 쿼터, 리전 가용성)이 가장
- 큰 스케줄 리스크.
+  큰 스케줄 리스크.
 - **W3.1은 W2.3 전에 시작해선 안 됨.** 이동하는 시나리오 세트에서 참조 에이전트 실행은 전체
- 베이스라인 무효화.
+  베이스라인 무효화.
 - **W1.9 (KPI 대시보드) 는 W1.8 (golden 고정본) 통과 필요.** 어떤 패널도 수동 채워진 소스로
- 출시 안 됨; 픽스처가 소스 그래프 동작 증명.
+  출시 안 됨; 픽스처가 소스 그래프 동작 증명.
 - **실행기 권한을 추가하는 어떤 태스크도 같은 PR에서 W4.4 업데이트 필요.** CI가 강제.
 - **W6.2 (in-memory 페이크) 와 W1.5-W1.6 으로 랜딩하는 Postgres/Redpanda 어댑터는 하나의
- 계약-테스트 스위트를 공유해야 함.** 페이크에서는 통과하지만 실제 백엔드에서는 실패(혹은
- 반대)하는 테스트는 페이크가 표류했다는 신호 - 테스트가 아닌 페이크를 고친다.
+  계약-테스트 스위트를 공유해야 함.** 페이크에서는 통과하지만 실제 백엔드에서는 실패(혹은
+  반대)하는 테스트는 페이크가 표류했다는 신호 - 테스트가 아닌 페이크를 고친다.
 
 ### Done 정의 (태스크별)
 
 각 태스크는 다음 시에만 완료:
 
 1. **코드 + 테스트 머지** - 표준 거버넌스 PR 흐름(작성자 ≠ 검토자, 고위험 차이에
- `Justification:`) 을 통해.
+   `Justification:`) 을 통해.
 2. **Docs-after 충족** - 만진 설계 문서가 같은 PR에서 업데이트
- ([coding-conventions.instructions.md § Documentation 작업 흐름](../../../.github/instructions/coding-conventions.instructions.md#documentation-workflow)).
+   ([coding-conventions.instructions.md § Documentation 작업 흐름](../../../.github/instructions/coding-conventions.instructions.md#documentation-workflow)).
 3. **수용 검사 통과** - 태스크 테이블에 선언된 대로, 로컬 실행이 아니라 CI에서 검증.
 4. **Shadow-mode 기본** - 태스크가 실행할 *가능한* 능력을 도입하면 출시 기본은
- `enforcement: do-not-enforce`.
+   `enforcement: do-not-enforce`.
 5. **감사 로그 엔트리 발행** - 런타임에 상태-변경 태스크(Terraform 적용 포함) 에 대해.
 
 ## 데이터와 범위 제약
 
 - 이 리포에 커밋된 모든 원격측정, 시나리오, 감사, KPI 데이터는 **시크릿 없음, 고객-비종속**이며
- 합성 또는 자리 표시자 값만 사용합니다. 고정된 machine-record 키와 식별자/경로는
- ASCII/English를 유지하고 natural-language 값은 한국어와 영어를 모두 허용합니다
- ([goals-and-metrics-ko.md#데이터-수집과-원격측정](../architecture/goals-and-metrics-ko.md#데이터-수집과-원격측정)).
- 실제 환경 기록은 포크의 런타임 저장소에만 존재.
+  합성 또는 자리 표시자 값만 사용합니다. 고정된 machine-record 키와 식별자/경로는
+  ASCII/English를 유지하고 natural-language 값은 한국어와 영어를 모두 허용합니다
+  ([goals-and-metrics-ko.md#데이터-수집과-원격측정](../architecture/goals-and-metrics-ko.md#데이터-수집과-원격측정)).
+  실제 환경 기록은 포크의 런타임 저장소에만 존재.
 - 대시보드의 각 메트릭은 정확히 하나의 원격측정 소스(OpenTelemetry 추적, 추가 전용 감사 로그,
- 또는 비용/사용 기록) 에 매핑; 소스 없는 열망 패널은 출시 불가.
+  또는 비용/사용 기록) 에 매핑; 소스 없는 열망 패널은 출시 불가.
 
 ## Exit 기준
 
 모든 기준은 독립적으로 검증 가능; 단계 게이트는 모든 박스가 체크될 때만 통과.
 
 - [ ] **시나리오 세트가 freeze되고 버전** , 복원력 / 변경 안전성 / 비용 거버넌스에 걸쳐 균형, 고객-비종속 데이터로
-  저장.
+      저장.
 - [ ] **재현 가능한 베이스라인** 존재: 고정 시나리오 세트 버전에서 pinned 참조 에이전트가
-  재실행 시 보고된 신뢰구간 내 같은 수치 산출, 표본 크기와 버전 기록.
+      재실행 시 보고된 신뢰구간 내 같은 수치 산출, 표본 크기와 버전 기록.
 - [ ] **베이스라인이 성공 메트릭 1-4와 모든 가드 메트릭 커버** - 이후 shadow → 강제 적용 승격이
-  성공과 가드 참조 모두 가짐.
+      성공과 가드 참조 모두 가짐.
 - [ ] **KPI 대시보드가 라이브** - 메트릭 1-4, 가드 메트릭, 선행 지표 표시, 각각 원격측정 소스에
-  추적.
+      추적.
 - [ ] **아이덴티티 블로커 해결**: 종단 IdP ↔ Entra ↔ Managed Identity 경로 프로비저닝,
-  최소권한 프로브 통과, deny-by-default 확인, 재인증 스케줄 - 또는 문서화되고 소유자
-  할당된 계획으로 명시적 waive.
+      최소권한 프로브 통과, deny-by-default 확인, 재인증 스케줄 - 또는 문서화되고 소유자
+      할당된 계획으로 명시적 waive.
 - [ ] **정책 예외 워크플로** 문서화되고 소유자 할당되고 예행 실행 검증(부여, 감사, auto-expire)
 - [ ] **로컬 개발 프리셋이 양방향으로 동작**: `pytest` 가 in-memory 페이크에 대해 오프라인으로
-  green, **그리고** `scripts/deployment/local/dev-up.sh` 가 건강한 pgvector + Redpanda 스택을 생산하고
-  동일한 계약-테스트 스위트가 그것에 대해서도 통과. 개발자가 Azure 프로비저닝 없이 호스팅된
-  IDE에서 어느 서브시스템이든 디버그 가능.
-  - 또는 문서화된 계획으로 명시적 waive.
+      green, **그리고** `scripts/deployment/local/dev-up.sh` 가 건강한 pgvector + Redpanda 스택을 생산하고
+      동일한 계약-테스트 스위트가 그것에 대해서도 통과. 개발자가 Azure 프로비저닝 없이 호스팅된
+      IDE에서 어느 서브시스템이든 디버그 가능.
+      - 또는 문서화된 계획으로 명시적 waive.
 
 ## 리스크
 
@@ -284,16 +284,16 @@ gantt
 ## 시퀀싱
 
 - **첫날, 병렬로**: 항목 4(아이덴티티, critical 경로) 와 항목 2(시나리오 freeze) 시작, 항목 1
- (원격측정)과 항목 5(정책 워크플로) 준비.
+  (원격측정)과 항목 5(정책 워크플로) 준비.
 - **시나리오 freeze 이후**: 항목 3(베이스라인 측정) 실행, 고정된 버전 세트에 대해 측정.
 - **게이트**: 모든 [Exit 기준](#exit-기준) 통과 후에만
- [phase-1-rule-catalog-t0-ko.md](phase-1-rule-catalog-t0-ko.md) 시작.
+  [phase-1-rule-catalog-t0-ko.md](phase-1-rule-catalog-t0-ko.md) 시작.
 
 ## 의존성
 
 - **상류**: 없음 - P0는 루트 단계. 외부 전제조건은 아이덴티티 매핑을 위한 클라우드/IdP 접근과
- 원격측정/저장소 대상 ([deployment-ko.md](../deployment/deployment-ko.md),
- [tech-stack-ko.md](../architecture/tech-stack-ko.md)).
+  원격측정/저장소 대상 ([deployment-ko.md](../deployment/deployment-ko.md),
+  [tech-stack-ko.md](../architecture/tech-stack-ko.md)).
 - **하류**: P0 원격측정, 고정 시나리오 세트, 측정된 베이스라인, 해결된 아이덴티티/정책 블로커는
- [phase-1-rule-catalog-t0-ko.md](phase-1-rule-catalog-t0-ko.md) 와 모든 이후 단계의 전제조건
- ([README-ko.md](../README-ko.md)).
+  [phase-1-rule-catalog-t0-ko.md](phase-1-rule-catalog-t0-ko.md) 와 모든 이후 단계의 전제조건
+  ([README-ko.md](../README-ko.md)).

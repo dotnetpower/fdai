@@ -116,13 +116,13 @@ CLI 및 platform 버전을 연결하며, symlink와 추가 파일을 거부하�
 실패 시 차단입니다.
 
 - **인벤토리**: resource-graph 조회 경로가 먼저, 그다음 검증된 private-link 관리 경로,
- 샤드된 관리 목록 작업, 범위가 명시된 권위 있는 인벤토리, activity-log 연속성,
- 마지막으로 서명된 declarative 스냅샷입니다. 실패한 경로는 마지막 완전한 그래프를 유지하고
- stale로 표시하며, 빈 그래프를 절대 게시하지 않습니다.
+  샤드된 관리 목록 작업, 범위가 명시된 권위 있는 인벤토리, activity-log 연속성,
+  마지막으로 서명된 declarative 스냅샷입니다. 실패한 경로는 마지막 완전한 그래프를 유지하고
+  stale로 표시하며, 빈 그래프를 절대 게시하지 않습니다.
 - **아이덴티티**: 테난트 발견 엔드포인트에 도달할 수 없으면 `FDAI_ENTRA_JWKS_URI`를
- 재정의합니다 ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md)).
+  재정의합니다 ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md)).
 - **적응형 결정**: 모델 경로를 사용할 수 없으면 적응형 능력은 사용 불가를 보고하고 해당 작업은
- deterministic-only로 남습니다. 자율성은 저하될 뿐 fail-open하지 않습니다.
+  deterministic-only로 남습니다. 자율성은 저하될 뿐 fail-open하지 않습니다.
 
 ## 이미지로 전달된 분포의 프로비저닝
 

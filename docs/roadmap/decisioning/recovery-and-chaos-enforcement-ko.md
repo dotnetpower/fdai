@@ -32,18 +32,18 @@ compile하며 주입, stop, 롤백, 검증을 함께 다루는 하나의 결정�
 
 ```mermaid
 flowchart LR
- H[Grounded causal hypothesis] --> D[DecisionCase]
- G[Fresh ontology graph] --> I[ImpactEnvelope]
- D --> R[RecoveryPlan]
- I --> R
- R --> P[Dry run 및 approval]
- P --> X[Thor executes]
- X --> M[Continuous impact guard]
- M -->|envelope 내부| V[Expected effect verification]
- M -->|bound 초과| B[Vidar recovery control]
- B --> C[Thor compensation action]
- C --> V
- V --> O[ObservedOutcome 및 audit]
+    H[Grounded causal hypothesis] --> D[DecisionCase]
+    G[Fresh ontology graph] --> I[ImpactEnvelope]
+    D --> R[RecoveryPlan]
+    I --> R
+    R --> P[Dry run 및 approval]
+    P --> X[Thor executes]
+    X --> M[Continuous impact guard]
+    M -->|envelope 내부| V[Expected effect verification]
+    M -->|bound 초과| B[Vidar recovery control]
+    B --> C[Thor compensation action]
+    C --> V
+    V --> O[ObservedOutcome 및 audit]
 ```
 
 ## 온톨로지 계약
@@ -127,10 +127,10 @@ radius 탐색에서 시작하고 operating 맥락을 추가합니다.
 
 1. **Direct 대상:** 실행기가 mutate할 수 있는 Resource입니다.
 2. **런타임 dependent:** 변경을 관측할 수 있는 reverse `depends_on`, `runs_on`,
- `implemented_by` 경로입니다.
+   `implemented_by` 경로입니다.
 3. **Protected 서비스:** 해당 워크로드에서 도달 가능한 BusinessService와 목표입니다.
 4. **컨트롤 의존성:** 실행을 안전하게 유지하는 데 필요한 텔레메트리, 신원, 감사, 잠금,
- 복구 리소스입니다.
+   복구 리소스입니다.
 
 탐색은 링크 허용 목록, 깊이, 노드 개수, 간선 개수, 바이트 크기, 기한으로 제한합니다.
 Stale, conflicted 또는 잘린 그래프에서는 묶음이 불완전한하므로 chaos 적용을
@@ -264,7 +264,7 @@ Injector를 중지했다고 복구가 완료된 것은 아닙니다. Heimdall은
 | 결정 quality | False-positive, missed-stop, policy-escape 비율이 구성된 한도 안에 있습니다. |
 
 Criteria는 구성이며 관측 기간 전에 설정하는 것이 좋습니다. Policy escape,
-out-of-envelope 영향, missed stop, 롤백 실패, stale 그래프 또는 material detector 회귀가
+out-of-envelope 영향, missed stop, 롤백 실패, stale 그래프 또는 자료 detector 회귀가
 하나라도 발생하면 시나리오와 affected ActionType을 자동으로 shadow 모드로 되돌립니다.
 
 ## SRE 시나리오 적용
@@ -272,19 +272,19 @@ out-of-envelope 영향, missed stop, 롤백 실패, stale 그래프 또는 mater
 이 설계는 코어에 S1-S14 식별자를 hard-code하지 않고 시나리오 묶음을 지원합니다.
 
 - **Kubernetes fault:** 묶음은 워크로드, 서비스, 유입, 목표 링크를 따라갑니다.
- 복구는 복제본, 롤아웃, 엔드포인트, service-level 신호를 확인합니다.
+  복구는 복제본, 롤아웃, 엔드포인트, service-level 신호를 확인합니다.
 - **VM stress 및 네트워크 delay:** 묶음은 호스트 dependent와 control-plane 접근을 포함합니다.
- 복구는 프로세스 exit, 큐 discipline, 기억, CPU, 의존성 지연 시간을 확인합니다.
+  복구는 프로세스 exit, 큐 discipline, 기억, CPU, 의존성 지연 시간을 확인합니다.
 - **데이터베이스 포화:** 계획은 데이터 무결성을 보호하고 부하를 중지하며 테스트 데이터를 clean-up한
- 뒤 credit, 처리량, 지연 시간, 연결 복구를 확인합니다.
+  뒤 credit, 처리량, 지연 시간, 연결 복구를 확인합니다.
 - **비율 limiting:** 가설은 demand, 할당량, 프로바이더, 배포 변경을 구분합니다. 복구는
- 부하 stop, 재시도 대기, promoted 경로 전환 또는 할당량 액션 요청을 수행할 수 있습니다.
+  부하 stop, 재시도 대기, promoted 경로 전환 또는 할당량 액션 요청을 수행할 수 있습니다.
 - **게이트웨이 cascade:** Graph는 다운스트림 propagation을 예측하고 백엔드 상태와 외부 서비스
- 목표를 모두 확인합니다.
+  목표를 모두 확인합니다.
 - **Bad 배포:** 복구는 이전 개정 번호를 pin하고 forward 롤백을 실행한 뒤 롤아웃과
- dependent 서비스 상태를 확인합니다.
-- **표류 및 alert 트리거:** Non-fault 시나리오는 같은 가설과 복구 계약을 사용하지만
- 실험 또는 injector는 필요하지 않습니다.
+  dependent 서비스 상태를 확인합니다.
+- **표류 및 경보 트리거:** Non-fault 시나리오는 같은 가설과 복구 계약을 사용하지만
+  실험 또는 injector는 필요하지 않습니다.
 
 ## 전달 상태
 

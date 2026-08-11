@@ -30,18 +30,18 @@ translation_revised: 2026-08-11
 
 ```mermaid
 flowchart LR
- AT[ActionType] -->|requires| AR[AuthorizationRequirement]
- AR -->|demands| AC[AuthorizationCapability]
- AR -->|targets| RT[ResourceType]
- PA[AuthorizationPolicyAssignment] -->|governs| AC
- PA -->|permits| EP[ExecutionProfile]
- PM[ProviderPermissionSet] -->|implements| AC
- EP --> IR[Deployment identity binding]
- PM --> OP[Provider operations]
- IR --> EO[Effective-access observation]
- OP --> EO
- EO --> AD[AuthorizationDecision]
- AD --> RG[Risk gate]
+    AT[ActionType] -->|requires| AR[AuthorizationRequirement]
+    AR -->|demands| AC[AuthorizationCapability]
+    AR -->|targets| RT[ResourceType]
+    PA[AuthorizationPolicyAssignment] -->|governs| AC
+    PA -->|permits| EP[ExecutionProfile]
+    PM[ProviderPermissionSet] -->|implements| AC
+    EP --> IR[Deployment identity binding]
+    PM --> OP[Provider operations]
+    IR --> EO[Effective-access observation]
+    OP --> EO
+    EO --> AD[AuthorizationDecision]
+    AD --> RG[Risk gate]
 ```
 
 | 계층 | 질문 | 권한 |
@@ -121,8 +121,8 @@ resource_types: [object-storage]
 scope_expressions: [target]
 execution_profile: change-executor
 provenance:
- created_at: "2026-07-31T00:00:00Z"
- created_by: example-team
+  created_at: "2026-07-31T00:00:00Z"
+  created_by: example-team
 ```
 
 프로바이더 연산, 대응 다이제스트, 배포 범위 id 및 신원 참조는 런타임 근거입니다.
@@ -140,18 +140,18 @@ version: "1.0.0"
 capabilities: [object.write]
 execution_profiles: [change-executor]
 scope:
- include: [scope://example/account/prod]
- selectors:
- resource_types: [object-storage]
+  include: [scope://example/account/prod]
+  selectors:
+    resource_types: [object-storage]
 posture: request_jit
 constraints:
- allowed_grant_modes: [action_bound, time_bound]
- max_scope: resource
- max_duration_seconds: 1800
- quorum: 2
- approver_roles: [owner]
- require_effective_probe: true
- exemptible: false
+  allowed_grant_modes: [action_bound, time_bound]
+  max_scope: resource
+  max_duration_seconds: 1800
+  quorum: 2
+  approver_roles: [owner]
+  require_effective_probe: true
+  exemptible: false
 enforcement: do-not-enforce
 ```
 
@@ -167,7 +167,7 @@ enforcement: do-not-enforce
 아닙니다. `AccessGrant`는 액션 HIL 또는 standing Approval을 충족하지 않고 A3-E Approval은
 프로바이더 권한을 만들지 않습니다. 둘 다 적용되면 두 독립 게이트가 모두 통과해야 합니다.
 
-새 배정은 `enforcement: do-not-enforce`로 시작합니다. shadow evaluation은 적용이 생성할
+새 배정은 `enforcement: do-not-enforce`로 시작합니다. Shadow evaluation은 적용이 생성할
 결정을 기록합니다. `enforce` 승격은 기존 검토된 카탈로그 전이를 따르며 환경 또는
 포크 표시로 선택할 수 없습니다.
 
@@ -215,17 +215,17 @@ Azure 어댑터가 해당 값을 소유합니다.
 3. 주입된 어댑터를 통해 실행 신원과 프로바이더 권한 대응을 확인합니다.
 4. Scoped 정책을 먼저 적용합니다. 최종 정책 결정은 effective-access 탐색을 건너뜁니다.
 5. 필요한 모든 범위를 탐색하고 결과를 expiring 관측으로 변환한 다음 pure 해석기를
- 호출합니다.
+  호출합니다.
 6. 모든 요구사항 결정을 보수적으로 축소합니다. 모든 결과가 `AUTHORIZED`인 경우에만 risk
- 게이트로 진행합니다.
- Authorized 요구사항은 정확히 하나의 `executor_identity_ref`로 수렴해야 하며 신원이
- 없거나 여러 개면 risk evaluation 전에 실패 시 차단합니다. 이 참조는 타입이 지정된 액션과 모든
- 실행기 감사로 복사됩니다. DirectApiRequest 메타데이터는 코어가 프로바이더 클라이언트 id를 알지
- 않고도 한계 워크로드 신원을 선택하는 데 사용하며, PR-native 메타데이터는 귀속만
- 보존하고 별도로 승인된 Git 발행기 신원을 대체하지 않습니다.
+  게이트로 진행합니다.
+   Authorized 요구사항은 정확히 하나의 `executor_identity_ref`로 수렴해야 하며 신원이
+  없거나 여러 개면 risk evaluation 전에 실패 시 차단합니다. 이 참조는 타입이 지정된 액션과 모든
+  실행기 감사로 복사됩니다. DirectApiRequest 메타데이터는 코어가 프로바이더 클라이언트 id를 알지
+  않고도 한계 워크로드 신원을 선택하는 데 사용하며, PR-native 메타데이터는 귀속만
+  보존하고 별도로 승인된 Git 발행기 신원을 대체하지 않습니다.
 7. `GRANT_REQUIRED`인 경우 모든 누락된 요구사항 및 범위를 combined 결정 다이제스트, allowed
- 권한 부여 모드, 최대 소요 시간, 정족수 및 approver-role 하한과 비교하여 검증한 후 각 쌍별로
- 정본 순서의 제안 하나를 제출합니다.
+  권한 부여 모드, 최대 소요 시간, 정족수 및 approver-role 하한과 비교하여 검증한 후 각 쌍별로
+  정본 순서의 제안 하나를 제출합니다.
 
 `bind_execution_authorization`은 두 카탈로그를 부하 및 교차 검증하고 평가기를 조립한 다음
 `execution_authorization_required=True`를 설정합니다. 빈 요구사항 카탈로그와 절반만 바인딩된 권한 부여
@@ -268,20 +268,20 @@ Azure 어댑터가 해당 값을 소유합니다.
 
 ```mermaid
 sequenceDiagram
- participant F as Forseti
- participant V as Var
- participant D as Protected deployer
- participant H as Heimdall
- participant T as Thor
- participant S as Saga
- F->>S: AuthorizationDecision(GRANT_REQUIRED)
- F->>V: AccessGrantRequest
- V->>S: independently approved exact request
- V->>D: exact-plan governance change
- D->>S: apply receipt and expiry
- H->>S: fresh-token effective-access observation
- H->>F: re-evaluate original action from the beginning
- F->>T: authorized verdict only after all gates pass
+    participant F as Forseti
+    participant V as Var
+    participant D as Protected deployer
+    participant H as Heimdall
+    participant T as Thor
+    participant S as Saga
+    F->>S: AuthorizationDecision(GRANT_REQUIRED)
+    F->>V: AccessGrantRequest
+    V->>S: independently approved exact request
+    V->>D: exact-plan governance change
+    D->>S: apply receipt and expiry
+    H->>S: fresh-token effective-access observation
+    H->>F: re-evaluate original action from the beginning
+    F->>T: authorized verdict only after all gates pass
 ```
 
 실행기 신원은 자체 역할을 부여할 수 없습니다. Protected deployer가 승인된 exact 계획을 적용합니다.

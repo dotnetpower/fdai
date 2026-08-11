@@ -69,7 +69,7 @@ RAG는 매뉴얼 질문에 런타임에 답한다: 쿼리를 임베딩하고, �
 깔끔한 PDF 폴더로 도착하지 않는다; SharePoint, Confluence, Notion, 루프, 이메일 받은편지함에
 각자의 인증 뒤에, 그리고 대부분의 콘텐츠가 매뉴얼이 아닌 규모(수천 페이지)로 존재한다. 두
 하위 문제가 파생된다: **상시 크레덴셜을 보유하지 않는 접근**, 그리고 **규모에서의 발견 +
-선별(triage)**.
+선별(분류)**.
 
 ### 접근: pull이 아니라 push/위임 - 상시 크레덴셜을 들지 않는다
 
@@ -101,15 +101,15 @@ org 레벨 서비스)와 **federated** 커넥터(사용자 본인의 OAuth로 �
 답해야 하는 두 접근 관심사:
 
 - **소스 ACL 출처 이력.** 소스 문서를 *누가 읽을 수 있었는지*를 `provenance`에 기록한다.
- 제한된 보안 런북에서 증류된 규칙은 그 런북의 텍스트를 감사 항목이나 생성된 PR
- 본문으로 유출해서는 안 됩니다. 고정된 machine-record 키는 English를 유지하고 사람이 보는
- 산문은 구성된 로케일을 따를 수 있으며 모든 표면은 secret-free를 유지합니다
- ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
+  제한된 보안 런북에서 증류된 규칙은 그 런북의 텍스트를 감사 항목이나 생성된 PR
+  본문으로 유출해서는 안 됩니다. 고정된 machine-record 키는 English를 유지하고 사람이 보는
+  산문은 구성된 로케일을 따를 수 있으며 모든 표면은 secret-free를 유지합니다
+  ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
 - **민감도 게이트.** 서비스 계정이 *읽을 수 있는* 문서라도 무턱대고 증류하면 안 되는 것일 수
- 있다: HR 자료, 고객명이 담긴 인시던트 post-mortem, 크레덴셜이 박힌 런북. Ingest는
- secret-scan + PII 편집(민감정보 제거) 패스를 돌리고, 적중 시 자동 추출 대신 HIL로 라우팅한다.
- 민감도 보류는 의도적으로 최신성 스냅샷에 기록하지 않으므로, 미해결 비밀은 첫 패스 후
- "seen"으로 표시되는 대신 매 실행 다시 표면화된다.
+  있다: HR 자료, 고객명이 담긴 인시던트 post-mortem, 크레덴셜이 박힌 런북. Ingest는
+  secret-scan + PII 편집(민감정보 제거) 패스를 돌리고, 적중 시 자동 추출 대신 HIL로 라우팅한다.
+  민감도 보류는 의도적으로 최신성 스냅샷에 기록하지 않으므로, 미해결 비밀은 첫 패스 후
+  "seen"으로 표시되는 대신 매 실행 다시 표면화된다.
 
 ### 규모에서의 발견과 선별
 
@@ -119,19 +119,19 @@ Confluence나 Notion 규모에서 문제는 인제스션이 아니라 이것이 
 거르고, 비싸게 컴파일하되 소수에만.
 
 1. **무료 결정론적 필터 먼저** (T0급, LLM 없음). 라벨(`runbook`, `sop`, `ops`), 소스
- 스페이스/데이터베이스, 페이지 트리 위치, Notion "검증된 페이지" 상태, 조회수, 최근 수정
- recency로 죽은 long tail을 어떤 모델보다 먼저 버린다.
+   스페이스/데이터베이스, 페이지 트리 위치, Notion "검증된 페이지" 상태, 조회수, 최근 수정
+   recency로 죽은 long tail을 어떤 모델보다 먼저 버린다.
 2. **다음은 싼 분류기** (T1급). 소형 모델 또는 임베딩 분류기가 생존자에 대해 "이것이 운영
- 절차인가?" 이진 판정을 내려, 수천 페이지를 수십~수백으로 좁힌다.
+   절차인가?" 이진 판정을 내려, 수천 페이지를 수십~수백으로 좁힌다.
 3. **권위 랭킹.** 내부 링크 그래프가 정본 허브 문서를 드러낸다(PageRank식) - 브레인스토밍
- 페이지는 아무도 링크하지 않는다. Near-duplicate 클러스터링은 한 절차의 최신 정본
- 버전만 남긴다.
+   페이지는 아무도 링크하지 않는다. Near-duplicate 클러스터링은 한 절차의 최신 정본
+   버전만 남긴다.
 4. **빅뱅이 아니라 우선순위 큐.** 운영 신호로 증류한다: 최근 인시던트가 실제 참조한 페이지
- 먼저(living-rules 피드백 루프), 다음 고트래픽 페이지, 다음 long tail. 가장 하중이 큰
- 매뉴얼이 자동으로 먼저 커버된다.
+   먼저(living-rules 피드백 루프), 다음 고트래픽 페이지, 다음 long tail. 가장 하중이 큰
+   매뉴얼이 자동으로 먼저 커버된다.
 5. **최소 human 큐레이션.** 회사에 수천 페이지 정리를 요구하는 대신, 라벨 하나(`fdai`)를
- 요청하거나 배치 "이것이 매뉴얼인가? [예 / 아니오]" HIL 선별을 돌린다. 인간은 O(수천)이
- 아니라 O(수십)만 확인한다.
+   요청하거나 배치 "이것이 매뉴얼인가? [예 / 아니오]" HIL 선별을 돌린다. 인간은 O(수천)이
+   아니라 O(수십)만 확인한다.
 
 자체 큐레이션을 발명하지 말고 소스의 것을 재사용하라: Notion의 **verified-page**
 속성(워크스페이스 오너가 wiki 페이지를 검증 표시, 만료일 옵션)과 Confluence 라벨/스페이스는
@@ -152,7 +152,7 @@ living-rules 폐기 경로처럼 다뤄진다.
 신호** - 라벨, 스페이스, 검증된 플래그 - 의 변경으로도 트리거된다. 따라서
 최신성 스냅샷은 각 매뉴얼을 `content_sha` + 이 신호들의 지문(지문)으로
 키잉한다. 그래서 페이지에 `runbook` 라벨을 다시 붙이거나 검증된으로 표시하면 텍스트가
-바이트 동일해도 다시 triage에 진입된다(content-hash만 쓰는 스냅샷이 커넥터 소스에
+바이트 동일해도 다시 분류에 진입된다(content-hash만 쓰는 스냅샷이 커넥터 소스에
 남기는 틈). 고-churn 신호 - 조회수와 수정 시각 - 은 지문에서 의도적으로 제외되어
 평범한 트래픽이 불필요한 재증류를 강제하지 않는다.
 
@@ -168,13 +168,13 @@ living-rules 폐기 경로처럼 다뤄진다.
 
 ```text
 manual (PDF / wiki / docs)
- -> ingest + chunk (build time)
- -> LLM extract candidates (rule | workflow | action-type | policy) + provenance
- -> source-fidelity gates (grounding, back-translation, mixed-model)
- -> structural gates  (schema load, safety-invariant check)
- -> shadow evaluation  (replay against real history)
- -> regression + human promotion PR
- -> enforce
+  -> ingest + chunk (build time)
+  -> LLM extract candidates  (rule | workflow | action-type | policy) + provenance
+  -> source-fidelity gates   (grounding, back-translation, mixed-model)
+  -> structural gates        (schema load, safety-invariant check)
+  -> shadow evaluation       (replay against real history)
+  -> regression + human promotion PR
+  -> enforce
 ```
 
 모델 호출은 offline 후보 추출과 source-fidelity 검증(back-translation 및
@@ -199,26 +199,26 @@ mixed-model 비교)에 한정되고 이벤트마다가 아니라 **매뉴얼 리
 ### 갈래 A - 원본 충실도 ("매뉴얼을 제대로 읽었나")
 
 - **Grounding 게이트 (날조 차단).** 모든 후보는 유도된 매뉴얼 섹션을 정확히 인용해야 한다.
- 인용 없음 -> 거부 및 abstain. 아키텍처의 grounding 규칙(`abstain when unsupported`)을
- 증류에 적용한 것.
+  인용 없음 -> 거부 및 abstain. 아키텍처의 grounding 규칙(`abstain when unsupported`)을
+  증류에 적용한 것.
 - **Back-translation 라운드트립 (오독 차단).** *다른* 모델이 컴파일된 YAML에서 자연어 설명을
- 재생성하고, 그 결과를 원본 문장과 차이한다. 의미 불일치는 후보를 플래그한다. compile ->
- decompile -> compare는 임계값/극성 오류를 잡는 증류 전용 체크다.
+  재생성하고, 그 결과를 원본 문장과 차이한다. 의미 불일치는 후보를 플래그한다. compile ->
+  decompile -> compare는 임계값/극성 오류를 잡는 증류 전용 체크다.
 - **Mixed-model 교차검증 (오독 차단).** 추출을 2개 이상 다른 모델로 돌리고, 임계값이나 조건에
- 대한 불일치는 자동 채택 대신 HIL로 escalate한다. FDAI의 필수 mixed-model 게이트 - 증류는
- T2 판단이므로 이를 따른다.
+  대한 불일치는 자동 채택 대신 HIL로 escalate한다. FDAI의 필수 mixed-model 게이트 - 증류는
+  T2 판단이므로 이를 따른다.
 
 ### 갈래 B - 현실 충실도 ("조각이 옳게 동작하나")
 
 - **스키마 + 검증기 (불안전/malformed 차단).** 후보는 룰 / 작업 흐름 / action-type 스키마로
- 로드돼야 하고, 모든 액션은 7개 안전조건(stop-condition, `rollback_contract`, blast-radius,
- 예행 실행, 잠금, 멱등성, 감사)을 가져야 한다. 누락은 첫 전달이 아니라 부하에서 실패한다.
+  로드돼야 하고, 모든 액션은 7개 안전조건(stop-condition, `rollback_contract`, blast-radius,
+  예행 실행, 잠금, 멱등성, 감사)을 가져야 한다. 누락은 첫 전달이 아니라 부하에서 실패한다.
 - **Shadow-mode 리플레이 (경험적 증명).** 조각을 회사의 **실제 과거 이벤트와 감사 로그**에
- `default_mode: shadow`로 돌린다. 매뉴얼대로라면 발동했어야 할 때 발동했나? shadow 판정이
- 운영자가 실제로 한 것과 일치하나? 정밀도 / 재현율을 측정한다 - "텍스트가 그럴듯하다"가
- 아니라 "실제 데이터에서 옳게 동작한다". 이것이 `promotion_gate`다.
+  `default_mode: shadow`로 돌린다. 매뉴얼대로라면 발동했어야 할 때 발동했나? shadow 판정이
+  운영자가 실제로 한 것과 일치하나? 정밀도 / 재현율을 측정한다 - "텍스트가 그럴듯하다"가
+  아니라 "실제 데이터에서 옳게 동작한다". 이것이 `promotion_gate`다.
 - **회귀 스위트 (escape 0).** 알려진 매뉴얼 시나리오를 골든 테스트로 만들고, 조각은
- policy-violation escape 0으로 통과해야 하며, 모든 규칙 변경은 회귀 테스트를 추가한다.
+  policy-violation escape 0으로 통과해야 하며, 모든 규칙 변경은 회귀 테스트를 추가한다.
 
 강제 적용 승격은 절대 자동이 아니다: 측정된 shadow 정확도 -> 명시적 human 승인 PR,
 [rule-catalog-collection-ko.md](rule-catalog-collection-ko.md) 와
@@ -232,12 +232,12 @@ mixed-model 비교)에 한정되고 이벤트마다가 아니라 **매뉴얼 리
 갭(false 부정)은 증류의 정직한 한계이며 완전히 자동화될 수 없다. 제거가 아니라 완화된다:
 
 - **구조적 커버리지 차이.** 매뉴얼의 섹션 헤딩과 명령형 진술("must", "must not", "shall")을
- 세어, 추출된 조각 수/토픽과 대조하고, 커버 안 된 섹션을 human 리뷰로 플래그한다.
+  세어, 추출된 조각 수/토픽과 대조하고, 커버 안 된 섹션을 human 리뷰로 플래그한다.
 - **운영 피드백.** shadow가 규칙 발동 없이 한동안 돌았는데 실제 인시던트가 발생하면, 그 갭은
- 발견 루프가 후보로 바꾸는 누락 규칙 신호다
- ([observability-and-detection-ko.md](observability-and-detection-ko.md) 및
- [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 의
- living-rules 루프 참조).
+  발견 루프가 후보로 바꾸는 누락 규칙 신호다
+  ([observability-and-detection-ko.md](observability-and-detection-ko.md) 및
+  [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 의
+  living-rules 루프 참조).
 
 "매뉴얼이 완전히 증류됐다"는 human 서명이 있는 측정된 커버리지 숫자로 리포트되며, 결코
 단언되지 않는다.
@@ -259,7 +259,7 @@ abstaining 기본값을 갖는 포크 경계이다.
 |---|---|---|
 | 접근 경계 | `ManualSource` + `DropDirectoryManualSource`, `bind_drop_directory_manual_source`로 배선 | `shared/providers/manual_source.py` |
 | 민감도 가드 | `scan_sensitivity` - 값-free findings, `HOLD` -> HIL | `rule_catalog/pipeline/distill/sensitivity.py` |
-| Triage (결정론) | `triage_filter`, `dedupe_exact`, `authority_score`, `prioritize` | `rule_catalog/pipeline/distill/triage.py` |
+| 분류 (결정론) | `triage_filter`, `dedupe_exact`, `authority_score`, `prioritize` | `rule_catalog/pipeline/distill/triage.py` |
 | 분류기 경계 | `ManualClassifier` (abstaining 기본값은 전부 `UNCERTAIN` -> HIL) | `shared/providers/manual_classifier.py` |
 | 최신성 + 삭제 | `diff_snapshot`, `plan_retirements` (tombstone) | `rule_catalog/pipeline/distill/freshness.py` |
 | 커버리지 차이 | `analyze_coverage` | `rule_catalog/pipeline/distill/coverage.py` |
@@ -281,20 +281,20 @@ abstaining 기본값을 갖는 포크 경계이다.
 ## 미결 결정
 
 - 각 매뉴얼 포맷(PDF vs wiki vs Markdown)의 **청킹 + 추출 프롬프트**는 포크가 제공하는
- 구성이며, 다른 프롬프트처럼 버전 관리된다.
+  구성이며, 다른 프롬프트처럼 버전 관리된다.
 - **Coverage-diff 휴리스틱**("명령형 진술"로 무엇을 셀지)은 매뉴얼 스타일별 튜닝이 필요하다;
- 보수적으로 시작하고 플래그를 human 리뷰한다.
+  보수적으로 시작하고 플래그를 human 리뷰한다.
 - **매뉴얼 소스 cadence**: watcher가 변경된 매뉴얼 리비전을 얼마나 자주 재증류하는지는
- [rule-catalog-collection-ko.md](rule-catalog-collection-ko.md) 의 source-watcher cadence
- 모델을 재사용한다; 매뉴얼 리비전은 내용 해시를 bump하고 파이프라인에 재진입한다.
+  [rule-catalog-collection-ko.md](rule-catalog-collection-ko.md) 의 source-watcher cadence
+  모델을 재사용한다; 매뉴얼 리비전은 내용 해시를 bump하고 파이프라인에 재진입한다.
 - **파싱 충실도.** 리치한 소스 포맷(표, 임베드된 다이어그램과 대시보드 스크린샷, Confluence
- 매크로, Notion 토글과 임베드)은 순진한 텍스트 추출에서 정보를 잃고, 파싱 손실은 곧 추출
- 손실이다. 레이아웃-인지 파싱이 기본선이며; 다이어그램만으로 된 절차는 vision 모델이 필요할
- 수 있어 포맷별 포크 결정으로 추적된다.
+  매크로, Notion 토글과 임베드)은 순진한 텍스트 추출에서 정보를 잃고, 파싱 손실은 곧 추출
+  손실이다. 레이아웃-인지 파싱이 기본선이며; 다이어그램만으로 된 절차는 vision 모델이 필요할
+  수 있어 포맷별 포크 결정으로 추적된다.
 - **추출의 데이터 레지던시.** 2단계는 기밀 매뉴얼 텍스트를 LLM에 보내는데, 많은 엔터프라이즈가
- 외부 프론티어 모델에 대해 이를 금한다. 포크는 추출 모델을 in-tenant / no-training
- 배포(또는 로컬 모델)로 고정해 매뉴얼이 신뢰 경계를 벗어나지 않게 한다; 이 선택은 포크
- 구성이며 절대 하드코딩하지 않는다.
+  외부 프론티어 모델에 대해 이를 금한다. 포크는 추출 모델을 in-tenant / no-training
+  배포(또는 로컬 모델)로 고정해 매뉴얼이 신뢰 경계를 벗어나지 않게 한다; 이 선택은 포크
+  구성이며 절대 하드코딩하지 않는다.
 
 ## 다음 단계
 

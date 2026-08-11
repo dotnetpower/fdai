@@ -95,7 +95,7 @@ non-compliant인가"는 구체적인 근거 체인을 반환하는 그래프 탐
 Resource:storage-x --attached_to--> Resource:subnet-y
 subnet-y --contains(-1)--> vnet-z
 Finding: storage-x violates rule:object-storage.private-endpoint.required
- evidence: rule path + evaluated property (publicNetworkAccess=Enabled)
+  evidence: rule path + evaluated property (publicNetworkAccess=Enabled)
 ```
 
 체인은 결정론적이고 재현가능합니다: 같은 트윈 상태는 누가 묻든 어떻게 표현하든 같은 답을
@@ -108,27 +108,27 @@ Finding: storage-x violates rule:object-storage.private-endpoint.required
 
 ```mermaid
 flowchart LR
- Q[NL 질문] --> C["모델: NL을 타입 있는<br/>온톨로지 질의로 컴파일"]
- C --> V["verifier: 질의가<br/>well-typed하고 읽기 전용인지"]
- V --> T0Q["T0: 트윈 위에서 질의 실행<br/>(결정론적)"]
- TWIN[(어슈어런스 트윈<br/>온톨로지 그래프)] --> T0Q
- T0Q --> R[근거 있는 결과 집합]
- R --> EXP["모델: 결과 설명<br/>+ 규칙 경로 인용"]
- EXP --> A["답 + provenance<br/>+ confidence + what-if"]
- R -->|비어있음 / 낮은 confidence| AB[abstain: '모름']
+    Q[NL 질문] --> C["모델: NL을 타입 있는<br/>온톨로지 질의로 컴파일"]
+    C --> V["verifier: 질의가<br/>well-typed하고 읽기 전용인지"]
+    V --> T0Q["T0: 트윈 위에서 질의 실행<br/>(결정론적)"]
+    TWIN[(어슈어런스 트윈<br/>온톨로지 그래프)] --> T0Q
+    T0Q --> R[근거 있는 결과 집합]
+    R --> EXP["모델: 결과 설명<br/>+ 규칙 경로 인용"]
+    EXP --> A["답 + provenance<br/>+ confidence + what-if"]
+    R -->|비어있음 / 낮은 confidence| AB[abstain: '모름']
 ```
 
 - **컴파일이 검증됨**: 컴파일된 질의는 온톨로지 스키마에 대해 well-typed여야 하고 읽기
- 전용이어야 합니다; 검사를 통과하지 못한 질의는 실행되지 않고 거부됩니다. 이는 T2
- 검증기와 동일한 실패 시 차단 자세입니다.
+  전용이어야 합니다; 검사를 통과하지 못한 질의는 실행되지 않고 거부됩니다. 이는 T2
+  검증기와 동일한 실패 시 차단 자세입니다.
 - **답은 계층을 거침**: 정확한 규칙/그래프 매치는 **T0** 에서 해결되고; 알려진 패턴에
- 가까운 모호한 질문은 **T1** 유사도를 쓰며; 진정으로 새롭거나 모호한 질문만 **T2** 에
- 도달하고, T2 출력은 표시되기 전에
- [quality 게이트](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2)
- (mixed-model 교차 검증, 검증기, grounding)를 통과합니다.
+  가까운 모호한 질문은 **T1** 유사도를 쓰며; 진정으로 새롭거나 모호한 질문만 **T2** 에
+  도달하고, T2 출력은 표시되기 전에
+  [quality 게이트](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2)
+  (mixed-model 교차 검증, 검증기, grounding)를 통과합니다.
 - **grounding 아니면 abstain**: 모든 답은 그것을 정당화하는 규칙과 그래프 노드를 인용합니다.
- 근거를 댈 수 없는 답은 추측 대신 "모름"을 반환합니다. 환각은 프롬프트 튜닝이 아니라
- 구성에 의해 차단됩니다.
+  근거를 댈 수 없는 답은 추측 대신 "모름"을 반환합니다. 환각은 프롬프트 튜닝이 아니라
+  구성에 의해 차단됩니다.
 
 ### 4. Action-bridging (inert에서 제안으로)
 
@@ -167,30 +167,30 @@ remediation-PR 제안**을 붙일 수 있습니다. 그것에 대해 행동하�
 | **비용 거버넌스** | 이 변경/이 최적화의 비용 델타는? | 투영에 SKU/스케일 델타 적용; 예상 unit-cost 변화 보고 |
 
 - **읽기 전용이고 결정론적**: 시뮬레이션은 scratch 투영만 mutate하고, 라이브 estate나
- 감사 저장소는 절대 건드리지 않습니다. 이는 T0 성격의 패스입니다: 정적 그래프 평가가
- 대부분을 해결하고, 범위가 제한된 읽기 전용 프로브가 나머지를 확증합니다,
- [deployment-preflight-ko.md](../deployment/deployment-preflight-ko.md) 가 하는 것과 정확히 같습니다.
+  감사 저장소는 절대 건드리지 않습니다. 이는 T0 성격의 패스입니다: 정적 그래프 평가가
+  대부분을 해결하고, 범위가 제한된 읽기 전용 프로브가 나머지를 확증합니다,
+  [deployment-preflight-ko.md](../deployment/deployment-preflight-ko.md) 가 하는 것과 정확히 같습니다.
 - **Shadow-first**: 각 시뮬레이션 파생 발견 사항은 shadow 모드로 배포되고, 정확도와
- false-positive 비율이 고정된 시나리오 세트에서 측정된 후에만 shadow-to-enforce 규칙에
- 따라 승격됩니다([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)).
+  false-positive 비율이 고정된 시나리오 세트에서 측정된 후에만 shadow-to-enforce 규칙에
+  따라 승격됩니다([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)).
 - **Fidelity 측정**: `core/assurance_twin/fidelity.py`
- (`SimulationFidelityLedger`) 가 그 승격의 메커니즘이다. 각 **예측된** 효과(비용 delta,
- blast-radius 개수, RPO/RTO 공백)를 안정적인 prediction id 로 **실제** 관측 결과와 조인해
- 예측기별 MAE, MAPE, within-tolerance 비율을 누적한다. `is_reliable` 은 이를 실패 시 차단
- 승격 신호로 바꾼다: 최소 표본 수 미만이거나 MAPE 기준 초과인 예측기는 신뢰할 수 없으므로,
- 호출자는 그것을 shadow 에 유지(또는 강등)한다. 이는 측정되지 않은 what-if 가 oracle 로
- 작동하는 것을 막는다 - 실현되지 않는 시뮬레이션은 강제 적용 자격을 자동으로 잃는다.
+  (`SimulationFidelityLedger`) 가 그 승격의 메커니즘이다. 각 **예측된** 효과(비용 delta,
+  blast-radius 개수, RPO/RTO 공백)를 안정적인 prediction id 로 **실제** 관측 결과와 조인해
+  예측기별 MAE, MAPE, within-tolerance 비율을 누적한다. `is_reliable` 은 이를 실패 시 차단
+  승격 신호로 바꾼다: 최소 표본 수 미만이거나 MAPE 기준 초과인 예측기는 신뢰할 수 없으므로,
+  호출자는 그것을 shadow 에 유지(또는 강등)한다. 이는 측정되지 않은 what-if 가 oracle 로
+  작동하는 것을 막는다 - 실현되지 않는 시뮬레이션은 강제 적용 자격을 자동으로 잃는다.
 - **적응하지만 promotion-gated**: `effect_model.py`는 versioned 활성 모델로 no-op 및 액션
- 가지를 평가하고 별도 challenger는 기준 시점 이후의 scorable `ResponseOutcome`에서만 학습합니다.
- Scheduled growth 작업은 optimistic 동시성으로 challenger 개정 번호를 저장하며 활성 키를
- 교체하지 않습니다. 활성/challenger divergence 또는 `quasi_experimental` 미만 근거는
- 검토를 요구합니다. `rca/temporal_causality.py`는 선택적 confounder 조정, reverse-direction
- 검사 및 multiple-testing 보정을 포함한 differenced lag 상관관계를 추가합니다. 이
- observational 경로는 최대 `predictive_precedence`까지만 도달하고 experimental causal grade를
- 만들지 않습니다.
- `runtime.py`는 최대 32개 current-state 가지의 활성 및 challenger 모델을 로드합니다. 활성
- 모델 누락, 낮은 근거 또는 divergence는 검토를 요구하며 T1 호출자는 abstain 상태를 유지하고
- learned 액션을 정상 re-verification 경로로 보냅니다.
+  가지를 평가하고 별도 challenger는 기준 시점 이후의 scorable `ResponseOutcome`에서만 학습합니다.
+  Scheduled growth 작업은 optimistic 동시성으로 challenger 개정 번호를 저장하며 활성 키를
+  교체하지 않습니다. 활성/challenger divergence 또는 `quasi_experimental` 미만 근거는
+  검토를 요구합니다. `rca/temporal_causality.py`는 선택적 confounder 조정, reverse-direction
+  검사 및 multiple-testing 보정을 포함한 differenced lag 상관관계를 추가합니다. 이
+  observational 경로는 최대 `predictive_precedence`까지만 도달하고 experimental causal grade를
+  만들지 않습니다.
+  `runtime.py`는 최대 32개 current-state 가지의 활성 및 challenger 모델을 로드합니다. 활성
+  모델 누락, 낮은 근거 또는 divergence는 검토를 요구하며 T1 호출자는 abstain 상태를 유지하고
+  learned 액션을 정상 re-verification 경로로 보냅니다.
 
 ### 운영 연결 및 가드
 
@@ -338,17 +338,17 @@ Supplemental 프로바이더는 서버 매개변수, diagnostic-setting 상태, 
 ## 안전 자세
 
 - **읽기 전용 트윈, gated 실행**: 트윈과 모든 답은 읽기 전용입니다; 변경으로의 유일한
- 경로는 `risk-gate -> executor` 로 진입하는 제안이며, 7개 안전조건(stop-condition, 롤백,
- blast-radius 제한, 예행 실행, 리소스 잠금, 멱등성, 감사 항목)은 거기서 강제됩니다.
+  경로는 `risk-gate -> executor` 로 진입하는 제안이며, 7개 안전조건(stop-condition, 롤백,
+  blast-radius 제한, 예행 실행, 리소스 잠금, 멱등성, 감사 항목)은 거기서 강제됩니다.
 - **실패 시 차단**: 근거 댈 수 없는 답은 abstain하고; 잘못 타입되거나 읽기 전용이 아닌 컴파일된
- 질의는 거부되며; stale된 트윈(`Inventory` 최신성이 `freshness_ttl` 초과)은 ghost 데이터로
- 답하는 대신 estate 상태 질문에 답하기를 거부합니다, `RequiresInventoryFresh`
- ([llm-strategy-ko.md](../architecture/llm-strategy-ko.md))를 반영.
+  질의는 거부되며; stale된 트윈(`Inventory` 최신성이 `freshness_ttl` 초과)은 ghost 데이터로
+  답하는 대신 estate 상태 질문에 답하기를 거부합니다, `RequiresInventoryFresh`
+  ([llm-strategy-ko.md](../architecture/llm-strategy-ko.md))를 반영.
 - **신뢰할 수 없는 입력**: 질문 텍스트와 변경 페이로드는 신뢰할 수 없으며 프롬프트 주입을
- 실을 수 있습니다; 검증기와 읽기 전용 질의 계약이 권위이지, 모델의 자유 텍스트가 아닙니다
- (위협 모델은 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md)).
+  실을 수 있습니다; 검증기와 읽기 전용 질의 계약이 권위이지, 모델의 자유 텍스트가 아닙니다
+  (위협 모델은 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md)).
 - **감사됨**: 모든 제안, 리뷰, 시뮬레이션 파생 발견 사항은 그 근거와 함께 감사 항목을
- 씁니다; 제안을 산출하지 않는 읽기 전용 질문은 로그되지만 액션이 아닙니다.
+  씁니다; 제안을 산출하지 않는 읽기 전용 질문은 로그되지만 액션이 아닙니다.
 
 ## 페이즈
 

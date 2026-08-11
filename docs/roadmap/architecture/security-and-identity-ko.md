@@ -18,7 +18,7 @@ translation_revised: 2026-08-11
 ## 심각도 어휘
 
 - **P0 차단 요인** - auto-execution이 활성화되기 전에 해결·검증되어야 함; shadow 모드에서의
- 승격을 블록.
+  승격을 블록.
 - **P1** - 능력이 프로덕션(강제 적용 모드) 이벤트를 처리하기 전 필요.
 - **P2** - 첫 강제 적용 이후 진행될 수 있는 하드닝; 소유자와 함께 열림 Decisions에서 추적.
 
@@ -30,26 +30,26 @@ ChatOps에 로그인하는 사람, 존재하는 Entra 그룹, 콘솔이 GitHub A
 사람은 아래의 실행기 아이덴티티를 절대 보유하지 않습니다.
 
 - 실행기 는 "짧은 수명의, audience-scoped OIDC 토큰을 가져와" 만 노출하는 **`WorkloadIdentity`
- 인터페이스** 를 통해 인증해야 합니다. 이것이 [워크로드 신원 계약](csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰)
- 의 구현입니다; 구체적 발급자 (Azure 의 Managed Identity, AWS 의 IRSA, GCP 의 워크로드
- 신원 Federation, 어떤 K8s 위의 SPIFFE/SPIRE) 는 그 인터페이스 뒤에 위치하지 `core/`
- 에는 없습니다.
+  인터페이스** 를 통해 인증해야 합니다. 이것이 [워크로드 신원 계약](csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰)
+  의 구현입니다; 구체적 발급자 (Azure 의 Managed Identity, AWS 의 IRSA, GCP 의 워크로드
+  신원 Federation, 어떤 K8s 위의 SPIFFE/SPIRE) 는 그 인터페이스 뒤에 위치하지 `core/`
+  에는 없습니다.
 - Azure 에서는 인터페이스가 **User-assigned Managed Identity** 로 뒷받침되며, 명시적
- **액션 화이트리스트** 로 범위 지정. 광범위 상주 권한 없음.
+  **액션 화이트리스트** 로 범위 지정. 광범위 상주 권한 없음.
 - `DefaultAzureCredential()` (또는 유사 이름의 SDK 진입점) 은 **`core/` 에서 금지** ;
- 인터페이스 뒤의 Azure 프로바이더 어댑터 내부에서만 등장.
+  인터페이스 뒤의 Azure 프로바이더 어댑터 내부에서만 등장.
 - **버티컬별 신원은 집계 라우터 신원과 함께 프로비저닝됩니다.** Terraform은
- `id-<workload><suffix>-executor`, `-change`, `-resilience`, `-finops` 신원을 생성합니다.
- Fork-owned 정책 모듈이 버티컬 액션 whitelist를 연결합니다. 아래 [신원 대응](#identity-mapping)을
- 참조하세요.
+  `id-<workload><suffix>-executor`, `-change`, `-resilience`, `-finops` 신원을 생성합니다.
+  Fork-owned 정책 모듈이 버티컬 액션 whitelist를 연결합니다. 아래 [신원 대응](#identity-mapping)을
+  참조하세요.
 - 사람 승인 아이덴티티(HIL)는 실행 아이덴티티와 별개; 승인과 실행은 절대 동일 principal이
- 아니며, 어떤 아이덴티티도 다른 도메인의 아이덴티티를 assume할 수 없음(cross-domain assumption은
- 단순히 미사용이 아니라 거부됨).
+  아니며, 어떤 아이덴티티도 다른 도메인의 아이덴티티를 assume할 수 없음(cross-domain assumption은
+  단순히 미사용이 아니라 거부됨).
 - 실행 아이덴티티는 **비대화형** : 대화형/콘솔 사인인 없음, 사람 자격증명 부착 없음, 이벤트
- 루프 외 사용은 비활성화.
+  루프 외 사용은 비활성화.
 - **credential-free 인증 선호**: 워크로드 신원 federation / OIDC 토큰 교환으로 실행기가
- 장기 시크릿을 보유하지 않음. 시크릿이 불가피한 곳에서는 단명·자동 로테이트(Secrets and
- 구성 참조).
+  장기 시크릿을 보유하지 않음. 시크릿이 불가피한 곳에서는 단명·자동 로테이트(Secrets and
+  구성 참조).
 
 ### 신원 대응
 
@@ -77,15 +77,15 @@ P0 열림 결정 *"Executor-side 신원 대응"*을 해결합니다. 현재 Terr
 모든 단계에 적용되는 규칙 (MUST):
 
 - **RG-스코프, 절대 subscription-wide 아님.** 새 RG는 포크가 명시적으로 할당 IaC에 추가할
- 때만 거버넌스에 들어감 - 자동 확장 없음.
+  때만 거버넌스에 들어감 - 자동 확장 없음.
 - **보완적 Azure Policy `deny`** 가 선언된 화이트리스트 밖의 MI 액션을 두 번째 방어선으로
- 블록하여, 잘못 할당된 롤이 조용히 표면을 넓히지 못하게 함.
+  블록하여, 잘못 할당된 롤이 조용히 표면을 넓히지 못하게 함.
 - **모든 액션 화이트리스트 변경은 거버넌스 PR** with `Justification:` 및 Managed
- 신원 롤 할당을 만지는 모든 변경에 Owner-티어 정족수
- ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md)).
-- **shadow 로그 캡처** 는 shadow 모드의 실행기 MI가 발행하는 모든 액션이
- 호출할 정확한 Azure resource-provider 작업을 기록하여, 단계 2 Custom 역할 파생이 결정론적
- 이고 감사 가능하게 함.
+  신원 롤 할당을 만지는 모든 변경에 Owner-티어 정족수
+  ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md)).
+- **Shadow 로그 캡처** 는 shadow 모드의 실행기 MI가 발행하는 모든 액션이
+  호출할 정확한 Azure resource-provider 작업을 기록하여, 단계 2 Custom 역할 파생이 결정론적
+  이고 감사 가능하게 함.
 
 전달 계층은 액션 도메인에서 버티컬 MI를 선택하며 코어 코드 변경은 필요 없습니다.
 
@@ -100,83 +100,83 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
 
 - 모든 액션을 필요한 최소 롤/권한에 매핑; **기본 거부**.
 - 최소권한을 관례가 아니라 기계적으로 강제: 액션 화이트리스트는 리스크 게이트에서 평가되는
- policy-as-code(OPA/Rego) 이며, 권한 있는 스코프는 상시 개방이 아니라 **just-in-time과
- time-bound** 로 부여되어 액션 윈도우 후 만료.
+  policy-as-code(OPA/Rego) 이며, 권한 있는 스코프는 상시 개방이 아니라 **just-in-time과
+  time-bound** 로 부여되어 액션 윈도우 후 만료.
 - 조직의 계정/아이덴티티 표준을 클라우드 인가 경로와 조화(예: Keycloak 같은 외부 IdP ↔ Entra
- ↔ Managed Identity). 이 매핑을 **P0 차단 요인** 로 취급; 종단 경로가 프로비저닝되고
- 최소권한 프로브로 테스트되고 접근 재인증이 스케줄될 때만 해결됨.
+  ↔ Managed Identity). 이 매핑을 **P0 차단 요인** 로 취급; 종단 경로가 프로비저닝되고
+  최소권한 프로브로 테스트되고 접근 재인증이 스케줄될 때만 해결됨.
 - **접근 재인증**: 롤 할당은 고정 주기로 리뷰; 미사용/과광범위 부여는 취소. 재인증 결과는 감사.
 - 자율 배포는 플랫폼 정책(예: Azure Policy `deny`) 을 존중해야 함; 컨트롤을 우회하는 대신
- **정책 예외 워크플로**(요청 가능, time-boxed, 감사, 소유자 승인) 제공.
+  **정책 예외 워크플로**(요청 가능, time-boxed, 감사, 소유자 승인) 제공.
 
 ## 시크릿과 설정
 
 - 시크릿, 연결 문자열, 구독/테넌트 ID, 고객 식별자를 절대 하드코딩하지 않음. 시크릿 검사
- (예: gitleaks)이 CI에서 실행되고 긍정 발견 사항은 머지를 블록
- ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
+  (예: gitleaks)이 CI에서 실행되고 긍정 발견 사항은 머지를 블록
+  ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
 - **앱은 환경변수 (또는 K8s 시크릿 마운트) 만 읽습니다.** CSP 시크릿 SDK (`SecretClient`,
- `SecretsManagerClient`, `SecretManagerServiceClient` 등) 를 호출해서는 안 됩니다; 이것이
- [시크릿 계약](csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) 의 구현입니다.
- Azure 에서 주입 레이어는 **Container Apps native 시크릿 + Key Vault 참조** ; Kubernetes
- 에서는 `SecretStore` CRD 를 가진 **외부 Secrets Operator** .
+  `SecretsManagerClient`, `SecretManagerServiceClient` 등) 를 호출해서는 안 됩니다; 이것이
+  [시크릿 계약](csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) 의 구현입니다.
+  Azure 에서 주입 레이어는 **Container Apps native 시크릿 + Key Vault 참조** ; Kubernetes
+  에서는 `SecretStore` CRD 를 가진 **외부 Secrets Operator** .
 - 시크릿은 `shared/providers/` 의 주입된 `SecretProvider` 로 접근하며, 가져오기 시점 전역 읽기는
- 절대 금지.
+  절대 금지.
 - **라이프사이클**: 모든 시크릿은 소유자, 정의된 로테이션 간격, 자동 로테이션을 가짐; 손상되거나
- 대체된 자료는 즉시 취소. 로테이트할 시크릿이 없도록 federated 토큰 선호.
+  대체된 자료는 즉시 취소. 로테이트할 시크릿이 없도록 federated 토큰 선호.
 - **실패 시 차단**: 시크릿 주입 레이어 또는 토큰 발급자가 시작 시 사용 불가하면 프로세스가
- fail fast - 캐시된 또는 임베디드 자격증명으로 대체 경로 하지 않으며 degraded 상태 로
- 시작하지 않음.
+  fail fast - 캐시된 또는 임베디드 자격증명으로 대체 경로 하지 않으며 degraded 상태 로
+  시작하지 않음.
 - 시크릿은 로그, 감사 엔트리, 에러 메시지, 테스트 픽스처, LLM 프롬프트에 등장하면 안 됨.
 - 저장소를 고객-비종속으로 유지
- ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+  ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 ## 데이터 보호
 
 - 컨트롤 플레인이 처리하는 데이터(이벤트 페이로드, 도구 출력, 감사 기록, 임베딩)를 **분류**
- 하고 최소화: 포인터/id를 저장, 원시 고객 바이트나 PII는 저장 안 함.
+  하고 최소화: 포인터/id를 저장, 원시 고객 바이트나 PII는 저장 안 함.
 - 전송 중(TLS)과 정지 중 암호화; 키는 시크릿/키 저장소에서 관리, 코드에 없음.
 - **LLM 데이터 처리**: T2 프롬프트는 신뢰 경계를 떠나기 전에 시크릿과 PII가 redact됨; 외부
- 모델 벤더에 대한 데이터 잔류지와 no-retention 조건 강제. 감출 수 없는 민감 데이터가 필요한
- 프롬프트는 전송되지 않고 HIL로 라우팅됨.
+  모델 벤더에 대한 데이터 잔류지와 no-retention 조건 강제. 감출 수 없는 민감 데이터가 필요한
+  프롬프트는 전송되지 않고 HIL로 라우팅됨.
 
 ## 네트워크 경계
 
 - 실행기와 코어 엔진은 **공개 인바운드 엔드포인트 없음**; 인그레스는 이벤트 버스뿐.
- 관리/API 표면은 비공개 네트워킹 뒤에 있음.
+  관리/API 표면은 비공개 네트워킹 뒤에 있음.
 - **Egress는 allow-list 됨** - 요구된 클라우드 컨트롤 플레인과 모델 엔드포인트로; 유출과
- 주입-주도 콜백을 억제하기 위해 아웃바운드는 기본 거부.
+  주입-주도 콜백을 억제하기 위해 아웃바운드는 기본 거부.
 - 레이어 아이덴티티는 네트워크 경계를 넘어 공유되지 않음; 읽기 전용 콘솔과 ChatOps는 실행기
- 아이덴티티를 절대 보유하지 않음
- ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
+  아이덴티티를 절대 보유하지 않음
+  ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
 
 ## 공급망 무결성
 
 - 의존성은 lockfile로 고정; CI는 lockfile에서만 설치하고 취약성 스캔이 high-severity 발견을
- 블록.
+  블록.
 - 룰 카탈로그와 IaC는 **protected 브랜치 + 서명 커밋/PR 리뷰** 뒤의 catalog-as-code;
- 강제 적용 브랜치로의 직접 push 없음.
+  강제 적용 브랜치로의 직접 push 없음.
 - 빌드 아티팩트(컨테이너 이미지)는 서명되고 출처 이력/SBOM 기록됨; 실행기는 검증된 고정
- 다이제스트만 pull, 절대 변경 가능한 `latest` 태그 아님.
+  다이제스트만 pull, 절대 변경 가능한 `latest` 태그 아님.
 
 ## 7개 안전조건 (모든 자율 상태 변경 액션)
 
 1. **Stop-condition** - 액션을 중단시키는 정의된 halt 상태. ActionType 별로 `stop_conditions[]`
- 에 선언되고 실행기 가 적용 도중·이후에 평가.
+   에 선언되고 실행기 가 적용 도중·이후에 평가.
 2. **Rollback 경로** - 되돌리는 테스트된 방법. 온톨로지 `ActionType.rollback_contract` 는
- `pr_revert` / `scripted` / `pitr` / `snapshot_restore` / `state_forward_only` 중 하나여야
- 함; **`none` 은 유효 값 아님**. 정말로 되돌릴 수 없는 변경 은
- `ActionType.irreversible: true` 로 설정되어 risk-gate 가 HIL+정족수 라우팅; 롤백 은
- 여전히 최선 노력 복구로 선언.
+   `pr_revert` / `scripted` / `pitr` / `snapshot_restore` / `state_forward_only` 중 하나여야
+   함; **`none` 은 유효 값 아님**. 정말로 되돌릴 수 없는 변경 은
+   `ActionType.irreversible: true` 로 설정되어 risk-gate 가 HIL+정족수 라우팅; 롤백 은
+   여전히 최선 노력 복구로 선언.
 3. **Blast-radius 한도** - 스코프 상한(non-prod 우선, 배치 크기, 속도) + 리소스별
- 직렬화로 한 리소스에 대한 동시 액션은 상호 배제. `ActionType.blast_radius.computation =
- graph_derived` 는 risk-gate 가 Resource → Resource 그래프(`contains` + 역방향
- `depends_on`, 깊이 2) 로 실제 영향 집합을 계산하게 함 - 3-값 enum 은 상한이 아니라 버킷.
+   직렬화로 한 리소스에 대한 동시 액션은 상호 배제. `ActionType.blast_radius.computation =
+   graph_derived` 는 risk-gate 가 Resource → Resource 그래프(`contains` + 역방향
+   `depends_on`, 깊이 2) 로 실제 영향 집합을 계산하게 함 - 3-값 enum 은 상한이 아니라 버킷.
 4. **What-if 또는 예행 실행** - 변경 전에 성공한 버전 고정 예측 증명.
 5. **Logical-target 잠금** - 영향을 받는 모든 대상의 잠금과 인과 순서. 관리 리소스 변경에는
- 정확한 리소스 ID를 사용합니다.
+  정확한 리소스 ID를 사용합니다.
 6. **멱등성** - 전송과 재시도 전반의 안정적인 키 및 중복 억제.
 7. **감사 수명 주기** - side 효과 전에 추가 전용 의도를 기록하고 이후 최종
- 실행 및 결과로 닫습니다.
+  실행 및 결과로 닫습니다.
 
 안전조건 중 하나라도 빠지면 액션은 미완결이며 출시할 수 없습니다. 각 안전조건은 **테스트할
 수 있습니다**. Shadow-mode 테스트는 변경이 없음을 증명하고 롤백 테스트는 이전 상태
@@ -188,53 +188,53 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
 ## 비율 Limiting과 비상 정지 (DoS와 억제)
 
 - 이벤트 루프와 실행기는 **비율/예산 상한**(티어별, 리소스별, 전역) 을 강제; 상한 초과는
- HIL로 강등, 게이트 없는 auto-action이 되지 않음. 이것이 비용과 폭주/이벤트 홍수(DoS) 조건도
- 한계.
+  HIL로 강등, 게이트 없는 auto-action이 되지 않음. 이것이 비용과 폭주/이벤트 홍수(DoS) 조건도
+  한계.
 - **전역 비상 정지** 는 모든 auto-execution을 즉시 중단하고 모든 경로를 shadow/HIL로 드롭;
- 실행기 아이덴티티 없이 조작 가능. risk 게이트 는 이를 `KillSwitch.is_engaged()` 가 공급하는
- `kill_switch` 상한 축으로 실현합니다. ([execution-model-ko.md](../decisioning/execution-model-ko.md)
- 2.6b). 운영 런타임은 모든 권한 결정 전에 PostgreSQL에서 상태를 읽으며 읽기에 실패하면
- engaged 상태로 처리합니다. Owner와 Break-Glass principal은 `POST /system/kill-switch`를 통해
- 상태를 변경하고, 개정 번호 compare-and-set과 감사 항목이 같은 트랜잭션에 기록됩니다.
+  실행기 아이덴티티 없이 조작 가능. risk 게이트 는 이를 `KillSwitch.is_engaged()` 가 공급하는
+  `kill_switch` 상한 축으로 실현합니다. ([execution-model-ko.md](../decisioning/execution-model-ko.md)
+  2.6b). 운영 런타임은 모든 권한 결정 전에 PostgreSQL에서 상태를 읽으며 읽기에 실패하면
+  engaged 상태로 처리합니다. Owner와 Break-Glass principal은 `POST /system/kill-switch`를 통해
+  상태를 변경하고, 개정 번호 compare-and-set과 감사 항목이 같은 트랜잭션에 기록됩니다.
 - **Break-glass** 절차는 필수 감사와 사후 리뷰 하에 범위된 비상 접근을 부여; break-glass
- 사용은 알림을 발동하고 자동 만료.
+  사용은 알림을 발동하고 자동 만료.
 
-## shadow → 강제 적용 승격
+## Shadow → 강제 적용 승격
 
 - 새 능력은 **shadow 모드** 로 출시: 판정자와 로그만, 실행 없음.
 - 강제 적용로의 승격은 명시적, 액션별이며 **최소 shadow 기간과 표본 크기**, 임계 위 측정 정확도,
- shadow에서 **정책 위반 escape 0** 을 게이트로 함
- ([goals-and-metrics-ko.md](goals-and-metrics-ko.md)의 메트릭).
+  shadow에서 **정책 위반 escape 0** 을 게이트로 함
+  ([goals-and-metrics-ko.md](goals-and-metrics-ko.md)의 메트릭).
 - 회귀는 자동으로 shadow로 강등; 모든 승격과 강등은 감사 엔트리를 씀.
 - Working-context 정책 후보는 액션 기능을 얻지 않고 같은 기능 권한을
- 사용합니다. 비활성화된 상태로 설치되고 범위가 제한된 off-path 비교를 실행하며, 승격에는
- 정확한 버전, 근거 구간, 롤백 대상이 필요합니다. 불변식 위반 시 정책별 kill
- 전환이 engage됩니다. [컨텍스트 선택 정책](../decisioning/context-selection-policy-ko.md)을
- 참고하세요.
+  사용합니다. 비활성화된 상태로 설치되고 범위가 제한된 off-path 비교를 실행하며, 승격에는
+  정확한 버전, 근거 구간, 롤백 대상이 필요합니다. 불변식 위반 시 정책별 kill
+  전환이 engage됩니다. [컨텍스트 선택 정책](../decisioning/context-selection-policy-ko.md)을
+  참고하세요.
 
 ## 사람 승인 무결성
 
 - 승인과 실행은 별개 principal; **자기승인 없음**, 그리고 고-blast-radius 액션은 단일 승인자가
- 아니라 **정족수(멀티 승인자)** 필요.
+  아니라 **정족수(멀티 승인자)** 필요.
 - 승인자는 MFA/phishing-resistant 자격증명으로 인증; 각 승인은 특정 액션 + 멱등성 키에
- 바인딩되어 **다른 액션에 대해 재생될 수 없음**.
+  바인딩되어 **다른 액션에 대해 재생될 수 없음**.
 - **시간 초과는 실패 시 차단입니다**: 현재 승인 또는 유효한 기존 상시 승인이 없는 HIL 항목은
- no-op 및 감사 엔트리로 종료됩니다. 침묵은 승인을 만들지 않습니다. 상시 승인은
- [에스컬레이션 및 상시 권한](../decisioning/escalation-and-standing-authority-ko.md)의 제한된
- A3-E 계약을 통해서만 적용됩니다.
+  no-op 및 감사 엔트리로 종료됩니다. 침묵은 승인을 만들지 않습니다. 상시 승인은
+  [에스컬레이션 및 상시 권한](../decisioning/escalation-and-standing-authority-ko.md)의 제한된
+  A3-E 계약을 통해서만 적용됩니다.
 
 ## 감사가능성(Auditability)
 
 - 감사 저장소는 추가 전용이며 자율성의 신뢰 기반.
 - **Tamper-evidence**: 엔트리는 hash-chain(각 기록이 이전을 커밋)되고 주기적으로 기준점/서명
- 되어 삭제나 편집이 감지 가능; 가능한 곳에서 한 번만 쓰는/WORM 저장.
+  되어 삭제나 편집이 감지 가능; 가능한 곳에서 한 번만 쓰는/WORM 저장.
 - **부인 방지**: 각 엔트리는 인증된 행위자 아이덴티티(실행기 또는 승인자)와 모드(shadow/강제 적용)
- 를 기록하여 액션을 나중에 부인할 수 없음.
+  를 기록하여 액션을 나중에 부인할 수 없음.
 - 모든 액션은 다음에 링크: 트리거 이벤트, 결정한 티어, 인용된 규칙/정책, 리스크 결정(auto/HIL),
- 승인자(HIL인 경우), 멱등성 키, 롤백 참조.
+  승인자(HIL인 경우), 멱등성 키, 롤백 참조.
 - **보존**: legal-hold 지원과 함께 정의된 불변 보존 윈도우; 기록은 윈도우 경과 전에 정리 불가.
 - 이 저장소의 감사 데이터는 고객-비종속; 실제 환경 기록은 포크의 런타임 저장소에만 있고 여기
- 커밋되지 않음.
+  커밋되지 않음.
 
 ## 위협 모델 (STRIDE)
 

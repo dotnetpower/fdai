@@ -67,13 +67,13 @@ ORR 은 폴링되지 않고 트리거됩니다. 범위 가 핸드오프로 제�
 
 ```text
 ownership_transfer signal
- -> event-ingest (normalize)
- -> assurance-twin: run every applicable rule over the scope projection
- -> deploy-preflight: run the feasibility probes over the scope
- -> checklist evidence: rule, artifact, metric, drill 및 approval 평가
- -> compose -> ReadinessReport (clear | needs_review | blocked)
- -> blocked + enforce mode -> gate the handoff, route fixes to risk-gate/HIL
- -> audit (Saga)
+  -> event-ingest (normalize)
+  -> assurance-twin: run every applicable rule over the scope projection
+  -> deploy-preflight: run the feasibility probes over the scope
+  -> checklist evidence: rule, artifact, metric, drill 및 approval 평가
+  -> compose -> ReadinessReport (clear | needs_review | blocked)
+  -> blocked + enforce mode -> gate the handoff, route fixes to risk-gate/HIL
+  -> audit (Saga)
 ```
 
 두 입력 모두 **deterministic-first**(T0 성격) 입니다: twin 변환 결과 에 대한
@@ -121,15 +121,15 @@ ORR 은 범위 전체에 대해 적용 가능한 규칙 집합을 실행합니�
 일반화입니다. 각 발견 사항 은 동일한 세 필수 부분을 유지합니다:
 
 - **근거** - 발견 사항을 만든 룰, 탐색 또는 Best Practice 컨트롤의 CSP-neutral 인용입니다.
- Checklist 발견 사항은 `control_id`와 충족되지 않은 `requirement_refs`도 유지합니다. 출처를
- 인용할 수 없는 발견 사항은 defect이며 T2 검증기와 preflight 프로브가 따르는 동일한
- 규칙입니다.
+  Checklist 발견 사항은 `control_id`와 충족되지 않은 `requirement_refs`도 유지합니다. 출처를
+  인용할 수 없는 발견 사항은 defect이며 T2 검증기와 preflight 프로브가 따르는 동일한
+  규칙입니다.
 - **심각도** - 자세의 `low`부터 `critical`, 또는 preflight의 `warning` / `blocking`처럼
- 출처 값을 보존합니다. 조정기는 resolved 게이트를 발견 사항의 별도 `blocking` boolean에
- 기록합니다.
+  출처 값을 보존합니다. 조정기는 resolved 게이트를 발견 사항의 별도 `blocking` boolean에
+  기록합니다.
 - **해석** - 그것을 해소하는 방법으로, 구체적 교정 ActionType (RBAC
- 차원의 경우 `remediate.right-size-role`) 또는 autofix 가 없을 때는 가이던스에
- 매핑됩니다.
+  차원의 경우 `remediate.right-size-role`) 또는 autofix 가 없을 때는 가이던스에
+  매핑됩니다.
 
 ### 결정 의미
 
@@ -222,19 +222,19 @@ injected `PostureAssessmentProvider`, 기존 `PreflightAnalyzer` 및 선택적
 ## 안전 자세
 
 - **읽기 전용 리뷰, 게이트 된 실행**: ORR 과 모든 발견 사항 은 읽기 전용입니다;
- 변경 으로의 유일한 경로는 `risk-gate -> executor` 에 진입하는 제안이며, 7개
- 안전조건(stop-condition, 롤백, blast-radius 한도, 예행 실행, 리소스 잠금,
- 멱등성, 감사 항목)이 거기서 강제됩니다.
+  변경 으로의 유일한 경로는 `risk-gate -> executor` 에 진입하는 제안이며, 7개
+  안전조건(stop-condition, 롤백, blast-radius 한도, 예행 실행, 리소스 잠금,
+  멱등성, 감사 항목)이 거기서 강제됩니다.
 - **승인과 실행은 구별 유지**: 핸드오프는 submitter 가 요청하고 구별된
- principal이 승인하고 절대 self-approve하지 않는 것이 목표 작업 흐름 계약입니다. 현재
- `OwnershipTransfer`와 `OperationalReadinessService`는 승인 결정 또는 승인자 신원을
- 받지 않으므로 Var 승인은 아직 연결되지 않았습니다.
+  principal이 승인하고 절대 self-approve하지 않는 것이 목표 작업 흐름 계약입니다. 현재
+  `OwnershipTransfer`와 `OperationalReadinessService`는 승인 결정 또는 승인자 신원을
+  받지 않으므로 Var 승인은 아직 연결되지 않았습니다.
 - **실패 시 차단**: stale twin (인벤토리 신선도가 `freshness_ttl` 초과) 은 stale
- 상태로 certify 하기보다 핸드오프 certify 를 거부합니다; ungroundable 발견 사항 은
- abstain 하고; 검증되지 않은 리뷰는 shadow 로 유지됩니다.
+  상태로 certify 하기보다 핸드오프 certify 를 거부합니다; ungroundable 발견 사항 은
+  abstain 하고; 검증되지 않은 리뷰는 shadow 로 유지됩니다.
 - **감사됨**: 현재 서비스는 ORR 판정, `blocks_handoff`, submitter, 대상 범위,
- 환경 및 전달/평가 실패를 추가 전용 state-store 감사 항목으로 기록합니다.
- Approver 신원과 Saga 에이전트 귀속은 향후 승인 작업 흐름 연결에서 추가해야 합니다.
+  환경 및 전달/평가 실패를 추가 전용 state-store 감사 항목으로 기록합니다.
+  Approver 신원과 Saga 에이전트 귀속은 향후 승인 작업 흐름 연결에서 추가해야 합니다.
 
 ## Next 단계
 

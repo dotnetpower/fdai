@@ -45,21 +45,21 @@ deterministic-first 제어 루프는 그대로 두고, **셀 기반 스트리밍
 
 ```mermaid
 flowchart TB
- subgraph MG["Management group 계층"]
- POL["Azure Policy DeployIfNotExists<br/>(AMBA 패턴) - fan-in as code"]
- end
- subgraph Subs["300 구독 / 수십 랜딩존"]
- S["Activity Log + resource events"]
- end
- POL -.diagnostic settings 자동 배포.-> S
- S -->|Kafka :9093 로 포워딩| EH["셀별 Event Hubs (샤딩)"]
- EH --> CELL["FDAI 셀 (scale unit)<br/>event-ingest -> trust-router -> risk-gate -> executor"]
- CELL --> LED[("감사 원장<br/>append-only, 해시체인, 절대 샘플링 안 함")]
- CELL -.telemetry.-> TEL[("텔레메트리 평면<br/>ADX / Log Analytics - 티어·샘플·롤업")]
- LED -.async projector.-> IDX[("인덱스 평면: ADX + Postgres + pgvector")]
- style LED fill:#522,stroke:#f00
- style TEL fill:#225,stroke:#08f
- style POL fill:#252,stroke:#0a0
+  subgraph MG["Management group 계층"]
+    POL["Azure Policy DeployIfNotExists<br/>(AMBA 패턴) - fan-in as code"]
+  end
+  subgraph Subs["300 구독 / 수십 랜딩존"]
+    S["Activity Log + resource events"]
+  end
+  POL -.diagnostic settings 자동 배포.-> S
+  S -->|Kafka :9093 로 포워딩| EH["셀별 Event Hubs (샤딩)"]
+  EH --> CELL["FDAI 셀 (scale unit)<br/>event-ingest -> trust-router -> risk-gate -> executor"]
+  CELL --> LED[("감사 원장<br/>append-only, 해시체인, 절대 샘플링 안 함")]
+  CELL -.telemetry.-> TEL[("텔레메트리 평면<br/>ADX / Log Analytics - 티어·샘플·롤업")]
+  LED -.async projector.-> IDX[("인덱스 평면: ADX + Postgres + pgvector")]
+  style LED fill:#522,stroke:#f00
+  style TEL fill:#225,stroke:#08f
+  style POL fill:#252,stroke:#0a0
 ```
 
 ## 언제 적용되나 (초대규모 트리거)
@@ -68,11 +68,11 @@ flowchart TB
 
 - **구독 수**가 수백 개를 넘는다(레퍼런스 타깃은 300개).
 - **랜딩존**이 수십 개이고 하나 이상의 리전에 걸쳐 있다(`sovereign` 프로파일에선
- 단일 리전).
+  단일 리전).
 - **피크 이벤트율**이 단일 Event Hubs Standard 네임스페이스 천장(약 40k
- 이벤트/s: 40 TU x TU당 1k 이벤트/s)을 버스트로 넘는다.
+  이벤트/s: 40 TU x TU당 1k 이벤트/s)을 버스트로 넘는다.
 - **데이터 주권**이 신호와 감사의 리전별 격리를 요구한다 - 강경한 단일-리전
- 소버린티 명령까지.
+  소버린티 명령까지.
 
 > 트리거는 기능 스위치가 아니라 **용량과 거버넌스** 임계다. 이를 넘으면 배포
 > 토폴로지(셀, 샤딩, ADX)가 바뀌지 제어-루프 코드는 바뀌지 않는다.
@@ -100,17 +100,17 @@ B안은 배포 시점에 선택되는 **두 프로파일**로 출하된다(코�
 | 감사 보존 | 정책 기반 | **WORM 변경할 수 없는** + 장기 보존(금융 5-7년, 국방 더 김) |
 
 - **선택은 구성 다.** `deployment.profile` 키(`standard` | `sovereign`)가
- Terraform 모듈 세트와 DI 바인딩을 토글한다. 제어 루프는 둘에서 동일하다.
+  Terraform 모듈 세트와 DI 바인딩을 토글한다. 제어 루프는 둘에서 동일하다.
 - **소버린은 더 엄격할 뿐, 다른 로직이 아니다.** 데이터와 컴퓨트가 *어디* 살고
- *어떤* 백엔드가 허용되는지를 좁힐 뿐 - 티어, 리스크 게이트, 감사 계약을 바꾸지
- 않는다.
+  *어떤* 백엔드가 허용되는지를 좁힐 뿐 - 티어, 리스크 게이트, 감사 계약을 바꾸지
+  않는다.
 - **deterministic-first 가 소버린티를 돕는다.** T2 가 외부 모델에 덜 기댈수록
- 레지던시 표면이 작아진다. 소버린 배포는 T0/T1 커버리지를 더 밀고 T2 프로바이더 를
- 리전 내로 고정한다.
+  레지던시 표면이 작아진다. 소버린 배포는 T0/T1 커버리지를 더 밀고 T2 프로바이더 를
+  리전 내로 고정한다.
 - **`sovereign` 의 단일-리전 HA:** 크로스-리전이 금지되므로 HA 는 **가용성
- Zones**(Event Hubs ZRS, zone-redundant Postgres, ZRS 저장소, multi-AZ AKS)에서
- 온다. 전체-리전 장애는 리전 내 백업에서 복구한다 - 명령이 수용하는 의도적
- RPO/RTO 트레이드오프.
+  Zones**(Event Hubs ZRS, zone-redundant Postgres, ZRS 저장소, multi-AZ AKS)에서
+  온다. 전체-리전 장애는 리전 내 백업에서 복구한다 - 명령이 수용하는 의도적
+  RPO/RTO 트레이드오프.
 
 ## 두 개의 로그 평면
 
@@ -123,12 +123,12 @@ B안은 배포 시점에 선택되는 **두 프로파일**로 출하된다(코�
 | **텔레메트리 (구조화 로그 + 추적 + 메트릭)** | `event_processed`, 단계 프레임, 티어별 메트릭, 구간 | *리소스* 수 (큼) | ADX / Log Analytics | **가능.** tail-sampling, 롤업, TTL 허용 |
 
 - **상관관계 이 감사 평면을 줄인다.** `EventCorrelator`
- ([observability-and-detection-ko.md § 1](../rules-and-detection/observability-and-detection-ko.md#1-이벤트-상관관계event-correlation))
- 가 이벤트 폭풍을 인시던트 하나로 접으므로, 감사 원장은 raw 알람이 아니라
- *결정*에 비례해 커진다.
+  ([observability-and-detection-ko.md § 1](../rules-and-detection/observability-and-detection-ko.md#1-이벤트-상관관계event-correlation))
+  가 이벤트 폭풍을 인시던트 하나로 접으므로, 감사 원장은 raw 알람이 아니라
+  *결정*에 비례해 커진다.
 - **탄력적인 것은 텔레메트리뿐이다.** 티어링, 샘플링, 롤업은 텔레메트리
- 평면에만 적용된다. 감사 원장은 계약상 완전하고 불변이다
- ([security-and-identity-ko.md](security-and-identity-ko.md)).
+  평면에만 적용된다. 감사 원장은 계약상 완전하고 불변이다
+  ([security-and-identity-ko.md](security-and-identity-ko.md)).
 
 ## Fan-in: 코드가 아니라 정책 기반
 
@@ -136,12 +136,12 @@ B안은 배포 시점에 선택되는 **두 프로파일**로 출하된다(코�
 드리프트한다. Fan-in 은 **거버넌스 산출물**이다.
 
 - **관리 그룹** 계층에 할당된 **Azure Policy `DeployIfNotExists`** 가
- 현재와 미래의 모든 구독에 진단 settings 와 이벤트 포워딩을 자동
- 배포한다(랜딩존용 Azure Monitor 기준선 Alerts / AMBA 패턴).
+  현재와 미래의 모든 구독에 진단 settings 와 이벤트 포워딩을 자동
+  배포한다(랜딩존용 Azure Monitor 기준선 Alerts / AMBA 패턴).
 - FDAI 는 정책 세트를 런타임 루프가 아니라 **catalog-as-code 로 소유**한다.
- 새 구독이나 리소스는 FDAI 코드 경로가 아니라 정책 교정 으로 온보딩된다.
+  새 구독이나 리소스는 FDAI 코드 경로가 아니라 정책 교정 으로 온보딩된다.
 - 포워딩 타깃은 **셀별 Event Hubs Kafka 토픽**(계약 1)이므로, 코어는 여전히
- Kafka 만 소비한다 - `core/` 에 Activity Log SDK 없음.
+  Kafka 만 소비한다 - `core/` 에 Activity Log SDK 없음.
 
 > **예:** 새 랜딩존 구독이 나타남 -> MG-스코프 정책이 non-compliant 로 평가됨
 > -> `DeployIfNotExists` 가 그 진단 설정 을 리전 Event Hubs 로 프로비저닝
@@ -154,18 +154,18 @@ B안은 배포 시점에 선택되는 **두 프로파일**로 출하된다(코�
 범위가 제한된 작업 집합이 **셀 1개**다. B안은 여러 개를 돌린다.
 
 - **셀 = 규모 단위 1개**로 셀 키에 바인딩된다: 자기 Event Hubs 네임스페이스,
- 자기 런타임 환경, 자기 저장소. 키는 `standard` 에선
- `(region, landing-zone-group)`, `sovereign` 에선 `landing-zone-group` 만(단일
- 리전, AZ 분산)이다. 셀은 리전을 넘지 않는다(데이터 주권 + 블라스트 반경).
+  자기 런타임 환경, 자기 저장소. 키는 `standard` 에선
+  `(region, landing-zone-group)`, `sovereign` 에선 `landing-zone-group` 만(단일
+  리전, AZ 분산)이다. 셀은 리전을 넘지 않는다(데이터 주권 + 블라스트 반경).
 - **셀 라우팅**은 새 경계(`CellRouter`)으로 인바운드 신호를 셀 키에 매핑한다.
- 결정적이고 config-기반(셀 토폴로지 매니페스트)이며, 모델이 추론하지 않는다.
+  결정적이고 config-기반(셀 토폴로지 매니페스트)이며, 모델이 추론하지 않는다.
 - **블라스트-반경 격리:** 실패하거나 포화된 셀은 자기 랜딩존 그룹만 저하시킨다.
- `DegradationController`
- ([csp-neutrality-ko.md § 이벤트 버스 계약](csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜))
- 가 다른 셀을 건드리지 않고 그 셀만 shadow 로 캡한다.
+  `DegradationController`
+  ([csp-neutrality-ko.md § 이벤트 버스 계약](csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜))
+  가 다른 셀을 건드리지 않고 그 셀만 shadow 로 캡한다.
 - **수평 성장:** 구독이 늘면 더 큰 단일 런타임이 아니라 더 많은 셀이 된다. KEDA
- 가 셀의 워크로드를 유휴 시 0으로 스케일한다(Container Apps 는 0까지; AKS 셀은
- 대신 작은 노드 하한 유지 - [런타임](#런타임) 참조).
+  가 셀의 워크로드를 유휴 시 0으로 스케일한다(Container Apps 는 0까지; AKS 셀은
+  대신 작은 노드 하한 유지 - [런타임](#런타임) 참조).
 
 ## 이벤트 버스 샤딩
 
@@ -173,12 +173,12 @@ B안은 배포 시점에 선택되는 **두 프로파일**로 출하된다(코�
 이벤트/s)에서 천장에 닿는다. 수백 랜딩존은 이를 버스트로 넘는다.
 
 - **셀별 샤딩:** 각 셀이 자기 네임스페이스를 가지며, 파티션 키는 리소스별 키를
- 유지해 리소스별 순서(계약 1)를 보존한다.
+  유지해 리소스별 순서(계약 1)를 보존한다.
 - **티어 승급 경로:** Standard(auto-inflate) -> 셀 추가 -> 단일 셀의 지속률이
- 필요로 하면 **Event Hubs Dedicated**(클러스터 CU 당 파티션 2,000개와 저장
- 10 TB, 최대 20 CU).
+  필요로 하면 **Event Hubs Dedicated**(클러스터 CU 당 파티션 2,000개와 저장
+  10 TB, 최대 20 CU).
 - **DLQ 는 토픽 컨벤션 유지**(`<topic>.dlq`), 네이티브 리소스가 아님 - 티어
- 전반에서 동작이 균일.
+  전반에서 동작이 균일.
 
 ## 감사 원장 CQRS (쓰기 평면 / 인덱스 평면)
 
@@ -190,19 +190,19 @@ B안은 배포 시점에 선택되는 **두 프로파일**로 출하된다(코�
 **쓰기 평면 (hot 덧붙이기, 락-프리):**
 
 - 감사 엔트리는 `correlation_id` 로 파티셔닝된 **compacted Kafka 토픽
- `fdai.audit` 로 produce** 된다. Kafka 파티션이 자연스러운 샤드이고, 파티션 내
- 순서는 브로커가 보장한다.
+  `fdai.audit` 로 produce** 된다. Kafka 파티션이 자연스러운 샤드이고, 파티션 내
+  순서는 브로커가 보장한다.
 - **파티션별 해시 체인**이 단일 글로벌 체인을 대체한다. tamper-evidence 는 각
- 파티션의 배치를 **Merkle 트리** 로 접고 루트를 주기적으로 앵커(모든 파티션
- tip 을 묶는 `epoch anchor` 행)해서 보존한다.
+  파티션의 배치를 **Merkle 트리** 로 접고 루트를 주기적으로 앵커(모든 파티션
+  tip 을 묶는 `epoch anchor` 행)해서 보존한다.
 - 감사 레코드 쓰기가 **크로스-writer 락 없는** `O(1)` produce 가 된다.
 
 **인덱스 평면 (비동기 projector):**
 
 - 별도 `audit-indexer` 컨슈머가 **조회-최적화 프로젝션**을 물질화한다: 최근
- 윈도우는 Postgres(시간-파티션 + BRIN), 전문검색은 ADX, 유사도는 pgvector.
+  윈도우는 Postgres(시간-파티션 + BRIN), 전문검색은 ADX, 유사도는 pgvector.
 - 프로젝션은 eventually consistent 하며 쓰기 스키마와 독립적으로 진화할 수
- 있다 - CQRS 의 요점이다.
+  있다 - CQRS 의 요점이다.
 
 **재생** 는 judge-only 로 유지된다: compacted 토픽(또는 그 ADLS 오프로드)이
 진실의 원천이며 재실행이 아니라 재-읽기된다.
@@ -212,15 +212,15 @@ B안은 배포 시점에 선택되는 **두 프로파일**로 출하된다(코�
 텔레메트리와 감사 프로젝션은 방대한 볼륨에서 빠른 인덱싱이 필요하다.
 
 - **Azure 데이터 Explorer (ADX / Kusto)** 가 인덱스·조회 엔진이다: **대기 중
- 인제스트** 이 자동 배치·병합하고, **모든 컬럼을 자동 인덱싱**하며, Kusto 가
- 페타바이트급 쿼리에 답한다. Event Hubs / Kafka 에 직접 연결되어 계약 1과
- 정합한다.
+  인제스트** 이 자동 배치·병합하고, **모든 컬럼을 자동 인덱싱**하며, Kusto 가
+  페타바이트급 쿼리에 답한다. Event Hubs / Kafka 에 직접 연결되어 계약 1과
+  정합한다.
 - ADX 는 텔레메트리-인제스트 계약(6-8:
- `MetricProvider` / `LogQueryProvider` / `TraceQueryProvider`)을 통해
- 도달하므로 `core/` 는 Kusto SDK 가 아니라 CSP-중립 조회 표면을 본다.
+  `MetricProvider` / `LogQueryProvider` / `TraceQueryProvider`)을 통해
+  도달하므로 `core/` 는 Kusto SDK 가 아니라 CSP-중립 조회 표면을 본다.
 - **Postgres + BRIN** 은 최근-감사 hot 경로를 서빙한다(추가 전용 + 시간순은
- BRIN 을 B-tree 보다 훨씬 작고 빠르게 만든다). **pgvector** 는 오늘처럼 함께
- 배치되어 T1 유사도를 서빙한다.
+  BRIN 을 B-tree 보다 훨씬 작고 빠르게 만든다). **pgvector** 는 오늘처럼 함께
+  배치되어 T1 유사도를 서빙한다.
 
 ## 저장 티어
 
@@ -231,7 +231,7 @@ B안은 배포 시점에 선택되는 **두 프로파일**로 출하된다(코�
 - **Warm**(수개월): ADLS Gen2 columnar(Parquet) - 저렴한 스캔과 집계.
 - **Cold**(보존 기간): 아카이브 블롭, Merkle 루트는 검증용으로 온라인 유지.
 - **감사 원장:** 티어 전반에서 100% 보존. 오프로드는 compacted 토픽을 ADLS 로
- 복사하되 레코드를 절대 버리지 않는다.
+  복사하되 레코드를 절대 버리지 않는다.
 
 ## 추가되는 리소스와 스택 (delta)
 
@@ -265,7 +265,7 @@ B안은 배포 시점에 선택되는 **두 프로파일**로 출하된다(코�
 |------|------|------|
 | `azure-kusto-data` / `azure-kusto-ingest` | NEW | ADX 인제스트 + Kusto 조회 (어댑터 한정) |
 | Kafka compacted-topic 생산자 경로 | 변경 | 기존 `EventBus` 위의 `fdai.audit` 덧붙이기 경로 |
-| Merkle-tree 앵커 모듈 (`core/audit/`) | NEW | 파티션별 Merkle + 글로벌 epoch 앵커 |
+| Merkle-tree 앵커 모듈 (`core/audit/`) | NEW | 파티션별 Merkle + 글로벌 에포크 앵커 |
 | `audit-indexer` 비동기 projector | NEW | 원장 토픽 -> ADX / Postgres / pgvector 프로젝션 |
 | `CellRouter` + 셀 토폴로지 매니페스트 | NEW | `(region, landing-zone-group)`(또는 `sovereign` 에선 `landing-zone-group`) 라우팅 |
 | `psycopg_pool` 커넥션 풀 | NEW | append-per-connection 병목 제거 |
@@ -287,17 +287,17 @@ B안은 리소스를 추가하지만 [csp-neutrality-ko.md](csp-neutrality-ko.md
 CSP-중립 계약 중 **어느 것도** 위반하지 않는다:
 
 - **이벤트 버스 (1):** 셀은 여전히 `:9093` 에서 Kafka wire 로 말한다. 샤딩은
- 코드 분기가 아니라 배포 관심사다.
+  코드 분기가 아니라 배포 관심사다.
 - **런타임 (2):** 셀은 동일한 OCI 이미지 + Knative-호환 매니페스트 subset 을
- 실어 **Container Apps** 로 기본 렌더; `sovereign` 프로파일이나 heavy 셀이
- 요구하면 AKS.
+  실어 **Container Apps** 로 기본 렌더; `sovereign` 프로파일이나 heavy 셀이
+  요구하면 AKS.
 - **시크릿 (3), 워크로드 신원 (4):** 셀별 아이덴티티가 동일한 env-var +
- OIDC 계약을 쓴다. 앱에 시크릿 SDK 없음.
+  OIDC 계약을 쓴다. 앱에 시크릿 SDK 없음.
 - **인벤토리 (5):** Azure Resource Graph 가 resource-graph 조회 표면 뒤에
- 머문다.
+  머문다.
 - **텔레메트리 인제스트 (6-8):** ADX 와 Log Analytics 는
- `MetricProvider` / `LogQueryProvider` / `TraceQueryProvider` 를 통해 도달한다.
- `core/` 에 Kusto SDK 없음.
+  `MetricProvider` / `LogQueryProvider` / `TraceQueryProvider` 를 통해 도달한다.
+  `core/` 에 Kusto SDK 없음.
 
 ## 대규모에서의 안전 불변식
 
@@ -308,15 +308,15 @@ CSP-중립 계약 중 **어느 것도** 위반하지 않는다:
 의 불변식을 보존한다:
 
 - **감사 원장은 절대 샘플링·드롭되지 않는다.** 샘플링과 롤업은 텔레메트리
- 평면에만 적용된다.
-- **샤딩에도 tamper-evidence 생존:** 파티션별 Merkle 체인 + epoch 앵커가 단일
- 선형-체인 쓰기 담당 없이 글로벌 무결성을 준다.
+  평면에만 적용된다.
+- **샤딩에도 tamper-evidence 생존:** 파티션별 Merkle 체인 + 에포크 앵커가 단일
+  선형-체인 쓰기 담당 없이 글로벌 무결성을 준다.
 - **리소스별 순서와 멱등성** 는 파티션 키 + `ResourceLock` + 멱등성
- 키로 셀 안에서 유지된다 - 단일-셀과 동일.
+  키로 셀 안에서 유지된다 - 단일-셀과 동일.
 - **Fan-in 은 최소권한:** 정책은 읽기전용 진단 settings 를 배포하고,
- 실행기 아이덴티티는 셀별로 유지되며 액션 whitelist 로 스코프된다.
+  실행기 아이덴티티는 셀별로 유지되며 액션 whitelist 로 스코프된다.
 - **안전 쪽으로 실패:** 포화된 셀은 `DegradationController` 를 통해 shadow 로
- 저하된다(게이트 없는 auto-action 으로 절대 아님).
+  저하된다(게이트 없는 auto-action 으로 절대 아님).
 - **L0 는 영어 유지 + 모든 감사·로그 라인에 상관관계 / 이벤트 id 를 실음.**
 
 ## 런타임
@@ -332,11 +332,11 @@ Hubs 파티션 32개 x 복제본 당 수백 결정/s); ~40k 이벤트/s Standard
 **AKS 는 연기**된다 - Container Apps 가 감당 못 하는 곳에서만 채택:
 
 - **`sovereign` 프로파일**이 요구한다: LGTM, ClickHouse, 리전 내 self-host LLM 이
- AKS 워크로드로 돌고; confidential(SEV-SNP) 노드가 사용 중 암호화를, 세밀한
- 네트워크 정책 / 프라이빗 클러스터가 명령을 충족한다.
+  AKS 워크로드로 돌고; confidential(SEV-SNP) 노드가 사용 중 암호화를, 세밀한
+  네트워크 정책 / 프라이빗 클러스터가 명령을 충족한다.
 - **heavy 셀** - 지속 처리량이 Container Apps 한계를 압박하거나, 노드-레벨
- 제어(spot / GPU / large-memory SKU), DaemonSet 노드-로컬 수집, 파티션-스티키
- StatefulSet 컨슈머가 필요한 경우.
+  제어(spot / GPU / large-memory SKU), DaemonSet 노드-로컬 수집, 파티션-스티키
+  StatefulSet 컨슈머가 필요한 경우.
 
 이식성은 계약 2(OCI 이미지 + Knative-호환 매니페스트 subset, Dapr 없음 /
 Envoy-specific 유입 없음)로 보장되므로, AKS 이동은 `infra/modules/runtime/aks/`
@@ -386,13 +386,13 @@ Envoy-specific 유입 없음)로 보장되므로, AKS 이동은 `infra/modules/r
 | **Full-observability** | Log Analytics Dedicated 클러스터(100 GB/일 commitment) + 중형 ADX | **≈ $9,000 - $13,000** |
 
 - **두 항목이 지배한다(총 지출의 60-80%): Log Analytics 텔레메트리 볼륨과 ADX
- SKU.** 이 규모에선 나머지는 부차적이다.
+  SKU.** 이 규모에선 나머지는 부차적이다.
 - **레버:** ADX + PostgreSQL 에 Reserved Instances / 절감 계획(compute
- 30-55% off); 감사 스트림에 **Basic Logs**(인제스트 ~74% off); Log Analytics
- **daily 상한**; 발견 사항 을 만드는 진단 settings 로 텔레메트리 절제(나머지
- 는 tail-sample); ADX 는 dev SKU 로 시작해 측정된 필요로 성장.
+  30-55% off); 감사 스트림에 **Basic Logs**(인제스트 ~74% off); Log Analytics
+  **daily 상한**; 발견 사항 을 만드는 진단 settings 로 텔레메트리 절제(나머지
+  는 tail-sample); ADX 는 dev SKU 로 시작해 측정된 필요로 성장.
 - **감사 원장은 결코 비용 동인이 아니다** - 상관관계 이 이벤트 폭풍을 결정으로
- 접으므로, 추가 전용 원장은 텔레메트리 평면 대비 작게 유지된다.
+  접으므로, 추가 전용 원장은 텔레메트리 평면 대비 작게 유지된다.
 
 ### 소버린 프로파일 비용
 
@@ -407,11 +407,11 @@ AKS 노드 비용 + 하드웨어 기반 키 보관으로 바꾼다. 표준 엔�
 | **Confidential (SEV-SNP) 노드 + Private Endpoints** | 노드 프리미엄 ~10-15% + 소액 PE 시간당 | 사용 중 암호화 + 폐쇄 네트워크 |
 
 - **Net:** 소버린 배포는 보통 동일-규모 표준 프로파일보다 **월 $3,000 - $10,000+
- 높게** 착지하며, Managed HSM 과 (self-host 시) GPU LLM 풀이 지배한다.
+  높게** 착지하며, Managed HSM 과 (self-host 시) GPU LLM 풀이 지배한다.
 - **Managed HSM 이 줄일 수 없는 하한** - 명령이 요구하는 하드웨어 키 보관의
- 가격이다.
+  가격이다.
 - **deterministic-first 가 여기서도 비용 레버:** 높은 T0/T1 커버리지는 리전 내
- LLM 풋프린트를 줄인다 - GPU 모델을 self-host 할 때 가장 비싼 소버린 항목이다.
+  LLM 풋프린트를 줄인다 - GPU 모델을 self-host 할 때 가장 비싼 소버린 항목이다.
 
 ## 롤아웃 계획 (단계 4 아래)
 
@@ -419,34 +419,34 @@ AKS 노드 비용 + 하드웨어 기반 키 보관으로 바꾼다. 표준 엔�
 토폴로지에도 이득이라 먼저 착지한다.
 
 1. **쓰기-경로 해소(단일-셀에도 도움):** `psycopg_pool` 커넥션 풀 +
- `audit_log` 시간-파티셔닝 + BRIN. 가장 싸고 즉효.
+   `audit_log` 시간-파티셔닝 + BRIN. 가장 싸고 즉효.
 2. **감사 CQRS 경계:** `AuditLedger`(쓰기)를 `AuditQueryStore`(읽기)에서
- 분리; 경계 뒤에서 파티션별 Merkle 앵커링 도입.
+   분리; 경계 뒤에서 파티션별 Merkle 앵커링 도입.
 3. **텔레메트리 인덱스 평면:** ADX(또는 `sovereign` 에선 OSS LGTM 스택)를 세우고,
- `audit-indexer` projector 와 텔레메트리 인제스트 계약(6-8)을 배선.
+   `audit-indexer` projector 와 텔레메트리 인제스트 계약(6-8)을 배선.
 4. **셀 라우팅:** `CellRouter` + 셀 토폴로지 매니페스트 추가; 첫 추가 셀 렌더.
 5. **정책 fan-in:** 자동 온보딩용 MG 계층 + `DeployIfNotExists` initiatives.
 6. **이벤트 버스 샤딩:** 셀별 네임스페이스; 측정된 필요가 나타나면 Dedicated CU
- 승급.
+   승급.
 7. **프로파일 하드닝(`sovereign`):** `allowedLocations` 단일-리전 잠금, CMK /
- Managed HSM, Private Endpoints + 폐쇄 VNet, confidential 노드, AKS 런타임
- 렌더(self-host 가 요구), self-host LGTM / ClickHouse, 리전 내 LLM, WORM 감사 보존.
+   Managed HSM, Private Endpoints + 폐쇄 VNet, confidential 노드, AKS 런타임
+   렌더(self-host 가 요구), self-host LGTM / ClickHouse, 리전 내 LLM, WORM 감사 보존.
 
 ## 열림 questions
 
 - **셀 granularity:** 리전당 셀 1개인가, 리전 내 랜딩존 그룹당인가? 측정된
- 그룹별 이벤트율에 달림. 리전-거칠게 시작해 증거로 쪼갬.
+   그룹별 이벤트율에 달림. 리전-거칠게 시작해 증거로 쪼갬.
 - **ADX vs Log Analytics 분할:** 어떤 텔레메트리 클래스가 ADX(커스텀 분석)에,
- 어떤 것이 Log Analytics dedicated 클러스터(네이티브 Azure 신호)에 사나?
- 채택 시점에 비용 / 조회 패턴 재확인.
-- **Merkle 앵커 cadence:** epoch 길이가 tamper-evidence 지연과 앵커 쓰기
- 볼륨을 트레이드. 측정된 감사율로 설정.
+   어떤 것이 Log Analytics dedicated 클러스터(네이티브 Azure 신호)에 사나?
+   채택 시점에 비용 / 조회 패턴 재확인.
+- **Merkle 앵커 cadence:** 에포크 길이가 tamper-evidence 지연과 앵커 쓰기
+   볼륨을 트레이드. 측정된 감사율로 설정.
 - **Warm-티어 포맷:** ADLS warm 티어에 Parquet-only vs Iceberg / Delta 테이블
- 포맷; 페더레이션-조회 필요가 구체화될 때 결정(C안 영역).
+   포맷; 페더레이션-조회 필요가 구체화될 때 결정(C안 영역).
 - **소버린 LLM:** Azure OpenAI KC vs AKS GPU 위 self-host 오픈모델 - 선택은
- 비용과 운영부담을 가장 엄격한 레지던시 보장과 트레이드한다.
+   비용과 운영부담을 가장 엄격한 레지던시 보장과 트레이드한다.
 - **소버린 아이덴티티:** Entra ID 는 글로벌 서비스다; 그 메타데이터 처리가 특정
- 국방 / 금융 명령을 만족하는지, 또는 더 엄격한 아이덴티티 자세가 필요한지 확인.
+   국방 / 금융 명령을 만족하는지, 또는 더 엄격한 아이덴티티 자세가 필요한지 확인.
 
 ## Next 단계
 

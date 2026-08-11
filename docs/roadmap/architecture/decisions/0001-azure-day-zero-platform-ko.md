@@ -36,10 +36,10 @@ Azure day-zero 기준선은 다음과 같습니다.
 - **Event 버스:** `:9093` Kafka 엔드포인트로만 소비하는 Event Hubs Standard.
 - **상태와 vector:** pgvector를 포함한 PostgreSQL Flexible Server.
 - **시크릿:** Container Apps가 주입하는 Key Vault 참조. 애플리케이션 코드는 환경
- 값을 읽고 시크릿 SDK를 호출하지 않습니다.
+  값을 읽고 시크릿 SDK를 호출하지 않습니다.
 - **신원:** `WorkloadIdentity` 계약 뒤의 user-assigned managed 신원.
 - **Observability:** OpenTelemetry를 Log Analytics로 보내고 Application Insights를 workspace에
- 연결합니다.
+  연결합니다.
 - **배포:** `infra/`의 Terraform. 같은 signed 다이제스트를 환경 간 승격합니다.
 - **Console:** 실행기 신원이 없는 읽기 전용 static SPA.
 
@@ -72,7 +72,7 @@ Azure day-zero 기준선은 다음과 같습니다.
 - 측정 프로파일이 분리를 정당화할 때까지 sidecar는 규모/재시작 단위를 공유합니다.
 - Initial PostgreSQL 토폴로지는 hyperscale 또는 sovereign 설계가 아닙니다.
 - 운영에는 비공개/allow-listed data-flow 검증, 승인 RPO/RTO, signed 산출물,
- 소유자 연결, operational 근거가 필요합니다. 이 ADR은 go-live 승인이 아닙니다.
+  소유자 연결, operational 근거가 필요합니다. 이 ADR은 go-live 승인이 아닙니다.
 
 ## 이행과 replacement
 

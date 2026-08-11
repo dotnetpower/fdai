@@ -23,20 +23,20 @@ Norns는 결정론적 충족 여부를 적용하고 선택적으로 서로 다�
 
 ```mermaid
 flowchart LR
- CHAT[완료 turn 저장] --> QUEUE[Bounded non-blocking queue]
- QUEUE --> BRAGI[Bragi가 object.turn 발행]
- BRAGI --> NORNS[Norns eligibility 검사]
- NORNS -->|대상 아님| LEDGER[Durable terminal record]
- NORNS -->|대상| MODELS[서로 다른 두 model family]
- MODELS --> VERIFY[완전한 합의와 결정론적 검사]
- VERIFY -->|보류| LEDGER
- VERIFY -->|memory| MEMORY[Operator-memory draft]
- VERIFY -->|skill| SKILL[Runtime-skill draft]
- VERIFY -->|rule hint| RULE[Norns RuleCandidate 경로]
- MEMORY --> PANEL[Read-only projection]
- SKILL --> PANEL
- RULE --> PANEL
- LEDGER --> PANEL
+    CHAT[완료 turn 저장] --> QUEUE[Bounded non-blocking queue]
+    QUEUE --> BRAGI[Bragi가 object.turn 발행]
+    BRAGI --> NORNS[Norns eligibility 검사]
+    NORNS -->|대상 아님| LEDGER[Durable terminal record]
+    NORNS -->|대상| MODELS[서로 다른 두 model family]
+    MODELS --> VERIFY[완전한 합의와 결정론적 검사]
+    VERIFY -->|보류| LEDGER
+    VERIFY -->|memory| MEMORY[Operator-memory draft]
+    VERIFY -->|skill| SKILL[Runtime-skill draft]
+    VERIFY -->|rule hint| RULE[Norns RuleCandidate 경로]
+    MEMORY --> PANEL[Read-only projection]
+    SKILL --> PANEL
+    RULE --> PANEL
+    LEDGER --> PANEL
 ```
 
 ## 입력 계약
@@ -48,7 +48,7 @@ flowchart LR
 - 완료 시간과 safe 근거 참조.
 - 각 도구 증적의 도구 이름, 상태, 근거 참조. Raw 도구 출력은 제외합니다.
 - 검증 결과, 명시적 correction, recovered-failure 상태, 선택적 repeated procedure
- 지문.
+  지문.
 - principal이 `share_with_learner: true`로 설정한 경우에만 선택적 운영자 및 assistant 본문.
 - 범위 종류와 범위 참조를 모두 아는 경우에만 선택적 operator-memory 범위.
 

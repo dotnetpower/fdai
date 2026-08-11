@@ -26,20 +26,20 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 
 1. **운영 준비도:** FDAI가 이 범위를 관찰, 결정, 복구, 감사, 측정할 준비가 되었습니까?
 2. **목표 정렬:** 각 FDAI 작업 흐름과 액션은 어떤 운영 목표를 보호했고, 측정된 효과는
- 그 목표를 개선했습니까?
+   그 목표를 개선했습니까?
 3. **통제 보증:** 결과가 정책, 승인, 롤백, 승격 guardrail 안에 머물렀습니까?
 
 ```mermaid
 flowchart LR
- S[BusinessService and Workload] --> O[Operational Objective]
- O --> D[DecisionCase and ExpectedEffect]
- D --> A[ActionRun]
- A --> R[ObservedOutcome]
- R --> M[Measured outcome]
- RR[Readiness evidence] --> P[Outcome Assurance projection]
- M --> P
- G[Guard and promotion evidence] --> P
- P --> C[Read-only console]
+  S[BusinessService and Workload] --> O[Operational Objective]
+  O --> D[DecisionCase and ExpectedEffect]
+  D --> A[ActionRun]
+  A --> R[ObservedOutcome]
+  R --> M[Measured outcome]
+  RR[Readiness evidence] --> P[Outcome Assurance projection]
+  M --> P
+  G[Guard and promotion evidence] --> P
+  P --> C[Read-only console]
 ```
 
 ## 범위 경계
@@ -71,10 +71,10 @@ flowchart LR
 
 ```text
 BusinessCapability
- -> BusinessService / Workload
- -> ServiceObjective / RecoveryObjective / CostObjective / ArchitectureConstraint
- -> DecisionCase -> ActionOption -> ExpectedEffect
- -> ActionRun -> ObservedOutcome
+  -> BusinessService / Workload
+  -> ServiceObjective / RecoveryObjective / CostObjective / ArchitectureConstraint
+  -> DecisionCase -> ActionOption -> ExpectedEffect
+  -> ActionRun -> ObservedOutcome
 ```
 
 작업 흐름과 ActionType 식별자가 자동화 귀속을 제공합니다. 감사와 측정
@@ -117,8 +117,8 @@ BusinessCapability
 
 ```text
 event_id -> decision_case_id -> protected_objective_ref
-   -> action_type_id -> action_run_id -> observed_outcome_ref
-   -> measurement observation
+         -> action_type_id -> action_run_id -> observed_outcome_ref
+         -> measurement observation
 ```
 
 해결되지 않은 링크는 unattributed 이벤트로 denominator에 남습니다. 변환 결과는
@@ -136,7 +136,7 @@ category로 목표를 추정하지 않습니다.
 | Detection | 필수 detection dimension 준비된 | SLO 또는 detector 근거 누락, stale 스냅샷 |
 | 액션 안전성 | stop, 롤백, 영향 범위, dry 실행, 잠금, 멱등성, 감사 수명 주기 | safeguard 또는 필수 의존성 누락 |
 | Operational 인계 | 적용 가능한 준비 상태 보고가 clear | 차단 정책, reliability, 소유권, RBAC 발견 사항 |
-| 측정 | 기준선과 treatment가 동일한 시나리오 집합 사용 | synthetic 출처, 누락된 기준선, insufficient 샘플 |
+| 측정 | 기준선과 처리가 동일한 시나리오 집합 사용 | synthetic 출처, 누락된 기준선, insufficient 샘플 |
 | 승격 | ActionType별 게이트 통과 | 정책 escape, 가드 회귀, 관측 근거 공백 |
 
 준비 상태는 범위별이며 시간 제한이 있습니다. 워크로드가 변경 안전성에는 준비된여도 비용
@@ -176,7 +176,7 @@ truth 계약을 따릅니다. 연결되지 않은 측정 출처는 demo 값 대�
 콘솔은 현재 information 아키텍처를 재사용합니다.
 
 - **개요:** Operational 준비 상태, 목표 alignment, 컨트롤 assurance의 세 linked 요약을 제공합니다.
-- **Operating outcomes:** 목표별 기준선, treatment, 귀속 커버리지, 근거 기록을 제공합니다.
+- **Operating outcomes:** 목표별 기준선, 처리, 귀속 커버리지, 근거 기록을 제공합니다.
 - **컨트롤 assurance:** 준비 상태 분류 기준, 실패한 가드, 승격 상태, 승인 근거를 제공합니다.
 - **Verticals:** 동일한 변환 결과를 복원력, 변경 안전성, 비용 거버넌스로 필터링합니다.
 
@@ -188,7 +188,7 @@ clickable 상태를 유지하고 어떤 출처가 없는지 설명합니다.
 
 성과 주장은 기존 measurement-first 계약을 따릅니다.
 
-- 기준선과 treatment는 동일한 고정된 시나리오 집합과 구간을 사용합니다.
+- 기준선과 처리는 동일한 고정된 시나리오 집합과 구간을 사용합니다.
 - 각 메트릭은 단위, 샘플 크기, 확신도 간격, 출처 시간을 보고합니다.
 - 재시도와 corrected 행은 이벤트별 최신 권위 있는 관측을 사용합니다.
 - 성공 메트릭은 실패한 가드를 상쇄할 수 없습니다.
@@ -238,7 +238,7 @@ business 값을 순위하거나 결정을 변경하지 않습니다. 목표 prio
 - 표시되는 모든 점유가 non-synthetic이며 권위 있는 근거로 연결됩니다.
 - Finalized pilot 이벤트의 95% 이상이 목표로 해석되고 나머지도 표시됩니다.
 - 준비 상태 분류 기준은 stale, 누락된, conflicting 근거에서 실패 시 차단합니다.
-- 기준선과 treatment가 scenario-set 버전을 공유하고 확신도 간격을 보고합니다.
+- 기준선과 처리가 scenario-set 버전을 공유하고 확신도 간격을 보고합니다.
 - 변경 실패 비율과 롤백 비율이 기준선을 초과하지 않습니다.
 - Policy-violation escape가 0입니다.
 - Console에 변경 경로가 추가되지 않고 Bragi가 projected 상태를 변경할 수 없습니다.

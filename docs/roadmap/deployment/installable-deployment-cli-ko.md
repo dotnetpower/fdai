@@ -19,7 +19,7 @@ translation_revised: 2026-08-11
 > 사용할 수 있습니다. 읽기 전용 `provision inspect`, signed 번들 빌드/verify/release
 > 작업 흐름, 운영 exact-plan 적용 배선, 프로파일 영속성, PyPI Trusted 발행도
 > 구현됐습니다. Offline 점검은 composition-injected pinned 검증기로 trusted 또는 rejected
-> 키트 근거를 보고하며 운영자 trust-root 재정의를 노출하지 않습니다. Offline-kit 빌드, signing,
+> 키트 근거를 보고하며 운영자 trust-root 재정의를 노출하지 않습니다. Offline-kit 빌드, 서명,
 > 검증도 구현됐습니다. `provision plan` 은 검증된 킷에서 disconnected 앱 계층 계획 을
 > 오케스트레이션합니다. 첫 PyPI 게시, pinned offline 루트 packaging,
 > 내부 mirror/disconnected 전달, 적용 orchestration, 정리는 남았습니다.
@@ -140,7 +140,7 @@ mode-`0600` 파일에 기록합니다. 사람용 출력에는 계정 식별자�
 - 필수 통제된 런타임 맥락 없이 활성화된 VM-task 또는 chaos 적용.
 - bubblewrap 명령 샌드박스를 요청했지만 binary를 사용할 수 없는 상태.
 - Symbolic 링크이거나 그룹/세계 권한이 있거나 parse할 수 없거나 secret-like 필드 이름이
- 있는 배포 구성.
+  있는 배포 구성.
 
 자동화에서는 `--output json`을 사용합니다. 수정되지 않은 critical 발견 사항이 있으면 exit `3`,
 critical 발견 사항이 없으면 exit `0`을 반환합니다. `--fix-permissions`는 의도적으로 범위가
@@ -159,33 +159,33 @@ Workstation 또는 installation을 변경한 뒤 필요한 operator-owned 배포
 결정론적인 mode-`0600` 보관을 생성합니다.
 
 - **구성:** 스키마로 검증한 환경, remote-runner 경계, shadow-mode 기본값을
- 포함합니다.
+  포함합니다.
 - **참조:** Opaque 시크릿, 문서, 정책, 작업 흐름, 채널, 번들 참조를
- 포함합니다. 시크릿 참조는 프로바이더 항목의 이름만 가리키며 시크릿 값을 포함하지
- 않습니다.
+  포함합니다. 시크릿 참조는 프로바이더 항목의 이름만 가리키며 시크릿 값을 포함하지
+  않습니다.
 - **감사 메타데이터:** 출처 스키마, 기록 개수, last 순서, 감사 hash-chain 헤드를
- 포함합니다. 감사 항목 본문은 내보내기하지 않습니다.
+  포함합니다. 감사 항목 본문은 내보내기하지 않습니다.
 - **User 맥락:** 로케일, verbosity, `chart`를 포함한 답변 상세 및 format 선호 설정,
- 표준 시간대, learner-sharing 선호 설정, 명시적 consent를 받은 기억 기록을 포함합니다.
- 대화 대화 기록과 생성된 briefing 본문은 이 보관 format에 포함하지 않습니다.
+  표준 시간대, learner-sharing 선호 설정, 명시적 consent를 받은 기억 기록을 포함합니다.
+  대화 대화 기록과 생성된 briefing 본문은 이 보관 format에 포함하지 않습니다.
 
 예시:
 
 ```bash
 fdaictl backup create \
- --config .fdai/environments/dev.json \
- --references .fdai/portable/references.json \
- --audit-metadata .fdai/portable/audit-metadata.json \
- --user-context .fdai/portable/user-context.json \
- --archive fdai-dev.fdai-backup
+  --config .fdai/environments/dev.json \
+  --references .fdai/portable/references.json \
+  --audit-metadata .fdai/portable/audit-metadata.json \
+  --user-context .fdai/portable/user-context.json \
+  --archive fdai-dev.fdai-backup
 
 fdaictl backup restore \
- --archive fdai-dev.fdai-backup \
- --destination .fdai/restored/dev
+  --archive fdai-dev.fdai-backup \
+  --destination .fdai/restored/dev
 ```
 
 보관에는 정확히 4개의 허용 목록 파일과 SHA-256 매니페스트만 포함됩니다. 생성 단계에서는
-알 수 없는 스키마 필드, credential-shaped 값, private-key material, Terraform 상태 표시,
+알 수 없는 스키마 필드, credential-shaped 값, private-key 자료, Terraform 상태 표시,
 symbolic 링크, 크기 제한을 넘는 입력을 차단하며 `--force`를 명시하지 않은 accidental
 overwrite도 차단합니다. 시크릿 프로바이더 또는 Terraform 상태 파일을 읽지 않습니다.
 
@@ -203,31 +203,31 @@ Terraform을 실행하지 않습니다.
 순서는 다음 순서로 고정됩니다.
 
 1. **Toolchain doctor:** 구성을 기록하기 전에 Python, Azure CLI, Terraform, GitHub CLI,
- interactive Azure authentication을 검증합니다.
+  interactive Azure authentication을 검증합니다.
 2. **비공개 구성:** 스키마로 검증한 mode-`0600` 환경 파일을 생성합니다. 기존
- 파일이 있으면 `--force-config`를 명시하지 않는 한 실행을 차단합니다.
+  파일이 있으면 `--force-config`를 명시하지 않는 한 실행을 차단합니다.
 3. **대상 doctor:** 새 파일로 doctor를 다시 실행하고 실행기 호출 전에 활성 테넌트 또는
- 구독 mismatch를 차단합니다.
+  구독 mismatch를 차단합니다.
 4. **실제 운영 preflight:** Static 및 구성된 읽기 전용 Azure 탐색을 실행합니다. 선택적
- `--terraform-plan` 파일은 리소스 타입을 얻기 위해 parse하지만 wizard가 `terraform plan`을
- 실행하지 않습니다.
+  `--terraform-plan` 파일은 리소스 타입을 얻기 위해 parse하지만 wizard가 `terraform plan`을
+  실행하지 않습니다.
 5. **Plan-only 제출:** 기존 opaque 맥락 계약을 통해 `apply=false`로 approved 실행기
- 작업 흐름을 전달합니다.
+  작업 흐름을 전달합니다.
 6. **Post-check:** 일시적으로 누락된 계획 메타데이터만 최대 60초 동안 poll합니다. 정제된 상태가
- `planning` 또는 `ready`일 때만 계속하고 다른 모든 상태는 실패 시 차단 처리합니다.
+  `planning` 또는 `ready`일 때만 계속하고 다른 모든 상태는 실패 시 차단 처리합니다.
 
 예시:
 
 ```bash
 fdaictl onboard guided \
- --environment dev \
- --region koreacentral \
- --config .fdai/environments/dev.json \
- --preflight-input .fdai/preflight/dev.json \
- --repository <owner>/<repository> \
- --bundle-digest <sha256> \
- --commit-sha <git-sha> \
- --output json
+  --environment dev \
+  --region koreacentral \
+  --config .fdai/environments/dev.json \
+  --preflight-input .fdai/preflight/dev.json \
+  --repository <owner>/<repository> \
+  --bundle-digest <sha256> \
+  --commit-sha <git-sha> \
+  --output json
 ```
 
 GitHub installation 토큰은 `FDAI_GITHUB_TOKEN`에 유지하며 명령 인자로 전달하지 않습니다.
@@ -265,7 +265,7 @@ onboarding 대상을 읽고 로컬 Azure CLI 신원을 통해 수명이 짧은 A
 구독, 리소스 그룹, principal, 역할 정의, Azure 경로를 노출하지 않습니다.
 선택적 `key_vault` 블록은 streamed GET을 열고 상태 코드만 확인해 필수 시크릿 참조를
 검사합니다. 응답 본문 또는 시크릿 값은 읽지 않습니다. 누락된 참조는 SHA-256에서
-파생한 id를 사용하므로 vault 호스트와 시크릿 이름이 보고에 들어가지 않습니다. 보고는 발견 사항이
+파생한 id를 사용하므로 금고 호스트와 시크릿 이름이 보고에 들어가지 않습니다. 보고는 발견 사항이
 없을 때도 고정된 `checks` array를 포함합니다. 각 항목은 탐색 category, `clear` 또는 `finding`
 상태, 발견 사항 개수만 기록하므로 자동화가 성공한 검사와 구성되지 않은 검사를 구분할 수
 있습니다. 실제 운영 프로파일은 `required_categories`를 선언할 수 있으며 할당량, 신원, 시크릿 구성이
@@ -275,10 +275,10 @@ onboarding 대상을 읽고 로컬 Azure CLI 신원을 통해 수명이 짧은 A
 ```bash
 terraform -chdir=infra show -json dev.plan > dev.plan.json
 fdaictl deploy preflight \
- --input preflight-input.json \
- --terraform-plan dev.plan.json \
- --environment-config .fdai/environments/dev.json \
- --output json
+  --input preflight-input.json \
+  --terraform-plan dev.plan.json \
+  --environment-config .fdai/environments/dev.json \
+  --output json
 ```
 
 ### 단계
@@ -286,15 +286,15 @@ fdaictl deploy preflight \
 명령은 다음 단계를 순서대로 실행합니다.
 
 1. **Toolchain 및 산출물 검사:** 지원 버전, 잠금 파일, CLI-to-bundle 호환성,
- 체크섬, 서명, 선택된 환경을 확인합니다.
+   체크섬, 서명, 선택된 환경을 확인합니다.
 2. **신원 및 대상 검사:** 활성 Azure 구독, deployer 역할 배정, 프로바이더
- 등록, 대상 지역, 실행기 신원을 확인합니다.
+   등록, 대상 지역, 실행기 신원을 확인합니다.
 3. **Static infrastructure 검사:** 제공된 `terraform show -json` 계획을 검증합니다. 실제
- fmt/init/validate/계획 생성은 approved 실행기의 `deploy plan` 작업 흐름이 소유합니다.
+  fmt/init/validate/계획 생성은 approved 실행기의 `deploy plan` 작업 흐름이 소유합니다.
 4. **범위가 제한된 실제 운영 검사:** 읽기 전용 어댑터를 통해 Azure Policy, Resource Graph, 할당량, 네트워크
- 구성, 필요한 시크릿의 존재 여부를 조회합니다.
+   구성, 필요한 시크릿의 존재 여부를 조회합니다.
 5. **준비 상태 결정:** 하나의 근거에 기반한 보고를 만들고, 각 발견 사항이 강제 적용 상태인지 아직
- shadow 모드인지 기록하고, 다음 안전한 작업을 출력합니다.
+   shadow 모드인지 기록하고, 다음 안전한 작업을 출력합니다.
 
 실패하거나 생략된 탐색은 `clear` 결과를 만들지 않습니다. 보고는 실행을 불완전한으로
 표시하고 고객 값이나 자격 증명을 노출하지 않고 실패한 탐색 이름을 제공합니다.
@@ -309,7 +309,7 @@ CLI는 배포 preflight에 이미 정의된 category를 표시합니다.
 - **할당량 및 용량:** 지역, SKU, 서비스 할당량 차단 요인.
 - **의존성 정렬:** 선행 조건 배포 단계가 필요한 리소스.
 - **시크릿 구성:** 시크릿 값을 읽거나 출력하지 않는 누락된 참조 또는 도달할 수
- 없는 시크릿 프로바이더.
+  없는 시크릿 프로바이더.
 
 ### 출력 및 exit 코드
 
@@ -429,7 +429,7 @@ Approval-gated `release-deployment-bundle` 작업 흐름은 `release` GitHub 환
 `publish_release=true`는 GitHub release를 생성하는 별도 명시적 게이트입니다. Temporary 비공개
 키는 mode-restricted 상태로 사용하고 셸 trap으로 제거합니다.
 
-`release` 환경이 signing 키를 노출하기 전에 exact clean 체크아웃에서 두 독립적인
+`release` 환경이 서명 키를 노출하기 전에 exact clean 체크아웃에서 두 독립적인
 작업이 통과해야 합니다. 검증 작업은 locked Python 및 콘솔 의존성을 설치하고
 disposable pgvector PostgreSQL 서비스를 시작해 single Alembic 헤드로 업그레이드합니다. 이어서 실제 운영
 통합 테스트를 포함한 `scripts/verify.sh --all`과 productization, 콘솔, 휠 빌드,
@@ -448,12 +448,12 @@ isolated CLI 검사를 실행합니다. 마지막 `git diff --exit-code`는 gene
 
 ```bash
 fdaictl release upgrade \
- --state .fdai/release-state.json \
- --config .fdai/environments/dev.json \
- --bundle <verified-bundle-directory> \
- --public-key <trusted-public-key.pem> \
- --channel stable \
- --output json
+  --state .fdai/release-state.json \
+  --config .fdai/environments/dev.json \
+  --bundle <verified-bundle-directory> \
+  --public-key <trusted-public-key.pem> \
+  --channel stable \
+  --output json
 ```
 
 release 상태는 활성 버전, signed 채널, 매니페스트 다이제스트, 최대 20개 범위가 제한된 이력, 현재
@@ -469,11 +469,11 @@ Exact 이전 signed 번들과 함께 `fdaictl release rollback`을 사용합니�
 
 ```bash
 fdaictl release rollback \
- --state .fdai/release-state.json \
- --config .fdai/environments/dev.json \
- --bundle <prior-verified-bundle-directory> \
- --public-key <trusted-public-key.pem> \
- --output json
+  --state .fdai/release-state.json \
+  --config .fdai/environments/dev.json \
+  --bundle <prior-verified-bundle-directory> \
+  --public-key <trusted-public-key.pem> \
+  --output json
 ```
 
 ## 계획 및 적용 무결성
@@ -493,12 +493,12 @@ App 외부의 리소스 변경이 계획에 포함되면 차단합니다.
 
 ```bash
 FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy plan \
- --config .fdai/environments/dev.json \
- --repository <owner>/<repository> \
- --bundle-digest <sha256> \
- --commit-sha <git-sha> \
- --deploy-design-mocks \
- --output json
+  --config .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --bundle-digest <sha256> \
+  --commit-sha <git-sha> \
+  --deploy-design-mocks \
+  --output json
 ```
 
 Terraform 계획 파일에는 상태에서 파생된 민감한 값이 포함될 수 있으므로 로컬 CLI는 binary
@@ -545,12 +545,12 @@ built-in 작업 흐름 정의가 coexist하도록 허용합니다. Unique 데이
 
 ```bash
 FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy apply \
- --config .fdai/environments/dev.json \
- --repository <owner>/<repository> \
- --plan-id <plan-id> \
- --bundle-digest <sha256> \
- --commit-sha <git-sha> \
- --output json
+  --config .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --plan-id <plan-id> \
+  --bundle-digest <sha256> \
+  --commit-sha <git-sha> \
+  --output json
 ```
 
 보호된 작업 흐름 저장소는 각 계획을 1시간 후 logical 만료된으로 표시합니다. 로그에는 계획 id,
@@ -587,13 +587,13 @@ plan-only 전송 계층은 현재 전달 실행 상세를 반환하고 실행기
 구성은 기본적으로 untracked 상태이며 시크릿 값 대신 참조를 포함합니다.
 
 - **허용:** 환경 이름, 지역, feature 플래그, 백엔드 참조, 저장소 이름, approved
- 산출물 출처.
+  산출물 출처.
 - **허용되지 않음:** Password, 접근 토큰, 연결 문자열, Terraform 상태, binary 계획,
- 업스트림 저장소의 populated customer 구성.
+  업스트림 저장소의 populated customer 구성.
 - **Command 이력:** 시크릿 값을 command-line 인자로 받지 않습니다.
 - **로그:** 구조화된 로그는 상관관계 ID를 포함하며 구성된 민감한 필드를 redact합니다.
-- **머신 출력:** JSON은 안정적인 영어 필드 이름을 사용하며 시크릿 material을 포함하지
- 않습니다.
+- **머신 출력:** JSON은 안정적인 영어 필드 이름을 사용하며 시크릿 자료를 포함하지
+  않습니다.
 
 사용자가 보는 CLI 텍스트는 L2 product 표면입니다. 영어 출처 메시지는 메시지 카탈로그에,
 한국어 translation은 일치하는 로케일 카탈로그에 보관하며 누락된 translation은 영어로
@@ -631,10 +631,10 @@ plan-only 전송 계층은 현재 전달 실행 상세를 반환하고 실행기
 
 - [x] 공개 패키지 인덱스 - Trusted 발행을 사용하는 PyPI이며 version-matched signed 번들은 GitHub Releases를 사용합니다.
 - [x] 서명/증명 - detached Ed25519 매니페스트 서명 + 결정론적 CycloneDX
- 파일 SBOM + GitHub 빌드 출처 이력/SBOM 증명.
+  파일 SBOM + GitHub 빌드 출처 이력/SBOM 증명.
 - [x] Saved-plan 보존 - 1시간 logical 만료, 24시간 뒤 범위가 제한된 physical 정리 대상.
 - `fdaictl deploy teardown`을 첫 적용 release에 포함할까요? 아니면 정리 훈련이 측정될
- 때까지 별도의 guarded 스크립트로 유지할까요?
+  때까지 별도의 guarded 스크립트로 유지할까요?
 
 ## 관련 문서
 

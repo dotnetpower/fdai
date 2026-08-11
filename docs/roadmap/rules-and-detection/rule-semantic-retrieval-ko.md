@@ -40,26 +40,26 @@ FDAI는 Rule 순위를 정하기 전에 의미를 해석합니다. 정확한 카
 
 ```mermaid
 flowchart LR
- Q[Operator question] --> I[Interpretation candidate]
- I --> C[Ontology concepts]
- C --> G[Bounded graph expansion]
- G --> R[Hybrid Rule retrieval]
- R --> V[Catalog and generation verification]
- V --> D{Operation class}
- D -->|discover or explain| A[Read-only answer]
- D -->|evaluate| T[Existing T0 and OPA path]
- D -->|action draft| P[Governed ActionType proposal]
- V -->|ambiguous| H[Clarification or hold]
+    Q[Operator question] --> I[Interpretation candidate]
+    I --> C[Ontology concepts]
+    C --> G[Bounded graph expansion]
+    G --> R[Hybrid Rule retrieval]
+    R --> V[Catalog and generation verification]
+    V --> D{Operation class}
+    D -->|discover or explain| A[Read-only answer]
+    D -->|evaluate| T[Existing T0 and OPA path]
+    D -->|action draft| P[Governed ActionType proposal]
+    V -->|ambiguous| H[Clarification or hold]
 ```
 
 이 흐름은 다음 세 가지 구분을 유지합니다.
 
 - **의미와 순위:** 온톨로지 ID와 링크는 유효한 개념을 정의하고, 검색은 제한된 의미 안에서
- 후보의 순위를 정합니다.
+  후보의 순위를 정합니다.
 - **검색과 평가:** Rule을 찾는 것은 Rule을 평가하는 작업이 아닙니다. 정책 평가에는 정확한
- 활성 Rule ID와 권한 있는 리소스 근거가 필요합니다.
+  활성 Rule ID와 권한 있는 리소스 근거가 필요합니다.
 - **후보와 권한:** lexical, 임베딩 및 모델 출력은 후보로 유지됩니다. 검토와 정확한
- 카탈로그 근거가 의미 표면의 활성화 가능 여부를 결정합니다.
+  카탈로그 근거가 의미 표면의 활성화 가능 여부를 결정합니다.
 
 ## 코퍼스 경계
 
@@ -151,15 +151,15 @@ Rollback은 보존된 이전 세대만 다시 활성화합니다. 호출자는 �
 
 ```text
 source revision
- -> verify provenance and redistribution
- -> parse deterministic semantics
- -> build RuleSemanticManifest
- -> propose RuleSemanticSurface
- -> validate held-out retrieval cohorts
- -> reviewed Git promotion
- -> build inactive index generation
- -> independent generation validation
- -> atomic activation
+  -> verify provenance and redistribution
+  -> parse deterministic semantics
+  -> build RuleSemanticManifest
+  -> propose RuleSemanticSurface
+  -> validate held-out retrieval cohorts
+  -> reviewed Git promotion
+  -> build inactive index generation
+  -> independent generation validation
+  -> atomic activation
 ```
 
 모델 의미 확장은 요청 및 API 시작 경로 밖에서 실행됩니다. 원본 텍스트는 신뢰하지 않는

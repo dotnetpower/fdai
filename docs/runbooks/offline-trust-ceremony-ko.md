@@ -21,22 +21,22 @@ Disconnected FDAI release의 첫 공개 trust 루트를 만들거나 기존 루�
 의식 일정 전에 담당자를 지정합니다.
 
 - **의식 조정기:** Agenda, 근거 기록, stop 결정을 담당합니다. 모든 루트 키를
- 보유하지 않습니다.
+  보유하지 않습니다.
 - **루트 키 보유자:** 승인된 루트 임계값에 필요한 offline 루트 키를 독립적으로 관리합니다.
- 임계값은 최소 2를 권장하며 키 보유자 수는 임계값보다 많게 구성하는 것이 좋습니다.
+  임계값은 최소 2를 권장하며 키 보유자 수는 임계값보다 많게 구성하는 것이 좋습니다.
 - **release security 검토자:** 공개 루트 병합 전에 역할 분리, algorithm, 임계값, 만료,
- 교대 근거를 확인합니다.
+  교대 근거를 확인합니다.
 - **입회자:** 비공개 키 자료를 취급하지 않고 장치 식별자, 공개 키 지문,
- 시간, deviation을 기록합니다.
+  시간, deviation을 기록합니다.
 - **release engineer:** 루트가 확립된 뒤 delegated targets, 스냅샷, 시각 서명을
- 구성합니다. 루트 비공개 키를 받지 않습니다.
+  구성합니다. 루트 비공개 키를 받지 않습니다.
 
 시작 전에 다음을 승인하고 기록합니다.
 
 - TUF 명세와 Python-TUF major 버전.
 - 루트, targets, 스냅샷, 시각 역할의 임계값과 만료 기간.
 - 독립된 offline 장치, entropy 출처, encrypted 백업 매체, physical 보관.
-- 키 보유자의 분실, 침해 또는 사용 불가 상황에 대한 복구 정책.
+- Key 보유자 분실, 침해 또는 사용 불가 상황의 복구 정책.
 - Clean network-isolated 의식 환경과 별도의 검증 장치.
 - 공개 `root.json`을 패키지할 정확한 FDAI release와 휠 경로.
 
@@ -66,26 +66,26 @@ Participant, 장치, 승인된 임계값, 만료, 백업 대상 또는 독립적
 ## Initial 루트 생성
 
 1. 각 offline 장치가 clean, disconnected, time-correct 상태이며 조정기와 입회자가
- 관찰하는지 확인합니다.
+   관찰하는지 확인합니다.
 2. 각 루트 키 보유자는 할당된 offline 장치에서 독립된 루트 키를 생성합니다. 비공개 키는
- 해당 장치 또는 승인된 encrypted 백업 매체에 유지하고 공개 키만 내보내기합니다.
+   해당 장치 또는 승인된 encrypted 백업 매체에 유지하고 공개 키만 내보내기합니다.
 3. Isolated 메타데이터 workstation에서 다음 initial TUF 루트 메타데이터를 생성합니다.
- - 버전 `1`;
- - 승인된 future 만료;
- - 모든 루트 공개 키와 승인된 루트 임계값;
- - targets, 스냅샷, 시각 역할의 분리된 공개 키와 임계값;
- - release 저장소가 요구하는 consistent-snapshot 행동.
+   - 버전 `1`;
+   - 승인된 future 만료;
+   - 모든 루트 공개 키와 승인된 루트 임계값;
+   - targets, 스냅샷, 시각 역할의 분리된 공개 키와 임계값;
+   - release 저장소가 요구하는 consistent-snapshot 행동.
 4. Unsigned 루트 메타데이터를 approved 매체로 각 루트 키 보유자에게 전달합니다. 각 보유자는 전체
- 정본 메타데이터를 확인하고 지문 및 정책 비교 후에만 sign합니다.
+   정본 메타데이터를 확인하고 지문 및 정책 비교 후에만 sign합니다.
 5. Isolated 메타데이터 workstation에서 서명을 assemble합니다. 루트 임계값 충족과 unexpected
- 키, 역할, 임계값, 확장, 비공개 값 부재를 확인합니다.
+   키, 역할, 임계값, 확장, 비공개 값 부재를 확인합니다.
 6. 별도 검증 장치에서 Python-TUF로 signed 메타데이터를 부하하고 structure, 만료, 버전,
- 키 id, 역할 임계값, 서명을 독립적으로 검증합니다.
+   키 id, 역할 임계값, 서명을 독립적으로 검증합니다.
 7. 공개 의식 근거를 생성합니다. Signed `root.json` 해시, 공개 지문, 임계값,
- 만료, Python-TUF 버전, participant, 장치, 검증 결과를 기록합니다. 비공개 키
- 바이트, PIN, 복구 문구 또는 encrypted 키 보관은 기록하지 않습니다.
+   만료, Python-TUF 버전, participant, 장치, 검증 결과를 기록합니다. 비공개 키
+   바이트, PIN, 복구 문구 또는 encrypted 키 보관은 기록하지 않습니다.
 8. 독립적인 보관 아래 encrypted 백업을 만들고 isolated spare 장치에서 복원을
- 검증한 뒤 temporary private-key copy를 안전하게 삭제합니다.
+   검증한 뒤 temporary private-key copy를 안전하게 삭제합니다.
 
 서명 mismatch, unexpected 키, 누락된 임계값 서명, malformed 메타데이터 또는 근거의
 비공개 값이 발견되면 의식을 중지합니다. Unsigned 또는 partially signed 후보를
@@ -94,28 +94,28 @@ Participant, 장치, 승인된 임계값, 만료, 백업 대상 또는 독립적
 ## 패키지와 위임
 
 1. 검증된 공개 `root.json`만 검토된 업스트림 pull 요청을 통해 FDAI 휠 패키지 데이터에
- 추가합니다. release 근거에 SHA-256을 pin합니다.
+   추가합니다. release 근거에 SHA-256을 pin합니다.
 2. `fdaictl provision inspect`가 해당 패키지 리소스에서 Python-TUF를 초기화하도록 연결합니다.
- `--release-root`, environment-variable 루트, network-fetched initial 루트, 다운스트림 재정의를
- 추가하지 않습니다.
+   `--release-root`, environment-variable 루트, network-fetched initial 루트, 다운스트림 재정의를
+   추가하지 않습니다.
 3. Targets, 스냅샷, 시각 비공개 키는 승인된 release 서명 서비스에 보관합니다. CI는
- delegated online 키에만 접근하며 루트 비공개 키에는 접근하지 않습니다.
+   delegated online 키에만 접근하며 루트 비공개 키에는 접근하지 않습니다.
 4. 각 offline 키트를 TUF 대상으로 빌드합니다. FDAI 휠, transitive 휠, signed 배포
- 번들, Terraform binary와 프로바이더 mirror, OPA, SBOM, exact-content 매니페스트를 포함합니다.
+   번들, Terraform binary와 프로바이더 mirror, OPA, SBOM, exact-content 매니페스트를 포함합니다.
 5. Versioned 루트 메타데이터, delegated 메타데이터, 대상을 approved release 채널로 publish합니다.
- 순차 클라이언트 갱신에 필요한 이전 공개 루트 버전을 유지합니다.
+   순차 클라이언트 갱신에 필요한 이전 공개 루트 버전을 유지합니다.
 6. Clean 체크아웃에서 휠을 빌드하고 내용을 검사합니다. 예상 공개 루트가 있으며
- 비공개 키, 테스트 키, 서명 구성 또는 의식 백업이 없는지 확인합니다.
+   비공개 키, 테스트 키, 서명 구성 또는 의식 백업이 없는지 확인합니다.
 
 ## Acceptance 훈련
 
 Preexisting FDAI trust 상태가 없는 disconnected disposable 호스트를 사용합니다.
 
 1. release 휠을 설치하고 release-signed 키트를 inspect합니다. TUF와 exact-content 검증
- 후 `status=ready`, exit `0`, `artifact.offline-kit=verified`를 요구합니다.
+   후 `status=ready`, exit `0`, `artifact.offline-kit=verified`를 요구합니다.
 2. 대상 바이트 하나를 바꿉니다. 산출물 실행 전에 거부되어야 합니다.
 3. 만료된 시각 또는 스냅샷 메타데이터를 제시합니다. 시계 또는 만료 재정의 없이
- 거부되어야 합니다.
+   거부되어야 합니다.
 4. 더 새로운 trusted 버전 뒤에 이전 메타데이터 버전을 제시합니다. Rollback을 거부해야 합니다.
 5. 두 release의 메타데이터 또는 대상을 섞습니다. 스냅샷 또는 해시 거절이 필요합니다.
 6. CLI 버전 또는 platform tag를 바꿉니다. 호환성 거절이 필요합니다.
@@ -128,14 +128,14 @@ Preexisting FDAI trust 상태가 없는 disconnected disposable 호스트를 사
 ## 루트 교대
 
 1. Trusted 버전 $N$에서 루트 버전 $N+1$을 만듭니다. 승인된 교대 정책에 따라 키를
- 추가 또는 제거하고 임계값과 만료를 갱신합니다.
+   추가 또는 제거하고 임계값과 만료를 갱신합니다.
 2. 버전 $N$의 루트 임계값과 새 버전 $N+1$ 임계값을 모두 만족하는 충분한 키로
- 버전 $N+1$을 sign합니다.
+   버전 $N+1$을 sign합니다.
 3. 각 intermediate 루트 버전을 publish합니다. Deployed 클라이언트가 필요한 버전을 건너뛰지 않습니다.
 4. 새 루트가 필요한 대상을 release하기 전에 지원하는 모든 packaged 루트에서 newest 루트까지
- 한 버전씩 클라이언트 갱신을 검증합니다.
+   한 버전씩 클라이언트 갱신을 검증합니다.
 5. 지원 클라이언트가 갱신할 수 있고 복구 근거가 완료된 후에만 retired 비공개 키를 철회하고
- destroy합니다.
+   destroy합니다.
 
 침해가 발생하면 delegated 서명을 중지하고 새 대상을 publish하지 않으며 승인된 emergency
 루트 교대 정책을 실행하고 공개 forensic 근거를 보존합니다. Normal 배포 승인은
@@ -151,6 +151,6 @@ Preexisting FDAI trust 상태가 없는 disconnected disposable 호스트를 사
 - [ ] Delegated 서명이 현재 expiring targets, 스냅샷, 시각 메타데이터를 생성함.
 - [ ] Clean 호스트에서 valid disconnected 검증이 통과함.
 - [ ] Tamper, 만료, 롤백, mix-and-match, wrong-version, wrong-platform, extra-file, symlink 훈련이
- 모두 실패 시 차단함.
+  모두 실패 시 차단함.
 - [ ] 지원하는 모든 packaged 루트에서 순차 루트 교대가 검증됨.
 - [ ] 공개 의식과 release 근거가 named 소유자 및 갱신 date와 함께 보관됨.
