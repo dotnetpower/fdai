@@ -3,167 +3,167 @@ title: 영구 Background Task Session
 translation_of: background-task-sessions.md
 translation_source: docs/roadmap/interfaces/background-task-sessions.md
 translation_source_sha: 2fb4a26c62db3eebc421b6c5272be6c7283b4c2d
-translation_revised: 2026-08-02
+translation_revised: 2026-08-11
 ---
 
-# 영구 Background Task Session
+# 영구 Background 작업 세션
 
-이 설계는 operator conversation에서 시작하는 영구 detached 읽기 전용 조사를 정의합니다. Task 및
-attempt state, lease, progress, cancellation, restart 동작, conversation handoff, 사용자 delivery
-경계, operator visibility를 다룹니다.
+이 설계는 운영자 대화에서 시작하는 영구 detached 읽기 전용 조사를 정의합니다. 작업 및
+시도 상태, 임차 기간, 진행 상황, 취소, 재시작 동작, 대화 인계, 사용자 전달
+경계, 운영자 가시성을 다룹니다.
 
-> **범위:** Background task는 cloud 변경을 실행하지 않습니다. Mutation 요청은 계속 typed
-> control loop, safety check, 사람 승인, Thor 실행, rollback, Saga audit를 통과합니다.
+> **범위:** Background 작업은 cloud 변경을 실행하지 않습니다. 변경 요청은 계속 타입이 지정된
+> control loop, safety 검사, 사람 승인, Thor 실행, 롤백, Saga 감사를 통과합니다.
 
 ## 설계 요약
 
-Contributor가 제한된 task record를 만들면 실행을 기다리지 않고 `202`를 받습니다. Coordinator는
-lease로 queued attempt를 claim하고, 격리된 typed read service를 실행하며, terminal result와 pending
-completion을 하나의 transaction으로 저장합니다. 별도의 leased completion outbox가 provenance label이
-있는 conversation turn을 추가하고 immutable reply를 durable conversation delivery ledger에 enqueue합니다.
+기여자가 제한된 작업 기록을 만들면 실행을 기다리지 않고 `202`를 받습니다. 조정기는
+임차 기간으로 대기 중 시도를 점유하고, 격리된 타입이 지정된 읽기 서비스를 실행하며, 최종 결과와 pending
+완료를 하나의 트랜잭션으로 저장합니다. 별도의 leased 완료 발신함이 출처 이력 라벨이
+있는 대화 턴을 추가하고 변경할 수 없는 회신을 영속 대화 전달 원장에 큐에 추가합니다.
 
 ```mermaid
 flowchart LR
-    USER[Operator conversation] --> CREATE[영구 queued task]
-    CREATE --> CLAIM[CAS lease claim]
-    CLAIM --> RUN[읽기 전용 executor]
-    RUN --> PROGRESS[Coalesced progress]
-    RUN --> RESULT[Atomic terminal result 및 pending completion]
-    RESULT --> OUTBOX[Leased completion outbox]
-    OUTBOX --> TURN[Idempotent conversation turn]
-    TURN --> DELIVERY[Durable reply ledger]
+  USER[Operator conversation] --> CREATE[영구 queued task]
+  CREATE --> CLAIM[CAS lease claim]
+  CLAIM --> RUN[읽기 전용 executor]
+  RUN --> PROGRESS[Coalesced progress]
+  RUN --> RESULT[Atomic terminal result 및 pending completion]
+  RESULT --> OUTBOX[Leased completion outbox]
+  OUTBOX --> TURN[Idempotent conversation turn]
+  TURN --> DELIVERY[Durable reply ledger]
 ```
 
-## Contract 및 상태
+## 계약 및 상태
 
-`BackgroundTask`는 owner principal, origin conversation 및 channel, 읽기 전용 kind, 제한된 prompt,
-context digest, capability profile, budget, correlation ID, idempotency key, creation time,
-retention deadline을 저장합니다. 첫 profile은 `background.read-only`만 지원합니다.
+`BackgroundTask`는 소유자 principal, 출처 대화 및 채널, 읽기 전용 kind, 제한된 프롬프트,
+맥락 다이제스트, 기능 프로파일, 예산, 상관관계 ID, 멱등성 키, creation 시간,
+보존 기한을 저장합니다. 첫 프로파일은 `background.read-only`만 지원합니다.
 
-`BackgroundTaskAttempt`는 execution history를 task definition과 분리합니다. 상태는 다음과 같습니다.
+`BackgroundTaskAttempt`는 실행 이력을 작업 정의와 분리합니다. 상태는 다음과 같습니다.
 
 ```text
 queued -> claimed -> running -> succeeded | failed | cancelled | timed_out | unknown
 ```
 
-Queued attempt에는 lease와 result가 없습니다. Claimed 및 running attempt에는 lease가 있고 result가
-없습니다. Terminal attempt에는 변경할 수 없는 result가 있고 lease가 없습니다. Constructor와 database
-constraint가 같은 규칙을 적용합니다.
+대기 중 시도에는 임차 기간과 결과가 없습니다. Claimed 및 running 시도에는 임차 기간이 있고 결과가
+없습니다. 최종 시도에는 변경할 수 없는 결과가 있고 임차 기간이 없습니다. 생성자와 database
+제약이 같은 규칙을 적용합니다.
 
-각 terminal attempt에는 다음 state machine을 사용하는 completion outbox row 하나가 있습니다.
+각 최종 시도에는 다음 상태 머신을 사용하는 완료 발신함 행 하나가 있습니다.
 
 ```text
 pending -> sending -> delivered
-                   -> failed -> sending
-                   -> abandoned
+          -> failed -> sending
+          -> abandoned
 ```
 
-`sending`만 lease를 가집니다. Claim과 함께 delivery attempt count가 증가하며 최대 8회로 제한됩니다.
-`delivered`와 `abandoned`는 terminal completion state입니다.
+`sending`만 임차 기간을 가집니다. 점유와 함께 전달 시도 개수가 증가하며 최대 8회로 제한됩니다.
+`delivered`와 `abandoned`는 최종 완료 상태입니다.
 
-## Claim, lease 및 restart 동작
+## 점유, 임차 기간 및 재시작 동작
 
-PostgreSQL은 `FOR UPDATE SKIP LOCKED`로 queued row 하나를 claim합니다. Start, renew, completion은
-하나의 conditional update에서 expected revision, lease token, 만료되지 않은 lease, 허용된 prior state를
-요구합니다. 두 coordinator가 같은 attempt를 소유할 수 없습니다.
+PostgreSQL은 `FOR UPDATE SKIP LOCKED`로 대기 중 행 하나를 점유합니다. 시작, renew, 완료는
+하나의 conditional 갱신에서 예상 개정 번호, 임차 기간 토큰, 만료되지 않은 임차 기간, 허용된 이전 상태를
+요구합니다. 두 조정기가 같은 시도를 소유할 수 없습니다.
 
-Coordinator는 executor가 active인 동안 lease를 renew합니다. 만료된 claimed 또는 running attempt는
-제한된 reconciliation query를 통해 `unknown(process_lost)`이 됩니다. Queued로 돌아가지 않고 자동 retry도
-하지 않습니다. 향후 retry는 명시적으로 retryable인 task kind 또는 operator-confirmed action에만 linked
-attempt를 만듭니다.
+조정기는 실행기가 활성인 동안 임차 기간을 renew합니다. 만료된 claimed 또는 running 시도는
+제한된 조정 조회를 통해 `unknown(process_lost)`이 됩니다. 대기 중으로 돌아가지 않고 자동 재시도도
+하지 않습니다. 향후 재시도는 명시적으로 retryable인 작업 kind 또는 operator-confirmed 액션에만 linked
+시도를 만듭니다.
 
 ## 실행 및 격리
 
-제공되는 executor는 다음 조건으로 typed read-investigation service를 실행합니다.
+제공되는 실행기는 다음 조건으로 타입이 지정된 read-investigation 서비스를 실행합니다.
 
-- Server-owned scope, exact resource resolution, registered read tool 7개를 사용합니다.
-- Narrator backend, parent screen state, transcript, hidden reasoning, mutable memory, event bus,
-  Thor, executor identity를 전달하지 않습니다.
-- Raw provider output 대신 normalized evidence result와 bounded semantic progress를 반환합니다.
+- 서버가 소유한 범위, exact 리소스 해석, 등록된 읽기 도구 7개를 사용합니다.
+- Narrator 백엔드, 상위 screen 상태, transcript, hidden reasoning, 변경 가능한 기억, event 버스,
+ Thor, 실행기 신원을 전달하지 않습니다.
+- Raw 프로바이더 출력 대신 정규화된 근거 결과와 범위가 제한된 semantic 진행 상황을 반환합니다.
 
-Coordinator는 concurrency, wall time, token, cost, tool-call, progress, lease usage를 제한합니다. Timeout,
-cancellation, executor error는 각각 구분된 terminal reason을 생성합니다.
-Daily cost window는 task-provided timestamp가 아니라 store의 UTC clock을 사용합니다. Quota가 활성화된
-경우 server time과 300초 넘게 차이 나는 creation timestamp는 insert 전에 차단되므로 caller가 task를
-backdate 또는 future-date하여 다른 quota day를 선택할 수 없습니다.
+조정기는 동시성, wall 시간, 토큰, 비용, tool-call, 진행 상황, 임차 기간 사용량을 제한합니다. 시간 초과,
+취소, 실행기 오류는 각각 구분된 최종 사유를 생성합니다.
+Daily 비용 구간은 task-provided 시각이 아니라 저장소의 UTC 시계를 사용합니다. 할당량이 활성화된
+경우 서버 시간과 300초 넘게 차이 나는 creation 시각은 삽입 전에 차단되므로 호출자가 작업을
+backdate 또는 future-date하여 다른 할당량 일을 선택할 수 없습니다.
 
-## Progress 및 backpressure
+## 진행 상황 및 backpressure
 
-Progress는 kind, 제한된 message, timestamp, usage로 구성됩니다. Reporter는 configured interval마다 최대
-한 event를 기록하고 interval 안의 최신 update를 coalesce합니다. Store는 task별 event cap과 monotonic
-sequence를 적용합니다. 임의 command log를 conversation record에 저장하지 않습니다.
+진행 상황은 kind, 제한된 message, 시각, 사용량으로 구성됩니다. 보고기는 구성된 간격마다 최대
+한 이벤트를 기록하고 간격 안의 최신 갱신을 coalesce합니다. 저장소는 작업별 event 상한과 단조 증가
+순서를 적용합니다. 임의 명령 로그를 대화 기록에 저장하지 않습니다.
 
-인증된 operator는 GET 또는 server-sent events (SSE) stream으로 progress를 읽을 수 있습니다. Stream은
-저장된 progress, running 중의 제한된 heartbeat, terminal event 하나를 전송하고 종료합니다. 다른 owner의
-task는 없는 task와 같은 404 response를 사용합니다.
+인증된 운영자는 GET 또는 server-sent events (SSE) 스트림으로 진행 상황을 읽을 수 있습니다. 스트림은
+저장된 진행 상황, running 중의 제한된 하트비트, 최종 event 하나를 전송하고 종료합니다. 다른 소유자의
+작업은 없는 작업과 같은 404 응답을 사용합니다.
 
-## Command 및 authorization
+## Command 및 권한 확인
 
-Production Operator API는 dedicated Azure reader binding이 설정된 경우에만 route를 등록합니다.
+운영 Operator API는 dedicated Azure reader 연결이 설정된 경우에만 경로를 등록합니다.
 
-- `POST /background-tasks`는 Contributor `start-read-investigation` capability가 필요하고 즉시 반환합니다.
-- `GET /background-tasks` 및 `GET /background-tasks/{task_id}`는 owner scope를 적용합니다.
-- `GET /background-tasks/{task_id}/progress` 및 `/progress/stream`은 owner scope를 적용합니다.
-- `POST /background-tasks/{task_id}/cancel`은 owner 또는 FDAI Owner가 필요합니다.
+- `POST /background-tasks`는 기여자 `start-read-investigation` 기능이 필요하고 즉시 반환합니다.
+- `GET /background-tasks` 및 `GET /background-tasks/{task_id}`는 소유자 범위를 적용합니다.
+- `GET /background-tasks/{task_id}/progress` 및 `/progress/stream`은 소유자 범위를 적용합니다.
+- `POST /background-tasks/{task_id}/cancel`은 소유자 또는 FDAI Owner가 필요합니다.
 
-Create와 cancel은 기존 hash-chained state-store audit 경계를 통해 기록됩니다. Request body와 budget은
-제한됩니다. Idempotency는 owner 및 key scope를 사용합니다.
+생성과 취소는 기존 hash-chained state-store 감사 경계를 통해 기록됩니다. 요청 본문과 예산은
+제한됩니다. 멱등성은 소유자 및 키 범위를 사용합니다.
 
-## Completion outbox 및 retry
+## 완료 발신함 및 재시도
 
-Terminal attempt update와 `pending` completion insert는 하나의 PostgreSQL transaction으로 commit됩니다.
-Coordinator는 `FOR UPDATE SKIP LOCKED`로 due `pending` 또는 `failed` completion을 claim하고 row를
-`sending`으로 변경하며, 최종 compare-and-set update에 lease token을 요구합니다. Sink publish timeout은
-completion lease 이내로 제한됩니다.
+최종 시도 갱신과 `pending` 완료 삽입은 하나의 PostgreSQL 트랜잭션으로 커밋됩니다.
+조정기는 `FOR UPDATE SKIP LOCKED`로 due `pending` 또는 `failed` 완료를 점유하고 행을
+`sending`으로 변경하며, 최종 compare-and-set 갱신에 임차 기간 토큰을 요구합니다. 싱크 publish 시간 초과는
+완료 임차 기간 이내로 제한됩니다.
 
-Sink failure는 completion row만 변경합니다. Result를 다시 작성하거나 task execution을 다시 실행하지
-않습니다. Retry는 bounded exponential backoff를 사용하고 coordinator가 가장 가까운 due completion
-retry를 process 안에서 schedule합니다. External wake signal이나 새 task 생성을 기다리지 않습니다.
-8회 시도 후 또는 다음 retry가 retention deadline에 도달하면 completion은 `abandoned`가 됩니다.
+싱크 실패는 완료 행만 변경합니다. 결과를 다시 작성하거나 작업 실행을 다시 실행하지
+않습니다. 재시도는 범위가 제한된 exponential 재시도 대기를 사용하고 조정기가 가장 가까운 due 완료
+재시도를 프로세스 안에서 예약합니다. 외부 wake 신호이나 새 작업 생성을 기다리지 않습니다.
+8회 시도 후 또는 다음 재시도가 보존 기한에 도달하면 완료는 `abandoned`가 됩니다.
 
-Process가 `sending` lease를 잃으면 reconciliation이 row를 due `failed`로 변경합니다. Attempt 또는
-retention bound가 소진된 경우에는 `abandoned`로 변경합니다. 이후 coordinator는 investigation을
-replay하지 않고 reconciled row를 claim할 수 있습니다.
+프로세스가 `sending` 임차 기간을 잃으면 조정이 행을 due `failed`로 변경합니다. 시도 또는
+보존 한계가 소진된 경우에는 `abandoned`로 변경합니다. 이후 조정기는 조사를
+재생하지 않고 reconciled 행을 점유할 수 있습니다.
 
-## 완료 순서 및 replay
+## 완료 순서 및 재생
 
-Completion audit, history turn 및 outbound-enqueue audit sequence는 안전하게 replay할 수 있습니다.
-Sink는
-`background-task.completed` 및 `background-task.delivery-enqueued` audit event를 durable state marker를
-통해 기록하며, marker와 audit entry는 원자적으로 commit됩니다. Attempt 및 action별 deterministic
-marker가 sink retry 중에도 해당 audit event를 한 번만 작성하게 합니다.
+완료 감사, 이력 턴 및 outbound-enqueue 감사 순서는 안전하게 재생할 수 있습니다.
+싱크는
+`background-task.completed` 및 `background-task.delivery-enqueued` 감사 이벤트를 영속 상태 표시를
+통해 기록하며, 표시와 감사 항목은 원자적으로 커밋됩니다. 시도 및 액션별 결정론적
+표시가 싱크 재시도 중에도 해당 감사 이벤트를 한 번만 작성하게 합니다.
 
-Conversation turn은 deterministic turn 및 idempotency ID, `[Background task result: ...]` label,
-correlation metadata, `trusted=false`를 유지합니다. Outbound submit은 stable attempt origin을 재사용하므로
-durable reply ledger도 replay를 deduplicate합니다. Provider delivery는 별도의 claim/lease/ack concern으로
-남으며 외부 chat provider의 exactly-once delivery를 보장하지 않습니다.
+대화 턴은 결정론적 턴 및 멱등성 ID, `[Background task result: ...]` 라벨,
+상관관계 메타데이터, `trusted=false`를 유지합니다. Outbound 제출은 고정된 시도 출처를 재사용하므로
+영속 회신 원장도 재생을 deduplicate합니다. 프로바이더 전달은 별도의 점유/임차 기간/ack 관심사로
+남으며 외부 chat 프로바이더의 exactly-once 전달을 보장하지 않습니다.
 
-## 운영 및 retention
+## 운영 및 보존
 
-List 및 detail projection은 status, budget, lease expiry, usage, progress, duration input, terminal reason을
-표시합니다. 넓은 context를 제외하고 다른 principal의 task count를 노출하지 않습니다. Retention purge는
-task attempt가 terminal이고 task retention deadline이 지났으며 completion이 `delivered` 또는
-`abandoned`인 경우에만 row를 선택합니다. Attempt를 삭제하면 progress 및 completion outbox row가
-cascade됩니다. 따라서 pending, sending 또는 retryable failed completion이 있으면 recovery를 위해 task
-history가 유지됩니다.
+List 및 상세 변환 결과는 상태, 예산, 임차 기간 만료, 사용량, 진행 상황, 소요 시간 입력, 최종 사유를
+표시합니다. 넓은 맥락을 제외하고 다른 principal의 작업 개수를 노출하지 않습니다. 보존 정리는
+작업 시도가 최종이고 작업 보존 기한이 지났으며 완료가 `delivered` 또는
+`abandoned`인 경우에만 행을 선택합니다. 시도를 삭제하면 진행 상황 및 완료 발신함 행이
+cascade됩니다. 따라서 pending, sending 또는 retryable 실패한 완료가 있으면 복구를 위해 작업
+이력이 유지됩니다.
 
-Coordinator는 제한된 shutdown interval 동안 active work를 drain합니다. 남은 work는 process 안에서
-cancel되고 process loss 뒤 lease가 만료되면 `unknown`이 됩니다.
+조정기는 제한된 종료 간격 동안 활성 작업을 배출합니다. 남은 작업은 프로세스 안에서
+취소되고 프로세스 loss 뒤 임차 기간이 만료되면 `unknown`이 됩니다.
 
 ## 검증
 
-검증 범위에는 contract bound, mutation-profile 차단, concurrent claim, stale revision 및 lease 차단,
-terminal immutability, owner 및 admin cancellation, progress sequence 및 cap, coalescing, bounded
-concurrency, timeout, shutdown, task 및 completion process-loss reconciliation, atomic
-terminal-plus-outbox commit, 8회 delivery bound, self-scheduled retry, retention purge predicate, live
-PostgreSQL migration 및 restart, 즉시 HTTP response, RBAC, cross-owner hiding, SSE completion, 격리된
-backend input, replay-idempotent conversation handoff가 포함됩니다.
+검증 범위에는 계약 한계, mutation-profile 차단, 동시 점유, stale 개정 번호 및 임차 기간 차단,
+최종 immutability, 소유자 및 admin 취소, 진행 상황 순서 및 상한, coalescing, 범위가 제한된
+동시성, 시간 초과, 종료, 작업 및 완료 process-loss 조정, atomic
+terminal-plus-outbox 커밋, 8회 전달 한계, self-scheduled 재시도, 보존 정리 조건식, live
+PostgreSQL 이행 및 재시작, 즉시 HTTP 응답, RBAC, cross-owner hiding, SSE 완료, 격리된
+백엔드 입력, replay-idempotent 대화 인계가 포함됩니다.
 
 ## 관련 문서
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
-| 격리된 조사 worker | [제한된 작업 워커](../agents/bounded-task-workers-ko.md) |
-| Operator conversation 경계 | [Operator Console](operator-console-ko.md) |
-| 사용자 delivery durability | [영구 conversation delivery](durable-conversation-delivery-ko.md) |
-| Runtime parity | [Runtime Parity](../deployment/dev-and-deploy-parity-ko.md) |
+| 격리된 조사 워커 | [제한된 작업 워커](../agents/bounded-task-workers-ko.md) |
+| Operator 대화 경계 | [Operator Console](operator-console-ko.md) |
+| 사용자 전달 내구성 | [영구 대화 전달](durable-conversation-delivery-ko.md) |
+| 런타임 parity | [런타임 Parity](../deployment/dev-and-deploy-parity-ko.md) |
