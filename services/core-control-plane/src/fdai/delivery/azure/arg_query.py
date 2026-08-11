@@ -99,6 +99,9 @@ from fdai.delivery.azure.arg_projection import (
     extract_rg_contains_links as _extract_rg_contains_links,
 )
 from fdai.delivery.azure.arg_projection import (
+    extract_routes_to_links_from_row as _extract_routes_to_links_from_row,
+)
+from fdai.delivery.azure.arg_projection import (
     materialize_nested_subnets as _materialize_nested_subnets,
 )
 from fdai.delivery.azure.arg_projection import resource_operational_status
@@ -332,6 +335,9 @@ class AzureArgQueryFactory:
                 row, child=record, arm_to_neutral=self._arm_to_neutral
             ),
             *_extract_peered_with_links_from_row(
+                row, child=record, arm_to_neutral=self._arm_to_neutral
+            ),
+            *_extract_routes_to_links_from_row(
                 row, child=record, arm_to_neutral=self._arm_to_neutral
             ),
         )

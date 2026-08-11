@@ -1633,6 +1633,41 @@ def test_extract_vnet_peering_requires_connected_direct_observation() -> None:
     assert edge.to_type == "network.vnet"
 
 
+def test_extract_routes_to_requires_exact_resource_next_hop() -> None:
+    from fdai.delivery.azure.arg_projection import extract_routes_to_links_from_row
+    from fdai.delivery.azure.arg_query import _build_arm_to_neutral_map, _to_neutral_id
+
+    reverse = _build_arm_to_neutral_map(_vocab())
+    target_id = (
+        "/subscriptions/example-subscription/resourceGroups/rg-data/providers/"
+        "Microsoft.Storage/storageAccounts/storage-example"
+    )
+    child = ResourceRecord(
+        resource_id="scope-example/resource-group/rg-network/route-table/routes",
+        type="network.vnet",
+    )
+    row = {
+        "properties": {
+            "routes": [
+                {"properties": {"nextHopResourceId": target_id}},
+                {"properties": {"nextHopIpAddress": "192.0.2.10"}},
+            ]
+        }
+    }
+
+    (edge,) = extract_routes_to_links_from_row(
+        row,
+        child=child,
+        arm_to_neutral=reverse,
+    )
+    assert (edge.from_id, edge.link_type, edge.to_id, edge.to_type) == (
+        child.resource_id,
+        "routes_to",
+        _to_neutral_id(target_id),
+        "object-storage",
+    )
+
+
 def test_reverse_map_reports_shared_arm_type_gap(
     caplog: pytest.LogCaptureFixture,
 ) -> None:

@@ -89,6 +89,7 @@ class CoordinatorConfig:
     """
 
     chat_t0_confidence_threshold: float = 0.75
+    ordinary_language_mode: Literal["exact_only", "legacy"] = "exact_only"
     semantic_planning_mode: Literal["disabled", "shadow"] = "disabled"
     semantic_planning_purpose: str = "operations-review"
 
@@ -97,6 +98,8 @@ class CoordinatorConfig:
             raise ValueError("chat_t0_confidence_threshold MUST be in [0, 1]")
         if self.semantic_planning_mode not in {"disabled", "shadow"}:
             raise ValueError("semantic_planning_mode MUST be disabled or shadow")
+        if self.ordinary_language_mode not in {"exact_only", "legacy"}:
+            raise ValueError("ordinary_language_mode MUST be exact_only or legacy")
         if re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", self.semantic_planning_purpose) is None:
             raise ValueError("semantic_planning_purpose is invalid")
 
@@ -263,19 +266,30 @@ class ConversationCoordinator:
             prior_turns=prior_turns,
         )
 
-        match = self._match_intent(message)
+        match = self._match_exact_command(message)
+        legacy_mode = self._config.ordinary_language_mode == "legacy"
+        if match is None and legacy_mode:
+            match = self._match_intent(message)
         if match is None or match.confidence < self._config.chat_t0_confidence_threshold:
-            planned = self._try_read_plan(
-                session=session,
-                utterance=message,
-                prior_turns=prior_turns,
+            planned = (
+                self._try_read_plan(
+                    session=session,
+                    utterance=message,
+                    prior_turns=prior_turns,
+                )
+                if legacy_mode
+                else None
             )
             if planned is not None:
                 return planned
-            translated = self._narrator_translate(
-                message,
-                principal_role=session.principal.role.value,
-                prior_turns=prior_turns,
+            translated = (
+                self._narrator_translate(
+                    message,
+                    principal_role=session.principal.role.value,
+                    prior_turns=prior_turns,
+                )
+                if legacy_mode
+                else None
             )
             if translated is not None:
                 # Narrator returned a T0-parseable verb string; re-match
@@ -295,7 +309,12 @@ class ConversationCoordinator:
         if match is None or match.confidence < self._config.chat_t0_confidence_threshold:
             visible = self.list_tools_for(session.principal)
             fallback_reason = (
-                "no chat_t0 intent match; try one of the listed verbs"
+                (
+                    "no chat_t0 intent match; try one of the listed verbs"
+                    if legacy_mode
+                    else "ordinary language requires the semantic conversation runtime; "
+                    "use an exact listed command only on the explicit command surface"
+                )
                 if match is None
                 else f"chat_t0 intent match confidence={match.confidence:.2f} below threshold"
             )
@@ -629,6 +648,22 @@ class ConversationCoordinator:
             )
 
         return None
+
+    def _match_exact_command(self, message: str) -> _IntentMatch | None:
+        """Parse only an installed canonical command name, never a language alias."""
+
+        stripped = message.strip()
+        if not stripped:
+            return None
+        verb, separator, remainder = stripped.partition(" ")
+        if verb not in self._tools:
+            return None
+        query = _extract_query(remainder) if separator else ""
+        return _IntentMatch(
+            tool_name=verb,
+            arguments=_extract_tool_arguments(verb, query),
+            confidence=1.0 if query else 0.85,
+        )
 
     def _narrator_translate(
         self,

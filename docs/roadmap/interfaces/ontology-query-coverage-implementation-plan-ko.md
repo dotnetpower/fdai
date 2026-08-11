@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 6e4e2790a149e1230229533845372f9875bb917d
+translation_source_sha: 9825070da1048a16b18b675cd0f0433008a6a3aa
 translation_revised: 2026-08-10
 ---
 
@@ -42,7 +42,9 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > metric-series 및 evidence-join handler는 남아 있습니다.
 > OQ-07은 이제 current connected VNet peering record를 observed direction으로 projection하고 private
 > endpoint를 exact private-link service target에 attach합니다. Reverse peering에는 여전히 독립적인
-> remote-VNet observation이 필요합니다. Route, workload/service mapping, observation receipt 및
+> remote-VNet observation이 필요합니다. 또한 explicit ARM resource next-hop id에서만 `routes_to`를
+> projection하며 IP, prefix 및 hostname은 ontology edge가 되지 않습니다. Snapshot과 real-time constraint는
+> reviewed peering/routing vocabulary를 수락합니다. Workload/service mapping, observation receipt 및
 > production network-path issuer는 남아 있습니다.
 > OQ-04에는 이제 whole bounded turn과 candidate descriptor에서 semantic frame 및 typed node DAG를
 > 제안하는 schema-constrained model seam이 있습니다. Core는 모든 digest/authority field를 다시 만들고
@@ -68,6 +70,16 @@ service/agent ownership, dependency 순서 work package, cutover gate 및 rollba
 > zero와 missing data를 구분하는 equal-duration comparison, bounded metric-series/evidence-join handler 및
 > competing explanation을 보존하는 topology-aware temporal support/refutation이 포함됩니다. Production
 > metric provider binding과 reviewed catalog data는 남아 있습니다.
+> OQ-05에는 이제 accepted ordinary-language turn을 answer, clarification, hold, unsupported, action draft
+> 또는 cancellation으로 종료하는 async server-side semantic turn runtime도 포함됩니다. Verified query
+> DAG만 실행하며 exact Console graph/evidence projection을 emit합니다.
+> OQ-10은 synchronous compatibility coordinator의 default를 exact canonical command only로 변경합니다.
+> Natural-language alias, keyword narration 및 canonical-string read plan은 test 또는 explicit temporary
+> caller가 `legacy`를 선택할 때만 실행되며 ordinary language는 semantic runtime이 담당합니다.
+> OQ-11은 모든 shipped principal manifest와 bilingual competency cohort를 대상으로 executable fast gate를
+> 추가합니다. Complete structural accounting, terminal disposition 100%, legacy ordinary-language route 0,
+> unsupported claim 0 및 unauthorized execution 0을 요구합니다. Answer count는 universal complete로
+> 주장하지 않고 cohort별로 보고합니다.
 
 ## 설계 개요
 
@@ -91,7 +103,7 @@ plan 검증 이후 authoritative read로만 선택합니다.
 
 | 영역 | 검증된 현재 구현 | 목표를 차단하는 gap |
 |------|------------------|---------------------|
-| Conversation routing | Local 독립 Operator Service는 resolved Azure candidate의 model narration을 복구하지만 Core `ConversationCoordinator`는 계속 `_VERB_PATTERNS`를 사용합니다. `ReadPlanNarrator`는 2-3개의 canonical command string을 제안할 수 있으며 `execute_read_plan`이 이를 serial로 실행합니다. | Local model narration에는 provider-read 또는 execution authority가 없으며 server-side semantic problem frame, intent graph producer, dependency-wave executor 및 typed plan bridge를 제공하지 않습니다. |
+| Conversation routing | Default compatibility coordinator는 exact canonical command만 수락합니다. Async semantic runtime은 verified ordinary-language DAG를 plan/execute하고 terminal graph/evidence projection을 emit합니다. | Production model, descriptor-index, provider 및 Operator stream composition은 남아 있으며 `legacy`는 explicit temporary compatibility mode로만 존재합니다. |
 | Console intent graph | Core는 verified plan에서 bounded graph/receipt evidence를 만들며 shared SDK projection은 Console v2/v1 parser와 정확히 일치합니다. | Production turn-completion stream은 아직 생성된 graph/evidence를 attach하지 않습니다. |
 | Semantic interpretation | Schema-constrained whole-turn model seam이 `SemanticProblemFrame` 및 typed DAG candidate를 제안합니다. Core가 identity를 부여하고 principal manifest를 검증하며 compatibility routing 옆의 opt-in shadow comparison을 지원합니다. | Production model/descriptor-index binding은 enable되지 않았고 semantic path가 아직 visible answer를 선택하지 않습니다. |
 | Object query | `OntologyQueryPlan`은 이제 immutable content-addressed table 위에서 secured ObjectSet, set algebra, ordering, projection, grouped aggregation 및 typed read-only function을 구성합니다. | Temporal snapshot, metric series 및 evidence join에는 registered extension handler가 필요합니다. |

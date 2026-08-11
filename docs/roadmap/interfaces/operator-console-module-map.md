@@ -102,6 +102,12 @@ Core can produce these records from a principal-manifest-verified query plan, bu
 and SSE turn completion do not yet attach them. Until that binding lands, the parser change is
 additive and the compatibility route remains the visible answer path.
 
+The Core semantic runtime now composes planning, dependency-wave execution, and these projections
+as one async server result. Every accepted turn terminates as answer, clarification, hold,
+unsupported, action draft, or cancellation. The synchronous compatibility coordinator defaults to
+exact canonical commands and does not apply natural-language regex, keyword narration, or
+canonical-string read planning unless an explicit temporary caller selects `legacy` mode.
+
 ### Conversation claims application boundary
 
 The SD-01 claims slice owns deterministic answer-claim verification under

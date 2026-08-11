@@ -41,8 +41,10 @@ units for 100% structural query coverage.
 > extension schemas before I/O. Temporal, metric-series, and evidence-join handlers remain.
 > OQ-07 now projects current connected VNet peering records in the observed direction and private
 > endpoint attachments to their exact private-link service targets. Reverse peering still requires
-> an independent remote-VNet observation. Routes, workload/service mappings, observation receipts,
-> and the production network-path issuer remain.
+> an independent remote-VNet observation. It also projects `routes_to` only from explicit ARM
+> resource next-hop ids; IPs, prefixes, and hostnames never become ontology edges. Snapshot and
+> real-time constraints accept the reviewed peering/routing vocabulary. Workload/service mappings,
+> observation receipts, and the production network-path issuer remain.
 > OQ-04 now has a schema-constrained model seam that proposes a semantic frame and typed node DAG
 > from the whole bounded turn and candidate descriptors. Core rebuilds all digests and authority
 > fields, verifies the exact principal manifest, and returns a verified plan, one clarification,
@@ -69,6 +71,16 @@ units for 100% structural query coverage.
 > metric-series and evidence-join handlers, and topology-aware temporal support/refutation that
 > retains competing explanations. Production metric provider bindings and reviewed catalog data
 > remain.
+> OQ-05 now also includes an async server-side semantic turn runtime that terminates every accepted
+> ordinary-language turn as answer, clarification, hold, unsupported, action draft, or cancellation;
+> it executes only verified query DAGs and emits exact Console graph/evidence projections.
+> OQ-10 changes the synchronous compatibility coordinator default to exact canonical commands only.
+> Natural-language aliases, keyword narration, and canonical-string read plans run only when tests
+> or an explicit temporary caller select `legacy`; ordinary language belongs to the semantic runtime.
+> OQ-11 adds an executable fast gate over all shipped principal manifests and a bilingual competency
+> cohort. It requires complete structural accounting, 100% terminal disposition, zero legacy
+> ordinary-language routes, zero unsupported claims, and zero unauthorized executions. Answer
+> counts remain reported by cohort rather than asserted as universally complete.
 
 ## Design at a glance
 
@@ -92,7 +104,7 @@ objects are selected only by authoritative reads after plan verification.
 
 | Area | Verified current implementation | Gap that blocks the target |
 |------|---------------------------------|----------------------------|
-| Conversation routing | The local independent Operator Service restores model narration from the resolved Azure candidates; Core `ConversationCoordinator` still uses `_VERB_PATTERNS`, and `ReadPlanNarrator` may propose two or three canonical command strings that `execute_read_plan` runs serially. | Local model narration has no provider-read or execution authority and does not supply a server-side semantic problem frame, intent graph producer, dependency-wave executor, or typed plan bridge. |
+| Conversation routing | The default compatibility coordinator accepts exact canonical commands only; the async semantic runtime plans and executes verified ordinary-language DAGs and emits terminal graph/evidence projections. | Production model, descriptor-index, provider, and Operator stream composition remain; `legacy` exists only as an explicit temporary compatibility mode. |
 | Console intent graph | Core now derives a bounded graph and receipt evidence from verified plans, and shared SDK projections exactly match the Console v2/v1 parsers. | The production turn-completion stream does not yet attach the produced graph and evidence. |
 | Semantic interpretation | A schema-constrained whole-turn model seam proposes `SemanticProblemFrame` and typed DAG candidates; Core supplies identity, verifies the principal manifest, and supports opt-in shadow comparison beside compatibility routing. | No production model/descriptor-index binding is enabled, and the semantic path does not yet select the visible answer. |
 | Object queries | `OntologyQueryPlan` now composes secured ObjectSets, set algebra, ordering, projection, grouped aggregation, and typed read-only functions over immutable content-addressed tables. | Temporal snapshots, metric series, and evidence joins still require registered extension handlers. |

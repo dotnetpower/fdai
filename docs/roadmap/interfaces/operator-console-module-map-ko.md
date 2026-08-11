@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: e02050f3447d0828cb1e634c6e0fe2916766527b
+translation_source_sha: 7de8c8cfe6166c9e6cf46dee64b78312f92f37a5
 translation_revised: 2026-08-08
 ---
 # Operator Console Module Map and Boundaries
@@ -102,6 +102,12 @@ argument, excess dependency 및 12개를 초과하는 evidence reference를 거�
 Core는 principal-manifest-verified query plan에서 이 record를 만들 수 있지만 production JSON/SSE turn
 completion은 아직 이를 attach하지 않습니다. 해당 binding 전까지 parser 변경은 additive이고
 compatibility route가 visible answer path로 유지됩니다.
+
+Core semantic runtime은 이제 planning, dependency-wave execution 및 이 projection을 하나의 async server
+result로 구성합니다. 모든 accepted turn은 answer, clarification, hold, unsupported, action draft 또는
+cancellation으로 종료됩니다. Synchronous compatibility coordinator는 exact canonical command를 default로
+사용하며 explicit temporary caller가 `legacy` mode를 선택하지 않으면 natural-language regex, keyword
+narration 또는 canonical-string read planning을 적용하지 않습니다.
 
 ### Conversation claims application boundary
 

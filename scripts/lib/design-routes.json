@@ -1064,6 +1064,8 @@
       "paths": [
         "docs/roadmap/interfaces/hierarchical-conversation-planning*.md",
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan*.md",
+        "config/ontology-query-competency.json",
+        "scripts/quality/architecture/check-ontology-query-coverage.py",
         "services/core-control-plane/src/fdai/core/conversation/**",
         "services/core-control-plane/src/fdai/core/ontology_platform/**",
         "services/core-control-plane/src/fdai/shared/contracts/models/ontology.py",
@@ -1096,6 +1098,7 @@
       ],
       "validate": [
         "uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation services/core-control-plane/tests/core/ontology_platform services/operator-service/tests",
+        "uv run python scripts/quality/architecture/check-ontology-query-coverage.py",
         "uv run python scripts/quality/architecture/check-independent-services.py"
       ]
     },

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: af24d028ce00109112c211ff1e9e05d4a927d8a5
+translation_source_sha: 9410ab68dc2b50efac8620daed1bb145e1e2882a
 translation_revised: 2026-08-10
 ---
 # 코드 맵
@@ -44,7 +44,7 @@ Core distribution은 전체 `fdai` namespace를 유지합니다. 내부 module b
 |------|----------------|--------|------|
 | Control loop와 decisioning | Event normalization, tier routing, quality, risk, approval, execution coordination, recovery 및 audit | [core](../../../services/core-control-plane/src/fdai/core/) | [core test](../../../services/core-control-plane/tests/core/) |
 | Ontology safety platform | Exact semantic release, production Interface compilation, principal-scoped manifest, generic/temporal query algebra, bitemporal topology/diff, reviewed metric concept, topology-aware causal join, mutation plan, independent effect reconciliation 및 durable reconciliation record | [ontology_platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [ontology platform test](../../../services/core-control-plane/tests/core/ontology_platform/) |
-| Semantic conversation planning | Whole-turn schema proposal, server-owned frame/plan identity, principal-manifest verification, shadow comparison, deterministic intent graph 및 execution authority가 없는 Console wire projection | [conversation](../../../services/core-control-plane/src/fdai/core/conversation/) | [conversation test](../../../services/core-control-plane/tests/conversation/) |
+| Semantic conversation planning | Whole-turn schema proposal, server-owned frame/plan identity, principal-manifest verification, async verified execution, total terminal disposition, deterministic intent graph, exact-command compatibility cutover 및 execution authority가 없는 continuous coverage gate | [conversation](../../../services/core-control-plane/src/fdai/core/conversation/) | [conversation test](../../../services/core-control-plane/tests/conversation/) |
 | Ontology semantic generation | Candidate-only concrete index, full/incremental declaration 및 deployment-object document, independent validation receipt, atomic activation, stale detection 및 rollback | [catalog_search](../../../services/core-control-plane/src/fdai/delivery/catalog_search/) | [catalog search test](../../../services/core-control-plane/tests/delivery/catalog_search/) |
 | Agent pantheon | 고정 agent 15개와 typed event runtime | [agents](../../../services/core-control-plane/src/fdai/agents/) | [agent test](../../../services/core-control-plane/tests/agents/) |
 | Composition | Provider 및 runtime dependency injection | [composition](../../../services/core-control-plane/src/fdai/composition/) | [composition test](../../../services/core-control-plane/tests/composition/) |

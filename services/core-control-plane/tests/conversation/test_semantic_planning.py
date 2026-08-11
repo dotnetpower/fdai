@@ -12,6 +12,7 @@ from fdai.core.conversation.intent_graph import build_intent_graph_evidence
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_models import SemanticPlanningDisposition
+from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
 from fdai.core.conversation.session import ConversationSession, Principal, Role
 from fdai.core.conversation.tools import ToolResult
 from fdai.core.ontology_platform import (
@@ -19,6 +20,7 @@ from fdai.core.ontology_platform import (
     ObjectSelector,
     ObjectSelectorKind,
     ObjectSetDefinition,
+    OntologyQueryPlanExecutor,
     OntologyQueryPlanVerifier,
     QueryNodeResult,
     QueryPlanExecution,
@@ -307,3 +309,35 @@ def test_catalog_manifest_provider_filters_role_and_rejects_break_glass() -> Non
             principal=Principal(id="operator", role=Role.BREAK_GLASS),
             purpose="operations-review",
         )
+
+
+async def test_semantic_runtime_executes_verified_plan_and_projects_terminal_graph() -> None:
+    manifest, definition = _fixture()
+    planner = _service(_Model(frame=_frame(), plan=_plan(definition)), manifest)
+
+    async def object_set_handler(node, dependencies):  # type: ignore[no-untyped-def]
+        assert node.kind is QueryNodeKind.OBJECT_SET
+        assert dependencies == {}
+        return QueryNodeResult(value={"rows": ["resource-a"]}, evidence_refs=("inventory:1",))
+
+    runtime = SemanticConversationRuntime(
+        planner=planner,
+        executor=OntologyQueryPlanExecutor(
+            handlers={QueryNodeKind.OBJECT_SET: object_set_handler},
+            now=lambda: NOW,
+        ),
+    )
+
+    result = await runtime.handle(
+        utterance="현재 운영 객체를 보여줘",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+    )
+
+    assert result.disposition == "answered"
+    assert result.execution_authority is False
+    assert result.intent_graph is not None
+    assert result.intent_graph["schema_version"] == 2
+    assert result.intent_graph_evidence is not None
+    assert result.intent_graph_evidence["status"] == "completed"
+    assert result.intent_graph_evidence["goals"][0]["evidence_refs"] == ["inventory:1"]

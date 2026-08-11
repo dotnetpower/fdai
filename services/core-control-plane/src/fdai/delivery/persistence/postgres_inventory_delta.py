@@ -19,7 +19,7 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
 )
 
 _CHANGE_KINDS = frozenset({"upsert", "delete"})
-_LINK_TYPES = frozenset({"contains", "attached_to", "depends_on"})
+_LINK_TYPES = frozenset({"contains", "attached_to", "depends_on", "peered_with", "routes_to"})
 _DEFAULT_MAX_LINKS = 256
 _DEFAULT_MAX_RECONCILED_LINKS = 4096
 _DEFAULT_MAX_FUTURE_SKEW_SECONDS = 300

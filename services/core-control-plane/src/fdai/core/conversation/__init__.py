@@ -108,6 +108,12 @@ from fdai.core.conversation.coordinator import (
     ConversationCoordinator,
     CoordinatorConfig,
 )
+from fdai.core.conversation.coverage_gate import (
+    OntologyQueryCoverageGateReceipt,
+    QuestionDispositionRecord,
+    evaluate_ontology_query_coverage,
+    require_ontology_query_coverage,
+)
 from fdai.core.conversation.creation import (
     CreateIncidentCommand,
     CreateScheduledTaskCommand,
@@ -163,6 +169,10 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticPlanningDisposition,
     SemanticPlanningModel,
     SemanticPlanningOutcome,
+)
+from fdai.core.conversation.semantic_runtime import (
+    SemanticConversationRuntime,
+    SemanticTurnResult,
 )
 from fdai.core.conversation.session import (
     ConversationSession,
@@ -295,6 +305,7 @@ __all__ = [
     "LoadRuntimeSkillBundleTool",
     "LoadRuntimeSkillTool",
     "Narrator",
+    "OntologyQueryCoverageGateReceipt",
     "ReadPlanNarrator",
     "Principal",
     "PrincipalConversationBindingAuthorizer",
@@ -308,6 +319,7 @@ __all__ = [
     "PairingRequest",
     "PendingBusyInput",
     "QueryAuditTool",
+    "QuestionDispositionRecord",
     "QueryManifestProvider",
     "QueryNodeProposal",
     "QueryPlanProposal",
@@ -322,11 +334,13 @@ __all__ = [
     "SearchConversationsTool",
     "SearchRuntimeToolsTool",
     "SemanticDescriptorSelector",
+    "SemanticConversationRuntime",
     "SemanticFrameProposal",
     "SemanticPlanningDisposition",
     "SemanticPlanningModel",
     "SemanticPlanningOutcome",
     "SemanticPlanningService",
+    "SemanticTurnResult",
     "RuntimeToolDiscovery",
     "SessionLoader",
     "SimulateChangeTool",
@@ -342,9 +356,11 @@ __all__ = [
     "build_intent_graph",
     "build_intent_graph_evidence",
     "consume_pending_input",
+    "evaluate_ontology_query_coverage",
     "default_tool_schemas",
     "format_prompt_tool_list",
     "finish_active_turn",
     "operator_memory_to_entries",
+    "require_ontology_query_coverage",
     "session_to_working_context",
 ]

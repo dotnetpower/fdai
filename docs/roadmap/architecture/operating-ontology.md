@@ -68,6 +68,10 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > Inventory projection rejects endpoint-type conflicts against observed resources. The function
 > uses a source-derived artifact digest, emits exact-release invocation receipts, and has no
 > provider I/O or execution authority.
+> Current Azure projection now emits directed `routes_to` only when the provider supplies an exact
+> ARM resource next-hop id. IP addresses, prefixes, DNS names, and route absence never become
+> Resource identities or reachability claims. Both snapshot and real-time inventory projections
+> persist the reviewed peering and routing link vocabulary.
 
 ## Catalog semantic projection
 

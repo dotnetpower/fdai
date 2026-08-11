@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0.0",
+  "questions": [
+    {
+      "question_id": "exact-resource-en",
+      "cohort": "exact-en",
+      "disposition": "answered"
+    },
+    {
+      "question_id": "exact-resource-ko",
+      "cohort": "exact-ko",
+      "disposition": "answered"
+    },
+    {
+      "question_id": "ambiguous-measure-en",
+      "cohort": "ambiguous-en",
+      "disposition": "clarification"
+    },
+    {
+      "question_id": "ambiguous-measure-ko",
+      "cohort": "ambiguous-ko",
+      "disposition": "clarification"
+    },
+    {
+      "question_id": "unsupported-domain-en",
+      "cohort": "unsupported-en",
+      "disposition": "unsupported"
+    },
+    {
+      "question_id": "unsupported-domain-ko",
+      "cohort": "unsupported-ko",
+      "disposition": "unsupported"
+    },
+    {
+      "question_id": "request-change-temporal",
+      "cohort": "temporal-causal",
+      "disposition": "answered"
+    },
+    {
+      "question_id": "storage-network-causal",
+      "cohort": "temporal-causal",
+      "disposition": "answered"
+    },
+    {
+      "question_id": "missing-history-hold",
+      "cohort": "evidence-gap",
+      "disposition": "held"
+    },
+    {
+      "question_id": "explicit-action-draft",
+      "cohort": "action-boundary",
+      "disposition": "action_draft"
+    }
+  ]
+}

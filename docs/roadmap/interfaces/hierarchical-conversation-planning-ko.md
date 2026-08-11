@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 9cdfd1e42faf14dac0305a0a458ccfc872433787
+translation_source_sha: 627828aee6f977dd22cae2eb821a481db3de0122
 translation_revised: 2026-08-10
 ---
 
@@ -39,8 +39,10 @@ whole-turn semantic model seam, principal-manifest verification, deterministic i
 및 정확한 Console v2/v1 wire projection이 있습니다. Compatibility coordinator는 visible result를
 바꾸지 않고 semantic planning을 shadow로 실행할 수 있습니다. Production turn stream은 이 projection을
 attach하지 않으며 production semantic model 또는 descriptor-index binding도 enable되지 않았습니다.
-Active Core compatibility path는 계속 `_VERB_PATTERNS`를 match하고 선택적으로 narrator에게 canonical
-command string을 요청하며 serial 2-3 step read plan만 실행할 수 있습니다.
+Default Core compatibility path는 이제 exact canonical command만 수락합니다. Natural-language alias,
+keyword narration 및 canonical-string read plan은 explicit temporary `legacy` mode가 필요합니다. Async
+semantic runtime은 verified ordinary-language DAG를 실행하고 bounded graph/evidence projection을 emit합니다.
+Production model, provider, descriptor-index 및 Operator stream composition은 남아 있습니다.
 
 Exact-release semantic candidate, verified semantic plan, bounded ObjectSet, secured query receipt, typed
 function registration, `OntologyQueryPlan`, deterministic verifier 및 bounded dependency-wave execution이
@@ -336,7 +338,7 @@ Compatibility 기간은 일시적입니다. Migration은 하나의 graph contrac
 | Relationship side | 모든 directed LinkType이 deterministic outgoing/incoming endpoint-side query id를 제공하며 store는 typed direction을 보존합니다. | Generic verifier와 natural-language planner는 아직 이 side를 사용하지 않습니다. |
 | Semantic generation | Rule retrieval은 complete generation과 candidate-only ranking을 제공합니다. | Declaration 및 runtime object coverage는 전체 ontology로 확장되지 않았습니다. |
 | Historical graph | Append-only bitemporal revision contract, tombstone, late-evidence replay, `graph_at`, `topology_diff` 및 typed handler가 있습니다. | PostgreSQL reader/writer composition과 inventory-promotion publishing은 남아 있습니다. |
-| Network 및 causal function | Current network projection, exact metric concept, aligned window 및 topology-aware temporal support/refutation foundation이 있습니다. | Production receipt issuer, provider metric binding 및 남은 Azure route/workload relationship은 incomplete합니다. |
+| Network 및 causal function | Current peering, private-link target, exact-resource next-hop projection과 metric concept, aligned window 및 topology-aware temporal support/refutation foundation이 있습니다. | Production receipt issuer, provider metric binding 및 남은 Azure workload/service relationship은 incomplete합니다. |
 
 ## 검증
 

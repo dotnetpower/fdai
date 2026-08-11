@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 41787fe393282845d6d9c03e60339f35895a0601
+translation_source_sha: 6554328cc353d12e06d8f81fcb51d62cc01391b1
 translation_revised: 2026-08-09
 ---
 # FDAI 운영 온톨로지
@@ -72,6 +72,10 @@ cloud-operations 개념을 소유하고 deployment는 observed instance와 inten
 > 유지됩니다. Inventory projection은 observed resource와 endpoint type이 충돌하면 차단합니다.
 > Function은 source-derived artifact digest를 사용하고 exact-release invocation receipt를 emit하며
 > provider I/O 또는 execution authority가 없습니다.
+> Current Azure projection은 provider가 exact ARM resource next-hop id를 제공할 때만 directed
+> `routes_to`를 emit합니다. IP address, prefix, DNS name 및 route absence는 Resource identity 또는
+> reachability claim이 되지 않습니다. Snapshot과 real-time inventory projection은 reviewed
+> peering/routing link vocabulary를 모두 보존합니다.
 
 ## 카탈로그 semantic projection
 

@@ -208,6 +208,15 @@ def test_coordinator_rejects_empty_tool_set():
         ConversationCoordinator(tools=[])
 
 
+def test_default_surface_rejects_alias_and_accepts_exact_command(coordinator, reader_session):
+    ordinary = coordinator.handle_turn(session=reader_session, message="list rules")
+    exact = coordinator.handle_turn(session=reader_session, message="explore_catalog storage")
+
+    assert isinstance(ordinary, AbstainResult)
+    assert "semantic conversation runtime" in ordinary.reason
+    assert isinstance(exact, ToolResult)
+
+
 def test_session_snapshot_is_immutable(coordinator, reader_session):
     coordinator.handle_turn(session=reader_session, message="explore_catalog tag")
     snapshot = reader_session.snapshot()

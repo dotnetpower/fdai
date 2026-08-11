@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from fdai.core.conversation.coordinator import CoordinatorConfig
 from fdai.core.conversation.narrator import (
     DeterministicKeywordNarrator,
     ToolSchema,
@@ -222,6 +223,7 @@ class TestCoordinatorNarratorHook:
 
         coord = ConversationCoordinator(
             tools=self._tools(),
+            config=CoordinatorConfig(ordinary_language_mode="legacy"),
             narrator=DeterministicKeywordNarrator(),
             narrator_tool_schemas=default_tool_schemas(),
         )
@@ -249,6 +251,7 @@ class TestCoordinatorNarratorHook:
 
         coord = ConversationCoordinator(
             tools=self._tools(),
+            config=CoordinatorConfig(ordinary_language_mode="legacy"),
             narrator=_NullNarrator(),
             narrator_tool_schemas=[],
         )
@@ -285,6 +288,7 @@ class TestCoordinatorNarratorHook:
 
         coord = ConversationCoordinator(
             tools=self._successful_tools(),
+            config=CoordinatorConfig(ordinary_language_mode="legacy"),
             narrator=_ClarifyingNarrator(),
             narrator_tool_schemas=default_tool_schemas(),
         )
@@ -314,6 +318,7 @@ class TestCoordinatorNarratorHook:
 
         coord = ConversationCoordinator(
             tools=self._successful_tools(),
+            config=CoordinatorConfig(ordinary_language_mode="legacy"),
             narrator=_InvalidClarifyingNarrator(),
             narrator_tool_schemas=default_tool_schemas(),
         )
@@ -335,6 +340,7 @@ class TestCoordinatorNarratorHook:
 
         coord = ConversationCoordinator(
             tools=self._tools(),
+            config=CoordinatorConfig(ordinary_language_mode="legacy"),
             narrator=_BoomNarrator(),
             narrator_tool_schemas=[],
         )
@@ -350,6 +356,7 @@ class TestCoordinatorNarratorHook:
 
         coord = ConversationCoordinator(
             tools=self._tools(),
+            config=CoordinatorConfig(ordinary_language_mode="legacy"),
             narrator=DeterministicKeywordNarrator(),
             narrator_tool_schemas=default_tool_schemas(),
         )
@@ -392,6 +399,7 @@ class TestCoordinatorNarratorHook:
 
         coordinator = ConversationCoordinator(
             tools=self._successful_tools(),
+            config=CoordinatorConfig(ordinary_language_mode="legacy"),
             narrator=_ContextualNarrator(),
             narrator_tool_schemas=default_tool_schemas(),
         )
@@ -425,6 +433,7 @@ class TestCoordinatorNarratorHook:
 
         coordinator = ConversationCoordinator(
             tools=self._successful_tools(),
+            config=CoordinatorConfig(ordinary_language_mode="legacy"),
             narrator=_InventingNarrator(),
             narrator_tool_schemas=default_tool_schemas(),
         )

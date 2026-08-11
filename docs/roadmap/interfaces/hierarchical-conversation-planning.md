@@ -37,8 +37,11 @@ whole-turn semantic model seam, principal-manifest verification, deterministic i
 receipt production, and exact Console v2/v1 wire projections. The compatibility coordinator can
 run semantic planning in shadow without changing the visible result. The production turn stream
 does not attach these projections, and no production semantic model or descriptor-index binding is
-enabled. The active Core compatibility path still matches `_VERB_PATTERNS`, optionally asks a
-narrator for canonical command strings, and can execute only a serial two-to-three-step read plan.
+enabled. The default Core compatibility path now accepts exact canonical commands only.
+Natural-language aliases, keyword narration, and canonical-string read plans require explicit
+temporary `legacy` mode. An async semantic runtime executes verified ordinary-language DAGs and
+emits bounded graph and evidence projections. Production model, provider, descriptor-index, and
+Operator stream composition remain.
 
 Exact-release semantic candidates, verified semantic plans, bounded ObjectSets, secured query
 receipts, typed function registration, `OntologyQueryPlan`, a deterministic verifier, and bounded
@@ -340,7 +343,7 @@ The compatibility period is temporary. Migration ends with one graph contract an
 | Relationship sides | Every directed LinkType exposes deterministic outgoing and incoming endpoint-side query ids while stores preserve typed direction. | The generic verifier and natural-language planner do not yet consume those sides. |
 | Semantic generations | Rule retrieval has complete generations and candidate-only ranking | Declaration and runtime-object coverage has not yet expanded to the full ontology. |
 | Historical graph | Append-only bitemporal revision contracts, tombstones, late-evidence replay, `graph_at`, `topology_diff`, and typed handlers exist. | PostgreSQL reader/writer composition and inventory-promotion publishing remain. |
-| Network and causal functions | Current network projection, exact metric concepts, aligned windows, and topology-aware temporal support/refutation foundations exist. | Production receipt issuers, provider metric bindings, and remaining Azure route/workload relationships remain incomplete. |
+| Network and causal functions | Current peering, private-link target, and exact-resource next-hop projection plus metric concepts, aligned windows, and topology-aware temporal support/refutation foundations exist. | Production receipt issuers, provider metric bindings, and remaining Azure workload/service relationships remain incomplete. |
 
 ## Verification
 

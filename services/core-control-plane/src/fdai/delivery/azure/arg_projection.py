@@ -358,6 +358,57 @@ def extract_peered_with_links_from_row(
     return tuple(links[key] for key in sorted(links))
 
 
+def extract_routes_to_links_from_row(
+    row: Mapping[str, Any],
+    *,
+    child: ResourceRecord,
+    arm_to_neutral: Mapping[str, str],
+) -> tuple[LinkRecord, ...]:
+    """Project directed routing only when Azure supplies an exact resource id.
+
+    Address prefixes, hostnames, and next-hop IPs are not Resource identities and
+    never become links. Absence of an emitted edge proves nothing about reachability.
+    """
+
+    properties = row.get("properties")
+    if not isinstance(properties, Mapping):
+        return ()
+    candidates: list[Mapping[str, Any]] = [properties]
+    routes = properties.get("routes")
+    if isinstance(routes, Sequence) and not isinstance(routes, (str, bytes)):
+        for route in routes:
+            if not isinstance(route, Mapping):
+                continue
+            nested = route.get("properties")
+            candidates.append(nested if isinstance(nested, Mapping) else route)
+    links: dict[str, LinkRecord] = {}
+    for candidate in candidates:
+        next_hop = candidate.get("nextHop")
+        references = (
+            candidate.get("nextHopResourceId"),
+            candidate.get("targetResourceId"),
+            next_hop.get("id") if isinstance(next_hop, Mapping) else None,
+        )
+        for reference in references:
+            if not isinstance(reference, str):
+                continue
+            arm_type = arm_id_to_type(reference)
+            target_type = arm_to_neutral.get(arm_type.casefold()) if arm_type else None
+            if target_type is None:
+                continue
+            target_id = to_neutral_id(reference)
+            if target_id == child.resource_id:
+                continue
+            links[target_id] = LinkRecord(
+                from_id=child.resource_id,
+                from_type=child.type,
+                link_type="routes_to",
+                to_id=target_id,
+                to_type=target_type,
+            )
+    return tuple(links[key] for key in sorted(links))
+
+
 def _vm_attachment_ids(properties: Mapping[str, Any]) -> Iterable[str]:
     network_profile = properties.get("networkProfile")
     if isinstance(network_profile, Mapping):

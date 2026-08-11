@@ -9,6 +9,7 @@ from fdai.core.conversation import (
     AbstainResult,
     ConversationCoordinator,
     ConversationSession,
+    CoordinatorConfig,
     Principal,
     Role,
     ToolResult,
@@ -114,6 +115,7 @@ def test_valid_read_plan_executes_and_aggregates_grounded_results() -> None:
     narrator = _PlanningNarrator(("explore_catalog storage", "query_inventory virtual-machine"))
     coordinator = ConversationCoordinator(
         tools=(catalog, inventory),
+        config=CoordinatorConfig(ordinary_language_mode="legacy"),
         narrator=narrator,
         narrator_tool_schemas=default_tool_schemas(),
     )
@@ -149,6 +151,7 @@ def test_read_plan_with_non_read_step_executes_nothing() -> None:
     narrator = _PlanningNarrator(("explore_catalog storage", "simulate_change {}"))
     coordinator = ConversationCoordinator(
         tools=(catalog, simulation),
+        config=CoordinatorConfig(ordinary_language_mode="legacy"),
         narrator=narrator,
         narrator_tool_schemas=default_tool_schemas(),
     )
@@ -183,6 +186,7 @@ def test_failed_read_halts_remaining_plan_without_synthesis() -> None:
     narrator = _PlanningNarrator(("explore_catalog storage", "query_inventory virtual-machine"))
     coordinator = ConversationCoordinator(
         tools=(catalog, inventory),
+        config=CoordinatorConfig(ordinary_language_mode="legacy"),
         narrator=narrator,
         narrator_tool_schemas=default_tool_schemas(),
     )
@@ -202,6 +206,7 @@ def test_conflicting_state_for_same_resource_blocks_synthesis() -> None:
     narrator = _PlanningNarrator(("explore_catalog storage", "query_inventory virtual-machine"))
     coordinator = ConversationCoordinator(
         tools=(catalog, inventory),
+        config=CoordinatorConfig(ordinary_language_mode="legacy"),
         narrator=narrator,
         narrator_tool_schemas=default_tool_schemas(),
     )
@@ -229,6 +234,7 @@ def test_different_resource_states_do_not_create_false_conflict() -> None:
     narrator = _PlanningNarrator(("explore_catalog storage", "query_inventory virtual-machine"))
     coordinator = ConversationCoordinator(
         tools=(catalog, inventory),
+        config=CoordinatorConfig(ordinary_language_mode="legacy"),
         narrator=narrator,
         narrator_tool_schemas=default_tool_schemas(),
     )
