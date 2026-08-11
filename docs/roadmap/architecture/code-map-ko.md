@@ -19,7 +19,7 @@ translation_revised: 2026-08-11
 - **Shared SDK 1개:** `packages/service-contracts/`는 서비스 구현 없이 서비스 간
   계약을 포함합니다.
 - **Service-owned 테스트:** 단위 및 컴포넌트 테스트는 소유 서비스 또는 패키지 옆에 있습니다.
-- **Virtual 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정합니다.
+- **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정합니다.
 - **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및
   저장소 검사를 소유합니다.
 
@@ -33,7 +33,7 @@ translation_revised: 2026-08-11
 | 문서 처리 워커 | [fdai_document_worker_service](../../../services/document-processing-worker/src/fdai_document_worker_service/) | [워커 테스트](../../../services/document-processing-worker/tests/) | `fdai-document-processing-worker` |
 | Isolated 실행기 | [fdai_executor_service](../../../services/isolated-executor/src/fdai_executor_service/) | [실행기 테스트](../../../services/isolated-executor/tests/) | `fdai-isolated-executor-service` |
 | 서비스 계약 | [fdai_service_contracts](../../../packages/service-contracts/src/fdai_service_contracts/) | [계약 테스트](../../../packages/service-contracts/tests/) | `fdai-service-contracts` |
-| 서비스 간 통합 | 해당 없음 | [루트 통합 테스트](../../../tests/integration/) | Virtual 루트 only |
+| 서비스 간 통합 | 해당 없음 | [루트 통합 테스트](../../../tests/integration/) | 가상 루트 only |
 
 ## Core 컨트롤 플레인 지도
 
