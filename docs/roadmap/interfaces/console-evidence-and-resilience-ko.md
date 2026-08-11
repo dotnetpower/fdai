@@ -2,705 +2,705 @@
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
 translation_source_sha: 13ef8d74d9530d14a8628dbf41e66332dcbc8f38
-translation_revised: 2026-08-05
+translation_revised: 2026-08-11
 ---
 
 # 콘솔 근거 및 복원력
 
-이 문서는 operator console의 evidence provenance, localization, stream recovery, durable replay 및 Architecture map resilience 계약을 소유합니다. 대화형 tool 및 RBAC 계약은
+이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은
 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
 
 ## 탐색 컨텍스트
 
-Activity Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째 visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며,
-full-workspace Deck은 route가 변경되기 전에 닫힙니다.
-다른 화면의 cached conversation 선택은 bounded exception입니다. Console은 conversation origin으로 이동할 때 conversation-owned synchronous route event만 suppress한 뒤 transcript를 활성화합니다.
-Transient default-session switch 또는 close/reopen focus cycle 없이 Deck을 열린 상태로 유지합니다.
-Same-screen 및 agent conversation은 navigation 없이 전환합니다.
-이미 active인 same-screen conversation을 다시 선택하면 focus만 복원하며 최신 in-memory turn 위에 sessionStorage transcript를 다시 로드하지 않습니다.
-비활성 conversation을 선택하면 browser-local 읽음 확인만 기록하고 activity timestamp는 변경하지 않으므로 history 순서가 유지됩니다. Principal-scoped `내 대화`, `읽지 않음` 및 `즐겨찾기` filter는 browser-local navigation metadata만 사용하며 즐겨찾기 전환은 server activity, evidence 또는 ordering을 변경하지 않습니다. Conversation 제목은 관찰된 activity가 저장된 read timestamp보다
-최신인 동안에만 굵게 표시됩니다. 선택하면 행을 이동하지 않고 이 표시를 해제하며, 더 새로운 server
-activity만 ordering timestamp를 갱신합니다.
-Agent 대화가 아닌 경우 첫 operator 질문이 제목이 되고 origin screen은 별도 metadata로 유지됩니다.
-정규화된 질문은 history metadata에서 512자로 제한되고 browser 및 durable 복원 후에도 보존됩니다.
-제목이 시각적으로 잘리면 visible text는 ellipsis를 유지합니다. 시간 영역을 포함한 selectable
-conversation row 어디에서든 pointer hover하거나 keyboard focus하면 제목 길이와 관계없이 공용 console
-tooltip으로 제한된 질문 전체를 표시합니다. Layout 및 닫기 icon control도 같은 localized tooltip component를
-사용합니다. 연결된 backend tooltip은 mode, endpoint, route choice 및 candidate를 별도 줄로 유지하고
-localized placeholder를 모두 채우며 긴 endpoint 또는 deployment token을 viewport 경계 안에서
+활동 Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째 visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며,
+full-workspace Deck은 경로가 변경되기 전에 닫힙니다.
+다른 화면의 cached 대화 선택은 범위가 제한된 exception입니다. Console은 대화 출처로 이동할 때 conversation-owned synchronous 경로 이벤트만 suppress한 뒤 대화 기록을 활성화합니다.
+Transient default-session 전환 또는 close/reopen focus cycle 없이 Deck을 열린 상태로 유지합니다.
+Same-screen 및 에이전트 대화는 탐색 없이 전환합니다.
+이미 활성인 same-screen 대화를 다시 선택하면 focus만 복원하며 최신 in-memory 턴 위에 sessionStorage 대화 기록을 다시 로드하지 않습니다.
+비활성 대화를 선택하면 browser-local 읽음 확인만 기록하고 활동 시각은 변경하지 않으므로 이력 순서가 유지됩니다. principal 범위로 한정된 `내 대화`, `읽지 않음` 및 `즐겨찾기` 필터는 browser-local 탐색 메타데이터만 사용하며 즐겨찾기 전환은 서버 활동, 근거 또는 정렬을 변경하지 않습니다. 대화 제목은 관찰된 활동이 저장된 읽기 시각보다
+최신인 동안에만 굵게 표시됩니다. 선택하면 행을 이동하지 않고 이 표시를 해제하며, 더 새로운 서버
+활동만 정렬 시각을 갱신합니다.
+에이전트 대화가 아닌 경우 첫 운영자 질문이 제목이 되고 출처 화면은 별도 메타데이터로 유지됩니다.
+정규화된 질문은 이력 메타데이터에서 512자로 제한되고 브라우저 및 영속 복원 후에도 보존됩니다.
+제목이 시각적으로 잘리면 visible 텍스트는 ellipsis를 유지합니다. 시간 영역을 포함한 selectable
+대화 행 어디에서든 포인터 hover하거나 keyboard focus하면 제목 길이와 관계없이 공용 콘솔
+툴팁으로 제한된 질문 전체를 표시합니다. 배치 및 닫기 icon 컨트롤도 같은 localized 툴팁 컴포넌트를
+사용합니다. 연결된 백엔드 툴팁은 모드, 엔드포인트, 경로 choice 및 후보를 별도 줄로 유지하고
+localized 자리 표시자를 모두 채우며 긴 엔드포인트 또는 배포 토큰을 뷰포트 경계 안에서
 줄바꿈합니다.
-Agent card의 Ask action은 항상 unique user-scoped key를 가진 비어 있는 새 agent conversation을 엽니다. 새 summary는 선택한 agent를 즉시 보유하므로 첫 submit부터 같은 agent target을 Operator API에
-전달합니다. 기존 agent conversation은 별도 history entry로 보존하며 operator가 명시적으로 선택할
+에이전트 카드의 Ask 액션은 항상 unique user-scoped 키를 가진 비어 있는 새 에이전트 대화를 엽니다. 새 요약은 선택한 에이전트를 즉시 보유하므로 첫 제출부터 같은 에이전트 대상을 Operator API에
+전달합니다. 기존 에이전트 대화는 별도 이력 항목으로 보존하며 운영자가 명시적으로 선택할
 때만 복원합니다.
-Active cached conversation을 제거하면 current-route default(legacy `screen` key 포함) 또는 current-route thread만 선택합니다. 둘 다 없으면 unrelated-route 또는 agent transcript를 활성화하지
-않고 새 current-route default를 만듭니다.
-않고 새 current-route default를 만듭니다. Context-dependent cancellation, runbook, knowledge, memory, learning, ordinal-resource, ambiguity, reformatting 및 partial-source 질문에는 verified prior conversation record가 필요합니다. 서버는 principal-scoped `ConversationHistoryStore`의 최신 사용 가능한 assistant replay에서 active investigation, selected resource, prior answer 또는 source-failure receipt를 재구성합니다. Browser transcript는 이 authority를 만들 수 없으며 fresh conversation은 unavailable 상태를 유지합니다. Verified 또는 corrected prior turn 이후 `KnowledgeContextChatTools`는 unique trusted runbook 하나를 load하거나 enabled source의 authorization 및 refresh state를 보고하거나 해당 principal만 볼 수 있는 explicit-consent memory를 표시합니다. Exact assistant-turn review가 materialized memory 또는 runtime-skill proposal을 가리킬 때만 learning을 reusable로 보고합니다. Draft와 ambiguous runbook은 empty로, provider failure는 unavailable로 유지하며 ordinary chat은 memory 또는 review state를 쓰지 않습니다. 완료된 continuation은 durable assistant turn과 content-addressed source receipt를 인용합니다.
-Verified fresh inventory answer는 server-owned replay metadata에 bounded `resource_result_context`를 포함할 수 있습니다. Raw resource ID를 포함하지 않고 browser context에서는 수락하지 않으며 source, snapshot, scope, query digest, freshness, truncation 및 이후 deterministic follow-up에 사용할 최대 40개의 ordered selector를 보존합니다.
-Ordinal follow-up은 선택한 위치를 exact fresh inventory predicate로 다시 검증합니다. Ambiguity follow-up은 complete prior result set의 equal-name candidate만 표시합니다. Incomplete context는 unavailable 상태를 유지하며 current-screen 또는 narrator output으로 fallback할 수 없습니다.
-Verified source-manifest answer는 bounded unavailable 또는 unknown entry를 `source_failure_context`로 보존합니다. Partial-source continuation은 해당 receipt의 available fact와 exact gap을 렌더링하고 reason 및 last observation이 있으면 함께 표시하며 arbitrary unverified answer를 source authority로 취급하지 않습니다. Verified 또는 corrected `query_llm_usage` answer는 domain, capability, token measure, grouping, `usage_scope` 및 numeric 1-90일 lookback이 포함된 bounded `analysis_context`를 보존합니다. 기간, grouping, table 또는 chart만 바꾸는 refinement는 이 server-owned anchor를 재사용하고 metering evidence를 다시 읽습니다. Comparison, export, missing-anchor, client-supplied-anchor 및 명시적인 다른 metric 요청은 inventory, Resource Health 또는 narrator output을 선택하지 않고 context-required hold를 반환합니다.
-Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. 비어 있는 transcript는 상황별 suggestion을 유지하고 tool 선택이나 authority를 바꾸지 않는 localized Resilience, Change Safety 및 Cost Governance quick start를 추가합니다. Transcript
-toolbar는 workspace, docked 및 floating layout에서 filter 가능한 대화 이력을 제공합니다. 좁은
-layout에서는 transcript 폭을 줄이지 않고 그 위에 overlay로 엽니다. Workspace에서는 pointer 또는 keyboard separator로 대화 이력 폭을 180-360 px 범위에서 조절하고 마지막 폭을 local에 저장합니다. 좁은 layout은 separator를 숨깁니다. History header는 검색과 icon-only 새 대화를 compact한 한 줄에 배치하고 lightweight filter tab을 사용하며, control 대신 list만 scroll합니다. 현재 화면 digest는 workspace control로 유지됩니다. Deck은 열린 surface마다 composition-owned data-source manifest를 한 번 읽고 transcript 위에 Inventory, Incidents, Audit, Knowledge 및 Automation readiness link를 compact하게 표시합니다. 누락되거나 non-authoritative인 source는 `unknown`으로 유지합니다. Browser는 health를 추론하거나 raw provider detail을 노출하거나 route 존재로 manifest를 대체하지 않습니다. Loading은 stable skeleton을 사용하고 manifest failure는 conversation history를 차단하지 않으면서 Diagnostics로 연결합니다.
-History는 stable cursor 순서를 유지하지만 처음에는 summary 20건만 렌더링합니다. History scroll
-경계에 가까워지면 이미 load된 summary 중 다음 20건을 표시합니다. Local window를 모두 사용한 뒤에는
-같은 경계에서 server page 20건을 요청하고 기존 row를 교체하지 않고 이어서 표시합니다. 다음 page가
-있으면 count를 `20+`로 표시합니다. Transcript body는 선택할
-때만 hydrate합니다. Operator image는 전송된 turn 안에 표시됩니다. Browser cache serialization은
-inline byte를 제거하고 bounded descriptor만 유지하며, durable restoration은 인증된 principal 및
-conversation 범위 image route를 통해 binary를 fetch합니다. Browser 또는 durable history에서 복원된 transcript는 새 대화를 시작할 때까지
-resumed-session marker를 표시합니다. Deck header는 route와 optional agent context만 담당하며 agent
-대화가 아닌 질문은 반복 표시하지 않습니다. Digest는 record 수, snapshot age 및 오래된 context
-새로고침을 담당하며, Composer에는 attachment, 질문 입력 및 보내기 또는 중지만 유지합니다.
+활성 cached 대화를 제거하면 current-route 기본값(이전 방식 `screen` 키 포함) 또는 current-route 스레드만 선택합니다. 둘 다 없으면 unrelated-route 또는 에이전트 대화 기록을 활성화하지
+않고 새 current-route 기본값을 만듭니다.
+않고 새 current-route 기본값을 만듭니다. Context-dependent 취소, 런북, knowledge, 기억, learning, ordinal-resource, 모호함, reformatting 및 partial-source 질문에는 검증된 이전 대화 기록이 필요합니다. 서버는 principal 범위로 한정된 `ConversationHistoryStore`의 최신 사용 가능한 assistant 재생에서 활성 조사, 선택된 리소스, 이전 답변 또는 source-failure 증적을 재구성합니다. 브라우저 대화 기록은 이 권한을 만들 수 없으며 fresh 대화는 사용 불가 상태를 유지합니다. 검증된 또는 corrected 이전 턴 이후 `KnowledgeContextChatTools`는 unique trusted 런북 하나를 부하하거나 활성화된 출처의 권한 확인 및 refresh 상태를 보고하거나 해당 principal만 볼 수 있는 explicit-consent 기억을 표시합니다. Exact assistant-turn 검토가 materialized 기억 또는 runtime-skill 제안을 가리킬 때만 learning을 reusable로 보고합니다. 초안과 모호한 런북은 빈으로, 프로바이더 실패는 사용 불가로 유지하며 ordinary chat은 기억 또는 검토 상태를 쓰지 않습니다. 완료된 이어가기는 영속 assistant 턴과 내용 기반 주소를 가진 출처 증적을 인용합니다.
+검증된 fresh 인벤토리 답변은 서버가 소유한 재생 메타데이터에 범위가 제한된 `resource_result_context`를 포함할 수 있습니다. Raw 리소스 ID를 포함하지 않고 브라우저 맥락에서는 수락하지 않으며 출처, 스냅샷, 범위, 조회 다이제스트, 최신성, 잘림 및 이후 결정론적 후속 조치에 사용할 최대 40개의 ordered 선택자를 보존합니다.
+Ordinal 후속 조치는 선택한 위치를 exact fresh 인벤토리 조건식으로 다시 검증합니다. 모호함 후속 조치는 완전한 이전 결과 집합의 equal-name 후보만 표시합니다. 불완전한 맥락은 사용 불가 상태를 유지하며 current-screen 또는 서술기 출력으로 대체 경로할 수 없습니다.
+검증된 source-manifest 답변은 범위가 제한된 사용 불가 또는 알 수 없음 항목을 `source_failure_context`로 보존합니다. Partial-source 이어가기는 해당 증적의 available 사실과 exact 공백을 렌더링하고 사유 및 last 관측이 있으면 함께 표시하며 arbitrary 검증되지 않은 답변을 출처 권한으로 취급하지 않습니다. 검증된 또는 corrected `query_llm_usage` 답변은 domain, 기능, 토큰 measure, 그룹화, `usage_scope` 및 numeric 1-90일 조회 구간이 포함된 범위가 제한된 `analysis_context`를 보존합니다. 기간, 그룹화, 표 또는 chart만 바꾸는 구체화는 이 서버가 소유한 anchor를 재사용하고 metering 근거를 다시 읽습니다. 비교, 내보내기, missing-anchor, client-supplied-anchor 및 명시적인 다른 메트릭 요청은 인벤토리, Resource Health 또는 서술기 출력을 선택하지 않고 context-required 보류를 반환합니다.
+Full-workspace Command Deck 세션은 대화 기록만 열린 내용 열로 시작합니다. 비어 있는 대화 기록은 상황별 suggestion을 유지하고 도구 선택이나 권한을 바꾸지 않는 localized 복원력, 변경 안전성 및 비용 거버넌스 quick 시작을 추가합니다. 대화 기록
+toolbar는 workspace, docked 및 floating 배치에서 필터 가능한 대화 이력을 제공합니다. 좁은
+배치에서는 대화 기록 폭을 줄이지 않고 그 위에 overlay로 엽니다. Workspace에서는 포인터 또는 keyboard 구분자로 대화 이력 폭을 180-360 px 범위에서 조절하고 마지막 폭을 로컬에 저장합니다. 좁은 배치는 구분자를 숨깁니다. 이력 헤더는 검색과 icon-only 새 대화를 간결한한 한 줄에 배치하고 lightweight 필터 tab을 사용하며, 컨트롤 대신 목록만 scroll합니다. 현재 화면 다이제스트는 workspace 컨트롤로 유지됩니다. Deck은 열린 표면마다 composition-owned data-source 매니페스트를 한 번 읽고 대화 기록 위에 인벤토리, Incidents, 감사, Knowledge 및 자동화 준비 상태 링크를 간결한하게 표시합니다. 누락되거나 non-authoritative인 출처는 `unknown`으로 유지합니다. 브라우저는 상태를 추론하거나 raw 프로바이더 상세를 노출하거나 경로 존재로 매니페스트를 대체하지 않습니다. 로딩은 고정된 골격을 사용하고 매니페스트 실패는 대화 이력을 차단하지 않으면서 진단으로 연결합니다.
+이력은 고정된 커서 순서를 유지하지만 처음에는 요약 20건만 렌더링합니다. 이력 scroll
+경계에 가까워지면 이미 부하된 요약 중 다음 20건을 표시합니다. 로컬 구간을 모두 사용한 뒤에는
+같은 경계에서 서버 페이지 20건을 요청하고 기존 행을 교체하지 않고 이어서 표시합니다. 다음 페이지가
+있으면 개수를 `20+`로 표시합니다. 대화 기록 본문은 선택할
+때만 hydrate합니다. Operator 이미지는 전송된 턴 안에 표시됩니다. 브라우저 캐시 직렬화는
+inline 바이트를 제거하고 범위가 제한된 서술자만 유지하며, 영속 복원은 인증된 principal 및
+대화 범위 이미지 경로를 통해 binary를 fetch합니다. 브라우저 또는 영속 이력에서 복원된 대화 기록은 새 대화를 시작할 때까지
+resumed-session 표시를 표시합니다. Deck 헤더는 경로와 선택적 에이전트 맥락만 담당하며 에이전트
+대화가 아닌 질문은 반복 표시하지 않습니다. 다이제스트는 기록 수, 스냅샷 age 및 오래된 맥락
+새로고침을 담당하며, 작성기에는 첨부, 질문 입력 및 보내기 또는 중지만 유지합니다.
 
 공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.
 
 공통 상단 표시줄은 아이콘 전용 FDAI 마크를 원본 색상으로 렌더링하고 옆에 `FDAI Console`
 워드마크를 표시합니다. 콘솔 테마는 브랜드 자산의 채도를 낮추거나 색을 변경하지 않습니다.
 
-Live도 `운영 / 실시간`과 같은 공통 title 계약을 따릅니다. 관찰 control은 공통 header actions
-영역에 유지되고 좁은 viewport에서는 제목 아래로 줄바꿈되어 화면 고정, source, window 및 connection
-status가 계속 표시됩니다.
-열린 SSE 응답은 전송 연결만 증명합니다. Live는 권한 있는 runtime 또는 replay 단계 frame을
-관찰한 뒤에만 source가 준비되었다고 표시합니다. keepalive만 있는 연결은 `소스 대기`를 렌더링하고
-운영 metric을 unavailable 상태로 유지하며, 0을 측정된 상태로 제시하는 대신 Core Runtime과 단계
-topic 준비 상태를 확인하도록 안내합니다. 기본 보기는 제한된 12개 작업 pool의 Flow입니다.
-Flow와 Queue는 동일한 제목, 대상, 범위, 이유, tier, mode, owner 및 stage 사실을 유지하고 Queue는
-관찰된 risk, impact, SLA 및 control state만 추가합니다. Flow는 값이 있는 작업만 렌더링하고
-desktop 한 행에 6개씩 배치하며 attention priority와 최신 관찰 순서로 정렬합니다. Terminal outcome은
-Live 작업 영역을 차지하지 않고 History에서 계속 확인할 수 있습니다. Tier, autonomy 및 mode badge는
-pointer와 keyboard에서 같은 tooltip을 사용합니다. 누락된 autonomy, risk, impact 또는 SLA는
-`관찰되지 않음`으로 유지되며 browser에서 추론하지 않습니다.
+실제 운영도 `운영 / 실시간`과 같은 공통 title 계약을 따릅니다. 관찰 컨트롤은 공통 헤더 actions
+영역에 유지되고 좁은 뷰포트에서는 제목 아래로 줄바꿈되어 화면 고정, 출처, 구간 및 연결
+상태가 계속 표시됩니다.
+열린 SSE 응답은 전송 연결만 증명합니다. 실제 운영은 권한 있는 런타임 또는 재생 단계 프레임을
+관찰한 뒤에만 출처가 준비되었다고 표시합니다. keepalive만 있는 연결은 `소스 대기`를 렌더링하고
+운영 메트릭을 사용 불가 상태로 유지하며, 0을 측정된 상태로 제시하는 대신 Core 런타임과 단계
+토픽 준비 상태를 확인하도록 안내합니다. 기본 보기는 제한된 12개 작업 풀의 흐름입니다.
+흐름과 큐는 동일한 제목, 대상, 범위, 이유, tier, 모드, 소유자 및 단계 사실을 유지하고 큐는
+관찰된 risk, 영향, SLA 및 컨트롤 상태만 추가합니다. 흐름은 값이 있는 작업만 렌더링하고
+desktop 한 행에 6개씩 배치하며 attention priority와 최신 관찰 순서로 정렬합니다. 최종 결과는
+실제 운영 작업 영역을 차지하지 않고 이력에서 계속 확인할 수 있습니다. Tier, 자율성 및 모드 배지는
+포인터와 keyboard에서 같은 툴팁을 사용합니다. 누락된 자율성, risk, 영향 또는 SLA는
+`관찰되지 않음`으로 유지되며 브라우저에서 추론하지 않습니다.
 
-에이전트 작업 영역은 `Fleet`, `조직` 및 `활동`의 세 가지 compact view를 사용합니다. Fleet은
-실시간 runtime state와 고정 registry ownership 및 safety flag를 에이전트별 상세 disclosure에 함께
-표시합니다. 조직 view는 keyboard-accessible 보고 체계와 선택된 incident evidence를 렌더링합니다.
-기존 link가 계속 동작하도록 stable `/pantheon` path는 조직 compatibility route로 유지하고,
-navigation에는 별도의 Pantheon directory를 두지 않습니다. 에이전트 감독은 운영 담당 체계와
-governed proposal workflow를 다루는 Governance panel이며 `/agent-oversight`를 사용합니다. 이전
-`/handover` 경로는 compatibility alias로 유지합니다.
-다섯 view는 개요, 사람 의존성, 지식 인수인계, 승인 경로, 매핑 검토입니다. 개요와 사람 의존성은
+에이전트 작업 영역은 `Fleet`, `조직` 및 `활동`의 세 가지 간결한 화면을 사용합니다. Fleet은
+실시간 런타임 상태와 고정 레지스트리 소유권 및 안전성 플래그를 에이전트별 상세 공개에 함께
+표시합니다. 조직 화면은 keyboard-accessible 보고 체계와 선택된 인시던트 근거를 렌더링합니다.
+기존 링크가 계속 동작하도록 고정된 `/pantheon` 경로는 조직 compatibility 경로로 유지하고,
+탐색에는 별도의 Pantheon 디렉터리를 두지 않습니다. 에이전트 감독은 운영 담당 체계와
+통제된 제안 작업 흐름을 다루는 거버넌스 패널이며 `/agent-oversight`를 사용합니다. 이전
+`/handover` 경로는 compatibility 별칭으로 유지합니다.
+다섯 화면은 개요, 사람 의존성, 지식 인수인계, 승인 경로, 매핑 검토입니다. 개요와 사람 의존성은
 엄격한 `GET /stewardship` 프로젝션을 사용합니다. 매핑 검토는 Owner 게이트가 적용된
-`GET /iam/assignments` 프로젝션을 재사용하며 capability와 principal은 `GET /iam`에서만 가져옵니다.
-지식 인수인계는 governed draft boundary를 사용합니다. 승인 경로는 자체 authoritative projection이
-연결될 때까지 unavailable로 명시하며, browser는 ownership data에서 경로를 추론하지 않습니다.
-Stewardship source가 없으면 개요와 사람 의존성만 차단합니다. 독립적인 지식 인수인계, 승인 경로,
-매핑 검토 view는 숨기지 않습니다.
-개요는 `identity_health`에서만 ID source freshness를 표시합니다. Operator API는 stale-finding
-snapshot과 revision이 일치하고 만료되지 않은 last-success heartbeat에서만 `checked_at`을 제공합니다.
-완료된 `clean` 또는 `warn` 확인은 이 timestamp와 병합된 `stale_oid` coverage에 맞는 finding count가
-필요합니다. 불일치는 정상 또는 최신 상태로 표시하지 않고 contract error로 처리합니다.
-각 agent의 `bus_factor`는 coverage evaluator와 동일하게 distinct accountable `(kind, id)` subject
-unit 수를 사용합니다. Browser는 steward projection에서 이 값을 다시 계산하고 다른 headline 값은
-backup coverage를 과장하지 않도록 거부합니다.
+`GET /iam/assignments` 프로젝션을 재사용하며 기능과 principal은 `GET /iam`에서만 가져옵니다.
+지식 인수인계는 통제된 초안 경계를 사용합니다. 승인 경로는 자체 권위 있는 변환 결과가
+연결될 때까지 사용 불가로 명시하며, 브라우저는 소유권 데이터에서 경로를 추론하지 않습니다.
+담당 체계 출처가 없으면 개요와 사람 의존성만 차단합니다. 독립적인 지식 인수인계, 승인 경로,
+매핑 검토 화면은 숨기지 않습니다.
+개요는 `identity_health`에서만 ID 출처 최신성을 표시합니다. Operator API는 stale-finding
+스냅샷과 개정 번호가 일치하고 만료되지 않은 last-success 하트비트에서만 `checked_at`을 제공합니다.
+완료된 `clean` 또는 `warn` 확인은 이 시각과 병합된 `stale_oid` 커버리지에 맞는 발견 사항 개수가
+필요합니다. 불일치는 정상 또는 최신 상태로 표시하지 않고 계약 오류로 처리합니다.
+각 에이전트의 `bus_factor`는 커버리지 evaluator와 동일하게 서로 다른 accountable `(kind, id)` 대상
+단위 수를 사용합니다. 브라우저는 담당자 변환 결과에서 이 값을 다시 계산하고 다른 headline 값은
+백업 커버리지를 과장하지 않도록 거부합니다.
 
-Settings에는 authoritative StateStore를 사용하는 Runtime policies route가 포함됩니다. 이 route는
-secret, endpoint, tenant identifier 또는 workload identity identifier를 노출하지 않고 정제된
-environment, override 및 effective value를 표시합니다. Reader access는 관찰 전용입니다. Owner update는
-revision check와 원자적인 state 및 audit write를 사용합니다. Browser는 startup-bound value를 restart
-required로 표시하며 저장된 값을 action promotion 또는 cloud-resource 변경으로 나타내지 않습니다.
-Integrations와 Diagnostics는 동일한 projection을 사용합니다. 이 화면은 configured, ready,
-incomplete, mode 및 boolean runtime status만 표시합니다. Endpoint, secret, tenant, resource,
-repository credential, recipient 또는 managed identity value는 렌더링하지 않습니다.
-Integrations는 sandboxed iframe으로 incident-open email도 렌더링합니다. Authenticated preview
-endpoint는 Azure Communication Services Email이 사용하는 동일한 production renderer를 호출하고
-합성 placeholder만 제공합니다. Preview는 runtime incident, endpoint, recipient 또는 identity value를
-노출하지 않으며 send, approval 또는 execution control을 제공하지 않습니다.
+Settings에는 권위 있는 StateStore를 사용하는 런타임 policies 경로가 포함됩니다. 이 경로는
+시크릿, 엔드포인트, 테넌트 식별자 또는 워크로드 신원 식별자를 노출하지 않고 정제된
+환경, 재정의 및 effective 값을 표시합니다. 읽기 담당 접근은 관찰 전용입니다. Owner 갱신은
+개정 번호 검사와 원자적인 상태 및 감사 쓰기를 사용합니다. 브라우저는 startup-bound 값을 재시작
+필수로 표시하며 저장된 값을 액션 승격 또는 cloud-resource 변경으로 나타내지 않습니다.
+Integrations와 진단은 동일한 변환 결과를 사용합니다. 이 화면은 구성된, 준비된,
+불완전한, 모드 및 boolean 런타임 상태만 표시합니다. 엔드포인트, 시크릿, 테넌트, 리소스,
+저장소 자격 증명, recipient 또는 managed 신원 값은 렌더링하지 않습니다.
+Integrations는 sandboxed iframe으로 incident-open 이메일도 렌더링합니다. 인증된 미리 보기
+엔드포인트는 Azure Communication Services 이메일이 사용하는 동일한 운영 렌더러를 호출하고
+합성 자리 표시자만 제공합니다. 미리 보기는 런타임 인시던트, 엔드포인트, recipient 또는 신원 값을
+노출하지 않으며 전송, 승인 또는 실행 컨트롤을 제공하지 않습니다.
 
-Operations에는 Muninn의 durable StateSnapshot만 사용하는 감지 준비도 route가 있습니다.
+Operations에는 Muninn의 영속 StateSnapshot만 사용하는 감지 준비도 경로가 있습니다.
 이 화면은 Heimdall 판정, 6개 근거 차원, 공백, 권한 상한, 원본, 관찰 시각을 표시합니다.
-브라우저는 AKS를 probe하거나 대체 판정을 만들지 않습니다. 각 target은 Architecture resource로,
-promotion 관련 count는 Promotion gates로 연결됩니다. 성공한 HTTP 응답이 strict decoding을
-통과하지 못하면 해당 route와 Capabilities는 loading skeleton에 머물거나 알 수 없는 autonomy mode를 enforcement로 취급하지 않고 error를 렌더링합니다.
+브라우저는 AKS를 탐색하거나 대체 판정을 만들지 않습니다. 각 대상은 아키텍처 리소스로,
+승격 관련 개수는 승격 gates로 연결됩니다. 성공한 HTTP 응답이 strict 디코딩을
+통과하지 못하면 해당 경로와 Capabilities는 로딩 골격에 머물거나 알 수 없는 자율성 모드를 적용으로 취급하지 않고 오류를 렌더링합니다.
 
-Server-pinned drift context가 있으면 GET-only 구성 기준선 route가 identity, lifecycle, drift, Knowledge citation, topology, latency, 예약 검토, 네 safety counter를 fresh read로 표시합니다.
-Binding 또는 campaign 부재는 unavailable이나 `not-configured`로 보고하며 progress를 만들지 않고 malformed data를 strict하게 거부하며 in-scope immutable version 비교와 failed-attempt count를 읽습니다. SPA는 activation, resume, schedule 생성, 승인, 완화, resource mutation을 노출하지 않고 evidence-run, resume, blueprint review, materialization은 별도 authenticated route를 사용합니다.
-Production은 mounted JSON/DOCX pair, read-only Managed Identity, exact resource-group allowlist를 startup에서 검증한 뒤 panel을 노출합니다. Operator API는 executor identity를 받지 않습니다.
+Server-pinned drift 맥락이 있으면 GET-only 구성 기준선 경로가 신원, 수명 주기, drift, Knowledge 인용, topology, 지연 시간, 예약 검토, 네 안전성 counter를 fresh 읽기로 표시합니다.
+연결 또는 campaign 부재는 사용 불가이나 `not-configured`로 보고하며 진행 상황을 만들지 않고 malformed 데이터를 strict하게 거부하며 in-scope 변경할 수 없는 버전 비교와 failed-attempt 개수를 읽습니다. SPA는 activation, 재개, 예약 생성, 승인, 완화, 리소스 변경을 노출하지 않고 evidence-run, 재개, 청사진 검토, 구체화는 별도 인증된 경로를 사용합니다.
+운영은 mounted JSON/DOCX 쌍, 읽기 전용 Managed 신원, exact resource-group 허용 목록을 시작에서 검증한 뒤 패널을 노출합니다. Operator API는 실행기 신원을 받지 않습니다.
 
-Processes detail route는 동일한 authoritative Process journal에서 Planning Room을 조건부로
-렌더링합니다. Strict decoder는 모순된 phase count, duplicate candidate, invalid selection,
-non-finite effect range를 거부합니다. 일반 Process는 `planning: null`인 기존 view를 유지합니다.
-Planning Room은 read-only이며 action, approval, retry control을 노출하지 않습니다.
+Processes 상세 경로는 동일한 권위 있는 프로세스 journal에서 계획 수립 Room을 조건부로
+렌더링합니다. Strict decoder는 모순된 phase 개수, 중복 후보, 잘못된 선택,
+non-finite 효과 범위를 거부합니다. 일반 프로세스는 `planning: null`인 기존 화면을 유지합니다.
+계획 수립 Room은 읽기 전용이며 액션, 승인, 재시도 컨트롤을 노출하지 않습니다.
 
-활동 view는 durable audit 행과 browser-session runtime frame을 하나의 bounded chronological log로
-표시합니다. 각 행은 source label을 유지하므로 runtime frame을 durable audit evidence로 표시하지
-않습니다. 기록된 agent 간 turn과 live agent 간 turn은 전체 bounded message text를 포함한 개별
-`from -> to` 행으로 렌더링합니다. Log는 렌더링된 행을 최대 200개 유지하고 live tail을 기본으로
-활성화합니다. 운영자가 위로 scroll하면 tailing을 일시 중지하며 agent 및 keyword filter를
+활동 화면은 영속 감사 행과 browser-session 런타임 프레임을 하나의 범위가 제한된 chronological 로그로
+표시합니다. 각 행은 출처 라벨을 유지하므로 런타임 프레임을 영속 감사 근거로 표시하지
+않습니다. 기록된 에이전트 간 턴과 실제 운영 에이전트 간 턴은 전체 범위가 제한된 메시지 텍스트를 포함한 개별
+`from -> to` 행으로 렌더링합니다. 로그는 렌더링된 행을 최대 200개 유지하고 실제 운영 tail을 기본으로
+활성화합니다. 운영자가 위로 scroll하면 tailing을 일시 중지하며 에이전트 및 키워드 필터를
 제공합니다. 시간, 경로, 유형, 상세 및 상관관계 열을 선택할 수 있고 유형은 기본적으로 숨깁니다.
-Fullscreen은 presentation만 변경합니다. 시간 열은 browser의 IANA timezone에 따른 시각만 표시하며
-`Asia/Seoul`에서는 `KST`를 사용합니다. Machine-readable row에는 전체 timestamp를 유지합니다.
-Waterfall view는 lifecycle, input, output, 기록된 conversation 및 hash를 확인하는 durable audit
-master-detail surface로 유지합니다.
-주기적인 idle 및 watching health snapshot은 변경되지 않은 durable audit page를 다시 로드하지 않고
-현재 agent state와 observation time만 갱신합니다. Active work, 완료된 handler transition, Incident 및
-handoff는 계속 audit evidence를 새로 고칩니다. Activity header는 반복되는 passive snapshot을 work
-row로 추가하지 않고 마지막으로 관찰된 heartbeat 시각을 표시합니다.
-Principal 범위 Command Deck turn과 answer planning은 conversation history에 남고 shared Agent
-Activity에 게시되지 않습니다. Conversation Assurance는 답변 본문 대신 제한된 metadata와 digest를
-표시하는 별도 Evidence route입니다. 세부 정보는 권한이 확인된 conversation store에서만 원문을
-읽고 유일한 write는 idempotent append-only 이의 제기이며, 브라우저는 policy mutation 권한을
-광고하는 payload를 거부합니다. Synthetic readiness proof는 Audit에 유지합니다.
+Fullscreen은 표현만 변경합니다. 시간 열은 브라우저의 IANA timezone에 따른 시각만 표시하며
+`Asia/Seoul`에서는 `KST`를 사용합니다. 기계가 읽는 행에는 전체 시각을 유지합니다.
+Waterfall 화면은 수명 주기, 입력, 출력, 기록된 대화 및 해시를 확인하는 영속 감사
+master-detail 표면으로 유지합니다.
+주기적인 idle 및 watching 상태 스냅샷은 변경되지 않은 영속 감사 페이지를 다시 로드하지 않고
+현재 에이전트 상태와 관측 시간만 갱신합니다. 활성 작업, 완료된 핸들러 transition, 인시던트 및
+인계는 계속 감사 근거를 새로 고칩니다. 활동 헤더는 반복되는 passive 스냅샷을 작업
+행으로 추가하지 않고 마지막으로 관찰된 하트비트 시각을 표시합니다.
+principal 범위 Command Deck 턴과 답변 계획 수립은 대화 이력에 남고 shared 에이전트
+활동에 게시되지 않습니다. 대화 Assurance는 답변 본문 대신 제한된 메타데이터와 다이제스트를
+표시하는 별도 근거 경로입니다. 세부 정보는 권한이 확인된 대화 저장소에서만 원문을
+읽고 유일한 쓰기는 멱등적 추가 전용 이의 제기이며, 브라우저는 정책 변경 권한을
+광고하는 페이로드를 거부합니다. Synthetic 준비 상태 증명은 감사에 유지합니다.
 
-콘솔의 모든 data-bearing card는 drill-down을 제공합니다. 전체 card surface는 해당 datum을 소유하는
-가장 좁은 analytical 또는 filtered-evidence 목적지로 이동하는 keyboard-accessible native link를
-사용합니다. 독립 control을 포함한 card는 대신 표시되는 primary detail link를 제공합니다. Dashboard의
-운영 상태, evidence metadata, 측정되거나 unavailable인 성과, 분포 legend, attention fact, vertical
-통계 및 접힌 operational count에도 같은 규칙을 적용합니다. 섹션 제목과 설명 문구만 비대화형으로
-유지합니다. unavailable 값도 소유 view를 열어 누락된 source 또는 sample을 확인할 수 있게 합니다.
-상세 목적지가 없는 structural group, form, editor 및 bounded tool은 card style이나 이름 대신 panel
-또는 section semantics를 사용합니다.
-Unavailable metric 카드는 낮은 강조도의 전체 surface 배경, elevation shadow 없음 및 작고 muted한
-값 text를 사용해 측정 결과처럼 보이지 않게 합니다. 이 카드는 focus 가능한 drill-down link를
-유지하고 complete-border focus 또는 hover cue를 제공하며, 시각 표현에 disabled semantics를
+콘솔의 모든 data-bearing 카드는 drill-down을 제공합니다. 전체 카드 표면은 해당 datum을 소유하는
+가장 좁은 analytical 또는 filtered-evidence 목적지로 이동하는 keyboard-accessible native 링크를
+사용합니다. 독립 컨트롤을 포함한 카드는 대신 표시되는 기본 상세 링크를 제공합니다. 대시보드의
+운영 상태, 근거 메타데이터, 측정되거나 사용 불가인 성과, 분포 legend, attention 사실, 버티컬
+통계 및 접힌 operational 개수에도 같은 규칙을 적용합니다. 섹션 제목과 설명 문구만 비대화형으로
+유지합니다. 사용 불가 값도 소유 화면을 열어 누락된 출처 또는 샘플을 확인할 수 있게 합니다.
+상세 목적지가 없는 structural 그룹, 양식, editor 및 범위가 제한된 도구는 카드 style이나 이름 대신 패널
+또는 섹션 의미 규칙을 사용합니다.
+사용 불가 메트릭 카드는 낮은 강조도의 전체 표면 배경, 권한 상승 그림자 없음 및 작고 muted한
+값 텍스트를 사용해 측정 결과처럼 보이지 않게 합니다. 이 카드는 focus 가능한 drill-down 링크를
+유지하고 complete-border focus 또는 hover cue를 제공하며, 시각 표현에 비활성화된 의미 규칙을
 사용하지 않습니다.
-Shared KPI card는 `not-measured`, `not-connected`, `insufficient-sample` 및 `not-applicable`
-evidence state를 구분합니다. 이 상태들은 neutral copy와 style을 사용하며, 실제 request 또는 probe
-실패만 error component를 사용해 시각적으로 구분합니다.
-Authoritative visible content가 제자리에서 변경되는 card는 공유 `top-edge shimmer`를 사용합니다.
-이 효과는 높이 2 px, 길이 1.35초의 neutral blue sweep 한 번으로 제한합니다. Primitive shared KPI
-value는 자동 적용하고 복잡한 live card는 semantic update key를 제공합니다. 첫 render, 변경되지 않은
-parent rerender, filter, selection 및 clock-, age-, timestamp-only 변경에는 적용하지 않습니다. 빠른
-update는 하나의 sweep이 실행되는 동안 합치며 reduced-motion preference에서는 animation을
-비활성화합니다. Shimmer는 표시 content가 변경됐다는 사실만 알립니다. Status, freshness, severity 및
-outcome은 label이 있는 content-local cue로 계속 표시합니다.
-Console card contract test는 shared KPI 목적지를 확인하고, 중첩된 whole-card link를 차단하며,
-nullable KPI 값에 evidence state를 요구하고, raw data card에 link 또는 명시적 detail control을
-요구하며, structural card 이름을 차단합니다.
+Shared KPI 카드는 `not-measured`, `not-connected`, `insufficient-sample` 및 `not-applicable`
+근거 상태를 구분합니다. 이 상태들은 neutral copy와 style을 사용하며, 실제 요청 또는 탐색
+실패만 오류 컴포넌트를 사용해 시각적으로 구분합니다.
+권위 있는 visible 내용이 제자리에서 변경되는 카드는 공유 `top-edge shimmer`를 사용합니다.
+이 효과는 높이 2 px, 길이 1.35초의 neutral blue 일괄 점검 한 번으로 제한합니다. 기본 요소 shared KPI
+값은 자동 적용하고 복잡한 실제 운영 카드는 semantic 갱신 키를 제공합니다. 첫 렌더링, 변경되지 않은
+상위 rerender, 필터, 선택 및 clock-, age-, timestamp-only 변경에는 적용하지 않습니다. 빠른
+갱신은 하나의 일괄 점검이 실행되는 동안 합치며 reduced-motion 선호 설정에서는 animation을
+비활성화합니다. Shimmer는 표시 내용이 변경됐다는 사실만 알립니다. 상태, 최신성, 심각도 및
+결과는 라벨이 있는 content-local cue로 계속 표시합니다.
+Console 카드 계약 테스트는 shared KPI 목적지를 확인하고, 중첩된 whole-card 링크를 차단하며,
+nullable KPI 값에 근거 상태를 요구하고, raw 데이터 카드에 링크 또는 명시적 상세 컨트롤을
+요구하며, structural 카드 이름을 차단합니다.
 
-Operating Outcomes는 선택한 metric, current value, baseline, measurement window, sample size,
-confidence 및 source provenance를 bounded Command Deck view snapshot으로 발행합니다. Vertical
-record는 measured breakdown을 실제로 렌더링하는 Auto-resolution view에만 포함합니다. Narrator는
-렌더링된 evidence fact만 수신하며 unavailable value를 추론하거나 route의 authoritative source를
-대체하지 않습니다. Snapshot headline은 visible card와 같은 metric formatter를 사용하며,
-Auto-resolution value는 ratio 의미를 유지하므로 표시된 percentage claim을 operator에게 보이는 것과
+Operating Outcomes는 선택한 메트릭, 현재 값, 기준선, 측정 구간, 샘플 크기,
+확신도 및 출처 출처 이력을 범위가 제한된 Command Deck 화면 스냅샷으로 발행합니다. 버티컬
+기록은 measured breakdown을 실제로 렌더링하는 Auto-resolution 화면에만 포함합니다. Narrator는
+렌더링된 근거 사실만 수신하며 사용 불가 값을 추론하거나 경로의 권위 있는 출처를
+대체하지 않습니다. 스냅샷 headline은 visible 카드와 같은 메트릭 formatter를 사용하며,
+Auto-resolution 값은 ratio 의미를 유지하므로 표시된 비율 점유를 운영자에게 보이는 것과
 같은 반올림 정밀도로 대조할 수 있습니다.
-Audit 기반 projection은 append-only audit의 head sequence를 캡처하고 해당 cutoff 아래 measurement
-window의 모든 row를 순회한 다음 control-loop 및 executor producer만 필터링합니다. Row를
-`event_id`로 묶어 정규화된 event마다 한 번만 계산합니다. Cutoff 이후의 concurrent append는
-snapshot에 들어오지 않습니다. Request는 하나의 절대 UTC 하한 timestamp를 계산하고 모든 page에서
-같은 head sequence와 함께 재사용하므로 pagination은 query cost만 바꾸고 KPI membership은 바꾸지
-않습니다. 명시적인 `measurement.action_outcome.v1` record가 enforce, verified, auto, non-rollback
-action을 finalize하고 complete event evidence에 사람 승인, 거부, 실행 실패 또는 rollback 신호가
-없을 때만 event를 auto-resolved로 계산합니다. Dispatch-only event는 pending으로 유지됩니다.
-Route는 observed, finalized, pending, adverse 및 auto-resolved count를 분리해 표시합니다.
-Auto-resolution rate는 canonical total observed-event denominator를 유지하므로 pending 및 기타
-non-auto event가 rate에서 사라지지 않습니다. Outcome 및 audit timestamp는 timezone-aware여야
-합니다. Durable audit timestamp보다 5분 넘게 미래인 outcome은 malformed evidence이므로 action을
+감사 기반 변환 결과는 추가 전용 감사의 head 순서를 캡처하고 해당 기준 시점 아래 측정
+구간의 모든 행을 순회한 다음 control-loop 및 실행기 생산자만 필터링합니다. 행을
+`event_id`로 묶어 정규화된 이벤트마다 한 번만 계산합니다. 기준 시점 이후의 동시 덧붙이기는
+스냅샷에 들어오지 않습니다. 요청은 하나의 절대 UTC 하한 시각을 계산하고 모든 페이지에서
+같은 head 순서와 함께 재사용하므로 페이지 나누기는 조회 비용만 바꾸고 KPI 구성원은 바꾸지
+않습니다. 명시적인 `measurement.action_outcome.v1` 기록이 enforce, 검증된, auto, non-rollback
+액션을 finalize하고 완전한 이벤트 근거에 사람 승인, 거부, 실행 실패 또는 롤백 신호가
+없을 때만 이벤트를 auto-resolved로 계산합니다. Dispatch-only 이벤트는 pending으로 유지됩니다.
+경로는 관찰된, finalized, pending, adverse 및 auto-resolved 개수를 분리해 표시합니다.
+Auto-resolution 비율은 정본 합계 observed-event denominator를 유지하므로 pending 및 기타
+non-auto 이벤트가 비율에서 사라지지 않습니다. 결과 및 감사 시각은 timezone-aware여야
+합니다. 영속 감사 시각보다 5분 넘게 미래인 결과는 malformed 근거이므로 액션을
 finalize하지 않습니다.
-Vertical attribution은 먼저 명시적으로 기록된 vertical을 사용하고, 그다음 강한 Resilience 또는
-Cost Governance action/resource hint만 사용합니다. 추측 없이 귀속할 수 없는 evidence는
-`unattributed` row에 남고 global denominator에 포함되며 표시되는 attribution coverage를 낮춥니다.
-이 evidence를 Change Safety로 fallback하지 않습니다. 고정된 3-domain portfolio는 unattributed row를
-제외하지만 Operating Outcomes는 Audit 목적지와 함께 계속 표시합니다.
+버티컬 귀속은 먼저 명시적으로 기록된 버티컬을 사용하고, 그다음 강한 복원력 또는
+비용 거버넌스 액션/리소스 힌트만 사용합니다. 추측 없이 귀속할 수 없는 근거는
+`unattributed` 행에 남고 global denominator에 포함되며 표시되는 귀속 커버리지를 낮춥니다.
+이 근거를 변경 안전성으로 대체 경로하지 않습니다. 고정된 3-domain portfolio는 unattributed 행을
+제외하지만 Operating Outcomes는 감사 목적지와 함께 계속 표시합니다.
 
-각 Operating Outcomes route는 metric별 analysis surface를 유지합니다. Auto-resolution은 관측된
-event 및 auto-resolved record 수, 영역별 비율 및 guard context를 보여줍니다. Human touchpoints,
-MTTR, change lead time 및 cost per resolved event는 각각 고유한 analysis 및 breakdown 섹션을
-유지합니다. Read projection이 touchpoint type, latency percentile, delivery stage 또는 cost
-composition을 제공하지 않으면 관련 없는 vertical table을 재사용하거나 browser에서 값을 파생하지
-않고 unavailable로 렌더링합니다. Cost view는 표시 금액이 표준 단가를 기준으로 하며 할인, 약정,
-credit, 세금, 환율 및 provider billing adjustment가 반영된 실제 청구 금액과 다를 수 있다는 점도
+각 Operating Outcomes 경로는 메트릭별 analysis 표면을 유지합니다. Auto-resolution은 관측된
+이벤트 및 auto-resolved 기록 수, 영역별 비율 및 guard 맥락을 보여줍니다. Human touchpoints,
+MTTR, 변경 lead 시간 및 비용 per resolved 이벤트는 각각 고유한 analysis 및 breakdown 섹션을
+유지합니다. 읽기 변환 결과가 touchpoint 타입, 지연 시간 percentile, 전달 단계 또는 비용
+조립을 제공하지 않으면 관련 없는 버티컬 표를 재사용하거나 브라우저에서 값을 파생하지
+않고 사용 불가로 렌더링합니다. 비용 화면은 표시 금액이 표준 단가를 기준으로 하며 할인, 약정,
+credit, 세금, 환율 및 프로바이더 청구 adjustment가 반영된 실제 청구 금액과 다를 수 있다는 점도
 안내합니다.
 
-Control Assurance는 audit KPI, autonomy measurement 및 promotion registry projection에서 운영
-banner, evidence metadata, posture metric, promotion guard, terminal control-path distribution 및
-required-attention total을 표시합니다. Guard row는 current, baseline 및 threshold value를 비교하고
-filtered evidence로 연결됩니다. Distribution segment와 attention row는 가장 좁은 audit, approval
-또는 promotion 목적지로 연결됩니다. Synthetic guard는 operational pass 또는 failure를 만들지 않으며,
-projection이 누락되면 prototype value나 추론한 0을 공급하지 않고 unavailable로 렌더링합니다.
+컨트롤 Assurance는 감사 KPI, 자율성 측정 및 승격 레지스트리 변환 결과에서 운영
+배너, 근거 메타데이터, 자세 메트릭, 승격 guard, 최종 control-path 분포 및
+required-attention 합계를 표시합니다. Guard 행은 현재, 기준선 및 임계값 값을 비교하고
+filtered 근거로 연결됩니다. 분포 구간과 attention 행은 가장 좁은 감사, 승인
+또는 승격 목적지로 연결됩니다. Synthetic guard는 operational pass 또는 실패를 만들지 않으며,
+변환 결과가 누락되면 prototype 값나 추론한 0을 공급하지 않고 사용 불가로 렌더링합니다.
 
-Vertical Outcomes는 세 개의 selected-detail route 대신 하나의 portfolio overview를 사용합니다. 각
-영역 카드는 같은 visual grammar를 사용하지만 서로 다른 primary outcome을 표시하고 owning evidence
-surface로 직접 연결됩니다. Resilience는 Incidents, Change Safety는 promotion evidence, Cost
-Governance는 Audit로 연결됩니다. Events, auto-resolution, 미해결 위험 및 절감액은 공유 comparison
-table에서만 영역별로 반복합니다. Change failure rate나 recovery drill success 같은 domain metric은
-read model이 귀속 evidence를 제공할 때까지 unavailable로 유지하며 global confidence와 trend value를
-vertical-specific claim으로 바꾸지 않습니다. 빈 영역에는 resolution rate를 추론하지 않으며
-synthetic evidence는 operational health label이나 filtered runtime-evidence claim을 만들지 않습니다.
+버티컬 Outcomes는 세 개의 selected-detail 경로 대신 하나의 portfolio 개요를 사용합니다. 각
+영역 카드는 같은 visual grammar를 사용하지만 서로 다른 기본 결과를 표시하고 owning 근거
+표면으로 직접 연결됩니다. 복원력은 Incidents, 변경 안전성은 승격 근거, 비용
+거버넌스는 감사로 연결됩니다. 이벤트, auto-resolution, 미해결 위험 및 절감액은 공유 비교
+표에서만 영역별로 반복합니다. 변경 실패 비율나 복구 drill 성공 같은 domain 메트릭은
+읽기 모델이 귀속 근거를 제공할 때까지 사용 불가로 유지하며 global 확신도와 trend 값을
+vertical-specific 점유로 바꾸지 않습니다. 빈 영역에는 해석 비율을 추론하지 않으며
+synthetic 근거는 operational 상태 라벨이나 filtered runtime-evidence 점유를 만들지 않습니다.
 
-Trust Routing은 T0(결정론적 규칙), T1(경량 유사도 재사용), T2(근거 기반 LLM 추론)를 하나의 측정된
-tier map으로 표시합니다. Routing 비율, event 수 및 목표 범위는 autonomy 및 audit KPI projection에서
-가져오며 각 tier는 고유한 analysis route로 연결됩니다. T2 control flow는 실행이 통과했다고 주장하는
-상태가 아니라 필수 architecture check를 설명합니다. Leading indicator는 보고된 current 및 baseline
-value만 비교합니다. 누락된 값은 unavailable로 유지하고 simulated value는 operational pass 또는
-failure를 만들지 않습니다.
+Trust 라우팅은 T0(결정론적 규칙), T1(경량 유사도 재사용), T2(근거 기반 LLM 추론)를 하나의 측정된
+tier 지도로 표시합니다. 라우팅 비율, 이벤트 수 및 목표 범위는 자율성 및 감사 KPI 변환 결과에서
+가져오며 각 tier는 고유한 analysis 경로로 연결됩니다. T2 컨트롤 흐름은 실행이 통과했다고 주장하는
+상태가 아니라 필수 아키텍처 검사를 설명합니다. Leading indicator는 보고된 현재 및 기준선
+값만 비교합니다. 누락된 값은 사용 불가로 유지하고 simulated 값은 operational pass 또는
+실패를 만들지 않습니다.
 
-LLM Cost는 측정된 호출, token, chat 비율 및 최근 호출 근거를 먼저 표시합니다. 입력 및 출력 구성,
-선택 기간 trend, model 및 conversation 귀속, invocation record는 metering projection에서만 파생합니다. Price attribution이
-연결되지 않은 경우 route는 이 경계를 안내하고 token volume에서 지출, budget, fixed infrastructure cost, 호출당 가격 또는 invoice 금액을 추정하지 않습니다. Bounded visible invocation ledger는 고정 allowlist를 quoted CSV로 export하며 formula-leading cell은 neutralize합니다. Conversation, workload, mode, day 및 month 상세 rollup은 secondary disclosure에서 계속
-제공하므로 primary view의 탐색성을 유지하면서 근거를 숨기지 않습니다. Headline KPI label과 value는
-균형 잡힌 4열, 2열 또는 1열 grid에서 왼쪽 정렬을 유지하고, token 구성의 count와 share는 비교하기 쉽도록
-공통 오른쪽 숫자 열을 사용합니다. 하나의 global UTC selector는 rolling 24시간, 7일, 30일 및 사용자 지정
-1일에서 90일 window를 제공합니다. Operator API는 timezone이 있는 RFC 3339 `from` 및 `to` 값을
-검증하고 모든 total, attribution, bucket 및 invocation record를 계산하기 전에 동일한 시작 포함 및 종료
-제외 cutoff를 적용합니다. URL은 정확한 cutoff를 보존합니다. 24시간 view는 hourly bucket을 사용하고 더
-긴 window는 daily bucket을 사용합니다. 사용자 지정 display 종료일은 포함되며 exclusive API 경계로
-다음 UTC 자정에 mapping됩니다.
+LLM 비용은 측정된 호출, 토큰, chat 비율 및 최근 호출 근거를 먼저 표시합니다. 입력 및 출력 구성,
+선택 기간 trend, 모델 및 대화 귀속, 호출 기록은 metering 변환 결과에서만 파생합니다. Price 귀속이
+연결되지 않은 경우 경로는 이 경계를 안내하고 토큰 양에서 지출, 예산, fixed infrastructure 비용, 호출당 가격 또는 청구서 금액을 추정하지 않습니다. 범위가 제한된 visible 호출 원장은 고정 허용 목록을 quoted CSV로 내보내기하며 formula-leading cell은 neutralize합니다. 대화, 워크로드, 모드, 일 및 월 상세 rollup은 보조 공개에서 계속
+제공하므로 기본 화면의 탐색성을 유지하면서 근거를 숨기지 않습니다. Headline KPI 라벨과 값은
+균형 잡힌 4열, 2열 또는 1열 grid에서 왼쪽 정렬을 유지하고, 토큰 구성의 개수와 share는 비교하기 쉽도록
+공통 오른쪽 숫자 열을 사용합니다. 하나의 global UTC 선택자는 rolling 24시간, 7일, 30일 및 사용자 지정
+1일에서 90일 구간을 제공합니다. Operator API는 timezone이 있는 RFC 3339 `from` 및 `to` 값을
+검증하고 모든 합계, 귀속, 버킷 및 호출 기록을 계산하기 전에 동일한 시작 포함 및 종료
+제외 기준 시점을 적용합니다. URL은 정확한 기준 시점을 보존합니다. 24시간 화면은 hourly 버킷을 사용하고 더
+긴 구간은 daily 버킷을 사용합니다. 사용자 지정 display 종료일은 포함되며 exclusive API 경계로
+다음 UTC 자정에 대응됩니다.
 
 ## 로딩 표현
 
-모든 route, panel 및 bounded content 영역은 첫 loading frame부터 skeleton을 렌더링합니다. 공통 skeleton은 spinner-only 및 text-only 대기를 대체하며, route는 최종 layout dimension을 유지하는 고유 shape를 제공할 수 있습니다.
-Dashboard는 posture block 다음에 metric, distribution, attention 및 vertical placeholder를 사용하므로 loading 중에도 report가 축소되지 않습니다. 하나의 screen-reader status가 loading을 알리고 decorative block은 숨깁니다. Reduced motion에서는 shimmer가 멈추지만 정적 skeleton은 계속 표시됩니다.
-공통 fallback은 heading, summary-card 및 body-panel placeholder를 사용합니다. 소유 route shape는 더 정확한 최종 layout을 유지할 때만 이 fallback을 대체합니다.
+모든 경로, 패널 및 범위가 제한된 내용 영역은 첫 로딩 프레임부터 골격을 렌더링합니다. 공통 골격은 spinner-only 및 text-only 대기를 대체하며, 경로는 최종 배치 dimension을 유지하는 고유 형태를 제공할 수 있습니다.
+대시보드는 자세 블록 다음에 메트릭, 분포, attention 및 버티컬 자리 표시자를 사용하므로 로딩 중에도 보고가 축소되지 않습니다. 하나의 screen-reader 상태가 로딩을 알리고 decorative 블록은 숨깁니다. Reduced motion에서는 shimmer가 멈추지만 정적 골격은 계속 표시됩니다.
+공통 대체 경로는 heading, summary-card 및 body-panel 자리 표시자를 사용합니다. 소유 경로 형태는 더 정확한 최종 배치를 유지할 때만 이 대체 경로를 대체합니다.
 
-HTML document가 console stylesheet를 direct dependency로 소유하므로 authentication, route, component 및 JavaScript hot update 중에도 mount된 SPA의 layout과 theme가 사라지지 않습니다. Vite는 같은 document link를 fingerprinted production CSS asset으로 변환합니다.
-Development에서는 기존 hot-update guard도 CSS 변경을 transform하기 전에 Vite의 race-safe file reader로 처리하여 editor의 임시 empty snapshot이 전체 stylesheet를 대체하지 못하게 합니다.
+HTML 문서가 콘솔 stylesheet를 direct 의존성으로 소유하므로 authentication, 경로, 컴포넌트 및 JavaScript hot 갱신 중에도 mount된 SPA의 배치와 테마가 사라지지 않습니다. Vite는 같은 문서 링크를 fingerprinted 운영 CSS asset으로 변환합니다.
+개발에서는 기존 hot-update guard도 CSS 변경을 transform하기 전에 Vite의 race-safe 파일 읽기 담당으로 처리하여 editor의 임시 빈 스냅샷이 전체 stylesheet를 대체하지 못하게 합니다.
 
 ## Localization 경계
 
-SPA는 operator preference에서 표시 locale을 결정합니다. 재사용 문자열은 기본 영어 source
-catalog 또는 완전한 route-local 영어/한국어 쌍에서 가져오며 영어 fallback은 필수입니다. Static
-key coverage, catalog parity, route fallback test 및 console suite가 번역되지 않은 표시 text의
-재유입을 막습니다. Grounding trace label과 manifest/reference count detail도 reconstructed evidence
-metadata에 영어를 직접 넣지 않고 같은 catalog를 사용합니다.
+SPA는 운영자 선호 설정에서 표시 로케일을 결정합니다. 재사용 문자열은 기본 영어 출처
+카탈로그 또는 완전한 route-local 영어/한국어 쌍에서 가져오며 영어 대체 경로는 필수입니다. Static
+키 커버리지, 카탈로그 동등성, 경로 대체 경로 테스트 및 콘솔 모음이 번역되지 않은 표시 텍스트의
+재유입을 막습니다. Grounding trace 라벨과 매니페스트/참조 개수 상세도 reconstructed 근거
+메타데이터에 영어를 직접 넣지 않고 같은 카탈로그를 사용합니다.
 
-Localization은 presentation label만 바꿉니다. Machine value, workflow id, serialized record,
-provider payload 및 validation result는 변경하지 않습니다.
+Localization은 표현 라벨만 바꿉니다. 머신 값, 작업 흐름 id, serialized 기록,
+프로바이더 페이로드 및 검증 결과는 변경하지 않습니다.
 
 ## 관찰된 대화 트래젝터리
 
-각 Command Deck 질문은 관측된 작업이 뒷받침하는 가장 작은 presentation을 선택합니다. Activity,
-handoff 또는 background task가 없는 turn도 접힌 run record를 유지합니다. 성공한 단일 terminal read는
-compact investigation row와 접힌 run record를 함께 사용합니다. 여러 activity, milestone,
-retry, failure, handoff, command 또는 file change가 있으면 전체 timeline을 유지하지만 run record는
-기본적으로 접어 둡니다. Durable
-background task는 detached task summary를 사용합니다. 복원된 compact turn은 durable detail에서
-observed row를 재구성하고 live turn은 인과 순서로 이미 표시한 row를 유지합니다. 완료된 모든 answer는
-trajectory summary를 확인할 수 있게 유지합니다. Bounded original operator prompt는 run record가
-접혀 있는 동안 숨기고 operator가 펼치면 표시합니다. Internal AnswerPlan intent 및
-detail label은 answer 위에 표시하지 않습니다. Run record decision context에는 유지하며 answer는
-operator-facing content와 verified evidence로 바로 시작합니다. Model-assisted planning은 validation된
-presentation shape만 변경합니다. Verified `presentation_artifact` v1은 server가 immutable evidence에서
-compile한 content를 사용해 summary, table, chart, coverage, callout, detail 및 evidence block을 mixed할 수
-있습니다. Browser는 unknown block, duplicate slot, invalid bound, incompatible chart 또는 terminal
-verification receipt 밖의 evidence reference를 거부한 뒤 canonical answer text를 렌더링합니다. Partial
-evidence는 valid block을 모두 유지하고 명시적인 limitation block을 추가합니다. 누락된 source 하나가
-answer의 나머지를 숨기지 않습니다. Legacy verified chart는 bounded `chart_artifact` v1을 계속 반환할 수
-있으며 canonical Markdown 또는 fenced chart data는 compatibility fallback으로 유지합니다.
+각 Command Deck 질문은 관측된 작업이 뒷받침하는 가장 작은 표현을 선택합니다. 활동,
+인계 또는 background 작업이 없는 턴도 접힌 실행 기록을 유지합니다. 성공한 단일 최종 읽기는
+간결한 조사 행과 접힌 실행 기록을 함께 사용합니다. 여러 활동, 이정표,
+재시도, 실패, 인계, 명령 또는 파일 변경이 있으면 전체 타임라인을 유지하지만 실행 기록은
+기본적으로 접어 둡니다. 영속
+background 작업은 detached 작업 요약을 사용합니다. 복원된 간결한 턴은 영속 상세에서
+관찰된 행을 재구성하고 실제 운영 턴은 인과 순서로 이미 표시한 행을 유지합니다. 완료된 모든 답변은
+trajectory 요약을 확인할 수 있게 유지합니다. 범위가 제한된 original 운영자 프롬프트는 실행 기록이
+접혀 있는 동안 숨기고 운영자가 펼치면 표시합니다. 내부 AnswerPlan 의도 및
+상세 라벨은 답변 위에 표시하지 않습니다. 실행 기록 결정 맥락에는 유지하며 답변은
+operator-facing 내용과 검증된 근거로 바로 시작합니다. Model-assisted 계획 수립은 검증된
+표현 형태만 변경합니다. 검증된 `presentation_artifact` v1은 서버가 변경할 수 없는 근거에서
+compile한 내용을 사용해 요약, 표, chart, 커버리지, callout, 상세 및 근거 블록을 mixed할 수
+있습니다. 브라우저는 알 수 없음 블록, 중복 자리, 잘못된 한계, incompatible chart 또는 최종
+검증 증적 밖의 근거 참조를 거부한 뒤 정본 답변 텍스트를 렌더링합니다. 부분
+근거는 valid 블록을 모두 유지하고 명시적인 한계 블록을 추가합니다. 누락된 출처 하나가
+답변의 나머지를 숨기지 않습니다. 이전 방식 검증된 chart는 범위가 제한된 `chart_artifact` v1을 계속 반환할 수
+있으며 정본 Markdown 또는 fenced chart 데이터는 compatibility 대체 경로로 유지합니다.
 
 상태 개요는 완료, 수정 후 완료, 일부 저하, 실패, 검증 미완료, 진행 중 및 관측되지 않음을 구분하며
-record 존재를 성공으로 표시하지 않습니다. Result chip은 내부 event total 대신 관측된 query와
-command count, evidence completion, reference 및 verification을 표시합니다. Serialized `unverified`
-status는 replay를 위해 그대로 유지합니다. Primary Console label은 bounded reason code에 따라 Context
-필요, Source 사용 불가, Query 검증 실패 또는 근거 없는 claim으로 표시하고 technical detail에는
-canonical status와 raw reason code를 유지합니다. Run-record summary는
-두 result indicator를 10 px 이하의 고정된 점으로 표시하고 source button 가장자리에서 2 px만 겹칩니다.
-Source button은 자체 source tooltip을 유지합니다. 점은 별도 pointer 및 keyboard trigger이며 floating
-tooltip 또는 별도 container 없이 compact한 query, command 및 evidence pill로 오른쪽에 직접 펼쳐집니다.
-전체 summary는 trigger의 accessible name에 유지합니다. Absolute positioning을 사용하므로 별도 행을
-만들거나 reply action geometry를 바꾸지 않고 인접 action을 가리지 않습니다. Source button이 없으면
-답변 품질 검토에 같은 직접 확장 점을 연결합니다. 펼친 run-record summary는 complete bounded operator prompt를 유지하고
-좁은 layout에서는 줄바꿈합니다. Disclosure를 변경하면 transcript만 scroll하고 composer는
-Deck 경계에 계속 표시됩니다. 펼친 view는 6단계 rail, 펼칠 수 있는 observed-event timeline 및 provenance signal을 먼저 표시하고,
-timing window, decision context, phase record 및 coverage gap은 하나의 접힌 execution-details disclosure에
-유지합니다. Preparing-answer surface는 observed activity와 evidence branch가 terminal state에 도달할
-때까지 operator turn과 observed work 사이에 유지됩니다. 더 일찍 도착한 answer token은 browser paint
-queue에 유지합니다. Activity shell을 settled로 바꾸는 render에서 answer를 함께 추가하므로 running
-investigation skeleton과 answer content가 동시에 나타나지 않습니다. 이후 observed work는 execution
-mock의 progress note, session, connected step 및 dark command detail 계층을 따릅니다. 단독 activity의 starting
-note는 수신한 해당 activity에서만 가져옵니다. Milestone을 수신한 경우에는 milestone이 note가 되므로
-browser가 progress를 중복하거나 만들어내지 않습니다. 현재 step만 자동으로 펼치고 완료된 step shell은
-유지하며 raw output과 timestamp는 접습니다. Raw current-screen record는 접힌 source disclosure에 유지합니다.
-한 operator 질문의 progress, observed activity 및 terminal answer는 인과 record를 각각 유지하지만 하나의
-visible agent header와 연결된 flow 아래에 표시합니다. Terminal answer는 같은 agent 또는 두 번째 source
-badge를 반복하지 않습니다. Numbered progress와 status glyph는 shared vertical rail을 이동하지 않고
-고정된 circle marker 안에서 optical center에 맞춥니다. Numbered glyph는 더 어두운 body-text navy가
-아니라 progress label과 같은 저채도 blue accent를 사용합니다. Transcript는
-browser scroll anchoring을 끄고 하단 공간을 추가하며 work가 streaming 중일 때만 latest edge를
-따라갑니다. Terminal completion에서는 첫 observed work group을 transcript edge 아래에 고정해 final
-answer layout이 완료되는 동안 execution outcome과 answer 시작을 함께 표시합니다. Timing이 없는 plan과 collaboration metadata는 decision context에 두고, 관측된 input, evidence
-및 tool, model call, verification 및 delivery만 timeline에 표시합니다.
-모든 waterfall lane은 label이 있는 하나의 start-to-completion scale과 quarter-window tick을 사용합니다.
-내부 causal rail은 row를 연결하고 dashed segment는 설명되지 않은 빈 공간 대신 recorded interval
-사이의 측정된 시간을 표시합니다. Complete timestamp가 있는 execution activity는 연결된 generic
-evidence branch를 대체하며 observed label, tool, authority 및 detail을 유지합니다. Phase envelope은
-저채도 blue, evidence work는 green, model work는 plum, point-in-time turn record는 neutral gray circle로
-표시합니다. Input marker는 해당 turn에서 관측된 가장 이른 timestamp에 고정하고 terminal answer는
-마지막 recorded timing completion보다 앞에 배치하지 않습니다. 따라서 browser와 server의 clock
-skew가 evidence를 input 앞에 두거나 generation과 verification을 delivery 뒤에 두지 못합니다. Lane
-baseline과 tick은 completion progress bar와 구분됩니다.
-Answer text는 15 px을 사용하고 main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
-Trajectory heading은 13 px, event label은 12 px, compact trajectory metadata는 11 px을 사용합니다.
-Terminal verified answer에 server가 정확한 영어 또는 한국어 형식으로 렌더링한 recorded-agent-activity block이 있으면 해당 row를 하나의 compact vertical timeline으로 표시합니다. 각 row는 agent, canonical event token, 정확한 ISO timestamp 및 locale에 맞춘 읽기 쉬운 시간을 유지합니다. Malformed 또는 알 수 없는 prose는 observed activity로 승격하지 않고 일반 answer content로 유지합니다.
-게시된 screen snapshot은 5분 후 visibly stale 상태가 되고
-명시적인 page refresh를 제공합니다. Bare clock은 current evidence를 의미하지 않습니다. Markdown
-table은 점진적으로 렌더링합니다. 완성된 header와 separator가 첫 body row보다 먼저 table shell을 만들고,
-완성된 각 row는 table을 교체하지 않고 누적됩니다. 완성되지 않은 header, separator 및 row syntax는 raw
-Markdown으로 표시하지 않습니다. 모든 bounded answer row는 transcript flow에 유지하며 내부 vertical
-scroll region이나 row expansion control을 사용하지 않습니다. Foreground의 terminal-only deterministic
-answer도 같은 visual paint queue를 사용하므로 canonical table row가 0건에서 전체 건수까지 단조롭게
-증가합니다. Background tab은 동기적으로 완료합니다. Narrow screen에서는 transcript 폭을 늘리지 않고
+기록 존재를 성공으로 표시하지 않습니다. 결과 chip은 내부 이벤트 합계 대신 관측된 조회와
+명령 개수, 근거 완료, 참조 및 검증을 표시합니다. Serialized `unverified`
+상태는 재생을 위해 그대로 유지합니다. 기본 Console 라벨은 범위가 제한된 사유 코드에 따라 맥락
+필요, 출처 사용 불가, 조회 검증 실패 또는 근거 없는 점유로 표시하고 technical 상세에는
+정본 상태와 raw 사유 코드를 유지합니다. Run-record 요약은
+두 결과 indicator를 10 px 이하의 고정된 점으로 표시하고 출처 버튼 가장자리에서 2 px만 겹칩니다.
+출처 버튼은 자체 출처 툴팁을 유지합니다. 점은 별도 포인터 및 keyboard 트리거이며 floating
+툴팁 또는 별도 컨테이너 없이 간결한한 조회, 명령 및 근거 pill로 오른쪽에 직접 펼쳐집니다.
+전체 요약은 트리거의 accessible 이름에 유지합니다. Absolute positioning을 사용하므로 별도 행을
+만들거나 회신 액션 형상을 바꾸지 않고 인접 액션을 가리지 않습니다. 출처 버튼이 없으면
+답변 품질 검토에 같은 직접 확장 점을 연결합니다. 펼친 run-record 요약은 완전한 범위가 제한된 운영자 프롬프트를 유지하고
+좁은 배치에서는 줄바꿈합니다. 공개를 변경하면 대화 기록만 scroll하고 작성기는
+Deck 경계에 계속 표시됩니다. 펼친 화면은 6단계 rail, 펼칠 수 있는 observed-event 타임라인 및 출처 이력 신호를 먼저 표시하고,
+timing 구간, 결정 맥락, phase 기록 및 커버리지 공백은 하나의 접힌 execution-details 공개에
+유지합니다. Preparing-answer 표면은 관찰된 활동과 근거 가지가 최종 상태에 도달할
+때까지 운영자 턴과 관찰된 작업 사이에 유지됩니다. 더 일찍 도착한 답변 토큰은 브라우저 그리기
+큐에 유지합니다. 활동 shell을 settled로 바꾸는 렌더링에서 답변을 함께 추가하므로 running
+조사 골격과 답변 내용이 동시에 나타나지 않습니다. 이후 관찰된 작업은 실행
+mock의 진행 상황 note, 세션, connected 단계 및 dark 명령 상세 계층을 따릅니다. 단독 활동의 starting
+note는 수신한 해당 활동에서만 가져옵니다. 이정표를 수신한 경우에는 이정표가 note가 되므로
+브라우저가 진행 상황을 중복하거나 만들어내지 않습니다. 현재 단계만 자동으로 펼치고 완료된 단계 shell은
+유지하며 raw 출력과 시각은 접습니다. Raw current-screen 기록은 접힌 출처 공개에 유지합니다.
+한 운영자 질문의 진행 상황, 관찰된 활동 및 최종 답변은 인과 기록을 각각 유지하지만 하나의
+visible 에이전트 헤더와 연결된 흐름 아래에 표시합니다. 최종 답변은 같은 에이전트 또는 두 번째 출처
+배지를 반복하지 않습니다. Numbered 진행 상황과 상태 glyph는 shared 버티컬 rail을 이동하지 않고
+고정된 circle 표시 안에서 optical center에 맞춥니다. Numbered glyph는 더 어두운 body-text navy가
+아니라 진행 상황 라벨과 같은 저채도 blue accent를 사용합니다. 대화 기록은
+브라우저 scroll anchoring을 끄고 하단 공간을 추가하며 작업이 스트리밍 중일 때만 최신 간선을
+따라갑니다. 최종 완료에서는 첫 관찰된 작업 그룹을 대화 기록 간선 아래에 고정해 최종
+답변 배치가 완료되는 동안 실행 결과와 답변 시작을 함께 표시합니다. Timing이 없는 계획과 collaboration 메타데이터는 결정 맥락에 두고, 관측된 입력, 근거
+및 도구, 모델 호출, 검증 및 전달만 타임라인에 표시합니다.
+모든 waterfall 레인은 라벨이 있는 하나의 start-to-completion 규모와 quarter-window tick을 사용합니다.
+내부 causal rail은 행을 연결하고 dashed 구간은 설명되지 않은 빈 공간 대신 기록된 간격
+사이의 측정된 시간을 표시합니다. 완전한 시각이 있는 실행 활동은 연결된 범용
+근거 가지를 대체하며 관찰된 라벨, 도구, 권한 및 상세를 유지합니다. Phase 묶음은
+저채도 blue, 근거 작업은 green, 모델 작업은 plum, point-in-time 턴 기록은 neutral gray circle로
+표시합니다. 입력 표시는 해당 턴에서 관측된 가장 이른 시각에 고정하고 최종 답변은
+마지막 기록된 timing 완료보다 앞에 배치하지 않습니다. 따라서 브라우저와 서버의 시계
+skew가 근거를 입력 앞에 두거나 세대와 검증을 전달 뒤에 두지 못합니다. 레인
+기준선과 tick은 완료 진행 상황 bar와 구분됩니다.
+답변 텍스트는 15 px을 사용하고 main 공개 높이는 44 px이며, 200% 텍스트 resize와 320 CSS pixel에서 내용 loss 없이 reflow합니다.
+Trajectory heading은 13 px, 이벤트 라벨은 12 px, 간결한 trajectory 메타데이터는 11 px을 사용합니다.
+최종 검증된 답변에 서버가 정확한 영어 또는 한국어 형식으로 렌더링한 recorded-agent-activity 블록이 있으면 해당 행을 하나의 간결한 버티컬 타임라인으로 표시합니다. 각 행은 에이전트, 정본 이벤트 토큰, 정확한 ISO 시각 및 로케일에 맞춘 읽기 쉬운 시간을 유지합니다. Malformed 또는 알 수 없는 산문은 관찰된 활동으로 승격하지 않고 일반 답변 내용으로 유지합니다.
+게시된 화면 스냅샷은 5분 후 visibly stale 상태가 되고
+명시적인 페이지 refresh를 제공합니다. Bare 시계는 현재 근거를 의미하지 않습니다. Markdown
+표는 점진적으로 렌더링합니다. 완성된 헤더와 구분자가 첫 본문 행보다 먼저 표 shell을 만들고,
+완성된 각 행은 표를 교체하지 않고 누적됩니다. 완성되지 않은 헤더, 구분자 및 행 구문은 raw
+Markdown으로 표시하지 않습니다. 모든 범위가 제한된 답변 행은 대화 기록 흐름에 유지하며 내부 버티컬
+scroll 지역이나 행 expansion 컨트롤을 사용하지 않습니다. Foreground의 terminal-only 결정론적
+답변도 같은 visual 그리기 큐를 사용하므로 정본 표 행이 0건에서 전체 건수까지 단조롭게
+증가합니다. Background tab은 동기적으로 완료합니다. Narrow 화면에서는 대화 기록 폭을 늘리지 않고
 cell을 줄바꿈합니다.
 
-상세 화면은 bounded recorded metadata를 표시하지만 answer body를 반복하지 않습니다. 펼친 각 timeline
-event는 evidence summary와 reference, plan intent와 format, answer source와 model-call count,
-verification authority와 check 또는 model request와 response metadata처럼 source record에 있는
-상세를 표시합니다. 적용 가능한 각 lane에는 recorded-payload block이 표시됩니다. 여기에는 operator
-input, IQL 또는 command와 observed output, AnswerPlan, redacted model request와 response,
-verification receipt 및 terminal delivery receipt가 포함됩니다. 해당 payload type이 없는 lane도 빈
-panel 대신 status, start, completion 및 사용 가능한 fact를 표시합니다. Answer lane은 delivery
-metadata를 기록하며 answer body를 반복하지 않습니다.
-Inventory execution은 canonical turn query를 `IQL` activity로 표시합니다. 이어지는 별도 activity는
-exact bounded Azure CLI 또는 ARG receipt를 같은 terminal icon으로 표시합니다. 인증된 subscription id,
-generic argv, 측정된 command duration, count 및 allowlist된 preview row 최대 10개는 표시하지만 pagination token, credential,
-raw resource id 및 provider error는 redaction합니다. IQL source와 result는 각각 토글되며 row는 snapshot refresh를 설명하지만 command 재실행을 주장하지 않습니다. Browser는 IQL 또는 source name에서 command를 파생하지 않습니다. Provider message, action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및
-copy를 제공하며 malformed 또는 plain text는 변경하지 않습니다. Terminal-only visual reveal은 최대 30개 chunk로 제한하고 answer lane은 paint 완료가 아닌 server 완료 시각을 사용하므로 presentation pacing을 execution gap으로 표시하지 않습니다. Terminal replay payload는 ID별 최종
-branch, activity, milestone 및 redacted execution detail을 총 64 KiB 이하로 보존하고 history output을
-항목당 32 KiB에서 truncate하며 truncation 및 omission count를 표시합니다. 따라서 durable history와
-live turn이 같은 strict parser 및 trajectory view를 사용합니다. Unavailable 또는
-timed-out evidence는 시도이지 완료된 evidence가 아니며 unverified 작업에는 완료 styling을 적용하지
-않습니다. 누락된 activity는 observation coverage disclosure에 두며 작업 부재를 증명하지 않습니다.
-Exact-answer durable replay에는 같은 bounded browser parser를 사용합니다. Server는 provider의 terminal content-policy 결정이 확인될 때까지 model token을 buffering합니다. Block은 partial token 또는 assistant answer를 노출하지 않고 content-free receipt만 기록하며 SSE와 JSON `422`에 같은 deterministic fallback을 사용하고, log에는 stage와 aggregate count만 남깁니다. 명시적인 provider refusal, truncated completion, malformed stream frame 또는 검증된 terminal signal 없이 끝난 stream은 assistant answer가 되지 않습니다.
+상세 화면은 범위가 제한된 기록된 메타데이터를 표시하지만 답변 본문을 반복하지 않습니다. 펼친 각 타임라인
+이벤트는 근거 요약과 참조, 계획 의도와 format, 답변 출처와 model-call 개수,
+검증 권한과 검사 또는 모델 요청과 응답 메타데이터처럼 출처 기록에 있는
+상세를 표시합니다. 적용 가능한 각 레인에는 recorded-payload 블록이 표시됩니다. 여기에는 운영자
+입력, IQL 또는 명령과 관찰된 출력, AnswerPlan, 민감정보가 제거된 모델 요청과 응답,
+검증 증적 및 최종 전달 증적이 포함됩니다. 해당 페이로드 타입이 없는 레인도 빈
+패널 대신 상태, 시작, 완료 및 사용 가능한 사실을 표시합니다. 답변 레인은 전달
+메타데이터를 기록하며 답변 본문을 반복하지 않습니다.
+인벤토리 실행은 정본 턴 조회를 `IQL` 활동으로 표시합니다. 이어지는 별도 활동은
+exact 범위가 제한된 Azure CLI 또는 ARG 증적을 같은 최종 icon으로 표시합니다. 인증된 구독 id,
+범용 argv, 측정된 명령 소요 시간, 개수 및 허용 목록된 미리 보기 행 최대 10개는 표시하지만 페이지 나누기 토큰, 자격 증명,
+raw 리소스 id 및 프로바이더 오류는 민감정보 제거합니다. IQL 출처와 결과는 각각 토글되며 행은 스냅샷 refresh를 설명하지만 명령 재실행을 주장하지 않습니다. 브라우저는 IQL 또는 출처 이름에서 명령을 파생하지 않습니다. 프로바이더 메시지, 액션 인자, 명령 및 출력의 유효한 객체 또는 array JSON은 indentation, 구문 highlighting 및
+copy를 제공하며 malformed 또는 plain 텍스트는 변경하지 않습니다. Terminal-only visual 노출은 최대 30개 조각으로 제한하고 답변 레인은 그리기 완료가 아닌 서버 완료 시각을 사용하므로 표현 pacing을 실행 공백으로 표시하지 않습니다. 최종 재생 페이로드는 ID별 최종
+가지, 활동, 이정표 및 민감정보가 제거된 실행 상세를 총 64 KiB 이하로 보존하고 이력 출력을
+항목당 32 KiB에서 truncate하며 잘림 및 omission 개수를 표시합니다. 따라서 영속 이력과
+실제 운영 턴이 같은 strict 파서 및 trajectory 화면을 사용합니다. 사용 불가 또는
+시간이 초과된 근거는 시도이지 완료된 근거가 아니며 검증되지 않은 작업에는 완료 styling을 적용하지
+않습니다. 누락된 활동은 관측 커버리지 공개에 두며 작업 부재를 증명하지 않습니다.
+Exact-answer 영속 재생에는 같은 범위가 제한된 브라우저 파서를 사용합니다. 서버는 프로바이더의 최종 content-policy 결정이 확인될 때까지 모델 토큰을 buffering합니다. 블록은 부분 토큰 또는 assistant 답변을 노출하지 않고 내용이 없는 증적만 기록하며 SSE와 JSON `422`에 같은 결정론적 대체 경로를 사용하고, 로그에는 단계와 집계 개수만 남깁니다. 명시적인 프로바이더 거절, 잘린 완료, malformed 스트림 프레임 또는 검증된 최종 신호 없이 끝난 스트림은 assistant 답변이 되지 않습니다.
 
-Terminal timing은 최대 8개의 allowlisted semantic-plan, evidence, generation, quality-review 및
-verification phase를 포함합니다. 하나의 UTC anchor와 monotonic elapsed time으로 관측된 status, start,
-completion 및 duration을 만듭니다. Interrupt는 timing을 저장하지 않고 strict parser는 불일치를 거부합니다.
+최종 timing은 최대 8개의 허용 목록에 있는 semantic-plan, 근거, 세대, quality-review 및
+검증 phase를 포함합니다. 하나의 UTC anchor와 단조 증가 경과 시간으로 관측된 상태, 시작,
+완료 및 소요 시간을 만듭니다. Interrupt는 timing을 저장하지 않고 strict 파서는 불일치를 거부합니다.
 
-Model provider tracing은 기본값이 꺼진 browser-local Settings opt-in입니다. 활성화하면 request-local
-collector가 turn planning, rerun, answer generation 및 quality review를 포함하여 해당 질문의 실제 model
-call을 최대 8개 기록합니다. Waterfall은 provider-call timing을 사용합니다. 기록된 call이 0건이면
-deterministic path에서 provider lane이 필요하지 않았음을 Waterfall 안에 표시합니다. Trace가 캡처되지
-않은 turn은 명시적인 unavailable state를 표시합니다. 캡처 설정이 꺼져 있어도 panel은 Settings opt-in
-안내와 함께 표시하지만 저장된 trace data는 계속 숨깁니다. 각 disclosure는 role 순서의
-기록된 message array와 request SHA를 보존하면서 연속 system layer를 하나의 `SYSTEM` heading으로 묶습니다.
-JSON body는 pretty-print하고 bounded request 및 response block에는 theme에 맞는 scrollbar를 적용합니다. Disclosure는 assistant content, token usage, exact-content SHA-256 및 redaction count도 표시합니다. Credential, tenant 또는 resource identifier, URL, email, IP address, inline image,
-hidden reasoning, header 및 provider 내부 정보는 저장하지 않습니다. 설정을 끄면 캡처를 중지하고
-저장된 trace data를 숨기며 provider call을 반복하지 않고 idempotent replay response에서 trace를 제거합니다.
+모델 프로바이더 tracing은 기본값이 꺼진 browser-local Settings 명시적 선택입니다. 활성화하면 request-local
+수집기가 턴 계획 수립, rerun, 답변 세대 및 quality 검토를 포함하여 해당 질문의 실제 모델
+호출을 최대 8개 기록합니다. Waterfall은 provider-call timing을 사용합니다. 기록된 호출이 0건이면
+결정론적 경로에서 프로바이더 레인이 필요하지 않았음을 Waterfall 안에 표시합니다. Trace가 캡처되지
+않은 턴은 명시적인 사용 불가 상태를 표시합니다. 캡처 설정이 꺼져 있어도 패널은 Settings 명시적 선택
+안내와 함께 표시하지만 저장된 trace 데이터는 계속 숨깁니다. 각 공개는 역할 순서의
+기록된 메시지 array와 요청 SHA를 보존하면서 연속 system 계층을 하나의 `SYSTEM` heading으로 묶습니다.
+JSON 본문은 pretty-print하고 범위가 제한된 요청 및 응답 블록에는 테마에 맞는 scrollbar를 적용합니다. 공개는 assistant 내용, 토큰 사용량, exact-content SHA-256 및 민감정보 제거 개수도 표시합니다. 자격 증명, 테넌트 또는 리소스 식별자, URL, 이메일, IP 주소, inline 이미지,
+hidden reasoning, 헤더 및 프로바이더 내부 정보는 저장하지 않습니다. 설정을 끄면 캡처를 중지하고
+저장된 trace 데이터를 숨기며 프로바이더 호출을 반복하지 않고 멱등적 재생 응답에서 trace를 제거합니다.
 
-이 principal-scoped view는 authorization-first offline review artifact인
-[관리형 trajectory dataset](governed-trajectory-datasets-ko.md)과 구분됩니다. Hidden reasoning, raw
-unredacted prompt, credential, unrestricted payload 및 해당 turn에 기록되지 않은 data는 표시하지 않습니다.
+이 principal 범위로 한정된 화면은 authorization-first offline 검토 산출물인
+[관리형 trajectory 데이터셋](governed-trajectory-datasets-ko.md)과 구분됩니다. Hidden reasoning, raw
+unredacted 프롬프트, 자격 증명, unrestricted 페이로드 및 해당 턴에 기록되지 않은 데이터는 표시하지 않습니다.
 
-## Durable request replay
+## 영속 요청 재생
 
-완료된 request는 principal, conversation, idempotency key 및 request content가 모두 일치할 때만
-replay됩니다. 저장된 terminal assistant payload를 반환하며 evidence retrieval, narration 또는
-post-turn review를 반복하지 않습니다. 같은 key에 다른 content나 conversation이 들어오면
-conflict입니다. JSON, SSE 및 cross-transport retry는 같은 terminal payload를 사용합니다.
-Content-policy receipt에도 같은 identity check를 적용합니다. 일치하는 retry는 preference resolution,
-document retrieval, history compaction, planning 또는 provider 작업 전에 policy result를 replay합니다.
-같은 request key에서 prompt 또는 conversation이 바뀌면 conflict입니다.
+완료된 요청은 principal, 대화, 멱등성 키 및 요청 내용이 모두 일치할 때만
+재생됩니다. 저장된 최종 assistant 페이로드를 반환하며 근거 수집, 서술 또는
+post-turn 검토를 반복하지 않습니다. 같은 키에 다른 내용나 대화가 들어오면
+conflict입니다. JSON, SSE 및 cross-transport 재시도는 같은 최종 페이로드를 사용합니다.
+Content-policy 증적에도 같은 신원 검사를 적용합니다. 일치하는 재시도는 선호 설정 해석,
+문서 수집, 이력 compaction, 계획 수립 또는 프로바이더 작업 전에 정책 결과를 재생합니다.
+같은 요청 키에서 프롬프트 또는 대화가 바뀌면 conflict입니다.
 
-Optional incident conversation binding은 bounded incident id, correlation id 및 allowlisted
-Pantheon agent를 전달합니다. Browser와 server는 같은 bound를 강제합니다. 잘못 저장된 binding은
-conversation을 삭제하지 않고 폐기합니다. Agent activity는 bounded historical audit evidence를
-설명하며 activity 부재가 agent의 현재 task 부재를 증명하지 않습니다.
-새 ephemeral conversation은 첫 operator turn이 server record를 만들기 전에 durable history를
-조회하지 않으므로, 정상적인 first-open 상태를 missing-history error로 보고하지 않습니다.
+선택적 인시던트 대화 연결은 범위가 제한된 인시던트 id, 상관관계 id 및 허용 목록에 있는
+Pantheon 에이전트를 전달합니다. 브라우저와 서버는 같은 한계를 강제합니다. 잘못 저장된 연결은
+대화를 삭제하지 않고 폐기합니다. 에이전트 활동은 범위가 제한된 historical 감사 근거를
+설명하며 활동 부재가 에이전트의 현재 작업 부재를 증명하지 않습니다.
+새 일시적인 대화는 첫 운영자 턴이 서버 기록을 만들기 전에 영속 이력을
+조회하지 않으므로, 정상적인 first-open 상태를 missing-history 오류로 보고하지 않습니다.
 
 ## 검증된 근거
 
-Read-source provenance, ontology browse, cross-screen operational 및 inventory answer는 typed
-evidence에서 결정론적으로 렌더링됩니다. Ontology browse는 target과 browse verb를 요구하고,
-allowlisted identity field와 256자 이하 prompt value만 전달하며, 중복되거나 malformed인 count와
-selection을 unavailable로 표시합니다. Ontology projection과 결정론적 browse answer는 일반 prompt
-assembly와 분리된 자체 prompt module에 위치합니다.
-Reader-gated `/ontology/graph` projection은 operating-model status, source revision, aggregate
-object 및 link count만 포함합니다. Deployment instance property는 반환하지 않습니다.
-일반 delegated answer는 Bragi를 narrator로 유지하면서 verified specialist를 response owner로
-표시합니다. Dedicated target session은 명시적 handoff가 narration을 Bragi로 돌려보낼 때까지 해당
+Read-source 출처 이력, 온톨로지 browse, 화면 간 operational 및 인벤토리 답변은 타입이 지정된
+근거에서 결정론적으로 렌더링됩니다. 온톨로지 browse는 대상과 browse verb를 요구하고,
+허용 목록에 있는 신원 필드와 256자 이하 프롬프트 값만 전달하며, 중복되거나 malformed인 개수와
+선택을 사용 불가로 표시합니다. 온톨로지 변환 결과와 결정론적 browse 답변은 일반 프롬프트
+assembly와 분리된 자체 프롬프트 모듈에 위치합니다.
+Reader-gated `/ontology/graph` 변환 결과는 operating-model 상태, 출처 개정 번호, 집계
+객체 및 링크 개수만 포함합니다. 배포 instance 속성은 반환하지 않습니다.
+일반 delegated 답변은 Bragi를 서술기로 유지하면서 검증된 specialist를 응답 소유자로
+표시합니다. Dedicated 대상 세션은 명시적 인계가 서술을 Bragi로 돌려보낼 때까지 해당
 specialist의 검증된 voice를 사용합니다.
-Agent-targeted Web turn은 첫 provisional token부터 선택한 specialist를 표시하고 terminal delegation이
-owner를 확인하거나 handoff를 표시할 때까지 label을 안정적으로 유지합니다.
-명시적 handoff로 turn이 Bragi에 돌아오면 Web은 reply header와 answer-plan row에
-`specialist -> Bragi`로 소유권 흐름을 표시합니다. Handoff에 specialist answer가 없으면 결정론적
-verification은 근거를 사용할 수 없다는 응답을 반환하고, 관련 없는 current-screen fact로 narrator
+Agent-targeted Web 턴은 첫 provisional 토큰부터 선택한 specialist를 표시하고 최종 위임이
+소유자를 확인하거나 인계를 표시할 때까지 라벨을 안정적으로 유지합니다.
+명시적 인계로 턴이 Bragi에 돌아오면 Web은 회신 헤더와 answer-plan 행에
+`specialist -> Bragi`로 소유권 흐름을 표시합니다. 인계에 specialist 답변이 없으면 결정론적
+검증은 근거를 사용할 수 없다는 응답을 반환하고, 관련 없는 current-screen 사실로 서술기
 문장을 검증하지 않습니다.
-선택한 agent와 server-owned operational evidence가 모두 resolve되면 coordinator는 둘 다 유지하며,
-incident summary, absence claim 및 cause는 계속 결정론적 verification이 소유합니다.
-Bragi가 T0/T1 owner route를 한 번 완료한 뒤, 일반 answer path는 그 owner에서 점수가 유일하게
-가장 높은 read tool 하나를 선택합니다. 완료된 tool result가 primary specialist answer가 되고,
-범위 한정 fact는 기존 agent-evidence manifest로 들어갑니다. 동점이거나 일치 항목이 없으면 owner의
-일반 response를 유지합니다. 선택된 read가 abstain, timeout, sensitivity hold 또는 partial completion
-상태이면 generic 또는 contributor fallback 없이 명시적으로 handoff합니다. Planning과 dispatch는
-깊이 1단계를 유지하며 하나의 bounded gather budget을 공유합니다. 이 일반 path는 lexical이며 agent
-route에 embedding 호출을 추가하지 않습니다.
-어떤 에이전트도 소유하지 않는 질문은 tool-answer path에 들어가지 않습니다.
-Charter version, hash 및 tool id는 hidden provenance로 유지합니다. Exact policy match일 때 model은
-Bragi global safety prompt 뒤에서 server-owned charter를 받으며, charter는 role과 voice를 제한하지만
-evidence 또는 authority가 되지 않습니다. Runtime grounding은 제공된
-evidence ref 또는 normalized agent fact의 content-addressed hash를 사용하며 static agent spec을 사용하지 않습니다.
-Agent narration 자체는 evidence source가 아닙니다. Atomic claim은 별도로 귀속된 contributor
-fact를 포함한 agent fact leaf를 runtime 제공 ref에 rooted된 고유 JSON pointer에 연결합니다.
+선택한 에이전트와 서버가 소유한 operational 근거가 모두 해석되면 조정기는 둘 다 유지하며,
+인시던트 요약, absence 점유 및 cause는 계속 결정론적 검증이 소유합니다.
+Bragi가 T0/T1 소유자 경로를 한 번 완료한 뒤, 일반 답변 경로는 그 소유자에서 점수가 유일하게
+가장 높은 읽기 도구 하나를 선택합니다. 완료된 도구 결과가 기본 specialist 답변이 되고,
+범위 한정 사실은 기존 agent-evidence 매니페스트로 들어갑니다. 동점이거나 일치 항목이 없으면 소유자의
+일반 응답을 유지합니다. 선택된 읽기가 abstain, 시간 초과, 민감도 보류 또는 부분 완료
+상태이면 범용 또는 기여자 대체 경로 없이 명시적으로 인계합니다. 계획 수립과 전달은
+깊이 1단계를 유지하며 하나의 범위가 제한된 gather 예산을 공유합니다. 이 일반 경로는 lexical이며 에이전트
+경로에 임베딩 호출을 추가하지 않습니다.
+어떤 에이전트도 소유하지 않는 질문은 tool-answer 경로에 들어가지 않습니다.
+Charter 버전, 해시 및 도구 id는 hidden 출처 이력으로 유지합니다. Exact 정책 일치일 때 모델은
+Bragi global 안전성 프롬프트 뒤에서 서버가 소유한 charter를 받으며, charter는 역할과 voice를 제한하지만
+근거 또는 권한이 되지 않습니다. 런타임 grounding은 제공된
+근거 참조 또는 정규화된 에이전트 사실의 내용 기반 주소를 가진 해시를 사용하며 static 에이전트 spec을 사용하지 않습니다.
+에이전트 서술 자체는 근거 출처가 아닙니다. Atomic 점유는 별도로 귀속된 기여자
+사실을 포함한 에이전트 사실 leaf를 런타임 제공 참조에 rooted된 고유 JSON 포인터에 연결합니다.
 
-Incident title도 서버 소유 evidence입니다. Read projection은 기록된 title, summary 또는 rule
-field를 우선 사용한 뒤 길이가 제한된 signal 및 resource correlation key를 사용합니다. 빈 값,
-`None`, `null` correlation marker는 결측으로 처리하며 browser는 incident subject를 만들지 않습니다.
+인시던트 title도 서버 소유 근거입니다. 읽기 변환 결과는 기록된 title, 요약 또는 룰
+필드를 우선 사용한 뒤 길이가 제한된 신호 및 리소스 상관관계 키를 사용합니다. 빈 값,
+`None`, `null` 상관관계 표시는 결측으로 처리하며 브라우저는 인시던트 대상을 만들지 않습니다.
 
-선택한 Incident 상세 화면은 lifecycle summary와 불러온 audit history에서만 파생한 운영자용 현재
+선택한 인시던트 상세 화면은 수명 주기 요약과 불러온 감사 이력에서만 파생한 운영자용 현재
 상황을 가장 먼저 표시합니다. Raw `pending`, `unknown`, `shadow` 값을 하나의 상태처럼 보여주지 않고
-lifecycle state, response decision, change authority 및 operator attention을 분리합니다. 활성 incident에
-notification-delivery escalation이 있으면 이를 우선 표시하고 필요한 후속 작업을 설명합니다. 기록이
-있으면 audit 및 technical activity를 사용할 수 있습니다. Root-cause analysis와 dossier는 `rca.*`
-record가 생긴 뒤에만 link가 되며, 그 전에는 근거가 있는 가설이 기록되지 않았다고 표시합니다. RCA
-route도 hypothesis가 없으면 generic audit fallback response를 숨겨 `incident.members`를 response plan
-또는 cause로 표시하지 않습니다. Trace route는 raw ordered table보다 먼저 notification escalation,
-response-decision evidence, RCA evidence 및 named pipeline stage를 분리한 interpretation summary를
-표시합니다. Generic correlated activity는 cause claim이 아니라 technical history로 유지합니다.
+수명 주기 상태, 응답 결정, 변경 권한 및 운영자 attention을 분리합니다. 활성 인시던트에
+notification-delivery 에스컬레이션이 있으면 이를 우선 표시하고 필요한 후속 작업을 설명합니다. 기록이
+있으면 감사 및 technical 활동을 사용할 수 있습니다. Root-cause analysis와 dossier는 `rca.*`
+기록이 생긴 뒤에만 링크가 되며, 그 전에는 근거가 있는 가설이 기록되지 않았다고 표시합니다. RCA
+경로도 가설이 없으면 범용 감사 대체 경로 응답을 숨겨 `incident.members`를 응답 계획
+또는 cause로 표시하지 않습니다. Trace 경로는 raw ordered 표보다 먼저 notification 에스컬레이션,
+response-decision 근거, RCA 근거 및 named 파이프라인 단계를 분리한 interpretation 요약을
+표시합니다. 범용 correlated 활동은 cause 점유가 아니라 technical 이력으로 유지합니다.
 
-Operational evidence는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
-Collection summary 요청에서 `summary`는 incident 하나를 선택하도록 요구하지 않고 bounded matching
-set을 즉시 렌더링합니다. Model prose는 선택된 incident, search scope, 지원되는 cause, collection
-membership 또는 absence claim을 바꿀 수 없습니다.
-`availability=unavailable`인 source는 `reachable=true`를 보고하지 않으며 구성되지 않았거나 probe하지
-않은 source는 `reachable=null`을 사용합니다. 명시적인 latest-incident summary는 collection을 반환하지 않고 server read model에서 가장 최근 incident 하나를 선택합니다. Root cause, timeline, hypothesis, similar incident, impact, next action, consumed evidence, uncertainty 및 deep investigation 질문에는 incident 하나가 필요합니다. Bound incident가 없으면 generic analysis wording은 operator가 선택할 bounded candidate를 반환하며 current-screen, repository, agent 또는 public-web evidence를 빌리지 않습니다.
-`ambiguous` terminal answer는 최대 5개의 server-validated incident candidate를 포함한 versioned
-artifact도 전달합니다. Web client는 candidate별로 title, severity, status, last-updated time 및
-incident id가 표시된 button을 렌더링하므로 중복 title도 구분할 수 있습니다. Button을 선택하면
-exact incident-bound conversation을 열고 localized read-only investigation question을 즉시
-제출합니다. 명시적인 click이 operator 요청이며 managed resource를 변경하지 않습니다. 누락되거나
-malformed, oversized 또는 unverified인 candidate artifact는 button을 렌더링하지 않으며 binding을
+Operational 근거는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
+Collection 요약 요청에서 `summary`는 인시던트 하나를 선택하도록 요구하지 않고 범위가 제한된 matching
+집합을 즉시 렌더링합니다. 모델 산문은 선택된 인시던트, 검색 범위, 지원되는 cause, collection
+구성원 또는 absence 점유를 바꿀 수 없습니다.
+`availability=unavailable`인 출처는 `reachable=true`를 보고하지 않으며 구성되지 않았거나 탐색하지
+않은 출처는 `reachable=null`을 사용합니다. 명시적인 latest-incident 요약은 collection을 반환하지 않고 서버 읽기 모델에서 가장 최근 인시던트 하나를 선택합니다. 루트 cause, 타임라인, 가설, similar 인시던트, 영향, next 액션, consumed 근거, uncertainty 및 deep 조사 질문에는 인시던트 하나가 필요합니다. 한계 인시던트가 없으면 범용 analysis 표현은 운영자가 선택할 범위가 제한된 후보를 반환하며 current-screen, 저장소, 에이전트 또는 공개 웹 근거를 빌리지 않습니다.
+`ambiguous` 최종 답변은 최대 5개의 server-validated 인시던트 후보를 포함한 versioned
+산출물도 전달합니다. Web 클라이언트는 후보별로 title, 심각도, 상태, last-updated 시간 및
+인시던트 id가 표시된 버튼을 렌더링하므로 중복 title도 구분할 수 있습니다. 버튼을 선택하면
+exact incident-bound 대화를 열고 localized 읽기 전용 조사 질문을 즉시
+제출합니다. 명시적인 click이 운영자 요청이며 managed 리소스를 변경하지 않습니다. 누락되거나
+malformed, oversized 또는 검증되지 않은인 후보 산출물은 버튼을 렌더링하지 않으며 연결을
 만들 수 없습니다.
-`latest`, `recent`, `최신` 같은 generic recency 단어만으로는 incident authority를 만들지 않습니다.
-Operational lookup에는 incident, issue, outage, failure, problem 또는 cause 의미가 명시적으로 함께
-있어야 합니다. 따라서 public software version 또는 release 질문은 deterministic "no matching incident"
-답변 대신 bounded public-web path 대상으로 유지됩니다.
-Current-screen data scope는 inventory, incident, agent 및 web enrichment보다 우선합니다. Topology, end-to-end reachability, inbound network policy, peering 및 failure impact-scope 질문에는 exact source/target resource name 또는 server-validated selected network resource 하나가 필요합니다. Context-free reference는 inventory provider 실행 전에 deterministic clarification을 반환합니다. Current-screen link, resource-group membership 또는 incident evidence는 connectivity나 impact scope의 근거가 되지 않습니다. Trace
-correlation은 질문에 incident, failure, problem 또는 cause 의미가 명시된 경우에만 incident selection
-hint로 사용하며 일반 stage 및 actor field는 screen fact로 유지합니다.
-지원되는 current-screen value와 명시적 absence answer는 model 호출 없이 Bragi T0가 렌더링합니다.
-명시적으로 빈 facts 또는 records projection은 screen coverage 근거이며 model memory fallback
-권한이 아닙니다. 이 answer도 terminal이 되기 전에 atomic-claim verifier를 통과합니다.
-Current-time 질문은 injected timezone-aware server clock과 principal의 IANA timezone preference를
-사용합니다. Terminal answer는 exact timestamp와 timezone으로 결정론적으로 렌더링합니다. Preference가
-없으면 명시적으로 표시한 UTC로 fallback하며 narrator와 browser clock은 time authority가 아닙니다.
+`latest`, `recent`, `최신` 같은 범용 recency 단어만으로는 인시던트 권한을 만들지 않습니다.
+Operational 조회에는 인시던트, issue, 장애, 실패, problem 또는 cause 의미가 명시적으로 함께
+있어야 합니다. 따라서 공개 software 버전 또는 release 질문은 결정론적 "no matching 인시던트"
+답변 대신 범위가 제한된 공개 웹 경로 대상으로 유지됩니다.
+Current-screen 데이터 범위는 인벤토리, 인시던트, 에이전트 및 web enrichment보다 우선합니다. Topology, 종단 간 도달 가능성, 인바운드 네트워크 정책, 피어링 및 실패 impact-scope 질문에는 exact 출처/대상 리소스 이름 또는 server-validated 선택된 네트워크 리소스 하나가 필요합니다. Context-free 참조는 인벤토리 프로바이더 실행 전에 결정론적 명확화를 반환합니다. Current-screen 링크, resource-group 구성원 또는 인시던트 근거는 connectivity나 영향 범위의 근거가 되지 않습니다. Trace
+상관관계는 질문에 인시던트, 실패, problem 또는 cause 의미가 명시된 경우에만 인시던트 선택
+힌트로 사용하며 일반 단계 및 행위자 필드는 화면 사실로 유지합니다.
+지원되는 current-screen 값과 명시적 absence 답변은 모델 호출 없이 Bragi T0가 렌더링합니다.
+명시적으로 빈 사실 또는 records 변환 결과는 화면 커버리지 근거이며 모델 기억 대체 경로
+권한이 아닙니다. 이 답변도 최종이 되기 전에 atomic-claim 검증기를 통과합니다.
+Current-time 질문은 injected timezone-aware 서버 시계와 principal의 IANA timezone 선호 설정을
+사용합니다. 최종 답변은 exact 시각과 timezone으로 결정론적으로 렌더링합니다. 선호 설정이
+없으면 명시적으로 표시한 UTC로 대체 경로하며 서술기와 브라우저 시계는 시간 권한이 아닙니다.
 
-Forecast Learning route는 server-owned PostgreSQL projection만 읽습니다. Closure completeness는
-due episode를 denominator로 사용하고 publication health는 미래 scheduled work를 due debt, failed
-attempt 및 dead letter와 구분합니다. Cohort가 없으면 0이 아니라 unavailable로 표시하며 browser는
-관련 없는 count에서 model miss, pipeline miss 또는 retention status를 도출하지 않습니다.
+예측 Learning 경로는 서버가 소유한 PostgreSQL 변환 결과만 읽습니다. Closure 완전성은
+due episode를 denominator로 사용하고 게시 상태는 미래 scheduled 작업을 due debt, 실패한
+시도 및 dead letter와 구분합니다. 집단이 없으면 0이 아니라 사용 불가로 표시하며 브라우저는
+관련 없는 개수에서 모델 miss, 파이프라인 miss 또는 보존 상태를 도출하지 않습니다.
 
-Trace route는 error render 중에도 `correlation_id`, `load_status` 및 값이 있을 때 actionable
-`load_error`를 게시합니다. Server는 이 correlation을 selection hint로만 사용하고 operational
-evidence를 반환하기 전에 권한이 적용된 read model에서 다시 확인합니다.
+Trace 경로는 오류 렌더링 중에도 `correlation_id`, `load_status` 및 값이 있을 때 actionable
+`load_error`를 게시합니다. 서버는 이 상관관계를 선택 힌트로만 사용하고 operational
+근거를 반환하기 전에 권한이 적용된 읽기 모델에서 다시 확인합니다.
 Trace는 연관된 감사 행을 순서대로 유지하고 파이프라인 단계가 없는 활동을 `stage: null`로
 표현하며 마지막으로 이름이 기록된 단계에서 `terminal_stage`를 도출합니다.
-Citation이 있는 grounded RCA가 없으면 deterministic verification은 durable `incident.open` record의
-bounded detection fact를 먼저 렌더링합니다. 여기에는 signal, target resource 및 연관된 member-event
-count가 포함됩니다. 이 fact는 관찰된 상태를 확인하지만 원인을 증명하지 않습니다. Workload failure
-reason은 별도 section에 유지합니다. `notification.*` failure는 notification delivery 아래에만 표시하며
-workload failure 또는 root-cause evidence가 되지 않습니다. Notification이 주제인 incident는 delivery
-failure를 먼저 표시할 수 있습니다. 모든 path는 기록된 failure를 완전한 root-cause 결론이 아니라
-observation으로 표시합니다.
+인용이 있는 근거에 기반한 RCA가 없으면 결정론적 검증은 영속 `incident.open` 기록의
+범위가 제한된 detection 사실을 먼저 렌더링합니다. 여기에는 신호, 대상 리소스 및 연관된 member-event
+개수가 포함됩니다. 이 사실은 관찰된 상태를 확인하지만 원인을 증명하지 않습니다. 워크로드 실패
+사유는 별도 섹션에 유지합니다. `notification.*` 실패는 notification 전달 아래에만 표시하며
+워크로드 실패 또는 root-cause 근거가 되지 않습니다. Notification이 주제인 인시던트는 전달
+실패를 먼저 표시할 수 있습니다. 모든 경로는 기록된 실패를 완전한 root-cause 결론이 아니라
+관측으로 표시합니다.
 
-각 manifest route에는 owner가 하나만 있습니다. SPA는 query와 fragment를 제거하고 path-segment
-경계에서 exact path 또는 descendant를 match한 뒤 가장 긴 owner를 선택합니다. 비슷한 prefix는
-ownership을 상속하지 않습니다. Owned route가 manifest에 하나라도 없으면 panel은 `unknown`이고,
-명시적으로 source-independent인 panel만 source status를 생략합니다.
+각 매니페스트 경로에는 소유자가 하나만 있습니다. SPA는 조회와 fragment를 제거하고 path-segment
+경계에서 exact 경로 또는 descendant를 일치한 뒤 가장 긴 소유자를 선택합니다. 비슷한 접두사는
+소유권을 상속하지 않습니다. Owned 경로가 매니페스트에 하나라도 없으면 패널은 `unknown`이고,
+명시적으로 source-independent인 패널만 출처 상태를 생략합니다.
 
-Production Operator API는 `GET /stewardship`을 등록하기 전에 operational ownership map을 load하고
-validate합니다. Console은 이 source를 read-only로 projection합니다. Handover form은 structured
-person 또는 group assignment를 별도 ingestion boundary에 제출할 수 있지만 map을 적용하거나 Git
-credential을 보유할 수 없습니다. Draft PR 생성과 signed merge processing은 ingestion/GitOps
-boundary에 유지되며 반환된 draft에는 persisted idempotent PR receipt가 포함됩니다.
-Browser는 receipt URL이 embedded credential 없는 absolute HTTPS URL일 때만 link로 렌더링하며,
-그 외에는 PR reference를 클릭할 수 없는 text로 표시합니다.
-Content upload는 same-origin ingestion proxy target에만 API bearer token을 유지합니다.
-Cross-origin direct-upload target에는 content header를 보내지만 Operator API credential은 전달하지
+운영 Operator API는 `GET /stewardship`을 등록하기 전에 operational 소유권 지도를 부하하고
+validate합니다. Console은 이 출처를 읽기 전용으로 변환 결과합니다. 인계 양식은 구조화된
+person 또는 그룹 배정을 별도 인제스트 경계에 제출할 수 있지만 지도를 적용하거나 Git
+자격 증명을 보유할 수 없습니다. 초안 PR 생성과 signed 병합 처리는 인제스트/GitOps
+경계에 유지되며 반환된 초안에는 저장된 멱등적 PR 증적이 포함됩니다.
+브라우저는 증적 URL이 embedded 자격 증명 없는 absolute HTTPS URL일 때만 링크로 렌더링하며,
+그 외에는 PR 참조를 클릭할 수 없는 텍스트로 표시합니다.
+내용 업로드는 same-origin 인제스트 proxy 대상에만 API bearer 토큰을 유지합니다.
+Cross-origin direct-upload 대상에는 내용 헤더를 보내지만 Operator API 자격 증명은 전달하지
 않습니다.
 
 ## 점진적 병렬 대화
 
-Branch lifecycle, ordered reduction, confirmed revision, cancellation, replay 및 metric은
+가지 수명 주기, ordered reduction, confirmed 개정 번호, 취소, 재생 및 메트릭은
 [Operator Console Progressive Conversations](operator-console-progressive-conversations-ko.md)가 소유합니다.
 
-## Stream recovery 및 authentication
+## 스트림 복구 및 authentication
 
-인증된 live, agent 및 provisioning SSE reader는 keepalive comment를 포함해 45초 동안 byte가 없으면
-cancel하고 bounded reconnect를 사용합니다. Provisioning은 event 전달 실패 시 reader도 cancel합니다.
-Agent stream의 `401`은 전체 화면 login recovery를 기다리고, `403`은 새 App Role을 page reload 없이
+인증된 실제 운영, 에이전트 및 프로비저닝 SSE 읽기 담당은 keepalive comment를 포함해 45초 동안 바이트가 없으면
+취소하고 범위가 제한된 reconnect를 사용합니다. 프로비저닝은 이벤트 전달 실패 시 읽기 담당도 취소합니다.
+에이전트 스트림의 `401`은 전체 화면 login 복구를 기다리고, `403`은 새 App 역할을 페이지 reload 없이
 반영할 수 있도록 reconnect합니다.
 
-Command Deck 조사 activity에는 선택적인 observed execution evidence가 포함될 수 있습니다. Server는
-emit 전에 credential과 민감한 identifier를 제거하고 `redacted=true`를 설정하며, browser는 이 확인이
-없는 input evidence를 폐기합니다. `input_kind=command`는 기록된 process invocation이 필요하며 exit
-code를 포함할 수 있습니다. `input_kind=query`는 canonical typed server query를 전달하고 reconstructed
-provider command를 만들지 않으며 exit code를 포함할 수 없습니다. 허용된 activity는 일치하는 `TOOL`
-또는 `QUERY` badge, tool label, authority 및 완료 상태를 표시합니다. Command output, query result 및 timestamp는 기본적으로 접힌 상태를 유지합니다. 유효한 object 또는 array JSON은 theme에 맞는 scrollbar가 적용된 bounded code surface에서 pretty-print됩니다.
-Inventory result는 일치한 resource, count, coverage 및 snapshot provenance를 포함하는 verifier-accepted detailed projection을 유지합니다. Input은 16 KiB, result preview는 64 KiB로 제한됩니다. 크기를 초과하는 collection tail은 omission count와 함께 제거해 output을 유효한 JSON으로 유지합니다. Activity 및 retrieval label은 512자, detail 및 milestone text는 16 KiB로 제한되며
-completed/total progress가 모순되면 거부합니다. Browser는
-표시된 command 또는 query를 복사할 수 있지만 실행하거나 다시 시도할 수 없습니다. 이 evidence는 권한 있는
-runtime이 수행한 work를 read-only로 관찰한 것이며, console이 executor identity 또는 임시 권한을
+Command Deck 조사 활동에는 선택적인 관찰된 실행 근거가 포함될 수 있습니다. 서버는
+발행 전에 자격 증명과 민감한 식별자를 제거하고 `redacted=true`를 설정하며, 브라우저는 이 확인이
+없는 입력 근거를 폐기합니다. `input_kind=command`는 기록된 프로세스 호출이 필요하며 exit
+코드를 포함할 수 있습니다. `input_kind=query`는 정본 타입이 지정된 서버 조회를 전달하고 reconstructed
+프로바이더 명령을 만들지 않으며 exit 코드를 포함할 수 없습니다. 허용된 활동은 일치하는 `TOOL`
+또는 `QUERY` 배지, 도구 라벨, 권한 및 완료 상태를 표시합니다. Command 출력, 조회 결과 및 시각은 기본적으로 접힌 상태를 유지합니다. 유효한 객체 또는 array JSON은 테마에 맞는 scrollbar가 적용된 범위가 제한된 코드 표면에서 pretty-print됩니다.
+인벤토리 결과는 일치한 리소스, 개수, 커버리지 및 스냅샷 출처 이력을 포함하는 verifier-accepted detailed 변환 결과를 유지합니다. 입력은 16 KiB, 결과 미리 보기는 64 KiB로 제한됩니다. 크기를 초과하는 collection tail은 omission 개수와 함께 제거해 출력을 유효한 JSON으로 유지합니다. 활동 및 수집 라벨은 512자, 상세 및 이정표 텍스트는 16 KiB로 제한되며
+completed/합계 진행 상황이 모순되면 거부합니다. 브라우저는
+표시된 명령 또는 조회를 복사할 수 있지만 실행하거나 다시 시도할 수 없습니다. 이 근거는 권한 있는
+런타임이 수행한 작업을 읽기 전용으로 관찰한 것이며, 콘솔이 실행기 신원 또는 임시 권한을
 보유한다는 증거가 아닙니다.
 
-Command Deck의 web research turn은 작업 진행 중 실제 상태를 나타내는 `status` frame을 stream합니다.
-Server는 semantic search intent가 narrator model을 호출할 때만 `web_search_classifying`을 emit하고,
-public-web provider 호출 직전에만 `web_search_searching`을 emit하며, retrieval 후에는 정제된 source
-수와 preview를 포함한 `web_search_grounded`를 emit합니다. 답변 준비 trace는 이 단계를 즉시
-렌더링합니다. 실행하지 않은 단계는 해당 turn의 진행 상태로 표시하지 않습니다.
+Command Deck의 web research 턴은 작업 진행 중 실제 상태를 나타내는 `status` 프레임을 스트림합니다.
+서버는 semantic 검색 의도가 서술기 모델을 호출할 때만 `web_search_classifying`을 발행하고,
+공개 웹 프로바이더 호출 직전에만 `web_search_searching`을 발행하며, 수집 후에는 정제된 출처
+수와 미리 보기를 포함한 `web_search_grounded`를 발행합니다. 답변 준비 trace는 이 단계를 즉시
+렌더링합니다. 실행하지 않은 단계는 해당 턴의 진행 상태로 표시하지 않습니다.
 
-완료된 각 model-backed turn은 선택된 model과 해당 turn의 기록된 metadata로 확인되는 단계인 evidence
-retrieval, model reasoning, specialist consultation, evidence binding 및 verification을 LLM escalation
-disclosure에 계속 표시합니다. 새 citation이 없는 follow-up turn도 model reasoning 단계를 표시하고
-별도 source가 첨부되지 않았음을 명시합니다. 이전 citation을 새로 조회한 것처럼 재사용하지 않습니다.
-Evidence value와 path는 잘리지 않고 줄바꿈되며, source detail은 별도로 펼쳐 확인할 수 있습니다. 완료된
-verification stage는 검사가 수행되었음을 나타내며, unverified result는 성공 check 대신 attention mark를
+완료된 각 model-backed 턴은 선택된 모델과 해당 턴의 기록된 메타데이터로 확인되는 단계인 근거
+수집, 모델 reasoning, specialist consultation, 근거 연결 및 검증을 LLM 에스컬레이션
+공개에 계속 표시합니다. 새 인용이 없는 후속 조치 턴도 모델 reasoning 단계를 표시하고
+별도 출처가 첨부되지 않았음을 명시합니다. 이전 인용을 새로 조회한 것처럼 재사용하지 않습니다.
+근거 값과 경로는 잘리지 않고 줄바꿈되며, 출처 상세는 별도로 펼쳐 확인할 수 있습니다. 완료된
+검증 단계는 검사가 수행되었음을 나타내며, 검증되지 않은 결과는 성공 검사 대신 attention mark를
 사용합니다.
 
-완료된 deterministic turn은 LLM label 없이 동일한 processing disclosure를 사용합니다. Disclosure는
-결정론적 응답기를 식별하고 사용할 수 없는 backend 또는 content-policy block 같은 기록된 fallback
-reason을 유지하므로 model outage가 공개되지 않은 model response처럼 보이지 않습니다.
+완료된 결정론적 턴은 LLM 라벨 없이 동일한 처리 공개를 사용합니다. 공개는
+결정론적 응답기를 식별하고 사용할 수 없는 백엔드 또는 content-policy 블록 같은 기록된 대체 경로
+사유를 유지하므로 모델 장애가 공개되지 않은 모델 응답처럼 보이지 않습니다.
 
-Browser는 기록된 model identifier와 optional latency 또는 token metric이 bounded source-descriptor
-contract와 일치할 때만 LLM disclosure를 표시합니다. Empty, oversized, control-character,
-duplicate-metric 및 free-form metric value는 LLM escalation claim을 만들지 않습니다. Raw source
-badge는 width가 제한되므로 malformed metadata가 reply header를 밀어내지 않습니다. Browser가 token
-usage를 표시하려면 token total과 prompt 및 completion component가 각각 finite nonnegative value여야
+브라우저는 기록된 모델 식별자와 선택적 지연 시간 또는 토큰 메트릭이 범위가 제한된 source-descriptor
+계약과 일치할 때만 LLM 공개를 표시합니다. 빈, oversized, control-character,
+duplicate-metric 및 free-form 메트릭 값은 LLM 에스컬레이션 점유를 만들지 않습니다. Raw 출처
+배지는 너비가 제한되므로 malformed 메타데이터가 회신 헤더를 밀어내지 않습니다. 브라우저가 토큰
+사용량을 표시하려면 토큰 합계와 프롬프트 및 완료 컴포넌트가 각각 finite nonnegative 값여야
 합니다.
 
-Verification metadata는 check counter가 nonnegative integer이고 completed check가 total check보다
-크지 않을 때만 허용됩니다. Atomic claim span은 순서가 맞는 nonnegative integer이고 manifest schema
-version 1을 명시하며 claim, failed-claim 및 used-evidence reference에는 duplicate 또는 dangling
-identifier가 없어야 합니다. `unverified`가 아닌 terminal status는 선언된 check를 모두 완료하며,
-partial evidence는 표시하되 terminal verification은 `unverified`로 유지합니다. 잘못된 조합은
-unverified malformed artifact가 됩니다. Failed-claim identifier는 unsupported 또는 ambiguous claim과
-정확히 일치하며 manifest는 verification envelope과 동일한 authority를 사용합니다.
-Browser는 producer cap인 claim 64개, evidence entry 512개 및 추가 document reference 8개를 동일하게
-적용합니다. Artifact identifier는 1 KiB, rendered value는 16 KiB, anchor 또는 alias list는 64개로
-제한됩니다. Live reply와 session replay는 동일한 parser를 사용하므로 reload 후 HTTP boundary가
-거부할 metadata를 복원하거나 다르게 해석하지 않습니다.
+검증 메타데이터는 검사 counter가 nonnegative integer이고 completed 검사가 합계 검사보다
+크지 않을 때만 허용됩니다. Atomic 점유 구간은 순서가 맞는 nonnegative integer이고 매니페스트 스키마
+버전 1을 명시하며 점유, failed-claim 및 used-evidence 참조에는 중복 또는 dangling
+식별자가 없어야 합니다. `unverified`가 아닌 최종 상태는 선언된 검사를 모두 완료하며,
+부분 근거는 표시하되 최종 검증은 `unverified`로 유지합니다. 잘못된 조합은
+검증되지 않은 malformed 산출물이 됩니다. Failed-claim 식별자는 지원하지 않는 또는 모호한 점유와
+정확히 일치하며 매니페스트는 검증 묶음과 동일한 권한을 사용합니다.
+브라우저는 생산자 상한인 점유 64개, 근거 항목 512개 및 추가 문서 참조 8개를 동일하게
+적용합니다. 산출물 식별자는 1 KiB, rendered 값은 16 KiB, anchor 또는 별칭 목록은 64개로
+제한됩니다. 실제 운영 회신과 세션 재생은 동일한 파서를 사용하므로 reload 후 HTTP 경계가
+거부할 메타데이터를 복원하거나 다르게 해석하지 않습니다.
 
-Session replay는 4 MiB JSON envelope 안에 최신 turn을 최대 40개 유지합니다. Turn 하나에는 text
-256 KiB, bounded citation 512개, bounded follow-up 8개 및 bounded activity record 64개까지 포함할 수
-있습니다. Serialization이 envelope을 초과하면 browser는 가장 오래된 turn부터 제거합니다. Oversized
-또는 내부 정합성이 없는 optional collection은 renderer로 복원하지 않습니다. Answer-plan section 및
-override label은 64자와 128자, code validation detail은 4 KiB, milestone agent identity는 64자로
+세션 재생은 4 MiB JSON 묶음 안에 최신 턴을 최대 40개 유지합니다. Turn 하나에는 텍스트
+256 KiB, 범위가 제한된 인용 512개, 범위가 제한된 후속 조치 8개 및 범위가 제한된 활동 기록 64개까지 포함할 수
+있습니다. 직렬화가 묶음을 초과하면 브라우저는 가장 오래된 턴부터 제거합니다. Oversized
+또는 내부 정합성이 없는 선택적 collection은 렌더러로 복원하지 않습니다. Answer-plan 섹션 및
+재정의 라벨은 64자와 128자, 코드 검증 상세는 4 KiB, 이정표 에이전트 신원은 64자로
 제한합니다.
 
-Web composer는 선택, drop 및 clipboard paste raster를 동일한 bounded attachment tray와 validation path로 전달합니다. Stage 전에 browser는 upscaling 없이 longest edge를 2048 px 안에 맞추고 image당 4 MiB 아래로 re-encode합니다. Clipboard text와 HTML은 textarea의 native paste 동작을 유지하며 attachment가 되지 않습니다.
-Turn이 검증된 inline image attachment를 carry하면 streaming route는 narrator가 작성하기 전에 read-only `vision_analyzing`을, 답변 전에 `vision_grounded`를 emit하며, 각 frame은 image source preview(name, media type, size)를 포함하되 base64 payload는 절대 포함하지 않습니다.
-해당 turn은 vision 지원 narrator로 escalate되고, 답변 준비 trace는 이 단계를 web-search grounding과 동일하게 렌더링합니다.
+Web 작성기는 선택, 폐기 및 clipboard paste raster를 동일한 범위가 제한된 첨부 tray와 검증 경로로 전달합니다. 단계 전에 브라우저는 upscaling 없이 longest 간선을 2048 px 안에 맞추고 이미지당 4 MiB 아래로 re-encode합니다. Clipboard 텍스트와 HTML은 textarea의 native paste 동작을 유지하며 첨부가 되지 않습니다.
+Turn이 검증된 inline 이미지 첨부를 carry하면 스트리밍 경로는 서술기가 작성하기 전에 읽기 전용 `vision_analyzing`을, 답변 전에 `vision_grounded`를 발행하며, 각 프레임은 이미지 출처 미리 보기(이름, media 타입, 크기)를 포함하되 base64 페이로드는 절대 포함하지 않습니다.
+해당 턴은 vision 지원 서술기로 escalate되고, 답변 준비 trace는 이 단계를 웹 검색 grounding과 동일하게 렌더링합니다.
 
-Interactive Live route는 tab이 hidden 상태일 때 SSE reader를 pause합니다. Operator가 활성화한
-browser notification consumer만 bounded exception으로 background에서 authenticated live reader를
-유지하고, 기존 capped backoff로 authentication failure를 retry하며, notification permission 또는
-principal-scoped opt-in이 제거되면 즉시 중지합니다. Replay가 아닌 frame의 사람 승인, 거부, 실패
-결과만 emit합니다. Shared browser ledger는 여러 tab에서 같은 event tag를 5분 동안 억제하고 system
-notification delivery를 분당 5건으로 제한하지만 audit 또는 Incident evidence는 제거하지 않습니다.
+Interactive 실제 운영 경로는 tab이 hidden 상태일 때 SSE 읽기 담당을 pause합니다. Operator가 활성화한
+브라우저 notification 소비자만 범위가 제한된 exception으로 background에서 인증된 실제 운영 읽기 담당을
+유지하고, 기존 capped 재시도 대기로 authentication 실패를 재시도하며, notification 권한 또는
+principal 범위로 한정된 명시적 선택이 제거되면 즉시 중지합니다. 재생이 아닌 프레임의 사람 승인, 거부, 실패
+결과만 발행합니다. Shared 브라우저 원장은 여러 tab에서 같은 이벤트 tag를 5분 동안 억제하고 system
+notification 전달을 분당 5건으로 제한하지만 감사 또는 인시던트 근거는 제거하지 않습니다.
 
-Agent stream은 local 및 deployed profile에서 같은 shared stage transport를 통해 실제 health에서
-파생한 `agent.runtime-state` heartbeat를 수신합니다. Heartbeat는 live agent의 현재 runtime 관찰을
-증명하지만 work로 분류되지 않습니다. 누락되거나 malformed인 health frame은 선언된 subscriber
-binding을 observed state로 승격하지 않습니다. 각 Operator API replica는 instance-scoped consumer
-group을 사용하므로 연결된 모든 console이 완전한 heartbeat set을 수신합니다. Deployed Pantheon도
-handler `started`, `completed`, `failed` transition을 이 transport로 게시합니다. Give up 또는 halt된
-consumer는 sibling을 유지한 채 health-derived heartbeat에서 빠지고 terminal agent/topic은 runtime
-health에 남습니다. Saga 또는 Vidar failure는 sticky shadow를 강제합니다. 이 transition은 runtime
-activity이며 durable audit evidence가 아닙니다.
+에이전트 스트림은 로컬 및 deployed 프로파일에서 같은 shared 단계 전송 계층을 통해 실제 상태에서
+파생한 `agent.runtime-state` 하트비트를 수신합니다. 하트비트는 실제 운영 에이전트의 현재 런타임 관찰을
+증명하지만 작업으로 분류되지 않습니다. 누락되거나 malformed인 상태 프레임은 선언된 구독자
+연결을 관찰된 상태로 승격하지 않습니다. 각 Operator API 복제본은 instance-scoped 소비자
+그룹을 사용하므로 연결된 모든 콘솔이 완전한 하트비트 집합을 수신합니다. Deployed Pantheon도
+핸들러 `started`, `completed`, `failed` transition을 이 전송 계층으로 게시합니다. Give up 또는 halt된
+소비자는 형제를 유지한 채 health-derived 하트비트에서 빠지고 최종 에이전트/토픽은 런타임
+상태에 남습니다. Saga 또는 Vidar 실패는 sticky 그림자를 강제합니다. 이 transition은 런타임
+활동이며 영속 감사 근거가 아닙니다.
 
-Command Deck은 complete 또는 pending SSE frame이 256 KiB를 넘으면 `data:` line 누적이나 JSON parse
-전에 거부하고 deterministic interrupted-stream fallback을 사용합니다. Correlation-filtered action
-progress는 terminal audit frame을 완료로 처리하고 120초 deadline을 timeout으로 보고하며, 그 밖의
-authentication 또는 transport failure는 전달합니다. Investigation row는 pending에서 running을 거쳐
-terminal state 하나로 진행합니다. Stale backward frame과 terminal replacement는 무시하므로 completed,
-failed 또는 unavailable operation이 spinner로 돌아가지 않습니다.
+Command Deck은 완전한 또는 pending SSE 프레임이 256 KiB를 넘으면 `data:` 줄 누적이나 JSON parse
+전에 거부하고 결정론적 interrupted-stream 대체 경로를 사용합니다. Correlation-filtered 액션
+진행 상황은 최종 감사 프레임을 완료로 처리하고 120초 기한을 시간 초과로 보고하며, 그 밖의
+authentication 또는 전송 계층 실패는 전달합니다. 조사 행은 pending에서 running을 거쳐
+최종 상태 하나로 진행합니다. Stale backward 프레임과 최종 replacement는 무시하므로 completed,
+실패한 또는 사용 불가 연산이 spinner로 돌아가지 않습니다.
 
-Console data를 열기 전에 bootstrap은 인증된 `GET /iam/self`로 principal을 확인합니다. Transport
-failure는 data를 닫힌 상태로 유지하고 access-check retry 및 sign-in을 제공합니다. Operator API가
-unreachable일 때 redirect loop가 생기므로 자동 redirect는 시작하지 않습니다.
+Console 데이터를 열기 전에 초기화는 인증된 `GET /iam/self`로 principal을 확인합니다. 전송 계층
+실패는 데이터를 닫힌 상태로 유지하고 access-check 재시도 및 sign-in을 제공합니다. Operator API가
+unreachable일 때 redirect 루프가 생기므로 자동 redirect는 시작하지 않습니다.
 
-## Architecture map resilience
+## 아키텍처 지도 복원력
 
-Architecture route는 map 오른쪽 위에 떠 있는 compact panel에 scope selection만 배치합니다. Inventory
-count, 설명문 및 layer filter는 표시하지 않습니다. Truncated graph는 짧은 status badge 하나로
-알립니다. Resource-color legend는 floating 또는 bottom panel이 아니라 subscription boundary 옆 world
-floor에 직접 그립니다. Camera fit은 범례가 들어갈 floor 공간을 예약합니다. 고정된 legend box, title
-또는 color swatch 없이 resource type name을 해당 floor에 직접 표시합니다. Type name은 pan과 함께
-이동하고 읽을 수 있는 범위 안에서 map zoom에 비례해 조정됩니다.
+아키텍처 경로는 지도 오른쪽 위에 떠 있는 간결한 패널에 범위 선택만 배치합니다. 인벤토리
+개수, 설명문 및 계층 필터는 표시하지 않습니다. 잘린 그래프는 짧은 상태 배지 하나로
+알립니다. Resource-color legend는 floating 또는 bottom 패널이 아니라 구독 경계 옆 세계
+하한에 직접 그립니다. Camera fit은 범례가 들어갈 하한 공간을 예약합니다. 고정된 legend box, title
+또는 color swatch 없이 리소스 타입 이름을 해당 하한에 직접 표시합니다. 타입 이름은 pan과 함께
+이동하고 읽을 수 있는 범위 안에서 지도 zoom에 비례해 조정됩니다.
 Resource glyph는 Microsoft Cloud Adoption Framework의
-[Azure resource abbreviations](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations)를
-사용합니다. 알려진 모든 canonical type은 명시적인 lowercase abbreviation을 가집니다. 일대일 CAF
-항목이 없는 abstract type은 자동 initialism 대신 문서화된 stable extension을 사용합니다.
-Relationship legend는 compact canvas control로 유지합니다. 기본 isometric map은 Reflections와
-Connections가 활성화된 상태로 시작합니다. Containment는 흐린 dashed link로,
-attachment 및 dependency는 각각의 directional style로 표시하고 resource shape을 렌더링합니다.
-Top 및 front view는 optional입니다. 단순 projection은 선택된 단일 scope를 포함한 모든
-resource-group panel의 크기를 관찰된 child 수에 따라 정하고 균형 잡힌 world에 panel을 배치합니다.
-Focused service 및 resource-group view는 full subscription frame이 아니라 repacked content에
-맞춰 표시합니다. Resource node는 표준 Event Grid topic
-block보다 작게 렌더링되지 않습니다. Inventory에 맞춰 world와 canvas가 커지며 authored nested
-layout은 supplied geometry를 유지합니다. Map은 workspace 전체 너비를 사용하고 inspection detail은
-아래에 배치합니다. 좁은 viewport에서는 box를 읽을 수 없게 줄이는 대신 node 크기를 유지하고 map
-panning을 사용합니다. Selection은 inventory를 reload하지 않고 canonical deep link를 갱신하며
-technical identifier보다 directional relationship을 먼저 표시합니다. Selection 중에는 모든 공통
-resource coordinate를 유지하면서 auxiliary neighbor만 표시합니다. 관련 없는 resource는 흐리게
-처리하지 않으며 선택된 outline과 inspection detail만 사용해 selection을 나타냅니다. Virtual
-machine을 포함한 모든 resource selection은 현재 camera scale과 position을 유지합니다. Zoom, fit,
-pan 및 camera-view control은 운영자가 명시적으로 조작할 때만 변경됩니다.
+[Azure 리소스 abbreviations](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations)를
+사용합니다. 알려진 모든 정본 타입은 명시적인 lowercase abbreviation을 가집니다. 일대일 CAF
+항목이 없는 abstract 타입은 자동 initialism 대신 문서화된 고정된 확장을 사용합니다.
+관계 legend는 간결한 캔버스 컨트롤로 유지합니다. 기본 isometric 지도는 Reflections와
+Connections가 활성화된 상태로 시작합니다. Containment는 흐린 dashed 링크로,
+첨부 및 의존성은 각각의 directional style로 표시하고 리소스 형태를 렌더링합니다.
+Top 및 front 화면은 선택적입니다. 단순 변환 결과는 선택된 단일 범위를 포함한 모든
+resource-group 패널의 크기를 관찰된 하위 수에 따라 정하고 균형 잡힌 세계에 패널을 배치합니다.
+Focused 서비스 및 resource-group 화면은 full 구독 프레임이 아니라 repacked 내용에
+맞춰 표시합니다. Resource 노드는 표준 Event Grid 토픽
+블록보다 작게 렌더링되지 않습니다. 인벤토리에 맞춰 세계와 캔버스가 커지며 authored 중첩된
+배치는 supplied 형상을 유지합니다. 지도는 workspace 전체 너비를 사용하고 점검 상세는
+아래에 배치합니다. 좁은 뷰포트에서는 box를 읽을 수 없게 줄이는 대신 노드 크기를 유지하고 지도
+panning을 사용합니다. 선택은 인벤토리를 reload하지 않고 정본 deep 링크를 갱신하며
+technical 식별자보다 directional 관계를 먼저 표시합니다. 선택 중에는 모든 공통
+리소스 coordinate를 유지하면서 auxiliary neighbor만 표시합니다. 관련 없는 리소스는 흐리게
+처리하지 않으며 선택된 outline과 점검 상세만 사용해 선택을 나타냅니다. Virtual
+머신을 포함한 모든 리소스 선택은 현재 camera 규모와 position을 유지합니다. Zoom, fit,
+pan 및 camera-view 컨트롤은 운영자가 명시적으로 조작할 때만 변경됩니다.
 
-Factual count와 inspection index는 계속 complete authoritative inventory를 사용합니다. Isometric
-overview는 network interface와 managed disk를 표시하고 diagnostic, certificate 및 provider helper
-resource를 접는 presentation-only projection을 적용합니다. 표시된 각 owner는 접힌 neighbor
-수에 해당하는 `+N` badge를 표시합니다. Resource를 선택하면 새 inventory를 요청하거나 만들어 내지
-않고 direct auxiliary child와 semantic neighbor를 표시합니다. Overview는 표시된 resource만 packing하고
-child를 layer 및 type 순서로 정렬하며 접힌 owner 옆에 최대 두 개의 satellite slot을 예약합니다. 큰
-resource-group panel을 wide row에 먼저 배치하므로 숨겨진 auxiliary가 빈 grid hole을 만들거나 world를
-부풀리지 않습니다. Virtual network와 subnet은 낮은 floor
-lane으로 렌더링하므로 compute, data 및 gateway node를 network plane 위에서 읽을 수 있습니다. Floor
-lane은 reflection을 렌더링하지 않습니다. Azure inventory는 VNet payload 안에서 관찰된 subnet만
-`network.subnet` record로 승격하고 관찰된 VNet-to-subnet containment edge를 생성합니다. Console은
-등록된 `attached_to` link가 bounded resource-to-interface-to-subnet chain 안에서 하나의 subnet에만
-도달하거나 disk가 bounded disk-to-workload-to-interface-to-subnet chain으로 도달할 때 resource를 해당
-subnet에 배치합니다. Membership이 없거나 모호하면 resource-group의 neutral
-floor에 유지하며 name과 provider identifier를 topology evidence로 사용하지 않습니다.
+Factual 개수와 점검 인덱스는 계속 완전한 권위 있는 인벤토리를 사용합니다. Isometric
+개요는 네트워크 인터페이스와 managed disk를 표시하고 진단, certificate 및 프로바이더 보조 로직
+리소스를 접는 presentation-only 변환 결과를 적용합니다. 표시된 각 소유자는 접힌 neighbor
+수에 해당하는 `+N` 배지를 표시합니다. Resource를 선택하면 새 인벤토리를 요청하거나 만들어 내지
+않고 direct auxiliary 하위와 semantic neighbor를 표시합니다. 개요는 표시된 리소스만 packing하고
+하위를 계층 및 타입 순서로 정렬하며 접힌 소유자 옆에 최대 두 개의 satellite 자리를 예약합니다. 큰
+resource-group 패널을 wide 행에 먼저 배치하므로 숨겨진 auxiliary가 빈 grid hole을 만들거나 세계를
+부풀리지 않습니다. Virtual 네트워크와 subnet은 낮은 하한
+레인으로 렌더링하므로 compute, 데이터 및 게이트웨이 노드를 네트워크 plane 위에서 읽을 수 있습니다. 하한
+레인은 reflection을 렌더링하지 않습니다. Azure 인벤토리는 VNet 페이로드 안에서 관찰된 subnet만
+`network.subnet` 기록으로 승격하고 관찰된 VNet-to-subnet containment 간선을 생성합니다. Console은
+등록된 `attached_to` 링크가 범위가 제한된 resource-to-interface-to-subnet 체인 안에서 하나의 subnet에만
+도달하거나 disk가 범위가 제한된 disk-to-workload-to-interface-to-subnet 체인으로 도달할 때 리소스를 해당
+subnet에 배치합니다. 구성원이 없거나 모호하면 resource-group의 neutral
+하한에 유지하며 이름과 프로바이더 식별자를 topology 근거로 사용하지 않습니다.
 
-Isometric renderer는 VNet을 outer floor로, subnet을 visible member 수에 따라 크기가 정해지는 inset
-floor plane으로 그립니다. Evidence-derived membership rail과 direct `attached_to` link는 floor에
-유지하고 `depends_on` arrow는 resource top 위에 유지합니다. Plane name은 floating label card 없이
-world axis를 따릅니다. Plane을 선택하면 동일한 resource inspector를 사용하며 가장 작은 containing
-plane이 pointer target으로 유지됩니다. Focused service 또는 resource-group view는 공간이 허용될 때
-3개의 network floor를 한 행에 배치하는 wide packing target을 사용합니다. Complete inventory view보다
-작은 desktop legend reserve와 canvas height를 사용합니다. 좁은 viewport에서는 동일한 node 크기를
-유지하고 canvas를 520 px로 제한하며 더 넓어진 floor를 panning으로 탐색합니다.
+Isometric 렌더러는 VNet을 outer 하한으로, subnet을 visible 구성원 수에 따라 크기가 정해지는 inset
+하한 plane으로 그립니다. Evidence-derived 구성원 rail과 direct `attached_to` 링크는 하한에
+유지하고 `depends_on` arrow는 리소스 top 위에 유지합니다. Plane 이름은 floating 라벨 카드 없이
+세계 축을 따릅니다. Plane을 선택하면 동일한 리소스 inspector를 사용하며 가장 작은 containing
+plane이 포인터 대상으로 유지됩니다. Focused 서비스 또는 resource-group 화면은 공간이 허용될 때
+3개의 네트워크 하한을 한 행에 배치하는 wide packing 대상을 사용합니다. 완전한 인벤토리 화면보다
+작은 desktop legend reserve와 캔버스 높이를 사용합니다. 좁은 뷰포트에서는 동일한 노드 크기를
+유지하고 캔버스를 520 px로 제한하며 더 넓어진 하한을 panning으로 탐색합니다.
 
-Subnet 안의 visible path participant는 관찰된 `attached_to` connected component별로 묶은 다음 network
-edge에서 storage 순서로 배치합니다. Public IP 및 network security resource, network interface,
-compute 및 service resource, disk 및 data resource 순서입니다. 여러 workload path는 type 또는 name으로
-서로 섞이지 않고 연속으로 유지됩니다. 이는 layout 순서이며 추론한 traffic direction이 아닙니다.
-각 component는 독립적인 depth-oriented lane을 사용합니다. Public IP는 camera에 가장 가깝고 security,
-interface, workload 및 storage stage가 순서대로 뒤로 물러납니다. Renderer는 겹치는 intra-subnet edge를
-하나의 shared floor spine과 짧은 stage branch로 대체하며 cross-plane attachment만 direct route를
-유지합니다. Workload는 supporting network resource보다 크게 렌더링됩니다. Path resource는 기본적으로
-glyph를 사용하고 workload는 primary label을 유지하며 어떤 resource든 선택하면 full name과 type을
-복원합니다. 읽을 수 있는 label threshold보다 낮은 dense overview scale에서는 선택하지 않은 node name과
-subnet name이 glyph, VNet name, region name 및 floor legend에 자리를 양보하며 focused view는 일반
-workload 및 subnet label 정책을 복원합니다. Perspective는 bounded depth
-범위에서 projected point를 조정해 가까운 resource를 먼 resource보다 크게 표시하고 picking과
-containment도 동일한 projection을 사용합니다. Zoom은 512x scale까지 상세 탐색을 지원하고 pointer를
-중심으로 확대하며, content-driven world는 고정 canvas-height ceiling 없이 확장됩니다. Fit은 complete
-frame을 복원하는 명시적 control로 유지됩니다. 기본 isometric camera는 path lane을 좌우로 읽고 depth가
-뒤로 물러나도록 낮은 oblique angle을 사용합니다. Fit은 compact world 위쪽에 visual depth를 남기기
-위해 화면 중심보다 약간 아래에 배치합니다. Content-driven canvas가 projected world보다 크게 높은
-경우에는 world를 fold 아래에 중앙 정렬하지 않고 첫 visible frame에 upper bound를 고정합니다.
-왼쪽 button drag는 projected world를 pan합니다. 가운데 button drag는 normalized continuous yaw로
-world center 주위에서 camera를 좌우로 orbit하며 세로 이동은 pitch를 변경하지 않습니다. 오른쪽 button은
-browser behavior를 유지합니다. Orbit input은 동일한 animation-frame coalescing을 사용하고 label만
-지연하며 floor, path 및 reflection은 계속 표시합니다.
+Subnet 안의 visible 경로 participant는 관찰된 `attached_to` connected 컴포넌트별로 묶은 다음 네트워크
+간선에서 저장소 순서로 배치합니다. 공개 IP 및 네트워크 security 리소스, 네트워크 인터페이스,
+compute 및 서비스 리소스, disk 및 데이터 리소스 순서입니다. 여러 워크로드 경로는 타입 또는 이름으로
+서로 섞이지 않고 연속으로 유지됩니다. 이는 배치 순서이며 추론한 트래픽 direction이 아닙니다.
+각 컴포넌트는 독립적인 depth-oriented 레인을 사용합니다. 공개 IP는 camera에 가장 가깝고 security,
+인터페이스, 워크로드 및 저장소 단계가 순서대로 뒤로 물러납니다. 렌더러는 겹치는 intra-subnet 간선을
+하나의 shared 하한 spine과 짧은 단계 가지로 대체하며 cross-plane 첨부만 direct 경로를
+유지합니다. 워크로드는 supporting 네트워크 리소스보다 크게 렌더링됩니다. 경로 리소스는 기본적으로
+glyph를 사용하고 워크로드는 기본 라벨을 유지하며 어떤 리소스든 선택하면 full 이름과 타입을
+복원합니다. 읽을 수 있는 라벨 임계값보다 낮은 dense 개요 규모에서는 선택하지 않은 노드 이름과
+subnet 이름이 glyph, VNet 이름, 지역 이름 및 하한 legend에 자리를 양보하며 focused 화면은 일반
+워크로드 및 subnet 라벨 정책을 복원합니다. Perspective는 범위가 제한된 깊이
+범위에서 projected 지점을 조정해 가까운 리소스를 먼 리소스보다 크게 표시하고 picking과
+containment도 동일한 변환 결과를 사용합니다. Zoom은 512x 규모까지 상세 탐색을 지원하고 포인터를
+중심으로 확대하며, content-driven 세계는 고정 canvas-height 상한 없이 확장됩니다. Fit은 완전한
+프레임을 복원하는 명시적 컨트롤로 유지됩니다. 기본 isometric camera는 경로 레인을 좌우로 읽고 깊이가
+뒤로 물러나도록 낮은 oblique angle을 사용합니다. Fit은 간결한 세계 위쪽에 visual 깊이를 남기기
+위해 화면 중심보다 약간 아래에 배치합니다. Content-driven 캔버스가 projected 세계보다 크게 높은
+경우에는 세계를 접기 아래에 중앙 정렬하지 않고 첫 visible 프레임에 upper 한계를 고정합니다.
+왼쪽 버튼 끌기는 projected 세계를 pan합니다. 가운데 버튼 끌기는 정규화된 continuous yaw로
+세계 center 주위에서 camera를 좌우로 orbit하며 세로 이동은 pitch를 변경하지 않습니다. 오른쪽 버튼은
+브라우저 행동을 유지합니다. Orbit 입력은 동일한 animation-frame coalescing을 사용하고 라벨만
+지연하며 하한, 경로 및 reflection은 계속 표시합니다.
 
-Label은 collision을 피하고 긴 이름을 맞추며 각 resource name과 읽기 쉬운 resource type을 함께
-표시합니다. Block의 compact acronym은 보조 cue이며 resource를 식별하는 유일한 방법이 아닙니다.
-Label은 zoom에 따라 13 px에서 20 px까지 커지고 선택된 label은 22 px까지 커질 수 있습니다. Zoom
-step은 reciprocal이고 색상은 console theme을 따르며, keyboard-accessible resource 및 relationship
-index는 filtered canvas와 동등합니다. Pointer target은 containment boundary를 포함해 최소 44 px입니다.
-선택된 label은 마지막 canvas overlay이므로 block glyph, relationship 또는 인접 label이 가릴 수
-없습니다. Truncated snapshot은 partial-inventory notice를 명시합니다.
-Canvas는 containment를 subdued dashed center-to-center edge로 렌더링합니다. Semantic relationship은
-연결된 block top보다 높은 directional node-to-node arrow를 사용하며 resource-group region을 operational
-endpoint로 연결하지 않습니다. Drag input은 animation frame마다 한 번만 draw하고 pointer가 이동하는
-동안에도 reflection을 계속 표시하며 label만 생략합니다. Pointer release는 label을 복원합니다.
-Local projection은 선택된 endpoint id와 resource type이 일치하는 registered relationship type만
-표시합니다. Malformed 또는 over-limit vendor relationship은 drop하고 snapshot을 truncated로 표시하며,
-신뢰할 수 없는 edge를 렌더링하지 않고 마지막 complete resource graph를 유지합니다.
+라벨은 충돌을 피하고 긴 이름을 맞추며 각 리소스 이름과 읽기 쉬운 리소스 타입을 함께
+표시합니다. 블록의 간결한 acronym은 보조 cue이며 리소스를 식별하는 유일한 방법이 아닙니다.
+라벨은 zoom에 따라 13 px에서 20 px까지 커지고 선택된 라벨은 22 px까지 커질 수 있습니다. Zoom
+단계는 reciprocal이고 색상은 콘솔 테마를 따르며, keyboard-accessible 리소스 및 관계
+인덱스는 filtered 캔버스와 동등합니다. 포인터 대상은 containment 경계를 포함해 최소 44 px입니다.
+선택된 라벨은 마지막 캔버스 overlay이므로 블록 glyph, 관계 또는 인접 라벨이 가릴 수
+없습니다. 잘린 스냅샷은 partial-inventory notice를 명시합니다.
+캔버스는 containment를 subdued dashed center-to-center 간선으로 렌더링합니다. Semantic 관계는
+연결된 블록 top보다 높은 directional node-to-node arrow를 사용하며 resource-group 지역을 operational
+엔드포인트로 연결하지 않습니다. 끌기 입력은 animation 프레임마다 한 번만 draw하고 포인터가 이동하는
+동안에도 reflection을 계속 표시하며 라벨만 생략합니다. 포인터 release는 라벨을 복원합니다.
+로컬 변환 결과는 선택된 엔드포인트 id와 리소스 타입이 일치하는 등록된 관계 타입만
+표시합니다. Malformed 또는 over-limit 벤더 관계는 폐기하고 스냅샷을 잘린으로 표시하며,
+신뢰할 수 없는 간선을 렌더링하지 않고 마지막 완전한 리소스 그래프를 유지합니다.
 
-Subscription-scoped cached snapshot은 즉시 렌더링됩니다. Expired 또는 change-invalidated snapshot은
-background refresh 동안 stale로 표시됩니다. Browser는 Operator API가 완료된 refresh를 원자적으로
-promote할 때까지만 polling하고 server freshness verdict를 높이지 않으며, stale graph를 유지한 채
-transient failure를 bounded 2-30초 backoff로 재시도합니다.
+Subscription-scoped cached 스냅샷은 즉시 렌더링됩니다. 만료된 또는 change-invalidated 스냅샷은
+background refresh 동안 stale로 표시됩니다. 브라우저는 Operator API가 완료된 refresh를 원자적으로
+promote할 때까지만 polling하고 서버 최신성 판정을 높이지 않으며, stale 그래프를 유지한 채
+transient 실패를 범위가 제한된 2-30초 재시도 대기로 재시도합니다.
 
 ## 검증
 
-- Catalog parity 및 route-local fallback test가 localization을 검증합니다.
-- Replay test가 JSON, SSE 및 cross-transport idempotency를 검증합니다.
-- Provenance test가 unavailable, unknown, malformed 및 route-owner 상태를 검증합니다.
-- Stream test가 inactivity, authentication 분류, frame limit 및 action timeout을 검증합니다.
-- Architecture test가 layout, selection, accessibility, cache freshness 및 bounded polling을 검증합니다.
+- 카탈로그 동등성 및 route-local 대체 경로 테스트가 localization을 검증합니다.
+- 재생 테스트가 JSON, SSE 및 cross-transport 멱등성을 검증합니다.
+- 출처 이력 테스트가 사용 불가, 알 수 없음, malformed 및 route-owner 상태를 검증합니다.
+- 스트림 테스트가 inactivity, authentication 분류, 프레임 한도 및 액션 시간 초과를 검증합니다.
+- 아키텍처 테스트가 배치, 선택, accessibility, 캐시 최신성 및 범위가 제한된 polling을 검증합니다.

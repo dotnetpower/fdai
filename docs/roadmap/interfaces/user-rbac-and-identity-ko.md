@@ -222,7 +222,7 @@ rule-catalog/overrides/**   @aw-approvers
 | 재정의 생성 / 수정 | **2 (quorum)** |
 
 Quorum-2는 "elevated 승인자" 그룹 도입 없이 구체화된 그림자→enforce 승격 게이트
-([아키텍처.instructions.md](../../../.github/instructions/architecture.instructions.md)).
+([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)).
 
 ### 5.2 목표 CI 검사 (상류 제공, 포크 설정)
 

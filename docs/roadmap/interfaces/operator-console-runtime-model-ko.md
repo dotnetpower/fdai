@@ -135,7 +135,7 @@ agent-state 참조를 direct 또는 tool-routed 정규화된 사실에서 생성
 - **tool-인자 내용을 명령으로 취급.** 오퍼레이터-공급 인자 값 (하나의
  `restart_reason`, 자유-텍스트 필터)은 T2 이벤트 페이로드와 똑같이
  신뢰할 수 없는 입력이자 prompt-injection 표면
- ([아키텍처.instructions.md § LLM Quality Gate](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2)).
+ ([architecture.instructions.md § LLM Quality Gate](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2)).
  그것들은 (a) 조정기 경계에서 schema-validate 되고, (b) trusted 텍스트
  로 system 프롬프트에 절대 concat 안 되며, (c) write-class 도구는 검증기
  (§7.2)가 재확인 - 인자 텍스트가 담을 수 있는 어떤 명령이 아닌 검증기

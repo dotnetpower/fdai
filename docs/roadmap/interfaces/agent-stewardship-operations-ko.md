@@ -249,4 +249,4 @@ terraform -chdir=infra validate
 | 소유권 스키마 및 인계 개념 | [agent-stewardship-and-handover-ko.md](agent-stewardship-and-handover-ko.md) |
 | Notification 경로 및 대체 경로 | [channels-and-notifications-ko.md](channels-and-notifications-ko.md) |
 | Human 권한 확인 | [user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md) |
-| Azure 배포 입력 | [../배포/deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md) |
+| Azure 배포 입력 | [../deployment/deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md) |

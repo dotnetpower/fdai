@@ -107,7 +107,7 @@ PostgreSQL 점유를 획득합니다. 점유는 워커 소유자, 시도 id, 개
   여전히 Saga가 감사한 반입이 필요하며, 인덱싱에는 Muninn 소유 명령 또는 이미 시작된
   결정 이후 상태의 복구가 필요합니다.
 
-운영은 업로드 API와 워커를 별도 Container App으로 일정합니다. 이 분리는 프로세스
+운영은 업로드 API와 워커를 별도 Container App으로 예약합니다. 이 분리는 프로세스
 lifetime, scaling, managed 신원, database 권한 부여만 변경합니다. API는 워커 소비자 그룹을
 구독하지 않고 워커는 업로드 유입을 노출하지 않으며, 어느 프로세스도 배포 역할에서
 judgment, 승인, 감사, memory 또는 실행기 권한을 얻지 않습니다. Topic-scoped RBAC는

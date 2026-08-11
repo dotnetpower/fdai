@@ -517,7 +517,7 @@ matrix:
 ## 11. Localization (L2)
 
 알림은 **L2 제품 표면**이다(참고:
-[언어.instructions.md](../../../.github/instructions/language.instructions.md)):
+[language.instructions.md](../../../.github/instructions/language.instructions.md)):
 소스 문자열은 영어이며, 채널은 이를 다른 로케일로 렌더링할 수 있다.
 
 - **렌더링 방식(옵션 C).** `core`는 최종 현지화 문자열을 절대 baked하지 않는다.
