@@ -4,318 +4,318 @@ translation_source_sha: 4ec249264117de63851dd980c4a01102b11f20d2
 translation_revised: 2026-08-11
 ---
 
-# Ontology Query Coverage 구현 계획
+# 온톨로지 조회 커버리지 구현 계획
 
-이 계획은 FDAI의 bounded conversation/ontology foundation과 operator 질문을 위한 목표 non-keyword
-path 사이의 구현 gap을 닫습니다. 100% structural query coverage에 필요한 검증된 현재 baseline,
-service/agent ownership, dependency 순서 work package, cutover gate 및 rollback unit을 기록합니다.
+이 계획은 FDAI의 범위가 제한된 대화/온톨로지 foundation과 운영자 질문을 위한 목표 non-keyword
+경로 사이의 구현 공백을 닫습니다. 100% structural 조회 커버리지에 필요한 검증된 현재 기준선,
+서비스/agent 소유권, 의존성 순서 작업 package, 전환 gate 및 롤백 단위를 기록합니다.
 
-> **Coverage boundary:** 100%는 하나의 active ontology release에서 읽을 수 있는 모든 declaration이
-> principal-scoped query descriptor 또는 typed unavailable reason을 갖는다는 뜻입니다. Identity,
-> provider data, history 또는 evidence가 없을 때 완전하거나 정확한 답을 보장한다는 뜻이 아닙니다.
+> **커버리지 경계:** 100%는 하나의 활성 온톨로지 release에서 읽을 수 있는 모든 선언이
+> principal 범위로 한정된 조회 서술자 또는 타입이 지정된 사용 불가 사유를 갖는다는 뜻입니다. 신원,
+> 프로바이더 data, 이력 또는 근거가 없을 때 완전하거나 정확한 답을 보장한다는 뜻이 아닙니다.
 >
-> **Authority boundary:** 자연어 및 embedding output은 candidate-only로 유지합니다. Read plan에는
-> 실행 권한이 없습니다. 명시적 변경 요청은 기존 judgment, safety, 사람 승인, execution, recovery 및
-> audit path로 다시 들어가는 typed draft만 만들 수 있습니다.
+> **권한 경계:** 자연어 및 임베딩 출력은 후보 전용으로 유지합니다. 읽기 계획에는
+> 실행 권한이 없습니다. 명시적 변경 요청은 기존 judgment, safety, 사람 승인, 실행, 복구 및
+> 감사 경로로 다시 들어가는 타입이 지정된 초안만 만들 수 있습니다.
 >
-> **무작위 보증 상태(2026-08-11):** 인증된 Console은 생성된 영어 및 한국어 turn 100/100개를
-> 완료했지만 측정된 경로는 로컬 Azure narrator만 사용했습니다. 의도 인식은 100%, 답변 성공은
-> 20%였으며 카드 100개 모두 evidence 0/0의 unverified 상태였습니다. Core는 이제 Azure model
-> candidate, exact ontology release 및 ontology instance store를 사용할 수 있을 때 semantic runtime을
-> 구성합니다. 측정된 실행은 이 binding 이전의 결과입니다. Operator Service는 이제 semantic turn을
-> publish하고 evidence-bound projection을 consume합니다. Visible Console path에서 새 live cross-service
-> 및 randomized run receipt를 만들 때까지 production completion 보고는 계속 차단됩니다.
+> **무작위 보증 상태(2026-08-11):** 인증된 Console은 생성된 영어 및 한국어 턴 100/100개를
+> 완료했지만 측정된 경로는 로컬 Azure 서술기만 사용했습니다. 의도 인식은 100%, 답변 성공은
+> 20%였으며 카드 100개 모두 근거 0/0의 검증되지 않은 상태였습니다. Core는 이제 Azure 모델
+> 후보, exact 온톨로지 release 및 온톨로지 instance 저장소를 사용할 수 있을 때 semantic 런타임을
+> 구성합니다. 측정된 실행은 이 연결 이전의 결과입니다. Operator 서비스는 이제 semantic 턴을
+> publish하고 근거에 묶인 변환 결과를 consume합니다. Visible Console 경로에서 새 실제 운영 서비스 간
+> 및 randomized 실행 증적을 만들 때까지 운영 완료 보고는 계속 차단됩니다.
 > [온톨로지 쿼리 무작위 보증](ontology-query-randomized-assurance-ko.md)을 참조하세요.
 >
-> **Cross-service contract 상태(2026-08-11):** Additive version 1.2 request/projection envelope은
-> bounded semantic turn, 인증된 principal role, deadline, idempotency identity, terminal disposition 및
-> exact evidence digest를 정의합니다. 이 계약만으로 production routing이 활성화되지는 않습니다.
-> Semantic payload는 N-1 shape로 translate하지 않고 fail closed합니다. Core는 이제 설정된 semantic
-> request를 consume하고 canonical result를 persist하며 terminal projection을 publish하고 startup
-> readiness에 exact missing-provider reason을 보고합니다. Operator outbox publication, durable replay 및
-> Console `done` projection은 이제 compose되며 receipt-backed live integration evidence가 release gate로
+> **서비스 간 계약 상태(2026-08-11):** 가산 버전 1.2 요청/변환 결과 묶음은
+> 범위가 제한된 semantic 턴, 인증된 principal 역할, 기한, 멱등성 신원, 최종 처리 결과 및
+> exact 근거 다이제스트를 정의합니다. 이 계약만으로 운영 라우팅이 활성화되지는 않습니다.
+> Semantic 페이로드는 N-1 형태로 translate하지 않고 실패 시 차단합니다. Core는 이제 설정된 semantic
+> 요청을 consume하고 정본 결과를 저장하며 최종 변환 결과를 publish하고 시작
+> 준비 상태에 exact missing-provider 사유를 보고합니다. Operator 발신함 publication, 영속 재생 및
+> Console `done` 변환 결과는 이제 compose되며 receipt-backed 실제 운영 integration 근거가 release gate로
 > 남아 있습니다.
 >
-> **구현 상태(2026-08-10):** Exact ontology release, semantic candidate, bounded ObjectSet, secured query
-> receipt, typed function registration, current inventory projection, metric provider 및 causal-analysis
-> primitive가 있습니다. Production path는 여전히 regex/token routing과 선택적인 serial 2-3 command
-> read plan을 사용합니다. Server-side intent graph, full release-derived query manifest,
-> `OntologyQueryPlan`, complete semantic index adapter, historical topology 및 cross-resource temporal
-> query composition은 아직 제공되지 않습니다.
-> Semantic problem frame, query DAG, intent graph, task receipt 및 structural coverage receipt의 OQ-01
-> implementation-free SDK model은 이제 제공됩니다. Producer/consumer projection wiring은 OQ-04 및
+> **구현 상태(2026-08-10):** Exact 온톨로지 release, semantic 후보, 범위가 제한된 ObjectSet, secured 조회
+> 증적, 타입이 지정된 function registration, 현재 인벤토리 변환 결과, 메트릭 프로바이더 및 causal-analysis
+> 기본 요소가 있습니다. 운영 경로는 여전히 정규식/토큰 라우팅과 선택적인 serial 2-3 명령
+> 읽기 계획을 사용합니다. 서버 측 의도 그래프, full release에서 도출한 조회 매니페스트,
+> `OntologyQueryPlan`, 완전한 semantic 인덱스 어댑터, historical topology 및 cross-resource temporal
+> 조회 조립은 아직 제공되지 않습니다.
+> Semantic problem 프레임, 조회 DAG, 의도 그래프, 작업 증적 및 structural 커버리지 증적의 OQ-01
+> implementation-free SDK 모델은 이제 제공됩니다. 생산자/소비자 변환 결과 wiring은 OQ-04 및
 > OQ-05에 남아 있습니다.
-> OQ-02에는 이제 function을 role/purpose로 filter하고 supplied release declaration 전체를 account하는
-> content-addressed principal-scoped manifest builder가 포함됩니다. 모든 directed LinkType은 이제
-> deterministic outgoing/incoming endpoint query-side identifier를 projection합니다. Production catalog는
-> reviewed `Identifiable` Interface를 load하고 모든 current ObjectType의 explicit binding을 검증하며
-> polymorphic catalog를 compile하고 exact runtime release에 declaration을 포함합니다. 이 manifest를
-> narrator 및 generic query surface에 연결하는 작업은 남아 있습니다.
-> OQ-03에는 이제 bounded dependency wave, concurrency, timeout, cancellation, blocked-descendant 처리,
-> stable failure reason 및 task receipt를 갖춘 exact-release query DAG executor가 포함됩니다. Built-in
-> handler는 이제 secured ObjectSet materialization, union, intersection, subtraction, ordering,
-> projection, grouped aggregation 및 exact-release query/derive/validate function invocation을 다룹니다.
-> Deterministic verifier는 I/O 전에 principal manifest, readable property, LinkType, closed node argument,
-> dependency output kind, function schema 및 registered extension schema를 검사합니다. Temporal,
-> metric-series 및 evidence-join handler는 남아 있습니다.
-> OQ-07은 이제 current connected VNet peering record를 observed direction으로 projection하고 private
-> endpoint를 exact private-link service target에 attach합니다. Reverse peering에는 여전히 독립적인
-> remote-VNet observation이 필요합니다. 또한 explicit ARM resource next-hop id에서만 `routes_to`를
-> projection하며 IP, prefix 및 hostname은 ontology edge가 되지 않습니다. Snapshot과 real-time constraint는
-> reviewed peering/routing vocabulary를 수락합니다. Workload/service mapping, observation receipt 및
-> production network-path issuer는 남아 있습니다.
-> OQ-04에는 이제 whole bounded turn과 candidate descriptor에서 semantic frame 및 typed node DAG를
-> 제안하는 schema-constrained model seam이 있습니다. Core는 모든 digest/authority field를 다시 만들고
-> exact principal manifest를 검증하며 verified plan, clarification 하나, action-draft handoff,
-> unsupported 또는 unavailable result를 반환합니다. Compatibility coordinator는 이 path를 shadow로
-> 실행하고 disposition/content digest만 기록할 수 있습니다. Azure adapter는 이제 workload identity를
-> 통해 bounded JSON-object call 두 개를 실행하고 proposal schema 두 개를 검증하며 resolved candidate를
-> 순서대로 시도합니다. Core composition은 모든 prerequisite를 사용할 수 있을 때 이 adapter를 exact
-> release, current instance store, principal-scoped manifest, deterministic verifier 및
-> request-role-specific secured executor에 bind합니다.
-> OQ-05는 이제 deterministic하게 최대 8개 goal의 intent graph를 만들고 executor receipt를 해당 goal에
-> bind하며 internal exact-plan contract를 Console v2/v1 wire shape로 projection합니다. Console은 explicit
-> cancellation receipt도 수락합니다. Semantic plan 실행 및 production turn-completion stream에 이
-> projection을 attach하는 작업은 남아 있습니다.
-> OQ-06은 이제 atomic stage/activate, stale-generation, typed search 및 rollback behavior를 가진
-> service-owned concrete in-memory semantic index를 복원했습니다. Full ontology generation builder는 모든
-> principal-manifest declaration과 eligible deployment-local object projection을 emit하고 incremental
-> build에서 변경되지 않은 document instance를 digest로 재사용합니다. Coverage와 document root를
-> 독립적으로 다시 계산하며 해당 validation receipt가 bind되기 전에는 activation을 거부합니다. Durable
-> PostgreSQL adapter, scheduled publisher process 및 production descriptor-selector binding은 남아 있습니다.
-> OQ-08에는 이제 retained provider generation, object/link revision 및 tombstone을 위한 append-only
-> bitemporal topology contract와 Core-owned migration, deterministic `graph_at`/`topology_diff`, `known_at`에
-> 따른 late-evidence replay, incomplete-history semantics 및 verifier schema를 가진 typed query handler가
-> 포함됩니다. PostgreSQL reader/writer binding과 inventory-promotion revision publisher는 남아 있습니다.
-> OQ-09에는 phrase alias가 없는 exact reviewed metric-concept registry, authoritative metric window,
-> zero와 missing data를 구분하는 equal-duration comparison, bounded metric-series/evidence-join handler 및
-> competing explanation을 보존하는 topology-aware temporal support/refutation이 포함됩니다. Production
-> metric provider binding과 reviewed catalog data에는 이제 reviewed alias-free catalog와 concrete
-> `MetricProvider` window adapter가 포함됩니다. 이 adapter는 observed zero를 보존하고 empty provider
-> result를 incomplete로 보고합니다. Runtime semantic-turn composition은 현재 ObjectSet과 pure
-> set/order/project/aggregate handler만 노출합니다. Metric-series 및 evidence-join handler는
-> authoritative provider가 명시적으로 bind될 때까지 unavailable 상태로 남습니다.
-> OQ-05에는 이제 accepted ordinary-language turn을 answer, clarification, hold, unsupported, action draft
-> 또는 cancellation으로 종료하는 async server-side semantic turn runtime도 포함됩니다. Verified query
-> DAG만 실행하며 exact Console graph/evidence projection을 emit합니다.
-> OQ-10은 synchronous compatibility coordinator의 default를 exact canonical command only로 변경합니다.
-> Natural-language alias, keyword narration 및 canonical-string read plan은 test 또는 explicit temporary
-> caller가 `legacy`를 선택할 때만 실행되며 ordinary language는 semantic runtime이 담당합니다.
-> OQ-11은 모든 shipped principal manifest와 bilingual competency cohort를 대상으로 executable fast gate를
-> 추가합니다. Complete structural accounting, terminal disposition 100%, legacy ordinary-language route 0,
-> unsupported claim 0 및 unauthorized execution 0을 요구합니다. Answer count는 universal complete로
-> 주장하지 않고 cohort별로 보고합니다.
-> Committed competency cohort는 `receipt_source=deterministic_fixture`를 사용합니다. Gate receipt는
-> local structural validation 결과를 `passed`에 유지하고 질문 하나라도 deterministic fixture evidence를
-> 사용하면 `production_ready=false`로 보고합니다. Production 완료를 주장하는 caller는
+> OQ-02에는 이제 function을 역할/용도로 필터하고 supplied release 선언 전체를 account하는
+> 내용 기반 주소를 가진 principal 범위로 한정된 매니페스트 빌더가 포함됩니다. 모든 directed LinkType은 이제
+> 결정론적 나가는/들어오는 엔드포인트 query-side 식별자를 변환 결과합니다. 운영 카탈로그는
+> 검토된 `Identifiable` Interface를 load하고 모든 현재 ObjectType의 명시적 연결을 검증하며
+> polymorphic 카탈로그를 compile하고 exact 런타임 release에 선언을 포함합니다. 이 매니페스트를
+> 서술기 및 범용 조회 표면에 연결하는 작업은 남아 있습니다.
+> OQ-03에는 이제 범위가 제한된 의존성 wave, 동시성, 시간 초과, 취소, blocked-descendant 처리,
+> 고정된 실패 사유 및 작업 증적을 갖춘 exact-release 조회 DAG 실행기가 포함됩니다. Built-in
+> 핸들러는 이제 secured ObjectSet 구체화, union, intersection, subtraction, 정렬,
+> 변환 결과, grouped 집계 및 exact-release 조회/derive/validate function 호출을 다룹니다.
+> 결정론적 검증기는 I/O 전에 principal 매니페스트, readable 속성, LinkType, closed 노드 인자,
+> 의존성 출력 종류, function 스키마 및 등록된 확장 스키마를 검사합니다. Temporal,
+> metric-series 및 evidence-join 핸들러는 남아 있습니다.
+> OQ-07은 이제 현재 connected VNet 피어링 기록을 관찰된 direction으로 변환 결과하고 비공개
+> 엔드포인트를 exact private-link 서비스 대상에 첨부합니다. Reverse 피어링에는 여전히 독립적인
+> remote-VNet 관측이 필요합니다. 또한 명시적 ARM 리소스 next-hop id에서만 `routes_to`를
+> 변환 결과하며 IP, 접두사 및 hostname은 온톨로지 edge가 되지 않습니다. 스냅샷과 real-time 제약은
+> 검토된 피어링/라우팅 vocabulary를 수락합니다. 워크로드/서비스 대응, 관측 증적 및
+> 운영 network-path 발급자는 남아 있습니다.
+> OQ-04에는 이제 whole 범위가 제한된 턴과 후보 서술자에서 semantic 프레임 및 타입이 지정된 노드 DAG를
+> 제안하는 스키마로 제한한 모델 seam이 있습니다. Core는 모든 다이제스트/권한 필드를 다시 만들고
+> exact principal 매니페스트를 검증하며 검증된 계획, 명확화 하나, action-draft 인계,
+> 지원하지 않는 또는 사용 불가 결과를 반환합니다. Compatibility 조정기는 이 경로를 그림자로
+> 실행하고 처리 결과/내용 다이제스트만 기록할 수 있습니다. Azure 어댑터는 이제 워크로드 신원을
+> 통해 범위가 제한된 JSON-object 호출 두 개를 실행하고 proposal 스키마 두 개를 검증하며 resolved 후보를
+> 순서대로 시도합니다. Core 조립은 모든 선행 조건을 사용할 수 있을 때 이 어댑터를 exact
+> release, 현재 instance 저장소, principal 범위로 한정된 매니페스트, 결정론적 검증기 및
+> request-role-specific secured 실행기에 연결합니다.
+> OQ-05는 이제 결정론적하게 최대 8개 목표의도 그래프를 만들고 실행기 증적을 해당 목표에
+> 연결하며 내부 exact-plan 계약을 Console v2/v1 wire 형태로 변환 결과합니다. Console은 명시적
+> 취소 증적도 수락합니다. Semantic 계획 실행 및 운영 turn-completion 스트림에 이
+> 변환 결과를 첨부하는 작업은 남아 있습니다.
+> OQ-06은 이제 atomic 단계/activate, stale-generation, 타입이 지정된 search 및 롤백 행동을 가진
+> service-owned 구체적인 in-memory semantic 인덱스를 복원했습니다. Full 온톨로지 세대 빌더는 모든
+> principal-manifest 선언과 조건을 충족한 deployment-local 객체 변환 결과를 발행하고 incremental
+> 빌드에서 변경되지 않은 문서 instance를 다이제스트로 재사용합니다. 커버리지와 문서 루트를
+> 독립적으로 다시 계산하며 해당 검증 증적이 연결되기 전에는 activation을 거부합니다. 영속
+> PostgreSQL 어댑터, scheduled 발행기 프로세스 및 운영 descriptor-selector 연결은 남아 있습니다.
+> OQ-08에는 이제 retained 프로바이더 세대, 객체/link 개정 번호 및 tombstone을 위한 추가 전용
+> bitemporal topology 계약과 Core-owned 이행, 결정론적 `graph_at`/`topology_diff`, `known_at`에
+> 따른 late-evidence 재생, incomplete-history 의미 규칙 및 검증기 스키마를 가진 타입이 지정된 조회 핸들러가
+> 포함됩니다. PostgreSQL 읽기 담당/쓰기 담당 연결과 inventory-promotion 개정 번호 발행기는 남아 있습니다.
+> OQ-09에는 문구 별칭이 없는 exact 검토된 metric-concept 레지스트리, 권위 있는 메트릭 구간,
+> zero와 누락된 data를 구분하는 equal-duration 비교, 범위가 제한된 metric-series/evidence-join 핸들러 및
+> competing explanation을 보존하는 topology-aware temporal support/refutation이 포함됩니다. 운영
+> 메트릭 프로바이더 연결과 검토된 카탈로그 data에는 이제 검토된 alias-free 카탈로그와 구체적인
+> `MetricProvider` 구간 어댑터가 포함됩니다. 이 어댑터는 관찰된 zero를 보존하고 빈 프로바이더
+> 결과를 불완전한으로 보고합니다. 런타임 semantic-turn 조립은 현재 ObjectSet과 pure
+> set/order/project/집계 핸들러만 노출합니다. Metric-series 및 evidence-join 핸들러는
+> 권위 있는 프로바이더가 명시적으로 연결될 때까지 사용 불가 상태로 남습니다.
+> OQ-05에는 이제 accepted ordinary-language 턴을 답변, 명확화, 보류, 지원하지 않는, 액션 초안
+> 또는 취소로 종료하는 비동기 서버 측 semantic 턴 런타임도 포함됩니다. 검증된 조회
+> DAG만 실행하며 exact Console 그래프/근거 변환 결과를 발행합니다.
+> OQ-10은 synchronous compatibility 조정기의 기본값을 exact 정본 명령 only로 변경합니다.
+> Natural-language 별칭, 키워드 서술 및 canonical-string 읽기 계획은 테스트 또는 명시적 temporary
+> 호출자가 `legacy`를 선택할 때만 실행되며 ordinary 언어는 semantic 런타임이 담당합니다.
+> OQ-11은 모든 shipped principal 매니페스트와 bilingual competency 집단을 대상으로 executable fast gate를
+> 추가합니다. 완전한 structural accounting, 최종 처리 결과 100%, 이전 방식 ordinary-language 경로 0,
+> 지원하지 않는 점유 0 및 승인되지 않은 실행 0을 요구합니다. 답변 개수는 universal 완전한으로
+> 주장하지 않고 집단별로 보고합니다.
+> Committed competency 집단은 `receipt_source=deterministic_fixture`를 사용합니다. Gate 증적은
+> 로컬 structural 검증 결과를 `passed`에 유지하고 질문 하나라도 결정론적 고정본 근거를
+> 사용하면 `production_ready=false`로 보고합니다. 운영 완료를 주장하는 호출자는
 > `require_production_ready=True`를 설정하고 외부에서 생성된 `cross_service_e2e` 또는
-> `live_assurance` receipt를 제공해야 합니다. 따라서 일반 fast gate는 local CI에서 계속 실행할 수
-> 있으며 hand-authored fixture를 cross-service 또는 live proof로 취급하지 않습니다.
+> `live_assurance` 증적을 제공해야 합니다. 따라서 일반 fast gate는 로컬 CI에서 계속 실행할 수
+> 있으며 hand-authored 고정본을 서비스 간 또는 실제 운영 증명으로 취급하지 않습니다.
 
 ## 설계 개요
 
 ```mermaid
 flowchart LR
-    Q[Operator turn] --> F[SemanticProblemFrame candidate]
-    R[Active ontology release] --> M[Principal-scoped query manifest]
-    M --> F
-    F --> V[Deterministic verifier]
-    V --> P[Verified OntologyQueryPlan]
-    P --> D[Bounded task DAG]
-    D --> E[Authoritative evidence and receipts]
-    E --> A[Verified answer or explicit limitation]
+ Q[Operator turn] --> F[SemanticProblemFrame candidate]
+ R[Active ontology release] --> M[Principal-scoped query manifest]
+ M --> F
+ F --> V[Deterministic verifier]
+ V --> P[Verified OntologyQueryPlan]
+ P --> D[Bounded task DAG]
+ D --> E[Authoritative evidence and receipts]
+ E --> A[Verified answer or explicit limitation]
 ```
 
-Model은 언어를 분해하고 meaning representation을 제안합니다. Verifier는 schema identity,
-relationship composition, time bound, scope, purpose 및 capability check를 소유합니다. Concrete object는
-plan 검증 이후 authoritative read로만 선택합니다.
+모델은 언어를 분해하고 meaning 표현을 제안합니다. 검증기는 스키마 신원,
+relationship 조립, 시간 한계, 범위, 용도 및 기능 검사를 소유합니다. 구체적인 객체는
+계획 검증 이후 권위 있는 읽기로만 선택합니다.
 
-## 검증된 baseline 및 gap
+## 검증된 기준선 및 공백
 
-| 영역 | 검증된 현재 구현 | 목표를 차단하는 gap |
+| 영역 | 검증된 현재 구현 | 목표를 차단하는 공백 |
 |------|------------------|---------------------|
-| Conversation routing | Default compatibility coordinator는 exact canonical command만 수락합니다. Configured semantic topic은 ordinary language를 Operator outbox, Core Azure planner/verified DAG, durable projection 및 Console `done` frame으로 전달합니다. | Live cross-service receipt와 complete-manifest bound를 넘는 manifest를 위한 descriptor index가 남아 있습니다. `legacy`는 explicit temporary compatibility mode로만 존재합니다. |
-| Cross-service semantic wire | Version 1.2 request/projection envelope은 execution authority 없이 bounded semantic input과 evidence-bound terminal output을 전달합니다. Operator와 Core는 Terraform-provisioned request/projection topic, durable replay 및 bounded retry를 사용합니다. | Production readiness는 evidence-gated로 유지되며 semantic record는 N-1로 downgrade하지 않습니다. |
-| Console intent graph | Core는 verified plan에서 bounded graph/receipt evidence를 만들고 Operator는 Console-compatible terminal frame으로 이를 stream합니다. | 새 authenticated randomized run이 live evidence에 대해 visible browser path를 검증해야 합니다. |
-| Semantic interpretation | Azure OpenAI adapter는 bearer-token authentication과 resolved-candidate fallback을 통해 `SemanticProblemFrame` 및 typed DAG를 strict bounded JSON object 두 개로 제안합니다. Core는 identity를 부여하고 Pydantic schema와 principal manifest를 검증하며 exact request role로 실행하고 Operator는 deterministic evidence-bound answer를 stream합니다. | Descriptor bound를 넘으면 complete-manifest selector가 hold합니다. |
-| Object query | `OntologyQueryPlan`은 이제 immutable content-addressed table 위에서 secured ObjectSet, set algebra, ordering, projection, grouped aggregation 및 typed read-only function을 구성합니다. | Temporal snapshot, metric series 및 evidence join에는 registered extension handler가 필요합니다. |
-| Query manifest | Principal-scoped content-addressed builder가 ObjectType/filtered property, LinkType 양쪽 endpoint side, Interface, read-only function 및 draft-only ActionType을 projection합니다. | Production narrator는 아직 manifest를 사용하지 않으며 complete operator/evidence availability descriptor가 남아 있습니다. |
-| Interface | Production catalog loading은 `Identifiable`, provenance 및 모든 current ObjectType의 explicit binding을 검증합니다. Runtime composition은 이를 compile하고 exact release에 pin합니다. | 추가 capability Interface와 production ObjectSet query binding은 남아 있습니다. |
-| Relationship | 모든 directed LinkType은 endpoint, cardinality, causal, transitive 및 temporal metadata와 함께 deterministic `<name>.outgoing`/`<name>.incoming` machine query id를 projection합니다. | 이 side를 사용하는 generic plan verifier와 planner binding은 남아 있습니다. |
-| Semantic generation | Concrete service-owned atomic in-memory index와 off-path full/incremental ontology generation publisher가 declaration 및 eligible deployment-local object를 independent validation과 함께 다룹니다. | Durable PostgreSQL adapter, scheduled publisher process 및 production semantic descriptor selector는 남아 있습니다. |
-| Current topology | Azure projection은 resource-group/VNet containment, attachment 및 bounded dependency allowlist를 emit합니다. | Azure adapter가 `peered_with` 또는 `routes_to`를 emit하지 않으며 private endpoint, workload 및 service dependency coverage가 incomplete합니다. |
-| Historical topology | Bitemporal append-only revision contract, migration, retained generation ref, tombstone, `graph_at`, `topology_diff`, late-evidence replay 및 typed query handler가 있습니다. | PostgreSQL reader/writer composition과 inventory-promotion publishing은 남아 있습니다. |
-| Metric 및 causality | Exact metric-concept registry, complete/incomplete window, aligned comparison 및 topology-aware temporal support/refutation handler가 있습니다. | Production provider binding과 reviewed metric catalog entry는 남아 있습니다. |
+| 대화 라우팅 | 기본값 compatibility 조정기는 exact 정본 명령만 수락합니다. 구성된 semantic 토픽은 ordinary 언어를 Operator 발신함, Core Azure 플래너/검증된 DAG, 영속 변환 결과 및 Console `done` 프레임으로 전달합니다. | 실제 운영 서비스 간 증적과 complete-manifest 한계를 넘는 매니페스트를 위한 서술자 인덱스가 남아 있습니다. `legacy`는 명시적 temporary compatibility 모드로만 존재합니다. |
+| 서비스 간 semantic wire | 버전 1.2 요청/변환 결과 묶음은 실행 권한 없이 범위가 제한된 semantic 입력과 근거에 묶인 최종 출력을 전달합니다. Operator와 Core는 Terraform-provisioned 요청/변환 결과 토픽, 영속 재생 및 범위가 제한된 재시도를 사용합니다. | 운영 준비 상태는 evidence-gated로 유지되며 semantic 기록은 N-1로 downgrade하지 않습니다. |
+| Console 의도 그래프 | Core는 검증된 계획에서 범위가 제한된 그래프/증적 근거를 만들고 Operator는 Console-compatible 최종 프레임으로 이를 스트림합니다. | 새 인증된 randomized 실행이 실제 운영 근거에 대해 visible 브라우저 경로를 검증해야 합니다. |
+| Semantic interpretation | Azure OpenAI 어댑터는 bearer-token authentication과 resolved-candidate 대체 경로를 통해 `SemanticProblemFrame` 및 타입이 지정된 DAG를 strict 범위가 제한된 JSON 객체 두 개로 제안합니다. Core는 신원을 부여하고 Pydantic 스키마와 principal 매니페스트를 검증하며 exact 요청 역할로 실행하고 Operator는 결정론적 근거에 묶인 답변을 스트림합니다. | 서술자 한계를 넘으면 complete-manifest 선택자가 보류합니다. |
+| 객체 조회 | `OntologyQueryPlan`은 이제 변경할 수 없는 내용 기반 주소를 가진 표 위에서 secured ObjectSet, set algebra, 정렬, 변환 결과, grouped 집계 및 타입이 지정된 읽기 전용 function을 구성합니다. | Temporal 스냅샷, 메트릭 series 및 근거 결합에는 등록된 확장 핸들러가 필요합니다. |
+| 조회 매니페스트 | principal 범위로 한정된 내용 기반 주소를 가진 빌더가 ObjectType/filtered 속성, LinkType 양쪽 엔드포인트 side, Interface, 읽기 전용 function 및 초안 전용 ActionType을 변환 결과합니다. | 운영 서술기는 아직 매니페스트를 사용하지 않으며 완전한 운영자/근거 가용성 서술자가 남아 있습니다. |
+| Interface | 운영 카탈로그 로딩은 `Identifiable`, 출처 이력 및 모든 현재 ObjectType의 명시적 연결을 검증합니다. 런타임 조립은 이를 compile하고 exact release에 pin합니다. | 추가 기능 Interface와 운영 ObjectSet 조회 연결은 남아 있습니다. |
+| Relationship | 모든 directed LinkType은 엔드포인트, cardinality, causal, transitive 및 temporal 메타데이터와 함께 결정론적 `<name>.outgoing`/`<name>.incoming` 머신 조회 id를 변환 결과합니다. | 이 side를 사용하는 범용 계획 검증기와 플래너 연결은 남아 있습니다. |
+| Semantic 세대 | 구체적인 service-owned atomic in-memory 인덱스와 off-path full/incremental 온톨로지 세대 발행기가 선언 및 조건을 충족한 deployment-local 객체를 독립적인 검증과 함께 다룹니다. | 영속 PostgreSQL 어댑터, scheduled 발행기 프로세스 및 운영 semantic 서술자 선택자는 남아 있습니다. |
+| 현재 topology | Azure 변환 결과는 resource-group/VNet containment, 첨부 및 범위가 제한된 의존성 허용 목록을 발행합니다. | Azure 어댑터가 `peered_with` 또는 `routes_to`를 발행하지 않으며 비공개 엔드포인트, 워크로드 및 서비스 의존성 커버리지가 불완전한합니다. |
+| Historical topology | Bitemporal 추가 전용 개정 번호 계약, 이행, retained 세대 ref, tombstone, `graph_at`, `topology_diff`, late-evidence 재생 및 타입이 지정된 조회 핸들러가 있습니다. | PostgreSQL 읽기 담당/쓰기 담당 조립과 inventory-promotion 발행은 남아 있습니다. |
+| 메트릭 및 causality | Exact metric-concept 레지스트리, 완전한/불완전한 구간, aligned 비교 및 topology-aware temporal support/refutation 핸들러가 있습니다. | 운영 프로바이더 연결과 검토된 메트릭 카탈로그 항목은 남아 있습니다. |
 
-## Ownership 및 service boundary
+## 소유권 및 서비스 경계
 
-| Responsibility | Accountable owner | Runtime placement |
+| Responsibility | Accountable 소유자 | 런타임 placement |
 |----------------|-------------------|-------------------|
-| 자연어 분해 및 clarification | Bragi | Core agent runtime입니다. Operator Service는 authenticated relay 및 projection host입니다. |
-| Ontology 및 query-manifest lifecycle | Mimir | Core mechanical builder 및 catalog lifecycle입니다. |
-| Current/historical context materialization | Muninn | Core projection worker 및 owned persistence adapter입니다. |
-| Evidence observation 및 completeness | Heimdall | Core read-only provider binding 및 typed observation입니다. |
-| Correlated audit 및 replay evidence | Saga | Append-only audit path입니다. |
-| External query authentication, scope, streaming 및 display projection | Operator Service | Versioned shared contract만 사용하는 독립 service입니다. |
-| Query 및 receipt wire contract | Shared service-contract SDK | Service implementation 또는 provider access를 포함하지 않습니다. |
+| 자연어 분해 및 명확화 | Bragi | Core agent 런타임입니다. Operator 서비스는 인증된 relay 및 변환 결과 host입니다. |
+| 온톨로지 및 query-manifest 수명 주기 | Mimir | Core mechanical 빌더 및 카탈로그 수명 주기입니다. |
+| 현재/historical 맥락 구체화 | Muninn | Core 변환 결과 워커 및 owned 영속성 어댑터입니다. |
+| 근거 관측 및 완전성 | Heimdall | Core 읽기 전용 프로바이더 연결 및 타입이 지정된 관측입니다. |
+| Correlated 감사 및 재생 근거 | Saga | 추가 전용 감사 경로입니다. |
+| 외부 조회 authentication, 범위, 스트리밍 및 display 변환 결과 | Operator 서비스 | Versioned shared 계약만 사용하는 독립 서비스입니다. |
+| 조회 및 증적 wire 계약 | Shared service-contract SDK | 서비스 구현 또는 프로바이더 접근을 포함하지 않습니다. |
 
-Authority-bearing transition은 event-bus message로 유지합니다. Read-only query execution은
-purpose-bound immutable projection을 사용할 수 있지만 한 service가 다른 service implementation을 import하지
+Authority-bearing transition은 event-bus 메시지로 유지합니다. 읽기 전용 조회 실행은
+purpose-bound 변경할 수 없는 변환 결과를 사용할 수 있지만 한 서비스가 다른 서비스 구현을 가져오기하지
 않습니다. 새 agent를 추가하지 않습니다.
 
-## 목표 contract
+## 목표 계약
 
-### Semantic problem frame
+### Semantic problem 프레임
 
-`SemanticProblemFrame`은 language interpretation과 object retrieval을 분리합니다. 다음을 포함합니다.
+`SemanticProblemFrame`은 언어 interpretation과 객체 수집을 분리합니다. 다음을 포함합니다.
 
-- select, compare, explain change, validate 또는 draft action 같은 operation class
-- 발명된 runtime identity가 없는 subject constraint
-- measure 및 unit concept
-- trusted time에 고정된 temporal/comparison window
-- requested answer shape 및 evidence requirement
-- unresolved concept 및 competing interpretation
+- 선택, compare, explain 변경, validate 또는 초안 액션 같은 연산 등급
+- 발명된 런타임 신원이 없는 대상 제약
+- measure 및 단위 개념
+- trusted 시간에 고정된 temporal/비교 구간
+- requested 답변 형태 및 근거 requirement
+- 해결되지 않은 개념 및 competing interpretation
 
-Provider query, raw SQL/KQL, object claim 또는 execution authority는 포함하지 않습니다.
+프로바이더 조회, raw SQL/KQL, 객체 점유 또는 실행 권한은 포함하지 않습니다.
 
-### Ontology query plan
+### 온톨로지 조회 계획
 
-검증된 `OntologyQueryPlan`은 다음 operation으로 구성된 closed DAG입니다.
+검증된 `OntologyQueryPlan`은 다음 연산으로 구성된 closed DAG입니다.
 
-- object/interface selection 및 exact context anchor
-- typed property predicate/projection
-- reviewed LinkType-side traversal
+- 객체/인터페이스 selection 및 exact 맥락 anchor
+- 타입이 지정된 속성 조건식/변환 결과
+- 검토된 LinkType-side 탐색
 - set union, intersection 및 subtraction
-- ordering, grouping 및 bounded aggregation
-- 등록된 read-only query, derive 및 validate function
-- temporal snapshot, diff, metric-window 및 evidence-join node
+- 정렬, 그룹화 및 범위가 제한된 집계
+- 등록된 읽기 전용 조회, derive 및 validate function
+- temporal 스냅샷, diff, metric-window 및 evidence-join 노드
 
-모든 node는 active release, purpose, role, scope, limit, dependency 및 expected receipt shape를
-고정합니다. Plan은 executable provider text 또는 mutation handler를 포함할 수 없습니다.
+모든 노드는 활성 release, 용도, 역할, 범위, 한도, 의존성 및 예상 증적 형태를
+고정합니다. 계획은 executable 프로바이더 텍스트 또는 변경 핸들러를 포함할 수 없습니다.
 
-## Work package
+## 작업 package
 
-| ID | Work package | Dependency | Exit evidence |
+| ID | 작업 package | 의존성 | Exit 근거 |
 |----|--------------|------------|---------------|
-| OQ-00 | 현재 구현 baseline을 고정하고 status claim을 수정하며 모든 regex/token route를 inventory합니다. Exact, ambiguous, unsupported, temporal, causal 및 action 질문의 bilingual competency cohort를 추가합니다. | 없음 | Machine-readable baseline과 replay fixture가 모든 compatibility path를 식별합니다. |
-| OQ-01 | `SemanticProblemFrame`, `OntologyQueryPlan`, intent goal, clarification, task receipt 및 structural coverage receipt의 versioned shared contract를 추가합니다. | OQ-00 | N/N-1 codec test가 unknown authority, unbounded plan, cycle 및 stale ref를 차단합니다. |
-| OQ-02 | Ontology catalog data에 LinkType query side와 reviewed Interface declaration을 추가하고 exact release에서 complete principal-scoped manifest를 생성합니다. | OQ-01 | 읽을 수 있는 모든 ObjectType, Property, LinkType side, Interface, FunctionType 및 draft-only ActionType에 descriptor 또는 unavailable reason이 있습니다. |
-| OQ-03 | ObjectSet, set operation, ordering, aggregation, projection 및 typed function node 위에 generic plan verifier/executor를 구현합니다. | OQ-01, OQ-02 | Property test가 bound, type safety, purpose narrowing, ACL closure, truncation, cancellation 및 stable receipt를 입증합니다. |
-| OQ-04 | String-command `ReadPlanNarrator` planning을 Bragi-owned schema-constrained decomposition, manifest search/describe, deterministic verification 및 durable clarification으로 교체합니다. Compatibility path 옆에서 shadow로 실행합니다. | OQ-02, OQ-03 | English/Korean turn이 replay-stable verified plan 또는 bounded clarification 하나를 만들며 unverified read를 호출하지 않습니다. |
-| OQ-05 | Bounded concurrency, cancellation, blocked descendant, conflict detection, evidence ledger 하나 및 claim verification을 갖춘 server-side intent graph와 dependency-wave task executor를 구현합니다. | OQ-03, OQ-04 | Operator Service가 Console이 이미 검증하는 같은 versioned graph/receipt를 stream하며 partial branch가 complete answer가 되지 않습니다. |
-| OQ-06 | Owning service에 concrete semantic-index adapter와 off-path generation publisher를 복원한 뒤 generation document를 Rule에서 declaration 및 eligible deployment-local object projection으로 확장합니다. | OQ-02 | Full initial generation, digest-reusing incremental generation, independent validation, atomic activation, stale degradation 및 rollback test가 통과합니다. |
-| OQ-07 | VNet peering, route, private endpoint, network membership, workload placement 및 service dependency의 current Azure topology projection을 완성하고 network-path receipt issuer를 bind합니다. | OQ-02, OQ-03 | VM-to-service 및 service-to-data-store path fixture가 direction, reciprocal peering evidence, completeness 및 unknown absence를 보존합니다. |
-| OQ-08 | Append-only topology relationship revision과 retained provider-generation ref를 추가하고 bounded `graph_at`/`topology_diff` function을 구현합니다. Current graph는 fast current-state projection으로 유지합니다. | OQ-03, OQ-07 | Before/after peering fixture가 decision을 다시 쓰지 않고 exact retained graph, tombstone, late evidence 및 incomplete history를 재구성합니다. |
-| OQ-09 | Reviewed metric-semantic registry와 metric series, change point, aligned window, cross-resource temporal correlation 및 causal support/refutation function을 추가합니다. | OQ-03, OQ-05, OQ-08 | Request-growth 및 storage-write-loss scenario가 zero와 missing data를 구분하고 chronology를 원인으로 단정하지 않으며 competing explanation을 인용합니다. |
-| OQ-10 | 새 path를 모든 compatibility route와 shadow replay하고 cohort로 promotion한 뒤 ordinary language에서 regex, keyword narrator, phrase-based answer intent 및 canonical-string read planning을 제거합니다. Explicit exact-command surface는 별도로 유지합니다. | OQ-05, OQ-06, OQ-09 | 새 path가 cohort quality/latency를 유지하거나 개선하고 legacy ordinary-language routing share는 0이며 exact technical command는 deterministic하게 남습니다. |
-| OQ-11 | 모든 ontology release/capability 변경에 continuous structural coverage 및 question disposition gate를 적용합니다. | OQ-10 | Structural coverage와 terminal disposition은 100%, unsupported claim과 unauthorized execution은 0이며 answer coverage는 cohort별로 보고합니다. |
+| OQ-00 | 현재 구현 기준선을 고정하고 상태 점유를 수정하며 모든 정규식/토큰 경로를 인벤토리합니다. Exact, 모호한, 지원하지 않는, temporal, causal 및 액션 질문의 bilingual competency 집단을 추가합니다. | 없음 | 기계가 읽는 기준선과 재생 고정본이 모든 compatibility 경로를 식별합니다. |
+| OQ-01 | `SemanticProblemFrame`, `OntologyQueryPlan`, 의도 목표, 명확화, 작업 증적 및 structural 커버리지 증적의 versioned shared 계약을 추가합니다. | OQ-00 | N/N-1 codec 테스트가 unknown 권한, unbounded 계획, cycle 및 stale ref를 차단합니다. |
+| OQ-02 | 온톨로지 카탈로그 data에 LinkType 조회 side와 검토된 Interface 선언을 추가하고 exact release에서 완전한 principal 범위로 한정된 매니페스트를 생성합니다. | OQ-01 | 읽을 수 있는 모든 ObjectType, Property, LinkType side, Interface, FunctionType 및 초안 전용 ActionType에 서술자 또는 사용 불가 사유가 있습니다. |
+| OQ-03 | ObjectSet, set 연산, 정렬, 집계, 변환 결과 및 타입이 지정된 function 노드 위에 범용 계획 검증기/실행기를 구현합니다. | OQ-01, OQ-02 | Property 테스트가 한계, 타입 safety, 용도 narrowing, ACL closure, 잘림, 취소 및 고정된 증적을 입증합니다. |
+| OQ-04 | String-command `ReadPlanNarrator` planning을 Bragi-owned 스키마로 제한한 decomposition, 매니페스트 search/describe, 결정론적 검증 및 영속 명확화로 교체합니다. Compatibility 경로 옆에서 그림자로 실행합니다. | OQ-02, OQ-03 | English/Korean 턴이 replay-stable 검증된 계획 또는 범위가 제한된 명확화 하나를 만들며 검증되지 않은 읽기를 호출하지 않습니다. |
+| OQ-05 | 범위가 제한된 동시성, 취소, 차단된 descendant, conflict detection, 근거 원장 하나 및 점유 검증을 갖춘 서버 측 의도 그래프와 dependency-wave 작업 실행기를 구현합니다. | OQ-03, OQ-04 | Operator 서비스가 Console이 이미 검증하는 같은 versioned 그래프/증적을 스트림하며 부분 가지가 완전한 답변이 되지 않습니다. |
+| OQ-06 | Owning 서비스에 구체적인 semantic-index 어댑터와 off-path 세대 발행기를 복원한 뒤 세대 문서를 Rule에서 선언 및 조건을 충족한 deployment-local 객체 변환 결과로 확장합니다. | OQ-02 | Full initial 세대, digest-reusing incremental 세대, 독립적인 검증, atomic activation, stale 성능 저하 및 롤백 테스트가 통과합니다. |
+| OQ-07 | VNet 피어링, 경로, 비공개 엔드포인트, 네트워크 구성원, 워크로드 placement 및 서비스 의존성의 현재 Azure topology 변환 결과를 완성하고 network-path 증적 발급자를 연결합니다. | OQ-02, OQ-03 | VM-to-service 및 service-to-data-store 경로 고정본이 direction, reciprocal 피어링 근거, 완전성 및 unknown absence를 보존합니다. |
+| OQ-08 | 추가 전용 topology relationship 개정 번호와 retained provider-generation ref를 추가하고 범위가 제한된 `graph_at`/`topology_diff` function을 구현합니다. 현재 그래프는 fast current-state 변환 결과로 유지합니다. | OQ-03, OQ-07 | Before/after 피어링 고정본이 결정을 다시 쓰지 않고 exact retained 그래프, tombstone, late 근거 및 불완전한 이력을 재구성합니다. |
+| OQ-09 | 검토된 metric-semantic 레지스트리와 메트릭 series, 변경 지점, aligned 구간, cross-resource temporal 상관관계 및 causal support/refutation function을 추가합니다. | OQ-03, OQ-05, OQ-08 | Request-growth 및 storage-write-loss 시나리오가 zero와 누락된 data를 구분하고 chronology를 원인으로 단정하지 않으며 competing explanation을 인용합니다. |
+| OQ-10 | 새 경로를 모든 compatibility 경로와 그림자 재생하고 집단으로 승격한 뒤 ordinary 언어에서 정규식, 키워드 서술기, phrase-based 답변 의도 및 canonical-string 읽기 planning을 제거합니다. 명시적 exact-command 표면은 별도로 유지합니다. | OQ-05, OQ-06, OQ-09 | 새 경로가 집단 quality/지연 시간을 유지하거나 개선하고 이전 방식 ordinary-language 라우팅 share는 0이며 exact technical 명령은 결정론적하게 남습니다. |
+| OQ-11 | 모든 온톨로지 release/기능 변경에 continuous structural 커버리지 및 질문 처리 결과 gate를 적용합니다. | OQ-10 | Structural 커버리지와 최종 처리 결과는 100%, 지원하지 않는 점유와 승인되지 않은 실행은 0이며 답변 커버리지는 집단별로 보고합니다. |
 
-## 병렬 lane 및 merge point
+## 병렬 lane 및 병합 지점
 
-- **Lane A - contract 및 manifest:** OQ-01 -> OQ-02입니다.
-- **Lane B - query kernel:** OQ-01 contract freeze 이후 OQ-03을 시작하고 release 전에 OQ-02와 join합니다.
-- **Lane C - semantic projection:** OQ-02의 descriptor identity가 stable해지면 OQ-06을 시작합니다.
-- **Lane D - operational evidence:** OQ-03 이후 OQ-04/OQ-05와 병렬로 OQ-07 -> OQ-08 -> OQ-09를 진행합니다.
-- **Lane E - conversation cutover:** OQ-04 -> OQ-05 -> OQ-10이며 cutover에서 OQ-06/OQ-09와 join합니다.
+- **Lane A - 계약 및 매니페스트:** OQ-01 -> OQ-02입니다.
+- **Lane B - 조회 kernel:** OQ-01 계약 freeze 이후 OQ-03을 시작하고 release 전에 OQ-02와 결합합니다.
+- **Lane C - semantic 변환 결과:** OQ-02의 서술자 신원이 고정된해지면 OQ-06을 시작합니다.
+- **Lane D - operational 근거:** OQ-03 이후 OQ-04/OQ-05와 병렬로 OQ-07 -> OQ-08 -> OQ-09를 진행합니다.
+- **Lane E - 대화 전환:** OQ-04 -> OQ-05 -> OQ-10이며 전환에서 OQ-06/OQ-09와 결합합니다.
 
-각 lane은 focused test만 실행합니다. OQ-10은 complete end-to-end behavior를 비교하는 첫 integration
-point이고 OQ-11은 release gate입니다.
+각 lane은 focused 테스트만 실행합니다. OQ-10은 완전한 종단 간 행동을 비교하는 첫 integration
+지점이고 OQ-11은 release gate입니다.
 
-## Competency scenario
+## Competency 시나리오
 
-### 지난주 이후 request volume 증가
+### 지난주 이후 요청 volume 증가
 
-Expected plan은 request를 `explain_change`, request-volume measure, service subject constraint,
-equal baseline/current window 및 causal-evidence requirement로 분해합니다. 이어서 metric concept를
-resolve하고 영향받은 service를 찾으며 workload/pod로 traversal합니다. Change point 주변 change를
-조회하고 complete window를 비교해 supported/refuted/unresolved hypothesis를 ranking합니다. "요청" 또는
-calendar boundary를 context로 resolve할 수 없으면 clarification으로 유지합니다.
+예상 계획은 요청을 `explain_change`, request-volume measure, 서비스 대상 제약,
+equal 기준선/현재 구간 및 causal-evidence requirement로 분해합니다. 이어서 메트릭 개념을
+해석하고 영향받은 서비스를 찾으며 워크로드/pod로 탐색합니다. 변경 지점 주변 변경을
+조회하고 완전한 구간을 비교해 supported/refuted/해결되지 않은 가설을 ranking합니다. "요청" 또는
+calendar 경계를 맥락으로 해석할 수 없으면 명확화로 유지합니다.
 
-### Network change 이후 storage write 중단
+### 네트워크 변경 이후 저장소 쓰기 중단
 
-Expected plan은 storage object와 write-success series를 anchor로 사용하고 retained pre-change graph에서
-upstream workload/VM dependency를 찾습니다. Change 전후 network path를 비교하고 peering revision 및
-write-attempt evidence를 조회하며 DNS, route, firewall, credential 및 application alternative를 test합니다.
-Current edge가 없다는 사실만으로 old path가 없었다거나 peering change가 symptom 원인이라고 입증할 수
+예상 계획은 저장소 객체와 write-success series를 anchor로 사용하고 retained pre-change 그래프에서
+upstream 워크로드/VM 의존성을 찾습니다. 변경 전후 네트워크 경로를 비교하고 피어링 개정 번호 및
+write-attempt 근거를 조회하며 DNS, 경로, firewall, 자격 증명 및 application alternative를 테스트합니다.
+현재 edge가 없다는 사실만으로 old 경로가 없었다거나 피어링 변경이 symptom 원인이라고 입증할 수
 없습니다.
 
-## Migration, rollout 및 rollback
+## 이행, 롤아웃 및 롤백
 
-- **Additive contract 우선:** 새 field/table은 현재 read path를 바꾸지 않고 landing합니다.
-- **Shadow comparison:** 새 plan은 compatibility routing 옆에서 read-only로 실행되며 cohort gate 전에는
-  visible answer를 바꾸지 않습니다.
-- **Atomic generation:** Semantic generation은 pointer activation 전에 stage/validate하며 rollback은 retained
-  compatible generation을 다시 activate합니다.
-- **Temporal storage 분리:** Historical relationship revision은 current instance store를 implicit
-  latest-wins bitemporal authority로 만들지 않습니다.
-- **Capability switch:** Availability, enabled state 및 authority는 독립적으로 유지합니다. Semantic
-  planning을 끄면 keyword guessing이 아니라 exact command와 typed unavailable result로 돌아갑니다.
-- **Legacy removal은 마지막:** Regex/token path는 replay evidence와 stable rollback release 이후에만
-  제거합니다. 다시 활성화하는 것을 장기 rollback mechanism으로 사용하지 않습니다.
+- **가산 계약 우선:** 새 필드/표는 현재 읽기 경로를 바꾸지 않고 landing합니다.
+- **그림자 비교:** 새 계획은 compatibility 라우팅 옆에서 읽기 전용으로 실행되며 집단 gate 전에는
+ visible 답변을 바꾸지 않습니다.
+- **Atomic 세대:** Semantic 세대는 pointer activation 전에 단계/validate하며 롤백은 retained
+ compatible 세대를 다시 activate합니다.
+- **Temporal 저장소 분리:** Historical relationship 개정 번호는 현재 instance 저장소를 암묵적
+ latest-wins bitemporal 권한으로 만들지 않습니다.
+- **기능 전환:** 가용성, 활성화된 상태 및 권한은 독립적으로 유지합니다. Semantic
+ planning을 끄면 키워드 guessing이 아니라 exact 명령과 타입이 지정된 사용 불가 결과로 돌아갑니다.
+- **이전 방식 removal은 마지막:** 정규식/토큰 경로는 재생 근거와 고정된 롤백 release 이후에만
+ 제거합니다. 다시 활성화하는 것을 장기 롤백 방식으로 사용하지 않습니다.
 
 ## 검증 및 measure
 
-| Measure | Release expectation |
+| Measure | release expectation |
 |---------|---------------------|
-| Structural schema coverage | 읽을 수 있는 active declaration 100%가 표현되거나 typed unavailable입니다. |
-| Question disposition | 수락한 turn 100%가 answer, clarification, hold, unsupported 또는 draft로 끝납니다. |
-| Unsupported operational claim | 정확히 0건입니다. |
-| Conversation에서 unauthorized execution | 정확히 0건입니다. |
-| Exact identity 및 stale-revision error | 정확히 0건입니다. |
-| Answer coverage | Question, language, domain, provider 및 evidence cohort별로 별도 측정합니다. |
-| Clarification quality | 실질적인 competing interpretation이 남은 경우에만 정확히 질문합니다. |
-| Full/incremental generation parity | Ordered document digest와 retrieval cohort outcome이 동일합니다. |
-| Historical replay | 같은 cutoff가 같은 retained graph 및 evidence receipt를 resolve합니다. |
+| Structural 스키마 커버리지 | 읽을 수 있는 활성 선언 100%가 표현되거나 타입이 지정된 사용 불가입니다. |
+| 질문 처리 결과 | 수락한 턴 100%가 답변, 명확화, 보류, 지원하지 않는 또는 초안으로 끝납니다. |
+| 지원하지 않는 operational 점유 | 정확히 0건입니다. |
+| 대화에서 승인되지 않은 실행 | 정확히 0건입니다. |
+| Exact 신원 및 stale-revision 오류 | 정확히 0건입니다. |
+| 답변 커버리지 | 질문, 언어, domain, 프로바이더 및 근거 집단별로 별도 측정합니다. |
+| 명확화 quality | 실질적인 competing interpretation이 남은 경우에만 정확히 질문합니다. |
+| Full/incremental 세대 동등성 | Ordered 문서 다이제스트와 수집 집단 결과가 동일합니다. |
+| Historical 재생 | 같은 기준 시점이 같은 retained 그래프 및 근거 증적을 해석합니다. |
 
 ## 20-round hardening 기록
 
-처음 landing한 세 slice를 contract digest, bound, DAG, concurrency, authority, serialization, error
-handling, cancellation, redaction, replay time, manifest accounting, stale release, ObjectSet,
-receipt, performance, service boundary, Operator projection, narrator authority, degradation 및
-docs-code parity의 독립된 20개 lens로 검토했습니다.
+처음 landing한 세 slice를 계약 다이제스트, 한계, DAG, 동시성, 권한, 직렬화, 오류
+handling, 취소, 민감정보 제거, 재생 시간, 매니페스트 accounting, stale release, ObjectSet,
+증적, performance, 서비스 경계, Operator 변환 결과, 서술기 권한, 성능 저하 및
+docs-code 동등성의 독립된 20개 관점으로 검토했습니다.
 
-검증된 Medium 이상 finding은 다음과 같이 해결했습니다.
+검증된 Medium 이상 발견 사항은 다음과 같이 해결했습니다.
 
-- Principal-scoped manifest가 caller role 또는 purpose 밖의 property를 제거합니다.
-- Exact release에 없는 declaration은 조용히 무시하지 않고 차단합니다.
-- Execution이 ontology release와 query-manifest digest를 모두 다시 검사합니다.
-- Manifest hashing은 작은 per-record JSON ceiling 대신 명시적인 8 MiB ceiling을 사용합니다.
-- Cancellation을 handler 실행 전과 실행 중, semaphore wait 동안에도 관측합니다.
-- Node deadline이 queueing 및 handler execution 전체를 포함합니다.
-- Authorization denial, unavailable handler, invalid handler result, timeout, cancellation 및 unexpected
-  provider failure가 provider detail 없는 stable typed receipt를 만듭니다.
-- Focused test가 concurrent wave, blocked descendant, stale authority, cancellation race, total deadline,
-  property filtering, declaration mismatch 및 digest stability를 검증합니다.
+- principal 범위로 한정된 매니페스트가 호출자 역할 또는 용도 밖의 속성을 제거합니다.
+- Exact release에 없는 선언은 조용히 무시하지 않고 차단합니다.
+- 실행이 온톨로지 release와 query-manifest 다이제스트를 모두 다시 검사합니다.
+- 매니페스트 hashing은 작은 per-record JSON 상한 대신 명시적인 8 MiB 상한을 사용합니다.
+- 취소를 핸들러 실행 전과 실행 중, semaphore wait 동안에도 관측합니다.
+- 노드 기한이 queueing 및 핸들러 실행 전체를 포함합니다.
+- 권한 확인 denial, 사용 불가 핸들러, 잘못된 핸들러 결과, 시간 초과, 취소 및 unexpected
+ 프로바이더 실패가 프로바이더 상세 없는 고정된 타입이 지정된 증적을 만듭니다.
+- Focused 테스트가 동시 wave, 차단된 descendant, stale 권한, 취소 race, 합계 기한,
+ 속성 filtering, 선언 mismatch 및 다이제스트 stability를 검증합니다.
 
-Handler 내부 fan-out, contract validation 이후 불가능한 DAG cycle, timezone-naive receipt 수락 및
-candidate-limit truncation finding은 기각했습니다. Executor boundary 밖이거나 기존 contract가 이미
-fail-closed하기 때문입니다. Landing한 contract, manifest 및 executor slice에는 재현 가능한 Medium 이상
-finding이 남아 있지 않습니다.
+핸들러 내부 동시 확산, 계약 검증 이후 불가능한 DAG cycle, timezone-naive 증적 수락 및
+candidate-limit 잘림 발견 사항은 기각했습니다. 실행기 경계 밖이거나 기존 계약이 이미
+실패 시 차단하기 때문입니다. Landing한 계약, 매니페스트 및 실행기 slice에는 재현 가능한 Medium 이상
+발견 사항이 남아 있지 않습니다.
 
-Residual Low observation은 terminal receipt builder 사이의 code duplication, 여러 번 수행되는 bounded
-graph projection pass 및 developer-only adapter의 더 명확한 diagnostic입니다. 추가 semantic Interface,
-production planner binding, semantic generation, topology history 및 temporal join은 숨겨진 hardening
-defect가 아니라 계획된 capability로 남아 있습니다.
+Residual Low 관측은 최종 증적 빌더 사이의 코드 duplication, 여러 번 수행되는 범위가 제한된
+그래프 변환 결과 pass 및 developer-only 어댑터의 더 명확한 diagnostic입니다. 추가 semantic Interface,
+운영 플래너 연결, semantic 세대, topology 이력 및 temporal 결합은 숨겨진 hardening
+defect가 아니라 계획된 기능으로 남아 있습니다.
 
-OQ-04/OQ-05 foundation에는 authority, model trust, digest binding, structural coverage, role/purpose,
-descriptor mutation, input bound, prompt injection, clarification, action draft, verifier bypass,
-graph/receipt mapping, cancellation, Console parity, replay, redaction, compatibility routing, service boundary,
-agent ownership, concurrency, test 및 docs를 다루는 추가 25-lens adversarial review를 수행했습니다.
-재현 가능한 Medium finding 하나를 수정했습니다. Runtime metadata가 누락된 release declaration은 더 이상
-structural coverage에서 사라질 수 없으며 manifest construction이 fail-close합니다. 제안된 descriptor
-mutation finding은 selector가 exact manifest subset으로 검사되고 model 노출 전에 deep copy되며 test가
-source manifest 불변을 입증하므로 기각했습니다. Owning bilingual design은 새 seam을 이미 문서화합니다.
-이 shadow-only slice에는 재현 가능한 Medium 이상 finding이 남아 있지 않습니다.
+OQ-04/OQ-05 foundation에는 권한, 모델 trust, 다이제스트 연결, structural 커버리지, 역할/용도,
+서술자 변경, 입력 한계, 프롬프트 injection, 명확화, 액션 초안, 검증기 bypass,
+그래프/증적 대응, 취소, Console 동등성, 재생, 민감정보 제거, compatibility 라우팅, 서비스 경계,
+agent 소유권, 동시성, 테스트 및 docs를 다루는 추가 25-lens adversarial review를 수행했습니다.
+재현 가능한 Medium 발견 사항 하나를 수정했습니다. 런타임 메타데이터가 누락된 release 선언은 더 이상
+structural 커버리지에서 사라질 수 없으며 매니페스트 construction이 fail-close합니다. 제안된 서술자
+변경 발견 사항은 선택자가 exact 매니페스트 subset으로 검사되고 모델 노출 전에 deep copy되며 테스트가
+출처 매니페스트 불변을 입증하므로 기각했습니다. Owning bilingual design은 새 seam을 이미 문서화합니다.
+이 shadow-only slice에는 재현 가능한 Medium 이상 발견 사항이 남아 있지 않습니다.
 
-OQ-06부터 OQ-11까지 landing한 후 전체 program을 대상으로 8,500-row generation parity, activation 및
-rollback, embedding bound, Interface ACL, LinkType side, query typing, cutover escape path, total
-disposition, evidence truncation, cancellation, bitemporal time, tombstone, migration/grant,
-`routes_to`, zero-vs-missing metric, causal refutation, provider identity, continuous-gate honesty,
-boundary, docs 및 test blind spot을 다루는 추가 25-lens review를 수행했습니다. 재현 가능한 Medium
-finding 두 개를 수정했습니다. Interface property는 이제 ObjectType property와 같은 role/purpose filtering을
-받으며 goal receipt는 existing terminal reason과 evidence-reference truncation을 모두 보존합니다. Focused
-regression이 두 수정 사항을 입증합니다. 구현된 ontology-query program에는 재현 가능한 Medium 이상
-finding이 남아 있지 않습니다. 남은 production provider/durable adapter binding은 명시적인 delivery gap이며
+OQ-06부터 OQ-11까지 landing한 후 전체 프로그램을 대상으로 8,500-row 세대 동등성, activation 및
+롤백, 임베딩 한계, Interface ACL, LinkType side, 조회 typing, 전환 escape 경로, 합계
+처리 결과, 근거 잘림, 취소, bitemporal 시간, tombstone, 이행/권한 부여,
+`routes_to`, zero-vs-missing 메트릭, causal refutation, 프로바이더 신원, continuous-gate honesty,
+경계, docs 및 테스트 blind spot을 다루는 추가 25-lens review를 수행했습니다. 재현 가능한 Medium
+발견 사항 두 개를 수정했습니다. Interface 속성은 이제 ObjectType 속성과 같은 역할/용도 filtering을
+받으며 목표 증적은 기존 최종 사유와 evidence-reference 잘림을 모두 보존합니다. Focused
+회귀가 두 수정 사항을 입증합니다. 구현된 ontology-query 프로그램에는 재현 가능한 Medium 이상
+발견 사항이 남아 있지 않습니다. 남은 운영 프로바이더/영속 어댑터 연결은 명시적인 전달 공백이며
 fail-close합니다.
 
 ## 관련 문서
@@ -323,9 +323,9 @@ fail-close합니다.
 | 알아볼 내용 | 문서 |
 |-------------|------|
 | 무작위 Console 근거와 현재 릴리스 차단 항목 | [온톨로지 쿼리 무작위 보증](ontology-query-randomized-assurance-ko.md) |
-| 목표 question planning 및 coverage contract | [계층형 대화 계획](hierarchical-conversation-planning-ko.md) |
-| Exact release, ObjectSet 및 typed function | [FDAI Ontology Safety Infrastructure](../architecture/operating-ontology-platform-ko.md) |
-| Operating object, relationship, identity 및 time | [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md) |
-| Rule-specific semantic generation | [Rule 의미 검색](../rules-and-detection/rule-semantic-retrieval-ko.md) |
-| Causal hypothesis evidence 및 closure | [인과 incident graph](../rules-and-detection/causal-incident-graph-ko.md) |
-| Console 및 narrator authority | [FDAI Console 대화](operator-console-ko.md) |
+| 목표 질문 planning 및 커버리지 계약 | [계층형 대화 계획](hierarchical-conversation-planning-ko.md) |
+| Exact release, ObjectSet 및 타입이 지정된 function | [FDAI 온톨로지 Safety Infrastructure](../architecture/operating-ontology-platform-ko.md) |
+| Operating 객체, relationship, 신원 및 시간 | [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md) |
+| Rule-specific semantic 세대 | [Rule 의미 검색](../rules-and-detection/rule-semantic-retrieval-ko.md) |
+| Causal 가설 근거 및 closure | [인과 인시던트 그래프](../rules-and-detection/causal-incident-graph-ko.md) |
+| Console 및 서술기 권한 | [FDAI Console 대화](operator-console-ko.md) |
