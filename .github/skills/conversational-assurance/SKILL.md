@@ -23,10 +23,14 @@ The process starts only when the operator explicitly requests `대화개선`, `�
 `continuous conversation assurance`. It MUST NOT start from systemd, login, boot, a recurring
 timer, stale-activity recovery, or any other implicit scheduler.
 
-- One explicit trigger starts one campaign.
+- One normal explicit trigger starts one campaign. An explicit request for 100 or more evaluations
+   starts one parent series composed of bounded child campaigns.
 - One campaign evaluates at most 20 new questions and starts at most 20 hardening attempts.
 - These limits belong to the campaign id, not a UTC date. A later explicit trigger creates a new
   campaign id with fresh limits.
+- A parent series never raises a child budget. It runs enough sequential child campaigns to reach
+   the requested target, which defaults to 100 and MUST be at least 100. Every child has its own id
+   and ledger records. An incomplete or held child stops the parent without starting another child.
 - `.improve/STOP` is the immediate local stop switch.
 - A failed cycle that cannot make progress ends the campaign without busy-looping.
 - Malformed or non-JSON Copilot generation output is retried inside the bounded cycle. Exhausted
@@ -60,7 +64,8 @@ When one appears:
 1. Use the persisted SRE, ARB, Change Management, DR, Chaos, or Balanced focus.
 2. Select SRE when no focus is stored; update the focus when the operator names one explicitly.
 3. Persist the choice in ignored `.improve/chat-watchdog/config.json` with mode `0600`.
-4. Run `chat_watchdog.py --campaign` once with the selected focus.
+4. Run `chat_watchdog.py --campaign` for a normal request. For an explicit 100+ request, run
+   `chat_watchdog.py --campaign-series --series-questions <target>` once.
 5. Continue bounded cycles within that campaign until 20 questions, 20 hardening attempts,
    `.improve/STOP`, or a no-progress hold ends it.
 
@@ -225,6 +230,10 @@ python3 .improve/auto-hardening/chat_watchdog.py --project . --force --dry-run
 # Start one explicit 20-question / 20-hardening campaign
 python3 .improve/auto-hardening/chat_watchdog.py --project . --campaign --focus sre
 
+# Start one explicit series of five or more bounded campaigns (100+ questions)
+python3 .improve/auto-hardening/chat_watchdog.py --project . \
+   --campaign-series --series-questions 100 --focus balanced
+
 # Summary and latest 20 evaluations
 python3 .improve/auto-hardening/chat_watchdog.py --project . --status --top 20
 
@@ -240,8 +249,10 @@ and must remain ignored, mode `0600`, and uncommitted.
 Run the local safety contract after any watchdog change:
 
 ```bash
-PYTHONPATH="$PWD/src" .venv/bin/pytest -q --no-cov \
+PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/services/operator-service/src:$PWD/packages/service-contracts/src" \
+   .venv/bin/pytest -q --no-cov \
   .improve/auto-hardening/test_chat_watchdog.py \
+   .improve/auto-hardening/test_measure.py \
   .improve/auto-hardening/test_run_if_idle.py
 
 .venv/bin/ruff check \
@@ -249,6 +260,7 @@ PYTHONPATH="$PWD/src" .venv/bin/pytest -q --no-cov \
   .improve/auto-hardening/measure.py \
   .improve/auto-hardening/run_if_idle.py \
   .improve/auto-hardening/test_chat_watchdog.py \
+   .improve/auto-hardening/test_measure.py \
   .improve/auto-hardening/test_run_if_idle.py
 ```
 
