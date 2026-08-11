@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 15a06d9d27e2ffbd2c9ea191dd96eec5c331372d
+translation_source_sha: d83cf8b1333bd36536a9c31cf27eee974fe9acc3
 translation_revised: 2026-08-12
 ---
 # 배포 리소스 규약
@@ -105,6 +105,13 @@ Core 및 Operator 서비스 루트는 semantic-turn 요청과 변환 결과 토�
 `semantic_projections` 필드를 선언합니다. 상태 이행 또는 보호된 플랜 전에 두 독립 루트 모두
 `terraform validate`를 통과해야 합니다. 루트에만 있고 하위 모듈에서 빠진 필드는 선택적인 런타임
 성능 저하가 아니라 배포 계약 실패입니다.
+
+Core 상태 소유권이 `services/core-control-plane/<environment>.tfstate`로 이동한 후 이전 방식
+platform 루트는 공유 Container Apps 환경과 예약된 Job을 유지하지만 Core Container App 리소스는
+더 이상 선언하지 않습니다. 상태 및 작업 검사를 위해 결정론적인 Core 이름은 계속 제공하며,
+monitoring은 이 이름으로 실제 ARM id를 구성합니다. 과거 source 주소는 상태 이행 manifest와 이전
+방식 플랜 guard에만 남습니다. 이 주소에서 생성, 업데이트, 교체 또는 삭제를 제안하는 platform
+플랜은 차단됩니다.
 
 ## 리소스 태깅 규약(Resource Tagging Convention)
 

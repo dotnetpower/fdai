@@ -18,6 +18,13 @@ _CORE_TERRAFORM = (
     _ROOT / "infra/services/core-control-plane/modules/core-control-plane/main.tf"
 ).read_text(encoding="utf-8")
 _LEGACY_WORKFLOW = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
+_LEGACY_COMPUTE = (_ROOT / "infra/modules/compute/container-apps/main.tf").read_text(
+    encoding="utf-8"
+)
+_LEGACY_OUTPUTS = (_ROOT / "infra/modules/compute/container-apps/outputs.tf").read_text(
+    encoding="utf-8"
+)
+_LEGACY_ROOT = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
 _MATRIX = json.loads(
     (_ROOT / "scripts" / "deployment" / "service" / "service-matrix.json").read_text(
         encoding="utf-8"
@@ -43,6 +50,16 @@ def test_workflow_has_closed_five_service_input_and_runner() -> None:
         assert f"          - {service}\n" in _WORKFLOW
     assert "runs-on: [self-hosted, fdai-deploy]" in _WORKFLOW
     assert "group: service-deploy-${{ inputs.service }}-${{ inputs.environment }}" in _WORKFLOW
+
+
+def test_legacy_platform_cannot_recreate_migrated_core() -> None:
+    source_address = _MIGRATION["services"]["core-control-plane"]["moves"][0]["from"]
+
+    assert source_address == "module.compute.azurerm_container_app.core"
+    assert 'resource "azurerm_container_app" "core"' not in _LEGACY_COMPUTE
+    assert "azurerm_container_app.core" not in _LEGACY_OUTPUTS
+    assert "-target=module.compute.azurerm_container_app.core" not in _LEGACY_WORKFLOW
+    assert "providers/Microsoft.App/containerApps/${module.compute.core_app_name}" in _LEGACY_ROOT
 
 
 def test_workflow_pins_every_action_to_trusted_immutable_commit() -> None:

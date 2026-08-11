@@ -17,6 +17,9 @@ variables {
   t1_min_success_rate                 = 0.9
   quality_gate_confidence_threshold   = 0.7
   quality_gate_quorum                 = 2
+  startup_kafka_settle_seconds        = 12
+  startup_probe_timeout_seconds       = 30
+  startup_phase_timeout_seconds       = 75
   inventory_identity_id               = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-inventory"
   inventory_identity_client_id        = "00000000-0000-0000-0000-000000000000"
   inventory_raw_topic                 = "aw.inventory.raw"
@@ -41,7 +44,7 @@ variables {
   ]
 }
 
-run "core_attaches_all_vertical_identities" {
+run "legacy_workflow_retains_vertical_identity_catalog" {
   command = plan
 
   assert {
@@ -50,7 +53,7 @@ run "core_attaches_all_vertical_identities" {
       contains(output.attached_identity_ids, var.extra_identity_ids[1]),
       contains(output.attached_identity_ids, var.extra_identity_ids[2]),
     ])
-    error_message = "the core Container App MUST attach change, resilience, and FinOps identities"
+    error_message = "legacy workflow compatibility MUST retain every declared vertical identity"
   }
 
   assert {
@@ -59,6 +62,6 @@ run "core_attaches_all_vertical_identities" {
       resilience = var.resilience_identity_client_id
       finops     = var.finops_identity_client_id
     }
-    error_message = "the core runtime MUST receive each attached vertical identity client id"
+    error_message = "legacy workflow compatibility MUST retain each vertical identity client id"
   }
 }

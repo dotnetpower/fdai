@@ -4,8 +4,8 @@ output "environment_id" {
 }
 
 output "attached_identity_ids" {
-  description = "User-assigned identity resource ids attached to the core Container App."
-  value       = azurerm_container_app.core.identity[0].identity_ids
+  description = "Declared identity resource ids retained for legacy workflow compatibility."
+  value       = concat([var.executor_identity_id], var.extra_identity_ids)
 }
 
 output "vertical_identity_client_ids" {
@@ -18,13 +18,13 @@ output "vertical_identity_client_ids" {
 }
 
 output "core_app_id" {
-  description = "Core Container App resource id."
-  value       = azurerm_container_app.core.id
+  description = "Retired legacy Core resource id. The independent service owns the live id."
+  value       = ""
 }
 
 output "core_app_name" {
-  description = "Core Container App name."
-  value       = azurerm_container_app.core.name
+  description = "Deterministic independent Core Container App name."
+  value       = var.core_app_name
 }
 
 output "oob_job_name" {

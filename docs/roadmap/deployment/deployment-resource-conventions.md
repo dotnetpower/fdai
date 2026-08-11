@@ -104,6 +104,13 @@ The root variable and its child service module declare the same optional `semant
 migration or a protected plan; a root-only field that the child module drops is a deployment
 contract failure, not an optional runtime degradation.
 
+After Core state ownership moves to `services/core-control-plane/<environment>.tfstate`, the
+legacy platform root retains the shared Container Apps environment and scheduled Jobs but no
+longer declares the Core Container App resource. Its deterministic Core name remains available for
+health and effect checks, and monitoring constructs the live ARM id from that name. The historical
+source address remains only in the state-migration manifest and the legacy-plan guard. A platform
+plan that proposes any create, update, replacement, or delete at that address is blocked.
+
 ## Resource Tagging Convention
 
 Naming makes a resource readable; tagging makes a fleet queryable. Every resource this

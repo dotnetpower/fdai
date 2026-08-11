@@ -2008,7 +2008,7 @@ module "monitoring" {
   postgres_id            = module.state_store.id
   key_vault_id           = module.key_vault.id
   event_hub_namespace_id = module.event_bus.namespace_id
-  container_app_id       = module.compute.core_app_id
+  container_app_id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${module.resource_group.name}/providers/Microsoft.App/containerApps/${module.compute.core_app_name}"
 
   tags = local.tags
 }
