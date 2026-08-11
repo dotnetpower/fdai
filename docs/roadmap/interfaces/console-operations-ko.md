@@ -2,467 +2,467 @@
 title: 콘솔 운영
 translation_of: console-operations.md
 translation_source_sha: c2494952176ec869851788f8c665bfb8ade2e39d
-translation_revised: 2026-08-04
+translation_revised: 2026-08-11
 ---
 
 # 콘솔 운영
 
 이 문서는 기존 FDAI Console이 운영 업무를 표시하고 범위가 제한된 운영 요청을 접수하는 방법을
-정의합니다. 별도 애플리케이션, 범용 작업 항목 모델 또는 두 번째 실행 authority를 추가하지
+정의합니다. 별도 애플리케이션, 범용 작업 항목 모델 또는 두 번째 실행 권한을 추가하지
 않습니다.
 
 > **제품 경계:** 제품명은 `FDAI Console`로 유지합니다. `Operations` / `운영`은 제품 안에 이미
-> 존재하는 탐색 그룹입니다. 콘솔은 Thor의 executor identity를 받거나 관리 리소스를 직접
+> 존재하는 탐색 그룹입니다. 콘솔은 Thor의 실행기 신원을 받거나 관리 리소스를 직접
 > 변경하지 않습니다.
 >
-> **구현 상태:** Operations 탐색, incident, approval, process, scheduler run, provisioning,
-> onboarding, bounded investigation은 별도 도메인 view로 제공됩니다. Console action dispatch는
-> broker publish 전에 payload를 포함한 receipt를 저장하고 restart 뒤 pending delivery를 복구합니다.
-> Workflow approval은 callback과 conversation tool 경계 모두에서 durable role과 서로 다른 quorum을
-> 검사합니다. 두 경계 모두 no-self-approval 검사 전에 principal identity를 normalize합니다. Pending
-> access-grant review는 권한을 적용하지 않은 채 App Role, 자기 승인 방지, expiry,
-> quorum 및 exact revision을 검사합니다. Federated Tasks view, cross-domain projection metadata 및 나머지 route hardening은 제안 상태입니다.
+> **구현 상태:** Operations 탐색, 인시던트, 승인, 프로세스, 스케줄러 실행, 프로비저닝,
+> onboarding, 범위가 제한된 조사는 별도 도메인 화면으로 제공됩니다. Console 액션 전달은
+> 브로커 publish 전에 페이로드를 포함한 증적을 저장하고 재시작 뒤 pending 전달을 복구합니다.
+> 작업 흐름 승인은 콜백과 대화 도구 경계 모두에서 영속 역할과 서로 다른 quorum을
+> 검사합니다. 두 경계 모두 no-self-approval 검사 전에 principal 신원을 normalize합니다. Pending
+> access-grant 검토는 권한을 적용하지 않은 채 App 역할, 자기 승인 방지, 만료,
+> quorum 및 exact 개정 번호를 검사합니다. Federated 작업 화면, cross-domain 변환 결과 메타데이터 및 나머지 경로 hardening은 제안 상태입니다.
 
 ## 설계 요약
 
-Operations 영역은 기존 도메인 projection을 읽고, 각 스키마와 lifecycle을 이미 소유한 도메인
-경로로 요청을 제출합니다. 담당 에이전트는 typed event를 통해 요청을 판단하고, 승인하고,
+Operations 영역은 기존 도메인 변환 결과를 읽고, 각 스키마와 수명 주기를 이미 소유한 도메인
+경로로 요청을 제출합니다. 담당 에이전트는 타입이 지정된 event를 통해 요청을 판단하고, 승인하고,
 실행하고, 복구하고, 감사합니다.
 
 ```mermaid
 flowchart LR
-  UI[FDAI Console - Operations] --> READ[Domain projections]
-  UI --> API[Operator API request routes]
-  API --> BUS[Typed event bus]
-  BUS --> OWNER[Owning agents]
-  OWNER --> GATES[Quality and risk gates]
-  GATES --> VAR[Var approval]
-  GATES --> THOR[Thor execution]
-  VAR --> THOR
-  THOR --> SAGA[Saga audit]
-  OWNER --> SAGA
+ UI[FDAI Console - Operations] --> READ[Domain projections]
+ UI --> API[Operator API request routes]
+ API --> BUS[Typed event bus]
+ BUS --> OWNER[Owning agents]
+ OWNER --> GATES[Quality and risk gates]
+ GATES --> VAR[Var approval]
+ GATES --> THOR[Thor execution]
+ VAR --> THOR
+ THOR --> SAGA[Saga audit]
+ OWNER --> SAGA
 ```
 
 ## 아키텍처 결정
 
 콘솔 운영은 네 가지 경계를 사용합니다.
 
-| 경계 | 책임 | Authority |
+| 경계 | 책임 | 권한 |
 |------|------|-----------|
-| 콘솔 presentation | Operations 탐색, Tasks, Approvals, Investigations, evidence, timeline | 서버 소유 상태와 사용할 수 있는 운영 기능을 렌더링합니다. |
-| 도메인 projection | Authoritative `Approval`, `Process`, `ReviewCase`, `AccessGrantRequest`, action record 조회 | 각 source lifecycle을 읽기만 합니다. |
-| Operator API 도메인 요청 route | 인증, 인가, source revision과 도메인 스키마 검증, 중복 제거, publish | 요청을 접수하며 판단하거나 실행하지 않습니다. |
-| 에이전트 runtime | Typed pub/sub으로 판단, 승인, 실행, 복구, 감사 | 기존 pantheon ownership이 authority를 유지합니다. |
+| 콘솔 표현 | Operations 탐색, 작업, Approvals, Investigations, 근거, 타임라인 | 서버 소유 상태와 사용할 수 있는 운영 기능을 렌더링합니다. |
+| 도메인 변환 결과 | 권위 있는 `Approval`, `Process`, `ReviewCase`, `AccessGrantRequest`, 액션 기록 조회 | 각 출처 수명 주기를 읽기만 합니다. |
+| Operator API 도메인 요청 경로 | 인증, 인가, 출처 개정 번호와 도메인 스키마 검증, 중복 제거, publish | 요청을 접수하며 판단하거나 실행하지 않습니다. |
+| 에이전트 런타임 | 타입이 지정된 pub/sub으로 판단, 승인, 실행, 복구, 감사 | 기존 pantheon 소유권이 권한을 유지합니다. |
 
-Operator API는 mechanical relay로 유지합니다. FDAI Console과 operator client가 공유하는
-비특권 HTTP backend이며 Thor의 executor identity를 받지 않습니다. Orchestrator, 숨은 에이전트 또는
-범용 workflow engine이 되지 않으며 에이전트는 서로 직접 호출하지 않습니다.
+Operator API는 mechanical 중계로 유지합니다. FDAI Console과 운영자 클라이언트가 공유하는
+비특권 HTTP 백엔드이며 Thor의 실행기 신원을 받지 않습니다. 오케스트레이터, 숨은 에이전트 또는
+범용 작업 흐름 엔진이 되지 않으며 에이전트는 서로 직접 호출하지 않습니다.
 
 ## 제품 용어
 
-하나의 제품명과 이해하기 쉬운 운영 label을 사용합니다.
+하나의 제품명과 이해하기 쉬운 운영 라벨을 사용합니다.
 
 | 범위 | 용어 |
 |------|------|
 | 제품 | `FDAI Console` |
-| 공유 HTTP backend | `Operator API` |
+| 공유 HTTP 백엔드 | `Operator API` |
 | 기존 탐색 그룹 | `Operations` / `운영` |
-| 사용자에게 보이는 동작 | Operational request / 운영 요청 |
-| Operations view | Tasks, Approvals, Investigations |
+| 사용자에게 보이는 동작 | Operational 요청 / 운영 요청 |
+| Operations 화면 | 작업, Approvals, Investigations |
 | ActionType 요청 출처 | `trigger_kind: operator_request` |
 
-이 surface의 이름으로 `Operator Workbench`, 두 번째 `Operator Console`, `Command Center`,
-`Orchestration`을 사용하지 않습니다. Python task workbench처럼 특정 도구를 나타내는 이름은 유지할
+이 표면의 이름으로 `Operator Workbench`, 두 번째 `Operator Console`, `Command Center`,
+`Orchestration`을 사용하지 않습니다. Python 작업 workbench처럼 특정 도구를 나타내는 이름은 유지할
 수 있습니다.
 
 ## 기존 온톨로지와 스키마
 
-### 도메인 record
+### 도메인 기록
 
-Operations는 기존 object와 link를 재사용합니다.
+Operations는 기존 객체와 link를 재사용합니다.
 
-| 운영 관심사 | Authoritative object와 link | 콘솔 동작 |
+| 운영 관심사 | 권위 있는 객체와 link | 콘솔 동작 |
 |-------------|-----------------------------|-----------|
-| Governed review | `Process -> runs_review -> ReviewCase -> resolved_by -> Decision` | Review 상태, 이전 decision, evidence, 다음 책임 owner를 보여줍니다. |
-| 사람 승인 | `ReviewCase -> has_approval -> Approval`과 action-bound approval | Quorum, 자기 승인 방지 상태, deadline, evidence를 보여줍니다. |
-| Workflow run | `WorkflowDefinition`, `WorkflowBinding`, `Process` | Immutable definition, current step, revision, target, compensation 상태를 보여줍니다. |
-| Access 변경 | `AccessGrantRequest` | 적격한 pending request를 stream하고 access를 적용하지 않은 채 immutable authorization lifecycle을 보여줍니다. |
-| Execution follow-up | `ActionRun`, rollback, audit reference | Execute-again 바로 가기 없이 결과와 recovery 상태를 보여줍니다. |
-| 담당자 인수인계 | Operational-readiness `Process`, `ReviewCase`, `Approval`, `Decision` | 기존 handover workflow를 재사용하며 Saga는 auditor로 유지됩니다. |
+| 통제된 검토 | `Process -> runs_review -> ReviewCase -> resolved_by -> Decision` | 검토 상태, 이전 결정, 근거, 다음 책임 소유자를 보여줍니다. |
+| 사람 승인 | `ReviewCase -> has_approval -> Approval`과 action-bound 승인 | Quorum, 자기 승인 방지 상태, 기한, 근거를 보여줍니다. |
+| 작업 흐름 실행 | `WorkflowDefinition`, `WorkflowBinding`, `Process` | 변경할 수 없는 정의, 현재 단계, 개정 번호, 대상, compensation 상태를 보여줍니다. |
+| 접근 변경 | `AccessGrantRequest` | 적격한 pending 요청을 스트림하고 접근을 적용하지 않은 채 변경할 수 없는 권한 확인 수명 주기를 보여줍니다. |
+| 실행 후속 조치 | `ActionRun`, 롤백, 감사 참조 | Execute-again 바로 가기 없이 결과와 복구 상태를 보여줍니다. |
+| 담당자 인수인계 | Operational-readiness `Process`, `ReviewCase`, `Approval`, `Decision` | 기존 인계 작업 흐름을 재사용하며 Saga는 auditor로 유지됩니다. |
 
-Generic `WorkItem`, `OperationRequest`, 중복 `Approval`, 범용 mutable status table 또는 새 approval
-topic을 추가하지 않습니다. 각 source가 자체 schema, revision, lifecycle, owner를 유지합니다.
+범용 `WorkItem`, `OperationRequest`, 중복 `Approval`, 범용 변경 가능한 상태 표 또는 새 승인
+토픽을 추가하지 않습니다. 각 출처가 자체 스키마, 개정 번호, 수명 주기, 소유자를 유지합니다.
 
-Browser에 표시할 pending access request가 있으면 인증된 GET-only stream이 principal의 App Role로
-durable record를 filter합니다. Tab과 Command Deck이 idle 상태이면 console은 capability, scope 및
-expiry가 포함된 request-scoped conversation을 엽니다. 진행 중인 작업, 전송하지 않은 draft 또는 hidden
-tab이 있으면 conversation을 바꾸지 않고 visible badge를 유지합니다. Badge를 열면 적격 principal이
-필수 사유를 입력하고 정확한 projection revision을 승인하거나 거부할 수 있습니다. Receipt는 review가
-권한을 적용하지 않으며 새로운 probe가 여전히 필요하다고 알립니다. Protected deployment, fresh access
-verification 및 revocation은 authorization workflow의 별도 단계로 남습니다.
+브라우저에 표시할 pending 접근 요청이 있으면 인증된 GET-only 스트림이 principal의 App 역할로
+영속 기록을 필터링합니다. Tab과 Command Deck이 idle 상태이면 콘솔은 기능, 범위 및
+만료가 포함된 request-scoped 대화를 엽니다. 진행 중인 작업, 전송하지 않은 초안 또는 hidden
+tab이 있으면 대화를 바꾸지 않고 visible 배지를 유지합니다. 배지를 열면 적격 principal이
+필수 사유를 입력하고 정확한 변환 결과 개정 번호를 승인하거나 거부할 수 있습니다. 증적은 검토가
+권한을 적용하지 않으며 새로운 탐색이 여전히 필요하다고 알립니다. Protected 배포, fresh 접근
+검증 및 철회는 권한 확인 작업 흐름의 별도 단계로 남습니다.
 
-인증된 `GET /incidents/stream` route는 durable incident read model에서 최대 50개의 active incident를
-project합니다. 새 active incident가 관찰되면 tab과 Command Deck이 idle 상태일 때 incident에 연결된
-conversation을 시작합니다. 진행 중인 작업, 전송하지 않은 draft 또는 hidden tab이 있으면
-active-incident badge를 대신 유지합니다. Reconnect는 일시적인 agent-activity frame에 의존하지 않고
-durable state에서 snapshot을 다시 만듭니다. Browser는 incident와 correlation selector만 보내며,
-server는 답변의 근거로 사용하기 전에 해당 binding을 다시 resolve합니다.
+인증된 `GET /incidents/stream` 경로는 영속 인시던트 읽기 모델에서 최대 50개의 활성 인시던트를
+project합니다. 새 활성 인시던트가 관찰되면 tab과 Command Deck이 idle 상태일 때 인시던트에 연결된
+대화를 시작합니다. 진행 중인 작업, 전송하지 않은 초안 또는 hidden tab이 있으면
+active-incident 배지를 대신 유지합니다. Reconnect는 일시적인 agent-activity 프레임에 의존하지 않고
+영속 상태에서 스냅샷을 다시 만듭니다. 브라우저는 인시던트와 상관관계 선택자만 보내며,
+서버는 답변의 근거로 사용하기 전에 해당 연결을 다시 해석합니다.
 
-### Operations task view
+### Operations 작업 화면
 
-Tasks view는 presentation-level federation이며 ontology object나 system of record가 아닙니다. Source별
-projection을 status, owner agent, assignee, deadline, priority, scope로 묶을 수 있습니다. 각 항목은 exact
-source reference, source revision, evidence reference, freshness, redaction state를 유지합니다.
+작업 화면은 presentation-level federation이며 온톨로지 객체나 system of 기록이 아닙니다. 출처별
+변환 결과를 상태, 소유자 에이전트, 담당자, 기한, priority, 범위로 묶을 수 있습니다. 각 항목은 exact
+출처 참조, 출처 개정 번호, 근거 참조, 최신성, 민감정보 제거 상태를 유지합니다.
 
-API response는 기존 도메인 projection의 discriminated union으로 구현합니다. Projection cache는 다시
-만들 수 있는 output을 저장할 수 있지만 cache 손실로 작업을 잃거나 source lifecycle이 바뀌면 안
-됩니다. 브라우저는 누락된 상태나 authorization을 추론하지 않습니다.
+API 응답은 기존 도메인 변환 결과의 discriminated union으로 구현합니다. 변환 결과 캐시는 다시
+만들 수 있는 출력을 저장할 수 있지만 캐시 손실로 작업을 잃거나 출처 수명 주기가 바뀌면 안
+됩니다. 브라우저는 누락된 상태나 권한 확인을 추론하지 않습니다.
 
 Closed discriminator는 `source_family`이며 초기 값은 `approval`, `process`, `review_case`,
-`access_request`입니다. 각 arm은 domain field 앞에 `source_id`, `source_revision`, exact `type_ref`
-(`name`, `version`, `catalog_digest`), `ontology_release_digest`, `as_of`, source watermark를 포함합니다.
-Family 추가는 paired design과 decoder 변경이 필요하며 shared mutation schema를 만들지 않습니다.
+`access_request`입니다. 각 arm은 domain 필드 앞에 `source_id`, `source_revision`, exact `type_ref`
+(`name`, `version`, `catalog_digest`), `ontology_release_digest`, `as_of`, 출처 watermark를 포함합니다.
+계열 추가는 paired design과 decoder 변경이 필요하며 shared 변경 스키마를 만들지 않습니다.
 
-Phase 1은 `rule-catalog/schema/console-operations-projection.schema.json`을 각 arm, unavailable receipt,
-freshness ceiling의 versioned machine source로 추가합니다. Muninn이 책임지고 FDAI maintainer가 schema
-변경을 review하며 server와 generated client digest는 CI에서 일치해야 합니다.
+Phase 1은 `rule-catalog/schema/console-operations-projection.schema.json`을 각 arm, 사용 불가 증적,
+최신성 상한의 versioned 머신 출처로 추가합니다. Muninn이 책임지고 FDAI 관리자가 스키마
+변경을 검토하며 서버와 생성된 클라이언트 다이제스트는 CI에서 일치해야 합니다.
 
-해당 schema는 family별 bounded `freshness_ceiling_seconds`, hard item limit, maximum link-traversal depth,
-stable primary-key ordering, allowed truncation reason을 선언합니다. Ceiling이나 limit이 없거나
-unbounded이면 materialization을 차단합니다. Pagination은 snapshot cutoff, ordering, source watermark를
+해당 스키마는 계열별 범위가 제한된 `freshness_ceiling_seconds`, hard item 한도, maximum link-traversal depth,
+고정된 primary-key 정렬, allowed 잘림 사유를 선언합니다. 상한이나 한도가 없거나
+unbounded이면 구체화를 차단합니다. 페이지 나누기는 스냅샷 기준 시점, 정렬, 출처 watermark를
 바꾸지 않습니다.
 
-각 source agent는 authoritative record의 single writer로 유지됩니다. Muninn은 rebuildable cross-domain
-context index와 그 cutoff, freshness, digest, rebuild evidence를 책임집니다. Operator API
-materializer는 source-owned state와 Muninn index를 읽는 mechanical relay이며 source object를
-publish하거나 lifecycle을 진행하지 않습니다.
+각 출처 에이전트는 권위 있는 기록의 single 쓰기 담당으로 유지됩니다. Muninn은 rebuildable cross-domain
+맥락 인덱스와 그 기준 시점, 최신성, 다이제스트, 재구축 근거를 책임집니다. Operator API
+materializer는 source-owned 상태와 Muninn 인덱스를 읽는 mechanical 중계이며 출처 객체를
+publish하거나 수명 주기를 진행하지 않습니다.
 
-Server cache는 materializer 뒤의 optional provider이며 complete canonical digest input으로 key를 만들고
-immutable projection byte를 저장합니다. Miss나 eviction은 authoritative source를 다시 읽습니다. TTL은
-freshness를 결정하지 않고 cached byte는 request를 authorize하지 않습니다. Provider가 없는 deployment는
-같은 limit과 digest contract로 request마다 materialize합니다.
+서버 캐시는 materializer 뒤의 선택적 프로바이더이며 완전한 정본 다이제스트 입력으로 키를 만들고
+변경할 수 없는 변환 결과 바이트를 저장합니다. Miss나 제거는 권위 있는 출처를 다시 읽습니다. TTL은
+최신성을 결정하지 않고 cached 바이트는 요청을 authorize하지 않습니다. 프로바이더가 없는 배포는
+같은 한도와 다이제스트 계약으로 요청마다 materialize합니다.
 
-### Ontology query 전략
+### 온톨로지 조회 전략
 
-명시적인 `as_of` cutoff에서 source family별 bounded `ObjectSet` definition을 materialize한 뒤 선언된
-link만 join합니다. Ontology release digest, source watermark, cutoff, truncation reason, redaction summary,
-freshness state를 보존합니다. 브라우저에 free-form graph query를 노출하지 않습니다.
+명시적인 `as_of` 기준 시점에서 출처 계열별 범위가 제한된 `ObjectSet` 정의를 materialize한 뒤 선언된
+link만 결합합니다. 온톨로지 release 다이제스트, 출처 watermark, 기준 시점, 잘림 사유, 민감정보 제거 요약,
+최신성 상태를 보존합니다. 브라우저에 free-form 그래프 조회를 노출하지 않습니다.
 
-Source family가 unavailable, unauthorized, timeout 상태이거나 freshness ceiling을 넘으면 source,
-reason, last successful watermark, retry guidance를 포함한 explicit unavailable receipt를 반환합니다.
-Stale cache를 current 상태로 대체하거나 누락된 object를 추론하지 않습니다. 다른 source family는 계속
-표시할 수 있지만 unavailable source에 의존하는 요청은 authoritative state를 다시 읽을 때까지 server
+출처 계열이 사용 불가, 승인되지 않은, 시간 초과 상태이거나 최신성 상한을 넘으면 출처,
+사유, last successful watermark, 재시도 guidance를 포함한 명시적 사용 불가 증적을 반환합니다.
+Stale 캐시를 현재 상태로 대체하거나 누락된 객체를 추론하지 않습니다. 다른 출처 계열은 계속
+표시할 수 있지만 사용 불가 출처에 의존하는 요청은 권위 있는 상태를 다시 읽을 때까지 서버
 side에서 비활성화합니다.
 
-각 route-inventory row는 closed `required_source_families` set을 선언합니다. Server는 모든 required
-family가 request cutoff에서 `available`이고 exact revision을 다시 읽을 수 있을 때만 operation을
-활성화합니다. 선언되지 않은 dependency는 available을 default하지 않고 inventory gate에서 실패합니다.
+각 route-inventory 행은 closed `required_source_families` 집합을 선언합니다. 서버는 모든 필수
+계열이 요청 기준 시점에서 `available`이고 exact 개정 번호를 다시 읽을 수 있을 때만 연산을
+활성화합니다. 선언되지 않은 의존성은 available을 기본값하지 않고 인벤토리 gate에서 실패합니다.
 
-각 union arm은 `availability: available | unavailable`을 포함합니다. Unavailable arm은 `source_family`와
-exact ref를 유지하고 domain data를 생략하며 `reason: unauthorized | timeout | source_unavailable |
+각 union arm은 `availability: available | unavailable`을 포함합니다. 사용 불가 arm은 `source_family`와
+exact 참조를 유지하고 domain data를 생략하며 `사유: 승인되지 않은 | 시간 초과 | source_unavailable |
 freshness_exceeded`, nullable `last_successful_watermark`, nullable bounded `retry_after_seconds`를 추가합니다.
-Unknown reason은 empty source가 되지 않고 decoding에 실패합니다.
+Unknown 사유는 빈 출처가 되지 않고 디코딩에 실패합니다.
 
 ## 운영 요청
 
 ### 도메인 요청 스키마 재사용
 
-범용 요청 스키마는 없습니다. 각 운영 기능은 해당 도메인이 소유한 스키마와 route를 사용합니다.
+범용 요청 스키마는 없습니다. 각 운영 기능은 해당 도메인이 소유한 스키마와 경로를 사용합니다.
 
 | 사용자 작업 | 기존 도메인 경로 |
 |-------------|------------------|
-| Approval 결정 | Approval decision schema와 Var 소유 approval lifecycle |
-| Investigation 시작 | 기존 investigation request schema와 typed ingress path |
-| Catalog 또는 workflow draft 생성 | 기존 draft schema와 GitHub App delivery path |
-| Access 요청 | `AccessGrantRequest` schema와 authorization workflow |
-| Process 진행 | 참조된 `WorkflowDefinition`과 현재 `Process` revision이 정의한 transition |
-| ActionType 요청 | `trigger_kind: operator_request` 또는 `both`인 기존 action argument schema |
+| Approval 결정 | Approval 결정 스키마와 Var 소유 승인 수명 주기 |
+| 조사 시작 | 기존 조사 요청 스키마와 타입이 지정된 유입 경로 |
+| 카탈로그 또는 작업 흐름 초안 생성 | 기존 초안 스키마와 GitHub App 전달 경로 |
+| 접근 요청 | `AccessGrantRequest` 스키마와 권한 확인 작업 흐름 |
+| 프로세스 진행 | 참조된 `WorkflowDefinition`과 현재 `Process` 개정 번호가 정의한 transition |
+| ActionType 요청 | `trigger_kind: operator_request` 또는 `both`인 기존 액션 인자 스키마 |
 
 `operator_request`는 ActionType 요청을 누가 시작했는지 나타냅니다. 제품명, API umbrella 또는 domain
-schema의 대체물이 아닙니다.
+스키마의 대체물이 아닙니다.
 
-ActionType 경로에서 `ActionType.trigger_kind.kind`는 해당 action이 `operator_request` 또는 `both`를
-허용하는지 선언하며 event field가 아닙니다. Runtime ingress record는 대신 `event_type:
+ActionType 경로에서 `ActionType.trigger_kind.kind`는 해당 액션이 `operator_request` 또는 `both`를
+허용하는지 선언하며 event 필드가 아닙니다. 런타임 유입 기록은 대신 `event_type:
 operator_request`와 strict boolean `operator_initiated: true`를 포함합니다. Event ingest는 이 flat
-field를 검증한 뒤 control loop와 action builder가 소비하는 canonical nested
-`payload.operator_request`를 만듭니다. Extension은 이 normalizer를 통해 publish하며 nested trusted
-shape를 직접 쓰지 않습니다. 다른 domain request는 자체 event contract를 유지합니다.
+필드를 검증한 뒤 control 루프와 액션 빌더가 소비하는 정본 중첩된
+`payload.operator_request`를 만듭니다. 확장은 이 정규화기를 통해 publish하며 중첩된 trusted
+형태를 직접 쓰지 않습니다. 다른 domain 요청은 자체 event 계약을 유지합니다.
 
-Untrusted flat ingress는 `initiator_principal`, `action_type`, `params`, `resource_ref`, `correlation_id`,
-`idempotency_key`도 포함하며 unknown field를 차단합니다. Request route가 이 flat record를 만들고
-`fdai.core.event_ingest`만 이를 검증하고 normalize한 뒤 Huginn이 owned `Event`를 republish합니다. External
-boundary는 nested shape를 수락하지 않습니다.
+신뢰할 수 없는 flat 유입은 `initiator_principal`, `action_type`, `params`, `resource_ref`, `correlation_id`,
+`idempotency_key`도 포함하며 unknown 필드를 차단합니다. 요청 경로가 이 flat 기록을 만들고
+`fdai.core.event_ingest`만 이를 검증하고 normalize한 뒤 Huginn이 owned `Event`를 republish합니다. 외부
+경계는 중첩된 형태를 수락하지 않습니다.
 
-Workflow run context도 같은 boundary를 따릅니다. Route는 requester를 authenticated principal로
-교체하고 parameter-substitution value만 허용합니다. Approval, action outcome, compensation,
-decision, parallel, requester, wait namespace는 server-owned Process evidence 전용이며 HTTP input에서
+작업 흐름 실행 맥락도 같은 경계를 따릅니다. 경로는 요청자를 인증된 principal로
+교체하고 parameter-substitution 값만 허용합니다. Approval, 액션 결과, compensation,
+결정, 병렬, 요청자, wait 이름 공간은 서버가 소유한 프로세스 근거 전용이며 HTTP 입력에서
 거부됩니다.
 
-정확한 Process resume은 request body 없이 `POST /workflows/{process_id}/resume`을 사용합니다.
-Operator API는 caller에게서 workflow, target, trigger, mode, correlation 또는 context를 받는 대신
-durable Process snapshot과 creation evidence를 다시 읽습니다. 모든 resume에는 Contributor
-capability가 필요합니다. Enforce Process의 source lifecycle을 workflow runtime이 진행하기 전에
-route가 Owner와 현재 enforce allowlist를 다시 확인합니다. 알 수 없는 Process id는 `404`를
-반환하고 incomplete 또는 inconsistent resume evidence는 typed `409` conflict를 반환합니다.
+정확한 프로세스 재개는 요청 본문 없이 `POST /workflows/{process_id}/resume`을 사용합니다.
+Operator API는 호출자에게서 작업 흐름, 대상, 트리거, 모드, 상관관계 또는 맥락을 받는 대신
+영속 프로세스 스냅샷과 creation 근거를 다시 읽습니다. 모든 재개에는 기여자
+기능이 필요합니다. Enforce 프로세스의 출처 수명 주기를 작업 흐름 런타임이 진행하기 전에
+경로가 Owner와 현재 enforce 허용 목록을 다시 확인합니다. 알 수 없는 프로세스 id는 `404`를
+반환하고 불완전한 또는 inconsistent 재개 근거는 타입이 지정된 `409` conflict를 반환합니다.
 
-안전한 Process cancellation은 request body 없이 `POST /workflows/{process_id}/cancel`을
-사용합니다. Contributor는 shadow work를 cancel할 수 있고 enforce Process에는 Owner가 필요합니다.
-Enforce allowlist entry를 제거해도 cancellation은 새 forward work를 시작할 수 없으므로 차단되지
-않습니다. Server는 durable `pending` 또는 `waiting` boundary에서만 command를 수락하고 actor와
-cancellation intent를 기록합니다. Pending human-approval slot을 닫고 이미 dispatch된 action을
-reconcile한 뒤 workflow owner를 통해 cancel 또는 compensate합니다. `running` Process는 dispatch가
-idle이라고 추측하지 않고 typed `409 process_not_at_safe_boundary`를 반환합니다.
-Local 및 deployed Operator API factory는 같은 `WorkflowExecutionConfig`에서 start, exact resume,
-safe cancellation, bounded retry를 등록하며 route inventory test는 누락을 차단합니다.
+안전한 프로세스 취소는 요청 본문 없이 `POST /workflows/{process_id}/cancel`을
+사용합니다. 기여자는 그림자 작업을 취소할 수 있고 enforce 프로세스에는 Owner가 필요합니다.
+Enforce 허용 목록 항목을 제거해도 취소는 새 forward 작업을 시작할 수 없으므로 차단되지
+않습니다. 서버는 영속 `pending` 또는 `waiting` 경계에서만 명령을 수락하고 actor와
+취소 의도를 기록합니다. Pending human-approval slot을 닫고 이미 전달된 액션을
+조정한 뒤 작업 흐름 소유자를 통해 취소 또는 compensate합니다. `running` 프로세스는 전달이
+idle이라고 추측하지 않고 타입이 지정된 `409 process_not_at_safe_boundary`를 반환합니다.
+로컬 및 deployed Operator API factory는 같은 `WorkflowExecutionConfig`에서 시작, exact 재개,
+safe 취소, 범위가 제한된 재시도를 등록하며 경로 인벤토리 테스트는 누락을 차단합니다.
 
-Bounded Process retry는 request body 없이 `POST /workflows/{process_id}/retry`를 사용합니다.
-Contributor는 shadow를 retry할 수 있고 enforce는 새 forward work를 시작할 수 있으므로 Owner와 현재
-workflow allowlist가 필요합니다. Server는 명시적인 effect-free reason이 있는 `failed` attempt를
-수락하고 `timed_out` attempt는 `approval_timed_out`인 경우에만 수락합니다. Dispatch, cancellation,
-compensation evidence는 retry를 차단하고 approval evidence는 terminal rejection 또는 timeout에만
-허용됩니다. 다른 failure는 typed recovery conflict를 반환합니다. `max_retry_attempts`는
-server-owned이며 기본값은 3입니다.
-Approval rejection은 모든 sibling quorum slot을 닫습니다. `approval_rejected` 또는
-`approval_timed_out` retry는 distinct approval id를 가진 새 attempt를 만들며 prior decision은 새
+범위가 제한된 프로세스 재시도는 요청 본문 없이 `POST /workflows/{process_id}/retry`를 사용합니다.
+기여자는 그림자를 재시도할 수 있고 enforce는 새 forward 작업을 시작할 수 있으므로 Owner와 현재
+작업 흐름 허용 목록이 필요합니다. 서버는 명시적인 effect-free 사유가 있는 `failed` 시도를
+수락하고 `timed_out` 시도는 `approval_timed_out`인 경우에만 수락합니다. 전달, 취소,
+compensation 근거는 재시도를 차단하고 승인 근거는 최종 거절 또는 시간 초과에만
+허용됩니다. 다른 실패는 타입이 지정된 복구 conflict를 반환합니다. `max_retry_attempts`는
+서버가 소유한이며 기본값은 3입니다.
+Approval 거절은 모든 형제 quorum slot을 닫습니다. `approval_rejected` 또는
+`approval_timed_out` 재시도는 서로 다른 승인 id를 가진 새 시도를 만들며 이전 결정은 새
 quorum을 충족하지 않습니다.
 
 ### 요청 검사
 
-각 도메인 route는 source에 맞는 검사를 반복합니다.
+각 도메인 경로는 출처에 맞는 검사를 반복합니다.
 
-1. Entra token, audience, App Role, 필수 capability를 확인합니다.
-2. Authoritative source를 읽고 revision, deadline, 관련 policy digest를 비교합니다.
-3. 도메인 스키마를 검증하고 알 수 없는 field를 차단합니다.
-4. Route는 scope, purpose, no-self-approval, quorum eligibility를 precheck합니다. Final enforcement는
-  `Approval`의 Var, `ReviewCase`/`Decision`의 Forseti, `Process`의 current step owner,
-  grant review의 `AccessGrantRequestService`가 담당하며 requester는 quorum을 충족하지 못합니다.
-5. Actor, correlation id, idempotency key, audit 또는 outbox receipt를 원자적으로 기록합니다.
-6. 요청 접수, conflict, denial 또는 expiry를 반환하며 요청 시점에 실행을 주장하지 않습니다.
-7. Owning agent가 처리할 typed event를 publish합니다.
+1. Entra 토큰, 대상, App 역할, 필수 기능을 확인합니다.
+2. 권위 있는 출처를 읽고 개정 번호, 기한, 관련 정책 다이제스트를 비교합니다.
+3. 도메인 스키마를 검증하고 알 수 없는 필드를 차단합니다.
+4. 경로는 범위, 용도, no-self-approval, quorum 충족 여부를 precheck합니다. 최종 적용은
+ `Approval`의 Var, `ReviewCase`/`Decision`의 Forseti, `Process`의 현재 단계 소유자,
+ 권한 부여 검토의 `AccessGrantRequestService`가 담당하며 요청자는 quorum을 충족하지 못합니다.
+5. Actor, 상관관계 id, 멱등성 키, 감사 또는 발신함 증적을 원자적으로 기록합니다.
+6. 요청 접수, conflict, denial 또는 만료를 반환하며 요청 시점에 실행을 주장하지 않습니다.
+7. Owning 에이전트가 처리할 타입이 지정된 event를 publish합니다.
 
-Acceptance는 항상 아래의 typed outbox receipt를 만듭니다. Refusal, expired request, idempotency
-collision 또는 precondition conflict는 stable reason, actor, source ref, intent digest, correlation id를
-포함한 Saga `AuditEntry`를 만들지만 outbox row는 만들지 않습니다. Terminal agent outcome은 같은
-correlation과 idempotency key로 두 record 중 하나에 연결됩니다.
+Acceptance는 항상 아래의 타입이 지정된 발신함 증적을 만듭니다. Refusal, 만료된 요청, 멱등성
+충돌 또는 precondition conflict는 고정된 사유, actor, 출처 참조, 의도 다이제스트, 상관관계 id를
+포함한 Saga `AuditEntry`를 만들지만 발신함 행은 만들지 않습니다. 최종 에이전트 결과는 같은
+상관관계와 멱등성 키로 두 기록 중 하나에 연결됩니다.
 
-### 대화형 action evidence
+### 대화형 액션 근거
 
-Action lifecycle 질문은 read-only로 유지됩니다. Request는 correlation id와 exact action, approval 또는
-idempotency selector 하나를 포함하는 `conversation_context.kind: action`을 전달할 수 있습니다. Server는
-제공된 모든 selector를 audit ledger에서 다시 확인하고 pending approval store는 canonical identity를
-도출하는 데만 사용합니다. Reader-facing answer는 audit-backed proposal, safety, approval state,
-execution, effect verification 및 duplicate receipt를 렌더링하며 pending approval detail을 노출하거나
-변경을 실행하지 않습니다. Receipt claim은 terminal row에 동일한 action id와 idempotency key가 있어야
-합니다. Missing, conflicting, truncated 또는 audit-free context는 unverified로 유지됩니다.
+액션 수명 주기 질문은 읽기 전용으로 유지됩니다. 요청은 상관관계 id와 exact 액션, 승인 또는
+멱등성 선택자 하나를 포함하는 `conversation_context.kind: action`을 전달할 수 있습니다. 서버는
+제공된 모든 선택자를 감사 원장에서 다시 확인하고 pending 승인 저장소는 정본 신원을
+도출하는 데만 사용합니다. Reader-facing 답변은 audit-backed 제안, 안전성, 승인 상태,
+실행, 효과 검증 및 중복 증적을 렌더링하며 pending 승인 상세를 노출하거나
+변경을 실행하지 않습니다. 증적 점유는 최종 행에 동일한 액션 id와 멱등성 키가 있어야
+합니다. 누락된, conflicting, 잘린 또는 audit-free 맥락은 검증되지 않은으로 유지됩니다.
 
-HIL callback은 coordinator 또는 registry path가 decision을 기록하기 전에 `approve-runtime-hil`을
-부여하는 signed role set을 요구합니다. Missing role은 권한을 부여하지 않습니다. Pending lookup은 exact
-approval id를 사용하고 decision 기록은 bounded queue scan 대신 exact idempotency-key park를 사용합니다.
-No-self-approval 및 separation-of-duty 검사는 계속 authoritative합니다.
+HIL 콜백은 조정기 또는 레지스트리 경로가 결정을 기록하기 전에 `approve-runtime-hil`을
+부여하는 signed 역할 집합을 요구합니다. 누락된 역할은 권한을 부여하지 않습니다. Pending 조회는 exact
+승인 id를 사용하고 결정 기록은 범위가 제한된 큐 검사 대신 exact idempotency-key 보류를 사용합니다.
+No-self-approval 및 separation-of-duty 검사는 계속 권위 있는합니다.
 
-Human operation의 `actor`와 `initiator_principal`은 해당 request Entra token에서 검증한 operator OID입니다.
-Console service principal, relay identity 또는 Thor workload identity가 사람을 대신할 수 없습니다.
-Machine-initiated request는 operator를 impersonate하지 않고 별도 domain route와 workload principal
-contract를 사용합니다.
+Human 연산의 `actor`와 `initiator_principal`은 해당 요청 Entra 토큰에서 검증한 운영자 OID입니다.
+Console 서비스 principal, 중계 신원 또는 Thor 워크로드 신원이 사람을 대신할 수 없습니다.
+Machine-initiated 요청은 운영자를 impersonate하지 않고 별도 domain 경로와 워크로드 principal
+계약을 사용합니다.
 
-Retry는 같은 idempotency key를 사용합니다. Concurrent transition은 최신 source revision을 반환합니다.
-어떤 route도 agent implementation을 import하거나 Thor를 직접 호출하거나 다른 owner의 state를 수정하지
+재시도는 같은 멱등성 키를 사용합니다. 동시 transition은 최신 출처 개정 번호를 반환합니다.
+어떤 경로도 에이전트 구현을 가져오기하거나 Thor를 직접 호출하거나 다른 소유자의 상태를 수정하지
 않습니다.
 
-Conflict response는 `kind` (`idempotency_collision`, `stale_revision`, `competing_decision`,
-`prior_deny`, `expired`), `retriable`, current source reference와 revision, 존재하는 경우 winning receipt,
-next allowed transition을 포함한 stable problem detail을 사용합니다. 브라우저는 HTTP status만으로 retry
+Conflict 응답은 `kind` (`idempotency_collision`, `stale_revision`, `competing_decision`,
+`prior_deny`, `expired`), `retriable`, 현재 출처 참조와 개정 번호, 존재하는 경우 winning 증적,
+next allowed transition을 포함한 고정된 problem 상세를 사용합니다. 브라우저는 HTTP 상태만으로 재시도
 guidance를 만들지 않습니다.
 
 ### 전달 내구성
 
-현재 console action route는 broker publish 전에 idempotency key를 atomically claim하고 전체 proposal,
-intent digest, actor, correlation, audit receipt를 저장합니다. Delivery는 bounded lease, publish timeout,
-retry delay, batch size를 사용합니다. Startup 및 periodic recovery는 pending record와 lease가 만료된 record를
-재개합니다. 실패한 periodic cycle은 기록 후 재시도하며 shutdown은 진행 중인 recovery를 취소하고 lease를
-회수 가능한 상태로 둡니다. Downstream consumer는 stable idempotency key로 at-least-once event를 deduplicate합니다.
+현재 콘솔 액션 경로는 브로커 publish 전에 멱등성 키를 atomically 점유하고 전체 제안,
+의도 다이제스트, actor, 상관관계, 감사 증적을 저장합니다. 전달은 범위가 제한된 임차 기간, publish 시간 초과,
+재시도 delay, 배치 크기를 사용합니다. 시작 및 주기적 복구는 pending 기록과 임차 기간이 만료된 기록을
+재개합니다. 실패한 주기적 cycle은 기록 후 재시도하며 종료는 진행 중인 복구를 취소하고 임차 기간을
+회수 가능한 상태로 둡니다. Downstream 소비자는 고정된 멱등성 키로 at-least-once event를 deduplicate합니다.
 
-Request acceptance는 durable record가 commit된 뒤에만 HTTP `202 Accepted`를 사용합니다. 현재 receipt는
+요청 acceptance는 영속 기록이 커밋된 뒤에만 HTTP `202 Accepted`를 사용합니다. 현재 증적은
 `request_id`, `correlation_id`, `dispatch_status`, `accepted_at`, `durably_queued`를 반환하며 "approved"나
-"executed"가 아닌 "durably queued"를 뜻합니다. 같은 intent replay는 completed event를 다시 publish하지
-않고 기존 record를 재사용합니다. 같은 key의 다른 intent는 `409 Conflict`와 함께 winning request,
-correlation, acceptance time을 반환합니다. Status URL과 나머지 공통 receipt field는 Phase 2 범위입니다.
+"executed"가 아닌 "durably 대기 중"를 뜻합니다. 같은 의도 재생은 completed event를 다시 publish하지
+않고 기존 기록을 재사용합니다. 같은 키의 다른 의도는 `409 Conflict`와 함께 winning 요청,
+상관관계, acceptance 시간을 반환합니다. 상태 URL과 나머지 공통 증적 필드는 Phase 2 범위입니다.
 
-확인된 incident creation은 incident를 쓰기 전에 ticket dispatch를 blocked durable state로 준비합니다.
-`incident.open`이 durable audit에 나타난 뒤에만 dispatch를 activate합니다. Recovery는 incident를 다시
-만들지 않고 누락된 ticket effect를 activate합니다. Durable incident가 없는 blocked ticket은 configurable
-retention period, 기본 24시간 뒤 audit 가능한 abandoned 상태가 되며 publish되지 않습니다.
+확인된 인시던트 creation은 인시던트를 쓰기 전에 티켓 전달을 차단된 영속 상태로 준비합니다.
+`incident.open`이 영속 감사에 나타난 뒤에만 전달을 activate합니다. 복구는 인시던트를 다시
+만들지 않고 누락된 티켓 효과를 activate합니다. 영속 인시던트가 없는 차단된 티켓은 configurable
+보존 기간, 기본 24시간 뒤 감사 가능한 abandoned 상태가 되며 publish되지 않습니다.
 
-Intent digest는 principal, domain operation, exact source reference와 revision, normalized argument,
-해당 policy 또는 schema version을 포함합니다. 다른 digest로 같은 idempotency key를 재사용하면 `409
-Conflict`를 반환하고 audit finding을 기록하며 event를 publish하지 않습니다. Key는 authenticated
-operator namespace를 사용하고 intent digest로 비교합니다. 긴 operator/client namespace는 자르지 않고
-전체 SHA-256을 사용합니다. 관련 없는 principal은 다른 receipt를 보거나 충돌시키지 못합니다.
+의도 다이제스트는 principal, domain 연산, exact 출처 참조와 개정 번호, 정규화된 인자,
+해당 정책 또는 스키마 버전을 포함합니다. 다른 다이제스트로 같은 멱등성 키를 재사용하면 `409
+Conflict`를 반환하고 감사 발견 사항을 기록하며 event를 publish하지 않습니다. Key는 인증된
+운영자 이름 공간을 사용하고 의도 다이제스트로 비교합니다. 긴 운영자/클라이언트 이름 공간은 자르지 않고
+전체 SHA-256을 사용합니다. 관련 없는 principal은 다른 증적을 보거나 충돌시키지 못합니다.
 
-Policy digest는 request 판단에 실제 사용된 exact risk, approval, promotion, exemption 또는 override,
-scope, schema reference를 canonical order로 포함하며 사용하지 않은 policy는 제외합니다.
+Policy 다이제스트는 요청 판단에 실제 사용된 exact risk, 승인, 승격, exemption 또는 재정의,
+범위, 스키마 참조를 정본 순서로 포함하며 사용하지 않은 정책은 제외합니다.
 
-Prior-deny 또는 re-request policy lookup은 claim에 binding할 authoritative revision을 반환합니다. Request를
-commit하는 transaction이나 compare-and-set은 해당 revision을 다시 확인하며 새 deny 또는 policy change가
-있으면 conflict를 반환하고 outbox row를 쓰지 않습니다. Preflight read만으로 publish를 authorize하지
+Prior-deny 또는 re-request 정책 조회는 점유에 연결할 권위 있는 개정 번호를 반환합니다. 요청을
+커밋하는 트랜잭션이나 compare-and-set은 해당 개정 번호를 다시 확인하며 새 거부 또는 정책 변경이
+있으면 conflict를 반환하고 발신함 행을 쓰지 않습니다. Preflight 읽기만으로 publish를 authorize하지
 않습니다.
 
-이 claim은 source revision, current decision 또는 lifecycle state, deadline, policy digest, schema version,
-해당 approval revision을 하나의 precondition snapshot으로 binding합니다. 모든 값이 같고 deadline이 열린
-경우에만 commit하며 그렇지 않으면 typed conflict를 반환하고 audit acceptance나 outbox write를 수행하지
+이 점유는 출처 개정 번호, 현재 결정 또는 수명 주기 상태, 기한, 정책 다이제스트, 스키마 버전,
+해당 승인 개정 번호를 하나의 precondition 스냅샷으로 연결합니다. 모든 값이 같고 기한이 열린
+경우에만 커밋하며 그렇지 않으면 타입이 지정된 conflict를 반환하고 감사 acceptance나 발신함 쓰기를 수행하지
 않습니다.
 
-## 에이전트와 실행 authority
+## 에이전트와 실행 권한
 
-콘솔에는 판단 또는 managed-resource 실행 authority가 없습니다. Pantheon은 고정 책임을 유지합니다.
+콘솔에는 판단 또는 managed-resource 실행 권한이 없습니다. Pantheon은 고정 책임을 유지합니다.
 
 | 작업 | 책임 에이전트 |
 |------|---------------|
-| 새 operator signal 정규화와 correlation | Huginn |
-| Review 또는 proposed action 판단 | Forseti |
-| Eligible human approval 기록 | Var |
-| 승격된 managed-resource action 실행 | Thor |
-| 실패한 action recovery 또는 rollback | Vidar |
-| Terminal evidence 추가 | Saga |
-| Source record에서 replay 가능한 context 구성 | Muninn |
-| Operator locale로 결과 설명 | Bragi |
-| Audited outcome에서 off-path 학습 | Norns와 Mimir |
+| 새 운영자 신호 정규화와 상관관계 | Huginn |
+| 검토 또는 proposed 액션 판단 | Forseti |
+| 조건을 충족한 human 승인 기록 | Var |
+| 승격된 managed-resource 액션 실행 | Thor |
+| 실패한 액션 복구 또는 롤백 | Vidar |
+| 최종 근거 추가 | Saga |
+| 출처 기록에서 재생 가능한 맥락 구성 | Muninn |
+| Operator 로케일로 결과 설명 | Bragi |
+| Audited 결과에서 off-path 학습 | Norns와 Mimir |
 
-Thor는 eligible `direct_api`, `pr_native`, `tool_call` 실행 경로에서 privileged workload identity를 사용할
-수 있습니다. 이 실행도 ActionType 등록과 승격, quality와 risk 검사, approval policy 충족, resource lock,
-dry-run, impact limit와 stop condition, idempotency, rollback과 audit evidence가 필요합니다. 로그인한 사람의
-identity는 Thor에 위임되지 않습니다.
+Thor는 조건을 충족한 `direct_api`, `pr_native`, `tool_call` 실행 경로에서 privileged 워크로드 신원을 사용할
+수 있습니다. 이 실행도 ActionType 등록과 승격, quality와 risk 검사, 승인 정책 충족, 리소스 lock,
+예행 실행, 영향 한도와 stop 조건, 멱등성, 롤백과 감사 근거가 필요합니다. 로그인한 사람의
+신원은 Thor에 위임되지 않습니다.
 
-이 safety value는 exact `ActionType`, immutable `MutationPlan`, unified execution model에서 가져옵니다.
-Console schema는 resolved value를 표시할 수 있지만 이를 제공하거나 완화하거나 override할 수 없습니다.
-Exact reference, plan digest, stop condition, impact limit, lock scope 또는 rollback contract가 없으면 request는
-execution 대상이 아닙니다.
+이 안전성 값은 exact `ActionType`, 변경할 수 없는 `MutationPlan`, unified 실행 모델에서 가져옵니다.
+Console 스키마는 resolved 값을 표시할 수 있지만 이를 제공하거나 완화하거나 재정의할 수 없습니다.
+Exact 참조, 계획 다이제스트, stop 조건, 영향 한도, lock 범위 또는 롤백 계약이 없으면 요청은
+실행 대상이 아닙니다.
 
 ## 콘솔 구조
 
-현재 `Operations` 탐색 그룹을 하나의 제품 surface로 유지합니다. 별도 shell을 만들지 않고 다음 view를
+현재 `Operations` 탐색 그룹을 하나의 제품 표면으로 유지합니다. 별도 shell을 만들지 않고 다음 화면을
 추가하거나 개선합니다.
 
-- **Tasks:** Source별 projection을 묶은 attention list입니다.
-- **Approvals:** Quorum, deadline, evidence, decision control을 포함한 기존 approval queue입니다.
-- **Investigations:** 기존 bounded read-investigation 요청과 결과입니다.
-- **Operational detail:** Source timeline, evidence, owner agent, freshness, 사용할 수 있는 도메인 운영
-  기능을 보여줍니다.
+- **작업:** 출처별 변환 결과를 묶은 attention 목록입니다.
+- **Approvals:** Quorum, 기한, 근거, 결정 control을 포함한 기존 승인 큐입니다.
+- **Investigations:** 기존 범위가 제한된 read-investigation 요청과 결과입니다.
+- **Operational 상세:** 출처 타임라인, 근거, 소유자 에이전트, 최신성, 사용할 수 있는 도메인 운영
+ 기능을 보여줍니다.
 
 서버 상태가 사용할 수 있는 운영 기능을 결정합니다. 브라우저는 사용성을 위해 사용할 수 없는 control을
-숨길 수 있지만 모든 제출은 authorization과 revision check를 반복합니다. SSE는 영향받은 source
-reference를 invalidate하고 client가 authoritative state를 다시 읽게 할 수 있습니다.
+숨길 수 있지만 모든 제출은 권한 확인과 개정 번호 검사를 반복합니다. SSE는 영향받은 출처
+참조를 invalidate하고 클라이언트가 권위 있는 상태를 다시 읽게 할 수 있습니다.
 
-SSE invalidation frame은 `event_id`, `source_family`, opaque `source_id`, `source_revision`, `as_of`를
-포함하며 record, operation, identity detail은 포함하지 않습니다. Server는 token expiry 전까지 stream을
-닫습니다. Client는 새 token을 얻고 Authorization header와 last event id로 reconnect합니다. Reconnect는
-모든 authorization check를 반복하며 gap이 있으면 authoritative refetch를 수행합니다. SSE는 refresh
-hint일 뿐 요청을 authorize하지 않습니다.
+SSE invalidation 프레임은 `event_id`, `source_family`, opaque `source_id`, `source_revision`, `as_of`를
+포함하며 기록, 연산, 신원 상세는 포함하지 않습니다. 서버는 토큰 만료 전까지 스트림을
+닫습니다. 클라이언트는 새 토큰을 얻고 권한 확인 헤더와 last event id로 reconnect합니다. Reconnect는
+모든 권한 확인 검사를 반복하며 공백이 있으면 권위 있는 refetch를 수행합니다. SSE는 refresh
+힌트일 뿐 요청을 authorize하지 않습니다.
 
-Issuer와 tenant check는 deployment에 설정된 Entra tenant issuer와 API audience를 exact하게 검증한다는
-뜻입니다. Guest도 해당 home tenant가 발급한 token을 제시해야 합니다. Common, organizations,
-foreign-tenant, issuer-mismatched token은 role resolution 전에 fail closed하며 request나 stream state를
-tenant boundary 사이에서 공유하지 않습니다.
+발급자와 테넌트 검사는 배포에 설정된 Entra 테넌트 발급자와 API 대상을 exact하게 검증한다는
+뜻입니다. Guest도 해당 home 테넌트가 발급한 토큰을 제시해야 합니다. Common, organizations,
+foreign-tenant, issuer-mismatched 토큰은 역할 해석 전에 실패 시 차단하며 요청나 스트림 상태를
+테넌트 경계 사이에서 공유하지 않습니다.
 
-Phase 2 multi-effect request는 partial success를 하나의 `submitted` 결과로 합치지 않습니다. 각 effect는
-하나의 parent correlation 아래에서 `effect_id`, `kind`, `required`, `status: pending | accepted | succeeded |
-failed`, nullable receipt와 reason, retry count를 선언합니다. 모든 required effect가 terminal일 때만
-parent가 terminal이며 required failure가 하나라도 있으면 `degraded`입니다. Incident creation과 ticket
-proposal은 현재 collapsed flag에서 이 shape로 migrate하고 durable reconciliation은 incident를 다시 만들지
-않고 누락된 effect만 재개합니다.
+Phase 2 multi-effect 요청은 부분 success를 하나의 `submitted` 결과로 합치지 않습니다. 각 효과는
+하나의 상위 상관관계 아래에서 `effect_id`, `kind`, `required`, `상태: pending | accepted | succeeded |
+실패한`, nullable 증적과 사유, 재시도 개수를 선언합니다. 모든 필수 효과가 최종일 때만
+상위가 최종이며 필수 실패가 하나라도 있으면 `degraded`입니다. 인시던트 creation과 티켓
+제안은 현재 collapsed 플래그에서 이 형태로 migrate하고 영속 조정은 인시던트를 다시 만들지
+않고 누락된 효과만 재개합니다.
 
-Bulk request는 도메인 workflow가 atomicity 또는 bounded partial failure, impact limit, rollback 동작을
+Bulk 요청은 도메인 작업 흐름이 atomicity 또는 범위가 제한된 부분 실패, 영향 한도, 롤백 동작을
 정의한 뒤에 도입합니다.
 
 ## 제공 계획
 
-### Phase 0 - 기존 경로 inventory
+### Phase 0 - 기존 경로 인벤토리
 
-현재 console write route별 source schema, owner, capability, revision, idempotency rule, receipt, identity
-dependency를 catalog합니다. Query, simulation, approval, operational request, execution, break-glass로
-분류합니다. 첫 shipped route부터 browser-Entra local과 deployed는 같은 schema, authorization, source
-binding을 사용하고 fixture principal은 pytest 전용으로 유지합니다.
+현재 콘솔 쓰기 경로별 출처 스키마, 소유자, 기능, 개정 번호, 멱등성 rule, 증적, 신원
+의존성을 카탈로그합니다. 조회, 시뮬레이션, 승인, operational 요청, 실행, break-glass로
+분류합니다. 첫 shipped 경로부터 browser-Entra 로컬과 deployed는 같은 스키마, 권한 확인, 출처
+연결을 사용하고 고정본 principal은 pytest 전용으로 유지합니다.
 
-Exit criteria: 제공되는 모든 요청에 domain schema, owner, capability, idempotency rule, audit path가 하나씩
-있습니다. Machine-readable route inventory는 method와 path, classification, schema, source owner,
-capability, revision rule, idempotency scope, receipt, audit event, owning test를 기록합니다. Console
-route가 누락되거나 중복되거나 execution으로 분류되면 diff gate가 실패합니다. Managed-resource direct
-execution은 지원되는 console classification이 아닙니다.
+Exit criteria: 제공되는 모든 요청에 domain 스키마, 소유자, 기능, 멱등성 rule, 감사 경로가 하나씩
+있습니다. 기계가 읽는 경로 인벤토리는 메서드와 경로, 분류, 스키마, 출처 소유자,
+기능, 개정 번호 rule, 멱등성 범위, 증적, 감사 event, owning 테스트를 기록합니다. Console
+경로가 누락되거나 중복되거나 실행으로 분류되면 diff gate가 실패합니다. Managed-resource direct
+실행은 지원되는 콘솔 분류가 아닙니다.
 
-### Phase 1 - Operations projection 구성
+### Phase 1 - Operations 변환 결과 구성
 
-`ReviewCase`, `Approval`, `Process`, `AccessGrantRequest`를 source별 task view로 projection합니다. Exact
-reference, evidence, freshness, cursor pagination, unavailable state, redaction test를 추가하고 첫 projection부터 materialization age와 source-watermark lag를 emit합니다.
+`ReviewCase`, `Approval`, `Process`, `AccessGrantRequest`를 출처별 작업 화면으로 변환 결과합니다. Exact
+참조, 근거, 최신성, 커서 페이지 나누기, 사용 불가 상태, 민감정보 제거 테스트를 추가하고 첫 변환 결과부터 구체화 age와 source-watermark lag를 발행합니다.
 
-Exit criteria: 같은 cutoff에서 projection을 다시 만들면 같은 view가 생성되고 어떤 source lifecycle도
-projection에 의존하지 않습니다. 각 materialization은 ordered redacted output, ontology release,
-`as_of` cutoff, source watermark, applied limit, truncation reason을 포함하는 canonical digest 하나를
-기록합니다. Cache-loss drill은 rebuildable projection state만 삭제하고 같은 input이 같은 digest를
-재현하며 watermark가 바뀌면 새 snapshot이 생성됨을 증명합니다.
+Exit criteria: 같은 기준 시점에서 변환 결과를 다시 만들면 같은 화면이 생성되고 어떤 출처 수명 주기도
+변환 결과에 의존하지 않습니다. 각 구체화는 ordered 민감정보가 제거된 출력, 온톨로지 release,
+`as_of` 기준 시점, 출처 watermark, applied 한도, 잘림 사유를 포함하는 정본 다이제스트 하나를
+기록합니다. Cache-loss drill은 rebuildable 변환 결과 상태만 삭제하고 같은 입력이 같은 다이제스트를
+재현하며 watermark가 바뀌면 새 스냅샷이 생성됨을 증명합니다.
 
 ### Phase 2 - 도메인 요청 hardening
 
-도메인 스키마를 대체하지 않고 revision check, idempotency, receipt, outbox 동작을 표준화합니다. Stale
-state, duplicate submission, self-approval, expiry, role change, process restart를 테스트합니다. Fixture
-principal 없이 browser-Entra local과 deployed composition에서 같은 route inventory와 authorization
-matrix를 실행하고 두 venue의 모든 request 및 delivery outcome을 count합니다.
+도메인 스키마를 대체하지 않고 개정 번호 검사, 멱등성, 증적, 발신함 동작을 표준화합니다. Stale
+상태, 중복 제출, 자기 승인, 만료, 역할 변경, 프로세스 재시작을 테스트합니다. 고정본
+principal 없이 browser-Entra 로컬과 deployed 조립에서 같은 경로 인벤토리와 권한 확인
+매트릭스를 실행하고 두 venue의 모든 요청 및 전달 결과를 개수합니다.
 
-Console action durability slice는 제공됩니다. Phase 2는 같은 contract를 나머지 domain route로 확장하고
-incident response의 collapsed ticket flag를 typed effect로 대체합니다.
+Console 액션 내구성 slice는 제공됩니다. Phase 2는 같은 계약을 나머지 domain 경로로 확장하고
+인시던트 응답의 collapsed 티켓 플래그를 타입이 지정된 효과로 대체합니다.
 
-Exit criteria: SPA에는 authorization decision이 없고 accepted request가 source owner를 우회하지 않습니다.
-Publish 전, publish 후, response 전 failure injection으로 committed request가 유실되지 않고 event가 두 번
+Exit criteria: SPA에는 권한 확인 결정이 없고 accepted 요청이 출처 소유자를 우회하지 않습니다.
+Publish 전, publish 후, 응답 전 실패 injection으로 committed 요청이 유실되지 않고 event가 두 번
 적용되지 않음을 증명합니다.
 
-Authorization-boundary matrix는 각 inventory row에 대해 해당되는 unauthenticated, unassigned, Reader,
-Contributor, Approver, Owner, BreakGlass principal을 다룹니다. Self-approval, insufficient quorum, stale
-revision, expired deadline, wrong scope, changed role, revoked entitlement도 검증합니다. Matrix row가 없는
-request route를 추가하면 변경이 차단됩니다.
+Authorization-boundary 매트릭스는 각 인벤토리 행에 대해 해당되는 인증되지 않은, unassigned, 읽기 담당,
+기여자, Approver, Owner, BreakGlass principal을 다룹니다. 자기 승인, insufficient quorum, stale
+개정 번호, 만료된 기한, wrong 범위, changed 역할, 철회된 entitlement도 검증합니다. 매트릭스 행이 없는
+요청 경로를 추가하면 변경이 차단됩니다.
 
-### Phase 3 - Operations view 완성
+### Phase 3 - Operations 화면 완성
 
-기존 shell에 Tasks, Approvals, Investigations, timeline, evidence, source별 recovery를 추가합니다. Stale
-revision은 authoritative state를 다시 읽고, competing decision은 winner를 연결하며, expiry나 denial은
-다음 허용 transition을 설명합니다. Intent가 바뀐 경우에만 새 key를 사용합니다.
+기존 shell에 작업, Approvals, Investigations, 타임라인, 근거, 출처별 복구를 추가합니다. Stale
+개정 번호는 권위 있는 상태를 다시 읽고, competing 결정은 winner를 연결하며, 만료나 denial은
+다음 허용 transition을 설명합니다. 의도가 바뀐 경우에만 새 키를 사용합니다.
 
-Tasks, filter, detail, recovery는 keyboard로 모두 조작할 수 있습니다. Status와 authority는 color에만
-의존하지 않고 source, deadline, unavailable reason에 accessible name이 있습니다. SSE refresh는 focus를
-옮기지 않고 하나의 polite status announcement를 사용하며 submit conflict는 actionable summary에 focus한
+작업, 필터, 상세, 복구는 keyboard로 모두 조작할 수 있습니다. 상태와 권한은 color에만
+의존하지 않고 출처, 기한, 사용 불가 사유에 accessible 이름이 있습니다. SSE refresh는 focus를
+옮기지 않고 하나의 polite 상태 announcement를 사용하며 제출 conflict는 actionable 요약에 focus한
 뒤 dismiss하면 originating control로 focus를 돌려보냅니다.
 
 Exit criteria: 오퍼레이터가 FDAI Console에서 지원되는 사람 단계를 완료할 수 있으며 모든
-managed-resource mutation은 이후 Thor `ActionRun`으로만 나타납니다. Conflict, retry, compensation,
-rollback drill은 원래 receipt를 보존하고 모든 superseding outcome을 연결합니다.
+managed-resource 변경은 이후 Thor `ActionRun`으로만 나타납니다. Conflict, 재시도, compensation,
+롤백 drill은 원래 증적을 보존하고 모든 superseding 결과를 연결합니다.
 
 ### Phase 4 - 측정 기반 최적화
 
-측정된 수요와 도메인 safety contract가 생긴 뒤에만 cross-device saved view 또는 bulk request를
-추가합니다. Queue age, decision latency, conflict rate, duplicate suppression, overdue work, projection
-freshness, request-to-terminal-outcome latency를 측정하고 baseline에서 alert를 설정합니다.
+측정된 수요와 도메인 안전성 계약이 생긴 뒤에만 cross-device saved 화면 또는 bulk 요청을
+추가합니다. 큐 age, 결정 지연 시간, conflict 비율, 중복 suppression, overdue 작업, 변환 결과
+최신성, request-to-terminal-outcome 지연 시간을 측정하고 기준선에서 alert를 설정합니다.
 
-Exit criteria: source별 reviewed baseline window와 minimum sample floor를 고정하고 모든 metric은 bounded
-label을 사용하며 alert fire/recovery를 연습합니다. Optimization은 같은 scenario set에서 먼저 shadow로
-실행하고 target metric이 개선되면서 denial escape, duplicate application, rollback,
-unavailable-source rate가 악화되지 않을 때만 진행합니다.
+Exit criteria: 출처별 검토된 기준선 구간과 minimum 샘플 하한을 고정하고 모든 메트릭은 범위가 제한된
+라벨을 사용하며 alert fire/복구를 연습합니다. Optimization은 같은 시나리오 집합에서 먼저 그림자로
+실행하고 대상 메트릭이 개선되면서 denial escape, 중복 application, 롤백,
+unavailable-source 비율이 악화되지 않을 때만 진행합니다.
 
 ## 채택하지 않은 대안
 
-- **별도 operations app:** FDAI Console을 중복하고 두 번째 제품처럼 보입니다.
-- **Authoritative generic `WorkItem`:** Domain lifecycle을 중복하고 두 번째 owner를 만듭니다.
-- **Generic `OperationRequest`:** Domain validation과 ownership 차이를 지웁니다.
-- **Console orchestration:** Event choreography를 중앙 console control로 잘못 표현합니다.
-- **Browser-derived authority:** Stale presentation state를 authorization source로 만듭니다.
-- **Executor credential을 가진 console 또는 request route:** Request와 execution identity를 합칩니다.
-- **Direct graph mutation:** ActionType, risk, approval, rollback, audit gate를 우회합니다.
+- **별도 operations 앱:** FDAI Console을 중복하고 두 번째 제품처럼 보입니다.
+- **권위 있는 범용 `WorkItem`:** Domain 수명 주기를 중복하고 두 번째 소유자를 만듭니다.
+- **범용 `OperationRequest`:** Domain 검증과 소유권 차이를 지웁니다.
+- **Console orchestration:** Event choreography를 중앙 콘솔 control로 잘못 표현합니다.
+- **Browser-derived 권한:** Stale 표현 상태를 권한 확인 출처로 만듭니다.
+- **실행기 자격 증명을 가진 콘솔 또는 요청 경로:** 요청과 실행 신원을 합칩니다.
+- **Direct 그래프 변경:** ActionType, risk, 승인, 롤백, 감사 gate를 우회합니다.
 
 ## 관련 문서
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
-| 대화형 번역과 channel tool | [오퍼레이터 콘솔](operator-console-ko.md) |
-| 사람 role과 operation capability | [사용자 RBAC와 Entra 아이덴티티](user-rbac-and-identity-ko.md) |
-| Exact ontology release와 object set | [운영 온톨로지 플랫폼](../architecture/operating-ontology-platform-ko.md) |
-| ActionType safety와 execution ceiling | [Action Ontology](../decisioning/action-ontology-ko.md)와 [Execution Model](../decisioning/execution-model-ko.md) |
-| 고정 pantheon ownership | [에이전트 판테온](../agents/agent-pantheon-ko.md) |
-| Operational-readiness handover | [운영 준비 상태](../operations/operational-readiness-ko.md) |
-| 사람 assignment 제공 | [사람-에이전트 배정 구현 계획](human-agent-assignment-implementation-plan-ko.md) |
+| 대화형 번역과 채널 도구 | [오퍼레이터 콘솔](operator-console-ko.md) |
+| 사람 역할과 연산 기능 | [사용자 RBAC와 Entra 아이덴티티](user-rbac-and-identity-ko.md) |
+| Exact 온톨로지 release와 객체 집합 | [운영 온톨로지 플랫폼](../architecture/operating-ontology-platform-ko.md) |
+| ActionType 안전성과 실행 상한 | [액션 온톨로지](../decisioning/action-ontology-ko.md)와 [실행 모델](../decisioning/execution-model-ko.md) |
+| 고정 pantheon 소유권 | [에이전트 판테온](../agents/agent-pantheon-ko.md) |
+| Operational-readiness 인계 | [운영 준비 상태](../operations/operational-readiness-ko.md) |
+| 사람 배정 제공 | [사람-에이전트 배정 구현 계획](human-agent-assignment-implementation-plan-ko.md) |
