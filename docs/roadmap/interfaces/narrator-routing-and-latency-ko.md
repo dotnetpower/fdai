@@ -1,122 +1,124 @@
 ---
-title: Narrator Routing and Latency
+title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
 translation_source_sha: 2056bfe6146bd48aa69e94b79f769dfa3a0613a4
-translation_revised: 2026-08-10
+translation_revised: 2026-08-11
 ---
-# Narrator Routing and Latency
+# 서술기 라우팅과 지연 시간
 
-이 문서는 presentation narrator의 deployment 선택, latency 측정, operator preference 및 public-web
-pool 동작을 소유합니다. T1 narration과 system-governed T2 reasoning의 경계를 유지합니다.
+이 문서는 서술을 담당하는 모델의 배포 선택, 지연 시간 측정, 운영자 선호 설정, 공개 웹 검색
+풀의 동작을 소유합니다. T1 서술과 시스템이 통제하는 T2 추론 사이의 경계를 지킵니다.
 
-## Narrator latency routing
+## 서술기 지연 시간 라우팅
 
-독립 Operator Service가 인증된 conversation HTTP boundary를 소유합니다. 표준 local profile에서는
-service-local `LocalAzureNarratorAdapters`가 준비된 resolved model artifact를 읽고 Azure CLI에서
-short-lived Cognitive Services token을 얻어 Core import 또는 execution authority 없이 정렬된
-`narrator_candidates`를 시도합니다. Resolved artifact와 token이 모두 사용 가능할 때만 health를
-available로 보고하며, authoritative evidence 및 claim-verification receipt가 없으면 model-only answer를
-명시적으로 unverified로 유지합니다.
+독립된 Operator Service가 인증된 대화 HTTP 경계를 소유합니다. 표준 로컬 프로파일에서는
+서비스 내부의 `LocalAzureNarratorAdapters`가 준비된 모델 해석 산출물을 읽고 Azure CLI에서 수명이
+짧은 Cognitive Services 토큰을 받아, Core를 가져오거나 실행 권한을 갖지 않은 채로 정렬된
+`narrator_candidates`를 시도합니다. 모델 해석 산출물과 토큰을 모두 쓸 수 있을 때만 상태를 사용
+가능으로 보고하며, 권위 있는 근거와 단정 검증 증적이 없으면 모델 지식만으로 만든 답변을
+명시적으로 미검증 상태로 둡니다.
 
-Production conversation delivery에는 injected projection 및 stream adapter가 계속 필요합니다. 이전
-in-process `LatencyRoutedChatBackend`는 top-level Operator implementation과 함께 제거됐으며 rolling
-p50/TTFT 선택과 multimodal routing은 현재 구성된 production capability가 아니라 독립 service의 target
-behavior로 남아 있습니다.
+운영 환경의 대화 전달에는 주입된 변환 및 스트림 어댑터가 계속 필요합니다. 예전에 프로세스 안에
+있던 `LatencyRoutedChatBackend`는 최상위 Operator 구현과 함께 제거됐으며, 이동 평균 p50/TTFT
+기반 선택과 멀티모달 라우팅은 현재 구성된 운영 기능이 아니라 독립 서비스가 목표로 삼는
+동작입니다.
 
-Router는 T1 narrator traffic 전용입니다. T2 capability로 latency routing을 확장하려면 별도 설계
-검토가 필요합니다. `t2.reasoner.primary` slot의 검토된 same-publisher 예외는
-[LLM strategy](../architecture/llm-strategy-ko.md#t2-primary-latency-pool-invariant-safe-opt-in)가
-소유합니다. 다음 두 제약이 경계를 유지합니다.
+라우터는 T1 서술 트래픽 전용입니다. 지연 시간 라우팅을 T2 기능으로 넓히려면 별도 설계
+검토가 필요합니다. `t2.reasoner.primary` 자리에 대해 검토를 거친 동일 공급자 예외는
+[LLM 전략](../architecture/llm-strategy-ko.md#t2-primary-latency-pool-invariant-safe-opt-in)이
+소유합니다. 다음 두 제약이 경계를 지킵니다.
 
-- **Mixed-model invariant**: `t2.reasoner.primary.publisher`와
-  `t2.reasoner.secondary.publisher`는 달라야 합니다. Pair 전체를 속도로 routing하면 필수
-  cross-check가 하나의 model family로 축소될 수 있습니다.
-- **Judge 및 critic determinism**: composition은 `t1.judge`, `t2.critic`, debate orchestrator를
-  configured deployment에 bind합니다. Runtime routing wrapper가 이 binding을 조용히 바꾸지 않습니다.
+- **혼합 모델 불변식**: `t2.reasoner.primary.publisher`와
+  `t2.reasoner.secondary.publisher`는 달라야 합니다. 짝 전체를 속도로 라우팅하면 필수적인
+  교차 검증이 하나의 모델 계열로 줄어들 수 있습니다.
+- **판정자와 비평자의 결정성**: 조립 계층은 `t1.judge`, `t2.critic`, 토론 오케스트레이터를
+  구성된 배포에 고정해 연결합니다. 런타임 라우팅 래퍼가 이 연결을 몰래 바꾸지 못합니다.
 
-Latency-routed judge가 필요한 fork는 자체 quality gate, composition binding, audit evidence가 있는 별도
-capability를 선언합니다.
+지연 시간으로 라우팅되는 판정자가 필요한 포크는 자체 품질 게이트, 조립 연결, 감사 근거를 갖춘
+별도 기능을 선언합니다.
 
-Operator API는 operator traffic과 독립적으로 text 및 multimodal pool을 갱신합니다. Text는
-`narrator_candidates`를 사용하고 image turn은 provisioned deployment와 `t1.vision` preference의
-교집합을 `vision_candidates`로 내보냅니다. 각 pool은 별도 8-sample latency 및 time-to-first-token
-(TTFT) window를 유지합니다. Startup은 text 후보를 두 번, vision 후보는 bounded 1 px image로
-probe합니다. Periodic check는 기본값 `300`인 `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`마다 sample을
-추가합니다. Vision capacity가 없으면 text binding을 빌리지 않고 image turn을 unavailable로 유지합니다.
+Operator API는 운영자 트래픽과 무관하게 텍스트 및 멀티모달 풀을 갱신합니다. 텍스트는
+`narrator_candidates`를 쓰고, 이미지 턴은 프로비저닝된 배포와 `t1.vision` 선호 설정의
+교집합을 `vision_candidates`로 내보냅니다. 각 풀은 샘플 8개짜리 지연 시간 창과 첫 토큰까지의
+시간(TTFT) 창을 따로 유지합니다. 시작 시에는 텍스트 후보를 두 번, 비전 후보는 크기가 제한된
+1픽셀 이미지로 탐색합니다. 주기적인 검사는 기본값이 `300`인
+`FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`마다 샘플을 더합니다. 비전 용량이 없으면 텍스트 연결을
+빌려 쓰지 않고 이미지 턴을 사용 불가 상태로 둡니다.
 
-## 사용자별 preference 및 TTFT
+## 사용자별 선호 설정과 TTFT
 
-Settings > Models는 endpoint 또는 credential 없이 resolved T1/T2 inventory, bootstrap state 및 runtime
-latency evidence를 projection합니다. 인증된 principal은 `Auto` routing을 사용하거나 현재 narrator
-allowlist의 deployment 하나를 선택할 수 있습니다. 제거되거나 unavailable인 preference는 `Auto`로
-fallback하고 server는 임의 model id를 차단합니다.
+Settings > Models는 엔드포인트나 자격 증명 없이 해석된 T1/T2 목록, 초기화 상태, 런타임 지연
+시간 근거를 보여줍니다. 인증된 principal은 `Auto` 라우팅을 쓰거나 현재 서술기 허용 목록에 있는
+배포 하나를 고를 수 있습니다. 제거됐거나 쓸 수 없게 된 선호 설정은 `Auto`로 되돌리며, 서버는
+임의의 모델 식별자를 차단합니다.
 
-Preference는 explicit revision을 사용합니다. 생성은 revision `0`을 보내고 이후 write는 current
-revision과 일치해야 합니다. State와 audit은 하나의 transaction에서 commit되므로 concurrent session은
-서로 덮어쓰지 않고 `409`를 받습니다.
+선호 설정은 명시적인 개정 번호를 씁니다. 생성 시에는 개정 번호 `0`을 보내고 이후 쓰기는 현재
+개정 번호와 일치해야 합니다. 상태와 감사 기록은 하나의 트랜잭션에서 커밋되므로, 동시에 진행된
+세션은 서로 덮어쓰지 않고 `409`를 받습니다.
 
-Streaming router는 첫 non-empty model token이 도착할 때 TTFT를 기록합니다. TTFT p50/p95와 total
-latency p50/p95는 별도 rolling window와 sample count를 사용합니다. 측정되지 않은 TTFT는 unavailable로
-유지합니다. Preference는 T1 narrator에만 적용됩니다. T1 internal judgment, embedding 및 모든 T2
-secondary, critic, rubric, escalation assignment는 system-governed 상태를 유지합니다. T2 primary pool은
-operator별로 개인화되지 않습니다.
+스트리밍 라우터는 비어 있지 않은 첫 모델 토큰이 도착할 때 TTFT를 기록합니다. TTFT p50/p95와 전체
+지연 시간 p50/p95는 각각 별도의 이동 창과 샘플 개수를 씁니다. 측정되지 않은 TTFT는 사용 불가로
+둡니다. 선호 설정은 T1 서술기에만 적용됩니다. T1 내부 판단, 임베딩, 그리고 모든 T2 보조,
+비평자, 평가 기준, 에스컬레이션 배정은 시스템이 통제하는 상태로 남습니다. T2 기본 풀은
+운영자별로 개인화하지 않습니다.
 
-Settings > Models는 T2 model-policy draft builder도 제공합니다. Operator API는
-`rule-catalog/llm-registry.yaml`의 publisher 및 family preference만 projection합니다. Operator는
-publisher가 다를 때만 primary 및 secondary 후보를 선택하고 governance PR용 validated YAML fragment를
-복사할 수 있습니다. Browser는 선택을 runtime state에 쓰지 않습니다. Active pair는 catalog review,
-resolver regeneration 및 deployment reload 이후에만 변경됩니다.
+Settings > Models는 T2 모델 정책 초안 작성기도 제공합니다. Operator API는
+`rule-catalog/llm-registry.yaml`의 공급자 및 계열 선호 설정만 보여줍니다. 운영자는 공급자가
+다를 때만 기본 및 보조 후보를 고를 수 있고, 거버넌스 PR에 쓸 검증된 YAML 조각을 복사할 수
+있습니다. 브라우저는 선택 내용을 런타임 상태에 쓰지 않습니다. 활성 짝은 카탈로그 검토, 해석기
+재생성, 배포 재로드를 거친 뒤에만 바뀝니다.
 
-Local operator mode는 Azure CLI session에서 regional GPT catalog, subscription quota 및 existing
-deployment를 결합할 수 있습니다. Async reader는 결과를 5분 동안 cache하고 explicit read-only refresh를
-제공합니다. Family, version, lifecycle, supported SKU, available quota 및 deployment name만 반환합니다.
-Deprecated chat, codex 및 realtime family는 새 T2 role 후보로 제공하지 않습니다. 모델 선택은 governance
-draft를 만들 뿐 Azure를 변경하지 않습니다.
+로컬 운영자 모드는 Azure CLI 세션에서 지역별 GPT 카탈로그, 구독 할당량, 기존 배포를 묶어 볼 수
+있습니다. 비동기 읽기는 결과를 5분간 캐시하고 명시적인 읽기 전용 새로 고침을 제공합니다. 계열,
+버전, 수명 주기, 지원 SKU, 가용 할당량, 배포 이름만 돌려줍니다. 지원이 중단된 chat, codex,
+realtime 계열은 새 T2 역할 후보로 제공하지 않습니다. 모델 선택은 거버넌스 초안을 만들 뿐 Azure를
+바꾸지 않습니다.
 
-같은 page는 capability, provider, direct 또는 APIM route, API style, deployment, family, capacity,
-feature, discovery source 및 verification time을 포함한 sanitized endpoint inventory를 projection합니다.
-Endpoint reference, auth audience, resource digest, URL 및 credential은 제외합니다. Endpoint 등록, APIM
-변경, resize, image 변경 및 T2 role assignment는 deployment 또는 catalog workflow로 유지됩니다.
+같은 페이지는 기능, 프로바이더, 직접 또는 APIM 경로, API 방식, 배포, 계열, 용량, 특징,
+발견 출처, 확인 시각을 포함한 정제된 엔드포인트 목록을 보여줍니다. 엔드포인트 참조, 인증 대상,
+리소스 다이제스트, URL, 자격 증명은 제외합니다. 엔드포인트 등록, APIM 변경, 크기 조정, 이미지
+변경, T2 역할 배정은 배포 또는 카탈로그 작업 흐름으로 남깁니다.
 
-## 대화형 web-search latency pool
+## 대화형 웹 검색 지연 시간 풀
 
-Public-web lookup은 별도 Chat T2 tool invocation이며 T1 judgment나 action quality-gate pair가 아닙니다.
-활성화하면 Azure Responses `WebSearchProvider`가 별도 `web_search_candidates` function-calling
-pool을 사용하고 rolling p50이 가장 낮은 후보를 선택하며 나머지 후보로 failover합니다.
-Deterministic web-search policy가 provider 호출 전에 turn을 승격합니다.
+공개 웹 조회는 별개의 Chat T2 도구 호출이며 T1 판단이나 액션 품질 게이트 짝이 아닙니다.
+활성화하면 Azure Responses `WebSearchProvider`가 별도 `web_search_candidates` 함수 호출
+풀을 쓰고, 이동 평균 p50이 가장 낮은 후보를 고르며, 나머지 후보로 장애 조치합니다.
+결정론적 웹 검색 정책이 프로바이더 호출 전에 턴을 승격시킵니다.
 
-Local 및 deployed Operator API composition은
-`application.conversation.capabilities.web_search`의 동일한 provider-neutral resolver를 사용합니다.
-Environment loading, resolved-model candidate selection 및 Azure construction은
-`adapters.conversation.web_search`에 유지합니다. Resolver는 server-owned allowlist와 injected provider만
-받으며 operator text는 endpoint, deployment, credential 또는 provider scope를 선택할 수 없습니다.
+로컬과 배포 환경의 Operator API 조립은
+`application.conversation.capabilities.web_search`에 있는 동일한 프로바이더 중립적 해석기를 씁니다.
+환경 변수 로딩, 모델 해석 결과 기반 후보 선택, Azure 객체 구성은
+`adapters.conversation.web_search`에 남깁니다. 해석기는 서버가 소유한 허용 목록과 주입된
+프로바이더만 받으며, 운영자가 입력한 텍스트는 엔드포인트, 배포, 자격 증명, 프로바이더 범위를
+선택할 수 없습니다.
 
-Web-search pool은 같은 warm-up 및 periodic measurement pattern을 사용합니다. Periodic probe는
-`web_search` tool 없이 minimal model response를 요청하고 실제 search는 end-to-end latency를 같은
-window에 추가합니다. `FDAI_WEB_SEARCH_PROBE_INTERVAL_SECONDS`는 기본 `300`이며 `30` 미만을 허용하지
+웹 검색 풀은 같은 예열 및 주기적 측정 방식을 씁니다. 주기적 탐색은 `web_search` 도구 없이
+최소한의 모델 응답을 요청하고, 실제 검색은 종단 간 지연 시간을 같은 창에 더합니다.
+`FDAI_WEB_SEARCH_PROBE_INTERVAL_SECONDS`는 기본값이 `300`이며 `30` 미만은 허용하지
 않습니다.
 
-Settings > Models는 Owner에게 deployment-wide web-search enablement 및 exact-host allowlist를
-제공합니다. Write는 같은 revisioned state-and-audit transaction을 사용하고 commit 후 live resolver를
-갱신합니다. Registered resolver가 없으면 projection은 unavailable을 보고하고 write는 persistence 전에
-`503`을 반환합니다. Configuration default만으로 provider availability를 증명하지 않습니다.
+Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확한 호스트 허용 목록을
+제공합니다. 쓰기는 같은 개정 번호 기반 상태-감사 트랜잭션을 쓰고 커밋 뒤에 살아 있는 해석기를
+갱신합니다. 등록된 해석기가 없으면 화면은 사용 불가로 보고하고 쓰기는 저장 전에 `503`을
+돌려줍니다. 구성 기본값만으로는 프로바이더를 쓸 수 있다는 증거가 되지 않습니다.
 
-Page는 generated resolved-model snapshot의 sanitized filename, `kind=generated-file`, UTC modification
-time을 `as_of`로 보고합니다. Full local path는 반환하지 않습니다. Discovery 및 provisioning label은
-configured behavior를 설명할 뿐 freshness evidence를 대체하지 않습니다.
+이 페이지는 생성된 모델 해석 스냅샷의 정제된 파일 이름, `kind=generated-file`, UTC 수정 시각을
+`as_of`로 보고합니다. 전체 로컬 경로는 돌려주지 않습니다. 발견 및 프로비저닝 라벨은 구성된
+동작을 설명할 뿐 최신성 근거를 대신하지 않습니다.
 
-## Runtime delivery 결정
+## 런타임 전달 결정 사항
 
-- **Resolved model delivery**: Day zero는 filesystem path 또는 inline JSON environment/secret reference를
-  지원합니다. Direct Key Vault loader는 reconciler 작업과 함께 연기됩니다.
-- **Local model fixture**: Ollama 또는 LM Studio fixture는 현재 포함하지 않습니다. 추가하더라도 explicit
-  model binding이며 interactive local profile을 다시 정의하지 않습니다.
-- **Reconciler alert**: 현재 Teams를 가정하며 reconciler 구현 시 확정합니다.
+- **모델 해석 결과 전달**: 초기에는 파일 시스템 경로 또는 인라인 JSON 환경 변수/시크릿 참조를
+  지원합니다. Key Vault를 직접 읽는 방식은 조정기 작업과 함께 다음으로 미룹니다.
+- **로컬 모델 고정본**: Ollama나 LM Studio 고정본은 현재 포함하지 않습니다. 나중에 추가하더라도
+  명시적인 모델 연결일 뿐, 대화형 로컬 프로파일을 다시 정의하지 않습니다.
+- **조정기 경고**: 현재는 Teams를 가정하며 조정기를 구현할 때 확정합니다.
 
 ## 관련 문서
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
-| T1/T2 capability와 quality-gate policy | [LLM strategy](../architecture/llm-strategy-ko.md) |
-| Operator API runtime model과 DI seam | [Operator Console runtime model](operator-console-runtime-model-ko.md) |
-| Local 및 deployed model resolution | [Dev and deploy parity](../deployment/dev-and-deploy-parity-ko.md) |
+| T1/T2 기능과 품질 게이트 정책 | [LLM 전략](../architecture/llm-strategy-ko.md) |
+| Operator API 런타임 모델과 의존성 주입 경계 | [오퍼레이터 콘솔 런타임 모델](operator-console-runtime-model-ko.md) |
+| 로컬 및 배포 환경의 모델 해석 | [개발과 배포의 동등성](../deployment/dev-and-deploy-parity-ko.md) |
