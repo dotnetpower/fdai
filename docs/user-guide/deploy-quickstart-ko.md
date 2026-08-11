@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 0417c48fc813f366809b8e37b118df715d3fa7aa
-translation_revised: 2026-08-11
+translation_source_sha: 3be42517a99c8757a73414541590807a45d1dafd
+translation_revised: 2026-08-12
 ---
 
 # 배포 빠른 시작
@@ -32,7 +32,9 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   Premium 레지스트리도 프라이빗이므로 이미지 빌드와 푸시도 같은 러너에서 하세요.
 - 보호된 원격 계획을 쓰려면 비밀이 아닌 `DEPLOY_PREFLIGHT_INPUT_JSON` 저장소 변수에 필요한
   라이브 카테고리를 모두 설정하세요. 프로필이 없으면 Azure 로그인 전에 중단하고, 프로브가
-  차단되면 정제된 점검 결과와 발견된 문제만 로그에 남습니다.
+  차단되면 정제된 점검 결과와 발견된 문제만 로그에 남습니다. Terraform 계획 이후 runner-owned
+  `run_live_preflight.py`가 Azure Policy, Compute quota, executor RBAC 및 value-blind Key Vault
+  secret metadata를 검사합니다. 점검이 불완전하면 계획 산출물을 저장하기 전에 중단합니다.
 - 내부 Isolated 실행기를 미리보려면 private-runner 작업 흐름에서
   `deploy_isolated_executor`를 선택하세요. 별도로 적용을 승인하기 전까지 plan-only 상태이며,
   shadow 자격 증명에는 작업별 효과 역할이 없습니다.

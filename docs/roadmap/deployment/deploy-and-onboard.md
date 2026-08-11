@@ -118,6 +118,11 @@ release commit that advances `main` between dispatch and execution cannot change
 The deploy job runs from `infra/`, so a step that invokes a repository-root script reaches it with
 `../scripts/` or overrides the working directory. A bare `scripts/...` path resolves under `infra/`
 and exits 127 on the runner, before Terraform has produced anything to inspect.
+The protected runner invokes `scripts/deployment/azure/run_live_preflight.py` directly after
+Terraform planning. This standalone, read-only entrypoint checks Azure Policy, Compute quota,
+executor RBAC, and value-blind Key Vault secret metadata without depending on a runtime-service
+wheel or the separately distributed `fdaictl` package. Missing mappings, credentials, categories,
+or probe results fail closed before a plan artifact is stored.
 Protected plans store the binary Terraform plan, bounded preflight evidence, and the Function
 source archive with separate SHA-256 digests. Exact apply verifies every artifact; peer receipts download each allowlisted isolated backend blob directly with the authenticated runner identity and a bounded timeout, avoiding repeated provider initialization without changing the state bytes. Service rollback removes only post-apply secret names absent from the immutable snapshot before restoring its exact Key Vault references. Independent-service Container App plans also seal a lowercase plan-time revision suffix into the saved Terraform plan, guaranteeing a fresh revision after an out-of-band verified image rollback left the desired Terraform image unchanged. The guard permits only that bounded suffix beside the exact image update, and health still requires a new revision running the attested image before recording an apply receipt.
 Before storing a new plan, the runner selects only allowlisted plan, metadata, source, preflight,

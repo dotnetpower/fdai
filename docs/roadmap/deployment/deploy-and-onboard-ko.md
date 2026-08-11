@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 4922d670e12ca7dee495db5b597e4e0cb5d0f9a8
-translation_revised: 2026-08-11
+translation_source_sha: 6a2ea73918990fd9d3507f9feb6a4e5802bb9990
+translation_revised: 2026-08-12
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -122,6 +122,11 @@ Protected 요청은 `commit_sha`를 명시적으로 체크아웃하고 `git rev-
 배포 작업은 `infra/`에서 실행되므로, 저장소 루트 스크립트를 호출하는 단계는 `../scripts/`로
 접근하거나 working 디렉터리를 재정의합니다. 맨 `scripts/...` 경로는 `infra/` 아래로 해석되어
 Terraform이 검사할 결과를 만들기도 전에 실행기에서 127로 종료됩니다.
+Protected 실행기는 Terraform 계획 이후 `scripts/deployment/azure/run_live_preflight.py`를
+직접 호출합니다. 이 standalone read-only 진입점은 런타임 서비스 wheel이나 별도 배포되는
+`fdaictl` package에 의존하지 않고 Azure Policy, Compute quota, executor RBAC 및 value-blind
+Key Vault secret metadata를 검사합니다. Mapping, 자격 증명, category 또는 probe 결과가 없으면
+계획 산출물을 저장하기 전에 실패 시 차단됩니다.
 Protected 계획은 binary Terraform 계획, 범위가 제한된 preflight 근거, 함수 출처 보관을
 각각 별도 SHA-256 다이제스트와 함께 저장합니다. Exact 적용은 모든 산출물을 download하고
 검증합니다. Peer 증적은 인증된 실행기 신원과 범위가 제한된 시간 초과로 허용 목록에 있는 isolated 백엔드 블롭을 각각 직접 download하여 상태 바이트를 변경하지 않으면서 반복 프로바이더 initialization을 제거합니다. 서비스 롤백은 변경할 수 없는 스냅샷에 없는 post-apply 시크릿 이름만 제거한 뒤 exact Key Vault 참조를 복원합니다. Independent-service Container App 계획은 lowercase plan-time 개정 번호 접미사도 saved Terraform 계획에 봉인하므로 out-of-band 검증된 이미지 롤백 이후 desired Terraform 이미지가 변경되지 않은 상태에서도 exact 적용이 fresh 개정 번호를 생성합니다. 가드는 exact 이미지 갱신 옆에서 해당 범위가 제한된 접미사만 허용하며 적용 증적을 기록하려면 상태가 attested 이미지를 실행하는 새 개정 번호를 계속 요구합니다. 새 계획 저장 전 실행기는 24시간이 지난 허용 목록에 있는 계획, 메타데이터, 출처,

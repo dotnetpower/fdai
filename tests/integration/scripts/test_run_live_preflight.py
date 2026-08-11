@@ -1,0 +1,179 @@
+from __future__ import annotations
+
+import importlib.util
+import sys
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+_ROOT = Path(__file__).resolve().parents[3]
+_SCRIPT = _ROOT / "scripts/deployment/azure/run_live_preflight.py"
+sys.path.insert(0, str(_SCRIPT.parent))
+_SPEC = importlib.util.spec_from_file_location("run_live_preflight", _SCRIPT)
+assert _SPEC is not None and _SPEC.loader is not None
+_MODULE = importlib.util.module_from_spec(_SPEC)
+sys.modules[_SPEC.name] = _MODULE
+_SPEC.loader.exec_module(_MODULE)
+
+
+class _Reader:
+    def __init__(self) -> None:
+        self.policy_assignments: list[dict[str, Any]] = []
+        self.policy_definitions: dict[str, dict[str, Any]] = {}
+        self.usages = [{"name": {"value": "cores"}, "currentValue": 1, "limit": 10}]
+        self.roles = [
+            {"roleDefinitionId": "/roles/event-role", "scope": "/event-hubs/topic"},
+            {
+                "roleDefinitionId": "/roles/secret-role",
+                "scope": "/providers/Microsoft.KeyVault/vaults/example",
+            },
+        ]
+        self.secret_statuses = {"state-dsn": 200}
+
+    def get_json(self, path: str, *, api_version: str) -> dict[str, Any]:
+        del api_version
+        return self.policy_definitions[path]
+
+    def get_values(
+        self,
+        path: str,
+        *,
+        api_version: str,
+        params: dict[str, str] | None = None,
+    ) -> list[dict[str, Any]]:
+        del api_version, params
+        return self.usages if path.endswith("/usages") else self.policy_assignments
+
+    def query_role_assignments(
+        self, *, subscription_id: str, principal_id: str
+    ) -> list[dict[str, Any]]:
+        del subscription_id, principal_id
+        return self.roles
+
+    def secret_status(self, *, vault_endpoint: str, secret_name: str) -> int:
+        del vault_endpoint
+        return self.secret_statuses[secret_name]
+
+
+def _profile() -> dict[str, Any]:
+    return {
+        "schema_version": "fdai.deployment.preflight-input.v1",
+        "scope": "resource-group-equivalent:deployment",
+        "mode": "enforce",
+        "resource_types": [],
+        "egress_hosts": [],
+        "terraform_resource_type_map": {"azurerm_eventhub": "event.stream"},
+        "policy": {
+            "denied_resource_types": [],
+            "blocked_egress_hosts": [],
+        },
+        "azure_live": {
+            "required_categories": [
+                "policy_guardrail",
+                "quota_capacity",
+                "identity_rbac",
+                "secret_config",
+            ],
+            "resource_group": "example-group",
+            "arm_resource_type_map": {"event.stream": "Microsoft.EventHub/namespaces/eventhubs"},
+            "quota_checks": [{"quota_name": "cores", "required": 1}],
+            "identity_rbac": {
+                "executor_principal_id": "executor-principal",
+                "event_role_definition_id": "event-role",
+                "secret_role_definition_id": "secret-role",
+            },
+            "key_vault": {
+                "vault_endpoint": "https://example.vault.azure.net/",
+                "required_secret_names": ["state-dsn"],
+            },
+        },
+    }
+
+
+def _plan() -> dict[str, Any]:
+    return {
+        "format_version": "1.2",
+        "resource_changes": [
+            {
+                "mode": "managed",
+                "type": "azurerm_eventhub",
+                "change": {"actions": ["create"]},
+            }
+        ],
+    }
+
+
+def _environment() -> dict[str, Any]:
+    return {
+        "environment": "dev",
+        "azure": {
+            "subscription_id": "00000000-0000-0000-0000-000000000001",
+            "tenant_id": "00000000-0000-0000-0000-000000000002",
+            "region": "koreacentral",
+        },
+    }
+
+
+def test_live_preflight_reports_all_categories_clear() -> None:
+    result = _MODULE.run_preflight(_profile(), _plan(), _environment(), _Reader())
+
+    report = result["report"]
+    assert report["verdict"] == "clear"
+    assert report["blocks_deploy"] is False
+    assert {check["category"] for check in report["checks"]} == {
+        "policy_guardrail",
+        "quota_capacity",
+        "identity_rbac",
+        "secret_config",
+    }
+
+
+def test_live_preflight_blocks_grounded_policy_quota_rbac_and_secret_failures() -> None:
+    reader = _Reader()
+    reader.policy_assignments = [
+        {
+            "properties": {
+                "policyDefinitionId": "/providers/policyDefinitions/deny-event-hubs",
+                "parameters": {},
+            }
+        }
+    ]
+    reader.policy_definitions = {
+        "/providers/policyDefinitions/deny-event-hubs": {
+            "name": "deny-event-hubs",
+            "properties": {
+                "policyRule": {
+                    "if": {
+                        "field": "type",
+                        "equals": "Microsoft.EventHub/namespaces/eventhubs",
+                    },
+                    "then": {"effect": "deny"},
+                }
+            },
+        }
+    }
+    reader.usages[0]["currentValue"] = 10
+    reader.roles = []
+    reader.secret_statuses["state-dsn"] = 404
+
+    result = _MODULE.run_preflight(_profile(), _plan(), _environment(), reader)
+
+    report = result["report"]
+    assert report["verdict"] == "blocked"
+    assert report["blocks_deploy"] is True
+    assert {finding["category"] for finding in report["findings"]} == {
+        "policy_guardrail",
+        "quota_capacity",
+        "identity_rbac",
+        "secret_config",
+    }
+    assert {check["status"] for check in report["checks"]} == {"blocked"}
+
+
+def test_live_preflight_fails_closed_on_unmapped_created_resource() -> None:
+    profile = _profile()
+    profile["terraform_resource_type_map"] = {}
+
+    with pytest.raises(_MODULE.PreflightError, match="mapping is incomplete"):
+        _MODULE.run_preflight(profile, _plan(), _environment(), _Reader())

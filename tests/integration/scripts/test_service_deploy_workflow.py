@@ -107,6 +107,8 @@ def test_legacy_platform_disables_all_migrated_service_apps() -> None:
     assert 'resource "azurerm_container_app_job" "migrate"' in _LEGACY_INGESTION_MODULE
     assert "az containerapp show" in _LEGACY_WORKFLOW
     assert "properties.configuration.ingress.fqdn" in _LEGACY_WORKFLOW
+    assert "../scripts/deployment/azure/run_live_preflight.py" in _LEGACY_WORKFLOW
+    assert "../.venv/bin/fdaictl deploy preflight" not in _LEGACY_WORKFLOW
 
 
 def test_workflow_pins_every_action_to_trusted_immutable_commit() -> None:

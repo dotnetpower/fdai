@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 4922d670e12ca7dee495db5b597e4e0cb5d0f9a8 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 6a2ea73918990fd9d3507f9feb6a4e5802bb9990 }]
 ---
 
 # Deploy Quickstart
@@ -36,7 +36,10 @@ first, so you can review the plan before you run the separate apply step.
 - For a protected remote plan, set the non-secret `DEPLOY_PREFLIGHT_INPUT_JSON`
   repository variable with every required live category. A missing profile stops
   the run before Azure login, and a blocked probe logs only sanitized check
-  results and detected issues.
+  results and detected issues. After Terraform planning, the runner-owned
+  `run_live_preflight.py` checks Azure Policy, Compute quota, executor RBAC, and
+  value-blind Key Vault secret metadata. An incomplete check stops before the
+  plan artifact is stored.
 - To preview the internal Isolated Executor, select `deploy_isolated_executor`
   in the private-runner workflow. It remains plan-only until you separately
   approve apply, and the shadow identity receives no action-specific effect role.
