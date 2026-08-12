@@ -259,6 +259,16 @@ class PostgresInventorySnapshotStore:
                 (failure.code.value, failure.message, attempt_id),
             )
 
+    async def active_snapshot_id(self) -> str | None:
+        """Reread the durable active pointer after a promotion attempt."""
+        async with await self._connect() as connection:
+            await self._set_timeout(connection)
+            cursor = await connection.execute(
+                "SELECT snapshot_id FROM inventory_active WHERE singleton=TRUE"
+            )
+            row = await cursor.fetchone()
+        return str(row["snapshot_id"]) if row is not None else None
+
     async def _require_collecting(
         self, connection: psycopg.AsyncConnection[Any], attempt_id: str
     ) -> None:

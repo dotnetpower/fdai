@@ -17,8 +17,14 @@ from fdai.delivery.azure.arg_query import (
     AzureArgQueryFactoryConfig,
 )
 from fdai.delivery.azure.dev_workload_identity import AzureCliWorkloadIdentity
+from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
 from fdai.delivery.inventory_sync import InventorySyncCoordinator, PromotedInventoryObservation
+from fdai.delivery.operational_activity import (
+    EventBusOperationalActivityPublisher,
+    ObservedInventorySnapshotStore,
+    ontology_projection_activity,
+)
 from fdai.delivery.persistence import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
@@ -43,6 +49,7 @@ from fdai.shared.providers.inventory_snapshot import (
     InventorySourcesExhaustedError,
 )
 from fdai.shared.providers.workload_identity import IdentityToken
+from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
 from psycopg.rows import dict_row
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -94,41 +101,99 @@ async def refresh() -> InventoryOntologyProjectionResult:
         config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
     )
     projected: InventoryOntologyProjectionResult | None = None
+    evidence_counts: dict[str, int] = {}
+    event_bus = EventHubsKafkaBus(
+        identity=None,
+        config=EventHubsKafkaBusConfig(
+            bootstrap_servers=os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "").strip(),
+            security_protocol="PLAINTEXT",
+            client_id="fdai-local-inventory-refresh",
+        ),
+    )
+    activity_publisher = EventBusOperationalActivityPublisher(
+        event_bus=event_bus,
+        topic=os.environ.get("FDAI_STAGE_TOPIC", "aw.pipeline.stages").strip(),
+    )
+    observed_store = ObservedInventorySnapshotStore(
+        store=snapshot_store,
+        publisher=activity_publisher,
+    )
 
     async def project(observation: PromotedInventoryObservation) -> None:
         nonlocal projected
+        evidence_counts[observation.generation] = len(observation.resources) + len(
+            observation.links
+        )
         projected = await projector.apply(observation)
+        available = projected.status.value == "available"
+        await activity_publisher.publish(
+            ontology_projection_activity(
+                generation=observation.generation,
+                status=(
+                    OperationalActivityStatus.COMPLETED
+                    if available
+                    else OperationalActivityStatus.DEGRADED
+                ),
+                freshness=(
+                    OperationalFreshness.FRESH if available else OperationalFreshness.UNAVAILABLE
+                ),
+                evidence_count=projected.object_count + projected.link_count,
+                reason_codes=projected.dropped_reasons,
+            )
+        )
 
-    async with httpx.AsyncClient() as client:
-        query = AzureArgQueryFactory(
-            identity=AsyncAzureCliIdentity(),
-            resource_types=resource_types,
-            http_client=client,
-            config=AzureArgQueryFactoryConfig(subscription_scopes=(subscription_id,)),
-        ).build_query_fn()
-        inventory = AzureResourceGraphInventory(
-            config=AzureInventoryConfig(
-                resource_types=query_types,
-                subscription_scopes=(subscription_id,),
-            ),
-            query=query,
-        )
-        source = InventorySource(
-            name="azure-resource-graph",
-            inventory=inventory,
-            manifest=InventoryCoverageManifest(
-                source="azure-resource-graph",
-                scopes=("configured-subscription",),
-                resource_types=query_types,
-                observation_kind=InventoryObservationKind.OBSERVED,
-                started_at=datetime.now(UTC),
-                metadata={"credential": "azure-cli", "synthetic": False},
-            ),
-        )
-        await InventorySyncCoordinator(
-            store=snapshot_store,
-            promotion_observer=project,
-        ).run((source,))
+    try:
+        async with httpx.AsyncClient() as client:
+            query = AzureArgQueryFactory(
+                identity=AsyncAzureCliIdentity(),
+                resource_types=resource_types,
+                http_client=client,
+                config=AzureArgQueryFactoryConfig(subscription_scopes=(subscription_id,)),
+            ).build_query_fn()
+            inventory = AzureResourceGraphInventory(
+                config=AzureInventoryConfig(
+                    resource_types=query_types,
+                    subscription_scopes=(subscription_id,),
+                ),
+                query=query,
+            )
+            source = InventorySource(
+                name="azure-resource-graph",
+                inventory=inventory,
+                manifest=InventoryCoverageManifest(
+                    source="azure-resource-graph",
+                    scopes=("configured-subscription",),
+                    resource_types=query_types,
+                    observation_kind=InventoryObservationKind.OBSERVED,
+                    started_at=datetime.now(UTC),
+                    metadata={
+                        "credential": "azure-cli",
+                        "synthetic": False,
+                        "link_types": (
+                            "contains",
+                            "attached_to",
+                            "depends_on",
+                            "peered_with",
+                            "routes_to",
+                        ),
+                    },
+                ),
+            )
+            result = await InventorySyncCoordinator(
+                store=observed_store,
+                promotion_observer=project,
+            ).run((source,))
+            active_snapshot_id = await snapshot_store.active_snapshot_id()
+            if active_snapshot_id is None:
+                raise RuntimeError("inventory promotion completed without a durable active pointer")
+            await observed_store.publish_terminal(
+                attempt_id=result.attempt_id,
+                source=result.source,
+                active=active_snapshot_id == result.attempt_id,
+                evidence_count=evidence_counts.get(result.attempt_id, 0),
+            )
+    finally:
+        await event_bus.close()
 
     if projected is None:
         raise RuntimeError("inventory snapshot promoted without ontology projection evidence")

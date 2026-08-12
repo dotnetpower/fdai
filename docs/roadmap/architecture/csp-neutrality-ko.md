@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 4e93c33acb83df96a0bcea143e8d0b0516bd7bd5
-translation_revised: 2026-08-11
+translation_source_sha: d643b10fd42e90dfb357e8cade5be61e5dee8622
+translation_revised: 2026-08-12
 ---
 
 # CSP-중립성 계약
@@ -382,12 +382,14 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level 기반 +
   지점 enrichment를 소유합니다. 인벤토리 projector는 영속 리소스, 링크, tombstone
   적용을 소유합니다. Heimdall은 최신성, 전달 lag, 대체 경로, 커버리지 성능 저하를
   관찰하며 cloud 인벤토리를 직접 조회하지 않습니다.
-- **주기적 조정은 계속 필요합니다.** 인벤토리 sync 작업은 기본 6시간 주기로
+- **주기적 조정은 계속 필요합니다.** 가져올 수 있는 인벤토리 sync CLI는 기본 6시간 주기로
   완전한 ARG/ARM 세대를 만들고 원자적으로 promote하며, 해당 세대에 이미
   반영된 오버레이 항목을 정리합니다. Delta 스트림만으로 완전성을 증명하지 않습니다.
   작업은 10분마다 영속 시도 상태를 확인하지만 6시간 간격이 due이거나 newer 시도가
-  실패 또는 포기된 경우에만 검사합니다. 읽기 전용 인벤토리 신원을 유지하며 Heimdall은 프로바이더를
-  직접 조회하거나 작업을 시작하지 않습니다.
+  실패 또는 포기된 경우에만 검사합니다. 로컬 새로 고침과 배포 작업은 영속 시도 전이, 활성 포인터
+  검증 및 범위가 제한된 활동 발행을 공유합니다. 복구 delta는 cursor를 읽거나 전진하기 전에 각
+  scope를 직렬화합니다. 작업은 읽기 전용 인벤토리 신원을 유지하며 Heimdall은 프로바이더를 직접
+  조회하거나 작업을 시작하지 않습니다.
 - **미인식 `ResourceType` 또는 LinkType** 은 이슈를 열고 드롭됨; 어댑터는 런타임에 새
   온톨로지 타입을 자동 등록하지 않음
   ([llm-strategy-ko.md § 포크 확장](llm-strategy-ko.md#포크-확장-self-extending-온톨로지)).

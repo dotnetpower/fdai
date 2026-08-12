@@ -376,12 +376,15 @@ use the same view-classification rules so local and deployed consoles keep the s
   point enrichment. The inventory projector owns durable resource, link, and tombstone
   application. Heimdall monitors freshness, delivery lag, fallback, and coverage degradation;
   it does not query the cloud inventory.
-- **Periodic reconciliation remains required**. The Inventory sync job produces a complete
+- **Periodic reconciliation remains required**. The importable Inventory sync CLI produces a complete
   ARG/ARM generation on its six-hour default cadence, promotes it atomically, and retires
   overlay entries already covered by that generation. A delta stream is never treated as a
   proof of completeness. The job checks durable attempt state every 10 minutes but scans only
-  when the six-hour interval is due or a newer attempt failed or was abandoned. It retains the read-only inventory
-  identity, and Heimdall neither queries the provider nor starts the job.
+  when the six-hour interval is due or a newer attempt failed or was abandoned. Local refresh and
+  the deployed job share durable attempt transitions, active-pointer verification, and bounded
+  activity publication. Recovery deltas serialize each scope before reading or advancing its
+  cursor. The job retains the read-only inventory identity, and Heimdall neither queries the
+  provider nor starts the job.
 - **Unknown `ResourceType` or LinkType** opens an issue and is dropped; the adapter never
   auto-registers a new ontology type at runtime
   ([llm-strategy.md § Fork Extension](llm-strategy.md#fork-extension-self-extending-ontology)).

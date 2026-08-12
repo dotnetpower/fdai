@@ -239,10 +239,9 @@ class AzureResourceGraphInventory:
         ]
 
         try:
+            completed: list[InventoryBatch] = []
             for coro in asyncio.as_completed(tasks):
-                batch = await coro
-                if batch.resources or batch.links or batch.relationship_drops:
-                    yield batch
+                completed.append(await coro)
         except BaseException:
             # Fail-closed: cancel outstanding shards so a partial snapshot
             # never quietly lands. The caller retains the previous graph
@@ -255,6 +254,23 @@ class AzureResourceGraphInventory:
                     t.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             raise
+
+        resources = _dedupe_resources(
+            resource for batch in completed for resource in batch.resources
+        )
+        links, generation_drops = _validate_links(
+            link for batch in completed for link in batch.links
+        )
+        relationship_drops = (
+            tuple(drop for batch in completed for drop in batch.relationship_drops)
+            + generation_drops
+        )
+        if resources or links or relationship_drops:
+            yield InventoryBatch(
+                resources=resources,
+                links=links,
+                relationship_drops=relationship_drops,
+            )
 
         yield InventoryBatch(final=True)
 
@@ -320,8 +336,13 @@ class AzureResourceGraphInventory:
 def _dedupe_resources(records: Iterable[ResourceRecord]) -> tuple[ResourceRecord, ...]:
     seen: dict[str, ResourceRecord] = {}
     for record in records:
+        existing = seen.get(record.resource_id)
+        if existing is not None and existing != record:
+            raise RuntimeError(
+                f"inventory resource {record.resource_id!r} has conflicting duplicates"
+            )
         seen[record.resource_id] = record
-    return tuple(seen.values())
+    return tuple(seen[key] for key in sorted(seen))
 
 
 def _validate_links(
@@ -334,18 +355,13 @@ def _validate_links(
     drops: list[RelationshipDrop] = []
     for key in sorted(seen):
         candidates = seen[key]
-        if len(candidates) == 1:
+        if len(candidates) == 1 or all(candidate == candidates[0] for candidate in candidates[1:]):
             links.append(candidates[0])
             continue
-        reason = (
-            RelationshipDropReason.DUPLICATE_EDGE
-            if all(candidate == candidates[0] for candidate in candidates[1:])
-            else RelationshipDropReason.CONFLICTING_DUPLICATE
-        )
         evidence = candidates[0].mapping_evidence
         drops.append(
             RelationshipDrop(
-                reason=reason,
+                reason=RelationshipDropReason.CONFLICTING_DUPLICATE,
                 mapping_id=evidence.mapping_id if evidence is not None else None,
                 source_property_path=(
                     evidence.source_property_path if evidence is not None else None

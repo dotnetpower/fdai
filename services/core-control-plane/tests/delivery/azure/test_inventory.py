@@ -7,7 +7,8 @@ a real interface:
 - Concurrent shard queries respect ``max_concurrent_queries``.
 - On query failure, no ``final=True`` batch is emitted - a caller MUST
   retain the previous graph (fail-closed).
-- Duplicate resources / links inside one shard are collapsed
+- Identical resources / links across the complete generation are collapsed.
+- Conflicting duplicate resources fail and conflicting links are dropped.
   (idempotent-upsert precondition).
 - The delta stream also ends with ``final=True``.
 - The adapter satisfies the runtime-checkable ``Inventory`` Protocol.
@@ -97,7 +98,7 @@ async def test_full_snapshot_ends_with_final_true() -> None:
 
 
 @pytest.mark.asyncio
-async def test_full_snapshot_dedupes_resources_and_drops_duplicate_links() -> None:
+async def test_full_snapshot_dedupes_identical_resources_and_links() -> None:
     async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
         # Same resource id repeated three times; same link twice.
         return (
@@ -116,8 +117,52 @@ async def test_full_snapshot_dedupes_resources_and_drops_duplicate_links() -> No
 
     assert len(resources) == 1
     assert resources[0].resource_id == "dup"
+    assert len(links) == 1
+    assert dropped_reasons == []
+
+
+@pytest.mark.asyncio
+async def test_full_snapshot_dedupes_identical_links_across_shards() -> None:
+    link = _lr("child", "parent")
+
+    async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
+        return (_rr(rt, rtype=rt),), (link,)
+
+    adapter = _adapter(_q, types=("compute.vm", "object-storage"))
+    links: list[LinkRecord] = []
+    drops = []
+    async for batch in adapter.full_snapshot():
+        links.extend(batch.links)
+        drops.extend(batch.relationship_drops)
+
+    assert links == [link]
+    assert drops == []
+
+
+@pytest.mark.asyncio
+async def test_full_snapshot_drops_conflicting_links_across_shards() -> None:
+    async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
+        link = _lr("child", "parent")
+        if rt == "object-storage":
+            link = LinkRecord(
+                from_id=link.from_id,
+                from_type=link.from_type,
+                link_type=link.link_type,
+                to_id=link.to_id,
+                to_type=link.to_type,
+                link_props={"source": "conflict"},
+            )
+        return (_rr(rt, rtype=rt),), (link,)
+
+    adapter = _adapter(_q, types=("compute.vm", "object-storage"))
+    links: list[LinkRecord] = []
+    reasons = []
+    async for batch in adapter.full_snapshot():
+        links.extend(batch.links)
+        reasons.extend(drop.reason.value for drop in batch.relationship_drops)
+
     assert links == []
-    assert dropped_reasons == ["duplicate_edge"]
+    assert reasons == ["conflicting_duplicate"]
 
 
 @pytest.mark.asyncio
