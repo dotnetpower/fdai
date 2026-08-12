@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
@@ -29,6 +28,12 @@ def durable_activity_projection(
         *(_ontology_activity(row) for row in ontology_rows),
         *(_read_activity(row) for row in read_rows),
     ]
+    by_id: dict[str, AgentOperationalActivity] = {}
+    for activity in activities:
+        existing = by_id.get(activity.activity_id)
+        if existing is None or activity.observed_at > existing.observed_at:
+            by_id[activity.activity_id] = activity
+    activities = list(by_id.values())
     activities.sort(key=lambda activity: activity.observed_at, reverse=True)
     return {
         "items": [activity.model_dump(mode="json") for activity in activities[:limit]],
@@ -124,15 +129,18 @@ def _read_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
     if not isinstance(succeeded, bool):
         raise ValueError("read activity succeeded MUST be boolean")
     recorded_at = _timestamp(sample.get("recorded_at"), "read activity recorded_at")
-    key = _text(row.get("key"), "read activity key", maximum=512)
-    identity = hashlib.sha256(f"{key}\x00{recorded_at.isoformat()}".encode()).hexdigest()
+    correlation_ref = _text(
+        sample.get("correlation_ref"),
+        "read activity correlation_ref",
+        maximum=256,
+    )
     status = (
         OperationalActivityStatus.COMPLETED if succeeded else OperationalActivityStatus.DEGRADED
     )
     tool_id = _text(row.get("tool_id"), "read activity tool_id", maximum=96)
     return AgentOperationalActivity(
-        activity_id=f"current-state.read:{identity}:{status.value}",
-        idempotency_key=f"current-state.read:{identity}:{status.value}",
+        activity_id=f"current-state.read:{correlation_ref}:{status.value}",
+        idempotency_key=f"current-state.read:{correlation_ref}:{status.value}",
         kind=OperationalActivityKind.CURRENT_STATE_READ,
         status=status,
         owner_agent="Heimdall",
@@ -142,6 +150,7 @@ def _read_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
         freshness=(OperationalFreshness.FRESH if succeeded else OperationalFreshness.UNAVAILABLE),
         evidence_count=1 if succeeded else 0,
         duration_ms=_count(sample, "queue_duration_ms") + _count(sample, "execution_duration_ms"),
+        correlation_id=correlation_ref,
         reason_codes=() if succeeded else ("read_failed",),
     )
 

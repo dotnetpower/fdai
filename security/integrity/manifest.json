@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1048,
+  "file_count": 1049,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "767d30b9a69ee481b736652645e723b44ac61262b8ccc96e8e0594379d764955",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -10,6 +10,7 @@
     ".github/instructions/documentation-style.instructions.md": "1afe6339d1dd528a8d27e987754fac2d8ec29982b567a7e592dcfe10367f9ec8",
     ".github/instructions/generic-scope.instructions.md": "d91d70b82f93cd2f62dbf2a1ae8b796debc9bed549210972fb3a515ee088bd3e",
     ".github/instructions/language.instructions.md": "f853673010b24293fa263189bb4dd2c149c2428a043913f912879aaa80dd65a3",
+    ".github/instructions/roadmap-implementation-tracking.instructions.md": "562a8c3c631037621a284385f54ef57388f565c884eddb3ef1b50af9f84b16a5",
     ".github/instructions/source-language.instructions.md": "00a28f09d07bf7c964879a1bb8c127c65a7eb41545692536de8b596bf22eaab0",
     "rule-catalog/schema/README.md": "81dfb906a792b75de12df8c54463748f2827fea2f640d78e7d358eb56b2539b6",
     "rule-catalog/schema/extension-kit.schema.json": "e1d4250973b4f21115b313a5c7bddaba2df2db5af831cb1cae3628170b7ae08a",
@@ -605,7 +606,7 @@
     "services/core-control-plane/src/fdai/core/read_investigation/resource_state_shadow_models.py": "082446fcba3029dbba70943160cd6d20918c2023a7db76bd3f9bc5d032c9f6dd",
     "services/core-control-plane/src/fdai/core/read_investigation/resource_state_shadow_service.py": "56f62e037c6a5298649f338f0cf92bb883f6b8be6b387ef70d4bed4c2db1d201",
     "services/core-control-plane/src/fdai/core/read_investigation/routing.py": "68685ea6f2e86155185f4d1422718ffefa184e8ec4a08927cfe59f62beaf6d0a",
-    "services/core-control-plane/src/fdai/core/read_investigation/service.py": "f958378c58a23c0b6dcc9e250b725ffe51ebbc9613950781703b16381b8e184a",
+    "services/core-control-plane/src/fdai/core/read_investigation/service.py": "7dd739dea0db80a25f8668b3f3a1997918597d6be8b72ace7a1803b1c4f6eba5",
     "services/core-control-plane/src/fdai/core/read_investigation/shadow_sink.py": "3bd64e25ec6aa6637723ee327dc29a4bae4364b4b6b31e45187e14b9d73583fd",
     "services/core-control-plane/src/fdai/core/readiness/__init__.py": "87bcfa8f07037f557dd920b58b18bffcc01b50c47993d3b9f0c10aac397cb3b8",
     "services/core-control-plane/src/fdai/core/readiness/checklist.py": "97c9f09e5282c783e765f8d6861667989b8f6bbf2aafe8be0ed878a0b006b462",
@@ -989,7 +990,7 @@
     "services/core-control-plane/src/fdai/shared/providers/programmatic_pipeline.py": "8d44f9d0718b8fed444ed3254641e9ba5ae57e4acfde342328ba8206bb734255",
     "services/core-control-plane/src/fdai/shared/providers/projection.py": "bdc320414550976ae7ec17697bdf32775f0b6e694fbf7634537c1abd351fb0be",
     "services/core-control-plane/src/fdai/shared/providers/python_task_author.py": "3cfa6c915e422b254118d66849b6b7b3088667d85a5362a4c990d99a8a9524c0",
-    "services/core-control-plane/src/fdai/shared/providers/read_investigation.py": "0b48852d3195a4a3fdcf3b647a35efca3dc64ef48e9ec9a5ebfe1693f70b7ede",
+    "services/core-control-plane/src/fdai/shared/providers/read_investigation.py": "a3262a48fc7baf32310cfa660e65df30ace833096d2d4d6ae588b1c2c47d028c",
     "services/core-control-plane/src/fdai/shared/providers/readiness.py": "6c200bc7d8ce8d42440ee813e35338afdceafd316ef82ef6325598b16c6b482c",
     "services/core-control-plane/src/fdai/shared/providers/remediation_pr.py": "4921fd4561a96ba2f3c934f1208abf9e855b1fe6e1dcb61531fa053e45f320f3",
     "services/core-control-plane/src/fdai/shared/providers/remediation_pr_ledger.py": "9c8b7a89b5ab8478627ff580b7fbfd1169e1b20bbdee83b29e6aa3ffd84a0e6a",
@@ -1051,7 +1052,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-12T13:00:52Z",
+  "generated_at": "2026-08-12T16:46:14Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

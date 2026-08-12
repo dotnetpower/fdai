@@ -458,10 +458,10 @@ reverses physical ownership without a wire or caller migration.
 | `routes/` | HTTP and SSE transport, route registration, domain request adapters, and classified compatibility facades | Retain as the transport and reviewed facade boundary; conversation lifecycle orchestration stays behind the typed application facade. |
 | `streaming/` | Read-only bounded SSE fan-out and fail-closed stage/runtime projection for `/live/stream` and `/agents/stream` | Keep authentication and HTTP response ownership in routes; never infer runtime readiness from keepalives. |
 
-The independent Operator Service exposes authenticated `GET /agents/activity` as the durable,
-bounded replay source for inventory scans, ontology projection, and current-state reads. The
-Console loads this projection before applying newer `/agents/stream` frames. Both paths validate
-the same no-authority contract and ignore no malformed row or authority-bearing frame.
+The independent Operator Service exposes authenticated `GET /agents/activity` as the durable, bounded replay source for inventory scans, ontology projection, and current-state reads.
+A bounded latency profile preserves only the hashed `read-correlation:<digest>` for a current-state read and stores neither the raw operator question nor resource identity; its latency audit entry remains correlation-free.
+The Console loads this projection before applying newer `/agents/stream` frames. Durable and live current-state activity use the same activity id, while durable projection ignores legacy samples without `correlation_ref`.
+Both paths validate the same no-authority contract, reject malformed rows or authority-bearing frames, and keep `execution_authority=false`.
 
 `fdai.delivery.operator_api.main` is the public app facade. `read_model` remains a public delivery
 contract until a reviewed replacement exists. `fdai.delivery.auth` owns framework-neutral bearer

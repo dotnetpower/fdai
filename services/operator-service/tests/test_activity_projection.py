@@ -47,6 +47,7 @@ def test_projection_merges_authoritative_sources_newest_first() -> None:
                     "queue_duration_ms": 1,
                     "execution_duration_ms": 9,
                     "recorded_at": (NOW + timedelta(seconds=1)).isoformat(),
+                    "correlation_ref": "read-correlation:one",
                 },
             },
         ),
@@ -62,6 +63,7 @@ def test_projection_merges_authoritative_sources_newest_first() -> None:
     ]
     assert items[-1]["evidence_count"] == 15
     assert all(item["execution_authority"] is False for item in items)
+    assert items[0]["activity_id"] == "current-state.read:read-correlation:one:completed"
 
 
 def test_projection_rejects_failed_inventory_without_reason() -> None:
@@ -99,3 +101,35 @@ def test_projection_rejects_malformed_read_sample_instead_of_inventing_activity(
             ),
             limit=10,
         )
+
+
+def test_projection_deduplicates_live_identity_and_keeps_newest_read_sample() -> None:
+    read_rows = tuple(
+        {
+            "key": "read-investigation-latency:sha256:abc",
+            "tool_id": "get_resource_state",
+            "transport": "provider",
+            "operation_class": "resource_state",
+            "sample": {
+                "succeeded": True,
+                "queue_duration_ms": 1,
+                "execution_duration_ms": duration,
+                "recorded_at": (NOW + timedelta(seconds=offset)).isoformat(),
+                "correlation_ref": "read-correlation:same",
+            },
+        }
+        for offset, duration in ((2, 20), (1, 10))
+    )
+
+    payload = durable_activity_projection(
+        inventory_rows=(),
+        ontology_rows=(),
+        read_rows=read_rows,
+        limit=10,
+    )
+
+    items = payload["items"]
+    assert isinstance(items, list)
+    assert len(items) == 1
+    assert items[0]["activity_id"] == "current-state.read:read-correlation:same:completed"
+    assert items[0]["duration_ms"] == 21

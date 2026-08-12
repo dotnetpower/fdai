@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 269a1443e4c68a19f8b60aadcfd3096e6e8a0f71
-translation_revised: 2026-08-12
+translation_source_sha: fd62e6cd111bcafc7faabf4df4a95a4349e0ab26
+translation_revised: 2026-08-13
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -451,10 +451,10 @@ Issue 72는 `OperatorApiConfig(**kwargs)`를 범위가 제한된 호환성 생�
 | `routes/` | HTTP/SSE 전송 계층, 경로 등록, 도메인 요청 어댑터 및 분류된 호환성 파사드 | 전송 계층 및 검토된 파사드 경계로 유지하고 대화 수명 주기 orchestration은 타입이 지정된 애플리케이션 파사드 뒤에 둡니다. |
 | `streaming/` | `/live/stream`과 `/agents/stream`을 위한 읽기 전용 범위 제한 SSE 전달과 실패 시 차단하는 단계/런타임 변환 | 인증과 HTTP 응답 소유권은 경로에 유지하고 연결 유지 신호에서 런타임 준비 상태를 추론하지 않습니다. |
 
-독립 Operator Service는 인증된 `GET /agents/activity`를 인벤토리 검사, 온톨로지 변환 및 현재 상태
-읽기의 영속적이고 범위가 제한된 재생 원본으로 노출합니다. Console은 이 변환 결과를 먼저 불러온 뒤
-새 `/agents/stream` 프레임을 적용합니다. 두 경로는 같은 no-authority 계약을 검증하며 malformed 행이나
-권한을 가진 프레임을 허용하지 않습니다.
+독립 Operator Service는 인증된 `GET /agents/activity`를 인벤토리 검사, 온톨로지 변환 및 현재 상태 읽기의 영속적이고 범위가 제한된 재생 원본으로 노출합니다.
+범위가 제한된 지연 시간 프로필은 현재 상태 읽기에 해시된 `read-correlation:<digest>`만 보존하고 원시 운영자 질문이나 리소스 식별 정보는 저장하지 않으며, 지연 시간 감사 항목에는 상관관계를 추가하지 않습니다.
+Console은 이 변환 결과를 먼저 불러온 뒤 새 `/agents/stream` 프레임을 적용합니다. 영속 및 실시간 현재 상태 활동은 같은 활동 ID를 사용하고, 영속 변환 결과는 `correlation_ref`가 없는 이전 표본을 무시합니다.
+두 경로는 같은 권한 없음 계약을 검증하고 잘못된 행이나 권한을 가진 프레임을 거부하며 `execution_authority=false`를 유지합니다.
 
 `fdai.delivery.operator_api.main`은 공개 앱 파사드입니다. `read_model`은 검토된 replacement가 준비될
 때까지 공개 전달 계약으로 유지합니다. `fdai.delivery.auth`는 framework-neutral bearer 및 Entra

@@ -326,6 +326,7 @@ class ReadInvestigationService:
                 queue_duration_ms=receipt.queue_duration_ms,
                 execution_duration_ms=receipt.execution_duration_ms,
                 recorded_at=receipt.recorded_at,
+                correlation_ref=plan.request.correlation_ref,
             )
             await self._latency_store.append(sample)
         except Exception as exc:  # noqa: BLE001 - telemetry cannot rewrite evidence
