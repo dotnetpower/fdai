@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: c8e69e4fe8bc695d845747730e4eb2708430370d
-translation_revised: 2026-08-11
+translation_source_sha: 02d9ee948cb00c7ad80fa5a11e1c3eb793daa15e
+translation_revised: 2026-08-12
 ---
 
 # FDAI Console 대화
@@ -50,7 +50,7 @@ quality gate (T2 검증기), risk gate, shipped Rego 정책. 콘솔은
 완료된 답변은 off-path [대화 Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. JSON과 SSE 어댑터는 타입이 지정된 conversation-turn 서비스와 분리된 요청 설정, 근거, 진행 상황, 검증 및 terminal-delivery 보조 로직을 공유하면서 기존 wire 계약을 유지합니다.
 최종 intake는 exact 검증 사유와 evidence-manifest 완전성을 보존합니다. 결과 요약, 맥락 선택, Azure 조사, 영속 전달 및 첨부 근거는 타입이 지정된 프로바이더가 계속 소유하고 어댑터 모듈은 표현과 영속성만 조정합니다.
 버전 1.2 semantic projection은 서비스 분리 전반에서 이 경계를 보존합니다. `answered`는 exact release, principal manifest, 계획, 실행 receipt, 근거 참조를 요구하며 의존성을 사용할 수 없으면 typed limitation을 반환합니다.
-하나의 Operator-owned Event Hubs Kafka adapter가 all-or-none topic, command identity, 멱등적 bounded JSON, projection 영속 후 commit, sibling DLQ를 사용해 proposal을 publish하고 projection을 consume합니다.
+하나의 Operator-owned Event Hubs Kafka adapter가 all-or-none topic, command identity, 멱등적 bounded JSON, projection 영속 후 commit, sibling DLQ를 사용해 proposal을 publish하고 projection을 consume하며, `GET /chat/health`는 영속 conversation projection row를 요구하지 않고 해당 bridge의 process-owned worker 준비 상태를 직접 읽습니다.
 Terraform은 request와 projection topic을 고정합니다. Core는 검증된 query table을 렌더링하고 Operator는 영속 result를 기존 `done` event로 변환합니다.
 주입된 provider가 우선하며 local narrator와 semantic transport는 상호 배타적입니다.
 Operator API는 검토를 준비된으로 표시하거나 카탈로그 제안을 만들거나 권한을 부여하지 않습니다. 잘못된 답변 보고는 자율 재평가 근거만 추가하며 통제된 transition에는 exact 재생 근거와 기존 카탈로그 수명 주기가 계속 필요합니다.

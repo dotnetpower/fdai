@@ -860,13 +860,20 @@ async def test_semantic_adapter_delegates_reads_and_exposes_bridge_health() -> N
     health = await adapters.read(ConversationQuery(operation="chat.health", scope=scope))
 
     assert delegated.body == {"mode": "azure-cli"}
-    assert fallback.operations == ["chat.history", "chat.health"]
-    assert cast(dict[str, object], health.body)["semantic_bridge"] == {
+    assert fallback.operations == ["chat.history"]
+    assert health.status_code == 200
+    assert health.body == {
         "available": False,
-        "configured": True,
+        "endpoint": None,
         "mode": "starting",
-        "request_topic": "operator.semantic-turn.requests",
-        "result_topic": "core.semantic-turn.projections",
+        "model": None,
+        "semantic_bridge": {
+            "available": False,
+            "configured": True,
+            "mode": "starting",
+            "request_topic": "operator.semantic-turn.requests",
+            "result_topic": "core.semantic-turn.projections",
+        },
     }
 
 

@@ -381,15 +381,18 @@ class SemanticTurnConversationAdapters:
     fallback_streams: ConversationStreamReader
 
     async def read(self, query: ConversationQuery) -> ConversationResponse:
-        """Delegate authoritative reads and add semantic readiness to chat health."""
-        response = await self.fallback_projections.read(query)
-        if query.operation != "chat.health" or not isinstance(response.body, dict):
-            return response
+        """Serve bridge-owned health and delegate every durable projection read."""
+        if query.operation != "chat.health":
+            return await self.fallback_projections.read(query)
+        health = self.bridge.health()
         return ConversationResponse(
-            body={**response.body, "semantic_bridge": self.bridge.health()},
-            status_code=response.status_code,
-            media_type=response.media_type,
-            headers=response.headers,
+            body={
+                "available": health["available"],
+                "mode": health["mode"],
+                "model": None,
+                "endpoint": None,
+                "semantic_bridge": health,
+            },
         )
 
     async def append(self, proposal: ConversationProposal) -> OutboxReceipt:

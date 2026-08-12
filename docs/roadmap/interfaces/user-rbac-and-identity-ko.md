@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: ac1968f90a4782068ffee121aae6f58412f81cfd
-translation_revised: 2026-08-11
+translation_source_sha: 0d008d29658c02b46ab0d4b8ff31219e823d4ca6
+translation_revised: 2026-08-12
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -355,7 +355,7 @@ RBAC 그룹 slot, IAM 요청/디렉터리 계약, 교정 PR 어댑터가 있습�
  인증 오류를 표시합니다. 포크의 아이덴티티 정책에 다른 제한 시간이 필요한 경우
  `VITE_AUTH_TOKEN_TIMEOUT_MS`를 양의 정수로 설정할 수 있습니다.
 - **만료된 API 세션**: 구성된 읽기 또는 인제스트 API가 `401`을 반환하면 현재 데이터 표면을
- 닫고 전체 화면 sign-in 복구 화면으로 전환합니다. Standard 읽기, chat, 작업 흐름, 명령,
+ 닫고 전체 화면 sign-in 복구 화면으로 전환합니다. Standard 읽기, 인증된 bridge-owned chat 상태, chat, 작업 흐름, 명령,
  SSE 스트림에 동일하게 적용합니다. 신원 프로바이더 요청과 `403` 접근 결정은 이 전환을
  시작하지 않습니다. 하나의 shared fetch 관찰기가 overlapping 소유자, 멱등적 정리 및 다른
  소유자가 global fetch 함수를 교체한 뒤의 재설치를 지원하며, 정리는 해당 replacement를

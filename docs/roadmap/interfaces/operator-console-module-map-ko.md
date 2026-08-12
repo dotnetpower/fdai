@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: a64289776d92e82c772f7f9d05018ebb8218e474
-translation_revised: 2026-08-11
+translation_source_sha: ef9dfaf32da5714854b1e479d97693d7c4cd6d55
+translation_revised: 2026-08-12
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -121,7 +121,9 @@ Core 의미 런타임은 이제 계획 수립, dependency-wave 실행 및 이 �
 Valid 대응은 의미 브리지가 처리한 뒤에만 커밋하고 malformed 또는 oversized JSON은 형제
 DLQ에 쓴 다음 커밋합니다. 어댑터는 managed-identity 자격 증명을 소유하고 애플리케이션 수명 주기에서
 이를 닫습니다. 명시적으로 주입된 발행기/출처 쌍은 테스트 및 다운스트림 재정의 경계로 유지됩니다.
-의미 Kafka와 dev-only 로컬 서술기는 상호 배타적입니다.
+의미 Kafka와 dev-only 로컬 서술기는 상호 배타적입니다. 같은 process 경계가
+`GET /chat/health`를 소유하며 bridge worker 준비 상태를 직접 투영하고 영속 conversation projection을
+요구하지 않습니다.
 
 ### 대화 단정 애플리케이션 경계
 

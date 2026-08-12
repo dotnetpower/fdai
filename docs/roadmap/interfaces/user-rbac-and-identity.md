@@ -367,7 +367,7 @@ recommendations; a fork tunes them via Conditional Access.
   different bound.
 - **Expired API session**: a `401` from the configured read or ingestion API closes the current
   data surface and switches to the full-screen sign-in recovery view. This applies to standard
-  reads, chat, workflows, commands, and SSE streams. Identity-provider requests and `403` access
+  reads, authenticated bridge-owned chat health, chat, workflows, commands, and SSE streams. Identity-provider requests and `403` access
   decisions don't trigger this transition. One shared fetch observer supports overlapping owners,
   idempotent cleanup, and reinstallation after another owner replaces the global fetch function;
   cleanup never overwrites that replacement.

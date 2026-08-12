@@ -121,7 +121,8 @@ manual commit: a valid mapping is committed only after the semantic bridge proce
 malformed or oversized JSON is written to the sibling DLQ and then committed. The adapter owns its
 managed-identity credential and closes it with the application lifecycle. Explicit injected
 publisher/source pairs remain the test and downstream override seam. Semantic Kafka and the
-dev-only local narrator are mutually exclusive.
+dev-only local narrator are mutually exclusive. The same process boundary owns `GET /chat/health`:
+it projects bridge worker readiness directly and never requires a durable conversation projection.
 
 ### Conversation claims application boundary
 
