@@ -29,6 +29,7 @@ class CausalHypothesisProjector:
         refuting_evidence_ids: tuple[str, ...] = (),
         outcome_ids: tuple[str, ...] = (),
         previous_hypothesis_id: str | None = None,
+        informed_expected_effect_ids: tuple[str, ...] = (),
         endpoint_objects: tuple[OntologyObjectRecord, ...] = (),
     ) -> None:
         record = hypothesis.to_ontology_object()
@@ -61,6 +62,14 @@ class CausalHypothesisProjector:
             *(
                 OntologyLinkRecord("outcome_tests_hypothesis", source, record.id)
                 for source in outcome_ids
+            ),
+            *(
+                OntologyLinkRecord(
+                    "hypothesis_informs_expected_effect",
+                    record.id,
+                    target,
+                )
+                for target in informed_expected_effect_ids
             ),
         ]
         if previous_hypothesis_id is not None:

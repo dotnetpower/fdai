@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: executed_as
+version: "1.0.0"
+from_type: ActionOption
+to_type: ActionRun
+cardinality: one_to_many
+description: Governed action runs dispatched for one selected option.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:executed_as@1.0.0
+  content_hash: sha256:8075b312f3b3a79fdd241b77221d1d04833cabde4272709401ca5bb771456519
+  license: MIT
+  retrieved_at: "2026-08-12T00:00:00Z"

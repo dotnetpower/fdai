@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: expects
+version: "1.0.0"
+from_type: ActionOption
+to_type: ExpectedEffect
+cardinality: one_to_many
+description: Predicted effects fixed for an action option before execution.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:expects@1.0.0
+  content_hash: sha256:9cd814bfe8e0894ec67461eeefa02b6f55e4e04a06b196bd0a5a1dd704c2f21a
+  license: MIT
+  retrieved_at: "2026-08-12T00:00:00Z"

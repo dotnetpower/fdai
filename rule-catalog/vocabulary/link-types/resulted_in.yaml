@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: resulted_in
+version: "1.0.0"
+from_type: ActionRun
+to_type: ObservedOutcome
+cardinality: one_to_many
+description: Independent observed outcomes associated with one governed action run.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:resulted_in@1.0.0
+  content_hash: sha256:a90b103f83cc02a22d16ddad4dd335a504655e1d576d15be76b57e2f075ae04f
+  license: MIT
+  retrieved_at: "2026-08-12T00:00:00Z"
