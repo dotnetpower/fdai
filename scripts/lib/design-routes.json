@@ -1126,21 +1126,7 @@
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan*.md",
         "config/ontology-query-competency.json",
         "scripts/quality/architecture/check-ontology-query-coverage.py",
-        "services/core-control-plane/src/fdai/core/conversation/**",
-        "services/core-control-plane/src/fdai/core/ontology_platform/**",
-        "services/core-control-plane/src/fdai/shared/contracts/models/ontology.py",
-        "services/core-control-plane/src/fdai/shared/ontology/**",
-        "services/core-control-plane/src/fdai/runtime/catalog_ontology.py",
-        "services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py",
-        "services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn.py",
-        "services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py",
-        "services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py",
-        "packages/service-contracts/**",
-        "rule-catalog/vocabulary/**",
-        "services/core-control-plane/tests/core/conversation/**",
-        "services/core-control-plane/tests/core/ontology_platform/**",
-        "services/operator-service/tests/test_semantic_kafka_adapter.py",
-        "services/operator-service/tests/test_semantic_turn_bridge.py"
+        "rule-catalog/vocabulary/**"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -1162,6 +1148,50 @@
       ],
       "validate": [
         "uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation services/core-control-plane/tests/core/ontology_platform services/operator-service/tests",
+        "uv run python scripts/quality/architecture/check-ontology-query-coverage.py",
+        "uv run python scripts/quality/architecture/check-independent-services.py"
+      ]
+    },
+    {
+      "id": "ontology-query-runtime",
+      "paths": [
+        "services/core-control-plane/src/fdai/core/conversation/__init__.py",
+        "services/core-control-plane/src/fdai/core/conversation/coordinator.py",
+        "services/core-control-plane/src/fdai/core/conversation/coverage_gate.py",
+        "services/core-control-plane/src/fdai/core/conversation/epistemic_coverage.py",
+        "services/core-control-plane/src/fdai/core/conversation/intent_graph.py",
+        "services/core-control-plane/src/fdai/core/conversation/semantic_*.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/**",
+        "services/core-control-plane/src/fdai/shared/contracts/models/ontology.py",
+        "services/core-control-plane/src/fdai/shared/ontology/**",
+        "services/core-control-plane/src/fdai/runtime/catalog_ontology.py",
+        "services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py",
+        "services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn.py",
+        "services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py",
+        "services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py",
+        "packages/service-contracts/src/fdai_service_contracts/ontology_query.py",
+        "packages/service-contracts/tests/test_ontology_query.py",
+        "services/core-control-plane/tests/conversation/test_coverage_gate.py",
+        "services/core-control-plane/tests/conversation/test_epistemic_coverage.py",
+        "services/core-control-plane/tests/conversation/test_semantic_planning.py",
+        "services/core-control-plane/tests/core/ontology_platform/**",
+        "services/core-control-plane/tests/test_semantic_turn_processor.py",
+        "services/operator-service/tests/test_semantic_kafka_adapter.py",
+        "services/operator-service/tests/test_semantic_turn_bridge.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/architecture/operating-ontology-platform.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
+        "docs/roadmap/architecture/operating-ontology-platform.md",
+        "docs/roadmap/architecture/code-map.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/conversation/test_coverage_gate.py services/core-control-plane/tests/conversation/test_epistemic_coverage.py services/core-control-plane/tests/conversation/test_semantic_planning.py services/core-control-plane/tests/core/ontology_platform services/core-control-plane/tests/test_semantic_turn_processor.py services/operator-service/tests/test_semantic_kafka_adapter.py services/operator-service/tests/test_semantic_turn_bridge.py packages/service-contracts/tests/test_ontology_query.py",
         "uv run python scripts/quality/architecture/check-ontology-query-coverage.py",
         "uv run python scripts/quality/architecture/check-independent-services.py"
       ]
