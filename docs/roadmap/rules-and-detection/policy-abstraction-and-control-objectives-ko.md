@@ -1,7 +1,7 @@
 ---
 title: 정책 추상화와 통제 목표
 translation_of: policy-abstraction-and-control-objectives.md
-translation_source_sha: 5fd6c5089b22520e03d732fcb65952f45a9a76f9
+translation_source_sha: b8110d9111fb8b5028d582234148c7f46999dab6
 translation_revised: 2026-08-13
 ---
 # 정책 추상화와 통제 목표
@@ -259,7 +259,7 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 |------|------|------|------|
 | Rule과 정책의 경계 | in-progress | [`PolicyArtifact.yaml`](../../../rule-catalog/vocabulary/object-types/PolicyArtifact.yaml), [`implemented_by_policy.yaml`](../../../rule-catalog/vocabulary/link-types/implemented_by_policy.yaml) | 기존 아티팩트를 재사용할 수 있지만 이 변경에서 런타임 경로를 다시 검증하지 않았습니다. |
 | 의미 매니페스트와 코퍼스 격리 | in-progress | [`rule_semantic_retrieval.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_retrieval.py), [Rule 의미 검색](rule-semantic-retrieval-ko.md) | 기존 검색 계약에는 새 타입 목표 및 바인딩 계약이 없습니다. |
-| `ControlObjective` 계약과 카탈로그 | not-started | 이 설계 | 스키마, 로더, 어휘 항목 또는 카탈로그 디렉터리가 없습니다. |
+| `ControlObjective` 계약과 카탈로그 | in-progress | [`control_objective.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/control_objective.py), [`test_control_objective.py`](../../../services/core-control-plane/tests/rule_catalog/test_control_objective.py) | 엄격한 모델, 로더, 다이제스트, 수명 주기 및 부정 테스트가 있습니다. 어휘 선언과 제공되는 카탈로그 레코드는 아직 필요합니다. |
 | `RuleObjectiveBinding`과 동등성 증적 | not-started | 이 설계 | 버전 고정 바인딩 또는 동등성 검증기가 없습니다. |
 | 목표 인식 변환 결과와 확인 | not-started | 이 설계 | 기존 정확한 Rule 및 검색 경로는 변경되지 않습니다. |
 | 전체 코퍼스 세대 식별자 | not-started | [`rule_semantic_generation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_generation.py) | 인라인 다이제스트 계약은 256개 항목으로 제한됩니다. |
@@ -270,6 +270,7 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 정책 추상화 설계와 구현 ledger를 채택했으며 이전 기반 구현의 출처 이력은 재구성하지 않았습니다. | `current change`; 결정론적 카탈로그 인벤토리에서 Rego 62개와 표현식 8,487개를 포함한 Rule 8,549개를 확인했습니다. | 아래 P0-P4를 제공하고 검증합니다. |
+| 2026-08-13 | in-progress | 카탈로그 상호 참조 검사, 정규 콘텐츠 다이제스트, 수명 주기 검증 및 권한 필드 거부를 포함하는 엄격하고 불변인 `ControlObjective` 계약을 추가했습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_control_objective.py`에서 테스트 7개가 통과했고 Ruff 및 diff 검사도 통과했습니다. | 목표 어휘 및 제공되는 레코드를 추가한 다음 P0의 바인딩과 동등성 증적 계약을 완료합니다. |
 
 ### 남은 작업
 
