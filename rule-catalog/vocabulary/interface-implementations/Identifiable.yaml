@@ -27,6 +27,7 @@ object_types:
   - ConfigurationDriftCheck
   - ConfigurationDriftEvidence
   - ConfigurationDriftFinding
+  - ControlObjective
   - Conversation
   - ConversationPolicy
   - CostObjective
@@ -36,6 +37,7 @@ object_types:
   - DiagnosticFinding
   - DiagnosticMechanism
   - Environment
+  - EquivalenceValidationReceipt
   - EvidenceArtifact
   - ExecutionProfile
   - ExpectedEffect
@@ -63,6 +65,7 @@ object_types:
   - ReviewCheck
   - Rule
   - RuleCandidate
+  - RuleObjectiveBinding
   - SecurityEvent
   - ServiceObjective
   - Signal

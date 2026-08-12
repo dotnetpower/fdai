@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: d45fa92c10324ad052d3f3b6b625eba24ab09858
+translation_source_sha: 765b07ee477804e65a935d678ddfd9b7dbe0819a
 translation_revised: 2026-08-13
 ---
 # FDAI 온톨로지 안전 인프라
@@ -103,6 +103,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 provenance를 재구성하지 않고 구현 원장을 도입했습니다. | 범위 표에 나열된 현재 소스와 테스트입니다. | 아래의 관찰 가능한 종료 조건을 완료합니다. |
 | 2026-08-13 | implemented | 범위가 제한된 순위와 내용 기반 주소를 가진 증적을 제공하는 exact-generation 읽기 전용 `catalog.search_rules` 후보 검색을 추가했습니다. | 커밋 `e4d9483a5`; 집중 `test_catalog_queries.py`에서 2개 테스트를 통과했습니다. | 평가 또는 실행 권한을 부여하지 않으면서 objective-aware 검색을 조립하고 검증합니다. |
+| 2026-08-13 | implemented | 중앙 graph 검증에서 누락을 발견한 뒤 세 objective vocabulary 타입을 `Identifiable` 구현으로 등록했습니다. | 집중 `test_shipped_ontology_catalog_loads_as_one_graph`에서 1개 테스트를 통과했습니다. | 새 object type을 추가할 때마다 interface 구현 범위를 동기화합니다. |
 
 ### 남은 작업
 
