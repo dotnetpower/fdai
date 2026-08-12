@@ -1,5 +1,5 @@
 id: fdai-reference-architecture
-version: 9
+version: 10
 kind: context
 formats: [svg]
 updated: 2026-08-12
@@ -352,8 +352,8 @@ edges:
     from: typed-event-bus
     to: event-ingest
     kind: event
-    route: orthogonal-horizontal
-    lane: 1
+    route: orthogonal-trunk
+    lane: 3
   - id: ingest-to-router
     from: event-ingest
     to: trust-router

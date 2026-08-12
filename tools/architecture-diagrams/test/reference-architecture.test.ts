@@ -19,7 +19,7 @@ test("FDAI reference architecture renders every governed relationship", async ()
   const svg = await renderSvg(spec, layout, "en");
   const koSvg = await renderSvg(spec, layout, "ko");
 
-  assert.equal(spec.version, 9);
+  assert.equal(spec.version, 10);
   assert.equal(spec.kind, "context");
   assert.deepEqual(spec.formats, ["svg"]);
   assert.equal(layout.edges.length, spec.edges.length);
@@ -145,19 +145,24 @@ test("FDAI reference architecture renders every governed relationship", async ()
 
   const edges = new Map(spec.edges.map((edge) => [edge.id, edge]));
   assert.equal(edges.has("bus-to-agents"), false);
-  assert.equal(edges.get("bus-to-ingest")?.route, "orthogonal-horizontal");
-  assert.equal(edges.get("bus-to-ingest")?.lane, 1);
+  assert.equal(edges.get("bus-to-ingest")?.route, "orthogonal-trunk");
+  assert.equal(edges.get("bus-to-ingest")?.lane, 3);
   const busToIngest = layout.edges.find(
     (edge) => edge.id === "bus-to-ingest",
   )?.sections?.[0];
   const eventIngest = layout.nodes.get("event-ingest");
-  const trustRouter = layout.nodes.get("trust-router");
+  const governedControl = layout.groups.get("governed-control");
   assert.ok(busToIngest?.bendPoints?.length);
   assert.ok(eventIngest);
-  assert.ok(trustRouter);
-  const ingressCorridorX = busToIngest.bendPoints[0]!.x;
-  assert.ok(ingressCorridorX > eventIngest.x + eventIngest.width);
-  assert.ok(ingressCorridorX < trustRouter.x);
+  assert.ok(governedControl);
+  const ingressTrunkY = busToIngest.bendPoints[0]!.y;
+  assert.equal(busToIngest.bendPoints[1]!.y, ingressTrunkY);
+  assert.ok(ingressTrunkY > governedControl.y + 32);
+  assert.ok(ingressTrunkY < eventIngest.y - 12);
+  assert.equal(
+    busToIngest.endPoint.x,
+    eventIngest.x + eventIngest.width / 2,
+  );
   for (const edgeId of [
     "ingest-to-router",
     "router-to-decision",
