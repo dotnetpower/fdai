@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 2aff07e95534bc14f4064cec5504949bd5d8705c
+translation_source_sha: 97b3ef81ad23333198d12c2102101ec99872a372
 translation_revised: 2026-08-12
 ---
 # 코드 맵
@@ -65,6 +65,8 @@ Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 
 텔레메트리 함수를 exact release에 등록합니다. 함수 dependency는 발급된 content 다이제스트만
 해석합니다. Resource-state 조사 경로는 promoted 인벤토리를 답변 권한으로 유지하고 온톨로지
 조회를 shadow로 실행하며 principal-scoped 동등성 증적을 StateStore에 저장합니다.
+공개 조립 파사드는 선택적 resource-state composer만 내보냅니다. 구현 타입은 focused binder에
+유지해 파사드가 structural 상한 아래에 머물도록 합니다.
 플래너 매니페스트는 ObjectType 및 Interface 속성에 동일한 역할/용도 filtering을 적용합니다. 의도
 근거는 최종 사유를 보존하면서 범위가 제한된 evidence-reference 잘림도 공개합니다.
 검증기는 I/O 전에 declared DAG 노드를 가리키지 않는 출력을 거부합니다. Answered 턴은 범위가 제한된

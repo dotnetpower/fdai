@@ -357,8 +357,6 @@ from .wire_azure_operational_evidence import bind_azure_operational_evidence  # 
 from .wire_llm import bind_azure_llm_bindings  # noqa: E402
 from .wire_metric_provider import attach_metric_provider  # noqa: E402
 from .wire_read_investigation import (  # noqa: E402
-    ResourceStateShadowHook,
-    build_resource_state_shadow_hook,
     compose_resource_state_shadow_hook,
 )
 from .wire_semantic_query import (  # noqa: E402
@@ -374,7 +372,6 @@ __all__ = [
     "LlmBindings",
     "LlmBindingsUnavailableError",
     "OperationalReadinessService",
-    "ResourceStateShadowHook",
     "SemanticQueryRuntimeComposition",
     "TrajectoryRuntime",
     "attach_metric_provider",
@@ -388,7 +385,6 @@ __all__ = [
     "bind_azure_devops_change_feed",
     "bind_github_change_feed",
     "build_semantic_query_runtime",
-    "build_resource_state_shadow_hook",
     "compose_azure_semantic_query_runtime",
     "compose_resource_state_shadow_hook",
     "default_container",

@@ -62,6 +62,8 @@ Composition issues bounded secured ObjectSet receipts and registers the source-d
 and Pod telemetry functions in the exact release. Function dependencies resolve only an issued
 content digest. The resource-state investigation path keeps promoted inventory as answer authority,
 runs the ontology query in shadow, and stores principal-scoped parity receipts through StateStore.
+The public composition facade exports only the optional resource-state composer; implementation
+types remain in the focused binder so the facade stays below its structural ceiling.
 Planner manifests apply identical role and purpose filtering to ObjectType and Interface
 properties. Intent evidence preserves a terminal reason while also disclosing bounded
 evidence-reference truncation.
