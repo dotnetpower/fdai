@@ -55,6 +55,7 @@ from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     load_resource_type_registry_from_mapping,
+    resource_type_mapping_digests,
 )
 from fdai.runtime.inventory_ontology import (
     InventoryOntologyProjectionStatus,
@@ -305,6 +306,7 @@ def _build_sources(
 def _build_ontology_observer(
     config: InventoryJobConfig,
     *,
+    vocabulary: ResourceTypeRegistry,
     publisher: EventBusOperationalActivityPublisher,
     evidence_counts: dict[str, int],
 ) -> InventoryPromotionObserver:
@@ -325,6 +327,7 @@ def _build_ontology_observer(
         projector = InventoryOntologyProjector(
             store=ontology_store,
             status_store=PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn)),
+            resource_type_mappings=resource_type_mapping_digests(vocabulary),
         )
 
     async def _observe(observation: PromotedInventoryObservation) -> None:
@@ -391,6 +394,7 @@ async def run(config: InventoryJobConfig) -> InventoryJobResult:
                 store=observed_store,
                 promotion_observer=_build_ontology_observer(
                     config,
+                    vocabulary=vocabulary,
                     publisher=activity_publisher,
                     evidence_counts=evidence_counts,
                 ),
