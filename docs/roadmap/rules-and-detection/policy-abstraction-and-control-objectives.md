@@ -262,7 +262,7 @@ publishers run as Mimir-owned capabilities, not hidden decision makers.
 |------|-------|----------|-------|
 | Rule-to-policy boundary | in-progress | [`PolicyArtifact.yaml`](../../../rule-catalog/vocabulary/object-types/PolicyArtifact.yaml), [`implemented_by_policy.yaml`](../../../rule-catalog/vocabulary/link-types/implemented_by_policy.yaml) | Existing artifacts are reusable; this change did not revalidate their runtime path. |
 | Semantic manifests and corpus isolation | in-progress | [`rule_semantic_retrieval.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_retrieval.py), [Rule Semantic Retrieval](rule-semantic-retrieval.md) | Existing retrieval contracts lack the new typed objective and binding contract. |
-| `ControlObjective` contract and catalog | not-started | This design | No schema, loader, vocabulary entry, or catalog directory exists. |
+| `ControlObjective` contract and catalog | in-progress | [`control_objective.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/control_objective.py), [`test_control_objective.py`](../../../services/core-control-plane/tests/rule_catalog/test_control_objective.py) | Strict model, loader, digest, lifecycle, and negative tests exist; vocabulary declarations and shipped catalog records remain open. |
 | `RuleObjectiveBinding` and equivalence receipts | not-started | This design | No version-pinned binding or equivalence validator exists. |
 | Objective-aware projection and resolution | not-started | This design | Existing exact Rule and retrieval paths remain unchanged. |
 | Full-corpus generation identity | not-started | [`rule_semantic_generation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_generation.py) | The inline digest contract is bounded to 256 entries. |
@@ -273,6 +273,7 @@ publishers run as Mimir-owned capabilities, not hidden decision makers.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the policy-abstraction design and implementation ledger; earlier foundation provenance was not reconstructed. | `current change`; deterministic catalog inventory reported 8,549 Rules, including 62 Rego and 8,487 expression records. | Deliver and validate P0-P4 below. |
+| 2026-08-13 | in-progress | Added the strict, immutable `ControlObjective` contract with catalog cross-reference checks, canonical content digests, lifecycle validation, and authority-field rejection. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_control_objective.py` passed 7 tests; Ruff and diff checks passed. | Add objective vocabulary and shipped records, then complete binding and equivalence-receipt contracts for P0. |
 
 ### Remaining work
 
