@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 94e8645b9afe822ae3d4428e2832f02f9c75f7f8
+translation_source_sha: d45fa92c10324ad052d3f3b6b625eba24ab09858
 translation_revised: 2026-08-13
 ---
 # FDAI 온톨로지 안전 인프라
@@ -84,6 +84,36 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > Low입니다. 라운드 12에서는 이전 방식 읽기에 현재 release를 소급 할당하는 동작을 제거했습니다.
 > 라운드 13에서는 successful 갱신이 새로 검증한 current-state 개정 번호를 생성하고 pin하는 것을
 > 확인했습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| K0 exact release 신원 및 영속성 | in-progress | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`test_postgres_ontology_store.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_postgres_ontology_store.py) | Exact 신원과 release에 고정된 쓰기가 존재합니다. 이행 전 행은 원래 release를 정직하게 복원할 수 없으므로 고정하지 않은 상태로 유지합니다. |
+| K1-K5 범위가 제한된 의미 조회 및 함수 인프라 | in-progress | [`ontology_platform`](../../../services/core-control-plane/src/fdai/core/ontology_platform/), [`test_operational_functions.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_operational_functions.py) | Core 기본 요소가 존재하지만 추가 Interface와 운영 프로바이더 연결은 남아 있습니다. |
+| 카탈로그 변환 결과와 exact-generation Rule 검색 | implemented | [`catalog_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py), [`test_catalog_queries.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_catalog_queries.py), 커밋 `e4d9483a5` | `catalog.search_rules`는 exact 세대 증적과 함께 범위가 제한된 순위 후보를 반환하며 판단 또는 액션 권한을 부여하지 않습니다. 시작 변환 결과는 아직 control-objective 인스턴스를 구체화하지 않습니다. |
+| 과거 토폴로지, 메트릭 의미 규칙 및 조정 | in-progress | [`bitemporal_topology.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/bitemporal_topology.py), [`metric_semantics.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/metric_semantics.py), [`reconciliation_state_store.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_state_store.py) | 계약과 순수 또는 영속 기반은 존재하지만 운영 조립과 발행자는 아직 완성되지 않았습니다. |
+| K6-K8 그래프 전체 Dynamic 근거 | in-progress | [Dynamic 모델 성숙도](#dynamic-모델-성숙도) | 액션 및 메트릭 시뮬레이션은 존재하지만 그래프 전파, trajectory 종결 및 실패 귀속은 남아 있습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 이전 provenance를 재구성하지 않고 구현 원장을 도입했습니다. | 범위 표에 나열된 현재 소스와 테스트입니다. | 아래의 관찰 가능한 종료 조건을 완료합니다. |
+| 2026-08-13 | implemented | 범위가 제한된 순위와 내용 기반 주소를 가진 증적을 제공하는 exact-generation 읽기 전용 `catalog.search_rules` 후보 검색을 추가했습니다. | 커밋 `e4d9483a5`; 집중 `test_catalog_queries.py`에서 2개 테스트를 통과했습니다. | 평가 또는 실행 권한을 부여하지 않으면서 objective-aware 검색을 조립하고 검증합니다. |
+
+### 남은 작업
+
+- [ ] 검토된 control-objective 및 binding vocabulary를 범위가 제한된 시작 변환 결과에
+  구체화하고 집중 테스트에서 exact release 신원과 권한 필드가 없음을 입증합니다.
+- [ ] PostgreSQL 과거 토폴로지, 운영 메트릭 프로바이더 및 inventory-promotion 발행을
+  연결하고 집중 통합 점검의 재생 및 완전성 증적을 보존합니다.
+- [ ] 조정기를 조립하고 proposal-only 발신함 권고를 이벤트 버스로 발행하며 재시작,
+  중복 전달 및 최종 종결 근거를 남깁니다.
+- [ ] 하나의 고정된 release에서 결정론적 그래프 전파, 시간 범위 trajectory 불변식,
+  독립 결과 종결 및 실패 귀속 테스트가 모두 통과한 뒤에만 K6-K8을 종료합니다.
 
 ## Catalog-owned 인스턴스 변환 결과
 
