@@ -16,6 +16,8 @@ from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus
 _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,511}$")
 _MAX_DIGESTS = 256
+_MAX_DOCUMENTS = 20_000
+_MAX_CHUNKS = (_MAX_DOCUMENTS + _MAX_DIGESTS - 1) // _MAX_DIGESTS
 
 
 class GenerationState(StrEnum):
@@ -40,6 +42,103 @@ class SemanticAvailability(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class CatalogDocumentDigestChunk:
+    """Bounded identity for one ordered slice of generation documents."""
+
+    index: int
+    document_count: int
+    document_digest_root: str
+
+    def __post_init__(self) -> None:
+        if self.index < 0 or self.index >= _MAX_CHUNKS:
+            raise ValueError(f"document digest chunk index MUST be in [0, {_MAX_CHUNKS - 1}]")
+        if not 1 <= self.document_count <= _MAX_DIGESTS:
+            raise ValueError(f"document digest chunk count MUST be in [1, {_MAX_DIGESTS}]")
+        _require_digest("document_digest_root", self.document_digest_root)
+
+    @property
+    def digest(self) -> str:
+        return _canonical_digest(
+            {
+                "index": self.index,
+                "document_count": self.document_count,
+                "document_digest_root": self.document_digest_root,
+            }
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogDocumentDigestManifest:
+    """Replayable corpus identity with bounded ordered chunk records."""
+
+    document_count: int
+    document_digest_root: str
+    chunks: tuple[CatalogDocumentDigestChunk, ...]
+    inline_document_digests: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not 1 <= self.document_count <= _MAX_DOCUMENTS:
+            raise ValueError(f"manifest document count MUST be in [1, {_MAX_DOCUMENTS}]")
+        _require_digest("document_digest_root", self.document_digest_root)
+        if not self.chunks or len(self.chunks) > _MAX_CHUNKS:
+            raise ValueError(f"manifest MUST contain 1..{_MAX_CHUNKS} chunks")
+        indexes = tuple(chunk.index for chunk in self.chunks)
+        if indexes != tuple(range(len(self.chunks))):
+            raise ValueError("manifest chunk order MUST be contiguous")
+        if len({chunk.document_digest_root for chunk in self.chunks}) != len(self.chunks):
+            raise ValueError("manifest chunk identities MUST be unique")
+        if sum(chunk.document_count for chunk in self.chunks) != self.document_count:
+            raise ValueError("manifest chunk document count MUST equal document_count")
+        if self.document_digest_root != _chunk_manifest_root(self.chunks):
+            raise ValueError("manifest document digest root mismatch")
+        if self.document_count <= _MAX_DIGESTS:
+            if len(self.inline_document_digests) != self.document_count:
+                raise ValueError("small manifest MUST carry every inline document digest")
+            self.verify_document_digests(self.inline_document_digests)
+        elif self.inline_document_digests:
+            raise ValueError("corpus-scale manifest MUST NOT carry inline document digests")
+
+    def verify_document_digests(self, values: tuple[str, ...]) -> None:
+        """Recompute every chunk from ordered row digests or fail closed."""
+
+        _document_digest_sequence(values)
+        if len(values) != self.document_count:
+            raise ValueError("manifest document count does not match supplied digests")
+        offset = 0
+        for chunk in self.chunks:
+            upper = offset + chunk.document_count
+            if _document_chunk_root(values[offset:upper]) != chunk.document_digest_root:
+                raise ValueError("manifest document digest chunk mismatch")
+            offset = upper
+        if self.inline_document_digests and values != self.inline_document_digests:
+            raise ValueError("manifest inline document digests mismatch")
+
+
+def build_document_digest_manifest(
+    document_digests: tuple[str, ...],
+) -> CatalogDocumentDigestManifest:
+    """Build a bounded hierarchical identity from ordered document digests."""
+
+    _document_digest_sequence(document_digests)
+    chunks = tuple(
+        CatalogDocumentDigestChunk(
+            index=index // _MAX_DIGESTS,
+            document_count=len(document_digests[index : index + _MAX_DIGESTS]),
+            document_digest_root=_document_chunk_root(
+                document_digests[index : index + _MAX_DIGESTS]
+            ),
+        )
+        for index in range(0, len(document_digests), _MAX_DIGESTS)
+    )
+    return CatalogDocumentDigestManifest(
+        document_count=len(document_digests),
+        document_digest_root=_chunk_manifest_root(chunks),
+        chunks=chunks,
+        inline_document_digests=(document_digests if len(document_digests) <= _MAX_DIGESTS else ()),
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class CatalogSearchGeneration:
     """One complete and atomically activatable semantic-index generation."""
 
@@ -52,6 +151,7 @@ class CatalogSearchGeneration:
     embedding_model_version: str
     embedding_dimension: int
     document_digests: tuple[str, ...]
+    document_digest_manifest: CatalogDocumentDigestManifest | None = None
     state: GenerationState = GenerationState.STAGED
     validation_receipt_digest: str | None = None
     activated_at: datetime | None = None
@@ -72,7 +172,11 @@ class CatalogSearchGeneration:
             ("ontology_release_digest", self.ontology_release_digest),
         ):
             _require_digest(name, value)
-        _ordered_digests("document_digests", self.document_digests)
+        if self.document_digest_manifest is None:
+            _ordered_digests("document_digests", self.document_digests)
+        elif self.document_digests:
+            if self.document_digests != self.document_digest_manifest.inline_document_digests:
+                raise ValueError("generation inline document digests MUST match its manifest")
         if not 1 <= self.embedding_dimension <= 4096:
             raise ValueError("embedding_dimension MUST be in [1, 4096]")
         if self.validation_receipt_digest is not None:
@@ -90,24 +194,30 @@ class CatalogSearchGeneration:
 
     @property
     def digest(self) -> str:
-        return _canonical_digest(
-            {
-                "schema_version": self.schema_version,
-                "generation_id": self.generation_id,
-                "corpus": self.corpus.value,
-                "catalog_digest": self.catalog_digest,
-                "semantic_schema_digest": self.semantic_schema_digest,
-                "ontology_release_digest": self.ontology_release_digest,
-                "embedding_space_id": self.embedding_space_id,
-                "embedding_model_version": self.embedding_model_version,
-                "embedding_dimension": self.embedding_dimension,
-                "document_digests": self.document_digests,
-                "state": self.state.value,
-                "validation_receipt_digest": self.validation_receipt_digest,
-                "activated_at": _timestamp(self.activated_at),
-                "projection_authority": self.projection_authority,
+        payload: dict[str, Any] = {
+            "schema_version": self.schema_version,
+            "generation_id": self.generation_id,
+            "corpus": self.corpus.value,
+            "catalog_digest": self.catalog_digest,
+            "semantic_schema_digest": self.semantic_schema_digest,
+            "ontology_release_digest": self.ontology_release_digest,
+            "embedding_space_id": self.embedding_space_id,
+            "embedding_model_version": self.embedding_model_version,
+            "embedding_dimension": self.embedding_dimension,
+            "document_digests": self.document_digests,
+            "state": self.state.value,
+            "validation_receipt_digest": self.validation_receipt_digest,
+            "activated_at": _timestamp(self.activated_at),
+            "projection_authority": self.projection_authority,
+        }
+        if self.document_digest_manifest is not None:
+            payload["document_digest_manifest"] = {
+                "document_count": self.document_digest_manifest.document_count,
+                "document_digest_root": self.document_digest_manifest.document_digest_root,
+                "chunks": tuple(chunk.digest for chunk in self.document_digest_manifest.chunks),
+                "inline_document_digests": (self.document_digest_manifest.inline_document_digests),
             }
-        )
+        return _canonical_digest(payload)
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,15 +349,35 @@ def _ordered_digests(name: str, values: tuple[str, ...]) -> None:
         _require_digest(name, value)
 
 
+def _document_digest_sequence(values: tuple[str, ...]) -> None:
+    if not values or len(values) > _MAX_DOCUMENTS:
+        raise ValueError(f"document digests MUST contain 1..{_MAX_DOCUMENTS} values")
+    if len(values) != len(set(values)):
+        raise ValueError("document digests MUST be unique")
+    for value in values:
+        _require_digest("document digest", value)
+
+
+def _document_chunk_root(values: tuple[str, ...]) -> str:
+    return _canonical_digest({"document_digests": values})
+
+
+def _chunk_manifest_root(chunks: tuple[CatalogDocumentDigestChunk, ...]) -> str:
+    return _canonical_digest({"chunk_digests": tuple(chunk.digest for chunk in chunks)})
+
+
 def _timestamp(value: datetime | None) -> str | None:
     return value.astimezone(UTC).isoformat() if value is not None else None
 
 
 __all__ = [
+    "CatalogDocumentDigestChunk",
+    "CatalogDocumentDigestManifest",
     "CatalogRetrievalReceipt",
     "CatalogSearchGeneration",
     "GenerationState",
     "RetrievalOperation",
     "RetrievalRank",
     "SemanticAvailability",
+    "build_document_digest_manifest",
 ]
