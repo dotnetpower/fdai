@@ -199,9 +199,9 @@ class AzureResourceGraphInventory:
     async def full_snapshot(self, since: str | None = None) -> AsyncIterator[InventoryBatch]:
         """Parallel full-scan, sharded by ``resource_type``.
 
-        Emits one :class:`InventoryBatch` per shard as its ARG query
-        completes, then a final ``final=True`` fence batch the caller
-        uses to atomically promote the new graph
+        Validates and combines all completed shards into one generation
+        :class:`InventoryBatch`, then emits a final ``final=True`` fence
+        batch the caller uses to atomically promote the new graph
         (``docs/roadmap/architecture/csp-neutrality.md § 5``).
 
         ``since`` is currently unused - the stub returns the full shard

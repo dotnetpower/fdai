@@ -64,6 +64,7 @@ EXPECTED_DEPENDENCIES = {
         "fdai-service-contracts",
         "httpx",
         "psycopg",
+        "pydantic",
         "pyjwt",
         "starlette",
         "uvicorn",

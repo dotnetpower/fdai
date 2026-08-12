@@ -96,6 +96,10 @@ Local and deployed semantic turns also use the same logical request and projecti
 deployment multiplexes them over `aw.pantheon.objects`, both modes use the same physical marker,
 hashed consumer-group derivation, managed-identity transport, and shared physical DLQ behavior.
 
+Local and deployed Operator API composition also exposes the same service-owned, authenticated,
+read-only `/agents/activity` route from the frozen parity manifest. The route reads the durable
+activity projection and carries no decision, approval, or execution authority.
+
 The web-search pool uses the same warm-up and periodic measurement pattern. Its periodic probe asks
 for a minimal model response without the `web_search` tool; actual searches add end-to-end latency
 to the same window. `FDAI_WEB_SEARCH_PROBE_INTERVAL_SECONDS` defaults to `300` and cannot be below

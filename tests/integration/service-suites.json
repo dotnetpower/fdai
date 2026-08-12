@@ -69,6 +69,8 @@
           "services/operator-service/tests/test_operator_workflow_family.py"
         ],
         "integration": [
+          "services/operator-service/tests/test_activity_projection.py",
+          "services/operator-service/tests/test_agent_stream.py",
           "services/operator-service/tests/test_live_stream.py",
           "services/operator-service/tests/test_operator_postgres_replay.py",
           "services/operator-service/tests/test_operator_service_composition.py",
