@@ -343,6 +343,10 @@ Operator-requested runtime actions. Shipped Day 1:
 - `ops.start-vm` / `ops.deallocate-vm` - start or deallocate one Azure VM through the
   development operations gateway. Both remain shadow-first and require human approval at the
   shipped T0 ceiling.
+- `ops.scale-out` - the development operations gateway accepts one exact Uniform VM Scale Set
+  target and permits only a one-instance capacity increase per governed request. The FinOps
+  executor identity owns the provider call; the server rechecks the configured subscription and
+  resource group before issuing the ARM request.
 - `ops.upsert-network-rule` / `ops.delete-network-rule` - create, replace, or delete one bounded
   NSG rule through the development operations gateway. Deletion requires Owner-tier approval;
   recovery is a separately governed state-forward action.

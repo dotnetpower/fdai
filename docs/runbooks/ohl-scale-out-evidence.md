@@ -216,13 +216,15 @@ Change the scenario manifest to `complete` only when all conditions in the confi
 
 ## Current blockers
 
-This prepared contract intentionally leaves three residuals:
+This prepared contract leaves one residual:
 
 - the protected-runner live drill hasn't run;
-- production composition doesn't yet bind the graph Dynamic evidence provider;
-- the Azure direct-api allowlist doesn't yet bind `ops.scale-out`.
 
-Until all three close, the frozen scenario manifest remains `partial`, and the generated artifacts
+Production composition binds the graph Dynamic evidence provider, and the development operations
+gateway maps `ops.scale-out` to one exact Uniform VM Scale Set capacity increase. Focused tests
+verify both bindings without treating them as live outcome evidence.
+
+Until the live residual closes, the frozen scenario manifest remains `partial`, and the generated artifacts
 remain local evidence rather than tracked live claims.
 
 ## Related docs

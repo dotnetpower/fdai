@@ -130,8 +130,6 @@
     "completed_at": null
   },
   "residuals": [
-    "protected_runner_live_execution",
-    "production_graph_provider_binding",
-    "production_scale_out_executor_binding"
+    "protected_runner_live_execution"
   ]
 }

@@ -53,6 +53,7 @@ URLs, ARM paths, commands, or query text.
 | `azure.network.nsg.rule.delete` | write | One NSG security rule |
 | `azure.compute.vm.start` | execute | One VM |
 | `azure.compute.vm.deallocate` | execute | One VM |
+| `azure.compute.vmss.scale` | execute | One development VM Scale Set, exactly `+1` instance |
 | `azure.operation.status` | execute status | One previously submitted mutation |
 
 Mutation callers use this sequence:

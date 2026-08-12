@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: 0b91b939d8914eb0c8ad140f5e79f6cbb9d357ca
+translation_source_sha: a1375fe3b01fdc2bdfe7fdc4eb20d6be510dc881
 translation_revised: 2026-08-12
 ---
 # 운영 계획
@@ -30,8 +30,9 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 > constitutional 제약 검사, conditional 운영 런타임 연결을
 > 추가합니다. 런타임은 exact 온톨로지 release, operational 맥락, 프로세스 저장소, 활성
 > effect-model 읽기 담당, causal 검증기가 모두 있을 때만 계획 수립을 연결합니다. Staging 부분
-> 실행 증명, live graph shadow 측정 및 production binding은 완료된 live claim이 아니라 release
-> 근거로 남습니다.
+> 실행 증명과 live graph shadow 측정은 완료된 live claim이 아니라 release 근거로 남습니다.
+> Production graph evidence와 개발 `ops.scale-out` VM Scale Set 실행기 연결은 구현되어 focused
+> test로 검증됩니다. 보호된 러너 훈련, 독립 종결 및 전체 recurrence window는 아직 남아 있습니다.
 
 ## 한눈에 보는 설계
 

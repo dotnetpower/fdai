@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -49,6 +50,37 @@ def _request(*, mode: Mode) -> DirectApiRequest:
         mode=mode,
         metadata={
             "audit_ref": "action:audit-one",
+            "stop_condition": "provider_api_error_streak",
+            "rollback_ref": "state_forward_only",
+            "max_resources": "1",
+        },
+    )
+
+
+def _scale_out_request(*, mode: Mode) -> DirectApiRequest:
+    return DirectApiRequest(
+        action_id=UUID("00000000-0000-0000-0000-000000000002"),
+        idempotency_key="operation:scale-one",
+        action_type_name="ops.scale-out",
+        rule_ids=("operator.request.ops.scale-out",),
+        resource_ref=(
+            "/subscriptions/00000000-0000-0000-0000-000000000000/"
+            "resourceGroups/rg-example/providers/Microsoft.Compute/"
+            "virtualMachineScaleSets/vmss-app"
+        ),
+        arguments={
+            "target_resource_ref": (
+                "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                "resourceGroups/rg-example/providers/Microsoft.Compute/"
+                "virtualMachineScaleSets/vmss-app"
+            ),
+            "replica_count": 3,
+            "reason": "increase capacity for the measured workload",
+        },
+        labels=(("enforce",) if mode is Mode.ENFORCE else ("shadow",)),
+        mode=mode,
+        metadata={
+            "audit_ref": "action:audit-scale-one",
             "stop_condition": "provider_api_error_streak",
             "rollback_ref": "state_forward_only",
             "max_resources": "1",
@@ -129,6 +161,53 @@ async def test_shadow_plans_without_mutating() -> None:
     assert receipt.outcome is DirectApiOutcome.SUCCEEDED
     assert len(requests) == 1
     assert requests[0].url.path.endswith("/azure.operation.plan")
+
+
+async def test_scale_out_maps_exact_vmss_target_to_registered_operation() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "operation_id": "azure.operation.plan",
+                "status": "succeeded",
+                "result": {"status": "planned", "dry_run_receipt": "server-receipt"},
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        receipt = await AzureGatewayDirectApiExecutor(
+            config=_config(), identity=_Identity(), http_client=client
+        ).execute(_scale_out_request(mode=Mode.SHADOW))
+
+    assert receipt.outcome is DirectApiOutcome.SUCCEEDED
+    body = requests[0].read().decode()
+    assert '"operation_id":"azure.compute.vmss.scale"' in body
+    assert '"resource_group":"rg-example"' in body
+    assert '"vmss_name":"vmss-app"' in body
+    assert '"replica_count":3' in body
+
+
+async def test_scale_out_rejects_target_substitution_before_gateway_io() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(500)
+
+    request = replace(
+        _scale_out_request(mode=Mode.SHADOW),
+        resource_ref="resource:other",
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(DirectApiPreconditionError, match="must match"):
+            await AzureGatewayDirectApiExecutor(
+                config=_config(), identity=_Identity(), http_client=client
+            ).execute(request)
+
+    assert requests == []
 
 
 async def test_enforce_polls_submitted_operation_until_success() -> None:

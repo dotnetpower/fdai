@@ -30,8 +30,10 @@ central planner or another authority surface.
 > deterministic constitutional constraint checks, and conditional production
 > runtime binding. The runtime binds planning only when the exact ontology release, operational
 > context, Process store, active effect-model reader, and causal verifier are available. Staging
-> partial-execution proof, live graph shadow measurement, and their production bindings remain
-> release evidence, not completed live claims.
+> partial-execution proof and live graph shadow measurement remain release evidence, not completed
+> live claims. Production graph evidence and the development `ops.scale-out` VM Scale Set executor
+> bindings are implemented and covered by focused tests; the protected-runner drill, independent
+> closure, and full recurrence window remain outstanding.
 
 ## Design at a glance
 

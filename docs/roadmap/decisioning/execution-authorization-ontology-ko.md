@@ -1,7 +1,7 @@
 ---
 translation_of: execution-authorization-ontology.md
-translation_source_sha: 117d95c761c2f4751e38a0267554f6ec911c3bca
-translation_revised: 2026-08-11
+translation_source_sha: 7ff7490f78da2876b0664cc56f13175cdacac6ea
+translation_revised: 2026-08-12
 ---
 # 실행 권한 부여 온톨로지
 
@@ -21,7 +21,9 @@ translation_revised: 2026-08-11
 > hierarchical 범위 해석기, effective-access 탐색 assembly, exact-plan 권한 부여 검증,
 > 조립 연결기, role-filtered pending-grant 브라우저 변환 결과 및 revision-bound 브라우저 검토가
 > 구현되어 있습니다. 배포 환경은 맥락, 신원, 권한 대응, 탐색, 선택적 권한 부여 어댑터를 바인딩하여 게이트를
-> 활성화합니다.
+> 활성화합니다. 개발 operations 게이트웨이는 `ops.scale-out`을 FinOps 실행기 ID에 매핑하고,
+> 인스턴스 한 개의 용량 증가를 허용하기 전에 구성된 정확한 Uniform VM Scale Set 하나를 다시
+> 확인합니다. 이 전달 매핑은 기능, 정책 배정, 유효 접근, 위험 또는 승인 결정을 대체하지 않습니다.
 
 ## 설계 개요
 

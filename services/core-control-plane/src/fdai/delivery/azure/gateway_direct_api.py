@@ -27,6 +27,7 @@ _MAX_RESPONSE_BYTES = 262_144
 _ACTION_OPERATIONS = {
     "ops.start-vm": "azure.compute.vm.start",
     "ops.deallocate-vm": "azure.compute.vm.deallocate",
+    "ops.scale-out": "azure.compute.vmss.scale",
     "ops.upsert-network-rule": "azure.network.nsg.rule.upsert",
     "ops.delete-network-rule": "azure.network.nsg.rule.delete",
 }
@@ -86,7 +87,11 @@ class AzureGatewayDirectApiExecutor:
             raise DirectApiPreconditionError(
                 f"gateway has no registered operation for {request.action_type_name}"
             )
-        arguments = _arguments(operation_id, request.arguments)
+        arguments = _arguments(
+            operation_id,
+            request.arguments,
+            resource_ref=request.resource_ref,
+        )
         safety = _safety(request)
         plan = await self._invoke(
             "azure.operation.plan",
@@ -205,8 +210,15 @@ class AzureGatewayDirectApiExecutor:
         return body
 
 
-def _arguments(operation_id: str, raw: Mapping[str, object]) -> dict[str, object]:
+def _arguments(
+    operation_id: str,
+    raw: Mapping[str, object],
+    *,
+    resource_ref: str,
+) -> dict[str, object]:
     required: tuple[str, ...]
+    if operation_id == "azure.compute.vmss.scale":
+        return _vmss_scale_arguments(raw, resource_ref=resource_ref)
     if operation_id.startswith("azure.compute.vm."):
         required = ("resource_group", "vm_name")
     elif operation_id == "azure.network.nsg.rule.delete":
@@ -219,6 +231,46 @@ def _arguments(operation_id: str, raw: Mapping[str, object]) -> dict[str, object
             raise DirectApiPreconditionError(f"gateway argument {key} is required")
         arguments[key] = raw[key]
     return arguments
+
+
+def _vmss_scale_arguments(
+    raw: Mapping[str, object],
+    *,
+    resource_ref: str,
+) -> dict[str, object]:
+    target_ref = raw.get("target_resource_ref")
+    replica_count = raw.get("replica_count")
+    if not isinstance(target_ref, str) or target_ref != resource_ref:
+        raise DirectApiPreconditionError(
+            "scale-out target_resource_ref must match the action resource"
+        )
+    parts = target_ref.strip("/").split("/")
+    if (
+        len(parts) != 8
+        or parts[0].casefold() != "subscriptions"
+        or parts[2].casefold() != "resourcegroups"
+        or parts[4].casefold() != "providers"
+        or parts[5].casefold() != "microsoft.compute"
+        or parts[6].casefold() != "virtualmachinescalesets"
+        or not parts[1]
+        or not parts[3]
+        or not parts[7]
+    ):
+        raise DirectApiPreconditionError(
+            "scale-out target_resource_ref must identify one Azure VM Scale Set"
+        )
+    if (
+        not isinstance(replica_count, int)
+        or isinstance(replica_count, bool)
+        or not 1 <= replica_count <= 1000
+    ):
+        raise DirectApiPreconditionError("scale-out replica_count must be in [1, 1000]")
+    return {
+        "resource_group": parts[3],
+        "vmss_name": parts[7],
+        "target_resource_ref": target_ref,
+        "replica_count": replica_count,
+    }
 
 
 def _safety(request: DirectApiRequest) -> dict[str, object]:

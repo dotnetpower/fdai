@@ -204,6 +204,117 @@ async def test_mutations_are_disabled_by_default() -> None:
     assert calls == 0
 
 
+async def test_vmss_scale_plan_and_execution_are_bounded_to_one_instance() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.method == "GET":
+            return httpx.Response(
+                200,
+                json={
+                    "sku": {"capacity": 2},
+                    "properties": {"orchestrationMode": "Uniform"},
+                },
+            )
+        return httpx.Response(200, json={"sku": {"capacity": 3}})
+
+    ledger = _Ledger()
+    payload = {
+        "resource_group": "rg-example",
+        "vmss_name": "vmss-app",
+        "target_resource_ref": (
+            "/subscriptions/sub-example/resourceGroups/rg-example/providers/"
+            "Microsoft.Compute/virtualMachineScaleSets/vmss-app"
+        ),
+        "replica_count": 3,
+        "safety": _safety("operation:scale-one"),
+    }
+    principal = GatewayPrincipal("principal-finops", frozenset())
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        gateway = OperationsGateway(
+            config=_config(),
+            reader_token_provider=_Tokens(),
+            executor_token_provider=_Tokens(),
+            http_client=client,
+            idempotency_ledger=ledger,
+        )
+        plan = await gateway.invoke(
+            "azure.operation.plan",
+            {
+                "operation_id": "azure.compute.vmss.scale",
+                "arguments": {key: value for key, value in payload.items() if key != "safety"},
+                "safety": {
+                    key: value
+                    for key, value in _safety("operation:scale-one").items()
+                    if key != "dry_run_receipt"
+                },
+            },
+            principal,
+        )
+        dry_run = cast(Mapping[str, object], plan["result"])["dry_run_receipt"]
+        payload["safety"] = {**_safety("operation:scale-one"), "dry_run_receipt": dry_run}
+        result = await gateway.invoke("azure.compute.vmss.scale", payload, principal)
+
+    assert result["status"] == "succeeded"
+    mutation = requests[-1]
+    assert mutation.method == "PATCH"
+    assert mutation.url.path.endswith(
+        "/providers/Microsoft.Compute/virtualMachineScaleSets/vmss-app"
+    )
+    assert mutation.read().decode() == '{"sku":{"capacity":3}}'
+
+
+async def test_vmss_scale_plan_rejects_capacity_increase_larger_than_one() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "sku": {"capacity": 2},
+                "properties": {"orchestrationMode": "Uniform"},
+            },
+        )
+
+    arguments = {
+        "resource_group": "rg-example",
+        "vmss_name": "vmss-app",
+        "target_resource_ref": (
+            "/subscriptions/sub-example/resourceGroups/rg-example/providers/"
+            "Microsoft.Compute/virtualMachineScaleSets/vmss-app"
+        ),
+        "replica_count": 4,
+    }
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        gateway = OperationsGateway(
+            config=_config(),
+            reader_token_provider=_Tokens(),
+            executor_token_provider=_Tokens(),
+            http_client=client,
+            idempotency_ledger=_Ledger(),
+        )
+        with pytest.raises(GatewayError) as caught:
+            await gateway.invoke(
+                "azure.operation.plan",
+                {
+                    "operation_id": "azure.compute.vmss.scale",
+                    "arguments": arguments,
+                    "safety": {
+                        key: value
+                        for key, value in _safety("operation:scale-two").items()
+                        if key != "dry_run_receipt"
+                    },
+                },
+                GatewayPrincipal("principal-finops", frozenset()),
+            )
+
+    assert caught.value.status_code == 409
+    assert caught.value.code == "scale_out_of_bounds"
+    assert [request.method for request in requests] == ["GET"]
+
+
 @pytest.mark.parametrize("response", [httpx.Response(200, content=b"not-json")])
 async def test_managed_identity_invalid_response_fails_closed(
     monkeypatch: pytest.MonkeyPatch,

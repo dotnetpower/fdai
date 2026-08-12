@@ -20,7 +20,10 @@ risk and human-approval decision.
 > resolver-backed evaluator, hierarchical scope resolver, effective-access probe assembly,
 > exact-plan grant validation, composition binder, role-filtered pending-grant browser projection,
 > and revision-bound browser review are implemented. A deployment enables the gate by binding its context, identity,
-> permission mapping, probe, and optional grant adapters.
+> permission mapping, probe, and optional grant adapters. The development operations gateway maps
+> `ops.scale-out` to the FinOps executor identity and rechecks one exact configured Uniform VM Scale
+> Set before permitting a one-instance capacity increase. This delivery mapping does not replace
+> the capability, policy-assignment, effective-access, risk, or approval decisions.
 
 ## Design at a glance
 

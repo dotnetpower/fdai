@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 462aaf3c821f34f795c8917cf5b476b5396a099d
+translation_source_sha: 15d29a818a041cf7b78e5b01500469b218d79596
 translation_revised: 2026-08-12
 ---
 
@@ -338,6 +338,9 @@ decode되지만 의미 compilation은 항상 버전 2를 생성합니다. 컴파
 - `ops.start-vm` / `ops.deallocate-vm` - 개발 operations 게이트웨이를 통해 Azure VM 하나를
   시작하거나 deallocate합니다. 둘 다 shadow-first를 유지하며 shipped T0 상한에서 사람 승인을
   요구합니다.
+- `ops.scale-out` - 개발 operations 게이트웨이는 정확한 Uniform VM Scale Set 대상 하나를 받고,
+  통제된 요청 하나당 인스턴스 한 개만 늘릴 수 있습니다. FinOps 실행기 ID가 공급자 호출을 소유하며,
+  서버는 ARM 요청 전에 구성된 구독과 리소스 그룹을 다시 확인합니다.
 - `ops.upsert-network-rule` / `ops.delete-network-rule` - 개발 operations 게이트웨이를 통해
   범위가 제한된 NSG 룰 하나를 생성, 교체 또는 삭제합니다. 삭제는 Owner-tier 승인이 필요하며 복구는
   별도로 통제된 state-forward 액션입니다.

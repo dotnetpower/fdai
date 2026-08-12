@@ -37,6 +37,7 @@ _MUTATION_OPERATIONS = frozenset(
         "azure.network.nsg.rule.delete",
         "azure.compute.vm.start",
         "azure.compute.vm.deallocate",
+        "azure.compute.vmss.scale",
     }
 )
 _EXECUTOR_VERTICAL_ORDER = ("change", "resilience", "finops")
@@ -45,6 +46,7 @@ _OPERATION_VERTICALS = {
     "azure.network.nsg.rule.delete": "change",
     "azure.compute.vm.start": "resilience",
     "azure.compute.vm.deallocate": "finops",
+    "azure.compute.vmss.scale": "finops",
 }
 
 
@@ -283,6 +285,7 @@ class OperationsGateway:
             "azure.network.nsg.rule.delete": self._delete_nsg_rule,
             "azure.compute.vm.start": self._start_vm,
             "azure.compute.vm.deallocate": self._deallocate_vm,
+            "azure.compute.vmss.scale": self._scale_vmss,
         }
         handler = handlers.get(operation_id)
         if handler is None:
@@ -547,7 +550,10 @@ class OperationsGateway:
         payload: Mapping[str, object],
     ) -> str:
         subscription, group = self._scope(payload)
-        if operation_id.startswith("azure.compute.vm."):
+        if operation_id == "azure.compute.vmss.scale":
+            _, _, vmss_name = self._vmss_target(payload)
+            target = f"vmss/{vmss_name}"
+        elif operation_id.startswith("azure.compute.vm."):
             target = f"vm/{_identifier(payload, 'vm_name')}"
         else:
             target = (
@@ -563,6 +569,8 @@ class OperationsGateway:
         self._mutation_resource_key(operation_id, payload)
         if operation_id == "azure.network.nsg.rule.upsert":
             _nsg_rule_body(payload)
+        elif operation_id == "azure.compute.vmss.scale":
+            _integer(payload, "replica_count", minimum=1, maximum=1000)
 
     async def _preflight_mutation(
         self,
@@ -570,7 +578,14 @@ class OperationsGateway:
         payload: Mapping[str, object],
     ) -> None:
         subscription, group = self._scope(payload)
-        if operation_id.startswith("azure.compute.vm."):
+        if operation_id == "azure.compute.vmss.scale":
+            _, group, vmss_name = self._vmss_target(payload)
+            path = (
+                f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
+                f"Microsoft.Compute/virtualMachineScaleSets/{vmss_name}"
+            )
+            api_version = _COMPUTE_API_VERSION
+        elif operation_id.startswith("azure.compute.vm."):
             vm_name = _identifier(payload, "vm_name")
             path = (
                 f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
@@ -591,6 +606,35 @@ class OperationsGateway:
                 "azure_response_invalid",
                 "Azure mutation preflight did not return a resource object",
             )
+        if operation_id == "azure.compute.vmss.scale":
+            sku = observed.get("sku")
+            properties = observed.get("properties")
+            current_capacity = sku.get("capacity") if isinstance(sku, Mapping) else None
+            orchestration_mode = (
+                properties.get("orchestrationMode") if isinstance(properties, Mapping) else None
+            )
+            requested_capacity = _integer(
+                payload,
+                "replica_count",
+                minimum=1,
+                maximum=1000,
+            )
+            if (
+                not isinstance(current_capacity, int)
+                or isinstance(current_capacity, bool)
+                or requested_capacity != current_capacity + 1
+            ):
+                raise GatewayError(
+                    409,
+                    "scale_out_of_bounds",
+                    "development VMSS scale-out MUST increase capacity by exactly one",
+                )
+            if orchestration_mode != "Uniform":
+                raise GatewayError(
+                    409,
+                    "orchestration_mode_unsupported",
+                    "development VMSS scale-out requires Uniform orchestration",
+                )
 
     def _scope(self, payload: Mapping[str, object]) -> tuple[str, str]:
         resource_group = _identifier(payload, "resource_group")
@@ -794,6 +838,34 @@ class OperationsGateway:
             api_version=_COMPUTE_API_VERSION,
             executor=True,
         )
+
+    async def _scale_vmss(self, payload: Mapping[str, object]) -> object:
+        subscription, group, vmss_name = self._vmss_target(payload)
+        replica_count = _integer(payload, "replica_count", minimum=1, maximum=1000)
+        return await self._arm(
+            "PATCH",
+            f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
+            f"Microsoft.Compute/virtualMachineScaleSets/{vmss_name}",
+            api_version=_COMPUTE_API_VERSION,
+            json_body={"sku": {"capacity": replica_count}},
+            executor=True,
+        )
+
+    def _vmss_target(self, payload: Mapping[str, object]) -> tuple[str, str, str]:
+        subscription, group = self._scope(payload)
+        vmss_name = _identifier(payload, "vmss_name")
+        target_ref = _bounded(payload, "target_resource_ref", maximum=1024)
+        expected = (
+            f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
+            f"Microsoft.Compute/virtualMachineScaleSets/{vmss_name}"
+        )
+        if target_ref.casefold() != expected.casefold():
+            raise GatewayError(
+                403,
+                "target_mismatch",
+                "VMSS target does not match the configured subscription and resource group",
+            )
+        return subscription, group, vmss_name
 
     async def _arm(
         self,
