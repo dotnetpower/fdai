@@ -8,16 +8,14 @@ updates the provider-observed ontology graph.
 from __future__ import annotations
 
 import asyncio
-import json
-from collections.abc import Mapping
-from typing import Any, Literal, Protocol
+from datetime import datetime
+from typing import Literal, Protocol
 
 from fdai.shared.contracts.models import (
     OntologyDeclarationKind,
     OntologyRelease,
 )
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
-from fdai.shared.providers.state_store import StateStore
 
 from .action_plans import validate_action_plan_semantics
 from .kinetics import (
@@ -40,22 +38,23 @@ from .reconciliation_contracts import (
     ReconciliationRecommendation,
     reconciliation_content_digest,
 )
-
-
-class ReconciliationConflictError(RuntimeError):
-    """A stable reconciliation identity was reused with inconsistent request content."""
-
-
-class ReconciliationLedgerCorruptionError(RuntimeError):
-    """Durable reconciliation state failed its strict replay contract."""
-
-
-class ReconciliationAttemptLimitError(RuntimeError):
-    """A reconciliation exhausted its bounded non-terminal observation attempts."""
-
-
-class ReconciliationAggregateLimitError(RuntimeError):
-    """A durable reconciliation aggregate exceeded its canonical byte ceiling."""
+from .reconciliation_errors import (
+    ReconciliationAggregateLimitError,
+    ReconciliationAttemptLimitError,
+    ReconciliationConflictError,
+    ReconciliationLedgerCorruptionError,
+)
+from .reconciliation_events import (
+    ReconciliationOutboxDeliveryState,
+    ReconciliationOutboxEvent,
+    ReconciliationOutboxRecord,
+)
+from .reconciliation_state_store import (
+    StateStoreReconciliationLedger,
+    _outbox_is_claimable,
+    _require_claimed_outbox,
+    _validate_outbox_lease,
+)
 
 
 class ReconciliationLedger(Protocol):
@@ -64,6 +63,32 @@ class ReconciliationLedger(Protocol):
     async def record_attempt(self, outcome: ReconciliationOutcome) -> ReconciliationOutcome: ...
 
     async def commit_terminal(self, outcome: ReconciliationOutcome) -> ReconciliationOutcome: ...
+
+    async def claim_outbox(
+        self,
+        *,
+        claimant_id: str,
+        now: datetime,
+        lease_until: datetime,
+    ) -> ReconciliationOutboxEvent | None: ...
+
+    async def complete_outbox(
+        self,
+        reconciliation_id: str,
+        idempotency_key: str,
+        *,
+        claimant_id: str,
+        published_at: datetime,
+    ) -> None: ...
+
+    async def release_outbox(
+        self,
+        reconciliation_id: str,
+        idempotency_key: str,
+        *,
+        claimant_id: str,
+        available_at: datetime,
+    ) -> None: ...
 
 
 class InMemoryReconciliationLedger:
@@ -74,7 +99,7 @@ class InMemoryReconciliationLedger:
     def __init__(self) -> None:
         self._attempts: dict[str, ReconciliationOutcome] = {}
         self._terminal_outcomes: dict[str, ReconciliationOutcome] = {}
-        self._outbox: dict[str, ReconciliationRecommendation] = {}
+        self._outbox: dict[str, ReconciliationOutboxRecord] = {}
         self._lock = asyncio.Lock()
 
     @property
@@ -86,13 +111,20 @@ class InMemoryReconciliationLedger:
         return tuple(self._terminal_outcomes.values())
 
     @property
-    def outbox(self) -> tuple[ReconciliationRecommendation, ...]:
+    def outbox(self) -> tuple[ReconciliationOutboxEvent, ...]:
+        return tuple(record.event for record in self._outbox.values())
+
+    @property
+    def outbox_records(self) -> tuple[ReconciliationOutboxRecord, ...]:
         return tuple(self._outbox.values())
 
     async def record_attempt(self, outcome: ReconciliationOutcome) -> ReconciliationOutcome:
         if outcome.terminal:
             raise ValueError("terminal reconciliation MUST use commit_terminal")
         async with self._lock:
+            terminal = self._terminal_outcomes.get(outcome.reconciliation_id)
+            if terminal is not None:
+                return terminal
             existing = self._attempts.get(outcome.observation_attempt_id)
             if existing is None:
                 attempt_count = sum(
@@ -119,10 +151,6 @@ class InMemoryReconciliationLedger:
         async with self._lock:
             existing = self._terminal_outcomes.get(outcome.reconciliation_id)
             if existing is not None:
-                if existing.request_digest != outcome.request_digest:
-                    raise ReconciliationConflictError(
-                        "reconciliation terminal identity reused with different request content"
-                    )
                 return existing
             existing_attempt = self._attempts.get(outcome.observation_attempt_id)
             if (
@@ -142,226 +170,93 @@ class InMemoryReconciliationLedger:
                 )
             self._attempts[outcome.observation_attempt_id] = outcome
             self._terminal_outcomes[outcome.reconciliation_id] = outcome
-            self._outbox[outcome.recommendation.idempotency_key] = outcome.recommendation
+            event = ReconciliationOutboxEvent.from_outcome(outcome)
+            self._outbox[event.idempotency_key] = ReconciliationOutboxRecord(event=event)
             return outcome
 
-
-class StateStoreReconciliationLedger:
-    """Durable reconciliation aggregate with atomic terminal outcome and outbox state."""
-
-    _KEY_PREFIX = "ontology:reconciliation:"
-    _SCHEMA_VERSION = "1.0.0"
-    _MAX_CAS_ATTEMPTS = 64
-    _MAX_ATTEMPTS_PER_RECONCILIATION = 8
-    _MAX_AGGREGATE_BYTES = 16 * 1_048_576
-
-    def __init__(self, *, store: StateStore) -> None:
-        self._store = store
-
-    async def record_attempt(self, outcome: ReconciliationOutcome) -> ReconciliationOutcome:
-        if outcome.terminal:
-            raise ValueError("terminal reconciliation MUST use commit_terminal")
-        return await self._persist(outcome, terminal=False)
-
-    async def commit_terminal(self, outcome: ReconciliationOutcome) -> ReconciliationOutcome:
-        if not outcome.terminal:
-            raise ValueError("unscorable reconciliation is attempt evidence, not terminal closure")
-        return await self._persist(outcome, terminal=True)
-
-    async def _persist(
+    async def claim_outbox(
         self,
-        outcome: ReconciliationOutcome,
         *,
-        terminal: bool,
-    ) -> ReconciliationOutcome:
-        key = f"{self._KEY_PREFIX}{outcome.reconciliation_id}"
-        for _ in range(self._MAX_CAS_ATTEMPTS):
-            existing_record = await self._store.read_state(key)
-            if existing_record is None:
-                record = self._new_record(outcome, terminal=terminal)
-                if await self._store.write_state_with_audit_if_absent(
-                    key,
-                    record,
-                    self._audit_entry(outcome, terminal=terminal, revision=1),
-                ):
-                    return outcome
-                continue
+        claimant_id: str,
+        now: datetime,
+        lease_until: datetime,
+    ) -> ReconciliationOutboxEvent | None:
+        """Claim one due event so concurrent drainers cannot publish it simultaneously."""
 
-            revision, attempts, terminal_outcome = self._parse_record(
-                existing_record,
-                reconciliation_id=outcome.reconciliation_id,
-            )
-            if terminal_outcome is not None:
-                if terminal_outcome.request_digest != outcome.request_digest:
-                    raise ReconciliationConflictError(
-                        "reconciliation terminal identity reused with different request content"
-                    )
-                return terminal_outcome
-
-            existing_attempt = attempts.get(outcome.observation_attempt_id)
-            if existing_attempt is not None:
-                if existing_attempt.request_digest != outcome.request_digest:
-                    raise ReconciliationConflictError(
-                        "reconciliation attempt identity reused with different request content"
-                    )
-                return existing_attempt
-
-            maximum_existing = self._MAX_ATTEMPTS_PER_RECONCILIATION - int(not terminal)
-            if len(attempts) >= maximum_existing:
-                raise ReconciliationAttemptLimitError(
-                    "reconciliation observation attempt limit reached"
+        _validate_outbox_lease(claimant_id=claimant_id, now=now, lease_until=lease_until)
+        async with self._lock:
+            for key in sorted(self._outbox):
+                record = self._outbox[key]
+                if not _outbox_is_claimable(record, now=now):
+                    continue
+                self._outbox[key] = ReconciliationOutboxRecord(
+                    event=record.event,
+                    state=ReconciliationOutboxDeliveryState.CLAIMED,
+                    attempts=record.attempts + 1,
+                    available_at=record.available_at,
+                    claimant_id=claimant_id,
+                    lease_until=lease_until,
                 )
-            attempts[outcome.observation_attempt_id] = outcome
-            next_revision = revision + 1
-            record = self._record(
-                reconciliation_id=outcome.reconciliation_id,
-                revision=next_revision,
-                attempts=attempts,
-                terminal_outcome=outcome if terminal else None,
-            )
-            if await self._store.compare_and_set_state_with_audit(
-                key,
-                record,
-                expected_revision=revision,
-                audit_entry=self._audit_entry(
-                    outcome,
-                    terminal=terminal,
-                    revision=next_revision,
-                ),
-            ):
-                return outcome
-        raise RuntimeError("reconciliation ledger update conflicted repeatedly")
+                return record.event
+        return None
 
-    def _new_record(
+    async def complete_outbox(
         self,
-        outcome: ReconciliationOutcome,
-        *,
-        terminal: bool,
-    ) -> dict[str, Any]:
-        return self._record(
-            reconciliation_id=outcome.reconciliation_id,
-            revision=1,
-            attempts={outcome.observation_attempt_id: outcome},
-            terminal_outcome=outcome if terminal else None,
-        )
-
-    def _record(
-        self,
-        *,
         reconciliation_id: str,
-        revision: int,
-        attempts: Mapping[str, ReconciliationOutcome],
-        terminal_outcome: ReconciliationOutcome | None,
-    ) -> dict[str, Any]:
-        outbox = (
-            {
-                terminal_outcome.recommendation.idempotency_key: (
-                    terminal_outcome.recommendation.model_dump(mode="json")
+        idempotency_key: str,
+        *,
+        claimant_id: str,
+        published_at: datetime,
+    ) -> None:
+        """Mark a claimed event published after the broker acknowledges it."""
+
+        async with self._lock:
+            record = _require_claimed_outbox(
+                self._outbox,
+                idempotency_key=idempotency_key,
+                claimant_id=claimant_id,
+            )
+            if record.event.result.reconciliation_id != reconciliation_id:
+                raise ReconciliationConflictError(
+                    "reconciliation outbox event belongs to another aggregate"
                 )
-            }
-            if terminal_outcome is not None
-            else {}
-        )
-        record = {
-            "schema_version": self._SCHEMA_VERSION,
-            "reconciliation_id": reconciliation_id,
-            "revision": revision,
-            "attempts": {
-                attempt_id: attempt.model_dump(mode="json")
-                for attempt_id, attempt in attempts.items()
-            },
-            "terminal_outcome": (
-                terminal_outcome.model_dump(mode="json") if terminal_outcome is not None else None
-            ),
-            "outbox": outbox,
-        }
-        encoded = json.dumps(
-            record,
-            ensure_ascii=False,
-            separators=(",", ":"),
-            sort_keys=True,
-        ).encode("utf-8")
-        if len(encoded) > self._MAX_AGGREGATE_BYTES:
-            raise ReconciliationAggregateLimitError(
-                "durable reconciliation aggregate exceeds its canonical byte limit"
+            if record.state is ReconciliationOutboxDeliveryState.PUBLISHED:
+                return
+            self._outbox[idempotency_key] = ReconciliationOutboxRecord(
+                event=record.event,
+                state=ReconciliationOutboxDeliveryState.PUBLISHED,
+                attempts=record.attempts,
+                available_at=record.available_at,
+                published_at=published_at,
             )
-        return record
 
-    def _parse_record(
+    async def release_outbox(
         self,
-        record: Mapping[str, Any],
-        *,
         reconciliation_id: str,
-    ) -> tuple[int, dict[str, ReconciliationOutcome], ReconciliationOutcome | None]:
-        try:
-            if (
-                record.get("schema_version") != self._SCHEMA_VERSION
-                or record.get("reconciliation_id") != reconciliation_id
-                or not isinstance(record.get("revision"), int)
-                or isinstance(record.get("revision"), bool)
-                or int(record["revision"]) < 1
-                or not isinstance(record.get("attempts"), Mapping)
-                or not isinstance(record.get("outbox"), Mapping)
-            ):
-                raise ValueError("invalid reconciliation aggregate metadata")
-            attempts = {
-                str(attempt_id): ReconciliationOutcome.model_validate(payload)
-                for attempt_id, payload in record["attempts"].items()
-            }
-            if any(
-                attempt_id != attempt.observation_attempt_id
-                or attempt.reconciliation_id != reconciliation_id
-                for attempt_id, attempt in attempts.items()
-            ):
-                raise ValueError("attempt identity does not match reconciliation aggregate")
-            if len(attempts) > self._MAX_ATTEMPTS_PER_RECONCILIATION:
-                raise ValueError("reconciliation aggregate exceeds its attempt limit")
-            terminal_payload = record.get("terminal_outcome")
-            terminal_outcome = (
-                ReconciliationOutcome.model_validate(terminal_payload)
-                if terminal_payload is not None
-                else None
-            )
-            if terminal_outcome is None:
-                if record["outbox"] or len(attempts) >= self._MAX_ATTEMPTS_PER_RECONCILIATION:
-                    raise ValueError("non-terminal reconciliation aggregate contains outbox state")
-            else:
-                recommendation = terminal_outcome.recommendation
-                if (
-                    not terminal_outcome.terminal
-                    or terminal_outcome.reconciliation_id != reconciliation_id
-                    or attempts.get(terminal_outcome.observation_attempt_id) != terminal_outcome
-                    or record["outbox"]
-                    != {recommendation.idempotency_key: recommendation.model_dump(mode="json")}
-                ):
-                    raise ValueError("terminal reconciliation aggregate is not atomic and bound")
-            return int(record["revision"]), attempts, terminal_outcome
-        except (TypeError, ValueError) as exc:
-            raise ReconciliationLedgerCorruptionError(
-                "durable reconciliation state failed validation"
-            ) from exc
-
-    @staticmethod
-    def _audit_entry(
-        outcome: ReconciliationOutcome,
+        idempotency_key: str,
         *,
-        terminal: bool,
-        revision: int,
-    ) -> dict[str, Any]:
-        return {
-            "actor": "fdai.core.ontology_platform.reconciliation",
-            "action_kind": (
-                "ontology.reconciliation.terminal_committed"
-                if terminal
-                else "ontology.reconciliation.attempt_recorded"
-            ),
-            "reconciliation_id": outcome.reconciliation_id,
-            "observation_attempt_id": outcome.observation_attempt_id,
-            "request_digest": outcome.request_digest,
-            "receipt_digest": outcome.receipt_digest,
-            "recommendation_idempotency_key": outcome.recommendation.idempotency_key,
-            "revision": revision,
-        }
+        claimant_id: str,
+        available_at: datetime,
+    ) -> None:
+        """Release a failed publication for deterministic retry with the same event identity."""
+
+        async with self._lock:
+            record = _require_claimed_outbox(
+                self._outbox,
+                idempotency_key=idempotency_key,
+                claimant_id=claimant_id,
+            )
+            if record.event.result.reconciliation_id != reconciliation_id:
+                raise ReconciliationConflictError(
+                    "reconciliation outbox event belongs to another aggregate"
+                )
+            if record.state is ReconciliationOutboxDeliveryState.PUBLISHED:
+                return
+            self._outbox[idempotency_key] = ReconciliationOutboxRecord(
+                event=record.event,
+                attempts=record.attempts,
+                available_at=available_at,
+            )
 
 
 class EffectReconciliationCoordinator:
@@ -387,8 +282,15 @@ class EffectReconciliationCoordinator:
         _validate_plan_integrity(validated.plan)
         _validate_exact_bindings(validated, release)
         _validate_authenticated_binding(validated, authenticated)
-        unscorable_reason: str | None = None
-        if validated.evaluated_at > validated.deadline:
+        unscorable_reason = _independent_observation_reason(authenticated)
+        if unscorable_reason is not None:
+            receipt = ReconciliationReceipt(
+                plan_digest=validated.plan.digest,
+                status=ReconciliationStatus.UNSCORABLE,
+                observed_at=validated.evidence.observed_at,
+                evidence_refs=validated.evidence.evidence_refs,
+            )
+        elif validated.evaluated_at > validated.deadline:
             receipt = ReconciliationReceipt(
                 plan_digest=validated.plan.digest,
                 status=ReconciliationStatus.TIMED_OUT,
@@ -505,12 +407,11 @@ def _validate_authenticated_binding(
         raise ValueError("authenticated observation identities do not match the envelope")
 
 
-def _unscorable_reason(
-    request: EffectReconciliationRequest,
-    release: OntologyRelease,
+def _independent_observation_reason(
     context: AuthenticatedObservationContext,
 ) -> str | None:
-    evidence = request.evidence
+    """Return why authenticated evidence cannot independently close an effect."""
+
     if context.source_authority not in {
         EffectEvidenceAuthority.PROVIDER,
         EffectEvidenceAuthority.TELEMETRY,
@@ -530,6 +431,15 @@ def _unscorable_reason(
     }
     if len(normalized_credentials) != 3:
         return "observation_credential_not_independent"
+    return None
+
+
+def _unscorable_reason(
+    request: EffectReconciliationRequest,
+    release: OntologyRelease,
+    context: AuthenticatedObservationContext,
+) -> str | None:
+    evidence = request.evidence
     if request.plan.schema_version != "2.0.0" or request.action_type is None:
         return "semantic_effect_coverage_unproven"
     try:
@@ -616,6 +526,7 @@ def _build_outcome(
         receipt_digest=receipt_digest,
         observation_context_digest=observation_context_digest,
         verification_receipt_digest=verification_receipt_digest,
+        observation_context=observation_context,
         request=request,
         receipt=receipt,
         recommendation=recommendation,
@@ -632,9 +543,13 @@ __all__ = [
     "InMemoryReconciliationLedger",
     "ObservedEffectRecord",
     "ObservationVerificationReceipt",
+    "ReconciliationAggregateLimitError",
+    "ReconciliationAttemptLimitError",
     "ReconciliationConflictError",
     "ReconciliationLedger",
+    "ReconciliationLedgerCorruptionError",
     "ReconciliationNextStep",
     "ReconciliationOutcome",
     "ReconciliationRecommendation",
+    "StateStoreReconciliationLedger",
 ]

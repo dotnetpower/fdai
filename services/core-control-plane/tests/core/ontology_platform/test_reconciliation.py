@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -21,9 +22,13 @@ from fdai.core.ontology_platform.reconciliation import (
     InMemoryReconciliationLedger,
     ObservationVerificationReceipt,
     ObservedEffectRecord,
-    ReconciliationConflictError,
     ReconciliationNextStep,
     ReconciliationOutcome,
+)
+from fdai.core.ontology_platform.reconciliation_events import (
+    EffectReconciliationRequestEvent,
+    ReconciliationOutboxDeliveryState,
+    ReconciliationOutboxEvent,
 )
 from fdai.shared.contracts.models import (
     ActionEffectSpec,
@@ -301,7 +306,105 @@ async def test_unscorable_attempt_does_not_poison_authenticated_terminal_retry()
     assert first.reconciliation_id == retry.reconciliation_id
     assert len(ledger.attempts) == 2
     assert ledger.terminal_outcomes == (retry,)
-    assert ledger.outbox == (retry.recommendation,)
+    assert ledger.outbox[0].recommendation == retry.recommendation
+
+
+async def test_compact_request_result_and_outbox_events_preserve_exact_bindings() -> None:
+    release, target, plan, action_type = _fixture()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+    )
+    context = _authenticated_context(request)
+    request_event = EffectReconciliationRequestEvent.from_request(
+        request,
+        observation_context=context,
+    )
+
+    replayed_event = EffectReconciliationRequestEvent.model_validate_json(
+        request_event.model_dump_json()
+    )
+    rebound = replayed_event.bind(
+        plan=plan,
+        action_type=action_type,
+        active_release=release,
+    )
+    outcome = await EffectReconciliationCoordinator(
+        ledger=InMemoryReconciliationLedger()
+    ).coordinate(
+        rebound,
+        observation_context=context,
+        active_release=release,
+    )
+    outbox = ReconciliationOutboxEvent.from_outcome(outcome)
+
+    payload = request_event.model_dump(mode="json")
+    assert "plan" not in payload
+    assert "action_type" not in payload
+    assert set(payload["ontology_release_ref"]) == {"schema_version", "digest"}
+    assert request_event.target_revisions[0].revision == target.revision
+    assert rebound == request
+    assert outbox.result.observer_identity == context.observer_identity
+    assert outbox.result.executor_identity == context.executor_identity
+    assert outbox.result.source_credential_lineage == context.source_credential_lineage
+    assert outbox.recommendation.ontology_release_ref == release.ref()
+    assert outbox.recommendation.action_type_ref == plan.action_type_ref
+    assert outbox.recommendation.plan_digest == plan.digest
+    assert outbox.proposal_only is True
+    assert outbox.grants_authority is False
+    assert ReconciliationOutboxEvent.model_validate_json(outbox.model_dump_json()) == outbox
+
+
+async def test_outbox_claim_is_singleton_and_duplicate_terminal_adds_no_delivery() -> None:
+    release, target, plan, action_type = _fixture()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+    )
+    ledger = InMemoryReconciliationLedger()
+    coordinator = EffectReconciliationCoordinator(ledger=ledger)
+    outcome = await _coordinate(coordinator, request, release=release)
+    now = CREATED_AT + timedelta(minutes=3)
+
+    claims = await asyncio.gather(
+        *(
+            ledger.claim_outbox(
+                claimant_id=f"drainer-{index}",
+                now=now,
+                lease_until=now + timedelta(seconds=30),
+            )
+            for index in range(16)
+        )
+    )
+    claimed = tuple(event for event in claims if event is not None)
+    assert len(claimed) == 1
+    assert claimed[0].idempotency_key == outcome.recommendation.idempotency_key
+
+    owner = next(f"drainer-{index}" for index, event in enumerate(claims) if event is not None)
+    await ledger.complete_outbox(
+        outcome.reconciliation_id,
+        claimed[0].idempotency_key,
+        claimant_id=owner,
+        published_at=now,
+    )
+    replay = await _coordinate(coordinator, request, release=release)
+
+    assert replay == outcome
+    assert len(ledger.outbox) == 1
+    assert ledger.outbox_records[0].state is ReconciliationOutboxDeliveryState.PUBLISHED
+    assert ledger.outbox_records[0].attempts == 1
+    assert (
+        await ledger.claim_outbox(
+            claimant_id="replay-drainer",
+            now=now + timedelta(minutes=1),
+            lease_until=now + timedelta(minutes=2),
+        )
+        is None
+    )
 
 
 async def test_same_observation_unscorable_attempt_does_not_block_later_timeout() -> None:
@@ -595,7 +698,7 @@ def test_request_rejects_observation_before_plan() -> None:
         )
 
 
-async def test_coordinator_detects_inconsistent_duplicate() -> None:
+async def test_coordinator_replays_canonical_terminal_for_reordered_observation() -> None:
     release, target, plan, action_type = _fixture()
     ledger = InMemoryReconciliationLedger()
     coordinator = EffectReconciliationCoordinator(ledger=ledger)
@@ -616,10 +719,57 @@ async def test_coordinator_detects_inconsistent_duplicate() -> None:
 
     first = await _coordinate(coordinator, matched, release=release)
     replay = await _coordinate(coordinator, matched, release=release)
+    reordered = await _coordinate(coordinator, mismatched, release=release)
     assert replay == first
+    assert reordered == first
+    assert len(ledger.attempts) == 1
+    assert len(ledger.outbox) == 1
 
-    with pytest.raises(ReconciliationConflictError, match="different request content"):
-        await _coordinate(coordinator, mismatched, release=release)
+
+@pytest.mark.parametrize(
+    ("first_replicas", "late_replicas", "duplicate_count"),
+    (
+        (3, 4, 1),
+        (3, 4, 8),
+        (4, 3, 1),
+        (4, 3, 8),
+    ),
+)
+async def test_duplicate_and_reordered_terminal_delivery_preserves_first_closure(
+    first_replicas: int,
+    late_replicas: int,
+    duplicate_count: int,
+) -> None:
+    release, target, plan, action_type = _fixture()
+    first_request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+        replicas=first_replicas,
+    )
+    late_request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+        replicas=late_replicas,
+        observed_at=CREATED_AT + timedelta(minutes=1, seconds=1),
+    )
+    ledger = InMemoryReconciliationLedger()
+    coordinator = EffectReconciliationCoordinator(ledger=ledger)
+
+    first = await _coordinate(coordinator, first_request, release=release)
+    deliveries = await asyncio.gather(
+        *(_coordinate(coordinator, first_request, release=release) for _ in range(duplicate_count)),
+        _coordinate(coordinator, late_request, release=release),
+    )
+
+    assert all(delivery == first for delivery in deliveries)
+    assert len(ledger.attempts) == 1
+    assert ledger.terminal_outcomes == (first,)
+    assert len(ledger.outbox) == 1
+    assert ledger.outbox[0].idempotency_key == first.recommendation.idempotency_key
 
 
 def test_request_rejects_invalid_deadline() -> None:

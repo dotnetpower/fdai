@@ -424,6 +424,7 @@ class ReconciliationOutcome(ContractBase):
     receipt_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     observation_context_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     verification_receipt_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+    observation_context: AuthenticatedObservationContext
     request: EffectReconciliationRequest
     receipt: ReconciliationReceipt
     recommendation: ReconciliationRecommendation
@@ -435,6 +436,13 @@ class ReconciliationOutcome(ContractBase):
             self.receipt.model_dump(mode="json")
         ):
             raise ValueError("reconciliation receipt digest does not match receipt")
+        if self.observation_context_digest != self.observation_context.content_digest():
+            raise ValueError("reconciliation observation context digest does not match content")
+        if (
+            self.verification_receipt_digest
+            != self.observation_context.verification_receipt.receipt_digest
+        ):
+            raise ValueError("reconciliation verification receipt digest does not match content")
         request = self.request
         if (
             request.reconciliation_id != self.reconciliation_id

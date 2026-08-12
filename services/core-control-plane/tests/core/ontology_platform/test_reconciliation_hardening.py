@@ -103,14 +103,34 @@ async def test_verification_receipt_is_signed_content_addressed_and_observation_
         )
 
 
-async def test_timeout_precedes_unscorable_authority_and_completeness() -> None:
+@pytest.mark.parametrize(
+    ("authority", "execution_identity", "reason_code"),
+    (
+        (
+            EffectEvidenceAuthority.UNKNOWN,
+            "thor-executor",
+            "source_not_authoritative",
+        ),
+        (
+            EffectEvidenceAuthority.PROVIDER,
+            "heimdall-observer",
+            "observation_not_independent",
+        ),
+    ),
+)
+async def test_untrusted_observation_cannot_become_terminal_after_deadline(
+    authority: EffectEvidenceAuthority,
+    execution_identity: str,
+    reason_code: str,
+) -> None:
     release, target, plan, action_type = _fixture()
     request = _request(
         release=release,
         target=target,
         plan=plan,
         action_type=action_type,
-        authority=EffectEvidenceAuthority.UNKNOWN,
+        authority=authority,
+        execution_identity=execution_identity,
         evaluated_at=DEADLINE + timedelta(seconds=1),
     )
     incomplete_evidence = EffectObservationEnvelope.create(
@@ -131,13 +151,50 @@ async def test_timeout_precedes_unscorable_authority_and_completeness() -> None:
         timed_request,
         observation_context=_authenticated_context(
             timed_request,
-            source_authority=EffectEvidenceAuthority.UNKNOWN,
+            source_authority=authority,
         ),
+        active_release=release,
+    )
+
+    assert outcome.receipt.status is ReconciliationStatus.UNSCORABLE
+    assert outcome.recommendation.next_step is ReconciliationNextStep.HOLD_UNSCORABLE
+    assert outcome.recommendation.reason_code == reason_code
+
+
+async def test_independent_incomplete_observation_can_close_as_timed_out() -> None:
+    release, target, plan, action_type = _fixture()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+        evaluated_at=DEADLINE + timedelta(seconds=1),
+    )
+    incomplete_evidence = EffectObservationEnvelope.create(
+        **request.evidence.model_dump(exclude={"observation_id", "complete"}),
+        complete=False,
+    )
+    timed_request = EffectReconciliationRequest.create(
+        correlation_id=request.correlation_id,
+        plan=plan,
+        action_type=action_type,
+        evidence=incomplete_evidence,
+        deadline=DEADLINE,
+        evaluated_at=request.evaluated_at,
+    )
+
+    outcome = await EffectReconciliationCoordinator(
+        ledger=InMemoryReconciliationLedger()
+    ).coordinate(
+        timed_request,
+        observation_context=_authenticated_context(timed_request),
         active_release=release,
     )
 
     assert outcome.receipt.status is ReconciliationStatus.TIMED_OUT
     assert outcome.recommendation.next_step is ReconciliationNextStep.REQUEST_VIDAR_RECOVERY
+    assert outcome.recommendation.proposal_only is True
+    assert outcome.recommendation.grants_authority is False
 
 
 async def test_v2_semantic_effect_coverage_is_revalidated_before_matching() -> None:
@@ -227,7 +284,7 @@ async def test_recommendation_binds_exact_refs_and_concurrent_replay_is_singleto
     assert recommendation.grants_authority is False
     assert len(ledger.attempts) == 1
     assert len(ledger.terminal_outcomes) == 1
-    assert ledger.outbox == (recommendation,)
+    assert ledger.outbox[0].recommendation == recommendation
 
 
 @pytest.mark.parametrize(
@@ -295,7 +352,7 @@ async def test_outcome_wire_validation_rejects_forged_context_digest() -> None:
     payload = outcome.model_dump(mode="json")
     payload["observation_context_digest"] = "sha256:" + "f" * 64
 
-    with pytest.raises(ValidationError, match="recommendation is not bound"):
+    with pytest.raises(ValidationError, match="context digest does not match content"):
         type(outcome).model_validate(payload)
 
 

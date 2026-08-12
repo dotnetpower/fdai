@@ -86,6 +86,27 @@ from .query_topology_handlers import (
 )
 from .query_values import QueryRow, QueryTable
 from .query_verification import OntologyQueryPlanVerifier
+from .reconciliation import (
+    EffectReconciliationCoordinator,
+    ReconciliationLedger,
+    StateStoreReconciliationLedger,
+)
+from .reconciliation_binding import (
+    RECONCILIATION_OUTBOX_TOPIC,
+    RECONCILIATION_REQUEST_TOPIC,
+    EffectReconciliationBinder,
+    ObservationContextVerifier,
+    ReconciliationArtifactResolver,
+    ResolvedReconciliationArtifacts,
+)
+from .reconciliation_events import (
+    EffectReconciliationRequestEvent,
+    EffectReconciliationResultEvent,
+    ReconciliationOutboxDeliveryState,
+    ReconciliationOutboxEvent,
+    ReconciliationOutboxRecord,
+    ReconciliationTargetRevision,
+)
 from .sdk_codegen import GeneratedOntologySdk, generate_ontology_sdk
 from .semantic_plans import (
     ActiveSemanticCatalog,
@@ -127,6 +148,10 @@ __all__ = [
     "FunctionInvocationReceipt",
     "FunctionNodeHandler",
     "EvidenceJoinNodeHandler",
+    "EffectReconciliationBinder",
+    "EffectReconciliationCoordinator",
+    "EffectReconciliationRequestEvent",
+    "EffectReconciliationResultEvent",
     "InterfaceImplementation",
     "InterpretationCandidateSource",
     "ObjectPredicate",
@@ -158,6 +183,7 @@ __all__ = [
     "OntologyInterfaceType",
     "OntologyQueryPlanExecutor",
     "OntologyQueryPlanVerifier",
+    "ObservationContextVerifier",
     "OrderNodeHandler",
     "ProjectionBinding",
     "ProjectNodeHandler",
@@ -167,13 +193,23 @@ __all__ = [
     "QueryPlanExecution",
     "QueryRow",
     "QueryTable",
+    "RECONCILIATION_OUTBOX_TOPIC",
+    "RECONCILIATION_REQUEST_TOPIC",
+    "ReconciliationArtifactResolver",
+    "ReconciliationLedger",
+    "ReconciliationOutboxDeliveryState",
+    "ReconciliationOutboxEvent",
+    "ReconciliationOutboxRecord",
     "ReconciliationReceipt",
     "ReconciliationStatus",
+    "ReconciliationTargetRevision",
+    "ResolvedReconciliationArtifacts",
     "SemanticBasisValidator",
     "SemanticInterpretationCandidate",
     "SemanticOperationClass",
     "SecuredObjectSetNodeHandler",
     "SetOperationNodeHandler",
+    "StateStoreReconciliationLedger",
     "TargetRevision",
     "TopologyDiff",
     "TopologyDiffNodeHandler",
