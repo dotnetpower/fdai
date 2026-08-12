@@ -22,7 +22,7 @@ const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
   "conversation-delivery": ["/conversation-delivery"],
   agents: ["/incidents", "/agents/stream"],
   pantheon: ["/incidents", "/agents/stream"],
-  "agent-activity": ["/audit", "/agents/stream"],
+  "agent-activity": ["/audit", "/agents/activity", "/agents/stream"],
   handover: ["/stewardship"],
   architecture: ["/inventory/graph"],
   ontology: ["/ontology/graph"],

@@ -32,6 +32,7 @@ import {
 } from "../deck/context";
 import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import {
+  agentActivityTimestamp,
   agentStreamDescriptor,
   useAgentStream,
   type AgentActivityMessage,
@@ -181,8 +182,13 @@ export function AgentActivityRoute({ client }: Props) {
     if (showLoading) setState({ status: "loading" });
     else setRefreshing(true);
     try {
-      const page = await client.listAudit({ limit: TIMELINE_LIMIT });
+      const [page, operational] = await Promise.all([
+        client.listAudit({ limit: TIMELINE_LIMIT }),
+        client.listAgentActivity(TIMELINE_LIMIT),
+      ]);
       if (requestGeneration.current === generation) {
+        dispatch({ kind: "hydrate-activity", activities: operational.items });
+        if (operational.items[0]) setLastEventAt(operational.items[0].observed_at);
         setState({
           status: "ready",
           data: { items: page.items, olderAvailable: page.next_cursor !== null },
@@ -209,10 +215,11 @@ export function AgentActivityRoute({ client }: Props) {
 
   const { status: streamStatus, source: streamSource } = useAgentStream({
     url: stream.url,
+    enabled: state.status === "ready",
     getAuthorizationHeader: client.authorizationHeader,
     onEvent: (message) => {
       dispatch({ kind: "message", msg: message });
-      setLastEventAt(message.ts);
+      setLastEventAt(agentActivityTimestamp(message));
       if (!shouldRefreshAuditForAgentMessage(message)) return;
       const now = Date.now();
       if (now - lastStreamRefresh.current < 1500) return;

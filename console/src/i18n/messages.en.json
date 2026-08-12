@@ -376,6 +376,13 @@
       "exitFullscreen": "Exit full screen",
       "agent": "Agent",
       "allAgents": "All agents",
+      "lanes": "Operational activity type",
+      "lane": {
+        "all": "All work",
+        "inventory.scan": "Inventory scan",
+        "current-state.read": "Current state",
+        "inventory.ontology-projection": "Ontology projection"
+      },
       "find": "Find",
       "searchPlaceholder": "message, action, resource, or correlation",
       "noRows": "No matching agent activity.",

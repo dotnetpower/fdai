@@ -1,4 +1,8 @@
 import {
+  decodeAgentOperationalActivityPage,
+  type AgentOperationalActivityPage,
+} from "./agent-operational-activity";
+import {
   decodeAuditPage,
   decodeHilQueuePage,
   decodeIncidentPage,
@@ -56,6 +60,13 @@ export class OperationsApiClient {
     if (options.fromSeq !== undefined) params.set("from_seq", String(options.fromSeq));
     if (options.throughSeq !== undefined) params.set("through_seq", String(options.throughSeq));
     return decodeAuditPage(await this.#transport.getJson<unknown>("/audit", params));
+  }
+
+  async listAgentActivity(limit = 200): Promise<AgentOperationalActivityPage> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    return decodeAgentOperationalActivityPage(
+      await this.#transport.getJson<unknown>("/agents/activity", params),
+    );
   }
 
   async listIncidents(options: IncidentQuery = {}): Promise<IncidentPage> {

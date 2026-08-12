@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 13ef8d74d9530d14a8628dbf41e66332dcbc8f38
-translation_revised: 2026-08-11
+translation_source_sha: d345d9ecf89f86cff5007e7ef02eff395851946c
+translation_revised: 2026-08-12
 ---
 
 # 콘솔 근거 및 복원력
@@ -578,15 +578,15 @@ principal 범위로 한정된 명시적 선택이 제거되면 즉시 중지합�
 결과만 발행합니다. Shared 브라우저 원장은 여러 tab에서 같은 이벤트 tag를 5분 동안 억제하고 system
 notification 전달을 분당 5건으로 제한하지만 감사 또는 인시던트 근거는 제거하지 않습니다.
 
-에이전트 스트림은 로컬 및 deployed 프로파일에서 같은 shared 단계 전송 계층을 통해 실제 상태에서
-파생한 `agent.runtime-state` 하트비트를 수신합니다. 하트비트는 실제 운영 에이전트의 현재 런타임 관찰을
-증명하지만 작업으로 분류되지 않습니다. 누락되거나 malformed인 상태 프레임은 선언된 구독자
-연결을 관찰된 상태로 승격하지 않습니다. 각 Operator API 복제본은 instance-scoped 소비자
-그룹을 사용하므로 연결된 모든 콘솔이 완전한 하트비트 집합을 수신합니다. Deployed Pantheon도
-핸들러 `started`, `completed`, `failed` transition을 이 전송 계층으로 게시합니다. Give up 또는 halt된
-소비자는 형제를 유지한 채 health-derived 하트비트에서 빠지고 최종 에이전트/토픽은 런타임
-상태에 남습니다. Saga 또는 Vidar 실패는 sticky shadow를 강제합니다. 이 transition은 런타임
-활동이며 영속 감사 근거가 아닙니다.
+에이전트 활동 경로는 shared 에이전트 스트림을 열기 전에 범위가 제한된 영속 인벤토리 검사,
+온톨로지 변환 및 현재 상태 읽기 기록을 불러옵니다. 정확한 activity id로 재생과 실제 운영 전달을
+중복 제거합니다. Journal은 routine 작업 유형을 별도 필터 lane에 유지하고 인시던트로 만들지 않습니다.
+Health-derived `agent.runtime-state` 하트비트는 현재 관찰을 증명하지만 작업이 아닙니다. 누락,
+malformed, 미래 또는 권한을 가진 프레임은 선언된 연결을 관찰 상태로 승격하지 않습니다. 각 Operator
+API 복제본은 instance-scoped 소비자 그룹을 사용하므로 모든 Console이 완전한 하트비트 집합을
+수신합니다. Give up 또는 halt된 소비자는 형제를 유지한 채 health-derived 하트비트에서 빠지고 Saga
+또는 Vidar 실패는 sticky shadow를 계속 강제합니다. 이 기록은 액션 감사 근거의 복사본이 아닌 운영
+활동입니다.
 
 Command Deck은 완전한 또는 pending SSE 프레임이 256 KiB를 넘으면 `data:` 줄 누적이나 JSON parse
 전에 거부하고 결정론적 interrupted-stream 대체 경로를 사용합니다. Correlation-filtered 액션

@@ -46,6 +46,34 @@ describe("agent activity stream boundary", () => {
     expect(decodeAgentActivityMessage(JSON.stringify({ type: "unknown" }))).toBeNull();
   });
 
+  test("decodes only authority-free operational activity", () => {
+    const frame = {
+      type: "agent.operational-activity",
+      schema_version: "1.0.0",
+      activity_id: "inventory.scan:attempt-1:completed",
+      idempotency_key: "inventory.scan:attempt-1:completed",
+      kind: "inventory.scan",
+      status: "completed",
+      owner_agent: "Huginn",
+      producer: "inventory-sync-job",
+      observed_at: "2026-07-16T06:00:00Z",
+      source: "azure-resource-graph",
+      freshness: "fresh",
+      evidence_count: 12,
+      duration_ms: 50,
+      correlation_id: "attempt-1",
+      reason_codes: [],
+      execution_authority: false,
+    };
+
+    expect(decodeAgentActivityMessage(JSON.stringify(frame))?.type)
+      .toBe("agent.operational-activity");
+    expect(decodeAgentActivityMessage(JSON.stringify({
+      ...frame,
+      execution_authority: true,
+    }))).toBeNull();
+  });
+
   test("decodes data frames and ignores hello and keepalive frames", async () => {
     const payload = JSON.stringify({
       type: "agent.state",

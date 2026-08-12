@@ -84,6 +84,65 @@ describe("agents.model", () => {
     expect(s.agents.Heimdall?.correlationId).toBe("inc-1");
   });
 
+  it("records routine operational work without creating an incident", () => {
+    const state = reducer(makeInitialState(), {
+      kind: "message",
+      msg: {
+        type: "agent.operational-activity",
+        schema_version: "1.0.0",
+        activity_id: "inventory.scan:attempt-1:completed",
+        idempotency_key: "inventory.scan:attempt-1:completed",
+        kind: "inventory.scan",
+        status: "completed",
+        owner_agent: "Huginn",
+        producer: "inventory-sync-job",
+        observed_at: "2026-07-12T00:00:00+00:00",
+        source: "azure-resource-graph",
+        freshness: "fresh",
+        evidence_count: 12,
+        duration_ms: 50,
+        correlation_id: "attempt-1",
+        reason_codes: [],
+        execution_authority: false,
+      },
+    });
+
+    expect(state.liveActivity[0]?.operationalKind).toBe("inventory.scan");
+    expect(state.agents.Huginn?.state).toBe("watching");
+    expect(state.agents.Huginn?.detail).toContain("inventory-sync-job");
+    expect(state.incidentOrder).toEqual([]);
+  });
+
+  it("hydrates durable work before live events and deduplicates by activity id", () => {
+    const activity = {
+      type: "agent.operational-activity" as const,
+      schema_version: "1.0.0" as const,
+      activity_id: "current-state.read:read-1:completed",
+      idempotency_key: "current-state.read:read-1:completed",
+      kind: "current-state.read" as const,
+      status: "completed" as const,
+      owner_agent: "Heimdall" as const,
+      producer: "core-control-plane" as const,
+      observed_at: "2026-07-12T00:00:00+00:00",
+      source: "read-investigation",
+      freshness: "fresh" as const,
+      evidence_count: 1,
+      duration_ms: 10,
+      correlation_id: "read-1",
+      reason_codes: [],
+      execution_authority: false as const,
+    };
+    let state = reducer(makeInitialState(), {
+      kind: "hydrate-activity",
+      activities: [activity],
+    });
+    state = reducer(state, { kind: "message", msg: activity });
+
+    expect(state.liveActivity).toHaveLength(1);
+    expect(state.liveActivity[0]?.source).toBe("replay");
+    expect(state.agents.Heimdall?.state).toBe("watching");
+  });
+
   it("retains observed state transitions as newest-first live activity", () => {
     let s = makeInitialState();
     s = reducer(s, { kind: "message", msg: stateMsg("Huginn", "watching") });

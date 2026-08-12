@@ -16,6 +16,7 @@ import {
   unavailableSourceReason,
 } from "./api-data-sources";
 import type { ConsoleConfig } from "./config";
+import type { AgentOperationalActivityPage } from "./agent-operational-activity";
 import {
   isOptionalOperatorApiUnavailable,
   OperatorApiError,
@@ -84,6 +85,17 @@ export class OperatorApiClient {
   async listAudit(options: AuditQuery = {}): Promise<AuditPage> {
     await this.#requireAuthoritativeSource("/audit");
     return this.#operations.listAudit(options);
+  }
+
+  async listAgentActivity(limit = 200): Promise<AgentOperationalActivityPage> {
+    try {
+      return await this.#operations.listAgentActivity(limit);
+    } catch (error) {
+      if (error instanceof OperatorApiError && error.status === 404) {
+        return { items: [], snapshot_at: "", source: "n-minus-one-unavailable" };
+      }
+      throw error;
+    }
   }
 
   async listIncidents(options: IncidentQuery = {}): Promise<IncidentPage> {

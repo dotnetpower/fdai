@@ -45,6 +45,8 @@ function liveConversation(sequence = 1): LiveAgentActivityEvent {
     correlationId: "corr-live",
     ts: "2026-07-24T10:01:00Z",
     source: "runtime-observed",
+    activityId: null,
+    operationalKind: null,
   };
 }
 
@@ -132,6 +134,8 @@ describe("agent live log projection", () => {
       correlationId: null,
       ts: "2026-07-24T10:00:00Z",
       source: "runtime-observed",
+      activityId: null,
+      operationalKind: null,
     };
     const newer = { ...older, sequence: 2, ts: "2026-07-24T10:00:15Z" };
 
@@ -190,16 +194,40 @@ describe("agent live log projection", () => {
 });
 
 describe("agent live log controls", () => {
-  it("hides Type by default and never allows every column to be hidden", () => {
-    expect(DEFAULT_AGENT_LOG_COLUMNS).toEqual(["time", "route", "detail", "correlation"]);
+  it("shows Type by default and never allows every column to be hidden", () => {
+    expect(DEFAULT_AGENT_LOG_COLUMNS).toEqual([
+      "time", "route", "type", "detail", "correlation",
+    ]);
     expect(toggleAgentLogColumn(["detail"], "detail")).toEqual(["detail"]);
     expect(toggleAgentLogColumn(DEFAULT_AGENT_LOG_COLUMNS, "type")).toEqual([
       "time",
       "route",
-      "type",
       "detail",
       "correlation",
     ]);
+  });
+
+  it("projects and filters operational activity lanes", () => {
+    const operational: LiveAgentActivityEvent = {
+      sequence: 1,
+      kind: "agent.operational-activity",
+      agent: "Huginn",
+      agents: ["Huginn"],
+      state: "watching",
+      summary: "inventory.scan - completed",
+      detail: "inventory-sync-job - 12 evidence",
+      correlationId: "attempt-1",
+      ts: "2026-07-24T10:01:00Z",
+      source: "replay",
+      activityId: "inventory.scan:attempt-1:completed",
+      operationalKind: "inventory.scan",
+    };
+    const rows = buildAgentLogRows([operational, liveConversation(2)], []);
+
+    expect(rows.find((row) => row.operationalKind === "inventory.scan")?.kind)
+      .toBe("activity");
+    expect(filterAgentLogRows(rows, null, "", "inventory.scan")).toHaveLength(1);
+    expect(filterAgentLogRows(rows, null, "", "current-state.read")).toHaveLength(0);
   });
 
   it("uses a small bottom threshold for live-tail pause decisions", () => {
