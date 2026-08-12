@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -40,3 +40,26 @@ def test_foreground_worker_recommendation_keeps_adaptive_parallelism(
     monkeypatch.setattr(module, "_available_memory_bytes", lambda: 16 * 1024**3)
 
     assert module._recommended_workers() == "4"
+
+
+def test_validation_environment_drops_hook_local_git_pointers(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    for variable in module._REPOSITORY_LOCAL_GIT_ENV:
+        monkeypatch.setenv(variable, f"hook-{variable.lower()}")
+    global_config = str(tmp_path / "global-git-config")
+    system_config = str(tmp_path / "system-git-config")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", global_config)
+    monkeypatch.setenv("GIT_CONFIG_SYSTEM", system_config)
+    paths = SimpleNamespace(
+        repo_root=tmp_path / "repo",
+        state_root=tmp_path / "state",
+    )
+
+    environment = module.validation_environment(paths)
+
+    assert module._REPOSITORY_LOCAL_GIT_ENV.isdisjoint(environment)
+    assert environment["GIT_CONFIG_GLOBAL"] == global_config
+    assert environment["GIT_CONFIG_SYSTEM"] == system_config

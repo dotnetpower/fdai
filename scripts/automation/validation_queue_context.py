@@ -9,6 +9,27 @@ from pathlib import Path
 
 from scripts.automation.validation_queue_support import QueuePaths, atomic_write
 
+_REPOSITORY_LOCAL_GIT_ENV = frozenset(
+    {
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_COMMON_DIR",
+        "GIT_CONFIG",
+        "GIT_CONFIG_COUNT",
+        "GIT_CONFIG_PARAMETERS",
+        "GIT_DIR",
+        "GIT_GRAFT_FILE",
+        "GIT_IMPLICIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_INTERNAL_SUPER_PREFIX",
+        "GIT_NO_REPLACE_OBJECTS",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_PREFIX",
+        "GIT_REPLACE_REF_BASE",
+        "GIT_SHALLOW_FILE",
+        "GIT_WORK_TREE",
+    }
+)
+
 
 def _available_memory_bytes() -> int:
     try:
@@ -43,6 +64,8 @@ def validation_environment(paths: QueuePaths) -> dict[str, str]:
     cache_root = paths.state_root / "cache"
     cache_root.mkdir(parents=True, exist_ok=True)
     environment = os.environ.copy()
+    for variable in _REPOSITORY_LOCAL_GIT_ENV:
+        environment.pop(variable, None)
     environment.setdefault("FDAI_PYTEST_MAX_WORKERS", _recommended_workers())
     environment.setdefault("MYPY_CACHE_DIR", str(cache_root / "mypy"))
     environment.setdefault("RUFF_CACHE_DIR", str(cache_root / "ruff"))
