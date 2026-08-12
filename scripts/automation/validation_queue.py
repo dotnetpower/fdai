@@ -138,7 +138,7 @@ def _wake_request(paths: QueuePaths) -> str:
 
 
 def drain(paths: QueuePaths) -> int:
-    """Drain successful committed batches while wake requests keep advancing."""
+    """Drain batches, reloading validator code when the requested head advances."""
     initialize(paths)
     with paths.wake_lock.open("a+", encoding="utf-8") as lock_file:
         try:
@@ -153,6 +153,7 @@ def drain(paths: QueuePaths) -> int:
             time.sleep(0.25)
             if _wake_request(paths) == requested:
                 return 0
+            os.execv(sys.executable, _background_command(paths))  # noqa: S606
 
 
 def _start_detached_fallback(paths: QueuePaths, environment: dict[str, str]) -> bool:

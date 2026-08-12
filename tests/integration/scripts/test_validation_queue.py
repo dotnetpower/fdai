@@ -7,9 +7,11 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
+from scripts.automation import validation_queue
 
 pytestmark = pytest.mark.no_cover
 
@@ -133,6 +135,40 @@ def _commit_change(repo: Path) -> str:
     result = _run(repo, "git", "rev-parse", "HEAD")
     assert result.returncode == 0
     return result.stdout.strip()
+
+
+def test_drain_reloads_validator_code_when_wake_request_advances(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    paths = SimpleNamespace(wake_lock=tmp_path / "wake.lock")
+    requests = iter(("old-head", "new-head"))
+    executed: list[tuple[str, list[str]]] = []
+
+    monkeypatch.setattr(validation_queue, "initialize", lambda _paths: None)
+    monkeypatch.setattr(validation_queue, "_wake_request", lambda _paths: next(requests))
+    monkeypatch.setattr(
+        validation_queue,
+        "run",
+        lambda _paths, _mode, *, wait_for_lock: 0,
+    )
+    monkeypatch.setattr(validation_queue.time, "sleep", lambda _seconds: None)
+
+    def _record_exec(executable: str, arguments: list[str]) -> None:
+        executed.append((executable, arguments))
+        raise RuntimeError("exec intercepted")
+
+    monkeypatch.setattr(validation_queue.os, "execv", _record_exec)
+
+    with pytest.raises(RuntimeError, match="exec intercepted"):
+        validation_queue.drain(paths)
+
+    assert executed == [
+        (
+            sys.executable,
+            [sys.executable, str(QUEUE_SCRIPT), "drain"],
+        )
+    ]
 
 
 def test_run_batches_pending_commits_and_records_receipts(git_repo: Path, tmp_path: Path) -> None:
