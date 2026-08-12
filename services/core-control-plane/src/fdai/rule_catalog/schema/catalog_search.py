@@ -15,6 +15,51 @@ from fdai.shared.contracts.models import OntologyActionType, Rule
 from fdai.shared.providers.catalog_search import CatalogSearchDocument
 
 
+def build_discovery_catalog_search_documents(
+    rules: Sequence[Rule],
+) -> tuple[CatalogSearchDocument, ...]:
+    """Project normalized candidates into an inert discovery-only corpus."""
+
+    documents = []
+    for rule in sorted(rules, key=lambda item: item.id):
+        text = "\n".join(
+            (
+                rule.id,
+                rule.resource_type,
+                rule.category.value,
+                rule.severity.value,
+                rule.source.value,
+                rule.check_logic.reference,
+                rule.remediates,
+                rule.provenance.source_url,
+                rule.provenance.source_version or "",
+                *rule.triggered_by,
+                *rule.evaluates,
+            )
+        )
+        neighbors = tuple(
+            sorted(
+                {
+                    rule.resource_type,
+                    rule.remediates,
+                    rule.check_logic.reference,
+                    rule.source.value,
+                    *rule.triggered_by,
+                    *rule.evaluates,
+                }
+            )
+        )
+        documents.append(
+            CatalogSearchDocument(
+                rule_id=rule.id,
+                text=text,
+                neighbor_ids=neighbors,
+                corpus="discovery",
+            )
+        )
+    return tuple(documents)
+
+
 def build_catalog_search_documents(
     *,
     rules: Sequence[Rule],
@@ -135,6 +180,7 @@ def rule_reference_catalog_digest(rules: Sequence[Rule]) -> str:
 
 
 __all__ = [
+    "build_discovery_catalog_search_documents",
     "build_catalog_search_documents",
     "catalog_search_document_digest",
     "catalog_search_schema_digest",
