@@ -28,10 +28,14 @@ def _recommended_workers() -> str:
         load = float(cpu_count)
     available_memory = _available_memory_bytes()
     if load >= cpu_count or (available_memory and available_memory < 4 * 1024**3):
-        return "1"
-    if load <= cpu_count / 2 and available_memory >= 8 * 1024**3:
-        return str(max(2, min(4, cpu_count // 2)))
-    return "2"
+        workers = 1
+    elif load <= cpu_count / 2 and available_memory >= 8 * 1024**3:
+        workers = max(2, min(4, cpu_count // 2))
+    else:
+        workers = 2
+    if os.environ.get("FDAI_VALIDATION_BACKGROUND") == "1":
+        workers = min(workers, 2)
+    return str(workers)
 
 
 def validation_environment(paths: QueuePaths) -> dict[str, str]:

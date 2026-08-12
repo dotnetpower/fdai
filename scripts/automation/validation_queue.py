@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -126,7 +127,32 @@ def run(paths: QueuePaths, mode: str, *, wait_for_lock: bool = False) -> int:
 
 def _background_command(paths: QueuePaths) -> list[str]:
     script = Path(__file__).resolve()
-    return [sys.executable, str(script), "run", "--wait"]
+    return [sys.executable, str(script), "drain"]
+
+
+def _wake_request(paths: QueuePaths) -> str:
+    try:
+        return paths.wake_request.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def drain(paths: QueuePaths) -> int:
+    """Drain successful committed batches while wake requests keep advancing."""
+    initialize(paths)
+    with paths.wake_lock.open("a+", encoding="utf-8") as lock_file:
+        try:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return 0
+        while True:
+            requested = _wake_request(paths)
+            result = run(paths, "fast", wait_for_lock=True)
+            if result != 0:
+                return result
+            time.sleep(0.25)
+            if _wake_request(paths) == requested:
+                return 0
 
 
 def _start_detached_fallback(paths: QueuePaths, environment: dict[str, str]) -> bool:
@@ -162,12 +188,13 @@ def wake(paths: QueuePaths) -> int:
     head = resolve_commit(paths, "HEAD")
     if (paths.receipts / f"{head}.json").is_file():
         return 0
+    atomic_write(paths.wake_request, head + "\n")
     environment = os.environ.copy()
     environment["FDAI_VALIDATION_BACKGROUND"] = "1"
     systemd_run = shutil.which("systemd-run")
     if systemd_run is not None:
         repository_id = hashlib.sha256(str(paths.state_root).encode()).hexdigest()[:8]
-        unit = f"fdai-validation-{repository_id}-{head[:12]}"
+        unit = f"fdai-validation-{repository_id}"
         result = subprocess.run(  # noqa: S603 - fixed systemd-run arguments.
             [
                 systemd_run,
@@ -177,6 +204,7 @@ def wake(paths: QueuePaths) -> int:
                 f"--unit={unit}",
                 "--property=Nice=15",
                 "--property=CPUWeight=10",
+                "--property=CPUQuota=180%",
                 "--property=IOWeight=10",
                 "--property=IOSchedulingClass=idle",
                 "--property=MemoryHigh=8G",
@@ -192,6 +220,15 @@ def wake(paths: QueuePaths) -> int:
         )
         if result.returncode == 0:
             return 0
+        systemctl = shutil.which("systemctl")
+        if systemctl is not None:
+            active = subprocess.run(  # noqa: S603 - fixed local unit query.
+                [systemctl, "--user", "--quiet", "is-active", unit],
+                cwd=paths.repo_root,
+                check=False,
+            )
+            if active.returncode == 0:
+                return 0
     if _start_detached_fallback(paths, environment):
         return 0
     print("validation-queue: failed to start background validator", file=sys.stderr)
@@ -266,6 +303,7 @@ def _parser() -> argparse.ArgumentParser:
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument("--all", action="store_true", dest="all_gates")
     run_parser.add_argument("--wait", action="store_true", dest="wait_for_lock")
+    subparsers.add_parser("drain")
     subparsers.add_parser("wake")
     status_parser = subparsers.add_parser("status")
     status_parser.add_argument("--all", action="store_true", dest="all_pending")
@@ -305,6 +343,8 @@ def main(argv: list[str] | None = None) -> int:
             "all" if arguments.all_gates else "fast",
             wait_for_lock=arguments.wait_for_lock,
         )
+    if arguments.command == "drain":
+        return drain(paths)
     if arguments.command == "wake":
         return wake(paths)
     return status(paths, show_all=arguments.all_pending)
