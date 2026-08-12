@@ -1,7 +1,7 @@
 {
   "id": "fdai-reference-architecture",
   "kind": "context",
-  "version": 7,
+  "version": 8,
   "updated": "2026-08-12",
   "locales": {
     "en": {
@@ -469,7 +469,7 @@
     {
       "id": "approval-to-runtime",
       "from": "human-approval",
-      "to": "event-choreography",
+      "to": "typed-event-bus",
       "kind": "approval",
       "label": null
     },

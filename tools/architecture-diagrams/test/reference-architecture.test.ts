@@ -19,7 +19,7 @@ test("FDAI reference architecture renders every governed relationship", async ()
   const svg = await renderSvg(spec, layout, "en");
   const koSvg = await renderSvg(spec, layout, "ko");
 
-  assert.equal(spec.version, 7);
+  assert.equal(spec.version, 8);
   assert.equal(spec.kind, "context");
   assert.deepEqual(spec.formats, ["svg"]);
   assert.equal(layout.edges.length, spec.edges.length);
@@ -80,6 +80,10 @@ test("FDAI reference architecture renders every governed relationship", async ()
       "headless-control-plane",
     );
   }
+  assert.equal(
+    spec.groups.find((group) => group.id === "governed-control")?.gap,
+    64,
+  );
   for (const groupId of [
     "connected-environment",
     "fdai-platform",
@@ -141,6 +145,17 @@ test("FDAI reference architecture renders every governed relationship", async ()
 
   const edges = new Map(spec.edges.map((edge) => [edge.id, edge]));
   assert.equal(edges.has("bus-to-agents"), false);
+  for (const edgeId of [
+    "ingest-to-router",
+    "router-to-decision",
+    "decision-to-quality",
+    "quality-to-risk",
+    "risk-to-executor",
+  ]) {
+    const section = layout.edges.find((edge) => edge.id === edgeId)?.sections?.[0];
+    assert.ok(section);
+    assert.ok(Math.abs(section.endPoint.x - section.startPoint.x) >= 56);
+  }
   assert.equal(edges.get("environment-to-runtime")?.route, "orthogonal-horizontal");
   assert.equal(edges.get("operators-to-runtime")?.route, "orthogonal");
   const ingressSections = ["environment-to-runtime", "operators-to-runtime"].map(
@@ -169,7 +184,7 @@ test("FDAI reference architecture renders every governed relationship", async ()
   );
   assert.deepEqual(
     [edges.get("approval-to-runtime")?.from, edges.get("approval-to-runtime")?.to],
-    ["human-approval", "event-choreography"],
+    ["human-approval", "typed-event-bus"],
   );
   assert.equal(
     spec.edges.some(
@@ -180,14 +195,16 @@ test("FDAI reference architecture renders every governed relationship", async ()
     false,
   );
 
-  const approvalLanes = ["risk-to-approval", "approval-to-runtime"].map(
+  assert.equal(edges.get("risk-to-approval")?.route, "orthogonal-outer");
+  assert.equal(edges.get("approval-to-runtime")?.route, "orthogonal-right");
+  const approvalCorridors = ["risk-to-approval", "approval-to-runtime"].map(
     (edgeId) => {
       const section = layout.edges.find((edge) => edge.id === edgeId)?.sections?.[0];
       assert.ok(section?.bendPoints?.length);
-      return Math.min(...section.bendPoints.map((point) => point.y));
+      return Math.max(...section.bendPoints.map((point) => point.x));
     },
   );
-  assert.equal(Math.abs(approvalLanes[0]! - approvalLanes[1]!), 28);
+  assert.equal(Math.abs(approvalCorridors[0]! - approvalCorridors[1]!), 96);
 
   const directedSegments: Array<{
     edgeId: string;

@@ -289,7 +289,9 @@ function groupToElk(
         definition.nodeSpacing ?? (compact ? 16 : 22),
       ),
       "elk.layered.spacing.nodeNodeBetweenLayers": String(
-        definition.layerSpacing ?? (compact ? 28 : 36),
+        group.layout === "flow" && group.gap !== undefined
+          ? group.gap
+          : definition.layerSpacing ?? (compact ? 28 : 36),
       ),
     },
   };
@@ -1342,7 +1344,7 @@ function applyExplicitRoutes(
   )) {
     const targetGroup = elementParent(spec, endpointNodeId(edge.to));
     const lane = rightLaneCountByTargetGroup.get(targetGroup) ?? 0;
-    rightLaneByEdge.set(edge.id, lane);
+    rightLaneByEdge.set(edge.id, lane + (edge.lane ?? 0));
     rightLaneCountByTargetGroup.set(targetGroup, lane + 1);
   }
   const horizontalLaneByEdge = new Map<string, number>();

@@ -1,5 +1,5 @@
 id: fdai-reference-architecture
-version: 7
+version: 8
 kind: context
 formats: [svg]
 updated: 2026-08-12
@@ -75,6 +75,7 @@ groups:
     label: { en: Agent-owned governed control flow, ko: Agent가 소유하는 통제된 제어 흐름 }
     direction: RIGHT
     layout: flow
+    gap: 64
     width: 1120
   - id: governed-capabilities
     parent: fdai-platform
@@ -386,12 +387,12 @@ edges:
     from: risk-authority-gate
     to: human-approval
     kind: approval
-    route: orthogonal-above
+    route: orthogonal-outer
   - id: approval-to-runtime
     from: human-approval
-    to: event-choreography
+    to: typed-event-bus
     kind: approval
-    route: orthogonal-above
+    route: orthogonal-right
     lane: 1
   - id: executor-to-outcomes
     from: privileged-executor
