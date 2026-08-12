@@ -13,7 +13,8 @@ if [[ ! -f "$runtime_env" || ! -f "$operator_env" ]]; then
 fi
 
 set -a
-# shellcheck disable=SC1090 - generated private environments are trusted workspace inputs.
+# Generated private environments are trusted workspace inputs.
+# shellcheck disable=SC1090
 source "$runtime_env"
 set +a
 

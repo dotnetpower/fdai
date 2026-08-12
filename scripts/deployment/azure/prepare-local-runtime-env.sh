@@ -172,7 +172,6 @@ fi
 
 bootstrap="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_kafka_bootstrap)"
 operational_bootstrap="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_operational_kafka_bootstrap 2>/dev/null || true)"
-topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_topics)"
 semantic_topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_semantic_topics 2>/dev/null || printf '[]')"
 semantic_physical_topic="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_semantic_physical_topic 2>/dev/null || true)"
 operational_topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_operational_topics 2>/dev/null || printf '[]')"
@@ -298,24 +297,6 @@ if [[ -z "$dev_operations_gateway_url" ]]; then
     fi
   fi
 fi
-event_topic="$(printf '%s' "$topics_json" | "$REPO_ROOT/.venv/bin/python" -c '
-import json, sys
-topics = json.load(sys.stdin)
-if not isinstance(topics, list) or not topics or not all(isinstance(item, str) for item in topics):
-    raise SystemExit("event_bus_topics MUST be a non-empty string array")
-preferred = "aw.change.events"
-print(preferred if preferred in topics else topics[0])
-')"
-semantic_topics="$(printf '%s' "$semantic_topics_json" | "$REPO_ROOT/.venv/bin/python" -c '
-import json, sys
-topics = json.load(sys.stdin)
-required = ("operator.semantic-turn.requests", "core.semantic-turn.projections")
-if isinstance(topics, list) and all(item in topics for item in required):
-  print("\t".join(required))
-else:
-  print("\t")
-')"
-IFS=$'\t' read -r semantic_request_topic semantic_projection_topic <<< "$semantic_topics"
 inventory_topic="$(printf '%s' "$operational_topics_json" | "$REPO_ROOT/.venv/bin/python" -c '
 import json, sys
 topics = json.load(sys.stdin)
@@ -329,10 +310,6 @@ if [[ ! "$bootstrap" =~ ^[a-z0-9.-]+\.servicebus\.windows\.net:9093$ ]]; then
 fi
 if [[ -n "$inventory_topic" && ! "$operational_bootstrap" =~ ^[a-z0-9.-]+\.servicebus\.windows\.net:9093$ ]]; then
   echo "event_bus_operational_kafka_bootstrap is required for raw inventory" >&2
-  exit 1
-fi
-if [[ ! "$event_topic" =~ ^[a-z0-9._-]+$ ]]; then
-  echo "event_bus_topics returned an invalid primary topic" >&2
   exit 1
 fi
 if [[ -n "$semantic_physical_topic" ]] && {
