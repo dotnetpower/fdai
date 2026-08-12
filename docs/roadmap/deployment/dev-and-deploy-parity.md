@@ -190,9 +190,9 @@ Pylance analysis covers the five service source roots, shared packages, independ
 and benchmark sources, and repository maintenance scripts. Background workspace indexing is
 disabled; open files still receive IntelliSense and diagnostics, and focused tests remain available
 through the test runner. Pylance does not follow symlinked folders and records warning-level
-language-server messages. A 2 GiB Node.js heap ceiling and disabled library-source type inference
-bound a single language-server process without switching to `light` mode, so configured workspace
-analysis, open-file diagnostics, IntelliSense, and navigation remain available. The validation
+language-server messages. A managed Node.js runtime enforces a 2 GiB heap ceiling, and disabled
+library-source type inference further bounds a single language-server process without switching to
+`light` mode, so configured workspace analysis, open-file diagnostics, IntelliSense, and navigation remain available. The validation
 worktree and linked local artifacts therefore cannot duplicate the workspace analysis set or add
 information-level log churn. The Chat context-usage indicator remains enabled so a developer can
 move long work to the recorded session handover before the prompt reaches its limit. Copilot
