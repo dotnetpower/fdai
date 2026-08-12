@@ -620,7 +620,7 @@ export async function renderSvg(
   const markers = Object.entries(edgeStyles)
     .map(
       ([kind, style]) =>
-        `<marker id="arrow-${kind}" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="${style.color}"/></marker>`,
+        `<marker id="arrow-${kind}" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="${style.color}"/></marker>`,
     )
     .join("");
   const groups = [...layout.groups.values()]
