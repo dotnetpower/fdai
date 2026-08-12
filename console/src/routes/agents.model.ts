@@ -18,6 +18,10 @@ import type {
   ConversationTurnMessage,
   TicketStatus,
 } from "../hooks/use-agent-stream";
+import type {
+  AgentOperationalActivityMessage,
+  OperationalActivityKind,
+} from "../agent-operational-activity";
 import type { FrameSource } from "../hooks/observation-source";
 import type { IncidentSummary } from "../types";
 
@@ -130,6 +134,8 @@ export interface LiveAgentActivityEvent {
   readonly correlationId: string | null;
   readonly ts: string;
   readonly source: FrameSource;
+  readonly activityId: string | null;
+  readonly operationalKind: OperationalActivityKind | null;
 }
 
 /** Cap retained incidents so a long-lived tab cannot grow without bound. */
@@ -176,6 +182,8 @@ function projectLiveActivity(
       correlationId: msg.correlation_id,
       ts: msg.ts,
       source: msg.source ?? "unknown",
+      activityId: null,
+      operationalKind: null,
     };
   }
   if (msg.type === "incident.ticket") {
@@ -191,6 +199,25 @@ function projectLiveActivity(
       correlationId: msg.correlation_id,
       ts: msg.ts,
       source: msg.source ?? "unknown",
+      activityId: null,
+      operationalKind: null,
+    };
+  }
+  if (msg.type === "agent.operational-activity") {
+    const activeState: AgentStatus = msg.kind === "inventory.scan" ? "collecting" : "analyzing";
+    return {
+      sequence,
+      kind: msg.type,
+      agent: msg.owner_agent,
+      agents: [msg.owner_agent],
+      state: msg.status === "started" ? activeState : "watching",
+      summary: `${msg.kind} - ${msg.status}`,
+      detail: `${msg.producer} - ${msg.source} - ${msg.freshness} - ${msg.evidence_count} evidence`,
+      correlationId: msg.correlation_id,
+      ts: msg.observed_at,
+      source: "runtime-observed",
+      activityId: msg.activity_id,
+      operationalKind: msg.kind,
     };
   }
   const agents = [msg.from_agent, msg.to_agent].filter(
@@ -207,15 +234,22 @@ function projectLiveActivity(
     correlationId: msg.correlation_id,
     ts: msg.ts,
     source: msg.source ?? "unknown",
+    activityId: null,
+    operationalKind: null,
   };
 }
 
 function recordLiveActivity(
   state: AgentsState,
   msg: AgentActivityMessage,
+  sourceOverride?: FrameSource,
 ): AgentsState {
-  const event = projectLiveActivity(msg, state.nextLiveActivitySequence);
-  if (event === null) return state;
+  const projected = projectLiveActivity(msg, state.nextLiveActivitySequence);
+  if (projected === null) return state;
+  const event = sourceOverride === undefined ? projected : { ...projected, source: sourceOverride };
+  if (event.activityId !== null && state.liveActivity.some(
+    (candidate) => candidate.activityId === event.activityId,
+  )) return state;
   if (isRepeatedPassiveState(state.liveActivity, event)) return state;
   return {
     ...state,
@@ -335,10 +369,50 @@ function applyTurn(
   return { ...state, incidents: { ...state.incidents, [msg.correlation_id]: incident } };
 }
 
+function applyOperationalActivity(
+  state: AgentsState,
+  msg: Extract<AgentActivityMessage, { type: "agent.operational-activity" }>,
+): AgentsState {
+  const previous = state.agents[msg.owner_agent];
+  if (previous === undefined) return state;
+  if (previous.since && new Date(previous.since).getTime() > new Date(msg.observed_at).getTime()) {
+    return state;
+  }
+  const activeState: AgentStatus = msg.kind === "inventory.scan" ? "collecting" : "analyzing";
+  return {
+    ...state,
+    agents: {
+      ...state.agents,
+      [msg.owner_agent]: {
+        ...previous,
+        state: msg.status === "started" ? activeState : "watching",
+        observed: true,
+        correlationId: msg.status === "started" ? msg.correlation_id : null,
+        since: msg.observed_at,
+        detail: `${msg.kind} ${msg.status} (${msg.producer})`,
+      },
+    },
+  };
+}
+
 export type AgentsAction =
   | { readonly kind: "message"; readonly msg: AgentActivityMessage }
   | { readonly kind: "hydrate"; readonly incidents: readonly IncidentSummary[] }
+  | {
+    readonly kind: "hydrate-activity";
+    readonly activities: readonly AgentOperationalActivityMessage[];
+  }
   | { readonly kind: "reset" };
+
+function hydrateOperationalActivity(
+  state: AgentsState,
+  activities: readonly AgentOperationalActivityMessage[],
+): AgentsState {
+  return [...activities].reverse().reduce((current, message) => {
+    const recorded = recordLiveActivity(current, message, "replay");
+    return applyOperationalActivity(recorded, message);
+  }, state);
+}
 
 function hydrateIncidents(
   state: AgentsState,
@@ -403,6 +477,9 @@ function hydrateIncidents(
 export function reducer(state: AgentsState, action: AgentsAction): AgentsState {
   if (action.kind === "reset") return makeInitialState();
   if (action.kind === "hydrate") return hydrateIncidents(state, action.incidents);
+  if (action.kind === "hydrate-activity") {
+    return hydrateOperationalActivity(state, action.activities);
+  }
   const { msg } = action;
   const next = recordLiveActivity(state, msg);
   switch (msg.type) {
@@ -412,6 +489,8 @@ export function reducer(state: AgentsState, action: AgentsAction): AgentsState {
       return applyTicket(next, msg);
     case "conversation.turn":
       return applyTurn(next, msg);
+    case "agent.operational-activity":
+      return applyOperationalActivity(next, msg);
     default:
       return next;
   }

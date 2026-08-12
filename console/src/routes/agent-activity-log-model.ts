@@ -8,12 +8,14 @@ import {
   entryStr,
 } from "./agent-activity-semantics";
 import type { LiveAgentActivityEvent } from "./agents.model";
+import type { OperationalActivityKind } from "../agent-operational-activity";
 
 export const AGENT_LOG_LIMIT = 200;
 export type AgentLogColumn = "time" | "route" | "type" | "detail" | "correlation";
 export const DEFAULT_AGENT_LOG_COLUMNS: readonly AgentLogColumn[] = [
   "time",
   "route",
+  "type",
   "detail",
   "correlation",
 ];
@@ -39,6 +41,7 @@ export interface AgentLogRow {
   readonly correlationId: string | null;
   readonly eventId: string | null;
   readonly source: AgentLogSource;
+  readonly operationalKind: OperationalActivityKind | null;
   readonly sortOrder: readonly [number, number, number];
 }
 
@@ -65,6 +68,7 @@ export function buildAgentLogRows(
       correlationId: event.correlationId,
       eventId: null,
       source: event.source,
+      operationalKind: event.operationalKind,
       sortOrder: [0, 0, events.length - index],
     });
   });
@@ -85,6 +89,7 @@ export function buildAgentLogRows(
       correlationId: item.correlation_id,
       eventId: item.event_id,
       source: provenance === "sample" ? "audit-sample" : "audit-operational",
+      operationalKind: null,
       sortOrder: [1, item.seq, 0],
     });
     entryConversation(item)?.forEach((turn, index) => {
@@ -99,6 +104,7 @@ export function buildAgentLogRows(
         correlationId: item.correlation_id,
         eventId: item.event_id,
         source: provenance === "sample" ? "audit-sample" : "audit-operational",
+        operationalKind: null,
         sortOrder: [1, item.seq, index + 1],
       });
     });
@@ -110,10 +116,12 @@ export function filterAgentLogRows(
   rows: readonly AgentLogRow[],
   selectedAgent: string | null,
   query: string,
+  operationalKind: "all" | OperationalActivityKind = "all",
 ): readonly AgentLogRow[] {
   const needle = normalize(query);
   return rows.filter((row) => {
     if (selectedAgent !== null && !row.route.includes(selectedAgent)) return false;
+    if (operationalKind !== "all" && row.operationalKind !== operationalKind) return false;
     if (!needle) return true;
     return normalize([
       ...row.route,
@@ -123,6 +131,7 @@ export function filterAgentLogRows(
       row.correlationId,
       row.eventId,
       row.source,
+      row.operationalKind,
     ].filter(Boolean).join(" ")).includes(needle);
   });
 }
@@ -160,6 +169,7 @@ export function fallbackAfterFullscreenFailure(action: AgentLogFullscreenAction)
 }
 
 function liveKind(event: LiveAgentActivityEvent): AgentLogRow["kind"] {
+  if (event.operationalKind !== null) return "activity";
   if (event.kind === "incident.ticket") return "incident";
   if (event.kind === "conversation.turn") return "handoff";
   return "state";

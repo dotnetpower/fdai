@@ -592,15 +592,15 @@ approval, denial, and failure outcomes from non-replay frames. A shared browser 
 the same event tag for five minutes across tabs and limits system notification delivery to five per
 minute without removing any audit or Incident evidence.
 
-The agent stream receives health-derived `agent.runtime-state` heartbeats through the same shared
-stage transport in local and deployed profiles. A heartbeat establishes current runtime observation
-for a live agent but isn't classified as work. Missing or malformed health frames never promote a
-declared subscriber binding into an observed state. Each Operator API replica uses an instance-scoped
-consumer group so every connected console receives the complete heartbeat set. The deployed
-Pantheon also publishes handler `started`, `completed`, and `failed` transitions through this
-transport. A consumer that gives up or halts is removed from health-derived heartbeats while its
-siblings continue; the terminal agent/topic remains in runtime health. Saga or Vidar failure forces
-sticky shadow. These transitions are runtime activity, not durable audit evidence.
+The Agent Activity route loads bounded durable inventory scan, ontology projection, and current-state
+read records before opening the shared agent stream. Exact activity ids deduplicate replay and live
+delivery. The journal keeps these routine work types in separate filter lanes and never creates an
+Incident from them. Health-derived `agent.runtime-state` heartbeats establish current observation but
+aren't work. Missing, malformed, future, or authority-bearing frames never promote a declared binding
+into observed state. Each Operator API replica uses an instance-scoped consumer group so every console
+receives the complete heartbeat set. A consumer that gives up or halts leaves health-derived
+heartbeats while siblings continue; Saga or Vidar failure still forces sticky shadow. These records
+are operational activity, not duplicated action-audit evidence.
 
 The Command Deck rejects a complete or pending SSE frame above 256 KiB before accumulating `data:`
 lines or parsing JSON, then uses the deterministic interrupted-stream fallback. Correlation-filtered

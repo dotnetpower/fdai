@@ -3,7 +3,7 @@
  *
  * `EventSource` cannot attach the bearer header required by the Operator API, so
  * this hook uses fetch streaming. It keeps visibility gating and reconnect
- * behavior while decoding only the three supported agent frames.
+ * behavior while decoding only the supported agent frames.
  */
 
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -15,6 +15,11 @@ import {
   type ObservationSource,
 } from "./observation-source";
 import { readSseChunk } from "./sse-reader";
+import {
+  decodeAgentOperationalActivity,
+  type AgentOperationalActivityMessage,
+} from "../agent-operational-activity";
+export type { AgentOperationalActivityMessage } from "../agent-operational-activity";
 
 export interface AgentStreamDescriptor {
   readonly url: string;
@@ -83,7 +88,8 @@ export interface ConversationTurnMessage {
 export type AgentActivityMessage =
   | AgentStateMessage
   | IncidentTicketMessage
-  | ConversationTurnMessage;
+  | ConversationTurnMessage
+  | AgentOperationalActivityMessage;
 
 export type AgentStreamStatus =
   | "idle"
@@ -97,6 +103,7 @@ export interface UseAgentStreamOptions {
   readonly onEvent: (event: AgentActivityMessage) => void;
   readonly onStatus?: (status: AgentStreamStatus) => void;
   readonly getAuthorizationHeader?: () => Promise<string | null>;
+  readonly enabled?: boolean;
 }
 
 export interface UseAgentStreamResult {
@@ -127,6 +134,8 @@ export function decodeAgentActivityMessage(data: string): AgentActivityMessage |
     return null;
   }
   if (!isRecord(value) || typeof value.type !== "string") return null;
+  const operational = decodeAgentOperationalActivity(value);
+  if (operational !== null) return operational;
   if (
     value.type === "agent.state" &&
     typeof value.agent === "string" &&
@@ -220,10 +229,10 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
   const onStatusRef = useRef(options.onStatus);
   onEventRef.current = options.onEvent;
   onStatusRef.current = options.onStatus;
-  const { url, getAuthorizationHeader } = options;
+  const { url, getAuthorizationHeader, enabled = true } = options;
 
   useEffect(() => {
-    if (typeof fetch === "undefined") return undefined;
+    if (typeof fetch === "undefined" || !enabled) return undefined;
     let cancelled = false;
     let controller: AbortController | null = null;
     let reconnectTimer: number | null = null;
@@ -269,7 +278,9 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
             reconnectAttempt = 0;
             setSource((current) => mergeObservationSource(
               current,
-              normalizeObservationSource(event.source),
+              event.type === "agent.operational-activity"
+                ? "runtime-observed"
+                : normalizeObservationSource(event.source),
             ));
             onEventRef.current(event);
           }
@@ -310,7 +321,11 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       controller?.abort();
     };
-  }, [url, getAuthorizationHeader]);
+  }, [url, getAuthorizationHeader, enabled]);
 
   return { status, lastError, source };
+}
+
+export function agentActivityTimestamp(message: AgentActivityMessage): string {
+  return message.type === "agent.operational-activity" ? message.observed_at : message.ts;
 }

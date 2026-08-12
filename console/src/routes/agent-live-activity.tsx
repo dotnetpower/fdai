@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import type { AuditItem } from "../types";
+import type { OperationalActivityKind } from "../agent-operational-activity";
 import type { AgentStreamStatus } from "../hooks/use-agent-stream";
 import {
   observationSourceLabel,
@@ -38,6 +39,13 @@ const COLUMN_WIDTH: Readonly<Record<AgentLogColumn, string>> = {
   detail: "minmax(300px, 1fr)",
   correlation: "190px",
 };
+type OperationalLane = "all" | OperationalActivityKind;
+const OPERATIONAL_LANES: readonly OperationalLane[] = [
+  "all",
+  "inventory.scan",
+  "current-state.read",
+  "inventory.ontology-projection",
+];
 
 
 interface Props {
@@ -70,6 +78,7 @@ export function LiveActivityJournal({
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
   const [fallbackFullscreen, setFallbackFullscreen] = useState(false);
+  const [operationalLane, setOperationalLane] = useState<OperationalLane>("all");
   const panelRef = useRef<HTMLElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const columnsRef = useRef<HTMLDivElement>(null);
@@ -78,9 +87,15 @@ export function LiveActivityJournal({
   const nativeFullscreenRef = useRef(false);
   const rows = useMemo(() => buildAgentLogRows(events, auditItems), [events, auditItems]);
   const visibleRows = useMemo(
-    () => filterAgentLogRows(rows, selectedAgent, query),
-    [rows, selectedAgent, query],
+    () => filterAgentLogRows(rows, selectedAgent, query, operationalLane),
+    [rows, selectedAgent, query, operationalLane],
   );
+  const operationalLaneCounts = useMemo(() => Object.fromEntries(
+    OPERATIONAL_LANES.map((lane) => [
+      lane,
+      lane === "all" ? rows.length : rows.filter((row) => row.operationalKind === lane).length,
+    ]),
+  ) as Record<OperationalLane, number>, [rows]);
   const agents = useMemo(() => {
     const names = new Set<string>();
     rows.forEach((row) => row.route.forEach((agent) => names.add(agent)));
@@ -276,6 +291,20 @@ export function LiveActivityJournal({
         </label>
       </div>
 
+      <div class="aa-log-lanes" role="group" aria-label={t("agentActivity.log.lanes")}>
+        {OPERATIONAL_LANES.map((lane) => (
+          <button
+            key={lane}
+            type="button"
+            aria-pressed={operationalLane === lane}
+            onClick={() => setOperationalLane(lane)}
+          >
+            <span>{t(`agentActivity.log.lane.${lane === "all" ? "all" : lane}`)}</span>
+            <small>{operationalLaneCounts[lane]}</small>
+          </button>
+        ))}
+      </div>
+
       <div
         ref={logRef}
         class="aa-log-scroll"
@@ -330,7 +359,11 @@ function AgentLogRowView({
   readonly visibleColumns: readonly AgentLogColumn[];
 }) {
   return (
-    <div class={`aa-log-row kind-${row.kind}`} role="row">
+    <div
+      class={`aa-log-row kind-${row.kind}`}
+      data-operational-kind={row.operationalKind ?? undefined}
+      role="row"
+    >
       {visibleColumns.includes("time") ? (
         <Tooltip content={row.timestampValid ? undefined : row.timestamp}>
           <time
@@ -350,7 +383,7 @@ function AgentLogRowView({
       ) : null}
       {visibleColumns.includes("type") ? (
         <span role="cell" data-column="type" class="aa-log-kind">
-          {kindLabel(row.kind)}
+          {kindLabel(row)}
         </span>
       ) : null}
       {visibleColumns.includes("detail") ? (
@@ -372,12 +405,13 @@ function AgentLogRowView({
   );
 }
 
-function kindLabel(kind: AgentLogRow["kind"]): string {
-  if (kind === "incident") return t("agentActivity.live.incident");
-  if (kind === "handoff") return t("agentActivity.live.handoff");
-  if (kind === "state") return t("agentActivity.live.state");
-  if (kind === "activity") return t("agentActivity.log.activity");
-  return t(`agentActivity.filter.${kind}`);
+function kindLabel(row: AgentLogRow): string {
+  if (row.operationalKind !== null) return t(`agentActivity.log.lane.${row.operationalKind}`);
+  if (row.kind === "incident") return t("agentActivity.live.incident");
+  if (row.kind === "handoff") return t("agentActivity.live.handoff");
+  if (row.kind === "state") return t("agentActivity.live.state");
+  if (row.kind === "activity") return t("agentActivity.log.activity");
+  return t(`agentActivity.filter.${row.kind}`);
 }
 
 function sourceLabel(source: AgentLogSource): string {
