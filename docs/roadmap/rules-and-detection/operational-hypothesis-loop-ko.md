@@ -1,6 +1,6 @@
 ---
 translation_of: operational-hypothesis-loop.md
-translation_source_sha: 8a06db2de6656afc67d3945b1660b682b3a80945
+translation_source_sha: 2689c775436a1317248c1666961af05b5d848459
 translation_revised: 2026-08-12
 ---
 # 운영 가설 루프
@@ -21,6 +21,14 @@ runtime을 기록합니다.
 > **J1 상태:** Lane A-D 산출물은 `main`에 통합되어 있습니다. J1은 composition, runtime
 > lifecycle, 기존 delivery routing 및 bilingual code-map 업데이트만 소유합니다. 새 service,
 > agent 또는 권한을 보유한 coordinator를 추가하지 않습니다.
+>
+> **Hardening 상태(2026-08-12):** 독립 비평 14라운드에서 권한, 범위, dry-run identity,
+> idempotency, lease, ARM update 의미, 비동기 polling, input canonicalization, 오류 노출, 계약
+> 일치 및 독립 outcome 경계를 검토했습니다. 수용된 finding에 따라 실행 시점 VM Scale Set 재관측,
+> ETag 기반 `If-Match`, 명시적 412 conflict 처리, 정확한 reason 검증, 누적 polling deadline 및 VMSS
+> 장기 실행 작업 replay test를 추가했습니다. 최종 검토에서 재현 가능한 Medium 이상 defect는
+> 없었습니다. 남은 Low 작업은 더 풍부한 observer identity record와 timeout 분류이며, 보호된 live
+> drill과 recurrence window는 코드 defect나 완료 claim이 아니라 명시적 release evidence로 남습니다.
 
 ## 설계 요약
 

@@ -29,6 +29,10 @@ URLs, ARM paths, commands, or query text.
 - ARM `202 Accepted` responses remain `submitted`, and the server-issued status URL stays private
   in the operation record. The executor can poll it only through `azure.operation.status` with the
   original idempotency key.
+- VM Scale Set scale-out re-observes the exact target immediately before mutation, requires a
+  bounded provider ETag, and sends it as `If-Match`. An external revision change returns a conflict
+  instead of applying a stale absolute capacity. The Core gateway client applies one cumulative
+  45-second default deadline to long-running-operation polling.
 - ARM `429` responses honor a bounded `Retry-After` delay for at most three attempts. Mutation
   `5xx` responses aren't blindly retried because provider acceptance may be ambiguous.
 - Resource groups and private probe endpoints come from server configuration.

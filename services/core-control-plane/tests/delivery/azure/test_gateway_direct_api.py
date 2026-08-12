@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -188,6 +189,7 @@ async def test_scale_out_maps_exact_vmss_target_to_registered_operation() -> Non
     assert '"resource_group":"rg-example"' in body
     assert '"vmss_name":"vmss-app"' in body
     assert '"replica_count":3' in body
+    assert '"reason":"increase capacity for the measured workload"' in body
 
 
 async def test_scale_out_rejects_target_substitution_before_gateway_io() -> None:
@@ -241,6 +243,45 @@ async def test_enforce_polls_submitted_operation_until_success() -> None:
         ).execute(_request(mode=Mode.ENFORCE))
 
     assert receipt.outcome is DirectApiOutcome.SUCCEEDED
+
+
+async def test_polling_has_one_cumulative_deadline() -> None:
+    block = asyncio.Event()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        operation = request.url.path.rsplit("/", 1)[-1]
+        if operation == "azure.operation.plan":
+            return httpx.Response(
+                200,
+                json={
+                    "operation_id": operation,
+                    "status": "succeeded",
+                    "result": {"status": "planned", "dry_run_receipt": "receipt"},
+                },
+            )
+        if operation == "azure.compute.vm.start":
+            return httpx.Response(
+                200,
+                json={"operation_id": operation, "status": "submitted", "result": {}},
+            )
+        await block.wait()
+        raise AssertionError("unreachable")
+
+    config = AzureGatewayDirectApiConfig(
+        base_url="https://gateway.example.com",
+        audience="api-application-id",
+        poll_interval_seconds=0,
+        poll_timeout_seconds=0.1,
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        receipt = await AzureGatewayDirectApiExecutor(
+            config=config,
+            identity=_Identity(),
+            http_client=client,
+        ).execute(_request(mode=Mode.ENFORCE))
+
+    assert receipt.outcome is DirectApiOutcome.FAILED
+    assert receipt.detail == "Azure long-running operation exceeded the polling deadline"
 
 
 async def test_adapter_rejects_oversized_gateway_response() -> None:

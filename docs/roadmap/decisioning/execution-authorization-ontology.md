@@ -22,8 +22,10 @@ risk and human-approval decision.
 > and revision-bound browser review are implemented. A deployment enables the gate by binding its context, identity,
 > permission mapping, probe, and optional grant adapters. The development operations gateway maps
 > `ops.scale-out` to the FinOps executor identity and rechecks one exact configured Uniform VM Scale
-> Set before permitting a one-instance capacity increase. This delivery mapping does not replace
-> the capability, policy-assignment, effective-access, risk, or approval decisions.
+> Set before permitting a one-instance capacity increase. The mutation uses the fresh provider ETag
+> as an `If-Match` precondition, and Core bounds long-running-operation polling with one cumulative
+> deadline. This delivery mapping does not replace the capability, policy-assignment,
+> effective-access, risk, or approval decisions.
 
 ## Design at a glance
 

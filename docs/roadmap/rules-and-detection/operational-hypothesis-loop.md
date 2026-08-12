@@ -19,6 +19,16 @@ runtime without adding a second planning, causal, simulation, or promotion syste
 > **J1 state:** Lane A-D outputs are integrated on `main`. J1 owns only composition, runtime
 > lifecycle, existing delivery routing, and bilingual code-map updates. No new service, agent, or
 > authority-bearing coordinator is introduced.
+>
+> **Hardening status (2026-08-12):** Fourteen independent rounds reviewed authority, scope,
+> dry-run identity, idempotency, leases, ARM update semantics, asynchronous polling, input
+> canonicalization, error disclosure, contract parity, and independent-outcome boundaries. The
+> accepted findings add an execution-time VM Scale Set re-observation, ETag-bound `If-Match`,
+> explicit 412 conflict handling, exact reason validation, a cumulative polling deadline, and VMSS
+> long-running-operation replay tests. Final review found no reproducible Medium-or-higher defect.
+> Remaining Low work covers richer observer-identity records and timeout classification; the
+> protected live drill and recurrence window remain explicit release evidence rather than a code
+> defect or a completed claim.
 
 ## Design at a glance
 

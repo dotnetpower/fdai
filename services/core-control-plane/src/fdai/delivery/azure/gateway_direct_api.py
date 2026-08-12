@@ -40,6 +40,7 @@ class AzureGatewayDirectApiConfig:
     timeout_seconds: float = 30.0
     poll_interval_seconds: float = 1.0
     max_poll_attempts: int = 30
+    poll_timeout_seconds: float = 45.0
 
     def __post_init__(self) -> None:
         parsed = urlparse(self.base_url)
@@ -61,6 +62,8 @@ class AzureGatewayDirectApiConfig:
             raise ValueError("gateway direct-api poll_interval_seconds MUST be in [0, 30]")
         if not 1 <= self.max_poll_attempts <= 120:
             raise ValueError("gateway direct-api max_poll_attempts MUST be in [1, 120]")
+        if not 0.1 <= self.poll_timeout_seconds <= 300:
+            raise ValueError("gateway direct-api poll_timeout_seconds MUST be in [0.1, 300]")
 
 
 class AzureGatewayDirectApiExecutor:
@@ -129,26 +132,41 @@ class AzureGatewayDirectApiExecutor:
         return await self._poll_until_terminal(request)
 
     async def _poll_until_terminal(self, request: DirectApiRequest) -> DirectApiReceipt:
-        for _attempt in range(self._config.max_poll_attempts):
-            if self._config.poll_interval_seconds:
-                await asyncio.sleep(self._config.poll_interval_seconds)
-            response = await self._invoke(
-                "azure.operation.status",
-                {"idempotency_key": request.idempotency_key},
+        try:
+            async with asyncio.timeout(self._config.poll_timeout_seconds):
+                for _attempt in range(self._config.max_poll_attempts):
+                    if self._config.poll_interval_seconds:
+                        await asyncio.sleep(self._config.poll_interval_seconds)
+                    response = await self._invoke(
+                        "azure.operation.status",
+                        {"idempotency_key": request.idempotency_key},
+                    )
+                    body = _validated_body(
+                        response,
+                        expected_operation="azure.operation.status",
+                    )
+                    status = body.get("status")
+                    if status == "succeeded":
+                        return _success_receipt(request)
+                    if status == "failed":
+                        return DirectApiReceipt(
+                            outcome=DirectApiOutcome.FAILED,
+                            receipt_ref=f"gateway:{request.idempotency_key}",
+                            rollback_succeeded=False,
+                            detail="Azure long-running operation failed",
+                        )
+                    if status != "running":
+                        raise DirectApiError(
+                            "invalid_response",
+                            "gateway status was not recognized",
+                        )
+        except TimeoutError:
+            return DirectApiReceipt(
+                outcome=DirectApiOutcome.FAILED,
+                receipt_ref=f"gateway:{request.idempotency_key}",
+                rollback_succeeded=False,
+                detail="Azure long-running operation exceeded the polling deadline",
             )
-            body = _validated_body(response, expected_operation="azure.operation.status")
-            status = body.get("status")
-            if status == "succeeded":
-                return _success_receipt(request)
-            if status == "failed":
-                return DirectApiReceipt(
-                    outcome=DirectApiOutcome.FAILED,
-                    receipt_ref=f"gateway:{request.idempotency_key}",
-                    rollback_succeeded=False,
-                    detail="Azure long-running operation failed",
-                )
-            if status != "running":
-                raise DirectApiError("invalid_response", "gateway status was not recognized")
         return DirectApiReceipt(
             outcome=DirectApiOutcome.FAILED,
             receipt_ref=f"gateway:{request.idempotency_key}",
@@ -240,6 +258,7 @@ def _vmss_scale_arguments(
 ) -> dict[str, object]:
     target_ref = raw.get("target_resource_ref")
     replica_count = raw.get("replica_count")
+    reason = raw.get("reason")
     if not isinstance(target_ref, str) or target_ref != resource_ref:
         raise DirectApiPreconditionError(
             "scale-out target_resource_ref must match the action resource"
@@ -265,11 +284,20 @@ def _vmss_scale_arguments(
         or not 1 <= replica_count <= 1000
     ):
         raise DirectApiPreconditionError("scale-out replica_count must be in [1, 1000]")
+    if (
+        not isinstance(reason, str)
+        or not 10 <= len(reason) <= 200
+        or any(ord(character) < 32 or ord(character) == 127 for character in reason)
+    ):
+        raise DirectApiPreconditionError(
+            "scale-out reason must contain 10..200 characters without controls"
+        )
     return {
         "resource_group": parts[3],
         "vmss_name": parts[7],
         "target_resource_ref": target_ref,
         "replica_count": replica_count,
+        "reason": reason,
     }
 
 

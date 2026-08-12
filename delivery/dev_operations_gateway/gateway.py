@@ -571,6 +571,7 @@ class OperationsGateway:
             _nsg_rule_body(payload)
         elif operation_id == "azure.compute.vmss.scale":
             _integer(payload, "replica_count", minimum=1, maximum=1000)
+            _scale_reason(payload)
 
     async def _preflight_mutation(
         self,
@@ -607,34 +608,7 @@ class OperationsGateway:
                 "Azure mutation preflight did not return a resource object",
             )
         if operation_id == "azure.compute.vmss.scale":
-            sku = observed.get("sku")
-            properties = observed.get("properties")
-            current_capacity = sku.get("capacity") if isinstance(sku, Mapping) else None
-            orchestration_mode = (
-                properties.get("orchestrationMode") if isinstance(properties, Mapping) else None
-            )
-            requested_capacity = _integer(
-                payload,
-                "replica_count",
-                minimum=1,
-                maximum=1000,
-            )
-            if (
-                not isinstance(current_capacity, int)
-                or isinstance(current_capacity, bool)
-                or requested_capacity != current_capacity + 1
-            ):
-                raise GatewayError(
-                    409,
-                    "scale_out_of_bounds",
-                    "development VMSS scale-out MUST increase capacity by exactly one",
-                )
-            if orchestration_mode != "Uniform":
-                raise GatewayError(
-                    409,
-                    "orchestration_mode_unsupported",
-                    "development VMSS scale-out requires Uniform orchestration",
-                )
+            self._validate_vmss_scale_observation(payload, observed, require_etag=False)
 
     def _scope(self, payload: Mapping[str, object]) -> tuple[str, str]:
         resource_group = _identifier(payload, "resource_group")
@@ -842,14 +816,72 @@ class OperationsGateway:
     async def _scale_vmss(self, payload: Mapping[str, object]) -> object:
         subscription, group, vmss_name = self._vmss_target(payload)
         replica_count = _integer(payload, "replica_count", minimum=1, maximum=1000)
+        path = (
+            f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
+            f"Microsoft.Compute/virtualMachineScaleSets/{vmss_name}"
+        )
+        observed = await self._arm("GET", path, api_version=_COMPUTE_API_VERSION)
+        if not isinstance(observed, Mapping):
+            raise GatewayError(
+                502,
+                "azure_response_invalid",
+                "Azure VMSS pre-mutation observation was not an object",
+            )
+        etag = self._validate_vmss_scale_observation(payload, observed, require_etag=True)
         return await self._arm(
             "PATCH",
-            f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
-            f"Microsoft.Compute/virtualMachineScaleSets/{vmss_name}",
+            path,
             api_version=_COMPUTE_API_VERSION,
             json_body={"sku": {"capacity": replica_count}},
             executor=True,
+            request_headers={"If-Match": etag},
         )
+
+    def _validate_vmss_scale_observation(
+        self,
+        payload: Mapping[str, object],
+        observed: Mapping[str, object],
+        *,
+        require_etag: bool,
+    ) -> str:
+        sku = observed.get("sku")
+        properties = observed.get("properties")
+        current_capacity = sku.get("capacity") if isinstance(sku, Mapping) else None
+        orchestration_mode = (
+            properties.get("orchestrationMode") if isinstance(properties, Mapping) else None
+        )
+        if orchestration_mode != "Uniform":
+            raise GatewayError(
+                409,
+                "orchestration_mode_unsupported",
+                "development VMSS scale-out requires Uniform orchestration",
+            )
+        requested_capacity = _integer(payload, "replica_count", minimum=1, maximum=1000)
+        if (
+            not isinstance(current_capacity, int)
+            or isinstance(current_capacity, bool)
+            or requested_capacity != current_capacity + 1
+        ):
+            raise GatewayError(
+                409,
+                "scale_out_of_bounds",
+                "development VMSS scale-out MUST increase capacity by exactly one",
+            )
+        if not require_etag:
+            return ""
+        etag = observed.get("etag")
+        if (
+            not isinstance(etag, str)
+            or not etag
+            or len(etag) > 512
+            or any(ord(character) < 32 or ord(character) == 127 for character in etag)
+        ):
+            raise GatewayError(
+                502,
+                "azure_response_invalid",
+                "Azure VMSS observation omitted a bounded ETag",
+            )
+        return etag
 
     def _vmss_target(self, payload: Mapping[str, object]) -> tuple[str, str, str]:
         subscription, group = self._scope(payload)
@@ -875,6 +907,7 @@ class OperationsGateway:
         api_version: str,
         json_body: Mapping[str, object] | None = None,
         executor: bool = False,
+        request_headers: Mapping[str, str] | None = None,
     ) -> object:
         token_provider = self._executor_tokens if executor else self._reader_tokens
         token = await token_provider.get_token(_ARM_AUDIENCE)
@@ -883,7 +916,10 @@ class OperationsGateway:
                 method,
                 f"https://management.azure.com{path}",
                 params={"api-version": api_version},
-                headers={"Authorization": f"Bearer {token}"},
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    **(request_headers or {}),
+                },
                 json=json_body,
                 timeout=30.0,
             )
@@ -892,6 +928,12 @@ class OperationsGateway:
             await self._sleep(_retry_after_seconds(response))
         if response.status_code == 404:
             raise GatewayError(404, "azure_resource_not_found", "Azure resource was not found")
+        if response.status_code == 412:
+            raise GatewayError(
+                409,
+                "target_revision_changed",
+                "Azure resource changed after the scale-out observation",
+            )
         if response.status_code == 429 or response.status_code >= 500:
             raise GatewayError(
                 503,
@@ -1070,6 +1112,21 @@ def _integer(payload: Mapping[str, object], name: str, *, minimum: int, maximum:
     if not isinstance(value, int) or isinstance(value, bool) or not minimum <= value <= maximum:
         raise GatewayError(400, "argument_invalid", f"{name} is outside its allowed range")
     return value
+
+
+def _scale_reason(payload: Mapping[str, object]) -> str:
+    reason = payload.get("reason")
+    if (
+        not isinstance(reason, str)
+        or not 10 <= len(reason) <= 200
+        or any(ord(character) < 32 or ord(character) == 127 for character in reason)
+    ):
+        raise GatewayError(
+            400,
+            "argument_invalid",
+            "reason MUST contain 10..200 characters without controls",
+        )
+    return reason
 
 
 def _nsg_rule_body(payload: Mapping[str, object]) -> Mapping[str, object]:
