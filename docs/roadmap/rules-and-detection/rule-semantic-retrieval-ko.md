@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: ad21310903d1e9da426fc7e913b0ec08b3643c02
+translation_source_sha: b46f8c5e7b2d956f99de05b11aa1b3fca36bc866
 translation_revised: 2026-08-13
 ---
 # Rule 의미 검색
@@ -46,7 +46,7 @@ translation_revised: 2026-08-13
 | 선택적 의미 런타임 바인딩 | implemented | `composition/wire_semantic_query.py`; `tests/composition/test_wire_semantic_query.py` | 의미 인덱스와 정확한 카탈로그 다이제스트를 함께 요구합니다. |
 | Planner 가용성 계상 | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | 읽을 수 있지만 바인딩되지 않은 함수는 구조 커버리지에 `runtime_binding_unavailable`로 남고 planning에서는 숨겨집니다. |
 | In-memory 세대 및 검증 | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | 결정론적 off-path 세대, 독립적인 활성 및 발견 포인터, 코퍼스별 롤백을 지원합니다. 집중 테스트에서 실제 활성 Rule 62개와 발견 Rule 변환 결과 8,487개를 사용하지만 영속 운영 어댑터는 아닙니다. |
-| 코퍼스 규모 세대 식별자 | in-progress | `rule_catalog/schema/rule_semantic_generation.py`; `rule_catalog/schema/discovery_rule.py`; `tests/rule_catalog/test_rule_semantic_retrieval.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | 개수, 계층형 루트 및 범위가 제한된 청크 식별자로 8,549개 행을 나타냅니다. 실제 발견 Rule 8,487개는 순서가 있는 청크 34개를 생성합니다. 제공 메타데이터 통합은 아직 남아 있습니다. |
+| 코퍼스 규모 세대 식별자 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; 집중 세대 및 Rule 카탈로그 테스트 | 프로바이더 중립 메타데이터는 개수, 계층형 루트, 범위가 제한된 순서가 있는 청크 및 작은 세대의 인라인 다이제스트를 포함합니다. 세대 생성, 검증 증적, 준비, 활성화, 활성 조회, 검색, 롤백 및 롤백 증적은 식별자 차이를 거부합니다. |
 | 영속 운영 인덱스 및 bootstrap 연결 | not-started | `shared/providers/catalog_search.py`; `runtime/bootstrap.py` | 프로바이더 계약은 있지만 운영에 구성된 영속 `CatalogSemanticIndex` 구현은 없습니다. |
 | Operator Rule 검색 변환 결과 | implemented | Operator Service workflow 매니페스트, 경로 및 PostgreSQL workflow 어댑터 | `POST /rules/search`는 개정 번호가 있는 구체화된 변환 결과를 읽으며 정책, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
 
@@ -58,11 +58,13 @@ translation_revised: 2026-08-13
 | 2026-08-13 | in-progress | 최대 256개 행의 세대에는 순서가 있는 인라인 다이제스트를 유지하면서 코퍼스 규모 세대에 범위가 제한된 계층형 문서 식별자를 추가했습니다. | `current change`; 집중 `test_rule_semantic_retrieval.py` 모음에서 8,549개 행과 청크 34개 매니페스트, 256/257개 행 경계 및 실패 시 안전하게 닫히는 변조 사례를 포함한 테스트 17개가 통과했습니다. | 매니페스트를 제공 메타데이터와 통합하고 활성 및 발견 코퍼스의 독립적인 활성화와 롤백을 증명합니다. |
 | 2026-08-13 | implemented | In-memory 활성 및 발견 세대가 독립적인 포인터를 통해 준비, 활성화, 검색 및 롤백됨을 보여 주는 집중 근거를 추가했습니다. 준비된 발견 데이터는 보이지 않으며 발견 롤백은 활성 결과를 바꾸지 않습니다. | `current change`; 집중 `test_active_and_discovery_generation_pointers_are_independent` 테스트가 통과했습니다. | 전체 코퍼스에 대한 수명 주기 증명을 영속 운영 어댑터에서 반복합니다. |
 | 2026-08-13 | in-progress | 실제 발견 레코드 8,487개를 권한이 없는 후보 전용 검색 문서로 구체화하고 하나의 in-memory 인덱스에서 전체 활성 62개와 발견 8,487개의 수명 주기 격리를 검증했습니다. 발견 세대를 교체하거나 롤백해도 활성 메타데이터와 결과는 바뀌지 않습니다. | 커밋 `fea694a32` 및 `c136a7231`; `test_discovery_catalog_search.py`에서 빈 입력, 잘못된 입력 및 중복을 안전하게 차단하는 사례와 전체 코퍼스 준비, 활성화, 검색, 교체 및 롤백을 포함한 테스트 4개가 통과했습니다. Ruff 및 strict mypy가 통과했습니다. | 개수, 루트 및 청크를 제공 메타데이터에 연결한 다음 영속 PostgreSQL 어댑터에서 수명 주기 증명을 반복합니다. |
+| 2026-08-13 | implemented | 정규 문서 매니페스트를 프로바이더 중립 세대 메타데이터에 연결하고 모든 in-memory 수명 주기 경계에서 순서가 있는 정확한 행을 다시 검증했습니다. 세대 다이제스트는 이제 모든 메타데이터 및 매니페스트 필드를 자체 검증하며, 검증 및 롤백 증적은 청크 식별자를 고정하고 Rule 검색 문서 변환 공식은 v3으로 갱신되었습니다. 적대적 14차에서 채택한 비정규 세대 다이제스트 문제를 해결했으며, 영속 어댑터 공백은 별도 잔여 작업입니다. | `current change`; 집중 세대, 정확한 질의, 검색, 전체 코퍼스 및 구성 검사에서 테스트 41개가 통과했습니다. 소스 파일 5개에서 strict mypy가 통과했고 소스 및 테스트 파일 9개에서 Ruff 검사가 통과했으며 편집기 진단은 깨끗했습니다. | 영속 PostgreSQL 어댑터에 같은 매니페스트를 저장하고 다시 검증한 다음 실제 데이터베이스 수명 주기 근거를 기록합니다. |
 
 ### 남은 작업
 
-- [ ] 정확한 문서 개수, 계층형 루트 및 순서가 있는 청크 식별자를 제공 세대 메타데이터에
-  연결합니다. 준비, 활성화, 검색 및 롤백에서 식별자 차이를 모두 거부하면 완료합니다.
+- [x] 프로바이더 중립 제공 메타데이터는 정확한 문서 개수, 계층형 루트 및 순서가 있는 청크
+  식별자를 연결합니다. 집중 준비, 활성화, 조회, 검색, 롤백 및 증적 테스트에서 식별자 차이를
+  거부합니다.
 - [ ] 영속 운영 `CatalogSemanticIndex`를 구현하고 구성합니다. Focused 실제 데이터베이스
   세대, activation, rollback 및 정확한 세대 검색 검사가 [빌드 및 의미 확장 수명
   주기](#빌드-및-의미-확장-수명-주기)에 따라 통과하면 완료합니다.

@@ -17,6 +17,8 @@ from fdai.shared.providers.catalog_search import (
     CatalogSearchDocument,
     CatalogSearchResult,
     Embedder,
+    build_document_digest_manifest,
+    catalog_search_document_digest,
 )
 from fdai.shared.providers.knowledge import cosine_similarity
 
@@ -81,6 +83,7 @@ class InMemoryCatalogSemanticIndex:
                 raise ValueError("semantic generation embedding dimension mismatch")
             prepared_rows.append(prepared_document)
         prepared = tuple(prepared_rows)
+        _verify_document_identity(metadata, prepared)
         async with self._lock:
             prior = self._generations.get(metadata.generation_id)
             if prior is not None:
@@ -104,6 +107,7 @@ class InMemoryCatalogSemanticIndex:
                 metadata, documents = self._generations[generation_id]
             except KeyError as exc:
                 raise ValueError("semantic generation is unavailable") from exc
+            _verify_document_identity(metadata, documents)
             if metadata.generation_digest != expected_generation_digest:
                 raise ValueError("semantic generation digest mismatch")
             if metadata.state != "staged" or metadata.validation_receipt_digest is None:
@@ -111,6 +115,7 @@ class InMemoryCatalogSemanticIndex:
             prior_id = self._active.get(metadata.corpus)
             if prior_id is not None:
                 prior, prior_documents = self._generations[prior_id]
+                _verify_document_identity(prior, prior_documents)
                 self._generations[prior_id] = replace(prior, state="retired"), prior_documents
             active = replace(metadata, state="active", activated_at=activated_at)
             self._generations[generation_id] = active, documents
@@ -136,6 +141,8 @@ class InMemoryCatalogSemanticIndex:
                 current, current_documents = self._generations[expected_active_generation_id]
             except KeyError as exc:
                 raise ValueError("semantic rollback generation is unavailable") from exc
+            _verify_document_identity(target, target_documents)
+            _verify_document_identity(current, current_documents)
             active_id = self._active.get(target.corpus)
             if active_id == target_generation_id:
                 if (
@@ -180,7 +187,11 @@ class InMemoryCatalogSemanticIndex:
         corpus: CatalogCorpus = "active",
     ) -> CatalogGenerationMetadata | None:
         generation_id = self._active.get(corpus)
-        return self._generations[generation_id][0] if generation_id is not None else None
+        if generation_id is None:
+            return None
+        metadata, documents = self._generations[generation_id]
+        _verify_document_identity(metadata, documents)
+        return metadata
 
     async def search(
         self,
@@ -247,6 +258,16 @@ def _tokens(value: str) -> frozenset[str]:
         if re.fullmatch(r"[가-힣]+", raw):
             result.update(raw[index : index + 2] for index in range(len(raw) - 1))
     return frozenset(result)
+
+
+def _verify_document_identity(
+    metadata: CatalogGenerationMetadata,
+    documents: tuple[CatalogSearchDocument, ...],
+) -> None:
+    document_digests = tuple(catalog_search_document_digest(item) for item in documents)
+    actual = build_document_digest_manifest(document_digests)
+    if metadata.document_digest_manifest != actual:
+        raise ValueError("semantic generation document digest manifest mismatch")
 
 
 def _lexical_score(document: CatalogSearchDocument, query_tokens: frozenset[str]) -> float:

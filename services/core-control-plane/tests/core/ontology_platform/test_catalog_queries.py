@@ -19,20 +19,30 @@ from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.catalog_search import (
     CatalogGenerationMetadata,
     CatalogSearchDocument,
+    build_document_digest_manifest,
+    catalog_generation_digest,
+    catalog_search_document_digest,
 )
 
 CATALOG_DIGEST = "sha256:" + ("a" * 64)
 SCHEMA_DIGEST = "sha256:" + ("b" * 64)
-GENERATION_DIGEST = "sha256:" + ("c" * 64)
 VALIDATION_DIGEST = "sha256:" + ("d" * 64)
 NOW = datetime(2026, 8, 12, tzinfo=UTC)
 
 
 async def _active_index(*, release_digest: str) -> InMemoryCatalogSemanticIndex:
     index = InMemoryCatalogSemanticIndex()
-    metadata = CatalogGenerationMetadata(
-        generation_id="rules-active-1",
-        generation_digest=GENERATION_DIGEST,
+    documents = (
+        CatalogSearchDocument(
+            rule_id="network.nsg-open-deny",
+            text="deny an open network security group",
+            neighbor_ids=("network.nsg",),
+        ),
+    )
+    document_manifest = build_document_digest_manifest(
+        tuple(catalog_search_document_digest(item) for item in documents)
+    )
+    generation_digest = catalog_generation_digest(
         corpus="active",
         catalog_digest=CATALOG_DIGEST,
         semantic_schema_digest=SCHEMA_DIGEST,
@@ -40,18 +50,22 @@ async def _active_index(*, release_digest: str) -> InMemoryCatalogSemanticIndex:
         embedding_space_id="rule-search-v1",
         embedding_model_version="lexical-only-v1",
         embedding_dimension=1,
+        document_digest_manifest=document_manifest,
+    )
+    metadata = CatalogGenerationMetadata(
+        generation_id="rules-active-1",
+        generation_digest=generation_digest,
+        corpus="active",
+        catalog_digest=CATALOG_DIGEST,
+        semantic_schema_digest=SCHEMA_DIGEST,
+        ontology_release_digest=release_digest,
+        embedding_space_id="rule-search-v1",
+        embedding_model_version="lexical-only-v1",
+        embedding_dimension=1,
+        document_digest_manifest=document_manifest,
         validation_receipt_digest=VALIDATION_DIGEST,
     )
-    await index.stage_generation(
-        metadata,
-        (
-            CatalogSearchDocument(
-                rule_id="network.nsg-open-deny",
-                text="deny an open network security group",
-                neighbor_ids=("network.nsg",),
-            ),
-        ),
-    )
+    await index.stage_generation(metadata, documents)
     await index.activate_generation(
         metadata.generation_id,
         expected_generation_digest=metadata.generation_digest,
@@ -92,7 +106,25 @@ async def test_search_rules_returns_exact_generation_candidates_without_authorit
             "authority": "candidate_only",
         }
     ]
-    assert result["retrieval_receipt"]["generation_digest"] == GENERATION_DIGEST
+    expected_document = CatalogSearchDocument(
+        rule_id="network.nsg-open-deny",
+        text="deny an open network security group",
+        neighbor_ids=("network.nsg",),
+    )
+    expected_manifest = build_document_digest_manifest(
+        (catalog_search_document_digest(expected_document),)
+    )
+    expected_generation_digest = catalog_generation_digest(
+        corpus="active",
+        catalog_digest=CATALOG_DIGEST,
+        semantic_schema_digest=SCHEMA_DIGEST,
+        ontology_release_digest=release.digest,
+        embedding_space_id="rule-search-v1",
+        embedding_model_version="lexical-only-v1",
+        embedding_dimension=1,
+        document_digest_manifest=expected_manifest,
+    )
+    assert result["retrieval_receipt"]["generation_digest"] == expected_generation_digest
     assert result["authority"] == "candidate_only"
     assert result["execution_authority"] is False
     assert CATALOG_SEARCH_RULES_FUNCTION_NAME in {

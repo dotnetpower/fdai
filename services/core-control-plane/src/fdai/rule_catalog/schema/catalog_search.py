@@ -12,7 +12,12 @@ from fdai.rule_catalog.schema.rule_semantic_retrieval import (
     RuleSemanticSurface,
 )
 from fdai.shared.contracts.models import OntologyActionType, Rule
-from fdai.shared.providers.catalog_search import CatalogSearchDocument
+from fdai.shared.providers.catalog_search import (
+    CatalogSearchDocument,
+)
+from fdai.shared.providers.catalog_search import (
+    catalog_search_document_digest as _provider_document_digest,
+)
 
 
 def build_discovery_catalog_search_documents(
@@ -132,22 +137,13 @@ def build_catalog_search_documents(
 def catalog_search_document_digest(document: CatalogSearchDocument) -> str:
     """Hash grounded document content without a provider-specific embedding."""
 
-    payload = {
-        "rule_id": document.rule_id,
-        "text": document.text,
-        "neighbor_ids": document.neighbor_ids,
-        "corpus": document.corpus,
-        "manifest_digest": document.manifest_digest,
-        "surface_digest": document.surface_digest,
-    }
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+    return _provider_document_digest(document)
 
 
 def catalog_search_schema_digest() -> str:
     """Return the versioned projection formula identity."""
 
-    return "sha256:" + hashlib.sha256(b"catalog-search-document:v2").hexdigest()
+    return "sha256:" + hashlib.sha256(b"catalog-search-document:v3").hexdigest()
 
 
 def catalog_semantic_surface_digest(surfaces: Sequence[RuleSemanticSurface]) -> str:

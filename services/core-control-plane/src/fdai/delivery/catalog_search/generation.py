@@ -13,6 +13,9 @@ from fdai.shared.providers.catalog_search import (
     CatalogGenerationMetadata,
     CatalogSearchDocument,
     CatalogSemanticIndex,
+    build_document_digest_manifest,
+    catalog_generation_digest,
+    catalog_search_document_digest,
 )
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord, normalize_json_value
 
@@ -45,6 +48,7 @@ class SemanticGenerationValidationReceipt:
     ontology_release_digest: str
     document_count: int
     document_digest_root: str
+    document_digest_chunks: tuple[str, ...]
     validator_id: str
     receipt_digest: str
 
@@ -72,12 +76,12 @@ def build_ontology_semantic_generation(
     if len(identifiers) != len(set(identifiers)):
         raise ValueError("semantic generation document ids MUST be unique")
 
-    previous_by_digest = {_document_digest(item): item for item in previous_documents}
+    previous_by_digest = {catalog_search_document_digest(item): item for item in previous_documents}
     documents: list[CatalogSearchDocument] = []
     digests: list[str] = []
     reused = 0
     for candidate in candidates:
-        digest = _document_digest(candidate)
+        digest = catalog_search_document_digest(candidate)
         prior = previous_by_digest.get(digest)
         if prior is not None and prior.rule_id == candidate.rule_id:
             documents.append(prior)
@@ -86,6 +90,7 @@ def build_ontology_semantic_generation(
             documents.append(candidate)
         digests.append(digest)
     ordered_digests = tuple(digests)
+    document_manifest = build_document_digest_manifest(ordered_digests)
     catalog_digest = _digest(
         {
             "manifest_digest": manifest.manifest_digest,
@@ -96,18 +101,15 @@ def build_ontology_semantic_generation(
             ],
         }
     )
-    generation_digest = _digest(
-        {
-            "schema_version": "1.0.0",
-            "catalog_digest": catalog_digest,
-            "ontology_release_digest": manifest.release_digest,
-            "semantic_schema_digest": _SCHEMA_DIGEST,
-            "embedding_space_id": embedding_space_id,
-            "embedding_model_version": embedding_model_version,
-            "embedding_dimension": embedding_dimension,
-            "document_count": len(documents),
-            "document_digest_root": _digest(ordered_digests),
-        }
+    generation_digest = catalog_generation_digest(
+        corpus="active",
+        catalog_digest=catalog_digest,
+        ontology_release_digest=manifest.release_digest,
+        semantic_schema_digest=_SCHEMA_DIGEST,
+        embedding_space_id=embedding_space_id,
+        embedding_model_version=embedding_model_version,
+        embedding_dimension=embedding_dimension,
+        document_digest_manifest=document_manifest,
     )
     metadata = CatalogGenerationMetadata(
         generation_id=f"ontology-search:active:{generation_digest[7:31]}",
@@ -119,6 +121,7 @@ def build_ontology_semantic_generation(
         embedding_space_id=embedding_space_id,
         embedding_model_version=embedding_model_version,
         embedding_dimension=embedding_dimension,
+        document_digest_manifest=document_manifest,
     )
     return SemanticGenerationBuild(
         metadata=metadata,
@@ -140,7 +143,7 @@ def validate_ontology_semantic_generation(
         raise ValueError("semantic generation validator_id MUST be bounded")
     if build.metadata.ontology_release_digest != manifest.release_digest:
         raise ValueError("semantic generation validation release mismatch")
-    recomputed = tuple(_document_digest(item) for item in build.documents)
+    recomputed = tuple(catalog_search_document_digest(item) for item in build.documents)
     if recomputed != build.document_digests:
         raise ValueError("semantic generation document digest mismatch")
     expected_declarations = {
@@ -151,21 +154,24 @@ def validate_ontology_semantic_generation(
     }
     if actual_declarations != expected_declarations:
         raise ValueError("semantic generation declaration coverage mismatch")
-    root = _digest(recomputed)
+    document_manifest = build_document_digest_manifest(recomputed)
+    document_digest_chunks = tuple(chunk.digest for chunk in document_manifest.chunks)
     payload = {
         "schema_version": "1.0.0",
         "generation_digest": build.metadata.generation_digest,
         "ontology_release_digest": manifest.release_digest,
-        "document_count": len(build.documents),
-        "document_digest_root": root,
+        "document_count": document_manifest.document_count,
+        "document_digest_root": document_manifest.document_digest_root,
+        "document_digest_chunks": document_digest_chunks,
         "validator_id": validator_id,
         "valid": True,
     }
     return SemanticGenerationValidationReceipt(
         generation_digest=build.metadata.generation_digest,
         ontology_release_digest=manifest.release_digest,
-        document_count=len(build.documents),
-        document_digest_root=root,
+        document_count=document_manifest.document_count,
+        document_digest_root=document_manifest.document_digest_root,
+        document_digest_chunks=document_digest_chunks,
         validator_id=validator_id,
         receipt_digest=_digest(payload),
     )
@@ -183,8 +189,11 @@ def bind_semantic_generation_validation(
         raise ValueError("semantic generation validation receipt targets another release")
     if receipt.document_count != len(build.documents):
         raise ValueError("semantic generation validation receipt count mismatch")
-    if receipt.document_digest_root != _digest(build.document_digests):
+    document_manifest = build_document_digest_manifest(build.document_digests)
+    if receipt.document_digest_root != document_manifest.document_digest_root:
         raise ValueError("semantic generation validation receipt root mismatch")
+    if receipt.document_digest_chunks != tuple(chunk.digest for chunk in document_manifest.chunks):
+        raise ValueError("semantic generation validation receipt chunk mismatch")
     return replace(
         build,
         metadata=replace(build.metadata, validation_receipt_digest=receipt.receipt_digest),
@@ -286,19 +295,6 @@ def _bounded_text(value: object) -> str:
     if len(text.encode("utf-8")) > _MAX_DOCUMENT_BYTES:
         raise ValueError(f"semantic document exceeds {_MAX_DOCUMENT_BYTES} bytes")
     return text
-
-
-def _document_digest(document: CatalogSearchDocument) -> str:
-    return _digest(
-        {
-            "id": document.rule_id,
-            "kind": document.document_kind,
-            "text": document.text,
-            "neighbor_ids": document.neighbor_ids,
-            "manifest_digest": document.manifest_digest,
-            "surface_digest": document.surface_digest,
-        }
-    )
 
 
 def _digest(value: object) -> str:

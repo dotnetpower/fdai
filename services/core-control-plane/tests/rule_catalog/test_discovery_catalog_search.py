@@ -28,6 +28,7 @@ from fdai.shared.providers.catalog_search import (
     CatalogGenerationMetadata,
     CatalogGenerationStaleError,
     CatalogSearchDocument,
+    catalog_generation_digest,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -49,15 +50,15 @@ def _generation_metadata(
 ) -> CatalogGenerationMetadata:
     document_digests = tuple(catalog_search_document_digest(item) for item in documents)
     manifest = build_document_digest_manifest(document_digests)
-    generation_digest = _digest(
-        "\0".join(
-            (
-                corpus,
-                catalog_digest,
-                ontology_release_digest,
-                manifest.document_digest_root,
-            )
-        )
+    generation_digest = catalog_generation_digest(
+        corpus=corpus,
+        catalog_digest=catalog_digest,
+        semantic_schema_digest=catalog_search_schema_digest(),
+        ontology_release_digest=ontology_release_digest,
+        embedding_space_id="lexical-only-v1",
+        embedding_model_version="lexical-only-v1",
+        embedding_dimension=1,
+        document_digest_manifest=manifest,
     )
     return CatalogGenerationMetadata(
         generation_id=f"rule-search:{corpus}:{generation_digest[7:31]}",
@@ -69,6 +70,7 @@ def _generation_metadata(
         embedding_space_id="lexical-only-v1",
         embedding_model_version="lexical-only-v1",
         embedding_dimension=1,
+        document_digest_manifest=manifest,
         validation_receipt_digest=_digest(f"validated\0{generation_digest}"),
     )
 
