@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 75bcd487e29538ce41f0259c1292430f24396f17
+translation_source_sha: 2aff07e95534bc14f4064cec5504949bd5d8705c
 translation_revised: 2026-08-12
 ---
 # 코드 맵
@@ -61,6 +61,10 @@ Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 
 온톨로지 조회 실행은 런타임에서 exact release, 매니페스트, 역할 및 용도를 다시 검사합니다.
 범위가 제한된 의존성 wave는 노드 기한에 큐 wait를 포함하고 in-flight 취소를 전파하며
 차단된 descendant를 건너뜀하고 프로바이더 오류 상세 없는 고정된 증적을 발행합니다.
+조립은 범위가 제한된 secured ObjectSet 증적을 발급하고 source-derived 네트워크 및 Pod
+텔레메트리 함수를 exact release에 등록합니다. 함수 dependency는 발급된 content 다이제스트만
+해석합니다. Resource-state 조사 경로는 promoted 인벤토리를 답변 권한으로 유지하고 온톨로지
+조회를 shadow로 실행하며 principal-scoped 동등성 증적을 StateStore에 저장합니다.
 플래너 매니페스트는 ObjectType 및 Interface 속성에 동일한 역할/용도 filtering을 적용합니다. 의도
 근거는 최종 사유를 보존하면서 범위가 제한된 evidence-reference 잘림도 공개합니다.
 검증기는 I/O 전에 declared DAG 노드를 가리키지 않는 출력을 거부합니다. Answered 턴은 범위가 제한된

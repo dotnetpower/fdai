@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 8fb3d49875a527f518987572e4bb46570305dbd3
-translation_revised: 2026-08-11
+translation_source_sha: c53dc782fd8fba38508904bf963fcfec47afabff
+translation_revised: 2026-08-12
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -32,7 +32,8 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > 의미 Interface 선언은 이제 shared 계약을 사용하며 정본 런타임 release에
 > 포함됩니다. 운영 카탈로그 로딩은 검토된 `Identifiable` 선언, 출처 이력 및 모든
 > 현재 ObjectType의 명시적 연결을 검증합니다. 조립은 polymorphic 카탈로그를 compile합니다.
-> 운영 ObjectSet 조회 연결과 추가 기능 Interface는 전달 작업으로 남아 있습니다.
+> 운영 ObjectSet 핸들러는 범위가 제한된 secured 증적을 발급하고 exact 함수 핸들러는 발급된
+> dependency 다이제스트만 해석합니다. 추가 기능 Interface는 전달 작업으로 남아 있습니다.
 > Bitemporal 토폴로지 기반은 provider-generation 신원, 이벤트/기록 시간, 완전한 스냅샷,
 > delta 및 tombstone을 보존합니다. Pure `graph_at`/`topology_diff` 함수는 late 근거가 도착해도
 > pinned `known_at` 재생을 보존하며 불완전한 이력은 absence를 입증할 수 없습니다. 타입이 지정된 조회
@@ -47,12 +48,12 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > 정본 release는 이제 타입이 지정된 함수 선언을 포함합니다. 함수 레지스트리는 호출자
 > 에이전트, 역할, 용도를 검사하고, 선언된 stochastic 함수를 위해 replay-stable 시드를 파생하며,
 > 정확한 release에 고정된 내용 기반 주소를 가진 호출 증적을 발행합니다.
-> M5는 결정론적 `query.network_path_segments` FunctionType과 `routes_to` 및 reciprocal
-> `peered_with` 선언을 unwired 기반으로 추가합니다. 범위가 제한된 secured 조회 결과는
-> injected trusted 증적 검증기와 opaque 검증 맥락을 통해서만 사용합니다.
-> Contextual 콜백은 호출자 역할, singleton 용도, 온톨로지 release 및 projected 결과
-> 다이제스트를 `FunctionInvocationContext`에 연결합니다. 운영 발급자가 없으므로 함수는
-> unwired 상태로 유지되고 self-minted 증적은 차단됩니다. Evaluation 시간은 증적의 trusted
+> M5는 결정론적 `query.network_path_segments`, `query.pod_telemetry_path` FunctionType과
+> `routes_to` 및 reciprocal `peered_with` 선언을 추가합니다. 범위가 제한된 composition-owned
+> 발급자는 secured ObjectSet 결과를 기록하고 함수 핸들러는 호출 전에 exact dependency
+> 다이제스트를 해석합니다. Contextual 콜백은 호출자 역할, singleton 용도, 온톨로지 release 및
+> projected 결과 다이제스트를 `FunctionInvocationContext`에 연결하며, 발급되지 않았거나
+> self-minted인 증적은 차단됩니다. Evaluation 시간은 증적의 trusted
 > 관측 기준 시점과 정확히 같아야 합니다. 링크의 effective, 근거 및 기록된 시간은 이
 > 기준 시점을 넘을 수 없고 최신성은 시각 연산 전에 1년으로 제한됩니다. Reciprocal
 > 피어링에는 방향별로 구분된 관측 및 검증 증적 계보가 필요하며 두 방향에
@@ -101,7 +102,7 @@ Shared property-semantics 레지스트리는 정본 속성마다 meaning, 단위
 검증하고 float 강제 변환 없이 finite numeric 값을 보존하므로 서비스와 재생이 같은 속성을
 조용히 다르게 해석할 수 없습니다.
 
-## Pod 텔레메트리 경로 기반
+## Pod 텔레메트리 경로 런타임
 
 `evaluate_pod_telemetry_path`는 `SecuredObjectSetQueryResult`와 state-evidence 대상에서
 `StateFactMetadata`로 이어지는 변경할 수 없는 대응을 사용하는 pure A0 읽기입니다. 검토된 물리 링크인
@@ -119,9 +120,10 @@ Cross-cluster 서비스 또는 Endpoints 기록이 있으면 관계 근거가 �
 `unverified`로 유지됩니다. 재생을 위해 exact secured 그래프 증적 다이제스트와 보존된 모든 근거
 참조를 반환합니다.
 
-이 기반은 조립을 통해 내보내기되거나 온톨로지 함수 레지스트리에 등록되지 않습니다.
-Health 값을 derive하거나 발견 사항 또는 예측 객체를 만들지 않으며 액션 권한을 부여하거나
-기존 Kubernetes 전달 모듈을 변경하지 않습니다.
+Source-derived FunctionType은 exact 런타임 release의 일부이며 운영 semantic 함수 레지스트리에
+등록됩니다. Wrapper는 composition이 발급한 secured 조회 결과만 받고 해당 그래프에서 타입이
+지정된 관계 및 샘플 상태 근거를 파생합니다. Health 값을 derive하거나 발견 사항 또는 예측 객체를
+만들지 않으며 액션 권한을 부여하거나 기존 Kubernetes 전달 모듈을 변경하지 않습니다.
 
 ## 한눈에 보는 설계
 
@@ -282,14 +284,16 @@ Property 조건식은 `equals`, `not_equals`, `in`, `exists`, `absent`, `at_leas
 호출 신원, 입력 다이제스트 및 출력 다이제스트가 모두 일치할 때만 발견 사항을 수락합니다. 이러한
 증적은 읽기 전용 출처 이력이며 진단 함수를 액션으로 바꾸지 않습니다.
 
-네트워크 competency 기반은 `query.network_path_segments`를 exact-release 결정론적
+네트워크 competency 런타임은 `query.network_path_segments`를 exact-release 결정론적
 `query` 함수로 선언합니다. 입력은 purpose-bound `SecuredObjectSetQueryResult` 하나와 명시적인
 출처, 대상, evaluation 시간, 깊이 및 구간 상한입니다. 인벤토리 프로바이더를 호출하지
 않습니다. 등록에는 trusted `NetworkQueryReceiptVerifier`와 조립이 소유한 opaque 검증
 맥락이 필요합니다. Contextual 콜백은 증적 역할, singleton 용도, exact release 및 결과
 다이제스트가 `FunctionInvocationContext`와 일치하는지 확인한 후 검증기에 같은 튜플의 인증을
-요청합니다. 운영 증적 발급자가 없으므로 이 기반은 unwired 상태로 유지됩니다.
-`evaluated_at`은 증적 관측 기준 시점과 정확히 같아야 합니다. 링크 effective, 근거 및
+요청합니다. 운영 ObjectSet 핸들러가 범위가 제한된 증적을 발급하고 함수 핸들러가 exact
+dependency 다이제스트를 해석하므로 self-minted 증적은 사용할 수 없습니다. `evaluated_at`을
+생략하면 발급된 증적 관측 기준 시점을 사용하고, 명시한 값은 그 시점과 정확히 같아야 합니다.
+링크 effective, 근거 및
 기록된 시간은 이 기준 시점과 같거나 이전이어야 하며 1년을 넘는 최신성 상한 또는 초과분이
 발생하는 시각 연산은 검증되지 않은으로 남습니다. `attached_to`는 stored direction을 유지하면서
 조회에서 inverse로 traverse할 수 있고, `contains`와 `routes_to`는 stored direction을 따르며,

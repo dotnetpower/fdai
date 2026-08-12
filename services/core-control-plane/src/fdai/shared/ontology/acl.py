@@ -49,6 +49,10 @@ from fdai.shared.providers.ontology_instance import (
     OntologyLinkRecord,
     OntologyObjectRecord,
 )
+from fdai.shared.providers.state_evidence import (
+    LINK_OBSERVATION_METADATA_PROPERTY,
+    LinkObservationMetadata,
+)
 
 
 class RedactionReason(StrEnum):
@@ -183,11 +187,13 @@ def project_graph_snapshot(
     object_types: Mapping[str, OntologyObjectType],
     request: ProjectionRequest,
 ) -> OntologyGraphSnapshot:
-    """Apply object ACLs and remove link properties from a graph snapshot.
+    """Apply object ACLs and retain only typed link observation evidence.
 
-    Link properties remain fail-closed until LinkType property ACL declarations
-    exist. Redacted object aliases are allocated outside the complete source-id
-    space so they cannot collide with visible identities or one another.
+    Arbitrary link properties remain fail-closed until LinkType property ACL
+    declarations exist. The canonical observation envelope is strict-decoded and
+    reserialized because bounded evidence functions require its freshness and
+    verification state. Redacted object aliases are allocated outside the complete
+    source-id space so they cannot collide with visible identities or one another.
     """
 
     source_ids = [record.id for record in snapshot.objects]
@@ -233,7 +239,7 @@ def project_graph_snapshot(
                 link_type=link.link_type,
                 from_id=projected_ids[link.from_id],
                 to_id=projected_ids[link.to_id],
-                properties={},
+                properties=_project_link_evidence(link.properties),
                 type_ref=link.type_ref,
             )
             for link in snapshot.links
@@ -243,6 +249,19 @@ def project_graph_snapshot(
     )
     _validate_projected_snapshot(projected_snapshot)
     return projected_snapshot
+
+
+def _project_link_evidence(properties: Mapping[str, Any]) -> dict[str, Any]:
+    raw = properties.get(LINK_OBSERVATION_METADATA_PROPERTY)
+    if raw is None:
+        return {}
+    if not isinstance(raw, Mapping):
+        raise OntologyProjectionError("link observation metadata MUST be an object")
+    try:
+        metadata = LinkObservationMetadata.from_mapping(raw)
+    except (TypeError, ValueError) as exc:
+        raise OntologyProjectionError("link observation metadata is invalid") from exc
+    return {LINK_OBSERVATION_METADATA_PROPERTY: metadata.to_mapping()}
 
 
 def _allocate_redacted_alias(

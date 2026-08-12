@@ -338,6 +338,29 @@ def _build_inventory_context_provider() -> Any:
     return PostgresInventoryContextProvider(config=PostgresInventorySnapshotStoreConfig(dsn=dsn))
 
 
+def _build_read_investigation_provider() -> Any:
+    """Bind promoted inventory reads for the optional resource-state investigation path."""
+
+    dsn = (
+        os.environ.get("FDAI_INVENTORY_DSN", "").strip()
+        or os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+    )
+    if not dsn:
+        return None
+    from fdai.delivery.persistence.postgres_inventory_snapshot import (
+        PostgresInventoryContextProvider,
+        PostgresInventoryGraphProvider,
+        PostgresInventorySnapshotStoreConfig,
+    )
+    from fdai.delivery.read_investigation import InventoryReadInvestigationProvider
+
+    config = PostgresInventorySnapshotStoreConfig(dsn=dsn)
+    return InventoryReadInvestigationProvider(
+        graph_reader=PostgresInventoryGraphProvider(config=config),
+        context_reader=PostgresInventoryContextProvider(config=config),
+    )
+
+
 def _build_inventory_delta_projector() -> Any:
     dsn = (
         os.environ.get("FDAI_INVENTORY_DSN", "").strip()

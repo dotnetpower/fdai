@@ -2,16 +2,34 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
+from fdai.shared.contracts.models import (
+    CeilingRole,
+    LogicExecutionClass,
+    OntologyFunctionKind,
+    OntologyFunctionType,
+    OntologyRelease,
+    OntologyReleaseRef,
+)
 from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,
     OntologyLinkRecord,
     OntologyObjectRecord,
 )
-from fdai.shared.providers.state_evidence import StateFactMetadata
+from fdai.shared.providers.state_evidence import (
+    LINK_OBSERVATION_METADATA_PROPERTY,
+    STATE_FACT_METADATA_PROPERTY,
+    LinkObservationMetadata,
+    StateFactMetadata,
+)
 
+from .functions import ContextualOntologyFunction, FunctionInvocationContext
+from .network_path import NetworkQueryReceiptVerifier
 from .pod_telemetry_evidence import (
     PodTelemetryPathResult,
     TelemetryPathSegment,
@@ -23,8 +41,180 @@ from .pod_telemetry_evidence import (
 )
 from .query_gateway import SecuredObjectSetQueryResult
 
-_PURPOSE = "telemetry-verification"
+POD_TELEMETRY_FUNCTION_NAME = "query.pod_telemetry_path"
+POD_TELEMETRY_PURPOSE = "telemetry-verification"
 _EXPECTED_SEGMENT_COUNT = 4
+
+
+def _source_artifact_digest() -> str:
+    return f"sha256:{hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}"
+
+
+def pod_telemetry_function_type() -> OntologyFunctionType:
+    """Return the exact read-only deterministic Pod telemetry declaration."""
+
+    return OntologyFunctionType(
+        name=POD_TELEMETRY_FUNCTION_NAME,
+        version="1.0.0",
+        kind=OntologyFunctionKind.QUERY,
+        artifact_digest=_source_artifact_digest(),
+        publisher="fdai",
+        input_schema={
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "query_result",
+                "pod_id",
+                "expected_cluster_ref",
+            ],
+            "properties": {
+                "query_result": {"type": "object"},
+                "pod_id": {"type": "string", "minLength": 1, "maxLength": 512},
+                "expected_cluster_ref": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512,
+                },
+                "cutoff": {"type": "string", "format": "date-time"},
+            },
+        },
+        output_schema={
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "pod_id",
+                "expected_cluster_ref",
+                "segments",
+                "completeness",
+                "complete",
+                "graph_receipt_ref",
+                "evidence_refs",
+                "claimed_health",
+                "execution_authority",
+            ],
+            "properties": {
+                "pod_id": {"type": "string"},
+                "expected_cluster_ref": {"type": "string"},
+                "segments": {"type": "array", "maxItems": 4},
+                "completeness": {"type": "number", "minimum": 0, "maximum": 1},
+                "complete": {"type": "boolean"},
+                "graph_receipt_ref": {"type": "string"},
+                "evidence_refs": {"type": "array"},
+                "claimed_health": {"const": False},
+                "execution_authority": {"const": False},
+            },
+        },
+        read_sets=[
+            "Resource",
+            "Observation",
+            "kubernetes_selects",
+            "kubernetes_exposes_endpoints",
+            "observation_targets_resource",
+        ],
+        execution_class=LogicExecutionClass.DETERMINISTIC,
+        required_role=CeilingRole.READER,
+        purpose_bindings=[POD_TELEMETRY_PURPOSE],
+        timeout_seconds=5,
+        cpu_millis=1000,
+        memory_bytes=134_217_728,
+        max_output_bytes=131_072,
+        network_allowed=False,
+        credentials_allowed=False,
+    )
+
+
+def pod_telemetry_function(
+    ontology_release: OntologyRelease,
+    *,
+    receipt_verifier: NetworkQueryReceiptVerifier,
+    verification_context: object,
+) -> ContextualOntologyFunction:
+    """Bind Pod telemetry evaluation to issued secured-query receipts."""
+
+    if verification_context is None:
+        raise ValueError("Pod telemetry receipt verification context MUST be non-null")
+    expected_release = ontology_release.ref()
+
+    async def evaluate(
+        arguments: Mapping[str, Any],
+        invocation_context: FunctionInvocationContext,
+    ) -> object:
+        query_result = SecuredObjectSetQueryResult.model_validate(arguments["query_result"])
+        _authenticate_query_receipt(
+            query_result,
+            invocation_context=invocation_context,
+            expected_release=expected_release,
+            receipt_verifier=receipt_verifier,
+            verification_context=verification_context,
+        )
+        cutoff = (
+            datetime.fromisoformat(str(arguments["cutoff"]).replace("Z", "+00:00"))
+            if "cutoff" in arguments
+            else query_result.receipt.observation_cutoff
+        )
+        if cutoff.tzinfo is None or cutoff != query_result.receipt.observation_cutoff:
+            raise ValueError("Pod telemetry cutoff MUST equal the secured query cutoff")
+        return evaluate_pod_telemetry_path(
+            query_result,
+            pod_id=str(arguments["pod_id"]),
+            expected_cluster_ref=str(arguments["expected_cluster_ref"]),
+            cutoff=cutoff,
+            state_evidence=_state_evidence_from_query(query_result),
+        )
+
+    return evaluate
+
+
+def _state_evidence_from_query(
+    query_result: SecuredObjectSetQueryResult,
+) -> dict[str, StateFactMetadata]:
+    """Extract only typed state evidence retained inside the secured graph."""
+
+    evidence: dict[str, StateFactMetadata] = {}
+    for link in query_result.materialization.graph.links:
+        raw = link.properties.get(LINK_OBSERVATION_METADATA_PROPERTY)
+        if isinstance(raw, Mapping):
+            metadata = LinkObservationMetadata.from_mapping(raw)
+            evidence[telemetry_link_subject(link)] = metadata.state_fact
+    for record in query_result.materialization.graph.objects:
+        raw = record.properties.get(STATE_FACT_METADATA_PROPERTY)
+        nested = record.properties.get("properties")
+        if raw is None and isinstance(nested, Mapping):
+            raw = nested.get(STATE_FACT_METADATA_PROPERTY)
+        if isinstance(raw, Mapping):
+            evidence[telemetry_object_subject(record.id)] = StateFactMetadata.from_mapping(raw)
+    return evidence
+
+
+def _authenticate_query_receipt(
+    query_result: SecuredObjectSetQueryResult,
+    *,
+    invocation_context: FunctionInvocationContext,
+    expected_release: OntologyReleaseRef,
+    receipt_verifier: NetworkQueryReceiptVerifier,
+    verification_context: object,
+) -> None:
+    receipt = query_result.receipt
+    expected_digest = receipt.projected_result_digest
+    if receipt.ontology_release != expected_release:
+        raise ValueError("Pod telemetry query result does not match the exact ontology release")
+    if receipt.purpose != POD_TELEMETRY_PURPOSE:
+        raise ValueError("Pod telemetry query result has the wrong purpose")
+    if (
+        receipt.caller_role != invocation_context.caller_role
+        or invocation_context.purposes != (POD_TELEMETRY_PURPOSE,)
+        or invocation_context.evidence_refs != (expected_digest,)
+    ):
+        raise PermissionError("Pod telemetry query receipt does not match invocation context")
+    if not receipt_verifier.verify(
+        receipt=receipt,
+        invocation_context=invocation_context,
+        expected_release=expected_release,
+        expected_purpose=POD_TELEMETRY_PURPOSE,
+        expected_result_digest=expected_digest,
+        verification_context=verification_context,
+    ):
+        raise PermissionError("Pod telemetry query receipt verification failed")
 
 
 def evaluate_pod_telemetry_path(
@@ -47,8 +237,8 @@ def evaluate_pod_telemetry_path(
         raise ValueError("pod_id and expected_cluster_ref MUST be non-empty")
     if cutoff.tzinfo is None:
         raise ValueError("telemetry evaluation cutoff MUST be timezone-aware")
-    if secured.receipt.purpose != _PURPOSE:
-        raise ValueError(f"secured graph purpose MUST be {_PURPOSE!r}")
+    if secured.receipt.purpose != POD_TELEMETRY_PURPOSE:
+        raise ValueError(f"secured graph purpose MUST be {POD_TELEMETRY_PURPOSE!r}")
 
     graph = secured.materialization.graph
     objects = _objects_by_id(graph)
@@ -414,10 +604,14 @@ def _result(
 
 __all__ = [
     "PodTelemetryPathResult",
+    "POD_TELEMETRY_FUNCTION_NAME",
+    "POD_TELEMETRY_PURPOSE",
     "TelemetryPathSegment",
     "TelemetrySegmentKind",
     "TelemetrySegmentStatus",
     "evaluate_pod_telemetry_path",
+    "pod_telemetry_function",
+    "pod_telemetry_function_type",
     "telemetry_link_subject",
     "telemetry_object_subject",
 ]

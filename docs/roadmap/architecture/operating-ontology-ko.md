@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 6554328cc353d12e06d8f81fcb51d62cc01391b1
-translation_revised: 2026-08-11
+translation_source_sha: 47b248ca935666da1904e0eba3cdf5f3e5772168
+translation_revised: 2026-08-12
 ---
 # FDAI 운영 온톨로지
 
@@ -60,11 +60,11 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 > 검증된 레지스트리를 재사용합니다. 이전 방식 속성은 계속 유효하지만 정규화된 동등성을
 > 주장할 수 없습니다.
 > M5는 카탈로그에 선언된 `routes_to` 및 `peered_with` Resource 링크를 인벤토리 변환 결과에
-> 추가하고 읽기 전용 결정론적 `query.network_path_segments` 함수 기반을 제공합니다.
-> 함수는 injected 검증기가 contextual 호출 및 조립 소유의 opaque trust 맥락에
-> 대해 역할, 용도, exact release 및 projected-result 다이제스트를 인증한 뒤에만 범위가 제한된 및
-> purpose-bound 조회 결과를 사용합니다. 운영 발급자가 없으므로 기반은 unwired 상태로
-> 유지되고 self-minted 증적은 차단됩니다. Evaluation 시간은 trusted 증적 기준 시점과 정확히
+> 추가하고 읽기 전용 결정론적 네트워크 및 Pod 텔레메트리 함수를 제공합니다.
+> Composition-owned 범위가 제한된 발급자는 secured ObjectSet 결과를 기록하고 exact 함수
+> 핸들러는 발급된 dependency 다이제스트만 해석합니다. 검증기는 contextual 호출 및 opaque trust
+> 맥락에 대해 역할, 용도, exact release 및 projected-result 다이제스트를 인증합니다. 발급되지
+> 않았거나 self-minted인 증적은 차단됩니다. Evaluation 시간은 trusted 증적 기준 시점과
 > 같으며, future effective, 근거 또는 기록된 시간과 unbounded 최신성은 검증되지 않은으로
 > 남습니다. Stored 간선 direction을 보존하고 symmetric 피어링 구간 하나에 방향별로 구분된
 > 관측 및 검증 증적 계보를 가진 directed 기록 두 개를 요구합니다. 누락된
@@ -148,7 +148,7 @@ cluster-scoped 리소스 신원을 사용합니다. 완전한 관측은 현재 �
 관계를 철회하며, 사용 불가 인벤토리는 기존 변환 결과를 유지합니다. 이러한 객체는
 액션, 승인, 승격 또는 실행 권한을 부여하지 않습니다.
 
-### Pod 텔레메트리 역량 기반
+### Pod 텔레메트리 역량 런타임
 
 M5는 Kubernetes Pod, 서비스, Endpoints 인스턴스에 `Resource`를 재사용하고 범위가 제한된 메트릭 샘플에
 `Observation`을 재사용합니다. 물리 `observation_targets_resource` LinkType은
@@ -164,9 +164,10 @@ cycle, 모호한 경로, synthetic 샘플, 부분 상태, 충돌, stale 샘플, 
 검증되지 않은 또는 누락된으로 유지됩니다. 결과는 항상 `claimed_health: false`와
 `execution_authority: false`를 기록합니다.
 
-이 구획은 platform 기반일 뿐입니다. 런타임 FunctionType을 등록하거나 Kubernetes 또는
-프로바이더 어댑터를 호출하지 않으며, 발견 사항 또는 예측 객체를 결합하지 않고 조립이나
-authority-bearing 결정 경로를 변경하지 않습니다.
+Source-derived FunctionType은 exact 런타임 release에 포함되고 semantic 함수 핸들러에 등록됩니다.
+Composition이 발급한 secured 조회 결과와 해당 그래프에 보존된 타입이 지정된 메타데이터만
+사용합니다. Kubernetes 또는 프로바이더 어댑터를 호출하거나 발견 사항 또는 예측 객체를
+결합하지 않으며 authority-bearing 결정 경로에 입력하지 않습니다.
 
 ## 한눈에 보는 설계
 

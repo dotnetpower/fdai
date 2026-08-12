@@ -29,7 +29,8 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > Semantic Interface declarations now use the shared contract and contribute to the canonical
 > runtime release. Production catalog loading validates the reviewed `Identifiable` declaration,
 > its provenance, and explicit bindings for every current ObjectType. Composition compiles the
-> polymorphic catalog. Production ObjectSet query binding and additional capability Interfaces
+> polymorphic catalog. Production ObjectSet handlers issue bounded secured receipts, and exact
+> Function handlers resolve only those issued dependency digests. Additional capability Interfaces
 > remain delivery work.
 > Bitemporal topology foundations retain provider-generation identity, event and record time,
 > complete snapshots, deltas, and tombstones. Pure `graph_at` and `topology_diff` functions preserve
@@ -45,12 +46,12 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > Canonical releases now include typed function declarations. The function registry checks the
 > caller agent, role, and purpose, derives replay-stable seeds for declared stochastic functions,
 > and emits content-addressed invocation receipts pinned to the exact release.
-> M5 adds the deterministic `query.network_path_segments` FunctionType and the `routes_to` and
-> reciprocal `peered_with` declarations as an unwired foundation. It consumes a bounded secured
-> query result only through an injected trusted receipt verifier and opaque verification context.
-> The contextual callback binds caller role, singleton purpose, ontology release, and projected
-> result digest to `FunctionInvocationContext`; no production issuer exists, so the function stays
-> unwired and a self-minted receipt is rejected. Evaluation time must exactly equal the receipt's
+> M5 adds the deterministic `query.network_path_segments` and `query.pod_telemetry_path`
+> FunctionTypes plus the `routes_to` and reciprocal `peered_with` declarations. A bounded
+> composition-owned issuer records secured ObjectSet results, and Function handlers resolve the
+> exact dependency digest before invocation. The contextual callbacks bind caller role, singleton
+> purpose, ontology release, and projected result digest to `FunctionInvocationContext`; an
+> unissued or self-minted receipt is rejected. Evaluation time equals the receipt's
 > trusted observation cutoff. Link effective, evidence, and recorded times cannot exceed that
 > cutoff, and freshness is capped at one year before timestamp arithmetic. Reciprocal peering needs
 > distinct direction-bound observation and verification receipt lineage; reusing one lineage for
@@ -97,7 +98,7 @@ identity for meaning, unit, value kind, and bounds. Catalog projection validates
 against that registry and preserves finite numeric values without float coercion, so services and
 replays cannot silently reinterpret the same property.
 
-## Pod telemetry path foundation
+## Pod telemetry path runtime
 
 `evaluate_pod_telemetry_path` is a pure A0 read over a `SecuredObjectSetQueryResult` and an immutable
 mapping of state-evidence subjects to `StateFactMetadata`. It follows only the reviewed physical
@@ -115,9 +116,11 @@ Incomplete graph receipts cannot prove absence, so unresolved segments remain `u
 than becoming `missing`. The exact secured graph receipt digest and all retained evidence refs are
 returned for replay.
 
-This foundation is not exported through composition or registered in the ontology function
-registry. It does not derive a health value, produce Finding or Forecast objects, grant action
-authority, or alter any existing Kubernetes delivery module.
+The source-derived FunctionType is part of the exact runtime release and is registered in the
+production semantic function registry. Its wrapper accepts only a composition-issued secured
+query result and derives typed relationship and sample state evidence from that graph. It does not
+derive a health value, produce Finding or Forecast objects, grant action authority, or alter any
+existing Kubernetes delivery module.
 
 ## Design at a glance
 
@@ -281,14 +284,16 @@ the canonical function arguments with each invocation receipt. The observer acce
 when the active release, caller, invocation identity, input digest, and output digest all match.
 These receipts are read-only provenance; they do not turn a diagnostic function into an action.
 
-The network competency foundation declares `query.network_path_segments` as an exact-release
+The network competency runtime declares `query.network_path_segments` as an exact-release
 deterministic `query` function. Its input is one purpose-bound `SecuredObjectSetQueryResult` plus
 explicit source, target, evaluation time, depth, and segment ceilings. It never calls an inventory
 provider. Registration requires a trusted `NetworkQueryReceiptVerifier` and an opaque
 composition-owned verification context. The contextual callback checks that the receipt role,
 singleton purpose, exact release, and result digest match `FunctionInvocationContext`, then asks the
-verifier to authenticate the same tuple. Because no production receipt issuer is available, this
-foundation remains unwired. `evaluated_at` must equal the receipt observation cutoff exactly. Link
+verifier to authenticate the same tuple. Production ObjectSet handlers issue bounded receipts and
+Function handlers resolve the exact dependency digest; self-minted receipts remain unavailable.
+An omitted `evaluated_at` uses the issued receipt observation cutoff, while an explicit value must
+equal it exactly. Link
 effective, evidence, and recorded times stay at or before that cutoff, and freshness ceilings above
 one year or overflowing timestamp arithmetic remain unverified. `attached_to` may be traversed
 inversely for a query while retaining its stored direction, `contains` and `routes_to` follow stored

@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 9d0101350447360164e4b33bd35b5a3e34a0280b
-translation_revised: 2026-08-11
+translation_source_sha: f10962baf52b9cfb9100d549fb177e8b21ad0da5
+translation_revised: 2026-08-12
 ---
 # FDAI 운영 온톨로지 메타모델
 
@@ -18,15 +18,19 @@ translation_revised: 2026-08-11
 > **권한 경계:** 상태 또는 맥락 산출물은 자율성을 유지하거나 낮출 수만 있습니다. 외부
 > truth를 주장하거나 액션을 승인하거나 shared 변경 가능한 coordination 상태가 될 수 없습니다.
 >
-> **구현 상태(2026-08-08):** 객체, 링크, 액션, 함수 및 공급된 Interface 선언은
-> 정본 release에 포함될 수 있습니다. `OntologyInterfaceType`은 shared 계약이며,
-> 인터페이스를 공급하지 않으면 `build_ontology_release`는 이전 다이제스트를 유지합니다. 운영
-> 카탈로그와 조립 루트는 아직 Interface 선언을 공급하지 않으므로 M1은 완료되지
-> 않았습니다. 상태와 맥락 행동은 타입이 지정된 ObjectType, `OperationalStateTrajectory`,
-> `OperationalContextSnapshot`으로 구현되어 있습니다. 링크 선언과 기록은 이미
-> `from -> to` direction을 저장합니다. D1은 `contains`를 1:M cardinality의 부모 -> 자식 방향으로
-> 정렬하고 Kubernetes 이름 공간 containment 및 VM NIC/disk 첨부를 맞춥니다. D2-D4 프로바이더
-> 대응, adversarial 커버리지 및 shadow 이행 근거는 제공 작업으로 남아 있습니다.
+> **구현 상태(2026-08-12):** 객체, 링크, 액션, Interface, 함수 선언이 exact 런타임
+> release에 포함됩니다. 운영 카탈로그는 검토된 Interface 및 함수 선언을 공급하고,
+> source-derived 네트워크 및 Pod 텔레메트리 FunctionType도 카탈로그 신원을 대체하지 않고 같은
+> release에 들어갑니다. M2는 secured ObjectSet 실행 전체에서 용도, release, 잘림, 계획, 호출,
+> 근거 계보를 보존합니다. M3는 프로바이더가 관측한 리소스 상태와 검증된 관계 메타데이터를
+> 표준화합니다. M4는 promoted 인벤토리 resource-state 답변과 ontology-native shadow 조회를
+> 조립하고 변경할 수 없는 일치 또는 차이 근거를 저장하며 authoritative 답변을 대체하지
+> 않습니다. D1-D3은 direction, 검토된 프로바이더 mapping, 완전한 generation 검증,
+> adversarial 커버리지를 맞춥니다. D4는 direction 이행 guard, 재생 가능한 그래프 비교기,
+> authoritative 인벤토리 rebuild 포인터를 제공합니다. M5는 범위가 제한된 composition-owned
+> 증적 발급자를 통해 네트워크 및 Pod 텔레메트리 함수를 운영 semantic DAG에 등록합니다.
+> 전체 메타모델을 production-ready로 보고하려면 인증된 cross-service 및 live-assurance 증적이
+> 여전히 필요합니다.
 
 ## 한눈에 보는 설계
 

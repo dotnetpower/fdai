@@ -25,6 +25,7 @@ from fdai.agents.vidar import RollbackExecutor
 from fdai.composition import (
     LlmBindings,
     compose_azure_semantic_query_runtime,
+    compose_resource_state_shadow_hook,
     default_container_from_env,
 )
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
@@ -147,6 +148,7 @@ from fdai.runtime.providers import (
     _build_audit_store,
     _build_inventory_delta_projector,
     _build_operator_memory_store,
+    _build_read_investigation_provider,
 )
 from fdai.runtime.readiness import (
     StartupReadinessRuntime,
@@ -495,6 +497,14 @@ async def _run() -> int:
                 runtime=semantic_composition.runtime,
                 unavailable_reason=semantic_composition.unavailable_reason,
             )
+            read_investigation_hook = compose_resource_state_shadow_hook(
+                provider=_build_read_investigation_provider(),
+                state_store=incident_audit_store,
+                ontology_release=control_loop.ontology_release,
+                ontology_store=control_loop.ontology_instance_store,
+                schema_registry=container.schema_registry,
+                catalog_root=_resolve_catalog_root(),
+            )
             if semantic_turn_binding is not None and not semantic_turn_binding.available:
                 _LOGGER.warning(
                     "semantic_turn_runtime_unavailable",
@@ -761,6 +771,7 @@ async def _run() -> int:
                         runtime_values,
                         "incident.repeat_window_seconds",
                     ),
+                    read_investigation_hook=read_investigation_hook,
                     discovery_projector=_build_inventory_delta_projector(),
                     scenario_coverage_aggregator=ScenarioCoverageAggregator(
                         index=runtime_symptom_index

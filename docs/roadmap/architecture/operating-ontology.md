@@ -56,11 +56,11 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > Runtime projection reuses the registry validated during catalog loading instead of reading the
 > file again. Legacy properties remain valid but cannot claim normalized equivalence.
 > M5 adds the catalog-declared `routes_to` and `peered_with` Resource links to inventory projection
-> and a read-only deterministic `query.network_path_segments` function foundation. The function
-> consumes one bounded, purpose-bound query result only after an injected verifier authenticates
-> its role, purpose, exact release, and projected-result digest against the contextual invocation
-> and an opaque composition-owned trust context. No production issuer is available, so the
-> foundation remains unwired and self-minted receipts are rejected. Evaluation time exactly equals
+> and read-only deterministic network and Pod telemetry functions. A composition-owned bounded
+> issuer records secured ObjectSet results, and exact Function handlers resolve only the issued
+> dependency digest. The verifier authenticates role, purpose, exact release, and projected-result
+> digest against the contextual invocation and opaque trust context. Unissued and self-minted
+> receipts are rejected. Evaluation time equals
 > the trusted receipt cutoff; future effective, evidence, or recorded times and unbounded freshness
 > stay unverified. It preserves stored edge direction and requires two directed peering records with
 > distinct direction-bound observation and verification receipt lineage. Missing endpoints,
@@ -145,7 +145,7 @@ observations withdraw unsupported relationships without deleting resource object
 inventory leaves the prior projection untouched. None of these objects grants action, approval,
 promotion, or execution authority.
 
-### Pod telemetry competency foundation
+### Pod telemetry competency runtime
 
 M5 reuses `Resource` for Kubernetes Pod, Service, and Endpoints instances and reuses `Observation`
 for bounded metric samples. The physical `observation_targets_resource` LinkType records
@@ -160,9 +160,10 @@ receipt proves complete coverage. Truncated graphs, cycles, ambiguous paths, syn
 partial state, conflicts, stale samples, and wrong-cluster identities remain unverified or missing.
 The result always records `claimed_health: false` and `execution_authority: false`.
 
-This slice is a platform foundation only. It does not register a runtime FunctionType, call a
-Kubernetes or provider adapter, join Finding or Forecast objects, alter composition, or feed an
-authority-bearing decision path.
+The source-derived FunctionType is included in the exact runtime release and registered in the
+semantic Function handler. It consumes only a composition-issued secured query result and typed
+metadata retained in that graph. It does not call a Kubernetes or provider adapter, join Finding
+or Forecast objects, or feed an authority-bearing decision path.
 
 ## Design at a glance
 

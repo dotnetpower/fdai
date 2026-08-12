@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Literal
 
+from fdai.shared.contracts.models import ContractBase
 from fdai.shared.providers.ontology_instance import OntologyLinkRecord
 from fdai.shared.providers.state_evidence import StateFactMetadata
 
@@ -29,8 +29,7 @@ class TelemetrySegmentKind(StrEnum):
     OBSERVATION_SAMPLE = "observation_sample"
 
 
-@dataclass(frozen=True, slots=True)
-class TelemetryPathSegment:
+class TelemetryPathSegment(ContractBase):
     """One evidence-bearing segment without an inferred health claim."""
 
     kind: TelemetrySegmentKind
@@ -41,8 +40,7 @@ class TelemetryPathSegment:
     reasons: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True, slots=True)
-class PodTelemetryPathResult:
+class PodTelemetryPathResult(ContractBase):
     """Bounded telemetry path assessment that grants no action or health authority."""
 
     pod_id: str

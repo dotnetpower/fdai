@@ -55,6 +55,7 @@ from ..core.trajectory import TrajectoryJoinService
 from ..core.working_context import ContextSelectionPolicyAuthority
 from ..shared.config.models import AppConfig
 from ..shared.contracts.models import (
+    OntologyFunctionType,
     OntologyInterfaceImplementation,
     OntologyInterfaceType,
     OntologyLinkType,
@@ -211,6 +212,7 @@ class Container:
     startup_probes: tuple[StartupProbe[StartupProbeResult], ...] = ()
     ontology_object_types: tuple[OntologyObjectType, ...] = ()
     ontology_link_types: tuple[OntologyLinkType, ...] = ()
+    ontology_function_types: tuple[OntologyFunctionType, ...] = ()
     ontology_interface_types: tuple[OntologyInterfaceType, ...] = ()
     ontology_interface_implementations: tuple[OntologyInterfaceImplementation, ...] = ()
     compiled_ontology_interfaces: CompiledInterfaceCatalog | None = None

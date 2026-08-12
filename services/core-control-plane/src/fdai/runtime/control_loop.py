@@ -51,6 +51,7 @@ from fdai.core.hil_resume import (
 )
 from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.ontology_platform import compile_interfaces
+from fdai.core.ontology_platform.operational_functions import operational_function_types
 from fdai.core.quality_gate import (
     HashedRuleEmbeddingIndex,
     QualityGate,
@@ -352,6 +353,7 @@ def _build_control_loop(
         action_types = ontology_catalog.action_types
         ontology_object_types = ontology_catalog.object_types
         ontology_link_types = ontology_catalog.link_types
+        ontology_function_types = operational_function_types(ontology_catalog.function_types)
         ontology_interface_types = ontology_catalog.interface_types
         ontology_interface_implementations = ontology_catalog.interface_implementations
         property_semantics = ontology_catalog.property_semantics
@@ -363,6 +365,7 @@ def _build_control_loop(
         )
         ontology_object_types = ()
         ontology_link_types = ()
+        ontology_function_types = ()
         ontology_interface_types = ()
         ontology_interface_implementations = ()
         property_semantics = empty_property_semantic_registry()
@@ -385,6 +388,7 @@ def _build_control_loop(
         link_types=ontology_link_types,
         action_types=action_types,
         interface_types=ontology_interface_types,
+        function_types=ontology_function_types,
     )
     compiled_ontology_interfaces = compile_interfaces(
         interfaces=ontology_interface_types,
@@ -392,11 +396,17 @@ def _build_control_loop(
         object_types=ontology_object_types,
         release=ontology_release,
     )
-    if ontology_object_types or ontology_link_types or ontology_interface_types:
+    if (
+        ontology_object_types
+        or ontology_link_types
+        or ontology_function_types
+        or ontology_interface_types
+    ):
         container = replace(
             container,
             ontology_object_types=ontology_object_types,
             ontology_link_types=ontology_link_types,
+            ontology_function_types=ontology_function_types,
             ontology_interface_types=ontology_interface_types,
             ontology_interface_implementations=ontology_interface_implementations,
             compiled_ontology_interfaces=compiled_ontology_interfaces,

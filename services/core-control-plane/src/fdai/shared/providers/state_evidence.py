@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -364,7 +364,11 @@ def _optional_string(value: Mapping[str, Any], field_name: str) -> str | None:
 
 def _string_tuple(value: Mapping[str, Any], field_name: str) -> tuple[str, ...]:
     raw = value[field_name]
-    if not isinstance(raw, list) or any(not isinstance(item, str) for item in raw):
+    if (
+        not isinstance(raw, Sequence)
+        or isinstance(raw, (str, bytes))
+        or any(not isinstance(item, str) for item in raw)
+    ):
         raise ValueError(f"metadata {field_name} MUST be an array of strings")
     return tuple(raw)
 

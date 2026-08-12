@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -21,7 +21,11 @@ from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import (
     AggregateNodeHandler,
+    FunctionInvocationContext,
+    FunctionNodeHandler,
+    ObjectSetDefinition,
     ObjectSetService,
+    OntologyFunctionRegistry,
     OntologyQueryPlanExecutor,
     OntologyQueryPlanVerifier,
     OrderNodeHandler,
@@ -30,8 +34,18 @@ from fdai.core.ontology_platform import (
     SetOperationNodeHandler,
     compile_interfaces,
 )
+from fdai.core.ontology_platform.network_path import (
+    NETWORK_PATH_FUNCTION_NAME,
+    network_path_function,
+)
+from fdai.core.ontology_platform.operational_functions import operational_function_types
+from fdai.core.ontology_platform.pod_telemetry import (
+    POD_TELEMETRY_FUNCTION_NAME,
+    pod_telemetry_function,
+)
 from fdai.core.ontology_platform.query_execution import QueryNodeHandler
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
+from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
 from fdai.core.prompts.registry import FileSystemPromptRegistry
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.azure.llm.semantic_planning import (
@@ -43,6 +57,7 @@ from fdai.rule_catalog.schema.model_endpoint import ModelAuthKind
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog, load_ontology_catalog
 from fdai.shared.config.models import LlmMode
 from fdai.shared.contracts.models import CeilingRole, OntologyRelease
+from fdai.shared.ontology.acl import ProjectionRequest
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -84,11 +99,13 @@ def build_semantic_query_runtime(
 
     if not purpose:
         raise ValueError("semantic query purpose MUST be non-empty")
+    function_types = operational_function_types(ontology_catalog.function_types)
     expected_release = build_ontology_release(
         object_types=ontology_catalog.object_types,
         link_types=ontology_catalog.link_types,
         action_types=ontology_catalog.action_types,
         interface_types=ontology_catalog.interface_types,
+        function_types=function_types,
     )
     if expected_release.digest != ontology_release.digest:
         raise ValueError("semantic query catalog does not match the active ontology release")
@@ -110,6 +127,46 @@ def build_semantic_query_runtime(
         evaluation_cutoff=evaluation_cutoff,
         max_as_of_skew=timedelta(seconds=5),
     )
+    receipt_authority = SecuredQueryReceiptAuthority()
+    function_registry = OntologyFunctionRegistry(release=ontology_release)
+    declarations = {item.name: item for item in function_types}
+
+    async def select_resources(
+        arguments: Mapping[str, object],
+        context: FunctionInvocationContext,
+    ) -> object:
+        definition = ObjectSetDefinition.model_validate(arguments["object_set"])
+        result = await gateway.materialize(
+            definition,
+            projection_request=ProjectionRequest(
+                caller_role=context.caller_role,
+                declared_purposes=frozenset(context.purposes),
+            ),
+        )
+        receipt_authority.issue(result)
+        return result
+
+    inventory_function = declarations.get("inventory.select_resources")
+    if inventory_function is not None:
+        function_registry.register_contextual(inventory_function, select_resources)
+    network_declaration = declarations[NETWORK_PATH_FUNCTION_NAME]
+    function_registry.register_contextual(
+        network_declaration,
+        network_path_function(
+            ontology_release,
+            receipt_verifier=receipt_authority,
+            verification_context=receipt_authority.verification_context,
+        ),
+    )
+    pod_declaration = declarations[POD_TELEMETRY_FUNCTION_NAME]
+    function_registry.register_contextual(
+        pod_declaration,
+        pod_telemetry_function(
+            ontology_release,
+            receipt_verifier=receipt_authority,
+            verification_context=receipt_authority.verification_context,
+        ),
+    )
     handlers: dict[QueryNodeKind, QueryNodeHandler] = {
         QueryNodeKind.UNION: SetOperationNodeHandler("union"),
         QueryNodeKind.INTERSECTION: SetOperationNodeHandler("intersection"),
@@ -118,7 +175,7 @@ def build_semantic_query_runtime(
         QueryNodeKind.PROJECT: ProjectNodeHandler(),
         QueryNodeKind.AGGREGATE: AggregateNodeHandler(),
     }
-    available_kinds = (QueryNodeKind.OBJECT_SET, *handlers)
+    available_kinds = (QueryNodeKind.OBJECT_SET, QueryNodeKind.FUNCTION, *handlers)
     planner = SemanticPlanningService(
         model=model,
         manifests=CatalogQueryManifestProvider(
@@ -127,6 +184,7 @@ def build_semantic_query_runtime(
             link_types=ontology_catalog.link_types,
             interfaces=ontology_catalog.interface_types,
             action_types=ontology_catalog.action_types,
+            functions=function_types,
         ),
         verifier=OntologyQueryPlanVerifier(available_kinds=available_kinds),
         descriptor_selector=CompleteManifestSelector(),
@@ -143,6 +201,16 @@ def build_semantic_query_runtime(
                     gateway,
                     caller_role=role,
                     purposes=(purpose,),
+                    receipt_authority=receipt_authority,
+                ),
+                QueryNodeKind.FUNCTION: FunctionNodeHandler(
+                    function_registry,
+                    context=FunctionInvocationContext(
+                        caller_agent="Bragi",
+                        caller_role=role,
+                        purposes=(purpose,),
+                    ),
+                    receipt_authority=receipt_authority,
                 ),
                 **handlers,
             }

@@ -15,15 +15,19 @@ without turning every view into a new ontology declaration kind.
 > **Authority boundary:** A state or context artifact can preserve or lower autonomy. It cannot
 > assert external truth, approve an action, or become shared mutable coordination state.
 >
-> **Implementation status (2026-08-08):** Object, Link, Action, Function, and supplied Interface
-> declarations can enter canonical releases. `OntologyInterfaceType` is a shared contract, and
-> `build_ontology_release` preserves the prior digest when no interfaces are supplied. The
-> production catalog and composition roots do not yet supply Interface declarations, so M1 remains
-> incomplete. State and context behavior exists through typed ObjectTypes,
-> `OperationalStateTrajectory`, and `OperationalContextSnapshot`. Link declarations and records
-> already store `from -> to` direction. D1 aligns `contains` as parent -> child with 1:M
-> cardinality, Kubernetes namespace containment, and VM NIC/disk attachments. D2-D4 provider
-> mapping, adversarial coverage, and shadow migration evidence remain delivery work.
+> **Implementation status (2026-08-12):** Object, Link, Action, Interface, and Function
+> declarations enter the exact runtime release. Production catalog loading supplies the reviewed
+> Interface and Function declarations, and source-derived network and Pod telemetry FunctionTypes
+> join the same release without replacing catalog identity. M2 preserves purpose, release,
+> truncation, plan, invocation, and evidence lineage through secured ObjectSet execution. M3
+> standardizes provider-observed resource state and verified relationship metadata. M4 composes a
+> promoted-inventory resource-state answer with an ontology-native shadow query, persists immutable
+> match or divergence evidence, and never replaces the authoritative answer. D1-D3 align direction,
+> reviewed provider mappings, complete-generation verification, and adversarial coverage. D4 ships
+> the direction migration guard, replayable graph comparator, and authoritative-inventory rebuild
+> pointer. M5 registers network and Pod telemetry functions in the production semantic DAG through
+> a bounded composition-owned receipt issuer. Authenticated cross-service and live-assurance
+> receipts remain required before the complete metamodel can be reported production-ready.
 
 ## Design at a glance
 

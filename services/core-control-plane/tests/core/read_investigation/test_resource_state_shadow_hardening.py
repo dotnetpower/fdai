@@ -19,8 +19,10 @@ from fdai.core.read_investigation.shadow_sink import (
     InMemoryShadowComparisonSink,
     ShadowReceiptIdentityConflictError,
     ShadowSinkAppendResult,
+    StateStoreShadowComparisonSink,
 )
 from fdai.shared.providers.read_investigation import EvidenceLimitationKind
+from fdai.shared.providers.testing import InMemoryStateStore
 from tests.core.read_investigation.test_resource_state_shadow import (
     NOW,
     RESOURCE_REF,
@@ -53,6 +55,36 @@ async def test_sink_type_error_is_classified_as_append_failure() -> None:
 
     assert attempt.persistence is ShadowReceiptPersistence.FAILED
     assert attempt.sink_error_kind is ShadowSinkErrorKind.APPEND_FAILED
+
+
+async def test_state_store_sink_records_and_retains_exact_replay() -> None:
+    attempt, _ = await _compare()
+    sink = StateStoreShadowComparisonSink(store=InMemoryStateStore())
+
+    first = await sink.append(attempt.receipt)
+    replay = await sink.append(attempt.receipt)
+
+    assert first.persistence is ShadowReceiptPersistence.RECORDED
+    assert replay.persistence is ShadowReceiptPersistence.RETAINED
+    assert replay.receipt == attempt.receipt
+
+
+async def test_state_store_sink_rejects_malformed_retained_state() -> None:
+    attempt, _ = await _compare()
+    store = InMemoryStateStore()
+    await store.write_state(
+        f"read-investigation-shadow:{attempt.receipt.receipt_digest}",
+        {
+            "record_type": "read_investigation.resource_state_shadow.v1",
+            "receipt": {"outcome": "match"},
+        },
+    )
+
+    with pytest.raises(
+        ShadowReceiptIdentityConflictError,
+        match="malformed retained content",
+    ):
+        await StateStoreShadowComparisonSink(store=store).append(attempt.receipt)
 
 
 async def test_exact_reviewed_profile_is_required() -> None:

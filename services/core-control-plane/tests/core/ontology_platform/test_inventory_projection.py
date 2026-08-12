@@ -12,6 +12,7 @@ from fdai.core.ontology_platform.inventory_projection import (
 from fdai.shared.providers.inventory import LinkRecord, ResourceRecord
 from fdai.shared.providers.state_evidence import (
     LINK_OBSERVATION_METADATA_PROPERTY,
+    STATE_FACT_METADATA_PROPERTY,
     LinkObservationMetadata,
     StateFactAuthority,
     StateFactLane,
@@ -124,6 +125,27 @@ def test_link_observation_metadata_is_projected_canonically() -> None:
     assert projection.links[0].properties[LINK_OBSERVATION_METADATA_PROPERTY] == (
         metadata.to_mapping()
     )
+
+
+def test_resource_status_is_projected_as_observed_state_evidence() -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={"status": "running"},
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider_properties = projection.objects[0].properties["properties"]
+    assert provider_properties["state"] == "running"
+    metadata = StateFactMetadata.from_mapping(provider_properties[STATE_FACT_METADATA_PROPERTY])
+    assert metadata.lane is StateFactLane.OBSERVED
+    assert metadata.source_revision == "snapshot-1"
+    assert metadata.effective_at == OBSERVED_AT
 
 
 def test_incomplete_observation_claims_no_relationship() -> None:

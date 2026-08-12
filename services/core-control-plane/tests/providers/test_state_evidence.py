@@ -91,7 +91,6 @@ def test_link_verification_requires_independent_identity() -> None:
             verification_method="provider-readback",
             verified=True,
         )
-
     with pytest.raises(ValueError, match="independent verifier"):
         LinkObservationMetadata(
             state_fact=_fact(),
@@ -121,6 +120,15 @@ def test_link_verification_requires_independent_identity() -> None:
         verification_receipt_ref="verification-receipt-2",
     )
     assert LinkObservationMetadata.from_mapping(metadata.to_mapping()) == metadata
+
+
+def test_state_fact_metadata_decodes_immutable_reference_arrays() -> None:
+    metadata = _fact()
+    frozen = metadata.to_mapping()
+    frozen["conflicts"] = tuple(frozen["conflicts"])
+    frozen["evidence_refs"] = tuple(frozen["evidence_refs"])
+
+    assert StateFactMetadata.from_mapping(frozen) == metadata
 
 
 def test_legacy_link_metadata_without_verification_receipt_cannot_claim_verified() -> None:

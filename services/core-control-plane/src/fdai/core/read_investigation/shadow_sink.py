@@ -10,6 +10,9 @@ from fdai.core.read_investigation.resource_state_shadow_models import (
     ShadowComparisonReceipt,
     ShadowReceiptPersistence,
 )
+from fdai.shared.providers.state_store import StateStore
+
+_STATE_PREFIX = "read-investigation-shadow:"
 
 
 class ShadowReceiptIdentityConflictError(ValueError):
@@ -73,8 +76,49 @@ class InMemoryShadowComparisonSink:
             return tuple(self._records[key] for key in sorted(self._records))
 
 
+class StateStoreShadowComparisonSink:
+    """Append immutable shadow receipts through the durable StateStore seam."""
+
+    def __init__(self, *, store: StateStore) -> None:
+        self._store = store
+
+    async def append(self, receipt: ShadowComparisonReceipt) -> ShadowSinkAppendResult:
+        """Create one digest-keyed record or return its exact retained replay."""
+
+        key = f"{_STATE_PREFIX}{receipt.receipt_digest}"
+        value = {
+            "record_type": "read_investigation.resource_state_shadow.v1",
+            "receipt": receipt.model_dump(mode="json"),
+        }
+        if await self._store.write_state_if_absent(key, value):
+            return ShadowSinkAppendResult(
+                receipt=receipt,
+                persistence=ShadowReceiptPersistence.RECORDED,
+            )
+        retained = await self._store.read_state(key)
+        if retained is None or retained.get("record_type") != value["record_type"]:
+            raise ShadowReceiptIdentityConflictError(
+                "shadow comparison receipt identity has invalid retained state"
+            )
+        try:
+            decoded = ShadowComparisonReceipt.model_validate(retained.get("receipt"))
+        except (TypeError, ValueError) as exc:
+            raise ShadowReceiptIdentityConflictError(
+                "shadow comparison receipt identity has malformed retained content"
+            ) from exc
+        if decoded != receipt:
+            raise ShadowReceiptIdentityConflictError(
+                "shadow comparison receipt identity conflicts with retained content"
+            )
+        return ShadowSinkAppendResult(
+            receipt=decoded,
+            persistence=ShadowReceiptPersistence.RETAINED,
+        )
+
+
 __all__ = [
     "InMemoryShadowComparisonSink",
+    "StateStoreShadowComparisonSink",
     "ShadowComparisonSink",
     "ShadowReceiptIdentityConflictError",
     "ShadowSinkAppendResult",

@@ -151,7 +151,6 @@ def network_path_function_type() -> OntologyFunctionType:
                 "query_result",
                 "source_id",
                 "target_id",
-                "evaluated_at",
                 "max_depth",
                 "max_segments",
             ],
@@ -238,7 +237,11 @@ def network_path_function(
             receipt_verifier=receipt_verifier,
             verification_context=verification_context,
         )
-        evaluated_at = _timestamp(arguments["evaluated_at"])
+        evaluated_at = (
+            _timestamp(arguments["evaluated_at"])
+            if "evaluated_at" in arguments
+            else query_result.receipt.observation_cutoff
+        )
         return evaluate_network_path(
             query_result,
             source_id=_string(arguments, "source_id"),

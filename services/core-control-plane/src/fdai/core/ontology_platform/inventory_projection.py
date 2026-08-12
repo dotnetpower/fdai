@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from fdai.shared.providers.inventory import LinkRecord, RelationshipDrop, ResourceRecord
@@ -24,7 +25,13 @@ from fdai.shared.providers.ontology_instance import (
     OntologyObjectRecord,
     normalize_json_value,
 )
-from fdai.shared.providers.state_evidence import LINK_OBSERVATION_METADATA_PROPERTY
+from fdai.shared.providers.state_evidence import (
+    LINK_OBSERVATION_METADATA_PROPERTY,
+    STATE_FACT_METADATA_PROPERTY,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
+)
 
 #: Registered ``Resource -> Resource`` observation links. A new topology link type
 #: enters the catalog vocabulary first, then this tuple; an unlisted type is
@@ -102,7 +109,7 @@ def build_inventory_ontology_projection(
     if len(links) > _MAX_LINKS:
         raise ValueError("inventory projection link count exceeds its bound")
 
-    objects = _build_objects(resources)
+    objects = _build_objects(resources, generation=generation)
     observed_types = {
         resource_id: str(record.properties["type"]) for resource_id, record in objects.items()
     }
@@ -127,14 +134,18 @@ def build_inventory_ontology_projection(
     )
 
 
-def _build_objects(resources: Sequence[ResourceRecord]) -> dict[str, OntologyObjectRecord]:
+def _build_objects(
+    resources: Sequence[ResourceRecord],
+    *,
+    generation: str,
+) -> dict[str, OntologyObjectRecord]:
     """Return deduplicated ``Resource`` objects keyed by observed resource id."""
     objects: dict[str, OntologyObjectRecord] = {}
     for record in resources:
         resource_id = record.resource_id.strip()
         if not resource_id or not record.type.strip():
             raise ValueError("inventory resource identity and type MUST be non-empty")
-        projected = _resource_object(record, resource_id=resource_id)
+        projected = _resource_object(record, resource_id=resource_id, generation=generation)
         existing = objects.get(resource_id)
         if existing is None:
             objects[resource_id] = projected
@@ -145,21 +156,69 @@ def _build_objects(resources: Sequence[ResourceRecord]) -> dict[str, OntologyObj
     return objects
 
 
-def _resource_object(record: ResourceRecord, *, resource_id: str) -> OntologyObjectRecord:
+def _resource_object(
+    record: ResourceRecord,
+    *,
+    resource_id: str,
+    generation: str,
+) -> OntologyObjectRecord:
     """Map one observed resource onto the declared ``Resource`` property shape."""
     props = normalize_json_value(dict(record.props), path=f"inventory.{resource_id}")
     properties: dict[str, Any] = {"id": resource_id, "type": record.type.strip()}
     if isinstance(props, Mapping):
+        provider_properties = dict(props)
+        _add_observed_state(
+            provider_properties,
+            generation=generation,
+            observed_at=_observed_at(record.last_seen),
+        )
         for lifted in ("name", "parent_id"):
             value = props.get(lifted)
             if isinstance(value, str) and value.strip():
                 properties[lifted] = value
-        properties["properties"] = props
+        properties["properties"] = provider_properties
     return OntologyObjectRecord(
         id=resource_id,
         object_type=_RESOURCE_OBJECT_TYPE,
         properties=properties,
     )
+
+
+def _add_observed_state(
+    properties: dict[str, Any],
+    *,
+    generation: str,
+    observed_at: datetime | None,
+) -> None:
+    """Add canonical observed state only when provider time and state are complete."""
+
+    state = properties.get("status")
+    if not isinstance(state, str) or not state.strip() or observed_at is None:
+        return
+    properties["state"] = state.strip()
+    properties[STATE_FACT_METADATA_PROPERTY] = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="inventory-provider",
+        source_revision=generation,
+        effective_at=observed_at,
+        recorded_at=observed_at,
+        evidence_cutoff=observed_at,
+        freshness_ceiling_seconds=300,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=(f"inventory-generation:{generation}",),
+    ).to_mapping()
+
+
+def _observed_at(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else None
 
 
 def _build_links(

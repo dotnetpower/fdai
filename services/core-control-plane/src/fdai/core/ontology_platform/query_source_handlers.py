@@ -14,6 +14,7 @@ from .functions import FunctionInvocationContext, OntologyFunctionRegistry
 from .models import ObjectSetDefinition
 from .query_execution import QueryNodeResult
 from .query_gateway import SecuredObjectSetQueryGateway
+from .query_receipt_authority import SecuredQueryReceiptAuthority
 from .query_values import QueryRow, QueryTable
 
 
@@ -26,12 +27,14 @@ class SecuredObjectSetNodeHandler:
         *,
         caller_role: CeilingRole,
         purposes: Sequence[str],
+        receipt_authority: SecuredQueryReceiptAuthority | None = None,
     ) -> None:
         self._gateway = gateway
         self._request = ProjectionRequest(
             caller_role=caller_role,
             declared_purposes=frozenset(purposes),
         )
+        self._receipt_authority = receipt_authority
 
     async def __call__(
         self,
@@ -45,6 +48,8 @@ class SecuredObjectSetNodeHandler:
             definition,
             projection_request=self._request,
         )
+        if self._receipt_authority is not None:
+            self._receipt_authority.issue(secured)
         table = QueryTable(
             rows=tuple(
                 QueryRow.from_values(
@@ -81,9 +86,11 @@ class FunctionNodeHandler:
         registry: OntologyFunctionRegistry,
         *,
         context: FunctionInvocationContext,
+        receipt_authority: SecuredQueryReceiptAuthority | None = None,
     ) -> None:
         self._registry = registry
         self._context = context
+        self._receipt_authority = receipt_authority
 
     async def __call__(
         self,
@@ -105,15 +112,26 @@ class FunctionNodeHandler:
             raise ValueError("function dependency_arguments MUST be an object")
         if set(raw_bindings) != set(node.depends_on):
             raise ValueError("function dependency arguments MUST bind every dependency")
+        invocation_context = self._context
         for dependency_id, argument_name_raw in raw_bindings.items():
             argument_name = _argument_name(argument_name_raw)
             if argument_name in arguments:
                 raise ValueError("function dependency argument collides with static argument")
-            arguments[argument_name] = _function_value(dependencies[dependency_id].value)
+            dependency = dependencies[dependency_id]
+            if argument_name == "query_result" and self._receipt_authority is not None:
+                secured = self._receipt_authority.resolve(dependency.evidence_refs)
+                arguments[argument_name] = secured.model_dump(mode="json")
+                invocation_context = self._context.model_copy(
+                    update={
+                        "evidence_refs": (secured.receipt.projected_result_digest,),
+                    }
+                )
+            else:
+                arguments[argument_name] = _function_value(dependency.value)
         result, receipt = await self._registry.invoke_with_receipt(
             function_name,
             arguments,
-            context=self._context,
+            context=invocation_context,
         )
         return QueryNodeResult(
             value=result,

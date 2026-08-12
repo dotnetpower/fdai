@@ -58,6 +58,10 @@ package. Their tests remain under the Core-owned test tree.
 Ontology query execution rechecks the exact release, manifest, role, and purpose at runtime. Its
 bounded dependency waves include queue wait in each node deadline, propagate in-flight
 cancellation, skip blocked descendants, and emit stable receipts without provider error details.
+Composition issues bounded secured ObjectSet receipts and registers the source-derived network
+and Pod telemetry functions in the exact release. Function dependencies resolve only an issued
+content digest. The resource-state investigation path keeps promoted inventory as answer authority,
+runs the ontology query in shadow, and stores principal-scoped parity receipts through StateStore.
 Planner manifests apply identical role and purpose filtering to ObjectType and Interface
 properties. Intent evidence preserves a terminal reason while also disclosing bounded
 evidence-reference truncation.

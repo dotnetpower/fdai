@@ -5,6 +5,11 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
+import pytest
+from fdai.core.ontology_platform.functions import (
+    FunctionInvocationContext,
+    OntologyFunctionRegistry,
+)
 from fdai.core.ontology_platform.interfaces import compile_interfaces
 from fdai.core.ontology_platform.models import (
     InterfaceImplementation,
@@ -16,9 +21,12 @@ from fdai.core.ontology_platform.models import (
 )
 from fdai.core.ontology_platform.object_sets import ObjectSetService
 from fdai.core.ontology_platform.pod_telemetry import (
+    POD_TELEMETRY_FUNCTION_NAME,
     PodTelemetryPathResult,
     TelemetrySegmentStatus,
     evaluate_pod_telemetry_path,
+    pod_telemetry_function,
+    pod_telemetry_function_type,
     telemetry_link_subject,
     telemetry_object_subject,
 )
@@ -26,9 +34,11 @@ from fdai.core.ontology_platform.query_gateway import (
     SecuredObjectSetQueryGateway,
     SecuredObjectSetQueryResult,
 )
+from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
 from fdai.shared.contracts.models import (
     CeilingRole,
     LinkCardinality,
+    OntologyFunctionType,
     OntologyLinkType,
     OntologyObjectType,
     PropertyDecl,
@@ -38,6 +48,9 @@ from fdai.shared.ontology.acl import ProjectionRequest
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import OntologyLinkRecord, OntologyObjectRecord
 from fdai.shared.providers.state_evidence import (
+    LINK_OBSERVATION_METADATA_PROPERTY,
+    STATE_FACT_METADATA_PROPERTY,
+    LinkObservationMetadata,
     StateFactAuthority,
     StateFactLane,
     StateFactMetadata,
@@ -150,6 +163,7 @@ def _object_types() -> tuple[OntologyObjectType, ...]:
                 "observed_at": PropertyDecl(type=PropertyType.DATETIME, required=True),
                 "evidence_ref": PropertyDecl(type=PropertyType.STRING, required=True),
                 "source_revision": PropertyDecl(type=PropertyType.STRING, required=True),
+                STATE_FACT_METADATA_PROPERTY: PropertyDecl(type=PropertyType.OBJECT),
             },
         ),
     )
@@ -178,6 +192,7 @@ async def _secured_result(
     objects: tuple[OntologyObjectRecord, ...],
     links: tuple[OntologyLinkRecord, ...],
     limit: int = 32,
+    function_types: tuple[OntologyFunctionType, ...] = (),
 ) -> SecuredObjectSetQueryResult:
     object_types = _object_types()
     link_types = _link_types()
@@ -210,6 +225,7 @@ async def _secured_result(
             object_types=object_types,
             link_types=link_types,
             interface_types=(interface,),
+            function_types=function_types,
         ),
         evaluation_cutoff=lambda: _CUTOFF,
     )
@@ -451,3 +467,106 @@ async def test_missing_observation_never_implies_health() -> None:
         TelemetrySegmentStatus.MISSING,
         TelemetrySegmentStatus.MISSING,
     ]
+
+
+async def test_exact_release_function_accepts_only_issued_query_receipt() -> None:
+    declaration = pod_telemetry_function_type()
+    object_types = _object_types()
+    link_types = _link_types()
+    interface = OntologyInterfaceType(name="ObservableEvidence", version="1.0.0")
+    release = build_ontology_release(
+        object_types=object_types,
+        link_types=link_types,
+        interface_types=(interface,),
+        function_types=(declaration,),
+    )
+    links = (
+        OntologyLinkRecord(
+            link_type,
+            from_id,
+            to_id,
+            properties={
+                LINK_OBSERVATION_METADATA_PROPERTY: LinkObservationMetadata(
+                    state_fact=_state_fact(f"topology:{index}"),
+                    verification_method="independent-source",
+                    verified=True,
+                    verifier_identity="topology-verifier",
+                    verifier_revision="verifier:1",
+                    verification_receipt_ref=f"topology-verification:{index}",
+                ).to_mapping()
+            },
+        )
+        for index, (link_type, from_id, to_id) in enumerate(
+            (
+                ("kubernetes_selects", _SERVICE_ID, _POD_ID),
+                ("kubernetes_exposes_endpoints", _SERVICE_ID, _ENDPOINTS_ID),
+                ("observation_targets_resource", _OBSERVATION_ID, _POD_ID),
+            ),
+            start=1,
+        )
+    )
+    observation = _observation()
+    observation = replace(
+        observation,
+        properties={
+            **observation.properties,
+            STATE_FACT_METADATA_PROPERTY: _state_fact("metric-sample:pod-cpu:1").to_mapping(),
+        },
+    )
+    secured = await _secured_result(
+        objects=(*_objects(include_observation=False), observation),
+        links=links,
+        function_types=(declaration,),
+    )
+    authority = SecuredQueryReceiptAuthority()
+    authority.issue(secured)
+    registry = OntologyFunctionRegistry(release=release)
+    registry.register_contextual(
+        declaration,
+        pod_telemetry_function(
+            release,
+            receipt_verifier=authority,
+            verification_context=authority.verification_context,
+        ),
+    )
+    arguments = {
+        "query_result": secured.model_dump(mode="json"),
+        "pod_id": _POD_ID,
+        "expected_cluster_ref": _CLUSTER_REF,
+        "cutoff": _CUTOFF.isoformat(),
+    }
+    context = FunctionInvocationContext(
+        caller_agent="Heimdall",
+        caller_role=CeilingRole.READER,
+        purposes=("telemetry-verification",),
+        evidence_refs=(secured.receipt.projected_result_digest,),
+    )
+
+    result, receipt = await registry.invoke_with_receipt(
+        POD_TELEMETRY_FUNCTION_NAME,
+        arguments,
+        context=context,
+    )
+
+    assert isinstance(result, PodTelemetryPathResult)
+    assert result.complete is True, [
+        (segment.status.value, segment.reasons) for segment in result.segments
+    ]
+    assert receipt.function_ref.catalog_digest == release.digest
+
+    unissued = SecuredQueryReceiptAuthority()
+    rejecting_registry = OntologyFunctionRegistry(release=release)
+    rejecting_registry.register_contextual(
+        declaration,
+        pod_telemetry_function(
+            release,
+            receipt_verifier=unissued,
+            verification_context=unissued.verification_context,
+        ),
+    )
+    with pytest.raises(PermissionError, match="receipt verification"):
+        await rejecting_registry.invoke(
+            POD_TELEMETRY_FUNCTION_NAME,
+            arguments,
+            context=context,
+        )
