@@ -78,28 +78,6 @@ def _profile_settings(profile: dict[str, object]) -> dict[str, object]:
     return settings
 
 
-def synchronize_profile_extensions(vscode_dir: Path = VSCODE_DIR) -> bool:
-    """Rewrite only the portable profile extension payload from recommendations."""
-    extensions_path = vscode_dir / EXTENSIONS_PATH.name
-    profile_path = vscode_dir / PROFILE_PATH.name
-    extension_config = _read_json(extensions_path)
-    profile = _read_json(profile_path)
-    if not isinstance(extension_config, dict) or not isinstance(profile, dict):
-        raise ProfileContractError("extension config and profile must be JSON objects")
-    recommendations = sorted(
-        _string_set(extension_config.get("recommendations"), label="extension recommendations")
-    )
-    serialized = json.dumps(
-        [{"identifier": {"id": extension_id}} for extension_id in recommendations],
-        indent=4,
-    )
-    if profile.get("extensions") == serialized:
-        return False
-    profile["extensions"] = serialized
-    profile_path.write_text(json.dumps(profile, indent=4) + "\n", encoding="utf-8")
-    return True
-
-
 def _validate_machine_settings(settings: dict[str, object]) -> None:
     key = "terraform.languageServer.indexing.ignoreDirectoryNames"
     ignored_names = _string_set(settings.get(key), label=key)
@@ -202,11 +180,6 @@ def apply_machine_settings(destination: Path, template: Path = MACHINE_TEMPLATE_
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--sync-profile-extensions",
-        action="store_true",
-        help="rewrite the portable profile extension payload from extensions.json",
-    )
-    parser.add_argument(
         "--apply-machine-settings",
         action="store_true",
         help="merge the shared machine settings into the VS Code remote settings file",
@@ -229,10 +202,6 @@ def _parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = _parser().parse_args()
     try:
-        if args.sync_profile_extensions:
-            changed = synchronize_profile_extensions()
-            state = "updated" if changed else "already current"
-            print(f"profile extensions {state}: {PROFILE_PATH}")
         extension_count, setting_count = validate_artifacts()
         print(f"profile artifacts valid: extensions={extension_count} settings={setting_count}")
         destination = args.machine_settings or default_machine_settings_path()

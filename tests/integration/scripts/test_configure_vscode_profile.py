@@ -24,36 +24,8 @@ def test_repository_profile_artifacts_are_consistent() -> None:
 
     extension_count, setting_count = module.validate_artifacts()
 
-    assert extension_count == 17
+    assert extension_count == 18
     assert setting_count == 6
-
-
-def test_profile_extensions_can_be_synchronized_from_recommendations(tmp_path: Path) -> None:
-    module = _load_module()
-    vscode_dir = tmp_path / ".vscode"
-    vscode_dir.mkdir()
-    (vscode_dir / "extensions.json").write_text(
-        json.dumps(
-            {
-                "recommendations": ["example.two", "example.one"],
-                "unwantedRecommendations": [],
-            }
-        ),
-        encoding="utf-8",
-    )
-    profile_path = vscode_dir / "fdai.code-profile"
-    profile_path.write_text(
-        json.dumps({"name": "FDAI", "settings": "{}", "extensions": "[]"}),
-        encoding="utf-8",
-    )
-
-    assert module.synchronize_profile_extensions(vscode_dir) is True
-    profile = json.loads(profile_path.read_text(encoding="utf-8"))
-    assert json.loads(profile["extensions"]) == [
-        {"identifier": {"id": "example.one"}},
-        {"identifier": {"id": "example.two"}},
-    ]
-    assert module.synchronize_profile_extensions(vscode_dir) is False
 
 
 def test_profile_extensions_reject_export_metadata() -> None:

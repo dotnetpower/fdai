@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: a3b6a6ddeb67b6271358e8ee77c514e0c98a7293
+translation_source_sha: 94803606f69df6b8c002aa979eca2c677edeae07
 translation_revised: 2026-08-12
 ---
 
@@ -209,6 +209,8 @@ GitHub Actions 런타임 검증이 권위 있으며 다른 작업 흐름의 GitH
 유지됩니다.
 
 공유 FDAI 프로파일과 확장 목록은 HashiCorp Terraform만 언어 서버로 유지합니다.
+워크스테이션별 정리 작업으로 이식 가능한 프로파일을 축소하지 않습니다. 현재 FDAI 작업 흐름에서
+사용하지 않는 프로파일 외부 확장은 로컬에서 제거할 수 있습니다.
 WSL 초기화는 프로파일 sync가 전달하지 못하는 path-free 머신 설정을 적용합니다. 이러한 editor
 설정은 신원, 근거, 런타임, 승격 또는 실행 권한을 선택하지 않습니다.
 
