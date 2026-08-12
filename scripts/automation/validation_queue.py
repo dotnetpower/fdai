@@ -77,6 +77,12 @@ def check_commit(paths: QueuePaths, revision: str) -> int:
     if _validator_is_active(paths):
         print("  Background validation is active; push does not wait for it.", file=sys.stderr)
     else:
+        failed_stage = _last_failed_stage(paths, commit)
+        if failed_stage is not None:
+            print(
+                f"  Last background validation failed at {failed_stage}.",
+                file=sys.stderr,
+            )
         print("  Run 'make validation-run' in the dedicated integration session.", file=sys.stderr)
     return 1
 
@@ -203,13 +209,35 @@ def _validator_is_active(paths: QueuePaths) -> bool:
     return False
 
 
+def _last_failed_stage(paths: QueuePaths, commit: str) -> str | None:
+    try:
+        run_record: object = json.loads((paths.runs / f"{commit}.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(run_record, dict) or run_record.get("status") == 0:
+        return None
+    stages = run_record.get("stages")
+    if isinstance(stages, list):
+        for stage in reversed(stages):
+            if not isinstance(stage, dict) or stage.get("status") == 0:
+                continue
+            name = stage.get("name")
+            if isinstance(name, str):
+                return name
+    return "unknown-stage"
+
+
 def status(paths: QueuePaths, *, show_all: bool = False) -> int:
     pending = pending_commits(paths)
     head = resolve_commit(paths, "HEAD")
     history = git("rev-list", "--reverse", "--topo-order", head, cwd=paths.repo_root).stdout
     reachable = [commit for commit in history.splitlines() if commit in pending]
     elsewhere = sorted(pending - set(reachable))
-    validator_state = "active" if _validator_is_active(paths) else "idle"
+    if _validator_is_active(paths):
+        validator_state = "active"
+    else:
+        failed_stage = _last_failed_stage(paths, head)
+        validator_state = f"failed at {failed_stage}" if failed_stage is not None else "idle"
     print(
         f"validation-queue: {len(reachable)} reachable pending commit(s), "
         f"{len(elsewhere)} elsewhere, validator {validator_state}"
