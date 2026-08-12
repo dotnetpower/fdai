@@ -93,6 +93,11 @@ Parallel worker sessions run focused tests only. Every successful commit is
 automatically added to a queue under the shared Git common directory, so linked
 worktrees feed the same validator without writing runtime state into the repository.
 
+The pre-tool guard also reserves each edited repository path for the current agent session. A
+second session is blocked only while that reservation is at most 30 minutes old and the target is
+still dirty. The same session refreshes its reservation on each edit, and a clean target can be
+claimed immediately. Reservations live under the Git directory and never enter a commit.
+
 Open one VS Code chat with the `Integration Validator` custom agent. Inspect and
 process the accumulated batch from that session:
 

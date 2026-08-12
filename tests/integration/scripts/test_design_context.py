@@ -464,6 +464,47 @@ def test_pre_tool_use_allows_normal_edit_without_design_receipts(
     assert module.pre_tool_use(payload) == {"continue": True}
 
 
+def test_edit_reservation_blocks_another_session_on_dirty_target(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    monkeypatch.setattr(module, "_reservation_state_path", lambda: tmp_path / "state.json")
+    monkeypatch.setattr(module, "_reservation_lock_path", lambda: tmp_path / "state.lock")
+    monkeypatch.setattr(module, "_target_is_dirty", lambda target: True)
+    patch = "*** Begin Patch\n*** Update File: scripts/example.py\n*** End Patch"
+
+    first = module.enforce_edit_reservations(
+        {"session_id": "session-a", "tool_name": "apply_patch", "tool_input": {"input": patch}}
+    )
+    blocked = module.enforce_edit_reservations(
+        {"session_id": "session-b", "tool_name": "apply_patch", "tool_input": {"input": patch}}
+    )
+    renewed = module.enforce_edit_reservations(
+        {"session_id": "session-a", "tool_name": "apply_patch", "tool_input": {"input": patch}}
+    )
+
+    assert first == {"continue": True}
+    assert blocked["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert renewed == {"continue": True}
+
+
+def test_clean_target_can_replace_another_session_reservation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    monkeypatch.setattr(module, "_reservation_state_path", lambda: tmp_path / "state.json")
+    monkeypatch.setattr(module, "_reservation_lock_path", lambda: tmp_path / "state.lock")
+    monkeypatch.setattr(module, "_target_is_dirty", lambda target: False)
+    patch = "*** Begin Patch\n*** Update File: scripts/example.py\n*** End Patch"
+
+    assert module.enforce_edit_reservations(
+        {"session_id": "session-a", "tool_name": "apply_patch", "tool_input": {"input": patch}}
+    ) == {"continue": True}
+    assert module.enforce_edit_reservations(
+        {"session_id": "session-b", "tool_name": "apply_patch", "tool_input": {"input": patch}}
+    ) == {"continue": True}
+
+
 def test_pre_tool_use_does_not_record_ordinary_source_reads(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

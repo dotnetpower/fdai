@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import fnmatch
 import hashlib
 import json
@@ -10,6 +11,7 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any, cast
 
@@ -44,6 +46,7 @@ PATCH_PATH = re.compile(
     re.MULTILINE,
 )
 CONTEXT_DOCUMENT_SUFFIXES = frozenset({".json", ".md", ".yaml", ".yml"})
+EDIT_RESERVATION_TTL_SECONDS = 30 * 60
 
 
 def _payload_value(payload: dict[str, Any], *names: str) -> Any:
@@ -83,6 +86,14 @@ def _git_dir() -> Path:
 
 def _state_path(payload: dict[str, Any]) -> Path:
     return _git_dir() / "fdai-design-context" / f"{_session_id(payload)}.json"
+
+
+def _reservation_state_path() -> Path:
+    return _git_dir() / "fdai-edit-reservations.json"
+
+
+def _reservation_lock_path() -> Path:
+    return _git_dir() / "fdai-edit-reservations.lock"
 
 
 def _load_state(payload: dict[str, Any]) -> dict[str, Any]:
@@ -157,6 +168,66 @@ def _edit_targets(payload: dict[str, Any]) -> tuple[str, ...]:
         candidates.extend(match.group("path") for match in PATCH_PATH.finditer(patch))
     relative_paths = {_relative_path(candidate) for candidate in candidates}
     return tuple(sorted(path for path in relative_paths if path is not None))
+
+
+def _target_is_dirty(target: str) -> bool:
+    return bool(
+        subprocess.run(
+            ["git", "status", "--porcelain", "--", target],
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
+
+
+def enforce_edit_reservations(payload: dict[str, Any]) -> dict[str, Any]:
+    """Reserve dirty edit targets for one active agent session."""
+    targets = _edit_targets(payload)
+    session = _session_id(payload)
+    if not targets or session == "default":
+        return {"continue": True}
+    state_path = _reservation_state_path()
+    lock_path = _reservation_lock_path()
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            loaded: object = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            loaded = {}
+        reservations = loaded.get("reservations") if isinstance(loaded, dict) else None
+        active = reservations if isinstance(reservations, dict) else {}
+        now = time.time()
+        for target in targets:
+            reservation = active.get(target)
+            if not isinstance(reservation, dict) or reservation.get("session") == session:
+                continue
+            updated_at = reservation.get("updated_at")
+            current = isinstance(updated_at, (int, float)) and (
+                now - float(updated_at) <= EDIT_RESERVATION_TTL_SECONDS
+            )
+            if current and _target_is_dirty(target):
+                reason = (
+                    f"FDAI edit collision: {target} is reserved by another active agent session. "
+                    "Wait for its focused commit or edit a non-overlapping path."
+                )
+                return {
+                    "systemMessage": reason,
+                    "hookSpecificOutput": {
+                        "hookEventName": "PreToolUse",
+                        "permissionDecision": "deny",
+                        "permissionDecisionReason": reason,
+                    },
+                }
+        for target in targets:
+            active[target] = {"session": session, "updated_at": now}
+        state_path.write_text(
+            json.dumps({"reservations": active, "version": 1}, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    return {"continue": True}
 
 
 def _matches(path: str, pattern: str) -> bool:
@@ -412,6 +483,9 @@ def pre_tool_use(payload: dict[str, Any]) -> dict[str, Any]:
     if tool_name == "read_file":
         return record_read(payload)
     if tool_name in EDIT_TOOL_NAMES:
+        reservation_result = enforce_edit_reservations(payload)
+        if reservation_result.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
+            return reservation_result
         return enforce_edit(payload)
     if tool_name not in TERMINAL_TOOL_NAMES and tool_name != "runTests":
         return {"continue": True}
