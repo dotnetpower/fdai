@@ -1,2 +1,2 @@
-# Core owns the reviewed process composition root after service extraction.
-composition-fanout|services/core-control-plane/src/fdai/runtime/bootstrap.py|48
+# Core composes the reviewed runtime and its operational activity publisher after extraction.
+composition-fanout|services/core-control-plane/src/fdai/runtime/bootstrap.py|49
