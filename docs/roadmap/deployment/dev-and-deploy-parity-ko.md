@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 03f2667d745da85d0ab7c3217bf8756e0f387e94
+translation_source_sha: 29866311c254eadf7b5fcde87d730f441036646d
 translation_revised: 2026-08-13
 ---
 
@@ -192,12 +192,11 @@ Pylance 분석은 서비스 소스 루트 5개, 공유 패키지, 독립 패키�
 저장소 유지관리 스크립트를 대상으로 합니다. Workspace 백그라운드 인덱싱은 비활성화합니다. 열린
 파일은 IntelliSense와 진단을 계속 제공하며 범위가 제한된 테스트는 테스트 실행기를 통해 사용할
 수 있습니다. Pylance는 심볼릭 링크 폴더를 따라가지 않고 언어 서버 메시지는 경고 수준부터
-기록합니다. 관리되는 Node.js 런타임에 2 GiB 힙 상한을 적용하고 라이브러리 소스를 사용한 형식
-추론을 비활성화해 단일 언어 서버 프로세스의 메모리를 제한합니다. `light` 모드로 전환하지 않으므로
-구성된 workspace 분석, 열린 파일 진단, IntelliSense 및 탐색 기능은 계속 사용할 수 있습니다. 따라서 검증
-워크트리와 연결된 로컬 산출물이 workspace 분석 집합에 중복으로 들어가거나 정보 수준 로그 부하를
-추가하지 않습니다. Chat 맥락 사용량 표시기는 계속 활성화하므로 프롬프트가 한도에 도달하기 전에
-기록된 세션 인수인계를 사용해 긴 작업을 옮길 수 있습니다. Copilot은 에이전트 대화 이력을 160000
+기록합니다. FDAI 프로파일은 관리되는 Node.js 런타임에 2 GiB 힙 상한을 적용하고 라이브러리 소스를 사용한 형식 추론을 비활성화해 단일 언어 서버 프로세스의 메모리를 제한합니다. `light`
+모드로 전환하지 않으므로 구성된 workspace 분석, 열린 파일 진단, IntelliSense 및 탐색 기능은 계속
+사용할 수 있습니다. 따라서 검증 워크트리와 연결된 로컬 산출물이 workspace 분석 집합에 중복으로
+들어가거나 정보 수준 로그 부하를 추가하지 않습니다. Chat 맥락 사용량 표시기는 계속 활성화하므로
+프롬프트 한도 전에 기록된 세션 인수인계를 사용해 긴 작업을 옮길 수 있습니다. Copilot은 에이전트 대화 이력을 160000
 토큰에서 요약하고 이 workspace에서 다음 편집 제안을 비활성화합니다. Chat, 인라인 완성, 맥락
 사용량 및 세션 기록은 계속 사용할 수 있습니다.
 
@@ -214,10 +213,11 @@ YAML 검증은 계속 활성 상태입니다. 원격 action-tag 확인, 저장�
 GitHub Actions 런타임 검증이 권위 있으며 다른 작업 흐름의 GitHub Actions 언어 support는
 유지됩니다.
 
-공유 FDAI 프로파일과 확장 목록은 HashiCorp Terraform만 언어 서버로 유지합니다.
-워크스테이션별 정리 작업으로 이식 가능한 프로파일을 축소하지 않습니다. 현재 FDAI 작업 흐름에서
-사용하지 않는 프로파일 외부 확장은 로컬에서 제거할 수 있습니다.
-WSL 초기화는 프로파일 sync가 전달하지 못하는 path-free 머신 설정을 적용합니다. 이러한 editor
+Workspace 설정에는 resource scope Pylance 제어만 둡니다. Machine scope Node.js 설정은 workspace
+설정으로 프로세스를 제한할 수 없으므로 공유 FDAI 프로파일에 둡니다. 프로파일은
+HashiCorp Terraform만 언어 서버로 유지하며 워크스테이션별 정리로 축소하지 않습니다. 현재 작업에
+쓰지 않는 프로파일 외부 확장은 로컬에서 제거할 수 있습니다. WSL 초기화는 프로파일 sync가
+전달하지 못하는 path-free 머신 설정을 적용합니다. 이러한 editor
 설정은 신원, 근거, 런타임, 승격 또는 실행 권한을 선택하지 않습니다.
 
 선택적 `dev-access: configure VPN on folder open` 작업은 workstation에 격리된 P2S 개발 접근

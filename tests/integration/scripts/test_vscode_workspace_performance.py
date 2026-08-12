@@ -33,8 +33,8 @@ def test_pylance_analyzes_owned_roots_without_background_indexing() -> None:
     ]
     assert settings["python.analysis.indexing"] is False
     assert settings["python.analysis.logLevel"] == "Warning"
-    assert settings["python.analysis.nodeArguments"] == ["--max-old-space-size=2048"]
-    assert settings["python.analysis.nodeExecutable"] == "auto"
+    assert "python.analysis.nodeArguments" not in settings
+    assert "python.analysis.nodeExecutable" not in settings
     assert settings["python.analysis.useLibraryCodeForTypes"] is False
     assert settings["python.analysis.userFileIndexFollowSymlinkedFolders"] is False
 

@@ -177,6 +177,40 @@ def apply_machine_settings(destination: Path, template: Path = MACHINE_TEMPLATE_
     return True
 
 
+def profile_settings_match(destination: Path, profile_path: Path = PROFILE_PATH) -> bool:
+    if not destination.is_file():
+        return False
+    current = _read_json(destination)
+    profile = _read_json(profile_path)
+    if not isinstance(current, dict) or not isinstance(profile, dict):
+        raise ProfileContractError("profile settings and profile must be JSON objects")
+    expected = _profile_settings(profile)
+    return all(current.get(key) == value for key, value in expected.items())
+
+
+def apply_profile_settings(destination: Path, profile_path: Path = PROFILE_PATH) -> bool:
+    profile = _read_json(profile_path)
+    if not isinstance(profile, dict):
+        raise ProfileContractError("profile must be a JSON object")
+    expected = _profile_settings(profile)
+    if destination.exists():
+        current = _read_json(destination)
+        if not isinstance(current, dict):
+            raise ProfileContractError("existing profile settings must be a JSON object")
+    else:
+        current = {}
+    merged = {**current, **expected}
+    if merged == current:
+        return False
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_name(f".{destination.name}.tmp")
+    temporary.write_text(json.dumps(merged, ensure_ascii=False, indent=4) + "\n", encoding="utf-8")
+    temporary.chmod(destination.stat().st_mode & 0o777 if destination.exists() else 0o600)
+    temporary.replace(destination)
+    return True
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -195,6 +229,21 @@ def _parser() -> argparse.ArgumentParser:
         help=(
             "override the machine settings destination (also available via VSCODE_MACHINE_SETTINGS)"
         ),
+    )
+    parser.add_argument(
+        "--apply-profile-settings",
+        action="store_true",
+        help="merge the portable FDAI settings into an existing profile settings file",
+    )
+    parser.add_argument(
+        "--check-profile-settings",
+        action="store_true",
+        help="fail when a profile settings file does not contain the portable FDAI settings",
+    )
+    parser.add_argument(
+        "--profile-settings",
+        type=Path,
+        help="existing FDAI profile settings destination",
     )
     return parser
 
@@ -215,6 +264,19 @@ def main() -> int:
                     f"machine settings do not match {MACHINE_TEMPLATE_PATH}: {destination}"
                 )
             print(f"machine settings current: {destination}")
+        if args.apply_profile_settings or args.check_profile_settings:
+            if args.profile_settings is None:
+                raise ProfileContractError("--profile-settings is required for profile operations")
+            if args.apply_profile_settings:
+                changed = apply_profile_settings(args.profile_settings)
+                state = "updated" if changed else "already current"
+                print(f"profile settings {state}: {args.profile_settings}")
+            if args.check_profile_settings:
+                if not profile_settings_match(args.profile_settings):
+                    raise ProfileContractError(
+                        f"profile settings do not match {PROFILE_PATH}: {args.profile_settings}"
+                    )
+                print(f"profile settings current: {args.profile_settings}")
     except ProfileContractError as error:
         print(f"profile configuration error: {error}")
         return 1

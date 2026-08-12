@@ -190,12 +190,12 @@ Pylance analysis covers the five service source roots, shared packages, independ
 and benchmark sources, and repository maintenance scripts. Background workspace indexing is
 disabled; open files still receive IntelliSense and diagnostics, and focused tests remain available
 through the test runner. Pylance does not follow symlinked folders and records warning-level
-language-server messages. A managed Node.js runtime enforces a 2 GiB heap ceiling, and disabled
-library-source type inference further bounds a single language-server process without switching to
-`light` mode, so configured workspace analysis, open-file diagnostics, IntelliSense, and navigation remain available. The validation
-worktree and linked local artifacts therefore cannot duplicate the workspace analysis set or add
-information-level log churn. The Chat context-usage indicator remains enabled so a developer can
-move long work to the recorded session handover before the prompt reaches its limit. Copilot
+language-server messages. The FDAI profile uses managed Node.js with a 2 GiB heap ceiling, while
+disabled library-source type inference further bounds the process without `light` mode. Configured workspace analysis, open-file diagnostics,
+IntelliSense, and navigation therefore remain available. The validation worktree and linked local
+artifacts cannot duplicate the workspace analysis set or add information-level log churn. The Chat
+context-usage indicator remains enabled so a developer can move long work to the recorded session
+handover before the prompt reaches its limit. Copilot
 summarizes agent conversation history at 160000 tokens and disables next edit suggestions in this
 workspace; Chat, inline completions, context usage, and session records remain available.
 
@@ -212,10 +212,10 @@ the next step. Plain YAML validation remains active. Remote action-tag verificat
 workflow contract tests, and GitHub Actions runtime validation remain authoritative; no other
 workflow loses GitHub Actions language support.
 
-The shared FDAI profile and extension list keep HashiCorp Terraform as the single language server.
-Workstation-specific cleanup does not reduce that portable profile. Extensions outside the profile
-may be uninstalled locally when the current FDAI workflow does not use them.
-The WSL bootstrap applies the path-free machine settings that Profile sync cannot carry. These
+Workspace settings contain only resource-scoped Pylance controls; machine-scoped Node.js settings
+live in the shared FDAI profile because workspace placement does not constrain the process. The profile keeps HashiCorp Terraform as the single language server, and workstation
+cleanup does not reduce it. Unused extensions outside the profile may be uninstalled locally.
+The WSL bootstrap applies path-free machine settings that Profile sync cannot carry. These
 editor settings never select identity, evidence, runtime, promotion, or execution authority.
 
 The optional `dev-access: configure VPN on folder open` task activates only when the workstation
