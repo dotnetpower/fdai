@@ -2,6 +2,11 @@ name: prepare-release-version
 
 on:
   workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: "Exact protected origin/main commit to prepare for release."
+        type: string
+        required: true
 
 permissions:
   contents: write
@@ -13,7 +18,7 @@ jobs:
     steps:
       - name: Verify protected workflow source
         env:
-          TARGET_COMMIT_SHA: ${{ github.sha }}
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
           GITHUB_TOKEN: ${{ github.token }}
           PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
           PROTECTED_WORKFLOW_PATH: .github/workflows/automatic-version.yml

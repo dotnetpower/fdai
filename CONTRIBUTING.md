@@ -69,13 +69,13 @@ the fastest way to reproduce it without pushing.
 ### Prepare a release version
 
 Run [automatic-version.yml](.github/workflows/automatic-version.yml) manually
-from the `main` branch when you intend to prepare a release. With no existing
-semantic-version tag, the workflow starts at `v0.1.1`; later runs increment the
-highest `vX.Y.Z` tag by one patch (`v0.1.2`, `v0.1.3`, and so on). It updates
-the Python, console, and CLI package metadata in lockstep, creates a
-`chore(release): vX.Y.Z` commit, and publishes that commit plus an annotated
-tag atomically. Concurrent runs recalculate the version and retry instead of
-reusing a tag.
+from the `main` branch when you intend to prepare a release. Supply the exact
+protected `origin/main` commit as `commit_sha`. With no existing semantic-version
+tag, the workflow starts at `v0.1.1`; later runs increment the highest `vX.Y.Z`
+tag by one patch (`v0.1.2`, `v0.1.3`, and so on). It updates the Python, console,
+and CLI package metadata in lockstep, creates a `chore(release): vX.Y.Z` commit,
+and publishes that commit plus an annotated tag atomically. Concurrent runs
+recalculate the version and retry instead of reusing a tag.
 
 Ordinary pushes to `main` don't change the package version or create a release
 tag. Pull with rebase after preparing a release so the generated package-version

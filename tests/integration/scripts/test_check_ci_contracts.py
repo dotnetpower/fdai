@@ -8,6 +8,7 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+from scripts.deployment.service.select_changed_images import IMAGE_TARGETS
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -400,23 +401,14 @@ def test_container_supply_chain_builds_only_service_owned_dockerfiles() -> None:
     workflow = (root / ".github" / "workflows" / "container-supply-chain.yml").read_text(
         encoding="utf-8"
     )
-    dockerfiles = {
-        f"services/{service}/docker/Dockerfile"
-        for service in (
-            "core-control-plane",
-            "operator-service",
-            "document-ingestion-api",
-            "document-processing-worker",
-            "isolated-executor",
-        )
-    }
+    dockerfiles = {target.dockerfile for target in IMAGE_TARGETS}
 
     assert "file: ${{ matrix.dockerfile }}" in workflow
     assert "python3 scripts/deployment/service/apply_image_build_override.py" in workflow
+    assert "matrix: ${{ fromJSON(needs.select-images.outputs.matrix) }}" in workflow
     assert "services/Dockerfile" not in workflow
     assert "          target:" not in workflow
     for dockerfile in dockerfiles:
-        assert f"dockerfile: {dockerfile}" in workflow
         assert (root / dockerfile).is_file()
 
 

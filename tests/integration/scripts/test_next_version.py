@@ -43,4 +43,6 @@ def test_release_version_is_prepared_only_by_manual_dispatch() -> None:
     trigger = workflow.split("permissions:", 1)[0]
     assert "  workflow_dispatch:" in trigger
     assert "  push:" not in trigger
+    assert "      commit_sha:" in trigger
+    assert "TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}" in workflow
     assert "if: github.ref == 'refs/heads/main'" in workflow

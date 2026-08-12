@@ -78,6 +78,38 @@ jobs:
       matrix: ${{ steps.select.outputs.matrix }}
       has_images: ${{ steps.select.outputs.has_images }}
     steps:
+      - name: Verify protected workflow source
+        if: github.event_name != 'pull_request'
+        env:
+          INPUT_COMMIT_SHA: ${{ inputs.commit_sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
+          PROTECTED_WORKFLOW_PATH: .github/workflows/container-supply-chain.yml
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            [[ "$INPUT_COMMIT_SHA" == "$GITHUB_SHA" ]] || {
+              echo "historical manual publication is not supported; commit_sha must equal github.sha so attestation source revision stays exact" >&2
+              exit 1
+            }
+          fi
+          guard_repo="$RUNNER_TEMP/fdai-protected-origin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
+          git init --bare "$guard_repo" >/dev/null
+          trap 'rm -rf -- "$guard_repo"' EXIT
+          auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraheader \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
+            git -C "$guard_repo" fetch --force --no-tags \
+              "$PROTECTED_ORIGIN_URL" \
+              "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
+          unset auth_header
+          git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
+            refs/remotes/origin/main
+          git -C "$guard_repo" diff --quiet \
+            "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" \
+            "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"
+
       - name: Checkout image selection inputs
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -119,38 +151,6 @@ jobs:
       attestations: write
       id-token: write
     steps:
-      - name: Verify protected workflow source
-        if: github.event_name != 'pull_request'
-        env:
-          INPUT_COMMIT_SHA: ${{ inputs.commit_sha }}
-          GITHUB_TOKEN: ${{ github.token }}
-          PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
-          PROTECTED_WORKFLOW_PATH: .github/workflows/container-supply-chain.yml
-        run: |
-          set -euo pipefail
-          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-            [[ "$INPUT_COMMIT_SHA" == "$GITHUB_SHA" ]] || {
-              echo "historical manual publication is not supported; commit_sha must equal github.sha so attestation source revision stays exact" >&2
-              exit 1
-            }
-          fi
-          guard_repo="$RUNNER_TEMP/fdai-protected-origin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
-          git init --bare "$guard_repo" >/dev/null
-          trap 'rm -rf -- "$guard_repo"' EXIT
-          auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
-          GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraheader \
-            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
-            git -C "$guard_repo" fetch --force --no-tags \
-              "$PROTECTED_ORIGIN_URL" \
-              "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
-          unset auth_header
-          git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
-            refs/remotes/origin/main
-          git -C "$guard_repo" diff --quiet \
-            "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" \
-            "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"
-
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
