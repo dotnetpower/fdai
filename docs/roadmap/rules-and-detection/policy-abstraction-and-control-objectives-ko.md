@@ -1,7 +1,7 @@
 ---
 title: 정책 추상화와 통제 목표
 translation_of: policy-abstraction-and-control-objectives.md
-translation_source_sha: a02ca374c18df4c09f9d9757eb7e7a12935d46d0
+translation_source_sha: bc12cb15b6a0c76802e11a0f51900541d593fd35
 translation_revised: 2026-08-13
 ---
 # 정책 추상화와 통제 목표
@@ -296,7 +296,7 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 | `RuleObjectiveBinding`과 증적 계약 | implemented | [`rule_objective_binding.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_objective_binding.py), [`equivalence_validation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validation.py), [`RuleObjectiveBinding.yaml`](../../../rule-catalog/vocabulary/object-types/RuleObjectiveBinding.yaml), [`EquivalenceValidationReceipt.yaml`](../../../rule-catalog/vocabulary/object-types/EquivalenceValidationReceipt.yaml), [`binding.node-pool-zone-resilience.yaml`](../../../rule-catalog/rule-objective-bindings/binding.node-pool-zone-resilience.yaml) | 엄격한 계약, 어휘 및 비활성 부분 바인딩이 있습니다. 바인딩은 동등성이나 런타임 권한을 주장하지 않습니다. |
 | 결정론적 Rego 동등성 실행 | implemented | [`equivalence_validator.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validator.py), [`bounded_process.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/bounded_process.py), [`test_equivalence_validator.py`](../../../services/core-control-plane/tests/rule_catalog/test_equivalence_validator.py), [`test_bounded_process.py`](../../../services/core-control-plane/tests/rule_catalog/test_bounded_process.py) | 정확한 정책, 코퍼스, 검증기 및 OPA 고정값과 실패 시 안전하게 닫히는 자원 한계는 기계적 근거만 만듭니다. 검토된 증적과 62개 Rule 채우기는 아직 필요합니다. |
 | 목표 인식 변환 결과와 확인 | not-started | 이 설계 | 기존 정확한 Rule 및 검색 경로는 변경되지 않습니다. |
-| 전체 코퍼스 세대 식별자 | not-started | [`rule_semantic_generation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_generation.py) | 인라인 다이제스트 계약은 256개 항목으로 제한됩니다. |
+| 전체 코퍼스 세대 식별자 | in-progress | [`rule_semantic_generation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_generation.py), [`test_rule_semantic_retrieval.py`](../../../services/core-control-plane/tests/rule_catalog/test_rule_semantic_retrieval.py) | 스키마는 8,549개 행을 개수, 계층형 다이제스트 루트 및 범위가 제한된 청크 34개로 나타냅니다. 제공 메타데이터 연결과 독립적인 코퍼스 활성화는 아직 남아 있습니다. |
 | shadow 평가와 통제된 롤아웃 | not-started | 이 설계 | 목표 확인 벤치마크 또는 승격 증적이 없습니다. |
 
 ### 구현 이력
@@ -313,6 +313,7 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 | 2026-08-13 | implemented | OPA 숫자를 정확한 소수로 구문 분석하고 동등한 JSON 숫자 표기를 정규화하여 이진 부동 소수점으로 인한 결정 비교 병합을 막았습니다. 결론이 있는 결과를 반환하기 전에 최종 전체 기한 검사도 추가했습니다. 13차 적대적 검토 후 알려진 Low 초과 문제는 남아 있지 않습니다. | `current change`; 동등성, 증적, 의미 및 범위 제한 프로세스 집중 모음에서 테스트 45개가 통과했고, 소스 파일 4개에서 strict mypy가 통과했으며, 집중 소스 및 테스트 파일 8개에서 Ruff가 통과했습니다. | Rule ID나 판정 동작을 바꾸지 않고 작성된 Rego Rule 62개 모두에 검토된 바인딩과 증적을 만듭니다. |
 | 2026-08-13 | in-progress | 제공된 각 작성 Rule 참조에 다이제스트가 유효하고 수명 주기 상태가 reviewed 또는 promoted인 바인딩이 하나 이상 있도록 요구하는 선택형 카탈로그 집계 검사를 추가했습니다. candidate 및 retired 바인딩은 포함 범위를 충족하지 않으며, 이 관계는 계속 권한을 부여하지 않습니다. | `current change`; 집중 `test_rule_objective_binding.py` 모음에서 테스트 12개가 통과했고, 변경된 소스 파일에서 strict mypy가 통과했으며, 변경된 Python 파일 2개에서 Ruff가 통과했습니다. | 제공되는 62개 Rule 레지스트리를 이 불변식에 연결하고, Rule ID나 판정 동작을 변경하지 않으면서 검토된 목표와 바인딩 및 개수가 일치하는 이행 보고서를 추가합니다. |
 | 2026-08-13 | in-progress | 작성된 모든 Rule을 bound, intentionally unbound, ambiguous 또는 rejected 중 하나로 정확히 한 번 분할하는 실패 시 안전하게 닫히는 이행 보고서를 추가했습니다. 권위 있는 제공 Rule 로더와 정규화된 Rego 의미를 연결해 작성 Rule 62개, 검토된 바인딩 0개, ambiguous 62개의 개수 일치 기준선을 확립했습니다. | `current change`; 집중 바인딩 및 제공 교차 카탈로그 모음에서 테스트 18개가 통과했고, 변경된 소스 파일에서 strict mypy가 통과했으며, 변경된 Python 파일 3개에서 Ruff가 통과했습니다. | ambiguous Rule 62개를 검토하고, 동등성을 날조하지 않으면서 목표 바인딩과 증적을 작성하며, 입력 총계와 판정 동작을 유지한 채 bound 개수를 62개로 늘립니다. |
+| 2026-08-13 | in-progress | 정확한 행 개수, 계층형 정규 다이제스트 루트, 최대 256개 행의 순서가 있는 청크 및 작은 호환 세대에만 쓰는 인라인 다이제스트를 포함하는 코퍼스 규모 세대 식별자를 추가했습니다. 순서 변경, 누락 또는 중복 행, 오래된 루트 및 과도하게 큰 청크는 실패 시 안전하게 닫힙니다. | `current change`; 집중 `test_rule_semantic_retrieval.py` 모음에서 8,549개 행을 청크 34개로 나타내는 사례와 256/257개 행 경계를 포함한 테스트 17개가 통과했습니다. | 매니페스트를 제공 메타데이터에 연결하고 두 전체 코퍼스를 로드하며 독립적인 원자적 활성화와 롤백을 증명합니다. |
 
 ### 남은 작업
 

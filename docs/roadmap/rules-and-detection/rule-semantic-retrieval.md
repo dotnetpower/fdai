@@ -44,6 +44,7 @@ evaluation gates, and failed-query feedback loop.
 | Optional semantic-runtime binding | implemented | `composition/wire_semantic_query.py`; `tests/composition/test_wire_semantic_query.py` | Requires the semantic index and exact catalog digest together. |
 | Planner availability accounting | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | A readable but unbound function remains in structural coverage as `runtime_binding_unavailable` and is hidden from planning. |
 | In-memory generation and validation | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py` | Supports deterministic off-path generation tests, but is not a durable production adapter. |
+| Corpus-scale generation identity | in-progress | `rule_catalog/schema/rule_semantic_generation.py`; `tests/rule_catalog/test_rule_semantic_retrieval.py` | Count, hierarchical root, and bounded chunk identities represent 8,549 rows. Delivery metadata integration remains open. |
 | Durable production index and bootstrap binding | not-started | `shared/providers/catalog_search.py`; `runtime/bootstrap.py` | The provider contract exists, but no durable `CatalogSemanticIndex` implementation is composed into production. |
 | Operator Rule-search projection | implemented | Operator Service workflow manifest, routes, and PostgreSQL workflow adapter | `POST /rules/search` reads a revisioned materialized projection and grants no policy, approval, mutation, or execution authority. |
 
@@ -52,6 +53,7 @@ evaluation gates, and failed-query feedback loop.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger and corrected the unsupported production-binding claim. Added optional exact-digest composition and typed planner unavailability for unbound Rule search. Earlier provenance was not reconstructed. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/pytest -q services/core-control-plane/tests/composition/test_wire_semantic_query.py services/core-control-plane/tests/core/ontology_platform/test_query_manifest.py` passes 19 focused tests. | Add a durable production index, production bootstrap binding, Core-to-Operator projection publication, and live receipts. |
+| 2026-08-13 | in-progress | Added bounded hierarchical document identity for corpus-scale generations while retaining inline ordered digests for generations of at most 256 rows. | `current change`; the focused `test_rule_semantic_retrieval.py` suite passed 17 tests, including an 8,549-row, 34-chunk manifest, the 256/257-row boundary, and fail-closed tamper cases. | Integrate the manifest with delivery metadata and prove independent active and discovery activation and rollback. |
 
 ### Remaining work
 
@@ -140,7 +142,8 @@ A generation pins one complete searchable corpus:
 - corpus and catalog revision;
 - semantic schema and ontology release digests;
 - embedding space identity, model version, and dimension;
-- ordered document digests and row count;
+- exact row count, a hierarchical canonical digest root, and ordered chunks of at most 256 rows;
+- inline ordered document digests only for compatibility generations of at most 256 rows;
 - build and validation receipts;
 - lifecycle state and activation time.
 

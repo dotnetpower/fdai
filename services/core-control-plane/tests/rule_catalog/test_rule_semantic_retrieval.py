@@ -4,12 +4,15 @@ from datetime import UTC, datetime
 
 import pytest
 from fdai.rule_catalog.schema.rule_semantic_generation import (
+    CatalogDocumentDigestChunk,
+    CatalogDocumentDigestManifest,
     CatalogRetrievalReceipt,
     CatalogSearchGeneration,
     GenerationState,
     RetrievalOperation,
     RetrievalRank,
     SemanticAvailability,
+    build_document_digest_manifest,
 )
 from fdai.rule_catalog.schema.rule_semantic_retrieval import (
     CohortMetric,
@@ -224,3 +227,113 @@ def test_valid_active_generation_is_projection_only() -> None:
 
     assert generation.projection_authority == "projection_only"
     assert generation.digest.startswith("sha256:")
+
+
+def test_corpus_scale_generation_uses_bounded_replayable_chunks() -> None:
+    digests = tuple(f"sha256:{index:064x}" for index in range(1, 8_550))
+
+    manifest = build_document_digest_manifest(digests)
+    generation = CatalogSearchGeneration(
+        generation_id="active-corpus-1",
+        corpus=RuleCorpus.ACTIVE,
+        catalog_digest=_A,
+        semantic_schema_digest=_B,
+        ontology_release_digest=_C,
+        embedding_space_id="catalog-search-384",
+        embedding_model_version="embedding:1",
+        embedding_dimension=384,
+        document_digests=(),
+        document_digest_manifest=manifest,
+    )
+
+    assert manifest.document_count == 8_549
+    assert len(manifest.chunks) == 34
+    assert sum(chunk.document_count for chunk in manifest.chunks) == 8_549
+    assert all(chunk.document_count <= 256 for chunk in manifest.chunks)
+    assert manifest.inline_document_digests == ()
+    manifest.verify_document_digests(digests)
+    assert generation.digest.startswith("sha256:")
+
+
+def test_document_digest_manifest_preserves_inline_boundary_compatibility() -> None:
+    inline_digests = tuple(f"sha256:{index:064x}" for index in range(1, 257))
+    chunked_digests = (*inline_digests, f"sha256:{257:064x}")
+
+    inline_manifest = build_document_digest_manifest(inline_digests)
+    chunked_manifest = build_document_digest_manifest(chunked_digests)
+    generation = CatalogSearchGeneration(
+        generation_id="active-inline-1",
+        corpus=RuleCorpus.ACTIVE,
+        catalog_digest=_A,
+        semantic_schema_digest=_B,
+        ontology_release_digest=_C,
+        embedding_space_id="catalog-search-384",
+        embedding_model_version="embedding:1",
+        embedding_dimension=384,
+        document_digests=inline_digests,
+        document_digest_manifest=inline_manifest,
+    )
+
+    assert inline_manifest.inline_document_digests == inline_digests
+    assert len(inline_manifest.chunks) == 1
+    assert chunked_manifest.inline_document_digests == ()
+    assert tuple(chunk.document_count for chunk in chunked_manifest.chunks) == (256, 1)
+    assert generation.digest.startswith("sha256:")
+
+
+def test_generation_rejects_inline_digests_that_do_not_match_manifest() -> None:
+    manifest = build_document_digest_manifest((_A, _B))
+
+    with pytest.raises(ValueError, match="inline document digests MUST match"):
+        CatalogSearchGeneration(
+            generation_id="active-inline-1",
+            corpus=RuleCorpus.ACTIVE,
+            catalog_digest=_A,
+            semantic_schema_digest=_B,
+            ontology_release_digest=_C,
+            embedding_space_id="catalog-search-384",
+            embedding_model_version="embedding:1",
+            embedding_dimension=384,
+            document_digests=(_A, _C),
+            document_digest_manifest=manifest,
+        )
+
+
+def test_document_digest_manifest_rejects_reordering_missing_and_duplicate_rows() -> None:
+    digests = tuple(f"sha256:{index:064x}" for index in range(1, 514))
+    manifest = build_document_digest_manifest(digests)
+
+    with pytest.raises(ValueError, match="chunk order"):
+        CatalogDocumentDigestManifest(
+            document_count=manifest.document_count,
+            document_digest_root=manifest.document_digest_root,
+            chunks=tuple(reversed(manifest.chunks)),
+        )
+    with pytest.raises(ValueError, match="document count"):
+        manifest.verify_document_digests(digests[:-1])
+    with pytest.raises(ValueError, match="unique"):
+        build_document_digest_manifest((*digests[:-1], digests[0]))
+
+
+def test_document_digest_manifest_rejects_stale_root_and_overlarge_chunk() -> None:
+    manifest = build_document_digest_manifest((_A, _B))
+
+    with pytest.raises(ValueError, match="root mismatch"):
+        CatalogDocumentDigestManifest(
+            document_count=manifest.document_count,
+            document_digest_root=_D,
+            chunks=manifest.chunks,
+            inline_document_digests=manifest.inline_document_digests,
+        )
+    with pytest.raises(ValueError, match=r"in \[1, 256\]"):
+        CatalogDocumentDigestChunk(
+            index=0,
+            document_count=257,
+            document_digest_root=_A,
+        )
+    with pytest.raises(ValueError, match="chunk document count"):
+        CatalogDocumentDigestManifest(
+            document_count=manifest.document_count + 1,
+            document_digest_root=manifest.document_digest_root,
+            chunks=manifest.chunks,
+        )
