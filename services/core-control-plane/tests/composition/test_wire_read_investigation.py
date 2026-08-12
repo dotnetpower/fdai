@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
+import pytest
+from fdai.composition import wire_read_investigation
 from fdai.composition.wire_read_investigation import build_resource_state_shadow_hook
+from fdai.core.read_investigation.models import ReadInvestigationRequest
+from fdai.core.read_investigation.planner import plan_read_investigation
 from fdai.core.read_investigation.shadow_sink import StateStoreShadowComparisonSink
 from fdai.delivery.operational_activity import EventBusOperationalActivityPublisher
 from fdai.delivery.read_investigation import InventoryReadInvestigationProvider
@@ -114,7 +119,8 @@ async def _hook(
     *,
     complete_metadata: bool = True,
     activity_bus: InMemoryEventBus | None = None,
-):  # type: ignore[no-untyped-def]
+    invocation_id_factory: Callable[[], str] | None = None,
+) -> tuple[Any, InMemoryStateStore]:
     object_type = _object_type()
     function_type = _function_type()
     release = build_ontology_release(
@@ -175,6 +181,7 @@ async def _hook(
             if activity_bus is not None
             else None
         ),
+        invocation_id_factory=invocation_id_factory,
     )
     return hook, state_store
 
@@ -241,3 +248,56 @@ async def test_resource_state_publishes_privacy_bounded_activity() -> None:
     serialized = str([event.payload for event in events])
     assert "vm-01" not in serialized
     assert "What is the current state" not in serialized
+
+
+async def test_repeated_resource_state_reads_keep_distinct_activity_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bus = InMemoryEventBus()
+    invocation_ids = iter(("invocation-one", "invocation-two"))
+    requests: list[ReadInvestigationRequest] = []
+
+    def record_request(request: ReadInvestigationRequest):
+        requests.append(request)
+        return plan_read_investigation(request)
+
+    monkeypatch.setattr(wire_read_investigation, "plan_read_investigation", record_request)
+    hook, state_store = await _hook(
+        activity_bus=bus,
+        invocation_id_factory=lambda: next(invocation_ids),
+    )
+    question = "What is the current state of vm-01?"
+    context = {"session_id": "session-one", "user_id": "reader-one"}
+
+    await hook(question, context)
+    await hook(question, context)
+    events = [event async for event in bus.subscribe("aw.pipeline.stages", "test")]
+
+    correlation_ids = [event.payload["correlation_id"] for event in events]
+    assert len(correlation_ids) == 4
+    assert correlation_ids[0] == correlation_ids[1]
+    assert correlation_ids[2] == correlation_ids[3]
+    assert correlation_ids[0] != correlation_ids[2]
+    assert all(item.startswith("read-correlation:") for item in correlation_ids)
+    assert len(requests) == 2
+    assert requests[0].requester_ref == requests[1].requester_ref
+    assert requests[0].conversation_ref == requests[1].conversation_ref
+    assert requests[0].idempotency_key == requests[1].idempotency_key
+    assert requests[0].correlation_ref != requests[1].correlation_ref
+    assert requests[0].requester_ref.startswith("principal:")
+    assert requests[0].conversation_ref.startswith("conversation:")
+    records = await state_store.read_states("read-investigation-shadow:", limit=10)
+    persisted_correlations = {record["receipt"]["correlation_ref"] for record in records}
+    assert len(records) == 2
+    assert persisted_correlations == {correlation_ids[0], correlation_ids[2]}
+    serialized = str([event.payload for event in events]) + str(records)
+    for sensitive_value in (
+        question,
+        RESOURCE_REF,
+        "vm-01",
+        "reader-one",
+        "session-one",
+        "invocation-one",
+        "invocation-two",
+    ):
+        assert sensitive_value not in serialized

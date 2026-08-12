@@ -29,6 +29,7 @@ retired top-level application tree.
 | Service-owned source and test map | in-progress | This map, `tests/integration/`, and the scoped IS-08 and IS-07 evidence named above | Local ownership and rollback evidence are mapped; IS-09 remote verification remains open. |
 | Exact-generation Rule retrieval | implemented | `core/ontology_platform/catalog_queries.py`; `test_catalog_queries.py`; `make test-changed DIFF=e4d9483a5^..e4d9483a5` (`10574 passed`) | Results are candidate-only, bind the active Rule generation to the exact ontology release, and carry no judgment, approval, or execution authority. |
 | Runtime-bound planner visibility | implemented | `composition/wire_semantic_query.py`; `core/conversation/semantic_manifest.py`; `core/ontology_platform/query_manifest.py`; focused composition and manifest tests | Planner descriptors expose only functions registered in the composed runtime. Readable but unbound declarations remain typed structural coverage and gain no authority. |
+| Read-investigation activity identity | implemented | `composition/wire_read_investigation.py`; `test_wire_read_investigation.py`; focused tests | Each invocation shares one opaque correlation across live and durable activity, separate invocations use distinct correlations, and logical request idempotency remains stable. |
 
 ### Implementation history
 
@@ -36,6 +37,7 @@ retired top-level application tree.
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded exact-generation Rule retrieval. | Current change in `catalog_queries.py`, `operational_functions.py`, and `test_catalog_queries.py`; focused tests and diff-scoped validation passed. | Complete the IS-09 remote verification item below. |
 | 2026-08-13 | implemented | Bound planner function visibility to actual runtime registrations while retaining unbound readable declarations in typed structural coverage. | Current change in `wire_semantic_query.py`, `semantic_manifest.py`, `query_manifest.py`, and their focused tests. | A durable production semantic index remains outside this change; complete the IS-09 remote verification item below. |
+| 2026-08-13 | implemented | Separated invocation correlation from logical request idempotency and replaced durable requester and conversation identities with opaque references. | `current change`; `wire_read_investigation.py` and `test_wire_read_investigation.py`; focused tests passed 5 cases. | Complete the IS-09 remote verification item below. |
 
 ### Remaining work
 
@@ -67,7 +69,7 @@ unchanged by the physical move.
 | Metric semantic provider binding | Alias-free reviewed metric concepts and exact `MetricProvider` windows that distinguish observed zero from provider gaps | [metric_window.py](../../../services/core-control-plane/src/fdai/delivery/metric_window.py) and [metric_semantic_catalog.py](../../../services/core-control-plane/src/fdai/runtime/metric_semantic_catalog.py) | [metric semantic catalog tests](../../../services/core-control-plane/tests/runtime/test_metric_semantic_catalog.py) |
 | Operational Hypothesis Loop | Complete graph Dynamic evidence binding, deadline-bounded independent trajectory closure, supervised typed effect reconciliation, immutable operational lineage, and Owner-HIL-governed graph-model pointer promotion | [graph evidence](../../../services/core-control-plane/src/fdai/delivery/azure/graph_dynamic_evidence.py), [closure](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py), [reconciliation](../../../services/core-control-plane/src/fdai/delivery/reconciliation_runtime.py), [lineage](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), and [promotion](../../../services/core-control-plane/src/fdai/delivery/graph_model_promotion.py) | [graph evidence tests](../../../services/core-control-plane/tests/delivery/azure/test_graph_dynamic_evidence.py), [closure tests](../../../services/core-control-plane/tests/assurance_twin/test_graph_closure.py), [reconciliation tests](../../../services/core-control-plane/tests/delivery/test_reconciliation_runtime.py), [lineage tests](../../../services/core-control-plane/tests/core/operational_planning/test_hypothesis_lineage.py), and [promotion tests](../../../services/core-control-plane/tests/delivery/test_graph_model_promotion.py) |
 | Agent pantheon | Fifteen fixed agents and their typed event runtime | [agents](../../../services/core-control-plane/src/fdai/agents/) | [agent tests](../../../services/core-control-plane/tests/agents/) |
-| Composition | Provider and runtime dependency injection, including exact-release semantic query assembly and request-role executor factories | [composition](../../../services/core-control-plane/src/fdai/composition/) | [composition tests](../../../services/core-control-plane/tests/composition/) |
+| Composition | Provider and runtime dependency injection, including exact-release semantic query assembly, request-role executor factories, and resource-state activity publication with invocation-scoped opaque correlation | [composition](../../../services/core-control-plane/src/fdai/composition/) | [composition tests](../../../services/core-control-plane/tests/composition/) |
 | Core adapters | Provider, persistence, notification, and platform adapters retained by Core | [delivery](../../../services/core-control-plane/src/fdai/delivery/) | [delivery tests](../../../services/core-control-plane/tests/delivery/) |
 | Runtime | Core process lifecycle, readiness, event transport, supervision, and semantic runtime availability binding | [runtime](../../../services/core-control-plane/src/fdai/runtime/) | [runtime tests](../../../services/core-control-plane/tests/runtime/) |
 | Core contracts and provider seams | Core-only types, provider Protocols, configuration, streaming, and telemetry | [shared](../../../services/core-control-plane/src/fdai/shared/) | [shared tests](../../../services/core-control-plane/tests/shared/) |
@@ -86,7 +88,10 @@ content digest. The `catalog.search_rules` function accepts only the active Rule
 that exact release, returns candidate-only Rules with a `CatalogRetrievalReceipt`, and grants no
 judgment, approval, or execution authority. The resource-state investigation path keeps promoted
 inventory as answer authority, runs the ontology query in shadow, and stores principal-scoped parity
-receipts through StateStore.
+receipts through StateStore. Each actual invocation receives one opaque `correlation_ref` shared by
+its live and durable activity lifecycle, while opaque requester and conversation references keep the
+logical question `idempotency_key` stable across retries. Separate invocations do not reuse the
+correlation.
 The public composition facade exports only the optional resource-state composer; implementation
 types remain in the focused binder so the facade stays below its structural ceiling.
 Planner manifests apply identical role and purpose filtering to ObjectType and Interface
