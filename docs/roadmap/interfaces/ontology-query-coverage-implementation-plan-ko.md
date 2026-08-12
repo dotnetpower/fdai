@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 99f2d9239db2cb69069f688399413943a4fdbb9a
+translation_source_sha: 5049bb192ff1f0f6ebf50fa91d7356b0031eae34
 translation_revised: 2026-08-12
 ---
 
@@ -122,6 +122,12 @@ translation_revised: 2026-08-12
 > 있으며 hand-authored 고정본을 서비스 간 또는 실제 운영 증명으로 취급하지 않습니다. Catalog
 > 구조가 변경되면 모든 answered fixture는 새로 계산한 release 및 principal-manifest digest를
 > 고정해야 게이트를 통과하며 stale 결정론적 receipt는 compatibility로 수락하지 않습니다.
+> 첫 인식 상태 완결성 구현 구획은 이제 변경할 수 없는 유한 `QuestionUniverseReceipt`, 형식이
+> 지정된 `EpistemicStatus`, 증명을 포함하는 `EpistemicQuestionRecord`, 0건 임계값을 적용하는
+> `EpistemicCoverageReceipt`를 제공합니다. 기존 커버리지 게이트는 외부 증적 출처가
+> `production_ready=true`를 만들기 전에 일치하며 통과한 인식 상태 증적을 요구합니다. 이는
+> release 게이트 기반일 뿐입니다. 생성된 질문 우주, 런타임 이해/완전성/주장 증적, 공급자 기반
+> L3/L4 인증은 아직 완료되지 않았습니다.
 
 ## 설계 개요
 
@@ -219,7 +225,7 @@ purpose-bound 변경할 수 없는 변환 결과를 사용할 수 있지만 한 
 | OQ-08 | 추가 전용 토폴로지 관계 개정 번호와 retained provider-generation 참조를 추가하고 범위가 제한된 `graph_at`/`topology_diff` 함수를 구현합니다. 현재 그래프는 fast current-state 변환 결과로 유지합니다. | OQ-03, OQ-07 | Before/after 피어링 고정본이 결정을 다시 쓰지 않고 exact retained 그래프, tombstone, late 근거 및 불완전한 이력을 재구성합니다. |
 | OQ-09 | 검토된 metric-semantic 레지스트리와 메트릭 series, 변경 지점, aligned 구간, cross-resource temporal 상관관계 및 causal support/refutation 함수를 추가합니다. | OQ-03, OQ-05, OQ-08 | Request-growth 및 storage-write-loss 시나리오가 zero와 누락된 데이터를 구분하고 시간 순서를 원인으로 단정하지 않으며 competing explanation을 인용합니다. |
 | OQ-10 | 새 경로를 모든 호환성 경로와 shadow 재생하고 집단으로 승격한 뒤 ordinary 언어에서 정규식, 키워드 서술기, phrase-based 답변 의도 및 canonical-string 읽기 계획 수립을 제거합니다. 명시적 exact-command 표면은 별도로 유지합니다. | OQ-05, OQ-06, OQ-09 | 새 경로가 집단 quality/지연 시간을 유지하거나 개선하고 이전 방식 ordinary-language 라우팅 share는 0이며 exact technical 명령은 결정론적하게 남습니다. |
-| OQ-11 | 모든 온톨로지 release/기능 변경에 continuous structural 커버리지 및 질문 처리 결과 게이트를 적용합니다. | OQ-10 | Structural 커버리지와 최종 처리 결과는 100%, 지원하지 않는 점유와 승인되지 않은 실행은 0이며 답변 커버리지는 집단별로 보고합니다. |
+| OQ-11 | 모든 온톨로지 release/기능 변경에 연속 구조 및 인식 상태 커버리지 게이트를 적용합니다. | OQ-10 | 구조 커버리지, 유한 질문 우주 집계, 최종 인식 상태 처리 결과는 100%이고, 지원되지 않거나 근거 없는 주장, 숨겨진 범위 누출, 안전하지 않은 변이 생존, 언어 차이, 권한 없는 실행은 0이며 답변 커버리지는 집단별로 보고합니다. |
 
 ## 병렬 레인 및 병합 지점
 
@@ -270,7 +276,11 @@ write-attempt 근거를 조회하며 DNS, 경로, firewall, 자격 증명 및 �
 |---------|---------------------|
 | Structural 스키마 커버리지 | 읽을 수 있는 활성 선언 100%가 표현되거나 타입이 지정된 사용 불가입니다. |
 | 질문 처리 결과 | 수락한 턴 100%가 답변, 명확화, 보류, 지원하지 않는 또는 초안으로 끝납니다. |
+| 유한 질문 우주 처리 결과 | 생성된 사례 100%가 형식이 지정된 인식 상태 또는 검토된 제외로 끝납니다. |
+| 해석과 주장 증명 | 취소되지 않은 턴의 원문 범위와 의미 원자 커버리지가 100%이고 모든 답변이 주장 증명을 가집니다. |
+| 빈 결과와 부정 증명 | 검증된 모든 빈 결과 또는 부정 결과가 닫힌 모집단 증명을 가집니다. |
 | 지원하지 않는 operational 점유 | 정확히 0건입니다. |
+| 근거 없는 주장, 해결되지 않은 충돌, 숨겨진 범위 누출, 안전하지 않은 변이 생존, 언어 차이 | 정확히 0건입니다. |
 | 대화에서 승인되지 않은 실행 | 정확히 0건입니다. |
 | Exact 신원 및 stale-revision 오류 | 정확히 0건입니다. |
 | 답변 커버리지 | 질문, 언어, 도메인, 프로바이더 및 근거 집단별로 별도 측정합니다. |

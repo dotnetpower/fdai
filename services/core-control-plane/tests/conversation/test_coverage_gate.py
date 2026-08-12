@@ -12,6 +12,12 @@ from fdai.core.conversation.coverage_gate import (
     evaluate_ontology_query_coverage,
     require_ontology_query_coverage,
 )
+from fdai.core.conversation.epistemic_coverage import (
+    EpistemicQuestionRecord,
+    EpistemicStatus,
+    QuestionUniverseReceipt,
+    evaluate_epistemic_coverage,
+)
 from fdai_service_contracts.ontology_query import StructuralCoverageReceipt, content_digest
 
 DIGEST = "sha256:" + ("a" * 64)
@@ -114,7 +120,7 @@ def test_gate_reports_answer_coverage_by_cohort_without_requiring_universal_answ
 
     require_ontology_query_coverage(receipt)
     assert receipt.passed is True
-    assert receipt.production_ready is True
+    assert receipt.production_ready is False
     assert receipt.answer_counts_by_cohort == {
         "ambiguous-en": 0,
         "evidence-gap": 0,
@@ -212,3 +218,34 @@ def test_gate_rejects_answered_receipt_from_another_release() -> None:
             structural_receipts=(_structural(),),
             questions=(answered,),
         )
+
+
+def test_production_readiness_requires_matching_epistemic_closure() -> None:
+    universe = QuestionUniverseReceipt.build(
+        ontology_release_digest=DIGEST,
+        principal_manifest_digests=(DIGEST,),
+        grammar_digest=_digest("9"),
+        case_ids=("answered",),
+    )
+    question = EpistemicQuestionRecord(
+        question_id="answered",
+        transport_disposition="answered",
+        epistemic_status=EpistemicStatus.VERIFIED_ANSWER,
+        question_universe_digest=universe.receipt_digest,
+        understanding_receipt_digest=_digest("7"),
+        completeness_receipt_digest=_digest("8"),
+        claim_proof_receipt_digests=(_digest("6"),),
+        source_span_coverage=1.0,
+        semantic_atom_coverage=1.0,
+    )
+    epistemic = evaluate_epistemic_coverage(universe=universe, questions=(question,))
+
+    receipt = evaluate_ontology_query_coverage(
+        structural_receipts=(_structural(),),
+        questions=(_answered("answered", "c"),),
+        epistemic_coverage=epistemic,
+    )
+
+    require_ontology_query_coverage(receipt, require_production_ready=True)
+    assert receipt.epistemic_coverage_receipt_digest == epistemic.receipt_digest
+    assert receipt.production_ready is True

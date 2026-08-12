@@ -96,6 +96,16 @@ The release gate measures three separate outcomes:
 - **Answer coverage**: The measured share of competency questions that reach a complete grounded
     answer. This value depends on deployed data and evidence and is never presented as 100% by design.
 
+The release gate now also has a separate epistemic-closure foundation. A content-addressed
+`QuestionUniverseReceipt` freezes one finite release and principal-scoped denominator.
+`EpistemicQuestionRecord` requires a typed knowledge status, complete source-span and semantic-atom
+interpretation, completeness evidence for evidence-bearing results, claim proof for answers, and
+closed-population proof for verified empty results. The gate rejects missing cases, mismatched
+transport dispositions, hidden-scope leaks, ungrounded claims, unresolved conflicts, unsafe
+mutation survivors, and locale divergence. The existing structural fixture gate remains valid but
+cannot report `production_ready` without a matching passed epistemic-coverage receipt. Question
+generation, runtime receipt production, and L3/L4 live certification remain delivery work.
+
 Language coverage is not maintained by adding phrases. A model or embedding index may propose
 object, relation, and function candidates. The deterministic verifier resolves each candidate to
 the exact release, validates endpoint types and arguments, and either produces a

@@ -119,6 +119,14 @@ from fdai.core.conversation.creation import (
     CreateScheduledTaskCommand,
     CreationForbiddenError,
 )
+from fdai.core.conversation.epistemic_coverage import (
+    EpistemicCoverageReceipt,
+    EpistemicQuestionRecord,
+    EpistemicStatus,
+    QuestionUniverseReceipt,
+    evaluate_epistemic_coverage,
+    require_epistemic_coverage,
+)
 from fdai.core.conversation.identity_links import (
     CrossChannelIdentityLink,
     CrossChannelIdentityLinkError,
@@ -306,6 +314,9 @@ __all__ = [
     "LoadRuntimeSkillTool",
     "Narrator",
     "OntologyQueryCoverageGateReceipt",
+    "EpistemicCoverageReceipt",
+    "EpistemicQuestionRecord",
+    "EpistemicStatus",
     "ReadPlanNarrator",
     "Principal",
     "PrincipalConversationBindingAuthorizer",
@@ -320,6 +331,7 @@ __all__ = [
     "PendingBusyInput",
     "QueryAuditTool",
     "QuestionDispositionRecord",
+    "QuestionUniverseReceipt",
     "QueryManifestProvider",
     "QueryNodeProposal",
     "QueryPlanProposal",
@@ -357,10 +369,12 @@ __all__ = [
     "build_intent_graph_evidence",
     "consume_pending_input",
     "evaluate_ontology_query_coverage",
+    "evaluate_epistemic_coverage",
     "default_tool_schemas",
     "format_prompt_tool_list",
     "finish_active_turn",
     "operator_memory_to_entries",
     "require_ontology_query_coverage",
+    "require_epistemic_coverage",
     "session_to_working_context",
 ]

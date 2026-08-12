@@ -11,6 +11,8 @@ from typing import Literal
 
 from fdai_service_contracts.ontology_query import StructuralCoverageReceipt
 
+from .epistemic_coverage import EpistemicCoverageReceipt
+
 _TERMINAL_DISPOSITIONS = frozenset(
     {"answered", "clarification", "held", "unsupported", "action_draft", "cancelled"}
 )
@@ -158,6 +160,7 @@ class OntologyQueryCoverageGateReceipt:
     legacy_ordinary_language_count: int
     unsupported_claim_count: int
     unauthorized_execution_count: int
+    epistemic_coverage_receipt_digest: str | None
     passed: bool
     production_ready: bool
     receipt_digest: str
@@ -167,6 +170,7 @@ def evaluate_ontology_query_coverage(
     *,
     structural_receipts: Sequence[StructuralCoverageReceipt],
     questions: Sequence[QuestionDispositionRecord],
+    epistemic_coverage: EpistemicCoverageReceipt | None = None,
 ) -> OntologyQueryCoverageGateReceipt:
     """Require total structural accounting and terminal question disposition."""
 
@@ -179,6 +183,11 @@ def evaluate_ontology_query_coverage(
         raise ValueError("structural schema coverage MUST be complete")
     release_digest = next(iter(releases))
     principal_manifest_digests = {item.manifest_digest for item in structural_receipts}
+    if epistemic_coverage is not None:
+        if epistemic_coverage.ontology_release_digest != release_digest:
+            raise ValueError("epistemic coverage MUST match the structural release")
+        if set(epistemic_coverage.principal_manifest_digests) != principal_manifest_digests:
+            raise ValueError("epistemic coverage MUST match all principal manifests")
     if not questions:
         raise ValueError("question disposition gate requires a non-empty cohort")
     identifiers = [item.question_id for item in questions]
@@ -215,8 +224,11 @@ def evaluate_ontology_query_coverage(
     principal_receipt_digests = tuple(sorted(item.receipt_digest for item in structural_receipts))
     question_receipt_digests = tuple(sorted(_question_receipt_digest(item) for item in questions))
     receipt_sources = tuple(sorted({str(item.receipt_source) for item in questions}))
-    production_ready = passed and all(
-        source in _PRODUCTION_RECEIPT_SOURCES for source in receipt_sources
+    production_ready = (
+        passed
+        and epistemic_coverage is not None
+        and epistemic_coverage.passed
+        and all(source in _PRODUCTION_RECEIPT_SOURCES for source in receipt_sources)
     )
     answer_counts_by_cohort = dict(sorted(answers_by_cohort.items()))
     body = {
@@ -230,6 +242,9 @@ def evaluate_ontology_query_coverage(
         "legacy_ordinary_language_count": legacy,
         "unsupported_claim_count": unsupported,
         "unauthorized_execution_count": unauthorized,
+        "epistemic_coverage_receipt_digest": (
+            epistemic_coverage.receipt_digest if epistemic_coverage is not None else None
+        ),
         "passed": passed,
         "production_ready": production_ready,
     }
@@ -244,6 +259,9 @@ def evaluate_ontology_query_coverage(
         legacy_ordinary_language_count=legacy,
         unsupported_claim_count=unsupported,
         unauthorized_execution_count=unauthorized,
+        epistemic_coverage_receipt_digest=(
+            epistemic_coverage.receipt_digest if epistemic_coverage is not None else None
+        ),
         passed=passed,
         production_ready=production_ready,
         receipt_digest=_digest(body),

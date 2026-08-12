@@ -126,6 +126,12 @@ units for 100% structural query coverage.
 > a hand-authored fixture into cross-service or live proof. When catalog structure changes, every
 > answered fixture must pin the newly computed release and principal-manifest digests before the
 > gate can pass; stale deterministic receipts are never accepted by compatibility.
+> The first epistemic-closure implementation slice now ships immutable finite
+> `QuestionUniverseReceipt`, typed `EpistemicStatus`, proof-carrying `EpistemicQuestionRecord`, and a
+> zero-threshold `EpistemicCoverageReceipt`. The existing coverage gate requires a matching passed
+> epistemic receipt before external receipt sources can produce `production_ready=true`. This is a
+> release-gate foundation only: generated question universes, runtime understanding/completeness/
+> claim receipts, and provider-backed L3/L4 certification remain incomplete.
 
 ## Design at a glance
 
@@ -223,7 +229,7 @@ shape. The plan cannot contain executable provider text or a mutation handler.
 | OQ-08 | Add append-only topology relationship revisions and retained provider-generation references, plus bounded `graph_at` and `topology_diff` functions. Keep the current graph as the fast current-state projection. | OQ-03, OQ-07 | Before/after peering fixtures reconstruct exact retained graphs, tombstones, late evidence, and incomplete history without rewriting decisions. |
 | OQ-09 | Add a reviewed metric-semantic registry and bounded functions for metric series, change points, aligned windows, cross-resource temporal correlation, and causal support/refutation. | OQ-03, OQ-05, OQ-08 | Request-growth and storage-write-loss scenarios distinguish zero from missing data, correlate changes without asserting chronology as cause, and cite competing explanations. |
 | OQ-10 | Shadow-replay the new path against every compatibility route, promote by measured cohort, then remove regex, keyword narrator, phrase-based answer intent, and canonical-string read planning from ordinary language. Preserve an explicit exact-command surface separately. | OQ-05, OQ-06, OQ-09 | New path meets or improves cohort quality and latency, legacy ordinary-language routing share is zero, and exact technical commands remain deterministic. |
-| OQ-11 | Enforce continuous structural coverage and question disposition gates on every ontology release and capability change. | OQ-10 | Structural coverage and terminal disposition are 100%; unsupported claims and unauthorized executions are zero; answer coverage is reported by cohort, not asserted. |
+| OQ-11 | Enforce continuous structural and epistemic coverage gates on every ontology release and capability change. | OQ-10 | Structural coverage, finite question-universe accounting, and terminal epistemic disposition are 100%; unsupported or ungrounded claims, hidden-scope leaks, unsafe mutation survivors, locale divergence, and unauthorized executions are zero; answer coverage is reported by cohort, not asserted. |
 
 ## Parallel lanes and merge points
 
@@ -275,7 +281,11 @@ not exist or that the peering change caused the symptom.
 |---------|---------------------|
 | Structural schema coverage | 100% of readable active declarations represented or typed unavailable. |
 | Question disposition | 100% of accepted turns terminate as answer, clarification, hold, unsupported, or draft. |
+| Finite question-universe disposition | 100% of generated cases close with a typed epistemic status or reviewed exclusion. |
+| Interpretation and claim proof | 100% source-span and semantic-atom coverage for non-cancelled turns; every answer carries claim proof. |
+| Empty and negative proof | Every verified empty or negative result carries closed-population proof. |
 | Unsupported operational claims | Exactly 0. |
+| Ungrounded claims, unresolved conflicts, hidden-scope leaks, unsafe mutation survivors, and locale divergence | Exactly 0. |
 | Unauthorized execution from conversation | Exactly 0. |
 | Exact identity and stale-revision errors | Exactly 0. |
 | Answer coverage | Measured separately by question, language, domain, provider, and evidence cohort. |
