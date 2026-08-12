@@ -1,7 +1,7 @@
 ---
 title: 정책 추상화와 통제 목표
 translation_of: policy-abstraction-and-control-objectives.md
-translation_source_sha: d440849305c9d3af05d57dd5d2d1dfafed0088c2
+translation_source_sha: 895ebe83da0e6fb284856afae49c6b0975060b86
 translation_revised: 2026-08-13
 ---
 # 정책 추상화와 통제 목표
@@ -219,7 +219,8 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
    `single_zone_node_pool` 거부를 반환합니다.
 
 목표는 검색과 설명을 개선하지만 Rule, Assignment 및 Rego 패키지가 여전히 결과를 결정합니다.
-이 목표와 바인딩은 기존 카탈로그 레코드가 아니라 P1 채우기 대상입니다.
+목표와 부분 바인딩은 이제 비활성 후보 레코드로 제공됩니다. 검색, 평가, 승격 또는 실행 권한을
+부여하지 않습니다.
 
 ## 에이전트 소유권
 
@@ -259,8 +260,8 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 |------|------|------|------|
 | Rule과 정책의 경계 | in-progress | [`PolicyArtifact.yaml`](../../../rule-catalog/vocabulary/object-types/PolicyArtifact.yaml), [`implemented_by_policy.yaml`](../../../rule-catalog/vocabulary/link-types/implemented_by_policy.yaml) | 기존 아티팩트를 재사용할 수 있지만 이 변경에서 런타임 경로를 다시 검증하지 않았습니다. |
 | 의미 매니페스트와 코퍼스 격리 | in-progress | [`rule_semantic_retrieval.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_retrieval.py), [Rule 의미 검색](rule-semantic-retrieval-ko.md) | 기존 검색 계약에는 새 타입 목표 및 바인딩 계약이 없습니다. |
-| `ControlObjective` 계약과 카탈로그 | in-progress | [`control_objective.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/control_objective.py), [`test_control_objective.py`](../../../services/core-control-plane/tests/rule_catalog/test_control_objective.py) | 엄격한 모델, 로더, 다이제스트, 수명 주기 및 부정 테스트가 있습니다. 어휘 선언과 제공되는 카탈로그 레코드는 아직 필요합니다. |
-| `RuleObjectiveBinding`과 동등성 증적 | in-progress | [`rule_objective_binding.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_objective_binding.py), [`equivalence_validation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validation.py), [`test_rule_objective_binding.py`](../../../services/core-control-plane/tests/rule_catalog/test_rule_objective_binding.py), [`test_equivalence_validation.py`](../../../services/core-control-plane/tests/rule_catalog/test_equivalence_validation.py) | 엄격한 바인딩과 동등성 증적이 정확한 카탈로그 버전 및 다이제스트를 고정하고 수명 주기와 권한 경계 테스트를 거칩니다. 검증기 실행과 제공되는 카탈로그 레코드는 아직 필요합니다. |
+| `ControlObjective` 계약과 카탈로그 | implemented | [`control_objective.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/control_objective.py), [`ControlObjective.yaml`](../../../rule-catalog/vocabulary/object-types/ControlObjective.yaml), [`reliability.node-pool.zone-failure-tolerance.yaml`](../../../rule-catalog/control-objectives/reliability.node-pool.zone-failure-tolerance.yaml), [`test_control_objective.py`](../../../services/core-control-plane/tests/rule_catalog/test_control_objective.py) | 엄격한 모델, 로더, 다이제스트, 수명 주기, 어휘, 후보 레코드 및 부정 테스트가 있습니다. 후보는 런타임 권한을 부여하지 않습니다. |
+| `RuleObjectiveBinding`과 동등성 증적 | in-progress | [`rule_objective_binding.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_objective_binding.py), [`equivalence_validation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validation.py), [`RuleObjectiveBinding.yaml`](../../../rule-catalog/vocabulary/object-types/RuleObjectiveBinding.yaml), [`EquivalenceValidationReceipt.yaml`](../../../rule-catalog/vocabulary/object-types/EquivalenceValidationReceipt.yaml), [`binding.node-pool-zone-resilience.yaml`](../../../rule-catalog/rule-objective-bindings/binding.node-pool-zone-resilience.yaml), [`test_shipped_policy_abstraction_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_shipped_policy_abstraction_catalog.py) | 엄격한 계약과 어휘가 있습니다. 제공되는 부분 바인딩은 정규 목표, Rule, 정규화된 Rego 및 근거 서명을 검증하며 동등성을 주장하지 않습니다. 검증기 실행과 검토된 증적은 아직 필요합니다. |
 | 목표 인식 변환 결과와 확인 | not-started | 이 설계 | 기존 정확한 Rule 및 검색 경로는 변경되지 않습니다. |
 | 전체 코퍼스 세대 식별자 | not-started | [`rule_semantic_generation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_generation.py) | 인라인 다이제스트 계약은 256개 항목으로 제한됩니다. |
 | shadow 평가와 통제된 롤아웃 | not-started | 이 설계 | 목표 확인 벤치마크 또는 승격 증적이 없습니다. |
@@ -273,11 +274,14 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 | 2026-08-13 | in-progress | 카탈로그 상호 참조 검사, 정규 콘텐츠 다이제스트, 수명 주기 검증 및 권한 필드 거부를 포함하는 엄격하고 불변인 `ControlObjective` 계약을 추가했습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_control_objective.py`에서 테스트 7개가 통과했고 Ruff 및 diff 검사도 통과했습니다. | 목표 어휘 및 제공되는 레코드를 추가한 다음 P0의 바인딩과 동등성 증적 계약을 완료합니다. |
 | 2026-08-13 | in-progress | 정확한 Rule 버전, 정규화된 조건식, 근거, 매개 변수 도메인, 반례, 검증기 신원, 독립 주장 및 검토 상태를 고정하면서 승격 권한을 추가하지 않는 엄격한 동등성 증적을 추가했습니다. | `current change`; Rule 및 증적 다이제스트 차이의 통합 보고, 권한 필드 거부, 주장 일관성 및 승격된 증적 상태가 없음을 포함한 집중 스키마 테스트 14개가 통과했습니다. | P0를 위해 `RuleObjectiveBinding`, 검증기 실행, 어휘 선언 및 제공되는 레코드를 추가합니다. |
 | 2026-08-13 | in-progress | 목표, Rule, 근거 및 검토된 증적을 고정하고, 경계가 있는 적용 가능성 차이, 값이 없는 변형 차원, 비동등 사유 및 검토를 거치는 수명 주기 전이를 포함하는 엄격한 `RuleObjectiveBinding` 레코드를 추가했습니다. | `current change`; 통합 P0 스키마 모음에서 테스트 23개가 통과했고 정적 진단에서 오류가 없었습니다. | 어휘 선언과 제공되는 목표, 바인딩 및 증적 레코드를 추가한 다음 결정론적 동등성 검증을 구현합니다. |
+| 2026-08-13 | implemented | 온톨로지 어휘 선언 6개, 정규 Rule 및 서명 다이제스트, 비활성 노드 풀 목표 및 부분 바인딩 레코드로 P0 카탈로그 계약을 완료했습니다. 바인딩은 구성 근거가 관찰된 영역 장애 동작을 아직 증명하지 못하는 이유를 기록하며 동등성을 주장하지 않습니다. | `current change`; 목표, 증적, 바인딩, Rule, 어휘 및 제공되는 교차 카탈로그의 집중 테스트 78개가 통과했고 변경된 모든 Python 파일에서 Ruff가 통과했습니다. | 결정론적 동등성 검증기 실행과 검토를 거치는 증적을 구현한 다음 P1에서 나머지 작성된 Rego Rule을 채웁니다. |
 
 ### 남은 작업
 
-- [ ] P0는 `ControlObjective`, `RuleObjectiveBinding` 및 동등성 증적에 대한 엄격한 스키마,
-  로더, 콘텐츠 다이제스트, 수명 주기 검증 및 부정 테스트가 존재하면 완료됩니다.
+- [x] P0는 `ControlObjective`, `RuleObjectiveBinding` 및 동등성 증적에 대한 엄격한 스키마,
+  로더, 정규 콘텐츠 및 서명 다이제스트, 수명 주기 검증, 온톨로지 어휘, 비활성 후보 레코드 및
+  부정 테스트로 완료되었습니다. 집중 테스트 78개와 변경된 Python 파일의 Ruff 검사가
+  통과했습니다.
 - [ ] P1은 작성된 Rego Rule 62개 모두에 검토된 바인딩이 있고, 이행 보고서가 Rule ID나 판정
   동작을 변경하지 않으면서 모든 활성 Rule을 집계하면 완료됩니다.
 - [ ] P2는 활성 및 발견 세대가 현재 레코드 8,549개를 모두 독립적으로 로드하고, 개수, 루트,

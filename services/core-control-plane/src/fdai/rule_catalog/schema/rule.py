@@ -40,6 +40,7 @@ from typing import Any
 import yaml
 from jsonschema import Draft202012Validator
 
+from fdai.rule_catalog.schema.catalog_digest import canonical_catalog_digest
 from fdai.rule_catalog.schema.rego_semantics import property_path
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
 from fdai.rule_catalog.schema.signal_type import SignalTypeRegistry
@@ -67,6 +68,12 @@ class RuleCatalogError(ValueError):
         preview = "; ".join(f"{i.key}: {i.message}" for i in issues[:5])
         suffix = f" (+{len(issues) - 5} more)" if len(issues) > 5 else ""
         super().__init__(f"rule catalog validation failed: {preview}{suffix}")
+
+
+def rule_content_hash(rule: Rule) -> str:
+    """Return the canonical digest used to pin an exact Rule version."""
+
+    return canonical_catalog_digest(rule)
 
 
 def _yaml_load(path: Path) -> Any:
@@ -418,4 +425,5 @@ __all__ = [
     "RuleIssue",
     "load_rule_catalog",
     "load_rule_from_mapping",
+    "rule_content_hash",
 ]

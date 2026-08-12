@@ -1,0 +1,25 @@
+schema_version: 1.0.0
+id: reliability.node-pool.zone-failure-tolerance
+version: 1.0.0
+title: Node pool zone-failure tolerance
+description: A node pool remains available after the loss of any one availability zone.
+operating_domain: reliability
+protected_outcome_refs:
+- outcome.node-pool.zone-failure-tolerance
+applicable_ontology:
+  object_type: Resource
+  resource_types:
+  - kubernetes-node-pool
+  property_refs:
+  - property.kubernetes-node-pool.availability_zones
+predicate_family: A node pool remains schedulable after any one availability zone becomes unavailable.
+state: candidate
+semantic_surface_refs:
+- rule:kubernetes-node-pool.multi-zone@1.0.0
+content_digest: sha256:b96351b37e026718981e0d4efc6d58bc44acc06a23f9264dfe6b17e6faa15e13
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: control-objective:reliability.node-pool.zone-failure-tolerance@1.0.0
+  content_hash: sha256:b96351b37e026718981e0d4efc6d58bc44acc06a23f9264dfe6b17e6faa15e13
+  license: MIT
+  retrieved_at: '2026-08-13T00:00:00Z'

@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: binding_targets_rule
+version: "1.0.0"
+from_type: RuleObjectiveBinding
+to_type: Rule
+cardinality: many_to_one
+description: Exact governed Rule referenced by a version-pinned objective binding.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:binding_targets_rule@1.0.0
+  content_hash: sha256:3e4815864e15a0f1b1f6db37ddda856e979a4227f1538c0e1e86623207c9b51d
+  license: MIT
+  retrieved_at: "2026-08-13T00:00:00Z"

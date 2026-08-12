@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: objective_bound_by
+version: "1.0.0"
+from_type: ControlObjective
+to_type: RuleObjectiveBinding
+cardinality: one_to_many
+description: Reviewed version-pinned bindings that map an objective to governed Rule candidates.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:objective_bound_by@1.0.0
+  content_hash: sha256:433561eb93ba9d3e0e212c01542433462610d7fa4ec6c90458a0053f1b82052f
+  license: MIT
+  retrieved_at: "2026-08-13T00:00:00Z"

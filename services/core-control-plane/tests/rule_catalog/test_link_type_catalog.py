@@ -55,6 +55,9 @@ def test_shipped_link_types_load() -> None:
         "routes_to",
         "peered_with",
         "precedes",
+        "objective_bound_by",
+        "binding_targets_rule",
+        "binding_validated_by",
         # Process automation (docs/roadmap/decisioning/process-automation.md 3.2)
         "targets",
         "advances",

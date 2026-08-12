@@ -6,6 +6,7 @@ import pytest
 from fdai.rule_catalog.schema.rule_objective_binding import (
     RuleObjectiveBinding,
     RuleObjectiveBindingCatalogError,
+    evidence_signature_digest,
     load_rule_objective_binding_from_mapping,
     rule_objective_binding_content_hash,
     validate_rule_objective_binding_transition,
@@ -35,7 +36,7 @@ def _binding_mapping() -> dict[str, object]:
         },
         "variant_dimensions": ["provider_mapping", "threshold"],
         "implementation_signature_digest": _DIGEST_B,
-        "evidence_signature_digest": _DIGEST_C,
+        "evidence_signature_digest": evidence_signature_digest(("evidence.node-pool.topology",)),
         "required_evidence_refs": ["evidence.node-pool.topology"],
         "equivalence_receipt": {
             "ref": _RECEIPT_REF,
@@ -67,6 +68,7 @@ def _load(raw: dict[str, object]) -> RuleObjectiveBinding:
         raw,
         objective_digests={_OBJECTIVE_REF: _DIGEST_A},
         rule_digests={_RULE_REF: _DIGEST_B},
+        rule_implementation_digests={_RULE_REF: _DIGEST_B},
         evidence_refs=frozenset({"evidence.node-pool.topology"}),
         equivalence_receipt_digests={_RECEIPT_REF: _DIGEST_C},
         reviewed_equivalence_receipt_refs=frozenset({_RECEIPT_REF}),
@@ -129,6 +131,19 @@ def test_binding_aggregates_unknown_refs_and_digest_drift() -> None:
     assert "unknown equivalence_receipt version" in messages
     assert "not independently reviewed" in messages
     assert "content_digest mismatch" in messages
+
+
+def test_binding_rejects_unverified_signatures() -> None:
+    raw = _binding_mapping()
+    raw["implementation_signature_digest"] = _DIGEST_A
+    raw["evidence_signature_digest"] = _DIGEST_A
+
+    with pytest.raises(RuleObjectiveBindingCatalogError) as raised:
+        _load(raw)
+
+    messages = " ".join(issue.message for issue in raised.value.issues)
+    assert "implementation signature mismatch" in messages
+    assert "evidence signature mismatch" in messages
 
 
 def test_partial_realization_requires_non_equivalence_reason() -> None:

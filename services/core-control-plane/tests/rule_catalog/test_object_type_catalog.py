@@ -50,6 +50,9 @@ def test_shipped_object_types_load() -> None:
         "SignalType",
         "Property",
         "PolicyArtifact",
+        "ControlObjective",
+        "RuleObjectiveBinding",
+        "EquivalenceValidationReceipt",
         "ChangeSummary",
         # Pantheon (docs/roadmap/agents/agent-pantheon.md)
         "Agent",
