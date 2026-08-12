@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 6052e318feac9217197f222ce71c88b215b689a6
+translation_source_sha: 34b926cc4d1a899cdfade7103a2b04a6e961a59d
 translation_revised: 2026-08-13
 ---
 
@@ -40,8 +40,10 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   shadow 자격 증명에는 작업별 효과 역할이 없습니다.
 - 범위가 제한된 OHL scale-out 근거 대상을 프로비저닝하려면 private networking과 개발 운영
   게이트웨이를 사용하는 `dev` 환경에서만 `enable_ohl_scale_out_evidence_target`을 사용하도록
-  설정하세요. Exact 이미지 버전과 보호된 작업 흐름의 SSH 공개 키 입력을 제공해야 합니다.
-  대상은 용량 `1`로 시작하며 관리되는 근거 실행은 검증된 롤백 전에 `2`까지만 늘릴 수 있습니다.
+  설정하세요. Exact 이미지 버전, 보호된 작업 흐름의 SSH 공개 키 입력, 재시도해도 유지되는
+  캠페인 ID 및 사람 개시자의 주체 ID를 제공해야 합니다. 대상은 용량 `1`로 시작합니다. 수동
+  proposal Job은 정상 수신 경로를 통해 shadow 제안 하나를 게시하며 provider-effect 권한은
+  갖지 않습니다. 보호된 provider staging은 검증된 롤백 전에 용량을 `2`까지만 늘릴 수 있습니다.
 
 ## 최소 인벤토리 프로비저닝
 
@@ -124,6 +126,9 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
      주기와 일치합니다.
    - **예측 학습**: 옵트인 작업이 원시 틱만 발행하고, 코어에 검토된
      `FDAI_FORECAST_TARGETS_JSON` 문서가 있습니다.
+   - **OHL scale-out 근거**: 활성화한 경우 수동 proposal Job을 시작하고, 설정된 캠페인과
+     개시자가 포함된 shadow 제안 하나만 정상 수신 경로에 도달하는지 확인합니다. 이 자격
+     증명에는 이미지 pull과 기본 Event Hubs send 권한만 있고 provider-effect 권한은 없습니다.
 3. **개발 운영 게이트웨이 검증.** 이것은 개발 도구입니다. Easy Auth 뒤에서 공개
    인바운드 엔드포인트를 종단하며, Terraform은 `env=dev`가 아니면 계획 자체를 거부합니다.
    폐쇄망에서는 꺼둔 채로 두십시오. 이 게이트웨이를 켰다면 아래를 확인합니다.
