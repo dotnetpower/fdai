@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 86a9dc3b4ac1484129667fcaf6d8c743ae6ac755
+translation_source_sha: 2c9870e6df0967a060ef02a484e6dc14e2d51f35
 translation_revised: 2026-08-13
 ---
 
@@ -32,18 +32,19 @@ translation_revised: 2026-08-13
 |------|------|------|------|
 | 자동화 테스트 고정본 격리 | implemented | `tests/`, `console/tests/` 및 리포지토리 테스트 모음이 실행하는 고정본 전용 composition 경로 | 결정론적 고정본은 권위 있는 interactive 프로파일 밖에 유지됩니다. |
 | 로컬 및 deployed composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/` 및 서비스 통합 테스트 | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. |
-| FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, focused 프로파일 및 workspace 테스트 9개 통과 | Resource 범위 제어는 workspace에, machine 범위 Pylance launch 제어는 FDAI 프로파일에만 둡니다. |
-| FDAI Pylance launch ceiling 런타임 증명 | in-progress | Portable 및 host FDAI 프로파일 설정에 `--max-old-space-size=2048`이 있으며 process command 검증은 미완료입니다. | 설정 존재만으로는 런타임 근거가 되지 않습니다. |
+| FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, focused 프로파일 및 workspace 테스트 11개 통과 | Resource 범위 분석 제어는 workspace에 둡니다. Portable 프로파일은 격리할 수 없는 Remote WSL Pylance machine 설정을 거부합니다. |
+| FDAI Pylance launch ceiling 런타임 증명 | deferred | FDAI Remote WSL을 clean restart해도 Pylance는 bundled VS Code Node 실행 파일로 시작했고 `--max-old-space-size=2048`이 없었습니다. VS Code Server 1.133은 활성 프로파일 서비스와 별개로 Remote Machine 설정 리소스 하나를 생성합니다. | 격리된 런타임을 마련할 때까지 blocked 상태입니다. Shared Remote Machine 재정의는 제외 대상 workspace에도 영향을 주므로 ceiling을 활성화하려면 별도 VS Code Server data root 또는 WSL 배포판으로 런타임을 격리해야 합니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 machine 범위 Pylance launch 제어를 FDAI 프로파일로 이동했습니다. | 현재 변경의 `.vscode/fdai.code-profile`, `.vscode/settings.json`, `scripts/automation/configure-vscode-profile.py` 및 focused 프로파일/workspace 테스트 9개 통과. | FDAI Pylance process argument와 중앙 검증 receipt를 기록합니다. |
+| 2026-08-13 | deferred | 실효성 없는 Pylance machine 설정을 제거하고 중복 프로파일 JSON 키를 거부했으며 재도입 방지 contract를 추가했습니다. | Clean Remote WSL process command에 구성한 heap argument가 없었으며 focused 프로파일 및 workspace 테스트 11개가 통과했습니다. | 별도 root의 VS Code Server 또는 WSL 배포판을 사용한 뒤 재시작한 process command에서 heap argument를 증명합니다. |
 
 ### 잔여 작업
 
-- [ ] 재시작한 FDAI Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록하고, 제외 대상 workspace가 영향받지 않았음을 확인한 뒤 이 변경의 중앙 검증 receipt를 확보합니다.
+- [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.
 
 ## 전수조사 - 로컬 동작 vs Azure 필요
 
@@ -213,8 +214,9 @@ Pylance 분석은 서비스 소스 루트 5개, 공유 패키지, 독립 패키�
 저장소 유지관리 스크립트를 대상으로 합니다. Workspace 백그라운드 인덱싱은 비활성화합니다. 열린
 파일은 IntelliSense와 진단을 계속 제공하며 범위가 제한된 테스트는 테스트 실행기를 통해 사용할
 수 있습니다. Pylance는 심볼릭 링크 폴더를 따라가지 않고 언어 서버 메시지는 경고 수준부터
-기록합니다. FDAI 프로파일은 관리되는 Node.js 런타임에 2 GiB 힙 상한을 적용하고 라이브러리 소스를 사용한 형식 추론을 비활성화해 단일 언어 서버 프로세스의 메모리를 제한합니다. `light`
-모드로 전환하지 않으므로 구성된 workspace 분석, 열린 파일 진단, IntelliSense 및 탐색 기능은 계속
+기록합니다. 라이브러리 소스를 사용한 형식 추론을 비활성화해 `light` 모드 없이 분석 작업을
+제한합니다. 프로파일 로컬 Node.js 힙 상한은 달성했다고 주장하지 않습니다. Remote WSL machine 설정은
+server instance가 공유하며 clean process-command 검사에서 시도한 heap argument가 없었습니다. 구성된 workspace 분석, 열린 파일 진단, IntelliSense 및 탐색 기능은 계속
 사용할 수 있습니다. 따라서 검증 워크트리와 연결된 로컬 산출물이 workspace 분석 집합에 중복으로
 들어가거나 정보 수준 로그 부하를 추가하지 않습니다. Chat 맥락 사용량 표시기는 계속 활성화하므로
 프롬프트 한도 전에 기록된 세션 인수인계를 사용해 긴 작업을 옮길 수 있습니다. Copilot은 에이전트 대화 이력을 160000
@@ -234,8 +236,8 @@ YAML 검증은 계속 활성 상태입니다. 원격 action-tag 확인, 저장�
 GitHub Actions 런타임 검증이 권위 있으며 다른 작업 흐름의 GitHub Actions 언어 support는
 유지됩니다.
 
-Workspace 설정에는 resource scope Pylance 제어만 둡니다. Machine scope Node.js 설정은 workspace
-설정으로 프로세스를 제한할 수 없으므로 공유 FDAI 프로파일에 둡니다. 프로파일은
+Workspace 설정에는 resource scope Pylance 제어만 둡니다. Shared Remote WSL server는 프로파일별로
+격리할 수 없으므로 machine scope Node.js 설정은 두지 않습니다. 프로파일은
 HashiCorp Terraform만 언어 서버로 유지하며 워크스테이션별 정리로 축소하지 않습니다. 현재 작업에
 쓰지 않는 프로파일 외부 확장은 로컬에서 제거할 수 있습니다. WSL 초기화는 프로파일 sync가
 전달하지 못하는 path-free 머신 설정을 적용합니다. 이러한 editor
