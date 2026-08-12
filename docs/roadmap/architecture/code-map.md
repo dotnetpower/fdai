@@ -28,12 +28,14 @@ retired top-level application tree.
 |------|-------|----------|-------|
 | Service-owned source and test map | in-progress | This map, `tests/integration/`, and the scoped IS-08 and IS-07 evidence named above | Local ownership and rollback evidence are mapped; IS-09 remote verification remains open. |
 | Exact-generation Rule retrieval | implemented | `core/ontology_platform/catalog_queries.py`; `test_catalog_queries.py`; `make test-changed DIFF=e4d9483a5^..e4d9483a5` (`10574 passed`) | Results are candidate-only, bind the active Rule generation to the exact ontology release, and carry no judgment, approval, or execution authority. |
+| Runtime-bound planner visibility | implemented | `composition/wire_semantic_query.py`; `core/conversation/semantic_manifest.py`; `core/ontology_platform/query_manifest.py`; focused composition and manifest tests | Planner descriptors expose only functions registered in the composed runtime. Readable but unbound declarations remain typed structural coverage and gain no authority. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded exact-generation Rule retrieval. | Current change in `catalog_queries.py`, `operational_functions.py`, and `test_catalog_queries.py`; focused tests and diff-scoped validation passed. | Complete the IS-09 remote verification item below. |
+| 2026-08-13 | implemented | Bound planner function visibility to actual runtime registrations while retaining unbound readable declarations in typed structural coverage. | Current change in `wire_semantic_query.py`, `semantic_manifest.py`, `query_manifest.py`, and their focused tests. | A durable production semantic index remains outside this change; complete the IS-09 remote verification item below. |
 
 ### Remaining work
 
@@ -88,8 +90,11 @@ receipts through StateStore.
 The public composition facade exports only the optional resource-state composer; implementation
 types remain in the focused binder so the facade stays below its structural ceiling.
 Planner manifests apply identical role and purpose filtering to ObjectType and Interface
-properties. Intent evidence preserves a terminal reason while also disclosing bounded
-evidence-reference truncation.
+properties. Function descriptors are emitted only for declarations whose handlers are registered
+in the composed runtime. Readable but unbound function declarations remain in structural coverage
+as `runtime_binding_unavailable`; this accounting grants no judgment, approval, mutation,
+promotion, or execution authority. Intent evidence preserves a terminal reason while also
+disclosing bounded evidence-reference truncation.
 The verifier rejects outputs that don't name declared DAG nodes before I/O. Answered turns render
 only bounded verified query tables, and transient projection publication retries the same durable
 idempotent result before dead-lettering.

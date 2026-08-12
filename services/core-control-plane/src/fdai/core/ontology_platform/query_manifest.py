@@ -52,6 +52,7 @@ def build_query_manifest(
     interfaces: Sequence[OntologyInterfaceType] = (),
     action_types: Sequence[OntologyActionType] = (),
     functions: Sequence[OntologyFunctionType] = (),
+    bound_function_names: Sequence[str] | None = None,
 ) -> QueryManifest:
     """Project every readable declaration or one typed unavailable record.
 
@@ -68,6 +69,11 @@ def build_query_manifest(
     supplied.update({(OntologyDeclarationKind.INTERFACE, item.name): item for item in interfaces})
     supplied.update({(OntologyDeclarationKind.ACTION, item.name): item for item in action_types})
     supplied.update({(OntologyDeclarationKind.FUNCTION, item.name): item for item in functions})
+    bound_functions = None if bound_function_names is None else frozenset(bound_function_names)
+    declared_function_names = frozenset(item.name for item in functions)
+    if bound_functions is not None and not bound_functions <= declared_function_names:
+        unknown = ", ".join(sorted(bound_functions - declared_function_names))
+        raise ValueError(f"bound query functions are absent from declarations: {unknown}")
     orphaned = sorted(set(supplied) - set(declarations), key=lambda item: (item[0].value, item[1]))
     if orphaned:
         rendered = ", ".join(f"{kind.value}:{name}" for kind, name in orphaned[:10])
@@ -91,6 +97,18 @@ def build_query_manifest(
         ):
             continue
         readable_count += 1
+        if (
+            isinstance(declaration, OntologyFunctionType)
+            and bound_functions is not None
+            and declaration.name not in bound_functions
+        ):
+            unavailable.append(
+                {
+                    "declaration_id": f"{key[0].value}:{key[1]}",
+                    "reason": "runtime_binding_unavailable",
+                }
+            )
+            continue
         descriptor, reason = _descriptor(
             declaration,
             declaration_ref.declaration_digest,

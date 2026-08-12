@@ -34,6 +34,10 @@ from fdai.core.ontology_platform import (
     SetOperationNodeHandler,
     compile_interfaces,
 )
+from fdai.core.ontology_platform.catalog_queries import (
+    CATALOG_SEARCH_RULES_FUNCTION_NAME,
+    catalog_search_rules_function,
+)
 from fdai.core.ontology_platform.network_path import (
     NETWORK_PATH_FUNCTION_NAME,
     network_path_function,
@@ -59,6 +63,7 @@ from fdai.shared.config.models import LlmMode
 from fdai.shared.contracts.models import CeilingRole, OntologyRelease
 from fdai.shared.ontology.acl import ProjectionRequest
 from fdai.shared.ontology.release import build_ontology_release
+from fdai.shared.providers.catalog_search import CatalogSemanticIndex
 from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -92,6 +97,8 @@ def build_semantic_query_runtime(
     ontology_release: OntologyRelease,
     ontology_catalog: OntologyCatalog,
     ontology_store: OntologyInstanceStore,
+    catalog_index: CatalogSemanticIndex | None = None,
+    catalog_digest: str | None = None,
     purpose: str = "operations-review",
     now: Callable[[], datetime] | None = None,
 ) -> SemanticConversationRuntime:
@@ -99,6 +106,8 @@ def build_semantic_query_runtime(
 
     if not purpose:
         raise ValueError("semantic query purpose MUST be non-empty")
+    if (catalog_index is None) != (catalog_digest is None):
+        raise ValueError("catalog semantic index and digest MUST be supplied together")
     function_types = operational_function_types(ontology_catalog.function_types)
     expected_release = build_ontology_release(
         object_types=ontology_catalog.object_types,
@@ -130,6 +139,7 @@ def build_semantic_query_runtime(
     receipt_authority = SecuredQueryReceiptAuthority()
     function_registry = OntologyFunctionRegistry(release=ontology_release)
     declarations = {item.name: item for item in function_types}
+    bound_function_names: set[str] = set()
 
     async def select_resources(
         arguments: Mapping[str, object],
@@ -149,6 +159,18 @@ def build_semantic_query_runtime(
     inventory_function = declarations.get("inventory.select_resources")
     if inventory_function is not None:
         function_registry.register_contextual(inventory_function, select_resources)
+        bound_function_names.add(inventory_function.name)
+    if catalog_index is not None and catalog_digest is not None:
+        catalog_declaration = declarations[CATALOG_SEARCH_RULES_FUNCTION_NAME]
+        function_registry.register_contextual(
+            catalog_declaration,
+            catalog_search_rules_function(
+                ontology_release,
+                index=catalog_index,
+                catalog_digest=catalog_digest,
+            ),
+        )
+        bound_function_names.add(catalog_declaration.name)
     network_declaration = declarations[NETWORK_PATH_FUNCTION_NAME]
     function_registry.register_contextual(
         network_declaration,
@@ -158,6 +180,7 @@ def build_semantic_query_runtime(
             verification_context=receipt_authority.verification_context,
         ),
     )
+    bound_function_names.add(network_declaration.name)
     pod_declaration = declarations[POD_TELEMETRY_FUNCTION_NAME]
     function_registry.register_contextual(
         pod_declaration,
@@ -167,6 +190,7 @@ def build_semantic_query_runtime(
             verification_context=receipt_authority.verification_context,
         ),
     )
+    bound_function_names.add(pod_declaration.name)
     handlers: dict[QueryNodeKind, QueryNodeHandler] = {
         QueryNodeKind.UNION: SetOperationNodeHandler("union"),
         QueryNodeKind.INTERSECTION: SetOperationNodeHandler("intersection"),
@@ -185,6 +209,7 @@ def build_semantic_query_runtime(
             interfaces=ontology_catalog.interface_types,
             action_types=ontology_catalog.action_types,
             functions=function_types,
+            bound_function_names=tuple(sorted(bound_function_names)),
         ),
         verifier=OntologyQueryPlanVerifier(available_kinds=available_kinds),
         descriptor_selector=CompleteManifestSelector(),
