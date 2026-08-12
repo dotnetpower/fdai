@@ -415,6 +415,26 @@ def test_status_separates_reachable_and_elsewhere_pending(git_repo: Path) -> Non
     assert f"{elsewhere} (elsewhere)" in verbose.stdout
 
 
+def test_status_and_commit_check_report_an_active_validator(git_repo: Path) -> None:
+    import fcntl
+
+    commit = _commit_change(git_repo)
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+    lock_path = git_repo / ".git" / "fdai-validation-queue" / "run.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with lock_path.open("a+", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        status = _run(git_repo, "python3", str(script), "status")
+        blocked = _run(git_repo, "python3", str(script), "check-commit", commit)
+
+    assert status.returncode == 0
+    assert "validator active" in status.stdout
+    assert blocked.returncode == 1
+    assert "Background validation is active; push does not wait for it." in blocked.stderr
+
+
 def test_concurrent_enqueue_of_same_commit_is_atomic(git_repo: Path) -> None:
     script = git_repo / "scripts" / "automation" / "validation_queue.py"
 

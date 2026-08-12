@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -73,7 +74,10 @@ def check_commit(paths: QueuePaths, revision: str) -> int:
         f"validation-queue: BLOCKED - commit requires integration validation: {commit}",
         file=sys.stderr,
     )
-    print("  Run 'make validation-run' in the dedicated integration session.", file=sys.stderr)
+    if _validator_is_active(paths):
+        print("  Background validation is active; push does not wait for it.", file=sys.stderr)
+    else:
+        print("  Run 'make validation-run' in the dedicated integration session.", file=sys.stderr)
     return 1
 
 
@@ -188,15 +192,27 @@ def wake(paths: QueuePaths) -> int:
     return 1
 
 
+def _validator_is_active(paths: QueuePaths) -> bool:
+    initialize(paths)
+    with paths.lock.open("a+", encoding="utf-8") as lock_file:
+        try:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+    return False
+
+
 def status(paths: QueuePaths, *, show_all: bool = False) -> int:
     pending = pending_commits(paths)
     head = resolve_commit(paths, "HEAD")
     history = git("rev-list", "--reverse", "--topo-order", head, cwd=paths.repo_root).stdout
     reachable = [commit for commit in history.splitlines() if commit in pending]
     elsewhere = sorted(pending - set(reachable))
+    validator_state = "active" if _validator_is_active(paths) else "idle"
     print(
         f"validation-queue: {len(reachable)} reachable pending commit(s), "
-        f"{len(elsewhere)} elsewhere"
+        f"{len(elsewhere)} elsewhere, validator {validator_state}"
     )
     for commit in reachable:
         print(f"  {commit}")
