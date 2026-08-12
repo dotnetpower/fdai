@@ -81,7 +81,7 @@ def test_ordinary_operator_path_does_not_load_unrelated_feature_context() -> Non
         ("services/operator-service/src/fdai_operator_service/activity_projection.py",)
     )
 
-    assert len(required) <= 12
+    assert len(required) <= 8
     assert {
         "docs/roadmap/architecture/outcome-assurance.md",
         "docs/roadmap/interfaces/background-task-sessions.md",
@@ -109,7 +109,7 @@ def test_only_operator_surfaces_owns_the_complete_operator_source_tree() -> None
     broad_path = "services/operator-service/src/fdai_operator_service/**"
     owners = [route["id"] for route in manifest["routes"] if broad_path in route["paths"]]
 
-    assert owners == ["operator-surfaces"]
+    assert owners == ["operator-service-foundation"]
 
 
 def test_constitutional_surface_requires_canonical_context() -> None:
@@ -189,6 +189,44 @@ def test_dispatcher_routes_policy_candidate_terminal_commands(
         module.dispatch({"tool_name": "run_in_terminal", "tool_input": {"command": command}})
         == expected
     )
+
+
+def test_dispatcher_routes_git_commit_commands_to_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_dispatcher()
+    expected = {"routed": "git commit"}
+    monkeypatch.setattr(module, "_run_policy", lambda payload: expected)
+
+    assert (
+        module.dispatch(
+            {
+                "tool_name": "run_in_terminal",
+                "tool_input": {"command": "git commit -m 'focused' -- owned.py"},
+            }
+        )
+        == expected
+    )
+
+
+def test_bare_agent_commit_is_denied_but_pathspec_commit_is_allowed() -> None:
+    module = _load_module()
+
+    denied = module.enforce_commit_scope(
+        {
+            "tool_name": "run_in_terminal",
+            "tool_input": {"command": "git commit -m 'unsafe'"},
+        }
+    )
+    allowed = module.enforce_commit_scope(
+        {
+            "tool_name": "run_in_terminal",
+            "tool_input": {"command": "git commit -m 'safe' -- owned.py"},
+        }
+    )
+
+    assert denied["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert allowed == {"continue": True}
 
 
 def test_dispatcher_records_policy_relevant_parallel_reads(

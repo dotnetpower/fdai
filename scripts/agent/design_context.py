@@ -342,6 +342,45 @@ def _is_unscoped_cli_check(command: str) -> bool:
     return False
 
 
+def enforce_commit_scope(payload: dict[str, Any]) -> dict[str, Any]:
+    if _tool_name(payload) not in TERMINAL_TOOL_NAMES:
+        return {"continue": True}
+    command = str(_tool_input(payload).get("command") or "")
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        tokens = list(lexer)
+    except ValueError:
+        return {"continue": True}
+    segments: list[list[str]] = [[]]
+    for token in tokens:
+        if token in {";", "&", "&&", "|", "||"}:
+            segments.append([])
+        else:
+            segments[-1].append(token)
+    for segment in segments:
+        if "git" not in segment or "commit" not in segment:
+            continue
+        commit_index = segment.index("commit")
+        if "--" in segment[commit_index + 1 :]:
+            continue
+        reason = (
+            "Agent commits in the shared FDAI worktree must use an explicit pathspec: "
+            "git commit ... -- <owned paths>. A bare commit can include another session's "
+            "staged files."
+        )
+        return {
+            "systemMessage": reason,
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": reason,
+            },
+        }
+    return {"continue": True}
+
+
 def enforce_validation_route(payload: dict[str, Any]) -> dict[str, Any]:
     tool_name = _tool_name(payload)
     tool_input = _tool_input(payload)
@@ -376,6 +415,9 @@ def pre_tool_use(payload: dict[str, Any]) -> dict[str, Any]:
         return enforce_edit(payload)
     if tool_name not in TERMINAL_TOOL_NAMES and tool_name != "runTests":
         return {"continue": True}
+    commit_result = enforce_commit_scope(payload)
+    if commit_result.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
+        return commit_result
     validation_result = enforce_validation_route(payload)
     if validation_result.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
         return validation_result
