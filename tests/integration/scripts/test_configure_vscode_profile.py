@@ -25,7 +25,16 @@ def test_repository_profile_artifacts_are_consistent() -> None:
     extension_count, setting_count = module.validate_artifacts()
 
     assert extension_count == 18
-    assert setting_count == 6
+    assert setting_count == 8
+
+    machine_settings = module._read_json(module.MACHINE_TEMPLATE_PATH)
+    assert "python.analysis.nodeArguments" not in machine_settings
+    assert "python.analysis.nodeExecutable" not in machine_settings
+
+    profile = module._read_json(module.PROFILE_PATH)
+    profile_settings = module._profile_settings(profile)
+    assert profile_settings["python.analysis.nodeArguments"] == ["--max-old-space-size=2048"]
+    assert profile_settings["python.analysis.nodeExecutable"] == "auto"
 
 
 def test_profile_extensions_reject_export_metadata() -> None:
@@ -85,3 +94,35 @@ def test_apply_machine_settings_fails_closed_on_jsonc(tmp_path: Path) -> None:
         module.apply_machine_settings(destination, template)
 
     assert destination.read_text(encoding="utf-8") == original
+
+
+def test_apply_profile_settings_preserves_local_values_and_is_idempotent(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    profile = tmp_path / "fdai.code-profile"
+    destination = tmp_path / "profiles" / "fdai" / "settings.json"
+    profile.write_text(
+        json.dumps(
+            {
+                "settings": json.dumps(
+                    {
+                        "python.analysis.nodeArguments": ["--max-old-space-size=2048"],
+                        "python.analysis.nodeExecutable": "auto",
+                    }
+                )
+            }
+        ),
+        encoding="utf-8",
+    )
+    destination.parent.mkdir(parents=True)
+    destination.write_text(json.dumps({"chat.agent.maxRequests": 9999}), encoding="utf-8")
+
+    assert module.apply_profile_settings(destination, profile) is True
+    assert json.loads(destination.read_text(encoding="utf-8")) == {
+        "chat.agent.maxRequests": 9999,
+        "python.analysis.nodeArguments": ["--max-old-space-size=2048"],
+        "python.analysis.nodeExecutable": "auto",
+    }
+    assert module.apply_profile_settings(destination, profile) is False
+    assert module.profile_settings_match(destination, profile) is True
