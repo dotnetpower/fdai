@@ -17,6 +17,7 @@ from fdai.shared.contracts.models import OntologyProvenance
 _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 _IDENTIFIER_PATTERN = r"^[a-z][a-z0-9._-]{0,127}$"
 _REFERENCE_PATTERN = r"^[A-Za-z][A-Za-z0-9._:@/-]{0,255}$"
+_RULE_REF_PATTERN = r"^[a-z][a-z0-9._/-]{0,127}@\d+\.\d+\.\d+$"
 _SEMVER_PATTERN = r"^\d+\.\d+\.\d+$"
 _MAX_ITEMS = 256
 
@@ -36,7 +37,7 @@ class EquivalenceReceiptState(StrEnum):
 class RuleVersionPin(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    rule_ref: Annotated[str, Field(pattern=_REFERENCE_PATTERN)]
+    rule_ref: Annotated[str, Field(pattern=_RULE_REF_PATTERN)]
     content_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
 
 
@@ -99,6 +100,7 @@ class EquivalenceValidationReceipt(BaseModel):
     parameter_domains: tuple[ParameterDomain, ...] = Field(max_length=_MAX_ITEMS)
     counterexamples: CounterexampleSetPin
     validator: ValidatorPin
+    evaluator: ValidatorPin
     result: EquivalenceValidationResult
     claims: EquivalenceClaims
     failures: tuple[Annotated[str, Field(min_length=1, max_length=1024)], ...] = Field(

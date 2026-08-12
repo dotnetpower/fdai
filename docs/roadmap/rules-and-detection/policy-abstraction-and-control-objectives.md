@@ -159,16 +159,48 @@ deterministic source parsing
 
 An `EquivalenceValidationReceipt` should pin the compared Rule versions, normalized predicate or
 OPA AST digests, required evidence, parameter domains, counterexample set, validator version,
-result, failures, and reviewer. It distinguishes:
+evaluator version, result, failures, and reviewer. It distinguishes:
 
 - **same objective:** both Rules protect the same invariant;
 - **same applicability:** both accept the same target and evidence domain;
-- **same behavior:** both return the same result over the frozen counterexample set;
-- **same implementation:** normalized deterministic logic is equivalent.
+- **same behavior:** both return the same canonical OPA decision for every case in the frozen
+  corpus. This is finite-corpus evidence, not universal semantic equivalence;
+- **same normalized implementation:** behavior matches and normalized OPA AST digests are equal.
+  This does not claim byte-identical source or equivalence outside the frozen corpus.
 
 Only the first relation is required to share a `ControlObjective`. Automated promotion based only
 on vector distance, names, categories, imported profile membership, or shared Rego imports is not
 supported.
+
+The mechanical validator snapshots and verifies exact policy bytes before parsing or evaluation. It
+pins exact Rule versions, policy and normalized AST digests, the canonical corpus, the owned validator source set,
+and the OPA executable bytes and version. A run accepts at most 256 cases, 1 MB per input, 8 MB per
+corpus, 1 MB per policy, 8 MB per AST, and 1 MB per OPA response. Each child process is limited to
+60 seconds and the complete comparison to 300 seconds. Output is bounded while it is received.
+Timeout, output overflow, malformed or undefined output, pin drift, and tool failure all produce a
+sanitized `inconclusive` result without retaining inputs, decisions, paths, provider errors, or
+stderr. Mechanical evidence never creates a reviewed receipt or changes lifecycle or authority.
+
+### P1 validator hardening record
+
+| Round | Finding closed |
+|-------|----------------|
+| 1 | Pinned exact Rule versions and canonical corpus identity instead of comparing names or objectives. |
+| 2 | Snapshotted verified policy bytes to prevent path replacement between digest and evaluation. |
+| 3 | Rejected non-finite, non-positive, and over-limit process timeouts. |
+| 4 | Pinned OPA version output and executable content instead of trusting a command name. |
+| 5 | Added one monotonic total deadline across identity, parsing, and all case evaluations. |
+| 6 | Replaced free-form failures with stable categories and bounded Rule and case context. |
+| 7 | Narrowed the implementation claim to normalized AST equality after complete behavior parity. |
+| 8 | Removed fallback evaluator identities so conclusive evidence always pins the resolved tool. |
+| 9 | Preserved the resolved evaluator pin when later policy or evaluation work becomes inconclusive. |
+| 10 | Bounded stdout while reading, discarded stderr, and proved timeout and overflow termination. |
+| 11 | Executed an exact-byte OPA snapshot after identity hashing and proved configured timeout propagation into evaluation. |
+| 12 | Bound the validator pin to a canonical manifest of every directly owned source module in the decision path. |
+| 13 | Preserved exact JSON decimal semantics in OPA decisions and rechecked the total deadline before returning conclusive evidence. |
+
+After round 13, no known Medium-or-higher validator finding remains. The residual Low risk is local
+tool or file-system failure, which fails closed as `inconclusive` and grants no authority.
 
 ### Promotion gate
 
@@ -263,7 +295,8 @@ publishers run as Mimir-owned capabilities, not hidden decision makers.
 | Rule-to-policy boundary | in-progress | [`PolicyArtifact.yaml`](../../../rule-catalog/vocabulary/object-types/PolicyArtifact.yaml), [`implemented_by_policy.yaml`](../../../rule-catalog/vocabulary/link-types/implemented_by_policy.yaml) | Existing artifacts are reusable; this change did not revalidate their runtime path. |
 | Semantic manifests and corpus isolation | in-progress | [`rule_semantic_retrieval.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_retrieval.py), [Rule Semantic Retrieval](rule-semantic-retrieval.md) | Existing retrieval contracts lack the new typed objective and binding contract. |
 | `ControlObjective` contract and catalog | implemented | [`control_objective.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/control_objective.py), [`ControlObjective.yaml`](../../../rule-catalog/vocabulary/object-types/ControlObjective.yaml), [`reliability.node-pool.zone-failure-tolerance.yaml`](../../../rule-catalog/control-objectives/reliability.node-pool.zone-failure-tolerance.yaml), [`test_control_objective.py`](../../../services/core-control-plane/tests/rule_catalog/test_control_objective.py) | Strict model, loader, digest, lifecycle, vocabulary, candidate record, and negative tests exist. The candidate grants no runtime authority. |
-| `RuleObjectiveBinding` and equivalence receipts | in-progress | [`rule_objective_binding.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_objective_binding.py), [`equivalence_validation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validation.py), [`RuleObjectiveBinding.yaml`](../../../rule-catalog/vocabulary/object-types/RuleObjectiveBinding.yaml), [`EquivalenceValidationReceipt.yaml`](../../../rule-catalog/vocabulary/object-types/EquivalenceValidationReceipt.yaml), [`binding.node-pool-zone-resilience.yaml`](../../../rule-catalog/rule-objective-bindings/binding.node-pool-zone-resilience.yaml), [`test_shipped_policy_abstraction_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_shipped_policy_abstraction_catalog.py) | Strict contracts and vocabulary exist. The shipped partial binding verifies canonical objective, Rule, normalized Rego, and evidence signatures and carries no equivalence claim; validator execution and reviewed receipts remain open. |
+| `RuleObjectiveBinding` and receipt contracts | implemented | [`rule_objective_binding.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_objective_binding.py), [`equivalence_validation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validation.py), [`RuleObjectiveBinding.yaml`](../../../rule-catalog/vocabulary/object-types/RuleObjectiveBinding.yaml), [`EquivalenceValidationReceipt.yaml`](../../../rule-catalog/vocabulary/object-types/EquivalenceValidationReceipt.yaml), [`binding.node-pool-zone-resilience.yaml`](../../../rule-catalog/rule-objective-bindings/binding.node-pool-zone-resilience.yaml) | Strict contracts, vocabulary, and an inert partial binding exist. The binding carries no equivalence claim or runtime authority. |
+| Deterministic Rego equivalence execution | implemented | [`equivalence_validator.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validator.py), [`bounded_process.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/bounded_process.py), [`test_equivalence_validator.py`](../../../services/core-control-plane/tests/rule_catalog/test_equivalence_validator.py), [`test_bounded_process.py`](../../../services/core-control-plane/tests/rule_catalog/test_bounded_process.py) | Exact policy, corpus, validator, and OPA pins plus fail-closed resource bounds produce mechanical evidence only. Reviewed receipts and the 62-Rule backfill remain open. |
 | Objective-aware projection and resolution | not-started | This design | Existing exact Rule and retrieval paths remain unchanged. |
 | Full-corpus generation identity | not-started | [`rule_semantic_generation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_generation.py) | The inline digest contract is bounded to 256 entries. |
 | Shadow evaluation and governed rollout | not-started | This design | No objective-resolution benchmark or promotion receipt exists. |
@@ -278,6 +311,8 @@ publishers run as Mimir-owned capabilities, not hidden decision makers.
 | 2026-08-13 | in-progress | Added strict `RuleObjectiveBinding` records with objective, Rule, evidence, and reviewed-receipt pins; bounded applicability deltas; declared variant dimensions without values; non-equivalence reasons; and review-gated lifecycle transitions. | `current change`; the combined P0 schema suite passed 23 tests and static diagnostics reported no errors. | Add vocabulary declarations and shipped objective, binding, and receipt records, then implement deterministic equivalence validation. |
 | 2026-08-13 | implemented | Completed the P0 catalog contract with six ontology vocabulary declarations, canonical Rule and signature digests, and inert node-pool objective and partial-binding records. The binding records why configuration evidence does not yet prove observed zone-loss behavior and makes no equivalence claim. | `current change`; the focused objective, receipt, binding, Rule, vocabulary, and shipped cross-catalog suite passed 78 tests; Ruff passed on all changed Python files. | Implement deterministic equivalence validator execution and review-gated receipts, then backfill the remaining authored Rego Rules in P1. |
 | 2026-08-13 | implemented | Restored strict mypy compatibility at the canonical digest and `ControlObjective` validation boundaries without changing digest inputs, validation outcomes, or authority. | `current change`; strict mypy passed the two changed source files, the focused `test_control_objective.py` suite passed 7 tests, and Ruff passed. | Continue the existing P1-P4 work below. |
+| 2026-08-13 | implemented | Added deterministic Rego equivalence execution with exact policy and evaluator snapshots, canonical result comparison, validator source-set and OPA identity pins, structured fail-closed outcomes, per-process and total deadlines, and receive-time output bounds. Twelve adversarial review rounds closed all known findings above Low severity. | `current change`; the focused equivalence, receipt, semantics, and bounded-process suite passed 43 tests. | Create reviewed bindings and receipts for all 62 authored Rego Rules without changing Rule ids or verdict behavior. |
+| 2026-08-13 | implemented | Hardened decision comparison against binary floating-point collapse by parsing OPA numbers as exact decimals and normalizing equivalent JSON number spellings. Added a final total-deadline check before any conclusive result. The thirteenth adversarial review round left no known finding above Low severity. | `current change`; the focused equivalence, receipt, semantics, and bounded-process suite passed 45 tests; strict mypy passed four source files; Ruff passed all eight focused source and test files. | Create reviewed bindings and receipts for all 62 authored Rego Rules without changing Rule ids or verdict behavior. |
 
 ### Remaining work
 

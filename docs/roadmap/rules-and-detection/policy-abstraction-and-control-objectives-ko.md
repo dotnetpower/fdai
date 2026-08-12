@@ -1,7 +1,7 @@
 ---
 title: 정책 추상화와 통제 목표
 translation_of: policy-abstraction-and-control-objectives.md
-translation_source_sha: ab7c6e9e9861ce59ff0c1dd2347b5757c86b8d36
+translation_source_sha: f607974343571b9bc3dcd823c8dac3f1adcea3ed
 translation_revised: 2026-08-13
 ---
 # 정책 추상화와 통제 목표
@@ -157,16 +157,48 @@ deterministic source parsing
 ```
 
 `EquivalenceValidationReceipt`는 비교한 Rule 버전, 정규화된 조건 또는 OPA AST 다이제스트,
-필수 근거, 매개 변수 도메인, 반례 집합, 검증기 버전, 결과, 실패 및 검토자를 고정하는 것이
+필수 근거, 매개 변수 도메인, 반례 집합, 검증기 버전, 평가기 버전, 결과, 실패 및 검토자를 고정하는 것이
 좋습니다. 다음을 구분합니다.
 
 - **같은 목표:** 두 Rule이 같은 불변식을 보호합니다.
 - **같은 적용 가능성:** 두 Rule이 같은 대상과 근거 도메인을 받습니다.
-- **같은 동작:** 두 Rule이 고정된 반례 집합에서 같은 결과를 반환합니다.
-- **같은 구현:** 정규화된 결정론적 논리가 동등합니다.
+- **같은 동작:** 두 Rule이 고정된 코퍼스의 모든 사례에서 같은 정규 OPA 결정을 반환합니다.
+  이는 유한 코퍼스 근거이며 보편적인 의미 동등성을 뜻하지 않습니다.
+- **같은 정규화 구현:** 동작이 일치하고 정규화된 OPA AST 다이제스트가 같습니다. 원본 바이트가
+  같거나 고정된 코퍼스 밖에서도 동등하다고 주장하지 않습니다.
 
 `ControlObjective`를 공유하는 데는 첫 번째 관계만 필요합니다. 벡터 거리, 이름, 범주, 가져온
 프로파일 멤버십 또는 공유 Rego import만으로 자동 승격하는 방식은 지원되지 않습니다.
+
+기계적 검증기는 구문 분석이나 평가 전에 정확한 정책 바이트의 스냅샷을 만들고 검증합니다.
+정확한 Rule 버전, 정책과 정규화 AST 다이제스트, 정규 코퍼스, 소유한 검증기 소스 집합, OPA 실행 파일의
+바이트와 버전을 고정합니다. 한 실행은 최대 사례 256개, 입력당 1 MB, 코퍼스 8 MB, 정책 1 MB,
+AST 8 MB, OPA 응답당 1 MB를 받습니다. 각 자식 프로세스는 60초, 전체 비교는 300초로 제한됩니다.
+출력은 수신하는 동안 제한됩니다. 시간 초과, 출력 초과, 잘못되거나 정의되지 않은 출력, 고정값
+차이 및 도구 실패는 입력, 결정, 경로, 공급자 오류 또는 stderr를 보존하지 않고 정제된
+`inconclusive` 결과를 만듭니다. 기계적 근거는 검토된 증적을 만들거나 수명 주기와 권한을
+변경하지 않습니다.
+
+### P1 검증기 강화 기록
+
+| 차수 | 해결한 문제 |
+|------|-------------|
+| 1 | 이름이나 목표가 아니라 정확한 Rule 버전과 정규 코퍼스 신원을 고정했습니다. |
+| 2 | 다이제스트 확인과 평가 사이의 경로 교체를 막도록 검증된 정책 바이트의 스냅샷을 만들었습니다. |
+| 3 | 유한하지 않거나 양수가 아니거나 한계를 넘는 프로세스 시간 제한을 거부했습니다. |
+| 4 | 명령 이름을 신뢰하지 않고 OPA 버전 출력과 실행 파일 콘텐츠를 고정했습니다. |
+| 5 | 신원, 구문 분석 및 모든 사례 평가에 걸쳐 하나의 단조 전체 기한을 추가했습니다. |
+| 6 | 자유 형식 실패를 안정적인 범주와 범위가 제한된 Rule 및 사례 맥락으로 바꿨습니다. |
+| 7 | 구현 주장을 전체 동작 일치 후의 정규화 AST 동일성으로 좁혔습니다. |
+| 8 | 결론이 있는 근거가 항상 확인된 도구를 고정하도록 대체 평가기 신원을 제거했습니다. |
+| 9 | 이후 정책 또는 평가 작업이 `inconclusive`가 되어도 확인된 평가기 고정값을 보존했습니다. |
+| 10 | stdout을 읽는 동안 제한하고 stderr를 버리며 시간 초과와 출력 초과 시 종료됨을 검증했습니다. |
+| 11 | 신원 해시 후 정확한 바이트의 OPA 스냅샷을 실행하고 설정된 시간 제한이 평가에 전달됨을 검증했습니다. |
+| 12 | 결정 경로에서 직접 소유한 모든 소스 모듈의 정규 매니페스트에 검증기 고정값을 결합했습니다. |
+| 13 | OPA 결정에서 정확한 JSON 소수 의미를 보존하고 결론이 있는 근거를 반환하기 전에 전체 기한을 다시 확인했습니다. |
+
+13차 후 알려진 Medium 이상 검증기 문제는 남아 있지 않습니다. 남은 Low 위험은 로컬 도구 또는
+파일 시스템 실패이며, 이 경우 권한을 부여하지 않고 `inconclusive`로 닫힙니다.
 
 ### 승격 게이트
 
@@ -261,7 +293,8 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 | Rule과 정책의 경계 | in-progress | [`PolicyArtifact.yaml`](../../../rule-catalog/vocabulary/object-types/PolicyArtifact.yaml), [`implemented_by_policy.yaml`](../../../rule-catalog/vocabulary/link-types/implemented_by_policy.yaml) | 기존 아티팩트를 재사용할 수 있지만 이 변경에서 런타임 경로를 다시 검증하지 않았습니다. |
 | 의미 매니페스트와 코퍼스 격리 | in-progress | [`rule_semantic_retrieval.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_retrieval.py), [Rule 의미 검색](rule-semantic-retrieval-ko.md) | 기존 검색 계약에는 새 타입 목표 및 바인딩 계약이 없습니다. |
 | `ControlObjective` 계약과 카탈로그 | implemented | [`control_objective.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/control_objective.py), [`ControlObjective.yaml`](../../../rule-catalog/vocabulary/object-types/ControlObjective.yaml), [`reliability.node-pool.zone-failure-tolerance.yaml`](../../../rule-catalog/control-objectives/reliability.node-pool.zone-failure-tolerance.yaml), [`test_control_objective.py`](../../../services/core-control-plane/tests/rule_catalog/test_control_objective.py) | 엄격한 모델, 로더, 다이제스트, 수명 주기, 어휘, 후보 레코드 및 부정 테스트가 있습니다. 후보는 런타임 권한을 부여하지 않습니다. |
-| `RuleObjectiveBinding`과 동등성 증적 | in-progress | [`rule_objective_binding.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_objective_binding.py), [`equivalence_validation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validation.py), [`RuleObjectiveBinding.yaml`](../../../rule-catalog/vocabulary/object-types/RuleObjectiveBinding.yaml), [`EquivalenceValidationReceipt.yaml`](../../../rule-catalog/vocabulary/object-types/EquivalenceValidationReceipt.yaml), [`binding.node-pool-zone-resilience.yaml`](../../../rule-catalog/rule-objective-bindings/binding.node-pool-zone-resilience.yaml), [`test_shipped_policy_abstraction_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_shipped_policy_abstraction_catalog.py) | 엄격한 계약과 어휘가 있습니다. 제공되는 부분 바인딩은 정규 목표, Rule, 정규화된 Rego 및 근거 서명을 검증하며 동등성을 주장하지 않습니다. 검증기 실행과 검토된 증적은 아직 필요합니다. |
+| `RuleObjectiveBinding`과 증적 계약 | implemented | [`rule_objective_binding.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_objective_binding.py), [`equivalence_validation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validation.py), [`RuleObjectiveBinding.yaml`](../../../rule-catalog/vocabulary/object-types/RuleObjectiveBinding.yaml), [`EquivalenceValidationReceipt.yaml`](../../../rule-catalog/vocabulary/object-types/EquivalenceValidationReceipt.yaml), [`binding.node-pool-zone-resilience.yaml`](../../../rule-catalog/rule-objective-bindings/binding.node-pool-zone-resilience.yaml) | 엄격한 계약, 어휘 및 비활성 부분 바인딩이 있습니다. 바인딩은 동등성이나 런타임 권한을 주장하지 않습니다. |
+| 결정론적 Rego 동등성 실행 | implemented | [`equivalence_validator.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validator.py), [`bounded_process.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/bounded_process.py), [`test_equivalence_validator.py`](../../../services/core-control-plane/tests/rule_catalog/test_equivalence_validator.py), [`test_bounded_process.py`](../../../services/core-control-plane/tests/rule_catalog/test_bounded_process.py) | 정확한 정책, 코퍼스, 검증기 및 OPA 고정값과 실패 시 안전하게 닫히는 자원 한계는 기계적 근거만 만듭니다. 검토된 증적과 62개 Rule 채우기는 아직 필요합니다. |
 | 목표 인식 변환 결과와 확인 | not-started | 이 설계 | 기존 정확한 Rule 및 검색 경로는 변경되지 않습니다. |
 | 전체 코퍼스 세대 식별자 | not-started | [`rule_semantic_generation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_generation.py) | 인라인 다이제스트 계약은 256개 항목으로 제한됩니다. |
 | shadow 평가와 통제된 롤아웃 | not-started | 이 설계 | 목표 확인 벤치마크 또는 승격 증적이 없습니다. |
@@ -276,6 +309,8 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 | 2026-08-13 | in-progress | 목표, Rule, 근거 및 검토된 증적을 고정하고, 경계가 있는 적용 가능성 차이, 값이 없는 변형 차원, 비동등 사유 및 검토를 거치는 수명 주기 전이를 포함하는 엄격한 `RuleObjectiveBinding` 레코드를 추가했습니다. | `current change`; 통합 P0 스키마 모음에서 테스트 23개가 통과했고 정적 진단에서 오류가 없었습니다. | 어휘 선언과 제공되는 목표, 바인딩 및 증적 레코드를 추가한 다음 결정론적 동등성 검증을 구현합니다. |
 | 2026-08-13 | implemented | 온톨로지 어휘 선언 6개, 정규 Rule 및 서명 다이제스트, 비활성 노드 풀 목표 및 부분 바인딩 레코드로 P0 카탈로그 계약을 완료했습니다. 바인딩은 구성 근거가 관찰된 영역 장애 동작을 아직 증명하지 못하는 이유를 기록하며 동등성을 주장하지 않습니다. | `current change`; 목표, 증적, 바인딩, Rule, 어휘 및 제공되는 교차 카탈로그의 집중 테스트 78개가 통과했고 변경된 모든 Python 파일에서 Ruff가 통과했습니다. | 결정론적 동등성 검증기 실행과 검토를 거치는 증적을 구현한 다음 P1에서 나머지 작성된 Rego Rule을 채웁니다. |
 | 2026-08-13 | implemented | 다이제스트 입력, 검증 결과 또는 권한을 변경하지 않고 정규 다이제스트와 `ControlObjective` 검증 경계의 strict mypy 호환성을 복구했습니다. | `current change`; 변경된 소스 파일 2개에서 strict mypy가 통과했고 집중 `test_control_objective.py` 모음에서 테스트 7개가 통과했으며 Ruff도 통과했습니다. | 아래의 기존 P1-P4 작업을 계속합니다. |
+| 2026-08-13 | implemented | 정확한 정책 및 평가기 스냅샷, 정규 결과 비교, 검증기 소스 집합과 OPA 신원 고정값, 구조화된 실패 시 안전 결과, 프로세스별 및 전체 기한, 수신 시 출력 제한을 사용하는 결정론적 Rego 동등성 실행을 추가했습니다. 12회의 적대적 검토로 알려진 Low 초과 문제를 모두 해결했습니다. | `current change`; 동등성, 증적, 의미 및 범위 제한 프로세스 집중 모음에서 테스트 43개가 통과했습니다. | Rule ID나 판정 동작을 바꾸지 않고 작성된 Rego Rule 62개 모두에 검토된 바인딩과 증적을 만듭니다. |
+| 2026-08-13 | implemented | OPA 숫자를 정확한 소수로 구문 분석하고 동등한 JSON 숫자 표기를 정규화하여 이진 부동 소수점으로 인한 결정 비교 병합을 막았습니다. 결론이 있는 결과를 반환하기 전에 최종 전체 기한 검사도 추가했습니다. 13차 적대적 검토 후 알려진 Low 초과 문제는 남아 있지 않습니다. | `current change`; 동등성, 증적, 의미 및 범위 제한 프로세스 집중 모음에서 테스트 45개가 통과했고, 소스 파일 4개에서 strict mypy가 통과했으며, 집중 소스 및 테스트 파일 8개에서 Ruff가 통과했습니다. | Rule ID나 판정 동작을 바꾸지 않고 작성된 Rego Rule 62개 모두에 검토된 바인딩과 증적을 만듭니다. |
 
 ### 남은 작업
 
