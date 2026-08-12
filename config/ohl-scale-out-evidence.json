@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.2.0",
   "lane": "ohl-lane-f",
   "status": "prepared",
   "evidence_level": "contract_only",
@@ -39,6 +39,7 @@
       "account_context",
       "target_identity",
       "baseline_state",
+      "a3e_non_applicability",
       "approval",
       "dry_run",
       "stop_condition",
@@ -50,8 +51,12 @@
       "automation_hold",
       "rollback",
       "independent_recovery",
+      "cleanup",
       "graph_shadow_prediction",
-      "graph_shadow_outcome"
+      "graph_shadow_outcome",
+      "promotion_floor",
+      "production_graph_provider_binding",
+      "production_scale_out_executor_binding"
     ],
     "common_receipt_fields": [
       "evidence_level",
@@ -65,7 +70,11 @@
       "freshness_seconds",
       "completeness",
       "provenance_digest",
-      "synthetic"
+      "synthetic",
+      "kind",
+      "correlation_id",
+      "target_revision",
+      "verified"
     ],
     "graph_prediction_fields": [
       "prediction_digest",
@@ -96,7 +105,21 @@
       "evidence_refs",
       "active_model_mutated",
       "promotion_applied"
-    ]
+    ],
+    "condition_receipt_kinds": {
+      "a3e_non_applicability_verified": "a3e_non_applicability",
+      "partial_execution_observed": "partial_state_observation",
+      "rollback_independently_verified": "independent_recovery",
+      "cleanup_verified": "cleanup",
+      "graph_prediction_live_and_non_synthetic": "graph_shadow_prediction",
+      "graph_outcome_independently_closed": "graph_shadow_outcome",
+      "observation_horizon_preserved": "graph_shadow_outcome",
+      "recurrence_window_complete": "cleanup",
+      "promotion_floor_met": "promotion_floor",
+      "zero_policy_escapes": "graph_shadow_outcome",
+      "production_graph_provider_bound": "production_graph_provider_binding",
+      "production_scale_out_executor_bound": "production_scale_out_executor_binding"
+    }
   },
   "acceptance": {
     "minimum_live_shadow_samples": 100,
@@ -124,6 +147,7 @@
     ]
   },
   "runbook_ref": "docs/runbooks/ohl-scale-out-evidence.md",
+  "verifier_ref": "scripts/quality/repository/validate-ohl-scale-out-evidence.py",
   "result": {
     "status": "pending",
     "source_receipt_digest": null,
