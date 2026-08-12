@@ -99,6 +99,7 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source and tests listed in the scope table. | Complete the observable exit conditions below. |
 | 2026-08-13 | implemented | Added exact-generation, read-only `catalog.search_rules` candidate retrieval with bounded ranking and content-addressed receipts. | Commit `e4d9483a5`; focused `test_catalog_queries.py` reports 2 passed. | Compose objective-aware retrieval and validate it without granting evaluation or execution authority. |
+| 2026-08-13 | implemented | Registered the three objective vocabulary types as `Identifiable` implementations after centralized graph validation exposed the omission. | Focused `test_shipped_ontology_catalog_loads_as_one_graph` reports 1 passed. | Keep interface implementation coverage synchronized with every new object type. |
 
 ### Remaining work
 
