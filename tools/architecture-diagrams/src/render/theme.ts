@@ -176,11 +176,14 @@ function declarations(variables: ThemeVariables): string {
     .join(";");
 }
 
-export function standaloneThemeCss(): string {
+export function standaloneThemeCss(preserveLightTheme = false): string {
+  const darkThemeSelector = preserveLightTheme
+    ? 'svg[data-diagram-id]:not([data-embedded]):not([data-profile="azure-reference"])'
+    : "svg[data-diagram-id]:not([data-embedded])";
   return `
     svg[data-diagram-id]:not([data-embedded]) { ${declarations(CALM_SLATE_LIGHT)}; }
     @media (prefers-color-scheme: dark) {
-      svg[data-diagram-id]:not([data-embedded]) { ${declarations(CALM_SLATE_DARK)}; }
+      ${darkThemeSelector} { ${declarations(CALM_SLATE_DARK)}; }
     }
   `;
 }

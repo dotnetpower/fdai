@@ -32,6 +32,15 @@ test("FDAI reference architecture renders every governed relationship", async ()
   const dimensions = svg.match(/^<svg[^>]* width="(\d+)" height="(\d+)"/);
   assert.ok(dimensions);
   assert.ok(Number(dimensions[1]) / Number(dimensions[2]) >= 1.65);
+  const darkThemeBlocks = [
+    ...svg.matchAll(/@media \(prefers-color-scheme: dark\) \{([\s\S]*?)\n\s*\}/g),
+  ];
+  assert.equal(darkThemeBlocks.length, 2);
+  assert.ok(
+    darkThemeBlocks.every((match) =>
+      match[1]?.includes(':not([data-profile="azure-reference"])'),
+    ),
+  );
 
   for (const groupId of [
     "connected-environment",
