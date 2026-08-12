@@ -98,7 +98,7 @@ Thor execution, rollback, and Saga audit path.
 
 | Service | Package responsibility | Package map |
 |---------|------------------------|-------------|
-| Operator Service | Authenticated route families, durable semantic bridge, process-owned bridge health, and managed-identity Kafka transport including bounded Live-stage SSE fan-out | [families](../../../services/operator-service/src/fdai_operator_service/families/), [adapters](../../../services/operator-service/src/fdai_operator_service/adapters/), [streaming](../../../services/operator-service/src/fdai_operator_service/streaming/), and [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
+| Operator Service | Authenticated route families, durable semantic bridge, process-owned bridge health, and ordered managed-identity Kafka lifecycles including bounded Live-stage SSE fan-out | [families](../../../services/operator-service/src/fdai_operator_service/families/), [adapters](../../../services/operator-service/src/fdai_operator_service/adapters/), [streaming](../../../services/operator-service/src/fdai_operator_service/streaming/), and [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
 | Document Ingestion API | Upload intake, API-owned transitions, and service adapters | [package](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | Document Processing Worker | Durable document processing and worker-owned adapters | [package](../../../services/document-processing-worker/src/fdai_document_worker_service/) |
 | Isolated Executor | Thor-owned command handling, provider effects, receipts, and executor adapters | [package](../../../services/isolated-executor/src/fdai_executor_service/) |

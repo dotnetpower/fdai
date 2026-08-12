@@ -1047,6 +1047,23 @@ async def test_production_composition_auto_binds_one_kafka_bus_and_owns_lifecycl
     bus = Bus()
     monkeypatch.setattr(composition_module, "_build_semantic_bus", lambda _environment: bus)
 
+    class LiveRelay:
+        async def start(self) -> None:
+            events.append("live-start")
+
+        def readiness(self) -> bool:
+            return True
+
+        async def aclose(self) -> None:
+            events.append("live-close")
+
+    live_relay = LiveRelay()
+    monkeypatch.setattr(
+        composition_module,
+        "_build_live_stage_relay",
+        lambda _environment, _hub: live_relay,
+    )
+
     async def bridge_start(self: SemanticTurnBridge) -> None:
         events.append("bridge-start")
 
@@ -1088,7 +1105,14 @@ async def test_production_composition_auto_binds_one_kafka_bus_and_owns_lifecycl
     await runtime.lifecycle.start()
     await runtime.lifecycle.aclose()
 
-    assert events == ["bus-start", "bridge-start", "bridge-close", "bus-close"]
+    assert events == [
+        "bus-start",
+        "bridge-start",
+        "live-start",
+        "live-close",
+        "bridge-close",
+        "bus-close",
+    ]
 
 
 def test_production_composition_rejects_semantic_transport_before_bus_without_store(

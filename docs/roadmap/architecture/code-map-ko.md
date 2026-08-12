@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d8ecca552ef12562a4a7ddf9d1092076d9bd096e
+translation_source_sha: 72fb557a075642647249c29e3d8a64b49068fef2
 translation_revised: 2026-08-12
 ---
 # 코드 맵
@@ -100,7 +100,7 @@ request/outbox transport를 사용하며 model pointer 변경은 기존 governan
 
 | 서비스 | 패키지 responsibility | 패키지 지도 |
 |---------|------------------------|-------------|
-| Operator 서비스 | 인증된 경로 계열, 영속 의미 브리지, 프로세스 소유 브리지 상태 및 범위가 제한된 실시간 단계 SSE 전달을 포함하는 Managed Identity Kafka 전송 계층 | [families](../../../services/operator-service/src/fdai_operator_service/families/), [어댑터](../../../services/operator-service/src/fdai_operator_service/adapters/), [streaming](../../../services/operator-service/src/fdai_operator_service/streaming/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
+| Operator 서비스 | 인증된 경로 계열, 영속 의미 브리지, 프로세스 소유 브리지 상태 및 범위가 제한된 실시간 단계 SSE 전달을 포함하는 순서가 정해진 Managed Identity Kafka 수명 주기 | [families](../../../services/operator-service/src/fdai_operator_service/families/), [어댑터](../../../services/operator-service/src/fdai_operator_service/adapters/), [streaming](../../../services/operator-service/src/fdai_operator_service/streaming/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
 | 문서 인제스트 API | 업로드 intake, API 소유 전이 및 서비스 어댑터 | [패키지](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | 문서 처리 워커 | 영속 문서 처리와 워커 소유 어댑터 | [패키지](../../../services/document-processing-worker/src/fdai_document_worker_service/) |
 | Isolated 실행기 | Thor 소유 명령 처리, 프로바이더 효과, 증적 및 실행기 어댑터 | [패키지](../../../services/isolated-executor/src/fdai_executor_service/) |
