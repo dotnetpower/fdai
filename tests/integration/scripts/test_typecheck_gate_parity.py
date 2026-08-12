@@ -27,6 +27,20 @@ def test_strict_mypy_runs_in_ci_fast_verify_and_central_queue() -> None:
     assert '"scripts/**" = ["N999", "S603", "S607"]' in pyproject
 
 
+def test_ruff_uses_the_same_monorepo_roots_in_ci_and_local_gates() -> None:
+    ci = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    makefile = (_ROOT / "Makefile").read_text(encoding="utf-8")
+    verify = (_ROOT / "scripts" / "verify.sh").read_text(encoding="utf-8")
+    roots = "services packages tests extensions/code-assurance"
+
+    for command in (f"ruff format --check {roots}", f"ruff check {roots}"):
+        assert command in ci
+        assert command in makefile
+        assert command in verify
+    assert "ruff format --check src tests" not in ci
+    assert "ruff check src tests" not in ci
+
+
 def test_pre_push_ruff_uses_locked_development_dependencies() -> None:
     pre_push = (_ROOT / ".githooks" / "pre-push").read_text(encoding="utf-8")
 

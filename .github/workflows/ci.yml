@@ -59,10 +59,10 @@ jobs:
         run: uv sync --extra dev --extra azure-mcp --frozen
 
       - name: ruff format --check
-        run: uv run ruff format --check src tests extensions/code-assurance
+        run: uv run ruff format --check services packages tests extensions/code-assurance
 
       - name: ruff check
-        run: uv run ruff check src tests extensions/code-assurance
+        run: uv run ruff check services packages tests extensions/code-assurance
 
       - name: mypy --strict
         run: uv run mypy
