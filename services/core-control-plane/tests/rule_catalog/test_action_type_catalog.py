@@ -579,6 +579,7 @@ _DOC_OPS_ACTION_TYPES: frozenset[str] = frozenset(
 _DOC_GOVERNANCE_ACTION_TYPES: frozenset[str] = frozenset(
     {
         "governance.promote-action-type",
+        "governance.promote-effect-model",
         "governance.retire-rule",
         "governance.grant-exemption",
         "governance.override-ceiling",
@@ -626,7 +627,7 @@ def test_no_extra_governance_action_type_undocumented() -> None:
 
 
 def test_governance_action_execution_paths_match_authority_contract() -> None:
-    """Governance is PR-native except the exact HIL-only runtime promotion."""
+    """Governance is PR-native except exact HIL-only pointer promotions."""
 
     from fdai.shared.contracts.models import ExecutionPath
 
@@ -636,7 +637,7 @@ def test_governance_action_execution_paths_match_authority_contract() -> None:
             continue
         expected = (
             ExecutionPath.DIRECT_API
-            if action.name == "governance.promote-action-type"
+            if action.name in {"governance.promote-action-type", "governance.promote-effect-model"}
             else ExecutionPath.PR_NATIVE
         )
         assert action.execution_path is expected

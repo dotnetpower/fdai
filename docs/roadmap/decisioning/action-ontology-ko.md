@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: b8d743a9ba98e6404d02d37dfb17833e57e0bb9f
-translation_revised: 2026-08-11
+translation_source_sha: 462aaf3c821f34f795c8917cf5b476b5396a099d
+translation_revised: 2026-08-12
 ---
 
 # 액션 온톨로지
@@ -357,10 +357,9 @@ landing 해야 하는 compliance-heavy 환경에서 `pr_manual` 을 강제 MAY.
 
 ### 3.3 `governance.*`
 
-온톨로지 / 카탈로그 / 예외 / 승격 변경. 네 항목 가 오늘의
-온톨로지에 authored; **오직 하나만 현재 실제 운영 디스패처 를 가짐**
-(나머지 셋은 P2 에서 land 될 PR-native 쓰기 담당 대기 중인
-catalog-as-code 산출물):
+온톨로지 / 카탈로그 / 예외 / 승격 변경. 현재 온톨로지에 5개 항목이 있으며
+**3개는 실제 운영 dispatcher를 보유합니다**. 나머지 2개는 PR-native writer를 기다리는
+catalog-as-code 산출물입니다.
 
 - `governance.promote-action-type` - 하나의 ActionType에 대한 exact 영속
   operational-promotion 증적을 런타임 모드 레지스트리에 적용합니다. 카탈로그의 ActionType은
@@ -368,6 +367,10 @@ catalog-as-code 산출물):
   근거 다이제스트 및 Owner HIL로 제한됩니다.
   **디스패처 shipped:** Thor 뒤의 `OperationalPromotionDirectApiExecutor`. Shadow는 변경
   없이 검증하며 HIL-only 권한 초기화만 강제 적용 모드를 제공합니다.
+- `governance.promote-effect-model` - 하나의 exact reviewed `GraphEffectModel` 승격 또는
+  rollback receipt를 적용해 active pointer만 원자적으로 변경합니다. Owner HIL, exact receipt와
+  slot digest, fresh graph, idempotency, audit 및 scripted rollback을 모두 요구합니다.
+  **디스패처 shipped:** Thor 뒤의 assurance-twin graph model promotion provider입니다.
 - `governance.retire-rule` - 강제 적용 집합에서 룰 제거 (shadow-only 또는
   full retire).
   **디스패처: not yet implemented (P2 적체).**
@@ -382,10 +385,10 @@ catalog-as-code 산출물):
   [`services/core-control-plane/src/fdai/core/risk_gate/override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py).
 
 거버넌스 액션은 catalog-as-code 변경이므로 `execution_path: pr_native`를 사용하고 검토된
-차이로 landing해야 합니다. 닫힌 예외는 하나뿐입니다. `governance.promote-action-type`은 Owner
-HIL과 exact-receipt 검증 이후 영속 런타임 모드 레지스트리만 변경하기 위해
-`direct_api`를 사용하며 카탈로그 데이터나 managed 기반은 변경하지 않습니다. 다른 거버넌스
-액션은 이 예외를 사용할 수 없습니다.
+차이로 landing해야 하며 닫힌 예외는 2개입니다. `governance.promote-action-type`은 영속 런타임
+모드 레지스트리만 변경하고 `governance.promote-effect-model`은 reviewed graph-model active
+pointer만 변경합니다. 둘 다 Owner HIL과 exact-receipt 검증 이후에만 `direct_api`를 사용하며
+카탈로그 데이터나 managed 기반을 변경하지 않습니다. 다른 거버넌스 액션은 이 예외를 사용할 수 없습니다.
 
 ### 3.4 `tool.*`
 
