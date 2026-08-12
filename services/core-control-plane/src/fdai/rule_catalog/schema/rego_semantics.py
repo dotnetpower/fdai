@@ -10,6 +10,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from fdai.rule_catalog.schema.bounded_process import (
+    ProcessOutputLimitError,
+    run_bounded_process,
+)
+
 _MAX_POLICY_BYTES = 1_000_000
 _MAX_AST_BYTES = 8_000_000
 
@@ -44,17 +49,16 @@ def load_rego_semantics(
     if not body or len(body) > _MAX_POLICY_BYTES:
         raise RegoSemanticsError("Rego policy size MUST be within 1..1000000 bytes")
     try:
-        completed = subprocess.run(  # noqa: S603 - argv only; no shell or policy execution
+        completed = run_bounded_process(
             [opa_binary, "parse", "--format=json", str(path)],
-            check=False,
-            capture_output=True,
-            timeout=timeout_seconds,
+            timeout_seconds=timeout_seconds,
+            max_stdout_bytes=_MAX_AST_BYTES,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except (OSError, ProcessOutputLimitError, subprocess.TimeoutExpired) as exc:
         raise RegoSemanticsError(f"OPA parse unavailable: {type(exc).__name__}") from exc
     if completed.returncode != 0:
         raise RegoSemanticsError("OPA rejected the authored Rego policy")
-    if not completed.stdout or len(completed.stdout) > _MAX_AST_BYTES:
+    if not completed.stdout:
         raise RegoSemanticsError("OPA AST size MUST be within 1..8000000 bytes")
     try:
         ast = json.loads(completed.stdout)

@@ -48,6 +48,11 @@ def _receipt_mapping() -> dict[str, object]:
             "version": "1.0.0",
             "content_digest": _DIGEST_C,
         },
+        "evaluator": {
+            "name": "opa",
+            "version": "0.68.0",
+            "content_digest": _DIGEST_C,
+        },
         "result": "validated",
         "claims": {
             "same_objective": True,
