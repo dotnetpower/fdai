@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, TypeVar
@@ -273,8 +274,29 @@ def _validated_content(  # noqa: UP047 - pinned mypy does not parse PEP 695 func
     content = message.get("content") if isinstance(message, Mapping) else None
     if not isinstance(content, str) or not content or len(content.encode()) > _MAX_RESPONSE_BYTES:
         raise ValueError("semantic planning response content is unavailable or oversized")
-    proposal = proposal_type.model_validate_json(content)
+    payload = json.loads(content)
+    if proposal_type is SemanticFrameProposal and isinstance(payload, dict):
+        payload = _normalize_frame_tokens(payload)
+    proposal = proposal_type.model_validate(payload)
     return proposal.model_dump(mode="json")
+
+
+def _normalize_frame_tokens(payload: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(payload)
+    output_shape = normalized.get("output_shape")
+    if isinstance(output_shape, str):
+        normalized["output_shape"] = _machine_token(output_shape)
+    evidence_requirements = normalized.get("evidence_requirements")
+    if isinstance(evidence_requirements, list):
+        normalized["evidence_requirements"] = [
+            _machine_token(item) if isinstance(item, str) else item
+            for item in evidence_requirements
+        ]
+    return normalized
+
+
+def _machine_token(value: str) -> str:
+    return re.sub(r"[^a-z0-9_.-]+", "_", value.strip().casefold()).strip("_")
 
 
 __all__ = [

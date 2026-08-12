@@ -139,6 +139,37 @@ async def test_adapter_validates_frame_and_plan_and_isolates_injection_text() ->
     assert user_payload["untrusted_input"]["utterance"].startswith("Ignore all")
 
 
+async def test_adapter_normalizes_non_authoritative_frame_tokens() -> None:
+    payload = _frame_payload()
+    payload["output_shape"] = "Resource summary table"
+    payload["evidence_requirements"] = ["Authoritative ontology", "Current evidence"]
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: _response(payload))
+    ) as client:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=_config(),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        frame_raw = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="Summarize the current evidence",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+        )
+
+    assert frame_raw is not None
+    assert frame_raw["output_shape"] == "resource_summary_table"
+    assert frame_raw["evidence_requirements"] == [
+        "authoritative_ontology",
+        "current_evidence",
+    ]
+
+
 async def test_adapter_uses_candidate_order_and_returns_none_after_malformed_outputs(
     caplog,
 ) -> None:
