@@ -39,6 +39,7 @@ class CatalogQueryManifestProvider:
         interfaces: Sequence[OntologyInterfaceType] = (),
         action_types: Sequence[OntologyActionType] = (),
         functions: Sequence[OntologyFunctionType] = (),
+        bound_function_names: Sequence[str] | None = None,
     ) -> None:
         self._release = release
         self._object_types = tuple(object_types)
@@ -46,6 +47,9 @@ class CatalogQueryManifestProvider:
         self._interfaces = tuple(interfaces)
         self._action_types = tuple(action_types)
         self._functions = tuple(functions)
+        self._bound_function_names = (
+            None if bound_function_names is None else tuple(bound_function_names)
+        )
 
     def manifest_for(self, *, principal: Principal, purpose: str) -> QueryManifest:
         """Return only declarations readable by the verified role and purpose."""
@@ -71,6 +75,7 @@ class CatalogQueryManifestProvider:
             interfaces=self._interfaces,
             action_types=self._action_types,
             functions=self._functions,
+            bound_function_names=self._bound_function_names,
         )
 
 

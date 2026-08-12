@@ -179,6 +179,69 @@ def test_manifest_filters_functions_by_role_and_purpose() -> None:
     assert owner.descriptors[0]["name"] == "query.resources"
 
 
+def test_manifest_accounts_for_unbound_readable_function_as_unavailable() -> None:
+    function = _function()
+    release = build_ontology_release(function_types=(function,))
+
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=SCOPE_DIGEST,
+        functions=(function,),
+        bound_function_names=(),
+    )
+
+    assert manifest.descriptors == ()
+    assert manifest.unavailable == (
+        {
+            "declaration_id": "function:query.resources",
+            "reason": "runtime_binding_unavailable",
+        },
+    )
+    assert manifest.coverage_receipt.readable_declaration_count == 1
+    assert manifest.coverage_receipt.descriptor_count == 0
+    assert manifest.coverage_receipt.unavailable_declaration_ids == ("function:query.resources",)
+    assert manifest.coverage_receipt.complete is True
+
+
+def test_manifest_exposes_bound_readable_function() -> None:
+    function = _function()
+    release = build_ontology_release(function_types=(function,))
+
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=SCOPE_DIGEST,
+        functions=(function,),
+        bound_function_names=(function.name,),
+    )
+
+    assert tuple(item["name"] for item in manifest.descriptors) == (function.name,)
+    assert manifest.descriptors[0]["execution_authority"] is False
+    assert manifest.unavailable == ()
+    assert manifest.coverage_receipt.complete is True
+
+
+def test_manifest_rejects_unknown_bound_function_name() -> None:
+    function = _function()
+    release = build_ontology_release(function_types=(function,))
+
+    with pytest.raises(
+        ValueError,
+        match="bound query functions are absent from declarations: query.unknown",
+    ):
+        build_query_manifest(
+            release=release,
+            principal_role=CeilingRole.READER,
+            purposes=("operations-review",),
+            principal_scope_digest=SCOPE_DIGEST,
+            functions=(function,),
+            bound_function_names=("query.unknown",),
+        )
+
+
 def test_manifest_filters_interface_properties_by_role() -> None:
     interface = _secured_interface()
     release = build_ontology_release(interface_types=(interface,))

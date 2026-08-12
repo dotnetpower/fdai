@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 01d4d7ff931bb48620e3fa20d0698d08aaf25645
+translation_source_sha: f11cb72dc1443a1f7df0eb2c3201734550a7de8b
 translation_revised: 2026-08-13
 ---
 # 코드 맵
@@ -31,12 +31,14 @@ translation_revised: 2026-08-13
 |------|------|------|------|
 | Service-owned 출처 및 테스트 지도 | 진행 중 | 이 지도, `tests/integration/` 및 위에 명시한 범위가 제한된 IS-08과 IS-07 근거 | 로컬 소유권과 롤백 근거는 매핑되었으며 IS-09 원격 검증은 남아 있습니다. |
 | Exact-generation Rule 검색 | 구현됨 | `core/ontology_platform/catalog_queries.py`, `test_catalog_queries.py`, `make test-changed DIFF=e4d9483a5^..e4d9483a5` (`10574 passed`) | 결과는 후보 전용이며 활성 Rule 세대를 exact 온톨로지 release에 연결하고 판단, 승인 또는 실행 권한을 포함하지 않습니다. |
+| 런타임 바인딩 기반 플래너 가시성 | 구현됨 | `composition/wire_semantic_query.py`, `core/conversation/semantic_manifest.py`, `core/ontology_platform/query_manifest.py`, focused 조립 및 매니페스트 테스트 | 플래너 서술자는 조립된 런타임에 등록된 함수만 노출합니다. 읽을 수 있지만 바인딩되지 않은 선언은 타입이 지정된 구조 coverage에 남으며 어떤 권한도 얻지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 exact-generation Rule 검색을 기록했습니다. | 현재 변경의 `catalog_queries.py`, `operational_functions.py`, `test_catalog_queries.py`, 통과한 focused 테스트 및 diff-scoped 검증 | 아래 IS-09 원격 검증 항목을 완료합니다. |
+| 2026-08-13 | 구현됨 | 플래너 함수 가시성을 실제 런타임 등록에 연결하고 바인딩되지 않은 읽기 가능 선언을 타입이 지정된 구조 coverage에 유지했습니다. | 현재 변경의 `wire_semantic_query.py`, `semantic_manifest.py`, `query_manifest.py` 및 해당 focused 테스트 | 영속 production 의미 인덱스는 이 변경 범위 밖에 있으며 아래 IS-09 원격 검증 항목을 완료합니다. |
 
 ### 남은 작업
 
@@ -90,8 +92,11 @@ Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 
 저장합니다.
 공개 조립 파사드는 선택적 resource-state composer만 내보냅니다. 구현 타입은 focused binder에
 유지해 파사드가 structural 상한 아래에 머물도록 합니다.
-플래너 매니페스트는 ObjectType 및 Interface 속성에 동일한 역할/용도 filtering을 적용합니다. 의도
-근거는 최종 사유를 보존하면서 범위가 제한된 evidence-reference 잘림도 공개합니다.
+플래너 매니페스트는 ObjectType 및 Interface 속성에 동일한 역할/용도 filtering을 적용합니다.
+함수 서술자는 조립된 런타임에 handler가 등록된 선언에만 발행됩니다. 읽을 수 있지만 바인딩되지
+않은 함수 선언은 `runtime_binding_unavailable`로 구조 coverage에 남으며, 이 accounting은 판단,
+승인, 변경, 승격 또는 실행 권한을 부여하지 않습니다. 의도 근거는 최종 사유를 보존하면서 범위가
+제한된 evidence-reference 잘림도 공개합니다.
 검증기는 I/O 전에 declared DAG 노드를 가리키지 않는 출력을 거부합니다. Answered 턴은 범위가 제한된
 검증된 조회 표만 렌더링하며 transient 변환 결과 게시는 dead-letter 전에 같은 영속
 멱등적 결과를 재시도합니다.

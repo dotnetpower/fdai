@@ -15,18 +15,17 @@ evaluation gates, and failed-query feedback loop.
 > **Safety boundary:** Rule discovery and policy evaluation are separate operations. OPA evaluates
 > only an exact active Rule against schema-valid, current evidence through the existing T0 path.
 >
-> **Implementation status (2026-08-07):** FDAI ships deterministic Rego and expression manifests,
+> **Implementation status (2026-08-13):** FDAI ships deterministic Rego and expression manifests,
 > strict promoted-surface loading, held-out cohort evaluation, privacy-safe challenger feedback,
-> atomic in-memory and PostgreSQL generations with retained-generation rollback receipts, the
-> read-only `catalog.search_rules` function,
+> atomic in-memory generations, the read-only `catalog.search_rules` function,
 > concept-first bounded retrieval, lexical degradation, and a durable StateStore challenger store.
-> Generation publishing runs off the Operator API startup path. The PostgreSQL generation adapter
-> has focused contract coverage; its live-database test requires `FDAI_DATABASE_URL`.
-> The one-shot `fdai-catalog-generation` process publishes a validated generation from a scheduled
-> job or deployment step and fails closed when its PostgreSQL or embedding binding is unavailable.
-> Production binds `catalog.search_rules` to the complete ontology release and exposes it through
-> Reader-gated `POST /rules/search`. The response carries both retrieval and function-invocation
-> receipts and always retains `execution_authority: false`.
+> Direct semantic-runtime composition binds the function only when a caller supplies both a
+> provider-neutral semantic index and its exact catalog digest. Without that pair, the principal
+> manifest records `catalog.search_rules` as `runtime_binding_unavailable` and does not advertise it
+> to the planner. The repository does not yet contain a durable production `CatalogSemanticIndex`
+> adapter or a production bootstrap binding. Reader-gated `POST /rules/search` reads an Operator
+> Service projection; it does not directly invoke the Core function. Retrieval and function
+> receipts retain `execution_authority: false` wherever the Core capability is bound.
 > Reproduced retrieval-owned failures flow through Huginn ingress, Heimdall validation, Saga audit,
 > and Muninn context materialization. Norns then persists an inert challenger with shadow audit
 > before ordinary consensus and Mimir intake.
@@ -34,6 +33,37 @@ evaluation gates, and failed-query feedback loop.
 > digest in addition to the source digest. The T0 evaluator uses the same identities and emits
 > input- and result-bound evaluation receipts for allow and deny outcomes. Retrieval still cannot
 > claim a verdict without that evaluation receipt.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Exact-generation Rule query | implemented | `core/ontology_platform/catalog_queries.py`; `tests/core/ontology_platform/test_catalog_queries.py` | Returns candidate-only results and content-addressed retrieval and invocation receipts with no execution authority. |
+| Optional semantic-runtime binding | implemented | `composition/wire_semantic_query.py`; `tests/composition/test_wire_semantic_query.py` | Requires the semantic index and exact catalog digest together. |
+| Planner availability accounting | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | A readable but unbound function remains in structural coverage as `runtime_binding_unavailable` and is hidden from planning. |
+| In-memory generation and validation | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py` | Supports deterministic off-path generation tests, but is not a durable production adapter. |
+| Durable production index and bootstrap binding | not-started | `shared/providers/catalog_search.py`; `runtime/bootstrap.py` | The provider contract exists, but no durable `CatalogSemanticIndex` implementation is composed into production. |
+| Operator Rule-search projection | implemented | Operator Service workflow manifest, routes, and PostgreSQL workflow adapter | `POST /rules/search` reads a revisioned materialized projection and grants no policy, approval, mutation, or execution authority. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger and corrected the unsupported production-binding claim. Added optional exact-digest composition and typed planner unavailability for unbound Rule search. Earlier provenance was not reconstructed. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/pytest -q services/core-control-plane/tests/composition/test_wire_semantic_query.py services/core-control-plane/tests/core/ontology_platform/test_query_manifest.py` passes 19 focused tests. | Add a durable production index, production bootstrap binding, Core-to-Operator projection publication, and live receipts. |
+
+### Remaining work
+
+- [ ] Implement and compose a durable production `CatalogSemanticIndex`; exit when focused
+  live-database generation, activation, rollback, and exact-generation search checks pass as
+  specified by [Build and enrichment lifecycle](#build-and-enrichment-lifecycle).
+- [ ] Publish Core retrieval and function-invocation receipts into the Operator projection; exit
+  when `POST /rules/search` returns the exact receipt-backed projection without direct Core calls,
+  preserving the [query lifecycle](#query-lifecycle).
+- [ ] Record governed live evidence for the production binding and Reader-scoped projection before
+  changing this capability from `implemented` to `validated`; retain the identities defined by
+  [CatalogRetrievalReceipt](#catalogretrievalreceipt).
 
 ## Design at a glance
 
@@ -278,8 +308,9 @@ Operator-facing degradation uses stable machine reasons such as `generation-unav
 `generation-stale`, and `provider-unavailable`. Provider messages and Python exception names never
 cross the API boundary. When an active generation was observed before failure, the degraded
 response retains its generation, catalog, semantic schema, ontology release, and corpus identity.
-Catalog-reference `GET /rules` degrades to lexical results. Typed `POST /rules/search` returns a
-generic `503` when its exact function registry or provider is unavailable.
+Catalog-reference `GET /rules` degrades to lexical results. Typed `POST /rules/search` reads the
+revisioned Operator projection and returns an unavailable response when that projection is absent;
+the route does not call the Core function registry or semantic provider directly.
 
 ## Delivery sequence
 

@@ -1,7 +1,7 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 47fb6f2eeaa5235ccc73c59e6836009c072b6bf0
-translation_revised: 2026-08-12
+translation_source_sha: 8b9bb1805829df18b7b4ac8ae90d7735c0c9760e
+translation_revised: 2026-08-13
 ---
 # Rule 의미 검색
 
@@ -16,19 +16,18 @@ translation_revised: 2026-08-12
 > **안전 경계:** Rule 발견과 정책 평가는 별개의 작업입니다. OPA는 기존 T0 경로를 통해
 > 스키마에 맞고 현재 상태인 근거를 사용하는 정확한 활성 Rule만 평가합니다.
 >
-> **구현 상태 (2026-08-07):** FDAI는 결정론적 Rego 및 표현식 매니페스트, strict promoted
+> **구현 상태 (2026-08-13):** FDAI는 결정론적 Rego 및 표현식 매니페스트, strict promoted
 > 표면 로딩, held-out 집단 evaluation, privacy-safe challenger feedback, retained-generation
-> 롤백 증적을 포함한 atomic in-memory 및 PostgreSQL 세대, 읽기 전용
+> 롤백 증적을 포함한 atomic in-memory 세대, 읽기 전용
 > `catalog.search_rules` 함수, concept-first 범위가 제한된
 > 수집, lexical 성능 저하 및 영속 StateStore challenger 저장소를 제공합니다.
-> 세대 발행은 Operator API 시작 경로 밖에서 실행됩니다. PostgreSQL 세대
-> 어댑터에는 focused 계약 커버리지가 있으며 실제 운영 데이터베이스 테스트에는 `FDAI_DATABASE_URL`이
-> 필요합니다.
-> One-shot `fdai-catalog-generation` 프로세스는 scheduled 작업 또는 배포 단계에서 검증된
-> 세대를 publish하며 PostgreSQL 또는 임베딩 연결을 사용할 수 없으면 실패 시 차단합니다.
-> 운영은 `catalog.search_rules`를 완전한 온톨로지 release에 연결하고 Reader-gated
-> `POST /rules/search`를 통해 expose합니다. 응답은 수집 및 함수 호출 증적을
-> 모두 포함하며 항상 `execution_authority: false`를 유지합니다.
+> 직접 의미 런타임 구성은 호출자가 provider-neutral 의미 인덱스와 정확한 카탈로그
+> 다이제스트를 함께 제공할 때만 함수를 바인딩합니다. 이 쌍이 없으면 principal 매니페스트는
+> `catalog.search_rules`를 `runtime_binding_unavailable`로 기록하고 planner에 노출하지
+> 않습니다. 저장소에는 아직 영속 운영 `CatalogSemanticIndex` 어댑터나 운영 bootstrap
+> 바인딩이 없습니다. Reader-gated `POST /rules/search`는 Operator Service 변환 결과를 읽으며
+> Core 함수를 직접 호출하지 않습니다. Core 기능이 연결된 곳에서 검색 및 함수 증적은
+> `execution_authority: false`를 유지합니다.
 > 재현된 retrieval-owned 실패는 Huginn 유입, Heimdall 검증, Saga 감사 및 Muninn 맥락
 > 구체화를 거칩니다. Norns는 일반 합의 및 Mimir intake 전에 shadow 감사와 함께 inert
 > challenger를 저장합니다.
@@ -36,6 +35,37 @@ translation_revised: 2026-08-12
 > 정규화된 OPA AST 다이제스트를 포함합니다. T0 평가기는 같은 식별자를 사용하고 allow 및 deny
 > 결과에 입력과 결과가 연결된 평가 증적을 생성합니다. 검색은 해당 평가 증적 없이는 여전히
 > 판정을 주장할 수 없습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 정확한 세대 Rule 질의 | implemented | `core/ontology_platform/catalog_queries.py`; `tests/core/ontology_platform/test_catalog_queries.py` | 실행 권한 없이 후보 전용 결과와 내용 기반 주소를 가진 검색 및 호출 증적을 반환합니다. |
+| 선택적 의미 런타임 바인딩 | implemented | `composition/wire_semantic_query.py`; `tests/composition/test_wire_semantic_query.py` | 의미 인덱스와 정확한 카탈로그 다이제스트를 함께 요구합니다. |
+| Planner 가용성 계상 | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | 읽을 수 있지만 바인딩되지 않은 함수는 구조 커버리지에 `runtime_binding_unavailable`로 남고 planning에서는 숨겨집니다. |
+| In-memory 세대 및 검증 | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py` | 결정론적 off-path 세대 테스트를 지원하지만 영속 운영 어댑터는 아닙니다. |
+| 영속 운영 인덱스 및 bootstrap 연결 | not-started | `shared/providers/catalog_search.py`; `runtime/bootstrap.py` | 프로바이더 계약은 있지만 운영에 구성된 영속 `CatalogSemanticIndex` 구현은 없습니다. |
+| Operator Rule 검색 변환 결과 | implemented | Operator Service workflow 매니페스트, 경로 및 PostgreSQL workflow 어댑터 | `POST /rules/search`는 개정 번호가 있는 구체화된 변환 결과를 읽으며 정책, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 구현 ledger를 도입하고 근거 없는 운영 바인딩 주장을 수정했습니다. 선택적 정확한 다이제스트 구성과 바인딩되지 않은 Rule 검색의 타입이 지정된 planner unavailable 처리를 추가했습니다. 이전 이력은 재구성하지 않았습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/pytest -q services/core-control-plane/tests/composition/test_wire_semantic_query.py services/core-control-plane/tests/core/ontology_platform/test_query_manifest.py`에서 focused 테스트 19개가 통과했습니다. | 영속 운영 인덱스, 운영 bootstrap 바인딩, Core-to-Operator 변환 결과 발행 및 실제 증적을 추가합니다. |
+
+### 남은 작업
+
+- [ ] 영속 운영 `CatalogSemanticIndex`를 구현하고 구성합니다. Focused 실제 데이터베이스
+  세대, activation, rollback 및 정확한 세대 검색 검사가 [빌드 및 의미 확장 수명
+  주기](#빌드-및-의미-확장-수명-주기)에 따라 통과하면 완료합니다.
+- [ ] Core 검색 및 함수 호출 증적을 Operator 변환 결과로 발행합니다. `POST /rules/search`가
+  직접 Core 호출 없이 정확한 증적 기반 변환 결과를 반환하고 [질의 수명
+  주기](#질의-수명-주기)를 보존하면 완료합니다.
+- [ ] 이 기능의 상태를 `implemented`에서 `validated`로 변경하기 전에 운영 바인딩 및
+  Reader 범위 변환 결과의 통제된 실제 근거를 기록하고
+  [CatalogRetrievalReceipt](#catalogretrievalreceipt)에 정의된 신원을 보존합니다.
 
 ## 설계 개요
 
@@ -282,8 +312,10 @@ Operator-facing 성능 저하는 `generation-unavailable`, `generation-stale` �
 `provider-unavailable` 같은 고정된 머신 사유를 사용합니다. 프로바이더 메시지와 Python exception
 이름은 API 경계를 통과하지 않습니다. 실패 전에 활성 세대가 관측되었으면 degraded
 응답은 세대, 카탈로그, 의미 스키마, 온톨로지 release 및 말뭉치 신원을 유지합니다.
-카탈로그 참조 `GET /rules`는 lexical 결과로 degrade합니다. 타입이 지정된 `POST /rules/search`는 exact
-함수 레지스트리 또는 프로바이더를 사용할 수 없을 때 범용 `503`을 반환합니다.
+카탈로그 참조 `GET /rules`는 lexical 결과로 degrade합니다. 타입이 지정된
+`POST /rules/search`는 개정 번호가 있는 Operator 변환 결과를 읽고 해당 변환 결과가 없으면
+unavailable 응답을 반환합니다. 이 경로는 Core 함수 레지스트리 또는 의미 프로바이더를
+직접 호출하지 않습니다.
 
 ## 제공 순서
 

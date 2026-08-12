@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
 from fdai.composition import build_semantic_query_runtime, compose_azure_semantic_query_runtime
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import (
@@ -14,8 +15,10 @@ from fdai.core.ontology_platform import (
     ObjectSetDefinition,
     QueryTable,
 )
+from fdai.core.ontology_platform.catalog_queries import CATALOG_SEARCH_RULES_FUNCTION_NAME
 from fdai.core.ontology_platform.network_path import NetworkPathResult, NetworkPathStatus
 from fdai.core.ontology_platform.operational_functions import operational_function_types
+from fdai.delivery.catalog_search import InMemoryCatalogSemanticIndex
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog
 from fdai.rule_catalog.schema.property_semantic import empty_property_semantic_registry
 from fdai.shared.contracts.models import (
@@ -28,6 +31,10 @@ from fdai.shared.contracts.models import (
 )
 from fdai.shared.ontology.acl import REDACTED_PLACEHOLDER
 from fdai.shared.ontology.release import build_ontology_release
+from fdai.shared.providers.catalog_search import (
+    CatalogGenerationMetadata,
+    CatalogSearchDocument,
+)
 from fdai.shared.providers.ontology_instance import OntologyLinkRecord, OntologyObjectRecord
 from fdai.shared.providers.state_evidence import (
     LINK_OBSERVATION_METADATA_PROPERTY,
@@ -39,6 +46,10 @@ from fdai.shared.providers.state_evidence import (
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
 
 NOW = datetime(2026, 8, 11, 12, tzinfo=UTC)
+CATALOG_DIGEST = "sha256:" + ("a" * 64)
+GENERATION_DIGEST = "sha256:" + ("b" * 64)
+SCHEMA_DIGEST = "sha256:" + ("c" * 64)
+VALIDATION_DIGEST = "sha256:" + ("d" * 64)
 
 
 def test_azure_string_mode_reaches_semantic_prerequisite_checks(tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -204,6 +215,197 @@ async def test_runtime_returns_typed_hold_when_model_provider_is_unavailable() -
     assert result.disposition == "held"
     assert result.reason == "semantic_frame_unavailable"
     assert result.execution is None
+
+
+@pytest.mark.parametrize(
+    ("catalog_index", "catalog_digest"),
+    (
+        (InMemoryCatalogSemanticIndex(), None),
+        (None, CATALOG_DIGEST),
+    ),
+)
+def test_runtime_rejects_partial_catalog_search_binding(
+    catalog_index: InMemoryCatalogSemanticIndex | None,
+    catalog_digest: str | None,
+) -> None:
+    object_type = _object_type()
+
+    with pytest.raises(
+        ValueError,
+        match="catalog semantic index and digest MUST be supplied together",
+    ):
+        build_semantic_query_runtime(
+            model=_Model(_definition()),
+            ontology_release=build_ontology_release(
+                object_types=(object_type,),
+                function_types=operational_function_types(()),
+            ),
+            ontology_catalog=_catalog(object_type),
+            ontology_store=InMemoryOntologyInstanceStore(
+                object_types=(object_type,),
+                link_types=(),
+            ),
+            catalog_index=catalog_index,
+            catalog_digest=catalog_digest,
+            now=lambda: NOW,
+        )
+
+
+class _RuleSearchModel(_Model):
+    def propose_plan(self, **_kwargs: Any) -> dict[str, object]:
+        return {
+            "nodes": [
+                {
+                    "node_id": "rule-candidates",
+                    "kind": "function",
+                    "depends_on": [],
+                    "arguments": {
+                        "function_name": CATALOG_SEARCH_RULES_FUNCTION_NAME,
+                        "arguments": {
+                            "query": "open network security group",
+                            "operation": "discover",
+                            "corpus": "active",
+                            "limit": 5,
+                        },
+                        "dependency_arguments": {},
+                    },
+                    "output_kind": "catalog.rule-candidates",
+                }
+            ],
+            "output_node_ids": ["rule-candidates"],
+        }
+
+
+class _ManifestCaptureModel(_Model):
+    def __init__(self, definition: ObjectSetDefinition) -> None:
+        super().__init__(definition)
+        self.function_names: tuple[str, ...] = ()
+
+    def propose_plan(self, **kwargs: Any) -> dict[str, object]:
+        self.function_names = tuple(
+            descriptor["name"]
+            for descriptor in kwargs["descriptors"]
+            if descriptor["kind"] == "function"
+        )
+        return super().propose_plan(**kwargs)
+
+
+async def test_runtime_hides_unbound_catalog_search_from_planner() -> None:
+    object_type = _object_type()
+    model = _ManifestCaptureModel(_definition())
+    runtime = build_semantic_query_runtime(
+        model=model,
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=_catalog(object_type),
+        ontology_store=InMemoryOntologyInstanceStore(
+            object_types=(object_type,),
+            link_types=(),
+        ),
+        now=lambda: NOW,
+    )
+
+    result = await runtime.handle(
+        utterance="Show resources",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert result.disposition == "answered"
+    assert CATALOG_SEARCH_RULES_FUNCTION_NAME not in model.function_names
+
+
+async def test_runtime_exposes_bound_catalog_search_to_planner() -> None:
+    object_type = _object_type()
+    model = _ManifestCaptureModel(_definition())
+    runtime = build_semantic_query_runtime(
+        model=model,
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=_catalog(object_type),
+        ontology_store=InMemoryOntologyInstanceStore(
+            object_types=(object_type,),
+            link_types=(),
+        ),
+        catalog_index=InMemoryCatalogSemanticIndex(),
+        catalog_digest=CATALOG_DIGEST,
+        now=lambda: NOW,
+    )
+
+    result = await runtime.handle(
+        utterance="Show resources",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert result.disposition == "answered"
+    assert CATALOG_SEARCH_RULES_FUNCTION_NAME in model.function_names
+
+
+async def test_runtime_executes_exact_generation_rule_search_without_authority() -> None:
+    object_type = _object_type()
+    functions = operational_function_types(())
+    release = build_ontology_release(
+        object_types=(object_type,),
+        function_types=functions,
+    )
+    index = InMemoryCatalogSemanticIndex()
+    metadata = CatalogGenerationMetadata(
+        generation_id="rules-active-1",
+        generation_digest=GENERATION_DIGEST,
+        corpus="active",
+        catalog_digest=CATALOG_DIGEST,
+        semantic_schema_digest=SCHEMA_DIGEST,
+        ontology_release_digest=release.digest,
+        embedding_space_id="rule-search-v1",
+        embedding_model_version="lexical-only-v1",
+        embedding_dimension=1,
+        validation_receipt_digest=VALIDATION_DIGEST,
+    )
+    await index.stage_generation(
+        metadata,
+        (
+            CatalogSearchDocument(
+                rule_id="network.nsg-open-deny",
+                text="deny an open network security group",
+                neighbor_ids=("network.nsg",),
+            ),
+        ),
+    )
+    await index.activate_generation(
+        metadata.generation_id,
+        expected_generation_digest=metadata.generation_digest,
+        activated_at=NOW,
+    )
+    runtime = build_semantic_query_runtime(
+        model=_RuleSearchModel(_definition()),
+        ontology_release=release,
+        ontology_catalog=_catalog(object_type),
+        ontology_store=InMemoryOntologyInstanceStore(
+            object_types=(object_type,),
+            link_types=(),
+        ),
+        catalog_index=index,
+        catalog_digest=CATALOG_DIGEST,
+        now=lambda: NOW,
+    )
+
+    result = await runtime.handle(
+        utterance="Find the network security group rule.",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert result.disposition == "answered"
+    assert result.execution is not None
+    candidates = result.execution.results["rule-candidates"].value
+    assert candidates["authority"] == "candidate_only"
+    assert candidates["execution_authority"] is False
+    assert candidates["candidates"][0]["rule_ref"] == "network.nsg-open-deny"
 
 
 class _NetworkModel(_Model):
