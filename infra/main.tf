@@ -165,13 +165,75 @@ resource "azurerm_consumption_budget_resource_group" "monthly" {
 # public path never creates a VNet (see variables.tf).
 # -----------------------------------------------------------------------
 module "network" {
-  count                   = var.enable_private_networking ? 1 : 0
-  source                  = "./modules/network"
-  name                    = "vnet-${var.workload}${local.full_suffix}"
-  location                = var.region
-  resource_group_name     = module.resource_group.name
-  enable_functions_subnet = var.enable_dev_operations_gateway
-  tags                    = local.tags
+  count                         = var.enable_private_networking ? 1 : 0
+  source                        = "./modules/network"
+  name                          = "vnet-${var.workload}${local.full_suffix}"
+  location                      = var.region
+  resource_group_name           = module.resource_group.name
+  enable_functions_subnet       = var.enable_dev_operations_gateway
+  enable_evidence_target_subnet = var.enable_ohl_scale_out_evidence_target
+  tags                          = local.tags
+}
+
+resource "azurerm_linux_virtual_machine_scale_set" "ohl_evidence" {
+  count               = var.enable_ohl_scale_out_evidence_target ? 1 : 0
+  name                = "vmss-${var.workload}-ohl${local.full_suffix}"
+  location            = var.region
+  resource_group_name = module.resource_group.name
+  sku                 = "Standard_B1s"
+  instances           = 1
+  admin_username      = "fdaiadmin"
+  upgrade_mode        = "Manual"
+  overprovision       = false
+
+  disable_password_authentication = true
+  secure_boot_enabled             = true
+  vtpm_enabled                    = true
+
+  admin_ssh_key {
+    username   = "fdaiadmin"
+    public_key = var.ohl_scale_out_evidence_ssh_public_key
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts-gen2"
+    version   = var.ohl_scale_out_evidence_image_version
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  network_interface {
+    name    = "nic-${var.workload}-ohl${local.full_suffix}"
+    primary = true
+
+    ip_configuration {
+      name      = "internal"
+      primary   = true
+      subnet_id = module.network[0].evidence_target_subnet_id
+    }
+  }
+
+  tags = merge(local.tags, {
+    "fdai:component" = "ohl-scale-out-evidence"
+  })
+
+  lifecycle {
+    precondition {
+      condition = (
+        var.env == "dev" &&
+        var.enable_private_networking &&
+        var.enable_dev_operations_gateway &&
+        can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.ohl_scale_out_evidence_image_version)) &&
+        can(regex("^(ssh-ed25519|ssh-rsa) [A-Za-z0-9+/]+={0,3}( .*)?$", trimspace(var.ohl_scale_out_evidence_ssh_public_key)))
+      )
+      error_message = "the OHL scale-out evidence target requires env=dev, private networking, the dev operations gateway, an exact image version, and a valid SSH public key."
+    }
+  }
 }
 
 # -----------------------------------------------------------------------

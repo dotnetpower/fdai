@@ -46,6 +46,16 @@ run "the_gateway_is_absent_by_default" {
     condition     = length(azurerm_function_app_flex_consumption.dev_gateway) == 0
     error_message = "a default plan MUST NOT provision a public development gateway"
   }
+
+  assert {
+    condition     = length(azurerm_linux_virtual_machine_scale_set.ohl_evidence) == 0
+    error_message = "a default plan MUST NOT provision the OHL scale-out evidence target"
+  }
+
+  assert {
+    condition     = length(module.network) == 0
+    error_message = "a default plan MUST NOT provision the evidence target network"
+  }
 }
 
 run "a_day_zero_plan_refuses_the_gateway" {
@@ -84,6 +94,76 @@ run "a_dev_plan_with_private_networking_is_accepted" {
   assert {
     condition     = length(azurerm_function_app_flex_consumption.dev_gateway) == 1
     error_message = "dev with private networking is the supported combination and MUST plan the gateway"
+  }
+}
+
+run "an_evidence_target_without_the_gateway_is_refused" {
+  command = plan
+
+  variables {
+    env                                   = "dev"
+    enable_private_networking             = true
+    enable_ohl_scale_out_evidence_target  = true
+    ohl_scale_out_evidence_image_version  = "22.04.202608060"
+    ohl_scale_out_evidence_ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN+lIc914WryAKmYlkcUeKqix2ViKCDsdEKjIKimTFud"
+  }
+
+  expect_failures = [azurerm_linux_virtual_machine_scale_set.ohl_evidence[0]]
+}
+
+run "a_dev_evidence_target_is_bounded_to_the_app_rg" {
+  command = plan
+
+  variables {
+    env                                   = "dev"
+    enable_private_networking             = true
+    enable_dev_operations_gateway         = true
+    enable_ohl_scale_out_evidence_target  = true
+    ohl_scale_out_evidence_image_version  = "22.04.202608060"
+    ohl_scale_out_evidence_ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN+lIc914WryAKmYlkcUeKqix2ViKCDsdEKjIKimTFud"
+  }
+
+  assert {
+    condition     = length(azurerm_linux_virtual_machine_scale_set.ohl_evidence) == 1
+    error_message = "an explicit dev evidence plan MUST provision exactly one dedicated VMSS"
+  }
+
+  assert {
+    condition     = azurerm_linux_virtual_machine_scale_set.ohl_evidence[0].resource_group_name == module.resource_group.name
+    error_message = "the evidence VMSS MUST stay in the existing application resource group"
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.dev_gateway_executor_vm[0].role_definition_name == "Virtual Machine Contributor"
+    error_message = "the gateway executor MUST reach the evidence VMSS only through its existing app-RG VM role"
+  }
+
+  assert {
+    condition = (
+      azurerm_linux_virtual_machine_scale_set.ohl_evidence[0].instances == 1 &&
+      azurerm_linux_virtual_machine_scale_set.ohl_evidence[0].sku == "Standard_B1s" &&
+      azurerm_linux_virtual_machine_scale_set.ohl_evidence[0].overprovision == false &&
+      azurerm_linux_virtual_machine_scale_set.ohl_evidence[0].source_image_reference[0].version == "22.04.202608060"
+    )
+    error_message = "the evidence VMSS MUST use the bounded one-instance model and an exact image version"
+  }
+
+  assert {
+    condition = (
+      azurerm_linux_virtual_machine_scale_set.ohl_evidence[0].tags["fdai:managed"] == "true" &&
+      azurerm_linux_virtual_machine_scale_set.ohl_evidence[0].tags["fdai:env"] == "dev" &&
+      azurerm_linux_virtual_machine_scale_set.ohl_evidence[0].tags["fdai:component"] == "ohl-scale-out-evidence"
+    )
+    error_message = "the evidence VMSS MUST carry the authoritative ownership, environment, and component tags"
+  }
+
+  assert {
+    condition = (
+      module.network[0].evidence_target_subnet_name == "snet-ohl-evidence" &&
+      module.network[0].evidence_target_subnet_prefix == "10.60.4.32/27" &&
+      length(azurerm_linux_virtual_machine_scale_set.ohl_evidence[0].network_interface[0].ip_configuration[0].public_ip_address) == 0
+    )
+    error_message = "the evidence VMSS MUST use an isolated private subnet without a public IP"
   }
 }
 

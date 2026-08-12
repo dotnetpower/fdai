@@ -25,6 +25,24 @@ variable "enable_dev_operations_gateway" {
   default     = false
 }
 
+variable "enable_ohl_scale_out_evidence_target" {
+  description = "Provision one development-only VMSS dedicated to protected-runner OHL scale-out evidence. Requires the dev operations gateway and private networking."
+  type        = bool
+  default     = false
+}
+
+variable "ohl_scale_out_evidence_ssh_public_key" {
+  description = "Non-secret SSH public key required by Azure for the OHL evidence VMSS model. Supply only when enable_ohl_scale_out_evidence_target is true."
+  type        = string
+  default     = ""
+}
+
+variable "ohl_scale_out_evidence_image_version" {
+  description = "Exact region-available Canonical Jammy Gen2 image version for the OHL evidence VMSS. Supply only when enable_ohl_scale_out_evidence_target is true; mutable 'latest' is not accepted."
+  type        = string
+  default     = ""
+}
+
 variable "dev_operations_gateway_private_probes_json" {
   description = "Server-owned private probe aliases as JSON. Values contain HTTPS url, managed-identity audience, and optional result_contract."
   type        = string

@@ -1,8 +1,8 @@
 ---
 title: OHL Scale-Out 근거 Runbook
 translation_of: ohl-scale-out-evidence.md
-translation_source_sha: c16d0db64175b34d412da4b00458960b76714718
-translation_revised: 2026-08-12
+translation_source_sha: 5eedd42af5a01b0fc9b7eebb2dcb94c6ecd48580
+translation_revised: 2026-08-13
 ---
 # OHL Scale-Out 근거 Runbook
 
@@ -12,8 +12,9 @@ translation_revised: 2026-08-12
 
 > **권한 경계:** 이 runbook은 infrastructure를 프로비전하거나 배포하지 않습니다. 기존
 > non-production VM Scale Set 하나를 최대 인스턴스 1개만큼 변경하고 exact 기준선으로
-> 복원합니다. 기존 승인, dry-run, audit intent, lock, automation hold 경로를 사용할 수 있을
-> 때만 실행하세요.
+> 복원합니다. 이 runbook을 사용하기 전에 protected 배포 작업 흐름을 통해 선택적 대상을
+> 프로비저닝하세요. 기존 승인, dry-run, audit intent, lock, automation hold 경로를 사용할 수
+> 있을 때만 훈련을 실행하세요.
 >
 > **근거 경계:** 아래의 direct Azure CLI 변경은 provider-side staging 근거입니다.
 > `ops.scale-out` executor binding이 기존 typed receipt를 생성하기 전에는 FDAI end-to-end 실행
@@ -32,6 +33,27 @@ Machine 계약은
 [`config/ohl-scale-out-evidence.json`](../../config/ohl-scale-out-evidence.json)입니다. 이 schema는
 residual이 남은 상태에서 `prepared`를 `complete`로 바꾸지 못하게 합니다.
 
+## 대상 및 런타임 프로비저닝
+
+훈련을 시작하기 전에 protected 작업 흐름을 사용하세요.
+
+1. `container-supply-chain`으로 exact source revision을 빌드하고 증명합니다.
+2. 증명된 source revision이 훈련 revision과 같은 이미지를 사용해 `service-deploy`에서
+  `core-control-plane`과 `isolated-executor`를 각각 계획하고 적용합니다.
+3. `deploy_dev_operations_gateway=true`와 `deploy_ohl_scale_out_evidence_target=true`를 사용해
+  `deploy-dev`를 계획하고 적용합니다. Region에서 사용할 수 있는 exact Jammy Gen2 image
+  version은 `OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION`으로, non-secret SSH public key는
+  `OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY` repository variable로 공급합니다.
+4. Exact protected 적용 출력에서 `ohl_scale_out_evidence_target_id`와
+  `ohl_scale_out_evidence_target_name`을 읽습니다. 추적되지 않거나 수동으로 생성한 VM Scale
+  Set으로 대체하지 마세요.
+
+대상은 기본적으로 비활성화됩니다. 활성화하면 Terraform은 애플리케이션 resource group의
+비공개 전용 subnet에 용량 `1`인 Uniform `Standard_B1s` VM Scale Set 하나를 생성합니다. Public
+IP와 autoscale 설정은 없습니다. Image version은 exact 값이며 변경 가능한 `latest`는 허용되지
+않습니다. 기존 gateway reader 및 executor identity는 애플리케이션 resource group 범위를
+유지하므로 배포에서 새로운 cross-resource-group 권한을 부여하지 않습니다.
+
 ## 필요한 runner 구성
 
 protected runner의 secret 또는 환경 구성에서 값을 제공하세요. 해석된 값이나 생성된 evidence
@@ -42,7 +64,7 @@ export FDAI_OHL_EXPECTED_SUBSCRIPTION_ID='<subscription-id>'
 export FDAI_OHL_RESOURCE_GROUP='<resource-group>'
 export FDAI_OHL_VMSS_NAME='<vm-scale-set-name>'
 export FDAI_OHL_TARGET_RESOURCE_ID='<vm-scale-set-resource-id>'
-export FDAI_OHL_NON_PRODUCTION_TAG_VALUE='<approved-non-production-tag-value>'
+export FDAI_OHL_NON_PRODUCTION_TAG_VALUE='<approved-fdai-env-tag-value>'
 export FDAI_OHL_APPROVAL_REF='<approval-receipt-ref>'
 export FDAI_OHL_DRY_RUN_REF='<dry-run-receipt-ref>'
 export FDAI_OHL_STOP_CONDITION_REF='<stop-condition-receipt-ref>'
@@ -58,10 +80,11 @@ export FDAI_STATE_STORE_DSN='<protected-runner-state-store-dsn>'
 
 - resource type은 `Microsoft.Compute/virtualMachineScaleSets`입니다.
 - orchestration mode는 `Uniform`입니다.
-- `environment` tag가 runner가 소유한 non-production 값과 같습니다.
+- `fdai:managed` tag는 `true`이고 `fdai:env` tag는 승인된 non-production 값과 같으며
+  `fdai:component` tag는 `ohl-scale-out-evidence`입니다.
 - drill 전용 대상이며 추가 인스턴스 1개를 위한 capacity가 있습니다.
-- runner identity는 대상 및 Activity Log read, 이 대상만 scale, FDAI state 및 audit store read
-  권한만 가집니다.
+- protected runner는 대상, Activity Log, FDAI state 및 audit store를 읽을 수 있고 gateway reader
+  및 executor identity는 대상의 애플리케이션 resource group 범위에 남습니다.
 - 변경 명령 전에 기존 `ops.scale-out` 승인, dry-run, audit, lock, rollback 및 hold receipt가
   이미 존재합니다.
 
@@ -98,7 +121,9 @@ expected_target_id="/subscriptions/$FDAI_OHL_EXPECTED_SUBSCRIPTION_ID/resourceGr
 mkdir -p .fdai/evidence/ohl-scale-out
 target_json="$(az resource show --ids "$FDAI_OHL_TARGET_RESOURCE_ID" --output json --only-show-errors)"
 [[ "$(jq -r '.type' <<<"$target_json")" == 'Microsoft.Compute/virtualMachineScaleSets' ]]
-[[ "$(jq -r '.tags.environment // empty' <<<"$target_json")" == "$FDAI_OHL_NON_PRODUCTION_TAG_VALUE" ]]
+[[ "$(jq -r '.tags["fdai:managed"] // empty' <<<"$target_json")" == 'true' ]]
+[[ "$(jq -r '.tags["fdai:env"] // empty' <<<"$target_json")" == "$FDAI_OHL_NON_PRODUCTION_TAG_VALUE" ]]
+[[ "$(jq -r '.tags["fdai:component"] // empty' <<<"$target_json")" == 'ohl-scale-out-evidence' ]]
 
 vmss_json="$(az vmss show --subscription "$FDAI_OHL_EXPECTED_SUBSCRIPTION_ID" --resource-group "$FDAI_OHL_RESOURCE_GROUP" --name "$FDAI_OHL_VMSS_NAME" --output json --only-show-errors)"
 [[ "$(jq -r '.orchestrationMode' <<<"$vmss_json")" == 'Uniform' ]]
