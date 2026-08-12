@@ -78,6 +78,13 @@ repos:
         pass_filenames: false
         files: ^(README(?:-ko)?\.md|docs/.*\.md)$
         exclude: ^docs/internals/
+      - id: check-translation-quality
+        name: check-translation-quality.py
+        entry: python3 scripts/quality/localization/check-translation-quality.py
+        language: system
+        require_serial: true
+        files: ^(README-ko\.md|docs/.*-ko\.md)$
+        exclude: ^docs/internals/
       - id: check-design-doc-impact
         name: check-design-doc-impact.py (staged paths)
         entry: python3 scripts/quality/architecture/check-design-doc-impact.py --cached

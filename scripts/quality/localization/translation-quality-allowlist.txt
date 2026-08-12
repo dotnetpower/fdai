@@ -1,0 +1,5 @@
+# Accepted findings for check-translation-quality.py
+#
+# One entry per line: <path>:<rule>:<detail>
+# The detail must match the reported text exactly. Add an entry only with a
+# reason in the review, so the gate keeps its signal.

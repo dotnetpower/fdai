@@ -10,6 +10,7 @@
 #   - check-punctuation.sh (ASCII typography)
 #   - check-guids.sh (customer-agnostic GUIDs)
 #   - check-translations.sh (foo.md <-> foo-ko.md SHA parity)
+#   - check-translation-quality.py (Korean prose defects the SHA gate cannot see)
 #   - check-catalog-parity.sh (L2 en/ko message catalogs)
 #   - check-stewardship.sh (handover map: 15 agents, maintainer floor, no role fields)
 #   - check-chaos-scenarios.sh (chaos-scenarios catalog + compiled symptom index)
@@ -196,6 +197,7 @@ run_gate "punctuation"  bash scripts/quality/repository/check-punctuation.sh
 run_gate "readable-hangul" python3 scripts/quality/localization/check-readable-hangul.py
 run_gate "guids"        bash scripts/quality/repository/check-guids.sh
 run_gate_scoped "translations" '^(README(-ko)?\.md$|docs/.*\.md$|scripts/quality/localization/check-translations\.sh$)' bash scripts/quality/localization/check-translations.sh
+run_gate_scoped "translation-quality" '^(README-ko\.md$|docs/.*-ko\.md$|scripts/quality/localization/check-translation-quality\.py$)' python3 scripts/quality/localization/check-translation-quality.py
 
 run_gate_scoped "catalog-parity" '^(console|cli|src)/.*messages\.(en|ko)\.json$|^scripts/quality/localization/check-catalog-parity\.sh$' bash scripts/quality/localization/check-catalog-parity.sh
 run_gate_scoped "stewardship" '^(config/agent-stewardship\.yaml$|services/core-control-plane/src/fdai/agents/_framework/pantheon\.py$|scripts/governance/check-stewardship\.sh$)' bash scripts/governance/check-stewardship.sh

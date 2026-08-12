@@ -57,6 +57,11 @@ are English canonical (no required `-ko.md` pair).
   ```
 - Compute the SHA with `git hash-object foo.md`.
 
+The SHA gate proves the pair is **in sync**; it does not judge whether the
+Korean reads as Korean. For what stays English, the shared term standard, and
+the defects bulk substitution introduces, load the
+[translation-quality skill](../translation-quality/SKILL.md).
+
 ### Paired-update rule (MUST)
 
 - **Any edit to `foo.md` MUST update `foo-ko.md` in the same PR**, and
@@ -174,6 +179,10 @@ and cross-fork search - localize the labels around it, not the record itself.
   ranges, malformed text, or normalization behavior.
 - **Punctuation failure**: an em-dash or smart quote snuck in via
   copy-paste. Run `normalize-punctuation.py`.
+- **Translation-quality failure**: the Korean left ordinary vocabulary in
+  English, split a product name, collapsed markdown indentation, translated a
+  fixed domain term such as `shadow`, or spliced an adjective onto a verb
+  ending. See the [translation-quality skill](../translation-quality/SKILL.md).
 
 ## Verify
 
@@ -185,6 +194,7 @@ bash scripts/verify.sh --fast
 
 The `--fast` bundle runs all four gates: `english-only`,
 `punctuation`, `translations`, `catalog-parity` (plus ruff + guids).
+Editing a `-ko.md` file also runs `translation-quality`.
 
 ## Related
 
