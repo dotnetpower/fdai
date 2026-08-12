@@ -659,7 +659,7 @@ resource "azurerm_container_app_job" "migrate" {
   template {
     container {
       name    = "migrate"
-      image   = var.image
+      image   = var.migration_image == "" ? var.image : var.migration_image
       cpu     = 0.5
       memory  = "1Gi"
       command = ["alembic"]

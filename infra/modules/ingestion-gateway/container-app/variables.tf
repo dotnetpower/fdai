@@ -5,6 +5,10 @@ variable "container_app_environment_id" { type = string }
 variable "location" { type = string }
 variable "resource_group_name" { type = string }
 variable "image" { type = string }
+variable "migration_image" {
+  type    = string
+  default = ""
+}
 variable "clamav_image" { type = string }
 variable "identity_id" { type = string }
 variable "identity_client_id" { type = string }

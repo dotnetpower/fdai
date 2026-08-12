@@ -110,6 +110,9 @@ pass `terraform validate` before state migration or a protected plan; a root-onl
 child module drops is a deployment contract failure, not an optional runtime degradation.
 Local runtime preparation carries the same bootstrap, logical names, and physical-topic marker into
 the independent Operator environment; a partial triplet stops before either service starts.
+Operator and document-ingestion migration Jobs each accept a separate digest-pinned migration
+image. Empty values preserve the corresponding service image for compatibility; protected deploys
+bind reviewed migration digests so schema advancement does not depend on runtime image cadence.
 
 The Operator App image and its one-off schema migration image are independently digest-pinned.
 The migration image must contain the database's current Alembic revision set; an unset migration

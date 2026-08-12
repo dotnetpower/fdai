@@ -931,6 +931,17 @@ variable "ingestion_image" {
   default     = ""
 }
 
+variable "ingestion_migration_image" {
+  description = "Optional digest-pinned image for the document-ingestion schema migration job. Empty reuses ingestion_image."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.ingestion_migration_image == "" || can(regex("@sha256:[0-9a-f]{64}$", var.ingestion_migration_image))
+    error_message = "ingestion_migration_image must be empty or an image reference pinned by sha256 digest."
+  }
+}
+
 variable "clamav_image" {
   description = "ClamAV sidecar image. Pin by digest for production."
   type        = string

@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: e1c2b8e7efee600a08239effeec41105cd1c8420
+translation_source_sha: 20b39d556c0e79c18d95ce0ffbb85ba66a0b4291
 translation_revised: 2026-08-12
 ---
 # 배포 리소스 규약
@@ -112,6 +112,9 @@ Azure Event Hub가 되지 않습니다. 상태 이행 또는 보호된 플랜 �
 성능 저하가 아니라 배포 계약 실패입니다.
 로컬 런타임 준비는 동일한 bootstrap, logical 이름 및 physical-topic marker를 독립 Operator 환경에
 전달합니다. 일부만 있는 세 값은 어느 서비스도 시작하기 전에 차단됩니다.
+Operator와 문서 인제스트 migration Job은 각각 별도의 digest-pinned migration image를 받을 수
+있습니다. 빈 값은 호환성을 위해 해당 서비스 image를 유지하며, protected 배포는 검토된 migration
+digest를 bind해 schema 진행이 runtime image 주기에 의존하지 않도록 합니다.
 
 Operator App 이미지와 일회성 schema migration 이미지는 서로 독립적으로 digest pinning됩니다.
 Migration 이미지는 데이터베이스의 현재 Alembic revision 집합을 포함해야 합니다. Migration 이미지가

@@ -82,6 +82,25 @@ def test_operator_migration_image_is_independently_pinned() -> None:
     assert "TF_VAR_operator_api_migration_image" in _LEGACY_WORKFLOW
 
 
+def test_ingestion_migration_image_is_independently_pinned() -> None:
+    variables = (_ROOT / "infra/variables.tf").read_text(encoding="utf-8")
+    root = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
+    module = (_ROOT / "infra/modules/ingestion-gateway/container-app/main.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'variable "ingestion_migration_image"' in variables
+    assert 'regex("@sha256:[0-9a-f]{64}$", var.ingestion_migration_image)' in variables
+    assert "migration_image              = var.ingestion_migration_image" in root
+    worker = module.split('resource "azurerm_container_app" "worker"', 1)[1].split(
+        'resource "azurerm_container_app_job" "migrate"', 1
+    )[0]
+    migration = module.split('resource "azurerm_container_app_job" "migrate"', 1)[1]
+    assert 'image   = var.migration_image == "" ? var.image : var.migration_image' not in worker
+    assert 'image   = var.migration_image == "" ? var.image : var.migration_image' in migration
+    assert "TF_VAR_ingestion_migration_image" in _LEGACY_WORKFLOW
+
+
 def test_legacy_executor_uses_independent_service_distribution() -> None:
     module_match = re.search(
         r'module "isolated_executor" \{(?P<body>.*?)\n\}',

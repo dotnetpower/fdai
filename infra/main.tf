@@ -2152,6 +2152,7 @@ module "ingestion_gateway" {
   location                     = var.region
   resource_group_name          = module.resource_group.name
   image                        = var.ingestion_image == "" ? var.core_image : var.ingestion_image
+  migration_image              = var.ingestion_migration_image
   clamav_image                 = var.clamav_image
   identity_id                  = module.ingestion_identity[0].resource_id
   identity_client_id           = module.ingestion_identity[0].client_id
