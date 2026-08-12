@@ -87,6 +87,17 @@ class IncidentAttentionProjection:
 
 
 @dataclass(frozen=True, slots=True)
+class AgentActivityQuery:
+    """Bound one durable operational activity snapshot request."""
+
+    limit: int
+
+    def __post_init__(self) -> None:
+        if not 1 <= self.limit <= 500:
+            raise ValueError("agent activity limit must be in [1, 500]")
+
+
+@dataclass(frozen=True, slots=True)
 class PageProjection:
     """Opaque-cursor JSON page returned by a service-owned projection adapter."""
 
@@ -182,6 +193,8 @@ class OperatorTokenVerifier(Protocol):
 class OperatorReadModel(Protocol):
     """Read authoritative Operator projections without mutation authority."""
 
+    async def list_agent_activity(self, query: AgentActivityQuery) -> JsonProjection: ...
+
     async def list_audit(self, query: AuditQuery) -> PageProjection: ...
 
     async def dashboard_metrics(self) -> JsonProjection: ...
@@ -201,7 +214,15 @@ class OperatorReadModel(Protocol):
     async def get_rule_fire_trace(self, correlation_id: str) -> JsonProjection | None: ...
 
 
+class AgentActivityReadModel(Protocol):
+    """Read durable operational activity without stream or mutation authority."""
+
+    async def list_agent_activity(self, query: AgentActivityQuery) -> JsonProjection: ...
+
+
 __all__ = [
+    "AgentActivityQuery",
+    "AgentActivityReadModel",
     "AuditQuery",
     "HilQueueProjection",
     "HilQueueQuery",

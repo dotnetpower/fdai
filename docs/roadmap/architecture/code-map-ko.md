@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a7cf8284099ec33ce19e899e75792311f1e017a5
+translation_source_sha: 9b8c72751218a5fdbc9f9d72cf7f4fc6876ab0d9
 translation_revised: 2026-08-12
 ---
 # 코드 맵
@@ -122,6 +122,9 @@ request/outbox transport를 사용하며 model pointer 변경은 기존 governan
 Shared SDK는 Core/Operator 경계에서 사용하는 no-authority ontology-query 기록도 소유합니다.
 의미 problem 프레임, 범위가 제한된 조회 DAG, 의도 그래프, 작업 증적 및 structural 커버리지 증적입니다.
 프로바이더 클라이언트, 온톨로지 저장소, 플래너 모델 또는 실행 핸들러는 포함하지 않습니다.
+또한 Core에서 Operator 화면으로 범위가 제한된 인벤토리 검사, 온톨로지 변환 및 현재 상태 읽기 근거를
+전달하는 버전이 지정된 no-authority 운영 활동 기록을 소유합니다. 이 기록은 논리적 에이전트 소유권과
+생산 프로세스를 분리하고 `execution_authority=false`를 고정합니다.
 
 기존 Operator/Core 묶음의 버전 1.2는 범위가 제한된 semantic-turn 요청 하나와 근거에 묶인 최종
 결과 하나를 추가합니다. 요청은 인증된 역할, 세션 정렬, 용도, 기한 및 멱등성을

@@ -121,6 +121,10 @@ The shared SDK also owns the no-authority ontology-query records used across the
 boundary: semantic problem frames, bounded query DAGs, intent graphs, task receipts, and structural
 coverage receipts. These records contain no provider client, ontology store, planner model, or
 execution handler.
+It also owns the versioned, no-authority operational activity record used to carry bounded inventory
+scan, ontology projection, and current-state read evidence from Core to Operator surfaces. The
+record separates logical agent ownership from the producing process and fixes
+`execution_authority=false`.
 
 Version 1.2 of the existing Operator/Core envelopes adds one bounded semantic-turn request and one
 evidence-bound terminal result. The request pins authenticated roles, session ordering, purpose,

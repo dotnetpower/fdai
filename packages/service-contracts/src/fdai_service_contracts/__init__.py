@@ -146,6 +146,8 @@ from fdai_service_contracts.manifest import (
     validate_manifest,
 )
 from fdai_service_contracts.operator import (
+    AgentActivityQuery,
+    AgentActivityReadModel,
     AuditQuery,
     HilQueueProjection,
     HilQueueQuery,
@@ -162,6 +164,12 @@ from fdai_service_contracts.operator import (
     OperatorTokenVerifier,
     PageProjection,
     ReadDataSource,
+)
+from fdai_service_contracts.operational_activity import (
+    AgentOperationalActivity,
+    OperationalActivityKind,
+    OperationalActivityStatus,
+    OperationalFreshness,
 )
 from fdai_service_contracts.ontology_query import (
     AnswerEvidenceMode,
@@ -229,6 +237,9 @@ __all__ = [
     "AdapterReadinessState",
     "Action",
     "ActionStopCondition",
+    "AgentActivityQuery",
+    "AgentActivityReadModel",
+    "AgentOperationalActivity",
     "BlastRadius",
     "BlastRadiusScope",
     "CORE_EXECUTOR_RECEIPT_CONSUMER_GROUP",
@@ -314,6 +325,9 @@ __all__ = [
     "MalwareVerdict",
     "Mode",
     "Operation",
+    "OperationalActivityKind",
+    "OperationalActivityStatus",
+    "OperationalFreshness",
     "PackageResourceSchemaRegistry",
     "ProtectionInspection",
     "ProtectionInspector",
