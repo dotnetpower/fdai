@@ -4,12 +4,27 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Protocol
 
 import httpx
 
+from fdai.core.ontology_platform import (
+    EffectReconciliationCoordinator,
+    StateStoreReconciliationLedger,
+)
+from fdai.core.ontology_platform.reconciliation_binding import (
+    RECONCILIATION_OUTBOX_TOPIC,
+    RECONCILIATION_REQUEST_TOPIC,
+    ObservationContextVerifier,
+    ReconciliationArtifactResolver,
+)
+from fdai.delivery.reconciliation_runtime import EffectReconciliationWorker
 from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
+
+RECONCILIATION_TOPICS = frozenset({RECONCILIATION_REQUEST_TOPIC, RECONCILIATION_OUTBOX_TOPIC})
 
 
 class WorkloadIdentityBuilder(Protocol):
@@ -26,6 +41,35 @@ def operational_event_bus(primary: EventBus, auxiliary: EventBus | None) -> Even
     """Select the isolated bus for raw inventory and canary traffic when configured."""
 
     return auxiliary or primary
+
+
+def build_effect_reconciliation_worker(
+    *,
+    state_store: StateStore,
+    event_bus: EventBus,
+    artifact_resolver: ReconciliationArtifactResolver | None,
+    observation_verifier: ObservationContextVerifier | None,
+    environment: Mapping[str, str],
+) -> EffectReconciliationWorker | None:
+    """Build effect reconciliation only when its complete evidence binding is available."""
+    if artifact_resolver is None:
+        return None
+    if observation_verifier is None:
+        raise RuntimeError("effect reconciliation requires an observation verifier")
+    ledger = StateStoreReconciliationLedger(store=state_store)
+    return EffectReconciliationWorker(
+        coordinator=EffectReconciliationCoordinator(ledger=ledger),
+        ledger=ledger,
+        event_bus=event_bus,
+        artifact_resolver=artifact_resolver,
+        observation_verifier=observation_verifier,
+        claimant_id=environment.get("HOSTNAME", "fdai-core"),
+        group_id=environment.get(
+            "FDAI_EFFECT_RECONCILIATION_GROUP_ID",
+            "fdai-effect-reconciliation",
+        ).strip(),
+        clock=lambda: datetime.now(tz=UTC),
+    )
 
 
 def build_runtime_workload_identity(

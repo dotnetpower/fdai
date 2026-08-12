@@ -42,7 +42,6 @@ _COMPOSITION_ROOTS = (
     "services/isolated-executor/src/fdai_executor_service/composition.py",
     "services/core-control-plane/src/fdai/delivery/operator_api/production/factory.py",
     "services/core-control-plane/src/fdai/delivery/operator_api/dev/factory.py",
-    "services/core-control-plane/src/fdai/runtime/bootstrap.py",
 )
 _DEFAULT_ALLOWLIST = "scripts/quality/architecture/.check-operator-api-boundaries.allowlist"
 _DEFAULT_DEBT_BUDGET = "scripts/quality/architecture/.check-operator-api-boundaries.debt"

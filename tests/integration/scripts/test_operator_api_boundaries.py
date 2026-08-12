@@ -271,6 +271,26 @@ def test_justified_fanout_exception_passes(tmp_path: Path) -> None:
     assert f"fanout {relative}: 2 unique fdai imports (reviewed)" in result.stdout
 
 
+def test_each_composition_root_is_measured_once(tmp_path: Path) -> None:
+    relative = "services/core-control-plane/src/fdai/runtime/bootstrap.py"
+    allowlist = "allowlist.txt"
+    _write(
+        tmp_path,
+        relative,
+        "from fdai.core.audit import AuditEntry\nfrom fdai.delivery.auth import Authenticator\n",
+    )
+    _write(
+        tmp_path,
+        allowlist,
+        f"# This fixture is the reviewed composition root.\ncomposition-fanout|{relative}|2\n",
+    )
+
+    result = _run(tmp_path, allowlist=allowlist, fanout_limit=2)
+
+    assert result.returncode == 0, result.stdout
+    assert result.stdout.count(f"fanout {relative}:") == 1
+
+
 def test_fanout_allowlist_requires_justification(tmp_path: Path) -> None:
     allowlist = "allowlist.txt"
     _write(

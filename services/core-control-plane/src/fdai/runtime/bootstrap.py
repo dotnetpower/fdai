@@ -33,14 +33,6 @@ from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.core.impact_analysis import ChangeAssessmentService, ImpactAnalyzer
 from fdai.core.learning import PostTurnProposalModel, RuleHintSubmitter
-from fdai.core.ontology_platform import (
-    EffectReconciliationCoordinator,
-    StateStoreReconciliationLedger,
-)
-from fdai.core.ontology_platform.reconciliation_binding import (
-    RECONCILIATION_OUTBOX_TOPIC,
-    RECONCILIATION_REQUEST_TOPIC,
-)
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_planning import (
     AssuranceTwinPlanningSimulator,
@@ -65,8 +57,11 @@ from fdai.delivery.persistence import (
     PostgresCaseHistoryMetadataStoreConfig,
     StateStoreSemanticFeedbackCandidateStore,
 )
-from fdai.delivery.reconciliation_runtime import EffectReconciliationWorker
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
+from fdai.runtime.bootstrap_bindings import RECONCILIATION_TOPICS
+from fdai.runtime.bootstrap_bindings import (
+    build_effect_reconciliation_worker as _build_effect_reconciliation_worker,
+)
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
 )
@@ -176,15 +171,8 @@ _AUXILIARY_KAFKA_BOOTSTRAP_ENV = "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS"
 _RUNTIME_LOGICAL_TOPICS = (
     OWNED_OBJECT_TOPICS
     | AGENT_INTROSPECTION_TOPICS
-    | frozenset(
-        {
-            _TRANSITION_TOPIC,
-            SEMANTIC_REQUEST_TOPIC,
-            SEMANTIC_PROJECTION_TOPIC,
-            RECONCILIATION_REQUEST_TOPIC,
-            RECONCILIATION_OUTBOX_TOPIC,
-        }
-    )
+    | frozenset({_TRANSITION_TOPIC, SEMANTIC_REQUEST_TOPIC, SEMANTIC_PROJECTION_TOPIC})
+    | RECONCILIATION_TOPICS
 )
 _VERTICAL_IDENTITY_ENV = {
     "identity/change": "FDAI_CHANGE_MI_CLIENT_ID",
@@ -245,7 +233,7 @@ async def _run() -> int:
     startup_readiness_runtime: StartupReadinessRuntime | None = None
     t2_recovery_maintenance: Any = None
     assignment_reconciliation_worker: Any = None
-    effect_reconciliation_worker: EffectReconciliationWorker | None = None
+    effect_reconciliation_worker: Any = None
     semantic_turn_binding: Any = None
 
     try:
@@ -477,24 +465,14 @@ async def _run() -> int:
                     "graph_dynamic_runtime_unavailable",
                     extra={"reason": "graph_evidence_prerequisites_absent"},
                 )
-            if container.reconciliation_artifact_resolver is not None:
-                observation_verifier = container.reconciliation_observation_verifier
-                if observation_verifier is None:
-                    raise RuntimeError("effect reconciliation requires an observation verifier")
-                reconciliation_ledger = StateStoreReconciliationLedger(store=incident_audit_store)
-                effect_reconciliation_worker = EffectReconciliationWorker(
-                    coordinator=EffectReconciliationCoordinator(ledger=reconciliation_ledger),
-                    ledger=reconciliation_ledger,
-                    event_bus=bus,
-                    artifact_resolver=container.reconciliation_artifact_resolver,
-                    observation_verifier=observation_verifier,
-                    claimant_id=os.environ.get("HOSTNAME", "fdai-core"),
-                    group_id=os.environ.get(
-                        "FDAI_EFFECT_RECONCILIATION_GROUP_ID",
-                        "fdai-effect-reconciliation",
-                    ).strip(),
-                    clock=lambda: datetime.now(tz=UTC),
-                )
+            effect_reconciliation_worker = _build_effect_reconciliation_worker(
+                state_store=incident_audit_store,
+                event_bus=bus,
+                artifact_resolver=container.reconciliation_artifact_resolver,
+                observation_verifier=container.reconciliation_observation_verifier,
+                environment=os.environ,
+            )
+            if effect_reconciliation_worker is not None:
                 _LOGGER.info("effect_reconciliation_ready")
             else:
                 _LOGGER.info(

@@ -22,6 +22,10 @@ from fdai.runtime.bootstrap import (
     _schedule_semantic_turn_consumer,
 )
 from fdai.runtime.bootstrap_bindings import (
+    RECONCILIATION_TOPICS,
+    build_effect_reconciliation_worker,
+)
+from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
 )
 from fdai.runtime.bootstrap_bindings import (
@@ -64,9 +68,45 @@ def test_runtime_multiplexes_semantic_turn_channels() -> None:
 
 
 def test_runtime_multiplexes_effect_reconciliation_channels() -> None:
-    assert {RECONCILIATION_REQUEST_TOPIC, RECONCILIATION_OUTBOX_TOPIC}.issubset(
-        _RUNTIME_LOGICAL_TOPICS
+    expected = {RECONCILIATION_REQUEST_TOPIC, RECONCILIATION_OUTBOX_TOPIC}
+    assert RECONCILIATION_TOPICS == expected
+    assert expected.issubset(_RUNTIME_LOGICAL_TOPICS)
+
+
+def test_effect_reconciliation_binding_requires_complete_evidence_providers() -> None:
+    store = InMemoryStateStore()
+    bus = LocalEventBus()
+
+    assert (
+        build_effect_reconciliation_worker(
+            state_store=store,
+            event_bus=bus,
+            artifact_resolver=None,
+            observation_verifier=None,
+            environment={},
+        )
+        is None
     )
+    with pytest.raises(RuntimeError, match="requires an observation verifier"):
+        build_effect_reconciliation_worker(
+            state_store=store,
+            event_bus=bus,
+            artifact_resolver=object(),  # type: ignore[arg-type]
+            observation_verifier=None,
+            environment={},
+        )
+
+
+def test_effect_reconciliation_binding_builds_configured_worker() -> None:
+    worker = build_effect_reconciliation_worker(
+        state_store=InMemoryStateStore(),
+        event_bus=LocalEventBus(),
+        artifact_resolver=object(),  # type: ignore[arg-type]
+        observation_verifier=object(),  # type: ignore[arg-type]
+        environment={"HOSTNAME": "core-a", "FDAI_EFFECT_RECONCILIATION_GROUP_ID": "group-a"},
+    )
+
+    assert worker is not None
 
 
 async def test_effect_reconciliation_lifecycle_bounds_drain_and_cancels_subscriber() -> None:
