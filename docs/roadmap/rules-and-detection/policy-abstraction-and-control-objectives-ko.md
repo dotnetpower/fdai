@@ -1,7 +1,7 @@
 ---
 title: 정책 추상화와 통제 목표
 translation_of: policy-abstraction-and-control-objectives.md
-translation_source_sha: 895ebe83da0e6fb284856afae49c6b0975060b86
+translation_source_sha: ab7c6e9e9861ce59ff0c1dd2347b5757c86b8d36
 translation_revised: 2026-08-13
 ---
 # 정책 추상화와 통제 목표
@@ -275,6 +275,7 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 | 2026-08-13 | in-progress | 정확한 Rule 버전, 정규화된 조건식, 근거, 매개 변수 도메인, 반례, 검증기 신원, 독립 주장 및 검토 상태를 고정하면서 승격 권한을 추가하지 않는 엄격한 동등성 증적을 추가했습니다. | `current change`; Rule 및 증적 다이제스트 차이의 통합 보고, 권한 필드 거부, 주장 일관성 및 승격된 증적 상태가 없음을 포함한 집중 스키마 테스트 14개가 통과했습니다. | P0를 위해 `RuleObjectiveBinding`, 검증기 실행, 어휘 선언 및 제공되는 레코드를 추가합니다. |
 | 2026-08-13 | in-progress | 목표, Rule, 근거 및 검토된 증적을 고정하고, 경계가 있는 적용 가능성 차이, 값이 없는 변형 차원, 비동등 사유 및 검토를 거치는 수명 주기 전이를 포함하는 엄격한 `RuleObjectiveBinding` 레코드를 추가했습니다. | `current change`; 통합 P0 스키마 모음에서 테스트 23개가 통과했고 정적 진단에서 오류가 없었습니다. | 어휘 선언과 제공되는 목표, 바인딩 및 증적 레코드를 추가한 다음 결정론적 동등성 검증을 구현합니다. |
 | 2026-08-13 | implemented | 온톨로지 어휘 선언 6개, 정규 Rule 및 서명 다이제스트, 비활성 노드 풀 목표 및 부분 바인딩 레코드로 P0 카탈로그 계약을 완료했습니다. 바인딩은 구성 근거가 관찰된 영역 장애 동작을 아직 증명하지 못하는 이유를 기록하며 동등성을 주장하지 않습니다. | `current change`; 목표, 증적, 바인딩, Rule, 어휘 및 제공되는 교차 카탈로그의 집중 테스트 78개가 통과했고 변경된 모든 Python 파일에서 Ruff가 통과했습니다. | 결정론적 동등성 검증기 실행과 검토를 거치는 증적을 구현한 다음 P1에서 나머지 작성된 Rego Rule을 채웁니다. |
+| 2026-08-13 | implemented | 다이제스트 입력, 검증 결과 또는 권한을 변경하지 않고 정규 다이제스트와 `ControlObjective` 검증 경계의 strict mypy 호환성을 복구했습니다. | `current change`; 변경된 소스 파일 2개에서 strict mypy가 통과했고 집중 `test_control_objective.py` 모음에서 테스트 7개가 통과했으며 Ruff도 통과했습니다. | 아래의 기존 P1-P4 작업을 계속합니다. |
 
 ### 남은 작업
 

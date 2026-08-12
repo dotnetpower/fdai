@@ -15,7 +15,7 @@ def canonical_catalog_digest(
 ) -> str:
     """Hash one record without self-referential digest and provenance fields."""
 
-    payload = record.model_dump(mode="json", exclude=exclude, exclude_none=True)
+    payload = record.model_dump(mode="json", exclude=set(exclude), exclude_none=True)
     canonical = json.dumps(
         payload,
         allow_nan=False,
