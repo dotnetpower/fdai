@@ -21,6 +21,27 @@ All profiles share **one control path**: only composition-root adapters and cred
 ([project-structure.md § Customization via Dependency Injection](../architecture/project-structure.md#customization-via-dependency-injection)). Its reviewed docstring records the existing boundary and does not create a runtime,
 change state ownership, or allow fixtures. Adding a real Azure client is a fork-side injection; it MUST NOT edit `core/`.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Automated-test fixture isolation | implemented | `tests/`, `console/tests/`, and the fixture-only composition paths exercised by the repository test suites | Deterministic fixtures remain outside authoritative interactive profiles. |
+| Local and deployed composition parity | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, and service integration tests | Composition roots select credentials and adapters without changing evidence authority. |
+| FDAI workspace and profile pressure controls | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`; focused profile and workspace tests: 9 passed | Resource-scoped controls stay in the workspace; machine-scoped Pylance launch controls stay in the FDAI profile. |
+| FDAI Pylance launch ceiling runtime proof | in-progress | The portable and host FDAI profile settings contain `--max-old-space-size=2048`; process-command verification remains open. | Configuration presence alone is not runtime evidence. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance, and moved machine-scoped Pylance launch controls to the FDAI profile. | Current change in `.vscode/fdai.code-profile`, `.vscode/settings.json`, `scripts/automation/configure-vscode-profile.py`, and focused profile/workspace tests: 9 passed. | Record the FDAI Pylance process argument and centralized validation receipt. |
+
+### Remaining work
+
+- [ ] Record a restarted FDAI Pylance process command containing `--max-old-space-size=2048`, confirm the excluded workspace remains untouched, and obtain the centralized validation receipt for this change.
+
 ## Audit - What Works Local, What Needs Azure
 
 Snapshot as of 2026-07-21. "Automated test" means pytest or a committed mock invoked by the
