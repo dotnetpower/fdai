@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 2db19931ffb0018276ea8eb6c311c55d16493d7c
-translation_revised: 2026-08-12
+translation_source_sha: 20247377a12baeee3cb57f25c537888bef575e02
+translation_revised: 2026-08-13
 ---
 
 # Azure 읽기 조사
@@ -58,6 +58,24 @@ Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽�
 작업을 저장합니다. PostgreSQL이 정본이고 wake 신호는 전달 힌트일 뿐입니다.
 
 ## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 현재 상태 활동 identity | 구현됨 | `read_investigation_latency.py`, `activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | Latency 프로파일은 hash된 correlation 참조만 유지하고 감사 항목은 correlation-free로 남으며, 영속 활동과 실제 운영 활동은 실행 권한 없이 하나의 identity를 공유합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 범위가 제한된 현재 상태 활동 identity를 기록했습니다. | 현재 출처와 `test_read_investigation_latency.py`, `test_activity_projection.py`, 통과한 focused 테스트 | 아래 실제 cross-service 동등성 증적을 기록합니다. |
+
+### 남은 작업
+
+- [ ] 영속 재생과 이에 대응하는 실제 운영 현재 상태 프레임이 하나의 activity id로 수렴함을 보여 주는 통제된 실제 cross-service 동등성 증적을 기록합니다.
+
+## 기능 상태
 
 | 기능 | 현재 상태 | 근거 |
 |------------|-----------|------|

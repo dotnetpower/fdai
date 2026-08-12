@@ -11,6 +11,25 @@ Fifteen fixed agents own the control loop through typed events. Process splits f
 The local five-service profile keeps each package independent over loopback PostgreSQL,
 Redpanda, filesystem document storage, and ClamAV. Deployed composition replaces those adapters
 with service-owned managed implementations without changing the shared wire contracts.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Current-state activity identity | implemented | `read_investigation_latency.py`; `activity_projection.py`; focused persistence and projection tests (`6 passed`) | The latency profile retains only the hashed correlation reference, the audit entry remains correlation-free, and durable and live activity share one identity without carrying execution authority. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the bounded current-state activity identity change. | Current source plus `test_read_investigation_latency.py` and `test_activity_projection.py`; the focused suites passed. | Complete the deferred Phase 2 physical package move described below. |
+
+### Remaining work
+
+- [ ] Complete the deferred Phase 2 physical `git mv` after the compatibility import deprecation cycle, then update this layout to the resulting service-owned paths.
+
 ## Monorepo Layout
 
 ```text

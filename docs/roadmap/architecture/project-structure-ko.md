@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 1f555e495cc960f59ebd11cf6d75f45a447fbb73
-translation_revised: 2026-08-12
+translation_source_sha: 602d3adb96bf36948ec52ac6ea14a8efc6c73988
+translation_revised: 2026-08-13
 ---
 
 # 프로젝트 구조
@@ -15,6 +15,24 @@ translation_revised: 2026-08-12
 로컬 5개 서비스 프로필은 loopback PostgreSQL, Redpanda, filesystem 문서 저장소 및 ClamAV를
 사용하면서 각 패키지를 독립적으로 유지합니다. 배포 조립은 shared wire 계약을 바꾸지 않고
 해당 adapter를 service-owned managed 구현으로 교체합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 현재 상태 활동 identity | 구현됨 | `read_investigation_latency.py`, `activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | Latency 프로파일은 hash된 correlation 참조만 유지하고 감사 항목은 correlation-free로 남으며, 영속 활동과 실제 운영 활동은 실행 권한을 포함하지 않고 하나의 identity를 공유합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 범위가 제한된 현재 상태 활동 identity 변경을 기록했습니다. | 현재 출처와 `test_read_investigation_latency.py`, `test_activity_projection.py`, 통과한 focused 테스트 | 아래에 설명된 연기된 Phase 2 물리 패키지 이동을 완료합니다. |
+
+### 남은 작업
+
+- [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.
 
 ## 모노레포 레이아웃
 

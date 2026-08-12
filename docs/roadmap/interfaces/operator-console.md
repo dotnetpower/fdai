@@ -26,6 +26,25 @@ contract, but they are distinct integration surfaces.
 > group name below is a placeholder. A fork supplies concrete values via
 > config
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Durable/live current-state activity identity | implemented | `read_investigation_latency.py`; `fdai_operator_service/activity_projection.py`; focused persistence and projection tests (`6 passed`) | Snapshot replay and live frames converge on one hashed-correlation activity id without persisting the operator question, resource identity, or execution authority. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the current-state activity identity contract. | Current source plus `test_read_investigation_latency.py` and `test_activity_projection.py`; the focused suites passed. | Record governed cross-service parity evidence for snapshot-first hydration and live convergence. |
+
+### Remaining work
+
+- [ ] Record a governed cross-service receipt showing that snapshot-first `GET /agents/activity` hydration and a newer live frame converge on the same current-state activity id without duplicate Console rows.
+
 ## 1. Framing - what this is (and what it is not)
 
 The FDAI Console conversation surface does **not** carry judgment authority. FDAI's

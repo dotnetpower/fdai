@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a76740eb24ba8e7281e76e74c409279fa523030a
+translation_source_sha: 01d4d7ff931bb48620e3fa20d0698d08aaf25645
 translation_revised: 2026-08-13
 ---
 # 코드 맵
@@ -22,6 +22,25 @@ translation_revised: 2026-08-13
 - **가상 루트:** 루트 `pyproject.toml`은 `package = false`이며 uv workspace를 조정합니다.
 - **Integration-only 루트 테스트:** `tests/integration/`은 서비스 간 호환성, 토폴로지 및
   저장소 검사를 소유합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Service-owned 출처 및 테스트 지도 | 진행 중 | 이 지도, `tests/integration/` 및 위에 명시한 범위가 제한된 IS-08과 IS-07 근거 | 로컬 소유권과 롤백 근거는 매핑되었으며 IS-09 원격 검증은 남아 있습니다. |
+| Exact-generation Rule 검색 | 구현됨 | `core/ontology_platform/catalog_queries.py`, `test_catalog_queries.py`, `make test-changed DIFF=e4d9483a5^..e4d9483a5` (`10574 passed`) | 결과는 후보 전용이며 활성 Rule 세대를 exact 온톨로지 release에 연결하고 판단, 승인 또는 실행 권한을 포함하지 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 exact-generation Rule 검색을 기록했습니다. | 현재 변경의 `catalog_queries.py`, `operational_functions.py`, `test_catalog_queries.py`, 통과한 focused 테스트 및 diff-scoped 검증 | 아래 IS-09 원격 검증 항목을 완료합니다. |
+
+### 남은 작업
+
+- [ ] 통제된 IS-09 원격 검증 근거를 기록하고 해당 근거가 통과하면 service-owned 지도 상태를 갱신합니다.
 
 ## 물리 서비스 소유권
 

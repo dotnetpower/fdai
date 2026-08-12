@@ -18,6 +18,24 @@ Candidate destinations remain package hints. [Service Graduation and Data Owners
 also pins the exact default method, path, and route-name set plus representative HTTP envelopes.
 An intentional default route addition updates this reviewed baseline in the same change.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Current-state activity projection boundary | implemented | `fdai_operator_service/activity_projection.py`; `test_activity_projection.py`; focused persistence and projection tests (`6 passed`) | Durable rows require the hashed correlation reference, use the same activity id as live frames, retain only the newest duplicate, and keep `execution_authority=false`. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the durable/live current-state projection identity. | Current source plus `test_activity_projection.py`; the focused projection and persistence suites passed. | Reduce the report-only dependency debt through the reviewed migration families below. |
+
+### Remaining work
+
+- [ ] Move each report-only reverse dependency behind its reviewed neutral contract or provider boundary, then reduce the matching `.check-operator-api-boundaries.debt` budget before making that direction enforceable.
+
 ### Dependency-direction gate
 
 `check-operator-api-boundaries.py` parses imports without loading application code. It enforces

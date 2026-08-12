@@ -23,6 +23,24 @@ for the *human* side; the executor-side mapping stays as declared there.
 > **placeholders**; a fork supplies the real values via config
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Human and workload identity separation for activity observation | implemented | `fdai_operator_service/activity_projection.py`; `test_activity_projection.py`; the authenticated observation contract in this document | Durable current-state activity carries only a hashed correlation reference, while the Reader bearer gate and the relay workload credential remain separate and no activity row gains executor authority. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the bounded identity carried by durable current-state activity. | Current source plus `test_activity_projection.py`; the focused persistence and projection suites passed. | Add the separately designed production Break-Glass activation boundary. |
+
+### Remaining work
+
+- [ ] Add a production Break-Glass activation endpoint that requires an incident id and future expiry, records the activation audit evidence, and still grants no runtime HIL approval or executor identity.
+
 ## 1. Design Principles Recalled
 
 Three safety principles govern this design; every choice below preserves them:

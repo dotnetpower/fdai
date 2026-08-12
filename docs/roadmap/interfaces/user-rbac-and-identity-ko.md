@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 00f84e50ea11be4e91be8a988f786a9af48d8aab
-translation_revised: 2026-08-12
+translation_source_sha: 9495930950982fa09b953e2a50fa07d69cc2f083
+translation_revised: 2026-08-13
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -25,6 +25,24 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 > 고객-비종속: 아래 모든 그룹 이름, 앱 registration 이름, GUID는 **자리 표시자** ;
 > 포크가 구성으로 실제 값 공급
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 활동 관찰의 사람 및 workload identity 분리 | 구현됨 | `fdai_operator_service/activity_projection.py`, `test_activity_projection.py`, 이 문서의 인증된 관찰 계약 | 영속 현재 상태 활동은 hash된 correlation 참조만 전달하며 Reader bearer 게이트와 relay workload credential은 계속 분리되고 어떤 활동 행도 executor 권한을 얻지 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 영속 현재 상태 활동이 전달하는 범위 제한 identity를 기록했습니다. | 현재 출처와 `test_activity_projection.py`, 통과한 focused 영속성 및 projection 테스트 | 별도로 설계된 운영 Break-Glass 활성화 경계를 추가합니다. |
+
+### 남은 작업
+
+- [ ] Incident id와 미래 만료 시각을 요구하고 활성화 감사 근거를 기록하면서 런타임 HIL 승인 또는 executor identity를 부여하지 않는 운영 Break-Glass 활성화 endpoint를 추가합니다.
 
 ## 1. 상기하는 설계 원칙
 

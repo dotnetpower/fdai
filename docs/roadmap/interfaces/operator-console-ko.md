@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 0a5e9c4403b58ce07200ed1f4d8e0446c6a45075
-translation_revised: 2026-08-12
+translation_source_sha: 9af2422bba06a0075d3a6196dd93321d69773653
+translation_revised: 2026-08-13
 ---
 
 # FDAI Console 대화
@@ -27,6 +27,25 @@ Push와 pull은 같은 채널 자격 증명과 감사 계약을 공유하지만 
 > 고객-무관: 아래의 모든 채널 id, LLM 배포 이름, 리소스 id, 그룹
 > 이름은 자리 표시자. 포크는 구성으로 실제 값을 공급
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 영속/실시간 현재 상태 활동 identity | 구현됨 | `read_investigation_latency.py`, `fdai_operator_service/activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | Snapshot 재생과 실제 운영 프레임은 운영자 질문, 리소스 identity 또는 실행 권한을 저장하지 않고 하나의 hash-correlation activity id로 수렴합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 현재 상태 활동 identity 계약을 기록했습니다. | 현재 출처와 `test_read_investigation_latency.py`, `test_activity_projection.py`, 통과한 focused 테스트 | Snapshot-first hydration과 실제 운영 수렴의 통제된 cross-service 동등성 근거를 기록합니다. |
+
+### 남은 작업
+
+- [ ] Snapshot-first `GET /agents/activity` hydration과 더 새로운 실제 운영 프레임이 Console 행을 중복 생성하지 않고 같은 현재 상태 activity id로 수렴함을 보여 주는 통제된 cross-service 증적을 기록합니다.
+
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 
 FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI의 판단

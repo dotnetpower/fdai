@@ -58,6 +58,24 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 
 ## Implementation status
 
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Current-state activity identity | implemented | `read_investigation_latency.py`; `activity_projection.py`; focused persistence and projection tests (`6 passed`) | The latency profile retains only the hashed correlation reference, its audit entry remains correlation-free, and durable and live activity share one identity without execution authority. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the bounded current-state activity identity. | Current source plus `test_read_investigation_latency.py` and `test_activity_projection.py`; the focused suites passed. | Record the live cross-service parity receipt below. |
+
+### Remaining work
+
+- [ ] Record a governed live cross-service parity receipt showing that durable replay and the corresponding live current-state frame converge on one activity id.
+
+## Capability status
+
 | Capability | Current state | Evidence |
 |------------|---------------|----------|
 | Bragi and Heimdall routing | Implemented | Deterministic English and Korean actor, shutdown, history, health, and state routing selects Heimdall before generic scoring. |
