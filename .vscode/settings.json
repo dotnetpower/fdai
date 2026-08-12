@@ -19,6 +19,7 @@
         "~/.claude/settings.json": false,
         "~/.copilot/hooks": false
     },
+    "chat.contextUsage.enabled": true,
     "chat.useNestedAgentsMdFiles": false,
     "git.autofetch": false,
     "python.analysis.include": [
@@ -33,6 +34,7 @@
         "services/*/src",
         "tools"
     ],
+    "python.analysis.indexing": false,
     "python.analysis.logLevel": "Warning",
     "python.analysis.userFileIndexFollowSymlinkedFolders": false,
     "files.associations": {
