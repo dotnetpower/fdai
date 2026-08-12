@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 3be1b64258021c7e491315936cdaed3223d76e5a
-translation_revised: 2026-08-11
+translation_source_sha: 2227edd712be1120593f5594ebcee4541800b660
+translation_revised: 2026-08-12
 ---
 # FDAI 로드맵
 
@@ -140,6 +140,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 23c | [customer-workflow-automation-plan-ko.md](decisioning/customer-workflow-automation-plan-ko.md) | 도입 조직용 제공 계획: 준비도 기준선, 6개 롤아웃 wave, 고객 어댑터 경계, 승인 및 복구 작업, 동작 시뮬레이션, 승격 근거, 검증 매트릭스 및 운영 완료 기준 |
 | 23d | [operational-planning-ko.md](decisioning/operational-planning-ko.md) | 변경할 수 없는 맥락, versioned logic asset, 범위가 제한된 샌드박스 및 twin 시뮬레이션, hard 제약, 중재, 통제된 실행, 효과 종결, 계획 수립 Room 변환 결과를 사용하는 event-driven 전문가 계획 수립 |
 | 23e | [operational-planning-hardening-ko.md](decisioning/operational-planning-hardening-ko.md) | 운영 계획의 구현 근거, 12개 적대적 강화 라운드, 실제 운영 shadow 증명, 잔여 Low release 위험, merge-boundary 검증 |
+| 23g | [operational-hypothesis-loop-ko.md](rules-and-detection/operational-hypothesis-loop-ko.md) | 사전 액션 가설, no-action baseline, 독립 outcome 종결, causal refutation, active/challenger 분리 및 병렬 worker ownership |
 
 ### 프롬프트 서브시스템
 

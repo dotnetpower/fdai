@@ -373,6 +373,42 @@
       ]
     },
     {
+      "id": "operational-hypothesis-loop",
+      "paths": [
+        "docs/roadmap/rules-and-detection/operational-hypothesis-loop*.md"
+      ],
+      "optional_paths": [
+        "services/core-control-plane/src/fdai/core/decision_case/operational_hypothesis.py",
+        "services/core-control-plane/src/fdai/core/rca/operational_hypothesis_closure.py",
+        "services/core-control-plane/src/fdai/core/assurance_twin/hypothesis_challenger.py",
+        "services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py",
+        "services/core-control-plane/tests/core/decision_case/test_operational_hypothesis.py",
+        "services/core-control-plane/tests/core/rca/test_operational_hypothesis_closure.py",
+        "services/core-control-plane/tests/assurance_twin/test_hypothesis_challenger.py",
+        "rule-catalog/vocabulary/object-types/HypothesisCampaign.yaml"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
+        "docs/roadmap/rules-and-detection/operational-hypothesis-loop.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/decisioning/operational-planning.md",
+        "docs/roadmap/rules-and-detection/causal-incident-graph.md",
+        "docs/roadmap/decisioning/process-automation.md",
+        "docs/roadmap/operations/assurance-twin.md",
+        "docs/roadmap/architecture/outcome-assurance.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/rules-and-detection/operational-hypothesis-loop.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-document-size.py",
+        "bash scripts/quality/localization/check-translations.sh"
+      ]
+    },
+    {
       "id": "outcome-assurance",
       "paths": [
         "docs/roadmap/architecture/outcome-assurance*.md",

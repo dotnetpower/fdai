@@ -143,6 +143,7 @@ Read the reference docs first, then the phases in order.
 | 23c | [customer-workflow-automation-plan.md](decisioning/customer-workflow-automation-plan.md) | delivery plan for adopting organizations: readiness baseline, six rollout waves, customer adapter boundaries, approval and recovery work, behavior simulation, promotion evidence, verification matrix, and production completion criteria |
 | 23d | [operational-planning.md](decisioning/operational-planning.md) | event-driven specialist planning over immutable context, versioned logic assets, bounded sandbox and twin simulation, hard constraints, arbitration, governed execution, effect closure, and Planning Room projection |
 | 23e | [operational-planning-hardening.md](decisioning/operational-planning-hardening.md) | implementation evidence, 12 adversarial hardening rounds, live shadow proof, residual Low release risks, and merge-boundary verification for operational planning |
+| 23g | [operational-hypothesis-loop.md](rules-and-detection/operational-hypothesis-loop.md) | pre-action hypotheses, no-action baselines, independent outcome closure, causal refutation, active/challenger separation, and parallel worker ownership |
 
 ### Prompt subsystem
 
