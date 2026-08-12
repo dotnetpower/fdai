@@ -15,6 +15,16 @@ FDAI ships a portable Settings and Extensions profile at
 `Profiles: Switch Profile`. The profile excludes personal keybindings, themes,
 snippets, MCP servers, UI state, and language models.
 
+The shared profile keeps only extensions used continuously for FDAI source, infrastructure, and
+repository work. Playwright remains available through `npm --prefix console` commands without the
+editor extension. Jupyter, Foundry Toolkit, ChatGPT, Azurite, Azure Functions, and Static Web Apps
+extensions are optional and should stay disabled in the FDAI profile unless the current task needs
+them. After editing `.vscode/extensions.json`, regenerate the portable extension payload with:
+
+```bash
+python3 scripts/automation/configure-vscode-profile.py --sync-profile-extensions
+```
+
 VS Code does not synchronize extensions or machine settings into WSL, SSH, or
 dev-container windows. In a WSL FDAI terminal, apply and verify the shared
 remote settings:
