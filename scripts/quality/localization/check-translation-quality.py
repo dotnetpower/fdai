@@ -24,7 +24,7 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
-HANGUL = r"\uac00-\ud7a3"
+HANGUL = "가-힣"
 ALLOWLIST_PATH = Path("scripts/quality/localization/translation-quality-allowlist.txt")
 
 # Domain vocabulary that must stay English, with the mistranslation seen in
