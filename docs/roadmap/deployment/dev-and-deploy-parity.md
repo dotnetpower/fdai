@@ -189,8 +189,9 @@ preserves every directory containing a tracked `.tf` file.
 Pylance background indexing covers the five service source roots, shared packages, independently
 packaged SDK and benchmark sources, and repository maintenance scripts. Test files remain available
 for open-file analysis and focused test execution without consuming the background user-file index.
-Pylance does not follow symlinked folders, so the validation worktree and linked local artifacts
-cannot duplicate the workspace analysis set.
+Pylance does not follow symlinked folders and records warning-level language-server messages. The
+validation worktree and linked local artifacts therefore cannot duplicate the workspace analysis
+set or add information-level log churn.
 
 The workspace associates only `.github/workflows/deploy-dev.yml` with the plain YAML language
 mode. The GitHub Actions extension can report unresolved-action and dynamic `GITHUB_ENV` context

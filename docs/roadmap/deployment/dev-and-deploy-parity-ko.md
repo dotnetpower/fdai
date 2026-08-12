@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 9df5c00b307837cce759e0a66b2d24600122e321
+translation_source_sha: 4e78dfc02671b63bbf0d27ea00247a9cbd63e832
 translation_revised: 2026-08-12
 ---
 
@@ -191,8 +191,9 @@ design doc은 계속 검색할 수 있습니다. Terraform 인덱싱은 검증�
 Pylance 백그라운드 인덱싱은 서비스 소스 루트 5개, 공유 패키지, 독립 패키지로 제공되는 SDK와
 벤치마크 소스 및 저장소 유지관리 스크립트를 대상으로 합니다. 테스트 파일은 백그라운드 사용자
 파일 인덱스를 사용하지 않으면서 열린 파일 분석과 범위가 제한된 테스트 실행에 계속 사용할 수
-있습니다. Pylance는 심볼릭 링크 폴더를 따라가지 않으므로 검증 워크트리와 연결된 로컬 산출물이
-workspace 분석 집합에 중복으로 들어가지 않습니다.
+있습니다. Pylance는 심볼릭 링크 폴더를 따라가지 않고 언어 서버 메시지는 경고 수준부터
+기록합니다. 따라서 검증 워크트리와 연결된 로컬 산출물이 workspace 분석 집합에 중복으로
+들어가거나 정보 수준 로그 부하를 추가하지 않습니다.
 
 Workspace는 `.github/workflows/deploy-dev.yml` 하나만 plain YAML 언어 모드에 연결합니다.
 GitHub Actions 확장은 참조한 액션 tag가 존재하고 다음 단계에서 `GITHUB_ENV` 값을 사용할 수
