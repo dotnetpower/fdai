@@ -178,7 +178,6 @@
         "close": true
       },
       "runOptions": {
-        "runOn": "folderOpen",
         "instanceLimit": 1
       }
     },

@@ -11,6 +11,19 @@
     "liveServer.settings.port": 5373,
     "task.allowAutomaticTasks": "on",
     "makefile.configureOnOpen": false,
+    "python.analysis.include": [
+        "alembic",
+        "benchmarks/*/src",
+        "delivery",
+        "evaluation-sdk/src",
+        "extensions/*/src",
+        "packages/*/src",
+        "scripts",
+        "service-migrations",
+        "services/*/src",
+        "tools"
+    ],
+    "python.analysis.userFileIndexFollowSymlinkedFolders": false,
     "files.associations": {
         "**/.github/workflows/deploy-dev.yml": "yaml"
     },

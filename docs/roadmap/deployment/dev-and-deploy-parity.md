@@ -93,13 +93,15 @@ transport uses Docker Redpanda on `127.0.0.1:19092`. A deployed Azure process se
 Event Hubs Kafka endpoint. Venue selection never changes evidence authority, promotion state,
 human identity, or executor authority.
 
-Opening the trusted workspace runs `console: prepare local state` once to start local PostgreSQL,
-Redpanda, and ClamAV, advance the frozen legacy Alembic lineage, adopt and upgrade all five
-service-owned migration branches, and avoid duplicates through a single-instance limit. The same
-preparation refreshes read-only Azure Resource Graph inventory and materializes sanitized model and
-runtime Settings projections from prepared authoritative inputs without copying tenant identifiers,
-resource endpoints, or credentials; an unavailable or unauthorized provider leaves inventory
-explicitly unavailable instead of substituting fixture data.
+Opening the trusted workspace runs only lightweight hook installation, safe background Git sync,
+and the optional development VPN check. `console: prepare local state` is explicit and runs through
+`console: prepare full stack` or a direct task invocation. It starts local PostgreSQL, Redpanda, and
+ClamAV, advances the frozen legacy Alembic lineage, and adopts and upgrades all five service-owned
+migration branches under a single-instance limit. The same preparation refreshes read-only Azure
+Resource Graph inventory and materializes sanitized model and runtime Settings projections from
+prepared authoritative inputs without copying tenant identifiers, resource endpoints, or
+credentials. An unavailable or unauthorized provider leaves inventory explicitly unavailable
+instead of substituting fixture data.
 The same migration creates the principal-scoped `conversation_image` repository in local and
 deployed PostgreSQL. Command Deck history therefore restores sent images through the same
 authenticated Operator API route in both profiles; neither profile stores inline base64 in turn
@@ -183,6 +185,12 @@ worktree copies. These are discovery preferences: excluded paths remain explicit
 do not change evidence, identity, authority, or runtime adapters. Source, tests, and owning design
 docs remain searchable. Terraform indexing skips verified non-Terraform directory names and
 preserves every directory containing a tracked `.tf` file.
+
+Pylance background indexing covers the five service source roots, shared packages, independently
+packaged SDK and benchmark sources, and repository maintenance scripts. Test files remain available
+for open-file analysis and focused test execution without consuming the background user-file index.
+Pylance does not follow symlinked folders, so the validation worktree and linked local artifacts
+cannot duplicate the workspace analysis set.
 
 The workspace associates only `.github/workflows/deploy-dev.yml` with the plain YAML language
 mode. The GitHub Actions extension can report unresolved-action and dynamic `GITHUB_ENV` context

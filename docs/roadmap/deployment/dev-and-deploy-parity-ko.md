@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 40e28f549816a07960e0d069cb431fbf98807924
+translation_source_sha: 9df5c00b307837cce759e0a66b2d24600122e321
 translation_revised: 2026-08-12
 ---
 
@@ -96,13 +96,15 @@ managed-resource identity가 없는 영속 shadow consumer입니다. 이 venue�
 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는
 executor 권한을 변경하지 않습니다.
 
-신뢰된 workspace에서는 `console: prepare local state`가 한 번 실행되어 로컬 PostgreSQL,
-Redpanda 및 ClamAV를 시작하고 고정된 이전 방식 Alembic 계보를 전진시킨 후 5개 service-owned
-이행 가지를 모두 채택하고 업그레이드하며 single-instance 한도로 중복을 막습니다. 동일한 준비는
-읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고, 테넌트 식별자, 리소스 endpoint 또는 자격
-증명을 복사하지 않은 채 준비된 권위 있는 입력에서 정제된 모델 및 런타임 Settings 변환 결과를
-materialize합니다. 프로바이더가 사용 불가 상태이거나 권한이 없으면 fixture 데이터로 대체하지 않고
-인벤토리를 명시적으로 사용 불가 상태로 유지합니다.
+신뢰된 workspace를 열면 가벼운 hook 설치, 안전한 백그라운드 Git 동기화 및 선택적 개발 VPN
+확인만 실행됩니다. `console: prepare local state`는 명시적으로 실행하는 작업이며
+`console: prepare full stack` 또는 직접 작업 호출을 통해 시작합니다. 이 작업은 로컬 PostgreSQL,
+Redpanda 및 ClamAV를 시작하고, 고정된 이전 방식 Alembic 계보를 전진시킨 후 서비스가 소유한
+이행 가지 5개를 모두 채택하고 업그레이드합니다. 단일 인스턴스 한도로 중복 실행도 막습니다.
+동일한 준비는 읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고, 테넌트 식별자, 리소스
+엔드포인트 또는 자격 증명을 복사하지 않은 채 준비된 권위 있는 입력에서 정제된 모델 및 런타임
+Settings 변환 결과를 구체화합니다. 프로바이더를 사용할 수 없거나 권한이 없으면 고정본 데이터로
+대체하지 않고 인벤토리를 명시적으로 사용할 수 없는 상태로 유지합니다.
 같은 이행이 로컬 및 deployed PostgreSQL에 principal 범위 `conversation_image` 저장소를
 만듭니다. 따라서 두 프로파일의 Command Deck 이력은 동일한 인증 Operator API 경로를 통해 전송된
 이미지를 복원하며, 어느 프로파일도 inline base64를 턴 메타데이터 또는 브라우저 대화 기록 캐시에
@@ -185,6 +187,12 @@ copy로 인한 Problems 중복을 줄입니다. 이는 탐색 기본값이므로
 근거, 신원, 권한 또는 런타임 어댑터에는 영향을 주지 않습니다. 출처, 테스트 및 담당
 design doc은 계속 검색할 수 있습니다. Terraform 인덱싱은 검증된 non-Terraform 디렉터리 이름을
 건너뛰고 tracked `.tf` 파일이 있는 모든 디렉터리를 보존합니다.
+
+Pylance 백그라운드 인덱싱은 서비스 소스 루트 5개, 공유 패키지, 독립 패키지로 제공되는 SDK와
+벤치마크 소스 및 저장소 유지관리 스크립트를 대상으로 합니다. 테스트 파일은 백그라운드 사용자
+파일 인덱스를 사용하지 않으면서 열린 파일 분석과 범위가 제한된 테스트 실행에 계속 사용할 수
+있습니다. Pylance는 심볼릭 링크 폴더를 따라가지 않으므로 검증 워크트리와 연결된 로컬 산출물이
+workspace 분석 집합에 중복으로 들어가지 않습니다.
 
 Workspace는 `.github/workflows/deploy-dev.yml` 하나만 plain YAML 언어 모드에 연결합니다.
 GitHub Actions 확장은 참조한 액션 tag가 존재하고 다음 단계에서 `GITHUB_ENV` 값을 사용할 수
