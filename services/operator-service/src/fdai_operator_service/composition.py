@@ -91,6 +91,7 @@ class ProductionOperatorComposition:
         family_store = _postgres_family_store(environment)
         semantic_bus: OperatorSemanticKafkaBus | None = None
         live_stream_hub = LiveStreamHub()
+        agent_stream_hub = LiveStreamHub()
         live_stage_relay: LiveStageKafkaRelay | None = None
         publisher = self.semantic_event_publisher
         result_source = self.semantic_result_source
@@ -100,7 +101,9 @@ class ProductionOperatorComposition:
             semantic_bus = _build_semantic_bus(environment)
             publisher = semantic_bus
             result_source = semantic_bus
-            live_stage_relay = _build_live_stage_relay(environment, live_stream_hub)
+            live_stage_relay = _build_live_stage_relay(
+                environment, live_stream_hub, agent_stream_hub
+            )
         semantic_bridge = _semantic_bridge(
             family_store,
             publisher=publisher,
@@ -127,6 +130,7 @@ class ProductionOperatorComposition:
             readiness_probe=self.readiness_probe
             or _readiness_probe(family_store, semantic_bus, semantic_bridge, live_stage_relay),
             live_stream_hub=live_stream_hub,
+            agent_stream_hub=agent_stream_hub,
             lifecycle=_application_lifecycle(semantic_bridge, semantic_bus, live_stage_relay),
         )
 
@@ -319,6 +323,7 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
 def _build_live_stage_relay(
     environment: OperatorEnvironment,
     hub: LiveStreamHub,
+    agent_hub: LiveStreamHub,
 ) -> LiveStageKafkaRelay:
     bootstrap_servers = environment.kafka_bootstrap_servers
     if bootstrap_servers is None:
@@ -338,6 +343,7 @@ def _build_live_stage_relay(
             security_protocol="PLAINTEXT" if execution_venue == "local" else "SASL_SSL",
         ),
         hub=hub,
+        agent_hub=agent_hub,
         credential=credential,
     )
 

@@ -60,6 +60,7 @@ BASE_ENV = {
 }
 
 EXPECTED_ROUTES = (
+    (("GET", "HEAD"), "/agents/stream", "agent_stream"),
     (("GET", "HEAD"), "/audit", "get_audit"),
     (("GET", "HEAD"), "/audit/{correlation_id}/trace", "rule_fire_trace"),
     (("GET", "HEAD"), "/healthz", "healthz"),
@@ -275,6 +276,12 @@ def test_health_reflects_required_dependency_loss_after_startup() -> None:
 
 def test_live_stream_requires_reader_authentication_before_opening() -> None:
     response = _client(read_model=EmptyReadModel()).get("/live/stream")
+
+    assert response.status_code == 401
+
+
+def test_agent_stream_requires_reader_authentication_before_opening() -> None:
+    response = _client(read_model=EmptyReadModel()).get("/agents/stream")
 
     assert response.status_code == 401
 

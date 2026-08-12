@@ -215,6 +215,7 @@ ranked AS (
            ) AS group_history_count
       FROM normalized
      WHERE normalized_correlation_id IS NOT NULL
+         AND LOWER(BTRIM(normalized_correlation_id)) NOT IN ('none', 'null')
 ),
 incident_groups AS (
     SELECT normalized_correlation_id,

@@ -1061,7 +1061,7 @@ async def test_production_composition_auto_binds_one_kafka_bus_and_owns_lifecycl
     monkeypatch.setattr(
         composition_module,
         "_build_live_stage_relay",
-        lambda _environment, _hub: live_relay,
+        lambda _environment, _live_hub, _agent_hub: live_relay,
     )
 
     async def bridge_start(self: SemanticTurnBridge) -> None:

@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 48771d037f66c61f9bbe4851d6ab9757447a9353
+translation_source_sha: 1d84bcd6f2e11c49a1b83610891a8ec7bf9a3ecf
 translation_revised: 2026-08-12
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -422,7 +422,7 @@ Issue 72는 `OperatorApiConfig(**kwargs)`를 범위가 제한된 호환성 생�
 | 패키지 | 현재 책임 | 이행 규칙 |
 |---------|-----------|----------------|
 | 루트 | 공개 파사드 및 foundational 계약 | 분류된 replacement가 준비될 때까지 유지합니다. |
-| `adapters/` | 독립적으로 소유한 Kafka 실시간 단계 소비자를 포함하는 HTTP 경로 밖의 구체적인 Operator API 프로바이더 구현 | 프로바이더 I/O를 애플리케이션 계약 뒤에 유지하고 단계 레코드는 검증과 전달 뒤에만 커밋합니다. |
+| `adapters/` | 독립적으로 소유한 공유 Kafka 관찰 소비자를 포함하는 HTTP 경로 밖의 구체적인 Operator API 프로바이더 구현 | 프로바이더 I/O를 애플리케이션 계약 뒤에 유지하고 단계/런타임 레코드는 검증과 실시간/에이전트 전달 뒤에만 커밋합니다. |
 | `adapters/conversation/` | Azure 및 OpenAI-compatible 서술기 전송 계층과 웹 검색 시작 construction | 명시적 모듈로 가져오기하고 자격 증명, 엔드포인트, 배포 선택 및 전송 계층은 애플리케이션과 경로 밖에 유지합니다. |
 | `app/` | Shared ASGI assembly, middleware, 등록 및 lifespan | HTTP 조립 경계로 유지합니다. |
 | `application/` | 타입이 지정된 process-local, non-authoritative 애플리케이션 coordination | Service-graduation 근거가 프로세스 경계를 정당화할 때까지 유지합니다. |
@@ -449,7 +449,7 @@ Issue 72는 `OperatorApiConfig(**kwargs)`를 범위가 제한된 호환성 생�
 | `projections/conversation/terminal/` | 최종 페이로드, LLM 사용량, resource-result 및 source-failure 변환 결과 | 명시적 파사드로 가져오기하고 JSON, SSE, authentication, 취소 및 이력은 경로에 유지합니다. |
 | `production/` | 운영 프로바이더 construction 및 연결 | Wire 행동을 변경하지 않고 fanout을 점진적으로 줄입니다. |
 | `routes/` | HTTP/SSE 전송 계층, 경로 등록, 도메인 요청 어댑터 및 분류된 호환성 파사드 | 전송 계층 및 검토된 파사드 경계로 유지하고 대화 수명 주기 orchestration은 타입이 지정된 애플리케이션 파사드 뒤에 둡니다. |
-| `streaming/` | `/live/stream`을 위한 읽기 전용 범위 제한 SSE 전달과 실패 시 차단하는 Core 단계 프레임 검증 | 인증과 HTTP 응답 소유권은 경로에 유지하고 연결 유지 신호에서 런타임 준비 상태를 추론하지 않습니다. |
+| `streaming/` | `/live/stream`과 `/agents/stream`을 위한 읽기 전용 범위 제한 SSE 전달과 실패 시 차단하는 단계/런타임 변환 | 인증과 HTTP 응답 소유권은 경로에 유지하고 연결 유지 신호에서 런타임 준비 상태를 추론하지 않습니다. |
 
 `fdai.delivery.operator_api.main`은 공개 앱 파사드입니다. `read_model`은 검토된 replacement가 준비될
 때까지 공개 전달 계약으로 유지합니다. `fdai.delivery.auth`는 framework-neutral bearer 및 Entra

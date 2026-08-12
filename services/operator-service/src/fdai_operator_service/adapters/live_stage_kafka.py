@@ -14,7 +14,11 @@ from aiokafka import AIOKafkaConsumer
 from aiokafka.abc import AbstractTokenProvider
 from azure.identity.aio import ManagedIdentityCredential
 
-from fdai_operator_service.streaming import LiveStreamHub, parse_stage_frame
+from fdai_operator_service.streaming import (
+    AgentActivityProjector,
+    LiveStreamHub,
+    parse_stage_frame,
+)
 
 _LOGGER = logging.getLogger(__name__)
 _MAX_STAGE_MESSAGE_BYTES = 256 * 1_024
@@ -77,6 +81,7 @@ class LiveStageKafkaRelay:
         *,
         config: LiveStageKafkaConfig,
         hub: LiveStreamHub,
+        agent_hub: LiveStreamHub,
         credential: ManagedIdentityCredential | None,
         consumer_factory: Callable[[], _KafkaConsumer] | None = None,
         sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep,
@@ -85,6 +90,8 @@ class LiveStageKafkaRelay:
             raise ValueError("SASL_SSL Kafka transport requires a managed identity")
         self._config = config
         self._hub = hub
+        self._agent_hub = agent_hub
+        self._agent_projector = AgentActivityProjector()
         self._credential = credential
         host = config.bootstrap_servers.split(",", 1)[0].split(":", 1)[0]
         self._scope = f"https://{host}/.default"
@@ -133,9 +140,13 @@ class LiveStageKafkaRelay:
         while True:
             try:
                 message = await active.getone()
-                event = _decode_stage_event(message.value)
-                if event is not None:
-                    await self._hub.publish(event)
+                payload = _decode_payload(message.value)
+                if payload is not None:
+                    stage_event = parse_stage_frame(payload)
+                    if stage_event is not None:
+                        await self._hub.publish(stage_event)
+                    for agent_event in self._agent_projector.project(payload):
+                        await self._agent_hub.publish(agent_event)
                 await active.commit()
             except asyncio.CancelledError:
                 raise
@@ -178,7 +189,7 @@ class LiveStageKafkaRelay:
         )
 
 
-def _decode_stage_event(value: bytes | None):  # type: ignore[no-untyped-def]
+def _decode_payload(value: bytes | None) -> Mapping[str, object] | None:
     if value is None or len(value) > _MAX_STAGE_MESSAGE_BYTES:
         return None
     try:
@@ -187,7 +198,7 @@ def _decode_stage_event(value: bytes | None):  # type: ignore[no-untyped-def]
         return None
     if not isinstance(payload, Mapping):
         return None
-    return parse_stage_frame(payload)
+    return payload
 
 
 __all__ = ["LiveStageKafkaConfig", "LiveStageKafkaRelay"]

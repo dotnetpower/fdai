@@ -40,10 +40,10 @@ model from environment only. This doc covers the production entrypoint.
 - **Observable access failures.** Every `401` and `403` emits a structured warning with only the
   request path and exception class. Authorization headers, bearer tokens, principal ids, and
   exception text are never logged.
-- **Kafka-backed Live observation.** The factory always registers the authenticated
-  `/live/stream` read route. When the Kafka bootstrap endpoint is configured, a
-  service-owned consumer group reads `aw.pipeline.stages`, validates each stage
-  record, and fans accepted records into a bounded process-local SSE sink. The app
+- **Kafka-backed Live and Agent observation.** The factory always registers the authenticated
+  `/live/stream` and `/agents/stream` read routes. When the Kafka bootstrap endpoint is configured,
+  one service-owned consumer group reads `aw.pipeline.stages`, validates stage and Pantheon runtime-state
+  records, and fans accepted records into separate bounded process-local SSE sinks. The app
   lifespan starts and stops the relay and closes its independently owned Kafka
   consumer. Without Kafka configuration, the route remains connected with
   keepalives and reports `Awaiting source`; it never presents transport connectivity
@@ -79,7 +79,7 @@ Optional (defaults apply):
 | `FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS` | empty (same-origin) | Comma-separated origin list. A bare `*` element is rejected unconditionally by this factory (regardless of `RUNTIME_ENV`) - a cross-origin deploy MUST list the console origins explicitly. |
 | `FDAI_OPERATOR_API_STATEMENT_TIMEOUT_MS` | `20000` | Applied via `SET LOCAL statement_timeout` on every read query. |
 | `FDAI_OPERATOR_API_CONNECT_TIMEOUT_S` | `10` | Bounds the TCP + auth handshake so a dead DB fails fast. |
-| `FDAI_KAFKA_BOOTSTRAP_SERVERS` | empty | Starts the semantic transport and the Live stage relay. Uses the Event Hubs Kafka endpoint on `:9093`. An empty value leaves `/live/stream` connected in `Awaiting source` without fabricating stage evidence. |
+| `FDAI_KAFKA_BOOTSTRAP_SERVERS` | empty | Starts the semantic transport and the shared Live/Agent observation relay. Uses the Event Hubs Kafka endpoint on `:9093`. An empty value leaves both SSE routes connected in `Awaiting source` without fabricating runtime evidence. |
 | `KAFKA_TOPIC_EVENTS` | empty | With Kafka bootstrap, enables `POST /chat/action` for typed actions and the confirmed incident workflow. The value is the same raw ingress topic consumed by Huginn. |
 | `FDAI_STAGE_TOPIC` | `aw.pipeline.stages` | Stage topic published by the worker and consumed by the Live and Agents relays. The worker and Operator API should use the same value. |
 | `FDAI_INCIDENT_SLA_POLICY_JSON` | empty (disabled) | Strict JSON object with positive `acknowledge_seconds` and `resolve_seconds` values for every `sev1` through `sev5`; enables durable A2 SLA-breach monitoring. |
@@ -143,9 +143,10 @@ Vault secret directly ([app-shape.instructions.md § Azure Mapping](../../../.gi
 - [`adapters/live_stage_kafka.py`](../../../services/operator-service/src/fdai_operator_service/)
   - owns the Kafka consumer lifecycle and commit-after-processing behavior.
 - [`streaming/live_stream.py`](../../../services/operator-service/src/fdai_operator_service/) and
-  [`streaming/stage_frames.py`](../../../services/operator-service/src/fdai_operator_service/)
-  - provide bounded SSE fan-out, validate untrusted stage records, and preserve the raw
-  `event: stage` contract expected by the browser.
+  [`streaming/stage_frames.py`](../../../services/operator-service/src/fdai_operator_service/) and
+  [`streaming/agent_frames.py`](../../../services/operator-service/src/fdai_operator_service/)
+  - provide bounded SSE fan-out, validate untrusted stage/runtime records, and preserve the
+  `event: stage` and agent `event: message` contracts expected by the browser.
 
 ## Testing
 

@@ -24,6 +24,7 @@ class OperatorRuntime:
     route_families: OperatorRouteFamilies
     readiness_probe: ReadinessProbe
     live_stream_hub: LiveStreamHub
+    agent_stream_hub: LiveStreamHub
     lifecycle: ApplicationLifecycle | None = None
 
     def create_app(self) -> AsgiApplication:
@@ -35,6 +36,7 @@ class OperatorRuntime:
             route_families=self.route_families,
             readiness_probe=self.readiness_probe,
             live_stream_hub=self.live_stream_hub,
+            agent_stream_hub=self.agent_stream_hub,
             cors_allow_origins=self.environment.cors_allow_origins,
             lifecycle=self.lifecycle,
         )

@@ -16,6 +16,7 @@ class RouteParity:
 
 
 ROUTE_PARITY: tuple[RouteParity, ...] = (
+    RouteParity("/agents/stream", "service-owned"),
     RouteParity("/audit", "service-owned"),
     RouteParity("/audit/{correlation_id}/trace", "service-owned"),
     RouteParity("/healthz", "service-owned"),

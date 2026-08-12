@@ -10,6 +10,7 @@ import pytest
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
     PostgresOperatorReadModelConfig,
+    _group_incident_rows,
     _psycopg_dsn,
 )
 from fdai_operator_service.postgres_family_store import (
@@ -233,6 +234,16 @@ async def test_audit_query_is_parameterized_paginated_and_redacted() -> None:
 
 
 @pytest.mark.asyncio
+async def test_audit_projection_normalizes_null_string_correlation() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [_audit_row(1, correlation_id="None")]
+
+    page = await model.list_audit(AuditQuery(limit=1))
+
+    assert page.items[0]["correlation_id"] is None
+
+
+@pytest.mark.asyncio
 async def test_hil_reader_gets_count_only_and_approver_gets_redacted_detail() -> None:
     model = StubPostgresReadModel()
     model.hil_rows = [
@@ -401,6 +412,23 @@ async def test_incident_page_and_attention_replay_use_durable_sequence() -> None
     assert _sse_frame(initial).startswith(
         b'id: 7\nevent: incident-attention\ndata: {"event":"incident_attention.snapshot"'
     )
+
+
+def test_incident_projection_rejects_null_string_correlation_sentinels() -> None:
+    valid = {"normalized_correlation_id": " corr-1 "}
+
+    grouped = _group_incident_rows(
+        [
+            {"normalized_correlation_id": None},
+            {"normalized_correlation_id": ""},
+            {"normalized_correlation_id": "None"},
+            {"normalized_correlation_id": "null"},
+            valid,
+        ]
+    )
+
+    assert grouped == [[valid]]
+    assert "LOWER(BTRIM(normalized_correlation_id)) NOT IN ('none', 'null')" in (INCIDENT_PAGE_SQL)
 
 
 @pytest.mark.asyncio

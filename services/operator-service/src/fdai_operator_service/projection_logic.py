@@ -18,13 +18,15 @@ LLM_USAGE_DETAIL_LIMIT: Final = 500
 def audit_item(row: Mapping[str, Any]) -> JsonObject:
     """Map one audit row to the frozen HTTP item with sensitive values redacted."""
     entry = _mapping(row.get("entry"))
-    correlation_id = row.get("correlation_id")
+    correlation_id = _nonempty(row.get("correlation_id"))
+    if correlation_id is not None and correlation_id.lower() in {"none", "null"}:
+        correlation_id = None
     return cast(
         JsonObject,
         {
             "seq": int(row["seq"]),
             "event_id": str(row["event_id"]),
-            "correlation_id": str(correlation_id) if correlation_id is not None else None,
+            "correlation_id": correlation_id,
             "actor": str(row["actor"]),
             "action_kind": str(row["action_kind"]),
             "mode": str(row["mode"]),

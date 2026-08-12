@@ -25,6 +25,7 @@ class LiveStreamEvent:
 
     event_id: str
     payload: Mapping[str, object]
+    event_type: str = "stage"
 
 
 class LiveStreamHub:
@@ -66,10 +67,15 @@ def make_live_stream_route(
     hub: LiveStreamHub,
     authorize: Callable[[Request], object],
     keepalive_seconds: float = 15.0,
+    path: str = "/live/stream",
+    channel: str = _CHANNEL,
+    route_name: str = "live_stream",
 ) -> Route:
-    """Build the authenticated read-only ``GET /live/stream`` route."""
+    """Build one authenticated read-only SSE route over a bounded hub."""
     if keepalive_seconds <= 0:
         raise ValueError("keepalive_seconds MUST be positive")
+    if not path.startswith("/") or not channel or not route_name:
+        raise ValueError("SSE path, channel, and route_name MUST be non-empty")
 
     async def handler(request: Request) -> Response:
         authorize(request)
@@ -79,6 +85,7 @@ def make_live_stream_route(
                 hub=hub,
                 is_disconnected=request.is_disconnected,
                 keepalive_seconds=keepalive_seconds,
+                channel=channel,
             ),
             media_type="text/event-stream",
             headers={
@@ -88,7 +95,7 @@ def make_live_stream_route(
             },
         )
 
-    return Route("/live/stream", handler, methods=["GET"], name="live_stream")
+    return Route(path, handler, methods=["GET"], name=route_name)
 
 
 async def _live_chunks(
@@ -96,10 +103,11 @@ async def _live_chunks(
     hub: LiveStreamHub,
     is_disconnected: Callable[[], Awaitable[bool]],
     keepalive_seconds: float,
+    channel: str = _CHANNEL,
 ) -> AsyncGenerator[bytes]:
     yield _encode_frame(
         "hello",
-        {"event": "hello", "ts": _iso_timestamp(), "channel": _CHANNEL},
+        {"event": "hello", "ts": _iso_timestamp(), "channel": channel},
     )
     output: asyncio.Queue[bytes] = asyncio.Queue(maxsize=1_024)
     stop = asyncio.Event()
@@ -149,7 +157,8 @@ def _offer_latest(queue: asyncio.Queue[Any], event: Any) -> None:
 
 def _encode_event(event: LiveStreamEvent) -> bytes:
     return (
-        f"id: {_field(event.event_id)}\nevent: stage\ndata: {_json(event.payload)}\n\n"
+        f"id: {_field(event.event_id)}\nevent: {_field(event.event_type)}\n"
+        f"data: {_json(event.payload)}\n\n"
     ).encode()
 
 

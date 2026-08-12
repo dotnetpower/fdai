@@ -105,6 +105,7 @@ class OperatorRouteFamilies:
 MINIMAL_ROUTE_MANIFEST: Final = (
     RouteOwnership("GET", "/audit", "minimal"),
     RouteOwnership("GET", "/audit/{correlation_id}/trace", "minimal"),
+    RouteOwnership("GET", "/agents/stream", "minimal"),
     RouteOwnership("GET", "/healthz", "minimal"),
     RouteOwnership("GET", "/hil-queue", "minimal"),
     RouteOwnership("GET", "/incidents", "minimal"),
@@ -148,6 +149,7 @@ def build_operator_app(
     route_families: OperatorRouteFamilies,
     readiness_probe: ReadinessProbe,
     live_stream_hub: LiveStreamHub,
+    agent_stream_hub: LiveStreamHub,
     cors_allow_origins: tuple[str, ...] = (),
     lifecycle: ApplicationLifecycle | None = None,
 ) -> Starlette:
@@ -292,6 +294,13 @@ def build_operator_app(
             rule_fire_trace,
             methods=["GET"],
             name="rule_fire_trace",
+        ),
+        make_live_stream_route(
+            hub=agent_stream_hub,
+            authorize=authorize,
+            path="/agents/stream",
+            channel="aw.pantheon.agents",
+            route_name="agent_stream",
         ),
         Route("/healthz", readiness, methods=["GET"], name="healthz"),
         Route("/hil-queue", get_hil_queue, methods=["GET"], name="get_hil_queue"),

@@ -327,7 +327,12 @@ def _group_incident_rows(
     ordered: list[list[Mapping[str, Any]]] = []
     indexes: dict[str, int] = {}
     for row in rows:
-        correlation_id = str(row["normalized_correlation_id"])
+        raw_correlation_id = row.get("normalized_correlation_id")
+        if not isinstance(raw_correlation_id, str):
+            continue
+        correlation_id = raw_correlation_id.strip()
+        if not correlation_id or correlation_id.lower() in {"none", "null"}:
+            continue
         index = indexes.get(correlation_id)
         if index is None:
             indexes[correlation_id] = len(ordered)

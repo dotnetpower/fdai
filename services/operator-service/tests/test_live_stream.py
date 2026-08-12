@@ -113,8 +113,11 @@ async def test_live_stage_kafka_relay_publishes_then_commits() -> None:
 
     consumer = FakeConsumer()
     hub = LiveStreamHub()
+    agent_hub = LiveStreamHub()
     subscription = hub.subscribe()
+    agent_subscription = agent_hub.subscribe()
     waiting = asyncio.create_task(anext(subscription))
+    waiting_for_agent = asyncio.create_task(anext(agent_subscription))
     await asyncio.sleep(0)
     relay = LiveStageKafkaRelay(
         config=LiveStageKafkaConfig(
@@ -122,6 +125,7 @@ async def test_live_stage_kafka_relay_publishes_then_commits() -> None:
             security_protocol="PLAINTEXT",
         ),
         hub=hub,
+        agent_hub=agent_hub,
         credential=None,
         consumer_factory=lambda: consumer,  # type: ignore[arg-type]
     )
@@ -140,9 +144,33 @@ async def test_live_stage_kafka_relay_publishes_then_commits() -> None:
     assert await asyncio.wait_for(waiting, timeout=0.5) == LiveStreamEvent(
         event_id="event-1", payload=payload
     )
-    assert consumer.commits == 1
+    agent_event = await asyncio.wait_for(waiting_for_agent, timeout=0.5)
+    assert agent_event.payload["type"] == "agent.state"
+    assert agent_event.payload["agent"] == "Heimdall"
+    waiting_for_runtime = asyncio.create_task(anext(agent_subscription))
+    await asyncio.sleep(0)
+    await consumer.messages.put(
+        SimpleNamespace(
+            value=json.dumps(
+                {
+                    "type": "agent.runtime-state",
+                    "agent": "Huginn",
+                    "state": "watching",
+                    "ts": datetime.now(UTC).isoformat(),
+                    "correlation_id": None,
+                    "detail": "Runtime agent initialized",
+                    "source": "runtime-observed",
+                }
+            ).encode("utf-8")
+        )
+    )
+    runtime_event = await asyncio.wait_for(waiting_for_runtime, timeout=0.5)
+    assert runtime_event.payload["type"] == "agent.state"
+    assert runtime_event.payload["agent"] == "Huginn"
+    assert consumer.commits == 2
     assert relay.readiness()
     await subscription.aclose()
+    await agent_subscription.aclose()
     await relay.aclose()
     assert consumer.stopped
 

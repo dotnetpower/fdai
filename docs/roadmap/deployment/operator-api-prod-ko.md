@@ -1,7 +1,7 @@
 ---
 title: 콘솔 Operator API 프로덕션 배포
 translation_of: operator-api-prod.md
-translation_source_sha: 14b99c4fe9ed0eccb8176e8dd7e3415e0a51197e
+translation_source_sha: 463805ee51ca1eccd486a5e619572ad6b54405e4
 translation_revised: 2026-08-12
 ---
 # 콘솔 Operator API 프로덕션 배포
@@ -40,10 +40,10 @@ pytest의 `test_fixtures=True`에서만 `UnsafeClaimsExtractor`와 synthetic 화
 - **접근 실패를 관찰할 수 있습니다.** 모든 `401`과 `403`은 요청 경로와 exception 등급만
   포함하는 구조화된 경고를 기록합니다. 권한 확인 헤더, bearer 토큰, principal id 및
   exception 텍스트는 기록하지 않습니다.
-- **Kafka 기반 실시간 관찰.** 팩토리는 인증된 `/live/stream` 읽기 경로를 항상
-  등록합니다. Kafka 초기화 엔드포인트가 구성되면 서비스 소유 소비자 그룹이
-  `aw.pipeline.stages`를 읽고 각 단계 레코드를 검증한 뒤 허용된 레코드를 범위가
-  제한된 프로세스 내부 SSE 싱크로 전달합니다. 앱 수명 주기는 중계를 시작하고
+- **Kafka 기반 실시간 및 에이전트 관찰.** 팩토리는 인증된 `/live/stream`과
+  `/agents/stream` 읽기 경로를 항상 등록합니다. Kafka 초기화 엔드포인트가 구성되면
+  하나의 서비스 소유 소비자 그룹이 `aw.pipeline.stages`를 읽고 단계 및 Pantheon 런타임
+  상태 레코드를 검증한 뒤 허용된 레코드를 별도의 범위 제한 프로세스 내부 SSE 싱크로 전달합니다. 앱 수명 주기는 중계를 시작하고
   중지하며 중계가 독립적으로 소유한 Kafka 소비자를 닫습니다. Kafka 구성이 없으면
   경로는 연결 유지 신호를 보내며 `Awaiting source`를 표시합니다. 전송 연결을
   런타임 근거로 표시하지 않습니다. 브라우저의 native `EventSource` API는
@@ -79,7 +79,7 @@ pytest의 `test_fixtures=True`에서만 `UnsafeClaimsExtractor`와 synthetic 화
 | `FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS` | 비어있음 (same-origin) | 콤마로 구분된 출처 목록. bare `*` 원소는 이 팩토리가 `RUNTIME_ENV`와 무관하게 무조건 거부한다 - 크로스-오리진 배포는 콘솔 출처를 명시적으로 나열해야 한다. |
 | `FDAI_OPERATOR_API_STATEMENT_TIMEOUT_MS` | `20000` | 모든 읽기 쿼리에 `SET LOCAL statement_timeout`으로 적용. |
 | `FDAI_OPERATOR_API_CONNECT_TIMEOUT_S` | `10` | TCP + auth 핸드셰이크를 제한해 죽은 DB가 빠르게 실패하도록. |
-| `FDAI_KAFKA_BOOTSTRAP_SERVERS` | 비어 있음 | 의미 전송과 실시간 단계 중계를 시작합니다. `:9093`의 Event Hubs Kafka 엔드포인트를 사용합니다. 값이 비어 있으면 `/live/stream`은 단계 근거를 날조하지 않고 `Awaiting source` 상태로 연결을 유지합니다. |
+| `FDAI_KAFKA_BOOTSTRAP_SERVERS` | 비어 있음 | 의미 전송과 공유 실시간/에이전트 관찰 중계를 시작합니다. `:9093`의 Event Hubs Kafka 엔드포인트를 사용합니다. 값이 비어 있으면 두 SSE 경로는 런타임 근거를 날조하지 않고 `Awaiting source` 상태로 연결을 유지합니다. |
 | `KAFKA_TOPIC_EVENTS` | 비어 있음 | Kafka 초기화와 함께 타입이 지정된 액션 및 confirmed 인시던트 작업 흐름용 `POST /chat/action`을 활성화합니다. Huginn이 consume하는 raw 유입 토픽과 같은 값을 사용합니다. |
 | `FDAI_STAGE_TOPIC` | `aw.pipeline.stages` | 워커가 게시하고 실제 운영 및 에이전트 중계가 소비하는 단계 토픽입니다. 워커와 Operator API는 같은 값을 사용하는 것이 좋습니다. |
 | `FDAI_INCIDENT_SLA_POLICY_JSON` | 비어 있음(비활성화된) | 모든 `sev1`부터 `sev5`까지 긍정 `acknowledge_seconds` 및 `resolve_seconds` 값을 가진 strict JSON 객체입니다. 영속 A2 SLA-breach 모니터링을 활성화합니다. |
@@ -140,9 +140,10 @@ uvicorn fdai.delivery.operator_api.prod:app \
 - [`adapters/live_stage_kafka.py`](../../../services/operator-service/src/fdai_operator_service/)
   - Kafka 소비자 수명 주기와 처리 후 커밋 동작을 소유합니다.
 - [`streaming/live_stream.py`](../../../services/operator-service/src/fdai_operator_service/) 및
-  [`streaming/stage_frames.py`](../../../services/operator-service/src/fdai_operator_service/)
-  - 범위가 제한된 SSE 전달을 제공하고 신뢰할 수 없는 단계 레코드를 검증하며
-  브라우저가 기대하는 원시 `event: stage` 계약을 유지합니다.
+  [`streaming/stage_frames.py`](../../../services/operator-service/src/fdai_operator_service/) 및
+  [`streaming/agent_frames.py`](../../../services/operator-service/src/fdai_operator_service/)
+  - 범위가 제한된 SSE 전달을 제공하고 신뢰할 수 없는 단계/런타임 레코드를 검증하며
+  브라우저가 기대하는 `event: stage`와 에이전트 `event: message` 계약을 유지합니다.
 
 ## 테스트
 
