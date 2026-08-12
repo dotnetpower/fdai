@@ -24,8 +24,19 @@ variable "resource_group_name" {
 }
 
 variable "image" {
-  description = "Container image reference (the fdai runtime image, e.g. `<acr>/fdai:dev`). Must be built with the `serve` extra so uvicorn is present, and bundle alembic for the migration job."
+  description = "Container image reference for the Operator API (for example `<acr>/fdai@sha256:<digest>`)."
   type        = string
+}
+
+variable "migration_image" {
+  description = "Digest-pinned image containing the Alembic revisions used by the migration Job. Empty falls back to image."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.migration_image == "" || can(regex("@sha256:[0-9a-f]{64}$", var.migration_image))
+    error_message = "migration_image must be empty or an image reference pinned by sha256 digest."
+  }
 }
 
 variable "operator_api_identity_id" {

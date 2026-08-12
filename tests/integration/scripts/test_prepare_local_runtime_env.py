@@ -10,10 +10,25 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from fdai_service_contracts.semantic_turn import (
+    SEMANTIC_PHYSICAL_TOPIC,
+    SEMANTIC_PROJECTION_TOPIC,
+    SEMANTIC_REQUEST_TOPIC,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SCRIPT = _REPO_ROOT / "scripts/deployment/azure/prepare-local-runtime-env.sh"
 _BASH = shutil.which("bash") or "bash"
+
+
+def test_semantic_fallback_literals_match_shared_contract() -> None:
+    script = _SCRIPT.read_text(encoding="utf-8")
+
+    assert f'semantic_request_default="{SEMANTIC_REQUEST_TOPIC}"' in script
+    assert f'semantic_projection_default="{SEMANTIC_PROJECTION_TOPIC}"' in script
+    assert f'semantic_physical_default="{SEMANTIC_PHYSICAL_TOPIC}"' in script
+
+
 _EXECUTOR_RESOURCE_ID = (
     "/subscriptions/00000000-0000-0000-0000-000000000001/"
     "resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/"

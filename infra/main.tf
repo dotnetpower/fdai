@@ -2068,6 +2068,7 @@ module "operator_api" {
   location                          = var.region
   resource_group_name               = module.resource_group.name
   image                             = var.operator_api_image == "" ? var.core_image : var.operator_api_image
+  migration_image                   = var.operator_api_migration_image
   operator_api_identity_id          = module.operator_api_identity[0].resource_id
   operator_api_identity_client_id   = module.operator_api_identity[0].client_id
   monitor_workspace_customer_id     = module.log_analytics.workspace_customer_id

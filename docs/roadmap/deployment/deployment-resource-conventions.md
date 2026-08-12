@@ -111,6 +111,10 @@ child module drops is a deployment contract failure, not an optional runtime deg
 Local runtime preparation carries the same bootstrap, logical names, and physical-topic marker into
 the independent Operator environment; a partial triplet stops before either service starts.
 
+The Operator App image and its one-off schema migration image are independently digest-pinned.
+The migration image must contain the database's current Alembic revision set; an unset migration
+image falls back to the App image only for backward compatibility, not as a promotion shortcut.
+
 After Core state ownership moves to `services/core-control-plane/<environment>.tfstate`, the
 legacy platform root retains the shared Container Apps environment and scheduled Jobs but no
 longer declares the Core Container App resource. Its deterministic Core name remains available for

@@ -167,6 +167,7 @@ jobs:
       # Operator API image + Entra/RBAC ids (tenant-specific; via repo Variables,
       # never committed). Empty when deploy_operator_api is false.
       TF_VAR_operator_api_image: ${{ vars.OPERATOR_API_IMAGE }}
+      TF_VAR_operator_api_migration_image: ${{ vars.OPERATOR_API_MIGRATION_IMAGE }}
       TF_VAR_operator_api_resolved_models_path: ${{ vars.OPERATOR_API_RESOLVED_MODELS_PATH }}
       TF_VAR_operator_api_web_search_enabled: ${{ vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
       TF_VAR_operator_api_web_search_allowed_domains: "${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}"

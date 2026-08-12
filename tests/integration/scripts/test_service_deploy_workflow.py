@@ -68,6 +68,20 @@ def test_legacy_platform_cannot_recreate_migrated_core() -> None:
     assert "providers/Microsoft.App/containerApps/${module.compute.core_app_name}" in _LEGACY_ROOT
 
 
+def test_operator_migration_image_is_independently_pinned() -> None:
+    root = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
+    variables = (_ROOT / "infra/variables.tf").read_text(encoding="utf-8")
+    module = (_ROOT / "infra/modules/operator-api/container-app/main.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'variable "operator_api_migration_image"' in variables
+    assert 'regex("@sha256:[0-9a-f]{64}$", var.operator_api_migration_image)' in variables
+    assert "migration_image                   = var.operator_api_migration_image" in root
+    assert 'image   = var.migration_image == "" ? var.image : var.migration_image' in module
+    assert "TF_VAR_operator_api_migration_image" in _LEGACY_WORKFLOW
+
+
 def test_legacy_executor_uses_independent_service_distribution() -> None:
     module_match = re.search(
         r'module "isolated_executor" \{(?P<body>.*?)\n\}',

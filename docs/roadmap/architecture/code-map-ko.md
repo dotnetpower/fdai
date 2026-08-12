@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 798b161591941e5b4d5bbd4e4bf3be8236c58ca0
+translation_source_sha: ddc1be68e3cd85a3e0cb73541339dc769988cacd
 translation_revised: 2026-08-12
 ---
 # 코드 맵
@@ -112,7 +112,9 @@ pin합니다. Answered 결과에는 exact release, 매니페스트, 계획, 실�
 
 SDK는 두 semantic channel이 하나의 physical Event Hub를 공유할 때 사용하는 logical-topic marker와
 결정론적 consumer-group 파생 규칙도 소유합니다. Core와 Operator는 서로 다른 adapter, codec,
-identity, logical topic 및 offset group을 유지하며 상대 서비스 구현을 가져오지 않습니다.
+identity, logical topic 및 offset group을 유지하며 상대 서비스 구현을 가져오지 않습니다. 같은 계약은
+targeted Terraform 상태가 새 output을 아직 materialize하지 않았을 때 사용하는 canonical physical-topic
+기본값도 제공합니다.
 
 서비스 분포 5개는 deployable `0.1.2` 이미지를 N-1, `0.1.3`을 N으로 사용합니다. 기존 contract-set
 `1.0.0`/`1.1.0` 매트릭스는 프로세스 간 호환성 경계로 유지합니다.

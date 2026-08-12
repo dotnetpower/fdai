@@ -700,6 +700,17 @@ variable "operator_api_image" {
   default     = ""
 }
 
+variable "operator_api_migration_image" {
+  description = "Digest-pinned image for the one-off Operator schema migration Job. Empty falls back to operator_api_image for backward compatibility."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.operator_api_migration_image == "" || can(regex("@sha256:[0-9a-f]{64}$", var.operator_api_migration_image))
+    error_message = "operator_api_migration_image must be empty or an image reference pinned by sha256 digest."
+  }
+}
+
 variable "operator_api_resolved_models_path" {
   description = "Container path to resolved-models.json for the Command Deck narrator. Empty disables narrator routes. Supplied via CI Variables; never committed with environment-specific values."
   type        = string

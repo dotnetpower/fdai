@@ -172,8 +172,26 @@ fi
 bootstrap="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_kafka_bootstrap)"
 operational_bootstrap="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_operational_kafka_bootstrap 2>/dev/null || true)"
 topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_topics)"
-semantic_topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_semantic_topics 2>/dev/null || printf '%s' "$topics_json")"
+semantic_topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_semantic_topics 2>/dev/null || printf '[]')"
 semantic_physical_topic="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_semantic_physical_topic 2>/dev/null || true)"
+if [[ "$semantic_topics_json" == "[]" && -z "$semantic_physical_topic" ]]; then
+  semantic_request_default="operator.semantic-turn.requests"
+  semantic_projection_default="core.semantic-turn.projections"
+  semantic_physical_default="aw.pantheon.objects"
+  semantic_contract="$(printf '{"logical":["%s","%s"],"physical":"%s"}' \
+    "$semantic_request_default" "$semantic_projection_default" "$semantic_physical_default")"
+  semantic_fallback="$(printf '%s\n%s' "$topics_json" "$semantic_contract" | "$REPO_ROOT/.venv/bin/python" -c '
+import json, sys
+topics = json.loads(sys.stdin.readline())
+contract = json.loads(sys.stdin.readline())
+if isinstance(topics, list) and contract["physical"] in topics:
+    print(json.dumps(contract, separators=(",", ":")))
+')"
+  if [[ -n "$semantic_fallback" ]]; then
+    semantic_topics_json="$(printf '%s' "$semantic_fallback" | "$REPO_ROOT/.venv/bin/python" -c 'import json, sys; print(json.dumps(json.load(sys.stdin)["logical"], separators=(",", ":")))')"
+    semantic_physical_topic="$(printf '%s' "$semantic_fallback" | "$REPO_ROOT/.venv/bin/python" -c 'import json, sys; print(json.load(sys.stdin)["physical"])')"
+  fi
+fi
 operational_topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_operational_topics 2>/dev/null || printf '[]')"
 resource_group="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw resource_group_name)"
 monitor_workspace_customer_id="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw log_workspace_customer_id 2>/dev/null || true)"

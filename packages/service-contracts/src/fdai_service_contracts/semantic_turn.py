@@ -16,6 +16,7 @@ Digest = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
 BoundedId = Annotated[str, Field(min_length=1, max_length=256)]
 SEMANTIC_REQUEST_TOPIC = "operator.semantic-turn.requests"
 SEMANTIC_PROJECTION_TOPIC = "core.semantic-turn.projections"
+SEMANTIC_PHYSICAL_TOPIC = "aw.pantheon.objects"
 LOGICAL_TOPIC_FIELD = "_fdai_logical_topic"
 
 
