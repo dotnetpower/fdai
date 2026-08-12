@@ -23,6 +23,7 @@
         "services/*/src",
         "tools"
     ],
+    "python.analysis.logLevel": "Warning",
     "python.analysis.userFileIndexFollowSymlinkedFolders": false,
     "files.associations": {
         "**/.github/workflows/deploy-dev.yml": "yaml"

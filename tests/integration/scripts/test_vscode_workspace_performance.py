@@ -31,6 +31,7 @@ def test_pylance_indexes_owned_source_roots_without_following_symlinks() -> None
         "services/*/src",
         "tools",
     ]
+    assert settings["python.analysis.logLevel"] == "Warning"
     assert settings["python.analysis.userFileIndexFollowSymlinkedFolders"] is False
 
 
