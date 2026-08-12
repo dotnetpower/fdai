@@ -228,12 +228,13 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "AZURE_SUBSCRIPTION_ID=00000000-0000-0000-0000-000000000001",
         "AZURE_RESOURCE_GROUP=rg-example",
         "AZURE_REGION=example-region",
-        "KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093",
-        "FDAI_KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093",
+        "FDAI_EXECUTION_VENUE=local",
+        "KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:19092",
+        "KAFKA_SECURITY_PROTOCOL=PLAINTEXT",
+        "FDAI_KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:19092",
         "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests",
         "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections",
         "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=aw.pantheon.objects",
-        "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS=example-ops.servicebus.windows.net:9093",
         "KAFKA_TOPIC_EVENTS=aw.change.events",
         "FDAI_STAGE_TOPIC=aw.pipeline.stages",
         "FDAI_PANTHEON_OBJECT_TOPIC=aw.pantheon.objects",
@@ -367,7 +368,7 @@ def test_rejects_resolved_models_without_core_endpoint_before_provider_access(
     assert not output.exists()
 
 
-def test_omits_inventory_invalidation_topic_until_provisioned(tmp_path: Path) -> None:
+def test_uses_local_semantic_topics_without_inventory_invalidation(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     (repo / "console").mkdir(parents=True)
     (repo / "infra").mkdir()
@@ -430,17 +431,17 @@ def test_omits_inventory_invalidation_topic_until_provisioned(tmp_path: Path) ->
         text=True,
     )
 
-    assert "FDAI_INVENTORY_RAW_TOPIC=" not in output.read_text(encoding="utf-8")
-    assert "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=" not in output.read_text(encoding="utf-8")
-    assert "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=" not in output.read_text(encoding="utf-8")
-    assert "FDAI_CORE_CONSUMER_GROUP_ID=fdai-local-developer-b-core" in output.read_text(
-        encoding="utf-8"
-    )
+    rendered = output.read_text(encoding="utf-8")
+    assert "FDAI_INVENTORY_RAW_TOPIC=" not in rendered
+    assert f"FDAI_SEMANTIC_TURN_REQUEST_TOPIC={SEMANTIC_REQUEST_TOPIC}" in rendered
+    assert f"FDAI_SEMANTIC_TURN_PROJECTION_TOPIC={SEMANTIC_PROJECTION_TOPIC}" in rendered
+    assert f"FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC={SEMANTIC_PHYSICAL_TOPIC}" in rendered
+    assert "FDAI_CORE_CONSUMER_GROUP_ID=fdai-local-developer-b-core" in rendered
     assert "invalidation uses TTL refresh" in completed.stderr
     # No operations gateway is provisioned here, so the governed direct-API
     # executor must fall back to the in-memory shadow fake automatically.
-    assert "FDAI_DIRECT_API_FAKE=1" in output.read_text(encoding="utf-8")
-    assert "FDAI_DEV_OPERATIONS_GATEWAY_URL=" not in output.read_text(encoding="utf-8")
+    assert "FDAI_DIRECT_API_FAKE=1" in rendered
+    assert "FDAI_DEV_OPERATIONS_GATEWAY_URL=" not in rendered
     assert "uses the in-memory shadow fake" in completed.stderr
 
 
