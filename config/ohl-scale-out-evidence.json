@@ -130,6 +130,7 @@
     "completed_at": null
   },
   "residuals": [
+    "independent_service_hil_binding",
     "protected_runner_live_execution"
   ]
 }

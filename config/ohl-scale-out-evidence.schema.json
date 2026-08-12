@@ -279,6 +279,7 @@
       "items": {
         "enum": [
           "protected_runner_live_execution",
+          "independent_service_hil_binding",
           "production_graph_provider_binding",
           "production_scale_out_executor_binding"
         ]

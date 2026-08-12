@@ -32,8 +32,33 @@ central planner or another authority surface.
 > context, Process store, active effect-model reader, and causal verifier are available. Staging
 > partial-execution proof and live graph shadow measurement remain release evidence, not completed
 > live claims. Production graph evidence and the development `ops.scale-out` VM Scale Set executor
-> bindings are implemented and covered by focused tests; the protected-runner drill, independent
-> closure, and full recurrence window remain outstanding.
+> bindings are implemented and covered by focused tests. Independent Core and Operator service
+> HIL bindings, the protected-runner drill, independent closure, and the full recurrence window
+> remain outstanding.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| P1-P7 operational-planning core | implemented | `services/core-control-plane/src/fdai/core/operational_planning/` and focused planning tests | Planning remains A0 and reuses existing Process and authority paths. |
+| Production graph evidence and scale-out executor bindings | implemented | `services/core-control-plane/src/fdai/delivery/azure/` and focused composition/delivery tests | Code presence and tests don't count as live outcome evidence. |
+| Independent-service HIL binding | in-progress | `config/ohl-scale-out-evidence.json` and the deployed Core/Operator environment contract | The service roots must bind the HIL channel and callback signing secret before approval can park and resolve the action. |
+| OHL Lane F live evidence | in-progress | `docs/runbooks/ohl-scale-out-evidence.md` | Protected execution, independent closure, 100 samples, and the 14-day recurrence window remain open. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and exposed the independent-service HIL binding residual. | current change; `services/core-control-plane/tests/scenarios/operational-planning/test_manifest.py` reports 7 passed. | Bind HIL in both service roots, deploy the exact revision, and complete the live evidence campaign. |
+
+### Remaining work
+
+- [ ] Bind and verify the Core HIL channel plus Operator callback signing secret so a distinct human
+  approval parks, resolves, and resumes one `ops.scale-out` proposal.
+- [ ] Complete the protected-runner drill and record independent graph closure, 100 live-shadow
+  samples, zero policy escapes, rollback/cleanup, and the full 14-day recurrence window.
 
 ## Design at a glance
 

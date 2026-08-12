@@ -1,7 +1,7 @@
 ---
 title: OHL Scale-Out 근거 Runbook
 translation_of: ohl-scale-out-evidence.md
-translation_source_sha: ac61d8dbc2efff0da791ee6a2f70303b9a997d3e
+translation_source_sha: ce4c302f7f2e977d09211ed6e4cbd8f5656d9b0e
 translation_revised: 2026-08-13
 ---
 # OHL Scale-Out 근거 Runbook
@@ -275,15 +275,17 @@ manifest를 `complete`로 변경하세요. 특히 다음 조건을 확인합니�
 
 ## 현재 blocker
 
-이 prepared 계약에는 residual 하나가 남아 있습니다.
+이 prepared 계약에는 residual 두 개가 남아 있습니다.
 
+- Independent Core 및 Operator service root에 이 action을 park하고 resolve하는 데 필요한 HIL
+  channel 및 callback signing secret binding이 아직 없습니다.
 - protected-runner live drill을 아직 실행하지 않았습니다.
 
 Production composition에는 graph Dynamic evidence provider가 연결되어 있으며, 개발 operations
 게이트웨이는 `ops.scale-out`을 정확한 Uniform VM Scale Set 하나의 용량 증가로 매핑합니다.
 Focused test는 두 연결을 검증하지만 이를 실제 운영 결과 증거로 취급하지 않습니다.
 
-실제 운영 residual을 닫기 전에는 frozen scenario manifest가 `partial`로 유지되고 생성된 artifact는
+두 residual을 모두 닫기 전에는 frozen scenario manifest가 `partial`로 유지되고 생성된 artifact는
 tracked live claim이 아닌 local evidence로 유지됩니다.
 
 ## 관련 문서
