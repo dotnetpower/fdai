@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: a29b547b4035c6d9cd1d881e792880b022b4c31c
+translation_source_sha: 99f2d9239db2cb69069f688399413943a4fdbb9a
 translation_revised: 2026-08-12
 ---
 
@@ -119,7 +119,9 @@ translation_revised: 2026-08-12
 > 사용하면 `production_ready=false`로 보고합니다. 운영 완료를 주장하는 호출자는
 > `require_production_ready=True`를 설정하고 외부에서 생성된 `cross_service_e2e` 또는
 > `live_assurance` 증적을 제공해야 합니다. 따라서 일반 fast 게이트는 로컬 CI에서 계속 실행할 수
-> 있으며 hand-authored 고정본을 서비스 간 또는 실제 운영 증명으로 취급하지 않습니다.
+> 있으며 hand-authored 고정본을 서비스 간 또는 실제 운영 증명으로 취급하지 않습니다. Catalog
+> 구조가 변경되면 모든 answered fixture는 새로 계산한 release 및 principal-manifest digest를
+> 고정해야 게이트를 통과하며 stale 결정론적 receipt는 compatibility로 수락하지 않습니다.
 
 ## 설계 개요
 

@@ -123,7 +123,9 @@ units for 100% structural query coverage.
 > question uses deterministic fixture evidence. A caller that claims production completion must
 > set `require_production_ready=True` and supply externally produced `cross_service_e2e` or
 > `live_assurance` receipts. This keeps the ordinary fast gate runnable in local CI without turning
-> a hand-authored fixture into cross-service or live proof.
+> a hand-authored fixture into cross-service or live proof. When catalog structure changes, every
+> answered fixture must pin the newly computed release and principal-manifest digests before the
+> gate can pass; stale deterministic receipts are never accepted by compatibility.
 
 ## Design at a glance
 
