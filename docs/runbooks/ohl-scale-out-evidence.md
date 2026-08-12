@@ -276,7 +276,7 @@ Change the scenario manifest to `complete` only when all conditions in the confi
 
 This prepared contract leaves two residuals:
 
-- the independent Core and Operator service roots don't yet bind the HIL channel and callback
+- the independent Core and Operator service roots don't yet bind the human approval channel and callback
   signing secret required to park and resolve this action;
 - the protected-runner live drill hasn't run;
 
