@@ -428,11 +428,14 @@ def test_operator_runtime_role_is_reproducible_and_exact() -> None:
 
 
 def test_operator_activity_projection_has_exact_read_only_inventory_grants() -> None:
-    source = (
+    revision_path = (
         MIGRATION_ROOT / "branches/operator-service/versions/20260812_operator_activity_read.py"
-    ).read_text(encoding="utf-8")
+    )
+    source = revision_path.read_text(encoding="utf-8")
+    migration = runpy.run_path(str(revision_path))
 
     assert 'down_revision: str | Sequence[str] | None = "operator_metering_read_20260810"' in source
+    assert migration["owned_tables"] == ()
     assert "FROM PUBLIC, fdai_operator" in source
     for table in (
         "inventory_snapshot",
