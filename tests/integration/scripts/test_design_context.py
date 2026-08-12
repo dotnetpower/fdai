@@ -4,7 +4,6 @@ import importlib.util
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -101,6 +100,26 @@ def test_semantic_turn_path_keeps_ontology_query_context() -> None:
     assert "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md" in required
 
 
+def test_ordinary_channel_gateway_avoids_ontology_query_governance_context() -> None:
+    required = _load_module().required_context(
+        ("services/core-control-plane/src/fdai/core/conversation/channel_gateway.py",)
+    )
+
+    assert len(required) <= 14
+    assert "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md" not in required
+
+
+def test_ontology_query_runtime_uses_focused_context() -> None:
+    required = _load_module().required_context(
+        ("services/core-control-plane/src/fdai/core/ontology_platform/query_gateway.py",)
+    )
+
+    assert len(required) <= 13
+    assert "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md" in required
+    assert "docs/roadmap/interfaces/operator-console.md" not in required
+    assert "docs/roadmap/rules-and-detection/causal-incident-graph.md" not in required
+
+
 def test_only_operator_surfaces_owns_the_complete_operator_source_tree() -> None:
     manifest = json.loads(
         (REPO_ROOT / "scripts/lib/design-routes.json").read_text(encoding="utf-8")
@@ -126,7 +145,7 @@ def test_hook_avoids_post_tool_response_payloads() -> None:
     hooks = json.loads(HOOK_CONFIG_PATH.read_text(encoding="utf-8"))["hooks"]
 
     assert set(hooks) == {"PreToolUse"}
-    assert hooks["PreToolUse"][0]["command"] == "python3 -S -m scripts.agent.pre_tool_dispatch"
+    assert hooks["PreToolUse"][0]["command"] == "bash scripts/agent/pre_tool_dispatch.sh"
 
 
 def test_hook_command_runs_without_pythonpath() -> None:
@@ -134,7 +153,7 @@ def test_hook_command_runs_without_pythonpath() -> None:
     environment.pop("PYTHONPATH", None)
 
     completed = subprocess.run(
-        [sys.executable, "-S", "-m", "scripts.agent.pre_tool_dispatch"],
+        ["/bin/bash", "scripts/agent/pre_tool_dispatch.sh"],
         cwd=REPO_ROOT,
         input=json.dumps({"tool_name": "grep_search", "tool_input": {"query": "x"}}),
         check=True,
@@ -144,6 +163,36 @@ def test_hook_command_runs_without_pythonpath() -> None:
     )
 
     assert json.loads(completed.stdout) == {"continue": True}
+
+
+def test_hook_shell_fast_path_invokes_python_only_for_policy_tools(tmp_path: Path) -> None:
+    fake_python = tmp_path / "python3"
+    fake_python.write_text("#!/usr/bin/env bash\nexit 99\n", encoding="utf-8")
+    fake_python.chmod(0o755)
+    environment = {**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"}
+
+    unrelated = subprocess.run(
+        ["/bin/bash", "scripts/agent/pre_tool_dispatch.sh"],
+        cwd=REPO_ROOT,
+        input=json.dumps({"tool_name": "grep_search", "tool_input": {"query": "x"}}),
+        capture_output=True,
+        text=True,
+        env=environment,
+        check=False,
+    )
+    policy = subprocess.run(
+        ["/bin/bash", "scripts/agent/pre_tool_dispatch.sh"],
+        cwd=REPO_ROOT,
+        input=json.dumps({"tool_name": "apply_patch", "tool_input": {"input": "patch"}}),
+        capture_output=True,
+        text=True,
+        env=environment,
+        check=False,
+    )
+
+    assert unrelated.returncode == 0
+    assert json.loads(unrelated.stdout) == {"continue": True}
+    assert policy.returncode == 99
 
 
 def test_dispatcher_skips_policy_import_for_unrelated_tools(

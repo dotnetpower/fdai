@@ -3,7 +3,7 @@
     "PreToolUse": [
       {
         "type": "command",
-        "command": "python3 -S -m scripts.agent.pre_tool_dispatch",
+        "command": "bash scripts/agent/pre_tool_dispatch.sh",
         "timeout": 10
       }
     ]
