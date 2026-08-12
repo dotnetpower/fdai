@@ -12,6 +12,7 @@ from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistryError,
     load_resource_type_registry_from_mapping,
     resolve_azure_resource_type,
+    resource_type_mapping_digests,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -37,6 +38,17 @@ def test_shipped_vocabulary_has_no_duplicate_ids() -> None:
     registry = _shipped()
     ids = [t.id for t in registry.types]
     assert len(ids) == len(set(ids)), "duplicate resource_type id"
+
+
+def test_resource_type_mapping_digests_are_complete_and_replay_stable() -> None:
+    registry = _shipped()
+
+    first = resource_type_mapping_digests(registry)
+    second = resource_type_mapping_digests(registry)
+
+    assert set(first) == registry.ids()
+    assert first == second
+    assert all(value.startswith("sha256:") and len(value) == 71 for value in first.values())
 
 
 def test_shipped_vocabulary_covers_three_verticals() -> None:

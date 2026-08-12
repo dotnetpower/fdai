@@ -56,6 +56,7 @@ _DROP_SELF_REFERENCE = "self_reference"
 _DROP_UNVERIFIED_METADATA = "unverified_metadata"
 _DROP_DUPLICATE_EDGE = "duplicate_edge"
 _DROP_CONFLICTING_DUPLICATE = "conflicting_duplicate"
+_DROP_UNMAPPED_RESOURCE_TYPE = "unmapped_resource_type"
 
 
 class InventoryProjectionConflictError(RuntimeError):
@@ -89,6 +90,7 @@ def build_inventory_ontology_projection(
     links: Sequence[LinkRecord] = (),
     observation_complete: bool = True,
     relationship_drops: Sequence[RelationshipDrop] = (),
+    resource_type_mappings: Mapping[str, str] | None = None,
 ) -> InventoryOntologyProjection:
     """Restate one inventory observation as a typed resource subgraph.
 
@@ -121,6 +123,19 @@ def build_inventory_ontology_projection(
             observed_types=observed_types,
             dropped=dropped,
         )
+        if resource_type_mappings is not None:
+            projected_links += _build_classification_links(
+                generation=generation,
+                objects=objects,
+                resource_type_mappings=resource_type_mappings,
+                dropped=dropped,
+            )
+            projected_links = tuple(
+                sorted(
+                    projected_links,
+                    key=lambda item: (item.link_type, item.from_id, item.to_id),
+                )
+            )
     else:
         projected_links = ()
         dropped.add(_DROP_OBSERVATION_INCOMPLETE)
@@ -132,6 +147,44 @@ def build_inventory_ontology_projection(
         complete=observation_complete and not dropped,
         dropped_reasons=tuple(sorted(dropped)),
     )
+
+
+def _build_classification_links(
+    *,
+    generation: str,
+    objects: Mapping[str, OntologyObjectRecord],
+    resource_type_mappings: Mapping[str, str],
+    dropped: set[str],
+) -> tuple[OntologyLinkRecord, ...]:
+    """Classify every observed Resource through one reviewed type mapping."""
+
+    links: list[OntologyLinkRecord] = []
+    for resource_id, record in sorted(objects.items()):
+        resource_type = record.properties.get("type")
+        if not isinstance(resource_type, str):  # pragma: no cover - object builder invariant
+            raise InventoryProjectionConflictError(
+                f"inventory resource {resource_id!r} has no projected type"
+            )
+        mapping_digest = resource_type_mappings.get(resource_type)
+        if mapping_digest is None:
+            dropped.add(_DROP_UNMAPPED_RESOURCE_TYPE)
+            continue
+        if not mapping_digest.startswith("sha256:") or len(mapping_digest) != 71:
+            raise ValueError("resource type mapping digest MUST be a canonical SHA-256 value")
+        links.append(
+            OntologyLinkRecord(
+                link_type="resource_classified_as",
+                from_id=resource_id,
+                to_id=resource_type,
+                properties={
+                    "inventory_generation": generation,
+                    "mapping_digest": mapping_digest,
+                    "mapping_id": resource_type,
+                    "verified": True,
+                },
+            )
+        )
+    return tuple(links)
 
 
 def _build_objects(

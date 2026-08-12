@@ -9,6 +9,7 @@ problem in one shot.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import unicodedata
@@ -94,6 +95,26 @@ class ResourceTypeRegistry(BaseModel):
 
     def __iter__(self) -> Iterator[ResourceTypeEntry]:  # type: ignore[override]
         return iter(self.types)
+
+
+def resource_type_mapping_digests(registry: ResourceTypeRegistry) -> Mapping[str, str]:
+    """Return replay-stable evidence digests for reviewed provider type mappings."""
+
+    mappings: dict[str, str] = {}
+    for entry in sorted(registry.types, key=lambda item: item.id):
+        body = {
+            "registry_version": registry.version,
+            "entry": entry.model_dump(mode="json", exclude_none=True),
+        }
+        encoded = json.dumps(
+            body,
+            allow_nan=False,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        mappings[entry.id] = "sha256:" + hashlib.sha256(encoded).hexdigest()
+    return MappingProxyType(mappings)
 
 
 @dataclass(frozen=True, slots=True)
@@ -482,5 +503,6 @@ __all__ = [
     "ResourceTypeRegistry",
     "ResourceTypeRegistryError",
     "load_resource_type_registry_from_mapping",
+    "resource_type_mapping_digests",
     "resolve_azure_resource_type",
 ]

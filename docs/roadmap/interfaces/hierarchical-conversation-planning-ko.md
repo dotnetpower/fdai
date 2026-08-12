@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 1155cdaefa575f87d610516378194aff94942ac4
+translation_source_sha: 30f59fc4597bfbe32e94733720ec4ba47e82d0b3
 translation_revised: 2026-08-12
 ---
 
@@ -101,6 +101,10 @@ release 게이트에는 별도의 인식 상태 완결성 기반도 추가되었
 않은 충돌, 안전하지 않은 변이 생존, 언어 차이를 차단합니다. 기존 구조 고정본 게이트는 계속
 유효하지만 일치하며 통과한 인식 상태 커버리지 증적 없이는 `production_ready`를 보고할 수
 없습니다. 질문 생성, 런타임 증적 생성, L3/L4 실제 인증은 후속 구현 과제로 남아 있습니다.
+그래프는 이제 `resource_classified_as`를 선언하며 인벤토리 온톨로지 변환기는 내용 기반 주소를
+가진 ResourceType 레지스트리 매핑에서 관찰된 Resource마다 검증된 분류 하나를 만들 수 있습니다.
+미매핑 형식은 변환 결과를 불완전하게 만듭니다. 운영 인벤토리 작업은 아직 해당 매핑을 주입하지
+않으므로 실제 조립에서 리소스와 Rule을 연결하는 질문은 사용할 수 없습니다.
 
 언어 커버리지는 문구를 계속 추가하는 방식으로 유지하지 않습니다. 모델이나 임베딩 인덱스는
 객체, 관계, 함수 후보를 제안할 수 있습니다. 결정론적 검증기는 각 후보를 정확한 release에

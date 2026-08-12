@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 5049bb192ff1f0f6ebf50fa91d7356b0031eae34
+translation_source_sha: f9216ccf20abe22e985f7f66b7c0757bfa101875
 translation_revised: 2026-08-12
 ---
 
@@ -128,6 +128,9 @@ translation_revised: 2026-08-12
 > `production_ready=true`를 만들기 전에 일치하며 통과한 인식 상태 증적을 요구합니다. 이는
 > release 게이트 기반일 뿐입니다. 생성된 질문 우주, 런타임 이해/완전성/주장 증적, 공급자 기반
 > L3/L4 인증은 아직 완료되지 않았습니다.
+> OKQ-01에는 이제 `resource_classified_as`의 카탈로그 선언, 결정론적 ResourceType 매핑
+> 다이제스트, 안전하게 실패하는 분류 변환 결과, 단일 작성자 영속성 테스트가 있습니다. 운영
+> 인벤토리 작업 주입과 리소스에서 Rule로 이어지는 질의 함수는 아직 완료되지 않았습니다.
 
 ## 설계 개요
 

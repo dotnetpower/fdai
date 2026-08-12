@@ -14,7 +14,7 @@ silently adopted.
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from enum import StrEnum
 
@@ -67,9 +67,16 @@ class _OwnedIdentities:
 class InventoryOntologyProjector:
     """Apply one promoted observation as the provider-observed resource subgraph."""
 
-    def __init__(self, *, store: OntologyInstanceStore, status_store: StateStore) -> None:
+    def __init__(
+        self,
+        *,
+        store: OntologyInstanceStore,
+        status_store: StateStore,
+        resource_type_mappings: Mapping[str, str] | None = None,
+    ) -> None:
         self._store = store
         self._status_store = status_store
+        self._resource_type_mappings = resource_type_mappings
 
     async def apply(
         self,
@@ -87,6 +94,7 @@ class InventoryOntologyProjector:
             links=observation.links,
             observation_complete=observation.complete,
             relationship_drops=observation.relationship_drops,
+            resource_type_mappings=self._resource_type_mappings,
         )
         if not projection.complete:
             await self._write_status(

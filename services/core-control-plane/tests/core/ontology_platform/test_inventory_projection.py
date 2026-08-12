@@ -105,6 +105,42 @@ def test_complete_observation_projects_typed_objects_and_links() -> None:
     assert vm.properties["parent_id"] == "rg-1"
 
 
+def test_reviewed_resource_types_project_verified_classification_links() -> None:
+    mapping_digest = "sha256:" + ("a" * 64)
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            _resource("rg-1", type_id="resource-group"),
+            _resource("vm-1", type_id="compute.vm"),
+        ),
+        resource_type_mappings={
+            "compute.vm": mapping_digest,
+            "resource-group": mapping_digest,
+        },
+    )
+
+    assert [(item.from_id, item.to_id) for item in projection.links] == [
+        ("rg-1", "resource-group"),
+        ("vm-1", "compute.vm"),
+    ]
+    assert all(item.link_type == "resource_classified_as" for item in projection.links)
+    assert all(item.properties["verified"] is True for item in projection.links)
+    assert all(item.properties["inventory_generation"] == "snapshot-1" for item in projection.links)
+    assert projection.complete is True
+
+
+def test_unmapped_resource_type_blocks_complete_classification_projection() -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(_resource("unknown-1", type_id="unknown.resource"),),
+        resource_type_mappings={"compute.vm": "sha256:" + ("a" * 64)},
+    )
+
+    assert projection.links == ()
+    assert projection.complete is False
+    assert projection.dropped_reasons == ("unmapped_resource_type",)
+
+
 def test_link_observation_metadata_is_projected_canonically() -> None:
     metadata = _observation_metadata()
     projection = build_inventory_ontology_projection(

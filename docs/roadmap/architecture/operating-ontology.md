@@ -72,6 +72,12 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > ARM resource next-hop id. IP addresses, prefixes, DNS names, and route absence never become
 > Resource identities or reachability claims. Both snapshot and real-time inventory projections
 > persist the reviewed peering and routing link vocabulary.
+> The inventory ontology projector now supports the catalog-declared `resource_classified_as`
+> relationship from each observed Resource to one reviewed ResourceType. Classification pins the
+> complete inventory generation and a replay-stable digest of the ResourceType registry entry.
+> An unmapped type makes classification coverage incomplete and activates no replacement graph.
+> The production inventory job still needs to inject its already loaded registry digest map before
+> this relationship is present in live projections.
 
 ## Catalog semantic projection
 
@@ -281,6 +287,7 @@ The initial relationship set should stay small and query-driven.
 | `implemented_by` | BusinessService -> Workload | Workloads that implement a service. |
 | `runs_on` | Workload -> Resource | Runtime placement without changing resource ownership. |
 | `depends_on` | Workload/Resource -> Workload/Resource | Dependency required for correct operation. |
+| `resource_classified_as` | Resource -> ResourceType | Verified semantic classification from an observed resource to one reviewed type. |
 | `contains` | Resource -> Resource | Containing parent to contained child; traversal never reverses stored ownership. |
 | `attached_to` | Resource -> Resource | Attached resource to its anchor; a query may traverse the inverse without rewriting storage. |
 | `routes_to` | Resource -> Resource | Directed observed forwarding or next-hop reference; absence proves nothing about reachability. |

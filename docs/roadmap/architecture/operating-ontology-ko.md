@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 47b248ca935666da1904e0eba3cdf5f3e5772168
+translation_source_sha: e7b91b8b6c07ac6b4b5b1bbb9316c3ad71f67abc
 translation_revised: 2026-08-12
 ---
 # FDAI 운영 온톨로지
@@ -76,6 +76,12 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 > `routes_to`를 발행합니다. IP 주소, 접두사, DNS 이름 및 경로 absence는 Resource 신원 또는
 > 도달 가능성 점유가 되지 않습니다. 스냅샷과 real-time 인벤토리 변환 결과는 검토된
 > 피어링/라우팅 링크 vocabulary를 모두 보존합니다.
+> 인벤토리 온톨로지 변환기는 이제 관찰된 각 Resource에서 검토된 ResourceType 하나로 향하는
+> 카탈로그 선언 `resource_classified_as` 관계를 지원합니다. 분류는 완전한 인벤토리 세대와
+> ResourceType 레지스트리 항목의 재생 가능한 다이제스트를 고정합니다. 미매핑 형식이 하나라도
+> 있으면 분류 범위가 불완전해지고 대체 그래프를 활성화하지 않습니다. 이 관계가 실제 변환
+> 결과에 나타나려면 운영 인벤토리 작업이 이미 로드한 레지스트리 다이제스트 맵을 주입하는 후속
+> 연결이 필요합니다.
 
 ## 카탈로그 의미 변환 결과
 
@@ -284,6 +290,7 @@ Saga, 재생 소비자가 같은 사실을 참조하게 하는 변경할 수 없
 | `implemented_by` | BusinessService -> 워크로드 | 서비스를 구현하는 워크로드입니다. |
 | `runs_on` | 워크로드 -> Resource | Resource 소유권을 바꾸지 않는 런타임 placement입니다. |
 | `depends_on` | 워크로드/Resource -> 워크로드/Resource | 올바른 운영에 필요한 의존성입니다. |
+| `resource_classified_as` | Resource -> ResourceType | 관찰된 리소스에서 검토된 형식 하나로 향하는 검증된 의미 분류입니다. |
 | `contains` | Resource -> Resource | 포함 상위에서 포함된 하위로 향하며 탐색은 stored 소유권을 뒤집지 않습니다. |
 | `attached_to` | Resource -> Resource | 연결된 리소스에서 기준점으로 향하며 조회는 저장소를 다시 쓰지 않고 inverse를 traverse할 수 있습니다. |
 | `routes_to` | Resource -> Resource | 관측된 forwarding 또는 next-hop의 directed 참조이며 absence는 도달 가능성을 입증하지 않습니다. |

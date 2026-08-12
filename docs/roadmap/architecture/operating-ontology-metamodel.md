@@ -28,6 +28,10 @@ without turning every view into a new ontology declaration kind.
 > pointer. M5 registers network and Pod telemetry functions in the production semantic DAG through
 > a bounded composition-owned receipt issuer. Authenticated cross-service and live-assurance
 > receipts remain required before the complete metamodel can be reported production-ready.
+> M3 now also declares and projects `resource_classified_as` from provider-observed Resource
+> instances to catalog-owned ResourceType instances when a reviewed mapping covers the complete
+> generation. Mapping evidence is content-addressed; unmapped types fail classification coverage
+> closed. Production mapping injection remains unwired.
 
 ## Design at a glance
 
@@ -117,6 +121,7 @@ The initial Resource relationship roles are:
 | `contains` | containing parent -> contained child | A resource group contains a VM; a VNet contains a subnet. Parent-to-child traversal finds impact descendants. |
 | `attached_to` | attached resource -> attachment anchor | A NIC or disk is attached to a VM; a private endpoint is attached to its target. |
 | `depends_on` | dependent -> prerequisite | A VM depends on a referenced user-assigned identity; a workload depends on a required data service. |
+| `resource_classified_as` | observed Resource -> reviewed ResourceType | Classification follows a reviewed registry entry and never infers type from a name or embedding. |
 
 Provider field ownership does not decide semantic direction. For example, a VM payload may contain
 a NIC resource id, while the reviewed `attached_to` link is still NIC -> VM. A provider mapping

@@ -105,6 +105,10 @@ transport dispositions, hidden-scope leaks, ungrounded claims, unresolved confli
 mutation survivors, and locale divergence. The existing structural fixture gate remains valid but
 cannot report `production_ready` without a matching passed epistemic-coverage receipt. Question
 generation, runtime receipt production, and L3/L4 live certification remain delivery work.
+The graph now declares `resource_classified_as`, and the inventory ontology projector can emit one
+verified classification per observed Resource from content-addressed ResourceType registry
+mappings. Unmapped types make the projection incomplete. The production inventory job has not yet
+injected that mapping, so resource-to-Rule questions remain unavailable in live composition.
 
 Language coverage is not maintained by adding phrases. A model or embedding index may propose
 object, relation, and function candidates. The deterministic verifier resolves each candidate to

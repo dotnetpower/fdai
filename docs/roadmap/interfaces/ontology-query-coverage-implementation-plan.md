@@ -132,6 +132,9 @@ units for 100% structural query coverage.
 > epistemic receipt before external receipt sources can produce `production_ready=true`. This is a
 > release-gate foundation only: generated question universes, runtime understanding/completeness/
 > claim receipts, and provider-backed L3/L4 certification remain incomplete.
+> OKQ-01 now has the catalog declaration, deterministic ResourceType mapping digests, fail-closed
+> classification projection, and single-writer persistence tests for `resource_classified_as`.
+> Production inventory-job injection and the resource-to-Rule query function remain incomplete.
 
 ## Design at a glance
 

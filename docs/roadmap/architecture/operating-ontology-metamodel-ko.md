@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: f10962baf52b9cfb9100d549fb177e8b21ad0da5
+translation_source_sha: 5dfe50ce6d023d5ef622a9117d4c380f6429856f
 translation_revised: 2026-08-12
 ---
 # FDAI 운영 온톨로지 메타모델
@@ -31,6 +31,10 @@ translation_revised: 2026-08-12
 > 증적 발급자를 통해 네트워크 및 Pod 텔레메트리 함수를 운영 semantic DAG에 등록합니다.
 > 전체 메타모델을 production-ready로 보고하려면 인증된 cross-service 및 live-assurance 증적이
 > 여전히 필요합니다.
+> M3는 이제 검토된 매핑이 완전한 세대를 다루는 경우 프로바이더가 관찰한 Resource 인스턴스에서
+> 카탈로그가 관리하는 ResourceType 인스턴스로 향하는 `resource_classified_as`도 선언하고
+> 변환합니다. 매핑 근거는 내용 기반 주소를 가지며 미매핑 형식은 분류 범위를 안전하게
+> 실패시킵니다. 운영 매핑 주입은 아직 연결되지 않았습니다.
 
 ## 한눈에 보는 설계
 
@@ -120,6 +124,7 @@ LinkType은 구조적으로 directed 관계입니다. `from_type -> to_type`은 
 | `contains` | containing 상위 -> contained 하위 | Resource 그룹은 VM을 포함하고 VNet은 서브넷을 포함합니다. Parent-to-child 탐색으로 영향 descendant를 찾습니다. |
 | `attached_to` | 연결된 리소스 -> 첨부 기준점 | NIC 또는 disk는 VM에 연결되고 비공개 엔드포인트는 대상에 연결됩니다. |
 | `depends_on` | dependent -> 선행 조건 | VM은 참조하는 user-assigned 신원에 의존하고 워크로드는 필요한 데이터 서비스에 의존합니다. |
+| `resource_classified_as` | 관찰된 Resource -> 검토된 ResourceType | 분류는 검토된 레지스트리 항목을 따르며 이름 또는 임베딩에서 형식을 추론하지 않습니다. |
 
 프로바이더 필드 소유권은 의미 direction을 결정하지 않습니다. 예를 들어 VM 페이로드가 NIC
 리소스 id를 포함해도 검토된 `attached_to` 링크는 NIC -> VM입니다. 따라서 프로바이더 대응은

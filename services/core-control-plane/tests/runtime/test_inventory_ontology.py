@@ -127,6 +127,37 @@ async def test_first_generation_writes_owned_objects_and_manifest() -> None:
     assert manifest["generation"] == "snapshot-1"
 
 
+async def test_projector_persists_resource_type_classification() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="compute.vm",
+            object_type="ResourceType",
+            properties={"id": "compute.vm", "category": "compute"},
+        )
+    )
+    projector = InventoryOntologyProjector(
+        store=store,
+        status_store=status,
+        resource_type_mappings={"compute.vm": "sha256:" + ("a" * 64)},
+    )
+
+    result = await projector.apply(
+        _observation(generation="snapshot-classified", resource_ids=("vm-1",))
+    )
+
+    assert result.complete is True
+    assert result.link_count == 1
+    graph = await store.traverse(
+        root_ids=("vm-1",),
+        link_types=("resource_classified_as",),
+        max_depth=1,
+        limit=10,
+    )
+    assert [(item.from_id, item.to_id) for item in graph.links] == [("vm-1", "compute.vm")]
+
+
 async def test_one_resource_can_retain_multiple_observed_attachments() -> None:
     store = _store()
     status = InMemoryStateStore()
