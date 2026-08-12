@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 2227edd712be1120593f5594ebcee4541800b660
-translation_revised: 2026-08-12
+translation_source_sha: 443f49efefb645d9e379e6e95d2b885fd923448b
+translation_revised: 2026-08-13
 ---
 # FDAI 로드맵
 
@@ -74,6 +74,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 10b | [operational-learning-ontology-ko.md](rules-and-detection/operational-learning-ontology-ko.md) | 벤치마크 및 실제 운영 인시던트 결과를 변경할 수 없는 사례, 결정론적 실패 지문, 통제된 룰 후보, 재사용 가능한 promoted operating pattern으로 전환 |
 | 10c | [causal-incident-graph-ko.md](rules-and-detection/causal-incident-graph-ko.md) | 온톨로지 기반 causal 가설, support/refutation 근거, 근거 grade, 결과 종결 |
 | 10d | [document-ontology-distillation-ko.md](rules-and-detection/document-ontology-distillation-ko.md) | 승인된 운영 문서를 결정론적으로 검증되는 근거에 기반한 review-only 온톨로지 객체/링크 제안으로 compile |
+| 10e | [policy-abstraction-and-control-objectives-ko.md](rules-and-detection/policy-abstraction-and-control-objectives-ko.md) | 공급자 중립 통제 목표, 근거 포함 Rule 바인딩, 권한 경계, 코퍼스 규모 세대, 이행 및 구현 범위 |
 | 11 | [deploy-and-onboard-ko.md](deployment/deploy-and-onboard-ko.md) | 구체적인 Azure 리소스 인벤토리, 부트스트랩 순서, 포크 vs 코어 분리 |
 | 11a | [deployment-resource-conventions-ko.md](deployment/deployment-resource-conventions-ko.md) | 결정론적 CAF 리소스 이름, 소유권 태그, 배포 공급 태그 규칙 |
 | 11b | [hyperscale-cell-architecture-ko.md](architecture/hyperscale-cell-architecture-ko.md) | 구독 300개를 위한 확장 청사진: 셀 기반 스트리밍, 정책 기반 fan-in, 2-평면 로깅, ADX 기반 CQRS 감사 인덱싱, 비용 범위, standard/sovereign 프로파일, Container Apps 기본(AKS 연기) |
