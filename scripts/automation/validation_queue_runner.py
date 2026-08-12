@@ -245,6 +245,29 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
             f"with mode={mode}"
         )
         if mode == "fast":
+            verify_arguments = [
+                "bash",
+                "scripts/verify.sh",
+                "--fast",
+                "--diff",
+                revision_range,
+            ]
+            if "fast-gates" in passed_stages:
+                verify_result = _cached_stage("fast-gates")
+            else:
+                verify_result = _run_stage(
+                    "fast-gates",
+                    verify_arguments,
+                    cwd=validation_root,
+                    env=environment,
+                )
+                if verify_result["status"] == 0:
+                    passed_stages.add("fast-gates")
+                    write_stage_cache(cache_path, cache_context, passed_stages)
+            stages.append(verify_result)
+            if verify_result["status"] != 0:
+                status = int(verify_result["status"])
+                return status
             if "changed-tests" in passed_stages:
                 changed_result = _cached_stage("changed-tests")
             else:
@@ -296,25 +319,18 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
             if changed_result["status"] != 0:
                 status = int(changed_result["status"])
                 return status
-            verify_arguments = [
-                "bash",
-                "scripts/verify.sh",
-                "--fast",
-                "--diff",
-                revision_range,
-            ]
         else:
             verify_arguments = ["bash", "scripts/verify.sh", "--all"]
-        verify_result = _run_stage(
-            "fast-gates" if mode == "fast" else "all-gates",
-            verify_arguments,
-            cwd=validation_root,
-            env=environment,
-        )
-        stages.append(verify_result)
-        if verify_result["status"] != 0:
-            status = int(verify_result["status"])
-            return status
+            verify_result = _run_stage(
+                "all-gates",
+                verify_arguments,
+                cwd=validation_root,
+                env=environment,
+            )
+            stages.append(verify_result)
+            if verify_result["status"] != 0:
+                status = int(verify_result["status"])
+                return status
         structural_result = _run_stage(
             "structural-gates",
             ["bash", "scripts/automation/run-pre-push-structural-gates.sh"],

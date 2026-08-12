@@ -163,16 +163,16 @@ def test_run_batches_pending_commits_and_records_receipts(git_repo: Path, tmp_pa
     assert commit_accepted.returncode == 0, commit_accepted.stderr
     assert log_path.read_text(encoding="utf-8").splitlines() == [
         "uv:sync --frozen --extra dev --extra azure-mcp --python 3.13",
-        f"changed:--run {parent}..{commit}",
         f"verify:--fast --diff {parent}..{commit}",
+        f"changed:--run {parent}..{commit}",
     ]
     state_root = git_repo / ".git" / "fdai-validation-queue"
     receipt = json.loads((state_root / "receipts" / f"{commit}.json").read_text())
     assert receipt["duration_seconds"] >= 0
     assert [stage["name"] for stage in receipt["stages"]] == [
         "dependency-sync",
-        "changed-tests",
         "fast-gates",
+        "changed-tests",
         "structural-gates",
     ]
     structural = receipt["stages"][-1]
@@ -220,10 +220,15 @@ def test_linked_worktree_uses_the_shared_git_queue(git_repo: Path, tmp_path: Pat
     assert status.returncode == 0, status.stderr
     assert "1 reachable pending commit(s), 0 elsewhere" in status.stdout
     assert validated.returncode == 0, validated.stderr
-    assert log_path.read_text(encoding="utf-8").splitlines()[-1].startswith("verify:--fast --diff ")
+    log_lines = log_path.read_text(encoding="utf-8").splitlines()
+    verify_index = next(index for index, line in enumerate(log_lines) if line.startswith("verify:"))
+    changed_index = next(
+        index for index, line in enumerate(log_lines) if line.startswith("changed:")
+    )
+    assert verify_index < changed_index
 
 
-def test_retry_reuses_sync_and_passed_changed_tests(git_repo: Path, tmp_path: Path) -> None:
+def test_retry_reuses_sync_and_passed_fast_gates(git_repo: Path, tmp_path: Path) -> None:
     commit = _commit_change(git_repo)
     parent = _run(git_repo, "git", "rev-parse", "HEAD^").stdout.strip()
     script = git_repo / "scripts" / "automation" / "validation_queue.py"
@@ -237,7 +242,7 @@ def test_retry_reuses_sync_and_passed_changed_tests(git_repo: Path, tmp_path: Pa
         "run",
         env={
             "FDAI_VALIDATION_TEST_LOG": str(log_path),
-            "FDAI_VALIDATION_VERIFY_FAIL": "1",
+            "FDAI_VALIDATION_CHANGED_TEST_FAIL": "1",
         },
     )
     retried = _run(
@@ -248,13 +253,13 @@ def test_retry_reuses_sync_and_passed_changed_tests(git_repo: Path, tmp_path: Pa
         env={"FDAI_VALIDATION_TEST_LOG": str(log_path)},
     )
 
-    assert failed.returncode == 17
+    assert failed.returncode == 1
     assert retried.returncode == 0, retried.stderr
     assert log_path.read_text(encoding="utf-8").splitlines() == [
         "uv:sync --frozen --extra dev --extra azure-mcp --python 3.13",
+        f"verify:--fast --diff {parent}..{commit}",
         f"changed:--run {parent}..{commit}",
-        f"verify:--fast --diff {parent}..{commit}",
-        f"verify:--fast --diff {parent}..{commit}",
+        f"changed:--run {parent}..{commit}",
     ]
 
 
@@ -293,10 +298,11 @@ def test_fix_commit_resumes_failed_and_delta_changed_tests(git_repo: Path, tmp_p
     assert resumed.returncode == 0, resumed.stderr
     assert log_path.read_text(encoding="utf-8").splitlines() == [
         "uv:sync --frozen --extra dev --extra azure-mcp --python 3.13",
+        f"verify:--fast --diff {parent}..{failed_head}",
         f"changed:--run {parent}..{failed_head}",
+        f"verify:--fast --diff {parent}..{fixed_head}",
         "changed:--run --include-test tests/test_example.py::test_failure "
         f"{failed_head}..{fixed_head}",
-        f"verify:--fast --diff {parent}..{fixed_head}",
     ]
     state_root = git_repo / ".git" / "fdai-validation-queue"
     receipt = json.loads((state_root / "receipts" / f"{fixed_head}.json").read_text())
@@ -343,9 +349,10 @@ def test_fix_commit_restarts_full_changed_tests_when_resume_control_changes(
     assert restarted.returncode == 0, restarted.stderr
     assert log_path.read_text(encoding="utf-8").splitlines() == [
         "uv:sync --frozen --extra dev --extra azure-mcp --python 3.13",
+        f"verify:--fast --diff {parent}..{failed_head}",
         f"changed:--run {parent}..{failed_head}",
-        f"changed:--run {parent}..{fixed_head}",
         f"verify:--fast --diff {parent}..{fixed_head}",
+        f"changed:--run {parent}..{fixed_head}",
     ]
 
 
@@ -381,10 +388,9 @@ def test_local_model_change_invalidates_passed_stage_cache(git_repo: Path, tmp_p
     assert retried.returncode == 0, retried.stderr
     assert log_path.read_text(encoding="utf-8").splitlines() == [
         "uv:sync --frozen --extra dev --extra azure-mcp --python 3.13",
-        f"changed:--run {parent}..{commit}",
+        f"verify:--fast --diff {parent}..{commit}",
         f"verify:--fast --diff {parent}..{commit}",
         f"changed:--run {parent}..{commit}",
-        f"verify:--fast --diff {parent}..{commit}",
     ]
 
 
