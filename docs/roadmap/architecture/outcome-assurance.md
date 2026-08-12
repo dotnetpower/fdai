@@ -173,7 +173,8 @@ values.
 Semantic request and result projections may share one physical Event Hub through typed logical
 topics. The transport marker is removed before result decoding, so evidence references, freshness,
 verification state, and authority remain properties of the versioned projection rather than the
-broker envelope.
+broker envelope. POST streams wait for that durable projection through the request deadline and
+close a missing result as a typed hold without changing outcome authority.
 
 The console reuses its current information architecture:
 

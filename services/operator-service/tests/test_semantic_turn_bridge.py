@@ -719,6 +719,74 @@ async def test_semantic_bridge_replays_results_in_sequence_order() -> None:
     assert [event.event_id async for event in stream] == ["1", "2"]
 
 
+async def test_semantic_bridge_waits_for_delayed_terminal_projection() -> None:
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=cast(Any, object()),
+        result_source=cast(Any, object()),
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime.now(UTC)),
+        retry_seconds=0.01,
+    )
+    receipt = await bridge.append(_proposal())
+    stored_turn = store.turns[receipt.proposal_id]
+
+    async def project_after_transport_delay() -> None:
+        await asyncio.sleep(0.02)
+        await SemanticTurnProjectionConsumer(store).consume(
+            _projection(stored_turn.envelope, disposition="answered", answered_evidence=True)
+        )
+
+    projection_task = asyncio.create_task(project_after_transport_delay())
+    stream = await bridge.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            proposal_id=receipt.proposal_id,
+        )
+    )
+    events = [event async for event in stream]
+    await projection_task
+
+    assert len(events) == 1
+    assert events[0].event == "done"
+
+
+async def test_semantic_bridge_deadline_projects_typed_hold() -> None:
+    store = _MemorySemanticStore()
+    now = datetime.now(UTC)
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=cast(Any, object()),
+        result_source=cast(Any, object()),
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: now),
+        retry_seconds=0.01,
+    )
+    receipt = await bridge.append(
+        _proposal(
+            body={
+                "prompt": "Show the current incident evidence.",
+                "deadline_at": (now + timedelta(seconds=0.02)).isoformat(),
+            }
+        )
+    )
+
+    stream = await bridge.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            proposal_id=receipt.proposal_id,
+        )
+    )
+    events = [event async for event in stream]
+
+    assert len(events) == 1
+    assert events[0].event == "done"
+    semantic_result = cast(dict[str, object], events[0].data["semantic_result"])
+    assert semantic_result["disposition"] == "held"
+    assert semantic_result["reason_code"] == "semantic_transport_unavailable"
+
+
 async def test_semantic_adapter_delegates_reads_and_exposes_bridge_health() -> None:
     class ProjectionReader:
         def __init__(self) -> None:

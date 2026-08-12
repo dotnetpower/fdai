@@ -7,6 +7,7 @@ import hashlib
 import json
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, Protocol, cast
 from uuid import UUID, uuid5
 
@@ -31,7 +32,11 @@ from fdai_operator_service.postgres_family_store import (
     StoredSemanticResult,
     StoredSemanticTurn,
 )
-from fdai_service_contracts import SemanticTurnDisposition, SemanticTurnResult
+from fdai_service_contracts import (
+    SemanticTurnDisposition,
+    SemanticTurnRequest,
+    SemanticTurnResult,
+)
 
 SEMANTIC_REQUEST_TOPIC = "operator.semantic-turn.requests"
 SEMANTIC_RESULT_TOPIC = "core.semantic-turn.projections"
@@ -266,11 +271,18 @@ class SemanticTurnBridge:
                 "semantic turn not found",
             )
         after_sequence = _after_sequence(request.after_event_id)
-        results = await self._store.replay_semantic_turn(
+        results = await self._replay_until_deadline(
+            stored=stored,
             principal_id=request.scope.subject_id,
-            request_id=stored.request_id,
             after_sequence=after_sequence,
         )
+        if not results:
+            await self._consumer.consume(_held_projection(stored.envelope))
+            results = await self._store.replay_semantic_turn(
+                principal_id=request.scope.subject_id,
+                request_id=stored.request_id,
+                after_sequence=after_sequence,
+            )
         return _SemanticEventIterator(
             tuple(
                 StreamEvent(
@@ -281,6 +293,33 @@ class SemanticTurnBridge:
                 for result in results
             )
         )
+
+    async def _replay_until_deadline(
+        self,
+        *,
+        stored: StoredSemanticTurn,
+        principal_id: str,
+        after_sequence: int | None,
+    ) -> tuple[StoredSemanticResult, ...]:
+        semantic = stored.envelope.get("semantic_turn")
+        if not isinstance(semantic, Mapping):
+            raise ValueError("stored semantic request is missing")
+        request = SemanticTurnRequest.model_validate(semantic)
+        loop = asyncio.get_running_loop()
+        remaining_seconds = (request.deadline_at - datetime.now(UTC)).total_seconds()
+        deadline = loop.time() + max(0.0, remaining_seconds)
+        while True:
+            results = await self._store.replay_semantic_turn(
+                principal_id=principal_id,
+                request_id=stored.request_id,
+                after_sequence=after_sequence,
+            )
+            if results:
+                return results
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return ()
+            await asyncio.sleep(min(self._retry_seconds, remaining))
 
     def health(self) -> JsonObject:
         """Return a credential-free projection of semantic transport readiness."""

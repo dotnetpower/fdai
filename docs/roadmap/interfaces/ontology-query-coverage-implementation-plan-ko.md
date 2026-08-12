@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 4ec249264117de63851dd980c4a01102b11f20d2
-translation_revised: 2026-08-11
+translation_source_sha: 5ca157ec9d9ee392928abb796ca81d32c6cc0be1
+translation_revised: 2026-08-12
 ---
 
 # 온톨로지 조회 커버리지 구현 계획
@@ -33,8 +33,8 @@ translation_revised: 2026-08-11
 > 의미 페이로드는 N-1 형태로 translate하지 않고 실패 시 차단합니다. Core는 이제 설정된 의미
 > 요청을 consume하고 정본 결과를 저장하며 최종 변환 결과를 publish하고 시작
 > 준비 상태에 exact missing-provider 사유를 보고합니다. Operator 발신함 게시, 영속 재생 및
-> Console `done` 변환 결과는 이제 compose되며 receipt-backed 실제 운영 통합 근거가 release 게이트로
-> 남아 있습니다.
+> Console `done` 변환 결과는 이제 compose됩니다. POST 재생은 요청 기한까지 기다리고 Core 변환 결과가
+> 없으면 typed hold를 영속화합니다. Receipt-backed 실제 운영 통합 근거는 release 게이트로 유지됩니다.
 >
 > **구현 상태(2026-08-10):** Exact 온톨로지 release, 의미 후보, 범위가 제한된 ObjectSet, secured 조회
 > 증적, 타입이 지정된 함수 등록, 현재 인벤토리 변환 결과, 메트릭 프로바이더 및 causal-analysis

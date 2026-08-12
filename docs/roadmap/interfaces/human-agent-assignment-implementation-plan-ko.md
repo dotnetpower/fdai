@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 35fe8de4e7298cb774762b7afac63be9f980470f
+translation_source_sha: 6ce448786430fd3224b6a1be14fc3754acde872a
 translation_revised: 2026-08-12
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -109,7 +109,8 @@ Operator API는 케이스를 만들 수 있지만 결과를 적용할 수 없습
 
 Semantic 요청 및 결과 logical topic을 하나의 physical Event Hub로 multiplex해도 사람 principal,
 역할, 승인 또는 할당 리비전은 병합되지 않습니다. 인증된 principal은 versioned 요청에 유지되며,
-physical-topic RBAC는 전송 접근만 부여하고 할당 또는 실행 권한은 부여하지 않습니다.
+physical-topic RBAC는 전송 접근만 부여하고 할당 또는 실행 권한은 부여하지 않습니다. 기한이 제한된
+semantic 재생은 typed hold만 만들 수 있으며 할당 케이스를 만들거나 진행할 수 없습니다.
 
 | 계약 | 목적 |
 |------|------|

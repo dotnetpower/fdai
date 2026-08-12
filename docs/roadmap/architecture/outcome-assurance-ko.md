@@ -1,7 +1,7 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 185c805240f4d87e408af7466754003712d4ec1e
+translation_source_sha: b4713ad589bc07ffd4d6630935d57bfb3a3bca19
 translation_revised: 2026-08-12
 ---
 # 결과 Assurance
@@ -175,7 +175,8 @@ truth 계약을 따릅니다. 연결되지 않은 측정 출처는 demo 값 대�
 
 Semantic 요청과 결과 변환 결과는 typed logical topic을 통해 하나의 physical Event Hub를 공유할 수
 있습니다. 결과를 decode하기 전에 transport marker를 제거하므로 근거 참조, 최신성, 검증 상태 및
-권한은 broker envelope가 아니라 versioned 변환 결과의 속성으로 유지됩니다.
+권한은 broker envelope가 아니라 versioned 변환 결과의 속성으로 유지됩니다. POST 스트림은 요청
+기한까지 영속 변환 결과를 기다리며, 결과가 없으면 outcome 권한을 바꾸지 않는 typed hold로 닫힙니다.
 
 콘솔은 현재 information 아키텍처를 재사용합니다.
 

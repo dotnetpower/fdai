@@ -42,7 +42,9 @@ segment rendered from evidence that passed its deterministic verifier. It includ
 segment index, answer revision, evidence references, and replacement range for a later verified
 correction. A confirmed segment never cites a running branch. The terminal `done` frame is
 canonical and is the only answer persisted to conversation history. An interrupted stream remains
-partial and draft text never becomes confirmed content.
+partial and draft text never becomes confirmed content. A semantic POST stream waits for its
+durable projection until the request deadline; no projection closes as a persisted typed hold,
+never as an empty successful stream.
 
 The Web reducer validates branch kind, monotonic status, timing, evidence-reference, and text bounds
 before rendering. It renders each branch as a numbered investigation stage with expandable bounded
