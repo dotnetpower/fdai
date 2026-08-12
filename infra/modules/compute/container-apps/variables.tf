@@ -152,6 +152,42 @@ variable "canary_cron_expression" {
   default     = "*/5 * * * *"
 }
 
+variable "ohl_evidence_enabled" {
+  description = "Whether to provision the manual OHL scale-out proposal Job."
+  type        = bool
+  default     = false
+}
+
+variable "ohl_evidence_identity_id" {
+  description = "Dedicated proposal-only OHL publisher UAMI resource id."
+  type        = string
+  default     = ""
+}
+
+variable "ohl_evidence_identity_client_id" {
+  description = "Client id of the dedicated proposal-only OHL publisher UAMI."
+  type        = string
+  default     = ""
+}
+
+variable "ohl_evidence_target_resource_id" {
+  description = "Exact dedicated VMSS resource id bound to the OHL proposal Job."
+  type        = string
+  default     = ""
+}
+
+variable "ohl_evidence_campaign_id" {
+  description = "Retry-stable campaign id bound to the OHL proposal Job."
+  type        = string
+  default     = ""
+}
+
+variable "ohl_evidence_initiator_principal_id" {
+  description = "Human initiator object id recorded on the OHL operator request."
+  type        = string
+  default     = ""
+}
+
 variable "inventory_dsn_secret_id" {
   description = "Key Vault secret id containing the inventory snapshot PostgreSQL DSN."
   type        = string

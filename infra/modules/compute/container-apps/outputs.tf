@@ -51,3 +51,8 @@ output "canary_job_name" {
   description = "Synthetic full-loop canary publisher Job name, or empty when disabled."
   value       = try(azurerm_container_app_job.canary[0].name, "")
 }
+
+output "ohl_evidence_proposal_job_name" {
+  description = "Manual OHL scale-out proposal Job name, or empty when disabled."
+  value       = try(azurerm_container_app_job.ohl_evidence_proposal[0].name, "")
+}

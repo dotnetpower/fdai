@@ -20,7 +20,8 @@ name: deploy-dev
 #       SCHEDULER_TICK_CRON_EXPRESSION, ANALYZER_TICK_CRON_EXPRESSION,
 #       ANALYZER_TARGETS_JSON, ANALYZER_WINDOW_SECONDS, ANALYZER_BUDGET_SECONDS,
 #       DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON (optional server-owned probe map),
-#       OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION, OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY
+#       OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION, OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY,
+#       OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID, OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID
 #       (required when the OHL evidence target is enabled),
 #       ENABLE_EMAIL_NOTIFICATIONS, NOTIFICATION_EMAIL_RECIPIENTS_JSON
 #       (required when deploy_document_ingestion=true; prod images use digests)
@@ -165,9 +166,11 @@ jobs:
       TF_VAR_enable_isolated_executor_authority_cutover: ${{ inputs.cutover_isolated_executor_authority }}
       TF_VAR_enable_dev_operations_gateway: ${{ inputs.environment == 'dev' && inputs.deploy_dev_operations_gateway }}
       TF_VAR_enable_ohl_scale_out_evidence_target: ${{ inputs.environment == 'dev' && inputs.deploy_ohl_scale_out_evidence_target }}
+      TF_VAR_ohl_scale_out_evidence_campaign_id: ${{ vars.OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID }}
       TF_VAR_ohl_scale_out_evidence_image_version: ${{ vars.OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION }}
+      TF_VAR_ohl_scale_out_evidence_initiator_principal_id: ${{ vars.OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID }}
       TF_VAR_ohl_scale_out_evidence_ssh_public_key: ${{ vars.OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY }}
-      TF_CLI_ARGS_plan: ${{ inputs.deploy_design_mocks && '-target=module.design_mocks' || inputs.deploy_dev_operations_gateway && '-target=terraform_data.isolated_executor_authority_cutover_contract -target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=azurerm_linux_virtual_machine_scale_set.ohl_evidence -target=module.network[0].azurerm_subnet.evidence_target -target=module.compute.azurerm_container_app_job.canary[0] -target=module.compute.azurerm_container_app_job.inventory[0] -target=module.operator_api[0] -target=module.ingestion_gateway[0] -target=module.isolated_executor[0] -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0] -target=azurerm_role_assignment.operator_api_acr_pull -target=azurerm_role_assignment.operator_api_kv_secrets_user -target=azurerm_role_assignment.operator_api_reader -target=azurerm_role_assignment.read_api_acr_pull -target=azurerm_role_assignment.read_api_kv_secrets_user -target=azurerm_role_assignment.read_api_reader -target=module.operator_api_identity[0].azurerm_user_assigned_identity.primary -target=module.read_api[0].azurerm_container_app.read_api -target=module.read_api[0].azurerm_container_app_job.migrate -target=module.read_api_identity[0].azurerm_user_assigned_identity.primary -target=module.llm_azure_openai[0].azurerm_cognitive_account.primary -target=module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user -target=azurerm_role_assignment.runtime_startup_probe_eventhubs_owner' || '' }}
+      TF_CLI_ARGS_plan: ${{ inputs.deploy_design_mocks && '-target=module.design_mocks' || inputs.deploy_dev_operations_gateway && '-target=terraform_data.isolated_executor_authority_cutover_contract -target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=azurerm_linux_virtual_machine_scale_set.ohl_evidence -target=module.ohl_evidence_identity -target=azurerm_role_assignment.ohl_evidence_acr_pull -target=azurerm_role_assignment.ohl_evidence_eventhubs_sender -target=module.network[0].azurerm_subnet.evidence_target -target=module.compute.azurerm_container_app_job.ohl_evidence_proposal -target=module.compute.azurerm_container_app_job.canary[0] -target=module.compute.azurerm_container_app_job.inventory[0] -target=module.operator_api[0] -target=module.ingestion_gateway[0] -target=module.isolated_executor[0] -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0] -target=azurerm_role_assignment.operator_api_acr_pull -target=azurerm_role_assignment.operator_api_kv_secrets_user -target=azurerm_role_assignment.operator_api_reader -target=azurerm_role_assignment.read_api_acr_pull -target=azurerm_role_assignment.read_api_kv_secrets_user -target=azurerm_role_assignment.read_api_reader -target=module.operator_api_identity[0].azurerm_user_assigned_identity.primary -target=module.read_api[0].azurerm_container_app.read_api -target=module.read_api[0].azurerm_container_app_job.migrate -target=module.read_api_identity[0].azurerm_user_assigned_identity.primary -target=module.llm_azure_openai[0].azurerm_cognitive_account.primary -target=module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user -target=azurerm_role_assignment.runtime_startup_probe_eventhubs_owner' || '' }}
       TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
       TF_VAR_enable_document_ingestion: ${{ inputs.deploy_document_ingestion }}
       TF_VAR_enable_llm: ${{ inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' || vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
@@ -288,7 +291,9 @@ jobs:
           DEPLOY_DEV_OPERATIONS_GATEWAY: ${{ inputs.deploy_dev_operations_gateway }}
           DEPLOY_ISOLATED_EXECUTOR: ${{ inputs.deploy_isolated_executor }}
           DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET: ${{ inputs.deploy_ohl_scale_out_evidence_target }}
+          OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID: ${{ vars.OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID }}
           OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION: ${{ vars.OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION }}
+          OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID: ${{ vars.OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID }}
           OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY: ${{ vars.OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY }}
           VERIFY_EXECUTOR_EFFECT: ${{ inputs.verify_executor_effect }}
           PLAN_REQUEST_ID: ${{ inputs.request_id }}
@@ -317,9 +322,11 @@ jobs:
             exit 1
           fi
           if [[ "$DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET" == "true" \
-            && ( -z "$OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION" \
+            && ( -z "$OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID" \
+              || -z "$OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION" \
+              || -z "$OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID" \
               || -z "$OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY" ) ]]; then
-            echo "the OHL scale-out evidence target requires exact image-version and SSH-key repository variables." >&2
+            echo "the OHL scale-out evidence target requires campaign, initiator, exact image-version, and SSH-key repository variables." >&2
             exit 1
           fi
           if [[ -n "$RUNTIME_IMAGE_REVISION" && "$DEPLOY_ISOLATED_EXECUTOR" != "true" ]]; then
