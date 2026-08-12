@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 041ec458b1a93694d48220593db7486c84e96baa
+translation_source_sha: f5ca393f64213780856e635bfcf437cfb339adce
 translation_revised: 2026-08-12
 ---
 
@@ -122,6 +122,8 @@ translation_revised: 2026-08-12
 > 있으며 hand-authored 고정본을 서비스 간 또는 실제 운영 증명으로 취급하지 않습니다. Catalog
 > 구조가 변경되면 모든 answered fixture는 새로 계산한 release 및 principal-manifest digest를
 > 고정해야 게이트를 통과하며 stale 결정론적 receipt는 compatibility로 수락하지 않습니다.
+> 현재 `resource_classified_as` 카탈로그 개정은 같은 release 변경에서 해당 결정론적 고정본
+> 다이제스트를 갱신했습니다.
 > 첫 인식 상태 완결성 구현 구획은 이제 변경할 수 없는 유한 `QuestionUniverseReceipt`, 형식이
 > 지정된 `EpistemicStatus`, 증명을 포함하는 `EpistemicQuestionRecord`, 0건 임계값을 적용하는
 > `EpistemicCoverageReceipt`를 제공합니다. 기존 커버리지 게이트는 외부 증적 출처가
