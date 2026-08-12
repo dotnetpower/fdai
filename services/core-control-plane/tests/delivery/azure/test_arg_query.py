@@ -1140,9 +1140,9 @@ async def test_end_to_end_inventory_snapshot_streams_final_true() -> None:
             batches.extend([batch.resources])
 
     assert final_seen
-    # One shard yields one resource; final fence carries no data.
+    # Both shards form one generation batch; the final fence carries no data.
     payload_batches = [b for b in batches if b]
-    assert len(payload_batches) == 2
+    assert len(payload_batches) == 1
     provider_refs = {r.provider_ref for shard in payload_batches for r in shard}
     assert any(pr and pr.endswith("/storageAccounts/s1") for pr in provider_refs)
     assert any(pr and pr.endswith("/virtualMachines/vm1") for pr in provider_refs)

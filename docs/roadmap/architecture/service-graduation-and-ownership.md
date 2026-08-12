@@ -74,6 +74,10 @@ API inventory and deployed application shape.
 | Scheduler, inventory, measurement, and canary jobs | Approved as jobs | Bounded run-to-completion contracts and dedicated identities already justify out-of-band Container Apps Jobs. |
 | Authoritative control-loop stages | Rejected as ad hoc services | No stage may split without preserving agent single-writer ownership, hard dependencies, typed pub/sub, and complete execution safeguards. |
 
+The service-owned Operator parity manifest includes the authenticated read-only
+`/agents/activity` projection. This ownership does not change the deferred graduation decision or
+grant the route decision, approval, or execution authority.
+
 ## Data ownership matrix
 
 One logical record or lifecycle transition has one writer. Sharing a physical table is allowed only

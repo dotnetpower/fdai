@@ -1,6 +1,6 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 60334e7f074a94c378f2f67c5d5b9f34daeb7937
+translation_source_sha: fcad57575773af39e8f205cb9e61f006ad9b6180
 translation_revised: 2026-08-12
 ---
 # 서비스 승격과 데이터 소유권
@@ -75,6 +75,10 @@ channel을 multiplex할 수 있습니다. Broker entity를 공유해도 서비�
 | Background read-task 실행기 | 보류 | 영속 시도는 있지만 독립 비용/실패 트리거와 deployed 전송 계층 근거가 측정되지 않았습니다. |
 | 스케줄러, 인벤토리, 측정, canary 작업 | 작업으로 승인 | 범위가 제한된 run-to-completion 계약과 dedicated 신원이 out-of-band Container Apps 작업을 이미 정당화합니다. |
 | 권위 있는 control-loop 단계 | Ad hoc 서비스로 거절 | 에이전트 single-writer 소유권, 필수 의존성, 타입이 지정된 pub/sub, 완전한 실행 safeguard를 보존하지 않으면 단계를 분리할 수 없습니다. |
+
+서비스가 소유하는 Operator parity 매니페스트에는 인증된 읽기 전용 `/agents/activity`
+변환 결과가 포함됩니다. 이 소유권은 보류된 서비스 승격 결정을 변경하지 않으며 해당 경로에 결정,
+승인 또는 실행 권한을 부여하지 않습니다.
 
 ## 데이터 소유권 매트릭스
 
