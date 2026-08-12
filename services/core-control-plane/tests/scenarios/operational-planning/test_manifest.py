@@ -101,7 +101,10 @@ def test_ohl_scale_out_evidence_contract_is_bounded_and_schema_valid() -> None:
         "source_receipt_digest": None,
         "completed_at": None,
     }
-    assert EVIDENCE_CONFIG["residuals"] == ["protected_runner_live_execution"]
+    assert EVIDENCE_CONFIG["residuals"] == [
+        "independent_service_hil_binding",
+        "protected_runner_live_execution",
+    ]
 
 
 def test_ohl_scale_out_completion_transition_requires_verified_live_evidence() -> None:

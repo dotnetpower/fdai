@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: a1375fe3b01fdc2bdfe7fdc4eb20d6be510dc881
+translation_source_sha: 26142f89abd8b0837329410419c23e94a448961d
 translation_revised: 2026-08-12
 ---
 # 운영 계획
@@ -32,7 +32,32 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 > effect-model 읽기 담당, causal 검증기가 모두 있을 때만 계획 수립을 연결합니다. Staging 부분
 > 실행 증명과 live graph shadow 측정은 완료된 live claim이 아니라 release 근거로 남습니다.
 > Production graph evidence와 개발 `ops.scale-out` VM Scale Set 실행기 연결은 구현되어 focused
-> test로 검증됩니다. 보호된 러너 훈련, 독립 종결 및 전체 recurrence window는 아직 남아 있습니다.
+> test로 검증됩니다. Independent Core 및 Operator service HIL binding, 보호된 러너 훈련, 독립
+> 종결 및 전체 recurrence window는 아직 남아 있습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| P1-P7 operational-planning core | implemented | `services/core-control-plane/src/fdai/core/operational_planning/` 및 focused planning test | 계획은 A0로 유지되고 기존 Process 및 권한 경로를 재사용합니다. |
+| Production graph evidence 및 scale-out executor binding | implemented | `services/core-control-plane/src/fdai/delivery/azure/` 및 focused composition/delivery test | Code와 test만으로는 live outcome evidence가 되지 않습니다. |
+| Independent-service HIL binding | in-progress | `config/ohl-scale-out-evidence.json` 및 배포된 Core/Operator environment contract | Approval이 action을 park하고 resolve하기 전에 service root가 HIL channel 및 callback signing secret을 bind해야 합니다. |
+| OHL Lane F live evidence | in-progress | `docs/runbooks/ohl-scale-out-evidence-ko.md` | Protected execution, independent closure, sample 100개 및 14일 recurrence window가 열려 있습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 independent-service HIL binding residual을 드러냈습니다. | current change, `services/core-control-plane/tests/scenarios/operational-planning/test_manifest.py` 결과 7 passed | 두 service root에 HIL을 bind하고 exact revision을 배포한 뒤 live evidence campaign을 완료합니다. |
+
+### 남은 작업
+
+- [ ] Core HIL channel 및 Operator callback signing secret을 bind하고 검증해 서로 다른 human
+  approver가 하나의 `ops.scale-out` proposal을 park, resolve 및 resume하도록 합니다.
+- [ ] Protected-runner drill을 완료하고 independent graph closure, live-shadow sample 100개,
+  policy escape 0, rollback/cleanup 및 전체 14일 recurrence window를 기록합니다.
 
 ## 한눈에 보는 설계
 
