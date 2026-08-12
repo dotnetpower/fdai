@@ -139,8 +139,7 @@
         "docs/roadmap/architecture/service-decomposition-execution-plan*.md",
         "scripts/quality/architecture/check-boundary-docstrings.py",
         "scripts/quality/architecture/.boundary-docstring-*",
-        "tests/integration/scripts/test_boundary_docstrings.py",
-        "services/operator-service/src/fdai_operator_service/**"
+        "tests/integration/scripts/test_boundary_docstrings.py"
       ],
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
@@ -161,6 +160,24 @@
       "validate": [
         "python3 scripts/quality/architecture/check-boundary-docstrings.py",
         "uv run pytest -q --no-cov tests/integration/scripts/test_boundary_docstrings.py"
+      ]
+    },
+    {
+      "id": "independent-service-ownership",
+      "paths": [
+        "services/document-ingestion-api/**",
+        "services/document-processing-worker/**",
+        "services/isolated-executor/**",
+        "packages/service-contracts/**"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/architecture/service-graduation-and-ownership.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run python scripts/quality/architecture/check-independent-services.py"
       ]
     },
     {
@@ -413,7 +430,6 @@
       "paths": [
         "docs/roadmap/architecture/outcome-assurance*.md",
         "services/core-control-plane/src/fdai/core/measurement/**",
-        "services/operator-service/src/fdai_operator_service/**",
         "console/src/routes/operating-outcomes*",
         "console/src/routes/control-assurance*"
       ],
@@ -469,10 +485,9 @@
         "services/core-control-plane/src/fdai/core/working_context/**",
         "services/core-control-plane/src/fdai/core/conversation/context_bridge.py",
         "services/core-control-plane/src/fdai/core/capability_catalog/runtime.py",
-        "services/operator-service/src/fdai_operator_service/**",
         "console/src/routes/context-selection-comparisons*",
         "services/core-control-plane/tests/core/working_context/**",
-        "services/operator-service/tests/**"
+        "services/core-control-plane/tests/core/capability_catalog/test_runtime.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -559,14 +574,12 @@
         "services/core-control-plane/src/fdai/rule_catalog/schema/investigation_intent.py",
         "services/core-control-plane/src/fdai/rule_catalog/schema/investigation_intent.schema.json",
         "services/core-control-plane/src/fdai/delivery/persistence/read_investigation_latency.py",
-        "services/operator-service/src/fdai_operator_service/**",
         "rule-catalog/vocabulary/investigation-intents.yaml",
         "services/core-control-plane/src/fdai/agents/heimdall.py",
         "services/core-control-plane/src/fdai/agents/_framework/bragi_routing.py",
         "services/core-control-plane/tests/**/*read_investigation*.py",
         "services/core-control-plane/tests/**/read_investigation/**",
         "services/core-control-plane/tests/rule_catalog/test_investigation_intent.py",
-        "services/operator-service/tests/**",
         "docs/roadmap/interfaces/azure-read-investigations*.md",
         "docs/roadmap/interfaces/azure-resource-discovery-commands*.md"
       ],
@@ -601,10 +614,8 @@
       "paths": [
         "services/core-control-plane/src/fdai/core/task_worker/**",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_task_worker.py",
-        "services/operator-service/src/fdai_operator_service/**",
         "services/core-control-plane/tests/core/task_worker/**",
-        "services/core-control-plane/tests/persistence/test_task_worker.py",
-        "services/operator-service/tests/**"
+        "services/core-control-plane/tests/persistence/test_task_worker.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -625,10 +636,8 @@
       "paths": [
         "services/core-control-plane/src/fdai/core/background_task/**",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task.py",
-        "services/operator-service/src/fdai_operator_service/**",
         "services/core-control-plane/tests/core/background_task/**",
-        "services/core-control-plane/tests/persistence/test_background_task.py",
-        "services/operator-service/tests/**"
+        "services/core-control-plane/tests/persistence/test_background_task.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -650,11 +659,9 @@
         "services/core-control-plane/src/fdai/core/conversation/busy_input*.py",
         "services/core-control-plane/src/fdai/core/conversation/channel_gateway.py",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_busy_input.py",
-        "services/operator-service/src/fdai_operator_service/**",
         "services/core-control-plane/tests/conversation/test_busy_input*.py",
         "services/core-control-plane/tests/conversation/test_channel_gateway.py",
-        "services/core-control-plane/tests/persistence/test_busy_input.py",
-        "services/operator-service/tests/**"
+        "services/core-control-plane/tests/persistence/test_busy_input.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -680,7 +687,6 @@
         "services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py",
         "services/core-control-plane/src/fdai/core/conversation/principal_binding.py",
         "services/core-control-plane/src/fdai/core/conversation/channel_gateway.py",
-        "services/operator-service/src/fdai_operator_service/**",
         "alembic/versions/*conversation_delivery*.py",
         "services/core-control-plane/tests/**/*conversation_delivery*.py",
         "services/core-control-plane/tests/**/*outbound_delivery*.py",
@@ -714,7 +720,6 @@
         "services/core-control-plane/src/fdai/core/supply_chain/skill_*.py",
         "services/core-control-plane/src/fdai/core/conversation/skill_discovery.py",
         "services/core-control-plane/src/fdai/core/rpc/skill_discovery.py",
-        "services/operator-service/src/fdai_operator_service/**",
         "console/src/routes/skills*",
         "services/core-control-plane/tests/**/*skill*.py"
       ],
@@ -771,7 +776,6 @@
         "services/core-control-plane/src/fdai/core/supply_chain/skill_source_*.py",
         "services/core-control-plane/src/fdai/shared/providers/skill_source.py",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_skill_*.py",
-        "services/operator-service/src/fdai_operator_service/**",
         "alembic/versions/*skill_source*.py",
         "services/core-control-plane/tests/**/*skill_source*.py",
         "services/core-control-plane/tests/persistence/test_postgres_skill_quarantine.py"
@@ -860,7 +864,6 @@
       "paths": [
         "services/core-control-plane/src/fdai/core/scheduler/blueprints/**",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_automation_blueprint.py",
-        "services/operator-service/src/fdai_operator_service/**",
         "console/src/routes/automation-blueprints*",
         "alembic/versions/*automation_blueprint*.py",
         "services/core-control-plane/tests/**/*blueprint*.py"
@@ -887,7 +890,9 @@
         "services/core-control-plane/src/fdai/core/trajectory/**",
         "services/core-control-plane/src/fdai/shared/providers/trajectory.py",
         "services/core-control-plane/src/fdai/delivery/trajectory/**",
-        "services/operator-service/src/fdai_operator_service/**",
+        "services/operator-service/src/fdai_operator_service/families/workflow/contracts.py",
+        "services/operator-service/src/fdai_operator_service/families/workflow/manifest.py",
+        "services/operator-service/src/fdai_operator_service/families/workflow/routes.py",
         "alembic/versions/*trajectory*.py",
         "services/core-control-plane/tests/**/*trajectory*.py"
       ],
@@ -944,7 +949,6 @@
         "services/core-control-plane/src/fdai/shared/providers/local/document_ingestion.py",
         "services/core-control-plane/src/fdai/core/document_ingestion/**",
         "services/document-ingestion-api/src/fdai_ingestion_api_service/**",
-        "services/operator-service/src/fdai_operator_service/**",
         "services/core-control-plane/tests/delivery/channels/**",
         "services/core-control-plane/tests/core/document_ingestion/**",
         "services/core-control-plane/tests/agents/test_document_ingestion_agent_chain.py"
@@ -974,7 +978,10 @@
       "paths": [
         "config/agent-stewardship.yaml",
         "services/core-control-plane/src/fdai/core/stewardship/**",
-        "services/document-ingestion-api/src/fdai_ingestion_api_service/**"
+        "services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/handover.py",
+        "services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/stewardship.py",
+        "services/document-ingestion-api/src/fdai_ingestion_api_service/http.py",
+        "services/document-ingestion-api/src/fdai_ingestion_api_service/production.py"
       ],
       "must_read": [
         ".github/instructions/agent-stewardship.instructions.md",
@@ -1001,7 +1008,11 @@
         "services/core-control-plane/src/fdai/delivery/direct_api_router.py",
         "services/core-control-plane/src/fdai/delivery/identity/direct_api.py",
         "services/core-control-plane/src/fdai/delivery/identity/entra_access.py",
-        "services/operator-service/src/fdai_operator_service/**",
+        "services/operator-service/src/fdai_operator_service/families/iam/assignments.py",
+        "services/operator-service/src/fdai_operator_service/families/iam/contracts.py",
+        "services/operator-service/src/fdai_operator_service/families/iam/handover.py",
+        "services/operator-service/src/fdai_operator_service/families/iam/iam_routes.py",
+        "services/operator-service/src/fdai_operator_service/families/iam/manifest.py",
         "services/core-control-plane/src/fdai/runtime/human_access.py",
         "console/src/routes/settings-iam*",
         "rule-catalog/action-types/ops.assignment-role-*",
@@ -1036,7 +1047,6 @@
         "services/core-control-plane/src/fdai/runtime/conversation_assurance.py",
         "services/core-control-plane/src/fdai/delivery/azure/llm/conversation_assurance.py",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_assurance.py",
-        "services/operator-service/src/fdai_operator_service/**",
         "console/src/routes/conversation-assurance*",
         "console/src/routes/i18n/conversation-assurance*",
         "alembic/versions/*conversation_assurance*.py",
@@ -1107,12 +1117,16 @@
         "services/core-control-plane/src/fdai/shared/contracts/models/ontology.py",
         "services/core-control-plane/src/fdai/shared/ontology/**",
         "services/core-control-plane/src/fdai/runtime/catalog_ontology.py",
-        "services/operator-service/src/fdai_operator_service/**",
+        "services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py",
+        "services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn.py",
+        "services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py",
+        "services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py",
         "packages/service-contracts/**",
         "rule-catalog/vocabulary/**",
         "services/core-control-plane/tests/core/conversation/**",
         "services/core-control-plane/tests/core/ontology_platform/**",
-        "services/operator-service/tests/**"
+        "services/operator-service/tests/test_semantic_kafka_adapter.py",
+        "services/operator-service/tests/test_semantic_turn_bridge.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -1143,10 +1157,8 @@
       "paths": [
         "services/core-control-plane/src/fdai/core/browser_evidence/**",
         "services/core-control-plane/src/fdai/shared/providers/browser_evidence.py",
-        "services/operator-service/src/fdai_operator_service/**",
         "services/core-control-plane/src/fdai/composition/wire_browser_evidence.py",
         "services/core-control-plane/tests/core/browser_evidence/**",
-        "services/operator-service/tests/**",
         "console/src/routes/browser-evidence*",
         "alembic/versions/*browser_evidence.py"
       ],
@@ -1172,9 +1184,7 @@
     {
       "id": "behavior-knowledge",
       "paths": [
-        "services/core-control-plane/src/fdai/shared/providers/behavior_knowledge.py",
-        "services/operator-service/src/fdai_operator_service/**",
-        "services/operator-service/tests/**"
+        "services/core-control-plane/src/fdai/shared/providers/behavior_knowledge.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -1219,13 +1229,11 @@
         "docs/roadmap/decisioning/operational-planning*.md",
         "services/core-control-plane/src/fdai/core/operational_planning/**",
         "services/core-control-plane/src/fdai/core/views/engine.py",
-        "services/operator-service/src/fdai_operator_service/**",
         "console/src/routes/processes.model*",
         "console/src/routes/processes.tsx",
         "rule-catalog/workflows/operational-planning.yaml",
         "services/core-control-plane/tests/core/operational_planning/**",
         "services/core-control-plane/tests/core/views/test_views.py",
-        "services/operator-service/tests/**",
         "services/core-control-plane/tests/scenarios/operational-planning/**"
       ],
       "must_read": [
@@ -1260,8 +1268,12 @@
         ".vscode/**",
         "console/src/config.ts",
         "console/src/auth.ts",
-        "services/operator-service/src/fdai_operator_service/**",
-        "services/operator-service/tests/**",
+        "services/operator-service/src/fdai_operator_service/adapters/local_narrator.py",
+        "services/operator-service/src/fdai_operator_service/composition.py",
+        "services/operator-service/src/fdai_operator_service/environment.py",
+        "services/operator-service/src/fdai_operator_service/parity.py",
+        "services/operator-service/src/fdai_operator_service/production.py",
+        "services/operator-service/src/fdai_operator_service/runtime.py",
         "docs/roadmap/interfaces/narrator-routing-and-latency*.md"
       ],
       "must_read": [
@@ -1415,9 +1427,7 @@
         "docs/roadmap/rules-and-detection/rule-semantic-retrieval*.md",
         "services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic*.py",
         "services/core-control-plane/src/fdai/shared/providers/catalog_search.py",
-        "services/operator-service/src/fdai_operator_service/**",
         "alembic/versions/*catalog_semantic*.py",
-        "services/operator-service/tests/**",
         "services/core-control-plane/tests/rule_catalog/test_rule_semantic*.py"
       ],
       "must_read": [

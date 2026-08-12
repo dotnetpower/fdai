@@ -56,6 +56,60 @@ def test_final_operator_path_reuses_logical_design_routes() -> None:
 
     assert ".github/instructions/app-shape.instructions.md" in required
     assert "docs/roadmap/interfaces/operator-console-module-map.md" in required
+    assert "docs/roadmap/architecture/service-decomposition-execution-plan.md" not in required
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/postgres.py",
+        "services/document-processing-worker/src/fdai_document_worker_service/processing.py",
+        "services/isolated-executor/src/fdai_executor_service/service.py",
+        "packages/service-contracts/src/fdai_service_contracts/document.py",
+    ],
+)
+def test_independent_service_paths_load_ownership_context(path: str) -> None:
+    required = _load_module().required_context((path,))
+
+    assert ".github/instructions/app-shape.instructions.md" in required
+    assert "docs/roadmap/architecture/service-graduation-and-ownership.md" in required
+    assert "docs/roadmap/architecture/project-structure.md" in required
+
+
+def test_ordinary_operator_path_does_not_load_unrelated_feature_context() -> None:
+    required = _load_module().required_context(
+        ("services/operator-service/src/fdai_operator_service/activity_projection.py",)
+    )
+
+    assert len(required) <= 12
+    assert {
+        "docs/roadmap/architecture/outcome-assurance.md",
+        "docs/roadmap/interfaces/background-task-sessions.md",
+        "docs/roadmap/interfaces/browser-evidence.md",
+        "docs/roadmap/interfaces/skill-source-management.md",
+    }.isdisjoint(required)
+
+
+def test_semantic_turn_path_keeps_ontology_query_context() -> None:
+    required = _load_module().required_context(
+        (
+            "services/operator-service/src/fdai_operator_service/"
+            "families/conversation/semantic_turn.py",
+        )
+    )
+
+    assert "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md" in required
+
+
+def test_only_operator_surfaces_owns_the_complete_operator_source_tree() -> None:
+    manifest = json.loads(
+        (REPO_ROOT / "scripts/lib/design-routes.json").read_text(encoding="utf-8")
+    )
+
+    broad_path = "services/operator-service/src/fdai_operator_service/**"
+    owners = [route["id"] for route in manifest["routes"] if broad_path in route["paths"]]
+
+    assert owners == ["operator-surfaces"]
 
 
 def test_constitutional_surface_requires_canonical_context() -> None:
