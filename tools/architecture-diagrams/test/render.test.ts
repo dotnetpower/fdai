@@ -101,8 +101,10 @@ test("lays out nested groups and renders accessible SVG", async () => {
     assert.doesNotMatch(nodeMarkup(id), /class="(?:agent|generic)-icon"|<image /);
   }
   assert.match(svg, /marker-end="url\(#arrow-event\)"/);
+  assert.match(svg, /<marker id="arrow-event"[^>]*refX="9"/);
+  assert.doesNotMatch(svg, /<marker id="arrow-event"[^>]*refX="9\.5"/);
   assert.match(svg, /<path class="edge-hit"/);
-  assert.match(svg, /<path class="edge-path"/);
+  assert.match(svg, /<path class="edge-path"[^>]*stroke-linecap="butt"/);
   assert.match(svg, /\.edge-hit \{[^}]*cursor: pointer/);
   assert.match(svg, /\.diagram-edge:hover > \.edge-path/);
   assert.match(svg, /\.diagram-edge:hover \.edge-label rect/);

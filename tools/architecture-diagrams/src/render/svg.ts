@@ -524,7 +524,7 @@ function renderEdge(
           profile === "azure-reference" ? 4 : 14,
         );
   const marker = sankey ? "" : ` marker-end="url(#arrow-${edge.kind})"`;
-  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}" data-edge-route="${edge.route ?? "auto"}"${edge.weight ? ` data-edge-weight="${edge.weight}"` : ""}${edge.step ? ` data-edge-step="${edge.step}"` : ""}><title>${escapeXml(accessibleLabel)}</title><path class="edge-hit" d="${path}"/><path class="edge-path" d="${path}" fill="none" stroke="${style.color}" stroke-width="${strokeWidth}" stroke-dasharray="${style.dash}" stroke-linecap="round" stroke-linejoin="round"${marker}/>${labelMarkup}${stepMarkup}</g>`;
+  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}" data-edge-route="${edge.route ?? "auto"}"${edge.weight ? ` data-edge-weight="${edge.weight}"` : ""}${edge.step ? ` data-edge-step="${edge.step}"` : ""}><title>${escapeXml(accessibleLabel)}</title><path class="edge-hit" d="${path}"/><path class="edge-path" d="${path}" fill="none" stroke="${style.color}" stroke-width="${strokeWidth}" stroke-dasharray="${style.dash}" stroke-linecap="butt" stroke-linejoin="round"${marker}/>${labelMarkup}${stepMarkup}</g>`;
 }
 
 function renderLegend(spec: DiagramSpec, locale: Locale, y: number): string {
@@ -620,7 +620,7 @@ export async function renderSvg(
   const markers = Object.entries(edgeStyles)
     .map(
       ([kind, style]) =>
-        `<marker id="arrow-${kind}" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="${style.color}"/></marker>`,
+        `<marker id="arrow-${kind}" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="${style.color}"/></marker>`,
     )
     .join("");
   const groups = [...layout.groups.values()]
