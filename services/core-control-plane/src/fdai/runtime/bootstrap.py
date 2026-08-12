@@ -531,6 +531,8 @@ async def _run() -> int:
                 runtime=semantic_composition.runtime,
                 unavailable_reason=semantic_composition.unavailable_reason,
             )
+            from fdai.delivery.operational_activity import EventBusOperationalActivityPublisher
+
             read_investigation_hook = compose_resource_state_shadow_hook(
                 provider=_build_read_investigation_provider(),
                 state_store=incident_audit_store,
@@ -538,6 +540,10 @@ async def _run() -> int:
                 ontology_store=control_loop.ontology_instance_store,
                 schema_registry=container.schema_registry,
                 catalog_root=_resolve_catalog_root(),
+                activity_publisher=EventBusOperationalActivityPublisher(
+                    event_bus=operational_bus,
+                    topic=stage_topic,
+                ),
             )
             if semantic_turn_binding is not None and not semantic_turn_binding.available:
                 _LOGGER.warning(

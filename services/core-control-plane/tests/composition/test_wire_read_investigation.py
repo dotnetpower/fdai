@@ -7,6 +7,7 @@ from typing import Any
 
 from fdai.composition.wire_read_investigation import build_resource_state_shadow_hook
 from fdai.core.read_investigation.shadow_sink import StateStoreShadowComparisonSink
+from fdai.delivery.operational_activity import EventBusOperationalActivityPublisher
 from fdai.delivery.read_investigation import InventoryReadInvestigationProvider
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog
 from fdai.rule_catalog.schema.property_semantic import empty_property_semantic_registry
@@ -27,6 +28,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactMetadata,
 )
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore, InMemoryStateStore
+from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 NOW = datetime(2026, 8, 12, 1, tzinfo=UTC)
 RESOURCE_REF = "resource:vm-01"
@@ -108,7 +110,11 @@ def _function_type() -> OntologyFunctionType:
     )
 
 
-async def _hook(*, complete_metadata: bool = True):  # type: ignore[no-untyped-def]
+async def _hook(
+    *,
+    complete_metadata: bool = True,
+    activity_bus: InMemoryEventBus | None = None,
+):  # type: ignore[no-untyped-def]
     object_type = _object_type()
     function_type = _function_type()
     release = build_ontology_release(
@@ -164,6 +170,11 @@ async def _hook(*, complete_metadata: bool = True):  # type: ignore[no-untyped-d
         ),
         ontology_store=store,
         clock=lambda: NOW,
+        activity_publisher=(
+            EventBusOperationalActivityPublisher(event_bus=activity_bus)
+            if activity_bus is not None
+            else None
+        ),
     )
     return hook, state_store
 
@@ -211,3 +222,22 @@ async def test_non_resource_state_intent_is_not_claimed() -> None:
         )
         is None
     )
+
+
+async def test_resource_state_publishes_privacy_bounded_activity() -> None:
+    bus = InMemoryEventBus()
+    hook, _ = await _hook(activity_bus=bus)
+
+    await hook(
+        "What is the current state of vm-01?",
+        {"session_id": "session-one", "user_id": "reader-one"},
+    )
+    events = [event async for event in bus.subscribe("aw.pipeline.stages", "test")]
+
+    assert [event.payload["status"] for event in events] == ["started", "completed"]
+    assert events[-1].payload["owner_agent"] == "Heimdall"
+    assert events[-1].payload["execution_authority"] is False
+    assert events[-1].payload["evidence_count"] > 0
+    serialized = str([event.payload for event in events])
+    assert "vm-01" not in serialized
+    assert "What is the current state" not in serialized

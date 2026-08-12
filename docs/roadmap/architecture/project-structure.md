@@ -204,7 +204,7 @@ fdai/
 └── .github/                   # instructions/ and workflows/ (CI: lint, secret-scan, coverage)
 ```
 
-Runtime bootstrap delegates semantic-turn readiness to `bootstrap_lifecycle.py` and vertical workload identities to `bootstrap_bindings.py`, preserving bounded provider construction and the injectable identity-builder boundary used by tests and forks. Resource-state composition also binds a no-authority activity publisher after the authoritative Heimdall read; it emits bounded outcome evidence without question text, resource identity, or executor capability, and broker failure never rewrites the answer.
+Runtime bootstrap delegates semantic-turn readiness to `bootstrap_lifecycle.py` and vertical workload identities to `bootstrap_bindings.py`, preserving bounded provider construction and the injectable identity-builder boundary used by tests and forks. Resource-state composition also binds a no-authority publisher to the shared stage topic after the authoritative Heimdall read; it emits bounded outcome evidence without question text, resource identity, or executor capability, and broker failure never rewrites the answer.
 
 > Directory names follow the canonical vocabulary in [language.instructions.md](../../../.github/instructions/language.instructions.md):
 > `trust-router`, `deterministic-engine`, `rule-catalog`, `risk-gate`, `remediation-pr`, `shadow-mode`, and `HIL`.
