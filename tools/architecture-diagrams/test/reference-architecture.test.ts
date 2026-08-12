@@ -19,7 +19,7 @@ test("FDAI reference architecture renders every governed relationship", async ()
   const svg = await renderSvg(spec, layout, "en");
   const koSvg = await renderSvg(spec, layout, "ko");
 
-  assert.equal(spec.version, 11);
+  assert.equal(spec.version, 12);
   assert.equal(spec.kind, "context");
   assert.deepEqual(spec.formats, ["svg"]);
   assert.equal(layout.edges.length, spec.edges.length);
@@ -28,6 +28,8 @@ test("FDAI reference architecture renders every governed relationship", async ()
   assert.deepEqual(layoutIntegrityErrors(spec, layout), []);
   assert.equal([...svg.matchAll(/data-edge-id=/g)].length, spec.edges.length);
   assert.equal([...koSvg.matchAll(/data-edge-id=/g)].length, spec.edges.length);
+  assert.match(koSvg, /FDAI 자동 운영 판단 엔진/);
+  assert.doesNotMatch(koSvg, />Headless FDAI control plane</);
 
   const dimensions = svg.match(/^<svg[^>]* width="(\d+)" height="(\d+)"/);
   assert.ok(dimensions);
