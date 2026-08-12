@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
+import yaml
 from fdai.rule_catalog.schema.rule_objective_binding import (
+    BindingState,
     RuleObjectiveBinding,
     RuleObjectiveBindingCatalogError,
     evidence_signature_digest,
+    load_rule_objective_binding_catalog,
     load_rule_objective_binding_from_mapping,
     rule_objective_binding_content_hash,
     validate_rule_objective_binding_transition,
@@ -161,3 +165,30 @@ def test_binding_cannot_skip_review_before_promotion() -> None:
 
     with pytest.raises(ValueError, match="not allowed"):
         validate_rule_objective_binding_transition(candidate, promoted)
+
+
+@pytest.mark.parametrize(
+    "state",
+    [BindingState.CANDIDATE.value, BindingState.RETIRED.value],
+)
+def test_catalog_requires_reviewed_coverage_for_every_authored_rule(
+    tmp_path: Path,
+    state: str,
+) -> None:
+    binding = _with_state(_binding_mapping(), state)
+    (tmp_path / "binding.yaml").write_text(
+        yaml.safe_dump(binding, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuleObjectiveBindingCatalogError, match=_RULE_REF):
+        load_rule_objective_binding_catalog(
+            tmp_path,
+            objective_digests={_OBJECTIVE_REF: _DIGEST_A},
+            rule_digests={_RULE_REF: _DIGEST_B},
+            rule_implementation_digests={_RULE_REF: _DIGEST_B},
+            evidence_refs=frozenset({"evidence.node-pool.topology"}),
+            equivalence_receipt_digests={_RECEIPT_REF: _DIGEST_C},
+            reviewed_equivalence_receipt_refs=frozenset({_RECEIPT_REF}),
+            required_reviewed_rule_refs=frozenset({_RULE_REF}),
+        )

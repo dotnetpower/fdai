@@ -1,7 +1,7 @@
 ---
 title: 정책 추상화와 통제 목표
 translation_of: policy-abstraction-and-control-objectives.md
-translation_source_sha: f607974343571b9bc3dcd823c8dac3f1adcea3ed
+translation_source_sha: ebae1debe95351d83d9b3bb6980aec70bde906ad
 translation_revised: 2026-08-13
 ---
 # 정책 추상화와 통제 목표
@@ -311,6 +311,7 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 | 2026-08-13 | implemented | 다이제스트 입력, 검증 결과 또는 권한을 변경하지 않고 정규 다이제스트와 `ControlObjective` 검증 경계의 strict mypy 호환성을 복구했습니다. | `current change`; 변경된 소스 파일 2개에서 strict mypy가 통과했고 집중 `test_control_objective.py` 모음에서 테스트 7개가 통과했으며 Ruff도 통과했습니다. | 아래의 기존 P1-P4 작업을 계속합니다. |
 | 2026-08-13 | implemented | 정확한 정책 및 평가기 스냅샷, 정규 결과 비교, 검증기 소스 집합과 OPA 신원 고정값, 구조화된 실패 시 안전 결과, 프로세스별 및 전체 기한, 수신 시 출력 제한을 사용하는 결정론적 Rego 동등성 실행을 추가했습니다. 12회의 적대적 검토로 알려진 Low 초과 문제를 모두 해결했습니다. | `current change`; 동등성, 증적, 의미 및 범위 제한 프로세스 집중 모음에서 테스트 43개가 통과했습니다. | Rule ID나 판정 동작을 바꾸지 않고 작성된 Rego Rule 62개 모두에 검토된 바인딩과 증적을 만듭니다. |
 | 2026-08-13 | implemented | OPA 숫자를 정확한 소수로 구문 분석하고 동등한 JSON 숫자 표기를 정규화하여 이진 부동 소수점으로 인한 결정 비교 병합을 막았습니다. 결론이 있는 결과를 반환하기 전에 최종 전체 기한 검사도 추가했습니다. 13차 적대적 검토 후 알려진 Low 초과 문제는 남아 있지 않습니다. | `current change`; 동등성, 증적, 의미 및 범위 제한 프로세스 집중 모음에서 테스트 45개가 통과했고, 소스 파일 4개에서 strict mypy가 통과했으며, 집중 소스 및 테스트 파일 8개에서 Ruff가 통과했습니다. | Rule ID나 판정 동작을 바꾸지 않고 작성된 Rego Rule 62개 모두에 검토된 바인딩과 증적을 만듭니다. |
+| 2026-08-13 | in-progress | 제공된 각 작성 Rule 참조에 다이제스트가 유효하고 수명 주기 상태가 reviewed 또는 promoted인 바인딩이 하나 이상 있도록 요구하는 선택형 카탈로그 집계 검사를 추가했습니다. candidate 및 retired 바인딩은 포함 범위를 충족하지 않으며, 이 관계는 계속 권한을 부여하지 않습니다. | `current change`; 집중 `test_rule_objective_binding.py` 모음에서 테스트 12개가 통과했고, 변경된 소스 파일에서 strict mypy가 통과했으며, 변경된 Python 파일 2개에서 Ruff가 통과했습니다. | 제공되는 62개 Rule 레지스트리를 이 불변식에 연결하고, Rule ID나 판정 동작을 변경하지 않으면서 검토된 목표와 바인딩 및 개수가 일치하는 이행 보고서를 추가합니다. |
 
 ### 남은 작업
 

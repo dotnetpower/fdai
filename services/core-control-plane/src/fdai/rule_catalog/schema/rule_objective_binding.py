@@ -269,6 +269,7 @@ def load_rule_objective_binding_catalog(
     evidence_refs: frozenset[str],
     equivalence_receipt_digests: Mapping[str, str] | None = None,
     reviewed_equivalence_receipt_refs: frozenset[str] = frozenset(),
+    required_reviewed_rule_refs: frozenset[str] = frozenset(),
 ) -> tuple[RuleObjectiveBinding, ...]:
     issues: list[RuleObjectiveBindingIssue] = []
     loaded: list[RuleObjectiveBinding] = []
@@ -303,6 +304,18 @@ def load_rule_objective_binding_catalog(
             continue
         seen_refs.add(binding.ref)
         loaded.append(binding)
+    reviewed_rule_refs = {
+        binding.rule.ref
+        for binding in loaded
+        if binding.state in {BindingState.REVIEWED, BindingState.PROMOTED}
+    }
+    for rule_ref in sorted(required_reviewed_rule_refs - reviewed_rule_refs):
+        issues.append(
+            RuleObjectiveBindingIssue(
+                key=f"reviewed_coverage:{rule_ref}",
+                message=f"missing reviewed binding for authored Rule {rule_ref!r}",
+            )
+        )
     if issues:
         raise RuleObjectiveBindingCatalogError(issues)
     return tuple(sorted(loaded, key=lambda binding: binding.ref))
