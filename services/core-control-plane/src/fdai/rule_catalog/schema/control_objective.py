@@ -130,8 +130,8 @@ def load_control_objective_from_mapping(
     try:
         objective = ControlObjective.model_validate(raw)
     except ValueError as exc:
-        issues = _pydantic_issues(exc, origin)
-        raise ControlObjectiveCatalogError(issues) from exc
+        validation_issues = _pydantic_issues(exc, origin)
+        raise ControlObjectiveCatalogError(validation_issues) from exc
 
     issues: list[ControlObjectiveIssue] = []
     if objective.operating_domain not in operating_domains:
