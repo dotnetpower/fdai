@@ -19,11 +19,11 @@ test("FDAI reference architecture renders every governed relationship", async ()
   const svg = await renderSvg(spec, layout, "en");
   const koSvg = await renderSvg(spec, layout, "ko");
 
-  assert.equal(spec.version, 6);
+  assert.equal(spec.version, 7);
   assert.equal(spec.kind, "context");
   assert.deepEqual(spec.formats, ["svg"]);
   assert.equal(layout.edges.length, spec.edges.length);
-  assert.equal(spec.edges.length, 17);
+  assert.equal(spec.edges.length, 16);
   assert.ok(layout.edges.every((edge) => (edge.sections?.length ?? 0) > 0));
   assert.deepEqual(layoutIntegrityErrors(spec, layout), []);
   assert.equal([...svg.matchAll(/data-edge-id=/g)].length, spec.edges.length);
@@ -140,6 +140,7 @@ test("FDAI reference architecture renders every governed relationship", async ()
   );
 
   const edges = new Map(spec.edges.map((edge) => [edge.id, edge]));
+  assert.equal(edges.has("bus-to-agents"), false);
   assert.equal(edges.get("environment-to-runtime")?.route, "orthogonal-horizontal");
   assert.equal(edges.get("operators-to-runtime")?.route, "orthogonal");
   const ingressSections = ["environment-to-runtime", "operators-to-runtime"].map(

@@ -1,5 +1,5 @@
 id: fdai-reference-architecture
-version: 6
+version: 7
 kind: context
 formats: [svg]
 updated: 2026-08-12
@@ -347,10 +347,6 @@ edges:
     to: event-choreography
     kind: request
     route: orthogonal
-  - id: bus-to-agents
-    from: typed-event-bus
-    to: agent-pantheon
-    kind: event
   - id: bus-to-ingest
     from: typed-event-bus
     to: event-ingest

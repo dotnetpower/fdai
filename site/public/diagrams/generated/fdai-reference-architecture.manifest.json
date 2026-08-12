@@ -1,7 +1,7 @@
 {
   "id": "fdai-reference-architecture",
   "kind": "context",
-  "version": 6,
+  "version": 7,
   "updated": "2026-08-12",
   "locales": {
     "en": {
@@ -398,13 +398,6 @@
       "from": "operator-surfaces",
       "to": "event-choreography",
       "kind": "request",
-      "label": null
-    },
-    {
-      "id": "bus-to-agents",
-      "from": "typed-event-bus",
-      "to": "agent-pantheon",
-      "kind": "event",
       "label": null
     },
     {
