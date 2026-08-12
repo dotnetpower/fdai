@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -24,6 +25,7 @@ from fdai.core.operational_planning import (
     close_operational_plan,
     compile_selected_mutation_plan,
 )
+from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.shared.contracts.models import (
     Autonomy,
     CausalEvidenceGrade,
@@ -31,6 +33,7 @@ from fdai.shared.contracts.models import (
     OntologyActionType,
     OntologyDeclarationKind,
     OntologyObjectType,
+    OntologyRelease,
     Operation,
     PromotionGate,
     PropertyDecl,
@@ -40,10 +43,12 @@ from fdai.shared.contracts.models import (
     ResponseVerificationStatus,
     RollbackKind,
 )
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
 NOW = datetime(2026, 8, 3, tzinfo=UTC)
+ROOT = Path(__file__).resolve().parents[5]
 
 
 def _context() -> OperationalContextSnapshot:
@@ -95,7 +100,13 @@ class _Models:
         self.active = active
         self.challenger = challenger
 
-    async def get(self, *, status, action_type_id, metric):
+    async def get(
+        self,
+        *,
+        status: EffectModelStatus,
+        action_type_id: str,
+        metric: str,
+    ) -> EffectModel | None:
         assert action_type_id == "ops.scale-out"
         assert metric == "availability"
         return self.active if status is EffectModelStatus.ACTIVE else self.challenger
@@ -105,7 +116,13 @@ class _MetricModels:
     def __init__(self, active_by_metric: dict[str, EffectModel]) -> None:
         self._active_by_metric = active_by_metric
 
-    async def get(self, *, status, action_type_id, metric):
+    async def get(
+        self,
+        *,
+        status: EffectModelStatus,
+        action_type_id: str,
+        metric: str,
+    ) -> EffectModel | None:
         assert action_type_id == "ops.scale-out"
         return self._active_by_metric.get(metric) if status is EffectModelStatus.ACTIVE else None
 
@@ -200,7 +217,7 @@ async def test_twin_simulation_is_canonical_across_effect_order() -> None:
     assert reordered == first
 
 
-def _plan_and_release() -> tuple[OperationalPlan, OntologyObjectRecord, object]:
+def _plan_and_release() -> tuple[OperationalPlan, OntologyObjectRecord, OntologyRelease]:
     object_type = OntologyObjectType(
         schema_version="1.0.0",
         name="Workload",
@@ -361,17 +378,17 @@ def test_mutation_compiler_rejects_action_mismatch_or_incomplete_plan() -> None:
     mismatch = release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale-out").model_copy(
         update={"name": "ops.scale-in"},
     )
-    values = dict(
-        plan=plan,
-        target=target,
-        command_ref="provider.scale-out",
-        rollback_command_ref="provider.scale-in",
-        created_at=NOW,
-        max_affected_objects=1,
-    )
 
     with pytest.raises(ValueError, match="does not match"):
-        compile_selected_mutation_plan(action_type_ref=mismatch, **values)
+        compile_selected_mutation_plan(
+            plan=plan,
+            target=target,
+            action_type_ref=mismatch,
+            command_ref="provider.scale-out",
+            rollback_command_ref="provider.scale-in",
+            created_at=NOW,
+            max_affected_objects=1,
+        )
     incomplete = replace(
         plan,
         complete=False,
@@ -385,8 +402,13 @@ def test_mutation_compiler_rejects_action_mismatch_or_incomplete_plan() -> None:
     )
     with pytest.raises(ValueError, match="no complete selection"):
         compile_selected_mutation_plan(
+            plan=incomplete,
+            target=target,
             action_type_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale-out"),
-            **{**values, "plan": incomplete},
+            command_ref="provider.scale-out",
+            rollback_command_ref="provider.scale-in",
+            created_at=NOW,
+            max_affected_objects=1,
         )
 
 
@@ -473,7 +495,7 @@ def test_partial_failure_keeps_rollback_and_is_not_reusable() -> None:
     assert closure.reusable is False
 
 
-def test_a0_planning_produces_proposal_without_execution_authority() -> None:
+def test_a0_planning_and_scale_out_make_a3e_inapplicable() -> None:
     plan, target, release = _plan_and_release()
 
     mutation = compile_selected_mutation_plan(
@@ -489,3 +511,15 @@ def test_a0_planning_produces_proposal_without_execution_authority() -> None:
     assert mutation.planner_ref == plan.plan_id
     assert not hasattr(mutation, "approval")
     assert not hasattr(mutation, "executor_identity")
+    action_type = next(
+        item
+        for item in load_action_type_catalog(
+            ROOT / "rule-catalog/action-types",
+            schema_registry=PackageResourceSchemaRegistry(),
+            probes_root=None,
+        )
+        if item.name == "ops.scale-out"
+    )
+    assert action_type.default_mode is Mode.SHADOW
+    assert action_type.irreversible is True
+    assert action_type.rollback_contract is RollbackKind.STATE_FORWARD_ONLY

@@ -1,8 +1,8 @@
 ---
 title: 운영 계획 하드닝 근거
 translation_of: operational-planning-hardening.md
-translation_source_sha: b16cd234f8d35c52d17e5aabee5f8b46e6fbbf7e
-translation_revised: 2026-08-11
+translation_source_sha: 98e6199b300e53cc57c129c6aa5039e9b6ff8916
+translation_revised: 2026-08-12
 ---
 # 운영 계획 하드닝 근거
 
@@ -67,23 +67,28 @@ focused 회귀 테스트와 별도 강화 커밋을 추가했습니다. 제안 �
 
 ## 잔여 위험
 
-고정된 시나리오 매니페스트는 두 개의 명시적 proxy 때문에 `partial` 상태를 유지합니다.
+고정된 시나리오 매니페스트는 하나의 명시적 proxy 때문에 `partial` 상태를 유지합니다.
 
 - **부분 실행 복구:** 계약 테스트는 mismatched 결과를 검증된 롤백으로 닫지만,
-  전용 non-production partial-execution 훈련은 release 근거로 남아 있습니다.
-- **Standing emergency 권한:** A0 proposal-only 동작을 검증했습니다. Standing emergency 권한의
-  명시적 non-applicability 근거는 release 근거로 남아 있습니다.
+  전용 non-production partial-execution 훈련은 release 근거로 남아 있습니다. 범위가 제한된
+  계약과 protected-runner 명령은
+  [OHL Scale-Out 근거 Runbook](../../runbooks/ohl-scale-out-evidence-ko.md)에 준비되어 있습니다.
 
-두 공백은 실행을 활성화할 수 없으므로 제공되는 shadow 기능에서는 Low입니다. 검증된
-시나리오 근거로 교체되기 전까지 향후 적용 승격을 차단합니다. 기능 상태,
-shadow 모드, 기존 risk 경로, 정책 escape 0건 요구 사항은 계속 권한을 가집니다.
+A0 planning 및 제공되는 irreversible `ops.scale-out` ActionType이 이제 명시적인 A3-E
+non-applicability 근거를 제공합니다. 남은 완료 gate에는 protected-runner live drill,
+production graph Dynamic evidence binding 및 production `ops.scale-out` executor binding이
+필요합니다. Provider-side Azure CLI drill만으로는 FDAI end-to-end 실행 근거가 되지 않습니다.
+
+이 공백은 실행을 활성화할 수 없으므로 제공되는 shadow 기능에서는 Low입니다. 검증된 시나리오
+근거로 교체되기 전까지 향후 적용 승격을 차단합니다. 기능 상태, shadow 모드, 기존 risk 경로,
+고정된 observation 및 recurrence window, 정책 escape 0건 요구 사항은 계속 권한을 가집니다.
 
 ## 검증
 
-Focused 검증은 전체 operational-planning subsystem, 고정된 매니페스트, 런타임 초기화 상태,
-strict Python typing, Console 모델 테스트, 전체 Console typecheck 및 빌드, translation 최신성,
-punctuation, 차이 hygiene를 포함했습니다. 중앙 통합 검증은 `main` 병합 전에 전체 구현 및
-강화 범위를 통과했습니다.
+Focused 검증 범위에는 operational-planning subsystem, 고정된 매니페스트 및 Lane F config
+schema, scale-out planning, twin 및 outcome 계약, protected-runner command 계약, translation
+최신성, punctuation 및 차이 hygiene가 포함됩니다. 중앙 통합 검증은 merge boundary의
+정본으로 유지됩니다.
 
 ## 관련 문서
 

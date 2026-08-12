@@ -1,13 +1,20 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://fdai.dev/schemas/operational-planning-scenario-set/1.0.0",
+  "$id": "https://fdai.dev/schemas/operational-planning-scenario-set/1.1.0",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "scenario_set_version", "status", "scenarios"],
+  "required": [
+    "schema_version",
+    "scenario_set_version",
+    "status",
+    "completion_contract_ref",
+    "scenarios"
+  ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"const": "1.1.0"},
     "scenario_set_version": {"const": "v2026.08-planning"},
     "status": {"enum": ["partial", "complete"]},
+    "completion_contract_ref": {"const": "config/ohl-scale-out-evidence.json"},
     "scenarios": {
       "type": "array",
       "minItems": 9,

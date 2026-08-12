@@ -1,0 +1,325 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/ohl-scale-out-evidence-contract/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lane",
+    "status",
+    "evidence_level",
+    "base_revision",
+    "scenario_set_ref",
+    "action_type_ref",
+    "workflow_refs",
+    "target",
+    "execution",
+    "observation",
+    "evidence",
+    "acceptance",
+    "runbook_ref",
+    "result",
+    "residuals"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "lane": {"const": "ohl-lane-f"},
+    "status": {"enum": ["prepared", "complete"]},
+    "evidence_level": {"enum": ["contract_only", "live_execution"]},
+    "base_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "scenario_set_ref": {"const": "v2026.08-planning"},
+    "action_type_ref": {"const": "ops.scale-out@1.0.0"},
+    "workflow_refs": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["operational-planning@1.0.0", "predictive-scale@1.0.0"]
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resource_id_env",
+        "expected_resource_type",
+        "environment",
+        "orchestration_mode",
+        "max_targets",
+        "require_dedicated_target"
+      ],
+      "properties": {
+        "resource_id_env": {"const": "FDAI_OHL_TARGET_RESOURCE_ID"},
+        "expected_resource_type": {
+          "const": "Microsoft.Compute/virtualMachineScaleSets"
+        },
+        "environment": {"const": "non_production"},
+        "orchestration_mode": {"const": "Uniform"},
+        "max_targets": {"const": 1},
+        "require_dedicated_target": {"const": true}
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protected_runner_required",
+        "azure_apply_allowed",
+        "max_capacity_delta",
+        "force_recovery_after_provider_acceptance",
+        "forward_dispatch_must_stop",
+        "automation_hold_required"
+      ],
+      "properties": {
+        "protected_runner_required": {"const": true},
+        "azure_apply_allowed": {"const": false},
+        "max_capacity_delta": {"const": 1},
+        "force_recovery_after_provider_acceptance": {"const": true},
+        "forward_dispatch_must_stop": {"const": true},
+        "automation_hold_required": {"const": true}
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prediction_horizon_seconds",
+        "telemetry_grace_seconds",
+        "metric_observation_window_seconds",
+        "recurrence_window_seconds",
+        "minimum_live_shadow_days"
+      ],
+      "properties": {
+        "prediction_horizon_seconds": {"const": 300},
+        "telemetry_grace_seconds": {"const": 300},
+        "metric_observation_window_seconds": {"const": 60},
+        "recurrence_window_seconds": {"const": 1209600},
+        "minimum_live_shadow_days": {"const": 14}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "output_path",
+        "required_receipts",
+        "common_receipt_fields",
+        "graph_prediction_fields",
+        "graph_outcome_fields"
+      ],
+      "properties": {
+        "output_path": {"const": ".fdai/evidence/ohl-scale-out-live.json"},
+        "required_receipts": {
+          "type": "array",
+          "minItems": 16,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "account_context",
+              "target_identity",
+              "baseline_state",
+              "approval",
+              "dry_run",
+              "stop_condition",
+              "logical_target_lock",
+              "idempotency",
+              "audit_intent",
+              "provider_scale_out",
+              "partial_state_observation",
+              "automation_hold",
+              "rollback",
+              "independent_recovery",
+              "graph_shadow_prediction",
+              "graph_shadow_outcome"
+            ]
+          }
+        },
+        "common_receipt_fields": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "evidence_level",
+              "authority_class",
+              "source_identity_digest",
+              "scope_digest",
+              "purpose",
+              "query_version",
+              "event_time",
+              "recorded_at",
+              "freshness_seconds",
+              "completeness",
+              "provenance_digest",
+              "synthetic"
+            ]
+          }
+        },
+        "graph_prediction_fields": {
+          "type": "array",
+          "minItems": 14,
+          "maxItems": 14,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "prediction_digest",
+              "ontology_release_digest",
+              "graph_revision",
+              "inventory_generation",
+              "base_snapshot_digest",
+              "evidence_cutoff",
+              "horizon_end",
+              "active_model_refs",
+              "challenger_model_refs",
+              "invariant_evidence_digests",
+              "mode",
+              "execution_authority",
+              "complete",
+              "truncated"
+            ]
+          }
+        },
+        "graph_outcome_fields": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "prediction_digest",
+              "observation_digest",
+              "observer_identity_digest",
+              "executor_identity_digest",
+              "observer_executor_distinct",
+              "observed_at",
+              "status",
+              "completeness",
+              "censoring_refs",
+              "evidence_refs",
+              "active_model_mutated",
+              "promotion_applied"
+            ]
+          }
+        }
+      }
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_live_shadow_samples",
+        "minimum_accuracy",
+        "max_policy_escapes",
+        "require_verified_rollback",
+        "require_verified_cleanup",
+        "require_complete_recurrence_window",
+        "require_active_model_unchanged",
+        "require_no_promotion",
+        "allow_synthetic_live_evidence",
+        "manifest_complete_requires"
+      ],
+      "properties": {
+        "minimum_live_shadow_samples": {"const": 100},
+        "minimum_accuracy": {"const": 0.98},
+        "max_policy_escapes": {"const": 0},
+        "require_verified_rollback": {"const": true},
+        "require_verified_cleanup": {"const": true},
+        "require_complete_recurrence_window": {"const": true},
+        "require_active_model_unchanged": {"const": true},
+        "require_no_promotion": {"const": true},
+        "allow_synthetic_live_evidence": {"const": false},
+        "manifest_complete_requires": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "a3e_non_applicability_verified",
+              "partial_execution_observed",
+              "rollback_independently_verified",
+              "cleanup_verified",
+              "graph_prediction_live_and_non_synthetic",
+              "graph_outcome_independently_closed",
+              "observation_horizon_preserved",
+              "recurrence_window_complete",
+              "promotion_floor_met",
+              "zero_policy_escapes",
+              "production_graph_provider_bound",
+              "production_scale_out_executor_bound"
+            ]
+          }
+        }
+      }
+    },
+    "runbook_ref": {"const": "docs/runbooks/ohl-scale-out-evidence.md"},
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "source_receipt_digest", "completed_at"],
+      "properties": {
+        "status": {"enum": ["pending", "verified"]},
+        "source_receipt_digest": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "completed_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      }
+    },
+    "residuals": {
+      "type": "array",
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "protected_runner_live_execution",
+          "production_graph_provider_binding",
+          "production_scale_out_executor_binding"
+        ]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "prepared"}}},
+      "then": {
+        "properties": {
+          "evidence_level": {"const": "contract_only"},
+          "result": {
+            "properties": {
+              "status": {"const": "pending"},
+              "source_receipt_digest": {"type": "null"},
+              "completed_at": {"type": "null"}
+            }
+          },
+          "residuals": {"minItems": 1}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "complete"}}},
+      "then": {
+        "properties": {
+          "evidence_level": {"const": "live_execution"},
+          "result": {
+            "properties": {
+              "status": {"const": "verified"},
+              "source_receipt_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "completed_at": {"type": "string", "format": "date-time"}
+            }
+          },
+          "residuals": {"maxItems": 0}
+        }
+      }
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: 4ccc2e9ee4e6a0ca6f94eed9e49a38d054282e4c
-translation_revised: 2026-08-11
+translation_source_sha: 0b91b939d8914eb0c8ad140f5e79f6cbb9d357ca
+translation_revised: 2026-08-12
 ---
 # 운영 계획
 
@@ -25,12 +25,13 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 > 실행하고 시간 초과 또는 malformed 출력을 unscorable로 처리합니다. P5는 읽기 전용 Twin 어댑터,
 > exact selected-option MutationPlan compilation, 독립적인 ResponseOutcome 종결을 추가합니다.
 > P6는 기존 프로세스 상세 경로 안에 strict 읽기 전용 계획 수립 Room 변환 결과를 추가합니다.
-> P7은 영속 프로세스 recorder, shadow-only 계획 수립 작업 흐름, 검증된 dimension 7개와 명시적인
-> release-evidence proxy 2개를 가진 9개 차원의 고정된 시나리오 매니페스트, 결정론적
+> P7은 영속 프로세스 recorder, shadow-only 계획 수립 작업 흐름, 검증된 dimension 8개와 명시적인
+> release-evidence proxy 1개를 가진 9개 차원의 고정된 시나리오 매니페스트, 결정론적
 > constitutional 제약 검사, conditional 운영 런타임 연결을
 > 추가합니다. 런타임은 exact 온톨로지 release, operational 맥락, 프로세스 저장소, 활성
-> effect-model 읽기 담당, causal 검증기가 모두 있을 때만 계획 수립을 연결합니다. Staging 증명과
-> shadow 측정은 누락된 런타임 행동이 아니라 release 근거로 남습니다.
+> effect-model 읽기 담당, causal 검증기가 모두 있을 때만 계획 수립을 연결합니다. Staging 부분
+> 실행 증명, live graph shadow 측정 및 production binding은 완료된 live claim이 아니라 release
+> 근거로 남습니다.
 
 ## 한눈에 보는 설계
 

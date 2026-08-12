@@ -1,0 +1,137 @@
+{
+  "schema_version": "1.0.0",
+  "lane": "ohl-lane-f",
+  "status": "prepared",
+  "evidence_level": "contract_only",
+  "base_revision": "deac63b04151ce5396a9738849a6919f2d18ef0a",
+  "scenario_set_ref": "v2026.08-planning",
+  "action_type_ref": "ops.scale-out@1.0.0",
+  "workflow_refs": [
+    "operational-planning@1.0.0",
+    "predictive-scale@1.0.0"
+  ],
+  "target": {
+    "resource_id_env": "FDAI_OHL_TARGET_RESOURCE_ID",
+    "expected_resource_type": "Microsoft.Compute/virtualMachineScaleSets",
+    "environment": "non_production",
+    "orchestration_mode": "Uniform",
+    "max_targets": 1,
+    "require_dedicated_target": true
+  },
+  "execution": {
+    "protected_runner_required": true,
+    "azure_apply_allowed": false,
+    "max_capacity_delta": 1,
+    "force_recovery_after_provider_acceptance": true,
+    "forward_dispatch_must_stop": true,
+    "automation_hold_required": true
+  },
+  "observation": {
+    "prediction_horizon_seconds": 300,
+    "telemetry_grace_seconds": 300,
+    "metric_observation_window_seconds": 60,
+    "recurrence_window_seconds": 1209600,
+    "minimum_live_shadow_days": 14
+  },
+  "evidence": {
+    "output_path": ".fdai/evidence/ohl-scale-out-live.json",
+    "required_receipts": [
+      "account_context",
+      "target_identity",
+      "baseline_state",
+      "approval",
+      "dry_run",
+      "stop_condition",
+      "logical_target_lock",
+      "idempotency",
+      "audit_intent",
+      "provider_scale_out",
+      "partial_state_observation",
+      "automation_hold",
+      "rollback",
+      "independent_recovery",
+      "graph_shadow_prediction",
+      "graph_shadow_outcome"
+    ],
+    "common_receipt_fields": [
+      "evidence_level",
+      "authority_class",
+      "source_identity_digest",
+      "scope_digest",
+      "purpose",
+      "query_version",
+      "event_time",
+      "recorded_at",
+      "freshness_seconds",
+      "completeness",
+      "provenance_digest",
+      "synthetic"
+    ],
+    "graph_prediction_fields": [
+      "prediction_digest",
+      "ontology_release_digest",
+      "graph_revision",
+      "inventory_generation",
+      "base_snapshot_digest",
+      "evidence_cutoff",
+      "horizon_end",
+      "active_model_refs",
+      "challenger_model_refs",
+      "invariant_evidence_digests",
+      "mode",
+      "execution_authority",
+      "complete",
+      "truncated"
+    ],
+    "graph_outcome_fields": [
+      "prediction_digest",
+      "observation_digest",
+      "observer_identity_digest",
+      "executor_identity_digest",
+      "observer_executor_distinct",
+      "observed_at",
+      "status",
+      "completeness",
+      "censoring_refs",
+      "evidence_refs",
+      "active_model_mutated",
+      "promotion_applied"
+    ]
+  },
+  "acceptance": {
+    "minimum_live_shadow_samples": 100,
+    "minimum_accuracy": 0.98,
+    "max_policy_escapes": 0,
+    "require_verified_rollback": true,
+    "require_verified_cleanup": true,
+    "require_complete_recurrence_window": true,
+    "require_active_model_unchanged": true,
+    "require_no_promotion": true,
+    "allow_synthetic_live_evidence": false,
+    "manifest_complete_requires": [
+      "a3e_non_applicability_verified",
+      "partial_execution_observed",
+      "rollback_independently_verified",
+      "cleanup_verified",
+      "graph_prediction_live_and_non_synthetic",
+      "graph_outcome_independently_closed",
+      "observation_horizon_preserved",
+      "recurrence_window_complete",
+      "promotion_floor_met",
+      "zero_policy_escapes",
+      "production_graph_provider_bound",
+      "production_scale_out_executor_bound"
+    ]
+  },
+  "runbook_ref": "docs/runbooks/ohl-scale-out-evidence.md",
+  "result": {
+    "status": "pending",
+    "source_receipt_digest": null,
+    "completed_at": null
+  },
+  "residuals": [
+    "protected_runner_live_execution",
+    "production_graph_provider_binding",
+    "production_scale_out_executor_binding"
+  ]
+}

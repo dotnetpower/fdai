@@ -67,23 +67,29 @@ successful enforcement drill.
 
 ## Residual risk
 
-The frozen scenario manifest remains `partial` for two explicit proxies:
+The frozen scenario manifest remains `partial` for one explicit proxy:
 
 - **Partial execution recovery:** Contract tests close a mismatched outcome with verified rollback,
-  but a dedicated non-production partial-execution drill remains release evidence.
-- **Standing emergency authority:** A0 proposal-only behavior is verified. Explicit
-  non-applicability evidence for standing emergency authority remains release evidence.
+  but a dedicated non-production partial-execution drill remains release evidence. The bounded
+  contract and protected-runner commands are prepared in
+  [OHL Scale-Out Evidence Runbook](../../runbooks/ohl-scale-out-evidence.md).
 
-These gaps are Low for the shipped shadow capability because neither can enable execution. They
-block a future enforcement promotion until replaced by verified scenario evidence. The capability
-status, shadow mode, ordinary risk path, and zero policy-escape requirement remain authoritative.
+A0 planning and the shipped irreversible `ops.scale-out` ActionType now provide explicit A3-E
+non-applicability evidence. The remaining completion gates require the protected-runner live drill,
+production graph Dynamic evidence binding, and production `ops.scale-out` executor binding. The
+provider-side Azure CLI drill is not FDAI end-to-end execution evidence by itself.
+
+These gaps are Low for the shipped shadow capability because none can enable execution. They block
+a future enforcement promotion until replaced by verified scenario evidence. The capability
+status, shadow mode, ordinary risk path, fixed observation and recurrence windows, and zero
+policy-escape requirement remain authoritative.
 
 ## Verification
 
-Focused validation covered the complete operational-planning subsystem, frozen manifest, runtime
-bootstrap status, strict Python typing, Console model tests, full Console typecheck and build,
-translation freshness, punctuation, and diff hygiene. Central integration validation passed the
-combined implementation and hardening range before merge to `main`.
+Focused validation covers the operational-planning subsystem, frozen manifest and Lane F config
+schemas, scale-out planning, twin and outcome contracts, protected-runner command contract,
+translation freshness, punctuation, and diff hygiene. Central integration validation remains the
+merge-boundary authority.
 
 ## Related docs
 
