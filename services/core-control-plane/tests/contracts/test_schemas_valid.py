@@ -28,6 +28,7 @@ SCHEMA_NAMES = [
     "ontology/object-type",
     "ontology/link-type",
     "ontology/interface-type",
+    "ontology/function-type",
     "ontology/interface-implementation",
     "ontology/action-type",
     "ontology/release-ref",

@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/ontology/function-type/1.0.0",
+  "title": "OntologyFunctionType",
+  "description": "Declares one versioned bounded ontology query, derive, validate, or plan function.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "name",
+    "version",
+    "kind",
+    "artifact_digest",
+    "publisher",
+    "input_schema",
+    "output_schema"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]{0,79}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["query", "derive", "validate", "plan"]
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["predict", "optimize", "simulate"]
+      },
+      "uniqueItems": true
+    },
+    "artifact_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "publisher": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_schema": {
+      "type": "object"
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "read_sets": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "execution_class": {
+      "type": "string",
+      "enum": ["deterministic", "seeded_stochastic"]
+    },
+    "seed_field": {
+      "type": ["string", "null"]
+    },
+    "required_role": {
+      "type": "string",
+      "enum": ["reader", "contributor", "approver", "owner"]
+    },
+    "purpose_bindings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+      },
+      "uniqueItems": true
+    },
+    "allowed_agents": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Za-z0-9]{0,63}$"
+      },
+      "uniqueItems": true
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 300
+    },
+    "cpu_millis": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 64000
+    },
+    "memory_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1073741824
+    },
+    "max_output_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5000000
+    },
+    "network_allowed": {"type": "boolean"},
+    "credentials_allowed": {"type": "boolean"},
+    "execution_authority": {"const": false},
+    "learned_through": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "evidence_grade": {
+      "type": ["string", "null"],
+      "enum": [
+        "association",
+        "predictive_precedence",
+        "quasi_experimental",
+        "interventional",
+        null
+      ]
+    },
+    "promotion_gate": {
+      "oneOf": [
+        {"$ref": "#/$defs/promotion_gate"},
+        {"type": "null"}
+      ]
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    }
+  },
+  "$defs": {
+    "promotion_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "min_shadow_days",
+        "min_samples",
+        "min_accuracy",
+        "max_policy_escapes"
+      ],
+      "properties": {
+        "min_shadow_days": {"type": "integer", "minimum": 1},
+        "min_samples": {"type": "integer", "minimum": 1},
+        "min_accuracy": {"type": "number", "minimum": 0, "maximum": 1},
+        "max_policy_escapes": {"type": "integer", "minimum": 0}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_url", "resolved_ref", "content_hash", "license", "retrieved_at"],
+      "properties": {
+        "source_url": {"type": "string", "minLength": 1},
+        "resolved_ref": {"type": "string", "minLength": 1},
+        "content_hash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "license": {"type": "string", "minLength": 1},
+        "retrieved_at": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

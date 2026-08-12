@@ -116,6 +116,8 @@ def test_release_pins_function_identity_and_artifact_changes() -> None:
         input_schema={"type": "object"},
         output_schema={"type": "object"},
     )
+    implicit_empty = build_ontology_release()
+    explicit_empty = build_ontology_release(function_types=())
     release = build_ontology_release(function_types=(function,))
     changed = build_ontology_release(
         function_types=(function.model_copy(update={"artifact_digest": "sha256:" + "b" * 64}),)
@@ -123,6 +125,7 @@ def test_release_pins_function_identity_and_artifact_changes() -> None:
 
     reference = release.type_ref(OntologyDeclarationKind.FUNCTION, function.name)
 
+    assert implicit_empty.digest == explicit_empty.digest
     assert reference.version == function.version
     assert reference.catalog_digest == release.digest
     assert changed.digest != release.digest

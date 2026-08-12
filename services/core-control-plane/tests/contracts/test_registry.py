@@ -80,6 +80,7 @@ def test_registry_names_covers_expected_set(
         "ontology/object-type",
         "ontology/link-type",
         "ontology/interface-type",
+        "ontology/function-type",
         "ontology/interface-implementation",
         "ontology/action-type",
         "ontology/release-ref",

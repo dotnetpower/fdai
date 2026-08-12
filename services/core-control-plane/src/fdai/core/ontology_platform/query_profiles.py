@@ -11,9 +11,11 @@ from fdai.shared.contracts.models import (
     OntologyDeclarationKind,
     OntologyFunctionKind,
     OntologyFunctionType,
+    OntologyRelease,
     OntologyTypeRef,
     SemVer,
 )
+from fdai.shared.ontology.release import build_ontology_release
 
 from .functions import ontology_function_digest
 from .models import ObjectSetDefinition
@@ -42,6 +44,43 @@ class QueryProfile(ContractBase):
         """Return the canonical digest of the complete reviewed profile content."""
 
         return ontology_function_digest(self.model_dump(mode="json"))
+
+    @classmethod
+    def from_release(
+        cls,
+        *,
+        release: OntologyRelease,
+        name: str,
+        version: SemVer,
+        function_type: OntologyFunctionType,
+        object_set_template: ObjectSetDefinition,
+        purpose: str,
+    ) -> QueryProfile:
+        """Bind a profile to an exact FunctionType in one canonical release."""
+
+        expected = build_ontology_release(function_types=(function_type,)).declarations[0]
+        active = next(
+            (
+                declaration
+                for declaration in release.declarations
+                if declaration.kind is OntologyDeclarationKind.FUNCTION
+                and declaration.name == function_type.name
+            ),
+            None,
+        )
+        if active != expected:
+            raise ValueError("query profile FunctionType does not match release")
+        return cls(
+            name=name,
+            version=version,
+            function_type=function_type,
+            function_ref=release.type_ref(
+                OntologyDeclarationKind.FUNCTION,
+                function_type.name,
+            ),
+            object_set_template=object_set_template,
+            purpose=purpose,
+        )
 
     @model_validator(mode="after")
     def _selection_is_consistent(self) -> QueryProfile:

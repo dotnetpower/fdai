@@ -1,0 +1,35 @@
+schema_version: "1.0.0"
+name: inventory.select_resources
+version: "1.0.0"
+kind: query
+artifact_digest: sha256:6e92a5956cfa6b7d159a993a07203703b36bc9266bf82f5b2ccb076592720f9c
+publisher: fdai
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - object_set
+  properties:
+    object_set:
+      type: object
+output_schema:
+  type: object
+read_sets:
+  - ontology.object-set
+execution_class: deterministic
+required_role: reader
+purpose_bindings:
+  - operations-review
+timeout_seconds: 30
+cpu_millis: 1000
+memory_bytes: 134217728
+max_output_bytes: 262144
+network_allowed: false
+credentials_allowed: false
+execution_authority: false
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: function-type:inventory.select_resources@1.0.0
+  content_hash: sha256:263ec8c69cf79cf4b50fae44c7d1697f4cf2b51c453000b80e3b1d545c619731
+  license: MIT
+  retrieved_at: "2026-08-12T00:00:00Z"

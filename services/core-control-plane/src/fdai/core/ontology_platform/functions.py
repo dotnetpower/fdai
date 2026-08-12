@@ -79,7 +79,7 @@ class OntologyFunctionRegistry:
     to enforce isolation that it does not provide.
     """
 
-    def __init__(self, *, release: OntologyRelease | None = None) -> None:
+    def __init__(self, *, release: OntologyRelease) -> None:
         self._functions: dict[str, tuple[OntologyFunctionType, ContextualOntologyFunction]] = {}
         self._release = release
 
@@ -113,26 +113,25 @@ class OntologyFunctionRegistry:
         if declaration.network_allowed or declaration.credentials_allowed:
             raise ValueError("network or credential ontology functions require an isolated runner")
         retained = declaration.model_copy(deep=True)
-        if self._release is not None:
-            active = next(
-                (
-                    reference
-                    for reference in self._release.declarations
-                    if reference.kind is OntologyDeclarationKind.FUNCTION
-                    and reference.name == retained.name
-                ),
-                None,
-            )
-            registered = build_ontology_release(function_types=(retained,)).declarations[0]
-            if active != registered:
-                raise ValueError("ontology function declaration does not match release")
+        active = next(
+            (
+                reference
+                for reference in self._release.declarations
+                if reference.kind is OntologyDeclarationKind.FUNCTION
+                and reference.name == retained.name
+            ),
+            None,
+        )
+        registered = build_ontology_release(function_types=(retained,)).declarations[0]
+        if active != registered:
+            raise ValueError("ontology function declaration does not match release")
         self._functions[retained.name] = (retained, function)
 
     @property
-    def release_ref(self) -> OntologyReleaseRef | None:
+    def release_ref(self) -> OntologyReleaseRef:
         """Return only the registry's exact immutable release identity."""
 
-        return self._release.ref() if self._release is not None else None
+        return self._release.ref()
 
     def declaration(self, name: str) -> OntologyFunctionType:
         """Return the exact declaration used for authorization and schema validation."""
@@ -160,8 +159,6 @@ class OntologyFunctionRegistry:
         *,
         context: FunctionInvocationContext,
     ) -> tuple[object, FunctionInvocationReceipt]:
-        if self._release is None:
-            raise ValueError("ontology function receipts require an exact release")
         result, receipt = await self._invoke(name, arguments, context=context, with_receipt=True)
         if receipt is None:  # pragma: no cover - with_receipt invariant
             raise RuntimeError("ontology function receipt was not produced")
@@ -236,10 +233,7 @@ class OntologyFunctionRegistry:
             raise TypeError("ontology function result violates output_schema")
         if not with_receipt:
             return result, None
-        release = self._release
-        if release is None:  # pragma: no cover - checked by public method
-            raise RuntimeError("ontology release is unavailable")
-        function_ref = release.type_ref(OntologyDeclarationKind.FUNCTION, declaration.name)
+        function_ref = self._release.type_ref(OntologyDeclarationKind.FUNCTION, declaration.name)
         output_digest = _digest_bytes(output_bytes)
         request_identity = ontology_function_digest(
             {

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import Field, model_validator
 
@@ -155,6 +155,8 @@ class LogicExecutionClass(StrEnum):
 
 
 class OntologyFunctionType(_Base):
+    """Versioned bounded function declaration with no execution authority."""
+
     schema_version: SemVer = "1.0.0"
     name: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.-]{0,79}$")]
     version: SemVer
@@ -180,9 +182,11 @@ class OntologyFunctionType(_Base):
     max_output_bytes: int = Field(default=262_144, ge=1, le=5_000_000)
     network_allowed: bool = False
     credentials_allowed: bool = False
+    execution_authority: Literal[False] = False
     learned_through: datetime | None = None
     evidence_grade: CausalEvidenceGrade | None = None
     promotion_gate: PromotionGate | None = None
+    provenance: OntologyProvenance | None = None
 
     @model_validator(mode="after")
     def _function_contract(self) -> OntologyFunctionType:

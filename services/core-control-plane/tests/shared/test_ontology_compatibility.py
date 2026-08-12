@@ -5,6 +5,8 @@ from __future__ import annotations
 import pytest
 from fdai.shared.contracts.models import (
     OntologyDeclarationKind,
+    OntologyFunctionKind,
+    OntologyFunctionType,
     OntologyInterfaceType,
     OntologyObjectType,
 )
@@ -38,6 +40,31 @@ def _schema(*, include_replicas: bool) -> dict[str, object]:
 
 def _interface(version: str = "1.0.0") -> OntologyInterfaceType:
     return OntologyInterfaceType(name="Operable", version=version)
+
+
+def _function(version: str = "1.0.0") -> OntologyFunctionType:
+    return OntologyFunctionType(
+        name="inventory.select_resources",
+        version=version,
+        kind=OntologyFunctionKind.QUERY,
+        artifact_digest="sha256:" + "a" * 64,
+        publisher="fdai",
+        input_schema={"type": "object"},
+        output_schema={"type": "object"},
+    )
+
+
+def _function_schema(*, include_object_set: bool) -> dict[str, object]:
+    properties: dict[str, object] = {}
+    required: list[str] = []
+    if include_object_set:
+        properties["object_set"] = {"type": "object"}
+        required.append("object_set")
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": required,
+    }
 
 
 def test_breaking_n_minus_one_schema_fails_before_activation() -> None:
@@ -160,5 +187,57 @@ def test_interface_removal_fails_closed() -> None:
             candidate_release=candidate,
             previous_schemas={identity: _schema(include_replicas=False)},
             candidate_schemas={},
+            generation_release_digest=candidate.digest,
+        )
+
+
+def test_function_addition_is_reported_as_additive() -> None:
+    identity = (OntologyDeclarationKind.FUNCTION, "inventory.select_resources")
+    previous = build_ontology_release()
+    candidate = build_ontology_release(function_types=(_function(),))
+
+    receipt = require_ontology_generation_compatibility(
+        previous_release=previous,
+        candidate_release=candidate,
+        previous_schemas={},
+        candidate_schemas={identity: _function_schema(include_object_set=True)},
+        generation_release_digest=candidate.digest,
+    )
+
+    assert receipt.added_declarations == ("function:inventory.select_resources",)
+
+
+def test_function_removal_fails_closed() -> None:
+    identity = (OntologyDeclarationKind.FUNCTION, "inventory.select_resources")
+    previous = build_ontology_release(function_types=(_function(),))
+    candidate = build_ontology_release()
+
+    with pytest.raises(
+        OntologyGenerationCompatibilityError,
+        match="removes declaration function:inventory.select_resources",
+    ):
+        require_ontology_generation_compatibility(
+            previous_release=previous,
+            candidate_release=candidate,
+            previous_schemas={identity: _function_schema(include_object_set=True)},
+            candidate_schemas={},
+            generation_release_digest=candidate.digest,
+        )
+
+
+def test_breaking_function_schema_change_fails_closed() -> None:
+    identity = (OntologyDeclarationKind.FUNCTION, "inventory.select_resources")
+    previous = build_ontology_release(function_types=(_function(),))
+    candidate = build_ontology_release(function_types=(_function("2.0.0"),))
+
+    with pytest.raises(
+        OntologyGenerationCompatibilityError,
+        match="breaking schema change.*object_set.*field removed",
+    ):
+        require_ontology_generation_compatibility(
+            previous_release=previous,
+            candidate_release=candidate,
+            previous_schemas={identity: _function_schema(include_object_set=True)},
+            candidate_schemas={identity: _function_schema(include_object_set=False)},
             generation_release_digest=candidate.digest,
         )

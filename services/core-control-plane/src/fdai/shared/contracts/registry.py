@@ -87,6 +87,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("ontology/object-type", "1.0.0"): "ontology/object-type.json",
     ("ontology/link-type", "1.0.0"): "ontology/link-type.json",
     ("ontology/interface-type", "1.0.0"): "ontology/interface-type.json",
+    ("ontology/function-type", "1.0.0"): "ontology/function-type.json",
     (
         "ontology/interface-implementation",
         "1.0.0",

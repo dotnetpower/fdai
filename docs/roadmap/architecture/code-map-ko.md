@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b539d8c554082765ca6ae3d755e8bdf81cd2ecb9
+translation_source_sha: 936e6e48483c8de11803eb3f5f2d51848b742a1b
 translation_revised: 2026-08-12
 ---
 # 코드 맵
@@ -43,7 +43,7 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 | 영역 | Responsibility | 출처 | 테스트 |
 |------|----------------|--------|------|
 | 컨트롤 루프와 decisioning | Event 정규화, 계층 라우팅, quality, risk, 승인, 실행 coordination, 복구 및 감사 | [코어](../../../services/core-control-plane/src/fdai/core/) | [코어 테스트](../../../services/core-control-plane/tests/core/) |
-| 온톨로지 안전성 platform | Exact 의미 release, 운영 Interface compilation, principal 범위로 한정된 매니페스트, 범용/temporal 조회 algebra, bitemporal 토폴로지/차이, 검토된 메트릭 개념, topology-aware causal 결합, 변경 계획, 독립적인 효과 조정 및 영속 조정 기록 | [ontology_platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [온톨로지 platform 테스트](../../../services/core-control-plane/tests/core/ontology_platform/) |
+| 온톨로지 안전성 platform | 카탈로그에서 로드한 Interface 및 FunctionType 선언을 포함하는 exact 의미 release, release-aware 조회 profile 및 함수 등록, principal 범위로 한정된 매니페스트, 범용/temporal 조회 algebra, bitemporal 토폴로지/차이, 검토된 메트릭 개념, topology-aware causal 결합, 변경 계획, 독립적인 효과 조정 및 영속 조정 기록 | [ontology_platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [온톨로지 platform 테스트](../../../services/core-control-plane/tests/core/ontology_platform/) |
 | 의미 대화 계획 수립 | Whole-turn 스키마 제안, 서버가 소유한 프레임/계획 신원, principal-manifest 검증, 비동기 검증된 실행, 합계 최종 처리 결과, 결정론적 의도 그래프, exact-command 호환성 전환 및 실행 권한이 없는 continuous 커버리지 게이트 | [대화](../../../services/core-control-plane/src/fdai/core/conversation/) | [대화 테스트](../../../services/core-control-plane/tests/conversation/) |
 | 온톨로지 의미 세대 | 후보 전용 구체적인 인덱스, full/incremental 선언 및 deployment-object 문서, 독립적인 검증 증적, atomic activation, stale detection 및 롤백 | [catalog_search](../../../services/core-control-plane/src/fdai/delivery/catalog_search/) | [카탈로그 검색 테스트](../../../services/core-control-plane/tests/delivery/catalog_search/) |
 | 메트릭 의미 프로바이더 연결 | Alias-free 검토된 메트릭 개념과 관찰된 zero를 프로바이더 공백과 구분하는 exact `MetricProvider` 구간 | [metric_window.py](../../../services/core-control-plane/src/fdai/delivery/metric_window.py) 및 [metric_semantic_catalog.py](../../../services/core-control-plane/src/fdai/runtime/metric_semantic_catalog.py) | [메트릭 의미 카탈로그 테스트](../../../services/core-control-plane/tests/runtime/test_metric_semantic_catalog.py) |

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
+from fdai.rule_catalog.schema.function_type import load_function_type_catalog
 from fdai.rule_catalog.schema.interface_type import (
     load_interface_implementation_catalog,
     load_interface_type_catalog,
@@ -19,22 +20,39 @@ from fdai.rule_catalog.schema.property_semantic import (
 )
 from fdai.shared.contracts.models import (
     OntologyActionType,
+    OntologyFunctionType,
     OntologyInterfaceImplementation,
     OntologyInterfaceType,
     OntologyLinkType,
     OntologyObjectType,
+    OntologyRelease,
 )
 from fdai.shared.contracts.registry import SchemaRegistry
+from fdai.shared.ontology.release import build_ontology_release
 
 
 @dataclass(frozen=True, slots=True)
 class OntologyCatalog:
+    """Complete reviewed declaration graph loaded from catalog-as-code."""
+
     object_types: tuple[OntologyObjectType, ...]
     interface_types: tuple[OntologyInterfaceType, ...]
     interface_implementations: tuple[OntologyInterfaceImplementation, ...]
     link_types: tuple[OntologyLinkType, ...]
     action_types: tuple[OntologyActionType, ...]
     property_semantics: PropertySemanticRegistry
+    function_types: tuple[OntologyFunctionType, ...] = ()
+
+    def build_release(self) -> OntologyRelease:
+        """Build the canonical release over every owned declaration kind."""
+
+        return build_ontology_release(
+            object_types=self.object_types,
+            link_types=self.link_types,
+            action_types=self.action_types,
+            interface_types=self.interface_types,
+            function_types=self.function_types,
+        )
 
 
 def load_ontology_catalog(
@@ -53,6 +71,10 @@ def load_ontology_catalog(
     )
     interface_types = load_interface_type_catalog(
         vocabulary_root / "interface-types",
+        schema_registry=schema_registry,
+    )
+    function_types = load_function_type_catalog(
+        vocabulary_root / "function-types",
         schema_registry=schema_registry,
     )
     interface_implementations = load_interface_implementation_catalog(
@@ -86,6 +108,7 @@ def load_ontology_catalog(
         link_types=link_types,
         action_types=action_types,
         property_semantics=property_semantics,
+        function_types=function_types,
     )
 
 
