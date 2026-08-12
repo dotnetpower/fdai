@@ -17,10 +17,39 @@
       ],
       "test_groups": {
         "unit": [
-          "services/core-control-plane/tests"
+          "services/core-control-plane/tests/__init__.py",
+          "services/core-control-plane/tests/config",
+          "services/core-control-plane/tests/conftest.py",
+          "services/core-control-plane/tests/exemption",
+          "services/core-control-plane/tests/measurement",
+          "services/core-control-plane/tests/providers",
+          "services/core-control-plane/tests/quality_gate",
+          "services/core-control-plane/tests/rbac",
+          "services/core-control-plane/tests/telemetry",
+          "services/core-control-plane/tests/tools",
+          "services/core-control-plane/tests/verified_shadow_executor.py"
         ],
-        "contract": [],
-        "integration": [],
+        "contract": [
+          "services/core-control-plane/tests/contracts",
+          "services/core-control-plane/tests/rule_catalog",
+          "services/core-control-plane/tests/shared"
+        ],
+        "integration": [
+          "services/core-control-plane/tests/agents",
+          "services/core-control-plane/tests/assurance_twin",
+          "services/core-control-plane/tests/chatops",
+          "services/core-control-plane/tests/composition",
+          "services/core-control-plane/tests/conversation",
+          "services/core-control-plane/tests/core",
+          "services/core-control-plane/tests/delivery",
+          "services/core-control-plane/tests/notifications",
+          "services/core-control-plane/tests/persistence",
+          "services/core-control-plane/tests/pipeline",
+          "services/core-control-plane/tests/runtime",
+          "services/core-control-plane/tests/scenarios",
+          "services/core-control-plane/tests/test_semantic_turn_processor.py",
+          "services/core-control-plane/tests/verticals"
+        ],
         "smoke": []
       }
     },
@@ -31,10 +60,22 @@
       ],
       "test_groups": {
         "unit": [
-          "services/operator-service/tests"
+          "services/operator-service/tests/test_local_narrator.py"
         ],
-        "contract": [],
-        "integration": [],
+        "contract": [
+          "services/operator-service/tests/test_operator_conversation_family.py",
+          "services/operator-service/tests/test_operator_iam_family.py",
+          "services/operator-service/tests/test_operator_operations_family.py",
+          "services/operator-service/tests/test_operator_workflow_family.py"
+        ],
+        "integration": [
+          "services/operator-service/tests/test_operator_postgres_replay.py",
+          "services/operator-service/tests/test_operator_service_composition.py",
+          "services/operator-service/tests/test_operator_service_full_composition.py",
+          "services/operator-service/tests/test_operator_service_postgres.py",
+          "services/operator-service/tests/test_semantic_kafka_adapter.py",
+          "services/operator-service/tests/test_semantic_turn_bridge.py"
+        ],
         "smoke": []
       }
     },
@@ -44,11 +85,14 @@
         "services/document-ingestion-api"
       ],
       "test_groups": {
-        "unit": [
-          "services/document-ingestion-api/tests"
+        "unit": [],
+        "contract": [
+          "services/document-ingestion-api/tests/test_ingestion_service_behavior.py"
         ],
-        "contract": [],
-        "integration": [],
+        "integration": [
+          "services/document-ingestion-api/tests/test_ingestion_service_composition.py",
+          "services/document-ingestion-api/tests/test_ingestion_stewardship_webhook.py"
+        ],
         "smoke": []
       }
     },
@@ -59,11 +103,16 @@
       ],
       "test_groups": {
         "unit": [
-          "services/document-processing-worker/tests"
+          "services/document-processing-worker/tests/test_ingestion_parser_parity.py"
         ],
-        "contract": [],
+        "contract": [
+          "services/document-processing-worker/tests/test_ingestion_adapter_readiness.py",
+          "services/document-processing-worker/tests/test_ingestion_handover_parity.py"
+        ],
         "integration": [],
-        "smoke": []
+        "smoke": [
+          "services/document-processing-worker/tests/test_health.py"
+        ]
       }
     },
     {
@@ -73,11 +122,19 @@
       ],
       "test_groups": {
         "unit": [
-          "services/isolated-executor/tests"
+          "services/isolated-executor/tests/test_executor_terraform_identity.py"
         ],
-        "contract": [],
-        "integration": [],
-        "smoke": []
+        "contract": [
+          "services/isolated-executor/tests/test_isolated_executor_service_boundary.py"
+        ],
+        "integration": [
+          "services/isolated-executor/tests/test_executor_event_bus_adapter.py",
+          "services/isolated-executor/tests/test_executor_http_adapters.py",
+          "services/isolated-executor/tests/test_executor_postgres_adapters.py"
+        ],
+        "smoke": [
+          "services/isolated-executor/tests/test_health.py"
+        ]
       }
     }
   ]

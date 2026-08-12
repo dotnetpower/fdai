@@ -144,12 +144,13 @@ def test_service_suite_coverage_patterns_have_exactly_one_owner() -> None:
     _assert_pattern_coverage(coverage["test_patterns"], test_claims)
 
 
-def test_service_suite_coverage_accepts_new_test_in_owned_service_tree(tmp_path: Path) -> None:
+def test_service_suite_coverage_rejects_unclassified_new_test(tmp_path: Path) -> None:
     namespace = _runner_namespace()
     orphan = REPO_ROOT / "services" / "isolated-executor" / "tests" / "test_unowned_service.py"
     orphan.write_text("def test_orphan(): pass\n", encoding="utf-8")
     try:
-        assert "isolated-executor" in namespace["_load_services"]()
+        with pytest.raises(ValueError, match="requires one owner"):
+            namespace["_load_services"]()
     finally:
         orphan.unlink(missing_ok=True)
 
@@ -236,11 +237,15 @@ def test_service_test_runner_lists_only_owned_paths(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     namespace = _runner_namespace()
+    suite_plan = _load(SUITE_PATH)
+    isolated_executor = next(
+        service for service in suite_plan["services"] if service["id"] == "isolated-executor"
+    )
+    expected = [path for group in GROUPS for path in isolated_executor["test_groups"][group]]
 
     assert namespace["main"](["isolated-executor", "--list"]) == 0
-    listed = capsys.readouterr().out.splitlines()
-    assert "services/isolated-executor/tests" in listed
-    assert all("operator_api" not in path for path in listed)
+
+    assert capsys.readouterr().out.splitlines() == expected
 
 
 def test_service_test_runner_lists_all_services_in_canonical_order(
