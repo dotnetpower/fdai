@@ -193,6 +193,12 @@ Pylance does not follow symlinked folders and records warning-level language-ser
 validation worktree and linked local artifacts therefore cannot duplicate the workspace analysis
 set or add information-level log churn.
 
+The workspace loads the canonical `.github/copilot-instructions.md` entry point and the repository
+`.github/hooks` directory. Nested `AGENTS.md` discovery and user-level Claude or Copilot hook
+directories remain disabled for FDAI, so the same instruction or tool hook cannot enter one request
+through multiple discovery paths. The dedicated `git: auto-pull` task owns background remote sync;
+VS Code built-in autofetch remains disabled in this workspace.
+
 The workspace associates only `.github/workflows/deploy-dev.yml` with the plain YAML language
 mode. The GitHub Actions extension can report unresolved-action and dynamic `GITHUB_ENV` context
 errors for this workflow even when the referenced action tag exists and the value is available to

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 4e78dfc02671b63bbf0d27ea00247a9cbd63e832
+translation_source_sha: a3b6a6ddeb67b6271358e8ee77c514e0c98a7293
 translation_revised: 2026-08-12
 ---
 
@@ -194,6 +194,12 @@ Pylance 백그라운드 인덱싱은 서비스 소스 루트 5개, 공유 패키
 있습니다. Pylance는 심볼릭 링크 폴더를 따라가지 않고 언어 서버 메시지는 경고 수준부터
 기록합니다. 따라서 검증 워크트리와 연결된 로컬 산출물이 workspace 분석 집합에 중복으로
 들어가거나 정보 수준 로그 부하를 추가하지 않습니다.
+
+Workspace는 정본 `.github/copilot-instructions.md` 진입점과 저장소의 `.github/hooks`
+디렉터리를 사용합니다. FDAI에서는 중첩 `AGENTS.md` 탐색과 사용자 수준 Claude 또는 Copilot
+hook 디렉터리를 비활성화하므로 같은 지침이나 도구 hook이 여러 탐색 경로를 통해 한 요청에
+중복으로 들어가지 않습니다. 백그라운드 원격 동기화는 전용 `git: auto-pull` 작업이 소유하며,
+이 workspace에서는 VS 코드 기본 autofetch를 비활성화합니다.
 
 Workspace는 `.github/workflows/deploy-dev.yml` 하나만 plain YAML 언어 모드에 연결합니다.
 GitHub Actions 확장은 참조한 액션 tag가 존재하고 다음 단계에서 `GITHUB_ENV` 값을 사용할 수

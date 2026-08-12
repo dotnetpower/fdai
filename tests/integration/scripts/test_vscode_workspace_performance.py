@@ -35,6 +35,22 @@ def test_pylance_indexes_owned_source_roots_without_following_symlinks() -> None
     assert settings["python.analysis.userFileIndexFollowSymlinkedFolders"] is False
 
 
+def test_workspace_uses_one_instruction_and_git_sync_path() -> None:
+    settings = _load_jsonc(REPO_ROOT / ".vscode" / "settings.json")
+    assert isinstance(settings, dict)
+
+    assert settings["chat.useNestedAgentsMdFiles"] is False
+    assert settings["chat.hookFilesLocations"] == {
+        ".github/hooks": True,
+        ".claude/settings.local.json": False,
+        ".claude/settings.json": False,
+        "~/.agents/hooks": False,
+        "~/.claude/settings.json": False,
+        "~/.copilot/hooks": False,
+    }
+    assert settings["git.autofetch"] is False
+
+
 def test_expensive_console_state_preparation_is_explicit() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
