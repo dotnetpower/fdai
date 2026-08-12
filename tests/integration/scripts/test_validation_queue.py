@@ -531,9 +531,12 @@ def test_post_commit_hook_enqueues_and_wakes_background_validation(
     assert "systemd:--user --quiet --collect" in wake
     assert "--property=Nice=15" in wake
     assert "--property=CPUWeight=10" in wake
+    assert "--property=CPUQuota=180%" in wake
     assert "--property=IOWeight=10" in wake
     assert "--property=MemoryHigh=8G" in wake
-    assert "run --wait" in wake
+    assert "--unit=fdai-validation-" in wake
+    assert "drain" in wake
+    assert "run --wait" not in wake
 
 
 def test_wait_mode_blocks_until_the_active_validator_releases_lock(

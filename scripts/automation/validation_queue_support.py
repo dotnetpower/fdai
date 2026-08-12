@@ -27,6 +27,8 @@ class QueuePaths:
     stage_cache: Path
     worktree: Path
     sync_state: Path
+    wake_lock: Path
+    wake_request: Path
 
 
 def git(
@@ -63,6 +65,8 @@ def queue_paths(cwd: Path | None = None) -> QueuePaths:
         stage_cache=state_root / "stage-cache",
         worktree=state_root / "worktree",
         sync_state=state_root / "sync-state.json",
+        wake_lock=state_root / "wake.lock",
+        wake_request=state_root / "wake-request.txt",
     )
 
 
