@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -62,6 +63,14 @@ def git_repo(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     (repo / "bin" / "uv").chmod(0o755)
+    (repo / "bin" / "systemd-run").write_text(
+        "#!/usr/bin/env bash\n"
+        'if [[ -n "${FDAI_VALIDATION_TEST_LOG:-}" ]]; then\n'
+        '  printf "systemd:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n'
+        "fi\n",
+        encoding="utf-8",
+    )
+    (repo / "bin" / "systemd-run").chmod(0o755)
     (repo / "scripts" / "automation").mkdir(parents=True)
     for source in (
         QUEUE_SCRIPT,
@@ -436,19 +445,76 @@ def test_all_mode_skips_changed_test_pass(git_repo: Path, tmp_path: Path) -> Non
     ]
 
 
-def test_post_commit_hook_automatically_enqueues_commit(git_repo: Path) -> None:
+def test_post_commit_hook_enqueues_and_wakes_background_validation(
+    git_repo: Path, tmp_path: Path
+) -> None:
     hooks = git_repo / ".githooks"
     hooks.mkdir()
     shutil.copy2(POST_COMMIT_HOOK, hooks / "post-commit")
     (hooks / "post-commit").chmod(0o755)
     assert _run(git_repo, "git", "config", "core.hooksPath", ".githooks").returncode == 0
 
-    commit = _commit_change(git_repo)
+    log_path = tmp_path / "background-wake.log"
+    (git_repo / "source.txt").write_text("changed\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", "source.txt").returncode == 0
+    committed = _run(
+        git_repo,
+        "git",
+        "commit",
+        "--quiet",
+        "-m",
+        "change",
+        env={"FDAI_VALIDATION_TEST_LOG": str(log_path)},
+    )
+    assert committed.returncode == 0, committed.stderr
+    commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
     common_dir = Path(_run(git_repo, "git", "rev-parse", "--git-common-dir").stdout.strip())
 
     assert (
         git_repo / common_dir / "fdai-validation-queue" / "pending" / f"{commit}.json"
     ).is_file()
+    wake = log_path.read_text(encoding="utf-8")
+    assert "systemd:--user --quiet --collect" in wake
+    assert "--property=Nice=15" in wake
+    assert "--property=CPUWeight=10" in wake
+    assert "--property=IOWeight=10" in wake
+    assert "--property=MemoryHigh=8G" in wake
+    assert "run --wait" in wake
+
+
+def test_wait_mode_blocks_until_the_active_validator_releases_lock(
+    git_repo: Path, tmp_path: Path
+) -> None:
+    import fcntl
+
+    commit = _commit_change(git_repo)
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    log_path = tmp_path / "wait-validation.log"
+    assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+    lock_path = git_repo / ".git" / "fdai-validation-queue" / "run.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with lock_path.open("a+", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        process = subprocess.Popen(  # noqa: S603 - test-controlled command and paths.
+            [str(Path(sys.executable).resolve()), str(script), "run", "--wait"],
+            cwd=git_repo,
+            env={
+                **os.environ,
+                "PATH": f"{git_repo / 'bin'}:{os.environ['PATH']}",
+                "FDAI_VALIDATION_TEST_LOG": str(log_path),
+            },
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        with pytest.raises(subprocess.TimeoutExpired):
+            process.wait(timeout=0.1)
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+    stdout, stderr = process.communicate(timeout=10)
+    assert process.returncode == 0, f"{stdout}\n{stderr}"
+    assert "verify:--fast --diff" in log_path.read_text(encoding="utf-8")
 
 
 def test_pre_push_requires_central_validation_receipts() -> None:

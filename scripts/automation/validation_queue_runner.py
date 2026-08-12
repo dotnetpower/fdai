@@ -384,12 +384,15 @@ def _run_record(
     }
 
 
-def run_validation(paths: QueuePaths, mode: str) -> int:
-    """Run one reachable batch under the shared non-blocking validator lock."""
+def run_validation(paths: QueuePaths, mode: str, *, wait_for_lock: bool = False) -> int:
+    """Run one reachable batch under the shared validator lock."""
     initialize(paths)
     with paths.lock.open("a+", encoding="utf-8") as lock_file:
         try:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            operation = fcntl.LOCK_EX
+            if not wait_for_lock:
+                operation |= fcntl.LOCK_NB
+            fcntl.flock(lock_file.fileno(), operation)
         except BlockingIOError:
             print("validation-queue: another integration validator is active", file=sys.stderr)
             return 3

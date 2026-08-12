@@ -4,7 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
+import shutil
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -106,8 +110,82 @@ def check_structural_gates(paths: QueuePaths, revision: str) -> int:
     return 0
 
 
-def run(paths: QueuePaths, mode: str) -> int:
-    return run_validation(paths, mode)
+def run(paths: QueuePaths, mode: str, *, wait_for_lock: bool = False) -> int:
+    return run_validation(paths, mode, wait_for_lock=wait_for_lock)
+
+
+def _background_command(paths: QueuePaths) -> list[str]:
+    script = Path(__file__).resolve()
+    return [sys.executable, str(script), "run", "--wait"]
+
+
+def _start_detached_fallback(paths: QueuePaths, environment: dict[str, str]) -> bool:
+    command = _background_command(paths)
+    nice = shutil.which("nice")
+    ionice = shutil.which("ionice")
+    if nice is not None:
+        command = [nice, "-n", "15", *command]
+    if ionice is not None:
+        command = [ionice, "-c", "3", *command]
+    log_path = paths.state_root / "background.log"
+    try:
+        with log_path.open("ab") as log_file:
+            subprocess.Popen(  # noqa: S603 - fixed local command and repository script.
+                command,
+                cwd=paths.repo_root,
+                env=environment,
+                stdin=subprocess.DEVNULL,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+    except OSError:
+        return False
+    return True
+
+
+def wake(paths: QueuePaths) -> int:
+    """Start a low-priority validator without waiting for validation to finish."""
+    initialize(paths)
+    if os.environ.get("FDAI_VALIDATION_AUTOSTART", "1") == "0":
+        return 0
+    head = resolve_commit(paths, "HEAD")
+    if (paths.receipts / f"{head}.json").is_file():
+        return 0
+    environment = os.environ.copy()
+    environment["FDAI_VALIDATION_BACKGROUND"] = "1"
+    systemd_run = shutil.which("systemd-run")
+    if systemd_run is not None:
+        repository_id = hashlib.sha256(str(paths.state_root).encode()).hexdigest()[:8]
+        unit = f"fdai-validation-{repository_id}-{head[:12]}"
+        result = subprocess.run(  # noqa: S603 - fixed systemd-run arguments.
+            [
+                systemd_run,
+                "--user",
+                "--quiet",
+                "--collect",
+                f"--unit={unit}",
+                "--property=Nice=15",
+                "--property=CPUWeight=10",
+                "--property=IOWeight=10",
+                "--property=IOSchedulingClass=idle",
+                "--property=MemoryHigh=8G",
+                f"--working-directory={paths.repo_root}",
+                f"--setenv=PATH={environment.get('PATH', '')}",
+                "--setenv=FDAI_VALIDATION_BACKGROUND=1",
+                *_background_command(paths),
+            ],
+            cwd=paths.repo_root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return 0
+    if _start_detached_fallback(paths, environment):
+        return 0
+    print("validation-queue: failed to start background validator", file=sys.stderr)
+    return 1
 
 
 def status(paths: QueuePaths, *, show_all: bool = False) -> int:
@@ -143,6 +221,8 @@ def _parser() -> argparse.ArgumentParser:
     structural_parser.add_argument("revision", nargs="?", default="HEAD")
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument("--all", action="store_true", dest="all_gates")
+    run_parser.add_argument("--wait", action="store_true", dest="wait_for_lock")
+    subparsers.add_parser("wake")
     status_parser = subparsers.add_parser("status")
     status_parser.add_argument("--all", action="store_true", dest="all_pending")
     return parser
@@ -176,7 +256,13 @@ def main(argv: list[str] | None = None) -> int:
     if arguments.command == "check-structural-gates":
         return check_structural_gates(paths, arguments.revision)
     if arguments.command == "run":
-        return run(paths, "all" if arguments.all_gates else "fast")
+        return run(
+            paths,
+            "all" if arguments.all_gates else "fast",
+            wait_for_lock=arguments.wait_for_lock,
+        )
+    if arguments.command == "wake":
+        return wake(paths)
     return status(paths, show_all=arguments.all_pending)
 
 
