@@ -20,6 +20,25 @@ retired top-level application tree.
 - **Integration-only root tests:** `tests/integration/` owns cross-service compatibility, topology,
   and repository checks.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Service-owned source and test map | in-progress | This map, `tests/integration/`, and the scoped IS-08 and IS-07 evidence named above | Local ownership and rollback evidence are mapped; IS-09 remote verification remains open. |
+| Exact-generation Rule retrieval | implemented | `core/ontology_platform/catalog_queries.py`; `test_catalog_queries.py`; `make test-changed DIFF=e4d9483a5^..e4d9483a5` (`10574 passed`) | Results are candidate-only, bind the active Rule generation to the exact ontology release, and carry no judgment, approval, or execution authority. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded exact-generation Rule retrieval. | Current change in `catalog_queries.py`, `operational_functions.py`, and `test_catalog_queries.py`; focused tests and diff-scoped validation passed. | Complete the IS-09 remote verification item below. |
+
+### Remaining work
+
+- [ ] Record governed IS-09 remote verification evidence and update the service-owned map state when that evidence passes.
+
 ## Physical service ownership
 
 | Owner | Source | Tests | Distribution |

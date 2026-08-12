@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: fd62e6cd111bcafc7faabf4df4a95a4349e0ab26
+translation_source_sha: f00348dede19b1679cdaae39b20b2805435b15cc
 translation_revised: 2026-08-13
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -19,6 +19,24 @@ file-count 목표가 아닌 설명 기준이지만, executable 완전성 게이�
 [`test_operator_api_layout.py`](../../../services/operator-service/tests/)는 현재 모든
 패키지와 경로 모듈이 분류된 상태인지 확인하고, exact 기본 메서드, 경로, route-name 집합 및 대표 HTTP
 묶음을 고정합니다. 의도적인 기본 경로 추가는 같은 변경에서 검토된 기준선을 갱신합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 현재 상태 활동 projection 경계 | 구현됨 | `fdai_operator_service/activity_projection.py`, `test_activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | 영속 행은 hash된 correlation 참조를 요구하고 실제 운영 프레임과 같은 activity id를 사용하며, 중복 중 가장 최신 항목만 유지하고 `execution_authority=false`를 보존합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 영속/실시간 현재 상태 projection identity를 기록했습니다. | 현재 출처와 `test_activity_projection.py`, 통과한 focused projection 및 영속성 테스트 | 아래의 검토된 이행 계열로 report-only 의존성 debt를 줄입니다. |
+
+### 남은 작업
+
+- [ ] 각 report-only 역방향 의존성을 검토된 neutral 계약 또는 provider 경계 뒤로 이동하고 해당 방향을 강제하기 전에 일치하는 `.check-operator-api-boundaries.debt` 예산을 줄입니다.
 
 ### Dependency-direction 게이트
 
