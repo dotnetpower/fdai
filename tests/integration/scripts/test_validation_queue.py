@@ -435,6 +435,34 @@ def test_status_and_commit_check_report_an_active_validator(git_repo: Path) -> N
     assert "Background validation is active; push does not wait for it." in blocked.stderr
 
 
+def test_status_and_commit_check_report_the_last_failed_stage(git_repo: Path) -> None:
+    commit = _commit_change(git_repo)
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+    runs = git_repo / ".git" / "fdai-validation-queue" / "runs"
+    runs.mkdir(parents=True, exist_ok=True)
+    (runs / f"{commit}.json").write_text(
+        json.dumps(
+            {
+                "status": 1,
+                "stages": [
+                    {"name": "dependency-sync", "status": 0},
+                    {"name": "fast-gates", "status": 1},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    status = _run(git_repo, "python3", str(script), "status")
+    blocked = _run(git_repo, "python3", str(script), "check-commit", commit)
+
+    assert status.returncode == 0
+    assert "validator failed at fast-gates" in status.stdout
+    assert blocked.returncode == 1
+    assert "Last background validation failed at fast-gates." in blocked.stderr
+
+
 def test_concurrent_enqueue_of_same_commit_is_atomic(git_repo: Path) -> None:
     script = git_repo / "scripts" / "automation" / "validation_queue.py"
 
