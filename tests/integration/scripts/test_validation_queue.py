@@ -572,8 +572,10 @@ def test_validator_agent_is_read_execute_only_and_uses_make_facade() -> None:
     assert config["tools"] == ["read", "execute"]
     assert config["agents"] == []
     assert config["user-invocable"] is True
+    assert "Post-commit normally wakes a low-priority background validator" in body
     assert "make validation-status" in body
     assert "make validation-run" in body
+    assert "do not wait" in body
     assert "validation-status:" in makefile
     assert "validation-run:" in makefile
     assert "validation-all:" in makefile

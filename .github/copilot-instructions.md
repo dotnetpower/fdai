@@ -65,10 +65,12 @@ only within the Constitution's bounds; the Constitution always prevails.
    MUST NOT run repository-wide checks, unscoped tests, or direct `verify.sh --fast` / `--all`.
    Follow the diff-scoped and parallel-worktree rules in
    [coding-conventions.instructions.md](instructions/coding-conventions.instructions.md).
-7. Every commit is automatically registered in the Git-common-dir validation queue. The dedicated
-   `Integration Validator` session runs `make validation-run` once per stable batch; use
-   `make validation-all` only at an explicit merge or release boundary. Normal pushes are blocked
-   until every outgoing commit has a centralized validation receipt.
+7. Every commit is automatically registered in the Git-common-dir validation queue and wakes a
+   low-priority background validator. The dedicated `Integration Validator` session is the manual
+   status and fallback-drain surface; it runs `make validation-run` once only when pending work is
+   not already active. Use `make validation-all` only at an explicit merge or release boundary.
+   Normal pushes check receipts without waiting and are blocked until every outgoing commit has a
+   centralized validation receipt.
 8. Commit each focused-check-passing user-requested change before reporting completion unless the user says
    not to commit. Stage only task-owned files and hunks; never commit failed or incomplete work.
 9. Treat slow network-dependent work as a post-validation phase. Do not watch or rerun GitHub
