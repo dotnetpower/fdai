@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 29866311c254eadf7b5fcde87d730f441036646d
+translation_source_sha: 86a9dc3b4ac1484129667fcaf6d8c743ae6ac755
 translation_revised: 2026-08-13
 ---
 
@@ -23,6 +23,27 @@ translation_revised: 2026-08-13
 모든 프로파일은 **하나의 컨트롤 경로**를 공유하며 composition-root 어댑터와 자격 증명만 다릅니다.
 ([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나
 상태 소유권을 변경하거나 고정본을 허용하지 않습니다. 실제 Azure 클라이언트 추가는 fork-side 주입이며 `core/`를 편집하지 않습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 자동화 테스트 고정본 격리 | implemented | `tests/`, `console/tests/` 및 리포지토리 테스트 모음이 실행하는 고정본 전용 composition 경로 | 결정론적 고정본은 권위 있는 interactive 프로파일 밖에 유지됩니다. |
+| 로컬 및 deployed composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/` 및 서비스 통합 테스트 | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. |
+| FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, focused 프로파일 및 workspace 테스트 9개 통과 | Resource 범위 제어는 workspace에, machine 범위 Pylance launch 제어는 FDAI 프로파일에만 둡니다. |
+| FDAI Pylance launch ceiling 런타임 증명 | in-progress | Portable 및 host FDAI 프로파일 설정에 `--max-old-space-size=2048`이 있으며 process command 검증은 미완료입니다. | 설정 존재만으로는 런타임 근거가 되지 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 machine 범위 Pylance launch 제어를 FDAI 프로파일로 이동했습니다. | 현재 변경의 `.vscode/fdai.code-profile`, `.vscode/settings.json`, `scripts/automation/configure-vscode-profile.py` 및 focused 프로파일/workspace 테스트 9개 통과. | FDAI Pylance process argument와 중앙 검증 receipt를 기록합니다. |
+
+### 잔여 작업
+
+- [ ] 재시작한 FDAI Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록하고, 제외 대상 workspace가 영향받지 않았음을 확인한 뒤 이 변경의 중앙 검증 receipt를 확보합니다.
 
 ## 전수조사 - 로컬 동작 vs Azure 필요
 
