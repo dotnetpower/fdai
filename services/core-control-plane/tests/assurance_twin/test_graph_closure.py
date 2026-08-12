@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 
@@ -181,6 +182,52 @@ async def test_metric_source_keeps_episode_open_when_telemetry_is_missing() -> N
     )
 
     assert await _commands(source) == ()
+    assert len(await ledger.list_open()) == 1
+
+
+async def test_metric_source_bounds_a_stalled_provider_query() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreTrajectoryEpisodeLedger(store)
+    predicted = _trajectory(TrajectoryKind.PREDICTED)
+    challenger = _model(EffectModelStatus.CHALLENGER)
+    await ledger.record_prediction(
+        predicted,
+        challenger_model_refs=(challenger.ref,),
+        recorded_by="Forseti",
+        recorded_at=_NOW,
+    )
+    query_started = asyncio.Event()
+    query_cancelled = asyncio.Event()
+    never_complete = asyncio.Event()
+
+    class StalledMetricProvider:
+        async def query(self, query):  # type: ignore[no-untyped-def]
+            query_started.set()
+            try:
+                await never_complete.wait()
+                if False:
+                    yield MetricPoint(
+                        metric_name=query.metric_name,
+                        at=query.since,
+                        value=0.0,
+                        labels=query.labels,
+                    )
+            finally:
+                query_cancelled.set()
+
+    source = MetricGraphTrajectoryOutcomeSource(
+        ledger=ledger,
+        metrics=StalledMetricProvider(),
+        clock=lambda: _NOW + timedelta(minutes=8),
+        query_timeout_seconds=0.01,
+    )
+
+    async with asyncio.timeout(0.5):
+        commands = await _commands(source)
+        await query_started.wait()
+        await query_cancelled.wait()
+
+    assert commands == ()
     assert len(await ledger.list_open()) == 1
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import math
 from collections.abc import AsyncIterator, Callable
@@ -27,6 +28,8 @@ from fdai.core.assurance_twin.trajectory_ledger import (
 )
 from fdai.shared.providers.metric import MetricPoint, MetricProvider, MetricQuery
 from fdai.shared.providers.state_store import StateStore
+
+_MAX_QUERY_TIMEOUT_SECONDS = 10.0
 
 
 def _default_clock() -> datetime:
@@ -57,7 +60,11 @@ class GraphTrajectoryOutcomeSource(Protocol):
 
 
 class MetricGraphTrajectoryOutcomeSource:
-    """Observe due trajectories from an independent metric provider."""
+    """Observe due trajectories with bounded independent metric queries.
+
+    A query timeout leaves the durable episode open for a later observation pass. Caller
+    cancellation and unexpected provider failures continue to propagate.
+    """
 
     def __init__(
         self,
@@ -68,17 +75,21 @@ class MetricGraphTrajectoryOutcomeSource:
         telemetry_grace: timedelta = timedelta(minutes=5),
         observation_window: timedelta = timedelta(minutes=1),
         max_episodes: int = 256,
+        query_timeout_seconds: float = 2.5,
     ) -> None:
         if telemetry_grace < timedelta(0) or observation_window <= timedelta(0):
             raise ValueError("graph trajectory observation windows MUST be valid")
         if not 1 <= max_episodes <= 1000:
             raise ValueError("graph trajectory max_episodes MUST be in [1, 1000]")
+        if not 0.0 < query_timeout_seconds <= _MAX_QUERY_TIMEOUT_SECONDS:
+            raise ValueError("graph trajectory query timeout MUST be in (0, 10]")
         self._ledger = ledger
         self._metrics = metrics
         self._clock = clock or _default_clock
         self._telemetry_grace = telemetry_grace
         self._observation_window = observation_window
         self._max_episodes = max_episodes
+        self._query_timeout_seconds = query_timeout_seconds
 
     async def outcomes(self) -> AsyncIterator[TrajectoryClosureCommand]:
         now = self._clock()
@@ -102,17 +113,21 @@ class MetricGraphTrajectoryOutcomeSource:
     ) -> OperationalStateTrajectory | None:
         observed_slices = []
         for predicted_slice in episode.predicted.slices:
-            points = [
-                point
-                async for point in self._metrics.query(
-                    MetricQuery(
-                        metric_name=predicted_slice.metric,
-                        labels={"resource_id": predicted_slice.object_ref},
-                        since=predicted_slice.effective_at,
-                        until=predicted_slice.effective_at + self._observation_window,
-                    )
-                )
-            ]
+            try:
+                async with asyncio.timeout(self._query_timeout_seconds):
+                    points = [
+                        point
+                        async for point in self._metrics.query(
+                            MetricQuery(
+                                metric_name=predicted_slice.metric,
+                                labels={"resource_id": predicted_slice.object_ref},
+                                since=predicted_slice.effective_at,
+                                until=predicted_slice.effective_at + self._observation_window,
+                            )
+                        )
+                    ]
+            except TimeoutError:
+                return None
             point = _select_observation(
                 points,
                 effective_at=predicted_slice.effective_at,
