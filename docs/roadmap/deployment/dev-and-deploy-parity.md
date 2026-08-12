@@ -207,6 +207,8 @@ workflow contract tests, and GitHub Actions runtime validation remain authoritat
 workflow loses GitHub Actions language support.
 
 The shared FDAI profile and extension list keep HashiCorp Terraform as the single language server.
+Workstation-specific cleanup does not reduce that portable profile. Extensions outside the profile
+may be uninstalled locally when the current FDAI workflow does not use them.
 The WSL bootstrap applies the path-free machine settings that Profile sync cannot carry. These
 editor settings never select identity, evidence, runtime, promotion, or execution authority.
 
