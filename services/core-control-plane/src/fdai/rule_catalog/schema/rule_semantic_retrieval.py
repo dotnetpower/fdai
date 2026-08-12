@@ -71,6 +71,8 @@ class RuleSemanticManifest:
     property_refs: tuple[str, ...]
     action_type_ref: str
     predicate_refs: tuple[str, ...] = ()
+    decision_path: str | None = None
+    normalized_semantic_digest: str | None = None
     schema_version: str = "1.0.0"
 
     def __post_init__(self) -> None:
@@ -95,6 +97,10 @@ class RuleSemanticManifest:
         _ordered_unique("signal_refs", self.signal_refs, allow_empty=allow_unknown)
         _ordered_unique("property_refs", self.property_refs, allow_empty=allow_unknown)
         _ordered_unique("predicate_refs", self.predicate_refs, allow_empty=True)
+        if self.decision_path is not None:
+            _bounded_identifier("decision_path", self.decision_path)
+        if self.normalized_semantic_digest is not None:
+            _require_digest("normalized_semantic_digest", self.normalized_semantic_digest)
 
     @property
     def digest(self) -> str:
@@ -116,6 +122,8 @@ class RuleSemanticManifest:
                 "property_refs": self.property_refs,
                 "action_type_ref": self.action_type_ref,
                 "predicate_refs": self.predicate_refs,
+                "decision_path": self.decision_path,
+                "normalized_semantic_digest": self.normalized_semantic_digest,
             }
         )
 

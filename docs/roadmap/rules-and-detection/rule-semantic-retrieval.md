@@ -30,6 +30,10 @@ evaluation gates, and failed-query feedback loop.
 > Reproduced retrieval-owned failures flow through Huginn ingress, Heimdall validation, Saga audit,
 > and Muninn context materialization. Norns then persists an inert challenger with shadow audit
 > before ordinary consensus and Mimir intake.
+> Rego manifests now carry the exact deny decision path and a normalized location-free OPA AST
+> digest in addition to the source digest. The T0 evaluator uses the same identities and emits
+> input- and result-bound evaluation receipts for allow and deny outcomes. Retrieval still cannot
+> claim a verdict without that evaluation receipt.
 
 ## Design at a glance
 

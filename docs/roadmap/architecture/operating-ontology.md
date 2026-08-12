@@ -85,6 +85,9 @@ The rule catalog now models authored Rego as a first-class `PolicyArtifact`. Eve
 uses concrete `SignalType` and canonical `Property` references, and `implemented_by_policy` links
 the Rule to its deterministic policy. `scripts/catalog/sync-rule-semantics.py` parses Rego through
 OPA, verifies package metadata, and blocks drift between policy property reads and Rule metadata.
+The semantic manifest and T0 evaluator now share the exact deny decision path and normalized AST
+semantic digest. Each determined allow or deny evaluation carries the OPA version, source digest,
+canonical input digest, and result digest; policy retrieval alone remains candidate-only.
 
 One reviewed configuration baseline SignalType handles unmatched raw event types. This preserves
 deterministic T0 coverage without retaining wildcard ontology links. These catalog declarations

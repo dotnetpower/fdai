@@ -26,6 +26,9 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
 > whole runtime. The repository now also contains later-phase promotion, risk/HIL, and
 > enforce-capable adapters. Production inventory and GitOps delivery require deployment-specific
 > provider and credential bindings.
+> Rego evaluation now pins the exact `data.<package>.deny` decision path, OPA version, source and
+> normalized AST semantic digests, canonical input digest, and result digest. T0 retains receipts
+> for both allow and deny outcomes in the audit hint; denied findings carry the same receipt.
 
 ## Scope
 

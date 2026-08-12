@@ -44,6 +44,21 @@ class PipelineStage(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class RegoEvaluationReceipt:
+    """Exact content-addressed identity of one OPA policy evaluation."""
+
+    decision_path: str
+    opa_version: str
+    parser_id: str
+    parser_version: str
+    policy_source_digest: str
+    normalized_semantic_digest: str
+    input_evidence_digest: str
+    denied: bool
+    result_digest: str
+
+
+@dataclass(frozen=True, slots=True)
 class Finding:
     """A rule match on a resource at a point in time.
 
@@ -61,6 +76,7 @@ class Finding:
     severity: Severity
     context: dict[str, Any] = field(default_factory=dict)
     created_at: datetime | None = None
+    evaluation_receipt: RegoEvaluationReceipt | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +94,7 @@ class AuditHint:
     tier: str  # "t0" - carried as a plain string to avoid Tier import loop.
     mode: Mode
     citing_rule_ids: tuple[str, ...] = ()
+    evaluation_receipts: tuple[RegoEvaluationReceipt, ...] = ()
     reason: str | None = None
 
 
@@ -103,5 +120,6 @@ __all__ = [
     "AuditHint",
     "Finding",
     "PipelineStage",
+    "RegoEvaluationReceipt",
     "Verdict",
 ]

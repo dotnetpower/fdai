@@ -1,7 +1,7 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 2229b82fac036f02053d7282c2fc845a1053826a
-translation_revised: 2026-08-11
+translation_source_sha: 47fb6f2eeaa5235ccc73c59e6836009c072b6bf0
+translation_revised: 2026-08-12
 ---
 # Rule 의미 검색
 
@@ -32,6 +32,10 @@ translation_revised: 2026-08-11
 > 재현된 retrieval-owned 실패는 Huginn 유입, Heimdall 검증, Saga 감사 및 Muninn 맥락
 > 구체화를 거칩니다. Norns는 일반 합의 및 Mimir intake 전에 shadow 감사와 함께 inert
 > challenger를 저장합니다.
+> Rego 매니페스트는 이제 소스 다이제스트와 함께 정확한 deny 판정 경로와 위치 정보를 제외한
+> 정규화된 OPA AST 다이제스트를 포함합니다. T0 평가기는 같은 식별자를 사용하고 allow 및 deny
+> 결과에 입력과 결과가 연결된 평가 증적을 생성합니다. 검색은 해당 평가 증적 없이는 여전히
+> 판정을 주장할 수 없습니다.
 
 ## 설계 개요
 

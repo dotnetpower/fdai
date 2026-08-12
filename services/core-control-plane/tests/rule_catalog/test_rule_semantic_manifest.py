@@ -51,6 +51,7 @@ def _rule(*, kind: str = "rego", redistribution: str = "embeddable") -> Rule:
 def _semantics(*, property_paths: tuple[str, ...] = ("public_access",)) -> RegoSemantics:
     return RegoSemantics(
         package="fdai.object_storage.public_access",
+        decision_path="data.fdai.object_storage.public_access.deny",
         rule_id="object-storage.public-access.deny",
         title="Deny public access",
         description="Detect public object storage access.",
@@ -58,6 +59,7 @@ def _semantics(*, property_paths: tuple[str, ...] = ("public_access",)) -> RegoS
         category="security",
         property_paths=property_paths,
         content_digest="c" * 64,
+        normalized_semantic_digest="sha256:" + "d" * 64,
     )
 
 
@@ -71,6 +73,8 @@ def test_rego_manifest_pins_exact_ast_semantics() -> None:
     assert manifest.corpus is RuleCorpus.ACTIVE
     assert manifest.property_refs == ("property.object-storage.public_access",)
     assert manifest.policy_digest == "sha256:" + "c" * 64
+    assert manifest.decision_path == "data.fdai.object_storage.public_access.deny"
+    assert manifest.normalized_semantic_digest == "sha256:" + "d" * 64
     assert manifest.digest == manifest.digest
 
 

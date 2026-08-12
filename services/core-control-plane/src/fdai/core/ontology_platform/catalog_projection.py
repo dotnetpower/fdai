@@ -163,6 +163,8 @@ def build_catalog_ontology_projection(
                     "title": semantics.title,
                     "description": semantics.description,
                     "content_digest": semantics.content_digest,
+                    "decision_path": semantics.decision_path,
+                    "normalized_semantic_digest": semantics.normalized_semantic_digest,
                 },
             ),
         )

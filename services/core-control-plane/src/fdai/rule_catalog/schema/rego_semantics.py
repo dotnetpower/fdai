@@ -17,6 +17,7 @@ _MAX_AST_BYTES = 8_000_000
 @dataclass(frozen=True, slots=True)
 class RegoSemantics:
     package: str
+    decision_path: str
     rule_id: str
     title: str
     description: str
@@ -24,6 +25,7 @@ class RegoSemantics:
     category: str
     property_paths: tuple[str, ...]
     content_digest: str
+    normalized_semantic_digest: str
 
 
 class RegoSemanticsError(ValueError):
@@ -74,8 +76,12 @@ def load_rego_semantics(
     properties = tuple(sorted(set(_property_paths(ast))))
     if not properties:
         raise RegoSemanticsError("Rego policy MUST read at least one input.resource.props path")
+    decision_path = f"data.{package}.deny"
+    if "deny" not in _rule_names(ast):
+        raise RegoSemanticsError("Rego policy MUST declare the deny decision entrypoint")
     return RegoSemantics(
         package=package,
+        decision_path=decision_path,
         rule_id=rule_id,
         title=title,
         description=description,
@@ -83,6 +89,7 @@ def load_rego_semantics(
         category=category,
         property_paths=properties,
         content_digest=hashlib.sha256(body).hexdigest(),
+        normalized_semantic_digest=_normalized_semantic_digest(ast),
     )
 
 
@@ -143,6 +150,47 @@ def _property_paths(value: object) -> Iterator[str]:
     elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
         for child in value:
             yield from _property_paths(child)
+
+
+def _rule_names(ast: Mapping[str, Any]) -> frozenset[str]:
+    rules = ast.get("rules")
+    if not isinstance(rules, Sequence) or isinstance(rules, (str, bytes)):
+        return frozenset()
+    names: set[str] = set()
+    for rule in rules:
+        if not isinstance(rule, Mapping):
+            continue
+        head = rule.get("head")
+        name = head.get("name") if isinstance(head, Mapping) else None
+        if isinstance(name, str) and name:
+            names.add(name)
+    return frozenset(names)
+
+
+def _normalized_semantic_digest(ast: Mapping[str, Any]) -> str:
+    """Hash OPA AST semantics without source locations or descriptive annotations."""
+
+    normalized = _without_nonsemantic_ast_fields(ast)
+    encoded = json.dumps(
+        normalized,
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _without_nonsemantic_ast_fields(value: object) -> object:
+    if isinstance(value, Mapping):
+        return {
+            str(key): _without_nonsemantic_ast_fields(child)
+            for key, child in value.items()
+            if key not in {"location", "annotations", "comments"}
+        }
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return [_without_nonsemantic_ast_fields(child) for child in value]
+    return value
 
 
 def _term_text(raw: object) -> str:

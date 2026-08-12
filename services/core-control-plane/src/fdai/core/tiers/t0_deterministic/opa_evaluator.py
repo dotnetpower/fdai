@@ -31,6 +31,7 @@ posture is auditable.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import subprocess
@@ -39,6 +40,12 @@ from pathlib import Path
 from typing import Any, Final
 
 from fdai.core.tiers.t0_deterministic.engine import PolicyResult
+from fdai.core.tiers.t0_deterministic.models import RegoEvaluationReceipt
+from fdai.rule_catalog.schema.rego_semantics import (
+    RegoSemantics,
+    RegoSemanticsError,
+    load_rego_semantics,
+)
 from fdai.shared.contracts.models import CheckLogicKind, Rule
 
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 5.0
@@ -82,6 +89,8 @@ class OpaRegoEvaluator:
         self._opa: Final[str] = resolved
         self._policies_root: Final[Path] = policies_root
         self._timeout: Final[float] = timeout_seconds
+        self._opa_version: Final[str] = self._read_opa_version()
+        self._semantics: dict[Path, RegoSemantics] = {}
 
     # ------------------------------------------------------------------
     # PolicyEvaluator
@@ -163,7 +172,40 @@ class OpaRegoEvaluator:
                 f"opa eval returned non-JSON for {reference!r}: {proc.stdout[:200]!r}"
             ) from exc
 
-        return _interpret_result(parsed)
+        semantics = self._semantics.get(rego_path)
+        if semantics is None:
+            try:
+                semantics = load_rego_semantics(
+                    rego_path,
+                    opa_binary=self._opa,
+                    timeout_seconds=self._timeout,
+                )
+            except RegoSemanticsError as exc:
+                raise OpaEvaluatorError(f"OPA rejected policy semantics for {reference!r}") from exc
+            self._semantics[rego_path] = semantics
+        if semantics.decision_path != f"{query}.deny":
+            raise OpaEvaluatorError("policy decision path does not match the evaluated package")
+
+        result = _interpret_result(parsed)
+        if result is None:
+            return None
+        input_digest = _canonical_digest(input_doc)
+        result_digest = _canonical_digest({"denied": result.denied, "context": result.context})
+        return PolicyResult(
+            denied=result.denied,
+            context=result.context,
+            evaluation_receipt=RegoEvaluationReceipt(
+                decision_path=semantics.decision_path,
+                opa_version=self._opa_version,
+                parser_id="opa-ast",
+                parser_version=self._opa_version,
+                policy_source_digest="sha256:" + semantics.content_digest,
+                normalized_semantic_digest=semantics.normalized_semantic_digest,
+                input_evidence_digest=input_digest,
+                denied=result.denied,
+                result_digest=result_digest,
+            ),
+        )
 
     # ------------------------------------------------------------------
     # helpers
@@ -174,6 +216,25 @@ class OpaRegoEvaluator:
         """Derive ``fdai.<a>.<b>.<c>`` from ``<a>/<b>/<c>.rego``."""
         parts = [*relative.parent.parts, relative.stem]
         return ".".join([_PACKAGE_ROOT, *parts])
+
+    def _read_opa_version(self) -> str:
+        try:
+            proc = subprocess.run(  # noqa: S603 - resolved executable, fixed argv
+                [self._opa, "version"],
+                capture_output=True,
+                text=True,
+                timeout=self._timeout,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise OpaEvaluatorError("opa version timed out") from exc
+        if proc.returncode != 0:
+            raise OpaEvaluatorError("opa version failed")
+        first_line = proc.stdout.splitlines()[0] if proc.stdout else ""
+        prefix = "Version: "
+        if not first_line.startswith(prefix) or not first_line.removeprefix(prefix).strip():
+            raise OpaEvaluatorError("opa version returned an unsupported format")
+        return first_line.removeprefix(prefix).strip()
 
 
 def _interpret_result(parsed: dict[str, Any]) -> PolicyResult | None:
@@ -200,6 +261,17 @@ def _interpret_result(parsed: dict[str, Any]) -> PolicyResult | None:
     if isinstance(reason, str) and reason:
         context["deny_reason"] = reason
     return PolicyResult(denied=denied, context=context)
+
+
+def _canonical_digest(value: object) -> str:
+    encoded = json.dumps(
+        value,
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 __all__ = [

@@ -170,6 +170,29 @@ def test_public_access_denied_on_enabled_flag() -> None:
     assert isinstance(result, PolicyResult)
     assert result.denied is True
     assert result.context.get("deny_reason") == "public_access_enabled"
+    assert result.evaluation_receipt is not None
+    assert result.evaluation_receipt.decision_path == "data.fdai.object_storage.public_access.deny"
+    assert result.evaluation_receipt.denied is True
+    assert result.evaluation_receipt.opa_version
+    assert result.evaluation_receipt.policy_source_digest.startswith("sha256:")
+    assert result.evaluation_receipt.normalized_semantic_digest.startswith("sha256:")
+
+
+@requires_opa
+def test_evaluation_receipt_changes_with_input() -> None:
+    evaluator = OpaRegoEvaluator(policies_root=POLICIES_ROOT)
+    rule = _rules_by_id(_load_shipped_rules())["object-storage.public-access.deny"]
+
+    denied = evaluator.evaluate(rule, {"public_access": "enabled"})
+    allowed = evaluator.evaluate(rule, {"public_access": "disabled"})
+
+    assert denied is not None and denied.evaluation_receipt is not None
+    assert allowed is not None and allowed.evaluation_receipt is not None
+    assert (
+        denied.evaluation_receipt.input_evidence_digest
+        != allowed.evaluation_receipt.input_evidence_digest
+    )
+    assert denied.evaluation_receipt.result_digest != allowed.evaluation_receipt.result_digest
 
 
 @requires_opa
@@ -180,6 +203,8 @@ def test_public_access_allowed_on_disabled_flag() -> None:
     assert isinstance(result, PolicyResult)
     assert result.denied is False
     assert "deny_reason" not in result.context
+    assert result.evaluation_receipt is not None
+    assert result.evaluation_receipt.denied is False
 
 
 @requires_opa
@@ -338,6 +363,13 @@ def test_t0_engine_end_to_end_with_opa_evaluator() -> None:
     assert verdict.audit_hint is not None
     assert verdict.audit_hint.pipeline_stage is PipelineStage.L1_EVALUATE
     assert verdict.audit_hint.mode is Mode.SHADOW
+    public_access = next(
+        finding
+        for finding in verdict.findings
+        if finding.rule_id == "object-storage.public-access.deny"
+    )
+    assert public_access.evaluation_receipt is not None
+    assert verdict.audit_hint.evaluation_receipts
 
 
 @requires_opa
@@ -436,12 +468,13 @@ def test_timeout_raises_opa_evaluator_error(monkeypatch: pytest.MonkeyPatch) -> 
     """Defensive path: subprocess timeout propagates as OpaEvaluatorError."""
     import subprocess
 
+    evaluator = OpaRegoEvaluator(policies_root=POLICIES_ROOT, timeout_seconds=0.5)
+
     def _fake_run(*args: Any, **kwargs: Any) -> Any:
         raise subprocess.TimeoutExpired(cmd="opa", timeout=0.001)
 
     monkeypatch.setattr(subprocess, "run", _fake_run)
 
-    evaluator = OpaRegoEvaluator(policies_root=POLICIES_ROOT, timeout_seconds=0.5)
     rule = _rules_by_id(_load_shipped_rules())["object-storage.public-access.deny"]
     with pytest.raises(OpaEvaluatorError, match="timed out"):
         evaluator.evaluate(rule, {"public_access": "enabled"})
@@ -456,12 +489,13 @@ def test_non_json_stdout_raises_opa_evaluator_error(
     import subprocess
     from types import SimpleNamespace
 
+    evaluator = OpaRegoEvaluator(policies_root=POLICIES_ROOT)
+
     def _fake_run(*args: Any, **kwargs: Any) -> Any:
         return SimpleNamespace(returncode=0, stdout="not-json-output", stderr="")
 
     monkeypatch.setattr(subprocess, "run", _fake_run)
 
-    evaluator = OpaRegoEvaluator(policies_root=POLICIES_ROOT)
     rule = _rules_by_id(_load_shipped_rules())["object-storage.public-access.deny"]
     with pytest.raises(OpaEvaluatorError, match="non-JSON"):
         evaluator.evaluate(rule, {"public_access": "enabled"})

@@ -1,6 +1,6 @@
 schema_version: "1.0.0"
 name: PolicyArtifact
-version: "1.0.0"
+version: "1.1.0"
 key: id
 description: Authored deterministic policy artifact referenced by one or more Rules.
 properties:
@@ -10,9 +10,11 @@ properties:
   title: {type: string, required: true}
   description: {type: string, required: true}
   content_digest: {type: string, required: true}
+  decision_path: {type: string}
+  normalized_semantic_digest: {type: string}
 provenance:
   source_url: https://github.com/dotnetpower/fdai
-  resolved_ref: object-type:PolicyArtifact@1.0.0
-  content_hash: sha256:6bd38ce70ddba177eed1e52c6a7e178e1542ad0d9a234eda572633e1cb37d237
+  resolved_ref: object-type:PolicyArtifact@1.1.0
+  content_hash: sha256:7f711625f27a770d0711fdd04bb5d3b8db3e317f63de6325bad1b7136f680441
   license: MIT
   retrieved_at: "2026-08-04T00:00:00Z"

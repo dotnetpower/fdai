@@ -35,6 +35,7 @@ from fdai.core.tiers.t0_deterministic.models import (
     AuditHint,
     Finding,
     PipelineStage,
+    RegoEvaluationReceipt,
     Verdict,
 )
 from fdai.shared.contracts.models import Mode, Rule, Severity
@@ -64,6 +65,9 @@ class PolicyResult:
 
     context: dict[str, Any]
     """Inert, JSON-safe context (which property failed, threshold used, ...)."""
+
+    evaluation_receipt: RegoEvaluationReceipt | None = None
+    """Exact policy identity when the evaluator can produce replay evidence."""
 
 
 class AbstainEvaluator:
@@ -121,6 +125,7 @@ class T0Engine:
         findings: list[Finding] = []
         citing: list[str] = []
         abstained: list[str] = []
+        evaluation_receipts: list[RegoEvaluationReceipt] = []
 
         for rule in candidates:
             citing.append(rule.id)
@@ -135,6 +140,8 @@ class T0Engine:
             if result is None:
                 abstained.append(rule.id)
                 continue
+            if result.evaluation_receipt is not None:
+                evaluation_receipts.append(result.evaluation_receipt)
             if not result.denied:
                 continue
 
@@ -147,6 +154,7 @@ class T0Engine:
                     signal_id=signal_id,
                     severity=rule.severity,
                     context=dict(result.context),
+                    evaluation_receipt=result.evaluation_receipt,
                 )
             )
 
@@ -161,6 +169,7 @@ class T0Engine:
             tier="t0",
             mode=Mode.SHADOW,
             citing_rule_ids=tuple(citing),
+            evaluation_receipts=tuple(evaluation_receipts),
             reason=_abstain_reason(candidates, abstained, findings),
         )
 

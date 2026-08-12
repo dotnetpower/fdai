@@ -85,6 +85,12 @@ async def test_shipped_catalog_projects_as_one_atomic_typed_subgraph() -> None:
     assert sum(item.link_type == "implemented_by_policy" for item in graph.links) == len(rules)
     assert sum(item.link_type == "remediates" for item in graph.links) == len(rules)
     assert all(item.revision == 1 for item in graph.objects)
+    policies = tuple(item for item in graph.objects if item.object_type == "PolicyArtifact")
+    assert all(str(item.properties["decision_path"]).endswith(".deny") for item in policies)
+    assert all(
+        str(item.properties["normalized_semantic_digest"]).startswith("sha256:")
+        for item in policies
+    )
 
 
 def test_property_semantics_project_deterministically_without_upgrading_legacy() -> None:

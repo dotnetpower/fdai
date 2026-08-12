@@ -53,6 +53,8 @@ def build_rego_semantic_manifest(
         signal_refs=_concrete_refs(rule.triggered_by),
         property_refs=declared_property_refs,
         action_type_ref=rule.remediates,
+        decision_path=semantics.decision_path,
+        normalized_semantic_digest=semantics.normalized_semantic_digest,
     )
 
 

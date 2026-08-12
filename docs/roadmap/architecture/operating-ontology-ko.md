@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: e7b91b8b6c07ac6b4b5b1bbb9316c3ad71f67abc
+translation_source_sha: 79112d186b0953428a799d8300da21ded49c3cec
 translation_revised: 2026-08-12
 ---
 # FDAI 운영 온톨로지
@@ -89,6 +89,9 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 구체적인 `SignalType`과 정본 `Property` 참조를 사용하고, `implemented_by_policy`는 Rule을
 결정론적 정책에 연결합니다. `scripts/catalog/sync-rule-semantics.py`는 OPA로 Rego를 구문
 분석하고 패키지 메타데이터를 검증하며 정책의 속성 읽기와 Rule 메타데이터 사이의 표류를 차단합니다.
+의미 매니페스트와 T0 평가기는 이제 정확한 deny 판정 경로와 정규화된 AST 의미 다이제스트를
+공유합니다. 결정된 allow 또는 deny 평가는 OPA 버전, 소스 다이제스트, 정본 입력 다이제스트,
+결과 다이제스트를 포함하며 정책 검색만으로는 계속 판정을 주장할 수 없습니다.
 
 검토된 하나의 구성 기준선 SignalType이 일치하지 않는 원시 이벤트 형식을 처리합니다. 따라서
 와일드카드 온톨로지 링크 없이 결정론적 T0 범위를 보존합니다. 이러한 카탈로그 선언은 의미만
