@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: e3bc5bb3842961015aafd460bd673275bdc01537
-translation_revised: 2026-08-12
+translation_source_sha: 42f5a8c466e7312b60db42adf8ecaa19c204621f
+translation_revised: 2026-08-13
 ---
 
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -192,9 +192,14 @@ Pylance 분석은 서비스 소스 루트 5개, 공유 패키지, 독립 패키�
 저장소 유지관리 스크립트를 대상으로 합니다. Workspace 백그라운드 인덱싱은 비활성화합니다. 열린
 파일은 IntelliSense와 진단을 계속 제공하며 범위가 제한된 테스트는 테스트 실행기를 통해 사용할
 수 있습니다. Pylance는 심볼릭 링크 폴더를 따라가지 않고 언어 서버 메시지는 경고 수준부터
-기록합니다. 따라서 검증 워크트리와 연결된 로컬 산출물이 workspace 분석 집합에 중복으로
-들어가거나 정보 수준 로그 부하를 추가하지 않습니다. Chat 맥락 사용량 표시기는 계속 활성화하므로
-프롬프트가 한도에 도달하기 전에 기록된 세션 인수인계를 사용해 긴 작업을 옮길 수 있습니다.
+기록합니다. 단일 언어 서버 프로세스의 메모리를 제한하기 위해 Node.js 힙 상한을 2 GiB로 설정하고
+라이브러리 소스를 사용한 형식 추론을 비활성화합니다. `light` 모드로 전환하지 않으므로 구성된
+workspace 분석, 열린 파일 진단, IntelliSense 및 탐색 기능은 계속 사용할 수 있습니다. 따라서 검증
+워크트리와 연결된 로컬 산출물이 workspace 분석 집합에 중복으로 들어가거나 정보 수준 로그 부하를
+추가하지 않습니다. Chat 맥락 사용량 표시기는 계속 활성화하므로 프롬프트가 한도에 도달하기 전에
+기록된 세션 인수인계를 사용해 긴 작업을 옮길 수 있습니다. Copilot은 에이전트 대화 이력을 160000
+토큰에서 요약하고 이 workspace에서 다음 편집 제안을 비활성화합니다. Chat, 인라인 완성, 맥락
+사용량 및 세션 기록은 계속 사용할 수 있습니다.
 
 Workspace는 정본 `.github/copilot-instructions.md` 진입점과 저장소의 `.github/hooks`
 디렉터리를 사용합니다. FDAI에서는 중첩 `AGENTS.md` 탐색과 사용자 수준 Claude 또는 Copilot

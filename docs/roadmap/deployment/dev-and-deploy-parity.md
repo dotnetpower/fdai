@@ -190,10 +190,14 @@ Pylance analysis covers the five service source roots, shared packages, independ
 and benchmark sources, and repository maintenance scripts. Background workspace indexing is
 disabled; open files still receive IntelliSense and diagnostics, and focused tests remain available
 through the test runner. Pylance does not follow symlinked folders and records warning-level
-language-server messages. The validation worktree and linked local artifacts therefore cannot
-duplicate the workspace analysis set or add information-level log churn. The Chat context-usage
-indicator remains enabled so a developer can move long work to the recorded session handover before
-the prompt reaches its limit.
+language-server messages. A 2 GiB Node.js heap ceiling and disabled library-source type inference
+bound a single language-server process without switching to `light` mode, so configured workspace
+analysis, open-file diagnostics, IntelliSense, and navigation remain available. The validation
+worktree and linked local artifacts therefore cannot duplicate the workspace analysis set or add
+information-level log churn. The Chat context-usage indicator remains enabled so a developer can
+move long work to the recorded session handover before the prompt reaches its limit. Copilot
+summarizes agent conversation history at 160000 tokens and disables next edit suggestions in this
+workspace; Chat, inline completions, context usage, and session records remain available.
 
 The workspace loads the canonical `.github/copilot-instructions.md` entry point and the repository
 `.github/hooks` directory. Nested `AGENTS.md` discovery and user-level Claude or Copilot hook
