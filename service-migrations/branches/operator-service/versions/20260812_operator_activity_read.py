@@ -12,11 +12,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 migration_owner = "operator-service"
-owned_tables = (
-    "inventory_snapshot",
-    "inventory_snapshot_resource",
-    "inventory_snapshot_link",
-)
+owned_tables: tuple[str, ...] = ()
 rollback = {
     "strategy": "revoke-operator-activity-read",
     "restores": "operator_metering_read_20260810",
