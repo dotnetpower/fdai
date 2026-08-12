@@ -22,6 +22,7 @@ DATABASE_CONNECT_TIMEOUT_ENV = "FDAI_OPERATOR_DATABASE_CONNECT_TIMEOUT_S"
 EXPECTED_DATABASE_ROLE = "fdai_operator"
 LOCAL_AZURE_NARRATOR_ENV = "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR"
 KAFKA_BOOTSTRAP_SERVERS_ENV = "FDAI_KAFKA_BOOTSTRAP_SERVERS"
+STAGE_TOPIC_ENV = "FDAI_STAGE_TOPIC"
 SEMANTIC_REQUEST_TOPIC_ENV = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"
 SEMANTIC_PROJECTION_TOPIC_ENV = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC"
 SEMANTIC_PHYSICAL_TOPIC_ENV = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"
@@ -34,6 +35,7 @@ DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS = 20_000
 DEFAULT_DATABASE_CONNECT_TIMEOUT_S = 10
 DEFAULT_SEMANTIC_CONSUMER_GROUP = "operator-semantic-turn-v1"
 DEFAULT_SEMANTIC_KAFKA_CLIENT_ID = "fdai-operator-service"
+DEFAULT_STAGE_TOPIC = "aw.pipeline.stages"
 
 GROUP_ENV: Mapping[OperatorRole, str] = MappingProxyType(
     {
@@ -69,6 +71,7 @@ class OperatorEnvironment:
     database_connect_timeout_s: int
     local_azure_narrator: bool
     kafka_bootstrap_servers: str | None
+    stage_topic: str
     semantic_request_topic: str | None
     semantic_projection_topic: str | None
     semantic_physical_topic: str | None
@@ -140,6 +143,7 @@ class OperatorEnvironment:
                 f"{LOCAL_AZURE_NARRATOR_ENV} requires RUNTIME_ENV=dev"
             )
         kafka_bootstrap_servers = values.get(KAFKA_BOOTSTRAP_SERVERS_ENV, "").strip() or None
+        stage_topic = values.get(STAGE_TOPIC_ENV, "").strip() or DEFAULT_STAGE_TOPIC
         semantic_request_topic = values.get(SEMANTIC_REQUEST_TOPIC_ENV, "").strip() or None
         semantic_projection_topic = values.get(SEMANTIC_PROJECTION_TOPIC_ENV, "").strip() or None
         semantic_physical_topic = values.get(SEMANTIC_PHYSICAL_TOPIC_ENV, "").strip() or None
@@ -187,6 +191,7 @@ class OperatorEnvironment:
             database_connect_timeout_s=database_connect_timeout_s,
             local_azure_narrator=local_azure_narrator,
             kafka_bootstrap_servers=kafka_bootstrap_servers,
+            stage_topic=stage_topic,
             semantic_request_topic=semantic_request_topic,
             semantic_projection_topic=semantic_projection_topic,
             semantic_physical_topic=semantic_physical_topic,
@@ -237,6 +242,7 @@ __all__ = [
     "HOST_ENV",
     "ISSUER_ENV",
     "KAFKA_BOOTSTRAP_SERVERS_ENV",
+    "STAGE_TOPIC_ENV",
     "LOCAL_AZURE_NARRATOR_ENV",
     "MANAGED_IDENTITY_CLIENT_ID_ENV",
     "JWKS_URI_ENV",

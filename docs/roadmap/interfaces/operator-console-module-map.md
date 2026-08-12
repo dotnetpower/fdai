@@ -429,7 +429,7 @@ reverses physical ownership without a wire or caller migration.
 | Package | Current responsibility | Migration rule |
 |---------|------------------------|----------------|
 | Root | Public facades and foundational contracts | Preserve until a classified replacement exists. |
-| `adapters/` | Concrete Operator API provider implementations outside HTTP routes | Keep provider I/O behind application contracts. |
+| `adapters/` | Concrete Operator API provider implementations outside HTTP routes, including the independently owned Kafka Live-stage consumer | Keep provider I/O behind application contracts and commit stage records only after validation and fan-out. |
 | `adapters/conversation/` | Azure and OpenAI-compatible narrator transports plus web-search startup construction | Import through explicit modules; keep credentials, endpoints, deployment selection, and transport outside application and routes. |
 | `app/` | Shared ASGI assembly, middleware, registration, and lifespan | Retain as the HTTP composition boundary. |
 | `application/` | Typed process-local, non-authoritative application coordination | Retain until service-graduation evidence justifies a process boundary. |
@@ -456,7 +456,7 @@ reverses physical ownership without a wire or caller migration.
 | `projections/conversation/terminal/` | Terminal payload, LLM usage, resource-result, and source-failure projections | Import through its explicit facade; keep JSON, SSE, authentication, cancellation, and history in routes. |
 | `production/` | Production provider construction and bindings | Reduce fanout incrementally without changing wire behavior. |
 | `routes/` | HTTP and SSE transport, route registration, domain request adapters, and classified compatibility facades | Retain as the transport and reviewed facade boundary; conversation lifecycle orchestration stays behind the typed application facade. |
-| `streaming/` | Read-only SSE transport, redaction, fanout, and runtime projection | Retain until versioned relay and replay contracts exist. |
+| `streaming/` | Read-only bounded SSE fan-out and fail-closed Core stage-frame validation for `/live/stream` | Keep authentication and HTTP response ownership in routes; never infer runtime readiness from keepalives. |
 
 `fdai.delivery.operator_api.main` is the public app facade. `read_model` remains a public delivery
 contract until a reviewed replacement exists. `fdai.delivery.auth` owns framework-neutral bearer

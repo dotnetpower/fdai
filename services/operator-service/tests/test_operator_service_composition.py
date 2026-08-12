@@ -68,6 +68,7 @@ EXPECTED_ROUTES = (
     (("GET", "HEAD"), "/incidents/stream", "incident_attention_stream"),
     (("GET", "HEAD"), "/kpi", "get_kpi"),
     (("GET", "HEAD"), "/kpi/llm-cost", "get_llm_cost"),
+    (("GET", "HEAD"), "/live/stream", "live_stream"),
     (
         ("GET", "HEAD"),
         "/notification-templates/incident-opened",
@@ -270,6 +271,12 @@ def test_health_reflects_required_dependency_loss_after_startup() -> None:
     available = False
     response = client.get("/healthz")
     assert (response.status_code, response.json()) == (503, {"status": "not-ready"})
+
+
+def test_live_stream_requires_reader_authentication_before_opening() -> None:
+    response = _client(read_model=EmptyReadModel()).get("/live/stream")
+
+    assert response.status_code == 401
 
 
 def test_authenticated_audit_envelopes_are_stable() -> None:

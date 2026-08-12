@@ -11,6 +11,8 @@ from azure.identity.aio import ManagedIdentityCredential
 from fdai_service_contracts import OperatorReadModel, OperatorTokenVerifier, ReadDataSource
 
 from fdai_operator_service.adapters import (
+    LiveStageKafkaConfig,
+    LiveStageKafkaRelay,
     LocalAzureNarratorAdapters,
     OperatorSemanticKafkaBus,
     OperatorSemanticKafkaConfig,
@@ -50,6 +52,7 @@ from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_operator_service.projections import UnavailableOperatorReadModel
 from fdai_operator_service.routes import OperatorRouteFamilies
 from fdai_operator_service.runtime import OperatorRuntime
+from fdai_operator_service.streaming import LiveStreamHub
 
 HIL_SIGNING_SECRET_ENV = "FDAI_CHATOPS_WEBHOOK_SECRET"  # noqa: S105
 WEBHOOK_SIGNING_SECRET_ENV = "FDAI_OPERATOR_WEBHOOK_SECRET"  # noqa: S105
@@ -87,6 +90,8 @@ class ProductionOperatorComposition:
         configured_read_model = self.read_model or _postgres_read_model(environment)
         family_store = _postgres_family_store(environment)
         semantic_bus: OperatorSemanticKafkaBus | None = None
+        live_stream_hub = LiveStreamHub()
+        live_stage_relay: LiveStageKafkaRelay | None = None
         publisher = self.semantic_event_publisher
         result_source = self.semantic_result_source
         if publisher is None and result_source is None and environment.kafka_bootstrap_servers:
@@ -95,6 +100,7 @@ class ProductionOperatorComposition:
             semantic_bus = _build_semantic_bus(environment)
             publisher = semantic_bus
             result_source = semantic_bus
+            live_stage_relay = _build_live_stage_relay(environment, live_stream_hub)
         semantic_bridge = _semantic_bridge(
             family_store,
             publisher=publisher,
@@ -119,8 +125,9 @@ class ProductionOperatorComposition:
                 semantic_bridge=semantic_bridge,
             ),
             readiness_probe=self.readiness_probe
-            or _readiness_probe(family_store, semantic_bus, semantic_bridge),
-            lifecycle=_semantic_lifecycle(semantic_bridge, semantic_bus),
+            or _readiness_probe(family_store, semantic_bus, semantic_bridge, live_stage_relay),
+            live_stream_hub=live_stream_hub,
+            lifecycle=_application_lifecycle(semantic_bridge, semantic_bus, live_stage_relay),
         )
 
 
@@ -309,6 +316,32 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
     )
 
 
+def _build_live_stage_relay(
+    environment: OperatorEnvironment,
+    hub: LiveStreamHub,
+) -> LiveStageKafkaRelay:
+    bootstrap_servers = environment.kafka_bootstrap_servers
+    if bootstrap_servers is None:
+        raise RuntimeError("validated Kafka bootstrap servers are missing")
+    execution_venue = environment.values.get("FDAI_EXECUTION_VENUE", "deployed").strip()
+    credential = None
+    if execution_venue == "deployed":
+        credential = (
+            ManagedIdentityCredential(client_id=environment.managed_identity_client_id)
+            if environment.managed_identity_client_id is not None
+            else ManagedIdentityCredential()
+        )
+    return LiveStageKafkaRelay(
+        config=LiveStageKafkaConfig(
+            bootstrap_servers=bootstrap_servers,
+            stage_topic=environment.stage_topic,
+            security_protocol="PLAINTEXT" if execution_venue == "local" else "SASL_SSL",
+        ),
+        hub=hub,
+        credential=credential,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class _CompositeLifecycle:
     services: tuple[ApplicationLifecycle, ...]
@@ -339,21 +372,24 @@ class _CompositeLifecycle:
             raise first_error
 
 
-def _semantic_lifecycle(
+def _application_lifecycle(
     bridge: SemanticTurnBridge | None,
     bus: OperatorSemanticKafkaBus | None,
+    live_stage_relay: LiveStageKafkaRelay | None,
 ) -> ApplicationLifecycle | None:
-    if bridge is None:
+    services = tuple(service for service in (bus, bridge, live_stage_relay) if service is not None)
+    if not services:
         return None
-    if bus is None:
-        return bridge
-    return _CompositeLifecycle((bus, bridge))
+    if len(services) == 1:
+        return services[0]
+    return _CompositeLifecycle(services)
 
 
 def _readiness_probe(
     store: PostgresFamilyStore | None,
     bus: OperatorSemanticKafkaBus | None,
     bridge: SemanticTurnBridge | None,
+    live_stage_relay: LiveStageKafkaRelay | None,
 ) -> ReadinessProbe:
     if store is None:
         return _unavailable
@@ -365,6 +401,7 @@ def _readiness_probe(
             await store.probe_readiness()
             and await bus.probe_readiness()
             and (bridge is None or bridge.workers_ready())
+            and (live_stage_relay is None or live_stage_relay.readiness())
         )
 
     return probe

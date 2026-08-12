@@ -63,6 +63,7 @@ from fdai_operator_service.families.workflow import (
 )
 from fdai_operator_service.projections import ProjectionUnavailableError
 from fdai_operator_service.redaction import redact_projection
+from fdai_operator_service.streaming import LiveStreamHub, make_live_stream_route
 
 DEFAULT_LIMIT: Final = 50
 MAX_LIMIT: Final = 500
@@ -110,6 +111,7 @@ MINIMAL_ROUTE_MANIFEST: Final = (
     RouteOwnership("GET", "/incidents/stream", "minimal"),
     RouteOwnership("GET", "/kpi", "minimal"),
     RouteOwnership("GET", "/kpi/llm-cost", "minimal"),
+    RouteOwnership("GET", "/live/stream", "minimal"),
     RouteOwnership("GET", "/notification-templates/incident-opened", "minimal"),
     RouteOwnership("GET", "/rca", "minimal"),
     RouteOwnership("GET", "/system/data-sources", "minimal"),
@@ -145,6 +147,7 @@ def build_operator_app(
     data_sources: Sequence[ReadDataSource],
     route_families: OperatorRouteFamilies,
     readiness_probe: ReadinessProbe,
+    live_stream_hub: LiveStreamHub,
     cors_allow_origins: tuple[str, ...] = (),
     lifecycle: ApplicationLifecycle | None = None,
 ) -> Starlette:
@@ -301,6 +304,7 @@ def build_operator_app(
         ),
         Route("/kpi", get_kpi, methods=["GET"], name="get_kpi"),
         Route("/kpi/llm-cost", get_llm_cost, methods=["GET"], name="get_llm_cost"),
+        make_live_stream_route(hub=live_stream_hub, authorize=authorize),
         Route(
             "/notification-templates/incident-opened",
             get_incident_opened_template,
