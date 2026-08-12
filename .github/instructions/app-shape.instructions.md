@@ -60,27 +60,18 @@ The layers communicate through the event bus and git, not direct in-process call
 
 - [../../.vscode/launch.json](../../.vscode/launch.json) is the source of truth for the local `Console Web: Full Stack` topology: console SPA `5273`, Operator API `8010`, Document Ingestion API `8011`, Document Processing Worker health `8012`, and isolated Executor health `8013`; the compound MUST start all five independently packaged backend services and the SPA.
   It MUST NOT restore a co-host, retired top-level package, or fixture gateway.
-- Vite production preview uses `4173`; it MUST NOT replace the `5273` development origin
-  in launch configurations, Entra SPA redirects, or local-development documentation.
-- `5173` is not an FDAI standard console port. A custom frontend port MAY be used only when
-  each local API receives that exact HTTP(S) origin through its documented CORS environment
-  variable. Wildcard origins are prohibited.
-- Port changes MUST update the launch configuration, Vite configuration, local API CORS
-  defaults, tests, Entra redirect examples, and paired English/Korean documentation together.
+- Vite production preview uses `4173`; it MUST NOT replace the `5273` development origin in launch configurations, Entra SPA redirects, or local-development documentation.
+- `5173` is not an FDAI standard console port. A custom frontend port MAY be used only when each local API receives that exact HTTP(S) origin through its documented CORS environment variable. Wildcard origins are prohibited.
+- Port changes MUST update the launch configuration, Vite configuration, local API CORS defaults, tests, Entra redirect examples, and paired English/Korean documentation together.
 
 ## Local Azure Truth Contract (MUST)
 
-- The standard interactive profile uses browser Entra sign-in and verifies the same JWT, audience,
-  issuer, lifetime, and App Roles as deployment (`FDAI_OPERATOR_API_LOCAL_ENTRA=1`). The server's
-  current Azure CLI session supplies short-lived credentials only to Azure read/provider adapters.
-  It never replaces the browser principal or Thor's executor identity.
+- The standard interactive profile uses browser Entra sign-in and verifies the same JWT, audience, issuer, lifetime, and App Roles as deployment (`FDAI_OPERATOR_API_LOCAL_ENTRA=1`). The server's current Azure CLI session supplies short-lived credentials only to Azure read/provider adapters. It never replaces the browser principal or Thor's executor identity.
 - `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1` plus `VITE_LOCAL_AZURE_CLI_AUTH=1` is an explicit
   CLI-principal debug alternative with a fixed role ceiling. `FDAI_OPERATOR_API_DEV_MODE=1`,
   `VITE_DEV_MODE=1`, and
   synthetic fixtures are pytest/mock-only and MUST NOT be used by the VS Code full-stack profile.
-- Interactive local routes MUST NOT seed or synthesize audit rows, Incidents, Approvals,
-  agent activity, live control-loop frames, findings, inventory, scope, blast-radius graphs,
-  scheduler runs, cost records, promotion evidence, security assessments, or Process runs.
+- Interactive local routes MUST NOT seed or synthesize audit rows, Incidents, Approvals, agent activity, live control-loop frames, findings, inventory, scope, blast-radius graphs, scheduler runs, cost records, promotion evidence, security assessments, or Process runs.
 - A local panel MUST read its authoritative Azure-backed source. When the corresponding FDAI
   Azure data plane is not deployed, not configured, unreachable, or unauthorized, the panel
   MUST render unavailable or an explicitly sourced empty state. It MUST NOT substitute demo
