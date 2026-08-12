@@ -1354,7 +1354,7 @@ function applyExplicitRoutes(
   )) {
     const targetGroup = elementParent(spec, endpointNodeId(edge.to));
     const lane = horizontalLaneCountByTargetGroup.get(targetGroup) ?? 0;
-    horizontalLaneByEdge.set(edge.id, lane);
+    horizontalLaneByEdge.set(edge.id, lane + (edge.lane ?? 0));
     horizontalLaneCountByTargetGroup.set(targetGroup, lane + 1);
   }
   const topLaneByEdge = new Map(
