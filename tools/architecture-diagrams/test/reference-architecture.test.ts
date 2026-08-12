@@ -19,7 +19,7 @@ test("FDAI reference architecture renders every governed relationship", async ()
   const svg = await renderSvg(spec, layout, "en");
   const koSvg = await renderSvg(spec, layout, "ko");
 
-  assert.equal(spec.version, 5);
+  assert.equal(spec.version, 6);
   assert.equal(spec.kind, "context");
   assert.deepEqual(spec.formats, ["svg"]);
   assert.equal(layout.edges.length, spec.edges.length);
@@ -78,6 +78,16 @@ test("FDAI reference architecture renders every governed relationship", async ()
     assert.equal(
       spec.groups.find((group) => group.id === groupId)?.parent,
       "headless-control-plane",
+    );
+  }
+  for (const groupId of [
+    "connected-environment",
+    "fdai-platform",
+    "headless-control-plane",
+  ]) {
+    assert.equal(
+      spec.groups.find((group) => group.id === groupId)?.presentation,
+      "panel",
     );
   }
   for (const nodeId of [

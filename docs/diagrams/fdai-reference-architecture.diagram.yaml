@@ -1,5 +1,5 @@
 id: fdai-reference-architecture
-version: 5
+version: 6
 kind: context
 formats: [svg]
 updated: 2026-08-12
@@ -31,7 +31,7 @@ groups:
     width: 210
   - id: fdai-platform
     kind: system
-    presentation: boundary
+    presentation: panel
     label: { en: FDAI system and governed dependencies, ko: FDAI 시스템 및 통제된 의존 서비스 }
     description: { en: Evidence-governed autonomous cloud operations, ko: 근거로 통제되는 자율 cloud operation }
     direction: DOWN
@@ -51,7 +51,7 @@ groups:
   - id: headless-control-plane
     parent: fdai-platform
     kind: system
-    presentation: boundary
+    presentation: panel
     label: { en: Headless FDAI control plane, ko: Headless FDAI control plane }
     description: { en: Every state transition has one accountable agent owner, ko: 모든 state transition에는 한 명의 accountable agent owner가 있습니다. }
     direction: DOWN
