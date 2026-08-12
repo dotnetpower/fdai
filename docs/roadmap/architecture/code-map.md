@@ -66,6 +66,9 @@ only bounded verified query tables, and transient projection publication retries
 idempotent result before dead-lettering.
 Azure semantic planning uses existing `httpx` and `WorkloadIdentity` adapters for two validated
 JSON-object proposals. Composition exposes only handlers with bound authoritative providers. The
+frame proposal applies the shared wire identifier constraints before Core rebuilds server-owned
+digests. Structured diagnostics record only the planning stage, candidate index, failure class,
+and input-free validation locations; they omit operator text and provider details. The
 public composition facade re-exports the dedicated semantic query binder while remaining below its
 400-line structural ceiling. Its module contract retains the `composition`, `seam`, and `container`
 anchors enforced by the package layout gate. The validated `llm.mode` string selects Azure semantic

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -138,7 +139,9 @@ async def test_adapter_validates_frame_and_plan_and_isolates_injection_text() ->
     assert user_payload["untrusted_input"]["utterance"].startswith("Ignore all")
 
 
-async def test_adapter_uses_candidate_order_and_returns_none_after_malformed_outputs() -> None:
+async def test_adapter_uses_candidate_order_and_returns_none_after_malformed_outputs(
+    caplog,
+) -> None:
     deployments: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -147,21 +150,38 @@ async def test_adapter_uses_candidate_order_and_returns_none_after_malformed_out
             return httpx.Response(503, json={"error": {"message": "private provider detail"}})
         return _response({"operation": "select", "unexpected": True})
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        model = AzureOpenAISemanticPlanningModel(
-            identity=_Identity(),  # type: ignore[arg-type]
-            http_client=client,
-            config=_config(_target("primary"), _target("secondary")),
-            owner_loop=asyncio.get_running_loop(),
-        )
-        result = await asyncio.to_thread(
-            model.propose_frame,
-            utterance="Show resources",
-            context=(),
-            descriptors=({"kind": "object", "name": "Resource"},),
-            principal_role="reader",
-            purpose="operations-review",
-        )
+    with caplog.at_level(logging.WARNING):
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            model = AzureOpenAISemanticPlanningModel(
+                identity=_Identity(),  # type: ignore[arg-type]
+                http_client=client,
+                config=_config(_target("primary"), _target("secondary")),
+                owner_loop=asyncio.get_running_loop(),
+            )
+            result = await asyncio.to_thread(
+                model.propose_frame,
+                utterance="Show resources",
+                context=(),
+                descriptors=({"kind": "object", "name": "Resource"},),
+                principal_role="reader",
+                purpose="operations-review",
+            )
 
     assert result is None
     assert deployments == ["primary", "secondary"]
+    failures = [
+        record.failure_type
+        for record in caplog.records
+        if record.message == "semantic_planning_candidate_failed"
+    ]
+    assert failures == ["HTTPStatusError", "ValidationError"]
+    validation_failure = next(
+        record
+        for record in caplog.records
+        if record.message == "semantic_planning_candidate_failed"
+        and record.failure_type == "ValidationError"
+    )
+    validation_errors = json.loads(validation_failure.validation_errors)
+    assert validation_errors
+    assert all(set(error) == {"location", "type"} for error in validation_errors)
+    assert "private provider detail" not in caplog.text

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: db8d440d96e8c860520dd463ab0d1e498c1c80f6
+translation_source_sha: 75bcd487e29538ce41f0259c1292430f24396f17
 translation_revised: 2026-08-12
 ---
 # 코드 맵
@@ -68,6 +68,9 @@ Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 
 멱등적 결과를 재시도합니다.
 Azure 의미 계획 수립은 기존 `httpx` 및 `WorkloadIdentity` 어댑터를 사용하여 검증된 JSON-object
 제안 두 개를 만듭니다. 조립은 권위 있는 프로바이더가 연결된 핸들러만 노출합니다. 공개
+프레임 제안은 Core가 서버 소유 다이제스트를 다시 만들기 전에 shared wire 식별자 제약을
+적용합니다. 구조화된 진단은 계획 단계, 후보 인덱스, 실패 클래스 및 입력을 포함하지 않는
+검증 위치만 기록하며 운영자 텍스트와 프로바이더 상세는 제외합니다. 공개
 조립 파사드는 dedicated 의미 조회 연결기를 re-export하면서 400-line structural 상한 아래를
 유지합니다. 모듈 계약은 패키지 배치 게이트가 강제하는 `composition`, `seam` 및 `container`
 기준점을 보존합니다. 검증된 `llm.mode` 문자열은 다른 LLM 연결기와 동일하게 값 비교로 Azure

@@ -11,7 +11,7 @@ from typing import Any, TypeVar
 
 import httpx
 from fdai_service_contracts.ontology_query import SemanticProblemFrame
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from fdai.core.conversation.semantic_planning_models import (
     QueryPlanProposal,
@@ -219,10 +219,27 @@ class AzureOpenAISemanticPlanningModel:
                     )
                     response.raise_for_status()
                     return _validated_content(response, proposal_type)
-            except Exception:  # noqa: BLE001 - bounded fallback hides provider details
+            except Exception as exc:  # noqa: BLE001 - bounded fallback hides provider details
+                failure: dict[str, Any] = {
+                    "operation": operation,
+                    "candidate_index": index,
+                    "failure_type": type(exc).__name__,
+                }
+                if isinstance(exc, ValidationError):
+                    failure["validation_errors"] = json.dumps(
+                        [
+                            {
+                                "location": ".".join(str(part) for part in error["loc"]),
+                                "type": error["type"],
+                            }
+                            for error in exc.errors(include_input=False, include_url=False)
+                        ],
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    )
                 _LOGGER.warning(
                     "semantic_planning_candidate_failed",
-                    extra={"operation": operation, "candidate_index": index},
+                    extra=failure,
                 )
         return None
 

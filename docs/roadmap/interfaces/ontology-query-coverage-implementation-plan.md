@@ -80,7 +80,10 @@ units for 100% structural query coverage.
 > issues two bounded JSON-object calls through workload identity, validates both proposal schemas,
 > and tries resolved candidates in order. Core composition binds that adapter to the exact release,
 > current instance store, principal-scoped manifest, deterministic verifier, and request-role-specific
-> secured executor when every prerequisite is available.
+> secured executor when every prerequisite is available. Live cross-service hardening aligns the
+> frame proposal's evidence-requirement identifiers with the shared wire contract before Core
+> rebuilds the frame digest. Input-free stage and validation diagnostics preserve failure
+> attribution without retaining operator text or provider details.
 > OQ-05 now deterministically derives an eight-goal intent graph, binds executor receipts to those
 > goals, and projects the internal exact-plan contracts to the Console v2/v1 wire shapes. The
 > Console accepts explicit cancellation receipts. Executing the semantic plan and attaching these

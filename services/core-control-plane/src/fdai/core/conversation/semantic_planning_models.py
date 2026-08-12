@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, Literal, Protocol
+from typing import Annotated, Any, Literal, Protocol
 
 from fdai_service_contracts.ontology_query import (
     IntentGraph,
@@ -41,7 +41,9 @@ class SemanticFrameProposal(_Proposal):
     measure_concepts: tuple[str, ...] = Field(default=(), max_length=16)
     temporal_scope: dict[str, Any] = Field(default_factory=dict)
     output_shape: str = Field(pattern=r"^[a-z][a-z0-9_.-]{0,79}$")
-    evidence_requirements: tuple[str, ...] = Field(default=(), max_length=32)
+    evidence_requirements: tuple[
+        Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.-]{0,79}$")], ...
+    ] = Field(default=(), max_length=32)
     unresolved_terms: tuple[str, ...] = Field(default=(), max_length=8)
     clarification: str | None = Field(default=None, min_length=1, max_length=512)
     confidence: float = Field(ge=0.0, le=1.0)

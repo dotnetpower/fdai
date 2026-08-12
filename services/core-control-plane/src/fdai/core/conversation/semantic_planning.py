@@ -78,6 +78,7 @@ class SemanticPlanningService:
 
         if not utterance.strip() or len(utterance) > 32_000:
             return _outcome(SemanticPlanningDisposition.UNSUPPORTED, "utterance_out_of_bounds")
+        stage = "manifest"
         try:
             manifest = self._manifests.manifest_for(principal=principal, purpose=purpose)
             scope_mismatch = manifest.principal_role.value != principal.role.value
@@ -90,6 +91,8 @@ class SemanticPlanningService:
             )
             descriptors = _validated_descriptors(selected, manifest=manifest)
             context = _bounded_context(prior_turns)
+            _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
+            stage = "frame_proposal"
             frame_proposal_raw = self._model.propose_frame(
                 utterance=utterance,
                 context=context,
@@ -103,8 +106,12 @@ class SemanticPlanningService:
                     "semantic_frame_unavailable",
                     manifest_digest=manifest.manifest_digest,
                 )
+            _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
+            stage = "frame_validation"
             proposal = SemanticFrameProposal.model_validate(frame_proposal_raw)
+            stage = "frame_build"
             frame = _build_frame(proposal, utterance=utterance, context=context)
+            _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             if frame.unresolved_terms:
                 clarification = proposal.clarification or _clarification(frame.unresolved_terms)
                 return _outcome(
@@ -121,6 +128,7 @@ class SemanticPlanningService:
                     manifest_digest=manifest.manifest_digest,
                     frame=frame,
                 )
+            stage = "plan_proposal"
             plan_proposal_raw = self._model.propose_plan(
                 frame=frame,
                 descriptors=descriptors,
@@ -134,7 +142,10 @@ class SemanticPlanningService:
                     manifest_digest=manifest.manifest_digest,
                     frame=frame,
                 )
+            _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
+            stage = "plan_validation"
             plan_proposal = QueryPlanProposal.model_validate(plan_proposal_raw)
+            stage = "plan_build"
             plan = _build_plan(
                 plan_proposal,
                 frame=frame,
@@ -142,7 +153,9 @@ class SemanticPlanningService:
                 principal=principal,
                 purpose=purpose,
             )
+            stage = "plan_verify"
             self._verifier.verify(plan, manifest=manifest)
+            _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             graph = build_intent_graph(
                 frame=frame,
                 plan=plan,
@@ -158,7 +171,11 @@ class SemanticPlanningService:
             )
         except PermissionError:
             return _outcome(SemanticPlanningDisposition.UNSUPPORTED, "semantic_scope_denied")
-        except (ValidationError, TypeError, ValueError):
+        except (ValidationError, TypeError, ValueError) as exc:
+            _LOGGER.warning(
+                "semantic_plan_rejected",
+                extra={"stage": stage, "failure_type": type(exc).__name__},
+            )
             return _outcome(SemanticPlanningDisposition.UNSUPPORTED, "semantic_plan_invalid")
         except Exception:  # noqa: BLE001 - model/provider details never cross the boundary
             _LOGGER.exception(

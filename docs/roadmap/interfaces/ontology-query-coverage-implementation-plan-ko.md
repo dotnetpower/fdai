@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 79f9f056a0509d2f0e57b2ff3a8a4e458dbbad37
+translation_source_sha: a29b547b4035c6d9cd1d881e792880b022b4c31c
 translation_revised: 2026-08-12
 ---
 
@@ -78,7 +78,10 @@ translation_revised: 2026-08-12
 > 통해 범위가 제한된 JSON-object 호출 두 개를 실행하고 제안 스키마 두 개를 검증하며 resolved 후보를
 > 순서대로 시도합니다. Core 조립은 모든 선행 조건을 사용할 수 있을 때 이 어댑터를 exact
 > release, 현재 인스턴스 저장소, principal 범위로 한정된 매니페스트, 결정론적 검증기 및
-> request-role-specific secured 실행기에 연결합니다.
+> request-role-specific secured 실행기에 연결합니다. 실제 운영 서비스 간 hardening은 Core가
+> 프레임 다이제스트를 다시 만들기 전에 프레임 제안의 evidence-requirement 식별자를 shared wire
+> 계약과 일치시킵니다. 입력을 포함하지 않는 단계 및 검증 진단은 운영자 텍스트나 프로바이더
+> 상세를 보존하지 않고 실패 attribution을 유지합니다.
 > OQ-05는 이제 결정론적하게 최대 8개 목표의 의도 그래프를 만들고 실행기 증적을 해당 목표에
 > 연결하며 내부 exact-plan 계약을 Console v2/v1 wire 형태로 변환 결과합니다. Console은 명시적
 > 취소 증적도 수락합니다. 의미 계획 실행 및 운영 turn-completion 스트림에 이

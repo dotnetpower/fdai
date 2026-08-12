@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from types import MappingProxyType
 from typing import Any
@@ -11,7 +12,10 @@ from fdai.core.conversation.coordinator import ConversationCoordinator, Coordina
 from fdai.core.conversation.intent_graph import build_intent_graph_evidence
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
-from fdai.core.conversation.semantic_planning_models import SemanticPlanningDisposition
+from fdai.core.conversation.semantic_planning_models import (
+    SemanticFrameProposal,
+    SemanticPlanningDisposition,
+)
 from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
 from fdai.core.conversation.session import ConversationSession, Principal, Role
 from fdai.core.conversation.tools import ToolResult
@@ -39,6 +43,7 @@ from fdai_service_contracts.ontology_query import (
     QueryNodeKind,
     TaskStatus,
 )
+from pydantic import ValidationError
 
 DIGEST = "sha256:" + ("a" * 64)
 NOW = datetime(2026, 8, 10, tzinfo=UTC)
@@ -198,6 +203,13 @@ def test_unresolved_meaning_returns_one_clarification_without_plan() -> None:
     assert model.plan_calls == 0
 
 
+def test_frame_proposal_rejects_noncanonical_evidence_requirement() -> None:
+    with pytest.raises(ValidationError):
+        SemanticFrameProposal.model_validate(
+            _frame(evidence_requirements=["read only configuration evidence"])
+        )
+
+
 def test_hidden_property_plan_is_rejected_before_execution() -> None:
     manifest, definition = _fixture()
     hidden = definition.model_copy(
@@ -215,6 +227,48 @@ def test_hidden_property_plan_is_rejected_before_execution() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
     assert outcome.reason == "semantic_scope_denied"
     assert outcome.plan is None
+
+
+def test_invalid_plan_logs_only_rejection_stage_and_failure_type(caplog) -> None:
+    manifest, _definition = _fixture()
+    model = _Model(frame=_frame(), plan={"nodes": [], "output_node_ids": []})
+
+    with caplog.at_level(logging.WARNING):
+        outcome = _service(model, manifest).plan(
+            utterance="Show matching resources",
+            prior_turns=(),
+            principal=Principal(id="operator", role=Role.READER),
+            purpose="operations-review",
+        )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    rejection = next(
+        record for record in caplog.records if record.message == "semantic_plan_rejected"
+    )
+    assert rejection.stage == "plan_validation"
+    assert rejection.failure_type == "ValidationError"
+    assert "Show matching resources" not in caplog.text
+
+
+def test_successful_plan_logs_only_stage_progress(caplog) -> None:
+    manifest, definition = _fixture()
+
+    with caplog.at_level(logging.INFO):
+        outcome = _service(_Model(frame=_frame(), plan=_plan(definition)), manifest).plan(
+            utterance="Show matching resources",
+            prior_turns=(),
+            principal=Principal(id="operator", role=Role.READER),
+            purpose="operations-review",
+        )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    stages = [
+        record.stage
+        for record in caplog.records
+        if record.message == "semantic_planning_stage_completed"
+    ]
+    assert stages == ["manifest", "frame_proposal", "frame_build", "plan_proposal", "plan_verify"]
+    assert "Show matching resources" not in caplog.text
 
 
 def test_execution_receipts_bind_to_intent_goal_ids() -> None:
