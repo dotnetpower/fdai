@@ -22,6 +22,7 @@ def _sample(index: int, *, at: datetime | None = None) -> ReadLatencySample:
         queue_duration_ms=index,
         execution_duration_ms=100 + index,
         recorded_at=at or NOW + timedelta(seconds=index),
+        correlation_ref=f"read-correlation:{index}",
     )
 
 
@@ -40,7 +41,11 @@ async def test_latency_samples_survive_concurrent_cross_replica_cas() -> None:
     )
     assert len(samples) == 20
     assert {sample.execution_duration_ms for sample in samples} == set(range(100, 120))
+    assert {sample.correlation_ref for sample in samples} == {
+        f"read-correlation:{index}" for index in range(20)
+    }
     assert len(state.audit_entries) == 20
+    assert all("correlation" not in entry for entry in state.audit_entries)
 
 
 async def test_latency_store_applies_retention_and_sample_cap() -> None:

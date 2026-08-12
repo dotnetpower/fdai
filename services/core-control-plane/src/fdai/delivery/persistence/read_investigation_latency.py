@@ -90,6 +90,7 @@ class StateStoreReadLatencyProfileStore:
             queue_duration_ms=0,
             execution_duration_ms=0,
             recorded_at=datetime.now(UTC),
+            correlation_ref=None,
         )
         return tuple(reversed(_samples(current, expected=expected)[-limit:]))
 
@@ -142,6 +143,7 @@ def _samples(
                 queue_duration_ms=_integer(item, "queue_duration_ms"),
                 execution_duration_ms=_integer(item, "execution_duration_ms"),
                 recorded_at=_timestamp(item.get("recorded_at")),
+                correlation_ref=_optional_identifier(item.get("correlation_ref")),
             )
         )
     return tuple(samples)
@@ -180,12 +182,23 @@ def _timestamp(value: object) -> datetime:
 
 
 def _sample_dict(sample: ReadLatencySample) -> dict[str, object]:
-    return {
+    value: dict[str, object] = {
         "succeeded": sample.succeeded,
         "queue_duration_ms": sample.queue_duration_ms,
         "execution_duration_ms": sample.execution_duration_ms,
         "recorded_at": sample.recorded_at.isoformat(),
     }
+    if sample.correlation_ref is not None:
+        value["correlation_ref"] = sample.correlation_ref
+    return value
+
+
+def _optional_identifier(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value or len(value) > 256:
+        raise ValueError("read latency sample correlation_ref MUST be a bounded identifier")
+    return value
 
 
 def _audit(sample: ReadLatencySample, *, revision: int) -> dict[str, object]:

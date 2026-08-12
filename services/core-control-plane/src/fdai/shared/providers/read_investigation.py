@@ -272,6 +272,7 @@ class ReadLatencySample:
     queue_duration_ms: int
     execution_duration_ms: int
     recorded_at: datetime
+    correlation_ref: str | None = None
 
     def __post_init__(self) -> None:
         _identifier("latency transport", self.transport)
@@ -279,6 +280,8 @@ class ReadLatencySample:
         if min(self.queue_duration_ms, self.execution_duration_ms) < 0:
             raise ValueError("latency durations MUST be non-negative")
         _aware("latency recorded_at", self.recorded_at)
+        if self.correlation_ref is not None:
+            _identifier("latency correlation_ref", self.correlation_ref)
 
     @property
     def total_duration_ms(self) -> int:

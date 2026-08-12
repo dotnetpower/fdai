@@ -368,7 +368,7 @@ recommendations; a fork tunes them via Conditional Access.
 - **Expired API session**: a `401` from the configured read or ingestion API closes the current
   data surface and switches to the full-screen sign-in recovery view. This applies to standard
   reads, authenticated bridge-owned chat health, chat, workflows, commands, and SSE streams,
-  including `GET /live/stream`, `GET /agents/stream`, and durable `GET /agents/activity`, which use the same Reader bearer gate while their shared Kafka relay owns a separate server-side workload credential. Identity-provider requests and `403` access decisions don't trigger this transition. One shared fetch observer supports overlapping owners,
+  including `GET /live/stream`, `GET /agents/stream`, and durable `GET /agents/activity`, which use the same Reader bearer gate while their shared Kafka relay owns a separate server-side workload credential. Durable current-state activity retains only a hashed correlation for replay identity and no operator question or resource identity. Identity-provider requests and `403` access decisions don't trigger this transition. One shared fetch observer supports overlapping owners,
   idempotent cleanup, and reinstallation after another owner replaces the global fetch function;
   cleanup never overwrites that replacement.
 - **Sign-out**: `/logout?post_logout_redirect_uri=...` clears both console session and the

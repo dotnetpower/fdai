@@ -44,6 +44,7 @@ SELECT profile.key, profile.value->>'tool_id' AS tool_id,
  WHERE profile.key LIKE 'read-investigation-latency:%'
    AND profile.value->>'tool_id' = 'get_resource_state'
    AND profile.value->>'operation_class' = 'resource_state'
+  AND sample ? 'correlation_ref'
  ORDER BY sample->>'recorded_at' DESC, profile.key DESC
  LIMIT %(limit)s
 """

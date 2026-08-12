@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 864a4dd0d1a7e9bc9cab9c87c3549dd86bda0327
+translation_source_sha: 1f555e495cc960f59ebd11cf6d75f45a447fbb73
 translation_revised: 2026-08-12
 ---
 
@@ -211,7 +211,7 @@ fdai/
 
 런타임 초기화는 semantic-turn 준비 상태를 `bootstrap_lifecycle.py`에, 버티컬 워크로드 신원을 `bootstrap_bindings.py`에 위임합니다. 이렇게 해서 범위가 제한된 프로바이더 구성과,
 테스트와 포크가 사용하는 주입 가능한 identity-builder 경계를 함께 보존합니다. 리소스 상태 조립은 권위 있는 Heimdall 읽기 뒤에 shared 단계 topic의 no-authority 게시자도 연결합니다.
-질문 텍스트, 리소스 식별자 또는 실행기 기능 없이 범위가 제한된 결과 근거만 내보내며 broker 실패가 답을 다시 쓰지 않습니다.
+범위가 제한된 latency 프로파일은 hash된 correlation만 유지해 영속 활동과 실제 운영 활동이 같은 identity를 사용하게 합니다. 질문 텍스트, 리소스 식별자, 실행기 기능 또는 추가 latency-audit 필드는 내보내지 않으며 broker 실패가 답을 다시 쓰지 않습니다.
 
 > 디렉터리 이름은 [language.instructions.md](../../../.github/instructions/language.instructions.md)의
 > 정본 어휘를 따릅니다: `trust-router`, `deterministic-engine`, `rule-catalog`, `risk-gate`,
