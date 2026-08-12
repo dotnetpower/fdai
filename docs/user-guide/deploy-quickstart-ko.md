@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 9ced0fc6d5ae7ed024dc6fe8f1f5675e19ba8de7
-translation_revised: 2026-08-12
+translation_source_sha: 6052e318feac9217197f222ce71c88b215b689a6
+translation_revised: 2026-08-13
 ---
 
 # 배포 빠른 시작
@@ -38,6 +38,10 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 - 내부 Isolated 실행기를 미리보려면 private-runner 작업 흐름에서
   `deploy_isolated_executor`를 선택하세요. 별도로 적용을 승인하기 전까지 plan-only 상태이며,
   shadow 자격 증명에는 작업별 효과 역할이 없습니다.
+- 범위가 제한된 OHL scale-out 근거 대상을 프로비저닝하려면 private networking과 개발 운영
+  게이트웨이를 사용하는 `dev` 환경에서만 `enable_ohl_scale_out_evidence_target`을 사용하도록
+  설정하세요. Exact 이미지 버전과 보호된 작업 흐름의 SSH 공개 키 입력을 제공해야 합니다.
+  대상은 용량 `1`로 시작하며 관리되는 근거 실행은 검증된 롤백 전에 `2`까지만 늘릴 수 있습니다.
 
 ## 최소 인벤토리 프로비저닝
 
