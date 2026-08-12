@@ -107,8 +107,8 @@ cannot report `production_ready` without a matching passed epistemic-coverage re
 generation, runtime receipt production, and L3/L4 live certification remain delivery work.
 The graph now declares `resource_classified_as`, and the inventory ontology projector can emit one
 verified classification per observed Resource from content-addressed ResourceType registry
-mappings. Unmapped types make the projection incomplete. The production inventory job has not yet
-injected that mapping, so resource-to-Rule questions remain unavailable in live composition.
+mappings. Unmapped types make the projection incomplete. The production inventory job injects that
+mapping; resource-to-Rule questions remain unavailable until the typed query function is composed.
 
 Language coverage is not maintained by adding phrases. A model or embedding index may propose
 object, relation, and function candidates. The deterministic verifier resolves each candidate to

@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 79112d186b0953428a799d8300da21ded49c3cec
+translation_source_sha: 79b0e94a489d3027c0169f95711e2a3c99a1214f
 translation_revised: 2026-08-12
 ---
 # FDAI 운영 온톨로지
@@ -80,8 +80,8 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 > 카탈로그 선언 `resource_classified_as` 관계를 지원합니다. 분류는 완전한 인벤토리 세대와
 > ResourceType 레지스트리 항목의 재생 가능한 다이제스트를 고정합니다. 미매핑 형식이 하나라도
 > 있으면 분류 범위가 불완전해지고 대체 그래프를 활성화하지 않습니다. 이 관계가 실제 변환
-> 결과에 나타나려면 운영 인벤토리 작업이 이미 로드한 레지스트리 다이제스트 맵을 주입하는 후속
-> 연결이 필요합니다.
+> 결과에 나타나도록 운영 인벤토리 작업이 이미 로드한 레지스트리 다이제스트 맵을 주입하며,
+> 승격된 완전 세대는 실제 변환 결과에 이 관계를 저장합니다.
 
 ## 카탈로그 의미 변환 결과
 

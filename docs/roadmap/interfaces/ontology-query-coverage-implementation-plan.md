@@ -134,7 +134,7 @@ units for 100% structural query coverage.
 > claim receipts, and provider-backed L3/L4 certification remain incomplete.
 > OKQ-01 now has the catalog declaration, deterministic ResourceType mapping digests, fail-closed
 > classification projection, and single-writer persistence tests for `resource_classified_as`.
-> Production inventory-job injection and the resource-to-Rule query function remain incomplete.
+> Production inventory-job injection is complete; the resource-to-Rule query function remains.
 
 ## Design at a glance
 
