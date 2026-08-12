@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 5dfe50ce6d023d5ef622a9117d4c380f6429856f
+translation_source_sha: 8afc6f9c4b6e2e2d0a436b2a361a71d905c3b0bd
 translation_revised: 2026-08-12
 ---
 # FDAI 운영 온톨로지 메타모델
@@ -34,7 +34,7 @@ translation_revised: 2026-08-12
 > M3는 이제 검토된 매핑이 완전한 세대를 다루는 경우 프로바이더가 관찰한 Resource 인스턴스에서
 > 카탈로그가 관리하는 ResourceType 인스턴스로 향하는 `resource_classified_as`도 선언하고
 > 변환합니다. 매핑 근거는 내용 기반 주소를 가지며 미매핑 형식은 분류 범위를 안전하게
-> 실패시킵니다. 운영 매핑 주입은 아직 연결되지 않았습니다.
+> 실패시킵니다. 운영 인벤토리 새로 고침은 검토된 매핑 다이제스트를 주입합니다.
 
 ## 한눈에 보는 설계
 

@@ -31,7 +31,7 @@ without turning every view into a new ontology declaration kind.
 > M3 now also declares and projects `resource_classified_as` from provider-observed Resource
 > instances to catalog-owned ResourceType instances when a reviewed mapping covers the complete
 > generation. Mapping evidence is content-addressed; unmapped types fail classification coverage
-> closed. Production mapping injection remains unwired.
+> closed. Production inventory refresh injects the reviewed mapping digests.
 
 ## Design at a glance
 

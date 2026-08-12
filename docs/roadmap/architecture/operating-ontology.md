@@ -76,8 +76,8 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > relationship from each observed Resource to one reviewed ResourceType. Classification pins the
 > complete inventory generation and a replay-stable digest of the ResourceType registry entry.
 > An unmapped type makes classification coverage incomplete and activates no replacement graph.
-> The production inventory job still needs to inject its already loaded registry digest map before
-> this relationship is present in live projections.
+> The production inventory job injects the already loaded registry digest map, so promoted complete
+> generations persist this relationship in live projections.
 
 ## Catalog semantic projection
 
