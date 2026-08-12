@@ -1,8 +1,8 @@
 id: fdai-reference-architecture
-version: 4
+version: 5
 kind: context
 formats: [svg]
-updated: 2026-08-03
+updated: 2026-08-12
 locales:
   en:
     title: FDAI reference architecture
@@ -140,6 +140,7 @@ nodes:
     parent: connected-environment
     kind: external
     icon: lucide-cable
+    presentation: icon
     label: { en: Documents and connectors, ko: Document 및 connector }
     description: { en: Authenticated enterprise sources and governed uploads, ko: 인증된 enterprise source 및 통제된 upload }
   - id: web-console
@@ -153,6 +154,7 @@ nodes:
     parent: operator-surfaces
     kind: process
     icon: lucide-terminal
+    presentation: icon
     label: { en: FDAI CLI, ko: FDAI CLI }
     description: { en: Scriptable operator access through the Operator API, ko: Operator API를 통한 scriptable 운영자 접근 }
   - id: chatops-surfaces
@@ -181,6 +183,7 @@ nodes:
     parent: governed-control
     kind: process
     icon: lucide-inbox
+    presentation: icon
     label: { en: Event ingest, ko: Event ingest }
     description: { en: "Validate, normalize, deduplicate, and correlate", ko: "검증, 정규화, 중복 제거 및 correlation" }
     width: 168
@@ -188,6 +191,7 @@ nodes:
     parent: governed-control
     kind: decision
     icon: lucide-route
+    presentation: icon
     label: { en: Trust router, ko: 결정 수준 선택 }
     description: { en: Select the lowest competent tier, ko: 결정 가능한 가장 낮은 tier 선택 }
     width: 168
@@ -195,6 +199,7 @@ nodes:
     parent: governed-control
     kind: process
     icon: lucide-git-branch
+    presentation: icon
     label: { en: T0 / T1 / T2 decisions, ko: T0 / T1 / T2 결정 }
     description: { en: "T0 rules, T1 verified reuse, or T2 grounded reasoning", ko: "T0 rule, T1 verified reuse 또는 T2 grounded reasoning" }
     width: 180
@@ -202,6 +207,7 @@ nodes:
     parent: governed-control
     kind: decision
     icon: lucide-badge-check
+    presentation: icon
     label: { en: T2-only quality gate, ko: T2 전용 quality gate }
     description: { en: "Mixed-model agreement, grounding, and deterministic verification", ko: "Mixed-model agreement, grounding 및 deterministic verification" }
     width: 160
@@ -209,6 +215,7 @@ nodes:
     parent: governed-control
     kind: decision
     icon: lucide-shield-check
+    presentation: icon
     label: { en: Risk and authority gate, ko: Risk 및 authority gate }
     description: { en: "Policy, ActionType ceiling, impact scope, approval, and safeguards", ko: "Policy, ActionType ceiling, 영향 범위, 승인 및 safeguard" }
     width: 176
@@ -216,6 +223,7 @@ nodes:
     parent: governed-control
     kind: process
     icon: lucide-play
+    presentation: icon
     label: { en: Privileged executor, ko: 권한 있는 executor }
     description: { en: Bounded action with lock and rollback, ko: Lock 및 rollback을 갖춘 범위 제한 action }
     width: 156
@@ -237,6 +245,7 @@ nodes:
     parent: governed-capabilities
     kind: service
     icon: lucide-wrench
+    presentation: icon
     label: { en: Provider tools and MCP, ko: Provider tool 및 MCP }
     description: { en: Registered read and action adapters behind typed contracts, ko: Typed contract 뒤에 등록된 read 및 action adapter }
     width: 176
@@ -244,6 +253,7 @@ nodes:
     parent: governed-capabilities
     kind: decision
     icon: lucide-search-check
+    presentation: icon
     label: { en: OPA / Rego + IQL, ko: OPA / Rego + IQL }
     description: { en: Deterministic policy evaluation and bounded inventory queries, ko: 결정론적 policy 평가 및 범위가 제한된 inventory query }
     width: 192
@@ -251,6 +261,7 @@ nodes:
     parent: governed-capabilities
     kind: store
     icon: lucide-book-open
+    presentation: icon
     label: { en: Ontology and catalogs, ko: Ontology 및 catalog }
     description: { en: "Objects, evidence, rules, ActionTypes, workflows, and promotion records", ko: "Object, evidence, rule, ActionType, workflow 및 promotion record" }
     width: 208
@@ -308,18 +319,21 @@ nodes:
     parent: governed-outcomes
     kind: service
     icon: lucide-circle-pause
+    presentation: icon
     label: { en: "Held, denied, or no-op", ko: "Hold, deny 또는 no-op" }
     description: { en: "No mutation when evidence, policy, or authority is insufficient", ko: "Evidence, policy 또는 authority가 부족하면 변경하지 않음" }
   - id: governed-changes
     parent: governed-outcomes
     kind: service
     icon: lucide-file-check
+    presentation: icon
     label: { en: Governed changes, ko: 통제된 변경 }
     description: { en: Remediation pull request or bounded direct action, ko: 수정 pull request 또는 범위가 제한된 direct action }
   - id: audit-replay
     parent: governed-outcomes
     kind: service
     icon: lucide-refresh-ccw
+    presentation: icon
     label: { en: Audit and replay, ko: Audit 및 replay }
     description: { en: Attributable terminal evidence and deterministic reconstruction, ko: 추적 가능한 terminal evidence 및 deterministic reconstruction }
 edges:
@@ -327,7 +341,7 @@ edges:
     from: connected-environment
     to: event-choreography
     kind: event
-    route: orthogonal-shortest
+    route: orthogonal-horizontal
   - id: operators-to-runtime
     from: operator-surfaces
     to: event-choreography

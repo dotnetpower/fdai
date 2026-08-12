@@ -19,7 +19,7 @@ test("FDAI reference architecture renders every governed relationship", async ()
   const svg = await renderSvg(spec, layout, "en");
   const koSvg = await renderSvg(spec, layout, "ko");
 
-  assert.equal(spec.version, 4);
+  assert.equal(spec.version, 5);
   assert.equal(spec.kind, "context");
   assert.deepEqual(spec.formats, ["svg"]);
   assert.equal(layout.edges.length, spec.edges.length);
@@ -115,7 +115,9 @@ test("FDAI reference architecture renders every governed relationship", async ()
   ]);
   assert.equal(spec.nodes.filter((node) => !node.icon).length, 0);
   for (const [nodeId, icon] of genericIconByNode) {
-    assert.equal(spec.nodes.find((node) => node.id === nodeId)?.icon, icon);
+    const node = spec.nodes.find((candidate) => candidate.id === nodeId);
+    assert.equal(node?.icon, icon);
+    assert.equal(node?.presentation, "icon");
   }
   for (const nodeId of genericIconByNode.keys()) {
     const start = svg.indexOf(`data-node-id="${nodeId}"`);
@@ -128,6 +130,20 @@ test("FDAI reference architecture renders every governed relationship", async ()
   );
 
   const edges = new Map(spec.edges.map((edge) => [edge.id, edge]));
+  assert.equal(edges.get("environment-to-runtime")?.route, "orthogonal-horizontal");
+  assert.equal(edges.get("operators-to-runtime")?.route, "orthogonal");
+  const ingressSections = ["environment-to-runtime", "operators-to-runtime"].map(
+    (edgeId) => {
+      const section = layout.edges.find((edge) => edge.id === edgeId)?.sections?.[0];
+      assert.ok(section);
+      return section;
+    },
+  );
+  const eventChoreography = layout.groups.get("event-choreography");
+  assert.ok(eventChoreography);
+  assert.equal(ingressSections[0]!.endPoint.x, eventChoreography.x);
+  assert.equal(ingressSections[1]!.endPoint.y, eventChoreography.y);
+  assert.notDeepEqual(ingressSections[0]!.endPoint, ingressSections[1]!.endPoint);
   assert.deepEqual(
     [edges.get("decision-to-quality")?.from, edges.get("decision-to-quality")?.to],
     ["decision-tiers", "t2-quality-gate"],
