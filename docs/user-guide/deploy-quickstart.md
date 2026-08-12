@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 86f30033bda8e7ebd3f0cd795d8faf14af342171 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: cfbe45139485e2b484c5fef0af7112e784c8e6fe }]
 ---
 
 # Deploy Quickstart
@@ -45,8 +45,10 @@ first, so you can review the plan before you run the separate apply step.
   approve apply, and the shadow identity receives no action-specific effect role.
 - To provision the bounded OHL scale-out evidence target, enable
   `enable_ohl_scale_out_evidence_target` only in `dev` with private networking and the
-  development operations gateway. Supply an exact image version and the protected workflow's SSH
-  public-key input. The target starts at capacity `1` and governed evidence runs may increase it
+  development operations gateway. Supply an exact image version, the protected workflow's SSH
+  public-key input, a retry-stable campaign ID, and the human initiator's principal ID. The target
+  starts at capacity `1`. Its manual proposal Job publishes one shadow proposal through the normal
+  ingress and has no provider-effect authority; protected provider staging may increase capacity
   only to `2` before verified rollback.
 
 ## Provision the minimum inventory
@@ -134,6 +136,10 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
      cadence.
    - **Forecast learning**: its opt-in Job publishes raw ticks only, and the core
      has the reviewed `FDAI_FORECAST_TARGETS_JSON` document.
+   - **OHL scale-out evidence**: when enabled, start the manual proposal Job and confirm exactly
+     one shadow proposal reaches the normal ingress with the configured campaign and initiator.
+     Its identity has only image pull and primary Event Hubs send permissions, with no
+     provider-effect authority.
 3. **Verify the development operations gateway.** It is a development tool: it
    terminates a public inbound endpoint behind Easy Auth, and Terraform refuses
    to plan it outside `env=dev`. Leave it off on a closed network. If you
