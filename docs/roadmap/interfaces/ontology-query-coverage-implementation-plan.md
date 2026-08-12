@@ -126,6 +126,8 @@ units for 100% structural query coverage.
 > a hand-authored fixture into cross-service or live proof. When catalog structure changes, every
 > answered fixture must pin the newly computed release and principal-manifest digests before the
 > gate can pass; stale deterministic receipts are never accepted by compatibility.
+> The current `resource_classified_as` catalog revision refreshes those deterministic fixture
+> digests in the same release change.
 > The first epistemic-closure implementation slice now ships immutable finite
 > `QuestionUniverseReceipt`, typed `EpistemicStatus`, proof-carrying `EpistemicQuestionRecord`, and a
 > zero-threshold `EpistemicCoverageReceipt`. The existing coverage gate requires a matching passed
