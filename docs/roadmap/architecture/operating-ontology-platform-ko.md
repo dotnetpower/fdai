@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 765b07ee477804e65a935d678ddfd9b7dbe0819a
+translation_source_sha: 9491606fca273852b6a014a65a0547c973e975ed
 translation_revised: 2026-08-13
 ---
 # FDAI 온톨로지 안전 인프라
@@ -91,10 +91,10 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| K0 exact release 신원 및 영속성 | in-progress | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`test_postgres_ontology_store.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_postgres_ontology_store.py) | Exact 신원과 release에 고정된 쓰기가 존재합니다. 이행 전 행은 원래 release를 정직하게 복원할 수 없으므로 고정하지 않은 상태로 유지합니다. |
-| K1-K5 범위가 제한된 의미 조회 및 함수 인프라 | in-progress | [`ontology_platform`](../../../services/core-control-plane/src/fdai/core/ontology_platform/), [`test_operational_functions.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_operational_functions.py) | Core 기본 요소가 존재하지만 추가 Interface와 운영 프로바이더 연결은 남아 있습니다. |
+| K0 exact release 신원 및 영속성 | in-progress | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`test_postgres_ontology_type_ref.py`](../../../services/core-control-plane/tests/persistence/test_postgres_ontology_type_ref.py) | Exact 신원과 release에 고정된 쓰기가 존재합니다. 이행 전 행은 원래 release를 정직하게 복원할 수 없으므로 고정하지 않은 상태로 유지합니다. |
+| K1-K5 범위가 제한된 의미 조회 및 함수 인프라 | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`test_kinetics.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_kinetics.py) | Core 기본 요소가 존재하지만 추가 Interface와 운영 프로바이더 연결은 남아 있습니다. |
 | 카탈로그 변환 결과와 exact-generation Rule 검색 | implemented | [`catalog_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py), [`test_catalog_queries.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_catalog_queries.py), 커밋 `e4d9483a5` | `catalog.search_rules`는 exact 세대 증적과 함께 범위가 제한된 순위 후보를 반환하며 판단 또는 액션 권한을 부여하지 않습니다. 시작 변환 결과는 아직 control-objective 인스턴스를 구체화하지 않습니다. |
-| 과거 토폴로지, 메트릭 의미 규칙 및 조정 | in-progress | [`bitemporal_topology.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/bitemporal_topology.py), [`metric_semantics.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/metric_semantics.py), [`reconciliation_state_store.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_state_store.py) | 계약과 순수 또는 영속 기반은 존재하지만 운영 조립과 발행자는 아직 완성되지 않았습니다. |
+| 과거 토폴로지, 메트릭 의미 규칙 및 조정 | in-progress | [`topology_history.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/topology_history.py), [`metric_semantics.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/metric_semantics.py), [`reconciliation_state_store.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_state_store.py) | 계약과 순수 또는 영속 기반은 존재하지만 운영 조립과 발행자는 아직 완성되지 않았습니다. |
 | K6-K8 그래프 전체 Dynamic 근거 | in-progress | [Dynamic 모델 성숙도](#dynamic-모델-성숙도) | 액션 및 메트릭 시뮬레이션은 존재하지만 그래프 전파, trajectory 종결 및 실패 귀속은 남아 있습니다. |
 
 ### 구현 이력
