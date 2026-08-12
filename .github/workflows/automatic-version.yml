@@ -1,19 +1,14 @@
-name: automatic-version
+name: prepare-release-version
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   bump:
-    if: >-
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/main' &&
-      github.actor != 'github-actions[bot]' &&
-      !startsWith(github.event.head_commit.message, 'chore(release): v')
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
       - name: Verify protected workflow source

@@ -33,9 +33,11 @@ IMAGE_AFFECTING_PATHS = {
     "docs/internals/sregym-absorption-ledger.json",
     "evaluation-sdk/**",
     "extensions/code-assurance/pyproject.toml",
+    "packages/service-contracts/**",
     "policies/**",
     "pyproject.toml",
     "rule-catalog/**",
+    "scripts/deployment/service/select_changed_images.py",
     "service-contracts/**",
     "services/**",
     "src/**",
@@ -176,20 +178,16 @@ def test_service_images_use_tracked_fail_closed_model_manifest() -> None:
     assert sum(text.count("services/assets/resolved-models.json") for text in dockerfiles) == 1
 
 
-def test_supply_chain_matrix_builds_and_attests_all_service_targets() -> None:
+def test_supply_chain_selects_and_attests_service_targets() -> None:
     workflow = cast(dict[str, Any], yaml.safe_load(WORKFLOW.read_text(encoding="utf-8")))
     job = workflow["jobs"]["build-scan-attest"]
-    matrix = job["strategy"]["matrix"]["include"]
-    assert matrix == [
-        {
-            "service": service,
-            "dockerfile": f"services/{service}/docker/Dockerfile",
-            "image": image,
-        }
-        for service, (_, _, image) in SERVICES.items()
-    ]
+    assert job["needs"] == "select-images"
+    assert job["strategy"]["matrix"] == "${{ fromJSON(needs.select-images.outputs.matrix) }}"
 
     text = WORKFLOW.read_text(encoding="utf-8")
+    assert "python3 scripts/deployment/service/select_changed_images.py" in text
+    assert "needs.select-images.outputs.has_images == 'true'" in text
+    assert "github.event.pull_request.base.sha || github.event.before" in text
     assert "file: ${{ matrix.dockerfile }}" in text
     assert "services/Dockerfile" not in text
     assert "target: ${{ matrix.target }}" not in text

@@ -155,11 +155,14 @@ flowchart TD
 - **CI identity**: the pipeline authenticates with a **short-lived, OIDC-federated** identity
   (no long-lived cloud keys in CI). Secrets are pulled from the secret store at runtime and
   are **never** written to logs or build artifacts (secret scanning gates the merge).
-- **Supply chain**: `.github/workflows/container-supply-chain.yml` builds each service-owned Dockerfile,
-  blocks on HIGH/CRITICAL Trivy findings, emits a CycloneDX **SBOM**, publishes the verified
-  image to GHCR on `main`/release, and writes GitHub build-provenance and SBOM attestations.
-  The Dockerfile base is pinned by **digest** and runs as uid 65532. Deployment verifies the
-  attestation and digest before rollout; an unattested image is rejected.
+- **Supply chain**: `.github/workflows/container-supply-chain.yml` selects the service-owned
+  Dockerfiles affected by each change. A service-only source change builds that image, while a
+  shared contract, lockfile, package metadata, or workflow change builds all service images. Manual
+  runs also build all images. Each selected build blocks on HIGH/CRITICAL Trivy findings, emits a
+  CycloneDX **SBOM**, publishes the verified image to GHCR on `main`/release, and writes GitHub
+  build-provenance and SBOM attestations. The Dockerfile base is pinned by **digest** and runs as uid
+  65532. Deployment verifies the attestation and digest before rollout; an unattested image is
+  rejected.
 - **Artifact registry**: images and their SBOM/attestations are retained with an explicit
   retention policy so any prod revision can be traced and re-verified.
 - **ACR handoff**: upstream GHCR is the generic build-evidence registry. A fork that requires

@@ -66,21 +66,22 @@ The full CI pipeline lives in
 [.github/workflows/ci.yml](.github/workflows/ci.yml); `make check` is
 the fastest way to reproduce it without pushing.
 
-### Automatic patch versions
+### Prepare a release version
 
-Every non-release push to `main` runs
-[automatic-version.yml](.github/workflows/automatic-version.yml). With no
-existing semantic-version tag, the workflow starts at `v0.1.1`; later pushes
-increment the highest `vX.Y.Z` tag by one patch (`v0.1.2`, `v0.1.3`, and so
-on). It updates the Python, console, and CLI package metadata in lockstep,
-creates a `chore(release): vX.Y.Z` commit, and publishes that commit plus an
-annotated tag atomically. Concurrent pushes recalculate the version and retry
-instead of reusing a tag.
+Run [automatic-version.yml](.github/workflows/automatic-version.yml) manually
+from the `main` branch when you intend to prepare a release. With no existing
+semantic-version tag, the workflow starts at `v0.1.1`; later runs increment the
+highest `vX.Y.Z` tag by one patch (`v0.1.2`, `v0.1.3`, and so on). It updates
+the Python, console, and CLI package metadata in lockstep, creates a
+`chore(release): vX.Y.Z` commit, and publishes that commit plus an annotated
+tag atomically. Concurrent runs recalculate the version and retry instead of
+reusing a tag.
 
-The release commit does not trigger another bump. Pull with rebase before the
-next change so the generated package-version commit is present locally. The
-workflow requires GitHub Actions to have `contents: write` permission and the
-`main` branch rules to allow the repository's Actions identity to push.
+Ordinary pushes to `main` don't change the package version or create a release
+tag. Pull with rebase after preparing a release so the generated package-version
+commit is present locally. The workflow requires GitHub Actions to have
+`contents: write` permission and the `main` branch rules to allow the
+repository's Actions identity to push.
 
 ### Coverage floor
 

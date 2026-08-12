@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: ddc4fddee91d1df4a354e944d34dd759d61eb53e
-translation_revised: 2026-08-11
+translation_source_sha: 5e5f26f9e557790393405f5b0f1608b371e3908f
+translation_revised: 2026-08-12
 ---
 
 # 배포(배포)
@@ -155,11 +155,14 @@ flowchart TD
 - **CI 신원**: 파이프라인은 **단명, OIDC-federated** 신원으로 인증(장기 클라우드 키 CI에
   없음). 시크릿은 런타임에 시크릿 저장소에서 pull, 로그·빌드 아티팩트에 **절대 쓰지 않음**
   (시크릿 검사가 머지를 게이팅).
-- **공급망**: `.github/workflows/container-supply-chain.yml`은 각 service-owned Dockerfile을 빌드하고
-  HIGH/CRITICAL Trivy 발견 사항을 차단하며 CycloneDX **SBOM**을 생성합니다. `main`/release에서는
-  검증된 이미지를 GHCR에 publish하고 GitHub build-provenance/SBOM 증명을 기록합니다.
-  Dockerfile base는 **다이제스트**로 고정되고 uid 65532로 실행됩니다. 배포는 롤아웃 전에
-  증명과 다이제스트를 검증하며 unattested 이미지를 차단합니다.
+- **공급망**: `.github/workflows/container-supply-chain.yml`은 변경의 영향을 받는 service-owned
+  Dockerfile을 선택합니다. 한 서비스의 소스만 변경되면 해당 이미지만 빌드하고 공용 계약,
+  잠금 파일, 패키지 메타데이터 또는 워크플로가 변경되면 모든 서비스 이미지를 빌드합니다.
+  수동 실행도 모든 이미지를 빌드합니다. 선택된 각 빌드는 HIGH/CRITICAL Trivy 발견 사항을
+  차단하고 CycloneDX **SBOM**을 생성합니다. `main`/release에서는 검증된 이미지를 GHCR에
+  publish하고 GitHub build-provenance/SBOM 증명을 기록합니다. Dockerfile base는
+  **다이제스트**로 고정되고 uid 65532로 실행됩니다. 배포는 롤아웃 전에 증명과 다이제스트를
+  검증하며 unattested 이미지를 차단합니다.
 - **아티팩트 레지스트리**: 이미지와 그 SBOM/증명을 명시적 보존 정책으로 유지하여 어떤
   prod 개정 번호도 추적·재검증 가능.
 - **ACR 인계**: 업스트림 GHCR은 범용 build-evidence 레지스트리입니다. ACR이 필요한 포크는

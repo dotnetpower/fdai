@@ -6,6 +6,7 @@ on:
       - ".dockerignore"
       - ".trivyignore.yaml"
       - "services/**"
+      - "packages/service-contracts/**"
       - "service-contracts/**"
       - "pyproject.toml"
       - "uv.lock"
@@ -19,6 +20,7 @@ on:
       - "rule-catalog/**"
       - "policies/**"
       - "config/**"
+      - "scripts/deployment/service/select_changed_images.py"
       - "docs/internals/sregym-absorption-ledger.json"
       - "tests/scenarios/**"
       - "alembic/**"
@@ -31,6 +33,7 @@ on:
       - ".dockerignore"
       - ".trivyignore.yaml"
       - "services/**"
+      - "packages/service-contracts/**"
       - "service-contracts/**"
       - "pyproject.toml"
       - "uv.lock"
@@ -44,6 +47,7 @@ on:
       - "rule-catalog/**"
       - "policies/**"
       - "config/**"
+      - "scripts/deployment/service/select_changed_images.py"
       - "docs/internals/sregym-absorption-ledger.json"
       - "tests/scenarios/**"
       - "alembic/**"
@@ -66,32 +70,49 @@ env:
   IMAGE_TAG: sha-${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}
 
 jobs:
+  select-images:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+      has_images: ${{ steps.select.outputs.has_images }}
+    steps:
+      - name: Checkout image selection inputs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TARGET_COMMIT_SHA }}
+          fetch-depth: 0
+
+      - name: Select affected service images
+        id: select
+        env:
+          BASE_COMMIT_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          selector=(python3 scripts/deployment/service/select_changed_images.py)
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]] ||
+             [[ ! "$BASE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] ||
+             [[ "$BASE_COMMIT_SHA" == "0000000000000000000000000000000000000000" ]]; then
+            "${selector[@]}" --all >> "$GITHUB_OUTPUT"
+          else
+            git diff --name-only -z "$BASE_COMMIT_SHA" "$TARGET_COMMIT_SHA" |
+              "${selector[@]}" --nul >> "$GITHUB_OUTPUT"
+          fi
+
   build-scan-attest:
+    needs: select-images
     if: >-
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'push' &&
-        (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) ||
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+      needs.select-images.outputs.has_images == 'true' &&
+      (github.event_name == 'pull_request' ||
+        (github.event_name == 'push' &&
+          (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) ||
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - service: core-control-plane
-            dockerfile: services/core-control-plane/docker/Dockerfile
-            image: fdai-core-control-plane
-          - service: operator-service
-            dockerfile: services/operator-service/docker/Dockerfile
-            image: fdai-operator-service
-          - service: document-ingestion-api
-            dockerfile: services/document-ingestion-api/docker/Dockerfile
-            image: fdai-document-ingestion-api
-          - service: document-processing-worker
-            dockerfile: services/document-processing-worker/docker/Dockerfile
-            image: fdai-document-processing-worker
-          - service: isolated-executor
-            dockerfile: services/isolated-executor/docker/Dockerfile
-            image: fdai-isolated-executor
+      matrix: ${{ fromJSON(needs.select-images.outputs.matrix) }}
     permissions:
       contents: read
       packages: write
