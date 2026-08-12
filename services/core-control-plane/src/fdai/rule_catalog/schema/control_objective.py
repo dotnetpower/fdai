@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
@@ -13,6 +11,7 @@ from typing import Annotated, Any
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from fdai.rule_catalog.schema.catalog_digest import canonical_catalog_digest
 from fdai.shared.contracts.models import OntologyProvenance
 
 _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
@@ -113,19 +112,7 @@ class ControlObjectiveCatalogError(ValueError):
 def control_objective_content_hash(objective: ControlObjective) -> str:
     """Return canonical identity without self-referential digest or provenance fields."""
 
-    payload = objective.model_dump(
-        mode="json",
-        exclude={"content_digest", "provenance"},
-        exclude_none=True,
-    )
-    canonical = json.dumps(
-        payload,
-        allow_nan=False,
-        ensure_ascii=True,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-    return f"sha256:{hashlib.sha256(canonical).hexdigest()}"
+    return canonical_catalog_digest(objective)
 
 
 def load_control_objective_from_mapping(
