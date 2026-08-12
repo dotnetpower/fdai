@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d5eb44e729ebe54124a877aa8f145653edb8debc
+translation_source_sha: 2d43c7e4ac0915b48b36b1871758bb2952261a51
 translation_revised: 2026-08-12
 ---
 # 코드 맵
@@ -95,7 +95,7 @@ Continuous 커버리지 증적은 결정론적 고정본 structural 검증과 �
 
 | 서비스 | 패키지 responsibility | 패키지 지도 |
 |---------|------------------------|-------------|
-| Operator 서비스 | 인증된 경로 계열, 영속 의미 브리지 및 managed-identity Kafka 전송 계층 | [families](../../../services/operator-service/src/fdai_operator_service/families/), [어댑터](../../../services/operator-service/src/fdai_operator_service/adapters/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
+| Operator 서비스 | 인증된 경로 계열, 영속 의미 브리지, process-owned bridge 상태 및 managed-identity Kafka 전송 계층 | [families](../../../services/operator-service/src/fdai_operator_service/families/), [어댑터](../../../services/operator-service/src/fdai_operator_service/adapters/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
 | 문서 인제스트 API | 업로드 intake, API 소유 전이 및 서비스 어댑터 | [패키지](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | 문서 처리 워커 | 영속 문서 처리와 워커 소유 어댑터 | [패키지](../../../services/document-processing-worker/src/fdai_document_worker_service/) |
 | Isolated 실행기 | Thor 소유 명령 처리, 프로바이더 효과, 증적 및 실행기 어댑터 | [패키지](../../../services/isolated-executor/src/fdai_executor_service/) |
