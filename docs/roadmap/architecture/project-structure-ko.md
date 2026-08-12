@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 681b41278a7817f5379e992829969736c1bdd467
+translation_source_sha: 864a4dd0d1a7e9bc9cab9c87c3549dd86bda0327
 translation_revised: 2026-08-12
 ---
 
@@ -210,7 +210,7 @@ fdai/
 ```
 
 런타임 초기화는 semantic-turn 준비 상태를 `bootstrap_lifecycle.py`에, 버티컬 워크로드 신원을 `bootstrap_bindings.py`에 위임합니다. 이렇게 해서 범위가 제한된 프로바이더 구성과,
-테스트와 포크가 사용하는 주입 가능한 identity-builder 경계를 함께 보존합니다. 리소스 상태 조립은 권위 있는 Heimdall 읽기 뒤에 no-authority 활동 게시자도 연결합니다.
+테스트와 포크가 사용하는 주입 가능한 identity-builder 경계를 함께 보존합니다. 리소스 상태 조립은 권위 있는 Heimdall 읽기 뒤에 shared 단계 topic의 no-authority 게시자도 연결합니다.
 질문 텍스트, 리소스 식별자 또는 실행기 기능 없이 범위가 제한된 결과 근거만 내보내며 broker 실패가 답을 다시 쓰지 않습니다.
 
 > 디렉터리 이름은 [language.instructions.md](../../../.github/instructions/language.instructions.md)의

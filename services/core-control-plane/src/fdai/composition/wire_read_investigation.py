@@ -9,6 +9,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
+
 from fdai.core.ontology_platform.functions import (
     FunctionInvocationContext,
     OntologyFunctionRegistry,
@@ -55,6 +57,10 @@ from fdai.core.read_investigation.shadow_sink import (
     ShadowComparisonSink,
     StateStoreShadowComparisonSink,
 )
+from fdai.delivery.operational_activity import (
+    EventBusOperationalActivityPublisher,
+    current_state_activity,
+)
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog, load_ontology_catalog
 from fdai.shared.contracts.models import CeilingRole, OntologyFunctionType, OntologyRelease
 from fdai.shared.contracts.registry import SchemaRegistry
@@ -97,6 +103,7 @@ class ResourceStateShadowHook:
         release: OntologyRelease,
         shadow_service: ShadowResourceStateComparisonService,
         clock: Callable[[], datetime],
+        activity_publisher: EventBusOperationalActivityPublisher | None = None,
     ) -> None:
         self._read_service = read_service
         self._semantic_service = semantic_service
@@ -104,6 +111,7 @@ class ResourceStateShadowHook:
         self._release = release
         self._shadow_service = shadow_service
         self._clock = clock
+        self._activity_publisher = activity_publisher
 
     async def __call__(
         self,
@@ -139,7 +147,34 @@ class ResourceStateShadowHook:
             idempotency_key=_digest_ref("read-request", requester_ref, conversation_ref, question),
             created_at=self._clock(),
         )
-        authoritative = await self._read_service.execute(plan_read_investigation(request))
+        await self._publish_activity(
+            correlation_id=correlation_ref,
+            status=OperationalActivityStatus.STARTED,
+            freshness=OperationalFreshness.UNKNOWN,
+        )
+        try:
+            authoritative = await self._read_service.execute(plan_read_investigation(request))
+        except Exception:
+            await self._publish_activity(
+                correlation_id=correlation_ref,
+                status=OperationalActivityStatus.FAILED,
+                freshness=OperationalFreshness.UNAVAILABLE,
+                reason_codes=("read_failed",),
+            )
+            raise
+        activity_status, freshness, reason_codes = _read_activity_outcome(authoritative.outcome)
+        duration_ms = max(
+            0,
+            round((authoritative.finished_at - authoritative.started_at).total_seconds() * 1000),
+        )
+        await self._publish_activity(
+            correlation_id=correlation_ref,
+            status=activity_status,
+            freshness=freshness,
+            evidence_count=len(authoritative.evidence_refs),
+            duration_ms=duration_ms,
+            reason_codes=reason_codes,
+        )
         shadow_outcome = "not_attempted"
         shadow_persistence = "not_attempted"
         if (
@@ -176,6 +211,29 @@ class ResourceStateShadowHook:
             question=question,
             shadow_outcome=shadow_outcome,
             shadow_persistence=shadow_persistence,
+        )
+
+    async def _publish_activity(
+        self,
+        *,
+        correlation_id: str,
+        status: OperationalActivityStatus,
+        freshness: OperationalFreshness,
+        evidence_count: int = 0,
+        duration_ms: int | None = None,
+        reason_codes: tuple[str, ...] = (),
+    ) -> None:
+        if self._activity_publisher is None:
+            return
+        await self._activity_publisher.publish(
+            current_state_activity(
+                correlation_id=correlation_id,
+                status=status,
+                freshness=freshness,
+                evidence_count=evidence_count,
+                duration_ms=duration_ms,
+                reason_codes=reason_codes,
+            )
         )
 
     async def _query_shadow(self, authoritative: ReadInvestigationResult):  # type: ignore[no-untyped-def]
@@ -239,6 +297,7 @@ def build_resource_state_shadow_hook(
     ontology_catalog: OntologyCatalog,
     ontology_store: OntologyInstanceStore,
     clock: Callable[[], datetime] | None = None,
+    activity_publisher: EventBusOperationalActivityPublisher | None = None,
 ) -> ResourceStateShadowHook:
     """Compose exact-release resource-state shadowing from production read seams."""
 
@@ -288,6 +347,7 @@ def build_resource_state_shadow_hook(
         release=ontology_release,
         shadow_service=ShadowResourceStateComparisonService(sink=shadow_sink),
         clock=evaluation_clock,
+        activity_publisher=activity_publisher,
     )
 
 
@@ -300,6 +360,7 @@ def compose_resource_state_shadow_hook(
     schema_registry: SchemaRegistry,
     catalog_root: Path,
     clock: Callable[[], datetime] | None = None,
+    activity_publisher: EventBusOperationalActivityPublisher | None = None,
 ) -> ResourceStateShadowHook | None:
     """Compose the optional production hook only when every read seam is available."""
 
@@ -317,7 +378,28 @@ def compose_resource_state_shadow_hook(
         ontology_catalog=catalog,
         ontology_store=ontology_store,
         clock=clock,
+        activity_publisher=activity_publisher,
     )
+
+
+def _read_activity_outcome(
+    outcome: ReadInvestigationOutcome,
+) -> tuple[OperationalActivityStatus, OperationalFreshness, tuple[str, ...]]:
+    if outcome is ReadInvestigationOutcome.MATCHED:
+        return OperationalActivityStatus.COMPLETED, OperationalFreshness.FRESH, ()
+    if outcome is ReadInvestigationOutcome.PARTIAL:
+        return (
+            OperationalActivityStatus.DEGRADED,
+            OperationalFreshness.UNKNOWN,
+            (outcome.value,),
+        )
+    if outcome in {ReadInvestigationOutcome.UNAVAILABLE, ReadInvestigationOutcome.TIMED_OUT}:
+        return (
+            OperationalActivityStatus.DEGRADED,
+            OperationalFreshness.UNAVAILABLE,
+            (outcome.value,),
+        )
+    return OperationalActivityStatus.COMPLETED, OperationalFreshness.UNKNOWN, (outcome.value,)
 
 
 def _render_result(
