@@ -26,7 +26,11 @@ from fdai.shared.contracts.models import (
 )
 from fdai.shared.ontology.compatibility import OntologyGenerationCompatibilityReceipt
 from fdai.shared.ontology.release import build_ontology_release
-from fdai.shared.providers.catalog_search import CatalogGenerationMetadata, CatalogSearchDocument
+from fdai.shared.providers.catalog_search import (
+    CatalogGenerationMetadata,
+    CatalogGenerationStaleError,
+    CatalogSearchDocument,
+)
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
 DIGEST = "sha256:" + ("a" * 64)
@@ -239,3 +243,79 @@ async def test_retained_generation_rolls_back_atomically() -> None:
     assert active is not None
     assert active.generation_id == first.generation_id
     assert second_build.metadata.generation_id == second.generation_id
+
+
+async def test_active_and_discovery_generation_pointers_are_independent() -> None:
+    manifest = _manifest()
+    index = InMemoryCatalogSemanticIndex()
+    build = _build()
+    receipt = validate_ontology_semantic_generation(
+        build=build,
+        manifest=manifest,
+        validator_id="ontology-generation-validator-v1",
+    )
+    validated = bind_semantic_generation_validation(build, receipt)
+    active = await publish_ontology_semantic_generation(
+        index=index,
+        build=validated,
+        activated_at=NOW,
+    )
+    discovery_first = replace(
+        validated.metadata,
+        generation_id="ontology-search:discovery:first",
+        generation_digest="sha256:" + ("b" * 64),
+        corpus="discovery",
+    )
+    discovery_second = replace(
+        discovery_first,
+        generation_id="ontology-search:discovery:second",
+        generation_digest="sha256:" + ("c" * 64),
+    )
+
+    await index.stage_generation(discovery_first, validated.documents)
+    assert await index.active_generation("discovery") is None
+    with pytest.raises(CatalogGenerationStaleError, match="unavailable"):
+        await index.search(
+            "Resource",
+            corpus="discovery",
+            expected_catalog_digest=discovery_first.catalog_digest,
+        )
+
+    first = await index.activate_generation(
+        discovery_first.generation_id,
+        expected_generation_digest=discovery_first.generation_digest,
+        activated_at=datetime(2026, 8, 10, 1, tzinfo=UTC),
+    )
+    await index.stage_generation(discovery_second, validated.documents)
+    second = await index.activate_generation(
+        discovery_second.generation_id,
+        expected_generation_digest=discovery_second.generation_digest,
+        activated_at=datetime(2026, 8, 10, 2, tzinfo=UTC),
+    )
+    compatibility = OntologyGenerationCompatibilityReceipt(
+        previous_release_digest=first.ontology_release_digest,
+        candidate_release_digest=second.ontology_release_digest,
+        checked_declarations=(),
+        added_declarations=(),
+    )
+
+    await index.rollback_generation(
+        first.generation_id,
+        expected_active_generation_id=second.generation_id,
+        expected_active_generation_digest=second.generation_digest,
+        expected_target_generation_digest=first.generation_digest,
+        expected_validation_receipt_digest=first.validation_receipt_digest or "",
+        ontology_compatibility_receipt=compatibility,
+        rolled_back_at=datetime(2026, 8, 10, 3, tzinfo=UTC),
+    )
+
+    active_after = await index.active_generation("active")
+    discovery_after = await index.active_generation("discovery")
+    active_results = await index.search("Resource", corpus="active")
+    discovery_results = await index.search("Resource", corpus="discovery")
+    assert active_after is not None
+    assert active_after.generation_id == active.generation_id
+    assert discovery_after is not None
+    assert discovery_after.generation_id == first.generation_id
+    assert {result.generation_id for result in active_results} == {active.generation_id}
+    assert {result.generation_id for result in discovery_results} == {first.generation_id}
