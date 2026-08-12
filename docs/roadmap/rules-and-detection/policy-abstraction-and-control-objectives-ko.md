@@ -1,7 +1,7 @@
 ---
 title: 정책 추상화와 통제 목표
 translation_of: policy-abstraction-and-control-objectives.md
-translation_source_sha: ebae1debe95351d83d9b3bb6980aec70bde906ad
+translation_source_sha: a02ca374c18df4c09f9d9757eb7e7a12935d46d0
 translation_revised: 2026-08-13
 ---
 # 정책 추상화와 통제 목표
@@ -312,6 +312,7 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 | 2026-08-13 | implemented | 정확한 정책 및 평가기 스냅샷, 정규 결과 비교, 검증기 소스 집합과 OPA 신원 고정값, 구조화된 실패 시 안전 결과, 프로세스별 및 전체 기한, 수신 시 출력 제한을 사용하는 결정론적 Rego 동등성 실행을 추가했습니다. 12회의 적대적 검토로 알려진 Low 초과 문제를 모두 해결했습니다. | `current change`; 동등성, 증적, 의미 및 범위 제한 프로세스 집중 모음에서 테스트 43개가 통과했습니다. | Rule ID나 판정 동작을 바꾸지 않고 작성된 Rego Rule 62개 모두에 검토된 바인딩과 증적을 만듭니다. |
 | 2026-08-13 | implemented | OPA 숫자를 정확한 소수로 구문 분석하고 동등한 JSON 숫자 표기를 정규화하여 이진 부동 소수점으로 인한 결정 비교 병합을 막았습니다. 결론이 있는 결과를 반환하기 전에 최종 전체 기한 검사도 추가했습니다. 13차 적대적 검토 후 알려진 Low 초과 문제는 남아 있지 않습니다. | `current change`; 동등성, 증적, 의미 및 범위 제한 프로세스 집중 모음에서 테스트 45개가 통과했고, 소스 파일 4개에서 strict mypy가 통과했으며, 집중 소스 및 테스트 파일 8개에서 Ruff가 통과했습니다. | Rule ID나 판정 동작을 바꾸지 않고 작성된 Rego Rule 62개 모두에 검토된 바인딩과 증적을 만듭니다. |
 | 2026-08-13 | in-progress | 제공된 각 작성 Rule 참조에 다이제스트가 유효하고 수명 주기 상태가 reviewed 또는 promoted인 바인딩이 하나 이상 있도록 요구하는 선택형 카탈로그 집계 검사를 추가했습니다. candidate 및 retired 바인딩은 포함 범위를 충족하지 않으며, 이 관계는 계속 권한을 부여하지 않습니다. | `current change`; 집중 `test_rule_objective_binding.py` 모음에서 테스트 12개가 통과했고, 변경된 소스 파일에서 strict mypy가 통과했으며, 변경된 Python 파일 2개에서 Ruff가 통과했습니다. | 제공되는 62개 Rule 레지스트리를 이 불변식에 연결하고, Rule ID나 판정 동작을 변경하지 않으면서 검토된 목표와 바인딩 및 개수가 일치하는 이행 보고서를 추가합니다. |
+| 2026-08-13 | in-progress | 작성된 모든 Rule을 bound, intentionally unbound, ambiguous 또는 rejected 중 하나로 정확히 한 번 분할하는 실패 시 안전하게 닫히는 이행 보고서를 추가했습니다. 권위 있는 제공 Rule 로더와 정규화된 Rego 의미를 연결해 작성 Rule 62개, 검토된 바인딩 0개, ambiguous 62개의 개수 일치 기준선을 확립했습니다. | `current change`; 집중 바인딩 및 제공 교차 카탈로그 모음에서 테스트 18개가 통과했고, 변경된 소스 파일에서 strict mypy가 통과했으며, 변경된 Python 파일 3개에서 Ruff가 통과했습니다. | ambiguous Rule 62개를 검토하고, 동등성을 날조하지 않으면서 목표 바인딩과 증적을 작성하며, 입력 총계와 판정 동작을 유지한 채 bound 개수를 62개로 늘립니다. |
 
 ### 남은 작업
 
