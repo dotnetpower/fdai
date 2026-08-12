@@ -21,7 +21,7 @@ resource "azurerm_virtual_network" "primary" {
   resource_group_name = var.resource_group_name
   address_space = concat(
     [var.address_space],
-    var.enable_functions_subnet ? [var.functions_address_space] : [],
+    var.enable_functions_subnet || var.enable_evidence_target_subnet ? [var.functions_address_space] : [],
   )
   tags = var.tags
 }
@@ -87,4 +87,13 @@ resource "azurerm_subnet" "functions" {
       actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
     }
   }
+}
+
+resource "azurerm_subnet" "evidence_target" {
+  count                           = var.enable_evidence_target_subnet ? 1 : 0
+  name                            = "snet-ohl-evidence"
+  resource_group_name             = var.resource_group_name
+  virtual_network_name            = azurerm_virtual_network.primary.name
+  address_prefixes                = [var.evidence_target_subnet_prefix]
+  default_outbound_access_enabled = false
 }

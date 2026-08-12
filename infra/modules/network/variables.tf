@@ -29,6 +29,12 @@ variable "enable_functions_subnet" {
   default     = false
 }
 
+variable "enable_evidence_target_subnet" {
+  description = "Whether to add the isolated subnet for the development OHL scale-out evidence target."
+  type        = bool
+  default     = false
+}
+
 variable "pe_subnet_prefix" {
   description = "Private-endpoint subnet CIDR (must fit inside address_space)."
   type        = string
@@ -51,6 +57,12 @@ variable "functions_subnet_prefix" {
   description = "Flex Consumption VNet integration subnet CIDR. A single app requires at least /27."
   type        = string
   default     = "10.60.4.0/27"
+}
+
+variable "evidence_target_subnet_prefix" {
+  description = "OHL scale-out evidence target subnet CIDR inside functions_address_space."
+  type        = string
+  default     = "10.60.4.32/27"
 }
 
 variable "tags" {

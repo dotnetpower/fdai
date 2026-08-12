@@ -10,6 +10,27 @@ deployment-specific values outside the upstream distribution.
 > This contract applies to provisioned infrastructure. Runtime code consumes resource identifiers
 > through configuration and does not compute names or ownership tags.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| CAF naming and `fdai:` ownership tags | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, and focused Terraform tests | Terraform computes names and tags; runtime code consumes outputs. |
+| Terraform state-root convention | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | The platform, five service roots, and bootstrap root have governed evidence. |
+| OHL scale-out evidence target naming and tags | implemented | current change in `infra/main.tf`; `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` reports 8 passed | Live provisioning and recurrence evidence remain open. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added the optional OHL VM Scale Set convention. | current change; focused Terraform tests report 8 passed. | Capture the exact protected apply and live OHL evidence. |
+
+### Remaining work
+
+- [ ] Record a protected apply receipt showing the OHL target keeps its deterministic name,
+  application-resource-group placement, private subnet, and required `fdai:` tags.
+
 ## Resource Naming Convention
 
 Every Azure resource this repo provisions follows the **Microsoft Cloud Adoption Framework
@@ -44,6 +65,7 @@ placement (none today).
 | Container Apps environment | `cae-` | 2-32; alphanumerics + hyphens | `cae-fdai` |
 | Container App (core) | `ca-` | 2-32 | `ca-fdai-core` |
 | Container Apps Job (out-of-band) | `caj-` | 2-32 | `caj-fdai-oob` |
+| Virtual Machine Scale Set | `vmss-` | 1-64 | `vmss-fdai-ohl-dev-krc` |
 | Event Hubs namespace | `evhns-` | 6-50 | `evhns-fdai` |
 | PostgreSQL Flexible Server | `psql-` | 3-63; lowercase | `psql-fdai` |
 | Key Vault | `kv-` | 3-24; alphanumerics + hyphens | `kv-fdai` |

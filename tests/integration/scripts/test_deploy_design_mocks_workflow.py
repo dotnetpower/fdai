@@ -13,6 +13,7 @@ def test_design_mocks_uses_the_protected_terraform_apply_path() -> None:
 
 def test_design_mocks_rejects_every_other_deployment_target() -> None:
     assert "deploy_design_mocks cannot be combined with another deployment target" in _WORKFLOW
+    assert "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET" in _WORKFLOW
     assert "Design-mocks-only plan contains changes outside the Static Web App" in _WORKFLOW
     assert '"module.design_mocks[0].azurerm_static_web_app.design_mocks"' in _WORKFLOW
     assert "if: ${{ !inputs.deploy_design_mocks }}" in _WORKFLOW
@@ -20,6 +21,23 @@ def test_design_mocks_rejects_every_other_deployment_target() -> None:
     health_step = _WORKFLOW[_WORKFLOW.index("- name: Verify deployed health endpoints") :]
     health_step = health_step[: health_step.index("- name: Run canary publisher smoke")]
     assert "if: ${{ inputs.apply && !inputs.deploy_design_mocks }}" in health_step
+
+
+def test_ohl_evidence_target_uses_the_protected_gateway_plan() -> None:
+    assert "deploy_ohl_scale_out_evidence_target:" in _WORKFLOW
+    assert (
+        "TF_VAR_enable_ohl_scale_out_evidence_target: "
+        "${{ inputs.environment == 'dev' && inputs.deploy_ohl_scale_out_evidence_target }}"
+        in _WORKFLOW
+    )
+    assert "-target=azurerm_linux_virtual_machine_scale_set.ohl_evidence" in _WORKFLOW
+    assert "-target=module.network[0].azurerm_subnet.evidence_target" in _WORKFLOW
+    assert (
+        "the OHL scale-out evidence target requires dev and "
+        "deploy_dev_operations_gateway." in _WORKFLOW
+    )
+    assert "OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION" in _WORKFLOW
+    assert "OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY" in _WORKFLOW
 
 
 def test_design_mocks_publishes_only_the_allowlisted_artifact() -> None:

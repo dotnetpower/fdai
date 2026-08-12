@@ -26,3 +26,18 @@ output "functions_subnet_id" {
   description = "Dedicated Flex Consumption Function App VNet integration subnet."
   value       = length(azurerm_subnet.functions) > 0 ? azurerm_subnet.functions[0].id : null
 }
+
+output "evidence_target_subnet_id" {
+  description = "Isolated subnet for the development OHL scale-out evidence target."
+  value       = length(azurerm_subnet.evidence_target) > 0 ? azurerm_subnet.evidence_target[0].id : null
+}
+
+output "evidence_target_subnet_name" {
+  description = "Name of the isolated development OHL scale-out evidence subnet."
+  value       = length(azurerm_subnet.evidence_target) > 0 ? azurerm_subnet.evidence_target[0].name : null
+}
+
+output "evidence_target_subnet_prefix" {
+  description = "CIDR of the isolated development OHL scale-out evidence subnet."
+  value       = var.enable_evidence_target_subnet ? var.evidence_target_subnet_prefix : null
+}

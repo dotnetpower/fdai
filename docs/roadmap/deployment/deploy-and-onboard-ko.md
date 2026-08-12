@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: caef610260677095df0c7a8374cc799970ca5462
-translation_revised: 2026-08-12
+translation_source_sha: 86f30033bda8e7ebd3f0cd795d8faf14af342171
+translation_revised: 2026-08-13
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -26,6 +26,30 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 > truth로 유지하고 계획 및 적용 작업을 승인된 실행기에 제출합니다.
 > [설치형 배포 CLI](installable-deployment-cli-ko.md)와
 > [배포 아티팩트](#배포-아티팩트)를 참조하세요.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Protected platform 계획 및 exact 적용 | validated | `.github/workflows/deploy-dev.yml` 및 통제된 배포 증적 | Private runner 계획, 변경할 수 없는 적용 claim 및 post-apply 검사가 제공됩니다. |
+| 독립 소유 런타임 service | validated | `.github/workflows/service-deploy.yml` 및 `config/independent-service-live-evidence-manifest.json` | 각 service에 별도 root, protected 계획, 상태 검사 및 rollback evidence가 있습니다. |
+| OHL scale-out evidence target 프로비저닝 | implemented | `infra/`의 current change, 집중 Terraform 및 workflow test 결과 8 passed와 5 passed | Target은 기본적으로 비활성화되며 protected 적용이 남아 있습니다. |
+| OHL production evidence campaign | in-progress | `config/ohl-scale-out-evidence.json` 및 `docs/runbooks/ohl-scale-out-evidence-ko.md` | Runtime rollout, 통제된 실행, sample 100개 및 14일 recurrence window가 남아 있습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 범위가 제한된 OHL evidence target의 protected provisioning을 추가했습니다. | current change, 집중 Terraform test 결과 8 passed 및 workflow contract test 결과 5 passed | Exact 계획을 적용하고 증명된 런타임 이미지를 배포한 뒤 실제 evidence campaign을 완료합니다. |
+
+### 남은 작업
+
+- [ ] OHL target과 exact-revision Core 및 Executor image의 protected 적용 증적을 기록하고
+  배포된 revision이 같은 source commit으로 해석되는지 검증합니다.
+- [ ] 통제된 `ops.scale-out` 훈련을 완료하고 독립 rollback, cleanup, graph outcome, sample
+  100개 및 14일 recurrence evidence를 보존합니다.
 
 ## 전제조건(Prerequisites)
 
@@ -346,7 +370,8 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | 13 | **Case-history Blob 계정** (`enable_case_history`) | StorageV2 Standard ZRS | 재생 및 통제된 Norns 분석용 내용 기반 주소를 가진 prediction/인시던트 사례 개정 번호 | Shared Key 비활성화, 비공개 컨테이너, versioning, 변경 피드, soft 삭제, 범위가 제한된 old-version 수명 주기, Defender scanner private-link 접근, 전용 case-history UAMI 데이터 역할, `blob` 비공개 엔드포인트. 실행기 MI에는 Blob 역할을 부여하지 않습니다. |
 | 14 | **문서 인제스트 Container Apps** (**명시적 선택**) | Consumption, 공개 API + ClamAV를 포함한 내부 워커 | 인증된 범위가 제한된 업로드 중계와 독립적으로 규모되는 안전성 검사, 추출, pgvector 인덱싱, 수명 주기 이벤트 | API, 워커, 이행 UAMI를 분리합니다. 워커만 Event Hubs 수신과 OCR 권한을 받으며 런타임 신원에는 실행기 권한이 없습니다. |
 | 15 | **Control-loop canary 작업** | Consumption, 5분마다 실행 | `aw.control.canary`에 멱등 이벤트 하나를 게시합니다. | 전용 UAMI에는 ACR pull과 Event Hubs 전송만 있으며, 코어는 별도 소비자 경로에서 no-op 감사를 기록합니다. |
-| 16 | **개발 operations Function App** (**명시적 선택**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | 로컬 개발에서 비공개 리소스로 등록된 읽기, 쓰기, execute 연산을 중계합니다. | dev 및 private-networking 전용이며 수명 주기 precondition으로 강제되고 `infra/services/core-control-plane/tests/dev_operations_gateway.tftest.hcl`이 이를 검증합니다. Easy Auth 뒤에서 **공개** 인바운드 엔드포인트를 종단합니다. 개발자가 도달해야 하기 때문이며, 따라서 폐쇄망에서는 꺼둔 채로 둡니다. 전용 `/27` 서브넷, 비공개 AAD-only 배포 및 멱등성 저장소, Easy Auth, 분리된 읽기 담당/실행기 UAMI, 일회용 server-issued 변경 계획 증적을 사용합니다. 임의 URL, ARM 경로, 명령, 조회 표면은 제공하지 않습니다. |
+| 16 | **개발 operations Function App** (**명시적 선택**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | 로컬 개발에서 비공개 리소스로 등록된 읽기, 쓰기, execute 연산을 중계합니다. | dev 및 private-networking 전용이며 수명 주기 precondition으로 강제되고 `infra/tests/dev_operations_gateway.tftest.hcl`이 이를 검증합니다. Easy Auth 뒤에서 **공개** 인바운드 엔드포인트를 종단합니다. 개발자가 도달해야 하기 때문이며, 따라서 폐쇄망에서는 꺼둔 채로 둡니다. 전용 `/27` 서브넷, 비공개 AAD-only 배포 및 멱등성 저장소, Easy Auth, 분리된 읽기 담당/실행기 UAMI, 일회용 server-issued 변경 계획 증적을 사용합니다. 임의 URL, ARM 경로, 명령, 조회 표면은 제공하지 않습니다. |
+| 17 | **OHL scale-out evidence VM Scale Set** (**명시적 선택**, `enable_ohl_scale_out_evidence_target`) | Uniform `Standard_B1s`, 용량 `1` | 통제된 `ops.scale-out` 근거용으로 범위가 제한된 non-production target | dev, 비공개 networking 및 operations gateway가 필요합니다. 배포는 region에서 사용할 수 있는 exact image version을 공급하고 변경 가능한 `latest`를 거부합니다. 전용 `/27` subnet에는 public IP가 없습니다. 기존 gateway RBAC 범위를 넓히지 않도록 target은 애플리케이션 resource group에 남습니다. Protected 실행은 검증된 rollback 전에 capacity를 `2`까지만 늘릴 수 있습니다. |
 로컬 parity 프로필은 동일한 5개 service package를 loopback PostgreSQL과 Redpanda,
 filesystem-backed 문서 object 및 ClamAV에 연결해 시작합니다. Plaintext Kafka는 loopback broker에서만
 사용합니다. 배포 모듈은 service-owned managed identity와 service-specific PostgreSQL role을 사용하는
@@ -439,6 +464,12 @@ networking과 digest-pinned FDAI 및 ClamAV 이미지를 요구합니다.
 - **분리 기준**: 목표는 Core, Operator, 인제스트 API, 처리 워커, Isolated 실행기이며 권한 전환은 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)의 모든 게이트를 따릅니다.
 - **신원 분리**: Operator API 읽기/명령과 인제스트 API/워커/이행 principal을 분리합니다. 워커는 `aw.pantheon.objects`에서 Saga/Muninn 객체만 수신하고 `aw.pipeline.stages`로 단계 사실을 전송합니다. `ingestion_cohost_worker=true`는 두 범위를 API 신원으로 돌립니다.
 - **실행기 배포와 전환**: `enable_isolated_executor=true`는 내부 앱과 ACR pull, 명령 수신, 증적/DLQ 전송, state-secret 읽기만 가진 전용 UAMI를 프로비저닝합니다. 기본값은 `false`이며 private-runner 작업 흐름은 기본 plan-only를 유지하고 checksum-pinned GitHub CLI를 설치하며 embedded plan-metadata 코드를 syntax-check하고 증명을 검증한 뒤 동일한 ACR 다이제스트를 연결하고 최신 개정 번호를 상태 검사에 포함합니다. `promote_runtime_image=true`는 재구축 없이 검증된 다이제스트를 가져오기하지만 exact 적용은 승격을 거부하고 protected 계획만 사용하며 convergence에도 같은 런타임 다이제스트를 복원합니다. `enable_isolated_executor_authority_cutover=true`는 개발 operations 게이트웨이도 요구하며 Core의 게이트웨이 및 버티컬 효과 접근을 제거하고 isolated 신원을 승인하며 Core에는 전송 계층/읽기 접근만 유지합니다. `verify_executor_effect=true`는 non-interactive 실행기에서 명시적 pseudo-terminal을 통해 reversible NSG 룰 탐색을 실행하고 원격 exit 상태를 보존합니다. 중복 전달은 변경할 수 없는 액션 및 명령 신원을 유지하도록 하나의 issued-at 시각을 공유하고 정리는 새 범위가 제한된 기한을 받습니다. Azure Resource Manager에서 효과를 확인하고 중복 쓰기를 차단하며 오프셋과 최종 증적을 기록한 뒤 정리합니다. 900초가 지나면 실패합니다.
+- **OHL evidence target**: `enable_ohl_scale_out_evidence_target=true`는 `dev`에만 전용 Uniform
+  VM Scale Set 하나를 추가합니다. 비공개 networking, development operations gateway 및
+  exact `OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION`, non-secret
+  `OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY` repository variable이 필요합니다. Protected platform
+  workflow가 target과 subnet을 소유하며 evidence 실행 전에 `service-deploy`가 exact revision
+  Core 및 Executor image를 독립적으로 rollout합니다.
 
 ## 부트스트랩 순서
 

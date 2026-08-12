@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 20b39d556c0e79c18d95ce0ffbb85ba66a0b4291
-translation_revised: 2026-08-12
+translation_source_sha: 20437f517be70c87ab27d50382944387f0960d70
+translation_revised: 2026-08-13
 ---
 # 배포 리소스 규약
 
@@ -12,6 +12,27 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 
 > 이 계약은 프로비저닝된 인프라에 적용됩니다. 런타임 코드는 설정을 통해 리소스 식별자를
 > 사용하며 이름이나 소유권 태그를 계산하지 않습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| CAF 명명 및 `fdai:` 소유권 tag | implemented | `infra/main.tf`, `infra/bootstrap/main.tf` 및 집중 Terraform test | Terraform이 이름과 tag를 계산하고 런타임 코드는 출력을 사용합니다. |
+| Terraform state root 규약 | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Platform, service root 5개 및 bootstrap root에 통제된 근거가 있습니다. |
+| OHL scale-out evidence target 명명 및 tag | implemented | `infra/main.tf`의 current change, `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` 결과 8 passed | 실제 프로비저닝 및 recurrence evidence는 열려 있습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 선택적 OHL VM Scale Set 규약을 추가했습니다. | current change, 집중 Terraform test 결과 8 passed | Exact protected 적용 및 실제 OHL 근거를 수집합니다. |
+
+### 남은 작업
+
+- [ ] OHL target이 결정론적 이름, 애플리케이션 resource group 배치, 비공개 subnet 및 필수
+  `fdai:` tag를 유지함을 보여 주는 protected 적용 증적을 기록합니다.
 
 ## 리소스 명명 규약(Resource Naming Convention)
 
@@ -46,6 +67,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | Container Apps 환경 | `cae-` | 2-32; 영숫자 + 하이픈 | `cae-fdai` |
 | Container App (코어) | `ca-` | 2-32 | `ca-fdai-core` |
 | Container Apps 작업 (out-of-band) | `caj-` | 2-32 | `caj-fdai-oob` |
+| Virtual Machine Scale Set | `vmss-` | 1-64 | `vmss-fdai-ohl-dev-krc` |
 | Event Hubs 이름 공간 | `evhns-` | 6-50 | `evhns-fdai` |
 | PostgreSQL Flexible Server | `psql-` | 3-63; 소문자 | `psql-fdai` |
 | Key Vault | `kv-` | 3-24; 영숫자 + 하이픈 | `kv-fdai` |

@@ -10,8 +10,9 @@ evidence.
 
 > **Authority boundary:** This runbook doesn't provision or deploy infrastructure. It changes one
 > pre-existing non-production VM Scale Set by at most one instance and restores the exact baseline.
-> Run it only after the ordinary approval, dry-run, audit-intent, lock, and automation-hold paths
-> are available.
+> Provision the optional target through the protected deployment workflow before using this
+> runbook. Run the drill only after the ordinary approval, dry-run, audit-intent, lock, and
+> automation-hold paths are available.
 >
 > **Evidence boundary:** The direct Azure CLI mutation below is provider-side staging evidence. It
 > isn't FDAI end-to-end execution evidence until the `ops.scale-out` executor binding emits the
@@ -30,6 +31,27 @@ The machine contract is
 [`config/ohl-scale-out-evidence.json`](../../config/ohl-scale-out-evidence.json). Its schema prevents
 a transition from `prepared` to `complete` while any residual remains.
 
+## Provision the target and runtime
+
+Use the protected workflows before starting the drill:
+
+1. Build and attest the exact source revision with `container-supply-chain`.
+2. Plan and apply `core-control-plane` and `isolated-executor` separately with `service-deploy`,
+  using images whose attested source revision equals the drill revision.
+3. Plan and apply `deploy-dev` with `deploy_dev_operations_gateway=true` and
+  `deploy_ohl_scale_out_evidence_target=true`. Supply one exact region-available Jammy Gen2 image
+  version through `OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION` and a non-secret SSH public key through
+  `OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY`.
+4. Read `ohl_scale_out_evidence_target_id` and `ohl_scale_out_evidence_target_name` from the exact
+  protected apply outputs. Don't substitute an untracked or manually created VM Scale Set.
+
+The target stays disabled by default. When enabled, Terraform creates one Uniform
+`Standard_B1s` VM Scale Set at capacity `1` in the application resource group, on a private
+dedicated subnet with no public IP or autoscale setting. Its image version is exact; mutable
+`latest` isn't accepted. The existing gateway reader and executor identities keep their
+application-resource-group scope; the deployment doesn't grant a new cross-resource-group
+authority.
+
 ## Required runner configuration
 
 Supply values through the protected runner's secret or environment configuration. Don't commit
@@ -40,7 +62,7 @@ export FDAI_OHL_EXPECTED_SUBSCRIPTION_ID='<subscription-id>'
 export FDAI_OHL_RESOURCE_GROUP='<resource-group>'
 export FDAI_OHL_VMSS_NAME='<vm-scale-set-name>'
 export FDAI_OHL_TARGET_RESOURCE_ID='<vm-scale-set-resource-id>'
-export FDAI_OHL_NON_PRODUCTION_TAG_VALUE='<approved-non-production-tag-value>'
+export FDAI_OHL_NON_PRODUCTION_TAG_VALUE='<approved-fdai-env-tag-value>'
 export FDAI_OHL_APPROVAL_REF='<approval-receipt-ref>'
 export FDAI_OHL_DRY_RUN_REF='<dry-run-receipt-ref>'
 export FDAI_OHL_STOP_CONDITION_REF='<stop-condition-receipt-ref>'
@@ -56,10 +78,11 @@ The target should meet all of these constraints:
 
 - its resource type is `Microsoft.Compute/virtualMachineScaleSets`;
 - its orchestration mode is `Uniform`;
-- its `environment` tag equals the runner-owned non-production value;
+- its `fdai:managed` tag is `true`, its `fdai:env` tag equals the approved non-production value,
+  and its `fdai:component` tag is `ohl-scale-out-evidence`;
 - it is dedicated to this drill and has capacity for one additional instance;
-- the runner identity can read the target and Activity Log, scale only this target, and read the
-  FDAI state and audit stores;
+- the protected runner can read the target, Activity Log, FDAI state, and audit stores, while the
+  gateway reader and executor identities remain scoped to the target's application resource group;
 - the ordinary `ops.scale-out` approval, dry-run, audit, lock, rollback, and hold receipts already
   exist before the mutation command runs.
 
@@ -96,7 +119,9 @@ expected_target_id="/subscriptions/$FDAI_OHL_EXPECTED_SUBSCRIPTION_ID/resourceGr
 mkdir -p .fdai/evidence/ohl-scale-out
 target_json="$(az resource show --ids "$FDAI_OHL_TARGET_RESOURCE_ID" --output json --only-show-errors)"
 [[ "$(jq -r '.type' <<<"$target_json")" == 'Microsoft.Compute/virtualMachineScaleSets' ]]
-[[ "$(jq -r '.tags.environment // empty' <<<"$target_json")" == "$FDAI_OHL_NON_PRODUCTION_TAG_VALUE" ]]
+[[ "$(jq -r '.tags["fdai:managed"] // empty' <<<"$target_json")" == 'true' ]]
+[[ "$(jq -r '.tags["fdai:env"] // empty' <<<"$target_json")" == "$FDAI_OHL_NON_PRODUCTION_TAG_VALUE" ]]
+[[ "$(jq -r '.tags["fdai:component"] // empty' <<<"$target_json")" == 'ohl-scale-out-evidence' ]]
 
 vmss_json="$(az vmss show --subscription "$FDAI_OHL_EXPECTED_SUBSCRIPTION_ID" --resource-group "$FDAI_OHL_RESOURCE_GROUP" --name "$FDAI_OHL_VMSS_NAME" --output json --only-show-errors)"
 [[ "$(jq -r '.orchestrationMode' <<<"$vmss_json")" == 'Uniform' ]]

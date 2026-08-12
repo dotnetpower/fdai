@@ -125,6 +125,16 @@ output "dev_operations_gateway_app_name" {
   value       = length(azurerm_function_app_flex_consumption.dev_gateway) > 0 ? azurerm_function_app_flex_consumption.dev_gateway[0].name : ""
 }
 
+output "ohl_scale_out_evidence_target_id" {
+  description = "Resource id of the dedicated development OHL scale-out evidence VMSS. Empty when disabled."
+  value       = length(azurerm_linux_virtual_machine_scale_set.ohl_evidence) > 0 ? azurerm_linux_virtual_machine_scale_set.ohl_evidence[0].id : ""
+}
+
+output "ohl_scale_out_evidence_target_name" {
+  description = "Name of the dedicated development OHL scale-out evidence VMSS. Empty when disabled."
+  value       = length(azurerm_linux_virtual_machine_scale_set.ohl_evidence) > 0 ? azurerm_linux_virtual_machine_scale_set.ohl_evidence[0].name : ""
+}
+
 output "email_communication_service_id" {
   description = "ACS resource id for send-only A2/A4 notification delivery. Empty when email notifications are disabled."
   value       = length(azurerm_communication_service.notifications) > 0 ? azurerm_communication_service.notifications[0].id : ""
