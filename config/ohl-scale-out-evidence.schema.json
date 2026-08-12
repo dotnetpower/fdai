@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://fdai.dev/schemas/ohl-scale-out-evidence-contract/1.0.0",
+  "$id": "https://fdai.dev/schemas/ohl-scale-out-evidence-contract/1.2.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -18,11 +18,12 @@
     "evidence",
     "acceptance",
     "runbook_ref",
+    "verifier_ref",
     "result",
     "residuals"
   ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"const": "1.2.0"},
     "lane": {"const": "ohl-lane-f"},
     "status": {"enum": ["prepared", "complete"]},
     "evidence_level": {"enum": ["contract_only", "live_execution"]},
@@ -106,20 +107,22 @@
         "required_receipts",
         "common_receipt_fields",
         "graph_prediction_fields",
-        "graph_outcome_fields"
+        "graph_outcome_fields",
+        "condition_receipt_kinds"
       ],
       "properties": {
         "output_path": {"const": ".fdai/evidence/ohl-scale-out-live.json"},
         "required_receipts": {
           "type": "array",
-          "minItems": 16,
-          "maxItems": 16,
+          "minItems": 21,
+          "maxItems": 21,
           "uniqueItems": true,
           "items": {
             "enum": [
               "account_context",
               "target_identity",
               "baseline_state",
+              "a3e_non_applicability",
               "approval",
               "dry_run",
               "stop_condition",
@@ -131,15 +134,19 @@
               "automation_hold",
               "rollback",
               "independent_recovery",
+              "cleanup",
               "graph_shadow_prediction",
-              "graph_shadow_outcome"
+              "graph_shadow_outcome",
+              "promotion_floor",
+              "production_graph_provider_binding",
+              "production_scale_out_executor_binding"
             ]
           }
         },
         "common_receipt_fields": {
           "type": "array",
-          "minItems": 12,
-          "maxItems": 12,
+          "minItems": 16,
+          "maxItems": 16,
           "uniqueItems": true,
           "items": {
             "enum": [
@@ -154,7 +161,11 @@
               "freshness_seconds",
               "completeness",
               "provenance_digest",
-              "synthetic"
+              "synthetic",
+              "kind",
+              "correlation_id",
+              "target_revision",
+              "verified"
             ]
           }
         },
@@ -202,6 +213,38 @@
               "active_model_mutated",
               "promotion_applied"
             ]
+          }
+        },
+        "condition_receipt_kinds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "a3e_non_applicability_verified",
+            "partial_execution_observed",
+            "rollback_independently_verified",
+            "cleanup_verified",
+            "graph_prediction_live_and_non_synthetic",
+            "graph_outcome_independently_closed",
+            "observation_horizon_preserved",
+            "recurrence_window_complete",
+            "promotion_floor_met",
+            "zero_policy_escapes",
+            "production_graph_provider_bound",
+            "production_scale_out_executor_bound"
+          ],
+          "properties": {
+            "a3e_non_applicability_verified": {"const": "a3e_non_applicability"},
+            "partial_execution_observed": {"const": "partial_state_observation"},
+            "rollback_independently_verified": {"const": "independent_recovery"},
+            "cleanup_verified": {"const": "cleanup"},
+            "graph_prediction_live_and_non_synthetic": {"const": "graph_shadow_prediction"},
+            "graph_outcome_independently_closed": {"const": "graph_shadow_outcome"},
+            "observation_horizon_preserved": {"const": "graph_shadow_outcome"},
+            "recurrence_window_complete": {"const": "cleanup"},
+            "promotion_floor_met": {"const": "promotion_floor"},
+            "zero_policy_escapes": {"const": "graph_shadow_outcome"},
+            "production_graph_provider_bound": {"const": "production_graph_provider_binding"},
+            "production_scale_out_executor_bound": {"const": "production_scale_out_executor_binding"}
           }
         }
       }
@@ -256,6 +299,9 @@
       }
     },
     "runbook_ref": {"const": "docs/runbooks/ohl-scale-out-evidence.md"},
+    "verifier_ref": {
+      "const": "scripts/quality/repository/validate-ohl-scale-out-evidence.py"
+    },
     "result": {
       "type": "object",
       "additionalProperties": false,

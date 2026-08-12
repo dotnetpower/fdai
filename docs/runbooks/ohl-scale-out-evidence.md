@@ -29,7 +29,10 @@ The run prepares and verifies two related scenarios:
 
 The machine contract is
 [`config/ohl-scale-out-evidence.json`](../../config/ohl-scale-out-evidence.json). Its schema prevents
-a transition from `prepared` to `complete` while any residual remains.
+a transition from `prepared` to `complete` while any residual remains. The schema checks state
+shape. The contract-pinned completion verifier additionally recalculates the receipt bundle's
+digest, sample thresholds, elapsed windows, accuracy, policy escapes, observation independence,
+and condition-to-receipt bindings.
 
 ## Provision the target and runtime
 
@@ -78,6 +81,8 @@ export FDAI_OHL_LOCK_REF='<logical-target-lock-receipt-ref>'
 export FDAI_OHL_IDEMPOTENCY_KEY='<stable-idempotency-key>'
 export FDAI_OHL_AUDIT_INTENT_REF='<audit-intent-receipt-ref>'
 export FDAI_OHL_AUTOMATION_HOLD_REF='<automation-hold-receipt-ref>'
+export FDAI_OHL_CAMPAIGN_ID='<retry-stable-campaign-id>'
+export FDAI_OHL_CORRELATION_ID='<operator-request-correlation-id>'
 export FDAI_OHL_EXPECTED_REVISION='<40-character-git-revision>'
 export FDAI_STATE_STORE_DSN='<protected-runner-state-store-dsn>'
 export FDAI_OHL_PROPOSAL_JOB_NAME='<terraform-output-job-name>'
@@ -116,6 +121,8 @@ umask 077
 : "${FDAI_OHL_IDEMPOTENCY_KEY:?}"
 : "${FDAI_OHL_AUDIT_INTENT_REF:?}"
 : "${FDAI_OHL_AUTOMATION_HOLD_REF:?}"
+: "${FDAI_OHL_CAMPAIGN_ID:?}"
+: "${FDAI_OHL_CORRELATION_ID:?}"
 : "${FDAI_OHL_EXPECTED_REVISION:?}"
 : "${FDAI_STATE_STORE_DSN:?}"
 : "${FDAI_OHL_PROPOSAL_JOB_NAME:?}"
@@ -159,6 +166,10 @@ jq -n \
   > .fdai/evidence/ohl-scale-out/baseline.json
 ```
 
+The baseline artifact is the authoritative campaign start across runner sessions. Each later
+command block reloads `drill_started_at` from that file instead of depending on shell-variable
+persistence.
+
 ## Governed shadow proposal
 
 After the baseline checks pass, start the proposal-only Job from the protected runner:
@@ -189,6 +200,7 @@ records the partial state, and then restores the baseline. Don't continue with a
 operation after the partial-state assertions pass.
 
 ```bash
+drill_started_at="$(jq -er '.started_at' .fdai/evidence/ohl-scale-out/baseline.json)"
 rollback_required=1
 restore_baseline() {
   if [[ "$rollback_required" == '1' ]]; then
@@ -230,6 +242,7 @@ edit `state_kv` or `audit_log` rows by hand. After the event is processed, colle
 prediction and audit records:
 
 ```bash
+drill_started_at="$(jq -er '.started_at' .fdai/evidence/ohl-scale-out/baseline.json)"
 psql "$FDAI_STATE_STORE_DSN" -v ON_ERROR_STOP=1 --csv --command "SELECT key, value FROM state_kv WHERE key LIKE 'dynamic-trajectory-episode:%' AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(value->'predicted'->'intervention_refs') AS ref WHERE ref LIKE '%:ops.scale-out') ORDER BY updated_at DESC LIMIT 100" > .fdai/evidence/ohl-scale-out/graph-episodes.csv
 psql "$FDAI_STATE_STORE_DSN" -v ON_ERROR_STOP=1 --csv --command "SELECT seq, action_kind, mode, entry FROM audit_log WHERE action_kind IN ('dynamic.trajectory_episode.opened','dynamic.trajectory_outcome.closed','dynamic.trajectory_outcome.rejected','dynamic.graph_closure.processed','dynamic.graph_closure.run') AND created_at >= '$drill_started_at'::timestamptz ORDER BY seq" > .fdai/evidence/ohl-scale-out/graph-audit.csv
 ```
@@ -246,6 +259,7 @@ window. Don't shorten the window with a fake clock. Fake clocks are only for aut
 tests.
 
 ```bash
+drill_started_at="$(jq -er '.started_at' .fdai/evidence/ohl-scale-out/baseline.json)"
 az vmss show --subscription "$FDAI_OHL_EXPECTED_SUBSCRIPTION_ID" --resource-group "$FDAI_OHL_RESOURCE_GROUP" --name "$FDAI_OHL_VMSS_NAME" --query '{capacity:sku.capacity,provisioningState:provisioningState}' --output json --only-show-errors > .fdai/evidence/ohl-scale-out/recurrence-vmss.json
 az vmss list-instances --subscription "$FDAI_OHL_EXPECTED_SUBSCRIPTION_ID" --resource-group "$FDAI_OHL_RESOURCE_GROUP" --name "$FDAI_OHL_VMSS_NAME" --query 'length(@)' --output tsv --only-show-errors > .fdai/evidence/ohl-scale-out/recurrence-instance-count.txt
 az monitor activity-log list --resource-id "$FDAI_OHL_TARGET_RESOURCE_ID" --start-time "$drill_started_at" --max-events 50 --output json --only-show-errors > .fdai/evidence/ohl-scale-out/recurrence-activity-log.json
@@ -271,6 +285,113 @@ Change the scenario manifest to `complete` only when all conditions in the confi
 - production graph evidence and `ops.scale-out` executor bindings are present and focused tests pass;
 - the sanitized source receipt digest is recorded, `result.status` is `verified`, and residuals are
   empty.
+
+## Build and verify the completion bundle
+
+Keep the receipt bundle at the contract's `evidence.output_path`. It is one JSON object containing
+the campaign and correlation identifiers, exact target revision, campaign start and recurrence
+timestamps, the 21 uniquely typed receipts, the 12 completion-condition receipt digests, and all
+live-shadow samples. Each receipt includes every field in `common_receipt_fields`; each sample
+includes prediction and outcome digests, event, horizon, grace-complete observation timestamps,
+the 60-second observation window, completeness and censoring flags, the prediction and outcome,
+policy-escape and promotion flags, and distinct observer and executor identity digests.
+The `graph_shadow_prediction` and `graph_shadow_outcome` receipts additionally include every field
+in `graph_prediction_fields` and `graph_outcome_fields`. One graph outcome receipt may satisfy
+independent closure, horizon preservation, and zero policy escapes; each condition then references
+that receipt's same `provenance_digest`.
+
+Receipt and sample values must come from the protected-runner sources described above. The
+verifier checks deterministic consistency and integrity; it doesn't turn manually authored or
+synthetic JSON into live evidence.
+
+Store each typed receipt as one JSON object under
+`.fdai/evidence/ohl-scale-out/receipts/`. The filename is only an operator label. The `kind` field
+is authoritative and must be one of the 21 values in `required_receipts`. Every receipt starts
+with this exact common shape:
+
+```json
+{
+  "kind": "approval",
+  "evidence_level": "live_execution",
+  "authority_class": "human-approval",
+  "source_identity_digest": "<64-lowercase-hex-characters>",
+  "scope_digest": "<64-lowercase-hex-characters>",
+  "purpose": "OHL scale-out completion",
+  "query_version": "<collector-or-query-version>",
+  "event_time": "<RFC-3339-UTC-timestamp>",
+  "recorded_at": "<RFC-3339-UTC-timestamp>",
+  "freshness_seconds": 0,
+  "completeness": true,
+  "provenance_digest": "<64-lowercase-hex-characters>",
+  "synthetic": false,
+  "correlation_id": "<operator-request-correlation-id>",
+  "target_revision": "<40-character-git-revision>",
+  "verified": true
+}
+```
+
+Use `authority_class` to identify the authority boundary that produced the receipt, such as
+`human-approval`, `isolated-executor`, or `independent-observer`. Use `purpose` for the bounded
+campaign purpose and `query_version` for the immutable collector or query version. Set
+`freshness_seconds` to exactly `recorded_at - event_time` in seconds. Don't copy the placeholder
+values. Derive identity, scope, provenance, correlation, revision, and timestamps from the
+protected source.
+
+Add the fields in `graph_prediction_fields` or `graph_outcome_fields` to the corresponding graph
+receipt. Store all observations as one JSON array at
+`.fdai/evidence/ohl-scale-out/samples.json`. Each sample has the exact fields enforced by the
+verifier, and its `executor_identity_digest` must equal the `provider_scale_out` receipt's
+`source_identity_digest`.
+
+After the 14-day recurrence window completes, assemble the bundle. The builder rejects missing,
+unexpected, or duplicate receipt kinds and derives all 12 condition-to-receipt digest bindings
+from the manifest. It preserves supplied receipt and sample values and doesn't validate or upgrade
+them to live evidence. The output path is created once so an existing evidence bundle isn't
+overwritten.
+
+```bash
+receipts='.fdai/evidence/ohl-scale-out/receipts'
+samples='.fdai/evidence/ohl-scale-out/samples.json'
+bundle='.fdai/evidence/ohl-scale-out-live.json'
+drill_started_at="$(jq -er '.started_at' .fdai/evidence/ohl-scale-out/baseline.json)"
+recurrence_observed_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+python3 scripts/quality/repository/build-ohl-scale-out-evidence-bundle.py \
+  config/ohl-scale-out-evidence.json \
+  "$receipts" \
+  "$samples" \
+  "$bundle" \
+  --campaign-id "$FDAI_OHL_CAMPAIGN_ID" \
+  --correlation-id "$FDAI_OHL_CORRELATION_ID" \
+  --target-revision "$FDAI_OHL_EXPECTED_REVISION" \
+  --started-at "$drill_started_at" \
+  --recurrence-observed-at "$recurrence_observed_at"
+```
+
+Calculate the digest from the exact bundle bytes and create a candidate manifest without
+overwriting the tracked prepared contract:
+
+```bash
+candidate='.fdai/evidence/ohl-scale-out-complete.json'
+source_receipt_digest="$(sha256sum "$bundle" | awk '{print $1}')"
+completed_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+jq \
+  --arg digest "$source_receipt_digest" \
+  --arg completed_at "$completed_at" \
+  '.status="complete" | .evidence_level="live_execution" | .result={status:"verified",source_receipt_digest:$digest,completed_at:$completed_at} | .residuals=[]' \
+  config/ohl-scale-out-evidence.json > "$candidate"
+
+python3 scripts/quality/repository/validate-ohl-scale-out-evidence.py \
+  "$candidate" \
+  "$bundle"
+```
+
+The verifier fails closed on schema drift, missing or duplicate receipts, wrong condition
+bindings, synthetic or incomplete observations, fewer than 100 samples, less than 14 elapsed days
+or distinct UTC days, accuracy below `0.98`, any policy escape, shortened horizon or grace,
+non-independent observation, active-model mutation, promotion, and an exact-byte digest mismatch.
+Only after it prints `ohl-evidence: OK` may the tracked manifest adopt the verified candidate.
 
 ## Current blockers
 
