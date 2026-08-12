@@ -89,6 +89,9 @@ def test_ontology_direction_migration_invalidates_only_reversed_links() -> None:
     assert "ontology_link_contains_version_direction" in migration
     assert "type_version IS NOT NULL AND type_version <> '1.0.0'" in migration
     assert "DROP CONSTRAINT IF EXISTS ontology_link_contains_version_direction" in migration
+    downgrade = migration.split("def downgrade()", maxsplit=1)[1]
+    assert "authoritative inventory source" in downgrade
+    assert "INSERT INTO ontology_link" not in downgrade
 
 
 def test_ontology_direction_guard_repairs_existing_0078_databases() -> None:

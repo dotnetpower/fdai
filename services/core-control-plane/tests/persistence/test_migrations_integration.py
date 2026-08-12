@@ -329,6 +329,15 @@ def test_direction_migration_preserves_unrelated_graph_and_release_pins() -> Non
                 "'{}'::jsonb, '2.1.0', %s)",
                 (digest,),
             )
+        _alembic("downgrade", "20260806_0077")
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) FROM ontology_link "
+                "WHERE (link_type, from_id, to_id) IN "
+                "(('contains', 'migration-child', 'migration-parent'), "
+                "('attached_to', 'migration-vm', 'migration-nic'))"
+            )
+            assert cur.fetchone() == (0,)
     finally:
         _alembic("upgrade", "head")
         with _connect(url) as conn, conn.cursor() as cur:
