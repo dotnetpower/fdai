@@ -22,9 +22,21 @@ class ProfileContractError(ValueError):
     """Raised when a shared VS Code profile artifact is inconsistent."""
 
 
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ProfileContractError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
 def _read_json(path: Path) -> Any:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_json_keys,
+        )
     except (OSError, json.JSONDecodeError) as error:
         raise ProfileContractError(f"cannot read JSON from {path}: {error}") from error
 
@@ -121,6 +133,16 @@ def validate_artifacts(vscode_dir: Path = VSCODE_DIR) -> tuple[int, int]:
         raise ProfileContractError("Microsoft Terraform must remain an unwanted recommendation")
 
     settings = _profile_settings(profile)
+    forbidden_machine_keys = {
+        "python.analysis.nodeArguments",
+        "python.analysis.nodeExecutable",
+    }
+    present_machine_keys = sorted(forbidden_machine_keys & settings.keys())
+    if present_machine_keys:
+        raise ProfileContractError(
+            "Remote WSL Pylance machine settings cannot be isolated by profile: "
+            f"{present_machine_keys}"
+        )
     profile_machine_settings = {key: settings.get(key) for key in machine_template}
     if profile_machine_settings != machine_template:
         raise ProfileContractError("profile and machine settings template have drifted")

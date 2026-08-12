@@ -29,18 +29,19 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 |------|-------|----------|-------|
 | Automated-test fixture isolation | implemented | `tests/`, `console/tests/`, and the fixture-only composition paths exercised by the repository test suites | Deterministic fixtures remain outside authoritative interactive profiles. |
 | Local and deployed composition parity | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, and service integration tests | Composition roots select credentials and adapters without changing evidence authority. |
-| FDAI workspace and profile pressure controls | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`; focused profile and workspace tests: 9 passed | Resource-scoped controls stay in the workspace; machine-scoped Pylance launch controls stay in the FDAI profile. |
-| FDAI Pylance launch ceiling runtime proof | in-progress | The portable and host FDAI profile settings contain `--max-old-space-size=2048`; process-command verification remains open. | Configuration presence alone is not runtime evidence. |
+| FDAI workspace and profile pressure controls | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`; focused profile and workspace tests: 11 passed | Resource-scoped analysis controls stay in the workspace. The portable profile rejects Remote WSL Pylance machine settings that it cannot isolate. |
+| FDAI Pylance launch ceiling runtime proof | deferred | A clean FDAI Remote WSL restart still launched Pylance with the bundled VS Code Node executable and without `--max-old-space-size=2048`. VS Code Server 1.133 creates one Remote Machine settings resource independently of the active profile service. | Blocked pending an isolated runtime. A shared Remote Machine override would also affect excluded workspaces, so runtime isolation requires a separate VS Code Server data root or WSL distribution before the ceiling can be enabled. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance, and moved machine-scoped Pylance launch controls to the FDAI profile. | Current change in `.vscode/fdai.code-profile`, `.vscode/settings.json`, `scripts/automation/configure-vscode-profile.py`, and focused profile/workspace tests: 9 passed. | Record the FDAI Pylance process argument and centralized validation receipt. |
+| 2026-08-13 | deferred | Removed the ineffective Pylance machine settings, rejected duplicate profile JSON keys, and added a contract that prevents their return. | A clean Remote WSL process command lacked the configured heap argument; focused profile and workspace tests: 11 passed. | Use a separately rooted VS Code Server or WSL distribution, then prove the heap argument from the restarted process command. |
 
 ### Remaining work
 
-- [ ] Record a restarted FDAI Pylance process command containing `--max-old-space-size=2048`, confirm the excluded workspace remains untouched, and obtain the centralized validation receipt for this change.
+- [ ] Establish an FDAI-only Remote WSL server data root or WSL distribution, then record a restarted Pylance process command containing `--max-old-space-size=2048` without changing the excluded workspace.
 
 ## Audit - What Works Local, What Needs Azure
 
@@ -211,8 +212,10 @@ Pylance analysis covers the five service source roots, shared packages, independ
 and benchmark sources, and repository maintenance scripts. Background workspace indexing is
 disabled; open files still receive IntelliSense and diagnostics, and focused tests remain available
 through the test runner. Pylance does not follow symlinked folders and records warning-level
-language-server messages. The FDAI profile uses managed Node.js with a 2 GiB heap ceiling, while
-disabled library-source type inference further bounds the process without `light` mode. Configured workspace analysis, open-file diagnostics,
+language-server messages. Disabled library-source type inference bounds analysis work without
+`light` mode. A profile-local Node.js heap ceiling is not claimed: Remote WSL machine settings are
+shared by the server instance and a clean process-command check did not contain the attempted heap
+argument. Configured workspace analysis, open-file diagnostics,
 IntelliSense, and navigation therefore remain available. The validation worktree and linked local
 artifacts cannot duplicate the workspace analysis set or add information-level log churn. The Chat
 context-usage indicator remains enabled so a developer can move long work to the recorded session
@@ -233,8 +236,8 @@ the next step. Plain YAML validation remains active. Remote action-tag verificat
 workflow contract tests, and GitHub Actions runtime validation remain authoritative; no other
 workflow loses GitHub Actions language support.
 
-Workspace settings contain only resource-scoped Pylance controls; machine-scoped Node.js settings
-live in the shared FDAI profile because workspace placement does not constrain the process. The profile keeps HashiCorp Terraform as the single language server, and workstation
+Workspace settings contain only resource-scoped Pylance controls. Machine-scoped Node.js settings
+are absent because the shared Remote WSL server cannot isolate them by profile. The profile keeps HashiCorp Terraform as the single language server, and workstation
 cleanup does not reduce it. Unused extensions outside the profile may be uninstalled locally.
 The WSL bootstrap applies path-free machine settings that Profile sync cannot carry. These
 editor settings never select identity, evidence, runtime, promotion, or execution authority.

@@ -25,7 +25,7 @@ def test_repository_profile_artifacts_are_consistent() -> None:
     extension_count, setting_count = module.validate_artifacts()
 
     assert extension_count == 18
-    assert setting_count == 8
+    assert setting_count == 6
 
     machine_settings = module._read_json(module.MACHINE_TEMPLATE_PATH)
     assert "python.analysis.nodeArguments" not in machine_settings
@@ -33,8 +33,41 @@ def test_repository_profile_artifacts_are_consistent() -> None:
 
     profile = module._read_json(module.PROFILE_PATH)
     profile_settings = module._profile_settings(profile)
-    assert profile_settings["python.analysis.nodeArguments"] == ["--max-old-space-size=2048"]
-    assert profile_settings["python.analysis.nodeExecutable"] == "auto"
+    assert "python.analysis.nodeArguments" not in profile_settings
+    assert "python.analysis.nodeExecutable" not in profile_settings
+
+
+def test_read_json_rejects_duplicate_keys(tmp_path: Path) -> None:
+    module = _load_module()
+    duplicate = tmp_path / "duplicate.json"
+    duplicate.write_text('{"settings": 1, "settings": 2}', encoding="utf-8")
+
+    with pytest.raises(module.ProfileContractError, match="duplicate JSON key: settings"):
+        module._read_json(duplicate)
+
+
+def test_repository_profile_rejects_pylance_machine_settings(tmp_path: Path) -> None:
+    module = _load_module()
+    vscode_dir = tmp_path / ".vscode"
+    vscode_dir.mkdir()
+    for source in (
+        module.EXTENSIONS_PATH,
+        module.PROFILE_PATH,
+        module.MACHINE_TEMPLATE_PATH,
+    ):
+        (vscode_dir / source.name).write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+    profile_path = vscode_dir / module.PROFILE_PATH.name
+    profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    settings = json.loads(profile["settings"])
+    settings["python.analysis.nodeExecutable"] = "auto"
+    profile["settings"] = json.dumps(settings)
+    profile_path.write_text(json.dumps(profile), encoding="utf-8")
+
+    with pytest.raises(
+        module.ProfileContractError,
+        match="Remote WSL Pylance machine settings cannot be isolated by profile",
+    ):
+        module.validate_artifacts(vscode_dir)
 
 
 def test_profile_extensions_reject_export_metadata() -> None:
