@@ -6,6 +6,7 @@ from collections.abc import Sequence
 
 from fdai.shared.contracts.models import OntologyFunctionType
 
+from .catalog_queries import catalog_search_rules_function_type
 from .network_path import network_path_function_type
 from .pod_telemetry import pod_telemetry_function_type
 
@@ -16,6 +17,7 @@ def operational_function_types(
     """Combine reviewed catalog functions with source-derived competency functions."""
 
     combined = tuple(catalog_functions) + (
+        catalog_search_rules_function_type(),
         network_path_function_type(),
         pod_telemetry_function_type(),
     )
