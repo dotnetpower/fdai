@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 20247377a12baeee3cb57f25c537888bef575e02
+translation_source_sha: 5540be1c732eca089c261101d369d8aa5464d70d
 translation_revised: 2026-08-13
 ---
 
@@ -63,41 +63,38 @@ Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 현재 상태 활동 identity | 구현됨 | `read_investigation_latency.py`, `activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | Latency 프로파일은 hash된 correlation 참조만 유지하고 감사 항목은 correlation-free로 남으며, 영속 활동과 실제 운영 활동은 실행 권한 없이 하나의 identity를 공유합니다. |
+| Bragi 및 Heimdall 라우팅 | 구현됨 | 결정론적 영어 및 한국어 행위자, 종료, 이력, 상태, 상태 라우팅이 범용 채점 전에 Heimdall을 선택합니다. | - |
+| 조사 근거 신호 | 구현됨 | 한계된 read-investigation 훅은 Heimdall 대화형 포트의 owned 근거로 계산되므로, 로컬 신호 구간이 차기 전에도 조사 가능한 턴에는 evidence-gap 프롬프트 계층이 붙지 않습니다. | - |
+| Exact 리소스 해석 | 구현됨 | `not_found`, 범위가 제한된 `ambiguous`, scope-bound exact 참조가 해석 성공 전 이력 조회를 중지합니다. | - |
+| 타입이 지정된 의도 렌더링 | 구현됨 | 등록된 읽기 의도 7개가 모두 타입이 지정된 근거 필드와 관측 시간을 렌더링합니다. 렌더러가 없는 enum을 추가하면 범용 성공 문자열을 반환하지 않고 exhaustive 타입 검사가 실패합니다. | - |
+| 카탈로그/런타임 연결 | 구현됨 | 카탈로그 의도 ID가 런타임 enum과 정확히 일치하고 모든 읽기 의도를 Heimdall이 계속 소유하며 계획 ID가 unique인 경우에만 로컬 및 deployed 조립이 프로바이더 I/O 전에 시작됩니다. | - |
+| 플래너 의도 커버리지 | 구현됨 | 하나의 변경할 수 없는 런타임 의도 spec이 계획 ID, 기본값 및 interactive 도구, 조회 구간을 소유합니다. Enum 공백은 가져오기 및 exhaustive 테스트에서 실패하고 카탈로그 plan-ID 표류는 시작에서 차단됩니다. | - |
+| Resource-state 온톨로지 shadow 비교 | 구현됨 | 영속 인벤토리 조립은 authoritative 상태 읽기를 제공하고 exact 런타임 release는 `inventory.select_resources`를 제공하며 Heimdall 읽기 훅은 온톨로지 조회를 shadow로 실행합니다. 비교기는 요청, 프로파일, 계획, 호출, 결과 계보를 다시 검증하고 하나의 trusted 기준 시점과 300초 최신성 상한을 적용하며 principal-scoped 변경할 수 없는 증적을 `StateStore`에 추가합니다. 요청자 및 대화 참조는 안정적인 불투명 hash이므로 영속 shadow 증적은 원시 신원 값 없이 소유 범위를 유지합니다. 한 번의 호출 안에서는 영속 및 실시간 활동이 불투명한 hash correlation을 공유합니다. Principal, 대화 및 질문이 같아도 반복 호출에는 서로 다른 correlation을 부여하고 논리적 요청 멱등성 키는 안정적으로 유지합니다. 프로파일은 질문, 리소스 identity 또는 호출 token을 저장하지 않고 latency 감사에 correlation을 추가하지 않습니다. Shadow 실패는 authoritative 답변을 변경하거나 재시도하지 않습니다. | 실제 cross-service 동등성 증적은 release 근거로 남아 있습니다. |
+| 대화형 리소스 연속성 | 구현됨 | Command Deck은 서버가 선택한 인벤토리 리소스 하나를 최종 턴 사이에 유지합니다. Resource Health 이력은 리소스 그룹, 시각 및 상태로 구성된 완전한 anomalous-event 기준점 하나도 유지할 수 있습니다. 생략된 이력 및 장애 직전 후속 질문은 의미 및 공개 웹 계획 수립을 우회하고, Heimdall이 범위가 제한된 맥락을 다시 검증한 뒤 일치하는 읽기 근거를 직접 반환합니다. | - |
+| 구독 범위 신원 | 구현됨 | 현재 구독 신원 질문은 서버에 구성된된 구독 이름과 상태를 Azure Resource Manager에서 읽고, masked 구독 ID만 렌더링하며, 서술기 모델을 호출하지 않습니다. | - |
+| 구독 상태 일괄 점검 | 구현됨 | 명시적인 구독 점검, 일반적인 service-outage 질문 및 일반적인 degraded 또는 사용 불가 resource-state 질문이 구성된 읽기 담당 범위를 사용합니다. 인벤토리 언어 카탈로그가 가용성 의미에 대해 Resource Health 권한을 선택합니다. 프로바이더는 구성된 resource-group 허용 목록을 기본으로 사용합니다. 명시적인 서버가 소유한 구독 모드는 interactive 로컬 상태 범위를 구독 인벤토리와 맞춥니다. Platform-impact 읽기는 활성 서비스 Health 이벤트와 impacted 리소스를 조회하고 장애를 maintenance 및 참고용과 분리한 다음 Resource Health 원인과 correlate합니다. 다른 diagnosis 읽기는 최대 16개 supported 리소스의 대표 메트릭을 동시성 4 이하로 확인할 수 있습니다. | - |
+| Azure 근거 어댑터 | 구현됨 | REST는 상태, Activity Log, Resource Health, 게스트 로그, 구성된 NSG 룰 및 VNet 피어링 속성을 지원합니다. Interactive 로컬은 실행기 신원을 받지 않고 등록된 개발 operations 게이트웨이를 통해 NSG 및 피어링 읽기를 전달할 수 있습니다. 타입이 지정된 CLI 대체 경로는 등록된 계획으로 리소스, VM 상태, Activity Log를 지원합니다. | - |
+| 선택적 Azure MCP 읽기 | 구현됨 | 공식 MCP Python SDK가 고정된 Azure MCP 서버를 stdio로 시작하고 트래픽 전에 이름 공간 허용 목록을 탐색합니다. VM 상태, Activity Log, Resource Health에 사용하며 사용 불가 상태이거나 circuit 차단기에서 차단되면 타입이 지정된 REST로 즉시 대체 경로합니다. | - |
+| Read-tool attenuation | 구현됨 | `background.read-only`는 읽기 담당 도구 7개만 포함하고 변경, 승인, 셸, arbitrary-query, nested-worker 기능을 차단합니다. | - |
+| 실행 모드 및 진행 상황 | 구현됨 | 영속 p50/p95 프로파일이 cloud I/O 전에 direct, streamed, detached 모드를 선택합니다. Exact 해석은 barrier이며 독립 근거 도구는 범위가 제한된 병렬 한도 안에서 실행됩니다. Streamed 모드는 범위가 제한된 진행 상황과 SSE comment 하트비트를 전송하고, 스트림 close는 프로바이더 작업을 취소하며, 최종 이벤트는 한 번만 발생합니다. | - |
+| Interactive 정책 동등성 | 구현됨 | 로컬 및 deployed 대화 조립은 동일한 명시적 direct, streamed 및 multi-source 임계값을 사용합니다. 어댑터 지연 시간은 다를 수 있지만 execution-mode 정책은 환경에 따라 달라지지 않습니다. | - |
+| Direct 및 streamed 재생 | 구현됨 | Owner-scoped PostgreSQL 실행 원장이 정본 요청을 점유하고 임차 기간을 renew하며 reclaim 시도를 제한합니다. 최종 사용량을 보존하고 프로바이더를 다시 호출하지 않고 completed 결과를 재생합니다. Command Deck direct 읽기도 같은 실행기를 사용합니다. Interactive 로컬 PostgreSQL 프로파일도 같은 실행 저장소를 제공하며 in-memory 재생 경로로 대체하지 않습니다. | - |
+| Detached 실행 및 할당량 | 구현됨 | 타입이 지정된 실행기는 서술기 이력, 화면 상태, 이벤트 버스, Thor, 실행기 신원을 받지 않습니다. Per-principal 동시성, 비용, wall-clock, tool-call 할당량은 영속 creation에서 적용됩니다. | - |
+| 완료 인계 | 구현됨 | 최종 결과와 pending 완료 발신함이 원자적으로 커밋됩니다. 범위가 제한된 재시도는 조사를 다시 실행하지 않고 멱등적 대화 및 reply-ledger 인계를 재생합니다. | - |
+| 실제 운영 Azure 시나리오 근거 | 진행 중 | 호출자 귀속, Resource Health, 승인되지 않은 범위 및 모호한 이름은 읽기 전용 실제 운영 검증을 통과했습니다. | Guest-event 일치와 실제 프로바이더 `429`는 release 근거 공백으로 남습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
-| 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 범위가 제한된 현재 상태 활동 identity를 기록했습니다. | 현재 출처와 `test_read_investigation_latency.py`, `test_activity_projection.py`, 통과한 focused 테스트 | 아래 실제 cross-service 동등성 증적을 기록합니다. |
+| 2026-08-13 | 구현됨 | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며 범위가 제한된 현재 상태 활동 identity를 기록했습니다. | 현재 소스와 `test_read_investigation_latency.py` 및 `test_activity_projection.py`; 집중 스위트가 통과했습니다. | 아래의 실제 cross-service 동등성 증적을 기록합니다. |
+| 2026-08-13 | 구현됨 | 논리적 요청 멱등성은 안정적으로 유지하면서 각 current-state 읽기 호출에 서로 다른 불투명 활동 correlation을 부여하고, 한 호출의 실시간 및 영속 수명 주기에서는 하나의 correlation을 유지했습니다. | 현재 변경의 `wire_read_investigation.py` 및 `test_wire_read_investigation.py`; 집중 composition 스위트의 테스트 5개가 통과했습니다. | 실제 cross-service 동등성 증적을 기록하고 아래의 실제 운영 Azure 시나리오 공백을 해소합니다. |
+| 2026-08-13 | 구현됨 | 원시 요청자 및 대화 참조를 안정적인 불투명 hash로 대체하여 영속 shadow 증적에서 원시 신원을 노출하지 않고 principal 범위를 유지했습니다. | 현재 변경의 `wire_read_investigation.py` 및 `test_wire_read_investigation.py`; 영속 증적 privacy 및 identity 분리를 포함한 집중 composition 스위트의 테스트 5개가 통과했습니다. | 실제 cross-service 동등성 증적을 기록하고 아래의 실제 운영 Azure 시나리오 공백을 해소합니다. |
 
 ### 남은 작업
 
-- [ ] 영속 재생과 이에 대응하는 실제 운영 현재 상태 프레임이 하나의 activity id로 수렴함을 보여 주는 통제된 실제 cross-service 동등성 증적을 기록합니다.
-
-## 기능 상태
-
-| 기능 | 현재 상태 | 근거 |
-|------------|-----------|------|
-| Bragi 및 Heimdall 라우팅 | 구현됨 | 결정론적 영어 및 한국어 행위자, 종료, 이력, 상태, 상태 라우팅이 범용 채점 전에 Heimdall을 선택합니다. |
-| 조사 근거 신호 | 구현됨 | 한계된 read-investigation 훅은 Heimdall 대화형 포트의 owned 근거로 계산되므로, 로컬 신호 구간이 차기 전에도 조사 가능한 턴에는 evidence-gap 프롬프트 계층이 붙지 않습니다. |
-| Exact 리소스 해석 | 구현됨 | `not_found`, 범위가 제한된 `ambiguous`, scope-bound exact 참조가 해석 성공 전 이력 조회를 중지합니다. |
-| 타입이 지정된 의도 렌더링 | 구현됨 | 등록된 읽기 의도 7개가 모두 타입이 지정된 근거 필드와 관측 시간을 렌더링합니다. 렌더러가 없는 enum을 추가하면 범용 성공 문자열을 반환하지 않고 exhaustive 타입 검사가 실패합니다. |
-| 카탈로그/런타임 연결 | 구현됨 | 카탈로그 의도 ID가 런타임 enum과 정확히 일치하고 모든 읽기 의도를 Heimdall이 계속 소유하며 계획 ID가 unique인 경우에만 로컬 및 deployed 조립이 프로바이더 I/O 전에 시작됩니다. |
-| 플래너 의도 커버리지 | 구현됨 | 하나의 변경할 수 없는 런타임 의도 spec이 계획 ID, 기본값 및 interactive 도구, 조회 구간을 소유합니다. Enum 공백은 가져오기 및 exhaustive 테스트에서 실패하고 카탈로그 plan-ID 표류는 시작에서 차단됩니다. |
-| Resource-state 온톨로지 shadow 비교 | 구현 및 런타임 연결됨 | 영속 인벤토리 조립은 authoritative 상태 읽기를 제공하고 exact 런타임 release는 `inventory.select_resources`를 제공하며 Heimdall 읽기 훅은 온톨로지 조회를 shadow로 실행합니다. 비교기는 요청, 프로파일, 계획, 호출, 결과 계보를 다시 검증하고 하나의 trusted 기준 시점과 300초 최신성 상한을 적용하며 principal-scoped 변경할 수 없는 증적을 `StateStore`에 추가합니다. 범위가 제한된 latency 프로파일은 이미 hash된 correlation 참조만 유지해 영속 활동과 실제 운영 활동이 같은 identity를 사용하게 하며 질문이나 리소스 identity를 저장하거나 latency 감사에 correlation을 추가하지 않습니다. Shadow 실패는 authoritative 답변을 변경하거나 재시도하지 않습니다. 실제 cross-service 동등성 증적은 release 근거로 남아 있습니다. |
-| 대화형 리소스 연속성 | 구현됨 | Command Deck은 서버가 선택한 인벤토리 리소스 하나를 최종 턴 사이에 유지합니다. Resource Health 이력은 리소스 그룹, 시각 및 상태로 구성된 완전한 anomalous-event 기준점 하나도 유지할 수 있습니다. 생략된 이력 및 장애 직전 후속 질문은 의미 및 공개 웹 계획 수립을 우회하고, Heimdall이 범위가 제한된 맥락을 다시 검증한 뒤 일치하는 읽기 근거를 직접 반환합니다. |
-| 구독 범위 신원 | 구현됨 | 현재 구독 신원 질문은 서버에 구성된된 구독 이름과 상태를 Azure Resource Manager에서 읽고, masked 구독 ID만 렌더링하며, 서술기 모델을 호출하지 않습니다. |
-| 구독 상태 일괄 점검 | 구현됨 | 명시적인 구독 점검, 일반적인 service-outage 질문 및 일반적인 degraded 또는 사용 불가 resource-state 질문이 구성된 읽기 담당 범위를 사용합니다. 인벤토리 언어 카탈로그가 가용성 의미에 대해 Resource Health 권한을 선택합니다. 프로바이더는 구성된 resource-group 허용 목록을 기본으로 사용합니다. 명시적인 서버가 소유한 구독 모드는 interactive 로컬 상태 범위를 구독 인벤토리와 맞춥니다. Platform-impact 읽기는 활성 서비스 Health 이벤트와 impacted 리소스를 조회하고 장애를 maintenance 및 참고용과 분리한 다음 Resource Health 원인과 correlate합니다. 다른 diagnosis 읽기는 최대 16개 supported 리소스의 대표 메트릭을 동시성 4 이하로 확인할 수 있습니다. |
-| Azure 근거 어댑터 | 구현됨 | REST는 상태, Activity Log, Resource Health, 게스트 로그, 구성된 NSG 룰 및 VNet 피어링 속성을 지원합니다. Interactive 로컬은 실행기 신원을 받지 않고 등록된 개발 operations 게이트웨이를 통해 NSG 및 피어링 읽기를 전달할 수 있습니다. 타입이 지정된 CLI 대체 경로는 등록된 계획으로 리소스, VM 상태, Activity Log를 지원합니다. |
-| 선택적 Azure MCP 읽기 | 구현됨 | 공식 MCP Python SDK가 고정된 Azure MCP 서버를 stdio로 시작하고 트래픽 전에 이름 공간 허용 목록을 탐색합니다. VM 상태, Activity Log, Resource Health에 사용하며 사용 불가 상태이거나 circuit 차단기에서 차단되면 타입이 지정된 REST로 즉시 대체 경로합니다. |
-| Read-tool attenuation | 구현됨 | `background.read-only`는 읽기 담당 도구 7개만 포함하고 변경, 승인, 셸, arbitrary-query, nested-worker 기능을 차단합니다. |
-| 실행 모드 및 진행 상황 | 구현됨 | 영속 p50/p95 프로파일이 cloud I/O 전에 direct, streamed, detached 모드를 선택합니다. Exact 해석은 barrier이며 독립 근거 도구는 범위가 제한된 병렬 한도 안에서 실행됩니다. Streamed 모드는 범위가 제한된 진행 상황과 SSE comment 하트비트를 전송하고, 스트림 close는 프로바이더 작업을 취소하며, 최종 이벤트는 한 번만 발생합니다. |
-| Interactive 정책 동등성 | 구현됨 | 로컬 및 deployed 대화 조립은 동일한 명시적 direct, streamed 및 multi-source 임계값을 사용합니다. 어댑터 지연 시간은 다를 수 있지만 execution-mode 정책은 환경에 따라 달라지지 않습니다. |
-| Direct 및 streamed 재생 | 구현됨 | Owner-scoped PostgreSQL 실행 원장이 정본 요청을 점유하고 임차 기간을 renew하며 reclaim 시도를 제한합니다. 최종 사용량을 보존하고 프로바이더를 다시 호출하지 않고 completed 결과를 재생합니다. Command Deck direct 읽기도 같은 실행기를 사용합니다. Interactive 로컬 PostgreSQL 프로파일도 같은 실행 저장소를 제공하며 in-memory 재생 경로로 대체하지 않습니다. |
-| Detached 실행 및 할당량 | 구현됨 | 타입이 지정된 실행기는 서술기 이력, 화면 상태, 이벤트 버스, Thor, 실행기 신원을 받지 않습니다. Per-principal 동시성, 비용, wall-clock, tool-call 할당량은 영속 creation에서 적용됩니다. |
-| 완료 인계 | 구현됨 | 최종 결과와 pending 완료 발신함이 원자적으로 커밋됩니다. 범위가 제한된 재시도는 조사를 다시 실행하지 않고 멱등적 대화 및 reply-ledger 인계를 재생합니다. |
-| 실제 운영 Azure 시나리오 근거 | 일부 검증됨 | 호출자 귀속, Resource Health, 승인되지 않은 범위 및 모호한 이름은 읽기 전용 실제 운영 검증을 통과했습니다. Guest-event 일치와 실제 프로바이더 `429`는 release 근거 공백으로 남습니다. |
+- [ ] Snapshot-first hydration과 동일 호출의 영속/실시간 identity를 증명하는 실제 cross-service 동등성 증적을 기록합니다.
+- [ ] 관리되는 실제 운영 Azure 시나리오 근거에서 guest-event 일치와 실제 프로바이더 `429` 응답을 검증합니다.
 
 ## 조사 요청 및 계획
 

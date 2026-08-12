@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: f11cb72dc1443a1f7df0eb2c3201734550a7de8b
+translation_source_sha: 9fd36b14f734c63274a9e49ca75975de78199c03
 translation_revised: 2026-08-13
 ---
 # 코드 맵
@@ -32,6 +32,7 @@ translation_revised: 2026-08-13
 | Service-owned 출처 및 테스트 지도 | 진행 중 | 이 지도, `tests/integration/` 및 위에 명시한 범위가 제한된 IS-08과 IS-07 근거 | 로컬 소유권과 롤백 근거는 매핑되었으며 IS-09 원격 검증은 남아 있습니다. |
 | Exact-generation Rule 검색 | 구현됨 | `core/ontology_platform/catalog_queries.py`, `test_catalog_queries.py`, `make test-changed DIFF=e4d9483a5^..e4d9483a5` (`10574 passed`) | 결과는 후보 전용이며 활성 Rule 세대를 exact 온톨로지 release에 연결하고 판단, 승인 또는 실행 권한을 포함하지 않습니다. |
 | 런타임 바인딩 기반 플래너 가시성 | 구현됨 | `composition/wire_semantic_query.py`, `core/conversation/semantic_manifest.py`, `core/ontology_platform/query_manifest.py`, focused 조립 및 매니페스트 테스트 | 플래너 서술자는 조립된 런타임에 등록된 함수만 노출합니다. 읽을 수 있지만 바인딩되지 않은 선언은 타입이 지정된 구조 coverage에 남으며 어떤 권한도 얻지 않습니다. |
+| 읽기 조사 활동 ID | 구현됨 | `composition/wire_read_investigation.py`, `test_wire_read_investigation.py`, focused 테스트 | 각 호출은 실시간 및 영속 활동에서 하나의 불투명한 상관관계 값을 공유하고, 별도 호출은 서로 다른 상관관계 값을 사용하며, 논리적 요청 멱등성은 안정적으로 유지됩니다. |
 
 ### 구현 이력
 
@@ -39,6 +40,7 @@ translation_revised: 2026-08-13
 |------|------|------|------|-----------|
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 exact-generation Rule 검색을 기록했습니다. | 현재 변경의 `catalog_queries.py`, `operational_functions.py`, `test_catalog_queries.py`, 통과한 focused 테스트 및 diff-scoped 검증 | 아래 IS-09 원격 검증 항목을 완료합니다. |
 | 2026-08-13 | 구현됨 | 플래너 함수 가시성을 실제 런타임 등록에 연결하고 바인딩되지 않은 읽기 가능 선언을 타입이 지정된 구조 coverage에 유지했습니다. | 현재 변경의 `wire_semantic_query.py`, `semantic_manifest.py`, `query_manifest.py` 및 해당 focused 테스트 | 영속 production 의미 인덱스는 이 변경 범위 밖에 있으며 아래 IS-09 원격 검증 항목을 완료합니다. |
+| 2026-08-13 | 구현됨 | 호출 상관관계를 논리적 요청 멱등성과 분리하고 영속 요청자 및 대화 ID를 불투명 참조로 바꿨습니다. | `current change`, `wire_read_investigation.py`, `test_wire_read_investigation.py`, 통과한 focused 테스트 5개 | 아래 IS-09 원격 검증 항목을 완료합니다. |
 
 ### 남은 작업
 
@@ -70,7 +72,7 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 | 메트릭 의미 프로바이더 연결 | Alias-free 검토된 메트릭 개념과 관찰된 zero를 프로바이더 공백과 구분하는 exact `MetricProvider` 구간 | [metric_window.py](../../../services/core-control-plane/src/fdai/delivery/metric_window.py) 및 [metric_semantic_catalog.py](../../../services/core-control-plane/src/fdai/runtime/metric_semantic_catalog.py) | [메트릭 의미 카탈로그 테스트](../../../services/core-control-plane/tests/runtime/test_metric_semantic_catalog.py) |
 | 운영 가설 루프 | 완전한 graph Dynamic 근거 연결, 기한이 제한된 독립 궤적 종결, 감독되는 타입 기반 효과 조정, 변경 불가능한 운영 계보 및 Owner 사람 승인을 거치는 graph-model pointer 승격 | [graph 근거](../../../services/core-control-plane/src/fdai/delivery/azure/graph_dynamic_evidence.py), [종결](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py), [조정](../../../services/core-control-plane/src/fdai/delivery/reconciliation_runtime.py), [계보](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py) 및 [승격](../../../services/core-control-plane/src/fdai/delivery/graph_model_promotion.py) | [graph 근거 테스트](../../../services/core-control-plane/tests/delivery/azure/test_graph_dynamic_evidence.py), [종결 테스트](../../../services/core-control-plane/tests/assurance_twin/test_graph_closure.py), [조정 테스트](../../../services/core-control-plane/tests/delivery/test_reconciliation_runtime.py), [계보 테스트](../../../services/core-control-plane/tests/core/operational_planning/test_hypothesis_lineage.py) 및 [승격 테스트](../../../services/core-control-plane/tests/delivery/test_graph_model_promotion.py) |
 | 에이전트 pantheon | 고정 에이전트 15개와 타입이 지정된 이벤트 런타임 | [에이전트](../../../services/core-control-plane/src/fdai/agents/) | [에이전트 테스트](../../../services/core-control-plane/tests/agents/) |
-| 조립 | Exact-release 의미 조회 assembly와 request-role 실행기 factory를 포함한 프로바이더/런타임 의존성 주입 | [조립](../../../services/core-control-plane/src/fdai/composition/) | [조립 테스트](../../../services/core-control-plane/tests/composition/) |
+| 조립 | Exact-release 의미 조회 assembly, request-role 실행기 factory 및 호출 범위의 불투명 상관관계를 사용하는 리소스 상태 활동 게시를 포함한 프로바이더/런타임 의존성 주입 | [조립](../../../services/core-control-plane/src/fdai/composition/) | [조립 테스트](../../../services/core-control-plane/tests/composition/) |
 | Core 어댑터 | Core에 남은 프로바이더, 영속성, 알림 및 platform 어댑터 | [전달](../../../services/core-control-plane/src/fdai/delivery/) | [전달 테스트](../../../services/core-control-plane/tests/delivery/) |
 | 런타임 | Core 프로세스 수명 주기, 준비 상태, 이벤트 전송 계층, supervision 및 의미 런타임 가용성 연결 | [런타임](../../../services/core-control-plane/src/fdai/runtime/) | [런타임 테스트](../../../services/core-control-plane/tests/runtime/) |
 | Core 계약과 프로바이더 경계 | Core 전용 타입, 프로바이더 프로토콜, 구성, 스트리밍 및 텔레메트리 | [shared](../../../services/core-control-plane/src/fdai/shared/) | [shared 테스트](../../../services/core-control-plane/tests/shared/) |
@@ -89,7 +91,9 @@ Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 
 허용하고, `CatalogRetrievalReceipt`와 함께 후보 전용 Rule을 반환하며, 판단, 승인 또는 실행
 권한을 부여하지 않습니다. Resource-state 조사 경로는 promoted 인벤토리를 답변 권한으로
 유지하고 온톨로지 조회를 shadow로 실행하며 principal-scoped 동등성 증적을 StateStore에
-저장합니다.
+저장합니다. 실제 호출마다 실시간 및 영속 활동 수명 주기에서 공유하는 불투명한
+`correlation_ref` 하나를 받고, 불투명한 요청자 및 대화 참조는 재시도 간 논리적 질문
+`idempotency_key`를 안정적으로 유지합니다. 별도 호출은 상관관계 값을 재사용하지 않습니다.
 공개 조립 파사드는 선택적 resource-state composer만 내보냅니다. 구현 타입은 focused binder에
 유지해 파사드가 structural 상한 아래에 머물도록 합니다.
 플래너 매니페스트는 ObjectType 및 Interface 속성에 동일한 역할/용도 filtering을 적용합니다.

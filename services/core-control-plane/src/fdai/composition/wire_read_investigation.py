@@ -8,6 +8,7 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
 
@@ -104,6 +105,7 @@ class ResourceStateShadowHook:
         shadow_service: ShadowResourceStateComparisonService,
         clock: Callable[[], datetime],
         activity_publisher: EventBusOperationalActivityPublisher | None = None,
+        invocation_id_factory: Callable[[], str] | None = None,
     ) -> None:
         self._read_service = read_service
         self._semantic_service = semantic_service
@@ -112,6 +114,7 @@ class ResourceStateShadowHook:
         self._shadow_service = shadow_service
         self._clock = clock
         self._activity_publisher = activity_publisher
+        self._invocation_id_factory = invocation_id_factory or (lambda: uuid4().hex)
 
     async def __call__(
         self,
@@ -128,13 +131,23 @@ class ResourceStateShadowHook:
         resource_name = resource_name_from_question(question)
         if resource_name is None:
             return None
-        requester_ref = _reference("principal", context.get("user_id"), fallback="operator")
-        conversation_ref = _reference(
+        requester_ref = _opaque_reference(
+            "principal",
+            context.get("user_id"),
+            fallback="operator",
+        )
+        conversation_ref = _opaque_reference(
             "conversation",
             context.get("session_id"),
             fallback="unbound",
         )
-        correlation_ref = _digest_ref("read-correlation", requester_ref, conversation_ref, question)
+        correlation_ref = _digest_ref(
+            "read-correlation",
+            requester_ref,
+            conversation_ref,
+            question,
+            self._invocation_id_factory(),
+        )
         request = ReadInvestigationRequest(
             requester_ref=requester_ref,
             conversation_ref=conversation_ref,
@@ -298,6 +311,7 @@ def build_resource_state_shadow_hook(
     ontology_store: OntologyInstanceStore,
     clock: Callable[[], datetime] | None = None,
     activity_publisher: EventBusOperationalActivityPublisher | None = None,
+    invocation_id_factory: Callable[[], str] | None = None,
 ) -> ResourceStateShadowHook:
     """Compose exact-release resource-state shadowing from production read seams."""
 
@@ -348,6 +362,7 @@ def build_resource_state_shadow_hook(
         shadow_service=ShadowResourceStateComparisonService(sink=shadow_sink),
         clock=evaluation_clock,
         activity_publisher=activity_publisher,
+        invocation_id_factory=invocation_id_factory,
     )
 
 
@@ -447,9 +462,9 @@ def _render_result(
     }
 
 
-def _reference(prefix: str, value: object, *, fallback: str) -> str:
-    text = str(value or fallback).strip()
-    return text if text.startswith(f"{prefix}:") else f"{prefix}:{text}"
+def _opaque_reference(prefix: str, value: object, *, fallback: str) -> str:
+    text = str(value or fallback).strip() or fallback
+    return _digest_ref(prefix, text)
 
 
 def _digest_ref(prefix: str, *values: str) -> str:
