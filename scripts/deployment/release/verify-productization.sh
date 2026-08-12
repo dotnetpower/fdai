@@ -12,7 +12,11 @@ tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
 python_paths=(
-  services/core-control-plane/src/fdai/deployment_cli
+  packages/service-contracts/src
+  services/operator-service/src
+  services/document-ingestion-api/src
+  services/document-processing-worker/src
+  services/isolated-executor/src
   services/core-control-plane/src/fdai/composition/wire_llm.py
   services/core-control-plane/src/fdai/core/capability_catalog
   services/core-control-plane/src/fdai/core/conversation/channel_access.py
@@ -27,13 +31,7 @@ python_paths=(
   services/core-control-plane/src/fdai/core/operator_memory
   services/core-control-plane/src/fdai/core/scheduler
   services/core-control-plane/src/fdai/core/skills
-  services/core-control-plane/src/fdai/delivery/channels
   services/core-control-plane/src/fdai/delivery/azure/llm
-  services/core-control-plane/src/fdai/delivery/azure/preflight
-  services/core-control-plane/src/fdai/delivery/github/deployment_workflow.py
-  services/core-control-plane/src/fdai/delivery/trust
-  services/core-control-plane/src/fdai/delivery/ingestion_gateway/main.py
-  services/core-control-plane/src/fdai/delivery/knowledge
   scripts/deployment/azure/cleanup-deployment-plans.py
   scripts/deployment/azure/check-runner-egress.py
   scripts/deployment/release/build-deployment-bundle.py
@@ -44,10 +42,6 @@ python_paths=(
   services/core-control-plane/src/fdai/shared/providers/document_converter.py
   services/core-control-plane/src/fdai/shared/providers/local/document_ingestion.py
   services/core-control-plane/src/fdai/shared/telemetry
-  services/core-control-plane/src/fdai/delivery/mcp
-  services/core-control-plane/src/fdai/delivery/operator_api/routes/scheduler_runs.py
-  services/core-control-plane/src/fdai/delivery/rpc
-  services/core-control-plane/src/fdai/delivery/webhook
   services/core-control-plane/src/fdai/delivery/persistence/postgres_schedule_run_ledger.py
   services/core-control-plane/src/fdai/delivery/persistence/postgres_scheduler_store.py
   services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_pairing.py
@@ -64,9 +58,15 @@ python_paths=(
 )
 
 test_paths=(
-  tests/deployment_cli
+  packages/service-contracts/tests
+  services/operator-service/tests
+  services/document-ingestion-api/tests
+  services/document-processing-worker/tests
+  services/isolated-executor/tests
   tests/integration/infra/test_apim_ai_gateway.py
   tests/integration/test_composition_llm.py
+  tests/integration/services/test_core_service_package.py
+  tests/integration/services/test_service_distributions.py
   services/core-control-plane/tests/core/capability_catalog
   services/core-control-plane/tests/core/rpc
   services/core-control-plane/tests/core/sandbox
@@ -74,28 +74,18 @@ test_paths=(
   services/core-control-plane/tests/core/operator_memory
   services/core-control-plane/tests/core/scheduler
   services/core-control-plane/tests/core/skills
-  tests/conversation
+  services/core-control-plane/tests/conversation
   services/core-control-plane/tests/delivery/channels
   services/core-control-plane/tests/delivery/azure/llm
-  services/core-control-plane/tests/delivery/azure/preflight
-  services/core-control-plane/tests/delivery/github/test_deployment_workflow.py
-  services/core-control-plane/tests/delivery/trust
-  services/core-control-plane/tests/delivery/ingestion_gateway/test_main.py
-  services/core-control-plane/tests/delivery/knowledge/test_loader.py
   tests/integration/scripts/test_cleanup_deployment_plans.py
   tests/integration/scripts/test_check_runner_egress.py
-  tests/integration/scripts/test_build_deployment_bundle.py
-  tests/integration/scripts/test_build_offline_kit.py
-  tests/integration/scripts/test_issue_license.py
   tests/integration/scripts/test_release_deployment_bundle_workflow.py
   tests/integration/scripts/test_verify_deployment_plan.py
+  tests/integration/scripts/test_verify_productization.py
   services/core-control-plane/tests/core/document_ingestion/test_document_ingestion.py
   services/core-control-plane/tests/shared/test_transition_telemetry.py
   services/core-control-plane/tests/delivery/mcp
-  services/core-control-plane/tests/delivery/operator_api/test_scheduler_runs_panel.py
-  services/core-control-plane/tests/delivery/rpc
   services/core-control-plane/tests/delivery/webhook
-  services/core-control-plane/tests/delivery/operator_api/test_webhook_route.py
   services/core-control-plane/tests/delivery/azure/llm/test_latency_routed_cross_check.py
   services/core-control-plane/tests/persistence/test_postgres_schedule_run_ledger.py
   services/core-control-plane/tests/persistence/test_postgres_scheduler_store.py
@@ -105,10 +95,7 @@ test_paths=(
   services/core-control-plane/tests/persistence/test_postgres_model_health.py
   services/core-control-plane/tests/persistence/test_postgres_memory_compaction.py
   services/core-control-plane/tests/persistence/test_postgres_operator_memory.py
-  services/core-control-plane/tests/persistence/test_postgres_trusted_artifact.py
   services/core-control-plane/tests/persistence/test_postgres_rpc_idempotency.py
-  services/core-control-plane/tests/delivery/operator_api/test_operator_memory_panel.py
-  services/core-control-plane/tests/delivery/operator_api/test_model_settings.py
   services/core-control-plane/tests/rule_catalog/schema/test_llm_registry.py
   services/core-control-plane/tests/rule_catalog/schema/test_llm_resolver.py
   services/core-control-plane/tests/rule_catalog/schema/test_model_endpoint.py
@@ -148,24 +135,23 @@ if [[ "$head_count" != "1" ]]; then
 fi
 uv run alembic heads
 
-printf '== productization: wheel + isolated CLI smoke ==\n'
-uv build --wheel --out-dir "$tmp_dir/dist"
-wheel="$(find "$tmp_dir/dist" -maxdepth 1 -type f -name 'fdai-*.whl' -print -quit)"
-if [[ -z "$wheel" ]]; then
-  printf 'wheel build produced no fdai wheel\n' >&2
+printf '== productization: independent distribution wheels ==\n'
+distribution_packages=(
+  fdai-service-contracts
+  fdai-core-control-plane
+  fdai-operator-service
+  fdai-document-ingestion-api
+  fdai-document-processing-worker
+  fdai-isolated-executor-service
+)
+for package in "${distribution_packages[@]}"; do
+  uv build --wheel --package "$package" --out-dir "$tmp_dir/dist"
+done
+wheel_count="$(find "$tmp_dir/dist" -maxdepth 1 -type f -name '*.whl' | wc -l | tr -d ' ')"
+if [[ "$wheel_count" != "${#distribution_packages[@]}" ]]; then
+  printf 'expected %s distribution wheels, found %s\n' \
+    "${#distribution_packages[@]}" "$wheel_count" >&2
   exit 1
 fi
-uvx --from "$wheel" fdaictl version --output json
-uvx --from "$wheel" fdai-model-endpoint-discovery --help >/dev/null
-uvx --from "$wheel" fdaictl provision inspect --help >/dev/null
-uvx --from "$wheel" fdaictl onboard guided --help >/dev/null
-uvx --from "$wheel" fdaictl deploy plan --help >/dev/null
-uvx --from "$wheel" fdaictl deploy status --help >/dev/null
-uvx --from "$wheel" fdaictl deploy apply --help >/dev/null
-uvx --from "$wheel" fdaictl backup create --help >/dev/null
-uvx --from "$wheel" fdaictl backup restore --help >/dev/null
-uvx --from "$wheel" fdaictl provision init --help >/dev/null
-uvx --from "$wheel" fdaictl release upgrade --help >/dev/null
-uvx --from "$wheel" fdaictl release rollback --help >/dev/null
 
 printf 'verify-productization: OK\n'

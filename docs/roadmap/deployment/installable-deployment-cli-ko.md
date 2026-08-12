@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 528b75bdd3fdf1b964e8c97c00d4793f8d1e5f74
-translation_revised: 2026-08-11
+translation_source_sha: 7dc250d652343ab8e634d1715148087d00788a3c
+translation_revised: 2026-08-12
 ---
 # 설치형 배포 CLI
 
@@ -432,11 +432,13 @@ Approval-gated `release-deployment-bundle` 작업 흐름은 `release` GitHub 환
 `release` 환경이 서명 키를 노출하기 전에 exact clean 체크아웃에서 두 독립적인
 작업이 통과해야 합니다. 검증 작업은 locked Python 및 콘솔 의존성을 설치하고
 disposable pgvector PostgreSQL 서비스를 시작해 single Alembic 헤드로 업그레이드합니다. 이어서 실제 운영
-통합 테스트를 포함한 `scripts/verify.sh --all`과 productization, 콘솔, 휠 빌드,
-isolated CLI 검사를 실행합니다. 마지막 `git diff --exit-code`는 generator가 tracked 출처를
-다시 쓰는 경우를 차단합니다. Dependency-audit 작업은 pinned Python vulnerability scanner를
-실행합니다. 번들 작업은 두 작업을 `needs`로 선언하고 pinned Ubuntu 실행기 이미지를 사용하며,
-이 작업만 `contents: write`를 받습니다. 검증 및 감사 작업은 읽기 전용으로 유지됩니다.
+통합 테스트를 포함한 `scripts/verify.sh --all`을 실행한 다음 productization 및 콘솔 검사를
+실행합니다. Productization 검사는 버전이 지정된 service-contract SDK와 5개 서비스 소유
+출처 및 테스트 루트를 모두 검증한 다음, 6개 독립 휠을 빌드합니다. 마지막
+`git diff --exit-code`는 generator가 tracked 출처를 다시 쓰는 경우를 차단합니다.
+Dependency-audit 작업은 pinned Python vulnerability scanner를 실행합니다. 번들 작업은 두
+작업을 `needs`로 선언하고 pinned Ubuntu 실행기 이미지를 사용하며, 이 작업만
+`contents: write`를 받습니다. 검증 및 감사 작업은 읽기 전용으로 유지됩니다.
 
 ## release 채널, 업그레이드 및 롤백
 
