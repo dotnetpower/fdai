@@ -61,8 +61,11 @@ bounded dependency waves include queue wait in each node deadline, propagate in-
 cancellation, skip blocked descendants, and emit stable receipts without provider error details.
 Composition issues bounded secured ObjectSet receipts and registers the source-derived network
 and Pod telemetry functions in the exact release. Function dependencies resolve only an issued
-content digest. The resource-state investigation path keeps promoted inventory as answer authority,
-runs the ontology query in shadow, and stores principal-scoped parity receipts through StateStore.
+content digest. The `catalog.search_rules` function accepts only the active Rule generation bound to
+that exact release, returns candidate-only Rules with a `CatalogRetrievalReceipt`, and grants no
+judgment, approval, or execution authority. The resource-state investigation path keeps promoted
+inventory as answer authority, runs the ontology query in shadow, and stores principal-scoped parity
+receipts through StateStore.
 The public composition facade exports only the optional resource-state composer; implementation
 types remain in the focused binder so the facade stays below its structural ceiling.
 Planner manifests apply identical role and purpose filtering to ObjectType and Interface
