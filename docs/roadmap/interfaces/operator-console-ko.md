@@ -38,14 +38,14 @@ quality gate (T2 검증기), risk gate, shipped Rego 정책. 콘솔은
 세 속성이 직접 따라온다:
 
 - **LLM은 translator이지 judge가 아님.** 자연어는 도구 호출이 되고 도구 결과는 자연어가 되며 실행 적격성은 오직 검증기만 부여합니다
- ([architecture.instructions.md § Design Principles](../../../.github/instructions/architecture.instructions.md#design-principles)).
+  ([architecture.instructions.md § Design Principles](../../../.github/instructions/architecture.instructions.md#design-principles)).
 - **도구는 기본 데이터 출처가 아니라 파이프라인 단계를 노출함.** 콘솔은 primitive log, metric,
- config query 대신 `describe_event()`, `explain_verdict()`, `simulate_change()`를 노출합니다.
- 시스템이 이미 reasoning을 완료했으므로 오퍼레이터는 결과에 대해 질문합니다.
+  config query 대신 `describe_event()`, `explain_verdict()`, `simulate_change()`를 노출합니다.
+  시스템이 이미 reasoning을 완료했으므로 오퍼레이터는 결과에 대해 질문합니다.
 - **성장은 모델 기억이 아니라 카탈로그 성장임.** 반복되는 조사 패턴은 발견 루프를 통해 새 룰 후보가 됩니다
- ([architecture.instructions.md § Rule 카탈로그](../../../.github/instructions/architecture.instructions.md#rule-catalog)) -
- 불투명한 세션 기억으로 남지 않습니다. 영속 대화 상태는 감사와 내보내기가 가능한 CSP-중립
- `audit_log` 및 `operator_memory` record에 저장됩니다.
+  ([architecture.instructions.md § Rule 카탈로그](../../../.github/instructions/architecture.instructions.md#rule-catalog)) -
+  불투명한 세션 기억으로 남지 않습니다. 영속 대화 상태는 감사와 내보내기가 가능한 CSP-중립
+  `audit_log` 및 `operator_memory` record에 저장됩니다.
 
 완료된 답변은 off-path [대화 Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. JSON과 SSE 어댑터는 타입이 지정된 conversation-turn 서비스와 분리된 요청 설정, 근거, 진행 상황, 검증 및 terminal-delivery 보조 로직을 공유하면서 기존 wire 계약을 유지합니다.
 최종 intake는 exact 검증 사유와 evidence-manifest 완전성을 보존합니다. 결과 요약, 맥락 선택, Azure 조사, 영속 전달 및 첨부 근거는 타입이 지정된 프로바이더가 계속 소유하고 어댑터 모듈은 표현과 영속성만 조정합니다.
@@ -62,12 +62,12 @@ Operator API는 검토를 준비된으로 표시하거나 카탈로그 제안을
 
 - **operator-console** - 여기 문서화된 계층 표면.
 - **서술기** - 오퍼레이터 콘솔의 LLM tier (translator 역할; judge 절대
- 아님). T2 quality-gate 역할과는 별개 - 그건 제안된 액션에 대한 도메인
- reasoner.
+  아님). T2 quality-gate 역할과는 별개 - 그건 제안된 액션에 대한 도메인
+  reasoner.
 - **operator-conversation** - 오퍼레이터와 콘솔 사이의 범위가 제한된 exchange
- 하나 (멀티-turn, RBAC-scoped, 감사됨).
+  하나 (멀티-turn, RBAC-scoped, 감사됨).
 - **console-tool** - 서술기가 호출 가능한 노출된 파이프라인 단계 또는
- 카탈로그 화면 하나.
+  카탈로그 화면 하나.
 
 T2 실행 적격성 검사 또는 불충분한 근거 처리에 대한 설명형 질문은 action-context 또는
 intent-graph 도구보다 정본 glossary를 먼저 사용합니다. 이 우선순위는 개념 설명에만
@@ -111,109 +111,109 @@ flowchart TD
 ```
 
 - **계층 3 (채널)**은 얇습니다. 어댑터는 wire format과 `ConversationTurn` 사이에서 한 턴을 변환하며 판단하지 않습니다. Streamed 읽기는 프로바이더 작업이 idle인 동안 진행 상황 또는 근거가
- 없는 SSE comment 하트비트를 전송합니다. 스트림을 닫으면 해당 작업을 취소하고 대기합니다.
- Web, Slack 및 Teams는 같은 ordered agent-activity 계약을 렌더링합니다. Bragi는 인계를 표시하고, 책임 관찰기는 정본 명령/결과 근거를 표시합니다. 에이전트 대화 대상 또는
- 인시던트 연결에서 선택했거나 `Ask <agent>` 또는 `@<agent>`로 지정한 에이전트는 응답 소유자로
- 유지됩니다. 해당 에이전트가 판단을 보류하고 턴을 다시 인계한 경우에만 Bragi가 응답 소유자가
- 됩니다.
- 에이전트 카드의 Ask는 간결한 projected-state 줄 목록으로 시작합니다. 더 긴 고정 맥락은 백엔드 이력용으로 화면에 표시하지 않으며 visible 보고는 범위가 제한된 2단어 burst로 스트림합니다.
- Web 조사는 수신한 가지 프레임만 경과 시간, 타입이 지정된 배지 및 staggered 상태 행으로 animate합니다. 최종 조사는 최종 답변 옆에 세션 헤더와 관찰된 단계를 계속 표시하며 민감정보가 제거된 명령 출력과 시각만 공개에 접어 둡니다. 관찰된 실행 단계와 연결된 출처 가지는 별도 행으로 반복하지 않고 해당 단계에 한 번만 표시합니다. Full workspace는 desktop 대화 기록에 최소 760 px을 확보하고 mobile 뷰포트에서는 horizontal 초과분 없이 전체 폭을 사용합니다. Phase 표시, 15 px 대화 규모, 하나의 dark 명령/코드 표면으로 운영 hierarchy를 실행 mock과 맞춥니다. 브라우저는 작업을 재생하거나 진행 상황을 invent하지 않습니다.
- 관찰된 활동은 필수 `input_kind` 계약으로 실제 프로세스 명령과 정본 서버 조회를
- 구분합니다. 인벤토리, subscription-health 및 read-investigation 활동은 `query`를 사용합니다.
- 검증기가 승인한 타입이 지정된 조회, 권한, 스냅샷 출처 이력 및 범위가 제한된 결과 변환 결과를 렌더링하며
- Azure CLI argv 또는 exit 코드를 만들지 않습니다. Web은 검증된 인벤토리 조회를 `IQL`로
- 표시하며 출처와 결과 공개를 각각 닫습니다. Strict 범위가 제한된 증적은 Azure CLI와 ARG에
- 같은 최종 icon을 사용하고 인증된 구독 id, 범용 argv, 측정된 명령 소요 시간, 개수
- 및 허용 목록된 미리 보기 행 최대 10개를 표시하면서 페이지 나누기 토큰은 민감정보 제거합니다. 행은 snapshot-refresh 작업을
- 식별하며 브라우저는 IQL에서 명령을 재구성하지 않습니다. 유효한 증적이 없으면 프로바이더 행도
- 만들지 않습니다. 다른 서버 조회는 `QUERY`를 유지하고
- 프로세스 호출을 기록한 프로바이더 증적만 `command`를 사용합니다. Slack, Teams 및 영속
- 재생은 조회/명령 구분을 보존합니다.
- Narrator 이정표는 다음 그룹이 시작되기 전에 앞선 활동 그룹을 settled 상태로 바꿉니다.
- Web은 이정표를 간결한 진행 상황 note로 표시하고 현재 그룹만 펼치며 completed 그룹을 causal
- 순서로 복원합니다. Slack과 Teams는 같은 cumulative 민감정보가 제거된 활동 변환 결과를 수정합니다.
- 일반 에이전트 대상과 인시던트 연결의 에이전트 값은 일치해야 하며 conflict는 근거 수집 전에 차단됩니다. Model-backed 답변은 global 읽기 전용 안전성을 먼저 유지하고 exact `conversation_policy` 일치에서만 선택된 변경할 수 없는 charter를 추가합니다. Dedicated 대상 세션은 후속 조치 턴 전반에서 검증된 에이전트 voice를 사용하고 self-role 질문은 내용 기반 주소를 가진 기능 사실에서 결정론적으로 렌더링하며, 일반 화면 위임은 Bragi 서술기를 유지합니다.
- Policy mismatch 또는 명시적 인계는 서술을 Bragi로 돌려보내며 charter는 근거, 권한 또는 도구 권한이 되지 않습니다. 주입되는 charter는 해당 턴용 변경할 수 없는 기준선과 operator-locale 계층으로 조립됩니다. 에이전트 근거는 해당 에이전트 턴의 프롬프트 계층 매니페스트와 다이제스트도 제공하므로 소진된 에스컬레이션 예산이나 근거 공백이 제약으로 명시됩니다.
- 벤더 어댑터는 표현만 변경합니다. Slack은 조회, 명령 및 출력 본문에 plain-text 활동 블록을 사용하여 markup character가 관찰된 입력을 바꾸지 못하게 하며,
- 게시, 스트림 갱신 및 편집에서 해당 블록을 보존합니다.
- Teams는 Adaptive 카드를 24,000 바이트 이하로 유지하고 생략된 활동 수를 표시하며 최종 책임 에이전트
- 답변을 항상 보존합니다. 렌더러는 producer-side 부분 근거를
- `[UPSTREAM OUTPUT TRUNCATED]`로, vendor-limit clipping을 `[CHANNEL OUTPUT TRUNCATED]`로
- 구분합니다.
- Full-workspace 웹 채팅은 대화 기록 중심으로 열립니다. 대화 이력과 현재 화면 다이제스트는 항상
- 표시되는 열이 아니라 toolbar 패널입니다. Deck 헤더는 활성 경로를 표시하고, 다이제스트 토글과
- 헤더는 근거 기록 수, 스냅샷 age 및 오래된 맥락 새로고침을 담당합니다. 작성기에는
- 첨부, 질문 입력 및 보내기 또는 중지만 유지합니다. 전송된 이미지는 운영자 턴 안에 표시되며 검증된 이미지 첨부는 prompt-only semantic 도구 계획 수립과
- 주어가 생략된 LLM 사용량 구체화를 우회하여 현재 이미지를 vision 서술에 전달합니다. 최종 검증은 해당 해석을 screen-verified로 취급하지 않고 현재 `conversation-image` 참조가 있는 검증되지 않은 답변으로 보존합니다. 측정된 LLM 사용량을 명시한 요청은 결정론적 도구 요청으로 유지합니다. 브라우저 대화 기록 캐시에는 이미지 서술자만 유지하고 인증된 이력 읽기가
- principal 범위 대화 이미지 저장소에서 바이트를 부하합니다. 복원된 대화 기록에는 마지막 기록 시각과
- 새 대화 작업을 표시합니다. 표 cell의 `<br>` 변형만 안전한 줄바꿈으로 바꾸고 다른 raw HTML은 텍스트로 유지합니다. 좁은 화면에서도 Markdown 표는 native 표 의미 규칙을 유지합니다.
+  없는 SSE comment 하트비트를 전송합니다. 스트림을 닫으면 해당 작업을 취소하고 대기합니다.
+  Web, Slack 및 Teams는 같은 ordered agent-activity 계약을 렌더링합니다. Bragi는 인계를 표시하고, 책임 관찰기는 정본 명령/결과 근거를 표시합니다. 에이전트 대화 대상 또는
+  인시던트 연결에서 선택했거나 `Ask <agent>` 또는 `@<agent>`로 지정한 에이전트는 응답 소유자로
+  유지됩니다. 해당 에이전트가 판단을 보류하고 턴을 다시 인계한 경우에만 Bragi가 응답 소유자가
+  됩니다.
+  에이전트 카드의 Ask는 간결한 projected-state 줄 목록으로 시작합니다. 더 긴 고정 맥락은 백엔드 이력용으로 화면에 표시하지 않으며 visible 보고는 범위가 제한된 2단어 burst로 스트림합니다.
+  Web 조사는 수신한 가지 프레임만 경과 시간, 타입이 지정된 배지 및 staggered 상태 행으로 animate합니다. 최종 조사는 최종 답변 옆에 세션 헤더와 관찰된 단계를 계속 표시하며 민감정보가 제거된 명령 출력과 시각만 공개에 접어 둡니다. 관찰된 실행 단계와 연결된 출처 가지는 별도 행으로 반복하지 않고 해당 단계에 한 번만 표시합니다. Full workspace는 desktop 대화 기록에 최소 760 px을 확보하고 mobile 뷰포트에서는 horizontal 초과분 없이 전체 폭을 사용합니다. Phase 표시, 15 px 대화 규모, 하나의 dark 명령/코드 표면으로 운영 hierarchy를 실행 mock과 맞춥니다. 브라우저는 작업을 재생하거나 진행 상황을 invent하지 않습니다.
+  관찰된 활동은 필수 `input_kind` 계약으로 실제 프로세스 명령과 정본 서버 조회를
+  구분합니다. 인벤토리, subscription-health 및 read-investigation 활동은 `query`를 사용합니다.
+  검증기가 승인한 타입이 지정된 조회, 권한, 스냅샷 출처 이력 및 범위가 제한된 결과 변환 결과를 렌더링하며
+  Azure CLI argv 또는 exit 코드를 만들지 않습니다. Web은 검증된 인벤토리 조회를 `IQL`로
+  표시하며 출처와 결과 공개를 각각 닫습니다. Strict 범위가 제한된 증적은 Azure CLI와 ARG에
+  같은 최종 icon을 사용하고 인증된 구독 id, 범용 argv, 측정된 명령 소요 시간, 개수
+  및 허용 목록된 미리 보기 행 최대 10개를 표시하면서 페이지 나누기 토큰은 민감정보 제거합니다. 행은 snapshot-refresh 작업을
+  식별하며 브라우저는 IQL에서 명령을 재구성하지 않습니다. 유효한 증적이 없으면 프로바이더 행도
+  만들지 않습니다. 다른 서버 조회는 `QUERY`를 유지하고
+  프로세스 호출을 기록한 프로바이더 증적만 `command`를 사용합니다. Slack, Teams 및 영속
+  재생은 조회/명령 구분을 보존합니다.
+  Narrator 이정표는 다음 그룹이 시작되기 전에 앞선 활동 그룹을 settled 상태로 바꿉니다.
+  Web은 이정표를 간결한 진행 상황 note로 표시하고 현재 그룹만 펼치며 completed 그룹을 causal
+  순서로 복원합니다. Slack과 Teams는 같은 cumulative 민감정보가 제거된 활동 변환 결과를 수정합니다.
+  일반 에이전트 대상과 인시던트 연결의 에이전트 값은 일치해야 하며 conflict는 근거 수집 전에 차단됩니다. Model-backed 답변은 global 읽기 전용 안전성을 먼저 유지하고 exact `conversation_policy` 일치에서만 선택된 변경할 수 없는 charter를 추가합니다. Dedicated 대상 세션은 후속 조치 턴 전반에서 검증된 에이전트 voice를 사용하고 self-role 질문은 내용 기반 주소를 가진 기능 사실에서 결정론적으로 렌더링하며, 일반 화면 위임은 Bragi 서술기를 유지합니다.
+  Policy mismatch 또는 명시적 인계는 서술을 Bragi로 돌려보내며 charter는 근거, 권한 또는 도구 권한이 되지 않습니다. 주입되는 charter는 해당 턴용 변경할 수 없는 기준선과 operator-locale 계층으로 조립됩니다. 에이전트 근거는 해당 에이전트 턴의 프롬프트 계층 매니페스트와 다이제스트도 제공하므로 소진된 에스컬레이션 예산이나 근거 공백이 제약으로 명시됩니다.
+  벤더 어댑터는 표현만 변경합니다. Slack은 조회, 명령 및 출력 본문에 plain-text 활동 블록을 사용하여 markup character가 관찰된 입력을 바꾸지 못하게 하며,
+  게시, 스트림 갱신 및 편집에서 해당 블록을 보존합니다.
+  Teams는 Adaptive 카드를 24,000 바이트 이하로 유지하고 생략된 활동 수를 표시하며 최종 책임 에이전트
+  답변을 항상 보존합니다. 렌더러는 producer-side 부분 근거를
+  `[UPSTREAM OUTPUT TRUNCATED]`로, vendor-limit clipping을 `[CHANNEL OUTPUT TRUNCATED]`로
+  구분합니다.
+  Full-workspace 웹 채팅은 대화 기록 중심으로 열립니다. 대화 이력과 현재 화면 다이제스트는 항상
+  표시되는 열이 아니라 toolbar 패널입니다. Deck 헤더는 활성 경로를 표시하고, 다이제스트 토글과
+  헤더는 근거 기록 수, 스냅샷 age 및 오래된 맥락 새로고침을 담당합니다. 작성기에는
+  첨부, 질문 입력 및 보내기 또는 중지만 유지합니다. 전송된 이미지는 운영자 턴 안에 표시되며 검증된 이미지 첨부는 prompt-only semantic 도구 계획 수립과
+  주어가 생략된 LLM 사용량 구체화를 우회하여 현재 이미지를 vision 서술에 전달합니다. 최종 검증은 해당 해석을 screen-verified로 취급하지 않고 현재 `conversation-image` 참조가 있는 검증되지 않은 답변으로 보존합니다. 측정된 LLM 사용량을 명시한 요청은 결정론적 도구 요청으로 유지합니다. 브라우저 대화 기록 캐시에는 이미지 서술자만 유지하고 인증된 이력 읽기가
+  principal 범위 대화 이미지 저장소에서 바이트를 부하합니다. 복원된 대화 기록에는 마지막 기록 시각과
+  새 대화 작업을 표시합니다. 표 cell의 `<br>` 변형만 안전한 줄바꿈으로 바꾸고 다른 raw HTML은 텍스트로 유지합니다. 좁은 화면에서도 Markdown 표는 native 표 의미 규칙을 유지합니다.
 - **계층 2 (조정기)**는 의도 분류, RBAC gating, 도구
- 전달, 검증기 re-check, 세션 bookkeeping을 소유합니다. Core translator는 `Narrator`
- 프로토콜을 사용합니다. `GroundedAnswerNarrator`도 구현하는 서술기는 완료된 성공
- `ToolResult`를 presentation-only 2차 pass에서 받습니다. 조정기는 원본 tool-result 턴을
- 보존하고 새 도구 호출을 허용하지 않으며 렌더링 실패, 응답 한도 초과 또는 `evidence_ref`
- 누락 시 결정론적 미리 보기로 대체 경로합니다. System 프롬프트는 `AnswerPlan`, 도구 side-effect
- 등급, evidence-reference 개수 및 이전 대화 맥락 유무에서 결정론적으로 조립합니다.
- 현재 인바운드/도구/결과 트랜잭션은 이전 맥락에서 제외합니다. Web 세대는 Operator API
- 백엔드 경계이므로 배포가 프로바이더를 바인딩할 수 있습니다.
- `AnswerPlan.format`은 `table`, `chart`, `mixed`를 표현 선호 설정으로 유지합니다. 명시적인
- 요청 format 또는 저장된 응답 선호 설정은 검증된 결과가 의미를 바꾸지 않고 해당 형태를
- 지원할 때만 우선합니다. 적합한 읽기 근거가 준비되면 범위가 제한된 구조화된 모델 호출이 서버가
- 선언한 자리로 `PresentationPlan`을 배치할 수 있습니다. 모델은 형태 메타데이터, 허용된
- slot-component 쌍, 커버리지 등급 및 운영자 요청만 받습니다. 행 값을 받지 않으며 title,
- 사실, 단위, 임계값, 상태, 심각도, color, 링크 또는 근거 참조를 출력할 수 없습니다.
- 계획은 자리 순서, 허용 목록에 있는 컴포넌트 하나, emphasis 및 supporting 상세의 초기 접힘 상태만 선택할
- 수 있습니다. 필수 자리를 반복하거나 생략할 수 없습니다. `AnswerPlan.format`은 정본 Markdown
- 텍스트 대체 경로를 계속 소유하고 `PresentationPlan`은 Console 산출물 배치만 소유합니다. 표현
- 계획 수립은 정본 텍스트 format을 다시 작성하지 않습니다. 명시적인 format 또는 저장된 선호 설정이
- 있으면 산출물을 생략하고 기존 표, chart, 목록 또는 산문 렌더러를 유지합니다.
+  전달, 검증기 re-check, 세션 bookkeeping을 소유합니다. Core translator는 `Narrator`
+  프로토콜을 사용합니다. `GroundedAnswerNarrator`도 구현하는 서술기는 완료된 성공
+  `ToolResult`를 presentation-only 2차 pass에서 받습니다. 조정기는 원본 tool-result 턴을
+  보존하고 새 도구 호출을 허용하지 않으며 렌더링 실패, 응답 한도 초과 또는 `evidence_ref`
+  누락 시 결정론적 미리 보기로 대체 경로합니다. System 프롬프트는 `AnswerPlan`, 도구 side-effect
+  등급, evidence-reference 개수 및 이전 대화 맥락 유무에서 결정론적으로 조립합니다.
+  현재 인바운드/도구/결과 트랜잭션은 이전 맥락에서 제외합니다. Web 세대는 Operator API
+  백엔드 경계이므로 배포가 프로바이더를 바인딩할 수 있습니다.
+  `AnswerPlan.format`은 `table`, `chart`, `mixed`를 표현 선호 설정으로 유지합니다. 명시적인
+  요청 format 또는 저장된 응답 선호 설정은 검증된 결과가 의미를 바꾸지 않고 해당 형태를
+  지원할 때만 우선합니다. 적합한 읽기 근거가 준비되면 범위가 제한된 구조화된 모델 호출이 서버가
+  선언한 자리로 `PresentationPlan`을 배치할 수 있습니다. 모델은 형태 메타데이터, 허용된
+  slot-component 쌍, 커버리지 등급 및 운영자 요청만 받습니다. 행 값을 받지 않으며 title,
+  사실, 단위, 임계값, 상태, 심각도, color, 링크 또는 근거 참조를 출력할 수 없습니다.
+  계획은 자리 순서, 허용 목록에 있는 컴포넌트 하나, emphasis 및 supporting 상세의 초기 접힘 상태만 선택할
+  수 있습니다. 필수 자리를 반복하거나 생략할 수 없습니다. `AnswerPlan.format`은 정본 Markdown
+  텍스트 대체 경로를 계속 소유하고 `PresentationPlan`은 Console 산출물 배치만 소유합니다. 표현
+  계획 수립은 정본 텍스트 format을 다시 작성하지 않습니다. 명시적인 format 또는 저장된 선호 설정이
+  있으면 산출물을 생략하고 기존 표, chart, 목록 또는 산문 렌더러를 유지합니다.
 
- 서버는 계획을 검증한 뒤 변경할 수 없는 근거를 범위가 제한된 `presentation_artifact` v1으로 compile합니다.
- 컴파일러는 chart의 compatible 단위와 임계값 direction을 강제하고 부분 또는 잘린 커버리지를
- 계속 표시하며 각 블록 참조를 최종 검증 증적에 바인딩합니다. 부분 출처가
- completed 자리를 제거하지 않습니다. 답변은 사용할 수 있는 검증된 사실을 모두 렌더링하고 누락된
- 부분만 알 수 없음 또는 사용 불가로 표시합니다.
- Streamed evidence-fast-path 턴은 완전한 결정론적 계획으로 시작하고 선택적 mini-model 플래너를
- 병렬로 실행하면서 정본 답변을 즉시 스트리밍합니다. 답변이 표시된 뒤 최종 이벤트는 valid
- alternative 배치를 최대 5초 동안만 기다립니다. 시간 초과, 취소, 잘못된 출력 또는 프로바이더
- 실패에는 결정론적 계획을 유지합니다. Non-stream JSON 경로는 결정론적 계획을 바로 사용하며
- 표현 계획 수립 때문에 근거 답변을 지연하지 않습니다. 관련 검증된 자리가 하나도 없을 때만
- 계획 수립이 산출물을 반환하지 않을 수 있습니다. 모델, 스키마, 시간 초과 또는 컴파일러 실패에는
- 결정론적 답변과 기본값 배치를 사용하므로 운영자는 가능한 최대 evidence-supported 답변을
- 계속 받습니다. 기존 Markdown 표, fenced chart, bullet 및 산문 출력은 다른 채널과 이전
- 클라이언트를 위한 compatibility 계약으로 유지합니다.
- Semantic 턴 플래너는 해당 요청의 범위가 제한된 기능만 strict structured-output 스키마로
- 변환 결과합니다. 모든 객체는 additional 속성을 거부하고 declared 필드를 필수로
- 표시합니다. 도구의 선택적 인자는 nullable 필드로 표현하며 조정기는 결정론적
- 선택 검증 및 전달 전에 null 자리 표시자를 제거합니다.
- 렌더링 후 코어 검증기가 변경할 수 없는 `ToolResult`에 없는 numeric 값, 비율, RFC3339
- 시각 및 정본 룰, 이벤트, 인시던트, 상관관계, ActionType 식별자를 거부합니다.
- `current`, `live`, `latest` 같은 최신성 표현에는 해당 결과의 exact 시각이 필요합니다.
- Markdown 목록 ordinal, ordinary 리소스 별칭 및 식별자 내부 숫자는 formatting을 점유로
- 오인하지 않도록 이 보수적 검사에서 제외합니다.
- 의도 translation이 계속 모호한하면 선택적 `ClarificationNarrator`가 principal에게 보이는
- installed 도구 스키마만 받고 범위가 제한된 질문 하나를 반환할 수 있습니다. 이 경로는 도구를 호출하지
- 않고 인자를 추측하지 않으며 프로바이더 실패 또는 one-question 형식 위반 시 결정론적 abstain
- 응답으로 대체 경로합니다.
- 선택적 `ContextualNarrator`는 범위가 제한된 이전 턴에서 단일 도구 후속 조치를 번역할 수 있습니다.
- 이전 텍스트는 신뢰할 수 없는 데이터로 escape되며 파싱된 모든 scalar 인자는 Unicode 및 구분자
- 정규화 후 현재 발화 또는 이전 턴에 실제로 존재해야 합니다. 누락되거나 invented 인자는
- 도구 조회와 실행 전에 translation 전체를 폐기합니다. 이 프로토콜을 구현하지 않는 어댑터는 기존
- context-free `Narrator.translate` 동작을 유지합니다.
- Direct T0 matching에 실패한 compound 요청에서는 선택적 `ReadPlanNarrator`가 정본 명령
- 두세 개를 제안할 수 있습니다. 조정기는 첫 호출 전에 모든 명령을 자체 grammar로 다시
- 파싱하고 완전한 계획의 installed-tool 구성원, RBAC, 명령 distinctness 및
- `side_effect_class=read`를 검증합니다. 잘못된 계획은 아무것도 실행하지 않습니다. Valid 읽기는
- serial로 실행하고 단계별 tool-call/결과 쌍과 근거 참조를 보존한 뒤 같은 근거에 기반한
- 표현 pass를 사용합니다. 읽기 하나가 실패하거나 사용 불가이면 remaining 계획을 중단하고 종합을 건너뜀하며 empty-screen 또는 서술기 출력 대신 결정론적 검증되지 않은 보류를 반환합니다.
- 종합 전에 aggregator는 두 도구가 같은 `resource_id`, `scope_ref` 또는 `id`를 명시할 때만
- high-signal `state`, `status`, `verdict`, `mode`, `health`, `outcome` 필드를 비교합니다. 값이 다르면
- 구조화된 conflict와 양쪽 근거를 보존하고 집계를 `abstain`으로 바꾼 뒤 모델 렌더링을
- 건너뜀합니다. 서로 다른 신원은 비교하지 않습니다. 로컬 및 deployed interactive 읽기는 코어가 소유한 하나의 모드 정책을 사용하므로 같은 지연 시간 프로파일에서 같은 direct, streamed 또는 detached 모드를 선택합니다.
+  서버는 계획을 검증한 뒤 변경할 수 없는 근거를 범위가 제한된 `presentation_artifact` v1으로 compile합니다.
+  컴파일러는 chart의 compatible 단위와 임계값 direction을 강제하고 부분 또는 잘린 커버리지를
+  계속 표시하며 각 블록 참조를 최종 검증 증적에 바인딩합니다. 부분 출처가
+  completed 자리를 제거하지 않습니다. 답변은 사용할 수 있는 검증된 사실을 모두 렌더링하고 누락된
+  부분만 알 수 없음 또는 사용 불가로 표시합니다.
+  Streamed evidence-fast-path 턴은 완전한 결정론적 계획으로 시작하고 선택적 mini-model 플래너를
+  병렬로 실행하면서 정본 답변을 즉시 스트리밍합니다. 답변이 표시된 뒤 최종 이벤트는 valid
+  alternative 배치를 최대 5초 동안만 기다립니다. 시간 초과, 취소, 잘못된 출력 또는 프로바이더
+  실패에는 결정론적 계획을 유지합니다. Non-stream JSON 경로는 결정론적 계획을 바로 사용하며
+  표현 계획 수립 때문에 근거 답변을 지연하지 않습니다. 관련 검증된 자리가 하나도 없을 때만
+  계획 수립이 산출물을 반환하지 않을 수 있습니다. 모델, 스키마, 시간 초과 또는 컴파일러 실패에는
+  결정론적 답변과 기본값 배치를 사용하므로 운영자는 가능한 최대 evidence-supported 답변을
+  계속 받습니다. 기존 Markdown 표, fenced chart, bullet 및 산문 출력은 다른 채널과 이전
+  클라이언트를 위한 compatibility 계약으로 유지합니다.
+  Semantic 턴 플래너는 해당 요청의 범위가 제한된 기능만 strict structured-output 스키마로
+  변환 결과합니다. 모든 객체는 additional 속성을 거부하고 declared 필드를 필수로
+  표시합니다. 도구의 선택적 인자는 nullable 필드로 표현하며 조정기는 결정론적
+  선택 검증 및 전달 전에 null 자리 표시자를 제거합니다.
+  렌더링 후 코어 검증기가 변경할 수 없는 `ToolResult`에 없는 numeric 값, 비율, RFC3339
+  시각 및 정본 룰, 이벤트, 인시던트, 상관관계, ActionType 식별자를 거부합니다.
+  `current`, `live`, `latest` 같은 최신성 표현에는 해당 결과의 exact 시각이 필요합니다.
+  Markdown 목록 ordinal, ordinary 리소스 별칭 및 식별자 내부 숫자는 formatting을 점유로
+  오인하지 않도록 이 보수적 검사에서 제외합니다.
+  의도 translation이 계속 모호한하면 선택적 `ClarificationNarrator`가 principal에게 보이는
+  installed 도구 스키마만 받고 범위가 제한된 질문 하나를 반환할 수 있습니다. 이 경로는 도구를 호출하지
+  않고 인자를 추측하지 않으며 프로바이더 실패 또는 one-question 형식 위반 시 결정론적 abstain
+  응답으로 대체 경로합니다.
+  선택적 `ContextualNarrator`는 범위가 제한된 이전 턴에서 단일 도구 후속 조치를 번역할 수 있습니다.
+  이전 텍스트는 신뢰할 수 없는 데이터로 escape되며 파싱된 모든 scalar 인자는 Unicode 및 구분자
+  정규화 후 현재 발화 또는 이전 턴에 실제로 존재해야 합니다. 누락되거나 invented 인자는
+  도구 조회와 실행 전에 translation 전체를 폐기합니다. 이 프로토콜을 구현하지 않는 어댑터는 기존
+  context-free `Narrator.translate` 동작을 유지합니다.
+  Direct T0 matching에 실패한 compound 요청에서는 선택적 `ReadPlanNarrator`가 정본 명령
+  두세 개를 제안할 수 있습니다. 조정기는 첫 호출 전에 모든 명령을 자체 grammar로 다시
+  파싱하고 완전한 계획의 installed-tool 구성원, RBAC, 명령 distinctness 및
+  `side_effect_class=read`를 검증합니다. 잘못된 계획은 아무것도 실행하지 않습니다. Valid 읽기는
+  serial로 실행하고 단계별 tool-call/결과 쌍과 근거 참조를 보존한 뒤 같은 근거에 기반한
+  표현 pass를 사용합니다. 읽기 하나가 실패하거나 사용 불가이면 remaining 계획을 중단하고 종합을 건너뜀하며 empty-screen 또는 서술기 출력 대신 결정론적 검증되지 않은 보류를 반환합니다.
+  종합 전에 aggregator는 두 도구가 같은 `resource_id`, `scope_ref` 또는 `id`를 명시할 때만
+  high-signal `state`, `status`, `verdict`, `mode`, `health`, `outcome` 필드를 비교합니다. 값이 다르면
+  구조화된 conflict와 양쪽 근거를 보존하고 집계를 `abstain`으로 바꾼 뒤 모델 렌더링을
+  건너뜀합니다. 서로 다른 신원은 비교하지 않습니다. 로컬 및 deployed interactive 읽기는 코어가 소유한 하나의 모드 정책을 사용하므로 같은 지연 시간 프로파일에서 같은 direct, streamed 또는 detached 모드를 선택합니다.
 - **계층 1 (Core)**은 이미 shipping 중인 결정론적 코어 그대로.
- 콘솔은 새 판단 경로, 새 지속성 저장소, 새 실행 vector를 추가하지
- 않는다. 콘솔 도구 호출은 기존 파이프라인이 이미 만드는 법을 아는 호출
- 로 해석.
+  콘솔은 새 판단 경로, 새 지속성 저장소, 새 실행 vector를 추가하지
+  않는다. 콘솔 도구 호출은 기존 파이프라인이 이미 만드는 법을 아는 호출
+  로 해석.
 ### 2.1 모듈 맵
 
 출처 인벤토리와 경계는 [Operator Console 모듈 지도 and Boundaries](operator-console-module-map-ko.md)가 소유합니다.
@@ -340,15 +340,15 @@ Catalog-owned resource-health 이력 의도도 같은 결정론적 precedence를
 쓰기 집합에 대한 두 명확화:
 
 - **`simulate_change`가 감사 항목을 쓰기 하는 것은 "shadow는 절대
- mutate 안 함"을 위반하지 않음.** 감사 로그는 추가 전용; *시뮬레이션이
- 실행되었다는 것*을 기록하는 것은 관리 리소스의 변경이 아니다.
- shadow-mode 속성 테스트는 실행기 / PR / state-store 쓰기가 없음을
- assert 하며 감사 덧붙이기는 명시적으로 허용.
+  mutate 안 함"을 위반하지 않음.** 감사 로그는 추가 전용; *시뮬레이션이
+  실행되었다는 것*을 기록하는 것은 관리 리소스의 변경이 아니다.
+  shadow-mode 속성 테스트는 실행기 / PR / state-store 쓰기가 없음을
+  assert 하며 감사 덧붙이기는 명시적으로 허용.
 - **`list_hil` (Approver) vs read-console HIL 화면 (읽기 담당)는 다른
- 표면.** 읽기 전용 콘솔 SPA는 읽기 담당 에게 큐잉된 HIL 항목의 *존재와
- 개수* (대시보드 tile)를 보여줌; `list_hil`은 *전체 항목 상세* (대상,
- proposed 액션, 요청자)를 반환하며 이는 민감한 의도를 드러낼 수
- 있으므로 Approver-scoped 유지. 둘은 의도적으로 같은 가시성이 아님.
+  표면.** 읽기 전용 콘솔 SPA는 읽기 담당 에게 큐잉된 HIL 항목의 *존재와
+  개수* (대시보드 tile)를 보여줌; `list_hil`은 *전체 항목 상세* (대상,
+  proposed 액션, 요청자)를 반환하며 이는 민감한 의도를 드러낼 수
+  있으므로 Approver-scoped 유지. 둘은 의도적으로 같은 가시성이 아님.
 ### 3.3 Month-1 추가 (관찰 깊이)
 
 | 도구 | 목적 | RBAC 하한 | 의존 |
@@ -369,14 +369,14 @@ correlator는 계층 1에 살고, 서술기 안에 살지 않는다.
 각 도구는 다음을 선언:
 
 - `name` - CLI-friendly snake_case verb (`describe-*` / `explore-*`
- 접두사 taxonomy 없음; verb 자체가 카테고리).
+  접두사 taxonomy 없음; verb 자체가 카테고리).
 - `description` - 한 문장, 영어, 마케팅 언어 없음.
 - `argument_hint` - 정본 verb 파서가 기대하는 범위가 제한된 인자 형태. 각 도구는 호출 전
- 자신의 타입이 지정된/범위가 제한된 검증을 다시 적용하며 잘못된 인자는 부분 호출로 진행하지 않습니다.
+  자신의 타입이 지정된/범위가 제한된 검증을 다시 적용하며 잘못된 인자는 부분 호출로 진행하지 않습니다.
 - `rbac_floor` - 도구를 호출 MAY 하는 가장 낮은 역할.
 - `side_effect_class` - `read` / `simulate` / `approve` / `execute` /
- `breakglass`. 감사 항목이 이 등급을 carry 하므로 downstream
- analytics가 저렴하게 slice.
+  `breakglass`. 감사 항목이 이 등급을 carry 하므로 downstream
+  analytics가 저렴하게 slice.
 - `failure_modes` - 도구의 docstring에 문서화된 타입화된 오류 표면.
 
 `RuntimeToolDiscovery`와 `tools.search`/`tools.describe`는 핸들러나 호출 기능 없이
@@ -415,32 +415,32 @@ focused 소유자 문서로 이동했습니다: [operator-console-runtime-model-
 ### 7.2 Chat 특화 3 invariant
 
 8. **매 write-class 도구 호출 에서 검증기 re-check.** Narrator가 write-
-  등급 도구를 겨냥하는 `tool_calls` 프레임을 발행 한 후, 조정기는
-  도구 인자에 대해 T0Engine + policy-as-code 검사를 재실행. Abstain /
-  거부 시, 도구 호출은 폐기 되고 턴은 HIL로 fall through (§7.4 참조).
-  이것이 "LLM은 실행 충족 여부를 절대 부여하지 않는다" 뒤의
-  mechanical guarantee.
+   등급 도구를 겨냥하는 `tool_calls` 프레임을 발행 한 후, 조정기는
+   도구 인자에 대해 T0Engine + policy-as-code 검사를 재실행. Abstain /
+   거부 시, 도구 호출은 폐기 되고 턴은 HIL로 fall through (§7.4 참조).
+   이것이 "LLM은 실행 충족 여부를 절대 부여하지 않는다" 뒤의
+   mechanical guarantee.
 9. **Chat-scoped no 자기 승인.** `approve_hil`은 호출자의 Entra
-  `oid`가 큐잉된 항목에 기록된 된 요청자와 매치하면 호출자가
-  Owner를 holding 하고 있어도 refuse. PR gate
-  ([security-and-identity.md](../architecture/security-and-identity-ko.md))와 동일한
-  invariant; chat은 refuse 시 감사 사유에 invariant 이름을 추가.
+   `oid`가 큐잉된 항목에 기록된 된 요청자와 매치하면 호출자가
+   Owner를 holding 하고 있어도 refuse. PR gate
+   ([security-and-identity.md](../architecture/security-and-identity-ko.md))와 동일한
+   invariant; chat은 refuse 시 감사 사유에 invariant 이름을 추가.
 10. **BreakGlass 요청은 time-boxed 이고 명시적이어야 함.**
-  `activate_break_glass`는 `(reason, expiry <= 4h)` 요구하고 구성된
-  Owner 모두에게 push-방향 Slack/Teams 어댑터
-  ([channels-and-notifications.md](channels-and-notifications-ko.md))로
- 페이지. Silent 권한 상승 없음. **요청은 알림에 대해 실패 시 차단:**
-  기본 pager 채널이 down 이면 조정기는 구성된 대체 경로 채널을
- 시도; *어느* 채널도 달리버리를 확인하지 못하면 요청은 **거부**
-  (감사 증인 없는 break-glass는 지연된 긴급보다 더 위험), 거부 자체도
- 감사 되어 Owner가 시도를 볼 수 있음. 현재 shipped 도구는 pager/감사 증적만 반환하고
- `ConversationSession`, `Principal`, RiskGate 역할 축을 변경하지 않으므로 승인 자격도 raise하지
- 않습니다. 실제 session-scoped 권한 부여 저장소와 전달 통합이 추가되기 전에는 권한 상승이
- 발생하지 않는 fail-safe 상태입니다. 향후 권한 부여도 `auto`를 절대 반환하거나 자기 요청 승인을
- 허용하면 안 됩니다(safeguard 9 유지). 정확한 자격 의미는
-  [user-rbac-and-identity.md § 2](user-rbac-and-identity-ko.md#2-롤-모델-4-tier--break-glass)
-  에 정의되고 RiskGate 역할 축
-  ([execution-model.md § 2.5](../decisioning/execution-model-ko.md#25-axis-f---role-rbac))가 mirror.
+   `activate_break_glass`는 `(reason, expiry <= 4h)` 요구하고 구성된
+   Owner 모두에게 push-방향 Slack/Teams 어댑터
+   ([channels-and-notifications.md](channels-and-notifications-ko.md))로
+  페이지. Silent 권한 상승 없음. **요청은 알림에 대해 실패 시 차단:**
+   기본 pager 채널이 down 이면 조정기는 구성된 대체 경로 채널을
+  시도; *어느* 채널도 달리버리를 확인하지 못하면 요청은 **거부**
+   (감사 증인 없는 break-glass는 지연된 긴급보다 더 위험), 거부 자체도
+  감사 되어 Owner가 시도를 볼 수 있음. 현재 shipped 도구는 pager/감사 증적만 반환하고
+  `ConversationSession`, `Principal`, RiskGate 역할 축을 변경하지 않으므로 승인 자격도 raise하지
+  않습니다. 실제 session-scoped 권한 부여 저장소와 전달 통합이 추가되기 전에는 권한 상승이
+  발생하지 않는 fail-safe 상태입니다. 향후 권한 부여도 `auto`를 절대 반환하거나 자기 요청 승인을
+  허용하면 안 됩니다(safeguard 9 유지). 정확한 자격 의미는
+   [user-rbac-and-identity.md § 2](user-rbac-and-identity-ko.md#2-롤-모델-4-tier--break-glass)
+   에 정의되고 RiskGate 역할 축
+   ([execution-model.md § 2.5](../decisioning/execution-model-ko.md#25-axis-f---role-rbac))가 mirror.
 
 ### 7.3 BreakGlass 요청 증적
 
@@ -458,8 +458,8 @@ Narrator는 오퍼레이터가 "그냥 fix 해" 라고 말할 때
 
 - 검증기 pass AND RBAC 충족 → 도구 호출 진행.
 - 검증기 abstain 또는 RBAC 하한 미달 → 조정기는 기존 HIL 큐에
- 검토 항목을 파일 하는 `enqueue_hil(...)` 호출로 substitute 하고
- 오퍼레이터에게 "HIL 항목 id X를 파일 했어" 반환.
+  검토 항목을 파일 하는 `enqueue_hil(...)` 호출로 substitute 하고
+  오퍼레이터에게 "HIL 항목 id X를 파일 했어" 반환.
 - 어떠한 상황에서도 전달 전 감사 항목 없이 쓰기는 발생하지 않음.
 ## 8. 채널 통합 (push vs pull)
 
@@ -522,12 +522,12 @@ notification 라우팅만 소유합니다. 대화 채널은 `FDAI_SLACK_CHANNEL_
 Day-1 콘솔은 답변 가능:
 
 - "`example-rg`의 `network.nsg`에 어떤 룰이 적용되지?"
- → `query_inventory` + `explore_catalog`.
+  → `query_inventory` + `explore_catalog`.
 - "왜 이벤트 `<id>`가 HIL로 경로 됐어?" → `explain_verdict`.
 - "지난 24시간 `object-storage.public-access.deny`의 모든 감사 항목을
- 보여줘." → `query_audit`.
+  보여줘." → `query_audit`.
 - "공개 접근 활성화된으로 저장소 계정을 생성 하면 루프가 뭘
- 할까?" → `describe_event`.
+  할까?" → `describe_event`.
 
 쓰기 없음, 런북 없음, 승인 없음 - 오리엔테이션만.
 
@@ -539,18 +539,18 @@ pull 어댑터 추가. 콘솔은 이제:
 - 종단 간 변경을 shadow로 미리 보기.
 - PR 흐름이 사용하는 것과 동일한 신원 gate로 큐잉된 HIL 항목 해결.
 - 어느 채널에서든 shipped 런북 ([docs/runbooks/](../../runbooks))을
- 트리거.
+  트리거.
 
 ### 9.3 월 1
 
 관찰 깊이 도구 (§3.3)과 discovery-loop 훅 추가:
 
 - 같은 tool-argument 형태가 rolling 구간 에서 구별되는 principal을
- 가로질러 N 번 나타날 때 조정기는 `console.recurrent_query` 시그널
- 을 discovery-loop 입력 스트림에 publish (N은 구성된; 기본 5 / 주).
+  가로질러 N 번 나타날 때 조정기는 `console.recurrent_query` 시그널
+  을 discovery-loop 입력 스트림에 publish (N은 구성된; 기본 5 / 주).
 - Rule-candidate generator ([rule-governance.md](../rules-and-detection/rule-governance-ko.md))
- 가 여느 시그널처럼 그것을 받음; 결과 룰은 동일한 승격 파이프라인을
- 통해 shadow-first로 ship.
+  가 여느 시그널처럼 그것을 받음; 결과 룰은 동일한 승격 파이프라인을
+  통해 shadow-first로 ship.
 
 결과는 chat의 common 조사 패턴이 카탈로그의 일급 룰이 됨 -
 **콘솔은 카탈로그를 성장시키지, 자신을 성장시키지 않는다**.
@@ -572,47 +572,47 @@ pull 어댑터 추가. 콘솔은 이제:
 ## 11. Testability
 
 - **조정기** - 속성 테스트: "검증기 re-check는 매 write-class
- 도구 호출 에서 실행", "RBAC 하한은 서술기가 도구 스키마를 보기 전에
- 강제됨", "감사 항목은 매 도구 전달을 선행", "에스컬레이션은 tier
- 와 트리거를 기록".
+  도구 호출 에서 실행", "RBAC 하한은 서술기가 도구 스키마를 보기 전에
+  강제됨", "감사 항목은 매 도구 전달을 선행", "에스컬레이션은 tier
+  와 트리거를 기록".
 - **Narrator 어댑터** - Azure OpenAI 엔드포인트용 `httpx.MockTransport`를 사용하여 strict 의도
- translator, injection-isolated 근거에 기반한 답변 프롬프트, exact evidence-reference 보존 및
- resolved 배포 연결을 검증합니다.
+  translator, injection-isolated 근거에 기반한 답변 프롬프트, exact evidence-reference 보존 및
+  resolved 배포 연결을 검증합니다.
 - **도구** - 각 도구는 `side_effect_class == read | simulate` 일 때 절대
- mutate 하지 않음을 보이는 shadow-mode 테스트; `write` / `approve` 테스트는
- 검증기 re-check gate를 보임.
+  mutate 하지 않음을 보이는 shadow-mode 테스트; `write` / `approve` 테스트는
+  검증기 re-check gate를 보임.
 - **채널** - CLI REPL golden 대화 기록, Teams Bot Framework 활동/JWT, Slack signed HTTP
- 이벤트 API와 발행기 증적을 어댑터 테스트로 검증.
+  이벤트 API와 발행기 증적을 어댑터 테스트로 검증.
 - **RBAC 매트릭스** - §3.1-§3.3의 하한이 적용됨을 증명하는 모든 (역할 ×
- 도구) 셀에 대한 table-driven 테스트.
+  도구) 셀에 대한 table-driven 테스트.
 - **Break-glass** - `activate_break_glass`가 `expiry > 4h`를 refuse하고 Owner notification 및
- 감사 증적을 요구하며 세션 principal을 변경하지 않음을 증명하는 테스트. Persistent 권한 부여와
- session-end 철회는 아직 shipped 계약이 아닙니다.
+  감사 증적을 요구하며 세션 principal을 변경하지 않음을 증명하는 테스트. Persistent 권한 부여와
+  session-end 철회는 아직 shipped 계약이 아닙니다.
 - **결정론성** - 같은 CLI 대화 기록을 가짜 `Narrator`로 두
- 번 실행하면 byte-identical 감사 trail을 생성 (고정된 시각과
- 멱등성 키 하에서).
+  번 실행하면 byte-identical 감사 trail을 생성 (고정된 시각과
+  멱등성 키 하에서).
 - **세션 복구** - principal 범위로 한정된 `ConversationHistoryStore`에서 세션 id로 이전 턴을
- reload하고 고정된 요청 멱등성이 중복 덧붙이기를 막는지 검증. 감사/온톨로지에는
- raw 대화 기록이 아니라 해시와 참조만 남습니다.
+  reload하고 고정된 요청 멱등성이 중복 덧붙이기를 막는지 검증. 감사/온톨로지에는
+  raw 대화 기록이 아니라 해시와 참조만 남습니다.
 ## 12. 실패 모드
 
 - **Narrator 사용 불가** - Chat T0 direct-hit로 fall through; 턴이
- T0 패턴에 매치되지 않으면, canned "reasoning 계층이 일시적으로
- 사용 불가; 다음은 direct 조회 표면"로 응답하고 도구 목록 노출.
+  T0 패턴에 매치되지 않으면, canned "reasoning 계층이 일시적으로
+  사용 불가; 다음은 direct 조회 표면"로 응답하고 도구 목록 노출.
 - **근거에 기반한 답변 렌더링 사용 불가 또는 잘못된** - 완료된 결정론적 도구 미리 보기를
- 반환합니다. 모델이 빈 답변이나 oversized 답변을 반환하거나 필수 근거 참조를
- 누락해도 같은 대체 경로를 사용합니다. 렌더링 실패는 도구 데이터, 상태, 권한 확인 또는
- 실행 상태를 변경하지 않습니다.
+  반환합니다. 모델이 빈 답변이나 oversized 답변을 반환하거나 필수 근거 참조를
+  누락해도 같은 대체 경로를 사용합니다. 렌더링 실패는 도구 데이터, 상태, 권한 확인 또는
+  실행 상태를 변경하지 않습니다.
 - **Write-class 도구에 검증기 abstain** - `enqueue_hil(...)`로
- substitute (§7.4 참조), HIL id 반환, 감사 사유 `verifier_abstained`.
+  substitute (§7.4 참조), HIL id 반환, 감사 사유 `verifier_abstained`.
 - **채널 어댑터 disconnect** - 영속 전달이 구성되면 완전한 응답과 최종/모호한
- 상태를 원장에 남깁니다. 구성되지 않은 direct 경로도 영속 대화 이력을 세션 id로
- 재개하지만 프로바이더 전송을 exactly-once로 주장하지 않습니다.
+  상태를 원장에 남깁니다. 구성되지 않은 direct 경로도 영속 대화 이력을 세션 id로
+  재개하지만 프로바이더 전송을 exactly-once로 주장하지 않습니다.
 - **Break-glass 요청 증적** - 현재 조정기는 증적을 elevated 기능으로 해석하지
- 않습니다. 향후 권한 부여 통합은 매 도구 호출에서 TTL을 재검사하고 만료 시 refuse해야 합니다.
+  않습니다. 향후 권한 부여 통합은 매 도구 호출에서 TTL을 재검사하고 만료 시 refuse해야 합니다.
 - **도구 구현 raise** - 도구의 타입화된 오류 표면 (§3.4)가
- `ToolResult(status=error)`로 wrap; 서술기는 exception 스택 추적이
- 아닌 구조화된 오류를 봄.
+  `ToolResult(status=error)`로 wrap; 서술기는 exception 스택 추적이
+  아닌 구조화된 오류를 봄.
 ## 13. 데이터 + wire 계약
 
 focused 소유자 문서로 분리했습니다:
@@ -641,33 +641,33 @@ future 범위입니다.
 ## 15. 결정 상태
 
 - **OD-C1 resolved** - strict 코어 서술기 프롬프트는 `AzureOpenAINarratorModel` 코드가 소유하고,
- broader 프롬프트 카탈로그는 `rule-catalog/prompts/base`, `packs`, `scenarios`, `tools` 구조를 사용합니다.
+  broader 프롬프트 카탈로그는 `rule-catalog/prompts/base`, `packs`, `scenarios`, `tools` 구조를 사용합니다.
 - **OD-C2 resolved** - principal 범위로 한정된 user 기억/선호 설정과 별도 통제된 운영자 기억 스키마,
- 출처 이력, consent, 보존 경로가 구현되어 있습니다.
+  출처 이력, consent, 보존 경로가 구현되어 있습니다.
 - **OD-C3 residual** - §7.3처럼 persistent BreakGlass 권한 부여/권한 상승은 아직 구현되지 않았습니다.
- 향후 설계는 no-self-approval을 유지하고 서로 다른 승인자 요구사항을 별도로 승인해야 합니다.
+  향후 설계는 no-self-approval을 유지하고 서로 다른 승인자 요구사항을 별도로 승인해야 합니다.
 - **OD-C4 현재 행동** - CLI 이력은 프로세스 기억에서만 범위가 제한된 탐색을 제공합니다.
- Persistent 이력 파일과 보존/민감정보 제거 계약은 shipped 기능이나 현재 CLI의 blocker가 아닙니다.
+  Persistent 이력 파일과 보존/민감정보 제거 계약은 shipped 기능이나 현재 CLI의 blocker가 아닙니다.
 ## 16. 관련 문서
 
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) -
- trust 라우팅, 검증기 권한.
+  trust 라우팅, 검증기 권한.
 - [action-ontology.md](../decisioning/action-ontology-ko.md) - 콘솔이 발행 하는
- `trigger_kind=operator_request` 축을 가진 ActionType 스키마 + 조정기
- 가 validate 하는 `argument_schema`.
+  `trigger_kind=operator_request` 축을 가진 ActionType 스키마 + 조정기
+  가 validate 하는 `argument_schema`.
 - [execution-model.md](../decisioning/execution-model-ko.md) - chat 검증기 re-check
- (§7.2)가 invoke 하는 통합 RiskGate + 모든 write-class 도구 호출에
- 대해 auto / HIL / 거부를 결정하는 5-axis 권한 매트릭스.
+  (§7.2)가 invoke 하는 통합 RiskGate + 모든 write-class 도구 호출에
+  대해 auto / HIL / 거부를 결정하는 5-axis 권한 매트릭스.
 - [channels-and-notifications.md](channels-and-notifications-ko.md) - 이
- 문서의 pull 측이 확장하는 push-방향 채널 매트릭스.
+  문서의 pull 측이 확장하는 push-방향 채널 매트릭스.
 - [user-rbac-and-identity.md](user-rbac-and-identity-ko.md) - 도구 매트릭스
- (§3)가 참조하는 RBAC 역할 집합.
+  (§3)가 참조하는 RBAC 역할 집합.
 - [security-and-identity.md](../architecture/security-and-identity-ko.md) - no-self-
- 승인, 실행 신원, 안전 invariant.
+  승인, 실행 신원, 안전 invariant.
 - [prompt-composition.md](../decisioning/prompt-composition-ko.md) - 서술기 프롬프트
- layering, tool-schema 노출, 월 1이 소비 MAY 하는 debate
- 오케스트레이터 (Wave 4.5).
+  layering, tool-schema 노출, 월 1이 소비 MAY 하는 debate
+  오케스트레이터 (Wave 4.5).
 - [rule-governance.md](../rules-and-detection/rule-governance-ko.md) - Month-1 콘솔이 피드 하는
- 발견 루프.
+  발견 루프.
 - [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#console-static-web-app) -
- Month-1 web-chat 채널이 확장하는 읽기 전용 콘솔 SPA.
+  Month-1 web-chat 채널이 확장하는 읽기 전용 콘솔 SPA.

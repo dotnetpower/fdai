@@ -31,11 +31,11 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 세 안전 원칙이 이 설계를 관장; 아래 모든 선택이 이들을 보존:
 
 1. **자기승인 없음** - 거버넌스 변경 요청자(PR 저자, HIL 트리거)는 승인자가 되어선 안 됨.
- CI + GitHub CODEOWNERS로 강제, 롤 분리로 아님.
+  CI + GitHub CODEOWNERS로 강제, 롤 분리로 아님.
 2. **승인 ≠ 실행** - 사람은 작성, 검토, 승인하고 executor Managed Identity만 실행합니다.
 3. **콘솔은 비특권 표면** - 범위가 제한된 요청을 제출할 수 있지만 executor identity를 받거나
-  리소스를 변경하지 않습니다. 카탈로그 초안은 GitHub App PR을 사용합니다
-  ([console-operations-ko.md](console-operations-ko.md)).
+   리소스를 변경하지 않습니다. 카탈로그 초안은 GitHub App PR을 사용합니다
+   ([console-operations-ko.md](console-operations-ko.md)).
 
 Operator Service는 token 검증과 server-owned App Role 해석 후에만 role을 serialize하며 browser payload는 이를 넓힐 수 없습니다. Core는 read 전에 principal-scoped purpose를 재검사하고 broker command identity는 executor 권한을 부여하지 않습니다.
 계약은 ordinary role 4개와 고정된 topic만 허용하고 readiness에는 bridge worker 두 개가 모두 필요하며 transactional storage와 replay는 모든 projection을 request, principal, result digest에 bind합니다.
@@ -57,20 +57,20 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 **티어 추가 없이 모델을 안전하게 유지하는 규칙**
 
 - 사용자는 여러 그룹에 소속 가능(예: 기여자와 Approver 모두), 하지만 **자기승인 없음**
- CI 검사가 여전히 자신의 PR 승인을 블록. 검사는 그룹 멤버십이 아니라 PR 저자 trailer와
- 리뷰어의 Entra OID를 비교.
+  CI 검사가 여전히 자신의 PR 승인을 블록. 검사는 그룹 멤버십이 아니라 PR 저자 trailer와
+  리뷰어의 Entra OID를 비교.
 - **Break-Glass는 Owner 안에 중첩되지 않음.** 별도 관리 그룹; Owner 계정도 `aw-break-glass`
- 에 없으면 break-glass 액션을 authorize하지 않음. 이는 Owner 계정이 손상되어도 영향 범위
- 제한.
+  에 없으면 break-glass 액션을 authorize하지 않음. 이는 Owner 계정이 손상되어도 영향 범위
+  제한.
 - **활성화 시 검증된 자격을 보존합니다.** 토큰 확인 과정은 유효 역할에서 `BreakGlass`를
- 제거하지만 별도의 자격 플래그를 유지합니다. 시간 제한 활성화는 긴급 역할을 추가하기 전에
- 이 플래그를 확인합니다.
+  제거하지만 별도의 자격 플래그를 유지합니다. 시간 제한 활성화는 긴급 역할을 추가하기 전에
+  이 플래그를 확인합니다.
 - **현재 activation 경계.** `RoleResolver.activate_break_glass`는 인시던트 id와 future 만료를
- 검증하는 pure activation 기본 요소입니다. 운영 API에는 이를 호출하는 엔드포인트, persistent
- activation 저장소, TTL 적용 조립이 아직 없습니다. 따라서 토큰의 BreakGlass 점유만으로
- 런타임 principal이 elevation되지 않으며, HIL 승인 충족 여부도 생기지 않습니다.
+  검증하는 pure activation 기본 요소입니다. 운영 API에는 이를 호출하는 엔드포인트, persistent
+  activation 저장소, TTL 적용 조립이 아직 없습니다. 따라서 토큰의 BreakGlass 점유만으로
+  런타임 principal이 elevation되지 않으며, HIL 승인 충족 여부도 생기지 않습니다.
 - **PIM은 선택**. 상류는 요구하지 않음. Entra ID P2 있는 포크는 just-in-time 활성화를 위해
- `aw-approvers` / `aw-owners` 위에 PIM을 얹을 수 있지만, 기본 모델은 P1에서 작동.
+  `aw-approvers` / `aw-owners` 위에 PIM을 얹을 수 있지만, 기본 모델은 P1에서 작동.
 
 ## 3. 페르소나 → 액션 매트릭스
 
@@ -168,12 +168,12 @@ Group-overage 토큰에는 이 대체 경로가 불가능하므로 FDAI App 역�
 App Roles를 정본 표면으로 쓰는 이유:
 
 - **테넌트 간 이식 가능.** App 역할 값은 코드에 정의된 상수; 그룹 `objectId` 는 테넌트마다
- 다름. 포크는 코드가 아니라 그룹 할당을 변경.
+  다름. 포크는 코드가 아니라 그룹 할당을 변경.
 - **Groups-overage 실패 없음.** 200개가 넘는 그룹에 속한 사용자의 토큰은 기본으로
- `groups` 점유를 생략하지만 `roles` 점유는 영향을 받지 않습니다. Overage 토큰에 FDAI
- App 역할이 없으면 API는 principal을 조용히 미할당 처리하지 않고 구성 오류로 실패 시 차단합니다.
+  `groups` 점유를 생략하지만 `roles` 점유는 영향을 받지 않습니다. Overage 토큰에 FDAI
+  App 역할이 없으면 API는 principal을 조용히 미할당 처리하지 않고 구성 오류로 실패 시 차단합니다.
 - **앱-스코프 최소권한.** App Roles는 `fdai-api` 에만 적용; 손상된 토큰의 영향
- radius를 넓히기 위해 다른 곳에서 재사용될 수 없음.
+  radius를 넓히기 위해 다른 곳에서 재사용될 수 없음.
 
 그룹 멤버십은 **관리 표면** 유지(Owners가 Entra Portal로 멤버 추가/제거); App Roles는 API가
 보는 **토큰 표면**.
@@ -216,14 +216,14 @@ Quorum-2는 "elevated 승인자" 그룹 도입 없이 구체화된 shadow→enfo
 ### 5.2 목표 CI 검사 (상류 제공, 포크 설정)
 
 - **저자-아님-승인자**: PR 저자의 Entra OID trailer(§6)와 모든 리뷰어의 Entra OID 파싱;
- 어떤 리뷰어의 OID가 저자 OID와 같으면 실패.
+  어떤 리뷰어의 OID가 저자 OID와 같으면 실패.
 - **저자-롤-검사**: PR 저자의 토큰(초안 PR 생성 시 캡처)은 `Contributor` 또는 상위 롤
- (`Approver`, `Owner`)을 포함하는 `roles` 점유를 운반해야 함. 롤은 draft-생성 시점에 PR
- trailer에 스탬프되어 CI가 리뷰 시점에 Entra를 재쿼리하지 않음.
+  (`Approver`, `Owner`)을 포함하는 `roles` 점유를 운반해야 함. 롤은 draft-생성 시점에 PR
+  trailer에 스탬프되어 CI가 리뷰 시점에 Entra를 재쿼리하지 않음.
 - **Justification-존재**: 고위험 diff(위 quorum-2 행)의 경우 PR description은 `N` 문자 이상의
- `Justification:` 블록을 포함해야 함(`N` 은 설정됨).
+  `Justification:` 블록을 포함해야 함(`N` 은 설정됨).
 - **서명 커밋 / 서명 trailer**: 리뷰어 승인은 특정 PR head 커밋에 바인딩; 승인 후 force-push는
- 무효화하고 리뷰 재요청.
+  무효화하고 리뷰 재요청.
 
 ### 5.3 앱 레벨 정당화 (런타임 사람 승인)
 
@@ -267,9 +267,9 @@ sequenceDiagram
 
 - SPA는 절대 GitHub PAT를 보유하지 않음. 카탈로그로의 쓰기 접근은 GitHub App에만 속함.
 - 커밋의 git 작성자는 GitHub App; 사람 사용자의 Entra OID는 커밋 trailer
- (`Entra-Author-OID: <guid>`) 와 PR 본문에 동승. CI가 그 trailer를 파싱.
+  (`Entra-Author-OID: <guid>`) 와 PR 본문에 동승. CI가 그 trailer를 파싱.
 - 사용자의 Entra OID ↔ GitHub 로그인 매핑은 `shared/providers/` 인터페이스 뒤에 포크가 저장.
- 매핑 부재 → API가 초안을 `403` 으로 거부.
+  매핑 부재 → API가 초안을 `403` 으로 거부.
 
 ## 7. ChatOps 사람 승인 흐름
 
@@ -300,9 +300,9 @@ sequenceDiagram
 ```
 
 - 현재 콜백은 시각, URL `approval_id`, 본문을 HMAC에 바인딩합니다. 레지스트리 또는 parked
- 조정기는 이 식별자를 pending 항목과 대조하고 멱등적 최종 결정을 강제합니다.
+  조정기는 이 식별자를 pending 항목과 대조하고 멱등적 최종 결정을 강제합니다.
 - No-self-approval은 signed 콜백 행위자 OID와 pending 항목의 submitter OID를 비교합니다. 향후
- 사람이 작성한 거버넌스 PR에서 이 신원을 종단으로 전달하는 것은 목표 흐름에 남아 있습니다.
+  사람이 작성한 거버넌스 PR에서 이 신원을 종단으로 전달하는 것은 목표 흐름에 남아 있습니다.
 
 ## 8. 감사 상관관계
 
@@ -345,23 +345,23 @@ RBAC 그룹 slot, IAM 요청/디렉터리 계약, 교정 PR 어댑터가 있습�
 
 - **라이브러리**: MSAL.js v3 (`@azure/msal-browser`). 암묵적 흐름 없음.
 - **테넌트**: 포크당 single-tenant (`accountsInHomeTenantOnly`); 게스트 접근은 Entra B2B
- 초대 통해(§10.5).
+  초대 통해(§10.5).
 - **Redirect**: 콘솔은 anonymous 표면 없음. 로드 시 MSAL에 유효 세션이 없으면 즉시
- `/authorize` 로 리다이렉트.
+  `/authorize` 로 리다이렉트.
 - **토큰 저장**: 접근 + id 토큰은 메모리 또는 `sessionStorage`(절대 `localStorage` 아님);
- refresh는 MSAL `acquireTokenSilent` 가 관리.
+  refresh는 MSAL `acquireTokenSilent` 가 관리.
 - **자동 토큰 시간 제한**: 콘솔은 기본적으로 `acquireTokenSilent`를 최대 10초 동안
- 기다립니다. 토큰 획득이 멈추면 현재 패널을 계속 로드 상태로 두지 않고 재시도 작업이 있는
- 인증 오류를 표시합니다. 포크의 아이덴티티 정책에 다른 제한 시간이 필요한 경우
- `VITE_AUTH_TOKEN_TIMEOUT_MS`를 양의 정수로 설정할 수 있습니다.
+  기다립니다. 토큰 획득이 멈추면 현재 패널을 계속 로드 상태로 두지 않고 재시도 작업이 있는
+  인증 오류를 표시합니다. 포크의 아이덴티티 정책에 다른 제한 시간이 필요한 경우
+  `VITE_AUTH_TOKEN_TIMEOUT_MS`를 양의 정수로 설정할 수 있습니다.
 - **만료된 API 세션**: 구성된 읽기 또는 인제스트 API가 `401`을 반환하면 현재 데이터 표면을
- 닫고 전체 화면 sign-in 복구 화면으로 전환합니다. Standard 읽기, 인증된 bridge-owned chat 상태, chat, 작업 흐름, 명령,
- SSE 스트림에 동일하게 적용합니다. 신원 프로바이더 요청과 `403` 접근 결정은 이 전환을
- 시작하지 않습니다. 하나의 shared fetch 관찰기가 overlapping 소유자, 멱등적 정리 및 다른
- 소유자가 global fetch 함수를 교체한 뒤의 재설치를 지원하며, 정리는 해당 replacement를
- 덮어쓰지 않습니다.
+  닫고 전체 화면 sign-in 복구 화면으로 전환합니다. Standard 읽기, 인증된 bridge-owned chat 상태, chat, 작업 흐름, 명령,
+  SSE 스트림에 동일하게 적용합니다. 신원 프로바이더 요청과 `403` 접근 결정은 이 전환을
+  시작하지 않습니다. 하나의 shared fetch 관찰기가 overlapping 소유자, 멱등적 정리 및 다른
+  소유자가 global fetch 함수를 교체한 뒤의 재설치를 지원하며, 정리는 해당 replacement를
+  덮어쓰지 않습니다.
 - **사인아웃**: `/logout?post_logout_redirect_uri=...` 이 콘솔 세션과 테넌트의 Entra 세션
- 모두 클리어.
+  모두 클리어.
 
 > **로컬 개발**: 로컬 로그인 선택기에서 dev bypass를 제공할 때 콘솔은 먼저 토큰 없이
 > 코어 읽기 엔드포인트를 호출합니다. 이 탐색이 성공한 경우에만 현재 세션의 bypass를
@@ -399,11 +399,11 @@ API는 다음처럼 모든 요청 검증(거부 by 기본값):
 3. **발급자** 가 포크의 테넌트 발급자 URL과 같음.
 4. **만료 안 됨** (`exp`) 과 **not-before 유효** (`nbf`).
 5. **역할 해석** - `roles` App 역할을 먼저 사용합니다. 이 점유가 비어 있고 inline `groups`
- 점유를 사용할 수 있으면 구성된 objectId 대응으로 대체 경로합니다. Group-overage 토큰에
- App 역할이 없으면 실패 시 차단합니다. 어떤 known 역할도 해석되지 않으면 protected 엔드포인트는
- `403`을 반환합니다. `aw-readers`로 자동 프로비저닝하지 않습니다.
+  점유를 사용할 수 있으면 구성된 objectId 대응으로 대체 경로합니다. Group-overage 토큰에
+  App 역할이 없으면 실패 시 차단합니다. 어떤 known 역할도 해석되지 않으면 protected 엔드포인트는
+  `403`을 반환합니다. `aw-readers`로 자동 프로비저닝하지 않습니다.
 6. **안정 아이덴티티** 는 `oid` (Entra 사용자 objectId). `upn`/이메일은 정보성; 감사와
- 자기승인 없음은 `oid` 사용.
+  자기승인 없음은 `oid` 사용.
 
 1-4단계는 제네릭
 [`EntraJwtVerifier`](../../../services/operator-service/src/fdai_operator_service/auth.py) (PyJWT +
@@ -429,8 +429,8 @@ JWKS는 지연 fetch 후 프로세스 내 캐시; 요청별 검증은 로컬 RSA
 - Entra 인증 성공, `roles` 점유 비어 있음.
 - API는 한 화면 메시지와 함께 `403` 반환: 그룹에 추가되려면 Owner에 연락.
 - 역할이 필요한 엔드포인트는 `403`을 반환하고, role-optional `GET /iam/self`는 접근 필수
- 화면에 필요한 self-service 변환 결과를 제공합니다. 전용 `sign-in-denied` 감사 이벤트는
- 아직 구현되어 있지 않습니다.
+  화면에 필요한 self-service 변환 결과를 제공합니다. 전용 `sign-in-denied` 감사 이벤트는
+  아직 구현되어 있지 않습니다.
 
 ### 10.4 ChatOps (Teams) 사인인
 
@@ -438,9 +438,9 @@ Teams SSO OBO 승인에 대한 목표 계약은 다음과 같습니다:
 
 - Adaptive 카드 "Approve"/"거부" 클릭은 Teams SSO 토큰과 함께 봇에 도달.
 - 봇은 Teams 토큰을 `fdai-api` 오디언스 토큰으로 교환하는 **On-Behalf-Of (OBO)**
- 플로우 실행.
+  플로우 실행.
 - API 검증(§10.2)은 동일; `roles` 점유는 `Approver` 또는 `Owner` 를 포함해야 함. 할당 없는
- 첫 Teams 사용자는 같은 `403` 메시지.
+  첫 Teams 사용자는 같은 `403` 메시지.
 
 ### 10.5 게스트 (Entra B2B) 사용자
 
@@ -448,8 +448,8 @@ Teams SSO OBO 승인에 대한 목표 계약은 다음과 같습니다:
 
 - 게스트는 `aw-readers` 에 추가될 수 있고 - justification과 함께 - `aw-contributors`.
 - 게스트를 `aw-approvers`, `aw-owners`, `aw-break-glass`에 추가하지 않는 것이 좋습니다. 저장소는
- 현재 이 사람 역할 정책을 검사하는 초기화 구성원 검사를 제공하지 않으므로 포크의 Entra
- 관리 프로세스에서 강제해야 합니다.
+  현재 이 사람 역할 정책을 검사하는 초기화 구성원 검사를 제공하지 않으므로 포크의 Entra
+  관리 프로세스에서 강제해야 합니다.
 - Conditional 접근 정책은 게스트와 멤버에 균일 적용.
 
 ### 10.6 프로그래매틱 접근 (로컬 dev, CI)
@@ -457,41 +457,41 @@ Teams SSO OBO 승인에 대한 목표 계약은 다음과 같습니다:
 사람 사용자는 절대 PAT나 장기 시크릿을 보유하지 않음:
 
 - **Azure-backed 로컬 콘솔**: `FDAI_OPERATOR_API_LOCAL_ENTRA=1`이 정본 interactive 개발
- 모드입니다. 브라우저는 Entra로 로그인하고 API는 운영과 동일하게 JWT 서명, 발급자,
- 대상, lifetime, App 역할을 검증합니다. 서버의 Azure CLI 세션은 Microsoft Graph, Azure
- Resource Graph 및 로컬 Azure OpenAI 서술 같은 Azure 어댑터에만 단기 토큰을 제공하며 브라우저
- principal을 대체하지 않습니다. Event Hubs 토큰 refresh는 변경 가능한 Azure CLI 기본값 계정이 아니라
- 준비된 런타임 테넌트와 구독에 고정됩니다. App 역할이 없는 principal에는 접근 요청 페이지가 표시되고,
- bearer 토큰이 없으면 실패 시 차단합니다. Full-stack 준비 단계는 두 개의 고정 loopback 출처를
- 구성된 SPA 등록에 안전하게 재시도할 수 있는 방식으로 동기화합니다. 테넌트가 다르거나 Graph
- 권한이 부족하면 sign-in 후 redirect가 깨진 상태로 남지 않도록 시작을 중단합니다.
+  모드입니다. 브라우저는 Entra로 로그인하고 API는 운영과 동일하게 JWT 서명, 발급자,
+  대상, lifetime, App 역할을 검증합니다. 서버의 Azure CLI 세션은 Microsoft Graph, Azure
+  Resource Graph 및 로컬 Azure OpenAI 서술 같은 Azure 어댑터에만 단기 토큰을 제공하며 브라우저
+  principal을 대체하지 않습니다. Event Hubs 토큰 refresh는 변경 가능한 Azure CLI 기본값 계정이 아니라
+  준비된 런타임 테넌트와 구독에 고정됩니다. App 역할이 없는 principal에는 접근 요청 페이지가 표시되고,
+  bearer 토큰이 없으면 실패 시 차단합니다. Full-stack 준비 단계는 두 개의 고정 loopback 출처를
+  구성된 SPA 등록에 안전하게 재시도할 수 있는 방식으로 동기화합니다. 테넌트가 다르거나 Graph
+  권한이 부족하면 sign-in 후 redirect가 깨진 상태로 남지 않도록 시작을 중단합니다.
 - **CLI principal 대안**: 브라우저 로그인이 필요하지 않을 때
- `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1`과 `VITE_LOCAL_AZURE_CLI_AUTH=1`은 현재 CLI 사용자를 고정된
- 로컬 역할 상한으로 변환 결과합니다. 이는 명시적 대안이며 정본 full-stack 프로파일이
- 아닙니다.
+  `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1`과 `VITE_LOCAL_AZURE_CLI_AUTH=1`은 현재 CLI 사용자를 고정된
+  로컬 역할 상한으로 변환 결과합니다. 이는 명시적 대안이며 정본 full-stack 프로파일이
+  아닙니다.
 - **Synthetic 고정본**: 익명 권한 부여, static 사용자, 시드 감사 기록 및 시나리오 재생은
- pytest의 `app(test_fixtures=True)`에서만 사용할 수 있습니다. Interactive 개발 데이터 원본이
- 아닙니다.
+  pytest의 `app(test_fixtures=True)`에서만 사용할 수 있습니다. Interactive 개발 데이터 원본이
+  아닙니다.
 - **직접 API 클라이언트**: 개발 테넌트의 전용 `fdai-api-dev` 오디언스로 범위가 지정된
- 토큰을 요청합니다. 10.2절의 표준 서명, 오디언스, 발급자, 만료, App 역할 검사가 그대로
- 적용됩니다.
+  토큰을 요청합니다. 10.2절의 표준 서명, 오디언스, 발급자, 만료, App 역할 검사가 그대로
+  적용됩니다.
 - **CI**: 워크로드 신원 federation (OIDC), [deployment-ko.md](../deployment/deployment-ko.md) 에서
- 이미 필수. GitHub Actions와 Azure DevOps 모두 지원.
+  이미 필수. GitHub Actions와 Azure DevOps 모두 지원.
 - **PAT는 금지**. CI의 시크릿 검사가 우발적 커밋 블록
- ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
+  ([coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)).
 
 ### 10.7 Break-Glass 사인인
 
 - Break-glass는 **전용 계정** (사람의 개인 계정 아님), 물리적 보관하의 하드웨어 FIDO2 키로
- 저장.
+  저장.
 - 모든 사인인에 대한 break-glass 알림과 상승된 감사 기록은 배포 운영 계약입니다. 현재
- 운영 API에는 activation 엔드포인트, persistent activation 저장소 또는 알림 조립이
- 없습니다.
+  운영 API에는 activation 엔드포인트, persistent activation 저장소 또는 알림 조립이
+  없습니다.
 - `BreakGlass` 권한은 `RoleResolver.activate_break_glass`로 별도 활성화되어야 합니다.
- 활성화된 `BreakGlass`만으로 비상 정지와 비상 접근 권한 부여 기능을 가질 수 있으며
- `Owner`와 `BreakGlass`를 동시에 요구하지 않습니다.
+  활성화된 `BreakGlass`만으로 비상 정지와 비상 접근 권한 부여 기능을 가질 수 있으며
+  `Owner`와 `BreakGlass`를 동시에 요구하지 않습니다.
 - Break-glass 자격증명 로테이션과 드릴 주기는
- [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 에 선언.
+  [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 에 선언.
 
 ## 11. 콘솔 설정 및 액세스 요청
 
@@ -615,13 +615,13 @@ Approvals 표면에 유지됩니다. IAM 검토는 자율 작업을 승인하지
 ## 12. 열림 Decisions
 
 - [ ] API가 `entra_oid ↔ github_login` 매핑을 감사와 같은 PostgreSQL(단일 저장소)에 저장할지
-  별도의 포크 소유 아이덴티티 저장소에 저장할지.
+   별도의 포크 소유 아이덴티티 저장소에 저장할지.
 - [ ] Diff-risk 티어별 정확한 `Justification` 최소 길이(현재 config-only).
 - [ ] Owner가 Break-Glass 멤버도 될 수 있는지(기본: **아니오**; 포크 부트스트랩에서 CI로 강제).
 - [ ] `aw-owners` 와 `aw-break-glass` 멤버십 로테이션 주기(수동 접근 리뷰 vs P2 Entra 접근
-  Reviews).
+   Reviews).
 - [ ] 콘솔의 "초안 변경" UI가 P1(변경 안전성만)에 실릴지 P3(3개 버티컬 모두)에 실릴지
-  - [rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md#open-decisions) 저작-UI 결정에 의존.
+   - [rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md#open-decisions) 저작-UI 결정에 의존.
 - [ ] 게스트 사용자가 `Contributor` 로 할당될 수 있는지 아니면 `Reader` 전용에만 머물러야
-  하는지(§10.5 기본은 justification과 함께 기여자 허용).
+   하는지(§10.5 기본은 justification과 함께 기여자 허용).
 - [ ] 콘솔 세션 최대 수명 값(Conditional 접근 설정); 기본 권장: idle 8시간, 절대 24시간.

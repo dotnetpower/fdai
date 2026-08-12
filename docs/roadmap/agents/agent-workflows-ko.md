@@ -2,7 +2,7 @@
 title: 에이전트 워크플로우
 translation_of: agent-workflows.md
 translation_source_sha: b684d92407cf1a67f24b5533d2f3a34328d13c25
-translation_revised: 2026-08-11
+translation_revised: 2026-08-12
 ---
 
 # 에이전트 워크플로우
@@ -59,28 +59,28 @@ Thor (실행기), Saga (auditor).
 
 ```mermaid
 sequenceDiagram
- participant H as Heimdall
- participant Nj as Njord
- participant F as Forseti
- participant T as Thor
- participant S as Saga
- H->>F: object.drift {resource, delta}
- F->>Nj: typed query {proposed_action, target_resource}
- Nj-->>F: cost_estimate {monthly_delta_usd, confidence}
- F->>F: verdict = auto|hil|deny + cost_annotation
- F->>T: object.verdict {risk_verdict, cost_annotation}
- T->>T: dispatch by risk_verdict
- T->>S: object.action-run {result, cost_actual (post-execute)}
- S->>Nj: attribution event (async)
+    participant H as Heimdall
+    participant Nj as Njord
+    participant F as Forseti
+    participant T as Thor
+    participant S as Saga
+    H->>F: object.drift {resource, delta}
+    F->>Nj: typed query {proposed_action, target_resource}
+    Nj-->>F: cost_estimate {monthly_delta_usd, confidence}
+    F->>F: verdict = auto|hil|deny + cost_annotation
+    F->>T: object.verdict {risk_verdict, cost_annotation}
+    T->>T: dispatch by risk_verdict
+    T->>S: object.action-run {result, cost_actual (post-execute)}
+    S->>Nj: attribution event (async)
 ```
 
 **Exit criteria.**
 
 - Verdict 가 `cost_annotation.monthly_delta_usd` 와
- `cost_annotation.confidence` 와 함께 발행.
+  `cost_annotation.confidence` 와 함께 발행.
 - Post-execute 감사 가 settlement 데이터 가용 시 `cost_actual` 기록 (T+24h).
 - `cost_annotation.monthly_delta_usd > fork_config.cost_ceiling` 인 경우
- HIL 없이 auto 판정 발행 안 됨.
+  HIL 없이 auto 판정 발행 안 됨.
 
 **승격 게이트.** 14일 shadow; 이 워크플로우 감사 샘플 에서 Njord
 비용 예측 MAPE < 20%; 교정 에서 cost_annotation 누락 zero.
@@ -102,32 +102,32 @@ Freyr 예측 가 임계값 를 trip 하기 전에 사전에 규모.
 
 ```mermaid
 sequenceDiagram
- participant Fr as Freyr
- participant H as Heimdall
- participant Nj as Njord
- participant O as Odin
- participant F as Forseti
- participant T as Thor
- Fr->>F: proposed_action {scale_out, target, size}
- F->>H: typed query {resource, recent_signals}
- H-->>F: signal_confirm {leading_indicators, confidence}
- F->>Nj: cost_impact query
- Nj-->>F: cost_estimate
- alt cost > fork_config.scale_cost_ceiling
-  F->>O: arbitration_request {sre_intent, cost_block}
-  O-->>F: arbitration_response
- end
- F->>T: verdict {scale_out, size}
- T->>T: dispatch (auto if under ceiling)
+    participant Fr as Freyr
+    participant H as Heimdall
+    participant Nj as Njord
+    participant O as Odin
+    participant F as Forseti
+    participant T as Thor
+    Fr->>F: proposed_action {scale_out, target, size}
+    F->>H: typed query {resource, recent_signals}
+    H-->>F: signal_confirm {leading_indicators, confidence}
+    F->>Nj: cost_impact query
+    Nj-->>F: cost_estimate
+    alt cost > fork_config.scale_cost_ceiling
+        F->>O: arbitration_request {sre_intent, cost_block}
+        O-->>F: arbitration_response
+    end
+    F->>T: verdict {scale_out, size}
+    T->>T: dispatch (auto if under ceiling)
 ```
 
 **Exit criteria.**
 
 - 규모 액션 이 Heimdall 반응적 감지가 발화했을 시점보다 >30분 앞서
- 착지 (paired 반응적 기준선 대비 측정).
+  착지 (paired 반응적 기준선 대비 측정).
 - 비용 가 블록 시 Odin 중재 invoke: 충돌당 정확히 한 번.
 - False-positive 규모 zero (post-hoc 반응적 기준선 이 임계값 breach
- 없음 표시로 검증).
+  없음 표시로 검증).
 
 **승격 게이트.** 30일 shadow; 이 워크플로우 샘플 에서 Freyr 예측
 MAPE < 15%; false-positive 규모 비율 < 5%.
@@ -148,23 +148,23 @@ Heimdall (관측), Norns (learning), Saga.
 
 ```mermaid
 sequenceDiagram
- participant L as Loki
- participant F as Forseti
- participant Va as Var
- participant V as Vidar
- participant H as Heimdall
- participant N as Norns
- participant S as Saga
- L->>F: proposed_action {dr_drill, scope, blast_radius}
- F->>Va: verdict = hil (drills are always HIL)
- Va-->>F: approval
- F->>V: verdict {execute_drill}
- V->>V: execute rollback / failover in shadow env
- V->>H: observe_request
- H-->>V: observations
- V->>S: object.rollback {result, observations, recovery_time}
- S->>N: audit signal
- N->>N: compare to baseline, emit drift signal if MTTR degraded
+    participant L as Loki
+    participant F as Forseti
+    participant Va as Var
+    participant V as Vidar
+    participant H as Heimdall
+    participant N as Norns
+    participant S as Saga
+    L->>F: proposed_action {dr_drill, scope, blast_radius}
+    F->>Va: verdict = hil (drills are always HIL)
+    Va-->>F: approval
+    F->>V: verdict {execute_drill}
+    V->>V: execute rollback / failover in shadow env
+    V->>H: observe_request
+    H-->>V: observations
+    V->>S: object.rollback {result, observations, recovery_time}
+    S->>N: audit signal
+    N->>N: compare to baseline, emit drift signal if MTTR degraded
 ```
 
 **Exit criteria.**
@@ -172,9 +172,9 @@ sequenceDiagram
 - 훈련 이 Loki 선언 blast_radius 안에서 완료.
 - Post-drill MTTR 리포트; 이전 훈련 기준선 과 비교 저장.
 - MTTR 성능 저하 > 20% 시 용량 또는 경로 변경을 위한
- `RuleCandidate` 발생.
+  `RuleCandidate` 발생.
 
-**승격 게이트.** shadow 에서 3회 성공적 훈련; 훈련 소요 시간 < 선언된
+**승격 게이트.** Shadow 에서 3회 성공적 훈련; 훈련 소요 시간 < 선언된
 예산; unplanned 프로덕션 side-effect zero (Heimdall 의 blast-radius
 감사 로 측정).
 
@@ -196,24 +196,24 @@ over-scoped 되었거나, critical exception 이 누락됨을 의미.
 
 ```mermaid
 sequenceDiagram
- participant Va as Var
- participant S as Saga
- participant N as Norns
- participant M as Mimir
- Va->>S: object.approval {rule_id, override_signal}
- S->>N: signal (batched)
- N->>N: rolling count per rule_id, threshold check
- alt count > threshold
-  N->>M: object.rule-candidate {rule_id, override_pattern, proposed_revision}
-  M->>M: shadow evaluation on override cases
- end
+    participant Va as Var
+    participant S as Saga
+    participant N as Norns
+    participant M as Mimir
+    Va->>S: object.approval {rule_id, override_signal}
+    S->>N: signal (batched)
+    N->>N: rolling count per rule_id, threshold check
+    alt count > threshold
+        N->>M: object.rule-candidate {rule_id, override_pattern, proposed_revision}
+        M->>M: shadow evaluation on override cases
+    end
 ```
 
 **Exit criteria.**
 
 - 모든 재정의 가 구조화된 `override_signal` 로 기록.
 - 재정의 비율 > 임계값 인 룰 이 rolling 구간 당 정확히 하나의
- `RuleCandidate` 생성 (dedup).
+  `RuleCandidate` 생성 (dedup).
 - 후보 가 특정 재정의 를 참조해서 Mimir 가 맥락 리뷰 가능.
 
 **승격 게이트.** 60일 shadow; override-to-candidate 전환율이 예상
@@ -238,31 +238,31 @@ formalize.
 
 ```mermaid
 sequenceDiagram
- participant F as Forseti
- participant H as Heimdall
- participant O as Odin
- participant V as Var
- participant S as Saga
- F->>H: object.security-event {initiator, action, severity_hint}
- F->>S: audit
- H->>H: correlate with recent events (rolling window)
- H->>H: classify severity: low|medium|high|critical
- alt severity >= high
-  H->>F: propose notify_admin_privilege_violation
-  F-->>V: verdict = auto (governance notification)
-  V->>S: audit (card sent)
- end
- alt severity == critical
-  H->>O: escalate {evidence}
-  O->>V: page on-call security channel
- end
+    participant F as Forseti
+    participant H as Heimdall
+    participant O as Odin
+    participant V as Var
+    participant S as Saga
+    F->>H: object.security-event {initiator, action, severity_hint}
+    F->>S: audit
+    H->>H: correlate with recent events (rolling window)
+    H->>H: classify severity: low|medium|high|critical
+    alt severity >= high
+        H->>F: propose notify_admin_privilege_violation
+        F-->>V: verdict = auto (governance notification)
+        V->>S: audit (card sent)
+    end
+    alt severity == critical
+        H->>O: escalate {evidence}
+        O->>V: page on-call security channel
+    end
 ```
 
 **Exit criteria.**
 
 - 모든 RBAC-deny 가 정확히 하나의 `SecurityEvent` 생성.
 - 심각도 분류가 결정론적 (counter + 표 only).
-- Alert dedup: 1h 이내 same-user same-action 이 하나의 카드 로 합침.
+- 경보 dedup: 1h 이내 same-user same-action 이 하나의 카드 로 합침.
 - Per-user 비율 한도: >5 카드/시간 다이제스트.
 
 **승격 게이트.** 30일 shadow; 주입된 critical 패턴에서 false 부정
@@ -285,29 +285,29 @@ Bragi (기능 전달 시 업데이트).
 
 ```mermaid
 sequenceDiagram
- participant S as Saga
- participant N as Norns
- participant M as Mimir
- participant Br as Bragi
- S->>N: object.issue (open)
- N->>N: aggregate by fingerprint (rolling)
- alt fingerprint occurrence >= threshold
-  N->>M: object.rule-candidate {source: handoff, evidence}
-  M->>M: shadow evaluation
-  alt promotion passes
-   M-->>N: rule promoted
-   N->>S: close_issue signal
-   S->>S: comment on GitHub issue + close
-   S->>Br: capability update (visible in operator briefing)
-  end
- end
+    participant S as Saga
+    participant N as Norns
+    participant M as Mimir
+    participant Br as Bragi
+    S->>N: object.issue (open)
+    N->>N: aggregate by fingerprint (rolling)
+    alt fingerprint occurrence >= threshold
+        N->>M: object.rule-candidate {source: handoff, evidence}
+        M->>M: shadow evaluation
+        alt promotion passes
+            M-->>N: rule promoted
+            N->>S: close_issue signal
+            S->>S: comment on GitHub issue + close
+            S->>Br: capability update (visible in operator briefing)
+        end
+    end
 ```
 
 **Exit criteria.**
 
 - 인계 지문 발생 개수 를 monotonically tracking.
 - 임계값 초과 시 RuleCandidate 발행 (dedup: rolling 구간 당
- 지문 당 하나의 후보).
+  지문 당 하나의 후보).
 - 승격 + 24h 회귀 clean 후 auto-close.
 - 닫는 comment 가 promoting PR 을 링크.
 
@@ -332,26 +332,26 @@ KPI 비교 vs 기준선). 하트비트 공백, high 오류 비율, 또는 KPI �
 
 ```mermaid
 sequenceDiagram
- participant H as Heimdall
- participant O as Odin
- participant Br as Bragi
- participant C as Admin channel
- participant S as Saga
- H->>H: probe each agent (heartbeat + KPI)
- alt degradation detected
-  H->>S: audit event
-  H->>O: agent_health_signal {agent, severity, evidence}
-  O->>O: apply degradation policy per pantheon 11
-  O->>Br: briefing_update {impact, mitigation_active}
-  Br->>C: proactive card to admins
- end
+    participant H as Heimdall
+    participant O as Odin
+    participant Br as Bragi
+    participant C as Admin channel
+    participant S as Saga
+    H->>H: probe each agent (heartbeat + KPI)
+    alt degradation detected
+        H->>S: audit event
+        H->>O: agent_health_signal {agent, severity, evidence}
+        O->>O: apply degradation policy per pantheon 11
+        O->>Br: briefing_update {impact, mitigation_active}
+        Br->>C: proactive card to admins
+    end
 ```
 
 **Exit criteria.**
 
 - 모든 에이전트 가 선언된 빈도로 탐색.
 - 성능 저하 정책 활성화가 [pantheon anti-patterns 테이블](agent-pantheon-ko.md#11-anti-patterns)
- 과 일치 (예: Saga down -> 변경 거부).
+  과 일치 (예: Saga down -> 변경 거부).
 - 감지 후 60초 이내 Bragi 브리핑 배송.
 
 **승격 게이트.** 30일 shadow; 선언된 모든 성능 저하 정책 가 주입된
@@ -374,34 +374,34 @@ Mimir (표류가 룰 변경으로 인한 것인 경우 리뷰), Saga.
 
 ```mermaid
 sequenceDiagram
- participant F as Forseti
- participant Mu as Muninn
- participant N as Norns
- participant M as Mimir
- participant S as Saga
- F->>Mu: fetch recent audit sample (N=1000)
- F->>F: re-run judgment on same inputs
- F->>N: coherence_report {mismatches}
- N->>N: classify: rule_change | model_drift | non_determinism
- alt classification == rule_change
-  N->>M: confirm rule delta explains mismatch
- else classification == model_drift or non_determinism
-  N->>M: object.rule-candidate {type: coherence_alert}
-  N->>S: audit alert
- end
+    participant F as Forseti
+    participant Mu as Muninn
+    participant N as Norns
+    participant M as Mimir
+    participant S as Saga
+    F->>Mu: fetch recent audit sample (N=1000)
+    F->>F: re-run judgment on same inputs
+    F->>N: coherence_report {mismatches}
+    N->>N: classify: rule_change | model_drift | non_determinism
+    alt classification == rule_change
+        N->>M: confirm rule delta explains mismatch
+    else classification == model_drift or non_determinism
+        N->>M: object.rule-candidate {type: coherence_alert}
+        N->>S: audit alert
+    end
 ```
 
 **Exit criteria.**
 
 - Daily coherence 실행 이 예산 내 완료 (< 15분).
 - Mismatch 분류가 결정론적.
-- 설명되지 않은 mismatch 가 정확히 하나의 후보 + 하나의 감사 alert
- 생성.
+- 설명되지 않은 mismatch 가 정확히 하나의 후보 + 하나의 감사 경보
+  생성.
 
 **승격 게이트.** 60일 shadow; mismatch 비율 기준선 캡처;
 false-drift-alert 비율 < 5%.
 
-**Anti-scope.** Rule 변경을 자동 롤백하지 않음. 모든 alert 는
+**Anti-scope.** Rule 변경을 자동 롤백하지 않음. 모든 경보 는
 investigatory.
 
 ## 9. Rollback 예행 연습
@@ -418,28 +418,28 @@ Heimdall (관찰기), Saga.
 
 ```mermaid
 sequenceDiagram
- participant L as Loki
- participant F as Forseti
- participant Va as Var
- participant V as Vidar
- participant H as Heimdall
- participant S as Saga
- L->>F: proposed_action {rehearse_rollback, action_type_id}
- F->>Va: verdict = hil (all rehearsals HIL)
- Va-->>F: approval
- F->>V: verdict {execute}
- V->>V: apply mutation in shadow env
- V->>V: invoke rollback per rollback_contract
- V->>H: observe post-rollback state
- H-->>V: state matches pre-mutation baseline?
- V->>S: audit {rehearsal_result, deviation}
+    participant L as Loki
+    participant F as Forseti
+    participant Va as Var
+    participant V as Vidar
+    participant H as Heimdall
+    participant S as Saga
+    L->>F: proposed_action {rehearse_rollback, action_type_id}
+    F->>Va: verdict = hil (all rehearsals HIL)
+    Va-->>F: approval
+    F->>V: verdict {execute}
+    V->>V: apply mutation in shadow env
+    V->>V: invoke rollback per rollback_contract
+    V->>H: observe post-rollback state
+    H-->>V: state matches pre-mutation baseline?
+    V->>S: audit {rehearsal_result, deviation}
 ```
 
 **Exit criteria.**
 
 - Rollback 경로 가 오류 없이 실행.
 - Post-rollback 상태 가 pre-mutation 기준선 과 일치 (deviation 리포트
- 첨부).
+  첨부).
 - Deviation 시 `RuleCandidate` 발생 (rollback_contract 업데이트 필요).
 
 **승격 게이트.** 각 ActionType 별 3회 성공적 예행 연습 후 shadow
@@ -462,20 +462,20 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
- participant Op as Operator
- participant Br as Bragi
- participant S as Saga
- participant F as Forseti
- participant N as Norns
- participant M as Mimir
- Op->>Br: "if rule X existed on 2026-07-01, what would have happened?"
- Br->>S: fetch audit slice
- Br->>M: fetch rule X (shadow overlay)
- Br->>F: replay with overlay
- F-->>Br: what-if verdicts
- Br->>N: delta analysis
- N-->>Br: diff summary
- Br-->>Op: report
+    participant Op as Operator
+    participant Br as Bragi
+    participant S as Saga
+    participant F as Forseti
+    participant N as Norns
+    participant M as Mimir
+    Op->>Br: "if rule X existed on 2026-07-01, what would have happened?"
+    Br->>S: fetch audit slice
+    Br->>M: fetch rule X (shadow overlay)
+    Br->>F: replay with overlay
+    F-->>Br: what-if verdicts
+    Br->>N: delta analysis
+    N-->>Br: diff summary
+    Br-->>Op: report
 ```
 
 **Exit criteria.**
@@ -509,23 +509,23 @@ Thor (승인된 fix 의 실행기), Saga (auditor).
 
 ```mermaid
 sequenceDiagram
- participant Hu as Huginn
- participant M as Mimir
- participant F as Forseti
- participant V as Var
- participant T as Thor
- participant S as Saga
- Hu->>F: object.ownership-transfer {scope, submitter, environment}
- F->>M: applicable rules for scope
- M-->>F: rule set (+ profile mode)
- F->>F: run assurance-twin + deploy-preflight over scope
- F->>F: compose ReadinessReport (clear|needs_review|blocked)
- F->>S: audit {verdict, blocks_handoff}
- alt blocked and enforce mode
-  F->>V: request approval + shadow remediation-PR proposals
-  V-->>T: approved fixes
-  T->>S: object.action-run {result}
- end
+    participant Hu as Huginn
+    participant M as Mimir
+    participant F as Forseti
+    participant V as Var
+    participant T as Thor
+    participant S as Saga
+    Hu->>F: object.ownership-transfer {scope, submitter, environment}
+    F->>M: applicable rules for scope
+    M-->>F: rule set (+ profile mode)
+    F->>F: run assurance-twin + deploy-preflight over scope
+    F->>F: compose ReadinessReport (clear|needs_review|blocked)
+    F->>S: audit {verdict, blocks_handoff}
+    alt blocked and enforce mode
+        F->>V: request approval + shadow remediation-PR proposals
+        V-->>T: approved fixes
+        T->>S: object.action-run {result}
+    end
 ```
 
 **Exit criteria.**
@@ -562,20 +562,20 @@ risk 게이트, HIL 재개 조정기, 도구 실행기 에 매핑합니다. 선�
 
 ```mermaid
 sequenceDiagram
- participant B as Bragi
- participant I as EventIngest
- participant F as Forseti
- participant V as Var
- participant T as Thor
- participant S as Saga
- B->>I: raw operator_request {artifact_ref, target}
- I->>F: canonical Event plus trusted inventory context
- F->>F: validate ActionType, capability, freshness, blast radius
- F->>V: Owner HIL request
- V-->>F: approval
- F->>T: tool.run-python-on-vm
- T->>T: stage, rehash cache, preflight, bounded execute
- T->>S: VmTaskRun receipt
+    participant B as Bragi
+    participant I as EventIngest
+    participant F as Forseti
+    participant V as Var
+    participant T as Thor
+    participant S as Saga
+    B->>I: raw operator_request {artifact_ref, target}
+    I->>F: canonical Event plus trusted inventory context
+    F->>F: validate ActionType, capability, freshness, blast radius
+    F->>V: Owner HIL request
+    V-->>F: approval
+    F->>T: tool.run-python-on-vm
+    T->>T: stage, rehash cache, preflight, bounded execute
+    T->>S: VmTaskRun receipt
 ```
 
 **Exit criteria.** 모든 게스트 호출 에서 산출물 파일 을 다시 검사하고 대상 이
