@@ -194,6 +194,7 @@ def _build_direct_api_executor(
     identity: WorkloadIdentity | None = None,
     human_access_enabled: bool = True,
     promotion_registry: Any = None,
+    graph_model_promotion_registry: Any = None,
     action_types_by_name: Mapping[str, Any] | None = None,
     execution_identities: Mapping[str, WorkloadIdentity] | None = None,
 ) -> DirectApiShadowExecutor | None:
@@ -266,6 +267,18 @@ def _build_direct_api_executor(
                 action_types=action_types_by_name,
                 receipts=StateStoreOperationalPromotionReceiptStore(audit_store),
                 registry=promotion_registry,
+            )
+            allow_enforce = True
+
+    if graph_model_promotion_registry is not None and action_types_by_name:
+        from fdai.delivery.graph_model_promotion import (
+            PROMOTE_EFFECT_MODEL_ACTION_TYPE,
+            GraphModelPromotionDirectApiExecutor,
+        )
+
+        if PROMOTE_EFFECT_MODEL_ACTION_TYPE in action_types_by_name:
+            routes[PROMOTE_EFFECT_MODEL_ACTION_TYPE] = GraphModelPromotionDirectApiExecutor(
+                registry=graph_model_promotion_registry,
             )
             allow_enforce = True
 

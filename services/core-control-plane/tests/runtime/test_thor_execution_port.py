@@ -104,3 +104,5 @@ def test_core_and_hil_share_port_instances_and_readiness(app_config: AppConfig) 
     assert loop._executor is coordinator._executor is pr_native
     assert loop._direct_api_executor is coordinator._direct_api_executor is direct_api
     assert loop._tool_executor is coordinator._tool_executor is tool_call
+    assert loop._risk_gate is not None
+    assert "governance.promote-effect-model" in loop._risk_gate._config.hil_authority_action_types

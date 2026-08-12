@@ -5,8 +5,8 @@ title: Operational Hypothesis Loop
 
 The Operational Hypothesis Loop records what FDAI expects before an operational intervention,
 what independently happened afterward, and which governed logic may learn from the comparison.
-This document freezes the S0 integration boundary and the exclusive paths for four parallel
-workers without adding a second planning, causal, simulation, or promotion system.
+This document records the integrated graph evidence, reconciliation, lineage, and model-promotion
+runtime without adding a second planning, causal, simulation, or promotion system.
 
 > **Authority boundary:** Ontology declarations, simulations, logic assets, models, and hypothesis
 > evidence can preserve or lower authority. They cannot approve, execute, or promote an action.
@@ -16,9 +16,9 @@ workers without adding a second planning, causal, simulation, or promotion syste
 > `HypothesisCampaign` ObjectType is eligible only after a frozen competency test fails because
 > these objects and links cannot answer a required query.
 >
-> **S0 state:** The focused S0 commit is the common `BASE_COMMIT` for workers A-D. Each worker
-> starts from that exact commit, edits only its reserved paths, and returns a focused commit plus
-> check evidence to the integration owner.
+> **J1 state:** Lane A-D outputs are integrated on `main`. J1 owns only composition, runtime
+> lifecycle, existing delivery routing, and bilingual code-map updates. No new service, agent, or
+> authority-bearing coordinator is introduced.
 
 ## Design at a glance
 
@@ -113,52 +113,48 @@ The fixed pantheon keeps its current single-writer authority.
 Collaboration uses schema-validated typed events. No worker may add direct agent calls, shared
 mutable workflow state, a new executor path, or an authority-bearing ontology function.
 
-## S0 worker reservations
+## Integrated runtime
 
-The reservations below are exclusive. A worker can read any path but can write only its reserved
-paths. Shared facade, export, composition, catalog index, and design updates return to the
-integration owner after all four handoffs.
+The integrated runtime reuses existing composition and lifecycle surfaces.
 
-| Worker | Deliverable | Exclusive write paths | Focused check |
-|--------|-------------|-----------------------|---------------|
-| A - competency | Prove the loop's required graph queries with existing objects and links. Add `HypothesisCampaign` only when the frozen test fails for an unrepresentable query. | `services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py`; conditionally `rule-catalog/vocabulary/object-types/HypothesisCampaign.yaml` | `uv run pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py` |
-| B - pre-action | Build a pure pre-action projection that rejects a missing no-action baseline, horizon, expected effect, or pinned Process lineage. | `services/core-control-plane/src/fdai/core/decision_case/operational_hypothesis.py`; `services/core-control-plane/tests/core/decision_case/test_operational_hypothesis.py` | `uv run pytest -q --no-cov services/core-control-plane/tests/core/decision_case/test_operational_hypothesis.py` |
-| C - closure | Join provider dispatch and independent observation without conflating them, then produce support/refutation input for an existing `CausalHypothesis` revision. | `services/core-control-plane/src/fdai/core/rca/operational_hypothesis_closure.py`; `services/core-control-plane/tests/core/rca/test_operational_hypothesis_closure.py` | `uv run pytest -q --no-cov services/core-control-plane/tests/core/rca/test_operational_hypothesis_closure.py` |
-| D - challenger | Compare active and challenger logic over frozen episodes and emit inert promotion evidence with no registry write. | `services/core-control-plane/src/fdai/core/assurance_twin/hypothesis_challenger.py`; `services/core-control-plane/tests/assurance_twin/test_hypothesis_challenger.py` | `uv run pytest -q --no-cov services/core-control-plane/tests/assurance_twin/test_hypothesis_challenger.py` |
+| Lane | Integrated responsibility | Runtime result |
+|------|---------------------------|----------------|
+| A - graph evidence | Build graph Dynamic requests from pinned operational context, verified topology, inventory, reviewed metric semantics, objectives, constraints, and ActionType impact limits. | A complete prerequisite set binds the production provider. No prerequisites leave it explicitly unavailable; a partial set stops startup. |
+| B - reconciliation | Authenticate independent observations, restore exact local artifacts, reconcile expected and observed effects, and commit a proposal-only terminal outbox. | The request subscriber and outbox drainer share supervised cancellation. One drain publishes at most 100 entries, yields, and waits on the stop signal. |
+| C - lineage | Append existing `DecisionCase -> ActionOption -> ExpectedEffect -> ActionRun -> ObservedOutcome` records and links without rewriting immutable objects. | The projection remains evidence-only and adds no agent or authority. |
+| D - promotion | Seal reviewed graph-model evidence, preserve an immutable rollback target, and atomically change only the active pointer. | `governance.promote-effect-model` enters the existing risk, Owner human approval, Thor direct-API, rollback, and Saga audit path. |
 
-### Common forbidden paths
+Graph Dynamic retains its 5-second default build budget and 10-second hard ceiling. Independent
+topology, inventory, and metric reads run concurrently. Timeout, cancellation, partial evidence,
+or an unscorable invariant cannot raise authority. The graph simulation remains a lower-only guard
+before T1 reuse enters the safety check.
 
-Workers A-D do not edit these paths during the parallel phase:
+Effect reconciliation uses `ontology.effect-reconciliation.requests` and
+`ontology.effect-reconciliation.outcomes` as compact typed mechanical transport topics. They are
+not new Pantheon-owned object topics. The outbox payload always carries `proposal_only: true` and
+`grants_authority: false`; a recovery or promotion request re-enters its existing typed pipeline.
+Event handling keeps the lane's 5-second default, broker publication keeps its 2-second deadline,
+and shutdown bounds child cancellation to 5 seconds instead of awaiting indefinitely.
 
-- existing files under `services/core-control-plane/src/fdai/agents/**`;
-- existing `__init__.py`, facade, composition, bootstrap, runtime, and event-bus files;
-- existing ontology declarations, schemas, catalog indexes, and generated artifacts;
-- `docs/**`, `.github/**`, `scripts/lib/design-routes.json`, and shared test files;
-- completed secured-query, semantic Function runtime, bitemporal topology, metric semantics,
-  reconciliation, Dynamic engine, graph-closure, and `ops.scale-out` planning surfaces.
+Learner, closure, projection, and outbox failures do not rewrite an already returned execution
+result. They remain visible as unavailable, held, pending, or failed evidence. Promotion fails
+closed when its durable store, exact receipt, artifact, active pointer, ontology release, property
+semantics, invariant evidence, or rollback target is absent or mismatched.
 
-Worker A's conditional `HypothesisCampaign.yaml` reservation is dormant unless its competency test
-first demonstrates a missing query. A visual grouping preference, convenient campaign id, or
-cross-episode dashboard does not satisfy that condition. The integration owner reviews the failing
-test before accepting the optional declaration.
+## Agent and authority join
 
-## Integration joins
+The integrated lanes preserve the fixed Pantheon roles:
 
-Workers are independent at their owned files. Their handoffs join in this order after every focused
-check passes:
+- **Heimdall:** supplies independently authenticated observation evidence and completeness.
+- **Forseti:** owns effect judgment and causal closure; it does not execute or promote.
+- **Saga:** records reconciliation attempts, terminal outcomes, pointer transitions, and failures.
+- **Norns:** stores inert challenger artifacts and cannot activate them.
+- **Mimir:** seals reviewed promotion receipts; it does not call the registry mutation directly.
+- **Thor, Var, and Vidar:** retain execution, human approval, and rollback ownership through the
+  existing ActionType path.
 
-1. **A establishes semantic sufficiency.** The default expected result is no new ObjectType.
-2. **B freezes the pre-action record.** Its output stays pure and imports existing contracts only.
-3. **C closes evidence.** It consumes existing identifiers, not B's implementation module, so the
-   workers do not create a hidden call chain.
-4. **D evaluates challenger evidence.** It consumes immutable episode values and emits no
-   promotion mutation.
-5. **Integration owner wires exports and runtime only if a failing integration test requires it.**
-   Any wiring remains event-driven and receives its own focused review.
-
-No worker runs repository-wide validation. Each returns its commit, exact `BASE_COMMIT`, changed
-paths, focused check output, and residual gaps. The integration owner rejects a handoff that writes
-outside its reservation or includes another lane's changes.
+No agent implementation or `PANTHEON_SPECS` subscription changes are required. The runtime
+registers only the two reconciliation transport channels needed by the mechanical binder.
 
 ## Competency and acceptance
 

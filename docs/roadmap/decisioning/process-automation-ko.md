@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 8002190659f99457a4e07adce2a7cd406dcaaa54
-translation_revised: 2026-08-11
+translation_source_sha: 2410063154ea4eb74c5a0528fa7e6d5f6cb24e07
+translation_revised: 2026-08-12
 ---
 
 # 프로세스 자동화(프로세스 자동화)
@@ -203,6 +203,8 @@ role-group 대응이 구성된 경우에만 허용 목록 기반 Entra 어댑터
 관찰 모드를 유지합니다. 나머지 지원 작업은 기존 게이트웨이 경로를 유지합니다. Recording 가짜는
 어떤 실제 운영 연결과도 결합할 수 없으며 게이트웨이 또는 human-access 구성이 일부만 있으면 더 약한
 경로를 선택하지 않고 시작을 중단합니다.
+`governance.promote-effect-model`은 영속 evidence registry를 사용할 수 있을 때만 동일한 router를
+사용하며 기존 risk, Owner 승인, Thor, rollback 및 audit 경로를 그대로 통과합니다.
 
 ## 5. saga 보상(saga 보상)
 

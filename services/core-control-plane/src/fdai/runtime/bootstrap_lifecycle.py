@@ -30,6 +30,7 @@ from fdai.core.readiness import (
     StartupProbeResult,
     StartupProbeSpec,
 )
+from fdai.delivery.reconciliation_runtime import EffectReconciliationWorker
 from fdai.runtime.health import RuntimeHealthServer
 from fdai.runtime.readiness import StartupReadinessRuntime
 from fdai.shared.providers.startup_probe import StartupProbeRequest
@@ -178,6 +179,64 @@ async def supervise_runtime_tasks(
         task.cancel()
     await asyncio.gather(*tracked, return_exceptions=True)
     raise_required_task_failure(done)
+
+
+async def run_effect_reconciliation(
+    *,
+    worker: EffectReconciliationWorker,
+    stop: asyncio.Event,
+    drain_limit: int = 100,
+    drain_interval_seconds: float = 1.0,
+    shutdown_timeout_seconds: float = 5.0,
+) -> None:
+    """Supervise request subscription and bounded outbox draining until shutdown.
+
+    Each outbox pass publishes at most ``drain_limit`` events, yields to sibling tasks, and then
+    waits on the shared stop signal. Shutdown cancels both children and bounds their final drain so
+    a broken transport cannot hold process termination indefinitely.
+    """
+    if not 1 <= drain_limit <= 1000:
+        raise ValueError("reconciliation drain limit MUST be in [1, 1000]")
+    if drain_interval_seconds <= 0 or shutdown_timeout_seconds <= 0:
+        raise ValueError("reconciliation lifecycle timeouts MUST be positive")
+
+    async def drain_outbox() -> None:
+        while not stop.is_set():
+            await worker.drain_pending(limit=drain_limit)
+            await asyncio.sleep(0)
+            try:
+                async with asyncio.timeout(drain_interval_seconds):
+                    await stop.wait()
+            except TimeoutError:
+                continue
+
+    subscriber = asyncio.create_task(
+        worker.run_subscriber(),
+        name="effect-reconciliation-subscriber",
+    )
+    drainer = asyncio.create_task(
+        drain_outbox(),
+        name="effect-reconciliation-outbox",
+    )
+    stop_waiter = asyncio.create_task(stop.wait(), name="effect-reconciliation-stop")
+    tasks = (subscriber, drainer, stop_waiter)
+    try:
+        done, _pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        for task in done:
+            if task is stop_waiter:
+                continue
+            task.result()
+            if stop.is_set():
+                continue
+            raise RuntimeError(f"reconciliation lifecycle task exited: {task.get_name()}")
+    finally:
+        for task in tasks:
+            task.cancel()
+        try:
+            async with asyncio.timeout(shutdown_timeout_seconds):
+                await asyncio.gather(*tasks, return_exceptions=True)
+        except TimeoutError:
+            _LOGGER.warning("effect_reconciliation_shutdown_timed_out")
 
 
 async def start_health_server(

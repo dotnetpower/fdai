@@ -31,7 +31,11 @@ from ..core.execution_backend import ExecutionBackendCoordinator
 from ..core.metering.pricing import PricingTable
 from ..core.metering.sink import MeteringSink
 from ..core.mscp_profile import ExpectedEffectProvider, IndependentEffectObserver
-from ..core.ontology_platform import CompiledInterfaceCatalog
+from ..core.ontology_platform import (
+    CompiledInterfaceCatalog,
+    ObservationContextVerifier,
+    ReconciliationArtifactResolver,
+)
 from ..core.quality_gate.critic import CriticModel
 from ..core.quality_gate.debate import DebateOrchestrator
 from ..core.quality_gate.gate import CrossCheckModel
@@ -253,6 +257,8 @@ class Container:
     graph_effect_model_causal_evidence_verifier: GraphEffectModelCausalEvidenceVerifier | None = (
         None
     )
+    reconciliation_artifact_resolver: ReconciliationArtifactResolver | None = None
+    reconciliation_observation_verifier: ObservationContextVerifier | None = None
     operational_promotion_receipt_verifier: OperationalPromotionReceiptVerifier | None = None
     persisted_promotion_authority_verifier: PersistedPromotionAuthorityVerifier | None = None
 
@@ -290,6 +296,13 @@ class Container:
         ):
             raise ValueError(
                 "Container graph Dynamic provider, model reader, and causal verifier "
+                "MUST be bound together"
+            )
+        if (self.reconciliation_artifact_resolver is None) != (
+            self.reconciliation_observation_verifier is None
+        ):
+            raise ValueError(
+                "Container reconciliation artifact resolver and observation verifier "
                 "MUST be bound together"
             )
         if self.context_selection_policy_authority is None:

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 2d43c7e4ac0915b48b36b1871758bb2952261a51
+translation_source_sha: 3cfa865779e4ab510b25e5a6faa0093a55e12631
 translation_revised: 2026-08-12
 ---
 # 코드 맵
@@ -47,6 +47,7 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 | 의미 대화 계획 수립 | Whole-turn 스키마 제안, 서버가 소유한 프레임/계획 신원, principal-manifest 검증, 비동기 검증된 실행, 합계 최종 처리 결과, 결정론적 의도 그래프, exact-command 호환성 전환 및 실행 권한이 없는 continuous 커버리지 게이트 | [대화](../../../services/core-control-plane/src/fdai/core/conversation/) | [대화 테스트](../../../services/core-control-plane/tests/conversation/) |
 | 온톨로지 의미 세대 | 후보 전용 구체적인 인덱스, full/incremental 선언 및 deployment-object 문서, 독립적인 검증 증적, atomic activation, stale detection 및 롤백 | [catalog_search](../../../services/core-control-plane/src/fdai/delivery/catalog_search/) | [카탈로그 검색 테스트](../../../services/core-control-plane/tests/delivery/catalog_search/) |
 | 메트릭 의미 프로바이더 연결 | Alias-free 검토된 메트릭 개념과 관찰된 zero를 프로바이더 공백과 구분하는 exact `MetricProvider` 구간 | [metric_window.py](../../../services/core-control-plane/src/fdai/delivery/metric_window.py) 및 [metric_semantic_catalog.py](../../../services/core-control-plane/src/fdai/runtime/metric_semantic_catalog.py) | [메트릭 의미 카탈로그 테스트](../../../services/core-control-plane/tests/runtime/test_metric_semantic_catalog.py) |
+| 운영 가설 루프 | 완전한 graph Dynamic evidence binding, supervised typed effect reconciliation, immutable operational lineage 및 Owner 사람 승인을 거치는 graph-model pointer promotion | [graph evidence](../../../services/core-control-plane/src/fdai/delivery/azure/graph_dynamic_evidence.py), [reconciliation](../../../services/core-control-plane/src/fdai/delivery/reconciliation_runtime.py), [lineage](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py) 및 [promotion](../../../services/core-control-plane/src/fdai/delivery/graph_model_promotion.py) | [graph evidence 테스트](../../../services/core-control-plane/tests/delivery/azure/test_graph_dynamic_evidence.py), [reconciliation 테스트](../../../services/core-control-plane/tests/delivery/test_reconciliation_runtime.py), [lineage 테스트](../../../services/core-control-plane/tests/core/operational_planning/test_hypothesis_lineage.py) 및 [promotion 테스트](../../../services/core-control-plane/tests/delivery/test_graph_model_promotion.py) |
 | 에이전트 pantheon | 고정 에이전트 15개와 타입이 지정된 이벤트 런타임 | [에이전트](../../../services/core-control-plane/src/fdai/agents/) | [에이전트 테스트](../../../services/core-control-plane/tests/agents/) |
 | 조립 | Exact-release 의미 조회 assembly와 request-role 실행기 factory를 포함한 프로바이더/런타임 의존성 주입 | [조립](../../../services/core-control-plane/src/fdai/composition/) | [조립 테스트](../../../services/core-control-plane/tests/composition/) |
 | Core 어댑터 | Core에 남은 프로바이더, 영속성, 알림 및 platform 어댑터 | [전달](../../../services/core-control-plane/src/fdai/delivery/) | [전달 테스트](../../../services/core-control-plane/tests/delivery/) |
@@ -90,6 +91,10 @@ Continuous 커버리지 증적은 결정론적 고정본 structural 검증과 �
 런타임 초기화는 의미 준비 상태와 버티컬 workload-identity construction을 기존 수명 주기 및
 연결 보조 로직에 위임하여 기본 조립 루트를 검토된 fanout 상한 아래로 유지합니다. Thin
 초기화 래퍼는 injected identity-builder 테스트 및 포크 경계를 보존합니다.
+운영 가설 루프는 service 또는 agent를 추가하지 않습니다. 완전한 graph prerequisite는
+composition에서 연결되고 effect reconciliation은 범위가 제한된 drain을 포함하는 supervised
+request/outbox transport를 사용하며 model pointer 변경은 기존 governance ActionType, risk, Owner
+승인, Thor execution, rollback 및 Saga audit 경로 안에 유지됩니다.
 
 ## 독립 서비스 지도
 

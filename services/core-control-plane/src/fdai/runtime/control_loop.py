@@ -72,6 +72,7 @@ from fdai.core.risk_gate import (
     GovernedPreconditionEvaluator,
     OntologyChangeWindowEvidenceProvider,
     RiskGate,
+    RiskGateConfig,
 )
 from fdai.core.risk_gate.risk_table import load_risk_table
 from fdai.core.stewardship import (
@@ -496,6 +497,14 @@ def _build_control_loop(
         )
     risk_gate = RiskGate(
         registry=promotion_registry,
+        config=RiskGateConfig(
+            hil_authority_action_types=frozenset(
+                {
+                    "governance.promote-action-type",
+                    "governance.promote-effect-model",
+                }
+            )
+        ),
         exemption_registry=container.exemption_registry,
     )
     llm_bindings = container.require_llm_bindings()
@@ -528,6 +537,17 @@ def _build_control_loop(
     )
 
     if thor_execution_port is None:
+        graph_model_promotion_registry = None
+        if os.environ.get("FDAI_STATE_STORE_DSN", "").strip():
+            from fdai.delivery.persistence.state_store_graph_model_promotion import (
+                StateStoreGraphModelPromotionRegistry,
+            )
+
+            graph_model_promotion_registry = StateStoreGraphModelPromotionRegistry(
+                store=audit_store,
+                ontology_release_digest=ontology_release.digest.removeprefix("sha256:"),
+                property_semantics_digest=property_semantics.content_digest.removeprefix("sha256:"),
+            )
         executor = ShadowExecutor(
             publisher=publisher,
             audit_store=audit_store,
@@ -543,6 +563,7 @@ def _build_control_loop(
             identity=identity,
             human_access_enabled=human_access_enabled,
             promotion_registry=promotion_registry,
+            graph_model_promotion_registry=graph_model_promotion_registry,
             action_types_by_name=action_types_by_name,
             execution_identities=execution_identities,
         )

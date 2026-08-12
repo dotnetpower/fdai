@@ -207,6 +207,8 @@ the workload identity, HTTP client, state store, and complete role-group mapping
 they remain in observation mode until separately promoted. All other supported operations keep
 the existing gateway path. A recording fake can't be combined with either live binding, and a
 partial gateway or human-access configuration stops startup instead of selecting a weaker path.
+`governance.promote-effect-model` uses this same router only when its durable evidence registry is
+available; it still passes through the ordinary risk, Owner approval, Thor, rollback, and audit path.
 
 ## 5. Saga compensation
 

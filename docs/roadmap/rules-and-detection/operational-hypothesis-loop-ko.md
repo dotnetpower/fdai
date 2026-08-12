@@ -1,13 +1,14 @@
 ---
 translation_of: operational-hypothesis-loop.md
-translation_source_sha: 4f19b42d26ef481ab51a9480b904f39389958c14
+translation_source_sha: 8a06db2de6656afc67d3945b1660b682b3a80945
 translation_revised: 2026-08-12
 ---
 # 운영 가설 루프
 
 운영 가설 루프는 FDAI가 운영 개입 전에 예상한 내용, 이후 독립적으로 발생한 결과, 그리고 그
 비교에서 학습할 수 있는 통제된 logic을 기록합니다. 이 문서는 두 번째 계획, 인과, simulation 또는
-승격 시스템을 추가하지 않고 S0 integration 경계와 네 병렬 worker의 독점 경로를 동결합니다.
+승격 시스템을 추가하지 않고 통합된 graph evidence, reconciliation, lineage 및 model-promotion
+runtime을 기록합니다.
 
 > **권한 경계:** Ontology 선언, simulation, logic asset, model 및 가설 근거는 권한을 유지하거나
 > 낮출 수 있습니다. 액션을 승인, 실행 또는 승격할 수 없습니다.
@@ -17,9 +18,9 @@ translation_revised: 2026-08-12
 > 이러한 object와 link로 필수 query에 답할 수 없어서 실패한 뒤에만 `HypothesisCampaign`
 > ObjectType을 추가할 수 있습니다.
 >
-> **S0 상태:** 집중된 S0 커밋이 worker A-D의 공통 `BASE_COMMIT`입니다. 각 worker는 정확히 그
-> 커밋에서 시작하고, 예약된 경로만 수정하며, 집중 커밋과 check 근거를 integration owner에게
-> 반환합니다.
+> **J1 상태:** Lane A-D 산출물은 `main`에 통합되어 있습니다. J1은 composition, runtime
+> lifecycle, 기존 delivery routing 및 bilingual code-map 업데이트만 소유합니다. 새 service,
+> agent 또는 권한을 보유한 coordinator를 추가하지 않습니다.
 
 ## 설계 요약
 
@@ -112,52 +113,49 @@ active release를 다시 쓰지 않습니다.
 협업에는 schema-validated typed event를 사용합니다. 어떤 worker도 direct agent call, shared mutable
 workflow state, 새 executor 경로 또는 권한을 보유한 ontology function을 추가할 수 없습니다.
 
-## S0 worker reservation
+## 통합 runtime
 
-아래 reservation은 독점적입니다. Worker는 모든 경로를 읽을 수 있지만 예약 경로만 쓸 수 있습니다.
-공유 facade, export, composition, catalog index 및 설계 업데이트는 네 handoff 이후 integration
-owner에게 돌아갑니다.
+통합 runtime은 기존 composition 및 lifecycle surface를 재사용합니다.
 
-| Worker | 산출물 | 독점 쓰기 경로 | 집중 check |
-|--------|--------|----------------|------------|
-| A - competency | 기존 object와 link로 루프의 필수 graph query를 증명합니다. 동결 test가 표현할 수 없는 query 때문에 실패한 경우에만 `HypothesisCampaign`을 추가합니다. | `services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py`; 조건부 `rule-catalog/vocabulary/object-types/HypothesisCampaign.yaml` | `uv run pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py` |
-| B - pre-action | 누락된 no-action baseline, horizon, expected effect 또는 고정된 Process lineage를 거부하는 순수 pre-action projection을 만듭니다. | `services/core-control-plane/src/fdai/core/decision_case/operational_hypothesis.py`; `services/core-control-plane/tests/core/decision_case/test_operational_hypothesis.py` | `uv run pytest -q --no-cov services/core-control-plane/tests/core/decision_case/test_operational_hypothesis.py` |
-| C - closure | Provider dispatch와 independent observation을 혼합하지 않고 join한 후 기존 `CausalHypothesis` revision을 위한 support/refutation input을 만듭니다. | `services/core-control-plane/src/fdai/core/rca/operational_hypothesis_closure.py`; `services/core-control-plane/tests/core/rca/test_operational_hypothesis_closure.py` | `uv run pytest -q --no-cov services/core-control-plane/tests/core/rca/test_operational_hypothesis_closure.py` |
-| D - challenger | 동결 episode에서 active 및 challenger logic을 비교하고 registry write가 없는 inert promotion evidence를 만듭니다. | `services/core-control-plane/src/fdai/core/assurance_twin/hypothesis_challenger.py`; `services/core-control-plane/tests/assurance_twin/test_hypothesis_challenger.py` | `uv run pytest -q --no-cov services/core-control-plane/tests/assurance_twin/test_hypothesis_challenger.py` |
+| Lane | 통합 책임 | Runtime 결과 |
+|------|-----------|--------------|
+| A - graph evidence | 고정된 operational context, 검증된 topology, inventory, 검토된 metric semantics, objective, constraint 및 ActionType 영향 제한에서 graph Dynamic 요청을 만듭니다. | 완전한 prerequisite 집합만 production provider를 연결합니다. 모두 없으면 명시적 unavailable이며 일부만 있으면 startup이 중단됩니다. |
+| B - reconciliation | 독립 observation을 인증하고 exact local artifact를 복원하며 예상 효과와 관측 효과를 reconcile하고 proposal-only terminal outbox를 commit합니다. | Request subscriber와 outbox drainer는 supervised cancellation을 공유합니다. 한 drain은 최대 100개를 publish한 뒤 yield하고 stop signal을 기다립니다. |
+| C - lineage | 기존 `DecisionCase -> ActionOption -> ExpectedEffect -> ActionRun -> ObservedOutcome` record와 link를 immutable object rewrite 없이 append합니다. | Projection은 evidence-only로 유지되며 agent 또는 authority를 추가하지 않습니다. |
+| D - promotion | 검토된 graph-model evidence를 seal하고 immutable rollback target을 보존하며 active pointer만 atomic하게 변경합니다. | `governance.promote-effect-model`은 기존 risk, Owner 사람 승인, Thor direct-API, rollback 및 Saga audit 경로로 진입합니다. |
 
-### 공통 금지 경로
+Graph Dynamic은 기본 build budget 5초와 hard ceiling 10초를 유지합니다. 독립 topology,
+inventory 및 metric read는 동시에 실행합니다. Timeout, cancellation, partial evidence 또는
+unscorable invariant는 authority를 높일 수 없습니다. Graph simulation은 T1 reuse가 safety
+check에 들어가기 전 lower-only guard로 유지됩니다.
 
-Worker A-D는 병렬 단계에서 다음 경로를 수정하지 않습니다.
+Effect reconciliation은 `ontology.effect-reconciliation.requests` 및
+`ontology.effect-reconciliation.outcomes`를 compact typed mechanical transport topic으로
+사용합니다. 새 Pantheon-owned object topic이 아닙니다. Outbox payload는 항상
+`proposal_only: true`와 `grants_authority: false`를 유지하며, recovery 또는 promotion 요청은
+기존 typed pipeline에 다시 진입합니다. Event handling은 lane의 기본 5초를 유지하고 broker
+publication은 2초 deadline을 유지하며, shutdown은 무기한 기다리지 않고 child cancellation을
+5초로 제한합니다.
 
-- `services/core-control-plane/src/fdai/agents/**` 아래의 기존 파일
-- 기존 `__init__.py`, facade, composition, bootstrap, runtime 및 event-bus 파일
-- 기존 ontology 선언, schema, catalog index 및 generated artifact
-- `docs/**`, `.github/**`, `scripts/lib/design-routes.json` 및 공유 test 파일
-- 완료된 secured-query, semantic Function runtime, bitemporal topology, metric semantics,
-  reconciliation, Dynamic engine, graph-closure 및 `ops.scale-out` planning surface
+Learner, closure, projection 및 outbox 실패는 이미 반환된 execution result를 rewrite하지
+않습니다. Unavailable, held, pending 또는 failed evidence로 계속 표시됩니다. Durable store,
+exact receipt, artifact, active pointer, ontology release, property semantics, invariant evidence
+또는 rollback target이 없거나 일치하지 않으면 promotion은 fail closed합니다.
 
-Worker A의 조건부 `HypothesisCampaign.yaml` reservation은 competency test가 먼저 누락된 query를
-입증하지 않으면 비활성 상태입니다. 시각적 grouping 선호, 편리한 campaign id 또는 cross-episode
-dashboard는 이 조건을 충족하지 않습니다. Integration owner는 optional 선언을 수락하기 전에 실패한
-test를 검토합니다.
+## Agent 및 authority join
 
-## Integration join
+통합 lane은 고정 Pantheon 역할을 보존합니다.
 
-Worker는 소유 파일에서 서로 독립적입니다. 모든 집중 check가 통과한 후 다음 순서로 handoff를
-join합니다.
+- **Heimdall:** 독립적으로 인증된 observation evidence와 completeness를 제공합니다.
+- **Forseti:** Effect judgment와 causal closure를 소유하며 실행하거나 승격하지 않습니다.
+- **Saga:** Reconciliation attempt, terminal outcome, pointer transition 및 failure를 기록합니다.
+- **Norns:** Inert challenger artifact를 저장하며 활성화할 수 없습니다.
+- **Mimir:** 검토된 promotion receipt를 seal하며 registry mutation을 직접 호출하지 않습니다.
+- **Thor, Var 및 Vidar:** 기존 ActionType 경로에서 execution, 사람 승인 및 rollback ownership을
+  유지합니다.
 
-1. **A가 semantic sufficiency를 확립합니다.** 기본 예상 결과는 새 ObjectType이 없는 것입니다.
-2. **B가 사전 액션 record를 동결합니다.** 출력은 순수하게 유지되고 기존 contract만 import합니다.
-3. **C가 근거를 닫습니다.** B의 구현 module이 아닌 기존 identifier를 사용하므로 숨겨진 call chain을
-   만들지 않습니다.
-4. **D가 challenger 근거를 평가합니다.** 변경할 수 없는 episode 값을 사용하고 promotion mutation을
-   만들지 않습니다.
-5. **실패한 integration test가 필요성을 입증한 경우에만 integration owner가 export와 runtime을
-   연결합니다.** 모든 wiring은 event-driven 상태를 유지하고 별도의 집중 review를 받습니다.
-
-어떤 worker도 repository-wide validation을 실행하지 않습니다. 각 worker는 commit, 정확한
-`BASE_COMMIT`, 변경 경로, 집중 check output 및 residual gap을 반환합니다. Integration owner는
-reservation 외부에 쓰거나 다른 lane 변경을 포함한 handoff를 거부합니다.
+Agent 구현이나 `PANTHEON_SPECS` subscription 변경은 필요하지 않습니다. Runtime은 mechanical
+binder에 필요한 reconciliation transport channel 두 개만 등록합니다.
 
 ## Competency 및 수락
 

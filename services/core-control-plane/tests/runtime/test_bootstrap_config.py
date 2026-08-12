@@ -6,6 +6,10 @@ from pathlib import Path
 
 import httpx
 import pytest
+from fdai.core.ontology_platform.reconciliation_binding import (
+    RECONCILIATION_OUTBOX_TOPIC,
+    RECONCILIATION_REQUEST_TOPIC,
+)
 from fdai.core.readiness import (
     AuthorityCeiling,
     ReadinessDecision,
@@ -15,9 +19,7 @@ from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdent
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.runtime.bootstrap import (
     _RUNTIME_LOGICAL_TOPICS,
-    _build_semantic_turn_binding,
     _schedule_semantic_turn_consumer,
-    _semantic_turn_readiness_registration,
 )
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
@@ -29,10 +31,16 @@ from fdai.runtime.bootstrap_lifecycle import (
     build_runtime_saga as _build_runtime_saga,
 )
 from fdai.runtime.bootstrap_lifecycle import (
+    build_semantic_turn_binding as _build_semantic_turn_binding,
+)
+from fdai.runtime.bootstrap_lifecycle import (
     raise_required_task_failure as _raise_required_task_failure,
 )
+from fdai.runtime.bootstrap_lifecycle import run_effect_reconciliation, runtime_process_lock
 from fdai.runtime.bootstrap_lifecycle import run_main as _run_main
-from fdai.runtime.bootstrap_lifecycle import runtime_process_lock
+from fdai.runtime.bootstrap_lifecycle import (
+    semantic_turn_readiness_registration as _semantic_turn_readiness_registration,
+)
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.local.event_bus import LocalEventBus
 from fdai.shared.providers.startup_probe import StartupProbeRequest
@@ -53,6 +61,48 @@ def test_runtime_multiplexes_startup_readiness_transitions() -> None:
 
 def test_runtime_multiplexes_semantic_turn_channels() -> None:
     assert {SEMANTIC_REQUEST_TOPIC, SEMANTIC_PROJECTION_TOPIC}.issubset(_RUNTIME_LOGICAL_TOPICS)
+
+
+def test_runtime_multiplexes_effect_reconciliation_channels() -> None:
+    assert {RECONCILIATION_REQUEST_TOPIC, RECONCILIATION_OUTBOX_TOPIC}.issubset(
+        _RUNTIME_LOGICAL_TOPICS
+    )
+
+
+async def test_effect_reconciliation_lifecycle_bounds_drain_and_cancels_subscriber() -> None:
+    stop = asyncio.Event()
+
+    class _Worker:
+        def __init__(self) -> None:
+            self.subscriber_cancelled = False
+            self.drain_limits: list[int] = []
+
+        async def run_subscriber(self) -> None:
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                self.subscriber_cancelled = True
+                raise
+
+        async def drain_pending(self, *, limit: int = 100) -> tuple[object, ...]:
+            self.drain_limits.append(limit)
+            stop.set()
+            return ()
+
+    worker = _Worker()
+
+    await asyncio.wait_for(
+        run_effect_reconciliation(
+            worker=worker,  # type: ignore[arg-type]
+            stop=stop,
+            drain_interval_seconds=0.01,
+            shutdown_timeout_seconds=0.1,
+        ),
+        timeout=0.5,
+    )
+
+    assert worker.drain_limits == [100]
+    assert worker.subscriber_cancelled is True
 
 
 async def test_semantic_turn_bootstrap_exposes_exact_missing_runtime_reason() -> None:
@@ -133,7 +183,7 @@ async def test_semantic_turn_bootstrap_schedules_configured_binding() -> None:
     bus = LocalEventBus()
     stop = asyncio.Event()
     task = _schedule_semantic_turn_consumer(
-        binding=_Binding(),  # type: ignore[arg-type]
+        binding=_Binding(),
         readiness=_Ready(),  # type: ignore[arg-type]
         bus=bus,
         stop=stop,
