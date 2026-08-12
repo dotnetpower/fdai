@@ -18,7 +18,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from fdai.shared.providers.inventory import LinkRecord, ResourceRecord
+from fdai.shared.providers.inventory import LinkRecord, RelationshipDrop, ResourceRecord
 from fdai.shared.providers.ontology_instance import (
     OntologyLinkRecord,
     OntologyObjectRecord,
@@ -43,8 +43,12 @@ _MAX_LINKS = 200_000
 
 _DROP_OBSERVATION_INCOMPLETE = "observation_incomplete"
 _DROP_UNREGISTERED_LINK_TYPE = "unregistered_link_type"
-_DROP_UNOBSERVED_ENDPOINT = "unobserved_endpoint"
+_DROP_MISSING_SOURCE_ENDPOINT = "missing_source_endpoint"
+_DROP_MISSING_TARGET_ENDPOINT = "missing_target_endpoint"
 _DROP_SELF_REFERENCE = "self_reference"
+_DROP_UNVERIFIED_METADATA = "unverified_metadata"
+_DROP_DUPLICATE_EDGE = "duplicate_edge"
+_DROP_CONFLICTING_DUPLICATE = "conflicting_duplicate"
 
 
 class InventoryProjectionConflictError(RuntimeError):
@@ -77,6 +81,7 @@ def build_inventory_ontology_projection(
     resources: Sequence[ResourceRecord],
     links: Sequence[LinkRecord] = (),
     observation_complete: bool = True,
+    relationship_drops: Sequence[RelationshipDrop] = (),
 ) -> InventoryOntologyProjection:
     """Restate one inventory observation as a typed resource subgraph.
 
@@ -101,10 +106,11 @@ def build_inventory_ontology_projection(
     observed_types = {
         resource_id: str(record.properties["type"]) for resource_id, record in objects.items()
     }
-    dropped: set[str] = set()
+    dropped = {item.reason.value for item in relationship_drops}
     if observation_complete:
         projected_links = _build_links(
             links,
+            generation=generation,
             observed_types=observed_types,
             dropped=dropped,
         )
@@ -159,12 +165,14 @@ def _resource_object(record: ResourceRecord, *, resource_id: str) -> OntologyObj
 def _build_links(
     links: Sequence[LinkRecord],
     *,
+    generation: str,
     observed_types: Mapping[str, str],
     dropped: set[str],
 ) -> tuple[OntologyLinkRecord, ...]:
     """Return deduplicated topology links whose endpoints were both observed."""
     keyed: dict[tuple[str, str, str], OntologyLinkRecord] = {}
     endpoint_types: dict[tuple[str, str, str], tuple[str, str]] = {}
+    blocked_keys: set[tuple[str, str, str]] = set()
     for record in links:
         link_type = record.link_type.strip()
         from_id = record.from_id.strip()
@@ -177,8 +185,11 @@ def _build_links(
         if from_id == to_id:
             dropped.add(_DROP_SELF_REFERENCE)
             continue
-        if from_id not in observed_types or to_id not in observed_types:
-            dropped.add(_DROP_UNOBSERVED_ENDPOINT)
+        if from_id not in observed_types:
+            dropped.add(_DROP_MISSING_SOURCE_ENDPOINT)
+            continue
+        if to_id not in observed_types:
+            dropped.add(_DROP_MISSING_TARGET_ENDPOINT)
             continue
         current_endpoint_types = (record.from_type.strip(), record.to_type.strip())
         observed_endpoint_types = (observed_types[from_id], observed_types[to_id])
@@ -187,14 +198,26 @@ def _build_links(
                 f"inventory link {(link_type, from_id, to_id)!r} endpoint type conflicts "
                 "with observed resources"
             )
+        metadata = record.observation_metadata
+        if (
+            metadata is None
+            or not metadata.verified
+            or metadata.inventory_generation != generation
+            or metadata.state_fact.completeness < 1.0
+            or metadata.state_fact.synthetic
+            or metadata.state_fact.conflicts
+        ):
+            dropped.add(_DROP_UNVERIFIED_METADATA)
+            continue
         key = (link_type, from_id, to_id)
+        if key in blocked_keys:
+            continue
         link_props = normalize_json_value(dict(record.link_props), path=f"inventory.{link_type}")
         properties = dict(link_props) if isinstance(link_props, Mapping) else {}
-        if record.observation_metadata is not None:
-            properties[LINK_OBSERVATION_METADATA_PROPERTY] = normalize_json_value(
-                record.observation_metadata.to_mapping(),
-                path=f"inventory.{link_type}.{LINK_OBSERVATION_METADATA_PROPERTY}",
-            )
+        properties[LINK_OBSERVATION_METADATA_PROPERTY] = normalize_json_value(
+            metadata.to_mapping(),
+            path=f"inventory.{link_type}.{LINK_OBSERVATION_METADATA_PROPERTY}",
+        )
         projected = OntologyLinkRecord(
             link_type=link_type,
             from_id=from_id,
@@ -202,15 +225,25 @@ def _build_links(
             properties=properties,
         )
         existing = keyed.get(key)
-        if existing is not None and (
-            existing.properties != projected.properties
-            or endpoint_types[key] != current_endpoint_types
-        ):
-            raise InventoryProjectionConflictError(
-                f"inventory link {key!r} observed with conflicting content"
+        if existing is not None:
+            conflicting = (
+                existing.properties != projected.properties
+                or endpoint_types[key] != current_endpoint_types
             )
+            dropped.add(_DROP_CONFLICTING_DUPLICATE if conflicting else _DROP_DUPLICATE_EDGE)
+            keyed.pop(key)
+            endpoint_types.pop(key)
+            blocked_keys.add(key)
+            continue
         keyed[key] = projected
         endpoint_types[key] = current_endpoint_types
+    for key in tuple(keyed):
+        link_type, from_id, to_id = key
+        reverse_key = (link_type, to_id, from_id)
+        if link_type != "peered_with" and reverse_key in keyed:
+            dropped.add(_DROP_CONFLICTING_DUPLICATE)
+            keyed.pop(key, None)
+            keyed.pop(reverse_key, None)
     return tuple(keyed[key] for key in sorted(keyed))
 
 

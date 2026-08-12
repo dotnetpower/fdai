@@ -72,9 +72,10 @@ Safety / cost invariants
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlparse
 
@@ -87,19 +88,7 @@ from fdai.delivery.azure.arg_projection import (
     build_arm_to_neutral_map as _build_arm_to_neutral_map,
 )
 from fdai.delivery.azure.arg_projection import (
-    extract_attached_to_links_from_row as _extract_attached_to_links_from_row,
-)
-from fdai.delivery.azure.arg_projection import (
-    extract_depends_on_links_from_row as _project_depends_on_links_from_row,
-)
-from fdai.delivery.azure.arg_projection import (
-    extract_peered_with_links_from_row as _extract_peered_with_links_from_row,
-)
-from fdai.delivery.azure.arg_projection import (
-    extract_rg_contains_links as _extract_rg_contains_links,
-)
-from fdai.delivery.azure.arg_projection import (
-    extract_routes_to_links_from_row as _extract_routes_to_links_from_row,
+    extract_rg_contains_links as _extract_rg_contains_links,  # noqa: F401 - D1 compatibility
 )
 from fdai.delivery.azure.arg_projection import (
     materialize_nested_subnets as _materialize_nested_subnets,
@@ -111,11 +100,19 @@ from fdai.delivery.azure.arg_projection import (
 from fdai.delivery.azure.arg_projection import (
     truncate_props as _truncate_props,
 )
+from fdai.delivery.azure.arg_relationships import (
+    RelationshipProjectionResult,
+    project_provider_relationships,
+)
 from fdai.delivery.azure.arg_transport import ArgThrottleGate, fetch_arg_pages
-from fdai.delivery.azure.inventory import ResourceQueryFn
+from fdai.delivery.azure.inventory import ResourceQueryFn, ResourceQueryResult
 from fdai.delivery.inventory_schedule import (
     VM_SHUTDOWN_SCHEDULE_TYPE,
     project_vm_shutdown_schedule,
+)
+from fdai.rule_catalog.schema.provider_relationship_mapping import (
+    ProviderRelationshipMappingCatalog,
+    load_provider_relationship_mapping_catalog,
 )
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
@@ -131,6 +128,9 @@ _DEFAULT_PAGE_SIZE: Final[int] = 1000
 _DEFAULT_MAX_PAGES: Final[int] = 32
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 30.0
 _DEFAULT_MAX_PROPS_BYTES: Final[int] = 64 * 1024
+_DEFAULT_RELATIONSHIP_MAPPING_ROOT: Final[Path] = Path(
+    "rule-catalog/vocabulary/provider-relationship-mappings"
+)
 
 
 class ArgQueryError(RuntimeError):
@@ -191,6 +191,9 @@ class AzureArgQueryFactoryConfig:
     length-bounded before they flow into the ontology graph.
     """
 
+    relationship_mapping_root: Path = _DEFAULT_RELATIONSHIP_MAPPING_ROOT
+    """Reviewed provider relationship mapping catalog loaded at adapter startup."""
+
 
 class AzureArgQueryFactory:
     """Build a :type:`ResourceQueryFn` bound to a WorkloadIdentity + HTTP client."""
@@ -228,6 +231,9 @@ class AzureArgQueryFactory:
         # `attached_to` extraction hits this map per referenced id; a
         # fresh iteration per row would be O(vocabulary_size * rows).
         self._arm_to_neutral: Final[Mapping[str, str]] = _build_arm_to_neutral_map(resource_types)
+        self._relationship_mappings: Final[ProviderRelationshipMappingCatalog] = (
+            load_provider_relationship_mapping_catalog(config.relationship_mapping_root)
+        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -238,7 +244,7 @@ class AzureArgQueryFactory:
 
         async def _fetch(
             resource_type: str,
-        ) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
+        ) -> ResourceQueryResult:
             query_resource_type = (
                 "network.vnet" if resource_type == "network.subnet" else resource_type
             )
@@ -248,21 +254,28 @@ class AzureArgQueryFactory:
                 # CSP-neutral type - nothing to fetch from Azure. This is
                 # a legitimate no-op, not an error (e.g. a future
                 # `secret-store` variant with no direct ARM equivalent).
-                return (), ()
+                return ResourceQueryResult()
 
-            resources, attached_links = await self._fetch_all_pages(
+            shard = await self._fetch_all_pages(
                 resource_type=query_resource_type, arm_type=arm_type
             )
             if resource_type == "network.subnet":
                 subnet_records: list[ResourceRecord] = []
-                subnet_links: list[LinkRecord] = []
-                for vnet in resources:
-                    nested_records, nested_links = _materialize_nested_subnets(vnet)
+                for vnet in shard.resources:
+                    nested_records, _legacy_links = _materialize_nested_subnets(vnet)
                     subnet_records.extend(nested_records)
-                    subnet_links.extend(nested_links)
-                return tuple(subnet_records), tuple(subnet_links)
-            contains_links = _extract_rg_contains_links(resources)
-            return resources, (*contains_links, *attached_links)
+                subnet_ids = {record.resource_id for record in subnet_records}
+                subnet_links = tuple(
+                    link
+                    for link in shard.links
+                    if link.link_type == "contains" and link.to_id in subnet_ids
+                )
+                return ResourceQueryResult(
+                    resources=tuple(subnet_records),
+                    links=subnet_links,
+                    relationship_drops=shard.relationship_drops,
+                )
+            return shard
 
         return _fetch
 
@@ -302,9 +315,7 @@ class AzureArgQueryFactory:
             "resourceGroup, subscriptionId"
         )
 
-    async def _fetch_all_pages(
-        self, *, resource_type: str, arm_type: str
-    ) -> tuple[tuple[ResourceRecord, ...], tuple[LinkRecord, ...]]:
+    async def _fetch_all_pages(self, *, resource_type: str, arm_type: str) -> ResourceQueryResult:
         query = self._build_query(arm_type=arm_type)
         return await fetch_arg_pages(
             identity=self._identity,
@@ -326,20 +337,15 @@ class AzureArgQueryFactory:
 
     def _project_links(
         self, row: Mapping[str, Any], record: ResourceRecord
-    ) -> tuple[LinkRecord, ...]:
-        return (
-            *_extract_attached_to_links_from_row(
-                row, child=record, arm_to_neutral=self._arm_to_neutral
-            ),
-            *_extract_depends_on_links_from_row(
-                row, child=record, arm_to_neutral=self._arm_to_neutral
-            ),
-            *_extract_peered_with_links_from_row(
-                row, child=record, arm_to_neutral=self._arm_to_neutral
-            ),
-            *_extract_routes_to_links_from_row(
-                row, child=record, arm_to_neutral=self._arm_to_neutral
-            ),
+    ) -> RelationshipProjectionResult:
+        return project_provider_relationships(
+            row,
+            owner=record,
+            arm_to_neutral=self._arm_to_neutral,
+            catalog=self._relationship_mappings,
+            arm_id_to_type=_arm_id_to_type,
+            to_neutral_id=_to_neutral_id,
+            external_reference_resolver=_resolve_acr_login_server_to_arm_id,
         )
 
     def _map_row(self, row: Mapping[str, Any], *, resource_type: str) -> ResourceRecord | None:
@@ -395,11 +401,7 @@ class AzureArgQueryFactory:
             type=resource_type,
             props=props,
             provider_ref=arm_id,
-            last_seen=(
-                datetime.now(tz=UTC).isoformat()
-                if resource_type == VM_SHUTDOWN_SCHEDULE_TYPE
-                else None
-            ),
+            last_seen=datetime.now(tz=UTC).isoformat(),
         )
 
 
@@ -418,6 +420,27 @@ def _resolve_acr_login_server_to_arm_id(login_server: str) -> str | None:
     return None
 
 
+def _extract_attached_to_links_from_row(
+    row: Mapping[str, Any],
+    *,
+    child: ResourceRecord,
+    arm_to_neutral: Mapping[str, str],
+) -> tuple[LinkRecord, ...]:
+    """Compatibility facade over reviewed ``attached_to`` mappings."""
+
+    catalog = load_provider_relationship_mapping_catalog(_DEFAULT_RELATIONSHIP_MAPPING_ROOT)
+    result = project_provider_relationships(
+        row,
+        owner=child,
+        arm_to_neutral=arm_to_neutral,
+        catalog=catalog,
+        arm_id_to_type=_arm_id_to_type,
+        to_neutral_id=_to_neutral_id,
+        external_reference_resolver=_resolve_acr_login_server_to_arm_id,
+    )
+    return tuple(link for link in result.links if link.link_type == "attached_to")
+
+
 def _extract_depends_on_links_from_row(
     row: Mapping[str, Any],
     *,
@@ -425,12 +448,17 @@ def _extract_depends_on_links_from_row(
     arm_to_neutral: Mapping[str, str],
 ) -> tuple[LinkRecord, ...]:
     """Compatibility wrapper retaining the facade-level resolver hook."""
-    return _project_depends_on_links_from_row(
+    catalog = load_provider_relationship_mapping_catalog(_DEFAULT_RELATIONSHIP_MAPPING_ROOT)
+    result = project_provider_relationships(
         row,
-        child=child,
+        owner=child,
         arm_to_neutral=arm_to_neutral,
-        acr_resolver=_resolve_acr_login_server_to_arm_id,
+        catalog=catalog,
+        arm_id_to_type=_arm_id_to_type,
+        to_neutral_id=_to_neutral_id,
+        external_reference_resolver=_resolve_acr_login_server_to_arm_id,
     )
+    return tuple(link for link in result.links if link.link_type == "depends_on")
 
 
 # Guard against accidental widening: this file MUST NOT introduce

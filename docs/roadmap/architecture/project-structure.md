@@ -270,8 +270,17 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   `resource_id` only once; duplicates block the whole batch before any event is published.
   Resource and relationship properties must also serialize as canonical JSON with finite numeric
   values; unsupported objects and `NaN` are rejected before identity calculation, publication, or
-  PostgreSQL connection. Realtime projectors and immutable snapshot staging store only prevalidated canonical JSON documents; snapshot coverage metadata follows the same rule before begin or
-  promotion. Inventory links can also carry immutable observation metadata that pins source authority, revision, cutoff, freshness, completeness, and verification evidence. An incomplete inventory observation projects no relationship claim, and stale or conflicting link evidence can only lower operational-context autonomy.
+  PostgreSQL connection. Realtime projectors and immutable snapshot staging store only prevalidated
+  canonical JSON documents; snapshot coverage metadata follows the same rule before begin or
+  promotion. Azure relationship property paths, allowed provider types, semantic direction,
+  source-schema digest, and evidence policy come from the reviewed
+  `provider-relationship-mappings` catalog. A complete-generation verifier activates a candidate
+  only when the same generation observes both endpoints, provider and verifier identities differ,
+  and an immutable verification receipt binds the edge and mapping revision. Missing endpoints,
+  ambiguous orientation, stale schema mappings, duplicate or conflicting observations, and partial
+  generations produce stable dropped reasons and no active graph edge. Verified links carry
+  immutable state-fact and link-observation metadata. Stale or conflicting evidence can only lower
+  operational-context autonomy.
   All events in the bounded batch are constructed and validated before the first publication, so
   a malformed later resource cannot leave an earlier event partially published by validation.
   Every delta page marked `has_more` must provide a new continuation cursor before its records are

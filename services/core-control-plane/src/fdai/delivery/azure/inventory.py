@@ -50,24 +50,45 @@ What is deliberately NOT here yet
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import Final
 
 from fdai.shared.providers.inventory import (
     InventoryBatch,
     LinkRecord,
+    RelationshipDrop,
+    RelationshipDropReason,
     ResourceRecord,
 )
 
 _DEFAULT_MAX_CONCURRENT_QUERIES: Final[int] = 4
 _DEFAULT_MAX_DELTA_PAGES: Final[int] = 64
 
+
 # Injected async callable: given a resource_type, return the batch of
 # resources + links the adapter would have fetched from ARG for that
 # shard. Kept as a Protocol-like callable so tests can supply a fake
 # without instantiating any Azure client.
-ResourceQueryFn = Callable[[str], Awaitable[tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]]]
+@dataclass(frozen=True, slots=True)
+class ResourceQueryResult:
+    """One ARG shard result with relationship suppression evidence."""
+
+    resources: tuple[ResourceRecord, ...] = ()
+    links: tuple[LinkRecord, ...] = ()
+    relationship_drops: tuple[RelationshipDrop, ...] = ()
+
+    def __iter__(self) -> Iterator[Sequence[ResourceRecord] | Sequence[LinkRecord]]:
+        """Preserve the legacy ``resources, links = result`` adapter contract."""
+
+        yield self.resources
+        yield self.links
+
+
+ResourceQueryFn = Callable[
+    [str],
+    Awaitable[ResourceQueryResult | tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]],
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,10 +214,24 @@ class AzureResourceGraphInventory:
 
         async def _fetch(rt: str) -> InventoryBatch:
             async with semaphore:
-                resources_raw, links_raw = await self._query(rt)
+                query_result = await self._query(rt)
+            resources_raw: Sequence[ResourceRecord]
+            links_raw: Sequence[LinkRecord]
+            relationship_drops: tuple[RelationshipDrop, ...]
+            if isinstance(query_result, ResourceQueryResult):
+                resources_raw = query_result.resources
+                links_raw = query_result.links
+                relationship_drops = query_result.relationship_drops
+            else:
+                resources_raw, links_raw = query_result
+                relationship_drops = ()
             resources = _dedupe_resources(resources_raw)
-            links = _dedupe_links(links_raw)
-            return InventoryBatch(resources=resources, links=links)
+            links, duplicate_drops = _validate_links(links_raw)
+            return InventoryBatch(
+                resources=resources,
+                links=links,
+                relationship_drops=(*relationship_drops, *duplicate_drops),
+            )
 
         tasks = [
             asyncio.create_task(_fetch(rt), name=f"arg-shard-{rt}")
@@ -206,7 +241,7 @@ class AzureResourceGraphInventory:
         try:
             for coro in asyncio.as_completed(tasks):
                 batch = await coro
-                if batch.resources or batch.links:
+                if batch.resources or batch.links or batch.relationship_drops:
                     yield batch
         except BaseException:
             # Fail-closed: cancel outstanding shards so a partial snapshot
@@ -255,11 +290,17 @@ class AzureResourceGraphInventory:
             if page.has_more and (not page.cursor or page.cursor == current):
                 raise RuntimeError("inventory delta continuation cursor did not advance")
             resources = _dedupe_resources(page.resources)
-            links = _dedupe_links(page.links)
-            if resources or links or page.relationship_reconciliation_after is not None:
+            links, relationship_drops = _validate_links(page.links)
+            if (
+                resources
+                or links
+                or relationship_drops
+                or page.relationship_reconciliation_after is not None
+            ):
                 yield InventoryBatch(
                     resources=resources,
                     links=links,
+                    relationship_drops=relationship_drops,
                     cursor=page.cursor,
                     relationship_reconciliation_after=page.relationship_reconciliation_after,
                 )
@@ -283,11 +324,35 @@ def _dedupe_resources(records: Iterable[ResourceRecord]) -> tuple[ResourceRecord
     return tuple(seen.values())
 
 
-def _dedupe_links(records: Iterable[LinkRecord]) -> tuple[LinkRecord, ...]:
-    seen: dict[tuple[str, str, str], LinkRecord] = {}
+def _validate_links(
+    records: Iterable[LinkRecord],
+) -> tuple[tuple[LinkRecord, ...], tuple[RelationshipDrop, ...]]:
+    seen: dict[tuple[str, str, str], list[LinkRecord]] = {}
     for record in records:
-        seen[(record.from_id, record.link_type, record.to_id)] = record
-    return tuple(seen.values())
+        seen.setdefault((record.from_id, record.link_type, record.to_id), []).append(record)
+    links: list[LinkRecord] = []
+    drops: list[RelationshipDrop] = []
+    for key in sorted(seen):
+        candidates = seen[key]
+        if len(candidates) == 1:
+            links.append(candidates[0])
+            continue
+        reason = (
+            RelationshipDropReason.DUPLICATE_EDGE
+            if all(candidate == candidates[0] for candidate in candidates[1:])
+            else RelationshipDropReason.CONFLICTING_DUPLICATE
+        )
+        evidence = candidates[0].mapping_evidence
+        drops.append(
+            RelationshipDrop(
+                reason=reason,
+                mapping_id=evidence.mapping_id if evidence is not None else None,
+                source_property_path=(
+                    evidence.source_property_path if evidence is not None else None
+                ),
+            )
+        )
+    return tuple(links), tuple(drops)
 
 
 __all__ = [
@@ -296,4 +361,5 @@ __all__ = [
     "AzureInventoryConfig",
     "AzureResourceGraphInventory",
     "ResourceQueryFn",
+    "ResourceQueryResult",
 ]

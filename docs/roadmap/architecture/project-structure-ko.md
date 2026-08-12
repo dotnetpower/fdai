@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7477c70861335cbedde7782725da1efbae86cb8e
+translation_source_sha: 4f0bd033a8b2445df319f3e1e3cf43dc7c02cd77
 translation_revised: 2026-08-12
 ---
 
@@ -278,10 +278,17 @@ fdai/
   시계로 대체하지 않고 발행과 커서 진행을 차단합니다. 하나의 배치에는 각 `resource_id`가 한
   번만 포함될 수 있으며 중복이 있으면 이벤트를 발행하기 전에 배치 전체를 차단합니다.
   리소스 및 관계 속성은 finite 숫자 값으로 정본 JSON 직렬화가 가능해야 합니다. 지원되지
-  않는 객체와 `NaN`은 신원 계산, 발행 또는 PostgreSQL 연결 전에 거부됩니다. Projector는 사전
-  검증된 정본 JSON 문서만 저장합니다. Realtime projector와 변경할 수 없는 스냅샷 staging은 모두 사전 검증된 정본 JSON 문서만 저장하며 스냅샷 커버리지 메타데이터도 begin 또는
-  승격 전에 같은 규칙을 적용합니다. 인벤토리 링크는 출처 권한, 개정 번호, 기준 시점, 최신성, 완전성, 검증 근거를 고정하는 변경할 수 없는 관측 메타데이터도 운반할 수 있습니다.
-  불완전한 인벤토리 관측은 관계 점유를 project하지 않으며 stale 또는 conflicting 링크 근거는 operational-context 자율성을 낮출 수만 있습니다.
+  않는 객체와 `NaN`은 신원 계산, 발행 또는 PostgreSQL 연결 전에 거부됩니다. Realtime
+  projector와 변경할 수 없는 스냅샷 staging은 사전 검증된 정본 JSON 문서만 저장하며 스냅샷
+  커버리지 메타데이터도 begin 또는 승격 전에 같은 규칙을 적용합니다. Azure 관계의 속성 경로,
+  허용된 프로바이더 타입, 의미 방향, 출처 스키마 다이제스트 및 근거 정책은 검토된
+  `provider-relationship-mappings` 카탈로그에서 가져옵니다. 완전한 세대 verifier는 같은 세대에서
+  두 엔드포인트를 모두 관찰하고, 프로바이더와 verifier 신원이 서로 다르며, 변경할 수 없는 검증
+  receipt가 edge와 mapping 개정 번호를 고정한 경우에만 후보를 활성화합니다. 엔드포인트 누락,
+  모호한 방향, stale 스키마 mapping, 중복 또는 conflicting 관찰, 부분 세대는 stable dropped reason을
+  남기고 active graph edge를 만들지 않습니다. 검증된 링크는 변경할 수 없는 state-fact 및 링크 관찰
+  메타데이터를 운반합니다. stale 또는 conflicting 근거는 operational-context 자율성을 낮출 수만
+  있습니다.
   범위가 제한된 배치의 모든 이벤트는 첫 발행 전에 생성 및 검증되므로 뒤쪽의 잘못된 리소스 때문에 앞쪽
   이벤트가 검증 단계에서 부분 발행되지 않습니다.
   `has_more`로 표시된 모든 delta 페이지는 기록을 방출하기 전에 새로운 이어가기 커서를 제공해야

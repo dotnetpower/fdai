@@ -38,11 +38,84 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
 
 from .state_evidence import LINK_OBSERVATION_METADATA_PROPERTY, LinkObservationMetadata
 
 INVENTORY_RELATIONSHIP_RECONCILIATION_PREFIX = "inventory-relationship-reconciliation:"
+
+
+class RelationshipDropReason(StrEnum):
+    """Stable fail-closed reasons for a relationship absent from the active graph."""
+
+    AMBIGUOUS_ORIENTATION = "ambiguous_orientation"
+    CONFLICTING_DUPLICATE = "conflicting_duplicate"
+    DUPLICATE_EDGE = "duplicate_edge"
+    MISSING_INDEPENDENT_VERIFIER = "missing_independent_verifier"
+    MISSING_SOURCE_ENDPOINT = "missing_source_endpoint"
+    MISSING_TARGET_ENDPOINT = "missing_target_endpoint"
+    PARTIAL_GENERATION = "partial_generation"
+    STALE_SOURCE_SCHEMA_DIGEST = "stale_source_schema_digest"
+    UNVERIFIED_METADATA = "unverified_metadata"
+
+
+@dataclass(frozen=True, slots=True)
+class RelationshipDrop:
+    """One bounded explanation for suppressing a provider relationship candidate."""
+
+    reason: RelationshipDropReason
+    mapping_id: str | None = None
+    source_property_path: str | None = None
+
+    def __post_init__(self) -> None:
+        for field_name, value in (
+            ("mapping_id", self.mapping_id),
+            ("source_property_path", self.source_property_path),
+        ):
+            if value is not None and not value.strip():
+                raise ValueError(f"RelationshipDrop.{field_name} MUST be non-empty when supplied")
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderRelationshipEvidence:
+    """Reviewed mapping and provider observation carried before independent verification."""
+
+    mapping_id: str
+    mapping_revision: str
+    mapping_receipt_ref: str
+    provider_identity: str
+    source_identity: str
+    source_property_path: str
+    source_schema_version: str
+    source_schema_digest: str
+    observed_schema_digest: str
+    evidence_method: str
+    freshness_ceiling_seconds: int
+    endpoint_orientation: str
+    provider_owner_id: str
+    observation_receipt_ref: str
+
+    def __post_init__(self) -> None:
+        for field_name, value in (
+            ("mapping_id", self.mapping_id),
+            ("mapping_revision", self.mapping_revision),
+            ("mapping_receipt_ref", self.mapping_receipt_ref),
+            ("provider_identity", self.provider_identity),
+            ("source_identity", self.source_identity),
+            ("source_property_path", self.source_property_path),
+            ("source_schema_version", self.source_schema_version),
+            ("source_schema_digest", self.source_schema_digest),
+            ("observed_schema_digest", self.observed_schema_digest),
+            ("evidence_method", self.evidence_method),
+            ("endpoint_orientation", self.endpoint_orientation),
+            ("provider_owner_id", self.provider_owner_id),
+            ("observation_receipt_ref", self.observation_receipt_ref),
+        ):
+            if not value.strip():
+                raise ValueError(f"ProviderRelationshipEvidence.{field_name} MUST be non-empty")
+        if self.freshness_ceiling_seconds < 1:
+            raise ValueError("ProviderRelationshipEvidence.freshness_ceiling_seconds MUST be >= 1")
 
 
 class InventoryGraphViewNotFoundError(LookupError):
@@ -109,6 +182,7 @@ class LinkRecord:
     to_id: str
     to_type: str
     link_props: Mapping[str, Any] = field(default_factory=dict)
+    mapping_evidence: ProviderRelationshipEvidence | None = None
     observation_metadata: LinkObservationMetadata | None = None
 
     def __post_init__(self) -> None:
@@ -123,6 +197,10 @@ class LinkRecord:
                 raise ValueError(f"LinkRecord.{field_name} MUST be non-empty")
         if not isinstance(self.link_props, Mapping):
             raise ValueError("LinkRecord.link_props MUST be a mapping")
+        if self.mapping_evidence is not None and not isinstance(
+            self.mapping_evidence, ProviderRelationshipEvidence
+        ):
+            raise ValueError("LinkRecord.mapping_evidence MUST be typed evidence")
         if self.observation_metadata is not None and not isinstance(
             self.observation_metadata, LinkObservationMetadata
         ):
@@ -143,6 +221,7 @@ class InventoryBatch:
 
     resources: tuple[ResourceRecord, ...] = ()
     links: tuple[LinkRecord, ...] = ()
+    relationship_drops: tuple[RelationshipDrop, ...] = ()
     cursor: str | None = None
     """Adapter-defined opaque cursor advanced by this batch. Passed back
     to :meth:`Inventory.delta` on the next incremental pull."""
@@ -220,5 +299,8 @@ __all__ = [
     "InventoryBatch",
     "InventoryGraphViewNotFoundError",
     "LinkRecord",
+    "ProviderRelationshipEvidence",
+    "RelationshipDrop",
+    "RelationshipDropReason",
     "ResourceRecord",
 ]

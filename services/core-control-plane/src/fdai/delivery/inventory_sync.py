@@ -11,7 +11,14 @@ from typing import cast
 
 import httpx
 
-from fdai.shared.providers.inventory import Inventory, InventoryBatch, LinkRecord, ResourceRecord
+from fdai.delivery.inventory_relationship_verifier import verify_inventory_relationships
+from fdai.shared.providers.inventory import (
+    Inventory,
+    InventoryBatch,
+    LinkRecord,
+    RelationshipDrop,
+    ResourceRecord,
+)
 from fdai.shared.providers.inventory_snapshot import (
     InventoryAttemptFailure,
     InventoryCoverageManifest,
@@ -44,6 +51,7 @@ class PromotedInventoryObservation:
     resources: tuple[ResourceRecord, ...]
     links: tuple[LinkRecord, ...]
     complete: bool
+    relationship_drops: tuple[RelationshipDrop, ...] = ()
 
 
 #: Receives one promoted observation after the active pointer moves. The sink
@@ -112,7 +120,12 @@ class InventorySyncCoordinator:
         if self._observer is None:
             return
         try:
-            await self._observer(observed.result(generation=attempt_id))
+            await self._observer(
+                observed.result(
+                    generation=attempt_id,
+                    recorded_at=datetime.now(tz=UTC),
+                )
+            )
         except Exception:
             _LOG.exception(
                 "inventory_promotion_observer_failed",
@@ -153,6 +166,7 @@ class _ObservationAccumulator:
         self._enabled = enabled
         self._resources: list[ResourceRecord] = []
         self._links: list[LinkRecord] = []
+        self._relationship_drops: list[RelationshipDrop] = []
         self._truncated = False
 
     def add(self, batch: InventoryBatch) -> None:
@@ -168,13 +182,23 @@ class _ObservationAccumulator:
             return
         self._resources.extend(batch.resources)
         self._links.extend(batch.links)
+        self._relationship_drops.extend(batch.relationship_drops)
 
-    def result(self, *, generation: str) -> PromotedInventoryObservation:
+    def result(self, *, generation: str, recorded_at: datetime) -> PromotedInventoryObservation:
+        verified = verify_inventory_relationships(
+            generation=generation,
+            resources=self._resources,
+            links=self._links,
+            complete=not self._truncated,
+            recorded_at=recorded_at,
+            upstream_drops=self._relationship_drops,
+        )
         return PromotedInventoryObservation(
             generation=generation,
             resources=tuple(self._resources),
-            links=tuple(self._links),
+            links=verified.links,
             complete=not self._truncated,
+            relationship_drops=verified.dropped,
         )
 
 

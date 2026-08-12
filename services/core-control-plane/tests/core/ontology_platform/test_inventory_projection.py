@@ -39,6 +39,7 @@ def _link(
         link_type=link_type,
         to_id=to_id,
         to_type=to_type,
+        observation_metadata=_observation_metadata(),
     )
 
 
@@ -62,6 +63,11 @@ def _observation_metadata() -> LinkObservationMetadata:
         verifier_identity="inventory-readback",
         verifier_revision="revision-3",
         verification_receipt_ref="verification-receipt-3",
+        inventory_generation="snapshot-1",
+        mapping_id="test.mapping",
+        mapping_revision="sha256:" + "1" * 64,
+        source_schema_version="test-schema-v1",
+        source_schema_digest="sha256:" + "2" * 64,
     )
 
 
@@ -195,7 +201,7 @@ def test_catalog_declared_network_links_are_projected_as_directed_records() -> N
 
 
 @pytest.mark.parametrize(
-    ("resources", "links"),
+    ("resources", "links", "expected_reason"),
     (
         (
             (_resource("vm-1"),),
@@ -208,6 +214,7 @@ def test_catalog_declared_network_links_are_projected_as_directed_records() -> N
                     to_type="compute.vm",
                 ),
             ),
+            "missing_source_endpoint",
         ),
         (
             (_resource("rg-1", type_id="resource-group"),),
@@ -220,12 +227,14 @@ def test_catalog_declared_network_links_are_projected_as_directed_records() -> N
                     to_type="compute.vm",
                 ),
             ),
+            "missing_target_endpoint",
         ),
     ),
 )
 def test_unobserved_endpoint_is_dropped_and_reported(
     resources: tuple[ResourceRecord, ...],
     links: tuple[LinkRecord, ...],
+    expected_reason: str,
 ) -> None:
     projection = build_inventory_ontology_projection(
         generation="snapshot-1",
@@ -235,7 +244,7 @@ def test_unobserved_endpoint_is_dropped_and_reported(
 
     assert projection.links == ()
     assert projection.complete is False
-    assert "unobserved_endpoint" in projection.dropped_reasons
+    assert expected_reason in projection.dropped_reasons
 
 
 def test_self_reference_is_dropped_and_reported() -> None:
@@ -267,23 +276,34 @@ def test_conflicting_observation_for_one_id_is_rejected() -> None:
         )
 
 
-def test_conflicting_duplicate_link_is_rejected() -> None:
-    with pytest.raises(InventoryProjectionConflictError, match="link.*conflicting content"):
-        build_inventory_ontology_projection(
-            generation="snapshot-1",
-            resources=(_resource("vm-1"), _resource("vm-2")),
-            links=(
-                LinkRecord("vm-1", "compute.vm", "depends_on", "vm-2", "compute.vm"),
-                LinkRecord(
-                    "vm-1",
-                    "compute.vm",
-                    "depends_on",
-                    "vm-2",
-                    "compute.vm",
-                    link_props={"observation": "different"},
-                ),
+def test_conflicting_duplicate_link_is_absent_and_reported() -> None:
+    metadata = _observation_metadata()
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(_resource("vm-1"), _resource("vm-2")),
+        links=(
+            LinkRecord(
+                "vm-1",
+                "compute.vm",
+                "depends_on",
+                "vm-2",
+                "compute.vm",
+                observation_metadata=metadata,
             ),
-        )
+            LinkRecord(
+                "vm-1",
+                "compute.vm",
+                "depends_on",
+                "vm-2",
+                "compute.vm",
+                link_props={"observation": "different"},
+                observation_metadata=metadata,
+            ),
+        ),
+    )
+
+    assert projection.links == ()
+    assert "conflicting_duplicate" in projection.dropped_reasons
 
 
 def test_link_endpoint_types_must_match_observed_resource_types() -> None:

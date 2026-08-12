@@ -141,3 +141,34 @@ def test_legacy_link_metadata_without_verification_receipt_cannot_claim_verified
     assert decoded.verifier_identity is None
     assert decoded.verifier_revision is None
     assert decoded.verification_receipt_ref is None
+
+
+def test_provider_relationship_metadata_round_trip_pins_generation_and_mapping() -> None:
+    metadata = LinkObservationMetadata(
+        state_fact=_fact(),
+        verification_method="deterministic-cross-check",
+        verified=True,
+        verifier_identity="inventory-generation-verifier",
+        verifier_revision="verifier-v1",
+        verification_receipt_ref="sha256:" + "1" * 64,
+        inventory_generation="inventory-generation-7",
+        mapping_id="azure.vm-nic-attached-to-vm",
+        mapping_revision="sha256:" + "2" * 64,
+        source_schema_version="azure-resource-graph-resources@2022-10-01",
+        source_schema_digest="sha256:" + "3" * 64,
+    )
+
+    assert LinkObservationMetadata.from_mapping(metadata.to_mapping()) == metadata
+
+
+def test_provider_relationship_metadata_rejects_partial_provenance() -> None:
+    with pytest.raises(ValueError, match="generation, mapping, and schema"):
+        LinkObservationMetadata(
+            state_fact=_fact(),
+            verification_method="deterministic-cross-check",
+            verified=True,
+            verifier_identity="inventory-generation-verifier",
+            verifier_revision="verifier-v1",
+            verification_receipt_ref="sha256:" + "1" * 64,
+            inventory_generation="inventory-generation-7",
+        )

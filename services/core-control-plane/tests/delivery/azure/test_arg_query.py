@@ -1536,17 +1536,20 @@ def test_extract_attached_to_from_subnet_reference() -> None:
     )
     child = ResourceRecord(
         resource_id="resource-group/rg-a/providers/microsoft.network/networkinterfaces/nic1",
-        type="network.load-balancer",
+        type="network.interface",
         provider_ref=(
             "/subscriptions/.../resourceGroups/rg-a/providers/Microsoft.Network/"
             "networkInterfaces/nic1"
         ),
     )
-    row = {"properties": {"subnet": {"id": subnet_arm_id}}}
+    row = {
+        "type": "Microsoft.Network/networkInterfaces",
+        "properties": {"ipConfigurations": [{"properties": {"subnet": {"id": subnet_arm_id}}}]},
+    }
     (edge,) = _extract_attached_to_links_from_row(row, child=child, arm_to_neutral=reverse)
     assert edge.link_type == "attached_to"
     assert edge.from_id == child.resource_id
-    assert edge.from_type == "network.load-balancer"
+    assert edge.from_type == "network.interface"
     assert edge.to_id == _to_neutral_id(subnet_arm_id)
     assert edge.to_type == "network.subnet"
 
@@ -1573,9 +1576,10 @@ def test_extract_attached_to_from_private_endpoint_target() -> None:
         ),
     )
     row = {
+        "type": "Microsoft.Network/privateEndpoints",
         "properties": {
             "privateLinkServiceConnections": [{"properties": {"privateLinkServiceId": storage_id}}]
-        }
+        },
     }
 
     (edge,) = _extract_attached_to_links_from_row(row, child=child, arm_to_neutral=reverse)
@@ -1602,6 +1606,7 @@ def test_extract_vnet_peering_requires_connected_direct_observation() -> None:
         type="network.vnet",
     )
     row = {
+        "type": "Microsoft.Network/virtualNetworks",
         "properties": {
             "virtualNetworkPeerings": [
                 {
@@ -1617,7 +1622,7 @@ def test_extract_vnet_peering_requires_connected_direct_observation() -> None:
                     }
                 },
             ]
-        }
+        },
     }
 
     (edge,) = extract_peered_with_links_from_row(
@@ -1640,19 +1645,20 @@ def test_extract_routes_to_requires_exact_resource_next_hop() -> None:
     reverse = _build_arm_to_neutral_map(_vocab())
     target_id = (
         "/subscriptions/example-subscription/resourceGroups/rg-data/providers/"
-        "Microsoft.Storage/storageAccounts/storage-example"
+        "Microsoft.Network/networkInterfaces/nic-example"
     )
     child = ResourceRecord(
         resource_id="scope-example/resource-group/rg-network/route-table/routes",
-        type="network.vnet",
+        type="network.route-table",
     )
     row = {
+        "type": "Microsoft.Network/routeTables",
         "properties": {
             "routes": [
                 {"properties": {"nextHopResourceId": target_id}},
                 {"properties": {"nextHopIpAddress": "192.0.2.10"}},
             ]
-        }
+        },
     }
 
     (edge,) = extract_routes_to_links_from_row(
@@ -1664,7 +1670,7 @@ def test_extract_routes_to_requires_exact_resource_next_hop() -> None:
         child.resource_id,
         "routes_to",
         _to_neutral_id(target_id),
-        "object-storage",
+        "network.interface",
     )
 
 
@@ -1697,7 +1703,10 @@ def test_extract_attached_to_from_nsg_reference() -> None:
         type="network.subnet",
         provider_ref="/subscriptions/.../subnets/sub1",
     )
-    row = {"properties": {"networkSecurityGroup": {"id": nsg_arm_id}}}
+    row = {
+        "type": "Microsoft.Network/virtualNetworks/subnets",
+        "properties": {"networkSecurityGroup": {"id": nsg_arm_id}},
+    }
     (edge,) = _extract_attached_to_links_from_row(row, child=child, arm_to_neutral=reverse)
     assert edge.to_type == "network.nsg"
 
@@ -1719,11 +1728,12 @@ def test_extract_attached_to_from_load_balancer_frontend_public_ip() -> None:
         provider_ref="/subscriptions/.../loadBalancers/lb-1",
     )
     row = {
+        "type": "Microsoft.Network/loadBalancers",
         "properties": {
             "frontendIPConfigurations": [
                 {"properties": {"publicIPAddress": {"id": public_ip_arm_id}}}
             ]
-        }
+        },
     }
 
     (edge,) = _extract_attached_to_links_from_row(row, child=child, arm_to_neutral=reverse)
@@ -1757,13 +1767,14 @@ def test_extract_attached_to_from_vm_network_interfaces_and_disks() -> None:
         provider_ref="/subscriptions/.../virtualMachines/vm-1",
     )
     row = {
+        "type": "Microsoft.Compute/virtualMachines",
         "properties": {
             "networkProfile": {"networkInterfaces": [{"id": nic_id}]},
             "storageProfile": {
                 "osDisk": {"managedDisk": {"id": os_disk_id}},
                 "dataDisks": [{"managedDisk": {"id": data_disk_id}}],
             },
-        }
+        },
     }
 
     links = _extract_attached_to_links_from_row(
@@ -1778,6 +1789,227 @@ def test_extract_attached_to_from_vm_network_interfaces_and_disks() -> None:
         ("disk", "data-1"),
     }
     assert {(link.to_type, link.to_id) for link in links} == {("compute.vm", child.resource_id)}
+
+
+def test_reviewed_mapping_drives_vm_attachment_orientation() -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    reverse = build_arm_to_neutral_map(_vocab())
+    vm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Compute/virtualMachines/vm-1"
+    )
+    nic_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Network/networkInterfaces/nic-1"
+    )
+    owner = ResourceRecord(resource_id=to_neutral_id(vm_id), type="compute.vm", provider_ref=vm_id)
+
+    result = project_provider_relationships(
+        {
+            "id": vm_id,
+            "type": "Microsoft.Compute/virtualMachines",
+            "properties": {"networkProfile": {"networkInterfaces": [{"id": nic_id}]}},
+        },
+        owner=owner,
+        arm_to_neutral=reverse,
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+    )
+
+    assert result.dropped == ()
+    attached = [link for link in result.links if link.link_type == "attached_to"]
+    assert [(link.from_type, link.to_type) for link in attached] == [
+        ("network.interface", "compute.vm")
+    ]
+    assert attached[0].mapping_evidence is not None
+    assert attached[0].mapping_evidence.mapping_id == "azure.vm-nic-attached-to-vm"
+
+
+def test_reviewed_peering_mapping_correlates_connected_predicate() -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    reverse = build_arm_to_neutral_map(_vocab())
+    local_id = (
+        "/subscriptions/example-subscription/resourceGroups/rg-network/providers/"
+        "Microsoft.Network/virtualNetworks/vnet-a"
+    )
+    connected_id = local_id[:-1] + "b"
+    disconnected_id = local_id[:-1] + "c"
+    owner = ResourceRecord(
+        resource_id=to_neutral_id(local_id), type="network.vnet", provider_ref=local_id
+    )
+
+    result = project_provider_relationships(
+        {
+            "id": local_id,
+            "type": "Microsoft.Network/virtualNetworks",
+            "properties": {
+                "virtualNetworkPeerings": [
+                    {
+                        "properties": {
+                            "peeringState": "Connected",
+                            "remoteVirtualNetwork": {"id": connected_id},
+                        }
+                    },
+                    {
+                        "properties": {
+                            "peeringState": "Disconnected",
+                            "remoteVirtualNetwork": {"id": disconnected_id},
+                        }
+                    },
+                ]
+            },
+        },
+        owner=owner,
+        arm_to_neutral=reverse,
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+    )
+
+    peering_links = [link for link in result.links if link.link_type == "peered_with"]
+    assert [(link.from_id, link.to_id) for link in peering_links] == [
+        (owner.resource_id, to_neutral_id(connected_id))
+    ]
+
+
+def test_stale_source_schema_mapping_is_dropped() -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+    from fdai.shared.providers.inventory import RelationshipDropReason
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    vm_mapping = next(
+        item for item in catalog.mappings if item.mapping_id == "azure.vm-nic-attached-to-vm"
+    )
+    stale_schema = vm_mapping.source_schema.model_copy(update={"digest": "sha256:" + "0" * 64})
+    stale_mapping = vm_mapping.model_copy(update={"source_schema": stale_schema})
+    stale = catalog.model_copy(
+        update={"mappings": (stale_mapping,)},
+    )
+    vm_id = (
+        "/subscriptions/example/resourceGroups/rg-a/providers/"
+        "Microsoft.Compute/virtualMachines/vm-1"
+    )
+    nic_id = (
+        "/subscriptions/example/resourceGroups/rg-a/providers/"
+        "Microsoft.Network/networkInterfaces/nic-1"
+    )
+    result = project_provider_relationships(
+        {
+            "id": vm_id,
+            "type": "Microsoft.Compute/virtualMachines",
+            "properties": {"networkProfile": {"networkInterfaces": [{"id": nic_id}]}},
+        },
+        owner=ResourceRecord(
+            resource_id=to_neutral_id(vm_id), type="compute.vm", provider_ref=vm_id
+        ),
+        arm_to_neutral=build_arm_to_neutral_map(_vocab()),
+        catalog=stale,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+    )
+
+    assert result.links == ()
+    assert [drop.reason for drop in result.dropped] == [
+        RelationshipDropReason.STALE_SOURCE_SCHEMA_DIGEST
+    ]
+
+
+def test_ambiguous_mapping_orientation_is_absent_and_reported() -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        EndpointOrientation,
+        load_provider_relationship_mapping_catalog,
+    )
+    from fdai.shared.providers.inventory import RelationshipDropReason
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    mapping = next(
+        item for item in catalog.mappings if item.mapping_id == "azure.vm-nic-attached-to-vm"
+    )
+    conflicting = mapping.model_copy(
+        update={
+            "mapping_id": "azure.vm-nic-attached-to-vm-conflict",
+            "endpoint_orientation": EndpointOrientation.OWNER_TO_REFERENCED,
+        }
+    )
+    adversarial_catalog = catalog.model_copy(update={"mappings": (mapping, conflicting)})
+    vm_id = (
+        "/subscriptions/example/resourceGroups/rg-a/providers/"
+        "Microsoft.Compute/virtualMachines/vm-1"
+    )
+    nic_id = (
+        "/subscriptions/example/resourceGroups/rg-a/providers/"
+        "Microsoft.Network/networkInterfaces/nic-1"
+    )
+    result = project_provider_relationships(
+        {
+            "id": vm_id,
+            "type": "Microsoft.Compute/virtualMachines",
+            "properties": {"networkProfile": {"networkInterfaces": [{"id": nic_id}]}},
+        },
+        owner=ResourceRecord(
+            resource_id=to_neutral_id(vm_id), type="compute.vm", provider_ref=vm_id
+        ),
+        arm_to_neutral=build_arm_to_neutral_map(_vocab()),
+        catalog=adversarial_catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+    )
+
+    assert [link for link in result.links if link.link_type == "attached_to"] == []
+    assert {drop.reason for drop in result.dropped} == {
+        RelationshipDropReason.AMBIGUOUS_ORIENTATION
+    }
 
 
 def test_extract_attached_to_drops_reference_to_unmapped_type() -> None:
@@ -1795,10 +2027,13 @@ def test_extract_attached_to_drops_reference_to_unmapped_type() -> None:
     )
     child = ResourceRecord(
         resource_id="resource-group/rg-a/providers/microsoft.network/networkinterfaces/nic1",
-        type="network.load-balancer",
+        type="network.interface",
         provider_ref="/subscriptions/.../nic1",
     )
-    row = {"properties": {"subnet": {"id": unknown_arm_id}}}
+    row = {
+        "type": "Microsoft.Network/networkInterfaces",
+        "properties": {"ipConfigurations": [{"properties": {"subnet": {"id": unknown_arm_id}}}]},
+    }
     assert _extract_attached_to_links_from_row(row, child=child, arm_to_neutral=reverse) == ()
 
 
@@ -1824,44 +2059,53 @@ def test_extract_attached_to_returns_empty_when_no_properties() -> None:
     )
 
 
-def test_extract_attached_to_deduplicates_within_row() -> None:
-    """Two whitelisted keys pointing at the same target collapse into
-    a single edge - deduplication mirrors the LinkRecord idempotency
-    contract on InventoryBatch."""
-    from fdai.delivery.azure.arg_query import (
-        _build_arm_to_neutral_map,
-        _extract_attached_to_links_from_row,
-    )
+def test_extract_attached_to_duplicate_edge_fails_closed() -> None:
+    from pathlib import Path
 
-    reverse = _build_arm_to_neutral_map(_vocab())
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+    from fdai.shared.providers.inventory import RelationshipDropReason
+
+    reverse = build_arm_to_neutral_map(_vocab())
     same_target = (
         "/subscriptions/00000000-0000-0000-0000-000000000001/"
-        "resourceGroups/rg-a/providers/Microsoft.Network/"
-        "virtualNetworks/vnet1/subnets/sub1"
+        "resourceGroups/rg-a/providers/Microsoft.Network/networkInterfaces/nic1"
     )
     child = ResourceRecord(
-        resource_id="resource-group/rg-a/providers/microsoft.network/networkinterfaces/nic1",
-        type="network.load-balancer",
-        provider_ref="/subscriptions/.../nic1",
+        resource_id="resource-group/rg-a/providers/microsoft.compute/virtualmachines/vm1",
+        type="compute.vm",
+        provider_ref="/subscriptions/.../virtualMachines/vm1",
     )
     row = {
+        "type": "Microsoft.Compute/virtualMachines",
         "properties": {
-            # Same subnet referenced twice via two whitelisted paths
-            # (contrived - the extractor still dedupes).
-            "subnet": {"id": same_target},
-            "networkSecurityGroup": {"id": same_target},  # same target string
-        }
+            "networkProfile": {"networkInterfaces": [{"id": same_target}, {"id": same_target}]}
+        },
     }
-    edges = _extract_attached_to_links_from_row(row, child=child, arm_to_neutral=reverse)
-    # Even though two keys were consumed, the extractor collapses to a
-    # single edge because from_id / link_type / to_id are identical.
-    assert len(edges) == 1
+    result = project_provider_relationships(
+        row,
+        owner=child,
+        arm_to_neutral=reverse,
+        catalog=load_provider_relationship_mapping_catalog(
+            Path("rule-catalog/vocabulary/provider-relationship-mappings")
+        ),
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+    )
+    assert result.links == ()
+    assert [drop.reason for drop in result.dropped] == [RelationshipDropReason.DUPLICATE_EDGE]
 
 
 @pytest.mark.asyncio
 async def test_full_row_emits_contains_and_attached_to_links_together() -> None:
-    """End-to-end via httpx.MockTransport: a NIC row surfaces
-    contains(rg, nic) + attached_to(nic, subnet) in the same shard."""
+    """A reviewed web-app row emits containment and subnet attachment."""
 
     def _handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -1871,16 +2115,12 @@ async def test_full_row_emits_contains_and_attached_to_links_together() -> None:
                     _arm_row(
                         arm_id=(
                             "/subscriptions/00000000-0000-0000-0000-000000000001/"
-                            "resourceGroups/rg-example/providers/Microsoft.Storage/"
-                            "storageAccounts/stg1"
+                            "resourceGroups/rg-example/providers/Microsoft.Web/sites/fn1"
                         ),
-                        arm_type="Microsoft.Storage/storageAccounts",
+                        arm_type="Microsoft.Web/sites",
                         extra={
+                            "kind": "functionapp,linux",
                             "properties": {
-                                # A storage account rarely has a subnet
-                                # attachment, but the extractor is
-                                # property-driven - this exercises the
-                                # end-to-end path deterministically.
                                 "subnet": {
                                     "id": (
                                         "/subscriptions/"
@@ -1890,7 +2130,7 @@ async def test_full_row_emits_contains_and_attached_to_links_together() -> None:
                                         "vnet1/subnets/sub1"
                                     )
                                 }
-                            }
+                            },
                         },
                     )
                 ]
@@ -1904,7 +2144,7 @@ async def test_full_row_emits_contains_and_attached_to_links_together() -> None:
             http_client=client,
             config=_config(),
         )
-        resources, links = await factory.build_query_fn()("object-storage")
+        resources, links = await factory.build_query_fn()("compute.function")
 
     assert len(resources) == 1
     link_types = {edge.link_type for edge in links}
@@ -2087,8 +2327,8 @@ def test_extract_depends_on_from_acr_login_server_emits_when_resolver_returns_ar
 
     resolved_arm_id = (
         "/subscriptions/00000000-0000-0000-0000-000000000001/"
-        "resourceGroups/rg-a/providers/Microsoft.Storage/"
-        "storageAccounts/acr-stand-in"
+        "resourceGroups/rg-a/providers/Microsoft.ContainerRegistry/"
+        "registries/acr-stand-in"
     )
     monkeypatch.setattr(
         arg_query_mod,
@@ -2102,10 +2342,13 @@ def test_extract_depends_on_from_acr_login_server_emits_when_resolver_returns_ar
         type="compute.function",
         provider_ref="/subscriptions/.../fn1",
     )
-    row = {"properties": {"acrLoginServer": "myregistry.azurecr.io"}}
+    row = {
+        "type": "Microsoft.Web/sites",
+        "properties": {"acrLoginServer": "myregistry.azurecr.io"},
+    }
     (edge,) = _extract_depends_on_links_from_row(row, child=child, arm_to_neutral=reverse)
     assert edge.link_type == "depends_on"
-    assert edge.to_type == "object-storage"
+    assert edge.to_type == "container-registry"
 
 
 def test_extract_depends_on_drops_reference_to_unmapped_type() -> None:
@@ -2249,10 +2492,11 @@ def test_extract_depends_on_deduplicates_within_row() -> None:
         provider_ref="/subscriptions/.../fn1",
     )
     row = {
+        "type": "Microsoft.Web/sites",
         "properties": {
             "storageAccount": {"id": same_target},
             "workspaceResourceId": same_target,
-        }
+        },
     }
     edges = _extract_depends_on_links_from_row(row, child=child, arm_to_neutral=reverse)
     assert len(edges) == 1

@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 8507204b44b2bafb1310722c6a3ba6f3f9df2603
+translation_source_sha: 79f9f056a0509d2f0e57b2ff3a8a4e458dbbad37
 translation_revised: 2026-08-12
 ---
 
@@ -64,8 +64,12 @@ translation_revised: 2026-08-12
 > 엔드포인트를 exact private-link 서비스 대상에 첨부합니다. Reverse 피어링에는 여전히 독립적인
 > remote-VNet 관측이 필요합니다. 또한 명시적 ARM 리소스 next-hop id에서만 `routes_to`를
 > 변환 결과하며 IP, 접두사 및 hostname은 온톨로지 간선이 되지 않습니다. 스냅샷과 real-time 제약은
-> 검토된 피어링/라우팅 vocabulary를 수락합니다. 워크로드/서비스 대응, 관측 증적 및
-> 운영 network-path 발급자는 남아 있습니다.
+> 검토된 피어링/라우팅 vocabulary를 수락합니다. 프로바이더 관계 추출은 속성 경로, 허용된
+> 프로바이더 타입, 엔드포인트 방향, 출처 스키마 다이제스트 및 근거 정책을 고정하는 검토된 mapping
+> 카탈로그를 사용합니다. 하나의 완전한 인벤토리 세대에 두 엔드포인트가 모두 있고 독립적으로 검증된
+> 링크만 active graph에 들어갑니다. 엔드포인트 누락, 모호한 방향, stale mapping, 중복 또는
+> conflicting 관찰, 부분 세대는 stable dropped reason과 함께 absent 상태로 남습니다.
+> 워크로드/서비스 mapping 및 운영 network-path 발급자는 남아 있습니다.
 > OQ-04에는 이제 whole 범위가 제한된 턴과 후보 서술자에서 의미 프레임 및 타입이 지정된 노드 DAG를
 > 제안하는 스키마로 제한한 모델 경계가 있습니다. Core는 모든 다이제스트/권한 필드를 다시 만들고
 > exact principal 매니페스트를 검증하며 검증된 계획, 명확화 하나, action-draft 인계,
@@ -145,7 +149,7 @@ flowchart LR
 | Interface | 운영 카탈로그 로딩은 `Identifiable`, 출처 이력 및 모든 현재 ObjectType의 명시적 연결을 검증합니다. 런타임 조립은 이를 compile하고 exact release에 pin합니다. | 추가 기능 Interface와 운영 ObjectSet 조회 연결은 남아 있습니다. |
 | 관계 | 모든 directed LinkType은 엔드포인트, cardinality, causal, transitive 및 temporal 메타데이터와 함께 결정론적 `<name>.outgoing`/`<name>.incoming` 머신 조회 id를 변환 결과합니다. | 이 side를 사용하는 범용 계획 검증기와 플래너 연결은 남아 있습니다. |
 | 의미 세대 | 구체적인 service-owned atomic in-memory 인덱스와 off-path full/incremental 온톨로지 세대 발행기가 선언 및 조건을 충족한 deployment-local 객체를 독립적인 검증과 함께 다룹니다. | 영속 PostgreSQL 어댑터, scheduled 발행기 프로세스 및 운영 의미 서술자 선택자는 남아 있습니다. |
-| 현재 토폴로지 | Azure 변환 결과는 resource-group/VNet containment, 첨부 및 범위가 제한된 의존성 허용 목록을 발행합니다. | Azure 어댑터가 `peered_with` 또는 `routes_to`를 발행하지 않으며 비공개 엔드포인트, 워크로드 및 서비스 의존성 커버리지가 불완료합니다. |
+| 현재 토폴로지 | Azure 변환 결과는 containment, attachment, dependency, peering 및 exact-resource routing 후보에 검토된 관계 mapping을 사용합니다. 완전한 세대 verifier는 두 엔드포인트, 독립 verifier 신원, 변경할 수 없는 receipt 및 정본 state-fact 메타데이터를 갖춘 링크만 허용합니다. | 워크로드 및 서비스 의존성 커버리지와 운영 network-path 발급자가 아직 불완전합니다. |
 | Historical 토폴로지 | Bitemporal 추가 전용 개정 번호 계약, 이행, retained 세대 참조, tombstone, `graph_at`, `topology_diff`, late-evidence 재생 및 타입이 지정된 조회 핸들러가 있습니다. | PostgreSQL 읽기 담당/쓰기 담당 조립과 inventory-promotion 발행은 남아 있습니다. |
 | 메트릭 및 causality | Exact metric-concept 레지스트리, 완전한/불완전한 구간, aligned 비교 및 topology-aware temporal support/refutation 핸들러가 있습니다. | 운영 프로바이더 연결과 검토된 메트릭 카탈로그 항목은 남아 있습니다. |
 

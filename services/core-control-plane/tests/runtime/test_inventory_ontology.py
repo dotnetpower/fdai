@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -16,6 +18,12 @@ from fdai.shared.providers.inventory import LinkRecord, ResourceRecord
 from fdai.shared.providers.ontology_instance import (
     OntologyInstanceValidationError,
     OntologyObjectRecord,
+)
+from fdai.shared.providers.state_evidence import (
+    LinkObservationMetadata,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
 )
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore, InMemoryStateStore
 
@@ -40,6 +48,7 @@ def _observation(
     resource_ids: tuple[str, ...],
     links: tuple[LinkRecord, ...] = (),
     complete: bool = True,
+    attach_metadata: bool = True,
 ) -> PromotedInventoryObservation:
     return PromotedInventoryObservation(
         generation=generation,
@@ -47,8 +56,42 @@ def _observation(
             ResourceRecord(resource_id=item, type="compute.vm", props={"name": item})
             for item in resource_ids
         ),
-        links=links,
+        links=tuple(
+            replace(link, observation_metadata=_metadata(generation, index))
+            for index, link in enumerate(links)
+        )
+        if attach_metadata
+        else links,
         complete=complete,
+    )
+
+
+def _metadata(generation: str, index: int) -> LinkObservationMetadata:
+    recorded_at = datetime(2026, 8, 12, 12, tzinfo=UTC)
+    return LinkObservationMetadata(
+        state_fact=StateFactMetadata(
+            lane=StateFactLane.OBSERVED,
+            authority=StateFactAuthority.PROVIDER,
+            source_identity="inventory-provider",
+            source_revision="provider-schema-v1",
+            effective_at=recorded_at - timedelta(minutes=1),
+            recorded_at=recorded_at,
+            evidence_cutoff=recorded_at - timedelta(minutes=1),
+            freshness_ceiling_seconds=300,
+            completeness=1.0,
+            synthetic=False,
+            evidence_refs=(f"inventory-receipt-{index}",),
+        ),
+        verification_method="deterministic-cross-check",
+        verified=True,
+        verifier_identity="inventory-generation-verifier",
+        verifier_revision="verifier-v1",
+        verification_receipt_ref=f"verification-receipt-{index}",
+        inventory_generation=generation,
+        mapping_id=f"test.mapping-{index}",
+        mapping_revision="sha256:" + "1" * 64,
+        source_schema_version="provider-schema-v1",
+        source_schema_digest="sha256:" + "2" * 64,
     )
 
 
@@ -178,3 +221,32 @@ async def test_incomplete_observation_preserves_prior_projection_and_records_una
         "status": "unavailable",
         "dropped_reasons": ["observation_incomplete"],
     }
+
+
+async def test_metadata_less_link_preserves_prior_projection_and_reports_unverified() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    projector = InventoryOntologyProjector(store=store, status_store=status)
+    await projector.apply(_observation(generation="snapshot-1", resource_ids=("vm-1",)))
+
+    result = await projector.apply(
+        _observation(
+            generation="snapshot-2",
+            resource_ids=("vm-1", "vm-2"),
+            links=(
+                LinkRecord(
+                    from_id="vm-1",
+                    from_type="compute.vm",
+                    link_type="depends_on",
+                    to_id="vm-2",
+                    to_type="compute.vm",
+                ),
+            ),
+            attach_metadata=False,
+        )
+    )
+
+    assert result.status == "unavailable"
+    assert result.link_count == 0
+    assert "unverified_metadata" in result.dropped_reasons
+    assert await store.get_object("vm-2") is None

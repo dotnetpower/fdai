@@ -97,7 +97,7 @@ async def test_full_snapshot_ends_with_final_true() -> None:
 
 
 @pytest.mark.asyncio
-async def test_full_snapshot_dedupes_resources_and_links_per_shard() -> None:
+async def test_full_snapshot_dedupes_resources_and_drops_duplicate_links() -> None:
     async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
         # Same resource id repeated three times; same link twice.
         return (
@@ -108,13 +108,16 @@ async def test_full_snapshot_dedupes_resources_and_links_per_shard() -> None:
     adapter = _adapter(_q, types=("compute.vm",))
     resources: list[ResourceRecord] = []
     links: list[LinkRecord] = []
+    dropped_reasons = []
     async for batch in adapter.full_snapshot():
         resources.extend(batch.resources)
         links.extend(batch.links)
+        dropped_reasons.extend(drop.reason for drop in batch.relationship_drops)
 
     assert len(resources) == 1
     assert resources[0].resource_id == "dup"
-    assert len(links) == 1
+    assert links == []
+    assert dropped_reasons == ["duplicate_edge"]
 
 
 @pytest.mark.asyncio

@@ -10,8 +10,11 @@ from typing import Any
 
 import httpx
 
-from fdai.shared.providers.inventory import LinkRecord, ResourceRecord
+from fdai.shared.providers.inventory import LinkRecord, RelationshipDrop, ResourceRecord
 from fdai.shared.providers.workload_identity import WorkloadIdentity
+
+from .arg_relationships import RelationshipProjectionResult
+from .inventory import ResourceQueryResult
 
 _RETRYABLE_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
 _DEFAULT_MAX_ATTEMPTS = 3
@@ -72,12 +75,12 @@ async def fetch_arg_pages(
     timeout_seconds: float,
     error_type: type[RuntimeError],
     map_row: Callable[[Mapping[str, Any]], ResourceRecord | None],
-    project_links: Callable[[Mapping[str, Any], ResourceRecord], tuple[LinkRecord, ...]],
+    project_links: Callable[[Mapping[str, Any], ResourceRecord], RelationshipProjectionResult],
     throttle_gate: ArgThrottleGate | None = None,
     max_attempts: int = _DEFAULT_MAX_ATTEMPTS,
     initial_retry_delay_seconds: float = _DEFAULT_INITIAL_RETRY_DELAY_SECONDS,
     max_retry_delay_seconds: float = _DEFAULT_MAX_RETRY_DELAY_SECONDS,
-) -> tuple[tuple[ResourceRecord, ...], tuple[LinkRecord, ...]]:
+) -> ResourceQueryResult:
     """Fetch all pages for one shard without silently accepting a partial result."""
     rows = await fetch_arg_row_pages(
         identity=identity,
@@ -99,12 +102,19 @@ async def fetch_arg_pages(
     )
     collected: list[ResourceRecord] = []
     collected_links: list[LinkRecord] = []
+    relationship_drops: list[RelationshipDrop] = []
     for row in rows:
         record = map_row(row)
         if record is not None:
             collected.append(record)
-            collected_links.extend(project_links(row, record))
-    return tuple(collected), tuple(collected_links)
+            relationships = project_links(row, record)
+            collected_links.extend(relationships.links)
+            relationship_drops.extend(relationships.dropped)
+    return ResourceQueryResult(
+        resources=tuple(collected),
+        links=tuple(collected_links),
+        relationship_drops=tuple(relationship_drops),
+    )
 
 
 async def fetch_arg_row_pages(

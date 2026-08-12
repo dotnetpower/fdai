@@ -182,6 +182,11 @@ class LinkObservationMetadata:
     verifier_identity: str | None = None
     verifier_revision: str | None = None
     verification_receipt_ref: str | None = None
+    inventory_generation: str | None = None
+    mapping_id: str | None = None
+    mapping_revision: str | None = None
+    source_schema_version: str | None = None
+    source_schema_digest: str | None = None
 
     def __post_init__(self) -> None:
         if self.state_fact.lane not in {StateFactLane.OBSERVED, StateFactLane.DERIVED}:
@@ -210,6 +215,19 @@ class LinkObservationMetadata:
             raise ValueError("verified link observation MUST identify an independent verifier")
         if self.verified and self.state_fact.conflicts:
             raise ValueError("conflicting link observation MUST NOT be marked verified")
+        mapping_values = (
+            self.inventory_generation,
+            self.mapping_id,
+            self.mapping_revision,
+            self.source_schema_version,
+            self.source_schema_digest,
+        )
+        if any(value is not None for value in mapping_values) and any(
+            value is None or not value.strip() for value in mapping_values
+        ):
+            raise ValueError(
+                "provider relationship metadata MUST identify generation, mapping, and schema"
+            )
 
     def to_mapping(self) -> dict[str, object]:
         """Return the stable JSON-compatible property representation."""
@@ -221,6 +239,11 @@ class LinkObservationMetadata:
             "verifier_identity": self.verifier_identity,
             "verifier_revision": self.verifier_revision,
             "verification_receipt_ref": self.verification_receipt_ref,
+            "inventory_generation": self.inventory_generation,
+            "mapping_id": self.mapping_id,
+            "mapping_revision": self.mapping_revision,
+            "source_schema_version": self.source_schema_version,
+            "source_schema_digest": self.source_schema_digest,
         }
 
     @classmethod
@@ -234,9 +257,27 @@ class LinkObservationMetadata:
             "verifier_identity",
             "verifier_revision",
             "verification_receipt_ref",
+            "inventory_generation",
+            "mapping_id",
+            "mapping_revision",
+            "source_schema_version",
+            "source_schema_digest",
         }
-        legacy_expected = expected - {"verification_receipt_ref"}
-        if set(value) not in {frozenset(expected), frozenset(legacy_expected)}:
+        prior_expected = expected - {
+            "inventory_generation",
+            "mapping_id",
+            "mapping_revision",
+            "source_schema_version",
+            "source_schema_digest",
+        }
+        canonical_without_receipt = expected - {"verification_receipt_ref"}
+        legacy_expected = prior_expected - {"verification_receipt_ref"}
+        if set(value) not in {
+            frozenset(expected),
+            frozenset(canonical_without_receipt),
+            frozenset(prior_expected),
+            frozenset(legacy_expected),
+        }:
             raise ValueError(
                 "link observation metadata MUST contain the canonical or legacy verification shape"
             )
@@ -256,6 +297,25 @@ class LinkObservationMetadata:
             verifier_revision=(_optional_string(value, "verifier_revision") if verified else None),
             verification_receipt_ref=(
                 _optional_string(value, "verification_receipt_ref") if verified else None
+            ),
+            inventory_generation=(
+                _optional_string(value, "inventory_generation")
+                if "inventory_generation" in value
+                else None
+            ),
+            mapping_id=(_optional_string(value, "mapping_id") if "mapping_id" in value else None),
+            mapping_revision=(
+                _optional_string(value, "mapping_revision") if "mapping_revision" in value else None
+            ),
+            source_schema_version=(
+                _optional_string(value, "source_schema_version")
+                if "source_schema_version" in value
+                else None
+            ),
+            source_schema_digest=(
+                _optional_string(value, "source_schema_digest")
+                if "source_schema_digest" in value
+                else None
             ),
         )
 

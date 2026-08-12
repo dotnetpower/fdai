@@ -65,8 +65,13 @@ units for 100% structural query coverage.
 > endpoint attachments to their exact private-link service targets. Reverse peering still requires
 > an independent remote-VNet observation. It also projects `routes_to` only from explicit ARM
 > resource next-hop ids; IPs, prefixes, and hostnames never become ontology edges. Snapshot and
-> real-time constraints accept the reviewed peering/routing vocabulary. Workload/service mappings,
-> observation receipts, and the production network-path issuer remain.
+> real-time constraints accept the reviewed peering/routing vocabulary. Provider relationship
+> extraction now consumes a reviewed mapping catalog that pins property paths, allowed provider
+> types, endpoint orientation, source-schema digest, and evidence policy. Only independently
+> verified links whose endpoints occur in one complete inventory generation enter the active graph;
+> missing endpoints, ambiguous orientation, stale mappings, duplicate or conflicting observations,
+> and partial generations remain absent with stable dropped reasons. Workload/service mappings and
+> the production network-path issuer remain.
 > OQ-04 now has a schema-constrained model seam that proposes a semantic frame and typed node DAG
 > from the whole bounded turn and candidate descriptors. Core rebuilds all digests and authority
 > fields, verifies the exact principal manifest, and returns a verified plan, one clarification,
@@ -148,7 +153,7 @@ objects are selected only by authoritative reads after plan verification.
 | Interfaces | Production catalog loading validates `Identifiable`, its provenance, and explicit bindings for all current ObjectTypes; runtime composition compiles it and pins it in the exact release. | Additional capability Interfaces and production ObjectSet query binding remain. |
 | Relationships | Every directed LinkType projects deterministic `<name>.outgoing` and `<name>.incoming` machine query ids with endpoint, cardinality, causal, transitive, and temporal metadata. | The generic plan verifier and planner binding that consume these sides remain. |
 | Semantic generations | A concrete service-owned atomic in-memory index and off-path full/incremental ontology generation publisher cover declarations and eligible deployment-local objects with independent validation. | The durable PostgreSQL adapter, scheduled publisher process, and production semantic descriptor selector remain. |
-| Current topology | Azure projection emits resource-group and VNet containment, attachment, and a bounded dependency allowlist. | Azure adapters do not emit `peered_with` or `routes_to`; private endpoint, workload, and service dependency coverage is incomplete. |
+| Current topology | Azure projection consumes reviewed relationship mappings for containment, attachment, dependency, peering, and exact-resource routing candidates. A complete-generation verifier admits only links with both endpoints, independent verifier identity, immutable receipts, and canonical state-fact metadata. | Workload and service dependency coverage plus the production network-path issuer remain incomplete. |
 | Historical topology | Bitemporal append-only revision contracts, migration, retained generation refs, tombstones, `graph_at`, `topology_diff`, late-evidence replay, and typed query handlers exist. | PostgreSQL reader/writer composition and inventory-promotion publishing remain. |
 | Metrics and causality | An exact metric-concept registry, complete/incomplete windows, aligned comparison, and topology-aware temporal support/refutation handlers exist. | Production provider bindings and reviewed metric catalog entries remain. |
 

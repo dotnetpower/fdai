@@ -86,6 +86,7 @@ class InventoryOntologyProjector:
             resources=observation.resources,
             links=observation.links,
             observation_complete=observation.complete,
+            relationship_drops=observation.relationship_drops,
         )
         if not projection.complete:
             await self._write_status(

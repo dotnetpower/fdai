@@ -5,9 +5,14 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 from typing import Any, Final
 
+from fdai.delivery.azure.arg_relationships import project_provider_relationships
+from fdai.rule_catalog.schema.provider_relationship_mapping import (
+    load_provider_relationship_mapping_catalog,
+)
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
 )
@@ -17,6 +22,9 @@ _RESOURCE_GROUP_TYPE: Final[str] = "resource-group"
 _VNET_TYPE: Final[str] = "network.vnet"
 _SUBNET_TYPE: Final[str] = "network.subnet"
 _SUBNET_ARM_TYPE: Final[str] = "Microsoft.Network/virtualNetworks/subnets"
+_RELATIONSHIP_MAPPING_ROOT: Final[Path] = Path(
+    "rule-catalog/vocabulary/provider-relationship-mappings"
+)
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -181,19 +189,6 @@ def materialize_nested_subnets(
     return tuple(records), tuple(links)
 
 
-_ATTACHED_TO_PROPERTY_KEYS: Final[tuple[str, ...]] = (
-    "subnet",
-    "networkSecurityGroup",
-    "publicIPAddress",
-)
-_ATTACHED_TO_COLLECTION_KEYS: Final[tuple[str, ...]] = (
-    "frontendIPConfigurations",
-    "ipConfigurations",
-    "privateLinkServiceConnections",
-)
-_ATTACHED_TO_ARM_ID_STRING_KEYS: Final[tuple[str, ...]] = ("privateLinkServiceId",)
-
-
 def build_arm_to_neutral_map(registry: ResourceTypeRegistry) -> dict[str, str]:
     """Build an unambiguous case-insensitive ARM type reverse map."""
     by_arm_type: dict[str, list[str]] = {}
@@ -233,79 +228,14 @@ def extract_attached_to_links_from_row(
     child: ResourceRecord,
     arm_to_neutral: Mapping[str, str],
 ) -> tuple[LinkRecord, ...]:
-    """Project hard attachments from the attached resource to its anchor.
+    """Project ``attached_to`` through the reviewed relationship catalog."""
 
-    Most provider rows own the attached resource and point to its anchor. VM rows
-    invert that payload shape by listing attached NIC and disk ids, so those
-    references are reversed when emitted as ontology links.
-    """
-    properties = row.get("properties")
-    if not isinstance(properties, Mapping):
-        return ()
-
-    seen: set[tuple[str, str, str]] = set()
-    links: list[LinkRecord] = []
-
-    def emit(ref_id: str, *, reverse: bool = False) -> None:
-        arm_type = arm_id_to_type(ref_id)
-        if arm_type is None:
-            return
-        referenced_type = arm_to_neutral.get(arm_type.lower())
-        if referenced_type is None:
-            return
-        referenced_id = to_neutral_id(ref_id)
-        if reverse:
-            from_id, from_type = referenced_id, referenced_type
-            to_id, to_type = child.resource_id, child.type
-        else:
-            from_id, from_type = child.resource_id, child.type
-            to_id, to_type = referenced_id, referenced_type
-        dedup_key = (from_id, "attached_to", to_id)
-        if dedup_key in seen:
-            return
-        seen.add(dedup_key)
-        links.append(
-            LinkRecord(
-                from_id=from_id,
-                from_type=from_type,
-                link_type="attached_to",
-                to_id=to_id,
-                to_type=to_type,
-            )
-        )
-
-    for ref_id in _attachment_ids(properties):
-        emit(ref_id)
-    if child.type == "compute.vm":
-        for ref_id in _vm_attachment_ids(properties):
-            emit(ref_id, reverse=True)
-    return tuple(links)
-
-
-def _attachment_property_maps(properties: Mapping[str, Any]) -> Iterable[Mapping[str, Any]]:
-    yield properties
-    for collection_key in _ATTACHED_TO_COLLECTION_KEYS:
-        collection = properties.get(collection_key)
-        if not isinstance(collection, Sequence) or isinstance(collection, (str, bytes)):
-            continue
-        for entry in collection:
-            if not isinstance(entry, Mapping):
-                continue
-            nested = entry.get("properties")
-            if isinstance(nested, Mapping):
-                yield nested
-
-
-def _attachment_ids(properties: Mapping[str, Any]) -> Iterable[str]:
-    for attachment_properties in _attachment_property_maps(properties):
-        for key in _ATTACHED_TO_PROPERTY_KEYS:
-            nested = attachment_properties.get(key)
-            if isinstance(nested, Mapping) and isinstance(nested.get("id"), str):
-                yield nested["id"]
-        for key in _ATTACHED_TO_ARM_ID_STRING_KEYS:
-            value = attachment_properties.get(key)
-            if isinstance(value, str):
-                yield value
+    return _mapped_links(
+        row,
+        child=child,
+        arm_to_neutral=arm_to_neutral,
+        link_type="attached_to",
+    )
 
 
 def extract_peered_with_links_from_row(
@@ -314,48 +244,14 @@ def extract_peered_with_links_from_row(
     child: ResourceRecord,
     arm_to_neutral: Mapping[str, str],
 ) -> tuple[LinkRecord, ...]:
-    """Project one directed record for each connected VNet peering observation.
+    """Project directed peering observations through the reviewed catalog."""
 
-    A symmetric relationship exists only when the remote VNet's own observation
-    supplies the reverse record. A unilateral row never implies reciprocity.
-    """
-
-    if child.type != _VNET_TYPE:
-        return ()
-    properties = row.get("properties")
-    if not isinstance(properties, Mapping):
-        return ()
-    peerings = properties.get("virtualNetworkPeerings")
-    if not isinstance(peerings, Sequence) or isinstance(peerings, (str, bytes)):
-        return ()
-    links: dict[str, LinkRecord] = {}
-    for peering in peerings:
-        if not isinstance(peering, Mapping):
-            continue
-        nested = peering.get("properties")
-        if not isinstance(nested, Mapping):
-            continue
-        state = nested.get("peeringState")
-        if not isinstance(state, str) or state.casefold() != "connected":
-            continue
-        remote = nested.get("remoteVirtualNetwork")
-        remote_id = remote.get("id") if isinstance(remote, Mapping) else None
-        if not isinstance(remote_id, str):
-            continue
-        arm_type = arm_id_to_type(remote_id)
-        if arm_type is None or arm_to_neutral.get(arm_type.casefold()) != _VNET_TYPE:
-            continue
-        target_id = to_neutral_id(remote_id)
-        if target_id == child.resource_id:
-            continue
-        links[target_id] = LinkRecord(
-            from_id=child.resource_id,
-            from_type=child.type,
-            link_type="peered_with",
-            to_id=target_id,
-            to_type=_VNET_TYPE,
-        )
-    return tuple(links[key] for key in sorted(links))
+    return _mapped_links(
+        row,
+        child=child,
+        arm_to_neutral=arm_to_neutral,
+        link_type="peered_with",
+    )
 
 
 def extract_routes_to_links_from_row(
@@ -364,84 +260,14 @@ def extract_routes_to_links_from_row(
     child: ResourceRecord,
     arm_to_neutral: Mapping[str, str],
 ) -> tuple[LinkRecord, ...]:
-    """Project directed routing only when Azure supplies an exact resource id.
+    """Project exact-resource routes through the reviewed catalog."""
 
-    Address prefixes, hostnames, and next-hop IPs are not Resource identities and
-    never become links. Absence of an emitted edge proves nothing about reachability.
-    """
-
-    properties = row.get("properties")
-    if not isinstance(properties, Mapping):
-        return ()
-    candidates: list[Mapping[str, Any]] = [properties]
-    routes = properties.get("routes")
-    if isinstance(routes, Sequence) and not isinstance(routes, (str, bytes)):
-        for route in routes:
-            if not isinstance(route, Mapping):
-                continue
-            nested = route.get("properties")
-            candidates.append(nested if isinstance(nested, Mapping) else route)
-    links: dict[str, LinkRecord] = {}
-    for candidate in candidates:
-        next_hop = candidate.get("nextHop")
-        references = (
-            candidate.get("nextHopResourceId"),
-            candidate.get("targetResourceId"),
-            next_hop.get("id") if isinstance(next_hop, Mapping) else None,
-        )
-        for reference in references:
-            if not isinstance(reference, str):
-                continue
-            arm_type = arm_id_to_type(reference)
-            target_type = arm_to_neutral.get(arm_type.casefold()) if arm_type else None
-            if target_type is None:
-                continue
-            target_id = to_neutral_id(reference)
-            if target_id == child.resource_id:
-                continue
-            links[target_id] = LinkRecord(
-                from_id=child.resource_id,
-                from_type=child.type,
-                link_type="routes_to",
-                to_id=target_id,
-                to_type=target_type,
-            )
-    return tuple(links[key] for key in sorted(links))
-
-
-def _vm_attachment_ids(properties: Mapping[str, Any]) -> Iterable[str]:
-    network_profile = properties.get("networkProfile")
-    if isinstance(network_profile, Mapping):
-        network_interfaces = network_profile.get("networkInterfaces")
-        if isinstance(network_interfaces, Sequence) and not isinstance(
-            network_interfaces, (str, bytes)
-        ):
-            for network_interface in network_interfaces:
-                if isinstance(network_interface, Mapping) and isinstance(
-                    network_interface.get("id"), str
-                ):
-                    yield network_interface["id"]
-
-    storage_profile = properties.get("storageProfile")
-    if not isinstance(storage_profile, Mapping):
-        return
-    os_disk = storage_profile.get("osDisk")
-    if isinstance(os_disk, Mapping):
-        managed_disk = os_disk.get("managedDisk")
-        if isinstance(managed_disk, Mapping) and isinstance(managed_disk.get("id"), str):
-            yield managed_disk["id"]
-    data_disks = storage_profile.get("dataDisks")
-    if isinstance(data_disks, Sequence) and not isinstance(data_disks, (str, bytes)):
-        for data_disk in data_disks:
-            if not isinstance(data_disk, Mapping):
-                continue
-            managed_disk = data_disk.get("managedDisk")
-            if isinstance(managed_disk, Mapping) and isinstance(managed_disk.get("id"), str):
-                yield managed_disk["id"]
-
-
-_DEPENDS_ON_ID_PROPERTY_KEYS: Final[tuple[str, ...]] = ("storageAccount",)
-_DEPENDS_ON_ARM_ID_STRING_KEYS: Final[tuple[str, ...]] = ("workspaceResourceId",)
+    return _mapped_links(
+        row,
+        child=child,
+        arm_to_neutral=arm_to_neutral,
+        link_type="routes_to",
+    )
 
 
 def extract_depends_on_links_from_row(
@@ -451,53 +277,33 @@ def extract_depends_on_links_from_row(
     arm_to_neutral: Mapping[str, str],
     acr_resolver: Callable[[str], str | None],
 ) -> tuple[LinkRecord, ...]:
-    """Project whitelisted soft dependency references from one ARG row."""
-    properties = row.get("properties")
-    if not isinstance(properties, Mapping):
-        return ()
+    """Project soft dependencies through the reviewed relationship catalog."""
 
-    seen: set[tuple[str, str, str]] = set()
-    links: list[LinkRecord] = []
+    return _mapped_links(
+        row,
+        child=child,
+        arm_to_neutral=arm_to_neutral,
+        link_type="depends_on",
+        external_reference_resolver=acr_resolver,
+    )
 
-    def try_emit(ref_id: str) -> None:
-        arm_type = arm_id_to_type(ref_id)
-        if arm_type is None:
-            return
-        to_type = arm_to_neutral.get(arm_type.lower())
-        if to_type is None:
-            return
-        target_neutral = to_neutral_id(ref_id)
-        dedup_key = (child.resource_id, "depends_on", target_neutral)
-        if dedup_key in seen:
-            return
-        seen.add(dedup_key)
-        links.append(
-            LinkRecord(
-                from_id=child.resource_id,
-                from_type=child.type,
-                link_type="depends_on",
-                to_id=target_neutral,
-                to_type=to_type,
-            )
-        )
 
-    for key in _DEPENDS_ON_ID_PROPERTY_KEYS:
-        nested = properties.get(key)
-        if not isinstance(nested, Mapping):
-            continue
-        ref_id = nested.get("id")
-        if isinstance(ref_id, str) and ref_id:
-            try_emit(ref_id)
-
-    for key in _DEPENDS_ON_ARM_ID_STRING_KEYS:
-        ref_id = properties.get(key)
-        if isinstance(ref_id, str) and ref_id:
-            try_emit(ref_id)
-
-    login_server = properties.get("acrLoginServer")
-    if isinstance(login_server, str) and login_server:
-        resolved = acr_resolver(login_server)
-        if resolved is not None:
-            try_emit(resolved)
-
-    return tuple(links)
+def _mapped_links(
+    row: Mapping[str, Any],
+    *,
+    child: ResourceRecord,
+    arm_to_neutral: Mapping[str, str],
+    link_type: str,
+    external_reference_resolver: Callable[[str], str | None] | None = None,
+) -> tuple[LinkRecord, ...]:
+    catalog = load_provider_relationship_mapping_catalog(_RELATIONSHIP_MAPPING_ROOT)
+    result = project_provider_relationships(
+        row,
+        owner=child,
+        arm_to_neutral=arm_to_neutral,
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+        external_reference_resolver=external_reference_resolver,
+    )
+    return tuple(link for link in result.links if link.link_type == link_type)
