@@ -19,6 +19,7 @@ module "container_app" {
     { name = "PGOPTIONS", value = "-c role=${var.database.role}" },
     { name = "FDAI_INGESTION_DEPLOYMENT_ROLE", value = "api" },
     { name = "FDAI_INGESTION_COHOST_WORKER", value = "0" },
+    { name = "FDAI_EXECUTION_VENUE", value = "deployed" },
     { name = "RUNTIME_ENV", value = var.runtime_env },
     { name = "FDAI_MI_CLIENT_ID", value = var.identity.client_id },
     { name = "FDAI_ENTRA_TENANT_ID", value = var.auth.tenant_id },

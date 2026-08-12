@@ -74,13 +74,32 @@ site is static and separate from the authenticated Console full stack.
 | Design mocks | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch, `design mocks: serve (5373)` task, or Live Server |
 | Console SPA | `http://127.0.0.1:5273` | `Console Web: Full Stack` (recommended) or `Console Web: Frontend` (SPA only) |
 | Operator API | `http://127.0.0.1:8010` | `Console Web: Operator API` |
-| Test ingestion gateway | `http://127.0.0.1:8011` | `Console Web: Ingestion Gateway` |
+| Document Ingestion API | `http://127.0.0.1:8011` | `Console Web: Document Ingestion API` |
+| Document Processing Worker health | `http://127.0.0.1:8012` | `Console Web: Document Processing Worker` |
+| Isolated Executor health | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
 
-The `Console Web: Full Stack` compound starts the core runtime, Console SPA, and Operator API. Its backend
-launches import the service-owned Core Control Plane and Operator Service distributions; they don't restore
-the retired top-level package or in-process Operator API compatibility path, and the compound doesn't start
-the static design mocks or isolated test ingestion gateway. Opening the trusted workspace runs `console: prepare local
-state` once to start local PostgreSQL and Redpanda, advance the frozen legacy Alembic lineage, adopt and upgrade the Core and Operator service-owned migration branches, and avoid duplicates through a single-instance limit. The same preparation refreshes read-only Azure Resource Graph inventory and materializes sanitized model and runtime Settings projections from prepared authoritative inputs without copying tenant identifiers, resource endpoints, or credentials; an unavailable or unauthorized provider leaves inventory explicitly unavailable instead of substituting fixture data.
+The `Console Web: Full Stack` compound starts the five independently packaged backend services and
+the Console SPA. Its launches import only service-owned distributions; they don't restore the
+retired top-level package, co-host document processing, or an in-process Operator API compatibility
+path. The local Isolated Executor is a durable shadow consumer with no managed-resource identity;
+an authority-cutover setting in this venue fails startup. The compound doesn't start static design
+mocks or fixture applications.
+
+The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local
+service state uses the Docker PostgreSQL instance on `127.0.0.1:5432` with the owning role for Core,
+Operator, Document Ingestion API, Document Processing Worker, and Isolated Executor. Local event
+transport uses Docker Redpanda on `127.0.0.1:19092`. A deployed Azure process sets
+`FDAI_EXECUTION_VENUE=deployed` and uses its service-owned Azure Database for PostgreSQL DSN and
+Event Hubs Kafka endpoint. Venue selection never changes evidence authority, promotion state,
+human identity, or executor authority.
+
+Opening the trusted workspace runs `console: prepare local state` once to start local PostgreSQL,
+Redpanda, and ClamAV, advance the frozen legacy Alembic lineage, adopt and upgrade all five
+service-owned migration branches, and avoid duplicates through a single-instance limit. The same
+preparation refreshes read-only Azure Resource Graph inventory and materializes sanitized model and
+runtime Settings projections from prepared authoritative inputs without copying tenant identifiers,
+resource endpoints, or credentials; an unavailable or unauthorized provider leaves inventory
+explicitly unavailable instead of substituting fixture data.
 The same migration creates the principal-scoped `conversation_image` repository in local and
 deployed PostgreSQL. Command Deck history therefore restores sent images through the same
 authenticated Operator API route in both profiles; neither profile stores inline base64 in turn

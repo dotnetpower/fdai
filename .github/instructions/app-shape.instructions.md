@@ -59,10 +59,10 @@ The layers communicate through the event bus and git, not direct in-process call
 ## Local Console Port Contract (MUST)
 
 - [../../.vscode/launch.json](../../.vscode/launch.json) is the source of truth for the
-  local `Console Web: Full Stack` topology: console SPA `5273` and Operator API `8010`.
-  Port `8011` remains reserved for the isolated test ingestion gateway, but that synthetic
-  gateway MUST NOT be part of the interactive full-stack compound. Documents remain
-  unavailable until an Azure-backed ingestion adapter is configured.
+  local `Console Web: Full Stack` topology: console SPA `5273`, Operator API `8010`, Document
+  Ingestion API `8011`, Document Processing Worker health `8012`, and isolated Executor health
+  `8013`. The compound MUST start all five independently packaged backend services and the SPA.
+  It MUST NOT restore a co-host, retired top-level package, or fixture gateway.
 - Vite production preview uses `4173`; it MUST NOT replace the `5273` development origin
   in launch configurations, Entra SPA redirects, or local-development documentation.
 - `5173` is not an FDAI standard console port. A custom frontend port MAY be used only when
@@ -112,6 +112,18 @@ The layers communicate through the event bus and git, not direct in-process call
   settings select the Azure transport but do not activate the runtime. Without them, the local
   in-process EventBus adapter carries agent messages and SSE state without fabricating Azure
   evidence or binding an executor.
+- The process launcher MUST set `FDAI_EXECUTION_VENUE=local` for the interactive profile and
+  `FDAI_EXECUTION_VENUE=deployed` for Azure services. This axis is independent from
+  `RUNTIME_ENV`, evidence profile, promotion state, identity, and distribution.
+- Local stateful services MUST use the loopback Docker PostgreSQL instance with their exact
+  service-owned database roles. Local inter-service transport MUST use loopback Docker Redpanda,
+  and document scanning MUST use the local ClamAV container. Deployed Azure services MUST use
+  their service-owned Azure Database for PostgreSQL DSNs, Event Hubs Kafka endpoints, and attached
+  managed identities. A venue change MUST NOT reuse the other venue's database DSN.
+- The local isolated Executor MUST run as a durable shadow consumer against local PostgreSQL and
+  Redpanda, without a managed-resource identity. Local authority cutover MUST fail startup. This
+  process proves the independent boundary and receipt path; it never applies a managed-resource
+  effect.
 - Local and deployed read the same Workflow allowlist, ActionType promotion state, risk table,
   approval policy, Process transitions, and stage events. Local execution MUST NOT force a promoted
   capability back to shadow or promote an unpromoted capability.

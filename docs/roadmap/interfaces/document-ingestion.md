@@ -342,8 +342,8 @@ Both runtime roles can publish lifecycle records and access only their required 
 Neither becomes ready until `SELECT current_user` confirms its role-scoped DSN.
 API and worker CPU, memory, and replica ranges are independent, with one worker replica by default.
 Production scale-out requires recorded restart, redelivery, DLQ, and durable-claim smoke evidence.
-`ingestion_cohost_worker=true` restores the prior co-hosted topology without changing topics,
-consumer groups, offsets, storage paths, or public routes. Local interactive topology is unchanged.
+The retired co-host is not a rollback surface. Immutable prior service images and independent
+service deployment state provide rollback without restoring shared process ownership.
 
 ### Deferred non-Azure storage recommendations
 
@@ -402,8 +402,8 @@ word boundaries. Every chunk keeps its unit locator, source hash, collection, ac
 purpose, and immutable document/version identity. Stable version-scoped chunk ids make retries
 idempotent.
 
-The local gateway uses a deterministic in-memory embedding index for end-to-end development. The
-pgvector adapter computes all embeddings before opening the database transaction, atomically
+The local API and worker use the Docker PostgreSQL pgvector index with the same deterministic local
+embedding algorithm. The pgvector adapter computes all embeddings before opening the transaction, atomically
 replaces one document version, and deletes by document/version identity. Retrieval requires both
 the collection and an explicit set of allowed access descriptor references. Governed chunks are
 marked and excluded from the unscoped free-form Knowledge Source query path.
@@ -466,31 +466,20 @@ removal and ACL change events use the same reconciliation and lineage path.
 Document ingestion is served by a dedicated ingestion gateway, not by the Operator API and not by the
 executor process. The initial HTTP surface is:
 
-For local console development, you can run the guarded in-memory gateway on a separate port:
+For local console development, start the complete independent topology:
 
 ```bash
-FDAI_INGESTION_GATEWAY_DEV_MODE=1 \
-  uv run uvicorn fdai.delivery.ingestion_gateway.dev:app \
-  --factory --host 127.0.0.1 --port 8011
+# Run and Debug -> Console Web: Full Stack
 ```
 
-Point `VITE_INGESTION_API_BASE_URL` at `http://127.0.0.1:8011`. The local factory refuses to
-start without the explicit dev-mode variable and isn't a production composition. It allows the
-standard local console ports `4173`, `5273`, `5180`, and `5190` on both `127.0.0.1` and
-`localhost`. For another port, set `FDAI_INGESTION_GATEWAY_CORS_ALLOW_ORIGINS` on the gateway
-process to a comma-separated list of exact HTTP(S) origins.
-
-By default the local gateway keeps every provider in memory, so uploaded bytes and their
-metadata are lost when the process restarts. To make local uploads persist through the same
-providers the production gateway uses, set `FDAI_INGESTION_GATEWAY_PERSISTENT=1`. The gateway
-then writes source bytes to a local disk object store
-(`FDAI_INGESTION_GATEWAY_LOCAL_STORE_DIR`, default `.fdai/document-store`), records version
-metadata in the local PostgreSQL through `PostgresDocumentMetadataStore`, and indexes chunks
-in the same pgvector `knowledge_chunk` table with a deterministic local embedding model. It
-reads the psycopg DSN from `FDAI_STATE_STORE_DSN`, falling back to `FDAI_DATABASE_URL`. Run
-`alembic upgrade head` against the local database first. ClamAV and Azure OpenAI have no local
-equivalent, so the malware scan stays a deterministic stub and embeddings use the local model.
-The `Console Web: Ingestion Gateway (persistent)` launch profile wires this.
+The compound starts the independent Document Ingestion API on `127.0.0.1:8011` and the Document
+Processing Worker readiness server on `127.0.0.1:8012`. Both use role-scoped DSNs for Docker
+PostgreSQL. Source bytes and derived envelopes persist under `.fdai/document-store`, lifecycle
+events use Docker Redpanda, malware scanning uses Docker ClamAV, and search/index vectors use the
+same deterministic local embedding algorithm. Browser authentication remains Entra-based. The
+local launcher selects these adapters with `FDAI_EXECUTION_VENUE=local`; Azure deployments select
+ADLS, Azure Database for PostgreSQL, Event Hubs, Azure embedding, and managed identities with
+`FDAI_EXECUTION_VENUE=deployed`.
 
 The production gateway binds the `handover_bootstrap` consumer to a durable
 `PostgresStateStore` projection and resolves exact user/group display names through

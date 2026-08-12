@@ -151,6 +151,7 @@ def _resource(*, image: str = "old-image") -> dict[str, object]:
                         "env": [
                             {"name": "FDAI_DATABASE_URL", "secret_name": "database-dsn"},
                             {"name": "FDAI_DATABASE_ROLE", "value": "fdai_operator"},
+                            {"name": "FDAI_EXECUTION_VENUE", "value": "deployed"},
                             {"name": "RUNTIME_ENV", "value": "dev"},
                             {"name": "FDAI_MI_CLIENT_ID", "value": "runtime"},
                             {"name": "FDAI_COMMAND_MI_CLIENT_ID", "value": "command"},
@@ -216,6 +217,7 @@ def _worker_plan() -> dict[str, object]:
                 "FDAI_DATABASE_URL",
                 "FDAI_DATABASE_ROLE",
                 "FDAI_INGESTION_DEPLOYMENT_ROLE",
+                "FDAI_EXECUTION_VENUE",
                 "RUNTIME_ENV",
                 "FDAI_MI_CLIENT_ID",
                 "FDAI_KAFKA_BOOTSTRAP_SERVERS",

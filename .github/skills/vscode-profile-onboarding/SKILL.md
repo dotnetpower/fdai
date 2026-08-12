@@ -51,17 +51,31 @@ maintainer's local VS Code state.
 
 - Treat an unqualified request to start the Console, Console web, local server, servers, backend,
   or full stack as a request for the complete `Console Web: Full Stack` topology. Start or verify
-  all three required processes: `Console Web: Core Runtime`, `Console Web: Operator API`, and
-  `Console Web: Frontend`. A listening frontend or Operator API alone is not a complete start.
+  all five independently packaged backend services plus the SPA: Core Control Plane, Operator
+  Service, Document Ingestion API, Document Processing Worker, isolated Executor, and Console
+  Frontend. A listening frontend or partial backend set is not a complete start.
 - Use the existing VS Code tasks or launch configurations. Run `console: prepare full stack` before
-  starting any missing backend process. Do not replace the standard browser Entra profile with a
-  test, fixture, ingestion-gateway, or CLI-principal profile.
+  starting any missing backend process. Preparation MUST start Docker PostgreSQL, Redpanda, and
+  ClamAV, upgrade all five service migration branches, and generate role-scoped private service
+  environments. Do not replace the standard browser Entra profile with a test, fixture,
+  ingestion-gateway, or CLI-principal profile.
+- The local launcher sets `FDAI_EXECUTION_VENUE=local`; every stateful service uses the loopback
+  Docker PostgreSQL DSN under its service-owned role. The Azure launcher sets
+  `FDAI_EXECUTION_VENUE=deployed`; every deployed service uses its Azure Database for PostgreSQL
+  DSN. Never copy a local DSN into Azure configuration or an Azure PostgreSQL DSN into the local
+  interactive profile.
+- Start the local isolated Executor only from its committed local environment. It is a durable
+  shadow consumer with no managed-resource identity, and `FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER`
+  remains `0`. A local cutover request is a startup failure, not a reason to inject Azure or user
+  credentials.
 - A request that also names the design or mock server starts `design mocks: serve (5373)` in
   addition to the complete Console stack. The design server never substitutes for a Console
   backend process.
-- Before reporting success, verify the Core Runtime process and Pantheon readiness, the Operator
-  API on `127.0.0.1:8010`, the frontend on `127.0.0.1:5273`, and, when requested, the design server
-  on `127.0.0.1:5373`. Do not infer backend readiness from a frontend HTTP `200` response.
+- Before reporting success, verify the Core Runtime process and Pantheon readiness, Operator API
+  `127.0.0.1:8010`, Document Ingestion API `127.0.0.1:8011`, Document Processing Worker readiness
+  `127.0.0.1:8012`, isolated Executor readiness `127.0.0.1:8013`, and frontend
+  `127.0.0.1:5273`. When requested, also verify the design server on `127.0.0.1:5373`. Do not infer
+  backend readiness from a frontend HTTP `200` response.
 - Start only the specifically named component when the user explicitly narrows the request, such as
   "frontend only", "Operator API only", or "design server only".
 

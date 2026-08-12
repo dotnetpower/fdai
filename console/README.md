@@ -763,21 +763,13 @@ console/
 
 The canonical local topology is the VS Code compound
 `Console Web: Full Stack` in [`.vscode/launch.json`](../.vscode/launch.json):
-console SPA `5273`, Operator API `8010`, and ingestion gateway `8011`. Start that
-compound from Run and Debug, or run the equivalent commands below.
+console SPA `5273`, Operator API `8010`, Document Ingestion API `8011`, Document Processing
+Worker health `8012`, and isolated Executor health `8013`. Start that compound from Run and Debug.
+It uses Docker PostgreSQL, Redpanda, and ClamAV locally and starts all five independently packaged
+backend services.
 
 ```sh
-cd console
-npm install
-# Terminal 1: load local MSAL values and verify browser Entra tokens.
-set -a; . console/.env.local; set +a
-FDAI_OPERATOR_API_LOCAL_ENTRA=1 \
-  uv run uvicorn 'fdai.delivery.operator_api.dev.local:app' \
-  --factory --port 8010
-
-# Terminal 2: run the SPA with browser Entra sign-in.
-VITE_DEV_MODE=0 \
-  VITE_OPERATOR_API_BASE_URL=http://127.0.0.1:8010 npm run dev
+# Run and Debug -> Console Web: Full Stack
 ```
 
 The browser access token is the authorization principal. The API verifies its
@@ -788,17 +780,10 @@ identity never replaces the browser principal. Local seed data, static users,
 and scenario replay are pytest-only and aren't supported by the interactive
 profile.
 
-The Documents route uses a dedicated ingestion gateway rather than the read
-API. The in-memory gateway is test-only and isn't part of `Console Web: Full
-Stack`. Documents render unavailable until an Azure-backed ingestion adapter is
-configured. Automated gateway tests may start the isolated factory on port
-`8011`:
-
-```bash
-FDAI_INGESTION_GATEWAY_DEV_MODE=1 \
-  uv run uvicorn fdai.delivery.ingestion_gateway.dev:app \
-  --factory --host 127.0.0.1 --port 8011
-```
+The Documents route uses the independent Document Ingestion API rather than the Operator API.
+Local uploads persist source bytes under `.fdai/document-store`, metadata and vectors in Docker
+PostgreSQL, lifecycle events in Docker Redpanda, and scans through Docker ClamAV. Azure deployments
+use their service-owned Azure Database for PostgreSQL DSNs and managed Azure adapters instead.
 
 Set `VITE_INGESTION_API_BASE_URL=http://127.0.0.1:8011` for the console. The
 factory supports local direct upload only and refuses to boot unless the dev

@@ -22,7 +22,7 @@ import ssl
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, ClassVar, Final
+from typing import Any, ClassVar, Final, Literal
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
@@ -79,6 +79,8 @@ class EventHubsKafkaBusConfig:
     bootstrap_servers: str
     """``<namespace>.servicebus.windows.net:9093``."""
 
+    security_protocol: Literal["SASL_SSL", "PLAINTEXT"] = "SASL_SSL"
+
     client_id: str = "fdai-core"
     """Advertised client id - no functional impact, aids broker logs."""
 
@@ -123,6 +125,8 @@ class EventHubsKafkaBusConfig:
     _MIN_RETRY_BACKOFF_MS: ClassVar[int] = 1_000
 
     def __post_init__(self) -> None:
+        if self.security_protocol not in {"SASL_SSL", "PLAINTEXT"}:
+            raise ValueError("security_protocol MUST be SASL_SSL or PLAINTEXT")
         if self.auto_offset_reset not in {"earliest", "latest"}:
             raise ValueError("auto_offset_reset MUST be earliest or latest")
         if self.session_timeout_ms <= 0:
@@ -178,7 +182,7 @@ class EventHubsKafkaBus(EventBus):
     def __init__(
         self,
         *,
-        identity: WorkloadIdentity,
+        identity: WorkloadIdentity | None,
         config: EventHubsKafkaBusConfig,
     ) -> None:
         if not config.bootstrap_servers:
@@ -189,10 +193,14 @@ class EventHubsKafkaBus(EventBus):
         # Keep dependency warnings/errors and emit one owned record per logical
         # consumer after startup instead.
         _AIOKAFKA_CONNECTION_LOGGER.setLevel(logging.WARNING)
-        self._identity: Final[WorkloadIdentity] = identity
+        if config.security_protocol == "SASL_SSL" and identity is None:
+            raise ValueError("SASL_SSL Kafka transport requires a workload identity")
+        self._identity: Final[WorkloadIdentity | None] = identity
         self._config: Final[EventHubsKafkaBusConfig] = config
-        self._audience: Final[str] = config.audience or _audience_from_bootstrap(
-            config.bootstrap_servers
+        self._audience: Final[str | None] = (
+            config.audience or _audience_from_bootstrap(config.bootstrap_servers)
+            if config.security_protocol == "SASL_SSL"
+            else None
         )
         self._producer: AIOKafkaProducer | None = None
         self._producer_lock = asyncio.Lock()
@@ -203,10 +211,14 @@ class EventHubsKafkaBus(EventBus):
                 producer = AIOKafkaProducer(
                     bootstrap_servers=self._config.bootstrap_servers,
                     client_id=self._config.client_id,
-                    security_protocol="SASL_SSL",
-                    sasl_mechanism="OAUTHBEARER",
-                    sasl_oauth_token_provider=_EntraTokenProvider(self._identity, self._audience),
-                    ssl_context=_default_ssl_context(),
+                    **_transport_options(
+                        config=self._config,
+                        token_provider=(
+                            _EntraTokenProvider(self._identity, self._audience)
+                            if self._identity is not None and self._audience is not None
+                            else None
+                        ),
+                    ),
                     api_version="2.0.0",
                     enable_idempotence=True,
                     linger_ms=5,
@@ -309,21 +321,22 @@ async def _iter_consumer(
     topic: str,
     group_id: str,
     config: EventHubsKafkaBusConfig,
-    identity: WorkloadIdentity,
-    audience: str,
+    identity: WorkloadIdentity | None,
+    audience: str | None,
 ) -> AsyncIterator[EventEnvelope]:
     """Own its consumer lifecycle so the caller only sees the envelopes."""
     while True:
-        token_provider = _EntraTokenProvider(identity, audience)
+        token_provider = (
+            _EntraTokenProvider(identity, audience)
+            if identity is not None and audience is not None
+            else None
+        )
         consumer = AIOKafkaConsumer(
             topic,
             bootstrap_servers=config.bootstrap_servers,
             group_id=group_id,
             client_id=config.client_id,
-            security_protocol="SASL_SSL",
-            sasl_mechanism="OAUTHBEARER",
-            sasl_oauth_token_provider=token_provider,
-            ssl_context=_default_ssl_context(),
+            **_transport_options(config=config, token_provider=token_provider),
             api_version="2.0.0",
             session_timeout_ms=config.session_timeout_ms,
             heartbeat_interval_ms=config.heartbeat_interval_ms,
@@ -342,9 +355,15 @@ async def _iter_consumer(
                     "topic": topic,
                     "consumer_group": group_id,
                     "client_id": config.client_id,
-                    "auth_mechanism": "OAUTHBEARER",
+                    "auth_mechanism": (
+                        "OAUTHBEARER" if token_provider is not None else "PLAINTEXT"
+                    ),
                 },
             )
+            if token_provider is None:
+                async for envelope in _consume_messages(consumer):
+                    yield envelope
+                return
             refresh_at = asyncio.get_running_loop().time() + _token_refresh_delay(
                 token_provider=token_provider,
                 group_id=group_id,
@@ -374,6 +393,36 @@ async def _iter_consumer(
             _LOGGER.debug("event_bus_consumer_token_refresh", extra={"group_id": group_id})
         finally:
             await _stop_consumer(consumer)
+
+
+async def _consume_messages(consumer: AIOKafkaConsumer) -> AsyncIterator[EventEnvelope]:
+    while True:
+        message = await consumer.getone()
+        key = _decode_key(message.key)
+        yield EventEnvelope(
+            topic=message.topic,
+            key=key,
+            payload=_decode(message.value, topic=message.topic, key=key),
+            offset=message.offset,
+        )
+        await consumer.commit()
+
+
+def _transport_options(
+    *,
+    config: EventHubsKafkaBusConfig,
+    token_provider: _EntraTokenProvider | None,
+) -> dict[str, object]:
+    if config.security_protocol == "PLAINTEXT":
+        return {"security_protocol": "PLAINTEXT"}
+    if token_provider is None:
+        raise ValueError("SASL_SSL Kafka transport requires a token provider")
+    return {
+        "security_protocol": "SASL_SSL",
+        "sasl_mechanism": "OAUTHBEARER",
+        "sasl_oauth_token_provider": token_provider,
+        "ssl_context": _default_ssl_context(),
+    }
 
 
 async def _stop_consumer(consumer: AIOKafkaConsumer) -> None:

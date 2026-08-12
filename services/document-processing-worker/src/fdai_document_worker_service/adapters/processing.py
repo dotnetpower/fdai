@@ -11,6 +11,7 @@ import zipfile
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -389,6 +390,16 @@ class AzureEmbeddingConfig:
     dimension: int = 384
 
 
+class EmbeddingModel(Protocol):
+    """Generate fixed-dimensional vectors and expose live readiness."""
+
+    def readiness(self) -> AdapterReadiness: ...
+
+    async def probe_readiness(self) -> AdapterReadiness: ...
+
+    async def embed(self, text: str) -> Sequence[float]: ...
+
+
 class AzureEmbeddingModel:
     """Generate bounded embedding vectors with managed identity."""
 
@@ -445,7 +456,7 @@ class PgvectorDocumentIndex:
         self,
         *,
         dsn: str,
-        embedder: AzureEmbeddingModel,
+        embedder: EmbeddingModel,
         dimension: int,
         max_chars: int = 1200,
         overlap: int = 150,

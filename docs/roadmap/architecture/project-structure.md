@@ -8,6 +8,9 @@ The layout below records the physical service-owned tree; completion evidence an
 criteria are in the [Service Decomposition Execution Plan](service-decomposition-execution-plan.md#final-repository-layout).
 Fifteen fixed agents own the control loop through typed events. Process splits follow
 [Service Graduation and Data Ownership](service-graduation-and-ownership.md), and module names follow [Architecture](../../../.github/instructions/architecture.instructions.md).
+The local five-service profile keeps each package independent over loopback PostgreSQL,
+Redpanda, filesystem document storage, and ClamAV. Deployed composition replaces those adapters
+with service-owned managed implementations without changing the shared wire contracts.
 ## Monorepo Layout
 
 ```text

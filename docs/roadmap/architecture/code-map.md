@@ -100,6 +100,10 @@ fanout ceiling. A thin bootstrap wrapper preserves the injected identity-builder
 
 These packages may depend on `fdai-service-contracts`. They do not import another service's
 implementation package.
+Local composition binds service-owned client lifecycles and loopback adapters inside each package.
+The Operator semantic bridge, ingestion publisher, document worker consumer, and isolated Executor
+therefore preserve the same logical topics, idempotency, readiness, and receipt boundaries as their
+deployed managed-identity adapters.
 
 ## Shared contract SDK
 

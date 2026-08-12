@@ -10,7 +10,7 @@ import time
 from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
@@ -53,6 +53,7 @@ class _ManagedIdentityTokenProvider(AbstractTokenProvider):  # type: ignore[misc
 @dataclass(frozen=True, slots=True)
 class EventHubsKafkaConfig:
     bootstrap_servers: str
+    security_protocol: Literal["SASL_SSL", "PLAINTEXT"] = "SASL_SSL"
     client_id: str = "fdai-document-worker"
     auto_offset_reset: str = "earliest"
     dlq_suffix: str = ".dlq"
@@ -60,6 +61,8 @@ class EventHubsKafkaConfig:
     def __post_init__(self) -> None:
         if not self.bootstrap_servers:
             raise ValueError("Kafka bootstrap servers MUST NOT be empty")
+        if self.security_protocol not in {"SASL_SSL", "PLAINTEXT"}:
+            raise ValueError("security_protocol MUST be SASL_SSL or PLAINTEXT")
         if self.auto_offset_reset not in {"earliest", "latest"}:
             raise ValueError("auto_offset_reset MUST be earliest or latest")
 
@@ -71,10 +74,12 @@ class EventHubsKafkaBus:
         self,
         *,
         config: EventHubsKafkaConfig,
-        credential: ManagedIdentityCredential,
+        credential: ManagedIdentityCredential | None,
         monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         self._config = config
+        if config.security_protocol == "SASL_SSL" and credential is None:
+            raise ValueError("SASL_SSL Kafka transport requires a managed identity")
         self._credential = credential
         host = config.bootstrap_servers.split(",", 1)[0].strip().split(":", 1)[0]
         self._scope = f"https://{host}/.default"
@@ -148,7 +153,8 @@ class EventHubsKafkaBus:
             if self._producer is not None:
                 await self._producer.stop()
                 self._producer = None
-        await self._credential.close()
+        if self._credential is not None:
+            await self._credential.close()
 
     async def _get_producer(self) -> AIOKafkaProducer:
         async with self._producer_lock:
@@ -156,12 +162,7 @@ class EventHubsKafkaBus:
                 producer = AIOKafkaProducer(
                     bootstrap_servers=self._config.bootstrap_servers,
                     client_id=self._config.client_id,
-                    security_protocol="SASL_SSL",
-                    sasl_mechanism="OAUTHBEARER",
-                    sasl_oauth_token_provider=_ManagedIdentityTokenProvider(
-                        self._credential, self._scope
-                    ),
-                    ssl_context=ssl.create_default_context(),
+                    **_transport_options(self._config, self._credential, self._scope),
                     api_version="2.0.0",
                     enable_idempotence=True,
                     acks="all",
@@ -182,16 +183,22 @@ class EventHubsKafkaBus:
 
     async def _iter_consumer(self, topic: str, group_id: str) -> AsyncIterator[EventEnvelope]:
         while True:
-            token_provider = _ManagedIdentityTokenProvider(self._credential, self._scope)
+            token_provider = (
+                _ManagedIdentityTokenProvider(self._credential, self._scope)
+                if self._credential is not None
+                else None
+            )
             consumer = AIOKafkaConsumer(
                 topic,
                 bootstrap_servers=self._config.bootstrap_servers,
                 group_id=group_id,
                 client_id=self._config.client_id,
-                security_protocol="SASL_SSL",
-                sasl_mechanism="OAUTHBEARER",
-                sasl_oauth_token_provider=token_provider,
-                ssl_context=ssl.create_default_context(),
+                **_transport_options(
+                    self._config,
+                    self._credential,
+                    self._scope,
+                    token_provider=token_provider,
+                ),
                 api_version="2.0.0",
                 enable_auto_commit=False,
                 auto_offset_reset=self._config.auto_offset_reset,
@@ -207,8 +214,10 @@ class EventHubsKafkaBus:
                 await consumer.start()
                 self._consumer_started(topic, group_id)
                 started = True
-                refresh_at = asyncio.get_running_loop().time() + _refresh_delay(
-                    token_provider, group_id
+                refresh_at = (
+                    asyncio.get_running_loop().time() + _refresh_delay(token_provider, group_id)
+                    if token_provider is not None
+                    else float("inf")
                 )
                 while True:
                     remaining = refresh_at - asyncio.get_running_loop().time()
@@ -278,6 +287,26 @@ class EventHubsKafkaBus:
     def _consumer_stopped(self, topic: str, group_id: str) -> None:
         state = self._consumer_groups.setdefault((topic, group_id), _ConsumerGroupHealth())
         state.owners = max(0, state.owners - 1)
+
+
+def _transport_options(
+    config: EventHubsKafkaConfig,
+    credential: ManagedIdentityCredential | None,
+    scope: str,
+    *,
+    token_provider: _ManagedIdentityTokenProvider | None = None,
+) -> dict[str, object]:
+    if config.security_protocol == "PLAINTEXT":
+        return {"security_protocol": "PLAINTEXT"}
+    if credential is None:
+        raise ValueError("SASL_SSL Kafka transport requires a managed identity")
+    provider = token_provider or _ManagedIdentityTokenProvider(credential, scope)
+    return {
+        "security_protocol": "SASL_SSL",
+        "sasl_mechanism": "OAUTHBEARER",
+        "sasl_oauth_token_provider": provider,
+        "ssl_context": ssl.create_default_context(),
+    }
 
 
 @dataclass(frozen=True, slots=True)

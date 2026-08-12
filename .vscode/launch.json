@@ -65,54 +65,73 @@
       }
     },
     {
-      "name": "Console Web: Ingestion Gateway",
+      "name": "Console Web: Document Ingestion API",
       "type": "debugpy",
       "request": "launch",
       "python": "${workspaceFolder}/.venv/bin/python",
       "module": "uvicorn",
       "args": [
-        "fdai.delivery.ingestion_gateway.dev:app",
+        "fdai_ingestion_api_service.main:create_app",
         "--factory",
         "--host",
         "127.0.0.1",
         "--port",
         "8011",
-        "--reload"
+        "--no-access-log"
       ],
       "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.fdai/local-document-ingestion-api.env",
       "env": {
-        "FDAI_INGESTION_GATEWAY_DEV_MODE": "1",
-        "FDAI_INGESTION_GATEWAY_CORS_ALLOW_ORIGINS": "http://127.0.0.1:5273,http://localhost:5273"
+        "PYTHONPATH": "${workspaceFolder}/services/document-ingestion-api/src:${workspaceFolder}/packages/service-contracts/src",
+        "AZURE_CONFIG_DIR": null
       },
       "console": "integratedTerminal",
       "justMyCode": true,
-      "subProcess": true
+      "subProcess": true,
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 3
+      }
     },
     {
-      "name": "Console Web: Ingestion Gateway (persistent)",
+      "name": "Console Web: Document Processing Worker",
       "type": "debugpy",
       "request": "launch",
       "python": "${workspaceFolder}/.venv/bin/python",
-      "module": "uvicorn",
-      "args": [
-        "fdai.delivery.ingestion_gateway.dev:app",
-        "--factory",
-        "--host",
-        "127.0.0.1",
-        "--port",
-        "8011",
-        "--reload"
-      ],
+      "program": "${workspaceFolder}/.venv/bin/fdai-document-processing-worker",
       "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.fdai/local-document-processing-worker.env",
       "env": {
-        "FDAI_INGESTION_GATEWAY_DEV_MODE": "1",
-        "FDAI_INGESTION_GATEWAY_PERSISTENT": "1",
-        "FDAI_STATE_STORE_DSN": "postgresql://fdai:devonly@127.0.0.1:5432/fdai",
-        "FDAI_INGESTION_GATEWAY_CORS_ALLOW_ORIGINS": "http://127.0.0.1:5273,http://localhost:5273"
+        "PYTHONPATH": "${workspaceFolder}/services/document-processing-worker/src:${workspaceFolder}/packages/service-contracts/src",
+        "AZURE_CONFIG_DIR": null
       },
       "console": "integratedTerminal",
       "justMyCode": true,
-      "subProcess": true
+      "subProcess": true,
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 4
+      }
+    },
+    {
+      "name": "Console Web: Isolated Executor",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "program": "${workspaceFolder}/.venv/bin/fdai-isolated-executor-service",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.fdai/local-isolated-executor.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/services/isolated-executor/src:${workspaceFolder}/packages/service-contracts/src",
+        "AZURE_CONFIG_DIR": null
+      },
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true,
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 5
+      }
     },
     {
       "name": "Console Web: Frontend",
@@ -134,7 +153,7 @@
       },
       "presentation": {
         "group": "1-fullstack",
-        "order": 3
+        "order": 6
       }
     }
   ],
@@ -145,6 +164,9 @@
       "configurations": [
         "Console Web: Core Runtime",
         "Console Web: Operator API",
+        "Console Web: Document Ingestion API",
+        "Console Web: Document Processing Worker",
+        "Console Web: Isolated Executor",
         "Console Web: Frontend"
       ],
       "stopAll": true,

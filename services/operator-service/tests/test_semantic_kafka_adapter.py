@@ -132,6 +132,37 @@ def _bus(monkeypatch) -> tuple[OperatorSemanticKafkaBus, Credential]:  # type: i
     )
 
 
+async def test_plaintext_transport_needs_no_managed_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class LocalProducer:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+    monkeypatch.setattr(kafka_module, "AIOKafkaProducer", LocalProducer)
+    bus = OperatorSemanticKafkaBus(
+        config=OperatorSemanticKafkaConfig(
+            bootstrap_servers="127.0.0.1:19092",
+            security_protocol="PLAINTEXT",
+        ),
+        credential=None,
+    )
+
+    await bus.start()
+
+    assert captured["security_protocol"] == "PLAINTEXT"
+    assert "sasl_mechanism" not in captured
+    assert "sasl_oauth_token_provider" not in captured
+
+
 def _multiplexed_bus(monkeypatch) -> tuple[OperatorSemanticKafkaBus, Credential]:  # type: ignore[no-untyped-def]
     monkeypatch.setattr(kafka_module, "AIOKafkaProducer", Producer)
     monkeypatch.setattr(kafka_module, "AIOKafkaConsumer", Consumer)

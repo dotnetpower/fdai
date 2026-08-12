@@ -20,7 +20,7 @@ _OK = (
 _NOT_READY = (
     b"HTTP/1.1 503 Service Unavailable\r\n"
     b"Content-Type: application/json\r\n"
-    b"Content-Length: 24\r\nConnection: close\r\n\r\n"
+    b"Content-Length: 22\r\nConnection: close\r\n\r\n"
     b'{"status":"not-ready"}'
 )
 _NOT_FOUND = (

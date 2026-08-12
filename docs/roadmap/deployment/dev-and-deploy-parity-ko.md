@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: e67739c5a1a6e178591047741da60a6c718f6977
+translation_source_sha: 1d6f91a8130f345f3f5d1848685be71d5c6f2c57
 translation_revised: 2026-08-12
 ---
 
@@ -77,13 +77,32 @@ site는 인증된 Console full stack과 분리되어 있습니다.
 | Design mock | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch, `design mocks: serve (5373)` 작업 또는 실제 운영 서버 |
 | Console SPA | `http://127.0.0.1:5273` | `Console Web: Full Stack` (권장) 또는 `Console Web: Frontend` (SPA 전용) |
 | Operator API | `http://127.0.0.1:8010` | `Console Web: Operator API` |
-| 테스트 인제스트 게이트웨이 | `http://127.0.0.1:8011` | `Console Web: Ingestion Gateway` |
+| 문서 인제스트 API | `http://127.0.0.1:8011` | `Console Web: Document Ingestion API` |
+| 문서 처리 워커 상태 | `http://127.0.0.1:8012` | `Console Web: Document Processing Worker` |
+| 격리 실행기 상태 | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
 
-`Console Web: Full Stack` compound는 코어 런타임, Console SPA 및 Operator API를 시작합니다. 백엔드 launch는
-service-owned Core 컨트롤 플레인 및 Operator 서비스 분포를 가져오기하며 제거된 top-level 패키지 또는
-프로세스 내 Operator API 호환성 경로를 복원하지 않고 정적 design mock과 격리된 테스트 인제스트 게이트웨이도
-시작하지 않습니다. 신뢰된 workspace에서는 `console: prepare local state`가 한 번 실행되어 로컬 PostgreSQL과
-Redpanda를 시작하고 고정된 이전 방식 Alembic 계보를 전진시킨 후 Core와 Operator의 service-owned 이행 가지를 채택하고 업그레이드하며 single-instance 한도로 중복을 막습니다. 동일한 준비는 읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고, 테넌트 식별자, 리소스 엔드포인트 또는 자격 증명을 복사하지 않은 채 준비된 권위 있는 입력에서 정제된 모델 및 런타임 Settings 변환 결과를 materialize합니다. 프로바이더가 사용 불가 상태이거나 권한이 없으면 고정본 데이터로 대체하지 않고 인벤토리를 명시적으로 사용 불가 상태로 유지합니다.
+`Console Web: Full Stack` compound는 독립 패키지로 구성된 백엔드 서비스 5개와 Console
+SPA를 시작합니다. 각 launch는 담당 서비스 분포만 가져오며 제거된 top-level 패키지, 문서 처리
+co-host 또는 프로세스 내 Operator API 호환성 경로를 복원하지 않습니다. 로컬 격리 실행기는
+managed-resource identity가 없는 영속 shadow consumer입니다. 이 venue에서 authority cutover를
+설정하면 시작이 실패합니다. Compound는 정적 design mock이나 fixture 애플리케이션을 시작하지
+않습니다.
+
+프로세스 launcher는 `RUNTIME_ENV`와 독립적으로 `FDAI_EXECUTION_VENUE=local`을 설정합니다.
+로컬 서비스 상태는 `127.0.0.1:5432`의 Docker PostgreSQL을 사용하며 Core, Operator, 문서
+인제스트 API, 문서 처리 워커 및 격리 실행기는 각각 담당 역할로 연결합니다. 로컬 이벤트 전송은
+`127.0.0.1:19092`의 Docker Redpanda를 사용합니다. Azure에 배포된 프로세스는
+`FDAI_EXECUTION_VENUE=deployed`를 설정하고 서비스 소유 Azure Database for PostgreSQL DSN과
+Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는
+executor 권한을 변경하지 않습니다.
+
+신뢰된 workspace에서는 `console: prepare local state`가 한 번 실행되어 로컬 PostgreSQL,
+Redpanda 및 ClamAV를 시작하고 고정된 이전 방식 Alembic 계보를 전진시킨 후 5개 service-owned
+이행 가지를 모두 채택하고 업그레이드하며 single-instance 한도로 중복을 막습니다. 동일한 준비는
+읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고, 테넌트 식별자, 리소스 endpoint 또는 자격
+증명을 복사하지 않은 채 준비된 권위 있는 입력에서 정제된 모델 및 런타임 Settings 변환 결과를
+materialize합니다. 프로바이더가 사용 불가 상태이거나 권한이 없으면 fixture 데이터로 대체하지 않고
+인벤토리를 명시적으로 사용 불가 상태로 유지합니다.
 같은 이행이 로컬 및 deployed PostgreSQL에 principal 범위 `conversation_image` 저장소를
 만듭니다. 따라서 두 프로파일의 Command Deck 이력은 동일한 인증 Operator API 경로를 통해 전송된
 이미지를 복원하며, 어느 프로파일도 inline base64를 턴 메타데이터 또는 브라우저 대화 기록 캐시에

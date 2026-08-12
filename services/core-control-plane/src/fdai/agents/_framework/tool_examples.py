@@ -100,7 +100,7 @@ TOOL_EXAMPLES: Final[dict[str, tuple[str, str]]] = {
     # Vidar - recovery
     "read_rollback_history": (
         "What did we undo, and when did we roll something back?",
-        "어제 되돌린 작업 뭐였지? 롤백한 거 있어?",
+        "어제 되돌린 작업 뭐였지? 롤백 이력은 언제 생겼어?",
     ),
     "read_recovery_safety": (
         "Is it safe to recover this, or does something depend on it?",
@@ -167,15 +167,15 @@ TOOL_EXAMPLES: Final[dict[str, tuple[str, str]]] = {
     # Njord - cost
     "read_cost_samples": (
         "How much are we spending, and why did the bill go up?",
-        "우리 돈 얼마나 쓰고 있어? 이번달 청구서 왜 이렇게 나왔지?",
+        "우리 비용이 얼마나 들고 있어? 이번달 청구서 왜 이렇게 나왔지?",
     ),
     "read_cost_model": (
         "What does each action cost us?",
-        "이 작업 하면 돈이 얼마나 들어?",
+        "각 작업의 비용은 얼마나 드는지 보여줘?",
     ),
     "read_budget_status": (
         "Are we within budget, or about to blow through it?",
-        "예산 안에 있어? 넘을 것 같아?",
+        "예산 안에 있어? 비용이 예산을 넘을 것 같아?",
     ),
     # Freyr - capacity
     "read_capacity_forecasts": (

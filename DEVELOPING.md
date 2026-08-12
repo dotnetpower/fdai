@@ -104,15 +104,15 @@ with the `azure-selfprovision` skill.
 
 ## 6. Start the local stack
 
-The canonical topology is the console SPA (`5273`), Operator API (`8010`), and
-ingestion gateway (`8011`).
+The canonical topology is the console SPA (`5273`) plus all five independent backend services:
+Core Control Plane, Operator API (`8010`), Document Ingestion API (`8011`), Document Processing
+Worker (`8012` health), and isolated Executor (`8013` health).
 
 - VS Code (recommended): trust the workspace. Automatic workspace tasks are
   enabled in `.vscode/settings.json`, so `console: Operator API (Local Entra)`
   prepares and starts the Operator API without prompting whenever the folder opens.
-  Start `console: core runtime` and
-  `console: frontend (Browser Entra)` separately, or use the
-  `Console Web: Full Stack` compound from Run and Debug.
+  Use the `Console Web: Full Stack` compound from Run and Debug. It prepares Docker PostgreSQL,
+  Redpanda, and ClamAV, upgrades all five migration branches, and starts every service plus the SPA.
 - Optional dev data stack (Postgres + Redpanda) for persistence tests:
 
   ```bash

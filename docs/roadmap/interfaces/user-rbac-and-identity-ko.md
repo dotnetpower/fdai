@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 7c43ae1c8e82cb786cbc94f8814d4c4a6b442b6f
+translation_source_sha: ac1968f90a4782068ffee121aae6f58412f81cfd
 translation_revised: 2026-08-11
 ---
 
@@ -32,24 +32,13 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 
 1. **자기승인 없음** - 거버넌스 변경 요청자(PR 저자, HIL 트리거)는 승인자가 되어선 안 됨.
  CI + GitHub CODEOWNERS로 강제, 롤 분리로 아님.
-2. **승인 ≠ 실행** - 어떤 사람 롤도 실행기 Managed Identity를 보유하지 않음. 사람은 작성·
- 리뷰·승인; MI가 실행.
-3. **콘솔은 비특권 표면** - 콘솔은 범위가 제한된 운영 요청을 제출할 수 있지만
- 실행기 신원을 받거나 managed 리소스를 변경하지 않습니다
- ([console-operations-ko.md](console-operations-ko.md)). 카탈로그 초안
- 변경은 콘솔 사용자를 대신해 GitHub App이 작성하는 PR을 사용합니다.
+2. **승인 ≠ 실행** - 사람은 작성, 검토, 승인하고 executor Managed Identity만 실행합니다.
+3. **콘솔은 비특권 표면** - 범위가 제한된 요청을 제출할 수 있지만 executor identity를 받거나
+  리소스를 변경하지 않습니다. 카탈로그 초안은 GitHub App PR을 사용합니다
+  ([console-operations-ko.md](console-operations-ko.md)).
 
-독립 Operator 서비스는 토큰 검증과 서버가 소유한 App 역할 해석 이후에만 semantic-turn
-principal 역할을 serialize합니다. 브라우저 페이로드는 이 역할을 제공하거나 넓힐 수 없습니다. Core는
-인증된 역할 집합을 principal 범위로 한정된 조회 매니페스트에 지도하고 온톨로지 읽기 전에 용도를 다시
-검사합니다. Semantic Kafka 어댑터는 브로커 접근에만 별도 명령 managed 신원을 선택하며
-실행기 권한을 받거나 브라우저 principal을 대체하지 않습니다.
-Semantic 요청 계약은 ordinary 역할을 최대 4개까지 수락하고 arbitrary Kafka 토픽을 거부하며,
-두 Operator 브리지 워커가 모두 활성인 동안에만 ready를 보고합니다.
-Semantic 결과 저장소는 각 변환 결과 id를 요청 id와 연결합니다. 중복 키가 발생하면 같은
-트랜잭션에서 owning 발신함 principal, 요청 신원 및 결과 다이제스트를 확인한 후에만 기존
-변환 결과를 반환하거나 요청을 완전한할 수 있습니다. 재생은 인증된 principal과 요청을
-함께 필터하므로 projection-id 충돌이 다른 principal의 결과를 노출하지 않습니다.
+Operator Service는 token 검증과 server-owned App Role 해석 후에만 role을 serialize하며 browser payload는 이를 넓힐 수 없습니다. Core는 read 전에 principal-scoped purpose를 재검사하고 broker command identity는 executor 권한을 부여하지 않습니다.
+계약은 ordinary role 4개와 고정된 topic만 허용하고 readiness에는 bridge worker 두 개가 모두 필요하며 transactional storage와 replay는 모든 projection을 request, principal, result digest에 bind합니다.
 
 ## 2. 롤 모델 (4티어 + Break-Glass)
 
@@ -59,7 +48,7 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 
 | # | 롤 | Entra 보안 그룹 | 유사 | 가능 |
 |---|-----|----------------|------|------|
-| 1 | **읽기 담당** | `aw-readers` | Azure 읽기 담당 | 콘솔 조회: KPI 대시보드, 감사 로그, 그림자 결과, HIL 큐 |
+| 1 | **읽기 담당** | `aw-readers` | Azure 읽기 담당 | 콘솔 조회: KPI 대시보드, 감사 로그, shadow 결과, HIL 큐 |
 | 2 | **기여자** | `aw-contributors` | Azure 기여자 | 읽기 담당 + 초안 PR 작성 및 범위가 제한된 읽기 조사 시작 |
 | 3 | **Approver** | `aw-approvers` | (검토자) | 읽기 담당 + 거버넌스 PR 리뷰/승인 + 런타임 HIL 요청 승인 + enforce 승격 / exemption / 재정의 승인 (고위험은 quorum - §5 참조) |
 | 4 | **Owner** | `aw-owners` | Azure Owner | Approver + 비상 정지 트리거 + Entra 그룹 멤버십 관리 + 인프라 IaC 적용 |
@@ -221,7 +210,7 @@ rule-catalog/overrides/**   @aw-approvers
 | Exemption 생성 / 갱신 | **2 (quorum)** |
 | 재정의 생성 / 수정 | **2 (quorum)** |
 
-Quorum-2는 "elevated 승인자" 그룹 도입 없이 구체화된 그림자→enforce 승격 게이트
+Quorum-2는 "elevated 승인자" 그룹 도입 없이 구체화된 shadow→enforce 승격 게이트
 ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)).
 
 ### 5.2 목표 CI 검사 (상류 제공, 포크 설정)

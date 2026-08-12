@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Mapping
+from pathlib import Path
 
 import httpx
 import psycopg
@@ -20,6 +21,11 @@ from fdai_ingestion_api_service.adapters.embedding import (
 )
 from fdai_ingestion_api_service.adapters.event_bus import EventHubsKafkaPublisher
 from fdai_ingestion_api_service.adapters.handover import PostgresHandoverDraftReader
+from fdai_ingestion_api_service.adapters.local import (
+    DeterministicLocalEmbeddingModel,
+    LocalDocumentObjectStore,
+    PlaintextKafkaPublisher,
+)
 from fdai_ingestion_api_service.adapters.postgres import (
     PostgresApiConfig,
     PostgresDocumentActivitySink,
@@ -43,14 +49,10 @@ from fdai_ingestion_api_service.deletion import ApiDocumentDeletionService
 from fdai_ingestion_api_service.http import IngestionGatewayConfig, build_app
 from fdai_ingestion_api_service.ingestion import DocumentIngestionService
 
-_REQUIRED_ENV = (
+_COMMON_REQUIRED_ENV = (
     "FDAI_DATABASE_URL",
     "FDAI_DATABASE_ROLE",
     "FDAI_INGESTION_DEPLOYMENT_ROLE",
-    "FDAI_MI_CLIENT_ID",
-    "FDAI_ADLS_ACCOUNT_URL",
-    "FDAI_EMBEDDING_ENDPOINT",
-    "FDAI_EMBEDDING_DEPLOYMENT",
     "FDAI_KAFKA_BOOTSTRAP_SERVERS",
     "FDAI_DOCUMENT_EVENT_TOPIC",
     "FDAI_ENTRA_TENANT_ID",
@@ -62,6 +64,12 @@ _REQUIRED_ENV = (
     "FDAI_RBAC_BREAK_GLASS_GROUP_ID",
     "FDAI_INGESTION_CORS_ALLOW_ORIGINS",
 )
+_DEPLOYED_REQUIRED_ENV = (
+    "FDAI_MI_CLIENT_ID",
+    "FDAI_ADLS_ACCOUNT_URL",
+    "FDAI_EMBEDDING_ENDPOINT",
+    "FDAI_EMBEDDING_DEPLOYMENT",
+)
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -72,7 +80,11 @@ class ProductionConfigurationError(ValueError):
 def build_application(environ: Mapping[str, str]) -> Starlette:
     """Build the complete service-owned production ASGI application."""
     env = dict(environ)
-    missing = [key for key in _REQUIRED_ENV if not env.get(key, "").strip()]
+    execution_venue = _execution_venue(env)
+    required = _COMMON_REQUIRED_ENV + (
+        _DEPLOYED_REQUIRED_ENV if execution_venue == "deployed" else ()
+    )
+    missing = [key for key in required if not env.get(key, "").strip()]
     if missing:
         raise ProductionConfigurationError(
             "production ingestion environment is missing: " + ", ".join(missing)
@@ -83,24 +95,34 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
         raise ProductionConfigurationError("FDAI_DATABASE_ROLE MUST be fdai_ingestion_api")
     dsn = env["FDAI_DATABASE_URL"].strip()
     database = PostgresApiConfig(dsn=dsn)
-    credential = _managed_identity_credential(env)
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0))
-    storage_config = AzureDataLakeConfig(
-        account_url=env["FDAI_ADLS_ACCOUNT_URL"].strip(),
-        source_file_system=env.get("FDAI_ADLS_SOURCE_FILE_SYSTEM", "documents").strip(),
-        derived_file_system=env.get("FDAI_ADLS_DERIVED_FILE_SYSTEM", "derived").strip(),
-    )
-    storage = AzureDataLakeObjectStore(
-        config=storage_config,
-        service_client=DataLakeServiceClient(
-            account_url=storage_config.account_url,
+    storage: AzureDataLakeObjectStore | LocalDocumentObjectStore
+    publisher: EventHubsKafkaPublisher | PlaintextKafkaPublisher
+    if execution_venue == "local":
+        storage = LocalDocumentObjectStore(
+            Path(env.get("FDAI_LOCAL_DOCUMENT_STORE_DIR", ".fdai/document-store"))
+        )
+        publisher = PlaintextKafkaPublisher(
+            bootstrap_servers=env["FDAI_KAFKA_BOOTSTRAP_SERVERS"].strip()
+        )
+    else:
+        credential = _managed_identity_credential(env)
+        storage_config = AzureDataLakeConfig(
+            account_url=env["FDAI_ADLS_ACCOUNT_URL"].strip(),
+            source_file_system=env.get("FDAI_ADLS_SOURCE_FILE_SYSTEM", "documents").strip(),
+            derived_file_system=env.get("FDAI_ADLS_DERIVED_FILE_SYSTEM", "derived").strip(),
+        )
+        storage = AzureDataLakeObjectStore(
+            config=storage_config,
+            service_client=DataLakeServiceClient(
+                account_url=storage_config.account_url,
+                credential=credential,
+            ),
+        )
+        publisher = EventHubsKafkaPublisher(
+            bootstrap_servers=env["FDAI_KAFKA_BOOTSTRAP_SERVERS"].strip(),
             credential=credential,
-        ),
-    )
-    publisher = EventHubsKafkaPublisher(
-        bootstrap_servers=env["FDAI_KAFKA_BOOTSTRAP_SERVERS"].strip(),
-        credential=credential,
-    )
+        )
     metadata = PostgresDocumentMetadataStore(config=database)
     activity = PostgresDocumentActivitySink(
         config=database,
@@ -141,14 +163,18 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
         ),
     )
     dimension = _positive_int(env, "FDAI_EMBEDDING_DIM", 384)
-    embedding = AzureEmbeddingModel(
-        config=AzureEmbeddingConfig(
-            endpoint=env["FDAI_EMBEDDING_ENDPOINT"].strip(),
-            deployment=env["FDAI_EMBEDDING_DEPLOYMENT"].strip(),
-            dimension=dimension,
-        ),
-        credential=credential,
-        client=http_client,
+    embedding = (
+        DeterministicLocalEmbeddingModel(dimension=dimension)
+        if execution_venue == "local"
+        else AzureEmbeddingModel(
+            config=AzureEmbeddingConfig(
+                endpoint=env["FDAI_EMBEDDING_ENDPOINT"].strip(),
+                deployment=env["FDAI_EMBEDDING_DEPLOYMENT"].strip(),
+                dimension=dimension,
+            ),
+            credential=credential,
+            client=http_client,
+        )
     )
 
     async def verify_adapters() -> None:
@@ -221,6 +247,13 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
 def _managed_identity_credential(env: Mapping[str, str]) -> ManagedIdentityCredential:
     """Select the exact user-assigned identity attached to the API Container App."""
     return ManagedIdentityCredential(client_id=env["FDAI_MI_CLIENT_ID"].strip())
+
+
+def _execution_venue(env: Mapping[str, str]) -> str:
+    venue = env.get("FDAI_EXECUTION_VENUE", "deployed").strip().casefold()
+    if venue not in {"local", "deployed"}:
+        raise ProductionConfigurationError("FDAI_EXECUTION_VENUE MUST be local or deployed")
+    return venue
 
 
 def _positive_int(env: Mapping[str, str], key: str, default: int) -> int:

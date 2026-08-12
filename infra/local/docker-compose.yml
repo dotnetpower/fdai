@@ -1,4 +1,4 @@
-# Local development Postgres+pgvector + Redpanda stack.
+# Local development Postgres+pgvector, Redpanda, and ClamAV stack.
 #
 # Ports are bound to 127.0.0.1 only so a laptop on a hostile network does
 # NOT expose the dev cluster. If you need to reach the cluster from a
@@ -60,11 +60,28 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  clamav:
+    image: clamav/clamav:stable
+    container_name: fdai-clamav
+    ports:
+      - "127.0.0.1:3310:3310"
+    volumes:
+      - clamavdata:/var/lib/clamav
+    healthcheck:
+      test: ["CMD-SHELL", "clamdcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped
+
 volumes:
   pgdata:
     name: fdai-pgdata
   redpandadata:
     name: fdai-redpandadata
+  clamavdata:
+    name: fdai-clamavdata
 
 networks:
   default:

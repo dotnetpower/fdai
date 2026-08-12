@@ -108,6 +108,39 @@ def test_config_defaults_stay_below_event_hubs_idle_close_window() -> None:
     assert config.max_request_size == 1_000_000
 
 
+@pytest.mark.asyncio
+async def test_plaintext_transport_needs_no_workload_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class _Producer:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaProducer", _Producer)
+    bus = EventHubsKafkaBus(
+        identity=None,
+        config=_cfg(
+            bootstrap_servers="127.0.0.1:19092",
+            security_protocol="PLAINTEXT",
+        ),
+    )
+
+    await bus._get_producer()
+
+    assert captured["security_protocol"] == "PLAINTEXT"
+    assert "sasl_mechanism" not in captured
+    assert "sasl_oauth_token_provider" not in captured
+    assert "ssl_context" not in captured
+
+
 def test_encode_produces_deterministic_bytes() -> None:
     payload = {"b": 2, "a": 1}
     encoded = _encode(payload)

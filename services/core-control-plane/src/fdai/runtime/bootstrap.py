@@ -282,7 +282,11 @@ async def _run() -> int:
                 EventHubsKafkaBusConfig,
             )
 
-            if identity is None:
+            execution_venue = os.environ.get("FDAI_EXECUTION_VENUE", "deployed").strip()
+            local_transport = execution_venue == "local"
+            if execution_venue not in {"local", "deployed"}:
+                raise RuntimeError("FDAI_EXECUTION_VENUE MUST be local or deployed")
+            if identity is None and not local_transport:
                 if http_client is None:
                     http_client = _new_http_client()
                 identity = _build_runtime_workload_identity(http_client)
@@ -292,6 +296,7 @@ async def _run() -> int:
                 config=EventHubsKafkaBusConfig(
                     bootstrap_servers=container.config.kafka.bootstrap_servers,
                     dlq_suffix=container.config.kafka.topic_dlq_suffix,
+                    security_protocol="PLAINTEXT" if local_transport else "SASL_SSL",
                 ),
             )
             from fdai.delivery.agent_introspection_bus import (
@@ -314,6 +319,7 @@ async def _run() -> int:
                     config=EventHubsKafkaBusConfig(
                         bootstrap_servers=auxiliary_bootstrap,
                         dlq_suffix=container.config.kafka.topic_dlq_suffix,
+                        security_protocol="PLAINTEXT" if local_transport else "SASL_SSL",
                     ),
                 )
             operational_bus = _operational_event_bus(bus, auxiliary_bus)

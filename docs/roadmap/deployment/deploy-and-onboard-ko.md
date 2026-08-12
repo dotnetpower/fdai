@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 6a2ea73918990fd9d3507f9feb6a4e5802bb9990
+translation_source_sha: caef610260677095df0c7a8374cc799970ca5462
 translation_revised: 2026-08-12
 ---
 
@@ -347,6 +347,10 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | 14 | **문서 인제스트 Container Apps** (**명시적 선택**) | Consumption, 공개 API + ClamAV를 포함한 내부 워커 | 인증된 범위가 제한된 업로드 중계와 독립적으로 규모되는 안전성 검사, 추출, pgvector 인덱싱, 수명 주기 이벤트 | API, 워커, 이행 UAMI를 분리합니다. 워커만 Event Hubs 수신과 OCR 권한을 받으며 런타임 신원에는 실행기 권한이 없습니다. |
 | 15 | **Control-loop canary 작업** | Consumption, 5분마다 실행 | `aw.control.canary`에 멱등 이벤트 하나를 게시합니다. | 전용 UAMI에는 ACR pull과 Event Hubs 전송만 있으며, 코어는 별도 소비자 경로에서 no-op 감사를 기록합니다. |
 | 16 | **개발 operations Function App** (**명시적 선택**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | 로컬 개발에서 비공개 리소스로 등록된 읽기, 쓰기, execute 연산을 중계합니다. | dev 및 private-networking 전용이며 수명 주기 precondition으로 강제되고 `infra/services/core-control-plane/tests/dev_operations_gateway.tftest.hcl`이 이를 검증합니다. Easy Auth 뒤에서 **공개** 인바운드 엔드포인트를 종단합니다. 개발자가 도달해야 하기 때문이며, 따라서 폐쇄망에서는 꺼둔 채로 둡니다. 전용 `/27` 서브넷, 비공개 AAD-only 배포 및 멱등성 저장소, Easy Auth, 분리된 읽기 담당/실행기 UAMI, 일회용 server-issued 변경 계획 증적을 사용합니다. 임의 URL, ARM 경로, 명령, 조회 표면은 제공하지 않습니다. |
+로컬 parity 프로필은 동일한 5개 service package를 loopback PostgreSQL과 Redpanda,
+filesystem-backed 문서 object 및 ClamAV에 연결해 시작합니다. Plaintext Kafka는 loopback broker에서만
+사용합니다. 배포 모듈은 service-owned managed identity와 service-specific PostgreSQL role을 사용하는
+Event Hubs Kafka를 계속 요구합니다.
 추가 신원/채널/콘솔 요소는 배포 또는 명시적 선택 기능이 소유합니다:
 
 - **App 등록 × 3** - 오디언스 분리

@@ -9,7 +9,7 @@ import re
 import ssl
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
@@ -42,6 +42,7 @@ class OperatorSemanticKafkaConfig:
     """Configure one bounded Kafka producer/consumer pair for semantic turns."""
 
     bootstrap_servers: str
+    security_protocol: Literal["SASL_SSL", "PLAINTEXT"] = "SASL_SSL"
     request_topic: str = "operator.semantic-turn.requests"
     projection_topic: str = "core.semantic-turn.projections"
     client_id: str = "fdai-operator-service"
@@ -55,6 +56,8 @@ class OperatorSemanticKafkaConfig:
             raise ValueError("Kafka bootstrap servers MUST NOT be empty")
         if not self.client_id.strip():
             raise ValueError("Kafka client id MUST NOT be empty")
+        if self.security_protocol not in {"SASL_SSL", "PLAINTEXT"}:
+            raise ValueError("security_protocol MUST be SASL_SSL or PLAINTEXT")
         if (
             self.request_topic == self.projection_topic
             or _TOPIC_PATTERN.fullmatch(self.request_topic) is None
@@ -81,12 +84,14 @@ class OperatorSemanticKafkaBus:
         self,
         *,
         config: OperatorSemanticKafkaConfig,
-        credential: ManagedIdentityCredential,
+        credential: ManagedIdentityCredential | None,
     ) -> None:
         host = config.bootstrap_servers.split(",", 1)[0].strip().split(":", 1)[0]
         if not host:
             raise ValueError("Kafka bootstrap servers MUST contain a host")
         self._config = config
+        if config.security_protocol == "SASL_SSL" and credential is None:
+            raise ValueError("SASL_SSL Kafka transport requires a managed identity")
         self._credential = credential
         self._scope = f"https://{host}/.default"
         self._producer: AIOKafkaProducer | None = None
@@ -173,7 +178,8 @@ class OperatorSemanticKafkaBus:
             self._closed = True
             if producer is not None:
                 await producer.stop()
-        await self._credential.close()
+        if self._credential is not None:
+            await self._credential.close()
 
     async def aclose(self) -> None:
         """Close the transport through the Operator application lifecycle contract."""
@@ -187,13 +193,7 @@ class OperatorSemanticKafkaBus:
                 producer = AIOKafkaProducer(
                     bootstrap_servers=self._config.bootstrap_servers,
                     client_id=self._config.client_id,
-                    security_protocol="SASL_SSL",
-                    sasl_mechanism="OAUTHBEARER",
-                    sasl_oauth_token_provider=_ManagedIdentityTokenProvider(
-                        self._credential,
-                        self._scope,
-                    ),
-                    ssl_context=ssl.create_default_context(),
+                    **_transport_options(self._config, self._credential, self._scope),
                     api_version="2.0.0",
                     enable_idempotence=True,
                     acks="all",
@@ -224,13 +224,7 @@ class OperatorSemanticKafkaBus:
             bootstrap_servers=self._config.bootstrap_servers,
             group_id=group_id,
             client_id=self._config.client_id,
-            security_protocol="SASL_SSL",
-            sasl_mechanism="OAUTHBEARER",
-            sasl_oauth_token_provider=_ManagedIdentityTokenProvider(
-                self._credential,
-                self._scope,
-            ),
-            ssl_context=ssl.create_default_context(),
+            **_transport_options(self._config, self._credential, self._scope),
             api_version="2.0.0",
             enable_auto_commit=False,
             auto_offset_reset=self._config.auto_offset_reset,
@@ -272,6 +266,23 @@ class OperatorSemanticKafkaBus:
                 await consumer.commit()
         finally:
             await consumer.stop()
+
+
+def _transport_options(
+    config: OperatorSemanticKafkaConfig,
+    credential: ManagedIdentityCredential | None,
+    scope: str,
+) -> dict[str, object]:
+    if config.security_protocol == "PLAINTEXT":
+        return {"security_protocol": "PLAINTEXT"}
+    if credential is None:
+        raise ValueError("SASL_SSL Kafka transport requires a managed identity")
+    return {
+        "security_protocol": "SASL_SSL",
+        "sasl_mechanism": "OAUTHBEARER",
+        "sasl_oauth_token_provider": _ManagedIdentityTokenProvider(credential, scope),
+        "ssl_context": ssl.create_default_context(),
+    }
 
 
 def _encode(payload: Mapping[str, object], *, maximum: int) -> bytes:

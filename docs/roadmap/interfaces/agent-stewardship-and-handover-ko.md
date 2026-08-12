@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 58e2dc6efab379c77acb603ae661f865d2202c17
-translation_revised: 2026-08-11
+translation_source_sha: fc6d15650cd15dc1ed74ea2abc06f7d7a36d8c43
+translation_revised: 2026-08-12
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -380,6 +380,9 @@ polling하고 검토용 초안 요약, YAML, 저장된 거버넌스 PR 증적을
 적용하거나 privileged 변경 경로를 만들지 않습니다. 로컬 개발은 초안을 기억에 저장하고 운영은
 `PostgresStateStore`를 사용하므로 워커 또는 게이트웨이 재시작 후에도 검토 산출물이
 유지됩니다.
+독립 로컬 ingestion service는 source와 derived 문서 object를 private filesystem root에
+저장하고 loopback Redpanda로 lifecycle record를 교환합니다. 이 adapter는 저장소와 transport만
+바꾸며 동일한 `HandoverBootstrapConsumer`가 accountable handover 경계로 유지됩니다.
 
 인계 출처가 이미지이면 선택적 문서 Intelligence OCR도 동일한 agent-owned 인제스트
 경로 안에 유지됩니다. `FDAI_OCR_OPERATION_TIMEOUT_SECONDS`는 제출, polling 및 poll delay

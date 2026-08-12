@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 97b3ef81ad23333198d12c2102101ec99872a372
+translation_source_sha: d5eb44e729ebe54124a877aa8f145653edb8debc
 translation_revised: 2026-08-12
 ---
 # 코드 맵
@@ -102,6 +102,10 @@ Continuous 커버리지 증적은 결정론적 고정본 structural 검증과 �
 
 이 패키지는 `fdai-service-contracts`에 의존할 수 있습니다. 다른 서비스의 구현
 패키지는 가져오기하지 않습니다.
+로컬 조립은 각 패키지 안에서 service-owned client lifecycle과 loopback adapter를 연결합니다.
+따라서 Operator semantic bridge, ingestion publisher, 문서 worker consumer 및 isolated Executor는
+배포된 managed-identity adapter와 동일한 logical topic, 멱등성, 준비 상태 및 증적 경계를
+보존합니다.
 
 ## Shared 계약 SDK
 

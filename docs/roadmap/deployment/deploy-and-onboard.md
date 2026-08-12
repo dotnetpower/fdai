@@ -343,6 +343,10 @@ replica caps are still **deployment-specific** and tuned per environment; the sh
 | 14 | **Document ingestion Container Apps** (**opt-in**) | Consumption, public API + internal worker with ClamAV | authenticated bounded upload relay plus independently scaled safety scan, extraction, pgvector indexing, and lifecycle events | API, worker, and migration UAMIs are distinct; only the worker receives Event Hubs receive and OCR; neither runtime identity receives executor permissions |
 | 15 | **Control-loop canary Job** | Consumption, every 5 minutes | publishes one idempotent event to `aw.control.canary` | dedicated UAMI has only ACR pull and Event Hubs send; the core records a no-op audit through a separate consumer path |
 | 16 | **Development operations Function App** (**opt-in**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | relays registered read, write, and execute operations from local development to private resources | dev and private-networking only, enforced by a lifecycle precondition and covered by `infra/services/core-control-plane/tests/dev_operations_gateway.tftest.hcl`; terminates a **public** inbound endpoint behind Easy Auth - a developer has to reach it - so it stays off on a closed network; dedicated `/27` subnet, private AAD-only deployment and idempotency storage, Easy Auth, separate reader/executor UAMIs, one-time server-issued mutation plan receipts, and no arbitrary URL, ARM path, command, or query surface |
+The local parity profile starts the same five service packages against loopback PostgreSQL and
+Redpanda, with filesystem-backed document objects and ClamAV. It uses plaintext Kafka only on the
+loopback broker; deployed modules continue to require Event Hubs Kafka with service-owned managed
+identities and service-specific PostgreSQL roles.
 Additional identity, channel, and console elements are deployment-owned or opt-in:
 
 - **App registrations × 3** - split audiences per

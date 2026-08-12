@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 387d0420e32e4a23809b01f4af20eecb106e09e0
+translation_source_sha: c8e69e4fe8bc695d845747730e4eb2708430370d
 translation_revised: 2026-08-11
 ---
 
@@ -37,36 +37,22 @@ quality gate (T2 검증기), risk gate, shipped Rego 정책. 콘솔은
 
 세 속성이 직접 따라온다:
 
-- **LLM은 translator 이지 judge가 아님.** 자연어 in, 도구 호출 out; 도구
- 결과 in, 자연어 out. LLM은 실행 충족 여부를 절대 부여하지 않음 -
- 오직 검증기만
+- **LLM은 translator이지 judge가 아님.** 자연어는 도구 호출이 되고 도구 결과는 자연어가 되며 실행 적격성은 오직 검증기만 부여합니다
  ([architecture.instructions.md § Design Principles](../../../.github/instructions/architecture.instructions.md#design-principles)).
-- **도구는 파이프라인 단계를 노출하고, 기본 요소 데이터 출처가 아님.**
- LLM이 진단으로 조합해야 하는 `query_log()` + `query_metric()` +
- `read_config()` 대신, 콘솔은 `describe_event()`, `explain_verdict()`,
- `simulate_change()`를 노출. 시스템이 이미 reasoning을 완료했음;
- 오퍼레이터는 결과에 대해 묻는다.
-- **성장은 카탈로그 성장이지, 모델 기억 성장이 아님.** 반복되는
- 조사 패턴은 발견 루프를 통해 새 룰 후보가 됨
+- **도구는 기본 데이터 출처가 아니라 파이프라인 단계를 노출함.** 콘솔은 primitive log, metric,
+ config query 대신 `describe_event()`, `explain_verdict()`, `simulate_change()`를 노출합니다.
+ 시스템이 이미 reasoning을 완료했으므로 오퍼레이터는 결과에 대해 질문합니다.
+- **성장은 모델 기억이 아니라 카탈로그 성장임.** 반복되는 조사 패턴은 발견 루프를 통해 새 룰 후보가 됩니다
  ([architecture.instructions.md § Rule 카탈로그](../../../.github/instructions/architecture.instructions.md#rule-catalog)) -
- 불투명한 LLM 세션 기억이 아님. 대화 간에 저장 되는 모든 상태는
- `audit_log` + `operator_memory`에 살며, 감사가능 / 내보내기 가능 / CSP-중립.
+ 불투명한 세션 기억으로 남지 않습니다. 영속 대화 상태는 감사와 내보내기가 가능한 CSP-중립
+ `audit_log` 및 `operator_memory` record에 저장됩니다.
 
 완료된 답변은 off-path [대화 Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. JSON과 SSE 어댑터는 타입이 지정된 conversation-turn 서비스와 분리된 요청 설정, 근거, 진행 상황, 검증 및 terminal-delivery 보조 로직을 공유하면서 기존 wire 계약을 유지합니다.
 최종 intake는 exact 검증 사유와 evidence-manifest 완전성을 보존합니다. 결과 요약, 맥락 선택, Azure 조사, 영속 전달 및 첨부 근거는 타입이 지정된 프로바이더가 계속 소유하고 어댑터 모듈은 표현과 영속성만 조정합니다.
-버전 1.2 semantic 변환 결과는 독립 서비스 분리 전반에서 이 경계를 보존합니다. `answered`
-처리 결과는 exact release, principal-manifest, 계획, 실행 증적 및 근거 참조가 있을 때만
-수락됩니다. 의존성이 없거나 사용 불가이면 타입이 지정된 한계를 반환합니다. Operator 서비스는 이를
-서술기 knowledge로 대체하거나 턴을 검증된으로 표시할 수 없습니다.
-Semantic 전송 계층이 구성되면 운영 조립은 제안 publish와 변환 결과 consume에 하나의
-Operator-owned Event Hubs Kafka 어댑터를 만듭니다. 초기화, 요청 토픽 및 변환 결과 토픽은
-all-or-none이며 어댑터는 명령 managed 신원, 멱등적 범위가 제한된 JSON publish, 변환 결과 영속성
-이후 수동 커밋 및 잘못된 JSON용 형제 DLQ를 사용합니다. 명시적으로 주입된 프로바이더가 우선하며
-Terraform은 `operator.semantic-turn.requests` 및 `core.semantic-turn.projections`를 제공하고 어댑터는
-다른 publish 또는 구독 토픽을 거부합니다. Core는 검증된 query-table 출력을
-결정론적하게 렌더링하고 Operator는 영속 결과를 답변, 검증, 의도 그래프 및 근거를
-포함한 기존 `done` 이벤트로 변환합니다. 명시적으로 주입된 프로바이더가 우선하며 로컬 서술기와
-semantic 전송 계층은 상호 배타적입니다.
+버전 1.2 semantic projection은 서비스 분리 전반에서 이 경계를 보존합니다. `answered`는 exact release, principal manifest, 계획, 실행 receipt, 근거 참조를 요구하며 의존성을 사용할 수 없으면 typed limitation을 반환합니다.
+하나의 Operator-owned Event Hubs Kafka adapter가 all-or-none topic, command identity, 멱등적 bounded JSON, projection 영속 후 commit, sibling DLQ를 사용해 proposal을 publish하고 projection을 consume합니다.
+Terraform은 request와 projection topic을 고정합니다. Core는 검증된 query table을 렌더링하고 Operator는 영속 result를 기존 `done` event로 변환합니다.
+주입된 provider가 우선하며 local narrator와 semantic transport는 상호 배타적입니다.
 Operator API는 검토를 준비된으로 표시하거나 카탈로그 제안을 만들거나 권한을 부여하지 않습니다. 잘못된 답변 보고는 자율 재평가 근거만 추가하며 통제된 transition에는 exact 재생 근거와 기존 카탈로그 수명 주기가 계속 필요합니다.
 ### 1.1 공유 glossary에 추가된 어휘
 
@@ -345,7 +331,7 @@ Catalog-owned resource-health 이력 의도도 같은 결정론적 precedence를
 
 | 도구 | 목적 | RBAC 하한 | 참고 |
 |------|---------|-----------|-------|
-| `simulate_change(scenario)` | 종단 간 `ControlLoop.process()`를 **그림자** 모드로; publish 없이 실행기 결과 + 생성된 PR 의도 반환. | 기여자 | Shadow-only; 여전히 감사 항목을 남김 → 오퍼레이터가 `query_audit`로 찾을 수 있음. |
+| `simulate_change(scenario)` | 종단 간 `ControlLoop.process()`를 **shadow** 모드로; publish 없이 실행기 결과 + 생성된 PR 의도 반환. | 기여자 | Shadow-only; 여전히 감사 항목을 남김 → 오퍼레이터가 `query_audit`로 찾을 수 있음. |
 | `approve_hil(approval_id, decision, justification)` | 큐잉된 HIL 항목 하나 해결. 검증기 + `no_self_approval` invariant 재확인. | Approver | Approver 그룹; [security-and-identity.md](../architecture/security-and-identity-ko.md)의 PR gate 적용과 동일 principal. |
 | `list_hil()` | 호출자의 역할에 visible 한 현재 큐잉된 HIL 항목 반환. | Approver | Reader-visible은 non-approver 에게 의도를 leak; Approver-scoped 유지. |
 | `run_runbook(name, params, dry_run)` | `docs/runbooks/` 아래 하나의 런북 실행. `dry_run=true`는 기여자 요구; `dry_run=false`는 Owner 요구. | 기여자 / Owner | 구체 런북 어댑터 (예: `db_dr_drill_cli`)는 이미 shipping; 이 도구는 이름으로 경로. |
@@ -353,7 +339,7 @@ Catalog-owned resource-health 이력 의도도 같은 결정론적 precedence를
 
 쓰기 집합에 대한 두 명확화:
 
-- **`simulate_change`가 감사 항목을 쓰기 하는 것은 "그림자는 절대
+- **`simulate_change`가 감사 항목을 쓰기 하는 것은 "shadow는 절대
  mutate 안 함"을 위반하지 않음.** 감사 로그는 추가 전용; *시뮬레이션이
  실행되었다는 것*을 기록하는 것은 관리 리소스의 변경이 아니다.
  shadow-mode 속성 테스트는 실행기 / PR / state-store 쓰기가 없음을
@@ -550,7 +536,7 @@ Day-1 콘솔은 답변 가능:
 `simulate_change`, `approve_hil`, `run_runbook --dry-run`, Teams / Slack
 pull 어댑터 추가. 콘솔은 이제:
 
-- 종단 간 변경을 그림자로 미리 보기.
+- 종단 간 변경을 shadow로 미리 보기.
 - PR 흐름이 사용하는 것과 동일한 신원 gate로 큐잉된 HIL 항목 해결.
 - 어느 채널에서든 shipped 런북 ([docs/runbooks/](../../runbooks))을
  트리거.

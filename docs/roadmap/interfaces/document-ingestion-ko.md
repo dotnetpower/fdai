@@ -1,8 +1,8 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 3e25d73c6238a9385313f82b5ef7d6f0bd35d604
-translation_revised: 2026-08-11
+translation_source_sha: 00562afa1218b335e4cd9485657ee829ab5b698c
+translation_revised: 2026-08-12
 ---
 # 문서 인제스트와 투입 구역
 
@@ -345,9 +345,9 @@ Event Hubs 수신과 OCR 권한을 받고 이행만 administrator DSN을 읽습�
 수명 주기 기록을 publish할 수 있으며 필요한 문서 표에만 접근합니다. API와 워커의 CPU,
 기억, 복제본 범위는 독립적이며 `SELECT current_user`가 role-scoped DSN을 확인한 뒤에만 준비된이
 됩니다. 워커 기본값은 복제본 하나입니다. 운영 확장 전에는
-재시작, 재전달, DLQ, durable-claim smoke 근거를 기록합니다. `ingestion_cohost_worker=true`는
-토픽, 소비자 그룹, 오프셋, 저장소 경로, 공개 경로를 바꾸지 않고 이전 co-host 토폴로지를
-복원합니다. 로컬 interactive 토폴로지는 변경되지 않습니다.
+재시작, 재전달, DLQ, durable-claim smoke 근거를 기록합니다. 제거된 co-host는 rollback 표면이
+아닙니다. 변경할 수 없는 이전 서비스 이미지와 독립 서비스 배포 상태를 사용해 shared 프로세스
+소유권을 복원하지 않고 rollback합니다.
 
 ### 지연된 non-Azure 저장소 권장 사항
 
@@ -406,8 +406,8 @@ Knowledge 인덱싱과 수동 정제는 이 묶음을 소비합니다. 온톨로
 문서/버전 신원을 유지합니다. 안정적인 버전 범위 조각 id로 재시도를 멱등적하게
 처리합니다.
 
-로컬 게이트웨이는 종단 간 개발을 위해 결정론적 in-memory 임베딩 인덱스를 사용합니다.
-pgvector 어댑터는 데이터베이스 트랜잭션을 열기 전에 모든 임베딩을 계산하고, 하나의 문서
+로컬 API와 워커는 같은 결정론적 로컬 embedding 알고리즘과 Docker PostgreSQL pgvector
+인덱스를 사용합니다. pgvector 어댑터는 데이터베이스 트랜잭션을 열기 전에 모든 임베딩을 계산하고, 하나의 문서
 버전을 원자적으로 교체하며 문서/버전 신원으로 삭제합니다. 수집에는 수집과
 명시적으로 허용된 접근 서술자 참조 집합이 모두 필요합니다. 통제된 조각에는 표시를
 추가하며 범위가 지정되지 않은 free-form Knowledge 출처 조회 경로에서는 제외합니다.
@@ -472,31 +472,20 @@ Linked-source 제거와 ACL 변경 이벤트에도 동일한 조정 및 계보 �
 문서 인제스트는 Operator API 또는 실행기 프로세스가 아닌 전용 인제스트 게이트웨이가
 제공합니다. 초기 HTTP 표면은 다음과 같습니다.
 
-로컬 콘솔 개발에서는 보호된 in-memory 게이트웨이를 별도 포트에서 실행할 수 있습니다.
+로컬 콘솔 개발에서는 전체 독립 토폴로지를 시작합니다.
 
 ```bash
-FDAI_INGESTION_GATEWAY_DEV_MODE=1 \
-  uv run uvicorn fdai.delivery.ingestion_gateway.dev:app \
-  --factory --host 127.0.0.1 --port 8011
+# Run and Debug -> Console Web: Full Stack
 ```
 
-`VITE_INGESTION_API_BASE_URL`을 `http://127.0.0.1:8011`로 설정하세요. 로컬 factory는
-명시적 dev-mode 변수가 없으면 시작되지 않으며 운영 조립이 아닙니다. 기본적으로
-`127.0.0.1`과 `localhost`의 로컬 콘솔 포트 `4173`, `5273`, `5180`, `5190`을 허용합니다.
-다른 포트를 사용하려면 게이트웨이 프로세스의 `FDAI_INGESTION_GATEWAY_CORS_ALLOW_ORIGINS`를
-쉼표로 구분한 정확한 HTTP(S) 출처 목록으로 설정하세요.
-
-기본적으로 로컬 게이트웨이는 모든 프로바이더를 in-memory로 유지하므로 프로세스를 재시작하면
-업로드된 바이트와 메타데이터가 사라집니다. 로컬 업로드가 운영 게이트웨이와 동일한 프로바이더를
-통해 영속되도록하려면 `FDAI_INGESTION_GATEWAY_PERSISTENT=1`을 설정하세요. 그러면 게이트웨이는
-출처 바이트를 로컬 디스크 객체 저장소(`FDAI_INGESTION_GATEWAY_LOCAL_STORE_DIR`, 기본
-`.fdai/document-store`)에 쓰고, 버전 메타데이터를 `PostgresDocumentMetadataStore`를 통해 로컬
-PostgreSQL에 기록하며, 동일한 pgvector `knowledge_chunk` 테이블에 결정론적 로컬 임베딩
-모델로 조각을 인덱싱합니다. psycopg DSN은 `FDAI_STATE_STORE_DSN`(없으면 `FDAI_DATABASE_URL`)에서
-읽습니다. 먼저 로컬 데이터베이스에 `alembic upgrade head`를 실행하세요. ClamAV와 Azure
-OpenAI는 로컬 대체가 없으므로 malware 검사는 결정론적 stub로 유지되고 임베딩은 로컬
-모델을 사용합니다. `Console Web: Ingestion Gateway (persistent)` launch 프로파일이 이를
-배선합니다.
+Compound는 `127.0.0.1:8011`의 독립 문서 인제스트 API와 `127.0.0.1:8012`의 문서 처리 워커
+readiness 서버를 시작합니다. 두 서비스 모두 Docker PostgreSQL의 역할 범위 DSN을 사용합니다.
+출처 바이트와 derived envelope는 `.fdai/document-store`에 영속되고, lifecycle 이벤트는 Docker
+Redpanda를 사용하며, malware 검사는 Docker ClamAV를 사용하고, 검색/인덱스 vector는 같은
+결정론적 로컬 embedding 알고리즘을 사용합니다. 브라우저 인증은 계속 Entra를 사용합니다. 로컬
+launcher는 `FDAI_EXECUTION_VENUE=local`로 이러한 adapter를 선택합니다. Azure 배포는
+`FDAI_EXECUTION_VENUE=deployed`를 사용해 ADLS, Azure Database for PostgreSQL, Event Hubs,
+Azure embedding 및 managed identity를 선택합니다.
 
 운영 워커는 `handover_bootstrap` 소비자를 영속 `PostgresStateStore`
 변환 결과에 연결하고 워커 managed 신원으로 Microsoft Graph의 정확한 user/그룹 display

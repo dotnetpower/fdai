@@ -11,7 +11,12 @@ FDAI_DATABASE_URL="$database_url" \
   "$repo_root/.venv/bin/python" -m alembic -c "$repo_root/alembic.ini" upgrade head
 
 mkdir -p "$adoption_dir"
-for service_id in core-control-plane operator-service; do
+for service_id in \
+  core-control-plane \
+  operator-service \
+  document-ingestion-api \
+  document-processing-worker \
+  isolated-executor; do
   evidence="$adoption_dir/$service_id.json"
   schema_evidence="$adoption_dir/$service_id-schema.json"
   migration_command=(
@@ -34,4 +39,4 @@ for service_id in core-control-plane operator-service; do
     "${migration_command[@]}" upgrade head
 done
 
-echo "local PostgreSQL legacy schema and Core/Operator service migrations are current"
+echo "local PostgreSQL legacy schema and all five service migrations are current"

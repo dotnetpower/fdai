@@ -101,6 +101,75 @@ def test_production_azure_credential_uses_exact_attached_identity(
     )
 
 
+def test_local_api_composition_needs_no_managed_identity(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    def forbidden_credential(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("local API composition requested managed identity")
+
+    monkeypatch.setattr(api_production, "ManagedIdentityCredential", forbidden_credential)
+    application = api_production.build_application(
+        {
+            "FDAI_EXECUTION_VENUE": "local",
+            "FDAI_DATABASE_URL": "postgresql://example.invalid/fdai",
+            "FDAI_DATABASE_ROLE": "fdai_ingestion_api",
+            "FDAI_INGESTION_DEPLOYMENT_ROLE": "api",
+            "FDAI_KAFKA_BOOTSTRAP_SERVERS": "127.0.0.1:19092",
+            "FDAI_DOCUMENT_EVENT_TOPIC": "aw.pipeline.stages",
+            "FDAI_ENTRA_TENANT_ID": "tenant",
+            "FDAI_API_AUDIENCE": "audience",
+            "FDAI_RBAC_READERS_GROUP_ID": "reader",
+            "FDAI_RBAC_CONTRIBUTORS_GROUP_ID": "contributor",
+            "FDAI_RBAC_APPROVERS_GROUP_ID": "approver",
+            "FDAI_RBAC_OWNERS_GROUP_ID": "owner",
+            "FDAI_RBAC_BREAK_GLASS_GROUP_ID": "break-glass",
+            "FDAI_INGESTION_CORS_ALLOW_ORIGINS": "http://127.0.0.1:5273",
+            "FDAI_LOCAL_DOCUMENT_STORE_DIR": str(tmp_path),
+        }
+    )
+
+    assert application is not None
+
+
+def test_local_worker_composition_needs_no_managed_identity(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    def forbidden_credential(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("local worker composition requested managed identity")
+
+    monkeypatch.setattr(worker_production, "ManagedIdentityCredential", forbidden_credential)
+    runtime = worker_production.build_runtime(
+        {
+            "FDAI_EXECUTION_VENUE": "local",
+            "FDAI_DATABASE_URL": "postgresql://example.invalid/fdai",
+            "FDAI_DATABASE_ROLE": "fdai_ingestion_worker",
+            "FDAI_INGESTION_DEPLOYMENT_ROLE": "worker",
+            "FDAI_KAFKA_BOOTSTRAP_SERVERS": "127.0.0.1:19092",
+            "FDAI_DOCUMENT_EVENT_TOPIC": "aw.pipeline.stages",
+            "FDAI_CLAMAV_HOST": "127.0.0.1",
+            "FDAI_CLAMAV_PORT": "3310",
+            "FDAI_LOCAL_DOCUMENT_STORE_DIR": str(tmp_path),
+        }
+    )
+
+    assert runtime.worker_service is not None
+
+
+async def test_local_embedding_vectors_match_across_document_services() -> None:
+    from fdai_document_worker_service.adapters.local import (
+        DeterministicLocalEmbeddingModel as WorkerEmbedding,
+    )
+    from fdai_ingestion_api_service.adapters.local import (
+        DeterministicLocalEmbeddingModel as ApiEmbedding,
+    )
+
+    assert await ApiEmbedding().embed("same document") == await WorkerEmbedding().embed(
+        "same document"
+    )
+
+
 def test_outbox_drainers_are_service_owned_without_cohost_seam() -> None:
     api_source = "\n".join(path.read_text(encoding="utf-8") for path in API_SOURCE.glob("*.py"))
     worker_supervisor = (WORKER_SOURCE / "supervisor.py").read_text(encoding="utf-8")

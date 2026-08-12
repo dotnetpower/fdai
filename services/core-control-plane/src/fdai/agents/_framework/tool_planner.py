@@ -23,12 +23,12 @@ refuses a nested call as the second lock.
 from __future__ import annotations
 
 import math
-import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Final
 
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
+from fdai.agents._framework.tool_examples import TOOL_EXAMPLES
 
 #: Tools one question may dispatch. A question that appears to want more
 #: than a handful of reads is a question that wants a report, and a read
@@ -72,80 +72,12 @@ _STOP_TERMS: Final[frozenset[str]] = frozenset(
         "when",
         "where",
         "current",
-        "state",
-        "status",
         "data",
         "agent",
         "fdai",
     }
 )
 
-#: Operator vocabulary mapped onto the English terms a tool declares.
-#:
-#: FDAI is bilingual, but machine keys stay English: a tool id and its
-#: fact keys are record keys, not prose, so they are not translated. That
-#: leaves a Korean question with no term in common with any declaration,
-#: and without this map every Korean question selects zero tools while
-#: the same question in English selects three. Translating the question's
-#: domain nouns is the small, deterministic half of the problem; it keeps
-#: one English vocabulary to rank against.
-#:
-#: Only nouns that already appear in a tool declaration belong here. A
-#: word that maps onto nothing cannot change a ranking, and pretending
-#: otherwise would grow a catalog nobody can verify.
-_TERM_TRANSLATIONS: Final[dict[str, tuple[str, ...]]] = {
-    "승인": ("approval", "approvals"),
-    "결재": ("approval", "approvals"),
-    "대기": ("pending", "queue"),
-    "정족수": ("quorum",),
-    "비용": ("cost", "costs"),
-    "예산": ("budget",),
-    "요금": ("cost", "costs"),
-    "용량": ("capacity",),
-    "예측": ("forecast", "forecasts"),
-    "사이징": ("sizing",),
-    "권고": ("recommendation", "recommendations"),
-    "롤백": ("rollback", "rollbacks"),
-    "복구": ("recovery",),
-    "실행": ("execution", "run", "runs"),
-    "액션": ("action",),
-    "이력": ("history",),
-    "감사": ("audit",),
-    "이슈": ("issue", "issues"),
-    "인계": ("handoffs",),
-    "판정": ("verdict", "verdicts"),
-    "판단": ("judgment",),
-    "근본원인": ("root", "cause", "rca"),
-    "원인": ("cause", "rca"),
-    "위험": ("risk",),
-    "중재": ("arbitration", "arbitrations"),
-    "우선순위": ("priority", "order"),
-    "포트폴리오": ("portfolio",),
-    "정책": ("policy",),
-    "규칙": ("rule", "rules"),
-    "카탈로그": ("catalog",),
-    "후보": ("candidate", "candidates"),
-    "관측": ("observations", "observed"),
-    "보안": ("security",),
-    "드리프트": ("drift",),
-    "카오스": ("chaos",),
-    "실험": ("experiment", "experiments"),
-    "안전": ("safety",),
-    "폭발반경": ("blast", "radius"),
-    "복원력": ("resilience",),
-    "패턴": ("pattern",),
-    "유입": ("ingress",),
-    "중복": ("dedup", "deduplication"),
-    "케이스": ("case",),
-    "역량": ("capability", "capabilities"),
-    "라우팅": ("routing",),
-    "리소스": ("resource", "resources"),
-    "자원": ("resource", "resources"),
-    "이벤트": ("event", "events"),
-    "증거": ("evidence",),
-}
-
-_TERM = re.compile(r"[a-z0-9]+|[가-힣]+")
 _PLAN_TIERS: Final[frozenset[str]] = frozenset({"t0_lexical", "t1_semantic"})
 _PLAN_OWNERS: Final[dict[str, str]] = {
     tool.tool_id: spec.name for spec in PANTHEON_SPECS for tool in spec.conversation.tool_specs
@@ -246,6 +178,9 @@ def plan_conversation_tools(
                     matched_terms=matched,
                 )
             )
+    if scored:
+        strongest = max(_plan_term_weight(plan) for plan in scored)
+        scored = [plan for plan in scored if _plan_term_weight(plan) >= strongest * 0.75]
     # Sorted by score, then by name: ties MUST NOT depend on catalog
     # order, or adding an unrelated tool would silently re-rank an
     # existing question's plan and a recorded turn would stop replaying.
@@ -253,49 +188,113 @@ def plan_conversation_tools(
     return tuple(scored[: min(limit, MAX_TOOL_PLANS)])
 
 
-def _question_terms(question: str) -> frozenset[str]:
-    if not question:
-        return frozenset()
-    found: list[str] = []
-    for match in _TERM.finditer(question.lower()[:MAX_PLANNED_QUESTION_CHARS]):
-        term = match.group()
-        translated = _translate(term)
-        if translated:
-            found.extend(translated)
-        elif len(term) >= _MIN_TERM_CHARS and term not in _STOP_TERMS:
-            found.append(term)
-        if len(found) >= _MAX_QUESTION_TERMS:
-            break
-    return frozenset(found[:_MAX_QUESTION_TERMS])
+def _iter_tokens(text: str) -> tuple[str, ...]:
+    pieces: list[str] = []
+    buffer: list[str] = []
+    for ch in text.casefold():
+        if ch.isalnum() or ch in {"_", "-"}:
+            buffer.append(ch)
+        elif buffer:
+            if "".join(buffer):
+                pieces.append("".join(buffer))
+            buffer.clear()
+    if buffer:
+        pieces.append("".join(buffer))
+    return tuple(pieces)
 
 
-def _translate(term: str) -> tuple[str, ...]:
-    """Return the English terms a Korean word stands for.
-
-    Korean is written without spaces between a noun and its particle, so
-    an exact lookup misses '비용은' and '승인을'. Matching a known noun
-    anywhere in the token handles that without a morphological analyser,
-    which would be a dependency this decision does not need.
-    """
-    exact = _TERM_TRANSLATIONS.get(term)
-    if exact is not None:
-        return exact
-    if term.isascii():
+def _term_variants(token: str) -> tuple[str, ...]:
+    normalized = token.strip("_-").casefold()
+    if not normalized:
         return ()
-    matched: list[str] = []
-    for korean, english in _TERM_TRANSLATIONS.items():
-        if korean in term:
-            matched.extend(english)
-    return tuple(matched)
+    stripped = _strip_korean_particles(normalized)
+    if stripped != normalized:
+        return (stripped,)
+    return (normalized,)
+
+
+def _strip_korean_particles(token: str) -> str:
+    particles = (
+        "은",
+        "는",
+        "이",
+        "가",
+        "을",
+        "를",
+        "과",
+        "와",
+        "의",
+        "도",
+        "에",
+        "에서",
+        "한",
+        "만",
+        "께",
+    )
+    for particle in particles:
+        if token.endswith(particle):
+            stripped = token.removesuffix(particle)
+            if stripped:
+                return stripped
+    return token
+
+
+def _is_meaningful_term(term: str) -> bool:
+    if not term:
+        return False
+    return len(term) >= _MIN_TERM_CHARS or (not term.isascii() and len(term) >= 2)
 
 
 def _tool_terms(tool_id: str, purpose: str, fact_keys: Iterable[str]) -> frozenset[str]:
-    source = " ".join((tool_id, purpose, *fact_keys)).lower()
-    return frozenset(
-        term
-        for term in _TERM.findall(source)
-        if len(term) >= _MIN_TERM_CHARS and term not in _STOP_TERMS
-    )
+    examples = " ".join(term for pair in TOOL_EXAMPLES.get(tool_id, ()) for term in pair.split())
+    source = " ".join((tool_id, purpose, *fact_keys, examples)).casefold()
+    found: set[str] = set()
+    for token in _iter_tokens(source):
+        for term in _term_variants(token):
+            if _is_meaningful_term(term) and term not in _STOP_TERMS:
+                found.add(term)
+    return frozenset(found)
+
+
+def _plan_term_weight(plan: ConversationToolPlan) -> float:
+    return sum(_term_specificity(term) for term in plan.matched_terms)
+
+
+def _term_specificity(term: str) -> float:
+    count = _TERM_CORPUS_FREQUENCIES.get(term, 1)
+    if count <= 1:
+        return 2.0
+    if count <= 2:
+        return 1.0
+    if count <= 4:
+        return 0.5
+    return 0.25
+
+
+_TERM_CORPUS_FREQUENCIES: Final[dict[str, int]] = {}
+for spec in PANTHEON_SPECS:
+    for tool in spec.conversation.tool_specs:
+        for source in (
+            " ".join((tool.tool_id, tool.purpose, *tool.fact_keys)),
+            *TOOL_EXAMPLES.get(tool.tool_id, ()),
+        ):
+            for token in _iter_tokens(source):
+                for term in _term_variants(token):
+                    if _is_meaningful_term(term):
+                        _TERM_CORPUS_FREQUENCIES[term] = _TERM_CORPUS_FREQUENCIES.get(term, 0) + 1
+
+
+def _question_terms(question: str) -> frozenset[str]:
+    if not question:
+        return frozenset()
+    found: set[str] = set()
+    for token in _iter_tokens(question[:MAX_PLANNED_QUESTION_CHARS]):
+        for term in _term_variants(token):
+            if _is_meaningful_term(term) and term not in _STOP_TERMS:
+                found.add(term)
+            if len(found) >= _MAX_QUESTION_TERMS:
+                return frozenset(tuple(found)[:_MAX_QUESTION_TERMS])
+    return frozenset(found)
 
 
 __all__ = [

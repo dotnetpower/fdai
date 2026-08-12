@@ -28,7 +28,7 @@ FDAI treats the following axes as independent configuration:
 
 | Axis | Representative values | Authority |
 |------|-----------------------|-----------|
-| Execution venue | `local`, `deployed` | process launcher |
+| Execution venue | `local`, `deployed` through `FDAI_EXECUTION_VENUE` | process launcher |
 | Deployment environment | `dev`, `staging`, `production` | deployment configuration |
 | Evidence profile | `authoritative`, `fixture` | composition root |
 | Action lifecycle | `shadow`, `enforce` | promotion registry per ActionType and Workflow |
@@ -71,6 +71,10 @@ The default interactive local profile is a production-parity control-plane clien
   data plane. They never replace the browser principal or the executor identity.
 - The same agent pantheon, catalogs, promotion registry, risk gate, Process journal, and stage
   events run locally.
+- The five independently packaged backend services run as separate local processes. Stateful
+  services use role-scoped DSNs for Docker PostgreSQL, inter-service events use Docker Redpanda,
+  and document scanning uses Docker ClamAV. Azure CLI remains limited to authoritative Azure read
+  and model adapters.
 - Interactive read investigations use the same execution-mode policy locally and when deployed.
   Measured provider latency can change the selected mode; execution venue alone cannot.
 - Pantheon startup is default-on. An unset `FDAI_START_PANTHEON` enables all agents; only an
@@ -79,6 +83,9 @@ The default interactive local profile is a production-parity control-plane clien
   messages and status while Azure evidence remains unavailable.
 - Privileged execution remains behind Thor's deployed managed identity. A local process publishes
   a governed command to the development event bus; it does not execute with the developer's token.
+- The local isolated Executor consumes and records durable shadow receipts without a managed
+  resource identity. It rejects authority cutover at startup. Azure deployments instead use
+  service-owned Azure Database for PostgreSQL DSNs, Event Hubs, and attached managed identities.
 - Missing authoritative providers render unavailable or fail closed. They never select fixtures.
 
 Automated tests and explicit mock applications may choose the `fixture` evidence profile. Offline

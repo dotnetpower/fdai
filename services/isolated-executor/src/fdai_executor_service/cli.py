@@ -83,6 +83,7 @@ class IsolatedExecutorRuntimeConfig:
     dlq_suffix: str
     health_port: int
     executor_instance_id: str
+    execution_venue: str
     authority_cutover: bool
 
     @classmethod
@@ -94,7 +95,10 @@ class IsolatedExecutorRuntimeConfig:
 
         values = environment or os.environ
         _required(values, "RUNTIME_ENV")
-        if values.get(_DEPLOYED_MARKER_ENV, "").strip() != "1":
+        execution_venue = _required(values, "FDAI_EXECUTION_VENUE").casefold()
+        if execution_venue not in {"local", "deployed"}:
+            raise RuntimeError("FDAI_EXECUTION_VENUE MUST be local or deployed")
+        if execution_venue == "deployed" and values.get(_DEPLOYED_MARKER_ENV, "").strip() != "1":
             raise RuntimeError(
                 f"{_DEPLOYED_MARKER_ENV}=1 MUST select the deployed isolated Executor"
             )
@@ -102,8 +106,11 @@ class IsolatedExecutorRuntimeConfig:
         _required(values, "FDAI_STATE_STORE_DSN")
         if _required(values, _DATABASE_ROLE_ENV) != "fdai_executor":
             raise RuntimeError(f"{_DATABASE_ROLE_ENV} MUST be fdai_executor")
-        _required(values, _SHADOW_IDENTITY_ENV)
         authority_cutover = values.get(_AUTHORITY_CUTOVER_ENV, "").strip() == "1"
+        if execution_venue == "local" and authority_cutover:
+            raise RuntimeError("local isolated Executor MUST NOT enable authority cutover")
+        if execution_venue == "deployed":
+            _required(values, _SHADOW_IDENTITY_ENV)
         if authority_cutover:
             _required(values, "FDAI_DEV_OPERATIONS_GATEWAY_URL")
             _required(values, "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE")
@@ -141,6 +148,7 @@ class IsolatedExecutorRuntimeConfig:
             dlq_suffix=dlq_suffix,
             health_port=health_port,
             executor_instance_id=instance_id,
+            execution_venue=execution_venue,
             authority_cutover=authority_cutover,
         )
 
@@ -152,10 +160,14 @@ def build_isolated_executor_supervisor(
 ) -> IsolatedExecutorSupervisor:
     """Compose the shadow service or the explicitly gated SD-08 effect service."""
 
-    identity = build_runtime_workload_identity(
-        http_client,
-        client_id_env=_SHADOW_IDENTITY_ENV,
-        require_client_id=True,
+    identity = (
+        None
+        if config.execution_venue == "local"
+        else build_runtime_workload_identity(
+            http_client,
+            client_id_env=_SHADOW_IDENTITY_ENV,
+            require_client_id=True,
+        )
     )
     event_bus = EventHubsKafkaBus(
         identity=identity,
@@ -164,6 +176,7 @@ def build_isolated_executor_supervisor(
             client_id="fdai-isolated-executor-shadow",
             dlq_suffix=config.dlq_suffix,
             auto_offset_reset="earliest",
+            security_protocol=("PLAINTEXT" if config.execution_venue == "local" else "SASL_SSL"),
         ),
     )
     validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())

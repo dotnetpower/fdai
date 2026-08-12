@@ -6,6 +6,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from pathlib import Path
 
 import httpx
 import psycopg
@@ -21,6 +22,11 @@ from fdai_document_worker_service.adapters.event_bus import (
 )
 from fdai_document_worker_service.adapters.graph import GraphPersonDirectory
 from fdai_document_worker_service.adapters.handover import PostgresHandoverDraftStore
+from fdai_document_worker_service.adapters.local import (
+    DeterministicLocalEmbeddingModel,
+    LocalDocumentArtifactStore,
+    LocalDocumentObjectStore,
+)
 from fdai_document_worker_service.adapters.ooxml import OoxmlParserBudget
 from fdai_document_worker_service.adapters.postgres import (
     PostgresDocumentMetadataStore,
@@ -34,6 +40,7 @@ from fdai_document_worker_service.adapters.processing import (
     BoundedDocumentExtractor,
     ClamAvMalwareScanner,
     ClamAvScannerConfig,
+    EmbeddingModel,
     PgvectorDocumentIndex,
     SignatureProtectionInspector,
     UnavailableImageOcr,
@@ -52,18 +59,20 @@ from fdai_document_worker_service.handover import (
 from fdai_document_worker_service.processing import DocumentIngestionWorker
 from fdai_document_worker_service.supervisor import IngestionWorkerSupervisor
 
-_REQUIRED_ENV = (
+_COMMON_REQUIRED_ENV = (
     "FDAI_DATABASE_URL",
     "FDAI_DATABASE_ROLE",
     "FDAI_INGESTION_DEPLOYMENT_ROLE",
-    "FDAI_MI_CLIENT_ID",
-    "FDAI_ADLS_ACCOUNT_URL",
-    "FDAI_EMBEDDING_ENDPOINT",
-    "FDAI_EMBEDDING_DEPLOYMENT",
     "FDAI_KAFKA_BOOTSTRAP_SERVERS",
     "FDAI_DOCUMENT_EVENT_TOPIC",
     "FDAI_CLAMAV_HOST",
     "FDAI_CLAMAV_PORT",
+)
+_DEPLOYED_REQUIRED_ENV = (
+    "FDAI_MI_CLIENT_ID",
+    "FDAI_ADLS_ACCOUNT_URL",
+    "FDAI_EMBEDDING_ENDPOINT",
+    "FDAI_EMBEDDING_DEPLOYMENT",
 )
 _CLAMAV_SIDECAR_HOST = "127.0.0.1"
 _CLAMAV_SIDECAR_PORT = 3310
@@ -83,7 +92,11 @@ class ProductionWorkerRuntime:
 def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
     """Build all worker providers without starting consumer loops."""
     env = dict(environ)
-    missing = [key for key in _REQUIRED_ENV if not env.get(key, "").strip()]
+    execution_venue = _execution_venue(env)
+    required = _COMMON_REQUIRED_ENV + (
+        _DEPLOYED_REQUIRED_ENV if execution_venue == "deployed" else ()
+    )
+    missing = [key for key in required if not env.get(key, "").strip()]
     if missing:
         raise ProductionConfigurationError(
             "production ingestion environment is missing: " + ", ".join(missing)
@@ -103,23 +116,33 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             f"FDAI_CLAMAV_PORT MUST be {_CLAMAV_SIDECAR_PORT} for the replica-local sidecar"
         )
     dsn = env["FDAI_DATABASE_URL"].strip()
-    credential = _managed_identity_credential(env)
+    credential = _managed_identity_credential(env) if execution_venue == "deployed" else None
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0))
-    storage_config = AzureDataLakeConfig(
-        account_url=env["FDAI_ADLS_ACCOUNT_URL"].strip(),
-        source_file_system=env.get("FDAI_ADLS_SOURCE_FILE_SYSTEM", "documents").strip(),
-        derived_file_system=env.get("FDAI_ADLS_DERIVED_FILE_SYSTEM", "derived").strip(),
-    )
-    source_store = AzureDataLakeObjectStore(
-        config=storage_config,
-        service_client=DataLakeServiceClient(storage_config.account_url, credential=credential),
-    )
-    artifact_store = AzureDataLakeArtifactStore(
-        config=storage_config,
-        service_client=DataLakeServiceClient(storage_config.account_url, credential=credential),
-    )
+    source_store: AzureDataLakeObjectStore | LocalDocumentObjectStore
+    artifact_store: AzureDataLakeArtifactStore | LocalDocumentArtifactStore
+    if execution_venue == "local":
+        local_store_root = Path(env.get("FDAI_LOCAL_DOCUMENT_STORE_DIR", ".fdai/document-store"))
+        source_store = LocalDocumentObjectStore(local_store_root)
+        artifact_store = LocalDocumentArtifactStore(local_store_root)
+    else:
+        storage_config = AzureDataLakeConfig(
+            account_url=env["FDAI_ADLS_ACCOUNT_URL"].strip(),
+            source_file_system=env.get("FDAI_ADLS_SOURCE_FILE_SYSTEM", "documents").strip(),
+            derived_file_system=env.get("FDAI_ADLS_DERIVED_FILE_SYSTEM", "derived").strip(),
+        )
+        source_store = AzureDataLakeObjectStore(
+            config=storage_config,
+            service_client=DataLakeServiceClient(storage_config.account_url, credential=credential),
+        )
+        artifact_store = AzureDataLakeArtifactStore(
+            config=storage_config,
+            service_client=DataLakeServiceClient(storage_config.account_url, credential=credential),
+        )
     raw_bus = EventHubsKafkaBus(
-        config=EventHubsKafkaConfig(bootstrap_servers=env["FDAI_KAFKA_BOOTSTRAP_SERVERS"].strip()),
+        config=EventHubsKafkaConfig(
+            bootstrap_servers=env["FDAI_KAFKA_BOOTSTRAP_SERVERS"].strip(),
+            security_protocol="PLAINTEXT" if execution_venue == "local" else "SASL_SSL",
+        ),
         credential=credential,
     )
     event_bus = MultiplexedEventBus(
@@ -128,7 +151,7 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
         physical_topic=env.get("FDAI_PANTHEON_OBJECT_TOPIC", "aw.pantheon.objects").strip(),
     )
     metadata = PostgresDocumentMetadataStore(config=PostgresWorkerConfig(dsn=dsn))
-    ocr_endpoint = env.get("FDAI_OCR_ENDPOINT", "").strip()
+    ocr_endpoint = env.get("FDAI_OCR_ENDPOINT", "").strip() if execution_venue == "deployed" else ""
     ocr = (
         AzureDocumentIntelligenceOcr(
             config=AzureDocumentOcrConfig(
@@ -141,22 +164,26 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
                 max_characters=_positive_int(env, "FDAI_OCR_MAX_CHARACTERS", 1_000_000),
                 max_response_bytes=_positive_int(env, "FDAI_OCR_MAX_RESPONSE_BYTES", 4_000_000),
             ),
-            credential=credential,
+            credential=_deployed_credential(credential),
             client=http_client,
         )
         if ocr_endpoint
         else UnavailableImageOcr()
     )
     dimension = _positive_int(env, "FDAI_EMBEDDING_DIM", 384)
-    embedding = AzureEmbeddingModel(
-        config=AzureEmbeddingConfig(
-            endpoint=env["FDAI_EMBEDDING_ENDPOINT"].strip(),
-            deployment=env["FDAI_EMBEDDING_DEPLOYMENT"].strip(),
-            dimension=dimension,
-        ),
-        credential=credential,
-        client=http_client,
-    )
+    embedding: EmbeddingModel
+    if execution_venue == "local":
+        embedding = DeterministicLocalEmbeddingModel(dimension=dimension)
+    else:
+        embedding = AzureEmbeddingModel(
+            config=AzureEmbeddingConfig(
+                endpoint=env["FDAI_EMBEDDING_ENDPOINT"].strip(),
+                deployment=env["FDAI_EMBEDDING_DEPLOYMENT"].strip(),
+                dimension=dimension,
+            ),
+            credential=_deployed_credential(credential),
+            client=http_client,
+        )
     document_index = PgvectorDocumentIndex(
         dsn=dsn,
         embedder=embedding,
@@ -215,13 +242,14 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             HandoverBootstrapConsumer(
                 directory=(
                     GraphPersonDirectory(
-                        credential=credential,
+                        credential=_deployed_credential(credential),
                         client=http_client,
                         base_url=env.get(
                             "FDAI_GRAPH_BASE_URL", "https://graph.microsoft.com/v1.0"
                         ).strip(),
                     )
-                    if _truthy(env.get("FDAI_GRAPH_STEWARDSHIP_ENABLED", ""))
+                    if execution_venue == "deployed"
+                    and _truthy(env.get("FDAI_GRAPH_STEWARDSHIP_ENABLED", ""))
                     else NullStewardPersonDirectory()
                 ),
                 store=PostgresHandoverDraftStore(dsn=dsn),
@@ -287,6 +315,21 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
 def _managed_identity_credential(env: Mapping[str, str]) -> ManagedIdentityCredential:
     """Select the exact user-assigned identity attached to the worker Container App."""
     return ManagedIdentityCredential(client_id=env["FDAI_MI_CLIENT_ID"].strip())
+
+
+def _deployed_credential(
+    credential: ManagedIdentityCredential | None,
+) -> ManagedIdentityCredential:
+    if credential is None:
+        raise ProductionConfigurationError("deployed document worker requires its managed identity")
+    return credential
+
+
+def _execution_venue(env: Mapping[str, str]) -> str:
+    venue = env.get("FDAI_EXECUTION_VENUE", "deployed").strip().casefold()
+    if venue not in {"local", "deployed"}:
+        raise ProductionConfigurationError("FDAI_EXECUTION_VENUE MUST be local or deployed")
+    return venue
 
 
 def run_production_worker(environ: Mapping[str, str]) -> int:

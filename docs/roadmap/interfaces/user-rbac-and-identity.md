@@ -29,24 +29,13 @@ Three safety principles govern this design; every choice below preserves them:
 
 1. **No self-approval** - the requester of a governance change (PR author, HIL trigger)
    MUST NOT be the approver. Enforced by CI + GitHub CODEOWNERS, not by role separation.
-2. **Approval ≠ execution** - no human role holds the executor Managed Identity. Humans
-   author, review, and approve; the MI executes.
-3. **Console is non-privileged** - the console may submit a bounded operational request, but it
-  never receives the executor identity or mutates a managed resource
-  ([console-operations.md](console-operations.md)). Draft catalog
-  changes use PRs authored by a GitHub App on behalf of the console user.
+2. **Approval ≠ execution** - humans author, review, and approve; only the executor Managed Identity executes.
+3. **Console is non-privileged** - it may submit bounded requests but never receives executor
+  identity or mutates resources. Draft catalog changes use GitHub App PRs
+  ([console-operations.md](console-operations.md)).
 
-The independent Operator Service serializes semantic-turn principal roles only after token
-verification and server-owned App Role resolution. Browser payloads cannot supply or widen those
-roles. Core maps the authenticated role set to the principal-scoped query manifest and rechecks the
-purpose before any ontology read. The semantic Kafka adapter selects the separate command managed
-identity only for broker access; it never receives executor authority or replaces the browser principal.
-The semantic request contract accepts at most the four ordinary roles, rejects arbitrary Kafka
-topics, and reports ready only while both Operator bridge workers remain active.
-Semantic result storage binds each projection id to its request id. On a duplicate key, the same
-transaction checks the owning outbox principal, request identity, and result digest before it can
-return the existing projection or complete the request. Replay then filters by both authenticated
-principal and request, so a projection-id collision cannot expose another principal's result.
+The Operator Service serializes roles only after token verification and server-owned App Role resolution; browser payloads cannot widen them. Core rechecks principal-scoped purpose before reads, and broker command identity never grants executor authority.
+Contracts accept only four ordinary roles and pinned topics, readiness requires both bridge workers, and transactional storage and replay bind every projection to its request, principal, and result digest.
 
 ## 2. Role Model (4 tiers + Break-Glass)
 

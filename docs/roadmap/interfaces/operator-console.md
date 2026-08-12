@@ -37,37 +37,23 @@ what the system has already queued.
 
 Three properties follow directly:
 
-- **LLM is a translator, not a judge.** Natural language in, tool calls out;
-  tool results in, natural language out. The LLM never grants execution
-  eligibility - only the verifier does
+- **LLM is a translator, not a judge.** Natural language becomes tool calls and tool results become natural language; execution eligibility comes only from the verifier
   ([architecture.instructions.md § Design Principles](../../../.github/instructions/architecture.instructions.md#design-principles)).
-- **Tools expose pipeline stages, not primitive data sources.** Instead of
-  `query_log()` + `query_metric()` + `read_config()` that the LLM must
-  compose into a diagnosis, the console exposes
-  `describe_event()`, `explain_verdict()`, `simulate_change()`. The system
-  has already done the reasoning; the operator asks about the result.
-- **Growth is catalog growth, not model memory growth.** Recurring
-  investigation patterns become new rule candidates via the discovery loop
+- **Tools expose pipeline stages, not primitive data sources.** The console exposes
+  `describe_event()`, `explain_verdict()`, and `simulate_change()` instead of primitive log, metric,
+  and config queries. The system has already reasoned; the operator asks about the result.
+- **Growth is catalog growth, not model memory growth.** Recurring investigation patterns become
+  new rule candidates through the discovery loop
   ([architecture.instructions.md § Rule Catalog](../../../.github/instructions/architecture.instructions.md#rule-catalog)) -
-  not opaque LLM session memory. Every state that persists across
-  conversations lives in `audit_log` + `operator_memory` where it is
-  auditable, exportable, and CSP-neutral.
+  not opaque session memory. Persistent conversation state stays in auditable, exportable,
+  CSP-neutral `audit_log` and `operator_memory` records.
 
 Completed answers also enter the off-path [Conversation Assurance](../decisioning/conversation-assurance.md) loop. JSON and SSE adapters share the typed conversation-turn service and extracted request setup, evidence, progress, verification, and terminal-delivery helpers while preserving their existing wire contracts.
 Terminal intake preserves the exact verification reason and evidence-manifest completeness. Outcome summaries, context selection, Azure investigations, durable delivery, and attachment evidence remain owned by their typed providers; adapter modules only coordinate presentation and persistence.
-The version 1.2 semantic projection preserves that boundary across the independent service split.
-An `answered` disposition is accepted only with exact release, principal-manifest, plan, execution
-receipt, and evidence references. Missing or unavailable dependencies produce a typed limitation;
-the Operator Service cannot replace them with narrator knowledge or mark the turn verified.
-When semantic transport is configured, production composition builds one Operator-owned Event
-Hubs Kafka adapter for proposal publication and projection consumption. Bootstrap, request topic,
-and projection topic are all-or-none; the adapter uses the command managed identity, idempotent
-bounded JSON publication, manual commit after projection persistence, and sibling-DLQ handling for
-invalid JSON. Terraform supplies `operator.semantic-turn.requests` and
-`core.semantic-turn.projections`; the adapter rejects any other publish or subscription topic.
-Core renders verified query-table outputs deterministically, and Operator maps the durable result
-to the existing `done` event with answer, verification, intent graph, and evidence. Explicit
-injected providers keep precedence, and the local narrator is mutually exclusive.
+The version 1.2 semantic projection preserves this boundary across the service split: `answered` requires exact release, principal manifest, plan, execution receipt, and evidence references; unavailable dependencies return a typed limitation.
+One Operator-owned Event Hubs Kafka adapter publishes proposals and consumes projections with all-or-none topics, command identity, idempotent bounded JSON, post-persistence commits, and sibling-DLQ handling.
+Terraform pins the request and projection topics, while Core renders verified query tables and Operator maps durable results to the existing `done` event.
+Injected providers take precedence and the local narrator is exclusive.
 The Operator API never marks a review ready, creates a catalog proposal, or grants authority. Reporting an incorrect answer adds evidence for autonomous re-evaluation, and every governed transition still requires exact replay evidence plus the existing catalog lifecycle.
 ### 1.1 Vocabulary added to the shared glossary
 

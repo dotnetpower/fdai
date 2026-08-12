@@ -110,6 +110,10 @@ class DocumentIngestionEventConsumer:
         self._worker_owner: Final = resolved_owner
         self._lease_seconds: Final = lease_seconds
         self._readiness_freshness_seconds: Final = readiness_freshness_seconds
+        self._loop_readiness_freshness_seconds: Final = max(
+            readiness_freshness_seconds,
+            reconcile_interval_seconds + retry_seconds,
+        )
         self._monotonic: Final = monotonic
         self._reconcile_cursors: dict[DocumentState, UUID | None] = {}
         self._loop_failures: dict[str, str] = {}
@@ -142,7 +146,7 @@ class DocumentIngestionEventConsumer:
         return all(
             loop_name not in self._loop_failures
             and (last_success := self._loop_successes.get(loop_name)) is not None
-            and now - last_success <= self._readiness_freshness_seconds
+            and now - last_success <= self._loop_readiness_freshness_seconds
             for loop_name in (_OUTBOX_LOOP, _RECONCILE_LOOP)
         )
 

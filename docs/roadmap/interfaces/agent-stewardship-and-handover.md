@@ -409,6 +409,10 @@ state and renders the draft summary, YAML, and persisted governance PR receipt f
 doesn't apply the map or create a privileged mutation path. Local development stores drafts in memory;
 production stores them through `PostgresStateStore`, so a worker or gateway restart
 doesn't lose the review artifact.
+The independent local ingestion services also persist source and derived document objects under a
+private filesystem root and exchange lifecycle records through loopback Redpanda. These adapters
+change storage and transport only; the same `HandoverBootstrapConsumer` remains the accountable
+handover boundary.
 
 When a handover source is an image, optional Document Intelligence OCR remains inside the same
 agent-owned ingestion path. `FDAI_OCR_OPERATION_TIMEOUT_SECONDS` bounds submission, polling, and

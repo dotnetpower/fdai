@@ -13,6 +13,7 @@ from fdai.agents import (
     plan_conversation_tools,
 )
 from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
+from fdai.agents._framework.tool_examples import TOOL_EXAMPLES
 from fdai.agents._framework.tool_planner import ConversationToolPlan
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
@@ -147,6 +148,19 @@ def test_a_korean_question_selects_what_the_english_one_does() -> None:
 def test_a_korean_noun_is_found_through_its_particle() -> None:
     """Korean attaches particles to nouns, so exact matching is not enough."""
     assert plan_conversation_tools("비용은 얼마인가요") == plan_conversation_tools("비용")
+
+
+def test_operator_examples_drive_the_ontology_without_translation_hardcoding(monkeypatch) -> None:
+    """The planner discovers vocabulary from bilingual examples, not a fixed map."""
+    monkeypatch.setitem(
+        TOOL_EXAMPLES,
+        "read_budget_status",
+        ("Budget capacity is being consumed.", "한도 초과 상태를 확인해줘"),
+    )
+
+    plans = plan_conversation_tools("한도 초과 상태")
+
+    assert any(plan.tool_id == "read_budget_status" for plan in plans)
 
 
 # ---------------------------------------------------------------------------

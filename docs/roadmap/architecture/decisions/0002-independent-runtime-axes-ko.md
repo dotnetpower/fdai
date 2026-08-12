@@ -1,8 +1,8 @@
 ---
 title: ADR-0002 Independent Runtime and Customization Axes
 translation_of: 0002-independent-runtime-axes.md
-translation_source_sha: ba4109e72f05e2aeb703ab7b940aa209458b7296
-translation_revised: 2026-08-11
+translation_source_sha: f19def30ae7a8f18549ffadaa6ea6d22bbeae168
+translation_revised: 2026-08-12
 ---
 # ADR-0002: 독립적인 런타임 및 Customization 축
 
@@ -32,7 +32,7 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
 
 | 축 | 대표 값 | 권한 |
 |----|---------|-----------|
-| 실행 위치 | `local`, `deployed` | 프로세스 launcher |
+| 실행 위치 | `FDAI_EXECUTION_VENUE`를 통한 `local`, `deployed` | 프로세스 launcher |
 | 배포 환경 | `dev`, `staging`, `production` | 배포 구성 |
 | 근거 프로파일 | `authoritative`, `fixture` | 조립 루트 |
 | 액션 수명 주기 | `shadow`, `enforce` | ActionType 및 작업 흐름별 승격 레지스트리 |
@@ -76,6 +76,10 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
   브라우저 principal 또는 실행기 신원을 대체하지 않습니다.
 - 동일한 에이전트 pantheon, 카탈로그, 승격 레지스트리, risk 게이트, 프로세스 저널, 단계 이벤트를
   로컬에서도 실행합니다.
+- 독립 패키지로 구성된 백엔드 서비스 5개를 별도 로컬 프로세스로 실행합니다. 상태 저장 서비스는
+  Docker PostgreSQL의 역할 범위 DSN을 사용하고, 서비스 간 이벤트는 Docker Redpanda를 사용하며,
+  문서 검사는 Docker ClamAV를 사용합니다. Azure CLI는 권위 있는 Azure 읽기 및 모델 adapter로만
+  제한됩니다.
 - Interactive 읽기 조사는 로컬과 deployed 환경에서 같은 execution-mode 정책을
   사용합니다. 측정된 프로바이더 지연 시간은 선택 모드를 바꿀 수 있지만 실행 venue 자체는 바꿀 수
   없습니다.
@@ -85,6 +89,9 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
   EventBus가 에이전트 메시지와 상태를 전달하고 Azure 근거는 사용 불가 상태를 유지합니다.
 - Privileged 실행은 Thor의 deployed managed 신원 뒤에 유지합니다. 로컬 프로세스는
   통제된 명령을 개발 이벤트 버스로 publish하며 developer 토큰으로 실행하지 않습니다.
+- 로컬 격리 실행기는 managed resource identity 없이 영속 shadow receipt를 소비하고 기록합니다.
+  Authority cutover를 설정하면 시작 단계에서 거부합니다. Azure 배포는 서비스 소유 Azure Database
+  for PostgreSQL DSN, Event Hubs 및 연결된 managed identity를 사용합니다.
 - 권위 있는 프로바이더가 없으면 사용 불가로 표시하거나 실패 시 차단합니다. 고정본을 선택하지
   않습니다.
 

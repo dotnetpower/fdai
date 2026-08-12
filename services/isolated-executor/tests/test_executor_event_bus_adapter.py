@@ -59,6 +59,68 @@ def test_event_bus_bounds_and_namespace_audience() -> None:
         )
 
 
+async def test_plaintext_transport_needs_no_workload_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class _Producer:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaProducer", _Producer)
+    bus = EventHubsKafkaBus(
+        identity=None,
+        config=EventHubsKafkaBusConfig(
+            bootstrap_servers="127.0.0.1:19092",
+            security_protocol="PLAINTEXT",
+        ),
+    )
+
+    await bus.assert_publish_ready()
+
+    assert captured["security_protocol"] == "PLAINTEXT"
+    assert "sasl_mechanism" not in captured
+    assert "sasl_oauth_token_provider" not in captured
+
+
+def test_local_executor_config_is_shadow_only_without_managed_identity() -> None:
+    environment = {
+        "RUNTIME_ENV": "dev",
+        "FDAI_EXECUTION_VENUE": "local",
+        "KAFKA_BOOTSTRAP_SERVERS": "127.0.0.1:19092",
+        "FDAI_STATE_STORE_DSN": "postgresql://example.invalid/fdai",
+        "FDAI_DATABASE_ROLE": "fdai_executor",
+        "FDAI_ISOLATED_EXECUTOR_HEALTH_PORT": "8013",
+    }
+
+    config = executor_cli.IsolatedExecutorRuntimeConfig.from_env(environment)
+
+    assert config.execution_venue == "local"
+    assert config.authority_cutover is False
+    assert config.health_port == 8013
+
+
+def test_local_executor_rejects_authority_cutover() -> None:
+    environment = {
+        "RUNTIME_ENV": "dev",
+        "FDAI_EXECUTION_VENUE": "local",
+        "KAFKA_BOOTSTRAP_SERVERS": "127.0.0.1:19092",
+        "FDAI_STATE_STORE_DSN": "postgresql://example.invalid/fdai",
+        "FDAI_DATABASE_ROLE": "fdai_executor",
+        "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
+    }
+
+    with pytest.raises(RuntimeError, match="MUST NOT enable authority cutover"):
+        executor_cli.IsolatedExecutorRuntimeConfig.from_env(environment)
+
+
 def test_executor_cli_composes_the_service_owned_kafka_config() -> None:
     assert executor_cli.EventHubsKafkaBusConfig is EventHubsKafkaBusConfig
 

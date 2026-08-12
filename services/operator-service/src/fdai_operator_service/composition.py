@@ -285,14 +285,20 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
     bootstrap_servers = environment.kafka_bootstrap_servers
     if bootstrap_servers is None:
         raise RuntimeError("validated semantic Kafka bootstrap servers are missing")
-    credential = (
-        ManagedIdentityCredential(client_id=environment.managed_identity_client_id)
-        if environment.managed_identity_client_id is not None
-        else ManagedIdentityCredential()
-    )
+    execution_venue = environment.values.get("FDAI_EXECUTION_VENUE", "deployed").strip()
+    if execution_venue not in {"local", "deployed"}:
+        raise RuntimeError("FDAI_EXECUTION_VENUE MUST be local or deployed")
+    credential = None
+    if execution_venue == "deployed":
+        credential = (
+            ManagedIdentityCredential(client_id=environment.managed_identity_client_id)
+            if environment.managed_identity_client_id is not None
+            else ManagedIdentityCredential()
+        )
     return OperatorSemanticKafkaBus(
         config=OperatorSemanticKafkaConfig(
             bootstrap_servers=bootstrap_servers,
+            security_protocol="PLAINTEXT" if execution_venue == "local" else "SASL_SSL",
             request_topic=environment.semantic_request_topic or "operator.semantic-turn.requests",
             projection_topic=environment.semantic_projection_topic
             or "core.semantic-turn.projections",
