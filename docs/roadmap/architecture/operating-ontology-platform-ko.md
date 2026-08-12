@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: c53dc782fd8fba38508904bf963fcfec47afabff
-translation_revised: 2026-08-12
+translation_source_sha: 94e8645b9afe822ae3d4428e2832f02f9c75f7f8
+translation_revised: 2026-08-13
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -91,6 +91,14 @@ Core 런타임 시작은 이제 Rule, PolicyArtifact, ResourceType, SignalType, 
 ActionType 인스턴스를 하나의 catalog-owned subgraph에 변환 결과합니다. Pure 빌더는 누락된
 정책 의미 규칙과 ID 충돌을 차단합니다. Projector는 이전의 범위가 제한된 subgraph를 읽고
 원자적으로 교체하며, 동일한 재생은 no-op이므로 시작이 거짓 그래프 개정 번호를 만들지 않습니다.
+
+정본 release는 `ControlObjective`, `RuleObjectiveBinding`,
+`EquivalenceValidationReceipt`와 `objective_bound_by`, `binding_targets_rule`,
+`binding_validated_by` 관계도 선언합니다. 카탈로그 로더는 binding을 수락하기 전에 exact
+objective, Rule, 정책 구현 및 필수 근거 signature를 검증합니다. 이러한 선언과 candidate
+기록은 release vocabulary일 뿐입니다. 현재 시작 projector는 이를 런타임 subgraph에
+구체화하지 않으며, 의미 조회, binding 또는 receipt는 정책, 승격, 승인 또는 실행 권한을
+부여하지 않습니다. 결정론적 동등성 실행과 검토된 receipt 발급은 별도 전달 작업으로 남습니다.
 
 이 변환 결과는 카탈로그 관계를 조회 가능하게 만들지만 권위를 변경하지 않습니다. Git
 catalog-as-code가 계속 권위 원천이고 인스턴스 그래프는 읽기 모델로 유지됩니다. 선택적 로컬

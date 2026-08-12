@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
@@ -149,11 +151,23 @@ def rule_objective_binding_content_hash(binding: RuleObjectiveBinding) -> str:
     return canonical_catalog_digest(binding)
 
 
+def evidence_signature_digest(required_evidence_refs: tuple[str, ...]) -> str:
+    """Hash the canonical ordered evidence identities required by a binding."""
+
+    encoded = json.dumps(
+        required_evidence_refs,
+        ensure_ascii=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
 def load_rule_objective_binding_from_mapping(
     raw: Mapping[str, Any],
     *,
     objective_digests: Mapping[str, str],
     rule_digests: Mapping[str, str],
+    rule_implementation_digests: Mapping[str, str],
     evidence_refs: frozenset[str],
     equivalence_receipt_digests: Mapping[str, str] | None = None,
     reviewed_equivalence_receipt_refs: frozenset[str] = frozenset(),
@@ -169,6 +183,25 @@ def load_rule_objective_binding_from_mapping(
     issues: list[RuleObjectiveBindingIssue] = []
     _check_pin(binding.objective, objective_digests, "objective", origin, issues)
     _check_pin(binding.rule, rule_digests, "rule", origin, issues)
+    expected_implementation_digest = rule_implementation_digests.get(binding.rule.ref)
+    if expected_implementation_digest is None:
+        issues.append(
+            RuleObjectiveBindingIssue(
+                key=f"{origin}:implementation_signature_digest",
+                message=f"missing implementation signature for {binding.rule.ref!r}",
+            )
+        )
+    elif binding.implementation_signature_digest != expected_implementation_digest:
+        issues.append(
+            RuleObjectiveBindingIssue(
+                key=f"{origin}:implementation_signature_digest",
+                message=(
+                    f"implementation signature mismatch for {binding.rule.ref!r}: "
+                    f"expected {expected_implementation_digest}, "
+                    f"got {binding.implementation_signature_digest}"
+                ),
+            )
+        )
     for index, evidence_ref in enumerate(binding.required_evidence_refs):
         if evidence_ref not in evidence_refs:
             issues.append(
@@ -177,6 +210,17 @@ def load_rule_objective_binding_from_mapping(
                     message=f"unknown evidence reference {evidence_ref!r}",
                 )
             )
+    expected_evidence_digest = evidence_signature_digest(binding.required_evidence_refs)
+    if binding.evidence_signature_digest != expected_evidence_digest:
+        issues.append(
+            RuleObjectiveBindingIssue(
+                key=f"{origin}:evidence_signature_digest",
+                message=(
+                    f"evidence signature mismatch: expected {expected_evidence_digest}, "
+                    f"got {binding.evidence_signature_digest}"
+                ),
+            )
+        )
     if binding.equivalence_receipt is not None:
         _check_pin(
             binding.equivalence_receipt,
@@ -221,6 +265,7 @@ def load_rule_objective_binding_catalog(
     *,
     objective_digests: Mapping[str, str],
     rule_digests: Mapping[str, str],
+    rule_implementation_digests: Mapping[str, str],
     evidence_refs: frozenset[str],
     equivalence_receipt_digests: Mapping[str, str] | None = None,
     reviewed_equivalence_receipt_refs: frozenset[str] = frozenset(),
@@ -242,6 +287,7 @@ def load_rule_objective_binding_catalog(
                 raw,
                 objective_digests=objective_digests,
                 rule_digests=rule_digests,
+                rule_implementation_digests=rule_implementation_digests,
                 evidence_refs=evidence_refs,
                 equivalence_receipt_digests=equivalence_receipt_digests,
                 reviewed_equivalence_receipt_refs=reviewed_equivalence_receipt_refs,
@@ -334,6 +380,7 @@ __all__ = [
     "RuleObjectiveBindingCatalogError",
     "RuleObjectiveBindingIssue",
     "VariantDimension",
+    "evidence_signature_digest",
     "load_rule_objective_binding_catalog",
     "load_rule_objective_binding_from_mapping",
     "rule_objective_binding_content_hash",

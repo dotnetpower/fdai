@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+id: binding.node-pool-zone-resilience
+version: 1.0.0
+objective:
+  ref: reliability.node-pool.zone-failure-tolerance@1.0.0
+  content_digest: sha256:b96351b37e026718981e0d4efc6d58bc44acc06a23f9264dfe6b17e6faa15e13
+rule:
+  ref: kubernetes-node-pool.multi-zone@1.0.0
+  content_digest: sha256:0d49ffd31f62209d897bad938a6427854f1882d401c881ad747c51bad254220a
+relationship: partially_realizes
+applicability_delta: {}
+variant_dimensions:
+- evidence_shape
+implementation_signature_digest: sha256:0d2b0e852eeab28d3494c5106a9cbcbc0925aceb21a223eec9d5704488eb6173
+evidence_signature_digest: sha256:58e340526b7e356c56ce06a54fef0e4de6dcc5b31d7944f4600c75d332783ff5
+required_evidence_refs:
+- property.kubernetes-node-pool.availability_zones
+equivalence_receipt: null
+non_equivalence_reasons:
+- The authored Rule verifies multi-zone configuration but does not yet prove schedulability after an observed zone loss.
+reviewer: Mimir
+state: candidate
+content_digest: sha256:0c60f8963d010679e8de11145b53e64a5bb8d4e7da683bbde2625be7d97efcbf
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: rule-objective-binding:binding.node-pool-zone-resilience@1.0.0
+  content_hash: sha256:0c60f8963d010679e8de11145b53e64a5bb8d4e7da683bbde2625be7d97efcbf
+  license: MIT
+  retrieved_at: '2026-08-13T00:00:00Z'

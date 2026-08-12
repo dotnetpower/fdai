@@ -88,6 +88,15 @@ ActionType instances into one catalog-owned subgraph. The pure builder rejects m
 semantics and identity collisions. The projector reads the prior bounded subgraph and replaces it
 atomically; an identical replay is a no-op so startup doesn't manufacture graph revisions.
 
+The canonical release also declares `ControlObjective`, `RuleObjectiveBinding`, and
+`EquivalenceValidationReceipt`, with `objective_bound_by`, `binding_targets_rule`, and
+`binding_validated_by` relationships. Catalog loaders verify exact objective, Rule, policy
+implementation, and required-evidence signatures before accepting a binding. These declarations
+and candidate records are release vocabulary only: the current startup projector does not
+materialize them into the runtime subgraph, and no semantic query, binding, or receipt grants
+policy, promotion, approval, or execution authority. Deterministic equivalence execution and
+reviewed receipt issuance remain separate delivery work.
+
 This projection makes catalog relationships queryable but doesn't change their authority. Git
 catalog-as-code remains authoritative, and the instance graph remains a read model. If OPA or the
 ontology store is unavailable in an optional local profile, projection remains unavailable rather

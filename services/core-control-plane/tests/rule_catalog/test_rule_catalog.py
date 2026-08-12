@@ -19,6 +19,7 @@ from fdai.rule_catalog.schema.rule import (
     RuleCatalogError,
     load_rule_catalog,
     load_rule_from_mapping,
+    rule_content_hash,
 )
 from fdai.shared.contracts.models import Category, RuleSource, Severity
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
@@ -135,6 +136,25 @@ def test_single_valid_mapping_round_trips() -> None:
     assert rule.severity is Severity.HIGH
     assert rule.category is Category.SECURITY
     assert rule.alternatives == []
+
+
+def test_rule_content_hash_pins_semantics_not_provenance() -> None:
+    rule = load_rule_from_mapping(
+        _valid_raw(),
+        schema_registry=_registry(),
+        action_type_names={"remediate.disable-public-access"},
+        resource_type_ids={"object-storage"},
+    )
+
+    digest = rule_content_hash(rule)
+    changed_semantics = rule.model_copy(update={"severity": Severity.CRITICAL})
+    changed_provenance = rule.model_copy(
+        update={"provenance": rule.provenance.model_copy(update={"license": "MIT"})}
+    )
+
+    assert digest.startswith("sha256:")
+    assert rule_content_hash(changed_semantics) != digest
+    assert rule_content_hash(changed_provenance) == digest
 
 
 def test_applies_to_must_include_canonical_resource_type() -> None:

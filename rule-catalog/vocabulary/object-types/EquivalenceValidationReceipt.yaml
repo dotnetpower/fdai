@@ -1,0 +1,18 @@
+schema_version: "1.0.0"
+name: EquivalenceValidationReceipt
+version: "1.0.0"
+key: id
+description: Independent bounded evidence about relations between two exact Rule versions.
+properties:
+  id: {type: string, required: true}
+  version: {type: string, required: true}
+  result: {type: string, required: true}
+  reviewer: {type: string, required: true}
+  state: {type: string, required: true}
+  content_digest: {type: string, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:EquivalenceValidationReceipt@1.0.0
+  content_hash: sha256:7645578477f256eac0ff144994ab84d39000c129829baae9ad82eba8ceb9537a
+  license: MIT
+  retrieved_at: "2026-08-13T00:00:00Z"
