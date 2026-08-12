@@ -119,6 +119,7 @@ def test_diff_scoping_and_gate_cache_use_exact_head(tmp_path: Path) -> None:
     assert "mypy" not in first_commands
     assert "check-translations.sh" in first_commands
     assert "check-design-doc-impact.py HEAD^..HEAD" in first_commands
+    assert "check-roadmap-implementation-tracking.py HEAD^..HEAD" in first_commands
     assert command_log.read_text(encoding="utf-8") == first_commands * 2
     assert "CACHED" in second.stdout
 

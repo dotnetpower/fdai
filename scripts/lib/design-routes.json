@@ -16,6 +16,22 @@
       ]
     },
     {
+      "id": "roadmap-implementation-tracking",
+      "paths": [
+        ".github/instructions/roadmap-implementation-tracking.instructions.md",
+        ".github/skills/roadmap-implementation-tracking/**",
+        "docs/roadmap/**"
+      ],
+      "must_read": [
+        ".github/instructions/roadmap-implementation-tracking.instructions.md",
+        ".github/skills/roadmap-implementation-tracking/SKILL.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
       "id": "constitution",
       "paths": [
         ".github/copilot-instructions.md",
