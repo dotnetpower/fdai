@@ -9,6 +9,7 @@ from fdai.rule_catalog.schema.rule_objective_binding import (
     BindingState,
     RuleObjectiveBinding,
     RuleObjectiveBindingCatalogError,
+    build_rule_objective_binding_migration_report,
     evidence_signature_digest,
     load_rule_objective_binding_catalog,
     load_rule_objective_binding_from_mapping,
@@ -191,4 +192,35 @@ def test_catalog_requires_reviewed_coverage_for_every_authored_rule(
             equivalence_receipt_digests={_RECEIPT_REF: _DIGEST_C},
             reviewed_equivalence_receipt_refs=frozenset({_RECEIPT_REF}),
             required_reviewed_rule_refs=frozenset({_RULE_REF}),
+        )
+
+
+def test_migration_report_requires_one_outcome_for_every_authored_rule() -> None:
+    candidate = _load(_binding_mapping())
+
+    with pytest.raises(RuleObjectiveBindingCatalogError, match="no migration outcome"):
+        build_rule_objective_binding_migration_report(
+            authored_rule_refs=frozenset({_RULE_REF}),
+            bindings=(candidate,),
+        )
+
+    report = build_rule_objective_binding_migration_report(
+        authored_rule_refs=frozenset({_RULE_REF}),
+        bindings=(candidate,),
+        ambiguous_rule_refs=frozenset({_RULE_REF}),
+    )
+
+    assert report.authored_rule_refs == (_RULE_REF,)
+    assert report.bound_rule_refs == ()
+    assert report.ambiguous_rule_refs == (_RULE_REF,)
+
+
+def test_migration_report_rejects_overlapping_outcomes() -> None:
+    reviewed = _load(_with_state(_binding_mapping(), "reviewed"))
+
+    with pytest.raises(RuleObjectiveBindingCatalogError, match="both 'bound' and 'rejected'"):
+        build_rule_objective_binding_migration_report(
+            authored_rule_refs=frozenset({_RULE_REF}),
+            bindings=(reviewed,),
+            rejected_rule_refs=frozenset({_RULE_REF}),
         )

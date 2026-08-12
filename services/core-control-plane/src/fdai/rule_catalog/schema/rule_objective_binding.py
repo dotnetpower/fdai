@@ -147,6 +147,114 @@ class RuleObjectiveBindingCatalogError(ValueError):
         super().__init__(f"RuleObjectiveBinding validation failed: {preview}{suffix}")
 
 
+class RuleObjectiveBindingMigrationReport(BaseModel):
+    """Count-balanced, non-authoritative accounting for authored Rule migration."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    authored_rule_refs: tuple[Annotated[str, Field(pattern=_REFERENCE_PATTERN)], ...] = Field(
+        max_length=_MAX_ITEMS
+    )
+    bound_rule_refs: tuple[Annotated[str, Field(pattern=_REFERENCE_PATTERN)], ...] = Field(
+        max_length=_MAX_ITEMS
+    )
+    intentionally_unbound_rule_refs: tuple[
+        Annotated[str, Field(pattern=_REFERENCE_PATTERN)], ...
+    ] = Field(max_length=_MAX_ITEMS)
+    ambiguous_rule_refs: tuple[Annotated[str, Field(pattern=_REFERENCE_PATTERN)], ...] = Field(
+        max_length=_MAX_ITEMS
+    )
+    rejected_rule_refs: tuple[Annotated[str, Field(pattern=_REFERENCE_PATTERN)], ...] = Field(
+        max_length=_MAX_ITEMS
+    )
+
+    @model_validator(mode="after")
+    def require_canonical_partition(self) -> RuleObjectiveBindingMigrationReport:
+        partitions = (
+            self.bound_rule_refs,
+            self.intentionally_unbound_rule_refs,
+            self.ambiguous_rule_refs,
+            self.rejected_rule_refs,
+        )
+        for field_name, values in (
+            ("authored_rule_refs", self.authored_rule_refs),
+            ("bound_rule_refs", self.bound_rule_refs),
+            ("intentionally_unbound_rule_refs", self.intentionally_unbound_rule_refs),
+            ("ambiguous_rule_refs", self.ambiguous_rule_refs),
+            ("rejected_rule_refs", self.rejected_rule_refs),
+        ):
+            if values != tuple(sorted(set(values))):
+                raise ValueError(f"{field_name} MUST be unique and ordered")
+        accounted = tuple(sorted(rule_ref for partition in partitions for rule_ref in partition))
+        if accounted != self.authored_rule_refs:
+            raise ValueError("migration outcomes MUST partition every authored Rule exactly once")
+        return self
+
+
+def build_rule_objective_binding_migration_report(
+    *,
+    authored_rule_refs: frozenset[str],
+    bindings: tuple[RuleObjectiveBinding, ...],
+    intentionally_unbound_rule_refs: frozenset[str] = frozenset(),
+    ambiguous_rule_refs: frozenset[str] = frozenset(),
+    rejected_rule_refs: frozenset[str] = frozenset(),
+) -> RuleObjectiveBindingMigrationReport:
+    """Build a complete migration partition without treating candidates as bound."""
+
+    bound_rule_refs = {
+        binding.rule.ref
+        for binding in bindings
+        if binding.state in {BindingState.REVIEWED, BindingState.PROMOTED}
+    }
+    named_partitions = {
+        "bound": bound_rule_refs,
+        "intentionally_unbound": set(intentionally_unbound_rule_refs),
+        "ambiguous": set(ambiguous_rule_refs),
+        "rejected": set(rejected_rule_refs),
+    }
+    issues: list[RuleObjectiveBindingIssue] = []
+    seen: dict[str, str] = {}
+    for partition_name, rule_refs in named_partitions.items():
+        for rule_ref in sorted(rule_refs):
+            if rule_ref not in authored_rule_refs:
+                issues.append(
+                    RuleObjectiveBindingIssue(
+                        key=f"migration:{partition_name}:{rule_ref}",
+                        message=f"migration outcome references unknown authored Rule {rule_ref!r}",
+                    )
+                )
+            previous_partition = seen.get(rule_ref)
+            if previous_partition is not None:
+                issues.append(
+                    RuleObjectiveBindingIssue(
+                        key=f"migration:{rule_ref}",
+                        message=(
+                            f"authored Rule {rule_ref!r} appears in both "
+                            f"{previous_partition!r} and {partition_name!r} outcomes"
+                        ),
+                    )
+                )
+            else:
+                seen[rule_ref] = partition_name
+    for rule_ref in sorted(authored_rule_refs - seen.keys()):
+        issues.append(
+            RuleObjectiveBindingIssue(
+                key=f"migration:unaccounted:{rule_ref}",
+                message=f"authored Rule {rule_ref!r} has no migration outcome",
+            )
+        )
+    if issues:
+        raise RuleObjectiveBindingCatalogError(issues)
+
+    return RuleObjectiveBindingMigrationReport(
+        authored_rule_refs=tuple(sorted(authored_rule_refs)),
+        bound_rule_refs=tuple(sorted(bound_rule_refs)),
+        intentionally_unbound_rule_refs=tuple(sorted(intentionally_unbound_rule_refs)),
+        ambiguous_rule_refs=tuple(sorted(ambiguous_rule_refs)),
+        rejected_rule_refs=tuple(sorted(rejected_rule_refs)),
+    )
+
+
 def rule_objective_binding_content_hash(binding: RuleObjectiveBinding) -> str:
     return canonical_catalog_digest(binding)
 
@@ -392,7 +500,9 @@ __all__ = [
     "RuleObjectiveBinding",
     "RuleObjectiveBindingCatalogError",
     "RuleObjectiveBindingIssue",
+    "RuleObjectiveBindingMigrationReport",
     "VariantDimension",
+    "build_rule_objective_binding_migration_report",
     "evidence_signature_digest",
     "load_rule_objective_binding_catalog",
     "load_rule_objective_binding_from_mapping",
