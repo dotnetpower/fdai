@@ -411,6 +411,8 @@ async def test_claim_test_clock_controls_eligibility_and_lease() -> None:
     statement, parameters = captured[0]
     assert statement.count("COALESCE(%(test_now)s::timestamptz, NOW())") == 2
     assert "make_interval(secs => %(lease_seconds)s)" in statement
+    assert "'claim_id', %(claim_id)s::text" in statement
+    assert "'lease_owner', %(worker_id)s::text" in statement
     assert statement.count("NOW()") == 3
     assert parameters["test_now"] == test_now
     assert parameters["lease_seconds"] == 30
@@ -559,7 +561,27 @@ async def test_result_collision_binds_request_principal_and_digest() -> None:
     assert "existing.value ->> 'request_id' = %(request_id)s" in normalized_statement
     assert "existing.value ->> 'principal_id' = owned_request.principal_id" in normalized_statement
     assert "existing.value ->> 'projection_digest' = %(projection_digest)s" in normalized_statement
+    assert "'completed_at', %(recorded_at)s::text" in normalized_statement
     assert "EXISTS (SELECT 1 FROM accepted)" in normalized_statement
+
+
+async def test_semantic_claim_transition_casts_json_text_values() -> None:
+    captured: list[str] = []
+
+    async def fetch_all(
+        statement: str,
+        _parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        captured.append(statement)
+        return []
+
+    repository = PostgresSemanticTurnRepository(
+        fetch_all=fetch_all,
+        insert_if_absent=cast(Any, object()),
+    )
+
+    assert await repository.mark_published(key="outbox-key", claim_id="claim-id") is False
+    assert "'state', %(state)s::text" in captured[0]
 
 
 async def test_semantic_replay_rejects_another_principal() -> None:

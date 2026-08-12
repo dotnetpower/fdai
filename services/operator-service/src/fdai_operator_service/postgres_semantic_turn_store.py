@@ -143,8 +143,8 @@ class PostgresSemanticTurnRepository:
             UPDATE state_kv AS target
                SET value = target.value || jsonb_build_object(
                        'state', 'claimed',
-                       'claim_id', %(claim_id)s,
-                       'lease_owner', %(worker_id)s,
+                       'claim_id', %(claim_id)s::text,
+                       'lease_owner', %(worker_id)s::text,
                        'lease_until',
                            COALESCE(%(test_now)s::timestamptz, NOW())
                                + make_interval(secs => %(lease_seconds)s),
@@ -323,7 +323,7 @@ class PostgresSemanticTurnRepository:
             """
             UPDATE state_kv
                SET value = value || jsonb_build_object(
-                       'state', %(state)s,
+                       'state', %(state)s::text,
                        'claim_id', NULL,
                        'lease_owner', NULL,
                        'lease_until', NULL
@@ -392,7 +392,7 @@ class PostgresSemanticTurnRepository:
                 UPDATE state_kv AS target
                    SET value = target.value || jsonb_build_object(
                            'state', 'completed',
-                           'completed_at', %(recorded_at)s
+                       'completed_at', %(recorded_at)s::text
                        ),
                        updated_at = NOW()
                   FROM owned_request

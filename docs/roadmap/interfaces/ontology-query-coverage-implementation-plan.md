@@ -35,7 +35,9 @@ units for 100% structural query coverage.
 > publishes terminal projections, and reports exact missing-provider reasons through startup
 > readiness. Operator outbox publication, durable replay, and Console `done` projection are now
 > composed. POST replay waits through the request deadline and persists a typed hold when no Core
-> projection arrives; receipt-backed live integration evidence remains the release gate.
+> projection arrives. Operator persistence explicitly types JSONB text parameters so real psycopg
+> claim and projection paths remain executable; receipt-backed live integration evidence remains
+> the release gate.
 >
 > **Implementation status (2026-08-10):** Exact ontology releases, semantic candidates, bounded
 > ObjectSets, secured query receipts, typed function registration, current inventory projection,

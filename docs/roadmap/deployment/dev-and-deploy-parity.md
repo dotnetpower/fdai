@@ -317,6 +317,7 @@ without creating synthetic metrics or giving the console a write path.
 The local runtime environment generator reads transport settings from applied Terraform outputs,
 including semantic logical/physical topics used by deadline-bound durable replay. It compares the Terraform
 executor identity subscription with Azure CLI and stops before lookup or file creation when they differ.
+Both profiles execute the same explicitly typed semantic JSONB claim and projection statements.
 It also derives a non-identifying consumer instance hash from the local user and host so concurrent
 developers never join the same Event Hubs Kafka consumer group. Automation can set
 `FDAI_LOCAL_CONSUMER_INSTANCE` to a lowercase alphanumeric-and-hyphen identifier of at most 20

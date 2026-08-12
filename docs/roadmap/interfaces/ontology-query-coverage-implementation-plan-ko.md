@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 5ca157ec9d9ee392928abb796ca81d32c6cc0be1
+translation_source_sha: 8507204b44b2bafb1310722c6a3ba6f3f9df2603
 translation_revised: 2026-08-12
 ---
 
@@ -34,7 +34,9 @@ translation_revised: 2026-08-12
 > 요청을 consume하고 정본 결과를 저장하며 최종 변환 결과를 publish하고 시작
 > 준비 상태에 exact missing-provider 사유를 보고합니다. Operator 발신함 게시, 영속 재생 및
 > Console `done` 변환 결과는 이제 compose됩니다. POST 재생은 요청 기한까지 기다리고 Core 변환 결과가
-> 없으면 typed hold를 영속화합니다. Receipt-backed 실제 운영 통합 근거는 release 게이트로 유지됩니다.
+> 없으면 typed hold를 영속화합니다. Operator 영속성은 JSONB text parameter의 타입을 명시하여 실제
+> psycopg claim 및 변환 결과 경로를 실행 가능하게 유지합니다. Receipt-backed 실제 운영 통합 근거는
+> release 게이트로 유지됩니다.
 >
 > **구현 상태(2026-08-10):** Exact 온톨로지 release, 의미 후보, 범위가 제한된 ObjectSet, secured 조회
 > 증적, 타입이 지정된 함수 등록, 현재 인벤토리 변환 결과, 메트릭 프로바이더 및 causal-analysis

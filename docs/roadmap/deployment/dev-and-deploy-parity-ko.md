@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: faf8f1a933a2be5969f0a3eac7cf52521cd176f6
+translation_source_sha: e67739c5a1a6e178591047741da60a6c718f6977
 translation_revised: 2026-08-12
 ---
 
@@ -320,7 +320,7 @@ Container Apps 작업으로 raw 틱을 제공하고 로컬 개발은 synthetic �
 
 로컬 런타임 환경 generator는 applied Terraform 출력에서 기한이 제한된 영속 재생에 사용하는
 semantic logical/physical topic을 포함한 전송 계층 설정을 읽습니다. Terraform 실행기 신원의 구독과
-Azure CLI 구독을 비교하고 둘이 다르면 리소스 조회나 파일 생성 전에 중단합니다.
+Azure CLI 구독을 비교하고 둘이 다르면 리소스 조회나 파일 생성 전에 중단합니다. 두 프로파일은 명시적으로 타입이 지정된 동일한 semantic JSONB claim 및 변환 결과 statement를 실행합니다.
 또한 로컬 user와 호스트에서 식별 정보를 노출하지 않는 소비자 인스턴스 해시를 파생하므로 동시에
 실행하는 개발자가 같은 Event Hubs Kafka 소비자 그룹에 참여하지 않습니다. 자동화에서
 명시적으로 안정된 이름이 필요하면 `FDAI_LOCAL_CONSUMER_INSTANCE`에 최대 20자의 lowercase
