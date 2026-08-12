@@ -108,6 +108,8 @@ Event Hubs entity. The logical request and projection names remain distinct cont
 configuration values; neither becomes a standalone Azure Event Hub. Both independent roots must
 pass `terraform validate` before state migration or a protected plan; a root-only field that the
 child module drops is a deployment contract failure, not an optional runtime degradation.
+Local runtime preparation carries the same bootstrap, logical names, and physical-topic marker into
+the independent Operator environment; a partial triplet stops before either service starts.
 
 After Core state ownership moves to `services/core-control-plane/<environment>.tfstate`, the
 legacy platform root retains the shared Container Apps environment and scheduled Jobs but no

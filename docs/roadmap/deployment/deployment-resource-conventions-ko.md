@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 80b881bd7b807b3254e103bbf5a1a77b4d4e79e0
+translation_source_sha: a4533cec89ef442495a42d17ffbcfe821a10c785
 translation_revised: 2026-08-12
 ---
 # 배포 리소스 규약
@@ -110,6 +110,8 @@ logical request와 projection 이름은 서로 다른 contract 및 설정 값으
 Azure Event Hub가 되지 않습니다. 상태 이행 또는 보호된 플랜 전에 두 독립 루트 모두
 `terraform validate`를 통과해야 합니다. 루트에만 있고 하위 모듈에서 빠진 필드는 선택적인 런타임
 성능 저하가 아니라 배포 계약 실패입니다.
+로컬 런타임 준비는 동일한 bootstrap, logical 이름 및 physical-topic marker를 독립 Operator 환경에
+전달합니다. 일부만 있는 세 값은 어느 서비스도 시작하기 전에 차단됩니다.
 
 Core 상태 소유권이 `services/core-control-plane/<environment>.tfstate`로 이동한 후 이전 방식
 platform 루트는 공유 Container Apps 환경과 예약된 Job을 유지하지만 Core Container App 리소스는

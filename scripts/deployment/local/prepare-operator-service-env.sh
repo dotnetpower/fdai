@@ -48,8 +48,9 @@ fi
 semantic_bootstrap="${FDAI_KAFKA_BOOTSTRAP_SERVERS:-}"
 semantic_request_topic="${FDAI_SEMANTIC_TURN_REQUEST_TOPIC:-}"
 semantic_projection_topic="${FDAI_SEMANTIC_TURN_PROJECTION_TOPIC:-}"
-if [[ -n "$semantic_request_topic" || -n "$semantic_projection_topic" ]]; then
-  if [[ -z "$semantic_bootstrap" || -z "$semantic_request_topic" || -z "$semantic_projection_topic" ]]; then
+semantic_physical_topic="${FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC:-}"
+if [[ -n "$semantic_request_topic" || -n "$semantic_projection_topic" || -n "$semantic_physical_topic" ]]; then
+  if [[ -z "$semantic_bootstrap" || -z "$semantic_request_topic" || -z "$semantic_projection_topic" || -z "$semantic_physical_topic" ]]; then
     echo "local semantic Kafka values MUST already be configured together" >&2
     exit 1
   fi
@@ -60,7 +61,7 @@ umask 077
 temp_env="$(mktemp "${output_env}.XXXXXX")"
 trap 'rm -f "$temp_env"' EXIT
 
-grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_ENTRA_TENANT_ID|FDAI_API_AUDIENCE|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_SEMANTIC_TURN_(REQUEST|PROJECTION)_TOPIC|FDAI_RBAC_(READERS|CONTRIBUTORS|APPROVERS|OWNERS|BREAK_GLASS)_GROUP_ID|FDAI_OPERATOR_SERVICE_(HOST|PORT|LOCAL_AZURE_NARRATOR)|FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS)=' \
+grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_ENTRA_TENANT_ID|FDAI_API_AUDIENCE|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_SEMANTIC_TURN_(REQUEST|PROJECTION|PHYSICAL)_TOPIC|FDAI_RBAC_(READERS|CONTRIBUTORS|APPROVERS|OWNERS|BREAK_GLASS)_GROUP_ID|FDAI_OPERATOR_SERVICE_(HOST|PORT|LOCAL_AZURE_NARRATOR)|FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS)=' \
   "$runtime_env" > "$temp_env" || true
 {
   printf 'FDAI_DATABASE_URL=%s\n' "$operator_database_url"
@@ -80,6 +81,7 @@ grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_ENTRA_TENANT_ID|FDAI_API_A
     printf 'FDAI_KAFKA_BOOTSTRAP_SERVERS=%s\n' "$semantic_bootstrap"
     printf 'FDAI_SEMANTIC_TURN_REQUEST_TOPIC=%s\n' "$semantic_request_topic"
     printf 'FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=%s\n' "$semantic_projection_topic"
+    printf 'FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=%s\n' "$semantic_physical_topic"
   else
     printf 'FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR=1\n'
   fi

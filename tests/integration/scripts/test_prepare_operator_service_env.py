@@ -24,6 +24,7 @@ def _repo(tmp_path: Path, *, semantic: str) -> Path:
             "FDAI_KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093\n"
             "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests\n"
             "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections\n"
+            "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=aw.pantheon.objects\n"
         ),
         "partial": "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests\n",
         "absent": "",
@@ -62,10 +63,12 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
         assert "FDAI_KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093" in rendered
         assert "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests" in rendered
         assert "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections" in rendered
+        assert "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=aw.pantheon.objects" in rendered
         assert "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR=" not in rendered
     else:
         assert "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=" not in rendered
         assert "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=" not in rendered
+        assert "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=" not in rendered
         assert "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR=1" in rendered
 
 
