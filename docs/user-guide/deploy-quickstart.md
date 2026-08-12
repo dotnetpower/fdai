@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: caef610260677095df0c7a8374cc799970ca5462 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 86f30033bda8e7ebd3f0cd795d8faf14af342171 }]
 ---
 
 # Deploy Quickstart
@@ -43,6 +43,11 @@ first, so you can review the plan before you run the separate apply step.
 - To preview the internal Isolated Executor, select `deploy_isolated_executor`
   in the private-runner workflow. It remains plan-only until you separately
   approve apply, and the shadow identity receives no action-specific effect role.
+- To provision the bounded OHL scale-out evidence target, enable
+  `enable_ohl_scale_out_evidence_target` only in `dev` with private networking and the
+  development operations gateway. Supply an exact image version and the protected workflow's SSH
+  public-key input. The target starts at capacity `1` and governed evidence runs may increase it
+  only to `2` before verified rollback.
 
 ## Provision the minimum inventory
 
