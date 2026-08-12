@@ -16,6 +16,12 @@ PROFILE_PATH = VSCODE_DIR / "fdai.code-profile"
 MACHINE_TEMPLATE_PATH = VSCODE_DIR / "fdai.machine-settings.json"
 UNWANTED_TERRAFORM_EXTENSION = "ms-azuretools.vscode-azureterraform"
 TERRAFORM_LS_RESERVED_IGNORE_DIRECTORY_NAMES = frozenset({".terraform"})
+UNISOLATED_REMOTE_MACHINE_SETTINGS = frozenset(
+    {
+        "python.analysis.nodeArguments",
+        "python.analysis.nodeExecutable",
+    }
+)
 
 
 class ProfileContractError(ValueError):
@@ -90,6 +96,15 @@ def _profile_settings(profile: dict[str, object]) -> dict[str, object]:
     return settings
 
 
+def _validate_profile_settings(settings: dict[str, object]) -> None:
+    present_machine_keys = sorted(UNISOLATED_REMOTE_MACHINE_SETTINGS & settings.keys())
+    if present_machine_keys:
+        raise ProfileContractError(
+            "Remote WSL Pylance machine settings cannot be isolated by profile: "
+            f"{present_machine_keys}"
+        )
+
+
 def _validate_machine_settings(settings: dict[str, object]) -> None:
     key = "terraform.languageServer.indexing.ignoreDirectoryNames"
     ignored_names = _string_set(settings.get(key), label=key)
@@ -133,16 +148,7 @@ def validate_artifacts(vscode_dir: Path = VSCODE_DIR) -> tuple[int, int]:
         raise ProfileContractError("Microsoft Terraform must remain an unwanted recommendation")
 
     settings = _profile_settings(profile)
-    forbidden_machine_keys = {
-        "python.analysis.nodeArguments",
-        "python.analysis.nodeExecutable",
-    }
-    present_machine_keys = sorted(forbidden_machine_keys & settings.keys())
-    if present_machine_keys:
-        raise ProfileContractError(
-            "Remote WSL Pylance machine settings cannot be isolated by profile: "
-            f"{present_machine_keys}"
-        )
+    _validate_profile_settings(settings)
     profile_machine_settings = {key: settings.get(key) for key in machine_template}
     if profile_machine_settings != machine_template:
         raise ProfileContractError("profile and machine settings template have drifted")
@@ -207,7 +213,10 @@ def profile_settings_match(destination: Path, profile_path: Path = PROFILE_PATH)
     if not isinstance(current, dict) or not isinstance(profile, dict):
         raise ProfileContractError("profile settings and profile must be JSON objects")
     expected = _profile_settings(profile)
-    return all(current.get(key) == value for key, value in expected.items())
+    _validate_profile_settings(expected)
+    return all(current.get(key) == value for key, value in expected.items()) and not (
+        UNISOLATED_REMOTE_MACHINE_SETTINGS & current.keys()
+    )
 
 
 def apply_profile_settings(destination: Path, profile_path: Path = PROFILE_PATH) -> bool:
@@ -215,13 +224,19 @@ def apply_profile_settings(destination: Path, profile_path: Path = PROFILE_PATH)
     if not isinstance(profile, dict):
         raise ProfileContractError("profile must be a JSON object")
     expected = _profile_settings(profile)
+    _validate_profile_settings(expected)
     if destination.exists():
         current = _read_json(destination)
         if not isinstance(current, dict):
             raise ProfileContractError("existing profile settings must be a JSON object")
     else:
         current = {}
-    merged = {**current, **expected}
+    retained = {
+        key: value
+        for key, value in current.items()
+        if key not in UNISOLATED_REMOTE_MACHINE_SETTINGS
+    }
+    merged = {**retained, **expected}
     if merged == current:
         return False
 

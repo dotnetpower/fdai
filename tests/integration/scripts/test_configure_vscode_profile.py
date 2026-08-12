@@ -140,8 +140,7 @@ def test_apply_profile_settings_preserves_local_values_and_is_idempotent(
             {
                 "settings": json.dumps(
                     {
-                        "python.analysis.nodeArguments": ["--max-old-space-size=2048"],
-                        "python.analysis.nodeExecutable": "auto",
+                        "chat.contextUsage.enabled": True,
                     }
                 )
             }
@@ -149,13 +148,21 @@ def test_apply_profile_settings_preserves_local_values_and_is_idempotent(
         encoding="utf-8",
     )
     destination.parent.mkdir(parents=True)
-    destination.write_text(json.dumps({"chat.agent.maxRequests": 9999}), encoding="utf-8")
+    destination.write_text(
+        json.dumps(
+            {
+                "chat.agent.maxRequests": 9999,
+                "python.analysis.nodeArguments": ["--max-old-space-size=2048"],
+                "python.analysis.nodeExecutable": "auto",
+            }
+        ),
+        encoding="utf-8",
+    )
 
     assert module.apply_profile_settings(destination, profile) is True
     assert json.loads(destination.read_text(encoding="utf-8")) == {
         "chat.agent.maxRequests": 9999,
-        "python.analysis.nodeArguments": ["--max-old-space-size=2048"],
-        "python.analysis.nodeExecutable": "auto",
+        "chat.contextUsage.enabled": True,
     }
     assert module.apply_profile_settings(destination, profile) is False
     assert module.profile_settings_match(destination, profile) is True
