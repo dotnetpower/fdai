@@ -81,6 +81,36 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > are Low. Round 12 rejected retroactive release assignment for legacy reads. Round 13 confirmed
 > that a successful update creates and pins a newly validated current-state revision.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| K0 exact release identity and persistence | in-progress | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`test_postgres_ontology_store.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_postgres_ontology_store.py) | Exact identity and pinned writes exist; pre-migration rows remain honestly unpinned. |
+| K1-K5 bounded semantic query and function infrastructure | in-progress | [`ontology_platform`](../../../services/core-control-plane/src/fdai/core/ontology_platform/), [`test_operational_functions.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_operational_functions.py) | Core primitives exist, but additional Interfaces and production provider bindings remain open. |
+| Catalog projection and exact-generation Rule retrieval | implemented | [`catalog_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py), [`test_catalog_queries.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_catalog_queries.py), commit `e4d9483a5` | `catalog.search_rules` returns bounded ranked candidates with an exact-generation receipt and grants no judgment or action authority. Control-objective instances are not yet materialized by startup projection. |
+| Historical topology, metric semantics, and reconciliation | in-progress | [`bitemporal_topology.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/bitemporal_topology.py), [`metric_semantics.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/metric_semantics.py), [`reconciliation_state_store.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_state_store.py) | Contracts and pure or durable foundations exist; production composition and publishers remain incomplete. |
+| K6-K8 graph-wide Dynamic evidence | in-progress | [Dynamic model maturity](#dynamic-model-maturity) | Action and metric simulation exists; graph propagation, trajectory closure, and failure attribution remain open. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source and tests listed in the scope table. | Complete the observable exit conditions below. |
+| 2026-08-13 | implemented | Added exact-generation, read-only `catalog.search_rules` candidate retrieval with bounded ranking and content-addressed receipts. | Commit `e4d9483a5`; focused `test_catalog_queries.py` reports 2 passed. | Compose objective-aware retrieval and validate it without granting evaluation or execution authority. |
+
+### Remaining work
+
+- [ ] Materialize the reviewed control-objective and binding vocabulary in the bounded startup
+  projection, then prove exact release identity and zero authority fields in focused tests.
+- [ ] Bind PostgreSQL historical topology, production metric providers, and inventory-promotion
+  publishing, then retain replay and completeness receipts from the focused integration checks.
+- [ ] Compose the reconciliation coordinator and publish its proposal-only outbox recommendation
+  through the event bus with restart, duplicate-delivery, and terminal-closure evidence.
+- [ ] Exit K6-K8 only after deterministic graph propagation, time-bounded trajectory invariants,
+  independent outcome closure, and failure-attribution tests all pass on one pinned release.
+
 ## Catalog-owned instance projection
 
 Core runtime startup now projects Rule, PolicyArtifact, ResourceType, SignalType, Property, and
