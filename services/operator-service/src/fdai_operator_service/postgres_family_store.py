@@ -57,6 +57,16 @@ SELECT (
     AND NOT has_table_privilege(current_user, 'llm_invocation', 'TRUNCATE')
     AND NOT has_table_privilege(current_user, 'llm_invocation', 'REFERENCES')
     AND NOT has_table_privilege(current_user, 'llm_invocation', 'TRIGGER')
+    AND has_table_privilege(current_user, 'inventory_snapshot', 'SELECT')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot', 'INSERT,UPDATE,DELETE')
+    AND has_table_privilege(current_user, 'inventory_snapshot_resource', 'SELECT')
+    AND NOT has_table_privilege(
+        current_user, 'inventory_snapshot_resource', 'INSERT,UPDATE,DELETE'
+    )
+    AND has_table_privilege(current_user, 'inventory_snapshot_link', 'SELECT')
+    AND NOT has_table_privilege(
+        current_user, 'inventory_snapshot_link', 'INSERT,UPDATE,DELETE'
+    )
        ) AS ready
   FROM pg_catalog.pg_roles AS login_role
  WHERE login_role.rolname = current_user

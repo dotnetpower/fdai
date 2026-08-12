@@ -37,6 +37,7 @@ from fdai_operator_service.parity import BLOCKED_ROUTE_PATHS, PARITY_COMPLETE, R
 from fdai_operator_service.postgres import PostgresOperatorReadModel
 from fdai_operator_service.production import serve
 from fdai_service_contracts import (
+    AgentActivityQuery,
     AuditQuery,
     HilQueueProjection,
     HilQueueQuery,
@@ -60,6 +61,7 @@ BASE_ENV = {
 }
 
 EXPECTED_ROUTES = (
+    (("GET", "HEAD"), "/agents/activity", "get_agent_activity"),
     (("GET", "HEAD"), "/agents/stream", "agent_stream"),
     (("GET", "HEAD"), "/audit", "get_audit"),
     (("GET", "HEAD"), "/audit/{correlation_id}/trace", "rule_fire_trace"),
@@ -82,6 +84,10 @@ EXPECTED_ROUTES = (
 
 class EmptyReadModel(OperatorReadModel):
     """Authoritative empty projection used only by service boundary tests."""
+
+    async def list_agent_activity(self, query: AgentActivityQuery) -> JsonProjection:
+        del query
+        return JsonProjection({"items": [], "snapshot_at": "", "source": "durable"})
 
     async def list_audit(self, query: AuditQuery) -> PageProjection:
         del query
@@ -284,6 +290,20 @@ def test_agent_stream_requires_reader_authentication_before_opening() -> None:
     response = _client(read_model=EmptyReadModel()).get("/agents/stream")
 
     assert response.status_code == 401
+
+
+def test_agent_activity_requires_reader_and_returns_durable_snapshot() -> None:
+    client = _client(read_model=EmptyReadModel())
+
+    unauthenticated = client.get("/agents/activity")
+    success = client.get(
+        "/agents/activity?limit=25",
+        headers={"Authorization": "Bearer reader"},
+    )
+
+    assert unauthenticated.status_code == 401
+    assert success.status_code == 200
+    assert success.json() == {"items": [], "snapshot_at": "", "source": "durable"}
 
 
 def test_authenticated_audit_envelopes_are_stable() -> None:

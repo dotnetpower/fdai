@@ -19,6 +19,9 @@ from fdai_operator_service.postgres_family_store import (
 )
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_operator_service.postgres_sql import (
+    AGENT_INVENTORY_ACTIVITY_SQL,
+    AGENT_ONTOLOGY_ACTIVITY_SQL,
+    AGENT_READ_ACTIVITY_SQL,
     AUDIT_PAGE_SQL,
     HIL_COUNT_SQL,
     HIL_PAGE_SQL,
@@ -30,6 +33,7 @@ from fdai_operator_service.postgres_sql import (
 )
 from fdai_operator_service.routes import _sse_frame
 from fdai_service_contracts import (
+    AgentActivityQuery,
     AuditQuery,
     HilQueueQuery,
     IncidentAttentionQuery,
@@ -115,6 +119,12 @@ async def test_operator_readiness_verifies_role_and_privileges_without_durable_w
         "NOT has_table_privilege(current_user, 'llm_invocation', 'INSERT')",
         "NOT has_table_privilege(current_user, 'llm_invocation', 'UPDATE')",
         "NOT has_table_privilege(current_user, 'llm_invocation', 'DELETE')",
+        "has_table_privilege(current_user, 'inventory_snapshot', 'SELECT')",
+        "NOT has_table_privilege(current_user, 'inventory_snapshot', 'INSERT,UPDATE,DELETE')",
+        "has_table_privilege(current_user, 'inventory_snapshot_resource', 'SELECT')",
+        "'inventory_snapshot_resource', 'INSERT,UPDATE,DELETE'",
+        "has_table_privilege(current_user, 'inventory_snapshot_link', 'SELECT')",
+        "'inventory_snapshot_link', 'INSERT,UPDATE,DELETE'",
         "NOT has_schema_privilege(current_user, 'public', 'CREATE')",
     ):
         assert fragment in statement
@@ -177,6 +187,9 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
         self.llm_summary_rows: list[dict[str, object]] = []
         self.llm_conversation_rows: list[dict[str, object]] = []
         self.llm_record_rows: list[dict[str, object]] = []
+        self.inventory_activity_rows: list[dict[str, object]] = []
+        self.ontology_activity_rows: list[dict[str, object]] = []
+        self.read_activity_rows: list[dict[str, object]] = []
 
     async def _fetch_all(
         self,
@@ -200,7 +213,41 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
             return self.llm_conversation_rows
         if statement == LLM_USAGE_RECORDS_SQL:
             return self.llm_record_rows
+        if statement == AGENT_INVENTORY_ACTIVITY_SQL:
+            return self.inventory_activity_rows
+        if statement == AGENT_ONTOLOGY_ACTIVITY_SQL:
+            return self.ontology_activity_rows
+        if statement == AGENT_READ_ACTIVITY_SQL:
+            return self.read_activity_rows
         raise AssertionError("unexpected SQL statement")
+
+
+@pytest.mark.asyncio
+async def test_agent_activity_reads_each_durable_source_with_bounded_limits() -> None:
+    model = StubPostgresReadModel()
+    model.inventory_activity_rows = [
+        {
+            "id": "attempt-1",
+            "status": "active",
+            "source": "azure-resource-graph",
+            "started_at": _NOW,
+            "completed_at": _NOW,
+            "failure_code": None,
+            "resource_count": 2,
+            "link_count": 1,
+        }
+    ]
+
+    payload = (await model.list_agent_activity(AgentActivityQuery(limit=25))).to_dict()
+
+    assert payload["items"][0]["kind"] == "inventory.scan"
+    assert payload["items"][0]["evidence_count"] == 3
+    inventory_call = next(call for call in model.calls if call[0] == AGENT_INVENTORY_ACTIVITY_SQL)
+    read_call = next(call for call in model.calls if call[0] == AGENT_READ_ACTIVITY_SQL)
+    assert inventory_call[1] == {"limit": 25}
+    assert read_call[1] == {"limit": 25}
+    assert "get_resource_state" in AGENT_READ_ACTIVITY_SQL
+    assert "operation_class' = 'resource_state'" in AGENT_READ_ACTIVITY_SQL
 
 
 @pytest.mark.asyncio

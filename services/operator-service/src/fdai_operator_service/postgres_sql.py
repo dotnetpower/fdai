@@ -12,6 +12,42 @@ SELECT seq, event_id, correlation_id, actor, action_kind, mode,
  LIMIT %(fetch)s
 """
 
+AGENT_INVENTORY_ACTIVITY_SQL: Final = """
+SELECT s.id, s.status, s.source, s.observation_kind, s.started_at,
+       s.completed_at, s.promoted_at, s.failure_code,
+       (SELECT COUNT(*) FROM inventory_snapshot_resource r
+         WHERE r.snapshot_id=s.id) AS resource_count,
+       (SELECT COUNT(*) FROM inventory_snapshot_link l
+         WHERE l.snapshot_id=s.id) AS link_count
+  FROM inventory_snapshot s
+ ORDER BY s.started_at DESC, s.id DESC
+ LIMIT %(limit)s
+"""
+
+AGENT_ONTOLOGY_ACTIVITY_SQL: Final = """
+SELECT value, updated_at
+  FROM state_kv
+ WHERE key = 'inventory-ontology:status'
+ LIMIT 1
+"""
+
+AGENT_READ_ACTIVITY_SQL: Final = """
+SELECT profile.key, profile.value->>'tool_id' AS tool_id,
+       profile.value->>'transport' AS transport,
+       profile.value->>'operation_class' AS operation_class,
+       sample
+  FROM state_kv profile
+ CROSS JOIN LATERAL jsonb_array_elements(
+       CASE WHEN jsonb_typeof(profile.value->'samples') = 'array'
+            THEN profile.value->'samples' ELSE '[]'::jsonb END
+ ) AS sample
+ WHERE profile.key LIKE 'read-investigation-latency:%'
+   AND profile.value->>'tool_id' = 'get_resource_state'
+   AND profile.value->>'operation_class' = 'resource_state'
+ ORDER BY sample->>'recorded_at' DESC, profile.key DESC
+ LIMIT %(limit)s
+"""
+
 KPI_SAMPLE_SQL: Final = """
 SELECT seq, action_kind, mode, entry, created_at
   FROM audit_log
@@ -268,6 +304,9 @@ SELECT ranked.seq, ranked.event_id, ranked.correlation_id, ranked.actor,
 """
 
 __all__ = [
+    "AGENT_INVENTORY_ACTIVITY_SQL",
+    "AGENT_ONTOLOGY_ACTIVITY_SQL",
+    "AGENT_READ_ACTIVITY_SQL",
     "AUDIT_PAGE_SQL",
     "HIL_COUNT_SQL",
     "HIL_PAGE_SQL",

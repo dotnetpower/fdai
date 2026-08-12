@@ -12,6 +12,7 @@ from typing import Any, Final, cast
 
 import psycopg
 from fdai_service_contracts import (
+    AgentActivityQuery,
     AuditQuery,
     HilQueueProjection,
     HilQueueQuery,
@@ -24,7 +25,11 @@ from fdai_service_contracts import (
 )
 from psycopg.rows import dict_row
 
+from fdai_operator_service.activity_projection import durable_activity_projection
 from fdai_operator_service.postgres_sql import (
+    AGENT_INVENTORY_ACTIVITY_SQL,
+    AGENT_ONTOLOGY_ACTIVITY_SQL,
+    AGENT_READ_ACTIVITY_SQL,
     AUDIT_PAGE_SQL,
     HIL_COUNT_SQL,
     HIL_PAGE_SQL,
@@ -71,6 +76,27 @@ class PostgresOperatorReadModel:
 
     def __init__(self, config: PostgresOperatorReadModelConfig) -> None:
         self._config = config
+
+    async def list_agent_activity(self, query: AgentActivityQuery) -> JsonProjection:
+        """Merge bounded durable scan, ontology, and resource-state read sources."""
+        try:
+            payload = durable_activity_projection(
+                inventory_rows=await self._fetch_all(
+                    AGENT_INVENTORY_ACTIVITY_SQL,
+                    {"limit": query.limit},
+                ),
+                ontology_rows=await self._fetch_all(AGENT_ONTOLOGY_ACTIVITY_SQL, {}),
+                read_rows=await self._fetch_all(
+                    AGENT_READ_ACTIVITY_SQL,
+                    {"limit": query.limit},
+                ),
+                limit=query.limit,
+            )
+        except (TypeError, ValueError) as exc:
+            raise ProjectionUnavailableError(
+                "durable operational activity projection is malformed"
+            ) from exc
+        return JsonProjection(cast(JsonObject, payload))
 
     async def list_audit(self, query: AuditQuery) -> PageProjection:
         cutoff = _positive_cursor(query.cursor)

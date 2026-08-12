@@ -387,10 +387,9 @@ signed PostgreSQL trusted-artifact records before accepting traffic. Interactive
 same Reader-gated `/skills` contract and narrator verbs with an empty fail-closed snapshot unless a
 durable verified store is explicitly composed; it never invents installed skills or load outcomes.
 
-Agent Activity keeps live runtime frames separate from durable audit rows. Selecting an observed
-agent always shows its live state, current work, runtime binding, state timestamp, stream
-provenance, and incident context. If no audit row is attributed in the current window, the timeline
-states that explicitly instead of replacing the live summary or inferring an audit event.
+Agent Activity keeps live runtime frames separate from durable source projections. Local and deployed profiles both load `GET /agents/activity` before applying `/agents/stream`, and neither
+copies scan or read history into the action audit chain. Selecting an observed agent still shows its live state, current work, runtime binding, state timestamp, stream provenance, and incident
+context without inferring an audit event.
 The headless Pantheon publishes health-derived `agent.runtime-state` frames on the same
 `aw.pipeline.stages` transport that carries control-loop progress. The Operator API distinguishes
 runtime-state frames from stage frames and forwards only agents whose consumers are live and whose

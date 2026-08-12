@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
+from fdai_service_contracts import AgentOperationalActivity
+from pydantic import ValidationError
+
 from .live_stream import LiveStreamEvent
 from .stage_frames import parse_stage_frame
 
@@ -92,6 +95,9 @@ class AgentActivityProjector:
 
     def project(self, payload: Mapping[str, object]) -> tuple[LiveStreamEvent, ...]:
         """Return only events grounded in a valid runtime or stage observation."""
+        operational = _operational_activity_event(payload)
+        if operational is not None:
+            return (operational,)
         runtime = _runtime_state_event(payload)
         if runtime is not None:
             return (runtime,)
@@ -263,6 +269,18 @@ def _runtime_state_event(payload: Mapping[str, object]) -> LiveStreamEvent | Non
         detail=detail if isinstance(detail, str) else None,
         source=str(source),
     )
+
+
+def _operational_activity_event(payload: Mapping[str, object]) -> LiveStreamEvent | None:
+    if payload.get("type") != "agent.operational-activity":
+        return None
+    try:
+        activity = AgentOperationalActivity.model_validate(payload)
+    except ValidationError:
+        return None
+    if activity.observed_at > datetime.now(UTC) + _MAX_FUTURE_SKEW:
+        return None
+    return _event(activity.activity_id, activity.model_dump(mode="json"))
 
 
 def _agent_state(

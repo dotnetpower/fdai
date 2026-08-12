@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 9b96e04eb0bf99aa2a9d310584a00830de392e11
+translation_source_sha: 40e28f549816a07960e0d069cb431fbf98807924
 translation_revised: 2026-08-12
 ---
 
@@ -389,10 +389,10 @@ PostgreSQL trusted-artifact 기록에서 활성화된 카탈로그를 재구성�
 검증된 저장소가 명시적으로 compose되지 않으면 빈 실패 시 차단 스냅샷으로 같은 Reader-gated
 `/skills` 계약과 서술기 동사를 노출하며 installed 스킬이나 부하 결과를 만들지 않습니다.
 
-에이전트 활동은 실제 운영 런타임 프레임과 영속 감사 행을 분리합니다. 관찰된 에이전트를 선택하면
-실제 운영 상태, 현재 작업, 런타임 연결, 상태 시각, 스트림 출처 이력, 인시던트 맥락을
-항상 표시합니다. 현재 구간에 귀속 감사 행이 없으면 실제 운영 요약을 대체하거나 감사 이벤트를
-추론하지 않고 타임라인에서 그 부재를 명시합니다.
+에이전트 활동은 실제 운영 런타임 프레임과 영속 원본 변환 결과를 분리합니다. 로컬 및 배포
+프로파일은 모두 `/agents/stream`을 적용하기 전에 `GET /agents/activity`를 불러오며 검사 또는 읽기
+이력을 액션 감사 체인에 복사하지 않습니다. 관찰된 에이전트를 선택하면 감사 이벤트를 추론하지 않고
+실제 운영 상태, 현재 작업, 런타임 연결, 상태 시각, 스트림 출처 이력 및 인시던트 맥락을 표시합니다.
 Headless Pantheon은 control-loop 진행 상황을 전달하는 동일한 `aw.pipeline.stages` 전송 계층에 실제
 상태에서 파생한 `agent.runtime-state` 프레임을 발행합니다. Operator API는 runtime-state 프레임과 단계
 프레임을 구분하고 소비자가 실제 운영이며 상태 탐색이 오류가 아닌 에이전트만 전달합니다. Interactive

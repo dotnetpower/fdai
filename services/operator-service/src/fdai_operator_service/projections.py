@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import NoReturn
 
 from fdai_service_contracts import (
+    AgentActivityQuery,
     AuditQuery,
     HilQueueProjection,
     HilQueueQuery,
@@ -30,6 +31,10 @@ class UnavailableOperatorReadModel:
 
     def _raise(self) -> NoReturn:
         raise ProjectionUnavailableError(self.reason)
+
+    async def list_agent_activity(self, query: AgentActivityQuery) -> JsonProjection:
+        del query
+        self._raise()
 
     async def list_audit(self, query: AuditQuery) -> PageProjection:
         del query

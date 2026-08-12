@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Final, Literal, cast
 
 from fdai_service_contracts import (
+    AgentActivityQuery,
     AuditQuery,
     HilQueueQuery,
     IncidentAttentionProjection,
@@ -103,6 +104,7 @@ class OperatorRouteFamilies:
 
 
 MINIMAL_ROUTE_MANIFEST: Final = (
+    RouteOwnership("GET", "/agents/activity", "minimal"),
     RouteOwnership("GET", "/audit", "minimal"),
     RouteOwnership("GET", "/audit/{correlation_id}/trace", "minimal"),
     RouteOwnership("GET", "/agents/stream", "minimal"),
@@ -183,6 +185,16 @@ def build_operator_app(
         except ValueError as exc:
             raise _BadQueryError(str(exc)) from exc
         return JSONResponse(redact_projection(page.to_dict()))
+
+    async def get_agent_activity(request: Request) -> Response:
+        authorize(request)
+        try:
+            projection = await read_model.list_agent_activity(
+                AgentActivityQuery(limit=_parse_limit(request))
+            )
+        except ValueError as exc:
+            raise _BadQueryError(str(exc)) from exc
+        return JSONResponse(redact_projection(projection.to_dict()))
 
     async def get_kpi(request: Request) -> Response:
         authorize(request)
@@ -288,6 +300,12 @@ def build_operator_app(
         return JSONResponse(redact_projection(_incident_template_preview()))
 
     minimal_routes = [
+        Route(
+            "/agents/activity",
+            get_agent_activity,
+            methods=["GET"],
+            name="get_agent_activity",
+        ),
         Route("/audit", get_audit, methods=["GET"], name="get_audit"),
         Route(
             "/audit/{correlation_id}/trace",

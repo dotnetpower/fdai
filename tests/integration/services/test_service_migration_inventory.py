@@ -427,6 +427,25 @@ def test_operator_runtime_role_is_reproducible_and_exact() -> None:
     assert "GRANT DELETE ON TABLE state_kv" not in source
 
 
+def test_operator_activity_projection_has_exact_read_only_inventory_grants() -> None:
+    source = (
+        MIGRATION_ROOT / "branches/operator-service/versions/20260812_operator_activity_read.py"
+    ).read_text(encoding="utf-8")
+
+    assert 'down_revision: str | Sequence[str] | None = "operator_metering_read_20260810"' in source
+    assert "FROM PUBLIC, fdai_operator" in source
+    for table in (
+        "inventory_snapshot",
+        "inventory_snapshot_resource",
+        "inventory_snapshot_link",
+    ):
+        assert table in source
+    assert "GRANT SELECT ON TABLE" in source
+    assert "GRANT INSERT" not in source
+    assert "GRANT UPDATE" not in source
+    assert "GRANT DELETE" not in source
+
+
 def test_worker_migration_widens_claim_check_and_blocks_inflight_deletion() -> None:
     revision_path = (
         MIGRATION_ROOT
