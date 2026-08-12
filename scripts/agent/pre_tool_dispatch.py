@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 
 POLICY_TOOL_NAMES = frozenset(
@@ -49,6 +50,8 @@ def _tool_input(payload: Payload) -> dict[object, object]:
 
 def _terminal_requires_policy(tool_input: dict[object, object]) -> bool:
     normalized = " ".join(str(tool_input.get("command") or "").casefold().split())
+    if re.search(r"(?:^|[;&|]\s*)git\s+(?:-[^ ]+\s+)*commit(?:\s|$)", normalized):
+        return True
     if (
         normalized.startswith(("gh run list", "gh workflow list", "gh workflow view"))
         or (normalized.startswith("gh run view") and " --log" not in normalized)
@@ -104,6 +107,11 @@ def _run_policy(payload: Payload) -> Payload:
     return pre_tool_use(payload)
 
 
+def _is_denied(result: Payload) -> bool:
+    output = result.get("hookSpecificOutput")
+    return isinstance(output, dict) and output.get("permissionDecision") == "deny"
+
+
 def dispatch(payload: Payload) -> Payload:
     """Return immediately unless the tool can trigger an FDAI pre-tool policy."""
     nested = tuple(item for item in _parallel_payloads(payload) if _requires_policy(item))
@@ -111,7 +119,7 @@ def dispatch(payload: Payload) -> Payload:
         ordered = sorted(nested, key=lambda item: _tool_name(item) == "read_file")
         for item in ordered:
             result = _run_policy(item)
-            if result.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
+            if _is_denied(result):
                 return result
         return {"continue": True}
     if not _requires_policy(payload):

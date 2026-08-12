@@ -1072,11 +1072,25 @@
       ]
     },
     {
+      "id": "operator-service-foundation",
+      "paths": [
+        "services/operator-service/src/fdai_operator_service/**"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/architecture/service-graduation-and-ownership.md",
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/interfaces/operator-console-module-map.md"
+      ],
+      "validate": [
+        "uv run python scripts/quality/architecture/check-independent-services.py"
+      ]
+    },
+    {
       "id": "operator-surfaces",
       "paths": [
         "console/**",
         "cli/**",
-        "services/operator-service/src/fdai_operator_service/**",
         "docs/roadmap/interfaces/operator-console-module-map*.md",
         "docs/roadmap/interfaces/operator-console-progressive-conversations*.md",
         "docs/roadmap/interfaces/narrator-routing-and-latency*.md"
