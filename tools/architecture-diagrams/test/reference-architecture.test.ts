@@ -19,7 +19,7 @@ test("FDAI reference architecture renders every governed relationship", async ()
   const svg = await renderSvg(spec, layout, "en");
   const koSvg = await renderSvg(spec, layout, "ko");
 
-  assert.equal(spec.version, 10);
+  assert.equal(spec.version, 11);
   assert.equal(spec.kind, "context");
   assert.deepEqual(spec.formats, ["svg"]);
   assert.equal(layout.edges.length, spec.edges.length);
@@ -213,16 +213,58 @@ test("FDAI reference architecture renders every governed relationship", async ()
     false,
   );
 
-  assert.equal(edges.get("risk-to-approval")?.route, "orthogonal-outer");
-  assert.equal(edges.get("approval-to-runtime")?.route, "orthogonal-right");
-  const approvalCorridors = ["risk-to-approval", "approval-to-runtime"].map(
-    (edgeId) => {
-      const section = layout.edges.find((edge) => edge.id === edgeId)?.sections?.[0];
-      assert.ok(section?.bendPoints?.length);
-      return Math.max(...section.bendPoints.map((point) => point.x));
-    },
+  assert.equal(edges.get("risk-to-approval")?.route, "orthogonal-approval");
+  assert.equal(edges.get("approval-to-runtime")?.route, "orthogonal-approval");
+  const approvalRequest = layout.edges.find(
+    (edge) => edge.id === "risk-to-approval",
+  )?.sections?.[0];
+  const approvalReturn = layout.edges.find(
+    (edge) => edge.id === "approval-to-runtime",
+  )?.sections?.[0];
+  const humanApproval = layout.nodes.get("human-approval");
+  const riskGate = layout.nodes.get("risk-authority-gate");
+  const typedEventBus = layout.nodes.get("typed-event-bus");
+  const governedOutcomes = layout.groups.get("governed-outcomes");
+  assert.ok(approvalRequest?.bendPoints?.length === 3);
+  assert.ok(approvalReturn?.bendPoints?.length === 3);
+  assert.ok(humanApproval);
+  assert.ok(riskGate);
+  assert.ok(typedEventBus);
+  assert.ok(governedOutcomes);
+  const requestCorridorX = approvalRequest.bendPoints[1]!.x;
+  assert.equal(approvalRequest.bendPoints[2]!.x, requestCorridorX);
+  assert.ok(requestCorridorX > governedOutcomes.x + governedOutcomes.width);
+  assert.ok(requestCorridorX < humanApproval.x);
+  assert.equal(approvalRequest.endPoint.x, humanApproval.x);
+  assert.equal(
+    approvalRequest.startPoint.x,
+    riskGate.x + riskGate.width / 2,
   );
-  assert.equal(Math.abs(approvalCorridors[0]! - approvalCorridors[1]!), 96);
+  const returnCorridorY = approvalReturn.bendPoints[0]!.y;
+  assert.equal(approvalReturn.bendPoints[1]!.y, returnCorridorY);
+  assert.ok(returnCorridorY > eventChoreography.y + eventChoreography.height);
+  assert.ok(returnCorridorY < governedControl.y);
+  assert.equal(
+    approvalReturn.endPoint.x,
+    typedEventBus.x + typedEventBus.width,
+  );
+  assert.equal(
+    approvalReturn.endPoint.y,
+    typedEventBus.y + typedEventBus.height / 2,
+  );
+  assert.equal(
+    approvalReturn.bendPoints[2]!.x,
+    typedEventBus.x + typedEventBus.width + 24,
+  );
+  for (const section of [approvalRequest, approvalReturn]) {
+    assert.ok(
+      Math.max(
+        section.startPoint.x,
+        ...section.bendPoints!.map((point) => point.x),
+        section.endPoint.x,
+      ) <= humanApproval.x + humanApproval.width / 2,
+    );
+  }
 
   const directedSegments: Array<{
     edgeId: string;

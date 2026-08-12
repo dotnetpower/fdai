@@ -163,7 +163,8 @@ export interface DiagramEdge {
     | "orthogonal-top"
     | "orthogonal-above"
     | "orthogonal-right"
-    | "orthogonal-outer";
+    | "orthogonal-outer"
+    | "orthogonal-approval";
   lane?: number;
   step?: number;
   weight?: number;

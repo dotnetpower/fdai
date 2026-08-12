@@ -1,5 +1,5 @@
 id: fdai-reference-architecture
-version: 10
+version: 11
 kind: context
 formats: [svg]
 updated: 2026-08-12
@@ -388,13 +388,12 @@ edges:
     from: risk-authority-gate
     to: human-approval
     kind: approval
-    route: orthogonal-outer
+    route: orthogonal-approval
   - id: approval-to-runtime
     from: human-approval
     to: typed-event-bus
     kind: approval
-    route: orthogonal-right
-    lane: 1
+    route: orthogonal-approval
   - id: executor-to-outcomes
     from: privileged-executor
     to: governed-changes

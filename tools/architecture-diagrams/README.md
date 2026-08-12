@@ -182,7 +182,9 @@ and bounded corner rounding. Use `orthogonal-shortest` for an obstacle-aware
 one-bend connection that falls back to the standard orthogonal route when both
 L-shaped candidates are blocked. Use `orthogonal-outer` when a connection must
 leave its source band before following a right-side corridor across stacked
-bands.
+bands. Use `orthogonal-approval` for an approval request and its typed return
+event; it selects the nearest safe gap between adjacent groups instead of the
+global rightmost corridor.
 
 The validator rejects unknown keys, duplicate ids, missing locales, unknown
 parents, edges that reference missing elements, and port references that don't

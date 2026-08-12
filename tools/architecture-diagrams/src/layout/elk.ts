@@ -1250,6 +1250,83 @@ function orthogonalOuterRouteSection(
   };
 }
 
+function orthogonalApprovalRouteSection(
+  edgeId: string,
+  source: PositionedShape,
+  target: PositionedShape,
+  spec: DiagramSpec,
+  groups: Map<string, PositionedShape>,
+): ElkEdgeSection {
+  if (target.y < source.y) {
+    const targetRoot = groups.get(routeLaneGroup(spec, target.id));
+    const previousRight = Math.max(
+      source.x + source.width,
+      ...[...groups.values()]
+        .filter(
+          (group) =>
+            group.depth === 1 &&
+            group.id !== targetRoot?.id &&
+            group.x + group.width <= target.x,
+        )
+        .map((group) => group.x + group.width),
+    );
+    const corridorX = (previousRight + target.x) / 2;
+    const sourceExit = {
+      x: source.x + source.width / 2,
+      y: source.y + source.height,
+    };
+    const sourceApproachY = sourceExit.y + 24;
+    const targetEntry = {
+      x: target.x,
+      y: target.y + target.height / 2,
+    };
+    return {
+      id: `${edgeId}-orthogonal-approval-request-route`,
+      startPoint: sourceExit,
+      bendPoints: [
+        { x: sourceExit.x, y: sourceApproachY },
+        { x: corridorX, y: sourceApproachY },
+        { x: corridorX, y: targetEntry.y },
+      ],
+      endPoint: targetEntry,
+    };
+  }
+
+  const targetParentId = elementParent(spec, target.id);
+  const targetParent = groups.get(targetParentId);
+  const nextSibling = [...groups.values()]
+    .filter(
+      (group) =>
+        group.id !== targetParentId &&
+        elementParent(spec, group.id) === elementParent(spec, targetParentId) &&
+        targetParent !== undefined &&
+        group.y >= targetParent.y + targetParent.height,
+    )
+    .sort((left, right) => left.y - right.y)[0];
+  const corridorY = targetParent && nextSibling
+    ? (targetParent.y + targetParent.height + nextSibling.y) / 2
+    : target.y + target.height + 24;
+  const sourceExit = {
+    x: source.x + source.width / 2,
+    y: source.y + source.height,
+  };
+  const targetEntry = {
+    x: target.x + target.width,
+    y: target.y + target.height / 2,
+  };
+  const targetApproachX = targetEntry.x + 24;
+  return {
+    id: `${edgeId}-orthogonal-approval-return-route`,
+    startPoint: sourceExit,
+    bendPoints: [
+      { x: sourceExit.x, y: corridorY },
+      { x: targetApproachX, y: corridorY },
+      { x: targetApproachX, y: targetEntry.y },
+    ],
+    endPoint: targetEntry,
+  };
+}
+
 function routeLabelPosition(
   section: ElkEdgeSection,
   width: number,
@@ -1375,7 +1452,8 @@ function applyExplicitRoutes(
       specEdge.route !== "orthogonal-top" &&
         specEdge.route !== "orthogonal-above" &&
           specEdge.route !== "orthogonal-right" &&
-          specEdge.route !== "orthogonal-outer")
+          specEdge.route !== "orthogonal-outer" &&
+          specEdge.route !== "orthogonal-approval")
     ) {
       return edge;
     }
@@ -1446,6 +1524,14 @@ function applyExplicitRoutes(
               nodes,
               rightLaneByEdge.get(edge.id) ?? 0,
             )
+        : specEdge.route === "orthogonal-approval"
+          ? orthogonalApprovalRouteSection(
+              edge.id,
+              source,
+              target,
+              spec,
+              groups,
+            )
         : {
             id: `${edge.id}-diagonal-route`,
             startPoint: boundaryPoint(source, target),
@@ -1455,6 +1541,7 @@ function applyExplicitRoutes(
       ...label,
       ...(specEdge.route === "orthogonal-right" ||
       specEdge.route === "orthogonal-outer" ||
+      specEdge.route === "orthogonal-approval" ||
       specEdge.route === "orthogonal-horizontal"
         ? rightRouteLabelPosition(section, label.width ?? 0, label.height ?? 0)
         : specEdge.route === "orthogonal" ||
