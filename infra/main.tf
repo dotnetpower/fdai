@@ -338,6 +338,15 @@ module "canary_identity" {
   tags                = merge(local.tags, { "fdai:component" = "control-loop-canary" })
 }
 
+module "ohl_evidence_identity" {
+  count               = var.enable_ohl_scale_out_evidence_target ? 1 : 0
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-ohl-evidence"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { "fdai:component" = "ohl-scale-out-evidence" })
+}
+
 module "notification_identity" {
   count               = var.enable_email_notifications ? 1 : 0
   source              = "./modules/identity/user-assigned-mi"
@@ -798,6 +807,20 @@ resource "azurerm_role_assignment" "canary_eventhubs_sender" {
   scope                = module.event_bus_auxiliary.topic_ids[local.canary_topic]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.canary_identity.principal_id
+}
+
+resource "azurerm_role_assignment" "ohl_evidence_acr_pull" {
+  count                = var.enable_ohl_scale_out_evidence_target ? 1 : 0
+  scope                = module.container_registry.id
+  role_definition_name = "AcrPull"
+  principal_id         = module.ohl_evidence_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "ohl_evidence_eventhubs_sender" {
+  count                = var.enable_ohl_scale_out_evidence_target ? 1 : 0
+  scope                = module.event_bus.topic_ids[local.event_topics[0]]
+  role_definition_name = "Azure Event Hubs Data Sender"
+  principal_id         = module.ohl_evidence_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "runtime_startup_probe_eventhubs_owner" {
@@ -1653,6 +1676,24 @@ module "compute" {
   canary_identity_client_id           = module.canary_identity.client_id
   canary_topic                        = local.canary_topic
   canary_cron_expression              = var.canary_cron_expression
+  ohl_evidence_enabled                = var.enable_ohl_scale_out_evidence_target
+  ohl_evidence_identity_id = (
+    var.enable_ohl_scale_out_evidence_target
+    ? module.ohl_evidence_identity[0].resource_id
+    : ""
+  )
+  ohl_evidence_identity_client_id = (
+    var.enable_ohl_scale_out_evidence_target
+    ? module.ohl_evidence_identity[0].client_id
+    : ""
+  )
+  ohl_evidence_target_resource_id = (
+    var.enable_ohl_scale_out_evidence_target
+    ? azurerm_linux_virtual_machine_scale_set.ohl_evidence[0].id
+    : ""
+  )
+  ohl_evidence_campaign_id            = var.ohl_scale_out_evidence_campaign_id
+  ohl_evidence_initiator_principal_id = var.ohl_scale_out_evidence_initiator_principal_id
   image                               = var.core_image
   max_replicas                        = var.max_replicas
   extra_identity_ids = concat(
@@ -1808,6 +1849,8 @@ module "compute" {
     azurerm_role_assignment.inventory_eventhubs_sender,
     azurerm_role_assignment.canary_acr_pull,
     azurerm_role_assignment.canary_eventhubs_sender,
+    azurerm_role_assignment.ohl_evidence_acr_pull,
+    azurerm_role_assignment.ohl_evidence_eventhubs_sender,
     azurerm_role_assignment.runtime_startup_probe_eventhubs_owner,
     azurerm_communication_service_email_domain_association.notifications,
     azurerm_role_assignment.notification_email_sender,

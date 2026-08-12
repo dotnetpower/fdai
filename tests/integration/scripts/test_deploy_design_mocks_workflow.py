@@ -36,7 +36,12 @@ def test_ohl_evidence_target_uses_the_protected_gateway_plan() -> None:
         "the OHL scale-out evidence target requires dev and "
         "deploy_dev_operations_gateway." in _WORKFLOW
     )
+    assert "-target=module.ohl_evidence_identity" in _WORKFLOW
+    assert "-target=azurerm_role_assignment.ohl_evidence_eventhubs_sender" in _WORKFLOW
+    assert "-target=module.compute.azurerm_container_app_job.ohl_evidence_proposal" in _WORKFLOW
+    assert "OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID" in _WORKFLOW
     assert "OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION" in _WORKFLOW
+    assert "OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID" in _WORKFLOW
     assert "OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY" in _WORKFLOW
 
 

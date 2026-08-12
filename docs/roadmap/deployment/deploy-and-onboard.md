@@ -31,14 +31,14 @@ All identifiers are synthetic per
 |------|-------|----------|-------|
 | Protected platform plan and exact apply | validated | `.github/workflows/deploy-dev.yml` and governed deployment receipts | Private-runner planning, immutable apply claims, and post-apply checks are shipped. |
 | Independently owned runtime services | validated | `.github/workflows/service-deploy.yml` and `config/independent-service-live-evidence-manifest.json` | Each service has a separate root, protected plan, health check, and rollback evidence. |
-| OHL scale-out evidence target provisioning | implemented | current change in `infra/`; focused Terraform and workflow tests report 8 and 5 passed | The target is disabled by default and still needs a protected apply. |
+| OHL scale-out evidence target and proposal Job | implemented | current change in `infra/` and `services/core-control-plane/src/fdai/delivery/`; focused Terraform and publisher tests report 8 and 13 passed | Both are disabled by default and still need a protected apply. |
 | OHL production evidence campaign | in-progress | `config/ohl-scale-out-evidence.json` and `docs/runbooks/ohl-scale-out-evidence.md` | Runtime rollout, governed execution, 100 samples, and the 14-day recurrence window remain open. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
-| 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added protected provisioning for the bounded OHL evidence target. | current change; focused Terraform tests report 8 passed and workflow contract tests report 5 passed. | Apply the exact plans, deploy attested runtime images, and complete the live evidence campaign. |
+| 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added protected provisioning plus a proposal-only Job for the bounded OHL evidence target. | current change; focused Terraform tests report 8 passed and publisher/workflow tests report 13 passed. | Apply the exact plans, deploy attested runtime images, and complete the live evidence campaign. |
 
 ### Remaining work
 
@@ -367,7 +367,7 @@ replica caps are still **deployment-specific** and tuned per environment; the sh
 | 14 | **Document ingestion Container Apps** (**opt-in**) | Consumption, public API + internal worker with ClamAV | authenticated bounded upload relay plus independently scaled safety scan, extraction, pgvector indexing, and lifecycle events | API, worker, and migration UAMIs are distinct; only the worker receives Event Hubs receive and OCR; neither runtime identity receives executor permissions |
 | 15 | **Control-loop canary Job** | Consumption, every 5 minutes | publishes one idempotent event to `aw.control.canary` | dedicated UAMI has only ACR pull and Event Hubs send; the core records a no-op audit through a separate consumer path |
 | 16 | **Development operations Function App** (**opt-in**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | relays registered read, write, and execute operations from local development to private resources | dev and private-networking only, enforced by a lifecycle precondition and covered by `infra/tests/dev_operations_gateway.tftest.hcl`; terminates a **public** inbound endpoint behind Easy Auth - a developer has to reach it - so it stays off on a closed network; dedicated `/27` subnet, private AAD-only deployment and idempotency storage, Easy Auth, separate reader/executor UAMIs, one-time server-issued mutation plan receipts, and no arbitrary URL, ARM path, command, or query surface |
-| 17 | **OHL scale-out evidence VM Scale Set** (**opt-in**, `enable_ohl_scale_out_evidence_target`) | Uniform `Standard_B1s`, capacity `1` | bounded non-production target for governed `ops.scale-out` evidence | dev, private networking, and the operations gateway are required; the deployment supplies an exact region-available image version and rejects mutable `latest`; a dedicated `/27` subnet has no public IP; the target stays in the application resource group so existing gateway RBAC doesn't widen; protected execution may increase capacity only to `2` before verified rollback |
+| 17 | **OHL scale-out evidence VM Scale Set + proposal Job** (**opt-in**, `enable_ohl_scale_out_evidence_target`) | Uniform `Standard_B1s`, capacity `1`; manual Consumption Job | bounded non-production target and normal-ingress shadow proposal for governed `ops.scale-out` evidence | dev, private networking, and the operations gateway are required; the deployment supplies an exact region-available image version and rejects mutable `latest`; a dedicated `/27` subnet has no public IP; the proposal UAMI has only ACR pull and primary Event Hub send; protected provider staging may increase capacity only to `2` before verified rollback |
 The local parity profile starts the same five service packages against loopback PostgreSQL and
 Redpanda, with filesystem-backed document objects and ClamAV. It uses plaintext Kafka only on the
 loopback broker; deployed modules continue to require Event Hubs Kafka with service-owned managed
@@ -463,11 +463,14 @@ The current control-loop Core deploys as one signed image and one Python process
 - **Identity split**: Operator API read/command and ingestion API/worker/migration principals stay distinct. The worker receives Saga/Muninn objects only from `aw.pantheon.objects` and sends stage facts to `aw.pipeline.stages`; `ingestion_cohost_worker=true` returns both scopes to the API identity.
 - **Executor deployment and cutover**: `enable_isolated_executor=true` provisions the internal app and a dedicated UAMI with ACR pull, command receive, receipt/DLQ send, and state-secret read only. The default is `false`; the private-runner workflow remains plan-only by default, installs a checksum-pinned GitHub CLI, syntax-checks embedded plan-metadata code, verifies attestation, binds the identical ACR digest, and includes the latest revision in health checks. `promote_runtime_image=true` imports that verified digest without rebuilding, while exact apply rejects promotion, consumes only the protected plan, and restores the same runtime digest for convergence. `enable_isolated_executor_authority_cutover=true` additionally requires the development operations gateway, removes gateway and vertical effect access from Core, authorizes the isolated identity, and keeps Core transport/read access. `verify_executor_effect=true` runs one reversible NSG rule probe through an explicit pseudo-terminal on the non-interactive runner and preserves the remote exit status. Duplicate delivery shares one issued-at timestamp to retain immutable action and command identity; cleanup receives a fresh bounded deadline. The workflow checks the effect through Azure Resource Manager, rejects duplicate writes, records offsets and terminal receipts, cleans up, and fails after 900 seconds.
 - **OHL evidence target**: `enable_ohl_scale_out_evidence_target=true` adds one dedicated Uniform
-  VM Scale Set only in `dev`. It requires private networking, the development operations gateway,
-  an exact `OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION`, and the non-secret
-  `OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY` repository variable. The protected platform workflow
-  owns the target and subnet, while `service-deploy` independently rolls the exact-revision Core
-  and Executor images before the evidence run begins.
+  VM Scale Set and one manual proposal Job only in `dev`. It requires private networking, the
+  development operations gateway, an exact `OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION`, a retry-stable
+  `OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID`, the human
+  `OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID`, and the non-secret
+  `OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY`. The protected platform workflow owns the target, subnet,
+  proposal UAMI, and Job, while `service-deploy` independently rolls the exact-revision Core and
+  Executor images before the evidence run begins. Starting the Job publishes one shadow proposal
+  through the normal ingress; it holds no provider-effect authority.
 
 ## Bootstrap Sequence
 

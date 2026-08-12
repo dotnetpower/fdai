@@ -56,6 +56,16 @@ run "the_gateway_is_absent_by_default" {
     condition     = length(module.network) == 0
     error_message = "a default plan MUST NOT provision the evidence target network"
   }
+
+  assert {
+    condition = (
+      length(module.ohl_evidence_identity) == 0 &&
+      length(azurerm_role_assignment.ohl_evidence_acr_pull) == 0 &&
+      length(azurerm_role_assignment.ohl_evidence_eventhubs_sender) == 0 &&
+      module.compute.ohl_evidence_proposal_job_name == ""
+    )
+    error_message = "a default plan MUST NOT provision the OHL proposal identity, roles, or Job"
+  }
 }
 
 run "a_day_zero_plan_refuses_the_gateway" {
@@ -101,11 +111,13 @@ run "an_evidence_target_without_the_gateway_is_refused" {
   command = plan
 
   variables {
-    env                                   = "dev"
-    enable_private_networking             = true
-    enable_ohl_scale_out_evidence_target  = true
-    ohl_scale_out_evidence_image_version  = "22.04.202608060"
-    ohl_scale_out_evidence_ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN+lIc914WryAKmYlkcUeKqix2ViKCDsdEKjIKimTFud"
+    env                                           = "dev"
+    enable_private_networking                     = true
+    enable_ohl_scale_out_evidence_target          = true
+    ohl_scale_out_evidence_campaign_id            = "campaign-20260813"
+    ohl_scale_out_evidence_image_version          = "22.04.202608060"
+    ohl_scale_out_evidence_initiator_principal_id = "00000000-0000-0000-0000-000000000001"
+    ohl_scale_out_evidence_ssh_public_key         = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN+lIc914WryAKmYlkcUeKqix2ViKCDsdEKjIKimTFud"
   }
 
   expect_failures = [azurerm_linux_virtual_machine_scale_set.ohl_evidence[0]]
@@ -115,12 +127,14 @@ run "a_dev_evidence_target_is_bounded_to_the_app_rg" {
   command = plan
 
   variables {
-    env                                   = "dev"
-    enable_private_networking             = true
-    enable_dev_operations_gateway         = true
-    enable_ohl_scale_out_evidence_target  = true
-    ohl_scale_out_evidence_image_version  = "22.04.202608060"
-    ohl_scale_out_evidence_ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN+lIc914WryAKmYlkcUeKqix2ViKCDsdEKjIKimTFud"
+    env                                           = "dev"
+    enable_private_networking                     = true
+    enable_dev_operations_gateway                 = true
+    enable_ohl_scale_out_evidence_target          = true
+    ohl_scale_out_evidence_campaign_id            = "campaign-20260813"
+    ohl_scale_out_evidence_image_version          = "22.04.202608060"
+    ohl_scale_out_evidence_initiator_principal_id = "00000000-0000-0000-0000-000000000001"
+    ohl_scale_out_evidence_ssh_public_key         = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN+lIc914WryAKmYlkcUeKqix2ViKCDsdEKjIKimTFud"
   }
 
   assert {
@@ -136,6 +150,18 @@ run "a_dev_evidence_target_is_bounded_to_the_app_rg" {
   assert {
     condition     = azurerm_role_assignment.dev_gateway_executor_vm[0].role_definition_name == "Virtual Machine Contributor"
     error_message = "the gateway executor MUST reach the evidence VMSS only through its existing app-RG VM role"
+  }
+
+  assert {
+    condition = (
+      length(module.ohl_evidence_identity) == 1 &&
+      length(azurerm_role_assignment.ohl_evidence_acr_pull) == 1 &&
+      azurerm_role_assignment.ohl_evidence_acr_pull[0].role_definition_name == "AcrPull" &&
+      length(azurerm_role_assignment.ohl_evidence_eventhubs_sender) == 1 &&
+      azurerm_role_assignment.ohl_evidence_eventhubs_sender[0].role_definition_name == "Azure Event Hubs Data Sender" &&
+      module.compute.ohl_evidence_proposal_job_name != ""
+    )
+    error_message = "the OHL proposal Job MUST use one dedicated identity with only pull and topic-send roles"
   }
 
   assert {

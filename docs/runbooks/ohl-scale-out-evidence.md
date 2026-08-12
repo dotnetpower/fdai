@@ -41,9 +41,12 @@ Use the protected workflows before starting the drill:
 3. Plan and apply `deploy-dev` with `deploy_dev_operations_gateway=true` and
   `deploy_ohl_scale_out_evidence_target=true`. Supply one exact region-available Jammy Gen2 image
   version through `OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION` and a non-secret SSH public key through
-  `OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY`.
+  `OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY`. Also supply a retry-stable
+  `OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID` and the human initiator's object id through
+  `OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID`.
 4. Read `ohl_scale_out_evidence_target_id` and `ohl_scale_out_evidence_target_name` from the exact
-  protected apply outputs. Don't substitute an untracked or manually created VM Scale Set.
+  protected apply outputs. Read `ohl_scale_out_evidence_proposal_job_name` for the proposal-only
+  manual Job. Don't substitute an untracked or manually created VM Scale Set.
 
 The target stays disabled by default. When enabled, Terraform creates one Uniform
 `Standard_B1s` VM Scale Set at capacity `1` in the application resource group, on a private
@@ -51,6 +54,11 @@ dedicated subnet with no public IP or autoscale setting. Its image version is ex
 `latest` isn't accepted. The existing gateway reader and executor identities keep their
 application-resource-group scope; the deployment doesn't grant a new cross-resource-group
 authority.
+
+The manual proposal Job uses a separate Managed Identity with only ACR pull and Data Sender on the
+primary ingress Event Hub. It has no state-store secret, Key Vault role, gateway role, or Azure
+provider mutation permission. Starting the Job publishes one retry-stable `operator_request`; it
+doesn't scale the target.
 
 ## Required runner configuration
 
@@ -72,6 +80,7 @@ export FDAI_OHL_AUDIT_INTENT_REF='<audit-intent-receipt-ref>'
 export FDAI_OHL_AUTOMATION_HOLD_REF='<automation-hold-receipt-ref>'
 export FDAI_OHL_EXPECTED_REVISION='<40-character-git-revision>'
 export FDAI_STATE_STORE_DSN='<protected-runner-state-store-dsn>'
+export FDAI_OHL_PROPOSAL_JOB_NAME='<terraform-output-job-name>'
 ```
 
 The target should meet all of these constraints:
@@ -109,6 +118,7 @@ umask 077
 : "${FDAI_OHL_AUTOMATION_HOLD_REF:?}"
 : "${FDAI_OHL_EXPECTED_REVISION:?}"
 : "${FDAI_STATE_STORE_DSN:?}"
+: "${FDAI_OHL_PROPOSAL_JOB_NAME:?}"
 
 [[ "$(git rev-parse HEAD)" == "$FDAI_OHL_EXPECTED_REVISION" ]]
 [[ "$(az account show --query id --output tsv)" == "$FDAI_OHL_EXPECTED_SUBSCRIPTION_ID" ]]
@@ -148,6 +158,29 @@ jq -n \
   '{revision:$revision,started_at:$started_at,approval_ref:$approval_ref,dry_run_ref:$dry_run_ref,stop_condition_ref:$stop_condition_ref,lock_ref:$lock_ref,idempotency_key:$idempotency_key,audit_intent_ref:$audit_intent_ref,automation_hold_ref:$hold_ref,baseline_capacity:$baseline_capacity,baseline_instance_count:$baseline_instance_count,target_capacity:$target_capacity}' \
   > .fdai/evidence/ohl-scale-out/baseline.json
 ```
+
+## Governed shadow proposal
+
+After the baseline checks pass, start the proposal-only Job from the protected runner:
+
+```bash
+az containerapp job start \
+  --subscription "$FDAI_OHL_EXPECTED_SUBSCRIPTION_ID" \
+  --resource-group "$FDAI_OHL_RESOURCE_GROUP" \
+  --name "$FDAI_OHL_PROPOSAL_JOB_NAME" \
+  --only-show-errors
+```
+
+The stable campaign id makes a Job retry publish the same operator-request idempotency key. The
+normal path then runs Huginn ingestion, ActionType argument validation, risk evaluation, separated
+human approval, isolated Executor dispatch, logical target locking, gateway planning, and terminal
+audit. The approver must be a different principal from the configured initiator.
+
+Keep `ops.scale-out` in shadow. Approval therefore permits the gateway dry-run and evidence path,
+not a provider mutation. Before proceeding, record the matching approval, dry-run, stop-condition,
+target-lock, idempotency, audit, automation-hold, graph-prediction, and graph-outcome references.
+Missing or conflicting references stop the campaign. Don't promote the ActionType to make this
+drill execute.
 
 ## Partial execution and forced recovery
 

@@ -43,6 +43,18 @@ variable "ohl_scale_out_evidence_image_version" {
   default     = ""
 }
 
+variable "ohl_scale_out_evidence_campaign_id" {
+  description = "Retry-stable non-secret campaign id used by the OHL proposal Job. Supply only when enable_ohl_scale_out_evidence_target is true."
+  type        = string
+  default     = ""
+}
+
+variable "ohl_scale_out_evidence_initiator_principal_id" {
+  description = "Entra object id of the human who initiates the OHL proposal. Supply only when enable_ohl_scale_out_evidence_target is true; the approver must remain distinct."
+  type        = string
+  default     = ""
+}
+
 variable "dev_operations_gateway_private_probes_json" {
   description = "Server-owned private probe aliases as JSON. Values contain HTTPS url, managed-identity audience, and optional result_contract."
   type        = string

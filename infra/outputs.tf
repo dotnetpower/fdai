@@ -135,6 +135,11 @@ output "ohl_scale_out_evidence_target_name" {
   value       = length(azurerm_linux_virtual_machine_scale_set.ohl_evidence) > 0 ? azurerm_linux_virtual_machine_scale_set.ohl_evidence[0].name : ""
 }
 
+output "ohl_scale_out_evidence_proposal_job_name" {
+  description = "Name of the manual proposal-only OHL Container Apps Job. Empty when disabled."
+  value       = module.compute.ohl_evidence_proposal_job_name
+}
+
 output "email_communication_service_id" {
   description = "ACS resource id for send-only A2/A4 notification delivery. Empty when email notifications are disabled."
   value       = length(azurerm_communication_service.notifications) > 0 ? azurerm_communication_service.notifications[0].id : ""

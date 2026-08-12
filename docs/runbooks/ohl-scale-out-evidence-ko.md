@@ -1,7 +1,7 @@
 ---
 title: OHL Scale-Out 근거 Runbook
 translation_of: ohl-scale-out-evidence.md
-translation_source_sha: 5eedd42af5a01b0fc9b7eebb2dcb94c6ecd48580
+translation_source_sha: ac61d8dbc2efff0da791ee6a2f70303b9a997d3e
 translation_revised: 2026-08-13
 ---
 # OHL Scale-Out 근거 Runbook
@@ -43,16 +43,24 @@ residual이 남은 상태에서 `prepared`를 `complete`로 바꾸지 못하게 
 3. `deploy_dev_operations_gateway=true`와 `deploy_ohl_scale_out_evidence_target=true`를 사용해
   `deploy-dev`를 계획하고 적용합니다. Region에서 사용할 수 있는 exact Jammy Gen2 image
   version은 `OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION`으로, non-secret SSH public key는
-  `OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY` repository variable로 공급합니다.
+  `OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY` repository variable로 공급합니다. Retry-stable
+  `OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID`와 human initiator object id인
+  `OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID`도 공급합니다.
 4. Exact protected 적용 출력에서 `ohl_scale_out_evidence_target_id`와
-  `ohl_scale_out_evidence_target_name`을 읽습니다. 추적되지 않거나 수동으로 생성한 VM Scale
-  Set으로 대체하지 마세요.
+  `ohl_scale_out_evidence_target_name`을 읽습니다. Proposal-only manual Job 이름은
+  `ohl_scale_out_evidence_proposal_job_name`에서 읽습니다. 추적되지 않거나 수동으로 생성한 VM
+  Scale Set으로 대체하지 마세요.
 
 대상은 기본적으로 비활성화됩니다. 활성화하면 Terraform은 애플리케이션 resource group의
 비공개 전용 subnet에 용량 `1`인 Uniform `Standard_B1s` VM Scale Set 하나를 생성합니다. Public
 IP와 autoscale 설정은 없습니다. Image version은 exact 값이며 변경 가능한 `latest`는 허용되지
 않습니다. 기존 gateway reader 및 executor identity는 애플리케이션 resource group 범위를
 유지하므로 배포에서 새로운 cross-resource-group 권한을 부여하지 않습니다.
+
+Manual proposal Job은 ACR pull과 primary ingress Event Hub Data Sender 권한만 가진 별도 Managed
+Identity를 사용합니다. State-store secret, Key Vault role, gateway role 또는 Azure provider
+mutation 권한은 없습니다. Job을 시작하면 retry-stable `operator_request` 하나만 게시하며 target을
+scale하지 않습니다.
 
 ## 필요한 runner 구성
 
@@ -74,6 +82,7 @@ export FDAI_OHL_AUDIT_INTENT_REF='<audit-intent-receipt-ref>'
 export FDAI_OHL_AUTOMATION_HOLD_REF='<automation-hold-receipt-ref>'
 export FDAI_OHL_EXPECTED_REVISION='<40-character-git-revision>'
 export FDAI_STATE_STORE_DSN='<protected-runner-state-store-dsn>'
+export FDAI_OHL_PROPOSAL_JOB_NAME='<terraform-output-job-name>'
 ```
 
 대상은 다음 제약을 모두 충족해야 합니다.
@@ -111,6 +120,7 @@ umask 077
 : "${FDAI_OHL_AUTOMATION_HOLD_REF:?}"
 : "${FDAI_OHL_EXPECTED_REVISION:?}"
 : "${FDAI_STATE_STORE_DSN:?}"
+: "${FDAI_OHL_PROPOSAL_JOB_NAME:?}"
 
 [[ "$(git rev-parse HEAD)" == "$FDAI_OHL_EXPECTED_REVISION" ]]
 [[ "$(az account show --query id --output tsv)" == "$FDAI_OHL_EXPECTED_SUBSCRIPTION_ID" ]]
@@ -150,6 +160,29 @@ jq -n \
   '{revision:$revision,started_at:$started_at,approval_ref:$approval_ref,dry_run_ref:$dry_run_ref,stop_condition_ref:$stop_condition_ref,lock_ref:$lock_ref,idempotency_key:$idempotency_key,audit_intent_ref:$audit_intent_ref,automation_hold_ref:$hold_ref,baseline_capacity:$baseline_capacity,baseline_instance_count:$baseline_instance_count,target_capacity:$target_capacity}' \
   > .fdai/evidence/ohl-scale-out/baseline.json
 ```
+
+## 통제된 shadow proposal
+
+기준선 검사가 통과하면 protected runner에서 proposal-only Job을 시작합니다.
+
+```bash
+az containerapp job start \
+  --subscription "$FDAI_OHL_EXPECTED_SUBSCRIPTION_ID" \
+  --resource-group "$FDAI_OHL_RESOURCE_GROUP" \
+  --name "$FDAI_OHL_PROPOSAL_JOB_NAME" \
+  --only-show-errors
+```
+
+고정된 campaign id를 사용하므로 Job retry가 같은 operator-request idempotency key를 게시합니다.
+이후 normal path는 Huginn ingest, ActionType argument validation, risk evaluation, 분리된 human
+approval, isolated Executor dispatch, logical target lock, gateway plan 및 terminal audit을
+실행합니다. Approver는 설정된 initiator와 다른 principal이어야 합니다.
+
+`ops.scale-out`은 shadow로 유지합니다. 따라서 approval은 gateway dry-run 및 evidence path를
+허용하지만 provider mutation은 허용하지 않습니다. 다음 단계로 진행하기 전에 일치하는 approval,
+dry-run, stop-condition, target-lock, idempotency, audit, automation-hold, graph-prediction 및
+graph-outcome reference를 기록합니다. Reference가 없거나 충돌하면 campaign을 중단합니다. 이
+drill을 실행하려고 ActionType을 승격하지 마세요.
 
 ## 부분 실행 및 강제 복구
 
