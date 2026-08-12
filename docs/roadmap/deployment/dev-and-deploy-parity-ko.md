@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 94803606f69df6b8c002aa979eca2c677edeae07
+translation_source_sha: e3bc5bb3842961015aafd460bd673275bdc01537
 translation_revised: 2026-08-12
 ---
 
@@ -188,12 +188,13 @@ copy로 인한 Problems 중복을 줄입니다. 이는 탐색 기본값이므로
 design doc은 계속 검색할 수 있습니다. Terraform 인덱싱은 검증된 non-Terraform 디렉터리 이름을
 건너뛰고 tracked `.tf` 파일이 있는 모든 디렉터리를 보존합니다.
 
-Pylance 백그라운드 인덱싱은 서비스 소스 루트 5개, 공유 패키지, 독립 패키지로 제공되는 SDK와
-벤치마크 소스 및 저장소 유지관리 스크립트를 대상으로 합니다. 테스트 파일은 백그라운드 사용자
-파일 인덱스를 사용하지 않으면서 열린 파일 분석과 범위가 제한된 테스트 실행에 계속 사용할 수
-있습니다. Pylance는 심볼릭 링크 폴더를 따라가지 않고 언어 서버 메시지는 경고 수준부터
+Pylance 분석은 서비스 소스 루트 5개, 공유 패키지, 독립 패키지로 제공되는 SDK와 벤치마크 소스 및
+저장소 유지관리 스크립트를 대상으로 합니다. Workspace 백그라운드 인덱싱은 비활성화합니다. 열린
+파일은 IntelliSense와 진단을 계속 제공하며 범위가 제한된 테스트는 테스트 실행기를 통해 사용할
+수 있습니다. Pylance는 심볼릭 링크 폴더를 따라가지 않고 언어 서버 메시지는 경고 수준부터
 기록합니다. 따라서 검증 워크트리와 연결된 로컬 산출물이 workspace 분석 집합에 중복으로
-들어가거나 정보 수준 로그 부하를 추가하지 않습니다.
+들어가거나 정보 수준 로그 부하를 추가하지 않습니다. Chat 맥락 사용량 표시기는 계속 활성화하므로
+프롬프트가 한도에 도달하기 전에 기록된 세션 인수인계를 사용해 긴 작업을 옮길 수 있습니다.
 
 Workspace는 정본 `.github/copilot-instructions.md` 진입점과 저장소의 `.github/hooks`
 디렉터리를 사용합니다. FDAI에서는 중첩 `AGENTS.md` 탐색과 사용자 수준 Claude 또는 Copilot
