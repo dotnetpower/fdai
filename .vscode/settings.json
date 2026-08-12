@@ -42,6 +42,7 @@
     "python.analysis.nodeArguments": [
         "--max-old-space-size=2048"
     ],
+    "python.analysis.nodeExecutable": "auto",
     "python.analysis.useLibraryCodeForTypes": false,
     "python.analysis.userFileIndexFollowSymlinkedFolders": false,
     "files.associations": {
