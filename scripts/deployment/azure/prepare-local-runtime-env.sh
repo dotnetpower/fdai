@@ -2,7 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="${FDAI_REPO_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
+SCRIPT_REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+REPO_ROOT="${FDAI_REPO_ROOT:-$SCRIPT_REPO_ROOT}"
 TERRAFORM_BIN="${FDAI_TERRAFORM_BIN:-terraform}"
 AZ_BIN="${FDAI_AZ_BIN:-az}"
 SOURCE_ENV="$REPO_ROOT/console/.env.local"
@@ -174,24 +175,6 @@ operational_bootstrap="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw ev
 topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_topics)"
 semantic_topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_semantic_topics 2>/dev/null || printf '[]')"
 semantic_physical_topic="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_semantic_physical_topic 2>/dev/null || true)"
-if [[ "$semantic_topics_json" == "[]" && -z "$semantic_physical_topic" ]]; then
-  semantic_request_default="operator.semantic-turn.requests"
-  semantic_projection_default="core.semantic-turn.projections"
-  semantic_physical_default="aw.pantheon.objects"
-  semantic_contract="$(printf '{"logical":["%s","%s"],"physical":"%s"}' \
-    "$semantic_request_default" "$semantic_projection_default" "$semantic_physical_default")"
-  semantic_fallback="$(printf '%s\n%s' "$topics_json" "$semantic_contract" | "$REPO_ROOT/.venv/bin/python" -c '
-import json, sys
-topics = json.loads(sys.stdin.readline())
-contract = json.loads(sys.stdin.readline())
-if isinstance(topics, list) and contract["physical"] in topics:
-    print(json.dumps(contract, separators=(",", ":")))
-')"
-  if [[ -n "$semantic_fallback" ]]; then
-    semantic_topics_json="$(printf '%s' "$semantic_fallback" | "$REPO_ROOT/.venv/bin/python" -c 'import json, sys; print(json.dumps(json.load(sys.stdin)["logical"], separators=(",", ":")))')"
-    semantic_physical_topic="$(printf '%s' "$semantic_fallback" | "$REPO_ROOT/.venv/bin/python" -c 'import json, sys; print(json.load(sys.stdin)["physical"])')"
-  fi
-fi
 operational_topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_operational_topics 2>/dev/null || printf '[]')"
 resource_group="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw resource_group_name)"
 monitor_workspace_customer_id="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw log_workspace_customer_id 2>/dev/null || true)"
@@ -208,6 +191,65 @@ deployment_subscription_id="${BASH_REMATCH[1]}"
 if [[ "${subscription_id,,}" != "${deployment_subscription_id,,}" ]]; then
   echo "active Azure CLI subscription does not match the applied Terraform deployment" >&2
   exit 1
+fi
+semantic_fallback_required=0
+semantic_physical_candidate="$semantic_physical_topic"
+if [[ "$semantic_topics_json" == "[]" && -z "$semantic_physical_topic" ]]; then
+  semantic_fallback_required=1
+  semantic_contract="$("$REPO_ROOT/.venv/bin/python" - \
+  "$SCRIPT_REPO_ROOT/packages/service-contracts/src/fdai_service_contracts/semantic_turn.py" <<'PY'
+import ast
+import json
+import sys
+from pathlib import Path
+
+required = {
+  "SEMANTIC_PHYSICAL_TOPIC",
+  "SEMANTIC_PROJECTION_TOPIC",
+  "SEMANTIC_REQUEST_TOPIC",
+}
+tree = ast.parse(Path(sys.argv[1]).read_text(encoding="utf-8"))
+values = {}
+for node in tree.body:
+  if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+    continue
+  target = node.targets[0]
+  if isinstance(target, ast.Name) and target.id in required:
+    value = ast.literal_eval(node.value)
+    if isinstance(value, str):
+      values[target.id] = value
+if values.keys() != required:
+  raise SystemExit("semantic turn contract topic constants are incomplete")
+
+print(
+    json.dumps(
+        {
+      "logical": [
+        values["SEMANTIC_REQUEST_TOPIC"],
+        values["SEMANTIC_PROJECTION_TOPIC"],
+      ],
+      "physical": values["SEMANTIC_PHYSICAL_TOPIC"],
+        },
+        separators=(",", ":"),
+    )
+)
+PY
+)"
+  semantic_physical_candidate="$(printf '%s' "$semantic_contract" | "$REPO_ROOT/.venv/bin/python" -c 'import json, sys; print(json.load(sys.stdin)["physical"])')"
+fi
+semantic_physical_verified=0
+if [[ -n "$semantic_physical_candidate" && "$bootstrap" =~ ^([a-z0-9-]+)\.servicebus\.windows\.net:9093$ ]]; then
+  semantic_namespace="${BASH_REMATCH[1]}"
+  semantic_physical_live="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" eventhubs eventhub show \
+    --resource-group "$resource_group" --namespace-name "$semantic_namespace" \
+    --name "$semantic_physical_candidate" --query name -o tsv 2>/dev/null || true)"
+  if [[ "$semantic_physical_live" == "$semantic_physical_candidate" ]]; then
+    semantic_physical_verified=1
+  fi
+  if [[ "$semantic_fallback_required" == "1" && "$semantic_physical_verified" == "1" ]]; then
+    semantic_topics_json="$(printf '%s' "$semantic_contract" | "$REPO_ROOT/.venv/bin/python" -c 'import json, sys; print(json.dumps(json.load(sys.stdin)["logical"], separators=(",", ":")))')"
+    semantic_physical_topic="$semantic_physical_candidate"
+  fi
 fi
 region="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" group show --name "$resource_group" --query location -o tsv)"
 
@@ -295,12 +337,7 @@ if [[ ! "$event_topic" =~ ^[a-z0-9._-]+$ ]]; then
 fi
 if [[ -n "$semantic_physical_topic" ]] && {
   [[ ! "$semantic_physical_topic" =~ ^[a-z0-9._-]+$ ]] ||
-  ! printf '%s' "$topics_json" | "$REPO_ROOT/.venv/bin/python" -c '
-import json, sys
-topics = json.load(sys.stdin)
-physical = sys.argv[1]
-raise SystemExit(0 if isinstance(topics, list) and physical in topics else 1)
-' "$semantic_physical_topic"
+  [[ "$semantic_physical_verified" != "1" ]]
 }; then
   echo "event_bus_semantic_physical_topic is not provisioned" >&2
   exit 1

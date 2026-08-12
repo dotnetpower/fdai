@@ -21,12 +21,14 @@ _SCRIPT = _REPO_ROOT / "scripts/deployment/azure/prepare-local-runtime-env.sh"
 _BASH = shutil.which("bash") or "bash"
 
 
-def test_semantic_fallback_literals_match_shared_contract() -> None:
+def test_semantic_fallback_loads_shared_contract() -> None:
     script = _SCRIPT.read_text(encoding="utf-8")
 
-    assert f'semantic_request_default="{SEMANTIC_REQUEST_TOPIC}"' in script
-    assert f'semantic_projection_default="{SEMANTIC_PROJECTION_TOPIC}"' in script
-    assert f'semantic_physical_default="{SEMANTIC_PHYSICAL_TOPIC}"' in script
+    assert "fdai_service_contracts/semantic_turn.py" in script
+    assert "ast.parse" in script
+    assert "SEMANTIC_REQUEST_TOPIC" in script
+    assert "SEMANTIC_PROJECTION_TOPIC" in script
+    assert "SEMANTIC_PHYSICAL_TOPIC" in script
 
 
 _EXECUTOR_RESOURCE_ID = (
@@ -55,11 +57,13 @@ _EXECUTOR_RESOURCE_ID = (
         ([], "0", "core-incompatible"),
     ],
 )
+@pytest.mark.parametrize("semantic_outputs_present", [True, False])
 def test_prepares_deployed_transport_without_copying_stale_transport(
     tmp_path: Path,
     web_search_candidates: list[dict[str, str]],
     expected_web_search_enabled: str,
     local_vision_state: str,
+    semantic_outputs_present: bool,
 ) -> None:
     repo = tmp_path / "repo"
     (repo / "console").mkdir(parents=True)
@@ -140,6 +144,14 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_DIRECT_API_FAKE=1\n",
         encoding="utf-8",
     )
+    semantic_outputs = (
+        'elif [[ "$*" == *"output -json event_bus_semantic_topics"* ]]; then\n'
+        f'  printf \'["{SEMANTIC_REQUEST_TOPIC}","{SEMANTIC_PROJECTION_TOPIC}"]\'\n'
+        'elif [[ "$*" == *"output -raw event_bus_semantic_physical_topic"* ]]; then\n'
+        f"  printf '{SEMANTIC_PHYSICAL_TOPIC}'\n"
+        if semantic_outputs_present
+        else ""
+    )
     terraform = tmp_path / "terraform"
     terraform.write_text(
         "#!/usr/bin/env bash\n"
@@ -149,11 +161,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "  printf 'example-ops.servicebus.windows.net:9093'\n"
         'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
         '  printf \'["aw.finops.events","aw.change.events","aw.pantheon.objects"]\'\n'
-        'elif [[ "$*" == *"output -json event_bus_semantic_topics"* ]]; then\n'
-        '  printf \'["operator.semantic-turn.requests","core.semantic-turn.projections"]\'\n'
-        'elif [[ "$*" == *"output -raw event_bus_semantic_physical_topic"* ]]; then\n'
-        "  printf 'aw.pantheon.objects'\n"
-        'elif [[ "$*" == *"output -json event_bus_auxiliary_topics"* ]]; then\n'
+        + semantic_outputs
+        + 'elif [[ "$*" == *"output -json event_bus_auxiliary_topics"* ]]; then\n'
         "  printf '[\"aw.pipeline.stages\"]'\n"
         'elif [[ "$*" == *"output -json event_bus_operational_topics"* ]]; then\n'
         '  printf \'["aw.control.canary","aw.control.canary.dlq","aw.inventory.raw"]\'\n'
@@ -182,6 +191,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "  printf '00000000-0000-0000-0000-000000000002'\n"
         'elif [[ "$*" == *"group show"* ]]; then\n'
         "  printf 'example-region'\n"
+        'elif [[ "$*" == *"eventhubs eventhub show"* ]]; then\n'
+        f"  printf '{SEMANTIC_PHYSICAL_TOPIC}'\n"
         "else\n"
         "  exit 2\n"
         "fi\n",
