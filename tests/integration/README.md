@@ -1,15 +1,32 @@
-# `services/core-control-plane/tests/`
+# Integration tests
 
-Cross-subsystem regression suites and shared fixtures.
+This directory owns repository-level integration, structural, packaging, and automation tests
+that do not belong to one deployable service. Service-local tests stay under
+`services/<service-id>/tests/` and remain independently runnable.
 
-Unit tests colocate with each subsystem under `services/core-control-plane/src/fdai/**`; this directory
-holds only cross-subsystem regression, property tests, and scenario fixtures.
+## Layout
+
+| Path | Responsibility |
+|------|----------------|
+| Root `test_*.py` files | Cross-service composition, deployment parity, and repository structural gates |
+| `infra/` | Static infrastructure topology and identity-boundary contracts |
+| `scripts/` | Deterministic tests for repository, release, deployment, and validation automation |
+| `services/` | Distribution, image, migration, and package-isolation contracts |
+| `evaluation/` | Versioned evaluation inputs consumed by focused integration tests |
+| `service-suites.json` | Exclusive test ownership and execution order for the five runtime services |
 
 ## Service suites
 
 [`service-suites.json`](service-suites.json) assigns unit, contract, integration, and smoke
-tests to each of the five deployable runtime services. The assignment is logical: tests stay near
-their current subsystem while each service gets an independently runnable verification boundary.
+tests to each of the five deployable runtime services:
+
+- **Unit** tests exercise service-local domain or adapter logic.
+- **Contract** tests verify schemas, wire formats, package boundaries, and parity.
+- **Integration** tests cover composition, persistence, and multi-component behavior.
+- **Smoke** tests check the smallest service health or startup surface.
+
+The paths are non-overlapping and explicit. A new service test must be assigned to one group before
+the service-suite manifest can load, so an unclassified file cannot silently bypass service CI.
 
 Run one service suite with:
 
@@ -36,7 +53,7 @@ overrides, or plugin-specific collection options. The runner always supplies the
 the selected service. Make targets intentionally don't interpolate free-form arguments through a
 shell.
 
-List the selected paths without running pytest with:
+List the selected group paths without running pytest with:
 
 ```bash
 uv run python scripts/automation/run-service-tests.py isolated-executor --list
@@ -45,10 +62,6 @@ uv run python scripts/automation/run-service-tests.py isolated-executor --list
 Use `--all --list` to inspect the complete canonical path union without running pytest.
 
 `--list` can't be combined with pytest arguments. A malformed manifest, an empty service suite,
-an out-of-repository path, or a path that overlaps another service fails before pytest starts.
-The runner also requires the manifest's service ids and order to match
+an unclassified service file, an out-of-repository path, or an overlapping ownership claim fails
+before pytest starts. The runner also requires the manifest's service ids and order to match
 `config/service-decomposition.json` exactly. Unknown manifest keys fail instead of being ignored.
-
-Coverage patterns require every service source and every test in the shared-contract,
-ingestion-gateway, isolated-Executor runtime, and isolated-Executor infrastructure cohorts to have
-exactly one owner. A new file in one of these file-owned cohorts can't bypass its service suite.
