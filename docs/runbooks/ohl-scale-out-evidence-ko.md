@@ -1,7 +1,7 @@
 ---
 title: OHL Scale-Out 근거 Runbook
 translation_of: ohl-scale-out-evidence.md
-translation_source_sha: ce4c302f7f2e977d09211ed6e4cbd8f5656d9b0e
+translation_source_sha: 7c6918defd623ba1ebdf3e2534bc2af4af749fc4
 translation_revised: 2026-08-13
 ---
 # OHL Scale-Out 근거 Runbook
@@ -277,7 +277,7 @@ manifest를 `complete`로 변경하세요. 특히 다음 조건을 확인합니�
 
 이 prepared 계약에는 residual 두 개가 남아 있습니다.
 
-- Independent Core 및 Operator service root에 이 action을 park하고 resolve하는 데 필요한 HIL
+- Independent Core 및 Operator service root에 이 action을 park하고 resolve하는 데 필요한 사람 승인
   channel 및 callback signing secret binding이 아직 없습니다.
 - protected-runner live drill을 아직 실행하지 않았습니다.
 
