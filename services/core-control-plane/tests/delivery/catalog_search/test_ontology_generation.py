@@ -28,8 +28,12 @@ from fdai.shared.ontology.compatibility import OntologyGenerationCompatibilityRe
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.catalog_search import (
     CatalogGenerationMetadata,
+    CatalogGenerationRollbackReceipt,
     CatalogGenerationStaleError,
     CatalogSearchDocument,
+    build_document_digest_manifest,
+    catalog_generation_digest,
+    catalog_search_document_digest,
 )
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
@@ -119,6 +123,13 @@ def test_incremental_generation_reuses_unchanged_document_objects() -> None:
     assert all(left is right for left, right in zip(first.documents, second.documents, strict=True))
 
 
+def test_generation_metadata_rejects_noncanonical_generation_digest() -> None:
+    build = _build()
+
+    with pytest.raises(ValueError, match="generation digest mismatch"):
+        replace(build.metadata, generation_digest="sha256:" + ("f" * 64))
+
+
 def test_full_generation_accepts_8500_incremental_projection_rows() -> None:
     records = tuple(
         OntologyObjectRecord(
@@ -190,6 +201,16 @@ async def test_generation_rejects_wrong_embedding_dimension() -> None:
         await InMemoryCatalogSemanticIndex().stage_generation(build.metadata, documents)
 
 
+async def test_generation_rejects_ordered_document_identity_drift() -> None:
+    build = _build()
+
+    with pytest.raises(ValueError, match="document digest manifest"):
+        await InMemoryCatalogSemanticIndex().stage_generation(
+            build.metadata,
+            tuple(reversed(build.documents)),
+        )
+
+
 async def test_retained_generation_rolls_back_atomically() -> None:
     manifest = _manifest()
     index = InMemoryCatalogSemanticIndex()
@@ -244,6 +265,20 @@ async def test_retained_generation_rolls_back_atomically() -> None:
     assert active.generation_id == first.generation_id
     assert second_build.metadata.generation_id == second.generation_id
 
+    altered_manifest = build_document_digest_manifest(
+        tuple(f"sha256:{value * 64}" for value in ("b", "c", "d"))
+    )
+    corrupted_retired = replace(rollback.retired_generation)
+    object.__setattr__(corrupted_retired, "document_digest_manifest", altered_manifest)
+    altered_receipt = CatalogGenerationRollbackReceipt(
+        retired_generation=corrupted_retired,
+        reactivated_generation=rollback.reactivated_generation,
+        validation_receipt_digest=rollback.validation_receipt_digest,
+        ontology_compatibility_receipt=rollback.ontology_compatibility_receipt,
+        rolled_back_at=rollback.rolled_back_at,
+    )
+    assert altered_receipt.receipt_digest != rollback.receipt_digest
+
 
 async def test_active_and_discovery_generation_pointers_are_independent() -> None:
     manifest = _manifest()
@@ -260,19 +295,35 @@ async def test_active_and_discovery_generation_pointers_are_independent() -> Non
         build=validated,
         activated_at=NOW,
     )
+    discovery_documents = tuple(
+        replace(document, corpus="discovery") for document in validated.documents
+    )
+    discovery_manifest = build_document_digest_manifest(
+        tuple(catalog_search_document_digest(item) for item in discovery_documents)
+    )
+    discovery_generation_digest = catalog_generation_digest(
+        corpus="discovery",
+        catalog_digest=validated.metadata.catalog_digest,
+        semantic_schema_digest=validated.metadata.semantic_schema_digest,
+        ontology_release_digest=validated.metadata.ontology_release_digest,
+        embedding_space_id=validated.metadata.embedding_space_id,
+        embedding_model_version=validated.metadata.embedding_model_version,
+        embedding_dimension=validated.metadata.embedding_dimension,
+        document_digest_manifest=discovery_manifest,
+    )
     discovery_first = replace(
         validated.metadata,
         generation_id="ontology-search:discovery:first",
-        generation_digest="sha256:" + ("b" * 64),
+        generation_digest=discovery_generation_digest,
         corpus="discovery",
+        document_digest_manifest=discovery_manifest,
     )
     discovery_second = replace(
         discovery_first,
         generation_id="ontology-search:discovery:second",
-        generation_digest="sha256:" + ("c" * 64),
     )
 
-    await index.stage_generation(discovery_first, validated.documents)
+    await index.stage_generation(discovery_first, discovery_documents)
     assert await index.active_generation("discovery") is None
     with pytest.raises(CatalogGenerationStaleError, match="unavailable"):
         await index.search(
@@ -286,7 +337,7 @@ async def test_active_and_discovery_generation_pointers_are_independent() -> Non
         expected_generation_digest=discovery_first.generation_digest,
         activated_at=datetime(2026, 8, 10, 1, tzinfo=UTC),
     )
-    await index.stage_generation(discovery_second, validated.documents)
+    await index.stage_generation(discovery_second, discovery_documents)
     second = await index.activate_generation(
         discovery_second.generation_id,
         expected_generation_digest=discovery_second.generation_digest,
