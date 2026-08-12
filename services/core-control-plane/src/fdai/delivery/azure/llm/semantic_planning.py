@@ -30,6 +30,7 @@ _MAX_DESCRIPTORS = 512
 _MAX_PROMPT_BYTES = 786_432
 _MAX_RESPONSE_BYTES = 65_536
 _MAX_SYSTEM_PROMPT_CHARS = 16_384
+_MAX_ATTEMPTS_PER_CANDIDATE = 2
 _ProposalT = TypeVar("_ProposalT", bound=BaseModel)
 
 
@@ -208,16 +209,29 @@ class AzureOpenAISemanticPlanningModel:
                     }
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field
-                    response = await self._http.post(
-                        request.url,
-                        params=request.params,
-                        headers={
-                            "Authorization": f"Bearer {token.token}",
-                            "Content-Type": "application/json",
-                        },
-                        json=body,
-                        timeout=candidate_timeout,
-                    )
+                    for attempt in range(_MAX_ATTEMPTS_PER_CANDIDATE):
+                        response = await self._http.post(
+                            request.url,
+                            params=request.params,
+                            headers={
+                                "Authorization": f"Bearer {token.token}",
+                                "Content-Type": "application/json",
+                            },
+                            json=body,
+                            timeout=candidate_timeout,
+                        )
+                        if (
+                            response.status_code != 429
+                            or attempt + 1 >= _MAX_ATTEMPTS_PER_CANDIDATE
+                        ):
+                            break
+                        retry_after = _retry_after_seconds(
+                            response.headers.get("Retry-After"),
+                            maximum=candidate_timeout - 1.0,
+                        )
+                        if retry_after is None:
+                            break
+                        await asyncio.sleep(retry_after)
                     response.raise_for_status()
                     return _validated_content(response, proposal_type)
             except Exception as exc:  # noqa: BLE001 - bounded fallback hides provider details
@@ -243,6 +257,17 @@ class AzureOpenAISemanticPlanningModel:
                     extra=failure,
                 )
         return None
+
+
+def _retry_after_seconds(value: str | None, *, maximum: float) -> float | None:
+    if maximum <= 0:
+        return None
+    try:
+        delay = float(value) if value is not None else 1.0
+    except ValueError:
+        delay = 1.0
+    delay = max(0.0, delay)
+    return delay if delay <= maximum else None
 
 
 def _bounded_input(

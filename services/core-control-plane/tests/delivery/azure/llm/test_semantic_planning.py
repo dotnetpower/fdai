@@ -170,6 +170,36 @@ async def test_adapter_normalizes_non_authoritative_frame_tokens() -> None:
     ]
 
 
+async def test_adapter_retries_one_throttled_candidate_within_its_budget() -> None:
+    requests = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        if requests == 1:
+            return httpx.Response(429, headers={"Retry-After": "0"})
+        return _response(_frame_payload())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=_config(),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        frame_raw = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="Show resources",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+        )
+
+    assert frame_raw is not None
+    assert requests == 2
+
+
 async def test_adapter_uses_candidate_order_and_returns_none_after_malformed_outputs(
     caplog,
 ) -> None:
