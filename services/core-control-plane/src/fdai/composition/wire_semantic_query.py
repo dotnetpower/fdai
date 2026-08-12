@@ -170,7 +170,7 @@ def compose_azure_semantic_query_runtime(
 ) -> SemanticQueryRuntimeComposition:
     """Compose Azure semantic querying or return one stable readiness reason."""
 
-    if container.config.llm.mode is not LlmMode.AZURE:
+    if container.config.llm.mode != LlmMode.AZURE:
         return _unavailable("semantic_llm_mode_unavailable")
     if container.config.llm.resolved_models_path is None:
         return _unavailable("semantic_resolved_models_unavailable")

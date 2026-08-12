@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
 
-from fdai.composition import build_semantic_query_runtime
+from fdai.composition import build_semantic_query_runtime, compose_azure_semantic_query_runtime
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import (
     ObjectSelector,
@@ -27,6 +28,30 @@ from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
 
 NOW = datetime(2026, 8, 11, 12, tzinfo=UTC)
+
+
+def test_azure_string_mode_reaches_semantic_prerequisite_checks(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    mode = "".join(("az", "ure"))
+    container = SimpleNamespace(
+        config=SimpleNamespace(
+            llm=SimpleNamespace(mode=mode, resolved_models_path=None),
+        )
+    )
+
+    composition = compose_azure_semantic_query_runtime(
+        container=container,  # type: ignore[arg-type]
+        ontology_release=None,
+        ontology_store=None,
+        identity=None,
+        http_client=None,
+        endpoint=None,
+        endpoint_resolver=None,
+        catalog_root=tmp_path,
+        owner_loop=None,  # type: ignore[arg-type]
+    )
+
+    assert mode == "azure"
+    assert composition.unavailable_reason == "semantic_resolved_models_unavailable"
 
 
 class _Model:

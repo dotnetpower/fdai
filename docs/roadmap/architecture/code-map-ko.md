@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ddc1be68e3cd85a3e0cb73541339dc769988cacd
+translation_source_sha: b539d8c554082765ca6ae3d755e8bdf81cd2ecb9
 translation_revised: 2026-08-12
 ---
 # 코드 맵
@@ -70,7 +70,8 @@ Azure 의미 계획 수립은 기존 `httpx` 및 `WorkloadIdentity` 어댑터를
 제안 두 개를 만듭니다. 조립은 권위 있는 프로바이더가 연결된 핸들러만 노출합니다. 공개
 조립 파사드는 dedicated 의미 조회 연결기를 re-export하면서 400-line structural 상한 아래를
 유지합니다. 모듈 계약은 패키지 배치 게이트가 강제하는 `composition`, `seam` 및 `container`
-기준점을 보존합니다.
+기준점을 보존합니다. 검증된 `llm.mode` 문자열은 다른 LLM 연결기와 동일하게 값 비교로 Azure
+의미 조립을 선택합니다.
 ObjectSet 핸들러는 각 요청 역할에 맞게 다시 만들어지므로 읽기 담당이 Owner 가시성을 상속하지 않고
 Owner도 읽기 담당으로 조용히 축소되지 않습니다. 모델, release, 저장소 또는 전송 계층 선행 조건이 없으면
 암시적 `runtime=None` 대신 명시적 startup-readiness 실패로 유지됩니다.
