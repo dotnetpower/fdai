@@ -267,6 +267,12 @@ variable "semantic_turn_projection_topic" {
   default     = ""
 }
 
+variable "semantic_turn_physical_topic" {
+  description = "Physical Event Hub carrying multiplexed semantic-turn logical topics."
+  type        = string
+  default     = ""
+}
+
 variable "azure_subscription_id" {
   description = "Subscription inspected by the onboarding ResourceProbe."
   type        = string

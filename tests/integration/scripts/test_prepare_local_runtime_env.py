@@ -111,6 +111,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_KAFKA_BOOTSTRAP_SERVERS=stale.example.com:9093\n"
         "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=stale.requests\n"
         "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=stale.projections\n"
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=stale.physical\n"
         "KAFKA_TOPIC_EVENTS=stale.topic\n"
         "FDAI_CANARY_TOPIC=stale.canary\n"
         "FDAI_INVENTORY_RAW_TOPIC=stale.inventory\n"
@@ -132,8 +133,11 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         'elif [[ "$*" == *"output -raw event_bus_operational_kafka_bootstrap"* ]]; then\n'
         "  printf 'example-ops.servicebus.windows.net:9093'\n"
         'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
-        '  printf \'["aw.finops.events","aw.change.events","operator.semantic-turn.requests",'
-        '"core.semantic-turn.projections"]\'\n'
+        '  printf \'["aw.finops.events","aw.change.events","aw.pantheon.objects"]\'\n'
+        'elif [[ "$*" == *"output -json event_bus_semantic_topics"* ]]; then\n'
+        '  printf \'["operator.semantic-turn.requests","core.semantic-turn.projections"]\'\n'
+        'elif [[ "$*" == *"output -raw event_bus_semantic_physical_topic"* ]]; then\n'
+        "  printf 'aw.pantheon.objects'\n"
         'elif [[ "$*" == *"output -json event_bus_auxiliary_topics"* ]]; then\n'
         "  printf '[\"aw.pipeline.stages\"]'\n"
         'elif [[ "$*" == *"output -json event_bus_operational_topics"* ]]; then\n'
@@ -202,6 +206,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093",
         "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests",
         "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections",
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=aw.pantheon.objects",
         "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS=example-ops.servicebus.windows.net:9093",
         "KAFKA_TOPIC_EVENTS=aw.change.events",
         "FDAI_STAGE_TOPIC=aw.pipeline.stages",

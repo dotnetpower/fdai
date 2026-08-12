@@ -48,6 +48,11 @@ reviewer, digest, approval time, and expiry in the [Architecture Review Board Pa
 | Rollback | Staging rehearsal restores the prior topology within 15 minutes with no offset reset, data loss, duplicate terminal effect, or authority change | Timed rollback receipt and post-rollback smoke |
 | Identity ceiling | The new role has a dedicated identity when privileges differ, and no non-executor role can obtain Thor's identity or executor roles | Terraform identity/RBAC assertions and effective-access probe |
 
+Two graduated services may multiplex versioned logical channels over one physical Event Hub when
+each keeps its own schema, producer identity, logical topic, hashed consumer group, readiness,
+offset ownership, and DLQ routing. Sharing the broker entity never merges service ownership or
+health and does not satisfy a graduation gate by itself.
+
 No weighted score compensates for a failed binary gate. An approved split records the exact evidence
 cutoff and expires after 90 days if deployment has not started; it must then be re-evaluated.
 

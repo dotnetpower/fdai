@@ -94,13 +94,12 @@ locals {
   executor_receipt_topic         = "object.executor-receipt"
   semantic_turn_request_topic    = "operator.semantic-turn.requests"
   semantic_turn_projection_topic = "core.semantic-turn.projections"
+  semantic_turn_physical_topic   = "aw.pantheon.objects"
   event_topics = [
     "aw.change.events",
     "aw.dr.events",
     "aw.finops.events",
     "aw.pantheon.objects",
-    local.semantic_turn_request_topic,
-    local.semantic_turn_projection_topic,
   ]
   event_auxiliary_topics = ["aw.hil.decisions", "aw.pipeline.stages"]
 }
@@ -485,10 +484,9 @@ import {
 
 resource "azurerm_role_assignment" "command_api_eventhubs_sender" {
   for_each = var.enable_operator_api ? {
-    (local.event_topics[0])             = module.event_bus.topic_ids[local.event_topics[0]]
-    "aw.pantheon.objects"               = module.event_bus.topic_ids["aw.pantheon.objects"]
-    "aw.hil.decisions"                  = module.event_bus.auxiliary_topic_ids["aw.hil.decisions"]
-    (local.semantic_turn_request_topic) = module.event_bus.topic_ids[local.semantic_turn_request_topic]
+    (local.event_topics[0]) = module.event_bus.topic_ids[local.event_topics[0]]
+    "aw.pantheon.objects"   = module.event_bus.topic_ids["aw.pantheon.objects"]
+    "aw.hil.decisions"      = module.event_bus.auxiliary_topic_ids["aw.hil.decisions"]
   } : {}
   scope                = each.value
   role_definition_name = "Azure Event Hubs Data Sender"
@@ -497,8 +495,8 @@ resource "azurerm_role_assignment" "command_api_eventhubs_sender" {
 
 resource "azurerm_role_assignment" "command_api_eventhubs_receiver" {
   for_each = var.enable_operator_api ? {
-    "aw.pipeline.stages"                   = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
-    (local.semantic_turn_projection_topic) = module.event_bus.topic_ids[local.semantic_turn_projection_topic]
+    "aw.pipeline.stages"                 = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
+    (local.semantic_turn_physical_topic) = module.event_bus.topic_ids[local.semantic_turn_physical_topic]
   } : {}
   scope                = each.value
   role_definition_name = "Azure Event Hubs Data Receiver"
@@ -1623,6 +1621,7 @@ module "compute" {
   kafka_topic_events                  = local.event_topics[0]
   semantic_turn_request_topic         = local.semantic_turn_request_topic
   semantic_turn_projection_topic      = local.semantic_turn_projection_topic
+  semantic_turn_physical_topic        = local.semantic_turn_physical_topic
   postgres_host                       = module.state_store.fqdn
   postgres_database                   = module.state_store.database_name
   runtime_env                         = var.env == "" ? "dev" : var.env
@@ -2122,6 +2121,7 @@ module "operator_api" {
   kafka_topic_events                 = local.event_topics[0]
   semantic_turn_request_topic        = local.semantic_turn_request_topic
   semantic_turn_projection_topic     = local.semantic_turn_projection_topic
+  semantic_turn_physical_topic       = local.semantic_turn_physical_topic
   azure_subscription_id              = data.azurerm_client_config.current.subscription_id
   azure_resource_group               = module.resource_group.name
   executor_principal_id              = module.identity.principal_id

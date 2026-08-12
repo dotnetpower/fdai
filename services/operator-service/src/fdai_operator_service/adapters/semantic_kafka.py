@@ -14,6 +14,10 @@ from typing import Any
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
 from azure.identity.aio import ManagedIdentityCredential
+from fdai_service_contracts.semantic_turn import (
+    LOGICAL_TOPIC_FIELD,
+    multiplexed_consumer_group,
+)
 
 from fdai_operator_service.contract_codecs import CORE_REQUEST_PRODUCER_V12
 
@@ -43,6 +47,7 @@ class OperatorSemanticKafkaConfig:
     client_id: str = "fdai-operator-service"
     auto_offset_reset: str = "earliest"
     dlq_suffix: str = ".dlq"
+    physical_topic: str | None = None
     maximum_message_bytes: int = MAX_SEMANTIC_MESSAGE_BYTES
 
     def __post_init__(self) -> None:
@@ -60,6 +65,11 @@ class OperatorSemanticKafkaConfig:
             raise ValueError("auto_offset_reset MUST be earliest or latest")
         if not self.dlq_suffix:
             raise ValueError("Kafka DLQ suffix MUST NOT be empty")
+        if self.physical_topic is not None and (
+            _TOPIC_PATTERN.fullmatch(self.physical_topic) is None
+            or self.physical_topic in {self.request_topic, self.projection_topic}
+        ):
+            raise ValueError("semantic Kafka physical topic MUST be a distinct valid topic")
         if self.maximum_message_bytes < 1:
             raise ValueError("Kafka maximum message bytes MUST be positive")
 
@@ -119,8 +129,17 @@ class OperatorSemanticKafkaBus:
             if topic == self._config.request_topic
             else _encode(payload, maximum=self._config.maximum_message_bytes)
         )
+        physical_topic = topic
+        if self._config.physical_topic is not None:
+            logical_topic = topic.removesuffix(self._config.dlq_suffix)
+            enriched = json.loads(encoded)
+            enriched[LOGICAL_TOPIC_FIELD] = logical_topic
+            encoded = _encode(enriched, maximum=self._config.maximum_message_bytes)
+            physical_topic = self._config.physical_topic
+            if topic.endswith(self._config.dlq_suffix):
+                physical_topic += self._config.dlq_suffix
         return await producer.send_and_wait(
-            topic,
+            physical_topic,
             key=key.encode("utf-8"),
             value=encoded,
         )
@@ -133,7 +152,17 @@ class OperatorSemanticKafkaBus:
         """Yield valid mappings and commit only after downstream processing resumes."""
         if topic != self._config.projection_topic:
             raise ValueError("semantic Kafka subscription topic is not configured")
-        return self._iter_consumer(topic, group_id)
+        physical_topic = self._config.physical_topic or topic
+        routed_group = (
+            multiplexed_consumer_group(group_id, topic)
+            if self._config.physical_topic is not None
+            else group_id
+        )
+        return self._iter_consumer(
+            physical_topic,
+            routed_group,
+            logical_topic=topic if self._config.physical_topic is not None else None,
+        )
 
     async def close(self) -> None:
         """Stop the producer and close the owned managed-identity credential once."""
@@ -187,6 +216,8 @@ class OperatorSemanticKafkaBus:
         self,
         topic: str,
         group_id: str,
+        *,
+        logical_topic: str | None,
     ) -> AsyncIterator[Mapping[str, object]]:
         consumer = AIOKafkaConsumer(
             topic,
@@ -221,7 +252,7 @@ class OperatorSemanticKafkaBus:
                 )
                 if payload is None:
                     await self.publish(
-                        f"{message.topic}{self._config.dlq_suffix}",
+                        f"{logical_topic or message.topic}{self._config.dlq_suffix}",
                         _decode_key(message.key),
                         {
                             "original_topic": message.topic,
@@ -231,6 +262,12 @@ class OperatorSemanticKafkaBus:
                     )
                     await consumer.commit()
                     continue
+                if logical_topic is not None:
+                    if payload.get(LOGICAL_TOPIC_FIELD) != logical_topic:
+                        await consumer.commit()
+                        continue
+                    payload = dict(payload)
+                    payload.pop(LOGICAL_TOPIC_FIELD, None)
                 yield payload
                 await consumer.commit()
         finally:

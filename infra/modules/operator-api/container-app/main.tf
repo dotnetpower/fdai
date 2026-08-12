@@ -194,6 +194,13 @@ resource "azurerm_container_app" "operator_api" {
           value = env.value
         }
       }
+      dynamic "env" {
+        for_each = var.semantic_turn_physical_topic == "" ? [] : [var.semantic_turn_physical_topic]
+        content {
+          name  = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"
+          value = env.value
+        }
+      }
       env {
         name  = "AZURE_SUBSCRIPTION_ID"
         value = var.azure_subscription_id

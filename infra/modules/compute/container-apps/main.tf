@@ -101,6 +101,7 @@ locals {
     var.semantic_turn_request_topic == "" || var.semantic_turn_projection_topic == "" ? {} : {
       FDAI_SEMANTIC_TURN_REQUEST_TOPIC    = var.semantic_turn_request_topic
       FDAI_SEMANTIC_TURN_PROJECTION_TOPIC = var.semantic_turn_projection_topic
+      FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC   = var.semantic_turn_physical_topic
     },
     var.isolated_executor_authority_cutover ? {
       FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER = "1"

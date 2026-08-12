@@ -48,6 +48,7 @@ variable "event_topics" {
     startup_probe        = optional(string, "runtime.startup.probe")
     semantic_requests    = optional(string, "")
     semantic_projections = optional(string, "")
+    semantic_physical    = optional(string, "aw.pantheon.objects")
   })
 }
 

@@ -54,11 +54,10 @@ def test_operator_api_command_identity_can_publish_owned_objects() -> None:
         r'"aw\.pantheon\.objects"\s*=\s*module\.event_bus\.topic_ids\["aw\.pantheon\.objects"\]',
         root,
     )
-    assert (
-        "(local.semantic_turn_request_topic) = "
-        "module.event_bus.topic_ids[local.semantic_turn_request_topic]"
-    ) in root
-    assert (
-        "(local.semantic_turn_projection_topic) = "
-        "module.event_bus.topic_ids[local.semantic_turn_projection_topic]"
-    ) in root
+    assert re.search(
+        r"\(local\.semantic_turn_physical_topic\)\s*=\s*"
+        r"module\.event_bus\.topic_ids\[local\.semantic_turn_physical_topic\]",
+        root,
+    )
+    assert "module.event_bus.topic_ids[local.semantic_turn_request_topic]" not in root
+    assert "module.event_bus.topic_ids[local.semantic_turn_projection_topic]" not in root

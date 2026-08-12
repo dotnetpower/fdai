@@ -37,6 +37,10 @@ from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.local.event_bus import LocalEventBus
 from fdai.shared.providers.startup_probe import StartupProbeRequest
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_service_contracts.semantic_turn import (
+    SEMANTIC_PROJECTION_TOPIC,
+    SEMANTIC_REQUEST_TOPIC,
+)
 
 
 def test_pantheon_starts_by_default() -> None:
@@ -45,6 +49,10 @@ def test_pantheon_starts_by_default() -> None:
 
 def test_runtime_multiplexes_startup_readiness_transitions() -> None:
     assert "runtime.readiness.transitions" in _RUNTIME_LOGICAL_TOPICS
+
+
+def test_runtime_multiplexes_semantic_turn_channels() -> None:
+    assert {SEMANTIC_REQUEST_TOPIC, SEMANTIC_PROJECTION_TOPIC}.issubset(_RUNTIME_LOGICAL_TOPICS)
 
 
 async def test_semantic_turn_bootstrap_exposes_exact_missing_runtime_reason() -> None:

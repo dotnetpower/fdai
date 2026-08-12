@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from fdai.shared.providers.event_bus import EventBus, EventEnvelope, PublishReceipt
+from fdai_service_contracts.semantic_turn import (
+    LOGICAL_TOPIC_FIELD,
+    multiplexed_consumer_group,
+)
 
-_LOGICAL_TOPIC_FIELD = "_fdai_logical_topic"
+from fdai.shared.providers.event_bus import EventBus, EventEnvelope, PublishReceipt
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,7 +35,7 @@ class MultiplexedEventBus:
         if topic not in self.logical_topics:
             return await self.bus.publish(topic, key, payload)
         enriched = dict(payload)
-        enriched[_LOGICAL_TOPIC_FIELD] = topic
+        enriched[LOGICAL_TOPIC_FIELD] = topic
         receipt = await self.bus.publish(self.physical_topic, key, enriched)
         return PublishReceipt(topic=topic, partition=receipt.partition, offset=receipt.offset)
 
@@ -48,14 +50,13 @@ class MultiplexedEventBus:
             await self.bus.dead_letter(topic, key, payload, reason)
             return
         enriched = dict(payload)
-        enriched[_LOGICAL_TOPIC_FIELD] = topic
+        enriched[LOGICAL_TOPIC_FIELD] = topic
         await self.bus.dead_letter(self.physical_topic, key, enriched, reason)
 
     async def _subscribe(self, topic: str, group_id: str) -> AsyncIterator[EventEnvelope]:
         logical_dlq_source = topic.removesuffix(".dlq") if topic.endswith(".dlq") else None
         if logical_dlq_source in self.logical_topics:
-            topic_hash = hashlib.sha256(topic.encode("utf-8")).hexdigest()[:12]
-            routed_group = f"{group_id}.{topic_hash}"
+            routed_group = multiplexed_consumer_group(group_id, topic)
             physical_dlq = f"{self.physical_topic}.dlq"
             async for envelope in self.bus.subscribe(physical_dlq, routed_group):
                 wrapped = dict(envelope.payload)
@@ -63,9 +64,9 @@ class MultiplexedEventBus:
                 if not isinstance(original, Mapping):
                     continue
                 logical_payload = dict(original)
-                if logical_payload.get(_LOGICAL_TOPIC_FIELD) != logical_dlq_source:
+                if logical_payload.get(LOGICAL_TOPIC_FIELD) != logical_dlq_source:
                     continue
-                logical_payload.pop(_LOGICAL_TOPIC_FIELD, None)
+                logical_payload.pop(LOGICAL_TOPIC_FIELD, None)
                 wrapped["original_topic"] = logical_dlq_source
                 wrapped["payload"] = logical_payload
                 yield EventEnvelope(
@@ -79,13 +80,12 @@ class MultiplexedEventBus:
             async for envelope in self.bus.subscribe(topic, group_id):
                 yield envelope
             return
-        topic_hash = hashlib.sha256(topic.encode("utf-8")).hexdigest()[:12]
-        routed_group = f"{group_id}.{topic_hash}"
+        routed_group = multiplexed_consumer_group(group_id, topic)
         async for envelope in self.bus.subscribe(self.physical_topic, routed_group):
-            if envelope.payload.get(_LOGICAL_TOPIC_FIELD) != topic:
+            if envelope.payload.get(LOGICAL_TOPIC_FIELD) != topic:
                 continue
             payload = dict(envelope.payload)
-            payload.pop(_LOGICAL_TOPIC_FIELD, None)
+            payload.pop(LOGICAL_TOPIC_FIELD, None)
             yield EventEnvelope(
                 topic=topic,
                 key=envelope.key,

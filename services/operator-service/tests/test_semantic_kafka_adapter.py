@@ -12,6 +12,10 @@ from fdai_operator_service.adapters.semantic_kafka import (
     OperatorSemanticKafkaBus,
     OperatorSemanticKafkaConfig,
 )
+from fdai_service_contracts.semantic_turn import (
+    LOGICAL_TOPIC_FIELD,
+    multiplexed_consumer_group,
+)
 
 
 class Credential:
@@ -128,6 +132,22 @@ def _bus(monkeypatch) -> tuple[OperatorSemanticKafkaBus, Credential]:  # type: i
     )
 
 
+def _multiplexed_bus(monkeypatch) -> tuple[OperatorSemanticKafkaBus, Credential]:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(kafka_module, "AIOKafkaProducer", Producer)
+    monkeypatch.setattr(kafka_module, "AIOKafkaConsumer", Consumer)
+    credential = Credential()
+    return (
+        OperatorSemanticKafkaBus(
+            config=OperatorSemanticKafkaConfig(
+                bootstrap_servers="example.servicebus.windows.net:9093",
+                physical_topic="aw.pantheon.objects",
+            ),
+            credential=credential,  # type: ignore[arg-type]
+        ),
+        credential,
+    )
+
+
 async def test_producer_uses_managed_identity_and_idempotent_sasl_ssl(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     bus, credential = _bus(monkeypatch)
 
@@ -145,6 +165,22 @@ async def test_producer_uses_managed_identity_and_idempotent_sasl_ssl(monkeypatc
     assert credential.scopes == ["https://example.servicebus.windows.net/.default"]
     assert credential.closed == 1
     assert producer.stopped == 1
+
+
+async def test_multiplexed_producer_preserves_key_and_marks_logical_topic(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    bus, _ = _multiplexed_bus(monkeypatch)
+
+    await bus.publish("operator.semantic-turn.requests", "request-1", _request())
+
+    producer = Producer.latest
+    assert producer is not None
+    physical_topic, key, encoded = producer.sent[0]
+    assert physical_topic == "aw.pantheon.objects"
+    assert key == b"request-1"
+    payload = json.loads(encoded)
+    assert payload.pop(LOGICAL_TOPIC_FIELD) == "operator.semantic-turn.requests"
+    assert payload == _request()
+    await bus.aclose()
 
 
 async def test_readiness_is_credential_free_and_live_probe_fails_closed(monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -187,6 +223,58 @@ async def test_consumer_commits_only_after_yielded_payload_is_processed(monkeypa
     await bus.aclose()
 
     assert consumer.stopped == 1
+
+
+async def test_multiplexed_consumer_filters_and_commits_other_logical_topics(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    Consumer.messages = [
+        SimpleNamespace(
+            topic="aw.pantheon.objects",
+            key=b"other-1",
+            value=(b'{"_fdai_logical_topic":"object.verdict","status":"ignored"}'),
+            offset=3,
+        ),
+        SimpleNamespace(
+            topic="aw.pantheon.objects",
+            key=b"request-1",
+            value=(b'{"_fdai_logical_topic":"core.semantic-turn.projections","status":"answer"}'),
+            offset=4,
+        ),
+    ]
+    bus, _ = _multiplexed_bus(monkeypatch)
+    stream = bus.subscribe("core.semantic-turn.projections", "operator-semantic-turn-v1")
+
+    assert await anext(stream) == {"status": "answer"}
+    consumer = Consumer.latest
+    assert consumer is not None
+    assert consumer.topic == "aw.pantheon.objects"
+    assert consumer.kwargs["group_id"] == multiplexed_consumer_group(
+        "operator-semantic-turn-v1",
+        "core.semantic-turn.projections",
+    )
+    assert consumer.commits == 1
+    await stream.aclose()
+    await bus.aclose()
+
+
+async def test_multiplexed_dead_letter_uses_shared_physical_dlq(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    bus, _ = _multiplexed_bus(monkeypatch)
+
+    await bus.publish(
+        "core.semantic-turn.projections.dlq",
+        "request-1",
+        {"reason": "invalid_event_payload"},
+    )
+
+    producer = Producer.latest
+    assert producer is not None
+    physical_topic, key, encoded = producer.sent[0]
+    assert physical_topic == "aw.pantheon.objects.dlq"
+    assert key == b"request-1"
+    assert json.loads(encoded) == {
+        LOGICAL_TOPIC_FIELD: "core.semantic-turn.projections",
+        "reason": "invalid_event_payload",
+    }
+    await bus.aclose()
 
 
 async def test_invalid_payload_is_dead_lettered_and_committed_before_next_yield(

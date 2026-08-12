@@ -296,6 +296,7 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
             request_topic=environment.semantic_request_topic or "operator.semantic-turn.requests",
             projection_topic=environment.semantic_projection_topic
             or "core.semantic-turn.projections",
+            physical_topic=environment.semantic_physical_topic,
             client_id=environment.semantic_kafka_client_id,
         ),
         credential=credential,

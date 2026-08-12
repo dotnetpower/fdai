@@ -1,8 +1,8 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 42ad0ccd5dfa636bbea0e07cced675b3314057f0
-translation_revised: 2026-08-11
+translation_source_sha: 185c805240f4d87e408af7466754003712d4ec1e
+translation_revised: 2026-08-12
 ---
 # 결과 Assurance
 
@@ -172,6 +172,10 @@ Operator API는 선택적이고 인증된 읽기 패널로 `GET /kpi/outcome-ass
 그룹과 좁은 근거 링크를 제공합니다. Interactive 로컬과 deployed 환경은 동일한
 truth 계약을 따릅니다. 연결되지 않은 측정 출처는 demo 값 대신
 `not_connected`를 반환합니다.
+
+Semantic 요청과 결과 변환 결과는 typed logical topic을 통해 하나의 physical Event Hub를 공유할 수
+있습니다. 결과를 decode하기 전에 transport marker를 제거하므로 근거 참조, 최신성, 검증 상태 및
+권한은 broker envelope가 아니라 versioned 변환 결과의 속성으로 유지됩니다.
 
 콘솔은 현재 information 아키텍처를 재사용합니다.
 

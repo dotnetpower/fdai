@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 4444bc1f8c224bafe21202ea9dbb4848e2b9bbc0
-translation_revised: 2026-08-11
+translation_source_sha: 798b161591941e5b4d5bbd4e4bf3be8236c58ca0
+translation_revised: 2026-08-12
 ---
 # 코드 맵
 
@@ -109,6 +109,10 @@ Shared SDK는 Core/Operator 경계에서 사용하는 no-authority ontology-quer
 pin합니다. Answered 결과에는 exact release, 매니페스트, 계획, 실행 증적 및 근거 참조가
 필요합니다. SDK는 해당 필드를 폐기하는 대신 의미 downgrade to N-1을 거부합니다. 런타임
 게시와 consumption은 service-owned 구현으로 유지됩니다.
+
+SDK는 두 semantic channel이 하나의 physical Event Hub를 공유할 때 사용하는 logical-topic marker와
+결정론적 consumer-group 파생 규칙도 소유합니다. Core와 Operator는 서로 다른 adapter, codec,
+identity, logical topic 및 offset group을 유지하며 상대 서비스 구현을 가져오지 않습니다.
 
 서비스 분포 5개는 deployable `0.1.2` 이미지를 N-1, `0.1.3`을 N으로 사용합니다. 기존 contract-set
 `1.0.0`/`1.1.0` 매트릭스는 프로세스 간 호환성 경계로 유지합니다.

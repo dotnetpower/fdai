@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: bbd487981ae055a4047a8799eba1c6c1b7c6a854
-translation_revised: 2026-08-11
+translation_source_sha: 60334e7f074a94c378f2f67c5d5b9f34daeb7937
+translation_revised: 2026-08-12
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -49,6 +49,11 @@ translation_revised: 2026-08-11
 | 비용 | 월별 incremental 비용을 측정하고 승인된 환경 예산 안에 유지. 상위 서비스 비용의 20%를 넘는 delta는 FinOps 승인 필요 | Terraform 비용 추정치와 측정된 청구 기준선 |
 | Rollback | Staging 예행 연습에서 오프셋 reset, 데이터 loss, 중복 최종 효과, 권한 변경 없이 15분 안에 이전 토폴로지 복원 | Timed 롤백 증적과 post-rollback smoke |
 | 신원 상한 | 권한이 다르면 새 역할에 전용 신원을 사용하고 non-executor 역할은 Thor 신원 또는 실행기 역할을 획득할 수 없음 | Terraform 신원/RBAC assertion과 effective-access 탐색 |
+
+두 graduated 서비스는 각자의 schema, producer identity, logical topic, hash 기반 consumer group,
+준비 상태, offset 소유권 및 DLQ routing을 유지할 때 하나의 physical Event Hub에서 versioned logical
+channel을 multiplex할 수 있습니다. Broker entity를 공유해도 서비스 소유권이나 상태는 병합되지 않으며,
+그 자체로 graduation gate를 충족하지 않습니다.
 
 실패한 binary 게이트를 weighted 점수로 보상할 수 없습니다. 승인된 분리는 exact 근거 기준 시점을
 기록하며 90일 안에 배포가 시작되지 않으면 만료되어 다시 평가합니다.

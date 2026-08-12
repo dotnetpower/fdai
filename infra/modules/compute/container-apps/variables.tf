@@ -396,6 +396,12 @@ variable "semantic_turn_projection_topic" {
   default     = ""
 }
 
+variable "semantic_turn_physical_topic" {
+  description = "Physical Event Hub carrying multiplexed semantic-turn logical topics."
+  type        = string
+  default     = ""
+}
+
 variable "postgres_host" {
   description = "Postgres Flexible Server FQDN (`POSTGRES_HOST`) - non-secret label used for the startup log summary."
   type        = string

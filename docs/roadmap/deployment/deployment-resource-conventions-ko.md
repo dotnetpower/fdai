@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 990095fb64a6dc92c0da4f7c99fcc526ed09469f
+translation_source_sha: 80b881bd7b807b3254e103bbf5a1a77b4d4e79e0
 translation_revised: 2026-08-12
 ---
 # 배포 리소스 규약
@@ -102,7 +102,12 @@ Core 및 Operator 서비스 루트는 semantic-turn 요청과 변환 결과 토�
 파생하거나 이름을 바꾸거나 다른 채널로 대체하지 않습니다. 각 Container App은 각 이름을 한 번만
 받으므로 이전 방식 리터럴이 Terraform-selected 토픽을 가릴 수 없습니다.
 루트 변수와 하위 서비스 모듈은 동일한 optional `semantic_requests` 및
-`semantic_projections` 필드를 선언합니다. 상태 이행 또는 보호된 플랜 전에 두 독립 루트 모두
+`semantic_projections` 필드를 선언합니다. 또한 두 logical topic을 운반하는 provision된 Event Hub인
+`semantic_physical`을 선언합니다. 기본 physical topic은 `aw.pantheon.objects`입니다. 기존
+logical-topic envelope와 `.dlq` sibling은 Event Hubs entity를 추가로 소비하지 않으면서 schema 격리,
+안정적인 partition key, logical topic별 hash consumer group 및 dead-letter routing을 유지합니다.
+logical request와 projection 이름은 서로 다른 contract 및 설정 값으로 유지되며, 어느 쪽도 독립된
+Azure Event Hub가 되지 않습니다. 상태 이행 또는 보호된 플랜 전에 두 독립 루트 모두
 `terraform validate`를 통과해야 합니다. 루트에만 있고 하위 모듈에서 빠진 필드는 선택적인 런타임
 성능 저하가 아니라 배포 계약 실패입니다.
 

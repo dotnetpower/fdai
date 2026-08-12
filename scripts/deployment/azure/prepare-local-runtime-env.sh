@@ -172,6 +172,8 @@ fi
 bootstrap="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_kafka_bootstrap)"
 operational_bootstrap="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_operational_kafka_bootstrap 2>/dev/null || true)"
 topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_topics)"
+semantic_topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_semantic_topics 2>/dev/null || printf '%s' "$topics_json")"
+semantic_physical_topic="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_semantic_physical_topic 2>/dev/null || true)"
 operational_topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_operational_topics 2>/dev/null || printf '[]')"
 resource_group="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw resource_group_name)"
 monitor_workspace_customer_id="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw log_workspace_customer_id 2>/dev/null || true)"
@@ -244,7 +246,7 @@ if not isinstance(topics, list) or not topics or not all(isinstance(item, str) f
 preferred = "aw.change.events"
 print(preferred if preferred in topics else topics[0])
 ')"
-semantic_topics="$(printf '%s' "$topics_json" | "$REPO_ROOT/.venv/bin/python" -c '
+semantic_topics="$(printf '%s' "$semantic_topics_json" | "$REPO_ROOT/.venv/bin/python" -c '
 import json, sys
 topics = json.load(sys.stdin)
 required = ("operator.semantic-turn.requests", "core.semantic-turn.projections")
@@ -273,6 +275,18 @@ if [[ ! "$event_topic" =~ ^[a-z0-9._-]+$ ]]; then
   echo "event_bus_topics returned an invalid primary topic" >&2
   exit 1
 fi
+if [[ -n "$semantic_physical_topic" ]] && {
+  [[ ! "$semantic_physical_topic" =~ ^[a-z0-9._-]+$ ]] ||
+  ! printf '%s' "$topics_json" | "$REPO_ROOT/.venv/bin/python" -c '
+import json, sys
+topics = json.load(sys.stdin)
+physical = sys.argv[1]
+raise SystemExit(0 if isinstance(topics, list) and physical in topics else 1)
+' "$semantic_physical_topic"
+}; then
+  echo "event_bus_semantic_physical_topic is not provisioned" >&2
+  exit 1
+fi
 if [[ -z "$subscription_id" || -z "$tenant_id" || ! "$resource_group" =~ ^[A-Za-z0-9._()/-]+$ || ! "$region" =~ ^[a-z0-9-]+$ ]]; then
   echo "Azure account or deployed resource-group metadata is incomplete" >&2
   exit 1
@@ -288,7 +302,7 @@ umask 077
 temp_env="$(mktemp "${OUTPUT_ENV}.XXXXXX")"
 trap 'rm -f "$temp_env"' EXIT
 
-grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|AUTONOMY_MODE_DEFAULT|LLM_MODE|LLM_RESOLVED_MODELS_PATH|FDAI_LLM_ENDPOINT|FDAI_WEB_SEARCH_ENABLED|FDAI_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_METERING_DSN|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS|FDAI_SEMANTIC_TURN_REQUEST_TOPIC|FDAI_SEMANTIC_TURN_PROJECTION_TOPIC|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_OPERATOR_API_CONSUMER_INSTANCE|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_MONITOR_WORKSPACE_ID|FDAI_DEV_OPERATIONS_GATEWAY_URL|FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE|FDAI_DIRECT_API_FAKE)=' "$SOURCE_ENV" > "$temp_env" || true
+grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|AUTONOMY_MODE_DEFAULT|LLM_MODE|LLM_RESOLVED_MODELS_PATH|FDAI_LLM_ENDPOINT|FDAI_WEB_SEARCH_ENABLED|FDAI_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_METERING_DSN|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS|FDAI_SEMANTIC_TURN_REQUEST_TOPIC|FDAI_SEMANTIC_TURN_PROJECTION_TOPIC|FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_OPERATOR_API_CONSUMER_INSTANCE|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_MONITOR_WORKSPACE_ID|FDAI_DEV_OPERATIONS_GATEWAY_URL|FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE|FDAI_DIRECT_API_FAKE)=' "$SOURCE_ENV" > "$temp_env" || true
 {
   printf 'AZURE_TENANT_ID=%s\n' "$tenant_id"
   printf 'AZURE_SUBSCRIPTION_ID=%s\n' "$subscription_id"
@@ -299,6 +313,9 @@ grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REG
   if [[ -n "$semantic_request_topic" && -n "$semantic_projection_topic" ]]; then
     printf 'FDAI_SEMANTIC_TURN_REQUEST_TOPIC=%s\n' "$semantic_request_topic"
     printf 'FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=%s\n' "$semantic_projection_topic"
+    if [[ -n "$semantic_physical_topic" ]]; then
+      printf 'FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=%s\n' "$semantic_physical_topic"
+    fi
   fi
   if [[ -n "$operational_bootstrap" ]]; then
     printf 'FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS=%s\n' "$operational_bootstrap"

@@ -7,6 +7,7 @@ variable "event_topics" {
     events               = string
     semantic_requests    = optional(string, "")
     semantic_projections = optional(string, "")
+    semantic_physical    = optional(string, "aw.pantheon.objects")
   })
 }
 variable "database" {

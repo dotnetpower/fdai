@@ -108,6 +108,11 @@ and `superseded`. Compare-and-set revision checks reject stale commands.
 The Operator API may create a case but can't apply its effects. Machine collaboration uses validated
 events and existing control-loop ingress.
 
+Multiplexing semantic request and result logical topics over one physical Event Hub does not merge
+human principals, roles, approvals, or assignment revisions. The authenticated principal remains in
+the versioned request, and physical-topic RBAC grants transport access only, never assignment or
+execution authority.
+
 | Contract | Purpose |
 |----------|---------|
 | `POST /iam/assignment-cases` | Owner submits an immutable assignment intent and idempotency key |

@@ -109,6 +109,10 @@ deadline, and idempotency. An answered result requires exact release, manifest, 
 receipt, and evidence references. The SDK rejects semantic downgrade to N-1 instead of dropping
 those fields. Runtime publication and consumption remain service-owned implementations.
 
+The SDK also owns the logical-topic marker and deterministic consumer-group derivation used when
+those two semantic channels share a physical Event Hub. Core and Operator keep separate adapters,
+codecs, identities, logical topics, and offset groups; neither imports the other's implementation.
+
 The five service distributions use deployable `0.1.2` images as N-1 and `0.1.3` as N. Their existing contract-set
 `1.0.0`/`1.1.0` matrix remains the cross-process compatibility boundary.
 Content-addressed live evidence also binds the exact service and observation kind and requires

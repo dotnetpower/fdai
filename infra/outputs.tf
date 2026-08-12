@@ -67,6 +67,19 @@ output "event_bus_topics" {
   value       = module.event_bus.topics
 }
 
+output "event_bus_semantic_topics" {
+  description = "Logical semantic-turn topic names multiplexed over the physical event bus."
+  value = [
+    local.semantic_turn_request_topic,
+    local.semantic_turn_projection_topic,
+  ]
+}
+
+output "event_bus_semantic_physical_topic" {
+  description = "Provisioned physical Event Hub carrying semantic-turn logical topics."
+  value       = local.semantic_turn_physical_topic
+}
+
 output "event_bus_auxiliary_topics" {
   description = "Provisioned auxiliary topic names used by stage, approval, and inventory ingress."
   value       = keys(module.event_bus.auxiliary_topic_ids)

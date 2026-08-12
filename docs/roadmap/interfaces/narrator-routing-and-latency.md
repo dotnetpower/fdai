@@ -92,6 +92,10 @@ selection, and Azure construction remain in `adapters.conversation.web_search`. 
 receives only the server-owned allowlist and injected provider; operator text cannot choose an
 endpoint, deployment, credential, or provider scope.
 
+Local and deployed semantic turns also use the same logical request and projection names. When the
+deployment multiplexes them over `aw.pantheon.objects`, both modes use the same physical marker,
+hashed consumer-group derivation, managed-identity transport, and shared physical DLQ behavior.
+
 The web-search pool uses the same warm-up and periodic measurement pattern. Its periodic probe asks
 for a minimal model response without the `web_search` tool; actual searches add end-to-end latency
 to the same window. `FDAI_WEB_SEARCH_PROBE_INTERVAL_SECONDS` defaults to `300` and cannot be below

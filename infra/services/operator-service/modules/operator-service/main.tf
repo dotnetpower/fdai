@@ -24,6 +24,7 @@ module "container_app" {
     { name = "KAFKA_TOPIC_EVENTS", value = var.event_topics.events },
     { name = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC", value = var.event_topics.semantic_requests },
     { name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC", value = var.event_topics.semantic_projections },
+    { name = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC", value = var.event_topics.semantic_physical },
     { name = "FDAI_ENTRA_TENANT_ID", value = var.auth.tenant_id },
     { name = "FDAI_API_AUDIENCE", value = var.auth.api_audience },
     { name = "FDAI_RBAC_READERS_GROUP_ID", value = var.rbac.readers_group_id },

@@ -170,6 +170,11 @@ projection groups above plus narrow evidence links. Interactive local and deploy
 follow the same truth contract: an unbound measurement source returns `not_connected`, never demo
 values.
 
+Semantic request and result projections may share one physical Event Hub through typed logical
+topics. The transport marker is removed before result decoding, so evidence references, freshness,
+verification state, and authority remain properties of the versioned projection rather than the
+broker envelope.
+
 The console reuses its current information architecture:
 
 - **Overview:** three linked summaries for Operational readiness, Objective alignment, and Control assurance.

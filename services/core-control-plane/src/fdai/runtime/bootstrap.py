@@ -10,6 +10,10 @@ from pathlib import Path
 from typing import Any, cast
 
 import httpx
+from fdai_service_contracts.semantic_turn import (
+    SEMANTIC_PROJECTION_TOPIC,
+    SEMANTIC_REQUEST_TOPIC,
+)
 
 from fdai.agents import (
     OWNED_OBJECT_TOPICS,
@@ -156,7 +160,9 @@ from fdai.shared.providers.event_bus import EventBus
 _LOGGER = logging.getLogger("fdai.startup")
 _AUXILIARY_KAFKA_BOOTSTRAP_ENV = "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS"
 _RUNTIME_LOGICAL_TOPICS = (
-    OWNED_OBJECT_TOPICS | AGENT_INTROSPECTION_TOPICS | frozenset({_TRANSITION_TOPIC})
+    OWNED_OBJECT_TOPICS
+    | AGENT_INTROSPECTION_TOPICS
+    | frozenset({_TRANSITION_TOPIC, SEMANTIC_REQUEST_TOPIC, SEMANTIC_PROJECTION_TOPIC})
 )
 _VERTICAL_IDENTITY_ENV = {
     "identity/change": "FDAI_CHANGE_MI_CLIENT_ID",

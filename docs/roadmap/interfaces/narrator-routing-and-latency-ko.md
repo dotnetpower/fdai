@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 2056bfe6146bd48aa69e94b79f769dfa3a0613a4
-translation_revised: 2026-08-11
+translation_source_sha: 3a7a0626d329d1921cea34e34b9edf7ead5f9c2b
+translation_revised: 2026-08-12
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -92,6 +92,10 @@ realtime 계열은 새 T2 역할 후보로 제공하지 않습니다. 모델 선
 `adapters.conversation.web_search`에 남깁니다. 해석기는 서버가 소유한 허용 목록과 주입된
 프로바이더만 받으며, 운영자가 입력한 텍스트는 엔드포인트, 배포, 자격 증명, 프로바이더 범위를
 선택할 수 없습니다.
+
+로컬과 배포 환경의 semantic turn도 동일한 logical 요청 및 변환 결과 이름을 사용합니다. 배포가
+이를 `aw.pantheon.objects`로 multiplex할 때 두 모드는 동일한 physical marker, hash 기반
+consumer-group 파생, managed-identity 전송 및 shared physical DLQ 동작을 사용합니다.
 
 웹 검색 풀은 같은 예열 및 주기적 측정 방식을 씁니다. 주기적 탐색은 `web_search` 도구 없이
 최소한의 모델 응답을 요청하고, 실제 검색은 종단 간 지연 시간을 같은 창에 더합니다.

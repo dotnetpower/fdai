@@ -8,6 +8,16 @@ resource "azurerm_eventhub_namespace" "primary" {
   local_authentication_enabled  = false # Entra token / OAUTHBEARER only.
   public_network_access_enabled = var.public_network_access_enabled
   tags                          = var.tags
+
+  lifecycle {
+    precondition {
+      condition = (
+        !contains(["Basic", "Standard"], var.sku)
+        || length(var.topics) * 2 + length(var.auxiliary_topics) <= 10
+      )
+      error_message = "Basic and Standard Event Hubs namespaces support at most 10 entities including generated DLQs."
+    }
+  }
 }
 
 resource "azurerm_eventhub" "topic" {

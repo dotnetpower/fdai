@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
@@ -13,6 +14,15 @@ from fdai_service_contracts.operator import OperatorRole
 
 Digest = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
 BoundedId = Annotated[str, Field(min_length=1, max_length=256)]
+SEMANTIC_REQUEST_TOPIC = "operator.semantic-turn.requests"
+SEMANTIC_PROJECTION_TOPIC = "core.semantic-turn.projections"
+LOGICAL_TOPIC_FIELD = "_fdai_logical_topic"
+
+
+def multiplexed_consumer_group(group_id: str, logical_topic: str) -> str:
+    """Derive one stable physical consumer group for a logical topic."""
+    topic_hash = hashlib.sha256(logical_topic.encode("utf-8")).hexdigest()[:12]
+    return f"{group_id}.{topic_hash}"
 
 
 class SemanticTurnDisposition(StrEnum):

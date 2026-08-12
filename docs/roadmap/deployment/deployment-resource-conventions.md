@@ -100,9 +100,14 @@ as environment-scoped Terraform inputs. Terraform passes the reviewed names thro
 not derive, rename, or substitute these cross-service channels. Each Container App receives each
 name once, so a legacy literal cannot shadow the Terraform-selected topic.
 The root variable and its child service module declare the same optional `semantic_requests` and
-`semantic_projections` fields. Both independent roots must pass `terraform validate` before state
-migration or a protected plan; a root-only field that the child module drops is a deployment
-contract failure, not an optional runtime degradation.
+`semantic_projections` fields. They also declare `semantic_physical`, the provisioned Event Hub
+that carries both logical topics. The default physical topic is `aw.pantheon.objects`, whose
+existing logical-topic envelope and `.dlq` sibling preserve schema isolation, stable partition
+keys, per-logical-topic hashed consumer groups, and dead-letter routing without consuming another
+Event Hubs entity. The logical request and projection names remain distinct contract and
+configuration values; neither becomes a standalone Azure Event Hub. Both independent roots must
+pass `terraform validate` before state migration or a protected plan; a root-only field that the
+child module drops is a deployment contract failure, not an optional runtime degradation.
 
 After Core state ownership moves to `services/core-control-plane/<environment>.tfstate`, the
 legacy platform root retains the shared Container Apps environment and scheduled Jobs but no
