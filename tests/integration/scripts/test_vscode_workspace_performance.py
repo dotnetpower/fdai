@@ -33,6 +33,8 @@ def test_pylance_analyzes_owned_roots_without_background_indexing() -> None:
     ]
     assert settings["python.analysis.indexing"] is False
     assert settings["python.analysis.logLevel"] == "Warning"
+    assert settings["python.analysis.nodeArguments"] == ["--max-old-space-size=2048"]
+    assert settings["python.analysis.useLibraryCodeForTypes"] is False
     assert settings["python.analysis.userFileIndexFollowSymlinkedFolders"] is False
 
 
@@ -42,6 +44,9 @@ def test_workspace_uses_one_instruction_and_git_sync_path() -> None:
 
     assert settings["chat.contextUsage.enabled"] is True
     assert settings["chat.useNestedAgentsMdFiles"] is False
+    assert settings["github.copilot.chat.summarizeAgentConversationHistory.enabled"] is True
+    assert settings["github.copilot.chat.summarizeAgentConversationHistoryThreshold"] == 160000
+    assert settings["github.copilot.nextEditSuggestions.enabled"] is False
     assert settings["chat.hookFilesLocations"] == {
         ".github/hooks": True,
         ".claude/settings.local.json": False,

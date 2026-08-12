@@ -21,6 +21,9 @@
     },
     "chat.contextUsage.enabled": true,
     "chat.useNestedAgentsMdFiles": false,
+    "github.copilot.chat.summarizeAgentConversationHistory.enabled": true,
+    "github.copilot.chat.summarizeAgentConversationHistoryThreshold": 160000,
+    "github.copilot.nextEditSuggestions.enabled": false,
     "git.autofetch": false,
     "python.analysis.include": [
         "alembic",
@@ -36,6 +39,10 @@
     ],
     "python.analysis.indexing": false,
     "python.analysis.logLevel": "Warning",
+    "python.analysis.nodeArguments": [
+        "--max-old-space-size=2048"
+    ],
+    "python.analysis.useLibraryCodeForTypes": false,
     "python.analysis.userFileIndexFollowSymlinkedFolders": false,
     "files.associations": {
         "**/.github/workflows/deploy-dev.yml": "yaml"
