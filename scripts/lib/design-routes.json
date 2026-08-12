@@ -1530,6 +1530,44 @@
       ]
     },
     {
+      "id": "policy-abstraction-control-objectives",
+      "paths": [
+        "docs/roadmap/rules-and-detection/policy-abstraction-and-control-objectives*.md"
+      ],
+      "optional_paths": [
+        "services/core-control-plane/src/fdai/rule_catalog/schema/control_objective*.py",
+        "services/core-control-plane/src/fdai/rule_catalog/schema/rule_objective*.py",
+        "services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validation*.py",
+        "services/core-control-plane/tests/rule_catalog/test_control_objective*.py",
+        "services/core-control-plane/tests/rule_catalog/test_rule_objective*.py",
+        "rule-catalog/control-objectives/**",
+        "rule-catalog/objective-bindings/**",
+        "rule-catalog/vocabulary/object-types/ControlObjective.yaml",
+        "rule-catalog/vocabulary/object-types/RuleObjectiveBinding.yaml"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/rules-and-detection/policy-abstraction-and-control-objectives.md",
+        "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md",
+        "docs/roadmap/rules-and-detection/rule-governance.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/architecture/operating-ontology-platform.md",
+        "docs/roadmap/agents/agent-pantheon.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/rules-and-detection/policy-abstraction-and-control-objectives.md",
+        "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md",
+        "docs/roadmap/rules-and-detection/rule-governance.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/architecture/code-map.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_rule_semantic_retrieval.py services/core-control-plane/tests/core/ontology_platform/test_catalog_projection.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
       "id": "source-language",
       "paths": [
         "**/*.py",
