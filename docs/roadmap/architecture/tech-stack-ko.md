@@ -1,8 +1,8 @@
 ---
 title: 기술 스택
 translation_of: tech-stack.md
-translation_source_sha: 48e0abc4afa4d53f9c850152c1e534f8af7fbf35
-translation_revised: 2026-08-11
+translation_source_sha: 1aaeacb20844f6b58160eb71e4576a2c09b5a146
+translation_revised: 2026-08-14
 ---
 
 # 기술 스택
@@ -18,6 +18,31 @@ translation_revised: 2026-08-11
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
 의 안전·코드 규칙과 [security-and-identity-ko.md](security-and-identity-ko.md) 의 위협 모델을
 만족해야 합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Python 서비스 분포와 5개 서비스 런타임 | validated | `services/`; `packages/service-contracts/`; `config/independent-service-live-evidence-manifest.json`; `config/independent-service-remote-evidence.attestation.jsonl` | 5개 서비스 분포, 이미지, 상태 경계 및 보호된 N/N-1/N 전이에 원격 근거가 보존돼 있습니다. |
+| Terraform Azure 플랫폼, Event Hubs Kafka, PostgreSQL 및 pgvector | implemented | `infra/`; `alembic/`; `service-migrations/branches/`; 집중 인프라 및 migration 테스트 | 스택과 보호된 배포 mechanics가 있습니다. 일반 플랫폼 소유자는 검증을 주장하기 전에 통제된 적용 증적을 보존해야 합니다. |
+| OPA/Rego 정책과 카탈로그 실행 | implemented | `policies/`; `rule-catalog/`; `scripts/catalog/sync-rule-semantics.py`; 집중 정책 및 카탈로그 테스트 | 출하된 Rego, 정규화된 카탈로그 메타데이터, OPA 컴파일, 의미 표류 검사 및 결정론적 평가를 실행할 수 있습니다. |
+| OpenTelemetry와 Azure 관측 어댑터 | in-progress | `shared/telemetry/`; `delivery/azure/metric_logs.py`; `delivery/azure/log_query.py`; `delivery/azure/telemetry_query.py`; 관측 캠페인 테스트 | 계측과 범위가 제한된 Azure 어댑터를 구현했습니다. 5개 서비스 전체의 보존된 종단 운영 텔레메트리 캠페인은 아직 필요합니다. |
+| 비-Azure 관리형 대안 | deferred | [OD-3](#od-3-멀티클라우드-이벤트-버스-phase-4---tbd); [구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must) | 대안은 설계 선택지이며 구현되거나 동등성을 검증한 대상이 아닙니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 스택을 현재의 5개 서비스, Rego, 텔레메트리 및 Azure 전용 구현에 맞췄습니다. | `current change`; 위에 인용한 서비스 근거, 인프라, 정책, 텔레메트리 및 집중 테스트 경로입니다. | 플랫폼 적용 및 텔레메트리 캠페인 근거를 보존하고 비-Azure 대상을 보류합니다. |
+
+### 남은 작업
+
+- [ ] 정확한 Terraform 계획, 소스 개정 번호, 서비스 이미지, migration, 신원 및 적용 후 상태를 연결하는 통제된 플랫폼 적용 증적을 보존합니다.
+- [ ] 상관관계, 보존, 실패 및 사용 불가 상태 근거를 포함해 5개 서비스 전체에서 하나의 종단 OpenTelemetry 및 Azure 조회 캠페인을 보존합니다.
+- [ ] 모델 교체를 운영 상태로 설명하기 전에 검토된 주간 모델 조정기를 구현하고 모든 교체를 초안 PR 및 shadow 재현으로 게이트합니다.
+- [ ] 동등성과 롤백 근거를 갖춘 대상 하나가 명시적으로 승인될 때까지 비-Azure 대안을 구현하지 않습니다.
 
 ## 이 문서 읽는 법
 
@@ -50,7 +75,7 @@ translation_revised: 2026-08-11
 | Event 버스 | **Event Hubs** 를 **`:9093` 의 Kafka 엔드포인트 로만** 소비 (Kafka 와이어 프로토콜이 CSP-중립 계약 - [csp-neutrality-ko.md](csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜) 참조) | 하나의 와이어 프로토콜이 모든 관리형 대상 (MSK, GCP Managed Kafka, Confluent, Redpanda) 을 커버 → 비-Azure 어댑터는 구성 스왑 | MSK Serverless / GCP Managed Kafka / Confluent / Redpanda / 자체 호스팅 Strimzi - 비-Azure 옵션은 TBD |
 | Event/메시지 스키마 | 버전된 레지스트리에 JSON 스키마 (또는 CloudEvents 묶음) | 타입 있는 버전된 이벤트 계약; 안전한 진화와 인그레스 검증 가능 | Avro/Protobuf + Confluent-호환 레지스트리 |
 | Dead-letter 처리 | Kafka **dead-letter 토픽** 규약 (예: `<topic>.dlq`) + 재생/redrive 워커 | 어떤 이벤트도 조용히 드롭되지 않음; poison 메시지는 격리·재처리 가능; 모든 프로바이더에서 동일 | 벤더 native DLQ 는 **미사용** (프로바이더별 동작 상이) |
-| Compute | **Azure Container Apps** (Consumption) - modular 코어 앱 하나, 분리된 Operator API와 인제스트 게이트웨이 앱, 같은 환경의 범위가 제한된 작업을 **OCI 이미지 + Knative 호환 매니페스트 subset**에서 렌더링 ([csp-neutrality-ko.md](csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트) 참조) | Headless 코어 계약을 바꾸지 않고 간선/읽기 앱과 범위가 제한된 작업을 독립적으로 규모; 매니페스트는 Cloud 실행 / App 실행기 / K8s 위 Knative로도 렌더링 | Cloud 실행 (native Knative), App 실행기, AKS/EKS/GKE 위의 Knative; 커스텀 네트워킹/DaemonSets/GPU 필요 시 AKS |
+| Compute | **Azure Container Apps** (Consumption) - 독립적으로 패키지된 5개 런타임 서비스와 범위가 제한된 작업을 **OCI 이미지 + Knative 호환 매니페스트 subset**에서 렌더링 ([csp-neutrality-ko.md](csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트) 참조) | Headless 코어 계약을 바꾸지 않고 서비스와 범위가 제한된 작업을 독립적으로 확장하며 매니페스트는 Cloud Run, App Runner 또는 K8s 위 Knative로도 렌더링 | Cloud Run(native Knative), App Runner, AKS/EKS/GKE 위의 Knative; 커스텀 네트워킹, DaemonSet 또는 GPU가 필요할 때 AKS |
 | 경량 트리거 | **Container Apps Jobs** (Compute와 동일 환경); 다른 대상에서는 K8s `CronJob` / Cloud 실행 작업 / EventBridge 로 렌더링 | out-of-band 변경 감지, 비용 이상 훅, 스케줄 프로브 - 별도 Functions 계획 프로비저닝을 회피 | 네이티브 바인딩이 필요하면 Azure Functions; Knative eventing |
 | 상태 / 감사 / KPI | **PostgreSQL** (기본) 또는 **Cosmos DB** | 추가 전용 감사 로그, 패턴 라이브러리, KPI 저장; 런타임 온톨로지 인스턴스 상태도 호스팅 ([llm-strategy-ko.md § 온톨로지 Storage 배치](llm-strategy-ko.md#ontology-storage-layout)) | [데이터 저장소 선택](#data-store-selection-criteria) 참조 |
 | Vector 검색 (T1) | pgvector (PostgreSQL과 co-located) | 임베딩을 감사/상태 옆에 유지; 하나의 datastore로 운영 | 큰 스케일에서는 전용 vector DB (Qdrant/Milvus) - [Vector Search 근거 설명](#vector-search-rationale) 참조 |
@@ -60,7 +85,7 @@ translation_revised: 2026-08-11
 | CI/CD | GitHub Actions 또는 Azure Pipelines | lint, tests, 커버리지 게이트, 시크릿 검사 (gitleaks), 의존성/SBOM 감사 실행 | GitLab CI |
 | PR 게이트 | **GitHub App** (Checks API) 또는 Azure DevOps 서비스 hooks | 감사/롤백/승인이 이미 git에 존재 | 호스트에 관계없이 교정은 PR로 전달 |
 | HIL 채널 | **Bot Framework / Teams** Adaptive Cards | 운영자가 있는 곳에서 도달 | Slack 어댑터; notifier 인터페이스 뒤의 이메일/웹훅 대체 경로 - [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md) 참조 |
-| LLM 접근 (T2) | 2개 이상 별개 모델을 감싸는 provider-agnostic 게이트웨이/라우터 | [llm-strategy-ko.md](llm-strategy-ko.md) 의 mixed-model 교차 검사; 모델은 부트스트랩 시 capability-preferences 레지스트리에서 자동 프로비저닝되고 주간 조정 - [llm-strategy-ko.md § 모델 프로비저닝 and 수명 주기](llm-strategy-ko.md#model-provisioning-and-lifecycle) | LiteLLM/OpenRouter 스타일 라우터 |
+| LLM 접근 (T2) | 2개 이상 별개 모델을 감싸는 provider-agnostic 게이트웨이/라우터 | [llm-strategy-ko.md](llm-strategy-ko.md)의 mixed-model 교차 검사; 모델은 capability-preferences 레지스트리에서 해석되며 주간 검토 조정기는 아직 계획 상태 - [llm-strategy-ko.md](llm-strategy-ko.md#model-provisioning-and-lifecycle) | LiteLLM/OpenRouter 스타일 라우터 |
 | Observability | OpenTelemetry (traces/metrics/logs) → 수집기 → 백엔드 (**Log Analytics** + 여기에 바인딩된 App Insights - 별도 APM 리소스 없음) | measurement-first는 일급 원격측정 필요; 보존은 기본 30일, UI에서 설정 가능 ([deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set)) | Prometheus + Grafana + Tempo/Loki (OSS); 벤더 APM |
 
 ## 데이터 저장소 선택 기준

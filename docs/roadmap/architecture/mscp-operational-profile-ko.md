@@ -1,8 +1,8 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: 56b6e291c656e30b1323fbf5c85094c4f2638873
-translation_revised: 2026-08-11
+translation_source_sha: a86e9d973230ad50d6f65154faedbcdd3aba21ba
+translation_revised: 2026-08-14
 ---
 # MSCP Operational 프로파일
 
@@ -26,6 +26,29 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 
 런타임 식별자에는 의도적으로 MSCP 레벨을 넣지 않습니다. FDAI는 여러 레벨에서 선택한 개념을
 결합하며, 각 모듈 docstring과 아래 대응에서 수준별 설계 출처 이력을 유지합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 프로파일 신원과 결정론적 정책 기본 요소 | implemented | `core/mscp_profile/profile.py`; `cycle_guard.py`; `runtime_integrity.py`; `tests/core/mscp_profile/` 아래의 집중 테스트 | 출처 이력, 비준수 선언, 범위가 제한된 순환 검사 및 런타임 매니페스트 비교를 순수 정책으로 구현했습니다. |
+| 선택적 효과 관측과 `ResponseOutcome` 변환 결과 | implemented | `core/mscp_profile/effect_verification.py`; `response_outcome.py`; `test_control_loop_shadow.py`; `test_response_outcome.py` | 쌍으로만 구성되는 조립은 실행기 결과를 유지하고 권한을 추가하지 않는 shadow 근거를 기록합니다. |
+| 권한을 높이지 않는 상한 | implemented | `core/mscp_profile/authority_ceiling.py`; `test_authority_ceiling.py` | 유한 도메인 전체를 검사하는 테스트는 프로파일이 기존 FDAI 결정을 유지하거나 낮출 수만 있음을 입증합니다. 이 상한은 강제 적용 경로에 연결되지 않았습니다. |
+| 결정 맥락 변환 결과와 통제된 게이팅 | not-started | [차용한 메커니즘](#차용한-메커니즘); [활성화 및 런타임 동작](#활성화-및-런타임-동작) | 현재 런타임에는 프로파일 수명 주기, 측정된 준비 상태 구간 또는 권한 게이팅 통합이 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 구현된 shadow 관측과 구현되지 않은 게이팅을 분리했습니다. | `current change`; 구현 범위 표의 프로파일 소스와 집중 테스트입니다. | 측정된 준비 상태 구간을 보존하고 아래의 범위가 제한된 결정 맥락 및 게이팅 작업을 구현합니다. |
+
+### 남은 작업
+
+- [ ] 권위 있는 온톨로지, 인시던트, 작업 흐름 및 감사 상태를 하나의 변경 불가능한 결정 맥락으로 변환한 다음 누락되거나 충돌하는 입력이 보류를 생성함을 입증합니다.
+- [ ] 프로파일 일치, 불일치, 보류, 감사 실패 및 변경되지 않은 실행기 결과를 측정하는 고정된 shadow 근거 구간을 보존합니다.
+- [ ] 통제된 프로파일 수명 주기를 추가하고 집중 테스트가 롤백, 재현 및 변경되지 않은 risk, 승인, 실행, 감사 소유권을 입증한 뒤에만 권한을 높이지 않는 상한을 연결합니다.
 
 ## 프로파일 계약
 

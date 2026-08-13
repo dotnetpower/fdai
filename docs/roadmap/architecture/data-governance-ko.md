@@ -1,8 +1,8 @@
 ---
 title: Data Governance와 Privacy Evidence
 translation_of: data-governance.md
-translation_source_sha: afd75170776f53994c8987699c427128d03489f5
-translation_revised: 2026-08-11
+translation_source_sha: 1964387fb30d1bce9c3192b3df4543a8dcee78ff
+translation_revised: 2026-08-14
 ---
 # 데이터 거버넌스와 Privacy 근거
 
@@ -20,6 +20,29 @@ FDAI는 가능한 경우 raw customer 페이로드 대신 식별자와 derived o
 저장합니다. 머신/감사 기록은 English를 유지하고 접근은 role-scoped이며 transit와
 at-rest encryption이 필요합니다. 모델로 보내는 내용은 trust 경계를 벗어나기 전에
 민감정보 제거합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 용도, 보존, 삭제 및 legal hold 계약 | implemented | `shared/contracts/models/document.py`; `core/case_history/`; `core/trajectory/`; `delivery/persistence/postgres_user_context_retention.py`; 집중 보존 테스트 | 여러 통제된 저장소가 범위가 제한된 보존과 legal hold 메타데이터를 강제합니다. 모든 데이터 등급을 아우르는 하나의 배포 일정은 포크가 소유합니다. |
+| 민감정보 제거와 데이터 최소화 컨트롤 | in-progress | `rule_catalog/pipeline/distill/sensitivity.py`; `core/browser_evidence/redaction.py`; 온톨로지 ACL 및 작업 흐름 인자 민감정보 제거 테스트 | 주요 문서, 브라우저, 온톨로지, 작업 흐름 및 채널 경로에 결정론적 민감정보 제거가 있습니다. 하나의 공유된 결정 중요 사전 모델 증적은 모든 모델 및 임베딩 경계에서 아직 강제되지 않습니다. |
+| 추가 전용 감사와 privacy 범위 근거 | implemented | `core/audit/`; `delivery/persistence/postgres.py`; `core/operational_context/evidence_bundle.py`; 집중 감사 및 근거 테스트 | 해시 체인 감사와 민감정보가 제거된 근거 변환 결과가 있습니다. 배포 보존, 앵커 주기, WORM 저장 및 legal hold 운영은 환경 근거로 남습니다. |
+| 운영 privacy 평가와 compliance 바인딩 | not-started | `config/architecture-review.yaml`; [운영 게이트](#운영-게이트) | 업스트림은 필수 키만 정의합니다. 승인된 평가, 소유자, processor 조건, 지역, crosswalk 및 운영 근거는 각 배포가 제공해야 합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 재사용 가능한 업스트림 컨트롤을 배포가 소유하는 privacy 승인과 분리했습니다. | `current change`; 구현 범위 표의 계약, 보존 서비스, 민감정보 제거 경로 및 감사 근거입니다. | 공유 사전 모델 근거 경계를 완료하고 배포 privacy 게이트 증적을 보존합니다. |
+
+### 남은 작업
+
+- [ ] 모든 기능에 타입이 지정된 하나의 사전 모델 및 사전 임베딩 최소화 증적을 강제하고, 민감정보를 충분히 제거할 수 없는 입력이 전송 없이 보류됨을 입증합니다.
+- [ ] 승인된 배포 데이터 인벤토리, 소유자, 보존 일정, model-provider 조건, privacy 평가 및 compliance crosswalk를 운영 게이트에 연결합니다.
+- [ ] 운영 검증을 주장하기 전에 하나의 고정된 배포 개정에서 삭제, legal hold, 접근 검토, 감사 앵커 및 인시던트 대응 증적을 보존합니다.
 
 ## 데이터 인벤토리
 

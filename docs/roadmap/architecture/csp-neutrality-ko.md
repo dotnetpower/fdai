@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: d643b10fd42e90dfb357e8cade5be61e5dee8622
-translation_revised: 2026-08-12
+translation_source_sha: 22c8ece3e89c7b9b4c88e531bd31a9e12b3511cd
+translation_revised: 2026-08-14
 ---
 
 # CSP-중립성 계약
@@ -16,6 +16,30 @@ translation_revised: 2026-08-12
 모듈 경계는 [project-structure-ko.md](project-structure-ko.md), 기술 선택은
 [tech-stack-ko.md](tech-stack-ko.md), 신원 모델은 [security-and-identity-ko.md](security-and-identity-ko.md)
 를 보완합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 이벤트 버스, 런타임, 시크릿 및 워크로드 신원 계약 | implemented | `shared/providers/`; `delivery/azure/`; `infra/modules/event-bus/`; `infra/modules/compute/`; `infra/modules/secret-store/`; 집중 어댑터 및 인프라 테스트 | Azure는 프로바이더 중립 계약 뒤에서 Event Hubs의 Kafka, OCI Container Apps, native 시크릿 참조 및 워크로드 신원을 사용합니다. |
+| 인벤토리 스냅샷, 델타 및 범위가 제한된 그래프 변환 결과 | implemented | `shared/providers/inventory.py`; `delivery/azure/inventory.py`; `delivery/inventory_sync_cli.py`; 집중 인벤토리 및 변환 결과 테스트 | 전체 조정, 순서가 보장된 델타, 원자적 세대 승격 및 범위가 제한된 읽기 변환 결과를 구현했습니다. 실제 운영 완전성은 코드 경로 주장이 아니라 배포 근거입니다. |
+| 메트릭, 로그 및 추적 조회 계약 | implemented | `shared/providers/metric.py`; `log_query.py`; `trace_query.py`; `delivery/azure/metric_logs.py`; `delivery/azure/log_query.py`; `delivery/azure/telemetry_query.py` | Azure Monitor 및 Log Analytics 어댑터가 있으며 구성이 없으면 의도적으로 no-op 바인딩을 유지합니다. |
+| 8개 계약 전체의 통제된 운영 근거 | in-progress | [배포 및 온보딩 구현 상태](../deployment/deploy-and-onboard-ko.md#구현-상태); `delivery/azure/` 아래의 관측 캠페인 어댑터 | 독립 서비스 배포는 검증됐지만 이 소유 문서는 모든 인벤토리와 텔레메트리 계약을 함께 입증하는 최신 통제 캠페인을 하나로 보존하지 않습니다. |
+| 비-Azure 프로바이더 구현 | deferred | [구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must) | 이식성을 위해 계약 형태를 유지합니다. AWS, GCP 또는 다른 프로바이더 어댑터는 승인된 구현 범위에 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 Azure 계약 구현을 운영 근거 및 보류된 비-Azure 어댑터와 분리해 기록했습니다. | `current change`; 구현 범위 표의 프로바이더, 전달, 인프라 및 배포 근거입니다. | 하나의 통제된 8개 계약 캠페인을 보존하고 명시적으로 범위가 정해질 때까지 비-Azure 작업을 보류합니다. |
+
+### 남은 작업
+
+- [ ] 정확한 개정 번호를 고정하고 이벤트, 런타임, 시크릿, 신원, 인벤토리, 메트릭, 로그 및 추적 행동과 실패 및 최신성 사례를 입증하는 통제된 Azure 캠페인 증적을 보존합니다.
+- [ ] 현재의 완전한 세대에서 루트 기반 탐색, 잘림 사유, stale 대체 경로 및 권한 상승 없음까지 포함해 범위가 제한된 인벤토리 그래프 경로를 입증합니다.
+- [ ] 승인된 대상이 순서, 재현, 신원, 인벤토리 및 텔레메트리 행동의 계약 동등성 테스트를 제공할 때까지 비-Azure 어댑터를 구현하지 않습니다.
 
 ## 원칙
 
@@ -555,30 +579,14 @@ CSP-neutral 필터 와 vendor-specific tail 을 compose 할 수 있도록 분리
 
 ## Azure-Phase 실현 (요약)
 
-오늘의 구현은 다섯 foundational 계약에 다음과 같이 슬롯됩니다. 명명된 각 서비스는 **채택 시점에 재확인할
-권장사항** 이지만 ([tech-stack-ko.md](tech-stack-ko.md)) 계약 자체는 바뀌지 않습니다.
-
-| 계약 | Azure 실현 | Idle 비용 자세 |
-|---|---|---|
-| 이벤트버스 | **Event Hubs Standard** (`:9093` Kafka 엔드포인트, 1 TU, auto-inflate off) | 낮은 idle; TU 로 스케일 |
-| 런타임 | **Container Apps** (Consumption, KEDA scale-to-zero) - 앱 하나 + 사이드카 | idle 시 `$0` |
-| 시크릿 | Container Apps native 시크릿 + **Key Vault 참조** | 무시할 수준 |
-| 워크로드 아이덴티티 | **User-assigned MI** + CI/CD 를 위한 워크로드 신원 federation | 무료 |
-| 인벤토리 | **Azure Resource Graph** (`resource_type` 으로 샤딩된 초기 병렬 full-scan) + 이벤트 버스로 포워드된 **Activity Log** delta | ARG 무료; 로그 기반 delta 는 observability 인벤토리에 포함 |
-
-`Service Bus` 와 `Event Grid` 는 앞으로 최소 인벤토리에 **포함되지 않습니다**. 이벤트버스는
-Kafka 와이어 전용입니다. 프로바이더 네이티브 pub/sub 은 오직 **Kafka 버스로 이벤트를 넣는
-소스** (예: Event Hubs Kafka 토픽으로 forward 하는 Event Grid 구독) 로만
-사용되고, 절대 `core/` 의 런타임 의존이 아닙니다.
+현재 Azure 구현은 위의 계약 표와 구현 원장에 기록돼 있으며 구체적인 tier는 채택 시점에
+확인하는 것이 좋습니다. 프로바이더 native 이벤트 소스는 Kafka 버스로 전달할 수 있지만
+`core/`의 런타임 의존성이 되지 않습니다.
 
 ## 승인된 대안 Azure 구현(Approved 대안 Azure Implementations)
 
-Foundational 계약과 인접 platform 경계가 코어를 CSP-이식 가능하게 유지합니다. 이 표는
-각 경계가 `core/`를 건드리지 않고 스왑할 수 있는 **Azure 내부** 대안을 나열합니다. 스왑은
-**infra 모듈 경계**에서 일어남 - 포크 가 `infra/modules/<seam>/` 아래 다른 서브-모듈을
-고르거나 (또는 순수 코드 레벨 변경이면 조립 루트에서 DI 바인딩 오버라이드).
-"유지되는 것" 컬럼의 모든 것은 계약이지 구현이 아니며 스왑 전체에서 보존됩니다;
-"변하는 것" 은 스왑된 모듈과 그 즉시 구성 에 국한됩니다.
+Azure 내부 대안은 `core/`를 바꾸지 않고 인프라 모듈 또는 조립 경계에서 교체합니다.
+계약 열은 그대로 유지되며 선택한 모듈과 구성만 바뀝니다.
 
 | 경계 | Day-zero 기본 | 승인된 대안(Azure) | 스왑 시 변경 | 유지되는 것(계약) |
 |------|--------------|-------------------|-------------|-------------------|
@@ -594,20 +602,8 @@ Foundational 계약과 인접 platform 경계가 코어를 CSP-이식 가능하�
 | 읽기 전용 콘솔 호스팅 | Static Web Apps (Free) | Storage static-website + **Front Door**; **App Service Static Sites** | HTTPS 표면, 커스텀 도메인 배선 | 읽기 전용 보장, Entra sign-in, privileged 호출 없음 |
 | 인벤토리 | Azure Resource Graph + Activity Log delta | ARG 가 느린 테넌트용 **ARM 목록** 폴링 (per-resource-type, 샤딩된); 대상 집합에 권위 있는 하다면 **Microsoft Defender for Cloud 인벤토리** | 쿼리 언어 (Kusto vs REST), delta 커서 시망틱스, 최신성 lag | `Inventory` 프로토콜 모양, CSP-중립 `resource_type` + 링크 종류, 멱등 upsert, 부분 스냅샷 실패 시 차단 |
 
-**전체 표에 걸친 규칙 (MUST):**
-
-- 모든 대안은 기본 모듈이 노출하는 **같은 출력 계약** 을 사용 (`endpoint`,
-  `identity_resource_id`, `secret_ref_envelope`, `event_topic_names`, ...) 하므로 다운스트림
-  Terraform / `main.tf` 조립 이 대안에 따라 분기하지 않음.
-- 대안은 **별도 Terraform 서브-모듈** 로 `infra/modules/<seam>/` 아래 배송, 최상위
-  `var.<seam>_kind` (예: `var.runtime_kind = "container_apps"`) 로 선택.
-- 어떤 대안도
-  [deploy-and-onboard-ko.md § 리소스 명명 규약](../deployment/deploy-and-onboard-ko.md#리소스-명명-규약resource-naming-convention)
-  을 지켜야 함; 스왑이 손으로 뽑은 이름을 허용하지 않음.
-- 대안은 **필요할 때 빌드** - W4.1 과 함께 기본만 랜딩. 대안 추가는 자체 PR, 자체 shadow-mode
-  검증.
-- 어떤 대안도 `core/` 에 벤더 SDK 의존을 재도입할 수 없음. 이것은 원래의 CSP-중립성 규칙이고
-  이깁니다.
+모든 대안은 기본 모듈의 출력 계약을 유지하고 별도로 선택되는 모듈로 제공하며 배포 명명 규약과
+자체 shadow 검증을 따릅니다. 어떤 대안도 `core/`에 벤더 SDK 의존성을 추가하지 않습니다.
 
 ## 비-Azure 경로 (가산)
 
