@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import type { OperatorApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
   DataTable,
@@ -108,7 +108,7 @@ export function SkillsRoute({ client }: { readonly client: OperatorApiClient }) 
       .catch((error: unknown) => {
         if (!cancelled) {
           setState({
-            status: "error",
+            status: isOptionalOperatorApiUnavailable(error) ? "unavailable" : "error",
             message: error instanceof Error ? error.message : String(error),
           });
         }

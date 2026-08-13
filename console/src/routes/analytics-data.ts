@@ -1,6 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import type { OperatorApiClient } from "../api";
-import { OperatorApiError } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import type { AutonomyPayload, DashboardKpi } from "../types";
 import type { AsyncState } from "../components/ui";
 import type { GatesSummary } from "./dashboard.model";
@@ -19,9 +18,7 @@ async function optional<T>(load: () => Promise<T>): Promise<T | null> {
   try {
     return await load();
   } catch (error) {
-    if (error instanceof OperatorApiError && (error.status === 404 || error.status === 501)) {
-      return null;
-    }
+    if (isOptionalOperatorApiUnavailable(error)) return null;
     throw error;
   }
 }

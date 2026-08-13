@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { OperatorApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { AsyncBoundary, PageHeader, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
@@ -31,6 +31,15 @@ export type ReportHeadlineState =
   | { readonly kind: "empty" }
   | { readonly kind: "unavailable"; readonly name: string }
   | { readonly kind: "rendered"; readonly name: string; readonly count: number };
+
+export function reportsLoadFailure(error: unknown):
+  | { readonly status: "unavailable"; readonly message: string }
+  | { readonly status: "error"; readonly message: string } {
+  return {
+    status: isOptionalOperatorApiUnavailable(error) ? "unavailable" : "error",
+    message: error instanceof Error ? error.message : String(error),
+  };
+}
 
 export function reportHeadlineState(
   selected: Pick<ReportSummary, "name"> | null,
@@ -180,10 +189,7 @@ export function ReportsRoute({ client }: Props) {
         }
       } catch (error) {
         if (!cancelled) {
-          setState({
-            status: "error",
-            message: error instanceof Error ? error.message : String(error),
-          });
+          setState(reportsLoadFailure(error));
         }
       }
     })();

@@ -61,6 +61,7 @@ const OPTIONAL_UNAVAILABLE_RESPONSES = new Map<string, ReadonlySet<number>>([
   ["/kpi/promotion-gates", new Set([404, 501, 503])],
   ["/me/context", new Set([503])],
   ["/onboarding", new Set([404])],
+  ["/skills", new Set([404])],
 ]);
 
 function isOperatorApiResponse(response: Response): boolean {

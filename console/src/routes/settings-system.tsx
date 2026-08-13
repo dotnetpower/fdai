@@ -221,19 +221,19 @@ function useRuntimeSettings(client: OperatorApiClient): AsyncState<RuntimeSettin
   useEffect(() => {
     let active = true;
     setState({ status: "loading" });
-    void client.panel<unknown>("/runtime/settings").then(
-      (value) => {
-        if (active) setState({ status: "ready", data: decodeRuntimeSettings(value) });
-      },
-      (reason) => {
+    void (async () => {
+      try {
+        const data = decodeRuntimeSettings(await client.panel<unknown>("/runtime/settings"));
+        if (active) setState({ status: "ready", data });
+      } catch (reason) {
         if (active) {
           setState({
             status: "error",
             message: reason instanceof Error ? reason.message : String(reason),
           });
         }
-      },
-    );
+      }
+    })();
     return () => {
       active = false;
     };
@@ -246,19 +246,21 @@ function useIncidentEmailTemplate(client: OperatorApiClient): AsyncState<EmailTe
   useEffect(() => {
     let active = true;
     setState({ status: "loading" });
-    void client.panel<unknown>("/notification-templates/incident-opened").then(
-      (value) => {
-        if (active) setState({ status: "ready", data: decodeEmailTemplatePreview(value) });
-      },
-      (reason) => {
+    void (async () => {
+      try {
+        const data = decodeEmailTemplatePreview(
+          await client.panel<unknown>("/notification-templates/incident-opened"),
+        );
+        if (active) setState({ status: "ready", data });
+      } catch (reason) {
         if (active) {
           setState({
             status: "error",
             message: reason instanceof Error ? reason.message : String(reason),
           });
         }
-      },
-    );
+      }
+    })();
     return () => {
       active = false;
     };

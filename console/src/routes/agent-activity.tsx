@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "preact/hooks";
-import type { OperatorApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import type { AuditItem } from "../types";
 import { AgentWorkspaceNav } from "../components/agent-workspace-nav";
 import {
@@ -197,7 +197,7 @@ export function AgentActivityRoute({ client }: Props) {
     } catch (err) {
       if (requestGeneration.current === generation) {
         setState({
-          status: "error",
+          status: isOptionalOperatorApiUnavailable(err) ? "unavailable" : "error",
           message: err instanceof Error ? err.message : String(err),
         });
       }
