@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 0e244d9b3c58eb4a870fbcb205ea2be51ee2bed5
+translation_source_sha: 460bb06d7759d972d078fc2d5f0f36d6c35b9da1
 translation_revised: 2026-08-13
 ---
 # 배포 리소스 규약
@@ -23,6 +23,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 독립 service Terraform state root | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Service root 5개 모두에 통제된 계획, 적용, 상태, peer 격리 및 rollback 근거가 있습니다. |
 | 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
 | OHL scale-out evidence target 명명 및 tag | implemented | `infra/main.tf`의 current change, `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` 결과 8 passed | 실제 프로비저닝 및 recurrence evidence는 열려 있습니다. |
+| Operator schema 및 catalog Job 명명 | implemented | `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 집중 배포 workflow 테스트 | 결정론적 이름과 digest-pinned image를 연결했으며 순서가 지정된 Job의 보호된 적용 증적은 열려 있습니다. |
 
 ### 구현 이력
 
@@ -30,6 +31,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 |------|------|------|------|-----------|
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 선택적 OHL VM Scale Set 규약을 추가했습니다. | current change, 집중 Terraform test 결과 8 passed | Exact protected 적용 및 실제 OHL 근거를 수집합니다. |
 | 2026-08-13 | implemented | 증적이 있는 service root 5개는 `validated`로 유지하고 이전 방식 platform 및 ops-bootstrap root는 `implemented`로 분류해 광범위한 state-root 주장을 정정했습니다. | current change, `config/independent-service-live-evidence-manifest.json`, `config/independent-service-remote-evidence.json`, roadmap, 번역 및 문서 검사 | `validated`로 전환하기 전에 platform 및 bootstrap root의 통제된 적용 증적을 보존합니다. |
+| 2026-08-13 | implemented | Schema migration Job이 성공한 뒤에만 실행되는 결정론적 Operator catalog Job을 추가했습니다. | 현재 변경의 `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, Terraform validate 통과 및 집중 배포 테스트 22개 통과. | 보호된 적용 및 Job 실행 증적을 수집합니다. |
 
 ### 남은 작업
 
@@ -38,6 +40,8 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
   계획, source revision, target identity 및 post-apply 검증을 결합해야 합니다.
 - [ ] OHL target이 결정론적 이름, 애플리케이션 resource group 배치, 비공개 subnet 및 필수
   `fdai:` tag를 유지함을 보여 주는 protected 적용 증적을 기록합니다.
+- [ ] `caj-<workload>-migrate`가 성공한 뒤 검토된 Core image digest를 사용하는
+  `caj-<workload>-catalog`가 시작됨을 보여 주는 보호된 적용 및 실행 증적을 기록합니다.
 
 ## 리소스 명명 규약(Resource Naming Convention)
 
@@ -146,6 +150,12 @@ digest를 bind해 schema 진행이 runtime image 주기에 의존하지 않도�
 Operator App 이미지와 일회성 schema migration 이미지는 서로 독립적으로 digest pinning됩니다.
 Migration 이미지는 데이터베이스의 현재 Alembic revision 집합을 포함해야 합니다. Migration 이미지가
 설정되지 않았을 때 App 이미지로 fallback하는 동작은 하위 호환성용이며 승격 우회로가 아닙니다.
+
+Operator module은 `caj-<workload>-catalog`를 별도의 수동 Container Apps Job으로 선언합니다.
+이 Job은 검토된 Rule 및 Ontology 카탈로그를 소유하는 digest-pinned Core image를 사용합니다.
+배포 workflow는 `caj-<workload>-migrate`가 성공한 뒤에만 이 Job을 시작합니다. 두 Job은 Operator
+Managed Identity 및 PostgreSQL secret reference를 사용하지만 catalog 구체화는 참조 변환 결과만
+만들며 런타임에서 발견된 문제, 준비 상태 또는 실행 권한을 만들지 않습니다.
 
 Core 상태 소유권이 `services/core-control-plane/<environment>.tfstate`로 이동한 후 이전 방식
 platform 루트는 공유 Container Apps 환경과 예약된 Job을 유지하지만 Core Container App 리소스는

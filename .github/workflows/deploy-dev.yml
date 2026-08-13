@@ -1589,6 +1589,26 @@ jobs:
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"
+
+          run_job() {
+            local job="$1"
+            local purpose="$2"
+            echo "starting $purpose job $job in $rg..."
+            az containerapp job start --name "$job" --resource-group "$rg" >/dev/null
+            local completed=false
+            for _ in $(seq 1 30); do
+              exec_name="$(az containerapp job execution list --name "$job" --resource-group "$rg" \
+                --query "sort_by([], &properties.startTime)[-1].name" -o tsv 2>/dev/null || true)"
+              status="$(az containerapp job execution show --name "$job" --resource-group "$rg" \
+                --job-execution-name "$exec_name" --query "properties.status" -o tsv 2>/dev/null || echo Running)"
+              echo "$job $purpose status: $status"
+              if [ "$status" = "Succeeded" ]; then completed=true; break; fi
+              [ "$status" = "Failed" ] && { echo "$job $purpose failed"; exit 1; }
+              sleep 12
+            done
+            [ "$completed" = "true" ] || { echo "$job $purpose did not complete in time"; exit 1; }
+          }
+
           jobs=()
           if [ "${{ inputs.deploy_operator_api }}" = "true" ]; then
             jobs+=("$(terraform output -raw operator_api_migrate_job_name)")
@@ -1598,21 +1618,12 @@ jobs:
           fi
           for job in "${jobs[@]}"; do
             [ -z "$job" ] && continue
-            echo "starting migration job $job in $rg..."
-            az containerapp job start --name "$job" --resource-group "$rg" >/dev/null
-            completed=false
-            for _ in $(seq 1 30); do
-              exec_name="$(az containerapp job execution list --name "$job" --resource-group "$rg" \
-                --query "sort_by([], &properties.startTime)[-1].name" -o tsv 2>/dev/null || true)"
-              status="$(az containerapp job execution show --name "$job" --resource-group "$rg" \
-                --job-execution-name "$exec_name" --query "properties.status" -o tsv 2>/dev/null || echo Running)"
-              echo "$job migration status: $status"
-              if [ "$status" = "Succeeded" ]; then completed=true; break; fi
-              [ "$status" = "Failed" ] && { echo "$job migration failed"; exit 1; }
-              sleep 12
-            done
-            [ "$completed" = "true" ] || { echo "$job migration did not complete in time"; exit 1; }
+            run_job "$job" "migration"
           done
+          if [ "${{ inputs.deploy_operator_api }}" = "true" ]; then
+            catalog_job="$(terraform output -raw operator_api_catalog_job_name)"
+            run_job "$catalog_job" "catalog materialization"
+          fi
 
       - name: Verify deployed health endpoints
         if: ${{ inputs.apply && !inputs.deploy_design_mocks }}

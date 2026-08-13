@@ -166,6 +166,18 @@
       }
     },
     {
+      "label": "console: refresh authoritative catalogs",
+      "type": "shell",
+      "command": "set -a && source .fdai/local-runtime.env && set +a && PYTHONPATH=\"$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src\" .venv/bin/python scripts/deployment/local/materialize-authoritative-catalogs.py",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "close": true
+      }
+    },
+    {
       "label": "console: prepare local state",
       "type": "shell",
       "command": "bash scripts/deployment/local/prepare-console-state.sh",
@@ -188,6 +200,7 @@
         "console: prepare local runtime env",
         "console: refresh authoritative inventory",
         "console: refresh authoritative settings",
+        "console: refresh authoritative catalogs",
         "console: prepare local Operator Service env",
         "console: prepare local independent service envs",
         "console: sync local Entra redirects"

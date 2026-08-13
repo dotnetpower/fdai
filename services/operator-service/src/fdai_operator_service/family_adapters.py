@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+from collections import Counter
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import asdict, dataclass
 from typing import cast
@@ -180,6 +181,16 @@ class PostgresWorkflowAdapters:
                         detail="authoritative Rule search projection is malformed",
                     )
                 payload = RuleSearchProjection.model_validate(payload_value).model_dump(mode="json")
+            elif request.operation in {
+                WorkflowOperation.RULE_LIST,
+                WorkflowOperation.RULE_DETAIL,
+            }:
+                stored = await self.store.read_projection(
+                    family="workflow",
+                    operation=WorkflowOperation.RULE_LIST.value,
+                )
+                projection_key = "operator-projection:workflow:rule.list"
+                payload = _rule_catalog_payload(stored, request)
             else:
                 stored = await self.store.read_projection(
                     family="workflow",
@@ -222,6 +233,74 @@ class PostgresWorkflowAdapters:
             revision=stored.accepted_at,
             duplicate=stored.duplicate,
         )
+
+
+def _rule_catalog_payload(
+    stored: Mapping[str, object],
+    request: WorkflowReadRequest,
+) -> dict[str, object]:
+    rules_value = stored.get("rules")
+    details_value = stored.get("details")
+    if not isinstance(rules_value, list) or not isinstance(details_value, dict):
+        raise HTTPException(status_code=503, detail="authoritative Rule catalog is malformed")
+    rules = [item for item in rules_value if isinstance(item, dict)]
+    if len(rules) != len(rules_value):
+        raise HTTPException(status_code=503, detail="authoritative Rule catalog is malformed")
+
+    if request.operation is WorkflowOperation.RULE_DETAIL:
+        rule_id = request.path_parameters.get("rule_id", "")
+        origin = request.query.get("origin", "").strip().lower()
+        detail = details_value.get(f"{origin}:{rule_id}") if origin else None
+        if detail is None:
+            detail = next(
+                (
+                    value
+                    for key, value in details_value.items()
+                    if isinstance(key, str) and key.endswith(f":{rule_id}")
+                ),
+                None,
+            )
+        if not isinstance(detail, dict):
+            raise HTTPException(status_code=404, detail=f"unknown rule id {rule_id!r}")
+        return dict(detail)
+
+    origin = request.query.get("origin", "").strip().lower()
+    category = request.query.get("category", "").strip().lower()
+    severity = request.query.get("severity", "").strip().lower()
+    source = request.query.get("source", "").strip().lower()
+    needle = request.query.get("q", "").strip().lower()
+    matched = [
+        item
+        for item in rules
+        if (not origin or item.get("origin") == origin)
+        and (not category or item.get("category") == category)
+        and (not severity or item.get("severity") == severity)
+        and (not source or item.get("source") == source)
+        and (
+            not needle or needle in f"{item.get('id', '')}\n{item.get('resource_type', '')}".lower()
+        )
+    ]
+    offset = request.offset or 0
+    limit = request.limit or 100
+    return {
+        "total": len(rules),
+        "filtered_total": len(matched),
+        "offset": offset,
+        "limit": limit,
+        "resource_type_count": len({item.get("resource_type") for item in rules}),
+        "facets": {
+            "by_origin": _rule_counts(rules, "origin"),
+            "by_category": _rule_counts(rules, "category"),
+            "by_severity": _rule_counts(rules, "severity"),
+            "by_source": _rule_counts(rules, "source"),
+        },
+        "rules": matched[offset : offset + limit],
+    }
+
+
+def _rule_counts(rules: list[dict[str, object]], field: str) -> dict[str, int]:
+    counts = Counter(str(item[field]) for item in rules if isinstance(item.get(field), str))
+    return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0])))
 
 
 class UnavailableWorkflowAdapters:

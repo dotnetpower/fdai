@@ -20,6 +20,7 @@ deployment-specific values outside the upstream distribution.
 | Independent-service Terraform state roots | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | All five service roots have governed plan, apply, health, peer-isolation, and rollback evidence. |
 | Legacy platform and ops-bootstrap Terraform state roots | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml`, and focused Terraform and workflow checks | Stable backend keys and deployment mechanisms are shipped; governed apply receipts for these two roots are not retained in the repository. |
 | OHL scale-out evidence target naming and tags | implemented | current change in `infra/main.tf`; `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` reports 8 passed | Live provisioning and recurrence evidence remain open. |
+| Operator schema and catalog Job naming | implemented | `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, and focused deployment workflow tests | Deterministic names and digest-pinned images are wired; a protected apply receipt for the ordered Jobs remains open. |
 
 ### Implementation history
 
@@ -27,6 +28,7 @@ deployment-specific values outside the upstream distribution.
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added the optional OHL VM Scale Set convention. | current change; focused Terraform tests report 8 passed. | Capture the exact protected apply and live OHL evidence. |
 | 2026-08-13 | implemented | Corrected the broad state-root claim by keeping the five receipt-backed service roots `validated` and classifying the legacy platform and ops-bootstrap roots as `implemented`. | current change; `config/independent-service-live-evidence-manifest.json`, `config/independent-service-remote-evidence.json`, and roadmap, translation, and documentation checks. | Retain governed apply receipts for the platform and bootstrap roots before advancing them to `validated`. |
+| 2026-08-13 | implemented | Added a deterministic Operator catalog Job that runs only after the schema migration Job succeeds. | Current change in `infra/main.tf`, `infra/modules/operator-api/container-app/`, and `.github/workflows/deploy-dev.yml`; Terraform validate passed and focused deployment tests report 22 passed. | Capture the protected apply and Job execution receipt. |
 
 ### Remaining work
 
@@ -35,6 +37,8 @@ deployment-specific values outside the upstream distribution.
   identity, and post-apply verification before those roots advance to `validated`.
 - [ ] Record a protected apply receipt showing the OHL target keeps its deterministic name,
   application-resource-group placement, private subnet, and required `fdai:` tags.
+- [ ] Record a protected apply and execution receipt showing `caj-<workload>-migrate` succeeds
+  before `caj-<workload>-catalog` starts with the reviewed Core image digest.
 
 ## Resource Naming Convention
 
@@ -144,6 +148,12 @@ bind reviewed migration digests so schema advancement does not depend on runtime
 The Operator App image and its one-off schema migration image are independently digest-pinned.
 The migration image must contain the database's current Alembic revision set; an unset migration
 image falls back to the App image only for backward compatibility, not as a promotion shortcut.
+
+The Operator module also declares `caj-<workload>-catalog` as a separate manual Container Apps Job.
+It uses the digest-pinned Core image that owns the reviewed Rule and Ontology catalogs. The deploy
+workflow starts it only after `caj-<workload>-migrate` succeeds. Both Jobs use the Operator managed
+identity and PostgreSQL secret reference, but catalog materialization creates reference projections
+only; it does not create runtime findings, readiness, or execution authority.
 
 After Core state ownership moves to `services/core-control-plane/<environment>.tfstate`, the
 legacy platform root retains the shared Container Apps environment and scheduled Jobs but no

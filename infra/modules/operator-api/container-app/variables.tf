@@ -8,6 +8,11 @@ variable "migrate_job_name" {
   type        = string
 }
 
+variable "catalog_job_name" {
+  description = "Authoritative catalog materialization Container Apps Job name."
+  type        = string
+}
+
 variable "container_app_environment_id" {
   description = "Container Apps Environment resource id (shared with the core app)."
   type        = string
@@ -36,6 +41,16 @@ variable "migration_image" {
   validation {
     condition     = var.migration_image == "" || can(regex("@sha256:[0-9a-f]{64}$", var.migration_image))
     error_message = "migration_image must be empty or an image reference pinned by sha256 digest."
+  }
+}
+
+variable "catalog_image" {
+  description = "Digest-pinned Core image containing authoritative catalogs and the projection materializer."
+  type        = string
+
+  validation {
+    condition     = can(regex("@sha256:[0-9a-f]{64}$", var.catalog_image))
+    error_message = "catalog_image must be an image reference pinned by sha256 digest."
   }
 }
 
