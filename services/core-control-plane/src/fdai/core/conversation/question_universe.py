@@ -15,7 +15,7 @@ from fdai.core.ontology_platform.query_manifest import QueryManifest
 
 _DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
 _LOCALE_PATTERN = re.compile(r"[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-[A-Z]{2}|-[0-9]{3})?")
-_MAX_CASES = 1_000_000
+_MAX_CASES = 10_000
 _MAX_PATH_DEPTH = 16
 _MAX_RESULT_BOUND = 100_000
 
