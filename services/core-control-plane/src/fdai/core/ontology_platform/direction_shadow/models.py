@@ -26,6 +26,8 @@ class ComparisonDisposition(StrEnum):
 class ReviewReason(StrEnum):
     """Stable reasons that prevent a comparison from being complete evidence."""
 
+    LEGACY_RELEASE_UNBOUND = "legacy_release_unbound"
+    ALIGNED_RELEASE_UNBOUND = "aligned_release_unbound"
     LEGACY_GENERATION_INCOMPLETE = "legacy_generation_incomplete"
     ALIGNED_GENERATION_INCOMPLETE = "aligned_generation_incomplete"
     LEGACY_GENERATION_TRUNCATED = "legacy_generation_truncated"
@@ -104,7 +106,7 @@ class DirectionGraphGeneration:
     """One immutable graph generation pinned to an exact ontology release."""
 
     generation_ref: str
-    ontology_release_digest: str
+    ontology_release_digest: str | None
     object_ids: tuple[str, ...]
     links: tuple[DirectionGraphLink, ...]
     complete: bool
@@ -113,7 +115,8 @@ class DirectionGraphGeneration:
 
     def __post_init__(self) -> None:
         _bounded_ref("generation_ref", self.generation_ref)
-        _digest_value("ontology_release_digest", self.ontology_release_digest)
+        if self.ontology_release_digest is not None:
+            _digest_value("ontology_release_digest", self.ontology_release_digest)
         if self.object_ids != tuple(sorted(set(self.object_ids))):
             raise ValueError("direction graph object_ids MUST be unique and sorted")
         for object_id in self.object_ids:
@@ -128,7 +131,7 @@ class DirectionGraphGeneration:
         cls,
         *,
         generation_ref: str,
-        ontology_release_digest: str,
+        ontology_release_digest: str | None,
         object_ids: tuple[str, ...],
         links: tuple[DirectionGraphLink, ...],
         complete: bool,
@@ -253,8 +256,8 @@ class DirectionShadowReceipt:
     disposition: ComparisonDisposition
     review_reasons: tuple[ReviewReason, ...]
     migration_revision: str
-    prior_release_digest: str
-    aligned_release_digest: str
+    prior_release_digest: str | None
+    aligned_release_digest: str | None
     legacy_generation_digest: str
     aligned_generation_digest: str
     bounds: ComparisonBounds
@@ -281,7 +284,8 @@ class DirectionShadowReceipt:
             ("legacy_generation_digest", self.legacy_generation_digest),
             ("aligned_generation_digest", self.aligned_generation_digest),
         ):
-            _digest_value(name, value)
+            if value is not None:
+                _digest_value(name, value)
         canonical_reasons = tuple(sorted(set(self.review_reasons), key=str))
         if canonical_reasons != self.review_reasons:
             raise ValueError("direction shadow review reasons MUST be unique and sorted")
