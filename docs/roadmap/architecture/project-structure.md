@@ -25,10 +25,10 @@ with service-owned managed implementations without changing the shared wire cont
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the bounded current-state activity identity change. | Current source plus `test_read_investigation_latency.py` and `test_activity_projection.py`; the focused suites passed. | Complete the deferred Phase 2 physical package move described below. |
 | 2026-08-13 | implemented | Added the production Rule generation reconciliation boundary across the provider contract, atomic adapters, and startup composition while retaining Mimir and Heimdall ownership. | `current change`; `catalog_search.py`, `rule_generation_documents.py`, and focused worker, PostgreSQL, runtime, and activation checks. | Retain governed live generation receipts; the deferred Phase 2 package move remains separate. |
+| 2026-08-13 | implemented | Suppressed startup generation reconciliation when either accountable owner, Mimir or Heimdall, is maintenance-disabled. | `current change`; `bootstrap.py` and focused disabled-agent ingress checks. | Retain governed live generation receipts with both owners enabled. |
 
 ### Remaining work
 - [ ] Complete the deferred Phase 2 physical `git mv` after the compatibility import deprecation cycle, then update this layout to the resulting service-owned paths.
-
 ## Monorepo Layout
 
 ```text
@@ -228,7 +228,6 @@ Runtime bootstrap delegates semantic-turn readiness to `bootstrap_lifecycle.py`,
 > Directory names follow the canonical vocabulary in [language.instructions.md](../../../.github/instructions/language.instructions.md):
 > `trust-router`, `deterministic-engine`, `rule-catalog`, `risk-gate`, `remediation-pr`, `shadow-mode`, and `HIL`.
 > Disk identifiers use `snake_case`; each package owns its tests, while cross-service and repository checks remain in `tests/integration/`.
-
 ## Module Boundaries
 
 Dependency direction is strict and one-way; a violation is a review blocker.

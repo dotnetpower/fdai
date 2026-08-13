@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c6c7017ed49c4263ffe98c4f41275a75301cc14b
+translation_source_sha: 0db8b7090f611835bc3c9ad3a747c226525df451
 translation_revised: 2026-08-13
 ---
 
@@ -29,10 +29,10 @@ translation_revised: 2026-08-13
 |------|------|------|------|-----------|
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 범위가 제한된 현재 상태 활동 identity 변경을 기록했습니다. | 현재 출처와 `test_read_investigation_latency.py`, `test_activity_projection.py`, 통과한 focused 테스트 | 아래에 설명된 연기된 Phase 2 물리 패키지 이동을 완료합니다. |
 | 2026-08-13 | implemented | Mimir와 Heimdall 소유권을 유지하면서 프로바이더 계약, 원자적 어댑터 및 시작 구성 전체에 운영 Rule 세대 reconciliation 경계를 추가했습니다. | `current change`; `catalog_search.py`, `rule_generation_documents.py` 및 집중 worker, PostgreSQL, 런타임, 활성화 검사 | 통제된 실제 세대 증적을 보존하며 연기된 Phase 2 패키지 이동은 별도로 유지합니다. |
+| 2026-08-13 | implemented | 책임 소유자인 Mimir 또는 Heimdall이 maintenance-disabled이면 시작 시 Rule 세대 reconciliation을 억제하도록 변경했습니다. | `current change`; `bootstrap.py` 및 집중 disabled-agent 유입 검사 | 두 소유자가 활성화된 상태에서 통제된 실제 세대 증적을 보존합니다. |
 
 ### 남은 작업
 - [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.
-
 ## 모노레포 레이아웃
 
 ```text
@@ -236,7 +236,6 @@ fdai/
 > `remediation-pr`, `shadow-mode`, `HIL`.
 > 디스크상의 식별자는 `snake_case`를 쓰며, 각 패키지가 자신의 테스트를 소유하고 서비스 간 및
 > 저장소 전역 검사만 `tests/integration/`에 남습니다.
-
 ## 모듈 경계(모듈 Boundaries)
 
 의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다.

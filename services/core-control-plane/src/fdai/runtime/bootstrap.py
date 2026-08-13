@@ -1247,6 +1247,7 @@ async def _run() -> int:
                 rule_generation_outbox_task.add_done_callback(_log_rule_generation_outbox_exit)
             if (
                 pantheon_runtime is not None
+                and {"Mimir", "Heimdall"}.issubset(pantheon_runtime.agents)
                 and rule_generation_reconciliation is not None
                 and rule_generation_reconciliation.request is not None
             ):
