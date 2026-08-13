@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 4989a0844b8ad4a55c69f1ced43837ccb3197865
+translation_source_sha: 589383bd805a4bfab59b93e37ae5215c8d21f192
 translation_revised: 2026-08-13
 ---
 
@@ -33,7 +33,7 @@ translation_revised: 2026-08-13
 | Onboarding 준비 상태 사용 불가 상태 | implemented | `console/src/routes/onboarding.tsx`; `console/src/routes/onboarding.test.ts`; `console/tests/live-e2e/console-routes.spec.ts`; 범위를 한정한 Vitest 검사(`6 passed`)와 라이브 Playwright 검사(`1 passed`) | Onboarding 경로는 선택적 검사 엔드포인트가 없을 때 사용 불가 상태를 표시하며 예상하지 못한 실패는 오류로 유지합니다. |
 | Command Deck 라이브 보증 timeout budget | implemented | `console/tests/live-e2e/console-routes.spec.ts`; 범위를 한정한 Playwright 테스트 검색(`2 tests`) | 테스트별 budget이 기존 서버 응답 assertion budget보다 길어서 전역 기본값이 의도한 라이브 검사를 먼저 중단할 수 없습니다. 답변, grounding 또는 검증 assertion은 완화하지 않습니다. |
 | 아키텍처 관계 및 밀집 지도 렌더링 | implemented | `console/src/components/architecture-map.model.ts`; `console/src/components/architecture-map-renderer.ts`; 아키텍처 검사기, 관계 인덱스 및 지도 테스트; 범위를 한정한 Vitest 검사(`54 passed`)와 라이브 `/architecture` Playwright 검사(`1 passed`) | 화면은 권위 있는 `peered_with` 관계를 인식합니다. 밀집 지도는 선택되거나 강조된 리소스를 우선하는 최대 48개 노드의 제한된 처리로 반사를 유지하며 경로의 대기 화면이 운영자 보기를 차단하지 않도록 합니다. 통제된 runtime 또는 운영 증적이 보존되지 않았으므로 근거는 `validated`가 아니라 `implemented`를 뒷받침합니다. |
-| 인증된 의미 증적 근거 실행기 | implemented | `console/tests/live-e2e/browser-entra-state.ts`; `console/tests/live-e2e/console-routes.spec.ts`; `console/tests/live-e2e/ontology-query-assurance.spec.ts`; 범위를 한정한 Console typecheck | 실행기는 첫 탐색 전에 기존 Browser Entra MSAL 세션을 `sessionStorage`에 복원하고 bootstrap을 한 번만 소비하며 성공 전용 세부 정보를 열기 전에 의미 증적을 판정하고 seed 기반 집단을 요청 간 15초 간격으로 직렬 실행합니다. Principal과 App Role 검증은 Operator API에 맡깁니다. 준비 상태에는 통과한 보존 근거가 여전히 필요합니다. |
+| 인증된 의미 증적 근거 실행기 | implemented | `console/tests/live-e2e/browser-entra-state.ts`; `console/tests/live-e2e/console-routes.spec.ts`; `console/tests/live-e2e/ontology-query-assurance*.ts`; 범위를 한정한 온톨로지 보증 Vitest(`31 passed`) 및 Playwright 검색(`2 skipped`) | 실행기는 첫 탐색 전에 기존 Browser Entra MSAL 세션을 `sessionStorage`에 복원하고 bootstrap을 한 번만 소비하며 성공 전용 세부 정보를 열기 전에 의미 증적을 판정하고 seed 기반 집단을 요청 간 15초 간격으로 직렬 실행합니다. 허용 목록에 있는 증적 없는 전송 중단은 60초 뒤 한 번만 재시도하고 모든 시도를 통제 아티팩트에 보존합니다. 증적이 있거나 의미 결과가 잘못되었거나 전송 문제가 아닌 결과는 안전하게 실패 처리하며 재시도하지 않습니다. Principal과 App Role 검증은 Operator API에 맡깁니다. 준비 상태에는 통과한 보존 근거가 여전히 필요합니다. |
 
 ### 구현 이력
 
@@ -45,6 +45,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | in-progress | 인증된 통제 증적 및 seed 기반 이중 언어 보증 실행기에 일회성 Browser Entra `sessionStorage` 복원을 추가했습니다. | `current change`; 범위를 한정한 Console typecheck가 통과했고 설계 경로 gate가 이 담당 문서를 승인했습니다. | 준비 상태를 주장하기 전에 인증된 두 브라우저 경로를 실행하고 통과한 두 보존 근거 기록을 연결합니다. |
 | 2026-08-13 | implemented | 범위를 한정한 브라우저 실행이 통제된 runtime 또는 운영 근거로 보존되지 않았으므로 아키텍처 지도 분류를 정정했습니다. | `current change`; 구현 범위 표의 아키텍처 소스와 범위를 한정한 검사; 저장소 근거 기록에 이 실행의 보존된 증적이 없습니다. | `validated`로 복원하기 전에 통제된 runtime 또는 운영 증적을 보존합니다. |
 | 2026-08-13 | implemented | 성공 전용 세부 정보를 열기 전에 인증된 증적 실패를 표시하고, 테스트가 공급자 동시 요청을 만들지 않도록 seed 기반 이중 언어 보증 집단을 고정 15초 간격으로 직렬 실행하게 했습니다. | `current change`; `console/tests/live-e2e/console-routes.spec.ts`; `console/tests/live-e2e/ontology-query-assurance.spec.ts`; 범위를 한정한 Console typecheck와 diff 검사가 통과했습니다. | 준비 상태를 주장하기 전에 인증된 두 브라우저 경로를 실행하고 통과한 근거 기록을 보존합니다. |
+| 2026-08-13 | implemented | 전송 출처 메타데이터를 보존하고 허용 목록에 있는 증적 없는 중단에 한 번의 제한된 재시도를 추가했으며 안전하게 실패하는 의미 증적 판정기는 변경하지 않았습니다. 통제 아티팩트는 재시도 정책, 각 시도, 실제 보호 요청 수 및 소진된 재시도 수를 기록합니다. | `current change`; `console/tests/live-e2e/ontology-query-assurance*.ts`; 범위를 한정한 온톨로지 보증 Vitest에서 31개 테스트가 통과했고 Playwright가 외부 요청을 실행하지 않은 채 설정된 두 라이브 프로젝트를 검색했습니다. | 정확한 중앙 검증 증적을 얻은 뒤 소진된 전송 재시도가 없는 인증된 이중 언어 100개 질문 아티팩트 하나를 보존합니다. |
 
 ### 남은 작업
 
@@ -52,6 +53,7 @@ translation_revised: 2026-08-13
 - [ ] 제공되는 모든 요청 경로에서 단계 2 완료 조건의 실패 주입 및 권한 경계 매트릭스를 통과합니다.
 - [ ] 단계 3 완료 조건에서 정의한 키보드, 충돌, 재시도, 보상 및 롤백 훈련 근거를 기록합니다.
 - [ ] 검토된 기준선 구간을 고정하고 단계 4 완료 조건에서 정의한 shadow 측정 비교를 통과합니다.
+- [ ] 모든 전송 시도를 기록하고 소진된 전송 재시도가 0이라고 보고하는 인증된 이중 언어 100개 질문 온톨로지 보증 아티팩트 하나를 보존합니다.
 
 ## 설계 요약
 

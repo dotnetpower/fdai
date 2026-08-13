@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   assuranceOperations,
+  assuranceTransportRetrySources,
   buildAssuranceRunProvenance,
   generateOntologyAssuranceCohort,
+  isRetryableAssuranceTransportFailure,
   judgeSemanticReceipt,
   judgeSemanticTurn,
   type AssuranceRunConfiguration,
@@ -12,12 +14,17 @@ const DIGEST = `sha256:${"a".repeat(64)}`;
 
 function runConfiguration(): AssuranceRunConfiguration {
   return {
-    schema_version: "1.0.0",
+    schema_version: "1.1.0",
     seed: 0x0fda1,
     batch_size: 1,
     request_interval_ms: 15_000,
     timeout_ms: 14_400_000,
     authentication: "browser_entra",
+    transport_retry_policy: {
+      max_attempts: 2,
+      retry_delay_ms: 60_000,
+      retryable_sources: assuranceTransportRetrySources(),
+    },
     question_ids: ["en-inventory_listing-1", "ko-inventory_listing-1"],
   };
 }
@@ -103,7 +110,7 @@ describe("ontology query assurance provenance", () => {
       runConfiguration(),
     )).toEqual({
       source_revision: "b".repeat(40),
-      configuration_digest: "sha256:f56e4893f2000d19ec2abd291e60ed1595d776c1c222be8b187edfc2c493d114",
+      configuration_digest: "sha256:f13161ff406f4b691ff5f30c4a21509e4d0c37991ae954e29087d5c51f272fd1",
       workspace_patch_digest: `sha256:${"c".repeat(64)}`,
     });
   });
@@ -123,6 +130,28 @@ describe("ontology query assurance provenance", () => {
 });
 
 describe("typed semantic receipt oracle", () => {
+  it.each([
+    "deterministic (offline)",
+    "deterministic (stream interrupted)",
+    "partial (stream interrupted)",
+    "partial (sequence gap)",
+    "partial (missing terminal verification)",
+  ])("classifies a receipt-less transient transport outcome for retry: %s", (source) => {
+    expect(isRetryableAssuranceTransportFailure(source, null)).toBe(true);
+  });
+
+  it("does not retry a malformed semantic outcome or replace a received receipt", () => {
+    expect(isRetryableAssuranceTransportFailure("azure:gpt-4o", {})).toBe(false);
+    expect(isRetryableAssuranceTransportFailure(
+      "deterministic (upstream returned empty completion)",
+      null,
+    )).toBe(false);
+    expect(isRetryableAssuranceTransportFailure(
+      "deterministic (offline)",
+      answeredReceipt(),
+    )).toBe(false);
+  });
+
   it("accepts a complete authority-free answered receipt", () => {
     expect(judgeSemanticReceipt(answeredReceipt())).toEqual({
       passed: true,
