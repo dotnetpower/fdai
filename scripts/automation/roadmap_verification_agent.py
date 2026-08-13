@@ -238,6 +238,7 @@ Rules:
 - Read the target design, applicable repository instructions, implementing code, and adjacent tests.
 - Break normative design statements into claims and require code plus focused-test evidence.
 - Never infer implementation from filenames, imports, prose, or a passing unrelated test.
+- Before returning, use glob or read to confirm every evidence path exists exactly as written.
 - If design is ambiguous or would require an architecture decision, return blocked.
 - Never run repository-wide validation, deployment, cloud, network, push, or destructive git.
 - Do not modify repository instructions, hooks, automation, quality gates, or test configuration.
