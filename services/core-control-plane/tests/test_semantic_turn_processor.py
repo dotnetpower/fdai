@@ -153,6 +153,7 @@ def _request(
     idempotency_key: str = "semantic-turn-1",
     prior_turns: list[dict[str, str]] | None = None,
     bound_context: dict[str, str] | None = None,
+    locale: str = "en",
 ) -> dict[str, object]:
     semantic_turn: dict[str, object] = {
         "utterance": "Show current operations evidence.",
@@ -163,7 +164,7 @@ def _request(
         "session_id": "session-1",
         "turn_id": "turn-1",
         "turn_sequence": 3,
-        "locale": "en",
+        "locale": locale,
         "purpose": purpose,
         "deadline_at": (deadline_at or NOW + timedelta(seconds=30)).isoformat(),
         "prior_turns": prior_turns or [],
@@ -889,11 +890,22 @@ async def test_incident_evidence_answer_never_claims_cause_and_drafts_only() -> 
         )
     )
 
-    semantic = _projection(encoded)["semantic_result"]
+    projection = _projection(encoded)
+    semantic = projection["semantic_result"]
     assert semantic["disposition"] == "answered"
     answer = semantic["answer"]
-    payload = json.loads(answer.split("```json\n", 1)[1].rsplit("\n```", 1)[0])
-    incident = payload["outputs"][0]
+    assert answer.startswith("## Verified incident evidence")
+    assert "1 correlated audit record was verified." in answer
+    assert "Root cause isn't available" in answer
+    assert "impact evidence" in answer
+    assert "grounded citations" in answer
+    assert "Collect the missing evidence before proposing a change." in answer
+    assert "```json" not in answer
+    payload = projection["payload"]
+    technical_details = payload["technical_details"]
+    assert technical_details["schema_version"] == 1
+    assert technical_details["kind"] == "semantic_query_outputs"
+    incident = technical_details["outputs"][0]
     assert incident["incident_profile"]["correlation_id"] == "incident-correlation-301"
     assert incident["incident_profile"]["status"] == "triaging"
     assert incident["correlated_evidence"][0]["audit_ref"] == "audit:1"
@@ -906,11 +918,38 @@ async def test_incident_evidence_answer_never_claims_cause_and_drafts_only() -> 
         "reason": "causal_analysis_not_implemented",
     }
     assert incident["next_safe_step"] == {
-        "operation": "action_draft",
-        "authority": "candidate_only",
+        "operation": "collect_evidence",
+        "authority": "read_only",
         "execution_authority": False,
     }
     assert '"cause":' not in answer
+
+
+async def test_incident_evidence_answer_is_localized_without_changing_machine_output() -> None:
+    encoded = await _processor(_Runtime(_incident_evidence_runtime_result())).process(
+        _request(
+            locale="ko",
+            bound_context={
+                "kind": "incident",
+                "incident_id": "00000000-0000-0000-0000-000000000301",
+                "correlation_id": "incident-correlation-301",
+            },
+        )
+    )
+
+    projection = _projection(encoded)
+    answer = projection["semantic_result"]["answer"]
+    assert answer.startswith("## 검증된 인시던트 근거")
+    assert "감사 기록 1건을 검증했습니다." in answer
+    assert "근본 원인을 확인할 수 없습니다." in answer
+    assert "영향 근거, 근거 인용" in answer
+    assert "```json" not in answer
+    assert (
+        projection["payload"]["technical_details"]["outputs"][0]["correlated_evidence"][0][
+            "audit_ref"
+        ]
+        == "audit:1"
+    )
 
 
 async def test_incident_evidence_with_cause_claim_is_held() -> None:

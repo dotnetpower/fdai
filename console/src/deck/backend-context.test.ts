@@ -135,6 +135,27 @@ describe("viewContextWithUser wiring", () => {
     });
   });
 
+  test("reuses the latest verified assistant incident binding for follow-up turns", () => {
+    const payload = createBackendRequestPayload("Regenerate this answer", liveSnap(), [
+      { role: "user", content: "Investigate this incident" },
+      {
+        role: "assistant",
+        content: "Verified incident evidence",
+        conversationBinding: {
+          kind: "incident",
+          incidentId: "incident-1",
+          correlationId: "correlation-1",
+        },
+      },
+    ], "session-42");
+
+    expect(payload.conversation_context).toEqual({
+      kind: "incident",
+      incident_id: "incident-1",
+      correlation_id: "correlation-1",
+    });
+  });
+
   test("sends the persistent target for a plain agent conversation", async () => {
     const parsed = await callAskAndCaptureBody(
       liveSnap(),

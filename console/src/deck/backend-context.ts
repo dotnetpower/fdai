@@ -44,6 +44,14 @@ function latestEvidenceFreshnessContext(history: readonly BackendTurn[]) {
   return undefined;
 }
 
+function latestConversationBinding(history: readonly BackendTurn[]) {
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const turn = history[index];
+    if (turn?.role === "assistant") return normalizeIncidentBinding(turn.conversationBinding);
+  }
+  return null;
+}
+
 export function createBackendRequestPayload(
   prompt: string,
   snapshot: ViewSnapshot | null,
@@ -55,7 +63,7 @@ export function createBackendRequestPayload(
   targetAgent?: string,
 ): Record<string, unknown> {
   const includeModelTrace = readConsolePreferences().showModelTrace;
-  const normalizedBinding = normalizeIncidentBinding(binding);
+  const normalizedBinding = normalizeIncidentBinding(binding) ?? latestConversationBinding(history);
   const resourceContext = latestResourceContext(history);
   const evidenceFreshnessContext = latestEvidenceFreshnessContext(history);
   return {

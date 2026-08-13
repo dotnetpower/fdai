@@ -42,6 +42,7 @@ import { parseTrajectoryDetail } from "./trajectory-detail";
 import { parseIntentGraph, parseIntentGraphEvidence } from "./intent-graph";
 import { chartArtifactText } from "./rich-parse";
 import { parsePresentationArtifact } from "./presentation-artifact";
+import { normalizeIncidentBinding } from "./conversation-sessions";
 
 export const fallbackTypewriter = { intervalMs: 12 };
 export const streamBurstPacer = { intervalMs: 16 };
@@ -441,6 +442,7 @@ export async function askBackendStream(
   const intentGraph = parseIntentGraph(done.intent_graph);
   const intentGraphEvidence = parseIntentGraphEvidence(done.intent_graph_evidence);
   const semanticReceipt = parseSemanticProjectionReceipt(done.semantic_receipt);
+    const conversationBinding = normalizeIncidentBinding(done.conversation_context);
   const chosen = router?.chose ?? model;
   const explicitSource = typeof done.source === "string" ? done.source : null;
   const source = explicitSource ?? (
@@ -476,6 +478,7 @@ export async function askBackendStream(
       evidenceMode: intentGraphEvidence.evidence_mode,
     } : {}),
     ...(semanticReceipt ? { semanticReceipt } : {}),
+    ...(conversationBinding ? { conversationBinding } : {}),
   };
 }
 

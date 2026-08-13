@@ -701,10 +701,9 @@ async def test_missing_transport_projects_typed_held_result() -> None:
 
     assert receipt.response.body is not None
     assert cast(dict[str, object], receipt.response.body)["dispatch_status"] == "held"
-    assert len(events) == 1
-    semantic_result = cast(dict[str, object], events[0].data["semantic_result"])
-    verification = cast(dict[str, object], events[0].data["verification"])
-    assert events[0].event == "done"
+    assert [event.event for event in events] == ["status", "status", "done"]
+    semantic_result = cast(dict[str, object], events[-1].data["semantic_result"])
+    verification = cast(dict[str, object], events[-1].data["verification"])
     assert semantic_result["disposition"] == "held"
     assert semantic_result["reason_code"] == "semantic_transport_unavailable"
     assert "semantic_transport_unavailable" in cast(str, semantic_result["answer"])
@@ -1068,6 +1067,160 @@ def test_answered_done_exposes_exact_no_authority_semantic_receipt() -> None:
     }
 
 
+async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal() -> None:
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=cast(Any, object()),
+        result_source=cast(Any, object()),
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)),
+    )
+    receipt = await bridge.append(_proposal())
+    stored_turn = store.turns[receipt.proposal_id]
+    projection = _projection(
+        stored_turn.envelope,
+        disposition="answered",
+        answered_evidence=True,
+    )
+    projection["semantic_result"]["answer"] = "## Verified incident evidence\n\nReadable answer."
+    projection["payload"] = {
+        "technical_details": {
+            "schema_version": 1,
+            "kind": "semantic_query_outputs",
+            "outputs": [
+                {
+                    "node_id": "incident-evidence",
+                    "incident_profile": {
+                        "incident_id": "incident-1",
+                        "correlation_id": "correlation-1",
+                        "status": "triaging",
+                    },
+                    "correlated_evidence": [{"audit_ref": "audit:1"}],
+                    "evidence_gaps": ["impact_evidence_missing"],
+                    "causal_assessment": {"status": "not_available"},
+                    "next_safe_step": {
+                        "operation": "collect_evidence",
+                        "authority": "read_only",
+                        "execution_authority": False,
+                    },
+                }
+            ],
+        },
+    }
+    await SemanticTurnProjectionConsumer(store).consume(projection)
+
+    stream = await bridge.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            proposal_id=receipt.proposal_id,
+        )
+    )
+    events = [event async for event in stream]
+
+    assert [event.event for event in events] == [
+        "status",
+        "status",
+        "status",
+        "verification",
+        "status",
+        "done",
+    ]
+    assert [event.data["phase"] for event in events[:-1]] == [
+        "accepted",
+        "planning",
+        "evidence",
+        "verification",
+        "presentation",
+    ]
+    assert [event.event_id for event in events[:-1]] == [
+        "0:accepted",
+        "0:planning",
+        "1:evidence",
+        "1:verification",
+        "1:presentation",
+    ]
+    done = events[-1]
+    assert done.event_id == "1"
+    assert done.data["answer"] == "## Verified incident evidence\n\nReadable answer."
+    assert done.data["conversation_context"] == {
+        "kind": "incident",
+        "incident_id": "incident-1",
+        "correlation_id": "correlation-1",
+    }
+    assert done.data["answer_plan"] == {
+        "intent": "diagnosis",
+        "detail_level": "standard",
+        "format": "mixed",
+        "sections": ["verified_facts", "limitations", "next_safe_step"],
+        "evidence_requirement": "server_read_model",
+        "max_words": 500,
+        "discuss": "skip",
+        "explicit_overrides": [],
+        "preference_applied": False,
+    }
+    artifact = cast(dict[str, object], done.data["presentation_artifact"])
+    assert artifact["evidence_refs"] == ["evidence-1"]
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    assert [block["slot_id"] for block in blocks] == [
+        "overview",
+        "limitations",
+        "findings",
+    ]
+    next_step = cast(dict[str, object], blocks[2]["data"])
+    assert next_step["rows"] == [
+        {
+            "action": "Collect missing evidence before proposing a change.",
+            "authority": "Read-only",
+        }
+    ]
+    detail = cast(dict[str, object], done.data["trajectory_detail"])
+    activities = cast(list[dict[str, object]], detail["activities"])
+    execution = cast(dict[str, object], activities[0]["execution"])
+    assert json.loads(cast(str, execution["output"])) == projection["payload"]["technical_details"]
+    assert execution["redacted"] is True
+
+
+def test_semantic_incident_presentation_localizes_korean_artifact() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {
+        "technical_details": {
+            "schema_version": 1,
+            "kind": "semantic_query_outputs",
+            "outputs": [
+                {
+                    "incident_profile": {"status": "triaging"},
+                    "correlated_evidence": [{"audit_ref": "audit:1"}],
+                    "evidence_gaps": [
+                        "impact_evidence_missing",
+                        "grounded_citations_missing",
+                    ],
+                    "causal_assessment": {"status": "not_available"},
+                }
+            ],
+        }
+    }
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale="ko")
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    assert [block["title"] for block in blocks] == [
+        "검증된 인시던트 근거",
+        "제한 사항",
+        "다음 안전 단계",
+    ]
+    limitations = cast(dict[str, object], blocks[1]["data"])
+    assert limitations["lines"] == [
+        "인과 분석이 구현되지 않아 근본 원인을 확인할 수 없습니다.",
+        "영향 근거가 누락되었습니다.",
+        "근거 인용이 누락되었습니다.",
+    ]
+
+
 def test_legacy_semantic_result_without_answer_replays_as_unverified_limitation() -> None:
     projection = {
         "semantic_result": {
@@ -1124,7 +1277,8 @@ async def test_semantic_bridge_replays_results_in_sequence_order() -> None:
         )
     )
 
-    assert [event.event_id async for event in stream] == ["1", "2"]
+    events = [event async for event in stream]
+    assert [event.event_id for event in events if event.event == "done"] == ["1", "2"]
 
 
 async def test_semantic_bridge_waits_for_delayed_terminal_projection() -> None:
@@ -1156,8 +1310,72 @@ async def test_semantic_bridge_waits_for_delayed_terminal_projection() -> None:
     events = [event async for event in stream]
     await projection_task
 
-    assert len(events) == 1
-    assert events[0].event == "done"
+    assert [event.event for event in events] == [
+        "status",
+        "status",
+        "status",
+        "verification",
+        "status",
+        "done",
+    ]
+
+
+async def test_semantic_replay_cursor_resumes_after_observed_phase() -> None:
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=cast(Any, object()),
+        result_source=cast(Any, object()),
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime.now(UTC)),
+    )
+    receipt = await bridge.append(_proposal())
+    stored_turn = store.turns[receipt.proposal_id]
+    await SemanticTurnProjectionConsumer(store).consume(
+        _projection(stored_turn.envelope, disposition="answered", answered_evidence=True)
+    )
+
+    resumed = await bridge.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            proposal_id=receipt.proposal_id,
+            after_event_id="1:evidence",
+        )
+    )
+    events = [event async for event in resumed]
+
+    assert [event.event_id for event in events] == [
+        "1:verification",
+        "1:presentation",
+        "1",
+    ]
+
+
+async def test_semantic_terminal_cursor_closes_without_fabricated_hold() -> None:
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=cast(Any, object()),
+        result_source=cast(Any, object()),
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime.now(UTC)),
+    )
+    receipt = await bridge.append(_proposal())
+    stored_turn = store.turns[receipt.proposal_id]
+    await SemanticTurnProjectionConsumer(store).consume(
+        _projection(stored_turn.envelope, disposition="answered", answered_evidence=True)
+    )
+
+    replay = await bridge.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            proposal_id=receipt.proposal_id,
+            after_event_id="1",
+        )
+    )
+
+    assert [event async for event in replay] == []
+    assert len(store.results) == 1
 
 
 async def test_semantic_bridge_deadline_projects_typed_hold() -> None:
@@ -1188,9 +1406,8 @@ async def test_semantic_bridge_deadline_projects_typed_hold() -> None:
     )
     events = [event async for event in stream]
 
-    assert len(events) == 1
-    assert events[0].event == "done"
-    semantic_result = cast(dict[str, object], events[0].data["semantic_result"])
+    assert [event.event for event in events] == ["status", "status", "done"]
+    semantic_result = cast(dict[str, object], events[-1].data["semantic_result"])
     assert semantic_result["disposition"] == "held"
     assert semantic_result["reason_code"] == "semantic_transport_unavailable"
 

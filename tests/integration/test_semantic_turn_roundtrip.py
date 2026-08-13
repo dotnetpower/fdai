@@ -358,9 +358,23 @@ async def test_semantic_turn_round_trip_preserves_verified_evidence_and_principa
         )
     )
     events = [event async for event in stream]
-    assert len(events) == 1
-    semantic_result = cast(dict[str, object], events[0].data["semantic_result"])
-    assert events[0].data["status"] == "answered"
+    assert [event.event for event in events] == [
+        "status",
+        "status",
+        "status",
+        "verification",
+        "status",
+        "done",
+    ]
+    terminal = events[-1]
+    semantic_result = cast(dict[str, object], terminal.data["semantic_result"])
+    assert terminal.data["status"] == "answered"
+    assert cast(str, terminal.data["answer"]).startswith("## Verified ontology query")
+    assert "```json" not in cast(str, terminal.data["answer"])
+    trajectory = cast(dict[str, object], terminal.data["trajectory_detail"])
+    activities = cast(list[dict[str, object]], trajectory["activities"])
+    execution = cast(dict[str, object], activities[0]["execution"])
+    assert json.loads(cast(str, execution["output"])) == projection["payload"]["technical_details"]
     assert semantic_result["evidence_refs"] == ["inventory:evidence-1"]
     assert semantic_result["ontology_release_digest"] == RELEASE_DIGEST
     assert semantic_result["principal_manifest_digest"] == MANIFEST_DIGEST

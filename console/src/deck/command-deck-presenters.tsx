@@ -84,6 +84,7 @@ export interface Turn {
   readonly intentGraphEvidence?: IntentGraphEvidence;
   readonly evidenceMode?: IntentEvidenceMode;
   readonly semanticReceipt?: SemanticProjectionReceipt;
+  readonly conversationBinding?: import("./open-deck").IncidentConversationBinding;
   readonly agent?: string;
   readonly at: string;
 }
