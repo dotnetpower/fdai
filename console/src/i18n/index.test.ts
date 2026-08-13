@@ -8,6 +8,17 @@ import ko from "./messages.ko.json";
 afterEach(() => setLocale("en"));
 
 describe("mandatory English catalog fallback", () => {
+  test("resolves dotted operational activity kinds in both locales", () => {
+    expect(tForLocale("en", "agentActivity.log.lane.inventory.scan"))
+      .toBe("Inventory scan");
+    expect(tForLocale("en", "agentActivity.log.lane.current-state.read"))
+      .toBe("Current state");
+    expect(tForLocale("en", "agentActivity.log.lane.inventory.ontology-projection"))
+      .toBe("Ontology projection");
+    expect(tForLocale("ko", "agentActivity.log.lane.inventory.scan"))
+      .toBe("인벤토리 검사");
+  });
+
   test("renders an explicit conversational locale without changing the UI locale", () => {
     setLocale("en");
     expect(tForLocale("ko", "deck.incidentCandidates.title")).toBe("조사할 인시던트 선택");

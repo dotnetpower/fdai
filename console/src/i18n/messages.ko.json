@@ -379,9 +379,13 @@
       "lanes": "운영 활동 유형",
       "lane": {
         "all": "모든 작업",
-        "inventory.scan": "인벤토리 검사",
-        "current-state.read": "현재 상태",
-        "inventory.ontology-projection": "온톨로지 변환"
+        "inventory": {
+          "scan": "인벤토리 검사",
+          "ontology-projection": "온톨로지 변환"
+        },
+        "current-state": {
+          "read": "현재 상태"
+        }
       },
       "find": "찾기",
       "searchPlaceholder": "메시지, 작업, 리소스 또는 상관관계",

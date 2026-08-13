@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: d2a08b87858ff7e403a58eec8d46cee9a69ee32e
-translation_revised: 2026-08-13
+translation_source_sha: 45f6473fd138b89ecf43534acdcf1567aea1e305
+translation_revised: 2026-08-14
 ---
 
 # FDAI Console 대화
@@ -34,6 +34,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 |------|------|------|------|
 | 영속/실시간 현재 상태 활동 identity | 구현됨 | `read_investigation_latency.py`, `fdai_operator_service/activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | Snapshot 재생과 실제 운영 프레임은 운영자 질문, 리소스 identity 또는 실행 권한을 저장하지 않고 하나의 hash-correlation activity id로 수렴합니다. |
 | 선택적 Console 변환 결과 가용성 | 구현됨 | `console/src/routes`, focused 경로 테스트 (`64 passed`), `npm --prefix console run typecheck` | 타입이 지정된 선택적 출처 부재는 사용 불가로 표시하고 인증, 예기치 않은 서버 및 디코더 실패는 오류로 유지합니다. |
+| 에이전트 활동 영속 변환 복원력 | 구현됨 | `fdai_operator_service/postgres_sql.py`, `fdai_operator_service/activity_projection.py`, focused Operator 변환 테스트 (`25 passed`), Console 출처 및 지역화 테스트 (`8 passed`), 타입 검사, 카탈로그 일치 검사 | PostgreSQL 쿼리는 리터럴 와일드카드를 이스케이프합니다. 계약 범위를 벗어난 선택적 기간은 유효한 활동을 중단하지 않고 `duration_out_of_range`와 함께 `null`이 됩니다. 통제된 브라우저 산출물을 보존하지 않았으므로 이 행은 런타임 검증을 주장하지 않습니다. |
 
 ### 구현 이력
 
@@ -41,6 +42,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 |------|------|------|------|-----------|
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 현재 상태 활동 identity 계약을 기록했습니다. | 현재 출처와 `test_read_investigation_latency.py`, `test_activity_projection.py`, 통과한 focused 테스트 | Snapshot-first hydration과 실제 운영 수렴의 통제된 cross-service 동등성 근거를 기록합니다. |
 | 2026-08-13 | 구현됨 | 예기치 않은 실패를 숨기지 않으면서 운영 Console 경로 전반의 선택적 변환 결과 부재 처리를 표준화했습니다. | 현재 변경, 통과한 focused 경로 테스트 (`64 passed`) 및 Console 타입 검사 | 전체 스택 검증 캠페인에서 Browser Entra 경로 보증을 계속 수행합니다. |
+| 2026-08-14 | 구현됨 | psycopg 와일드카드를 이스케이프하고, 범위를 벗어난 선택적 기간이 있는 유효한 행을 보존하며, 타입이 지정된 선택적 출처 부재 중에도 감사 타임라인을 사용할 수 있도록 영속 에이전트 활동 변환을 복구했습니다. | `current change`, 통과한 focused Operator 테스트 (`25 passed`), focused Console 테스트 (`8 passed`), Console 타입 검사 및 카탈로그 일치 검사 | 기존 snapshot-first 및 실제 운영 수렴 완료 조건을 위한 통제된 Browser Entra 산출물을 보존합니다. |
 
 ### 남은 작업
 
