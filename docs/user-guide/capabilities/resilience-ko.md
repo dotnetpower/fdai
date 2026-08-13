@@ -2,8 +2,8 @@
 title: 회복탄력성
 description: FDAI가 필요해지기 전에 복구를 증명하는 방법입니다. 예약된 DR 훈련, 범위가 제한된 카오스 실험, 알려진 실패 패턴에 대한 자가 치유를 다룹니다.
 translation_of: resilience.md
-translation_source_sha: 93b09b5000c991d81fca299829a7de4d03bef3b6
-translation_revised: 2026-08-11
+translation_source_sha: 8b14d1b03cdbf533bf680ab2dc4f7166efbfa146
+translation_revised: 2026-08-14
 ---
 
 # 회복탄력성
