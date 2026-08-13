@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { OperatorApiError } from "../api";
 
 import {
   aggregateEvidenceAsOf,
@@ -6,10 +7,24 @@ import {
   reportVariableErrors,
   reportDownloadCanComplete,
   reportHeadlineState,
+  reportsLoadFailure,
   triggerBlobDownload,
   updateReportVariable,
 } from "./reports";
 import type { ReportSummary } from "./reporting.model";
+
+describe("reports source availability", () => {
+  test("distinguishes optional projection absence from reporting failures", () => {
+    expect(reportsLoadFailure(new OperatorApiError(503, "projection unavailable"))).toEqual({
+      status: "unavailable",
+      message: "projection unavailable",
+    });
+    expect(reportsLoadFailure(new OperatorApiError(500, "reporting failed"))).toEqual({
+      status: "error",
+      message: "reporting failed",
+    });
+  });
+});
 
 function report(
   id: string,

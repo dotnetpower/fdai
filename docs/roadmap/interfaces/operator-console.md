@@ -4,27 +4,25 @@ title: FDAI Console Conversations
 
 # FDAI Console Conversations
 
-How a human operator talks *back to* FDAI through CLI, Teams, Slack, and web chat. This FDAI
-Console capability owns the **conversational surface**, not a separate product: layered architecture,
-tool catalog, LLM tiers, session persistence, per-tool RBAC, safety invariants, and rollout status.
+How a human operator talks *back to* FDAI through CLI, Teams, Slack, and web chat. This FDAI Console capability owns the
+**conversational surface**, not a separate product: layered architecture, tool catalog, LLM tiers, session persistence, per-tool RBAC, safety invariants, and rollout status.
 
 Push-direction notifications (system → human) live in
 [channels-and-notifications.md](channels-and-notifications.md); operational views and requests are
 defined in [console-operations.md](console-operations.md), and the SPA lives under
 [project-structure.md § console/](../architecture/project-structure.md#console-static-web-app); evidence provenance, stream recovery, localization, and Architecture-map resilience are owned by [console-evidence-and-resilience.md](console-evidence-and-resilience.md). Login bootstrap derives assigned-principal access from verified App Roles without requiring the optional access-request projection; unassigned access remains closed when that projection is unavailable. In local development, an independent service adapter may use Azure CLI only for model narration; it has no provider-read or execution authority. The Ontology map renders one generated catalog knowledge graph from `rule-catalog` and `PANTHEON_SPECS`; it doesn't read Architecture or runtime inventory.
 Settings > Integrations can preview the production incident-open email renderer with synthetic placeholders. That GET-only preview does not send mail or grant approval or execution authority.
+For optional Console projections, typed `404`, `501`, and source-gate `503` responses render as unavailable. Authentication failures, unexpected transport or `500` responses, and decoder failures remain visible errors.
 The authenticated active-incident stream can open an idle Command Deck with an incident selector. That selector is a presentation hint only; the server re-resolves the durable incident and its evidence before answering.
 When the tab and Deck are idle, the first browser observation of an incident submits one localized read-only investigation turn. A browser-local incident ledger suppresses replay after reload; the incident badge remains an explicit way to investigate again.
 When an incident question matches several records equally, the terminal answer includes bounded candidate buttons rather than relying on a plain-text instruction. A button opens the candidate's exact incident conversation and immediately submits the localized read-only investigation turn.
 The click is the operator's explicit request; an automatic active-incident stream open never submits a managed-resource action.
-This doc covers the **pull direction** - the operator asks, simulates,
-approves - across every channel the notification doc already ships adapters
-for. Push and pull share the same channel credentials and the same audit
-contract, but they are distinct integration surfaces.
+This doc covers the **pull direction** - the operator asks, simulates, approves - across every channel
+the notification doc already ships adapters for. Push and pull share the same channel credentials
+and the same audit contract, but they are distinct integration surfaces.
 
-> Customer-agnostic: every channel id, LLM deployment name, resource id, and
-> group name below is a placeholder. A fork supplies concrete values via
-> config
+> Customer-agnostic: every channel id, LLM deployment name, resource id, and group name below is a
+> placeholder. A fork supplies concrete values via config
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 ## Implementation status
@@ -34,12 +32,14 @@ contract, but they are distinct integration surfaces.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Durable/live current-state activity identity | implemented | `read_investigation_latency.py`; `fdai_operator_service/activity_projection.py`; focused persistence and projection tests (`6 passed`) | Snapshot replay and live frames converge on one hashed-correlation activity id without persisting the operator question, resource identity, or execution authority. |
+| Optional Console projection availability | implemented | `console/src/routes`; focused route tests (`64 passed`) and `npm --prefix console run typecheck` | Typed optional-source absence renders as unavailable; authentication, unexpected server, and decoder failures remain errors. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the current-state activity identity contract. | Current source plus `test_read_investigation_latency.py` and `test_activity_projection.py`; the focused suites passed. | Record governed cross-service parity evidence for snapshot-first hydration and live convergence. |
+| 2026-08-13 | implemented | Standardized optional projection absence across production Console routes without hiding unexpected failures. | Current change; focused route tests passed (`64 passed`) and Console typecheck passed. | Keep Browser Entra route assurance in the full-stack validation campaign. |
 
 ### Remaining work
 

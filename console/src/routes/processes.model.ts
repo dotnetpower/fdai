@@ -1,4 +1,4 @@
-import { OperatorApiError } from "../api";
+import { isOptionalOperatorApiUnavailable } from "../api";
 import { panelPath } from "../router";
 
 export interface ProcessSummary {
@@ -389,7 +389,7 @@ export function assertProcessDetailSelection(
 export function processListFailure(error: unknown):
   | { readonly status: "unavailable"; readonly message: string }
   | { readonly status: "error"; readonly message: string } {
-  if (error instanceof OperatorApiError && (error.status === 404 || error.status === 501)) {
+  if (isOptionalOperatorApiUnavailable(error)) {
     return {
       status: "unavailable",
       message: "Process projections are not wired on this deployment.",

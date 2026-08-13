@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import type { OperatorApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { AsyncBoundary, EmptyState, PageHeader, StatusPill, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
@@ -26,7 +26,7 @@ export function WorkflowAppsRoute({ client }: Props) {
         }
       },
       (error: unknown) => {
-        if (!cancelled) setState({ status: "error", message: error instanceof Error ? error.message : String(error) });
+        if (!cancelled) setState({ status: isOptionalOperatorApiUnavailable(error) ? "unavailable" : "error", message: error instanceof Error ? error.message : String(error) });
       },
     );
     return () => { cancelled = true; };

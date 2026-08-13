@@ -16,6 +16,7 @@ import {
   decodeUserContext,
   fetchUserContext,
   type ScheduledContinuationPayload,
+  UserContextRequestError,
 } from "../user-context-client";
 
 interface ContinuationResponse {
@@ -35,7 +36,9 @@ export function ScheduledContinuationsRoute({ client: _client }: { readonly clie
       })
       .catch((error: unknown) => {
         if (!cancelled) setState({
-          status: "error",
+          status: error instanceof UserContextRequestError && error.status === 503
+            ? "unavailable"
+            : "error",
           message: error instanceof Error ? error.message : String(error),
         });
       });
