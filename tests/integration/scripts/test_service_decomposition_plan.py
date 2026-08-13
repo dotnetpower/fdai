@@ -92,7 +92,7 @@ def test_service_decomposition_tracker_matches_machine_status() -> None:
         checkbox = "[x]" if item["status"] == "completed" else "[ ]"
         assert f"| {checkbox} | {item['id']} |" in tracker
 
-    assert f"| Completed | {counts['completed']} |" in tracker
+    assert f"| Completed - SD | {counts['completed']} |" in tracker
     assert f"| In progress | {counts['in_progress']} |" in tracker
     assert f"| Planned | {counts['planned']} |" in tracker
     assert f"| Blocked | {counts['blocked']} |" in tracker
