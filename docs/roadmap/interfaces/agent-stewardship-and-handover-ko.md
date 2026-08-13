@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: fc6d15650cd15dc1ed74ea2abc06f7d7a36d8c43
-translation_revised: 2026-08-12
+translation_source_sha: 4b216f3c867ca61fa024428eb0cb34d4639c6ade
+translation_revised: 2026-08-13
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -19,15 +19,29 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(읽기 담당 / 기여자 / Approv
 > Customer-agnostic: 아래의 모든 objectId, 그룹 id, 이름은 **자리 표시자**(all-zero UUID)다.
 > 배포 구성이 실제 Entra 값을 제공합니다.
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
->
-> **구현 상태.** 전체 수명 주기가 구현되었습니다. 운영 지도 연결, 실패 시 차단
-> Terraform 신원 주입, scheduled stale-OID 전이 감사, 근거에 기반한 인계 인제스트,
-> 멱등적 GitHub draft-PR 전달, signed 병합 관측, stakeholder 알림,
-> 추가 전용 감사, 읽기 전용 콘솔 변환 결과, 인제스트를 통해 draft-PR 제안을 제출하는
-> guided 등록 양식을 포함합니다. 런타임, 배포, 복구, 검증 상세 내용은
-> [에이전트 운영 책임 수명 주기](agent-stewardship-operations-ko.md)를 참조하세요.
-> 스키마 v2 임무 파싱, v1 호환성 발견 사항, 비인플레이스 이행 렌더러도 구현되었습니다.
-> Tracked 업스트림 지도는 실제 배포가 백업을 지정할 때까지 v1을 유지합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 담당 체계 스키마, 해석기, 판테온 동등성 | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/tests/core/stewardship/test_resolver.py`; `test_pantheon_parity.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/stewardship` (71 passed) | 스키마 v1을 계속 읽을 수 있고, 스키마 v2는 순서가 있는 임무를 보존하며, 유효하지 않거나 불완전한 매핑은 실패 시 차단됩니다. |
+| 스키마 v2 마이그레이션 | implemented | `scripts/governance/migrate-stewardship-v2.py`; `services/core-control-plane/tests/core/stewardship/test_migration.py` | 마이그레이션은 검토 가능한 후보를 렌더링하고 활성 지도를 인플레이스 방식으로 수정하지 않습니다. |
+| 범위, 에스컬레이션, 알림 기본 요소 | implemented | `services/core-control-plane/src/fdai/core/stewardship/coverage.py`; `escalation.py`; `notify.py`; 집중 담당 체계 테스트 모음 (71 passed) | 이 결정론적 기본 요소는 발견 사항과 수신자를 계산합니다. 런타임 스케줄링과 전달은 수명 주기 소유 문서에서 다룹니다. |
+| 근거 기반 담당자 인수인계 부트스트랩 | implemented | `services/core-control-plane/src/fdai/core/stewardship/handover_bootstrap/`; 집중 담당 체계 테스트 모음 (71 passed) | 정확한 추출과 검토 보류 동작이 있습니다. 적응형 해석기는 선택적 배포 바인딩으로 남아 있습니다. |
+| 일반 업스트림 인수인계 지도 | implemented | `config/agent-stewardship.yaml`; `bash scripts/governance/check-stewardship.sh` (15 agents, 2 maintainers) | 추적되는 지도는 의도적으로 자리 표시자 신원과 스키마 v1을 사용합니다. 일반 구조를 입증하지만 배포 준비 상태나 실제 백업 범위를 입증하지는 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | implemented | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며 이 문서의 범위를 스키마, 결정론적 담당 체계 기본 요소, 마이그레이션, 인수인계 부트스트랩으로 한정했습니다. | `current change`; 구현 범위 표에 나열된 담당 체계 소스와 집중 검사. | 업스트림 저장소에 테넌트 신원을 넣지 않고 배포별 스키마 v2 `primary` 및 `backup` 범위를 기록합니다. |
+
+### 남은 작업
+
+- [ ] 업스트림 지도를 고객 독립적 상태로 유지하면서, 자율 운영이 아닌 모든 에이전트에 대해 스키마 v2, 실제 `primary` 1명, 구별되는 실제 `backup` 또는 `escalation` 대상 1명을 보여 주는 관리형 배포 증적을 보존합니다.
+- [ ] 적응형 해석을 운영에서 사용할 수 있다고 설명하기 전에 `HandoverInterpreter` 배포 바인딩의 집중 근거를 기록합니다.
 
 ## 1. 설계 원칙
 

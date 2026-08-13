@@ -44,14 +44,29 @@ flowchart LR
 
 ## Implementation status
 
-| Capability | Owner | Status | Evidence |
-|------------|-------|--------|----------|
-| Production map binding | Operator API composition | Implemented | `build_prod_app()` loads `config/agent-stewardship.yaml` and registers `GET /stewardship`. |
-| Real-binding readiness | Terraform plus resolver | Implemented | Container Apps receives `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`, maintainer OIDs, and per-agent overrides. |
-| Stale identity audit | stewardship health monitor | Implemented | Entra liveness writes transition-only state plus audit and refreshes a separate last-success heartbeat. |
-| Handover draft PR | ingestion consumer plus GitOps adapter | Implemented, opt-in | A processed `handover_bootstrap` upload opens one draft PR for `config/agent-stewardship.yaml`. |
-| Merge notification and audit | signed GitHub webhook | Implemented, opt-in | The adapter verifies HMAC, changed files, repository, merge state, and merged YAML before recording. |
-| Guided registration | console plus ingestion | Implemented | Contributor, Approver, and Owner can submit structured assignments; the SPA holds no Git credentials and cannot apply the map. |
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Startup binding and read-only projection | implemented | `services/operator-service/src/fdai_operator_service/`; `services/operator-service/tests/test_operator_operations_family.py`; `tests/integration/infra/test_operator_api_stewardship.py`; focused Operator and Terraform tests (15 passed) | The route and deployment bindings exist. Source wiring doesn't by itself prove a live deployment is ready. |
+| Terraform binding completeness gates | implemented | `infra/production-gates.tf`; `infra/modules/operator-api/container-app/main.tf`; `tests/integration/infra/test_operator_api_stewardship.py` | Production configuration requires maintainers and every non-autonomous agent binding while keeping identities deployment-owned. |
+| Guided registration and grounded durable draft | implemented | `console/src/routes/handover-editor.tsx`; `services/document-processing-worker/src/fdai_document_worker_service/handover.py`; focused console tests (21 passed); focused ingestion delivery tests (9 passed) | The SPA submits a governed upload and the worker stores a review-only draft. Neither effect changes the active map. |
+| Idempotent draft governance PR delivery | not-started | No `StewardshipGovernanceService` or equivalent handover-artifact-to-`RemediationPrPublisher` composition is present. | The generic GitOps publisher exists, but the stewardship draft is not wired to it. |
+| Signed merge intake and downstream ownership effects | in-progress | `services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/stewardship.py`; `services/document-ingestion-api/tests/test_ingestion_stewardship_webhook.py`; focused ingestion delivery tests (9 passed) | HMAC, repository, merge, changed-file, merged-content, and idempotent record checks exist. Resolver validation, affected-owner calculation, assignment digest matching, Saga audit, IAM trigger, and notification aren't composed. |
+| Scheduled persisted identity health | in-progress | `services/core-control-plane/src/fdai/core/stewardship/directory.py`; `infra/modules/operator-api/container-app/main.tf` | Stale-OID evaluation and an interval setting exist, but no scheduled `StewardshipHealthMonitor` or `stewardship_health:*` snapshot and heartbeat composition was found. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected the lifecycle claim to distinguish startup, draft generation, signed merge intake, and unimplemented operational effects. | `current change`; source and focused checks listed in the scope table. | Wire governance PR publication, complete post-merge effects and scheduled identity health, then retain runtime evidence. |
+
+### Remaining work
+
+- [ ] Compose an idempotent handover-artifact-to-`RemediationPrPublisher` path and pass a focused test proving that retries reuse one draft PR for `config/agent-stewardship.yaml`.
+- [ ] Validate merged stewardship YAML through the resolver, calculate affected owners, bind assignment proposal digests, and pass focused tests proving Saga audit, IAM-request publication, and recipient notification each occur once.
+- [ ] Implement the scheduled identity-health monitor and retain tests proving transition-only audit, revision-matched heartbeat refresh, expiry, and Graph-failure behavior under `stewardship_health:current` and `stewardship_health:last_success`.
+- [ ] Retain a deployment receipt and operational drill showing real startup bindings, one guided proposal and reviewed merge, notification delivery, audit closure, and stale-to-clean identity recovery before raising any row to `validated`.
 
 The grounded T2 `HandoverInterpreter` remains an optional deployment binding. The deterministic
 extractor and exact Graph resolution work without it, and the default interpreter holds for review

@@ -17,16 +17,29 @@ the two are resolved and validated independently.
 > Customer-agnostic: every objectId, group id, and name below is a **placeholder**
 > (all-zero UUID). Deployment configuration supplies the real Entra values
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
->
-> **Implementation status.** The complete lifecycle is shipped: production map binding,
-> fail-closed Terraform identity injection, scheduled stale-OID transition audit, grounded
-> handover ingestion, idempotent GitHub draft-PR delivery, signed merge observation,
-> stakeholder notification, append-only audit, the read-only console projection, and a guided
-> registration form that submits draft-PR proposals through ingestion. See
-> [Agent operational ownership lifecycle](agent-stewardship-operations.md) for runtime,
-> deployment, recovery, and verification details.
-> Schema v2 duty parsing, v1 compatibility findings, and the non-in-place migration renderer are
-> implemented. The tracked upstream map stays on v1 until real deployments appoint backups.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Ownership schema, resolver, and pantheon parity | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/tests/core/stewardship/test_resolver.py`; `test_pantheon_parity.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/stewardship` (71 passed) | Schema v1 remains readable, schema v2 preserves ordered duties, and invalid or incomplete mappings fail closed. |
+| Schema v2 migration | implemented | `scripts/governance/migrate-stewardship-v2.py`; `services/core-control-plane/tests/core/stewardship/test_migration.py` | Migration renders a reviewable candidate and doesn't edit the active map in place. |
+| Coverage, escalation, and notification primitives | implemented | `services/core-control-plane/src/fdai/core/stewardship/coverage.py`; `escalation.py`; `notify.py`; focused stewardship suite (71 passed) | These deterministic primitives compute findings and recipients. Runtime scheduling and delivery belong to the lifecycle owner document. |
+| Grounded ownership handover bootstrap | implemented | `services/core-control-plane/src/fdai/core/stewardship/handover_bootstrap/`; focused stewardship suite (71 passed) | Exact extraction and review-hold behavior exist; an adaptive interpreter remains an optional deployment binding. |
+| Generic upstream handover map | implemented | `config/agent-stewardship.yaml`; `bash scripts/governance/check-stewardship.sh` (15 agents, 2 maintainers) | The tracked map intentionally uses placeholder identities and schema v1. It proves generic shape, not deployment readiness or live backup coverage. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and bounded this document to schema, deterministic ownership primitives, migration, and handover bootstrap. | `current change`; ownership source and focused checks listed in the scope table. | Record deployment-specific schema v2 primary and backup coverage without placing tenant identities in the upstream repository. |
+
+### Remaining work
+
+- [ ] Retain a governed deployment receipt showing schema v2, one live primary, and one distinct live backup or escalation subject for every non-autonomous agent while the upstream map remains customer-agnostic.
+- [ ] Record focused evidence for an adaptive `HandoverInterpreter` deployment binding before describing adaptive interpretation as operationally available.
 
 ## 1. Design principles
 
