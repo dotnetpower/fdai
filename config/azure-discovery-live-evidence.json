@@ -1,0 +1,129 @@
+{
+  "aggregate_proofs": [
+    {
+      "discovered_count": 42,
+      "provider_type_count": 1,
+      "provider_type_set_digest": "sha256:96d0e5fb9c70afd143dc0c6f79881eec52c971969fed4d23a30de49f5d3df5c5",
+      "universe": "resource_containers"
+    },
+    {
+      "discovered_count": 486,
+      "provider_type_count": 66,
+      "provider_type_set_digest": "sha256:38dcad943586268268e3d03a2500dd658a17521efe7cd089d3c35cf5d7834207",
+      "universe": "arm_resources"
+    }
+  ],
+  "coverage_receipts": [
+    {
+      "backend": "resource_graph",
+      "cloud": "azure",
+      "complete": true,
+      "discovered_count": 42,
+      "execution_authority": false,
+      "execution_receipt_digest": "sha256:531ac74f16342734a82064fb1778643a35ab2588b7950b9f64ad63ea9213217d",
+      "observed_at": "2026-08-13T23:54:50.167822Z",
+      "observed_provider_types": [],
+      "plan_digest": "sha256:7d826353aeb865607640e3b3976e66565a9fd3506ce3d704372d596e5cccaac8",
+      "platform_version": "arg@2022-10-01+azure-cli@2.87.0+resource-graph@2.1.1",
+      "profile_revision": "1.1.0",
+      "provider_type": "Microsoft.Resources/subscriptions/resourceGroups",
+      "receipt_digest": "sha256:f0a5f6d10d07818e5cd22a0ac21a2029f53d4c21595af9924e4da56a1d13eae3",
+      "scope_digest": "sha256:349be9604b15102e2a64b39b64bc53173d70c10df71b84d7d9c159204bdf1d93",
+      "scope_kind": "subscription",
+      "source": "live_canary",
+      "state": "covered",
+      "truncated": false,
+      "universe": "resource_containers"
+    },
+    {
+      "backend": "resource_graph",
+      "cloud": "azure",
+      "complete": true,
+      "discovered_count": 486,
+      "execution_authority": false,
+      "execution_receipt_digest": "sha256:c8aa3ef788a0c777fd6e663c00970de02e47b2ecb4dddfd2b5a968c3f9dcfe23",
+      "observed_at": "2026-08-13T23:54:50.167822Z",
+      "observed_provider_types": [],
+      "plan_digest": "sha256:23fb9e7456b83f9ad863f81f23eb0c00921cdc57f0e15fa1f21248fd363a335e",
+      "platform_version": "arg@2022-10-01+azure-cli@2.87.0+resource-graph@2.1.1",
+      "profile_revision": "1.1.0",
+      "provider_type": "Microsoft.Resources/resources",
+      "receipt_digest": "sha256:fe6eb41fe94dc68d369f8548214da448a6df110a0d1e2fb742d3ea6cca6019a2",
+      "scope_digest": "sha256:349be9604b15102e2a64b39b64bc53173d70c10df71b84d7d9c159204bdf1d93",
+      "scope_kind": "subscription",
+      "source": "live_canary",
+      "state": "covered",
+      "truncated": false,
+      "universe": "arm_resources"
+    }
+  ],
+  "evidence_digest": "sha256:8cfceeae1d455d70516c1f73ea30563ca3098d5ad94073d9f36cbe9ccedb8c0d",
+  "evidence_kind": "azure_discovery_live_canary",
+  "execution_authority": false,
+  "execution_receipts": [
+    {
+      "backend": "azure_resource_graph",
+      "commands": [
+        {
+          "command": "az graph query --subscriptions <subscription-id> --graph-query <registered-kql:azure.arg.resource-groups.coverage.v1> --first 1 --output json",
+          "command_id": "azure.arg.resource-groups.coverage.v1",
+          "label": "resource_groups",
+          "language": "azure_cli",
+          "result": {
+            "count": 42,
+            "preview": [],
+            "truncated": true
+          }
+        }
+      ],
+      "executed": true,
+      "page_count": 1,
+      "receipt_digest": "sha256:531ac74f16342734a82064fb1778643a35ab2588b7950b9f64ad63ea9213217d",
+      "redacted": true,
+      "transport": "azure_cli"
+    },
+    {
+      "backend": "azure_resource_graph",
+      "commands": [
+        {
+          "command": "az graph query --subscriptions <subscription-id> --graph-query <registered-kql:azure.arg.resources.coverage.v1> --first 1000 --output json",
+          "command_id": "azure.arg.resources.coverage.v1",
+          "label": "resources",
+          "language": "azure_cli",
+          "result": {
+            "count": 486,
+            "preview": [],
+            "truncated": true
+          }
+        }
+      ],
+      "executed": true,
+      "page_count": 1,
+      "receipt_digest": "sha256:c8aa3ef788a0c777fd6e663c00970de02e47b2ecb4dddfd2b5a968c3f9dcfe23",
+      "redacted": true,
+      "transport": "azure_cli"
+    }
+  ],
+  "generated_at": "2026-08-13T23:54:50.167822Z",
+  "platform_versions": [
+    "azure-resource-graph-api@2022-10-01",
+    "azure-cli@2.87.0",
+    "resource-graph-extension@2.1.1"
+  ],
+  "profile_digests": [
+    "sha256:1a81276319c63de9753c67bda93a6fbca46ce1d0917b291f4a5d5917bfc1b54b",
+    "sha256:72a3a361ac0910ab8b9f16a43af17855e21e157124b56cb1325e6eaab02849f1"
+  ],
+  "profile_revision": "1.1.0",
+  "reconciliation": {
+    "complete": true,
+    "execution_authority": false,
+    "gaps": [],
+    "matched_receipt_digests": [
+      "sha256:f0a5f6d10d07818e5cd22a0ac21a2029f53d4c21595af9924e4da56a1d13eae3",
+      "sha256:fe6eb41fe94dc68d369f8548214da448a6df110a0d1e2fb742d3ea6cca6019a2"
+    ],
+    "reconciliation_digest": "sha256:86f42d639f43713dbfb47ed263fdacc56feae207d9c99b421ace268716453408"
+  },
+  "schema_version": "1.0.0"
+}

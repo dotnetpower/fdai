@@ -1,6 +1,6 @@
 ---
 translation_of: azure-resource-discovery-commands.md
-translation_source_sha: efe817e2ea1a48daf186d04f628e2ea607988a02
+translation_source_sha: fea439e2a4f7637cadbbe5bc1c32f1ec6d4fad1b
 translation_revised: 2026-08-14
 ---
 
@@ -55,7 +55,7 @@ flowchart LR
 | Console 프로바이더 실행 정보 파싱 | implemented | [`inventory-execution-display.ts`](../../../console/src/deck/inventory-execution-display.ts) 및 집중 테스트 | Console은 구조가 유효하고 민감정보가 제거되었으며 범위가 제한된 `provider_execution` 레코드만 IQL과 분리해 표시합니다. |
 | 프로바이더 실행 증적 생성 | implemented | [`discovery_receipts.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_receipts.py), [`discovery_evidence.py`](../../../packages/service-contracts/src/fdai_service_contracts/discovery_evidence.py), 집중 Python 및 Console 파서 테스트 | 생성기는 정확한 등록 계획과 제한된 결과 요약을 받으며 raw argv, 자격 증명, 연속 토큰, 리소스 id 또는 프로바이더 오류를 받지 않습니다. |
 | 포괄적 검색 계약과 프로파일 | implemented | [`discovery.py`](../../../packages/service-contracts/src/fdai_service_contracts/discovery.py), [`discovery_profiles.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_profiles.py), [`discovery_observations.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_observations.py), 집중 계약 및 delivery 테스트 (`44 passed`) | 고정되고 digest에 바인딩된 의도, 계획, 프로파일 및 매핑되거나 미매핑된 프로바이더 관찰이 실행 가능한 텍스트와 해석되지 않은 수정자를 거부합니다. 계획은 정규화, ARG 또는 ARM API, Azure CLI 및 extension 버전을 고정합니다. |
-| 중앙 라우팅, 명령 설명 및 커버리지 증명 | in-progress | [`router.py`](../../../services/core-control-plane/src/fdai/core/discovery/router.py), [`discovery_explanation.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_explanation.py), [`discovery_coverage.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_coverage.py), 집중 테스트 | 정확히 동등한 대체 경로, 정본 병합, 정제된 설명 및 실제 운영 증적만 인정하는 조정이 구현되었습니다. 이 행을 `validated`로 올리려면 통제된 실제 운영 canary 증적이 필요합니다. |
+| 중앙 라우팅, 명령 설명 및 커버리지 증명 | validated | [`router.py`](../../../services/core-control-plane/src/fdai/core/discovery/router.py), [`discovery_explanation.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_explanation.py), [`discovery_coverage.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_coverage.py), [`azure-discovery-live-evidence.json`](../../../config/azure-discovery-live-evidence.json), 집중 테스트 | 정확히 동등한 대체 경로, 정본 병합, 정제된 설명 및 실제 운영 증적만 인정하는 조정이 구현되었습니다. 통제된 집계 전용 canary가 프로파일 리비전 `1.1.0`의 구독 범위 `ResourceContainers` 및 `Resources` 주장을 검증합니다. 더 넓은 universe는 이 검증 행의 범위 밖입니다. |
 
 ### 구현 이력
 
@@ -66,6 +66,7 @@ flowchart LR
 | 2026-08-14 | in-progress | 문서화된 `unmapped` 커버리지 상태를 추가하고 서버 및 Console 명령 근거의 환경 할당을 거부했습니다. | `current change`; 집중 검색 테스트 `36 passed`, Console 파서 `7 passed`, 작업 범위 Ruff, strict 계약 mypy 및 Console typecheck가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 정규화와 관찰된 ARG, ARM, Azure CLI 및 Resource Graph extension 버전을 추가적 프로파일/계획 리비전 `1.1.0`에 고정하고, 검토된 영어/한국어 시나리오 3쌍이 동일한 typed routing 및 권한 검사를 생성함을 증명했습니다. | `current change`; 집중 검색 테스트 `40 passed`, 작업 범위 Ruff, strict mypy 및 Core import 경계 gate가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 독립 리뷰 뒤 자리 표시자는 유효하게 유지하면서 redirect, 제어 문자 및 실행 가능한 shell 단어를 서버와 Console 경계 모두에서 거부하도록 명령 근거를 강화했습니다. | `current change`; 집중 검색 테스트 `44 passed`, Console 파서 테스트 `11 passed`, strict mypy, Ruff 및 Console typecheck가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
+| 2026-08-14 | validated | 구독 범위 리소스 컨테이너 및 ARM 리소스 주장에 대해 통제된 집계 전용 Azure CLI canary를 기록하고, 개수와 프로바이더 타입 집합 digest만 보존했으며, 실행 권한이나 공백 없이 두 주장을 조정했습니다. | `current change`; [`record-azure-discovery-canary.py`](../../../scripts/automation/record-azure-discovery-canary.py), [`azure-discovery-live-evidence.json`](../../../config/azure-discovery-live-evidence.json), 집중 recorder 테스트 `4 passed`, 오프라인 증적 검증 및 recorder 커밋의 중앙 검증 증적이 통과했습니다. | 선언된 검색 프로파일 주장 2개에는 남은 작업이 없습니다. 더 넓은 universe를 검증하기 전에 별도 주장과 증적을 추가합니다. |
 
 ### 남은 작업
 
@@ -74,28 +75,28 @@ flowchart LR
 - [x] 서버 소유 `provider_execution` 증적 생성기를 구현하고 자격 증명, 페이지 나누기 토큰, 원본 리소스 ID 및 프로바이더 오류가 Console 레코드에 도달할 수 없음을 증명합니다.
 - [x] 범위나 조건식을 약화하지 않는 중앙 백엔드 적격성, 동등 대체 경로, 계획별 완전성 및 정본 병합 테스트를 구현합니다.
 - [x] 등록된 계획에서 정제된 `CommandExplanation` 레코드를 생성하고 shell 제어, 식별자, 민감정보 제거 및 동등 명령 표시를 위한 속성 및 golden 테스트를 통과합니다.
-- [ ] 해당 행을 `validated`로 승격하기 전에 각 주장 범위에 대한 커버리지 조정 및 통제된 읽기 전용 실제 운영 canary 증적을 기록합니다.
+- [x] 해당 행을 `validated`로 승격하기 전에 각 주장 범위에 대한 커버리지 조정 및 통제된 읽기 전용 실제 운영 canary 증적을 기록합니다. 보존된 artifact는 프로파일 리비전 `1.1.0` 주장 2개를 공백과 실행 권한 없이 검증합니다.
 
 ## 현재 기준선과 공백
 
-현재 구현에는 카탈로그 소유 리소스 조회 용어와 범주 용어, 검증된 인벤토리 언어
-레지스트리, 선택적 스냅샷 필터, 그리고 카탈로그에서 확인한 리소스 타입을 한 번에 하나씩 조회하는
-Azure ARG 및 ARM 어댑터가 있습니다. 구체적인 용어는 범용 범주 용어보다 우선합니다. Web
-App과 Function App의 `Microsoft.Web/sites`처럼 ARM 타입을 공유하는 경우 전체 ARG 행에 일치하는
-`kind`가 있어야 하며, 구분자가 없는 출처는 의미적 타입을 추측하지 않습니다. 이 조각들은
-아직 불변 `InventoryQuery`를 컴파일하거나 ARG에서 ARM으로 중앙 라우팅하거나 프로바이더 실행
-증적을 생성하지 않습니다.
+현재 구현에는 카탈로그 소유 리소스 조회 용어와 범주 용어, 검증된 인벤토리 언어 레지스트리,
+불변 검색 계약, 선택적 스냅샷 필터 및 Azure ARG와 ARM 어댑터가 있습니다. 구체적인 용어는 범용
+범주 용어보다 우선합니다. Web App과 Function App의 `Microsoft.Web/sites`처럼 ARM 타입을 공유하는
+경우 전체 ARG 행에 일치하는 `kind`가 있어야 하며, 구분자가 없는 출처는 의미적 타입을 추측하지
+않습니다. 중앙 라우터는 정확히 등록된 계획을 컴파일하고, 알 수 없는 프로바이더 타입을
+`unmapped`로 보존하며, 정제된 프로바이더 실행 및 명령 설명 증적을 생성합니다.
 
 현재 기준선은 포괄적인 검색을 충족하지 못합니다.
 
 - **Semantic 커버리지가 선택적임:** Neutral vocabulary에는 현재 운영 vertical에 필요한 리소스
- 유형만 의도적으로 포함됩니다. 알 수 없는 Azure 유형은 미매핑 관찰로 반환되지 않고 제외됩니다.
+ 유형만 의도적으로 포함됩니다. 알 수 없는 Azure 유형은 neutral 온톨로지로 승격되지 않고 제한된
+ `unmapped` 관찰로 검색할 수 있습니다.
 - **하나의 매핑으로 부족함:** 검색에는 다른 ARG 표, 여러 ARM 유형, 상위 확장, 전용 CLI
  확장 또는 버전이 지정된 REST 엔드포인트가 필요할 수 있습니다.
-- **조회와 설명 표면이 좁음:** Console은 유효하고 범위가 제한된 `provider_execution` 레코드를
- 파싱할 수 있지만 현재 운영 경로는 이를 생성하지 않습니다. 프로바이더 타입, tag, 범위 kind,
- management 그룹, CLI 선행 조건, 계획별 대체 경로 사유 및 cross-provider 명령 explanation은
- 아직 없습니다.
+- **조회와 설명 표면이 좁음:** Delivery 경로는 등록된 리소스 그룹 및 범용 ARM 리소스 프로파일에
+ 대해 제한된 `provider_execution`과 `CommandExplanation` 레코드를 생성합니다. Tag 조건식,
+ management 그룹 커버리지, 프로바이더 전용 계획 및 cross-provider 명령 explanation은 검증된
+ 프로파일 집합 범위 밖입니다.
 - **ARG와 ARM은 부분적임:** 특수 ARG 표, 프로바이더별 상세, 테넌트 디렉터리 개체 및
  data-plane 개체에는 서로 다른 형식화된 계획과 신원이 필요합니다.
 
@@ -195,8 +196,8 @@ raw 리소스 id 및 프로바이더 오류는 계속 생략합니다.
 
 ## 백엔드 선택
 
-다음은 목표 라우팅 순서입니다. 현재 전송 계층은 중앙 계획 병합 없이 고정 경로를 사용합니다.
-목표 라우터는 요청 결과를 증명할 수 있는 가장 좁은 백엔드를 선택합니다.
+라우터는 요청 결과를 증명할 수 있는 가장 좁은 등록 백엔드를 선택하고 정확히 동등한 계획만
+병합합니다. 다음 순서는 구현된 프로파일에 적용되며 추가 universe에도 적용할 목표 순서입니다.
 
 1. **Promoted 인벤토리:** Provider-type 커버리지가 요청 범위와 조건식을 포함하면 fresh하고
   완전한한 스냅샷을 사용합니다.
