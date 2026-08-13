@@ -30,6 +30,8 @@ _STATUS_PRECEDENCE = (
 
 @dataclass(frozen=True, slots=True)
 class RequirementOutcome:
+    """Capture one requirement's immutable contribution to a combined decision."""
+
     requirement_id: str
     status: ExecutionAuthorizationStatus
     reasons: tuple[str, ...]
@@ -43,6 +45,8 @@ class RequirementOutcome:
 def combined_status(
     outcomes: tuple[RequirementOutcome, ...],
 ) -> ExecutionAuthorizationStatus:
+    """Return the least-permissive status present in non-empty outcomes."""
+
     statuses = {outcome.status for outcome in outcomes}
     return next(status for status in _STATUS_PRECEDENCE if status in statuses)
 
@@ -55,6 +59,8 @@ def combined_digest(
     outcomes: tuple[RequirementOutcome, ...],
     extra_reasons: tuple[str, ...],
 ) -> str:
+    """Bind the request, inventory generation, outcomes, and reasons canonically."""
+
     return canonical_digest(
         {
             "action_id": request.action_id,
@@ -98,6 +104,8 @@ def build_result(
     evaluator_ref: str,
     grant_proposals: tuple[ExecutionAccessGrantProposal, ...] = (),
 ) -> ExecutionAuthorizationResult:
+    """Build a result while rejecting ambiguous identity or unbound grants."""
+
     identity_refs = {
         outcome.identity_binding.identity_ref
         for outcome in outcomes
