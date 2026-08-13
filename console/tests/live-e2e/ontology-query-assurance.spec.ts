@@ -5,14 +5,17 @@ import { expect, test, type Page } from "@playwright/test";
 import { restoreBrowserEntraSessionStorage } from "./browser-entra-state";
 import {
   assuranceOperations,
+  buildAssuranceRunProvenance,
   generateOntologyAssuranceCohort,
   judgeSemanticTurn,
+  type AssuranceRunConfiguration,
   type AssuranceQuestion,
 } from "./ontology-query-assurance";
 
 const COHORT_SEED = 0x0fda1;
 const BATCH_SIZE = 1;
 const REQUEST_INTERVAL_MS = 15_000;
+const TEST_TIMEOUT_MS = 4 * 60 * 60 * 1_000;
 const AUTHENTICATED_EXTERNAL_STACK = Boolean(
   process.env.FDAI_E2E_BASE_URL && process.env.FDAI_E2E_STORAGE_STATE,
 );
@@ -76,13 +79,27 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     !AUTHENTICATED_EXTERNAL_STACK,
     "requires an external Console and Browser Entra storage state",
   );
-  test.setTimeout(4 * 60 * 60 * 1_000);
+  test.setTimeout(TEST_TIMEOUT_MS);
   await restoreBrowserEntraSessionStorage(page);
   await page.goto("/architecture", { waitUntil: "domcontentloaded" });
   await expect(page.locator("main")).toBeVisible();
 
   const startedAt = new Date().toISOString();
   const questions = generateOntologyAssuranceCohort(COHORT_SEED);
+  const runConfiguration: AssuranceRunConfiguration = {
+    schema_version: "1.0.0",
+    seed: COHORT_SEED,
+    batch_size: BATCH_SIZE,
+    request_interval_ms: REQUEST_INTERVAL_MS,
+    timeout_ms: TEST_TIMEOUT_MS,
+    authentication: "browser_entra",
+    question_ids: questions.map((question) => question.question_id),
+  };
+  const provenance = buildAssuranceRunProvenance(
+    process.env.FDAI_E2E_SOURCE_REVISION,
+    process.env.FDAI_E2E_WORKSPACE_PATCH_SHA256,
+    runConfiguration,
+  );
   const retained: RetainedTurnResult[] = [];
   for (let offset = 0; offset < questions.length; offset += BATCH_SIZE) {
     const batch = questions.slice(offset, offset + BATCH_SIZE);
@@ -176,10 +193,15 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     schema_version: "1.0.0",
     evidence_type: "authenticated_bilingual_ontology_query_assurance",
     receipt_source: "live_assurance",
-    seed: COHORT_SEED,
+    ...provenance,
+    run_configuration: runConfiguration,
     started_at: startedAt,
     completed_at: new Date().toISOString(),
     authentication: "browser_entra",
+    authentication_attestation: {
+      storage_state_restored: true,
+      protected_request_count: retained.length,
+    },
     passed,
     production_ready: passed,
     summary: {

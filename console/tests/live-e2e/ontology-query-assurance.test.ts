@@ -1,12 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
   assuranceOperations,
+  buildAssuranceRunProvenance,
   generateOntologyAssuranceCohort,
   judgeSemanticReceipt,
   judgeSemanticTurn,
+  type AssuranceRunConfiguration,
 } from "./ontology-query-assurance";
 
 const DIGEST = `sha256:${"a".repeat(64)}`;
+
+function runConfiguration(): AssuranceRunConfiguration {
+  return {
+    schema_version: "1.0.0",
+    seed: 0x0fda1,
+    batch_size: 1,
+    request_interval_ms: 15_000,
+    timeout_ms: 14_400_000,
+    authentication: "browser_entra",
+    question_ids: ["en-inventory_listing-1", "ko-inventory_listing-1"],
+  };
+}
 
 function answeredReceipt(overrides: Record<string, unknown> = {}) {
   return {
@@ -78,6 +92,33 @@ describe("ontology query assurance cohort", () => {
         "question_id",
       ]);
     }
+  });
+});
+
+describe("ontology query assurance provenance", () => {
+  it("binds an exact source and workspace state to the run configuration", () => {
+    expect(buildAssuranceRunProvenance(
+      "b".repeat(40),
+      `sha256:${"c".repeat(64)}`,
+      runConfiguration(),
+    )).toEqual({
+      source_revision: "b".repeat(40),
+      configuration_digest: "sha256:f56e4893f2000d19ec2abd291e60ed1595d776c1c222be8b187edfc2c493d114",
+      workspace_patch_digest: `sha256:${"c".repeat(64)}`,
+    });
+  });
+
+  it.each([
+    [undefined, DIGEST, "FDAI_E2E_SOURCE_REVISION"],
+    ["not-a-commit", DIGEST, "FDAI_E2E_SOURCE_REVISION"],
+    ["b".repeat(40), undefined, "FDAI_E2E_WORKSPACE_PATCH_SHA256"],
+    ["b".repeat(40), "not-a-digest", "FDAI_E2E_WORKSPACE_PATCH_SHA256"],
+  ])("rejects incomplete provenance before a live run", (revision, patchDigest, message) => {
+    expect(() => buildAssuranceRunProvenance(
+      revision,
+      patchDigest,
+      runConfiguration(),
+    )).toThrow(message);
   });
 });
 
