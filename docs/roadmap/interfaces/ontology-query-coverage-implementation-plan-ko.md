@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 137da4cdcfd58faa57d5e8865756ccd97290d980
+translation_source_sha: e63c955dc0cef32d5e32763c9a2fb7f7ee554d24
 translation_revised: 2026-08-13
 ---
 
@@ -163,6 +163,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | 진행 중 | 타입 기반 증적 oracle과 계산된 준비 상태 카운터를 사용하는 인증된 요청-Console 및 결정론적 이중 언어 무작위 보증 실행기를 추가했습니다. | `current change`, 통과한 focused Console 테스트, 보증 oracle 테스트, typecheck 및 Playwright discovery | 인증된 로컬 스택에서 두 실행기를 실행하고 통과한 두 보존 근거 기록을 연결합니다. |
 | 2026-08-13 | 구현됨 | 유효한 호출자 제공 요청 UUID를 Operator 의미 묶음과 상관관계 신원 전체에서 보존하면서 멱등성 키와 혼합하지 않았습니다. 요청 신원을 생략하는 호출자를 위한 결정론적 UUID 대체값은 유지했습니다. | `current change`, `semantic_turn.py`, `test_semantic_turn_bridge.py`, focused 호출자 신원 및 재시도 안정성 테스트 통과 | 무작위 보증을 실행하기 전에 exact 요청 신원의 통제된 인증 증적을 확보합니다. |
 | 2026-08-14 | 구현됨 | 서버 소유 `bound_context`를 담은 추가적 `operator-core-request` 1.3.0을 도입해, Console 인시던트 대화가 바인딩된 인시던트 신원을 버리지 않고 Core까지 전달합니다. Core는 해당 바인딩을 마지막 `system` 맥락 턴으로 붙여 플래너의 제한된 창이 버리지 못하게 합니다. | `current change`, `semantic_turn.py`(계약/Operator/Core), `contract_codecs.py`, `compatibility-manifest.json`, Core 처리기 32개·Operator 브리지 42개·계약 76개·라우트 대상 326개 통과, independent-services 및 ontology-query-coverage 게이트 통과, strict mypy 통과 | 바인딩된 인시던트는 아직 답변 가능하지 않습니다. 의미 질의 매니페스트가 인시던트 ObjectSet과 인시던트 근거 FunctionType을 노출하지 않아 인시던트 조사는 명확화로 귀결됩니다. |
+| 2026-08-14 | 구현됨 | 의미 요청 발행기를 1.3.0 producer 코덱으로 옮겼습니다. 묶음 빌더는 이미 1.3.0을 검증했기 때문에, 낡은 발행기가 바인딩된 모든 턴을 조용히 거부해 Console 요청이 Core에 도달하지 못했습니다. | `current change`, `semantic_kafka.py`, Operator 어댑터 및 브리지 스위트 51개 통과, 재시작한 로컬 스택이 바인딩된 인시던트 턴을 6.4초에 응답했고 Core가 디코딩 실패 없이 계획 3단계를 기록 | 인시던트 역량이 여전히 열린 공백입니다. |
 
 ### 남은 작업
 
