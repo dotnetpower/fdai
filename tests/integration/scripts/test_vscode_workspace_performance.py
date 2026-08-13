@@ -80,10 +80,15 @@ def test_workspace_starts_complete_console_topology_automatically() -> None:
     assert automatic_start["runOptions"] == {
         "runOn": "folderOpen",
         "instanceLimit": 1,
+        "instancePolicy": "silent",
     }
 
     local_services = tasks_by_label["console: start local services"]
     assert local_services["dependsOrder"] == "parallel"
+    assert local_services["runOptions"] == {
+        "instanceLimit": 1,
+        "instancePolicy": "silent",
+    }
     assert local_services["dependsOn"] == [
         "console: Core Control Plane (Local Docker)",
         "console: Operator API (Local Entra)",
@@ -94,3 +99,7 @@ def test_workspace_starts_complete_console_topology_automatically() -> None:
     ]
     for service_label in local_services["dependsOn"]:
         assert "dependsOn" not in tasks_by_label[service_label]
+        assert tasks_by_label[service_label]["runOptions"] == {
+            "instanceLimit": 1,
+            "instancePolicy": "silent",
+        }

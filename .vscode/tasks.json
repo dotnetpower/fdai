@@ -218,7 +218,11 @@
         "console: Isolated Executor (Local Shadow)",
         "console: frontend (Browser Entra)"
       ],
-      "problemMatcher": []
+      "problemMatcher": [],
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
     },
     {
       "label": "console: start full stack automatically",
@@ -230,7 +234,8 @@
       "problemMatcher": [],
       "runOptions": {
         "runOn": "folderOpen",
-        "instanceLimit": 1
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
       }
     },
     {
@@ -257,7 +262,8 @@
         "showReuseMessage": false
       },
       "runOptions": {
-        "instanceLimit": 1
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
       }
     },
     {
@@ -285,7 +291,8 @@
         "showReuseMessage": false
       },
       "runOptions": {
-        "instanceLimit": 1
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
       }
     },
     {
@@ -310,7 +317,10 @@
         "clear": true,
         "showReuseMessage": false
       },
-      "runOptions": { "instanceLimit": 1 }
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
     },
     {
       "label": "console: Document Processing Worker (Local Docker)",
@@ -334,7 +344,10 @@
         "clear": true,
         "showReuseMessage": false
       },
-      "runOptions": { "instanceLimit": 1 }
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
     },
     {
       "label": "console: Isolated Executor (Local Shadow)",
@@ -358,7 +371,10 @@
         "clear": true,
         "showReuseMessage": false
       },
-      "runOptions": { "instanceLimit": 1 }
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
     },
     {
       "label": "console: frontend (Browser Entra)",
@@ -384,7 +400,8 @@
         "showReuseMessage": false
       },
       "runOptions": {
-        "instanceLimit": 1
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
       }
     }
   ]

@@ -53,6 +53,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | 2026-08-13 | implemented | Added race-safe, process-local latest-state hydration for new Agent SSE subscribers while preserving future-only generic Live delivery. | Current change in the Operator stream hub, composition, and focused regressions; stream tests: 9 passed; Ruff passed for all touched Python files. | Validate immediate Agent fleet hydration in the authenticated browser session. |
 | 2026-08-13 | validated | Verified immediate Agent fleet hydration through the existing authenticated Browser Entra session after restarting the Operator with the changed code. | Three `/agents` reloads reached `Watching 2 / Idle 13 / Unobserved 0` in 224 ms, 232 ms, and 228 ms, well below the 15-second runtime heartbeat interval. | No remaining implementation work for Agent refresh latest-state hydration. |
 | 2026-08-13 | implemented | Replaced the fixed 160000-token Copilot agent-history compaction threshold with 80% of the selected model's context window. | Current change in `.vscode/settings.json` and `tests/integration/scripts/test_vscode_workspace_performance.py`; VS Code JSON diagnostics passed, and the focused compaction contract test passed (1 test). | No remaining implementation work for proportional Copilot conversation compaction. |
+| 2026-08-14 | implemented | Made repeated automatic full-stack task requests preserve each running singleton instead of opening the VS Code task-instance picker. | Current change in `.vscode/tasks.json` and `tests/integration/scripts/test_vscode_workspace_performance.py`; the focused automatic-start contract test passed (1 test). | No remaining implementation work for click-free duplicate startup requests. |
 
 ### Remaining work
 
@@ -149,8 +150,11 @@ readiness, or execution authority. An unavailable or unauthorized provider leave
 explicitly unavailable instead of
 substituting fixture data. Automatic startup still requires a trusted workspace and the committed
 `task.allowAutomaticTasks` policy; it doesn't weaken browser Entra authentication or service
-authority. Run `console: prepare full stack` first when starting an individual service task or
-standalone debug launch outside the aggregate task.
+authority. Each long-running startup task uses `instancePolicy: silent`. When task reconnection or
+another automatic start request finds an existing instance, VS Code preserves that instance and
+ignores the duplicate request instead of opening the task-instance picker. Run
+`console: prepare full stack` first when starting an individual service task or standalone debug
+launch outside the aggregate task.
 The ignored local runtime environment records the validation cluster as
 `FDAI_VALIDATION_DATABASE_URL`. The detached central validation queue maps only that value to
 `FDAI_DATABASE_URL` for selected integration tests. It never supplies the active runtime DSN to
