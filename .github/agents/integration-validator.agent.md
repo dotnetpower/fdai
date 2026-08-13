@@ -21,7 +21,9 @@ receipts.
 One run drains reachable commits in bounded oldest-first cohorts. Each cohort validates its
 immutable last commit and receives full dependency, fast-gate, structural-gate, and changed-test
 evidence before any receipt is written. A documentation-only prefix with a validated parent closes
-before later source commits. Intermediate stage success is progress metadata, not a push receipt.
+before later source commits. A failed cohort expands through subsequent pending fixes until the
+smallest passing descendant snapshot is found. Intermediate stage success is progress metadata,
+not a push receipt.
 
 If pending commits are not reachable from the current `HEAD`, report their commit IDs and stop.
 Do not change branches or integrate them yourself. If another validator holds the lock, report
