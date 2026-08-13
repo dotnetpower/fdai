@@ -195,7 +195,7 @@
     "services/core-control-plane/src/fdai/core/control_loop/orchestrator.py": "5f8719c67996d13ca4b28e523b93ba0245ec67d13e6117d44b43acd5d7cd3b09",
     "services/core-control-plane/src/fdai/core/control_loop/stages/__init__.py": "b2a822149bfe5768179c44effa6e57056ac72563dd34807656fc7646dd92062d",
     "services/core-control-plane/src/fdai/core/control_loop/stages/base.py": "a5bc7901b4113353ef76df10768caa0a850aedc3a2c2a534ed272fad3d70e91b",
-    "services/core-control-plane/src/fdai/core/conversation/__init__.py": "9fa041192dbb05a55c47d362721a452af930c1243bb9d871cbd5fa734cd8284e",
+    "services/core-control-plane/src/fdai/core/conversation/__init__.py": "8f62e4f3954bbfe50c29786261130638487c598b5c28d02741830cac903dbfc3",
     "services/core-control-plane/src/fdai/core/conversation/_system_audit_tools.py": "2d735d4976679b90a9ecf1aa462b582bd0b6e742bde88d1360548ccb6fcd0fca",
     "services/core-control-plane/src/fdai/core/conversation/_system_conversation_search_tool.py": "1b24b092c453447dd9cb1c111743b27e4503cd067fc818db31adbf45e14bc41d",
     "services/core-control-plane/src/fdai/core/conversation/_system_event_tool.py": "7bb3de7572b0d5f6ddd8051d1904070e789b53982d829d3fdeec27cd3fad07d6",
@@ -1060,7 +1060,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-13T10:12:18Z",
+  "generated_at": "2026-08-13T12:13:20Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

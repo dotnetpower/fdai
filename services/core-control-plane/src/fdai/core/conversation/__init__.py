@@ -165,6 +165,15 @@ from fdai.core.conversation.principal_binding import (
     PrincipalConversationBindingService,
     PrincipalConversationBindingStore,
 )
+from fdai.core.conversation.question_universe import (
+    GeneratedQuestionCase,
+    GeneratedQuestionUniverse,
+    QuestionCaseClass,
+    QuestionCaseExclusion,
+    QuestionExclusionReason,
+    QuestionUniverseGrammar,
+    generate_question_universe,
+)
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_models import (
@@ -317,6 +326,8 @@ __all__ = [
     "EpistemicCoverageReceipt",
     "EpistemicQuestionRecord",
     "EpistemicStatus",
+    "GeneratedQuestionCase",
+    "GeneratedQuestionUniverse",
     "ReadPlanNarrator",
     "Principal",
     "PrincipalConversationBindingAuthorizer",
@@ -330,7 +341,11 @@ __all__ = [
     "PairingRequest",
     "PendingBusyInput",
     "QueryAuditTool",
+    "QuestionCaseClass",
+    "QuestionCaseExclusion",
     "QuestionDispositionRecord",
+    "QuestionExclusionReason",
+    "QuestionUniverseGrammar",
     "QuestionUniverseReceipt",
     "QueryManifestProvider",
     "QueryNodeProposal",
@@ -348,6 +363,7 @@ __all__ = [
     "SemanticDescriptorSelector",
     "SemanticConversationRuntime",
     "SemanticFrameProposal",
+    "generate_question_universe",
     "SemanticPlanningDisposition",
     "SemanticPlanningModel",
     "SemanticPlanningOutcome",
