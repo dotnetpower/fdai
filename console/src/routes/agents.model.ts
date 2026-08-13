@@ -20,6 +20,7 @@ import type {
 } from "../hooks/use-agent-stream";
 import type {
   AgentOperationalActivityMessage,
+  ObservationDomain,
   OperationalActivityKind,
 } from "../agent-operational-activity";
 import type { FrameSource } from "../hooks/observation-source";
@@ -136,6 +137,7 @@ export interface LiveAgentActivityEvent {
   readonly source: FrameSource;
   readonly activityId: string | null;
   readonly operationalKind: OperationalActivityKind | null;
+  readonly observationDomain: ObservationDomain | null;
 }
 
 /** Cap retained incidents so a long-lived tab cannot grow without bound. */
@@ -184,6 +186,7 @@ function projectLiveActivity(
       source: msg.source ?? "unknown",
       activityId: null,
       operationalKind: null,
+      observationDomain: null,
     };
   }
   if (msg.type === "incident.ticket") {
@@ -201,6 +204,7 @@ function projectLiveActivity(
       source: msg.source ?? "unknown",
       activityId: null,
       operationalKind: null,
+      observationDomain: null,
     };
   }
   if (msg.type === "agent.operational-activity") {
@@ -218,6 +222,7 @@ function projectLiveActivity(
       source: "runtime-observed",
       activityId: msg.activity_id,
       operationalKind: msg.kind,
+      observationDomain: msg.observation_domain,
     };
   }
   const agents = [msg.from_agent, msg.to_agent].filter(
@@ -236,6 +241,7 @@ function projectLiveActivity(
     source: msg.source ?? "unknown",
     activityId: null,
     operationalKind: null,
+    observationDomain: null,
   };
 }
 

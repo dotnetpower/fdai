@@ -12,6 +12,8 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 import yaml
+from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
+from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.inventory_sync_cli import (
     InventoryJobConfig,
@@ -21,6 +23,7 @@ from fdai.delivery.inventory_sync_cli import (
     _load_relationship_mapping_catalog,
     _resolve_resource_types,
     _verify_sha256,
+    _workload_identity,
 )
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.runtime.inventory_ontology import InventoryOntologyProjectionStatus
@@ -119,6 +122,21 @@ def test_job_config_defaults_to_arg_then_arm() -> None:
     assert config.freshness_budget_seconds == 86_400
     assert config.reconciliation_interval_seconds == 21_600
     assert config.management_audience == "https://management.azure.com/.default"
+
+
+async def test_inventory_job_selects_only_the_venue_specific_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("IDENTITY_ENDPOINT", "https://identity.example/token")
+    monkeypatch.setenv("IDENTITY_HEADER", "test-header")
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: None)) as client:
+        monkeypatch.setenv("FDAI_EXECUTION_VENUE", "local")
+        local = _workload_identity(http_client=client)
+        monkeypatch.setenv("FDAI_EXECUTION_VENUE", "deployed")
+        deployed = _workload_identity(http_client=client)
+
+    assert isinstance(local, AsyncAzureCliWorkloadIdentity)
+    assert isinstance(deployed, ManagedIdentityWorkloadIdentity)
 
 
 def test_job_loads_reviewed_kubernetes_relationship_mappings() -> None:

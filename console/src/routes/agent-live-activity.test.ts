@@ -48,6 +48,7 @@ function liveConversation(sequence = 1): LiveAgentActivityEvent {
     source: "runtime-observed",
     activityId: null,
     operationalKind: null,
+    observationDomain: null,
   };
 }
 
@@ -137,6 +138,7 @@ describe("agent live log projection", () => {
       source: "runtime-observed",
       activityId: null,
       operationalKind: null,
+      observationDomain: null,
     };
     const newer = { ...older, sequence: 2, ts: "2026-07-24T10:00:15Z" };
 
@@ -222,6 +224,7 @@ describe("agent live log controls", () => {
       source: "replay",
       activityId: "inventory.scan:attempt-1:completed",
       operationalKind: "inventory.scan",
+      observationDomain: null,
     };
     const rows = buildAgentLogRows([operational, liveConversation(2)], []);
 
@@ -245,6 +248,7 @@ describe("agent live log controls", () => {
       source: "replay",
       activityId: "inventory.scan:inventory-attempt-1:superseded",
       operationalKind: "inventory.scan",
+      observationDomain: null,
     };
     const rows = buildAgentLogRows([operational], [auditItem(1)]);
 

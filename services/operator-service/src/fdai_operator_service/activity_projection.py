@@ -5,16 +5,18 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from fdai_service_contracts import (
     AgentOperationalActivity,
+    ObservationDomain,
     OperationalActivityKind,
     OperationalActivityStatus,
     OperationalFreshness,
 )
 
 MAX_ACTIVITY_DURATION_MS = 86_400_000
+ObservationOwner = Literal["Huginn", "Heimdall", "Njord", "Freyr", "Vidar"]
 
 
 def durable_activity_projection(
@@ -22,6 +24,7 @@ def durable_activity_projection(
     inventory_rows: Sequence[Mapping[str, Any]],
     ontology_rows: Sequence[Mapping[str, Any]],
     read_rows: Sequence[Mapping[str, Any]],
+    observation_rows: Sequence[Mapping[str, Any]] = (),
     limit: int,
 ) -> dict[str, object]:
     """Validate and merge bounded durable activities newest first."""
@@ -29,6 +32,7 @@ def durable_activity_projection(
         *(_inventory_activity(row) for row in inventory_rows),
         *(_ontology_activity(row) for row in ontology_rows),
         *(_read_activity(row) for row in read_rows),
+        *(_observation_activity(row) for row in observation_rows),
     ]
     by_id: dict[str, AgentOperationalActivity] = {}
     for activity in activities:
@@ -168,6 +172,71 @@ def _read_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
     )
 
 
+def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
+    value = _mapping(row.get("value"), "observation activity value")
+    source_id = _text(value.get("source_id"), "observation source id", maximum=96)
+    campaign_id = _text(value.get("campaign_id"), "observation campaign id", maximum=96)
+    try:
+        domain = ObservationDomain(_text(value.get("domain"), "observation domain", maximum=64))
+    except ValueError as exc:
+        raise ValueError("observation domain is unsupported") from exc
+    owners: Mapping[ObservationDomain, ObservationOwner] = {
+        ObservationDomain.INVENTORY: "Huginn",
+        ObservationDomain.ACTIVITY_LOG: "Huginn",
+        ObservationDomain.RESOURCE_HEALTH: "Heimdall",
+        ObservationDomain.SERVICE_HEALTH: "Heimdall",
+        ObservationDomain.METRICS: "Heimdall",
+        ObservationDomain.LOGS: "Heimdall",
+        ObservationDomain.GUEST_LOGS: "Heimdall",
+        ObservationDomain.NETWORK_CONFIG: "Heimdall",
+        ObservationDomain.COST: "Njord",
+        ObservationDomain.RECOVERY: "Vidar",
+    }
+    status_value = _text(value.get("status"), "observation status", maximum=32)
+    statuses = {
+        "started": OperationalActivityStatus.STARTED,
+        "completed": OperationalActivityStatus.COMPLETED,
+        "degraded": OperationalActivityStatus.DEGRADED,
+        "failed": OperationalActivityStatus.FAILED,
+    }
+    try:
+        status = statuses[status_value]
+    except KeyError as exc:
+        raise ValueError("observation status is not terminal") from exc
+    try:
+        freshness = OperationalFreshness(
+            _text(value.get("freshness"), "observation freshness", maximum=32)
+        )
+    except ValueError as exc:
+        raise ValueError("observation freshness is unsupported") from exc
+    reasons = _string_tuple(value.get("reason_codes"), "observation reason codes")
+    return AgentOperationalActivity(
+        schema_version="1.1.0",
+        activity_id=f"observation:{source_id}:{campaign_id}:{status.value}",
+        idempotency_key=f"observation:{source_id}:{campaign_id}:{status.value}",
+        kind=OperationalActivityKind.OBSERVATION,
+        status=status,
+        owner_agent=owners[domain],
+        producer="observation-campaign-job",
+        observation_domain=domain,
+        observed_at=(
+            _timestamp(value.get("started_at"), "observation started_at")
+            if status is OperationalActivityStatus.STARTED
+            else _timestamp(value.get("completed_at"), "observation completed_at")
+        ),
+        source=source_id,
+        freshness=(
+            OperationalFreshness.UNKNOWN
+            if status is OperationalActivityStatus.STARTED
+            else freshness
+        ),
+        evidence_count=_count(value, "evidence_count"),
+        duration_ms=_optional_count(value, "duration_ms"),
+        correlation_id=campaign_id,
+        reason_codes=reasons,
+    )
+
+
 def _mapping(value: object, field: str) -> Mapping[str, Any]:
     if isinstance(value, str):
         try:
@@ -203,6 +272,15 @@ def _timestamp(value: object, field: str) -> datetime:
 def _count(value: Mapping[str, Any], field: str) -> int:
     item = value.get(field)
     if not isinstance(item, int) or isinstance(item, bool) or not 0 <= item <= 1_000_000:
+        raise ValueError(f"{field} MUST be a bounded count")
+    return item
+
+
+def _optional_count(value: Mapping[str, Any], field: str) -> int | None:
+    item = value.get(field)
+    if item is None:
+        return None
+    if not isinstance(item, int) or isinstance(item, bool) or not 0 <= item <= 86_400_000:
         raise ValueError(f"{field} MUST be a bounded count")
     return item
 

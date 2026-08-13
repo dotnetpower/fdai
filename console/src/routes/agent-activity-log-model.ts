@@ -8,7 +8,7 @@ import {
   entryStr,
 } from "./agent-activity-semantics";
 import type { LiveAgentActivityEvent } from "./agents.model";
-import type { OperationalActivityKind } from "../agent-operational-activity";
+import type { ObservationDomain, OperationalActivityKind } from "../agent-operational-activity";
 
 export const AGENT_LOG_LIMIT = 200;
 export type AgentLogColumn = "time" | "route" | "type" | "detail" | "correlation";
@@ -42,6 +42,7 @@ export interface AgentLogRow {
   readonly eventId: string | null;
   readonly source: AgentLogSource;
   readonly operationalKind: OperationalActivityKind | null;
+  readonly observationDomain: ObservationDomain | null;
   readonly sortOrder: readonly [number, number, number];
 }
 
@@ -74,6 +75,7 @@ export function buildAgentLogRows(
       eventId: null,
       source: event.source,
       operationalKind: event.operationalKind,
+      observationDomain: event.observationDomain,
       sortOrder: [0, 0, events.length - index],
     });
   });
@@ -95,6 +97,7 @@ export function buildAgentLogRows(
       eventId: item.event_id,
       source: provenance === "sample" ? "audit-sample" : "audit-operational",
       operationalKind: null,
+      observationDomain: null,
       sortOrder: [1, item.seq, 0],
     });
     entryConversation(item)?.forEach((turn, index) => {
@@ -110,6 +113,7 @@ export function buildAgentLogRows(
         eventId: item.event_id,
         source: provenance === "sample" ? "audit-sample" : "audit-operational",
         operationalKind: null,
+        observationDomain: null,
         sortOrder: [1, item.seq, index + 1],
       });
     });
@@ -137,6 +141,7 @@ export function filterAgentLogRows(
       row.eventId,
       row.source,
       row.operationalKind,
+      row.observationDomain,
     ].filter(Boolean).join(" ")).includes(needle);
   });
 }

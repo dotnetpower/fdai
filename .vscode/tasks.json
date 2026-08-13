@@ -216,6 +216,8 @@
         "console: Document Ingestion API (Local Docker)",
         "console: Document Processing Worker (Local Docker)",
         "console: Isolated Executor (Local Shadow)",
+        "console: Inventory Reconciliation (Local)",
+        "console: Observation Campaign (Local)",
         "console: frontend (Browser Entra)"
       ],
       "problemMatcher": [],
@@ -287,6 +289,60 @@
         "focus": false,
         "panel": "dedicated",
         "group": "console-operator-api",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "console: Inventory Reconciliation (Local)",
+      "type": "shell",
+      "command": "set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh inventory-reconciliation \"$PWD/.fdai/logs/inventory-reconciliation.log\" -- env -u AZURE_CONFIG_DIR FDAI_EXECUTION_VENUE=local FDAI_INVENTORY_DSN=\"$FDAI_STATE_STORE_DSN\" FDAI_INVENTORY_SCOPES=\"$AZURE_SUBSCRIPTION_ID\" PYTHONPATH=\"$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai.delivery.inventory_sync_cli --loop",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-inventory-reconciliation",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*service=inventory-reconciliation event=starting$",
+          "endsPattern": "inventory reconciliation|inventory snapshot"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "focus": false,
+        "panel": "dedicated",
+        "group": "console-inventory-reconciliation",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "console: Observation Campaign (Local)",
+      "type": "shell",
+      "command": "set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh observation-campaign \"$PWD/.fdai/logs/observation-campaign.log\" -- env -u AZURE_CONFIG_DIR FDAI_EXECUTION_VENUE=local FDAI_OBSERVATION_DSN=\"$FDAI_STATE_STORE_DSN\" FDAI_OBSERVATION_SCOPES=\"$AZURE_SUBSCRIPTION_ID\" PYTHONPATH=\"$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai.delivery.observation_campaign_cli --loop",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-observation-campaign",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*service=observation-campaign event=starting$",
+          "endsPattern": "catalog_digest"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "focus": false,
+        "panel": "dedicated",
+        "group": "console-observation-campaign",
         "clear": true,
         "showReuseMessage": false
       },

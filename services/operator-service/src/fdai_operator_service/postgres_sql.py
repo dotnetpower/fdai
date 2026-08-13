@@ -49,6 +49,14 @@ SELECT profile.key, profile.value->>'tool_id' AS tool_id,
  LIMIT %(limit)s
 """
 
+AGENT_OBSERVATION_ACTIVITY_SQL: Final = """
+SELECT key, value, updated_at
+  FROM state_kv
+ WHERE key LIKE 'observation-campaign:source:%%'
+ ORDER BY value->>'completed_at' DESC NULLS LAST, key DESC
+ LIMIT %(limit)s
+"""
+
 KPI_SAMPLE_SQL: Final = """
 SELECT seq, action_kind, mode, entry, created_at
   FROM audit_log
@@ -306,6 +314,7 @@ SELECT ranked.seq, ranked.event_id, ranked.correlation_id, ranked.actor,
 
 __all__ = [
     "AGENT_INVENTORY_ACTIVITY_SQL",
+    "AGENT_OBSERVATION_ACTIVITY_SQL",
     "AGENT_ONTOLOGY_ACTIVITY_SQL",
     "AGENT_READ_ACTIVITY_SQL",
     "AUDIT_PAGE_SQL",

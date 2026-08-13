@@ -448,6 +448,12 @@ variable "inventory_cron_expression" {
   default     = "*/10 * * * *"
 }
 
+variable "observation_campaign_cron_expression" {
+  description = "Cron for the due-checked permission-aware observation campaign. Empty disables the job."
+  type        = string
+  default     = "* * * * *"
+}
+
 variable "enable_realtime_inventory_discovery" {
   description = "Enable managed-identity Event Grid delivery of subscription resource writes and deletes to Huginn's raw inventory topic."
   type        = bool

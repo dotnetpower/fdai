@@ -95,6 +95,8 @@ def test_workspace_starts_complete_console_topology_automatically() -> None:
         "console: Document Ingestion API (Local Docker)",
         "console: Document Processing Worker (Local Docker)",
         "console: Isolated Executor (Local Shadow)",
+        "console: Inventory Reconciliation (Local)",
+        "console: Observation Campaign (Local)",
         "console: frontend (Browser Entra)",
     ]
     for service_label in local_services["dependsOn"]:
@@ -103,3 +105,8 @@ def test_workspace_starts_complete_console_topology_automatically() -> None:
             "instanceLimit": 1,
             "instancePolicy": "silent",
         }
+
+    campaign = tasks_by_label["console: Observation Campaign (Local)"]
+    assert "fdai.delivery.observation_campaign_cli --loop" in campaign["command"]
+    assert 'FDAI_OBSERVATION_DSN="$FDAI_STATE_STORE_DSN"' in campaign["command"]
+    assert 'FDAI_OBSERVATION_SCOPES="$AZURE_SUBSCRIPTION_ID"' in campaign["command"]

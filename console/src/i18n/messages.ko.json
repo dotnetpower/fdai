@@ -385,7 +385,8 @@
         },
         "current-state": {
           "read": "현재 상태"
-        }
+        },
+        "observation": "관측 캠페인"
       },
       "find": "찾기",
       "searchPlaceholder": "메시지, 작업, 리소스 또는 상관관계",
@@ -393,6 +394,18 @@
       "retention": "메모리에서 최신 감사 및 런타임 행을 최대 {count}개 표시합니다.",
       "openAudit": "전체 감사 열기",
       "activity": "활동"
+    },
+    "observationDomain": {
+      "inventory": "인벤토리",
+      "activity-log": "활동 로그",
+      "resource-health": "리소스 상태",
+      "service-health": "서비스 상태",
+      "metrics": "메트릭",
+      "logs": "로그",
+      "guest-logs": "게스트 로그",
+      "network-config": "네트워크 구성",
+      "cost": "비용",
+      "recovery": "복구"
     },
     "main": {
       "auditUnavailable": "영구 감사 사용 불가",

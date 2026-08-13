@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 3057e24c67df4360b281a6490d1a6762fca0655a
+translation_source_sha: 994e054d795026b331468e7e4e87be3dbdab7cfe
 translation_revised: 2026-08-14
 ---
 
@@ -36,6 +36,7 @@ translation_revised: 2026-08-14
 | Agent 새로 고침 최신 상태 초기화 | validated | focused 스트림 테스트 9개 통과, 인증된 `/agents` 새로 고침이 각각 224ms, 232ms, 228ms 안에 `Watching 2 / Idle 13 / Unobserved 0` 도달 | Agent hub는 agent별로 검증된 최신 `agent.state` 이벤트 하나를 새 구독자에게 초기값으로 제공합니다. 일반 Live는 이후 이벤트만 전달하며 어느 hub도 영속 이력 재생을 제공하지 않습니다. |
 | 인증된 로컬 Live 이벤트 경로 | validated | 2026-08-13 통제된 Browser Entra 실행이 `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE 및 기존 인증 Live DOM을 통과 | 이 실행은 권위 있는 온톨로지를 보존하고 이벤트와 허용된 네 단계를 모두 렌더링했습니다. 배포된 개정 번호, 브라우저 Notifications API 또는 브라우저 종료 상태의 push 전달은 검증하지 않았습니다. |
 | 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, 서비스 통합 테스트 및 집중 workspace 작업 테스트 | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 로컬 및 배포 준비는 Operator가 읽기 전에 검토된 Rule 및 Ontology 참조 변환 결과를 동일하게 구체화합니다. |
+| 권한 인식 관측 캠페인 동등성 | implemented | `config/observation-sources.yaml`, `fdai.delivery.observation_campaign*`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 Core, Operator, Console, workspace 및 인프라 검사 | 로컬과 배포 프로필은 같은 출처 카탈로그, 실행 조건 상태, 실행기, 정규화 활동 계약 및 1분 기동을 사용합니다. 검증 전에는 런타임 산출물이 더 필요합니다. |
 | 로컬 검증 데이터베이스 격리 | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, 로컬 준비 스크립트 및 focused 검증과 migration 통합 테스트 | 런타임 상태는 로컬 PostgreSQL port `5432`에 유지하고 파괴적인 migration 검증은 port `5433`의 별도 로컬 PostgreSQL cluster를 사용합니다. |
 | FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, focused 프로파일 및 workspace 테스트 11개 통과 | Resource 범위 분석 제어는 workspace에 둡니다. Copilot은 선택한 모델의 맥락 창 80%에서 에이전트 이력을 압축하며, Portable 프로파일은 격리할 수 없는 Remote WSL Pylance machine 설정을 거부합니다. |
 | FDAI Pylance launch ceiling 런타임 증명 | deferred | FDAI Remote WSL을 clean restart해도 Pylance는 bundled VS Code Node 실행 파일로 시작했고 `--max-old-space-size=2048`이 없었습니다. VS Code Server 1.133은 활성 프로파일 서비스와 별개로 Remote Machine 설정 리소스 하나를 생성합니다. | 격리된 런타임을 마련할 때까지 blocked 상태입니다. Shared Remote Machine 재정의는 제외 대상 workspace에도 영향을 주므로 ceiling을 활성화하려면 별도 VS Code Server data root 또는 WSL 배포판으로 런타임을 격리해야 합니다. |
@@ -57,6 +58,7 @@ translation_revised: 2026-08-14
 | 2026-08-13 | validated | 변경한 코드로 Operator를 다시 시작한 후 기존의 인증된 Browser Entra 세션을 통해 Agent fleet이 즉시 초기화되는지 검증했습니다. | `/agents` 새로 고침 3회가 각각 224ms, 232ms, 228ms 안에 `Watching 2 / Idle 13 / Unobserved 0`에 도달해 15초 런타임 heartbeat 간격보다 충분히 짧았습니다. | Agent 새로 고침 최신 상태 초기화에 남은 구현 작업은 없습니다. |
 | 2026-08-13 | implemented | 고정된 160000토큰 Copilot 에이전트 이력 압축 임계값을 선택한 모델의 맥락 창 80%로 바꿨습니다. | 현재 변경의 `.vscode/settings.json`과 `tests/integration/scripts/test_vscode_workspace_performance.py`, VS Code JSON 진단 통과 및 집중 압축 계약 테스트 1개 통과. | 비율 기반 Copilot 대화 압축에 남은 구현 작업은 없습니다. |
 | 2026-08-14 | implemented | 자동 full-stack 작업을 반복 요청해도 VS Code 작업 인스턴스 선택창을 열지 않고 실행 중인 각 단일 인스턴스를 유지하도록 했습니다. | 현재 변경의 `.vscode/tasks.json`과 `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 자동 시작 계약 테스트 1개 통과. | 클릭 없는 중복 시작 요청에 남은 구현 작업은 없습니다. |
+| 2026-08-14 | implemented | 등록된 모든 출처를 위한 하나의 권한 인식 관측 캠페인을 추가하고 실행 조건을 확인하는 같은 CLI를 full-stack 로컬과 배포된 Container Apps Job에 연결했습니다. | `current change`, 버전 관리 활동 계약, 출처 카탈로그, 프로바이더 probe, 영속 실행기, Operator 변환 결과, Console lane 및 집중 검사 | 검증을 주장하기 전에 같은 카탈로그 digest를 사용하는 통제된 로컬 실행 하나와 배포 개정 실행 하나를 보존합니다. |
 
 ### 잔여 작업
 
@@ -65,6 +67,9 @@ translation_revised: 2026-08-14
 - [ ] 복제본별 `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`를 통해 인증된 Live DOM에 도달하는 배포 개정 이벤트를 기록합니다. 브라우저 Notifications API 및 브라우저 종료 상태의 push 전달이 범위에 들어오면 별도로 추적합니다.
 - [ ] Operator schema migration이 성공한 뒤 catalog Job이 검토된 Rule 및 Ontology 참조
   변환 결과를 기록함을 보여 주는 보호된 배포 증적을 기록합니다.
+- [ ] 같은 카탈로그 digest를 사용하는 통제된 로컬 및 배포 관측 캠페인 쌍을 보존합니다.
+  권한 있음, 사용 불가, 부분, 건너뜀 및 완료 출처 결과와 snapshot-first/실제 Agent Activity
+  중복 제거를 포함합니다.
 
 ## 전수조사 - 로컬 동작 vs Azure 필요
 
@@ -515,32 +520,20 @@ Headless Bragi 의미 라우팅은 T1과 같은 한계 임베딩 기능을 사�
 
 | 서브시스템 | 상태 | 갭 |
 |-----------|------|-----|
-| Azure Resource Graph 인벤토리 | 운영은 promoted PostgreSQL 스냅샷과 Huginn의 real-time delta 오버레이를 읽습니다. | Full-stack 로컬은 읽기 전용 `AzureCliInventory`를 통해 등록된 모든 Azure ARM 타입을 매핑하고 관계와 VM power 상태에 범위가 제한된 `az graph query` 속성을 사용하므로 별도 `az vm list --show-details`를 호출하지 않습니다. 스냅샷은 구독 및 Azure CLI 프로파일 지문으로 격리한 `.fdai/cache/inventory`에 저장하고 synthetic opt-out은 거부합니다. |
+| 권한 인식 Azure 관측 | 로컬과 배포는 같은 등록 출처 카탈로그, 실행 조건 게이트, 범위가 제한된 프로바이더 probe, PostgreSQL 결과 상태 및 Agent Activity 계약을 사용합니다. | 같은 카탈로그 digest와 출처 결과를 입증하는 통제된 로컬 및 배포 실행 전까지 런타임 검증은 열려 있습니다. |
 | Azure Monitor Logs KQL | 운영과 로컬 어댑터가 `AzureLogAnalyticsQueryProvider`를 공유합니다. | 서버가 소유한 `FDAI_MONITOR_WORKSPACE_ID`가 필요하며 명시적 `query_log`는 사용 불가일 때 실패 시 차단합니다. |
 | Managed Identity 토큰 (`WorkloadIdentity`) | Deployed 어댑터 존재 | interactive 로컬은 deployed 실행기로 publish하며 고정본 테스트만 로컬 발급자 사용 |
 | 통제된 실행 백엔드 | 프로바이더 중립적인 프로토콜, 프로파일 레지스트리, 영속 PostgreSQL 원장, bubblewrap/VM 어댑터, Azure Container Apps 작업 어댑터가 존재합니다. | 프로파일은 기본적으로 비활성화된이고 로컬 interactive에는 실행기 연결이 없으며 승격 전에 실제 운영 Azure 작업 근거가 필요합니다. |
 | 브라우저 근거 | 프로바이더 중립적인 계약, 선택적 Playwright 어댑터, PostgreSQL 산출물, GET-only 점검이 존재합니다. | 기본 unbound이며 interactive 로컬에는 실행기 신원이 없습니다. Isolated restricted-egress 브라우저 런타임과 exact 출처 정책을 구성하기 전에는 사용 불가로 표시합니다. |
 | Key Vault 시크릿 프로바이더 (`SecretProvider`) | 배포가 Key Vault 참조 주입 | interactive 어댑터는 환경 참조 사용, 고정본 값은 테스트 전용 |
 | GitOps PR 발행기 | 실제 GitHub 어댑터 존재 | interactive 실행은 구성된 어댑터 사용, recording 발행기는 테스트 전용 |
-로컬 인벤토리 캐시는 최종 fence에 도달한 검사만 promote하고 atomic replace로 기록합니다.
-Operator API 시작은 준비 상태를 차단하지 않고 persistent 캐시를 부하해 stale 또는 누락된 새로 고침을 예약하며 종료는 해당 작업을 취소하고 배출합니다. Fresh 캐시는 재시작 이후 즉시 반환되고 fresh-required 조회는 예열이 아직 실행 중일 때만 기다립니다. 만료되었거나 Huginn이 invalidate한 캐시는 `cache.status=refreshing`인 `stale` 상태로 즉시 반환되고 background Azure CLI 검사가 이를 원자적으로 교체합니다. Provision된 `aw.inventory.raw` 토픽을 `FDAI_INVENTORY_RAW_TOPIC`으로 구성하면 수락된
-쓰기/삭제 이벤트가 영속 변환 결과 이후 로컬 캐시를 invalidate합니다. 해당 auxiliary-topic
-연결이 없는 stack은 TTL 새로 고침으로 수렴합니다. Resource 타입 또는 관계를 추가하는 인벤토리
-변환 결과 변경은 캐시 묶음 스키마 개정 번호를 올리므로, 이전 완전한 스냅샷을 stale 의미와
-함께 표시하지 않고 새로 고침합니다. 스키마 개정 번호 10은 정규화된 Azure 서비스 상태와 catalog-driven
-resource-type 및 Azure `kind` disambiguation 이전 개정 번호를 포함한 모든 이전 스냅샷을 invalidate합니다.
-따라서 첫 database-status 또는 shared-ARM-type 질문은 이전 `unknown` 또는 잘못 분류된 상태를
-재생하지 않습니다. 명시적 구독이 없으면 다른 활성 Azure CLI
-구독의 스냅샷을 사용할 위험을 피하기 위해 persistent 캐시 재사용을 비활성화합니다.
-캐시 묶음은 리소스 한도도 연결하고 malformed 또는 과도하게 미래 시각인 스냅샷을 거부하며
-각 로컬 새로 고침을 240초로 제한합니다. 캐시 파일 또는 표시 I/O 실패가 발생해도 마지막 완전한
-in-memory 그래프를 유지합니다. 표시 쓰기 실패는 TTL 수렴으로 대체 경로하고 표시 메타데이터 읽기
-실패는 stale로 처리해 불확실한 캐시를 신뢰하지 않고 새로 고침합니다.
-Persistent 읽기는 user-private regular 파일만 수용하고 이미 연 서술자에 5 MB 제한을 적용합니다.
-쓰기는 캐시 디렉터리를 모드 `0700`으로 교정하고 모드 `0600` 파일을 생성하며 replace 전에 serialized
-바이트를 제한하고 디렉터리를 fsync합니다. 실제 운영 그래프와 cached 그래프 모두 중복 리소스 또는 링크,
-dangling/self 링크, non-finite 또는 세계 밖 형상, 잘못된 루트 또는 상위 cycle, 미래 시각,
-잘못된 묶음, 구성된 한도 초과 개수를 거부합니다.
+[권한 인식 관측 캠페인](../operations/observation-campaign-ko.md)은 인벤토리, Activity Log,
+Resource 및 Service Health, 메트릭, Log Analytics, 게스트 로그, 네트워크, 비용 및 복구 출처의
+주기 커버리지 검사를 조정합니다. 권위 있는 인벤토리 CLI가 전체 조정을 소유합니다. Full-stack
+로컬과 배포는 같은 출처 카탈로그와 실행 조건을 확인하는 CLI를 실행합니다. 로컬 PostgreSQL과
+승인된 로컬 읽기 자격 증명은 managed 배포 연결을 대체하지만 예약, 커서, 정규화 또는 근거
+의미론을 바꾸지 않습니다. Operator API는 승격된 PostgreSQL 상태를 읽으며 프로세스 내부
+인벤토리 또는 로그 새로 고침을 소유하지 않습니다.
 로컬 그래프 기본값은 500개 리소스와 synthetic 구독 루트입니다. 더 큰 인벤토리는 완전한
 커버리지를 조용히 주장하지 않고 `truncated=true`를 설정합니다.
 로컬 변환 결과는 링크 타입이 등록되어 있고 두 엔드포인트 id가 모두 선택되며 엔드포인트 타입이 리소스

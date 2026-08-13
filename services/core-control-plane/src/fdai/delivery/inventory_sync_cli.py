@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import logging
 import os
+import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -22,6 +23,7 @@ from fdai.delivery.azure.arm_inventory import (
     AzureArmInventoryFactory,
     AzureArmInventoryFactoryConfig,
 )
+from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
@@ -88,6 +90,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _LOGGER = logging.getLogger(__name__)
+_LOOP_SECONDS = 600
 _MANAGEMENT_AUDIENCE_BY_ORIGIN = {
     "https://management.azure.com": "https://management.azure.com/.default",
     "https://management.chinacloudapi.cn": "https://management.chinacloudapi.cn/.default",
@@ -421,7 +424,7 @@ async def run(config: InventoryJobConfig) -> InventoryJobResult:
         )
     )
     async with httpx.AsyncClient() as client:
-        identity = ManagedIdentityWorkloadIdentity.from_env(http_client=client)
+        identity = _workload_identity(http_client=client)
         event_bus, event_topic = _build_job_event_bus(identity)
         activity_publisher = EventBusOperationalActivityPublisher(event_bus=event_bus)
         observed_store = ObservedInventorySnapshotStore(
@@ -487,7 +490,7 @@ async def run_recovery_delta(config: InventoryJobConfig) -> int:
     """Retry the read-only Activity Log delta independently of full-scan due state."""
     vocabulary = _load_resource_type_registry()
     async with httpx.AsyncClient() as client:
-        identity = ManagedIdentityWorkloadIdentity.from_env(http_client=client)
+        identity = _workload_identity(http_client=client)
         return await _run_recovery_delta(
             config=config,
             vocabulary=vocabulary,
@@ -534,6 +537,15 @@ def _build_job_event_bus(
             client_id="fdai-inventory-recovery",
         ),
     ), app_config.kafka.topic_events
+
+
+def _workload_identity(*, http_client: httpx.AsyncClient) -> WorkloadIdentity:
+    execution_venue = os.environ.get("FDAI_EXECUTION_VENUE", "deployed").strip()
+    if execution_venue == "local":
+        return AsyncAzureCliWorkloadIdentity.from_env()
+    if execution_venue == "deployed":
+        return ManagedIdentityWorkloadIdentity.from_env(http_client=http_client)
+    raise RuntimeError("FDAI_EXECUTION_VENUE MUST be local or deployed")
 
 
 async def _forward_recovery_deltas(
@@ -636,7 +648,7 @@ def _bool_env(source: Mapping[str, str], key: str, default: bool) -> bool:
     raise ValueError(f"{key} MUST be one of 1, 0, true, false")
 
 
-async def _main() -> None:
+async def _run_due_once() -> None:
     from fdai.delivery.runtime_settings import runtime_settings_service_from_env
 
     runtime_values = await runtime_settings_service_from_env(os.environ).effective_values()
@@ -666,9 +678,20 @@ async def _main() -> None:
         print(f"inventory snapshot from {result.source} superseded by a newer attempt")
 
 
+async def _main(argv: list[str]) -> None:
+    loop = argv == ["--loop"]
+    if argv and not loop:
+        raise ValueError("inventory reconciliation accepts only --loop")
+    while True:
+        await _run_due_once()
+        if not loop:
+            return
+        await asyncio.sleep(_LOOP_SECONDS)
+
+
 def main() -> None:
     """Run one due-checked reconciliation under the job process identity."""
-    asyncio.run(_main())
+    asyncio.run(_main(sys.argv[1:]))
 
 
 if __name__ == "__main__":

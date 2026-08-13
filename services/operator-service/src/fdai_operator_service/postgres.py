@@ -28,6 +28,7 @@ from psycopg.rows import dict_row
 from fdai_operator_service.activity_projection import durable_activity_projection
 from fdai_operator_service.postgres_sql import (
     AGENT_INVENTORY_ACTIVITY_SQL,
+    AGENT_OBSERVATION_ACTIVITY_SQL,
     AGENT_ONTOLOGY_ACTIVITY_SQL,
     AGENT_READ_ACTIVITY_SQL,
     AUDIT_PAGE_SQL,
@@ -89,6 +90,10 @@ class PostgresOperatorReadModel:
                 ontology_rows=await self._fetch_all(AGENT_ONTOLOGY_ACTIVITY_SQL, {}),
                 read_rows=await self._fetch_all(
                     AGENT_READ_ACTIVITY_SQL,
+                    {"limit": query.limit},
+                ),
+                observation_rows=await self._fetch_all(
+                    AGENT_OBSERVATION_ACTIVITY_SQL,
                     {"limit": query.limit},
                 ),
                 limit=query.limit,

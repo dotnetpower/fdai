@@ -32,6 +32,39 @@
       ]
     },
     {
+      "id": "permission-aware-observation-campaign",
+      "paths": [
+        "config/observation-sources.yaml",
+        "docs/roadmap/operations/observation-campaign*.md",
+        "packages/service-contracts/src/fdai_service_contracts/operational_activity.py",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/agent-operational-activity/1.1.0.json",
+        "packages/service-contracts/tests/test_operational_activity.py",
+        "services/core-control-plane/src/fdai/delivery/observation_*.py",
+        "services/core-control-plane/src/fdai/delivery/azure/observation_campaign.py",
+        "services/core-control-plane/tests/delivery/**/*observation*.py",
+        "services/operator-service/src/fdai_operator_service/activity_projection.py",
+        "services/operator-service/tests/test_activity_projection.py",
+        "console/src/agent-operational-activity*",
+        "console/src/routes/agent-live-activity.tsx",
+        "infra/modules/compute/container-apps/observation_campaign_job.tf"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/operations/observation-campaign.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity.md",
+        "docs/roadmap/agents/agent-pantheon.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/operations/observation-campaign.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov packages/service-contracts/tests/test_operational_activity.py services/core-control-plane/tests/delivery/test_observation_campaign.py services/core-control-plane/tests/delivery/test_observation_probes.py services/core-control-plane/tests/delivery/test_observation_campaign_cli.py services/core-control-plane/tests/delivery/azure/test_observation_campaign.py services/operator-service/tests/test_activity_projection.py",
+        "npm --prefix console test -- --run src/agent-operational-activity.test.ts"
+      ]
+    },
+    {
       "id": "constitution",
       "paths": [
         ".github/copilot-instructions.md",
@@ -1413,7 +1446,8 @@
       ],
       "docs_update": [
         "docs/roadmap/deployment/deploy-and-onboard.md",
-        "docs/roadmap/deployment/deployment-resource-conventions.md"
+        "docs/roadmap/deployment/deployment-resource-conventions.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity.md"
       ],
       "validate": [
         "uv run python scripts/quality/architecture/check-independent-services.py"

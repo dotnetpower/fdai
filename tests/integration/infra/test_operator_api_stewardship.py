@@ -42,6 +42,23 @@ def test_inventory_job_inherits_required_runtime_config() -> None:
     assert 'command = ["python", "-m", "fdai.delivery.inventory_sync_cli"]' in job
 
 
+def test_observation_campaign_uses_inventory_read_identity_and_shared_runtime_config() -> None:
+    job = (
+        _ROOT / "infra" / "modules" / "compute" / "container-apps" / "observation_campaign_job.tf"
+    ).read_text(encoding="utf-8")
+    root = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
+
+    assert "identity_ids = [var.inventory_identity_id]" in job
+    assert "for_each = local.core_config_env" in job
+    assert 'command = ["python", "-m", "fdai.delivery.observation_campaign_cli"]' in job
+    assert 'name        = "FDAI_OBSERVATION_DSN"' in job
+    assert 'name  = "FDAI_OBSERVATION_SCOPES"' in job
+    assert 'role_definition_name = "Monitoring Reader"' in root
+    assert 'role_definition_name = "Log Analytics Reader"' in root
+    assert 'role_definition_name = "Cost Management Reader"' in root
+    assert 'module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]' in root
+
+
 def test_operator_api_command_identity_can_publish_owned_objects() -> None:
     root = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
     module = (_ROOT / "infra/modules/operator-api/container-app/main.tf").read_text(

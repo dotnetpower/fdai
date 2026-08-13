@@ -8,6 +8,7 @@ import pytest
 from fdai_service_contracts import (
     AgentOperationalActivity,
     JsonSchemaContractValidator,
+    ObservationDomain,
     OperationalActivityKind,
     OperationalActivityStatus,
     OperationalFreshness,
@@ -45,6 +46,75 @@ def test_inventory_scan_contract_is_authority_free_and_schema_valid() -> None:
         payload,
         version="1.0.0",
     )
+
+
+def test_observation_contract_is_authority_free_and_schema_valid() -> None:
+    activity = AgentOperationalActivity(
+        schema_version="1.1.0",
+        activity_id="observation:resource-health:campaign-1:completed",
+        idempotency_key="observation:resource-health:campaign-1:completed",
+        kind=OperationalActivityKind.OBSERVATION,
+        status=OperationalActivityStatus.COMPLETED,
+        owner_agent="Heimdall",
+        producer="observation-campaign-job",
+        observation_domain=ObservationDomain.RESOURCE_HEALTH,
+        observed_at=datetime(2026, 1, 1, tzinfo=UTC),
+        source="azure-resource-health",
+        freshness=OperationalFreshness.FRESH,
+        evidence_count=2,
+        duration_ms=50,
+        correlation_id="campaign-1",
+    )
+    payload = activity.model_dump(mode="json")
+
+    assert payload["execution_authority"] is False
+    JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate(
+        "agent-operational-activity",
+        payload,
+        version="1.1.0",
+    )
+
+
+def test_legacy_activity_serialization_omits_v11_domain() -> None:
+    payload = _scan().model_dump(mode="json")
+
+    assert payload["schema_version"] == "1.0.0"
+    assert "observation_domain" not in payload
+
+
+def test_observation_rejects_wrong_owner() -> None:
+    with pytest.raises(ValidationError, match="owner and producer MUST match"):
+        AgentOperationalActivity(
+            schema_version="1.1.0",
+            activity_id="observation:cost:campaign-1:completed",
+            idempotency_key="observation:cost:campaign-1:completed",
+            kind="observation",
+            status="completed",
+            owner_agent="Heimdall",
+            producer="observation-campaign-job",
+            observation_domain="cost",
+            observed_at=datetime(2026, 1, 1, tzinfo=UTC),
+            source="cost-management",
+            freshness="fresh",
+        )
+
+
+def test_observation_rejects_raw_reason_text() -> None:
+    with pytest.raises(ValidationError, match="machine-safe identifiers"):
+        AgentOperationalActivity(
+            schema_version="1.1.0",
+            activity_id="observation:logs:campaign-1:degraded",
+            idempotency_key="observation:logs:campaign-1:degraded",
+            kind="observation",
+            status="degraded",
+            owner_agent="Heimdall",
+            producer="observation-campaign-job",
+            observation_domain="logs",
+            observed_at=datetime(2026, 1, 1, tzinfo=UTC),
+            source="logs",
+            freshness="unavailable",
+            reason_codes=("subscription 00000000-0000-0000-0000-000000000000 failed",),
+        )
 
 
 def test_inventory_scan_rejects_agent_process_impersonation() -> None:
