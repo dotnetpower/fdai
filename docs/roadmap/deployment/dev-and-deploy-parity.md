@@ -34,7 +34,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | Authenticated local Live event path | validated | Controlled 2026-08-13 Browser Entra run through `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE, and the existing authenticated Live DOM | The run preserved the authoritative ontology and rendered the event plus all four accepted stages. It did not validate a deployed revision, the browser Notifications API, or closed-browser push delivery. |
 | Local and deployed composition parity | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, service integration tests, and focused workspace task tests | Composition roots select credentials and adapters without changing evidence authority. Local and deployed preparation materialize the same reviewed Rule and Ontology reference projections before the Operator reads them. |
 | Local validation database isolation | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, local preparation scripts, and focused validation and migration integration tests | Runtime state stays on local PostgreSQL port `5432`; destructive migration validation uses a separate local PostgreSQL cluster on port `5433`. |
-| FDAI workspace and profile pressure controls | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`; focused profile and workspace tests: 11 passed | Resource-scoped analysis controls stay in the workspace. The portable profile rejects Remote WSL Pylance machine settings that it cannot isolate. |
+| FDAI workspace and profile pressure controls | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`; focused profile and workspace tests: 11 passed | Resource-scoped analysis controls stay in the workspace. Copilot compacts agent history at 80% of the selected model's context window, and the portable profile rejects Remote WSL Pylance machine settings that it cannot isolate. |
 | FDAI Pylance launch ceiling runtime proof | deferred | A clean FDAI Remote WSL restart still launched Pylance with the bundled VS Code Node executable and without `--max-old-space-size=2048`. VS Code Server 1.133 creates one Remote Machine settings resource independently of the active profile service. | Blocked pending an isolated runtime. A shared Remote Machine override would also affect excluded workspaces, so runtime isolation requires a separate VS Code Server data root or WSL distribution before the ceiling can be enabled. |
 
 ### Implementation history
@@ -52,6 +52,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | 2026-08-13 | implemented | Added preparation-time materialization of reviewed Rule and Ontology catalogs for both local startup and deployed Operator state. | Current change in `.vscode/tasks.json`, `scripts/deployment/local/materialize-authoritative-catalogs.py`, `infra/modules/operator-api/container-app/`, and `.github/workflows/deploy-dev.yml`; focused materializer, Operator, and deployment tests passed. | Record protected deployed evidence that migration completes before catalog materialization. |
 | 2026-08-13 | implemented | Added race-safe, process-local latest-state hydration for new Agent SSE subscribers while preserving future-only generic Live delivery. | Current change in the Operator stream hub, composition, and focused regressions; stream tests: 9 passed; Ruff passed for all touched Python files. | Validate immediate Agent fleet hydration in the authenticated browser session. |
 | 2026-08-13 | validated | Verified immediate Agent fleet hydration through the existing authenticated Browser Entra session after restarting the Operator with the changed code. | Three `/agents` reloads reached `Watching 2 / Idle 13 / Unobserved 0` in 224 ms, 232 ms, and 228 ms, well below the 15-second runtime heartbeat interval. | No remaining implementation work for Agent refresh latest-state hydration. |
+| 2026-08-13 | implemented | Replaced the fixed 160000-token Copilot agent-history compaction threshold with 80% of the selected model's context window. | Current change in `.vscode/settings.json` and `tests/integration/scripts/test_vscode_workspace_performance.py`; VS Code JSON diagnostics passed, and the focused compaction contract test passed (1 test). | No remaining implementation work for proportional Copilot conversation compaction. |
 
 ### Remaining work
 
@@ -248,11 +249,8 @@ language-server messages. Disabled library-source type inference bounds analysis
 shared by the server instance and a clean process-command check did not contain the attempted heap
 argument. Configured workspace analysis, open-file diagnostics,
 IntelliSense, and navigation therefore remain available. The validation worktree and linked local
-artifacts cannot duplicate the workspace analysis set or add information-level log churn. The Chat
-context-usage indicator remains enabled so a developer can move long work to the recorded session
-handover before the prompt reaches its limit. Copilot
-summarizes agent conversation history at 160000 tokens and disables next edit suggestions in this
-workspace; Chat, inline completions, context usage, and session records remain available.
+artifacts cannot duplicate the workspace analysis set or add information-level log churn. The Chat context-usage
+indicator remains enabled so a developer can move long work to the recorded session handover before the prompt reaches its limit. Copilot compacts agent conversation history at 80% of the selected model's context window, preserving automatic limit protection without a fixed early threshold. Next edit suggestions remain disabled; Chat, inline completions, context usage, and session records remain available.
 
 The workspace loads the canonical `.github/copilot-instructions.md` entry point and the repository
 `.github/hooks` directory. Nested `AGENTS.md` discovery and user-level Claude or Copilot hook

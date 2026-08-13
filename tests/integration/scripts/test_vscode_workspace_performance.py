@@ -46,7 +46,7 @@ def test_workspace_uses_one_instruction_and_git_sync_path() -> None:
     assert settings["chat.contextUsage.enabled"] is True
     assert settings["chat.useNestedAgentsMdFiles"] is False
     assert settings["github.copilot.chat.summarizeAgentConversationHistory.enabled"] is True
-    assert settings["github.copilot.chat.summarizeAgentConversationHistoryThreshold"] == 160000
+    assert settings["github.copilot.chat.summarizeAgentConversationHistoryThreshold"] == 0.8
     assert settings["github.copilot.nextEditSuggestions.enabled"] is False
     assert settings["chat.hookFilesLocations"] == {
         ".github/hooks": True,

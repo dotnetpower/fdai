@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 42b743a88331f2270a6c8ae0fd4c1963546039d4
+translation_source_sha: 27fc4abaccd7976af3ebfb03f4fcef9be777090f
 translation_revised: 2026-08-13
 ---
 
@@ -37,7 +37,7 @@ translation_revised: 2026-08-13
 | 인증된 로컬 Live 이벤트 경로 | validated | 2026-08-13 통제된 Browser Entra 실행이 `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE 및 기존 인증 Live DOM을 통과 | 이 실행은 권위 있는 온톨로지를 보존하고 이벤트와 허용된 네 단계를 모두 렌더링했습니다. 배포된 개정 번호, 브라우저 Notifications API 또는 브라우저 종료 상태의 push 전달은 검증하지 않았습니다. |
 | 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, 서비스 통합 테스트 및 집중 workspace 작업 테스트 | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 로컬 및 배포 준비는 Operator가 읽기 전에 검토된 Rule 및 Ontology 참조 변환 결과를 동일하게 구체화합니다. |
 | 로컬 검증 데이터베이스 격리 | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, 로컬 준비 스크립트 및 focused 검증과 migration 통합 테스트 | 런타임 상태는 로컬 PostgreSQL port `5432`에 유지하고 파괴적인 migration 검증은 port `5433`의 별도 로컬 PostgreSQL cluster를 사용합니다. |
-| FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, focused 프로파일 및 workspace 테스트 11개 통과 | Resource 범위 분석 제어는 workspace에 둡니다. Portable 프로파일은 격리할 수 없는 Remote WSL Pylance machine 설정을 거부합니다. |
+| FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, focused 프로파일 및 workspace 테스트 11개 통과 | Resource 범위 분석 제어는 workspace에 둡니다. Copilot은 선택한 모델의 맥락 창 80%에서 에이전트 이력을 압축하며, Portable 프로파일은 격리할 수 없는 Remote WSL Pylance machine 설정을 거부합니다. |
 | FDAI Pylance launch ceiling 런타임 증명 | deferred | FDAI Remote WSL을 clean restart해도 Pylance는 bundled VS Code Node 실행 파일로 시작했고 `--max-old-space-size=2048`이 없었습니다. VS Code Server 1.133은 활성 프로파일 서비스와 별개로 Remote Machine 설정 리소스 하나를 생성합니다. | 격리된 런타임을 마련할 때까지 blocked 상태입니다. Shared Remote Machine 재정의는 제외 대상 workspace에도 영향을 주므로 ceiling을 활성화하려면 별도 VS Code Server data root 또는 WSL 배포판으로 런타임을 격리해야 합니다. |
 
 ### 구현 이력
@@ -55,6 +55,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | implemented | 로컬 시작 및 배포된 Operator 상태에 검토된 Rule 및 Ontology 카탈로그를 준비 시점에 구체화하도록 추가했습니다. | 현재 변경의 `.vscode/tasks.json`, `scripts/deployment/local/materialize-authoritative-catalogs.py`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, 집중 materializer, Operator 및 배포 테스트 통과. | 카탈로그 구체화 전에 migration이 완료됨을 보여 주는 보호된 배포 근거를 기록합니다. |
 | 2026-08-13 | implemented | 일반 Live가 이후 이벤트만 전달하는 성질을 유지하면서 새 Agent SSE 구독자에게 경쟁 조건 없이 프로세스 내부 최신 상태를 제공하도록 했습니다. | 현재 변경의 Operator 스트림 hub, composition 및 focused 회귀 검사, 스트림 테스트 9개와 변경한 모든 Python 파일의 Ruff 검사 통과. | 인증된 브라우저 세션에서 Agent fleet이 즉시 초기화되는지 검증합니다. |
 | 2026-08-13 | validated | 변경한 코드로 Operator를 다시 시작한 후 기존의 인증된 Browser Entra 세션을 통해 Agent fleet이 즉시 초기화되는지 검증했습니다. | `/agents` 새로 고침 3회가 각각 224ms, 232ms, 228ms 안에 `Watching 2 / Idle 13 / Unobserved 0`에 도달해 15초 런타임 heartbeat 간격보다 충분히 짧았습니다. | Agent 새로 고침 최신 상태 초기화에 남은 구현 작업은 없습니다. |
+| 2026-08-13 | implemented | 고정된 160000토큰 Copilot 에이전트 이력 압축 임계값을 선택한 모델의 맥락 창 80%로 바꿨습니다. | 현재 변경의 `.vscode/settings.json`과 `tests/integration/scripts/test_vscode_workspace_performance.py`, VS Code JSON 진단 통과 및 집중 압축 계약 테스트 1개 통과. | 비율 기반 Copilot 대화 압축에 남은 구현 작업은 없습니다. |
 
 ### 잔여 작업
 
@@ -246,11 +247,7 @@ Pylance 분석은 서비스 소스 루트 5개, 공유 패키지, 독립 패키�
 기록합니다. 라이브러리 소스를 사용한 형식 추론을 비활성화해 `light` 모드 없이 분석 작업을
 제한합니다. 프로파일 로컬 Node.js 힙 상한은 달성했다고 주장하지 않습니다. Remote WSL machine 설정은
 server instance가 공유하며 clean process-command 검사에서 시도한 heap argument가 없었습니다. 구성된 workspace 분석, 열린 파일 진단, IntelliSense 및 탐색 기능은 계속
-사용할 수 있습니다. 따라서 검증 워크트리와 연결된 로컬 산출물이 workspace 분석 집합에 중복으로
-들어가거나 정보 수준 로그 부하를 추가하지 않습니다. Chat 맥락 사용량 표시기는 계속 활성화하므로
-프롬프트 한도 전에 기록된 세션 인수인계를 사용해 긴 작업을 옮길 수 있습니다. Copilot은 에이전트 대화 이력을 160000
-토큰에서 요약하고 이 workspace에서 다음 편집 제안을 비활성화합니다. Chat, 인라인 완성, 맥락
-사용량 및 세션 기록은 계속 사용할 수 있습니다.
+사용할 수 있습니다. 따라서 검증 워크트리와 연결된 로컬 산출물이 workspace 분석 집합에 중복으로 들어가거나 정보 수준 로그 부하를 추가하지 않습니다. Chat 맥락 사용량 표시기는 계속 활성화하므로 프롬프트 한도 전에 기록된 세션 인수인계를 사용해 긴 작업을 옮길 수 있습니다. Copilot은 선택한 모델의 맥락 창 80%에서 에이전트 대화 이력을 압축해 한도 보호를 유지하면서 고정된 조기 임계값을 피합니다. 다음 편집 제안은 계속 비활성화하며 Chat, 인라인 완성, 맥락 사용량 및 세션 기록은 그대로 사용할 수 있습니다.
 
 Workspace는 정본 `.github/copilot-instructions.md` 진입점과 저장소의 `.github/hooks`
 디렉터리를 사용합니다. FDAI에서는 중첩 `AGENTS.md` 탐색과 사용자 수준 Claude 또는 Copilot
