@@ -163,6 +163,8 @@ provider reuse, parent synthesis, completion handoff, and GET-only projections.
 The bounded worker core and durable store are implemented and covered by focused tests. The
 Operator API route contract is present, but production worker composition, store-backed
 projection materialization, console presentation, and governed live evidence remain incomplete.
+This ledger separates implementation evidence from operational validation; passing focused tests
+does not promote the capability or prove a deployed worker path.
 
 ### Implementation scope
 
