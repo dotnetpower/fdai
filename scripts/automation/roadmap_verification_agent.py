@@ -96,7 +96,7 @@ def _terminate(process: subprocess.Popen[str]) -> None:
 
 
 def copilot_command(cli: Path, prompt_text: str, worktree: Path, *, apply: bool) -> list[str]:
-    tools = "read,shell,write" if apply else "read,shell"
+    tools = "read,glob,grep,shell,write" if apply else "read,glob,grep,shell"
     command = [
         str(cli),
         "-p",

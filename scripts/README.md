@@ -243,9 +243,10 @@ make roadmap-verification-sync
 make roadmap-verification-status
 ```
 
-`report` mode gives Copilot read and shell tools in an isolated worktree but no
-write tool. It records `reviewed`, `gap_found`, `designed`, `not_applicable`, or
-`blocked` evidence and removes the temporary branch:
+`report` mode gives Copilot read-only file discovery, search, and shell tools in
+an isolated worktree but no write tool. It records `reviewed`, `gap_found`,
+`designed`, `not_applicable`, or `blocked` evidence and removes the temporary
+branch:
 
 ```bash
 make roadmap-verification-report
