@@ -12,14 +12,30 @@ evidence required before a deployment can claim control-plane disaster recovery.
 > **Scope:** Upstream defines the reusable recovery contract. A downstream deployment supplies
 > regions, numeric recovery point objective (RPO) and recovery time objective (RTO), identities,
 > resource references, owners, approvals, and measured drill evidence.
->
-> **Implementation status:** The single-region baseline, production backup and availability-zone
-> gates, immutable recovery-plan reducer, durable compare-and-set coordinator, action-bound
-> approval-verification seam, DR adapters, database restore verifier, and scheduled drill job are
-> shipped. The scheduler tracks active handles and reserves capacity atomically inside one process.
-> Alternate-region infrastructure, cross-process experiment reservation, event-data continuity,
-> provider action bindings, traffic failover, and measured failover/failback evidence remain
-> deployment work until their gates pass.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Immutable recovery plan and legal transition reducer | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_plan.py` and `services/core-control-plane/tests/core/verticals/test_recovery_plan.py` | Version, approval separation, recovery epochs, legal edges, and halt behavior have focused tests. |
+| Durable compare-and-set coordination and audit persistence | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_coordinator.py` and `services/core-control-plane/tests/core/verticals/test_recovery_coordinator.py` | Exact redelivery, write conflicts, revision checks, and atomic state-plus-audit writes are implemented. |
+| Opt-in database restore drill and verifier | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py`, `infra/modules/compute/container-apps/dr_drill_job.tf`, and focused DR drill tests | The Job defaults to dry-run and requires deployment-supplied inputs; source and tests do not prove a completed substrate-backed drill. |
+| Regional provider actions and event-data continuity | in-progress | Provider seams and the activation sequence in this document | Alternate-region provisioning, fencing, bounded event replay, traffic shift, and failback are not composed into one live path. |
+| Measured regional failover and failback | not-started | `docs/runbooks/control-plane-failover.md` | The repository contains no governed drill receipt proving approved RPO/RTO, stale-epoch fencing, event completeness, traffic shift, and failback. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Separated tested recovery mechanics from regional deployment and operational evidence. | current change; focused recovery plan and coordinator tests listed in the scope table | Compose and exercise the regional provider path, then retain governed failover and failback evidence. |
+
+### Remaining work
+
+- [ ] Bind alternate-region provisioning, primary fencing, event recovery, traffic shift, and failback through provider adapters, and pass a focused end-to-end shadow test without enabling a second writer.
+- [ ] Prove cross-process experiment reservation or constrain the deployed scheduler to one process with reviewable configuration and a focused concurrency check.
+- [ ] Retain one repository-safe governed drill receipt that records approved and achieved RPO/RTO, event gaps, stale-epoch rejection, traffic shift, rollback or failback, and cleanup.
 
 ## Design at a glance
 

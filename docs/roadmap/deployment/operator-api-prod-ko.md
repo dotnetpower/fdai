@@ -1,39 +1,58 @@
 ---
 title: 콘솔 Operator API 프로덕션 배포
 translation_of: operator-api-prod.md
-translation_source_sha: 463805ee51ca1eccd486a5e619572ad6b54405e4
-translation_revised: 2026-08-12
+translation_source_sha: d85b861fc62956fa3322ae6c791e04cf87f4b9e5
+translation_revised: 2026-08-14
 ---
 # 콘솔 Operator API 프로덕션 배포
 
-업스트림 리포는 콘솔 Operator API용 ASGI 진입점 두 개를 제공한다:
-로컬 파사드 ([`services/operator-service/src/fdai_operator_service/`](../../../services/operator-service/src/fdai_operator_service/))는
-기본적으로 Entra 또는 명시적 Azure CLI principal과 권위 있는 Azure 화면을 요구하고,
-pytest의 `test_fixtures=True`에서만 `UnsafeClaimsExtractor`와 synthetic 화면을 허용합니다.
-프로덕션 파사드 ([`services/operator-service/src/fdai_operator_service/`](../../../services/operator-service/src/fdai_operator_service/))은
-실제 Entra JWT 검증과 Postgres 기반 읽기 모델을 환경변수로 조립합니다.
-이 문서는 프로덕션 진입점을 다룬다.
+업스트림 저장소는 콘솔 Operator API를 독립
+[`fdai-operator-service`](../../../services/operator-service/) 배포판으로 제공합니다. 로컬과
+배포 프로파일은 같은 공개 ASGI 팩토리 `fdai_operator_service.main:create_app`을 사용하며,
+명시적 환경값으로 실행 위치, Entra 검증기, PostgreSQL 저장소 및 Kafka 전송 계층을 선택합니다.
+이 문서는 배포된 프로덕션 조립을 다룹니다.
 
 > **범위**: Tier B 참조 문서다. 전체 dev/prod 패리티 계약은
 > [dev-and-deploy-parity.md](dev-and-deploy-parity.md)에, 배포 토폴로지는
 > [deployment.md](deployment.md)에 있다.
 
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 독립 서비스 진입점 및 환경 검증 | implemented | `services/operator-service/src/fdai_operator_service/main.py`, `production.py`, `environment.py` 및 조립 테스트 | 서비스는 팩토리 하나를 소유하며 프로바이더 사용 전에 수신기, Entra, RBAC, CORS, 데이터베이스 및 의미 전송 조합을 검증합니다. |
+| Entra 인증 및 범위가 제한된 운영자 권한 부여 | implemented | `services/operator-service/src/fdai_operator_service/auth.py`, 경로 기능군 권한 부여 및 집중 서비스 테스트 | 사람 신원은 실행기 신원과 분리되며 와일드카드 CORS와 부분 의미 전송 구성은 실패 시 차단됩니다. |
+| PostgreSQL 읽기 및 기능군 저장소 | implemented | `postgres.py`, `postgres_family_store.py` 및 `test_operator_service_postgres.py` | DSN 정규화, 연결 한계, 역할 연결, 트랜잭션별 명령문 시간 제한 및 사용할 수 없는 변환 결과가 구현되어 있습니다. |
+| Kafka 의미 전송 및 실시간/에이전트 중계 | implemented | `adapters/`, `streaming/`, `test_semantic_kafka_adapter.py`, `test_semantic_turn_bridge.py` 및 `test_live_stream.py` | 로컬 평문 전송과 배포된 관리 신원 전송은 명시적인 실행 위치 선택으로 유지됩니다. |
+| 독립 배포된 Operator 서비스 | validated | `.github/workflows/service-deploy.yml` 및 `config/independent-service-live-evidence-manifest.json` | 저장소 보관 가능한 실제 운영 근거가 독립 패키지 서비스, 마이그레이션 분기, 상태 검사 및 롤백 경계를 다룹니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | validated | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 사용 중단된 공동 호스팅 파사드 참조를 독립 Operator 서비스로 갱신했습니다. | 현재 변경, 집중 Operator 서비스 검사 및 독립 서비스 실제 운영 근거 매니페스트 | 서비스가 발전함에 따라 환경 계약, 서비스 테스트, 배포 작업 흐름 및 실제 운영 근거 매니페스트를 함께 갱신해야 합니다. |
+
+### 남은 작업
+
+- [x] 이 문서의 범위가 제한된 프로덕션 조립에는 남은 구현 작업이 없습니다. 집중 서비스 테스트와 `config/independent-service-live-evidence-manifest.json`이 현재 구현 및 운영 근거를 제공합니다.
+
 ## 한눈에 보는 설계
 
-- **동일한 `build_app` 글루.** 프로덕션 팩토리는 공용
-  [`build_app`](../../../services/operator-service/src/fdai_operator_service/)을
-  `dev_mode=False`로 호출합니다. 그 결과 cloud-resource 변경은 API 외부에
-  유지됩니다. 명시적 선택 게시 경로는 제안, 승인 또는 접근 요청을 기록하지만
+- **서비스 소유 팩토리.** 배포된 프로세스는
+  [`fdai_operator_service.main:create_app`](../../../services/operator-service/src/fdai_operator_service/main.py)을
+  호출하며 컨트롤 플레인 구현을 가져오지 않고 서비스 소유 런타임을 구성합니다.
+  클라우드 리소스 변경은 API 외부에 유지됩니다. 명시적 선택 게시 경로는 제안, 승인 또는 접근 요청을 기록하지만
   실행기 ID를 보유하지 않습니다. 또한
   staging/prod 트립와이어(CORS `*` 거부, dev-mode 거부)가 그대로 적용된다.
 - **환경변수 전용 조립.** 팩토리가 필요로 하는 값은 환경변수로 도착합니다. 데이터베이스 DSN과
   웹훅 시크릿은 Key Vault 참조를 사용하고 테넌트/대상/그룹/토픽 같은 non-secret
   값은 IaC가 plain env로 주입합니다. 설정 파일이나 고객 식별자는 이미지에 박히지 않습니다.
-- **누락된 구성은 즉시 실패.** 필수 env가 없으면 시작 시점에
-  :등급:`ProdOperatorApiConfigError`(`ValueError`의 서브클래스)가 발생한다.
-  깨진 리비전은 절대 소켓을 바인딩하지 못한다. env가 통째로 비어있는
-  콜드 부트에서는 누락된 슬롯 8개를 순차 실패로 겪는 대신 한 번의
-  에러로 모두 열거되어 보인다.
+- **잘못된 구성은 즉시 실패.** 필수 신원 또는 전송 값이 누락되거나 잘못되면 프로바이더
+  구성 전에 `OperatorServiceConfigurationError`가 발생합니다. PostgreSQL을 구성하지 않은
+  프로파일은 데이터베이스 기반 변환 결과를 명시적으로 사용할 수 없는 상태로 둡니다. 배포된
+  프로덕션은 DSN과 정확한 `fdai_operator` 역할을 모두 제공합니다.
 - **데이터베이스 준비 상태는 즉시 실패.** User 맥락, 스킬, 스트림 또는 다른 런타임 서비스를
   시작하기 전에 Postgres 읽기 모델이 범위가 제한된 `SELECT 1`을 실행합니다. 연결에 실패하면 lifespan
   시작을 중단하므로 연결되지 않은 개정 번호가 `/healthz`에서 준비된으로 표시되지 않습니다.
@@ -61,7 +80,8 @@ pytest의 `test_fixtures=True`에서만 `UnsafeClaimsExtractor`와 synthetic 화
 
 | 변수 | 용도 |
 |------|------|
-| `FDAI_DATABASE_URL` | psycopg 3 DSN. 허용 스킴: `postgresql://`, `postgres://`, `postgresql+psycopg://`. 그 외 `+<driver>` 접미사(`+asyncpg`, `+psycopg2` 등)는 시작 시점에 `ProdOperatorApiConfigError`로 거부된다. 라이터가 `alembic upgrade head`로 이미 프로비저닝한 `audit_log` + `state_kv` 스키마 대상. |
+| `FDAI_DATABASE_URL` | 배포된 프로덕션 psycopg 3 DSN입니다. 허용 스킴은 `postgresql://`, `postgres://` 및 `postgresql+psycopg://`입니다. 생략하면 데이터베이스 기반 변환 결과를 명시적으로 사용할 수 없습니다. |
+| `FDAI_DATABASE_ROLE` | `FDAI_DATABASE_URL`을 설정할 때 반드시 `fdai_operator`여야 합니다. |
 | `FDAI_ENTRA_TENANT_ID` | [`EntraJwtVerifier.from_env`](../../../services/operator-service/src/fdai_operator_service/)가 소비. |
 | `FDAI_API_AUDIENCE` | `fdai-api` App ID URI (`api://<guid>`). |
 | `FDAI_RBAC_READERS_GROUP_ID` | 읽기 담당 역할에 매핑되는 Entra 그룹 `objectId`. |
@@ -77,8 +97,8 @@ pytest의 `test_fixtures=True`에서만 `UnsafeClaimsExtractor`와 synthetic 화
 | `FDAI_ENTRA_ISSUER` | `https://login.microsoftonline.com/<tenant>/v2.0` | v1 토큰이나 소버린 클라우드 대응. |
 | `FDAI_ENTRA_JWKS_URI` | 테넌트 디스커버리 엔드포인트 | 에어갭 클라우드 대응. |
 | `FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS` | 비어있음 (same-origin) | 콤마로 구분된 출처 목록. bare `*` 원소는 이 팩토리가 `RUNTIME_ENV`와 무관하게 무조건 거부한다 - 크로스-오리진 배포는 콘솔 출처를 명시적으로 나열해야 한다. |
-| `FDAI_OPERATOR_API_STATEMENT_TIMEOUT_MS` | `20000` | 모든 읽기 쿼리에 `SET LOCAL statement_timeout`으로 적용. |
-| `FDAI_OPERATOR_API_CONNECT_TIMEOUT_S` | `10` | TCP + auth 핸드셰이크를 제한해 죽은 DB가 빠르게 실패하도록. |
+| `FDAI_OPERATOR_DATABASE_STATEMENT_TIMEOUT_MS` | `20000` | 데이터베이스 작업에 `set_config('statement_timeout', ..., true)`로 트랜잭션 범위에서 적용합니다. |
+| `FDAI_OPERATOR_DATABASE_CONNECT_TIMEOUT_S` | `10` | TCP와 인증 연결 시간을 제한하여 사용할 수 없는 데이터베이스가 신속히 실패하도록 합니다. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` | 비어 있음 | 의미 전송과 공유 실시간/에이전트 관찰 중계를 시작합니다. `:9093`의 Event Hubs Kafka 엔드포인트를 사용합니다. 값이 비어 있으면 두 SSE 경로는 런타임 근거를 날조하지 않고 `Awaiting source` 상태로 연결을 유지합니다. |
 | `KAFKA_TOPIC_EVENTS` | 비어 있음 | Kafka 초기화와 함께 타입이 지정된 액션 및 confirmed 인시던트 작업 흐름용 `POST /chat/action`을 활성화합니다. Huginn이 consume하는 raw 유입 토픽과 같은 값을 사용합니다. |
 | `FDAI_STAGE_TOPIC` | `aw.pipeline.stages` | 워커가 게시하고 실제 운영 및 에이전트 중계가 소비하는 단계 토픽입니다. 워커와 Operator API는 같은 값을 사용하는 것이 좋습니다. |
@@ -116,7 +136,7 @@ Entra 디렉터리 어댑터는 Operator API managed 신원을 통해
 ## 실행
 
 ```bash
-uvicorn fdai.delivery.operator_api.prod:app \
+uvicorn fdai_operator_service.main:create_app \
     --factory --host 0.0.0.0 --port 8000
 ```
 
@@ -127,17 +147,12 @@ uvicorn fdai.delivery.operator_api.prod:app \
 
 ## 어디에 뭐가 있나
 
-- [`prod.py`](../../../services/operator-service/src/fdai_operator_service/) - 안정적인 가져오기 파사드와 `app()` 팩토리.
-- [`production/config.py`](../../../services/operator-service/src/fdai_operator_service/) 및
-  [`production/factory.py`](../../../services/operator-service/src/fdai_operator_service/) - 환경 검증,
-  Postgres/Entra/프로바이더 조립의 실제 소유자.
-- [`postgres_read_model.py`](../../../services/operator-service/src/fdai_operator_service/)
-  - `audit_log` + `state_kv` 위의 구체 :등급:`ConsoleReadModel`. 행 -> 데이터 클래스
-    매퍼와 경계가 정해진 KPI 집계는 같은 모듈의 순수함수로 분리되어 있어
-    라이브 DB 없이 유닛테스트가 가능하다.
-- [`main.py`](../../../services/operator-service/src/fdai_operator_service/) - 공용 `build_app`
-  글루 (라우트 등록, `_authorize` 게이트, staging/prod 트립와이어).
-- [`adapters/live_stage_kafka.py`](../../../services/operator-service/src/fdai_operator_service/)
+- [`main.py`](../../../services/operator-service/src/fdai_operator_service/main.py) - 공개 ASGI 팩토리 내보내기 및 서비스 진입점.
+- [`production.py`](../../../services/operator-service/src/fdai_operator_service/production.py) - 검증된 uvicorn 수명 주기.
+- [`environment.py`](../../../services/operator-service/src/fdai_operator_service/environment.py) - 변경할 수 없는 환경 검증.
+- [`composition.py`](../../../services/operator-service/src/fdai_operator_service/composition.py) - Entra, PostgreSQL, 경로 기능군, 의미 버스, 중계, 준비 상태 및 수명 주기 조립.
+- [`postgres.py`](../../../services/operator-service/src/fdai_operator_service/postgres.py) 및 [`postgres_family_store.py`](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py) - 권위 있는 읽기 및 기능군 저장소.
+- [`adapters/live_stage_kafka.py`](../../../services/operator-service/src/fdai_operator_service/adapters/live_stage_kafka.py)
   - Kafka 소비자 수명 주기와 처리 후 커밋 동작을 소유합니다.
 - [`streaming/live_stream.py`](../../../services/operator-service/src/fdai_operator_service/) 및
   [`streaming/stage_frames.py`](../../../services/operator-service/src/fdai_operator_service/) 및
@@ -147,16 +162,10 @@ uvicorn fdai.delivery.operator_api.prod:app \
 
 ## 테스트
 
-- `services/operator-service/tests/` - env 파싱 + 조립 가드
-  (DB 왕복 없음).
-- `services/operator-service/tests/` - 원시 단계
-  중계, 잘못된 프레임 거부, 수명 주기 동작.
-- `services/operator-service/tests/` - 행 매퍼,
-  커서 파싱, KPI 집계 (DB 왕복 없음).
-- `services/core-control-plane/tests/persistence/test_postgres_console_read_model.py` -
-  라이브 Postgres 대상 종단 간 라운드트립. `FDAI_DATABASE_URL`이 없으면
-  스킵. 로컬 `docker-compose` dev 스택 (`bash scripts/deployment/local/dev-up.sh`)이
-  `postgresql+psycopg://fdai:devonly@localhost:5432/fdai`로 노출한다.
+- `services/operator-service/tests/test_operator_service_composition.py` - 환경 및 조립 가드.
+- `services/operator-service/tests/test_operator_service_postgres.py` - DSN, 쿼리, 시간 제한 및 행 매핑 계약.
+- `services/operator-service/tests/test_live_stream.py` - 단계 중계, 잘못된 프레임 거부 및 수명 주기 동작.
+- `services/operator-service/tests/test_semantic_kafka_adapter.py` 및 `test_semantic_turn_bridge.py` - 의미 전송, 재생, 임대 및 수명 주기 동작.
 
 ## 관련 문서
 

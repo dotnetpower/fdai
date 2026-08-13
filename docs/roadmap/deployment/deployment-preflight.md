@@ -21,16 +21,36 @@ reports them all at once, up front.
 > value below is supplied by config or a fork - the upstream ships the machinery
 > and generic taxonomy, never a customer's specific guardrail values
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
->
-> **Implementation status.** The production `deploy-dev` workflow runs
-> `fdaictl deploy preflight`, stores sanitized Azure/runner evidence in private Blob storage,
-> and binds both digests to the exact plan. The control-loop remediation-PR path and a real
-> GitHub Check publisher are not wired yet.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Probe contracts, deterministic probes, analyzer, and report | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/`, `services/core-control-plane/src/fdai/shared/providers/feasibility_probe.py`, and focused deploy-preflight tests | Stable findings, fail-closed probe execution, verdicts, and shadow-versus-enforce behavior are tested. |
+| Read-only Azure probes and protected-plan evidence | implemented | `scripts/deployment/azure/run_live_preflight.py`, `.github/workflows/deploy-dev.yml`, and `tests/integration/scripts/test_run_live_preflight.py` | The protected runner invokes the standalone script, requires all four live categories, sanitizes evidence, and binds its digest to the plan. |
+| Terraform toggle and environment-profile primitives | implemented | `infra/modules/preflight-toggles/` and focused `test_environment_profile.py` and `test_reassembly_proposals.py` checks | The root app-graph consumer and durable profile refresh task are not composed. |
+| Check publishing primitive | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/check_publish.py` and `test_check_publish.py` | The pure report publisher and in-memory adapter are tested; there is no GitHub Checks adapter. |
+| Control-loop pre-PR gate and GitHub delivery | not-started | The planned boundaries in this document | No live path invokes the analyzer before a remediation PR or publishes the result to GitHub Checks. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected the protected-runner path to the current standalone preflight entrypoint. | current change; focused core preflight and live-script checks listed in the scope table | Compose the root toggle consumer, durable profile refresh, GitHub publisher, and control-loop gate. |
+
+### Remaining work
+
+- [ ] Bind the root app graph to supported preflight toggles and pass a focused Terraform test that proves the denied shape is absent from the re-rendered plan.
+- [ ] Add a durable environment-profile refresh task with Inventory-delta invalidation and pass restart and expiry tests.
+- [ ] Invoke the analyzer before remediation-PR publication, lower blocking findings to human review, and prove with an integration test that no PR opens on a blocked report.
+- [ ] Publish the sanitized report through a GitHub Checks adapter and retain a focused contract test for redaction and failed delivery.
 
 ## Where It Sits in the Loop
 
-The design defines two entry points that share one analyzer. The human deploy path is
-shipped; the control-plane path currently stops at the seam:
+The design defines two entry points that share one analyzer. The protected human deploy path is
+shipped through a standalone runner script; the control-plane path currently stops at the seam:
 
 - **Control plane (planned)**: before the [executor](../architecture/project-structure.md) emits a
   remediation PR, the analyzer checks that the change would actually land in the
@@ -156,8 +176,8 @@ without editing `core/`.
 
 ## Delivery Status
 
-Shipped: the probe seam, generic deterministic probes, analyzer + report, Azure CLI-backed
-`fdaictl` entry point, protected-plan evidence binding in the deploy workflow, and tests.
+Shipped: the probe seam, generic deterministic probes, analyzer + report, standalone Azure
+preflight script, protected-plan evidence binding in the deploy workflow, and tests.
 
 1. **Azure probes and protected-plan evidence (shipped)**: a shared read-only ARM client (`AzureArmClient`, injected
    `httpx.AsyncClient` + `WorkloadIdentity` bearer token, fail-closed) plus the
@@ -168,7 +188,7 @@ Shipped: the probe seam, generic deterministic probes, analyzer + report, Azure 
   type-exists guard; unknown siblings remain fail-closed. Isolated live validation proved one
   RG-scoped disk deny maps to `disk_provisioning=attach_existing`, while a real quota shortage
   remains a manual blocker; the temporary assignment was removed through its reviewed rollback.
-  `fdaictl deploy preflight --environment-config` composes both through the same
+  `scripts/deployment/azure/run_live_preflight.py` composes them through the same
   analyzer with Azure CLI workload identity, bounded read-only ARM transport,
   neutral-to-ARM type mapping, and sanitized fail-closed errors. The existing
   Resource Graph role observer is also composed through `AzureIdentityRbacProbe`

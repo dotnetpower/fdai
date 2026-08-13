@@ -3,19 +3,38 @@ title: Provisioning Execution Profiles
 ---
 # Provisioning Execution Profiles
 
-This document defines how `fdaictl` selects a provisioning host, connectivity mode, command
+This document defines how the planned `fdaictl` distribution selects a provisioning host, connectivity mode, command
 transport, and access path. It also defines the human approval and workload-identity boundary
 that applies before Terraform changes infrastructure or role assignments.
 
-> **Implementation status:** Read-only `fdaictl provision inspect` and private `provision init`
-> profile persistence are implemented. Offline-kit manifest construction, signature, compatibility,
-> exact file-set verification, and inspection integration are implemented behind an injected
-> release root. Pinned root packaging,
-> bootstrap plan/apply orchestration, temporary public-access cleanup, and
-> post-provision verification remain target behavior.
->
 > **Scope:** Azure is the implemented target. The profiles do not change the Terraform source of
 > truth or allow local fallback around a private endpoint.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Read-only inspection and profile initialization commands | not-started | Repository package metadata and the command contracts in this document | No dedicated CLI distribution or `fdaictl` project script currently exists. |
+| Managed VM, private backend, and protected runner | implemented | `infra/bootstrap/`, `.github/workflows/deploy-dev.yml`, and focused bootstrap and workflow tests | The durable VNet host, workload identity, private state, protected plan, and exact-apply mechanics exist without the local CLI facade. |
+| Offline-kit construction and verification | in-progress | `scripts/deployment/release/build-offline-kit.py` and `stage-offline-kit.sh` | Release scripts exist, but their imported `fdai.deployment_cli.offline_kit` implementation is absent. |
+| Temporary public-access cleanup | not-started | The access preference contract in this document | No composed command proves bounded creation, automatic cleanup, incomplete-on-cleanup-failure behavior, and audit closure. |
+| Pinned TUF root and rotation | not-started | `docs/runbooks/offline-trust-ceremony.md` | The first root ceremony, package resource, client bootstrap, and rotation evidence remain open. |
+| Post-provision verification | in-progress | Protected workflow checks and `docs/roadmap/operations/operating-and-verification.md` | Runner-side convergence, migrations, health, and canary checks exist; the complete CLI-driven lifecycle and disconnected receipt do not. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected inspection, profile persistence, and offline verification from implemented to their evidence-backed current states. | current change; package metadata, bootstrap source, release scripts, and focused workflow checks listed in the scope table | Create the CLI package, restore offline verification, complete trust bootstrap, and validate the full lifecycle. |
+
+### Remaining work
+
+- [ ] Implement `provision inspect` and `provision init` in the dedicated CLI package and pass no-mutation, mode-`0600`/`0700`, overwrite, symlink, and stable-JSON tests.
+- [ ] Restore offline-kit verification behind an injected release root and pass signature-before-parse, exact-file-set, no-follow digest, compatibility, and bounds tests.
+- [ ] Implement temporary public-access creation and cleanup so cleanup failure leaves an incomplete audited operation, then pass CIDR, duration, authentication, rollback, and idempotency tests.
+- [ ] Complete the TUF root ceremony and package bootstrap, then retain a governed inspect-to-plan-to-apply-to-cleanup-to-verification receipt.
 
 ## Design at a glance
 
@@ -32,7 +51,7 @@ operator installed the wheel.
 
 ## Read-only inspection
 
-Run inspection before creating a bootstrap plan:
+The target command runs inspection before creating a bootstrap plan:
 
 ```bash
 fdaictl provision inspect --output json
@@ -56,11 +75,11 @@ File presence alone never establishes trust. With a composition-injected pinned 
 inspection checks signature, compatibility, exact files, digests, and bounds, then returns only
 non-secret manifest metadata. Rejected content is `incomplete`; verified content can make a
 complete existing-host profile `ready`. Until the public root ceremony packages that verifier,
-the shipped CLI keeps offline directories at `candidate` / `review`.
+the target CLI must keep offline directories at `candidate` / `review`.
 
 ## Profile initialization
 
-Save a reviewed profile with explicit, resolved values:
+The target initialization command saves a reviewed profile with explicit, resolved values:
 
 ```bash
 fdaictl provision init \
@@ -101,7 +120,7 @@ unsuitable, or policy requires a dedicated deployment host. The VM remains durab
 deallocated. Protected state, plans, approvals, and audit records remain in private storage so VM
 start, stop, or rebuild does not change deployment authority.
 
-The CLI recommends a managed VM but does not create one during inspection. Bootstrap planning
+The target CLI recommends a managed VM but does not create one during inspection. Bootstrap planning
 shows the VM, network, identity, role, access, cost, stop, and cleanup effects before approval.
 
 ## Access preference
@@ -125,7 +144,7 @@ operation incomplete and writes an audit record.
 Online delivery uses the public `fdai` package from PyPI and a version-matched signed deployment
 bundle. The runner may use public sources only after the allowlisted TLS checks pass.
 
-The release workflow builds the wheel and source distribution once in a read-only job, checks that
+The target release workflow builds the wheel and source distribution once in a read-only job, checks that
 the Python and bundle versions match, and publishes that exact artifact through PyPI Trusted
 Publishing only after the matching signed bundle is published. Only the publish job receives the
 GitHub OIDC permission; no long-lived PyPI token is stored.
@@ -149,7 +168,7 @@ Offline mode blocks fallback to PyPI, GitHub, and the public Terraform registry.
 source may be an approved internal mirror or removable media. The installer and `fdaictl` verify
 the same pinned release root in both cases.
 
-`verify_offline_kit` checks an Ed25519 signature before parsing the manifest, binds exact CLI and
+The target `verify_offline_kit` implementation checks an Ed25519 signature before parsing the manifest, binds exact CLI and
 platform versions, rejects symlinks and extra files, streams every file digest, and requires the
 wheel, signed deployment bundle, Terraform binary and provider mirror, OPA, and SBOM. The release
 root is injectable for tests, release construction, and pinned inspection composition only.
@@ -163,12 +182,13 @@ refuses to plan when that verification fails. Both paths resolve every artifact 
 manifest rather than from a directory convention. When the pinned root ships, `--release-root`
 becomes a planning override that inspection still does not accept.
 
-`build_offline_kit_manifest` is the release-side inverse of that verifier. It reads the staged kit
+`build_offline_kit_manifest` is the intended release-side inverse of that verifier. It reads the staged kit
 with the same scan, so it refuses to describe a symlink, a non-regular entry, or an out-of-bound
 tree, and it derives the file list from the stage rather than from an operator-supplied list. A
 declared artifact role that is absent from the stage fails before anything is signed, and two
 builds of identical content produce one identical signable byte string.
-`scripts/deployment/release/build-offline-kit.py` adds signing: it loads an operator-held Ed25519
+`scripts/deployment/release/build-offline-kit.py` is intended to add signing after the verifier
+module is restored: it loads an operator-held Ed25519
 private key, removes any stale signature before writing the new manifest so an interrupted run
 leaves an unverifiable kit rather than a plausible one, and re-verifies the written kit against
 the public release root before reporting. The private key never enters the kit, the repository,

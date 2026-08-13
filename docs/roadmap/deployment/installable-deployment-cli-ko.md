@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 7dc250d652343ab8e634d1715148087d00788a3c
-translation_revised: 2026-08-12
+translation_source_sha: c86e83be4662d4188da65da42c36a96c23005dce
+translation_revised: 2026-08-14
 ---
 # 설치형 배포 CLI
 
@@ -10,24 +10,37 @@ translation_revised: 2026-08-12
 설치하고, 읽기 전용 배포 preflight를 실행한 다음, 로컬 머신을 통해 비밀을 이동하지 않고
 승인된 Terraform 계획을 배포 실행기에 제출할 수 있습니다.
 
-> **상태:** Increment C1과 C2의 static 부분은 출처 분포에 구현되었습니다.
-> `fdaictl` 진입점, 결정론적 `version` 및 `doctor` 출력, 안전한 `onboard init`, 활성 Azure
-> 대상 가드, network-free `deploy preflight`, Terraform 계획 JSON analysis, 로컬
-> `security audit`을 사용할 수 있습니다. 원격 배포 계약, plan-only GitHub 작업 흐름
-> 전달, exact-plan 적용 가드도 구현되었습니다. 범위가 제한된 실제 운영 Azure Policy, Compute 할당량,
-> Resource Graph 신원, value-blind Key Vault 시크릿 탐색과 실행기 TLS egress 근거를
-> 사용할 수 있습니다. 읽기 전용 `provision inspect`, signed 번들 빌드/verify/release
-> 작업 흐름, 운영 exact-plan 적용 배선, 프로파일 영속성, PyPI Trusted 발행도
-> 구현됐습니다. Offline 점검은 composition-injected pinned 검증기로 trusted 또는 rejected
-> 키트 근거를 보고하며 운영자 trust-root 재정의를 노출하지 않습니다. Offline-kit 빌드, 서명,
-> 검증도 구현됐습니다. `provision plan` 은 검증된 킷에서 disconnected 앱 계층 계획 을
-> 오케스트레이션합니다. 첫 PyPI 게시, pinned offline 루트 packaging,
-> 내부 mirror/disconnected 전달, 적용 orchestration, 정리는 남았습니다.
->
 > **실행 경계:** Terraform은 인프라 실행 엔진이자 정본으로 유지됩니다. `fdaictl`은
-> 검증, 계획 분석, 작업 흐름 제출, 배포 후 검사를 위한 얇은 orchestration 계층입니다.
+> 계획된 `fdaictl` 배포판은 검증, 계획 분석, 작업 흐름 제출, 배포 후 검사를 위한 얇은
+> 조정 계층입니다.
 >
 > **구현 초점:** Azure가 유일한 구현 대상입니다. 비-Azure 프로바이더 지원은 연기됩니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 전용 `fdaictl` 배포판 및 명령 진입점 | not-started | 저장소의 `pyproject.toml` 파일과 이 문서의 계획된 휠 섹션 | 현재 어떤 프로젝트도 `fdaictl` 스크립트를 등록하지 않으며, 사용 중단된 `fdai.deployment_cli` 런타임 패키지는 없습니다. |
+| 코어 배포 프리플라이트 기본 요소 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/` 및 프리플라이트 집중 테스트 | 분석기, 리포트, Azure 실제 검사 스크립트, 토글 기본 요소 및 재조립 로직은 배포 CLI 파사드와 독립적으로 존재합니다. |
+| 보호된 실행기 계획 및 exact-apply 작업 흐름 | implemented | `.github/workflows/deploy-dev.yml` 및 집중 배포 작업 흐름 테스트 | 실행기는 보호된 계획 수립, 근거 연결, 점유/증적 가드, 수렴, 마이그레이션 및 상태 검사를 소유합니다. 패키지된 로컬 CLI 클라이언트는 없습니다. |
+| 서명된 배포 번들 release 경로 | in-progress | `scripts/deployment/release/build-deployment-bundle.py`, `.github/workflows/release-deployment-bundle.yml` 및 작업 흐름 테스트 | 빌드 및 작업 흐름 계약은 있지만 작업 흐름은 아직 사용할 수 없는 `fdaictl bundle verify` 명령을 호출합니다. |
+| Offline 키트 및 폐쇄망 계획 | in-progress | `scripts/deployment/release/stage-offline-kit.sh`, `build-offline-kit.py` 및 `airgap-drill.sh` | 스크립트는 있지만 `build-offline-kit.py`가 존재하지 않는 `fdai.deployment_cli.offline_kit` 모듈을 가져오므로 경로를 끝까지 실행할 수 없습니다. |
+| 공개 설치 및 정리 경험 | not-started | 이 문서의 목표 설치 및 정리 계약 | 첫 공개 CLI 게시, pinned offline 루트 패키지 및 `deploy teardown` 명령이 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 제거된 배포 CLI 패키지와 그 명령을 현재 사용할 수 있다는 이전 주장을 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 패키지 메타데이터, release 스크립트, 보호된 작업 흐름 및 집중 작업 흐름 검사 | 전용 CLI 배포판을 만들고 그 경계 뒤에 검증 기능을 복원한 뒤 설치와 폐쇄망 사용을 입증해야 합니다. |
+
+### 남은 작업
+
+- [ ] `fdaictl` 프로젝트 스크립트를 가진 전용 경량 CLI 배포판을 추가하고, 결정론적 `version`, `doctor` 및 `security audit` 출력에 대한 소스 설치와 격리 휠 테스트를 통과합니다.
+- [ ] 기존 프리플라이트와 보호된 작업 흐름 계약을 `deploy preflight`, `plan`, `status`, `apply`에 연결하고 잘못된 대상, 실패 시 중단, exact-plan, 만료 및 정보 제거 테스트를 통과합니다.
+- [ ] 번들 및 offline-kit 검증을 전용 CLI 패키지로 옮기고 깨끗한 체크아웃에서 두 release 작업 흐름을 통과한 뒤 네트워크 없는 air-gap 훈련을 성공시킵니다.
+- [ ] Offline trust 루트를 포함한 첫 pinned CLI release를 게시하고 설치, 업그레이드, 롤백, 내부 mirror 전달 및 보호된 정리를 검토 가능한 증적으로 입증합니다.
 
 ## 한눈에 보는 설계
 
@@ -87,11 +100,8 @@ uvx --from fdai==<version> fdaictl deploy preflight --environment dev
 Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누락되거나 호환되지 않는
 도구를 보고합니다.
 
-> `version`, `doctor`, `onboard init`, guarded `onboard guided`, portable `backup create` 및
-> `backup restore`, `deploy preflight`, plan-only `deploy plan` 전달은 구현되었습니다.
-> 정제된 계획 메타데이터 상태는 `deploy status`로 조회할 수 있고 guarded exact-plan
-> 제출은 `deploy apply`로 사용할 수 있습니다. `release upgrade|rollback`,
-> `extension validate`, `trajectory validate`도 구현됐고 정리는 아직 사용 불가입니다.
+> 이 목록은 목표 명령 집합입니다. 현재 소스 트리는 `fdaictl` 진입점을 등록하지 않습니다.
+> 구현 상태와 관찰 가능한 종료 조건은 위 원장에서 추적합니다.
 
 ## 명령 모델
 
@@ -246,8 +256,9 @@ feature 설정은 검증된 구성 스키마에서 가져옵니다. 향후 명�
 CLI 안에 두 번째 준비 상태 룰 집합을 구현하지 않고 공유 보고 및 탐색 계약을 재사용하는
 것이 좋습니다.
 
-구현된 static 경로는 배포의 neutral 범위, 리소스 타입, 필요한 egress 호스트, 근거에 기반한
-정책 사실을 포함하는 versioned JSON 입력을 받습니다. 결정론적 로컬 탐색만 실행하고
+구현된 분석기 기본 요소는 versioned JSON 입력이 나타내는 데이터를 받습니다. 목표 CLI 경로는
+배포의 neutral 범위, 리소스 타입, 필요한 egress 호스트, 근거에 기반한 정책 사실을 포함하는
+입력을 노출합니다. 결정론적 로컬 탐색만 실행하고
 네트워크 호출을 수행하지 않으며 analyzer의 고정된 정렬과 shadow-versus-enforce 의미를
 유지합니다. 기계가 읽는 `terraform show -json` 출력은 `--terraform-plan`으로 전달합니다.
 입력의 명시적 `terraform_resource_type_map`은 `create` 액션이 있는 managed 리소스만
@@ -404,7 +415,7 @@ CLI 버전 `<version>`은 기본적으로 번들 `<version>`을 확인합니다.
 제공할 수 있지만 동일한 검증을 적용합니다. 명시적으로 문서화된 호환성 범위가
 허용하지 않는 버전 mismatch는 계획 세대 전에 실패합니다.
 
-`fdaictl bundle verify --bundle <dir> --public-key <pem>`은 검증 측을 구현합니다.
+`fdaictl bundle verify --bundle <dir> --public-key <pem>`은 목표 검증 측을 정의합니다.
 Ed25519 공개 키만 받고 detached 매니페스트 서명을 검증하고 현재 CLI와 매니페스트
 호환성 범위를 비교하고 탐색 및 symlink를 차단합니다. 정확히 listed 파일 집합 및
 listed JSON SBOM을 요구하고 모든 SHA-256 검사를 스트리밍하며 total-size 상한을 적용합니다.
@@ -422,7 +433,7 @@ Signing-key 또는 bundle-building 코드는 포함하지 않습니다.
 서명 후 채널을 변경하면 서명이 무효화됩니다. 번들 검증은 버전 및 매니페스트
 다이제스트와 함께 signed 채널을 반환합니다.
 
-Approval-gated `release-deployment-bundle` 작업 흐름은 `release` GitHub 환경의
+승인 게이트가 있는 `release-deployment-bundle` 작업 흐름은 `release` GitHub 환경의
 `FDAI_BUNDLE_SIGNING_KEY_PEM`을 읽고 동일 커밋 및 `SOURCE_DATE_EPOCH`에서 두 번 빌드합니다.
 두 디렉터리, 보관, 공개 키를 byte-for-byte 비교하고 `fdaictl bundle verify`를 실행한 뒤
 보관, 공개 키, 매니페스트, 서명, 체크섬을 30일 Actions 산출물로 게시합니다.
@@ -559,8 +570,9 @@ FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy apply \
 다이제스트, 만료만 노출합니다. 계획 파일, 상태, 자격 증명 또는 시크릿 값은 노출하지 않습니다.
 Physical 정리가 아직 블롭을 제거하지 않았더라도 적용은 logical 만료를 차단해야 합니다.
 
-Transport-neutral 기반은 `fdai.deployment_cli.remote`에 구현되었습니다. `PlanRecord`는 opaque
-메타데이터만 포함하며 `RemoteDeploymentService`는 적용 전에 이를 다시 부하합니다. 로컬 가드는
+계획된 전송 중립 기반은 전용 배포 CLI 배포판에 속하며 사용 중단된
+`fdai.deployment_cli.remote` 모듈은 현재 없습니다. 이 기반의 `PlanRecord`는 opaque
+메타데이터만 포함하고 `RemoteDeploymentService`는 적용 전에 이를 다시 읽습니다. 로컬 가드는
 `ready` 상태, 유효한 보존, 정확한 테넌트/구독/환경/번들/커밋/백엔드/
 실행기 맥락, clear enforced preflight, approved 실행기 가용성을 요구합니다. 이후
 caller-supplied replacement가 아니라 workflow-owned stored 다이제스트를 제출합니다. 구체적인 GitHub
@@ -608,26 +620,12 @@ plan-only 전송 계층은 현재 전달 실행 상세를 반환하고 실행기
 
 | Increment | 상태 | 범위 | 종료 기준 |
 |-----------|------|------|-----------|
-| C1: 패키지, doctor 및 로컬 security | 구현됨 | Console 항목 지점, 버전 출력, toolchain 및 auth 진단, 로컬 onboarding 구성, 로컬 security 감사 | 출처 install이 결정론적 텍스트 및 JSON을 생성하고 대상 mismatch와 critical 로컬 자세가 식별자 또는 값을 노출하지 않고 실패 시 차단 처리됨 |
-| C2: 읽기 전용 preflight | 구현됨 | Static 및 Terraform-plan analysis, 실제 운영 Policy/할당량/신원/시크릿 탐색, hash-only 근거를 사용하는 범위가 제한된 실행기 TLS egress 구현 | Mock 전송 계층이 변경 및 secret-value 읽기가 없음을 입증하고 실패한/불완전한 탐색이 clear 결과를 차단함 |
-| C3: 계획 작업 흐름 | 구현됨 | Opaque 맥락 다이제스트, doctor/대상 가드, 현재 GitHub 전달 API, exact-commit 가드, 비공개 변경할 수 없는 계획 업로드, metadata-only 상태 산출물, logical 만료, 범위가 제한된 physical 정리 구현 | Plan-only가 기본이며 대상 식별자는 전달과 메타데이터에 없고 적용은 계속 사용 불가 |
-| C4: 적용 작업 흐름 | 구현됨 | Exact 복원/검증기, 완전한 실행기 Policy/할당량/신원/시크릿 및 egress 근거, dual 근거 다이제스트, 가드, 승인, at-most-once 점유, 감사/상태, Terraform convergence, 이행, 상태 검사 | Stale, mismatched, evidence-tampered, claimed, applied, 만료된, non-converged, unhealthy 계획은 applied 증적을 생성할 수 없음 |
-| C5: release 강화 | 부분 구현 | Ed25519 번들 검증, signed release 채널, atomic 업그레이드/롤백 상태, reproducible 번들 및 Python 분포 빌드, SBOM, GitHub release, OIDC PyPI 게시 구현, 첫 게시, 내부 mirror, disconnected 전달은 남음 | Version-matched 번들과 Python 산출물이 게시 전 검증 통과 |
-| C6: Guided onboarding | 구현됨 | 순서가 고정된 doctor, 비공개 구성, 대상 가드, 실제 운영 preflight, plan-only 실행기 전달, 범위가 제한된 정제된 상태 post-check | Stage-spy 테스트가 fail-stop 순서와 guided 경로가 로컬 적용을 가져오기하거나 호출하지 않음을 입증 |
-
-## 수락 기준
-
-다음 기준을 테스트할 수 있으면 roadmap에서 구현으로 승격할 준비가 된 것입니다.
-
-- Clean 호스트가 격리된 도구 명령 하나로 pinned CLI 버전을 설치할 수 있음.
-- `doctor`가 작업 흐름 제출 전에 잘못된 Azure 구독을 식별함.
-- `deploy preflight`가 읽기 전용이고 동일한 입력에 byte-stable JSON을 생성함.
-- `onboard guided`가 첫 실패한 단계에서 중지하고 로컬 적용 경로를 노출하지 않음.
-- 탐색 실패가 `clear`로 보고될 수 없음.
-- Private-everything 테넌트가 항상 계획과 적용을 VNet 실행기로 라우팅함.
-- 적용이 기록된 계획 다이제스트를 사용하고 stale 또는 mismatched 계획을 차단함.
-- 시크릿, 상태 파일, binary 계획이 최종 출력 또는 로컬 머신에 도달하지 않음.
-- CLI와 배포 번들을 이전에 서명된 버전으로 함께 롤백할 수 있음.
+| C1: 패키지, doctor 및 로컬 security | 시작하지 않음 | 콘솔 진입점, 버전 출력, toolchain 및 인증 진단, 로컬 onboarding 구성, 로컬 security 감사 | 소스 설치가 결정론적 텍스트와 JSON을 생성하고 대상 불일치와 치명적 로컬 상태가 식별자 또는 값을 노출하지 않고 실패 시 차단됨 |
+| C2: 읽기 전용 preflight | 부분 구현 | 정적 및 Terraform 계획 분석, 실제 Policy/할당량/신원/시크릿 탐색, hash-only 근거를 사용하는 범위가 제한된 실행기 TLS egress | 코어와 독립 실행형 실행기 검사는 통과하며 전용 CLI 파사드가 남아 있음 |
+| C3: 계획 작업 흐름 | 부분 구현 | Opaque 맥락 다이제스트, doctor/대상 가드, GitHub 전달, exact-commit 가드, 비공개 변경 불가 계획 업로드, metadata-only 상태, 논리적 만료 및 정리 | 실행기 작업 흐름은 있으며 로컬 CLI 전달 및 상태 클라이언트가 남아 있음 |
+| C4: 적용 작업 흐름 | 부분 구현 | Exact 복원/검증기, 실행기 근거, 승인, at-most-once 점유, 증적, 수렴, 마이그레이션 및 상태 검사 | 실행기 작업 흐름은 있으며 로컬 exact-plan 클라이언트와 종단 간 CLI 근거가 남아 있음 |
+| C5: release 강화 | 부분 구현 | 재현 가능한 번들 빌드, signed 채널, SBOM, GitHub Release 및 OIDC PyPI 작업 흐름 | 전용 패키지에 검증을 복원한 뒤 첫 게시와 폐쇄망 전달을 완료해야 함 |
+| C6: Guided onboarding | 시작하지 않음 | 순서가 고정된 doctor, 비공개 구성, 대상 가드, 실제 프리플라이트, 계획 전용 전달 및 범위가 제한된 정제 상태 후속 검사 | 전용 CLI 단계 감시 테스트가 실패 시 중단 순서와 로컬 적용 경로 부재를 입증함 |
 
 ## 미결 질문 및 결정
 
