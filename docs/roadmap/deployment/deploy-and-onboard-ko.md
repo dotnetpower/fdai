@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: d3e9db4f07c4326da2f80c50cb3ee37f2f20cd2e
+translation_source_sha: 5c5d522c554718364d4697b04ed7773b7fd5a775
 translation_revised: 2026-08-13
 ---
 
@@ -33,7 +33,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| Protected platform 계획 및 exact 적용 | validated | `.github/workflows/deploy-dev.yml` 및 통제된 배포 증적 | Private runner 계획, 변경할 수 없는 적용 claim 및 post-apply 검사가 제공됩니다. |
+| Protected platform 계획 및 exact 적용 | implemented | `.github/workflows/deploy-dev.yml` 및 집중 배포 workflow 검사 | Private runner 계획, 변경할 수 없는 적용 claim 및 post-apply 검사가 제공되지만, 통제된 platform 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
 | 독립 소유 런타임 service | validated | `.github/workflows/service-deploy.yml` 및 `config/independent-service-live-evidence-manifest.json` | 각 service에 별도 root, protected 계획, 상태 검사 및 rollback evidence가 있습니다. |
 | OHL scale-out evidence target 및 proposal Job | implemented | `infra/` 및 `services/core-control-plane/src/fdai/delivery/`의 current change, 집중 Terraform 및 publisher test 결과 8 passed와 13 passed | 둘 다 기본적으로 비활성화되며 protected 적용이 남아 있습니다. |
 | OHL production evidence campaign | in-progress | `config/ohl-scale-out-evidence.json` 및 `docs/runbooks/ohl-scale-out-evidence-ko.md` | Runtime rollout, 통제된 실행, sample 100개 및 14일 recurrence window가 남아 있습니다. |
@@ -45,13 +45,13 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 |------|------|------|------|-----------|
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 범위가 제한된 OHL evidence target의 protected provisioning 및 proposal-only Job을 추가했습니다. | current change, 집중 Terraform test 결과 8 passed 및 publisher/workflow test 결과 13 passed | Exact 계획을 적용하고 증명된 런타임 이미지를 배포한 뒤 실제 evidence campaign을 완료합니다. |
 | 2026-08-13 | implemented | 로컬 파괴적 migration 검증을 활성 로컬 런타임 PostgreSQL cluster에서 격리했습니다. | 현재 변경, Compose configuration 통과, focused queue 및 local-environment test 68개 통과, 격리된 migration upgrade/downgrade 검사 2개 통과. | 로컬 검증 데이터베이스 격리에 남은 구현 작업은 없습니다. |
+| 2026-08-13 | implemented | Protected platform 계획 및 exact 적용 상태를 `validated`에서 `implemented`로 정정했습니다. Workflow source는 메커니즘을 입증하지만 리포지토리는 통제된 platform 적용 증적을 보존하지 않습니다. | current change, `.github/workflows/deploy-dev.yml`, roadmap, 번역 및 문서 검사 | `validated`로 복원하기 전에 리포지토리에 안전한 통제된 platform 적용 증적을 보존합니다. |
 
 ### 남은 작업
 
-- [ ] OHL target과 exact-revision Core 및 Executor image의 protected 적용 증적을 기록하고
-  배포된 revision이 같은 source commit으로 해석되는지 검증합니다.
-- [ ] 통제된 `ops.scale-out` 훈련을 완료하고 독립 rollback, cleanup, graph outcome, sample
-  100개 및 14일 recurrence evidence를 보존합니다.
+- [ ] Exact protected 계획, source revision, target identity 및 post-apply 검증을 결합하는 리포지토리에 안전한 통제된 platform 적용 증적을 보존한 뒤 platform exact 적용 범위를 `validated`로 전환합니다.
+- [ ] OHL target과 exact-revision Core 및 Executor image의 protected 적용 증적을 기록하고 배포된 revision이 같은 source commit으로 해석되는지 검증합니다.
+- [ ] 통제된 `ops.scale-out` 훈련을 완료하고 독립 rollback, cleanup, graph outcome, sample 100개 및 14일 recurrence evidence를 보존합니다.
 
 ## 전제조건(Prerequisites)
 

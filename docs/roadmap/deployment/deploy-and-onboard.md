@@ -29,7 +29,7 @@ All identifiers are synthetic per
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Protected platform plan and exact apply | validated | `.github/workflows/deploy-dev.yml` and governed deployment receipts | Private-runner planning, immutable apply claims, and post-apply checks are shipped. |
+| Protected platform plan and exact apply | implemented | `.github/workflows/deploy-dev.yml` and focused deployment workflow checks | Private-runner planning, immutable apply claims, and post-apply checks are shipped; no governed platform apply receipt is retained in the repository. |
 | Independently owned runtime services | validated | `.github/workflows/service-deploy.yml` and `config/independent-service-live-evidence-manifest.json` | Each service has a separate root, protected plan, health check, and rollback evidence. |
 | OHL scale-out evidence target and proposal Job | implemented | current change in `infra/` and `services/core-control-plane/src/fdai/delivery/`; focused Terraform and publisher tests report 8 and 13 passed | Both are disabled by default and still need a protected apply. |
 | OHL production evidence campaign | in-progress | `config/ohl-scale-out-evidence.json` and `docs/runbooks/ohl-scale-out-evidence.md` | Runtime rollout, governed execution, 100 samples, and the 14-day recurrence window remain open. |
@@ -41,13 +41,13 @@ All identifiers are synthetic per
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added protected provisioning plus a proposal-only Job for the bounded OHL evidence target. | current change; focused Terraform tests report 8 passed and publisher/workflow tests report 13 passed. | Apply the exact plans, deploy attested runtime images, and complete the live evidence campaign. |
 | 2026-08-13 | implemented | Isolated local destructive migration validation from the active local runtime PostgreSQL cluster. | Current change; Compose configuration passed, focused queue and local-environment tests passed (68 tests), and isolated migration upgrade/downgrade checks passed (2 tests). | No remaining implementation work for local validation database isolation. |
+| 2026-08-13 | implemented | Corrected the protected platform plan and exact-apply state from `validated` to `implemented`; workflow source proves the mechanism, but the repository does not retain a governed platform apply receipt. | current change; `.github/workflows/deploy-dev.yml`; roadmap, translation, and documentation checks. | Retain a repository-safe governed platform apply receipt before restoring `validated`. |
 
 ### Remaining work
 
-- [ ] Record protected apply receipts for the OHL target and exact-revision Core and Executor
-  images, then verify the deployed revisions resolve to the same source commit.
-- [ ] Complete the governed `ops.scale-out` drill and retain independent rollback, cleanup,
-  graph-outcome, 100-sample, and 14-day recurrence evidence.
+- [ ] Retain a repository-safe governed platform apply receipt that binds the exact protected plan, source revision, target identity, and post-apply verification, then advance the platform exact-apply scope to `validated`.
+- [ ] Record protected apply receipts for the OHL target and exact-revision Core and Executor images, then verify the deployed revisions resolve to the same source commit.
+- [ ] Complete the governed `ops.scale-out` drill and retain independent rollback, cleanup, graph-outcome, 100-sample, and 14-day recurrence evidence.
 
 ## Prerequisites
 

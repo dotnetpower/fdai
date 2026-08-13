@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 20437f517be70c87ab27d50382944387f0960d70
+translation_source_sha: 0e244d9b3c58eb4a870fbcb205ea2be51ee2bed5
 translation_revised: 2026-08-13
 ---
 # 배포 리소스 규약
@@ -20,7 +20,8 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | CAF 명명 및 `fdai:` 소유권 tag | implemented | `infra/main.tf`, `infra/bootstrap/main.tf` 및 집중 Terraform test | Terraform이 이름과 tag를 계산하고 런타임 코드는 출력을 사용합니다. |
-| Terraform state root 규약 | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Platform, service root 5개 및 bootstrap root에 통제된 근거가 있습니다. |
+| 독립 service Terraform state root | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Service root 5개 모두에 통제된 계획, 적용, 상태, peer 격리 및 rollback 근거가 있습니다. |
+| 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
 | OHL scale-out evidence target 명명 및 tag | implemented | `infra/main.tf`의 current change, `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` 결과 8 passed | 실제 프로비저닝 및 recurrence evidence는 열려 있습니다. |
 
 ### 구현 이력
@@ -28,9 +29,13 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 선택적 OHL VM Scale Set 규약을 추가했습니다. | current change, 집중 Terraform test 결과 8 passed | Exact protected 적용 및 실제 OHL 근거를 수집합니다. |
+| 2026-08-13 | implemented | 증적이 있는 service root 5개는 `validated`로 유지하고 이전 방식 platform 및 ops-bootstrap root는 `implemented`로 분류해 광범위한 state-root 주장을 정정했습니다. | current change, `config/independent-service-live-evidence-manifest.json`, `config/independent-service-remote-evidence.json`, roadmap, 번역 및 문서 검사 | `validated`로 전환하기 전에 platform 및 bootstrap root의 통제된 적용 증적을 보존합니다. |
 
 ### 남은 작업
 
+- [ ] 이전 방식 platform 및 ops-bootstrap root의 리포지토리에 안전한 통제된 적용 증적을
+  보존합니다. 각 증적은 해당 root를 `validated`로 전환하기 전에 backend key, exact protected
+  계획, source revision, target identity 및 post-apply 검증을 결합해야 합니다.
 - [ ] OHL target이 결정론적 이름, 애플리케이션 resource group 배치, 비공개 subnet 및 필수
   `fdai:` tag를 유지함을 보여 주는 protected 적용 증적을 기록합니다.
 
