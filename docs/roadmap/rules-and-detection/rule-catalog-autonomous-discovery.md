@@ -108,3 +108,29 @@ no model call):
 - **Flood detection** - identical candidate fingerprints beyond a repeat cap are quarantined as
   a suspected poisoning flood (Norns already dedups legitimate proposals, so a repeat burst is
   anomalous).
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Candidate grounding and poisoning guard | implemented | `services/core-control-plane/src/fdai/agents/_framework/candidate_guard.py`; `services/core-control-plane/tests/agents/test_candidate_guard.py` | Mimir quarantines ungrounded, malformed, or flooding candidates without granting promotion authority. |
+| Norns consensus | implemented | `services/core-control-plane/src/fdai/agents/_framework/norns_consensus.py`; `services/core-control-plane/tests/agents/test_norns_consensus.py` | All three deterministic perspectives must agree before Norns publishes an inert candidate. |
+| Candidate review and catalog compilation | implemented | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `review.py`; `services/core-control-plane/tests/agents/test_mimir_catalog_review.py` | Review packages and bounded publication state are implemented; activation still requires the ordinary catalog-as-code path. |
+| Override and operational-signal intake | in-progress | `services/core-control-plane/src/fdai/agents/norns.py`; focused Norns learning tests | Several deterministic signals can produce candidates, but the override-specific governance artifact is not implemented. |
+| Long-horizon discovery cycle and shadow dwell | not-started | [Loop](#loop); [Safety and trust](#safety-and-trust) | No production scheduler retains complete observe-to-integrate cycle metrics or per-candidate shadow-dwell evidence. |
+| Mixed-model cross-check | not-started | [Loop](#loop) | The required independent model-family cross-check is design-only for this discovery loop. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Complete the scheduled loop, shadow evidence, override intake, and mixed-model gate. |
+
+### Remaining work
+
+- [ ] Implement a bounded scheduler that persists one complete observe, hypothesize, verify, and integrate cycle with replayable identities.
+- [ ] Retain per-candidate shadow duration, sample size, accuracy, and zero-escape evidence and enforce the configured thresholds.
+- [ ] Bind override events and the independent model-family cross-check, then prove disagreement holds for human review.
+- [ ] Publish governed cycle throughput, gate pass, override-trigger, and retirement metrics.

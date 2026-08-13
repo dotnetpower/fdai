@@ -253,9 +253,10 @@ provenance:
   `redistribution` (`embeddable` | `reference-only`). `redistribution`, not the license name,
   drives enforcement: a `reference-only` source may contribute authored logic plus provenance,
   but its raw content is blocked from the tree.
-- **CI enforces this**, not review alone: the build fails if any file under a `reference-only`
-  source's collector contains verbatim source text, and secret / customer-data scans run on all
-  collected output
+- **Current enforcement:** manifests and normalized artifacts carry strict `license` and
+  `redistribution` fields, and semantic-surface generation rejects declared reference-only raw
+  text. A repository-wide verbatim-source detector for arbitrary restricted content is not wired;
+  review and the existing secret/customer-data gates remain required until that focused gate ships
   ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 - **Untrusted content**: source-provided text (rationale, descriptions) is untrusted input - it
   may carry secrets or prompt-injection. It is stored as inert data, length-bounded and scanned,
@@ -587,6 +588,31 @@ authored Rego AST. The synchronizer invokes OPA, verifies the package `rule_id`,
 The complete candidate-generation loop, verification requirements, override feedback, safety
 boundaries, and CandidateGuard behavior live in
 [Autonomous Rule Discovery](rule-catalog-autonomous-discovery.md).
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Manifest, collection, snapshot, and watcher pipeline | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/`; `watcher.py`; focused `tests/rule_catalog/pipeline/test_collect.py`; `test_watcher.py` | On-demand and cadence evaluation are implemented with deterministic snapshots and fail-closed collection. |
+| Shipped parsers and collected Rule corpora | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/parse/`; `rule-catalog/collected/`; focused parser and full-catalog tests | Rule YAML, Rego, Azure Policy, and kube-bench paths are implemented; reserved parsers remain explicit failures. |
+| Best practices and MCSB catalogs | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/best_practice_catalog.py`; `mcsb_catalog.py`; `rule-catalog/best-practices/`; `rule-catalog/compliance/mcsb/` | Strict loaders and current versioned catalogs are implemented. |
+| Configuration and measurement baselines | not-started | [Configuration baseline](#config-baseline-hardened-reference-set); [Measurement baseline](#measurement-baseline-performance-reference---separate-store) | These remain target shapes without dedicated schemas and loaders. |
+| Restricted-content repository gate | in-progress | [Licensing](#licensing-read-before-adding-a-source); current change source audit | Structured redistribution checks exist, but no general verbatim detector can prove arbitrary restricted source text is absent. |
+| Production discovery schedule and pull-request delivery | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/watcher_cli.py`; `promotion.py`; [Open decisions](#open-decisions) | Core stages exist; deployment scheduling, credentials, and governed pull-request delivery remain integration work. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected the unsupported repository-wide licensing enforcement claim. | `current change`; current source, catalogs, and focused tests listed in the scope table. | Add the missing baseline contracts, focused restricted-content gate, and production delivery binding. |
+
+### Remaining work
+
+- [ ] Implement and test dedicated `ConfigurationBaseline` and `MeasurementBaseline` contracts, loaders, and repository layouts.
+- [ ] Add a focused repository gate with reviewable fixtures that rejects prohibited reference-only source bodies without storing restricted examples.
+- [ ] Bind watcher cadence, source credentials, snapshot storage, and catalog pull-request publication in a deployment and retain one replayable update receipt.
 
 ## Open Decisions
 

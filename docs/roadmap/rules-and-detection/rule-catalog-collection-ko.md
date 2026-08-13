@@ -1,8 +1,8 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: 57813cf5b5714bce32fc48faac58bd943c74d0d5
-translation_revised: 2026-08-11
+translation_source_sha: eae1f4261e065d67228b86917a24674260e6b577
+translation_revised: 2026-08-14
 ---
 
 # 규칙 카탈로그 수집(Rule 카탈로그 수집)
@@ -252,8 +252,10 @@ provenance:
   제한된 소스에 대한 `LicenseRef-reference-only` - 와 `redistribution` (`embeddable` |
   `reference-only`). 강제를 주도하는 것은 라이선스 이름이 아니라 `redistribution` : `reference-
   only` 소스는 authored 로직 + 출처 이력을 기여할 수 있지만, 원시 컨텐트는 트리에서 블록됨.
-- **CI가 이를 강제** , 리뷰만이 아님: `reference-only` 소스의 컬렉터 아래 어떤 파일이 verbatim
-  소스 텍스트를 포함하면 빌드 실패, 시크릿 / 고객-데이터 스캔이 모든 수집된 출력에 실행됨
+- **현재 강제 범위:** 매니페스트와 정규화된 아티팩트는 엄격한 `license` 및
+  `redistribution` 필드를 가지며, 의미 표면 생성은 선언된 reference-only 원문을 거부합니다.
+  임의의 제한 콘텐츠를 찾는 저장소 전체 verbatim 탐지기는 연결되지 않았습니다. 해당 집중
+  게이트가 제공될 때까지 검토와 기존 시크릿/고객 데이터 게이트가 계속 필요합니다
   ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 - **신뢰할 수 없는 컨텐트**: 소스 제공 텍스트(근거 설명, 설명) 는 신뢰할 수 없는 입력 - 시크릿이나
   프롬프트-인젝션을 운반할 수 있음. inert 데이터로 저장, 길이-bounded 및 스캔, 절대 지시로
@@ -582,6 +584,31 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 검�
 
 전체 후보 생성 루프, 검증 요건, 재정의 피드백, 안전 경계, CandidateGuard 동작은
 [자율 규칙 발견](rule-catalog-autonomous-discovery-ko.md)에서 설명합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 매니페스트, 수집, 스냅샷, watcher 파이프라인 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/`; `watcher.py`; 집중 `tests/rule_catalog/pipeline/test_collect.py`; `test_watcher.py` | 요청 시 실행과 주기 평가가 결정론적 스냅샷 및 실패 시 차단 수집과 함께 구현되어 있습니다. |
+| 제공 파서 및 수집 Rule 말뭉치 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/parse/`; `rule-catalog/collected/`; 집중 파서 및 전체 카탈로그 테스트 | Rule YAML, Rego, Azure Policy, kube-bench 경로가 구현됐으며 예약 파서는 명시적으로 실패합니다. |
+| 모범 사례 및 MCSB 카탈로그 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/best_practice_catalog.py`; `mcsb_catalog.py`; `rule-catalog/best-practices/`; `rule-catalog/compliance/mcsb/` | 엄격한 로더와 현재 버전별 카탈로그가 구현되어 있습니다. |
+| 구성 및 측정 기준선 | not-started | [구성 기준선](#구성-기준선-하드닝된-참조-세트); [측정 기준선](#측정-기준선-성능-참조---별도-저장) | 전용 스키마와 로더가 없는 목표 형상으로 남아 있습니다. |
+| 제한 콘텐츠 저장소 게이트 | in-progress | [라이선싱](#라이선싱-소스-추가-전-읽기); 현재 변경의 소스 감사 | 구조화된 재배포 검사는 있지만 임의의 제한 원문 부재를 증명하는 범용 verbatim 탐지기는 없습니다. |
+| 운영 발견 일정 및 pull request 전달 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/watcher_cli.py`; `promotion.py`; [열린 결정](#열림-decisions) | 핵심 단계는 있지만 배포 일정, 자격 증명, 관리되는 pull request 전달은 통합 작업으로 남아 있습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 근거 없는 저장소 전체 라이선스 강제 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스, 카탈로그, 집중 테스트. | 누락된 기준선 계약, 제한 콘텐츠 집중 게이트, 운영 전달 연결을 추가합니다. |
+
+### 남은 작업
+
+- [ ] 전용 `ConfigurationBaseline` 및 `MeasurementBaseline` 계약, 로더, 저장소 레이아웃을 구현하고 테스트합니다.
+- [ ] 제한된 예제를 저장하지 않으면서 금지된 reference-only 원문을 거부하는 검토 가능한 픽스처 기반 집중 저장소 게이트를 추가합니다.
+- [ ] 배포에서 watcher 주기, 출처 자격 증명, 스냅샷 저장소, 카탈로그 pull request 게시를 연결하고 재현 가능한 갱신 증적 하나를 보존합니다.
 
 ## 열림 Decisions
 

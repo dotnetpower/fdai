@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: afafab110bbe13be7cc301d27edca9915344581b
-translation_revised: 2026-08-11
+translation_source_sha: 7df9621dbdafdf4c7e04861d655dd56d604da825
+translation_revised: 2026-08-14
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -447,6 +447,32 @@ provenance:
 > 위 할당은 의도적으로 **완전히 shadow에 유지** - 룰 집합의
 > `object-storage.public-access.deny` 에 대한 `deny` 기본이 `audit` 로 오버라이드되고 별도
 > 승격 승인이 flip할 때까지 `enforcement` 는 `do-not-enforce`.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 효과, 범위, 배정, rule-set 계약 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/effect.py`; `scope.py`; `assignment.py`; `rule_set.py`; 집중 스키마 테스트 | 엄격한 모델이 잘못된 범위, 참조, 효과, rule-set 확장을 거부합니다. |
+| 거버넌스 카탈로그 및 전이 CI | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_catalog.py`; `governance_transitions.py`; `scripts/governance/check-governance-transitions.py`; `.github/workflows/ci.yml` | 디렉터리 로딩과 검토된 효과/적용 전이 검사가 연결되어 있습니다. |
+| Exemption 및 만료 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/schema/exemption.py`; `exemption_cli.py`; `scripts/governance/exemption-expire.py`; 집중 exemption 테스트 | 엄격한 아티팩트와 독립 실행 만료 명령이 있습니다. 카탈로그 로딩, 예약 실행, 최대 기간, 알림은 남아 있습니다. |
+| 재정의 아티팩트 및 해석 | not-started | [재정의](#재정의); 현재 변경의 소스 감사 | 재정의 전용 스키마, 디렉터리 로더, 우선순위 해석기, 런타임 소비자가 없습니다. |
+| T0 배정 소비 | not-started | [구현 상태 요약](#규칙-거버넌스rule-governance); 현재 변경의 소스 감사 | T0 조립은 해석된 배정을 로드하거나 효과 및 적용 결정을 사용하지 않습니다. |
+| 거버넌스 pull request 신원 검사 | not-started | [관리자 컨트롤 흐름](#관리자-컨트롤-흐름-gitops-버튼-아님) | 거버넌스 PR 전이의 OID, 역할, 정족수, 자기 승인 검사는 설계 작업으로 남아 있습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스, CI 연결, 집중 테스트. | T0 소비를 연결하고 exemption 운영을 완성하며 관리되는 재정의와 PR 신원 검사를 구현합니다. |
+
+### 남은 작업
+
+- [ ] 시작 시 하나의 불변 거버넌스 카탈로그를 로드하고 T0가 안전성 검토를 우회하지 않으면서 해석된 효과, 적용, 범위, 제외, 우선순위를 적용함을 증명합니다.
+- [ ] Exemption을 거버넌스 카탈로그에 통합하고 구성된 최대 기간을 적용하며 만료 일정을 실행하고 감사 근거와 함께 만료 전 알림을 전달합니다.
+- [ ] 리소스 그룹 이하 범위 검사와 함께 범위가 제한된 재정의 스키마, 로더, 우선순위 해석기, 런타임 소비를 구현합니다.
+- [ ] 운영자 신원, 필수 역할, 정족수, 자기 승인 방지를 위한 pull request 전이 검사를 추가합니다.
 
 ## 열림 Decisions
 

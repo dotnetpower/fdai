@@ -300,6 +300,31 @@ the only activation path; Saga seals review outcomes from Mimir-owned `object.ru
 | Azure absorption | Every non-Kubernetes treatment names a canonical resource type, Azure evidence provider, agent owner, governed action provider or explicit no-mutation outcome, and non-production proof. |
 | Coverage honesty | Missing provider coverage remains an explicit unsupported surface and cannot satisfy `operationalized` or `azure_validated`. |
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| O0-O1 case contracts and projection | implemented | `services/core-control-plane/src/fdai/core/case_history/`; `services/core-control-plane/tests/core/case_history/test_operational_case.py`; `test_service.py` | Immutable inputs, canonical fingerprints, negative outcomes, revisions, and persistence are covered. |
+| O2 cohort learning | implemented | `services/core-control-plane/src/fdai/core/operational_learning/patterns.py`; `services/core-control-plane/tests/agents/test_operating_pattern_learning_e2e.py`; `test_norns_operating_pattern.py` | Muninn seals bounded cohorts and Norns emits only balanced inert candidates through consensus. |
+| O3 catalog compilation | in-progress | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `review.py`; `services/core-control-plane/tests/core/operational_learning/test_catalog_compilation.py` | Core review packages are implemented. The production validator and pull-request publisher remain deployment bindings. |
+| O4 current-evidence T1 reuse | implemented | `services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py`; `tests/core/test_control_loop_t1_wire.py` | Missing, stale, changed, or unsafe current evidence holds for review without mutation. |
+| O5-O6 Azure evidence bindings | validated | [Delivery plan](#delivery-plan); `services/core-control-plane/src/fdai/delivery/azure/operational_evidence.py`; focused delivery tests | Repository-recorded non-production AKS and read-only Azure drills provide the required operational evidence without a production claim. |
+| O7 promotion measurement | in-progress | `services/core-control-plane/src/fdai/core/measurement/operational_promotion.py`; `operational_promotion_runner.py`; `services/core-control-plane/tests/core/measurement/test_operational_promotion.py` | The gate and durable receipt path are implemented, but required action-specific live days and confidence samples remain incomplete. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; delivery-plan evidence and focused source/tests listed in the scope table. | Complete deployment bindings and O7 action-specific evidence thresholds. |
+
+### Remaining work
+
+- [ ] Bind the O3 production validator and pull-request publisher and prove quarantine, retry, audit, and idempotent publication end to end.
+- [ ] Bind the Forseti-owned causal projection, frozen/live evidence source, and receipt verifiers in the target deployment.
+- [ ] Accumulate the O7 per-action live days, sample sizes, complete recurrence windows, Wilson bounds, and zero-escape evidence required for promotion review.
+
 ## Related docs
 
 | To learn about | Read |

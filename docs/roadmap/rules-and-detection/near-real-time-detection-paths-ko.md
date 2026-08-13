@@ -1,8 +1,8 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: 6d80a4e695c53f30ae94194d650bf4ba176b5803
-translation_revised: 2026-08-11
+translation_source_sha: 711578ffdcd6b846e3f66564f6f85e43e97dda6e
+translation_revised: 2026-08-14
 ---
 
 # 근실시간 감지 경로
@@ -10,15 +10,15 @@ translation_revised: 2026-08-11
 이벤트로 도착하는 신호(KubeEvents, Activity Log 등)는 이미 서브초에
 처리되지만, **샘플 메트릭 경로에서 지연이 살아있음**. 이 문서는 이 리포가
 지원하는 모든 push / pull 경로를 열거해서 포크가 자기 비용·지연 예산에
-맞는 조합을 고를 수 있게 합니다. 업스트림은 가장 안전한 pull 기준선을 shadow 모드에서
-1분마다 기본 실행합니다. Analyzer 틱 cron을 명시적으로 빈 값으로 설정하면 비활성화됩니다.
-더 빠른 push 경로는 Terraform 및 env-var 경계를 통해 계속 명시적 선택합니다.
+맞는 조합을 고를 수 있게 합니다. 업스트림은 1분 간격 분석 작업과 라우팅된 메트릭
+프로바이더를 선언하지만, 현재 트리에는 작업이 호출하는 `fdai.delivery.analyzer_tick_cli`
+모듈이 없습니다. 더 빠른 push 경로는 Terraform 및 조립 경계를 통해 계속 명시적으로 선택합니다.
 
-> **구현 상태**: Pull 프로바이더/CLI, 두 push 정규화기/경로 및 Terraform 기본 요소는
-> 구현되어 있습니다. 경로 #2 Kafka 소비자 glue는 포크 작업입니다. 경로 #1은 추가로 인증
-> 브리지가 필요합니다. 현재 액션 그룹 Terraform 웹훅 receiver는 FDAI 경로가 요구하는
-> Bearer 헤더를 설정하지 않으므로 인증된 proxy 또는 AAD secure-webhook 어댑터 없이
-> 경로를 직접 호출할 수 없습니다.
+> **현재 제공 범위**: 라우팅된 메트릭 프로바이더와 두 Terraform 기본 요소는 구현되어
+> 있습니다. 분석 작업은 현재 존재하지 않는 CLI 모듈을 대상으로 합니다. Operator Service는
+> 호환성 매니페스트에 Azure Monitor 경로를 유지하지만, 현재 소스 트리에는 요청 처리기나 push
+> 정규화기가 없습니다. 따라서 push 경로는 실행 가능한 종단 간 경로가 아니라 설계 및 인프라
+> 기본 요소로 남아 있습니다.
 
 ## 지연 요약
 
@@ -127,16 +127,15 @@ per-alert-rule Terraform 반복 작업을 피하고 싶을 때. 리소스당 진
   루트가 두 번째 소비자 인스턴스를 진단 허브에 붙이고 각 배치를
   정규화기로 흘려주면 됨.
 
-## Pull 기준선 - `analyzer_tick_cli` + `RoutedMetricProvider`
+## Pull 기준선 - 분석 작업 + `RoutedMetricProvider`
 
-모든 포크가 사용할 수 있는 기본 기준선
+모든 포크가 사용할 수 있는 프로바이더 라우팅
 ([observability-and-detection-ko.md](observability-and-detection-ko.md)
 참조).
 [analyzer 틱 작업](../../../infra/modules/compute/container-apps/analyzer_tick_job.tf)이
-cron으로 `python -m fdai.delivery.analyzer_tick_cli`를 실행;
-CLI가 조립된 `MetricProvider`
-([Prom > Metrics API > Logs](../architecture/csp-neutrality-ko.md))에
-대해 참조 임계값 analyzer들을 호출.
+cron으로 `python -m fdai.delivery.analyzer_tick_cli`를 실행합니다. 현재 트리에는 이 모듈이
+없으므로 선언된 작업은 아직 실행 가능한 기준선이 아닙니다. 기존 `MetricProvider` 조립은
+([Prom > Metrics API > Logs](../architecture/csp-neutrality-ko.md)) 사이를 계속 라우팅합니다.
 
 `analyzer_tick_cron_expression`은 기본 1분입니다. 대상 목록이 비어 있으면 영속 인벤토리
 변환 결과를 사용하므로 새로 발견된 지원 리소스가 배포 변경 없이 다음 틱에 포함됩니다.
@@ -199,6 +198,32 @@ Stale 스냅샷 또는 degraded 커버리지는 passed가 아니라 사용 불�
 
 어느 조합도 업스트림 코어 변경을 요구하지 않지만 포크의 Terraform/조립 연결이
 필요하고 경로 #1은 인증 브리지도 필요합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 라우팅된 pull 프로바이더 | implemented | `services/core-control-plane/src/fdai/composition/wire_metric_provider.py`; `services/core-control-plane/tests/providers/test_routed_metric.py` | Prometheus, Metrics API, Logs 프로바이더를 결정론적 경로 순서로 선택합니다. |
+| 예약된 분석 작업 | in-progress | `infra/modules/compute/container-apps/analyzer_tick_job.tf`; 현재 변경의 소스 감사 | Terraform은 1분 간격 작업을 선언하지만 `fdai.delivery.analyzer_tick_cli` 진입점이 현재 트리에 없습니다. |
+| AKS 감지 준비도 축약 | implemented | `services/core-control-plane/tests/agents/test_huginn_detection_readiness.py`; `tests/integration/infra/test_detection_readiness.py` | 집중 테스트가 에이전트 소유 준비도 관측과 인프라 계약을 검증합니다. 이는 구현 근거이며 실제 지연 근거는 아닙니다. |
+| 메트릭 경보 웹훅 경로 | in-progress | `infra/modules/observability/metric-alert-rules/main.tf`; `services/operator-service/src/fdai_operator_service/families/operations/manifest.py`; `services/operator-service/tests/test_operator_operations_family.py` | Terraform 기본 요소와 호환성 경로 선언이 있습니다. 처리기, 정규화기, 인증된 액션 그룹 브리지는 없습니다. |
+| Diagnostic Event Hub 경로 | in-progress | `infra/modules/observability/diagnostic-eventhub-route/main.tf`; `services/core-control-plane/src/fdai/delivery/azure/event_bus.py` | 라우팅 모듈과 Kafka 어댑터가 있습니다. 진단 기록 정규화와 조립 연결은 없습니다. |
+| 관리형 경보 규칙 작성 | not-started | [아직 제공되지 않은 항목](#아직-배송-안-됨) | 관리되는 Rule 항목에서 경보 규칙을 구체화하는 카탈로그 기반 생성기가 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 현재 소스 트리에 맞게 종단 간 제공 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 경로와 집중 검증. | 실행 가능한 pull 진입점을 복원하고 인증된 두 push 경로를 완성합니다. |
+
+### 남은 작업
+
+- [ ] `fdai.delivery.analyzer_tick_cli`를 추가하거나 예약 작업을 테스트된 대체 진입점으로 변경하고, 한 번의 틱이 라우팅된 프로바이더에 도달함을 집중 통합 테스트로 증명합니다.
+- [ ] 경로 #1에 테스트된 Azure Monitor 요청 처리기, 페이로드 정규화기, 인증된 액션 그룹 브리지를 추가합니다.
+- [ ] 경로 #2의 기록을 유입 토픽으로 전달하는 테스트된 진단 기록 정규화기와 조립 연결을 추가합니다.
+- [ ] 경로 상태를 `implemented`에서 `validated`로 변경하기 전에 각 경로의 관리되는 지연 근거를 기록합니다.
 
 ## 아직 배송 안 됨
 

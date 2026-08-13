@@ -1,8 +1,8 @@
 ---
 title: Rule-catalog profile 및 collector
 translation_of: rule-catalog-profiles.md
-translation_source_sha: dde16ae7e74319d3590df1c022752cea8486bb15
-translation_revised: 2026-08-11
+translation_source_sha: 1a0205806bbf05b702fc568d9511c085c5657b9d
+translation_revised: 2026-08-14
 ---
 # Rule-catalog 프로파일 및 수집기
 
@@ -160,6 +160,30 @@ rules:
 > `resolve()` 호출이 추가되어야 한다. 지금 당장 프로파일 레이어가
 > 필요한 포크 는 업스트림 기본값 연결기 가 배선되기 전까지
 > wrapping factory 로 자체 resolved 프로파일 을 바인딩 가능.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 프로파일 계약 및 결정론적 해석 | implemented | `services/core-control-plane/src/fdai/core/rule_catalog_profiles/models.py`; `registry.py`; `services/core-control-plane/tests/core/rule_catalog_profiles/test_registry.py` | 상속, 재정의 우선순위, 순환 거부, 심각도 하한, 안정된 정렬을 검증합니다. |
+| 정본 업스트림 프로파일 | implemented | `rule-catalog/profiles/baseline.yaml`; `recommended.yaml`; `strict.yaml`; `services/core-control-plane/tests/core/rule_catalog_profiles/test_full_profile_resolution.py` | 세 프로파일 모두 현재 알려진 Rule id를 기준으로 해석됩니다. |
+| 가져온 규정 준수 프로파일 | implemented | `rule-catalog/profiles/collected/`; `services/core-control-plane/tests/core/rule_catalog_profiles/test_full_profile_resolution.py` | 수집된 프로파일은 참조 묶음으로 유지되며, 포함된 Rule은 구성원이라는 이유로 적용 권한을 얻지 않습니다. |
+| 런타임 프로파일 선택 | not-started | [포크 도입 playbook](#4-포크-도입-playbook); 현재 변경의 소스 감사 | 조립 루트는 `FDAI_PROFILE_ID`를 읽거나 해석된 프로파일을 T0 및 안전성 검토에 전달하지 않습니다. |
+| 예약된 파서 지원 | not-started | [구현되지 않은 예약 파서](#reserved-but-unimplemented-파서) | `checkov-yaml`과 `gatekeeper-templates`는 명시적인 실패 시 차단 placeholder로 남아 있습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스, 카탈로그, 집중 테스트. | 런타임 프로파일 선택을 연결하고 제공 대상으로 선택한 파서 플러그인만 구현합니다. |
+
+### 남은 작업
+
+- [ ] 시작 시 관리되는 프로파일 id를 읽고 한 번 해석한 뒤 T0와 안전성 검토가 같은 불변 결과를 소비함을 증명합니다.
+- [ ] 테넌트 값을 노출하지 않으면서 선택된 프로파일과 다이제스트를 보여 주는 시작 진단을 추가합니다.
+- [ ] 출처 매니페스트가 승인된 경우에만 각 예약 파서를 구현하고 테스트하며, 그전에는 `ParserNotImplementedError`를 유지합니다.
 
 ## 5. 이 문서가 아닌 것
 

@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: e7fac3be6f1d7bb8a8ff119e4dbeb7b0751fcade
-translation_revised: 2026-08-11
+translation_source_sha: 5b9250927bb35d6bd0e3e883e580131b61c6fc15
+translation_revised: 2026-08-14
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -533,10 +533,11 @@ telemetry / metrics
 
 ### 런타임 전달 상태
 
-Container Apps analyzer 및 스케줄러 작업 은 정본 멱등적 Event 를 구성된 Event
-Hubs ingest 토픽 에 publish 합니다. 변경을 직접 실행하지 않으며 발견 사항 과 due 작업 는
-shared trust-router 및 risk-gate 로 다시 진입합니다. Publish 실패 시 scheduled 항목 은
-재시도 가능한 상태를 유지하고 작업 은 non-zero 결과를 반환합니다.
+스케줄러 전달 경로는 정본 멱등 Event를 구성된 Event Hubs 유입 토픽에 게시합니다.
+분석기 Terraform 작업은 현재 소스 트리에 없는 `fdai.delivery.analyzer_tick_cli`를 계속
+호출하므로 분석기 경로는 실행 가능한 제공 상태가 아닙니다. 이 작업들은 변경을 실행하지
+않으며, 발견된 문제와 예정 작업은 공유 trust router 및 안전성 검토에 다시 진입합니다.
+게시 실패 시 예약 항목은 재시도 가능 상태로 유지되고 작업 결과는 0이 아닌 값입니다.
 
 Azure 리소스 생성, 갱신, 삭제 신호는 정본 Event Hubs 유입을 통해 계속
 흐릅니다. Huginn은 이 실시간 발견 유입을 소유하고 정규화된 Event에 리소스 신원,
@@ -549,6 +550,31 @@ Azure 리소스 생성, 갱신, 삭제 신호는 정본 Event Hubs 유입을 통
 보존하며 Heimdall은 관찰기로 유지됩니다. 인벤토리 작업은 10분마다 영속 시도 상태를
 확인하고 due일 때만 정상 6시간 검사를 실행하며, newer 실패한/abandoned 시도는 다음 틱에 재시도합니다.
 Core 런타임에는 job-start 권한을 부여하지 않습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 이벤트 상관관계 | implemented | `services/core-control-plane/src/fdai/core/event_ingest/correlator.py`; `services/core-control-plane/tests/core/event_ingest/test_correlator.py` | 결정론적 그룹화, 에피소드 범위, 안정된 인시던트 신원을 집중 테스트로 검증합니다. |
+| 이상 및 복합 감지 | implemented | `services/core-control-plane/src/fdai/core/detection/anomaly.py`; `seasonal.py`; `composite.py`; 집중 `tests/core/detection/test_*.py` | 콜드 스타트, 평탄 기준선, 정족수, 중복 축약, 설명 가능한 점수가 실패 시 차단됩니다. |
+| 예측 및 결과 종결 | implemented | `services/core-control-plane/src/fdai/core/detection/forecast.py`; `forecast_outcome.py`; `forecast_closure.py`; 집중 예측 테스트 | 예측, 검열, 종결 계약이 구현되어 있습니다. 승격에는 측정된 배포 근거가 계속 필요합니다. |
+| 구성 표류 | implemented | `services/core-control-plane/src/fdai/core/detection/configuration_drift.py`; `configuration_drift_service.py`; 집중 구성 표류 테스트 | 동결 기준선, 결정론적 비교, 검토, 보고는 근거 전용으로 유지됩니다. |
+| 예약된 분석기 전달 | in-progress | `infra/modules/compute/container-apps/analyzer_tick_job.tf`; 현재 변경의 소스 감사 | 프로바이더 라우팅은 있지만 구성된 `fdai.delivery.analyzer_tick_cli` 진입점이 없습니다. |
+| 관리되는 운영 정확도 | in-progress | [런타임 전달 상태](#런타임-전달-상태); [열린 결정](#열림-decisions) | 런타임 정밀도, 재현율, 구간 포괄률, 선행 시간, 오탐 근거는 배포 작업으로 남아 있습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 현재 트리에 맞게 분석기 전달 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트. | 분석기 전달을 복원하고 관리되는 정확도 근거를 보존합니다. |
+
+### 남은 작업
+
+- [ ] 누락된 분석기 진입점을 추가하거나 Terraform 작업을 테스트된 서비스 명령으로 변경하고 정본 Event 게시 및 재시도 동작을 증명합니다.
+- [ ] 감지기 정밀도, 재현율, 누락 위반, 구간 포괄률, 예측 선행 시간, 판단 보류 비율의 배포 근거를 기록합니다.
+- [ ] [열린 결정](#열림-decisions)의 신호 등급별 방법, 기준선 이력, 승격 임계값을 확정하고 관리되는 구성에 인코딩합니다.
 
 ## 열림 Decisions
 

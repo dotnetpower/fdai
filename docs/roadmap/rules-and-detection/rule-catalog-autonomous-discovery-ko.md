@@ -1,8 +1,8 @@
 ---
 title: 자율 규칙 발견(Autonomous Rule Discovery)
 translation_of: rule-catalog-autonomous-discovery.md
-translation_source_sha: 0b32a0ee60fd529a287875b64f77e1e314f2d7cc
-translation_revised: 2026-08-11
+translation_source_sha: 64f108327e9b61b099220ff520ac5fdde7d1b8e5
+translation_revised: 2026-08-14
 ---
 
 # 자율 규칙 발견(자율 Rule 발견)
@@ -105,3 +105,29 @@ sources + operational signals ─► observe ─► hypothesize ─► verify �
   개수 가 비양수면 손상되거나 위조된 신호다).
 - **Flood 감지** - 동일 후보 지문 가 반복 상한을 넘으면 poisoning flood 의심으로
   격리 구역 된다(Norns 가 정당한 제안은 이미 dedup 하므로 반복 burst 는 이상이다).
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 후보 근거 및 오염 방어 | implemented | `services/core-control-plane/src/fdai/agents/_framework/candidate_guard.py`; `services/core-control-plane/tests/agents/test_candidate_guard.py` | Mimir는 근거가 없거나 잘못됐거나 범람하는 후보를 승격 권한 없이 격리합니다. |
+| Norns 합의 | implemented | `services/core-control-plane/src/fdai/agents/_framework/norns_consensus.py`; `services/core-control-plane/tests/agents/test_norns_consensus.py` | Norns가 비활성 후보를 게시하기 전에 세 결정론적 관점이 모두 동의해야 합니다. |
+| 후보 검토 및 카탈로그 컴파일 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `review.py`; `services/core-control-plane/tests/agents/test_mimir_catalog_review.py` | 검토 패키지와 범위가 제한된 게시 상태가 구현되어 있습니다. 활성화에는 기존 catalog-as-code 경로가 계속 필요합니다. |
+| 재정의 및 운영 신호 유입 | in-progress | `services/core-control-plane/src/fdai/agents/norns.py`; 집중 Norns 학습 테스트 | 여러 결정론적 신호가 후보를 만들 수 있지만 재정의 전용 거버넌스 아티팩트는 구현되지 않았습니다. |
+| 장기 발견 주기 및 shadow 체류 | not-started | [루프](#루프); [안전과 신뢰](#안전과-신뢰) | 완전한 관측-가설-검증-통합 주기 메트릭이나 후보별 shadow 체류 근거를 보존하는 운영 스케줄러가 없습니다. |
+| 혼합 모델 교차 검증 | not-started | [루프](#루프) | 이 발견 루프에 필요한 독립 모델 계열 교차 검증은 설계 상태입니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트. | 예약된 루프, shadow 근거, 재정의 유입, 혼합 모델 게이트를 완성합니다. |
+
+### 남은 작업
+
+- [ ] 재현 가능한 신원과 함께 하나의 완전한 관측, 가설, 검증, 통합 주기를 보존하는 범위 제한 스케줄러를 구현합니다.
+- [ ] 후보별 shadow 기간, 표본 크기, 정확도, 위반 0건 근거를 보존하고 구성된 임계값을 적용합니다.
+- [ ] 재정의 이벤트와 독립 모델 계열 교차 검증을 연결하고 불일치가 사람 검토로 보류됨을 증명합니다.
+- [ ] 관리되는 주기 처리량, 게이트 통과, 재정의 유발, 폐기 메트릭을 게시합니다.
