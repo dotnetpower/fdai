@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from time import perf_counter
@@ -22,6 +23,7 @@ def _result(
     started_at: float,
     *,
     model_evidence: ModelStartupEvidence,
+    evidence: Mapping[str, bool | float | int | str] | None = None,
 ) -> StartupProbeResult:
     observed_at = datetime.now(UTC)
     return StartupProbeResult(
@@ -30,6 +32,7 @@ def _result(
         observed_at=observed_at,
         expires_at=observed_at + timedelta(minutes=5),
         latency_ms=(perf_counter() - started_at) * 1000,
+        evidence=dict(evidence or {}),
         model_evidence=model_evidence,
     )
 
@@ -74,40 +77,53 @@ class EmbeddingStartupProbe:
 
 
 class CrossCheckModelStartupProbe:
-    """Collect bounded structured-output proof for one T2 model candidate."""
+    """Collect one retryable process-local proof for a T2 model candidate."""
 
     def __init__(self, *, probe_id: str, model: CrossCheckModel) -> None:
         self.probe_id = probe_id
         self._model = model
+        self._proof: ModelStartupEvidence | None = None
+        self._lock = asyncio.Lock()
 
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
         started_at = perf_counter()
-        latencies: list[float] = []
-        with with_correlation(_correlation_id(self.probe_id)):
-            for sample in range(request.model_sample_count):
-                sample_started = perf_counter()
-                action_type, params = await self._model.propose(
-                    QualityCandidate(
-                        action_type="startup-readiness-probe",
-                        target_resource_ref="synthetic:startup-readiness",
-                        params={"sample": sample},
-                        cited_rule_ids=(),
-                    )
+        async with self._lock:
+            if self._proof is not None and self._proof.sample_count >= request.model_sample_count:
+                return _result(
+                    self.probe_id,
+                    started_at,
+                    model_evidence=self._proof,
+                    evidence={"sampled": False, "previously_proven": True},
                 )
-                latencies.append((perf_counter() - sample_started) * 1000)
-                if not action_type or not isinstance(params, Mapping):
-                    raise RuntimeError(
-                        "cross-check startup probe returned invalid structured output"
+
+            latencies: list[float] = []
+            with with_correlation(_correlation_id(self.probe_id)):
+                for sample in range(request.model_sample_count):
+                    sample_started = perf_counter()
+                    action_type, params = await self._model.propose(
+                        QualityCandidate(
+                            action_type="startup-readiness-probe",
+                            target_resource_ref="synthetic:startup-readiness",
+                            params={"sample": sample},
+                            cited_rule_ids=(),
+                        )
                     )
-        return _result(
-            self.probe_id,
-            started_at,
-            model_evidence=ModelStartupEvidence(
+                    latencies.append((perf_counter() - sample_started) * 1000)
+                    if not action_type or not isinstance(params, Mapping):
+                        raise RuntimeError(
+                            "cross-check startup probe returned invalid structured output"
+                        )
+            self._proof = ModelStartupEvidence(
                 sample_count=request.model_sample_count,
                 total_latency_ms=tuple(latencies),
                 structured_output_proven=True,
-            ),
-        )
+            )
+            return _result(
+                self.probe_id,
+                started_at,
+                model_evidence=self._proof,
+                evidence={"sampled": True, "previously_proven": False},
+            )
 
 
 class StreamingModel(Protocol):
