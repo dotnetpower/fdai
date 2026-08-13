@@ -240,6 +240,39 @@ class EpistemicCoverageReceipt:
     passed: bool
     receipt_digest: str
 
+    def __post_init__(self) -> None:
+        _require_digest("ontology_release_digest", self.ontology_release_digest)
+        _require_ordered_digests(
+            "principal_manifest_digests",
+            self.principal_manifest_digests,
+        )
+        _require_digest("question_universe_digest", self.question_universe_digest)
+        _require_digest("receipt_digest", self.receipt_digest)
+        if not 0 <= self.expected_case_count <= _MAX_CASES:
+            raise ValueError("epistemic expected case count is outside the bound")
+        if not 0 <= self.closed_case_count <= self.expected_case_count:
+            raise ValueError("epistemic closed case count is outside the expected bound")
+        if self.violation_count < 0:
+            raise ValueError("epistemic violation count MUST be non-negative")
+        expected_passed = (
+            self.closed_case_count == self.expected_case_count and self.violation_count == 0
+        )
+        if self.passed is not expected_passed:
+            raise ValueError("epistemic coverage pass state does not match its counts")
+        if self.receipt_digest != _digest(self._body()):
+            raise ValueError("epistemic coverage receipt digest does not match its content")
+
+    def _body(self) -> dict[str, object]:
+        return {
+            "ontology_release_digest": self.ontology_release_digest,
+            "principal_manifest_digests": self.principal_manifest_digests,
+            "question_universe_digest": self.question_universe_digest,
+            "expected_case_count": self.expected_case_count,
+            "closed_case_count": self.closed_case_count,
+            "violation_count": self.violation_count,
+            "passed": self.passed,
+        }
+
 
 def evaluate_epistemic_coverage(
     *,

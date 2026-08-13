@@ -99,10 +99,14 @@ def _nonanswered(
     )
 
 
-def _epistemic_coverage() -> EpistemicCoverageReceipt:
+def _epistemic_coverage(
+    *,
+    release_digest: str = DIGEST,
+    principal_manifest_digest: str = DIGEST,
+) -> EpistemicCoverageReceipt:
     universe = QuestionUniverseReceipt.build(
-        ontology_release_digest=DIGEST,
-        principal_manifest_digests=(DIGEST,),
+        ontology_release_digest=release_digest,
+        principal_manifest_digests=(principal_manifest_digest,),
         grammar_digest=_digest("9"),
         case_ids=("answered",),
     )
@@ -329,24 +333,17 @@ def test_gate_rejects_incomplete_structural_and_question_identity_inputs() -> No
             structural_receipts=(structural.model_copy(update={"complete": False}),),
             questions=(answered,),
         )
-    epistemic = _epistemic_coverage()
     with pytest.raises(ValueError, match="match the structural release"):
         evaluate_ontology_query_coverage(
             structural_receipts=(structural,),
             questions=(answered,),
-            epistemic_coverage=replace(
-                epistemic,
-                ontology_release_digest=_digest("b"),
-            ),
+            epistemic_coverage=_epistemic_coverage(release_digest=_digest("b")),
         )
     with pytest.raises(ValueError, match="match all principal manifests"):
         evaluate_ontology_query_coverage(
             structural_receipts=(structural,),
             questions=(answered,),
-            epistemic_coverage=replace(
-                epistemic,
-                principal_manifest_digests=(_digest("b"),),
-            ),
+            epistemic_coverage=_epistemic_coverage(principal_manifest_digest=_digest("b")),
         )
     with pytest.raises(ValueError, match="requires a non-empty cohort"):
         evaluate_ontology_query_coverage(structural_receipts=(structural,), questions=())
