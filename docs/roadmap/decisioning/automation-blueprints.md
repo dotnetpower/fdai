@@ -21,6 +21,40 @@ The candidate stores evidence fingerprints instead of source text and carries th
 schedule, event type, delivery intent, tools, default-deny isolation, estimated cost, confidence,
 proposer, and expiry. Optional off-path drafting can change bounded display text only.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Evidence contract and deterministic recurrence aggregation | implemented | `services/core-control-plane/src/fdai/core/scheduler/blueprints/models.py`; `services/core-control-plane/src/fdai/core/scheduler/blueprints/aggregator.py`; `services/core-control-plane/tests/core/scheduler/test_blueprint_aggregator.py` | Focused tests cover inert defaults, threshold and order independence, deduplication, scope and authority separation, outcome stability, scheduler-failure veto, recursion blocking, and input validation. |
+| Review, materialization, bounded drafting, audit events, and metric bookkeeping | implemented | `services/core-control-plane/src/fdai/core/scheduler/blueprints/review.py`; `services/core-control-plane/src/fdai/core/scheduler/blueprints/text.py`; `services/core-control-plane/tests/core/scheduler/test_blueprint_review.py` | Focused tests prove authorization, no self-review, terminal suppression, expiry, bounded text, command-mediated and safe-to-retry materialization, audit events, and realized-usage counters. |
+| Suggestion orchestration and configuration-review projection | in-progress | `services/core-control-plane/src/fdai/core/scheduler/blueprints/suggestion.py`; `services/core-control-plane/src/fdai/core/scheduler/blueprints/configuration_review.py` | The off-path service and inert configuration-review projection exist, but no production evidence feed, composition binding, or focused orchestration test is present. |
+| PostgreSQL durability and compare-and-swap transitions | in-progress | `alembic/versions/20260720_0043_automation_blueprint.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_automation_blueprint.py`; `services/core-control-plane/tests/persistence/test_automation_blueprint.py` | The migration, store, and codec exist and the codec test passes. The database-backed persistence and compare-and-swap test was skipped because `FDAI_DATABASE_URL` was unset, so durable behavior is not yet claimed as implemented. |
+| Read-only Console route and response decoder | implemented | `console/src/routes/automation-blueprints.tsx`; `console/src/routes/automation-blueprints.test.ts`; `console/src/panel-sources.ts` | The route renders inert candidate and metric fields, rejects contradictory responses, and exposes no mutation controls. This state does not claim an end-to-end Operator API source. |
+| Operator API projection and authorized ChatOps review routes | not-started | `console/src/panel-sources.ts`; `services/operator-service/src/fdai_operator_service/` | The Console declares `GET /automation-blueprints`, but no matching Operator Service projection or ChatOps accept, reject, and materialize route factory is present. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. Recorded the focused-test-backed aggregation, review, materialization, drafting, metrics, and Console decoder as implemented while separating unbound orchestration, unproved PostgreSQL durability, and missing operator surfaces. | `current change`; source and focused tests listed in the scope table; `uv run pytest -q --no-cov services/core-control-plane/tests/core/scheduler/test_blueprint_aggregator.py services/core-control-plane/tests/core/scheduler/test_blueprint_review.py services/core-control-plane/tests/persistence/test_automation_blueprint.py` (`12 passed, 1 skipped` because `FDAI_DATABASE_URL` was unset); `npm --prefix console test -- --run src/routes/automation-blueprints.test.ts` (`2 passed`) | Bind the production services, prove database-backed transitions, expose governed Operator API and ChatOps routes, and collect runtime evidence before claiming `validated`. |
+
+### Remaining work
+
+- [ ] Bind the production evidence feed, suggestion service, PostgreSQL store, authorizer, audit
+  publisher, and `CreateScheduledTaskCommand`, then pass an integration test that turns three
+  qualifying completed operator turns into one inert durable candidate without recursive input.
+- [ ] Run the migration against a disposable PostgreSQL database and pass
+  `test_postgres_blueprint_store_persists_and_cas_transitions` with `FDAI_DATABASE_URL` set,
+  including concurrent or stale-state compare-and-swap rejection.
+- [ ] Add the Reader-gated Operator Service `GET /automation-blueprints` projection and the
+  separately authorized ChatOps accept, reject, and materialize routes, then pass API integration
+  tests and the Console decoder test against the authoritative response.
+- [ ] Export the documented blueprint metrics from the production binding and record governed
+  runtime evidence for proposal, review, materialization, scheduled occurrence, and realized-usage
+  attribution before changing any scope row to `validated`.
+
 ## Evidence and recurrence
 
 `AutomationBlueprintEvidence` records identity, schedule, event type, resource scope, delivery,
