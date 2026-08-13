@@ -86,8 +86,10 @@ class QuestionUniverseReceipt:
         _require_digest("grammar_digest", self.grammar_digest)
         _require_digest("receipt_digest", self.receipt_digest)
         _require_ordered_digests("principal_manifest_digests", self.principal_manifest_digests)
-        _require_case_ids("case_ids", self.case_ids, allow_empty=False)
+        _require_case_ids("case_ids", self.case_ids, allow_empty=True)
         _require_case_ids("excluded_case_ids", self.excluded_case_ids, allow_empty=True)
+        if not self.case_ids and not self.excluded_case_ids:
+            raise ValueError("question universe MUST contain a case or typed exclusion")
         if set(self.case_ids).intersection(self.excluded_case_ids):
             raise ValueError("question universe cases and exclusions MUST be disjoint")
         if len(self.case_ids) + len(self.excluded_case_ids) > _MAX_CASES:
