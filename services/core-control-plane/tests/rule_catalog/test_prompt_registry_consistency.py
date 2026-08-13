@@ -88,3 +88,18 @@ def test_prompt_only_capabilities_are_locked_to_the_allowlist() -> None:
     assert used_prompt_only <= _PROMPT_ONLY_CAPABILITIES, (
         f"unexpected prompt-only capabilities: {used_prompt_only - _PROMPT_ONLY_CAPABILITIES}"
     )
+
+
+def test_semantic_plan_prompt_pins_the_object_set_verifier_envelope() -> None:
+    prompts = FileSystemPromptRegistry(_CATALOG)
+    artifacts = [
+        artifact for artifact in prompts.artifacts() if artifact.id == "semantic-query-plan"
+    ]
+
+    assert len(artifacts) == 1
+    body = artifacts[0].body
+    assert 'arguments exactly shaped as {"definition":{"selector"' in body
+    assert '"kind":"object_type" or "interface"' in body
+    assert '"as_of":"a current RFC3339 UTC timestamp"' in body
+    assert '"purpose":"the supplied purpose"' in body
+    assert '"limit":1..1000' in body
