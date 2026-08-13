@@ -91,6 +91,22 @@ def test_sqlalchemy_psycopg_dsn_is_normalized_for_direct_driver_use() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "dsn",
+    ["postgresql+psycopg://", "postgresql://", "postgres://"],
+)
+@pytest.mark.parametrize(
+    "config_type",
+    [PostgresOperatorReadModelConfig, PostgresFamilyStoreConfig],
+)
+def test_postgres_configs_reject_targetless_dsn(
+    dsn: str,
+    config_type: type[PostgresOperatorReadModelConfig] | type[PostgresFamilyStoreConfig],
+) -> None:
+    with pytest.raises(ValueError, match="MUST include a connection target"):
+        config_type(dsn)
+
+
 @pytest.mark.asyncio
 async def test_operator_readiness_verifies_role_and_privileges_without_durable_write() -> None:
     store = ReadinessPostgresFamilyStore({"ready": True})

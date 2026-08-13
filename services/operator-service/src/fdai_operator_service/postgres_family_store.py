@@ -99,6 +99,7 @@ class PostgresFamilyStoreConfig:
     def __post_init__(self) -> None:
         if not self.dsn.strip():
             raise ValueError("PostgreSQL DSN MUST be non-empty")
+        _psycopg_dsn(self.dsn)
         if self.role != EXPECTED_DATABASE_ROLE:
             raise ValueError(f"PostgreSQL role MUST be {EXPECTED_DATABASE_ROLE}")
         if self.statement_timeout_ms < 1 or self.connect_timeout_s < 1:
@@ -656,7 +657,10 @@ def _json_object(value: object, *, label: str) -> dict[str, object]:
 
 def _psycopg_dsn(value: str) -> str:
     prefix = "postgresql+psycopg://"
-    return f"postgresql://{value[len(prefix) :]}" if value.startswith(prefix) else value
+    normalized = f"postgresql://{value[len(prefix) :]}" if value.startswith(prefix) else value
+    if normalized in {"postgres://", "postgresql://"}:
+        raise ValueError("PostgreSQL DSN MUST include a connection target")
+    return normalized
 
 
 async def _set_statement_timeout(
