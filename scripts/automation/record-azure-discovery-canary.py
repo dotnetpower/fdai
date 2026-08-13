@@ -35,6 +35,10 @@ from fdai_service_contracts.discovery import (
     DiscoveryUniverse,
     discovery_intent_digest,
 )
+from fdai_service_contracts.discovery_evidence import (
+    DiscoveryCoverageReceipt,
+    ProviderExecutionReceipt,
+)
 from fdai_service_contracts.ontology_query import content_digest
 
 _AZURE_CLI_VERSION = "2.87.0"
@@ -127,7 +131,7 @@ def _resource_group_count(payload: object) -> int:
     return discovered_count
 
 
-def _resource_type_summary(payload: object) -> tuple[int, tuple[str, ...]]:
+def _resource_type_summary(payload: object) -> tuple[int, int, str]:
     rows = _complete_rows(payload)
     counts: list[int] = []
     provider_types: set[str] = set()
@@ -145,7 +149,7 @@ def _resource_type_summary(payload: object) -> tuple[int, tuple[str, ...]]:
         counts.append(resource_count)
     if len(provider_types) != len(rows) or len(provider_types) > _MAX_PROVIDER_TYPES:
         raise CanaryError("ARM-resource canary provider-type coverage exceeds its bound")
-    return sum(counts), tuple(sorted(provider_types))
+    return sum(counts), len(provider_types), content_digest(tuple(sorted(provider_types)))
 
 
 def _coverage_plan(
@@ -239,6 +243,7 @@ def _evidence_payload(*, expected_subscription_id: str, observed_at: datetime) -
     profiles = default_azure_discovery_profiles()
     coverage_receipts = []
     execution_receipts = []
+    aggregate_proofs = []
     platform_version = (
         f"arg@{_ARG_API_VERSION}+azure-cli@{_AZURE_CLI_VERSION}+"
         f"resource-graph@{_RESOURCE_GRAPH_EXTENSION_VERSION}"
@@ -258,12 +263,14 @@ def _evidence_payload(*, expected_subscription_id: str, observed_at: datetime) -
             plan=plan,
             operation=operation,
         )
-        observed_provider_types: tuple[str, ...]
         if plan.universes == (DiscoveryUniverse.RESOURCE_CONTAINERS,):
             discovered_count = _resource_group_count(raw_aggregate)
-            observed_provider_types = (profile.provider_type,)
+            provider_type_count = 1
+            provider_type_set_digest = content_digest((profile.provider_type.casefold(),))
         else:
-            discovered_count, observed_provider_types = _resource_type_summary(raw_aggregate)
+            discovered_count, provider_type_count, provider_type_set_digest = (
+                _resource_type_summary(raw_aggregate)
+            )
         execution_receipt = build_provider_coverage_canary_receipt(
             plan=plan,
             operation=operation,
@@ -275,12 +282,20 @@ def _evidence_payload(*, expected_subscription_id: str, observed_at: datetime) -
                 profile=profile,
                 plan=plan,
                 execution_receipt=execution_receipt,
-                observed_provider_types=observed_provider_types,
+                observed_provider_types=(),
                 discovered_count=discovered_count,
                 platform_version=platform_version,
                 source="live_canary",
                 observed_at=observed_at,
             )
+        )
+        aggregate_proofs.append(
+            {
+                "universe": plan.universes[0].value,
+                "discovered_count": discovered_count,
+                "provider_type_count": provider_type_count,
+                "provider_type_set_digest": provider_type_set_digest,
+            }
         )
     reconciliation = reconcile_discovery_coverage(
         claims=discovery_coverage_claims(profiles),
@@ -303,6 +318,7 @@ def _evidence_payload(*, expected_subscription_id: str, observed_at: datetime) -
         "generated_at": observed_at.isoformat().replace("+00:00", "Z"),
         "execution_receipts": [item.model_dump(mode="json") for item in execution_receipts],
         "coverage_receipts": [item.model_dump(mode="json") for item in coverage_receipts],
+        "aggregate_proofs": aggregate_proofs,
         "reconciliation": {
             "matched_receipt_digests": list(reconciliation.matched_receipt_digests),
             "gaps": [],
@@ -312,7 +328,95 @@ def _evidence_payload(*, expected_subscription_id: str, observed_at: datetime) -
         },
         "execution_authority": False,
     }
-    return {**body, "evidence_digest": content_digest(body)}
+    payload = {**body, "evidence_digest": content_digest(body)}
+    validate_evidence_payload(payload)
+    return payload
+
+
+def validate_evidence_payload(payload: object) -> None:
+    """Validate retained evidence against current profiles without provider access."""
+
+    if not isinstance(payload, dict):
+        raise CanaryError("Azure discovery evidence has an invalid shape")
+    body = {key: value for key, value in payload.items() if key != "evidence_digest"}
+    if payload.get("evidence_digest") != content_digest(body):
+        raise CanaryError("Azure discovery evidence digest does not match its content")
+    profiles = default_azure_discovery_profiles()
+    expected_versions = [
+        f"azure-resource-graph-api@{_ARG_API_VERSION}",
+        f"azure-cli@{_AZURE_CLI_VERSION}",
+        f"resource-graph-extension@{_RESOURCE_GRAPH_EXTENSION_VERSION}",
+    ]
+    if (
+        payload.get("schema_version") != "1.0.0"
+        or payload.get("evidence_kind") != "azure_discovery_live_canary"
+        or payload.get("profile_revision") != AZURE_DISCOVERY_CATALOG_VERSION
+        or payload.get("platform_versions") != expected_versions
+        or payload.get("profile_digests") != [profile.profile_digest for profile in profiles]
+        or payload.get("execution_authority") is not False
+    ):
+        raise CanaryError("Azure discovery evidence metadata does not match the catalog")
+    try:
+        generated_at_raw = payload["generated_at"]
+        if not isinstance(generated_at_raw, str):
+            raise TypeError
+        generated_at = datetime.fromisoformat(generated_at_raw.replace("Z", "+00:00"))
+        execution_raw = payload["execution_receipts"]
+        coverage_raw = payload["coverage_receipts"]
+        aggregate_proofs = payload["aggregate_proofs"]
+        reconciliation_raw = payload["reconciliation"]
+        if (
+            not isinstance(execution_raw, list)
+            or not isinstance(coverage_raw, list)
+            or not isinstance(aggregate_proofs, list)
+            or not isinstance(reconciliation_raw, dict)
+        ):
+            raise TypeError
+        executions = tuple(ProviderExecutionReceipt.model_validate(item) for item in execution_raw)
+        coverage = tuple(DiscoveryCoverageReceipt.model_validate(item) for item in coverage_raw)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise CanaryError("Azure discovery evidence contains an invalid receipt") from exc
+    if len(executions) != 2 or len(coverage) != 2:
+        raise CanaryError("Azure discovery evidence must contain exactly two coverage claims")
+    expected_proof_counts = {item.universe.value: item.discovered_count for item in coverage}
+    if (
+        len(aggregate_proofs) != 2
+        or any(
+            not isinstance(proof, dict)
+            or proof.get("universe") not in expected_proof_counts
+            or proof.get("discovered_count") != expected_proof_counts[proof["universe"]]
+            or not isinstance(proof.get("provider_type_count"), int)
+            or isinstance(proof.get("provider_type_count"), bool)
+            or proof["provider_type_count"] < 0
+            or not isinstance(proof.get("provider_type_set_digest"), str)
+            or not proof["provider_type_set_digest"].startswith("sha256:")
+            for proof in aggregate_proofs
+        )
+        or any(item.observed_provider_types for item in coverage)
+    ):
+        raise CanaryError("Azure discovery aggregate proof is invalid")
+    execution_digests = {item.receipt_digest for item in executions}
+    if (
+        len(execution_digests) != 2
+        or any(item.execution_receipt_digest not in execution_digests for item in coverage)
+        or any(item.observed_at != generated_at for item in coverage)
+    ):
+        raise CanaryError("Azure discovery evidence receipt linkage is invalid")
+    reconciliation = reconcile_discovery_coverage(
+        claims=discovery_coverage_claims(profiles),
+        receipts=coverage,
+        evaluated_at=generated_at,
+        max_age_seconds=3_600,
+    )
+    expected_reconciliation = {
+        "matched_receipt_digests": list(reconciliation.matched_receipt_digests),
+        "gaps": [],
+        "complete": True,
+        "reconciliation_digest": reconciliation.reconciliation_digest,
+        "execution_authority": False,
+    }
+    if not reconciliation.complete or reconciliation_raw != expected_reconciliation:
+        raise CanaryError("Azure discovery evidence reconciliation is invalid")
 
 
 def _write_atomic(path: Path, payload: dict[str, Any]) -> None:
@@ -334,7 +438,9 @@ def main(argv: list[str] | None = None) -> int:
     """Verify the active CLI context, run bounded canaries, and write sanitized evidence."""
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--subscription-id", required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--subscription-id")
+    mode.add_argument("--validate", action="store_true")
     parser.add_argument(
         "--output",
         type=Path,
@@ -342,12 +448,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     arguments = parser.parse_args(argv)
     try:
+        if arguments.validate:
+            validate_evidence_payload(json.loads(arguments.output.read_text(encoding="utf-8")))
+            print("record-azure-discovery-canary: retained evidence is valid")
+            return 0
+        if arguments.subscription_id is None:
+            raise CanaryError("Azure subscription id is required for live recording")
         payload = _evidence_payload(
             expected_subscription_id=arguments.subscription_id,
             observed_at=datetime.now(UTC),
         )
         _write_atomic(arguments.output, payload)
-    except CanaryError as exc:
+    except (CanaryError, json.JSONDecodeError, OSError) as exc:
         print(f"record-azure-discovery-canary: {exc}", file=sys.stderr)
         return 1
     print("record-azure-discovery-canary: validated 2 aggregate-only coverage claims")
