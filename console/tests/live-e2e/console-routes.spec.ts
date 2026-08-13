@@ -226,7 +226,7 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
   const semanticReceipt = judgment.receipt!;
   expect(requestPayload.request_id).toBe(semanticReceipt.request_id);
 
-  await deck.getByText("Execution record", { exact: true }).last().click();
+  await deck.getByText("Run record", { exact: true }).last().click();
   await deck.getByText("Execution details", { exact: true }).last().click();
   await deck.getByText("Technical details", { exact: true }).last().click();
 
