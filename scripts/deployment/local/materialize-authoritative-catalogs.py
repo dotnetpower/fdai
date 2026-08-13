@@ -223,17 +223,31 @@ def _read_reference(root: Path, reference: str, *, prefix: str) -> str | None:
 
 def _ontology_snapshot(ontology: OntologyCatalog) -> dict[str, object]:
     object_types = sorted(ontology.object_types, key=lambda item: item.name)
+    interface_types = sorted(ontology.interface_types, key=lambda item: item.name)
     link_types = sorted(ontology.link_types, key=lambda item: item.name)
     action_types = sorted(ontology.action_types, key=lambda item: item.name)
+    function_types = sorted(ontology.function_types, key=lambda item: item.name)
+    release = ontology.build_release()
     rendered = render_ontology_mermaid(object_types, link_types)
     return {
+        "schema_version": "2.0.0",
+        "ontology_release_digest": release.digest,
+        "mutation_authority": False,
         "mermaid": rendered.mermaid,
         "object_type_count": len(object_types),
+        "interface_type_count": len(interface_types),
         "link_type_count": len(link_types),
         "action_type_count": len(action_types),
+        "function_type_count": len(function_types),
         "object_types": [item.name for item in object_types],
+        "interface_types": [
+            item.model_dump(mode="json", exclude_none=True) for item in interface_types
+        ],
         "link_types": [item.name for item in link_types],
         "action_types": [item.model_dump(mode="json", exclude_none=True) for item in action_types],
+        "function_types": [
+            item.model_dump(mode="json", exclude_none=True) for item in function_types
+        ],
         "nodes": [
             {
                 "name": item.name,
