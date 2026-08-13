@@ -45,6 +45,11 @@ export interface AgentLogRow {
   readonly sortOrder: readonly [number, number, number];
 }
 
+export function hasAuditTrace(row: Pick<AgentLogRow, "correlationId" | "source">): boolean {
+  return row.correlationId !== null
+    && (row.source === "audit-operational" || row.source === "audit-sample");
+}
+
 export function buildAgentLogRows(
   events: readonly LiveAgentActivityEvent[],
   auditItems: readonly AuditItem[],

@@ -10,6 +10,7 @@ import {
   DEFAULT_AGENT_LOG_COLUMNS,
   filterAgentLogRows,
   fallbackAfterFullscreenFailure,
+  hasAuditTrace,
   isNearLogBottom,
   toggleAgentLogColumn,
 } from "./agent-activity-log-model";
@@ -228,6 +229,27 @@ describe("agent live log controls", () => {
       .toBe("activity");
     expect(filterAgentLogRows(rows, null, "", "inventory.scan")).toHaveLength(1);
     expect(filterAgentLogRows(rows, null, "", "current-state.read")).toHaveLength(0);
+  });
+
+  it("links only durable audit correlations to the audit trace", () => {
+    const operational: LiveAgentActivityEvent = {
+      sequence: 1,
+      kind: "agent.operational-activity",
+      agent: "Huginn",
+      agents: ["Huginn"],
+      state: "watching",
+      summary: "inventory.scan - superseded",
+      detail: "inventory-sync-job - 12 evidence",
+      correlationId: "inventory-attempt-1",
+      ts: "2026-07-24T10:01:00Z",
+      source: "replay",
+      activityId: "inventory.scan:inventory-attempt-1:superseded",
+      operationalKind: "inventory.scan",
+    };
+    const rows = buildAgentLogRows([operational], [auditItem(1)]);
+
+    expect(hasAuditTrace(rows.find((row) => row.source === "replay")!)).toBe(false);
+    expect(hasAuditTrace(rows.find((row) => row.source === "audit-operational")!)).toBe(true);
   });
 
   it("uses a small bottom threshold for live-tail pause decisions", () => {

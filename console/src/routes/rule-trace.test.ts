@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { OperatorApiError } from "../api";
 
 import {
   buildTraceViewSnapshot,
   decodeTraceResponse,
+  traceLoadFailure,
   traceOperationalSummary,
 } from "./rule-trace";
 
@@ -25,6 +27,21 @@ describe("trace response contract", () => {
       steps: [step(1), step(2)],
       terminal_stage: "risk-gate",
     }).steps).toHaveLength(2);
+  });
+
+  it("renders expected source absence as unavailable without hiding server failures", () => {
+    expect(traceLoadFailure(new OperatorApiError(404, "no audit items"))).toEqual({
+      status: "unavailable",
+      message: "No audit steps for this correlation id.",
+    });
+    expect(traceLoadFailure(new OperatorApiError(503, "audit source unavailable"))).toEqual({
+      status: "unavailable",
+      message: "Trace could not be loaded: audit source unavailable",
+    });
+    expect(traceLoadFailure(new OperatorApiError(500, "database failed"))).toEqual({
+      status: "error",
+      message: "Trace could not be loaded: database failed",
+    });
   });
 
   it("rejects contradictory, duplicate, or unordered trace evidence", () => {

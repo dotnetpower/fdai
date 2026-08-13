@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { OperatorApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
   DataTable,
@@ -98,10 +98,7 @@ export function RuleTraceRoute({ client }: Props) {
       if (requestGeneration.current === generation) setState({ status: "ready", data });
     } catch (err) {
       if (requestGeneration.current === generation) {
-        setState({
-          status: "error",
-          message: traceLoadErrorMessage(err),
-        });
+        setState(traceLoadFailure(err));
       }
     }
   }
@@ -193,6 +190,21 @@ function traceLoadErrorMessage(error: unknown): string {
   return message.startsWith("invalid Operator API response:")
     ? t("evidence.trace.invalidEvidence")
     : t("evidence.trace.loadError", { message });
+}
+
+export function traceLoadFailure(error: unknown): {
+  readonly status: "unavailable" | "error";
+  readonly message: string;
+} {
+  if (isOptionalOperatorApiUnavailable(error)) {
+    return {
+      status: "unavailable",
+      message: error.status === 404
+        ? t("evidence.trace.empty")
+        : traceLoadErrorMessage(error),
+    };
+  }
+  return { status: "error", message: traceLoadErrorMessage(error) };
 }
 
 export function decodeTraceResponse(value: unknown): TraceResponse {
