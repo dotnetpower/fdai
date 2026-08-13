@@ -42,18 +42,13 @@
         "services/core-control-plane/src/fdai/delivery/observation_*.py",
         "services/core-control-plane/src/fdai/delivery/azure/observation_campaign.py",
         "services/core-control-plane/tests/delivery/**/*observation*.py",
-        "services/operator-service/src/fdai_operator_service/activity_projection.py",
         "services/operator-service/tests/test_activity_projection.py",
         "console/src/agent-operational-activity*",
         "console/src/routes/agent-live-activity.tsx",
         "infra/modules/compute/container-apps/observation_campaign_job.tf"
       ],
       "must_read": [
-        ".github/instructions/architecture.instructions.md",
-        ".github/instructions/app-shape.instructions.md",
-        "docs/roadmap/operations/observation-campaign.md",
-        "docs/roadmap/deployment/dev-and-deploy-parity.md",
-        "docs/roadmap/agents/agent-pantheon.md"
+        "docs/roadmap/operations/observation-campaign.md"
       ],
       "docs_update": [
         "docs/roadmap/operations/observation-campaign.md",
