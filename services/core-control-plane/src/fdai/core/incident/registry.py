@@ -16,6 +16,7 @@ import asyncio
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Protocol
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fdai.shared.contracts.models import (
@@ -74,6 +75,17 @@ class IncidentMutationResult:
     changed: bool
 
 
+class IncidentProjection(Protocol):
+    """Current-state read-model sink for canonical Incident revisions."""
+
+    async def project(
+        self,
+        incident: Incident,
+        *,
+        updated_at: datetime,
+    ) -> object: ...
+
+
 def incident_id_for(correlation_keys: Iterable[str]) -> UUID:
     """Deterministic id from correlation keys.
 
@@ -110,7 +122,30 @@ class IncidentRegistry:
         self._state_store = state_store
         self._state_machine = state_machine or IncidentStateMachine()
         self._incidents: dict[UUID, Incident] = {}
+        self._projection: IncidentProjection | None = None
         self._write_lock = asyncio.Lock()
+
+    async def bind_projection(
+        self,
+        projection: IncidentProjection,
+        *,
+        entries: Iterable[Mapping[str, object]],
+    ) -> None:
+        """Project rehydrated state, then keep later canonical mutations current."""
+        ordered_entries = tuple(entries)
+        async with self._write_lock:
+            if self._projection is not None:
+                raise RuntimeError("incident projection is already bound")
+            updated_at = _latest_incident_updates(ordered_entries)
+            for incident_id, incident in sorted(
+                self._incidents.items(),
+                key=lambda item: str(item[0]),
+            ):
+                await projection.project(
+                    incident,
+                    updated_at=updated_at.get(incident_id, incident.opened_at),
+                )
+            self._projection = projection
 
     async def open(
         self,
@@ -233,6 +268,7 @@ class IncidentRegistry:
                     canonical = await self._reload_canonical(incident_id)
                 return IncidentOpenResult(incident=canonical, created=False)
             self._incidents[incident_id] = incident
+            await self._project(incident, updated_at=opened)
             return IncidentOpenResult(incident=incident, created=True)
 
     async def _escalate_severity_if_needed(
@@ -268,6 +304,7 @@ class IncidentRegistry:
             else:
                 self._incidents[canonical.incident_id] = updated
                 canonical = updated
+                await self._project(canonical, updated_at=at)
             return canonical, True, previous_severity
         raise IncidentWriteConflictError(
             f"incident severity escalation did not converge: {canonical.incident_id}"
@@ -367,6 +404,7 @@ class IncidentRegistry:
                 severity=target_severity,
             )
             self._incidents[incident_id] = updated
+            await self._project(updated, updated_at=moment)
             return IncidentMutationResult(incident=updated, changed=True)
 
     async def assign(
@@ -522,6 +560,27 @@ class IncidentRegistry:
         except IncidentWriteConflictError:
             await self._reload_canonical(incident_id)
             raise
+
+    async def _project(self, incident: Incident, *, updated_at: datetime) -> None:
+        if self._projection is not None:
+            await self._projection.project(incident, updated_at=updated_at)
+
+
+def _latest_incident_updates(
+    entries: Iterable[Mapping[str, object]],
+) -> dict[UUID, datetime]:
+    latest: dict[UUID, datetime] = {}
+    for entry in entries:
+        raw_incident_id = entry.get("incident_id")
+        raw_at = entry.get("at") or entry.get("opened_at")
+        if not isinstance(raw_incident_id, str) or not isinstance(raw_at, str):
+            continue
+        incident_id = UUID(raw_incident_id)
+        observed_at = datetime.fromisoformat(raw_at.replace("Z", "+00:00"))
+        previous = latest.get(incident_id)
+        if previous is None or observed_at > previous:
+            latest[incident_id] = observed_at
+    return latest
 
 
 __all__ = [
