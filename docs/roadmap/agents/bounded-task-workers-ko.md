@@ -2,8 +2,8 @@
 title: 제한된 작업 워커
 translation_of: bounded-task-workers.md
 translation_source: docs/roadmap/agents/bounded-task-workers.md
-translation_source_sha: 95b436eac8386b1fde2af0ab234196c6520e69b4
-translation_revised: 2026-08-11
+translation_source_sha: e24626f427d58ce6490427b4824ceec5a43a0ab4
+translation_revised: 2026-08-13
 ---
 
 # 제한된 작업 워커
@@ -160,6 +160,36 @@ execute 경로가 없습니다.
 근거, 동시성, 하트비트, 시간 초과, 취소 소유권, 예산, 재시작 복구,
 PostgreSQL compare-and-swap, owner-scoped 읽기, answer-planning 프로바이더 재사용, 상위 종합,
 완료 인계, GET-only 변환 결과가 포함됩니다.
+
+## Implementation status
+
+제한된 워커 코어와 영구 저장소는 구현되어 있으며 집중 테스트로 검증됩니다. Operator API
+경로 계약은 존재하지만 운영 워커 구성, 저장소 기반 변환 결과 구체화, 콘솔 표시, 거버넌스된
+실환경 근거는 아직 완성되지 않았습니다.
+
+### Implementation scope
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 요청 모델, 격리된 컨텍스트, 기능 축소 | implemented | `core/task_worker/models.py`, `attenuation.py`, `profiles.py`; `tests/core/task_worker/test_attenuation.py` | 요청 깊이는 1로 고정되고 컨텍스트 변환 결과는 제한되며, 최종 도구 집합은 세 권한의 결정론적 교집합입니다. |
+| 런타임 수명 주기, 계획 실행기, 도구 게이트웨이 | implemented | `core/task_worker/runtime.py`, `planning_executor.py`, `tools.py`; 집중 런타임 및 계획 실행기 테스트 | 상태 전이, 동시성, 시간 초과, 취소 소유권, 예산, 하트비트, 읽기 전용 전달, abstention, 제한된 실패가 구현되어 있지만 운영 런타임 바인딩은 없습니다. |
+| 영구 스냅샷, 가지 이벤트, 복구, 소유자 범위 조회 | implemented | `delivery/persistence/postgres_task_worker.py`; Alembic 리비전 `20260720_0039`; `tests/persistence/test_task_worker.py` | PostgreSQL compare-and-swap 영속화와 재시작 복구가 존재합니다. 이 행은 배포된 데이터베이스 검증을 주장하지 않습니다. |
+| 부모 합성과 완료 싱크 순서 | implemented | `core/task_worker/synthesis.py`, `runtime.py`; 집중 합성 및 런타임 테스트 | 워커 기여는 신뢰되지 않고 제한된 상태로 유지되며, 최종 영속화가 선택적 싱크 전달보다 먼저 수행됩니다. 운영 완료 싱크 바인딩은 발견되지 않았습니다. |
+| GET-only Operator API 변환 결과 | in-progress | `families/conversation/manifest.py`; `test_operator_conversation_family.py` | 인증된 세 GET 경로와 응답 봉투 접점은 존재하지만 작업 워커 저장소에서 소유자 범위 워커 변환 결과를 생성하는 구체화 로직은 발견되지 않았습니다. |
+| 운영 구성 및 운영 근거 | not-started | 테스트 외부의 `TaskWorkerRuntime` 생성, 콘솔 작업 워커 화면, 거버넌스된 실환경 증빙은 발견되지 않았습니다. | 운영 도구, 계획 통합, 완료 전달, 변환 결과 조회, 실환경 실패 경로 근거를 연결하고 실행해야 합니다. |
+
+### Implementation history
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 구현 원장을 도입하고 구현된 워커 코어와 미완료 운영 및 변환 결과 통합을 구분했습니다. | 현재 작업 워커 소스, 영속성 어댑터와 마이그레이션, 집중 코어 및 영속성 테스트, Operator API 경로 테스트. | 운영 런타임과 변환 결과를 바인딩하고 읽기 전용 운영자 경험을 노출하며 거버넌스된 실환경 근거를 수집해야 합니다. |
+
+### Remaining work
+
+- [ ] `TaskWorkerRuntime`을 운영 읽기 전용 도구 레지스트리 및 답변 계획 프로바이더와 구성하고 synthetic fallback 없이 시작 및 재시작 동작을 입증합니다.
+- [ ] PostgreSQL 워커 저장소에서 `workers.list`, `workers.get`, `workers.events`를 구체화하고 각 조회 내부의 소유자 조건식과 다른 소유자에 대한 404를 검증합니다.
+- [ ] 영구 완료 전달을 detached-session 회신 경로에 연결하고 싱크 실패가 최종 결과를 변경하거나 재실행하지 않고 이벤트를 추가하는지 입증합니다.
+- [ ] 운영자용 읽기 전용 워커 변환 결과를 추가하고 성공, 시간 초과, 예산 소진, 거부, 재시작 복구, 교차 소유자 격리에 대한 거버넌스된 실환경 증빙을 수집합니다.
 
 ## 관련 문서
 
