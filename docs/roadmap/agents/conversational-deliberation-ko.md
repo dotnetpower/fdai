@@ -1,8 +1,8 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 321e0af55efaa35ab7c850f84e7949f2006f1ce8
-translation_revised: 2026-08-11
+translation_source_sha: 35dac0cd0927e8014ffb089ed9a1730f6e1bf74f
+translation_revised: 2026-08-13
 ---
 # 판테온 대화형 숙의
 
@@ -474,6 +474,32 @@ situational 출처 이력이 섞이지 않게 합니다. 점유는 정본 lowerc
 프로바이더에 요청을 전달하기 전에 position, 비평, effective 프롬프트 다이제스트 및 변경할 수 없는 기준선
 charter가 같은 participant에 귀속되도록 유지합니다.
 
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 변경할 수 없는 charter와 상황별 프롬프트 조립 | implemented | `services/core-control-plane/src/fdai/agents/_framework/charters.py`, `services/core-control-plane/src/fdai/agents/_framework/conversation_prompt.py` 및 집중 프롬프트 조립 테스트 | 서버가 소유하는 기준선, 선택 계층, 프롬프트 다이제스트 및 신뢰할 수 없는 맥락 경계가 결정론적이며 집중 검사로 검증됩니다. |
+| 범위가 제한된 T1 숙의와 권한 격리 | implemented | `services/core-control-plane/src/fdai/agents/_framework/deliberation.py`, `services/core-control-plane/src/fdai/agents/bragi.py`, `services/core-control-plane/src/fdai/agents/_framework/runtime.py` 및 `services/core-control-plane/tests/agents/test_prompt_deliberation.py` | 입장과 비평 라운드는 읽기 전용으로 유지되고, 작업 의도를 차단하며, 표현 전용 결과를 반환합니다. |
+| 선택적 T2 계약과 보호된 조립 주입 지점 | implemented | `T2ConversationSynthesizer`, `LlmBindings`, 런타임 부트스트랩 연결 및 집중 숙의와 조립 바인딩 테스트 | T2 요청은 참여자 신원, 프롬프트 출처, 제한된 출력, 예산 예약, 가격 및 계측 필수 조건을 적용합니다. |
+| 프로덕션 호출과 통제된 런타임 검증 | in-progress | `services/core-control-plane/src/fdai/runtime/bootstrap.py`는 선택적 바인딩을 `PantheonRuntime`에 전달하지만, 구체적인 업스트림 종합기, Operator API 경로, 콘솔 경로 또는 통제된 런타임 증적은 없습니다. | 테스트된 코어는 T1과 주입된 T2 구현을 실행할 수 있습니다. 저장소 근거만으로는 배포된 T2 호출, 실제 비용 청구 또는 운영자 대상 호출을 입증할 수 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 구현 원장을 도입했으며 이전 출처는 재구성하지 않았습니다. 결정론적 테스트를 운영 검증으로 취급하지 않고 테스트된 charter, 프롬프트, T1 및 보호된 T2 주입 지점을 implemented로 분류했습니다. | 현재 변경, 구현 범위 표에 나열한 소스 및 아래 집중 명령(`6 passed in 0.11s`). | 구체적인 계측형 T2 종합기를 바인딩하고 실행하며, 승인된 런타임 경계를 통해 숙의 경로를 호출하고, 통제된 런타임 근거를 기록합니다. |
+
+### 남은 작업
+
+- [ ] 배포된 조립에 구체적인 `T2ConversationSynthesizer`를 `conversation_metering`,
+  `conversation_pricing` 및 `conversation_t2_model_key`와 함께 바인딩한 다음, 성공적인 종합과
+  정확한 예산 및 계측 청구를 입증하는 집중 통합 결과를 기록합니다.
+- [ ] 승인된 운영자 또는 런타임 경계를 통해 `PantheonRuntime.deliberate`를 호출하고 T1
+  폴백, T2 사용, 표현 전용 권한, 판단 보류 및 프로바이더 실패를 포함하는 통제된 런타임
+  근거를 첨부합니다.
+
 ## 검증
 
 `services/core-control-plane/tests/agents/test_prompt_deliberation.py`는 에이전트마다 33개 기준을 적용해 기준선 judgment
@@ -489,6 +515,20 @@ mandatory 역할 directive 및 완전한 unique 기준선 매니페스트를 별
 `services/core-control-plane/tests/agents/test_conversation_prompt_composition.py`는 15개 에이전트 각각의 situation 순열
 1,152개에 33개 기준을 다시 적용해 결정론적 judgment 570,240개를 검증합니다. 기준선은
 항상 조립된 프롬프트의 접두사이며 위조된 턴 맥락은 프롬프트에 자기 텍스트를 넣을 수 없습니다.
+
+구현 원장을 도입할 때 다음 집중 검사를 사용했습니다.
+
+```bash
+uv run pytest -q --no-cov \
+  services/core-control-plane/tests/agents/test_prompt_deliberation.py::test_each_agent_prompt_passes_every_check_across_twelve_rounds \
+  services/core-control-plane/tests/agents/test_prompt_deliberation.py::test_t1_deliberation_collects_position_and_peer_critique \
+  services/core-control-plane/tests/agents/test_conversation_prompt_composition.py::test_every_situation_only_adds_to_the_baseline \
+  services/core-control-plane/tests/agents/test_prompt_contract_audit.py::test_at_least_twenty_five_independent_critiques_cover_every_prompt \
+  tests/integration/test_composition_llm.py::test_a_conversational_synthesizer_without_metering_is_a_wiring_error \
+  tests/integration/test_composition_llm.py::test_a_fully_metered_conversational_synthesizer_binds
+```
+
+결과: `6 passed in 0.11s`.
 
 ## 관련 문서
 
