@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 7aa31df2240e6b9b8132b05b81d30999abc09e3b
+translation_source_sha: a8c66ea7f3368c4b4330316bc666b4b00a073ffa
 translation_revised: 2026-08-13
 ---
 
@@ -145,7 +145,7 @@ translation_revised: 2026-08-13
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 서비스 간 의미 계약 및 Core 처리 | 구현됨 | `semantic_turn.py`, `semantic_turn_consumer.py`, `semantic_turn_processor.py`, 통과한 의미 경로 테스트 88개 | 버전 1.2 요청은 90초로 제한되고 결과는 멱등성을 보장하며 점유를 복구할 수 있습니다. Rule 결과는 실행 권한이 없는 후보 전용으로 유지됩니다. |
-| Operator 영속성과 Rule 변환 결과 | 구현됨 | `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`, 통과한 의미 경로 테스트 88개 및 롤백 전용 PostgreSQL 트랜잭션 검사 | 발신함과 결과 점유를 복구할 수 있고 잘못된 소유권은 안전하게 차단됩니다. 재생 순서는 타임스탬프를 인식하며 exact Rule 읽기는 principal과 조회 다이제스트로 격리됩니다. |
+| Operator 영속성과 Rule 변환 결과 | 구현됨 | `semantic_turn.py`, `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`, 통과한 의미 경로 테스트 88개 및 롤백 전용 PostgreSQL 트랜잭션 검사 | 유효한 호출자 제공 요청 UUID를 의미 묶음과 상관관계 신원 전체에서 보존하면서 멱등성 키는 분리합니다. 요청 UUID를 생략하면 재시도에도 안정적인 결정론적 대체값을 사용합니다. 발신함과 결과 점유를 복구할 수 있고 잘못된 소유권은 안전하게 차단됩니다. 재생 순서는 타임스탬프를 인식하며 exact Rule 읽기는 principal과 조회 다이제스트로 격리됩니다. |
 | 과거 토폴로지 영속성과 발행 | 구현됨 | `inventory_topology_history.py`, `postgres_topology_history.py`, `inventory_sync_cli.py`, 통과한 범위가 제한된 인벤토리/토폴로지 테스트 31개 | 완전한 승격 관측은 bitemporal 개정 번호를 하나의 트랜잭션으로 추가합니다. 과거/현재 파생 쓰기는 서로 독립적으로 시도하며 불완전한 관측은 완전한 과거 기준선을 만들 수 없습니다. |
 | Temporal, metric 및 근거 프로바이더 조립 | 구현됨 | `wire_semantic_query.py`, `bootstrap.py`, `bootstrap_bindings.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, 통과한 focused 조립 및 프로바이더 선택 테스트 16개 | 하나의 핸들러 맵이 검증기 가용성과 실행을 함께 제어합니다. 운영 환경은 상태 저장소 DSN에서 PostgreSQL 이력을 연결하고 검토된 레지스트리와 no-op이 아닌 프로바이더가 모두 있을 때만 metric/evidence 핸들러를 연결합니다. |
 | 통제된 운영 보증 | 진행 중 | [온톨로지 조회 무작위 보증](ontology-query-randomized-assurance-ko.md)과 아래의 검증된 기준선 공백 표 | 로컬 검사는 안전하게 실패하는 조립을 입증하지만 운영 준비 상태를 입증하는 통제된 실제 서비스 간 증적은 없습니다. |
@@ -161,6 +161,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | 구현됨 | Temporal 토폴로지, metric-series 및 evidence-join 기능을 exact-release 의미 런타임 조립에 연결했습니다. 선택적 메트릭 의존성은 원자적으로 처리하며 프로바이더가 없으면 검증기와 실행기 모두에서 사용 불가 상태를 유지합니다. | `current change`, `wire_semantic_query.py`, `bootstrap.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, focused 검사 16개 통과 | 통제된 request-to-Console 및 무작위 보증 증적을 기록합니다. |
 | 2026-08-13 | 구현됨 | 구체적인 의미 조회 프로바이더 선택을 런타임 바인딩 도우미로 옮겨 프로세스 진입점이 검토된 조립 fanout 범위 안에 머물도록 했습니다. | `current change`, `bootstrap.py`, `bootstrap_bindings.py`, `test_bootstrap_config.py`, focused 프로바이더 선택 테스트 3개 통과 | 통제된 request-to-Console 및 무작위 보증 증적을 기록합니다. |
 | 2026-08-13 | 진행 중 | 타입 기반 증적 oracle과 계산된 준비 상태 카운터를 사용하는 인증된 요청-Console 및 결정론적 이중 언어 무작위 보증 실행기를 추가했습니다. | `current change`, 통과한 focused Console 테스트, 보증 oracle 테스트, typecheck 및 Playwright discovery | 인증된 로컬 스택에서 두 실행기를 실행하고 통과한 두 보존 근거 기록을 연결합니다. |
+| 2026-08-13 | 구현됨 | 유효한 호출자 제공 요청 UUID를 Operator 의미 묶음과 상관관계 신원 전체에서 보존하면서 멱등성 키와 혼합하지 않았습니다. 요청 신원을 생략하는 호출자를 위한 결정론적 UUID 대체값은 유지했습니다. | `current change`, `semantic_turn.py`, `test_semantic_turn_bridge.py`, focused 호출자 신원 및 재시도 안정성 테스트 통과 | 무작위 보증을 실행하기 전에 exact 요청 신원의 통제된 인증 증적을 확보합니다. |
 
 ### 남은 작업
 

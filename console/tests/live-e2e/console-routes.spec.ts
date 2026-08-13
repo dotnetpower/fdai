@@ -177,6 +177,28 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
   await restoreBrowserEntraSessionStorage(page);
   const deck = await openCommandDeck(page);
   await deck.getByRole("button", { name: "New conversation" }).click();
+  await page.evaluate(() => {
+    const testWindow = window as Window & { __fdaiChatStreamBody?: Promise<string> };
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      const response = await originalFetch.apply(window, args);
+      const input = args[0];
+      const requestUrl = typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url;
+      const method = args[1]?.method ?? (input instanceof Request ? input.method : "GET");
+      if (
+        method.toUpperCase() === "POST" &&
+        new URL(requestUrl, window.location.href).pathname === "/chat/stream"
+      ) {
+        testWindow.__fdaiChatStreamBody = response.clone().text();
+        window.fetch = originalFetch;
+      }
+      return response;
+    };
+  });
   const responsePromise = page.waitForResponse((response) => (
     isOperatorApiResponse(response) &&
     new URL(response.url()).pathname === "/chat/stream" &&
@@ -192,7 +214,13 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
   });
   const response = await responsePromise;
   const requestPayload = response.request().postDataJSON() as Record<string, unknown>;
-  const done = parseDoneFrame(await response.text());
+  const streamBody = await page.evaluate(async () => {
+    const captured = (window as Window & { __fdaiChatStreamBody?: Promise<string> })
+      .__fdaiChatStreamBody;
+    if (!captured) throw new Error("chat stream body capture was not initialized");
+    return captured;
+  });
+  const done = parseDoneFrame(streamBody);
   const judgment = judgeSemanticTurn(done.semantic_receipt, done.verification);
   expect(judgment.passed, judgment.failure_reason).toBe(true);
   const semanticReceipt = judgment.receipt!;
