@@ -88,6 +88,51 @@ def test_semantic_envelope_defaults_to_core_operations_review_purpose() -> None:
     assert semantic_turn["purpose"] == "operations-review"
 
 
+def test_semantic_envelope_forwards_bound_incident_conversation_context() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal(
+            body={
+                "prompt": "Investigate this incident and report the next safe step.",
+                "conversation_context": {
+                    "kind": "incident",
+                    "incident_id": "incident-42",
+                    "correlation_id": "correlation-7",
+                    "selected_agent": "Bragi",
+                },
+            }
+        )
+    )
+
+    semantic_turn = cast(dict[str, object], envelope["semantic_turn"])
+    assert semantic_turn["bound_context"] == {
+        "kind": "incident",
+        "incident_id": "incident-42",
+        "correlation_id": "correlation-7",
+    }
+
+
+def test_semantic_envelope_omits_unbound_or_unsupported_conversation_context() -> None:
+    build = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build
+
+    unsupported = cast(
+        dict[str, object],
+        build(
+            _proposal(body={"prompt": "Show evidence.", "conversation_context": {"kind": "action"}})
+        )["semantic_turn"],
+    )
+    identityless = cast(
+        dict[str, object],
+        build(
+            _proposal(
+                body={"prompt": "Show evidence.", "conversation_context": {"kind": "incident"}}
+            )
+        )["semantic_turn"],
+    )
+
+    assert "bound_context" not in unsupported
+    assert "bound_context" not in identityless
+
+
 class _MemorySemanticStore:
     def __init__(self) -> None:
         self.turns: dict[str, StoredSemanticTurn] = {}

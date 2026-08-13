@@ -657,6 +657,10 @@ flowchart LR
   virtual workspace with `package = false`. Each runtime service and the shared contract SDK has
   its own distribution manifest while dependency resolution remains workspace-wide.
 - Service wire contracts live in `packages/service-contracts/src/fdai_service_contracts/`.
+  Each versioned JSON Schema under `schemas/<contract-id>/<version>.json` is immutable, so a new
+  field ships as a new additive version that older consumers keep ignoring. `operator-core-request`
+  is at `1.3.0`, whose only addition over `1.2.0` is the server-owned `semantic_turn.bound_context`
+  that carries a resolved conversation binding without granting execution authority.
   Core-only event, action, rule, and ontology types remain in
   `services/core-control-plane/src/fdai/shared/contracts/`, while catalog schemas live in
   `rule-catalog/schema/` (per-kind JSON Schema), carry a **semver** version, and change

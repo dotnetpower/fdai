@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: a8c66ea7f3368c4b4330316bc666b4b00a073ffa
+translation_source_sha: 137da4cdcfd58faa57d5e8865756ccd97290d980
 translation_revised: 2026-08-13
 ---
 
@@ -162,10 +162,13 @@ translation_revised: 2026-08-13
 | 2026-08-13 | 구현됨 | 구체적인 의미 조회 프로바이더 선택을 런타임 바인딩 도우미로 옮겨 프로세스 진입점이 검토된 조립 fanout 범위 안에 머물도록 했습니다. | `current change`, `bootstrap.py`, `bootstrap_bindings.py`, `test_bootstrap_config.py`, focused 프로바이더 선택 테스트 3개 통과 | 통제된 request-to-Console 및 무작위 보증 증적을 기록합니다. |
 | 2026-08-13 | 진행 중 | 타입 기반 증적 oracle과 계산된 준비 상태 카운터를 사용하는 인증된 요청-Console 및 결정론적 이중 언어 무작위 보증 실행기를 추가했습니다. | `current change`, 통과한 focused Console 테스트, 보증 oracle 테스트, typecheck 및 Playwright discovery | 인증된 로컬 스택에서 두 실행기를 실행하고 통과한 두 보존 근거 기록을 연결합니다. |
 | 2026-08-13 | 구현됨 | 유효한 호출자 제공 요청 UUID를 Operator 의미 묶음과 상관관계 신원 전체에서 보존하면서 멱등성 키와 혼합하지 않았습니다. 요청 신원을 생략하는 호출자를 위한 결정론적 UUID 대체값은 유지했습니다. | `current change`, `semantic_turn.py`, `test_semantic_turn_bridge.py`, focused 호출자 신원 및 재시도 안정성 테스트 통과 | 무작위 보증을 실행하기 전에 exact 요청 신원의 통제된 인증 증적을 확보합니다. |
+| 2026-08-14 | 구현됨 | 서버 소유 `bound_context`를 담은 추가적 `operator-core-request` 1.3.0을 도입해, Console 인시던트 대화가 바인딩된 인시던트 신원을 버리지 않고 Core까지 전달합니다. Core는 해당 바인딩을 마지막 `system` 맥락 턴으로 붙여 플래너의 제한된 창이 버리지 못하게 합니다. | `current change`, `semantic_turn.py`(계약/Operator/Core), `contract_codecs.py`, `compatibility-manifest.json`, Core 처리기 32개·Operator 브리지 42개·계약 76개·라우트 대상 326개 통과, independent-services 및 ontology-query-coverage 게이트 통과, strict mypy 통과 | 바인딩된 인시던트는 아직 답변 가능하지 않습니다. 의미 질의 매니페스트가 인시던트 ObjectSet과 인시던트 근거 FunctionType을 노출하지 않아 인시던트 조사는 명확화로 귀결됩니다. |
 
 ### 남은 작업
 
 - [ ] Operator 게시, Core 처리, exact Operator 변환 결과 읽기 및 인증된 Console 렌더링을 포함하는 통제된 요청-Console 증적 하나를 기록합니다. 이중 언어 무작위 보증 집단을 다시 실행하고 통과한 두 근거 기록을 연결합니다.
+- [ ] 의미 질의 매니페스트에 인시던트 역량을 노출합니다. `ObjectSet` 선택을 위해 `Incident` 인스턴스를 투영하고 읽기 전용 인시던트 근거 `FunctionType`을 등록해, 바인딩된 인시던트 조사가 명확화 하나가 아니라 검증된 계획에 도달하게 합니다.
+- [x] Console에서 Operator를 거쳐 Core까지 바인딩된 대화 맥락을 추가적인 타입 요청 상태로 전달합니다.
 - [x] 영속 의미 인덱스, 과거 토폴로지 읽기 경로, metric-series 및 evidence-join 프로바이더를 타입이 지정된 사용 불가 동작과 focused 검사와 함께 조립합니다.
 
 ## 설계 개요

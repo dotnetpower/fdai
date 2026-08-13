@@ -87,6 +87,14 @@ class SemanticPriorTurn(QueryContract):
     content: Annotated[str, Field(min_length=1, max_length=8_000)]
 
 
+class SemanticBoundContext(QueryContract):
+    """Server-resolved conversation binding that anchors an ordinary-language turn."""
+
+    kind: Literal["incident"]
+    incident_id: BoundedId | None = None
+    correlation_id: Annotated[str, Field(min_length=1, max_length=512)] | None = None
+
+
 class SemanticTurnRequest(QueryContract):
     """One bounded ordinary-language request with no execution authority."""
 
@@ -99,6 +107,7 @@ class SemanticTurnRequest(QueryContract):
     purpose: Annotated[str, Field(min_length=1, max_length=128)]
     deadline_at: datetime
     view_context_digest: Digest | None = None
+    bound_context: SemanticBoundContext | None = None
     prior_turns: Annotated[tuple[SemanticPriorTurn, ...], Field(max_length=12)] = ()
     cancelled: bool = False
     execution_authority: Literal[False] = False
