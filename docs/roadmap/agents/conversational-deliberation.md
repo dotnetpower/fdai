@@ -483,6 +483,33 @@ to be unique, and requires participant prompt owners to exactly follow claim-own
 checks keep position, critique, effective prompt digest, and immutable baseline charter attributed
 to the same participant before a provider receives the request.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Immutable charters and situational prompt composition | implemented | `services/core-control-plane/src/fdai/agents/_framework/charters.py`, `services/core-control-plane/src/fdai/agents/_framework/conversation_prompt.py`, and the focused prompt composition tests | The server-owned baseline, selected layers, prompt digests, and untrusted-context boundary are deterministic and covered by focused checks. |
+| Bounded T1 deliberation and authority isolation | implemented | `services/core-control-plane/src/fdai/agents/_framework/deliberation.py`, `services/core-control-plane/src/fdai/agents/bragi.py`, `services/core-control-plane/src/fdai/agents/_framework/runtime.py`, and `services/core-control-plane/tests/agents/test_prompt_deliberation.py` | Position and critique rounds remain read-only, reject action intent, and return presentation-only outcomes. |
+| Optional T2 contract and guarded composition seam | implemented | `T2ConversationSynthesizer`, `LlmBindings`, runtime bootstrap wiring, and the focused deliberation and composition binding tests | T2 requests enforce participant identity, prompt provenance, bounded output, budget reservation, pricing, and metering prerequisites. |
+| Production invocation and governed runtime validation | in-progress | `services/core-control-plane/src/fdai/runtime/bootstrap.py` forwards an optional binding to `PantheonRuntime`, but no concrete upstream synthesizer, Operator API route, console route, or governed runtime receipt is present. | The tested core can run T1 and a supplied T2 implementation. Repository evidence does not prove a deployed T2 call, live cost charge, or operator-facing invocation. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Classified the tested charter, prompt, T1, and guarded T2 seams as implemented without treating deterministic tests as operational validation. | Current change; source listed in the scope table and the focused command below (`6 passed in 0.11s`). | Bind and exercise a concrete metered T2 synthesizer, invoke the discussion path through an approved runtime boundary, and record governed runtime evidence. |
+
+### Remaining work
+
+- [ ] Bind a concrete `T2ConversationSynthesizer` with `conversation_metering`,
+  `conversation_pricing`, and `conversation_t2_model_key` in a deployed composition, then record a
+  focused integration result that proves successful synthesis and the exact budget and metering
+  charge.
+- [ ] Invoke `PantheonRuntime.deliberate` through an approved operator or runtime boundary and
+  attach governed runtime evidence that covers T1 fallback, T2 use, presentation-only authority,
+  abstention, and provider failure.
+
 ## Verification
 
 `services/core-control-plane/tests/agents/test_prompt_deliberation.py` applies 33 criteria to every agent, for 495 baseline
@@ -498,6 +525,20 @@ roster handling, mandatory role directives, and the complete unique baseline man
 `services/core-control-plane/tests/agents/test_conversation_prompt_composition.py` re-applies the 33 criteria to 1,152 situation
 permutations for each of 15 agents, for 570,240 deterministic judgments. It pins that the baseline
 is always a prefix and that forged turn context can never place its own text in a prompt.
+
+The implementation-ledger adoption used this focused check:
+
+```bash
+uv run pytest -q --no-cov \
+  services/core-control-plane/tests/agents/test_prompt_deliberation.py::test_each_agent_prompt_passes_every_check_across_twelve_rounds \
+  services/core-control-plane/tests/agents/test_prompt_deliberation.py::test_t1_deliberation_collects_position_and_peer_critique \
+  services/core-control-plane/tests/agents/test_conversation_prompt_composition.py::test_every_situation_only_adds_to_the_baseline \
+  services/core-control-plane/tests/agents/test_prompt_contract_audit.py::test_at_least_twenty_five_independent_critiques_cover_every_prompt \
+  tests/integration/test_composition_llm.py::test_a_conversational_synthesizer_without_metering_is_a_wiring_error \
+  tests/integration/test_composition_llm.py::test_a_fully_metered_conversational_synthesizer_binds
+```
+
+Result: `6 passed in 0.11s`.
 
 ## Related docs
 
