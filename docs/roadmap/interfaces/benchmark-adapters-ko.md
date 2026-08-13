@@ -1,8 +1,8 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: e5398aca636566a8d43d45805d8d218795c3a0be
-translation_revised: 2026-08-11
+translation_source_sha: 62995eee976d4fcf36d0c7ab197d9d3982ff2ed0
+translation_revised: 2026-08-14
 ---
 
 # 벤치마크 어댑터
@@ -495,7 +495,7 @@ workspace-only 의존성으로 연결합니다. FDAI 런타임 의존성에는 �
 독립적으로 빌드할 수 있습니다. `uv sync --extra dev --frozen`으로 이 dev 환경을 준비합니다.
 
 ```bash
-.venv/bin/python -m pytest -q --no-cov evaluation-sdk/tests services/core-control-plane/tests/evaluation
+.venv/bin/python -m pytest -q --no-cov evaluation-sdk/tests
 PYTHONPATH=evaluation-sdk/src:benchmarks/sregym/src .venv/bin/python -m pytest \
   -q --no-cov benchmarks/sregym/tests
 PYTHONPATH=evaluation-sdk/src:benchmarks/cybergym/src .venv/bin/python -m pytest \
@@ -506,6 +506,32 @@ PYTHONPATH=evaluation-sdk/src:benchmarks/cybergym/src .venv/bin/python -m pytest
 모음은 strict 스키마, immutability, attenuation, 보관, workspace 격리, 상관관계,
 멱등성, 시간 초과, 취소, 정리, 외부 검증, 패키지 경계 및 두 벤치마크
 수명 주기를 검증합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Evaluation SDK | implemented | `evaluation-sdk/src/fdai_evaluation_sdk/`; `evaluation-sdk/tests/` | 버전이 지정된 계약, 기능 축소, workspace 정책, 보관 및 실행기 수명 주기에 focused 검사가 있습니다. |
+| FDAI evaluation 호스트 통합 | in-progress | `services/core-control-plane/src/fdai/evaluation/` | 호스트 구현은 있지만 현재 트리에서 전용 focused Core evaluation 모음을 찾지 못했습니다. Driver 테스트는 전체 FDAI 호스트 구현이 아니라 공개 SDK 경계를 실행합니다. |
+| SREGym driver 및 준비 상태 계약 | implemented | `benchmarks/sregym/`; `benchmarks/sregym/tests/` | 독립적으로 패키징된 어댑터와 플러그인이 있습니다. 실제 클러스터 준비 상태 탐색 및 시나리오 캠페인 통과는 패키지 구현이 아니라 운영 근거입니다. |
+| CyberGym driver 및 shadow 실행기 | implemented | `benchmarks/cybergym/`; `benchmarks/cybergym/tests/`; `scripts/benchmarking/run_cybergym.py` | 두 모드, 외부 검증 증적, workspace 격리, 경로 제한 및 단계별 검증이 구현되고 focused 테스트를 거쳤습니다. |
+| Evaluation 의존성 및 호환성 게이트 | implemented | `scripts/quality/architecture/check-evaluation-boundaries.py`; `services/core-control-plane/src/fdai/benchmarking/` | AST 경계 적용과 `0.1.x` 호환성 파사드가 있습니다. 제거는 문서화된 release 구간을 계속 통과해야 합니다. |
+| 관리되는 실제 benchmark 근거 | in-progress | [SREGym driver](#sregym-driver); [CyberGym driver](#cybergym-driver) | 저장소 테스트는 동작 방식을 입증합니다. 정확한 대상 이미지와 의존성을 사용한 관리되는 SREGym 준비 상태 및 공식 CyberGym 실행 증적은 여기에 보존되지 않았습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 패키지 source, focused 모음 및 경계 검사입니다. | 실행 권한을 높이지 않고 관리되는 준비 상태 및 benchmark 실행 근거를 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] Benchmark 구현을 가져오지 않으면서 ingress, workspace 보관, 기능 축소, 외부 검증, 정리 및 실패 경계를 다루는 focused FDAI evaluation-host 테스트를 추가합니다.
+- [ ] 다이제스트로 고정된 대상 이미지에서 `fdai-evaluation-runner check --adapter sregym`을 실행하고 선언된 모든 Kubernetes 및 근거 기반 RCA 준비 상태 탐색에 대한 관리되는 증적을 보존합니다.
+- [ ] 관찰 전용 권한을 보존하는 공식 SREGym 시나리오 증적 하나 이상과 숨겨진 입력을 노출하지 않고 필수 검증 단계를 모두 입증하는 공식 CyberGym 증적 하나 이상을 보존합니다.
+- [ ] 실제 결과를 운영 근거로 취급하기 전에 정확한 이미지, 패키지, 카탈로그, 정책, benchmark 개정, 의존성 및 검증 증적 다이제스트를 기록합니다.
 
 ## 관련 문서
 

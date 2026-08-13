@@ -343,19 +343,10 @@ section 4). The panel reads the correlated audit rows and projects:
 
 The reporting catalog includes `incident-rca-dossier`. Its required
 `correlation_id` variable scopes hypothesis, citation, causal-hop, response,
-and chronology widgets to one incident. When the optional `pdf-report` extra
-is installed, Reports exposes an authenticated GET-only **Download PDF**
-control. The PDF uses an FDAI-owned A4 layout with cover, at-a-glance page,
-table of contents, section pages, running headers/footers, and a source
-SHA-256. The RCA-specific renderer uses a solid Calm Slate steel-blue cover, an executive
-summary, evidence completeness, measured impact, chronology, causal and
-alternative hypotheses, response/recovery, control gaps, corrective/preventive
-actions, limitations, and an audit appendix. Cards use uniform neutral
-hairlines rather than colored top or left rails. It renders the server-owned
-report envelope and performs no new RCA; an unrecorded section is explicitly
-unavailable. Print-native chronology tables and SVG causal diagrams avoid the
-browser Grid/Flex pagination defects, while content-driven chapter groups keep
-the reference report to nine pages.
+and chronology widgets to one incident. PDF delivery remains a target optional format. No upstream
+`pdf-report` encoder or authenticated Download PDF control is currently implemented. A future
+renderer must arrange only the server-owned report envelope, keep unrecorded sections unavailable,
+and perform no new RCA.
 
 An RCA hypothesis answers "why", never "execute": execution eligibility stays
 with the risk gate + verifier. The route is Reader-gated, returns `405` for
@@ -363,3 +354,27 @@ mutating verbs, and provides links into Audit and Trace but no execute /
 approve / rollback button. The projection is a pure function
 (`services/operator-service/src/fdai_operator_service/`) covered by
 `services/operator-service/tests/`.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Incident lifecycle, roster projection, and Console views | implemented | `services/core-control-plane/src/fdai/core/incident/`; `services/core-control-plane/tests/core/incident/`; `console/src/routes/incidents.tsx`; focused Console incident tests | Incident state, correlation, lifecycle, roster, attention, and bounded presentation have focused coverage. |
+| RCA contracts, projection, and read-only route | implemented | `services/core-control-plane/src/fdai/core/rca/`; `services/core-control-plane/tests/core/rca/`; `services/operator-service/src/fdai_operator_service/rca_projection.py`; `services/operator-service/tests/test_operator_service_composition.py`; `console/src/routes/rca.test.ts` | The route distinguishes unknown correlations, projects recorded hypotheses and response evidence, and exposes no action authority. |
+| RCA report catalog and datasource | implemented | `rule-catalog/reports/incident-rca-dossier.yaml`; `services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py`; reporting tests | The declarative dossier and bounded audit projection exist. |
+| RCA PDF format and download control | not-started | [RCA view](#1351-rca-view-root-cause-analysis) | No upstream PDF encoder, optional delivery module, or authenticated download control is present. |
+| Governed authenticated runtime evidence | in-progress | Console incident and RCA views; Operator read routes | Focused checks prove implementation, but no current governed Browser Entra roster-to-RCA receipt is retained by this owner document. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger and corrected the RCA PDF claim to target status; earlier provenance was not reconstructed. | `current change`; current incident, RCA, reporting, Operator, and Console evidence listed in the scope table. | Implement optional PDF delivery and retain governed roster-to-RCA runtime evidence. |
+
+### Remaining work
+
+- [ ] Retain one authenticated roster-to-RCA receipt that binds the incident, correlation, hypothesis, citations, response plan, audit rows, and unavailable behavior to one source revision.
+- [ ] Implement and focused-test an optional PDF `FormatEncoder` and GET-only download path that render only the existing report envelope and remain absent when the extra is unavailable.
+- [ ] Add PDF pagination, escaping, source-digest, unavailable-section, and no-new-analysis regression checks before documenting a reference page count.

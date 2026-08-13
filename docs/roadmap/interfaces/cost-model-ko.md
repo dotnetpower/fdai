@@ -1,8 +1,8 @@
 ---
 title: 비용 모델 (예시)
 translation_of: cost-model.md
-translation_source_sha: 3f900edba01ea5a341f56ab1d80c46432a409b9d
-translation_revised: 2026-08-11
+translation_source_sha: ebf4facef88e325ed0e6c9f8ae0b1e8f5ef1cabf
+translation_revised: 2026-08-14
 ---
 
 # 비용 모델 (예시)
@@ -193,6 +193,30 @@ off-hours(콘솔에 이미 warm 한 사람이 없어 자율 복구 가 유일한
   계획으로 산정합니다.
 - **스케일에서의 네트워크 egress** - 베이스라인에서 무시 가능하다고 가정; 트래픽이
   100 k/월 티어에 도달할 때 재검토.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 최소 Azure 인벤토리 모델 | in-progress | `infra/`; [현재 Terraform 인벤토리 조정](#현재-terraform-인벤토리-조정) | Terraform은 배포 가능한 인벤토리를 선언하지만 과거 가격 행은 현재 계획에서 생성되지 않습니다. |
+| LLM 사용량 측정 및 예산 적용 | implemented | `services/core-control-plane/src/fdai/core/metering/`; `services/core-control-plane/tests/core/metering/` | Focused 테스트는 레코드, 사용량, 가격 입력, 집계, 싱크 동작 및 예상 예산 차단을 다룹니다. 이는 예산 동작을 입증하지만 Azure 청구서를 입증하지는 않습니다. |
+| 현재 SKU 및 수량 조정 | not-started | [리소스별 추정](#리소스별-추정) | 행에 여전히 `recalculate from current plan`이 있으며 체크인된 계획-비용 조정 산출물이 없습니다. |
+| 가격 확인 및 배포 기준선 | not-started | [열림 Decisions](#열림-decisions) | 관리되는 `pricing.confirmed_at`, Retail Prices 또는 Calculator 증적, 측정된 청구 기준선이나 차이 알림 근거가 보존되지 않았습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 인프라 및 측정 근거입니다. | 현재 계획을 조정하고 가격을 확인하며 측정된 배포 기준선을 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] 검토된 Terraform 계획에서 활성화된 리소스, SKU, 복제본 하한, 저장소, 보존 및 선택적 기능을 내보내고 모든 비용 행을 정확한 계획 다이제스트와 조정합니다.
+- [ ] 선택한 지역과 통화에 대해 Azure Pricing Calculator 또는 Retail Prices API에서 날짜가 있는 `pricing.confirmed_at` 증적을 기록하고 가정 및 제외된 할인을 포함합니다.
+- [ ] 과거 묶음을 현재 추정으로 바꾸기 전에 조정된 추정을 측정된 청구 구간 하나와 비교하고 관찰 가능한 차이 알림을 정의합니다.
+- [ ] 검토된 배포 근거를 사용해 아래 tier, 승격 트리거, 모델 예산, 약정 및 확인 주기 결정을 해결합니다.
 
 ## 관련 문서
 

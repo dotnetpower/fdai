@@ -1,8 +1,8 @@
 ---
 title: 거버넌스 적용 실행 백엔드
 translation_of: execution-backends.md
-translation_source_sha: d23caf7c4346cf86143dd93205adefce3f98fa81
-translation_revised: 2026-08-11
+translation_source_sha: e3aa9ff84261b4d8364ed2a5afece3be9baca29d
+translation_revised: 2026-08-14
 ---
 
 # 거버넌스 적용 실행 백엔드
@@ -115,6 +115,10 @@ Alembic `0049`는 `execution_submission`과 `execution_submission_attempt`를 �
 
 ## 어댑터 동작
 
+> **현재 어댑터 상태:** 아래 세 backend 클래스는 대상 delivery 동작을 설명합니다. 현재 트리에는
+> `ExecutionBackend` 프로토콜을 따르는 구현이 없습니다. 기존 `delivery/azure/vm_task.py`
+> 프로바이더는 하위 수준 VM 기능이며 여기서 설명하는 통제된 수명 주기 어댑터가 아닙니다.
+
 ### Bubblewrap 로컬 읽기
 
 `BubblewrapExecutionBackend`는 기존 offline, credential-free, 읽기 전용 workspace 계약을 보존합니다.
@@ -170,10 +174,35 @@ Azure Container Apps 작업 프로파일이 비활성화된 shadow 관측을 벗
 |------|------|--------|
 | 프로토콜 및 원장 기록 | `services/core-control-plane/src/fdai/shared/providers/execution_backend.py` | 프로바이더 및 focused 수명 주기 테스트 |
 | 프로파일, 레지스트리, 조정기 | `services/core-control-plane/src/fdai/core/execution_backend/` | `services/core-control-plane/tests/core/execution_backend/` |
-| Bubblewrap 및 VM 어댑터 | `services/core-control-plane/src/fdai/delivery/execution_backend/` | `services/core-control-plane/tests/delivery/execution_backend/` |
-| Azure Container Apps 작업 | `services/core-control-plane/src/fdai/delivery/azure/container_apps_job_backend.py` | `services/core-control-plane/tests/delivery/azure/test_container_apps_job_backend.py` |
+| Bubblewrap 및 VM 어댑터 | 구현되지 않음 | Focused 어댑터 테스트 없음 |
+| Azure Container Apps 작업 | 구현되지 않음 | Focused 어댑터 테스트 없음 |
 | PostgreSQL 원장 | `services/core-control-plane/src/fdai/delivery/persistence/postgres_execution_backend.py` | `services/core-control-plane/tests/persistence/test_execution_backend_ledger.py` |
 | 시작 연결 | `services/core-control-plane/src/fdai/composition/wire_execution_backends.py` | `services/core-control-plane/tests/composition/test_execution_backends.py` |
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 프로바이더 프로토콜, 프로파일, 권한 비확장 검사 및 조정기 | implemented | `services/core-control-plane/src/fdai/shared/providers/execution_backend.py`; `services/core-control-plane/src/fdai/core/execution_backend/`; `services/core-control-plane/tests/core/execution_backend/` | Focused 테스트는 프로파일 한도, 수명 주기 전이, 멱등성, 모호성, 취소, 정리 및 shadow 탐색을 다룹니다. |
+| PostgreSQL 원장 및 시작 연결 | in-progress | `alembic/versions/20260721_0049_execution_backend.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_execution_backend.py`; `services/core-control-plane/src/fdai/composition/wire_execution_backends.py`; focused 영속성 및 조립 테스트 | 영속 경로와 연결은 있습니다. 건너뛰는 사례가 없는 실제 PostgreSQL 실행과 재시작 증적이 남아 있습니다. |
+| Bubblewrap 및 통제된 VM 어댑터 | not-started | [어댑터 동작](#어댑터-동작) | `BubblewrapExecutionBackend` 또는 `VmTaskExecutionBackend` 구현이 없습니다. |
+| Azure Container Apps Job 어댑터 | not-started | [Azure Container Apps 작업](#azure-container-apps-작업) | 통제된 Job backend 구현이나 focused 어댑터 테스트가 없습니다. |
+| 실제 shadow 및 승격 근거 | not-started | [Shadow 탐색 및 승격 잔여](#shadow-탐색-및-승격-잔여) | Mock 수명 주기 검사는 신원, ARM 도달 가능성, race, 증적 완전성, 보존 또는 측정 비용을 입증하지 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 ledger를 도입하고 오래된 어댑터 코드 지도 경로를 수정했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 프로토콜, core, 영속성, 조립 및 focused 검사입니다. | 세 delivery 어댑터를 구현하고 영속 및 실제 수명 주기 근거를 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] 지원되는 로컬 데이터베이스에서 focused PostgreSQL 원장 사례를 건너뛰지 않고 실행하고 프로세스 재시작 조정 증적을 보존합니다.
+- [ ] 기존 sandbox 권한을 넓히지 않는 `BubblewrapExecutionBackend` 및 `VmTaskExecutionBackend`를 구현하고 focused 테스트를 추가합니다.
+- [ ] Pinned 이미지, 멱등성, 호스트와 경로 검증, 재시도, circuit breaker, 취소 race, 증적 및 프로바이더 보존 동작이 있는 `AzureContainerAppsJobExecutionBackend`를 구현하고 focused 테스트를 추가합니다.
+- [ ] 승격 검토 전에 신원 범위, ARM 도달 가능성, 중복 시작, 시간 초과 및 stop race, 증적 완전성, 프로바이더 보존 및 측정 비용에 대한 관리되는 shadow 증적을 보존합니다.
 
 ## 관련 문서
 

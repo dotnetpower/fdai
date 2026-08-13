@@ -1,8 +1,8 @@
 ---
 title: Operator Console - View Snapshot Contract
 translation_of: operator-console-view-snapshot.md
-translation_source_sha: 9b99a3e29d8d34eb85d3be7f3e0580573da9e08d
-translation_revised: 2026-08-11
+translation_source_sha: 1d8cb6f5bdc9ce94bc02ef42f61a05f077458ec5
+translation_revised: 2026-08-14
 ---
 
 # Operator Console - 화면 스냅샷 계약
@@ -369,3 +369,28 @@ Canary 상태, 비상 정지 상태, 스트림 누락 수, 측정된 가드 지�
 사용할 수 없음으로 표시해야 합니다. CFR, false-positive 비율, 롤백 비율,
 policy-violation escape는 측정 기간, 기준선, 표본 수와 함께 통제 보증 화면에
 표시합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| ViewSnapshot 계약 및 결정론적 화면 답변 | implemented | `console/src/deck/context.tsx`; `console/src/deck/answerer.ts`; `console/src/deck/answerer.test.ts`; `console/src/routes/view-contract.test.ts` | Focused Console 테스트는 범위가 제한된 fact와 record, 경로 계약, 지원하지 않는 필드 및 결정론적 fallback을 다룹니다. |
+| 답변 계획 및 qualification | implemented | `services/core-control-plane/src/fdai/core/conversation/answer_plan.py`; `answer_planning.py`; `answer_planning_qualification.py`; focused conversation 테스트 | 범위가 제한된 계획, shadow 레코드, 변경할 수 없는 qualification batch 및 readiness-only 증적이 activation 권한 없이 존재합니다. |
+| Shadow contributor 수집 | in-progress | Answer-planning source 및 최종 메타데이터 경로 | Phase C shadow 레코드는 있습니다. 문서에 적힌 Phase D 선택적 activation과 Phase E conflict 처리는 승격되지 않았습니다. |
+| Live 관찰 presentation | implemented | Console Live 모델, 경로 및 focused 테스트; [Live 관찰 계약](#1343-live-관찰-계약) | Queue 및 Flow presentation, source와 mode 처리, 재생 중복 제거, freeze, 보존 및 상세 이동 동작이 브라우저에 구현됐습니다. |
+| 관리되는 화면 간 런타임 증적 | in-progress | Console live E2E harness 및 경로 테스트 | Focused 테스트는 계약을 입증하지만 이 owner 문서는 snapshot hydration, 관찰 작업, 최종 검증 및 navigation을 묶는 현재 인증 증적을 보존하지 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 ViewSnapshot, planning, Live 및 focused 테스트 근거입니다. | 승격 전에 관리되는 화면 간 및 shadow qualification 근거를 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] 표시된 snapshot 다이제스트, 서버 근거, branch 수명 주기, 최종 검증, stale 전이 및 경로 이동을 묶는 인증된 화면 간 증적 하나를 보존합니다.
+- [ ] 고정된 bilingual answer-planning qualification 집합을 실행하고 선택적 activation 검토 전에 지원하지 않는 단정 및 권한 escape가 0건인 변경할 수 없는 증적을 보존합니다.
+- [ ] 상충하는 contributor가 두 근거 집합을 보존하고 기본 검증 답변을 바꾸거나 권한을 부여할 수 없음을 입증하는 Phase E conflict 사례를 추가하고 보존합니다.
+- [ ] 표준 full stack에서 Live 재연결, 재생, freeze, stuck-budget, source 혼합, 최종 교체 및 keyboard-contained 상세 이동 근거를 보존합니다.

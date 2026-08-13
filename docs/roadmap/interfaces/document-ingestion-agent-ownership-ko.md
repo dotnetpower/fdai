@@ -1,7 +1,7 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: 4d30e54cbdd9d1e4a7b29dda81be4e92657ea218
-translation_revised: 2026-08-11
+translation_source_sha: e9c69139d48a7942832769c4a17dc3373f9814fb
+translation_revised: 2026-08-14
 ---
 
 # 문서 인제스트 에이전트 소유권
@@ -116,6 +116,29 @@ judgment, 승인, 감사, memory 또는 실행기 권한을 얻지 않습니다.
 각 프로세스는 연결된 user-assigned 신원 클라이언트 id도 `FDAI_MI_CLIENT_ID`로 받습니다. Storage,
 Event Hubs, 모델, 선택적 OCR 및 stewardship 어댑터는 해당 exact 신원을 선택하며 주변 또는
 system-assigned principal로 대체 경로하지 않습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Huginn, Heimdall, Forseti, Saga, Var 및 Muninn 게이트 체인 | implemented | `services/core-control-plane/tests/agents/test_document_ingestion_agent_chain.py`; `services/core-control-plane/src/fdai/agents/`; document worker 감사 및 인덱스 계약 | Focused agent-chain 테스트는 내용이 없는 ingress, 판정, 감사, 승인 및 인덱스 명령 소유권을 입증하며 Thor는 non-action 문서 결정을 무시합니다. |
+| 독립 ingestion API 및 처리 worker | implemented | `services/document-ingestion-api/`; `services/document-processing-worker/`; `packages/service-contracts/src/fdai_service_contracts/document.py` | 별도 패키지, 진입점, 계약, 어댑터 및 focused service 테스트가 기계적 프로세스 역할을 보존합니다. |
+| 영속 worker 점유 fencing 및 복구 | implemented | `services/core-control-plane/src/fdai/core/document_ingestion/`; `services/core-control-plane/tests/core/document_ingestion/`; service-owned worker 테스트 | Focused 테스트는 gated 상태 재생, 임차 기간과 점유 소유권, 중복 전달 및 결정 이후 복구 동작을 다룹니다. |
+| 배포 신원, topic RBAC 및 재시작 근거 | in-progress | `config/independent-service-live-evidence-manifest.json`; `infra/`; 독립 service 패키지 | 토폴로지와 연결이 선언되고 service 검사가 있지만 이 owner 문서에는 현재 이미지 신원, topic 권한, 재시작 및 실행기 접근 부재 탐색에 대한 정확한 관리 증적이 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 agent-chain, core ingestion, service 패키지 및 계약 근거입니다. | 정확한 배포 신원, 전송, 재시작 및 권한 상한 근거를 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] API가 worker group을 소비할 수 없고 worker에는 선언된 수신 및 전송 topic만 있으며 어느 service도 Thor 신원이나 실행기 역할을 얻을 수 없음을 입증하는 정확한 이미지 기반 관리 증적을 보존합니다.
+- [ ] Gated 상태가 사실만 재생하고 결정 이후 작업이 하나의 영속 stage 점유로 수렴함을 보여주는 재시작, 중복, 순서 변경, 임차 기간 만료 및 조정 근거를 보존합니다.
+- [ ] 내용이 전송 또는 감사 레코드에 복사되지 않은 상태로 Huginn ingress에서 Saga 감사를 거쳐 Var 승인 또는 Muninn 인덱싱까지 이어지는 protected 문서 흐름과 clear 문서 흐름을 각각 하나씩 기록합니다.
 
 ## 관련 문서
 

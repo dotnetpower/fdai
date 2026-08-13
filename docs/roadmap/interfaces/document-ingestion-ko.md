@@ -1,8 +1,8 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 00562afa1218b335e4cd9485657ee829ab5b698c
-translation_revised: 2026-08-12
+translation_source_sha: c019813cfd05f497dae5881716428d151c32f80c
+translation_revised: 2026-08-14
 ---
 # 문서 인제스트와 투입 구역
 
@@ -509,27 +509,15 @@ abstain하고 결정론적 추출은 계속됩니다.
 | `GET /documents/{document_id}/versions` | 권한이 적용된 메타데이터와 상태 이력 |
 | `DELETE /documents/{document_id}/versions/{version_id}` | 통제된 deletion 요청 |
 
-출처 바이트는 클라이언트에서 전용 게이트웨이를 거쳐 객체 저장소로 스트리밍됩니다. Authentication
-토큰은 헤더로 전달하며 저장소 자격 증명이나 권한 부여를 조회 문자열로 브라우저에 노출하지 않습니다.
-객체가 수락된 후 `complete`를 다시 호출하면 현재 세션을 `202`로 반환하고
-`document.received` 이벤트를 다시 publish하지 않습니다. 따라서 HTTP 응답이 유실되어도
-안전하게 재시도할 수 있습니다.
+출처 바이트는 클라이언트에서 전용 게이트웨이를 거쳐 객체 저장소로 스트리밍됩니다. Authentication 토큰은 헤더로 전달하며 저장소 자격 증명이나 권한 부여를 조회 문자열로 브라우저에 노출하지 않습니다.
+객체가 수락된 후 `complete`를 다시 호출하면 현재 세션을 `202`로 반환하고 `document.received` 이벤트를 다시 publish하지 않습니다. 따라서 HTTP 응답이 유실되어도 안전하게 재시도할 수 있습니다.
 
-산출물 쓰기, 인덱스 커밋, 용도별 소비자 전달에는 각각 범위가 제한된 기한을 적용합니다.
-`FDAI_DOCUMENT_INDEXING_STAGE_TIMEOUT_SECONDS`를 양의 초 단위 값으로 설정하세요. Azure 배포의
-기본값은 90입니다. 시간 초과가 발생하면 `indexing_failed`를 기록하고 수락된 출처를 격리 구역에
-유지하며 부분 derived/인덱스 데이터를 제거합니다. 구조화된 단계 로그에는 업로드 id와 단계
-이름만 기록하고 문서 내용나 프로바이더 오류 텍스트는 기록하지 않습니다.
+산출물 쓰기, 인덱스 커밋, 용도별 소비자 전달에는 각각 범위가 제한된 기한을 적용합니다. `FDAI_DOCUMENT_INDEXING_STAGE_TIMEOUT_SECONDS`를 양의 초 단위 값으로 설정하세요. Azure 배포의 기본값은 90입니다.
+시간 초과가 발생하면 `indexing_failed`를 기록하고 수락된 출처를 격리 구역에 유지하며 부분 derived/인덱스 데이터를 제거합니다. 구조화된 단계 로그에는 업로드 id와 단계 이름만 기록하고 문서 내용나 프로바이더 오류 텍스트는 기록하지 않습니다.
 
-상태 전이는 `document.received`, `document.held`, `document.ready`,
-`document.superseded`, `document.access_changed`, `document.deleted` 같은 타입이 지정된 이벤트를
-publish합니다. 소비자는 멱등적하게 동작합니다. Knowledge 인덱싱과 수동 정제는
-버전의 선언된 용도에 자신이 포함된 경우에만 `document.ready`를 구독합니다.
-용도별 처리는 `DocumentReadyConsumer`를 연결할 수도 있습니다. 워커는 안전성 검사를
-통과한 `DocumentEnvelope`만 전달합니다. 제공되는 `handover_bootstrap` 소비자는 이 묶음을
-근거가 있고 검토 전용인 steward-map 초안으로 변환합니다.
-영속 조정기는 업로드 또는 메타데이터 cycle 예외의 타입을 로그에 기록하고 프로세스 내
-deduplication 자리를 해제한 뒤, 작업을 종료하지 않고 다음 범위가 제한된 간격에 계속 실행합니다.
+상태 전이는 `document.received`, `document.held`, `document.ready`, `document.superseded`, `document.access_changed`, `document.deleted` 같은 타입이 지정된 이벤트를 publish합니다. 소비자는 멱등적하게 동작합니다.
+Knowledge 인덱싱과 수동 정제는 버전의 선언된 용도에 자신이 포함된 경우에만 `document.ready`를 구독합니다. 용도별 처리는 `DocumentReadyConsumer`를 연결할 수도 있습니다. 워커는 안전성 검사를 통과한 `DocumentEnvelope`만 전달합니다.
+제공되는 `handover_bootstrap` 소비자는 이 묶음을 근거가 있고 검토 전용인 steward-map 초안으로 변환합니다. 영속 조정기는 업로드 또는 메타데이터 cycle 예외의 타입을 로그에 기록하고 프로세스 내 deduplication 자리를 해제한 뒤, 작업을 종료하지 않고 다음 범위가 제한된 간격에 계속 실행합니다.
 
 ## 실패 동작
 
@@ -618,6 +606,31 @@ rich format이 필요할 때 의존성 주입으로 프로바이더를 교체할
 - Protected 내용에 일시적인 추출 또는 통제된 derivative를 허용할지 여부
 - Format별 리소스 예산, 서비스 대상, 할당량, 비용 한도
 - 보관, 이전 방식 format, audio/video, 출처 download 활성화 여부
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 계약, 수명 주기, 한도 및 로컬 format 추출 | implemented | `packages/service-contracts/src/fdai_service_contracts/document.py`; `services/core-control-plane/src/fdai/core/document_ingestion/`; 로컬 document 프로바이더; focused ingestion 및 provider 테스트 | 범위가 제한된 업로드 상태, protection 상태, safe text, OOXML, strict PDF, 조각화 및 실패 시 차단 전이에 focused 검사가 있습니다. |
+| 독립 upload API 및 처리 worker | implemented | `services/document-ingestion-api/`; `services/document-processing-worker/`; service-owned 테스트 | 별도 ASGI 및 worker 패키지가 scoped 업로드, 처리, 상태, 저장소, event 및 handover 경계를 구현합니다. |
+| PostgreSQL, ADLS, pgvector, Event Hubs, 임베딩 및 ClamAV 연결 | in-progress | 독립 service 어댑터; `infra/modules/storage/adls-gen2/`; `infra/local/docker-compose.yml` | Delivery 구현과 로컬 및 배포 구성이 있지만 이 ledger에는 모든 연결과 실패 경계를 다루는 하나의 관리되는 exact-topology 증적이 없습니다. |
+| 권리 관리, OCR, 미리 보기 및 철회 | in-progress | [구현 경계와 롤아웃](#구현-경계와-롤아웃) | 감지와 경계는 있습니다. Purview/RMS 접근, delegated 권한 확인, OCR 조립, 미리 보기 및 철회 조정은 프로바이더 작업으로 남아 있습니다. |
+| 재개 가능한 업로드, connector 및 측정된 규모 | not-started | [Connector and 규모](#구현-경계와-롤아웃) | Block-resumable 업로드, connector delta sync 및 측정된 용량 대상은 설계 작업으로 남아 있습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 계약, core 수명 주기, service 패키지, 어댑터 및 focused 검사입니다. | Exact-topology, protection 프로바이더, connector 및 규모 근거를 완료해야 합니다. |
+
+### 남은 작업
+
+- [ ] 정확한 service 신원과 계약을 사용해 업로드, 검사, protection 점검, 추출, 인덱싱, 인용, 삭제, 재시작 및 실패 복구를 다루는 관리되는 5-service 로컬 및 배포 증적을 각각 하나씩 보존합니다.
+- [ ] 출처 protection을 제거하지 않으면서 선택한 Purview/RMS, delegated 권한 확인, OCR, 미리 보기 및 철회 조정 프로바이더를 구현하고 focused 테스트를 추가합니다.
+- [ ] 범위가 제한된 멱등성, 삭제 전파, backpressure 및 재시작 테스트가 있는 block-resumable 업로드와 connector delta 동기화를 구현합니다.
+- [ ] 용량 대상이나 더 넓은 format 지원을 선언하기 전에 검토된 corpus에서 p50/p95 단계 지연 시간, 큐 delay, 처리량, 저장소 증가 및 실패율 기준선을 기록합니다.
 
 ## 다음 단계
 
