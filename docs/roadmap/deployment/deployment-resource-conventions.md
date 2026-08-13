@@ -17,7 +17,8 @@ deployment-specific values outside the upstream distribution.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | CAF naming and `fdai:` ownership tags | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, and focused Terraform tests | Terraform computes names and tags; runtime code consumes outputs. |
-| Terraform state-root convention | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | The platform, five service roots, and bootstrap root have governed evidence. |
+| Independent-service Terraform state roots | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | All five service roots have governed plan, apply, health, peer-isolation, and rollback evidence. |
+| Legacy platform and ops-bootstrap Terraform state roots | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml`, and focused Terraform and workflow checks | Stable backend keys and deployment mechanisms are shipped; governed apply receipts for these two roots are not retained in the repository. |
 | OHL scale-out evidence target naming and tags | implemented | current change in `infra/main.tf`; `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` reports 8 passed | Live provisioning and recurrence evidence remain open. |
 
 ### Implementation history
@@ -25,9 +26,13 @@ deployment-specific values outside the upstream distribution.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added the optional OHL VM Scale Set convention. | current change; focused Terraform tests report 8 passed. | Capture the exact protected apply and live OHL evidence. |
+| 2026-08-13 | implemented | Corrected the broad state-root claim by keeping the five receipt-backed service roots `validated` and classifying the legacy platform and ops-bootstrap roots as `implemented`. | current change; `config/independent-service-live-evidence-manifest.json`, `config/independent-service-remote-evidence.json`, and roadmap, translation, and documentation checks. | Retain governed apply receipts for the platform and bootstrap roots before advancing them to `validated`. |
 
 ### Remaining work
 
+- [ ] Retain repository-safe governed apply receipts for the legacy platform and ops-bootstrap
+  roots. Each receipt must bind the backend key, exact protected plan, source revision, target
+  identity, and post-apply verification before those roots advance to `validated`.
 - [ ] Record a protected apply receipt showing the OHL target keeps its deterministic name,
   application-resource-group placement, private subnet, and required `fdai:` tags.
 
