@@ -8,7 +8,7 @@
 .PHONY: dev-up dev-down dev-logs dev-nuke help \
 	lint format test test-changed service-test service-test-all operator gates check validation-status validation-run \
 	validation-all worktree-maintenance worktree-cleanup roadmap-verification-sync roadmap-verification-status \
-	roadmap-verification-report roadmap-verification-apply pre-commit-install hooks-install \
+	roadmap-verification-report roadmap-verification-retry roadmap-verification-apply pre-commit-install hooks-install \
         azd-up genesis-up
 
 help: ## show this help
@@ -93,6 +93,9 @@ roadmap-verification-status: ## show durable roadmap verification job counts
 
 roadmap-verification-report: ## audit one roadmap document without repository writes
 	@python3 scripts/automation/roadmap_verification_worker.py
+
+roadmap-verification-retry: ## retry one failed roadmap audit without claiming queued work
+	@python3 scripts/automation/roadmap_verification_worker.py --retry-failed
 
 roadmap-verification-apply: ## apply one job in a clean campaign worktree and fast-forward it
 	@python3 scripts/automation/roadmap_verification_worker.py --apply --integrate

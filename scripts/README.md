@@ -252,6 +252,12 @@ branch:
 make roadmap-verification-report
 ```
 
+Retry one failed report job without claiming newer queued work:
+
+```bash
+make roadmap-verification-retry
+```
+
 `apply` mode is for the dedicated clean campaign worktree created by the timer
 installer. It may implement a verified gap, add focused tests, update both document
 variants, and commit. The orchestration layer then independently runs the diff-based
