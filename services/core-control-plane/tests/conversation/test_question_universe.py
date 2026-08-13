@@ -60,6 +60,19 @@ def _object_manifest(*names: str, purposes: tuple[str, ...] = ()) -> QueryManife
     )
 
 
+def _unavailable_manifest() -> QueryManifest:
+    function = _function()
+    release = build_ontology_release(function_types=(function,))
+    return build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=(),
+        principal_scope_digest=SCOPE_DIGEST,
+        functions=(function,),
+        bound_function_names=(),
+    )
+
+
 def test_generation_is_stable_under_manifest_and_axis_reordering() -> None:
     first_manifest = _object_manifest("Resource", "Service")
     second_manifest = _object_manifest("Resource", "Service", purposes=("operations-review",))
@@ -90,16 +103,7 @@ def test_generation_is_stable_under_manifest_and_axis_reordering() -> None:
 
 
 def test_unavailable_declaration_becomes_reason_bearing_exclusion() -> None:
-    function = _function()
-    release = build_ontology_release(function_types=(function,))
-    manifest = build_query_manifest(
-        release=release,
-        principal_role=CeilingRole.READER,
-        purposes=(),
-        principal_scope_digest=SCOPE_DIGEST,
-        functions=(function,),
-        bound_function_names=(),
-    )
+    manifest = _unavailable_manifest()
     grammar = QuestionUniverseGrammar.build(locales=("en-US",))
 
     generated = generate_question_universe(manifests=(manifest,), grammar=grammar)
@@ -138,3 +142,80 @@ def test_generation_fails_preflight_before_case_expansion_exceeds_bound() -> Non
 
     with pytest.raises(ValueError, match="preflight case bound"):
         generate_question_universe(manifests=(manifest,), grammar=grammar)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    (
+        ({"locales": ()}, "locales MUST be non-empty"),
+        ({"locales": ("english",)}, "locales MUST be canonical"),
+        ({"locales": ("en-US",), "case_classes": ()}, "case classes MUST be non-empty"),
+        ({"locales": ("en-US",), "path_depths": (0,)}, "path depths MUST be in"),
+        ({"locales": ("en-US",), "result_bounds": (100_001,)}, "result bounds MUST be in"),
+        ({"locales": ("en-US",), "max_cases": 0}, "max_cases MUST be in"),
+    ),
+)
+def test_grammar_rejects_empty_or_out_of_bounds_axes(
+    kwargs: dict[str, object], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        QuestionUniverseGrammar.build(**kwargs)  # type: ignore[arg-type]
+
+    valid = QuestionUniverseGrammar.build(locales=("en-US",))
+    with pytest.raises(ValueError, match="digest does not match"):
+        replace(valid, digest="sha256:" + "0" * 64)
+
+
+def test_generation_requires_nonempty_unique_manifest_inventory() -> None:
+    manifest = _object_manifest("Resource")
+    grammar = QuestionUniverseGrammar.build(locales=("en-US",))
+
+    with pytest.raises(ValueError, match="at least one principal manifest"):
+        generate_question_universe(manifests=(), grammar=grammar)
+    with pytest.raises(ValueError, match="principal manifests MUST be unique"):
+        generate_question_universe(manifests=(manifest, manifest), grammar=grammar)
+    with pytest.raises(ValueError, match="no readable declaration accounting"):
+        generate_question_universe(manifests=(_object_manifest(),), grammar=grammar)
+
+
+def test_generation_rejects_tampered_manifest_receipts_and_exclusions() -> None:
+    manifest = _object_manifest("Resource")
+    grammar = QuestionUniverseGrammar.build(locales=("en-US",))
+
+    wrong_release = replace(
+        manifest,
+        coverage_receipt=manifest.coverage_receipt.model_copy(
+            update={"ontology_release_digest": "sha256:" + "0" * 64}
+        ),
+    )
+    with pytest.raises(ValueError, match="different ontology release"):
+        generate_question_universe(manifests=(wrong_release,), grammar=grammar)
+
+    wrong_manifest = replace(
+        manifest,
+        coverage_receipt=manifest.coverage_receipt.model_copy(
+            update={"manifest_digest": "sha256:" + "0" * 64}
+        ),
+    )
+    with pytest.raises(ValueError, match="different manifest"):
+        generate_question_universe(manifests=(wrong_manifest,), grammar=grammar)
+
+    wrong_count = replace(
+        manifest,
+        coverage_receipt=manifest.coverage_receipt.model_copy(update={"descriptor_count": 0}),
+    )
+    with pytest.raises(ValueError, match="descriptor count is incomplete"):
+        generate_question_universe(manifests=(wrong_count,), grammar=grammar)
+
+    unavailable = _unavailable_manifest()
+    unsupported = replace(
+        unavailable,
+        unavailable=(
+            {
+                "declaration_id": unavailable.unavailable[0]["declaration_id"],
+                "reason": "provider_not_configured",
+            },
+        ),
+    )
+    with pytest.raises(ValueError, match="unsupported question exclusion reason"):
+        generate_question_universe(manifests=(unsupported,), grammar=grammar)
