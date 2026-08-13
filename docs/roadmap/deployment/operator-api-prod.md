@@ -3,24 +3,44 @@ title: Operator API Production Deployment
 ---
 # Operator API Production Deployment
 
-The upstream repo ships two ASGI entrypoints for the console Operator API:
-the local facade ([`services/operator-service/src/fdai_operator_service/`](../../../services/operator-service/src/fdai_operator_service/))
-that requires Entra or an explicit Azure CLI principal plus authoritative Azure views by default,
-and permits `UnsafeClaimsExtractor` plus synthetic views only under pytest's
-`test_fixtures=True`; and the production facade
-([`services/operator-service/src/fdai_operator_service/`](../../../services/operator-service/src/fdai_operator_service/))
-that composes real Entra JWT verification and a Postgres-backed read
-model from environment only. This doc covers the production entrypoint.
+The upstream repo ships the console Operator API as the independent
+[`fdai-operator-service`](../../../services/operator-service/) distribution. Local and deployed
+profiles use the same public ASGI factory, `fdai_operator_service.main:create_app`, while explicit
+environment values select the execution venue, Entra verifier, PostgreSQL stores, and Kafka
+transport. This document covers the deployed production composition.
 
 > **Scope**: this is a Tier B reference. The full dev/prod parity contract
 > lives in [dev-and-deploy-parity.md](dev-and-deploy-parity.md); the
 > deployment topology lives in [deployment.md](deployment.md).
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Independent service entrypoint and environment validation | implemented | `services/operator-service/src/fdai_operator_service/main.py`, `production.py`, `environment.py`, and composition tests | The service owns one factory and validates listener, Entra, RBAC, CORS, database, and semantic-transport combinations before provider use. |
+| Entra authentication and bounded Operator authorization | implemented | `services/operator-service/src/fdai_operator_service/auth.py`, route-family authorization, and focused service tests | Human identity remains separate from the executor identity; wildcard CORS and partial semantic transport fail closed. |
+| PostgreSQL read and family stores | implemented | `postgres.py`, `postgres_family_store.py`, and `test_operator_service_postgres.py` | DSN normalization, connection bounds, role binding, per-transaction statement timeout, and unavailable projections are implemented. |
+| Kafka semantic transport and Live/Agents relay | implemented | `adapters/`, `streaming/`, `test_semantic_kafka_adapter.py`, `test_semantic_turn_bridge.py`, and `test_live_stream.py` | Local plaintext and deployed managed-identity transport remain explicit execution-venue choices. |
+| Independently deployed Operator service | validated | `.github/workflows/service-deploy.yml` and `config/independent-service-live-evidence-manifest.json` | Repository-safe live evidence covers the separately packaged service, migration branch, health, and rollback boundary. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | validated | Adopted the implementation ledger; earlier provenance was not reconstructed. Updated the reference from the retired co-hosted facade to the independent Operator service. | current change; focused Operator service checks and the independent-service live evidence manifest | Keep the environment contract, service tests, deployment workflow, and live evidence manifest synchronized as the service evolves. |
+
+### Remaining work
+
+- [x] No implementation work remains for the bounded production-composition scope documented here; focused service tests and `config/independent-service-live-evidence-manifest.json` provide the current implementation and operational evidence.
+
 ## Design at a glance
 
-- **Same `build_app` glue.** The prod factory calls the shared
-  [`build_app`](../../../services/operator-service/src/fdai_operator_service/) with
-  `dev_mode=False`, so cloud-resource mutation remains outside the API. Opt-in
+- **Service-owned factory.** The deployed process calls
+  [`fdai_operator_service.main:create_app`](../../../services/operator-service/src/fdai_operator_service/main.py),
+  which builds the service-owned runtime without importing the control-plane implementation.
+  Cloud-resource mutation remains outside the API. Opt-in
   POST routes record proposals, approvals, or access requests but never hold
   the executor identity. The
   staging/prod tripwires (CORS `*` refused, dev-mode refused) apply
@@ -29,11 +49,10 @@ model from environment only. This doc covers the production entrypoint.
   and webhook secret use Key Vault references; non-secret tenant, audience, group, and topic
   values are plain env injected by IaC. No config file or customer identifier is baked into the
   image.
-- **Fail-fast on missing config.** Any missing required env raises
-  :class:`ProdOperatorApiConfigError` (a `ValueError` subclass) at startup;
-  a broken revision never binds a socket. A cold boot with an entirely
-  unpopulated env yields ONE error that enumerates every missing slot,
-  instead of eight sequential boot failures.
+- **Fail-fast on invalid config.** Missing or invalid required identity and transport values raise
+  `OperatorServiceConfigurationError` before provider construction. Database omission is an
+  explicit unavailable-projection state for profiles that don't configure PostgreSQL; deployed
+  production supplies both the DSN and the exact `fdai_operator` role.
 - **Fail-fast on database readiness.** Before user context, skills, streams, or other runtime
   services start, the Postgres read model executes a bounded `SELECT 1`. A connection failure
   aborts lifespan startup, so `/healthz` never presents an unconnected revision as ready.
@@ -61,7 +80,8 @@ Required (fail-fast at startup):
 
 | Variable | Purpose |
 |----------|---------|
-| `FDAI_DATABASE_URL` | psycopg 3 DSN. Accepted schemes: `postgresql://`, `postgres://`, `postgresql+psycopg://`. Any other `+<driver>` suffix (`+asyncpg`, `+psycopg2`, ...) is rejected at boot with a `ProdOperatorApiConfigError`. Points at the `audit_log` + `state_kv` schema the writer already provisions via `alembic upgrade head`. |
+| `FDAI_DATABASE_URL` | Deployed production psycopg 3 DSN. Accepted schemes: `postgresql://`, `postgres://`, and `postgresql+psycopg://`. When omitted, database-backed projections are explicitly unavailable. |
+| `FDAI_DATABASE_ROLE` | Must be `fdai_operator` whenever `FDAI_DATABASE_URL` is set. |
 | `FDAI_ENTRA_TENANT_ID` | Consumed by [`EntraJwtVerifier.from_env`](../../../services/operator-service/src/fdai_operator_service/). |
 | `FDAI_API_AUDIENCE` | The `fdai-api` App ID URI (`api://<guid>`). |
 | `FDAI_RBAC_READERS_GROUP_ID` | Entra group `objectId` mapped to the Reader role. |
@@ -77,8 +97,8 @@ Optional (defaults apply):
 | `FDAI_ENTRA_ISSUER` | `https://login.microsoftonline.com/<tenant>/v2.0` | Override for v1 tokens or sovereign clouds. |
 | `FDAI_ENTRA_JWKS_URI` | tenant discovery endpoint | Override for air-gapped clouds. |
 | `FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS` | empty (same-origin) | Comma-separated origin list. A bare `*` element is rejected unconditionally by this factory (regardless of `RUNTIME_ENV`) - a cross-origin deploy MUST list the console origins explicitly. |
-| `FDAI_OPERATOR_API_STATEMENT_TIMEOUT_MS` | `20000` | Applied via `SET LOCAL statement_timeout` on every read query. |
-| `FDAI_OPERATOR_API_CONNECT_TIMEOUT_S` | `10` | Bounds the TCP + auth handshake so a dead DB fails fast. |
+| `FDAI_OPERATOR_DATABASE_STATEMENT_TIMEOUT_MS` | `20000` | Applied transaction-locally with `set_config('statement_timeout', ..., true)` on database operations. |
+| `FDAI_OPERATOR_DATABASE_CONNECT_TIMEOUT_S` | `10` | Bounds the TCP and authentication handshake so an unavailable database fails promptly. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` | empty | Starts the semantic transport and the shared Live/Agent observation relay. Uses the Event Hubs Kafka endpoint on `:9093`. An empty value leaves both SSE routes connected in `Awaiting source` without fabricating runtime evidence. |
 | `KAFKA_TOPIC_EVENTS` | empty | With Kafka bootstrap, enables `POST /chat/action` for typed actions and the confirmed incident workflow. The value is the same raw ingress topic consumed by Huginn. |
 | `FDAI_STAGE_TOPIC` | `aw.pipeline.stages` | Stage topic published by the worker and consumed by the Live and Agents relays. The worker and Operator API should use the same value. |
@@ -116,7 +136,7 @@ browser, and don't include group membership write access.
 ## Run it
 
 ```bash
-uvicorn fdai.delivery.operator_api.prod:app \
+uvicorn fdai_operator_service.main:create_app \
     --factory --host 0.0.0.0 --port 8000
 ```
 
@@ -127,20 +147,12 @@ Vault secret directly ([app-shape.instructions.md § Azure Mapping](../../../.gi
 
 ## What lives where
 
-- [`prod.py`](../../../services/operator-service/src/fdai_operator_service/) - the stable import facade and
-  `app()` factory.
-- [`production/config.py`](../../../services/operator-service/src/fdai_operator_service/) and
-  [`production/factory.py`](../../../services/operator-service/src/fdai_operator_service/) - the
-  actual owners of environment validation and Postgres/Entra/provider composition.
-- [`postgres_read_model.py`](../../../services/operator-service/src/fdai_operator_service/)
-  - the concrete :class:`ConsoleReadModel` on top of `audit_log` +
-    `state_kv`. Pure row-to-dataclass mappers + a bounded KPI
-    aggregation live in the same module so they are unit-tested without
-    a live DB.
-- [`main.py`](../../../services/operator-service/src/fdai_operator_service/) - shared
-  `build_app` glue (route registration, `_authorize` gate, staging/prod
-  tripwires).
-- [`adapters/live_stage_kafka.py`](../../../services/operator-service/src/fdai_operator_service/)
+- [`main.py`](../../../services/operator-service/src/fdai_operator_service/main.py) - public ASGI factory export and service entrypoint.
+- [`production.py`](../../../services/operator-service/src/fdai_operator_service/production.py) - validated uvicorn lifecycle.
+- [`environment.py`](../../../services/operator-service/src/fdai_operator_service/environment.py) - immutable environment validation.
+- [`composition.py`](../../../services/operator-service/src/fdai_operator_service/composition.py) - Entra, PostgreSQL, route-family, semantic bus, relay, readiness, and lifecycle composition.
+- [`postgres.py`](../../../services/operator-service/src/fdai_operator_service/postgres.py) and [`postgres_family_store.py`](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py) - authoritative read and family stores.
+- [`adapters/live_stage_kafka.py`](../../../services/operator-service/src/fdai_operator_service/adapters/live_stage_kafka.py)
   - owns the Kafka consumer lifecycle and commit-after-processing behavior.
 - [`streaming/live_stream.py`](../../../services/operator-service/src/fdai_operator_service/) and
   [`streaming/stage_frames.py`](../../../services/operator-service/src/fdai_operator_service/) and
@@ -150,17 +162,10 @@ Vault secret directly ([app-shape.instructions.md § Azure Mapping](../../../.gi
 
 ## Testing
 
-- `services/operator-service/tests/` - env parsing + composition
-  guards (no DB round-trip).
-- `services/operator-service/tests/` - raw
-  stage relay, malformed-frame rejection, and lifecycle behavior.
-- `services/operator-service/tests/` - row
-  mappers, cursor parsing, KPI aggregation (no DB round-trip).
-- `services/core-control-plane/tests/persistence/test_postgres_console_read_model.py` -
-  end-to-end round-trip against a live Postgres. Skipped unless
-  `FDAI_DATABASE_URL` is set; the local `docker-compose` dev stack
-  (`bash scripts/deployment/local/dev-up.sh`) exposes it as
-  `postgresql+psycopg://fdai:devonly@localhost:5432/fdai`.
+- `services/operator-service/tests/test_operator_service_composition.py` - environment and composition guards.
+- `services/operator-service/tests/test_operator_service_postgres.py` - DSN, query, timeout, and row mapping contracts.
+- `services/operator-service/tests/test_live_stream.py` - stage relay, malformed-frame rejection, and lifecycle behavior.
+- `services/operator-service/tests/test_semantic_kafka_adapter.py` and `test_semantic_turn_bridge.py` - semantic transport, replay, lease, and lifecycle behavior.
 
 ## Related docs
 

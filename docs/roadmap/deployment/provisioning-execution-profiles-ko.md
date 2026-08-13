@@ -1,24 +1,43 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 6b25f834768673a789b69a9684153d2a59657e9a
-translation_revised: 2026-08-11
+translation_source_sha: 9f4dda7711986339fce6a1e4a6ce8a3232a99cab
+translation_revised: 2026-08-14
 ---
 # 프로비저닝 실행 프로파일
 
-이 문서는 `fdaictl`이 프로비저닝 호스트, connectivity 모드, 명령 전송 계층, 접근 경로를
+이 문서는 계획된 `fdaictl` 배포판이 프로비저닝 호스트, connectivity 모드, 명령 전송 계층, 접근 경로를
 선택하는 방법을 정의합니다. 또한 Terraform이 infrastructure 또는 역할 배정을 변경하기
 전에 적용되는 사람 승인과 workload-identity 경계를 정의합니다.
 
-> **구현 상태:** 읽기 전용 `fdaictl provision inspect`와 비공개 `provision init` 프로파일
-> 영속성이 구현되었습니다. Injected release 루트를 사용하는 offline-kit 매니페스트 생성,
-> 서명, 호환성, exact file-set 검증, 점검 통합이 구현되었습니다.
-> Pinned 루트 packaging,
-> 초기화 계획/적용 orchestration, temporary public-access 정리,
-> post-provision 검증은 목표 동작으로 남아 있습니다.
->
 > **범위:** Azure가 구현된 대상입니다. 이 프로파일은 Terraform 정본을 변경하거나
 > 비공개 엔드포인트를 우회하는 로컬 대체 경로를 허용하지 않습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 읽기 전용 점검 및 프로파일 초기화 명령 | not-started | 저장소 패키지 메타데이터와 이 문서의 명령 계약 | 현재 전용 CLI 배포판이나 `fdaictl` 프로젝트 스크립트가 없습니다. |
+| 관리 VM, 비공개 백엔드 및 보호된 실행기 | implemented | `infra/bootstrap/`, `.github/workflows/deploy-dev.yml` 및 집중 bootstrap/작업 흐름 테스트 | 영속 VNet 호스트, 워크로드 신원, 비공개 상태, 보호된 계획 및 exact-apply 동작은 로컬 CLI 파사드 없이 존재합니다. |
+| Offline-kit 생성 및 검증 | in-progress | `scripts/deployment/release/build-offline-kit.py` 및 `stage-offline-kit.sh` | Release 스크립트는 있지만 가져오는 `fdai.deployment_cli.offline_kit` 구현이 없습니다. |
+| Temporary 공개 접근 정리 | not-started | 이 문서의 접근 선호 설정 계약 | 범위가 제한된 생성, 자동 정리, 정리 실패 시 불완전 상태 및 감사 종결을 입증하는 조립 명령이 없습니다. |
+| Pinned TUF 루트 및 교대 | not-started | `docs/runbooks/offline-trust-ceremony.md` | 첫 루트 의식, 패키지 리소스, 클라이언트 초기화 및 교대 근거가 남아 있습니다. |
+| 배포 후 검증 | in-progress | 보호된 작업 흐름 검사 및 `docs/roadmap/operations/operating-and-verification.md` | 실행기 측 수렴, 마이그레이션, 상태 및 canary 검사는 있지만 완전한 CLI 기반 수명 주기와 폐쇄망 증적은 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 점검, 프로파일 영속성 및 offline 검증을 근거에 맞는 현재 상태로 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 패키지 메타데이터, bootstrap 소스, release 스크립트 및 집중 작업 흐름 검사 | CLI 패키지를 만들고 offline 검증을 복원하며 trust 초기화를 완료한 뒤 전체 수명 주기를 검증해야 합니다. |
+
+### 남은 작업
+
+- [ ] 전용 CLI 패키지에 `provision inspect`와 `provision init`을 구현하고 무변경, mode-`0600`/`0700`, 덮어쓰기, symbolic link 및 안정적 JSON 테스트를 통과합니다.
+- [ ] 주입된 release 루트 뒤에 offline-kit 검증을 복원하고 서명 우선 확인, exact 파일 집합, no-follow 다이제스트, 호환성 및 한계 테스트를 통과합니다.
+- [ ] Temporary 공개 접근 생성과 정리를 구현하여 정리 실패가 감사된 불완전 작업으로 남게 하고 CIDR, 기간, 인증, 롤백 및 멱등성 테스트를 통과합니다.
+- [ ] TUF 루트 의식과 패키지 초기화를 완료하고 inspect부터 plan, apply, cleanup, verification까지의 통제 증적을 보존합니다.
 
 ## 한눈에 보는 설계
 
@@ -35,7 +54,7 @@ translation_revised: 2026-08-11
 
 ## 읽기 전용 검사
 
-초기화 계획을 만들기 전에 점검을 실행합니다.
+목표 명령은 초기화 계획을 만들기 전에 점검을 실행합니다.
 
 ```bash
 fdaictl provision inspect --output json
@@ -58,12 +77,12 @@ offline-kit 후보, Azure 워크로드 신원 엔드포인트를 검사합니다
 파일 존재만으로 trust가 성립하지 않습니다. Composition-injected pinned 검증기가 있으면 점검은
 서명, 호환성, exact 파일, 다이제스트, 한계를 검사하고 non-secret 매니페스트 메타데이터만
 반환합니다. Rejected 내용은 `incomplete`, 검증된 내용은 완전한 existing-host 프로파일을
-`ready`로 만들 수 있습니다. 공개 루트 ceremony가 검증기를 패키지하기 전까지 shipped CLI는
+`ready`로 만들 수 있습니다. 공개 루트 ceremony가 검증기를 패키지하기 전까지 목표 CLI는
 offline 디렉터리를 `candidate` / `review`로 유지합니다.
 
 ## 프로파일 initialization
 
-명시적으로 결정된 값으로 검토한 프로파일을 저장합니다.
+목표 초기화 명령은 명시적으로 결정된 값으로 검토한 프로파일을 저장합니다.
 
 ```bash
 fdaictl provision init \
@@ -105,7 +124,7 @@ dedicated 배포 호스트를 요구하면 `managed-vm`을 사용합니다. VM�
 일반적으로 deallocate합니다. Protected 상태, 계획, 승인, 감사 기록은 비공개 저장소에
 남으므로 VM을 시작, 중지 또는 다시 빌드해도 배포 권한이 변경되지 않습니다.
 
-CLI는 managed VM을 권장하지만 점검 중에는 생성하지 않습니다. 초기화 계획 수립은 승인
+목표 CLI는 managed VM을 권장하지만 점검 중에는 생성하지 않습니다. 초기화 계획 수립은 승인
 전에 VM, 네트워크, 신원, 역할, 접근, 비용, stop, 정리 효과를 보여 줍니다.
 
 ## 접근 선호 설정
@@ -129,7 +148,7 @@ persistent 공개 IP는 허용되지 않습니다. 정리는 연산 성공 기�
 Online 전달은 PyPI의 공개 `fdai` 패키지와 version-matched signed 배포 번들을
 사용합니다. 실행기는 허용 목록 TLS 검사를 통과한 후에만 공개 출처를 사용할 수 있습니다.
 
-release 작업 흐름은 읽기 전용 작업에서 휠과 출처 분포를 한 번만 빌드하고 Python과
+목표 release 작업 흐름은 읽기 전용 작업에서 휠과 출처 분포를 한 번만 빌드하고 Python과
 번들 버전이 일치하는지 검사합니다. 일치하는 signed 번들을 게시한 후에만 같은 산출물을
 PyPI Trusted 발행으로 게시합니다. Publish 작업만 GitHub OIDC 권한을 받으며 장기
 PyPI 토큰은 저장하지 않습니다.
@@ -153,7 +172,7 @@ Offline 모드는 PyPI, GitHub, 공개 Terraform 레지스트리 대체 경로�
 승인된 내부 mirror 또는 removable media를 사용할 수 있습니다. Installer와 `fdaictl`은 두
 경우 모두 같은 pinned release 루트를 검증합니다.
 
-`verify_offline_kit`은 매니페스트 파싱 전에 Ed25519 서명을 검사하고 exact CLI 및 platform
+목표 `verify_offline_kit` 구현은 매니페스트 파싱 전에 Ed25519 서명을 검사하고 exact CLI 및 platform
 버전을 연결하며 symlink와 extra 파일을 거부합니다. 모든 파일 다이제스트를 스트리밍하고 휠,
 signed 배포 번들, Terraform binary 및 프로바이더 mirror, OPA, SBOM을 요구합니다. release
 루트 주입은 테스트, release construction, pinned 점검 조립에서만 사용합니다.
@@ -167,11 +186,12 @@ signed 배포 번들, Terraform binary 및 프로바이더 mirror, OPA, SBOM을 
 Pinned 루트가 배포되면 `--release-root`는 계획 수립은 수락하고 점검은 여전히 수락하지 않는
 재정의가 됩니다.
 
-`build_offline_kit_manifest`는 그 검증기의 release-side 역방향입니다. Staged 키트를 검증기와
+`build_offline_kit_manifest`는 그 검증기의 목표 release-side 역방향입니다. Staged 키트를 검증기와
 동일한 검사로 읽으므로 symlink, 비정규 파일, 한계 초과 트리를 기술하는 대신 거부하며, 파일
 목록을 운영자 입력이 아니라 단계에서 도출합니다. 단계에 없는 산출물 역할은 서명 이전에
 실패하며, 동일한 내용을 두 번 빌드하면 서명 대상 바이트가 정확히 같습니다.
-`scripts/deployment/release/build-offline-kit.py`가 서명을 담당합니다. Operator가 보관한 Ed25519
+`scripts/deployment/release/build-offline-kit.py`는 검증기 모듈이 복원된 뒤 서명을 담당하도록
+설계되어 있습니다. Operator가 보관한 Ed25519
 비공개 키를 로드하고, 새 매니페스트를 쓰기 전에 오래된 서명을 제거해 중단된 실행이
 그럴듯한 키트가 아니라 검증 불가 키트를 남기게 하며, 보고 전에 공개 release 루트로 재검증합니다.
 비공개 키는 키트, 저장소, 로그 어느 곳에도 들어가지 않습니다.

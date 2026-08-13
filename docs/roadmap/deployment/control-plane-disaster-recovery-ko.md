@@ -1,8 +1,8 @@
 ---
 title: 컨트롤 플레인 재해 복구
 translation_of: control-plane-disaster-recovery.md
-translation_source_sha: b74b9a9b53a058b18ee73db893972c76a94c494e
-translation_revised: 2026-08-11
+translation_source_sha: cfc916f20f713f2a9d0de0578ab558b9c79c3d8b
+translation_revised: 2026-08-14
 ---
 
 # 컨트롤 플레인 재해 복구
@@ -14,14 +14,30 @@ translation_revised: 2026-08-11
 > **범위:** 업스트림은 재사용 가능한 복구 계약을 정의합니다. 다운스트림 배포는 지역, numeric
 > 복구 지점 목표(RPO)와 복구 시간 목표(RTO), 신원, 리소스 참조,
 > 소유자, 승인 및 측정된 훈련 근거를 제공합니다.
->
-> **구현 상태:** 단일 지역 기준선, 운영 백업과 availability-zone 게이트, 변경할 수 없는
-> recovery-plan 집약기, 영속 compare-and-set 조정기, action-bound approval-verification
-> 경계, DR 어댑터, 데이터베이스 복원 검증기 및 예약된 훈련 작업은 제공됩니다. 스케줄러는 활성
-> handle을 추적하고 한 프로세스 안에서 용량을 원자적으로 예약합니다. 대체 지역
-> infrastructure, 프로세스 간 실험 reservation, event-data 연속성, 프로바이더 액션
-> 연결, 트래픽 장애 조치 및 측정된 장애 조치/failback 근거는 게이트를 통과하기 전까지 배포
-> 작업으로 남습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 변경할 수 없는 복구 계획과 적법한 전환 집약기 | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_plan.py` 및 `services/core-control-plane/tests/core/verticals/test_recovery_plan.py` | 버전, 승인 분리, 복구 epoch, 적법한 전환 및 중단 동작에 집중 테스트가 있습니다. |
+| 영속 compare-and-set 조정 및 감사 저장 | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_coordinator.py` 및 `services/core-control-plane/tests/core/verticals/test_recovery_coordinator.py` | 동일 요청 재전달, 쓰기 충돌, 개정 검사 및 상태와 감사의 원자적 쓰기가 구현되어 있습니다. |
+| 선택형 데이터베이스 복원 훈련 및 검증기 | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py`, `infra/modules/compute/container-apps/dr_drill_job.tf` 및 DR 훈련 집중 테스트 | 작업은 기본적으로 dry-run이며 배포 입력이 필요합니다. 소스와 테스트만으로 실제 기반 환경 훈련 완료를 입증하지는 않습니다. |
+| 지역 프로바이더 작업 및 이벤트 데이터 연속성 | in-progress | 프로바이더 경계와 이 문서의 활성화 순서 | 대체 지역 프로비저닝, fencing, 범위가 제한된 이벤트 재생, 트래픽 전환 및 failback이 하나의 실제 경로로 조립되지 않았습니다. |
+| 측정된 지역 장애 조치 및 failback | not-started | `docs/runbooks/control-plane-failover.md` | 승인된 RPO/RTO, 이전 epoch fencing, 이벤트 완전성, 트래픽 전환 및 failback을 입증하는 통제된 훈련 증적이 저장소에 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 테스트된 복구 동작과 지역 배포 및 운영 근거를 분리했습니다. | 현재 변경과 구현 범위 표에 기재한 복구 계획 및 조정기 집중 테스트 | 지역 프로바이더 경로를 조립하고 실행한 뒤 통제된 장애 조치 및 failback 근거를 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] 대체 지역 프로비저닝, 기본 지역 fencing, 이벤트 복구, 트래픽 전환 및 failback을 프로바이더 어댑터로 연결하고, 두 번째 작성자를 활성화하지 않는 집중 종단 간 shadow 테스트를 통과합니다.
+- [ ] 프로세스 간 실험 예약을 입증하거나, 검토 가능한 구성과 집중 동시성 검사로 배포된 스케줄러를 단일 프로세스로 제한합니다.
+- [ ] 승인된 RPO/RTO와 달성값, 이벤트 누락, 이전 epoch 거부, 트래픽 전환, 롤백 또는 failback 및 정리를 기록한 저장소 보관 가능 통제 훈련 증적 하나를 남깁니다.
 
 ## 설계 요약
 

@@ -13,6 +13,32 @@ fully disconnected install.
 > ([installable-deployment-cli.md](installable-deployment-cli.md)), or the profile selection rules
 > ([provisioning-execution-profiles.md](provisioning-execution-profiles.md)). It sequences them.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Private Azure networking and VNet deploy host | implemented | `infra/`, `infra/bootstrap/`, `.github/workflows/deploy-dev.yml`, and focused infrastructure workflow tests | Private endpoints, DNS, the durable deploy host, protected plans, and exact apply are implemented independently of the offline CLI path. |
+| Internal mirror and pinned-input controls | implemented | `infra/modules/preflight-toggles/` and `scripts/quality/ci/check-ci-contracts.py` | The repository exposes mirror inputs and rejects mutable or registry-bound base-image references. |
+| Offline kit staging and drill harness | in-progress | `scripts/deployment/release/stage-offline-kit.sh`, `build-offline-kit.py`, and `airgap-drill.sh` | The scripts are present, but the builder imports the absent `fdai.deployment_cli.offline_kit` module and the drill cannot complete. |
+| Disconnected inspection, bundle verification, and planning commands | not-started | The target command sequence in this document | No current package registers `fdaictl`; the inspect, bundle, provision-plan, and license command paths are unavailable. |
+| Pinned offline trust root and release integration | not-started | `docs/runbooks/offline-trust-ceremony.md` | No pinned root ships in a CLI wheel and kit staging is not a passing release workflow. |
+| Full-air-gap cloud operation | not-applicable | The full-air-gap boundary in this document | The deterministic core can run from static inputs, but live Azure evidence and cloud mutation are intentionally outside this profile. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected the prior end-to-end support claim after the deployment CLI package was removed. | current change; infrastructure, release-script, package-metadata, and focused workflow evidence listed in the scope table | Restore the dedicated offline verifier and CLI, establish the trust root, and pass the air-gap drill. |
+
+### Remaining work
+
+- [ ] Implement and package offline-kit and deployment-bundle verification behind the dedicated CLI boundary, with tamper, symlink, extra-file, missing-file, digest, size, and compatibility tests.
+- [ ] Establish and package the offline trust root through the governed ceremony, then prove inspection distinguishes verified, review, and rejected kits without a network call.
+- [ ] Make `stage-offline-kit.sh` and `airgap-drill.sh` pass from a clean release checkout inside a namespace with no route or DNS.
+- [ ] Prove the manual exact-plan approval and apply path from a private deploy host, including rollback, teardown, and post-provision verification receipts.
+
 ## Design at a glance
 
 "Disconnected" is not one setting. Two independent properties decide how much of this document
@@ -30,7 +56,8 @@ narrower profile covered under [Full air gap](#full-air-gap).
 
 ## Private Azure, no public egress
 
-This is the profile the repository supports end to end.
+The private Azure infrastructure path is implemented. The offline distribution and CLI path remains
+in progress, as recorded in the ledger above.
 
 ### 1. Provision every service privately
 
@@ -79,7 +106,7 @@ hardcodes a registry host, so the mirror seam cannot decay into an unpinned pull
 
 ### 4. Deliver the CLI and bundle as a signed offline kit
 
-Release engineering stages the kit on a connected host with
+The release scripts are intended to stage the kit on a connected host with
 `scripts/deployment/release/stage-offline-kit.sh`, which collects the `fdai` wheel and every
 transitive wheel, the signed deployment bundle, the pinned Terraform binary and provider mirror,
 the policy engine binary, and the software bill of materials, then signs the result with
@@ -87,7 +114,7 @@ the policy engine binary, and the software bill of materials, then signs the res
 it cannot attest to content the verifier would reject, and the release private key never enters the
 kit.
 
-On the disconnected side, `fdaictl provision inspect` verifies the signature before parsing the
+The target disconnected command, `fdaictl provision inspect`, verifies the signature before parsing the
 manifest, binds the exact CLI and platform version, rejects symlinks and extra files, and streams
 every digest. Presence is never trust: an unverified kit stays `candidate`, and rejected content is
 `incomplete`.
@@ -125,9 +152,9 @@ fails closed:
 
 A distribution that hands over an image still has to create the Azure inventory first, and the
 runtime image cannot do it. `infra/` is excluded from the build context, no Terraform binary is
-installed, and the entry point is the control plane, not a provisioner. The `fdaictl` console script
-does exist inside the image because it ships with the `fdai` package, which makes the gap easy to
-misread: the command is present, the infrastructure source and the Terraform binary are not.
+installed, and the entry point is the control plane, not a provisioner. The `fdaictl` console
+script does not currently ship in any service image or dedicated CLI wheel. The target command
+sequence below therefore describes the intended handover, not an available image capability.
 
 A closed-network handover is therefore **two artifacts**: the runtime image, and the signed offline
 kit that carries the wheel, the deployment bundle with `infra/`, the pinned Terraform binary and
@@ -135,18 +162,18 @@ provider mirror, the policy engine, and the bill of materials.
 
 | # | Step | Tool | State |
 |---|------|------|-------|
-| 1 | Verify the kit | `fdaictl provision inspect` | implemented; reports `candidate` until the trust root ships |
-| 2 | Verify the deployment bundle | `fdaictl bundle verify` | implemented |
+| 1 | Verify the kit | `fdaictl provision inspect` | not started; dedicated CLI and verifier are absent |
+| 2 | Verify the deployment bundle | `fdaictl bundle verify` | not started as a packaged command |
 | 3 | Load the runtime image and push it to the tenant registry | container tooling on the VNet host | operator step |
 | 4 | Stand up the ops hub: state account, VNet, and the deploy host | `infra/bootstrap` | implemented; run once per tenant |
-| 5 | Plan the app layer from the bundle | `fdaictl provision plan` | implemented; runs the kit's pinned Terraform against the bundle `infra/` |
-| 6 | Analyze the plan before applying it | `fdaictl deploy preflight --terraform-plan` | implemented and network-free |
+| 5 | Plan the app layer from the bundle | `fdaictl provision plan` | not started; target behavior |
+| 6 | Analyze the plan before applying it | standalone preflight script today; target `fdaictl deploy preflight --terraform-plan` | core and runner path implemented; CLI facade absent |
 | 7 | Apply | Terraform on the deploy host | operator-driven |
 | 8 | Migrate the state store | a one-off job running the same image | implemented |
-| 9 | Inject and check the license token | secret path plus `fdaictl license inspect` | implemented ([capability-licensing.md](../fork-and-sequencing/capability-licensing.md)) |
+| 9 | Inject and check the license token | secret path plus target `fdaictl license inspect` | license contract implemented; CLI command absent ([capability-licensing.md](../fork-and-sequencing/capability-licensing.md)) |
 | 10 | Start the control plane | the image entry point | implemented |
 
-Step five used to be a checklist: unpack the kit, find the Terraform binary, hand-write a provider
+Step five is a target replacement for this checklist: unpack the kit, find the Terraform binary, hand-write a provider
 mirror configuration, and remember to close the public-registry fallback. `fdaictl provision plan`
 owns it instead. It resolves the Terraform binary and the mirror from the *signed manifest*, so a
 tree added beside the kit cannot decide what executes; it generates a CLI configuration whose
@@ -167,8 +194,9 @@ seven, whose exact-plan approval binding remains target behavior.
 
 ## Rehearsing the whole path with no network
 
-`scripts/deployment/release/airgap-drill.sh` runs the handover in the two phases a customer
-receives it, so the disconnected path is exercised rather than asserted. The stage phase runs the
+`scripts/deployment/release/airgap-drill.sh` defines the two-phase handover rehearsal a customer
+should receive. It does not currently complete because the deployment CLI verifier package is
+absent. The stage phase is designed to run the
 real `stage-offline-kit.sh` with throwaway keys, so a green drill exercises the release path itself
 rather than a second copy of it. The verify phase re-runs every disconnected step inside a network
 namespace that has no route and no name resolution.
@@ -204,7 +232,7 @@ is a gap in both.
 
 ## The tooling does not reach out
 
-`fdaictl provision inspect` decides connectivity by opening TLS connections to three public hosts.
+The target `fdaictl provision inspect` command decides connectivity by opening TLS connections to three public hosts.
 With `--connectivity offline` it skips that entirely, because the operator has already answered the
 question. On a closed network an unnecessary probe is three outbound attempts to explain to a
 security team, three entries in an egress log, and - where DNS accepts the query but never answers -
@@ -232,14 +260,14 @@ deployment additionally requires its own regulatory and residency review
 
 | Gap | Effect today | Owning document |
 |-----|--------------|-----------------|
+| The dedicated deployment CLI package is absent | `fdaictl` inspection, bundle verification, planning, status, apply, and license commands cannot run | [Installable Deployment CLI](installable-deployment-cli.md) |
 | The trust-root ceremony has not run, so no pinned public root ships in the wheel | inspection can never report a verified offline kit; it stays `candidate` or `review` | [offline-trust-ceremony.md](../../runbooks/offline-trust-ceremony.md) |
-| Kit staging is not wired into the release workflow | `stage-offline-kit.sh` assembles and signs a kit, but a release still runs it by hand with operator-held keys | [provisioning-execution-profiles.md](provisioning-execution-profiles.md) |
+| Kit staging is incomplete | `stage-offline-kit.sh` and the signing script exist, but the missing verifier module blocks a complete staged kit | [provisioning-execution-profiles.md](provisioning-execution-profiles.md) |
 | Bootstrap apply orchestration and teardown remain target behavior | the operator drives the exact-plan approval and apply by hand | [installable-deployment-cli.md](installable-deployment-cli.md) |
 | No self-hosted model adapter | a site with no cloud reachability has no adaptive path at all | [tech-stack.md](../architecture/tech-stack.md) |
 
-Signing and verification are already independent of the network. The framework-surface manifest and
-the offline kit both verify with a committed public key, with no revocation lookup and no
-certificate chain.
+Framework-surface verification is already network-independent. Offline-kit verification targets
+the same property, but it remains incomplete until the dedicated verifier and pinned root ship.
 
 ## Related docs
 

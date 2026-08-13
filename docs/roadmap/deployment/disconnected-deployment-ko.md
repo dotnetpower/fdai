@@ -1,8 +1,8 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: c15a58bc0e48ba24d84aad8c7052f42957410063
-translation_revised: 2026-08-11
+translation_source_sha: de3af61d50398981c7e38edd7756aedd8389ca27
+translation_revised: 2026-08-14
 ---
 # 폐쇄망 배포
 
@@ -15,6 +15,32 @@ translation_revised: 2026-08-11
 > ([installable-deployment-cli-ko.md](installable-deployment-cli-ko.md)), 프로파일 선택 규칙
 > ([provisioning-execution-profiles-ko.md](provisioning-execution-profiles-ko.md))을 다시
 > 서술하지 않습니다. 그것들을 순서로 엮습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 비공개 Azure 네트워킹 및 VNet 배포 호스트 | implemented | `infra/`, `infra/bootstrap/`, `.github/workflows/deploy-dev.yml` 및 집중 인프라 작업 흐름 테스트 | 비공개 엔드포인트, DNS, 영속 배포 호스트, 보호된 계획 및 exact apply는 offline CLI 경로와 독립적으로 구현되어 있습니다. |
+| 내부 mirror 및 고정 입력 제어 | implemented | `infra/modules/preflight-toggles/` 및 `scripts/quality/ci/check-ci-contracts.py` | 저장소는 mirror 입력을 노출하고 변경 가능한 base 이미지 참조나 레지스트리에 묶인 참조를 거부합니다. |
+| Offline 키트 staging 및 훈련 하네스 | in-progress | `scripts/deployment/release/stage-offline-kit.sh`, `build-offline-kit.py` 및 `airgap-drill.sh` | 스크립트는 있지만 빌더가 존재하지 않는 `fdai.deployment_cli.offline_kit` 모듈을 가져오므로 훈련을 완료할 수 없습니다. |
+| 폐쇄망 점검, 번들 검증 및 계획 명령 | not-started | 이 문서의 목표 명령 순서 | 현재 어떤 패키지도 `fdaictl`을 등록하지 않으므로 점검, 번들, 프로비저닝 계획 및 license 명령 경로를 사용할 수 없습니다. |
+| Pinned offline trust 루트 및 release 통합 | not-started | `docs/runbooks/offline-trust-ceremony.md` | CLI 휠에 pinned 루트가 없으며 키트 staging은 통과하는 release 작업 흐름이 아닙니다. |
+| 완전 air-gap 클라우드 운영 | not-applicable | 이 문서의 완전 air-gap 경계 | 결정론적 코어는 정적 입력으로 실행할 수 있지만 실제 Azure 근거와 클라우드 변경은 의도적으로 이 프로파일의 범위 밖입니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 배포 CLI 패키지가 제거된 뒤에도 남아 있던 종단 간 지원 주장을 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 인프라, release 스크립트, 패키지 메타데이터 및 집중 작업 흐름 근거 | 전용 offline 검증기와 CLI를 복원하고 trust 루트를 확립한 뒤 air-gap 훈련을 통과해야 합니다. |
+
+### 남은 작업
+
+- [ ] 전용 CLI 경계 뒤에 offline-kit 및 배포 번들 검증을 구현하고 패키지하며, 변조, symbolic link, 추가/누락 파일, 다이제스트, 크기 및 호환성 테스트를 통과합니다.
+- [ ] 통제된 의식을 통해 offline trust 루트를 확립하고 패키지한 뒤, 네트워크 호출 없이 점검이 verified, review, rejected 키트를 구분함을 입증합니다.
+- [ ] 경로와 DNS가 없는 네트워크 이름 공간의 깨끗한 release 체크아웃에서 `stage-offline-kit.sh`와 `airgap-drill.sh`를 통과합니다.
+- [ ] 비공개 배포 호스트의 수동 exact-plan 승인 및 적용 경로를 입증하고 롤백, 정리 및 배포 후 검증 증적을 보존합니다.
 
 ## 한눈에 보는 설계
 
@@ -33,7 +59,8 @@ translation_revised: 2026-08-11
 
 ## 비공개 Azure, 공용 egress 없음
 
-리포지토리가 처음부터 끝까지 지원하는 프로파일입니다.
+비공개 Azure 인프라 경로는 구현되어 있습니다. Offline 배포판과 CLI 경로는 위 원장에
+기록된 대로 아직 구현 중입니다.
 
 ### 1. 모든 서비스를 비공개로 provision
 
@@ -83,14 +110,14 @@ Base 이미지가 다이제스트 pin을 잃거나 레지스트리 호스트를 
 
 ### 4. CLI와 번들을 서명된 offline 키트로 전달
 
-release 엔지니어링이 connected 호스트에서 `scripts/deployment/release/stage-offline-kit.sh`로 키트를
-staging합니다. 이 스크립트가 `fdai` 휠과 모든 transitive 휠, 서명된 배포 번들,
+release 스크립트는 connected 호스트에서 `scripts/deployment/release/stage-offline-kit.sh`로 키트를
+staging하도록 설계되어 있습니다. 이 스크립트가 `fdai` 휠과 모든 transitive 휠, 서명된 배포 번들,
 pinned Terraform binary 및 프로바이더 mirror, 정책 엔진 binary, software bill of materials를 모으고
 `scripts/deployment/release/build-offline-kit.py`로 서명합니다. 매니페스트는 staged 트리에서
 생성되므로 검증기가 거부할 내용을 증언할 수 없고, release 비공개 키는 키트에 들어가지
 않습니다.
 
-폐쇄망 쪽에서 `fdaictl provision inspect`는 매니페스트를 파싱하기 전에 서명을 검증하고, 정확한
+목표 폐쇄망 명령인 `fdaictl provision inspect`는 매니페스트를 파싱하기 전에 서명을 검증하고, 정확한
 CLI 및 platform 버전을 연결하며, symlink와 추가 파일을 거부하고, 모든 다이제스트를 스트리밍
 합니다. 존재는 결코 신뢰가 아닙니다. 검증되지 않은 키트는 `candidate`로 남고, 거부된 내용은
 `incomplete`입니다.
@@ -128,9 +155,9 @@ CLI 및 platform 버전을 연결하며, symlink와 추가 파일을 거부하�
 
 이미지를 넘기는 분포도 먼저 Azure 인벤토리를 만들어야 하는데, 런타임 이미지는 그것을 할 수
 없습니다. `infra/`는 빌드 컨텍스트에서 제외되고, Terraform 바이너리는 설치되지 않으며, 진입점은
-provisioner가 아니라 컨트롤 플레인입니다. `fdaictl` 콘솔 스크립트는 `fdai` 패키지와 함께 배포되어
-이미지 안에 존재합니다. 그래서 이 간극은 오해하기 쉽습니다. 명령은 있고, 인프라 소스와 Terraform
-바이너리는 없습니다.
+provisioner가 아니라 컨트롤 플레인입니다. `fdaictl` 콘솔 스크립트는 현재 어떤 서비스 이미지나
+전용 CLI 휠에도 포함되지 않습니다. 따라서 아래 목표 명령 순서는 사용 가능한 런타임 이미지 기능이
+아니라 의도한 인계 절차를 설명합니다.
 
 따라서 폐쇄망 인계는 **아티팩트 두 개**입니다. 런타임 이미지, 그리고 휠, `infra/`를 담은
 배포 번들, pinned Terraform 바이너리 및 프로바이더 mirror, 정책 엔진, bill of materials를
@@ -138,18 +165,18 @@ provisioner가 아니라 컨트롤 플레인입니다. `fdaictl` 콘솔 스크�
 
 | # | 단계 | 도구 | 상태 |
 |---|------|------|------|
-| 1 | 키트 검증 | `fdaictl provision inspect` | 구현됨. Trust 루트 배포 전까지 `candidate`로 보고 |
-| 2 | 배포 번들 검증 | `fdaictl bundle verify` | 구현됨 |
+| 1 | 키트 검증 | `fdaictl provision inspect` | 시작하지 않음. 전용 CLI와 검증기가 없음 |
+| 2 | 배포 번들 검증 | `fdaictl bundle verify` | 패키지 명령으로는 시작하지 않음 |
 | 3 | 런타임 이미지 부하 후 테난트 레지스트리에 push | VNet 호스트의 컨테이너 도구 | 운영자 단계 |
 | 4 | Ops 허브 구축: 상태 계정, VNet, 배포 호스트 | `infra/bootstrap` | 구현됨. 테난트당 1회 |
-| 5 | 번들에서 앱 계층 계획 | `fdaictl provision plan` | 구현됨. 키트의 pinned Terraform으로 번들 `infra/` 를 실행 |
-| 6 | 적용 전에 계획 분석 | `fdaictl deploy preflight --terraform-plan` | 구현됨, 네트워크 불필요 |
+| 5 | 번들에서 앱 계층 계획 | `fdaictl provision plan` | 시작하지 않음. 목표 동작 |
+| 6 | 적용 전에 계획 분석 | 현재 독립 실행형 프리플라이트 스크립트, 목표 `fdaictl deploy preflight --terraform-plan` | 코어와 실행기 경로는 구현됨. CLI 파사드는 없음 |
 | 7 | 적용 | 배포 호스트의 Terraform | 운영자 주도 |
 | 8 | 상태 저장소 마이그레이션 | 같은 이미지를 실행하는 일회성 작업 | 구현됨 |
-| 9 | License 토큰 주입 및 확인 | 시크릿 경로 + `fdaictl license inspect` | 구현됨 ([capability-licensing-ko.md](../fork-and-sequencing/capability-licensing-ko.md)) |
+| 9 | License 토큰 주입 및 확인 | 시크릿 경로 + 목표 `fdaictl license inspect` | License 계약은 구현됨. CLI 명령은 없음 ([capability-licensing-ko.md](../fork-and-sequencing/capability-licensing-ko.md)) |
 | 10 | 컨트롤 플레인 시작 | 이미지 진입점 | 구현됨 |
 
-5단계는 예전에 체크리스트였습니다. 키트를 풀고, Terraform 바이너리를 찾고, 프로바이더 mirror 설정을
+5단계는 다음 검사 목록을 대체하기 위한 목표입니다. 키트를 풀고, Terraform 바이너리를 찾고, 프로바이더 mirror 설정을
 손으로 쓰고, 공개 레지스트리 대체 경로를 닫는 것을 잊지 않아야 했습니다. 이제 `fdaictl provision plan`이
 그 단계를 소유합니다. Terraform 바이너리와 mirror를 **서명된 매니페스트**에서 해석하므로 키트 옆에 추가된
 트리가 실행 대상을 결정할 수 없습니다. 생성되는 CLI 설정의 `direct` 블록은 모든 프로바이더를 제외하므로,
@@ -169,8 +196,8 @@ mirror에 없는 항목은 공개 레지스트리로 가는 대신 계획을 실
 
 ## 네트워크 없이 전 경로 예행연습
 
-`scripts/deployment/release/airgap-drill.sh`는 고객이 받는 것과 같은 두 단계로 인계를 실행합니다.
-그래서 폐쇄망 경로가 주장이 아니라 실증됩니다. 단계 단계는 실제 `stage-offline-kit.sh`를
+`scripts/deployment/release/airgap-drill.sh`는 고객이 받아야 하는 두 단계 인계 훈련을 정의합니다.
+현재 배포 CLI 검증기 패키지가 없어 완료되지 않습니다. Stage 단계는 실제 `stage-offline-kit.sh`를
 일회용 키로 실행하므로, 드릴 통과는 release 경로 자체를 실증합니다. Verify 단계는 경로도
 이름 해석도 없는 네트워크 이름 공간 안에서 모든 폐쇄망 단계를 다시 실행합니다.
 
@@ -194,7 +221,7 @@ Verify 단계가 순서대로 단정하는 것: 이름 공간에 정말로 egres
 
 ## 도구가 먼저 손을 뻗지 않습니다
 
-`fdaictl provision inspect`는 공용 호스트 세 곳에 TLS 연결을 열어 connectivity를 판정합니다.
+목표 `fdaictl provision inspect` 명령은 공용 호스트 세 곳에 TLS 연결을 열어 connectivity를 판정합니다.
 `--connectivity offline`이면 그 판정을 아예 건너뜁니다. 운영자가 이미 답을 줬기 때문입니다.
 폐쇄망에서 불필요한 탐색은 보안팀에 설명해야 할 아웃바운드 시도 세 건이고, egress 로그의 항목
 세 개이며, DNS가 질의를 받고 응답하지 않는 환경에서는 빠른 로컬 점검이어야 할 명령의 긴 정지입니다.
@@ -230,13 +257,14 @@ residency 검토를 추가로 요구합니다
 
 | 공백 | 오늘의 영향 | 소유 문서 |
 |-----|-------------|-----------|
+| 전용 배포 CLI 패키지가 없음 | `fdaictl` 점검, 번들 검증, 계획, 상태, 적용 및 license 명령을 실행할 수 없음 | [설치형 배포 CLI](installable-deployment-cli-ko.md) |
 | Trust-root 의식이 실행되지 않아 휠에 pinned 공개 루트가 없음 | 점검이 offline 키트를 검증된으로 보고할 수 없고 `candidate` 또는 `review`로 남음 | [offline-trust-ceremony-ko.md](../../runbooks/offline-trust-ceremony-ko.md) |
-| 키트 staging이 release 작업 흐름에 연결되지 않음 | `stage-offline-kit.sh`가 키트를 조립하고 서명하지만, release는 여전히 운영자 보관 키로 수동 실행 | [provisioning-execution-profiles-ko.md](provisioning-execution-profiles-ko.md) |
+| 키트 staging이 불완전함 | `stage-offline-kit.sh`와 서명 스크립트는 있지만 누락된 검증기 모듈 때문에 완전한 staged 키트를 만들 수 없음 | [provisioning-execution-profiles-ko.md](provisioning-execution-profiles-ko.md) |
 | 초기화 적용 orchestration과 정리가 목표 동작으로 남음 | 운영자가 exact-plan 승인과 적용을 수동으로 진행 | [installable-deployment-cli-ko.md](installable-deployment-cli-ko.md) |
 | 자체 호스팅 모델 어댑터 없음 | 클라우드 도달성이 없는 사이트는 적응형 경로가 아예 없음 | [tech-stack-ko.md](../architecture/tech-stack-ko.md) |
 
-서명과 검증은 이미 네트워크와 무관합니다. Framework-surface 매니페스트와 offline 키트 모두 커밋된
-공개 키로 검증되며, 철회 조회도 인증서 체인도 필요 없습니다.
+Framework-surface 검증은 이미 네트워크와 무관합니다. Offline-kit 검증도 같은 속성을 목표로 하지만,
+전용 검증기와 pinned 루트가 제공될 때까지 불완전합니다.
 
 ## 관련 문서
 

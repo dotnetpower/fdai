@@ -8,26 +8,38 @@ install an isolated Python command-line tool, run a read-only deployment preflig
 an approved Terraform plan to the deployment runner without moving secrets through the local
 machine.
 
-> **Status:** Increment C1 and the static part of C2 are implemented in the source distribution.
-> The `fdaictl` entry point, deterministic `version` and `doctor` output, secure `onboard init`,
-> active Azure target guard, network-free `deploy preflight`, Terraform plan JSON analysis, and
-> local `security audit` are available. The remote deployment contract, plan-only GitHub workflow
-> dispatch, and exact-plan apply guard are also implemented. Bounded live Azure Policy, Compute
-> quota, Resource Graph identity, value-blind Key Vault secret probes, and runner TLS egress
-> evidence are available. Read-only `provision inspect`, signed bundle build/verify/release, and
-> production exact-plan apply wiring, profile persistence, and PyPI Trusted Publishing are
-> implemented. Offline inspection accepts a composition-injected pinned verifier and reports
-> trusted or rejected kit evidence without an operator trust-root override. Offline-kit build,
-> signing, and verification are implemented. `provision plan` orchestrates the disconnected app
-> layer plan from a verified kit. First PyPI publication, pinned offline root packaging, internal
-> mirror/disconnected delivery, apply orchestration, and teardown remain.
->
 > **Execution boundary:** Terraform remains the infrastructure execution engine and source of
-> truth. `fdaictl` is a thin orchestration layer over validation, plan analysis, workflow
-> submission, and post-deployment checks.
+> truth. The planned `fdaictl` distribution is a thin orchestration layer over validation, plan
+> analysis, workflow submission, and post-deployment checks.
 >
 > **Implementation focus:** Azure is the only implemented deployment target. Non-Azure provider
 > support is deferred.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Dedicated `fdaictl` distribution and command entrypoint | not-started | Repository `pyproject.toml` files and the planned wheel section in this document | No current project registers an `fdaictl` script, and the retired `fdai.deployment_cli` runtime package is absent. |
+| Core deployment preflight primitives | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/` and focused preflight tests | The analyzer, report, Azure live script, toggle primitives, and reassembly logic exist independently of a deployment CLI facade. |
+| Protected runner plan and exact-apply workflow | implemented | `.github/workflows/deploy-dev.yml` and focused deployment workflow tests | The runner owns protected planning, evidence binding, claim/receipt guards, convergence, migrations, and health checks; there is no packaged local CLI client. |
+| Signed deployment bundle release path | in-progress | `scripts/deployment/release/build-deployment-bundle.py`, `.github/workflows/release-deployment-bundle.yml`, and workflow tests | Build and workflow contracts exist, but the workflow still invokes the unavailable `fdaictl bundle verify` command. |
+| Offline kit and disconnected planning | in-progress | `scripts/deployment/release/stage-offline-kit.sh`, `build-offline-kit.py`, and `airgap-drill.sh` | The scripts exist, but `build-offline-kit.py` imports the absent `fdai.deployment_cli.offline_kit` module, so the path is not executable end to end. |
+| Published install and teardown experience | not-started | The target installation and teardown contracts in this document | No first public CLI publication, pinned offline root package, or `deploy teardown` command is available. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected prior claims that the removed deployment CLI package and its commands were currently available. | current change; package metadata, release scripts, protected workflows, and focused workflow checks listed in the scope table | Create the dedicated CLI distribution, restore verification behind that boundary, and prove installation plus disconnected use. |
+
+### Remaining work
+
+- [ ] Add a dedicated lightweight CLI distribution with an `fdaictl` project script, then pass source-install and isolated-wheel tests for deterministic `version`, `doctor`, and `security audit` output.
+- [ ] Wire the existing preflight and protected workflow contracts into `deploy preflight`, `plan`, `status`, and `apply`, and pass wrong-target, fail-stop, exact-plan, expiry, and redaction tests.
+- [ ] Move bundle and offline-kit verification into the dedicated CLI package, make both release workflows pass from a clean checkout, and run the network-free air-gap drill successfully.
+- [ ] Publish the first pinned CLI release with the offline trust root and prove install, upgrade, rollback, internal-mirror delivery, and guarded teardown with reviewable receipts.
 
 ## Design at a glance
 
@@ -85,11 +97,8 @@ uvx --from fdai==<version> fdaictl deploy preflight --environment dev
 Use `pipx` when `uv` is unavailable, or install with `pip` inside a virtual environment. The
 installer never changes system tools; `fdaictl doctor` reports missing or incompatible tools.
 
-> `version`, `doctor`, `onboard init`, guarded `onboard guided`, portable `backup create` and
-> `backup restore`, `deploy preflight`, and plan-only `deploy plan` dispatch are implemented.
-> Sanitized plan metadata status is available through `deploy status`, and guarded exact-plan
-> submission is available through `deploy apply`. `release upgrade|rollback`,
-> `extension validate`, and `trajectory validate` are implemented; teardown remains unavailable.
+> This is the target command set. The current source tree does not register an `fdaictl`
+> entrypoint; implementation state and observable exit conditions are tracked in the ledger above.
 
 ## Command model
 
@@ -242,7 +251,8 @@ one is added later, should be audited and should never accept secret values on t
 `PreflightAnalyzer`. It should reuse the shared report and probe contracts rather than implement a
 second set of readiness rules inside the CLI.
 
-The implemented static path accepts a versioned JSON input containing the deployment's neutral
+The implemented analyzer primitives accept the data represented by a versioned JSON input. The
+target CLI path will expose that input containing the deployment's neutral
 scope, resource types, required egress hosts, and grounded policy facts. It runs only the
 deterministic local probes, performs no network call, and preserves the analyzer's stable ordering
 and shadow-versus-enforce semantics. Pass machine-readable `terraform show -json` output with
@@ -403,7 +413,7 @@ manifest before running Terraform. An operator can provide `--bundle <path>` for
 environment, but the same verification still applies. A version mismatch fails before plan
 generation unless an explicitly documented compatibility range allows it.
 
-`fdaictl bundle verify --bundle <dir> --public-key <pem>` implements the verification side. It
+`fdaictl bundle verify --bundle <dir> --public-key <pem>` defines the target verification side. It
 accepts Ed25519 public keys only, verifies the detached manifest signature, checks the current CLI
 against the manifest compatibility range, rejects traversal and symlinks, requires the exact
 listed file set and a listed JSON SBOM, streams every SHA-256 check, and enforces a total-size cap.
@@ -421,7 +431,7 @@ workflow requires the channel as an explicit choice and passes it into both repr
 so changing a channel after signing invalidates the signature. Bundle verification returns the
 signed channel together with version and manifest digest.
 
-The approval-gated `release-deployment-bundle` workflow reads
+The approval-gated `release-deployment-bundle` workflow is designed to read
 `FDAI_BUNDLE_SIGNING_KEY_PEM` from the `release` GitHub Environment, builds twice from the same
 commit and `SOURCE_DATE_EPOCH`, compares both directories, archives, and public keys byte-for-byte,
 runs `fdaictl bundle verify`, and publishes the archive, public key, manifest, signature, and
@@ -476,6 +486,9 @@ fdaictl release rollback \
 ```
 
 ## Plan and apply integrity
+
+The protected workflow implements the runner side of this contract. The `fdaictl` calls below are
+the target local client and are not registered in the current source distribution.
 
 `fdaictl deploy plan` submits a plan-only workflow and currently returns the workflow run id and
 URL. It requires the same environment config to pass `doctor`, reads the GitHub credential only
@@ -557,8 +570,9 @@ The protected workflow store marks each plan expired after one hour. Logs expose
 digest, and expiry. They don't expose the plan file, state, credentials, or secret values. Apply
 must reject logical expiry even if physical cleanup hasn't removed the blob yet.
 
-The transport-neutral foundation is implemented in `fdai.deployment_cli.remote`. `PlanRecord`
-contains only opaque metadata, and `RemoteDeploymentService` reloads it before apply. The local
+The planned transport-neutral foundation belongs in the dedicated deployment CLI distribution;
+the retired `fdai.deployment_cli.remote` module is not present. Its `PlanRecord` will contain only
+opaque metadata, and `RemoteDeploymentService` will reload it before apply. The local
 guard requires `ready` status, unexpired retention, exact tenant/subscription/environment/bundle/
 commit/backend/runner context, clear enforced preflight, and an available approved runner. It then
 submits the workflow-owned stored digest, never a caller-supplied replacement. A concrete GitHub
@@ -605,26 +619,12 @@ is exposed.
 
 | Increment | Status | Scope | Exit criteria |
 |-----------|--------|-------|---------------|
-| C1: Package, doctor, and local security | Implemented | Console entry point, version output, toolchain and auth diagnostics, local onboarding config, local security audit | Source install produces deterministic text and JSON; target mismatch and critical local posture fail closed without exposing identifiers or values |
-| C2: Read-only preflight | Implemented | Static and Terraform-plan analysis, live Policy/quota/identity/secret probes, and bounded runner TLS egress with hash-only evidence | Mock transport proves no mutation or secret-value read; every failed or incomplete probe blocks a clear result |
-| C3: Plan workflow | Implemented | Opaque context digest, doctor/target guard, current GitHub dispatch API, exact-commit guard, private immutable plan upload, metadata-only status artifact, logical expiry, and bounded physical cleanup | Plan-only is the default; target identifiers are absent from dispatch and metadata, and apply stays unavailable |
-| C4: Apply workflow | Implemented | Exact restore/verifier, complete runner Policy/quota/identity/secret and egress evidence, dual evidence digests, guards, approval, at-most-once claim, audit/status, Terraform convergence, migrations, and health checks | Stale, mismatched, evidence-tampered, claimed, applied, expired, non-converged, or unhealthy plans cannot produce an applied receipt |
-| C5: Release hardening | Partial | Ed25519 bundle verification, signed release channels, atomic upgrade/rollback state, reproducible bundle and Python distribution builds, SBOM, GitHub Release, and OIDC PyPI publication implemented; first publication, internal mirror, and disconnected delivery remain | Version-matched bundle and Python artifacts pass verification before publication |
-| C6: Guided onboarding | Implemented | Ordered doctor, private config, target guard, live preflight, plan-only runner dispatch, and bounded sanitized status post-check | Stage-spy tests prove fail-stop ordering and no guided path imports or calls local apply |
-
-## Acceptance criteria
-
-The design is ready to promote from roadmap to implementation when these criteria are testable:
-
-- A clean host can install a pinned CLI version with one isolated-tool command.
-- `doctor` identifies a wrong Azure subscription before any workflow is submitted.
-- `deploy preflight` is read-only and produces byte-stable JSON for identical inputs.
-- `onboard guided` stops at the first failed stage and never exposes a local apply path.
-- A probe failure cannot be reported as `clear`.
-- A private-everything tenant always routes plan and apply to the VNet runner.
-- Apply uses the recorded plan digest and rejects stale or mismatched plans.
-- No secret, state file, or binary plan reaches terminal output or the local machine.
-- The CLI and deployment bundle can roll back together to a previously signed version.
+| C1: Package, doctor, and local security | Not started | Console entry point, version output, toolchain and auth diagnostics, local onboarding config, local security audit | Source install produces deterministic text and JSON; target mismatch and critical local posture fail closed without exposing identifiers or values |
+| C2: Read-only preflight | Partial | Static and Terraform-plan analysis, live Policy/quota/identity/secret probes, and bounded runner TLS egress with hash-only evidence | Core and standalone runner checks pass; the dedicated CLI facade remains |
+| C3: Plan workflow | Partial | Opaque context digest, doctor/target guard, GitHub dispatch, exact-commit guard, private immutable plan upload, metadata-only status, logical expiry, and cleanup | Runner workflow exists; local CLI dispatch and status clients remain |
+| C4: Apply workflow | Partial | Exact restore/verifier, runner evidence, approval, at-most-once claim, receipt, convergence, migrations, and health checks | Runner workflow exists; local exact-plan client and end-to-end CLI evidence remain |
+| C5: Release hardening | Partial | Reproducible bundle build, signed channels, SBOM, GitHub Release, and OIDC PyPI workflow | Restore verification in the dedicated package, then complete the first publication and disconnected delivery |
+| C6: Guided onboarding | Not started | Ordered doctor, private config, target guard, live preflight, plan-only dispatch, and bounded status post-check | Dedicated CLI stage-spy tests prove fail-stop ordering and no local apply path |
 
 ## Open questions and decisions
 

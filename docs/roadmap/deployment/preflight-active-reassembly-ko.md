@@ -1,8 +1,8 @@
 ---
 title: 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
 translation_of: preflight-active-reassembly.md
-translation_source_sha: a06b01451999e51de370c52c4eab6e7647bc34f4
-translation_revised: 2026-08-11
+translation_source_sha: f945115b6ec658f85779c02fb0d0e50d07d87a8b
+translation_revised: 2026-08-14
 ---
 # 프리플라이트 능동 플랜 재조립 (정책 차단 요인에서 재렌더된 terraform으로)
 
@@ -24,10 +24,30 @@ shipped pure 루프는 **terraform 플랜을 능동적으로 재렌더**할 재�
 > 않습니다. 상류는 재조립 기계 장치와 제네릭 토글 카탈로그를 제공합니다. 포크가 특정
 > 가드레일 값과 소비자 배선을 공급합니다
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
->
-> **구현 상태.** 범위가 제한된 convergence 루프, 토글 제안 빌더, ActionType, data-only 토글
-> modules와 참조 소비자는 배포됐습니다. 실제 정책 발견 사항 트리거, 계획 렌더러,
-> `ProposalSink` -> Huginn 연결, PR 발행기 및 감사 쓰기는 아직 배선되지 않았습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 범위가 제한된 수렴과 실패 시 차단되는 중단 조건 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/reassemble.py` 및 재조립 집중 테스트 | 수동 차단 요인, 반복 토글, 회귀, 반복 상한 및 재분석 예외는 모두 부분 결과를 적용하지 않고 중단합니다. |
+| 적용된 토글당 제안 하나 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py` 및 `test_reassembly_proposals.py` | 차단이 해소된 결과는 결정론적이고 멱등적인 제안 묶음을 생성하며, 상위 검토로 보낸 결과는 아무것도 제출하지 않습니다. |
+| ActionType, 데이터 전용 토글 모듈 및 참조 소비자 | implemented | `rule-catalog/action-types/remediate.apply-preflight-toggle.yaml` 및 `infra/modules/preflight-toggles/` | 이 산출물은 통제되는 작업과 하나의 참조 Terraform 소비 패턴을 정의합니다. |
+| 반복 수동 차단 요인 학습 기본 요소 | implemented | `services/core-control-plane/src/fdai/agents/_framework/norns_deployment_learning.py` 및 `services/core-control-plane/tests/agents/test_norns_preflight.py` | Norns는 호출자가 제공한 관측에서 비활성 후보를 생성하며 토글을 만들거나 승격하지 않습니다. |
+| 실제 트리거, 계획 렌더러, 파이프라인 연결, PR 및 감사 | not-started | 이 문서의 조립 경계 | 루프를 호출하고 `ProposalSink`를 Huginn 및 PR/감사 경로에 연결하는 운영 조립이 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 순수 재조립 동작과 아직 조립되지 않은 전달 경로를 분리했습니다. | 현재 변경과 구현 범위 표에 기재한 재조립, 제안 및 Norns 집중 테스트 | 실제 shadow 경로를 조립하고 PR과 감사 근거를 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] 실제 정책 발견 사항을 호출자 소유 계획 렌더러에 연결하고 생성된 모든 재정의를 같은 분석기가 다시 검증함을 입증합니다.
+- [ ] `ProposalSink`를 Huginn을 거쳐 통제된 파이프라인에 연결하고, 차단되거나 상위 검토로 보낸 결과는 PR을 열지 않음을 통합 테스트로 입증합니다.
+- [ ] 토글마다 shadow tfvars 재정의 PR 하나를 발행하고 추가 전용 감사 의도, 최종 결과 및 테스트된 `pr_revert` 롤백 근거를 보존합니다.
 
 ## 왜 가능한가 (그리고 마법이 아닌가)
 

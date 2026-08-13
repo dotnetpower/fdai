@@ -1,8 +1,8 @@
 ---
 title: 배포 프리플라이트 (배포 가능성 및 blocker 수집)
 translation_of: deployment-preflight.md
-translation_source_sha: 8b24a3434f5b120386cdd8da1f90615b57bc54c9
-translation_revised: 2026-08-11
+translation_source_sha: 0c90d15b2a4d001d2bbb506f688a1cdae501ef66
+translation_revised: 2026-08-14
 ---
 # 배포 프리플라이트 (배포 가능성 및 차단 요인 수집)
 
@@ -23,16 +23,36 @@ translation_revised: 2026-08-11
 > 포크가 공급합니다 - 상류는 기계 장치와 제네릭 분류법을 제공할 뿐, 고객의 특정 가드레일
 > 값은 절대 넣지 않습니다
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
->
-> **구현 상태.** 운영 `deploy-dev` 작업 흐름은 `fdaictl deploy preflight`를 실행하고
-> 정제된 Azure/실행기 근거를 비공개 Blob에 저장한 뒤 두 다이제스트를 exact 계획에
-> 연결합니다. Control-loop remediation-PR 경로와 실제 GitHub 검사 발행기는 아직
-> 배선되지 않았습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 프로브 계약, 결정론적 프로브, 분석기 및 리포트 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/`, `services/core-control-plane/src/fdai/shared/providers/feasibility_probe.py` 및 배포 프리플라이트 집중 테스트 | 안정적인 발견 사항, 실패 시 차단되는 프로브 실행, 판정 및 shadow와 enforce 동작이 테스트되어 있습니다. |
+| 읽기 전용 Azure 프로브 및 보호된 계획 근거 | implemented | `scripts/deployment/azure/run_live_preflight.py`, `.github/workflows/deploy-dev.yml` 및 `tests/integration/scripts/test_run_live_preflight.py` | 보호된 실행기는 독립 실행형 스크립트를 호출하고 실제 검사 범주 네 개를 모두 요구하며, 근거를 정제하고 그 다이제스트를 계획에 연결합니다. |
+| Terraform 토글 및 환경 프로파일 기본 요소 | implemented | `infra/modules/preflight-toggles/`와 집중 `test_environment_profile.py` 및 `test_reassembly_proposals.py` 검사 | 루트 앱 그래프 소비자와 영속 프로파일 새로 고침 작업은 조립되지 않았습니다. |
+| 검사 발행 기본 요소 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/check_publish.py` 및 `test_check_publish.py` | 순수 리포트 발행기와 메모리 내 어댑터가 테스트되어 있습니다. GitHub Checks 어댑터는 없습니다. |
+| 컨트롤 루프의 PR 전 게이트 및 GitHub 전달 | not-started | 이 문서의 계획된 경계 | 교정 PR 전에 분석기를 호출하거나 결과를 GitHub Checks에 발행하는 실제 경로가 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 보호된 실행기 경로를 현재 독립 실행형 프리플라이트 진입점으로 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 코어 프리플라이트 및 실제 스크립트 집중 검사 | 루트 토글 소비자, 영속 프로파일 새로 고침, GitHub 발행기 및 컨트롤 루프 게이트를 조립해야 합니다. |
+
+### 남은 작업
+
+- [ ] 루트 앱 그래프를 지원되는 프리플라이트 토글에 연결하고, 재렌더된 계획에서 거부된 형태가 사라졌음을 입증하는 집중 Terraform 테스트를 통과합니다.
+- [ ] Inventory 변경에 따른 무효화를 포함하는 영속 환경 프로파일 새로 고침 작업을 추가하고 재시작 및 만료 테스트를 통과합니다.
+- [ ] 교정 PR 발행 전에 분석기를 호출하고 차단 발견 사항을 사람 검토로 낮추며, 차단된 리포트에서는 PR이 열리지 않음을 통합 테스트로 입증합니다.
+- [ ] 정제된 리포트를 GitHub Checks 어댑터로 발행하고 정보 제거와 전달 실패에 대한 집중 계약 테스트를 남깁니다.
 
 ## 루프에서의 위치
 
-설계는 하나의 analyzer를 공유하는 두 진입점을 정의합니다. 현재는 사람 배포 경로가
-배포됐고 control-plane 경로는 경계만 있습니다:
+설계는 하나의 분석기를 공유하는 두 진입점을 정의합니다. 보호된 사람 배포 경로는 독립
+실행형 실행기 스크립트로 제공되며 컨트롤 플레인 경로는 현재 경계만 있습니다:
 
 - **컨트롤 플레인(계획됨)**: [실행기](../architecture/project-structure-ko.md)가 교정 PR을 발행하기
   전에, analyzer는 그 변경이 실제로 대상 범위에 착지할 수 있는지 확인합니다. 차단
@@ -145,8 +165,8 @@ translation_revised: 2026-08-11
 
 ## 전달 상태
 
-배포됨: 프로브 경계, 제네릭 결정론적 프로브, analyzer + 리포트, Azure CLI 기반
-`fdaictl` 진입점, deploy 작업 흐름의 protected-plan 근거 연결, 테스트.
+배포됨: 프로브 경계, 제네릭 결정론적 프로브, 분석기와 리포트, 독립 실행형 Azure
+프리플라이트 스크립트, 배포 작업 흐름의 보호된 계획 근거 연결 및 테스트.
 
 1. **Azure 탐색과 protected-plan 근거(배포됨)**: `delivery/azure/preflight/`의 공유 읽기 전용 ARM
    클라이언트(`AzureArmClient`, 주입된 `httpx.AsyncClient` + `WorkloadIdentity` bearer
@@ -156,8 +176,8 @@ translation_revised: 2026-08-11
   type-exists 가드인 경우에만 built-in `allOf` 타입 제약을 허용하며 알 수 없음 형제는
   실패 시 차단으로 유지합니다. 격리된 실제 운영 검증에서 RG-scoped disk 거부는
   `disk_provisioning=attach_existing`로 매핑됐고 실제 할당량 부족은 수동 차단 요인으로 남았으며,
-  temporary 배정은 검토된 롤백으로 제거됐습니다. `fdaictl deploy preflight
-  --environment-config`는 Azure CLI 워크로드 신원, 범위가 제한된 읽기 전용 ARM 전송 계층,
+  temporary 배정은 검토된 롤백으로 제거됐습니다. `scripts/deployment/azure/run_live_preflight.py`는
+  Azure CLI 워크로드 신원, 범위가 제한된 읽기 전용 ARM 전송 계층,
   neutral-to-ARM 타입 대응, 정제된 실패 시 차단 오류와 함께 두 탐색을 같은 analyzer에
   조립합니다. 기존 Resource Graph 역할 관찰기도 `AzureIdentityRbacProbe`를 통해 조립되어
   principal 또는 role-definition id를 출력하지 않고 누락된 event-bus 및 secret-reader
