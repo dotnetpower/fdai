@@ -11,6 +11,40 @@ authority.
 > A vendor sender id is routing evidence, not a principal id. Ambiguous provider receipt is a
 > visible terminal state and is never retried automatically.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Verified bindings and delivery context | implemented | [`principal_binding.py`](../../../services/core-control-plane/src/fdai/core/conversation/principal_binding.py), [`binding_delivery_context.py`](../../../services/core-control-plane/src/fdai/core/conversation/binding_delivery_context.py), [`test_principal_binding.py`](../../../services/core-control-plane/tests/conversation/test_principal_binding.py), [`test_binding_delivery_context.py`](../../../services/core-control-plane/tests/conversation/test_binding_delivery_context.py) | In-memory binding, explicit cross-channel resume, revocation, endpoint matching, and verified delivery-context resolution pass focused tests. No current PostgreSQL binding store or production composition is present. |
+| Immutable delivery ledger and recovery coordinator | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_conversation_delivery.py`](../../../services/core-control-plane/tests/providers/test_conversation_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py) | The in-memory store and coordinator enforce stable idempotency, CAS claims, bounded retry, terminal ambiguity, and stale-lease reconciliation in focused tests. This row does not claim restart durability. |
+| Conversation gateway and typed progress replay | implemented | [`channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | The gateway persists one complete response through its durable-delivery boundary and isolates duplicate turns and delivery failures. Typed activity and progress payloads round-trip in focused tests. No production channel runtime binds this path. |
+| PostgreSQL schema and production persistence | in-progress | [`20260720_0047_conversation_delivery.py`](../../../alembic/versions/20260720_0047_conversation_delivery.py) | The migration defines binding, delivery, attempt, acknowledgement, and breaker tables plus constraints and indexes. The current service tree has no PostgreSQL conversation-delivery or principal-binding store, database-backed focused test, or production binding. |
+| Adapter health policy | implemented | [`adapter_health.py`](../../../services/core-control-plane/src/fdai/core/conversation/adapter_health.py), [`test_adapter_health.py`](../../../services/core-control-plane/tests/conversation/test_adapter_health.py) | Bounded failure windows, fail-closed breaker modes, authorized pause and resume, and authorized A2 fallback behavior pass focused in-memory tests. The separately authenticated command app is not implemented. |
+| Scheduled delivery and read-only operations surfaces | in-progress | [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`continuation.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py) | Scheduled anchors and delivery/snapshot contracts exist. `ScheduledContinuationDeliveryCoordinator`, `ConversationDeliveryPanel`, adapter command routes, and production startup composition are absent from the current tree. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger and corrected production persistence, startup, command, scheduled-delivery, and operations-view claims to match the current service tree. | The 76 focused tests listed in the scope table passed. Repository search found no current production store, runtime composition, command route, scheduled delivery coordinator, or read panel. | Implement and bind the missing production surfaces, run database-backed checks, and capture governed runtime receipts. |
+
+### Remaining work
+
+- [ ] Implement PostgreSQL `ConversationDeliveryStore` and `PrincipalConversationBindingStore`
+    adapters, add database-backed focused tests, and bind them in production composition.
+- [ ] Compose a production channel runtime that invokes startup reconciliation before consumers and
+    fails closed when required attachment or channel dependencies are unavailable.
+- [ ] Add the separately authenticated `/commands/adapters/*` application with authorization,
+    audit, and focused pause, resume, and status tests.
+- [ ] Implement `ScheduledContinuationDeliveryCoordinator` for Slack and Teams with stable anchor
+    origins and persisted-result replay tests.
+- [ ] Implement the GET-only `ConversationDeliveryPanel` projection without mutation controls.
+- [ ] Record governed runtime receipts for persistence across restart, process-loss reconciliation,
+    external adapter acknowledgement, breaker control, scheduled delivery, and read-only metrics
+    before promoting any row to `validated`.
+
 ## Design at a glance
 
 FDAI persists the complete bounded response before a provider call. A worker claims that immutable
@@ -93,11 +127,14 @@ breaker tables. The database enforces:
 - Retention deletion only after a terminal row reaches `retention_until`.
 
 The in-memory implementation follows the same transition rules for deterministic tests. Production
-uses the PostgreSQL stores.
+must use PostgreSQL stores; those adapters and their production composition are not present in the
+current service tree.
 
 ## Crash recovery
 
-Production channel startup reconciles the ledger before starting consumers:
+Production channel startup must reconcile the ledger before starting consumers. The coordinator
+exposes the reconciliation operation, but the current tree has no production channel startup that
+invokes it:
 
 - when channel attachments are enabled, startup also requires a fully built production attachment
     ingestor; an enabled-but-unbound runtime fails before routes or consumers start;
@@ -125,8 +162,9 @@ Fallback health notification is limited to authorized A2 operational-alert route
 adapter. A denied or failed fallback is audited. Fallback failure does not reopen delivery or grant
 execution authority.
 
-Pause, resume, and status commands live in the separately authenticated channel command app under
-`/commands/adapters/*`. They are not mounted in the console Operator API.
+Pause, resume, and status commands must live in a separately authenticated channel command app
+under `/commands/adapters/*`. That command app is not implemented and these controls must not be
+mounted in the console Operator API.
 
 ## Conversation and scheduled integration
 
@@ -145,13 +183,14 @@ A direct provider send, delivery-context lookup, or durable submit failure is al
 originating turn and emits a sanitized `delivery.submit` transition. It does not terminate the
 channel receive loop or expose provider response text.
 
-`ScheduledContinuationDeliveryCoordinator` submits external Slack and Teams results with the
-stable anchor id as the origin. It uses the already persisted result summary, digest, evidence,
-conversation reference, and thread mode. Web continuations remain idempotent conversation turns.
+The planned `ScheduledContinuationDeliveryCoordinator` must submit external Slack and Teams results
+with the stable anchor id as the origin. It must use the already persisted result summary, digest,
+evidence, conversation reference, and thread mode. The coordinator is not implemented. Web
+continuations remain idempotent conversation turns.
 
 ## Read-only operations view
 
-`ConversationDeliveryPanel` is a GET-only `ReadPanel`. It reports:
+The planned `ConversationDeliveryPanel` must be a GET-only `ReadPanel`. It must report:
 
 - Delivery latency count, average, and p95.
 - State counts, duplicate-risk count, retries, and abandonment.
@@ -160,8 +199,8 @@ conversation reference, and thread mode. Web continuations remain idempotent con
 - Optional aggregate progressive-conversation counts and first-progress, first-confirmed, and branch
     latency when composition shares the bounded collector with Web or channel publishers.
 
-The payload sets `read_only=true` and `mutations_available=false`. The console exposes no pause,
-resume, retry, duplicate-risk override, or resend control.
+Its payload must set `read_only=true` and `mutations_available=false`. The panel is not implemented,
+and the console must expose no pause, resume, retry, duplicate-risk override, or resend control.
 
 ## Verification
 
