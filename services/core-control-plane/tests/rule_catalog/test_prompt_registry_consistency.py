@@ -112,9 +112,11 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
 
     assert frame.version == 2
     assert "query.incident_evidence" in frame.body
+    assert "one incident_id and one correlation_id" in frame.body
     assert "cause_claim_supported=false" in frame.body
     assert "Do not claim a cause" in frame.body
     assert plan.version == 2
     assert "only object_set, function, union" in plan.body
     assert '"function_name":"query.incident_evidence"' in plan.body
+    assert '"correlation_id":"the exact correlation_id' in plan.body
     assert '"dependency_arguments":{}' in plan.body
