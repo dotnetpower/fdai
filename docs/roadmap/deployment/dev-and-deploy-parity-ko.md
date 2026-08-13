@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 328c083338eee8a9678eb55fb89b2abd91078da0
+translation_source_sha: 45820477a84fe7f0491da9a99a339dee844b4f53
 translation_revised: 2026-08-13
 ---
 
@@ -31,7 +31,7 @@ translation_revised: 2026-08-13
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 자동화 테스트 고정본 격리 | implemented | `tests/`, `console/tests/` 및 리포지토리 테스트 모음이 실행하는 고정본 전용 composition 경로 | 결정론적 고정본은 권위 있는 interactive 프로파일 밖에 유지됩니다. |
-| 인증된 라이브 Console 경로 보증 | in-progress | `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, `console/tests/live-e2e/console-routes.spec.ts`, focused Overview 및 capability 검사 통과 | 격리된 harness는 테스트 전용 신원 검증과 운영 Operator Service 어댑터를 사용합니다. 선택적 capability projection 손실은 예기치 않은 실패를 숨기지 않고 사용 불가로 표시됩니다. 전체 경로 및 비평 라운드는 열려 있습니다. |
+| 인증된 라이브 Console 경로 보증 | in-progress | `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, `console/tests/live-e2e/console-routes.spec.ts`, `console/tests/live-e2e/ontology-query-assurance*.ts`, focused 경로 검사 및 출처 이력 테스트 통과 | 통제된 아티팩트는 정확한 source revision, 정규 run-configuration digest, workspace patch digest, authentication attestation 및 턴별 request와 projection id를 연결합니다. 전체 경로, 온톨로지 cohort 및 비평 라운드는 열려 있습니다. |
 | Live 관찰 소비자 격리 | implemented | `services/operator-service/src/fdai_operator_service/environment.py`, `services/operator-service/src/fdai_operator_service/composition.py`, `console/tests/live-e2e/operator_service.py` 및 focused 회귀 검사, 테스트 41개 통과 | `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`는 독립적으로 실행되는 각 Operator 프로세스 또는 복제본을 고유한 그룹에 연결합니다. E2E launcher는 상속된 값을 항상 UUID 범위 그룹으로 교체합니다. |
 | 인증된 로컬 Live 이벤트 경로 | validated | 2026-08-13 통제된 Browser Entra 실행이 `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE 및 기존 인증 Live DOM을 통과 | 이 실행은 권위 있는 온톨로지를 보존하고 이벤트와 허용된 네 단계를 모두 렌더링했습니다. 배포된 개정 번호, 브라우저 Notifications API 또는 브라우저 종료 상태의 push 전달은 검증하지 않았습니다. |
 | 로컬 및 deployed composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/` 및 서비스 통합 테스트 | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. |
@@ -49,6 +49,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | in-progress | 라이브 Console 테스트의 폐기된 backend 경로를 운영 어댑터와 테스트 전용 bearer 검증을 사용하는 독립 Operator Service로 교체하고, readiness 실패를 제한하도록 격리된 stack을 IPv6 loopback으로 옮겼습니다. | 현재 변경의 `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, `console/tests/live-e2e/console-routes.spec.ts`, focused Overview 검사 1개가 5.1초에 통과했습니다. | 등록된 경로 50개를 모두 실행한 뒤 최소 10회 보증 라운드와 10회 비평/하드닝 라운드를 완료하여 Low보다 높은 심각도 finding이 남지 않게 합니다. |
 | 2026-08-13 | in-progress | Capability catalog가 선택적 projection 누락과 예기치 않은 실패를 구분하도록 하고 라이브 예외를 `404 /capabilities`로 제한했습니다. | 현재 변경의 `console/src/routes/capabilities.tsx`, `console/src/routes/capabilities.test.ts`, `console/tests/live-e2e/console-routes.spec.ts`, focused unit 테스트 7개 및 인증된 focused 라이브 검사 1개가 통과했습니다. | 남은 실패 경로를 수리한 뒤 열려 있는 보증 및 비평/하드닝 라운드를 완료합니다. |
 | 2026-08-13 | validated | Live 관찰 소비자 그룹을 Operator 환경과 composition에 연결하고 E2E launcher를 UUID 범위 그룹으로 격리했으며 정본 유입부터 기존 Live DOM까지 인증된 로컬 이벤트 경로를 증명했습니다. | 현재 변경의 Operator 환경, composition, launcher 및 focused 회귀 검사에서 테스트 41개가 통과했습니다. 통제된 Browser Entra 근거는 이벤트와 허용된 네 단계를 모두 렌더링했습니다. | 배포된 개정 번호에서 동등한 근거를 기록합니다. 브라우저 Notifications API와 브라우저 종료 상태의 push 전달은 이 근거 범위 밖에 남습니다. |
+| 2026-08-13 | in-progress | 온톨로지 보증 아티팩트가 통제된 근거가 되기 전에 정확한 source, configuration, workspace, 인증, request 및 projection 출처 이력에 연결했습니다. | 현재 변경의 `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 통과 및 Console 타입 검사 통과. | 정확한 중앙 검증 receipt를 얻은 뒤 seeded 영/한 100-case cohort 전에 인증된 probe 하나를 실행합니다. |
 
 ### 잔여 작업
 
@@ -90,8 +91,7 @@ Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리�
 레지스트리와 계속 일치하는지 검증합니다. 정확히 선언된 unavailable contract는 런타임 결함으로
 취급하지 않으면서 화면에 그대로 표시합니다. 또한 실제 운영 Command Deck을 통해 결정론적 현재
 시각 턴과 허용 목록에 포함된 Microsoft Learn 웹 검색을 제출하고, 검증된 또는 근거에 기반한 최종
-근거를 요구합니다. 이미 인증된 stack을 재사용하려면 `FDAI_E2E_BASE_URL`,
-`FDAI_E2E_OPERATOR_API_URL`, `FDAI_E2E_STORAGE_STATE`를 설정합니다.
+근거를 요구합니다. 통제된 온톨로지 보증 아티팩트는 정확한 source revision, 정규 run configuration과 digest, workspace patch digest, authentication attestation 및 정확한 request와 projection id를 기록하며, runner는 malformed source 또는 workspace 출처 이력을 첫 요청 전에 거부합니다.
 
 ### dev-up.sh 필요 (여전히 로컬)
 

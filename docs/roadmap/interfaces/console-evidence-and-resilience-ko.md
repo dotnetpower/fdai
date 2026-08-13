@@ -1,21 +1,36 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2a50c82f6c1e4aa9df8b6beca61fff029d47b5b6
+translation_source_sha: 2e85184fe9738bda4c222d7a8230c4ff11213488
 translation_revised: 2026-08-13
 ---
 
 # 콘솔 근거 및 복원력
 
-이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은
-[operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
+이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|-----------|
+| 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 및 Console 타입 검사 통과 | 인증된 seeded cohort가 통제된 runtime 아티팩트를 만들 때까지 in-progress로 유지합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 온톨로지 보증 아티팩트를 정확한 source, configuration, workspace, 인증, request 및 projection 출처 이력에 연결했습니다. | 현재 변경의 `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 및 Console 타입 검사 통과. | 정확한 중앙 검증 receipt를 얻은 뒤 seeded 영/한 100-case cohort 전에 인증된 probe 하나를 실행합니다. |
+
+### 잔여 작업
+
+- [ ] 정확한 중앙 검증 receipt와 인증된 probe를 확보한 뒤 seeded 영/한 100-case cohort에서 통과한 통제 아티팩트 하나를 보존합니다.
 
 ## 탐색 컨텍스트
 
-활동 Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째 visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며,
-full-workspace Deck은 경로가 변경되기 전에 닫힙니다.
-다른 화면의 cached 대화 선택은 범위가 제한된 exception입니다. Console은 대화 출처로 이동할 때 conversation-owned synchronous 경로 이벤트만 suppress한 뒤 대화 기록을 활성화합니다.
-Transient default-session 전환 또는 close/reopen focus cycle 없이 Deck을 열린 상태로 유지합니다.
+활동 Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째 visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며, full-workspace Deck은 경로가 변경되기 전에 닫힙니다.
+다른 화면의 cached 대화 선택은 범위가 제한된 exception입니다. Console은 대화 출처로 이동할 때 conversation-owned synchronous 경로 이벤트만 suppress한 뒤 대화 기록을 활성화합니다. Transient default-session 전환 또는 close/reopen focus cycle 없이 Deck을 열린 상태로 유지합니다.
 Same-screen 및 에이전트 대화는 탐색 없이 전환합니다.
 이미 활성인 same-screen 대화를 다시 선택하면 focus만 복원하며 최신 in-memory 턴 위에 sessionStorage 대화 기록을 다시 로드하지 않습니다.
 비활성 대화를 선택하면 browser-local 읽음 확인만 기록하고 활동 시각은 변경하지 않으므로 이력 순서가 유지됩니다. principal 범위로 한정된 `내 대화`, `읽지 않음` 및 `즐겨찾기` 필터는 browser-local 탐색 메타데이터만 사용하며 즐겨찾기 전환은 서버 활동, 근거 또는 정렬을 변경하지 않습니다. 대화 제목은 관찰된 활동이 저장된 읽기 시각보다
@@ -25,15 +40,9 @@ Same-screen 및 에이전트 대화는 탐색 없이 전환합니다.
 정규화된 질문은 이력 메타데이터에서 512자로 제한되고 브라우저 및 영속 복원 후에도 보존됩니다.
 제목이 시각적으로 잘리면 visible 텍스트는 ellipsis를 유지합니다. 시간 영역을 포함한 selectable
 대화 행 어디에서든 포인터 hover하거나 keyboard focus하면 제목 길이와 관계없이 공용 콘솔
-툴팁으로 제한된 질문 전체를 표시합니다. 배치 및 닫기 icon 컨트롤도 같은 localized 툴팁 컴포넌트를
-사용합니다. 연결된 백엔드 툴팁은 모드, 엔드포인트, 경로 choice 및 후보를 별도 줄로 유지하고
-localized 자리 표시자를 모두 채우며 긴 엔드포인트 또는 배포 토큰을 뷰포트 경계 안에서
-줄바꿈합니다.
-에이전트 카드의 Ask 액션은 항상 unique user-scoped 키를 가진 비어 있는 새 에이전트 대화를 엽니다. 새 요약은 선택한 에이전트를 즉시 보유하므로 첫 제출부터 같은 에이전트 대상을 Operator API에
-전달합니다. 기존 에이전트 대화는 별도 이력 항목으로 보존하며 운영자가 명시적으로 선택할
-때만 복원합니다.
-활성 cached 대화를 제거하면 current-route 기본값(이전 방식 `screen` 키 포함) 또는 current-route 스레드만 선택합니다. 둘 다 없으면 unrelated-route 또는 에이전트 대화 기록을 활성화하지
-않고 새 current-route 기본값을 만듭니다.
+툴팁으로 제한된 질문 전체를 표시합니다. 배치 및 닫기 icon 컨트롤도 같은 localized 툴팁 컴포넌트를 사용합니다. 연결된 백엔드 툴팁은 모드, 엔드포인트, 경로 choice 및 후보를 별도 줄로 유지하고 localized 자리 표시자를 모두 채우며 긴 엔드포인트 또는 배포 토큰을 뷰포트 경계 안에서 줄바꿈합니다.
+에이전트 카드의 Ask 액션은 항상 unique user-scoped 키를 가진 비어 있는 새 에이전트 대화를 엽니다. 새 요약은 선택한 에이전트를 즉시 보유하므로 첫 제출부터 같은 에이전트 대상을 Operator API에 전달합니다. 기존 에이전트 대화는 별도 이력 항목으로 보존하며 운영자가 명시적으로 선택할 때만 복원합니다.
+활성 cached 대화를 제거하면 current-route 기본값(이전 방식 `screen` 키 포함) 또는 current-route 스레드만 선택합니다. 둘 다 없으면 unrelated-route 또는 에이전트 대화 기록을 활성화하지 않고 새 current-route 기본값을 만듭니다.
 않고 새 current-route 기본값을 만듭니다. Context-dependent 취소, 런북, knowledge, 기억, learning, ordinal-resource, 모호함, reformatting 및 partial-source 질문에는 검증된 이전 대화 기록이 필요합니다. 서버는 principal 범위로 한정된 `ConversationHistoryStore`의 최신 사용 가능한 assistant 재생에서 활성 조사, 선택된 리소스, 이전 답변 또는 source-failure 증적을 재구성합니다. 브라우저 대화 기록은 이 권한을 만들 수 없으며 fresh 대화는 사용 불가 상태를 유지합니다. 검증된 또는 corrected 이전 턴 이후 `KnowledgeContextChatTools`는 unique trusted 런북 하나를 부하하거나 활성화된 출처의 권한 확인 및 refresh 상태를 보고하거나 해당 principal만 볼 수 있는 explicit-consent 기억을 표시합니다. Exact assistant-turn 검토가 materialized 기억 또는 runtime-skill 제안을 가리킬 때만 learning을 reusable로 보고합니다. 초안과 모호한 런북은 빈으로, 프로바이더 실패는 사용 불가로 유지하며 ordinary chat은 기억 또는 검토 상태를 쓰지 않습니다. 완료된 이어가기는 영속 assistant 턴과 내용 기반 주소를 가진 출처 증적을 인용합니다.
 검증된 fresh 인벤토리 답변은 서버가 소유한 재생 메타데이터에 범위가 제한된 `resource_result_context`를 포함할 수 있습니다. Raw 리소스 ID를 포함하지 않고 브라우저 맥락에서는 수락하지 않으며 출처, 스냅샷, 범위, 조회 다이제스트, 최신성, 잘림 및 이후 결정론적 후속 조치에 사용할 최대 40개의 ordered 선택자를 보존합니다.
 Ordinal 후속 조치는 선택한 위치를 exact fresh 인벤토리 조건식으로 다시 검증합니다. 모호함 후속 조치는 완전한 이전 결과 집합의 equal-name 후보만 표시합니다. 불완전한 맥락은 사용 불가 상태를 유지하며 current-screen 또는 서술기 출력으로 대체 경로할 수 없습니다.
@@ -41,16 +50,7 @@ Ordinal 후속 조치는 선택한 위치를 exact fresh 인벤토리 조건식�
 Full-workspace Command Deck 세션은 대화 기록만 열린 내용 열로 시작합니다. 비어 있는 대화 기록은 상황별 suggestion을 유지하고 도구 선택이나 권한을 바꾸지 않는 localized 복원력, 변경 안전성 및 비용 거버넌스 quick 시작을 추가합니다. 대화 기록
 toolbar는 workspace, docked 및 floating 배치에서 필터 가능한 대화 이력을 제공합니다. 좁은
 배치에서는 대화 기록 폭을 줄이지 않고 그 위에 overlay로 엽니다. Workspace에서는 포인터 또는 keyboard 구분자로 대화 이력 폭을 180-360 px 범위에서 조절하고 마지막 폭을 로컬에 저장합니다. 좁은 배치는 구분자를 숨깁니다. 이력 헤더는 검색과 icon-only 새 대화를 간결한한 한 줄에 배치하고 lightweight 필터 tab을 사용하며, 컨트롤 대신 목록만 scroll합니다. 현재 화면 다이제스트는 workspace 컨트롤로 유지됩니다. Deck은 열린 표면마다 composition-owned data-source 매니페스트를 한 번 읽고 대화 기록 위에 인벤토리, Incidents, 감사, Knowledge 및 자동화 준비 상태 링크를 간결한하게 표시합니다. 누락되거나 non-authoritative인 출처는 `unknown`으로 유지합니다. 브라우저는 상태를 추론하거나 raw 프로바이더 상세를 노출하거나 경로 존재로 매니페스트를 대체하지 않습니다. 로딩은 고정된 골격을 사용하고 매니페스트 실패는 대화 이력을 차단하지 않으면서 진단으로 연결합니다.
-이력은 고정된 커서 순서를 유지하지만 처음에는 요약 20건만 렌더링합니다. 이력 scroll
-경계에 가까워지면 이미 부하된 요약 중 다음 20건을 표시합니다. 로컬 구간을 모두 사용한 뒤에는
-같은 경계에서 서버 페이지 20건을 요청하고 기존 행을 교체하지 않고 이어서 표시합니다. 다음 페이지가
-있으면 개수를 `20+`로 표시합니다. 대화 기록 본문은 선택할
-때만 hydrate합니다. Operator 이미지는 전송된 턴 안에 표시됩니다. 브라우저 캐시 직렬화는
-inline 바이트를 제거하고 범위가 제한된 서술자만 유지하며, 영속 복원은 인증된 principal 및
-대화 범위 이미지 경로를 통해 binary를 fetch합니다. 브라우저 또는 영속 이력에서 복원된 대화 기록은 새 대화를 시작할 때까지
-resumed-session 표시를 표시합니다. Deck 헤더는 경로와 선택적 에이전트 맥락만 담당하며 에이전트
-대화가 아닌 질문은 반복 표시하지 않습니다. 다이제스트는 기록 수, 스냅샷 age 및 오래된 맥락
-새로고침을 담당하며, 작성기에는 첨부, 질문 입력 및 보내기 또는 중지만 유지합니다.
+이력은 고정된 커서 순서를 유지하지만 처음에는 요약 20건만 렌더링합니다. 이력 scroll 경계에 가까워지면 이미 부하된 요약 중 다음 20건을 표시합니다. 로컬 구간을 모두 사용한 뒤에는 같은 경계에서 서버 페이지 20건을 요청하고 기존 행을 교체하지 않고 이어서 표시합니다. 다음 페이지가 있으면 개수를 `20+`로 표시합니다. 대화 기록 본문은 선택할 때만 hydrate합니다. Operator 이미지는 전송된 턴 안에 표시됩니다. 브라우저 캐시 직렬화는 inline 바이트를 제거하고 범위가 제한된 서술자만 유지하며, 영속 복원은 인증된 principal 및 대화 범위 이미지 경로를 통해 binary를 fetch합니다. 브라우저 또는 영속 이력에서 복원된 대화 기록은 새 대화를 시작할 때까지 resumed-session 표시를 표시합니다. Deck 헤더는 경로와 선택적 에이전트 맥락만 담당하며 에이전트 대화가 아닌 질문은 반복 표시하지 않습니다. 다이제스트는 기록 수, 스냅샷 age 및 오래된 맥락 새로고침을 담당하며, 작성기에는 첨부, 질문 입력 및 보내기 또는 중지만 유지합니다.
 
 공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.
 
@@ -395,12 +395,6 @@ Read-source 출처 이력, 온톨로지 browse, 화면 간 operational 및 인�
 허용 목록에 있는 신원 필드와 256자 이하 프롬프트 값만 전달하며, 중복되거나 malformed인 개수와
 선택을 사용 불가로 표시합니다. 온톨로지 변환 결과와 결정론적 browse 답변은 일반 프롬프트
 assembly와 분리된 자체 프롬프트 모듈에 위치합니다.
-인증된 live-assurance 아티팩트는 정확한 `source_revision`에 실행을 연결하고, 일치하는
-`configuration_digest`와 함께 정확한 `run_configuration`을 포함하며,
-`workspace_patch_digest` 및 `authentication_attestation`을 기록할 때만 통제된 근거로
-인정됩니다. 측정한 각 턴은 결정론적 `question_id`와 보호된 요청이 반환한 정확한
-`request_id` 및 `projection_id`를 보존합니다. Runner는 source revision 또는 workspace patch
-digest가 없거나 malformed이면 첫 요청을 보내기 전에 실행을 거부합니다.
 Reader-gated `/ontology/graph` 변환 결과는 operating-model 상태, 출처 개정 번호, 집계
 객체 및 링크 개수만 포함합니다. 배포 instance 속성은 반환하지 않습니다.
 일반 delegated 답변은 Bragi를 서술기로 유지하면서 검증된 specialist를 응답 소유자로
@@ -708,7 +702,5 @@ transient 실패를 범위가 제한된 2-30초 재시도 대기로 재시도합
 - 카탈로그 동등성 및 route-local 대체 경로 테스트가 localization을 검증합니다.
 - 재생 테스트가 JSON, SSE 및 cross-transport 멱등성을 검증합니다.
 - 출처 이력 테스트가 사용 불가, 알 수 없음, malformed 및 route-owner 상태를 검증합니다.
-- Live-assurance 출처 이력 테스트가 인증된 cohort에서 통제된 근거를 만들기 전에 source,
-  configuration, workspace 상태 및 인증 연결을 검증합니다.
 - 스트림 테스트가 inactivity, authentication 분류, 프레임 한도 및 액션 시간 초과를 검증합니다.
 - 아키텍처 테스트가 배치, 선택, accessibility, 캐시 최신성 및 범위가 제한된 polling을 검증합니다.
