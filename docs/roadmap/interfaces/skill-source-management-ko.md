@@ -1,8 +1,8 @@
 ---
 title: 스킬 소스 관리
 translation_of: skill-source-management.md
-translation_source_sha: 39aebd18074ff95bda4e5aea9103c48bb3966cc0
-translation_revised: 2026-08-11
+translation_source_sha: 4ce858450f9284f98ad687678002283c9806387e
+translation_revised: 2026-08-13
 ---
 # 스킬 소스 관리
 
@@ -101,13 +101,14 @@ atomic하게 점유합니다. 점유는 `next_refresh_at`을 5분 보류로 전�
 - **기타 실패**: Exception 타입을 범위가 제한된 오류 kind로 기록합니다. 토큰과 응답 본문은
  포함하지 않습니다.
 
-운영은 Operator API lifespan에서 실행기를 시작합니다. `FDAI_SKILL_SOURCE_TICK_SECONDS`는 wake
-간격을 제어하며 최소 30초여야 합니다. `FDAI_GITHUB_API_BASE`는 기본 GitHub API base를 다른
-HTTPS GitHub 엔드포인트로 바꿀 때 사용합니다.
+오케스트레이터와 영속 점유 동작은 구현되어 있고 집중 테스트 근거가 있습니다. 현재 런타임
+bootstrap은 오케스트레이터, 주기 실행기, 구체 GitHub 어댑터를 생성하지 않습니다. 따라서 실행기
+소유권, 실행 간격 구성, GitHub 엔드포인트 구성은 배포된 동작이 아니라 운영 조립 작업으로 남아
+있습니다.
 
 ## HTTP 표면
 
-경로 그룹은 `OperatorApiConfig.skill_sources`로 명시적 선택하며 서버가 해석한 인증된 principal을
+Operator Service workflow family가 이 경로를 등록하고 서버가 해석한 인증된 principal을
 사용합니다.
 
 | 메서드와 경로 | 최소 authority | 목적 |
@@ -117,17 +118,18 @@ HTTPS GitHub 엔드포인트로 바꿀 때 사용합니다.
 | `GET /api/v1/skill-sources/{source_id}/inspect` | Reader | Refresh, 격리 구역, 철회 근거를 확인합니다. |
 | `GET /api/v1/skill-sources/{source_id}/check-update` | Reader | ETag 상태와 newest 비활성화된 후보를 읽습니다. |
 | `GET /api/v1/skill-sources/{source_id}/candidates` | Reader | 비활성화된 후보를 나열합니다. |
-| `POST /api/v1/skill-sources/{source_id}/approve-candidate` | Approver | 후보를 재검증하고 비활성화된으로 설치합니다. |
-| `POST /api/v1/skill-sources/{source_id}/revoke` | Owner | 출처와 그 출처의 installed 산출물을 모두 비활성화합니다. |
+| `POST /api/v1/skill-sources/{source_id}/approve-candidate` | Approver | 멱등적인 후보 승인 proposal을 제출합니다. |
+| `POST /api/v1/skill-sources/{source_id}/revoke` | Owner | 멱등적인 출처 철회 proposal을 제출합니다. |
 
 현재 Console SPA Skills 경로는 `/skills`를 읽으며 이 source-management 엔드포인트를 아직 호출하지
 않습니다. 향후 source-management 화면은 GET 변환 결과로 제한하고 승인 또는 철회
-control을 제공하면 안 됩니다. 게시 경로는 별도 인증된 administration 표면이며 cloud
-실행기 신원을 보유하지 않습니다.
+control을 제공하면 안 됩니다. GET 작업은 workflow read gateway를 사용합니다. POST 작업은
+수락된 proposal을 반환하며 core administration service를 직접 호출하지 않습니다. Operator
+Service는 cloud 실행기 신원을 보유하지 않습니다.
 
 ## 승인과 철회
 
-승인은 설치 전에 다음을 모두 다시 확인합니다.
+Core `SkillSourceAdministrationService`는 설치 전에 다음을 모두 다시 확인합니다.
 
 - 출처가 존재하고 계속 활성화된 상태인지 확인합니다.
 - 후보가 해당 출처 소속이며 여전히 `proposed` 격리 구역 산출물과 일치하는지 확인합니다.
@@ -143,14 +145,54 @@ control을 제공하면 안 됩니다. 게시 경로는 별도 인증된 adminis
 커밋 후 런타임 스냅샷을 reload하므로 이후 skill load는 철회된 산출물을 사용할 수 없지만 감사와
 격리 구역 근거는 계속 inspect할 수 있습니다.
 
+도메인 승인과 철회 구현은 현재 Operator Service proposal 작업이나 운영 런타임 조립에 연결되어
+있지 않습니다.
+
+## 구현 상태
+
+현재 트리에는 결정론적 수명 주기와 영속 어댑터가 있지만 외부 출처 기능의 전체 경로는 아직
+조립되지 않았습니다.
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 출처, 격리, 검사, 검증, 후보, 승인, 철회 도메인 수명 주기 | implemented | [`source_registry.py`](../../../services/core-control-plane/src/fdai/core/skills/source_registry.py), [`skill_source_pipeline.py`](../../../services/core-control-plane/src/fdai/core/supply_chain/skill_source_pipeline.py), [`skill_source_admin.py`](../../../services/core-control-plane/src/fdai/core/supply_chain/skill_source_admin.py), 집중 supply-chain 테스트 | 현재 집중 테스트는 등록, 갱신, 차단, 후보 생성, 승인 보호 조건, 철회 위임을 검사합니다. |
+| PostgreSQL 스키마, 저장소, 영속 점유, 트랜잭션 철회 | implemented | [Alembic 개정 번호 `20260720_0045`](../../../alembic/versions/20260720_0045_skill_source_quarantine.py), [`postgres_skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_skill_source.py), [`postgres_skill_quarantine.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_skill_quarantine.py), codec 테스트 | 오프라인 저장소 테스트는 통과합니다. 실제 PostgreSQL 재시작 및 출처 이력 테스트는 존재하지만 `FDAI_DATABASE_URL`이 필요합니다. |
+| Operator HTTP read 및 proposal 계약 | implemented | [`manifest.py`](../../../services/operator-service/src/fdai_operator_service/families/workflow/manifest.py), [`routes.py`](../../../services/operator-service/src/fdai_operator_service/families/workflow/routes.py), [`test_operator_workflow_family.py`](../../../services/operator-service/tests/test_operator_workflow_family.py) | Reader GET 경로와 Approver/Owner proposal 경로가 등록되어 있고 역할 테스트가 있습니다. 의도적으로 core 권한 구현을 가져오거나 호출하지 않습니다. |
+| 구체 GitHub fetch 어댑터 | not-started | [`skill_source.py`](../../../services/core-control-plane/src/fdai/shared/providers/skill_source.py)와 현재 추적 트리 점검 | 프로바이더 중립 프로토콜은 있지만 개정 번호를 해석하거나 제한된 파일을 가져오는 운영 구현은 없습니다. |
+| 운영 조립과 scheduled 실행기 | not-started | 현재 runtime/bootstrap 사용처 점검 | `SkillSourceRefreshService`, `SkillSourceRefreshOrchestrator`, `SkillSourceAdministrationService` 또는 해당 PostgreSQL 어댑터를 생성하는 bootstrap 경로가 없습니다. |
+| Console 출처 관리 projection과 관리되는 런타임 근거 | not-started | 현재 Console 사용처 점검과 집중 테스트 실행 | Console은 출처 관리 경로를 호출하지 않으며 fetch-to-proposal 또는 승인/철회 실행을 입증하는 현재 런타임 증적이 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 구현 원장을 도입하고 오래된 운영 연결 및 HTTP 실행 설명을 바로잡았으며 집중 테스트 명령을 수정했습니다. 이전 구현 출처 이력은 재구성하지 않았습니다. | `current change`; 정확한 경로를 지정한 skill-source 및 Operator workflow suite의 `37 passed, 1 skipped`; 로드맵, 번역, 문장 부호, 한글, 문서 크기, 링크 검사. | 누락된 어댑터와 런타임 경로를 구현 및 연결하고, 실제 영속성을 검증하며, 읽기 전용 projection과 관리되는 런타임 근거를 기록합니다. |
+
+### 남은 작업
+
+- [ ] 변경 불가능한 개정 번호, 제한된 경로, redirect, symlink, 콘텐츠 크기, UTF-8,
+  authentication, rate-limit 규칙을 강제하는 구체 GitHub `SkillSourceAdapter`를 구현하고 각
+  거부 경로의 집중 어댑터 테스트를 통과시킵니다.
+- [ ] 독립 실행되는 소유 서비스에서 출처 저장소, 격리 저장소, verifier factory, refresh
+  service, administration service, scheduled orchestrator를 조립하고 집중 통합 테스트로 중복
+  실행기 차단과 재시작 복구를 입증합니다.
+- [ ] Core 구현을 Operator Service로 가져오지 않고 workflow read 및 proposal 작업을 권한을
+  보유한 event 경로에 연결하며, 승인과 철회가 역할 제한, 멱등성, 기본 비활성화, replay 가능
+  조건을 유지함을 입증합니다.
+- [ ] `FDAI_DATABASE_URL`로 실제 PostgreSQL 재시작/철회 테스트를 실행하고 읽기 전용 Console
+  projection을 추가한 뒤 refresh, 승인, 철회의 관리되는 런타임 증적을 기록합니다.
+
 ## 검증
 
 이 subsystem을 변경할 때 다음 focused 검사를 사용합니다.
 
 ```bash
-uv run pytest -q services/core-control-plane/tests/core/supply_chain/test_skill_source_*.py
-uv run pytest -q services/core-control-plane/tests/persistence/test_postgres_skill_source*.py services/core-control-plane/tests/persistence/test_postgres_skill_quarantine.py
-uv run pytest -q services/core-control-plane/tests/delivery/github/test_skill_source.py services/operator-service/tests/
+uv run pytest -q services/core-control-plane/tests/core/skills/test_source_registry.py
+uv run pytest -q services/core-control-plane/tests/core/supply_chain/test_skill_source_admin.py services/core-control-plane/tests/core/supply_chain/test_skill_source_pipeline.py services/core-control-plane/tests/core/supply_chain/test_skill_source_refresh.py
+uv run pytest -q services/core-control-plane/tests/persistence/test_postgres_skill_source.py services/core-control-plane/tests/persistence/test_postgres_skill_source_integration.py services/core-control-plane/tests/persistence/test_postgres_skill_quarantine.py
+uv run pytest -q services/operator-service/tests/test_operator_workflow_family.py
 uv run ruff check services/core-control-plane/src/fdai/core/supply_chain/skill_source_*.py services/core-control-plane/src/fdai/delivery/persistence/postgres_skill_*.py
 uv run mypy services/core-control-plane/src/fdai/core/supply_chain/skill_source_*.py services/core-control-plane/src/fdai/delivery/persistence/postgres_skill_*.py
 ```
