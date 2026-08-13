@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 45820477a84fe7f0491da9a99a339dee844b4f53
+translation_source_sha: 591f1d991c3547d0d99e84486e0c9bb996de4ef0
 translation_revised: 2026-08-13
 ---
 
@@ -34,7 +34,7 @@ translation_revised: 2026-08-13
 | 인증된 라이브 Console 경로 보증 | in-progress | `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, `console/tests/live-e2e/console-routes.spec.ts`, `console/tests/live-e2e/ontology-query-assurance*.ts`, focused 경로 검사 및 출처 이력 테스트 통과 | 통제된 아티팩트는 정확한 source revision, 정규 run-configuration digest, workspace patch digest, authentication attestation 및 턴별 request와 projection id를 연결합니다. 전체 경로, 온톨로지 cohort 및 비평 라운드는 열려 있습니다. |
 | Live 관찰 소비자 격리 | implemented | `services/operator-service/src/fdai_operator_service/environment.py`, `services/operator-service/src/fdai_operator_service/composition.py`, `console/tests/live-e2e/operator_service.py` 및 focused 회귀 검사, 테스트 41개 통과 | `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`는 독립적으로 실행되는 각 Operator 프로세스 또는 복제본을 고유한 그룹에 연결합니다. E2E launcher는 상속된 값을 항상 UUID 범위 그룹으로 교체합니다. |
 | 인증된 로컬 Live 이벤트 경로 | validated | 2026-08-13 통제된 Browser Entra 실행이 `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE 및 기존 인증 Live DOM을 통과 | 이 실행은 권위 있는 온톨로지를 보존하고 이벤트와 허용된 네 단계를 모두 렌더링했습니다. 배포된 개정 번호, 브라우저 Notifications API 또는 브라우저 종료 상태의 push 전달은 검증하지 않았습니다. |
-| 로컬 및 deployed composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/` 및 서비스 통합 테스트 | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. |
+| 로컬 및 deployed composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, 서비스 통합 테스트 및 집중 workspace 작업 테스트 | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 신뢰된 workspace는 준비를 한 번 수행하고 전체 로컬 토폴로지를 자동으로 시작합니다. |
 | 로컬 검증 데이터베이스 격리 | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, 로컬 준비 스크립트 및 focused 검증과 migration 통합 테스트 | 런타임 상태는 로컬 PostgreSQL port `5432`에 유지하고 파괴적인 migration 검증은 port `5433`의 별도 로컬 PostgreSQL cluster를 사용합니다. |
 | FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, focused 프로파일 및 workspace 테스트 11개 통과 | Resource 범위 분석 제어는 workspace에 둡니다. Portable 프로파일은 격리할 수 없는 Remote WSL Pylance machine 설정을 거부합니다. |
 | FDAI Pylance launch ceiling 런타임 증명 | deferred | FDAI Remote WSL을 clean restart해도 Pylance는 bundled VS Code Node 실행 파일로 시작했고 `--max-old-space-size=2048`이 없었습니다. VS Code Server 1.133은 활성 프로파일 서비스와 별개로 Remote Machine 설정 리소스 하나를 생성합니다. | 격리된 런타임을 마련할 때까지 blocked 상태입니다. Shared Remote Machine 재정의는 제외 대상 workspace에도 영향을 주므로 ceiling을 활성화하려면 별도 VS Code Server data root 또는 WSL 배포판으로 런타임을 격리해야 합니다. |
@@ -50,6 +50,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | in-progress | Capability catalog가 선택적 projection 누락과 예기치 않은 실패를 구분하도록 하고 라이브 예외를 `404 /capabilities`로 제한했습니다. | 현재 변경의 `console/src/routes/capabilities.tsx`, `console/src/routes/capabilities.test.ts`, `console/tests/live-e2e/console-routes.spec.ts`, focused unit 테스트 7개 및 인증된 focused 라이브 검사 1개가 통과했습니다. | 남은 실패 경로를 수리한 뒤 열려 있는 보증 및 비평/하드닝 라운드를 완료합니다. |
 | 2026-08-13 | validated | Live 관찰 소비자 그룹을 Operator 환경과 composition에 연결하고 E2E launcher를 UUID 범위 그룹으로 격리했으며 정본 유입부터 기존 Live DOM까지 인증된 로컬 이벤트 경로를 증명했습니다. | 현재 변경의 Operator 환경, composition, launcher 및 focused 회귀 검사에서 테스트 41개가 통과했습니다. 통제된 Browser Entra 근거는 이벤트와 허용된 네 단계를 모두 렌더링했습니다. | 배포된 개정 번호에서 동등한 근거를 기록합니다. 브라우저 Notifications API와 브라우저 종료 상태의 push 전달은 이 근거 범위 밖에 남습니다. |
 | 2026-08-13 | in-progress | 온톨로지 보증 아티팩트가 통제된 근거가 되기 전에 정확한 source, configuration, workspace, 인증, request 및 projection 출처 이력에 연결했습니다. | 현재 변경의 `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 통과 및 Console 타입 검사 통과. | 정확한 중앙 검증 receipt를 얻은 뒤 seeded 영/한 100-case cohort 전에 인증된 probe 하나를 실행합니다. |
+| 2026-08-13 | implemented | 로컬 상태를 한 번 준비하고 서비스별 확인 클릭 없이 백엔드 서비스 5개와 Console SPA를 모두 시작하는 신뢰된 workspace 집계 작업을 추가했습니다. | 현재 변경의 `.vscode/tasks.json` 및 `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 workspace 작업 테스트 3개 통과. | 로컬 full-stack 자동 시작에 남은 구현 작업은 없습니다. |
 
 ### 잔여 작업
 
@@ -130,16 +131,18 @@ managed-resource identity가 없는 영속 shadow consumer입니다. 이 venue�
 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는
 executor 권한을 변경하지 않습니다.
 
-신뢰된 workspace를 열면 가벼운 hook 설치, 안전한 백그라운드 Git 동기화 및 선택적 개발 VPN
-확인만 실행됩니다. `console: prepare local state`는 명시적으로 실행하는 작업이며
-`console: prepare full stack` 또는 직접 작업 호출을 통해 시작합니다. 이 작업은 port `5432`의
-런타임 PostgreSQL, port `5433`의 격리된 검증 PostgreSQL cluster, Redpanda 및 ClamAV를
-시작합니다. 고정된 이전 방식 Alembic 계보를 전진시킨 후 서비스가 소유한
-이행 가지 5개를 모두 채택하고 업그레이드합니다. 단일 인스턴스 한도로 중복 실행도 막습니다.
-동일한 준비는 읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고, 테넌트 식별자, 리소스
-엔드포인트 또는 자격 증명을 복사하지 않은 채 준비된 권위 있는 입력에서 정제된 모델 및 런타임
-Settings 변환 결과를 구체화합니다. 프로바이더를 사용할 수 없거나 권한이 없으면 고정본 데이터로
-대체하지 않고 인벤토리를 명시적으로 사용할 수 없는 상태로 유지합니다.
+신뢰된 workspace를 열면 `console: start full stack automatically`가 실행됩니다. 이 집계 작업은
+`console: prepare full stack`을 한 번 완료한 다음 서비스별 확인 클릭 없이 백엔드 서비스 5개와
+Console SPA를 병렬로 시작합니다. 준비 작업은 port `5432`의 런타임 PostgreSQL, port `5433`의
+격리된 검증 PostgreSQL cluster, Redpanda 및 ClamAV를 시작합니다. 고정된 이전 방식 Alembic
+계보를 전진시킨 후 서비스가 소유한 이행 가지 5개를 모두 채택하고 업그레이드합니다. 단일 인스턴스
+한도로 중복 실행도 막습니다. 동일한 준비는 읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고,
+테넌트 식별자, 리소스 엔드포인트 또는 자격 증명을 복사하지 않은 채 준비된 권위 있는 입력에서
+정제된 모델 및 런타임 Settings 변환 결과를 구체화합니다. 프로바이더를 사용할 수 없거나 권한이
+없으면 고정본 데이터로 대체하지 않고 인벤토리를 명시적으로 사용할 수 없는 상태로 유지합니다.
+자동 시작에는 신뢰된 workspace와 커밋된 `task.allowAutomaticTasks` 정책이 계속 필요하며 브라우저
+Entra 인증이나 서비스 권한을 약화하지 않습니다. 집계 작업 밖에서 개별 서비스 작업 또는 standalone
+debug launch를 시작할 때는 `console: prepare full stack`을 먼저 실행합니다.
 Git에서 제외된 로컬 런타임 환경은 검증 cluster를 `FDAI_VALIDATION_DATABASE_URL`로
 기록합니다. Detached 중앙 검증 queue는 선택된 통합 테스트에 이 값만
 `FDAI_DATABASE_URL`로 매핑합니다. 파괴적인 migration 테스트에는 활성 런타임 DSN을 전달하지
