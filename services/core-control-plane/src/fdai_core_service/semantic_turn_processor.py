@@ -28,7 +28,7 @@ from fdai_service_contracts import (
 from fdai_service_contracts import (
     SemanticTurnResult as ContractSemanticTurnResult,
 )
-from fdai_service_contracts.ontology_query import TaskStatus, content_digest
+from fdai_service_contracts.ontology_query import SemanticOperation, TaskStatus, content_digest
 
 from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V12,
@@ -600,11 +600,19 @@ def _project_runtime_result(
     rule_search_found, rule_search, rule_search_node_id = _project_rule_search(result, execution)
     if rule_search_found and rule_search is None:
         return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
+    incident_found, incident_evidence, incident_node_id = _project_incident_evidence(
+        result,
+        execution,
+    )
+    if incident_found and incident_evidence is None:
+        return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
     answer = _render_query_answer(
         request,
         execution,
         rule_search=rule_search,
         rule_search_node_id=rule_search_node_id,
+        incident_evidence=incident_evidence,
+        incident_node_id=incident_node_id,
     )
     if answer is None:
         return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
@@ -703,6 +711,102 @@ def _project_rule_search(
     return True, projection, node_id
 
 
+def _project_incident_evidence(
+    result: RuntimeSemanticTurnResult,
+    execution: QueryPlanExecution,
+) -> tuple[bool, dict[str, object] | None, str | None]:
+    plan = result.planning.plan
+    if plan is None:
+        return True, None, None
+    incident_nodes: list[tuple[object, dict[str, Any]]] = []
+    for node in getattr(plan, "nodes", ()):
+        if getattr(node, "node_id", None) not in execution.output_node_ids:
+            continue
+        try:
+            arguments = node.arguments
+        except Exception:  # noqa: BLE001, S112 - malformed plan output fails closed
+            continue
+        if isinstance(arguments, dict) and arguments.get("function_name") == (
+            "query.incident_evidence"
+        ):
+            incident_nodes.append((node, arguments))
+    if not incident_nodes:
+        return False, None, None
+    if len(incident_nodes) != 1:
+        return True, None, None
+    node, node_arguments = incident_nodes[0]
+    node_id = getattr(node, "node_id", None)
+    query_arguments = node_arguments.get("arguments")
+    node_result = execution.results.get(node_id) if isinstance(node_id, str) else None
+    node_kind = getattr(getattr(node, "kind", None), "value", None)
+    receipts = tuple(
+        receipt for receipt in execution.receipts if receipt.task_id == f"query:{node_id}"
+    )
+    if (
+        not isinstance(node_id, str)
+        or not isinstance(query_arguments, dict)
+        or node_result is None
+        or node_kind != "function"
+        or len(receipts) != 1
+        or receipts[0].goal_id != node_id
+        or receipts[0].intent != "function"
+        or receipts[0].capability != "query.function"
+        or receipts[0].evidence_refs != node_result.evidence_refs
+    ):
+        return True, None, None
+    value = node_result.value
+    incident_id = query_arguments.get("incident_id")
+    limit = query_arguments.get("limit")
+    if (
+        not isinstance(value, dict)
+        or not isinstance(incident_id, str)
+        or not isinstance(limit, int)
+        or isinstance(limit, bool)
+        or not 1 <= limit <= 500
+        or value.get("incident_id") != incident_id
+        or value.get("authority") != "audit_projection"
+        or value.get("cause_claim_supported") is not False
+        or value.get("execution_authority") is not False
+        or _contains_key(value, "cause")
+    ):
+        return True, None, None
+    profile = value.get("incident_profile")
+    evidence = value.get("correlated_evidence")
+    gaps = value.get("evidence_gaps")
+    evidence_refs = value.get("evidence_refs")
+    truncated = value.get("truncated")
+    if (
+        (profile is not None and not isinstance(profile, dict))
+        or not isinstance(evidence, list)
+        or len(evidence) > limit
+        or not isinstance(gaps, list)
+        or not isinstance(evidence_refs, list)
+        or not isinstance(truncated, bool)
+        or any(not isinstance(item, dict) for item in evidence)
+        or any(not isinstance(item, str) for item in gaps)
+        or any(not isinstance(item, str) for item in evidence_refs)
+    ):
+        return True, None, None
+    if profile is not None and (
+        profile.get("incident_id") != incident_id or profile.get("correlation_id") != incident_id
+    ):
+        return True, None, None
+    audit_refs = [item.get("audit_ref") for item in evidence]
+    if any(not isinstance(item, str) for item in audit_refs) or audit_refs != evidence_refs:
+        return True, None, None
+    if truncated and "correlated_audit_truncated" not in gaps:
+        return True, None, None
+    return True, value, node_id
+
+
+def _contains_key(value: object, key: str) -> bool:
+    if isinstance(value, Mapping):
+        return key in value or any(_contains_key(item, key) for item in value.values())
+    if isinstance(value, list | tuple):
+        return any(_contains_key(item, key) for item in value)
+    return False
+
+
 def _projected_answer_evidence_is_complete(
     result: RuntimeSemanticTurnResult,
     execution: QueryPlanExecution,
@@ -789,23 +893,39 @@ def _render_query_answer(
     *,
     rule_search: RuleSearchProjection | None = None,
     rule_search_node_id: str | None = None,
+    incident_evidence: dict[str, object] | None = None,
+    incident_node_id: str | None = None,
 ) -> str | None:
     outputs: list[dict[str, object]] = []
     projected_rule_search = False
+    projected_incident = False
     for node_id in execution.output_node_ids:
         result = execution.results.get(node_id)
         if result is None:
             return None
         if isinstance(result.value, dict):
-            if rule_search is None or projected_rule_search or node_id != rule_search_node_id:
+            if incident_evidence is not None and node_id == incident_node_id:
+                if projected_incident:
+                    return None
+                outputs.append(
+                    _incident_answer_output(
+                        node_id=node_id,
+                        incident_evidence=incident_evidence,
+                    )
+                )
+                projected_incident = True
+            elif rule_search is not None and node_id == rule_search_node_id:
+                if projected_rule_search:
+                    return None
+                outputs.append(
+                    {
+                        "node_id": node_id,
+                        "rule_search": rule_search.model_dump(mode="json"),
+                    }
+                )
+                projected_rule_search = True
+            else:
                 return None
-            outputs.append(
-                {
-                    "node_id": node_id,
-                    "rule_search": rule_search.model_dump(mode="json"),
-                }
-            )
-            projected_rule_search = True
             continue
         if not isinstance(result.value, QueryTable):
             return None
@@ -826,6 +946,8 @@ def _render_query_answer(
         outputs.append(_answer_output(node_id=node_id, table=table, rows=rows))
     if rule_search is not None and not projected_rule_search:
         return None
+    if incident_evidence is not None and not projected_incident:
+        return None
     encoded = _answer_json(outputs)
     heading = (
         "검증된 온톨로지 쿼리가 완료되었습니다."
@@ -834,6 +956,34 @@ def _render_query_answer(
     )
     answer = f"{heading}\n\n```json\n{encoded}\n```"
     return answer if len(answer) <= 64_000 else None
+
+
+def _incident_answer_output(
+    *,
+    node_id: str,
+    incident_evidence: dict[str, object],
+) -> dict[str, object]:
+    raw_evidence = incident_evidence["correlated_evidence"]
+    if not isinstance(raw_evidence, list):  # pragma: no cover - projection invariant
+        raise RuntimeError("incident correlated evidence is invalid")
+    displayed = raw_evidence[-20:]
+    return {
+        "node_id": node_id,
+        "incident_profile": incident_evidence["incident_profile"],
+        "correlated_evidence": displayed,
+        "evidence_gaps": incident_evidence["evidence_gaps"],
+        "source_truncated": incident_evidence["truncated"],
+        "display_truncated": len(displayed) < len(raw_evidence),
+        "causal_assessment": {
+            "status": "not_available",
+            "reason": "causal_analysis_not_implemented",
+        },
+        "next_safe_step": {
+            "operation": SemanticOperation.ACTION_DRAFT.value,
+            "authority": "candidate_only",
+            "execution_authority": False,
+        },
+    }
 
 
 def _answer_output(
