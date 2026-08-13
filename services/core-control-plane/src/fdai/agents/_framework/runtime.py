@@ -22,7 +22,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from fdai.agents._framework import factory, runtime_health
+from fdai.agents._framework import factory, runtime_health, runtime_subscriptions
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, EventBusBridge
@@ -40,7 +40,6 @@ from fdai.agents._framework.pantheon import (
     PANTHEON_SPECS,
 )
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
-from fdai.agents._framework.runtime_subscriptions import bind_runtime_subscriptions
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter, SemanticRouterConfig
 from fdai.agents._framework.tool_answer import answer_from_owned_tools
 from fdai.agents._framework.tool_planner import (
@@ -129,6 +128,7 @@ class PantheonRuntime:
         consumer_group_prefix: str = _DEFAULT_GROUP_PREFIX,
         saga: Saga | None = None,
         muninn_state_store: StateStore | None = None,
+        rule_generation_workers: runtime_subscriptions.RuleGenerationWorkerBindings | None = None,
         rule_generation_activation_binder: RuleGenerationActivationBinder | None = None,
         rule_generation_state_store: StateStore | None = None,
         disabled_agents: frozenset[str] | None = None,
@@ -348,14 +348,14 @@ class PantheonRuntime:
         # handlers never fire.
         agents = {n: a for n, a in instantiated.items() if n not in disabled}
 
-        # Active non-publishers safely retain an unused shared bridge.
         for agent in agents.values():
             agent.bind_bus(bridge)
 
-        subscription_count = bind_runtime_subscriptions(
+        subscription_count = runtime_subscriptions.bind_runtime_subscriptions(
             bridge=bridge,
             instantiated=instantiated,
             agents=agents,
+            rule_generation_workers=rule_generation_workers,
             rule_generation_activation_binder=rule_generation_activation_binder,
             rule_generation_state_store=rule_generation_state_store,
         )

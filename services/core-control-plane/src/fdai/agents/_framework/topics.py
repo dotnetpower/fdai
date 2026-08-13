@@ -89,6 +89,8 @@ OWNED_OBJECT_TOPICS: frozenset[str] = frozenset(
         "object.pattern-observation",
         "object.state-snapshot",
         "object.context-index",
+        "object.rule-generation-build-request",
+        "object.rule-generation-build-result",
         # Security
         "object.security-event",
         # Domain

@@ -35,10 +35,15 @@ from fdai.core.rule_semantic_generation import (
     RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
     RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
     RuleGenerationActivationBinder,
+    RuleGenerationBuildHandler,
 )
 from fdai.rule_catalog.schema.rule_semantic_generation_events import (
+    RULE_GENERATION_BUILD_REQUEST_TOPIC,
+    RULE_GENERATION_BUILD_RESULT_TOPIC,
     RuleGenerationActivationCommandEvent,
     RuleGenerationActivationResultEvent,
+    RuleGenerationBuildRequestEvent,
+    RuleGenerationValidationResultEvent,
 )
 from fdai.shared.providers.state_store import StateStore
 
@@ -52,6 +57,7 @@ _MAX_PENDING_CANDIDATES = 5_000
 _MAX_CATALOG_REVIEW_PACKAGES = 5_000
 _OPERATIONAL_RULE_PREFIX = "learned.operational."
 _RULE_GENERATION_RECEIPT_PREFIX = "mimir:rule-generation-activation-result:"
+_RULE_GENERATION_VALIDATION_PREFIX = "mimir:rule-generation-validation-result:"
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,8 +102,19 @@ class Mimir(Agent):
             tuple[str, str, CatalogReviewPublicationReceipt],
         ] = BoundedLruDict(max_review_packages)
         self._published_operational_targets: BoundedLruSet[str] = BoundedLruSet(max_review_packages)
+        self._rule_generation_build_handler: RuleGenerationBuildHandler | None = None
         self._rule_generation_activation_binder: RuleGenerationActivationBinder | None = None
         self._rule_generation_state_store: StateStore | None = None
+
+    def bind_rule_generation_build_handler(
+        self,
+        handler: RuleGenerationBuildHandler,
+    ) -> None:
+        """Bind the durable mechanical generation builder at composition time."""
+
+        if self._rule_generation_build_handler is not None:
+            raise RuntimeError("Mimir Rule generation build handler is already bound")
+        self._rule_generation_build_handler = handler
 
     def bind_rule_generation_activation_binder(
         self,
@@ -120,6 +137,13 @@ class Mimir(Agent):
         if topic == "object.rule-candidate":
             async with self._review_lock:
                 await self._handle_rule_candidate(payload)
+        elif topic == RULE_GENERATION_BUILD_REQUEST_TOPIC:
+            await self._handle_rule_generation_build_request(payload)
+        elif (
+            topic == "object.retrieval-validation"
+            and payload.get("event_type") == "rule.semantic_generation.validation.completed.v1"
+        ):
+            await self._record_rule_generation_validation_result(payload)
         elif topic == RULE_GENERATION_ACTIVATION_COMMAND_TOPIC:
             command = RuleGenerationActivationCommandEvent.model_validate(payload)
             binder = self._rule_generation_activation_binder
@@ -128,6 +152,86 @@ class Mimir(Agent):
             await binder.handle(command)
         elif topic == RULE_GENERATION_ACTIVATION_RESULT_TOPIC:
             await self._record_rule_generation_activation_result(payload)
+
+    async def request_rule_generation(self, request: RuleGenerationBuildRequestEvent) -> None:
+        """Publish one exact no-authority generation build request as Mimir."""
+
+        validated = RuleGenerationBuildRequestEvent.model_validate(request.model_dump())
+        if self.bus is None:
+            raise RuntimeError("Mimir Rule generation build transport is unavailable")
+        await self.bus.publish(
+            "Mimir",
+            RULE_GENERATION_BUILD_REQUEST_TOPIC,
+            validated.model_dump(mode="json"),
+        )
+
+    async def _handle_rule_generation_build_request(self, payload: dict[str, Any]) -> None:
+        if payload.get("producer_principal") != "Mimir":
+            raise ValueError("Rule generation build request MUST be published by Mimir")
+        request = RuleGenerationBuildRequestEvent.model_validate(
+            {
+                field: payload[field]
+                for field in RuleGenerationBuildRequestEvent.model_fields
+                if field in payload
+            }
+        )
+        handler = self._rule_generation_build_handler
+        if handler is None:
+            raise RuntimeError("Mimir Rule generation build handler is unavailable")
+        result = await handler.handle(request)
+        if self.bus is None:
+            raise RuntimeError("Mimir Rule generation build transport is unavailable")
+        await self.bus.publish(
+            "Mimir",
+            RULE_GENERATION_BUILD_RESULT_TOPIC,
+            result.model_dump(mode="json"),
+        )
+        self.record_behavior("rule_generation_build_result_published")
+
+    async def _record_rule_generation_validation_result(
+        self,
+        payload: dict[str, Any],
+    ) -> None:
+        if payload.get("producer_principal") != "Heimdall":
+            raise ValueError("Rule generation validation MUST be published by Heimdall")
+        result = RuleGenerationValidationResultEvent.model_validate(
+            {
+                field: payload[field]
+                for field in RuleGenerationValidationResultEvent.model_fields
+                if field in payload
+            }
+        )
+        store = self._rule_generation_state_store
+        if store is None:
+            raise RuntimeError("Mimir Rule generation receipt store is unavailable")
+        receipt_key = f"{_RULE_GENERATION_VALIDATION_PREFIX}{result.idempotency_key}"
+        receipt = {
+            "kind": "rule_semantic_generation_validation_result",
+            "idempotency_key": result.idempotency_key,
+            "result_digest": result.result_digest,
+            "generation_id": result.build_result.generation.generation_id,
+            "valid": result.valid,
+            "validation_receipt_digest": result.validation_receipt_digest,
+            "validated_at": result.validated_at.isoformat(),
+            "projection_only": True,
+            "grants_execution_authority": False,
+        }
+        created = await store.write_state_with_audit_if_absent(
+            receipt_key,
+            receipt,
+            {
+                **receipt,
+                "principal": "Mimir",
+                "topic": "object.retrieval-validation",
+            },
+        )
+        if created:
+            self.record_behavior("rule_generation_validation_result_recorded")
+            return
+        existing = await store.read_state(receipt_key)
+        if existing is None or existing.get("result_digest") != result.result_digest:
+            raise ValueError("Rule generation validation result idempotency conflict")
+        self.record_behavior("rule_generation_validation_result_duplicate")
 
     async def _record_rule_generation_activation_result(self, payload: dict[str, Any]) -> None:
         result = RuleGenerationActivationResultEvent.model_validate(payload)

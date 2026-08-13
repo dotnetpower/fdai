@@ -14,16 +14,19 @@ from .publication import (
     RuleGenerationPublishRetryableError,
     RuleGenerationReceiptMismatchError,
 )
+from .workers import RuleGenerationBuildHandler, RuleGenerationValidationHandler
 
 __all__ = [
     "RULE_GENERATION_ACTIVATION_COMMAND_TOPIC",
     "RULE_GENERATION_ACTIVATION_RESULT_TOPIC",
     "RuleGenerationActivationBinder",
+    "RuleGenerationBuildHandler",
     "RuleGenerationLedgerConflictError",
     "RuleGenerationLedgerCorruptionError",
     "RuleGenerationOutboxLedger",
     "RuleGenerationOutboxPublisher",
     "RuleGenerationPublishRetryableError",
     "RuleGenerationReceiptMismatchError",
+    "RuleGenerationValidationHandler",
     "StateStoreRuleGenerationOutboxLedger",
 ]

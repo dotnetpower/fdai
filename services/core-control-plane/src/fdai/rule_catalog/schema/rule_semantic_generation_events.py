@@ -19,6 +19,8 @@ _ID_PATTERN = r"^rule-generation:[a-f0-9]{64}$"
 _IDEMPOTENCY_PATTERN = r"^rule-generation:[a-z-]+:[a-f0-9]{64}$"
 _MAX_DOCUMENTS = 20_000
 _MAX_DOCUMENT_CHUNKS = 79
+RULE_GENERATION_BUILD_REQUEST_TOPIC = "object.rule-generation-build-request"
+RULE_GENERATION_BUILD_RESULT_TOPIC = "object.rule-generation-build-result"
 
 
 class RuleGenerationActivationStatus(StrEnum):
@@ -522,6 +524,8 @@ def _require_aware(name: str, value: datetime) -> None:
 
 
 __all__ = [
+    "RULE_GENERATION_BUILD_REQUEST_TOPIC",
+    "RULE_GENERATION_BUILD_RESULT_TOPIC",
     "RuleGenerationActivationCommandEvent",
     "RuleGenerationActivationResultEvent",
     "RuleGenerationActivationStatus",
