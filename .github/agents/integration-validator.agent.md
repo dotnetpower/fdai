@@ -25,6 +25,9 @@ before later source commits. A failed cohort expands through subsequent pending 
 smallest passing descendant snapshot is found. Intermediate stage success is progress metadata,
 not a push receipt.
 
+Background drain always targets the commit in the shared wake request, even when another linked
+worktree owns the validator process. The process worktree never selects the validation branch.
+
 If pending commits are not reachable from the current `HEAD`, report their commit IDs and stop.
 Do not change branches or integrate them yourself. If another validator holds the lock, report
 that validation is already active and do not retry in a loop.

@@ -436,8 +436,8 @@ def _run_cohort(
         )
 
 
-def _run_locked(paths: QueuePaths, mode: str) -> int:
-    queue_head = resolve_commit(paths, "HEAD")
+def _run_locked(paths: QueuePaths, mode: str, *, target: str | None = None) -> int:
+    queue_head = resolve_commit(paths, target or "HEAD")
     pending = pending_commits(paths)
     history = git("rev-list", "--reverse", "--topo-order", queue_head, cwd=paths.repo_root).stdout
     history_commits = history.splitlines()
@@ -494,7 +494,13 @@ def _run_record(
     }
 
 
-def run_validation(paths: QueuePaths, mode: str, *, wait_for_lock: bool = False) -> int:
+def run_validation(
+    paths: QueuePaths,
+    mode: str,
+    *,
+    wait_for_lock: bool = False,
+    target: str | None = None,
+) -> int:
     """Run one reachable batch under the shared validator lock."""
     initialize(paths)
     with paths.lock.open("a+", encoding="utf-8") as lock_file:
@@ -506,4 +512,4 @@ def run_validation(paths: QueuePaths, mode: str, *, wait_for_lock: bool = False)
         except BlockingIOError:
             print("validation-queue: another integration validator is active", file=sys.stderr)
             return 3
-        return _run_locked(paths, mode)
+        return _run_locked(paths, mode, target=target)
