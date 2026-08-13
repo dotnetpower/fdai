@@ -521,6 +521,75 @@ class _EmptyIncidentEvidenceReader:
         return (), False
 
 
+class _IncidentEvidenceModel(_Model):
+    def propose_frame(self, **_kwargs: Any) -> dict[str, object]:
+        return {
+            "operation": "select",
+            "subject_constraints": ["Incident"],
+            "measure_concepts": [],
+            "temporal_scope": {},
+            "output_shape": "incident_evidence",
+            "evidence_requirements": ["audit_projection"],
+            "unresolved_terms": [],
+            "clarification": None,
+            "confidence": 0.95,
+        }
+
+    def propose_plan(self, **_kwargs: Any) -> dict[str, object]:
+        return {
+            "nodes": [
+                {
+                    "node_id": "incident-evidence",
+                    "kind": "function",
+                    "depends_on": [],
+                    "arguments": {
+                        "function_name": INCIDENT_EVIDENCE_FUNCTION_NAME,
+                        "arguments": {
+                            "incident_id": "00000000-0000-0000-0000-000000000101",
+                            "correlation_id": "incident-correlation-101",
+                            "limit": 20,
+                        },
+                        "dependency_arguments": {},
+                    },
+                    "output_kind": "incident.evidence",
+                }
+            ],
+            "output_node_ids": ["incident-evidence"],
+        }
+
+
+class _DistinctIncidentEvidenceReader:
+    def __init__(self) -> None:
+        self.correlation_id: str | None = None
+
+    async def list_incident_evidence(
+        self,
+        *,
+        correlation_id: str,
+        limit: int,
+    ) -> tuple[tuple[dict[str, object], ...], bool]:
+        self.correlation_id = correlation_id
+        assert limit == 20
+        return (
+            (
+                {
+                    "seq": 1,
+                    "event_id": "00000000-0000-0000-0000-000000000201",
+                    "correlation_id": correlation_id,
+                    "actor": "Heimdall",
+                    "action_kind": "incident.open",
+                    "mode": "shadow",
+                    "recorded_at": "2026-08-14T09:00:00Z",
+                    "entry": {
+                        "incident_id": "00000000-0000-0000-0000-000000000101",
+                        "state": "open",
+                    },
+                },
+            ),
+            False,
+        )
+
+
 async def test_runtime_hides_unbound_catalog_search_from_planner() -> None:
     object_type = _object_type()
     model = _ManifestCaptureModel(_definition())
@@ -613,6 +682,40 @@ async def test_runtime_exposes_incident_evidence_only_when_reader_is_bound() -> 
         principal=Principal(id="reader", role=Role.READER),
     )
     assert INCIDENT_EVIDENCE_FUNCTION_NAME in model.function_names
+
+
+async def test_runtime_executes_incident_evidence_with_distinct_identities() -> None:
+    object_type = _object_type()
+    reader = _DistinctIncidentEvidenceReader()
+    runtime = build_semantic_query_runtime(
+        model=_IncidentEvidenceModel(_definition()),
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=_catalog(object_type),
+        ontology_store=InMemoryOntologyInstanceStore(
+            object_types=(object_type,),
+            link_types=(),
+        ),
+        incident_evidence_reader=reader,
+        now=lambda: NOW,
+    )
+
+    result = await runtime.handle(
+        utterance="Investigate the bound incident.",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert result.disposition == "answered"
+    assert result.execution is not None
+    evidence = result.execution.results["incident-evidence"].value
+    assert reader.correlation_id == "incident-correlation-101"
+    assert evidence["incident_id"] == "00000000-0000-0000-0000-000000000101"
+    assert evidence["correlation_id"] == "incident-correlation-101"
+    assert evidence["cause_claim_supported"] is False
+    assert evidence["execution_authority"] is False
 
 
 async def test_runtime_executes_exact_generation_rule_search_without_authority() -> None:

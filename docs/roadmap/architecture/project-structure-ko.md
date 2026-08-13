@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b84d3963779dfe583051805516d8f9ca7f357ae3
+translation_source_sha: 8f25d4b12ee3bd13dd71181bbba44fd8b9992ce2
 translation_revised: 2026-08-14
 ---
 
@@ -659,6 +659,8 @@ flowchart LR
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. `operator-core-request`는
   `1.3.0`이며, `1.2.0` 대비 유일한 추가는 실행 권한을 부여하지 않고 해석된 대화 바인딩을
   전달하는 서버 소유 `semantic_turn.bound_context`입니다.
+  바인딩된 인시던트 읽기 경로는 canonical `incident_id`와 감사 `correlation_id`를 서로 다른
+  `query.incident_evidence` 인자로 전달하고 두 신원을 권한 없는 결과에 모두 보존합니다.
   Core 전용 이벤트, 액션, 룰 및 온톨로지 타입은
   `services/core-control-plane/src/fdai/shared/contracts/`에 남고 카탈로그 스키마는 `rule-catalog/schema/` (종류별
   JSON 스키마)에 있으며 **semver** 버전을 갖고, 메이저 안에서는 하위 호환되는

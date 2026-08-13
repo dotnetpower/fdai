@@ -665,6 +665,8 @@ flowchart LR
   field ships as a new additive version that older consumers keep ignoring. `operator-core-request`
   is at `1.3.0`, whose only addition over `1.2.0` is the server-owned `semantic_turn.bound_context`
   that carries a resolved conversation binding without granting execution authority.
+  The bound incident read path passes canonical `incident_id` and audit `correlation_id` as
+  separate `query.incident_evidence` arguments and preserves both in its no-authority result.
   Core-only event, action, rule, and ontology types remain in
   `services/core-control-plane/src/fdai/shared/contracts/`, while catalog schemas live in
   `rule-catalog/schema/` (per-kind JSON Schema), carry a **semver** version, and change
