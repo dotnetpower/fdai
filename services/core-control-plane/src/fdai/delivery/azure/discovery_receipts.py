@@ -18,7 +18,10 @@ from fdai_service_contracts.discovery_evidence import (
     provider_execution_receipt_digest,
 )
 
-from fdai.delivery.azure.discovery_explanation import render_registered_azure_command
+from fdai.delivery.azure.discovery_explanation import (
+    render_coverage_canary_command,
+    render_registered_azure_command,
+)
 
 _PREVIEW_FIELDS = frozenset({"name", "type", "resource_group", "location", "status"})
 
@@ -71,6 +74,39 @@ def build_provider_execution_receipt(
     )
 
 
+def build_provider_coverage_canary_receipt(
+    *,
+    plan: DiscoveryQueryPlan,
+    operation: DiscoveryOperationProfile,
+    discovered_count: int,
+) -> ProviderExecutionReceipt:
+    """Record an executed aggregate-only ARG canary without accepting provider rows."""
+
+    rendered = render_coverage_canary_command(plan=plan, operation=operation)
+    command = ProviderExecutionCommand(
+        label=(
+            "resource_groups"
+            if plan.universes == (DiscoveryUniverse.RESOURCE_CONTAINERS,)
+            else "resources"
+        ),
+        command_id=rendered.command_id,
+        command=" ".join(rendered.argv),
+        result=ProviderExecutionResult(
+            count=discovered_count,
+            preview=(),
+            truncated=discovered_count > 0,
+        ),
+    )
+    values: dict[str, object] = {
+        "backend": "azure_resource_graph",
+        "page_count": 1,
+        "commands": (command,),
+    }
+    return ProviderExecutionReceipt.model_validate(
+        {"receipt_digest": provider_execution_receipt_digest(**values), **values}
+    )
+
+
 def provider_execution_projection(receipt: ProviderExecutionReceipt) -> dict[str, object]:
     """Return the Console wire shape while retaining the digest for audit correlation."""
 
@@ -86,4 +122,8 @@ def _preview(row: Mapping[str, object]) -> ProviderExecutionPreview:
     return ProviderExecutionPreview.model_validate(projected)
 
 
-__all__ = ["build_provider_execution_receipt", "provider_execution_projection"]
+__all__ = [
+    "build_provider_coverage_canary_receipt",
+    "build_provider_execution_receipt",
+    "provider_execution_projection",
+]

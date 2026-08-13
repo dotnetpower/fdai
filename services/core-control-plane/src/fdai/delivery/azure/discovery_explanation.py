@@ -10,6 +10,8 @@ from fdai_service_contracts.discovery import (
     DiscoveryOperationProfile,
     DiscoveryPredicate,
     DiscoveryQueryPlan,
+    DiscoveryScopeKind,
+    DiscoveryUniverse,
 )
 from fdai_service_contracts.discovery_evidence import (
     CommandExplanation,
@@ -117,6 +119,54 @@ def render_registered_azure_command(
     raise LookupError(f"unknown Azure discovery command template {template_id!r}")
 
 
+def render_coverage_canary_command(
+    *,
+    plan: DiscoveryQueryPlan,
+    operation: DiscoveryOperationProfile,
+) -> RenderedAzureCommand:
+    """Render one aggregate-only ARG canary that cannot return resource identifiers."""
+
+    if plan.operation_id != operation.operation_id:
+        raise ValueError("discovery plan and operation profile MUST match")
+    if plan.backend is not DiscoveryBackend.RESOURCE_GRAPH:
+        raise ValueError("coverage canary requires the Resource Graph backend")
+    if plan.scope_kind is not DiscoveryScopeKind.SUBSCRIPTION:
+        raise ValueError("coverage canary requires a subscription scope")
+    if plan.predicates:
+        raise ValueError("coverage canary MUST cover the complete declared universe")
+    if plan.universes == (DiscoveryUniverse.RESOURCE_CONTAINERS,):
+        command_id = "azure.arg.resource-groups.coverage.v1"
+        kql = (
+            "ResourceContainers | where type =~ "
+            "'microsoft.resources/subscriptions/resourcegroups' | "
+            "summarize discovered_count=count()"
+        )
+        result_limit = "1"
+    elif plan.universes == (DiscoveryUniverse.ARM_RESOURCES,):
+        command_id = "azure.arg.resources.coverage.v1"
+        kql = "Resources | summarize resource_count=count() by type | order by type asc"
+        result_limit = "1000"
+    else:
+        raise ValueError("coverage canary requires one registered discovery universe")
+    return RenderedAzureCommand(
+        command_id=command_id,
+        argv=(
+            "az",
+            "graph",
+            "query",
+            "--subscriptions",
+            "<subscription-id>",
+            "--graph-query",
+            f"<registered-kql:{command_id}>",
+            "--first",
+            result_limit,
+            "--output",
+            "json",
+        ),
+        kql_template=kql,
+    )
+
+
 def _arg_command(
     command_id: str,
     *,
@@ -190,5 +240,6 @@ def _predicate_template(predicate: DiscoveryPredicate, *, index: int) -> str:
 __all__ = [
     "RenderedAzureCommand",
     "render_command_explanation",
+    "render_coverage_canary_command",
     "render_registered_azure_command",
 ]
