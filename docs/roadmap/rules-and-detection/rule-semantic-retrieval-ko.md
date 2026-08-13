@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 0b959a9b4d9bb26e2d34bb23cb7d188189255323
+translation_source_sha: c89fd9f0ea04468f83dc931cac91606112f23b65
 translation_revised: 2026-08-13
 ---
 # Rule 의미 검색
@@ -49,7 +49,7 @@ translation_revised: 2026-08-13
 | 선택적 의미 런타임 바인딩 | implemented | `composition/wire_semantic_query.py`; `tests/composition/test_wire_semantic_query.py` | 의미 인덱스와 정확한 카탈로그 다이제스트를 함께 요구합니다. |
 | Planner 가용성 계상 | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | 읽을 수 있지만 바인딩되지 않은 함수는 구조 커버리지에 `runtime_binding_unavailable`로 남고 planning에서는 숨겨집니다. |
 | 이중 언어 held-out 평가기 계약 | implemented | `rule_catalog/schema/rule_semantic_evaluation.py`; `tests/rule_catalog/test_rule_semantic_evaluation.py`; current change focused check | 영어 및 한국어 양성 사례와 명시적 no-match 고정본이 검증 전용 집단 근거를 생성합니다. 두 언어 모두에서 training 질의 재사용을 거부합니다. 검색 실패는 `HOLD`를 생성하고 양성 사례를 실패로 계산하며 no-match 정밀도 근거로 사용하지 않습니다. |
-| 카탈로그 기반 이중 언어 승격 보류 | implemented | `tests/rule_catalog/test_discovery_catalog_search.py`; 커밋 `d1787f4d8`; 배포 카탈로그 집중 검사 | 실제 활성 Rule 62개 세대는 정확한 영어 조회를 통과하고, 승격된 한국어 표면이 없을 때 한국어 양성 재현율 0을 보고하며, 한국어 no-match 정밀도를 보존하고 `HOLD`를 반환합니다. 이는 한국어 검색 준비 완료가 아니라 부정적 게이트 근거입니다. |
+| 카탈로그 기반 승격 보증 | implemented | `tests/rule_catalog/test_discovery_catalog_search.py`; 커밋 `d1787f4d8`; current change 배포 카탈로그 집중 검사 | 실제 활성 Rule 62개 세대는 정확한 영어 및 모호성 집단을 통과합니다. 통제된 한국어 표면 부재, 적대적 입력의 활성 코퍼스 오탐, 발견 전용 질의 오탐 및 오래된 정확한 세대 검색은 각각 검토 가능한 검증 전용 `HOLD` 근거를 생성합니다. 발견 문서는 활성 결과에 유출되지 않습니다. 이는 검색 준비 완료가 아니라 부정적 게이트 근거입니다. |
 | In-memory 세대 및 검증 | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | 결정론적 off-path 세대, 독립적인 활성 및 발견 포인터, 코퍼스별 롤백 및 영속 어댑터와 같은 활성화 compare-and-swap을 지원합니다. |
 | 코퍼스 규모 세대 식별자 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; 집중 세대 및 Rule 카탈로그 테스트 | 프로바이더 중립 메타데이터는 개수, 계층형 루트, 범위가 제한된 순서가 있는 청크 및 작은 세대의 인라인 다이제스트를 포함합니다. 세대 생성, 검증 증적, 준비, 활성화, 활성 조회, 검색, 롤백 및 롤백 증적은 식별자 차이를 거부합니다. |
 | 영속 PostgreSQL 인덱스 | implemented | `delivery/catalog_search/postgres.py`; migration `0077` 및 `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | 정확한 세대 매니페스트를 저장하고 다시 검증하며 코퍼스별 세대를 원자적으로 준비, 활성화, 검색 및 롤백합니다. PostgreSQL에서 활성 문서 62개와 발견 문서 8,487개 전체의 수명 주기 격리를 증명합니다. |
@@ -70,6 +70,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | implemented | 정확한 활성 세대 ID 검사와 선택적 준비 상태 저하 뒤에서 운영 시작 시 영속 의미 인덱스를 구성했습니다. Rule 카탈로그, 의미 스키마, 온톨로지 release 및 embedder 차원이 일치한 뒤에만 인덱스와 카탈로그 다이제스트를 구성에 전달합니다. | `current change`; 집중 런타임 bootstrap 및 의미 구성 검사에서 테스트 46개가 통과했습니다. 변경한 운영 파일 3개에서 Ruff와 strict mypy가 통과했습니다. | 증적 기반 Operator 변환 결과를 발행하고 검증을 주장하기 전에 통제된 실제 바인딩 근거를 기록합니다. |
 | 2026-08-13 | implemented | 배포된 활성 Rule 62개 세대를 실제 in-memory 의미 인덱스로 통과시키는 이중 언어 승격 probe를 실행했습니다. 정확한 영어 재현율은 1.0, 한국어 양성 재현율은 0.0, 한국어 no-match 정밀도는 1.0이었으며, 평가기는 한국어 집단 실패 코드와 함께 `HOLD`를 반환했습니다. | 커밋 `d1787f4d8`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_discovery_catalog_search.py`에서 테스트 9개가 통과했습니다. | 통제된 한국어 표면을 추가하고 승격 전에 나머지 실제 인덱스 집단을 완료합니다. |
 | 2026-08-13 | implemented | 검색 상태가 오래되거나 사용할 수 없을 때 held-out 평가가 안전하게 보류되도록 변경했습니다. 프로바이더 실패는 검증 전용 `HOLD` 근거를 생성하고 양성 재현율과 순위를 낮추며, 실패한 음성 질의를 성공한 no-match 근거로 바꾸지 않습니다. | `current change`; 집중 평가기 및 실제 카탈로그 모듈에서 테스트 15개가 통과했습니다. 변경한 평가기 범위에서 Ruff, strict mypy 및 편집기 진단이 통과했습니다. | 실제 의미 인덱스에서 오래된 상태를 검증하고 전체 집단 증적을 구성 기반의 통제된 승격에 연결합니다. |
+| 2026-08-13 | implemented | 배포 카탈로그 승격 probe에 영어 모호성, 적대적 입력, 코퍼스 격리 및 실제 인덱스의 오래된 세대 집단을 추가했습니다. 영어 모호성 재현율과 순위는 1.0이었습니다. 관련 없는 활성 Rule이 lexical 오탐으로 남아 적대적 입력과 발견 전용 no-match 정밀도는 0.0이었지만 발견 문서가 활성 결과로 넘어오지는 않았습니다. 오래된 카탈로그 다이제스트는 검색 오류, 양성 재현율과 순위 0, 음성 no-match 근거 없음 및 검증 전용 `HOLD`를 생성했습니다. | `current change`; `tests/rule_catalog/test_discovery_catalog_search.py`; 집중 모듈에서 테스트 10개가 통과했고 Ruff 및 형식 검사가 통과했으며 편집기 진단은 깨끗했습니다. | 통제된 한국어 표면을 추가하고, 측정된 활성 코퍼스 오탐을 제거하며, 준비 완료를 주장하기 전에 구성 기반 임계값을 통제된 승격에 연결합니다. |
 
 ### 남은 작업
 
@@ -90,10 +91,16 @@ translation_revised: 2026-08-13
 - [ ] 이 기능의 상태를 `implemented`에서 `validated`로 변경하기 전에 운영 바인딩 및
   Reader 범위 변환 결과의 통제된 실제 근거를 기록하고
   [CatalogRetrievalReceipt](#catalogretrievalreceipt)에 정의된 신원을 보존합니다.
-- [ ] 배포된 카탈로그 probe를 독립적으로 작성한 영어 및 한국어 양성, 모호성, 적대적 입력 및
-  말뭉치 격리 집단으로 확장하고 실제 의미 인덱스에서 오래된 상태를 검증합니다. 통제된 한국어
-  표면을 추가한 다음 구성 기반 임계값이 검토 가능한 통과 증적을 만들고 통제된 승격 게이트가
-  실행 권한을 부여하지 않은 채 이를 사용하면 완료합니다.
+- [x] 배포된 카탈로그 probe는 영어 및 한국어 양성, 모호성, 적대적 입력, 코퍼스 격리 및
+  실제 인덱스의 오래된 세대 집단을 포함합니다. 현재 음성 집단은 검토 가능한 검증 전용
+  `HOLD` 증적을 생성합니다. 발견 문서는 활성 결과와 격리되며 활성 lexical 오탐은 승격
+  실패로 계속 드러납니다.
+- [ ] 통제된 한국어 표면을 추가하고 관련 없는 활성 Rule이 적대적 입력 및 발견 전용 no-match
+  질의를 만족하지 못하게 합니다. 정확한 세대 및 코퍼스 격리 검사를 약화하지 않고 배포
+  카탈로그 집단이 검토 가능한 통과 증적을 생성하면 완료합니다.
+- [ ] 통제된 구성에서 평가 임계값을 로드하고 통과 증적을 통제된 승격 게이트에서 사용합니다.
+  게이트가 오래되거나 실패하거나 권한을 포함한 증적을 거부하고 실행 권한을 부여하지 않으면
+  완료합니다.
 
 ## 설계 개요
 
