@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime
 
@@ -189,6 +190,179 @@ async def test_staging_is_invisible_until_atomic_activation_and_search_is_typed(
     assert all(item.generation_digest == active.generation_digest for item in results)
 
 
+async def test_delayed_publisher_cannot_replace_newer_active_generation() -> None:
+    class DelayedStageIndex(InMemoryCatalogSemanticIndex):
+        def __init__(self, delayed_generation_id: str) -> None:
+            super().__init__()
+            self.delayed_generation_id = delayed_generation_id
+            self.stage_started = asyncio.Event()
+            self.release_stage = asyncio.Event()
+
+        async def stage_generation(
+            self,
+            metadata: CatalogGenerationMetadata,
+            documents: tuple[CatalogSearchDocument, ...],
+        ) -> int:
+            if metadata.generation_id == self.delayed_generation_id:
+                self.stage_started.set()
+                await self.release_stage.wait()
+            return await super().stage_generation(metadata, documents)
+
+    def validated(build: SemanticGenerationBuild) -> SemanticGenerationBuild:
+        receipt = validate_ontology_semantic_generation(
+            build=build,
+            manifest=_manifest(),
+            validator_id="ontology-generation-validator-v1",
+        )
+        return bind_semantic_generation_validation(build, receipt)
+
+    first = validated(_build())
+    delayed = validated(
+        _build(
+            objects=(
+                OntologyObjectRecord(
+                    id="resource-delayed",
+                    object_type="Resource",
+                    properties={"id": "resource-delayed"},
+                ),
+            ),
+        )
+    )
+    newer = validated(
+        _build(
+            objects=(
+                OntologyObjectRecord(
+                    id="resource-newer",
+                    object_type="Resource",
+                    properties={"id": "resource-newer"},
+                ),
+            ),
+        )
+    )
+    index = DelayedStageIndex(delayed.metadata.generation_id)
+    await publish_ontology_semantic_generation(index=index, build=first, activated_at=NOW)
+
+    delayed_publish = asyncio.create_task(
+        publish_ontology_semantic_generation(
+            index=index,
+            build=delayed,
+            activated_at=datetime(2026, 8, 10, 2, tzinfo=UTC),
+        )
+    )
+    await index.stage_started.wait()
+    active = await publish_ontology_semantic_generation(
+        index=index,
+        build=newer,
+        activated_at=datetime(2026, 8, 10, 1, tzinfo=UTC),
+    )
+    index.release_stage.set()
+
+    with pytest.raises(CatalogGenerationStaleError, match="stale"):
+        await delayed_publish
+    assert await index.active_generation() == active
+
+
+@pytest.mark.parametrize(
+    ("expected_id", "expected_digest"),
+    (("generation-a", None), (None, DIGEST)),
+)
+async def test_activation_rejects_partial_active_identity_before_lookup(
+    expected_id: str | None,
+    expected_digest: str | None,
+) -> None:
+    with pytest.raises(ValueError, match="supplied together"):
+        await InMemoryCatalogSemanticIndex().activate_generation(
+            "generation-b",
+            expected_generation_digest=DIGEST,
+            expected_active_generation_id=expected_id,
+            expected_active_generation_digest=expected_digest,
+            activated_at=NOW,
+        )
+
+
+async def test_activation_cas_preserves_pointer_after_rejected_transitions() -> None:
+    def validated(build: SemanticGenerationBuild) -> SemanticGenerationBuild:
+        receipt = validate_ontology_semantic_generation(
+            build=build,
+            manifest=_manifest(),
+            validator_id="ontology-generation-validator-v1",
+        )
+        return bind_semantic_generation_validation(build, receipt)
+
+    def with_object(identifier: str) -> SemanticGenerationBuild:
+        return validated(
+            _build(
+                objects=(
+                    OntologyObjectRecord(
+                        id=identifier,
+                        object_type="Resource",
+                        properties={"id": identifier},
+                    ),
+                ),
+            )
+        )
+
+    first_build = validated(_build())
+    second_build = with_object("resource-second")
+    stale_build = with_object("resource-stale")
+    index = InMemoryCatalogSemanticIndex()
+    await index.stage_generation(first_build.metadata, first_build.documents)
+    first = await index.activate_generation(
+        first_build.metadata.generation_id,
+        expected_generation_digest=first_build.metadata.generation_digest,
+        expected_active_generation_id=None,
+        expected_active_generation_digest=None,
+        activated_at=NOW,
+    )
+    replay = await index.activate_generation(
+        first_build.metadata.generation_id,
+        expected_generation_digest=first_build.metadata.generation_digest,
+        expected_active_generation_id=None,
+        expected_active_generation_digest=None,
+        activated_at=NOW,
+    )
+    assert replay == first
+
+    await index.stage_generation(second_build.metadata, second_build.documents)
+    await index.stage_generation(stale_build.metadata, stale_build.documents)
+    with pytest.raises(ValueError, match="precedes active generation"):
+        await index.activate_generation(
+            second_build.metadata.generation_id,
+            expected_generation_digest=second_build.metadata.generation_digest,
+            expected_active_generation_id=first.generation_id,
+            expected_active_generation_digest=first.generation_digest,
+            activated_at=datetime(2026, 8, 9, 23, tzinfo=UTC),
+        )
+    assert await index.active_generation() == first
+
+    second = await index.activate_generation(
+        second_build.metadata.generation_id,
+        expected_generation_digest=second_build.metadata.generation_digest,
+        expected_active_generation_id=first.generation_id,
+        expected_active_generation_digest=first.generation_digest,
+        activated_at=datetime(2026, 8, 10, 1, tzinfo=UTC),
+    )
+    with pytest.raises(CatalogGenerationStaleError, match="stale"):
+        await index.activate_generation(
+            stale_build.metadata.generation_id,
+            expected_generation_digest=stale_build.metadata.generation_digest,
+            expected_active_generation_id=first.generation_id,
+            expected_active_generation_digest=first.generation_digest,
+            activated_at=datetime(2026, 8, 10, 2, tzinfo=UTC),
+        )
+    assert await index.active_generation() == second
+
+    with pytest.raises(CatalogGenerationStaleError, match="stale"):
+        await index.activate_generation(
+            first_build.metadata.generation_id,
+            expected_generation_digest=first_build.metadata.generation_digest,
+            expected_active_generation_id=None,
+            expected_active_generation_digest=None,
+            activated_at=NOW,
+        )
+    assert await index.active_generation() == second
+
+
 async def test_generation_rejects_wrong_embedding_dimension() -> None:
     build = _build()
     invalid = build.documents[0]
@@ -335,12 +509,16 @@ async def test_active_and_discovery_generation_pointers_are_independent() -> Non
     first = await index.activate_generation(
         discovery_first.generation_id,
         expected_generation_digest=discovery_first.generation_digest,
+        expected_active_generation_id=None,
+        expected_active_generation_digest=None,
         activated_at=datetime(2026, 8, 10, 1, tzinfo=UTC),
     )
     await index.stage_generation(discovery_second, discovery_documents)
     second = await index.activate_generation(
         discovery_second.generation_id,
         expected_generation_digest=discovery_second.generation_digest,
+        expected_active_generation_id=first.generation_id,
+        expected_active_generation_digest=first.generation_digest,
         activated_at=datetime(2026, 8, 10, 2, tzinfo=UTC),
     )
     compatibility = OntologyGenerationCompatibilityReceipt(

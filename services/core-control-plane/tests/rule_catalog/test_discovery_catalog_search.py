@@ -330,11 +330,15 @@ async def test_real_active_and_discovery_corpora_have_isolated_lifecycles() -> N
     active = await index.activate_generation(
         active_metadata.generation_id,
         expected_generation_digest=active_metadata.generation_digest,
+        expected_active_generation_id=None,
+        expected_active_generation_digest=None,
         activated_at=NOW,
     )
     first = await index.activate_generation(
         discovery_first.generation_id,
         expected_generation_digest=discovery_first.generation_digest,
+        expected_active_generation_id=None,
+        expected_active_generation_digest=None,
         activated_at=datetime(2026, 8, 13, 1, tzinfo=UTC),
     )
     active_rule_id = active_documents[0].rule_id
@@ -350,6 +354,8 @@ async def test_real_active_and_discovery_corpora_have_isolated_lifecycles() -> N
     second = await index.activate_generation(
         discovery_second.generation_id,
         expected_generation_digest=discovery_second.generation_digest,
+        expected_active_generation_id=first.generation_id,
+        expected_active_generation_digest=first.generation_digest,
         activated_at=datetime(2026, 8, 13, 2, tzinfo=UTC),
     )
     assert await index.active_generation("active") == active

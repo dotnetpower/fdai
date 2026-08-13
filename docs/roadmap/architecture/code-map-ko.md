@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: e955c02058e6d19c1c20b5b02e416970f09f334b
+translation_source_sha: a139a4da50211b607935210aea1a6f1119bf634e
 translation_revised: 2026-08-13
 ---
 # 코드 맵
@@ -30,7 +30,7 @@ translation_revised: 2026-08-13
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Service-owned 출처 및 테스트 지도 | 진행 중 | 이 지도, `tests/integration/` 및 위에 명시한 범위가 제한된 IS-08과 IS-07 근거 | 로컬 소유권과 롤백 근거는 매핑되었으며 IS-09 원격 검증은 남아 있습니다. |
-| Exact-generation Rule 검색 | 구현됨 | `shared/providers/catalog_search.py`, `delivery/catalog_search/generation.py`, `delivery/catalog_search/in_memory.py`, focused 카탈로그, 온톨로지 조회, 스키마 및 조립 테스트(`41 passed`) | 결과는 후보 전용이며 활성 Rule 세대를 exact 온톨로지 release와 범위가 제한된 순서 보장 문서 매니페스트에 연결하고 판단, 승인 또는 실행 권한을 포함하지 않습니다. |
+| Exact-generation Rule 검색 | 구현됨 | `shared/providers/catalog_search.py`, `delivery/catalog_search/generation.py`, `delivery/catalog_search/in_memory.py`, `delivery/catalog_search/postgres.py`, focused 카탈로그, 온톨로지 조회, 스키마, 조립 및 실제 PostgreSQL 테스트(`44 passed`) | 결과는 후보 전용이며 활성 Rule 세대를 exact 온톨로지 release와 범위가 제한된 순서 보장 문서 매니페스트에 연결하고 판단, 승인 또는 실행 권한을 포함하지 않습니다. PostgreSQL 활성화는 같은 트랜잭션에서 예상 이전 세대를 확인합니다. |
 | 목표 인식 Rule 후보 확인 | 구현됨 | `core/ontology_platform/objective_rule_resolution.py`, `core/ontology_platform/catalog_queries.py`, `shared/providers/catalog_search.py`, `delivery/catalog_search/in_memory.py`, 집중 온톨로지 조회 테스트(`8 passed`) | 검토 또는 승격된 활성 관계는 순위 계산 전에 exact-generation 후보 집합을 좁힙니다. 유효하지 않거나 불완전한 맥락은 원자적으로 대체 경로를 사용하며, 목표 맥락은 평가 또는 실행 권한을 추가하지 않고 조회 ID를 변경합니다. |
 | 런타임 바인딩 기반 플래너 가시성 | 구현됨 | `composition/wire_semantic_query.py`, `core/conversation/semantic_manifest.py`, `core/ontology_platform/query_manifest.py`, focused 조립 및 매니페스트 테스트 | 플래너 서술자는 조립된 런타임에 등록된 함수만 노출합니다. 읽을 수 있지만 바인딩되지 않은 선언은 타입이 지정된 구조 coverage에 남으며 어떤 권한도 얻지 않습니다. |
 | 읽기 조사 활동 ID | 구현됨 | `composition/wire_read_investigation.py`, `test_wire_read_investigation.py`, focused 테스트 | 각 호출은 실시간 및 영속 활동에서 하나의 불투명한 상관관계 값을 공유하고, 별도 호출은 서로 다른 상관관계 값을 사용하며, 논리적 요청 멱등성은 안정적으로 유지됩니다. |
@@ -46,6 +46,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | 구현됨 | 카탈로그 세대를 프로바이더 중립적이고 범위가 제한된 순서 보장 문서 매니페스트에 연결하고 exact 문서 집합에서 세대 ID를 독립적으로 재현할 수 있게 했습니다. | `current change`, `shared/providers/catalog_search.py`, `delivery/catalog_search/generation.py`, `delivery/catalog_search/in_memory.py`, 통과한 focused 카탈로그, 온톨로지 조회, 스키마 및 조립 테스트 41개 | 영속 production 의미 인덱스를 조립하고 검증한 뒤 아래 IS-09 원격 검증 항목을 완료합니다. |
 | 2026-08-13 | 구현됨 | 공유 의미 Rule 계약과 Core에서 Operator로 이어지는 영속 변환 결과 경계를 강화했습니다. | `current change`, 통과한 의미 경로 테스트 88개, 통과한 작업 범위 Ruff 및 운영 파일 6개의 strict mypy 통과 | 온톨로지 조회 coverage 계획에 통제된 실제 증적을 기록하고 IS-09 원격 검증을 완료합니다. |
 | 2026-08-13 | 구현됨 | 점수 계산과 상위 결과 선택 전에 exact-generation Rule 검색에 범위가 제한된 목표 인식 후보 확인을 추가했습니다. | `current change`, `objective_rule_resolution.py`, `catalog_queries.py`, `catalog_search.py`, `in_memory.py`, 통과한 집중 온톨로지 조회 테스트 8개 | 정책 추상화 계획의 P1 바인딩 채우기, P2 영속 세대 근거 및 P4 롤아웃 보증은 열려 있습니다. |
+| 2026-08-13 | 구현됨 | Exact-generation Rule 검색을 위한 영속 PostgreSQL 세대 어댑터와 예상 이전 세대 활성화 compare-and-swap을 추가했습니다. | `current change`, `postgres.py`, 수명 주기 게시자, 직접 호출자 및 in-memory와 실제 PostgreSQL 경로에서 통과한 focused 카탈로그 테스트 44개, 변경한 수명 주기 출처의 Ruff와 strict mypy 통과 | Production bootstrap에서 어댑터를 연결하고 통제된 IS-09 원격 검증 근거를 기록합니다. |
 
 ### 남은 작업
 
@@ -73,7 +74,7 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 | 컨트롤 루프와 decisioning | Event 정규화, 계층 라우팅, 정확한 Rego allow/deny 평가 증적, quality, risk, 승인, 실행 coordination, 복구 및 감사 | [코어](../../../services/core-control-plane/src/fdai/core/) | [코어 테스트](../../../services/core-control-plane/tests/core/) |
 | 온톨로지 안전성 platform | 카탈로그에서 로드한 Interface 및 FunctionType 선언을 포함하는 exact 의미 release, release-aware 조회 profile 및 함수 등록, principal 범위로 한정된 매니페스트, 검증된 Resource와 ResourceType 분류, 범용/temporal 조회 algebra, bitemporal 토폴로지/차이, 범위가 제한된 blast-radius 차이와 authoritative inventory rebuild pointer를 포함하는 immutable direction-generation shadow comparison, 검토된 메트릭 개념, topology-aware causal 결합, 변경 계획, compact typed effect-reconciliation event, 인증된 독립 observer binding 및 lease-fenced 영속 terminal outbox 전달 | [ontology_platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [온톨로지 platform 테스트](../../../services/core-control-plane/tests/core/ontology_platform/) |
 | 의미 대화 계획 수립 | Whole-turn 스키마 제안, 서버가 소유한 프레임/계획 신원, principal-manifest 검증, 비동기 검증된 실행, 전체 최종 처리 결과, 결정론적 의도 그래프, exact-command 호환성 전환, 유한 질문 우주 및 인식 상태 완결성 release 증적, 실행 권한이 없는 연속 커버리지 게이트 | [대화](../../../services/core-control-plane/src/fdai/core/conversation/) | [대화 테스트](../../../services/core-control-plane/tests/conversation/) |
-| 온톨로지 의미 세대 | 프로바이더 중립적이고 범위가 제한된 순서 보장 문서 매니페스트, 자체 검증 가능한 세대 ID, 후보 전용 구체적인 인덱스, full/incremental 선언 및 deployment-object 문서, 독립적인 검증 증적, atomic activation, stale detection 및 롤백 | [catalog_search 프로바이더](../../../services/core-control-plane/src/fdai/shared/providers/catalog_search.py) 및 [catalog_search 전달](../../../services/core-control-plane/src/fdai/delivery/catalog_search/) | [카탈로그 검색 테스트](../../../services/core-control-plane/tests/delivery/catalog_search/) |
+| 온톨로지 의미 세대 | 프로바이더 중립적이고 범위가 제한된 순서 보장 문서 매니페스트, 자체 검증 가능한 세대 ID, 후보 전용 구체적인 인덱스, 영속 PostgreSQL 저장, 예상 이전 세대 활성화 compare-and-swap, full/incremental 선언 및 deployment-object 문서, 독립적인 검증 증적, stale detection 및 롤백 | [catalog_search 프로바이더](../../../services/core-control-plane/src/fdai/shared/providers/catalog_search.py) 및 [catalog_search 전달](../../../services/core-control-plane/src/fdai/delivery/catalog_search/) | [카탈로그 검색 테스트](../../../services/core-control-plane/tests/delivery/catalog_search/) |
 | 메트릭 의미 프로바이더 연결 | Alias-free 검토된 메트릭 개념과 관찰된 zero를 프로바이더 공백과 구분하는 exact `MetricProvider` 구간 | [metric_window.py](../../../services/core-control-plane/src/fdai/delivery/metric_window.py) 및 [metric_semantic_catalog.py](../../../services/core-control-plane/src/fdai/runtime/metric_semantic_catalog.py) | [메트릭 의미 카탈로그 테스트](../../../services/core-control-plane/tests/runtime/test_metric_semantic_catalog.py) |
 | 운영 가설 루프 | 완전한 graph Dynamic 근거 연결, 기한이 제한된 독립 궤적 종결, 감독되는 타입 기반 효과 조정, 변경 불가능한 운영 계보 및 Owner 사람 승인을 거치는 graph-model pointer 승격 | [graph 근거](../../../services/core-control-plane/src/fdai/delivery/azure/graph_dynamic_evidence.py), [종결](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py), [조정](../../../services/core-control-plane/src/fdai/delivery/reconciliation_runtime.py), [계보](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py) 및 [승격](../../../services/core-control-plane/src/fdai/delivery/graph_model_promotion.py) | [graph 근거 테스트](../../../services/core-control-plane/tests/delivery/azure/test_graph_dynamic_evidence.py), [종결 테스트](../../../services/core-control-plane/tests/assurance_twin/test_graph_closure.py), [조정 테스트](../../../services/core-control-plane/tests/delivery/test_reconciliation_runtime.py), [계보 테스트](../../../services/core-control-plane/tests/core/operational_planning/test_hypothesis_lineage.py) 및 [승격 테스트](../../../services/core-control-plane/tests/delivery/test_graph_model_promotion.py) |
 | 에이전트 pantheon | 고정 에이전트 15개와 타입이 지정된 이벤트 런타임 | [에이전트](../../../services/core-control-plane/src/fdai/agents/) | [에이전트 테스트](../../../services/core-control-plane/tests/agents/) |
@@ -95,7 +96,9 @@ Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 
 해석합니다. `catalog.search_rules` 함수는 해당 exact release와 프로바이더 중립적이고 범위가
 제한된 순서 보장 문서 매니페스트에 연결된 활성 Rule 세대만 허용합니다. 세대 다이제스트는 exact
 순서 보장 문서 집합에서 독립적으로 재현할 수 있으므로 개수, 청크, 루트 또는 행 드리프트가 있으면
-검증에 실패합니다. 검색은 `CatalogRetrievalReceipt`와 함께 후보 전용 Rule을 반환하며 판단, 승인
+검증에 실패합니다. PostgreSQL 어댑터는 각 코퍼스 수명 주기를 직렬화하고 활성 포인터를 교체하기
+전에 활성화 트랜잭션에서 예상 이전 세대를 정확히 확인합니다. 검색은 `CatalogRetrievalReceipt`와
+함께 후보 전용 Rule을 반환하며 판단, 승인
 또는 실행 권한을 부여하지 않습니다. Resource-state 조사 경로는 promoted 인벤토리를 답변 권한으로
 유지하고 온톨로지 조회를 shadow로 실행하며 principal-scoped 동등성 증적을 StateStore에
 저장합니다. 실제 호출마다 실시간 및 영속 활동 수명 주기에서 공유하는 불투명한

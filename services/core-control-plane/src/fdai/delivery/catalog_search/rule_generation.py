@@ -251,16 +251,19 @@ async def publish_rule_semantic_generation(
     build: SemanticGenerationBuild,
     activated_at: datetime,
 ) -> CatalogGenerationMetadata:
-    """Stage and atomically activate one independently validated Rule generation."""
+    """Stage and activate a Rule generation if the prior pointer remains unchanged."""
 
     if activated_at.tzinfo is None:
         raise ValueError("Rule generation activation time MUST be timezone-aware")
     if build.metadata.validation_receipt_digest is None:
         raise ValueError("Rule generation validation receipt is unavailable")
+    prior = await index.active_generation(build.metadata.corpus)
     await index.stage_generation(build.metadata, build.documents)
     return await index.activate_generation(
         build.metadata.generation_id,
         expected_generation_digest=build.metadata.generation_digest,
+        expected_active_generation_id=(prior.generation_id if prior is not None else None),
+        expected_active_generation_digest=(prior.generation_digest if prior is not None else None),
         activated_at=activated_at,
     )
 

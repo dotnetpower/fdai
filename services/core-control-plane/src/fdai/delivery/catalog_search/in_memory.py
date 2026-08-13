@@ -98,10 +98,14 @@ class InMemoryCatalogSemanticIndex:
         generation_id: str,
         *,
         expected_generation_digest: str,
+        expected_active_generation_id: str | None,
+        expected_active_generation_digest: str | None,
         activated_at: datetime,
     ) -> CatalogGenerationMetadata:
         if activated_at.tzinfo is None:
             raise ValueError("semantic generation activation time MUST be timezone-aware")
+        if (expected_active_generation_id is None) != (expected_active_generation_digest is None):
+            raise ValueError("expected active generation identity MUST be supplied together")
         async with self._lock:
             try:
                 metadata, documents = self._generations[generation_id]
@@ -110,13 +114,43 @@ class InMemoryCatalogSemanticIndex:
             _verify_document_identity(metadata, documents)
             if metadata.generation_digest != expected_generation_digest:
                 raise ValueError("semantic generation digest mismatch")
+            active_id = self._active.get(metadata.corpus)
+            if metadata.state == "active":
+                if active_id == generation_id and metadata.activated_at == activated_at:
+                    return metadata
+                raise CatalogGenerationStaleError("active semantic generation is stale")
+            if metadata.state == "retired":
+                raise CatalogGenerationStaleError("active semantic generation is stale")
             if metadata.state != "staged" or metadata.validation_receipt_digest is None:
                 raise ValueError("semantic generation is not validated and staged")
-            prior_id = self._active.get(metadata.corpus)
-            if prior_id is not None:
-                prior, prior_documents = self._generations[prior_id]
+            if expected_active_generation_id is None:
+                if active_id is not None:
+                    raise CatalogGenerationStaleError("active semantic generation is stale")
+            elif active_id != expected_active_generation_id:
+                raise CatalogGenerationStaleError("active semantic generation is stale")
+            else:
+                try:
+                    prior, prior_documents = self._generations[expected_active_generation_id]
+                except KeyError as exc:
+                    raise CatalogGenerationStaleError(
+                        "active semantic generation is stale"
+                    ) from exc
                 _verify_document_identity(prior, prior_documents)
-                self._generations[prior_id] = replace(prior, state="retired"), prior_documents
+                if (
+                    prior.generation_digest != expected_active_generation_digest
+                    or prior.state != "active"
+                ):
+                    raise CatalogGenerationStaleError("active semantic generation is stale")
+                if prior.activated_at is None or activated_at < prior.activated_at:
+                    raise ValueError(
+                        "semantic generation activation time precedes active generation"
+                    )
+            if active_id is not None:
+                prior, prior_documents = self._generations[active_id]
+                self._generations[active_id] = (
+                    replace(prior, state="retired"),
+                    prior_documents,
+                )
             active = replace(metadata, state="active", activated_at=activated_at)
             self._generations[generation_id] = active, documents
             self._active[metadata.corpus] = generation_id
