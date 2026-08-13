@@ -404,14 +404,17 @@ def _rule_search_runtime_result(*, execution_authority: bool = False) -> Runtime
 def _incident_evidence_runtime_result(
     *,
     inject_cause: bool = False,
+    output_correlation_id: str = "incident-correlation-301",
 ) -> RuntimeSemanticTurnResult:
     result = _runtime_result("answered")
     assert result.execution is not None
     incident_id = "00000000-0000-0000-0000-000000000301"
+    correlation_id = "incident-correlation-301"
     output = {
         "incident_id": incident_id,
+        "correlation_id": output_correlation_id,
         "incident_profile": {
-            "correlation_id": incident_id,
+            "correlation_id": correlation_id,
             "incident_id": incident_id,
             "ticket_id": None,
             "title": None,
@@ -448,7 +451,11 @@ def _incident_evidence_runtime_result(
         kind=SimpleNamespace(value="function"),
         arguments={
             "function_name": "query.incident_evidence",
-            "arguments": {"incident_id": incident_id, "limit": 100},
+            "arguments": {
+                "incident_id": incident_id,
+                "correlation_id": correlation_id,
+                "limit": 100,
+            },
         },
     )
     plan = SimpleNamespace(
@@ -877,7 +884,7 @@ async def test_incident_evidence_answer_never_claims_cause_and_drafts_only() -> 
             bound_context={
                 "kind": "incident",
                 "incident_id": "00000000-0000-0000-0000-000000000301",
-                "correlation_id": "00000000-0000-0000-0000-000000000301",
+                "correlation_id": "incident-correlation-301",
             }
         )
     )
@@ -887,6 +894,7 @@ async def test_incident_evidence_answer_never_claims_cause_and_drafts_only() -> 
     answer = semantic["answer"]
     payload = json.loads(answer.split("```json\n", 1)[1].rsplit("\n```", 1)[0])
     incident = payload["outputs"][0]
+    assert incident["incident_profile"]["correlation_id"] == "incident-correlation-301"
     assert incident["incident_profile"]["status"] == "triaging"
     assert incident["correlated_evidence"][0]["audit_ref"] == "audit:1"
     assert incident["evidence_gaps"] == [
@@ -908,6 +916,18 @@ async def test_incident_evidence_answer_never_claims_cause_and_drafts_only() -> 
 async def test_incident_evidence_with_cause_claim_is_held() -> None:
     encoded = await _processor(
         _Runtime(_incident_evidence_runtime_result(inject_cause=True))
+    ).process(_request())
+
+    semantic = _projection(encoded)["semantic_result"]
+    assert semantic["disposition"] == "held"
+    assert semantic["reason_code"] == "semantic_evidence_incomplete"
+
+
+async def test_incident_evidence_with_mismatched_correlation_is_held() -> None:
+    encoded = await _processor(
+        _Runtime(
+            _incident_evidence_runtime_result(output_correlation_id="incident-correlation-other")
+        )
     ).process(_request())
 
     semantic = _projection(encoded)["semantic_result"]
