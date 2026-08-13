@@ -18,12 +18,13 @@ evaluation gates, and failed-query feedback loop.
 > **Implementation status (2026-08-13):** FDAI ships deterministic Rego and expression manifests,
 > strict promoted-surface loading, held-out cohort evaluation, privacy-safe challenger feedback,
 > atomic in-memory generations, the read-only `catalog.search_rules` function,
-> concept-first bounded retrieval, lexical degradation, and a durable StateStore challenger store.
+> concept-first bounded retrieval, lexical degradation, a durable StateStore challenger store,
+> and a durable PostgreSQL `CatalogSemanticIndex` with isolated active and discovery generations.
 > Direct semantic-runtime composition binds the function only when a caller supplies both a
 > provider-neutral semantic index and its exact catalog digest. Without that pair, the principal
 > manifest records `catalog.search_rules` as `runtime_binding_unavailable` and does not advertise it
-> to the planner. The repository does not yet contain a durable production `CatalogSemanticIndex`
-> adapter or a production bootstrap binding. Reader-gated `POST /rules/search` reads an Operator
+> to the planner. The durable adapter is not yet composed by production bootstrap. Reader-gated
+> `POST /rules/search` reads an Operator
 > Service projection; it does not directly invoke the Core function. Retrieval and function
 > receipts retain `execution_authority: false` wherever the Core capability is bound.
 > Reproduced retrieval-owned failures flow through Huginn ingress, Heimdall validation, Saga audit,
@@ -43,9 +44,10 @@ evaluation gates, and failed-query feedback loop.
 | Exact-generation Rule query | implemented | `core/ontology_platform/catalog_queries.py`; `tests/core/ontology_platform/test_catalog_queries.py` | Returns candidate-only results and content-addressed retrieval and invocation receipts with no execution authority. |
 | Optional semantic-runtime binding | implemented | `composition/wire_semantic_query.py`; `tests/composition/test_wire_semantic_query.py` | Requires the semantic index and exact catalog digest together. |
 | Planner availability accounting | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | A readable but unbound function remains in structural coverage as `runtime_binding_unavailable` and is hidden from planning. |
-| In-memory generation and validation | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | Supports deterministic off-path generation, independent active/discovery pointers, and corpus-local rollback. Focused tests exercise the actual 62 active and 8,487 discovery Rule projections, but this is not a durable production adapter. |
+| In-memory generation and validation | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | Supports deterministic off-path generation, independent active/discovery pointers, corpus-local rollback, and activation compare-and-swap parity with the durable adapter. |
 | Corpus-scale generation identity | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; focused generation and Rule-catalog tests | Provider-neutral metadata carries count, hierarchical root, bounded ordered chunks, and small-generation inline digests. Generation construction, validation receipts, staging, activation, active lookup, search, rollback, and rollback receipts reject identity drift. |
-| Durable production index and bootstrap binding | not-started | `shared/providers/catalog_search.py`; `runtime/bootstrap.py` | The provider contract exists, but no durable `CatalogSemanticIndex` implementation is composed into production. |
+| Durable PostgreSQL index | implemented | `delivery/catalog_search/postgres.py`; migrations `0077` and `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | Persists and revalidates exact generation manifests, atomically stages, activates, searches, and rolls back corpus-local generations, and proves lifecycle isolation for all 62 active and 8,487 discovery documents against PostgreSQL. |
+| Production bootstrap binding | not-started | `runtime/bootstrap_lifecycle.py`; `composition/wire_semantic_query.py` | Optional composition exists, but production bootstrap does not construct the durable adapter or register generation readiness. |
 | Operator Rule-search projection | implemented | Operator Service workflow manifest, routes, and PostgreSQL workflow adapter | `POST /rules/search` reads a revisioned materialized projection and grants no policy, approval, mutation, or execution authority. |
 
 ### Implementation history
@@ -57,15 +59,20 @@ evaluation gates, and failed-query feedback loop.
 | 2026-08-13 | implemented | Added focused evidence that in-memory active and discovery generations stage, activate, search, and roll back through independent pointers. Staged discovery data remains invisible, and discovery rollback does not alter active results. | `current change`; the focused `test_active_and_discovery_generation_pointers_are_independent` test passed. | Repeat the lifecycle proof for complete corpora through the durable production adapter. |
 | 2026-08-13 | in-progress | Materialized the actual 8,487-record discovery corpus as inert candidate-only search documents and exercised complete 62-active/8,487-discovery lifecycle isolation in one in-memory index. Discovery replacement and rollback leave active metadata and results unchanged. | Commits `fea694a32` and `c136a7231`; `test_discovery_catalog_search.py` passed 4 tests, including empty, malformed, and duplicate fail-closed cases plus full-corpus staging, activation, search, replacement, and rollback. Ruff and strict mypy passed. | Bind count, root, and chunks into delivery metadata, then repeat the lifecycle proof through the durable PostgreSQL adapter. |
 | 2026-08-13 | implemented | Bound the canonical document manifest to provider-neutral generation metadata and revalidated exact ordered rows at every in-memory lifecycle boundary. Generation digests now self-verify all metadata and manifest fields, validation and rollback receipts pin chunk identities, and the Rule search document projection formula advanced to v3. Adversarial round 14 closed the accepted noncanonical generation-digest finding; the remaining durable-adapter gap is separate. | `current change`; focused generation, exact-query, retrieval, full-corpus, and composition checks passed 41 tests. Strict mypy passed 5 source files, Ruff passed 9 source and test files, and editor diagnostics were clean. | Persist and revalidate the same manifest in the durable PostgreSQL adapter and record live-database lifecycle evidence. |
+| 2026-08-13 | implemented | Added the durable PostgreSQL generation adapter and exact expected-prior activation compare-and-swap. Activation now checks the target digest, prior active id and digest, lifecycle state, replay identity, and chronology under the same corpus lock before changing either pointer. Complete active and discovery corpora remain isolated through replacement and rollback. | `current change`; focused PostgreSQL unit and live-database lifecycle checks, including the complete 62-active/8,487-discovery corpus test, passed. Focused activation parity checks passed 42 tests; Ruff and strict mypy passed the touched lifecycle files. | Compose the adapter in production bootstrap, publish lifecycle and retrieval projections, and record governed runtime evidence. |
 
 ### Remaining work
 
 - [x] Provider-neutral delivery metadata now binds exact document count, hierarchical root, and
   ordered chunk identities; focused stage, activation, lookup, search, rollback, and receipt tests
   reject identity drift.
-- [ ] Implement and compose a durable production `CatalogSemanticIndex`; exit when focused
-  live-database generation, activation, rollback, and exact-generation search checks pass as
-  specified by [Build and enrichment lifecycle](#build-and-enrichment-lifecycle).
+- [x] The durable PostgreSQL `CatalogSemanticIndex` persists and revalidates exact manifests.
+  Focused live-database generation, activation, rollback, exact-generation search, and complete
+  corpus-isolation checks pass as specified by
+  [Build and enrichment lifecycle](#build-and-enrichment-lifecycle).
+- [ ] Compose the durable adapter in production bootstrap and register generation readiness; exit
+  when startup binds only the exact current catalog and ontology generation, degrades with stable
+  reasons when that identity is missing or stale, and focused bootstrap checks pass.
 - [ ] Publish Core retrieval and function-invocation receipts into the Operator projection; exit
   when `POST /rules/search` returns the exact receipt-backed projection without direct Core calls,
   preserving the [query lifecycle](#query-lifecycle).
@@ -155,8 +162,11 @@ A generation pins one complete searchable corpus:
 
 Only one generation per corpus is active. A worker builds and validates an inactive generation,
 then atomically changes the active pointer. A failed build leaves the prior generation unchanged.
-PostgreSQL activation also holds one transaction-scoped lock per corpus, so concurrent publishers
-serialize before retiring or activating a pointer.
+PostgreSQL activation also holds one transaction-scoped lock per corpus. Each publisher captures
+the expected prior active generation id and digest before staging. Activation checks that identity,
+the target digest and lifecycle state, replay identity, and timestamp chronology under the same
+transaction before retiring or activating a pointer. A stale or partial expected identity leaves
+the active generation unchanged.
 
 Rollback reactivates only a retained prior generation. The caller pins the expected active and
 target generation revisions and digests plus the target validation receipt. Both generations must

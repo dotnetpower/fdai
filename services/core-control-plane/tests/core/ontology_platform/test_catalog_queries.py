@@ -100,6 +100,8 @@ async def _active_index(
     await index.activate_generation(
         metadata.generation_id,
         expected_generation_digest=metadata.generation_digest,
+        expected_active_generation_id=None,
+        expected_active_generation_digest=None,
         activated_at=NOW,
     )
     return index

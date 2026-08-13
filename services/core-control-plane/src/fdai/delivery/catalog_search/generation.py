@@ -206,16 +206,19 @@ async def publish_ontology_semantic_generation(
     build: SemanticGenerationBuild,
     activated_at: datetime,
 ) -> CatalogGenerationMetadata:
-    """Stage a complete validated generation and atomically activate its pointer."""
+    """Stage and activate only if the prior corpus pointer remains unchanged."""
 
     if activated_at.tzinfo is None:
         raise ValueError("semantic generation activation time MUST be timezone-aware")
     if build.metadata.validation_receipt_digest is None:
         raise ValueError("semantic generation validation receipt is unavailable")
+    prior = await index.active_generation(build.metadata.corpus)
     await index.stage_generation(build.metadata, build.documents)
     return await index.activate_generation(
         build.metadata.generation_id,
         expected_generation_digest=build.metadata.generation_digest,
+        expected_active_generation_id=(prior.generation_id if prior is not None else None),
+        expected_active_generation_digest=(prior.generation_digest if prior is not None else None),
         activated_at=activated_at,
     )
 

@@ -393,6 +393,8 @@ async def test_runtime_executes_exact_generation_rule_search_without_authority()
     await index.activate_generation(
         metadata.generation_id,
         expected_generation_digest=metadata.generation_digest,
+        expected_active_generation_id=None,
+        expected_active_generation_digest=None,
         activated_at=NOW,
     )
     runtime = build_semantic_query_runtime(
