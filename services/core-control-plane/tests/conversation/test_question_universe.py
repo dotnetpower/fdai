@@ -162,6 +162,15 @@ def test_grammar_rejects_empty_or_out_of_bounds_axes(
         QuestionUniverseGrammar.build(**kwargs)  # type: ignore[arg-type]
 
     valid = QuestionUniverseGrammar.build(locales=("en-US",))
+    with pytest.raises(ValueError, match="case classes MUST be unique and ordered"):
+        replace(
+            valid,
+            case_classes=(QuestionCaseClass.ZERO_MATCH, QuestionCaseClass.POSITIVE),
+        )
+    with pytest.raises(ValueError, match="path depths MUST be non-empty, unique, and ordered"):
+        replace(valid, path_depths=(1, 1))
+    with pytest.raises(ValueError, match="canonical SHA-256"):
+        replace(valid, digest="not-a-digest")
     with pytest.raises(ValueError, match="digest does not match"):
         replace(valid, digest="sha256:" + "0" * 64)
 
@@ -219,3 +228,70 @@ def test_generation_rejects_tampered_manifest_receipts_and_exclusions() -> None:
     )
     with pytest.raises(ValueError, match="unsupported question exclusion reason"):
         generate_question_universe(manifests=(unsupported,), grammar=grammar)
+
+
+@pytest.mark.parametrize(
+    ("descriptor", "message"),
+    (
+        ({"name": "Resource", "declaration_digest": "sha256:" + "a" * 64}, "kind and name"),
+        ({"kind": "object", "name": "Resource"}, "declaration digest"),
+        (
+            {"kind": "object", "name": "Resource", "declaration_digest": "invalid"},
+            "canonical SHA-256",
+        ),
+    ),
+)
+def test_generation_rejects_malformed_descriptors(
+    descriptor: dict[str, object], message: str
+) -> None:
+    manifest = replace(_object_manifest("Resource"), descriptors=(descriptor,))
+    grammar = QuestionUniverseGrammar.build(locales=("en-US",))
+
+    with pytest.raises(ValueError, match=message):
+        generate_question_universe(manifests=(manifest,), grammar=grammar)
+
+
+def test_generation_rejects_duplicate_or_incomplete_declaration_accounting() -> None:
+    manifest = _object_manifest("Resource")
+    descriptor = manifest.descriptors[0]
+    duplicate = replace(
+        manifest,
+        descriptors=(descriptor, descriptor),
+        coverage_receipt=manifest.coverage_receipt.model_copy(
+            update={"descriptor_count": 2, "readable_declaration_count": 2}
+        ),
+    )
+    grammar = QuestionUniverseGrammar.build(locales=("en-US",))
+
+    with pytest.raises(ValueError, match="declaration accounting MUST be unique"):
+        generate_question_universe(manifests=(duplicate,), grammar=grammar)
+
+    unavailable = _unavailable_manifest()
+    missing_id = replace(unavailable, unavailable=({"reason": "runtime_binding_unavailable"},))
+    with pytest.raises(ValueError, match="require a declaration id"):
+        generate_question_universe(manifests=(missing_id,), grammar=grammar)
+
+    missing_reason = replace(
+        unavailable,
+        unavailable=({"declaration_id": unavailable.unavailable[0]["declaration_id"]},),
+    )
+    with pytest.raises(ValueError, match="require a reason"):
+        generate_question_universe(manifests=(missing_reason,), grammar=grammar)
+
+    wrong_unavailable = replace(
+        unavailable,
+        coverage_receipt=unavailable.coverage_receipt.model_copy(
+            update={"unavailable_declaration_ids": ()}
+        ),
+    )
+    with pytest.raises(ValueError, match="unavailable accounting is incomplete"):
+        generate_question_universe(manifests=(wrong_unavailable,), grammar=grammar)
+
+    wrong_readable = replace(
+        manifest,
+        coverage_receipt=manifest.coverage_receipt.model_copy(
+            update={"readable_declaration_count": 2}
+        ),
+    )
+    with pytest.raises(ValueError, match="readable declaration accounting is incomplete"):
+        generate_question_universe(manifests=(wrong_readable,), grammar=grammar)
