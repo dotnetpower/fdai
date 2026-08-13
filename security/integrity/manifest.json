@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1050,
+  "file_count": 1051,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "767d30b9a69ee481b736652645e723b44ac61262b8ccc96e8e0594379d764955",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -449,7 +449,7 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/__init__.py": "94bec05e97d4ff64eac36de6acc1fb87b7778ac2e19d60f6f57e7ac56f7ceddf",
     "services/core-control-plane/src/fdai/core/ontology_platform/action_plans.py": "a232c6a0b9424a991479bc5446cfac8836c1af3e12f25ddde903e792a1ebff55",
     "services/core-control-plane/src/fdai/core/ontology_platform/catalog_projection.py": "cd6494934154264cdd0eb9451e6dbca735510251024f43e71fd9e590bc3aef45",
-    "services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py": "26aa9f5b8c5bfdea9a5966d290226ff971c361f33ede68798496412ddedcd63d",
+    "services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py": "395b61dd56f9c51a164b440a29c1c081b7e21cdee4d2a08a089715883a08a9df",
     "services/core-control-plane/src/fdai/core/ontology_platform/diagnostic_ledger.py": "c6863e75d45a2aa550bb71afad872bb74c2196f2446854cfbf45ebd370c2f8dc",
     "services/core-control-plane/src/fdai/core/ontology_platform/diagnostic_projection.py": "c1307832c77815206ef8ed82de23059dc5afc243b6b2e11918c0132440c662c2",
     "services/core-control-plane/src/fdai/core/ontology_platform/diagnostic_results.py": "c7de37c37c2347ebdc9b3f38431a6334aeb0433b4b44233251a149d3c74f02b2",
@@ -466,6 +466,7 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/models.py": "74adc3bc7abcc8b90d937b8a08c5d0333ee0a376e9cdf79b704987caea63f6f6",
     "services/core-control-plane/src/fdai/core/ontology_platform/network_path.py": "d82313bcc1895089e3a7e3e8ce77a62cbfb9aa75fdffd89d3a29c1b90b9a8dbe",
     "services/core-control-plane/src/fdai/core/ontology_platform/object_sets.py": "b730512a1032f112f9df14fc993efee6e5f4b74d8809cf2fb421a1603b0da7cf",
+    "services/core-control-plane/src/fdai/core/ontology_platform/objective_rule_resolution.py": "eb61af2b3c65542ba974c52b2665cbea9beea2419eda60cd0acb10a12f054efc",
     "services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py": "774283949f0e4ec2470e4de6e0bccbbb009342a9c9588b5c688f398fcc857171",
     "services/core-control-plane/src/fdai/core/ontology_platform/planning.py": "8746fa87199ad70fbdb98601b5cefa697a33f7b765b9f2328788413de5c0342c",
     "services/core-control-plane/src/fdai/core/ontology_platform/pod_telemetry.py": "e1f0ec5a121bee9cfd5b45fcd44dc27434522e6f37a3b6c605739fe52160b34b",
@@ -923,7 +924,7 @@
     "services/core-control-plane/src/fdai/shared/providers/briefing.py": "1b13954dcd60aaccaae74d573ad3aab48c6c8c119c0190186ab32c320e3657a0",
     "services/core-control-plane/src/fdai/shared/providers/browser_evidence.py": "3d4dd39df08e9536aafefd82991bbce3aeeae0f2b9e5d06502c208fb692fb399",
     "services/core-control-plane/src/fdai/shared/providers/case_history.py": "186ba526523042d7fa5ed6b689b1dbf46468f844404d7a0414577adc21d8c6da",
-    "services/core-control-plane/src/fdai/shared/providers/catalog_search.py": "ac7e57b48e92886f8537c5cc6679241d1f9eecae0ee743c7d3a4bda262183f43",
+    "services/core-control-plane/src/fdai/shared/providers/catalog_search.py": "5e5e70056a2b736b5272c0f956ef7a3ae2cc1832e33c96002cbb6e130d7e3f04",
     "services/core-control-plane/src/fdai/shared/providers/change_feed.py": "ebfe441da9666134bcf9b31ff738bb87b86a969eaec42ebb5f2e1e8143723ec3",
     "services/core-control-plane/src/fdai/shared/providers/code_workspace.py": "771ae67947f82224dce98a25c9bdbfa379f9993d42a660d36e6bb23e469ecc6b",
     "services/core-control-plane/src/fdai/shared/providers/command_runner.py": "0281d98163be8b2cdd455c65f8994482bd57a48b6214df2c2770b91fef39b129",
@@ -1053,7 +1054,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-12T23:55:25Z",
+  "generated_at": "2026-08-13T00:49:31Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

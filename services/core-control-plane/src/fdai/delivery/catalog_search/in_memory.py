@@ -200,6 +200,7 @@ class InMemoryCatalogSemanticIndex:
         k: int = 20,
         corpus: CatalogCorpus = "active",
         expected_catalog_digest: str | None = None,
+        candidate_rule_ids: frozenset[str] | None = None,
     ) -> Sequence[CatalogSearchResult]:
         if not 1 <= k <= 100 or not query.strip():
             return ()
@@ -220,6 +221,8 @@ class InMemoryCatalogSemanticIndex:
         )
         ranked: list[tuple[float, CatalogSearchDocument, dict[str, float]]] = []
         for document in documents:
+            if candidate_rule_ids is not None and document.rule_id not in candidate_rule_ids:
+                continue
             lexical = _lexical_score(document, query_tokens)
             semantic = cosine_similarity(query_vector, document.embedding)
             exact = float(query.casefold().strip() == document.rule_id.casefold())

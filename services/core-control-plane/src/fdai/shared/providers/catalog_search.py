@@ -393,6 +393,7 @@ class CatalogSemanticIndex(Protocol):
         k: int = 20,
         corpus: CatalogCorpus = "active",
         expected_catalog_digest: str | None = None,
+        candidate_rule_ids: frozenset[str] | None = None,
     ) -> Sequence[CatalogSearchResult]: ...
 
 
