@@ -12,7 +12,12 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from fdai.agents import PANTHEON_SPECS
 from fdai.core.ontology_explorer import render_ontology_mermaid
+from fdai.delivery.ontology_console_projection import (
+    build_catalog_topology,
+    semantic_model_profile,
+)
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog, load_ontology_catalog
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
@@ -36,6 +41,10 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
         schema_registry=registry,
         probes_root=catalog_root / "probes",
     )
+    resource_type_documents = _mapping_list(
+        _yaml_mapping(catalog_root / "vocabulary/resource-types.yaml").get("types"),
+        field="resource-types.types",
+    )
     resource_types = load_resource_type_registry_from_mapping(
         _yaml_mapping(catalog_root / "vocabulary/resource-types.yaml")
     )
@@ -51,6 +60,22 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
         policies_root=repo_root / "policies",
         remediation_root=catalog_root / "remediation",
     )
+    rule_documents = [
+        _yaml_mapping(path) for path in sorted((catalog_root / "catalog").glob("*.yaml"))
+    ]
+    workflow_documents = [
+        _yaml_mapping(path) for path in sorted((catalog_root / "workflows").glob("*.yaml"))
+    ]
+    agent_documents = [
+        {
+            "name": spec.name,
+            "layer": spec.layer.value,
+            "reports_to": spec.reports_to,
+            "owns": sorted(spec.owns),
+            "actions": sorted(set(spec.executes) | set(spec.initiates)),
+        }
+        for spec in PANTHEON_SPECS
+    ]
     return {
         RULE_LIST_KEY: _revisioned(
             _rule_snapshot(
@@ -59,7 +84,15 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
                 remediation_root=catalog_root / "remediation",
             )
         ),
-        ONTOLOGY_GRAPH_KEY: _revisioned(_ontology_snapshot(ontology)),
+        ONTOLOGY_GRAPH_KEY: _revisioned(
+            _ontology_snapshot(
+                ontology,
+                resource_types=resource_type_documents,
+                rules=rule_documents,
+                workflows=workflow_documents,
+                agents=agent_documents,
+            )
+        ),
     }
 
 
@@ -221,7 +254,14 @@ def _read_reference(root: Path, reference: str, *, prefix: str) -> str | None:
     return body + "\n... [truncated]" if truncated else body
 
 
-def _ontology_snapshot(ontology: OntologyCatalog) -> dict[str, object]:
+def _ontology_snapshot(
+    ontology: OntologyCatalog,
+    *,
+    resource_types: Sequence[Mapping[str, object]],
+    rules: Sequence[Mapping[str, object]],
+    workflows: Sequence[Mapping[str, object]],
+    agents: Sequence[Mapping[str, object]],
+) -> dict[str, object]:
     object_types = sorted(ontology.object_types, key=lambda item: item.name)
     interface_types = sorted(ontology.interface_types, key=lambda item: item.name)
     link_types = sorted(ontology.link_types, key=lambda item: item.name)
@@ -233,6 +273,14 @@ def _ontology_snapshot(ontology: OntologyCatalog) -> dict[str, object]:
         "schema_version": "2.0.0",
         "ontology_release_digest": release.digest,
         "mutation_authority": False,
+        "semantic_model": semantic_model_profile(ontology),
+        "catalog_topology": build_catalog_topology(
+            ontology=ontology,
+            resource_types=resource_types,
+            rules=rules,
+            workflows=workflows,
+            agents=agents,
+        ),
         "mermaid": rendered.mermaid,
         "object_type_count": len(object_types),
         "interface_type_count": len(interface_types),
@@ -295,6 +343,12 @@ def _yaml_mapping(path: Path) -> Mapping[str, Any]:
     if not isinstance(raw, Mapping):
         raise RuntimeError(f"catalog document MUST be a mapping: {path}")
     return raw
+
+
+def _mapping_list(value: object, *, field: str) -> list[Mapping[str, object]]:
+    if not isinstance(value, list) or not all(isinstance(item, Mapping) for item in value):
+        raise RuntimeError(f"{field} MUST be a list of mappings")
+    return value
 
 
 async def materialize(repo_root: Path) -> None:

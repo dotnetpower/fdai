@@ -1,4 +1,4 @@
-"""Deterministic topology-community layout for the ontology knowledge graph."""
+"""Deterministic community layout for read-only ontology catalog topology."""
 
 from __future__ import annotations
 
@@ -8,16 +8,15 @@ from typing import Any
 EDGE_WEIGHTS = {
     "instance_of": 0.12,
     "link_type": 1.1,
+    "interface": 1.2,
     "rule_dispatch": 1.0,
     "workflow": 1.4,
     "agent": 1.3,
 }
 
 
-def detect_communities(
-    nodes: list[dict[str, Any]], edges: list[dict[str, Any]]
-) -> list[int]:
-    """Return stable weighted-modularity communities for the undirected graph."""
+def detect_communities(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]) -> list[int]:
+    """Return stable weighted-modularity communities for an undirected read model."""
 
     index = {item["id"]: position for position, item in enumerate(nodes)}
     neighbors: list[dict[int, float]] = [{} for _ in nodes]
@@ -197,3 +196,6 @@ def apply_centrality_layout(graph: dict[str, Any]) -> None:
         item["degree"] = degree[node_index]
         item["x"] = round((x[node_index] - min_x) * scale + 110.0, 2)
         item["y"] = round((y[node_index] - min_y) * scale + 90.0, 2)
+
+
+__all__ = ["apply_centrality_layout", "detect_communities"]

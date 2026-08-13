@@ -9,6 +9,8 @@ import type { OntologyKnowledgeGraph } from "./ontology-knowledge-graph.model";
 const graph: OntologyKnowledgeGraph = {
   schemaVersion: "1",
   generatedFrom: "test",
+  ontologyReleaseDigest: `sha256:${"0".repeat(64)}`,
+  mutationAuthority: false,
   nodes: [
     { id: "left", label: "Left", kind: "rule", group: "Rules", detail: "Left", community: 1, degree: 2, x: 0, y: 0 },
     { id: "right", label: "Right", kind: "action_type", group: "Actions", detail: "Right", community: 1, degree: 2, x: 100, y: 50 },

@@ -14,6 +14,7 @@ RBAC contract remains in [operator-console.md](operator-console.md).
 | Area | State | Evidence | Notes |
 |------|-------|----------|-----------|
 | Governed ontology assurance provenance | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`; focused Vitest: 25 passed; Console typecheck passed | Remains in progress until the authenticated seeded cohort produces a governed runtime artifact. |
+| Exact-release ontology catalog projection | implemented | `ontology_console_projection.py`; `materialize-authoritative-catalogs.py`; focused materializer parity tests; Console topology model tests and typecheck | One producer now supplies declaration views and Catalog topology with release identity and no mutation authority. Semantic model rendering and receipt-bound Context evidence remain open. |
 | Agent Activity heartbeat presentation | implemented | `console/src/routes/agents.model.ts`; `console/src/routes/agents.model.test.ts`; focused Vitest: 31 passed | Periodic runtime initialization snapshots update current agent state and last-observed time without becoming activity rows after initial load or refresh. Browser Entra refresh behavior was observed but no governed artifact was retained. |
 | Command Deck JSON contrast | implemented | `console/src/styles.css`; `console/src/deck/command-deck-workspace-visual.test.ts`; focused Vitest: 10 passed; authenticated browser inspection | Syntax-highlighted JSON keeps the fixed dark code surface despite the global light `pre` style. Browser inspection is not retained as governed runtime evidence. |
 
@@ -24,10 +25,12 @@ RBAC contract remains in [operator-console.md](operator-console.md).
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance, and bound ontology assurance artifacts to exact source, configuration, workspace, authentication, request, and projection provenance. | Current change in `console/tests/live-e2e/ontology-query-assurance*.ts`; focused Vitest: 25 passed; Console typecheck passed. | Obtain the exact centralized receipt, then run one authenticated probe before the seeded bilingual 100-case cohort. |
 | 2026-08-14 | implemented | Stopped periodic `Runtime agent initialized` snapshots from reappearing as chronological activity after each page refresh while preserving current state and heartbeat freshness. | `current change`; `agents.model.test.ts` passed 31 focused tests, and the authenticated browser showed zero initialization rows across two refreshes. | Retain the two-refresh Browser Entra result as a governed artifact before claiming runtime validation. |
 | 2026-08-14 | implemented | Restored the fixed dark surface beneath syntax-highlighted Command Deck JSON after the global `pre` background overrode it. | `current change`; task-owned Console CSS and visual contract test; focused Vitest passed 10 tests; Console typecheck passed; authenticated browser computed the intended dark surface and token colors. | No bounded residual work remains; the focused regression test owns future theme changes. |
+| 2026-08-14 | implemented | Unified the Operator ontology registry and Catalog topology under one exact-release producer, added InterfaceType and FunctionType nodes, and removed the SPA's generated topology copy. | `current change`; materializer parity tests passed 2 cases, focused Console tests passed 13 cases, and Console typecheck passed. | Render the reviewed Semantic model and retain a receipt-bound Context snapshot plus authenticated Browser evidence. |
 
 ### Remaining work
 
 - [ ] Retain one passing governed artifact from the seeded bilingual 100-case cohort after the exact centralized receipt and authenticated probe exist.
+- [ ] Retain authenticated Browser evidence that the Semantic model and Catalog topology display one matching ontology release and that Context remains unavailable without a secured receipt.
 - [ ] Retain a governed Browser Entra artifact that shows an open agent stream, refreshed heartbeat time, and zero `Runtime agent initialized` activity rows across two page refreshes.
 
 ## Navigation context

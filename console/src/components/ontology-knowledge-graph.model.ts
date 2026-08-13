@@ -1,5 +1,7 @@
 export const ONTOLOGY_NODE_KINDS = [
   "object_type",
+  "interface_type",
+  "function_type",
   "resource_type",
   "rule",
   "action_type",
@@ -11,6 +13,7 @@ export const ONTOLOGY_NODE_KINDS = [
 
 export const ONTOLOGY_EDGE_KINDS = [
   "link_type",
+  "interface",
   "instance_of",
   "rule_dispatch",
   "workflow",
@@ -43,6 +46,8 @@ export interface OntologyKnowledgeEdge {
 export interface OntologyKnowledgeGraph {
   readonly schemaVersion: string;
   readonly generatedFrom: string;
+  readonly ontologyReleaseDigest: string;
+  readonly mutationAuthority: false;
   readonly nodes: readonly OntologyKnowledgeNode[];
   readonly edges: readonly OntologyKnowledgeEdge[];
 }
@@ -76,6 +81,13 @@ function requiredNumber(record: UnknownRecord, key: string): number {
     throw new Error(`ontology knowledge graph ${key} MUST be a finite number`);
   }
   return value;
+}
+
+function requiredFalse(record: UnknownRecord, key: string): false {
+  if (record[key] !== false) {
+    throw new Error(`ontology knowledge graph ${key} MUST be false`);
+  }
+  return false;
 }
 
 function decodeNode(value: unknown): OntologyKnowledgeNode {
@@ -128,6 +140,8 @@ export function decodeOntologyKnowledgeGraph(value: unknown): OntologyKnowledgeG
   return {
     schemaVersion: requiredString(value, "schemaVersion"),
     generatedFrom: requiredString(value, "generatedFrom"),
+    ontologyReleaseDigest: requiredString(value, "ontologyReleaseDigest"),
+    mutationAuthority: requiredFalse(value, "mutationAuthority"),
     nodes,
     edges,
   };

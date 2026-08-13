@@ -16,6 +16,8 @@ import type {
 
 export const ONTOLOGY_NODE_STYLES: Readonly<Record<OntologyKnowledgeNodeKind, { readonly label: string; readonly fill: string }>> = {
   object_type: { label: "ObjectType", fill: "#44688e" },
+  interface_type: { label: "InterfaceType", fill: "#57758f" },
+  function_type: { label: "FunctionType", fill: "#9b7048" },
   resource_type: { label: "ResourceType", fill: "#4f847e" },
   rule: { label: "Rule", fill: "#7b6c9c" },
   action_type: { label: "ActionType", fill: "#bc7449" },
@@ -27,6 +29,7 @@ export const ONTOLOGY_NODE_STYLES: Readonly<Record<OntologyKnowledgeNodeKind, { 
 
 const EDGE_COLORS: Readonly<Record<OntologyKnowledgeEdgeKind, string>> = {
   link_type: "#4f847e",
+  interface: "#57758f",
   instance_of: "#a5a8ab",
   rule_dispatch: "#6f88a5",
   workflow: "#7b6c9c",
