@@ -1,7 +1,7 @@
 ---
 title: 정책 추상화와 통제 목표
 translation_of: policy-abstraction-and-control-objectives.md
-translation_source_sha: 2445dd2ef32f61600354c45e816d93e2b484b039
+translation_source_sha: b27976122224a842abd7b4fd71edc06c354c9303
 translation_revised: 2026-08-13
 ---
 # 정책 추상화와 통제 목표
@@ -295,7 +295,7 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 | `ControlObjective` 계약과 카탈로그 | implemented | [`control_objective.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/control_objective.py), [`ControlObjective.yaml`](../../../rule-catalog/vocabulary/object-types/ControlObjective.yaml), [`reliability.node-pool.zone-failure-tolerance.yaml`](../../../rule-catalog/control-objectives/reliability.node-pool.zone-failure-tolerance.yaml), [`test_control_objective.py`](../../../services/core-control-plane/tests/rule_catalog/test_control_objective.py) | 엄격한 모델, 로더, 다이제스트, 수명 주기, 어휘, 후보 레코드 및 부정 테스트가 있습니다. 후보는 런타임 권한을 부여하지 않습니다. |
 | `RuleObjectiveBinding`과 증적 계약 | implemented | [`rule_objective_binding.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_objective_binding.py), [`equivalence_validation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validation.py), [`RuleObjectiveBinding.yaml`](../../../rule-catalog/vocabulary/object-types/RuleObjectiveBinding.yaml), [`EquivalenceValidationReceipt.yaml`](../../../rule-catalog/vocabulary/object-types/EquivalenceValidationReceipt.yaml), [`binding.node-pool-zone-resilience.yaml`](../../../rule-catalog/rule-objective-bindings/binding.node-pool-zone-resilience.yaml) | 엄격한 계약, 어휘 및 비활성 부분 바인딩이 있습니다. 바인딩은 동등성이나 런타임 권한을 주장하지 않습니다. |
 | 결정론적 Rego 동등성 실행 | implemented | [`equivalence_validator.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/equivalence_validator.py), [`bounded_process.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/bounded_process.py), [`test_equivalence_validator.py`](../../../services/core-control-plane/tests/rule_catalog/test_equivalence_validator.py), [`test_bounded_process.py`](../../../services/core-control-plane/tests/rule_catalog/test_bounded_process.py) | 정확한 정책, 코퍼스, 검증기 및 OPA 고정값과 실패 시 안전하게 닫히는 자원 한계는 기계적 근거만 만듭니다. 검토된 증적과 62개 Rule 채우기는 아직 필요합니다. |
-| 목표 인식 변환 결과와 확인 | not-started | 이 설계 | 기존 정확한 Rule 및 검색 경로는 변경되지 않습니다. |
+| 목표 인식 변환 결과와 확인 | implemented | [`objective_rule_resolution.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/objective_rule_resolution.py), [`catalog_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py), [`in_memory.py`](../../../services/core-control-plane/src/fdai/delivery/catalog_search/in_memory.py), [`test_catalog_queries.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_catalog_queries.py) | 검토 또는 승격된 활성 관계만 점수 계산과 상위 결과 선택 전에 후보를 좁힙니다. 불완전하거나 유효하지 않은 맥락은 원자적으로 전체 검색으로 대체하고, 목표 고정값은 조회 ID에 반영되며, 모든 결과는 실행 권한이 없는 후보 전용으로 유지됩니다. |
 | 전체 코퍼스 세대 식별자 | in-progress | [`catalog_search.py`](../../../services/core-control-plane/src/fdai/shared/providers/catalog_search.py), [`rule_semantic_generation.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_semantic_generation.py), [`test_rule_semantic_retrieval.py`](../../../services/core-control-plane/tests/rule_catalog/test_rule_semantic_retrieval.py), [`test_discovery_catalog_search.py`](../../../services/core-control-plane/tests/rule_catalog/test_discovery_catalog_search.py) | 프로바이더 중립 메타데이터는 이제 개수, 계층형 다이제스트 루트 및 범위가 제한된 청크를 포함합니다. 실제 활성 Rule 변환 결과 62개와 발견 Rule 변환 결과 8,487개는 in-memory 수명 주기가 격리되어 있으며 영속 PostgreSQL 근거는 아직 남아 있습니다. |
 | shadow 평가와 통제된 롤아웃 | not-started | 이 설계 | 목표 확인 벤치마크 또는 승격 증적이 없습니다. |
 
@@ -317,6 +317,7 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 | 2026-08-13 | in-progress | 기존 in-memory 인덱스가 준비, 활성화, 타입이 지정된 검색 및 발견 전용 롤백 전반에서 활성 및 발견 세대 포인터를 독립적으로 유지함을 증명했습니다. 준비된 발견 세대는 보이지 않으며 포인터 변경은 활성 세대와 결과를 바꾸지 않습니다. | `current change`; 집중 `test_active_and_discovery_generation_pointers_are_independent` 테스트가 통과했습니다. | 개수, 루트 및 청크를 제공 메타데이터에 통합하고 두 전체 코퍼스 및 영속 어댑터에서 격리 증명을 반복합니다. |
 | 2026-08-13 | in-progress | 실제 발견 Rule 8,487개를 권한이 없는 후보로 모두 로드하고 변환한 다음 하나의 in-memory 인덱스에서 전체 활성 62개와 발견 8,487개의 수명 주기 격리를 증명했습니다. 발견 세대를 교체하거나 롤백해도 활성 세대와 정확한 검색 결과가 유지됩니다. | 커밋 `fea694a32` 및 `c136a7231`; 집중 `test_discovery_catalog_search.py` 모음에서 테스트 4개가 통과했고 Ruff 및 strict mypy가 통과했습니다. | 개수, 루트 및 청크를 제공 메타데이터에 통합하고 영속 PostgreSQL 어댑터에서 같은 증명을 반복합니다. |
 | 2026-08-13 | in-progress | 정규 개수, 루트 및 청크 매니페스트를 프로바이더 중립 세대 메타데이터에 연결하고 세대 검증, 준비, 활성화, 활성 조회, 검색, 롤백 및 롤백 증적에서 다시 확인했습니다. 세대 다이제스트는 이제 자체 검증되며 Rule 검색 문서 변환 공식은 v3으로 갱신되었습니다. 적대적 14차에서 채택한 비정규 세대 다이제스트 문제를 해결했습니다. | `current change`; 집중 테스트 41개, 소스 파일 5개의 strict mypy, 소스 및 테스트 파일 9개의 Ruff 검사, 깨끗한 편집기 진단. | P2를 완료하기 전에 영속 PostgreSQL 어댑터를 통해 매니페스트를 저장하고 검증합니다. |
+| 2026-08-13 | implemented | 기존 읽기 전용 함수와 의미 인덱스 경로를 통해 목표 인식 `catalog.search_rules` 확인을 추가했습니다. 검토 또는 승격된 활성 관계는 순위 계산 전에 후보를 필터링하며, 누락, 오래됨, 발견, 후보 또는 잘못된 맥락은 검증된 고정값 없이 원자적으로 성능 저하 상태가 됩니다. | `current change`; 집중 `test_catalog_queries.py` 테스트 8개와 `test_ontology_generation.py` 테스트 9개가 통과했고, 운영 파일 4개의 strict mypy, 작업 범위 Ruff 및 편집기 진단이 통과했습니다. | P1, P2 및 P4는 열려 있으며 영속 세대 근거와 롤아웃 보증은 변경되지 않습니다. |
 
 ### 남은 작업
 
@@ -329,8 +330,10 @@ Mimir는 목표 및 바인딩 수명 주기 전환을 담당하는 단일 에이
 - [ ] P2는 영속 PostgreSQL 어댑터가 프로바이더 중립 개수, 루트 및 청크 메타데이터를
   저장하고 검증하며 이미 통과한 활성 62개와 발견 8,487개의 활성화, 교체 및 롤백 격리
   증명을 반복하면 완료됩니다.
-- [ ] P3는 목표 인식 `catalog.search_rules` 확인이 기존 읽기 전용 함수 경로를 통해 구성되고,
-  정확한 T0 평가에 여전히 활성 Rule과 평가 증적이 필요하면 완료됩니다.
+- [x] P3는 기존 읽기 전용 함수 경로를 통한 목표 인식 `catalog.search_rules` 확인으로
+  완료되었습니다. 확인은 검토 또는 승격된 활성 관계만 순위 계산 전에 후보를 좁히고,
+  원자적으로 전체 검색으로 대체하며, 목표 고정값을 조회 ID에 반영합니다. 정확한 T0 평가에는
+  계속 활성 Rule과 평가 증적이 필요합니다.
 - [ ] P4는 보류된 영문 및 한국어 검색 집단, 반례, 오래된 근거, 코퍼스 격리, 롤백 및 shadow
   동등성이 권한 이탈 0건으로 설정된 게이트를 충족하면 완료됩니다.
 

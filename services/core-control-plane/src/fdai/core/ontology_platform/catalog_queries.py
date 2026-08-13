@@ -25,6 +25,16 @@ from fdai.shared.contracts.models import (
 from fdai.shared.providers.catalog_search import CatalogSemanticIndex
 
 from .functions import ContextualOntologyFunction, FunctionInvocationContext
+from .objective_rule_resolution import (
+    ObjectiveResolutionPin,
+    ObjectiveResolutionState,
+    ObjectiveRuleResolution,
+    ObjectiveRuleResolver,
+    degraded_resolution,
+    not_requested_resolution,
+    objective_resolution_payload,
+    requested_objective_refs,
+)
 
 CATALOG_SEARCH_RULES_FUNCTION_NAME = "catalog.search_rules"
 CATALOG_SEARCH_PURPOSE = "operations-review"
@@ -39,7 +49,7 @@ def catalog_search_rules_function_type() -> OntologyFunctionType:
 
     return OntologyFunctionType(
         name=CATALOG_SEARCH_RULES_FUNCTION_NAME,
-        version="1.0.0",
+        version="1.1.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=_source_artifact_digest(),
         publisher="fdai",
@@ -52,6 +62,17 @@ def catalog_search_rules_function_type() -> OntologyFunctionType:
                 "operation": {"enum": ["discover", "explain", "evaluate", "action_draft"]},
                 "corpus": {"enum": ["active", "discovery"]},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 20},
+                "objective_refs": {
+                    "type": "array",
+                    "maxItems": 16,
+                    "uniqueItems": True,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256,
+                        "pattern": "^[A-Za-z][A-Za-z0-9._:@/-]{0,255}$",
+                    },
+                },
             },
         },
         output_schema={
@@ -61,6 +82,8 @@ def catalog_search_rules_function_type() -> OntologyFunctionType:
                 "candidates",
                 "retrieval_receipt",
                 "retrieval_receipt_digest",
+                "objective_resolution",
+                "objective_resolution_digest",
                 "authority",
                 "execution_authority",
             ],
@@ -68,6 +91,38 @@ def catalog_search_rules_function_type() -> OntologyFunctionType:
                 "candidates": {"type": "array", "maxItems": 20},
                 "retrieval_receipt": {"type": "object"},
                 "retrieval_receipt_digest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$",
+                },
+                "objective_resolution": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "state",
+                        "requested_objective_refs",
+                        "candidate_rule_ids",
+                        "objective_pins",
+                        "binding_pins",
+                        "rule_pins",
+                        "degraded_reason",
+                        "fallback_applied",
+                        "authority",
+                        "execution_authority",
+                    ],
+                    "properties": {
+                        "state": {"enum": ["not_requested", "resolved", "degraded"]},
+                        "requested_objective_refs": {"type": "array", "maxItems": 16},
+                        "candidate_rule_ids": {"type": "array", "maxItems": 256},
+                        "objective_pins": {"type": "array", "maxItems": 16},
+                        "binding_pins": {"type": "array", "maxItems": 256},
+                        "rule_pins": {"type": "array", "maxItems": 256},
+                        "degraded_reason": {"type": ["string", "null"]},
+                        "fallback_applied": {"type": "boolean"},
+                        "authority": {"const": "candidate_only"},
+                        "execution_authority": {"const": False},
+                    },
+                },
+                "objective_resolution_digest": {
                     "type": "string",
                     "pattern": "^sha256:[a-f0-9]{64}$",
                 },
@@ -93,6 +148,7 @@ def catalog_search_rules_function(
     *,
     index: CatalogSemanticIndex,
     catalog_digest: str,
+    objective_resolver: ObjectiveRuleResolver | None = None,
 ) -> ContextualOntologyFunction:
     """Bind Rule retrieval to one catalog and ontology release identity."""
 
@@ -110,6 +166,18 @@ def catalog_search_rules_function(
         operation = RetrievalOperation(str(arguments["operation"]))
         corpus = RuleCorpus(str(arguments["corpus"]))
         limit = int(arguments["limit"])
+        if operation in {RetrievalOperation.EVALUATE, RetrievalOperation.ACTION_DRAFT}:
+            if corpus is not RuleCorpus.ACTIVE:
+                raise ValueError("evaluation and action drafts MUST use the active corpus")
+        objective_refs = requested_objective_refs(arguments.get("objective_refs", ()))
+        if objective_resolver is None:
+            resolution = (
+                degraded_resolution(objective_refs, "objective_resolver_unavailable")
+                if objective_refs
+                else not_requested_resolution()
+            )
+        else:
+            resolution = objective_resolver.resolve(objective_refs, corpus=corpus)
         active = await index.active_generation(corpus.value)
         if active is None or active.state != "active":
             raise RuntimeError("catalog semantic generation is unavailable")
@@ -123,6 +191,11 @@ def catalog_search_rules_function(
             k=limit,
             corpus=corpus.value,
             expected_catalog_digest=catalog_digest,
+            candidate_rule_ids=(
+                frozenset(resolution.candidate_rule_ids)
+                if resolution.state is ObjectiveResolutionState.RESOLVED
+                else None
+            ),
         )
         for result in results:
             if (
@@ -147,6 +220,7 @@ def catalog_search_rules_function(
                 operation=operation,
                 corpus=corpus,
                 limit=limit,
+                objective_refs=objective_refs,
             ),
             operation=operation,
             corpus=corpus,
@@ -167,6 +241,8 @@ def catalog_search_rules_function(
             ],
             "retrieval_receipt": _receipt_payload(receipt),
             "retrieval_receipt_digest": receipt.digest,
+            "objective_resolution": objective_resolution_payload(resolution),
+            "objective_resolution_digest": resolution.digest,
             "authority": "candidate_only",
             "execution_authority": False,
         }
@@ -180,12 +256,14 @@ def _query_digest(
     operation: RetrievalOperation,
     corpus: RuleCorpus,
     limit: int,
+    objective_refs: tuple[str, ...] = (),
 ) -> str:
     payload = {
         "query": query,
         "operation": operation.value,
         "corpus": corpus.value,
         "limit": limit,
+        "objective_refs": objective_refs,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
@@ -219,6 +297,10 @@ def _receipt_payload(receipt: CatalogRetrievalReceipt) -> dict[str, object]:
 __all__ = [
     "CATALOG_SEARCH_PURPOSE",
     "CATALOG_SEARCH_RULES_FUNCTION_NAME",
+    "ObjectiveResolutionPin",
+    "ObjectiveResolutionState",
+    "ObjectiveRuleResolution",
+    "ObjectiveRuleResolver",
     "catalog_search_rules_function",
     "catalog_search_rules_function_type",
 ]
