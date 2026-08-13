@@ -21,6 +21,9 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > stale revision checks, typed functions, projection bindings, reconciliation, scoped SDK
 > generation, and a read-only manifest. PostgreSQL object/link writes persist exact type versions
 > and release digests, and production ActionBuilder composition uses the full loaded release.
+> PostgreSQL also stores each exact object/link release manifest in `ontology_release`. Startup
+> persists the active manifest and loads every registered manifest before decoding prior rows.
+> Missing releases, manifest/digest mismatches, and declaration/version mismatches fail closed.
 > The existing Reader-gated `GET /ontology/graph` projection exposes the release digest,
 > proposal-only write surface, and `mutation_authority: false`; it adds no mutation route.
 > Pre-migration rows remain explicitly unpinned because their original release digest cannot be
@@ -87,7 +90,7 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| K0 exact release identity and persistence | in-progress | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`test_postgres_ontology_type_ref.py`](../../../services/core-control-plane/tests/persistence/test_postgres_ontology_type_ref.py) | Exact identity and pinned writes exist; pre-migration rows remain honestly unpinned. |
+| K0 exact release identity and persistence | implemented | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`postgres_ontology.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology.py), [`20260813_0081_ontology_release_registry.py`](../../../alembic/versions/20260813_0081_ontology_release_registry.py), [`test_postgres_ontology_catalog.py`](../../../services/core-control-plane/tests/persistence/test_postgres_ontology_catalog.py) | Exact identity, pinned writes, and restart-safe manifest loading exist; pre-migration rows remain honestly unpinned. Operational Live evidence is pending. |
 | K1-K5 bounded semantic query and function infrastructure | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`test_kinetics.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_kinetics.py) | Core primitives exist, but additional Interfaces and production provider bindings remain open. |
 | Catalog projection and exact-generation Rule retrieval | implemented | [`catalog_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py), [`test_catalog_queries.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_catalog_queries.py), commit `e4d9483a5` | `catalog.search_rules` returns bounded ranked candidates with an exact-generation receipt and grants no judgment or action authority. Control-objective instances are not yet materialized by startup projection. |
 | Historical topology, metric semantics, and reconciliation | in-progress | [`topology_history.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/topology_history.py), [`metric_semantics.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/metric_semantics.py), [`reconciliation_state_store.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_state_store.py) | Contracts and pure or durable foundations exist; production composition and publishers remain incomplete. |
@@ -100,6 +103,7 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source and tests listed in the scope table. | Complete the observable exit conditions below. |
 | 2026-08-13 | implemented | Added exact-generation, read-only `catalog.search_rules` candidate retrieval with bounded ranking and content-addressed receipts. | Commit `e4d9483a5`; focused `test_catalog_queries.py` reports 2 passed. | Compose objective-aware retrieval and validate it without granting evaluation or execution authority. |
 | 2026-08-13 | implemented | Registered the three objective vocabulary types as `Identifiable` implementations after centralized graph validation exposed the omission. | Focused `test_shipped_ontology_catalog_loads_as_one_graph` reports 1 passed. | Keep interface implementation coverage synchronized with every new object type. |
+| 2026-08-13 | implemented | Added a durable exact-release manifest registry and loaded registered releases before PostgreSQL row decoding. | Current change; focused `test_postgres_ontology_catalog.py` reports 2 passed and `test_ontology_release_registry_migration.py` reports 1 passed. | Record authenticated Live evidence after migration and Core restart. |
 
 ### Remaining work
 
