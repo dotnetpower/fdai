@@ -203,6 +203,31 @@ class RuleSemanticSurface:
             }
         )
 
+    @property
+    def validation_subject_digest(self) -> str:
+        """Hash semantic content without mutable review lifecycle metadata."""
+
+        return _canonical_digest(
+            {
+                "schema_version": self.schema_version,
+                "surface_id": self.surface_id,
+                "manifest_digest": self.manifest_digest,
+                "locale": self.locale,
+                "origin": self.origin.value,
+                "intent_ids": self.intent_ids,
+                "concept_refs": self.concept_refs,
+                "aliases": self.aliases,
+                "training_queries": self.training_queries,
+                "hard_negative_queries": self.hard_negative_queries,
+                "producer_ref": self.producer_ref,
+                "evidence_refs": self.evidence_refs,
+                "state": SurfaceState.CANDIDATE.value,
+                "prompt_digest": self.prompt_digest,
+                "validation_receipt_digest": None,
+                "execution_authority": self.execution_authority,
+            }
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class CohortMetric:

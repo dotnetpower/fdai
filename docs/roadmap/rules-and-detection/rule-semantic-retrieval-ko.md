@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 254a650635f1eb9afc84bffc81f560ec1b2f1309
+translation_source_sha: 9002cd72abbe2588670bccb1fa0a6df7acbb53d1
 translation_revised: 2026-08-13
 ---
 # Rule 의미 검색
@@ -83,6 +83,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | implemented | 검증된 정확한 함수 호출 증적을 Core-to-Operator 변환 결과 경계 전체에서 보존했습니다. strict 공유 계약은 정규 증적 다이제스트, 질의 작업, 함수 의도, 기능 및 완료 상태를 연결하며 Operator 저장은 원자성과 범위 격리를 유지합니다. | `current change`; 공유 계약, Core 변환 결과 처리기, Operator bridge 및 workflow-family 모음에서 테스트 94개가 통과했습니다. 변경한 운영 모듈에서 Ruff와 strict mypy가 통과했습니다. | 이 영역을 `validated`로 변경하기 전에 Reader 범위의 실제 변환 결과 근거를 기록합니다. |
 | 2026-08-13 | implemented | held-out 검색에 명시적인 부분 성능 저하 회귀 검사를 추가했습니다. 양성 집단의 요청 2개 중 1개가 실패하면 검색 성공률 `0.5`, 검증 전용 `HOLD`, 승격 또는 실행 권한이 없는 검토 전용 승격 `HOLD`가 생성됩니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_rule_semantic_evaluation.py`에서 테스트 11개가 통과했습니다. 작업 소유 테스트 파일에서 Ruff, 형식 및 편집기 진단이 통과했습니다. | 통제된 한국어 표면을 추가하고 측정된 활성 코퍼스 lexical 오탐을 제거합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
 | 2026-08-13 | implemented | 구분하지 못하는 영어 기능어, 카탈로그 전체에 공통인 `rule` 및 숫자 조각만으로 발생한 활성 코퍼스 오탐을 제거했습니다. 정확한 ID 일치, 도메인 용어, 의미 점수 및 구성 임계값은 변경하지 않았습니다. 적대적 no-match와 발견 전용 no-match 집단은 이제 각각 `1.0`이며, 배포 카탈로그 증적은 한국어 양성 재현율과 순위에 대해서만 `HOLD`를 유지합니다. | `current change`; 전체 배포 활성 및 발견 카탈로그 모듈에서 테스트 11개, 카탈로그 질의 및 구성 소비자에서 테스트 21개가 통과했습니다. 변경한 운영 어댑터에서 strict mypy가 통과했고 편집기 진단은 깨끗했습니다. | 통제된 한국어 표면을 추가하고 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
+| 2026-08-13 | implemented | 의미 표면 증적의 식별자 순환을 제거했습니다. 검증 증적은 변경 불가능한 후보 형식의 의미 대상을 연결하고, 승격된 Git 아티팩트는 수명 주기 상태와 증적 참조를 포함하는 별도 다이제스트를 유지합니다. 기존 후보 증적 식별자는 변경되지 않습니다. | `current change`; 집중 의미 검색 및 평가 계약 모음에서 테스트 30개가 통과했습니다. 작업 소유 운영 및 테스트 파일에서 Ruff, 형식 및 strict mypy가 통과했습니다. | 승격 검토 전에 통제된 한국어 표면과 실제 통과 held-out 증적을 추가하고 재현합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
 
 ### 남은 작업
 
@@ -186,6 +187,11 @@ flowchart LR
 각 표면은 매니페스트 다이제스트, 로케일, generator 및 프롬프트 증적, 근거 참조, 상태,
 검증 증적과 내용 다이제스트를 기록합니다. 상태는 `candidate`, `validated`,
 `promoted`, `retired`, `rejected`입니다. 새 표면은 `candidate`로 시작합니다.
+
+검증 증적은 표면의 후보 형식 의미 대상을 연결합니다. 수명 주기 상태와 증적 참조는 각각
+`candidate`와 없음으로 정규화됩니다. 따라서 승격은 평가된 내용을 변경하거나 다이제스트
+순환을 만들 수 없습니다. 승격된 Git 아티팩트는 `state: promoted`와 정확한 검증 증적 참조를
+포함하는 자체 다이제스트를 가집니다.
 
 ### CatalogSearchGeneration
 

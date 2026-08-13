@@ -82,6 +82,7 @@ evaluation gates, and failed-query feedback loop.
 | 2026-08-13 | implemented | Preserved the exact validated function-invocation receipt across the Core-to-Operator projection boundary. The strict shared contract binds the canonical receipt digest, query task, function intent, capability, and completed status; Operator persistence remains atomic and scope-isolated. | `current change`; the shared contract, Core projection processor, Operator bridge, and workflow-family suites passed 94 tests. Ruff and strict mypy passed the touched production modules. | Record Reader-scoped live projection evidence before changing this area to `validated`. |
 | 2026-08-13 | implemented | Added an explicit partial-degradation regression for held-out retrieval. One failed request in a two-request positive cohort produces a `0.5` retrieval success rate, a validation-only `HOLD`, and a review-only promotion `HOLD` with no promotion or execution authority. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_rule_semantic_evaluation.py` passed 11 tests. Ruff, formatting, and editor diagnostics passed for the task-owned test file. | Add governed Korean surfaces and remove measured active-corpus lexical false positives. Record governed live evidence separately before claiming validation. |
 | 2026-08-13 | implemented | Removed active-corpus false positives caused only by non-discriminating English function words, catalog-generic `rule`, and numeric fragments. Exact-id matching, domain terms, semantic scores, and configured thresholds remain unchanged. The adversarial and discovery-only no-match cohorts now each measure `1.0`; the shipped-catalog receipt remains `HOLD` only for Korean positive recall and rank. | `current change`; the complete shipped active/discovery catalog module passed 11 tests, catalog-query and composition consumers passed 21 tests, strict mypy passed the changed production adapter, and editor diagnostics were clean. | Add governed Korean surfaces and record governed live evidence separately before claiming validation. |
+| 2026-08-13 | implemented | Removed the semantic-surface receipt identity cycle. Validation receipts now bind the immutable candidate-form semantic subject, while the promoted Git artifact retains a distinct digest that includes its lifecycle state and receipt reference. Existing candidate receipt identities remain unchanged. | `current change`; the focused semantic retrieval and evaluation contract suites passed 30 tests. Ruff, formatting, and strict mypy passed the task-owned production and test files. | Add and replay a governed Korean surface and its real passing held-out receipt before promotion review. Record governed live evidence separately before claiming validation. |
 
 ### Remaining work
 
@@ -183,6 +184,11 @@ hard negatives. It cannot set severity, risk, applicability, enforcement, or act
 Every surface records its manifest digest, locale, generator and prompt receipts, evidence refs,
 state, validation receipt, and content digest. The states are `candidate`, `validated`,
 `promoted`, `retired`, and `rejected`. New surfaces start as `candidate`.
+
+A validation receipt binds the surface's candidate-form semantic subject: lifecycle state and the
+receipt reference are normalized to `candidate` and absent. Promotion therefore cannot change the
+content that was evaluated or create a digest cycle. The promoted Git artifact has its own digest,
+including `state: promoted` and the exact validation receipt reference.
 
 ### CatalogSearchGeneration
 
