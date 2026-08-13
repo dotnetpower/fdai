@@ -553,6 +553,14 @@ async def test_shipped_active_catalog_emits_truthful_promotion_hold() -> None:
         min_recall_at_k=1.0,
         min_mean_reciprocal_rank=1.0,
         min_no_match_precision=1.0,
+        required_cohorts=(
+            "adversarial-negative",
+            "corpus-isolation",
+            "en-ambiguity",
+            "en-exact",
+            "ko-negative",
+            "ko-positive",
+        ),
     )
 
     receipt = await evaluate_semantic_surface(
@@ -640,6 +648,7 @@ async def test_shipped_active_catalog_stale_generation_holds_without_no_match_cr
             min_recall_at_k=1.0,
             min_mean_reciprocal_rank=1.0,
             min_no_match_precision=1.0,
+            required_cohorts=("stale-active-generation",),
         ),
         evaluator_ref="heimdall:shipped-catalog-stale@1",
     )

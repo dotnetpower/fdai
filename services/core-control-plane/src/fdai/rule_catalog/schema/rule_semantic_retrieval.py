@@ -227,6 +227,7 @@ class SurfaceValidationReceipt:
     surface_digest: str
     dataset_digest: str
     evaluator_ref: str
+    evaluation_policy_digest: str
     training_query_digests: tuple[str, ...]
     evaluation_query_digests: tuple[str, ...]
     cohort_metrics: tuple[CohortMetric, ...]
@@ -239,6 +240,7 @@ class SurfaceValidationReceipt:
         for name, value in (
             ("surface_digest", self.surface_digest),
             ("dataset_digest", self.dataset_digest),
+            ("evaluation_policy_digest", self.evaluation_policy_digest),
         ):
             _require_digest(name, value)
         _bounded_identifier("evaluator_ref", self.evaluator_ref)
@@ -266,6 +268,7 @@ class SurfaceValidationReceipt:
                 "surface_digest": self.surface_digest,
                 "dataset_digest": self.dataset_digest,
                 "evaluator_ref": self.evaluator_ref,
+                "evaluation_policy_digest": self.evaluation_policy_digest,
                 "training_query_digests": self.training_query_digests,
                 "evaluation_query_digests": self.evaluation_query_digests,
                 "cohort_metrics": [
