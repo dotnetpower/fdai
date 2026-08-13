@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: e63c955dc0cef32d5e32763c9a2fb7f7ee554d24
-translation_revised: 2026-08-13
+translation_source_sha: 65f662d06ca5b88526d249b3ec35b0cae8c12f1e
+translation_revised: 2026-08-14
 ---
 
 # 온톨로지 조회 커버리지 구현 계획
@@ -150,6 +150,7 @@ translation_revised: 2026-08-13
 | Temporal, metric 및 근거 프로바이더 조립 | 구현됨 | `wire_semantic_query.py`, `bootstrap.py`, `bootstrap_bindings.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, 통과한 focused 조립 및 프로바이더 선택 테스트 16개 | 하나의 핸들러 맵이 검증기 가용성과 실행을 함께 제어합니다. 운영 환경은 상태 저장소 DSN에서 PostgreSQL 이력을 연결하고 검토된 레지스트리와 no-op이 아닌 프로바이더가 모두 있을 때만 metric/evidence 핸들러를 연결합니다. |
 | 통제된 운영 보증 | 진행 중 | [온톨로지 조회 무작위 보증](ontology-query-randomized-assurance-ko.md)과 아래의 검증된 기준선 공백 표 | 로컬 검사는 안전하게 실패하는 조립을 입증하지만 운영 준비 상태를 입증하는 통제된 실제 서비스 간 증적은 없습니다. |
 | 타입 기반 Console 보증 실행기 | 구현됨 | `console-routes.spec.ts`, `ontology-query-assurance.ts`, `ontology-query-assurance.spec.ts`, focused Console 검사 | 한 실행기는 게시, Core 처리, exact projection 읽기 및 인증된 증적 렌더링을 검증합니다. Seed 기반 100-turn 실행기는 타입 전용 oracle로 영어 50개와 한국어 50개 prompt를 다룹니다. 보존 artifact가 통과하기 전에는 어느 구현도 실제 운영 근거가 아닙니다. |
+| 인시던트 의미 근거 | 진행 중 | `core/incident/ontology_projection.py`, `core/ontology_platform/incident_queries.py`, focused 인시던트 및 의미 조립 검사 (`62 passed`) | Canonical 인시던트 상태를 ObjectSet으로 조회할 수 있고 `query.incident_evidence`는 감사 기반 프로파일, 상관 기록, 명시적 공백 및 원인 주장 권한이 없는 결과를 반환합니다. A3 답변 계약과 인증된 Console 근거는 아직 남아 있습니다. |
 
 ### 구현 이력
 
@@ -164,11 +165,14 @@ translation_revised: 2026-08-13
 | 2026-08-13 | 구현됨 | 유효한 호출자 제공 요청 UUID를 Operator 의미 묶음과 상관관계 신원 전체에서 보존하면서 멱등성 키와 혼합하지 않았습니다. 요청 신원을 생략하는 호출자를 위한 결정론적 UUID 대체값은 유지했습니다. | `current change`, `semantic_turn.py`, `test_semantic_turn_bridge.py`, focused 호출자 신원 및 재시도 안정성 테스트 통과 | 무작위 보증을 실행하기 전에 exact 요청 신원의 통제된 인증 증적을 확보합니다. |
 | 2026-08-14 | 구현됨 | 서버 소유 `bound_context`를 담은 추가적 `operator-core-request` 1.3.0을 도입해, Console 인시던트 대화가 바인딩된 인시던트 신원을 버리지 않고 Core까지 전달합니다. Core는 해당 바인딩을 마지막 `system` 맥락 턴으로 붙여 플래너의 제한된 창이 버리지 못하게 합니다. | `current change`, `semantic_turn.py`(계약/Operator/Core), `contract_codecs.py`, `compatibility-manifest.json`, Core 처리기 32개·Operator 브리지 42개·계약 76개·라우트 대상 326개 통과, independent-services 및 ontology-query-coverage 게이트 통과, strict mypy 통과 | 바인딩된 인시던트는 아직 답변 가능하지 않습니다. 의미 질의 매니페스트가 인시던트 ObjectSet과 인시던트 근거 FunctionType을 노출하지 않아 인시던트 조사는 명확화로 귀결됩니다. |
 | 2026-08-14 | 구현됨 | 의미 요청 발행기를 1.3.0 producer 코덱으로 옮겼습니다. 묶음 빌더는 이미 1.3.0을 검증했기 때문에, 낡은 발행기가 바인딩된 모든 턴을 조용히 거부해 Console 요청이 Core에 도달하지 못했습니다. | `current change`, `semantic_kafka.py`, Operator 어댑터 및 브리지 스위트 51개 통과, 재시작한 로컬 스택이 바인딩된 인시던트 턴을 6.4초에 응답했고 Core가 디코딩 실패 없이 계획 3단계를 기록 | 인시던트 역량이 여전히 열린 공백입니다. |
+| 2026-08-14 | 진행 중 | Canonical `Incident` 인스턴스를 projection하고 추가 전용 감사 출처 위에 exact-release, correlation-scoped `query.incident_evidence` FunctionType을 추가했습니다. 함수는 프로파일, 상관 기록, 잘림 및 근거 공백을 노출하면서 `cause_claim_supported=false`와 `execution_authority=false`를 고정합니다. | 커밋 `285341732` 및 `current change`, focused 인시던트, registry, adapter 및 의미 조립 검사 62개 통과, 작업 범위 Ruff 및 strict mypy 통과 | A3 답변 계약과 액션 초안 전용 다음 안전 단계를 추가하고 인증된 Console 근거를 보존합니다. |
 
 ### 남은 작업
 
 - [ ] Operator 게시, Core 처리, exact Operator 변환 결과 읽기 및 인증된 Console 렌더링을 포함하는 통제된 요청-Console 증적 하나를 기록합니다. 이중 언어 무작위 보증 집단을 다시 실행하고 통과한 두 근거 기록을 연결합니다.
-- [ ] 의미 질의 매니페스트에 인시던트 역량을 노출합니다. `ObjectSet` 선택을 위해 `Incident` 인스턴스를 투영하고 읽기 전용 인시던트 근거 `FunctionType`을 등록해, 바인딩된 인시던트 조사가 명확화 하나가 아니라 검증된 계획에 도달하게 합니다.
+- [x] Canonical `Incident` 인스턴스를 현재 온톨로지 저장소에 projection해 bounded `ObjectSet`으로 선택할 수 있게 했습니다.
+- [x] 명시적 공백과 원인 주장 권한이 없는 correlation-scoped 감사 근거 위에 읽기 전용 `query.incident_evidence` FunctionType을 등록했습니다.
+- [ ] 인시던트 답변을 프로파일, 상관 근거 및 명시적 공백으로 제한하고 다음 안전 단계를 후보 `SemanticOperation.ACTION_DRAFT`로만 표현합니다. 인증된 Console 증적도 보존합니다.
 - [x] Console에서 Operator를 거쳐 Core까지 바인딩된 대화 맥락을 추가적인 타입 요청 상태로 전달합니다.
 - [x] 영속 의미 인덱스, 과거 토폴로지 읽기 경로, metric-series 및 evidence-join 프로바이더를 타입이 지정된 사용 불가 동작과 focused 검사와 함께 조립합니다.
 

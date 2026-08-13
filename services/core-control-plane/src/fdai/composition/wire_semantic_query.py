@@ -47,6 +47,11 @@ from fdai.core.ontology_platform.catalog_queries import (
     CATALOG_SEARCH_RULES_FUNCTION_NAME,
     catalog_search_rules_function,
 )
+from fdai.core.ontology_platform.incident_queries import (
+    INCIDENT_EVIDENCE_FUNCTION_NAME,
+    IncidentEvidenceReader,
+    incident_evidence_function,
+)
 from fdai.core.ontology_platform.network_path import (
     NETWORK_PATH_FUNCTION_NAME,
     network_path_function,
@@ -111,6 +116,7 @@ def build_semantic_query_runtime(
     topology_reader: TopologyHistoryReader | None = None,
     metric_registry: MetricSemanticRegistry | None = None,
     metric_window_provider: MetricWindowProvider | None = None,
+    incident_evidence_reader: IncidentEvidenceReader | None = None,
     purpose: str = "operations-review",
     now: Callable[[], datetime] | None = None,
 ) -> SemanticConversationRuntime:
@@ -185,6 +191,16 @@ def build_semantic_query_runtime(
             ),
         )
         bound_function_names.add(catalog_declaration.name)
+    if incident_evidence_reader is not None:
+        incident_declaration = declarations[INCIDENT_EVIDENCE_FUNCTION_NAME]
+        function_registry.register_contextual(
+            incident_declaration,
+            incident_evidence_function(
+                ontology_release,
+                reader=incident_evidence_reader,
+            ),
+        )
+        bound_function_names.add(incident_declaration.name)
     network_declaration = declarations[NETWORK_PATH_FUNCTION_NAME]
     function_registry.register_contextual(
         network_declaration,
@@ -302,6 +318,7 @@ def compose_azure_semantic_query_runtime(
     topology_reader: TopologyHistoryReader | None = None,
     metric_registry: MetricSemanticRegistry | None = None,
     metric_window_provider: MetricWindowProvider | None = None,
+    incident_evidence_reader: IncidentEvidenceReader | None = None,
 ) -> SemanticQueryRuntimeComposition:
     """Compose Azure semantic querying over optional exact Rule retrieval."""
 
@@ -350,6 +367,7 @@ def compose_azure_semantic_query_runtime(
             topology_reader=topology_reader,
             metric_registry=metric_registry,
             metric_window_provider=metric_window_provider,
+            incident_evidence_reader=incident_evidence_reader,
             purpose=purpose,
         )
     except (OSError, LookupError, TypeError, ValueError):

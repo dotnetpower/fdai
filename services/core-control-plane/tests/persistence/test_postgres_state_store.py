@@ -19,6 +19,7 @@ import os
 import subprocess
 import sys
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -80,6 +81,35 @@ async def test_append_audit_entry_writes_hash_chained_row() -> None:
         }
     )
     assert await store.verify_chain() is True
+
+
+@pytest.mark.asyncio
+async def test_incident_evidence_read_is_correlation_scoped_and_bounded() -> None:
+    url = _requires_live_db()
+    _upgrade_head()
+    dsn = _plain_dsn(url)
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    correlation_id = f"incident-integration-{uuid.uuid4().hex}"
+    for index in range(3):
+        await store.append_audit_entry(
+            {
+                "event_id": str(uuid.uuid4()),
+                "correlation_id": correlation_id if index < 2 else "other-incident",
+                "actor": "integration-test",
+                "action_kind": "incident.evidence",
+                "mode": "shadow",
+                "recorded_at": datetime(2026, 8, 14, 9, index, tzinfo=UTC).isoformat(),
+            }
+        )
+
+    rows, truncated = await store.list_incident_evidence(
+        correlation_id=correlation_id,
+        limit=1,
+    )
+
+    assert truncated is True
+    assert len(rows) == 1
+    assert rows[0]["correlation_id"] == correlation_id
 
 
 @pytest.mark.asyncio

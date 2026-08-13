@@ -90,7 +90,7 @@ def _incident_profile(rows: Sequence[RcaAuditRow]) -> DataSet:
                 "ticket_id": _first(entries, "ticket_id"),
                 "title": _first(entries, "incident_title", "title"),
                 "severity": _first(entries, "severity"),
-                "status": _last(entries, "incident_status", "status"),
+                "status": _last(entries, "incident_status", "status", "to_state", "state"),
                 "vertical": _first(entries, "vertical"),
                 "opened_at": opened_at,
                 "last_updated_at": updated_at,

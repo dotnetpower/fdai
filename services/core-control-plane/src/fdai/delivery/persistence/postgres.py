@@ -383,6 +383,7 @@ class PostgresStateStore(StateStore):
                     WHERE entry->>'kind' IN (
                         'incident.open',
                         'incident.members',
+                        'incident.severity',
                         'incident.assigned',
                         'incident.ticket',
                         'incident.transition'
@@ -398,6 +399,57 @@ class PostgresStateStore(StateStore):
                 raise RuntimeError("incident lifecycle audit entry is not a JSON object")
             entries.append(dict(entry))
         return tuple(entries)
+
+    async def list_incident_evidence(
+        self,
+        *,
+        correlation_id: str,
+        limit: int,
+    ) -> tuple[tuple[Mapping[str, object], ...], bool]:
+        """Return latest bounded audit rows for one exact incident correlation."""
+        if not correlation_id or limit < 1 or limit > 500:
+            raise ValueError("incident evidence correlation_id and limit are invalid")
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            row_factory=dict_row,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as conn:
+            async with conn.transaction():
+                await self._set_statement_timeout(conn)
+                cursor = await conn.execute(
+                    """
+                    SELECT seq,
+                           event_id::text AS event_id,
+                           correlation_id,
+                           actor,
+                           action_kind,
+                           mode,
+                           created_at AS recorded_at,
+                           entry
+                      FROM audit_log
+                     WHERE correlation_id = %s
+                     ORDER BY seq DESC
+                     LIMIT %s
+                    """,
+                    (correlation_id, limit + 1),
+                )
+                rows = await cursor.fetchall()
+        truncated = len(rows) > limit
+        selected = rows[:limit]
+        projected = tuple(
+            {
+                "seq": int(row["seq"]),
+                "event_id": str(row["event_id"]),
+                "correlation_id": str(row["correlation_id"]),
+                "actor": str(row["actor"]),
+                "action_kind": str(row["action_kind"]),
+                "mode": str(row["mode"]),
+                "recorded_at": row["recorded_at"].isoformat(),
+                "entry": dict(_json_object(row["entry"])),
+            }
+            for row in reversed(selected)
+        )
+        return projected, truncated
 
     # ------------------------------------------------------------------
     # Diagnostics

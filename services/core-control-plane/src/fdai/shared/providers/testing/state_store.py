@@ -173,6 +173,41 @@ class InMemoryStateStore(StateStore):
         with self._lock:
             return tuple(deepcopy(entry) for entry in self._incident_transitions.values())
 
+    async def list_incident_evidence(
+        self,
+        *,
+        correlation_id: str,
+        limit: int,
+    ) -> tuple[tuple[Mapping[str, object], ...], bool]:
+        """Return one bounded chronological audit projection for an incident."""
+        if not correlation_id or limit < 1 or limit > 500:
+            raise ValueError("incident evidence correlation_id and limit are invalid")
+        with self._lock:
+            matched: list[Mapping[str, object]] = []
+            for seq, record in enumerate(self._audit, start=1):
+                entry = record.get("entry")
+                if not isinstance(entry, Mapping) or entry.get("correlation_id") != correlation_id:
+                    continue
+                recorded_at = entry.get("recorded_at") or entry.get("at") or entry.get("opened_at")
+                if not isinstance(recorded_at, str):
+                    raise RuntimeError("incident evidence audit entry has no recorded time")
+                matched.append(
+                    {
+                        "seq": seq,
+                        "event_id": str(entry.get("event_id") or ""),
+                        "correlation_id": correlation_id,
+                        "actor": str(entry.get("actor") or entry.get("actor_oid") or "fdai.system"),
+                        "action_kind": str(
+                            entry.get("action_kind") or entry.get("kind") or "audit.record"
+                        ),
+                        "mode": str(entry.get("mode") or "shadow"),
+                        "recorded_at": recorded_at,
+                        "entry": deepcopy(dict(entry)),
+                    }
+                )
+            truncated = len(matched) > limit
+            return tuple(deepcopy(item) for item in matched[-limit:]), truncated
+
     # ---- Test helpers --------------------------------------------------------
 
     def _append_audit_locked(self, entry: Mapping[str, Any]) -> None:

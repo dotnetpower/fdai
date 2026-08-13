@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 8e712821a443ff431fb35cca25423c1218351d42
+translation_source_sha: 488e528329c923531c577faf192ed418a95f01e6
 translation_revised: 2026-08-14
 ---
 
@@ -23,7 +23,7 @@ translation_revised: 2026-08-14
 |------|------|------|------|
 | 현재 상태 활동 identity | 구현됨 | `read_investigation_latency.py`, `activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | Latency 프로파일은 hash된 correlation 참조만 유지하고 감사 항목은 correlation-free로 남으며, 영속 활동과 실제 운영 활동은 실행 권한을 포함하지 않고 하나의 identity를 공유합니다. |
 | Rule 세대 reconciliation 경계 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/`; `runtime/rule_generation_documents.py`; 집중 adapter, Pantheon, 활성화 및 bootstrap 검사 | 프로바이더 계약은 정확한 준비 상태 증적 연결을 소유하고 delivery는 원자적 어댑터를 소유하며 runtime은 정책 또는 실행 권한을 인프라 코드로 옮기지 않고 엄격한 카탈로그 스냅샷과 replay가 동일한 요청을 구성합니다. |
-| 인시던트 현재 상태 온톨로지 projection | 구현됨 | `core/incident/ontology_projection.py`, `test_ontology_projection.py`, focused 인시던트 projection 및 lifecycle 검사 (`47 passed`) | 시작 시 추가 전용 인시던트 감사를 replay해 `Incident` 객체를 만들고, 이후 lifecycle 변경은 액션 권한을 부여하지 않으면서 같은 bounded 읽기 모델을 갱신합니다. |
+| 인시던트 온톨로지 projection 및 근거 조회 | 구현됨 | `core/incident/ontology_projection.py`, `core/ontology_platform/incident_queries.py`, focused 인시던트 및 의미 조립 검사 (`62 passed`) | 시작 시 추가 전용 인시던트 감사를 replay해 `Incident` 객체를 만듭니다. Exact-release `query.incident_evidence` 함수는 correlation-scoped 감사 기록을 읽고 원인 또는 액션 권한 없이 프로파일, 근거 및 공백을 노출합니다. |
 
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
@@ -32,6 +32,7 @@ translation_revised: 2026-08-14
 | 2026-08-13 | implemented | Mimir와 Heimdall 소유권을 유지하면서 프로바이더 계약, 원자적 어댑터 및 시작 구성 전체에 운영 Rule 세대 reconciliation 경계를 추가했습니다. | `current change`; `catalog_search.py`, `rule_generation_documents.py` 및 집중 worker, PostgreSQL, 런타임, 활성화 검사 | 통제된 실제 세대 증적을 보존하며 연기된 Phase 2 패키지 이동은 별도로 유지합니다. |
 | 2026-08-13 | implemented | 책임 소유자인 Mimir 또는 Heimdall이 maintenance-disabled이면 시작 시 Rule 세대 reconciliation을 억제하도록 변경했습니다. | `current change`; `bootstrap.py` 및 집중 disabled-agent 유입 검사 | 두 소유자가 활성화된 상태에서 통제된 실제 세대 증적을 보존합니다. |
 | 2026-08-14 | 구현됨 | Rehydrate된 canonical 인시던트 상태와 이후 실제 상태를 bounded 현재 상태 읽기 모델로 온톨로지 인스턴스 저장소에 projection했습니다. | `current change`, `ontology_projection.py`, `registry.py`, `bootstrap.py`, `test_ontology_projection.py`, focused 인시던트 검사 47개 통과 | 읽기 전용 인시던트 근거 함수를 등록하고 인증된 Console 근거를 보존합니다. |
+| 2026-08-14 | 구현됨 | Bounded correlation-scoped 감사 기록 위에 exact-release `query.incident_evidence` FunctionType을 추가하고 기존 인시던트 RCA 프로파일 projection을 재사용했습니다. | `current change`, `incident_queries.py`, 의미 조립, InMemory/PostgreSQL reader, focused 검사 62개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 최종 답변과 다음 안전 단계를 제한한 뒤 인증된 Console 근거를 보존합니다. |
 
 ### 남은 작업
 - [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.
@@ -94,7 +95,7 @@ fdai/
 │   │   ├── deploy_preflight/   # 배포 전 feasibility 프로브 → grounded readiness 리포트
 │   │   ├── readiness/          # 운영 handoff + startup 및 monitored-target readiness contract, fail-closed reducer, evidence expiry 및 authority ceiling
 │   │   ├── assurance_twin/     # 읽기 전용 온톨로지 트윈: text-to-query, scalar/graph active-challenger model, 필수 invariant, durable trajectory episode, 결정론적 simulation, off-path outcome closure (실행 또는 promotion 안 함)
-│   │   ├── ontology_platform/   # exact release, release-aware direction-shadow 비교, semantic interface, bounded object set, secured purpose/ACL query receipt, shared exact-number property semantics, cluster-scoped network/Pod telemetry verification, immutable diagnostic ledger/result projection, mutation plan, typed function, authenticated reconciliation과 proposal-only terminal outbox, proposal-only SDK generation
+│   │   ├── ontology_platform/   # exact release, release-aware direction-shadow 비교, semantic interface, bounded object set, secured purpose/ACL query receipt, 인시던트 감사 근거, shared exact-number property semantics, cluster-scoped network/Pod telemetry verification, immutable diagnostic ledger/result projection, mutation plan, typed function, authenticated reconciliation과 proposal-only terminal outbox, proposal-only SDK generation
 │   │   ├── conversation/       # Bragi-owned model-free screen T0, schema-constrained whole-turn semantic frame/query-plan shadowing, principal-manifest verification, intent-graph evidence projection, compatibility intent/tool 조정, grounded narration, per-turn isolation, durable delivery 및 busy-input arbitration
 │   │   ├── user_context_projection.py  # principal context / workflow binding metadata만 runtime ontology에 projection
 │   │   ├── console_request/    # 오퍼레이터 콘솔 write-direction 재요청 정책 (Scenario B deny-override), 순수 함수 `evaluate_operator_rerequest` 하나
