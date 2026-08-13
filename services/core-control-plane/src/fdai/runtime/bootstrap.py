@@ -106,6 +106,9 @@ from fdai.runtime.bootstrap_lifecycle import (
     log_rule_generation_outbox_exit as _log_rule_generation_outbox_exit,
 )
 from fdai.runtime.bootstrap_lifecycle import (
+    publish_rule_generation_reconciliation as _publish_rule_generation_reconciliation,
+)
+from fdai.runtime.bootstrap_lifecycle import (
     run_effect_reconciliation as _run_effect_reconciliation,
 )
 from fdai.runtime.bootstrap_lifecycle import (
@@ -183,6 +186,11 @@ from fdai.runtime.readiness import (
     StartupReadinessRuntime,
     build_startup_readiness_runtime,
 )
+from fdai.runtime.rule_generation_documents import (
+    RuleGenerationDocumentsUnavailableError,
+    RuleGenerationReconciliation,
+    build_rule_generation_reconciliation,
+)
 from fdai.runtime.t2_route_registry import T2RouteRegistry, bind_t2_route_selector
 from fdai.shared.config.models import LlmMode
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
@@ -259,6 +267,7 @@ async def _run() -> int:
     effect_reconciliation_worker: Any = None
     semantic_turn_binding: Any = None
     rule_generation_binding: RuleGenerationRuntimeBinding | None = None
+    rule_generation_reconciliation: RuleGenerationReconciliation | None = None
 
     try:
         telemetry_requested = bool(
@@ -541,12 +550,41 @@ async def _run() -> int:
                 rules=control_loop.rules,
                 ontology_release=control_loop.ontology_release,
             )
+            query_catalog_index = (
+                catalog_semantic_binding.index if catalog_semantic_binding.available else None
+            )
+            query_catalog_digest = (
+                catalog_semantic_binding.catalog_digest
+                if catalog_semantic_binding.available
+                else None
+            )
             rule_generation_binding = _build_rule_generation_runtime_binding(
                 state_store=incident_audit_store,
                 event_bus=bus,
                 catalog_index=catalog_semantic_binding.index,
                 environment=os.environ,
             )
+            if (
+                catalog_semantic_binding.index is not None
+                and control_loop.ontology_release is not None
+            ):
+                try:
+                    rule_generation_reconciliation = await build_rule_generation_reconciliation(
+                        catalog_root=_resolve_catalog_root(),
+                        rules=control_loop.rules,
+                        action_types=control_loop.action_types,
+                        ontology_release=control_loop.ontology_release,
+                        embedder=container.require_llm_bindings().embedding_model,
+                        index=catalog_semantic_binding.index,
+                        store=incident_audit_store,
+                        request_generation=not catalog_semantic_binding.available,
+                        requested_at=datetime.now(UTC),
+                    )
+                except RuleGenerationDocumentsUnavailableError as exc:
+                    _LOGGER.warning(
+                        "rule_generation_reconciliation_unavailable",
+                        extra={"reason": str(exc)},
+                    )
             topology_reader, metric_registry, metric_window_provider = _semantic_query_providers(
                 state_store_dsn=os.environ.get("FDAI_STATE_STORE_DSN"),
                 metric_provider=container.metric_provider,
@@ -565,8 +603,8 @@ async def _run() -> int:
                 catalog_root=_resolve_catalog_root(),
                 owner_loop=asyncio.get_running_loop(),
                 purpose=semantic_purpose,
-                catalog_index=catalog_semantic_binding.index,
-                catalog_digest=catalog_semantic_binding.catalog_digest,
+                catalog_index=query_catalog_index,
+                catalog_digest=query_catalog_digest,
                 topology_reader=topology_reader,
                 metric_registry=metric_registry,
                 metric_window_provider=metric_window_provider,
@@ -854,6 +892,11 @@ async def _run() -> int:
                     rollback_executors=rollback_executors,
                     saga=runtime_saga,
                     muninn_state_store=incident_audit_store,
+                    rule_generation_workers=(
+                        rule_generation_reconciliation.workers
+                        if rule_generation_reconciliation is not None
+                        else None
+                    ),
                     rule_generation_activation_binder=(rule_generation_binding.activation_binder),
                     rule_generation_state_store=incident_audit_store,
                     semantic_feedback_store=StateStoreSemanticFeedbackCandidateStore(
@@ -1139,6 +1182,7 @@ async def _run() -> int:
             assignment_reconciliation_task: asyncio.Task[None] | None = None
             effect_reconciliation_task: asyncio.Task[None] | None = None
             rule_generation_outbox_task: asyncio.Task[None] | None = None
+            rule_generation_reconciliation_task: asyncio.Task[None] | None = None
             case_history_retention_task: asyncio.Task[None] | None = None
             if pantheon_runtime is not None:
                 pantheon_task = asyncio.create_task(
@@ -1201,6 +1245,23 @@ async def _run() -> int:
                     name="rule-generation-outbox",
                 )
                 rule_generation_outbox_task.add_done_callback(_log_rule_generation_outbox_exit)
+            if (
+                pantheon_runtime is not None
+                and rule_generation_reconciliation is not None
+                and rule_generation_reconciliation.request is not None
+            ):
+                reconciliation_request = rule_generation_reconciliation.request
+                rule_generation_reconciliation_task = asyncio.create_task(
+                    startup_readiness_runtime.run_when_ready(
+                        stop,
+                        lambda: _publish_rule_generation_reconciliation(
+                            runtime=pantheon_runtime,
+                            request=reconciliation_request,
+                            stop=stop,
+                        ),
+                    ),
+                    name="rule-generation-reconciliation",
+                )
             if case_history_retention_publisher is not None:
                 case_history_retention_task = asyncio.create_task(
                     startup_readiness_runtime.run_when_ready(
@@ -1231,6 +1292,7 @@ async def _run() -> int:
                     assignment_reconciliation_task,
                     effect_reconciliation_task,
                     rule_generation_outbox_task,
+                    rule_generation_reconciliation_task,
                 ),
             )
         else:

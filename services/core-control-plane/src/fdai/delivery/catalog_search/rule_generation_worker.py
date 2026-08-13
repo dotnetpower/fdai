@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -28,6 +29,9 @@ from fdai.shared.providers.state_store import StateStore
 _BUILD_KEY_PREFIX = "rule-semantic-generation:build:"
 _VALIDATION_KEY_PREFIX = "rule-semantic-generation:validation:"
 _SCHEMA_VERSION = "1.0.0"
+RULE_GENERATION_VALIDATOR_ARTIFACT_DIGEST = (
+    "sha256:" + hashlib.sha256(b"fdai-rule-semantic-generation-validator:1.0.0").hexdigest()
+)
 
 
 class RuleGenerationDocumentResolver(Protocol):
@@ -37,6 +41,44 @@ class RuleGenerationDocumentResolver(Protocol):
         self,
         request: RuleGenerationBuildRequestEvent,
     ) -> Sequence[CatalogSearchDocument]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ExactRuleGenerationDocumentResolver:
+    """Return one startup snapshot only for its exact generation identity."""
+
+    active_documents: tuple[CatalogSearchDocument, ...]
+    discovery_documents: tuple[CatalogSearchDocument, ...]
+    catalog_digest: str
+    semantic_schema_digest: str
+    ontology_release_digest: str
+    embedding_space_id: str
+    embedding_model_version: str
+    embedding_dimension: int
+
+    async def resolve(
+        self,
+        request: RuleGenerationBuildRequestEvent,
+    ) -> tuple[CatalogSearchDocument, ...]:
+        expected = {
+            "catalog_digest": self.catalog_digest,
+            "semantic_schema_digest": self.semantic_schema_digest,
+            "ontology_release_digest": self.ontology_release_digest,
+            "embedding_space_id": self.embedding_space_id,
+            "embedding_model_version": self.embedding_model_version,
+            "embedding_dimension": self.embedding_dimension,
+        }
+        mismatches = tuple(
+            field for field, value in expected.items() if getattr(request, field) != value
+        )
+        if mismatches:
+            raise ValueError(
+                "Rule generation request identity does not match startup snapshot: "
+                + ", ".join(mismatches)
+            )
+        if request.corpus.value == "active":
+            return self.active_documents
+        return self.discovery_documents
 
 
 @dataclass(frozen=True, slots=True)
@@ -250,6 +292,8 @@ def _parse_result[
 
 
 __all__ = [
+    "RULE_GENERATION_VALIDATOR_ARTIFACT_DIGEST",
+    "ExactRuleGenerationDocumentResolver",
     "RuleGenerationBuildWorker",
     "RuleGenerationDocumentResolver",
     "RuleGenerationValidationWorker",

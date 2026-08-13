@@ -26,7 +26,7 @@ evaluation gates, and failed-query feedback loop.
 > manifest records `catalog.search_rules` as `runtime_binding_unavailable` and does not advertise it
 > to the planner. Production bootstrap now composes the durable adapter only when its active
 > generation exactly matches the current Rule catalog, semantic schema, ontology release, and
-> embedder dimension. Missing, stale, or inaccessible state remains an optional readiness
+> embedding space, model version, and dimension. Missing, stale, or inaccessible state remains an optional readiness
 > degradation and leaves the function unregistered. Reader-gated
 > `POST /rules/search` reads an Operator
 > Service projection; it does not directly invoke the Core function. Retrieval and function
@@ -34,6 +34,8 @@ evaluation gates, and failed-query feedback loop.
 > Validated generation-activation commands enter only through Mimir. A durable, lease-fenced
 > outbox publisher emits terminal results, and Mimir stores a projection-only receipt that grants
 > no index, policy, approval, mutation, or execution authority.
+> Production reconciliation loads exact governed documents, persists a replay-identical request,
+> and binds Heimdall's independent receipt before Mimir publishes activation.
 > Reproduced retrieval-owned failures flow through Huginn ingress, Heimdall validation, Saga audit,
 > and Muninn context materialization. Norns then persists an inert challenger with shadow audit
 > before ordinary consensus and Mimir intake.
@@ -59,7 +61,7 @@ evaluation gates, and failed-query feedback loop.
 | Corpus-scale generation identity | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; focused generation and Rule-catalog tests | Provider-neutral metadata carries count, hierarchical root, bounded ordered chunks, and small-generation inline digests. Generation construction, validation receipts, staging, activation, active lookup, search, rollback, and rollback receipts reject identity drift. |
 | Durable PostgreSQL index | implemented | `delivery/catalog_search/postgres.py`; migrations `0077` and `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | Persists and revalidates exact generation manifests, atomically stages, activates, searches, and rolls back corpus-local generations, and proves lifecycle isolation for all 62 active and 8,487 discovery documents against PostgreSQL. |
 | Independent generation snapshot | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/postgres.py`; focused unit and live PostgreSQL lifecycle checks | Exposes exact staged metadata and canonical ordered rows through a read-only snapshot. Both adapters reject lifecycle, row identity, content hash, order, count, or manifest drift without granting validation, promotion, or execution authority. |
-| Production generation build worker | in-progress | `delivery/catalog_search/rule_generation.py`; `delivery/catalog_search/rule_generation_worker.py`; `agents/mimir.py`; `agents/heimdall.py`; focused worker and Pantheon checks | Durable workers and owned Pantheon topics carry exact build and independent validation results with stable replay and no activation authority. The production catalog resolver, reconciliation trigger, and activation-command publication remain open. |
+| Production generation reconciliation | implemented | `runtime/rule_generation_documents.py`; `delivery/catalog_search/rule_generation_worker.py`; `agents/mimir.py`; `agents/heimdall.py`; focused worker, runtime, activation, and bootstrap checks | Startup freezes strict promoted-surface documents and persists one replay-identical request when the active generation is absent, stale, or inaccessible. Mimir and Heimdall carry build and validation through owned topics; exact receipt binding precedes activation-command publication. |
 | Governed generation activation | implemented | `core/rule_semantic_generation/activation.py`; `core/rule_semantic_generation/ledger.py`; provider and delivery activation contracts; focused activation and live PostgreSQL checks | Activation binds the exact target digest and validation receipt to the expected prior active identity inside the mutation boundary. Completed-command replay returns the durable terminal result before provider access, and the first result and pending outbox record commit atomically. |
 | Durable activation publication and projection | implemented | `core/rule_semantic_generation/publication.py`; `agents/mimir.py`; `agents/_framework/runtime.py`; `runtime/bootstrap.py`; focused publication, Mimir, runtime, and bootstrap checks | A timeout-bounded, lease-fenced publisher drains terminal results independently of semantic-index readiness. Mimir alone consumes activation commands and projects terminal results without gaining index or execution authority. Production composition shares one durable ledger between the binder and publisher. |
 | Production bootstrap binding | implemented | `runtime/bootstrap.py`; `runtime/bootstrap_lifecycle.py`; `composition/wire_semantic_query.py`; `tests/runtime/test_catalog_semantic_bootstrap.py`; focused bootstrap and composition checks (`46 passed`) | Startup binds only an exact active generation. Missing, stale, inaccessible, or unavailable state produces a stable optional-readiness reason and leaves Rule search unregistered. Governed live evidence remains open. |
@@ -94,6 +96,7 @@ evaluation gates, and failed-query feedback loop.
 | 2026-08-13 | implemented | Added the read-only staged-generation snapshot required for independent Heimdall validation. In-memory and PostgreSQL adapters reload and verify exact ordered rows against the bounded manifest before returning them. | `current change`; focused unit checks passed 19 tests, the local PostgreSQL lifecycle check passed, Ruff passed, and strict mypy passed the three production modules. | Bind the Mimir builder and Heimdall validator subscribers, then retain governed live evidence. |
 | 2026-08-13 | in-progress | Added durable mechanical build and independent validation worker primitives. Atomic first-result persistence returns one stable event across concurrent delivery and restart; provider failures remain retryable, and missing or invalid staged snapshots close as validation-only failures. | `current change`; focused worker checks passed 5 tests, combined worker, event-contract, and activation checks passed 19 tests, Ruff passed, and strict mypy passed. | Bind Mimir and Heimdall through owned topics, add the production reconciliation trigger, and retain governed live evidence. |
 | 2026-08-13 | in-progress | Wired Mimir-owned build request/result topics to the durable builder and Heimdall-owned independent validation to its existing RetrievalValidation topic. Mimir stores validation evidence as a no-authority projection, and Muninn does not convert it into retrieval-failure feedback. | `current change`; focused Pantheon ownership, parity, handler, and runtime checks passed 221 tests; exact chain and forged/unbound checks passed; Ruff and strict mypy passed. | Add the production catalog resolver and reconciliation trigger, then publish the exact activation command after independent evidence. |
+| 2026-08-13 | implemented | Completed production generation reconciliation with endpoint-binding-derived embedding identity, strict promoted-surface document loading, replay-identical request persistence, exact staged-receipt binding, and Mimir-owned activation-command publication after Heimdall validation. Query binding now also rejects active generations from another embedding space or model version. | `current change`; `rule_generation_documents.py`, semantic-index adapters, `mimir.py`, `activation.py`, and focused document, worker, runtime, activation, and bootstrap checks. | Record governed live build, validation, activation, and Reader-scoped projection evidence before changing this capability to `validated`. |
 
 ### Remaining work
 
@@ -118,12 +121,11 @@ evaluation gates, and failed-query feedback loop.
 - [x] Core publishes the exact validated function-invocation receipt and canonical digest into the
   Operator projection. `POST /rules/search` reads the strict receipt-backed projection without a
   direct Core call and preserves the [query lifecycle](#query-lifecycle).
-- [ ] Bind a Mimir-owned mechanical subscriber to `RuleGenerationBuildRequestEvent`. It must build
-  and stage one exact inactive generation, then publish its bounded build result through the event
-  bus. Bind Heimdall as the independent validator: it reads an immutable validation snapshot from
-  the staged generation, recomputes every identity, and publishes validation-only evidence. Prove
-  duplicate delivery, restart, provider-failure, and stale-identity handling without granting
-  promotion or execution authority.
+- [x] Production startup binds Mimir and Heimdall workers, creates one replay-identical
+  `RuleGenerationBuildRequestEvent` when reconciliation is due, loads exact governed documents,
+  binds the independent receipt atomically, and publishes the Mimir-owned activation command.
+  Focused duplicate, restart, provider-failure, stale-identity, and terminal activation checks pass
+  without granting policy or execution authority.
 - [ ] Record governed live evidence for the production binding and Reader-scoped projection before
   changing this capability from `implemented` to `validated`; retain the identities defined by
   [CatalogRetrievalReceipt](#catalogretrievalreceipt).

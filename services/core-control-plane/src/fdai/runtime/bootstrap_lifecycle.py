@@ -19,7 +19,13 @@ from fdai_core_service.semantic_turn_consumer import (
     semantic_turn_binding_from_config,
 )
 
-from fdai.agents import Saga, SemanticRouterConfig, StateStoreAuditChainAdapter
+from fdai.agents import (
+    PantheonRuntime,
+    Saga,
+    SemanticRouterConfig,
+    StateStoreAuditChainAdapter,
+    request_rule_generation,
+)
 from fdai.agents.vidar import RollbackExecutor
 from fdai.core.control_loop import ControlLoop
 from fdai.core.executor import MutationDependencyReadiness
@@ -44,6 +50,9 @@ from fdai.delivery.reconciliation_runtime import EffectReconciliationWorker
 from fdai.rule_catalog.schema.catalog_search import (
     catalog_search_schema_digest,
     rule_reference_catalog_digest,
+)
+from fdai.rule_catalog.schema.rule_semantic_generation_events import (
+    RuleGenerationBuildRequestEvent,
 )
 from fdai.runtime.health import RuntimeHealthServer
 from fdai.runtime.readiness import StartupReadinessRuntime
@@ -127,23 +136,42 @@ async def build_catalog_semantic_runtime_binding(
         ),
         embedder=embedder,
     )
+    catalog_digest = rule_reference_catalog_digest(rules)
+    embedding_space_id = getattr(embedder, "embedding_space_id", None)
+    embedding_model_version = getattr(embedder, "embedding_model_version", None)
     try:
         generation = await index.active_generation("active")
     except Exception:  # noqa: BLE001 - optional provider details stay outside readiness
-        return _catalog_semantic_unavailable("catalog_semantic_generation_inaccessible")
+        return _catalog_semantic_unavailable(
+            "catalog_semantic_generation_inaccessible",
+            index=index,
+            catalog_digest=catalog_digest,
+        )
     if generation is None:
-        return _catalog_semantic_unavailable("catalog_semantic_generation_unavailable")
+        return _catalog_semantic_unavailable(
+            "catalog_semantic_generation_unavailable",
+            index=index,
+            catalog_digest=catalog_digest,
+        )
 
-    catalog_digest = rule_reference_catalog_digest(rules)
     if (
         generation.corpus != "active"
         or generation.state != "active"
         or generation.catalog_digest != catalog_digest
         or generation.semantic_schema_digest != catalog_search_schema_digest()
         or generation.ontology_release_digest != ontology_release.digest
+        or not isinstance(embedding_space_id, str)
+        or generation.embedding_space_id != embedding_space_id
+        or not isinstance(embedding_model_version, str)
+        or generation.embedding_model_version != embedding_model_version
         or generation.embedding_dimension != embedder.dim
     ):
-        return _catalog_semantic_unavailable("catalog_semantic_generation_stale")
+        return _catalog_semantic_unavailable(
+            "catalog_semantic_generation_stale",
+            index=index,
+            catalog_digest=catalog_digest,
+            generation=generation,
+        )
     return CatalogSemanticRuntimeBinding(
         index=index,
         catalog_digest=catalog_digest,
@@ -171,11 +199,17 @@ def catalog_semantic_readiness_registration(
     )
 
 
-def _catalog_semantic_unavailable(reason: str) -> CatalogSemanticRuntimeBinding:
+def _catalog_semantic_unavailable(
+    reason: str,
+    *,
+    index: CatalogSemanticIndex | None = None,
+    catalog_digest: str | None = None,
+    generation: CatalogGenerationMetadata | None = None,
+) -> CatalogSemanticRuntimeBinding:
     return CatalogSemanticRuntimeBinding(
-        index=None,
-        catalog_digest=None,
-        generation=None,
+        index=index,
+        catalog_digest=catalog_digest,
+        generation=generation,
         unavailable_reason=reason,
     )
 
@@ -319,6 +353,35 @@ async def supervise_runtime_tasks(
         task.cancel()
     await asyncio.gather(*tracked, return_exceptions=True)
     raise_required_task_failure(done)
+
+
+async def publish_rule_generation_reconciliation(
+    *,
+    runtime: PantheonRuntime,
+    request: RuleGenerationBuildRequestEvent,
+    stop: asyncio.Event,
+    retry_interval_seconds: float = 5.0,
+) -> None:
+    """Retry one durable startup request without coupling it to primary availability."""
+
+    if retry_interval_seconds <= 0:
+        raise ValueError("Rule generation reconciliation retry interval MUST be positive")
+    while not stop.is_set():
+        try:
+            await request_rule_generation(runtime, request)
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - optional reconciliation retries the exact request
+            _LOGGER.exception(
+                "rule_generation_reconciliation_publish_failed",
+                extra={"generation_request_id": request.generation_request_id},
+            )
+        try:
+            async with asyncio.timeout(retry_interval_seconds):
+                await stop.wait()
+        except TimeoutError:
+            continue
 
 
 async def run_effect_reconciliation(

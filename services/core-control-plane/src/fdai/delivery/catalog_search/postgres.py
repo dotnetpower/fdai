@@ -175,10 +175,62 @@ class PostgresCatalogSemanticIndex(CatalogSemanticIndex):
                     "catalog generation disappeared during validation snapshot"
                 )
             metadata, documents = loaded
+            if metadata.state != "staged":
+                raise ValueError("only staged catalog generations can be validated")
             return CatalogGenerationValidationSnapshot(
                 metadata=metadata,
                 documents=documents,
             )
+
+    async def bind_generation_validation(
+        self,
+        generation_id: str,
+        *,
+        expected_generation_digest: str,
+        validation_receipt_digest: str,
+    ) -> CatalogGenerationMetadata:
+        async with await self._connect() as connection, connection.transaction():
+            await self._set_session_knobs(connection)
+            corpus = await self._generation_corpus(connection, generation_id)
+            await _lock_corpus(connection, corpus)
+            loaded = await self._load_generation(connection, generation_id, for_update=True)
+            if loaded is None:
+                raise ValueError("catalog generation is unavailable")
+            metadata, _documents = loaded
+            if metadata.generation_digest != expected_generation_digest:
+                raise ValueError("catalog generation digest mismatch")
+            bound_metadata = replace(
+                metadata,
+                validation_receipt_digest=validation_receipt_digest,
+            )
+            prior = metadata.validation_receipt_digest
+            if prior is not None and prior != validation_receipt_digest:
+                raise ValueError("catalog generation validation receipt conflict")
+            if prior == validation_receipt_digest:
+                return metadata
+            if metadata.state != "staged":
+                raise ValueError("only staged catalog generations can bind validation")
+            await connection.execute(
+                "UPDATE catalog_search_generation SET validation_receipt_digest=%s "
+                "WHERE generation_id=%s AND generation_digest=%s "
+                "AND validation_receipt_digest IS NULL",
+                (
+                    bound_metadata.validation_receipt_digest,
+                    generation_id,
+                    expected_generation_digest,
+                ),
+            )
+            rebound = await self._load_generation(connection, generation_id, for_update=True)
+            if rebound is None:
+                raise CatalogGenerationStaleError(
+                    "catalog generation disappeared while binding validation"
+                )
+            rebound_metadata, _rebound_documents = rebound
+            if rebound_metadata.validation_receipt_digest != validation_receipt_digest:
+                raise CatalogGenerationStaleError(
+                    "catalog generation validation binding did not persist"
+                )
+            return rebound_metadata
 
     async def activate_generation(
         self,

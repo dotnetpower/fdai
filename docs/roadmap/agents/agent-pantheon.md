@@ -28,26 +28,25 @@ Consumers of this document:
 ## Implementation status
 
 ### Implementation scope
-
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Fixed registry, roles, and package boundary | implemented | [`pantheon.py`](../../../services/core-control-plane/src/fdai/agents/_framework/pantheon.py), [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py) | The fixed 15 names, catalog layers, ownership, and public package boundary are machine-checked. |
 | Typed pub/sub ownership and concurrent runtime | implemented | [`topics.py`](../../../services/core-control-plane/src/fdai/agents/_framework/topics.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py), [`test_pantheon_concurrency_proof.py`](../../../services/core-control-plane/tests/agents/test_pantheon_concurrency_proof.py) | Focused tests cover topic ownership, partitioning, all 15 consumer identities, and non-stealing fan-out. |
 | Mimir Rule generation accountability | implemented | [`mimir.py`](../../../services/core-control-plane/src/fdai/agents/mimir.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py) | Mimir alone receives activation commands and terminal results. It delegates exact activation to the injected binder and stores projection-only receipts without index, policy, approval, mutation, or execution authority. |
-| Rule generation build and validation chain | in-progress | `PANTHEON_SPECS`; `mimir.py`; `heimdall.py`; focused ownership and runtime tests (`221 passed`) | Mimir owns build requests and bounded build results. Heimdall independently produces validation-only evidence through its existing RetrievalValidation authority, and Mimir stores only a no-authority projection. The production trigger and activation-command publication remain open. |
+| Rule generation build, validation, and activation chain | implemented | `mimir.py`; `heimdall.py`; `runtime.py`; `runtime/rule_generation_documents.py`; focused worker, runtime, activation, and bootstrap checks | Production startup freezes strict promoted-surface documents, persists a replay-identical reconciliation request, and routes it through Mimir and Heimdall. Mimir binds the exact independent receipt before publishing activation without gaining policy or execution authority. Governed live evidence remains open. |
 | Judgment, approval, execution, audit, and recovery separation | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py) | Synthetic runtime tests exercise the separated lifecycle and durable ActionRun behavior; they do not prove a live production outcome. |
 | Conversational and handoff mechanics | implemented | [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | The bounded read-only conversation path and shadow workflow traces are executable in focused tests. |
 | KPI evidence states, promotion checks, and degradation drills | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | Missing or unmeasured KPI evidence fails promotion closed, and injected failures exercise declared degradation behavior. |
 | Live operational KPI validation and enforce promotion | not-started | [Goals and Metrics](../architecture/goals-and-metrics.md) | No retained live-shadow cohort, operational KPI receipt set, independent promotion review, or actual pantheon enforce promotion is evidenced here. |
 
 ### Implementation history
-
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted an evidence-bounded implementation ledger without reconstructing earlier delivery history. | current change | Collect live operational evidence and complete an independently reviewed promotion before claiming validation or enforce use. |
 | 2026-08-13 | implemented | Bound validated Rule generation command ingress and terminal-result accountability to Mimir without widening its authority. | `current change`; focused Mimir, runtime, bootstrap, activation, and publication checks passed 32 cases. | Retain a governed live activation-result receipt before claiming operational validation. |
 | 2026-08-13 | implemented | Extracted private Rule-generation subscription wiring to restore the runtime module's framework-layout boundary without changing topics, ownership, or authority. | [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py); framework layout, runtime, and pantheon parity checks passed. | Retain the same governed live evidence required by the implementation scope. |
 | 2026-08-13 | in-progress | Assigned the pre-activation build chain to Mimir and independent generation validation to Heimdall without granting either agent activation or execution authority. | `current change`; focused ownership, handler, parity, and runtime wiring checks passed 221 tests; the exact chain and forged/unbound checks passed. | Add the production catalog-reconciliation trigger and Mimir activation-command publication. |
+| 2026-08-13 | implemented | Completed the production Rule generation chain with authoritative embedding identity, strict startup document snapshots, replay-identical reconciliation requests, exact staged-receipt binding, and Mimir-owned activation-command publication after Heimdall validation. | `current change`; `rule_generation_documents.py`, `mimir.py`, `activation.py`, semantic-index adapters, and focused worker, runtime, activation, and bootstrap checks. | Retain governed live build, validation, activation, and projection receipts before claiming operational validation. |
 
 ### Remaining work
 
@@ -55,8 +54,8 @@ Consumers of this document:
   confidence intervals, guard metrics, and authoritative outcome receipts on one pinned revision.
 - [ ] Demonstrate the declared degradation behavior against operational dependencies rather than
   only injected failures, without widening any agent's authority.
-- [ ] Complete the Rule generation chain with a production catalog-reconciliation trigger and
-  Mimir-owned activation-command publication after exact Heimdall evidence.
+- [x] Complete the Rule generation chain with a production trigger, exact Heimdall receipt binding,
+  and Mimir-owned activation publication; focused checks reach `activated` without added authority.
 - [ ] Complete an independent promotion review for each eligible capability and retain the
   authoritative promotion receipt before reporting enforce operation.
 

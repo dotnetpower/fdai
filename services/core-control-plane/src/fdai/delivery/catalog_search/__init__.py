@@ -10,12 +10,16 @@ from .generation import (
 )
 from .in_memory import InMemoryCatalogSemanticIndex
 from .rule_generation_worker import (
+    RULE_GENERATION_VALIDATOR_ARTIFACT_DIGEST,
+    ExactRuleGenerationDocumentResolver,
     RuleGenerationBuildWorker,
     RuleGenerationDocumentResolver,
     RuleGenerationValidationWorker,
 )
 
 __all__ = [
+    "RULE_GENERATION_VALIDATOR_ARTIFACT_DIGEST",
+    "ExactRuleGenerationDocumentResolver",
     "InMemoryCatalogSemanticIndex",
     "RuleGenerationBuildWorker",
     "RuleGenerationDocumentResolver",

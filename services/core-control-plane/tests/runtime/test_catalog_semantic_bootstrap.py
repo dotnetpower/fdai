@@ -27,6 +27,8 @@ VALIDATION_DIGEST = "sha256:" + ("d" * 64)
 
 class _Embedder:
     dim = 384
+    embedding_space_id = "catalog-active-v1"
+    embedding_model_version = "embedding-v1"
 
     async def embed(self, text: str) -> tuple[float, ...]:
         return (float(bool(text)),) * self.dim
@@ -46,14 +48,18 @@ class _Index:
         return self.active
 
 
-def _generation(*, ontology_release_digest: str = DIGEST_B) -> CatalogGenerationMetadata:
+def _generation(
+    *,
+    ontology_release_digest: str = DIGEST_B,
+    embedding_space_id: str = "catalog-active-v1",
+) -> CatalogGenerationMetadata:
     manifest = build_document_digest_manifest((DOCUMENT_DIGEST,))
     generation_digest = catalog_generation_digest(
         corpus="active",
         catalog_digest=DIGEST_A,
         semantic_schema_digest=catalog_search_schema_digest(),
         ontology_release_digest=ontology_release_digest,
-        embedding_space_id="catalog-active-v1",
+        embedding_space_id=embedding_space_id,
         embedding_model_version="embedding-v1",
         embedding_dimension=384,
         document_digest_manifest=manifest,
@@ -65,7 +71,7 @@ def _generation(*, ontology_release_digest: str = DIGEST_B) -> CatalogGeneration
         catalog_digest=DIGEST_A,
         semantic_schema_digest=catalog_search_schema_digest(),
         ontology_release_digest=ontology_release_digest,
-        embedding_space_id="catalog-active-v1",
+        embedding_space_id=embedding_space_id,
         embedding_model_version="embedding-v1",
         embedding_dimension=384,
         document_digest_manifest=manifest,
@@ -106,6 +112,10 @@ async def test_catalog_semantic_binding_accepts_only_exact_active_generation() -
             _generation(ontology_release_digest=DIGEST_A),
             "catalog_semantic_generation_stale",
         ),
+        (
+            _generation(embedding_space_id="another-embedding-space"),
+            "catalog_semantic_generation_stale",
+        ),
     ),
 )
 async def test_catalog_semantic_binding_degrades_missing_or_stale_generation(
@@ -123,6 +133,9 @@ async def test_catalog_semantic_binding_degrades_missing_or_stale_generation(
 
     assert binding.available is False
     assert binding.unavailable_reason == reason
+    assert binding.index is not None
+    assert binding.catalog_digest == DIGEST_A
+    assert binding.generation == generation
 
 
 async def test_catalog_semantic_binding_hides_provider_failure_details() -> None:
@@ -136,6 +149,8 @@ async def test_catalog_semantic_binding_hides_provider_failure_details() -> None
     )
 
     assert binding.unavailable_reason == "catalog_semantic_generation_inaccessible"
+    assert binding.index is not None
+    assert binding.catalog_digest == DIGEST_A
 
 
 async def test_catalog_semantic_binding_degrades_without_ontology_release() -> None:

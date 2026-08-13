@@ -17,6 +17,7 @@ from datetime import UTC, datetime, timedelta
 from typing import cast
 
 import pytest
+from fdai.agents import request_rule_generation
 from fdai.agents._framework.bus_bridge import EventBusBridge
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
@@ -51,7 +52,9 @@ from fdai.delivery.catalog_search import (
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidate
 from fdai.rule_catalog.schema.rule_semantic_generation_events import (
     RULE_GENERATION_BUILD_REQUEST_TOPIC,
+    RuleGenerationActivationStatus,
     RuleGenerationBuildRequestEvent,
+    RuleGenerationValidationResultEvent,
 )
 from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus
 from fdai.runtime.bootstrap_bindings import build_rule_generation_runtime_binding
@@ -290,16 +293,24 @@ async def test_rule_generation_build_and_validation_flow_through_owned_topics() 
             clock=lambda: datetime(2026, 8, 13, 0, 0, 2, tzinfo=UTC),
         ),
     )
+    activation = build_rule_generation_runtime_binding(
+        state_store=state_store,
+        event_bus=event_bus,
+        catalog_index=index,
+        environment={"HOSTNAME": "test-runtime"},
+    )
     runtime = PantheonRuntime.build(
         provider=event_bus,
         raw_event_topic=_RAW_TOPIC,
         rule_generation_workers=workers,
+        rule_generation_activation_binder=activation.activation_binder,
         rule_generation_state_store=state_store,
     )
     mimir = runtime.agents["Mimir"]
     assert isinstance(mimir, Mimir)
 
-    await mimir.request_rule_generation(_build_request())
+    await request_rule_generation(runtime, _build_request())
+    await runtime.run()
     await runtime.run()
     await runtime.run()
     await runtime.run()
@@ -312,7 +323,17 @@ async def test_rule_generation_build_and_validation_flow_through_owned_topics() 
     assert validation_states[0]["valid"] is True
     assert validation_states[0]["projection_only"] is True
     assert validation_states[0]["grants_execution_authority"] is False
-    assert index.activation_attempts == 0
+    assert index.activation_attempts == 1
+    published = await activation.outbox_publisher.publish_pending_once()
+    assert published is not None
+    assert published.status is RuleGenerationActivationStatus.ACTIVATED
+    await runtime.run()
+    activation_states = await state_store.read_states(
+        "mimir:rule-generation-activation-result:",
+        limit=10,
+    )
+    assert len(activation_states) == 1
+    assert activation_states[0]["generation_id"] == validation_states[0]["generation_id"]
     muninn = runtime.agents["Muninn"]
     assert isinstance(muninn, Muninn)
     assert muninn.behavior_snapshot()["rule_generation_validation:observed"] == 1
@@ -340,6 +361,24 @@ async def test_rule_generation_handlers_fail_closed_on_forged_or_unbound_deliver
             "object.rule-generation-build-result",
             result_payload,
         )
+
+    invalid = RuleGenerationValidationResultEvent.create_invalid(
+        build_result=build_result,
+        validator_artifact_digest=_VALIDATOR_DIGEST,
+        failure_reason="generation_validation_failed",
+        validated_at=datetime(2026, 8, 13, 0, 0, 2, tzinfo=UTC),
+    )
+    invalid_payload = invalid.model_dump(mode="json")
+    invalid_payload["producer_principal"] = "Heimdall"
+    mimir = Mimir()
+    mimir.bind_rule_generation_state_store(state_store)
+    await mimir.on_typed_message("object.retrieval-validation", invalid_payload)
+    assert (
+        await state_store.read_state(
+            f"mimir:rule-generation-activation-command:{invalid.idempotency_key}"
+        )
+        is None
+    )
 
 
 def test_forecast_findings_route_to_forseti_judgment() -> None:

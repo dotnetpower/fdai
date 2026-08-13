@@ -109,7 +109,7 @@ def build_rule_generation_runtime_binding(
 
     ledger = StateStoreRuleGenerationOutboxLedger(store=state_store)
     binder = (
-        RuleGenerationActivationBinder(index=catalog_index, ledger=ledger)
+        RuleGenerationActivationBinder(index=catalog_index, ledger=ledger, event_bus=event_bus)
         if catalog_index is not None
         else None
     )

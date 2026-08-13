@@ -54,6 +54,7 @@ from fdai.agents._framework.provider_adapters import (
 )
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
 from fdai.agents._framework.runtime import PantheonRuntime
+from fdai.agents._framework.runtime_subscriptions import RuleGenerationWorkerBindings
 from fdai.agents._framework.semantic_routing import SemanticRouterConfig
 from fdai.agents._framework.tool_planner import (
     MAX_TOOL_PLANS,
@@ -69,8 +70,25 @@ from fdai.agents._framework.topics import (
 from fdai.agents._framework.workflows import WORKFLOWS, WorkflowSpec
 from fdai.agents.bragi import Bragi
 from fdai.agents.heimdall import Heimdall
+from fdai.agents.mimir import Mimir
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
+from fdai.rule_catalog.schema.rule_semantic_generation_events import (
+    RuleGenerationBuildRequestEvent,
+)
+
+
+async def request_rule_generation(
+    runtime: PantheonRuntime,
+    request: RuleGenerationBuildRequestEvent,
+) -> None:
+    """Route one production reconciliation request through Mimir's typed port."""
+
+    mimir = runtime.agents.get("Mimir")
+    if not isinstance(mimir, Mimir):
+        raise RuntimeError("Mimir Rule generation ingress is unavailable")
+    await mimir.request_rule_generation(request)
+
 
 __all__ = [
     "Agent",
@@ -104,6 +122,7 @@ __all__ = [
     "PantheonBus",
     "PantheonRegistry",
     "PantheonRuntime",
+    "RuleGenerationWorkerBindings",
     "Saga",
     "SemanticRouterConfig",
     "ShadowDivergenceLedger",
@@ -112,6 +131,7 @@ __all__ = [
     "SynthesisOutcome",
     "T2ConversationSynthesizer",
     "plan_conversation_tools",
+    "request_rule_generation",
     "load_pantheon",
     "instantiate_pantheon",
     "PANTHEON_SPECS",

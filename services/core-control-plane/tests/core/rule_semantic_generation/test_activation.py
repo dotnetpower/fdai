@@ -7,6 +7,7 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 from fdai.core.rule_semantic_generation import (
+    RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
     RuleGenerationActivationBinder,
     StateStoreRuleGenerationOutboxLedger,
 )
@@ -21,6 +22,7 @@ from fdai.rule_catalog.schema.rule_semantic_generation_events import (
 )
 from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus
 from fdai.shared.providers.catalog_search import CatalogSearchDocument
+from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 NOW = datetime(2026, 8, 13, tzinfo=UTC)
@@ -110,6 +112,34 @@ async def test_first_activation_closes_exact_terminal_result() -> None:
         state="active",
         activated_at=NOW,
     )
+
+
+async def test_binder_reads_prior_identity_and_publishes_exact_command() -> None:
+    index = _CountingIndex()
+    command, metadata, documents = _command()
+    await index.stage_generation(metadata, documents)
+    bus = InMemoryEventBus()
+    binder = RuleGenerationActivationBinder(
+        index=index,
+        ledger=StateStoreRuleGenerationOutboxLedger(store=InMemoryStateStore()),
+        event_bus=bus,
+    )
+
+    assert await binder.active_generation_identity("active") is None
+    await binder.publish_command(command)
+
+    records = tuple(
+        [
+            envelope
+            async for envelope in bus.subscribe(
+                RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
+                "activation-command-assertions",
+            )
+        ]
+    )
+    assert len(records) == 1
+    assert records[0].key == command.validation_result.build_result.request.generation_request_id
+    assert RuleGenerationActivationCommandEvent.model_validate(records[0].payload) == command
 
 
 async def test_restart_replay_does_not_touch_provider_after_successor_activation() -> None:
