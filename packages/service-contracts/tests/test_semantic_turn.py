@@ -11,6 +11,7 @@ from fdai_service_contracts import (
     GoalTaskReceipt,
     RuleSearchProjection,
     RuleSearchReceipt,
+    SemanticTurnResult,
     query_content_digest,
     rule_search_query_digest,
 )
@@ -113,3 +114,46 @@ def test_rule_search_projection_rejects_non_function_invocation_receipts(
 
     with pytest.raises(ValidationError, match="completed query function"):
         RuleSearchProjection.model_validate(payload)
+
+
+def _semantic_result_payload() -> dict[str, Any]:
+    return {
+        "disposition": "held",
+        "reason_code": "semantic_runtime_unavailable",
+        "unavailable_reason": "semantic_planner_unavailable",
+        "session_id": "session-1",
+        "turn_id": "turn-1",
+        "turn_sequence": 1,
+        "execution_authority": False,
+    }
+
+
+def test_semantic_result_accepts_typed_unavailability() -> None:
+    result = SemanticTurnResult.model_validate(_semantic_result_payload())
+
+    assert result.semantic_route is None
+    assert result.unavailable_reason == "semantic_planner_unavailable"
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        lambda payload: payload.pop("unavailable_reason"),
+        lambda payload: payload.update({"semantic_route": "verified_query_plan"}),
+        lambda payload: payload.update(
+            {
+                "disposition": "unsupported",
+                "semantic_route": "semantic_clarification",
+            }
+        ),
+    ),
+    ids=("missing", "both", "route-mismatch"),
+)
+def test_semantic_result_rejects_ambiguous_terminal_routing(
+    mutation: Callable[[dict[str, Any]], object],
+) -> None:
+    payload = _semantic_result_payload()
+    mutation(payload)
+
+    with pytest.raises(ValidationError, match="semantic result"):
+        SemanticTurnResult.model_validate(payload)

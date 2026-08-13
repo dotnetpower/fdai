@@ -251,6 +251,11 @@ def _projection(
     result: dict[str, object] = {
         "disposition": disposition,
         "reason_code": "verified_answer" if disposition == "answered" else "runtime_held",
+        **(
+            {"semantic_route": "verified_query_plan"}
+            if disposition == "answered"
+            else {"unavailable_reason": "semantic_planner_unavailable"}
+        ),
         "session_id": semantic["session_id"],
         "turn_id": semantic["turn_id"],
         "turn_sequence": semantic["turn_sequence"],
@@ -981,6 +986,30 @@ async def test_valid_answered_result_projects_idempotently() -> None:
     assert first.duplicate is False
     assert duplicate.duplicate is True
     assert len(store.results) == 1
+
+
+def test_answered_done_exposes_exact_no_authority_semantic_receipt() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+
+    done = semantic_turn_runtime_module._done_event_data(projection)
+
+    semantic = cast(dict[str, object], projection["semantic_result"])
+    assert done["semantic_receipt"] == {
+        "schema_version": "1.0.0",
+        "projection_id": projection["projection_id"],
+        "request_id": projection["request_id"],
+        "disposition": "answered",
+        "reason_code": "verified_answer",
+        "semantic_route": "verified_query_plan",
+        "ontology_release_digest": semantic["ontology_release_digest"],
+        "principal_manifest_digest": semantic["principal_manifest_digest"],
+        "plan_digest": semantic["plan_digest"],
+        "execution_receipt_digest": semantic["execution_receipt_digest"],
+        "execution_authority": False,
+    }
 
 
 def test_legacy_semantic_result_without_answer_replays_as_unverified_limitation() -> None:

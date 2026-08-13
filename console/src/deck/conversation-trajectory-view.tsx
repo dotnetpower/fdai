@@ -291,6 +291,9 @@ function VerificationPhase({ trajectory, index, state }: {
           <dt>{t("deck.trajectory.authority")}</dt><dd><code>{verification.authority}</code></dd>
           <dt>{t("deck.trajectory.reason")}</dt><dd><code>{verification.reason_code ?? t("deck.trajectory.none")}</code></dd>
         </dl>
+        {trajectory.answer.semanticReceipt ? (
+          <SemanticReceiptFacts receipt={trajectory.answer.semanticReceipt} />
+        ) : null}
       </details>
           <ReferenceList refs={verification.evidence_refs} />
           {verification.claims?.length ? (
@@ -313,6 +316,35 @@ function VerificationPhase({ trajectory, index, state }: {
             </details>
           ) : null}
     </TrajectoryPhase>
+  );
+}
+
+function SemanticReceiptFacts({
+  receipt,
+}: {
+  readonly receipt: NonNullable<ConversationTrajectory["answer"]["semanticReceipt"]>;
+}) {
+  return (
+    <dl class="deck-trajectory-facts" data-testid="semantic-projection-receipt">
+      <dt>{t("deck.trajectory.projectionId")}</dt>
+      <dd data-testid="semantic-projection-id"><code>{receipt.projection_id}</code></dd>
+      <dt>{t("deck.trajectory.requestId")}</dt>
+      <dd data-testid="semantic-request-id"><code>{receipt.request_id}</code></dd>
+      <dt>{t("deck.trajectory.semanticRoute")}</dt>
+      <dd data-testid="semantic-route"><code>{receipt.semantic_route ?? t("deck.trajectory.none")}</code></dd>
+      <dt>{t("deck.trajectory.unavailableReason")}</dt>
+      <dd data-testid="semantic-unavailable-reason"><code>{receipt.unavailable_reason ?? t("deck.trajectory.none")}</code></dd>
+      <dt>{t("deck.trajectory.ontologyReleaseDigest")}</dt>
+      <dd data-testid="semantic-ontology-release-digest"><code>{receipt.ontology_release_digest ?? t("deck.trajectory.none")}</code></dd>
+      <dt>{t("deck.trajectory.principalManifestDigest")}</dt>
+      <dd data-testid="semantic-principal-manifest-digest"><code>{receipt.principal_manifest_digest ?? t("deck.trajectory.none")}</code></dd>
+      <dt>{t("deck.trajectory.planDigest")}</dt>
+      <dd data-testid="semantic-plan-digest"><code>{receipt.plan_digest ?? t("deck.trajectory.none")}</code></dd>
+      <dt>{t("deck.trajectory.executionReceiptDigest")}</dt>
+      <dd data-testid="semantic-execution-receipt-digest"><code>{receipt.execution_receipt_digest ?? t("deck.trajectory.none")}</code></dd>
+      <dt>{t("deck.trajectory.executionAuthority")}</dt>
+      <dd data-testid="semantic-execution-authority"><code>false</code></dd>
+    </dl>
   );
 }
 

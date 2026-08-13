@@ -32,11 +32,13 @@ import {
   type TurnTiming,
   type TrajectoryDetail,
   type ResourceContext,
+  type SemanticProjectionReceipt,
 } from "./backend";
 import {
   parseAnswerVerification,
   parseDelegation,
   parseResourceContext,
+  parseSemanticProjectionReceipt,
 } from "./backend-normalizers";
 import { parseTrajectoryDetail } from "./trajectory-detail";
 import { parseIntentGraph, parseIntentGraphEvidence } from "./intent-graph";
@@ -114,6 +116,7 @@ export interface PersistedTurn {
   readonly intentGraph?: import("./backend-types").IntentGraphMetadata;
   readonly intentGraphEvidence?: import("./backend-types").IntentGraphEvidence;
   readonly evidenceMode?: import("./backend-types").IntentEvidenceMode;
+  readonly semanticReceipt?: SemanticProjectionReceipt;
 }
 
 interface MaybeStreamingTurn extends PersistedTurn {
@@ -168,6 +171,7 @@ export function serializeTurns(
       const resourceContext = parseResourceContext(t.resourceContext);
       const intentGraph = parseIntentGraph(t.intentGraph);
       const intentGraphEvidence = parseIntentGraphEvidence(t.intentGraphEvidence);
+      const semanticReceipt = parseSemanticProjectionReceipt(t.semanticReceipt);
       const presentationArtifact = verification && t.presentationArtifact
         ? parsePresentationArtifact(
             presentationArtifactToWire(t.presentationArtifact),
@@ -207,6 +211,7 @@ export function serializeTurns(
           intentGraphEvidence,
           evidenceMode: intentGraphEvidence.evidence_mode,
         } : {}),
+        ...(semanticReceipt ? { semanticReceipt } : {}),
       };
     });
   let serialized = JSON.stringify(persisted);
@@ -270,6 +275,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const resourceContext = parseResourceContext(rec.resourceContext);
     const intentGraph = parseIntentGraph(rec.intentGraph);
     const intentGraphEvidence = parseIntentGraphEvidence(rec.intentGraphEvidence);
+    const semanticReceipt = parseSemanticProjectionReceipt(rec.semanticReceipt);
     const attachments = parseTurnAttachments(rec.attachments);
     const turn: PersistedTurn = {
       id: rec.id,
@@ -308,6 +314,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
         intentGraphEvidence,
         evidenceMode: intentGraphEvidence.evidence_mode,
       } : {}),
+      ...(semanticReceipt ? { semanticReceipt } : {}),
     };
     out.push(turn);
   }

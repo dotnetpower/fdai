@@ -47,6 +47,16 @@ _ROLE_MAP = {
     OperatorRole.APPROVER: Role.APPROVER,
     OperatorRole.OWNER: Role.OWNER,
 }
+_ROUTE_BY_DISPOSITION = {
+    "clarification": "semantic_clarification",
+    "unsupported": "semantic_unsupported",
+    "action_draft": "semantic_action_draft",
+    "cancelled": "semantic_cancellation",
+}
+_AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS = {
+    "semantic_evidence_held",
+    "semantic_evidence_incomplete",
+}
 
 
 class SemanticTurnRejectedError(ValueError):
@@ -572,6 +582,7 @@ def _project_runtime_result(
     return ContractSemanticTurnResult(
         disposition=SemanticTurnDisposition.ANSWERED,
         reason_code="semantic_answer_verified",
+        semantic_route="verified_query_plan",
         session_id=request.session_id,
         turn_id=request.turn_id,
         turn_sequence=request.turn_sequence,
@@ -721,9 +732,19 @@ def _terminal_result(
     disposition: str,
     reason_code: str,
 ) -> ContractSemanticTurnResult:
+    semantic_route = _ROUTE_BY_DISPOSITION.get(disposition)
+    unavailable_reason = None
+    if disposition == "held":
+        unavailable_reason = (
+            "authoritative_evidence_unavailable"
+            if reason_code in _AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS
+            else "semantic_planner_unavailable"
+        )
     return ContractSemanticTurnResult(
         disposition=SemanticTurnDisposition(disposition),
         reason_code=reason_code,
+        semantic_route=semantic_route,
+        unavailable_reason=unavailable_reason,
         session_id=request.session_id,
         turn_id=request.turn_id,
         turn_sequence=request.turn_sequence,

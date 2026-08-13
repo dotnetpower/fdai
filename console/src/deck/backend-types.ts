@@ -107,6 +107,21 @@ export interface AnswerVerification {
   readonly failed_claim_ids?: readonly string[];
 }
 
+export interface SemanticProjectionReceipt {
+  readonly schema_version: "1.0.0";
+  readonly projection_id: string;
+  readonly request_id: string;
+  readonly disposition: "answered" | "held" | "clarification" | "unsupported" | "action_draft" | "cancelled";
+  readonly reason_code: string;
+  readonly semantic_route?: "verified_query_plan" | "semantic_clarification" | "semantic_unsupported" | "semantic_action_draft" | "semantic_cancellation";
+  readonly unavailable_reason?: "authoritative_evidence_unavailable" | "historical_evidence_unavailable" | "semantic_planner_unavailable";
+  readonly ontology_release_digest?: string;
+  readonly principal_manifest_digest?: string;
+  readonly plan_digest?: string;
+  readonly execution_receipt_digest?: string;
+  readonly execution_authority: false;
+}
+
 export interface DelegationMetadata {
   readonly primary_agent: string;
   readonly contributors: readonly string[];
@@ -480,6 +495,7 @@ export type ProgressiveAnswer = Answer & {
   readonly intentGraph?: IntentGraphMetadata;
   readonly intentGraphEvidence?: IntentGraphEvidence;
   readonly evidenceMode?: IntentEvidenceMode;
+  readonly semanticReceipt?: SemanticProjectionReceipt;
   readonly incidentCandidates?: readonly IncidentCandidate[];
   readonly presentationArtifact?: PresentationArtifact;
 };

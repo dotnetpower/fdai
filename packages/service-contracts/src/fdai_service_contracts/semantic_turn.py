@@ -45,6 +45,28 @@ class SemanticTurnDisposition(StrEnum):
     CANCELLED = "cancelled"
 
 
+SemanticRoute = Literal[
+    "verified_query_plan",
+    "semantic_clarification",
+    "semantic_unsupported",
+    "semantic_action_draft",
+    "semantic_cancellation",
+]
+SemanticUnavailableReason = Literal[
+    "authoritative_evidence_unavailable",
+    "historical_evidence_unavailable",
+    "semantic_planner_unavailable",
+]
+
+_SEMANTIC_ROUTE_BY_DISPOSITION: dict[SemanticTurnDisposition, SemanticRoute] = {
+    SemanticTurnDisposition.ANSWERED: "verified_query_plan",
+    SemanticTurnDisposition.CLARIFICATION: "semantic_clarification",
+    SemanticTurnDisposition.UNSUPPORTED: "semantic_unsupported",
+    SemanticTurnDisposition.ACTION_DRAFT: "semantic_action_draft",
+    SemanticTurnDisposition.CANCELLED: "semantic_cancellation",
+}
+
+
 class SemanticTurnPrincipal(QueryContract):
     """Authenticated Operator identity and server-derived roles."""
 
@@ -87,6 +109,8 @@ class SemanticTurnResult(QueryContract):
 
     disposition: SemanticTurnDisposition
     reason_code: Annotated[str, Field(min_length=1, max_length=128, pattern=r"^[a-z0-9_]+$")]
+    semantic_route: SemanticRoute | None = None
+    unavailable_reason: SemanticUnavailableReason | None = None
     session_id: BoundedId
     turn_id: BoundedId
     turn_sequence: Annotated[int, Field(ge=0)]
@@ -104,6 +128,15 @@ class SemanticTurnResult(QueryContract):
 
     @model_validator(mode="after")
     def _evidence_is_consistent(self) -> SemanticTurnResult:
+        if (self.semantic_route is None) == (self.unavailable_reason is None):
+            raise ValueError(
+                "semantic result MUST carry one semantic route or typed unavailable reason"
+            )
+        expected_route = _SEMANTIC_ROUTE_BY_DISPOSITION.get(self.disposition)
+        if expected_route is not None and self.semantic_route != expected_route:
+            raise ValueError("semantic result route MUST match disposition")
+        if self.disposition is SemanticTurnDisposition.HELD and self.unavailable_reason is None:
+            raise ValueError("held semantic result MUST carry a typed unavailable reason")
         if self.checks_completed > self.checks_total:
             raise ValueError("semantic checks_completed MUST NOT exceed checks_total")
         if len(self.evidence_refs) != len(set(self.evidence_refs)):

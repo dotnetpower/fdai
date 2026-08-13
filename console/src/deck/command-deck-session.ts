@@ -13,6 +13,7 @@ import type {
   ProgressiveAnswer,
   ResourceContext,
   RouterSnapshot,
+  SemanticProjectionReceipt,
 } from "./backend";
 import {
   parseAnswerPlan,
@@ -27,6 +28,7 @@ import {
   parseEvidenceFreshnessContext,
   parseResourceContext,
   parseRouter,
+  parseSemanticProjectionReceipt,
 } from "./backend-normalizers";
 import { parseTrajectoryDetail } from "./trajectory-detail";
 import { parsePresentationArtifact } from "./presentation-artifact";
@@ -57,6 +59,7 @@ export interface RestoredTurn {
   readonly resourceContext?: ResourceContext;
   readonly evidenceFreshnessContext?: EvidenceFreshnessContext;
   readonly presentationArtifact?: PresentationArtifact;
+  readonly semanticReceipt?: SemanticProjectionReceipt;
 }
 
 export type DeckLayoutMode = "floating" | "dock" | "workspace";
@@ -95,6 +98,7 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
     replay?.presentation_artifact,
     verification,
   );
+  const semanticReceipt = parseSemanticProjectionReceipt(replay?.semantic_receipt);
   const source = turn.metadata.source ?? replaySource(replay) ??
     (turn.role === "assistant" ? "history" : undefined);
   const agent = turn.metadata.agent ?? delegation?.primary_agent;
@@ -124,6 +128,7 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
     ...(resourceContext ? { resourceContext } : {}),
     ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),
     ...(presentationArtifact ? { presentationArtifact } : {}),
+    ...(semanticReceipt ? { semanticReceipt } : {}),
   };
 }
 

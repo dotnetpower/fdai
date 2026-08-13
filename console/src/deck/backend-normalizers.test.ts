@@ -1,5 +1,67 @@
 import { describe, expect, it } from "vitest";
-import { parseAnswerVerification, parseDelegation, tokenSuffix } from "./backend-normalizers";
+import {
+  parseAnswerVerification,
+  parseDelegation,
+  parseSemanticProjectionReceipt,
+  tokenSuffix,
+} from "./backend-normalizers";
+
+const PROJECTION_ID = `00000000-0000-4000-8000-${"0".repeat(12)}`;
+const REQUEST_ID = `00000000-0000-4000-8000-${"0".repeat(11)}1`;
+const DIGEST = `sha256:${"a".repeat(64)}`;
+
+function semanticReceipt(overrides: Record<string, unknown> = {}) {
+  return {
+    schema_version: "1.0.0",
+    projection_id: PROJECTION_ID,
+    request_id: REQUEST_ID,
+    disposition: "answered",
+    reason_code: "verified_answer",
+    semantic_route: "verified_query_plan",
+    ontology_release_digest: DIGEST,
+    principal_manifest_digest: DIGEST,
+    plan_digest: DIGEST,
+    execution_receipt_digest: DIGEST,
+    execution_authority: false,
+    ...overrides,
+  };
+}
+
+describe("parseSemanticProjectionReceipt", () => {
+  it("keeps exact evidence identity without action authority", () => {
+    expect(parseSemanticProjectionReceipt(semanticReceipt())).toEqual(semanticReceipt());
+  });
+
+  it.each([
+    { projection_id: "not-a-uuid" },
+    { request_id: "request-1" },
+    { ontology_release_digest: "sha256:bad" },
+    { execution_receipt_digest: undefined },
+    { execution_authority: true },
+    { execution_authority: undefined },
+    { semantic_route: "semantic_clarification" },
+    { semantic_route: undefined },
+    { unavailable_reason: "semantic_planner_unavailable" },
+  ])("rejects malformed or authority-bearing answered receipts: %o", (override) => {
+    expect(parseSemanticProjectionReceipt(semanticReceipt(override))).toBeUndefined();
+  });
+
+  it("accepts only typed unavailability for held receipts", () => {
+    const held = semanticReceipt({
+      disposition: "held",
+      semantic_route: undefined,
+      unavailable_reason: "authoritative_evidence_unavailable",
+      ontology_release_digest: undefined,
+      principal_manifest_digest: undefined,
+      plan_digest: undefined,
+      execution_receipt_digest: undefined,
+    });
+
+    expect(parseSemanticProjectionReceipt(held)).toEqual(held);
+    expect(parseSemanticProjectionReceipt({ ...held, unavailable_reason: "runtime_failed" }))
+      .toBeUndefined();
+  });
+});
 
 function claim(overrides: Record<string, unknown> = {}) {
   return {

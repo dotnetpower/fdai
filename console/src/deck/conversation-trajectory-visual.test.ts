@@ -45,4 +45,15 @@ describe("observed trajectory typography", () => {
     expect(reply).not.toContain('class="deck-gr-review-status"');
     expect(reply).not.toContain("conversation-trajectory-results.css");
   });
+
+  test("exposes the exact semantic receipt in verification technical details", () => {
+    expect(source).toContain('data-testid="semantic-projection-receipt"');
+    expect(source).toContain('data-testid="semantic-projection-id"');
+    expect(source).toContain('data-testid="semantic-request-id"');
+    expect(source).toContain('data-testid="semantic-ontology-release-digest"');
+    expect(source).toContain('data-testid="semantic-principal-manifest-digest"');
+    expect(source).toContain('data-testid="semantic-plan-digest"');
+    expect(source).toContain('data-testid="semantic-execution-receipt-digest"');
+    expect(source).toContain('data-testid="semantic-execution-authority"');
+  });
 });

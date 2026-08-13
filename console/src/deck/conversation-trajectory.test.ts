@@ -8,6 +8,32 @@ function turn(input: Partial<Turn> & Pick<Turn, "id" | "role" | "text">): Turn {
 }
 
 describe("conversationTrajectoriesByAnswer", () => {
+  it("retains the exact semantic receipt on the terminal answer", () => {
+    const question = turn({ id: "question-1", role: "operator", text: "Query ontology" });
+    const semanticReceipt = {
+      schema_version: "1.0.0" as const,
+      projection_id: `00000000-0000-4000-8000-${"0".repeat(12)}`,
+      request_id: `00000000-0000-4000-8000-${"0".repeat(11)}1`,
+      disposition: "answered" as const,
+      reason_code: "query_completed",
+      ontology_release_digest: `sha256:${"a".repeat(64)}`,
+      principal_manifest_digest: `sha256:${"b".repeat(64)}`,
+      plan_digest: `sha256:${"c".repeat(64)}`,
+      execution_receipt_digest: `sha256:${"d".repeat(64)}`,
+      execution_authority: false as const,
+    };
+    const answer = turn({
+      id: "answer-1",
+      role: "deck",
+      text: "Grounded answer",
+      terminal: true,
+      semanticReceipt,
+    });
+
+    expect(conversationTrajectoriesByAnswer([question, answer]).get(answer.id)?.answer)
+      .toMatchObject({ semanticReceipt });
+  });
+
   it("groups observed work between one question and its terminal answer", () => {
     const question = turn({
       id: "question-1",

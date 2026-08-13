@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: f00348dede19b1679cdaae39b20b2805435b15cc
+translation_source_sha: 65473d9015ac4946d9d8f5c3a5a6f9573c844ac1
 translation_revised: 2026-08-13
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -27,16 +27,19 @@ file-count 목표가 아닌 설명 기준이지만, executable 완전성 게이�
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 현재 상태 활동 projection 경계 | 구현됨 | `fdai_operator_service/activity_projection.py`, `test_activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | 영속 행은 hash된 correlation 참조를 요구하고 실제 운영 프레임과 같은 activity id를 사용하며, 중복 중 가장 최신 항목만 유지하고 `execution_authority=false`를 보존합니다. |
+| 통제된 의미 증적 표현 | 구현됨 | `console/src/deck/backend-normalizers.ts`, `backend-stream.ts`, `transcript-store.ts`, `conversation-trajectory-view.tsx`, focused Console 테스트 | Console은 최종 의미 증적을 안전하게 실패하도록 파싱하고 exact 타입 필드를 영속화 및 replay하며 경로, 사용 불가 사유, 보증 다이제스트, 근거 참조 및 실행 권한 없음 상태를 렌더링합니다. 인증된 브라우저 근거는 아직 확보하지 않았습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 영속/실시간 현재 상태 projection identity를 기록했습니다. | 현재 출처와 `test_activity_projection.py`, 통과한 focused projection 및 영속성 테스트 | 아래의 검토된 이행 계열로 report-only 의존성 debt를 줄입니다. |
+| 2026-08-13 | 진행 중 | Exact 타입 기반 의미 증적 파싱, 스트림 수집, 영속 replay, 표현 및 인증된 근거 실행기를 추가했습니다. | `current change`, 통과한 focused Console 테스트 및 typecheck | 통제된 요청-Console 및 이중 언어 무작위 보증 브라우저 경로를 실행하고 통과한 두 기록을 보존합니다. |
 
 ### 남은 작업
 
 - [ ] 각 report-only 역방향 의존성을 검토된 neutral 계약 또는 provider 경계 뒤로 이동하고 해당 방향을 강제하기 전에 일치하는 `.check-operator-api-boundaries.debt` 예산을 줄입니다.
+- [ ] 의미 증적 표현의 준비 상태를 선언하기 전에 인증된 요청-Console 및 이중 언어 무작위 보증 근거를 통과한 상태로 보존합니다.
 
 ### Dependency-direction 게이트
 
