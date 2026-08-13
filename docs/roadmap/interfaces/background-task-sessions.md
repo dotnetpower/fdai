@@ -159,6 +159,35 @@ atomic terminal-plus-outbox commit, eight-attempt delivery bounds, self-schedule
 purge predicates, live PostgreSQL migration and restart, immediate HTTP response, RBAC, cross-owner
 hiding, SSE completion, isolated backend inputs, and replay-idempotent conversation handoff.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Core records, quota, store, and coordinator logic | implemented | `services/core-control-plane/src/fdai/core/background_task/`; `services/core-control-plane/tests/core/background_task/` | The bounded records, state transitions, quota decisions, in-memory store, lease coordinator, retry scheduling, cancellation, and shutdown behavior have focused unit coverage. |
+| PostgreSQL task and completion persistence | in-progress | `alembic/versions/20260720_0040_background_task.py`; `alembic/versions/20260722_0051_background_task_completion.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task_completion.py`; `services/core-control-plane/tests/persistence/test_background_task.py` | The schema, task store, and completion outbox exist, but all focused live cases require `FDAI_DATABASE_URL` and were skipped in the current evidence pass. |
+| Production executor and coordinator composition | not-started | `services/core-control-plane/src/fdai/core/background_task/coordinator.py`; `services/core-control-plane/src/fdai/runtime/` | The executor is a protocol exercised with test doubles, and no production runtime composition starts the coordinator. |
+| Completion sink and durable conversation handoff | not-started | `services/core-control-plane/src/fdai/core/background_task/coordinator.py`; `services/core-control-plane/tests/core/background_task/test_coordinator.py` | Sink retries are modeled and tested with doubles, but no production sink appends the conversation turn or submits the durable reply. |
+| Operator API routes, projections, and progress stream | in-progress | `services/operator-service/src/fdai_operator_service/families/conversation/manifest.py`; `services/operator-service/src/fdai_operator_service/families/conversation/factory.py`; `services/operator-service/tests/test_operator_conversation_family.py` | Route declarations and generic proposal/read forwarding exist; authoritative list, detail, progress, cancellation, and SSE materializers are not implemented. |
+| FDAI Console task controls | not-started | `console/src` | No source client currently creates, lists, inspects, streams, or cancels a background task. |
+| Audit, telemetry, and operational evidence | in-progress | `services/core-control-plane/src/fdai/core/background_task/service.py` | Create and cancel audit calls exist behind a protocol, but no production audit binding, runtime telemetry, restart receipt, or governed delivery evidence was found. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | Current change in this owner pair; focused core, PostgreSQL, and Operator API checks listed in the scope table. | Wire the executor, coordinator, completion sink, API materializers, Console controls, live persistence checks, and governed operational evidence. |
+
+### Remaining work
+
+- [ ] Run all focused PostgreSQL cases against the supported local service and record passing claim, lease, quota, outbox, reconciliation, retry, restart, and purge evidence with no skipped cases.
+- [ ] Implement the production read-only executor and compose `BackgroundTaskCoordinator` into the runtime with bounded startup, lease renewal, reconciliation, and shutdown behavior.
+- [ ] Implement the completion sink so it appends the deterministic conversation turn and submits the immutable reply through the durable delivery ledger without rerunning the investigation.
+- [ ] Materialize owner-scoped list, detail, progress, cancellation, and SSE operations behind the declared Operator API routes, including cross-owner 404 equivalence and replay-safe proposal handling.
+- [ ] Add FDAI Console task creation, progress, detail, and cancellation controls with focused interaction and accessibility checks.
+- [ ] Bind audit and telemetry to production surfaces, then record governed restart, process-loss, completion retry, retention, and delivery receipts before promoting any row to `validated`.
+
 ## Related docs
 
 | To learn about | Read |

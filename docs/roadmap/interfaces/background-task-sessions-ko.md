@@ -2,8 +2,8 @@
 title: 영구 Background Task Session
 translation_of: background-task-sessions.md
 translation_source: docs/roadmap/interfaces/background-task-sessions.md
-translation_source_sha: 2fb4a26c62db3eebc421b6c5272be6c7283b4c2d
-translation_revised: 2026-08-11
+translation_source_sha: 1c650dc49631c278f72cb1155bf764703bdbfba6
+translation_revised: 2026-08-13
 ---
 
 # 영구 Background 작업 세션
@@ -158,6 +158,35 @@ cascade됩니다. 따라서 pending, sending 또는 retryable 실패한 완료�
 terminal-plus-outbox 커밋, 8회 전달 한계, self-scheduled 재시도, 보존 정리 조건식, live
 PostgreSQL 이행 및 재시작, 즉시 HTTP 응답, RBAC, cross-owner hiding, SSE 완료, 격리된
 백엔드 입력, replay-idempotent 대화 인계가 포함됩니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 핵심 레코드, 할당량, 저장소 및 조정기 로직 | implemented | `services/core-control-plane/src/fdai/core/background_task/`; `services/core-control-plane/tests/core/background_task/` | 범위가 제한된 레코드, 상태 전이, 할당량 결정, 메모리 내 저장소, 임차 기간 조정기, 재시도 예약, 취소 및 종료 동작에 focused 단위 테스트가 있습니다. |
+| PostgreSQL 작업 및 완료 영속성 | in-progress | `alembic/versions/20260720_0040_background_task.py`; `alembic/versions/20260722_0051_background_task_completion.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task_completion.py`; `services/core-control-plane/tests/persistence/test_background_task.py` | 스키마, 작업 저장소 및 완료 발신함은 있지만 모든 focused live 사례에 `FDAI_DATABASE_URL`이 필요하며 현재 근거 확인에서는 건너뛰었습니다. |
+| 프로덕션 실행기 및 조정기 구성 | not-started | `services/core-control-plane/src/fdai/core/background_task/coordinator.py`; `services/core-control-plane/src/fdai/runtime/` | 실행기는 테스트 대역으로 실행되는 프로토콜이며 조정기를 시작하는 프로덕션 런타임 구성이 없습니다. |
+| 완료 싱크 및 영속 대화 인계 | not-started | `services/core-control-plane/src/fdai/core/background_task/coordinator.py`; `services/core-control-plane/tests/core/background_task/test_coordinator.py` | 싱크 재시도는 테스트 대역으로 모델링하고 검사하지만 대화 턴을 추가하거나 영속 회신을 제출하는 프로덕션 싱크는 없습니다. |
+| Operator API 경로, 변환 결과 및 진행 상황 스트림 | in-progress | `services/operator-service/src/fdai_operator_service/families/conversation/manifest.py`; `services/operator-service/src/fdai_operator_service/families/conversation/factory.py`; `services/operator-service/tests/test_operator_conversation_family.py` | 경로 선언과 일반 제안/읽기 전달은 있지만 권위 있는 목록, 상세, 진행 상황, 취소 및 SSE 구체화 로직은 구현되지 않았습니다. |
+| FDAI Console 작업 컨트롤 | not-started | `console/src` | 현재 source 클라이언트는 background 작업을 생성, 조회, 점검, 스트리밍 또는 취소하지 않습니다. |
+| 감사, 원격 분석 및 운영 근거 | in-progress | `services/core-control-plane/src/fdai/core/background_task/service.py` | 생성 및 취소 감사 호출은 프로토콜 뒤에 있지만 프로덕션 감사 연결, 런타임 원격 분석, 재시작 증적 또는 관리되는 전달 근거는 확인되지 않았습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | 현재 owner 문서 쌍 변경과 구현 범위 표에 나열된 focused core, PostgreSQL 및 Operator API 검사입니다. | 실행기, 조정기, 완료 싱크, API 구체화 로직, Console 컨트롤, live 영속성 검사 및 관리되는 운영 근거를 연결해야 합니다. |
+
+### 남은 작업
+
+- [ ] 지원되는 로컬 서비스에서 모든 focused PostgreSQL 사례를 실행하고 건너뛴 사례 없이 점유, 임차 기간, 할당량, 발신함, 조정, 재시도, 재시작 및 정리 근거가 통과했음을 기록합니다.
+- [ ] 프로덕션 읽기 전용 실행기를 구현하고 범위가 제한된 시작, 임차 기간 갱신, 조정 및 종료 동작과 함께 `BackgroundTaskCoordinator`를 런타임에 구성합니다.
+- [ ] 조사를 다시 실행하지 않고 결정론적 대화 턴을 추가하고 영속 전달 원장을 통해 변경할 수 없는 회신을 제출하도록 완료 싱크를 구현합니다.
+- [ ] 선언된 Operator API 경로 뒤에 소유자 범위 목록, 상세, 진행 상황, 취소 및 SSE 작업을 구체화하고 cross-owner 404 동등성과 재생 안전 제안 처리를 포함합니다.
+- [ ] Focused 상호 작용 및 접근성 검사와 함께 FDAI Console 작업 생성, 진행 상황, 상세 및 취소 컨트롤을 추가합니다.
+- [ ] 감사 및 원격 분석을 프로덕션 surface에 연결한 후 어느 영역이든 `validated`로 승격하기 전에 관리되는 재시작, 프로세스 손실, 완료 재시도, 보존 및 전달 증적을 기록합니다.
 
 ## 관련 문서
 
