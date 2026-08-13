@@ -25,8 +25,11 @@ export interface InventoryExecutionDisplay {
 
 const SENSITIVE_PROVIDER_TEXT = /((?:^|\s)\/subscriptions\/|access[_-]?token|authorization:|bearer\s|client[_-]?secret|password|\$skiptoken|continuation[_-]?token|provider[_-]?error)/i;
 const SHELL_CONTROL = /[`$;&|]|\$\(/;
+const CONTROL_CHARACTER = /[\x00-\x1f\x7f]/;
 const GUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i;
 const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
+const EXECUTABLE_WORD = /(?:^|\s)(?:eval|exec|source)(?:\s|$)/;
+const PLACEHOLDER = /<[a-z0-9:._-]+>/gi;
 
 export function inventoryExecutionDisplay(raw: string): InventoryExecutionDisplay | undefined {
   let value: unknown;
@@ -68,11 +71,7 @@ function parseProviderExecution(value: unknown): InventoryProviderExecution | un
       typeof candidate.command !== "string" ||
       candidate.command.length < 1 ||
       candidate.command.length > 4096 ||
-      candidate.command.includes("\n") ||
-      SENSITIVE_PROVIDER_TEXT.test(candidate.command) ||
-      SHELL_CONTROL.test(candidate.command) ||
-      GUID.test(candidate.command) ||
-      ENV_ASSIGNMENT.test(candidate.command)
+      unsafeProviderCommand(candidate.command)
     ) return undefined;
     const result = candidate.result === undefined
       ? undefined
@@ -113,7 +112,7 @@ function parseProviderResult(value: unknown): InventoryProviderResult | undefine
       typeof item !== "string" ||
       item.length < 1 ||
       item.length > 512 ||
-      item.includes("\n") ||
+      CONTROL_CHARACTER.test(item) ||
       SENSITIVE_PROVIDER_TEXT.test(item) ||
       GUID.test(item)
     )) return [];
@@ -127,4 +126,16 @@ function parseProviderResult(value: unknown): InventoryProviderResult | undefine
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function unsafeProviderCommand(value: string): boolean {
+  const withoutPlaceholders = value.replace(PLACEHOLDER, "");
+  return CONTROL_CHARACTER.test(value) ||
+    SENSITIVE_PROVIDER_TEXT.test(value) ||
+    SHELL_CONTROL.test(value) ||
+    GUID.test(value) ||
+    ENV_ASSIGNMENT.test(value) ||
+    EXECUTABLE_WORD.test(value) ||
+    withoutPlaceholders.includes("<") ||
+    withoutPlaceholders.includes(">");
 }

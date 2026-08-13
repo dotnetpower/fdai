@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: d897ca02530c20383fd8b88af5595c8f1189faaa
+translation_source_sha: ddfb8a4f29f0547321cfd956db5ac19e8613678e
 translation_revised: 2026-08-14
 ---
 
@@ -40,7 +40,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 선택적 Console 변환 결과 가용성 | 구현됨 | `console/src/routes`, focused 경로 테스트 (`64 passed`), `npm --prefix console run typecheck` | 타입이 지정된 선택적 출처 부재는 사용 불가로 표시하고 인증, 예기치 않은 서버 및 디코더 실패는 오류로 유지합니다. |
 | 에이전트 활동 영속 변환 복원력 | 구현됨 | `fdai_operator_service/postgres_sql.py`, `fdai_operator_service/activity_projection.py`, focused Operator 변환 테스트 (`25 passed`), Console 출처 및 지역화 테스트 (`8 passed`), 타입 검사, 카탈로그 일치 검사 | PostgreSQL 쿼리는 리터럴 와일드카드를 이스케이프합니다. 계약 범위를 벗어난 선택적 기간은 유효한 활동을 중단하지 않고 `duration_out_of_range`와 함께 `null`이 됩니다. 통제된 브라우저 산출물을 보존하지 않았으므로 이 행은 런타임 검증을 주장하지 않습니다. |
 | 감사 추적 탐색 적격성 | 구현됨 | `agent-activity-log-model.ts`, `agent-live-activity.tsx`, `rule-trace.tsx`, focused Console 테스트 (`26 passed`) 및 타입 검사 | 감사 기반 행만 추적 화면으로 연결합니다. 예상된 `404`, `501` 및 source-gate `503` 응답은 사용 불가로 표시하고 예기치 않은 실패는 오류로 유지합니다. Browser Entra 동작은 관찰했지만 통제된 산출물은 보존하지 않았습니다. |
-| 인벤토리 프로바이더 실행 경계 | implemented | `discovery_receipts.py`, `inventory-execution-display.ts`, 집중 생성기 테스트 (`10 passed`), 파서 테스트 (`7 passed`) 및 Console typecheck | 새 서버 증적은 등록된 계획에서 자리 표시자 전용 명령을 파생합니다. Console은 shell 제어, 환경 할당, 실제 GUID, raw ARM id, 자격 증명, 연속 토큰 및 프로바이더 오류를 독립적으로 거부합니다. |
+| 인벤토리 프로바이더 실행 경계 | implemented | `discovery_receipts.py`, `inventory-execution-display.ts`, 집중 Azure delivery 테스트 (`18 passed`), 파서 테스트 (`11 passed`) 및 Console typecheck | 새 서버 증적은 등록된 계획에서 자리 표시자 전용 명령을 파생합니다. Console은 shell 제어, redirect, 환경 할당, 실행 가능한 shell 단어, 실제 GUID, raw ARM id, 자격 증명, 연속 토큰 및 프로바이더 오류를 독립적으로 거부합니다. |
 
 ### 구현 이력
 
@@ -52,6 +52,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-14 | 구현됨 | 추적 링크를 영속 감사 행으로 제한하고 감사 상관관계가 없을 때 실패 대신 사용 불가로 표시했습니다. | `current change`, `agent-live-activity.test.ts` 및 `rule-trace.test.ts` focused 테스트 26개 통과, Console 타입 검사 통과, 인증된 Browser Entra 페이지에서 링크가 없는 인벤토리 상관관계와 중립적인 추적 사용 불가 상태 확인 | 런타임 검증을 주장하기 전에 관찰한 Browser Entra 결과를 통제된 산출물로 보존합니다. |
 | 2026-08-14 | implemented | 서버 소유 프로바이더 실행 증적 생성기를 추가하고 실행 가능하거나 민감한 프로바이더 텍스트를 거부하도록 Console 파서를 강화했습니다. | `current change`, 집중 Azure delivery 테스트 `8 passed`, Console 파서 테스트 `6 passed` 및 Console typecheck 통과 | Azure 검색 owner 문서에서 추적하는 읽기 전용 실제 운영 canary 증적을 보존합니다. |
 | 2026-08-14 | implemented | 서버에서 렌더링하고 브라우저가 허용하는 프로바이더 명령 모두에서 환경 할당을 거부했습니다. | `current change`, 집중 Azure delivery 테스트 `10 passed`, Console 파서 테스트 `7 passed` 및 Console typecheck 통과 | Azure 검색 owner 문서에서 추적하는 읽기 전용 실제 운영 canary 증적을 보존합니다. |
+| 2026-08-14 | implemented | 등록된 자리 표시자를 보존하면서 서버 및 브라우저 프로바이더 명령 검증기 모두에서 redirect, 제어 문자 및 실행 가능한 shell 단어를 거부했습니다. | `current change`, 집중 Azure delivery 테스트 `18 passed`, Console 파서 테스트 `11 passed` 및 Console typecheck 통과 | Azure 검색 owner 문서에서 추적하는 읽기 전용 실제 운영 canary 증적을 보존합니다. |
 
 ### 남은 작업
 

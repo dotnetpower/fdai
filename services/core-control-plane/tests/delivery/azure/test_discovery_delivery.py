@@ -154,6 +154,10 @@ def test_provider_execution_receipt_drops_raw_ids_tokens_and_errors() -> None:
         "az resource show --ids /subscriptions/hidden/resourceGroups/hidden",
         "az account get-access-token",
         "AZURE_CONFIG_DIR=/tmp az resource list",
+        "az resource list < /tmp/input",
+        "az resource list > /tmp/output",
+        "source /tmp/profile",
+        "az resource list\x00hidden",
     ),
 )
 def test_provider_execution_contract_rejects_unsafe_command(command: str) -> None:
