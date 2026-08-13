@@ -24,12 +24,17 @@ _DIGEST = "sha256:" + "a" * 64
 class _Retriever:
     async def search(self, query: str, *, k: int) -> Sequence[str]:
         del k
-        if "public" in query.casefold():
+        normalized_query = query.casefold()
+        if "public" in normalized_query or "공개" in normalized_query:
             return ("rule:public-access@1",)
         return ()
 
 
-def _surface(training_query: str = "Block public object storage"):
+def _surface(
+    training_query: str = "Block public object storage",
+    *,
+    locale: str = "en",
+):
     manifest = RuleSemanticManifest(
         rule_id="public-access",
         rule_version="1",
@@ -48,8 +53,8 @@ def _surface(training_query: str = "Block public object storage"):
     )
     return build_surface_candidate(
         manifest,
-        surface_id="surface.public-access.en",
-        locale="en",
+        surface_id=f"surface.public-access.{locale}",
+        locale=locale,
         origin=SurfaceOrigin.AUTHORED,
         intent_ids=("prevent-public-access",),
         concept_refs=("object-storage",),
@@ -104,6 +109,74 @@ async def test_held_out_evaluation_passes_positive_and_no_match_cohorts() -> Non
         "mean-reciprocal-rank",
         "no-match-precision",
     }
+    assert receipt.validation_authority == "validation_only"
+
+
+async def test_held_out_korean_evaluation_passes_positive_and_no_match_cohorts() -> None:
+    surface = _surface("공개 개체 스토리지를 차단하는 규칙", locale="ko")
+    cases = (
+        RetrievalEvaluationCase(
+            "positive-ko",
+            "개체 스토리지의 공개 액세스를 차단하는 규칙은 무엇인가요?",
+            "ko-positive",
+            ("rule:public-access@1",),
+            EvaluationQueryOrigin.USER,
+        ),
+        RetrievalEvaluationCase(
+            "negative-ko",
+            "데이터베이스 연결 수를 조정하는 규칙은 무엇인가요?",
+            "ko-negative",
+            (),
+            EvaluationQueryOrigin.ASSURANCE_GENERATED,
+            generator_ref="assurance:korean-retrieval@1",
+        ),
+    )
+
+    receipt = await evaluate_semantic_surface(
+        surface,
+        cases,
+        retriever=_Retriever(),
+        policy=_policy(),
+        evaluator_ref="heimdall:rule-retrieval-ko@1",
+    )
+
+    assert surface.locale == "ko"
+    assert surface.execution_authority is False
+    assert receipt.decision is ValidationDecision.PASS
+    assert receipt.validation_authority == "validation_only"
+    assert {item.cohort for item in receipt.cohort_metrics} == {
+        "ko-negative",
+        "ko-positive",
+    }
+
+
+async def test_korean_training_query_cannot_leak_into_held_out_evaluation() -> None:
+    query = "공개 개체 스토리지를 차단하는 규칙"
+    cases = (
+        RetrievalEvaluationCase(
+            "positive-ko",
+            query,
+            "ko-positive",
+            ("rule:public-access@1",),
+            EvaluationQueryOrigin.USER,
+        ),
+        RetrievalEvaluationCase(
+            "negative-ko",
+            "일치하는 규칙 없음",
+            "ko-negative",
+            (),
+            EvaluationQueryOrigin.USER,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="held-out"):
+        await evaluate_semantic_surface(
+            _surface(training_query=query, locale="ko"),
+            cases,
+            retriever=_Retriever(),
+            policy=_policy(),
+            evaluator_ref="heimdall:rule-retrieval-ko@1",
+        )
 
 
 async def test_training_query_cannot_leak_into_held_out_evaluation() -> None:
