@@ -41,7 +41,7 @@ SELECT profile.key, profile.value->>'tool_id' AS tool_id,
        CASE WHEN jsonb_typeof(profile.value->'samples') = 'array'
             THEN profile.value->'samples' ELSE '[]'::jsonb END
  ) AS sample
- WHERE profile.key LIKE 'read-investigation-latency:%'
+ WHERE profile.key LIKE 'read-investigation-latency:%%'
    AND profile.value->>'tool_id' = 'get_resource_state'
    AND profile.value->>'operation_class' = 'resource_state'
   AND sample ? 'correlation_ref'

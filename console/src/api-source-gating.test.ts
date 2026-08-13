@@ -31,6 +31,25 @@ const auth: AuthContext = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("read source gating", () => {
+  test("keeps agent audit usable when optional activity projection is unavailable", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(
+      { error: { status: 503, message: "authoritative Operator projection is unavailable" } },
+      { status: 503 },
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new OperatorApiClient(config, auth);
+
+    await expect(client.listAgentActivity(25)).resolves.toEqual({
+      items: [],
+      snapshot_at: "",
+      source: "optional-source-unavailable",
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "http://127.0.0.1:8010/agents/activity?limit=25",
+    );
+  });
+
   test("does not fetch a route whose authoritative source is unavailable", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({
       surface: "read-data-sources",

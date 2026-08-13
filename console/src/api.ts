@@ -91,8 +91,14 @@ export class OperatorApiClient {
     try {
       return await this.#operations.listAgentActivity(limit);
     } catch (error) {
-      if (error instanceof OperatorApiError && error.status === 404) {
-        return { items: [], snapshot_at: "", source: "n-minus-one-unavailable" };
+      if (isOptionalOperatorApiUnavailable(error)) {
+        return {
+          items: [],
+          snapshot_at: "",
+          source: error.status === 404
+            ? "n-minus-one-unavailable"
+            : "optional-source-unavailable",
+        };
       }
       throw error;
     }

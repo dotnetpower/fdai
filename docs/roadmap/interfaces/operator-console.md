@@ -33,6 +33,7 @@ and the same audit contract, but they are distinct integration surfaces.
 |------|-------|----------|-------|
 | Durable/live current-state activity identity | implemented | `read_investigation_latency.py`; `fdai_operator_service/activity_projection.py`; focused persistence and projection tests (`6 passed`) | Snapshot replay and live frames converge on one hashed-correlation activity id without persisting the operator question, resource identity, or execution authority. |
 | Optional Console projection availability | implemented | `console/src/routes`; focused route tests (`64 passed`) and `npm --prefix console run typecheck` | Typed optional-source absence renders as unavailable; authentication, unexpected server, and decoder failures remain errors. |
+| Agent Activity durable projection resilience | implemented | `fdai_operator_service/postgres_sql.py`; `fdai_operator_service/activity_projection.py`; focused Operator projection tests (`25 passed`), Console source and localization tests (`8 passed`), typecheck, and catalog parity | The PostgreSQL query escapes its literal wildcard, and an out-of-contract optional duration becomes `null` with `duration_out_of_range` instead of aborting otherwise valid activity. No governed browser artifact was retained, so this row does not claim runtime validation. |
 
 ### Implementation history
 
@@ -40,6 +41,7 @@ and the same audit contract, but they are distinct integration surfaces.
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the current-state activity identity contract. | Current source plus `test_read_investigation_latency.py` and `test_activity_projection.py`; the focused suites passed. | Record governed cross-service parity evidence for snapshot-first hydration and live convergence. |
 | 2026-08-13 | implemented | Standardized optional projection absence across production Console routes without hiding unexpected failures. | Current change; focused route tests passed (`64 passed`) and Console typecheck passed. | Keep Browser Entra route assurance in the full-stack validation campaign. |
+| 2026-08-14 | implemented | Restored the durable Agent Activity projection by escaping the psycopg wildcard, preserving valid rows with an out-of-range optional duration, and keeping the audit timeline available during typed optional-source absence. | `current change`; focused Operator tests passed (`25 passed`), focused Console tests passed (`8 passed`), and Console typecheck and catalog parity passed. | Retain a governed Browser Entra artifact for the existing snapshot-first and live-convergence exit criterion. |
 
 ### Remaining work
 

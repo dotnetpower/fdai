@@ -379,9 +379,13 @@
       "lanes": "Operational activity type",
       "lane": {
         "all": "All work",
-        "inventory.scan": "Inventory scan",
-        "current-state.read": "Current state",
-        "inventory.ontology-projection": "Ontology projection"
+        "inventory": {
+          "scan": "Inventory scan",
+          "ontology-projection": "Ontology projection"
+        },
+        "current-state": {
+          "read": "Current state"
+        }
       },
       "find": "Find",
       "searchPlaceholder": "message, action, resource, or correlation",

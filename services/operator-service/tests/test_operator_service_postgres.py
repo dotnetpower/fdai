@@ -264,6 +264,7 @@ async def test_agent_activity_reads_each_durable_source_with_bounded_limits() ->
     assert read_call[1] == {"limit": 25}
     assert "get_resource_state" in AGENT_READ_ACTIVITY_SQL
     assert "operation_class' = 'resource_state'" in AGENT_READ_ACTIVITY_SQL
+    assert "read-investigation-latency:%%" in AGENT_READ_ACTIVITY_SQL
 
 
 @pytest.mark.asyncio

@@ -87,6 +87,31 @@ def test_projection_rejects_failed_inventory_without_reason() -> None:
         )
 
 
+def test_projection_preserves_inventory_with_out_of_range_duration() -> None:
+    payload = durable_activity_projection(
+        inventory_rows=(
+            {
+                "id": "attempt-long",
+                "status": "active",
+                "source": "azure-resource-graph",
+                "started_at": NOW - timedelta(days=14),
+                "completed_at": NOW,
+                "failure_code": None,
+                "resource_count": 10,
+                "link_count": 5,
+            },
+        ),
+        ontology_rows=(),
+        read_rows=(),
+        limit=10,
+    )
+
+    item = payload["items"][0]
+    assert item["status"] == "completed"
+    assert item["duration_ms"] is None
+    assert item["reason_codes"] == ["duration_out_of_range"]
+
+
 def test_projection_rejects_malformed_read_sample_instead_of_inventing_activity() -> None:
     with pytest.raises(ValueError, match="succeeded MUST be boolean"):
         durable_activity_projection(

@@ -14,6 +14,8 @@ from fdai_service_contracts import (
     OperationalFreshness,
 )
 
+MAX_ACTIVITY_DURATION_MS = 86_400_000
+
 
 def durable_activity_projection(
     *,
@@ -63,17 +65,28 @@ def _inventory_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
         else None
     )
     observed_at = completed_at or started_at
-    duration_ms = (
-        max(0, round((completed_at - started_at).total_seconds() * 1000))
+    measured_duration_ms = (
+        round((completed_at - started_at).total_seconds() * 1000)
         if completed_at is not None
         else None
+    )
+    duration_ms = (
+        measured_duration_ms
+        if measured_duration_ms is not None
+        and 0 <= measured_duration_ms <= MAX_ACTIVITY_DURATION_MS
+        else None
+    )
+    duration_reasons = (
+        ("duration_out_of_range",)
+        if measured_duration_ms is not None and duration_ms is None
+        else ()
     )
     failure_code = row.get("failure_code")
     reason_codes = (
         (_text(failure_code, "inventory failure code", maximum=128),)
         if status is OperationalActivityStatus.FAILED
         else ()
-    )
+    ) + duration_reasons
     return AgentOperationalActivity(
         activity_id=f"inventory.scan:{attempt_id}:{status.value}",
         idempotency_key=f"inventory.scan:{attempt_id}:{status.value}",
