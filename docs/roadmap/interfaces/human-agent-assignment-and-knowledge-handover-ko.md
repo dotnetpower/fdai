@@ -1,7 +1,7 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: 8ccf5c1cd812012471a4e9114005357873fd403f
-translation_revised: 2026-08-11
+translation_source_sha: d536ed3c6965d37cd6ce9bcf20c5c94d64fa9494
+translation_revised: 2026-08-13
 ---
 # 사용자-에이전트 할당 및 지식 이전
 
@@ -10,20 +10,38 @@ translation_revised: 2026-08-11
 수집하는 목표 워크플로를 정의합니다. ID, 운영 책임, 승인, 대화, 문서 수집을 조정하지만 각
 권한은 독립적으로 유지합니다.
 
-> **상태:** 일부 구현되었습니다. 디렉터리 검색, 통제된 접근 요청 기록, 담당 체계 맵, 순서가
-> 있는 임무, 통합 할당 케이스 코어, 관찰 전용 Assignments API와 콘솔이 있습니다. Owner는 정확한
-> 활성 주체 하나를 다시 검증하고, 리비전 기반 케이스를 생성 및 검토하고, 역할, 임무, 담당 범위,
-> 케이스 및 사용 불가 인수인계 근거를 조인해 조회할 수 있습니다. 담당 체계 PR 조정과 Entra
-> 멤버십 경로는 이제 타입이 지정된 적용 요청을 게시하고, 허용 목록 그룹 변경 하나를 계획하고, 수렴을
-> 검증하고, 실패한 postcondition을 롤백합니다. 이 경로는 관찰 모드입니다. 사람 무응답
-> supervisor는 shadow-only 주기적 워커로 실행됩니다. 영구 목표, 재시작 안전 피로도 예산,
-> 세션 가용성 이벤트, 제한된 invitation, snooze, decline, 근거 연결, 독립 검토가
-> 구현되었습니다. 적용 모드 승격, 대체 커버리지를 포함한 자동 회수, agent-side 공백 생산,
-> 현지화된 Bragi invitation 렌더링은 아직 구현되지 않았습니다.
->
 > **안전 경계:** 사용자를 에이전트에 매핑해도 FDAI 역할은 부여되지 않습니다. 통합 관리자
 > 워크플로가 두 결과를 함께 요청할 수는 있지만, RBAC과 운영 담당 체계는 여전히 별도 축으로
 > 검증, 승인, 적용, 감사됩니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 담당 체계 v2 임무와 커버리지 | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/tests/core/stewardship/`; 집중 담당 체계 테스트 (71 passed) | 스키마, 결정론적 마이그레이션, 커버리지, 에스컬레이션, 알림 기본 요소가 있습니다. 실제 디렉터리 커버리지와 배포 훈련은 별도 근거입니다. |
+| 배정 케이스, 독립 검토, 관찰 변환 결과 | implemented | `services/core-control-plane/src/fdai/core/human_assignment/`; `services/operator-service/src/fdai_operator_service/families/iam/assignments.py`; `console/src/routes/settings-iam-assignments.tsx`; 집중 사용자-에이전트 배정 테스트 (43 passed) | 리비전 기반 케이스와 읽기 전용 API/console은 역할, 임무, 권한 분리를 보존합니다. |
+| 소유권 제안과 일치하는 병합 조정 | not-started | 배정을 인식하는 담당 체계 거버넌스 서비스 또는 인수인계 초안 게시기가 조립되지 않았습니다. `services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/stewardship.py`의 서명된 수신 경로는 병합 근거만 저장합니다. | 다이제스트에 결합된 제안과 일치하는 병합이 케이스를 진행시키기 전까지 소유권과 IAM 효과는 종단 간 워크플로가 아닙니다. |
+| 통제된 사용자 접근 변경 기능 | implemented | `services/core-control-plane/src/fdai/core/human_assignment/access_apply.py`; `services/core-control-plane/src/fdai/delivery/identity/entra_access.py`; `services/core-control-plane/src/fdai/delivery/identity/direct_api.py`; 집중 사용자-에이전트 배정 테스트 (43 passed) | 허용 목록 기반 계획, 적용, 검증, 롤백 기능이 관찰 모드로 있습니다. Console, 요청자, 대상 principal에는 어떤 공급자 권한도 부여하지 않습니다. |
+| 사람 무응답 감독 | implemented | `services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py`; `services/core-control-plane/src/fdai/runtime/bootstrap.py`; 집중 shadow 감독자 테스트 (10 passed) | 주기적 워커는 shadow-only입니다. 디스패치 승격과 실제 단계별 역할 근거는 남아 있습니다. |
+| 인수인계 목표와 피로도 통제 | implemented | `services/core-control-plane/src/fdai/core/human_assignment/goals.py`; `services/core-control-plane/src/fdai/core/human_assignment/fatigue.py`; `services/core-control-plane/tests/core/human_assignment/test_goals.py` | 영속 목표, 초대, 근거 참조, 다시 알림, 거절, 독립 검토 기능이 있습니다. 에이전트의 공백 생산과 현지화된 Bragi 렌더링은 연결되지 않았습니다. |
+| 지식 근거와 후보 수명 주기 | in-progress | 기존 문서 수집 청크 계보 및 비활성 후보 계약; 집중 수집 테스트 | 목표와 업로드의 상관관계, ACL 필터 검색 근거, 에이전트 후보 전달, 충돌 검토, 운영 삭제 훈련은 완료되지 않았습니다. |
+| 운영 승격과 운영 증명 | not-started | 이 문서에서 보존된 승격 증적, Azure 권한 검사, 운영 훈련 근거로 연결되는 항목이 없습니다. | IAM 적용, 무응답 디스패치, 선제적 인수인계는 각각 독립 검사를 통과할 때까지 사용할 수 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 구현된 케이스, IAM, 감독, 목표 기능을 누락된 소유권-IAM 조정과 분리했습니다. | `current change`; 구현 범위 표에 나열된 소스와 집중 검사. | 제안 및 병합 조정, 지식 전달, 독립 승격, 운영 근거를 완료합니다. |
+
+### 남은 작업
+
+- [ ] 승인된 케이스마다 다이제스트에 결합된 소유권 제안 하나를 조립하고, 일치하는 서명된 병합만 소유권 효과를 진행시킴을 입증하는 집중 테스트를 통과시킵니다.
+- [ ] 일치하는 소유권 증적 후에만 형식이 지정된 IAM 적용 요청 하나를 게시하고, 수집 또는 Operator 서비스에 Graph 쓰기 권한을 부여하지 않으면서 허용 목록 기반 수렴과 소유권 인식 롤백을 입증합니다.
+- [ ] 목표-업로드 바인딩, ACL 필터 검색, 에이전트 소유 공백 및 후보 이벤트, 현지화된 Bragi 렌더링, 충돌 검토, 노후화, 삭제 전파를 완료합니다.
+- [ ] IAM 변경, 무응답 단계 디스패치, 선제적 인수인계의 승격 근거를 각각 보존합니다. 모든 승인 소진은 감사된 no-op으로 남아야 합니다.
+- [ ] 워크플로를 `validated`로 표시하기 전에 추가, 거부, 시간 초과, 에스컬레이션, 회수, 롤백, 재시작, 공급자 장애, 재해 복구 훈련을 수행합니다.
 
 ## 설계 개요
 

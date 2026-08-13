@@ -8,26 +8,37 @@ work packages on `main`. Each package lands as one or more focused commits witho
 branch. It names the owning modules, compatibility path, API and event contracts, focused
 tests, Azure permissions, rollout controls, and evidence required before IAM writes are enabled.
 
-> **Current status:** Packages 1 through 9 have implemented foundations on `main`. Stewardship v2 duties and the
-> composite assignment-case core now provide immutable intent, normalized independent review,
-> role-based quorum, revisioned StateStore transitions, content-free audit records, effect
-> receipts, and fail-closed activation. The Owner-only observation API and fifth IAM Assignments
-> tab add exact active-subject revalidation, bounded CAS commands, joined evidence, and clear
-> no-provider-change presentation. Approved platform-wide assignment cases now render only
-> complete v2 ownership maps, open one digest-bound governance PR, and record the ownership effect
-> only from the matching signed merge. The matching merge now publishes an idempotent apply request
-> into typed ingress. A dedicated managed identity, allowlisted Graph adapter, direct-API route,
-> bounded convergence checks, rollback, and both human-access ActionTypes are wired in observation
-> mode. The human non-response supervisor is integrated as a periodic shadow worker. Durable
-> handover goals, fatigue budgets, session availability events, bounded invitation and response
-> commands, independent goal review, governed evidence metadata, capability axes, durable
-> disablement, and shadow recovery planning are implemented. Enforce promotion, agent-side gap
-> production, localized Bragi invitation rendering, candidate delivery, Azure permission probes,
-> and production drills remain rollout work.
->
 > **Authority boundary:** FDAI Console submits a domain-typed case. It never receives Graph
 > write permission or Thor's identity. Ownership merge, human approval, IAM apply, and knowledge
 > promotion remain independently verifiable effects.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Packages 1-3: duties, assignment core, API, and console | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/src/fdai/core/human_assignment/`; `services/operator-service/src/fdai_operator_service/families/iam/assignments.py`; `console/src/routes/settings-iam-assignments.tsx`; focused human-assignment tests (43 passed) | These packages establish observation-only intent and projection without provider mutation. |
+| Package 4: ownership PR coordination | not-started | No `StewardshipGovernanceService` or equivalent assignment-aware publisher exists; the current signed webhook records merge evidence without case or candidate-digest correlation. | This missing dependency prevents the assignment workflow from proving ownership convergence or emitting its IAM prerequisite. |
+| Package 5: human-access provider capability | implemented | `services/core-control-plane/src/fdai/core/human_assignment/access_apply.py`; `services/core-control-plane/src/fdai/delivery/identity/entra_access.py`; `services/core-control-plane/src/fdai/delivery/identity/direct_api.py`; focused human-assignment tests (43 passed) | Observation-only allowlist, convergence, and rollback mechanics exist, but Package 4 doesn't yet trigger them from an assignment case. |
+| Package 6: non-response supervisor | implemented | `services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py`; `services/core-control-plane/src/fdai/runtime/bootstrap.py`; focused shadow-supervisor tests (10 passed) | Periodic shadow observation exists; production rung dispatch isn't promoted. |
+| Package 7: handover goal core and commands | implemented | `services/core-control-plane/src/fdai/core/human_assignment/goals.py`; `services/operator-service/src/fdai_operator_service/families/iam/handover.py`; focused human-assignment tests (43 passed) | Durable invitations and response commands exist. Agent gap production and localized Bragi rendering remain unbound. |
+| Package 8: knowledge evidence delivery | in-progress | `packages/service-contracts/src/fdai_service_contracts/document.py`; existing ingestion chunk-lineage tests | Optional goal references and deterministic evidence metadata exist; goal-to-upload correlation, candidate delivery, ACL retrieval, review, and deletion drills remain open. |
+| Package 9: production rollout | in-progress | `services/core-control-plane/src/fdai/core/human_assignment/production_controls.py`; `services/core-control-plane/src/fdai/runtime/human_assignment_reconciliation.py`; `services/core-control-plane/src/fdai/delivery/runtime_settings.py` | Capability axes and observation-only reconciliation exist. Enforce promotion, Azure permission probes, dashboards, alerts, automatic repair, and production drills aren't complete. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected Package 4 and Package 5 dependency claims. | `current change`; source and focused checks listed in the scope table. | Implement Package 4, finish Packages 8-9, and collect promotion and operational evidence. |
+
+### Remaining work
+
+- [ ] Implement Package 4 with one idempotent, digest-bound stewardship proposal and a signed matching-merge receipt that advances only its assignment case.
+- [ ] Publish the typed IAM apply request only from that matching receipt and prove no ownership, review, IAM, or executor authority collapses across the event boundary.
+- [ ] Complete agent-owned handover gap production, localized Bragi rendering, goal-to-upload binding, candidate delivery, ACL retrieval, conflict review, staleness, and deletion propagation.
+- [ ] Run and retain the Package 9 Azure permission probes, non-production mutation and rollback drills, shadow comparisons, dashboards, alerts, and restart and outage recovery evidence.
+- [ ] Promote IAM mutation, non-response dispatch, and proactive handover independently only after their rollout thresholds pass; preserve audited no-op behavior on exhaustion or insufficient evidence.
 
 ## Delivery shape
 
@@ -57,11 +68,11 @@ flowchart LR
 | Area | Reuse | Missing implementation |
 |------|-------|------------------------|
 | Directory | `HumanIdentityDirectory`, Entra search, exact subject lookup, App Role roster, allowlisted Entra membership adapter | Enforce promotion evidence and production permission readiness |
-| Access | `AccessRequestService`, atomic state plus audit, Owner review, no self-approval, assignment-case apply trigger | Revoke replacement-coverage lifecycle and reconciliation |
-| Ownership | Stewardship v1, coverage, escalation ordering, handover PR, signed merge webhook | Explicit `primary`, `backup`, and `escalation` duty slots |
+| Access | `AccessRequestService`, atomic state plus audit, Owner review, no self-approval, allowlisted observation-mode provider | Assignment-case apply trigger, revoke replacement-coverage lifecycle, and provider reconciliation |
+| Ownership | Stewardship v2 duties, coverage, escalation ordering, durable handover draft, signed merge intake | Assignment-aware proposal publication, candidate-digest correlation, and matching-merge case advancement |
 | Approval | `HilResumeCoordinator`, on-call primary/secondary receipt, reminders, load control, periodic shadow non-response observation | Production promotion, live rung-role verification, and urgency compression |
-| Conversation | Authenticated sessions, durable turns, Bragi narration | Sign-in availability event and proactive goal invitation policy |
-| Documents | Agent-owned admission, source spans, chunking, pgvector | Handover evidence purpose, ACL-filtered retrieval, ontology candidates |
+| Conversation | Authenticated sessions, durable turns, Bragi narration, bounded handover session commands | Agent-owned gap production and localized proactive invitation rendering |
+| Documents | Agent-owned admission, source spans, deterministic chunking, pgvector, optional goal reference | Goal-to-upload binding, ACL-filtered retrieval evidence, and candidate delivery |
 | Console | IAM users, roles, requests, directory search, observation-only Assignments tab and editor | Convergence and active goal projections |
 
 ## Contract decisions before coding
@@ -182,10 +193,11 @@ observation-only case. The UI clearly states that no Entra membership changed.
 
 ### Package 4 - Ownership PR coordination
 
-**Status:** Implemented. Platform ownership accepts only `scope:platform`; a partial assignment
-that leaves any non-autonomous agent without v2 backup coverage is held before publication.
+**Status:** Not started. The worker persists a review-only handover draft and the ingestion service
+can record signed merge evidence, but no assignment-aware publisher, proposal state, or
+candidate-digest-to-case correlation is composed.
 
-**Changes:** Extend `StewardshipGovernanceService` to accept an approved case and render one v2
+**Changes:** Add a `StewardshipGovernanceService` that accepts an approved case and renders one v2
 overlay. Persist case id, PR receipt, and canonical candidate digest in proposal state. The signed
 GitHub merge path records the ownership effect receipt on the case only when PR ref and rendered
 content digest match.
@@ -199,10 +211,11 @@ the case; IAM remains untouched.
 
 ### Package 5 - Governed Entra membership apply
 
-**Status:** Implemented in observation mode. Enforce remains unavailable until a separate
-promotion records the required non-production evidence. Postcondition failure rolls back only a
-membership applied by the current attempt; a pre-existing membership is retained, and verification
-exceptions use the same ownership-aware recovery path.
+**Status:** The provider capability is implemented in observation mode. Enforce remains unavailable
+until a separate promotion records the required non-production evidence. Postcondition failure
+rolls back only a membership applied by the current attempt; a pre-existing membership is retained,
+and verification exceptions use the same ownership-aware recovery path. Package 4 doesn't yet
+publish the assignment-case apply request that would enter this capability.
 
 **Changes:** Add CSP-neutral `shared/providers/human_access.py` with plan, apply, verify, and
 rollback receipts. Add `delivery/identity/entra_access.py`, a runtime binder, ActionTypes, and an

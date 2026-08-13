@@ -1,7 +1,7 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 41d64ddc0c26decd89ce6e654283a0f35b6b0e9e
-translation_revised: 2026-08-12
+translation_source_sha: 79ab72f1bc6bcdc6a175770880e292de035118f8
+translation_revised: 2026-08-13
 ---
 # 사용자-에이전트 할당 구현 계획
 
@@ -10,24 +10,37 @@ translation_revised: 2026-08-12
 쓰기를 활성화하기 전에 필요한 소유 모듈, 호환성 경로, API 및 이벤트 계약,
 집중 테스트, Azure 권한, 롤아웃 제어, 근거를 정의합니다.
 
-> **현재 상태:** 묶음 1부터 묶음 9까지의 기반이 `main`에 구현되었습니다. 담당 체계 v2 임무와 통합 할당
-> 케이스 코어는 변경 불가능한 의도, 정규화된 독립 검토, 역할 기반 정족수, 리비전 기반
-> `StateStore` 전환, 콘텐츠 없는 감사 기록, 결과 영수증, 실패 시 차단되는 활성화를 제공합니다.
-> Owner 전용 관찰 API와 다섯 번째 IAM Assignments 탭은 정확한 활성 주체 재검증, 제한된 CAS 명령,
-> 조인된 근거, 공급자 변경이 없다는 명확한 표시를 추가합니다. 승인된 platform-wide 배정
-> 사례는 완전한 v2 소유권 지도만 렌더링하고 digest-bound 거버넌스 PR 하나를 열며, 일치하는
-> signed 병합에서만 소유권 효과를 기록합니다. 일치하는 병합은 이제 멱등 적용 요청을 타입이 지정된
-> 유입에 게시합니다. 전용 관리 ID, 허용 목록 Graph 어댑터, direct-API 경로, 제한된 수렴 검사,
-> 롤백, 두 human-access ActionType이 관찰 모드로 연결되었습니다. 사람 무응답 supervisor는
-> 주기적 shadow 워커로 통합되었습니다. 영구 인계 목표, 피로도 예산, 세션 가용성
-> event, 제한된 invitation 및 응답 명령, 독립 목표 검토, 통제된 근거 메타데이터,
-> 기능 축, 영속 disablement, shadow 복구 planning이 구현되었습니다. 적용 모드 승격,
-> agent-side 공백 생산, 현지화된 Bragi invitation 렌더링, 후보 전달, Azure 권한
-> 탐색, 운영 drill은 롤아웃 작업입니다.
->
 > **권한 경계:** FDAI Console은 도메인 스키마로 검증된 케이스를 제출합니다. Graph 쓰기 권한 또는 Thor의
 > ID를 받지 않습니다. 담당 체계 병합, 사람 승인, IAM 적용, 지식 승격은 각각 독립적으로 검증
 > 가능한 결과로 유지합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 묶음 1-3: 임무, 배정 코어, API, 콘솔 | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/src/fdai/core/human_assignment/`; `services/operator-service/src/fdai_operator_service/families/iam/assignments.py`; `console/src/routes/settings-iam-assignments.tsx`; 집중 사용자-에이전트 배정 테스트 (43 passed) | 이 묶음은 공급자 변경 없이 관찰 전용 의도와 변환 결과를 구성합니다. |
+| 묶음 4: 소유권 PR 조정 | not-started | `StewardshipGovernanceService` 또는 동등한 배정 인식 게시기가 없습니다. 현재 서명된 웹후크는 케이스 또는 후보 다이제스트 상관관계 없이 병합 근거를 기록합니다. | 이 의존성이 없으므로 배정 워크플로는 소유권 수렴을 입증하거나 IAM 전제 조건을 게시할 수 없습니다. |
+| 묶음 5: 사용자 접근 공급자 기능 | implemented | `services/core-control-plane/src/fdai/core/human_assignment/access_apply.py`; `services/core-control-plane/src/fdai/delivery/identity/entra_access.py`; `services/core-control-plane/src/fdai/delivery/identity/direct_api.py`; 집중 사용자-에이전트 배정 테스트 (43 passed) | 관찰 전용 허용 목록, 수렴, 롤백 기능이 있지만 묶음 4는 아직 배정 케이스에서 이를 트리거하지 않습니다. |
+| 묶음 6: 무응답 감독자 | implemented | `services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py`; `services/core-control-plane/src/fdai/runtime/bootstrap.py`; 집중 shadow 감독자 테스트 (10 passed) | 주기적 shadow 관찰이 있습니다. 운영 단계 디스패치는 승격되지 않았습니다. |
+| 묶음 7: 인수인계 목표 코어와 명령 | implemented | `services/core-control-plane/src/fdai/core/human_assignment/goals.py`; `services/operator-service/src/fdai_operator_service/families/iam/handover.py`; 집중 사용자-에이전트 배정 테스트 (43 passed) | 영속 초대와 응답 명령이 있습니다. 에이전트의 공백 생산과 현지화된 Bragi 렌더링은 연결되지 않았습니다. |
+| 묶음 8: 지식 근거 전달 | in-progress | `packages/service-contracts/src/fdai_service_contracts/document.py`; 기존 수집 청크 계보 테스트 | 선택적 목표 참조와 결정론적 근거 메타데이터가 있습니다. 목표-업로드 상관관계, 후보 전달, ACL 검색, 검토, 삭제 훈련은 남아 있습니다. |
+| 묶음 9: 운영 롤아웃 | in-progress | `services/core-control-plane/src/fdai/core/human_assignment/production_controls.py`; `services/core-control-plane/src/fdai/runtime/human_assignment_reconciliation.py`; `services/core-control-plane/src/fdai/delivery/runtime_settings.py` | 기능 축과 관찰 전용 조정이 있습니다. 적용 모드 승격, Azure 권한 검사, 대시보드, 경고, 자동 복구, 운영 훈련은 완료되지 않았습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입하고 묶음 4와 묶음 5의 의존성 주장을 바로잡았습니다. | `current change`; 구현 범위 표에 나열된 소스와 집중 검사. | 묶음 4를 구현하고 묶음 8-9를 완료하며 승격 및 운영 근거를 수집합니다. |
+
+### 남은 작업
+
+- [ ] 멱등이고 다이제스트에 결합된 담당 체계 제안 하나와 해당 배정 케이스만 진행시키는 서명된 일치 병합 증적으로 묶음 4를 구현합니다.
+- [ ] 일치하는 증적에서만 형식이 지정된 IAM 적용 요청을 게시하고 소유권, 검토, IAM, 실행기 권한이 이벤트 경계에서 합쳐지지 않음을 입증합니다.
+- [ ] 에이전트 소유 인수인계 공백 생산, 현지화된 Bragi 렌더링, 목표-업로드 바인딩, 후보 전달, ACL 검색, 충돌 검토, 노후화, 삭제 전파를 완료합니다.
+- [ ] 묶음 9의 Azure 권한 검사, 비운영 변경 및 롤백 훈련, shadow 비교, 대시보드, 경고, 재시작 및 장애 복구 근거를 수행하고 보존합니다.
+- [ ] IAM 변경, 무응답 디스패치, 선제적 인수인계는 각각 롤아웃 임계값을 통과한 뒤 독립적으로 승격합니다. 소진 또는 불충분한 근거에서는 감사된 no-op을 보존합니다.
 
 ## 제공 형태
 
@@ -56,11 +69,11 @@ flowchart LR
 | 영역 | 재사용 | 누락된 구현 |
 |------|--------|-------------|
 | 디렉터리 | `HumanIdentityDirectory`, Entra 검색, 정확한 주체 조회, App 역할 목록, 허용 목록 Entra 멤버십 어댑터 | 적용 모드 승격 근거와 프로덕션 권한 준비 상태 |
-| 접근 | `AccessRequestService`, 원자적 상태와 감사, Owner 검토, 자기 승인 방지, 할당 케이스 적용 트리거 | 회수용 대체 커버리지 수명 주기와 조정 |
-| 담당 체계 | 담당 체계 v1, 커버리지, 에스컬레이션 순서, 인수인계 PR, 서명된 병합 웹후크 | 명시적인 `primary`, `backup`, `escalation` 임무 슬롯 |
+| 접근 | `AccessRequestService`, 원자적 상태와 감사, Owner 검토, 자기 승인 방지, 허용 목록 기반 관찰 모드 provider | Assignment-case apply trigger, 회수용 대체 커버리지 수명 주기, provider reconciliation |
+| 담당 체계 | 담당 체계 v2 임무, 커버리지, 에스컬레이션 순서, 영속 handover draft, signed merge intake | Assignment-aware proposal 게시, candidate-digest correlation, matching-merge case 진행 |
 | 승인 | `HilResumeCoordinator`, 온콜 기본/보조 영수증, 다시 알림, 부하 제어, 주기적 shadow 무응답 관찰 | 운영 승격, 실제 운영 rung-role 검증, urgency 압축 |
-| 대화 | 인증된 세션, 영구 턴, Bragi 설명 | 로그인 가용성 이벤트와 선제적 목표 초대 정책 |
-| 문서 | 에이전트 소유 승인, 소스 범위, 청킹, pgvector | 인수인계 근거 목적, ACL 필터 검색, 온톨로지 후보 |
+| 대화 | 인증된 세션, 영구 턴, Bragi 설명, 제한된 handover session 명령 | Agent-owned gap 생산과 현지화된 proactive invitation rendering |
+| 문서 | 에이전트 소유 승인, source span, 결정론적 chunking, pgvector, optional goal reference | Goal-to-upload binding, ACL-filtered retrieval 근거, candidate 전달 |
 | 콘솔 | IAM 사용자, 역할, 요청, 디렉터리 검색, 관찰 전용 Assignments 탭 및 편집기 | 수렴 및 활성 목표 프로젝션 |
 
 ## 코딩 전 계약 결정
@@ -179,12 +192,13 @@ IAM 영수증 모두 없이 어떤 전환도 케이스를 활성으로 만들 �
 
 ### 묶음 4 - 담당 체계 PR 조정
 
-**상태:** 구현되었습니다. Platform 소유권은 `scope:platform`만 허용하며, non-autonomous 에이전트의
-v2 백업 커버리지가 하나라도 누락되는 부분 배정은 publish 전에 보류합니다.
+**상태:** 시작되지 않았습니다. 워커는 검토 전용 인수인계 초안을 저장하고 수집 서비스는
+서명된 병합 근거를 기록할 수 있지만 배정 인식 게시기, 제안 상태,
+후보 다이제스트와 케이스의 상관관계는 조립되지 않았습니다.
 
-**변경:** `StewardshipGovernanceService`가 승인된 케이스를 받아 v2 overlay 하나를 렌더링하도록
-확장합니다. Proposal 상태에 사례 ID, PR 증적, 정본 후보 다이제스트를 저장합니다. Signed
-GitHub 병합 경로는 PR 참조와 rendered 내용 다이제스트가 일치할 때만 소유권 효과 증적을
+**변경:** 승인된 케이스를 받아 v2 overlay 하나를 렌더링하는 `StewardshipGovernanceService`를
+추가합니다. 제안 상태에 사례 ID, PR 증적, 정본 후보 다이제스트를 저장합니다. 서명된
+GitHub 병합 경로는 PR 참조와 렌더링된 내용 다이제스트가 일치할 때만 소유권 효과 증적을
 사례에 기록합니다.
 
 **테스트:** 추가 병합, 대체 담당자 없는 제거 차단, 원격 PR 재생, 웹후크 서명, 잘못된 저장소 또는
@@ -195,9 +209,10 @@ GitHub 병합 경로는 PR 참조와 rendered 내용 다이제스트가 일치�
 
 ### 묶음 5 - 통제된 Entra 멤버십 적용
 
-**상태:** 관찰 모드로 구현되었습니다. 별도 승격에서 필요한 비프로덕션 근거를 기록할 때까지 적용
-모드는 사용할 수 없습니다. Postcondition 실패 시 현재 시도에서 적용한 구성원만 롤백합니다.
-기존 구성원은 유지하며 검증 exception도 같은 소유권 인식 복구 경로를 사용합니다.
+**상태:** 공급자 기능은 관찰 모드로 구현되었습니다. 별도 승격에서 필요한 비프로덕션 근거를
+기록할 때까지 적용 모드는 사용할 수 없습니다. 사후 조건 실패 시 현재 시도에서 적용한
+구성원만 롤백합니다. 기존 구성원은 유지하며 검증 예외도 같은 소유권 인식 복구 경로를
+사용합니다. 묶음 4는 아직 이 기능으로 들어오는 배정 케이스 적용 요청을 게시하지 않습니다.
 
 **변경:** 계획, apply, verify, 롤백 영수증을 제공하는 CSP 중립
 `shared/providers/human_access.py`를 추가합니다. `delivery/identity/entra_access.py`, 런타임
