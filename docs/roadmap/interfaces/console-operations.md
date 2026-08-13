@@ -21,6 +21,27 @@ second execution authority.
 > no-self-approval, expiry, quorum, and exact revision without applying permission. The federated Tasks view, cross-domain
 > projection metadata, and hardening of the remaining domain routes are proposed.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Approval projection unavailable state | implemented | `console/src/routes/hil-queue.tsx`; `console/src/routes/hil-queue.test.ts`; `console/tests/live-e2e/console-routes.spec.ts`; focused Vitest (`5 passed`) and live Playwright (`1 passed`) checks | The Approvals route presents optional projection absence as a neutral unavailable state. Unexpected failures remain errors, and the browser gains no approval or execution authority. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and aligned the Approvals route with the typed unavailable-source boundary. | `current change`; task-owned source and tests in the scope table; `vitest run src/routes/hil-queue.test.ts` passed 5 tests and the focused live `/approvals` Playwright check passed. | Complete and record the projection, request, interaction, and measurement exit evidence below. |
+
+### Remaining work
+
+- [ ] Record the deterministic rebuild, digest-change, and cache-loss drill evidence defined by the Phase 1 exit criteria.
+- [ ] Pass the failure-injection and authorization-boundary matrix defined by the Phase 2 exit criteria for every shipped request route.
+- [ ] Record keyboard, conflict, retry, compensation, and rollback drill evidence defined by the Phase 3 exit criteria.
+- [ ] Freeze reviewed baseline windows and pass the shadow measurement comparison defined by the Phase 4 exit criteria.
+
 ## Design at a glance
 
 The Operations area reads existing domain projections and submits requests through the domain path

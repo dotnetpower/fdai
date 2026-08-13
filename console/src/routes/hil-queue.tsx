@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import type { OperatorApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { architectureHref } from "../components/architecture-map.model";
 import type { HilQueueItem } from "../types";
 import {
@@ -17,6 +17,26 @@ import { t } from "./i18n/governance";
 
 interface Props {
   readonly client: OperatorApiClient;
+}
+
+export async function loadHilQueueState(
+  client: Pick<OperatorApiClient, "listHilQueue">,
+  query: string,
+): Promise<AsyncState<HilQueueData>> {
+  try {
+    const page = await client.listHilQueue({
+      limit: 100,
+      ...(query ? { query } : {}),
+    });
+    return {
+      status: "ready",
+      data: { items: page.items, total: page.total, detailLevel: page.detail_level },
+    };
+  } catch (error) {
+    return isOptionalOperatorApiUnavailable(error)
+      ? { status: "unavailable", message: t("nav.source.unavailable") }
+      : { status: "error", message: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 export function HilQueueRoute({ client }: Props) {
@@ -43,27 +63,9 @@ export function HilQueueRoute({ client }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const page = await client.listHilQueue({
-          limit: 100,
-          ...(serverQuery ? { query: serverQuery } : {}),
-        });
-        if (!cancelled) {
-          setState({
-            status: "ready",
-            data: { items: page.items, total: page.total, detailLevel: page.detail_level },
-          });
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setState({
-            status: "error",
-            message: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
-    })();
+    void loadHilQueueState(client, serverQuery).then((nextState) => {
+      if (!cancelled) setState(nextState);
+    });
     return () => {
       cancelled = true;
     };

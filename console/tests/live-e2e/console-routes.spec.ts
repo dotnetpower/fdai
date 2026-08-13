@@ -56,6 +56,7 @@ const ROUTES = [
 const OPTIONAL_UNAVAILABLE_RESPONSES = new Map<string, ReadonlySet<number>>([
   ["/capabilities", new Set([404])],
   ["/finops", new Set([404])],
+  ["/hil-queue", new Set([503])],
   ["/kpi/autonomy", new Set([404, 501])],
   ["/kpi/promotion-gates", new Set([404, 501, 503])],
   ["/me/context", new Set([503])],
