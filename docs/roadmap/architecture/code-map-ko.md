@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 45f2d9a46cdff376f0dbbca3adfeac22a86b1e51
+translation_source_sha: c2c6393902305508491b14d7b3d488c393ef7100
 translation_revised: 2026-08-13
 ---
 # 코드 맵
@@ -37,7 +37,7 @@ translation_revised: 2026-08-13
 | 영속 Rule 세대 종결 | 구현됨 | `core/rule_semantic_generation/activation.py`, `core/rule_semantic_generation/ledger.py`, `core/rule_semantic_generation/publication.py`, `rule_catalog/schema/rule_semantic_generation_events.py`, 집중 활성화, 계약, ledger, 발행 및 실제 PostgreSQL 검사 | Core는 활성화 전에 정확한 검증 증적과 예상 이전 활성 식별자를 확인하고, 완료된 명령이 프로바이더에 다시 전달되지 않게 하며, 첫 최종 결과를 lease로 차단된 하나의 발행 레코드에 원자적으로 연결하고, exact-topic broker 확인 뒤에만 발행 완료로 표시합니다. Delivery 상태는 정책, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
 | Rule 세대 발행 소유권 | 구현됨 | `agents/mimir.py`, `agents/_framework/runtime.py`, `runtime/bootstrap.py`, `runtime/bootstrap_bindings.py`, `runtime/bootstrap_lifecycle.py`, 집중 Mimir, 런타임, bootstrap, 활성화 및 발행 검사(`32 passed`) | Mimir만 활성화 명령과 결과를 구독합니다. 명령을 exact binder에 위임하고 안전하게 재시도할 수 있는 변환 전용 결과 증적을 저장합니다. 준비 상태와 독립적인 drain은 해제된 전송 실패만 재시도하며 Mimir에 인덱스, 정책, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
 | 읽기 조사 활동 ID | 구현됨 | `composition/wire_read_investigation.py`, `test_wire_read_investigation.py`, focused 테스트 | 각 호출은 실시간 및 영속 활동에서 하나의 불투명한 상관관계 값을 공유하고, 별도 호출은 서로 다른 상관관계 값을 사용하며, 논리적 요청 멱등성은 안정적으로 유지됩니다. |
-| 서비스 간 의미 Rule 변환 결과 | 구현됨 | `fdai_service_contracts/semantic_turn.py`, `fdai_core_service/semantic_turn_processor.py`, `fdai_operator_service/postgres_semantic_turn_store.py`, 통과한 의미 경로 테스트 88개 | 공유 버전 1.2 계약, Core 처리 및 Operator 영속성은 후보 전용 권한, 범위가 제한된 기한, 복구 가능한 소유권 및 principal 범위의 exact 읽기를 보존합니다. 통제된 실제 운영 보증은 [온톨로지 조회 coverage 계획](../interfaces/ontology-query-coverage-implementation-plan-ko.md#남은-작업)에 열린 항목으로 남아 있습니다. |
+| 서비스 간 의미 Rule 변환 결과 | 구현됨 | `fdai_service_contracts/semantic_turn.py`, `fdai_core_service/semantic_turn_processor.py`, `fdai_operator_service/postgres_semantic_turn_store.py`, 통과한 의미 경로 테스트 94개 | 공유 버전 1.2 계약, Core 처리 및 Operator 영속성은 후보 전용 권한, 범위가 제한된 기한, 복구 가능한 소유권 및 principal 범위의 exact 읽기와 함께 검증된 정확한 함수 호출 증적 및 정규 다이제스트를 보존합니다. 계약 검증은 내용, 다이제스트, 작업, 의도, 기능 및 최종 상태 차이를 거부합니다. 통제된 실제 운영 보증은 [온톨로지 조회 coverage 계획](../interfaces/ontology-query-coverage-implementation-plan-ko.md#남은-작업)에 열린 항목으로 남아 있습니다. |
 | 의미 시간 및 근거 조립 | 구현됨 | `delivery/persistence/postgres_topology_history.py`, `composition/wire_semantic_query.py`, `runtime/bootstrap.py`, `runtime/bootstrap_bindings.py`, 통과한 집중 조립 및 프로바이더 선택 테스트 16개 | 상태 저장소 DSN이 있을 때만 PostgreSQL 토폴로지 이력을 사용할 수 있습니다. 메트릭 시계열과 근거 결합 기능에는 검토된 메트릭 레지스트리와 no-op이 아닌 프로바이더가 모두 필요합니다. 하나의 핸들러 맵이 검증기와 실행기의 가용성을 함께 제어하며 모든 결과는 `execution_authority=False`인 읽기 전용으로 유지됩니다. |
 
 ### 구현 이력
@@ -48,7 +48,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | 구현됨 | 플래너 함수 가시성을 실제 런타임 등록에 연결하고 바인딩되지 않은 읽기 가능 선언을 타입이 지정된 구조 coverage에 유지했습니다. | 현재 변경의 `wire_semantic_query.py`, `semantic_manifest.py`, `query_manifest.py` 및 해당 focused 테스트 | 영속 production 의미 인덱스는 이 변경 범위 밖에 있으며 아래 IS-09 원격 검증 항목을 완료합니다. |
 | 2026-08-13 | 구현됨 | 호출 상관관계를 논리적 요청 멱등성과 분리하고 영속 요청자 및 대화 ID를 불투명 참조로 바꿨습니다. | `current change`, `wire_read_investigation.py`, `test_wire_read_investigation.py`, 통과한 focused 테스트 5개 | 아래 IS-09 원격 검증 항목을 완료합니다. |
 | 2026-08-13 | 구현됨 | 카탈로그 세대를 프로바이더 중립적이고 범위가 제한된 순서 보장 문서 매니페스트에 연결하고 exact 문서 집합에서 세대 ID를 독립적으로 재현할 수 있게 했습니다. | `current change`, `shared/providers/catalog_search.py`, `delivery/catalog_search/generation.py`, `delivery/catalog_search/in_memory.py`, 통과한 focused 카탈로그, 온톨로지 조회, 스키마 및 조립 테스트 41개 | 영속 production 의미 인덱스를 조립하고 검증한 뒤 아래 IS-09 원격 검증 항목을 완료합니다. |
-| 2026-08-13 | 구현됨 | 공유 의미 Rule 계약과 Core에서 Operator로 이어지는 영속 변환 결과 경계를 강화했습니다. | `current change`, 통과한 의미 경로 테스트 88개, 통과한 작업 범위 Ruff 및 운영 파일 6개의 strict mypy 통과 | 온톨로지 조회 coverage 계획에 통제된 실제 증적을 기록하고 IS-09 원격 검증을 완료합니다. |
+| 2026-08-13 | 구현됨 | 검증된 정확한 함수 호출 증적 및 정규 다이제스트 보존을 포함하여 공유 의미 Rule 계약과 Core에서 Operator로 이어지는 영속 변환 결과 경계를 강화했습니다. | `current change`, 통과한 의미 경로 테스트 94개, 통과한 작업 범위 Ruff 및 변경한 운영 파일의 strict mypy 통과 | 온톨로지 조회 coverage 계획에 통제된 실제 증적을 기록하고 IS-09 원격 검증을 완료합니다. |
 | 2026-08-13 | 구현됨 | 점수 계산과 상위 결과 선택 전에 exact-generation Rule 검색에 범위가 제한된 목표 인식 후보 확인을 추가했습니다. | `current change`, `objective_rule_resolution.py`, `catalog_queries.py`, `catalog_search.py`, `in_memory.py`, 통과한 집중 온톨로지 조회 테스트 8개 | 정책 추상화 계획의 P1 바인딩 채우기, P2 영속 세대 근거 및 P4 롤아웃 보증은 열려 있습니다. |
 | 2026-08-13 | 구현됨 | Exact-generation Rule 검색을 위한 영속 PostgreSQL 세대 어댑터와 예상 이전 세대 활성화 compare-and-swap을 추가했습니다. | `current change`, `postgres.py`, 수명 주기 게시자, 직접 호출자 및 in-memory와 실제 PostgreSQL 경로에서 통과한 focused 카탈로그 테스트 44개, 변경한 수명 주기 출처의 Ruff와 strict mypy 통과 | Production bootstrap에서 어댑터를 연결하고 통제된 IS-09 원격 검증 근거를 기록합니다. |
 | 2026-08-13 | 구현됨 | 정확한 활성 세대 검사와 선택적 준비 상태 저하 뒤에서 영속 Rule 의미 인덱스를 운영 시작에 연결했습니다. | `current change`, `bootstrap.py`, `bootstrap_lifecycle.py`, `wire_semantic_query.py`, 통과한 집중 런타임 및 구성 검사 46개, Ruff 및 strict mypy 통과 | 통제된 IS-09 원격 검증 근거를 기록합니다. |

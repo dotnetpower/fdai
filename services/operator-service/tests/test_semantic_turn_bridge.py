@@ -59,8 +59,10 @@ from fdai_operator_service.postgres_semantic_turn_store import (
 )
 from fdai_service_contracts import (
     ContractValidationError,
+    GoalTaskReceipt,
     RuleSearchProjection,
     RuleSearchReceipt,
+    query_content_digest,
     rule_search_query_digest,
 )
 from pydantic import ValidationError
@@ -304,12 +306,30 @@ def _rule_search_projection() -> dict[str, object]:
             "execution_authority": False,
         }
     )
+    function_receipt = GoalTaskReceipt.model_validate(
+        {
+            "task_id": "query:resources",
+            "goal_id": "resources",
+            "intent": "function",
+            "capability": "query.function",
+            "evidence_mode": "operational",
+            "status": "completed",
+            "duration_ms": 5,
+            "evidence_refs": ["catalog:rule.one"],
+            "started_at": "2026-08-11T00:00:00Z",
+            "completed_at": "2026-08-11T00:00:00Z",
+        }
+    )
     return RuleSearchProjection.model_validate(
         {
             "query_digest": query_digest,
             "retrieval_receipt_digest": receipt.digest,
+            "function_invocation_receipt_digest": query_content_digest(
+                function_receipt.model_dump(mode="json")
+            ),
             "candidates": [],
             "retrieval_receipt": receipt.model_dump(mode="json"),
+            "function_invocation_receipt": function_receipt.model_dump(mode="json"),
             "authority": "candidate_only",
             "execution_authority": False,
         }

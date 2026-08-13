@@ -18,10 +18,12 @@ from fdai_operator_service.families.workflow import (
 )
 from fdai_operator_service.family_adapters import PostgresWorkflowAdapters
 from fdai_service_contracts import (
+    GoalTaskReceipt,
     OperatorPrincipal,
     OperatorRole,
     RuleSearchProjection,
     RuleSearchReceipt,
+    query_content_digest,
     rule_search_query_digest,
 )
 from starlette.applications import Starlette
@@ -232,12 +234,30 @@ async def test_rule_search_adapter_reads_exact_principal_and_query_projection() 
             "execution_authority": False,
         }
     )
+    function_receipt = GoalTaskReceipt.model_validate(
+        {
+            "task_id": "query:resources",
+            "goal_id": "resources",
+            "intent": "function",
+            "capability": "query.function",
+            "evidence_mode": "operational",
+            "status": "completed",
+            "duration_ms": 5,
+            "evidence_refs": ["catalog:rule.one"],
+            "started_at": "2026-08-11T00:00:00Z",
+            "completed_at": "2026-08-11T00:00:00Z",
+        }
+    )
     projection = RuleSearchProjection.model_validate(
         {
             "query_digest": query_digest,
             "retrieval_receipt_digest": receipt.digest,
+            "function_invocation_receipt_digest": query_content_digest(
+                function_receipt.model_dump(mode="json")
+            ),
             "candidates": [],
             "retrieval_receipt": receipt.model_dump(mode="json"),
+            "function_invocation_receipt": function_receipt.model_dump(mode="json"),
             "authority": "candidate_only",
             "execution_authority": False,
         }

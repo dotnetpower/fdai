@@ -717,6 +717,22 @@ async def test_answered_rule_search_projects_exact_candidate_receipt() -> None:
     assert projection["status"] == "answered"
     assert rule_search["query_digest"].startswith("sha256:")
     assert rule_search["retrieval_receipt"]["generation_digest"] == GENERATION_DIGEST
+    assert rule_search["function_invocation_receipt_digest"].startswith("sha256:")
+    assert rule_search["function_invocation_receipt"] == {
+        "blocked_by": [],
+        "capability": "query.function",
+        "completed_at": NOW.isoformat().replace("+00:00", "Z"),
+        "depends_on": [],
+        "duration_ms": 5,
+        "evidence_mode": "operational",
+        "evidence_refs": ["inventory:evidence-1"],
+        "goal_id": "resources",
+        "intent": "function",
+        "reason": None,
+        "started_at": NOW.isoformat().replace("+00:00", "Z"),
+        "status": "completed",
+        "task_id": "query:resources",
+    }
     assert rule_search["candidates"] == [
         {
             "authority": "candidate_only",

@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: c2ef302b864ec38f6505c2b079b663c231974f23
+translation_source_sha: ea3c77014d3aeaca78fb5e138deb6f00fd39182e
 translation_revised: 2026-08-13
 ---
 # Rule 의미 검색
@@ -60,7 +60,7 @@ translation_revised: 2026-08-13
 | 통제된 세대 활성화 | implemented | `core/rule_semantic_generation/activation.py`, `core/rule_semantic_generation/ledger.py`, 프로바이더와 delivery 활성화 계약, 집중 활성화 및 실제 PostgreSQL 검사 | 활성화는 변경 경계 안에서 정확한 대상 다이제스트와 검증 증적을 예상 이전 활성 식별자에 연결합니다. 완료된 명령의 replay는 프로바이더 접근 전에 영속 최종 결과를 반환하며 첫 결과와 발행 대기 outbox 레코드는 원자적으로 커밋됩니다. |
 | 영속 활성화 결과 발행 및 변환 결과 | implemented | `core/rule_semantic_generation/publication.py`; `agents/mimir.py`; `agents/_framework/runtime.py`; `runtime/bootstrap.py`; 집중 발행, Mimir, 런타임 및 bootstrap 검사 | 제한 시간이 있고 lease로 격리된 발행기는 의미 인덱스 준비 상태와 독립적으로 최종 결과를 발행합니다. Mimir만 활성화 명령을 소비하고 인덱스 또는 실행 권한을 얻지 않은 채 최종 결과를 변환합니다. 운영 구성은 binder와 발행기가 하나의 영속 ledger를 공유하게 합니다. |
 | 운영 bootstrap 연결 | implemented | `runtime/bootstrap.py`; `runtime/bootstrap_lifecycle.py`; `composition/wire_semantic_query.py`; `tests/runtime/test_catalog_semantic_bootstrap.py`; 집중 bootstrap 및 구성 검사(`46 passed`) | 시작 시 정확한 활성 세대만 연결합니다. 상태가 없거나 오래되거나 접근할 수 없거나 사용할 수 없으면 안정적인 선택적 준비 상태 사유를 만들고 Rule 검색을 등록하지 않습니다. 통제된 실제 근거는 남아 있습니다. |
-| Operator Rule 검색 변환 결과 | implemented | Operator Service workflow 매니페스트, 경로 및 PostgreSQL workflow 어댑터 | `POST /rules/search`는 개정 번호가 있는 구체화된 변환 결과를 읽으며 정책, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
+| Operator Rule 검색 변환 결과 | implemented | `packages/service-contracts/src/fdai_service_contracts/semantic_turn.py`; `services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py`; Operator Service workflow 어댑터 및 경로; current change 집중 검사 | `POST /rules/search`는 검증된 정확한 함수 호출 증적과 정규 다이제스트를 포함하는 개정 번호가 있는 구체화된 변환 결과를 읽습니다. 공유 계약은 내용, 다이제스트, 작업, 의도, 기능 및 최종 상태 차이를 거부합니다. 직접 Core 호출이나 정책, 승인, 변경 또는 실행 권한을 추가하지 않습니다. |
 
 ### 구현 이력
 
@@ -80,6 +80,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | implemented | 검증된 Rule 세대를 위한 정확한 활성화 binder를 추가했습니다. 프로바이더 변경 경계 안에서 대상 검증 증적과 예상 이전 식별자를 확인하고, 완료된 명령이 프로바이더에 다시 전달되지 않게 하며, 프로바이더 오류 후 관찰된 효과를 조정하고, 하나의 안정적인 최종 결과와 outbox 레코드를 영속 종결합니다. | `current change`, 통과한 집중 활성화, ledger, 세대 및 실제 PostgreSQL 검사, 변경한 수명 주기 파일의 Ruff와 strict mypy 통과 | EventBus를 통해 영속 outbox를 발행하고, 책임 agent 소유권을 구성하며, 통제된 런타임 근거를 기록합니다. |
 | 2026-08-13 | implemented | lease로 격리된 영속 활성화 결과 발행, Mimir 소유 명령 유입 및 결과 변환, 운영 환경의 공유 ledger 구성과 준비 상태에 독립적인 backlog 발행을 추가했습니다. 해제에 성공한 broker 실패는 재시도하되 receipt 계약 또는 ledger 실패는 숨기지 않습니다. 통합 런타임 증명은 명령 전달부터 활성화, outbox 발행 및 변환 전용 결과 저장까지 다룹니다. | `current change`; 집중 bootstrap, 런타임, Mimir, 활성화 및 발행 선택 검사에서 재시작, 중복, lease 만료, 취소, broker 실패 재시도, 치명적 receipt topic 불일치, 확인된 전달 및 통합 명령-변환 결과 사례를 포함한 테스트 32개가 통과했습니다. | 이 영역을 `validated`로 변경하기 전에 통제된 실제 런타임 근거를 기록합니다. 별도 검색 및 함수 호출 변환 결과 작업은 열려 있습니다. |
 | 2026-08-13 | implemented | 내용 기반 주소를 가진 평가 정책 로딩과 결정론적인 검토 전용 승격 평가를 추가했습니다. 평가는 검토 자격을 반환하기 전에 증적 및 정책 ID, 정확한 현재 메트릭과 임계값, 필수 집단, 검증 전용 권한 및 실행 권한 없음 경계를 다시 검증합니다. | `current change`; 집중 평가 정책, 증적, 승격 검토, 검색 및 배포 카탈로그 모음에서 테스트 42개가 통과했습니다. 변경한 운영 모듈에서 Ruff와 strict mypy가 통과했습니다. | 통과 증적이 검토 자격을 얻기 전에 통제된 한국어 표면을 추가하고 측정된 lexical 오탐을 제거합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
+| 2026-08-13 | implemented | 검증된 정확한 함수 호출 증적을 Core-to-Operator 변환 결과 경계 전체에서 보존했습니다. strict 공유 계약은 정규 증적 다이제스트, 질의 작업, 함수 의도, 기능 및 완료 상태를 연결하며 Operator 저장은 원자성과 범위 격리를 유지합니다. | `current change`; 공유 계약, Core 변환 결과 처리기, Operator bridge 및 workflow-family 모음에서 테스트 94개가 통과했습니다. 변경한 운영 모듈에서 Ruff와 strict mypy가 통과했습니다. | 이 영역을 `validated`로 변경하기 전에 Reader 범위의 실제 변환 결과 근거를 기록합니다. |
 
 ### 남은 작업
 
@@ -97,9 +98,9 @@ translation_revised: 2026-08-13
 - [x] 제한 시간이 있는 EventBus worker가 영속 활성화 결과를 발행하며 Mimir만 책임 명령 및
   결과 subscriber로 동작합니다. 집중 재시작, 중복 전달, lease 만료, 취소, broker 실패,
   확인된 전달 및 통합 런타임 검사는 인덱스 또는 실행 권한을 부여하지 않고 통과했습니다.
-- [ ] Core 검색 및 함수 호출 증적을 Operator 변환 결과로 발행합니다. `POST /rules/search`가
-  직접 Core 호출 없이 정확한 증적 기반 변환 결과를 반환하고 [질의 수명
-  주기](#질의-수명-주기)를 보존하면 완료합니다.
+- [x] Core는 검증된 정확한 함수 호출 증적과 정규 다이제스트를 Operator 변환 결과로
+  발행합니다. `POST /rules/search`는 직접 Core 호출 없이 strict 증적 기반 변환 결과를 읽고
+  [질의 수명 주기](#질의-수명-주기)를 보존합니다.
 - [ ] 이 기능의 상태를 `implemented`에서 `validated`로 변경하기 전에 운영 바인딩 및
   Reader 범위 변환 결과의 통제된 실제 근거를 기록하고
   [CatalogRetrievalReceipt](#catalogretrievalreceipt)에 정의된 신원을 보존합니다.
