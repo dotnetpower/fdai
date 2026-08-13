@@ -1,7 +1,7 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: cad9914416bd40cec7e7e389a2030b398fb97247
+translation_source_sha: 6003e5159b95f63be53bf3bc0207d9febd2dfde6
 translation_revised: 2026-08-14
 ---
 
@@ -58,6 +58,7 @@ translation_revised: 2026-08-14
 | 상관관계 기반 감사 조사와 통합 버전 및 구성 노출 | in-progress | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), 런타임 상태 변환 결과 | 상관관계와 보고 기본 기능은 있지만 아래에 나열한 모든 버전, 해시, 규칙 효과, 재정의, 카나리, 비상 정지, 긴급 액세스 필드를 한 공개 읽기 표면에서 제공하지는 않습니다. |
 | 출시 전 지연 측정과 고정 시나리오 재생 | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), 집중 테스트 | 기본 기능은 범위가 제한된 측정과 릴리스 게이트 결과를 만듭니다. 외부 부하 생성기와 배포별 예산은 운영자 입력으로 남습니다. |
 | 라이브 Azure 읽기 조사 시나리오 | in-progress | [Azure 읽기 조사](../interfaces/azure-read-investigations-ko.md#구현-상태) | 범위가 제한된 읽기 전용 시나리오 4개는 통과했지만 게스트 이벤트 일치, 실제 프로바이더 `429`, 서비스 간 동등성 증적은 릴리스 근거로 남아 있습니다. |
+| ActionType 운영자 런북 스키마와 커버리지 | implemented | [`check-action-runbooks.py`](../../../scripts/quality/documentation/check-action-runbooks.py), [`incident-mitigation-and-rollback-ko.md`](../../runbooks/incident-mitigation-and-rollback-ko.md), [`test_check_action_runbooks.py`](../../../tests/integration/scripts/test_check_action_runbooks.py) | 제공되는 모든 ActionType은 선언된 전제조건, 절차, 검증, 롤백, 감사 섹션이 존재하는 제네릭 업스트림 런북 하나와 정확히 일치합니다. 배포별 명령은 포크가 소유합니다. |
 | 출시 후 안정화 조합 | in-progress | [`core/scheduler/`](../../../services/core-control-plane/src/fdai/core/scheduler) 및 측정 기본 기능 | 일일 상태, 드리프트, 배포 기준선 작업과 `console.recurrent_query` 신호는 업스트림에 등록되지 않았습니다. |
 
 ### 구현 이력
@@ -65,6 +66,7 @@ translation_revised: 2026-08-14
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 원장을 도입하고 테스트된 자체 관측성 기본 기능과 미완성 운영 근거를 분리했습니다. 이전 구현 이력은 재구성하지 않았습니다. | 현재 변경과 구현 범위 표에 인용한 준비 상태, 텔레메트리, 카나리, 지연, 기준선 실행기 집중 테스트. | 배포 왕복 근거, 경보와 훈련 범위, 통합 노출, 안정화 연결을 완료합니다. |
+| 2026-08-14 | implemented | 운영자 런북 front matter 스키마를 정의하고 제공되는 모든 ActionType에 CI 커버리지를 추가했습니다. | 현재 변경의 `check-action-runbooks.py`와 `test_check_action_runbooks.py`. | 배포 소유 명령과 절차를 같은 필수 의미 섹션에 맞게 유지합니다. |
 
 ### 남은 작업
 
@@ -75,7 +77,7 @@ translation_revised: 2026-08-14
   연결한 다음 거버넌스가 적용된 운영 근거를 기록합니다.
 - [ ] 전체 버전, 구성, 규칙 효과, 재정의, 발견, 카나리, 비상 정지, 긴급 액세스 상태를 하나의
   권한 있는 읽기 표면에서 제공하고 필드 신선도를 테스트합니다.
-- [ ] 필수 런북 스키마를 정의하고 모든 자동화된 ActionType에 검증 및 롤백 지침이 있는 제네릭
+- [x] 필수 런북 스키마를 정의하고 모든 자동화된 ActionType에 검증 및 롤백 지침이 있는 제네릭
   업스트림 또는 배포 소유 런북이 존재하는지 검사합니다.
 - [ ] 일일 안정화 작업과 반복 질의 신호를 등록하고, 구간이 열리며 guard 메트릭 위반 시 권한을
   낮추고 구성된 종료 조건을 충족한 후에만 닫히는지 입증합니다.
@@ -211,8 +213,10 @@ hash-chain됨; 같은 워크는 shadow와 강제 적용 이벤트에 대해 동�
 모든 자동 액션에는 운영자 대상 런북이 있는 것이 좋습니다. 상류는 `docs/runbooks/` 아래에
 제네릭 운영 런북을 제공합니다. 배포별 값과 절차는
 [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)에 따라
-fork-local 런북 세트에 유지합니다. 저장소는 아직 ActionType별 런북 존재 여부 또는 필수 섹션
-스키마를 강제하지 않습니다.
+fork-local 런북 세트에 유지합니다. `fdai_runbook` front matter 블록은 스키마 버전, 담당
+ActionType 패턴, 전제조건, 절차, 검증, 롤백, 감사 지침을 제공하는 제목을 선언합니다.
+`check-action-runbooks.py`는 제공되는 ActionType에 런북이 없거나 둘 이상과 일치하거나 선언된
+필수 제목이 없으면 CI를 실패시킵니다.
 
 | 런북 | 목적 | 트리거 |
 |------|------|--------|
@@ -234,7 +238,8 @@ fork-local 런북 세트에 유지합니다. 저장소는 아직 ActionType별 �
 - **런북 자체의 롤백** (운영자 스텝의 undo).
 - 런북이 남기는 **감사 트레일**.
 
-> **열림 결정**: 런북 필수 섹션 스키마와 ActionType 커버리지 게이트를 정의합니다.
+> **배포 경계**: 업스트림 스키마와 제네릭 절차는 CI에서 강제합니다. 포크는 프로바이더 명령,
+> 정확한 리소스 값, 더 좁은 배포 소유 런북을 제공합니다.
 
 ## 버전과 설정 노출
 
@@ -330,7 +335,7 @@ release 근거로 남습니다. Dedicated 검증 환경이 Azure 변경 없이 �
   5분이고 정본 페이로드/멱등성 형태는 구현되어 있습니다.
 - [ ] Smoke-테스트 스위트 구성(픽스처 세트, 스텝별 예산, 승격-게이트 배선).
 - [ ] 알림 채널 소유권 매트릭스(포크 vs 상류) 와 대체 경로 채널 선택.
-- [ ] 런북 템플릿 - 필수 섹션, 포맷, 모든 자동 액션에 런북 존재 여부 CI 검사.
+- [x] 런북 템플릿 - 필수 섹션, 포맷, 모든 자동 액션에 런북 존재 여부 CI 검사.
 - [ ] 감사 조사 흐름을 위한 보존 윈도우와 쿼리 모델.
 - [ ] Cold-start 데드라인 값
       ([startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md#cold-start-scale-to-zero-specifics) 와 공유).

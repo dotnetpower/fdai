@@ -2,8 +2,21 @@
 title: 인시던트 완화와 Rollback Runbook
 description: Governed mitigation을 적용하고 rollback 또는 recovery를 검증하는 템플릿입니다.
 translation_of: incident-mitigation-and-rollback.md
-translation_source_sha: f5d1d8c4d7588b56c422f3eb83db5301e888b50e
-translation_revised: 2026-08-11
+translation_source_sha: 7fae6b03207c56bea7a1aa8f49c563ce3b117430
+translation_revised: 2026-08-14
+fdai_runbook:
+  schema_version: 1.0.0
+  action_type_patterns:
+    - governance.*
+    - ops.*
+    - remediate.*
+    - tool.*
+  sections:
+    preconditions: 진입 기준
+    procedure: 완화 절차
+    verification: 검증
+    rollback: Rollback 절차
+    audit_trail: 근거와 완료
 ---
 
 # 인시던트 완화와 Rollback 런북

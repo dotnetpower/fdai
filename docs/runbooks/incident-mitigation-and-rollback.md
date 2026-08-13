@@ -1,6 +1,19 @@
 ---
 title: Incident Mitigation and Rollback Runbook
 description: A template for applying a governed mitigation and verifying rollback or recovery.
+fdai_runbook:
+  schema_version: 1.0.0
+  action_type_patterns:
+    - governance.*
+    - ops.*
+    - remediate.*
+    - tool.*
+  sections:
+    preconditions: Entry criteria
+    procedure: Mitigation procedure
+    verification: Verification
+    rollback: Rollback procedure
+    audit_trail: Evidence and completion
 ---
 
 # Incident Mitigation and Rollback Runbook
