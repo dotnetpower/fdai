@@ -30,9 +30,9 @@
     }
   ],
   "legacy_inventory": {
-    "head": "20260813_0080",
-    "revision_count": 82,
-    "table_count": 100
+    "head": "20260813_0081",
+    "revision_count": 83,
+    "table_count": 101
   },
   "table_migrations": {
     "core-control-plane": [
@@ -59,6 +59,7 @@
       "ontology_link",
       "ontology_link_type",
       "ontology_object_type",
+      "ontology_release",
       "ontology_resource",
       "process_event",
       "process_projection_outbox",
@@ -177,6 +178,7 @@
       "ontology_link",
       "ontology_link_type",
       "ontology_object_type",
+      "ontology_release",
       "ontology_resource",
       "process_event",
       "process_projection_outbox",

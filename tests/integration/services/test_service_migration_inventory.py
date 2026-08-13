@@ -38,9 +38,9 @@ SERVICE_IDS = (
 def test_legacy_migration_inventory_is_linear_and_complete() -> None:
     inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
 
-    assert len(inventory.down_revisions) == 82
-    assert inventory.heads == ("20260813_0080",)
-    assert len(inventory.table_sources) == 100
+    assert len(inventory.down_revisions) == 83
+    assert inventory.heads == ("20260813_0081",)
+    assert len(inventory.table_sources) == 101
     assert "IF" not in inventory.table_sources
     assert inventory.table_sources["document_worker_claim"] == ("20260806_0075",)
     assert inventory.table_sources["case_history_migration_state"] == (
@@ -955,7 +955,7 @@ def test_schema_contract_covers_exactly_five_services() -> None:
     assert all(value.table_count > 0 for value in contract.values())
     assert all(value.column_count >= value.table_count for value in contract.values())
     assert all(value.extensions for value in contract.values())
-    assert contract["core-control-plane"].constraint_count == 171
+    assert contract["core-control-plane"].constraint_count == 183
 
 
 def test_schema_contract_rejects_stale_legacy_revision(tmp_path: Path) -> None:
@@ -987,11 +987,20 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         MIGRATION_ROOT / "branches/core-control-plane/versions/20260810_core_topology_history.py"
     )
     topology_migration = inventory_module.load_revision_metadata(topology_path)
+    release_access_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260813_core_ontology_release_access.py"
+    )
+    release_access_migration = inventory_module.load_revision_metadata(release_access_path)
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
     }
-    granted_tables = set(role_migration.owned_tables) | set(topology_migration.owned_tables)
+    granted_tables = (
+        set(role_migration.owned_tables)
+        | set(topology_migration.owned_tables)
+        | set(release_access_migration.owned_tables)
+    )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")
     assert "CREATE ROLE fdai_core" in source

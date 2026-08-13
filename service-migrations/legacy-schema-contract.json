@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "legacy_head": "20260813_0080",
-  "legacy_revision_count": 82,
+  "legacy_head": "20260813_0081",
+  "legacy_revision_count": 83,
   "services": {
     "core-control-plane": {
-      "digest": "sha256:ae6ea9b5520358d7220b9b0c1132f268ee70eeefd62f7dad7c7781aa01a1ec40",
-      "table_count": 34,
-      "column_count": 336,
-      "constraint_count": 171,
+      "digest": "sha256:6cbaab476846fba8ba76d1d04173382eb62c1e8f2d43ee47f52d03e59a8a6bde",
+      "table_count": 35,
+      "column_count": 344,
+      "constraint_count": 183,
       "extensions": ["pg_trgm", "plpgsql", "vector"]
     },
     "operator-service": {
