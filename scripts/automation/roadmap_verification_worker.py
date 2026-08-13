@@ -176,6 +176,14 @@ def _integrate_branch(repo_root: Path, branch: str, base: str) -> str:
     return current_branch
 
 
+def _eligible_statuses(*, apply: bool, retry_failed: bool) -> frozenset[str]:
+    if retry_failed:
+        return frozenset({"failed"})
+    if apply:
+        return frozenset({"queued", "failed", "reviewed", "gap_found"})
+    return frozenset({"queued", "failed"})
+
+
 def run_one(
     paths: queue.QueuePaths,
     *,
@@ -184,19 +192,15 @@ def run_one(
     lease_seconds: int,
     timeout: int,
     integrate: bool = False,
+    retry_failed: bool = False,
 ) -> dict[str, Any] | None:
     queue.sync(paths)
     owner = f"{socket.gethostname()}:{os.getpid()}"
-    eligible = (
-        frozenset({"queued", "failed", "reviewed", "gap_found"})
-        if apply
-        else frozenset({"queued", "failed"})
-    )
     job = queue.claim(
         paths,
         owner=owner,
         lease_seconds=lease_seconds,
-        eligible_statuses=eligible,
+        eligible_statuses=_eligible_statuses(apply=apply, retry_failed=retry_failed),
     )
     if job is None:
         return None
@@ -298,6 +302,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--lease-seconds", type=int, default=1800)
     parser.add_argument("--timeout", type=int, default=3600)
     parser.add_argument("--integrate", action="store_true")
+    parser.add_argument("--retry-failed", action="store_true")
     return parser
 
 
@@ -311,6 +316,7 @@ def main(argv: list[str] | None = None) -> int:
         lease_seconds=arguments.lease_seconds,
         timeout=arguments.timeout,
         integrate=arguments.integrate,
+        retry_failed=arguments.retry_failed,
     )
     if result is None:
         print("roadmap-verification: no eligible job")

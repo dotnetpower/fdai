@@ -130,6 +130,15 @@ def test_worker_git_environment_disables_hooks_only_for_ephemeral_process(
     assert environment["GIT_CONFIG_VALUE_0"] == "/dev/null"
 
 
+def test_retry_failed_claims_only_failed_jobs() -> None:
+    module = _load_module()
+
+    assert module._eligible_statuses(apply=False, retry_failed=True) == frozenset({"failed"})
+    assert module._eligible_statuses(apply=False, retry_failed=False) == frozenset(
+        {"queued", "failed"}
+    )
+
+
 def _run(cwd: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603 - test-controlled commands and paths
         arguments,
