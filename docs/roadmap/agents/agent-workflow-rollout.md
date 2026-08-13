@@ -6,6 +6,29 @@ title: Agent Workflow Shadow Rollout
 This document owns the rollout order and shared exit gate for cross-agent workflows. Each workflow
 remains independently reviewable and starts in shadow mode before any enforcement promotion.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Thirteen-workflow rollout inventory | implemented | `docs/roadmap/agents/agent-workflows.md`; `services/core-control-plane/src/fdai/agents/_framework/workflows.py`; `services/core-control-plane/tests/agents/test_wave7_workflows.py` | The registry and tests preserve the documented workflow count and shadow defaults. |
+| Focused shadow-path evidence | implemented | `services/core-control-plane/tests/agents/test_wave7_workflows.py`; registered `trace_ref` targets | Focused tests establish implementation behavior only; they are not retained runtime rollout traces. |
+| Shared operational exit gate | not-started | Exit criteria in this document | No retained evidence establishes KPI baselines, required shadow durations, or zero policy-violation escapes for all workflows. |
+| Independent enforce promotion | not-started | Promotion gates in `docs/roadmap/agents/agent-workflows.md` | All registry entries remain in `shadow`; retrospective what-if remains permanently shadow. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | implemented | Adopted the implementation ledger and separated focused shadow-path implementation from operational rollout validation. Earlier implementation provenance was not reconstructed. | current change; focused workflow tests | Capture runtime exit-gate evidence and record independent promotion outcomes. |
+
+### Remaining work
+
+- [ ] Capture durable per-workflow shadow traces, KPI baselines, and policy-escape observations from an operating environment.
+- [ ] Evaluate promotion only after the applicable duration and threshold evidence exists.
+- [ ] Record promotion or continued-shadow outcomes separately for every eligible workflow.
+
 ## Workflow order
 
 Each of the 13 workflows in [agent-workflows.md](agent-workflows.md) lands as its own PR with its

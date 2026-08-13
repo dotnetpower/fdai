@@ -25,6 +25,30 @@ and is promoted per-workflow after Wave 8 measures its KPIs.
 > section. The schema, `Process` ObjectType, and compile-to-Runbook wiring are
 > defined in [process-automation.md](../decisioning/process-automation.md).
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Thirteen-workflow metadata registry | implemented | `services/core-control-plane/src/fdai/agents/_framework/workflows.py`; `services/core-control-plane/tests/agents/test_wave7_workflows.py` | All registered workflows default to `shadow`; the registry is metadata and does not by itself prove a deployed end-to-end workflow. |
+| Executable shadow trace references | implemented | `services/core-control-plane/tests/agents/test_wave7_workflows.py`; `services/core-control-plane/tests/composition/test_readiness_service.py`; `services/core-control-plane/tests/core/test_control_loop_operator_request.py`; `services/core-control-plane/tests/agents/test_detection_readiness.py` | Focused tests cover the registered trace paths. They are implementation evidence, not retained operational traces. |
+| Machine-readable workflow catalog | in-progress | `rule-catalog/workflows/`; `docs/roadmap/decisioning/process-automation.md` | The executable catalog is intentionally narrower than this design inventory and is not a one-file-per-section projection. |
+| Measured promotion gates | not-started | Promotion thresholds in this document and `services/core-control-plane/src/fdai/agents/_framework/workflows.py` | No retained evidence demonstrates the required shadow durations, KPI baselines, or per-workflow gate results. |
+| Enforce-mode promotion | not-started | `default_mode="shadow"` in `services/core-control-plane/src/fdai/agents/_framework/workflows.py` | Promotion remains independent per workflow; retrospective what-if is inherently shadow and is not eligible for enforcement. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | implemented | Adopted the implementation ledger and reconciled the workflow inventory with the metadata registry and focused shadow tests. Earlier implementation provenance was not reconstructed. | current change; focused workflow tests | Complete catalog projection where required, retain operational shadow evidence, and evaluate promotion gates independently. |
+
+### Remaining work
+
+- [ ] Decide which design-inventory workflows require machine-readable catalog entries and preserve the documented non-1:1 boundary.
+- [ ] Retain per-workflow shadow-duration, KPI-baseline, policy-escape, and trace evidence from an operating environment.
+- [ ] Evaluate and record each eligible workflow's promotion result independently; do not promote retrospective what-if.
+
 ## 0. Workflow shape
 
 Every workflow declaration follows the same structure:
