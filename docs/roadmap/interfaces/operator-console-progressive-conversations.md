@@ -16,6 +16,7 @@ bounded progress contract for progressive Operator Console conversations.
 | Drawer presentation and new-conversation identity | in-progress | [`use-command-deck-sessions.ts`](../../../console/src/deck/use-command-deck-sessions.ts), [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | The Console creates a fresh session independently of persisted drawer visibility, and the live test now isolates the request in a new conversation. A passing authenticated runtime receipt is still required. |
 | Governed four-stage ontology receipt | in-progress | [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | The request-to-Console assertion exists, but no new retained passing artifact supports `validated`. |
 | Semantic clarification presentation | implemented | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts) | `semantic_clarification_required` renders as `Context required`; the focused Console suite passed 13 tests. Classification covers only reason codes the control plane emits. An authenticated retained receipt remains open. |
+| Verified semantic answer presentation | in-progress | `semantic_turn_processor.py`; `semantic_turn_runtime.py`; `backend-stream.ts`; authenticated Browser observation | The semantic path verifies the result but currently places fenced machine JSON in `answer`, emits only a terminal `done` event, and supplies no answer plan, presentation artifact, trajectory detail, or server-observed progress. The Browser observation wasn't retained as a governed artifact. |
 
 ### Implementation history
 
@@ -24,6 +25,7 @@ bounded progress contract for progressive Operator Console conversations.
 | 2026-08-13 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Stabilized the live receipt setup for persisted-open and fresh-conversation states. | Current change in [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) and this document pair; Console typecheck and targeted Playwright discovery passed. | Capture a passing authenticated four-stage receipt, then retain the seeded bilingual assurance artifact before promoting runtime assurance. |
 | 2026-08-13 | implemented | Classified bounded semantic clarification as missing context instead of an unsupported claim. | `current change`; [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts), and the focused Console suite passed 12 tests. | Capture the authenticated four-stage receipt already listed below before claiming runtime validation. |
 | 2026-08-14 | implemented | Restricted context classification to reason codes the control plane actually emits, replacing two speculative literals with the emitted `operational_case_context_missing`. | `current change`; [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts), and the focused Console suite passed 13 tests. | A console incident investigation prompt still resolves to clarification because the semantic query manifest exposes no incident competency; that capability gap needs its own design pass. |
+| 2026-08-14 | in-progress | Recorded the verified semantic terminal presentation gap after an authenticated incident turn returned an evidence-bound receipt but exposed fenced JSON as the primary answer with no progressive server frames. | Current source paths in the scope table and the authenticated Browser observation; no runtime artifact was retained and no product code changed in this documentation update. | Complete the semantic presentation work packages and retain the exit evidence below. |
 
 ### Remaining work
 
@@ -33,6 +35,37 @@ bounded progress contract for progressive Operator Console conversations.
   without replacing the 2026-08-11 baseline.
 - [ ] Record governed Teams and Slack reduction receipts before claiming channel-wide runtime
   validation.
+- [ ] Replace fenced machine JSON as the primary semantic answer with localized, deterministic
+  operator-facing content while keeping the exact payload available under collapsed technical
+  details and preserving the terminal verification receipt.
+- [ ] Emit and replay monotonic semantic lifecycle frames so `Preparing answer` reflects observed
+  acceptance, planning, evidence, verification, and presentation work before `done`.
+
+## Semantic terminal presentation plan
+
+The current semantic path proves query execution and verification but stops before operator-facing
+presentation. Core serializes the verified output into fenced JSON, Operator replays one `done`
+event, and the Console correctly falls back to that canonical text because the terminal payload has
+no `answer_plan`, `presentation_artifact`, or `trajectory_detail`. The existing `Preparing answer`
+component is transient browser state. It can show only while `inFlight` is true and receives no
+semantic stage events, so completed replay cannot explain what work occurred.
+
+The machine result remains authoritative and replayable, but it isn't the primary human answer.
+Implement the correction in five bounded work packages:
+
+| Work package | Required change | Exit evidence |
+|--------------|-----------------|---------------|
+| Machine and presentation split | Keep exact semantic outputs and digests as typed technical data. Compile a localized canonical Markdown answer from verified server-owned slots. Never ask a model to rewrite values or evidence references. | Contract tests prove the human answer contains only values present in the immutable result, while technical details round-trip the exact machine payload and receipt. |
+| Honest progress | Emit additive, monotonic lifecycle frames for accepted, planning, evidence execution, verification, and presentation phases. Operator may report only locally observed acceptance or waiting until Core publishes a stage. Persist enough sequence state for reconnect replay without rerunning work. | Stream tests prove ordered status frames precede `done`, reconnect doesn't duplicate a phase, cancellation remains terminal, and no unobserved stage is fabricated. |
+| Incident narrative | Render sections for verified facts, causal status, evidence gaps, and the next safe step. A missing causal contract says that root cause isn't available. Missing impact or citation evidence remains explicit. Evidence collection is the default next step; an action draft appears only when the operator explicitly requests a draft. | English and Korean fixtures prove no cause is inferred from an `rca.hypothesis` record, every gap is visible, and `execution_authority=false` remains unchanged. |
+| Console and channel reduction | Render verified summary, limitation, evidence links, and optional table blocks through `presentation_artifact` v1. Put raw JSON and digests in collapsed technical details. Web, Teams, and Slack use the same canonical content; unsupported artifacts fall back to readable Markdown rather than raw JSON. | Console parser and renderer tests reject unknown or receipt-unbound blocks. Channel tests preserve the same facts, limitations, and authority while applying vendor bounds. |
+| Authenticated assurance | Exercise a fresh bound incident turn, durable replay, reconnect, and Korean equivalent after the focused contract tests pass. | A governed Browser artifact shows `Preparing answer` before terminal completion, a readable verified final answer with no primary fenced JSON, collapsed technical details, explicit evidence gaps, no invented cause, and the same answer after replay. |
+
+For the currently observed incident shape, a compliant final answer should explain that three
+correlated audit records were verified, causal analysis isn't available, impact and grounded
+citation evidence are missing, and the next safe step is to collect those missing evidence classes
+before proposing a change. The exact identifiers, timestamps, records, and digests remain available
+as technical evidence rather than leading the conversation.
 
 ## Branch contract
 

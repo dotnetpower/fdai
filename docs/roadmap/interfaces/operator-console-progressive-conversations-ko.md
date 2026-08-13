@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: bb54434657814943b89e28e416956106040bb1b5
+translation_source_sha: 257a8d3ff9b103e3cfbe4e91b1c499eeb3090386
 translation_revised: 2026-08-13
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -19,6 +19,7 @@ translation_revised: 2026-08-13
 | 드로어 표현 및 새 대화 정체성 | 진행 중 | [`use-command-deck-sessions.ts`](../../../console/src/deck/use-command-deck-sessions.ts), [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | Console은 저장된 드로어 표시 여부와 독립적으로 새 세션을 만들며, 라이브 테스트는 이제 새 대화에서 요청을 격리합니다. 인증된 런타임 증적 통과가 아직 필요합니다. |
 | 통제된 4단계 온톨로지 증적 | 진행 중 | [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | 요청부터 Console까지 이어지는 검증은 있지만, `검증됨`을 뒷받침하는 새 보존 통과 산출물은 없습니다. |
 | 의미 명확화 표현 | 구현됨 | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts) | `semantic_clarification_required`를 `Context required`로 표시하며 Console 집중 테스트 13개가 통과했습니다. 분류는 제어 평면이 실제로 방출하는 이유 코드만 다룹니다. 인증되고 보존된 증적은 열린 항목으로 남아 있습니다. |
+| 검증된 의미 답변 표현 | 진행 중 | `semantic_turn_processor.py`, `semantic_turn_runtime.py`, `backend-stream.ts`, 인증된 Browser 관찰 | 의미 경로는 결과를 검증하지만 현재 `answer`에 fenced machine JSON을 넣고 최종 `done` 이벤트 하나만 내보내며, 답변 계획, presentation artifact, trajectory detail 또는 서버에서 관찰된 진행 상황을 제공하지 않습니다. Browser 관찰은 통제된 산출물로 보존하지 않았습니다. |
 
 ### 구현 이력
 
@@ -27,6 +28,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | 진행 중 | 구현 장부를 도입했으며 이전 출처는 복원하지 않았습니다. 저장된 열린 상태와 새 대화 상태에서 라이브 증적 준비를 안정화했습니다. | 현재 변경의 [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts)와 이 문서 쌍, Console 타입 검사 및 대상 Playwright 검색이 통과했습니다. | 인증된 4단계 증적을 확보한 뒤, 런타임 보증을 승격하기 전에 seed가 지정된 이중 언어 보증 산출물을 보존해야 합니다. |
 | 2026-08-13 | 구현됨 | 범위가 제한된 의미 명확화를 지원되지 않는 주장이 아니라 필요한 맥락으로 분류했습니다. | `current change`, [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts), 통과한 Console 집중 테스트 12개 | 런타임 검증을 주장하기 전에 아래에 이미 나열된 인증된 4단계 증적을 확보해야 합니다. |
 | 2026-08-14 | 구현됨 | 맥락 분류를 제어 평면이 실제로 방출하는 이유 코드로 제한하고, 추측성 리터럴 2개를 실제 방출되는 `operational_case_context_missing`으로 대체했습니다. | `current change`, [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts), 통과한 Console 집중 테스트 13개 | 의미 질의 매니페스트가 인시던트 역량을 노출하지 않아 Console 인시던트 조사 프롬프트는 여전히 명확화로 귀결됩니다. 이 역량 공백은 별도의 설계 검토가 필요합니다. |
+| 2026-08-14 | 진행 중 | 인증된 인시던트 턴이 근거에 결속된 증적을 반환했지만 점진적 서버 프레임 없이 fenced JSON을 기본 답변으로 노출한 것을 확인하고 검증된 의미 최종 표현 공백을 기록했습니다. | 구현 범위 표의 현재 출처와 인증된 Browser 관찰, 이 문서 변경에서는 런타임 산출물을 보존하지 않았고 제품 코드도 변경하지 않았습니다. | 아래 의미 표현 작업 패키지를 완료하고 종료 근거를 보존합니다. |
 
 ### 남은 작업
 
@@ -35,6 +37,35 @@ translation_revised: 2026-08-13
 - [ ] 2026-08-11 기준선을 교체하지 않고 seed `0x0fda1`의 영어/한국어 100-case 무작위 보증
   통과 산출물을 보존합니다.
 - [ ] 채널 전체 런타임 검증을 주장하기 전에 통제된 Teams 및 Slack 집약 증적을 기록합니다.
+- [ ] 정확한 machine payload와 최종 검증 증적은 접힌 기술 상세에 보존하면서 primary semantic
+  답변의 fenced machine JSON을 지역화되고 결정론적인 운영자 대상 내용으로 교체합니다.
+- [ ] `Preparing answer`가 `done` 전에 관찰된 수락, 계획, 근거, 검증 및 표현 작업을 반영하도록
+  단조 증가하는 의미 수명 주기 프레임을 내보내고 재생합니다.
+
+## 의미 최종 표현 계획
+
+현재 의미 경로는 조회 실행과 검증을 입증하지만 운영자 대상 표현 전에 멈춥니다. Core는 검증된
+출력을 fenced JSON으로 직렬화하고, Operator는 `done` 이벤트 하나를 재생하며, 최종 payload에
+`answer_plan`, `presentation_artifact`, `trajectory_detail`이 없으므로 Console은 설계대로 해당
+정본 텍스트를 fallback으로 표시합니다. 기존 `Preparing answer` 컴포넌트는 일시적인 브라우저
+상태입니다. `inFlight`가 true인 동안에만 표시할 수 있고 의미 단계 이벤트를 받지 못하므로 완료된
+재생에서는 어떤 작업이 수행됐는지 설명할 수 없습니다.
+
+Machine 결과는 계속 권위 있고 재생 가능하지만 primary 사람 답변은 아닙니다. 다음 다섯 작업
+패키지로 수정합니다.
+
+| 작업 패키지 | 필요한 변경 | 종료 근거 |
+|-------------|-------------|-----------|
+| Machine과 표현 분리 | 정확한 의미 출력과 digest는 타입이 지정된 기술 데이터로 유지합니다. 검증된 서버 소유 slot에서 지역화된 정본 Markdown 답변을 compile합니다. 모델에 값이나 근거 참조를 다시 쓰게 하지 않습니다. | 계약 테스트는 사람 답변에 불변 결과에 있는 값만 포함됨을 입증하고, 기술 상세는 exact machine payload와 증적을 round-trip합니다. |
+| 정직한 진행 상황 | accepted, planning, evidence execution, verification, presentation 단계에 추가적이고 단조 증가하는 수명 주기 프레임을 내보냅니다. Core가 단계를 게시하기 전에는 Operator가 로컬에서 관찰한 수락 또는 대기 상태만 보고할 수 있습니다. 작업을 다시 실행하지 않고 reconnect 재생이 가능하도록 충분한 순서 상태를 보존합니다. | 스트림 테스트는 순서가 있는 status 프레임이 `done`보다 먼저 오고, reconnect가 단계를 중복하지 않으며, 취소가 최종 상태로 유지되고, 관찰하지 않은 단계를 만들지 않음을 입증합니다. |
+| 인시던트 서술 | 검증된 사실, 인과 상태, 근거 공백 및 다음 안전 단계를 구분해 렌더링합니다. 인과 계약이 없으면 root cause를 사용할 수 없다고 표시합니다. 누락된 impact 또는 citation 근거는 계속 명시합니다. 기본 다음 단계는 근거 수집이며, 운영자가 초안 생성을 명시적으로 요청한 경우에만 action draft를 표시합니다. | 영어/한국어 fixture는 `rca.hypothesis` 기록에서 원인을 추론하지 않고 모든 공백을 표시하며 `execution_authority=false`가 바뀌지 않음을 입증합니다. |
+| Console 및 채널 집약 | `presentation_artifact` v1을 통해 검증된 요약, 제한, 근거 링크 및 선택적 표 block을 렌더링합니다. Raw JSON과 digest는 접힌 기술 상세에 둡니다. Web, Teams, Slack은 같은 정본 내용을 사용하고 지원하지 않는 artifact는 raw JSON이 아닌 읽기 쉬운 Markdown으로 fallback합니다. | Console parser와 renderer 테스트는 알 수 없거나 증적에 결속되지 않은 block을 거부합니다. 채널 테스트는 vendor 한계를 적용하면서 같은 사실, 제한 및 권한을 보존합니다. |
+| 인증된 보증 | Focused 계약 테스트가 통과한 뒤 새로운 바인딩된 인시던트 턴, 영속 재생, reconnect 및 한국어 동등 질문을 실행합니다. | 통제된 Browser 산출물은 최종 완료 전에 `Preparing answer`가 표시되고, primary fenced JSON이 없는 읽기 쉬운 검증 답변, 접힌 기술 상세, 명시적 근거 공백, 만들어 내지 않은 원인 및 재생 뒤 동일한 답변을 보여 줍니다. |
+
+현재 관찰된 인시던트 형태에서 계약에 맞는 최종 답변은 상관관계가 있는 감사 기록 3건이
+검증됐고 인과 분석은 사용할 수 없으며 impact와 grounded citation 근거가 누락됐고 변경을
+제안하기 전에 누락된 근거 유형을 수집하는 것이 다음 안전 단계임을 설명하는 것이 좋습니다.
+정확한 식별자, 시각, 기록 및 digest는 대화를 이끄는 대신 기술 근거로 확인할 수 있게 유지합니다.
 
 ## 가지 계약
 
