@@ -8,6 +8,30 @@ This companion defines the design boundaries, lifecycle rules, and live consumer
 ActionType ontology. The canonical schema and catalog remain in
 [Action Ontology](action-ontology.md).
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Catalog lifecycle and inert defaults | implemented | [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | Shipped declarations validate lifecycle constraints and default to shadow. |
+| Rule-violation remediation consumer | implemented | [`test_unified_control_loop.py`](../../../services/core-control-plane/tests/pipeline/test_unified_control_loop.py) | The typed control loop routes remediation through ActionBuilder, RiskGate, and Executor. |
+| Operator-request proposal consumer | implemented | [`bragi.py`](../../../services/core-control-plane/src/fdai/agents/bragi.py), [`test_chat_to_pipeline_e2e.py`](../../../services/core-control-plane/tests/agents/test_chat_to_pipeline_e2e.py) | Bragi publishes a typed proposal to canonical ingress and never calls an executor directly. |
+| Governance dispatchers | in-progress | [`override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py), [Consumer status](#consumer-implementation-status-declared-vs-live) | The override writer is live; promote, retire, and grant-exemption declarations remain inert until their PR-native writers land. |
+| Selected live probes | implemented | [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | Referenced probes are loader-validated; actions without one retain their static blast bound. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source, tests, and consumer-status section listed in the scope table. | Complete the observable governance-dispatch exit condition below. |
+
+### Remaining work
+
+- [ ] Implement PR-native writers for `governance.promote-action-type`,
+  `governance.retire-rule`, and `governance.grant-exemption`, then retain focused evidence that
+  each remains shadow-only without an approved, distinct-approver transition.
+
 ## Design boundaries and lifecycle
 
 Explicit answers to recurring questions about the ontology's shape, so a

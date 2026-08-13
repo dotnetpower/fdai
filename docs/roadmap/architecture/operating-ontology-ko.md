@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 79b0e94a489d3027c0169f95711e2a3c99a1214f
-translation_revised: 2026-08-12
+translation_source_sha: 2ae24f1802090e387cec5cd37921e41c02445fc0
+translation_revised: 2026-08-13
 ---
 # FDAI 운영 온톨로지
 
@@ -82,6 +82,34 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 > 있으면 분류 범위가 불완전해지고 대체 그래프를 활성화하지 않습니다. 이 관계가 실제 변환
 > 결과에 나타나도록 운영 인벤토리 작업이 이미 로드한 레지스트리 다이제스트 맵을 주입하며,
 > 승격된 완전 세대는 실제 변환 결과에 이 관계를 저장합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| O1 의미 체계와 카탈로그 무결성 | implemented | [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py), [`test_ontology_provenance.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_provenance.py) | 통합 카탈로그가 운영 의미 체계, 출처 이력, 참조 및 cardinality를 검증합니다. |
+| O2 범위 제한 맥락과 현재 상태 변환 결과 | in-progress | [`ontology_instance.py`](../../../services/core-control-plane/src/fdai/shared/providers/ontology_instance.py), [`test_ontology_instance.py`](../../../services/core-control-plane/tests/providers/test_ontology_instance.py) | 타입이 지정된 현재 상태 객체와 링크가 있으며, 운영 바인딩은 capability별로 남아 있고 근거가 불완전하면 fail closed합니다. |
+| O3-O5 결정, 결과 및 통제된 learning 루프 | in-progress | [제공 계획](#제공-계획), [`test_ontology_alignment.py`](../../../services/core-control-plane/tests/agents/test_ontology_alignment.py) | 핵심 구획은 있지만 모든 운영 경로에서 효과 종결과 통제된 learning이 완료되지는 않았습니다. |
+| Wave 2 근거, 변경, Property 및 토폴로지 기반 | in-progress | [구현 상태 설명](#fdai-운영-온톨로지), [운영 온톨로지 플랫폼](operating-ontology-platform-ko.md) | 검토된 기반은 있지만 근거 번들이 런타임에 조립되지 않았고 계획 변경은 그래프 최신성 게이트를 자동 통과할 수 없으며 더 넓은 플랫폼 제공 작업도 남아 있습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스, 테스트 및 제공 계획입니다. | 아래의 관찰 가능한 종료 조건을 완료해야 합니다. |
+
+### 남은 작업
+
+- [ ] 액션 권한을 부여하지 않으면서 `OperationalEvidenceBundle`을 범위가 제한된 런타임 읽기
+  경로에 조립하고 admission, contradiction, citation 및 최종 예산 증적을 보존합니다.
+- [ ] 계획 변경을 자동 통과시키기 전에 그래프 최신성 권한을 제공하고 검증하며 stale,
+  불완전한 및 conflicting 부정 사례를 포함합니다.
+- [ ] 하나의 고정된 온톨로지 release에서 남은 맥락, 결과 종결 및 통제된 learning 경로의
+  운영 바인딩과 재생 근거를 완료합니다.
+- [ ] 토폴로지, 시간, reconciliation 및 graph-wide Dynamic 제공이 집중 종료 조건에 도달할
+  때 운영 온톨로지와 플랫폼 원장을 동기화합니다.
 
 ## 카탈로그 의미 변환 결과
 
