@@ -45,10 +45,6 @@ from fdai.core.readiness import (
     AuthorityCeiling,
 )
 from fdai.core.readiness.coordinator import _TRANSITION_TOPIC
-from fdai.core.rule_semantic_generation import (
-    RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
-    RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
-)
 from fdai.delivery.agent_activity import (
     DEFAULT_STAGE_TOPIC,
     AgentRuntimeStatePublisher,
@@ -62,7 +58,11 @@ from fdai.delivery.persistence import (
     StateStoreSemanticFeedbackCandidateStore,
 )
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
-from fdai.runtime.bootstrap_bindings import RECONCILIATION_TOPICS, RuleGenerationRuntimeBinding
+from fdai.runtime.bootstrap_bindings import (
+    RECONCILIATION_TOPICS,
+    RULE_GENERATION_TOPICS,
+    RuleGenerationRuntimeBinding,
+)
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_worker as _build_effect_reconciliation_worker,
 )
@@ -192,12 +192,7 @@ _RUNTIME_LOGICAL_TOPICS = (
     | AGENT_INTROSPECTION_TOPICS
     | frozenset({_TRANSITION_TOPIC, SEMANTIC_REQUEST_TOPIC, SEMANTIC_PROJECTION_TOPIC})
     | RECONCILIATION_TOPICS
-    | frozenset(
-        {
-            RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
-            RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
-        }
-    )
+    | RULE_GENERATION_TOPICS
 )
 _VERTICAL_IDENTITY_ENV = {
     "identity/change": "FDAI_CHANGE_MI_CLIENT_ID",

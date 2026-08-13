@@ -21,6 +21,8 @@ from fdai.core.ontology_platform.reconciliation_binding import (
     ReconciliationArtifactResolver,
 )
 from fdai.core.rule_semantic_generation import (
+    RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
+    RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
     RuleGenerationActivationBinder,
     RuleGenerationOutboxPublisher,
     StateStoreRuleGenerationOutboxLedger,
@@ -32,6 +34,9 @@ from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 RECONCILIATION_TOPICS = frozenset({RECONCILIATION_REQUEST_TOPIC, RECONCILIATION_OUTBOX_TOPIC})
+RULE_GENERATION_TOPICS = frozenset(
+    {RULE_GENERATION_ACTIVATION_COMMAND_TOPIC, RULE_GENERATION_ACTIVATION_RESULT_TOPIC}
+)
 
 
 @dataclass(frozen=True, slots=True)
