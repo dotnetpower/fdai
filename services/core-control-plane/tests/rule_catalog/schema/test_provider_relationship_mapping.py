@@ -102,6 +102,107 @@ def test_shipped_catalog_declares_kubernetes_telemetry_relationship_direction() 
     assert endpoints.reference_format is ProviderReferenceFormat.RESOLVED_NAME
 
 
+def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
+    loaded = load_provider_relationship_mapping_catalog(CATALOG_ROOT)
+
+    actual = {
+        mapping.mapping_id: (
+            mapping.link_type,
+            mapping.endpoint_orientation,
+            mapping.reference_format,
+        )
+        for mapping in loaded.mappings
+    }
+
+    assert actual == {
+        "azure.diagnostic-setting-depends-on-workspace": (
+            "depends_on",
+            EndpointOrientation.OWNER_TO_REFERENCED,
+            ProviderReferenceFormat.ARM_ID,
+        ),
+        "azure.load-balancer-attached-to-public-ip": (
+            "attached_to",
+            EndpointOrientation.OWNER_TO_REFERENCED,
+            ProviderReferenceFormat.ARM_ID,
+        ),
+        "azure.nic-attached-to-subnet": (
+            "attached_to",
+            EndpointOrientation.OWNER_TO_REFERENCED,
+            ProviderReferenceFormat.ARM_ID,
+        ),
+        "azure.private-endpoint-attached-to-service": (
+            "attached_to",
+            EndpointOrientation.OWNER_TO_REFERENCED,
+            ProviderReferenceFormat.ARM_ID,
+        ),
+        "azure.resource-group-contains-resource": (
+            "contains",
+            EndpointOrientation.REFERENCED_TO_OWNER,
+            ProviderReferenceFormat.ARM_ID,
+        ),
+        "azure.route-table-routes-to-resource": (
+            "routes_to",
+            EndpointOrientation.OWNER_TO_REFERENCED,
+            ProviderReferenceFormat.ARM_ID,
+        ),
+        "azure.subnet-attached-to-nsg": (
+            "attached_to",
+            EndpointOrientation.OWNER_TO_REFERENCED,
+            ProviderReferenceFormat.ARM_ID,
+        ),
+        "azure.vm-data-disk-attached-to-vm": (
+            "attached_to",
+            EndpointOrientation.REFERENCED_TO_OWNER,
+            ProviderReferenceFormat.ARM_ID,
+        ),
+        "azure.vm-nic-attached-to-vm": (
+            "attached_to",
+            EndpointOrientation.REFERENCED_TO_OWNER,
+            ProviderReferenceFormat.ARM_ID,
+        ),
+        "azure.vm-os-disk-attached-to-vm": (
+            "attached_to",
+            EndpointOrientation.REFERENCED_TO_OWNER,
+            ProviderReferenceFormat.ARM_ID,
+        ),
+        "azure.vnet-contains-subnet": (
+            "contains",
+            EndpointOrientation.OWNER_TO_REFERENCED,
+            ProviderReferenceFormat.ARM_ID,
+        ),
+        "azure.vnet-peered-with-vnet": (
+            "peered_with",
+            EndpointOrientation.OWNER_TO_REFERENCED,
+            ProviderReferenceFormat.ARM_ID,
+        ),
+        "azure.web-app-attached-to-subnet": (
+            "attached_to",
+            EndpointOrientation.OWNER_TO_REFERENCED,
+            ProviderReferenceFormat.ARM_ID,
+        ),
+        "azure.web-app-depends-on-container-registry": (
+            "depends_on",
+            EndpointOrientation.OWNER_TO_REFERENCED,
+            ProviderReferenceFormat.RESOLVED_NAME,
+        ),
+        "azure.web-app-depends-on-storage": (
+            "depends_on",
+            EndpointOrientation.OWNER_TO_REFERENCED,
+            ProviderReferenceFormat.ARM_ID,
+        ),
+        "kubernetes.service-exposes-endpoints": (
+            "kubernetes_exposes_endpoints",
+            EndpointOrientation.OWNER_TO_REFERENCED,
+            ProviderReferenceFormat.RESOLVED_NAME,
+        ),
+        "kubernetes.service-selects-pod": (
+            "kubernetes_selects",
+            EndpointOrientation.OWNER_TO_REFERENCED,
+            ProviderReferenceFormat.LABEL_SELECTOR,
+        ),
+    }
+
+
 def test_rejects_stale_mapping_content_hash(tmp_path: Path) -> None:
     catalog = _catalog()
     catalog["mappings"][0]["source_property_path"] = "properties.changed.id"
