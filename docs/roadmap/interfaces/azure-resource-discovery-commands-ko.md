@@ -1,7 +1,7 @@
 ---
 translation_of: azure-resource-discovery-commands.md
-translation_source_sha: c306410a7f81e6549621bb9cc882670c4d58110a
-translation_revised: 2026-08-11
+translation_source_sha: fac5f107e04e165237aa0c693a1ff7a5617da260
+translation_revised: 2026-08-13
 ---
 
 # Azure 리소스 검색 명령 커버리지
@@ -17,15 +17,6 @@ translation_revised: 2026-08-11
 > **완전성 경계:** "모든 리소스"는 구성된 읽기 담당 신원이 열거할 수 있는 선언된 검색 범위의
 > 모든 개체를 뜻합니다. FDAI는 접근 불가, 미지원, data-plane 전용, 미매핑 개체를 커버리지 공백으로
 > 보고하며 테넌트 전체를 완전히 검색했다고 주장하지 않습니다.
->
-> **구현 상태:** 선택적 인벤토리 경로를 위한 카탈로그 소유 리소스 `query_terms`, category term 및
-> 결정론적 `InventoryQuery` compilation은 구현되었습니다. Interactive 로컬은 cached 스냅샷을
-> 만든 strict 범위가 제한된 증적을 기록합니다. 인증된 구독 id, exact 범용 Azure CLI argv,
-> 측정된 명령 소요 시간, 결과 개수 및 허용 목록된 미리 보기 행 최대 10개를 현재 턴의 IQL과 분리해 표시하며 페이지 나누기
-> 토큰은 계속 민감정보 제거합니다. Azure Resource
-> Graph와 로컬 CLI 변환 결과도 검토된 Azure `kind` 토큰으로 공유 ARM 타입을 구분합니다. 더 넓은
-> `DiscoveryIntent`, `DiscoveryQueryPlan`, 프로바이더 프로파일, unmapped 리소스 보존, centralized
-> 대체 경로 및 `CommandExplanation`은 목표 설계로 남아 있습니다.
 
 ## 설계 요약
 
@@ -51,16 +42,45 @@ flowchart LR
   C --> A
 ```
 
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 리소스 어휘와 Azure 타입 구분 | implemented | [`resource-types.yaml`](../../../rule-catalog/vocabulary/resource-types.yaml), [`resource_type.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/resource_type.py), 집중 카탈로그 및 ARG 테스트 | 카탈로그에 등록된 타입에 한해 조회 용어, 범주 용어, 안정적인 매핑 요약값 및 검토된 Azure `kind` 구분이 있습니다. |
+| 인벤토리 언어 레지스트리 | implemented | [`inventory_query_language.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/inventory_query_language.py), [`test_inventory_query_language.py`](../../../services/core-control-plane/tests/rule_catalog/test_inventory_query_language.py) | 검증된 레지스트리와 요약값이 있습니다. 이는 `InventoryQuery` 또는 `DiscoveryQueryPlan` 컴파일러가 아닙니다. |
+| 선택적 Azure 인벤토리 어댑터 | implemented | [`arg_query.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py), [`inventory.py`](../../../services/core-control-plane/src/fdai/delivery/azure/inventory.py), [`arm_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arm_inventory.py) 및 집중 테스트 | ARG와 ARM 어댑터는 카탈로그에서 확인한 리소스 타입을 제한된 페이지 처리와 실패 시 차단 동작으로 조회합니다. 중앙 검색 계획 라우터를 뜻하지는 않습니다. |
+| 선택적 운영자 인벤토리 필터링 | implemented | [`_system_inventory_tool.py`](../../../services/core-control-plane/src/fdai/core/conversation/_system_inventory_tool.py), [`test_system_tools.py`](../../../services/core-control-plane/tests/conversation/test_system_tools.py) | 도구는 제공된 스냅샷을 중립 타입, ID 부분 문자열 및 리소스 그룹으로 필터링합니다. 범용 검색 의도를 컴파일하지는 않습니다. |
+| Console 프로바이더 실행 정보 파싱 | implemented | [`inventory-execution-display.ts`](../../../console/src/deck/inventory-execution-display.ts) 및 집중 테스트 | Console은 구조가 유효하고 민감정보가 제거되었으며 범위가 제한된 `provider_execution` 레코드만 IQL과 분리해 표시합니다. |
+| 프로바이더 실행 증적 생성 | not-started | 위 Console 파서가 현재 `provider_execution`의 유일한 소스 소비자입니다. | 현재는 설명된 로컬 Azure CLI 스냅샷 증적을 제공하는 운영 생성기가 없습니다. |
+| 포괄적 검색 계약과 프로파일 | not-started | [형식화된 계약](#형식화된-계약), [온톨로지와 공급자 매핑](#온톨로지와-공급자-매핑) | `DiscoveryIntent`, `DiscoveryQueryPlan`, 프로바이더 프로파일 및 매핑되지 않은 리소스 보존은 목표 설계로 남아 있습니다. |
+| 중앙 라우팅, 명령 설명 및 커버리지 증명 | not-started | [백엔드 선택](#백엔드-선택), [명령 설명](#명령-설명), [커버리지 원장과 종료 조건](#커버리지-원장과-종료-조건) | 중앙 대체 경로와 병합, `CommandExplanation`, 커버리지 조정 및 통제된 실제 운영 canary 증적이 없습니다. `validated`인 행은 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 이 구현 원장을 도입하고 이전 기준선 요약을 바로잡았습니다. 이전 이력은 재구성하지 않았습니다. | 현재 변경. 집중 검사 결과는 카탈로그 레지스트리 `38 passed`, Azure 어댑터 `116 passed`, 시스템 도구 `19 passed`, Console 파서 `2 passed`입니다. | 아래의 미완료 계약, 증적 생성기, 라우팅, 설명, 커버리지 및 통제된 런타임 근거를 구현합니다. |
+
+### 남은 작업
+
+- [ ] 실행 가능한 텍스트와 해석되지 않은 수정자를 거부하는 프로파일 스키마 테스트와 함께 제한된 `DiscoveryIntent` 및 불변 `DiscoveryQueryPlan` 계약을 추가합니다.
+- [ ] 알 수 없는 Azure 프로바이더 타입을 제한된 `mapping_status=unmapped` 관찰로 보존하고, 이를 제외하거나 중립 온톨로지로 승격하지 않는다는 집중 테스트를 추가합니다.
+- [ ] 서버 소유 `provider_execution` 증적 생성기를 구현하고 자격 증명, 페이지 나누기 토큰, 원본 리소스 ID 및 프로바이더 오류가 Console 레코드에 도달할 수 없음을 증명합니다.
+- [ ] 범위나 조건식을 약화하지 않는 중앙 백엔드 적격성, 동등 대체 경로, 계획별 완전성 및 정본 병합 테스트를 구현합니다.
+- [ ] 등록된 계획에서 정제된 `CommandExplanation` 레코드를 생성하고 shell 제어, 식별자, 민감정보 제거 및 동등 명령 표시를 위한 속성 및 golden 테스트를 통과합니다.
+- [ ] 해당 행을 `validated`로 승격하기 전에 각 주장 범위에 대한 커버리지 조정 및 통제된 읽기 전용 실제 운영 canary 증적을 기록합니다.
+
 ## 현재 기준선과 공백
 
-현재 경로는 일반적인 영어와 한국어 인벤토리 질문을 불변 `InventoryQuery`로 컴파일합니다.
-운영은 각 vocabulary 항목의 `azure_arm_type`을 기준으로 Azure Resource Graph(ARG)를
-분할 조회하고, interactive 로컬은 ARG를 사용한 뒤 `az resource list`로 대체합니다.
-Natural-language 리소스 form은 `resource-types.yaml`에서 가져오므로, 검토된 타입이나 term을
-추가할 때 Python 별칭을 수정할 필요가 없습니다. 구체적인 term은 범용 category term보다
-우선합니다. Web App과 Function App의 `Microsoft.Web/sites`처럼 ARM 타입을 공유하는 경우 전체
-ARG 행에 일치하는 `kind`가 있어야 하며, discriminator가 없는 출처는 semantic 타입을 추측하지
-않습니다.
+현재 구현에는 카탈로그 소유 리소스 조회 용어와 범주 용어, 검증된 인벤토리 언어
+레지스트리, 선택적 스냅샷 필터, 그리고 카탈로그에서 확인한 리소스 타입을 한 번에 하나씩 조회하는
+Azure ARG 및 ARM 어댑터가 있습니다. 구체적인 용어는 범용 범주 용어보다 우선합니다. Web
+App과 Function App의 `Microsoft.Web/sites`처럼 ARM 타입을 공유하는 경우 전체 ARG 행에 일치하는
+`kind`가 있어야 하며, 구분자가 없는 출처는 의미적 타입을 추측하지 않습니다. 이 조각들은
+아직 불변 `InventoryQuery`를 컴파일하거나 ARG에서 ARM으로 중앙 라우팅하거나 프로바이더 실행
+증적을 생성하지 않습니다.
 
 현재 기준선은 포괄적인 검색을 충족하지 못합니다.
 
@@ -68,9 +88,10 @@ ARG 행에 일치하는 `kind`가 있어야 하며, discriminator가 없는 출�
  유형만 의도적으로 포함됩니다. 알 수 없는 Azure 유형은 미매핑 관찰로 반환되지 않고 제외됩니다.
 - **하나의 매핑으로 부족함:** 검색에는 다른 ARG 표, 여러 ARM 유형, 상위 확장, 전용 CLI
  확장 또는 버전이 지정된 REST 엔드포인트가 필요할 수 있습니다.
-- **조회와 설명 표면이 좁음:** Interactive 로컬은 실제 범용 snapshot-refresh 증적만
- 제공합니다. 프로바이더 타입, tag, 범위 kind, management 그룹, CLI 선행 조건, 계획별 대체 경로
- 사유 및 cross-provider 명령 explanation은 아직 없습니다.
+- **조회와 설명 표면이 좁음:** Console은 유효하고 범위가 제한된 `provider_execution` 레코드를
+ 파싱할 수 있지만 현재 운영 경로는 이를 생성하지 않습니다. 프로바이더 타입, tag, 범위 kind,
+ management 그룹, CLI 선행 조건, 계획별 대체 경로 사유 및 cross-provider 명령 explanation은
+ 아직 없습니다.
 - **ARG와 ARM은 부분적임:** 특수 ARG 표, 프로바이더별 상세, 테넌트 디렉터리 개체 및
  data-plane 개체에는 서로 다른 형식화된 계획과 신원이 필요합니다.
 

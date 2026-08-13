@@ -16,15 +16,6 @@ bounded read-investigation design without allowing the narrator to invent comman
 > that the configured reader identity can enumerate. FDAI reports inaccessible, unsupported,
 > data-plane-only, and unmapped objects as coverage gaps instead of claiming tenant-wide
 > completeness.
->
-> **Implementation status:** Catalog-owned resource `query_terms`, category terms, and deterministic
-> `InventoryQuery` compilation are implemented for the selective inventory path. Interactive local
-> records a strict bounded snapshot receipt. The authenticated subscription id, exact generic Azure
-> CLI argv, measured command duration, result count, and up to ten allowlisted preview rows are displayed separately from the
-> current turn's IQL; pagination tokens remain redacted. Azure Resource Graph and local CLI projection also separate
-> shared ARM types with reviewed Azure `kind` tokens. The broader
-> `DiscoveryIntent`, `DiscoveryQueryPlan`, provider profiles, unmapped-resource preservation,
-> centralized fallback, and `CommandExplanation` remain target design.
 
 ## Design at a glance
 
@@ -50,15 +41,45 @@ flowchart LR
     C --> A
 ```
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Resource vocabulary and Azure type discrimination | implemented | [`resource-types.yaml`](../../../rule-catalog/vocabulary/resource-types.yaml), [`resource_type.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/resource_type.py), and focused catalog and ARG tests | Query terms, category terms, stable mapping digests, and reviewed Azure `kind` discrimination exist for cataloged types only. |
+| Inventory-language registry | implemented | [`inventory_query_language.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/inventory_query_language.py) and [`test_inventory_query_language.py`](../../../services/core-control-plane/tests/rule_catalog/test_inventory_query_language.py) | The validated registry and digest exist. This is not an `InventoryQuery` or `DiscoveryQueryPlan` compiler. |
+| Selective Azure inventory adapters | implemented | [`arg_query.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py), [`inventory.py`](../../../services/core-control-plane/src/fdai/delivery/azure/inventory.py), [`arm_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arm_inventory.py), and their focused tests | ARG and ARM adapters query catalog-resolved resource types with bounded pagination and fail-closed behavior. No central discovery-plan router is implied. |
+| Selective operator inventory filtering | implemented | [`_system_inventory_tool.py`](../../../services/core-control-plane/src/fdai/core/conversation/_system_inventory_tool.py) and [`test_system_tools.py`](../../../services/core-control-plane/tests/conversation/test_system_tools.py) | The tool filters a supplied snapshot by neutral type, id substring, and resource group. It does not compile general discovery intent. |
+| Console provider-execution parsing | implemented | [`inventory-execution-display.ts`](../../../console/src/deck/inventory-execution-display.ts) and its focused test | The Console displays only structurally valid, redacted, bounded `provider_execution` records and keeps them separate from IQL. |
+| Provider-execution receipt emission | not-started | The Console parser above is the only current `provider_execution` source consumer. | No production emitter currently supplies the claimed local Azure CLI snapshot receipt. |
+| Comprehensive discovery contracts and profiles | not-started | [Typed contracts](#typed-contracts) and [Ontology and provider mapping](#ontology-and-provider-mapping) | `DiscoveryIntent`, `DiscoveryQueryPlan`, provider profiles, and unmapped-resource preservation remain target design. |
+| Central routing, command explanation, and coverage proof | not-started | [Backend selection](#backend-selection), [Command explanation](#command-explanation), and [Coverage ledger and exit criteria](#coverage-ledger-and-exit-criteria) | Central fallback and merge, `CommandExplanation`, coverage reconciliation, and governed live canary receipts are absent. No row is `validated`. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted this implementation ledger and corrected the previous baseline summary; earlier provenance was not reconstructed. | Current change; focused checks: catalog registries `38 passed`, Azure adapters `116 passed`, system tools `19 passed`, and Console parser `2 passed`. | Implement the open contracts, receipt producer, routing, explanation, coverage, and governed runtime evidence below. |
+
+### Remaining work
+
+- [ ] Add bounded `DiscoveryIntent` and immutable `DiscoveryQueryPlan` contracts plus profile-schema tests that reject executable text and unresolved modifiers.
+- [ ] Preserve unknown Azure provider types as bounded `mapping_status=unmapped` observations, with focused tests proving they are not dropped or promoted into the neutral ontology.
+- [ ] Implement a server-owned `provider_execution` receipt producer and prove that credentials, pagination tokens, raw resource ids, and provider errors cannot reach the Console record.
+- [ ] Implement central backend eligibility, equivalent fallback, per-plan completeness, and canonical merge tests without weakening scope or predicates.
+- [ ] Generate sanitized `CommandExplanation` records from registered plans and pass property and golden tests for shell controls, identifiers, redaction, and equivalent-command labeling.
+- [ ] Record coverage reconciliation and governed read-only live canary receipts for each claimed universe before promoting any corresponding row to `validated`.
+
 ## Current baseline and gaps
 
-The current path compiles common English and Korean inventory questions into an immutable
-`InventoryQuery`. Production shards Azure Resource Graph (ARG) by each vocabulary entry's
-`azure_arm_type`; interactive local uses ARG and falls back to `az resource list`.
-Natural-language resource forms come from `resource-types.yaml`, so adding a reviewed type or term
-does not require a Python alias edit. Concrete terms take precedence over generic category terms.
-For shared ARM types, such as Web Apps and Function Apps under `Microsoft.Web/sites`, a full ARG row
-must carry a matching `kind`; a source without that discriminator does not guess the semantic type.
+The current implementation provides catalog-owned resource query terms and category terms, a
+validated inventory-language registry, selective snapshot filters, and Azure ARG and ARM adapters
+that query one catalog-resolved resource type at a time. Concrete terms take precedence over
+generic category terms. For shared ARM types, such as Web Apps and Function Apps under
+`Microsoft.Web/sites`, a full ARG row must carry a matching `kind`; a source without that
+discriminator does not guess the semantic type. These pieces do not yet compile an immutable
+`InventoryQuery`, centrally route ARG to ARM, or emit a provider-execution receipt.
 
 The baseline does not satisfy comprehensive discovery:
 
@@ -67,9 +88,10 @@ The baseline does not satisfy comprehensive discovery:
   of being returned as unmapped observations.
 - **One mapping is insufficient:** Discovery can require another ARG table, several ARM types,
   parent expansion, a dedicated CLI extension, or a versioned REST endpoint.
-- **The query and explanation surfaces are narrow:** Interactive local exposes only its actual
-  generic snapshot-refresh receipt. Provider type, tags, scope kind, management group, CLI
-  prerequisites, per-plan fallback reasons, and cross-provider command explanations remain absent.
+- **The query and explanation surfaces are narrow:** The Console can parse a valid bounded
+  `provider_execution` record, but no current production path emits one. Provider type, tags, scope
+  kind, management group, CLI prerequisites, per-plan fallback reasons, and cross-provider command
+  explanations remain absent.
 - **ARG and ARM are partial:** Specialized ARG tables, provider-specific details, tenant directory
   objects, and data-plane objects require different typed plans and identities.
 
