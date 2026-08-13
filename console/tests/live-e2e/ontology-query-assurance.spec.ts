@@ -2,6 +2,7 @@ import { writeFile } from "node:fs/promises";
 
 import { expect, test, type Page } from "@playwright/test";
 
+import { restoreBrowserEntraSessionStorage } from "./browser-entra-state";
 import {
   assuranceOperations,
   generateOntologyAssuranceCohort,
@@ -75,6 +76,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     "requires an external Console and Browser Entra storage state",
   );
   test.setTimeout(4 * 60 * 60 * 1_000);
+  await restoreBrowserEntraSessionStorage(page);
   await page.goto("/architecture", { waitUntil: "domcontentloaded" });
   await expect(page.locator("main")).toBeVisible();
 

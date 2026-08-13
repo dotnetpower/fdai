@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 3ab3fa76daf8af84b951f33daa87a0b8ba4ade53
+translation_source_sha: bc4154e1b1688e7916bf7db6dd5fe5b424c9c4c2
 translation_revised: 2026-08-13
 ---
 # 코드 맵
@@ -59,6 +59,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | 구현됨 | 영속 Rule 세대 활성화 결과를 위한 범위가 제한된 at-least-once EventBus 발행을 추가했습니다. Exact-topic 확인은 lease로 차단된 outbox 레코드를 완료하고, 실패는 결정론적 재시도를 위해 레코드를 해제하며, 취소는 lease 복구를 보존하고, 확인 영속성 실패는 lease 만료 replay로 복구합니다. | `current change`, `publication.py`, 패키지 export 및 통과한 집중 발행 테스트 7개, 작업 범위 Ruff와 strict mypy 통과 | 담당 agent를 연결하고 통제된 런타임 발행 근거를 기록합니다. |
 | 2026-08-13 | 구현됨 | Mimir를 유일한 Rule 세대 명령 및 결과 subscriber로 연결하고 하나의 공유 영속 ledger를 조립했으며 준비 상태와 독립적인 outbox drain을 시작했습니다. 해제된 전송 실패는 재시도하지만 receipt 계약 및 영속 상태 실패는 치명적으로 유지합니다. | `current change`, 집중 Mimir, 런타임, bootstrap, 활성화 및 발행 검사 32개 통과, Ruff, strict mypy, 번역 freshness 및 한국어 품질 검사 통과 | 통제된 실제 런타임 발행 증적을 기록하며 IS-09 원격 검증은 열려 있습니다. |
 | 2026-08-13 | 구현됨 | PostgreSQL 토폴로지 이력과 검토된 메트릭 및 근거 프로바이더를 선택적 기능이 안전하게 닫히는 exact-release 의미 조회 조립에 연결했습니다. | `current change`, `postgres_topology_history.py`, `wire_semantic_query.py`, `bootstrap.py`, `bootstrap_bindings.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, 통과한 집중 검사 16개 | 온톨로지 조회 coverage 계획에 통제된 실제 증적을 기록하고 IS-09 원격 검증을 완료합니다. |
+| 2026-08-13 | 진행 중 | Principal 또는 권한 검증을 바꾸지 않고 엄격한 Core 증적 typing을 바로잡고 인증된 근거 경로를 위한 일회성 Browser Entra 세션 복원을 준비했습니다. | `current change`, 통과한 strict mypy, Ruff, Console typecheck, 설계 경로 및 append-only 검사 | 준비 상태를 주장하기 전에 인증된 두 브라우저 경로를 실행하고 통과한 두 보존 근거 기록을 연결합니다. |
 
 ### 남은 작업
 

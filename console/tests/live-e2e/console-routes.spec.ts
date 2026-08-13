@@ -2,6 +2,7 @@ import { writeFile } from "node:fs/promises";
 
 import { expect, test, type Page, type Response } from "@playwright/test";
 
+import { restoreBrowserEntraSessionStorage } from "./browser-entra-state";
 import { judgeSemanticTurn } from "./ontology-query-assurance";
 
 const AUTHENTICATED_EXTERNAL_STACK = Boolean(
@@ -169,6 +170,7 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
     "requires an external Console and Browser Entra storage state",
   );
   test.setTimeout(150_000);
+  await restoreBrowserEntraSessionStorage(page);
   const deck = await openCommandDeck(page);
   const responsePromise = page.waitForResponse((response) => (
     isOperatorApiResponse(response) &&
