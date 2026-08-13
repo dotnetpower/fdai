@@ -205,7 +205,7 @@ async def evaluate_semantic_surface(
                 failures.append(f"{cohort}-no-match-below-threshold")
 
     return SurfaceValidationReceipt(
-        surface_digest=surface.digest,
+        surface_digest=surface.validation_subject_digest,
         dataset_digest=_dataset_digest(cases),
         evaluator_ref=evaluator_ref,
         evaluation_policy_digest=policy.digest,

@@ -20,6 +20,7 @@ from fdai.rule_catalog.schema.rule_semantic_retrieval import (
     RuleCorpus,
     RuleSemanticManifest,
     SurfaceOrigin,
+    SurfaceState,
     ValidationDecision,
 )
 from fdai.shared.contracts.models import Redistribution
@@ -95,6 +96,19 @@ def _policy() -> RetrievalEvaluationPolicy:
     )
 
 
+def test_validation_subject_survives_promoted_lifecycle_metadata() -> None:
+    candidate = _surface()
+    promoted = replace(
+        candidate,
+        state=SurfaceState.PROMOTED,
+        validation_receipt_digest="sha256:" + "b" * 64,
+    )
+
+    assert candidate.digest != promoted.digest
+    assert candidate.validation_subject_digest == candidate.digest
+    assert candidate.validation_subject_digest == promoted.validation_subject_digest
+
+
 async def test_held_out_evaluation_passes_positive_and_no_match_cohorts() -> None:
     cases = (
         RetrievalEvaluationCase(
@@ -130,6 +144,7 @@ async def test_held_out_evaluation_passes_positive_and_no_match_cohorts() -> Non
         "no-match-precision",
     }
     assert receipt.validation_authority == "validation_only"
+    assert receipt.surface_digest == _surface().validation_subject_digest
 
     assessment = assess_surface_promotion_review(
         receipt,
