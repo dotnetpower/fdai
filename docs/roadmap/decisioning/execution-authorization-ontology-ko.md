@@ -1,7 +1,7 @@
 ---
 translation_of: execution-authorization-ontology.md
-translation_source_sha: abd0d3a8be19bfc9ccd51f86e742e04c3a7f9373
-translation_revised: 2026-08-12
+translation_source_sha: 544540705bd9244455fdae5b3b34eef3fffba1c1
+translation_revised: 2026-08-13
 ---
 # 실행 권한 부여 온톨로지
 
@@ -26,6 +26,30 @@ translation_revised: 2026-08-12
 > 확인합니다. 변경은 새 공급자 ETag를 `If-Match` 전제 조건으로 사용하고, Core는 장기 실행 작업
 > polling에 하나의 누적 deadline을 적용합니다. 이 전달 매핑은 기능, 정책 배정, 유효 접근, 위험
 > 또는 승인 결정을 대체하지 않습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 요구사항, 배정 및 정책 로딩 | implemented | [`test_execution_authorization.py`](../../../services/core-control-plane/tests/rule_catalog/schema/test_execution_authorization.py) | Strict 로딩은 시작 전에 중복, 알 수 없는 참조 및 지원하지 않는 범위 표현식을 차단합니다. |
+| 보수적 해석과 effective-access 평가 | implemented | [`test_resolver.py`](../../../services/core-control-plane/tests/core/execution_authorization/test_resolver.py), [`test_evaluator.py`](../../../services/core-control-plane/tests/core/execution_authorization/test_evaluator.py) | Prohibit가 우선하고 제약이 교차 적용되며 누락되거나 충돌하는 근거는 권한을 부여하지 않습니다. |
+| Exact 권한 부여 lifecycle과 역할 분리 | implemented | [`test_grant_request.py`](../../../services/core-control-plane/tests/core/execution_authorization/test_grant_request.py) | 승인, 적용, 검증, 만료, 취소, idempotency 및 서로 다른 행위자를 집중 검사로 확인합니다. |
+| 컨트롤 루프와 직접 실행기 통합 | implemented | [`test_unified_control_loop.py`](../../../services/core-control-plane/tests/pipeline/test_unified_control_loop.py), [`test_direct_api_executor.py`](../../../services/core-control-plane/tests/core/executor/test_direct_api_executor.py) | 권한 부여는 일반 위험 및 dispatch 권한보다 먼저 독립적인 fail-closed 결정으로 유지됩니다. |
+| 배포 정책, 신원 및 프로바이더 바인딩 | not-applicable | [확장 및 배포 경계](#확장-및-배포-경계) | 실제 정책 bundle, 신원, 범위, 관측 및 프로바이더 대응은 업스트림 구현이 아니라 배포가 소유하는 입력입니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | implemented | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스 경계와 집중 검사입니다. | 이 문서의 범위가 제한된 업스트림 구현에는 남은 작업이 없습니다. |
+
+### 남은 작업
+
+- [x] 업스트림 실행 권한 부여 범위는 위에 나열된 strict-loader, resolver, evaluator,
+  권한 부여 lifecycle, 컨트롤 루프 및 직접 실행기 집중 검사로 구현되고 유지됩니다. 배포가
+  소유하는 바인딩은 이 문서의 구현 범위 밖에 있습니다.
 
 ## 설계 개요
 

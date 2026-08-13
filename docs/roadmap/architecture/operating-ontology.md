@@ -79,6 +79,34 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > The production inventory job injects the already loaded registry digest map, so promoted complete
 > generations persist this relationship in live projections.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| O1 semantic spine and catalog integrity | implemented | [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py), [`test_ontology_provenance.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_provenance.py) | The integrated catalog validates the operating semantic spine, provenance, references, and cardinality. |
+| O2 bounded context and current-state projection | in-progress | [`ontology_instance.py`](../../../services/core-control-plane/src/fdai/shared/providers/ontology_instance.py), [`test_ontology_instance.py`](../../../services/core-control-plane/tests/providers/test_ontology_instance.py) | Typed current-state objects and links exist; production bindings remain capability-specific and fail closed when evidence is incomplete. |
+| O3-O5 decision, outcome, and governed-learning loops | in-progress | [Delivery plan](#delivery-plan), [`test_ontology_alignment.py`](../../../services/core-control-plane/tests/agents/test_ontology_alignment.py) | Core slices exist, but effect closure and governed learning are not complete across every production path. |
+| Wave 2 evidence, change, Property, and topology foundations | in-progress | [Implementation status narrative](#fdai-operating-ontology), [Operating Ontology Platform](operating-ontology-platform.md) | Reviewed foundations exist; the evidence bundle is not composed into runtime, planned changes cannot auto-clear graph freshness, and broader platform delivery remains open. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source, tests, and delivery plan listed in the scope table. | Complete the observable exit conditions below. |
+
+### Remaining work
+
+- [ ] Compose `OperationalEvidenceBundle` into a bounded runtime read path and retain admission,
+  contradiction, citation, and final-budget receipts without granting action authority.
+- [ ] Supply and verify graph-freshness authority for planned-change assessment before allowing any
+  automated clearance, including stale, incomplete, and conflicting negative cases.
+- [ ] Complete production bindings and replay evidence for the remaining context, outcome-closure,
+  and governed-learning paths on one pinned ontology release.
+- [ ] Keep the operating ontology and platform ledgers synchronized as topology, temporal,
+  reconciliation, and graph-wide Dynamic delivery reaches its focused exit conditions.
+
 ## Catalog semantic projection
 
 The rule catalog now models authored Rego as a first-class `PolicyArtifact`. Every shipped Rule

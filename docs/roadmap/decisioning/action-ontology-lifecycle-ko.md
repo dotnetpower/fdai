@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지 라이프사이클
 translation_of: action-ontology-lifecycle.md
-translation_source_sha: a2a7f057c405c50a1b2fe902e47dfd4c98f05d70
-translation_revised: 2026-08-11
+translation_source_sha: 1d92e25d0722fa4d6d7e50ca5371ee4229d28497
+translation_revised: 2026-08-13
 ---
 
 # 액션 온톨로지 라이프사이클
@@ -10,6 +10,30 @@ translation_revised: 2026-08-11
 이 companion 문서는 ActionType 온톨로지의 설계 경계, 라이프사이클 규칙, 실제 운영 소비자 상태를
 정의합니다. 정본 스키마와 카탈로그는
 [액션 온톨로지](action-ontology-ko.md)에 유지됩니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 카탈로그 lifecycle과 inert 기본값 | implemented | [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | 제공되는 선언은 lifecycle 제약을 검증하고 shadow를 기본값으로 사용합니다. |
+| 룰 위반 교정 소비자 | implemented | [`test_unified_control_loop.py`](../../../services/core-control-plane/tests/pipeline/test_unified_control_loop.py) | 타입이 지정된 컨트롤 루프는 교정을 ActionBuilder, RiskGate 및 Executor를 거쳐 라우팅합니다. |
+| 운영자 요청 제안 소비자 | implemented | [`bragi.py`](../../../services/core-control-plane/src/fdai/agents/bragi.py), [`test_chat_to_pipeline_e2e.py`](../../../services/core-control-plane/tests/agents/test_chat_to_pipeline_e2e.py) | Bragi는 타입이 지정된 제안을 정본 유입 경로에 게시하며 실행기를 직접 호출하지 않습니다. |
+| 거버넌스 dispatcher | in-progress | [`override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py), [소비자 상태](#소비자-구현-상태-declared-vs-실제-운영) | override writer는 실제 운영 중이고 promote, retire 및 grant-exemption 선언은 PR-native writer가 제공될 때까지 inert 상태입니다. |
+| 선택된 실제 운영 probe | implemented | [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | 참조된 probe는 로더에서 검증되며 probe가 없는 액션은 static 영향 한계를 유지합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스, 테스트 및 소비자 상태 섹션입니다. | 아래의 관찰 가능한 거버넌스 dispatcher 종료 조건을 완료해야 합니다. |
+
+### 남은 작업
+
+- [ ] `governance.promote-action-type`, `governance.retire-rule` 및
+  `governance.grant-exemption`의 PR-native writer를 구현하고, 승인된 서로 다른 승인자 전환
+  없이는 각 항목이 shadow-only로 유지된다는 집중 근거를 보존합니다.
 
 ## 설계 경계와 라이프사이클
 

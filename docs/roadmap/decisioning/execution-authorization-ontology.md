@@ -27,6 +27,30 @@ risk and human-approval decision.
 > deadline. This delivery mapping does not replace the capability, policy-assignment,
 > effective-access, risk, or approval decisions.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Requirement, assignment, and policy loading | implemented | [`test_execution_authorization.py`](../../../services/core-control-plane/tests/rule_catalog/schema/test_execution_authorization.py) | Strict loading rejects duplicates, unknown references, and unsupported scope expressions before startup. |
+| Conservative resolution and effective-access evaluation | implemented | [`test_resolver.py`](../../../services/core-control-plane/tests/core/execution_authorization/test_resolver.py), [`test_evaluator.py`](../../../services/core-control-plane/tests/core/execution_authorization/test_evaluator.py) | Prohibit dominates, constraints intersect, and missing or conflicting evidence never authorizes. |
+| Exact grant lifecycle and separation of duties | implemented | [`test_grant_request.py`](../../../services/core-control-plane/tests/core/execution_authorization/test_grant_request.py) | Approval, apply, verification, expiry, revocation, idempotency, and distinct actors are covered by focused checks. |
+| Control-loop and direct-executor integration | implemented | [`test_unified_control_loop.py`](../../../services/core-control-plane/tests/pipeline/test_unified_control_loop.py), [`test_direct_api_executor.py`](../../../services/core-control-plane/tests/core/executor/test_direct_api_executor.py) | Authorization remains an independent fail-closed decision before ordinary risk and dispatch authority. |
+| Deployment policy, identity, and provider bindings | not-applicable | [Extension and deployment boundaries](#extension-and-deployment-boundaries) | Real policy bundles, identities, scopes, observations, and provider mappings are deployment-owned inputs rather than upstream implementation. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance. | Current source boundaries and focused checks listed in the scope table. | No upstream implementation work remains for this document's bounded scope. |
+
+### Remaining work
+
+- [x] The upstream execution-authorization scope is implemented and retained by the strict-loader,
+  resolver, evaluator, grant-lifecycle, control-loop, and direct-executor focused checks listed
+  above; deployment-owned bindings remain outside this document's implementation scope.
+
 ## Design at a glance
 
 Execution authorization is resolved in four independently versioned layers. Every decision pins
