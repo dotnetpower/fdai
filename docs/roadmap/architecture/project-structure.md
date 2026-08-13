@@ -15,19 +15,18 @@ with service-owned managed implementations without changing the shared wire cont
 ## Implementation status
 
 ### Implementation scope
-
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Current-state activity identity | implemented | `read_investigation_latency.py`; `activity_projection.py`; focused persistence and projection tests (`6 passed`) | The latency profile retains only the hashed correlation reference, the audit entry remains correlation-free, and durable and live activity share one identity without carrying execution authority. |
+| Rule generation reconciliation boundary | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/`; `runtime/rule_generation_documents.py`; focused adapter, Pantheon, activation, and bootstrap checks | The provider contract owns exact staged receipt binding, delivery owns atomic adapters, and runtime composes strict catalog snapshots plus replay-identical requests without moving policy or execution authority into infrastructure code. |
 
 ### Implementation history
-
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the bounded current-state activity identity change. | Current source plus `test_read_investigation_latency.py` and `test_activity_projection.py`; the focused suites passed. | Complete the deferred Phase 2 physical package move described below. |
+| 2026-08-13 | implemented | Added the production Rule generation reconciliation boundary across the provider contract, atomic adapters, and startup composition while retaining Mimir and Heimdall ownership. | `current change`; `catalog_search.py`, `rule_generation_documents.py`, and focused worker, PostgreSQL, runtime, and activation checks. | Retain governed live generation receipts; the deferred Phase 2 package move remains separate. |
 
 ### Remaining work
-
 - [ ] Complete the deferred Phase 2 physical `git mv` after the compatibility import deprecation cycle, then update this layout to the resulting service-owned paths.
 
 ## Monorepo Layout
@@ -148,7 +147,7 @@ fdai/
 │   ├── evaluation/            # public EvaluationHost implementation, capability attenuation, workspace policy, artifact custody, typed ingress, and pre-judgment diagnostic ontology observation
 │   ├── benchmarking/          # temporary 0.1.x compatibility facade for legacy benchmark contracts and runners
 │   ├── composition/           # composition root package (G-3, tracker #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings (including optional conversation T2 synthesis) + focused `wire_*` binders, including exact-release semantic query assembly with request-role executors
-│   ├── runtime/               # headless lifecycle and composition, including reviewed alias-free metric-semantic catalog loading, versioned isolated Executor shadow/effect handling, stable-offset remote client, EventBus/DLQ/health supervision, production entry point, reversible authority probe, operating-model and diagnostic-catalog startup projection/status, durable T2 recovery observation/backfill, StateStore-backed proposer route selection with Thor/Vidar execution and rollback, semantic runtime availability/readiness binding with deadline-bounded durable projection replay, transport/identity bindings, startup readiness, worker gating, and post-turn review wiring into Norns
+│   ├── runtime/               # headless lifecycle and composition, including reviewed alias-free metric-semantic catalog loading, exact Rule generation document snapshots and replay-identical reconciliation, versioned isolated Executor shadow/effect handling, stable-offset remote client, EventBus/DLQ/health supervision, production entry point, reversible authority probe, operating-model and diagnostic-catalog startup projection/status, durable T2 recovery observation/backfill, StateStore-backed proposer route selection with Thor/Vidar execution and rollback, semantic runtime availability/readiness binding with deadline-bounded durable projection replay, transport/identity bindings, startup readiness, worker gating, and post-turn review wiring into Norns
 │   └── __main__.py            # entry point (starts the P1 control loop)
 ├── services/core-control-plane/{src/fdai_core_service,tests}/ # Core entry point and tests
 ├── services/{operator-service,document-ingestion-api,document-processing-worker,isolated-executor}/ and packages/service-contracts/ # independent packages, shared SDK, tests, type-stable semantic JSONB persistence, and process-owned semantic bridge health that does not depend on a projection row
@@ -224,7 +223,7 @@ fdai/
 └── .github/                   # instructions/ and workflows/ (CI: lint, secret-scan, coverage)
 ```
 
-Runtime bootstrap delegates semantic-turn readiness to `bootstrap_lifecycle.py` and vertical workload identities to `bootstrap_bindings.py`, preserving bounded provider construction and the injectable identity-builder boundary used by tests and forks. Resource-state composition also binds a no-authority publisher to the shared stage topic after the authoritative Heimdall read; a bounded latency profile retains only its hashed correlation so durable and live activity share one identity without question text, resource identity, executor capability, or an added latency-audit field, and broker failure never rewrites the answer.
+Runtime bootstrap delegates semantic-turn readiness to `bootstrap_lifecycle.py`, exact Rule generation snapshots and durable requests to `rule_generation_documents.py`, and vertical workload identities to `bootstrap_bindings.py`, preserving bounded provider construction and the injectable identity-builder boundary used by tests and forks. Resource-state composition also binds a no-authority publisher to the shared stage topic after the authoritative Heimdall read; a bounded latency profile retains only its hashed correlation so durable and live activity share one identity without question text, resource identity, executor capability, or an added latency-audit field, and broker failure never rewrites the answer.
 
 > Directory names follow the canonical vocabulary in [language.instructions.md](../../../.github/instructions/language.instructions.md):
 > `trust-router`, `deterministic-engine`, `rule-catalog`, `risk-gate`, `remediation-pr`, `shadow-mode`, and `HIL`.

@@ -391,6 +391,16 @@ class CatalogSemanticIndex(Protocol):
         """Load one exact staged generation for independent validation."""
         ...
 
+    async def bind_generation_validation(
+        self,
+        generation_id: str,
+        *,
+        expected_generation_digest: str,
+        validation_receipt_digest: str,
+    ) -> CatalogGenerationMetadata:
+        """Atomically bind one exact independent receipt before activation."""
+        ...
+
     async def activate_generation(
         self,
         generation_id: str,

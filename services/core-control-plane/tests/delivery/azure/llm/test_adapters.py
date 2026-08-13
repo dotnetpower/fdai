@@ -91,6 +91,35 @@ def test_embeddings_default_dimension_matches_pgvector_contract() -> None:
     assert config.dim == 384
 
 
+def test_embeddings_exposes_governed_generation_identity() -> None:
+    adapter = AzureOpenAIEmbeddingModel(
+        identity=_StaticIdentity(),
+        http_client=httpx.AsyncClient(),
+        config=AzureOpenAIEmbeddingModelConfig(
+            endpoint="https://oai-test.openai.azure.com",
+            deployment="t1-embedding",
+            embedding_space_id="model-binding:t1-embedding",
+            embedding_model_version="2026-08-01",
+        ),
+    )
+
+    assert adapter.embedding_space_id == "model-binding:t1-embedding"
+    assert adapter.embedding_model_version == "2026-08-01"
+
+
+def test_embeddings_rejects_partial_generation_identity() -> None:
+    with pytest.raises(ValueError, match="provided together"):
+        AzureOpenAIEmbeddingModel(
+            identity=_StaticIdentity(),
+            http_client=httpx.AsyncClient(),
+            config=AzureOpenAIEmbeddingModelConfig(
+                endpoint="https://oai-test.openai.azure.com",
+                deployment="t1-embedding",
+                embedding_space_id="model-binding:t1-embedding",
+            ),
+        )
+
+
 @pytest.mark.asyncio
 async def test_embeddings_rejects_dim_mismatch() -> None:
     captured: list[httpx.Request] = []

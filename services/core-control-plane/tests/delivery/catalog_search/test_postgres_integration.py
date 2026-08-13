@@ -116,7 +116,10 @@ async def test_postgres_catalog_generation_lifecycle_is_manifest_bound() -> None
     )
     first_metadata = _metadata(FIRST_ID, documents)
     second_metadata = _metadata(SECOND_ID, changed_documents)
-    third_metadata = _metadata(THIRD_ID, delayed_documents)
+    third_metadata = replace(
+        _metadata(THIRD_ID, delayed_documents),
+        validation_receipt_digest=None,
+    )
     index = PostgresCatalogSemanticIndex(
         config=PostgresCatalogSemanticIndexConfig(dsn=_dsn()),
         embedder=_Embedder(),
@@ -149,6 +152,8 @@ async def test_postgres_catalog_generation_lifecycle_is_manifest_bound() -> None
             activated_at=NOW,
         )
         assert repeated_activation == first
+        with pytest.raises(ValueError, match="only staged"):
+            await index.generation_validation_snapshot(FIRST_ID)
         assert first.document_digest_manifest == first_metadata.document_digest_manifest
         first_results = await index.search("public access", k=2)
         assert first_results
@@ -162,6 +167,23 @@ async def test_postgres_catalog_generation_lifecycle_is_manifest_bound() -> None
 
         assert await index.stage_generation(second_metadata, changed_documents) == 2
         assert await index.stage_generation(third_metadata, delayed_documents) == 2
+        bound_third = await index.bind_generation_validation(
+            THIRD_ID,
+            expected_generation_digest=third_metadata.generation_digest,
+            validation_receipt_digest="sha256:" + ("d" * 64),
+        )
+        repeated_binding = await index.bind_generation_validation(
+            THIRD_ID,
+            expected_generation_digest=third_metadata.generation_digest,
+            validation_receipt_digest="sha256:" + ("d" * 64),
+        )
+        assert repeated_binding == bound_third
+        with pytest.raises(ValueError, match="receipt conflict"):
+            await index.bind_generation_validation(
+                THIRD_ID,
+                expected_generation_digest=third_metadata.generation_digest,
+                validation_receipt_digest="sha256:" + ("e" * 64),
+            )
         second = await index.activate_generation(
             SECOND_ID,
             expected_generation_digest=second_metadata.generation_digest,

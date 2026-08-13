@@ -10,14 +10,18 @@ from fdai.rule_catalog.schema.rule_semantic_generation_events import (
     RuleGenerationActivationResultEvent,
     RuleGenerationActivationStatus,
     RuleGenerationIdentity,
+    RuleGenerationValidationResultEvent,
 )
 from fdai.shared.providers.catalog_search import (
+    CatalogCorpus,
     CatalogGenerationMetadata,
     CatalogGenerationStaleError,
     CatalogSemanticIndex,
 )
+from fdai.shared.providers.event_bus import EventBus
 
 from .ledger import RuleGenerationOutboxLedger
+from .publication import RULE_GENERATION_ACTIVATION_COMMAND_TOPIC
 
 
 class RuleGenerationActivationBinder:
@@ -33,11 +37,66 @@ class RuleGenerationActivationBinder:
         *,
         index: CatalogSemanticIndex,
         ledger: RuleGenerationOutboxLedger,
+        event_bus: EventBus | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._index = index
         self._ledger = ledger
+        self._event_bus = event_bus
         self._clock = clock or (lambda: datetime.now(UTC))
+
+    async def active_generation_identity(
+        self,
+        corpus: CatalogCorpus,
+    ) -> RuleGenerationIdentity | None:
+        """Read the exact current pointer identity for Mimir command construction."""
+
+        active = await self._index.active_generation(corpus)
+        return RuleGenerationIdentity.from_metadata(active) if active is not None else None
+
+    async def bind_validation_result(
+        self,
+        result: RuleGenerationValidationResultEvent,
+    ) -> None:
+        """Bind one exact Heimdall receipt to its staged target before publication."""
+
+        validated = RuleGenerationValidationResultEvent.model_validate_json(
+            result.model_dump_json()
+        )
+        receipt_digest = validated.validation_receipt_digest
+        if not validated.valid or receipt_digest is None:
+            raise ValueError("invalid Rule generation evidence cannot bind validation")
+        target = validated.build_result.generation
+        bound = await self._index.bind_generation_validation(
+            target.generation_id,
+            expected_generation_digest=target.generation_digest,
+            validation_receipt_digest=receipt_digest,
+        )
+        if (
+            RuleGenerationIdentity.from_metadata(bound) != target
+            or bound.validation_receipt_digest != receipt_digest
+        ):
+            raise ValueError("Rule generation validation binding identity mismatch")
+
+    async def publish_command(
+        self,
+        command: RuleGenerationActivationCommandEvent,
+    ) -> None:
+        """Publish one Mimir-owned command through the bound typed transport."""
+
+        validated = RuleGenerationActivationCommandEvent.model_validate_json(
+            command.model_dump_json()
+        )
+        if self._event_bus is None:
+            raise RuntimeError("Rule generation activation command transport is unavailable")
+        request_id = validated.validation_result.build_result.request.generation_request_id
+        receipt = await self._event_bus.publish(
+            RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
+            request_id,
+            validated.model_dump(mode="json"),
+        )
+        if receipt.topic != RULE_GENERATION_ACTIVATION_COMMAND_TOPIC:
+            raise RuntimeError("Rule generation activation command broker receipt mismatch")
 
     async def handle(
         self,

@@ -294,6 +294,18 @@ def bind_azure_llm_bindings(
         raise LlmBindingsUnavailableError(
             "resolved-models.json lacks a bindable 't1.embedding' capability"
         )
+    embedding_binding = endpoint_bindings.get("t1.embedding")
+    embedding_space_id = (
+        f"model-binding:{embedding_binding.binding_id}:"
+        f"{embedding_binding.discovery.resource_ref_digest}"
+        if embedding_binding is not None
+        else None
+    )
+    embedding_model_version = (
+        embedding_binding.version or embedding_binding.discovery.resource_ref_digest
+        if embedding_binding is not None
+        else None
+    )
     if primary_cap is None or secondary_cap is None:
         # `hil-only` mode is a designed opt-out - the region cannot host
         # a distinct-publisher secondary reasoner. Bind the primary (or a
@@ -335,6 +347,8 @@ def bind_azure_llm_bindings(
                         legacy_api_version="2024-06-01",
                     ),
                     dim=_default_dim_for_family(embedding_cap.family or ""),
+                    embedding_space_id=embedding_space_id,
+                    embedding_model_version=embedding_model_version,
                 ),
                 metering=_emitter_for("t1.embedding", embedding_cap, "T1"),
             )
@@ -364,6 +378,8 @@ def bind_azure_llm_bindings(
                 legacy_api_version="2024-06-01",
             ),
             dim=_default_dim_for_family(embedding_cap.family or ""),
+            embedding_space_id=embedding_space_id,
+            embedding_model_version=embedding_model_version,
         ),
         metering=_emitter_for("t1.embedding", embedding_cap, "T1"),
     )

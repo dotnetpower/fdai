@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.delivery.catalog_search import (
+    ExactRuleGenerationDocumentResolver,
     InMemoryCatalogSemanticIndex,
     RuleGenerationBuildWorker,
     RuleGenerationValidationWorker,
@@ -73,6 +74,33 @@ def _request() -> RuleGenerationBuildRequestEvent:
         embedding_dimension=384,
         requested_at=NOW,
     )
+
+
+async def test_exact_resolver_rejects_identity_drift_before_returning_documents() -> None:
+    active = (CatalogSearchDocument(rule_id="active-rule", text="active", neighbor_ids=()),)
+    discovery = (
+        CatalogSearchDocument(
+            rule_id="discovery-rule",
+            text="discovery",
+            neighbor_ids=(),
+            corpus="discovery",
+        ),
+    )
+    resolver = ExactRuleGenerationDocumentResolver(
+        active_documents=active,
+        discovery_documents=discovery,
+        catalog_digest=DIGEST_A,
+        semantic_schema_digest=DIGEST_B,
+        ontology_release_digest=DIGEST_C,
+        embedding_space_id="rule-semantic-v1",
+        embedding_model_version="embed-v1",
+        embedding_dimension=384,
+    )
+
+    assert await resolver.resolve(_request()) == active
+    stale = _request().model_copy(update={"catalog_digest": VALIDATOR_DIGEST})
+    with pytest.raises(ValueError, match="catalog_digest"):
+        await resolver.resolve(stale)
 
 
 async def test_build_worker_stages_once_and_restart_reuses_exact_result() -> None:
@@ -146,6 +174,61 @@ async def test_build_provider_failure_does_not_close_durable_result() -> None:
         await store.read_state(f"rule-semantic-generation:build:{request.generation_request_id}")
         is None
     )
+
+
+async def test_validation_receipt_binding_is_exact_idempotent_and_conflict_safe() -> None:
+    index = InMemoryCatalogSemanticIndex()
+    build_result = await RuleGenerationBuildWorker(
+        index=index,
+        resolver=_Resolver(),
+        store=InMemoryStateStore(),
+        clock=lambda: NOW,
+    ).handle(_request())
+    target = build_result.generation
+
+    with pytest.raises(ValueError, match="sha256"):
+        await index.bind_generation_validation(
+            target.generation_id,
+            expected_generation_digest=target.generation_digest,
+            validation_receipt_digest="invalid",
+        )
+    bound = await index.bind_generation_validation(
+        target.generation_id,
+        expected_generation_digest=target.generation_digest,
+        validation_receipt_digest=VALIDATOR_DIGEST,
+    )
+    replay = await index.bind_generation_validation(
+        target.generation_id,
+        expected_generation_digest=target.generation_digest,
+        validation_receipt_digest=VALIDATOR_DIGEST,
+    )
+
+    assert replay == bound
+    assert bound.validation_receipt_digest == VALIDATOR_DIGEST
+    with pytest.raises(ValueError, match="receipt conflict"):
+        await index.bind_generation_validation(
+            target.generation_id,
+            expected_generation_digest=target.generation_digest,
+            validation_receipt_digest=DIGEST_C,
+        )
+    active = await index.activate_generation(
+        target.generation_id,
+        expected_generation_digest=target.generation_digest,
+        expected_active_generation_id=None,
+        expected_active_generation_digest=None,
+        expected_validation_receipt_digest=VALIDATOR_DIGEST,
+        activated_at=NOW,
+    )
+    assert (
+        await index.bind_generation_validation(
+            target.generation_id,
+            expected_generation_digest=target.generation_digest,
+            validation_receipt_digest=VALIDATOR_DIGEST,
+        )
+        == active
+    )
+    with pytest.raises(ValueError, match="only staged"):
+        await index.generation_validation_snapshot(target.generation_id)
 
 
 async def test_validation_worker_recomputes_snapshot_and_restart_is_read_free() -> None:

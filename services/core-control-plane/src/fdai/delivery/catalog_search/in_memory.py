@@ -143,11 +143,38 @@ class InMemoryCatalogSemanticIndex:
             if loaded is None:
                 return None
             metadata, documents = loaded
+            if metadata.state != "staged":
+                raise ValueError("only staged semantic generations can be validated")
             _verify_document_identity(metadata, documents)
             return CatalogGenerationValidationSnapshot(
                 metadata=metadata,
                 documents=documents,
             )
+
+    async def bind_generation_validation(
+        self,
+        generation_id: str,
+        *,
+        expected_generation_digest: str,
+        validation_receipt_digest: str,
+    ) -> CatalogGenerationMetadata:
+        async with self._lock:
+            try:
+                metadata, documents = self._generations[generation_id]
+            except KeyError as exc:
+                raise ValueError("semantic generation is unavailable") from exc
+            if metadata.generation_digest != expected_generation_digest:
+                raise ValueError("semantic generation digest mismatch")
+            prior = metadata.validation_receipt_digest
+            if prior is not None and prior != validation_receipt_digest:
+                raise ValueError("semantic generation validation receipt conflict")
+            if prior == validation_receipt_digest:
+                return metadata
+            if metadata.state != "staged":
+                raise ValueError("only staged semantic generations can bind validation")
+            bound = replace(metadata, validation_receipt_digest=validation_receipt_digest)
+            self._generations[generation_id] = bound, documents
+            return bound
 
     async def activate_generation(
         self,

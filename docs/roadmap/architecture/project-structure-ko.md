@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 16cc1bfa369187ffdd781760fc8f7d64b9bc91d2
+translation_source_sha: c6c7017ed49c4263ffe98c4f41275a75301cc14b
 translation_revised: 2026-08-13
 ---
 
@@ -19,19 +19,18 @@ translation_revised: 2026-08-13
 ## 구현 상태
 
 ### 구현 범위
-
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 현재 상태 활동 identity | 구현됨 | `read_investigation_latency.py`, `activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | Latency 프로파일은 hash된 correlation 참조만 유지하고 감사 항목은 correlation-free로 남으며, 영속 활동과 실제 운영 활동은 실행 권한을 포함하지 않고 하나의 identity를 공유합니다. |
+| Rule 세대 reconciliation 경계 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/`; `runtime/rule_generation_documents.py`; 집중 adapter, Pantheon, 활성화 및 bootstrap 검사 | 프로바이더 계약은 정확한 준비 상태 증적 연결을 소유하고 delivery는 원자적 어댑터를 소유하며 runtime은 정책 또는 실행 권한을 인프라 코드로 옮기지 않고 엄격한 카탈로그 스냅샷과 replay가 동일한 요청을 구성합니다. |
 
 ### 구현 이력
-
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 범위가 제한된 현재 상태 활동 identity 변경을 기록했습니다. | 현재 출처와 `test_read_investigation_latency.py`, `test_activity_projection.py`, 통과한 focused 테스트 | 아래에 설명된 연기된 Phase 2 물리 패키지 이동을 완료합니다. |
+| 2026-08-13 | implemented | Mimir와 Heimdall 소유권을 유지하면서 프로바이더 계약, 원자적 어댑터 및 시작 구성 전체에 운영 Rule 세대 reconciliation 경계를 추가했습니다. | `current change`; `catalog_search.py`, `rule_generation_documents.py` 및 집중 worker, PostgreSQL, 런타임, 활성화 검사 | 통제된 실제 세대 증적을 보존하며 연기된 Phase 2 패키지 이동은 별도로 유지합니다. |
 
 ### 남은 작업
-
 - [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.
 
 ## 모노레포 레이아웃
@@ -152,7 +151,7 @@ fdai/
 │   ├── evaluation/            # public EvaluationHost 구현, capability attenuation, workspace policy, artifact custody, typed ingress 및 judgment 전 diagnostic ontology observation
 │   ├── benchmarking/          # legacy benchmark contract와 runner를 위한 임시 0.1.x compatibility facade
 │   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings(optional conversation T2 synthesis 포함) + request-role executor를 사용하는 exact-release semantic query assembly를 포함한 focused `wire_*` binder
-│   ├── runtime/               # reviewed alias-free metric-semantic catalog loading, versioned isolated Executor shadow/effect handling, stable-offset remote client, EventBus/DLQ/health supervision, production entry point, reversible authority probe, operating-model 및 diagnostic-catalog startup projection/status, durable T2 recovery observation/backfill, Thor/Vidar 실행과 rollback을 사용하는 StateStore-backed proposer route selection, deadline-bound 영속 변환 결과 재생을 포함한 semantic runtime availability/readiness binding, transport/identity binding, startup readiness, worker gating 및 Norns post-turn review를 포함한 headless lifecycle/composition
+│   ├── runtime/               # reviewed alias-free metric-semantic catalog loading, exact Rule 세대 문서 스냅샷과 replay가 동일한 reconciliation, versioned isolated Executor shadow/effect handling, stable-offset remote client, EventBus/DLQ/health supervision, production entry point, reversible authority probe, operating-model 및 diagnostic-catalog startup projection/status, durable T2 recovery observation/backfill, Thor/Vidar 실행과 rollback을 사용하는 StateStore-backed proposer route selection, deadline-bound 영속 변환 결과 재생을 포함한 semantic runtime availability/readiness binding, transport/identity binding, startup readiness, worker gating 및 Norns post-turn review를 포함한 headless lifecycle/composition
 │   └── __main__.py            # 진입점 (P1 컨트롤 루프 기동)
 ├── services/core-control-plane/{src/fdai_core_service,tests}/ # Core entry point와 test
 ├── services/{operator-service,document-ingestion-api,document-processing-worker,isolated-executor}/와 packages/service-contracts/ # 독립 package, shared SDK, test, 타입이 고정된 semantic JSONB 영속성 및 projection row에 의존하지 않는 process-owned semantic bridge 상태
@@ -228,7 +227,7 @@ fdai/
 └── .github/                   # instructions/ 와 workflows/ (CI: lint, secret-scan, coverage)
 ```
 
-런타임 초기화는 semantic-turn 준비 상태를 `bootstrap_lifecycle.py`에, 버티컬 워크로드 신원을 `bootstrap_bindings.py`에 위임합니다. 이렇게 해서 범위가 제한된 프로바이더 구성과,
+런타임 초기화는 semantic-turn 준비 상태를 `bootstrap_lifecycle.py`에, exact Rule 세대 스냅샷과 영속 요청을 `rule_generation_documents.py`에, 버티컬 워크로드 신원을 `bootstrap_bindings.py`에 위임합니다. 이렇게 해서 범위가 제한된 프로바이더 구성과,
 테스트와 포크가 사용하는 주입 가능한 identity-builder 경계를 함께 보존합니다. 리소스 상태 조립은 권위 있는 Heimdall 읽기 뒤에 shared 단계 topic의 no-authority 게시자도 연결합니다.
 범위가 제한된 latency 프로파일은 hash된 correlation만 유지해 영속 활동과 실제 운영 활동이 같은 identity를 사용하게 합니다. 질문 텍스트, 리소스 식별자, 실행기 기능 또는 추가 latency-audit 필드는 내보내지 않으며 broker 실패가 답을 다시 쓰지 않습니다.
 

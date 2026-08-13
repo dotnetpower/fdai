@@ -36,6 +36,9 @@ class AzureOpenAIEmbeddingModelConfig:
     """Vector dimensionality requested from text-embedding-3 deployments.
     MUST match the pgvector schema contract."""
 
+    embedding_space_id: str | None = None
+    embedding_model_version: str | None = None
+
     timeout_seconds: float = 30.0
     api_style: ModelApiStyle = ModelApiStyle.AZURE_OPENAI
     auth_audience: str = COGNITIVE_SERVICES_SCOPE
@@ -72,6 +75,17 @@ class AzureOpenAIEmbeddingModel:
             raise ValueError("dim MUST be > 0")
         if config.timeout_seconds <= 0:
             raise ValueError("timeout_seconds MUST be > 0")
+        if config.embedding_space_id is not None and not config.embedding_space_id.strip():
+            raise ValueError("embedding_space_id MUST be non-empty when provided")
+        if (
+            config.embedding_model_version is not None
+            and not config.embedding_model_version.strip()
+        ):
+            raise ValueError("embedding_model_version MUST be non-empty when provided")
+        if (config.embedding_space_id is None) != (config.embedding_model_version is None):
+            raise ValueError(
+                "embedding_space_id and embedding_model_version MUST be provided together"
+            )
         self._identity: Final[WorkloadIdentity] = identity
         self._http: Final[httpx.AsyncClient] = http_client
         self._config: Final[AzureOpenAIEmbeddingModelConfig] = config
@@ -81,6 +95,8 @@ class AzureOpenAIEmbeddingModel:
         # attribute; expose it as a plain instance variable rather than a
         # read-only property so structural-typing checks accept the class.
         self.dim: int = config.dim
+        self.embedding_space_id: str | None = config.embedding_space_id
+        self.embedding_model_version: str | None = config.embedding_model_version
 
     async def embed(self, text: str) -> Sequence[float]:
         """Return the embedding vector for ``text``."""

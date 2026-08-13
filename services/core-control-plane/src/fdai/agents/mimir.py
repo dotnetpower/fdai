@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai.agents._framework.base import Agent
@@ -58,6 +60,7 @@ _MAX_CATALOG_REVIEW_PACKAGES = 5_000
 _OPERATIONAL_RULE_PREFIX = "learned.operational."
 _RULE_GENERATION_RECEIPT_PREFIX = "mimir:rule-generation-activation-result:"
 _RULE_GENERATION_VALIDATION_PREFIX = "mimir:rule-generation-validation-result:"
+_RULE_GENERATION_COMMAND_PREFIX = "mimir:rule-generation-activation-command:"
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +85,7 @@ class Mimir(Agent):
         catalog_review_publisher: CatalogReviewPublisher | None = None,
         max_pending_candidates: int = _MAX_PENDING_CANDIDATES,
         max_review_packages: int = _MAX_CATALOG_REVIEW_PACKAGES,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         super().__init__(spec=_MIMIR)
         if min(max_pending_candidates, max_review_packages) < 1:
@@ -105,6 +109,7 @@ class Mimir(Agent):
         self._rule_generation_build_handler: RuleGenerationBuildHandler | None = None
         self._rule_generation_activation_binder: RuleGenerationActivationBinder | None = None
         self._rule_generation_state_store: StateStore | None = None
+        self._clock = clock or (lambda: datetime.now(UTC))
 
     def bind_rule_generation_build_handler(
         self,
@@ -227,11 +232,63 @@ class Mimir(Agent):
         )
         if created:
             self.record_behavior("rule_generation_validation_result_recorded")
-            return
-        existing = await store.read_state(receipt_key)
-        if existing is None or existing.get("result_digest") != result.result_digest:
-            raise ValueError("Rule generation validation result idempotency conflict")
-        self.record_behavior("rule_generation_validation_result_duplicate")
+        else:
+            existing = await store.read_state(receipt_key)
+            if existing is None or existing.get("result_digest") != result.result_digest:
+                raise ValueError("Rule generation validation result idempotency conflict")
+            self.record_behavior("rule_generation_validation_result_duplicate")
+        if result.valid:
+            await self._publish_rule_generation_activation_command(result)
+
+    async def _publish_rule_generation_activation_command(
+        self,
+        result: RuleGenerationValidationResultEvent,
+    ) -> None:
+        store = self._rule_generation_state_store
+        binder = self._rule_generation_activation_binder
+        if store is None:
+            raise RuntimeError("Mimir Rule generation receipt store is unavailable")
+        if binder is None:
+            raise RuntimeError("Mimir Rule generation activation binder is unavailable")
+        command_key = f"{_RULE_GENERATION_COMMAND_PREFIX}{result.idempotency_key}"
+        existing = await store.read_state(command_key)
+        if existing is None:
+            await binder.bind_validation_result(result)
+            target = result.build_result.generation
+            prior = await binder.active_generation_identity(target.corpus.value)
+            commanded_at = max(self._clock(), result.validated_at)
+            candidate = RuleGenerationActivationCommandEvent.create(
+                validation_result=result,
+                expected_active_generation=prior,
+                commanded_at=commanded_at,
+            )
+            payload = candidate.model_dump(mode="json")
+            created = await store.write_state_with_audit_if_absent(
+                command_key,
+                payload,
+                {
+                    "kind": "rule_semantic_generation_activation_command",
+                    "principal": "Mimir",
+                    "idempotency_key": candidate.idempotency_key,
+                    "command_digest": candidate.command_digest,
+                    "generation_id": target.generation_id,
+                    "grants_execution_authority": False,
+                },
+            )
+            if created:
+                command = candidate
+                self.record_behavior("rule_generation_activation_command_recorded")
+            else:
+                raced = await store.read_state(command_key)
+                if raced is None:
+                    raise RuntimeError("Mimir Rule generation activation command is unavailable")
+                command = RuleGenerationActivationCommandEvent.model_validate(raced)
+        else:
+            command = RuleGenerationActivationCommandEvent.model_validate(existing)
+        if command.validation_result.result_digest != result.result_digest:
+            raise ValueError("Rule generation activation command idempotency conflict")
+        await binder.publish_command(command)
+        self.record_behavior("rule_generation_activation_command_published")
 
     async def _record_rule_generation_activation_result(self, payload: dict[str, Any]) -> None:
         result = RuleGenerationActivationResultEvent.model_validate(payload)

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 99931dc88d23cb39e595601249343f3b81998fe0
+translation_source_sha: 3f64c8df311fcdb19aa3b708cbfe5ed667ec3f54
 translation_revised: 2026-08-13
 ---
 
@@ -29,33 +29,32 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 ## 구현 상태
 
 ### 구현 범위
-
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 고정 레지스트리, 역할 및 패키지 경계 | implemented | [`pantheon.py`](../../../services/core-control-plane/src/fdai/agents/_framework/pantheon.py), [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py) | 고정된 15개 이름, 카탈로그 계층, 소유권 및 공개 패키지 경계를 기계적으로 검사합니다. |
 | 타입이 지정된 pub/sub 소유권 및 동시 실행 런타임 | implemented | [`topics.py`](../../../services/core-control-plane/src/fdai/agents/_framework/topics.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py), [`test_pantheon_concurrency_proof.py`](../../../services/core-control-plane/tests/agents/test_pantheon_concurrency_proof.py) | 집중 검사는 토픽 소유권, 파티셔닝, 15개 소비자 신원 및 작업을 가로채지 않는 팬아웃을 다룹니다. |
 | Mimir Rule 세대 책임 | implemented | [`mimir.py`](../../../services/core-control-plane/src/fdai/agents/mimir.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py) | Mimir만 활성화 명령과 최종 결과를 수신합니다. Exact 활성화를 주입된 binder에 위임하고 인덱스, 정책, 승인, 변경 또는 실행 권한 없이 변환 전용 증적을 저장합니다. |
-| Rule 세대 빌드 및 검증 체인 | in-progress | `PANTHEON_SPECS`; `mimir.py`; `heimdall.py`; 집중 소유권 및 런타임 검사(`221 passed`) | Mimir는 빌드 요청과 범위가 제한된 빌드 결과를 소유합니다. Heimdall은 기존 RetrievalValidation 권한을 통해 검증 전용 근거를 독립적으로 생성하며 Mimir는 권한 없는 변환 결과만 저장합니다. 운영 trigger와 활성화 명령 발행은 남아 있습니다. |
+| Rule 세대 빌드, 검증 및 활성화 체인 | implemented | `mimir.py`; `heimdall.py`; `runtime.py`; `runtime/rule_generation_documents.py`; 집중 worker, 런타임, 활성화 및 bootstrap 검사 | 운영 시작 시 엄격하게 검증한 승격 표면 문서를 고정하고 replay가 동일한 reconciliation 요청을 영속화한 뒤 Mimir와 Heimdall을 통해 전달합니다. Mimir는 정책 또는 실행 권한을 얻지 않고 활성화 명령을 발행하기 전에 정확한 독립 증적을 연결합니다. 통제된 실제 근거는 남아 있습니다. |
 | 판단, 승인, 실행, 감사 및 복구 분리 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py) | 합성 런타임 검사는 분리된 생명 주기와 영속 `ActionRun` 동작을 실행하지만 실제 운영 결과를 증명하지는 않습니다. |
 | 대화 및 인계 메커니즘 | implemented | [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 범위가 제한된 읽기 전용 대화 경로와 shadow 작업 흐름 추적을 집중 검사에서 실행할 수 있습니다. |
 | KPI 근거 상태, 승격 검사 및 성능 저하 훈련 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 근거가 없거나 측정되지 않으면 승격을 차단하고, 주입된 장애로 선언된 성능 저하 동작을 실행합니다. |
 | 실제 운영 KPI 검증 및 enforce 승격 | not-started | [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 보존된 실제 shadow 코호트, 운영 KPI 증적 집합, 독립적인 승격 검토 또는 실제 판테온 enforce 승격 근거가 아직 없습니다. |
 
 ### 구현 이력
-
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 제공 이력을 재구성하지 않고 근거 범위를 명시한 구현 원장을 도입했습니다. | 현재 변경 | 검증 완료 또는 enforce 사용을 주장하기 전에 실제 운영 근거를 수집하고 독립적으로 검토된 승격을 완료합니다. |
 | 2026-08-13 | implemented | Mimir의 권한을 넓히지 않고 검증된 Rule 세대 명령 유입과 최종 결과 책임을 Mimir에 연결했습니다. | `current change`, 집중 Mimir, 런타임, bootstrap, 활성화 및 발행 검사 32개 통과 | 운영 검증을 주장하기 전에 통제된 실제 활성화 결과 증적을 보존합니다. |
 | 2026-08-13 | implemented | 토픽, 소유권 또는 권한을 변경하지 않고 런타임 모듈의 프레임워크 레이아웃 경계를 복구하도록 비공개 Rule 세대 구독 연결을 추출했습니다. | [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), 프레임워크 레이아웃, 런타임 및 판테온 동등성 검사 통과 | 구현 범위에서 요구하는 동일한 통제된 실제 근거를 보존합니다. |
 | 2026-08-13 | in-progress | 활성화 전 빌드 체인을 Mimir에 할당하고 독립 세대 검증을 Heimdall에 할당했으며 두 agent 모두에 활성화 또는 실행 권한을 부여하지 않았습니다. | `current change`; 집중 소유권, handler, 동등성 및 런타임 연결 검사 221개와 exact chain 및 위조/미연결 검사가 통과했습니다. | 운영 카탈로그 reconciliation trigger와 Mimir 소유의 활성화 명령 발행을 추가합니다. |
+| 2026-08-13 | implemented | 권한 있는 임베딩 식별자, 엄격한 시작 문서 스냅샷, replay가 동일한 reconciliation 요청, 정확한 준비 상태 증적 연결 및 Heimdall 검증 뒤의 Mimir 소유 활성화 명령 발행으로 운영 Rule 세대 체인을 완료했습니다. | `current change`; `rule_generation_documents.py`, `mimir.py`, `activation.py`, 의미 인덱스 어댑터 및 집중 worker, 런타임, 활성화, bootstrap 검사 | 운영 검증을 주장하기 전에 통제된 실제 빌드, 검증, 활성화 및 변환 결과 증적을 보존합니다. |
 
 ### 남은 작업
 
 - [ ] 하나의 고정된 리비전에서 에이전트별 및 시스템 KPI, 표본 수, 신뢰 구간, 보호 메트릭과 권위 있는 결과 증적을 측정한 실제 shadow 코호트를 보존합니다.
 - [ ] 에이전트 권한을 넓히지 않고 주입된 장애만이 아닌 운영 의존성에 대해 선언된 성능 저하 동작을 입증합니다.
-- [ ] 정확한 Heimdall 근거 뒤에 운영 카탈로그 reconciliation trigger와 Mimir 소유의
-  활성화 명령 발행을 추가하여 Rule 세대 체인을 완료합니다.
+- [x] 운영 trigger, 정확한 Heimdall 증적 연결 및 Mimir 소유 활성화 발행으로 Rule 세대
+  체인을 완료했으며, 집중 검사는 권한 추가 없이 `activated` 결과에 도달합니다.
 - [ ] 적격 기능마다 독립적인 승격 검토를 완료하고, enforce 운영을 보고하기 전에 권위 있는 승격 증적을 보존합니다.
 
 ## 1. 설계 원칙
