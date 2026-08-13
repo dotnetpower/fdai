@@ -159,11 +159,20 @@ class _CoreResultStore:
     async def get(self, idempotency_key: str) -> bytes | None:
         return self.results.get(idempotency_key)
 
-    async def claim(self, idempotency_key: str, request_digest: str) -> bool:
+    async def claim(self, idempotency_key: str, request_digest: str) -> str | None:
         prior = self.claims.setdefault(idempotency_key, request_digest)
         if prior != request_digest:
             raise ValueError("idempotency conflict")
-        return idempotency_key not in self.results
+        return "integration-claim" if idempotency_key not in self.results else None
+
+    async def release(
+        self,
+        idempotency_key: str,
+        request_digest: str,
+        claim_id: str,
+    ) -> bool:
+        del idempotency_key, request_digest, claim_id
+        return True
 
     async def put_if_absent(self, idempotency_key: str, projection: bytes) -> bool:
         if idempotency_key in self.results:

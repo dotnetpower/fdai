@@ -138,6 +138,28 @@ units for 100% structural query coverage.
 > classification projection, and single-writer persistence tests for `resource_classified_as`.
 > Production inventory-job injection is complete; the resource-to-Rule query function remains.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Semantic wire and Core processing | implemented | `semantic_turn.py`, `semantic_turn_consumer.py`, `semantic_turn_processor.py`; focused semantic tests passed 88 cases | Version 1.2 requests are bounded to 90 seconds, results are idempotent, claims are recoverable, and Rule results remain candidate-only with no execution authority. |
+| Operator persistence and Rule projection | implemented | `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`; focused semantic tests passed 88 cases and a rollback-only PostgreSQL transaction probe passed | Outbox and result leases are recoverable, malformed ownership fails closed, replay ordering is timestamp-aware, and exact Rule reads are isolated by principal and query digest. |
+| Production assurance and provider composition | in-progress | [Ontology Query Randomized Assurance](ontology-query-randomized-assurance.md) and the verified baseline gap table below | The implementation is fail-closed, but no governed live cross-service receipt proves production readiness. Durable semantic, temporal, metric, and evidence provider bindings remain explicit delivery work. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source, tests, and status evidence listed in the scope table. | Obtain the live assurance and provider-composition evidence listed below. |
+| 2026-08-13 | implemented | Hardened Rule-search contracts, Core idempotency and claims, Operator retries and leases, exact persistence, replay, and ownership validation through more than ten adversarial review rounds. | `current change`; `pytest -q services/core-control-plane/tests/test_semantic_turn_processor.py services/operator-service/tests/test_semantic_turn_bridge.py services/operator-service/tests/test_operator_workflow_family.py tests/integration/test_semantic_turn_roundtrip.py` passed 88 cases; task-scoped Ruff passed; a rollback-only PostgreSQL transaction probe passed. | Production validation remains blocked on governed live receipts. |
+
+### Remaining work
+
+- [ ] Record one governed request-to-Console receipt that covers Operator publication, Core processing, exact Operator projection read, and authenticated Console rendering; rerun the bilingual randomized assurance cohort and link both passing evidence records.
+- [ ] Compose the durable semantic index and the temporal, metric-series, and evidence-join providers identified in the verified baseline; close this item when each typed unavailable gap has focused checks and a governed runtime receipt.
+
 ## Design at a glance
 
 ```mermaid

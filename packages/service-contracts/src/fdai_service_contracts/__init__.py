@@ -200,11 +200,17 @@ from fdai_service_contracts.schema import (
     ValidationIssue,
 )
 from fdai_service_contracts.semantic_turn import (
+    RuleSearchCandidate,
+    RuleSearchProjection,
+    RuleSearchRank,
+    RuleSearchRequest,
+    RuleSearchReceipt,
     SemanticPriorTurn,
     SemanticTurnDisposition,
     SemanticTurnPrincipal,
     SemanticTurnRequest,
     SemanticTurnResult,
+    rule_search_query_digest,
 )
 from fdai_service_contracts.transition import (
     CommitFailedError,
@@ -366,6 +372,11 @@ __all__ = [
     "ResourceLock",
     "RollbackKind",
     "RollbackRef",
+    "RuleSearchCandidate",
+    "RuleSearchProjection",
+    "RuleSearchRank",
+    "RuleSearchRequest",
+    "RuleSearchReceipt",
     "SchemaNotFoundError",
     "SchemaRegistry",
     "SemanticPriorTurn",
@@ -422,6 +433,7 @@ __all__ = [
     "project_intent_graph",
     "project_intent_graph_evidence",
     "run_delivery_transition_harness",
+    "rule_search_query_digest",
     "validate_delivery_trace",
     "validate_manifest",
     "validate_peer_upgrade_receipt",

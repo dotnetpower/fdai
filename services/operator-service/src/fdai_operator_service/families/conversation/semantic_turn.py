@@ -20,6 +20,7 @@ from fdai_service_contracts import (
 
 _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _DEFAULT_DEADLINE_SECONDS = 90
+_MAX_DEADLINE_SECONDS = 90
 
 Clock = Callable[[], datetime]
 
@@ -108,6 +109,8 @@ def _deadline(body: Mapping[str, object], requested_at: datetime) -> datetime:
     deadline = _aware_utc(parsed)
     if deadline <= requested_at:
         raise ValueError("deadline_at MUST be later than requested_at")
+    if deadline > requested_at + timedelta(seconds=_MAX_DEADLINE_SECONDS):
+        raise ValueError("deadline_at MUST be at most 90 seconds after requested_at")
     return deadline
 
 

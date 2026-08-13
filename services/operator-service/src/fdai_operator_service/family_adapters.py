@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator, Mapping
 from dataclasses import asdict, dataclass
 from typing import cast
 
+from fdai_service_contracts import RuleSearchProjection, rule_search_query_digest
 from starlette.exceptions import HTTPException
 
 from fdai_operator_service.families.conversation.contracts import (
@@ -33,6 +34,7 @@ from fdai_operator_service.families.operations.contracts import (
 )
 from fdai_operator_service.families.workflow.contracts import (
     ProjectionProvenance,
+    WorkflowOperation,
     WorkflowProposal,
     WorkflowProposalReceipt,
     WorkflowReadRequest,
@@ -43,6 +45,7 @@ from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStoreUnavailable,
     PostgresProposalConflict,
 )
+from fdai_operator_service.postgres_semantic_turn_store import rule_search_projection_key
 
 
 class _ConversationEventIterator(AsyncIterator[StreamEvent]):
@@ -160,13 +163,33 @@ class PostgresWorkflowAdapters:
     async def read(self, request: WorkflowReadRequest) -> WorkflowReadResult:
         """Read a revisioned authoritative workflow projection."""
         try:
-            payload = await self.store.read_projection(
-                family="workflow",
-                operation=request.operation.value,
-            )
+            if request.operation is WorkflowOperation.RULE_SEARCH:
+                query_digest = rule_search_query_digest(request.body)
+                stored = await self.store.read_rule_search_projection(
+                    principal_id=request.principal_id,
+                    query_digest=query_digest,
+                )
+                projection_key = rule_search_projection_key(
+                    request.principal_id,
+                    query_digest,
+                )
+                payload_value = stored.get("data")
+                if not isinstance(payload_value, dict):
+                    raise HTTPException(
+                        status_code=503,
+                        detail="authoritative Rule search projection is malformed",
+                    )
+                payload = RuleSearchProjection.model_validate(payload_value).model_dump(mode="json")
+            else:
+                stored = await self.store.read_projection(
+                    family="workflow",
+                    operation=request.operation.value,
+                )
+                projection_key = f"operator-projection:workflow:{request.operation.value}"
+                payload = dict(stored)
         except PostgresFamilyStoreUnavailable as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
-        revision = payload.pop("_revision", payload.get("revision"))
+        revision = stored.get("_revision", stored.get("revision"))
         if not isinstance(revision, str) or not revision:
             raise HTTPException(
                 status_code=503,
@@ -175,7 +198,7 @@ class PostgresWorkflowAdapters:
         return WorkflowReadResult(
             payload=cast(JsonObject, payload),
             provenance=ProjectionProvenance(
-                source_ref=f"state_kv:operator-projection:workflow:{request.operation.value}",
+                source_ref=f"state_kv:{projection_key}",
                 revision=revision,
             ),
         )

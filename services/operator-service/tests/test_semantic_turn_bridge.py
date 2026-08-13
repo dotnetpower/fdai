@@ -3,7 +3,7 @@
 import asyncio
 import hashlib
 import json
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -53,8 +53,16 @@ from fdai_operator_service.postgres_family_store import (
     StoredSemanticResult,
     StoredSemanticTurn,
 )
-from fdai_operator_service.postgres_semantic_turn_store import PostgresSemanticTurnRepository
-from fdai_service_contracts import ContractValidationError
+from fdai_operator_service.postgres_semantic_turn_store import (
+    PostgresSemanticTurnRepository,
+    rule_search_projection_key,
+)
+from fdai_service_contracts import (
+    ContractValidationError,
+    RuleSearchProjection,
+    RuleSearchReceipt,
+    rule_search_query_digest,
+)
 from pydantic import ValidationError
 
 _TEST_NAMESPACE = UUID(int=0)
@@ -274,6 +282,40 @@ def _projection(
     }
 
 
+def _rule_search_projection() -> dict[str, object]:
+    query_digest = rule_search_query_digest(
+        {
+            "query": "find retry rules",
+            "operation": "discover",
+            "corpus": "active",
+            "limit": 7,
+        }
+    )
+    receipt = RuleSearchReceipt.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "query_digest": query_digest,
+            "operation": "discover",
+            "corpus": "active",
+            "catalog_digest": f"sha256:{'c' * 64}",
+            "semantic_state": "available",
+            "generation_digest": f"sha256:{'d' * 64}",
+            "results": [],
+            "execution_authority": False,
+        }
+    )
+    return RuleSearchProjection.model_validate(
+        {
+            "query_digest": query_digest,
+            "retrieval_receipt_digest": receipt.digest,
+            "candidates": [],
+            "retrieval_receipt": receipt.model_dump(mode="json"),
+            "authority": "candidate_only",
+            "execution_authority": False,
+        }
+    ).model_dump(mode="json")
+
+
 def test_semantic_turn_roles_come_only_from_authorized_principal_scope() -> None:
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
         _proposal(
@@ -306,6 +348,19 @@ def test_semantic_turn_identity_is_stable_across_retry_clocks() -> None:
     assert first_turn["turn_id"] == retried_turn["turn_id"]
 
 
+def test_semantic_turn_rejects_deadline_beyond_supported_window() -> None:
+    requested_at = datetime(2026, 8, 11, tzinfo=UTC)
+    proposal = _proposal(
+        body={
+            "prompt": "Show the current incident evidence.",
+            "deadline_at": (requested_at + timedelta(seconds=91)).isoformat(),
+        }
+    )
+
+    with pytest.raises(ValueError, match="at most 90 seconds"):
+        SemanticTurnEnvelopeBuilder(clock=lambda: requested_at).build(proposal)
+
+
 async def test_semantic_turn_duplicate_with_different_content_conflicts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -327,6 +382,89 @@ async def test_semantic_turn_duplicate_with_different_content_conflicts(
 
     with pytest.raises(PostgresSemanticTurnConflict, match="different semantic turn"):
         await store.append_semantic_turn(
+            principal_id="operator-1",
+            idempotency_key="turn-retry-1",
+            request_digest="expected",
+            envelope=envelope,
+        )
+
+
+@pytest.mark.parametrize(
+    ("stored_field", "stored_value"),
+    [
+        ("principal_id", "operator-2"),
+        ("request_id", "different-request"),
+    ],
+)
+async def test_semantic_turn_duplicate_with_different_identity_conflicts(
+    monkeypatch: pytest.MonkeyPatch,
+    stored_field: str,
+    stored_value: str,
+) -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+
+    async def insert_if_absent(
+        self: PostgresFamilyStore,
+        *,
+        key: str,
+        value: Mapping[str, object],
+    ) -> tuple[bool, dict[str, object]]:
+        del self, key
+        return False, {**value, stored_field: stored_value}
+
+    monkeypatch.setattr(PostgresFamilyStore, "_insert_if_absent", insert_if_absent)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    with pytest.raises(PostgresSemanticTurnConflict, match="different semantic turn"):
+        await store.append_semantic_turn(
+            principal_id="operator-1",
+            idempotency_key="turn-retry-1",
+            request_digest="expected",
+            envelope=envelope,
+        )
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda envelope: envelope.pop("semantic_turn"),
+        lambda envelope: envelope.pop("requested_at"),
+        lambda envelope: cast(dict[str, object], envelope["semantic_turn"]).__setitem__(
+            "principal", {"subject_id": "operator-2", "roles": ["Reader"]}
+        ),
+    ],
+)
+async def test_semantic_turn_append_rejects_malformed_or_foreign_envelope(
+    mutate: Callable[[dict[str, object]], object],
+) -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    mutate(envelope)
+
+    async def unexpected_fetch(
+        _statement: str,
+        _parameters: Mapping[str, object],
+    ) -> list[dict[str, Any]]:
+        raise AssertionError("malformed envelope MUST fail before PostgreSQL access")
+
+    async def unexpected_insert(
+        *,
+        key: str,
+        value: Mapping[str, object],
+    ) -> tuple[bool, dict[str, object]]:
+        del key, value
+        raise AssertionError("malformed envelope MUST fail before PostgreSQL access")
+
+    repository = PostgresSemanticTurnRepository(
+        fetch_all=unexpected_fetch,
+        insert_if_absent=unexpected_insert,
+    )
+
+    with pytest.raises(ValueError, match="semantic envelope"):
+        await repository.append(
             principal_id="operator-1",
             idempotency_key="turn-retry-1",
             request_digest="expected",
@@ -458,6 +596,7 @@ async def test_semantic_turn_replay_is_ordered_and_principal_request_scoped(
     assert "value ->> 'principal_id' = %(principal_id)s" in statement
     assert "value ->> 'request_id' = %(request_id)s" in statement
     assert "ORDER BY (value ->> 'event_sequence')::bigint" in statement
+    assert "(value ->> 'recorded_at')::timestamptz" in statement
     assert parameters["principal_id"] == "operator-1"
     assert parameters["request_id"] == "request-1"
 
@@ -565,6 +704,97 @@ async def test_result_collision_binds_request_principal_and_digest() -> None:
     assert "EXISTS (SELECT 1 FROM accepted)" in normalized_statement
 
 
+async def test_rule_search_result_materializes_atomically_for_owning_principal() -> None:
+    captured: list[tuple[str, Mapping[str, object]]] = []
+
+    async def fetch_all(
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        captured.append((statement, parameters))
+        record = json.loads(cast(str, parameters["record"]))
+        return [
+            {
+                "inserted": True,
+                "value": {**record, "principal_id": "operator-1"},
+                "rule_projection_writes": 1,
+            }
+        ]
+
+    repository = PostgresSemanticTurnRepository(
+        fetch_all=fetch_all,
+        insert_if_absent=cast(Any, object()),
+    )
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {"rule_search": _rule_search_projection()}
+
+    await repository.project(projection=projection)
+
+    statement, parameters = captured[0]
+    normalized_statement = " ".join(statement.split())
+    rule_projection = cast(dict[str, object], projection["payload"])["rule_search"]
+    query_digest = cast(dict[str, object], rule_projection)["query_digest"]
+    assert parameters["rule_query_digest"] == query_digest
+    assert "rule_identity_conflict AS" in normalized_statement
+    assert "%(rule_projection_record)s::jsonb IS NOT NULL" in normalized_statement
+    assert "IS DISTINCT FROM rule_target.principal_id" in normalized_statement
+    assert "IS DISTINCT FROM rule_target.query_digest" in normalized_statement
+    assert "FROM owned_request WHERE NOT EXISTS (SELECT 1 FROM rule_identity_conflict)" in (
+        normalized_statement
+    )
+    assert "sha256( convert_to(" in normalized_statement
+    assert "CROSS JOIN rule_target" in normalized_statement
+    assert rule_search_projection_key("operator-1", cast(str, query_digest)).endswith(
+        hashlib.sha256(f"operator-1\x1f{query_digest}".encode()).hexdigest()
+    )
+
+
+async def test_rule_search_projection_read_is_exactly_principal_query_scoped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[Mapping[str, object]] = []
+    query_digest = cast(str, _rule_search_projection()["query_digest"])
+
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self
+        captured.append({"statement": statement, **parameters})
+        return [
+            {
+                "value": {
+                    "principal_id": parameters["principal_id"],
+                    "query_digest": parameters["query_digest"],
+                    "_revision": "projection-7",
+                    "data": _rule_search_projection(),
+                }
+            }
+        ]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    await store.read_rule_search_projection(
+        principal_id="operator-a",
+        query_digest=query_digest,
+    )
+    await store.read_rule_search_projection(
+        principal_id="operator-b",
+        query_digest=query_digest,
+    )
+
+    assert captured[0]["key"] == rule_search_projection_key("operator-a", query_digest)
+    assert captured[1]["key"] == rule_search_projection_key("operator-b", query_digest)
+    assert captured[0]["key"] != captured[1]["key"]
+    assert "value ->> 'principal_id' = %(principal_id)s" in cast(str, captured[0]["statement"])
+    assert "value ->> 'query_digest' = %(query_digest)s" in cast(str, captured[0]["statement"])
+
+
 async def test_semantic_claim_transition_casts_json_text_values() -> None:
     captured: list[str] = []
 
@@ -625,6 +855,28 @@ async def test_outbox_publish_failure_releases_claim_for_retry() -> None:
     assert store.published == 1
 
 
+async def test_outbox_publish_lease_loss_is_retryable() -> None:
+    class LeaseLostStore(_MemorySemanticStore):
+        async def mark_semantic_turn_published(self, *, key: str, claim_id: str) -> bool:
+            del key, claim_id
+            return False
+
+    store = LeaseLostStore()
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-retry-1",
+        request_digest="digest",
+        envelope=envelope,
+    )
+    drainer = SemanticTurnOutboxDrainer(store, _FailOncePublisher(), "replica-a")
+
+    assert drainer.lease_seconds == 120
+    assert await drainer.run_once() is False
+
+
 async def test_result_consumer_rejects_invalid_codec_payload() -> None:
     store = _MemorySemanticStore()
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
@@ -640,6 +892,35 @@ async def test_result_consumer_rejects_invalid_codec_payload() -> None:
 
     with pytest.raises(ContractValidationError):
         await SemanticTurnProjectionConsumer(store).consume(invalid)
+
+
+async def test_result_consumer_rejects_authority_bearing_rule_search_payload() -> None:
+    store = _MemorySemanticStore()
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-retry-1",
+        request_digest="digest",
+        envelope=envelope,
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {
+        "rule_search": {
+            "query_digest": f"sha256:{'a' * 64}",
+            "retrieval_receipt_digest": f"sha256:{'b' * 64}",
+            "candidates": [],
+            "retrieval_receipt": {},
+            "authority": "candidate_only",
+            "execution_authority": True,
+        }
+    }
+
+    with pytest.raises(ValidationError):
+        await SemanticTurnProjectionConsumer(store).consume(projection)
+
+    assert store.results == {}
 
 
 async def test_answered_result_requires_complete_verified_evidence() -> None:
@@ -931,6 +1212,69 @@ async def test_injected_result_consumer_starts_and_stops_with_bridge() -> None:
 
     assert len(store.results) == 1
     assert bridge.workers_ready() is False
+
+
+async def test_result_consumer_quarantines_poison_projection_and_continues() -> None:
+    store = _MemorySemanticStore()
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-retry-1",
+        request_digest="digest",
+        envelope=envelope,
+    )
+    consumed = asyncio.Event()
+
+    class ResultSource:
+        def subscribe(
+            self,
+            topic: str,
+            group_id: str,
+        ) -> AsyncIterator[Mapping[str, object]]:
+            del topic, group_id
+
+            async def events() -> AsyncIterator[Mapping[str, object]]:
+                yield {**_projection(envelope), "unexpected": True}
+                yield _projection(envelope)
+                consumed.set()
+                await asyncio.Event().wait()
+
+            return events()
+
+    class Publisher:
+        def __init__(self) -> None:
+            self.events: list[tuple[str, str, Mapping[str, object]]] = []
+
+        async def publish(
+            self,
+            topic: str,
+            key: str,
+            payload: Mapping[str, object],
+        ) -> object:
+            self.events.append((topic, key, payload))
+            return object()
+
+    publisher = Publisher()
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=publisher,
+        result_source=ResultSource(),
+        retry_seconds=0.01,
+    )
+
+    await bridge.start()
+    await asyncio.wait_for(consumed.wait(), timeout=1)
+
+    assert len(store.results) == 1
+    assert any(
+        topic == "core.semantic-turn.projections.dlq"
+        and payload["reason"] == "semantic_turn_projection_rejected"
+        for topic, _key, payload in publisher.events
+    )
+    assert bridge.workers_ready() is True
+    await bridge.aclose()
 
 
 def test_production_composition_activates_semantic_bridge_only_with_transport(
