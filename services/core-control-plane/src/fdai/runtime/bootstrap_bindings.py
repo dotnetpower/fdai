@@ -12,6 +12,7 @@ import httpx
 
 from fdai.core.ontology_platform import (
     EffectReconciliationCoordinator,
+    MetricSemanticRegistry,
     StateStoreReconciliationLedger,
 )
 from fdai.core.ontology_platform.reconciliation_binding import (
@@ -27,9 +28,15 @@ from fdai.core.rule_semantic_generation import (
     RuleGenerationOutboxPublisher,
     StateStoreRuleGenerationOutboxLedger,
 )
+from fdai.delivery.metric_window import ProviderMetricWindowReader
+from fdai.delivery.persistence.postgres_topology_history import (
+    PostgresTopologyHistoryStore,
+    PostgresTopologyHistoryStoreConfig,
+)
 from fdai.delivery.reconciliation_runtime import EffectReconciliationWorker
 from fdai.shared.providers.catalog_search import CatalogSemanticIndex
 from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.metric import MetricProvider, NoopMetricProvider
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -62,6 +69,33 @@ def operational_event_bus(primary: EventBus, auxiliary: EventBus | None) -> Even
     """Select the isolated bus for raw inventory and canary traffic when configured."""
 
     return auxiliary or primary
+
+
+def semantic_query_providers(
+    *,
+    state_store_dsn: str | None,
+    metric_provider: MetricProvider,
+    metric_registry: MetricSemanticRegistry | None,
+) -> tuple[
+    PostgresTopologyHistoryStore | None,
+    MetricSemanticRegistry | None,
+    ProviderMetricWindowReader | None,
+]:
+    """Build only complete production providers for semantic query extensions."""
+
+    dsn = (state_store_dsn or "").strip()
+    topology_reader = (
+        PostgresTopologyHistoryStore(config=PostgresTopologyHistoryStoreConfig(dsn=dsn))
+        if dsn
+        else None
+    )
+    if isinstance(metric_provider, NoopMetricProvider) or metric_registry is None:
+        return topology_reader, None, None
+    return (
+        topology_reader,
+        metric_registry,
+        ProviderMetricWindowReader(provider=metric_provider),
+    )
 
 
 def build_rule_generation_runtime_binding(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 
@@ -10,6 +10,11 @@ import pytest
 from fdai.composition import build_semantic_query_runtime, compose_azure_semantic_query_runtime
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import (
+    CausalEvidenceJoin,
+    MetricAggregation,
+    MetricSemanticDefinition,
+    MetricSemanticRegistry,
+    MetricWindow,
     ObjectSelector,
     ObjectSelectorKind,
     ObjectSetDefinition,
@@ -251,6 +256,217 @@ def test_runtime_rejects_partial_catalog_search_binding(
             catalog_digest=catalog_digest,
             now=lambda: NOW,
         )
+
+
+@pytest.mark.parametrize(
+    ("metric_registry", "metric_window_provider"),
+    (
+        (
+            MetricSemanticRegistry.build(
+                (
+                    MetricSemanticDefinition(
+                        concept_id="requests.count",
+                        provider_metric="requests",
+                        canonical_unit="count",
+                        aggregation=MetricAggregation.SUM,
+                        description="Request count.",
+                    ),
+                )
+            ),
+            None,
+        ),
+        (None, object()),
+    ),
+)
+def test_runtime_rejects_partial_metric_binding(
+    metric_registry: MetricSemanticRegistry | None,
+    metric_window_provider: object | None,
+) -> None:
+    object_type = _object_type()
+
+    with pytest.raises(
+        ValueError,
+        match="metric semantic registry and window provider MUST be supplied together",
+    ):
+        build_semantic_query_runtime(
+            model=_Model(_definition()),
+            ontology_release=build_ontology_release(
+                object_types=(object_type,),
+                function_types=operational_function_types(()),
+            ),
+            ontology_catalog=_catalog(object_type),
+            ontology_store=InMemoryOntologyInstanceStore(
+                object_types=(object_type,),
+                link_types=(),
+            ),
+            metric_registry=metric_registry,
+            metric_window_provider=metric_window_provider,  # type: ignore[arg-type]
+            now=lambda: NOW,
+        )
+
+
+class _TemporalEvidenceModel(_Model):
+    def propose_plan(self, **_kwargs: Any) -> dict[str, object]:
+        start = NOW - timedelta(minutes=5)
+        nodes = [
+            {
+                "node_id": "topology-before",
+                "kind": "topology_at",
+                "depends_on": [],
+                "arguments": {"as_of": start.isoformat(), "known_at": NOW.isoformat()},
+                "output_kind": "topology.graph",
+            },
+            {
+                "node_id": "topology-after",
+                "kind": "topology_at",
+                "depends_on": [],
+                "arguments": {"as_of": NOW.isoformat(), "known_at": NOW.isoformat()},
+                "output_kind": "topology.graph",
+            },
+            {
+                "node_id": "topology-change",
+                "kind": "topology_diff",
+                "depends_on": ["topology-before", "topology-after"],
+                "arguments": {},
+                "output_kind": "topology.diff",
+            },
+            *(
+                {
+                    "node_id": node_id,
+                    "kind": "metric_series",
+                    "depends_on": [],
+                    "arguments": {
+                        "concept_id": concept_id,
+                        "resource_id": "resource-a",
+                        "start": start.isoformat(),
+                        "end": NOW.isoformat(),
+                    },
+                    "output_kind": "metric.window",
+                }
+                for node_id, concept_id in (
+                    ("cause", "requests.count"),
+                    ("effect", "errors.count"),
+                )
+            ),
+            {
+                "node_id": "causal-evidence",
+                "kind": "evidence_join",
+                "depends_on": ["cause", "effect", "topology-change"],
+                "arguments": {
+                    "feature_cutoff": NOW.isoformat(),
+                    "competing_explanations": ["deployment"],
+                },
+                "output_kind": "causal.join",
+            },
+        ]
+        return {"nodes": nodes, "output_node_ids": ["causal-evidence"]}
+
+
+class _EmptyTopologyReader:
+    async def read(self, *, as_of: datetime, known_at: datetime) -> tuple[()]:
+        assert as_of <= known_at
+        return ()
+
+
+class _IncompleteMetricWindowProvider:
+    async def read(
+        self,
+        *,
+        definition: MetricSemanticDefinition,
+        resource_id: str,
+        start: datetime,
+        end: datetime,
+    ) -> MetricWindow:
+        return MetricWindow(
+            concept_id=definition.concept_id,
+            resource_id=resource_id,
+            unit=definition.canonical_unit,
+            start=start,
+            end=end,
+            samples=(),
+            complete=False,
+            missing_reason="provider_gap",
+            evidence_refs=(f"metric:{definition.concept_id}",),
+        )
+
+
+def _metric_registry() -> MetricSemanticRegistry:
+    return MetricSemanticRegistry.build(
+        tuple(
+            MetricSemanticDefinition(
+                concept_id=concept_id,
+                provider_metric=provider_metric,
+                canonical_unit="count",
+                aggregation=MetricAggregation.SUM,
+                description=description,
+            )
+            for concept_id, provider_metric, description in (
+                ("requests.count", "requests", "Request count."),
+                ("errors.count", "errors", "Error count."),
+            )
+        )
+    )
+
+
+async def test_runtime_rejects_unavailable_temporal_evidence_kinds() -> None:
+    object_type = _object_type()
+    runtime = build_semantic_query_runtime(
+        model=_TemporalEvidenceModel(_definition()),
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=_catalog(object_type),
+        ontology_store=InMemoryOntologyInstanceStore(
+            object_types=(object_type,),
+            link_types=(),
+        ),
+        now=lambda: NOW,
+    )
+
+    result = await runtime.handle(
+        utterance="Correlate topology and telemetry.",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert result.disposition == "unsupported"
+    assert result.reason == "semantic_plan_invalid"
+    assert result.execution is None
+
+
+async def test_runtime_executes_temporal_metric_evidence_provider_set() -> None:
+    object_type = _object_type()
+    runtime = build_semantic_query_runtime(
+        model=_TemporalEvidenceModel(_definition()),
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=_catalog(object_type),
+        ontology_store=InMemoryOntologyInstanceStore(
+            object_types=(object_type,),
+            link_types=(),
+        ),
+        topology_reader=_EmptyTopologyReader(),
+        metric_registry=_metric_registry(),
+        metric_window_provider=_IncompleteMetricWindowProvider(),
+        now=lambda: NOW,
+    )
+
+    result = await runtime.handle(
+        utterance="Correlate topology and telemetry.",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert result.disposition == "answered"
+    assert result.execution is not None
+    causal_evidence = result.execution.results["causal-evidence"].value
+    assert isinstance(causal_evidence, CausalEvidenceJoin)
+    assert causal_evidence.status.value == "unresolved"
+    assert "metric_window_incomplete" in causal_evidence.limitations
+    assert causal_evidence.execution_authority is False
 
 
 class _RuleSearchModel(_Model):

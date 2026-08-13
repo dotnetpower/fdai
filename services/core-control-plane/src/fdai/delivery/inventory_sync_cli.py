@@ -31,6 +31,7 @@ from fdai.delivery.inventory_sync import (
     InventorySyncCoordinator,
     PromotedInventoryObservation,
 )
+from fdai.delivery.inventory_topology_history import InventoryTopologyHistoryPublisher
 from fdai.delivery.operational_activity import (
     EventBusOperationalActivityPublisher,
     ObservedInventorySnapshotStore,
@@ -50,6 +51,10 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
 from fdai.delivery.persistence.postgres_resource_lock import (
     PostgresAdvisoryResourceLock,
     PostgresAdvisoryResourceLockConfig,
+)
+from fdai.delivery.persistence.postgres_topology_history import (
+    PostgresTopologyHistoryStore,
+    PostgresTopologyHistoryStoreConfig,
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.resource_type import (
@@ -312,6 +317,7 @@ def _build_ontology_observer(
 ) -> InventoryPromotionObserver:
     projector: InventoryOntologyProjector | None = None
     ontology_store: PostgresOntologyInstanceStore | None = None
+    topology_publisher: InventoryTopologyHistoryPublisher | None = None
     if _bool_env(os.environ, "FDAI_INVENTORY_ONTOLOGY_PROJECTION", True):
         catalog_root = _REPO_ROOT / "rule-catalog"
         catalog = load_ontology_catalog(
@@ -329,28 +335,50 @@ def _build_ontology_observer(
             status_store=PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn)),
             resource_type_mappings=resource_type_mapping_digests(vocabulary),
         )
+        topology_publisher = InventoryTopologyHistoryPublisher(
+            writer=PostgresTopologyHistoryStore(
+                config=PostgresTopologyHistoryStoreConfig(dsn=config.dsn)
+            ),
+            ontology_release_digest=catalog.build_release().digest,
+        )
 
     async def _observe(observation: PromotedInventoryObservation) -> None:
         evidence_counts[observation.generation] = len(observation.resources) + len(
             observation.links
         )
-        if projector is None or ontology_store is None:
+        if projector is None or ontology_store is None or topology_publisher is None:
             return
+        failures: list[tuple[str, Exception]] = []
+        history_available = False
+        try:
+            history_available = await topology_publisher.publish(observation) is not None
+        except Exception as exc:  # noqa: BLE001 - independent derived read model
+            failures.append(("topology_history_failed", exc))
+        result = None
         try:
             await ontology_store.sync_catalog()
             result = await projector.apply(observation)
-        except Exception:  # noqa: BLE001 - coordinator retains authoritative snapshot
+        except Exception as exc:  # noqa: BLE001 - independent derived read model
+            failures.append(("projection_failed", exc))
+        if failures:
             await publisher.publish(
                 ontology_projection_activity(
                     generation=observation.generation,
                     status=OperationalActivityStatus.FAILED,
                     freshness=OperationalFreshness.UNAVAILABLE,
                     evidence_count=evidence_counts[observation.generation],
-                    reason_codes=("projection_failed",),
+                    reason_codes=tuple(reason for reason, _ in failures),
                 )
             )
-            raise
-        available = result.status is InventoryOntologyProjectionStatus.AVAILABLE
+            raise failures[0][1]
+        if result is None:  # pragma: no cover - guarded by the failure branch
+            raise RuntimeError("inventory ontology projection produced no result")
+        available = (
+            history_available and result.status is InventoryOntologyProjectionStatus.AVAILABLE
+        )
+        reason_codes = result.dropped_reasons + (
+            () if history_available else ("topology_history_unavailable",)
+        )
         await publisher.publish(
             ontology_projection_activity(
                 generation=observation.generation,
@@ -363,7 +391,7 @@ def _build_ontology_observer(
                     OperationalFreshness.FRESH if available else OperationalFreshness.UNAVAILABLE
                 ),
                 evidence_count=result.object_count + result.link_count,
-                reason_codes=result.dropped_reasons,
+                reason_codes=reason_codes,
             )
         )
 

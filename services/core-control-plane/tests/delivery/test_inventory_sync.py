@@ -127,6 +127,8 @@ async def test_promotion_observer_receives_the_promoted_generation() -> None:
     assert [item.generation for item in observed] == ["attempt-1"]
     assert observed[0].resources == (resource,)
     assert observed[0].complete is True
+    assert observed[0].recorded_at is not None
+    assert observed[0].recorded_at.tzinfo is not None
 
 
 async def test_promotion_observer_is_not_called_for_a_failed_stream() -> None:
