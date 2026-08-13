@@ -706,7 +706,11 @@ def _resource_payload(row: Mapping[str, Any], *, include_props: bool = False) ->
     if include_props:
         payload["props"] = props
     if row["resource_type"] == VM_SHUTDOWN_SCHEDULE_TYPE:
-        schedule = project_vm_shutdown_schedule(props)
+        try:
+            schedule = project_vm_shutdown_schedule(props)
+        except ValueError:
+            schedule = None
+            payload["projection_warnings"] = ["invalid_shutdown_schedule"]
         if schedule is not None:
             payload.update(
                 {
