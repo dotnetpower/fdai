@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: 1da556e806a565aa37355c684527227f5dad3800
-translation_revised: 2026-08-11
+translation_source_sha: c3c845141bf0e17963f6a2f9e8a98a6464352a87
+translation_revised: 2026-08-14
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -37,25 +37,42 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 새 서브시스템 `core/assurance_twin/` 하나와 전달 인텐트 하나를 추가하며, 나머지는
 기존 부품의 조합입니다.
 
-> **구현 상태**: `core/assurance_twin/`에는 in-memory 변환 결과, 검증된 결정론적 조회,
-> 자세 보고 조립, publisher-neutral 검토 glue, 시뮬레이션 fidelity 원장,
-> 활성/challenger 효과 모델 및 범위가 제한된 Dynamic 런타임 조정기가 있고 focused tests가 이를
-> 검증합니다. T1 reuse는 injected current-state 요청 프로바이더와 모델 레지스트리를 통해 이를 호출하고
-> 실행 충족 여부를 바꾸지 않는 shadow 감사를 기록합니다. 운영 인벤토리 조립, model-backed NL 컴파일러, ChatOps
-> 의도, Checks API 발행기, discovery-loop 훅, twin 전용 ReadPanel은 아직 연결되지 않았습니다.
-> 아래 주변 검토, action-bridging, self-improving 전달 흐름은 목표 설계입니다. 별도의
-> Security 평가 보고 피드와 Azure analyzer는 현재 reporting subsystem에 구현되어 있습니다.
-> Operational 계획 수립에는 이제 목표별로 검증된 활성 및 challenger 효과 모델을 적용하는
-> 읽기 전용 Twin 어댑터가 있습니다. 누락되거나 future-cutoff인 모델은 unscorable이며 divergence는
-> 후보를 검토 대상으로 표시합니다. 어댑터는 근거만 만들고 실행을 선택하지 않습니다.
-> Dynamic V2는 변경할 수 없는 operational 상태 trajectory, 범위가 제한된 typed-path propagation,
-> interaction 용어, 활성 trajectory에서 평가되는 필수 trajectory-wide 불변식, 독립적인
-> 결과 종결, 그래프 런타임 조정기, StateStore trajectory-episode 원장, off-path
-> 종결 실행기 및 영속 활성/challenger graph-model 레지스트리를 추가합니다. 종결 실행기는
-> 완전한 matched 또는 mismatched 독립적인 관측의 challenger 구획만 갱신하고 활성
-> 모델을 mutate하거나 promote하지 않았음을 감사합니다. 컨트롤 루프는 명시적으로 injected 그래프
-> 조정기를 받아 shadow 근거만 기록하며 운영 그래프 요청, 모델 및 observed-trajectory
-> 출처 어댑터는 배포 연결로 남습니다.
+## 구현 상태
+
+결정론적 Twin 코어와 스칼라 및 그래프 시뮬레이션 기본 기능은 구현되어 집중 테스트로
+검증됩니다. 운영 인벤토리, 자연어, 검토 전달, 전용 운영자 패널 연결은 미완성이므로 운영
+환경에서 검증 완료된 영역으로 표시하지 않습니다.
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 변환 결과, 검증된 질의, 자세 보고, 발행기 중립 검토 코어 | implemented | [`core/assurance_twin/`](../../../services/core-control-plane/src/fdai/core/assurance_twin), [`tests/assurance_twin/`](../../../services/core-control-plane/tests/assurance_twin) | 메모리 내 변환 결과, 결정론적 컴파일러, 읽기 전용 검증기, 보고서 집계, 검토 발행기 연결부가 집중 검사를 통과합니다. |
+| 스칼라 Dynamic 효과 모델, 충실도 측정, 범위가 제한된 런타임 조정 | implemented | [`effect_model.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/effect_model.py), [`fidelity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/fidelity.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/runtime.py) 및 해당 집중 테스트 | 활성 모델은 변경하지 않고, challenger는 적격 결과에서만 학습하며, 불일치는 사람 검토로 낮춥니다. |
+| 그래프 전역 Dynamic 궤적, 전파, 불변식, 에피소드 종결, 모델 레지스트리 | implemented | [`graph_effect.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_effect.py), [`graph_runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_runtime.py), [`graph_closure.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py) 및 그래프 집중 테스트 | 런타임은 근거를 반환하기 전에 예측 에피소드를 저장하고 완전한 독립 관측에서만 challenger 구획을 갱신합니다. |
+| 심층 Security Assessment 피드, 결정론적 분석기, 카탈로그 보고서 | implemented | [`core/security/`](../../../services/core-control-plane/src/fdai/core/security), [`security_assessment.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/security_assessment.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/security/test_assessment.py), [`test_security_assessment_datasource.py`](../../../services/core-control-plane/tests/core/reporting/test_security_assessment_datasource.py) | 아래에서 설명하는 Twin 전용 자세 패널과는 별도의 보고 하위 시스템입니다. |
+| 운영 인벤토리 변환 결과와 선제적 변경 검토 전달 | not-started | [`projection.py`](../../../services/core-control-plane/src/fdai/shared/providers/projection.py)와 [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py)가 프로바이더 시임을 정의합니다. | 업스트림에는 운영 인벤토리 어댑터, 변경 이벤트 조정기, Checks API 발행기가 연결되지 않았습니다. |
+| 모델 기반 질문 컴파일, T1 재사용, ChatOps 입력, 판단 보류 피드백 | in-progress | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py) | 타입이 있는 질의 검증과 변경할 수 없는 채팅 값은 있지만 모델 기반 컴파일, 메시지 라우팅, 발견 루프 전달은 없습니다. |
+| Twin 전용 운영자 패널과 거버넌스가 적용된 수정 제안 연결 | not-started | 위의 보고 및 검토 기본 기능은 입력을 제공하지만 전용 Operator API 또는 콘솔 경로는 없습니다. | 구현된 Security Assessment 보고서는 더 넓은 Twin 자세 패널이나 액션 연결 작업 흐름을 충족하지 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 원장을 도입하고 테스트된 Twin 기본 기능과 연결되지 않은 전달 표면을 분리했습니다. 이전 구현 이력은 재구성하지 않았습니다. | 현재 변경과 구현 범위 표에 인용한 어슈어런스 트윈, Security Assessment, 보고 집중 테스트. | 운영 근거와 전달 표면을 연결한 다음 거버넌스가 적용된 런타임 증적을 수집합니다. |
+
+### 남은 작업
+
+- [ ] 권위 있는 `Inventory` 출처를 변환 결과에 연결하고 신선도, 범위가 제한된 변경분 처리,
+  결정론적 재생을 집중 통합 테스트로 입증합니다.
+- [ ] 모델 기반 자연어 컴파일과 ChatOps 입력을 구현하고 모든 질의가 읽기 전용으로 검증되며
+  지원되지 않는 질문은 근거가 있는 검토 필요 결과를 만드는지 테스트합니다.
+- [ ] 선제적 변경 이벤트를 운영 `IacReviewPublisher`에 연결하고 변경, 발견 사항, 규칙 근거,
+  게시된 검토를 연결하는 거버넌스 적용 shadow 증적을 기록합니다.
+- [ ] 판단 보류된 질문과 수정 제안을 발견 및 정상 risk-gate 액션 경로로 보내고 Twin이 실행하거나
+  권한을 높이지 않는지 테스트합니다.
+- [ ] 읽기 전용 Twin 자세 API와 콘솔 패널을 추가한 다음 하나의 전체 인벤토리-보고서 렌더링에
+  대한 거버넌스 적용 런타임 증적을 수집합니다.
 
 ## 왜 챗봇이 아닌가
 
