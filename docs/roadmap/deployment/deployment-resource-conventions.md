@@ -153,7 +153,7 @@ The Operator module also declares `caj-<workload>-catalog` as a separate manual 
 It uses the digest-pinned Core image that owns the reviewed Rule and Ontology catalogs. The deploy
 workflow starts it only after `caj-<workload>-migrate` succeeds. Both Jobs use the Operator managed
 identity and PostgreSQL secret reference, but catalog materialization creates reference projections
-only; it does not create runtime findings, readiness, or execution authority.
+only; it does not create detected runtime issues, readiness, or execution authority.
 
 After Core state ownership moves to `services/core-control-plane/<environment>.tfstate`, the
 legacy platform root retains the shared Container Apps environment and scheduled Jobs but no

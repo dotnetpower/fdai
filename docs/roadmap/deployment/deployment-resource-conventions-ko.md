@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 460bb06d7759d972d078fc2d5f0f36d6c35b9da1
+translation_source_sha: 0d2c3295a389e05004e72f62bc9a8eb132bc8873
 translation_revised: 2026-08-13
 ---
 # 배포 리소스 규약

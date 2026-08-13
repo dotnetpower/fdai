@@ -20,7 +20,7 @@ workflow exposes it as the `deploy_operator_api` input and, when enabled,
 starts the migration Job after apply. After migration succeeds, the workflow starts
 the catalog Job to write immutable Rule and Ontology reference projections. The catalog
 Job uses the digest-pinned Core image because that image owns the reviewed catalogs and
-materializer; it doesn't create runtime findings or execution authority.
+materializer; it doesn't create detected runtime issues or execution authority.
 
 ```hcl
 module "operator_api" {
