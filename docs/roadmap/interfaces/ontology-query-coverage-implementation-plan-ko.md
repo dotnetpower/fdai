@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 8111c525a6283455a339a88dc63e96f96f95afcb
+translation_source_sha: d8fda8cf0cb966b1e809dc0473cf4d8340164e5a
 translation_revised: 2026-08-14
 ---
 
@@ -167,6 +167,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 의미 요청 발행기를 1.3.0 producer 코덱으로 옮겼습니다. 묶음 빌더는 이미 1.3.0을 검증했기 때문에, 낡은 발행기가 바인딩된 모든 턴을 조용히 거부해 Console 요청이 Core에 도달하지 못했습니다. | `current change`, `semantic_kafka.py`, Operator 어댑터 및 브리지 스위트 51개 통과, 재시작한 로컬 스택이 바인딩된 인시던트 턴을 6.4초에 응답했고 Core가 디코딩 실패 없이 계획 3단계를 기록 | 인시던트 역량이 여전히 열린 공백입니다. |
 | 2026-08-14 | 진행 중 | Canonical `Incident` 인스턴스를 projection하고 추가 전용 감사 출처 위에 exact-release, correlation-scoped `query.incident_evidence` FunctionType을 추가했습니다. 함수는 프로파일, 상관 기록, 잘림 및 근거 공백을 노출하면서 `cause_claim_supported=false`와 `execution_authority=false`를 고정합니다. | 커밋 `285341732` 및 `current change`, focused 인시던트, registry, adapter 및 의미 조립 검사 62개 통과, 작업 범위 Ruff 및 strict mypy 통과 | A3 답변 계약과 액션 초안 전용 다음 안전 단계를 추가하고 인증된 Console 근거를 보존합니다. |
 | 2026-08-14 | 진행 중 | 초기 인시던트 FunctionType 계약을 수정해 바인딩된 Console 맥락의 canonical `incident_id`와 감사 `correlation_id`가 검증된 계획 실행 및 근거 변환 전체에서 서로 다르게 유지되도록 했습니다. | `current change`, 인시던트 FunctionType 테스트와 end-to-end 의미 조립 회귀가 통과해 focused 범위가 63개 사례가 되었습니다. | 로컬 스택을 재시작하고 같은 인증된 인시던트 턴을 검증한 뒤 기능 상태를 변경하기 전에 통제된 근거를 보존합니다. |
+| 2026-08-14 | 진행 중 | 의미 frame 및 plan prompt v2를 서로 다른 바인딩 신원에 맞춰 모델이 잘못된 부분 인자 집합을 만들지 않고 검증된 Function node에 `incident_id`와 `correlation_id`를 모두 보존하도록 했습니다. | `current change`, focused prompt registry 계약 5개 사례 통과 | 기능 상태를 변경하기 전에 로컬 스택을 재시작하고 같은 인증된 인시던트 턴을 검증합니다. |
 
 ### 남은 작업
 
