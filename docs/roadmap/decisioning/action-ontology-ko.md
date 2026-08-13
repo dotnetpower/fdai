@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 15d29a818a041cf7b78e5b01500469b218d79596
-translation_revised: 2026-08-12
+translation_source_sha: 03053ea32521bd8ce5db0d9e0e134fc6f811954d
+translation_revised: 2026-08-13
 ---
 
 # 액션 온톨로지
@@ -14,7 +14,8 @@ FDAI 의 모든 액션 - 룰이 발화시킨 교정 이든 오퍼레이터가 �
 - T0Engine + ActionBuilder ([phase-1](../phases/phase-1-rule-catalog-t0-ko.md))
   는 룰이 발화시킨 액션을 빌드할 때 `rollback_contract`, `preconditions`, `stop_conditions`, `blast_radius` 를 읽기.
 - 통합 RiskGate + 실행기 ([execution-model.md](execution-model-ko.md))
-  는 실행 **여부** 와 **방법** 을 결정할 때 계층 상한, min-role, live-probe 참조, 실행 경로 를 읽기.
+  는 실행 **여부** 와 **방법** 을 결정할 때 계층 상한, min-role, 실행 경로를 읽습니다.
+  Live-probe 참조는 카탈로그에서 검증되지만 런타임 RiskGate 통합은 아직 필요합니다.
 - 오퍼레이터 콘솔 서술기 ([operator-console.md](../interfaces/operator-console-ko.md))
   는 ops-flavoured 도구 호출 을 제안하거나 실행할 때 `trigger_kind`, `description`, `argument_schema` 를 읽기.
 
@@ -587,7 +588,7 @@ live_probe_ref: probes/vm_traffic_last_5m
 - 각 탐색 는 입력 (대상 리소스 참조), 조회 (Azure Monitor KQL /
   메트릭 API / ARG), interpretation 함수 (`quiet | active | overloaded`)
   를 declare.
-- `RiskGate` 는 탐색 를 호출하고 답변 를 static 상한 과 결합 (see
+- 목표 `RiskGate` 통합은 탐색을 호출하고 답변을 static 상한과 결합합니다(see
   [execution-model.md § 4](execution-model-ko.md#4-live-blast-probe)).
 
 탐색 는 ActionType 및 환경 별로 명시적 선택. 포크 가 자체 탐색 를 ship;
@@ -786,48 +787,37 @@ ActionType 을 조용히 shadow 할 수 없다 (shadowing 은 7.1 오버레이 �
 에서 권위적. 향후 오버레이 변경은 전달 시점에 in 효과 였던 상한 이
 verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
 
-## 10. 이행 기록
+## 구현 상태
 
-온톨로지 변경은 세 검토된 catalog-as-code 단계로 landing했습니다
-([rule-governance.md](../rules-and-detection/rule-governance-ko.md) 참조):
+### 구현 범위
 
-1. **스키마 확장** - 로더가 신규 필드를 safe 기본값으로 학습.
-2. **Backfill** - `trigger_kind = rule_violation` 이 모든 기존 항목 에
-   집합; `ceiling_by_tier` 는 pre-existing 암묵적 상한 (`default_mode`,
-   `promotion_gate.max_policy_escapes`) 로부터 populate.
-3. **Ops 카탈로그** - shipped ops.* 집합 (§3.2) 이 `argument_schema`,
-   `direct_api` 경로, appropriate 상한 과 함께 landing.
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| ActionType 스키마 및 카탈로그 로딩 | implemented | [`action_type.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py), [`ontology_action.py`](../../../services/core-control-plane/src/fdai/shared/contracts/models/ontology_action.py), [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | Category, trigger, 인자, 상한, 실행 경로, probe 참조 및 fail-closed 카탈로그 제약이 실행 가능합니다. |
+| 계층, 역할 및 운영 downgrade 상한 | implemented | [`ceiling.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/ceiling.py), [`test_ceiling.py`](../../../services/core-control-plane/tests/core/risk_gate/test_ceiling.py), [`test_approval.py`](../../../services/core-control-plane/tests/core/workflow/test_approval.py) | `prod_downgrade`와 환경 범위가 결정론적 상한 및 사람 승인 요구사항에 영향을 줍니다. |
+| 의미 ActionType 및 `MutationPlan` version 2 컴파일 | implemented | [`action_plans.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/action_plans.py), [`test_action_plans.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_action_plans.py) | 컴파일은 권한을 부여하지 않고 exact 선언, 범위가 제한된 대상, 증적, 효과, postcondition, 잠금, 복구를 고정합니다. |
+| Live blast probe 실행 | in-progress | [`blast_probe.py`](../../../services/core-control-plane/src/fdai/shared/providers/blast_probe.py), [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py)의 카탈로그 참조 검사 | Probe 계약과 카탈로그 검증은 존재하지만 커밋된 RiskGate는 아직 `live_probe_ref`를 소비하거나 결과를 resolved ceiling에 기록하지 않습니다. |
+| 거버넌스 및 도구 실행 커버리지 | in-progress | [`promotion.py`](../../../services/core-control-plane/src/fdai/delivery/promotion.py), [`graph_model_promotion.py`](../../../services/core-control-plane/src/fdai/delivery/graph_model_promotion.py), [`override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py) | 승격 및 상한 재정의 경로는 존재합니다. `governance.retire-rule`과 런타임 예외 생성에는 문서화된 PR-native writer가 아직 없습니다. |
+| 운영자 요청 trigger 종료 | in-progress | 위 스키마/로더 근거와 [액션 온톨로지 라이프사이클](action-ontology-lifecycle-ko.md) | 카탈로그 유효성만으로는 인증된 운영자 요청이 하나의 보존된 운영 증적에서 판단, RiskGate, 실행, 복구, 감사를 통과했음을 입증하지 않습니다. |
 
-세 단계는 완료되었습니다. 현재 카탈로그 항목은 로더가 검증하며 운영자 제안은
-정상 ControlLoop로 다시 진입합니다.
+### 구현 이력
 
-## 11. Testability
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 구현 원장을 도입하고 구현된 스키마, 상한, 컴파일러 동작을 완료되지 않은 probe 및 소비자 종료와 구분했습니다. 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 소스 및 focused 검사 | Live probe를 연결하고 남은 거버넌스 writer를 완료하며 운영자 요청 런타임 근거를 보존해야 합니다. |
 
-- **스키마** - 매 YAML 로드에서 JSON 스키마 검증 (기존).
-- **오버레이 우선순위** - 모든 축 + 계층 조합에 대한 table-driven 테스트
-  (§7.5).
-- **인자 스키마** - 속성 테스트: 스키마 밖의 어느 입력이든 전달
-  전 거부; redact 된 필드 는 감사 페이로드 에 절대 등장 안 함.
-- **Live-probe 훅** - 가짜 `LiveBlastProbe` 가 `quiet / 활성 /
-  overloaded` 각각 반환; 상한 adjustment table-driven.
-- **Rego 오버레이** - 금요일에 downgrade 하는 정책을 exercise 하는 통합
-  테스트; 시간 고정된; 감사 항목 가 오버레이 계층 를 이름 함을 assert.
-- **교차 검증 로드 오류** - `operator_request` 에 `argument_schema`
-  누락한 고정본 ActionType 가 특정 오류 로 로드 실패.
-- **의미 컴파일러** - 집중 테스트가 레거시 ActionType 및 `MutationPlan` decode를 유지하고,
-  exact 참조를 수락하며, stale 참조를 차단하고, 정본 및 민감정보가 제거된 인자를 검증하며, 완료하고
-  fresh한 내용 기반 주소를 가진 읽기 및 criterion 증적을 요구합니다. 또한 일대일 효과 및
-  postcondition 연결을 강제하고, reversible 및 irreversible 복구 의미 규칙을 보존하며,
-  결정론적 target-set 잠금과 트랜잭션 한도를 결합하고, `plan` 플래너를 요구하고, 기존
-  계획 다이제스트와 개정 번호를 검증하며, 효과와 postcondition이 권한을 부여할 수 없음을
-  입증합니다.
+### 남은 작업
 
-## 12. 설계 경계와 라이프사이클
+- [ ] `live_probe_ref`를 RiskGate 평가에 통합하고 `quiet`, `active`, `overloaded`, unavailable, stale 결과가 자율성을 유지하거나 낮출 수만 있음을 입증하는 focused 검사를 보존합니다.
+- [ ] `governance.retire-rule` 및 런타임 예외 생성에 문서화된 PR-native writer를 구현하고 검토, 롤백 또는 만료, 감사 근거를 포함해 테스트합니다.
+- [ ] Trigger 종료를 `validated`로 표시하기 전에 exact ActionType 및 인자를 판단, RiskGate, 실행 또는 타입이 지정된 보류, 복구 자세, 감사까지 바인딩하는 인증된 운영자 요청 증적을 보존합니다.
+
+## 10. 설계 경계와 라이프사이클
 
 설계 경계, 라이프사이클 규칙, 소비자 구현 상태는
 [액션 온톨로지 라이프사이클](action-ontology-lifecycle-ko.md)에서 확인하세요.
 
-## 13. 관련 문서
+## 11. 관련 문서
 
 - [execution-model.md](execution-model-ko.md) - 이 온톨로지를 소비;
   RiskGate + 실행기 + live-probe combinator.

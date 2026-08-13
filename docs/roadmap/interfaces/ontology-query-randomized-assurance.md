@@ -96,16 +96,20 @@ It does not establish production ontology-query readiness.
 
 ## Root cause
 
-The measured independent Operator Service composes
+At the time of the 2026-08-11 measurement, the independent Operator Service composed
 [`LocalAzureNarratorAdapters`](../../../services/operator-service/src/fdai_operator_service/adapters/local_narrator.py)
 as the `chat.stream` reader when local Azure narration is enabled. That adapter calls the model
 with screen context and emits `status=unverified`, `checks_completed=0`, and no evidence references.
 [`ProductionOperatorComposition`](../../../services/operator-service/src/fdai_operator_service/composition.py)
-does not bind the Core
+did not bind the Core
 [`SemanticConversationRuntime`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py).
 
-This is a service-composition gap, not a language-coverage problem. Adding keyword routes or fixed
-answers would hide the gap and would violate the target design. The production correction should:
+Current source now constructs a `SemanticTurnBridge` when the authoritative PostgreSQL store and
+semantic transport are configured. This post-baseline implementation does not change the recorded
+results or prove that the full semantic query path satisfies the exit criteria below.
+
+The measured failure was a service-composition gap, not a language-coverage problem. Adding keyword
+routes or fixed answers would hide the gap and would violate the target design. Completion requires:
 
 1. Carry each accepted ordinary-language turn over a versioned event-bus request and reply contract
    from the independent Operator Service to the Core runtime.
@@ -176,6 +180,30 @@ The machine-readable baseline is
 It contains all 100 generic questions, intended operations, expected and observed dispositions,
 per-question intent and answer scores, latency, failure category, aggregate rates, and the 30-round
 ledger.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| 2026-08-11 randomized baseline | validated | [`ontology-query-randomized-assurance-2026-08-11.json`](../../baselines/ontology-query-randomized-assurance-2026-08-11.json) | The retained artifact proves the historical 100-question measurements and blocked release decision, not current readiness. |
+| Independent semantic-turn bridge | implemented | [`composition.py`](../../../services/operator-service/src/fdai_operator_service/composition.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), and [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | Production composition can bind the durable event-bus bridge without importing Core implementation. |
+| Authoritative provider and receipt closure | in-progress | The open rounds and next-run exit criteria in this document. | Bridge construction alone does not prove every operation cohort reached its authoritative provider and returned exact release, plan, and evidence references. |
+| Current randomized release certification | in-progress | No newer retained 100-question artifact supersedes the 2026-08-11 baseline. | The release decision remains blocked until a regenerated run satisfies every exit criterion. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-11 | validated | Retained the first 100-question bilingual randomized baseline with 100% intent recognition, 20% answer success, and no mechanically verified answers. | The committed baseline artifact linked above. | Build the semantic path and rerun against the same procedure. |
+| 2026-08-13 | in-progress | Adopted the implementation ledger and corrected the root cause to measurement-time wording after semantic bridge composition landed; earlier implementation provenance was not reconstructed. | `current change`; current composition and focused bridge tests listed in the scope table. | Close authoritative providers and retain a passing regenerated baseline. |
+
+### Remaining work
+
+- [ ] Demonstrate each operation cohort against its authoritative provider with exact ontology release, principal manifest, verified plan, and evidence references or a typed unavailable disposition.
+- [ ] Regenerate the bilingual 100-question procedure through the authenticated production composition and retain its machine-readable results.
+- [ ] Change the release decision only after the regenerated artifact satisfies every next-run exit criterion with zero unsupported operational claims and zero unauthorized executions.
 
 ## Related documents
 

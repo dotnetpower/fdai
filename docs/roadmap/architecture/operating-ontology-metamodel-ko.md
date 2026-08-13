@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 8afc6f9c4b6e2e2d0a436b2a361a71d905c3b0bd
-translation_revised: 2026-08-12
+translation_source_sha: 217fb4d314880fa00ae38b60a56c39ce85236c64
+translation_revised: 2026-08-13
 ---
 # FDAI 운영 온톨로지 메타모델
 
@@ -17,24 +17,6 @@ translation_revised: 2026-08-12
 >
 > **권한 경계:** 상태 또는 맥락 산출물은 자율성을 유지하거나 낮출 수만 있습니다. 외부
 > truth를 주장하거나 액션을 승인하거나 shared 변경 가능한 coordination 상태가 될 수 없습니다.
->
-> **구현 상태(2026-08-12):** 객체, 링크, 액션, Interface, 함수 선언이 exact 런타임
-> release에 포함됩니다. 운영 카탈로그는 검토된 Interface 및 함수 선언을 공급하고,
-> source-derived 네트워크 및 Pod 텔레메트리 FunctionType도 카탈로그 신원을 대체하지 않고 같은
-> release에 들어갑니다. M2는 secured ObjectSet 실행 전체에서 용도, release, 잘림, 계획, 호출,
-> 근거 계보를 보존합니다. M3는 프로바이더가 관측한 리소스 상태와 검증된 관계 메타데이터를
-> 표준화합니다. M4는 promoted 인벤토리 resource-state 답변과 ontology-native shadow 조회를
-> 조립하고 변경할 수 없는 일치 또는 차이 근거를 저장하며 authoritative 답변을 대체하지
-> 않습니다. D1-D3은 direction, 검토된 프로바이더 mapping, 완전한 generation 검증,
-> adversarial 커버리지를 맞춥니다. D4는 direction 이행 guard, 재생 가능한 그래프 비교기,
-> authoritative 인벤토리 rebuild 포인터를 제공합니다. M5는 범위가 제한된 composition-owned
-> 증적 발급자를 통해 네트워크 및 Pod 텔레메트리 함수를 운영 semantic DAG에 등록합니다.
-> 전체 메타모델을 production-ready로 보고하려면 인증된 cross-service 및 live-assurance 증적이
-> 여전히 필요합니다.
-> M3는 이제 검토된 매핑이 완전한 세대를 다루는 경우 프로바이더가 관찰한 Resource 인스턴스에서
-> 카탈로그가 관리하는 ResourceType 인스턴스로 향하는 `resource_classified_as`도 선언하고
-> 변환합니다. 매핑 근거는 내용 기반 주소를 가지며 미매핑 형식은 분류 범위를 안전하게
-> 실패시킵니다. 운영 인벤토리 새로 고침은 검토된 매핑 다이제스트를 주입합니다.
 
 ## 한눈에 보는 설계
 
@@ -271,6 +253,31 @@ Infrastructure projector는 소유자의 타입이 지정된 출력을 저장할
 `StateType` 또는 `ContextType`은 M3/M4에서 ObjectType, InterfaceType, FunctionType, exact release 참조,
 변경할 수 없는 스냅샷으로 표현할 수 없는 호환성 요구사항이 발생한 뒤에만 future
 declaration-kind 제안이 됩니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 정본 선언 release | implemented | [`ontology_catalog.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/ontology_catalog.py), [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py) | 객체, 링크, 액션, Interface, 함수 선언이 exact release에 기여합니다. |
+| 범위가 제한된 ObjectSet 실행 및 계보 | implemented | [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/semantic_query.py), [`test_interfaces_and_object_sets.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_interfaces_and_object_sets.py), [`test_semantic_query.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_semantic_query.py) | 보안 조회 경로는 권한을 부여하지 않으면서 release, 계획, 호출, 잘림, 근거 참조를 보존합니다. |
+| 프로바이더 상태 및 관계 근거 계약 | implemented | [`state_evidence.py`](../../../services/core-control-plane/src/fdai/shared/providers/state_evidence.py), [`test_state_evidence.py`](../../../services/core-control-plane/tests/providers/test_state_evidence.py) | 타입이 지정된 메타데이터는 관측된 상태와 링크 근거를 파생 해석과 구분합니다. |
+| 관계 direction 및 분류 보강 | in-progress | 이 문서의 direction 계약 및 `resource_classified_as` 설계와 범위가 제한된 프로바이더/카탈로그 검사 | 저장소 근거는 아직 D1-D4 감사, 검토된 모든 Azure/Kubernetes 매핑, 모든 adversarial 고정본 또는 재생 가능한 운영 그래프 이행을 하나의 완료된 경로로 입증하지 않습니다. |
+| 네트워크 및 Pod 텔레메트리 competency | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py)와 이 문서의 M5 종료 기준 | 함수 구현은 존재하지만 문서화된 종단 간 운영 competency 및 보존된 live-assurance 증적은 완료되지 않았습니다. |
+| 운영 메타모델 보증 | in-progress | 위의 focused 소스 및 테스트 근거 | 이 문서가 운영 검증을 주장하려면 인증된 cross-service 및 운영 증적이 더 필요합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 구현 원장을 도입하고 집계된 production-ready 설명을 범위가 제한된 상태로 교체했습니다. 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 소스 및 focused 검사 | 아래 direction/분류 감사, M5 competency, 운영 보증 항목을 완료해야 합니다. |
+
+### 남은 작업
+
+- [ ] 검토된 Azure/Kubernetes 엔드포인트 매핑과 complete, missing-endpoint, reversed-input, duplicate, partial-coverage 고정본으로 D1-D4를 완료하고 재생 가능한 그래프 비교 및 롤백 증적을 보존합니다.
+- [ ] 운영 조립을 통해 검증된 구간과 검증되지 않은 구간을 구분하는 focused VM 연결 및 Pod 텔레메트리 competency 검사로 M5를 입증합니다.
+- [ ] 운영 메타모델 보증을 `validated`로 변경하기 전에 exact 온톨로지 release를 바인딩하는 인증된 cross-service 및 live-assurance 증적을 보존합니다.
 
 ## 검증 체크리스트
 

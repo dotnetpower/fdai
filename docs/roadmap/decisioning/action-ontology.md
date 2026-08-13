@@ -12,7 +12,8 @@ Consumers of this ontology:
 - The T0Engine + ActionBuilder ([phase-1](../phases/phase-1-rule-catalog-t0.md)) reads
   `rollback_contract`, `preconditions`, `stop_conditions`, and `blast_radius` when building a rule-fired action.
 - The unified RiskGate + Executor ([execution-model.md](execution-model.md))
-  reads the tier ceiling, min-role, live-probe reference, and execution path to decide **whether** and **how** to run.
+  reads the tier ceiling, min-role, and execution path to decide **whether** and **how** to run.
+  The live-probe reference is catalog-validated but still requires runtime RiskGate integration.
 - The operator-console narrator ([operator-console.md](../interfaces/operator-console.md))
   reads `trigger_kind`, `description`, and `argument_schema` when suggesting or executing an ops-flavoured tool call.
 
@@ -607,7 +608,7 @@ live_probe_ref: probes/vm_traffic_last_5m
 - Each probe declares the input (target resource ref), the query
   (Azure Monitor KQL / Metric API / ARG), and the interpretation
   function (`quiet | active | overloaded`).
-- `RiskGate` calls the probe and combines the answer with the static
+- The target `RiskGate` integration calls the probe and combines the answer with the static
   ceiling (see [execution-model.md § 4](execution-model.md#4-live-blast-probe)).
 
 Probes are opt-in per ActionType and per environment. A fork ships
@@ -820,50 +821,37 @@ in [execution-model.md § 8](execution-model.md#8-resolved_ceiling-audit-block).
 A future overlay change never breaks past audit entries because the
 ceiling that was in effect at dispatch time is recorded verbatim.
 
-## 10. Migration record
+## Implementation status
 
-The ontology change landed in three reviewed catalog-as-code steps
-(see [rule-governance.md](../rules-and-detection/rule-governance.md)):
+### Implementation scope
 
-1. **Schema extension** - the loader learned the new fields with safe defaults.
-2. **Backfill** - `trigger_kind = rule_violation` is set on every
-   existing entry; `ceiling_by_tier` is populated from the pre-existing
-   implicit ceilings (`default_mode`, `promotion_gate.max_policy_escapes`).
-3. **Ops catalog** - the shipped ops.* set (§3.2) lands with
-   `argument_schema`, `direct_api` path, and the appropriate ceilings.
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| ActionType schema and catalog loading | implemented | [`action_type.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py), [`ontology_action.py`](../../../services/core-control-plane/src/fdai/shared/contracts/models/ontology_action.py), and [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | Category, trigger, argument, ceiling, execution-path, probe-reference, and fail-closed catalog constraints are executable. |
+| Tier, role, and production downgrade ceilings | implemented | [`ceiling.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/ceiling.py), [`test_ceiling.py`](../../../services/core-control-plane/tests/core/risk_gate/test_ceiling.py), and [`test_approval.py`](../../../services/core-control-plane/tests/core/workflow/test_approval.py) | `prod_downgrade` and environment scope affect deterministic ceilings and human approval requirements. |
+| Semantic ActionType and `MutationPlan` version 2 compilation | implemented | [`action_plans.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/action_plans.py) and [`test_action_plans.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_action_plans.py) | Compilation pins exact declarations, bounded targets, receipts, effects, postconditions, locks, and recovery without granting authority. |
+| Live blast probe execution | in-progress | [`blast_probe.py`](../../../services/core-control-plane/src/fdai/shared/providers/blast_probe.py) and catalog reference checks in [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | Probe contracts and catalog validation exist, but the committed RiskGate does not yet consume `live_probe_ref` and record its result in the resolved ceiling. |
+| Governance and tool execution coverage | in-progress | [`promotion.py`](../../../services/core-control-plane/src/fdai/delivery/promotion.py), [`graph_model_promotion.py`](../../../services/core-control-plane/src/fdai/delivery/graph_model_promotion.py), and [`override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py) | Promotion and ceiling-override paths exist; `governance.retire-rule` and runtime exemption creation remain without their documented PR-native writers. |
+| Operator-request trigger closure | in-progress | The schema and loader evidence above plus [Action Ontology Lifecycle](action-ontology-lifecycle.md). | Catalog validity does not prove an authenticated operator request reached judgment, RiskGate, execution, recovery, and audit in one retained production receipt. |
 
-The steps are complete; current catalog entries are validated by the loader and
-operator proposals re-enter the normal ControlLoop.
+### Implementation history
 
-## 11. Testability
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger and separated implemented schema, ceiling, and compiler behavior from incomplete probe and consumer closure; earlier provenance was not reconstructed. | `current change`; the source and focused checks listed in the scope table. | Wire live probes, close the remaining governance writers, and retain operator-request runtime evidence. |
 
-- **Schema** - JSON Schema validation on every YAML load (existing).
-- **Overlay precedence** - table-driven test over every axis + layer
-  combination (§7.5).
-- **Argument schema** - property tests: any input outside the schema is
-  rejected before dispatch; redacted fields never appear in audit
-  payload.
-- **Live-probe hook** - fake `LiveBlastProbe` returns each of `quiet /
-  active / overloaded`; ceiling adjustment table-driven.
-- **Rego overlay** - integration tests exercising a policy that
-  downgrades on Fridays; time frozen; assert the audit entry names the
-  overlay layer.
-- **Cross-check load errors** - fixture ActionType with a missing
-  `argument_schema` for `operator_request` fails load with a specific
-  error.
-- **Semantic compiler** - focused tests retain legacy ActionType and `MutationPlan` decode, accept
-  exact refs, reject stale refs, validate canonical and redacted arguments, require complete fresh
-  content-addressed read and criterion receipts, enforce one-to-one effect and postcondition
-  bindings, preserve reversible and irreversible recovery semantics, bind deterministic target-set
-  locks and transaction limits, require a `plan` planner, validate existing plan digests and
-  revisions, and prove effects and postconditions cannot grant authority.
+### Remaining work
 
-## 12. Design boundaries and lifecycle
+- [ ] Integrate `live_probe_ref` into RiskGate evaluation and retain focused checks proving `quiet`, `active`, `overloaded`, unavailable, and stale outcomes can only preserve or lower autonomy.
+- [ ] Implement and test the documented PR-native writers for `governance.retire-rule` and runtime exemption creation, including review, rollback or expiry, and audit evidence.
+- [ ] Retain an authenticated operator-request receipt that binds the exact ActionType and arguments through judgment, RiskGate, execution or typed hold, recovery posture, and audit before marking trigger closure `validated`.
+
+## 10. Design boundaries and lifecycle
 
 The design boundaries, lifecycle rules, and consumer implementation status now live in
 [Action Ontology Lifecycle](action-ontology-lifecycle.md).
 
-## 13. Related docs
+## 11. Related docs
 
 - [execution-model.md](execution-model.md) - consumes this ontology; the
   RiskGate + Executor + live-probe combinator.
