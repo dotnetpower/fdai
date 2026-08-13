@@ -12,6 +12,32 @@ its DI seams; it extends the T2 gate rules in
 [llm-strategy.md](../architecture/llm-strategy.md) and
 [phase-2-quality-and-t1.md](../phases/phase-2-quality-and-t1.md).
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Rubric reduction and subtractive gate behavior | implemented | [`rubric.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/rubric.py), [`gate.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/gate.py), [`test_rubric_gate.py`](../../../services/core-control-plane/tests/core/quality_gate/test_rubric_gate.py) | Focused checks prove complete criterion coverage, fail-closed outcomes, shadow isolation, and `min()`-only confidence folding. |
+| Independent judge and prompt catalog constraints | implemented | [`llm_resolver.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver.py), [`t2-rubric.v1.yaml`](../../../rule-catalog/prompts/base/t2-rubric.v1.yaml), [`test_mixed_model_cross_check.py`](../../../services/core-control-plane/tests/quality_gate/test_mixed_model_cross_check.py) | Resolver checks prevent a resolved rubric judge from sharing the primary reasoner's publisher, and catalog checks bind the prompt to the rubric capability. |
+| Runtime binding and control-loop audit projection | implemented | [`control_loop.py`](../../../services/core-control-plane/src/fdai/runtime/control_loop.py), [`_audit_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_audit_helpers.py), [`_audit.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/_audit.py) | The runtime passes an optional evaluator into the quality gate and serializes bounded rubric provenance when a T2 quality decision exists. This does not prove a live evaluator is bound. |
+| Azure judge adapter and strict response parsing | implemented | [`rubric.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/rubric.py), [`test_rubric.py`](../../../services/core-control-plane/tests/delivery/azure/llm/test_rubric.py) | Mocked transport checks cover configuration-owned thresholds, strict parsing, and malformed-response failure. They are not real-model evidence. |
+| Self-consistency cascade integration | in-progress | [`self_consistency.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/self_consistency.py), [`test_self_consistency.py`](../../../services/core-control-plane/tests/core/quality_gate/test_self_consistency.py) | The bounded cascade and hard stability decision are implemented and tested, but no production T2 caller invokes the cascade. |
+| Metric-driven promotion and operational validation | not-started | [Promotion metrics](#promotion-metrics), [Limits](#limits-what-this-does-not-do) | The repository has no automatic rubric promotion registry or governed shadow receipt proving catch rate, false-positive rate, latency, token cost, and zero policy escapes on a pinned revision. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted an evidence-bounded implementation ledger without reconstructing earlier delivery history. | `current change`; current source and focused checks listed in the scope table; rubric-focused checks passed 103 cases. | Wire the self-consistency cascade, prove end-to-end audit persistence, and retain governed shadow and promotion evidence. |
+
+### Remaining work
+
+- [ ] Invoke the self-consistency cascade from the production T2 path and pass a focused test that proves an unstable result reaches the quality decision and audit record without granting eligibility.
+- [ ] Add an end-to-end control-loop test that binds a rubric evaluator and proves bounded `rubric_*` provenance is persisted while untrusted rationale stays excluded.
+- [ ] Evaluate a pinned baseline and treatment on a frozen labeled scenario set, then retain governed receipts for hallucination-catch rate, false-positive rate, added latency, token cost, and zero policy-violation escapes.
+- [ ] Implement metric-driven shadow promotion and regression demotion, or record an approved decision that keeps this transition manual, before changing the default shadow posture.
+
 ## Why a rubric leg
 
 The existing quality gate already blocks most hallucination with four legs:
