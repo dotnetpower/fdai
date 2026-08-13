@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 1408a056acf146b25334536bd57f7f22063a4291
+translation_source_sha: bb7d9a83307dccf066455d1b1153bd1c373d9565
 translation_revised: 2026-08-13
 ---
 # Rule 의미 검색
@@ -59,6 +59,7 @@ translation_revised: 2026-08-13
 | In-memory 세대 및 검증 | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | 결정론적 off-path 세대, 독립적인 활성 및 발견 포인터, 코퍼스별 롤백 및 영속 어댑터와 같은 활성화 compare-and-swap을 지원합니다. |
 | 코퍼스 규모 세대 식별자 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; 집중 세대 및 Rule 카탈로그 테스트 | 프로바이더 중립 메타데이터는 개수, 계층형 루트, 범위가 제한된 순서가 있는 청크 및 작은 세대의 인라인 다이제스트를 포함합니다. 세대 생성, 검증 증적, 준비, 활성화, 활성 조회, 검색, 롤백 및 롤백 증적은 식별자 차이를 거부합니다. |
 | 영속 PostgreSQL 인덱스 | implemented | `delivery/catalog_search/postgres.py`; migration `0077` 및 `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | 정확한 세대 매니페스트를 저장하고 다시 검증하며 코퍼스별 세대를 원자적으로 준비, 활성화, 검색 및 롤백합니다. PostgreSQL에서 활성 문서 62개와 발견 문서 8,487개 전체의 수명 주기 격리를 증명합니다. |
+| 운영 세대 빌드 worker | in-progress | `delivery/catalog_search/rule_generation.py`; `rule_catalog/schema/rule_semantic_generation_events.py`; 현재 저장소 호출 지점 감사 | 순수 빌드 및 이벤트 계약은 있지만 Rule 세대 빌더를 호출하고 후보 세대를 준비하거나 검증 결과를 발행하는 운영 subscriber는 없습니다. |
 | 통제된 세대 활성화 | implemented | `core/rule_semantic_generation/activation.py`, `core/rule_semantic_generation/ledger.py`, 프로바이더와 delivery 활성화 계약, 집중 활성화 및 실제 PostgreSQL 검사 | 활성화는 변경 경계 안에서 정확한 대상 다이제스트와 검증 증적을 예상 이전 활성 식별자에 연결합니다. 완료된 명령의 replay는 프로바이더 접근 전에 영속 최종 결과를 반환하며 첫 결과와 발행 대기 outbox 레코드는 원자적으로 커밋됩니다. |
 | 영속 활성화 결과 발행 및 변환 결과 | implemented | `core/rule_semantic_generation/publication.py`; `agents/mimir.py`; `agents/_framework/runtime.py`; `runtime/bootstrap.py`; 집중 발행, Mimir, 런타임 및 bootstrap 검사 | 제한 시간이 있고 lease로 격리된 발행기는 의미 인덱스 준비 상태와 독립적으로 최종 결과를 발행합니다. Mimir만 활성화 명령을 소비하고 인덱스 또는 실행 권한을 얻지 않은 채 최종 결과를 변환합니다. 운영 구성은 binder와 발행기가 하나의 영속 ledger를 공유하게 합니다. |
 | 운영 bootstrap 연결 | implemented | `runtime/bootstrap.py`; `runtime/bootstrap_lifecycle.py`; `composition/wire_semantic_query.py`; `tests/runtime/test_catalog_semantic_bootstrap.py`; 집중 bootstrap 및 구성 검사(`46 passed`) | 시작 시 정확한 활성 세대만 연결합니다. 상태가 없거나 오래되거나 접근할 수 없거나 사용할 수 없으면 안정적인 선택적 준비 상태 사유를 만들고 Rule 검색을 등록하지 않습니다. 통제된 실제 근거는 남아 있습니다. |
@@ -89,6 +90,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | implemented | 각 표면 검증 증적을 평가에 사용한 정확한 검색 세대와 카탈로그에 연결했습니다. 이제 승격 검토는 오래된 세대 또는 오래된 카탈로그 ID를 각각 독립적으로 보류하며, 증적 스키마 `1.1.0`은 두 ID를 검증과 내용 기반 다이제스트 변환 결과에 포함합니다. | `current change`; 전체 의미 증적, 검색 및 배포 카탈로그 범위에서 테스트 42개가 통과했습니다. 작업 소유 파일 6개에서 Ruff와 형식 검사가 통과했고 운영 계약 3개에서 strict mypy가 통과했으며 편집기 진단은 깨끗했습니다. | 승격 검토 전에 통제된 한국어 표면과 실제 통과 held-out 증적을 추가하고 재현합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
 | 2026-08-13 | implemented | 실제 통제된 한국어 표면을 추가하고 전체 통과 증적을 다시 계산한 내용 주소에 저장했습니다. 승격된 표면 로딩은 이제 정확한 후보 대상, 현재 정책, 통과 결정, 빈 실패 및 검증 전용 권한을 확인합니다. 검색 변환 v5는 변경 불가능한 대상 ID를 사용하므로 후보와 승격 형식이 정확히 같은 Rule 62개 세대를 replay합니다. | `current change`; 의미 검색, 평가, 정책, 승격된 표면, 증적 카탈로그 및 배포 카탈로그 집중 모음에서 테스트 61개가 통과했습니다. 작업 소유 Python 범위에서 Ruff와 strict mypy가 통과했습니다. | 이 기능을 `validated`로 변경하기 전에 통제된 실제 런타임 근거를 별도로 기록합니다. |
 | 2026-08-13 | implemented | 앞선 근거 개수를 정정했습니다. 최종 증적 카탈로그 하드닝에서 symlink 및 FIFO 아티팩트를 차단하는 일반 파일 검사를 추가했으며 기능 상태는 변경되지 않았습니다. | 커밋 `8571ea53a`; 집중 의미 검색 6개 모듈 모음에서 특수 파일 사례 2개를 포함해 테스트 63개가 통과했습니다. | 이 기능을 `validated`로 변경하기 전에 통제된 실제 런타임 근거를 계속 기록해야 합니다. |
+| 2026-08-13 | in-progress | 통제된 실제 운영 근거의 선행 조건을 다시 감사하고 누락된 세대 빌드 worker가 드러나도록 ledger를 정정했습니다. 빌드 및 이벤트 계약은 있지만 `build_rule_semantic_generation`을 호출하는 운영 subscriber는 없습니다. | `current change`; 저장소 호출 지점 감사에서 빌더는 정의와 테스트에서만 발견됐으며, 집중 의미 검색 6개 모듈 모음은 계속 테스트 63개를 통과합니다. | 통제된 실제 런타임 근거를 수집하기 전에 Mimir 소유의 기계적 빌드 및 검증 subscriber를 구현합니다. |
 
 ### 남은 작업
 
@@ -109,6 +111,10 @@ translation_revised: 2026-08-13
 - [x] Core는 검증된 정확한 함수 호출 증적과 정규 다이제스트를 Operator 변환 결과로
   발행합니다. `POST /rules/search`는 직접 Core 호출 없이 strict 증적 기반 변환 결과를 읽고
   [질의 수명 주기](#질의-수명-주기)를 보존합니다.
+- [ ] Mimir 소유의 기계적 subscriber를 `RuleGenerationBuildRequestEvent`에 연결합니다. 이
+  subscriber는 정확한 비활성 세대 하나를 빌드하고 준비한 뒤 독립적인 검증 근거를 이벤트
+  버스로 발행해야 합니다. 또한 승격 또는 실행 권한을 부여하지 않으면서 중복 전달, 재시작,
+  프로바이더 실패 및 오래된 식별자 처리를 증명해야 합니다.
 - [ ] 이 기능의 상태를 `implemented`에서 `validated`로 변경하기 전에 운영 바인딩 및
   Reader 범위 변환 결과의 통제된 실제 근거를 기록하고
   [CatalogRetrievalReceipt](#catalogretrievalreceipt)에 정의된 신원을 보존합니다.
