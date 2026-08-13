@@ -30,6 +30,12 @@ class _Retriever:
         return ()
 
 
+class _FailingRetriever:
+    async def search(self, query: str, *, k: int) -> Sequence[str]:
+        del query, k
+        raise RuntimeError("semantic generation is stale")
+
+
 def _surface(
     training_query: str = "Block public object storage",
     *,
@@ -217,3 +223,45 @@ def test_generated_evaluation_case_requires_origin_receipt() -> None:
             (),
             EvaluationQueryOrigin.ASSURANCE_GENERATED,
         )
+
+
+async def test_retrieval_failure_holds_without_false_no_match_credit() -> None:
+    cases = (
+        RetrievalEvaluationCase(
+            "stale-positive",
+            "Which policy prevents public storage?",
+            "stale-state",
+            ("rule:public-access@1",),
+            EvaluationQueryOrigin.USER,
+        ),
+        RetrievalEvaluationCase(
+            "stale-no-match",
+            "Which policy tunes database connections?",
+            "stale-state",
+            (),
+            EvaluationQueryOrigin.ASSURANCE_GENERATED,
+            generator_ref="assurance:stale-state@1",
+        ),
+    )
+
+    receipt = await evaluate_semantic_surface(
+        _surface(),
+        cases,
+        retriever=_FailingRetriever(),
+        policy=_policy(),
+        evaluator_ref="heimdall:rule-retrieval@1",
+    )
+    metrics = {(item.cohort, item.metric): item.value for item in receipt.cohort_metrics}
+
+    assert receipt.decision is ValidationDecision.HOLD
+    assert receipt.failure_codes == (
+        "stale-state-mrr-below-threshold",
+        "stale-state-recall-below-threshold",
+        "stale-state-retrieval-error",
+    )
+    assert metrics == {
+        ("stale-state", "mean-reciprocal-rank"): 0.0,
+        ("stale-state", "recall-at-5"): 0.0,
+        ("stale-state", "retrieval-success-rate"): 0.0,
+    }
+    assert receipt.validation_authority == "validation_only"
