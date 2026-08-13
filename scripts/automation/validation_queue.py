@@ -123,8 +123,14 @@ def check_structural_gates(paths: QueuePaths, revision: str) -> int:
     return 0
 
 
-def run(paths: QueuePaths, mode: str, *, wait_for_lock: bool = False) -> int:
-    return run_validation(paths, mode, wait_for_lock=wait_for_lock)
+def run(
+    paths: QueuePaths,
+    mode: str,
+    *,
+    wait_for_lock: bool = False,
+    target: str | None = None,
+) -> int:
+    return run_validation(paths, mode, wait_for_lock=wait_for_lock, target=target)
 
 
 def _background_command(paths: QueuePaths) -> list[str]:
@@ -149,7 +155,8 @@ def drain(paths: QueuePaths) -> int:
             return 0
         while True:
             requested = _wake_request(paths)
-            result = run(paths, "fast", wait_for_lock=True)
+            target = requested if COMMIT_PATTERN.fullmatch(requested) else None
+            result = run(paths, "fast", wait_for_lock=True, target=target)
             time.sleep(0.25)
             if _wake_request(paths) != requested:
                 os.execv(sys.executable, _background_command(paths))  # noqa: S606

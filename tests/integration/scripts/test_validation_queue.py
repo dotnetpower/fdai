@@ -206,7 +206,7 @@ def test_drain_reloads_validator_code_when_wake_request_advances(
     monkeypatch.setattr(
         validation_queue,
         "run",
-        lambda _paths, _mode, *, wait_for_lock: 0,
+        lambda _paths, _mode, *, wait_for_lock, target: 0,
     )
     monkeypatch.setattr(validation_queue.time, "sleep", lambda _seconds: None)
 
@@ -239,7 +239,7 @@ def test_drain_reloads_after_failure_when_wake_request_advances(
     monkeypatch.setattr(
         validation_queue,
         "run",
-        lambda _paths, _mode, *, wait_for_lock: 1,
+        lambda _paths, _mode, *, wait_for_lock, target: 1,
     )
     monkeypatch.setattr(validation_queue.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(
@@ -263,7 +263,7 @@ def test_drain_returns_failure_when_wake_request_is_unchanged(
     monkeypatch.setattr(
         validation_queue,
         "run",
-        lambda _paths, _mode, *, wait_for_lock: 17,
+        lambda _paths, _mode, *, wait_for_lock, target: 17,
     )
     monkeypatch.setattr(validation_queue.time, "sleep", lambda _seconds: None)
 
@@ -503,6 +503,34 @@ def test_linked_worktree_uses_the_shared_git_queue(git_repo: Path, tmp_path: Pat
         index for index, line in enumerate(log_lines) if line.startswith("changed:")
     )
     assert verify_index < changed_index
+
+
+def test_linked_worktree_drain_validates_the_shared_requested_head(
+    git_repo: Path, tmp_path: Path
+) -> None:
+    linked = tmp_path / "linked-drain"
+    assert (
+        _run(git_repo, "git", "worktree", "add", "--quiet", "--detach", str(linked)).returncode == 0
+    )
+    requested = _commit_change(git_repo)
+    script = linked / "scripts" / "automation" / "validation_queue.py"
+    log_path = tmp_path / "linked-drain-validation.log"
+    assert _run(git_repo, "python3", str(script), "enqueue", requested).returncode == 0
+    paths = queue_paths(linked)
+    paths.wake_request.write_text(requested + "\n", encoding="utf-8")
+
+    drained = _run(
+        linked,
+        "python3",
+        str(script),
+        "drain",
+        env={"FDAI_VALIDATION_TEST_LOG": str(log_path)},
+    )
+
+    assert drained.returncode == 0, drained.stderr
+    receipt = json.loads((paths.receipts / f"{requested}.json").read_text())
+    assert receipt["validated_head"] == requested
+    assert _run(linked, "git", "rev-parse", "HEAD").stdout.strip() != requested
 
 
 def test_retry_reuses_sync_and_passed_fast_gates(git_repo: Path, tmp_path: Path) -> None:
@@ -936,6 +964,8 @@ def test_validator_agent_is_read_execute_only_and_uses_make_facade() -> None:
     assert "smallest passing descendant snapshot" in body
     assert "Intermediate stage success is progress metadata" in body
     assert "not a push receipt" in body
+    assert "shared wake request" in body
+    assert "process worktree never selects the validation branch" in body
     assert "make validation-status" in body
     assert "make validation-run" in body
     assert "do not wait" in body
