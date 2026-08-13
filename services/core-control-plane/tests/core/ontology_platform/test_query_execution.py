@@ -113,7 +113,9 @@ async def test_executor_runs_independent_nodes_concurrently_then_joins() -> None
     assert execution.execution_authority is False
 
 
-async def test_executor_skips_descendant_after_stable_failure() -> None:
+async def test_executor_skips_descendant_after_stable_failure(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     async def fail(node, dependencies):  # type: ignore[no-untyped-def]
         del node, dependencies
         raise ValueError("provider details must not escape")
@@ -148,6 +150,12 @@ async def test_executor_skips_descendant_after_stable_failure() -> None:
     assert execution.receipts[1].status is TaskStatus.SKIPPED
     assert execution.receipts[1].blocked_by == ("source",)
     assert "provider details" not in str(execution.receipts)
+    failure_record = next(
+        record for record in caplog.records if record.message == "ontology_query_node_failed"
+    )
+    assert failure_record.node_kind == "metric_series"  # type: ignore[attr-defined]
+    assert failure_record.failure_type == "ValueError"  # type: ignore[attr-defined]
+    assert "provider details" not in caplog.text
 
 
 async def test_executor_rejects_stale_authority_and_cancels_before_calls() -> None:
