@@ -74,10 +74,16 @@ class PostgresOntologyInstanceStore:
         self._releases = {item.digest: item for item in (*historical_releases, self._release)}
 
     async def sync_catalog(self) -> None:
-        """Upsert Git-owned type declarations before writing graph instances."""
+        """Persist the exact release and upsert declarations before graph writes."""
+        releases = dict(self._releases)
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
+                await connection.execute(
+                    "INSERT INTO ontology_release (digest, manifest) VALUES (%s, %s::jsonb) "
+                    "ON CONFLICT (digest) DO NOTHING",
+                    (self._release.digest, self._release.model_dump_json()),
+                )
                 for object_type in self._object_types.values():
                     await connection.execute(
                         "INSERT INTO ontology_object_type "
@@ -126,6 +132,18 @@ class PostgresOntologyInstanceStore:
                             link_type.description,
                         ),
                     )
+                cursor = await connection.execute(
+                    "SELECT digest, manifest FROM ontology_release ORDER BY digest"
+                )
+                for row in await cursor.fetchall():
+                    release = OntologyRelease.model_validate(row["manifest"])
+                    digest = str(row["digest"])
+                    if release.digest != digest:
+                        raise RuntimeError(
+                            f"persisted ontology release manifest does not match digest {digest!r}"
+                        )
+                    releases[digest] = release
+        self._releases = releases
 
     async def upsert_object(
         self,

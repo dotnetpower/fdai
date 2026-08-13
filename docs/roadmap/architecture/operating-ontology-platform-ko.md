@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 9491606fca273852b6a014a65a0547c973e975ed
+translation_source_sha: b5386dd0f79edf942b9f36b6a089a483fba5b41a
 translation_revised: 2026-08-13
 ---
 # FDAI 온톨로지 안전 인프라
@@ -23,7 +23,11 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > 조회도 구현했습니다. K2-K5 코어 기본 요소는 변경 계획, stale 개정 번호 검사, 타입이 지정된
 > 함수, 변환 결과 연결, 조정, scoped SDK 세대, 읽기 전용 매니페스트를
 > 포함합니다. PostgreSQL 객체/링크 쓰기는 exact 타입 버전과 release 다이제스트를 보존하며,
-> 운영 ActionBuilder 조립은 전체 loaded release를 사용합니다. 기존 Reader-gated
+> 운영 ActionBuilder 조립은 전체 loaded release를 사용합니다.
+> PostgreSQL은 각 exact 객체/링크 release 매니페스트도 `ontology_release`에 저장합니다.
+> 시작 시 활성 매니페스트를 저장하고 이전 행을 디코딩하기 전에 등록된 모든 매니페스트를
+> 로드합니다. 누락된 release, 매니페스트/다이제스트 불일치 및 선언/버전 불일치는 안전하게
+> 차단됩니다. 기존 Reader-gated
 > `GET /ontology/graph` 변환 결과는 release 다이제스트, proposal-only 쓰기 표면,
 > `mutation_authority: false`를 노출하며 변경 경로를 추가하지 않습니다.
 > Pre-migration 행은 original release 다이제스트를 정직하게 복원할 수 없으므로 명시적으로 unpinned
@@ -91,7 +95,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| K0 exact release 신원 및 영속성 | in-progress | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`test_postgres_ontology_type_ref.py`](../../../services/core-control-plane/tests/persistence/test_postgres_ontology_type_ref.py) | Exact 신원과 release에 고정된 쓰기가 존재합니다. 이행 전 행은 원래 release를 정직하게 복원할 수 없으므로 고정하지 않은 상태로 유지합니다. |
+| K0 exact release 신원 및 영속성 | implemented | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`postgres_ontology.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology.py), [`20260813_0081_ontology_release_registry.py`](../../../alembic/versions/20260813_0081_ontology_release_registry.py), [`test_postgres_ontology_catalog.py`](../../../services/core-control-plane/tests/persistence/test_postgres_ontology_catalog.py) | Exact 신원, release에 고정된 쓰기 및 재시작에 안전한 매니페스트 로딩이 존재합니다. 이행 전 행은 원래 release를 정직하게 복원할 수 없으므로 고정하지 않은 상태로 유지합니다. 운영 Live 근거는 아직 남아 있습니다. |
 | K1-K5 범위가 제한된 의미 조회 및 함수 인프라 | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`test_kinetics.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_kinetics.py) | Core 기본 요소가 존재하지만 추가 Interface와 운영 프로바이더 연결은 남아 있습니다. |
 | 카탈로그 변환 결과와 exact-generation Rule 검색 | implemented | [`catalog_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py), [`test_catalog_queries.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_catalog_queries.py), 커밋 `e4d9483a5` | `catalog.search_rules`는 exact 세대 증적과 함께 범위가 제한된 순위 후보를 반환하며 판단 또는 액션 권한을 부여하지 않습니다. 시작 변환 결과는 아직 control-objective 인스턴스를 구체화하지 않습니다. |
 | 과거 토폴로지, 메트릭 의미 규칙 및 조정 | in-progress | [`topology_history.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/topology_history.py), [`metric_semantics.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/metric_semantics.py), [`reconciliation_state_store.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_state_store.py) | 계약과 순수 또는 영속 기반은 존재하지만 운영 조립과 발행자는 아직 완성되지 않았습니다. |
@@ -104,6 +108,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 2026-08-13 | in-progress | 이전 provenance를 재구성하지 않고 구현 원장을 도입했습니다. | 범위 표에 나열된 현재 소스와 테스트입니다. | 아래의 관찰 가능한 종료 조건을 완료합니다. |
 | 2026-08-13 | implemented | 범위가 제한된 순위와 내용 기반 주소를 가진 증적을 제공하는 exact-generation 읽기 전용 `catalog.search_rules` 후보 검색을 추가했습니다. | 커밋 `e4d9483a5`; 집중 `test_catalog_queries.py`에서 2개 테스트를 통과했습니다. | 평가 또는 실행 권한을 부여하지 않으면서 objective-aware 검색을 조립하고 검증합니다. |
 | 2026-08-13 | implemented | 중앙 graph 검증에서 누락을 발견한 뒤 세 objective vocabulary 타입을 `Identifiable` 구현으로 등록했습니다. | 집중 `test_shipped_ontology_catalog_loads_as_one_graph`에서 1개 테스트를 통과했습니다. | 새 object type을 추가할 때마다 interface 구현 범위를 동기화합니다. |
+| 2026-08-13 | implemented | 영속 exact-release 매니페스트 registry를 추가하고 PostgreSQL 행 디코딩 전에 등록된 release를 로드하도록 했습니다. | 현재 변경; 집중 `test_postgres_ontology_catalog.py`에서 2개 테스트, `test_ontology_release_registry_migration.py`에서 1개 테스트를 통과했습니다. | 이행과 Core 재시작 뒤 인증된 Live 근거를 기록합니다. |
 
 ### 남은 작업
 
