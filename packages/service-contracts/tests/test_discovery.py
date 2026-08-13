@@ -76,6 +76,8 @@ def _plan(intent: DiscoveryIntent, **overrides: object) -> DiscoveryQueryPlan:
         "limits": intent.limits,
         "fallback_history": (),
         "output_schema_id": "provider-resource-observation.v1",
+        "normalization_id": "azure.provider-resource-observation.v1",
+        "validation_versions": ("azure-resource-graph-api@2022-10-01",),
         "execution_authority": False,
     }
     values.update(overrides)
@@ -172,6 +174,8 @@ def test_profile_rejects_executable_fields_and_accepts_registered_metadata() -> 
         predicate_operators=("eq", "contains", "in", "exists"),
         projection=("provider_ref", "provider_type", "name", "resource_group", "location"),
         output_schema_id="provider-resource-observation.v1",
+        normalization_id="azure.provider-resource-observation.v1",
+        validation_versions=("azure-resource-graph-api@2022-10-01",),
         equivalence_key="azure.arm-resources.list.v1",
         identity_profile="azure.reader",
         priority=20,

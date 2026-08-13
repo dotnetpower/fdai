@@ -13,6 +13,7 @@ from fdai_service_contracts.ontology_query import QueryContract, content_digest
 _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 _ID_PATTERN = r"^[a-z][a-z0-9_.-]{0,127}$"
 _PROVIDER_TYPE_PATTERN = r"^[A-Za-z][A-Za-z0-9.]{0,127}/[A-Za-z0-9._/-]{1,255}$"
+_VERSION_REF_PATTERN = r"^[a-z][a-z0-9_.-]{0,63}@[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
 _EXECUTABLE_CONTROL = re.compile(r"[\x00-\x1f\x7f`$;&|<>]|\$\(|\b(?:eval|exec|source)\b")
 
 
@@ -190,6 +191,11 @@ class DiscoveryOperationProfile(QueryContract):
         tuple[Annotated[str, Field(pattern=_ID_PATTERN)], ...], Field(min_length=1, max_length=32)
     ]
     output_schema_id: Annotated[str, Field(pattern=_ID_PATTERN)]
+    normalization_id: Annotated[str, Field(pattern=_ID_PATTERN)]
+    validation_versions: Annotated[
+        tuple[Annotated[str, Field(pattern=_VERSION_REF_PATTERN)], ...],
+        Field(min_length=1, max_length=8),
+    ]
     equivalence_key: Annotated[str, Field(pattern=_ID_PATTERN)]
     identity_profile: Annotated[str, Field(pattern=_ID_PATTERN)]
     priority: Annotated[int, Field(strict=True, ge=1, le=100)]
@@ -204,6 +210,7 @@ class DiscoveryOperationProfile(QueryContract):
             ("predicate_fields", self.predicate_fields),
             ("predicate_operators", self.predicate_operators),
             ("projection", self.projection),
+            ("validation_versions", self.validation_versions),
         ):
             if len(values) != len(set(values)):
                 raise ValueError(f"discovery operation {name} MUST be unique")
@@ -213,7 +220,7 @@ class DiscoveryOperationProfile(QueryContract):
 class DiscoveryProfile(QueryContract):
     """Versioned provider mapping and registered-operation catalog entry."""
 
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.1.0"] = "1.1.0"
     profile_id: Annotated[str, Field(pattern=_ID_PATTERN)]
     revision: Annotated[str, Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")]
     cloud: Annotated[str, Field(pattern=_ID_PATTERN)]
@@ -242,7 +249,7 @@ class DiscoveryProfile(QueryContract):
 class DiscoveryQueryPlan(QueryContract):
     """Immutable registered backend plan that cannot carry operator-authored execution text."""
 
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.1.0"] = "1.1.0"
     plan_id: Annotated[str, Field(pattern=_ID_PATTERN)]
     intent_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     profile_id: Annotated[str, Field(pattern=_ID_PATTERN)]
@@ -261,6 +268,11 @@ class DiscoveryQueryPlan(QueryContract):
     limits: DiscoveryLimits
     fallback_history: Annotated[tuple[DiscoveryFallback, ...], Field(max_length=6)] = ()
     output_schema_id: Annotated[str, Field(pattern=_ID_PATTERN)]
+    normalization_id: Annotated[str, Field(pattern=_ID_PATTERN)]
+    validation_versions: Annotated[
+        tuple[Annotated[str, Field(pattern=_VERSION_REF_PATTERN)], ...],
+        Field(min_length=1, max_length=8),
+    ]
     execution_authority: Literal[False] = False
     plan_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
 
@@ -270,6 +282,8 @@ class DiscoveryQueryPlan(QueryContract):
             raise ValueError("discovery plan universes MUST be unique")
         if len(self.projection) != len(set(self.projection)):
             raise ValueError("discovery projection fields MUST be unique")
+        if len(self.validation_versions) != len(set(self.validation_versions)):
+            raise ValueError("discovery validation versions MUST be unique")
         if len({item.backend for item in self.fallback_history}) != len(self.fallback_history):
             raise ValueError("discovery fallback backends MUST be unique")
         if self.backend in {item.backend for item in self.fallback_history}:

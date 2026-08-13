@@ -60,6 +60,8 @@ def _operation(operation_id: str, backend: str, priority: int) -> DiscoveryOpera
         predicate_operators=("contains",),
         projection=("provider_ref", "provider_type", "name"),
         output_schema_id="provider-resource-observation.v1",
+        normalization_id="azure.provider-resource-observation.v1",
+        validation_versions=("azure-resource-graph-api@2022-10-01",),
         equivalence_key="azure.arm-resources.list.v1",
         identity_profile="azure.reader",
         priority=priority,
