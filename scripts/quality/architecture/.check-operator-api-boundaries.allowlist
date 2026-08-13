@@ -1,2 +1,2 @@
 # Core composes the reviewed runtime and its operational activity publisher after extraction.
-composition-fanout|services/core-control-plane/src/fdai/runtime/bootstrap.py|49
+composition-fanout|services/core-control-plane/src/fdai/runtime/bootstrap.py|50
