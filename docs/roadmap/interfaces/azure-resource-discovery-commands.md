@@ -54,7 +54,7 @@ flowchart LR
 | Console provider-execution parsing | implemented | [`inventory-execution-display.ts`](../../../console/src/deck/inventory-execution-display.ts) and its focused test | The Console displays only structurally valid, redacted, bounded `provider_execution` records and keeps them separate from IQL. |
 | Provider-execution receipt emission | implemented | [`discovery_receipts.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_receipts.py), [`discovery_evidence.py`](../../../packages/service-contracts/src/fdai_service_contracts/discovery_evidence.py), and focused Python and Console parser tests | The producer accepts an exact registered plan and bounded result summary, never raw argv, credentials, continuation tokens, resource ids, or provider errors. |
 | Comprehensive discovery contracts and profiles | implemented | [`discovery.py`](../../../packages/service-contracts/src/fdai_service_contracts/discovery.py), [`discovery_profiles.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_profiles.py), [`discovery_observations.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_observations.py), and focused contract and delivery tests (`44 passed`) | Frozen digest-bound intents, plans, profiles, and mapped or unmapped provider observations reject executable text and unresolved modifiers. Plans pin normalization, ARG or ARM API, Azure CLI, and extension versions. |
-| Central routing, command explanation, and coverage proof | in-progress | [`router.py`](../../../services/core-control-plane/src/fdai/core/discovery/router.py), [`discovery_explanation.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_explanation.py), [`discovery_coverage.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_coverage.py), and focused tests | Exact-equivalent fallback, canonical merge, sanitized explanation, and live-only reconciliation are implemented. Governed live canary receipts remain required before this row becomes `validated`. |
+| Central routing, command explanation, and coverage proof | validated | [`router.py`](../../../services/core-control-plane/src/fdai/core/discovery/router.py), [`discovery_explanation.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_explanation.py), [`discovery_coverage.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_coverage.py), [`azure-discovery-live-evidence.json`](../../../config/azure-discovery-live-evidence.json), and focused tests | Exact-equivalent fallback, canonical merge, sanitized explanation, and live-only reconciliation are implemented. Governed aggregate-only canaries validate the subscription-scoped `ResourceContainers` and `Resources` claims in profile revision `1.1.0`; broader universes remain outside this validated row. |
 
 ### Implementation history
 
@@ -65,6 +65,7 @@ flowchart LR
 | 2026-08-14 | in-progress | Added the documented `unmapped` coverage state and rejected environment assignments in server and Console command evidence. | `current change`; focused discovery tests `36 passed`, Console parser `7 passed`, task-scoped Ruff, strict contract mypy, and Console typecheck passed. | Retain fresh governed read-only canary receipts for the claimed resource-container and ARM-resource universes. |
 | 2026-08-14 | in-progress | Pinned normalization and observed ARG, ARM, Azure CLI, and Resource Graph extension versions in additive profile and plan revision `1.1.0`, and proved three reviewed English and Korean scenario pairs produce identical typed routing and authority checks. | `current change`; focused discovery tests `40 passed`, task-scoped Ruff, strict mypy, and the Core import boundary gate passed. | Retain fresh governed read-only canary receipts for the claimed resource-container and ARM-resource universes. |
 | 2026-08-14 | in-progress | Hardened command evidence after independent review so placeholders remain valid while redirects, control characters, and executable shell words are rejected by both server and Console boundaries. | `current change`; focused discovery tests `44 passed`, Console parser tests `11 passed`, strict mypy, Ruff, and Console typecheck passed. | Retain fresh governed read-only canary receipts for the claimed resource-container and ARM-resource universes. |
+| 2026-08-14 | validated | Recorded governed aggregate-only Azure CLI canaries for the subscription-scoped resource-container and ARM-resource claims, retained only counts and provider-type set digests, and reconciled both claims without gaps or execution authority. | `current change`; [`record-azure-discovery-canary.py`](../../../scripts/automation/record-azure-discovery-canary.py), [`azure-discovery-live-evidence.json`](../../../config/azure-discovery-live-evidence.json), focused recorder tests `4 passed`, offline evidence validation passed, and centralized validation receipts passed for the recorder commits. | No remaining work for the two declared discovery-profile claims; add separate claims and evidence before validating broader universes. |
 
 ### Remaining work
 
@@ -73,29 +74,29 @@ flowchart LR
 - [x] Implement a server-owned `provider_execution` receipt producer and prove that credentials, pagination tokens, raw resource ids, and provider errors cannot reach the Console record.
 - [x] Implement central backend eligibility, equivalent fallback, per-plan completeness, and canonical merge tests without weakening scope or predicates.
 - [x] Generate sanitized `CommandExplanation` records from registered plans and pass property and golden tests for shell controls, identifiers, redaction, and equivalent-command labeling.
-- [ ] Record coverage reconciliation and governed read-only live canary receipts for each claimed universe before promoting any corresponding row to `validated`.
+- [x] Record coverage reconciliation and governed read-only live canary receipts for each claimed universe before promoting any corresponding row to `validated`; the retained artifact validates both profile revision `1.1.0` claims with zero gaps and no execution authority.
 
 ## Current baseline and gaps
 
 The current implementation provides catalog-owned resource query terms and category terms, a
-validated inventory-language registry, selective snapshot filters, and Azure ARG and ARM adapters
-that query one catalog-resolved resource type at a time. Concrete terms take precedence over
-generic category terms. For shared ARM types, such as Web Apps and Function Apps under
-`Microsoft.Web/sites`, a full ARG row must carry a matching `kind`; a source without that
-discriminator does not guess the semantic type. These pieces do not yet compile an immutable
-`InventoryQuery`, centrally route ARG to ARM, or emit a provider-execution receipt.
+validated inventory-language registry, immutable discovery contracts, selective snapshot filters,
+and Azure ARG and ARM adapters. Concrete terms take precedence over generic category terms. For
+shared ARM types, such as Web Apps and Function Apps under `Microsoft.Web/sites`, a full ARG row
+must carry a matching `kind`; a source without that discriminator does not guess the semantic type.
+The central router compiles exact registered plans, preserves unknown provider types as `unmapped`,
+and emits sanitized provider-execution and command-explanation receipts.
 
 The baseline does not satisfy comprehensive discovery:
 
 - **Semantic coverage is selective:** The neutral vocabulary intentionally contains only the
-  resource types needed by current operational verticals. Unknown Azure types are dropped instead
-  of being returned as unmapped observations.
+  resource types needed by current operational verticals. Unknown Azure types remain searchable as
+  bounded `unmapped` observations instead of being promoted into the neutral ontology.
 - **One mapping is insufficient:** Discovery can require another ARG table, several ARM types,
   parent expansion, a dedicated CLI extension, or a versioned REST endpoint.
-- **The query and explanation surfaces are narrow:** The Console can parse a valid bounded
-  `provider_execution` record, but no current production path emits one. Provider type, tags, scope
-  kind, management group, CLI prerequisites, per-plan fallback reasons, and cross-provider command
-  explanations remain absent.
+- **The query and explanation surfaces are narrow:** The delivery path emits bounded
+  `provider_execution` and `CommandExplanation` records for the registered resource-group and
+  generic ARM-resource profiles. Tag predicates, management-group coverage, provider-specific
+  plans, and cross-provider command explanations remain outside the validated profile set.
 - **ARG and ARM are partial:** Specialized ARG tables, provider-specific details, tenant directory
   objects, and data-plane objects require different typed plans and identities.
 
@@ -196,8 +197,9 @@ argv, but still omits pagination tokens, credentials, raw resource ids, and prov
 
 ## Backend selection
 
-This is the target routing order. Current transports use fixed paths without central plan merging.
-The target router selects the narrowest backend that can prove the requested result:
+The router selects the narrowest registered backend that can prove the requested result and merges
+only exact-equivalent plans. The following order applies to the implemented profiles and remains the
+target order for additional universes:
 
 1. **Promoted inventory:** Use a fresh complete snapshot when its provider-type coverage includes
    the requested universe and predicates.
