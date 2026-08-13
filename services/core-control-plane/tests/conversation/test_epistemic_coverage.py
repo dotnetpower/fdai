@@ -129,3 +129,79 @@ def test_epistemic_status_must_match_transport_disposition() -> None:
             status=EpistemicStatus.UNKNOWN_STALE,
             disposition="answered",
         )
+
+
+def test_question_universe_receipt_rejects_tampered_identity_and_bounds() -> None:
+    universe = _universe("answer")
+
+    with pytest.raises(ValueError, match="canonical SHA-256"):
+        replace(universe, ontology_release_digest="invalid")
+    with pytest.raises(ValueError, match="principal_manifest_digests MUST be non-empty"):
+        replace(universe, principal_manifest_digests=())
+    with pytest.raises(ValueError, match="principal_manifest_digests MUST be unique and ordered"):
+        replace(universe, principal_manifest_digests=(DIGEST_C, DIGEST_B))
+    with pytest.raises(ValueError, match="case_ids MUST be unique and ordered"):
+        replace(universe, case_ids=("answer", "answer"))
+    with pytest.raises(ValueError, match="contain a case or typed exclusion"):
+        replace(universe, case_ids=())
+    with pytest.raises(ValueError, match="cases and exclusions MUST be disjoint"):
+        replace(universe, excluded_case_ids=("answer",))
+    with pytest.raises(ValueError, match="exceeds its case bound"):
+        replace(universe, case_ids=tuple(f"q-{index:05d}" for index in range(10_001)))
+    with pytest.raises(ValueError, match="digest does not match"):
+        replace(universe, receipt_digest=DIGEST_D)
+
+
+def test_epistemic_question_rejects_malformed_proofs_and_metrics() -> None:
+    universe = _universe("answer")
+    question = _question("answer", universe)
+
+    with pytest.raises(ValueError, match="question_id MUST contain bounded ids"):
+        replace(question, question_id="")
+    with pytest.raises(ValueError, match="question proof digest MUST be a canonical"):
+        replace(question, understanding_receipt_digest="invalid")
+    with pytest.raises(ValueError, match="claim proof receipt count exceeds its bound"):
+        replace(question, claim_proof_receipt_digests=(DIGEST_A,) * 65)
+    with pytest.raises(ValueError, match="claim_proof_receipt_digests MUST be unique and ordered"):
+        replace(question, claim_proof_receipt_digests=(DIGEST_B, DIGEST_A))
+    with pytest.raises(ValueError, match="source_span_coverage MUST be finite"):
+        replace(question, source_span_coverage=float("nan"))
+    with pytest.raises(ValueError, match="violation counts MUST be non-negative"):
+        replace(question, ungrounded_claim_count=-1)
+    with pytest.raises(ValueError, match="requires understanding proof"):
+        replace(question, understanding_receipt_digest=None)
+
+    unknown = replace(
+        question,
+        transport_disposition="held",
+        epistemic_status=EpistemicStatus.UNKNOWN_INCOMPLETE,
+        claim_proof_receipt_digests=(),
+    )
+    with pytest.raises(ValueError, match="requires completeness proof"):
+        replace(unknown, completeness_receipt_digest=None)
+
+
+def test_evaluator_rejects_duplicate_and_wrong_universe_records() -> None:
+    universe = _universe("answer")
+    question = _question("answer", universe)
+
+    with pytest.raises(ValueError, match="question ids MUST be unique"):
+        evaluate_epistemic_coverage(universe=universe, questions=(question, question))
+    with pytest.raises(ValueError, match="bind the exact question universe"):
+        evaluate_epistemic_coverage(
+            universe=universe,
+            questions=(replace(question, question_universe_digest=DIGEST_E),),
+        )
+
+    cancelled_universe = _universe("cancelled")
+    cancelled = EpistemicQuestionRecord(
+        question_id="cancelled",
+        transport_disposition="cancelled",
+        epistemic_status=EpistemicStatus.CANCELLED,
+        question_universe_digest=cancelled_universe.receipt_digest,
+    )
+    receipt = evaluate_epistemic_coverage(
+        universe=cancelled_universe,
+        questions=(cancelled,),
+    )
+    assert receipt.passed is True
