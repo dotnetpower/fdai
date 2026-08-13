@@ -44,6 +44,7 @@ export function architectureRelationshipLabel(
 ): string {
   if (link.type === "contains") return t(link.source === selectedId ? "relationship.contains" : "relationship.containedBy");
   if (link.type === "attached_to") return t("relationship.attachedTo");
+  if (link.type === "peered_with") return t("relationship.peersWith");
   return t(link.source === selectedId ? "relationship.dependsOn" : "relationship.requiredBy");
 }
 

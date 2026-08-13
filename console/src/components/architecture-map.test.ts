@@ -29,10 +29,12 @@ import {
   type Camera,
 } from "./architecture-map.geometry";
 import {
+  ARCHITECTURE_REFLECTION_NODE_LIMIT,
   architectureLinkIsDrawable,
   architectureLinkElevation,
   architectureNodeLabelIsVisible,
   architectureOverlayOrder,
+  architectureReflectionNodes,
   architectureFloorLegendEntries,
   architectureFloorLegendFontSize,
   architectureGlyphFontSize,
@@ -356,6 +358,31 @@ describe("architecture drag rendering", () => {
       showGrid: true,
     });
     expect(architectureInteractionOptions(options, false)).toBe(options);
+  });
+});
+
+describe("architecture reflection rendering", () => {
+  it("preserves every reflection node for ordinary maps", () => {
+    const nodes = [{ id: "node-1", name: "Node 1", type: "compute.vm", status: "healthy" }];
+
+    expect(architectureReflectionNodes(nodes, null)).toBe(nodes);
+  });
+
+  it("bounds dense reflection work while prioritizing selected and highlighted nodes", () => {
+    const nodes = Array.from({ length: ARCHITECTURE_REFLECTION_NODE_LIMIT + 5 }, (_, index) => ({
+      id: `node-${index}`,
+      name: `Node ${index}`,
+      type: "compute.vm",
+      status: "healthy",
+    }));
+    const selectedId = nodes.at(-1)!.id;
+    const highlightedId = nodes.at(-2)!.id;
+
+    const reflected = architectureReflectionNodes(nodes, selectedId, new Set([highlightedId]));
+
+    expect(reflected).toHaveLength(ARCHITECTURE_REFLECTION_NODE_LIMIT);
+    expect(reflected[0]?.id).toBe(selectedId);
+    expect(reflected[1]?.id).toBe(highlightedId);
   });
 });
 

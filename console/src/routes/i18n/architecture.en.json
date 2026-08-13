@@ -64,6 +64,8 @@
     "attachedTo": "Attached to",
     "dependsOn": "Depends on",
     "dependsOnArrow": "Depends on ->",
+    "peersWith": "Peers with",
+    "peersWithArrow": "Peers with <->",
     "requiredBy": "Required by",
     "boundary": "Boundary"
   },
