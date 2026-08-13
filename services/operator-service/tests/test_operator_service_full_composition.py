@@ -128,7 +128,7 @@ def test_configured_postgres_adapters_dispatch_reads_and_typed_proposals(
     ) -> dict[str, object]:
         del self
         reads.append((family, operation))
-        return {"_revision": "revision-7", "items": []}
+        return {"_revision": "revision-7", "rules": [], "details": {}}
 
     async def append_proposal(
         self: PostgresFamilyStore,
