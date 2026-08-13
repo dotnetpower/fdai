@@ -32,6 +32,41 @@ dependencies, invalid arguments, scope invention, and writes outside a confirmat
 
 ## Implementation status
 
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Semantic frame, verified plan, and intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), [`test_semantic_planning.py`](../../../services/core-control-plane/tests/conversation/test_semantic_planning.py) | Whole-turn proposals are bounded, release-scoped, verified, and projected without execution authority. |
+| Production Core semantic runtime composition | implemented | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`bootstrap.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap.py), [`test_wire_semantic_query.py`](../../../services/core-control-plane/tests/composition/test_wire_semantic_query.py) | Azure planning, principal-scoped manifests, secured ObjectSets, read functions, and bounded DAG execution are composed when prerequisites are available. |
+| Versioned cross-service semantic-turn contract | implemented | [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`test_semantic_turn_processor.py`](../../../services/core-control-plane/tests/test_semantic_turn_processor.py) | Version 1.2 requests and projections bind identity, purpose, deadlines, digests, dispositions, and evidence without granting execution authority. |
+| Durable Operator bridge and Console projection | implemented | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`postgres_semantic_turn_store.py`](../../../services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | The Operator owns durable acceptance, outbox claims, result projection, authenticated replay, typed holds, and `done` event adaptation. |
+| Event transport and deployment configuration | implemented | [`semantic_kafka.py`](../../../services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py), [`main.tf`](../../../infra/main.tf), [`test_semantic_turn_topics.py`](../../../tests/integration/infra/test_semantic_turn_topics.py) | Logical request and projection topics share the governed physical event stream and are configured for both services. |
+| Structural and epistemic coverage foundations | in-progress | [`epistemic_coverage.py`](../../../services/core-control-plane/src/fdai/core/conversation/epistemic_coverage.py), [`test_epistemic_coverage.py`](../../../services/core-control-plane/tests/conversation/test_epistemic_coverage.py) | Receipt and gate contracts exist, but complete descriptor generations, runtime question receipts, and L3/L4 certification are not delivered. |
+| Complete temporal, metric, causal, and relationship query surface | in-progress | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [Ontology Query Coverage Implementation Plan](ontology-query-coverage-implementation-plan.md) | ObjectSets, set operations, projection, aggregation, and selected read functions are bound; the remaining provider-backed query kinds are incomplete. |
+| Multimodal semantic planning input | not-started | [Conversation Attachments](conversation-attachments.md) | The semantic-turn request currently carries bounded text and prior-turn context, not server-validated image or document evidence. |
+| Governed production certification | not-started | This document's verification contract | No retained authenticated cross-service browser receipt or randomized assurance receipt currently proves production readiness. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Reconciled the target architecture with the active Core runtime, Operator bridge, service contract, deployment configuration, and focused tests without reconstructing earlier provenance. | Current source and focused checks listed in the scope table. | Complete query coverage, multimodal transport, descriptor generations, runtime coverage receipts, and governed live certification remain open. |
+
+### Remaining work
+
+- [ ] Complete release-derived descriptor generations and independently validated atomic activation for
+    every readable ontology declaration and runtime availability state.
+- [ ] Bind the remaining temporal, metric-series, evidence-join, causal, relationship-side, and
+    provider-backed read capabilities through the secured query gateway.
+- [ ] Carry authorized image and document evidence into semantic planning only after the attachment
+    ingestion and custody paths produce bounded immutable references.
+- [ ] Produce runtime epistemic receipts for the frozen bilingual question universe and connect them
+    to the release gate without weakening structural coverage checks.
+- [ ] Capture authenticated cross-service browser and randomized assurance receipts, then verify
+    rollback and typed-hold behavior before reporting the path production-ready.
+- [ ] Remove temporary legacy natural-language routes only after replay demonstrates equivalent or
+    better coverage and safety through the semantic graph path.
+
 The structured intent graph is now the configured server planner for semantic-turn requests. Core
 binds the Azure planning adapter, principal-manifest verification, deterministic intent-graph and
 receipt production, and exact Console v2/v1 wire projections when its model, release, store, and
