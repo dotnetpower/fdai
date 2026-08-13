@@ -72,7 +72,7 @@ the set.
 
 ## Retrieval and authority
 
-The reference index and PostgreSQL adapter use the same ordering contract:
+The target reference index and PostgreSQL adapter follow the same ordering contract:
 
 1. Exact question alias matches rank first.
 2. Exact identifiers and normalized subject-token overlap rank next. Token normalization separates
@@ -106,7 +106,8 @@ Command Deck chooses the safer result when evidence is uncertain:
 
 ## Behavior coverage
 
-The built-in seed set contains 13 contracts. Ten architecture contracts extend the initial three:
+The reference seed set is designed to contain 13 contracts. Ten architecture contracts extend the
+initial three:
 
 | Behavior | Owner | Implemented evidence |
 |----------|-------|----------------------|
@@ -124,9 +125,9 @@ portfolio review as designed-only and temporal fairness as optional dependency-i
 
 ## Command Deck answer path
 
-The repository resolver initializes once on the first chat evidence lookup. It hashes only tracked
-seed sources and keeps the in-memory index for the process lifetime. For each question, the Operator API
-performs these steps:
+The target repository resolver initializes once on the first chat evidence lookup. It hashes only
+tracked seed sources and keeps the in-memory index for the process lifetime. For each question, the
+Operator API performs these steps:
 
 1. Remove any client-supplied behavior evidence.
 2. Require both a behavior subject and behavior-question intent before initializing or searching
@@ -145,20 +146,43 @@ safety and fallback behavior, owner, implementation status, and citations or pro
 
 ## Implementation status
 
-The current implementation is intentionally split so deployed claims remain accurate:
+The service extraction retained the provider contracts but removed the concrete retrieval,
+Operator API, PostgreSQL, seed, and test implementations. The design remains authoritative; the
+ledger below separates that target from the current executable surface.
 
-- **Implemented**: shared `BehaviorSpec`, localized `BehaviorContent`, `BehaviorSource`, and
-  `BehaviorKnowledgeIndex` contracts; in-memory hybrid index; tracked-source freshness validator;
-  13 built-in behavior seeds;
-  server-owned chat resolver; deterministic terminal renderer and verifier; PostgreSQL/pgvector
-  adapter; offline tests and a live-database rank parity test.
-- **Designed, not production-bound**: generated PostgreSQL schema migration, production composition
-  binding, and an incremental index or sync CLI. Until those land, the Operator API uses repository seeds
-  in a tracked checkout and holds the answer when repository metadata is unavailable.
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Structured behavior contracts | in-progress | [`behavior_knowledge.py`](../../../services/core-control-plane/src/fdai/shared/providers/behavior_knowledge.py) | `BehaviorSpec`, localized content, source metadata, freshness results, and index protocols remain, but no current focused tests exercise them. |
+| In-memory retrieval, freshness validation, and 13 reference seeds | not-started | Service extraction commit `0988b1552` and current tracked-tree audit | The prior concrete modules and focused tests were removed during extraction and have not been restored under the current service topology. |
+| Server-owned resolver, renderer, and verifier | not-started | Service extraction commit `0988b1552` and current tracked-tree audit | No current Operator API behavior-evidence capability imports or binds the retained contracts. |
+| PostgreSQL/pgvector persistence and production binding | not-started | Service extraction commit `0988b1552` and current tracked-tree audit | The prior adapter was removed; no behavior-specific migration, composition binding, or sync command exists in the current tree. |
+| Focused verification and runtime evidence | not-started | Current tracked-tree audit | The former unit, chat, pgvector parity, and holdout checks are absent. No current runtime receipt validates this design. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger and corrected the stale post-extraction status; earlier implementation provenance was not reconstructed. | `current change`; this bilingual document pair; current provider-contract audit; `git diff-tree --no-commit-id --name-status -r 0988b1552`; roadmap, translation, punctuation, Hangul, size, and link checks. | Restore the concrete retrieval and answer path, persistence, focused tests, and governed runtime evidence below. |
+
+### Remaining work
+
+- [ ] Restore the in-memory index, tracked-source freshness validator, and 13 reference seeds under
+  the current service topology, with focused tests proving ordering, stale-source handling,
+  localization, comparison, and source-body exclusion.
+- [ ] Bind a server-owned resolver, deterministic renderer, and verifier in the Operator API, with
+  focused tests proving client evidence replacement, authority-path fallback, and localized answer
+  structure.
+- [ ] Add a behavior-specific PostgreSQL migration, pgvector adapter, production composition
+  binding, and incremental sync command, then record passing in-memory/database parity evidence.
+- [ ] Re-run the 20-question holdout and latency benchmark against the restored current topology,
+  and record the governed runtime receipt without treating the pre-extraction baseline as current
+  validation.
 
 ## Verification
 
-Focused tests cover exact alias priority, normalized subject ranking, idempotent reindexing, stale
+Before service extraction, focused tests covered exact alias priority, normalized subject ranking, idempotent reindexing, stale
 hashes, implemented and test-backed authority, source citation shape and symbol precision, source
 body exclusion, client evidence replacement, prompt-injection isolation, comparisons, localization,
 and PostgreSQL/in-memory top-hit and exact-class parity. Source-precision validation checks every
@@ -167,8 +191,9 @@ all affected ranges in the same change. A frozen set of 20 holdout architecture 
 routing, status, current citations, precise symbols, authority, structure, facts, exclusions and
 safety, localization, and directness. The measured 2026-07-20 result is `10.0/10`: 20 of 20 route
 correctly, cold initialization is 46.6 ms, and 200 warm samples measure 8.4 ms p50 and 20.5 ms p95.
-These are local in-memory checkout measurements, not a deployed pgvector latency claim. The live
-database parity test runs when `FDAI_DATABASE_URL` is configured.
+These are historical local in-memory checkout measurements, not current validation or a deployed
+pgvector latency claim. The tests that produced them were removed in service extraction commit
+`0988b1552`; the remaining-work ledger requires replacement evidence from the current topology.
 
 ## Related docs
 

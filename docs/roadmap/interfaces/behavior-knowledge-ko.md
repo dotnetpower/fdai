@@ -1,8 +1,8 @@
 ---
 title: Command Deck 행동 지식
 translation_of: behavior-knowledge.md
-translation_source_sha: c4d644ace9ba5745c76af40191dff21b2a5387a7
-translation_revised: 2026-08-11
+translation_source_sha: 4331d60a5742d35e0d07006f72350a7037acb917
+translation_revised: 2026-08-13
 ---
 
 # Command Deck 행동 지식
@@ -75,7 +75,7 @@ indexed 커밋을 표시할 수 있지만 raw 코드는 표시하지 않습니�
 
 ## 검색 및 권위
 
-참조 인덱스와 PostgreSQL 어댑터는 같은 정렬 계약을 사용합니다.
+목표 참조 인덱스와 PostgreSQL 어댑터는 같은 정렬 계약을 따릅니다.
 
 1. 정확한 질문 별칭 일치를 가장 먼저 정렬합니다.
 2. 정확한 식별자와 정규화된 subject-token overlap을 그다음에 정렬합니다. 토큰
@@ -109,8 +109,8 @@ reciprocal-rank fusion을 사용합니다. In-memory lexical scorer는 정규화
 
 ## 행동 범위
 
-Built-in 시드 집합은 13개 계약을 포함합니다. 초기 3개에 아키텍처 계약 10개를
-추가했습니다.
+참조 시드 집합은 13개 계약을 포함하도록 설계되었습니다. 초기 3개에 아키텍처 계약 10개를
+추가하는 설계입니다.
 
 | 행동 | Owner | Implemented 근거 |
 |----------|-------|----------------------|
@@ -128,9 +128,9 @@ designed-only로, temporal fairness는 선택적 dependency-injected 행동으�
 
 ## Command Deck 답변 경로
 
-저장소 해석기는 첫 채팅 근거 조회에서 한 번 초기화됩니다. Tracked 시드 출처만
-해시하고 프로세스 lifetime 동안 in-memory 인덱스를 유지합니다. 각 질문에 대해 Operator API는 다음
-단계를 수행합니다.
+목표 저장소 해석기는 첫 채팅 근거 조회에서 한 번 초기화됩니다. Tracked 시드 출처만
+해시하고 프로세스 lifetime 동안 in-memory 인덱스를 유지합니다. 각 질문에 대해 Operator API는
+다음 단계를 수행합니다.
 
 1. 클라이언트가 제공한 행동 근거를 제거합니다.
 2. 서버가 소유한 인덱스를 초기화하거나 검색하기 전에 행동 대상과 behavior-question 의도를
@@ -149,20 +149,41 @@ designed-only로, temporal fairness는 선택적 dependency-injected 행동으�
 
 ## 구현 상태
 
-배포된 동작을 정확히 표현하도록 현재 구현을 다음과 같이 구분합니다.
+서비스 분해 과정에서 프로바이더 계약은 유지되었지만 구체적인 검색, Operator API,
+PostgreSQL, 시드, 테스트 구현은 제거되었습니다. 설계는 계속 기준으로 유지되며, 아래 원장은
+목표 설계와 현재 실행 가능한 범위를 구분합니다.
 
-- **Implemented**: shared `BehaviorSpec`, localized `BehaviorContent`, `BehaviorSource`,
-  `BehaviorKnowledgeIndex` 계약; in-memory hybrid 인덱스; tracked-source 최신성 검증기;
-  built-in 행동 시드 13개;
-  서버가 소유한 채팅 해석기; 결정론적 최종 렌더러 및 검증기; PostgreSQL/pgvector
-  어댑터; offline 테스트와 live-database 순위 동등성 테스트.
-- **Designed, not production-bound**: 생성된 PostgreSQL 스키마 이행, 운영 조립
-  연결, incremental 인덱스 또는 sync CLI입니다. 이 기능이 구현되기 전에는 Operator API가 tracked
-  체크아웃의 저장소 시드를 사용하며 저장소 메타데이터를 사용할 수 없으면 답변을 보류합니다.
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 구조화된 행동 계약 | in-progress | [`behavior_knowledge.py`](../../../services/core-control-plane/src/fdai/shared/providers/behavior_knowledge.py) | `BehaviorSpec`, 지역화된 콘텐츠, 출처 메타데이터, 최신성 결과, 인덱스 프로토콜은 남아 있지만 현재 이를 실행하는 집중 테스트는 없습니다. |
+| 인메모리 검색, 최신성 검증, 참조 시드 13개 | not-started | 서비스 분해 커밋 `0988b1552`와 현재 추적 트리 점검 | 이전 구체 모듈과 집중 테스트는 서비스 분해 중 제거되었으며 현재 서비스 토폴로지에 복원되지 않았습니다. |
+| 서버 소유 해석기, 렌더러, 검증기 | not-started | 서비스 분해 커밋 `0988b1552`와 현재 추적 트리 점검 | 현재 Operator API의 행동 근거 기능에서 유지된 계약을 가져오거나 연결하는 경로가 없습니다. |
+| PostgreSQL/pgvector 영속성과 운영 연결 | not-started | 서비스 분해 커밋 `0988b1552`와 현재 추적 트리 점검 | 이전 어댑터가 제거되었으며 현재 트리에는 행동 전용 이행, 조립 연결, 동기화 명령이 없습니다. |
+| 집중 검증과 런타임 근거 | not-started | 현재 추적 트리 점검 | 이전 단위, 채팅, pgvector 동등성, holdout 검사가 없습니다. 이 설계를 검증하는 현재 런타임 증적도 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 구현 원장을 도입하고 서비스 분해 이후 오래된 상태를 바로잡았습니다. 이전 구현 출처 이력은 재구성하지 않았습니다. | `current change`; 이 영문/한국어 문서 쌍; 현재 프로바이더 계약 점검; `git diff-tree --no-commit-id --name-status -r 0988b1552`; 로드맵, 번역, 문장 부호, 한글, 문서 크기, 링크 검사. | 아래의 구체 검색 및 답변 경로, 영속성, 집중 테스트, 관리되는 런타임 근거를 복원합니다. |
+
+### 남은 작업
+
+- [ ] 현재 서비스 토폴로지에 인메모리 인덱스, 추적 출처 최신성 검증기, 참조 시드 13개를
+  복원하고 정렬, 오래된 출처 처리, 지역화, 비교, 출처 본문 제외를 입증하는 집중 테스트를
+  통과시킵니다.
+- [ ] Operator API에 서버 소유 해석기, 결정적 렌더러, 검증기를 연결하고 클라이언트 근거
+  교체, 권위 경로 대체 동작, 지역화된 답변 구조를 입증하는 집중 테스트를 통과시킵니다.
+- [ ] 행동 전용 PostgreSQL 이행, pgvector 어댑터, 운영 조립 연결, 증분 동기화 명령을
+  추가한 뒤 인메모리/데이터베이스 동등성 검사의 통과 근거를 기록합니다.
+- [ ] 복원된 현재 토폴로지에서 20개 질문 holdout과 지연 시간 벤치마크를 다시 실행하고,
+  서비스 분해 전 기준선을 현재 검증으로 취급하지 않는 관리된 런타임 증적을 기록합니다.
 
 ## 검증
 
-Focused 테스트는 exact 별칭 priority, 정규화된 대상 순위, 멱등적 reindexing, stale 해시,
+서비스 분해 전 집중 테스트는 정확한 별칭 우선순위, 정규화된 대상 순위, 멱등적 재색인, 오래된 해시,
 implemented 및 test-backed 권한, 출처 인용 형태와 symbol 정밀도, 출처 본문
 exclusion, 클라이언트 근거 replacement, prompt-injection 격리, 비교, localization,
 PostgreSQL/in-memory top-hit 및 exact-class 동등성을 검사합니다. Source-precision 검증은 모든
@@ -171,8 +192,9 @@ built-in 시드를 검사하므로 에이전트, 수명 주기 또는 local-comp
 상태, 현재 인용, precise symbol, 권한, structure, 사실, exclusion 및 안전성,
 localization, directness를 평가합니다. 2026-07-20 측정 결과는 `10.0/10`입니다. 20개 질문이 모두
 정확히 경로되었고 cold initialization은 46.6 ms, warm 200 샘플은 p50 8.4 ms와 p95 20.5 ms로
-측정되었습니다. 이 수치는 로컬 in-memory 체크아웃 측정이며 deployed pgvector 지연 시간 주장이
-아닙니다. `FDAI_DATABASE_URL`이 설정되면 실제 운영 데이터베이스 동등성 테스트를 실행합니다.
+측정되었습니다. 이 수치는 과거 로컬 인메모리 체크아웃 측정이며 현재 검증이나 배포된 pgvector
+지연 시간 주장이 아닙니다. 이 결과를 만든 테스트는 서비스 분해 커밋 `0988b1552`에서
+제거되었습니다. 남은 작업 원장은 현재 토폴로지에서 얻은 대체 근거를 요구합니다.
 
 ## 관련 문서
 
