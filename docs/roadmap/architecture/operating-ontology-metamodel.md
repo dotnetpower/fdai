@@ -14,24 +14,6 @@ without turning every view into a new ontology declaration kind.
 >
 > **Authority boundary:** A state or context artifact can preserve or lower autonomy. It cannot
 > assert external truth, approve an action, or become shared mutable coordination state.
->
-> **Implementation status (2026-08-12):** Object, Link, Action, Interface, and Function
-> declarations enter the exact runtime release. Production catalog loading supplies the reviewed
-> Interface and Function declarations, and source-derived network and Pod telemetry FunctionTypes
-> join the same release without replacing catalog identity. M2 preserves purpose, release,
-> truncation, plan, invocation, and evidence lineage through secured ObjectSet execution. M3
-> standardizes provider-observed resource state and verified relationship metadata. M4 composes a
-> promoted-inventory resource-state answer with an ontology-native shadow query, persists immutable
-> match or divergence evidence, and never replaces the authoritative answer. D1-D3 align direction,
-> reviewed provider mappings, complete-generation verification, and adversarial coverage. D4 ships
-> the direction migration guard, replayable graph comparator, and authoritative-inventory rebuild
-> pointer. M5 registers network and Pod telemetry functions in the production semantic DAG through
-> a bounded composition-owned receipt issuer. Authenticated cross-service and live-assurance
-> receipts remain required before the complete metamodel can be reported production-ready.
-> M3 now also declares and projects `resource_classified_as` from provider-observed Resource
-> instances to catalog-owned ResourceType instances when a reviewed mapping covers the complete
-> generation. Mapping evidence is content-addressed; unmapped types fail classification coverage
-> closed. Production inventory refresh injects the reviewed mapping digests.
 
 ## Design at a glance
 
@@ -272,6 +254,31 @@ replacement is possible, and a complete audit or outbox path.
 `StateType` or `ContextType` becomes a future declaration-kind proposal only after M3 or M4
 produces a compatibility requirement that cannot be represented by ObjectType, InterfaceType,
 FunctionType, exact release refs, and immutable snapshots.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Canonical declaration release | implemented | [`ontology_catalog.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/ontology_catalog.py), [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), and [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py) | Object, Link, Action, Interface, and Function declarations contribute to an exact release. |
+| Bounded ObjectSet execution and lineage | implemented | [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/semantic_query.py), [`test_interfaces_and_object_sets.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_interfaces_and_object_sets.py), and [`test_semantic_query.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_semantic_query.py) | The secured query path preserves release, plan, invocation, truncation, and evidence references without granting authority. |
+| Provider state and relationship evidence contracts | implemented | [`state_evidence.py`](../../../services/core-control-plane/src/fdai/shared/providers/state_evidence.py) and [`test_state_evidence.py`](../../../services/core-control-plane/tests/providers/test_state_evidence.py) | Typed metadata distinguishes observed state and link evidence from derived interpretation. |
+| Relationship direction and classification hardening | in-progress | The direction contract and `resource_classified_as` design in this document; focused provider and catalog checks cover only bounded producers. | Repository evidence does not yet prove the D1-D4 audit, every reviewed Azure and Kubernetes mapping, every adversarial fixture, or a replayable production graph migration as one completed path. |
+| Network and Pod telemetry competency | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py) and the M5 exit criteria in this document. | Function implementations exist, but the documented end-to-end production competency and retained live-assurance receipts are not complete. |
+| Production metamodel assurance | in-progress | Focused source and test evidence above. | Authenticated cross-service and operational receipts are still required before this document can claim production validation. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger and replaced the aggregate production-ready narrative with bounded states; earlier provenance was not reconstructed. | `current change`; the source and focused checks listed in the scope table. | Complete the direction and classification audit, M5 competency, and production assurance items below. |
+
+### Remaining work
+
+- [ ] Complete D1-D4 with reviewed Azure and Kubernetes endpoint mappings plus complete, missing-endpoint, reversed-input, duplicate, and partial-coverage fixtures, and retain a replayable graph-comparison and rollback receipt.
+- [ ] Demonstrate M5 with focused VM connectivity and Pod telemetry competency checks that distinguish verified and unverified segments through the production composition.
+- [ ] Retain authenticated cross-service and live-assurance receipts that bind the exact ontology release before changing production metamodel assurance to `validated`.
 
 ## Verification checklist
 

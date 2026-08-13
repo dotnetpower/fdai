@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: 0e30c87af1d0a2ba7cb8a337d300180d885bcfc0
-translation_revised: 2026-08-11
+translation_source_sha: b14a7ff6a5e120d6be2043af862f1bbe77c4a97a
+translation_revised: 2026-08-13
 ---
 # 온톨로지 쿼리 무작위 보증
 
@@ -98,17 +98,21 @@ flowchart LR
 
 ## 근본 원인
 
-측정한 독립 Operator 서비스는 로컬 Azure 서술이 활성화되면
+2026-08-11 측정 당시 독립 Operator 서비스는 로컬 Azure 서술이 활성화되면
 [`LocalAzureNarratorAdapters`](../../../services/operator-service/src/fdai_operator_service/adapters/local_narrator.py)를
 `chat.stream` 읽기 담당으로 구성합니다. 이 어댑터는 화면 컨텍스트와 함께 모델을 호출하고
 `status=unverified`, `checks_completed=0` 및 빈 근거 참조를 내보냅니다.
 [`ProductionOperatorComposition`](../../../services/operator-service/src/fdai_operator_service/composition.py)은
 Core
 [`SemanticConversationRuntime`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py)을
-바인딩하지 않습니다.
+바인딩하지 않았습니다.
 
-이 문제는 언어 범위 문제가 아니라 서비스 구성 차이입니다. 키워드 경로나 고정 답변을
-추가하면 차이를 숨기고 대상 설계를 위반합니다. 프로덕션 수정은 다음을 권장합니다.
+현재 소스는 authoritative PostgreSQL 저장소와 semantic transport가 구성되면
+`SemanticTurnBridge`를 생성합니다. 기준선 이후의 이 구현은 기록된 결과를 바꾸거나 전체
+의미 쿼리 경로가 아래 종료 조건을 충족했음을 입증하지 않습니다.
+
+측정된 실패는 언어 범위 문제가 아니라 서비스 구성 차이였습니다. 키워드 경로나 고정 답변을
+추가하면 차이를 숨기고 대상 설계를 위반합니다. 완료하려면 다음이 필요합니다.
 
 1. 수락한 각 일반 언어 턴을 버전이 지정된 이벤트 버스 요청 및 응답 계약을 통해 독립
    Operator 서비스에서 Core 런타임으로 전달합니다.
@@ -178,6 +182,30 @@ Core
 [`ontology-query-randomized-assurance-2026-08-11.json`](../../baselines/ontology-query-randomized-assurance-2026-08-11.json)입니다.
 일반 질문 100개, 의도한 작업, 예상 및 관찰 처리 결과, 질문별 의도와 답변 점수, 지연
 시간, 실패 범주, 집계 성공률 및 30회 라운드 원장을 포함합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 2026-08-11 무작위 기준선 | validated | [`ontology-query-randomized-assurance-2026-08-11.json`](../../baselines/ontology-query-randomized-assurance-2026-08-11.json) | 보존된 아티팩트는 현재 준비 상태가 아니라 역사적인 100개 질문 측정값과 차단된 릴리스 결정을 입증합니다. |
+| 독립 semantic-turn bridge | implemented | [`composition.py`](../../../services/operator-service/src/fdai_operator_service/composition.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | 운영 composition은 Core 구현을 가져오지 않고 durable event-bus bridge를 바인딩할 수 있습니다. |
+| Authoritative 프로바이더 및 증적 종료 | in-progress | 이 문서의 진행 중 라운드와 다음 실행 종료 조건 | Bridge 구성만으로는 모든 작업 집합이 authoritative 프로바이더에 도달하고 exact release, 계획, 근거 참조를 반환했음을 입증하지 않습니다. |
+| 현재 무작위 릴리스 인증 | in-progress | 2026-08-11 기준선을 대체하는 새로운 보존된 100개 질문 아티팩트가 없습니다. | 재생성한 실행이 모든 종료 조건을 충족할 때까지 릴리스 결정은 차단 상태입니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-11 | validated | 의도 인식 100%, 답변 성공 20%, 기계적으로 검증된 답변 0건인 첫 bilingual 100개 질문 무작위 기준선을 보존했습니다. | 위에 연결된 커밋된 기준선 아티팩트 | 의미 경로를 구축하고 같은 절차로 다시 실행해야 합니다. |
+| 2026-08-13 | in-progress | 구현 원장을 도입하고 semantic bridge composition이 구현된 뒤 근본 원인을 측정 당시 표현으로 수정했습니다. 이전 구현 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 composition 및 focused bridge 테스트 | Authoritative 프로바이더를 종료하고 통과한 재생성 기준선을 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] 각 작업 집합을 authoritative 프로바이더에 대해 실행하고 exact 온톨로지 release, principal manifest, 검증된 계획, 근거 참조 또는 타입이 지정된 unavailable 처리 결과로 입증합니다.
+- [ ] 인증된 운영 composition을 통해 bilingual 100개 질문 절차를 재생성하고 기계 판독 결과를 보존합니다.
+- [ ] 재생성한 아티팩트가 지원되지 않는 운영 주장 0건과 권한 없는 실행 0건을 유지하며 다음 실행 종료 조건을 모두 충족한 뒤에만 릴리스 결정을 변경합니다.
 
 ## 관련 문서
 
