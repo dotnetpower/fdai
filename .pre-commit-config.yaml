@@ -78,6 +78,13 @@ repos:
         pass_filenames: false
         files: ^(README(?:-ko)?\.md|docs/.*\.md)$
         exclude: ^docs/internals/
+      - id: check-derived-sources
+        name: check-derived-sources.py (staged snapshot)
+        entry: python3 scripts/quality/localization/check-derived-sources.py --cached
+        language: system
+        pass_filenames: false
+        files: ^(README(?:-ko)?\.md|docs/.*\.md)$
+        exclude: ^docs/internals/
       - id: check-translation-quality
         name: check-translation-quality.py
         entry: python3 scripts/quality/localization/check-translation-quality.py

@@ -13,6 +13,7 @@ import pytest
 import yaml
 from scripts.automation import validation_queue
 from scripts.automation.validation_queue_context import validation_environment
+from scripts.automation.validation_queue_runner import _run_stage
 from scripts.automation.validation_queue_support import queue_paths
 
 pytestmark = pytest.mark.no_cover
@@ -175,6 +176,22 @@ def _commit_change(repo: Path) -> str:
     return result.stdout.strip()
 
 
+def test_run_stage_records_failed_verify_gate_detail(tmp_path: Path) -> None:
+    result = _run_stage(
+        "fast-gates",
+        [
+            sys.executable,
+            "-c",
+            "print('== summary =='); print('  derived-sources          FAIL'); raise SystemExit(1)",
+        ],
+        cwd=tmp_path,
+        env=dict(os.environ),
+    )
+
+    assert result["status"] == 1
+    assert result["detail"] == "derived-sources"
+
+
 def test_drain_reloads_validator_code_when_wake_request_advances(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -207,6 +224,49 @@ def test_drain_reloads_validator_code_when_wake_request_advances(
             [sys.executable, str(QUEUE_SCRIPT), "drain"],
         )
     ]
+
+
+def test_drain_reloads_after_failure_when_wake_request_advances(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    paths = SimpleNamespace(wake_lock=tmp_path / "wake.lock")
+    requests = iter(("failed-head", "fixed-head"))
+
+    monkeypatch.setattr(validation_queue, "initialize", lambda _paths: None)
+    monkeypatch.setattr(validation_queue, "_wake_request", lambda _paths: next(requests))
+    monkeypatch.setattr(
+        validation_queue,
+        "run",
+        lambda _paths, _mode, *, wait_for_lock: 1,
+    )
+    monkeypatch.setattr(validation_queue.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(
+        validation_queue.os,
+        "execv",
+        lambda _executable, _arguments: (_ for _ in ()).throw(RuntimeError("exec intercepted")),
+    )
+
+    with pytest.raises(RuntimeError, match="exec intercepted"):
+        validation_queue.drain(paths)
+
+
+def test_drain_returns_failure_when_wake_request_is_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    paths = SimpleNamespace(wake_lock=tmp_path / "wake.lock")
+
+    monkeypatch.setattr(validation_queue, "initialize", lambda _paths: None)
+    monkeypatch.setattr(validation_queue, "_wake_request", lambda _paths: "failed-head")
+    monkeypatch.setattr(
+        validation_queue,
+        "run",
+        lambda _paths, _mode, *, wait_for_lock: 17,
+    )
+    monkeypatch.setattr(validation_queue.time, "sleep", lambda _seconds: None)
+
+    assert validation_queue.drain(paths) == 17
 
 
 def test_run_batches_pending_commits_and_records_receipts(git_repo: Path, tmp_path: Path) -> None:
@@ -246,10 +306,10 @@ def test_run_batches_pending_commits_and_records_receipts(git_repo: Path, tmp_pa
     assert [stage["name"] for stage in receipt["stages"]] == [
         "dependency-sync",
         "fast-gates",
-        "changed-tests",
         "structural-gates",
+        "changed-tests",
     ]
-    structural = receipt["stages"][-1]
+    structural = receipt["stages"][2]
     assert structural["input_digest"]
     structural_accepted = _run(
         git_repo,
@@ -270,6 +330,116 @@ def test_run_batches_pending_commits_and_records_receipts(git_repo: Path, tmp_pa
     )
     assert structural_stale.returncode == 1
     assert (state_root / "worktree").is_dir()
+
+
+def test_run_validates_pending_commits_in_bounded_oldest_first_cohorts(
+    git_repo: Path, tmp_path: Path
+) -> None:
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    log_path = tmp_path / "bounded-validation.log"
+    commits: list[str] = []
+    for index in range(7):
+        (git_repo / "source.txt").write_text(f"change {index}\n", encoding="utf-8")
+        assert _run(git_repo, "git", "add", "source.txt").returncode == 0
+        assert _run(git_repo, "git", "commit", "--quiet", "-m", f"change {index}").returncode == 0
+        commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+        commits.append(commit)
+        assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+
+    validated = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        env={"FDAI_VALIDATION_TEST_LOG": str(log_path)},
+    )
+
+    assert validated.returncode == 0, validated.stderr
+    state_root = git_repo / ".git" / "fdai-validation-queue"
+    receipts = [
+        json.loads((state_root / "receipts" / f"{commit}.json").read_text()) for commit in commits
+    ]
+    assert {receipt["validated_head"] for receipt in receipts[:5]} == {commits[4]}
+    assert {receipt["validated_head"] for receipt in receipts[5:]} == {commits[6]}
+    assert not any((state_root / "pending" / f"{commit}.json").exists() for commit in commits)
+
+
+def test_validated_parent_docs_lane_closes_before_a_later_source_commit(
+    git_repo: Path, tmp_path: Path
+) -> None:
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    log_path = tmp_path / "docs-lane-validation.log"
+    parent = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+    state_root = git_repo / ".git" / "fdai-validation-queue"
+    receipts_dir = state_root / "receipts"
+    receipts_dir.mkdir(parents=True)
+    (receipts_dir / f"{parent}.json").write_text("{}\n", encoding="utf-8")
+
+    docs_path = git_repo / "docs/guide.md"
+    docs_path.parent.mkdir()
+    docs_path.write_text("# Guide\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", str(docs_path)).returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "docs").returncode == 0
+    docs_commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+    (git_repo / "source.txt").write_text("source change\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", "source.txt").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "source").returncode == 0
+    source_commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+    for commit in (docs_commit, source_commit):
+        assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+
+    validated = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        env={"FDAI_VALIDATION_TEST_LOG": str(log_path)},
+    )
+
+    assert validated.returncode == 0, validated.stderr
+    docs_receipt = json.loads((receipts_dir / f"{docs_commit}.json").read_text())
+    source_receipt = json.loads((receipts_dir / f"{source_commit}.json").read_text())
+    assert docs_receipt["validated_head"] == docs_commit
+    assert source_receipt["validated_head"] == source_commit
+    assert [stage["name"] for stage in docs_receipt["stages"]] == [
+        "dependency-sync",
+        "fast-gates",
+        "structural-gates",
+        "changed-tests",
+    ]
+
+
+def test_full_validation_keeps_one_snapshot_for_all_pending_commits(
+    git_repo: Path, tmp_path: Path
+) -> None:
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    log_path = tmp_path / "full-validation.log"
+    commits: list[str] = []
+    for index in range(6):
+        (git_repo / "source.txt").write_text(f"full {index}\n", encoding="utf-8")
+        assert _run(git_repo, "git", "add", "source.txt").returncode == 0
+        assert _run(git_repo, "git", "commit", "--quiet", "-m", f"full {index}").returncode == 0
+        commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+        commits.append(commit)
+        assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+
+    validated = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        "--all",
+        env={"FDAI_VALIDATION_TEST_LOG": str(log_path)},
+    )
+
+    assert validated.returncode == 0, validated.stderr
+    state_root = git_repo / ".git" / "fdai-validation-queue"
+    validated_heads = {
+        json.loads((state_root / "receipts" / f"{commit}.json").read_text())["validated_head"]
+        for commit in commits
+    }
+    assert validated_heads == {commits[-1]}
 
 
 def test_linked_worktree_uses_the_shared_git_queue(git_repo: Path, tmp_path: Path) -> None:
@@ -521,7 +691,7 @@ def test_status_and_commit_check_report_the_last_failed_stage(git_repo: Path) ->
                 "status": 1,
                 "stages": [
                     {"name": "dependency-sync", "status": 0},
-                    {"name": "fast-gates", "status": 1},
+                    {"name": "fast-gates", "status": 1, "detail": "derived-sources"},
                 ],
             }
         ),
@@ -532,9 +702,39 @@ def test_status_and_commit_check_report_the_last_failed_stage(git_repo: Path) ->
     blocked = _run(git_repo, "python3", str(script), "check-commit", commit)
 
     assert status.returncode == 0
-    assert "validator failed at fast-gates" in status.stdout
+    assert "validator failed at fast-gates/derived-sources" in status.stdout
     assert blocked.returncode == 1
-    assert "Last background validation failed at fast-gates." in blocked.stderr
+    assert "Last background validation failed at fast-gates/derived-sources." in blocked.stderr
+
+
+def test_status_reports_a_failed_earlier_pending_cohort(git_repo: Path) -> None:
+    failed_commit = _commit_change(git_repo)
+    (git_repo / "source.txt").write_text("later change\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", "source.txt").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "later change").returncode == 0
+    later_commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    for commit in (failed_commit, later_commit):
+        assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+    runs = git_repo / ".git" / "fdai-validation-queue" / "runs"
+    runs.mkdir(parents=True, exist_ok=True)
+    (runs / f"{failed_commit}.json").write_text(
+        json.dumps(
+            {
+                "status": 1,
+                "stages": [
+                    {"name": "structural-gates", "status": 1, "detail": None},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    status = _run(git_repo, "python3", str(script), "status")
+    blocked = _run(git_repo, "python3", str(script), "check-commit", later_commit)
+
+    assert "validator failed at structural-gates" in status.stdout
+    assert "Last background validation failed at structural-gates." in blocked.stderr
 
 
 def test_concurrent_enqueue_of_same_commit_is_atomic(git_repo: Path) -> None:
@@ -699,6 +899,8 @@ def test_validator_agent_is_read_execute_only_and_uses_make_facade() -> None:
     assert config["agents"] == []
     assert config["user-invocable"] is True
     assert "Post-commit normally wakes a low-priority background validator" in body
+    assert "bounded oldest-first cohorts" in body
+    assert "Intermediate stage success is progress metadata, not a push receipt" in body
     assert "make validation-status" in body
     assert "make validation-run" in body
     assert "do not wait" in body

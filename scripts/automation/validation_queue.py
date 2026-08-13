@@ -79,6 +79,8 @@ def check_commit(paths: QueuePaths, revision: str) -> int:
         print("  Background validation is active; push does not wait for it.", file=sys.stderr)
     else:
         failed_stage = _last_failed_stage(paths, commit)
+        if failed_stage is None:
+            failed_stage = _last_reachable_failed_stage(paths, resolve_commit(paths, "HEAD"))
         if failed_stage is not None:
             print(
                 f"  Last background validation failed at {failed_stage}.",
@@ -148,12 +150,10 @@ def drain(paths: QueuePaths) -> int:
         while True:
             requested = _wake_request(paths)
             result = run(paths, "fast", wait_for_lock=True)
-            if result != 0:
-                return result
             time.sleep(0.25)
-            if _wake_request(paths) == requested:
-                return 0
-            os.execv(sys.executable, _background_command(paths))  # noqa: S606
+            if _wake_request(paths) != requested:
+                os.execv(sys.executable, _background_command(paths))  # noqa: S606
+            return result
 
 
 def _start_detached_fallback(paths: QueuePaths, environment: dict[str, str]) -> bool:
@@ -261,8 +261,21 @@ def _last_failed_stage(paths: QueuePaths, commit: str) -> str | None:
                 continue
             name = stage.get("name")
             if isinstance(name, str):
-                return name
+                detail = stage.get("detail")
+                return f"{name}/{detail}" if isinstance(detail, str) and detail else name
     return "unknown-stage"
+
+
+def _last_reachable_failed_stage(paths: QueuePaths, head: str) -> str | None:
+    pending = pending_commits(paths)
+    history = git("rev-list", head, cwd=paths.repo_root).stdout.splitlines()
+    for commit in history:
+        if commit not in pending:
+            continue
+        failed_stage = _last_failed_stage(paths, commit)
+        if failed_stage is not None:
+            return failed_stage
+    return None
 
 
 def status(paths: QueuePaths, *, show_all: bool = False) -> int:
@@ -274,7 +287,7 @@ def status(paths: QueuePaths, *, show_all: bool = False) -> int:
     if _validator_is_active(paths):
         validator_state = "active"
     else:
-        failed_stage = _last_failed_stage(paths, head)
+        failed_stage = _last_reachable_failed_stage(paths, head)
         validator_state = f"failed at {failed_stage}" if failed_stage is not None else "idle"
     print(
         f"validation-queue: {len(reachable)} reachable pending commit(s), "
