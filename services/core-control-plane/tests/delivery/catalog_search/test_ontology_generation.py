@@ -31,6 +31,7 @@ from fdai.shared.providers.catalog_search import (
     CatalogGenerationMetadata,
     CatalogGenerationRollbackReceipt,
     CatalogGenerationStaleError,
+    CatalogGenerationValidationSnapshot,
     CatalogSearchDocument,
     build_document_digest_manifest,
     catalog_generation_digest,
@@ -131,6 +132,35 @@ def test_generation_metadata_rejects_noncanonical_generation_digest() -> None:
         replace(build.metadata, generation_digest="sha256:" + ("f" * 64))
 
 
+def test_validation_snapshot_rejects_lifecycle_and_document_identity_drift() -> None:
+    build = _build()
+    documents = tuple(
+        replace(document, generation_id=build.metadata.generation_id)
+        for document in build.documents
+    )
+
+    with pytest.raises(ValueError, match="requires a staged"):
+        CatalogGenerationValidationSnapshot(
+            metadata=replace(
+                build.metadata,
+                state="active",
+                validation_receipt_digest=DIGEST,
+                activated_at=NOW,
+            ),
+            documents=documents,
+        )
+    with pytest.raises(ValueError, match="document identity mismatch"):
+        CatalogGenerationValidationSnapshot(
+            metadata=build.metadata,
+            documents=(replace(documents[0], generation_id="other-generation"), *documents[1:]),
+        )
+    with pytest.raises(ValueError, match="manifest"):
+        CatalogGenerationValidationSnapshot(
+            metadata=build.metadata,
+            documents=(replace(documents[0], text="tampered"), *documents[1:]),
+        )
+
+
 def test_full_generation_accepts_8500_incremental_projection_rows() -> None:
     records = tuple(
         OntologyObjectRecord(
@@ -172,6 +202,16 @@ async def test_staging_is_invisible_until_atomic_activation_and_search_is_typed(
     staged = await index.stage_generation(build.metadata, build.documents)
     assert staged == len(build.documents)
     assert await index.active_generation() is None
+    snapshot = await index.generation_validation_snapshot(build.metadata.generation_id)
+    assert snapshot is not None
+    assert snapshot.metadata == build.metadata
+    assert tuple(document.rule_id for document in snapshot.documents) == tuple(
+        document.rule_id for document in build.documents
+    )
+    assert all(
+        document.generation_id == build.metadata.generation_id for document in snapshot.documents
+    )
+    assert await index.generation_validation_snapshot("missing-generation") is None
 
     active = await publish_ontology_semantic_generation(
         index=index,

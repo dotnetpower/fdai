@@ -58,6 +58,7 @@ evaluation gates, and failed-query feedback loop.
 | In-memory generation and validation | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | Supports deterministic off-path generation, independent active/discovery pointers, corpus-local rollback, and activation compare-and-swap parity with the durable adapter. |
 | Corpus-scale generation identity | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; focused generation and Rule-catalog tests | Provider-neutral metadata carries count, hierarchical root, bounded ordered chunks, and small-generation inline digests. Generation construction, validation receipts, staging, activation, active lookup, search, rollback, and rollback receipts reject identity drift. |
 | Durable PostgreSQL index | implemented | `delivery/catalog_search/postgres.py`; migrations `0077` and `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | Persists and revalidates exact generation manifests, atomically stages, activates, searches, and rolls back corpus-local generations, and proves lifecycle isolation for all 62 active and 8,487 discovery documents against PostgreSQL. |
+| Independent generation snapshot | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/postgres.py`; focused unit and live PostgreSQL lifecycle checks | Exposes exact staged metadata and canonical ordered rows through a read-only snapshot. Both adapters reject lifecycle, row identity, content hash, order, count, or manifest drift without granting validation, promotion, or execution authority. |
 | Production generation build worker | in-progress | `delivery/catalog_search/rule_generation.py`; `rule_catalog/schema/rule_semantic_generation_events.py`; current repository call-site audit | Pure build and event contracts exist, but no production subscriber invokes the Rule generation builder, stages the candidate generation, or publishes its validation result. |
 | Governed generation activation | implemented | `core/rule_semantic_generation/activation.py`; `core/rule_semantic_generation/ledger.py`; provider and delivery activation contracts; focused activation and live PostgreSQL checks | Activation binds the exact target digest and validation receipt to the expected prior active identity inside the mutation boundary. Completed-command replay returns the durable terminal result before provider access, and the first result and pending outbox record commit atomically. |
 | Durable activation publication and projection | implemented | `core/rule_semantic_generation/publication.py`; `agents/mimir.py`; `agents/_framework/runtime.py`; `runtime/bootstrap.py`; focused publication, Mimir, runtime, and bootstrap checks | A timeout-bounded, lease-fenced publisher drains terminal results independently of semantic-index readiness. Mimir alone consumes activation commands and projects terminal results without gaining index or execution authority. Production composition shares one durable ledger between the binder and publisher. |
@@ -90,6 +91,7 @@ evaluation gates, and failed-query feedback loop.
 | 2026-08-13 | implemented | Added a genuine governed Korean surface and persisted its full passing receipt at its recomputed content address. Promoted-surface loading now resolves and revalidates exact candidate subject, current policy, passing decision, empty failures, and validation-only authority. Search projection v5 uses immutable subject identities, so candidate and promoted forms replay the exact same 62-Rule generation. | `current change`; the semantic retrieval, evaluation, policy, promoted-surface, receipt-catalog, and shipped-catalog focused suite passed 61 tests. Ruff and strict mypy passed the task-owned Python slice. | Record governed live runtime evidence separately before changing this capability to `validated`. |
 | 2026-08-13 | implemented | Corrected the preceding evidence count. Final receipt-catalog hardening added regular-file checks that reject symlink and FIFO artifacts; the capability state is unchanged. | Commit `8571ea53a`; the focused six-module semantic retrieval suite passed 63 tests, including the two special-file cases. | Governed live runtime evidence remains required before changing this capability to `validated`. |
 | 2026-08-13 | in-progress | Re-audited the production live-evidence prerequisites and corrected the ledger to expose the missing generation build worker. Build and event contracts exist, but no production subscriber invokes `build_rule_semantic_generation`. | `current change`; the repository call-site audit found the builder only at its definition and in tests; the focused six-module semantic retrieval suite still passes 63 tests. | Implement the Mimir-owned mechanical build and validation subscriber before collecting governed live runtime evidence. |
+| 2026-08-13 | implemented | Added the read-only staged-generation snapshot required for independent Heimdall validation. In-memory and PostgreSQL adapters reload and verify exact ordered rows against the bounded manifest before returning them. | `current change`; focused unit checks passed 19 tests, the local PostgreSQL lifecycle check passed, Ruff passed, and strict mypy passed the three production modules. | Bind the Mimir builder and Heimdall validator subscribers, then retain governed live evidence. |
 
 ### Remaining work
 
@@ -100,6 +102,9 @@ evaluation gates, and failed-query feedback loop.
   Focused live-database generation, activation, rollback, exact-generation search, and complete
   corpus-isolation checks pass as specified by
   [Build and enrichment lifecycle](#build-and-enrichment-lifecycle).
+- [x] Both semantic-index adapters expose a read-only staged-generation validation snapshot and
+  reject lifecycle, row identity, content hash, order, count, or manifest drift before returning
+  exact rows to an independent validator.
 - [x] Production bootstrap composes the durable adapter and registers optional generation
   readiness. Startup binds only the exact current Rule catalog, semantic schema, ontology release,
   and embedder dimension; stable degradation reasons cover missing, stale, inaccessible, and
@@ -112,9 +117,11 @@ evaluation gates, and failed-query feedback loop.
   Operator projection. `POST /rules/search` reads the strict receipt-backed projection without a
   direct Core call and preserves the [query lifecycle](#query-lifecycle).
 - [ ] Bind a Mimir-owned mechanical subscriber to `RuleGenerationBuildRequestEvent`. It must build
-  and stage one exact inactive generation, publish independent validation evidence through the
-  event bus, and prove duplicate delivery, restart, provider-failure, and stale-identity handling
-  without granting promotion or execution authority.
+  and stage one exact inactive generation, then publish its bounded build result through the event
+  bus. Bind Heimdall as the independent validator: it reads an immutable validation snapshot from
+  the staged generation, recomputes every identity, and publishes validation-only evidence. Prove
+  duplicate delivery, restart, provider-failure, and stale-identity handling without granting
+  promotion or execution authority.
 - [ ] Record governed live evidence for the production binding and Reader-scoped projection before
   changing this capability from `implemented` to `validated`; retain the identities defined by
   [CatalogRetrievalReceipt](#catalogretrievalreceipt).
@@ -285,6 +292,20 @@ source revision
 Model enrichment runs off the request and API startup paths. Source text is untrusted data and is
 never treated as model instructions. Unknown concept ids produce an inert ontology proposal rather
 than extending the ontology automatically.
+
+### Independent generation validation
+
+The builder and validator do not share an in-memory `SemanticGenerationBuild`. After the
+Mimir-owned mechanical builder stages an inactive generation, it publishes only the bounded
+`RuleGenerationBuildResultEvent`. Heimdall loads that exact generation through a read-only
+`CatalogGenerationValidationSnapshot` containing metadata and canonical ordered rows. Both the
+in-memory and PostgreSQL adapters revalidate row count, content hashes, order, and the hierarchical
+manifest before returning the snapshot.
+
+Heimdall recomputes the generation identity from the snapshot and publishes validation-only
+evidence. It cannot attach the receipt, activate a pointer, promote a surface, or grant execution
+authority. Mimir may bind the exact receipt and issue an activation command only after receiving
+that independently produced evidence through the event bus.
 
 ### Licensing boundary
 
