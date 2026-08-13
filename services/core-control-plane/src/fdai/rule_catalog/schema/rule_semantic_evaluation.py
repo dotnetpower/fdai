@@ -90,7 +90,11 @@ async def evaluate_semantic_surface(
     policy: RetrievalEvaluationPolicy,
     evaluator_ref: str,
 ) -> SurfaceValidationReceipt:
-    """Evaluate held-out cohorts and return validation-only evidence."""
+    """Evaluate held-out cohorts and return fail-closed validation-only evidence.
+
+    Retrieval failures produce a HOLD receipt. Failed positive cases count as misses,
+    while failed no-match cases never receive precision credit.
+    """
 
     if not cases:
         raise ValueError("semantic surface evaluation cases MUST be non-empty")
@@ -107,8 +111,18 @@ async def evaluate_semantic_surface(
         raise ValueError("evaluation dataset MUST include positive and explicit no-match cases")
 
     observed: dict[str, list[tuple[float, float, float | None]]] = defaultdict(list)
+    retrieval_success: dict[str, list[float]] = defaultdict(list)
+    retrieval_failures: set[str] = set()
     for case in cases:
-        results = tuple(await retriever.search(case.query, k=policy.top_k))[: policy.top_k]
+        try:
+            results = tuple(await retriever.search(case.query, k=policy.top_k))[: policy.top_k]
+        except Exception:
+            retrieval_success[case.cohort].append(0.0)
+            retrieval_failures.add(f"{case.cohort}-retrieval-error")
+            if case.expected_rule_refs:
+                observed[case.cohort].append((0.0, 0.0, None))
+            continue
+        retrieval_success[case.cohort].append(1.0)
         if case.expected_rule_refs:
             expected = set(case.expected_rule_refs)
             recall = len(expected.intersection(results)) / len(expected)
@@ -125,11 +139,21 @@ async def evaluate_semantic_surface(
             observed[case.cohort].append((0.0, 0.0, 1.0 if not results else 0.0))
 
     metrics: list[CohortMetric] = []
-    failures: list[str] = []
-    for cohort in sorted(observed):
+    failures = list(retrieval_failures)
+    for cohort in sorted(retrieval_success):
         rows = observed[cohort]
         positives = tuple(row for row in rows if row[2] is None)
         negative_scores = tuple(row[2] for row in rows if row[2] is not None)
+        success_scores = retrieval_success[cohort]
+        if any(score < 1.0 for score in success_scores):
+            metrics.append(
+                CohortMetric(
+                    cohort,
+                    "retrieval-success-rate",
+                    sum(success_scores) / len(success_scores),
+                    len(success_scores),
+                )
+            )
         if positives:
             recall = sum(row[0] for row in positives) / len(positives)
             reciprocal_rank = sum(row[1] for row in positives) / len(positives)
