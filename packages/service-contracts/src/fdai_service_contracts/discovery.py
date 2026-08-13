@@ -98,6 +98,7 @@ class DiscoveryCoverageStatus(StrEnum):
     UNSUPPORTED = "unsupported"
     UNAVAILABLE = "unavailable"
     UNAUTHORIZED = "unauthorized"
+    UNMAPPED = "unmapped"
 
 
 class DiscoveryPredicate(QueryContract):

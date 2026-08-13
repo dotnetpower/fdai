@@ -62,6 +62,7 @@ flowchart LR
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted this implementation ledger and corrected the previous baseline summary; earlier provenance was not reconstructed. | Current change; focused checks: catalog registries `38 passed`, Azure adapters `116 passed`, system tools `19 passed`, and Console parser `2 passed`. | Implement the open contracts, receipt producer, routing, explanation, coverage, and governed runtime evidence below. |
 | 2026-08-14 | in-progress | Added immutable discovery contracts and Azure profiles, preserved unmapped provider observations, implemented exact-equivalent routing and canonical merge, and generated sanitized execution and command-explanation evidence with live-only coverage reconciliation. | `current change`; focused discovery tests `34 passed`, Console parser `6 passed`, task-scoped Ruff, strict mypy over eight production files, and Console typecheck passed. | Retain fresh governed read-only canary receipts for the claimed resource-container and ARM-resource universes. |
+| 2026-08-14 | in-progress | Added the documented `unmapped` coverage state and rejected environment assignments in server and Console command evidence. | `current change`; focused discovery tests `36 passed`, Console parser `7 passed`, task-scoped Ruff, strict contract mypy, and Console typecheck passed. | Retain fresh governed read-only canary receipts for the claimed resource-container and ARM-resource universes. |
 
 ### Remaining work
 

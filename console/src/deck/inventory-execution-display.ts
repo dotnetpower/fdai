@@ -26,6 +26,7 @@ export interface InventoryExecutionDisplay {
 const SENSITIVE_PROVIDER_TEXT = /((?:^|\s)\/subscriptions\/|access[_-]?token|authorization:|bearer\s|client[_-]?secret|password|\$skiptoken|continuation[_-]?token|provider[_-]?error)/i;
 const SHELL_CONTROL = /[`$;&|]|\$\(/;
 const GUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i;
+const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 
 export function inventoryExecutionDisplay(raw: string): InventoryExecutionDisplay | undefined {
   let value: unknown;
@@ -70,7 +71,8 @@ function parseProviderExecution(value: unknown): InventoryProviderExecution | un
       candidate.command.includes("\n") ||
       SENSITIVE_PROVIDER_TEXT.test(candidate.command) ||
       SHELL_CONTROL.test(candidate.command) ||
-      GUID.test(candidate.command)
+      GUID.test(candidate.command) ||
+      ENV_ASSIGNMENT.test(candidate.command)
     ) return undefined;
     const result = candidate.result === undefined
       ? undefined

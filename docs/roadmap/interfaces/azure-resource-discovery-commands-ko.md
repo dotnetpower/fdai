@@ -1,6 +1,6 @@
 ---
 translation_of: azure-resource-discovery-commands.md
-translation_source_sha: 35ed366e9f98e90dc8aeda0d4f9709bd18d7b0f2
+translation_source_sha: 53dc475f35c14373a0feea5c7efc8d0b3d79884c
 translation_revised: 2026-08-14
 ---
 
@@ -63,6 +63,7 @@ flowchart LR
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이 구현 원장을 도입하고 이전 기준선 요약을 바로잡았습니다. 이전 이력은 재구성하지 않았습니다. | 현재 변경. 집중 검사 결과는 카탈로그 레지스트리 `38 passed`, Azure 어댑터 `116 passed`, 시스템 도구 `19 passed`, Console 파서 `2 passed`입니다. | 아래의 미완료 계약, 증적 생성기, 라우팅, 설명, 커버리지 및 통제된 런타임 근거를 구현합니다. |
 | 2026-08-14 | in-progress | 불변 검색 계약과 Azure 프로파일을 추가하고 미매핑 프로바이더 관찰을 보존했으며, 정확히 동등한 라우팅과 정본 병합 및 정제된 실행/명령 설명 증적과 실제 운영 증적 전용 커버리지 조정을 구현했습니다. | `current change`; 집중 검색 테스트 `34 passed`, Console 파서 `6 passed`, 작업 범위 Ruff, 운영 파일 8개의 strict mypy 및 Console typecheck가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
+| 2026-08-14 | in-progress | 문서화된 `unmapped` 커버리지 상태를 추가하고 서버 및 Console 명령 근거의 환경 할당을 거부했습니다. | `current change`; 집중 검색 테스트 `36 passed`, Console 파서 `7 passed`, 작업 범위 Ruff, strict 계약 mypy 및 Console typecheck가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
 
 ### 남은 작업
 
