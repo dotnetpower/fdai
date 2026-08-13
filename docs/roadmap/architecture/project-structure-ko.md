@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 0db8b7090f611835bc3c9ad3a747c226525df451
+translation_source_sha: 87a6f320844a7ce4333c02084bc2f1f4a76f9067
 translation_revised: 2026-08-13
 ---
 
@@ -651,6 +651,10 @@ flowchart LR
   `package = false`인 virtual workspace입니다. 런타임 서비스와 shared 계약 SDK는 각각
   분포 매니페스트를 소유하지만 의존성 해석은 workspace 전체에서 수행합니다.
 - 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있습니다.
+  `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
+  새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. `operator-core-request`는
+  `1.3.0`이며, `1.2.0` 대비 유일한 추가는 실행 권한을 부여하지 않고 해석된 대화 바인딩을
+  전달하는 서버 소유 `semantic_turn.bound_context`입니다.
   Core 전용 이벤트, 액션, 룰 및 온톨로지 타입은
   `services/core-control-plane/src/fdai/shared/contracts/`에 남고 카탈로그 스키마는 `rule-catalog/schema/` (종류별
   JSON 스키마)에 있으며 **semver** 버전을 갖고, 메이저 안에서는 하위 호환되는

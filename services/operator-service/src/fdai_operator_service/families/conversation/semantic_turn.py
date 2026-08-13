@@ -13,6 +13,7 @@ from fdai_service_contracts import (
     JsonSchemaContractValidator,
     OperatorRole,
     PackageResourceSchemaRegistry,
+    SemanticBoundContext,
     SemanticPriorTurn,
     SemanticTurnPrincipal,
     SemanticTurnRequest,
@@ -54,11 +55,12 @@ class SemanticTurnEnvelopeBuilder:
             purpose=_optional_text(proposal.body, "purpose", default="operations-review"),
             deadline_at=_deadline(proposal.body, requested_at),
             view_context_digest=_optional_digest(proposal.body.get("view_context")),
+            bound_context=_bound_context(proposal.body.get("conversation_context")),
             prior_turns=_prior_turns(proposal.body.get("history")),
             cancelled=proposal.cancellation,
         )
         envelope: dict[str, object] = {
-            "schema_version": "1.2.0",
+            "schema_version": "1.3.0",
             "request_id": request_id,
             "correlation_id": f"semantic-turn:{request_id}",
             "idempotency_key": proposal.idempotency_key,
@@ -67,7 +69,7 @@ class SemanticTurnEnvelopeBuilder:
             "requested_at": requested_at.isoformat(),
             "semantic_turn": semantic_turn.model_dump(mode="json", exclude_none=True),
         }
-        self._validator.validate("operator-core-request", envelope, version="1.2.0")
+        self._validator.validate("operator-core-request", envelope, version="1.3.0")
         return envelope
 
 
@@ -137,6 +139,28 @@ def _prior_turns(value: object) -> tuple[SemanticPriorTurn, ...]:
             raise ValueError("history items MUST be objects")
         turns.append(SemanticPriorTurn.model_validate(item))
     return tuple(turns)
+
+
+def _bound_context(value: object) -> SemanticBoundContext | None:
+    """Accept only the bindings this Operator surface resolves; ignore the rest."""
+
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("conversation_context MUST be an object")
+    if value.get("kind") != "incident":
+        return None
+    incident_id = value.get("incident_id")
+    correlation_id = value.get("correlation_id")
+    if incident_id is None and correlation_id is None:
+        return None
+    return SemanticBoundContext(
+        kind="incident",
+        incident_id=incident_id if isinstance(incident_id, str) and incident_id else None,
+        correlation_id=(
+            correlation_id if isinstance(correlation_id, str) and correlation_id else None
+        ),
+    )
 
 
 def _required_text(body: Mapping[str, object], key: str) -> str:

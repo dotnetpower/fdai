@@ -32,7 +32,7 @@ from fdai_service_contracts.ontology_query import TaskStatus, content_digest
 
 from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V12,
-    OPERATOR_REQUEST_CONSUMER_V12,
+    OPERATOR_REQUEST_CONSUMER_V13,
 )
 
 _PROJECTION_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
@@ -475,7 +475,7 @@ def _decode_request(
     payload: Mapping[str, Any],
 ) -> tuple[dict[str, Any], SemanticTurnRequest, datetime]:
     try:
-        envelope = OPERATOR_REQUEST_CONSUMER_V12.decode_mapping(payload)
+        envelope = OPERATOR_REQUEST_CONSUMER_V13.decode_mapping(payload)
         if envelope.get("request_kind") != "semantic_query":
             raise SemanticTurnRejectedError("semantic_request_kind_required")
         semantic_turn = envelope.get("semantic_turn")
@@ -510,7 +510,7 @@ def _prior_turns(
     *,
     requested_at: datetime,
 ) -> tuple[Turn, ...]:
-    return tuple(
+    turns = [
         Turn(
             turn_id=f"{request.turn_id}:prior:{index}",
             direction="inbound" if item.role == "user" else "outbound",
@@ -518,6 +518,32 @@ def _prior_turns(
             timestamp=requested_at,
         )
         for index, item in enumerate(request.prior_turns)
+    ]
+    anchor = _bound_context_turn(request, requested_at=requested_at)
+    if anchor is not None:
+        # Kept last so the planner's bounded context window never drops the binding.
+        turns.append(anchor)
+    return tuple(turns)
+
+
+def _bound_context_turn(
+    request: SemanticTurnRequest,
+    *,
+    requested_at: datetime,
+) -> Turn | None:
+    binding = request.bound_context
+    if binding is None:
+        return None
+    fields = [f"kind={binding.kind}"]
+    if binding.incident_id is not None:
+        fields.append(f"incident_id={binding.incident_id}")
+    if binding.correlation_id is not None:
+        fields.append(f"correlation_id={binding.correlation_id}")
+    return Turn(
+        turn_id=f"{request.turn_id}:bound-context",
+        direction="system",
+        content="Bound conversation context: " + ", ".join(fields),
+        timestamp=requested_at,
     )
 
 

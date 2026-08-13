@@ -152,31 +152,35 @@ def _request(
     cancelled: bool = False,
     idempotency_key: str = "semantic-turn-1",
     prior_turns: list[dict[str, str]] | None = None,
+    bound_context: dict[str, str] | None = None,
 ) -> dict[str, object]:
+    semantic_turn: dict[str, object] = {
+        "utterance": "Show current operations evidence.",
+        "principal": {
+            "subject_id": "operator-1",
+            "roles": roles or ["Reader"],
+        },
+        "session_id": "session-1",
+        "turn_id": "turn-1",
+        "turn_sequence": 3,
+        "locale": "en",
+        "purpose": purpose,
+        "deadline_at": (deadline_at or NOW + timedelta(seconds=30)).isoformat(),
+        "prior_turns": prior_turns or [],
+        "cancelled": cancelled,
+        "execution_authority": False,
+    }
+    if bound_context is not None:
+        semantic_turn["bound_context"] = bound_context
     return {
-        "schema_version": "1.2.0",
+        "schema_version": "1.3.0" if bound_context is not None else "1.2.0",
         "request_id": "00000000-0000-0000-0000-000000000101",
         "correlation_id": "semantic-correlation-1",
         "idempotency_key": idempotency_key,
         "resource_ref": "operator-conversation:example",
         "request_kind": "semantic_query",
         "requested_at": NOW.isoformat(),
-        "semantic_turn": {
-            "utterance": "Show current operations evidence.",
-            "principal": {
-                "subject_id": "operator-1",
-                "roles": roles or ["Reader"],
-            },
-            "session_id": "session-1",
-            "turn_id": "turn-1",
-            "turn_sequence": 3,
-            "locale": "en",
-            "purpose": purpose,
-            "deadline_at": (deadline_at or NOW + timedelta(seconds=30)).isoformat(),
-            "prior_turns": prior_turns or [],
-            "cancelled": cancelled,
-            "execution_authority": False,
-        },
+        "semantic_turn": semantic_turn,
     }
 
 
@@ -465,6 +469,39 @@ async def test_prior_turns_map_to_existing_turn_without_content_rewrite() -> Non
         "turn-1:prior:1",
     ]
     assert all(turn.timestamp == NOW for turn in runtime.prior_turns)
+
+
+async def test_bound_incident_context_reaches_runtime_as_last_system_turn() -> None:
+    runtime = _Runtime()
+
+    await _processor(runtime).process(
+        _request(
+            prior_turns=[{"role": "user", "content": "Earlier question"}],
+            bound_context={
+                "kind": "incident",
+                "incident_id": "incident-42",
+                "correlation_id": "correlation-7",
+            },
+        )
+    )
+
+    anchor = runtime.prior_turns[-1]
+    assert anchor.direction == "system"
+    assert anchor.turn_id == "turn-1:bound-context"
+    assert anchor.content == (
+        "Bound conversation context: kind=incident, "
+        "incident_id=incident-42, correlation_id=correlation-7"
+    )
+
+
+async def test_absent_bound_context_adds_no_anchor_turn() -> None:
+    runtime = _Runtime()
+
+    await _processor(runtime).process(
+        _request(prior_turns=[{"role": "user", "content": "Earlier question"}])
+    )
+
+    assert [turn.direction for turn in runtime.prior_turns] == ["inbound"]
 
 
 async def test_clarification_projection_preserves_specific_question() -> None:

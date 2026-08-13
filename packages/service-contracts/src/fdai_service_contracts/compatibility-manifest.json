@@ -75,12 +75,12 @@
       "compatibility_policy": "additive-ignore-unknown",
       "producer_schemas": {
         "N-1": {"version": "1.0.0", "path": "schemas/operator-core-request/1.0.0.json"},
-        "N": {"version": "1.2.0", "path": "schemas/operator-core-request/1.2.0.json"}
+        "N": {"version": "1.3.0", "path": "schemas/operator-core-request/1.3.0.json"}
       },
-      "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0", "1.1.0", "1.2.0"]},
+      "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0", "1.1.0", "1.2.0", "1.3.0"]},
       "translators": {"N->N-1": "fdai_service_contracts.translators:operator_core_request_1_2_to_1_0"},
-      "producer_codecs": {"N-1": "fdai_operator_service.contract_codecs:CORE_REQUEST_PRODUCER_V1", "N": "fdai_operator_service.contract_codecs:CORE_REQUEST_PRODUCER_V12"},
-      "consumer_codecs": {"N-1": "fdai_core_service.contract_codecs:OPERATOR_REQUEST_CONSUMER_V1", "N": "fdai_core_service.contract_codecs:OPERATOR_REQUEST_CONSUMER_V12"},
+      "producer_codecs": {"N-1": "fdai_operator_service.contract_codecs:CORE_REQUEST_PRODUCER_V1", "N": "fdai_operator_service.contract_codecs:CORE_REQUEST_PRODUCER_V13"},
+      "consumer_codecs": {"N-1": "fdai_core_service.contract_codecs:OPERATOR_REQUEST_CONSUMER_V1", "N": "fdai_core_service.contract_codecs:OPERATOR_REQUEST_CONSUMER_V13"},
       "delivery": {
         "guarantee": "at-least-once",
         "partition_key_field": "resource_ref",
