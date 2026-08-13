@@ -36,6 +36,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger(__name__)
 _AIOKAFKA_CONNECTION_LOGGER = logging.getLogger("aiokafka.conn")
+_CONSUMER_STOP_TIMEOUT_SECONDS: Final[float] = 5.0
 
 
 def _default_ssl_context() -> ssl.SSLContext:
@@ -426,12 +427,23 @@ def _transport_options(
 
 
 async def _stop_consumer(consumer: AIOKafkaConsumer) -> None:
-    """Cancel fetch I/O before aiokafka closes the Event Hubs socket."""
+    """Cancel fetch I/O and bound the broker-dependent group leave."""
     fetcher = getattr(consumer, "_fetcher", None)
     close_fetcher = getattr(fetcher, "close", None)
     if callable(close_fetcher):
         await close_fetcher()
-    await consumer.stop()
+    try:
+        async with asyncio.timeout(_CONSUMER_STOP_TIMEOUT_SECONDS):
+            await consumer.stop()
+    except TimeoutError:
+        _LOGGER.warning(
+            "event_bus_consumer_stop_timed_out",
+            extra={"timeout_seconds": _CONSUMER_STOP_TIMEOUT_SECONDS},
+        )
+        client = getattr(consumer, "_client", None)
+        close_client = getattr(client, "close", None)
+        if callable(close_client):
+            await close_client()
 
 
 def _token_refresh_delay(
