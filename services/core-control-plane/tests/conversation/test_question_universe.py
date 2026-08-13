@@ -5,8 +5,11 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pytest
-from fdai.core.conversation.question_universe import (
+from fdai.core.conversation import (
+    GeneratedQuestionCase,
+    GeneratedQuestionUniverse,
     QuestionCaseClass,
+    QuestionCaseExclusion,
     QuestionExclusionReason,
     QuestionUniverseGrammar,
     generate_question_universe,
@@ -23,6 +26,12 @@ from fdai.shared.contracts.models import (
 from fdai.shared.ontology.release import build_ontology_release
 
 SCOPE_DIGEST = "sha256:" + "f" * 64
+
+
+def test_question_universe_contract_is_exported_from_conversation_package() -> None:
+    assert GeneratedQuestionCase.__module__.endswith("question_universe")
+    assert GeneratedQuestionUniverse.__module__.endswith("question_universe")
+    assert QuestionCaseExclusion.__module__.endswith("question_universe")
 
 
 def _object(name: str) -> OntologyObjectType:
