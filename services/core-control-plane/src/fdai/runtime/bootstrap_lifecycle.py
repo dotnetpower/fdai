@@ -9,6 +9,7 @@ import os
 import signal
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import IO, Any
@@ -30,14 +31,149 @@ from fdai.core.readiness import (
     StartupProbeResult,
     StartupProbeSpec,
 )
+from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel
+from fdai.delivery.catalog_search.postgres import (
+    PostgresCatalogSemanticIndex,
+    PostgresCatalogSemanticIndexConfig,
+)
 from fdai.delivery.reconciliation_runtime import EffectReconciliationWorker
+from fdai.rule_catalog.schema.catalog_search import (
+    catalog_search_schema_digest,
+    rule_reference_catalog_digest,
+)
 from fdai.runtime.health import RuntimeHealthServer
 from fdai.runtime.readiness import StartupReadinessRuntime
+from fdai.shared.contracts.models import OntologyRelease, Rule
+from fdai.shared.providers.catalog_search import (
+    CatalogGenerationMetadata,
+    CatalogSemanticIndex,
+)
 from fdai.shared.providers.startup_probe import StartupProbeRequest
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
 _SEMANTIC_TURN_READINESS_PROBE_ID = "semantic-turn.runtime"
+_CATALOG_SEMANTIC_READINESS_PROBE_ID = "catalog-semantic.runtime"
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogSemanticRuntimeBinding:
+    """Exact active-generation binding for candidate-only Rule retrieval."""
+
+    index: CatalogSemanticIndex | None
+    catalog_digest: str | None
+    generation: CatalogGenerationMetadata | None
+    unavailable_reason: str | None
+
+    @property
+    def available(self) -> bool:
+        return (
+            self.index is not None
+            and self.catalog_digest is not None
+            and self.generation is not None
+            and self.unavailable_reason is None
+        )
+
+
+class CatalogSemanticReadinessProbe:
+    """Project optional Rule semantic retrieval availability into readiness."""
+
+    probe_id = _CATALOG_SEMANTIC_READINESS_PROBE_ID
+
+    def __init__(self, binding: CatalogSemanticRuntimeBinding) -> None:
+        self._binding = binding
+
+    async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
+        observed_at = datetime.now(UTC)
+        expires_at = max(request.deadline, observed_at + timedelta(seconds=1))
+        return StartupProbeResult(
+            probe_id=self.probe_id,
+            status=ProbeStatus.PASSED if self._binding.available else ProbeStatus.FAILED,
+            observed_at=observed_at,
+            expires_at=expires_at,
+            latency_ms=0,
+            failure_class=(
+                None
+                if self._binding.available
+                else self._binding.unavailable_reason or "catalog_semantic_generation_unavailable"
+            ),
+            evidence={"runtime_bound": self._binding.available},
+        )
+
+
+async def build_catalog_semantic_runtime_binding(
+    *,
+    config: Mapping[str, str],
+    embedder: EmbeddingModel,
+    rules: Sequence[Rule],
+    ontology_release: OntologyRelease | None,
+) -> CatalogSemanticRuntimeBinding:
+    """Bind only an active generation matching every current runtime identity."""
+
+    dsn = config.get("FDAI_STATE_STORE_DSN", "").strip()
+    if not dsn:
+        return _catalog_semantic_unavailable("catalog_semantic_state_store_unavailable")
+    if ontology_release is None:
+        return _catalog_semantic_unavailable("catalog_semantic_ontology_unavailable")
+
+    index = PostgresCatalogSemanticIndex(
+        config=PostgresCatalogSemanticIndexConfig(
+            dsn=dsn,
+            embedding_dimension=embedder.dim,
+        ),
+        embedder=embedder,
+    )
+    try:
+        generation = await index.active_generation("active")
+    except Exception:  # noqa: BLE001 - optional provider details stay outside readiness
+        return _catalog_semantic_unavailable("catalog_semantic_generation_inaccessible")
+    if generation is None:
+        return _catalog_semantic_unavailable("catalog_semantic_generation_unavailable")
+
+    catalog_digest = rule_reference_catalog_digest(rules)
+    if (
+        generation.corpus != "active"
+        or generation.state != "active"
+        or generation.catalog_digest != catalog_digest
+        or generation.semantic_schema_digest != catalog_search_schema_digest()
+        or generation.ontology_release_digest != ontology_release.digest
+        or generation.embedding_dimension != embedder.dim
+    ):
+        return _catalog_semantic_unavailable("catalog_semantic_generation_stale")
+    return CatalogSemanticRuntimeBinding(
+        index=index,
+        catalog_digest=catalog_digest,
+        generation=generation,
+        unavailable_reason=None,
+    )
+
+
+def catalog_semantic_readiness_registration(
+    binding: CatalogSemanticRuntimeBinding,
+) -> tuple[tuple[StartupProbeSpec, ...], tuple[CatalogSemanticReadinessProbe, ...]]:
+    """Register Rule semantic retrieval as an optional degraded capability."""
+
+    return (
+        (
+            StartupProbeSpec(
+                probe_id=_CATALOG_SEMANTIC_READINESS_PROBE_ID,
+                capability="catalog-semantic-retrieval",
+                phase=StartupPhase.CAPABILITY_WARMUP,
+                criticality=ProbeCriticality.OPTIONAL,
+                failure_ceiling=AuthorityCeiling.DISABLED,
+            ),
+        ),
+        (CatalogSemanticReadinessProbe(binding),),
+    )
+
+
+def _catalog_semantic_unavailable(reason: str) -> CatalogSemanticRuntimeBinding:
+    return CatalogSemanticRuntimeBinding(
+        index=None,
+        catalog_digest=None,
+        generation=None,
+        unavailable_reason=reason,
+    )
 
 
 class SemanticTurnReadinessProbe:
