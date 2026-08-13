@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 27fc4abaccd7976af3ebfb03f4fcef9be777090f
-translation_revised: 2026-08-13
+translation_source_sha: 3057e24c67df4360b281a6490d1a6762fca0655a
+translation_revised: 2026-08-14
 ---
 
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -56,6 +56,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | implemented | 일반 Live가 이후 이벤트만 전달하는 성질을 유지하면서 새 Agent SSE 구독자에게 경쟁 조건 없이 프로세스 내부 최신 상태를 제공하도록 했습니다. | 현재 변경의 Operator 스트림 hub, composition 및 focused 회귀 검사, 스트림 테스트 9개와 변경한 모든 Python 파일의 Ruff 검사 통과. | 인증된 브라우저 세션에서 Agent fleet이 즉시 초기화되는지 검증합니다. |
 | 2026-08-13 | validated | 변경한 코드로 Operator를 다시 시작한 후 기존의 인증된 Browser Entra 세션을 통해 Agent fleet이 즉시 초기화되는지 검증했습니다. | `/agents` 새로 고침 3회가 각각 224ms, 232ms, 228ms 안에 `Watching 2 / Idle 13 / Unobserved 0`에 도달해 15초 런타임 heartbeat 간격보다 충분히 짧았습니다. | Agent 새로 고침 최신 상태 초기화에 남은 구현 작업은 없습니다. |
 | 2026-08-13 | implemented | 고정된 160000토큰 Copilot 에이전트 이력 압축 임계값을 선택한 모델의 맥락 창 80%로 바꿨습니다. | 현재 변경의 `.vscode/settings.json`과 `tests/integration/scripts/test_vscode_workspace_performance.py`, VS Code JSON 진단 통과 및 집중 압축 계약 테스트 1개 통과. | 비율 기반 Copilot 대화 압축에 남은 구현 작업은 없습니다. |
+| 2026-08-14 | implemented | 자동 full-stack 작업을 반복 요청해도 VS Code 작업 인스턴스 선택창을 열지 않고 실행 중인 각 단일 인스턴스를 유지하도록 했습니다. | 현재 변경의 `.vscode/tasks.json`과 `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 자동 시작 계약 테스트 1개 통과. | 클릭 없는 중복 시작 요청에 남은 구현 작업은 없습니다. |
 
 ### 잔여 작업
 
@@ -150,8 +151,11 @@ Console SPA를 병렬로 시작합니다. 준비 작업은 port `5432`의 런타
 문제, 관측된 인벤토리, 준비 상태 또는 실행 권한을 만들지 않습니다. 프로바이더를 사용할 수 없거나
 권한이 없으면 고정본 데이터로 대체하지 않고 인벤토리를 명시적으로 사용할 수 없는 상태로 유지합니다.
 자동 시작에는 신뢰된 workspace와 커밋된 `task.allowAutomaticTasks` 정책이 계속 필요하며 브라우저
-Entra 인증이나 서비스 권한을 약화하지 않습니다. 집계 작업 밖에서 개별 서비스 작업 또는 standalone
-debug launch를 시작할 때는 `console: prepare full stack`을 먼저 실행합니다.
+Entra 인증이나 서비스 권한을 약화하지 않습니다. 각 장기 실행 시작 작업은
+`instancePolicy: silent`를 사용합니다. 작업 재연결 또는 다른 자동 시작 요청이 기존 인스턴스를
+찾으면 VS Code는 해당 인스턴스를 유지하고 중복 요청을 무시하므로 작업 인스턴스 선택창을 열지
+않습니다. 집계 작업 밖에서 개별 서비스 작업 또는 standalone debug launch를 시작할 때는
+`console: prepare full stack`을 먼저 실행합니다.
 Git에서 제외된 로컬 런타임 환경은 검증 cluster를 `FDAI_VALIDATION_DATABASE_URL`로
 기록합니다. Detached 중앙 검증 queue는 선택된 통합 테스트에 이 값만
 `FDAI_DATABASE_URL`로 매핑합니다. 파괴적인 migration 테스트에는 활성 런타임 DSN을 전달하지
