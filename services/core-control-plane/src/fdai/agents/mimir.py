@@ -31,6 +31,16 @@ from fdai.core.operational_learning import (
     CatalogReviewPublicationReceipt,
     CatalogReviewPublisher,
 )
+from fdai.core.rule_semantic_generation import (
+    RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
+    RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+    RuleGenerationActivationBinder,
+)
+from fdai.rule_catalog.schema.rule_semantic_generation_events import (
+    RuleGenerationActivationCommandEvent,
+    RuleGenerationActivationResultEvent,
+)
+from fdai.shared.providers.state_store import StateStore
 
 #: Cap on retained rejected-candidate records. Quarantine holds candidates the
 #: CandidateGuard REJECTED - i.e. attacker-controlled volume under a
@@ -41,6 +51,7 @@ _MAX_QUARANTINE = 5_000
 _MAX_PENDING_CANDIDATES = 5_000
 _MAX_CATALOG_REVIEW_PACKAGES = 5_000
 _OPERATIONAL_RULE_PREFIX = "learned.operational."
+_RULE_GENERATION_RECEIPT_PREFIX = "mimir:rule-generation-activation-result:"
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,11 +96,73 @@ class Mimir(Agent):
             tuple[str, str, CatalogReviewPublicationReceipt],
         ] = BoundedLruDict(max_review_packages)
         self._published_operational_targets: BoundedLruSet[str] = BoundedLruSet(max_review_packages)
+        self._rule_generation_activation_binder: RuleGenerationActivationBinder | None = None
+        self._rule_generation_state_store: StateStore | None = None
+
+    def bind_rule_generation_activation_binder(
+        self,
+        binder: RuleGenerationActivationBinder,
+    ) -> None:
+        """Bind exact catalog-pointer activation at composition time."""
+
+        if self._rule_generation_activation_binder is not None:
+            raise RuntimeError("Mimir Rule generation activation binder is already bound")
+        self._rule_generation_activation_binder = binder
+
+    def bind_rule_generation_state_store(self, store: StateStore) -> None:
+        """Bind the durable accountability projection at composition time."""
+
+        if self._rule_generation_state_store is not None:
+            raise RuntimeError("Mimir Rule generation receipt store is already bound")
+        self._rule_generation_state_store = store
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.rule-candidate":
             async with self._review_lock:
                 await self._handle_rule_candidate(payload)
+        elif topic == RULE_GENERATION_ACTIVATION_COMMAND_TOPIC:
+            command = RuleGenerationActivationCommandEvent.model_validate(payload)
+            binder = self._rule_generation_activation_binder
+            if binder is None:
+                raise RuntimeError("Mimir Rule generation activation binder is unavailable")
+            await binder.handle(command)
+        elif topic == RULE_GENERATION_ACTIVATION_RESULT_TOPIC:
+            await self._record_rule_generation_activation_result(payload)
+
+    async def _record_rule_generation_activation_result(self, payload: dict[str, Any]) -> None:
+        result = RuleGenerationActivationResultEvent.model_validate(payload)
+        store = self._rule_generation_state_store
+        if store is None:
+            raise RuntimeError("Mimir Rule generation receipt store is unavailable")
+        receipt_key = f"{_RULE_GENERATION_RECEIPT_PREFIX}{result.idempotency_key}"
+        receipt = {
+            "kind": "rule_semantic_generation_activation_result",
+            "idempotency_key": result.idempotency_key,
+            "result_digest": result.result_digest,
+            "status": result.status.value,
+            "generation_id": (
+                result.command.validation_result.build_result.generation.generation_id
+            ),
+            "completed_at": result.completed_at.isoformat(),
+            "projection_only": True,
+            "grants_execution_authority": False,
+        }
+        created = await store.write_state_with_audit_if_absent(
+            receipt_key,
+            receipt,
+            {
+                **receipt,
+                "principal": "Mimir",
+                "topic": RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+            },
+        )
+        if created:
+            self.record_behavior("rule_generation_activation_result_recorded")
+            return
+        existing = await store.read_state(receipt_key)
+        if existing is None or existing.get("result_digest") != result.result_digest:
+            raise ValueError("Rule generation activation result idempotency conflict")
+        self.record_behavior("rule_generation_activation_result_duplicate")
 
     async def _handle_rule_candidate(self, payload: dict[str, Any]) -> None:
         if payload.get("source_signal") == "operational_case_fingerprint_cohort":

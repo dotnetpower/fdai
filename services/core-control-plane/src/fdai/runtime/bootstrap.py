@@ -45,6 +45,10 @@ from fdai.core.readiness import (
     AuthorityCeiling,
 )
 from fdai.core.readiness.coordinator import _TRANSITION_TOPIC
+from fdai.core.rule_semantic_generation import (
+    RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
+    RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+)
 from fdai.delivery.agent_activity import (
     DEFAULT_STAGE_TOPIC,
     AgentRuntimeStatePublisher,
@@ -58,9 +62,12 @@ from fdai.delivery.persistence import (
     StateStoreSemanticFeedbackCandidateStore,
 )
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
-from fdai.runtime.bootstrap_bindings import RECONCILIATION_TOPICS
+from fdai.runtime.bootstrap_bindings import RECONCILIATION_TOPICS, RuleGenerationRuntimeBinding
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_worker as _build_effect_reconciliation_worker,
+)
+from fdai.runtime.bootstrap_bindings import (
+    build_rule_generation_runtime_binding as _build_rule_generation_runtime_binding,
 )
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
@@ -93,10 +100,16 @@ from fdai.runtime.bootstrap_lifecycle import (
     install_shutdown_signals as _install_shutdown_signals,
 )
 from fdai.runtime.bootstrap_lifecycle import (
+    log_rule_generation_outbox_exit as _log_rule_generation_outbox_exit,
+)
+from fdai.runtime.bootstrap_lifecycle import (
     run_effect_reconciliation as _run_effect_reconciliation,
 )
 from fdai.runtime.bootstrap_lifecycle import (
     run_main as _run_main,
+)
+from fdai.runtime.bootstrap_lifecycle import (
+    run_rule_generation_outbox_publisher as _run_rule_generation_outbox_publisher,
 )
 from fdai.runtime.bootstrap_lifecycle import (
     runtime_positive_integer as _runtime_positive_integer,
@@ -179,6 +192,12 @@ _RUNTIME_LOGICAL_TOPICS = (
     | AGENT_INTROSPECTION_TOPICS
     | frozenset({_TRANSITION_TOPIC, SEMANTIC_REQUEST_TOPIC, SEMANTIC_PROJECTION_TOPIC})
     | RECONCILIATION_TOPICS
+    | frozenset(
+        {
+            RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
+            RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+        }
+    )
 )
 _VERTICAL_IDENTITY_ENV = {
     "identity/change": "FDAI_CHANGE_MI_CLIENT_ID",
@@ -241,6 +260,7 @@ async def _run() -> int:
     assignment_reconciliation_worker: Any = None
     effect_reconciliation_worker: Any = None
     semantic_turn_binding: Any = None
+    rule_generation_binding: RuleGenerationRuntimeBinding | None = None
 
     try:
         telemetry_requested = bool(
@@ -522,6 +542,12 @@ async def _run() -> int:
                 embedder=container.require_llm_bindings().embedding_model,
                 rules=control_loop.rules,
                 ontology_release=control_loop.ontology_release,
+            )
+            rule_generation_binding = _build_rule_generation_runtime_binding(
+                state_store=incident_audit_store,
+                event_bus=bus,
+                catalog_index=catalog_semantic_binding.index,
+                environment=os.environ,
             )
             semantic_composition = compose_azure_semantic_query_runtime(
                 container=container,
@@ -822,6 +848,8 @@ async def _run() -> int:
                     rollback_executors=rollback_executors,
                     saga=runtime_saga,
                     muninn_state_store=incident_audit_store,
+                    rule_generation_activation_binder=(rule_generation_binding.activation_binder),
+                    rule_generation_state_store=incident_audit_store,
                     semantic_feedback_store=StateStoreSemanticFeedbackCandidateStore(
                         incident_audit_store
                     ),
@@ -1104,6 +1132,7 @@ async def _run() -> int:
             t2_recovery_task: asyncio.Task[None] | None = None
             assignment_reconciliation_task: asyncio.Task[None] | None = None
             effect_reconciliation_task: asyncio.Task[None] | None = None
+            rule_generation_outbox_task: asyncio.Task[None] | None = None
             case_history_retention_task: asyncio.Task[None] | None = None
             if pantheon_runtime is not None:
                 pantheon_task = asyncio.create_task(
@@ -1157,6 +1186,15 @@ async def _run() -> int:
                     ),
                     name="effect-reconciliation",
                 )
+            if rule_generation_binding is not None:
+                rule_generation_outbox_task = asyncio.create_task(
+                    _run_rule_generation_outbox_publisher(
+                        publisher=rule_generation_binding.outbox_publisher,
+                        stop=stop,
+                    ),
+                    name="rule-generation-outbox",
+                )
+                rule_generation_outbox_task.add_done_callback(_log_rule_generation_outbox_exit)
             if case_history_retention_publisher is not None:
                 case_history_retention_task = asyncio.create_task(
                     startup_readiness_runtime.run_when_ready(
@@ -1186,6 +1224,7 @@ async def _run() -> int:
                     t2_recovery_task,
                     assignment_reconciliation_task,
                     effect_reconciliation_task,
+                    rule_generation_outbox_task,
                 ),
             )
         else:

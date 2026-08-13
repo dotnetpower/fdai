@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 5785bea3cbe39d0b6114b75fbde1a94f20521960
+translation_source_sha: c12483c17318ad3871fbb2544157611b9147de7d
 translation_revised: 2026-08-13
 ---
 # Rule 의미 검색
@@ -31,6 +31,9 @@ translation_revised: 2026-08-13
 > `POST /rules/search`는 Operator Service 변환 결과를 읽으며
 > Core 함수를 직접 호출하지 않습니다. Core 기능이 연결된 곳에서 검색 및 함수 증적은
 > `execution_authority: false`를 유지합니다.
+> 검증된 세대 활성화 명령은 Mimir를 통해서만 들어옵니다. 영속적이고 lease로 격리된 outbox
+> 발행기가 최종 결과를 내보내며, Mimir는 인덱스, 정책, 승인, 변경 또는 실행 권한을 부여하지
+> 않는 변환 전용 증적을 저장합니다.
 > 재현된 retrieval-owned 실패는 Huginn 유입, Heimdall 검증, Saga 감사 및 Muninn 맥락
 > 구체화를 거칩니다. Norns는 일반 합의 및 Mimir intake 전에 shadow 감사와 함께 inert
 > challenger를 저장합니다.
@@ -54,6 +57,7 @@ translation_revised: 2026-08-13
 | 코퍼스 규모 세대 식별자 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; 집중 세대 및 Rule 카탈로그 테스트 | 프로바이더 중립 메타데이터는 개수, 계층형 루트, 범위가 제한된 순서가 있는 청크 및 작은 세대의 인라인 다이제스트를 포함합니다. 세대 생성, 검증 증적, 준비, 활성화, 활성 조회, 검색, 롤백 및 롤백 증적은 식별자 차이를 거부합니다. |
 | 영속 PostgreSQL 인덱스 | implemented | `delivery/catalog_search/postgres.py`; migration `0077` 및 `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | 정확한 세대 매니페스트를 저장하고 다시 검증하며 코퍼스별 세대를 원자적으로 준비, 활성화, 검색 및 롤백합니다. PostgreSQL에서 활성 문서 62개와 발견 문서 8,487개 전체의 수명 주기 격리를 증명합니다. |
 | 통제된 세대 활성화 | implemented | `core/rule_semantic_generation/activation.py`, `core/rule_semantic_generation/ledger.py`, 프로바이더와 delivery 활성화 계약, 집중 활성화 및 실제 PostgreSQL 검사 | 활성화는 변경 경계 안에서 정확한 대상 다이제스트와 검증 증적을 예상 이전 활성 식별자에 연결합니다. 완료된 명령의 replay는 프로바이더 접근 전에 영속 최종 결과를 반환하며 첫 결과와 발행 대기 outbox 레코드는 원자적으로 커밋됩니다. |
+| 영속 활성화 결과 발행 및 변환 결과 | implemented | `core/rule_semantic_generation/publication.py`; `agents/mimir.py`; `agents/_framework/runtime.py`; `runtime/bootstrap.py`; 집중 발행, Mimir, 런타임 및 bootstrap 검사 | 제한 시간이 있고 lease로 격리된 발행기는 의미 인덱스 준비 상태와 독립적으로 최종 결과를 발행합니다. Mimir만 활성화 명령을 소비하고 인덱스 또는 실행 권한을 얻지 않은 채 최종 결과를 변환합니다. 운영 구성은 binder와 발행기가 하나의 영속 ledger를 공유하게 합니다. |
 | 운영 bootstrap 연결 | implemented | `runtime/bootstrap.py`; `runtime/bootstrap_lifecycle.py`; `composition/wire_semantic_query.py`; `tests/runtime/test_catalog_semantic_bootstrap.py`; 집중 bootstrap 및 구성 검사(`46 passed`) | 시작 시 정확한 활성 세대만 연결합니다. 상태가 없거나 오래되거나 접근할 수 없거나 사용할 수 없으면 안정적인 선택적 준비 상태 사유를 만들고 Rule 검색을 등록하지 않습니다. 통제된 실제 근거는 남아 있습니다. |
 | Operator Rule 검색 변환 결과 | implemented | Operator Service workflow 매니페스트, 경로 및 PostgreSQL workflow 어댑터 | `POST /rules/search`는 개정 번호가 있는 구체화된 변환 결과를 읽으며 정책, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
 
@@ -73,6 +77,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | implemented | 검색 상태가 오래되거나 사용할 수 없을 때 held-out 평가가 안전하게 보류되도록 변경했습니다. 프로바이더 실패는 검증 전용 `HOLD` 근거를 생성하고 양성 재현율과 순위를 낮추며, 실패한 음성 질의를 성공한 no-match 근거로 바꾸지 않습니다. | `current change`; 집중 평가기 및 실제 카탈로그 모듈에서 테스트 15개가 통과했습니다. 변경한 평가기 범위에서 Ruff, strict mypy 및 편집기 진단이 통과했습니다. | 실제 의미 인덱스에서 오래된 상태를 검증하고 전체 집단 증적을 구성 기반의 통제된 승격에 연결합니다. |
 | 2026-08-13 | implemented | 배포 카탈로그 승격 probe에 영어 모호성, 적대적 입력, 코퍼스 격리 및 실제 인덱스의 오래된 세대 집단을 추가했습니다. 영어 모호성 재현율과 순위는 1.0이었습니다. 관련 없는 활성 Rule이 lexical 오탐으로 남아 적대적 입력과 발견 전용 no-match 정밀도는 0.0이었지만 발견 문서가 활성 결과로 넘어오지는 않았습니다. 오래된 카탈로그 다이제스트는 검색 오류, 양성 재현율과 순위 0, 음성 no-match 근거 없음 및 검증 전용 `HOLD`를 생성했습니다. | `current change`; `tests/rule_catalog/test_discovery_catalog_search.py`; 집중 모듈에서 테스트 10개가 통과했고 Ruff 및 형식 검사가 통과했으며 편집기 진단은 깨끗했습니다. | 통제된 한국어 표면을 추가하고, 측정된 활성 코퍼스 오탐을 제거하며, 준비 완료를 주장하기 전에 구성 기반 임계값을 통제된 승격에 연결합니다. |
 | 2026-08-13 | implemented | 검증된 Rule 세대를 위한 정확한 활성화 binder를 추가했습니다. 프로바이더 변경 경계 안에서 대상 검증 증적과 예상 이전 식별자를 확인하고, 완료된 명령이 프로바이더에 다시 전달되지 않게 하며, 프로바이더 오류 후 관찰된 효과를 조정하고, 하나의 안정적인 최종 결과와 outbox 레코드를 영속 종결합니다. | `current change`, 통과한 집중 활성화, ledger, 세대 및 실제 PostgreSQL 검사, 변경한 수명 주기 파일의 Ruff와 strict mypy 통과 | EventBus를 통해 영속 outbox를 발행하고, 책임 agent 소유권을 구성하며, 통제된 런타임 근거를 기록합니다. |
+| 2026-08-13 | implemented | lease로 격리된 영속 활성화 결과 발행, Mimir 소유 명령 유입 및 결과 변환, 운영 환경의 공유 ledger 구성과 준비 상태에 독립적인 backlog 발행을 추가했습니다. 해제에 성공한 broker 실패는 재시도하되 receipt 계약 또는 ledger 실패는 숨기지 않습니다. 통합 런타임 증명은 명령 전달부터 활성화, outbox 발행 및 변환 전용 결과 저장까지 다룹니다. | `current change`; 집중 bootstrap, 런타임, Mimir, 활성화 및 발행 선택 검사에서 재시작, 중복, lease 만료, 취소, broker 실패 재시도, 치명적 receipt topic 불일치, 확인된 전달 및 통합 명령-변환 결과 사례를 포함한 테스트 32개가 통과했습니다. | 이 영역을 `validated`로 변경하기 전에 통제된 실제 런타임 근거를 기록합니다. 별도 검색 및 함수 호출 변환 결과 작업은 열려 있습니다. |
 
 ### 남은 작업
 
@@ -87,9 +92,9 @@ translation_revised: 2026-08-13
   정확한 현재 Rule 카탈로그, 의미 스키마, 온톨로지 release 및 embedder 차원만 연결합니다.
   상태가 없거나 오래되거나 접근할 수 없거나 사용할 수 없을 때 안정적인 성능 저하 사유를
   제공하며 집중 bootstrap 및 구성 검사에서 테스트 46개가 통과했습니다.
-- [ ] 제한 시간이 있는 EventBus worker를 통해 영속 활성화 결과를 발행하고 책임 agent
-  subscriber를 구성합니다. 재시작, 중복 전달, lease 만료, 취소, broker 실패 및 확인된 전달
-  검사가 인덱스 또는 실행 권한을 부여하지 않고 통과하면 완료합니다.
+- [x] 제한 시간이 있는 EventBus worker가 영속 활성화 결과를 발행하며 Mimir만 책임 명령 및
+  결과 subscriber로 동작합니다. 집중 재시작, 중복 전달, lease 만료, 취소, broker 실패,
+  확인된 전달 및 통합 런타임 검사는 인덱스 또는 실행 권한을 부여하지 않고 통과했습니다.
 - [ ] Core 검색 및 함수 호출 증적을 Operator 변환 결과로 발행합니다. `POST /rules/search`가
   직접 Core 호출 없이 정확한 증적 기반 변환 결과를 반환하고 [질의 수명
   주기](#질의-수명-주기)를 보존하면 완료합니다.

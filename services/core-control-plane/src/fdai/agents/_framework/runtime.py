@@ -57,6 +57,7 @@ from fdai.agents.heimdall import (
     ReadInvestigationHook,
 )
 from fdai.agents.huginn import DiscoveryProjector, Huginn
+from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
@@ -78,6 +79,11 @@ from fdai.core.metering.pricing import PricingTable
 from fdai.core.metering.sink import MeteringSink
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_learning import OperatingPatternCompiler
+from fdai.core.rule_semantic_generation import (
+    RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
+    RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+    RuleGenerationActivationBinder,
+)
 from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidateSink
 from fdai.shared.contracts.models import OntologyActionType
@@ -127,6 +133,8 @@ class PantheonRuntime:
         consumer_group_prefix: str = _DEFAULT_GROUP_PREFIX,
         saga: Saga | None = None,
         muninn_state_store: StateStore | None = None,
+        rule_generation_activation_binder: RuleGenerationActivationBinder | None = None,
+        rule_generation_state_store: StateStore | None = None,
         disabled_agents: frozenset[str] | None = None,
         divergence: ShadowDivergenceLedger | None = None,
         kpi_collector: KpiCollector | None = None,
@@ -226,6 +234,15 @@ class PantheonRuntime:
         )
         instantiated = factory.instantiate_pantheon()
         bind_catalog_review(instantiated, catalog_review)
+        mimir = instantiated["Mimir"]
+        if rule_generation_activation_binder is not None:
+            if not isinstance(mimir, Mimir):
+                raise TypeError("Pantheon Mimir implementation does not support Rule activation")
+            mimir.bind_rule_generation_activation_binder(rule_generation_activation_binder)
+        if rule_generation_state_store is not None:
+            if not isinstance(mimir, Mimir):
+                raise TypeError("Pantheon Mimir implementation does not support Rule receipts")
+            mimir.bind_rule_generation_state_store(rule_generation_state_store)
         if conversation_embedding_model is not None or conversation_t2_synthesizer is not None:
             instantiated["Bragi"] = Bragi(
                 semantic_router=(
@@ -359,6 +376,20 @@ class PantheonRuntime:
             for topic in agent.spec.subscribes:
                 bridge.subscribe(topic, name, agent.on_typed_message)
                 subscription_count += 1
+        if rule_generation_activation_binder is not None and "Mimir" in agents:
+            bridge.subscribe(
+                RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
+                "Mimir",
+                agents["Mimir"].on_typed_message,
+            )
+            subscription_count += 1
+        if rule_generation_state_store is not None and "Mimir" in agents:
+            bridge.subscribe(
+                RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+                "Mimir",
+                agents["Mimir"].on_typed_message,
+            )
+            subscription_count += 1
 
         conversation_tools = AgentConversationToolRegistry(
             agents=agents,

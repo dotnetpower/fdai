@@ -31,6 +31,10 @@ from fdai.core.readiness import (
     StartupProbeResult,
     StartupProbeSpec,
 )
+from fdai.core.rule_semantic_generation import (
+    RuleGenerationOutboxPublisher,
+    RuleGenerationPublishRetryableError,
+)
 from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel
 from fdai.delivery.catalog_search.postgres import (
     PostgresCatalogSemanticIndex,
@@ -373,6 +377,49 @@ async def run_effect_reconciliation(
                 await asyncio.gather(*tasks, return_exceptions=True)
         except TimeoutError:
             _LOGGER.warning("effect_reconciliation_shutdown_timed_out")
+
+
+async def run_rule_generation_outbox_publisher(
+    *,
+    publisher: RuleGenerationOutboxPublisher,
+    stop: asyncio.Event,
+    drain_limit: int = 100,
+    drain_interval_seconds: float = 1.0,
+) -> None:
+    """Publish bounded activation-result batches until shutdown or a fatal failure."""
+
+    if not 1 <= drain_limit <= 1000:
+        raise ValueError("Rule generation outbox drain limit MUST be in [1, 1000]")
+    if drain_interval_seconds <= 0:
+        raise ValueError("Rule generation outbox drain interval MUST be positive")
+
+    while not stop.is_set():
+        try:
+            await publisher.drain_pending(limit=drain_limit)
+        except RuleGenerationPublishRetryableError as exc:
+            _LOGGER.warning(
+                "rule_generation_outbox_publish_retry_scheduled",
+                extra={"error_type": type(exc.__cause__).__name__},
+                exc_info=exc,
+            )
+        await asyncio.sleep(0)
+        try:
+            async with asyncio.timeout(drain_interval_seconds):
+                await stop.wait()
+        except TimeoutError:
+            continue
+
+
+def log_rule_generation_outbox_exit(task: asyncio.Task[None]) -> None:
+    """Surface fatal or unexpected publisher exits from its isolated task."""
+
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        _LOGGER.error("rule_generation_outbox_failed", exc_info=exc)
+    else:
+        _LOGGER.warning("rule_generation_outbox_exited_early")
 
 
 async def start_health_server(
