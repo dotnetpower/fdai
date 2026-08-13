@@ -37,11 +37,48 @@ Signals a healthy deployment MUST emit continuously. Every signal maps 1:1 to an
 | **Canary result** | synthetic loop round-trip | silent ingress death |
 | **Time since last successful canary** | staleness | monitor of the monitor |
 
-> **Implementation status**: Transition telemetry and the synthetic canary publisher, consumer,
-> audit path, and deploy-time publisher smoke are implemented. The complete signal exporters,
-> alert-rule mapping, audit-freshness SLO, and scheduled operational drills remain production
-> readiness work. This table is the required health contract, not a claim that every alert is
-> currently provisioned.
+## Implementation status
+
+Runtime health, startup readiness, transition telemetry, and the synthetic canary path are
+implemented and covered by focused tests. The deployment smoke currently proves publisher job
+completion only; complete alerting, round-trip verification, drills, and stabilization automation
+remain incomplete, so no area is claimed as fully operationally validated.
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Runtime `/live` and `/ready` endpoints plus startup-readiness evaluation, persistence, transitions, and guarded refresh | implemented | [`runtime/health.py`](../../../services/core-control-plane/src/fdai/runtime/health.py), [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`test_readiness.py`](../../../services/core-control-plane/tests/runtime/test_readiness.py), and [`test_startup_coordinator.py`](../../../services/core-control-plane/tests/core/readiness/test_startup_coordinator.py) | Process-critical failure closes readiness; degraded capabilities lower authority without raising it on recovery. |
+| Bounded transition spans and metrics with secure OTLP configuration | implemented | [`transitions.py`](../../../services/core-control-plane/src/fdai/shared/telemetry/transitions.py) and [`test_transition_telemetry.py`](../../../services/core-control-plane/tests/shared/test_transition_telemetry.py) | Stable allowlisted attributes prevent payloads and provider errors from becoming telemetry labels. |
+| Synthetic canary publisher, canonical consumer, no-op audit path, and scheduled Container Apps Job | implemented | [`canary_cli.py`](../../../services/core-control-plane/src/fdai/delivery/canary_cli.py), [`_canary.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_canary.py), [`canary_job.tf`](../../../infra/modules/compute/container-apps/canary_job.tf), and focused canary tests | The canary is isolated from T0/T1/T2, risk, execution, incident, and learning paths. |
+| Post-deploy promotion smoke | in-progress | [`deploy-dev.yml`](../../../.github/workflows/deploy-dev.yml) runs migrations, optional health checks, and the canary publisher Job | The workflow blocks on publisher failure but doesn't yet verify the consumed audit entry, fixture replay, kill-switch cycle, or human-approval dry-run. |
+| Complete self-health exporters, alert-rule mapping, fallback delivery, and operational drills | in-progress | Transition telemetry, readiness, and canary sources above provide a subset of the required signals | No upstream configuration maps every signal in the health contract to an alert threshold, owner lane, fallback, and tested delivery receipt. |
+| Correlation-based audit investigation and unified version/configuration exposure | in-progress | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), and runtime state projections | Correlation and reporting primitives exist, but one public read surface doesn't yet expose every version, hash, rule effect, override, canary, kill-switch, and break-glass field listed below. |
+| Pre-launch latency measurement and frozen-scenario replay | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), and focused tests | The primitives produce bounded measurements and release-gate results; an external load generator and deployment-specific budgets remain operator inputs. |
+| Live Azure read-investigation scenarios | in-progress | [Azure Read Investigations](../interfaces/azure-read-investigations.md#implementation-status) | Four bounded read-only scenarios passed, while guest-event matching, an actual provider `429`, and cross-service parity receipts remain open release evidence. |
+| Post-launch stabilization composition | in-progress | [`core/scheduler/`](../../../services/core-control-plane/src/fdai/core/scheduler) and measurement primitives | The daily health, drift, and deployment-baseline jobs and `console.recurrent_query` signal aren't registered upstream. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger and separated tested self-observability primitives from incomplete operational evidence; earlier provenance wasn't reconstructed. | Current change; focused readiness, telemetry, canary, latency, and baseline-runner tests cited in the scope table. | Complete deployment round-trip evidence, alert and drill coverage, unified exposure, and stabilization bindings. |
+
+### Remaining work
+
+- [ ] Extend deployment smoke to verify the consumed canary audit entry within a numeric latency
+  budget, replay the frozen shadow fixtures, exercise kill-switch on/off, and complete a no-execute
+  human-approval dry-run with linked audit receipts.
+- [ ] Map every self-health signal to a concrete threshold, owner lane, fallback route, and tested
+  delivery receipt, then record the governed operational evidence.
+- [ ] Expose the complete version, configuration, rule-effect, override, discovery, canary,
+  kill-switch, and break-glass state through one authorized read surface and test field freshness.
+- [ ] Define a required runbook schema and add a check proving every automated ActionType has a
+  generic upstream or deployment-owned runbook with verification and rollback instructions.
+- [ ] Register the daily stabilization jobs and recurrent-query signal, then prove the window opens,
+  lowers authority on guard-metric breach, and closes only after its configured exit conditions.
+- [ ] Complete the live Azure guest-event, provider-throttling, and cross-service parity evidence
+  tracked by the Azure read-investigation owner document.
 
 ### Startup readiness response
 

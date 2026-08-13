@@ -1,8 +1,8 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: 5babe730acc8f4f387843b62a84154d9da9f8870
-translation_revised: 2026-08-11
+translation_source_sha: cad9914416bd40cec7e7e389a2030b398fb97247
+translation_revised: 2026-08-14
 ---
 
 # 운영과 검증(Operating and 검증)
@@ -40,10 +40,47 @@ translation_revised: 2026-08-11
 | **Canary 결과** | 합성 루프 왕복 | 조용한 유입 사망 |
 | **시간 since last successful canary** | 신선도 | 모니터의 모니터 |
 
-> **구현 상태**: 전이 텔레메트리와 synthetic canary 발행기, 소비자, 감사 경로,
-> deploy-time 발행기 smoke가 구현되어 있습니다. 전체 신호 내보내기 도구, alert-rule 대응,
-> audit-freshness SLO 및 scheduled operational 훈련은 운영 준비 상태 작업으로 남아 있습니다.
-> 이 표는 필요한 상태 계약이며 모든 경보가 현재 provision되었다는 뜻은 아닙니다.
+## 구현 상태
+
+런타임 상태, 시작 준비 상태, 전이 텔레메트리, 합성 카나리 경로는 구현되어 집중 테스트로
+검증됩니다. 현재 배포 smoke는 발행기 작업 완료만 입증합니다. 전체 경보, 왕복 검증, 훈련,
+안정화 자동화는 미완성이므로 운영 환경에서 완전히 검증된 영역으로 표시하지 않습니다.
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 런타임 `/live` 및 `/ready` 엔드포인트와 시작 준비 상태 평가, 저장, 전이, 보호된 새로 고침 | implemented | [`runtime/health.py`](../../../services/core-control-plane/src/fdai/runtime/health.py), [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`test_readiness.py`](../../../services/core-control-plane/tests/runtime/test_readiness.py), [`test_startup_coordinator.py`](../../../services/core-control-plane/tests/core/readiness/test_startup_coordinator.py) | 프로세스 핵심 실패는 준비 상태를 닫고, 저하된 기능은 권한을 낮추며 복구 시 권한을 높이지 않습니다. |
+| 범위가 제한된 전이 구간과 메트릭 및 안전한 OTLP 구성 | implemented | [`transitions.py`](../../../services/core-control-plane/src/fdai/shared/telemetry/transitions.py), [`test_transition_telemetry.py`](../../../services/core-control-plane/tests/shared/test_transition_telemetry.py) | 안정적인 허용 목록 속성은 페이로드와 프로바이더 오류가 텔레메트리 레이블이 되지 않도록 합니다. |
+| 합성 카나리 발행기, 정규 소비자, no-op 감사 경로, 예약된 Container Apps 작업 | implemented | [`canary_cli.py`](../../../services/core-control-plane/src/fdai/delivery/canary_cli.py), [`_canary.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_canary.py), [`canary_job.tf`](../../../infra/modules/compute/container-apps/canary_job.tf), 카나리 집중 테스트 | 카나리는 T0/T1/T2, risk, 실행, 인시던트, 학습 경로와 격리됩니다. |
+| 배포 후 승격 smoke | in-progress | [`deploy-dev.yml`](../../../.github/workflows/deploy-dev.yml)이 이행, 선택적 상태 확인, 카나리 발행기 작업을 실행합니다. | 발행기 실패는 차단하지만 소비된 감사 항목, 고정본 재생, 비상 정지 주기, 사람 승인 예행 실행은 아직 검증하지 않습니다. |
+| 전체 자체 상태 신호 내보내기, 경보 규칙 대응, 대체 전달, 운영 훈련 | in-progress | 위 전이 텔레메트리, 준비 상태, 카나리 출처가 필수 신호의 일부를 제공합니다. | 업스트림에는 상태 계약의 모든 신호를 경보 임계값, 담당 경로, 대체 경로, 테스트된 전달 증적에 연결하는 구성이 없습니다. |
+| 상관관계 기반 감사 조사와 통합 버전 및 구성 노출 | in-progress | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), 런타임 상태 변환 결과 | 상관관계와 보고 기본 기능은 있지만 아래에 나열한 모든 버전, 해시, 규칙 효과, 재정의, 카나리, 비상 정지, 긴급 액세스 필드를 한 공개 읽기 표면에서 제공하지는 않습니다. |
+| 출시 전 지연 측정과 고정 시나리오 재생 | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), 집중 테스트 | 기본 기능은 범위가 제한된 측정과 릴리스 게이트 결과를 만듭니다. 외부 부하 생성기와 배포별 예산은 운영자 입력으로 남습니다. |
+| 라이브 Azure 읽기 조사 시나리오 | in-progress | [Azure 읽기 조사](../interfaces/azure-read-investigations-ko.md#구현-상태) | 범위가 제한된 읽기 전용 시나리오 4개는 통과했지만 게스트 이벤트 일치, 실제 프로바이더 `429`, 서비스 간 동등성 증적은 릴리스 근거로 남아 있습니다. |
+| 출시 후 안정화 조합 | in-progress | [`core/scheduler/`](../../../services/core-control-plane/src/fdai/core/scheduler) 및 측정 기본 기능 | 일일 상태, 드리프트, 배포 기준선 작업과 `console.recurrent_query` 신호는 업스트림에 등록되지 않았습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 원장을 도입하고 테스트된 자체 관측성 기본 기능과 미완성 운영 근거를 분리했습니다. 이전 구현 이력은 재구성하지 않았습니다. | 현재 변경과 구현 범위 표에 인용한 준비 상태, 텔레메트리, 카나리, 지연, 기준선 실행기 집중 테스트. | 배포 왕복 근거, 경보와 훈련 범위, 통합 노출, 안정화 연결을 완료합니다. |
+
+### 남은 작업
+
+- [ ] 배포 smoke가 수치형 지연 예산 안에서 소비된 카나리 감사 항목을 검증하고 shadow 고정본을
+  재생하며 비상 정지 on/off를 실행하고, 연결된 감사 증적으로 실행 없는 사람 승인 예행 실행을
+  완료하도록 확장합니다.
+- [ ] 모든 자체 상태 신호를 구체적인 임계값, 담당 경로, 대체 경로, 테스트된 전달 증적에
+  연결한 다음 거버넌스가 적용된 운영 근거를 기록합니다.
+- [ ] 전체 버전, 구성, 규칙 효과, 재정의, 발견, 카나리, 비상 정지, 긴급 액세스 상태를 하나의
+  권한 있는 읽기 표면에서 제공하고 필드 신선도를 테스트합니다.
+- [ ] 필수 런북 스키마를 정의하고 모든 자동화된 ActionType에 검증 및 롤백 지침이 있는 제네릭
+  업스트림 또는 배포 소유 런북이 존재하는지 검사합니다.
+- [ ] 일일 안정화 작업과 반복 질의 신호를 등록하고, 구간이 열리며 guard 메트릭 위반 시 권한을
+  낮추고 구성된 종료 조건을 충족한 후에만 닫히는지 입증합니다.
+- [ ] Azure 읽기 조사 소유자 문서에서 추적하는 라이브 게스트 이벤트, 프로바이더 제한,
+  서비스 간 동등성 근거를 완료합니다.
 
 ### 시작 준비 상태 대응
 
