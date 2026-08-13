@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 1be7e8ae6e707571861b3458097d02833adb2457
+translation_source_sha: a211b1b1c7fc68d8c9b8f203f99fa94c4c531505
 translation_revised: 2026-08-13
 ---
 # 코드 맵
@@ -88,6 +88,7 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 | 영역 | Responsibility | 출처 | 테스트 |
 |------|----------------|--------|------|
 | 컨트롤 루프와 decisioning | Event 정규화, 계층 라우팅, 정확한 Rego allow/deny 평가 증적, quality, risk, 승인, 실행 coordination, 복구 및 감사 | [코어](../../../services/core-control-plane/src/fdai/core/) | [코어 테스트](../../../services/core-control-plane/tests/core/) |
+| 실행 권한 부여 | 프로바이더 중립적인 요구 사항 결과, 비어 있지 않은 결정 집합의 최소 권한 축소, 정규 요청 및 인벤토리 연결, 모호한 ID 또는 연결되지 않은 권한 부여 제안 거부 | [execution_authorization](../../../services/core-control-plane/src/fdai/core/execution_authorization/) | [실행 권한 부여 테스트](../../../services/core-control-plane/tests/core/execution_authorization/) |
 | 온톨로지 안전성 platform | 카탈로그에서 로드한 Interface 및 FunctionType 선언을 포함하는 exact 의미 release, release-aware 조회 profile 및 함수 등록, principal 범위로 한정된 매니페스트, 검증된 Resource와 ResourceType 분류, 범용/temporal 조회 algebra, bitemporal 토폴로지/차이, 범위가 제한된 blast-radius 차이와 authoritative inventory rebuild pointer를 포함하는 immutable direction-generation shadow comparison, 검토된 메트릭 개념, topology-aware causal 결합, 안전하게 닫히도록 문서화된 인자, 근거, 대상 및 효과 검증 계약이 있는 변경 계획, compact typed effect-reconciliation event, 인증된 독립 observer binding 및 lease-fenced 영속 terminal outbox 전달 | [ontology_platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [온톨로지 platform 테스트](../../../services/core-control-plane/tests/core/ontology_platform/) |
 | 의미 대화 계획 수립 | Whole-turn 스키마 제안, 서버가 소유한 프레임/계획 신원, principal-manifest 검증, 비동기 검증된 실행, 전체 최종 처리 결과, 결정론적 의도 그래프, exact-command 호환성 전환, 유한 질문 우주 및 인식 상태 완결성 release 증적, 실행 권한이 없는 연속 커버리지 게이트 | [대화](../../../services/core-control-plane/src/fdai/core/conversation/) | [대화 테스트](../../../services/core-control-plane/tests/conversation/) |
 | Rule 의미 세대 종결 | 타입 기반 활성화 명령 및 최종 결과, 정확한 대상 증적과 예상 이전 세대 compare-and-swap, 프로바이더 접근 전 replay 차단, 원자적 StateStore 결과/outbox 영속성, lease 차단, 재시도 예약, 손상 거부 및 정책 또는 실행 권한이 없는 broker 확인 기반 발행 상태 | [rule_semantic_generation](../../../services/core-control-plane/src/fdai/core/rule_semantic_generation/) | [Rule 의미 세대 테스트](../../../services/core-control-plane/tests/core/rule_semantic_generation/) |
