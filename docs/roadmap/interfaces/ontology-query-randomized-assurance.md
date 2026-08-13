@@ -187,7 +187,7 @@ ledger.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| 2026-08-11 randomized baseline | validated | [`ontology-query-randomized-assurance-2026-08-11.json`](../../baselines/ontology-query-randomized-assurance-2026-08-11.json) | The retained artifact proves the historical 100-question measurements and blocked release decision, not current readiness. |
+| 2026-08-11 randomized baseline | in-progress | [`ontology-query-randomized-assurance-2026-08-11.json`](../../baselines/ontology-query-randomized-assurance-2026-08-11.json) | The artifact retains historical scored measurements and the blocked release decision, but it is not a governed runtime receipt: it lacks source revision, configuration digest, authentication attestation, and exact request and response receipt references. |
 | Independent semantic-turn bridge | implemented | [`composition.py`](../../../services/operator-service/src/fdai_operator_service/composition.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), and [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | Production composition can bind the durable event-bus bridge without importing Core implementation. |
 | Authoritative provider and receipt closure | in-progress | The open rounds and next-run exit criteria in this document. | Bridge construction alone does not prove every operation cohort reached its authoritative provider and returned exact release, plan, and evidence references. |
 | Current randomized release certification | in-progress | No newer retained 100-question artifact supersedes the 2026-08-11 baseline. | The release decision remains blocked until a regenerated run satisfies every exit criterion. |
@@ -198,9 +198,13 @@ ledger.
 |------|-------|--------|----------|-----------|
 | 2026-08-11 | validated | Retained the first 100-question bilingual randomized baseline with 100% intent recognition, 20% answer success, and no mechanically verified answers. | The committed baseline artifact linked above. | Build the semantic path and rerun against the same procedure. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger and corrected the root cause to measurement-time wording after semantic bridge composition landed; earlier implementation provenance was not reconstructed. | `current change`; current composition and focused bridge tests listed in the scope table. | Close authoritative providers and retain a passing regenerated baseline. |
+| 2026-08-13 | in-progress | Corrected the historical baseline state because retained scored measurements are not a governed runtime receipt. | `current change`; the baseline lacks source revision, configuration digest, authentication attestation, and exact request and response receipt references, and records all 100 cards as unverified with evidence 0/0. | Retain a governed rerun artifact that satisfies the next-run exit criteria. |
 
 ### Remaining work
 
+- [ ] Retain a governed randomized-run artifact that binds the source revision, configuration
+  digest, authenticated execution attestation, and exact request and response receipt references
+  to every measured turn.
 - [ ] Demonstrate each operation cohort against its authoritative provider with exact ontology release, principal manifest, verified plan, and evidence references or a typed unavailable disposition.
 - [ ] Regenerate the bilingual 100-question procedure through the authenticated production composition and retain its machine-readable results.
 - [ ] Change the release decision only after the regenerated artifact satisfies every next-run exit criterion with zero unsupported operational claims and zero unauthorized executions.
