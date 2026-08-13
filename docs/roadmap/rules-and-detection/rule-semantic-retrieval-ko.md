@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: c12483c17318ad3871fbb2544157611b9147de7d
+translation_source_sha: c2ef302b864ec38f6505c2b079b663c231974f23
 translation_revised: 2026-08-13
 ---
 # Rule 의미 검색
@@ -53,6 +53,7 @@ translation_revised: 2026-08-13
 | Planner 가용성 계상 | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | 읽을 수 있지만 바인딩되지 않은 함수는 구조 커버리지에 `runtime_binding_unavailable`로 남고 planning에서는 숨겨집니다. |
 | 이중 언어 held-out 평가기 계약 | implemented | `rule_catalog/schema/rule_semantic_evaluation.py`; `tests/rule_catalog/test_rule_semantic_evaluation.py`; current change focused check | 영어 및 한국어 양성 사례와 명시적 no-match 고정본이 검증 전용 집단 근거를 생성합니다. 두 언어 모두에서 training 질의 재사용을 거부합니다. 검색 실패는 `HOLD`를 생성하고 양성 사례를 실패로 계산하며 no-match 정밀도 근거로 사용하지 않습니다. |
 | 카탈로그 기반 승격 보증 | implemented | `tests/rule_catalog/test_discovery_catalog_search.py`; 커밋 `d1787f4d8`; current change 배포 카탈로그 집중 검사 | 실제 활성 Rule 62개 세대는 정확한 영어 및 모호성 집단을 통과합니다. 통제된 한국어 표면 부재, 적대적 입력의 활성 코퍼스 오탐, 발견 전용 질의 오탐 및 오래된 정확한 세대 검색은 각각 검토 가능한 검증 전용 `HOLD` 근거를 생성합니다. 발견 문서는 활성 결과에 유출되지 않습니다. 이는 검색 준비 완료가 아니라 부정적 게이트 근거입니다. |
+| 통제된 승격 검토 | implemented | `config/rule-semantic-evaluation.json`; `rule_catalog/schema/rule_semantic_evaluation_policy.py`; `rule_catalog/schema/rule_semantic_promotion_review.py`; current change 집중 검사 | 내용 기반 주소를 가진 통제된 구성에서 임계값과 필수 집단을 로드합니다. 검토 자격은 오래된 정책 ID, 누락되거나 이름이 바뀐 메트릭, 알 수 없는 증적 스키마, 실패한 집단, 권한을 포함한 근거 및 현재 임계값 미만의 값을 안전하게 보류합니다. 자격은 승격 또는 실행 권한을 부여하지 않습니다. |
 | In-memory 세대 및 검증 | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | 결정론적 off-path 세대, 독립적인 활성 및 발견 포인터, 코퍼스별 롤백 및 영속 어댑터와 같은 활성화 compare-and-swap을 지원합니다. |
 | 코퍼스 규모 세대 식별자 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; 집중 세대 및 Rule 카탈로그 테스트 | 프로바이더 중립 메타데이터는 개수, 계층형 루트, 범위가 제한된 순서가 있는 청크 및 작은 세대의 인라인 다이제스트를 포함합니다. 세대 생성, 검증 증적, 준비, 활성화, 활성 조회, 검색, 롤백 및 롤백 증적은 식별자 차이를 거부합니다. |
 | 영속 PostgreSQL 인덱스 | implemented | `delivery/catalog_search/postgres.py`; migration `0077` 및 `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | 정확한 세대 매니페스트를 저장하고 다시 검증하며 코퍼스별 세대를 원자적으로 준비, 활성화, 검색 및 롤백합니다. PostgreSQL에서 활성 문서 62개와 발견 문서 8,487개 전체의 수명 주기 격리를 증명합니다. |
@@ -78,6 +79,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | implemented | 배포 카탈로그 승격 probe에 영어 모호성, 적대적 입력, 코퍼스 격리 및 실제 인덱스의 오래된 세대 집단을 추가했습니다. 영어 모호성 재현율과 순위는 1.0이었습니다. 관련 없는 활성 Rule이 lexical 오탐으로 남아 적대적 입력과 발견 전용 no-match 정밀도는 0.0이었지만 발견 문서가 활성 결과로 넘어오지는 않았습니다. 오래된 카탈로그 다이제스트는 검색 오류, 양성 재현율과 순위 0, 음성 no-match 근거 없음 및 검증 전용 `HOLD`를 생성했습니다. | `current change`; `tests/rule_catalog/test_discovery_catalog_search.py`; 집중 모듈에서 테스트 10개가 통과했고 Ruff 및 형식 검사가 통과했으며 편집기 진단은 깨끗했습니다. | 통제된 한국어 표면을 추가하고, 측정된 활성 코퍼스 오탐을 제거하며, 준비 완료를 주장하기 전에 구성 기반 임계값을 통제된 승격에 연결합니다. |
 | 2026-08-13 | implemented | 검증된 Rule 세대를 위한 정확한 활성화 binder를 추가했습니다. 프로바이더 변경 경계 안에서 대상 검증 증적과 예상 이전 식별자를 확인하고, 완료된 명령이 프로바이더에 다시 전달되지 않게 하며, 프로바이더 오류 후 관찰된 효과를 조정하고, 하나의 안정적인 최종 결과와 outbox 레코드를 영속 종결합니다. | `current change`, 통과한 집중 활성화, ledger, 세대 및 실제 PostgreSQL 검사, 변경한 수명 주기 파일의 Ruff와 strict mypy 통과 | EventBus를 통해 영속 outbox를 발행하고, 책임 agent 소유권을 구성하며, 통제된 런타임 근거를 기록합니다. |
 | 2026-08-13 | implemented | lease로 격리된 영속 활성화 결과 발행, Mimir 소유 명령 유입 및 결과 변환, 운영 환경의 공유 ledger 구성과 준비 상태에 독립적인 backlog 발행을 추가했습니다. 해제에 성공한 broker 실패는 재시도하되 receipt 계약 또는 ledger 실패는 숨기지 않습니다. 통합 런타임 증명은 명령 전달부터 활성화, outbox 발행 및 변환 전용 결과 저장까지 다룹니다. | `current change`; 집중 bootstrap, 런타임, Mimir, 활성화 및 발행 선택 검사에서 재시작, 중복, lease 만료, 취소, broker 실패 재시도, 치명적 receipt topic 불일치, 확인된 전달 및 통합 명령-변환 결과 사례를 포함한 테스트 32개가 통과했습니다. | 이 영역을 `validated`로 변경하기 전에 통제된 실제 런타임 근거를 기록합니다. 별도 검색 및 함수 호출 변환 결과 작업은 열려 있습니다. |
+| 2026-08-13 | implemented | 내용 기반 주소를 가진 평가 정책 로딩과 결정론적인 검토 전용 승격 평가를 추가했습니다. 평가는 검토 자격을 반환하기 전에 증적 및 정책 ID, 정확한 현재 메트릭과 임계값, 필수 집단, 검증 전용 권한 및 실행 권한 없음 경계를 다시 검증합니다. | `current change`; 집중 평가 정책, 증적, 승격 검토, 검색 및 배포 카탈로그 모음에서 테스트 42개가 통과했습니다. 변경한 운영 모듈에서 Ruff와 strict mypy가 통과했습니다. | 통과 증적이 검토 자격을 얻기 전에 통제된 한국어 표면을 추가하고 측정된 lexical 오탐을 제거합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
 
 ### 남은 작업
 
@@ -108,9 +110,10 @@ translation_revised: 2026-08-13
 - [ ] 통제된 한국어 표면을 추가하고 관련 없는 활성 Rule이 적대적 입력 및 발견 전용 no-match
   질의를 만족하지 못하게 합니다. 정확한 세대 및 코퍼스 격리 검사를 약화하지 않고 배포
   카탈로그 집단이 검토 가능한 통과 증적을 생성하면 완료합니다.
-- [ ] 통제된 구성에서 평가 임계값을 로드하고 통과 증적을 통제된 승격 게이트에서 사용합니다.
-  게이트가 오래되거나 실패하거나 권한을 포함한 증적을 거부하고 실행 권한을 부여하지 않으면
-  완료합니다.
+- [x] 평가 임계값과 필수 집단을 내용 기반 주소를 가진 통제된 구성에서 로드합니다. 결정론적인
+  검토 전용 게이트는 오래된 정책 ID, 실패하거나 불완전한 근거, 알 수 없는 증적 스키마,
+  권한을 포함한 증적 및 현재 임계값 미만의 값을 거부하며 승격 또는 실행 권한을 부여하지
+  않습니다.
 
 ## 설계 개요
 

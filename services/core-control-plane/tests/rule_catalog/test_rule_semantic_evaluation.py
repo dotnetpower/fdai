@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 
 import pytest
 from fdai.rule_catalog.schema.rule_semantic_evaluation import (
@@ -10,7 +11,12 @@ from fdai.rule_catalog.schema.rule_semantic_evaluation import (
     evaluate_semantic_surface,
 )
 from fdai.rule_catalog.schema.rule_semantic_manifest import build_surface_candidate
+from fdai.rule_catalog.schema.rule_semantic_promotion_review import (
+    PromotionReviewDecision,
+    assess_surface_promotion_review,
+)
 from fdai.rule_catalog.schema.rule_semantic_retrieval import (
+    CohortMetric,
     RuleCorpus,
     RuleSemanticManifest,
     SurfaceOrigin,
@@ -78,6 +84,7 @@ def _policy() -> RetrievalEvaluationPolicy:
         min_recall_at_k=1.0,
         min_mean_reciprocal_rank=1.0,
         min_no_match_precision=1.0,
+        required_cohorts=("en-negative", "en-positive"),
     )
 
 
@@ -116,6 +123,240 @@ async def test_held_out_evaluation_passes_positive_and_no_match_cohorts() -> Non
         "no-match-precision",
     }
     assert receipt.validation_authority == "validation_only"
+
+    assessment = assess_surface_promotion_review(
+        receipt,
+        current_policy=_policy(),
+        expected_surface_digest=receipt.surface_digest,
+        expected_dataset_digest=receipt.dataset_digest,
+        expected_evaluator_ref=receipt.evaluator_ref,
+    )
+    assert assessment.decision is PromotionReviewDecision.ELIGIBLE_FOR_REVIEW
+    assert assessment.reason_codes == ()
+    assert assessment.review_authority == "review_only"
+    assert assessment.promotion_authority is False
+    assert assessment.execution_authority is False
+
+
+async def test_pass_from_previous_policy_is_held_by_current_review_policy() -> None:
+    cases = (
+        RetrievalEvaluationCase(
+            "positive-en",
+            "Which policy prevents public storage?",
+            "en-positive",
+            ("rule:public-access@1",),
+            EvaluationQueryOrigin.USER,
+        ),
+        RetrievalEvaluationCase(
+            "negative-en",
+            "Which policy tunes database connections?",
+            "en-negative",
+            (),
+            EvaluationQueryOrigin.USER,
+        ),
+    )
+    previous_policy = _policy()
+    receipt = await evaluate_semantic_surface(
+        _surface(),
+        cases,
+        retriever=_Retriever(),
+        policy=previous_policy,
+        evaluator_ref="heimdall:rule-retrieval@1",
+    )
+    current_policy = RetrievalEvaluationPolicy(
+        top_k=10,
+        min_recall_at_k=1.0,
+        min_mean_reciprocal_rank=1.0,
+        min_no_match_precision=1.0,
+        required_cohorts=previous_policy.required_cohorts,
+    )
+
+    assessment = assess_surface_promotion_review(
+        receipt,
+        current_policy=current_policy,
+        expected_surface_digest=receipt.surface_digest,
+        expected_dataset_digest=receipt.dataset_digest,
+        expected_evaluator_ref=receipt.evaluator_ref,
+    )
+
+    assert receipt.decision is ValidationDecision.PASS
+    assert receipt.evaluation_policy_digest == previous_policy.digest
+    assert assessment.decision is PromotionReviewDecision.HOLD
+    assert assessment.reason_codes == ("evaluation-policy-digest-mismatch",)
+    assert assessment.review_authority == "review_only"
+    assert assessment.promotion_authority is False
+    assert assessment.execution_authority is False
+
+
+async def test_review_assessment_revalidates_passing_receipt_metrics() -> None:
+    policy = _policy()
+    receipt = await evaluate_semantic_surface(
+        _surface(),
+        (
+            RetrievalEvaluationCase(
+                "positive-en",
+                "Which policy prevents public storage?",
+                "en-positive",
+                ("rule:public-access@1",),
+                EvaluationQueryOrigin.USER,
+            ),
+            RetrievalEvaluationCase(
+                "negative-en",
+                "Which policy tunes database connections?",
+                "en-negative",
+                (),
+                EvaluationQueryOrigin.USER,
+            ),
+        ),
+        retriever=_Retriever(),
+        policy=policy,
+        evaluator_ref="heimdall:rule-retrieval@1",
+    )
+    tampered_receipt = replace(
+        receipt,
+        cohort_metrics=tuple(
+            CohortMetric(item.cohort, item.metric, 0.0, item.sample_count)
+            if item.metric.startswith("recall-at-")
+            else item
+            for item in receipt.cohort_metrics
+        ),
+    )
+
+    assessment = assess_surface_promotion_review(
+        tampered_receipt,
+        current_policy=policy,
+        expected_surface_digest=receipt.surface_digest,
+        expected_dataset_digest=receipt.dataset_digest,
+        expected_evaluator_ref=receipt.evaluator_ref,
+    )
+
+    assert assessment.decision is PromotionReviewDecision.HOLD
+    assert assessment.reason_codes == ("metric-below-current-threshold:en-positive:recall-at-5",)
+
+
+async def test_review_assessment_rejects_missing_renamed_and_unknown_schema_evidence() -> None:
+    policy = _policy()
+    receipt = await evaluate_semantic_surface(
+        _surface(),
+        (
+            RetrievalEvaluationCase(
+                "positive-en",
+                "Which policy prevents public storage?",
+                "en-positive",
+                ("rule:public-access@1",),
+                EvaluationQueryOrigin.USER,
+            ),
+            RetrievalEvaluationCase(
+                "negative-en",
+                "Which policy tunes database connections?",
+                "en-negative",
+                (),
+                EvaluationQueryOrigin.USER,
+            ),
+        ),
+        retriever=_Retriever(),
+        policy=policy,
+        evaluator_ref="heimdall:rule-retrieval@1",
+    )
+    missing_metric_receipt = replace(
+        receipt,
+        cohort_metrics=tuple(
+            item for item in receipt.cohort_metrics if item.metric != "recall-at-5"
+        ),
+    )
+    renamed_metric_receipt = replace(
+        receipt,
+        cohort_metrics=tuple(
+            CohortMetric(item.cohort, "recall-at-999", item.value, item.sample_count)
+            if item.metric == "recall-at-5"
+            else item
+            for item in receipt.cohort_metrics
+        ),
+    )
+    unknown_schema_receipt = replace(receipt, schema_version="2.0.0")
+
+    missing_assessment = assess_surface_promotion_review(
+        missing_metric_receipt,
+        current_policy=policy,
+        expected_surface_digest=receipt.surface_digest,
+        expected_dataset_digest=receipt.dataset_digest,
+        expected_evaluator_ref=receipt.evaluator_ref,
+    )
+    renamed_assessment = assess_surface_promotion_review(
+        renamed_metric_receipt,
+        current_policy=policy,
+        expected_surface_digest=receipt.surface_digest,
+        expected_dataset_digest=receipt.dataset_digest,
+        expected_evaluator_ref=receipt.evaluator_ref,
+    )
+    schema_assessment = assess_surface_promotion_review(
+        unknown_schema_receipt,
+        current_policy=policy,
+        expected_surface_digest=receipt.surface_digest,
+        expected_dataset_digest=receipt.dataset_digest,
+        expected_evaluator_ref=receipt.evaluator_ref,
+    )
+
+    assert missing_assessment.decision is PromotionReviewDecision.HOLD
+    assert missing_assessment.reason_codes == ("required-metric-missing:en-positive:recall-at-5",)
+    assert renamed_assessment.decision is PromotionReviewDecision.HOLD
+    assert renamed_assessment.reason_codes == (
+        "required-metric-missing:en-positive:recall-at-5",
+        "unrecognized-metric:en-positive:recall-at-999",
+    )
+    assert schema_assessment.decision is PromotionReviewDecision.HOLD
+    assert schema_assessment.reason_codes == ("validation-schema-version-mismatch",)
+
+
+async def test_review_assessment_holds_identity_mismatch_and_missing_cohort() -> None:
+    cases = (
+        RetrievalEvaluationCase(
+            "positive-en",
+            "Which policy prevents public storage?",
+            "en-positive",
+            ("rule:public-access@1",),
+            EvaluationQueryOrigin.USER,
+        ),
+        RetrievalEvaluationCase(
+            "negative-en",
+            "Which policy tunes database connections?",
+            "en-negative",
+            (),
+            EvaluationQueryOrigin.USER,
+        ),
+    )
+    policy = _policy()
+    receipt = await evaluate_semantic_surface(
+        _surface(),
+        cases,
+        retriever=_Retriever(),
+        policy=policy,
+        evaluator_ref="heimdall:rule-retrieval@1",
+    )
+    policy_with_unmeasured_cohort = RetrievalEvaluationPolicy(
+        top_k=policy.top_k,
+        min_recall_at_k=policy.min_recall_at_k,
+        min_mean_reciprocal_rank=policy.min_mean_reciprocal_rank,
+        min_no_match_precision=policy.min_no_match_precision,
+        required_cohorts=(*policy.required_cohorts, "ko-positive"),
+    )
+
+    assessment = assess_surface_promotion_review(
+        receipt,
+        current_policy=policy_with_unmeasured_cohort,
+        expected_surface_digest="sha256:" + "b" * 64,
+        expected_dataset_digest="sha256:" + "c" * 64,
+        expected_evaluator_ref="heimdall:rule-retrieval@2",
+    )
+
+    assert assessment.decision is PromotionReviewDecision.HOLD
+    assert assessment.reason_codes == (
+        "dataset-digest-mismatch",
+        "evaluation-policy-digest-mismatch",
+        "evaluator-ref-mismatch",
+        "required-cohort-missing:ko-positive",
+        "surface-digest-mismatch",
+    )
 
 
 async def test_held_out_korean_evaluation_passes_positive_and_no_match_cohorts() -> None:

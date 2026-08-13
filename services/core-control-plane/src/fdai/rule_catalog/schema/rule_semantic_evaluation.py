@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -18,6 +19,8 @@ from fdai.rule_catalog.schema.rule_semantic_retrieval import (
     ValidationDecision,
     query_digest,
 )
+
+_COHORT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,255}$")
 
 
 class EvaluationQueryOrigin(StrEnum):
@@ -65,6 +68,8 @@ class RetrievalEvaluationPolicy:
     min_recall_at_k: float
     min_mean_reciprocal_rank: float
     min_no_match_precision: float
+    required_cohorts: tuple[str, ...]
+    schema_version: str = "1.0.0"
 
     def __post_init__(self) -> None:
         if not 1 <= self.top_k <= 100:
@@ -76,6 +81,30 @@ class RetrievalEvaluationPolicy:
         ):
             if not math.isfinite(value) or not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} MUST be finite and in [0, 1]")
+        if (
+            not self.required_cohorts
+            or len(self.required_cohorts) > 256
+            or self.required_cohorts != tuple(sorted(set(self.required_cohorts)))
+            or any(_COHORT.fullmatch(item) is None for item in self.required_cohorts)
+        ):
+            raise ValueError("required_cohorts MUST be bounded, unique, and ordered")
+        if self.schema_version != "1.0.0":
+            raise ValueError("unsupported retrieval evaluation policy schema_version")
+
+    @property
+    def digest(self) -> str:
+        """Return the canonical identity of the governed threshold configuration."""
+
+        payload = {
+            "schema_version": self.schema_version,
+            "top_k": self.top_k,
+            "min_recall_at_k": self.min_recall_at_k,
+            "min_mean_reciprocal_rank": self.min_mean_reciprocal_rank,
+            "min_no_match_precision": self.min_no_match_precision,
+            "required_cohorts": self.required_cohorts,
+        }
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 class RuleSemanticRetriever(Protocol):
@@ -179,6 +208,7 @@ async def evaluate_semantic_surface(
         surface_digest=surface.digest,
         dataset_digest=_dataset_digest(cases),
         evaluator_ref=evaluator_ref,
+        evaluation_policy_digest=policy.digest,
         training_query_digests=training_digests,
         evaluation_query_digests=evaluation_digests,
         cohort_metrics=tuple(sorted(metrics, key=lambda item: (item.cohort, item.metric))),

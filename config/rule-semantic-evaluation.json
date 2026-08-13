@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "top_k": 5,
+  "min_recall_at_k": 1.0,
+  "min_mean_reciprocal_rank": 1.0,
+  "min_no_match_precision": 1.0,
+  "required_cohorts": [
+    "adversarial-negative",
+    "corpus-isolation",
+    "en-ambiguity",
+    "en-exact",
+    "ko-negative",
+    "ko-positive",
+    "stale-active-generation"
+  ]
+}

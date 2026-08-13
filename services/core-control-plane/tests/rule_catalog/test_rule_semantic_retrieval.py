@@ -105,6 +105,7 @@ def test_held_out_validation_rejects_training_leakage() -> None:
             surface_digest=_A,
             dataset_digest=_B,
             evaluator_ref="heimdall:rule-retrieval@1",
+            evaluation_policy_digest=_D,
             training_query_digests=(_C,),
             evaluation_query_digests=(_C,),
             cohort_metrics=(CohortMetric("en", "recall-at-5", 1.0, 1),),
@@ -119,11 +120,28 @@ def test_passing_validation_cannot_hide_failures() -> None:
             surface_digest=_A,
             dataset_digest=_B,
             evaluator_ref="heimdall:rule-retrieval@1",
+            evaluation_policy_digest=_D,
             training_query_digests=(_C,),
             evaluation_query_digests=(_D,),
             cohort_metrics=(CohortMetric("en", "recall-at-5", 0.5, 2),),
             failure_codes=("target-not-retrieved",),
             decision=ValidationDecision.PASS,
+        )
+
+
+def test_surface_validation_receipt_cannot_gain_authority() -> None:
+    with pytest.raises(ValueError, match="validation_only"):
+        SurfaceValidationReceipt(
+            surface_digest=_A,
+            dataset_digest=_B,
+            evaluator_ref="heimdall:rule-retrieval@1",
+            evaluation_policy_digest=_D,
+            training_query_digests=(_C,),
+            evaluation_query_digests=(_D,),
+            cohort_metrics=(CohortMetric("en", "recall-at-5", 1.0, 1),),
+            failure_codes=(),
+            decision=ValidationDecision.PASS,
+            validation_authority="promotion",
         )
 
 
