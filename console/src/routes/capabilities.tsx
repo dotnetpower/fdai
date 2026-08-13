@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import type { OperatorApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { AsyncBoundary, CopyButton, DataTable, KpiCard, KpiGrid, PageHeader, StatusPill, UnavailableState, type AsyncState, type Column } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
@@ -46,13 +46,28 @@ interface CapabilityResponse {
   readonly capabilities: readonly Capability[];
 }
 
+export async function loadCapabilitiesState(
+  client: Pick<OperatorApiClient, "panel">,
+): Promise<AsyncState<CapabilityResponse>> {
+  try {
+    return {
+      status: "ready",
+      data: decodeCapabilities(await client.panel<unknown>("/capabilities")),
+    };
+  } catch (error) {
+    return isOptionalOperatorApiUnavailable(error)
+      ? { status: "unavailable", message: t("governance.capabilities.unavailable") }
+      : { status: "error", message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 export function CapabilitiesRoute({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<CapabilityResponse>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
-    client.panel<unknown>("/capabilities")
-      .then((value) => { if (!cancelled) setState({ status: "ready", data: decodeCapabilities(value) }); })
-      .catch((error: unknown) => { if (!cancelled) setState({ status: "error", message: error instanceof Error ? error.message : String(error) }); });
+    void loadCapabilitiesState(client).then((nextState) => {
+      if (!cancelled) setState(nextState);
+    });
     return () => { cancelled = true; };
   }, [client]);
   return <div class="stack"><PageHeader title={t("route.capabilities")} subtitle={t("nav.panelSub.capabilities")} /><AsyncBoundary state={state} resourceLabel={t("governance.capabilities.resourceLabel")}>{(data) => <CapabilitiesBody data={data} />}</AsyncBoundary></div>;
