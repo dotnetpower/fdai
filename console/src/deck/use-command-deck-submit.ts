@@ -575,6 +575,7 @@ export function useCommandDeckSubmit({
                     intentGraphEvidence: reply.intentGraphEvidence,
                   } : {}),
                   ...(reply.evidenceMode ? { evidenceMode: reply.evidenceMode } : {}),
+                  ...(reply.semanticReceipt ? { semanticReceipt: reply.semanticReceipt } : {}),
                 }
               : turn;
           });

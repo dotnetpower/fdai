@@ -25,16 +25,19 @@ An intentional default route addition updates this reviewed baseline in the same
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Current-state activity projection boundary | implemented | `fdai_operator_service/activity_projection.py`; `test_activity_projection.py`; focused persistence and projection tests (`6 passed`) | Durable rows require the hashed correlation reference, use the same activity id as live frames, retain only the newest duplicate, and keep `execution_authority=false`. |
+| Governed semantic receipt presentation | implemented | `console/src/deck/backend-normalizers.ts`; `backend-stream.ts`; `transcript-store.ts`; `conversation-trajectory-view.tsx`; focused Console tests | The Console parses terminal semantic receipts fail closed, persists and replays the exact typed fields, and renders route, unavailable reason, assurance digests, evidence references, and no-execution-authority state. Authenticated browser evidence remains pending. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the durable/live current-state projection identity. | Current source plus `test_activity_projection.py`; the focused projection and persistence suites passed. | Reduce the report-only dependency debt through the reviewed migration families below. |
+| 2026-08-13 | in-progress | Added exact typed semantic receipt parsing, stream capture, durable replay, presentation, and authenticated evidence runners. | `current change`; focused Console tests and typecheck pass. | Run the governed request-to-Console and bilingual randomized assurance browser paths and retain both passing records. |
 
 ### Remaining work
 
 - [ ] Move each report-only reverse dependency behind its reviewed neutral contract or provider boundary, then reduce the matching `.check-operator-api-boundaries.debt` budget before making that direction enforceable.
+- [ ] Retain passing authenticated request-to-Console and bilingual randomized assurance evidence before declaring semantic receipt presentation ready.
 
 ### Dependency-direction gate
 

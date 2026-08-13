@@ -21,6 +21,33 @@ describe("transcriptKeyFor", () => {
 });
 
 describe("serializeTurns", () => {
+  it("round-trips an exact no-authority semantic receipt", () => {
+    const semanticReceipt = {
+      schema_version: "1.0.0" as const,
+      projection_id: `00000000-0000-4000-8000-${"0".repeat(12)}`,
+      request_id: `00000000-0000-4000-8000-${"0".repeat(11)}1`,
+      disposition: "answered" as const,
+      reason_code: "query_completed",
+      semantic_route: "verified_query_plan" as const,
+      ontology_release_digest: `sha256:${"a".repeat(64)}`,
+      principal_manifest_digest: `sha256:${"b".repeat(64)}`,
+      plan_digest: `sha256:${"c".repeat(64)}`,
+      execution_receipt_digest: `sha256:${"d".repeat(64)}`,
+      execution_authority: false as const,
+    };
+
+    const parsed = parseTurns(serializeTurns([{
+      id: "turn-semantic-receipt",
+      role: "deck",
+      text: "Grounded answer",
+      at: "10:00:00",
+      terminal: true,
+      semanticReceipt,
+    }]));
+
+    expect(parsed[0]?.semanticReceipt).toEqual(semanticReceipt);
+  });
+
   it("round-trips verified and unverified mixed presentations", () => {
     const evidenceRef = "subscription-health:test@2026-08-05T00:00:00Z";
     for (const status of ["verified", "unverified"] as const) {

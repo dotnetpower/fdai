@@ -304,6 +304,19 @@ describe("durable transcript restoration", () => {
             omitted: { activities: 0, branches: 0, milestones: 0 },
             truncated_outputs: 0,
           },
+          semantic_receipt: {
+            schema_version: "1.0.0",
+            projection_id: `00000000-0000-4000-8000-${"0".repeat(12)}`,
+            request_id: `00000000-0000-4000-8000-${"0".repeat(11)}1`,
+            disposition: "answered",
+            reason_code: "query_completed",
+            semantic_route: "verified_query_plan",
+            ontology_release_digest: `sha256:${"a".repeat(64)}`,
+            principal_manifest_digest: `sha256:${"b".repeat(64)}`,
+            plan_digest: `sha256:${"c".repeat(64)}`,
+            execution_receipt_digest: `sha256:${"d".repeat(64)}`,
+            execution_authority: false,
+          },
         }),
       },
     });
@@ -323,6 +336,11 @@ describe("durable transcript restoration", () => {
         milestones: [{ text: "Inventory complete" }],
       },
       presentationArtifact: { blocks: [{ slotId: "overview" }] },
+      semanticReceipt: {
+        projection_id: `00000000-0000-4000-8000-${"0".repeat(12)}`,
+        request_id: `00000000-0000-4000-8000-${"0".repeat(11)}1`,
+        execution_authority: false,
+      },
     });
   });
 

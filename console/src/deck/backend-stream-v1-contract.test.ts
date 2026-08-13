@@ -47,6 +47,7 @@ test("rejects v1 frames with mismatched request ids or missing sequences", async
 });
 
 test("accepts an evidence-bound ontology query done frame", async () => {
+  const digest = `sha256:${"a".repeat(64)}`;
   vi.stubGlobal(
     "fetch",
     vi.fn(async () => new Response(
@@ -56,6 +57,19 @@ test("accepts an evidence-bound ontology query done frame", async () => {
         status: "answered",
         answer: "Verified ontology query completed.",
         source: "ontology-query",
+        semantic_receipt: {
+          schema_version: "1.0.0",
+          projection_id: `00000000-0000-4000-8000-${"0".repeat(12)}`,
+          request_id: `00000000-0000-4000-8000-${"0".repeat(11)}1`,
+          disposition: "answered",
+          reason_code: "verified_answer",
+          semantic_route: "verified_query_plan",
+          ontology_release_digest: digest,
+          principal_manifest_digest: digest,
+          plan_digest: digest,
+          execution_receipt_digest: digest,
+          execution_authority: false,
+        },
         verification: {
           status: "verified",
           authority: "ontology-query",
@@ -115,4 +129,13 @@ test("accepts an evidence-bound ontology query done frame", async () => {
   expect(reply.verification?.status).toBe("verified");
   expect(reply.verification?.evidence_refs).toEqual(["inventory:evidence-1"]);
   expect(reply.intentGraphEvidence?.evidence_mode).toBe("operational_grounded");
+  expect(reply.semanticReceipt).toMatchObject({
+    projection_id: `00000000-0000-4000-8000-${"0".repeat(12)}`,
+    request_id: `00000000-0000-4000-8000-${"0".repeat(11)}1`,
+    ontology_release_digest: digest,
+    principal_manifest_digest: digest,
+    plan_digest: digest,
+    execution_receipt_digest: digest,
+    execution_authority: false,
+  });
 });

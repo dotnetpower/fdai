@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 03f110a2301b7ad8ca218a8233b5bd2b6dfb0c7b
+translation_source_sha: 7aa31df2240e6b9b8132b05b81d30999abc09e3b
 translation_revised: 2026-08-13
 ---
 
@@ -149,6 +149,7 @@ translation_revised: 2026-08-13
 | 과거 토폴로지 영속성과 발행 | 구현됨 | `inventory_topology_history.py`, `postgres_topology_history.py`, `inventory_sync_cli.py`, 통과한 범위가 제한된 인벤토리/토폴로지 테스트 31개 | 완전한 승격 관측은 bitemporal 개정 번호를 하나의 트랜잭션으로 추가합니다. 과거/현재 파생 쓰기는 서로 독립적으로 시도하며 불완전한 관측은 완전한 과거 기준선을 만들 수 없습니다. |
 | Temporal, metric 및 근거 프로바이더 조립 | 구현됨 | `wire_semantic_query.py`, `bootstrap.py`, `bootstrap_bindings.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, 통과한 focused 조립 및 프로바이더 선택 테스트 16개 | 하나의 핸들러 맵이 검증기 가용성과 실행을 함께 제어합니다. 운영 환경은 상태 저장소 DSN에서 PostgreSQL 이력을 연결하고 검토된 레지스트리와 no-op이 아닌 프로바이더가 모두 있을 때만 metric/evidence 핸들러를 연결합니다. |
 | 통제된 운영 보증 | 진행 중 | [온톨로지 조회 무작위 보증](ontology-query-randomized-assurance-ko.md)과 아래의 검증된 기준선 공백 표 | 로컬 검사는 안전하게 실패하는 조립을 입증하지만 운영 준비 상태를 입증하는 통제된 실제 서비스 간 증적은 없습니다. |
+| 타입 기반 Console 보증 실행기 | 구현됨 | `console-routes.spec.ts`, `ontology-query-assurance.ts`, `ontology-query-assurance.spec.ts`, focused Console 검사 | 한 실행기는 게시, Core 처리, exact projection 읽기 및 인증된 증적 렌더링을 검증합니다. Seed 기반 100-turn 실행기는 타입 전용 oracle로 영어 50개와 한국어 50개 prompt를 다룹니다. 보존 artifact가 통과하기 전에는 어느 구현도 실제 운영 근거가 아닙니다. |
 
 ### 구현 이력
 
@@ -159,6 +160,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | 구현됨 | 결정론적 인벤토리 승격 토폴로지 개정 번호 발행과 추가 전용 bitemporal PostgreSQL 읽기/쓰기를 추가하고 현재/과거 파생 쓰기를 독립시켰습니다. | `current change`, 범위가 제한된 인벤토리/토폴로지 테스트 31개 통과, 작업 범위 Ruff 및 mypy 통과 | 과거 읽기 경로를 운영 의미 조회 런타임에 연결하고 통제된 런타임 근거를 확보합니다. |
 | 2026-08-13 | 구현됨 | Temporal 토폴로지, metric-series 및 evidence-join 기능을 exact-release 의미 런타임 조립에 연결했습니다. 선택적 메트릭 의존성은 원자적으로 처리하며 프로바이더가 없으면 검증기와 실행기 모두에서 사용 불가 상태를 유지합니다. | `current change`, `wire_semantic_query.py`, `bootstrap.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, focused 검사 16개 통과 | 통제된 request-to-Console 및 무작위 보증 증적을 기록합니다. |
 | 2026-08-13 | 구현됨 | 구체적인 의미 조회 프로바이더 선택을 런타임 바인딩 도우미로 옮겨 프로세스 진입점이 검토된 조립 fanout 범위 안에 머물도록 했습니다. | `current change`, `bootstrap.py`, `bootstrap_bindings.py`, `test_bootstrap_config.py`, focused 프로바이더 선택 테스트 3개 통과 | 통제된 request-to-Console 및 무작위 보증 증적을 기록합니다. |
+| 2026-08-13 | 진행 중 | 타입 기반 증적 oracle과 계산된 준비 상태 카운터를 사용하는 인증된 요청-Console 및 결정론적 이중 언어 무작위 보증 실행기를 추가했습니다. | `current change`, 통과한 focused Console 테스트, 보증 oracle 테스트, typecheck 및 Playwright discovery | 인증된 로컬 스택에서 두 실행기를 실행하고 통과한 두 보존 근거 기록을 연결합니다. |
 
 ### 남은 작업
 

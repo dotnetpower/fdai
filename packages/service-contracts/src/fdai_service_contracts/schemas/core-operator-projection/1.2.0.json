@@ -58,6 +58,24 @@
           "enum": ["answered", "held", "clarification", "unsupported", "action_draft", "cancelled"]
         },
         "reason_code": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-z0-9_]+$"},
+        "semantic_route": {
+          "type": "string",
+          "enum": [
+            "verified_query_plan",
+            "semantic_clarification",
+            "semantic_unsupported",
+            "semantic_action_draft",
+            "semantic_cancellation"
+          ]
+        },
+        "unavailable_reason": {
+          "type": "string",
+          "enum": [
+            "authoritative_evidence_unavailable",
+            "historical_evidence_unavailable",
+            "semantic_planner_unavailable"
+          ]
+        },
         "session_id": {"type": "string", "minLength": 1, "maxLength": 256},
         "turn_id": {"type": "string", "minLength": 1, "maxLength": 256},
         "turn_sequence": {"type": "integer", "minimum": 0},
@@ -79,6 +97,18 @@
         "execution_authority": {"const": false}
       },
       "allOf": [
+        {
+          "oneOf": [
+            {
+              "required": ["semantic_route"],
+              "not": {"required": ["unavailable_reason"]}
+            },
+            {
+              "required": ["unavailable_reason"],
+              "not": {"required": ["semantic_route"]}
+            }
+          ]
+        },
         {
           "if": {
             "properties": {"disposition": {"const": "answered"}},

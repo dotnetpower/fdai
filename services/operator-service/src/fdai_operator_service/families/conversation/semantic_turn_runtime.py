@@ -47,6 +47,18 @@ SEMANTIC_RESULT_TOPIC = "core.semantic-turn.projections"
 SEMANTIC_RESULT_GROUP = "operator-semantic-turn-v1"
 _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _LOGGER = logging.getLogger(__name__)
+_SEMANTIC_ROUTE_BY_DISPOSITION = {
+    "answered": "verified_query_plan",
+    "clarification": "semantic_clarification",
+    "unsupported": "semantic_unsupported",
+    "action_draft": "semantic_action_draft",
+    "cancelled": "semantic_cancellation",
+}
+_SEMANTIC_UNAVAILABLE_REASONS = {
+    "authoritative_evidence_unavailable",
+    "historical_evidence_unavailable",
+    "semantic_planner_unavailable",
+}
 
 
 class SemanticTurnStore(Protocol):
@@ -448,6 +460,7 @@ def _held_projection(envelope: Mapping[str, object]) -> dict[str, object]:
     result = SemanticTurnResult(
         disposition=SemanticTurnDisposition.HELD,
         reason_code="semantic_transport_unavailable",
+        unavailable_reason="semantic_planner_unavailable",
         session_id=_mapping_text(semantic, "session_id"),
         turn_id=_mapping_text(semantic, "turn_id"),
         turn_sequence=_mapping_int(semantic, "turn_sequence"),
@@ -479,6 +492,7 @@ def _done_event_data(projection: Mapping[str, object]) -> JsonObject:
     semantic = projection.get("semantic_result")
     if not isinstance(semantic, Mapping):
         raise ValueError("stored semantic projection is missing semantic_result")
+    semantic_receipt = _semantic_receipt(projection, semantic)
     answer = semantic.get("answer")
     disposition = semantic.get("disposition")
     if not isinstance(disposition, str):
@@ -523,8 +537,62 @@ def _done_event_data(projection: Mapping[str, object]) -> JsonObject:
             "intent_graph": semantic.get("intent_graph"),
             "intent_graph_evidence": semantic.get("intent_graph_evidence"),
             "semantic_result": dict(semantic),
+            **({"semantic_receipt": semantic_receipt} if semantic_receipt is not None else {}),
         },
     )
+
+
+def _semantic_receipt(
+    projection: Mapping[str, object],
+    semantic: Mapping[str, object],
+) -> dict[str, object] | None:
+    """Return bounded no-authority identity for a stored semantic projection."""
+    projection_id = projection.get("projection_id")
+    request_id = projection.get("request_id")
+    if projection_id is None and request_id is None:
+        return None
+    if not isinstance(projection_id, str) or not projection_id:
+        raise ValueError("stored semantic projection_id is malformed")
+    if not isinstance(request_id, str) or not request_id:
+        raise ValueError("stored semantic request_id is malformed")
+    disposition = _mapping_text(semantic, "disposition")
+    reason_code = _mapping_text(semantic, "reason_code")
+    semantic_route = semantic.get("semantic_route")
+    unavailable_reason = semantic.get("unavailable_reason")
+    expected_route = _SEMANTIC_ROUTE_BY_DISPOSITION.get(disposition)
+    if disposition == "held":
+        if semantic_route is not None or unavailable_reason not in _SEMANTIC_UNAVAILABLE_REASONS:
+            raise ValueError("stored held semantic projection has invalid typed unavailability")
+    elif semantic_route != expected_route or unavailable_reason is not None:
+        raise ValueError("stored semantic projection route does not match disposition")
+    digest_fields = (
+        "ontology_release_digest",
+        "principal_manifest_digest",
+        "plan_digest",
+        "execution_receipt_digest",
+    )
+    digests: dict[str, object] = {}
+    for field in digest_fields:
+        value = semantic.get(field)
+        if value is not None:
+            if not isinstance(value, str) or not value:
+                raise ValueError(f"stored semantic {field} is malformed")
+            digests[field] = value
+    if disposition == "answered" and len(digests) != len(digest_fields):
+        raise ValueError("stored answered semantic projection is missing exact evidence digests")
+    if semantic.get("execution_authority") is not False:
+        raise ValueError("stored semantic projection MUST deny execution authority")
+    return {
+        "schema_version": "1.0.0",
+        "projection_id": projection_id,
+        "request_id": request_id,
+        "disposition": disposition,
+        "reason_code": reason_code,
+        **({"semantic_route": semantic_route} if semantic_route is not None else {}),
+        **({"unavailable_reason": unavailable_reason} if unavailable_reason is not None else {}),
+        **digests,
+        "execution_authority": False,
+    }
 
 
 def _proposal_digest(proposal: ConversationProposal) -> str:

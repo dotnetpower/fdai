@@ -21,6 +21,7 @@ import {
   type TrajectoryDetail,
   type RouterSnapshot,
   type ResourceContext,
+  type SemanticProjectionReceipt,
   type VerificationProgress,
 } from "./backend";
 import { replyAgentLabel, type DeckLayoutMode } from "./command-deck-session";
@@ -82,6 +83,7 @@ export interface Turn {
   readonly intentGraph?: IntentGraphMetadata;
   readonly intentGraphEvidence?: IntentGraphEvidence;
   readonly evidenceMode?: IntentEvidenceMode;
+  readonly semanticReceipt?: SemanticProjectionReceipt;
   readonly agent?: string;
   readonly at: string;
 }

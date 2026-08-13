@@ -705,6 +705,7 @@ async def test_answered_projection_requires_complete_exact_evidence() -> None:
     assert semantic["execution_receipt_digest"].startswith("sha256:")
     assert semantic["evidence_refs"] == ["inventory:evidence-1"]
     assert semantic["checks_completed"] == semantic["checks_total"] == 1
+    assert semantic["semantic_route"] == "verified_query_plan"
     assert semantic["execution_authority"] is False
 
 
@@ -754,6 +755,9 @@ async def test_authority_bearing_rule_search_output_is_held() -> None:
 
     assert projection["status"] == "held"
     assert projection["semantic_result"]["reason_code"] == "semantic_evidence_incomplete"
+    assert (
+        projection["semantic_result"]["unavailable_reason"] == "authoritative_evidence_unavailable"
+    )
     assert "rule_search" not in projection["payload"]
 
 

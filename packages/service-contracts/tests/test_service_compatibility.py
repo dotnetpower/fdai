@@ -225,6 +225,7 @@ def test_semantic_turn_contract_requires_verified_evidence_for_answer() -> None:
         SemanticTurnResult(
             disposition=SemanticTurnDisposition.ANSWERED,
             reason_code="semantic_execution_completed",
+            semantic_route="verified_query_plan",
             session_id="session-1",
             turn_id="turn-1",
             turn_sequence=1,

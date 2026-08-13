@@ -19,6 +19,7 @@ import type {
   RouterCandidate,
   RouterSnapshot,
   ResourceContext,
+  SemanticProjectionReceipt,
 } from "./backend-types";
 import { PANTHEON } from "../routes/agents.model";
 
@@ -30,6 +31,109 @@ const RESOURCE_TYPE_PATTERN = /^[a-z0-9][a-z0-9_.-]{1,127}$/;
 const RESOURCE_GROUP_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}$/;
 const EVENT_STATUS_PATTERN = /^[A-Za-z][A-Za-z0-9 _.-]{1,63}$/;
 const RESOURCE_EVIDENCE_PREFIXES = ["inventory:", "subscription-health:"] as const;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/;
+const SEMANTIC_REASON_PATTERN = /^[a-z0-9_]{1,128}$/;
+const SEMANTIC_DISPOSITIONS = new Set<SemanticProjectionReceipt["disposition"]>([
+  "answered",
+  "held",
+  "clarification",
+  "unsupported",
+  "action_draft",
+  "cancelled",
+]);
+const SEMANTIC_ROUTES = new Set<NonNullable<SemanticProjectionReceipt["semantic_route"]>>([
+  "verified_query_plan",
+  "semantic_clarification",
+  "semantic_unsupported",
+  "semantic_action_draft",
+  "semantic_cancellation",
+]);
+const SEMANTIC_UNAVAILABLE_REASONS = new Set<NonNullable<SemanticProjectionReceipt["unavailable_reason"]>>([
+  "authoritative_evidence_unavailable",
+  "historical_evidence_unavailable",
+  "semantic_planner_unavailable",
+]);
+const SEMANTIC_ROUTE_BY_DISPOSITION: Partial<Record<SemanticProjectionReceipt["disposition"], NonNullable<SemanticProjectionReceipt["semantic_route"]>>> = {
+  answered: "verified_query_plan",
+  clarification: "semantic_clarification",
+  unsupported: "semantic_unsupported",
+  action_draft: "semantic_action_draft",
+  cancelled: "semantic_cancellation",
+};
+
+export function parseSemanticProjectionReceipt(
+  raw: unknown,
+): SemanticProjectionReceipt | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const record = raw as Record<string, unknown>;
+  const disposition = record.disposition;
+  const semanticRoute = record.semantic_route;
+  const unavailableReason = record.unavailable_reason;
+  if (
+    record.schema_version !== "1.0.0" ||
+    typeof record.projection_id !== "string" ||
+    !UUID_PATTERN.test(record.projection_id) ||
+    typeof record.request_id !== "string" ||
+    !UUID_PATTERN.test(record.request_id) ||
+    typeof disposition !== "string" ||
+    !SEMANTIC_DISPOSITIONS.has(disposition as SemanticProjectionReceipt["disposition"]) ||
+    typeof record.reason_code !== "string" ||
+    !SEMANTIC_REASON_PATTERN.test(record.reason_code) ||
+    record.execution_authority !== false
+  ) return undefined;
+  const expectedRoute = SEMANTIC_ROUTE_BY_DISPOSITION[
+    disposition as SemanticProjectionReceipt["disposition"]
+  ];
+  if (disposition === "held") {
+    if (
+      semanticRoute !== undefined ||
+      typeof unavailableReason !== "string" ||
+      !SEMANTIC_UNAVAILABLE_REASONS.has(
+        unavailableReason as NonNullable<SemanticProjectionReceipt["unavailable_reason"]>,
+      )
+    ) return undefined;
+  } else if (
+    typeof semanticRoute !== "string" ||
+    !SEMANTIC_ROUTES.has(
+      semanticRoute as NonNullable<SemanticProjectionReceipt["semantic_route"]>,
+    ) ||
+    semanticRoute !== expectedRoute ||
+    unavailableReason !== undefined
+  ) return undefined;
+  const digestKeys = [
+    "ontology_release_digest",
+    "principal_manifest_digest",
+    "plan_digest",
+    "execution_receipt_digest",
+  ] as const;
+  const digests: Partial<Record<typeof digestKeys[number], string>> = {};
+  for (const key of digestKeys) {
+    const value = record[key];
+    if (value !== undefined) {
+      if (typeof value !== "string" || !DIGEST_PATTERN.test(value)) return undefined;
+      digests[key] = value;
+    }
+  }
+  if (disposition === "answered" && Object.keys(digests).length !== digestKeys.length) {
+    return undefined;
+  }
+  return {
+    schema_version: "1.0.0",
+    projection_id: record.projection_id,
+    request_id: record.request_id,
+    disposition: disposition as SemanticProjectionReceipt["disposition"],
+    reason_code: record.reason_code,
+    ...(semanticRoute !== undefined ? {
+      semantic_route: semanticRoute as NonNullable<SemanticProjectionReceipt["semantic_route"]>,
+    } : {}),
+    ...(unavailableReason !== undefined ? {
+      unavailable_reason: unavailableReason as NonNullable<SemanticProjectionReceipt["unavailable_reason"]>,
+    } : {}),
+    ...digests,
+    execution_authority: false,
+  };
+}
 
 export function parseResourceContext(raw: unknown): ResourceContext | undefined {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
