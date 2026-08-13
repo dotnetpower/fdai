@@ -12,7 +12,10 @@ from fdai.delivery.azure.discovery_coverage import (
     reconcile_discovery_coverage,
 )
 from fdai.delivery.azure.discovery_profiles import default_azure_discovery_profiles
-from fdai.delivery.azure.discovery_receipts import build_provider_execution_receipt
+from fdai.delivery.azure.discovery_receipts import (
+    build_provider_coverage_canary_receipt,
+    build_provider_execution_receipt,
+)
 from fdai_service_contracts.discovery import (
     DiscoveryIntent,
     DiscoveryLimits,
@@ -83,6 +86,55 @@ def test_claims_cover_each_registered_arg_universe() -> None:
         "arm_resources",
         "resource_containers",
     )
+
+
+def test_coverage_canary_receipt_uses_aggregate_only_registered_command() -> None:
+    profile = default_azure_discovery_profiles()[1]
+    operation = next(item for item in profile.operations if item.backend.value == "resource_graph")
+    values: dict[str, object] = {
+        "result_kind": DiscoveryResultKind.TYPES,
+        "universes": operation.universes,
+        "scope_kind": DiscoveryScopeKind.SUBSCRIPTION,
+        "scope_digest": DIGEST,
+        "predicates": (),
+        "limits": DiscoveryLimits(max_results=100),
+        "include_command_explanation": False,
+        "unresolved_modifiers": (),
+        "execution_authority": False,
+    }
+    intent = DiscoveryIntent(intent_digest=discovery_intent_digest(**values), **values)
+    eligibility = BackendEligibility(
+        operation_id=operation.operation_id,
+        available=True,
+        complete=True,
+        scope_digest=DIGEST,
+        predicate_digest=content_digest([]),
+        output_schema_id=operation.output_schema_id,
+        freshness_seconds=0,
+    )
+    plan = compile_discovery_routes(
+        intent=intent,
+        profile=profile,
+        authorization_ceiling_digest=DIGEST,
+        eligibility=(eligibility,),
+    )[0].plan
+    assert plan is not None
+
+    receipt = build_provider_coverage_canary_receipt(
+        plan=plan,
+        operation=operation,
+        discovered_count=12,
+    )
+    command = receipt.commands[0]
+
+    assert command.command_id == "azure.arg.resources.coverage.v1"
+    assert "<registered-kql:azure.arg.resources.coverage.v1>" in command.command
+    assert "--first 1000" in command.command
+    assert command.result is not None
+    assert command.result.count == 12
+    assert command.result.preview == ()
+    assert receipt.page_count == 1
+    assert "/subscriptions/" not in receipt.model_dump_json()
 
 
 def test_reconciliation_requires_fresh_live_receipt_for_every_claim() -> None:
