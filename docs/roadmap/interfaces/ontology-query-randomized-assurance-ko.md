@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: b14a7ff6a5e120d6be2043af862f1bbe77c4a97a
+translation_source_sha: b8a4d129d45855f403e09492d4ce76d5a92c1fbf
 translation_revised: 2026-08-13
 ---
 # 온톨로지 쿼리 무작위 보증
@@ -189,7 +189,7 @@ Core
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 2026-08-11 무작위 기준선 | validated | [`ontology-query-randomized-assurance-2026-08-11.json`](../../baselines/ontology-query-randomized-assurance-2026-08-11.json) | 보존된 아티팩트는 현재 준비 상태가 아니라 역사적인 100개 질문 측정값과 차단된 릴리스 결정을 입증합니다. |
+| 2026-08-11 무작위 기준선 | in-progress | [`ontology-query-randomized-assurance-2026-08-11.json`](../../baselines/ontology-query-randomized-assurance-2026-08-11.json) | 아티팩트는 역사적인 채점 측정값과 차단된 릴리스 결정을 보존하지만 통제된 런타임 증적은 아닙니다. 소스 리비전, 구성 다이제스트, 인증 증명, 정확한 요청 및 응답 증적 참조가 없습니다. |
 | 독립 semantic-turn bridge | implemented | [`composition.py`](../../../services/operator-service/src/fdai_operator_service/composition.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | 운영 composition은 Core 구현을 가져오지 않고 durable event-bus bridge를 바인딩할 수 있습니다. |
 | Authoritative 프로바이더 및 증적 종료 | in-progress | 이 문서의 진행 중 라운드와 다음 실행 종료 조건 | Bridge 구성만으로는 모든 작업 집합이 authoritative 프로바이더에 도달하고 exact release, 계획, 근거 참조를 반환했음을 입증하지 않습니다. |
 | 현재 무작위 릴리스 인증 | in-progress | 2026-08-11 기준선을 대체하는 새로운 보존된 100개 질문 아티팩트가 없습니다. | 재생성한 실행이 모든 종료 조건을 충족할 때까지 릴리스 결정은 차단 상태입니다. |
@@ -200,9 +200,12 @@ Core
 |------|------|------|------|-----------|
 | 2026-08-11 | validated | 의도 인식 100%, 답변 성공 20%, 기계적으로 검증된 답변 0건인 첫 bilingual 100개 질문 무작위 기준선을 보존했습니다. | 위에 연결된 커밋된 기준선 아티팩트 | 의미 경로를 구축하고 같은 절차로 다시 실행해야 합니다. |
 | 2026-08-13 | in-progress | 구현 원장을 도입하고 semantic bridge composition이 구현된 뒤 근본 원인을 측정 당시 표현으로 수정했습니다. 이전 구현 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 composition 및 focused bridge 테스트 | Authoritative 프로바이더를 종료하고 통과한 재생성 기준선을 보존해야 합니다. |
+| 2026-08-13 | in-progress | 보존된 채점 측정값은 통제된 런타임 증적이 아니므로 역사적 기준선 상태를 정정했습니다. | `current change`; 기준선에는 소스 리비전, 구성 다이제스트, 인증 증명, 정확한 요청 및 응답 증적 참조가 없으며 카드 100개가 모두 검증되지 않은 상태와 근거 0/0으로 기록되어 있습니다. | 다음 실행 종료 조건을 충족하는 통제된 재실행 아티팩트를 보존해야 합니다. |
 
 ### 남은 작업
 
+- [ ] 소스 리비전, 구성 다이제스트, 인증된 실행 증명, 정확한 요청 및 응답 증적 참조를
+  측정한 모든 턴에 연결하는 통제된 무작위 실행 아티팩트를 보존합니다.
 - [ ] 각 작업 집합을 authoritative 프로바이더에 대해 실행하고 exact 온톨로지 release, principal manifest, 검증된 계획, 근거 참조 또는 타입이 지정된 unavailable 처리 결과로 입증합니다.
 - [ ] 인증된 운영 composition을 통해 bilingual 100개 질문 절차를 재생성하고 기계 판독 결과를 보존합니다.
 - [ ] 재생성한 아티팩트가 지원되지 않는 운영 주장 0건과 권한 없는 실행 0건을 유지하며 다음 실행 종료 조건을 모두 충족한 뒤에만 릴리스 결정을 변경합니다.
