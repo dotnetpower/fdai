@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 46788fa1e96455a135d0892209ab4b0e4c9f63df
+translation_source_sha: 77a6d1c1eb656957ff38235c9b46a2240038aea9
 translation_revised: 2026-08-14
 ---
 
@@ -40,6 +40,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 선택적 Console 변환 결과 가용성 | 구현됨 | `console/src/routes`, focused 경로 테스트 (`64 passed`), `npm --prefix console run typecheck` | 타입이 지정된 선택적 출처 부재는 사용 불가로 표시하고 인증, 예기치 않은 서버 및 디코더 실패는 오류로 유지합니다. |
 | 에이전트 활동 영속 변환 복원력 | 구현됨 | `fdai_operator_service/postgres_sql.py`, `fdai_operator_service/activity_projection.py`, focused Operator 변환 테스트 (`25 passed`), Console 출처 및 지역화 테스트 (`8 passed`), 타입 검사, 카탈로그 일치 검사 | PostgreSQL 쿼리는 리터럴 와일드카드를 이스케이프합니다. 계약 범위를 벗어난 선택적 기간은 유효한 활동을 중단하지 않고 `duration_out_of_range`와 함께 `null`이 됩니다. 통제된 브라우저 산출물을 보존하지 않았으므로 이 행은 런타임 검증을 주장하지 않습니다. |
 | 감사 추적 탐색 적격성 | 구현됨 | `agent-activity-log-model.ts`, `agent-live-activity.tsx`, `rule-trace.tsx`, focused Console 테스트 (`26 passed`) 및 타입 검사 | 감사 기반 행만 추적 화면으로 연결합니다. 예상된 `404`, `501` 및 source-gate `503` 응답은 사용 불가로 표시하고 예기치 않은 실패는 오류로 유지합니다. Browser Entra 동작은 관찰했지만 통제된 산출물은 보존하지 않았습니다. |
+| 인벤토리 프로바이더 실행 경계 | implemented | `discovery_receipts.py`, `inventory-execution-display.ts`, 집중 생성기 테스트 (`8 passed`), 파서 테스트 (`6 passed`) 및 Console typecheck | 새 서버 증적은 등록된 계획에서 자리 표시자 전용 명령을 파생합니다. Console은 shell 제어, 실제 GUID, raw ARM id, 자격 증명, 연속 토큰 및 프로바이더 오류를 독립적으로 거부합니다. |
 
 ### 구현 이력
 
@@ -49,6 +50,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-13 | 구현됨 | 예기치 않은 실패를 숨기지 않으면서 운영 Console 경로 전반의 선택적 변환 결과 부재 처리를 표준화했습니다. | 현재 변경, 통과한 focused 경로 테스트 (`64 passed`) 및 Console 타입 검사 | 전체 스택 검증 캠페인에서 Browser Entra 경로 보증을 계속 수행합니다. |
 | 2026-08-14 | 구현됨 | psycopg 와일드카드를 이스케이프하고, 범위를 벗어난 선택적 기간이 있는 유효한 행을 보존하며, 타입이 지정된 선택적 출처 부재 중에도 감사 타임라인을 사용할 수 있도록 영속 에이전트 활동 변환을 복구했습니다. | `current change`, 통과한 focused Operator 테스트 (`25 passed`), focused Console 테스트 (`8 passed`), Console 타입 검사 및 카탈로그 일치 검사 | 기존 snapshot-first 및 실제 운영 수렴 완료 조건을 위한 통제된 Browser Entra 산출물을 보존합니다. |
 | 2026-08-14 | 구현됨 | 추적 링크를 영속 감사 행으로 제한하고 감사 상관관계가 없을 때 실패 대신 사용 불가로 표시했습니다. | `current change`, `agent-live-activity.test.ts` 및 `rule-trace.test.ts` focused 테스트 26개 통과, Console 타입 검사 통과, 인증된 Browser Entra 페이지에서 링크가 없는 인벤토리 상관관계와 중립적인 추적 사용 불가 상태 확인 | 런타임 검증을 주장하기 전에 관찰한 Browser Entra 결과를 통제된 산출물로 보존합니다. |
+| 2026-08-14 | implemented | 서버 소유 프로바이더 실행 증적 생성기를 추가하고 실행 가능하거나 민감한 프로바이더 텍스트를 거부하도록 Console 파서를 강화했습니다. | `current change`, 집중 Azure delivery 테스트 `8 passed`, Console 파서 테스트 `6 passed` 및 Console typecheck 통과 | Azure 검색 owner 문서에서 추적하는 읽기 전용 실제 운영 canary 증적을 보존합니다. |
 
 ### 남은 작업
 
@@ -151,8 +153,9 @@ flowchart TD
   검증기가 승인한 타입이 지정된 조회, 권한, 스냅샷 출처 이력 및 범위가 제한된 결과 변환 결과를 렌더링하며
   Azure CLI argv 또는 exit 코드를 만들지 않습니다. Web은 검증된 인벤토리 조회를 `IQL`로
   표시하며 출처와 결과 공개를 각각 닫습니다. Strict 범위가 제한된 증적은 Azure CLI와 ARG에
-  같은 최종 icon을 사용하고 인증된 구독 id, 범용 argv, 측정된 명령 소요 시간, 개수
-  및 허용 목록된 미리 보기 행 최대 10개를 표시하면서 페이지 나누기 토큰은 민감정보 제거합니다. 행은 snapshot-refresh 작업을
+  같은 최종 icon을 사용합니다. 새 증적은 등록된 계획에서 자리 표시자 전용 argv를 파생하고
+  페이지 수, 결과 수 및 허용 목록된 미리 보기 행 최대 10개를 표시하면서 실제 구독 id,
+  raw 리소스 id, 자격 증명, 페이지 나누기 토큰 및 프로바이더 오류를 생략합니다. 행은 snapshot-refresh 작업을
   식별하며 브라우저는 IQL에서 명령을 재구성하지 않습니다. 유효한 증적이 없으면 프로바이더 행도
   만들지 않습니다. 다른 서버 조회는 `QUERY`를 유지하고
   프로세스 호출을 기록한 프로바이더 증적만 `command`를 사용합니다. Slack, Teams 및 영속

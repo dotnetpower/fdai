@@ -21,6 +21,7 @@ with service-owned managed implementations without changing the shared wire cont
 | Rule generation reconciliation boundary | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/`; `runtime/rule_generation_documents.py`; focused adapter, Pantheon, activation, and bootstrap checks | The provider contract owns exact staged receipt binding, delivery owns atomic adapters, and runtime composes strict catalog snapshots plus replay-identical requests without moving policy or execution authority into infrastructure code. |
 | Incident ontology projection and evidence query | implemented | `core/incident/ontology_projection.py`; `core/ontology_platform/incident_queries.py`; focused Incident and semantic composition checks (`62 passed`) | Startup replays the append-only Incident audit into `Incident` objects. The exact-release `query.incident_evidence` function reads correlation-scoped audit records and exposes profile, evidence, and gaps without cause or action authority. |
 | Permission-aware observation boundary | implemented | `fdai_service_contracts/operational_activity.py`; `delivery/observation_campaign.py`; `delivery/observation_source_catalog.py`; focused contract, lifecycle, and projection checks | Shared contracts carry authority-free summaries, while delivery owns provider reads, atomic campaign state, and local or deployed adapter selection. Source-native paths retain semantic evidence ownership. |
+| Resource-discovery contract boundary | implemented | `fdai_service_contracts/discovery.py`; `fdai_service_contracts/discovery_evidence.py`; `core/discovery/router.py`; focused discovery checks (`34 passed`) | The shared SDK owns immutable no-authority wire records, Core owns provider-neutral exact-equivalent routing and merge, and Azure delivery owns profiles, rendering, execution receipts, and coverage reconciliation. |
 
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
@@ -32,6 +33,7 @@ with service-owned managed implementations without changing the shared wire cont
 | 2026-08-14 | implemented | Added the exact-release `query.incident_evidence` FunctionType over bounded correlation-scoped audit records and reused the existing incident RCA profile projection. | `current change`; `incident_queries.py`, semantic composition, InMemory and PostgreSQL readers, and focused checks passed 62 cases; task-scoped Ruff and strict mypy passed. | Constrain the final answer and next safe step, then retain authenticated Console evidence. |
 | 2026-08-14 | implemented | Added deterministic Incident answer projection that rejects cause-bearing results and exposes only evidence gaps plus a candidate-only action draft next step. | `current change`; `semantic_turn_processor.py` and focused processor checks passed 34 cases; task-scoped Ruff and strict mypy passed. | Retain authenticated Console evidence after the local stack restart. |
 | 2026-08-14 | implemented | Added the versioned authority-free observation activity contract and kept provider collection, durable campaign state, and runtime binding in delivery. | `current change`; contract, campaign, Operator projection, and Console focused checks passed. | Retain the governed local and deployed campaign evidence tracked by the observation owner document. |
+| 2026-08-14 | implemented | Added the shared bounded resource-discovery contract family and provider-neutral Core router while retaining Azure profiles, rendering, and evidence production in delivery. | `current change`; focused discovery tests `34 passed`, task-scoped Ruff, and strict mypy over eight production files passed. | Retain the governed live canary evidence tracked by the Azure discovery owner document. |
 
 ### Remaining work
 - [ ] Complete the deferred Phase 2 physical `git mv` after the compatibility import deprecation cycle, then update this layout to the resulting service-owned paths.
@@ -669,6 +671,10 @@ flowchart LR
   that carries a resolved conversation binding without granting execution authority.
   The bound incident read path passes canonical `incident_id` and audit `correlation_id` as
   separate `query.incident_evidence` arguments and preserves both in its no-authority result.
+  Resource discovery similarly separates immutable `DiscoveryIntent`, `DiscoveryQueryPlan`,
+  provider observations, execution receipts, command explanations, and coverage receipts. Core
+  compares only provider-neutral scope, predicate, output, completeness, and equivalence fields;
+  Azure profile metadata and registered command rendering remain under `delivery/azure/`.
   Core-only event, action, rule, and ontology types remain in
   `services/core-control-plane/src/fdai/shared/contracts/`, while catalog schemas live in
   `rule-catalog/schema/` (per-kind JSON Schema), carry a **semver** version, and change

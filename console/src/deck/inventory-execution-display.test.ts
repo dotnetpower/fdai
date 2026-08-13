@@ -66,4 +66,27 @@ describe("inventoryExecutionDisplay", () => {
     }));
     expect(display?.provider).toBeUndefined();
   });
+
+  it.each([
+    "az resource list; env",
+    "az resource list | grep secret",
+    "az resource show --ids /subscriptions/hidden/resourceGroups/hidden",
+    "az account get-access-token",
+  ])("rejects unsafe provider command %s", (command) => {
+    const display = inventoryExecutionDisplay(JSON.stringify({
+      query_language: "IQL",
+      operation: "query_inventory",
+      query: { source: "current" },
+      provider_execution: {
+        transport: "azure_cli",
+        backend: "azure_resource_manager",
+        executed: true,
+        redacted: true,
+        page_count: 1,
+        commands: [{ label: "resources", language: "azure_cli", command }],
+      },
+    }));
+
+    expect(display?.provider).toBeUndefined();
+  });
 });

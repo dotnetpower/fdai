@@ -1,7 +1,7 @@
 ---
 translation_of: azure-resource-discovery-commands.md
-translation_source_sha: fac5f107e04e165237aa0c693a1ff7a5617da260
-translation_revised: 2026-08-13
+translation_source_sha: 35ed366e9f98e90dc8aeda0d4f9709bd18d7b0f2
+translation_revised: 2026-08-14
 ---
 
 # Azure 리소스 검색 명령 커버리지
@@ -53,23 +53,24 @@ flowchart LR
 | 선택적 Azure 인벤토리 어댑터 | implemented | [`arg_query.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py), [`inventory.py`](../../../services/core-control-plane/src/fdai/delivery/azure/inventory.py), [`arm_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arm_inventory.py) 및 집중 테스트 | ARG와 ARM 어댑터는 카탈로그에서 확인한 리소스 타입을 제한된 페이지 처리와 실패 시 차단 동작으로 조회합니다. 중앙 검색 계획 라우터를 뜻하지는 않습니다. |
 | 선택적 운영자 인벤토리 필터링 | implemented | [`_system_inventory_tool.py`](../../../services/core-control-plane/src/fdai/core/conversation/_system_inventory_tool.py), [`test_system_tools.py`](../../../services/core-control-plane/tests/conversation/test_system_tools.py) | 도구는 제공된 스냅샷을 중립 타입, ID 부분 문자열 및 리소스 그룹으로 필터링합니다. 범용 검색 의도를 컴파일하지는 않습니다. |
 | Console 프로바이더 실행 정보 파싱 | implemented | [`inventory-execution-display.ts`](../../../console/src/deck/inventory-execution-display.ts) 및 집중 테스트 | Console은 구조가 유효하고 민감정보가 제거되었으며 범위가 제한된 `provider_execution` 레코드만 IQL과 분리해 표시합니다. |
-| 프로바이더 실행 증적 생성 | not-started | 위 Console 파서가 현재 `provider_execution`의 유일한 소스 소비자입니다. | 현재는 설명된 로컬 Azure CLI 스냅샷 증적을 제공하는 운영 생성기가 없습니다. |
-| 포괄적 검색 계약과 프로파일 | not-started | [형식화된 계약](#형식화된-계약), [온톨로지와 공급자 매핑](#온톨로지와-공급자-매핑) | `DiscoveryIntent`, `DiscoveryQueryPlan`, 프로바이더 프로파일 및 매핑되지 않은 리소스 보존은 목표 설계로 남아 있습니다. |
-| 중앙 라우팅, 명령 설명 및 커버리지 증명 | not-started | [백엔드 선택](#백엔드-선택), [명령 설명](#명령-설명), [커버리지 원장과 종료 조건](#커버리지-원장과-종료-조건) | 중앙 대체 경로와 병합, `CommandExplanation`, 커버리지 조정 및 통제된 실제 운영 canary 증적이 없습니다. `validated`인 행은 없습니다. |
+| 프로바이더 실행 증적 생성 | implemented | [`discovery_receipts.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_receipts.py), [`discovery_evidence.py`](../../../packages/service-contracts/src/fdai_service_contracts/discovery_evidence.py), 집중 Python 및 Console 파서 테스트 | 생성기는 정확한 등록 계획과 제한된 결과 요약을 받으며 raw argv, 자격 증명, 연속 토큰, 리소스 id 또는 프로바이더 오류를 받지 않습니다. |
+| 포괄적 검색 계약과 프로파일 | implemented | [`discovery.py`](../../../packages/service-contracts/src/fdai_service_contracts/discovery.py), [`discovery_profiles.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_profiles.py), [`discovery_observations.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_observations.py), 집중 계약 및 delivery 테스트 | 고정되고 digest에 바인딩된 의도, 계획, 프로파일 및 매핑되거나 미매핑된 프로바이더 관찰이 실행 가능한 텍스트와 해석되지 않은 수정자를 거부합니다. |
+| 중앙 라우팅, 명령 설명 및 커버리지 증명 | in-progress | [`router.py`](../../../services/core-control-plane/src/fdai/core/discovery/router.py), [`discovery_explanation.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_explanation.py), [`discovery_coverage.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_coverage.py), 집중 테스트 | 정확히 동등한 대체 경로, 정본 병합, 정제된 설명 및 실제 운영 증적만 인정하는 조정이 구현되었습니다. 이 행을 `validated`로 올리려면 통제된 실제 운영 canary 증적이 필요합니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이 구현 원장을 도입하고 이전 기준선 요약을 바로잡았습니다. 이전 이력은 재구성하지 않았습니다. | 현재 변경. 집중 검사 결과는 카탈로그 레지스트리 `38 passed`, Azure 어댑터 `116 passed`, 시스템 도구 `19 passed`, Console 파서 `2 passed`입니다. | 아래의 미완료 계약, 증적 생성기, 라우팅, 설명, 커버리지 및 통제된 런타임 근거를 구현합니다. |
+| 2026-08-14 | in-progress | 불변 검색 계약과 Azure 프로파일을 추가하고 미매핑 프로바이더 관찰을 보존했으며, 정확히 동등한 라우팅과 정본 병합 및 정제된 실행/명령 설명 증적과 실제 운영 증적 전용 커버리지 조정을 구현했습니다. | `current change`; 집중 검색 테스트 `34 passed`, Console 파서 `6 passed`, 작업 범위 Ruff, 운영 파일 8개의 strict mypy 및 Console typecheck가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
 
 ### 남은 작업
 
-- [ ] 실행 가능한 텍스트와 해석되지 않은 수정자를 거부하는 프로파일 스키마 테스트와 함께 제한된 `DiscoveryIntent` 및 불변 `DiscoveryQueryPlan` 계약을 추가합니다.
-- [ ] 알 수 없는 Azure 프로바이더 타입을 제한된 `mapping_status=unmapped` 관찰로 보존하고, 이를 제외하거나 중립 온톨로지로 승격하지 않는다는 집중 테스트를 추가합니다.
-- [ ] 서버 소유 `provider_execution` 증적 생성기를 구현하고 자격 증명, 페이지 나누기 토큰, 원본 리소스 ID 및 프로바이더 오류가 Console 레코드에 도달할 수 없음을 증명합니다.
-- [ ] 범위나 조건식을 약화하지 않는 중앙 백엔드 적격성, 동등 대체 경로, 계획별 완전성 및 정본 병합 테스트를 구현합니다.
-- [ ] 등록된 계획에서 정제된 `CommandExplanation` 레코드를 생성하고 shell 제어, 식별자, 민감정보 제거 및 동등 명령 표시를 위한 속성 및 golden 테스트를 통과합니다.
+- [x] 실행 가능한 텍스트와 해석되지 않은 수정자를 거부하는 프로파일 스키마 테스트와 함께 제한된 `DiscoveryIntent` 및 불변 `DiscoveryQueryPlan` 계약을 추가합니다.
+- [x] 알 수 없는 Azure 프로바이더 타입을 제한된 `mapping_status=unmapped` 관찰로 보존하고, 이를 제외하거나 중립 온톨로지로 승격하지 않는다는 집중 테스트를 추가합니다.
+- [x] 서버 소유 `provider_execution` 증적 생성기를 구현하고 자격 증명, 페이지 나누기 토큰, 원본 리소스 ID 및 프로바이더 오류가 Console 레코드에 도달할 수 없음을 증명합니다.
+- [x] 범위나 조건식을 약화하지 않는 중앙 백엔드 적격성, 동등 대체 경로, 계획별 완전성 및 정본 병합 테스트를 구현합니다.
+- [x] 등록된 계획에서 정제된 `CommandExplanation` 레코드를 생성하고 shell 제어, 식별자, 민감정보 제거 및 동등 명령 표시를 위한 속성 및 golden 테스트를 통과합니다.
 - [ ] 해당 행을 `validated`로 승격하기 전에 각 주장 범위에 대한 커버리지 조정 및 통제된 읽기 전용 실제 운영 canary 증적을 기록합니다.
 
 ## 현재 기준선과 공백

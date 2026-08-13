@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: e76686f4f2b745daf4823080288cc8347ce0b8c0
+translation_source_sha: af614523e472c190a686d4a60c9219b4a75940cf
 translation_revised: 2026-08-14
 ---
 
@@ -25,6 +25,7 @@ translation_revised: 2026-08-14
 | Rule 세대 reconciliation 경계 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/`; `runtime/rule_generation_documents.py`; 집중 adapter, Pantheon, 활성화 및 bootstrap 검사 | 프로바이더 계약은 정확한 준비 상태 증적 연결을 소유하고 delivery는 원자적 어댑터를 소유하며 runtime은 정책 또는 실행 권한을 인프라 코드로 옮기지 않고 엄격한 카탈로그 스냅샷과 replay가 동일한 요청을 구성합니다. |
 | 인시던트 온톨로지 projection 및 근거 조회 | 구현됨 | `core/incident/ontology_projection.py`, `core/ontology_platform/incident_queries.py`, focused 인시던트 및 의미 조립 검사 (`62 passed`) | 시작 시 추가 전용 인시던트 감사를 replay해 `Incident` 객체를 만듭니다. Exact-release `query.incident_evidence` 함수는 correlation-scoped 감사 기록을 읽고 원인 또는 액션 권한 없이 프로파일, 근거 및 공백을 노출합니다. |
 | 권한 인식 관측 경계 | implemented | `fdai_service_contracts/operational_activity.py`, `delivery/observation_campaign.py`, `delivery/observation_source_catalog.py`, 집중 계약, 수명 주기 및 projection 검사 | 공유 계약은 권한이 없는 요약을 전달하고 delivery는 프로바이더 읽기, 원자적 캠페인 상태 및 로컬 또는 배포 어댑터 선택을 소유합니다. 출처별 경로는 의미 있는 근거 소유권을 유지합니다. |
+| 리소스 검색 계약 경계 | implemented | `fdai_service_contracts/discovery.py`, `fdai_service_contracts/discovery_evidence.py`, `core/discovery/router.py`, 집중 검색 검사 (`34 passed`) | 공유 SDK는 불변이고 권한이 없는 wire 레코드를 소유하고 Core는 프로바이더 중립적인 정확히 동등한 라우팅과 병합을 소유하며 Azure delivery는 프로파일, 렌더링, 실행 증적 및 커버리지 조정을 소유합니다. |
 
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
@@ -36,6 +37,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | Bounded correlation-scoped 감사 기록 위에 exact-release `query.incident_evidence` FunctionType을 추가하고 기존 인시던트 RCA 프로파일 projection을 재사용했습니다. | `current change`, `incident_queries.py`, 의미 조립, InMemory/PostgreSQL reader, focused 검사 62개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 최종 답변과 다음 안전 단계를 제한한 뒤 인증된 Console 근거를 보존합니다. |
 | 2026-08-14 | 구현됨 | 원인 필드가 있는 결과를 거부하고 근거 공백과 후보 전용 액션 초안 다음 단계만 노출하는 결정론적 인시던트 답변 projection을 추가했습니다. | `current change`, `semantic_turn_processor.py`, focused processor 검사 34개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 로컬 스택 재시작 후 인증된 Console 근거를 보존합니다. |
 | 2026-08-14 | implemented | 버전이 지정되고 권한이 없는 관측 활동 계약을 추가했으며 프로바이더 수집, 영속 캠페인 상태 및 런타임 연결은 delivery에 유지했습니다. | `current change`, 계약, 캠페인, Operator projection 및 Console 집중 검사 통과 | 관측 owner 문서에서 추적하는 통제된 로컬 및 배포 캠페인 근거를 보존합니다. |
+| 2026-08-14 | implemented | 공유되는 범위 제한 리소스 검색 계약군과 프로바이더 중립 Core 라우터를 추가하고 Azure 프로파일, 렌더링 및 근거 생성은 delivery에 유지했습니다. | `current change`, 집중 검색 테스트 `34 passed`, 작업 범위 Ruff 및 운영 파일 8개의 strict mypy 통과 | Azure 검색 owner 문서에서 추적하는 통제된 실제 운영 canary 근거를 보존합니다. |
 
 ### 남은 작업
 - [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.
@@ -663,6 +665,10 @@ flowchart LR
   전달하는 서버 소유 `semantic_turn.bound_context`입니다.
   바인딩된 인시던트 읽기 경로는 canonical `incident_id`와 감사 `correlation_id`를 서로 다른
   `query.incident_evidence` 인자로 전달하고 두 신원을 권한 없는 결과에 모두 보존합니다.
+  리소스 검색도 불변 `DiscoveryIntent`, `DiscoveryQueryPlan`, 프로바이더 관찰, 실행 증적,
+  명령 설명 및 커버리지 증적을 분리합니다. Core는 프로바이더 중립 범위, 조건식, 출력,
+  완전성 및 동등성 필드만 비교하며 Azure 프로파일 메타데이터와 등록된 명령 렌더링은
+  `delivery/azure/` 아래에 남습니다.
   Core 전용 이벤트, 액션, 룰 및 온톨로지 타입은
   `services/core-control-plane/src/fdai/shared/contracts/`에 남고 카탈로그 스키마는 `rule-catalog/schema/` (종류별
   JSON 스키마)에 있으며 **semver** 버전을 갖고, 메이저 안에서는 하위 호환되는
